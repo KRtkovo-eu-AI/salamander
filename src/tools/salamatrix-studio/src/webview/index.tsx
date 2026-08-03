@@ -133,6 +133,8 @@ function App(): React.JSX.Element {
         <label>Width <NumberInput value={dialog.width} onCommit={(width) => updateDialog({ width })} /></label>
         <label>Height <NumberInput value={dialog.height} onCommit={(height) => updateDialog({ height })} /></label>
         <button onClick={() => vscode.postMessage({ type: 'generate' })}>Generate Code</button>
+        <button onClick={() => vscode.postMessage({ type: 'generateForRuntime' })}>Generate For…</button>
+        <button onClick={() => vscode.postMessage({ type: 'preview' })}>Native Preview</button>
       </header>
       <section className="workspace">
         <aside className="palette">
@@ -209,6 +211,24 @@ function App(): React.JSX.Element {
                   <NumberInput value={selected.bounds[name]} onCommit={(value) => updateControl({ bounds: { ...selected.bounds, [name]: value } })} />
                 </Property>
               ))}
+              <Property label="Options">
+                <JsonCommitInput value={selected.options ?? {}} onCommit={(options) => updateControl({ options })} />
+              </Property>
+              <Property label="Items">
+                <TextCommitArea value={(selected.items ?? []).join('\n')} onCommit={(value) => updateControl({ items: textLines(value) })} />
+              </Property>
+              <Property label="Columns">
+                <JsonCommitInput value={selected.columns ?? []} onCommit={(columns) => updateControl({ columns: columns as DialogControl['columns'] })} />
+              </Property>
+              <Property label="Selected">
+                <NumberInput value={selected.selectedIndex ?? -1} onCommit={(selectedIndex) => updateControl({ selectedIndex })} />
+              </Property>
+              <Property label="Required">
+                <input type="checkbox" checked={Boolean(selected.validation?.required)} onChange={(event) => updateControl({ validation: { ...selected.validation, required: event.target.checked } })} />
+              </Property>
+              <Property label="Message">
+                <input value={selected.validation?.message ?? ''} onChange={(event) => updateControl({ validation: { ...selected.validation, message: event.target.value } })} />
+              </Property>
               <button className="danger" onClick={() => {
                 commit({ ...dialog, controls: dialog.controls.filter((control) => control.id !== selected.id) });
                 setSelectedId(undefined);
@@ -282,6 +302,27 @@ function TextCommitInput({ value, onCommit }: { value: string; onCommit(value: s
       if (event.key === 'Escape') setDraft(value);
     }}
   />;
+}
+
+function TextCommitArea({ value, onCommit }: { value: string; onCommit(value: string): void }): React.JSX.Element {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  return <textarea value={draft} onChange={(event) => setDraft(event.target.value)} onBlur={() => onCommit(draft)} />;
+}
+
+function JsonCommitInput<T>({ value, onCommit }: { value: T; onCommit(value: T): void }): React.JSX.Element {
+  const source = JSON.stringify(value, null, 2);
+  const [draft, setDraft] = useState(source);
+  const [invalid, setInvalid] = useState(false);
+  useEffect(() => { setDraft(source); setInvalid(false); }, [source]);
+  const commitJson = (): void => {
+    try { onCommit(JSON.parse(draft) as T); setInvalid(false); } catch { setInvalid(true); }
+  };
+  return <textarea className={invalid ? 'invalid' : ''} value={draft} onChange={(event) => setDraft(event.target.value)} onBlur={commitJson} />;
+}
+
+function textLines(value: string): string[] {
+  return value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
 }
 
 function defaultText(kind: ControlKind, title: string): string {

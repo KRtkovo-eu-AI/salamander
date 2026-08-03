@@ -3,3 +3,5 @@ dist/
 *.vsix
 *.tsbuildinfo
 LICENSE
+native/
+preview-host/obj/

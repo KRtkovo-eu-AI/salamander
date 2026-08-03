@@ -4,16 +4,23 @@ Salamatrix Studio is a developer-first Visual Studio Code and VSCodium
 extension for creating Open Salamander extensions. It is distributed as a
 standalone VSIX and does not require a running or installed Open Salamander.
 
-## Current vertical slice
+## Implemented scope
 
 - discovers `extension.json` projects in the workspace;
 - shows projects, manifests, and dialogs in the Salamatrix Studio activity bar;
 - creates `.salamatrix/dialogs/*.salamatrix-dialog.json` design documents;
+- creates standalone dialog designs for native plugin projects without an
+  `extension.json`;
 - opens design documents in a visual custom editor;
 - supports drag-and-drop insertion, selection, movement, resizing, deletion,
-  and basic text/geometry editing;
+  text/geometry editing, option maps, items, columns, selection, and validation;
 - saves project-local dialog templates and creates dialogs from them;
-- generates readable PowerShell, Python, and Node dialog modules.
+- provides a visual `extension.json` and command/menu editor while preserving
+  manifest fields outside its visual surface;
+- generates readable PowerShell, Python, Node.js, PHP, Lua, Automation JScript,
+  and native C++ dialog modules, either from the project runtime or an explicit
+  per-generation target selection;
+- bundles a standalone x64 native Win32 preview host in the VSIX.
 
 The existing PowerShell Extension Menu Builder remains an independent shipped
 extension. Its behavior will be reproduced in Studio without changing or
@@ -21,13 +28,14 @@ removing the original extension.
 
 ## Development
 
-Requirements for building Studio are Node.js and npm. End users do not need
-either dependency because the TypeScript and React sources are bundled into the
-VSIX.
+Requirements for building Studio are Node.js, npm, and Visual Studio 2022 C++
+Build Tools. End users do not need these dependencies because the bundled
+JavaScript and native x64 host are packaged into the VSIX.
 
 ```powershell
 cd src\tools\salamatrix-studio
 npm install
+npm run build:host
 npm run check
 npm run build
 npm run package
@@ -56,8 +64,13 @@ and application logic are never rewritten.
 
 ## Native preview boundary
 
-The versioned JSON-line protocol is defined in
-`src/salamatrix-sdk/contracts/studio-host-protocol.schema.json`. The companion
-host will link only the host-independent Salamatrix native UI runtime. It will
-not link or start `salamand.exe`. Native preview implementation and extraction
-of the current `NativeDialog` code are the next native slice.
+The preview host does not link or start `salamand.exe`. It consumes the Studio
+dialog model through a versioned private transport and shares layout helpers
+with the Salamatrix UI SDK. Standard Win32 controls are rendered natively.
+Host-owned Salamander controls still use native Win32 fallbacks in this first
+standalone host; moving those implementations behind the same SDK boundary is
+required before the preview can be called pixel-identical for every control.
+
+The planned persistent request/response boundary is described by
+`src/salamatrix-sdk/contracts/studio-host-protocol.schema.json`; the current
+VSIX launches one isolated host process per preview.

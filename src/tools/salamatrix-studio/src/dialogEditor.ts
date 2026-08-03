@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { ControlCatalog, DialogDocument, parseDialogDocument, serializeDialogDocument } from './model.js';
 
 interface WebviewMessage {
-  type: 'ready' | 'update' | 'generate';
+  type: 'ready' | 'update' | 'generate' | 'generateForRuntime' | 'preview';
   dialog?: DialogDocument;
 }
 
@@ -48,6 +48,10 @@ export class DialogEditorProvider implements vscode.CustomTextEditorProvider {
           await vscode.workspace.applyEdit(edit);
         } else if (message.type === 'generate') {
           await vscode.commands.executeCommand('salamatrixStudio.generateDialog', document.uri);
+        } else if (message.type === 'generateForRuntime') {
+          await vscode.commands.executeCommand('salamatrixStudio.generateDialogForRuntime', document.uri);
+        } else if (message.type === 'preview') {
+          await vscode.commands.executeCommand('salamatrixStudio.previewDialog', document.uri);
         }
       },
     );

@@ -46,6 +46,14 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Build native x64 preview host
+        run: msbuild preview-host/SalamatrixStudio.Host.vcxproj /m /t:Build /p:Configuration=Release /p:Platform=x64 /nr:false /v:minimal
+
+      - name: Validate native preview transport fixture
+        run: |
+          $process = Start-Process -FilePath (Resolve-Path "native/win32-x64/SalamatrixStudio.Host.exe") -ArgumentList @("--validate", (Resolve-Path "test/fixtures/basic.smxp")) -WindowStyle Hidden -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Native preview validation failed with exit code $($process.ExitCode)" }
+
       - name: Type-check, test, and package win32-x64 VSIX
         run: npm run package
 

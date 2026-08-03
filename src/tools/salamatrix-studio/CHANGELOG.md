@@ -5,5 +5,6 @@
 - Initial standalone VSIX project.
 - Extension project explorer and Salamatrix dialog custom editor.
 - Project-local dialog templates.
-- PowerShell, Python, and Node dialog generation.
-- Versioned SDK and native preview-host protocol boundary.
+- PowerShell, Python, Node.js, PHP, Lua, Automation JScript, and native C++ dialog generation.
+- Visual extension manifest and menu designer.
+- Bundled standalone x64 native preview host and versioned SDK boundary.

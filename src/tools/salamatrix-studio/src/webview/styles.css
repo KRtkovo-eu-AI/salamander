@@ -8,10 +8,10 @@
 
 * { box-sizing: border-box; }
 html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-button, input, select { font: inherit; color: inherit; }
+button, input, select, textarea { font: inherit; color: inherit; }
 button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: 0; padding: 5px 9px; }
 button:hover { background: var(--vscode-button-hoverBackground); }
-input, select { background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border, transparent); padding: 3px 5px; min-width: 0; }
+input, select, textarea { background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border, transparent); padding: 3px 5px; min-width: 0; }
 
 .studio { display: grid; grid-template-rows: auto 1fr; height: 100%; }
 .toolbar { display: flex; gap: 12px; align-items: center; padding: 8px; border-bottom: 1px solid var(--vscode-panel-border); }
@@ -38,6 +38,8 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; margin: 
 .resize-handle { position: absolute; width: 8px; height: 8px; right: -5px; bottom: -5px; background: var(--vscode-focusBorder); cursor: nwse-resize; }
 .property { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 5px; margin-bottom: 7px; }
 .property input { width: 100%; }
+.property textarea { width: 100%; min-height: 64px; resize: vertical; }
+.property textarea.invalid { border-color: var(--vscode-inputValidation-errorBorder); }
 .danger { margin-top: 12px; background: var(--vscode-inputValidation-errorBackground); }
 .loading, .error-panel { padding: 20px; }
 .error-panel { color: var(--vscode-errorForeground); }

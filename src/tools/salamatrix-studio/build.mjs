@@ -33,6 +33,12 @@ const builds = [
     platform: 'browser',
     format: 'iife',
   },
+  {
+    entryPoints: [join(root, 'src', 'webview', 'manifest.tsx')],
+    outfile: join(dist, 'manifest-webview.js'),
+    platform: 'browser',
+    format: 'iife',
+  },
 ];
 
 const common = {
@@ -54,3 +60,4 @@ if (watch) {
 }
 
 await cp(join(root, 'src', 'webview', 'styles.css'), join(dist, 'webview.css'));
+await cp(join(root, 'src', 'webview', 'manifest.css'), join(dist, 'manifest-webview.css'));

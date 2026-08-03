@@ -21,11 +21,12 @@ class GroupNode extends vscode.TreeItem {
 }
 
 class FileNode extends vscode.TreeItem {
-  constructor(label: string, public readonly uri: vscode.Uri, icon: string) {
+  constructor(label: string, public readonly uri: vscode.Uri, icon: string, contextValue?: string) {
     super(label, vscode.TreeItemCollapsibleState.None);
     this.resourceUri = uri;
     this.iconPath = new vscode.ThemeIcon(icon);
     this.command = { command: 'vscode.open', title: 'Open', arguments: [uri] };
+    this.contextValue = contextValue;
   }
 }
 
@@ -50,7 +51,7 @@ export class StudioProjectExplorer implements vscode.TreeDataProvider<Node> {
     }
     if (element instanceof ProjectNode) {
       return [
-        new FileNode('extension.json', element.project.manifest, 'json'),
+        new FileNode('extension.json', element.project.manifest, 'json', 'salamatrixManifest'),
         new GroupNode(element.project, 'dialogs'),
       ];
     }

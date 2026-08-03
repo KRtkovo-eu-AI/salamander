@@ -4,8 +4,11 @@ src/**
 test/**
 *.tsbuildinfo
 build.mjs
+build-host.mjs
 tsconfig.json
 vitest.config.ts
 package-lock.json
 *.vsix
 dist/**/*.map
+preview-host/**
+native/**/*.pdb
