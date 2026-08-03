@@ -84,7 +84,7 @@ External DLLs are skipped. The exclusion list includes:
 - `7za.dll`, `7zwrapper.dll`, `unrar.dll`, `chmlib.dll`, `sqlite.dll`, `libeay32.dll`, `ssleay32.dll`
 - `Newtonsoft.Json.dll`, `Markdig.dll`, `PrismSharp.dll`
 - `WebView2*.dll`, `System.*.dll`, `Microsoft.Web.WebView2.*.dll`
-- VC/UCRT/API-set runtime DLLs such as `api-ms-win-*.dll`, `ucrtbase.dll`, `vcruntime140.dll`, `msvcp140.dll`, `concrt140.dll`
+- VC/UCRT/API-set runtime DLLs such as `api-ms-win-*.dll`, `ucrtbase.dll`, `vcruntime140.dll`, `vcruntime140_1.dll`, `msvcp140.dll`, `concrt140.dll`
 - `dbghelp.dll`
 
 ## Release order

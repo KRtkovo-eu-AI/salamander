@@ -10,3 +10,4 @@
 - Bundled standalone x64 native preview host and versioned SDK boundary.
 - Shared NativeDialog and Salamatrix-specific controls used identically by
   Salamatrix.SPL and the Studio preview host.
+- Self-contained preview host with a statically linked C/C++ runtime.

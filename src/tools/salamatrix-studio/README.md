@@ -68,7 +68,9 @@ and application logic are never rewritten.
 The preview host does not link or start `salamand.exe`. It consumes the Studio
 dialog model through a versioned private transport and compiles the same SDK
 `NativeDialog` and Salamatrix-specific control sources as `Salamatrix.spl`.
-There is no separate Studio renderer or Win32 fallback control path.
+There is no separate Studio renderer or Win32 fallback control path. Its C/C++
+runtime is linked statically, so the installed VSIX does not require the Visual
+C++ Redistributable or app-local MSVC/UCRT DLLs.
 
 The planned persistent request/response boundary is described by
 `src/salamatrix-sdk/contracts/studio-host-protocol.schema.json`; the current

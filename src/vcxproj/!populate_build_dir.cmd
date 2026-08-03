@@ -39,8 +39,8 @@ powershell.exe -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut
 echo Populating directory: %OPENSAL_BUILD_DIR%salamander
 call :copy_files Debug_x86   debug_nonredist\x86\Microsoft.VC143.DebugCRT concrt140d.dll msvcp140d.dll vcruntime140d.dll "%UCRTD_REDIST_PATH%\Redist\Debug\x86"
 call :copy_files Release_x86 x86\Microsoft.VC143.CRT                      concrt140.dll  msvcp140.dll  vcruntime140.dll  "%UCRT_REDIST_PATH%\ucrt\DLLs\x86"
-call :copy_files Debug_x64   debug_nonredist\x64\Microsoft.VC143.DebugCRT concrt140d.dll msvcp140d.dll vcruntime140d.dll "%UCRTD_REDIST_PATH%\Redist\Debug\x64"
-call :copy_files Release_x64 x64\Microsoft.VC143.CRT                      concrt140.dll  msvcp140.dll  vcruntime140.dll  "%UCRT_REDIST_PATH%\ucrt\DLLs\x64"
+call :copy_files Debug_x64   debug_nonredist\x64\Microsoft.VC143.DebugCRT concrt140d.dll msvcp140d.dll vcruntime140d.dll "%UCRTD_REDIST_PATH%\Redist\Debug\x64" vcruntime140_1d.dll
+call :copy_files Release_x64 x64\Microsoft.VC143.CRT                      concrt140.dll  msvcp140.dll  vcruntime140.dll  "%UCRT_REDIST_PATH%\ucrt\DLLs\x64"       vcruntime140_1.dll
 
 echo.
 echo Copying third-party files...
@@ -111,6 +111,10 @@ echo Copying %2\%4...
 call :mycopy "%MSVC_REDIST_PATH%\%2\%4" "%OPENSAL_BUILD_DIR%salamander\%1\"
 echo Copying %2\%5...
 call :mycopy "%MSVC_REDIST_PATH%\%2\%5" "%OPENSAL_BUILD_DIR%salamander\%1\"
+if not "%~7"=="" (
+  echo Copying %2\%~7...
+  call :mycopy "%MSVC_REDIST_PATH%\%2\%~7" "%OPENSAL_BUILD_DIR%salamander\%1\"
+)
 echo Copying %6...
 call :mycopy_dir %6 "%OPENSAL_BUILD_DIR%salamander\%1"
 echo Copying ..\res\toolbars...

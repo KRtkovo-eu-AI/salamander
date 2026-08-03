@@ -45,7 +45,13 @@ def main() -> int:
     salamatrix_project = read("src/plugins/salamatrix/vcxproj/salamatrix.vcxproj")
     studio_host_project = read(
         "src/tools/salamatrix-studio/preview-host/SalamatrixStudio.Host.vcxproj")
+    studio_host_build = read("src/tools/salamatrix-studio/build-host.mjs")
     studio_host = read("src/tools/salamatrix-studio/preview-host/main.cpp")
+    populate_build_dir = read("src/vcxproj/!populate_build_dir.cmd")
+    setup_x64_inf = read("tools/setup_x64.inf")
+    inno_setup_x64 = read(
+        "doc/runbook-setup/inno_setup_salamander_x64.iss")
+    codesign = read("tools/codesign/codesign_certum.ps1")
     ai = read("src/plugins/salamatrixai/salamatrixai.cpp")
     bundled = read("src/plugins/salamatrixai/bundledprovider.cpp")
     local_llama = read("src/plugins/salamatrixailocalllama/local_llama.cpp")
@@ -512,8 +518,27 @@ def main() -> int:
                               (studio_host_project, "Studio preview host")):
         require(project, r"salamatrix_ui\.cpp.*?salamatrix_ui_controls\.cpp",
                 f"{consumer} does not compile the shared NativeDialog and control sources")
+    require(studio_host_project,
+            r"<RuntimeLibrary>MultiThreaded</RuntimeLibrary>",
+            "Studio preview host does not statically link the release C/C++ runtime")
+    require(studio_host_build,
+            r"dumpbin\.exe.*?forbiddenRuntime.*?api-ms-win-crt-.*?forbiddenImports",
+            "Studio preview host build does not reject dynamic MSVC/UCRT imports")
     require_absent(studio_host, r"CreateWindowExW\(.*?PreviewProc",
                    "Studio preview host still contains its old independent Win32 renderer")
+    require(populate_build_dir,
+            r"Release_x64.*?Microsoft\.VC143\.CRT.*?vcruntime140_1\.dll",
+            "Release x64 populate does not copy vcruntime140_1.dll")
+    require(setup_x64_inf,
+            r"%0\\vcruntime140_1\.dll,%1\\vcruntime140_1\.dll",
+            "legacy x64 payload manifest does not contain vcruntime140_1.dll")
+    require(inno_setup_x64,
+            r'Source: "\{#PayloadDir\}\\vcruntime140_1\.dll"; '
+            r'DestDir: "\{app\}"; Flags: ignoreversion',
+            "Inno Setup x64 installer does not package vcruntime140_1.dll")
+    require(codesign,
+            r"'vcruntime140_1\.dll'",
+            "Microsoft vcruntime140_1.dll is not excluded from product signing")
     require(salamatrix_ui, r"SplitterSubclassProc.*?IDC_SIZENS.*?"
                 r"WM_SALAMATRIX_SPLITTER_MOVED.*?NotifyChanged",
             "native splitters do not report drag movement")
