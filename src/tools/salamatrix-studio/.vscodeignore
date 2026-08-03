@@ -1,0 +1,11 @@
+node_modules/**
+.gitignore
+src/**
+test/**
+*.tsbuildinfo
+build.mjs
+tsconfig.json
+vitest.config.ts
+package-lock.json
+*.vsix
+dist/**/*.map

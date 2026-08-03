@@ -1,0 +1,58 @@
+name: PR Salamatrix Studio
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: ["**"]
+    paths:
+      - "src/tools/salamatrix-studio/**"
+      - "src/salamatrix-sdk/**"
+      - ".github/workflows/pr-salamatrix-studio.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-salamatrix-studio-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: VSIX build and tests
+    runs-on: windows-2022
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: src/tools/salamatrix-studio
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/tools/salamatrix-studio/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Type-check, test, and package win32-x64 VSIX
+        run: npm run package
+
+      - name: Upload VSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: salamatrix-studio-win32-x64
+          path: src/tools/salamatrix-studio/*-win32-x64-*.vsix
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,43 @@
+:root {
+  color-scheme: light dark;
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+}
+
+* { box-sizing: border-box; }
+html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+button, input, select { font: inherit; color: inherit; }
+button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: 0; padding: 5px 9px; }
+button:hover { background: var(--vscode-button-hoverBackground); }
+input, select { background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border, transparent); padding: 3px 5px; min-width: 0; }
+
+.studio { display: grid; grid-template-rows: auto 1fr; height: 100%; }
+.toolbar { display: flex; gap: 12px; align-items: center; padding: 8px; border-bottom: 1px solid var(--vscode-panel-border); }
+.toolbar label { display: flex; align-items: center; gap: 5px; }
+.toolbar label:first-child { flex: 1; }
+.toolbar label:first-child input { width: 100%; }
+.toolbar input[type="number"] { width: 70px; }
+.workspace { display: grid; grid-template-columns: 170px minmax(300px, 1fr) 220px; min-height: 0; }
+.palette, .properties { padding: 8px; overflow: auto; background: var(--vscode-sideBar-background); }
+.palette { border-right: 1px solid var(--vscode-panel-border); }
+.properties { border-left: 1px solid var(--vscode-panel-border); }
+h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; margin: 4px 0 10px; color: var(--vscode-sideBarSectionHeader-foreground); }
+.palette button { display: block; width: 100%; margin: 0 0 5px; text-align: left; cursor: grab; }
+.designer-scroll { overflow: auto; padding: 32px; background-color: var(--vscode-editor-background); background-image: radial-gradient(var(--vscode-editorIndentGuide-background1) 1px, transparent 1px); background-size: 12px 12px; }
+.dialog-frame { position: relative; margin: 0 auto; min-width: 240px; min-height: 150px; border: 1px solid var(--vscode-contrastBorder, #777); border-radius: 6px 6px 0 0; background: var(--vscode-editorWidget-background); box-shadow: 0 8px 24px #0005; padding-top: 29px; }
+.dialog-title { position: absolute; inset: 0 0 auto; height: 29px; padding: 6px 10px; background: var(--vscode-titleBar-activeBackground); color: var(--vscode-titleBar-activeForeground); border-radius: 5px 5px 0 0; white-space: nowrap; overflow: hidden; }
+.dialog-client { position: absolute; inset: 29px 0 0; }
+.design-control { position: absolute; display: flex; align-items: center; cursor: move; user-select: none; outline: 1px solid transparent; }
+.design-control.selected { outline: 2px solid var(--vscode-focusBorder); z-index: 10; }
+.design-control > input, .design-control > button, .design-control > select, .design-control > progress, .design-control > fieldset, .design-control > .collection-preview { width: 100%; height: 100%; pointer-events: none; }
+.design-control label { white-space: nowrap; overflow: hidden; pointer-events: none; }
+.design-control fieldset { border: 1px solid var(--vscode-contrastBorder, #777); padding: 0; }
+.collection-preview { border: 1px solid var(--vscode-input-border, #777); background: var(--vscode-input-background); padding: 3px; }
+.resize-handle { position: absolute; width: 8px; height: 8px; right: -5px; bottom: -5px; background: var(--vscode-focusBorder); cursor: nwse-resize; }
+.property { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 5px; margin-bottom: 7px; }
+.property input { width: 100%; }
+.danger { margin-top: 12px; background: var(--vscode-inputValidation-errorBackground); }
+.loading, .error-panel { padding: 20px; }
+.error-panel { color: var(--vscode-errorForeground); }

@@ -1,0 +1,137 @@
+{
+  "name": "salamatrix-studio",
+  "displayName": "Salamatrix Studio",
+  "description": "Developer tools and visual designers for Open Salamander extensions.",
+  "version": "0.1.0",
+  "publisher": "opensalamander",
+  "license": "GPL-2.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KRtkovo-eu-AI/salamander.git",
+    "directory": "src/tools/salamatrix-studio"
+  },
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "open salamander",
+    "salamatrix",
+    "extension",
+    "dialog designer"
+  ],
+  "main": "./dist/extension.js",
+  "extensionKind": [
+    "workspace"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/extension.json",
+    "onCustomEditor:salamatrixStudio.dialogDesigner"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "salamatrixStudio.addDialog",
+        "title": "Salamatrix Studio: Add Dialog"
+      },
+      {
+        "command": "salamatrixStudio.generateDialog",
+        "title": "Salamatrix Studio: Generate Dialog Code"
+      },
+      {
+        "command": "salamatrixStudio.saveDialogTemplate",
+        "title": "Salamatrix Studio: Save Dialog as Template"
+      },
+      {
+        "command": "salamatrixStudio.newDialogFromTemplate",
+        "title": "Salamatrix Studio: New Dialog from Template"
+      },
+      {
+        "command": "salamatrixStudio.refreshExplorer",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "salamatrixStudio.dialogDesigner",
+        "displayName": "Salamatrix Dialog Designer",
+        "selector": [
+          {
+            "filenamePattern": "*.salamatrix-dialog.json"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": "*.salamatrix-dialog.json",
+        "url": "./dist/contracts/salamatrix-dialog.schema.json"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "salamatrixStudio",
+          "title": "Salamatrix Studio",
+          "icon": "resources/studio.svg"
+        }
+      ]
+    },
+    "views": {
+      "salamatrixStudio": [
+        {
+          "id": "salamatrixStudio.projectExplorer",
+          "name": "Extension Project"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "salamatrixStudio.addDialog",
+          "when": "view == salamatrixStudio.projectExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "salamatrixStudio.refreshExplorer",
+          "when": "view == salamatrixStudio.projectExplorer",
+          "group": "navigation"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "salamatrixStudio.generateDialog",
+          "when": "activeCustomEditorId == salamatrixStudio.dialogDesigner",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "clean": "node build.mjs --clean",
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "test": "vitest run",
+    "check": "tsc --noEmit && vitest run",
+    "package": "npm run clean && npm run check && npm run build && vsce package --target win32-x64"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@types/vscode": "1.100.0",
+    "@vscode/vsce": "^3.9.0",
+    "esbuild": "^0.28.0",
+    "typescript": "^7.0.0",
+    "vitest": "^4.1.0"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "uiVersion": "1.4",
+  "controls": [
+    { "kind": "label", "title": "Label", "defaultWidth": 80, "defaultHeight": 10 },
+    { "kind": "statictext", "title": "Static Text", "defaultWidth": 120, "defaultHeight": 12 },
+    { "kind": "textbox", "title": "Text Box", "defaultWidth": 140, "defaultHeight": 14 },
+    { "kind": "checkbox", "title": "Check Box", "defaultWidth": 100, "defaultHeight": 12 },
+    { "kind": "radio", "title": "Radio Button", "defaultWidth": 100, "defaultHeight": 12 },
+    { "kind": "combobox", "title": "Combo Box", "defaultWidth": 120, "defaultHeight": 14 },
+    { "kind": "button", "title": "Button", "defaultWidth": 52, "defaultHeight": 14 },
+    { "kind": "listview", "title": "List View", "defaultWidth": 180, "defaultHeight": 80 },
+    { "kind": "treeview", "title": "Tree View", "defaultWidth": 180, "defaultHeight": 80 },
+    { "kind": "tabcontrol", "title": "Tab Control", "defaultWidth": 200, "defaultHeight": 90 },
+    { "kind": "folderpicker", "title": "Folder Picker", "defaultWidth": 180, "defaultHeight": 14 },
+    { "kind": "filepicker", "title": "File Picker", "defaultWidth": 180, "defaultHeight": 14 },
+    { "kind": "groupbox", "title": "Group Box", "defaultWidth": 180, "defaultHeight": 60 },
+    { "kind": "hyperlink", "title": "Hyperlink", "defaultWidth": 100, "defaultHeight": 12 },
+    { "kind": "progressbar", "title": "Progress Bar", "defaultWidth": 160, "defaultHeight": 12 },
+    { "kind": "arrowbutton", "title": "Arrow Button", "defaultWidth": 18, "defaultHeight": 14 },
+    { "kind": "textarrowbutton", "title": "Text Arrow Button", "defaultWidth": 90, "defaultHeight": 14 },
+    { "kind": "colorarrowbutton", "title": "Color Arrow Button", "defaultWidth": 90, "defaultHeight": 14 },
+    { "kind": "toolbarheader", "title": "Toolbar Header", "defaultWidth": 180, "defaultHeight": 14 }
+  ]
+}
