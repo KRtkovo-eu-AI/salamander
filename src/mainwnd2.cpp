@@ -36,6 +36,76 @@ static const char* DetectProductName(const char* root);
 static BOOL MCDIsGeneratedConfigDisplayName(const char* root, const char* version, const char* displayName);
 static BOOL MCDGetCurrentInstancePath(char* path, int pathSize);
 
+// Temporary startup diagnostics.  The splash text "Reading configuration from
+// registry" covers substantially more work than registry reads, including UI
+// construction and restoring panel paths.  Keep the trace independent of the
+// regular TRACE infrastructure so a Release build produces one easy-to-find log.
+class CStartupTimingTrace
+{
+private:
+    HANDLE File;
+    ULONGLONG Started;
+    ULONGLONG Previous;
+
+public:
+    CStartupTimingTrace()
+    {
+        File = INVALID_HANDLE_VALUE;
+        Started = Previous = GetTickCount64();
+
+        DWORD tempPathLen = GetTempPathW(0, NULL);
+        if (tempPathLen == 0)
+            return;
+
+        std::vector<wchar_t> tempPath(tempPathLen + 1);
+        DWORD copied = GetTempPathW((DWORD)tempPath.size(), tempPath.data());
+        if (copied == 0 || copied >= tempPath.size())
+            return;
+
+        std::wstring fileName(tempPath.data());
+        if (!fileName.empty() && fileName.back() != L'\\')
+            fileName += L'\\';
+        fileName += L"OpenSalamander-startup-timing.log";
+
+        File = CreateFileW(fileName.c_str(), GENERIC_WRITE,
+                           FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                           NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (File != INVALID_HANDLE_VALUE)
+        {
+            char header[160];
+            _snprintf_s(header, _TRUNCATE,
+                        "Open Salamander startup timing, PID %lu\r\n"
+                        " total_ms  delta_ms  checkpoint\r\n",
+                        GetCurrentProcessId());
+            DWORD written;
+            WriteFile(File, header, (DWORD)strlen(header), &written, NULL);
+        }
+    }
+
+    ~CStartupTimingTrace()
+    {
+        Mark("leave CMainWindow::LoadConfig");
+        if (File != INVALID_HANDLE_VALUE)
+            CloseHandle(File);
+    }
+
+    void Mark(const char* checkpoint)
+    {
+        if (File == INVALID_HANDLE_VALUE)
+            return;
+
+        ULONGLONG now = GetTickCount64();
+        char line[512];
+        _snprintf_s(line, _TRUNCATE, "%9llu  %8llu  %s\r\n",
+                    (unsigned long long)(now - Started),
+                    (unsigned long long)(now - Previous), checkpoint);
+        Previous = now;
+
+        DWORD written;
+        WriteFile(File, line, (DWORD)strlen(line), &written, NULL);
+    }
+};
+
 
 static void SaveInstalledPluginVersionsToBootstrap()
 {
@@ -4114,10 +4184,13 @@ void LoadIconOvrlsInfo(const char* root)
 BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* cmdLineParams)
 {
     CALL_STACK_MESSAGE2("CMainWindow::LoadConfig(%d)", importingOldConfig);
+    CStartupTimingTrace startupTiming;
+    startupTiming.Mark("enter CMainWindow::LoadConfig");
     if (SALAMANDER_ROOT_REG == NULL)
         return FALSE;
 
     LoadSaveToRegistryMutex.Enter();
+    startupTiming.Mark("acquired configuration mutex");
 
     HKEY salamander;
     if (OpenKey(HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, salamander))
@@ -4147,6 +4220,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         //---  editors
 
         LoadEditors(salamander, SALAMANDER_EDITORS_REG, EditorMasks);
+        startupTiming.Mark("loaded viewers and editors");
 
         //---  colors
         if (OpenKey(salamander, SALAMANDER_CUSTOMCOLORS_REG, actKey))
@@ -4379,6 +4453,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             CloseKey(actKey);
         }
 
+        startupTiming.Mark("loaded colors and highlight masks");
+
         //---  window
 
         WINDOWPLACEMENT place;
@@ -4482,6 +4558,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &(Configuration.FindColNameWidth), sizeof(DWORD));
             CloseKey(actKey);
         }
+
+        startupTiming.Mark("restored main window placement and DPI");
 
         //---  default directories
 
@@ -4588,12 +4666,15 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             CloseKey(actKey);
         }
 
+        startupTiming.Mark("loaded default directories, passwords, hot paths and view templates");
+
         //---  Plugins Order
         if (OpenKey(salamander, SALAMANDER_PLUGINSORDER, actKey))
         {
             Plugins.LoadOrder(HWindow, actKey);
             CloseKey(actKey);
         }
+        startupTiming.Mark("loaded plugin order");
 
         //---  Plugins
         if (OpenKey(salamander, SALAMANDER_PLUGINS, actKey)) // otherwise default values
@@ -4606,6 +4687,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             if (Configuration.ConfigVersion >= 6)
                 Plugins.Clear(); // does not even want default archivers ...
         }
+        startupTiming.Mark("loaded plugin registry metadata");
 
         //---  Packers & Unpackers
         if (OpenKey(salamander, SALAMANDER_PACKANDUNPACK, actKey))
@@ -4716,6 +4798,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         }
 
         Plugins.CheckData(); // adjust loaded data
+        startupTiming.Mark("loaded packers, unpackers and plugin data");
 
         //---  user menu
 
@@ -4881,6 +4964,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             CloseKey(actKey);
         }
 
+        startupTiming.Mark("loaded User Menu");
         IfExistSetSplashScreenText(LoadStr(IDS_STARTUP_CONFIG));
 
         //---  configuration
@@ -5638,6 +5722,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             CloseKey(actKey);
         }
 
+        startupTiming.Mark("loaded main configuration and constructed toolbars");
+
         //---  viewer
 
         if (OpenKey(salamander, SALAMANDER_VIEWER_REG, actKey))
@@ -5721,6 +5807,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             CloseKey(actKey);
         }
 
+        startupTiming.Mark("loaded viewer configuration");
+
         //---  left and right panel
 
         char leftPanelPath[MAX_PATH];
@@ -5734,15 +5822,19 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         // startup perform the same synchronous directory enumeration many times.
         RestoringPanelPaths = TRUE;
         LoadPanelConfig(leftPanelPath, cpsLeft, salamander, SALAMANDER_LEFTP_REG);
+        startupTiming.Mark("restored left panel configuration and paths");
         LoadPanelConfig(rightPanelPath, cpsRight, salamander, SALAMANDER_RIGHTP_REG);
+        startupTiming.Mark("restored right panel configuration and paths");
         RestoringPanelPaths = FALSE;
         if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
             RebuildSharedDirHistoryFromPanels();
+        startupTiming.Mark("rebuilt shared directory history");
 
         CloseKey(salamander);
         salamander = NULL;
 
         LoadSaveToRegistryMutex.Leave();
+        startupTiming.Mark("closed registry and released configuration mutex");
 
         //---  END OF LOADING CONFIGURATION
 
@@ -5754,11 +5846,17 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         // SetWindowPlacement reveals the window below; otherwise their intermediate state flashes
         // on screen and panel contents can visibly change immediately after startup.
         MSG msg;
+        DWORD queuedMessageCount = 0;
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
         {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
+            queuedMessageCount++;
         }
+        char queuedMessagesCheckpoint[128];
+        _snprintf_s(queuedMessagesCheckpoint, _TRUNCATE,
+                    "dispatched %lu queued startup messages", queuedMessageCount);
+        startupTiming.Mark(queuedMessagesCheckpoint);
 
         // set the active panel according to command line parameters
         if (ret && cmdLineParams != NULL)
@@ -5804,6 +5902,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             SetMenuItemInfo(h, SC_MAXIMIZE, FALSE, &mii);
         }
 
+        startupTiming.Mark("about to close splash screen");
         SplashScreenCloseIfExist();
         if (Configuration.StatusArea)
             AddTrayIcon();
