@@ -40,6 +40,9 @@ static BOOL MCDGetCurrentInstancePath(char* path, int pathSize);
 // registry" covers substantially more work than registry reads, including UI
 // construction and restoring panel paths.  Keep the trace independent of the
 // regular TRACE infrastructure so a Release build produces one easy-to-find log.
+class CStartupTimingTrace;
+static CStartupTimingTrace* ActiveStartupTimingTrace = NULL;
+
 class CStartupTimingTrace
 {
 private:
@@ -50,6 +53,7 @@ private:
 public:
     CStartupTimingTrace()
     {
+        ActiveStartupTimingTrace = this;
         File = INVALID_HANDLE_VALUE;
         Started = Previous = GetTickCount64();
 
@@ -87,6 +91,7 @@ public:
         Mark("leave CMainWindow::LoadConfig");
         if (File != INVALID_HANDLE_VALUE)
             CloseHandle(File);
+        ActiveStartupTimingTrace = NULL;
     }
 
     void Mark(const char* checkpoint)
@@ -105,6 +110,20 @@ public:
         WriteFile(File, line, (DWORD)strlen(line), &written, NULL);
     }
 };
+
+static void StartupTimingMark(const char* checkpoint)
+{
+    if (ActiveStartupTimingTrace != NULL)
+        ActiveStartupTimingTrace->Mark(checkpoint);
+}
+
+static void StartupTimingMarkPanel(const char* format, const char* side, int tabIndex,
+                                   const char* path, ULONGLONG elapsed = 0)
+{
+    char checkpoint[1024];
+    _snprintf_s(checkpoint, _TRUNCATE, format, side, tabIndex, path != NULL ? path : "", elapsed);
+    StartupTimingMark(checkpoint);
+}
 
 
 static void SaveInstalledPluginVersionsToBootstrap()
@@ -2662,12 +2681,21 @@ static BOOL RestorePanelPathFromConfig(CMainWindow* mainWnd, CFilesWindow* panel
         return FALSE;
     }
 
+    const char* side = panel->GetPanelSide() == cpsLeft ? "left" : "right";
+    int tabIndex = mainWnd != NULL ? mainWnd->GetPanelTabIndex(panel->GetPanelSide(), panel) : -1;
+    ULONGLONG operationStarted = GetTickCount64();
+    StartupTimingMarkPanel("%s panel tab %d: ChangeDirLite begin, path=\"%s\"", side,
+                           tabIndex + 1, path);
     if (panel->ChangeDirLite(path))
     {
+        StartupTimingMarkPanel("%s panel tab %d: ChangeDirLite succeeded, path=\"%s\", operation_ms=%llu",
+                               side, tabIndex + 1, path, GetTickCount64() - operationStarted);
         if (mainWnd != NULL)
             mainWnd->UpdatePanelTabTitle(panel);
         return TRUE;
     }
+    StartupTimingMarkPanel("%s panel tab %d: ChangeDirLite failed, path=\"%s\", operation_ms=%llu",
+                           side, tabIndex + 1, path, GetTickCount64() - operationStarted);
 
     if (IsDiskOrUNCPath(path))
     {
@@ -2676,15 +2704,28 @@ static BOOL RestorePanelPathFromConfig(CMainWindow* mainWnd, CFilesWindow* panel
         BOOL tryNet = TRUE;
         DWORD err, lastErr;
         BOOL pathInvalid, cut;
+        operationStarted = GetTickCount64();
+        StartupTimingMarkPanel("%s panel tab %d: fallback path check begin, path=\"%s\"", side,
+                               tabIndex + 1, tmp);
         if (SalCheckAndRestorePathWithCut(panel->HWindow, tmp, tryNet, err, lastErr, pathInvalid, cut, TRUE))
         {
+            StartupTimingMarkPanel("%s panel tab %d: fallback path check succeeded, path=\"%s\", operation_ms=%llu",
+                                   side, tabIndex + 1, tmp, GetTickCount64() - operationStarted);
+            operationStarted = GetTickCount64();
             if (panel->ChangePathToDisk(panel->HWindow, tmp))
             {
+                StartupTimingMarkPanel("%s panel tab %d: fallback ChangePathToDisk succeeded, path=\"%s\", operation_ms=%llu",
+                                       side, tabIndex + 1, tmp, GetTickCount64() - operationStarted);
                 if (mainWnd != NULL)
                     mainWnd->UpdatePanelTabTitle(panel);
                 return TRUE;
             }
+            StartupTimingMarkPanel("%s panel tab %d: fallback ChangePathToDisk failed, path=\"%s\", operation_ms=%llu",
+                                   side, tabIndex + 1, tmp, GetTickCount64() - operationStarted);
         }
+        else
+            StartupTimingMarkPanel("%s panel tab %d: fallback path check failed, path=\"%s\", operation_ms=%llu",
+                                   side, tabIndex + 1, tmp, GetTickCount64() - operationStarted);
         panel->ChangeToRescuePathOrFixedDrive(panel->HWindow);
         if (mainWnd != NULL)
             mainWnd->UpdatePanelTabTitle(panel);
@@ -3924,6 +3965,11 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
 
 void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalamander, const char* reg)
 {
+    const char* sideName = side == cpsLeft ? "left" : "right";
+    char panelCheckpoint[256];
+    _snprintf_s(panelCheckpoint, _TRUNCATE, "%s panel: LoadPanelConfig begin", sideName);
+    StartupTimingMark(panelCheckpoint);
+
     if (panelPath != NULL)
         panelPath[0] = 0;
 
@@ -4035,6 +4081,10 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         activeValue = 0;
     }
     int activeIndex = (int)activeValue;
+    _snprintf_s(panelCheckpoint, _TRUNCATE,
+                "%s panel: registry has %d tabs, active tab %d", sideName,
+                localTabs.Count, activeIndex + 1);
+    StartupTimingMark(panelCheckpoint);
 
     BOOL activeRestored = FALSE;
     for (int i = 0; i < localTabs.Count; i++)
@@ -4075,6 +4125,9 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         else
             panel->ClearWorkDirHistory();
 
+        StartupTimingMarkPanel("%s panel tab %d: settings loaded, path=\"%s\"", sideName,
+                               i + 1, path);
+
         UpdatePanelTabColor(panel);
         UpdatePanelTabTitle(panel);
         if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
@@ -4094,6 +4147,9 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         else
             restored = RestorePanelPathFromConfig(this, panel, path);
 
+        StartupTimingMarkPanel("%s panel tab %d: restore step finished, path=\"%s\"", sideName,
+                               i + 1, path);
+
         if (i == activeIndex)
         {
             activeRestored = restored;
@@ -4110,7 +4166,13 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     if (activePanel != NULL)
     {
+        _snprintf_s(panelCheckpoint, _TRUNCATE,
+                    "%s panel: SwitchPanelTab begin for tab %d", sideName, activeIndex + 1);
+        StartupTimingMark(panelCheckpoint);
         SwitchPanelTab(activePanel);
+        _snprintf_s(panelCheckpoint, _TRUNCATE,
+                    "%s panel: SwitchPanelTab finished for tab %d", sideName, activeIndex + 1);
+        StartupTimingMark(panelCheckpoint);
         int sel = GetPanelTabIndex(side, activePanel);
         CTabWindow* tabWnd = GetPanelTabWindow(side);
         if (tabWnd != NULL && tabWnd->HWindow != NULL && sel >= 0)
@@ -4118,6 +4180,8 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     }
 
     UpdatePanelTabVisibility(side);
+    _snprintf_s(panelCheckpoint, _TRUNCATE, "%s panel: visibility updated", sideName);
+    StartupTimingMark(panelCheckpoint);
 
     if (side == cpsLeft)
         PanelConfigPathsRestoredLeft = activeRestored;
@@ -5849,8 +5913,23 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         DWORD queuedMessageCount = 0;
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
         {
+            ULONGLONG messageStarted = GetTickCount64();
             TranslateMessage(&msg);
             DispatchMessage(&msg);
+            ULONGLONG messageElapsed = GetTickCount64() - messageStarted;
+            if (messageElapsed >= 10)
+            {
+                char className[128];
+                className[0] = 0;
+                if (msg.hwnd != NULL)
+                    GetClassNameA(msg.hwnd, className, _countof(className));
+                char messageCheckpoint[320];
+                _snprintf_s(messageCheckpoint, _TRUNCATE,
+                            "slow queued message: msg=0x%04X hwnd=0x%p class=\"%s\" operation_ms=%llu",
+                            msg.message, msg.hwnd, className,
+                            (unsigned long long)messageElapsed);
+                startupTiming.Mark(messageCheckpoint);
+            }
             queuedMessageCount++;
         }
         char queuedMessagesCheckpoint[128];
