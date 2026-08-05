@@ -29,6 +29,14 @@ DWORD GetSystemLocaleAnsiCodePage()
     return (DWORD)codePage;
 }
 
+DWORD GetEffectiveConversionCodePage()
+{
+    DWORD activeCodePage = GetACP();
+    return GetConversionAutoCodePage(
+        activeCodePage,
+        activeCodePage == CP_UTF8 ? GetSystemLocaleAnsiCodePage() : 0);
+}
+
 BOOL ParseConversionCodePageIdentifier(const char* text, size_t length, DWORD* identifier)
 {
     if (text == NULL || identifier == NULL)

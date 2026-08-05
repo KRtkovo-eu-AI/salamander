@@ -572,9 +572,7 @@ void CCodeTables::GetBestPreloadedConversion(const char* cfgDirName, char* dirNa
     }
 
     //  criterion (2): item matching the OS code page
-    DWORD activeCodePage = GetACP();
-    DWORD cp = GetConversionAutoCodePage(activeCodePage,
-                                         activeCodePage == CP_UTF8 ? GetSystemLocaleAnsiCodePage() : 0);
+    DWORD cp = GetEffectiveConversionCodePage();
     int i;
     for (i = 0; i < Preloaded.Count; i++)
     {

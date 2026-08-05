@@ -19,6 +19,7 @@
 #include "zip.h"
 #include "gui.h"
 #include "codetbl.h"
+#include "codetbl_utils.h"
 #include "worker.h"
 #include "menu.h"
 #include "darkmode.h"
@@ -3610,7 +3611,7 @@ void CConversionTablesDialog::Transfer(CTransferInfo& ti)
             sprintf(buff, "convert\\%s\\convert.cfg", dirName);
             ListView_SetItemText(HListView, index - 1, 2, buff);
         }
-        sprintf(buff, "%u", GetACP());
+        sprintf(buff, "%u", GetEffectiveConversionCodePage());
         SetDlgItemText(HWindow, IDC_CT_CODEPAGE, buff);
         if (bestIndex != -1)
         {
