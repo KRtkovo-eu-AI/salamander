@@ -244,3 +244,5 @@ src/plugins/automation/runtime/__pycache__/
 # Python bytecode and test caches
 __pycache__/
 *.py[cod]
+
+plugin-packages-x64/
