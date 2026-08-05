@@ -84,6 +84,12 @@ struct CExplorerSortContext
 
 CExplorerSortContext* ExplorerSortContext = NULL;
 
+struct CExplorerSortAsyncItem
+{
+    std::string Name;
+    std::wstring FullPath;
+};
+
 std::string ExplorerSortKey(const CFileData& file)
 {
     std::map<std::string, std::string>::const_iterator it = ExplorerSortContext->Values.find(file.Name);
@@ -176,6 +182,192 @@ void FillExplorerSortCache(CExplorerSortContext& context, const char* path, cons
     }
 }
 } // namespace
+
+struct CExplorerSortAsyncData
+{
+    HWND HPanelWindow;
+    ULONGLONG PanelTabId;
+    int ColumnIndex;
+    std::wstring PanelPath;
+    std::vector<CExplorerSortAsyncItem> Items;
+    std::map<std::string, std::string> Values;
+    volatile LONG Cancelled;
+};
+
+static DWORD WINAPI ExplorerSortThreadBody(void* param)
+{
+    CExplorerSortAsyncData* data = (CExplorerSortAsyncData*)param;
+    HRESULT initializeResult = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+
+    char text[TRANSFER_BUFFER_MAX];
+    for (size_t i = 0; i < data->Items.size() && InterlockedCompareExchange(&data->Cancelled, 0, 0) == 0; i++)
+    {
+        const CExplorerSortAsyncItem& item = data->Items[i];
+        if (GetExplorerColumnTextForPathW(item.FullPath.c_str(), data->ColumnIndex, text, TRANSFER_BUFFER_MAX))
+            data->Values[item.Name] = text;
+        else
+            data->Values[item.Name] = "";
+    }
+
+    if (SUCCEEDED(initializeResult))
+        CoUninitialize();
+    PostMessage(data->HPanelWindow, WM_USER_EXPLORER_SORT_DONE, 0, (LPARAM)data);
+    return 0;
+}
+
+static std::wstring GetExplorerSortItemPath(const std::wstring& panelPath, const CFileData* file)
+{
+    std::wstring fullPath(panelPath);
+    if (!fullPath.empty() && fullPath[fullPath.length() - 1] != L'\\')
+        fullPath.push_back(L'\\');
+
+    if (file->UseWideName())
+        fullPath.append((const wchar_t*)file->NameW);
+    else
+    {
+        std::wstring name = SalMultiByteToWidePath(file->Name, CP_UTF8);
+        if (name.empty() && file->Name[0] != 0)
+            name = SalMultiByteToWidePath(file->Name, CP_ACP);
+        fullPath.append(name);
+    }
+    return fullPath;
+}
+
+BOOL CFilesWindow::StartExplorerSortAsync(CFilesArray* files, CFilesArray* dirs, int firstDirIndex)
+{
+    if (ExplorerSortData != NULL || HWindow == NULL)
+        return FALSE;
+
+    std::wstring panelPath = GetPathW() != NULL && GetPathW()[0] != 0
+                                 ? std::wstring(GetPathW())
+                                 : SalMultiByteToWidePath(GetPath(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    if (panelPath.empty())
+        return FALSE;
+
+    CExplorerSortAsyncData* data = new CExplorerSortAsyncData;
+    data->HPanelWindow = HWindow;
+    data->PanelTabId = PanelTabId;
+    data->ColumnIndex = (int)SortCustomData;
+    data->PanelPath = panelPath;
+    data->Cancelled = 0;
+    data->Items.reserve(files->Count + (Configuration.SortDirsByName ? 0 : dirs->Count - firstDirIndex));
+
+    int i;
+    for (i = 0; i < files->Count; i++)
+    {
+        CExplorerSortAsyncItem item;
+        item.Name = files->At(i).Name;
+        item.FullPath = GetExplorerSortItemPath(panelPath, &files->At(i));
+        data->Items.push_back(item);
+    }
+    if (!Configuration.SortDirsByName)
+    {
+        for (i = firstDirIndex; i < dirs->Count; i++)
+        {
+            CExplorerSortAsyncItem item;
+            item.Name = dirs->At(i).Name;
+            item.FullPath = GetExplorerSortItemPath(panelPath, &dirs->At(i));
+            data->Items.push_back(item);
+        }
+    }
+
+    ExplorerSortData = data;
+    DWORD threadID;
+    ExplorerSortThread = HANDLES(CreateThread(NULL, 0, ExplorerSortThreadBody, data, 0, &threadID));
+    if (ExplorerSortThread == NULL)
+    {
+        ExplorerSortData = NULL;
+        delete data;
+        return FALSE;
+    }
+    return TRUE;
+}
+
+void CFilesWindow::FinishExplorerSortAsync(CExplorerSortAsyncData* data)
+{
+    if (data == NULL)
+        return;
+
+    if (data == ExplorerSortData && ExplorerSortThread != NULL)
+    {
+        HANDLES(CloseHandle(ExplorerSortThread));
+        ExplorerSortThread = NULL;
+    }
+
+    BOOL apply = data == ExplorerSortData && data->PanelTabId == PanelTabId &&
+                 InterlockedCompareExchange(&data->Cancelled, 0, 0) == 0 &&
+                 SortType == stCustom && (int)SortCustomData == data->ColumnIndex;
+    if (apply)
+    {
+        const wchar_t* currentPath = GetPathW();
+        std::wstring currentPathStorage;
+        if (currentPath == NULL || currentPath[0] == 0)
+        {
+            currentPathStorage = SalMultiByteToWidePath(GetPath(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+            currentPath = currentPathStorage.c_str();
+        }
+        apply = _wcsicmp(currentPath, data->PanelPath.c_str()) == 0;
+    }
+
+    if (data == ExplorerSortData)
+        ExplorerSortData = NULL;
+
+    if (apply)
+    {
+        CExplorerSortContext context;
+        context.Values.swap(data->Values);
+        context.Reverse = ReverseSort;
+        ExplorerSortContext = &context;
+
+        BOOL hasRoot = Dirs->Count > 0 && Dirs->At(0).NameLen == 2 && Dirs->At(0).Name[0] == '.' && Dirs->At(0).Name[1] == '.';
+        int firstDirIndex = hasRoot ? 1 : 0;
+        if (UseSystemIcons || UseThumbnails)
+            SleepIconCacheThread();
+        if (!Configuration.SortDirsByName && Dirs->Count - firstDirIndex > 1)
+            SortExplorerNameExtAux(*Dirs, firstDirIndex, Dirs->Count - 1, ReverseSort);
+        else if (Dirs->Count - firstDirIndex > 1)
+            SortNameExt(*Dirs, firstDirIndex, Dirs->Count - 1, FALSE);
+        if (Files->Count > 1)
+            SortExplorerNameExtAux(*Files, 0, Files->Count - 1, ReverseSort);
+        ExplorerSortContext = NULL;
+        if (UseSystemIcons || UseThumbnails)
+            WakeupIconCacheThread();
+
+        VisibleItemsArray.InvalidateArr();
+        VisibleItemsArraySurround.InvalidateArr();
+        RefreshListBox(-1, -1, FocusedIndex, FALSE, FALSE);
+    }
+    delete data;
+}
+
+void CFilesWindow::StopExplorerSortAsync()
+{
+    CExplorerSortAsyncData* data = (CExplorerSortAsyncData*)ExplorerSortData;
+    if (data != NULL)
+        InterlockedExchange(&data->Cancelled, 1);
+    if (ExplorerSortThread != NULL)
+    {
+        if (WaitForSingleObject(ExplorerSortThread, 2000) == WAIT_TIMEOUT)
+        {
+            TRACE_E("Terminating Explorer property sort thread");
+            TerminateThread(ExplorerSortThread, 666);
+            WaitForSingleObject(ExplorerSortThread, INFINITE);
+        }
+        HANDLES(CloseHandle(ExplorerSortThread));
+        ExplorerSortThread = NULL;
+    }
+    if (data != NULL)
+    {
+        MSG msg;
+        while (PeekMessage(&msg, HWindow, WM_USER_EXPLORER_SORT_DONE, WM_USER_EXPLORER_SORT_DONE, PM_REMOVE))
+        {
+            if ((CExplorerSortAsyncData*)msg.lParam != data)
+                delete (CExplorerSortAsyncData*)msg.lParam;
+        }
+        ExplorerSortData = NULL;
+        delete data;
+    }
+}
 
 //
 // ****************************************************************************
@@ -1934,27 +2126,56 @@ void CFilesWindow::SortDirectory(CFilesArray* files, CFilesArray* dirs)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::SortDirectory()");
 
+    BOOL sortingPanelListing = files == NULL && dirs == NULL;
     if (files == NULL)
         files = Files;
     if (dirs == NULL)
         dirs = Dirs;
     if (SortType == stCustom && Is(ptDisk))
     {
-        CExplorerSortContext context;
-        context.Reverse = ReverseSort;
-        ExplorerSortContext = &context;
         BOOL hasRoot = dirs->Count > 0 && dirs->At(0).NameLen == 2 && dirs->At(0).Name[0] == '.' && dirs->At(0).Name[1] == '.';
         int firstDirIndex = hasRoot ? 1 : 0;
-        FillExplorerSortCache(context, GetPath(), GetPathW(), files, 0, (int)SortCustomData);
-        if (!Configuration.SortDirsByName)
-            FillExplorerSortCache(context, GetPath(), GetPathW(), dirs, firstDirIndex, (int)SortCustomData);
-        if (!Configuration.SortDirsByName && dirs->Count - firstDirIndex > 1)
-            SortExplorerNameExtAux(*dirs, firstDirIndex, dirs->Count - 1, ReverseSort);
-        else if (dirs->Count - firstDirIndex > 1)
-            SortNameExt(*dirs, firstDirIndex, dirs->Count - 1, FALSE);
-        if (files->Count > 1)
-            SortExplorerNameExtAux(*files, 0, files->Count - 1, ReverseSort);
-        ExplorerSortContext = NULL;
+
+        BOOL asyncSortPending = FALSE;
+        CExplorerSortAsyncData* explorerSortData = (CExplorerSortAsyncData*)ExplorerSortData;
+        if (sortingPanelListing && explorerSortData != NULL &&
+            explorerSortData->ColumnIndex == (int)SortCustomData)
+        {
+            const wchar_t* currentPath = GetPathW();
+            std::wstring currentPathStorage;
+            if (currentPath == NULL || currentPath[0] == 0)
+            {
+                currentPathStorage = SalMultiByteToWidePath(GetPath(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                currentPath = currentPathStorage.c_str();
+            }
+            asyncSortPending = _wcsicmp(currentPath, explorerSortData->PanelPath.c_str()) == 0;
+        }
+        if (!asyncSortPending && sortingPanelListing && Parent->RestoringPanelPaths)
+            asyncSortPending = StartExplorerSortAsync(files, dirs, firstDirIndex);
+
+        if (asyncSortPending)
+        {
+            // Keep the UI responsive while shell property handlers populate the
+            // requested Explorer sort values.  The completed result is applied
+            // only if this tab still shows the same path and sort column.
+            SortFilesAndDirectories(files, dirs, stName, FALSE, Configuration.SortDirsByName);
+        }
+        else
+        {
+            CExplorerSortContext context;
+            context.Reverse = ReverseSort;
+            ExplorerSortContext = &context;
+            FillExplorerSortCache(context, GetPath(), GetPathW(), files, 0, (int)SortCustomData);
+            if (!Configuration.SortDirsByName)
+                FillExplorerSortCache(context, GetPath(), GetPathW(), dirs, firstDirIndex, (int)SortCustomData);
+            if (!Configuration.SortDirsByName && dirs->Count - firstDirIndex > 1)
+                SortExplorerNameExtAux(*dirs, firstDirIndex, dirs->Count - 1, ReverseSort);
+            else if (dirs->Count - firstDirIndex > 1)
+                SortNameExt(*dirs, firstDirIndex, dirs->Count - 1, FALSE);
+            if (files->Count > 1)
+                SortExplorerNameExtAux(*files, 0, files->Count - 1, ReverseSort);
+            ExplorerSortContext = NULL;
+        }
     }
     else
         SortFilesAndDirectories(files, dirs, SortType, ReverseSort, Configuration.SortDirsByName);

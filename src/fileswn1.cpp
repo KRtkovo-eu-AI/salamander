@@ -2431,6 +2431,8 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     TreeViewAsyncLoadThread = NULL;
     TreeViewAsyncTerminateEvent = HANDLES(CreateEvent(NULL, TRUE, FALSE, NULL)); // manual reset
     TreeViewAsyncLoadData = NULL;
+    ExplorerSortThread = NULL;
+    ExplorerSortData = NULL;
     StatusLineVisible = TRUE;
     DirectoryLineVisible = TRUE;
     HeaderLineVisible = TRUE;
@@ -2541,6 +2543,7 @@ CFilesWindow::~CFilesWindow()
     CALL_STACK_MESSAGE1("CFilesWindow::~CFilesWindow()");
 
     ClearIndependentIconLists();
+    StopExplorerSortAsync();
 
     if (DeviceNotification != NULL)
         TRACE_E("CFilesWindow::~CFilesWindow(): unexpected situation: DeviceNotification != NULL");

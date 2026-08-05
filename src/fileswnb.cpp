@@ -1467,6 +1467,12 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         free(loadData);
         return 0;
     }
+
+    case WM_USER_EXPLORER_SORT_DONE:
+    {
+        FinishExplorerSortAsync((CExplorerSortAsyncData*)lParam);
+        return 0;
+    }
     }
 
     return CWindow::WindowProc(uMsg, wParam, lParam);

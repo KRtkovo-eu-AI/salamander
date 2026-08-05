@@ -5,6 +5,7 @@
 #pragma once
 
 class CFilesWindow;
+struct CExplorerSortAsyncData;
 
 #include "plugins.h"
 #include <string>
@@ -802,6 +803,11 @@ public:
     HANDLE TreeViewAsyncTerminateEvent;            // signaled -> terminate the thread
     volatile struct CTreeViewAsyncLoadData* TreeViewAsyncLoadData; // current async load data
 
+    // Explorer properties can invoke slow shell handlers.  During startup the
+    // selected property sort is populated away from the UI thread.
+    HANDLE ExplorerSortThread;
+    volatile CExplorerSortAsyncData* ExplorerSortData;
+
     BOOL AutomaticRefresh;      // is the panel refreshed automatically (or manually)?
     BOOL NeedsRefreshOnActivation; // TRUE when the panel should reload its listing when it becomes visible again
     BOOL FilesActionInProgress; // is work already being prepared or executed for the Worker?
@@ -1510,6 +1516,9 @@ public:
     // sorts Files and Dirs using the current ordering method; because it reorders them,
     // icon loading for Files and Dirs must be paused during sorting (see SleepIconCacheThread())
     void SortDirectory(CFilesArray* files = NULL, CFilesArray* dirs = NULL);
+    BOOL StartExplorerSortAsync(CFilesArray* files, CFilesArray* dirs, int firstDirIndex);
+    void FinishExplorerSortAsync(CExplorerSortAsyncData* data);
+    void StopExplorerSortAsync();
 
     void RefreshListBox(int suggestedXOffset,         // if not -1 this value is used
                         int suggestedTopIndex,        // if not -1 this value is used
