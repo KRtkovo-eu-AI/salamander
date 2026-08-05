@@ -5159,6 +5159,16 @@ void CFilesWindow::RefreshListBox(int suggestedXOffset,
                     break;
                 case COLUMN_ID_CUSTOM:
                 {
+                    if (column->GetText == InternalGetExplorerColumn)
+                    {
+                        // Explorer property values can invoke arbitrary shell property handlers.
+                        // Measuring every item synchronously here made opening large directories
+                        // (notably System32) take several seconds, and every refresh repeated the
+                        // same work. Keep the width loaded from the view template; visible cells
+                        // will still obtain and display their values normally.
+                        break;
+                    }
+
                     TransferActCustomData = column->CustomData;
                     int columnMaxWidth = column->MinWidth;
                     // ask the plugin

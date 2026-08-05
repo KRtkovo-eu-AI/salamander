@@ -4125,8 +4125,12 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         else
             panel->ClearWorkDirHistory();
 
-        StartupTimingMarkPanel("%s panel tab %d: settings loaded, path=\"%s\"", sideName,
-                               i + 1, path);
+        char tabSettingsCheckpoint[1024];
+        _snprintf_s(tabSettingsCheckpoint, _TRUNCATE,
+                    "%s panel tab %d: settings loaded, view=%d sort=%d sortCustomData=%lu, path=\"%s\"",
+                    sideName, i + 1, panel->GetViewMode(), panel->SortType,
+                    panel->SortCustomData, path);
+        StartupTimingMark(tabSettingsCheckpoint);
 
         UpdatePanelTabColor(panel);
         UpdatePanelTabTitle(panel);
