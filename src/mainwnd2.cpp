@@ -36,95 +36,6 @@ static const char* DetectProductName(const char* root);
 static BOOL MCDIsGeneratedConfigDisplayName(const char* root, const char* version, const char* displayName);
 static BOOL MCDGetCurrentInstancePath(char* path, int pathSize);
 
-// Temporary startup diagnostics.  The splash text "Reading configuration from
-// registry" covers substantially more work than registry reads, including UI
-// construction and restoring panel paths.  Keep the trace independent of the
-// regular TRACE infrastructure so a Release build produces one easy-to-find log.
-class CStartupTimingTrace;
-static CStartupTimingTrace* ActiveStartupTimingTrace = NULL;
-
-class CStartupTimingTrace
-{
-private:
-    HANDLE File;
-    ULONGLONG Started;
-    ULONGLONG Previous;
-
-public:
-    CStartupTimingTrace()
-    {
-        ActiveStartupTimingTrace = this;
-        File = INVALID_HANDLE_VALUE;
-        Started = Previous = GetTickCount64();
-
-        DWORD tempPathLen = GetTempPathW(0, NULL);
-        if (tempPathLen == 0)
-            return;
-
-        std::vector<wchar_t> tempPath(tempPathLen + 1);
-        DWORD copied = GetTempPathW((DWORD)tempPath.size(), tempPath.data());
-        if (copied == 0 || copied >= tempPath.size())
-            return;
-
-        std::wstring fileName(tempPath.data());
-        if (!fileName.empty() && fileName.back() != L'\\')
-            fileName += L'\\';
-        fileName += L"OpenSalamander-startup-timing.log";
-
-        File = CreateFileW(fileName.c_str(), GENERIC_WRITE,
-                           FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                           NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-        if (File != INVALID_HANDLE_VALUE)
-        {
-            char header[160];
-            _snprintf_s(header, _TRUNCATE,
-                        "Open Salamander startup timing, PID %lu\r\n"
-                        " total_ms  delta_ms  checkpoint\r\n",
-                        GetCurrentProcessId());
-            DWORD written;
-            WriteFile(File, header, (DWORD)strlen(header), &written, NULL);
-        }
-    }
-
-    ~CStartupTimingTrace()
-    {
-        Mark("leave CMainWindow::LoadConfig");
-        if (File != INVALID_HANDLE_VALUE)
-            CloseHandle(File);
-        ActiveStartupTimingTrace = NULL;
-    }
-
-    void Mark(const char* checkpoint)
-    {
-        if (File == INVALID_HANDLE_VALUE)
-            return;
-
-        ULONGLONG now = GetTickCount64();
-        char line[512];
-        _snprintf_s(line, _TRUNCATE, "%9llu  %8llu  %s\r\n",
-                    (unsigned long long)(now - Started),
-                    (unsigned long long)(now - Previous), checkpoint);
-        Previous = now;
-
-        DWORD written;
-        WriteFile(File, line, (DWORD)strlen(line), &written, NULL);
-    }
-};
-
-static void StartupTimingMark(const char* checkpoint)
-{
-    if (ActiveStartupTimingTrace != NULL)
-        ActiveStartupTimingTrace->Mark(checkpoint);
-}
-
-static void StartupTimingMarkPanel(const char* format, const char* side, int tabIndex,
-                                   const char* path, ULONGLONG elapsed = 0)
-{
-    char checkpoint[1024];
-    _snprintf_s(checkpoint, _TRUNCATE, format, side, tabIndex, path != NULL ? path : "", elapsed);
-    StartupTimingMark(checkpoint);
-}
-
 
 static void SaveInstalledPluginVersionsToBootstrap()
 {
@@ -2681,21 +2592,12 @@ static BOOL RestorePanelPathFromConfig(CMainWindow* mainWnd, CFilesWindow* panel
         return FALSE;
     }
 
-    const char* side = panel->GetPanelSide() == cpsLeft ? "left" : "right";
-    int tabIndex = mainWnd != NULL ? mainWnd->GetPanelTabIndex(panel->GetPanelSide(), panel) : -1;
-    ULONGLONG operationStarted = GetTickCount64();
-    StartupTimingMarkPanel("%s panel tab %d: ChangeDirLite begin, path=\"%s\"", side,
-                           tabIndex + 1, path);
     if (panel->ChangeDirLite(path))
     {
-        StartupTimingMarkPanel("%s panel tab %d: ChangeDirLite succeeded, path=\"%s\", operation_ms=%llu",
-                               side, tabIndex + 1, path, GetTickCount64() - operationStarted);
         if (mainWnd != NULL)
             mainWnd->UpdatePanelTabTitle(panel);
         return TRUE;
     }
-    StartupTimingMarkPanel("%s panel tab %d: ChangeDirLite failed, path=\"%s\", operation_ms=%llu",
-                           side, tabIndex + 1, path, GetTickCount64() - operationStarted);
 
     if (IsDiskOrUNCPath(path))
     {
@@ -2704,28 +2606,15 @@ static BOOL RestorePanelPathFromConfig(CMainWindow* mainWnd, CFilesWindow* panel
         BOOL tryNet = TRUE;
         DWORD err, lastErr;
         BOOL pathInvalid, cut;
-        operationStarted = GetTickCount64();
-        StartupTimingMarkPanel("%s panel tab %d: fallback path check begin, path=\"%s\"", side,
-                               tabIndex + 1, tmp);
         if (SalCheckAndRestorePathWithCut(panel->HWindow, tmp, tryNet, err, lastErr, pathInvalid, cut, TRUE))
         {
-            StartupTimingMarkPanel("%s panel tab %d: fallback path check succeeded, path=\"%s\", operation_ms=%llu",
-                                   side, tabIndex + 1, tmp, GetTickCount64() - operationStarted);
-            operationStarted = GetTickCount64();
             if (panel->ChangePathToDisk(panel->HWindow, tmp))
             {
-                StartupTimingMarkPanel("%s panel tab %d: fallback ChangePathToDisk succeeded, path=\"%s\", operation_ms=%llu",
-                                       side, tabIndex + 1, tmp, GetTickCount64() - operationStarted);
                 if (mainWnd != NULL)
                     mainWnd->UpdatePanelTabTitle(panel);
                 return TRUE;
             }
-            StartupTimingMarkPanel("%s panel tab %d: fallback ChangePathToDisk failed, path=\"%s\", operation_ms=%llu",
-                                   side, tabIndex + 1, tmp, GetTickCount64() - operationStarted);
         }
-        else
-            StartupTimingMarkPanel("%s panel tab %d: fallback path check failed, path=\"%s\", operation_ms=%llu",
-                                   side, tabIndex + 1, tmp, GetTickCount64() - operationStarted);
         panel->ChangeToRescuePathOrFixedDrive(panel->HWindow);
         if (mainWnd != NULL)
             mainWnd->UpdatePanelTabTitle(panel);
@@ -3965,11 +3854,6 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
 
 void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalamander, const char* reg)
 {
-    const char* sideName = side == cpsLeft ? "left" : "right";
-    char panelCheckpoint[256];
-    _snprintf_s(panelCheckpoint, _TRUNCATE, "%s panel: LoadPanelConfig begin", sideName);
-    StartupTimingMark(panelCheckpoint);
-
     if (panelPath != NULL)
         panelPath[0] = 0;
 
@@ -4081,10 +3965,6 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         activeValue = 0;
     }
     int activeIndex = (int)activeValue;
-    _snprintf_s(panelCheckpoint, _TRUNCATE,
-                "%s panel: registry has %d tabs, active tab %d", sideName,
-                localTabs.Count, activeIndex + 1);
-    StartupTimingMark(panelCheckpoint);
 
     BOOL activeRestored = FALSE;
     for (int i = 0; i < localTabs.Count; i++)
@@ -4125,13 +4005,6 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         else
             panel->ClearWorkDirHistory();
 
-        char tabSettingsCheckpoint[1024];
-        _snprintf_s(tabSettingsCheckpoint, _TRUNCATE,
-                    "%s panel tab %d: settings loaded, view=%d sort=%d sortCustomData=%lu, path=\"%s\"",
-                    sideName, i + 1, panel->GetViewMode(), panel->SortType,
-                    panel->SortCustomData, path);
-        StartupTimingMark(tabSettingsCheckpoint);
-
         UpdatePanelTabColor(panel);
         UpdatePanelTabTitle(panel);
         if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
@@ -4151,9 +4024,6 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         else
             restored = RestorePanelPathFromConfig(this, panel, path);
 
-        StartupTimingMarkPanel("%s panel tab %d: restore step finished, path=\"%s\"", sideName,
-                               i + 1, path);
-
         if (i == activeIndex)
         {
             activeRestored = restored;
@@ -4170,13 +4040,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     if (activePanel != NULL)
     {
-        _snprintf_s(panelCheckpoint, _TRUNCATE,
-                    "%s panel: SwitchPanelTab begin for tab %d", sideName, activeIndex + 1);
-        StartupTimingMark(panelCheckpoint);
         SwitchPanelTab(activePanel);
-        _snprintf_s(panelCheckpoint, _TRUNCATE,
-                    "%s panel: SwitchPanelTab finished for tab %d", sideName, activeIndex + 1);
-        StartupTimingMark(panelCheckpoint);
         int sel = GetPanelTabIndex(side, activePanel);
         CTabWindow* tabWnd = GetPanelTabWindow(side);
         if (tabWnd != NULL && tabWnd->HWindow != NULL && sel >= 0)
@@ -4184,8 +4048,6 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     }
 
     UpdatePanelTabVisibility(side);
-    _snprintf_s(panelCheckpoint, _TRUNCATE, "%s panel: visibility updated", sideName);
-    StartupTimingMark(panelCheckpoint);
 
     if (side == cpsLeft)
         PanelConfigPathsRestoredLeft = activeRestored;
@@ -4252,13 +4114,10 @@ void LoadIconOvrlsInfo(const char* root)
 BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* cmdLineParams)
 {
     CALL_STACK_MESSAGE2("CMainWindow::LoadConfig(%d)", importingOldConfig);
-    CStartupTimingTrace startupTiming;
-    startupTiming.Mark("enter CMainWindow::LoadConfig");
     if (SALAMANDER_ROOT_REG == NULL)
         return FALSE;
 
     LoadSaveToRegistryMutex.Enter();
-    startupTiming.Mark("acquired configuration mutex");
 
     HKEY salamander;
     if (OpenKey(HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, salamander))
@@ -4288,7 +4147,6 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         //---  editors
 
         LoadEditors(salamander, SALAMANDER_EDITORS_REG, EditorMasks);
-        startupTiming.Mark("loaded viewers and editors");
 
         //---  colors
         if (OpenKey(salamander, SALAMANDER_CUSTOMCOLORS_REG, actKey))
@@ -4521,8 +4379,6 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             CloseKey(actKey);
         }
 
-        startupTiming.Mark("loaded colors and highlight masks");
-
         //---  window
 
         WINDOWPLACEMENT place;
@@ -4626,8 +4482,6 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &(Configuration.FindColNameWidth), sizeof(DWORD));
             CloseKey(actKey);
         }
-
-        startupTiming.Mark("restored main window placement and DPI");
 
         //---  default directories
 
@@ -4734,15 +4588,12 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             CloseKey(actKey);
         }
 
-        startupTiming.Mark("loaded default directories, passwords, hot paths and view templates");
-
         //---  Plugins Order
         if (OpenKey(salamander, SALAMANDER_PLUGINSORDER, actKey))
         {
             Plugins.LoadOrder(HWindow, actKey);
             CloseKey(actKey);
         }
-        startupTiming.Mark("loaded plugin order");
 
         //---  Plugins
         if (OpenKey(salamander, SALAMANDER_PLUGINS, actKey)) // otherwise default values
@@ -4755,7 +4606,6 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             if (Configuration.ConfigVersion >= 6)
                 Plugins.Clear(); // does not even want default archivers ...
         }
-        startupTiming.Mark("loaded plugin registry metadata");
 
         //---  Packers & Unpackers
         if (OpenKey(salamander, SALAMANDER_PACKANDUNPACK, actKey))
@@ -4866,7 +4716,6 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         }
 
         Plugins.CheckData(); // adjust loaded data
-        startupTiming.Mark("loaded packers, unpackers and plugin data");
 
         //---  user menu
 
@@ -5032,7 +4881,6 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             CloseKey(actKey);
         }
 
-        startupTiming.Mark("loaded User Menu");
         IfExistSetSplashScreenText(LoadStr(IDS_STARTUP_CONFIG));
 
         //---  configuration
@@ -5790,8 +5638,6 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             CloseKey(actKey);
         }
 
-        startupTiming.Mark("loaded main configuration and constructed toolbars");
-
         //---  viewer
 
         if (OpenKey(salamander, SALAMANDER_VIEWER_REG, actKey))
@@ -5875,8 +5721,6 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             CloseKey(actKey);
         }
 
-        startupTiming.Mark("loaded viewer configuration");
-
         //---  left and right panel
 
         char leftPanelPath[MAX_PATH];
@@ -5890,19 +5734,15 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         // startup perform the same synchronous directory enumeration many times.
         RestoringPanelPaths = TRUE;
         LoadPanelConfig(leftPanelPath, cpsLeft, salamander, SALAMANDER_LEFTP_REG);
-        startupTiming.Mark("restored left panel configuration and paths");
         LoadPanelConfig(rightPanelPath, cpsRight, salamander, SALAMANDER_RIGHTP_REG);
-        startupTiming.Mark("restored right panel configuration and paths");
         RestoringPanelPaths = FALSE;
         if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
             RebuildSharedDirHistoryFromPanels();
-        startupTiming.Mark("rebuilt shared directory history");
 
         CloseKey(salamander);
         salamander = NULL;
 
         LoadSaveToRegistryMutex.Leave();
-        startupTiming.Mark("closed registry and released configuration mutex");
 
         //---  END OF LOADING CONFIGURATION
 
@@ -5914,32 +5754,11 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         // SetWindowPlacement reveals the window below; otherwise their intermediate state flashes
         // on screen and panel contents can visibly change immediately after startup.
         MSG msg;
-        DWORD queuedMessageCount = 0;
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
         {
-            ULONGLONG messageStarted = GetTickCount64();
             TranslateMessage(&msg);
             DispatchMessage(&msg);
-            ULONGLONG messageElapsed = GetTickCount64() - messageStarted;
-            if (messageElapsed >= 10)
-            {
-                char className[128];
-                className[0] = 0;
-                if (msg.hwnd != NULL)
-                    GetClassNameA(msg.hwnd, className, _countof(className));
-                char messageCheckpoint[320];
-                _snprintf_s(messageCheckpoint, _TRUNCATE,
-                            "slow queued message: msg=0x%04X hwnd=0x%p class=\"%s\" operation_ms=%llu",
-                            msg.message, msg.hwnd, className,
-                            (unsigned long long)messageElapsed);
-                startupTiming.Mark(messageCheckpoint);
-            }
-            queuedMessageCount++;
         }
-        char queuedMessagesCheckpoint[128];
-        _snprintf_s(queuedMessagesCheckpoint, _TRUNCATE,
-                    "dispatched %lu queued startup messages", queuedMessageCount);
-        startupTiming.Mark(queuedMessagesCheckpoint);
 
         // set the active panel according to command line parameters
         if (ret && cmdLineParams != NULL)
@@ -5985,7 +5804,6 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             SetMenuItemInfo(h, SC_MAXIMIZE, FALSE, &mii);
         }
 
-        startupTiming.Mark("about to close splash screen");
         SplashScreenCloseIfExist();
         if (Configuration.StatusArea)
             AddTrayIcon();
