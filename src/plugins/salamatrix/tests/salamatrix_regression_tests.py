@@ -158,10 +158,46 @@ def main() -> int:
     require(
         samandarin_entry,
         r"private void AddImageListImage\(string key, Image source\).*?"
-        r"CreateImageListBitmap\(source, _pluginImages\.ImageSize\).*?"
+        r"var bitmap = CreateImageListBitmap\(source, _pluginImages\.ImageSize\);.*?"
+        r"_pluginImageListSources\.Add\(key, bitmap\);.*?"
         r"_pluginImages\.Images\.Add\(key, bitmap\);.*?"
-        r"_ = _pluginImages\.Handle;",
-        "Samandarin Plugin Updates disposes images before ImageList copies them")
+        r"private void ClearImageListImages\(\).*?"
+        r"_pluginImages\.Images\.Clear\(\);.*?bitmap\.Dispose\(\);",
+        "Samandarin Plugin Updates does not retain ImageList source bitmaps")
+    require_absent(
+        samandarin_entry,
+        r"using var bitmap\s*=\s*CreateImageListBitmap",
+        "Samandarin Plugin Updates disposes ImageList source bitmaps too early")
+    salamander_solution = read("src/vcxproj/salamand.sln")
+    samandarin_managed_guid = r"\{B2CAEA75-EAA8-4B2F-AF57-E187CDDFD710\}"
+    for configuration in ("Debug", "Release", "Release clean"):
+        require(
+            salamander_solution,
+            samandarin_managed_guid + rf"\.{configuration}\|x64\.ActiveCfg = {configuration}\|x64.*?" +
+            samandarin_managed_guid + rf"\.{configuration}\|x64\.Build\.0 = {configuration}\|x64",
+            f"Samandarin.Managed {configuration}|x64 solution mapping does not build the x64 output")
+    samandarin_solution = read("src/plugins/samandarin/vcxproj/samandarin.sln")
+    standalone_managed_guid = r"\{E9F70914-3011-4D4F-9E79-3A9540A5E0F3\}"
+    for solution_configuration, project_configuration in (("Debug", "Debug"), ("Release", "Release"), ("Release clean", "Release clean"), ("SDK", "Release")):
+        require(
+            samandarin_solution,
+            standalone_managed_guid + rf"\.{solution_configuration}\|x64\.ActiveCfg = {project_configuration}\|x64.*?" +
+            standalone_managed_guid + rf"\.{solution_configuration}\|x64\.Build\.0 = {project_configuration}\|x64",
+            f"Standalone Samandarin solution maps {solution_configuration}|x64 managed build away from x64")
+    bootstrap_guid = r"\{0D11429A-8289-4BC2-B0CE-FCBD66A9F271\}"
+    for solution_text, solution_name in ((salamander_solution, "main"), (samandarin_solution, "standalone Samandarin")):
+        for configuration in ("Debug", "Release", "Release clean"):
+            require(
+                solution_text,
+                bootstrap_guid + rf"\.{configuration}\|x64\.ActiveCfg = {configuration}\|x64.*?" +
+                bootstrap_guid + rf"\.{configuration}\|x64\.Build\.0 = {configuration}\|x64",
+                f"{solution_name} solution maps ManagedBootstrap {configuration}|x64 away from x64")
+    require(
+        samandarin_managed_project,
+        r"CleanStagedSamandarinManagedAssembly.*?AfterTargets=\"Clean\".*?"
+        r"Condition=\"'\$\(Platform\)' == 'x64'\".*?"
+        r"Delete Files=\"\$\(SamandarinStagedPluginDir\)Samandarin\.Managed\.dll\"",
+        "Cleaning Samandarin.Managed does not remove its staged plugin assembly")
     require(
         samandarin_entry + samandarin_managed_project,
         r"DefaultPluginImageResource = \"OpenSalamander\.Plugin\.png\".*?"

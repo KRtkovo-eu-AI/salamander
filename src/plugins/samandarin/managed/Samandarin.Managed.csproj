@@ -30,6 +30,22 @@
              Properties="RestoreDuringBuild=true" />
   </Target>
 
+  <PropertyGroup Condition="'$(OPENSAL_BUILD_DIR)' != ''">
+    <SamandarinStagedBuildRoot>$([System.IO.Path]::Combine('$(OPENSAL_BUILD_DIR)', 'salamander'))\</SamandarinStagedBuildRoot>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(OPENSAL_BUILD_DIR)' == ''">
+    <SamandarinStagedBuildRoot>$(MSBuildThisFileDirectory)..\..\..\..\build\salamander\</SamandarinStagedBuildRoot>
+  </PropertyGroup>
+  <PropertyGroup>
+    <SamandarinStagedPluginDir>$(SamandarinStagedBuildRoot)$(Configuration)_$(Platform)\plugins\samandarin\</SamandarinStagedPluginDir>
+  </PropertyGroup>
+
+  <Target Name="CleanStagedSamandarinManagedAssembly"
+          AfterTargets="Clean"
+          Condition="'$(Platform)' == 'x64'">
+    <Delete Files="$(SamandarinStagedPluginDir)Samandarin.Managed.dll" />
+  </Target>
+
   <Target Name="GenerateSamandarinVersionSource" BeforeTargets="CoreCompile">
     <ReadLinesFromFile File="$(MSBuildThisFileDirectory)..\versinfo.rh2">
       <Output TaskParameter="Lines" ItemName="SamandarinVersInfoLines" />

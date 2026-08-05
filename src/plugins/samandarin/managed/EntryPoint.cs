@@ -1226,6 +1226,8 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
     private readonly ImageList _pluginImages;
     private readonly Dictionary<string, Image> _pluginImageSources =
         new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Bitmap> _pluginImageListSources =
+        new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _catalogImageKeys = new(StringComparer.OrdinalIgnoreCase);
     private readonly Label _detailNameValue;
     private readonly Label _detailAuthorValue;
@@ -1445,7 +1447,7 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
         if (_pluginImages.ImageSize != imageSize)
         {
             _listView.SmallImageList = null;
-            _pluginImages.Images.Clear();
+            ClearImageListImages();
             _pluginImages.ImageSize = imageSize;
             foreach (var pair in _pluginImageSources)
             {
@@ -1494,13 +1496,10 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
     private void DrawListViewImage(Graphics graphics, ListViewItem item, Rectangle bounds)
     {
         Image? image = null;
-        if (!string.IsNullOrEmpty(item.ImageKey) && _pluginImages.Images.ContainsKey(item.ImageKey))
+        if (!string.IsNullOrEmpty(item.ImageKey) &&
+            _pluginImageListSources.TryGetValue(item.ImageKey, out var imageSource))
         {
-            image = _pluginImages.Images[item.ImageKey];
-        }
-        else if (item.ImageIndex >= 0 && item.ImageIndex < _pluginImages.Images.Count)
-        {
-            image = _pluginImages.Images[item.ImageIndex];
+            image = imageSource;
         }
 
         if (image is null)
@@ -1943,14 +1942,31 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
 
     private void AddImageListImage(string key, Image source)
     {
-        using var bitmap =
-            CreateImageListBitmap(source, _pluginImages.ImageSize);
-        _pluginImages.Images.Add(key, bitmap);
+        var bitmap = CreateImageListBitmap(source, _pluginImages.ImageSize);
+        _pluginImageListSources.Add(key, bitmap);
+        try
+        {
+            // ImageList keeps this original managed bitmap until its native
+            // handle is created. Retain it even if WinForms recreates that
+            // handle while attaching the list to the ListView.
+            _pluginImages.Images.Add(key, bitmap);
+        }
+        catch
+        {
+            _pluginImageListSources.Remove(key);
+            bitmap.Dispose();
+            throw;
+        }
+    }
 
-        // ImageList keeps the original managed image until its native handle
-        // is created. Force that copy while bitmap is still alive; otherwise
-        // a later DPI resize can try to read the disposed temporary bitmap.
-        _ = _pluginImages.Handle;
+    private void ClearImageListImages()
+    {
+        _pluginImages.Images.Clear();
+        foreach (Bitmap bitmap in _pluginImageListSources.Values)
+        {
+            bitmap.Dispose();
+        }
+        _pluginImageListSources.Clear();
     }
 
     protected override void Dispose(bool disposing)
@@ -1958,6 +1974,9 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
         if (disposing)
         {
             CancelCatalogImageLoad();
+            _listView.SmallImageList = null;
+            ClearImageListImages();
+            _pluginImages.Dispose();
             foreach (Image image in _pluginImageSources.Values)
             {
                 image.Dispose();
