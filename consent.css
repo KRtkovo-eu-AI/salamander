@@ -44,8 +44,10 @@
 .consent-settings:focus-visible,
 .consent-banner a[data-consent-privacy]:focus-visible { outline: 2px solid #aaa; outline-offset: 2px; }
 .consent-settings { position: fixed; right: 18px; bottom: 18px; z-index: 99; padding: 5px 9px; font-size: .75rem; }
+.back-to-top { bottom: var(--consent-back-to-top-bottom, 24px); }
 
 @media (max-width: 520px) {
+  body { --consent-edge: 10px; }
   .consent-banner { right: 10px; bottom: 10px; width: calc(100vw - 20px); padding: 11px 12px; }
   .consent-settings { right: 10px; bottom: 10px; }
 }

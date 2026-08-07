@@ -140,6 +140,12 @@
     return "en";
   };
 
+  const updateBackToTopPosition = (banner, settings) => {
+    const visibleControl = banner.hidden ? (settings.hidden ? null : settings) : banner;
+    const height = visibleControl ? Math.ceil(visibleControl.getBoundingClientRect().height) : 0;
+    document.body.style.setProperty("--consent-back-to-top-bottom", `calc(var(--consent-edge, 18px) + ${height + 10}px)`);
+  };
+
   const init = () => {
     const privacyHref = location.pathname.includes("/salamatrix/") || location.pathname.includes("/catalogs/")
       ? "../privacy.html"
@@ -179,12 +185,14 @@
       render();
       banner.hidden = false;
       settings.hidden = true;
+      updateBackToTopPosition(banner, settings);
       banner.querySelector('[data-consent="accept"]').focus();
     };
 
     const hideBanner = () => {
       banner.hidden = true;
       settings.hidden = false;
+      updateBackToTopPosition(banner, settings);
     };
 
     banner.querySelector('[data-consent="accept"]').addEventListener("click", () => {
@@ -198,6 +206,7 @@
       hideBanner();
     });
     settings.addEventListener("click", showBanner);
+    window.addEventListener("resize", () => updateBackToTopPosition(banner, settings));
     window.addEventListener("samandarin:locale-change", render);
     render();
 
@@ -211,6 +220,7 @@
       loadAnalytics();
       showBanner();
     }
+    updateBackToTopPosition(banner, settings);
   };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });
