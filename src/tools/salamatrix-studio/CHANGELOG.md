@@ -1,5 +1,16 @@
 # Change Log
 
+## 0.1.5
+
+- Use the `KRtekTM` Marketplace publisher identity instead of the
+  `opensalamander` identity.
+
+## 0.1.4
+
+- Added a Marketplace-ready PNG extension icon and release metadata.
+- Expanded the extension README with installation, platform, security, and
+  publishing guidance.
+
 ## 0.1.3
 
 - Faithful indeterminate progress animation without a percentage label.

@@ -2039,12 +2039,23 @@ BOOL GetExplorerColumnTextForFile(const char* panelPath, const WCHAR* panelPathW
     if (fileData == NULL)
         return FALSE;
 
-    LoadExplorerColumns();
-    if (columnIndex < 0 || columnIndex >= ExplorerColumnsCount)
-        return FALSE;
-
     WCHAR pathW[SAL_MAX_PATH];
     if (!BuildExplorerColumnPathW(panelPath, panelPathW, fileData, pathW, SAL_MAX_PATH))
+        return FALSE;
+
+    return GetExplorerColumnTextForPathW(pathW, columnIndex, buffer, bufferSize);
+}
+
+BOOL GetExplorerColumnTextForPathW(const WCHAR* pathW, int columnIndex, char* buffer, int bufferSize)
+{
+    if (buffer == NULL || bufferSize <= 0)
+        return FALSE;
+    buffer[0] = 0;
+    if (pathW == NULL || pathW[0] == 0)
+        return FALSE;
+
+    LoadExplorerColumns();
+    if (columnIndex < 0 || columnIndex >= ExplorerColumnsCount)
         return FALSE;
 
     IPropertyStore* store = NULL;

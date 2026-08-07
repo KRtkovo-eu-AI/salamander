@@ -4,6 +4,39 @@ Salamatrix Studio is a developer-first Visual Studio Code and VSCodium
 extension for creating Open Salamander extensions. It is distributed as a
 standalone VSIX and does not require a running or installed Open Salamander.
 
+The extension is intended for developers who prefer to keep source code as the
+source of truth while using visual designers as a convenient layer for menus
+and Salamatrix UI dialogs.
+
+## Install
+
+In Visual Studio Code, open **Extensions**, choose the `...` menu, select
+**Install from VSIX...**, and choose the `salamatrix-studio-win32-x64-*.vsix`
+file. The same VSIX can be installed in VSCodium from the command palette or
+its Extensions view.
+
+The current package contains a native Windows x64 preview host. It supports
+Windows x64 only; ARM64 is reserved for a future package. A running
+Open Salamander installation and the Visual C++ Redistributable are not
+required. The preview host uses the static C/C++ runtime and is distributed
+inside the VSIX.
+
+## Quick start
+
+1. Open an empty folder or an existing extension repository in VS Code.
+2. Open **Salamatrix Studio** in the Activity Bar.
+3. Choose **Create New Extension** or **Add Existing Extension Folder**.
+4. Open **Overview** to inspect the manifest, **Menu Builder** to design
+   commands, or **Dialogs** to create and edit Salamatrix UI dialog documents.
+5. Use the editor actions to preview the dialog or generate runtime-specific
+   source code.
+
+Studio never overwrites existing project files during scaffolding. Generated
+   files are written below `generated/`; the original entry script remains
+   under the developer's control. Menu metadata is stored in
+   `.salamatrix/menu.json` and dialog source documents are stored in
+   `.salamatrix/dialogs/`.
+
 ## Implemented scope
 
 - creates functional extension projects for PowerShell, Python, Node.js, PHP,
@@ -51,6 +84,18 @@ npm run package
 `build/salamatrix-studio/` at the repository root. The project structure and
 native host protocol are architecture-neutral so a `win32-arm64` package can
 be added later.
+
+## Distribution and security
+
+The native preview executable is an independent PE file and should be
+Authenticode-signed by the publisher before packaging a release. The release
+workflow signs the executable first, verifies it with `signtool verify`, and
+only then creates the VSIX. The Visual Studio Marketplace applies its own
+package signature and malware scanning when the VSIX is published.
+
+For VSCodium, which uses Open VSX by default, publish the same signed VSIX to
+Open VSX or provide it through the project's release downloads. The official
+Visual Studio Marketplace remains the primary gallery for Visual Studio Code.
 
 ## Project files
 

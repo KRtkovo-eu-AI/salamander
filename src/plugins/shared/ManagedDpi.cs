@@ -15,12 +15,19 @@ namespace OpenSalamander;
 
 internal static class ManagedDpiTrace
 {
+    // Keep the diagnostics available for targeted DPI investigations without
+    // writing OpenSalamander.ManagedDpi.log during normal operation.
+    private static readonly bool Enabled = false;
+
     private static readonly object SyncRoot = new object();
     internal static readonly string LogPath =
         Path.Combine(Path.GetTempPath(), "OpenSalamander.ManagedDpi.log");
 
     internal static void Write(string eventName, Form form = null!, int messageDpi = 0)
     {
+        if (!Enabled)
+            return;
+
         try
         {
             IntPtr hwnd = form != null && form.IsHandleCreated
@@ -61,6 +68,9 @@ internal static class ManagedDpiTrace
 
     internal static void WriteWinFormsDpiState()
     {
+        if (!Enabled)
+            return;
+
         try
         {
             Type helper = typeof(Form).Assembly.GetType(

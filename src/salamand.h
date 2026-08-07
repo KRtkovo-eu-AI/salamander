@@ -338,6 +338,7 @@ void WINAPI InternalGetDescr();
 void WINAPI InternalGetExplorerColumn();
 BOOL GetExplorerColumnTextForFile(const char* panelPath, const WCHAR* panelPathW, const CFileData* fileData,
                                   int columnIndex, char* buffer, int bufferSize);
+BOOL GetExplorerColumnTextForPathW(const WCHAR* pathW, int columnIndex, char* buffer, int bufferSize);
 int GetExplorerColumnCount();
 const char* GetExplorerColumnName(int index);
 

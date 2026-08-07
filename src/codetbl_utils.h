@@ -10,6 +10,8 @@
 // makes the second argument authoritative for regional table auto-selection.
 DWORD GetConversionAutoCodePage(DWORD activeCodePage, DWORD systemLocaleCodePage);
 DWORD GetSystemLocaleAnsiCodePage();
+// Code page shown by conversion-table UI and used for regional auto-selection.
+DWORD GetEffectiveConversionCodePage();
 
 // The parser keeps this separate so conversion names can be normalized only
 // after the complete convert.cfg has supplied its metadata.
