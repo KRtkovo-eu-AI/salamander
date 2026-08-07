@@ -7,48 +7,48 @@
     en: {
       title: "Privacy settings",
       message: "Google Analytics helps us understand how the website is used. You can disable analytics at any time.",
-      accept: "Keep analytics",
-      reject: "Disable analytics",
+      accept: "Accept",
+      reject: "Reject",
       settings: "Privacy settings",
       privacy: "Read the privacy policy"
     },
     cs: {
       title: "Nastavení soukromí",
       message: "Google Analytics nám pomáhá pochopit používání webu. Analytiku můžete kdykoli vypnout.",
-      accept: "Ponechat analytiku",
-      reject: "Vypnout analytiku",
+      accept: "Přijmout",
+      reject: "Zakázat",
       settings: "Nastavení soukromí",
       privacy: "Přečíst zásady ochrany soukromí"
     },
     nl: {
       title: "Privacyinstellingen",
       message: "Google Analytics helpt ons te begrijpen hoe de website wordt gebruikt. U kunt analytics altijd uitschakelen.",
-      accept: "Analytics behouden",
-      reject: "Analytics uitschakelen",
+      accept: "Behouden",
+      reject: "Uitschakelen",
       settings: "Privacyinstellingen",
       privacy: "Privacybeleid lezen"
     },
     fr: {
       title: "Paramètres de confidentialité",
       message: "Google Analytics nous aide à comprendre l'utilisation du site. Vous pouvez désactiver les statistiques à tout moment.",
-      accept: "Garder les statistiques",
-      reject: "Désactiver les statistiques",
+      accept: "Garder",
+      reject: "Désactiver",
       settings: "Paramètres de confidentialité",
       privacy: "Lire la politique de confidentialité"
     },
     de: {
       title: "Datenschutzeinstellungen",
       message: "Google Analytics hilft uns zu verstehen, wie die Website genutzt wird. Sie können die Analyse jederzeit deaktivieren.",
-      accept: "Analyse beibehalten",
-      reject: "Analyse deaktivieren",
+      accept: "Beibehalten",
+      reject: "Deaktivieren",
       settings: "Datenschutzeinstellungen",
       privacy: "Datenschutzerklärung lesen"
     },
     hu: {
       title: "Adatvédelmi beállítások",
       message: "A Google Analytics segít megérteni a webhely használatát. Az analitika bármikor kikapcsolható.",
-      accept: "Analitika megtartása",
-      reject: "Analitika kikapcsolása",
+      accept: "Megtartása",
+      reject: "Kikapcsolása",
       settings: "Adatvédelmi beállítások",
       privacy: "Adatvédelmi tájékoztató"
     },
@@ -63,32 +63,32 @@
     ro: {
       title: "Setări de confidențialitate",
       message: "Google Analytics ne ajută să înțelegem modul în care este utilizat site-ul. Puteți dezactiva analiza oricând.",
-      accept: "Păstrează analiza",
-      reject: "Dezactivează analiza",
+      accept: "Păstrează",
+      reject: "Dezactivează",
       settings: "Setări de confidențialitate",
       privacy: "Citește politica de confidențialitate"
     },
     ru: {
       title: "Настройки конфиденциальности",
       message: "Google Analytics помогает понять, как используется сайт. Аналитику можно отключить в любое время.",
-      accept: "Оставить аналитику",
-      reject: "Отключить аналитику",
+      accept: "Оставить",
+      reject: "Отключить",
       settings: "Настройки конфиденциальности",
       privacy: "Читать политику конфиденциальности"
     },
     sk: {
       title: "Nastavenia súkromia",
       message: "Google Analytics nám pomáha pochopiť používanie webu. Analytiku môžete kedykoľvek vypnúť.",
-      accept: "Ponechať analytiku",
-      reject: "Vypnúť analytiku",
+      accept: "Ponechať",
+      reject: "Vypnúť",
       settings: "Nastavenia súkromia",
       privacy: "Prečítať zásady ochrany súkromia"
     },
     es: {
       title: "Configuración de privacidad",
       message: "Google Analytics nos ayuda a entender cómo se utiliza el sitio web. Puedes desactivar la analítica en cualquier momento.",
-      accept: "Mantener analítica",
-      reject: "Desactivar analítica",
+      accept: "Mantener",
+      reject: "Desactivar",
       settings: "Configuración de privacidad",
       privacy: "Leer la política de privacidad"
     }

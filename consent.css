@@ -34,7 +34,7 @@
 .consent-banner button:focus-visible,
 .consent-settings:hover,
 .consent-settings:focus-visible { color: #fff; background: #484848; }
-.consent-banner button[data-consent="reject"] { color: #bdbdbd; background: #2d2d2d; border-color: #454545; }
+.consent-banner button[data-consent="reject"] { color: #bdbdbd; background: #2d2d2d; border-color: #454545; margin: auto 1em auto 1em; }
 .consent-banner button[data-consent="reject"]:hover,
 .consent-banner button[data-consent="reject"]:focus-visible { background: #3b3b3b; }
 .consent-banner a[data-consent-privacy] { min-width: 0; color: #bdbdbd; font-size: .78rem; line-height: 1.2; text-decoration: underline; overflow-wrap: anywhere; }
