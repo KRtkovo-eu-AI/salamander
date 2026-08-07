@@ -172,6 +172,7 @@ a:hover .runtime-pill span, a:hover .runtime-pill strong { text-decoration: none
 .studio-hero { grid-template-columns: minmax(0, .92fr) minmax(360px, 1.08fr); }
 .studio-hero .hero-panel__visual { align-self: stretch; display: grid; place-items: center; }
 .studio-hero .hero-panel__visual img { width: 100%; max-width: 560px; }
+.studio-hero .hero-panel__visual .compatibility-badge { height: auto; width: 120px; max-width: 120px; padding: 0; bottom: 0; }
 .studio-badge { display: inline-block; margin-left: .45rem; padding: .2rem .45rem; color: #171717; background: #f3b43f; border-radius: 3px; font-size: .7rem; font-weight: 800; vertical-align: middle; }
 .studio-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 18px 0 30px; }
 .studio-fact { padding: 15px; background: linear-gradient(145deg, #303030, #242424); border: 1px solid #4a4a4a; border-top: 3px solid #e02e2e; border-radius: 6px; }
