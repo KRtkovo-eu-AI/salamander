@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { copyFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const outputDirectory = fileURLToPath(
@@ -12,3 +12,11 @@ execFileSync(process.execPath, [vsce, 'package', '--target', 'win32-x64', '--out
   cwd: new URL('.', import.meta.url),
   stdio: 'inherit',
 });
+
+// Keep the human-readable release notes beside the VSIX for GitHub Releases
+// and manual installation. The same README is also included inside the VSIX
+// by vsce.
+copyFileSync(
+  fileURLToPath(new URL('./README.md', import.meta.url)),
+  fileURLToPath(new URL('../../../build/salamatrix-studio/README.md', import.meta.url)),
+);

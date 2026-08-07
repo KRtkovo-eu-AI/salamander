@@ -2,9 +2,18 @@
   "name": "salamatrix-studio",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "publisher": "opensalamander",
   "license": "GPL-2.0-or-later",
+  "icon": "resources/studio.png",
+  "homepage": "https://github.com/KRtkovo-eu-AI/salamander/tree/master/src/tools/salamatrix-studio",
+  "bugs": {
+    "url": "https://github.com/KRtkovo-eu-AI/salamander/issues"
+  },
+  "galleryBanner": {
+    "color": "#0d1117",
+    "theme": "dark"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/KRtkovo-eu-AI/salamander.git",

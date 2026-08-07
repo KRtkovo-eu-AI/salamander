@@ -13,3 +13,4 @@ package-lock.json
 dist/**/*.map
 preview-host/**
 native/**/*.pdb
+native/**/*.Signed.exe
