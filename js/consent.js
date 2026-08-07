@@ -6,19 +6,91 @@
   const copy = {
     en: {
       title: "Privacy settings",
-      message: "Optional Google Analytics helps us understand how the website is used.",
-      accept: "Allow analytics",
-      reject: "Reject analytics",
+      message: "Google Analytics helps us understand how the website is used. You can disable analytics at any time.",
+      accept: "Keep analytics",
+      reject: "Disable analytics",
       settings: "Privacy settings",
       privacy: "Read the privacy policy"
     },
     cs: {
       title: "Nastavení soukromí",
-      message: "Volitelná analytika Google nám pomáhá pochopit používání webu.",
-      accept: "Povolit analytiku",
-      reject: "Odmítnout analytiku",
+      message: "Google Analytics nám pomáhá pochopit používání webu. Analytiku můžete kdykoli vypnout.",
+      accept: "Ponechat analytiku",
+      reject: "Vypnout analytiku",
       settings: "Nastavení soukromí",
       privacy: "Přečíst zásady ochrany soukromí"
+    },
+    nl: {
+      title: "Privacyinstellingen",
+      message: "Google Analytics helpt ons te begrijpen hoe de website wordt gebruikt. U kunt analytics altijd uitschakelen.",
+      accept: "Analytics behouden",
+      reject: "Analytics uitschakelen",
+      settings: "Privacyinstellingen",
+      privacy: "Privacybeleid lezen"
+    },
+    fr: {
+      title: "Paramètres de confidentialité",
+      message: "Google Analytics nous aide à comprendre l'utilisation du site. Vous pouvez désactiver les statistiques à tout moment.",
+      accept: "Garder les statistiques",
+      reject: "Désactiver les statistiques",
+      settings: "Paramètres de confidentialité",
+      privacy: "Lire la politique de confidentialité"
+    },
+    de: {
+      title: "Datenschutzeinstellungen",
+      message: "Google Analytics hilft uns zu verstehen, wie die Website genutzt wird. Sie können die Analyse jederzeit deaktivieren.",
+      accept: "Analyse beibehalten",
+      reject: "Analyse deaktivieren",
+      settings: "Datenschutzeinstellungen",
+      privacy: "Datenschutzerklärung lesen"
+    },
+    hu: {
+      title: "Adatvédelmi beállítások",
+      message: "A Google Analytics segít megérteni a webhely használatát. Az analitika bármikor kikapcsolható.",
+      accept: "Analitika megtartása",
+      reject: "Analitika kikapcsolása",
+      settings: "Adatvédelmi beállítások",
+      privacy: "Adatvédelmi tájékoztató"
+    },
+    zhHans: {
+      title: "隐私设置",
+      message: "Google Analytics 帮助我们了解网站的使用情况。您可以随时停用分析功能。",
+      accept: "保留分析功能",
+      reject: "停用分析功能",
+      settings: "隐私设置",
+      privacy: "阅读隐私政策"
+    },
+    ro: {
+      title: "Setări de confidențialitate",
+      message: "Google Analytics ne ajută să înțelegem modul în care este utilizat site-ul. Puteți dezactiva analiza oricând.",
+      accept: "Păstrează analiza",
+      reject: "Dezactivează analiza",
+      settings: "Setări de confidențialitate",
+      privacy: "Citește politica de confidențialitate"
+    },
+    ru: {
+      title: "Настройки конфиденциальности",
+      message: "Google Analytics помогает понять, как используется сайт. Аналитику можно отключить в любое время.",
+      accept: "Оставить аналитику",
+      reject: "Отключить аналитику",
+      settings: "Настройки конфиденциальности",
+      privacy: "Читать политику конфиденциальности"
+    },
+    sk: {
+      title: "Nastavenia súkromia",
+      message: "Google Analytics nám pomáha pochopiť používanie webu. Analytiku môžete kedykoľvek vypnúť.",
+      accept: "Ponechať analytiku",
+      reject: "Vypnúť analytiku",
+      settings: "Nastavenia súkromia",
+      privacy: "Prečítať zásady ochrany súkromia"
+    },
+    es: {
+      title: "Configuración de privacidad",
+      message: "Google Analytics nos ayuda a entender cómo se utiliza el sitio web. Puedes desactivar la analítica en cualquier momento.",
+      accept: "Mantener analítica",
+      reject: "Desactivar analítica",
+      settings: "Configuración de privacidad",
+      privacy: "Leer la política de privacidad"
     }
   };
 
@@ -53,8 +125,19 @@
 
   const getLocale = () => {
     const i18nLocale = window.SamandarinI18n?.getLocale?.();
-    if (i18nLocale) return i18nLocale === "cs" ? "cs" : "en";
-    return (document.documentElement.lang || navigator.language || "en").toLowerCase().startsWith("cs") ? "cs" : "en";
+    if (i18nLocale && copy[i18nLocale]) return i18nLocale;
+    const documentLocale = (document.documentElement.lang || navigator.language || "en").toLowerCase();
+    if (documentLocale.startsWith("cs")) return "cs";
+    if (documentLocale.startsWith("nl")) return "nl";
+    if (documentLocale.startsWith("fr")) return "fr";
+    if (documentLocale.startsWith("de")) return "de";
+    if (documentLocale.startsWith("hu")) return "hu";
+    if (documentLocale.startsWith("zh")) return "zhHans";
+    if (documentLocale.startsWith("ro")) return "ro";
+    if (documentLocale.startsWith("ru")) return "ru";
+    if (documentLocale.startsWith("sk")) return "sk";
+    if (documentLocale.startsWith("es")) return "es";
+    return "en";
   };
 
   const init = () => {
@@ -125,6 +208,7 @@
     } else if (consent === "denied") {
       settings.hidden = false;
     } else {
+      loadAnalytics();
       showBanner();
     }
   };
