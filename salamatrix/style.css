@@ -167,6 +167,34 @@ a:hover .runtime-pill span, a:hover .runtime-pill strong { text-decoration: none
 .back-to-top:hover { color: #ffffff; background: linear-gradient(#f35353, #e02e2e); text-decoration: none; }
 .textCenter { text-align: center; }
 
+/* Salamatrix Studio landing page */
+.studio-header-vscode { color: #999; font-size: 1.35rem; font-weight: 600; }
+.studio-hero { grid-template-columns: minmax(0, .92fr) minmax(360px, 1.08fr); }
+.studio-hero .hero-panel__visual { align-self: stretch; display: grid; place-items: center; }
+.studio-hero .hero-panel__visual img { width: 100%; max-width: 560px; }
+.studio-badge { display: inline-block; margin-left: .45rem; padding: .2rem .45rem; color: #171717; background: #f3b43f; border-radius: 3px; font-size: .7rem; font-weight: 800; vertical-align: middle; }
+.studio-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 18px 0 30px; }
+.studio-fact { padding: 15px; background: linear-gradient(145deg, #303030, #242424); border: 1px solid #4a4a4a; border-top: 3px solid #e02e2e; border-radius: 6px; }
+.studio-fact strong { display: block; margin-bottom: 5px; color: #fff; }
+.studio-fact span { color: var(--sam-muted); font-size: .84rem; }
+.studio-feature-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 18px 0 30px; }
+.studio-feature { padding: 18px; background: #2b2b2b; border: 1px solid #464646; border-left: 3px solid #e02e2e; border-radius: 5px; }
+.studio-feature h3 { margin: 0 0 8px; color: #eee; font-size: 1.05rem; }
+.studio-feature p { margin: 0; color: var(--sam-muted); font-size: .9rem; }
+.studio-gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 18px 0 30px; }
+.studio-shot { margin: 0; padding: 10px; background: #292929; border: 1px solid #484848; border-radius: 5px; }
+.studio-shot--wide { grid-column: 1 / -1; }
+.studio-shot img { width: 100%; margin: 0; }
+.studio-shot figcaption { padding: 10px 3px 2px; color: var(--sam-muted); font-size: .84rem; }
+.studio-shot figcaption strong { display: block; margin-bottom: 3px; color: #fff; }
+.studio-install { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(250px, .85fr); gap: 18px; align-items: start; margin: 18px 0 30px; padding: 20px; background: linear-gradient(135deg, #2e2424, #221a1a); border: 1px solid #e02e2e; border-radius: 6px; }
+.studio-install h3 { margin: 0 0 10px; color: #fff; }
+.studio-install ol { margin-bottom: 0; }
+.studio-install__facts { display: grid; gap: 8px; }
+.studio-install__facts span { padding: 10px 12px; color: var(--sam-muted); background: rgba(15,15,15,.58); border: 1px solid #46515a; border-radius: 4px; font-size: .82rem; }
+.studio-install__facts b { color: #f35353; }
+@media (max-width: 860px) { .studio-hero, .studio-install { grid-template-columns: 1fr; } .studio-facts, .studio-feature-grid, .studio-gallery { grid-template-columns: 1fr; } .studio-shot--wide { grid-column: auto; } }
+
 /* Salamatrix.UI reference */
 .ui-hero { grid-template-columns: minmax(0, .9fr) minmax(430px, 1.1fr); }
 .ui-window-demo { min-height: 350px; display: grid; place-items: center; }

@@ -101,8 +101,7 @@ a[aria="button"] { display: inline-block; margin: 4px 4px 4px 0; padding: 7px 13
 a[aria="button"]:hover { color: #000; background: linear-gradient(#ffc773, #eda33c); text-decoration: none; }
 .back-to-top { position: fixed; right: 24px; bottom: 24px; z-index: 20; display: grid; place-items: center; width: 44px; height: 44px; color: #1b1100; background: linear-gradient(#ffb950, #fd9506); border: 1px solid #ffb950; border-radius: 50%; box-shadow: 0 10px 24px rgba(0,0,0,.45); font-size: 1.45rem; font-weight: 700; line-height: 1; text-decoration: none; opacity: 0; pointer-events: none; transform: translateY(12px); transition: opacity .18s ease, transform .18s ease, background .18s ease; }
 .back-to-top--visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
-.back-to-top:hover,
-.back-to-top:focus { color: #000; background: linear-gradient(#ffc773, #eda33c); text-decoration: none; }
+.back-to-top:hover { color: #000; background: linear-gradient(#ffc773, #eda33c); text-decoration: none; }
 .textCenter { text-align: center; }
 
 @media (max-width: 860px) { :root { --site-header-height: 172px; } [id] { scroll-margin-top: 0; } body { margin: 0; border-radius: 0; padding: 0 16px 20px; } .site-header { position: static; width: auto; min-height: 0; margin: 0 -16px 22px; padding-inline: 16px; background: linear-gradient(#f4f7fb10, transparent); border: 0; border-bottom: 1px solid #171717; border-radius: 0; box-shadow: none; transform: none; transition: none; } main { padding-top: 0; } .site-header__row, .hero-panel { display: block; } .hero-panel { padding: 18px; } .hero-panel h2 { font-size: 1.8rem; } .section-nav a { flex: 1 1 auto; text-align: center; } .section-nav__item { flex: 1 1 auto; } .section-nav__submenu { left: 50%; transform: translateX(-50%); } .site-branding #description-text { margin: 6px 0 0; } }
