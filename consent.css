@@ -3,42 +3,43 @@
   right: 18px;
   bottom: 18px;
   z-index: 100;
-  width: min(560px, calc(100vw - 36px));
-  padding: 18px;
+  width: min(500px, calc(100vw - 36px));
+  padding: 14px 16px;
   color: var(--sam-text, #eee);
-  background: linear-gradient(#303030, #1c1c1c);
-  border: 1px solid var(--sam-accent-border, #a96508);
+  background: linear-gradient(#2a2a2a, #202020);
+  border: 1px solid #484848;
   border-radius: 7px;
-  box-shadow: 0 14px 34px rgba(0, 0, 0, .58), inset 0 1px rgba(255, 255, 255, .06);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .48), inset 0 1px rgba(255, 255, 255, .045);
 }
 
 .consent-banner[hidden],
 .consent-settings[hidden] { display: none; }
-.consent-banner h2 { margin: 0 0 8px; padding: 0; border: 0; color: #fff; font-size: 1.1rem; }
+.consent-banner h2 { margin: 0 0 6px; padding: 0; border: 0; color: #e5e5e5; font-size: 1rem; }
 .consent-banner h2::before { content: none; }
-.consent-banner p { margin: 0 0 14px; color: var(--sam-muted, #b6b6b6); font-size: .88rem; }
+.consent-banner p { margin: 0 0 11px; color: #aaa; font-size: .82rem; }
 .consent-banner__actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .consent-banner button,
 .consent-settings {
-  padding: 7px 12px;
-  color: #1b1100;
-  background: linear-gradient(#ffb950, #fd9506);
-  border: 1px solid #fd9506;
+  padding: 6px 10px;
+  color: #dedede;
+  background: #383838;
+  border: 1px solid #565656;
   border-radius: 4px;
   font: inherit;
-  font-weight: 700;
+  font-size: .8rem;
+  font-weight: 600;
   cursor: pointer;
 }
 .consent-banner button:hover,
 .consent-banner button:focus-visible,
 .consent-settings:hover,
-.consent-settings:focus-visible { color: #000; background: linear-gradient(#ffc773, #eda33c); }
-.consent-banner button[data-consent="reject"] { color: var(--sam-text, #eee); background: #353535; border-color: var(--sam-border, #3f3f3f); }
+.consent-settings:focus-visible { color: #fff; background: #484848; }
+.consent-banner button[data-consent="reject"] { color: #bdbdbd; background: #2d2d2d; border-color: #454545; }
 .consent-banner button[data-consent="reject"]:hover,
-.consent-banner button[data-consent="reject"]:focus-visible { background: #454545; }
+.consent-banner button[data-consent="reject"]:focus-visible { background: #3b3b3b; }
 .consent-banner button:focus-visible,
-.consent-settings:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-.consent-settings { position: fixed; right: 18px; bottom: 18px; z-index: 99; padding: 5px 9px; font-size: .78rem; }
+.consent-settings:focus-visible { outline: 2px solid #aaa; outline-offset: 2px; }
+.consent-settings { position: fixed; right: 18px; bottom: 18px; z-index: 99; padding: 5px 9px; font-size: .75rem; }
 
 @media (max-width: 520px) {
   .consent-banner { right: 10px; bottom: 10px; width: calc(100vw - 20px); padding: 14px; }
