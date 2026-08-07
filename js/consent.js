@@ -6,7 +6,7 @@
   const copy = {
     en: {
       title: "Privacy settings",
-      message: "We use Google Analytics to understand how the website is used. Analytics cookies are optional and are disabled until you choose to allow them.",
+      message: "Optional Google Analytics helps us understand how the website is used.",
       accept: "Allow analytics",
       reject: "Reject analytics",
       settings: "Privacy settings",
@@ -14,7 +14,7 @@
     },
     cs: {
       title: "Nastavení soukromí",
-      message: "Google Analytics používáme k pochopení toho, jak se web používá. Analytické cookies jsou volitelné a do vašeho souhlasu jsou vypnuté.",
+      message: "Volitelná analytika Google nám pomáhá pochopit používání webu.",
       accept: "Povolit analytiku",
       reject: "Odmítnout analytiku",
       settings: "Nastavení soukromí",
