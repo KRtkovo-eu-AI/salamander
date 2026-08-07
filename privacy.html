@@ -175,15 +175,7 @@
     }
   </style>
   
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-TEYDRMS9P4"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-
-    gtag('config', 'G-TEYDRMS9P4');
-  </script>
+  <link rel="stylesheet" href="consent.css">
 </head>
 <body>
   <div class="page">
@@ -203,7 +195,7 @@
       </dl>
 
       <p class="summary">
-        <strong>Summary:</strong> Open Salamander: Samandarin is a local desktop file manager. It does not include developer-operated telemetry, analytics, advertising tracking, user accounts, or cloud synchronization. The application works with files, folders, plugins, archives, network locations, and configuration data only as part of the file-management actions initiated by the user.
+        <strong>Summary:</strong> Open Salamander: Samandarin is a local desktop file manager. The project website optionally uses Google Analytics after the visitor grants consent; the desktop application itself does not include developer-operated telemetry, analytics, advertising tracking, user accounts, or cloud synchronization.
       </p>
 
       <h2>1. Overview</h2>
@@ -216,7 +208,7 @@
         Open Salamander: Samandarin does not require a user account and does not intentionally collect, sell, rent, or share personal data with the developer.
       </p>
       <p>
-        The application does not include developer-operated telemetry or analytics. It does not send usage statistics, advertising identifiers, crash reports, personally identifiable information, local file contents, folder listings, credentials, application history, or configuration data to the developer.
+        The desktop application does not include developer-operated telemetry or analytics. It does not send usage statistics, advertising identifiers, crash reports, personally identifiable information, local file contents, folder listings, credentials, application history, or configuration data to the developer.
       </p>
 
       <h2>3. Local file and folder access</h2>
@@ -267,7 +259,7 @@
 
       <h2>7. Third-party services</h2>
       <p>
-        The application does not integrate with third-party advertising, analytics, or data collection services. It may link to third-party websites or services, such as GitHub project pages, plugin homepages, download pages, FTP servers, or other network resources selected by the user.
+        The desktop application does not integrate with third-party advertising, analytics, or data collection services. Separately, the project website uses Google Analytics 4 only when a visitor opts in through the consent banner. Google may process standard website usage information, such as page views, approximate location, browser information, and online identifiers, under Google's own privacy terms. Visitors can reject analytics or later reopen Privacy settings to withdraw consent.
       </p>
       <p>
         Third-party websites and services are governed by their own privacy policies and server logging practices.
@@ -324,5 +316,6 @@
       </p>
     </main>
   </div>
+  <script src="js/consent.js" defer></script>
 </body>
 </html>
