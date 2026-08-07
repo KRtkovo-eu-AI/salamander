@@ -3,3 +3,4 @@ Allow: /
 Disallow: /download/
 
 Sitemap: https://samandarin.krtkovo.eu/sitemap.xml
+Sitemap: https://samandarin.krtkovo.eu/sitemap.txt
