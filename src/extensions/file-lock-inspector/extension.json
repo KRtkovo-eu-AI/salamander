@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "OpenSalamander.FileLockInspector",
   "name": "File Lock Inspector",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Find processes that prevent selected files from being changed, moved, or deleted.",
   "runtime": "PowerShell",
   "entryPoint": "main.ps1",

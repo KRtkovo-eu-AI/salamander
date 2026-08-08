@@ -2,7 +2,7 @@
   "name": "salamatrix-studio",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "KRtekTM",
   "license": "GPL-2.0-or-later",
   "icon": "resources/studio.png",
