@@ -349,7 +349,7 @@ const char* SALCF_FAKE_REALPATH = "SalFakeRealPath";
 const char* SALCF_FAKE_SRCTYPE = "SalFakeSrcType";
 const char* SALCF_FAKE_SRCFSPATH = "SalFakeSrcFSPath";
 
-const char* MAINWINDOW_NAME = "Open Salamander 5.0 Samandarin 0.2";
+const char* MAINWINDOW_NAME = "Open Salamander 5.0 Samandarin";
 const char* CMAINWINDOW_CLASSNAME = "SalamanderMainWindowVer25";
 static const wchar_t* CMAINWINDOW_CLASSNAMEW = L"SalamanderMainWindowVer25";
 const char* SAVEBITS_CLASSNAME = "SalamanderSaveBits";
