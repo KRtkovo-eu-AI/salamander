@@ -47,9 +47,9 @@ export function createExtensionScaffold(spec: ExtensionScaffoldSpec): ScaffoldFi
     contextMenu: false, toolbar: false, requires: 'any', enabled: true, visible: true,
   };
   const manifest: ExtensionManifest = {
-    schema: 1, id: spec.id, name: spec.name, version: '1.0.0', description: spec.description,
+    schemaVersion: 2, id: spec.id, name: spec.name, version: '1.0.0', description: spec.description,
     runtime: spec.runtime, entryPoint: template.entryPoint, icon: 'icon.svg', iconDark: 'icon-dark.svg',
-    capabilities: ['ui.notify'], commands: [command],
+    capabilities: ['ui.dialogs'], commands: [command],
   };
   const menu: MenuDocument = {
     schema: 1, generatedBy: 'SalamatrixStudio', commands: [{ handler: 'run', action: 'custom' }],

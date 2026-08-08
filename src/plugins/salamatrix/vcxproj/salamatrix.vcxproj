@@ -184,6 +184,7 @@
     <ClInclude Include="..\..\shared\spl_base.h" />
     <ClInclude Include="..\..\shared\spl_com.h" />
     <ClInclude Include="..\..\shared\spl_gen.h" />
+    <ClInclude Include="..\..\shared\spl_fs.h" />
     <ClInclude Include="..\..\shared\spl_menu.h" />
     <ClInclude Include="..\..\shared\spl_thum.h" />
     <ClInclude Include="..\..\shared\spl_vers.h" />

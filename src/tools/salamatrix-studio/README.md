@@ -54,6 +54,8 @@ Studio never overwrites existing project files during scaffolding. Generated
 - saves project-local dialog templates and creates dialogs from them;
 - provides separate visual Overview and Menu Builder tabs while preserving
   manifest fields outside their visual surface;
+- scaffolds `schemaVersion: 2` manifests and preserves typed `viewers[]` and
+  `fileSystems[]` role declarations, including FS item actions and SVG artwork;
 - stores Studio-owned menu action metadata in `.salamatrix/menu.json`, previews
   plugin/context/toolbar placements with light or dark SVG icons, and can
   generate simple Program, Open, Command Line, and PowerShell actions;

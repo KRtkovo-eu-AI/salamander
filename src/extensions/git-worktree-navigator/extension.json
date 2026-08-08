@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schemaVersion": 1,
   "id": "OpenSalamander.GitWorktreeNavigator",
   "name": "Git Worktree Navigator",
   "version": "1.0.0",
@@ -11,8 +11,7 @@
   "capabilities": [
     "panels.read",
     "panels.write",
-    "ui.dialogs",
-    "ui.progress"
+    "ui.dialogs"
   ],
   "locales": {
     "en": "locales/en.json",

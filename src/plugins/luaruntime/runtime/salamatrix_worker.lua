@@ -247,13 +247,14 @@ local options = {
     entry = nil,
     command_id = "",
     command_handler = "",
+    invocation_json = "{}",
     one_shot = false
 }
 local index = 1
 while index <= #arg do
     local name = arg[index]
     if name == "--entry" or name == "--command-id" or
-       name == "--command-handler" then
+       name == "--command-handler" or name == "--invocation-json" then
         if index == #arg then error("Missing value for " .. name) end
         local key = name:sub(3):gsub("-", "_")
         options[key] = arg[index + 1]
@@ -392,6 +393,14 @@ for lua_name, host_name in pairs({
     file_operations[lua_name] = function()
         return host_call("salamander.fileOperations." .. host_name, {}).result
     end
+end
+
+local file_system = {}
+function file_system.add_item(id, name, options)
+    local arguments = options or {}
+    arguments.id = tostring(id)
+    arguments.name = tostring(name)
+    return host_call("salamander.fileSystem.addItem", arguments).added == true
 end
 
 local sides = {}
@@ -759,9 +768,11 @@ end
 Salamander = {
     command_id = options.command_id,
     command_handler = options.command_handler,
+    invocation = decode_json(options.invocation_json),
     commands = commands,
     storage = storage,
     file_operations = file_operations,
+    file_system = file_system,
     sides = sides,
     left_side = side_view("left"),
     right_side = side_view("right"),

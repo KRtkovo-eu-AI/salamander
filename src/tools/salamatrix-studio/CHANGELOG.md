@@ -4,6 +4,8 @@
 
 - Use the `KRtekTM` Marketplace publisher identity instead of the
   `opensalamander` identity.
+- Scaffold Salamatrix manifest schema 2 and type Viewer and simple file-system
+  role declarations instead of emitting the obsolete `schema` field.
 
 ## 0.1.4
 

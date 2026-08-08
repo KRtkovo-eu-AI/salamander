@@ -15,8 +15,31 @@ export interface ExtensionCommand {
   [key: string]: unknown;
 }
 
+export interface ExtensionViewer {
+  patterns: string[];
+  handler: string;
+}
+
+export interface ExtensionFileSystemAction {
+  id: string;
+  title: string;
+  handler: string;
+  default?: boolean;
+}
+
+export interface ExtensionFileSystem {
+  id: string;
+  name: string;
+  listHandler: string;
+  openHandler?: string;
+  icon?: string;
+  iconDark?: string;
+  refreshIntervalMs?: number;
+  actions?: ExtensionFileSystemAction[];
+}
+
 export interface ExtensionManifest {
-  schema?: number;
+  schemaVersion?: 1 | 2;
   id: string;
   name: string;
   version: string;
@@ -25,6 +48,8 @@ export interface ExtensionManifest {
   entryPoint: string;
   capabilities?: string[];
   commands?: ExtensionCommand[];
+  viewers?: ExtensionViewer[];
+  fileSystems?: ExtensionFileSystem[];
   [key: string]: unknown;
 }
 
@@ -35,6 +60,7 @@ export function parseManifest(text: string): ExtensionManifest {
 export function validateManifest(value: unknown): ExtensionManifest {
   if (!value || typeof value !== 'object') throw new Error('extension.json must contain a JSON object.');
   const manifest = value as Partial<ExtensionManifest>;
+  if (manifest.schemaVersion !== undefined && ![1, 2].includes(manifest.schemaVersion)) throw new Error('Unsupported manifest schemaVersion.');
   for (const field of ['id', 'name', 'version', 'entryPoint'] as const) {
     if (typeof manifest[field] !== 'string' || manifest[field].length === 0) throw new Error(`Manifest field '${field}' is required.`);
   }
@@ -50,5 +76,7 @@ export function validateManifest(value: unknown): ExtensionManifest {
     if (command.requires && !['any', 'disk', 'focused', 'file', 'selection'].includes(command.requires)) throw new Error(`Invalid command requirement: ${command.requires}`);
     if (command.toolbarMenu && !command.toolbar) throw new Error('toolbarMenu requires toolbar to be enabled.');
   }
+  if (manifest.viewers !== undefined && (!Array.isArray(manifest.viewers) || manifest.schemaVersion !== 2)) throw new Error('Manifest viewers require schemaVersion 2.');
+  if (manifest.fileSystems !== undefined && (!Array.isArray(manifest.fileSystems) || manifest.schemaVersion !== 2)) throw new Error('Manifest fileSystems require schemaVersion 2.');
   return manifest as ExtensionManifest;
 }

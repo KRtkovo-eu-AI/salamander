@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -51,6 +51,9 @@ static BOOL CreateRuntimeServices()
              SalamanderGeneral,
              SalamatrixRuntime->Runtimes(),
              SalamatrixRuntime->Extensions(),
+             SalamatrixRuntime->Commands(),
+             SalamatrixRuntime->FileOperations(),
+             SalamatrixRuntime->Events(),
              SalamatrixRuntime->Sides(),
              SalamatrixRuntime->Storage(),
              SalamatrixRuntime->UI()))
@@ -114,6 +117,8 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     salamander->SetBasicPluginData(PluginNameEN,
                                    FUNCTION_AUTOMATIONFRAMEWORK |
                                        FUNCTION_DYNAMICMENUEXT |
+                                       FUNCTION_VIEWER |
+                                       FUNCTION_FILESYSTEM |
                                        FUNCTION_LOADSAVECONFIGURATION,
                                    VERSINFO_VERSION_NO_PLATFORM, VERSINFO_COPYRIGHT,
                                    VERSINFO_DESCRIPTION,
@@ -160,7 +165,12 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
     // connected, so Plugin Manager does not retain an early waiting-for-runtime
     // classification from a provider-order race.
     if (SalamatrixPackages != NULL)
+    {
         SalamatrixPackages->Refresh();
+        SalamatrixPackages->RegisterViewerMasks(salamander);
+    }
+    salamander->SetChangeDriveMenuItem(
+        SalamanderGeneral->LoadStr(DLLInstance, IDS_FS_CHANGE_DRIVE), 0);
 
     if (SalamanderGUI != NULL)
     {
@@ -250,4 +260,18 @@ BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL force)
 CPluginInterfaceForMenuExtAbstract* WINAPI CPluginInterface::GetInterfaceForMenuExt()
 {
     return SalamatrixPackages != NULL ? SalamatrixPackages->GetMenuExtension() : NULL;
+}
+
+CPluginInterfaceForViewerAbstract* WINAPI CPluginInterface::GetInterfaceForViewer()
+{
+    return SalamatrixPackages != NULL
+               ? SalamatrixPackages->GetViewerExtension()
+               : NULL;
+}
+
+CPluginInterfaceForFSAbstract* WINAPI CPluginInterface::GetInterfaceForFS()
+{
+    return SalamatrixPackages != NULL
+               ? SalamatrixPackages->GetFileSystemExtension()
+               : NULL;
 }

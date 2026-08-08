@@ -1,13 +1,13 @@
 {
-  "schema": 1,
+  "schemaVersion": 2,
   "id": "Salamatrix.Demo.JavaScriptNode",
   "name": "Salamatrix Node Demo",
-  "version": "1.2.0",
-  "description": "Demonstrates a Node.js Salamatrix extension package.",
+  "version": "1.3.0",
+  "description": "Demonstrates commands, Viewer and a simple panel file system in a Node.js Salamatrix extension package.",
   "runtime": "JavaScript.Node",
   "entryPoint": "main.mjs",
   "icon": "icon.svg",
-  "capabilities": ["ui.notify", "ui.progress", "ui.dialogs", "storage"],
+  "capabilities": ["ui.dialogs", "storage", "file-system"],
   "commands": [{
     "id": "Salamatrix.Demo.JavaScriptNode.run",
     "title": "Run Node demo",
@@ -16,5 +16,20 @@
     "contextMenu": true,
     "toolbar": true,
     "requires": "any"
+  }],
+  "viewers": [{
+    "patterns": ["*.smxview"],
+    "handler": "viewDemo"
+  }],
+  "fileSystems": [{
+    "id": "demo-machines",
+    "name": "Demo machines",
+    "listHandler": "listDemoMachines",
+    "icon": "icon.svg",
+    "refreshIntervalMs": 5000,
+    "actions": [
+      {"id": "inspect", "title": "Inspect", "handler": "inspectDemoMachine", "default": true},
+      {"id": "toggle", "title": "Toggle state", "handler": "toggleDemoMachine"}
+    ]
   }]
 }

@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schemaVersion": 1,
   "id": "Salamatrix.Demo.PHP",
   "name": "Salamatrix PHP Demo",
   "version": "1.2.0",
@@ -7,6 +7,6 @@
   "runtime": "PHP.CLI",
   "entryPoint": "main.php",
   "icon": "icon.svg",
-  "capabilities": ["ui.notify", "ui.progress", "ui.dialogs", "storage"],
+  "capabilities": ["ui.dialogs", "storage"],
   "commands": [{"id":"Salamatrix.Demo.PHP.run","title":"Run PHP demo","handler":"run","menu":"both","contextMenu":true,"toolbar":true,"requires":"any"}]
 }

@@ -1,12 +1,12 @@
 {
-  "schema": 1,
+  "schemaVersion": 1,
   "id": "OpenSalamander.CompareMatching7z",
   "name": "Compare matching 7z names",
   "version": "1.0.0",
   "description": "Selects 7z archives whose names exist on both source and target sides.",
   "runtime": "Lua",
   "entryPoint": "main.lua",
-  "capabilities": ["panels.read", "panels.write", "ui.notify"],
+  "capabilities": ["panels.read", "panels.write", "ui.dialogs"],
   "commands": [
     {
       "id": "OpenSalamander.CompareMatching7z.run",

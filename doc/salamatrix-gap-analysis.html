@@ -40,7 +40,7 @@ th { background:var(--surface); } li { margin:.2em 0; }
 <a href="salamatrix-automation-api.html">Salamatrix Automation API reference</a> <a href="salamatrix-ui.html">Salamatrix.UI framework and custom dialog guide</a> <a href="salamatrix-platform.html">Salamatrix Platform Foundation</a> <a href="salamatrix-runtime-providers.html">Standalone Salamatrix runtime providers</a> <a href="salamatrix-runtime-provider-development.html">Developing a Salamatrix language runtime provider</a> <a href="salamatrix-gap-analysis.html" aria-current="page">Salamatrix GAP analysis</a>
 </nav>
 <h1 id="salamatrix-framework-gap-analysis">Salamatrix framework gap analysis</h1>
-<p>Status date: 2026-08-02</p>
+<p>Status date: 2026-08-08</p>
 <p>Source vision: &lt;https://krtkovo.eu/salamander/framework.html&gt;</p>
 <p>This audit compares the framework vision with the implementation in this repository. It distinguishes working code from API placeholders, samples, and catalog metadata. The target is not to reproduce the complete native Plugin SDK in scripting languages. It is the middle extensibility layer described by the vision: persistent lightweight extensions with commands, UI, events, storage, and a shared Salamander object model.</p>
 <p>Status labels in the matrix are deliberately requirement-level, rather than commit-level: <code>Implemented</code> means the scoped vision item is covered by working code and a focused test; <code>MVP</code> means the public slice works end-to-end but the vision still calls for a broader surface; <code>Partial</code> means substantial pieces exist but the current slice is not yet a coherent user-facing feature; <code>Missing</code> means there is no implementation of the requested surface yet.</p>
@@ -69,7 +69,7 @@ th { background:var(--surface); } li { margin:.2em 0; }
 <li>Manifest extensions carry their package SVG identity icon (plus an optional</li>
 <p>dark-mode variant) into the existing Plugin Manager list and toolbar image lists. Every manifest command may override those two SVG assets for its own toolbar button; no separate Extension Manager is introduced.</p>
 </ul>
-<p>This is an MVP/PoC, not yet the framework described by the vision. In particular:</p>
+<p>The repository now covers the scoped first-version middle layer, including the lightweight Viewer and flat FS roles. It is no longer only an MVP/PoC for this scope. The remaining work below is hardening, richer variants, or intentionally out of the v1 boundary rather than a missing basic extension role. In particular:</p>
 <ul>
 <li>Automation keeps the legacy ActiveScript compatibility path, while the</li>
 <p>standalone JavaScript/Node, CPython, PowerShell, PHP CLI, and Lua <code>.spl</code> providers use the shared SMX1 worker bootstrap and host-call/UI bindings. Dependency environments, richer values, and long-lived event queues remain.</p>
@@ -79,8 +79,10 @@ th { background:var(--surface); } li { margin:.2em 0; }
 <p>Salamatrix, and Automation without raw core pointers. Item snapshots, selection/focus mutation, view settings, tab creation/closing, and change events remain broader follow-up work.</p>
 <li>Modern manifest-backed scripts run through the shared worker bootstrap;</li>
 <p>discovery registers the complete batch first, resolves declared extension dependencies in bounded passes, and retries activation after a later runtime/plugin configuration change. One-shot scripts still cannot remain alive after their execution ends. If a required separately installed runtime or manifest dependency is missing, discovery keeps the extension in a visible waiting state and reactivates it after the requirement appears.</p>
-<li>The strict schema-1 manifest parser validates package/runtime identity,</li>
+<li>The strict schema-1/schema-2 manifest parser validates package/runtime identity,</li>
 <p>minimum runtime version, safe entry points, package-owned and per-command <code>icon</code>/optional <code>iconDark</code> SVG paths, capabilities, an optional event allow-list, typed settings/defaults, dependencies, and multiple command records. Dependency declarations are resolved against the owner-aware extension registry and unresolved packages stay visible as waiting-for-dependency. Package-owned BCP-47 locale resources may localize the extension name, declared command titles, and setting presentation text; settings migrations/files and richer handler lifecycle metadata are still missing.</p>
+<li>Schema 2 adds bounded <code>viewers[]</code> and <code>fileSystems[]</code> contributions. Viewer</li>
+<p>masks are registered through the native Viewer role; the flat <code>salamatrix:</code> FS accepts runtime-provided items and package SVG icons, performs periodic refresh, executes a default item action, and builds native context menus from declared actions. Complex transfers and hierarchical FS semantics are outside the deliberately Hyper-V-Machines-level v1 role.</p>
 <li>Persistent workers may register multiple commands. The selected command ID</li>
 <p>now follows menu activation through the native host and external runtime bootstrap into <code>Salamander.command_id</code>, so one entry point can dispatch distinct handlers without relying on the first command as a fallback. The selected manifest handler is also exposed as <code>Salamander.command_handler</code>.</p>
 <li>Manifest packages with multiple command records now publish every declared</li>
@@ -138,6 +140,18 @@ th { background:var(--surface); } li { margin:.2em 0; }
 <td>Typed source/target values, progress/cancellation handles, and final structured results without requiring the native dialog.</td>
 </tr>
 <tr>
+<td>Lightweight Viewer role</td>
+<td>Implemented</td>
+<td>Manifest schema 2 accepts bounded <code>viewers[]</code> contributions. Salamatrix registers their validated masks through the native Viewer association path during <code>Connect</code>, routes the selected local file to the declared one-shot handler, and supplies path, window geometry/show state, always-on-top state, and enumeration context through the cross-runtime <code>Salamander.invocation</code> object.</td>
+<td>Optional signature/content sniffing and framework-owned modeless rendering controls; new associations still require a Salamander restart because viewer masks are a connect-time host contract.</td>
+</tr>
+<tr>
+<td>Flat file-system role</td>
+<td>Implemented</td>
+<td>Manifest schema 2 accepts bounded <code>fileSystems[]</code> providers and actions. The framework-owned <code>salamatrix:</code> native FS lists providers, collects up to 4096 flat runtime items through the capability-gated <code>salamander.fileSystem.addItem</code> call, resolves validated light/dark SVG item icons inside the package, refreshes on a bounded timer, executes a default action on Enter, and builds a native action context menu. All five workers expose the same <code>file_system.add_item</code>/<code>fileSystem.addItem</code> semantics and receive list/action data through <code>Salamander.invocation</code>.</td>
+<td>Complex hierarchy, copy/move/delete/upload, free-space/search/security integration, and multi-selection batch actions are intentionally outside the Hyper-V-Machines-level v1 role.</td>
+</tr>
+<tr>
 <td>Extension command registration</td>
 <td>MVP</td>
 <td>Discovery-time metadata gives a script stable identity/caption/placement hints, and a persistent worker can register/unregister multiple owner-scoped commands with synthetic native menu ids, context masks, native menu hotkeys, toolbar contributions, optional handler names, and append-only enabled/visible state. Manifest command records are now published automatically with their initial state, while worker <code>setState</code> updates the existing Plugin Manager/menu/toolbar path and removal triggers a menu/toolbar rebuild. Each selected runtime command propagates its ID and handler into the worker as <code>Salamander.command_id</code>/<code>Salamander.command_handler</code>, so one entry point can dispatch distinct handlers.</td>
@@ -175,9 +189,9 @@ th { background:var(--surface); } li { margin:.2em 0; }
 </tr>
 <tr>
 <td>Manifest/package</td>
-<td>MVP</td>
-<td>Strict UTF-8 JSON parsing validates schema 1, package/runtime identity and minimum version, safe entry point, package-owned SVG <code>icon</code>/<code>iconDark</code> assets, optional command-specific SVG <code>icon</code>/<code>iconDark</code> overrides, capabilities, typed settings declarations/defaults, bounded presentation metadata (<code>label</code>, <code>description</code>, <code>group</code>, <code>order</code>, <code>width</code>, <code>multiline</code>), bounded <code>settingsVersion</code>/<code>settingsMigrations</code> chains for typed rename/remove operations, up to 32 extension dependencies, up to 32 BCP-47 <code>locales</code> entries, and up to 64 command records with initial <code>enabled</code>/<code>visible</code> state. A selected package locale may provide <code>name</code>, declared command-title translations, and localized setting label/description/group metadata; persistent packages publish up to 16 declared commands to the native menu/toolbar surface and pass each selected command's declared handler and state to the worker. The standalone SalamatrixAI chat can save a validated package and refresh discovery through the normal Automation manifest path. Missing separately installed runtime adapters and unresolved extension dependencies are represented explicitly during discovery instead of failing silently.</td>
-<td>Settings files/enumeration, handler lifecycle metadata, package install/uninstall, and richer diagnostics/dependency prompts.</td>
+<td>Implemented</td>
+<td>Strict UTF-8 JSON parsing accepts compatible schema 1 and final schema 2; it validates package/runtime identity and minimum version, safe entry points, package-owned SVG assets, capabilities, typed settings/defaults and migration chains, dependencies, locale resources, up to 64 command records, up to 16 Viewer contributions, and up to 16 flat FS providers with bounded actions and refresh intervals. Discovery materializes settings migrations/defaults, resolves package dependencies, restores persisted enabled state, activates eligible workers, and publishes the result through the owner-aware Extensions registry. Salamatrix Studio now scaffolds the real <code>schemaVersion: 2</code> key and preserves Viewer/FS records.</td>
+<td>Signed packages, transactional install/update/rollback, dependency acquisition prompts, and uninstall retention policy remain distribution hardening rather than missing runtime capability.</td>
 </tr>
 <tr>
 <td>Runtime adapters</td>
@@ -224,8 +238,8 @@ th { background:var(--surface); } li { margin:.2em 0; }
 <tr>
 <td>Permissions/capabilities</td>
 <td>MVP</td>
-<td>Manifest capabilities are retained by Automation and enforced at the SMX1 host boundary for declared-capability extensions (<code>panels.read</code>, <code>panels.write</code>, <code>ui.dialogs</code>, <code>commands</code>, <code>file-operations</code>, <code>storage</code>, <code>events</code>, and <code>ai</code>); panel path/refresh/selection/focus mutations require <code>panels.write</code>, while legacy scripts without a capabilities list remain compatible.</td>
-<td>Explicit user grant/revocation UI, capability-specific filesystem/network/process policy, effect audit trail, and richer package UX.</td>
+<td>Manifest capabilities are enforced by the framework-owned package dispatcher for commands, interactive file operations, flat FS item publication, sides read/write, storage, events, UI, clipboard, and runtime discovery. The <code>file-system</code> capability gates <code>addItem</code>; panel mutations require <code>panels.write</code>; legacy manifests without a capabilities list remain compatible.</td>
+<td>Explicit user grant/revocation UI, filesystem/network/process sandbox policy, effect audit trail, and richer package UX.</td>
 </tr>
 <tr>
 <td>AI automation assistant</td>

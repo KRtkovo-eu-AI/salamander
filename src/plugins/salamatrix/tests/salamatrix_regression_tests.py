@@ -116,11 +116,15 @@ def main() -> int:
         "src/plugins/salamatrix/vcxproj/salamatrix.vcxproj")
     manifest = read("src/plugins/salamatrix/salamatrix_manifest.cpp")
     packages = read("src/plugins/salamatrix/salamatrix_packages.cpp")
+    manifest = read("src/plugins/salamatrix/salamatrix_manifest.cpp")
     api_docs = read("src/plugins/salamatrix/salamatrix_api_docs.h")
     general_contract = read("src/plugins/shared/spl_gen.h")
     general_impl = read("src/zip.cpp")
     setup = read("doc/runbook-setup/inno_setup_salamander_x64.iss")
     runtime_package_verifier = read("tools/verify_runtime_packages.ps1")
+    javascript_demo = read("src/extensions/demos/javascript-node/main.mjs")
+    javascript_demo_manifest = json.loads(
+        read("src/extensions/demos/javascript-node/extension.json"))
     python_demo = read("src/extensions/demos/python/main.py")
     lua_demo = read("src/extensions/demos/lua/main.lua")
     lua_demo_manifest = json.loads(
@@ -763,6 +767,8 @@ def main() -> int:
         ("Python", "PowerShell", "JavaScript", "PHP", "Lua"), runtime_provider_sources):
         require(runtime, r"SetFlagLoadOnSalamanderStart\(TRUE\)",
                 f"{name} runtime provider is not loaded on Salamander startup")
+        require(runtime, r'InvocationJson.*?(?:invocation-json|InvocationJson)',
+                f"{name} runtime provider does not propagate invocation JSON")
     require(luaruntime, r'"Lua".*?"lua".*?"\.lua".*?SALAMATRIX_LUA',
             "Lua runtime descriptor or interpreter override is missing")
     require(luaruntime, r'salamatrix_worker\.lua',
@@ -789,6 +795,20 @@ def main() -> int:
                 f"{name} worker does not expose message-box buttons and icon")
         require(worker, r'salamander\.ui\.controls',
                 f"{name} worker does not expose the framework controls showcase")
+        require(worker, r'invocation',
+                f"{name} worker does not expose role invocation context")
+        require(worker, r'salamander\.fileSystem\.addItem',
+                f"{name} worker does not expose flat file-system item publication")
+    require(manifest,
+            r'SchemaVersion != 1 && SchemaVersion != 2.*?viewers.*?fileSystems.*?File-system actions',
+            "manifest schema 2 does not validate Viewer and flat FS contributions")
+    require(salamatrix + packages,
+            r'FUNCTION_VIEWER.*?FUNCTION_FILESYSTEM.*?RegisterViewerMasks.*?GetFileSystemExtension',
+            "Salamatrix does not publish native Viewer and FS roles")
+    require(packages, r'FileSystemListing.*?salamander\.fileSystem\.addItem.*?4096',
+            "flat FS dispatcher does not bound runtime-provided items")
+    require(packages, r'FS_SERVICE_CONTEXTMENU.*?ContextMenu\(',
+            "flat FS does not expose native actions")
     require(ui_contract + salamatrix_ui + salamatrix_runtime + packages,
             r'SALAMATRIX_UI_VERSION_1_4.*?'
             r'ShowControlsShowcase.*?ShowNativeControlsShowcase.*?'
@@ -838,9 +858,46 @@ def main() -> int:
     require(lua_demo,
             r'Salamander\.ui\.notify.*?Salamander\.ui\.progress.*?progress\.update.*?progress\.is_cancelled.*?progress\.close.*?Salamander\.storage\.set\("lastRun",\s*"Lua"\)',
             "Lua demo does not exercise the shared notify/progress/storage flow")
-    if "ui.progress" not in lua_demo_manifest.get("capabilities", []):
+    if "ui.dialogs" not in lua_demo_manifest.get("capabilities", []):
         raise AssertionError(
-            "Lua demo manifest does not declare the progress capability")
+            "Lua demo manifest does not declare the canonical UI capability")
+    manifest_paths = list((ROOT / "src/extensions").rglob("extension.json"))
+    manifest_paths.extend((ROOT / "src/tools/salamatrix-studio/examples").rglob(
+        "extension.json"))
+    manifest_paths.extend((ROOT / "src/plugins/automation/sample-scripts").rglob(
+        "extension.json"))
+    for manifest_path in manifest_paths:
+        package_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if "schema" in package_manifest or package_manifest.get(
+                "schemaVersion") not in {1, 2}:
+            raise AssertionError(
+                f"extension demo uses a stale schema field: {manifest_path}")
+        aliases = {"ui.notify", "ui.progress"}.intersection(
+            package_manifest.get("capabilities", []))
+        if aliases:
+            raise AssertionError(
+                f"extension demo uses non-canonical capabilities {aliases}: "
+                f"{manifest_path}")
+        for command in package_manifest.get("commands", []):
+            if command.get("menu", "plugin") not in {
+                    "plugin", "context", "both", "none"}:
+                raise AssertionError(
+                    f"extension demo uses an invalid menu placement: "
+                    f"{manifest_path}")
+    if (javascript_demo_manifest.get("schemaVersion") != 2 or
+            javascript_demo_manifest.get("viewers", [{}])[0].get("handler") !=
+            "viewDemo" or
+            javascript_demo_manifest.get("fileSystems", [{}])[0].get(
+                "listHandler") != "listDemoMachines"):
+        raise AssertionError(
+            "Node demo does not declare the schema 2 Viewer and file-system roles")
+    require(
+        javascript_demo,
+        r'handler === "viewDemo".*?Salamander\.invocation\.path.*?readFile.*?'
+        r'handler === "listDemoMachines".*?fileSystem\.addItem.*?'
+        r'handler === "inspectDemoMachine".*?invocation\.item.*?'
+        r'handler === "toggleDemoMachine".*?storage\.set',
+        "Node demo does not exercise Viewer and file-system role invocations")
     require(setup, r"extension-runtimes\\luaruntime\\luaruntime\.spl.*?IsPluginSelected\('luaruntime'\)",
             "x64 installer does not package LuaRuntime.SPL")
     require(setup, r"extension-runtimes\\luaruntime\\runtime\\salamatrix_worker\.lua.*?IsPluginSelected\('luaruntime'\)",

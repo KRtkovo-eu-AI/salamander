@@ -10,6 +10,14 @@ LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
 
 IDI_PLUGINICON ICON "..\\..\\res\\sal_r.ico"
 
+STRINGTABLE
+BEGIN
+    IDS_FS_CHANGE_DRIVE "\tSalamatrix Extensions"
+    IDS_FS_EMPTY "No extension items are available."
+    IDS_INPUT_OK "OK"
+    IDS_INPUT_CANCEL "Cancel"
+END
+
 #ifndef APSTUDIO_INVOKED
 #include "salamatrix.rc2"   // non-Microsoft Visual C++ edited resources
 #endif

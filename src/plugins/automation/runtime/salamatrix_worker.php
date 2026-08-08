@@ -63,6 +63,7 @@ class SalamatrixStorage {
     public function remove($key) { $r = $this->client->call('salamander.storage.remove', array('key' => $key)); return !empty($r['removed']); }
     public function clear() { $r = $this->client->call('salamander.storage.clear', array()); return !empty($r['ok']); }
     public function schema() { $r = $this->client->call('salamander.storage.schema', array()); return isset($r['settings']) ? $r['settings'] : array(); }
+    public function keys() { $r = $this->client->call('salamander.storage.keys', array()); return isset($r['keys']) && is_array($r['keys']) ? $r['keys'] : array(); }
 }
 class SalamatrixFileOperations {
     private $client; public function __construct($client) { $this->client = $client; }
@@ -75,6 +76,14 @@ class SalamatrixFileOperations {
     public function refresh() { return $this->run('refresh'); }
     public function properties() { return $this->run('properties'); }
 }
+class SalamatrixFileSystem {
+    private $client; public function __construct($client) { $this->client = $client; }
+    public function add_item($id, $name, $options = array()) {
+        $arguments = array_merge(array('id' => (string)$id, 'name' => (string)$name), $options);
+        $result = $this->client->call('salamander.fileSystem.addItem', $arguments);
+        return isset($result['added']) && $result['added'];
+    }
+}
 class SalamatrixSides {
     private $client; public function __construct($client) { $this->client = $client; }
     public function activeTab($side = 'source') { return $this->client->call('salamander.sides.activeTab', array('side' => $side)); }
@@ -86,6 +95,11 @@ class SalamatrixSides {
     public function selectItem($index, $select = true, $side = 'source', $repaint = true) { $r = $this->client->call('salamander.sides.selectItem', array('side' => $side, 'index' => (int)$index, 'select' => (bool)$select, 'repaint' => (bool)$repaint)); return !empty($r['changed']); }
     public function selectAll($select = true, $side = 'source', $repaint = true) { $r = $this->client->call('salamander.sides.selectAll', array('side' => $side, 'select' => (bool)$select, 'repaint' => (bool)$repaint)); return !empty($r['changed']); }
     public function focusItem($index, $side = 'source', $partVisible = true) { $r = $this->client->call('salamander.sides.focusItem', array('side' => $side, 'index' => (int)$index, 'partVisible' => (bool)$partVisible)); return !empty($r['changed']); }
+    public function createTab($side = 'source', $path = null, $index = null) { $a = array('side' => $side, 'path' => $path); if ($index !== null) $a['index'] = (int)$index; return $this->client->call('salamander.sides.createTab', $a); }
+    public function closeTab($tabId) { $r = $this->client->call('salamander.sides.closeTab', array('tabId' => (string)$tabId)); return !empty($r['ok']); }
+    public function reorderTab($tabId, $index) { $r = $this->client->call('salamander.sides.reorderTab', array('tabId' => (string)$tabId, 'index' => (int)$index)); return !empty($r['ok']); }
+    public function moveTab($tabId, $side = 'source', $index = null) { $a = array('tabId' => (string)$tabId, 'side' => $side); if ($index !== null) $a['index'] = (int)$index; $r = $this->client->call('salamander.sides.moveTab', $a); return !empty($r['ok']); }
+    public function setDetached($detached) { $r = $this->client->call('salamander.sides.setDetached', array('detached' => (bool)$detached)); return !empty($r['ok']); }
 }
 class SalamatrixSideView {
     private $sides; private $name;
@@ -99,12 +113,18 @@ class SalamatrixSideView {
     public function selectItem($index, $select = true, $repaint = true) { return $this->sides->selectItem($index, $select, $this->name, $repaint); }
     public function selectAll($select = true, $repaint = true) { return $this->sides->selectAll($select, $this->name, $repaint); }
     public function focusItem($index, $partVisible = true) { return $this->sides->focusItem($index, $this->name, $partVisible); }
+    public function createTab($path = null, $index = null) { return $this->sides->createTab($this->name, $path, $index); }
+    public function closeTab($tabId) { return $this->sides->closeTab($tabId); }
+    public function reorderTab($tabId, $index) { return $this->sides->reorderTab($tabId, $index); }
+    public function moveTab($tabId, $side = null, $index = null) { return $this->sides->moveTab($tabId, $side === null ? $this->name : $side, $index); }
+    public function setDetached($detached) { return $this->sides->setDetached($detached); }
 }
 class SalamatrixUi {
     private $client; public function __construct($client) { $this->client = $client; }
-    public function messageBox($message, $title = 'Salamander') { $r = $this->client->call('salamander.ui.messageBox', array('message' => $message, 'title' => $title)); return isset($r['result']) ? $r['result'] : 0; }
+    public function messageBox($message, $title = 'Salamander', $buttons = 'OK', $icon = 'Information') { $r = $this->client->call('salamander.ui.messageBox', array('message' => $message, 'title' => $title, 'buttons' => $buttons, 'icon' => $icon)); return isset($r['result']) ? $r['result'] : 0; }
     public function notify($message, $title = 'Salamander', $timeoutMs = 5000) { $r = $this->client->call('salamander.ui.notify', array('message' => $message, 'title' => $title, 'timeoutMs' => max(0, (int)$timeoutMs))); return !empty($r['shown']); }
     public function controls() { $r = $this->client->call('salamander.ui.controls', array()); return !empty($r['shown']); }
+    public function uptime() { $r = $this->client->call('salamander.host.uptime', array()); return (string)$r['milliseconds']; }
     public function inputBox($prompt, $title = 'Salamander', $initial = '') { return $this->client->call('salamander.ui.inputBox', array('prompt' => $prompt, 'title' => $title, 'initial' => $initial)); }
     public function pickFile($save = false, $title = '', $filter = '', $initial = '') { return $this->client->call('salamander.ui.pickFile', array('save' => (bool)$save, 'title' => $title, 'filter' => $filter, 'initial' => $initial)); }
     public function pickFolder($title = '', $initial = '') { return $this->client->call('salamander.ui.pickFolder', array('title' => $title, 'initial' => $initial)); }
@@ -143,9 +163,10 @@ class SalamatrixDialog {
     private $client; private $id;
     public function __construct($client, $id) { $this->client = $client; $this->id = $id; }
     private function add($kind, $controlId, $text = '', $extra = array()) { $args = array('dialogId' => $this->id, 'kind' => $kind, 'controlId' => $controlId, 'text' => $text); foreach ($extra as $key => $value) $args[$key] = $value; $this->client->call('salamander.ui.dialog.add', $args); }
-    public function addControl($kind, $id, $text = '', $readOnly = false, $checked = false, $dialogResult = 0, $layout = array(), $keepOpen = false, $multiline = false) {
+    public function addControl($kind, $id, $text = '', $readOnly = false, $checked = false, $dialogResult = 0, $layout = array(), $keepOpen = false, $multiline = false, $options = array()) {
         $extra = array('readOnly' => (bool)$readOnly, 'checked' => (bool)$checked, 'dialogResult' => (int)$dialogResult, 'keepOpen' => (bool)$keepOpen, 'multiline' => (bool)$multiline);
         foreach (array('x', 'y', 'width', 'height') as $name) if (is_array($layout) && array_key_exists($name, $layout)) $extra[$name] = (int)$layout[$name];
+        if (is_array($options)) foreach ($options as $key => $value) $extra[$key] = $value;
         $this->add($kind, $id, $text, $extra);
     }
     public function setValidation($id, $required = false, $message = '') { $this->client->call('salamander.ui.dialog.validation', array('dialogId' => $this->id, 'controlId' => $id, 'required' => (bool)$required, 'message' => $message)); }
@@ -220,16 +241,23 @@ class SalamatrixEvents {
 $entry = null;
 $commandId = '';
 $commandHandler = '';
+$invocationJson = '{}';
 $oneShot = false;
 for ($i = 1; $i < count($argv); ++$i) {
     if ($argv[$i] === '--entry' && isset($argv[$i + 1])) $entry = $argv[++$i];
     elseif ($argv[$i] === '--command-id' && isset($argv[$i + 1])) $commandId = $argv[++$i];
     elseif ($argv[$i] === '--command-handler' && isset($argv[$i + 1])) $commandHandler = $argv[++$i];
+    elseif ($argv[$i] === '--invocation-json' && isset($argv[$i + 1])) $invocationJson = $argv[++$i];
     elseif ($argv[$i] === '--one-shot') $oneShot = true;
 }
 class SalamatrixRuntimes {
     private $client; public function __construct($client) { $this->client = $client; }
     public function list() { $r = $this->client->call('salamander.runtimes.list', array()); return isset($r['runtimes']) ? $r['runtimes'] : array(); }
+}
+class SalamatrixApplication {
+    private $client; public function __construct($client) { $this->client = $client; }
+    public function language() { return $this->client->call('salamander.host.language', array()); }
+    public function appearance() { return $this->client->call('salamander.host.appearance', array()); }
 }
 if ($entry === null) throw new RuntimeException('Missing --entry');
 $client = new SalamatrixClient();
@@ -240,9 +268,12 @@ if (isset($hello['payload']['ok']) && !$hello['payload']['ok']) throw new Runtim
 $Salamander = new stdClass();
 $Salamander->command_id = $commandId;
 $Salamander->command_handler = $commandHandler;
+$Salamander->invocation = json_decode($invocationJson, true, 32, JSON_THROW_ON_ERROR);
+if (!is_array($Salamander->invocation)) throw new RuntimeException('--invocation-json must contain a JSON object');
 $Salamander->commands = new SalamatrixCommands($client);
 $Salamander->storage = new SalamatrixStorage($client);
 $Salamander->file_operations = new SalamatrixFileOperations($client);
+$Salamander->file_system = new SalamatrixFileSystem($client);
 $Salamander->sides = new SalamatrixSides($client);
 $Salamander->left_side = new SalamatrixSideView($Salamander->sides, 'left');
 $Salamander->right_side = new SalamatrixSideView($Salamander->sides, 'right');
@@ -253,6 +284,7 @@ $Salamander->clipboard = new SalamatrixClipboard($client);
 $Salamander->ai = new SalamatrixAi($client);
 $Salamander->events = new SalamatrixEvents($client);
 $Salamander->runtimes = new SalamatrixRuntimes($client);
+$Salamander->application = new SalamatrixApplication($client);
 include $entry;
 
 if ($oneShot) exit(0);

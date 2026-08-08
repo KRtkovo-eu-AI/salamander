@@ -7,6 +7,7 @@ param(
     [string]$EntryPoint,
     [string]$CommandId = '',
     [string]$CommandHandler = '',
+    [string]$InvocationJson = '{}',
     [switch]$OneShot
 )
 
@@ -239,6 +240,13 @@ $fileOperations | Add-Member ScriptMethod Delete { (Invoke-Host -Method 'salaman
 $fileOperations | Add-Member ScriptMethod CreateDirectory { (Invoke-Host -Method 'salamander.fileOperations.createDirectory' -Arguments @{}).result }
 $fileOperations | Add-Member ScriptMethod Refresh { (Invoke-Host -Method 'salamander.fileOperations.refresh' -Arguments @{}).result }
 $fileOperations | Add-Member ScriptMethod Properties { (Invoke-Host -Method 'salamander.fileOperations.properties' -Arguments @{}).result }
+$fileSystem = [pscustomobject]@{}
+$fileSystem | Add-Member ScriptMethod AddItem {
+    param([string]$Id, [string]$Name, [hashtable]$Options = @{})
+    $arguments = @{ id = $Id; name = $Name }
+    foreach ($key in $Options.Keys) { $arguments[$key] = $Options[$key] }
+    [bool](Invoke-Host -Method 'salamander.fileSystem.addItem' -Arguments $arguments).added
+}
 $sides = [pscustomobject]@{}
 $sides | Add-Member ScriptMethod ActiveTab {
     param([string]$Side = 'source')
@@ -506,12 +514,19 @@ $application | Add-Member ScriptMethod Appearance {
     Invoke-Host -Method 'salamander.host.appearance' -Arguments @{}
 }
 
+$invocation = $InvocationJson | ConvertFrom-Json
+if ($null -eq $invocation -or $invocation -is [System.Array]) {
+    throw '-InvocationJson must contain a JSON object'
+}
+
 $Salamander = [pscustomobject]@{
     command_id = $CommandId
     command_handler = $CommandHandler
+    invocation = $invocation
     commands = $commands
     storage = $storage
     file_operations = $fileOperations
+    file_system = $fileSystem
     sides = $sides
     left_side = $leftSide
     right_side = $rightSide

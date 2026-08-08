@@ -90,10 +90,26 @@ static std::wstring ToWin32Path(const std::wstring& value)
 
 static bool AppendQuotedArgument(std::wstring& command, const wchar_t* value)
 {
-    if (value == NULL || wcschr(value, L'"') != NULL)
+    if (value == NULL)
         return false;
     command.push_back(L'"');
-    command.append(value);
+    size_t backslashes = 0;
+    for (const wchar_t* current = value; *current != L'\0'; ++current)
+    {
+        if (*current == L'\\') { ++backslashes; continue; }
+        if (*current == L'"')
+        {
+            command.append(backslashes * 2 + 1, L'\\');
+            command.push_back(L'"');
+        }
+        else
+        {
+            command.append(backslashes, L'\\');
+            command.push_back(*current);
+        }
+        backslashes = 0;
+    }
+    command.append(backslashes * 2, L'\\');
     command.push_back(L'"');
     return true;
 }
@@ -1421,6 +1437,15 @@ BOOL WINAPI CAutomationProcessRuntimeAdapter::StartPersistent(
                            ? L" -CommandHandler "
                            : L" --command-handler ");
         if (!AppendUtf8QuotedArgument(command, request->CommandHandler))
+            return FALSE;
+    }
+    if ((request->Flags & Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap) != 0 &&
+        request->InvocationJson != NULL && request->InvocationJson[0] != '\0')
+    {
+        command.append(m_kind == ProcessKindPowerShell
+                           ? L" -InvocationJson "
+                           : L" --invocation-json ");
+        if (!AppendUtf8QuotedArgument(command, request->InvocationJson))
             return FALSE;
     }
     if ((request->Flags &

@@ -69,6 +69,42 @@ struct CExtensionManifestCommand
     }
 };
 
+struct CExtensionManifestViewer
+{
+    // Salamander viewer masks (for example "*.md" or "*.png;*.jpg").
+    // The framework registers these during the Salamatrix connect phase.
+    std::vector<std::string> Patterns;
+    std::string Handler;
+};
+
+struct CExtensionManifestFileSystem
+{
+    struct Action
+    {
+        std::string Id;
+        std::string Title;
+        std::string Handler;
+        bool Default;
+
+        Action() : Default(false) {}
+    };
+    // A package-local stable id. All Salamatrix file systems are exposed
+    // through the framework-owned salamatrix: namespace.
+    std::string Id;
+    std::string Name;
+    std::string ListHandler;
+    std::string OpenHandler;
+    std::string Icon;
+    std::string IconDark;
+    unsigned int RefreshIntervalMs;
+    std::vector<Action> Actions;
+
+    CExtensionManifestFileSystem()
+        : RefreshIntervalMs(3000)
+    {
+    }
+};
+
 enum CExtensionManifestSettingType
 {
     ExtensionManifestSettingString = 1,
@@ -174,6 +210,9 @@ public:
     // manifest directory and must stay inside the extension package.
     std::string Icon;
     std::string IconDark;
+    // Distinguishes a legacy manifest with no permission declaration from an
+    // explicitly empty (deny-all) capability list.
+    bool CapabilitiesDeclared;
     std::vector<std::string> Capabilities;
     // Optional ids of other manifest extensions that must be registered before
     // this package can activate. Runtime adapters remain described by runtime.
@@ -192,6 +231,10 @@ public:
     bool EventsDeclared;
     std::vector<std::string> Events;
     std::vector<CExtensionManifestCommand> Commands;
+    // Schema v2 contributions. Schema v1 remains accepted and normalizes to
+    // empty collections so existing packages retain their behavior.
+    std::vector<CExtensionManifestViewer> Viewers;
+    std::vector<CExtensionManifestFileSystem> FileSystems;
 
     CExtensionManifest();
 

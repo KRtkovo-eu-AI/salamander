@@ -781,6 +781,7 @@ void CExtensionManifest::Clear()
     EntryPoint.clear();
     Icon.clear();
     IconDark.clear();
+    CapabilitiesDeclared = false;
     Capabilities.clear();
     Dependencies.clear();
     Locales.clear();
@@ -790,6 +791,8 @@ void CExtensionManifest::Clear()
     EventsDeclared = false;
     Events.clear();
     Commands.clear();
+    Viewers.clear();
+    FileSystems.clear();
 }
 
 bool CExtensionManifest::IsSafeRelativeEntryPoint(const std::string& entryPoint)
@@ -849,7 +852,7 @@ bool CExtensionManifest::Parse(
         }
         SchemaVersion = static_cast<unsigned int>(schemaVersion->Number);
     }
-    if (SchemaVersion != 1)
+    if (SchemaVersion != 1 && SchemaVersion != 2)
         return SetValidationError(error, "Unsupported Salamatrix manifest schemaVersion");
 
     if (!ReadString(root, "id", true, Id, error) ||
@@ -917,6 +920,7 @@ bool CExtensionManifest::Parse(
     const JsonValue* capabilities = root.Find("capabilities");
     if (capabilities != NULL)
     {
+        CapabilitiesDeclared = true;
         if (capabilities->Type != JsonArray)
             return SetValidationError(error, "capabilities must be an array");
         for (size_t i = 0; i < capabilities->Array.size(); ++i)
@@ -1346,6 +1350,127 @@ bool CExtensionManifest::Parse(
         defaultCommand.Id = Id;
         defaultCommand.Title = Name;
         Commands.push_back(defaultCommand);
+    }
+
+    const JsonValue* viewers = root.Find("viewers");
+    if (viewers != NULL)
+    {
+        if (SchemaVersion < 2)
+            return SetValidationError(error, "viewers require Salamatrix manifest schemaVersion 2");
+        if (viewers->Type != JsonArray)
+            return SetValidationError(error, "viewers must be an array");
+        if (viewers->Array.size() > 16)
+            return SetValidationError(error, "Manifest contains more than 16 viewers");
+        for (size_t i = 0; i < viewers->Array.size(); ++i)
+        {
+            const JsonValue& viewerValue = viewers->Array[i];
+            if (viewerValue.Type != JsonObject)
+                return SetValidationError(error, "Every viewers entry must be an object");
+            CExtensionManifestViewer viewer;
+            if (!ReadString(viewerValue, "handler", true, viewer.Handler, error))
+                return false;
+            if (!IsIdentifier(viewer.Handler))
+                return SetValidationError(error, "Viewer handlers must be valid identifiers");
+            const JsonValue* patterns = viewerValue.Find("patterns");
+            if (patterns == NULL || patterns->Type != JsonArray || patterns->Array.empty())
+                return SetValidationError(error, "Viewer patterns must be a non-empty array");
+            if (patterns->Array.size() > 32)
+                return SetValidationError(error, "Viewer contains more than 32 file patterns");
+            for (size_t patternIndex = 0; patternIndex < patterns->Array.size(); ++patternIndex)
+            {
+                const JsonValue& pattern = patterns->Array[patternIndex];
+                if (pattern.Type != JsonString || pattern.String.empty() ||
+                    pattern.String.size() > 127 || pattern.String.find('|') != std::string::npos ||
+                    pattern.String.find('/') != std::string::npos ||
+                    pattern.String.find('\\') != std::string::npos ||
+                    pattern.String.find(':') != std::string::npos)
+                    return SetValidationError(error, "Viewer patterns must be short file masks without paths or separators");
+                for (size_t character = 0; character < pattern.String.size(); ++character)
+                {
+                    if (static_cast<unsigned char>(pattern.String[character]) < 0x20)
+                        return SetValidationError(error, "Viewer patterns must not contain control characters");
+                }
+                viewer.Patterns.push_back(pattern.String);
+            }
+            Viewers.push_back(viewer);
+        }
+    }
+
+    const JsonValue* fileSystems = root.Find("fileSystems");
+    if (fileSystems != NULL)
+    {
+        if (SchemaVersion < 2)
+            return SetValidationError(error, "fileSystems require Salamatrix manifest schemaVersion 2");
+        if (fileSystems->Type != JsonArray)
+            return SetValidationError(error, "fileSystems must be an array");
+        if (fileSystems->Array.size() > 16)
+            return SetValidationError(error, "Manifest contains more than 16 file systems");
+        for (size_t i = 0; i < fileSystems->Array.size(); ++i)
+        {
+            const JsonValue& fileSystemValue = fileSystems->Array[i];
+            if (fileSystemValue.Type != JsonObject)
+                return SetValidationError(error, "Every fileSystems entry must be an object");
+            CExtensionManifestFileSystem fileSystem;
+            int refreshIntervalMs = 3000;
+            if (!ReadString(fileSystemValue, "id", true, fileSystem.Id, error) ||
+                !ReadString(fileSystemValue, "name", true, fileSystem.Name, error) ||
+                !ReadString(fileSystemValue, "listHandler", true, fileSystem.ListHandler, error) ||
+                !ReadString(fileSystemValue, "openHandler", false, fileSystem.OpenHandler, error) ||
+                !ReadString(fileSystemValue, "icon", false, fileSystem.Icon, error) ||
+                !ReadString(fileSystemValue, "iconDark", false, fileSystem.IconDark, error) ||
+                !ReadInteger(fileSystemValue, "refreshIntervalMs", 3000, 250, 60000, refreshIntervalMs, error))
+                return false;
+            fileSystem.RefreshIntervalMs = static_cast<unsigned int>(refreshIntervalMs);
+            if (!IsIdentifier(fileSystem.Id) || !IsIdentifier(fileSystem.ListHandler) ||
+                (!fileSystem.OpenHandler.empty() && !IsIdentifier(fileSystem.OpenHandler)))
+                return SetValidationError(error, "File-system ids and handlers must be valid identifiers");
+            if (fileSystem.Name.empty() || fileSystem.Name.size() > 255)
+                return SetValidationError(error, "File-system name must not be empty or longer than 255 bytes");
+            if ((!fileSystem.Icon.empty() &&
+                 (!IsSafeRelativeEntryPoint(fileSystem.Icon) || !IsSvgAssetPath(fileSystem.Icon))) ||
+                (!fileSystem.IconDark.empty() &&
+                 (!IsSafeRelativeEntryPoint(fileSystem.IconDark) || !IsSvgAssetPath(fileSystem.IconDark))))
+                return SetValidationError(error, "File-system icons must be safe relative SVG paths inside the extension");
+            const JsonValue* actions = fileSystemValue.Find("actions");
+            if (actions != NULL)
+            {
+                if (actions->Type != JsonArray)
+                    return SetValidationError(error, "File-system actions must be an array");
+                if (actions->Array.size() > 32)
+                    return SetValidationError(error, "File system contains more than 32 actions");
+                bool hasDefault = false;
+                for (size_t actionIndex = 0; actionIndex < actions->Array.size(); ++actionIndex)
+                {
+                    const JsonValue& actionValue = actions->Array[actionIndex];
+                    if (actionValue.Type != JsonObject)
+                        return SetValidationError(error, "Every file-system action must be an object");
+                    CExtensionManifestFileSystem::Action action;
+                    if (!ReadString(actionValue, "id", true, action.Id, error) ||
+                        !ReadString(actionValue, "title", true, action.Title, error) ||
+                        !ReadString(actionValue, "handler", true, action.Handler, error) ||
+                        !ReadBoolean(actionValue, "default", false, action.Default, error))
+                        return false;
+                    if (!IsIdentifier(action.Id) || !IsIdentifier(action.Handler) ||
+                        action.Title.empty() || action.Title.size() > 255)
+                        return SetValidationError(error, "File-system action ids, handlers, and titles are invalid");
+                    if (action.Default && hasDefault)
+                        return SetValidationError(error, "File system may declare only one default action");
+                    hasDefault = hasDefault || action.Default;
+                    for (size_t existing = 0; existing < fileSystem.Actions.size(); ++existing)
+                    {
+                        if (_stricmp(fileSystem.Actions[existing].Id.c_str(), action.Id.c_str()) == 0)
+                            return SetValidationError(error, "File-system action ids must be unique");
+                    }
+                    fileSystem.Actions.push_back(action);
+                }
+            }
+            for (size_t existing = 0; existing < FileSystems.size(); ++existing)
+            {
+                if (_stricmp(FileSystems[existing].Id.c_str(), fileSystem.Id.c_str()) == 0)
+                    return SetValidationError(error, "File-system ids must be unique inside one manifest");
+            }
+            FileSystems.push_back(fileSystem);
+        }
     }
     return true;
 }

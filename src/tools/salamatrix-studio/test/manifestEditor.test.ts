@@ -4,7 +4,7 @@ import { parseManifest } from '../src/manifestModel.js';
 describe('extension manifest designer model', () => {
   it('retains fields outside the visual editor surface', () => {
     const manifest = parseManifest(JSON.stringify({
-      schema: 1,
+      schemaVersion: 2,
       id: 'Example.Extension',
       name: 'Example',
       version: '1.0.0',

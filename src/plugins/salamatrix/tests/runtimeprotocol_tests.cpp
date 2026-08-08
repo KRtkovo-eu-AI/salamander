@@ -6,11 +6,45 @@
 #include "../salamatrix_ai.h"
 #include "../salamatrix_commands.h"
 #include "../salamatrix_runtime_api.h"
+#include "../salamatrix_runtime_frame_queue.h"
 #include "../salamatrix_runtime_protocol.h"
 
 namespace
 {
 int Failures = 0;
+
+class SlowFrameSession : public Salamatrix::Runtime::IRuntimeSession
+{
+public:
+    HANDLE Written;
+    std::string Frame;
+
+    SlowFrameSession()
+        : Written(CreateEvent(NULL, TRUE, FALSE, NULL))
+    {
+    }
+
+    virtual ~SlowFrameSession()
+    {
+        CloseHandle(Written);
+    }
+
+    virtual BOOL WINAPI IsAlive() const { return TRUE; }
+    virtual BOOL WINAPI SendFrame(const char* bytes, DWORD count)
+    {
+        Sleep(100);
+        Frame.assign(bytes, bytes + count);
+        SetEvent(Written);
+        return TRUE;
+    }
+    virtual BOOL WINAPI ReceiveFrame(char*, DWORD, DWORD, DWORD*)
+    {
+        return FALSE;
+    }
+    virtual BOOL WINAPI Pump(DWORD) { return FALSE; }
+    virtual void WINAPI Stop() {}
+    virtual void WINAPI Release() {}
+};
 
 class TestAssistantProvider : public Salamatrix::AI::IAssistantProvider
 {
@@ -660,6 +694,21 @@ void TestCommandCatalog()
     Check(entry != NULL && entry->SalamanderCommandId == SALCMD_CALCDIRSIZES,
           "command catalog exposes directory sizes");
 }
+
+void TestRuntimeFrameQueue()
+{
+    SlowFrameSession session;
+    Salamatrix::Runtime::RuntimeFrameQueue queue;
+    Check(queue.Start(&session), "runtime frame queue starts");
+    const ULONGLONG started = GetTickCount64();
+    Check(queue.Queue("event\n", 6), "runtime frame queue accepts event");
+    const ULONGLONG elapsed = GetTickCount64() - started;
+    Check(elapsed < 50, "runtime frame queue producer is non-blocking");
+    Check(WaitForSingleObject(session.Written, 1000) == WAIT_OBJECT_0 &&
+              session.Frame == "event\n",
+          "runtime frame queue writes the complete frame asynchronously");
+    queue.Shutdown();
+}
 } // namespace
 
 int main()
@@ -671,6 +720,7 @@ int main()
     TestJsonMemberExtraction();
     TestAssistantService();
     TestCommandCatalog();
+    TestRuntimeFrameQueue();
     if (Failures != 0)
     {
         std::fprintf(stderr, "%d runtime protocol test(s) failed.\n", Failures);

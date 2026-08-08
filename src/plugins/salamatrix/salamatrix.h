@@ -28,9 +28,9 @@ public:
     virtual void WINAPI ReleasePluginDataInterface(CPluginDataInterfaceAbstract* pluginData) {}
 
     virtual CPluginInterfaceForArchiverAbstract* WINAPI GetInterfaceForArchiver() { return NULL; }
-    virtual CPluginInterfaceForViewerAbstract* WINAPI GetInterfaceForViewer() { return NULL; }
+    virtual CPluginInterfaceForViewerAbstract* WINAPI GetInterfaceForViewer();
     virtual CPluginInterfaceForMenuExtAbstract* WINAPI GetInterfaceForMenuExt();
-    virtual CPluginInterfaceForFSAbstract* WINAPI GetInterfaceForFS() { return NULL; }
+    virtual CPluginInterfaceForFSAbstract* WINAPI GetInterfaceForFS();
     virtual CPluginInterfaceForThumbLoaderAbstract* WINAPI GetInterfaceForThumbLoader() { return NULL; }
 
     virtual void WINAPI Event(int event, DWORD param);

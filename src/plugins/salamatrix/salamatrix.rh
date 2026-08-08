@@ -4,3 +4,7 @@
 #pragma once
 
 #define IDI_PLUGINICON 1001
+#define IDS_FS_CHANGE_DRIVE 2001
+#define IDS_FS_EMPTY 2002
+#define IDS_INPUT_OK 2003
+#define IDS_INPUT_CANCEL 2004

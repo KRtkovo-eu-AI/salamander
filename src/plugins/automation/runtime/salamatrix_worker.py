@@ -168,6 +168,21 @@ class _Storage:
             "salamander.storage.schema"
         ).get("settings", []))
 
+    def keys(self) -> list[dict[str, Any]]:
+        result = self._transport.call("salamander.storage.keys")
+        keys = result.get("keys") if isinstance(result, dict) else None
+        return keys if isinstance(keys, list) else []
+
+
+class _FileSystem:
+    def __init__(self, transport: _Transport) -> None:
+        self._transport = transport
+
+    def add_item(self, item_id: str, name: str, **options: Any) -> bool:
+        payload = {"id": item_id, "name": name, **options}
+        return bool(self._transport.call(
+            "salamander.fileSystem.addItem", payload).get("added"))
+
 
 class _FileOperations:
     def __init__(self, transport: _Transport) -> None:
@@ -253,6 +268,35 @@ class _Sides:
             partVisible=part_visible
         ).get("changed", False))
 
+    def create_tab(self, side: str = "source", path: Optional[str] = None,
+                   index: Optional[int] = None) -> dict:
+        args = {"side": side, "path": path}
+        if index is not None:
+            args["index"] = int(index)
+        return self._transport.call("salamander.sides.createTab", **args)
+
+    def close_tab(self, tab_id: str) -> bool:
+        return bool(self._transport.call(
+            "salamander.sides.closeTab", tabId=str(tab_id)).get("ok", False))
+
+    def reorder_tab(self, tab_id: str, index: int) -> bool:
+        return bool(self._transport.call(
+            "salamander.sides.reorderTab", tabId=str(tab_id), index=int(index)
+        ).get("ok", False))
+
+    def move_tab(self, tab_id: str, side: str = "source",
+                 index: Optional[int] = None) -> bool:
+        args = {"tabId": str(tab_id), "side": side}
+        if index is not None:
+            args["index"] = int(index)
+        return bool(self._transport.call(
+            "salamander.sides.moveTab", **args).get("ok", False))
+
+    def set_detached(self, detached: bool) -> bool:
+        return bool(self._transport.call(
+            "salamander.sides.setDetached", detached=bool(detached)
+        ).get("ok", False))
+
 
 class _Side:
     def __init__(self, sides: _Sides, name: str) -> None:
@@ -290,14 +334,33 @@ class _Side:
     def focus_item(self, index: int, part_visible: bool = True) -> bool:
         return self._sides.focus_item(index, self._name, part_visible)
 
+    def create_tab(self, path: Optional[str] = None,
+                   index: Optional[int] = None) -> dict:
+        return self._sides.create_tab(self._name, path, index)
+
+    def close_tab(self, tab_id: str) -> bool:
+        return self._sides.close_tab(tab_id)
+
+    def reorder_tab(self, tab_id: str, index: int) -> bool:
+        return self._sides.reorder_tab(tab_id, index)
+
+    def move_tab(self, tab_id: str, side: str = "source",
+                 index: Optional[int] = None) -> bool:
+        return self._sides.move_tab(tab_id, side, index)
+
+    def set_detached(self, detached: bool) -> bool:
+        return self._sides.set_detached(detached)
+
 
 class _UI:
     def __init__(self, transport: _Transport) -> None:
         self._transport = transport
 
-    def message_box(self, message: str, title: str = "Salamander") -> int:
+    def message_box(self, message: str, title: str = "Salamander",
+                    buttons: str = "OK", icon: str = "Information") -> int:
         return int(self._transport.call(
-            "salamander.ui.messageBox", message=message, title=title
+            "salamander.ui.messageBox", message=message, title=title,
+            buttons=buttons, icon=icon
         ).get("result", 0))
 
     def notify(self, message: str, title: str = "Salamander",
@@ -306,6 +369,16 @@ class _UI:
             "salamander.ui.notify", message=message, title=title,
             timeoutMs=max(0, int(timeout_ms))
         ).get("shown", False))
+
+    def controls(self) -> bool:
+        return bool(self._transport.call(
+            "salamander.ui.controls"
+        ).get("shown", False))
+
+    def uptime(self) -> str:
+        return str(self._transport.call(
+            "salamander.host.uptime"
+        ).get("milliseconds", "0"))
 
     def input_box(self, prompt: str, title: str = "Salamander",
                   initial: str = "") -> dict:
@@ -365,7 +438,8 @@ class _Progress:
                total2: Optional[int] = None) -> bool:
         arguments: dict = {
             "progressId": self.progress_id,
-            "position": int(position), "text": text,
+            "position": int(position),
+            "text": text,
             "delayedPaint": delayed_paint,
         }
         if total is not None:
@@ -458,7 +532,8 @@ class _Dialog:
                     keep_open: bool = False,
                     multiline: bool = False,
                     filter: str = "",
-                    save: bool = False) -> None:
+                    save: bool = False,
+                    options: Optional[dict] = None) -> None:
         arguments: dict = {
             "readOnly": read_only,
             "checked": checked,
@@ -473,6 +548,8 @@ class _Dialog:
         if kind == "filepicker":
             arguments["filter"] = filter
             arguments["save"] = save
+        if options:
+            arguments.update(options)
         self._add(kind, control_id, text, **arguments)
 
     def set_validation(self, control_id: str, required: bool = False,
@@ -672,20 +749,34 @@ class _Runtimes:
         )
 
 
+class _Application:
+    def __init__(self, transport: _Transport) -> None:
+        self._transport = transport
+
+    def language(self) -> dict:
+        return self._transport.call("salamander.host.language")
+
+    def appearance(self) -> dict:
+        return self._transport.call("salamander.host.appearance")
+
+
 class _Salamander:
     def __init__(self, transport: _Transport, command_id: str = "",
-                 command_handler: str = "") -> None:
+                 command_handler: str = "", invocation: Optional[dict] = None) -> None:
         self.command_id = command_id
         self.command_handler = command_handler
+        self.invocation = invocation or {}
         self.commands = _Commands(transport)
         self.storage = _Storage(transport)
         self.file_operations = _FileOperations(transport)
+        self.file_system = _FileSystem(transport)
         self.sides = _Sides(transport)
         self.ui = _UI(transport)
         self.clipboard = _Clipboard(transport)
         self.ai = _AI(transport)
         self.events = _Events(transport)
         self.runtimes = _Runtimes(transport)
+        self.application = _Application(transport)
         self.left_side = _Side(self.sides, "left")
         self.right_side = _Side(self.sides, "right")
         self.source_side = _Side(self.sides, "source")
@@ -697,13 +788,17 @@ def main() -> int:
     parser.add_argument("--entry", required=True)
     parser.add_argument("--command-id", default="")
     parser.add_argument("--command-handler", default="")
+    parser.add_argument("--invocation-json", default="{}")
     parser.add_argument("--one-shot", action="store_true")
     args = parser.parse_args()
     transport = _Transport()
     transport.handshake()
+    invocation = json.loads(args.invocation_json)
+    if not isinstance(invocation, dict):
+        raise ValueError("--invocation-json must contain a JSON object")
     globals_for_script = {
         "Salamander": _Salamander(
-            transport, args.command_id, args.command_handler)
+            transport, args.command_id, args.command_handler, invocation)
     }
     runpy.run_path(args.entry, init_globals=globals_for_script, run_name="__main__")
     if args.one_shot:

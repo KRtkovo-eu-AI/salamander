@@ -4,6 +4,7 @@
 #include "precomp.h"
 #include "salamatrix_packages.h"
 #include "salamatrix_api_docs.h"
+#include "salamatrix_settings.h"
 #include "../../darkmode.h"
 
 #include <algorithm>
@@ -102,6 +103,208 @@ static std::string SideItemJson(const Sides::ItemInfo& item)
            ",\"hidden\":" + (item.Hidden ? "true" : "false") +
            ",\"link\":" + (item.IsLink ? "true" : "false") +
            ",\"offline\":" + (item.IsOffline ? "true" : "false") + "}";
+}
+
+static bool StartsWith(const std::string& value, const char* prefix)
+{
+    const size_t length = strlen(prefix);
+    return value.size() >= length && value.compare(0, length, prefix) == 0;
+}
+
+static const char* RuntimeCapabilityForMethod(const std::string& method)
+{
+    if (method == "salamander.sides.changePath" ||
+        method == "salamander.sides.refresh" ||
+        method == "salamander.sides.selectItem" ||
+        method == "salamander.sides.selectAll" ||
+        method == "salamander.sides.focusItem" ||
+        method == "salamander.sides.createTab" ||
+        method == "salamander.sides.closeTab" ||
+        method == "salamander.sides.reorderTab" ||
+        method == "salamander.sides.moveTab" ||
+        method == "salamander.sides.setDetached")
+        return "panels.write";
+    if (StartsWith(method, "salamander.sides."))
+        return "panels.read";
+    if (StartsWith(method, "salamander.ui."))
+        return "ui.dialogs";
+    if (method == "salamander.clipboard.copyText")
+        return "clipboard";
+    if (StartsWith(method, "salamander.runtimes."))
+        return "runtimes";
+    if (StartsWith(method, "salamander.ai."))
+        return "ai";
+    if (StartsWith(method, "salamander.commands."))
+        return "commands";
+    if (StartsWith(method, "salamander.fileOperations."))
+        return "file-operations";
+    if (StartsWith(method, "salamander.storage."))
+        return "storage";
+    if (StartsWith(method, "salamander.events."))
+        return "events";
+    if (StartsWith(method, "salamander.fileSystem."))
+        return "file-system";
+    return NULL;
+}
+
+static bool ManifestAllowsCapability(
+    const CExtensionManifest& manifest, const char* capability)
+{
+    if (capability == NULL || !manifest.CapabilitiesDeclared)
+        return true;
+    for (size_t index = 0; index < manifest.Capabilities.size(); ++index)
+    {
+        if (_stricmp(manifest.Capabilities[index].c_str(), "*") == 0 ||
+            _stricmp(manifest.Capabilities[index].c_str(), capability) == 0)
+            return true;
+    }
+    return false;
+}
+
+static const char* RuntimeEventName(Events::EventKind kind)
+{
+    switch (kind)
+    {
+    case Events::EventKindHostStartup: return "hostStartup";
+    case Events::EventKindHostShutdown: return "hostShutdown";
+    case Events::EventKindSettingsChanged: return "settingsChanged";
+    case Events::EventKindConfigurationChanged: return "configurationChanged";
+    case Events::EventKindColorsChanged: return "colorsChanged";
+    case Events::EventKindPanelsSwapped: return "panelsSwapped";
+    case Events::EventKindActivePanelChanged: return "activePanelChanged";
+    case Events::EventKindSidePathChanged: return "sidePathChanged";
+    case Events::EventKindSideSelectionChanged: return "sideSelectionChanged";
+    case Events::EventKindSideTabChanged: return "sideTabChanged";
+    case Events::EventKindSideRefreshed: return "sideRefreshed";
+    case Events::EventKindPathChanged: return "pathChanged";
+    case Events::EventKindSelectionChanged: return "selectionChanged";
+    case Events::EventKindTabChanged: return "tabChanged";
+    case Events::EventKindFileChanged: return "fileChanged";
+    case Events::EventKindTabCreated: return "tabCreated";
+    case Events::EventKindTabClosed: return "tabClosed";
+    case Events::EventKindTabReordered: return "tabReordered";
+    case Events::EventKindWindowDetached: return "windowDetached";
+    case Events::EventKindWindowAttached: return "windowAttached";
+    default: return NULL;
+    }
+}
+
+static BOOL RuntimeEventKindFromName(
+    const std::string& name, Events::EventKind* kind)
+{
+    if (kind == NULL)
+        return FALSE;
+    for (int value = Events::EventKindHostStartup;
+         value <= Events::EventKindWindowAttached; ++value)
+    {
+        const Events::EventKind candidate =
+            static_cast<Events::EventKind>(value);
+        const char* candidateName = RuntimeEventName(candidate);
+        if (candidateName != NULL &&
+            _stricmp(name.c_str(), candidateName) == 0)
+        {
+            *kind = candidate;
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+static bool ManifestAllowsEvent(
+    const CExtensionManifest& manifest, const std::string& eventName)
+{
+    if (!manifest.EventsDeclared)
+        return true;
+    for (size_t index = 0; index < manifest.Events.size(); ++index)
+        if (_stricmp(manifest.Events[index].c_str(), eventName.c_str()) == 0)
+            return true;
+    return false;
+}
+
+static Sides::SideReference RuntimeSideFromName(const std::string& name)
+{
+    if (_stricmp(name.c_str(), "left") == 0)
+        return Sides::SideReferenceLeft;
+    if (_stricmp(name.c_str(), "right") == 0)
+        return Sides::SideReferenceRight;
+    if (_stricmp(name.c_str(), "target") == 0)
+        return Sides::SideReferenceTarget;
+    return Sides::SideReferenceSource;
+}
+
+static BOOL RuntimeTrySideFromName(
+    const std::string& name, Sides::SideReference* side)
+{
+    if (side == NULL)
+        return FALSE;
+    if (_stricmp(name.c_str(), "source") == 0)
+        *side = Sides::SideReferenceSource;
+    else if (_stricmp(name.c_str(), "target") == 0)
+        *side = Sides::SideReferenceTarget;
+    else if (_stricmp(name.c_str(), "left") == 0)
+        *side = Sides::SideReferenceLeft;
+    else if (_stricmp(name.c_str(), "right") == 0)
+        *side = Sides::SideReferenceRight;
+    else
+        return FALSE;
+    return TRUE;
+}
+
+static BOOL FindRuntimeQuadWord(
+    const char* json, const char* member, CQuadWord* value)
+{
+    if (value == NULL)
+        return FALSE;
+    std::string raw;
+    if (!Runtime::Protocol::Json::FindRawMember(json, member, &raw) ||
+        raw.empty())
+        return FALSE;
+    const char* begin = raw.c_str();
+    while (*begin == ' ' || *begin == '\t' ||
+           *begin == '\r' || *begin == '\n')
+        ++begin;
+    if (*begin == '"')
+        ++begin;
+    if (*begin == '-' || *begin == '\0')
+        return FALSE;
+    char* end = NULL;
+    const ULONGLONG parsed = _strtoui64(begin, &end, 10);
+    if (end == begin)
+        return FALSE;
+    if (*end == '"')
+        ++end;
+    while (*end == ' ' || *end == '\t' || *end == '\r' || *end == '\n')
+        ++end;
+    if (*end != '\0')
+        return FALSE;
+    value->SetUI64(parsed);
+    return TRUE;
+}
+
+static void CommandEventMasks(
+    const CExtensionManifestCommand& command,
+    DWORD* orMask,
+    DWORD* andMask)
+{
+    *orMask = MENU_EVENT_TRUE;
+    *andMask = MENU_EVENT_TRUE;
+    if (_stricmp(command.Requires.c_str(), "disk") == 0)
+        *andMask = MENU_EVENT_DISK;
+    else if (_stricmp(command.Requires.c_str(), "focused") == 0)
+    {
+        *orMask = MENU_EVENT_FILE_FOCUSED | MENU_EVENT_DIR_FOCUSED;
+        *andMask = MENU_EVENT_DISK;
+    }
+    else if (_stricmp(command.Requires.c_str(), "file") == 0)
+    {
+        *orMask = MENU_EVENT_FILE_FOCUSED | MENU_EVENT_FILES_SELECTED;
+        *andMask = MENU_EVENT_DISK;
+    }
+    else if (_stricmp(command.Requires.c_str(), "selection") == 0)
+    {
+        *orMask = MENU_EVENT_FILES_SELECTED | MENU_EVENT_DIRS_SELECTED;
+        *andMask = MENU_EVENT_DISK;
+    }
 }
 
 static std::string CurrentSalamanderLocale(
@@ -360,6 +563,8 @@ struct PackageManager::Package
 {
     PackageManager* Owner;
     CExtensionManifest Manifest;
+    std::vector<CExtensionManifestCommand> InitialCommands;
+    Extensions::ExtensionDescriptor Descriptor;
     std::wstring Directory;
     std::wstring EntryPoint;
     std::string Id;
@@ -367,6 +572,7 @@ struct PackageManager::Package
     std::string IconPath;
     std::string IconDarkPath;
     BOOL RuntimeUsable;
+    BOOL SettingsReady;
     CSalamanderForOperationsAbstract* Operations;
     UI::IProgressDialog* Progress;
     ULONGLONG ProgressId;
@@ -381,21 +587,33 @@ struct PackageManager::Package
     std::vector<RuntimeDialog*> Dialogs;
     ULONGLONG NextDialogId;
     std::vector<int> CommandIds;
+    std::vector<DWORD> CommandHotKeys;
     std::vector<std::string> CommandIconPaths;
     std::vector<std::string> CommandIconDarkPaths;
+    std::vector<int> InitialCommandIds;
+    std::vector<DWORD> InitialCommandHotKeys;
+    std::vector<std::string> InitialCommandIconPaths;
+    std::vector<std::string> InitialCommandIconDarkPaths;
+    BOOL CommandsChanged;
     std::vector<int> MenuIconIndices;
+    std::vector<ULONGLONG> EventSubscriptions;
     Runtime::IRuntimeSession* Session;
     HANDLE PumpThread;
+    BOOL FileSystemListing;
+    std::vector<PackageManager::FileSystemItem> PendingFileSystemItems;
 
     Package(PackageManager* owner)
         : Owner(owner),
           RuntimeUsable(FALSE),
+          SettingsReady(TRUE),
           Operations(NULL),
           Progress(NULL),
           ProgressId(0),
           NextDialogId(1),
+          CommandsChanged(FALSE),
           Session(NULL),
-          PumpThread(NULL)
+          PumpThread(NULL),
+          FileSystemListing(FALSE)
     {
     }
 };
@@ -410,7 +628,6 @@ public:
 
     virtual DWORD WINAPI GetMenuItemState(int id, DWORD eventMask)
     {
-        UNREFERENCED_PARAMETER(eventMask);
         if (Owner == NULL)
             return 0;
         if (id == CommandOpenAutomationApiReference)
@@ -431,7 +648,16 @@ public:
                 if (package->CommandIds[c] == id &&
                     c < package->Manifest.Commands.size())
                 {
-                    return package->Manifest.Commands[c].Enabled
+                    DWORD orMask = MENU_EVENT_TRUE;
+                    DWORD andMask = MENU_EVENT_TRUE;
+                    CommandEventMasks(
+                        package->Manifest.Commands[c],
+                        &orMask, &andMask);
+                    const BOOL contextMatches =
+                        (eventMask & orMask) != 0 &&
+                        (eventMask & andMask) == andMask;
+                    return package->Manifest.Commands[c].Enabled &&
+                                   contextMatches
                                ? MENU_ITEM_STATE_ENABLED
                                : 0;
                 }
@@ -495,8 +721,7 @@ public:
                 continue;
             for (size_t c = 0; c < Owner->Packages[p]->Manifest.Commands.size(); ++c)
                 if (Owner->Packages[p]->Manifest.Commands[c].Visible &&
-                    (Owner->Packages[p]->Manifest.Commands[c].Menu == "plugin" ||
-                     Owner->Packages[p]->Manifest.Commands[c].Menu == "both"))
+                    Owner->Packages[p]->Manifest.Commands[c].Menu != "none")
                     ++iconCount;
             int packageMenuCommandCount = 0;
             for (size_t c = 0;
@@ -505,7 +730,7 @@ public:
                 const CExtensionManifestCommand& command =
                     Owner->Packages[p]->Manifest.Commands[c];
                 if (command.Visible &&
-                    (command.Menu == "plugin" || command.Menu == "both"))
+                    command.Menu != "none")
                     ++packageMenuCommandCount;
             }
             if (packageMenuCommandCount > 1 &&
@@ -540,7 +765,7 @@ public:
             {
                 const std::string& menu = package->Manifest.Commands[c].Menu;
                 if (package->Manifest.Commands[c].Visible &&
-                    (menu == "plugin" || menu == "both"))
+                    menu != "none")
                     ++packageMenuCommandCount;
             }
             if (packageMenuCommandCount > 1)
@@ -586,7 +811,7 @@ public:
                 const CExtensionManifestCommand& command =
                     package->Manifest.Commands[c];
                 if (!command.Visible ||
-                    (command.Menu != "plugin" && command.Menu != "both"))
+                    command.Menu == "none")
                     continue;
                 char title[256];
                 StringCchCopyA(title, _countof(title), command.Title.c_str());
@@ -617,9 +842,16 @@ public:
                         iconIndex = -1;
                 }
                 package->MenuIconIndices.push_back(iconIndex);
+                DWORD orMask = MENU_EVENT_TRUE;
+                DWORD andMask = MENU_EVENT_TRUE;
+                CommandEventMasks(command, &orMask, &andMask);
                 builder->AddMenuItem(
-                    iconIndex, title, 0, package->CommandIds[c], TRUE,
-                    MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+                    iconIndex, title,
+                    c < package->CommandHotKeys.size()
+                        ? package->CommandHotKeys[c]
+                        : 0,
+                    package->CommandIds[c], TRUE,
+                    orMask, andMask, MENU_SKILLLEVEL_ALL);
                 packageMenuItemAdded = true;
             }
             if (packageMenuCommandCount > 1)
@@ -635,14 +867,519 @@ public:
     }
 };
 
+class PackageManager::ViewerExtension : public CPluginInterfaceForViewerAbstract
+{
+private:
+    PackageManager* Owner;
+
+public:
+    explicit ViewerExtension(PackageManager* owner) : Owner(owner) {}
+
+    virtual BOOL WINAPI ViewFile(
+        const char* name, int left, int top, int width, int height,
+        UINT showCmd, BOOL alwaysOnTop, BOOL returnLock, HANDLE* lock,
+        BOOL* lockOwner, CSalamanderPluginViewerData* viewerData,
+        int enumFilesSourceUID, int enumFilesCurrentIndex)
+    {
+        UNREFERENCED_PARAMETER(returnLock);
+        UNREFERENCED_PARAMETER(viewerData);
+        if (lock != NULL)
+            *lock = NULL;
+        if (lockOwner != NULL)
+            *lockOwner = FALSE;
+        if (Owner == NULL || name == NULL)
+            return FALSE;
+        std::string invocation =
+            std::string("{\"role\":\"viewer\",\"path\":\"") +
+            JsonEscape(name) + "\",\"window\":{" +
+            "\"left\":" + std::to_string(left) +
+            ",\"top\":" + std::to_string(top) +
+            ",\"width\":" + std::to_string(width) +
+            ",\"height\":" + std::to_string(height) +
+            ",\"showCmd\":" + std::to_string(showCmd) +
+            ",\"alwaysOnTop\":" + (alwaysOnTop ? "true" : "false") +
+            "},\"enumFilesSourceUID\":" +
+            std::to_string(enumFilesSourceUID) +
+            ",\"enumFilesCurrentIndex\":" +
+            std::to_string(enumFilesCurrentIndex) + "}";
+        return Owner->RunViewer(name, invocation.c_str());
+    }
+
+    virtual BOOL WINAPI CanViewFile(const char* name)
+    {
+        UNREFERENCED_PARAMETER(name);
+        // Salamander calls this interface only after matching a mask
+        // registered by RegisterViewerMasks. Content sniffing stays optional
+        // in v1 and can be done by the selected handler before opening UI.
+        return TRUE;
+    }
+};
+
+struct SalamatrixFileSystemItemData
+{
+    PackageManager::FileSystemItem Item;
+    std::string PackageId;
+    std::string FileSystemId;
+};
+
+static int WINAPI SalamatrixFileSystemSimpleIconIndex()
+{
+    return 0;
+}
+
+class SalamatrixFileSystemPluginData : public CPluginDataInterfaceAbstract
+{
+private:
+    HIMAGELIST Images;
+
+public:
+    SalamatrixFileSystemPluginData() : Images(NULL) {}
+    virtual ~SalamatrixFileSystemPluginData()
+    {
+        if (Images != NULL)
+            ImageList_Destroy(Images);
+    }
+
+    virtual BOOL WINAPI CallReleaseForFiles() { return TRUE; }
+    virtual BOOL WINAPI CallReleaseForDirs() { return TRUE; }
+    virtual void WINAPI ReleasePluginData(CFileData& file, BOOL isDir)
+    {
+        UNREFERENCED_PARAMETER(isDir);
+        delete reinterpret_cast<SalamatrixFileSystemItemData*>(file.PluginData);
+        file.PluginData = 0;
+    }
+    virtual void WINAPI GetFileDataForUpDir(const char* archivePath, CFileData& upDir)
+    { UNREFERENCED_PARAMETER(archivePath); UNREFERENCED_PARAMETER(upDir); }
+    virtual BOOL WINAPI GetFileDataForNewDir(const char* dirName, CFileData& dir)
+    { UNREFERENCED_PARAMETER(dirName); UNREFERENCED_PARAMETER(dir); return TRUE; }
+    virtual HIMAGELIST WINAPI GetSimplePluginIcons(int iconSize)
+    {
+        if (Images != NULL)
+        {
+            ImageList_Destroy(Images);
+            Images = NULL;
+        }
+        const int size = iconSize == SALICONSIZE_32 ? 32 : 16;
+        Images = ImageList_Create(size, size, ILC_COLOR32 | ILC_MASK, 1, 1);
+        if (Images == NULL)
+            return NULL;
+        HICON icon = reinterpret_cast<HICON>(LoadImage(
+            DLLInstance, MAKEINTRESOURCE(IDI_PLUGINICON), IMAGE_ICON,
+            size, size, SalamanderGeneral->GetIconLRFlags()));
+        if (icon != NULL)
+        {
+            ImageList_ReplaceIcon(Images, -1, icon);
+            DestroyIcon(icon);
+        }
+        return Images;
+    }
+    virtual BOOL WINAPI HasSimplePluginIcon(CFileData& file, BOOL isDir)
+    { UNREFERENCED_PARAMETER(file); UNREFERENCED_PARAMETER(isDir); return TRUE; }
+    virtual HICON WINAPI GetPluginIcon(
+        const CFileData* file, int iconSize, BOOL& destroyIcon)
+    {
+        destroyIcon = TRUE;
+        const SalamatrixFileSystemItemData* data = file != NULL
+            ? reinterpret_cast<const SalamatrixFileSystemItemData*>(file->PluginData)
+            : NULL;
+        if (data != NULL && SalamanderGUI != NULL)
+        {
+            const bool dark = DarkModeIsWindowsDarkSchemeSelected() &&
+                              !data->Item.IconDark.empty();
+            const std::string& preferred = dark
+                ? data->Item.IconDark : data->Item.Icon;
+            HICON icon = preferred.empty() ? NULL
+                : SalamanderGUI->CreateSVGIcon(
+                      preferred.c_str(), iconSize == SALICONSIZE_32 ? 32 : 16);
+            if (icon == NULL && dark && !data->Item.Icon.empty())
+                icon = SalamanderGUI->CreateSVGIcon(
+                    data->Item.Icon.c_str(), iconSize == SALICONSIZE_32 ? 32 : 16);
+            if (icon != NULL)
+                return icon;
+        }
+        return reinterpret_cast<HICON>(LoadImage(
+            DLLInstance, MAKEINTRESOURCE(IDI_PLUGINICON), IMAGE_ICON,
+            iconSize == SALICONSIZE_32 ? 32 : 16,
+            iconSize == SALICONSIZE_32 ? 32 : 16,
+            SalamanderGeneral->GetIconLRFlags()));
+    }
+    virtual int WINAPI CompareFilesFromFS(
+        const CFileData* file1, const CFileData* file2)
+    { return lstrcmpiA(file1->Name, file2->Name); }
+    virtual void WINAPI SetupView(
+        BOOL leftPanel, CSalamanderViewAbstract* view,
+        const char* archivePath, const CFileData* upperDir)
+    {
+        UNREFERENCED_PARAMETER(leftPanel);
+        UNREFERENCED_PARAMETER(archivePath);
+        UNREFERENCED_PARAMETER(upperDir);
+        view->SetPluginSimpleIconCallback(SalamatrixFileSystemSimpleIconIndex);
+    }
+    virtual void WINAPI ColumnFixedWidthShouldChange(
+        BOOL leftPanel, const CColumn* column, int newFixedWidth)
+    { UNREFERENCED_PARAMETER(leftPanel); UNREFERENCED_PARAMETER(column); UNREFERENCED_PARAMETER(newFixedWidth); }
+    virtual void WINAPI ColumnWidthWasChanged(
+        BOOL leftPanel, const CColumn* column, int newWidth)
+    { UNREFERENCED_PARAMETER(leftPanel); UNREFERENCED_PARAMETER(column); UNREFERENCED_PARAMETER(newWidth); }
+    virtual BOOL WINAPI GetInfoLineContent(
+        int panel, const CFileData* file, BOOL isDir, int selectedFiles,
+        int selectedDirs, BOOL displaySize, const CQuadWord& selectedSize,
+        char* buffer, DWORD* hotTexts, int& hotTextsCount)
+    {
+        UNREFERENCED_PARAMETER(panel); UNREFERENCED_PARAMETER(file);
+        UNREFERENCED_PARAMETER(isDir); UNREFERENCED_PARAMETER(selectedFiles);
+        UNREFERENCED_PARAMETER(selectedDirs); UNREFERENCED_PARAMETER(displaySize);
+        UNREFERENCED_PARAMETER(selectedSize); UNREFERENCED_PARAMETER(hotTexts);
+        hotTextsCount = 0; if (buffer != NULL) buffer[0] = '\0'; return FALSE;
+    }
+    virtual BOOL WINAPI CanBeCopiedToClipboard() { return FALSE; }
+    virtual BOOL WINAPI GetByteSize(const CFileData* file, BOOL isDir, CQuadWord* size)
+    { UNREFERENCED_PARAMETER(file); UNREFERENCED_PARAMETER(isDir); if (size) size->SetUI64(0); return FALSE; }
+    virtual BOOL WINAPI GetLastWriteDate(const CFileData* file, BOOL isDir, SYSTEMTIME* date)
+    { UNREFERENCED_PARAMETER(file); UNREFERENCED_PARAMETER(isDir); UNREFERENCED_PARAMETER(date); return FALSE; }
+    virtual BOOL WINAPI GetLastWriteTime(const CFileData* file, BOOL isDir, SYSTEMTIME* time)
+    { UNREFERENCED_PARAMETER(file); UNREFERENCED_PARAMETER(isDir); UNREFERENCED_PARAMETER(time); return FALSE; }
+};
+
+class PackageManager::OpenFileSystem : public CPluginFSInterfaceAbstract
+{
+private:
+    PackageManager* Owner;
+    std::string Path;
+    BOOL RefreshPosted;
+    unsigned int RefreshIntervalMs;
+
+    BOOL SplitProvider(std::string* packageId, std::string* fileSystemId) const
+    {
+        const size_t separator = Path.find('!');
+        if (separator == std::string::npos || separator == 0 ||
+            separator + 1 >= Path.size())
+            return FALSE;
+        *packageId = Path.substr(0, separator);
+        *fileSystemId = Path.substr(separator + 1);
+        return TRUE;
+    }
+
+    static std::string Invocation(
+        const char* operation, const std::string& packageId,
+        const std::string& fileSystemId,
+        const SalamatrixFileSystemItemData* data,
+        const char* actionId = NULL)
+    {
+        std::string result = std::string("{\"role\":\"fileSystem\",\"operation\":\"") +
+            JsonEscape(operation) + "\",\"packageId\":\"" + JsonEscape(packageId.c_str()) +
+            "\",\"fileSystemId\":\"" + JsonEscape(fileSystemId.c_str()) + "\"";
+        if (actionId != NULL)
+            result += std::string(",\"actionId\":\"") + JsonEscape(actionId) + "\"";
+        if (data != NULL)
+            result += std::string(",\"item\":{\"id\":\"") + JsonEscape(data->Item.Id.c_str()) +
+                "\",\"name\":\"" + JsonEscape(data->Item.Name.c_str()) +
+                "\",\"directory\":" + (data->Item.Directory ? "true" : "false") + "}";
+        result += "}";
+        return result;
+    }
+
+    BOOL AddItem(
+        CSalamanderDirectoryAbstract* dir,
+        CPluginDataInterfaceAbstract* pluginData,
+        const FileSystemItem& item,
+        const std::string& packageId,
+        const std::string& fileSystemId)
+    {
+        CFileData file;
+        memset(&file, 0, sizeof(file));
+        file.Name = SalamanderGeneral->DupStr(item.Name.c_str());
+        if (file.Name == NULL)
+            return FALSE;
+        file.NameLen = static_cast<int>(strlen(file.Name));
+        char* extension = strrchr(file.Name, '.');
+        file.Ext = extension != NULL ? extension + 1 : file.Name + file.NameLen;
+        file.Attr = item.Directory ? FILE_ATTRIBUTE_DIRECTORY : 0;
+        SalamatrixFileSystemItemData* data = new SalamatrixFileSystemItemData();
+        if (data == NULL)
+        {
+            SalamanderGeneral->Free(file.Name);
+            return FALSE;
+        }
+        data->Item = item;
+        data->PackageId = packageId;
+        data->FileSystemId = fileSystemId;
+        file.PluginData = reinterpret_cast<DWORD_PTR>(data);
+        const BOOL added = item.Directory
+            ? dir->AddDir(NULL, file, pluginData)
+            : dir->AddFile(NULL, file, pluginData);
+        if (!added)
+        {
+            delete data;
+            SalamanderGeneral->Free(file.Name);
+        }
+        return added;
+    }
+
+public:
+    explicit OpenFileSystem(PackageManager* owner)
+        : Owner(owner), RefreshPosted(FALSE), RefreshIntervalMs(3000) {}
+
+    BOOL IsRoot() const { return Path.empty() ? TRUE : FALSE; }
+
+    BOOL ExecuteDefault(const CFileData& file)
+    {
+        SalamatrixFileSystemItemData* data =
+            reinterpret_cast<SalamatrixFileSystemItemData*>(file.PluginData);
+        if (data == NULL || !data->Item.Enabled)
+            return FALSE;
+        for (size_t p = 0; p < Owner->Packages.size(); ++p)
+        {
+            Package* package = Owner->Packages[p];
+            if (_stricmp(package->Id.c_str(), data->PackageId.c_str()) != 0)
+                continue;
+            for (size_t f = 0; f < package->Manifest.FileSystems.size(); ++f)
+            {
+                const CExtensionManifestFileSystem& fs = package->Manifest.FileSystems[f];
+                if (_stricmp(fs.Id.c_str(), data->FileSystemId.c_str()) != 0)
+                    continue;
+                const CExtensionManifestFileSystem::Action* selected = NULL;
+                for (size_t a = 0; a < fs.Actions.size(); ++a)
+                    if (fs.Actions[a].Default) { selected = &fs.Actions[a]; break; }
+                if (selected == NULL && !fs.Actions.empty())
+                    selected = &fs.Actions[0];
+                const std::string actionId = selected != NULL ? selected->Id : "open";
+                const std::string invocation = Invocation(
+                    "action", data->PackageId, data->FileSystemId,
+                    data, actionId.c_str());
+                return Owner->ExecuteFileSystemAction(
+                    data->PackageId, data->FileSystemId,
+                    actionId, invocation.c_str());
+            }
+        }
+        return FALSE;
+    }
+
+    virtual BOOL WINAPI GetCurrentPath(char* userPart)
+    { StringCchCopyA(userPart, MAX_PATH, Path.c_str()); return TRUE; }
+    virtual BOOL WINAPI GetFullName(CFileData& file, int isDir, char* buf, int bufSize)
+    {
+        UNREFERENCED_PARAMETER(isDir);
+        const std::string full = Path.empty() ? file.Name : Path + "\\" + file.Name;
+        return SUCCEEDED(StringCchCopyA(buf, bufSize, full.c_str()));
+    }
+    virtual BOOL WINAPI GetFullFSPath(HWND parent, const char* fsName, char* path, int pathSize, BOOL& success)
+    {
+        UNREFERENCED_PARAMETER(parent);
+        const std::string full = std::string(fsName) + ":" + Path;
+        success = SUCCEEDED(StringCchCopyA(path, pathSize, full.c_str()));
+        return TRUE;
+    }
+    virtual BOOL WINAPI GetRootPath(char* userPart) { userPart[0] = '\0'; return TRUE; }
+    virtual BOOL WINAPI IsCurrentPath(int currentFSNameIndex, int fsNameIndex, const char* userPart)
+    { UNREFERENCED_PARAMETER(currentFSNameIndex); UNREFERENCED_PARAMETER(fsNameIndex); return _stricmp(Path.c_str(), userPart ? userPart : "") == 0; }
+    virtual BOOL WINAPI IsOurPath(int currentFSNameIndex, int fsNameIndex, const char* userPart)
+    { UNREFERENCED_PARAMETER(currentFSNameIndex); UNREFERENCED_PARAMETER(fsNameIndex); UNREFERENCED_PARAMETER(userPart); return TRUE; }
+    virtual BOOL WINAPI ChangePath(int currentFSNameIndex, char* fsName, int fsNameIndex, const char* userPart, char* cutFileName, BOOL* pathWasCut, BOOL forceRefresh, int mode)
+    {
+        UNREFERENCED_PARAMETER(currentFSNameIndex); UNREFERENCED_PARAMETER(fsName);
+        UNREFERENCED_PARAMETER(fsNameIndex); UNREFERENCED_PARAMETER(forceRefresh);
+        UNREFERENCED_PARAMETER(mode);
+        if (cutFileName != NULL) cutFileName[0] = '\0';
+        if (pathWasCut != NULL) *pathWasCut = FALSE;
+        const std::string requested = userPart ? userPart : "";
+        if (requested.empty()) { Path.clear(); return TRUE; }
+        for (size_t p = 0; p < Owner->Packages.size(); ++p)
+            for (size_t f = 0; f < Owner->Packages[p]->Manifest.FileSystems.size(); ++f)
+                if (_stricmp(requested.c_str(),
+                    (Owner->Packages[p]->Id + "!" + Owner->Packages[p]->Manifest.FileSystems[f].Id).c_str()) == 0)
+                { Path = requested; return TRUE; }
+        return FALSE;
+    }
+    virtual BOOL WINAPI ListCurrentPath(CSalamanderDirectoryAbstract* dir, CPluginDataInterfaceAbstract*& pluginData, int& iconsType, BOOL forceRefresh)
+    {
+        UNREFERENCED_PARAMETER(forceRefresh);
+        RefreshPosted = FALSE;
+        pluginData = new SalamatrixFileSystemPluginData();
+        if (pluginData == NULL) return FALSE;
+        iconsType = pitFromPlugin;
+        dir->SetValidData(VALID_DATA_NONE);
+        if (Path.empty())
+        {
+            for (size_t p = 0; p < Owner->Packages.size(); ++p)
+            {
+                Package* package = Owner->Packages[p];
+                if (package == NULL || !package->RuntimeUsable) continue;
+                for (size_t f = 0; f < package->Manifest.FileSystems.size(); ++f)
+                {
+                    const CExtensionManifestFileSystem& fs = package->Manifest.FileSystems[f];
+                    FileSystemItem item;
+                    item.Id = package->Id + "!" + fs.Id;
+                    item.Name = item.Id;
+                    item.Directory = true;
+                    std::wstring relative;
+                    if (!fs.Icon.empty() && PackageManager::ToWide(fs.Icon, &relative))
+                        PackageManager::ToUtf8(package->Directory + L"\\" + relative, &item.Icon);
+                    if (!fs.IconDark.empty() && PackageManager::ToWide(fs.IconDark, &relative))
+                        PackageManager::ToUtf8(package->Directory + L"\\" + relative, &item.IconDark);
+                    if (!AddItem(dir, pluginData, item, package->Id, fs.Id)) return FALSE;
+                }
+            }
+            return TRUE;
+        }
+        std::string packageId, fileSystemId;
+        if (!SplitProvider(&packageId, &fileSystemId)) return FALSE;
+        const std::string invocation = Invocation("list", packageId, fileSystemId, NULL);
+        std::vector<FileSystemItem> items;
+        if (!Owner->ListFileSystem(packageId, fileSystemId, invocation.c_str(), &items, &RefreshIntervalMs))
+            return FALSE;
+        for (size_t index = 0; index < items.size(); ++index)
+            if (!AddItem(dir, pluginData, items[index], packageId, fileSystemId)) return FALSE;
+        return TRUE;
+    }
+    virtual BOOL WINAPI TryCloseOrDetach(BOOL forceClose, BOOL canDetach, BOOL& detach, int reason)
+    { UNREFERENCED_PARAMETER(forceClose); UNREFERENCED_PARAMETER(canDetach); UNREFERENCED_PARAMETER(reason); detach = FALSE; return TRUE; }
+    virtual void WINAPI Event(int event, DWORD param)
+    {
+        UNREFERENCED_PARAMETER(param);
+        if ((event == FSE_ACTIVATEREFRESH || event == FSE_TIMER) && !RefreshPosted)
+        { RefreshPosted = TRUE; SalamanderGeneral->PostRefreshPanelFS(this); }
+        if (event == FSE_OPENED || event == FSE_ATTACHED || event == FSE_TIMER)
+            SalamanderGeneral->AddPluginFSTimer(RefreshIntervalMs, this, 1);
+    }
+    virtual void WINAPI ReleaseObject(HWND parent) { UNREFERENCED_PARAMETER(parent); }
+    virtual DWORD WINAPI GetSupportedServices() { return FS_SERVICE_CONTEXTMENU | FS_SERVICE_GETFSICON; }
+    virtual BOOL WINAPI GetChangeDriveOrDisconnectItem(const char* fsName, char*& title, HICON& icon, BOOL& destroyIcon)
+    {
+        std::string text = std::string("\t") + fsName + ":" + Path;
+        title = SalamanderGeneral->DupStr(text.c_str());
+        icon = GetFSIcon(destroyIcon); return title != NULL;
+    }
+    virtual HICON WINAPI GetFSIcon(BOOL& destroyIcon)
+    { destroyIcon = TRUE; return reinterpret_cast<HICON>(LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_PLUGINICON), IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags())); }
+    virtual void WINAPI GetDropEffect(const char* srcFSPath, const char* tgtFSPath, DWORD allowedEffects, DWORD keyState, DWORD* dropEffect)
+    { UNREFERENCED_PARAMETER(srcFSPath); UNREFERENCED_PARAMETER(tgtFSPath); UNREFERENCED_PARAMETER(allowedEffects); UNREFERENCED_PARAMETER(keyState); *dropEffect = DROPEFFECT_NONE; }
+    virtual void WINAPI GetFSFreeSpace(CQuadWord* retValue) { retValue->SetUI64(0); }
+    virtual BOOL WINAPI GetNextDirectoryLineHotPath(const char* text, int pathLen, int& offset)
+    { UNREFERENCED_PARAMETER(text); UNREFERENCED_PARAMETER(pathLen); UNREFERENCED_PARAMETER(offset); return FALSE; }
+    virtual void WINAPI CompleteDirectoryLineHotPath(char* path, int pathBufSize)
+    { UNREFERENCED_PARAMETER(path); UNREFERENCED_PARAMETER(pathBufSize); }
+    virtual BOOL WINAPI GetPathForMainWindowTitle(const char* fsName, int mode, char* buf, int bufSize)
+    { UNREFERENCED_PARAMETER(mode); const std::string title = std::string(fsName) + ":" + Path; return SUCCEEDED(StringCchCopyA(buf, bufSize, title.c_str())); }
+    virtual void WINAPI ShowInfoDialog(const char* fsName, HWND parent) { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(parent); }
+    virtual BOOL WINAPI ExecuteCommandLine(HWND parent, char* command, int& selFrom, int& selTo)
+    { UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(command); UNREFERENCED_PARAMETER(selFrom); UNREFERENCED_PARAMETER(selTo); return FALSE; }
+    virtual BOOL WINAPI QuickRename(const char* fsName, int mode, HWND parent, CFileData& file, BOOL isDir, char* newName, BOOL& cancel)
+    { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(mode); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(file); UNREFERENCED_PARAMETER(isDir); UNREFERENCED_PARAMETER(newName); cancel = FALSE; return FALSE; }
+    virtual void WINAPI AcceptChangeOnPathNotification(const char* fsName, const char* path, BOOL includingSubdirs)
+    { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(path); UNREFERENCED_PARAMETER(includingSubdirs); if (!RefreshPosted) { RefreshPosted = TRUE; SalamanderGeneral->PostRefreshPanelFS(this); } }
+    virtual BOOL WINAPI CreateDir(const char* fsName, int mode, HWND parent, char* newName, BOOL& cancel)
+    { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(mode); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(newName); cancel = FALSE; return FALSE; }
+    virtual void WINAPI ViewFile(const char* fsName, HWND parent, CSalamanderForViewFileOnFSAbstract* salamander, CFileData& file)
+    { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(salamander); ExecuteDefault(file); }
+    virtual BOOL WINAPI Delete(const char* fsName, int mode, HWND parent, int panel, int selectedFiles, int selectedDirs, BOOL& cancelOrError)
+    { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(mode); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(panel); UNREFERENCED_PARAMETER(selectedFiles); UNREFERENCED_PARAMETER(selectedDirs); cancelOrError = FALSE; return FALSE; }
+    virtual BOOL WINAPI CopyOrMoveFromFS(BOOL copy, int mode, const char* fsName, HWND parent, int panel, int selectedFiles, int selectedDirs, char* targetPath, BOOL& operationMask, BOOL& cancelOrHandlePath, HWND dropTarget)
+    { UNREFERENCED_PARAMETER(copy); UNREFERENCED_PARAMETER(mode); UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(panel); UNREFERENCED_PARAMETER(selectedFiles); UNREFERENCED_PARAMETER(selectedDirs); UNREFERENCED_PARAMETER(targetPath); UNREFERENCED_PARAMETER(operationMask); UNREFERENCED_PARAMETER(dropTarget); cancelOrHandlePath = FALSE; return FALSE; }
+    virtual BOOL WINAPI CopyOrMoveFromDiskToFS(BOOL copy, int mode, const char* fsName, HWND parent, const char* sourcePath, SalEnumSelection2 next, void* nextParam, int sourceFiles, int sourceDirs, char* targetPath, BOOL* invalidPathOrCancel)
+    { UNREFERENCED_PARAMETER(copy); UNREFERENCED_PARAMETER(mode); UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(sourcePath); UNREFERENCED_PARAMETER(next); UNREFERENCED_PARAMETER(nextParam); UNREFERENCED_PARAMETER(sourceFiles); UNREFERENCED_PARAMETER(sourceDirs); UNREFERENCED_PARAMETER(targetPath); if (invalidPathOrCancel) *invalidPathOrCancel = FALSE; return FALSE; }
+    virtual BOOL WINAPI ChangeAttributes(const char* fsName, HWND parent, int panel, int selectedFiles, int selectedDirs)
+    { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(panel); UNREFERENCED_PARAMETER(selectedFiles); UNREFERENCED_PARAMETER(selectedDirs); return FALSE; }
+    virtual void WINAPI ShowProperties(const char* fsName, HWND parent, int panel, int selectedFiles, int selectedDirs)
+    { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(panel); UNREFERENCED_PARAMETER(selectedFiles); UNREFERENCED_PARAMETER(selectedDirs); }
+    virtual void WINAPI ContextMenu(const char* fsName, HWND parent, int menuX, int menuY, int type, int panel, int selectedFiles, int selectedDirs)
+    {
+        UNREFERENCED_PARAMETER(fsName);
+        if (type != fscmItemsInPanel || Path.empty()) return;
+        int isDir = 0; const CFileData* file = NULL;
+        if (selectedFiles == 0 && selectedDirs == 0)
+            file = SalamanderGeneral->GetPanelFocusedItem(panel, &isDir);
+        else { int index = 0; file = SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir); }
+        if (file == NULL) return;
+        SalamatrixFileSystemItemData* data = reinterpret_cast<SalamatrixFileSystemItemData*>(file->PluginData);
+        if (data == NULL || !data->Item.Enabled) return;
+        HMENU menu = CreatePopupMenu(); if (menu == NULL) return;
+        const CExtensionManifestFileSystem* manifestFs = NULL;
+        for (size_t p = 0; p < Owner->Packages.size() && manifestFs == NULL; ++p)
+            if (_stricmp(Owner->Packages[p]->Id.c_str(), data->PackageId.c_str()) == 0)
+                for (size_t f = 0; f < Owner->Packages[p]->Manifest.FileSystems.size(); ++f)
+                    if (_stricmp(Owner->Packages[p]->Manifest.FileSystems[f].Id.c_str(), data->FileSystemId.c_str()) == 0)
+                    { manifestFs = &Owner->Packages[p]->Manifest.FileSystems[f]; break; }
+        if (manifestFs == NULL || manifestFs->Actions.empty()) { DestroyMenu(menu); return; }
+        for (size_t a = 0; a < manifestFs->Actions.size(); ++a)
+        {
+            AppendMenuA(menu, MF_STRING, 4000 + static_cast<UINT>(a), manifestFs->Actions[a].Title.c_str());
+            if (manifestFs->Actions[a].Default) SetMenuDefaultItem(menu, 4000 + static_cast<UINT>(a), FALSE);
+        }
+        const UINT selected = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, menuX, menuY, 0, parent, NULL);
+        DestroyMenu(menu);
+        if (selected >= 4000 && selected < 4000 + manifestFs->Actions.size())
+        {
+            const CExtensionManifestFileSystem::Action& action = manifestFs->Actions[selected - 4000];
+            const std::string invocation = Invocation("action", data->PackageId, data->FileSystemId, data, action.Id.c_str());
+            Owner->ExecuteFileSystemAction(data->PackageId, data->FileSystemId, action.Id, invocation.c_str());
+            SalamanderGeneral->PostRefreshPanelFS(this);
+        }
+    }
+    virtual BOOL WINAPI HandleMenuMsg(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT* plResult)
+    { UNREFERENCED_PARAMETER(uMsg); UNREFERENCED_PARAMETER(wParam); UNREFERENCED_PARAMETER(lParam); UNREFERENCED_PARAMETER(plResult); return FALSE; }
+    virtual BOOL WINAPI OpenFindDialog(const char* fsName, int panel)
+    { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(panel); return FALSE; }
+    virtual void WINAPI OpenActiveFolder(const char* fsName, HWND parent)
+    { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(parent); }
+    virtual void WINAPI GetAllowedDropEffects(int mode, const char* tgtFSPath, DWORD* allowedEffects)
+    { UNREFERENCED_PARAMETER(mode); UNREFERENCED_PARAMETER(tgtFSPath); *allowedEffects = 0; }
+    virtual BOOL WINAPI GetNoItemsInPanelText(char* textBuf, int textBufSize)
+    { return SUCCEEDED(StringCchCopyA(textBuf, textBufSize, SalamanderGeneral->LoadStr(DLLInstance, IDS_FS_EMPTY))); }
+    virtual void WINAPI ShowSecurityInfo(HWND parent) { UNREFERENCED_PARAMETER(parent); }
+    virtual void WINAPI EnsureShareExistsOnServer(int panel, const char* server, const char* share)
+    { UNREFERENCED_PARAMETER(panel); UNREFERENCED_PARAMETER(server); UNREFERENCED_PARAMETER(share); }
+};
+
+class PackageManager::FileSystemExtension : public CPluginInterfaceForFSAbstract
+{
+private:
+    PackageManager* Owner;
+public:
+    explicit FileSystemExtension(PackageManager* owner) : Owner(owner) {}
+    virtual CPluginFSInterfaceAbstract* WINAPI OpenFS(const char* fsName, int fsNameIndex)
+    { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(fsNameIndex); return new OpenFileSystem(Owner); }
+    virtual void WINAPI CloseFS(CPluginFSInterfaceAbstract* fs) { delete fs; }
+    virtual void WINAPI ExecuteChangeDriveMenuItem(int panel)
+    { int failReason = 0; SalamanderGeneral->ChangePanelPathToPluginFS(panel, "salamatrix", "", &failReason); }
+    virtual BOOL WINAPI ChangeDriveMenuItemContextMenu(HWND parent, int panel, int x, int y, CPluginFSInterfaceAbstract* pluginFS, const char* pluginFSName, int pluginFSNameIndex, BOOL isDetachedFS, BOOL& refreshMenu, BOOL& closeMenu, int& postCmd, void*& postCmdParam)
+    { UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(panel); UNREFERENCED_PARAMETER(x); UNREFERENCED_PARAMETER(y); UNREFERENCED_PARAMETER(pluginFS); UNREFERENCED_PARAMETER(pluginFSName); UNREFERENCED_PARAMETER(pluginFSNameIndex); UNREFERENCED_PARAMETER(isDetachedFS); UNREFERENCED_PARAMETER(refreshMenu); UNREFERENCED_PARAMETER(closeMenu); UNREFERENCED_PARAMETER(postCmd); UNREFERENCED_PARAMETER(postCmdParam); return FALSE; }
+    virtual void WINAPI ExecuteChangeDrivePostCommand(int panel, int postCmd, void* postCmdParam)
+    { UNREFERENCED_PARAMETER(panel); UNREFERENCED_PARAMETER(postCmd); UNREFERENCED_PARAMETER(postCmdParam); }
+    virtual void WINAPI ExecuteOnFS(int panel, CPluginFSInterfaceAbstract* pluginFS, const char* pluginFSName, int pluginFSNameIndex, CFileData& file, int isDir)
+    {
+        UNREFERENCED_PARAMETER(pluginFSNameIndex);
+        OpenFileSystem* opened = static_cast<OpenFileSystem*>(pluginFS);
+        SalamatrixFileSystemItemData* data = reinterpret_cast<SalamatrixFileSystemItemData*>(file.PluginData);
+        if (opened == NULL || data == NULL) return;
+        if (opened->IsRoot() && isDir != 0)
+        { int failReason = 0; SalamanderGeneral->ChangePanelPathToPluginFS(panel, pluginFSName, file.Name, &failReason); return; }
+        opened->ExecuteDefault(file);
+        SalamanderGeneral->PostRefreshPanelFS(opened);
+    }
+    virtual BOOL WINAPI DisconnectFS(HWND parent, BOOL isInPanel, int panel, CPluginFSInterfaceAbstract* pluginFS, const char* pluginFSName, int pluginFSNameIndex)
+    { UNREFERENCED_PARAMETER(isInPanel); UNREFERENCED_PARAMETER(panel); UNREFERENCED_PARAMETER(pluginFSName); UNREFERENCED_PARAMETER(pluginFSNameIndex); SalamanderGeneral->CloseDetachedFS(parent, pluginFS); return TRUE; }
+    virtual void WINAPI ConvertPathToInternal(const char* fsName, int fsNameIndex, char* fsUserPart)
+    { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(fsNameIndex); UNREFERENCED_PARAMETER(fsUserPart); }
+    virtual void WINAPI ConvertPathToExternal(const char* fsName, int fsNameIndex, char* fsUserPart)
+    { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(fsNameIndex); UNREFERENCED_PARAMETER(fsUserPart); }
+    virtual void WINAPI EnsureShareExistsOnServer(int panel, const char* server, const char* share)
+    { UNREFERENCED_PARAMETER(panel); UNREFERENCED_PARAMETER(server); UNREFERENCED_PARAMETER(share); }
+};
+
 PackageManager::PackageManager()
     : General(NULL),
       Runtimes(NULL),
       Extensions(NULL),
+      Commands(NULL),
+      FileOperations(NULL),
+      Events(NULL),
       Sides(NULL),
       Storage(NULL),
       UI(NULL),
       Menu(NULL),
+      Viewer(NULL),
+      FileSystem(NULL),
       RefreshInProgress(FALSE),
       RefreshPending(FALSE),
       ActiveHostDispatches(0)
@@ -658,6 +1395,9 @@ BOOL PackageManager::Initialize(
     CSalamanderGeneralAbstract* general,
     Runtime::IRuntimeService* runtimes,
     Extensions::IExtensionsService* extensions,
+    Commands::ICommandService* commands,
+    FileOperations::IFileOperationsService* fileOperations,
+    Events::IEventsService* events,
     Sides::ISidesService* sides,
     Storage::IStorageService* storage,
     UI::IUIService* ui)
@@ -665,18 +1405,26 @@ BOOL PackageManager::Initialize(
     General = general;
     Runtimes = runtimes;
     Extensions = extensions;
+    Commands = commands;
+    FileOperations = fileOperations;
+    Events = events;
     Sides = sides;
     Storage = storage;
     UI = ui;
     if (Menu == NULL)
         Menu = new MenuExtension(this);
+    if (Viewer == NULL)
+        Viewer = new ViewerExtension(this);
+    if (FileSystem == NULL)
+        FileSystem = new FileSystemExtension(this);
     if (Extensions != NULL)
     {
         Extensions->SetRefreshCallback(RefreshCallback, this);
         Extensions->SetManagementCallback(ManagementCallback, this);
     }
     return General != NULL && Runtimes != NULL && Extensions != NULL &&
-           Sides != NULL;
+           Commands != NULL && FileOperations != NULL && Events != NULL &&
+           Sides != NULL && Storage != NULL && UI != NULL;
 }
 
 void PackageManager::Shutdown()
@@ -690,6 +1438,10 @@ void PackageManager::Shutdown()
     RemovePackages();
     delete Menu;
     Menu = NULL;
+    delete Viewer;
+    Viewer = NULL;
+    delete FileSystem;
+    FileSystem = NULL;
     Roots.clear();
     CustomPackages.clear();
     ExtensionOrder.clear();
@@ -697,6 +1449,9 @@ void PackageManager::Shutdown()
     General = NULL;
     Runtimes = NULL;
     Extensions = NULL;
+    Commands = NULL;
+    FileOperations = NULL;
+    Events = NULL;
     Sides = NULL;
     Storage = NULL;
     UI = NULL;
@@ -861,6 +1616,7 @@ void PackageManager::Refresh()
             DiscoverDirectory(parent, &CustomPackages[index]);
         }
     }
+    ResolveDependenciesAndActivate();
     ApplyUserOrder();
     RegisterToolbarButtons();
     if (General != NULL)
@@ -995,12 +1751,21 @@ void PackageManager::DiscoverDirectory(
                     }
                     Package* package = new Package(this);
                     package->Manifest = manifest;
+                    package->InitialCommands = manifest.Commands;
                     package->Directory = path;
                     package->EntryPoint = path + L"\\";
                     std::wstring relative;
                     ToWide(manifest.EntryPoint, &relative);
                     package->EntryPoint += relative;
                     package->Id = manifest.Id;
+                    package->SettingsReady =
+                        Settings::ApplyMigrations(
+                            Storage, package->Id.c_str(),
+                            manifest.SettingsVersion,
+                            manifest.SettingsMigrations) &&
+                        Settings::MaterializeDefaults(
+                            Storage, package->Id.c_str(),
+                            manifest.Settings);
                     ToUtf8(package->EntryPoint, &package->EntryPointUtf8);
                     std::wstring icon = path + L"\\";
                     std::wstring iconRelative;
@@ -1029,6 +1794,18 @@ void PackageManager::DiscoverDirectory(
                     descriptor.Flags = Extensions::ExtensionFlagManifest |
                                        Extensions::ExtensionFlagPackage |
                                        Extensions::ExtensionFlagPersistent;
+                    BOOL enabled = TRUE;
+                    if (Storage != NULL &&
+                        Storage->GetValueType(
+                            package->Id.c_str(), "salamatrix.enabled") ==
+                            Storage::StorageValueBoolean)
+                    {
+                        Storage->GetBoolean(
+                            package->Id.c_str(), "salamatrix.enabled",
+                            &enabled);
+                    }
+                    if (!enabled)
+                        descriptor.Flags |= Extensions::ExtensionFlagDisabled;
                     bool registeredRuntime = false;
                     bool availableRuntime = false;
                     for (int adapterIndex = 0;
@@ -1071,6 +1848,7 @@ void PackageManager::DiscoverDirectory(
                         availableRuntime = true;
                     }
                     package->RuntimeUsable = registeredRuntime && availableRuntime;
+                    package->Descriptor = descriptor;
                     if (Extensions->RegisterExtension(&descriptor, LifecycleCallback, package))
                     {
                         std::vector<Extensions::ExtensionSettingInfo> settings;
@@ -1100,6 +1878,7 @@ void PackageManager::DiscoverDirectory(
                         {
                             int id = 0x62000000 + static_cast<int>(Packages.size() * 64 + command + 1);
                             package->CommandIds.push_back(id);
+                            package->CommandHotKeys.push_back(0);
                             std::wstring commandIcon;
                             const std::string& declaredIcon =
                                 !manifest.Commands[command].Icon.empty()
@@ -1126,6 +1905,11 @@ void PackageManager::DiscoverDirectory(
                             package->CommandIconDarkPaths.push_back(
                                 commandIconDarkUtf8);
                         }
+                        package->InitialCommandIds = package->CommandIds;
+                        package->InitialCommandHotKeys = package->CommandHotKeys;
+                        package->InitialCommandIconPaths = package->CommandIconPaths;
+                        package->InitialCommandIconDarkPaths =
+                            package->CommandIconDarkPaths;
                         Packages.push_back(package);
                     }
                     else
@@ -1141,6 +1925,65 @@ void PackageManager::DiscoverDirectory(
     FindClose(find);
 }
 
+void PackageManager::ResolveDependenciesAndActivate()
+{
+    if (Extensions == NULL)
+        return;
+
+    for (size_t index = 0; index < Packages.size(); ++index)
+    {
+        Package* package = Packages[index];
+        bool dependencyUnavailable = false;
+        for (size_t dependencyIndex = 0;
+             dependencyIndex < package->Manifest.Dependencies.size();
+             ++dependencyIndex)
+        {
+            const std::string& dependencyId =
+                package->Manifest.Dependencies[dependencyIndex];
+            Package* dependency = NULL;
+            for (size_t candidate = 0; candidate < Packages.size(); ++candidate)
+            {
+                if (_stricmp(
+                        Packages[candidate]->Id.c_str(),
+                        dependencyId.c_str()) == 0)
+                {
+                    dependency = Packages[candidate];
+                    break;
+                }
+            }
+            if (dependency == NULL || !dependency->RuntimeUsable ||
+                !dependency->SettingsReady ||
+                (dependency->Descriptor.Flags &
+                 Extensions::ExtensionFlagDisabled) != 0)
+            {
+                dependencyUnavailable = true;
+                break;
+            }
+        }
+        if (dependencyUnavailable)
+            package->Descriptor.Flags |=
+                Extensions::ExtensionFlagDependencyUnavailable;
+        else
+            package->Descriptor.Flags &=
+                ~Extensions::ExtensionFlagDependencyUnavailable;
+        Extensions->RegisterExtension(
+            &package->Descriptor, LifecycleCallback, package);
+    }
+
+    for (size_t index = 0; index < Packages.size(); ++index)
+    {
+        Package* package = Packages[index];
+        const DWORD blocked =
+            Extensions::ExtensionFlagDisabled |
+            Extensions::ExtensionFlagRuntimeUnavailable |
+            Extensions::ExtensionFlagRuntimeExecutableUnavailable |
+            Extensions::ExtensionFlagDependencyUnavailable;
+        if (package->SettingsReady &&
+            (package->Descriptor.Flags & blocked) == 0)
+            Extensions->ActivateExtension(package->Id.c_str());
+    }
+}
+
 void PackageManager::RemovePackages()
 {
     for (size_t index = 0; index < Packages.size(); ++index)
@@ -1148,6 +1991,7 @@ void PackageManager::RemovePackages()
         Package* package = Packages[index];
         if (Extensions != NULL)
             Extensions->UnregisterExtension(package->Id.c_str(), package);
+        ReleaseEventSubscriptions(package);
         if (package->Session != NULL)
         {
             package->Session->Stop();
@@ -1168,6 +2012,53 @@ void PackageManager::RemovePackages()
 CPluginInterfaceForMenuExtAbstract* PackageManager::GetMenuExtension()
 {
     return Menu;
+}
+
+CPluginInterfaceForViewerAbstract* PackageManager::GetViewerExtension()
+{
+    return Viewer;
+}
+
+CPluginInterfaceForFSAbstract* PackageManager::GetFileSystemExtension()
+{
+    return FileSystem;
+}
+
+void PackageManager::RegisterViewerMasks(CSalamanderConnectAbstract* salamander)
+{
+    if (salamander == NULL)
+        return;
+    // AddViewer accepts a semicolon-separated mask group. Keep each call
+    // deliberately short because older host versions use a bounded merge
+    // buffer for viewer associations.
+    std::string group;
+    for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
+    {
+        Package* package = Packages[packageIndex];
+        if (package == NULL || !package->RuntimeUsable)
+            continue;
+        for (size_t viewerIndex = 0;
+             viewerIndex < package->Manifest.Viewers.size(); ++viewerIndex)
+        {
+            const CExtensionManifestViewer& viewer =
+                package->Manifest.Viewers[viewerIndex];
+            for (size_t patternIndex = 0;
+                 patternIndex < viewer.Patterns.size(); ++patternIndex)
+            {
+                const std::string& pattern = viewer.Patterns[patternIndex];
+                if (!group.empty() && group.size() + pattern.size() + 1 > 190)
+                {
+                    salamander->AddViewer(group.c_str(), FALSE);
+                    group.clear();
+                }
+                if (!group.empty())
+                    group += ";";
+                group += pattern;
+            }
+        }
+    }
+    if (!group.empty())
+        salamander->AddViewer(group.c_str(), FALSE);
 }
 
 BOOL WINAPI PackageManager::LifecycleCallback(
@@ -1235,7 +2126,10 @@ BOOL PackageManager::Activate(Package* package)
 
 BOOL PackageManager::Deactivate(Package* package)
 {
-    if (package == NULL || package->Session == NULL)
+    if (package == NULL)
+        return TRUE;
+    ReleaseEventSubscriptions(package);
+    if (package->Session == NULL)
         return TRUE;
     package->Session->Stop();
     if (package->PumpThread != NULL)
@@ -1247,7 +2141,33 @@ BOOL PackageManager::Deactivate(Package* package)
     package->Session->Release();
     package->Session = NULL;
     ReleaseDialogs(package);
+    if (package->CommandsChanged)
+    {
+        UnregisterToolbarButtons();
+        package->Manifest.Commands = package->InitialCommands;
+        package->CommandIds = package->InitialCommandIds;
+        package->CommandHotKeys = package->InitialCommandHotKeys;
+        package->CommandIconPaths = package->InitialCommandIconPaths;
+        package->CommandIconDarkPaths = package->InitialCommandIconDarkPaths;
+        package->CommandsChanged = FALSE;
+        RegisterToolbarButtons();
+        if (General != NULL)
+            General->PostPluginMenuChanged();
+    }
     return TRUE;
+}
+
+void PackageManager::ReleaseEventSubscriptions(Package* package)
+{
+    if (package == NULL)
+        return;
+    if (Events != NULL)
+    {
+        for (size_t index = 0;
+             index < package->EventSubscriptions.size(); ++index)
+            Events->Unsubscribe(package->EventSubscriptions[index]);
+    }
+    package->EventSubscriptions.clear();
 }
 
 void PackageManager::ReleaseDialogs(Package* package)
@@ -1283,7 +2203,8 @@ BOOL PackageManager::ExecuteCommand(
     Package* package,
     CSalamanderForOperationsAbstract* operations,
     const char* commandId,
-    const char* handler)
+    const char* handler,
+    const char* invocationJson)
 {
     if (package == NULL || commandId == NULL || Runtimes == NULL)
         return FALSE;
@@ -1316,6 +2237,7 @@ BOOL PackageManager::ExecuteCommand(
     request.ExtensionId = package->Id.c_str();
     request.CommandId = commandId;
     request.CommandHandler = handler;
+    request.InvocationJson = invocationJson;
     request.EntryPoint = package->EntryPoint.c_str();
     request.ParentWindow = General->GetMsgBoxParent();
     request.Flags = Runtime::RuntimeExecutionFlagUseWorkerBootstrap |
@@ -1367,6 +2289,143 @@ BOOL PackageManager::ExecuteCommand(
     ReleaseProgress(package);
     package->Operations = NULL;
     return succeeded;
+}
+
+BOOL PackageManager::RunViewer(const char* fileName, const char* invocationJson)
+{
+    if (fileName == NULL || General == NULL)
+        return FALSE;
+    const char* extension = strrchr(fileName, '.');
+    const BOOL hasExtension = extension != NULL && extension[1] != '\0';
+    for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
+    {
+        Package* package = Packages[packageIndex];
+        if (package == NULL || !package->RuntimeUsable)
+            continue;
+        for (size_t viewerIndex = 0;
+             viewerIndex < package->Manifest.Viewers.size(); ++viewerIndex)
+        {
+            const CExtensionManifestViewer& viewer =
+                package->Manifest.Viewers[viewerIndex];
+            for (size_t patternIndex = 0;
+                 patternIndex < viewer.Patterns.size(); ++patternIndex)
+            {
+                std::string masks = viewer.Patterns[patternIndex];
+                size_t start = 0;
+                while (start <= masks.size())
+                {
+                    size_t end = masks.find(';', start);
+                    if (end == std::string::npos)
+                        end = masks.size();
+                    const std::string mask = masks.substr(start, end - start);
+                    if (!mask.empty() &&
+                        General->AgreeMask(fileName, mask.c_str(), hasExtension))
+                    {
+                        return ExecuteCommand(
+                            package, NULL, "salamatrix.viewer",
+                            viewer.Handler.c_str(), invocationJson);
+                    }
+                    if (end == masks.size())
+                        break;
+                    start = end + 1;
+                }
+            }
+        }
+    }
+    return FALSE;
+}
+
+BOOL PackageManager::ListFileSystem(
+    const std::string& packageId,
+    const std::string& fileSystemId,
+    const char* invocationJson,
+    std::vector<FileSystemItem>* items,
+    unsigned int* refreshIntervalMs)
+{
+    if (items == NULL)
+        return FALSE;
+    items->clear();
+    for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
+    {
+        Package* package = Packages[packageIndex];
+        if (package == NULL || !package->RuntimeUsable ||
+            _stricmp(package->Id.c_str(), packageId.c_str()) != 0)
+            continue;
+        for (size_t fileSystemIndex = 0;
+             fileSystemIndex < package->Manifest.FileSystems.size(); ++fileSystemIndex)
+        {
+            const CExtensionManifestFileSystem& fileSystem =
+                package->Manifest.FileSystems[fileSystemIndex];
+            if (_stricmp(fileSystem.Id.c_str(), fileSystemId.c_str()) != 0)
+                continue;
+            package->PendingFileSystemItems.clear();
+            package->FileSystemListing = TRUE;
+            const BOOL executed = ExecuteCommand(
+                package, NULL, "salamatrix.fileSystem.list",
+                fileSystem.ListHandler.c_str(), invocationJson);
+            package->FileSystemListing = FALSE;
+            if (!executed)
+            {
+                package->PendingFileSystemItems.clear();
+                return FALSE;
+            }
+            for (size_t itemIndex = 0;
+                 itemIndex < package->PendingFileSystemItems.size(); ++itemIndex)
+            {
+                FileSystemItem item = package->PendingFileSystemItems[itemIndex];
+                std::wstring relative;
+                if (!item.Icon.empty() && ToWide(item.Icon, &relative))
+                    ToUtf8(package->Directory + L"\\" + relative, &item.Icon);
+                if (!item.IconDark.empty() && ToWide(item.IconDark, &relative))
+                    ToUtf8(package->Directory + L"\\" + relative, &item.IconDark);
+                items->push_back(item);
+            }
+            package->PendingFileSystemItems.clear();
+            if (refreshIntervalMs != NULL)
+                *refreshIntervalMs = fileSystem.RefreshIntervalMs;
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+BOOL PackageManager::ExecuteFileSystemAction(
+    const std::string& packageId,
+    const std::string& fileSystemId,
+    const std::string& actionId,
+    const char* invocationJson)
+{
+    for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
+    {
+        Package* package = Packages[packageIndex];
+        if (package == NULL || !package->RuntimeUsable ||
+            _stricmp(package->Id.c_str(), packageId.c_str()) != 0)
+            continue;
+        for (size_t fileSystemIndex = 0;
+             fileSystemIndex < package->Manifest.FileSystems.size(); ++fileSystemIndex)
+        {
+            const CExtensionManifestFileSystem& fileSystem =
+                package->Manifest.FileSystems[fileSystemIndex];
+            if (_stricmp(fileSystem.Id.c_str(), fileSystemId.c_str()) != 0)
+                continue;
+            for (size_t actionIndex = 0;
+                 actionIndex < fileSystem.Actions.size(); ++actionIndex)
+            {
+                const CExtensionManifestFileSystem::Action& action =
+                    fileSystem.Actions[actionIndex];
+                if (_stricmp(action.Id.c_str(), actionId.c_str()) == 0)
+                    return ExecuteCommand(
+                        package, NULL, action.Id.c_str(),
+                        action.Handler.c_str(), invocationJson);
+            }
+            if (!fileSystem.OpenHandler.empty() &&
+                (_stricmp(actionId.c_str(), "open") == 0 || actionId.empty()))
+                return ExecuteCommand(
+                    package, NULL, "salamatrix.fileSystem.open",
+                    fileSystem.OpenHandler.c_str(), invocationJson);
+        }
+    }
+    return FALSE;
 }
 
 BOOL WINAPI PackageManager::ManagementCallback(
@@ -1578,6 +2637,45 @@ BOOL WINAPI PackageManager::RuntimeDialogEventCallback(
         frame.c_str(), static_cast<DWORD>(frame.size()));
 }
 
+BOOL WINAPI PackageManager::RuntimeEventCallback(
+    void* context, const Events::EventPayload* event)
+{
+    Package* package = static_cast<Package*>(context);
+    if (package == NULL || event == NULL || package->Session == NULL)
+        return FALSE;
+    const char* eventName = RuntimeEventName(event->Kind);
+    if (eventName == NULL)
+        return FALSE;
+    const bool hasLifecycleFields =
+        event->StructSize >= sizeof(Events::EventPayload);
+    char tabId[32];
+    char changedTabId[32];
+    _ui64toa_s(event->ActiveTabId, tabId, _countof(tabId), 10);
+    _ui64toa_s(
+        hasLifecycleFields ? event->ChangedTabId : 0,
+        changedTabId, _countof(changedTabId), 10);
+    const std::string eventJson =
+        std::string("{\"event\":\"") + eventName +
+        "\",\"parameter\":" + std::to_string(event->Parameter) +
+        ",\"activePanel\":" + std::to_string(event->ActivePanel) +
+        ",\"tabId\":\"" + tabId +
+        "\",\"changedTabId\":\"" + changedTabId +
+        "\",\"tabIndex\":" +
+        std::to_string(
+            hasLifecycleFields ? event->ChangedTabIndex : -1) +
+        ",\"previousTabIndex\":" +
+        std::to_string(
+            hasLifecycleFields ? event->PreviousTabIndex : -1) +
+        ",\"pathType\":" + std::to_string(event->PathType) +
+        ",\"path\":\"" + JsonEscape(event->Path) + "\"}";
+    std::string frame;
+    if (!Runtime::Protocol::LineCodec::Encode(
+            Runtime::Protocol::MessageEvent, 0, eventJson, &frame))
+        return FALSE;
+    return package->Session->QueueFrame(
+        frame.c_str(), static_cast<DWORD>(frame.size()));
+}
+
 BOOL WINAPI PackageManager::HostDispatch(
     void* context, Runtime::Protocol::MessageType type, ULONGLONG requestId,
     const char* payloadJson, char* resultJson, DWORD resultCapacity, DWORD* resultLength)
@@ -1588,7 +2686,9 @@ BOOL WINAPI PackageManager::HostDispatch(
     Package* package = static_cast<Package*>(context);
     PackageManager* owner = package->Owner;
     if (type == Runtime::Protocol::MessageHello)
-        return CopyResult("{\"ok\":true}", resultJson, resultCapacity, resultLength);
+        return CopyResult(
+            "{\"ok\":true,\"protocol\":1,\"services\":[\"commands\",\"fileOperations\",\"fileSystem\",\"sides\",\"storage\",\"ui\",\"events\",\"runtimes\"]}",
+            resultJson, resultCapacity, resultLength);
     if (type != Runtime::Protocol::MessageCall)
         return FALSE;
     if (CurrentMainThreadDispatch == NULL && owner->General != NULL)
@@ -1602,6 +2702,14 @@ BOOL WINAPI PackageManager::HostDispatch(
     std::string method;
     if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "method", &method))
         return FALSE;
+    const char* requiredCapability = RuntimeCapabilityForMethod(method);
+    if (!ManifestAllowsCapability(package->Manifest, requiredCapability))
+    {
+        return CopyResult(
+            std::string("{\"ok\":false,\"error\":\"capability denied\",\"code\":\"permission_denied\",\"capability\":\"") +
+                JsonEscape(requiredCapability) + "\"}",
+            resultJson, resultCapacity, resultLength);
+    }
     if (method == "salamander.host.language")
     {
         WORD languageId = 0;
@@ -1678,6 +2786,594 @@ BOOL WINAPI PackageManager::HostDispatch(
                 : "{\"ok\":true,\"windowsDarkMode\":false}",
             resultJson, resultCapacity, resultLength);
     }
+    if (method == "salamander.runtimes.list")
+    {
+        if (owner->Runtimes == NULL)
+            return FALSE;
+        std::string response = "{\"ok\":true,\"runtimes\":[";
+        for (int index = 0; index < owner->Runtimes->GetAdapterCount(); ++index)
+        {
+            Runtime::IRuntimeAdapter* adapter =
+                owner->Runtimes->GetAdapter(index);
+            const Runtime::RuntimeAdapterDescriptor* descriptor =
+                adapter != NULL ? adapter->GetDescriptor() : NULL;
+            if (descriptor == NULL || descriptor->RuntimeId == NULL)
+                continue;
+            if (response[response.size() - 1] != '[')
+                response += ",";
+            response += std::string("{\"id\":\"") +
+                        JsonEscape(descriptor->RuntimeId) +
+                        "\",\"name\":\"" +
+                        JsonEscape(descriptor->DisplayName) +
+                        "\",\"language\":\"" +
+                        JsonEscape(descriptor->LanguageId) +
+                        "\",\"extensions\":\"" +
+                        JsonEscape(descriptor->FileExtensions) +
+                        "\",\"version\":" +
+                        std::to_string(descriptor->RuntimeVersion) +
+                        ",\"available\":" +
+                        (adapter->IsAvailable() ? "true}" : "false}");
+        }
+        response += "]}";
+        return CopyResult(
+            response, resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.events.subscribe")
+    {
+        std::string eventName;
+        Events::EventKind kind;
+        if (!Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "event", &eventName) ||
+            !RuntimeEventKindFromName(eventName, &kind) ||
+            !ManifestAllowsEvent(package->Manifest, eventName) ||
+            package->EventSubscriptions.size() >= 32 ||
+            owner->Events == NULL)
+            return FALSE;
+        ULONGLONG subscriptionId = 0;
+        if (!owner->Events->Subscribe(
+                kind, RuntimeEventCallback, package, &subscriptionId))
+            return FALSE;
+        package->EventSubscriptions.push_back(subscriptionId);
+        char id[32];
+        _ui64toa_s(subscriptionId, id, _countof(id), 10);
+        return CopyResult(
+            std::string("{\"ok\":true,\"subscriptionId\":\"") +
+                id + "\"}",
+            resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.fileSystem.addItem")
+    {
+        if (!package->FileSystemListing)
+            return CopyResult(
+                "{\"ok\":false,\"error\":\"No file-system listing is active\",\"code\":\"invalid_state\"}",
+                resultJson, resultCapacity, resultLength);
+        if (package->PendingFileSystemItems.size() >= 4096)
+            return CopyResult(
+                "{\"ok\":false,\"error\":\"File-system listing contains more than 4096 items\",\"code\":\"limit_exceeded\"}",
+                resultJson, resultCapacity, resultLength);
+        FileSystemItem item;
+        if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "id", &item.Id) ||
+            !Runtime::Protocol::Json::FindStringMember(payloadJson, "name", &item.Name))
+            return CopyResult(
+                "{\"ok\":false,\"error\":\"File-system item requires id and name\",\"code\":\"invalid_argument\"}",
+                resultJson, resultCapacity, resultLength);
+        Runtime::Protocol::Json::FindStringMember(payloadJson, "icon", &item.Icon);
+        Runtime::Protocol::Json::FindStringMember(payloadJson, "iconDark", &item.IconDark);
+        BOOL boolValue = FALSE;
+        if (Runtime::Protocol::Json::FindBoolMember(payloadJson, "directory", &boolValue))
+            item.Directory = boolValue != FALSE;
+        boolValue = TRUE;
+        if (Runtime::Protocol::Json::FindBoolMember(payloadJson, "enabled", &boolValue))
+            item.Enabled = boolValue != FALSE;
+        if (item.Id.empty() || item.Id.size() > 255 || item.Name.empty() ||
+            item.Name.size() > 1023 || item.Name == "." || item.Name == ".." ||
+            item.Name.find('\\') != std::string::npos ||
+            item.Name.find('/') != std::string::npos)
+            return CopyResult(
+                "{\"ok\":false,\"error\":\"File-system item id or name is invalid\",\"code\":\"invalid_argument\"}",
+                resultJson, resultCapacity, resultLength);
+        const std::string svgExtension = ".svg";
+        const bool iconIsSvg = item.Icon.size() >= svgExtension.size() &&
+            _stricmp(item.Icon.c_str() + item.Icon.size() - svgExtension.size(), svgExtension.c_str()) == 0;
+        const bool darkIconIsSvg = item.IconDark.size() >= svgExtension.size() &&
+            _stricmp(item.IconDark.c_str() + item.IconDark.size() - svgExtension.size(), svgExtension.c_str()) == 0;
+        if ((!item.Icon.empty() &&
+             (!CExtensionManifest::IsSafeRelativeEntryPoint(item.Icon) || !iconIsSvg)) ||
+            (!item.IconDark.empty() &&
+             (!CExtensionManifest::IsSafeRelativeEntryPoint(item.IconDark) || !darkIconIsSvg)))
+            return CopyResult(
+                "{\"ok\":false,\"error\":\"File-system item icons must be safe relative SVG paths\",\"code\":\"invalid_argument\"}",
+                resultJson, resultCapacity, resultLength);
+        package->PendingFileSystemItems.push_back(item);
+        return CopyResult("{\"ok\":true,\"added\":true}",
+                          resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.events.unsubscribe")
+    {
+        std::string idText;
+        if (!Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "subscriptionId", &idText) ||
+            owner->Events == NULL)
+            return FALSE;
+        char* end = NULL;
+        const ULONGLONG subscriptionId =
+            _strtoui64(idText.c_str(), &end, 10);
+        if (end == idText.c_str() || *end != '\0')
+            return FALSE;
+        size_t found = package->EventSubscriptions.size();
+        for (size_t index = 0;
+             index < package->EventSubscriptions.size(); ++index)
+            if (package->EventSubscriptions[index] == subscriptionId)
+                found = index;
+        if (found == package->EventSubscriptions.size() ||
+            !owner->Events->Unsubscribe(subscriptionId))
+            return FALSE;
+        package->EventSubscriptions.erase(
+            package->EventSubscriptions.begin() + found);
+        return CopyResult(
+            "{\"ok\":true}", resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.commands.execute")
+    {
+        std::string commandId;
+        if (!Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "commandId", &commandId) ||
+            owner->Commands == NULL)
+            return FALSE;
+        Commands::ExecuteOptions options;
+        options.Parent = owner->General->GetMsgBoxParent();
+        const Runtime::OperationResult operation =
+            owner->Commands->Execute(commandId.c_str(), options);
+        const char* resultName =
+            operation == Runtime::OperationResultOk
+                ? "ok"
+                : operation == Runtime::OperationResultCancel
+                      ? "cancel"
+                      : operation == Runtime::OperationResultNotAvailable
+                            ? "not_available"
+                            : "error";
+        return CopyResult(
+            std::string("{\"ok\":") +
+                (operation == Runtime::OperationResultOk ? "true" : "false") +
+                ",\"result\":\"" + resultName + "\"}",
+            resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.commands.register")
+    {
+        std::string commandId;
+        std::string title;
+        std::string handler;
+        BOOL pluginMenu = TRUE;
+        BOOL contextMenu = FALSE;
+        BOOL toolbar = FALSE;
+        BOOL enabled = TRUE;
+        BOOL visible = TRUE;
+        int hotKey = 0;
+        if (!Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "commandId", &commandId) ||
+            commandId.empty() || commandId.size() > 127)
+            return FALSE;
+        Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "title", &title);
+        Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "handler", &handler);
+        Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "pluginMenu", &pluginMenu);
+        Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "contextMenu", &contextMenu);
+        Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "toolbar", &toolbar);
+        Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "enabled", &enabled);
+        Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "visible", &visible);
+        Runtime::Protocol::Json::FindIntegerMember(
+            payloadJson, "hotKey", &hotKey);
+        if (title.empty())
+            title = commandId;
+
+        size_t commandIndex = package->Manifest.Commands.size();
+        for (size_t index = 0;
+             index < package->Manifest.Commands.size(); ++index)
+        {
+            if (_stricmp(
+                    package->Manifest.Commands[index].Id.c_str(),
+                    commandId.c_str()) == 0)
+            {
+                commandIndex = index;
+                break;
+            }
+        }
+        const bool adding = commandIndex == package->Manifest.Commands.size();
+        if (adding && package->Manifest.Commands.size() >= 64)
+            return FALSE;
+
+        CExtensionManifestCommand command;
+        command.Id = commandId;
+        command.Title = title;
+        command.Handler = handler;
+        command.Menu = pluginMenu
+                           ? (contextMenu ? "both" : "plugin")
+                           : (contextMenu ? "context" : "none");
+        command.ContextMenu = contextMenu != FALSE;
+        command.Toolbar = toolbar != FALSE;
+        command.Enabled = enabled != FALSE;
+        command.Visible = visible != FALSE;
+
+        owner->UnregisterToolbarButtons();
+        if (adding)
+        {
+            size_t packageIndex = 0;
+            while (packageIndex < owner->Packages.size() &&
+                   owner->Packages[packageIndex] != package)
+                ++packageIndex;
+            if (packageIndex == owner->Packages.size())
+                return FALSE;
+            package->Manifest.Commands.push_back(command);
+            package->CommandIds.push_back(
+                0x62000000 +
+                static_cast<int>(packageIndex * 64 + commandIndex + 1));
+            package->CommandHotKeys.push_back(static_cast<DWORD>(hotKey));
+            package->CommandIconPaths.push_back(package->IconPath);
+            package->CommandIconDarkPaths.push_back(package->IconDarkPath);
+        }
+        else
+        {
+            package->Manifest.Commands[commandIndex] = command;
+            if (commandIndex < package->CommandHotKeys.size())
+                package->CommandHotKeys[commandIndex] =
+                    static_cast<DWORD>(hotKey);
+        }
+        package->CommandsChanged = TRUE;
+        owner->RegisterToolbarButtons();
+        owner->General->PostPluginMenuChanged();
+        return CopyResult(
+            "{\"ok\":true,\"registered\":true}",
+            resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.commands.unregister")
+    {
+        std::string commandId;
+        if (!Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "commandId", &commandId))
+            return FALSE;
+        size_t commandIndex = package->Manifest.Commands.size();
+        for (size_t index = package->InitialCommands.size();
+             index < package->Manifest.Commands.size(); ++index)
+        {
+            if (_stricmp(
+                    package->Manifest.Commands[index].Id.c_str(),
+                    commandId.c_str()) == 0)
+            {
+                commandIndex = index;
+                break;
+            }
+        }
+        if (commandIndex == package->Manifest.Commands.size())
+            return CopyResult(
+                "{\"ok\":true,\"unregistered\":false}",
+                resultJson, resultCapacity, resultLength);
+        owner->UnregisterToolbarButtons();
+        package->Manifest.Commands.erase(
+            package->Manifest.Commands.begin() + commandIndex);
+        package->CommandIds.erase(
+            package->CommandIds.begin() + commandIndex);
+        package->CommandHotKeys.erase(
+            package->CommandHotKeys.begin() + commandIndex);
+        package->CommandIconPaths.erase(
+            package->CommandIconPaths.begin() + commandIndex);
+        package->CommandIconDarkPaths.erase(
+            package->CommandIconDarkPaths.begin() + commandIndex);
+        package->CommandsChanged = TRUE;
+        owner->RegisterToolbarButtons();
+        owner->General->PostPluginMenuChanged();
+        return CopyResult(
+            "{\"ok\":true,\"unregistered\":true}",
+            resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.commands.setState")
+    {
+        std::string commandId;
+        if (!Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "commandId", &commandId))
+            return FALSE;
+        size_t commandIndex = package->Manifest.Commands.size();
+        for (size_t index = 0;
+             index < package->Manifest.Commands.size(); ++index)
+        {
+            if (_stricmp(
+                    package->Manifest.Commands[index].Id.c_str(),
+                    commandId.c_str()) == 0)
+            {
+                commandIndex = index;
+                break;
+            }
+        }
+        if (commandIndex == package->Manifest.Commands.size())
+            return CopyResult(
+                "{\"ok\":true,\"updated\":false}",
+                resultJson, resultCapacity, resultLength);
+        BOOL enabled = package->Manifest.Commands[commandIndex].Enabled;
+        BOOL visible = package->Manifest.Commands[commandIndex].Visible;
+        Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "enabled", &enabled);
+        Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "visible", &visible);
+        const bool visibilityChanged =
+            package->Manifest.Commands[commandIndex].Visible !=
+            (visible != FALSE);
+        package->Manifest.Commands[commandIndex].Enabled = enabled != FALSE;
+        package->Manifest.Commands[commandIndex].Visible = visible != FALSE;
+        package->CommandsChanged = TRUE;
+        if (visibilityChanged)
+        {
+            owner->UnregisterToolbarButtons();
+            owner->RegisterToolbarButtons();
+        }
+        owner->General->PostPluginMenuChanged();
+        return CopyResult(
+            "{\"ok\":true,\"updated\":true}",
+            resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.fileOperations.rename" ||
+        method == "salamander.fileOperations.copy" ||
+        method == "salamander.fileOperations.move" ||
+        method == "salamander.fileOperations.delete" ||
+        method == "salamander.fileOperations.createDirectory" ||
+        method == "salamander.fileOperations.refresh" ||
+        method == "salamander.fileOperations.properties")
+    {
+        if (owner->FileOperations == NULL)
+            return FALSE;
+        FileOperations::InteractiveOptions options;
+        options.Parent = owner->General->GetMsgBoxParent();
+        std::string targetHint;
+        Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "target", &targetHint);
+        options.TargetHint = targetHint.empty() ? NULL : targetHint.c_str();
+        Runtime::OperationResult operation = Runtime::OperationResultError;
+        if (method == "salamander.fileOperations.rename")
+            operation = owner->FileOperations->RenameInteractive(options);
+        else if (method == "salamander.fileOperations.copy")
+            operation = owner->FileOperations->CopyInteractive(options);
+        else if (method == "salamander.fileOperations.move")
+            operation = owner->FileOperations->MoveInteractive(options);
+        else if (method == "salamander.fileOperations.delete")
+            operation = owner->FileOperations->DeleteInteractive(options);
+        else if (method == "salamander.fileOperations.createDirectory")
+            operation = owner->FileOperations->CreateDirectoryInteractive(options);
+        else if (method == "salamander.fileOperations.refresh")
+            operation = owner->FileOperations->Refresh(options);
+        else
+            operation = owner->FileOperations->ShowProperties(options);
+        const char* resultName =
+            operation == Runtime::OperationResultOk
+                ? "ok"
+                : operation == Runtime::OperationResultCancel
+                      ? "cancel"
+                      : operation == Runtime::OperationResultNotAvailable
+                            ? "not_available"
+                            : "error";
+        return CopyResult(
+            std::string("{\"ok\":") +
+                (operation == Runtime::OperationResultOk ? "true" : "false") +
+                ",\"result\":\"" + resultName + "\"}",
+            resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.sides.activeTab" ||
+        method == "salamander.sides.tabs")
+    {
+        if (owner->Sides == NULL)
+            return FALSE;
+        std::string sideName;
+        Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "side", &sideName);
+        const Sides::SideReference side = RuntimeSideFromName(sideName);
+        if (method == "salamander.sides.activeTab")
+        {
+            Sides::TabInfo info;
+            if (!owner->Sides->GetActiveTabInfo(side, &info))
+                return CopyResult(
+                    "{\"ok\":true,\"tab\":null}",
+                    resultJson, resultCapacity, resultLength);
+            char id[32];
+            _ui64toa_s(info.TabId, id, _countof(id), 10);
+            char path[SALAMATRIX_SIDE_ITEM_PATH_CAPACITY];
+            path[0] = '\0';
+            int pathType = info.PathType;
+            owner->Sides->GetTabPath(
+                info.TabId, path, _countof(path), &pathType);
+            return CopyResult(
+                std::string("{\"ok\":true,\"tab\":{\"id\":\"") + id +
+                    "\",\"index\":" + std::to_string(info.Index) +
+                    ",\"side\":" +
+                    std::to_string(static_cast<int>(info.PhysicalSide)) +
+                    ",\"pathType\":" + std::to_string(pathType) +
+                    ",\"flags\":" + std::to_string(info.Flags) +
+                    ",\"path\":\"" + JsonEscape(path) + "\"}}",
+                resultJson, resultCapacity, resultLength);
+        }
+
+        int count = owner->Sides->GetTabCount(side);
+        if (count < 0)
+            count = 0;
+        const int returnedCount = count > 128 ? 128 : count;
+        std::string response = "{\"ok\":true,\"tabs\":[";
+        for (int index = 0; index < returnedCount; ++index)
+        {
+            Sides::TabInfo info;
+            if (!owner->Sides->GetTabInfo(side, index, &info))
+                continue;
+            char id[32];
+            _ui64toa_s(info.TabId, id, _countof(id), 10);
+            char path[SALAMATRIX_SIDE_ITEM_PATH_CAPACITY];
+            path[0] = '\0';
+            int pathType = info.PathType;
+            owner->Sides->GetTabPath(
+                info.TabId, path, _countof(path), &pathType);
+            if (response[response.size() - 1] != '[')
+                response += ",";
+            response += std::string("{\"id\":\"") + id +
+                        "\",\"index\":" + std::to_string(info.Index) +
+                        ",\"side\":" +
+                        std::to_string(static_cast<int>(info.PhysicalSide)) +
+                        ",\"pathType\":" + std::to_string(pathType) +
+                        ",\"flags\":" + std::to_string(info.Flags) +
+                        ",\"path\":\"" + JsonEscape(path) + "\"}";
+        }
+        response += "]}";
+        return CopyResult(
+            response, resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.sides.activateTab")
+    {
+        CQuadWord tabId;
+        BOOL focus = TRUE;
+        if (!FindRuntimeQuadWord(payloadJson, "tabId", &tabId) ||
+            tabId.Value == 0 || owner->Sides == NULL)
+            return FALSE;
+        Runtime::Protocol::Json::FindBoolMember(payloadJson, "focus", &focus);
+        const BOOL activated = owner->Sides->ActivateTab(tabId.Value, focus);
+        if (activated)
+        {
+            Sides::TabInfo tab;
+            Sides::SideReference side = Sides::SideReferenceSource;
+            if (owner->Sides->GetTabInfoById(tabId.Value, &tab))
+                side = tab.PhysicalSide;
+            Events::PublishSideOperation(
+                owner->Events, owner->Sides,
+                Events::EventKindSideTabChanged, side, 0);
+        }
+        return CopyResult(
+            std::string("{\"ok\":") +
+                (activated ? "true,\"activated\":true}" :
+                             "false,\"activated\":false}"),
+            resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.sides.changePath" ||
+        method == "salamander.sides.refresh")
+    {
+        if (owner->Sides == NULL)
+            return FALSE;
+        std::string sideName;
+        Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "side", &sideName);
+        const Sides::SideReference side = RuntimeSideFromName(sideName);
+        if (method == "salamander.sides.changePath")
+        {
+            std::string path;
+            if (!Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "path", &path) || path.empty())
+                return FALSE;
+            int failReason = 0;
+            const BOOL changed = owner->Sides->ChangeActiveTabPath(
+                side, path.c_str(), &failReason);
+            if (changed)
+                Events::PublishSideOperation(
+                    owner->Events, owner->Sides,
+                    Events::EventKindSidePathChanged, side, 0);
+            return CopyResult(
+                std::string("{\"ok\":") +
+                    (changed ? "true" : "false") +
+                    ",\"changed\":" + (changed ? "true" : "false") +
+                    ",\"failReason\":" + std::to_string(failReason) + "}",
+                resultJson, resultCapacity, resultLength);
+        }
+        BOOL force = FALSE;
+        BOOL focusFirst = FALSE;
+        Runtime::Protocol::Json::FindBoolMember(payloadJson, "force", &force);
+        Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "focusFirstNewItem", &focusFirst);
+        const BOOL refreshed = owner->Sides->Refresh(side, force, focusFirst);
+        if (refreshed)
+            Events::PublishSideOperation(
+                owner->Events, owner->Sides,
+                Events::EventKindSideRefreshed, side, 0);
+        return CopyResult(
+            std::string("{\"ok\":") +
+                (refreshed ? "true}" : "false}"),
+            resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.sides.focusItem")
+    {
+        if (owner->Sides == NULL)
+            return FALSE;
+        std::string sideName;
+        int index = -1;
+        BOOL partVisible = TRUE;
+        Runtime::Protocol::Json::FindStringMember(
+            payloadJson, "side", &sideName);
+        if (!Runtime::Protocol::Json::FindIntegerMember(
+                payloadJson, "index", &index) || index < 0)
+            return FALSE;
+        Runtime::Protocol::Json::FindBoolMember(
+            payloadJson, "partVisible", &partVisible);
+        const Sides::SideReference side = RuntimeSideFromName(sideName);
+        const BOOL changed = owner->Sides->FocusItem(
+            side, index, partVisible);
+        if (changed)
+            Events::PublishSideOperation(
+                owner->Events, owner->Sides,
+                Events::EventKindSideSelectionChanged, side,
+                static_cast<DWORD>(index));
+        return CopyResult(
+            std::string("{\"ok\":") +
+                (changed ? "true,\"changed\":true}" :
+                           "false,\"changed\":false}"),
+            resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.sides.closeTab" ||
+        method == "salamander.sides.reorderTab" ||
+        method == "salamander.sides.moveTab" ||
+        method == "salamander.sides.setDetached")
+    {
+        if (owner->Sides == NULL)
+            return FALSE;
+        BOOL ok = FALSE;
+        if (method == "salamander.sides.setDetached")
+        {
+            BOOL detached = FALSE;
+            if (!Runtime::Protocol::Json::FindBoolMember(
+                    payloadJson, "detached", &detached))
+                return FALSE;
+            ok = owner->Sides->SetPanelsDetached(detached);
+            return CopyResult(
+                std::string("{\"ok\":") + (ok ? "true" : "false") +
+                    ",\"detached\":" +
+                    (detached ? "true}" : "false}"),
+                resultJson, resultCapacity, resultLength);
+        }
+        CQuadWord tabId;
+        if (!FindRuntimeQuadWord(payloadJson, "tabId", &tabId) ||
+            tabId.Value == 0)
+            return FALSE;
+        if (method == "salamander.sides.closeTab")
+            ok = owner->Sides->CloseTab(tabId.Value);
+        else if (method == "salamander.sides.reorderTab")
+        {
+            int index = -1;
+            if (!Runtime::Protocol::Json::FindIntegerMember(
+                    payloadJson, "index", &index) || index < 0)
+                return FALSE;
+            ok = owner->Sides->ReorderTab(tabId.Value, index);
+        }
+        else
+        {
+            std::string sideName;
+            Sides::SideReference side;
+            int index = -1;
+            if (!Runtime::Protocol::Json::FindStringMember(
+                    payloadJson, "side", &sideName) ||
+                !RuntimeTrySideFromName(sideName, &side))
+                return FALSE;
+            Runtime::Protocol::Json::FindIntegerMember(
+                payloadJson, "index", &index);
+            ok = owner->Sides->MoveTab(tabId.Value, side, index);
+        }
+        return CopyResult(
+            std::string("{\"ok\":") + (ok ? "true}" : "false}"),
+            resultJson, resultCapacity, resultLength);
+    }
     if (method == "salamander.sides.context")
     {
         std::string sideName;
@@ -1701,8 +3397,10 @@ BOOL WINAPI PackageManager::HostDispatch(
 
         const int selectedCount =
             owner->Sides->GetSelectedItemCount(side);
+        const int returnedSelectedCount =
+            selectedCount > 64 ? 64 : selectedCount;
         std::string selectedItems("[");
-        for (int index = 0; index < selectedCount; ++index)
+        for (int index = 0; index < returnedSelectedCount; ++index)
         {
             Sides::ItemInfo item;
             if (!owner->Sides->GetSelectedItem(side, index, &item))
@@ -1722,6 +3420,8 @@ BOOL WINAPI PackageManager::HostDispatch(
                 "\",\"pathType\":" + std::to_string(pathType) +
                 ",\"selectedCount\":" +
                 std::to_string(selectedCount) +
+                ",\"selectedItemsTruncated\":" +
+                (selectedCount > returnedSelectedCount ? "true" : "false") +
                 ",\"selectedItems\":" + selectedItems +
                 ",\"focusedItem\":" +
             (hasFocused ? SideItemJson(focused) : "null") + "}",
@@ -1752,9 +3452,11 @@ BOOL WINAPI PackageManager::HostDispatch(
             payloadJson, "repaint", &repaint);
 
         BOOL changed = FALSE;
+        DWORD eventParameter = 0;
         if (method == "salamander.sides.selectAll")
         {
             changed = owner->Sides->SelectAll(side, select, repaint);
+            eventParameter = select ? 1 : 0;
         }
         else
         {
@@ -1764,7 +3466,14 @@ BOOL WINAPI PackageManager::HostDispatch(
                 return FALSE;
             changed = owner->Sides->SetItemSelected(
                 side, index, select, repaint);
+            eventParameter = static_cast<DWORD>(index);
         }
+
+        if (changed)
+            Events::PublishSideOperation(
+                owner->Events, owner->Sides,
+                Events::EventKindSideSelectionChanged,
+                side, eventParameter);
 
         return CopyResult(
             std::string("{\"ok\":true,\"changed\":") +
@@ -1779,24 +3488,26 @@ BOOL WINAPI PackageManager::HostDispatch(
         std::string path;
         int index = -1;
         if (!Runtime::Protocol::Json::FindStringMember(
-                payloadJson, "side", &sideName) ||
-            !Runtime::Protocol::Json::FindStringMember(
-                payloadJson, "path", &path))
+                payloadJson, "side", &sideName))
         {
             return FALSE;
         }
+        std::string rawPath;
+        const bool hasPath = Runtime::Protocol::Json::FindRawMember(
+            payloadJson, "path", &rawPath);
+        const bool pathIsNull = !hasPath || rawPath == "null";
+        if (hasPath && !pathIsNull &&
+            !Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "path", &path))
+            return FALSE;
         Runtime::Protocol::Json::FindIntegerMember(
             payloadJson, "index", &index);
-        Sides::SideReference side = Sides::SideReferenceSource;
-        if (_stricmp(sideName.c_str(), "left") == 0)
-            side = Sides::SideReferenceLeft;
-        else if (_stricmp(sideName.c_str(), "right") == 0)
-            side = Sides::SideReferenceRight;
-        else if (_stricmp(sideName.c_str(), "target") == 0)
-            side = Sides::SideReferenceTarget;
+        Sides::SideReference side;
+        if (!RuntimeTrySideFromName(sideName, &side))
+            return FALSE;
         ULONGLONG tabId = 0;
         const BOOL created = owner->Sides->CreateTab(
-            side, path.c_str(), index, &tabId);
+            side, pathIsNull ? NULL : path.c_str(), index, &tabId);
         char id[32];
         _ui64toa_s(tabId, id, _countof(id), 10);
         return CopyResult(
@@ -1837,6 +3548,60 @@ BOOL WINAPI PackageManager::HostDispatch(
         return CopyResult(std::string("{\"ok\":true,\"shown\":") +
                               (shown ? "true}" : "false}"),
                           resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.ui.inputBox")
+    {
+        if (owner->UI == NULL ||
+            owner->UI->GetVersion() < SALAMATRIX_UI_VERSION_1_4)
+            return CopyResult(
+                "{\"ok\":false,\"error\":\"input-box service unavailable\"}",
+                resultJson, resultCapacity, resultLength);
+        std::string prompt, title, initial;
+        Runtime::Protocol::Json::FindStringMember(payloadJson, "prompt", &prompt);
+        Runtime::Protocol::Json::FindStringMember(payloadJson, "title", &title);
+        Runtime::Protocol::Json::FindStringMember(payloadJson, "initial", &initial);
+        UI::DialogOptions dialogOptions;
+        dialogOptions.Title = title.empty() ? "Salamatrix" : title.c_str();
+        dialogOptions.Parent = owner->General->GetMsgBoxParent();
+        dialogOptions.Width = 360;
+        dialogOptions.Height = 118;
+        UI::IDialog* dialog = owner->UI->CreateSalamatrixDialog(dialogOptions);
+        if (dialog == NULL)
+            return FALSE;
+        UI::ControlOptions control;
+        UI::ControlLayout layout;
+        layout.HasBounds = TRUE;
+        layout.X = 10; layout.Y = 10; layout.Width = 340; layout.Height = 18;
+        control.Id = "prompt"; control.Text = prompt.c_str();
+        if (dialog->AddControlEx(UI::ControlKindLabel, control, layout) == NULL)
+        { owner->UI->DestroyDialog(dialog); return FALSE; }
+        layout.Y = 34; layout.Height = 22;
+        control = UI::ControlOptions(); control.Id = "value"; control.Text = initial.c_str();
+        UI::IControl* valueControl =
+            dialog->AddControlEx(UI::ControlKindTextBox, control, layout);
+        if (valueControl == NULL)
+        { owner->UI->DestroyDialog(dialog); return FALSE; }
+        layout.X = 238; layout.Y = 72; layout.Width = 52; layout.Height = 24;
+        control = UI::ControlOptions(); control.Id = "ok";
+        control.Text = owner->General->LoadStr(DLLInstance, IDS_INPUT_OK);
+        control.DialogResult = IDOK;
+        if (dialog->AddControlEx(UI::ControlKindButton, control, layout) == NULL)
+        { owner->UI->DestroyDialog(dialog); return FALSE; }
+        layout.X = 298;
+        control = UI::ControlOptions(); control.Id = "cancel";
+        control.Text = owner->General->LoadStr(DLLInstance, IDS_INPUT_CANCEL);
+        control.DialogResult = IDCANCEL;
+        if (dialog->AddControlEx(UI::ControlKindButton, control, layout) == NULL)
+        { owner->UI->DestroyDialog(dialog); return FALSE; }
+        const BOOL accepted = dialog->ShowModal() == IDOK;
+        char value[4096]; value[0] = '\0';
+        valueControl->GetText(value, _countof(value));
+        owner->UI->DestroyDialog(dialog);
+        return CopyResult(
+            std::string("{\"ok\":true,\"accepted\":") +
+                (accepted ? "true" : "false") +
+                ",\"value\":\"" + JsonEscape(value) + "\"}",
+            resultJson, resultCapacity, resultLength);
     }
     if (method.compare(0, 21, "salamander.ui.dialog.") == 0)
     {
@@ -2401,6 +4166,168 @@ BOOL WINAPI PackageManager::HostDispatch(
         return CopyResult(
             std::string("{\"ok\":true,\"continued\":") +
                 (continued && !progress->IsCancelled() ? "true}" : "false}"),
+            resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.storage.keys")
+    {
+        if (owner->Storage == NULL)
+            return FALSE;
+        const int count = owner->Storage->GetKeyCount(package->Id.c_str());
+        if (count < 0 || count > 1024)
+            return CopyResult(
+                "{\"ok\":false,\"error\":\"storage enumeration failed\"}",
+                resultJson, resultCapacity, resultLength);
+        struct KeyRecord
+        {
+            std::string Key;
+            Storage::StorageValueType Type;
+        };
+        std::vector<KeyRecord> records;
+        records.reserve(static_cast<size_t>(count));
+        for (int index = 0; index < count; ++index)
+        {
+            char key[256];
+            int required = 0;
+            Storage::StorageValueType type = Storage::StorageValueMissing;
+            if (!owner->Storage->GetKeyAt(
+                    package->Id.c_str(), index, key, _countof(key),
+                    &required, &type) ||
+                required <= 0 || required > static_cast<int>(_countof(key)) ||
+                type < Storage::StorageValueString ||
+                type > Storage::StorageValueBoolean ||
+                key[required - 1] != '\0')
+                return CopyResult(
+                    "{\"ok\":false,\"error\":\"storage enumeration changed\"}",
+                    resultJson, resultCapacity, resultLength);
+            KeyRecord record;
+            record.Key = key;
+            record.Type = type;
+            records.push_back(record);
+        }
+        std::sort(
+            records.begin(), records.end(),
+            [](const KeyRecord& left, const KeyRecord& right) {
+                const int comparison =
+                    _stricmp(left.Key.c_str(), right.Key.c_str());
+                return comparison != 0 ? comparison < 0 : left.Key < right.Key;
+            });
+        std::string response = "{\"ok\":true,\"keys\":[";
+        for (size_t index = 0; index < records.size(); ++index)
+        {
+            if (index != 0)
+                response += ",";
+            response += "{\"key\":\"" + JsonEscape(records[index].Key.c_str()) +
+                        "\",\"type\":\"";
+            response += records[index].Type == Storage::StorageValueInteger
+                            ? "integer"
+                            : records[index].Type == Storage::StorageValueBoolean
+                                  ? "boolean"
+                                  : "string";
+            response += "\"}";
+        }
+        response += "]}";
+        return CopyResult(
+            response, resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.storage.schema")
+    {
+        std::string response = "{\"ok\":true,\"settings\":[";
+        for (size_t index = 0; index < package->Manifest.Settings.size(); ++index)
+        {
+            const CExtensionManifestSetting& setting =
+                package->Manifest.Settings[index];
+            if (index != 0)
+                response += ",";
+            response += "{\"key\":\"" + JsonEscape(setting.Key.c_str()) +
+                        "\",\"type\":\"";
+            if (setting.Type == ExtensionManifestSettingInteger)
+                response += "integer";
+            else if (setting.Type == ExtensionManifestSettingBoolean)
+                response += "boolean";
+            else
+                response += "string";
+            response += "\"";
+            if (setting.HasDefault)
+            {
+                response += ",\"hasDefault\":true,\"default\":";
+                if (setting.Type == ExtensionManifestSettingString)
+                    response += "\"" +
+                                JsonEscape(setting.StringDefault.c_str()) +
+                                "\"";
+                else if (setting.Type == ExtensionManifestSettingInteger)
+                    response += std::to_string(setting.IntegerDefault);
+                else
+                    response += setting.BooleanDefault ? "true" : "false";
+            }
+            else
+                response += ",\"hasDefault\":false";
+            response += ",\"label\":\"" + JsonEscape(setting.Label.c_str()) +
+                        "\",\"description\":\"" +
+                        JsonEscape(setting.Description.c_str()) +
+                        "\",\"group\":\"" + JsonEscape(setting.Group.c_str()) +
+                        "\",\"order\":" + std::to_string(setting.Order) +
+                        ",\"width\":" + std::to_string(setting.Width) +
+                        ",\"multiline\":" +
+                        (setting.Multiline ? "true" : "false") + "}";
+        }
+        response += "]}";
+        return CopyResult(
+            response, resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.storage.clear")
+    {
+        if (owner->Storage == NULL)
+            return FALSE;
+        const BOOL cleared = owner->Storage->ClearExtension(package->Id.c_str());
+        return CopyResult(
+            std::string("{\"ok\":") + (cleared ? "true}" : "false}"),
+            resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.storage.get")
+    {
+        std::string key;
+        if (!Runtime::Protocol::Json::FindStringMember(
+                payloadJson, "key", &key) || owner->Storage == NULL)
+            return FALSE;
+        const Storage::StorageValueType type = owner->Storage->GetValueType(
+            package->Id.c_str(), key.c_str());
+        if (type == Storage::StorageValueString)
+        {
+            std::vector<char> value(16385);
+            int required = 0;
+            if (!owner->Storage->GetString(
+                    package->Id.c_str(), key.c_str(), &value[0],
+                    static_cast<int>(value.size()), &required))
+                return FALSE;
+            return CopyResult(
+                std::string("{\"ok\":true,\"type\":\"string\",\"value\":\"") +
+                    JsonEscape(&value[0]) + "\"}",
+                resultJson, resultCapacity, resultLength);
+        }
+        if (type == Storage::StorageValueInteger)
+        {
+            LONGLONG value = 0;
+            if (!owner->Storage->GetInteger(
+                    package->Id.c_str(), key.c_str(), &value))
+                return FALSE;
+            return CopyResult(
+                std::string("{\"ok\":true,\"type\":\"integer\",\"value\":") +
+                    std::to_string(static_cast<long long>(value)) + "}",
+                resultJson, resultCapacity, resultLength);
+        }
+        if (type == Storage::StorageValueBoolean)
+        {
+            BOOL value = FALSE;
+            if (!owner->Storage->GetBoolean(
+                    package->Id.c_str(), key.c_str(), &value))
+                return FALSE;
+            return CopyResult(
+                std::string("{\"ok\":true,\"type\":\"boolean\",\"value\":") +
+                    (value ? "true}" : "false}"),
+                resultJson, resultCapacity, resultLength);
+        }
+        return CopyResult(
+            "{\"ok\":true,\"type\":\"missing\"}",
             resultJson, resultCapacity, resultLength);
     }
     if (method == "salamander.storage.set")
