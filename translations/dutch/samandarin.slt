@@ -6,7 +6,7 @@ VERSION,"0,9,0,196"
 [TRANSLATION]
 LANGID,1043
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.krtkovo.eu/"
+WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Controleert GitHub-releases en biedt aan om de nieuwste Samandarin-build te openen."
-49,1,"https://samandarin.krtkovo.eu/download"
+49,1,"https://samandarin.net/download"
 50,1,"Nu updates controleren"
 51,1,"Onverwachte managed-exceptie:"
 52,1,"Kan de Samandarin managed-helper niet initialiseren.\nControleer of Samandarin.Managed.dll zich naast de plug-in bevindt."

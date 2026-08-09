@@ -1,6 +1,6 @@
 # Harmadik fél szoftvereinek értesítései
 
-[Open Salamander: Samandarin](https://samandarin.krtkovo.eu/) számos szerző, karbantartó és projekt munkájára
+[Open Salamander: Samandarin](https://samandarin.net/) számos szerző, karbantartó és projekt munkájára
 épül. Ez az oldal felsorolja az alkalmazás és bővítményei által használt
 összetevőket, kódot, ötleteket és eszközöket. Köszönjük mindenkinek, aki itt
 szerepel, hogy hozzáférhetővé tették munkájukat.

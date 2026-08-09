@@ -1,6 +1,6 @@
 # Hinweise zu Software Dritter
 
-[Open Salamander: Samandarin](https://samandarin.krtkovo.eu/) baut auf der Arbeit vieler Autoren, Betreuer und
+[Open Salamander: Samandarin](https://samandarin.net/) baut auf der Arbeit vieler Autoren, Betreuer und
 Projekte auf. Diese Seite listet die Komponenten, Code, Ideen und Werkzeuge
 auf, die von der Anwendung und ihren Plugins verwendet werden. Vielen Dank an
 alle hier Genannten für die Bereitstellung ihrer Arbeit.

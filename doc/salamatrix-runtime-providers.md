@@ -10,7 +10,7 @@ with the already loaded `Salamatrix.Runtime` broker.
 The runtime providers and the standalone `SalamatrixAI.SPL` use the conventional
 plugin metadata structure: their resource script includes `versinfo.rh2` and
 `versinfo.rc2`, their entry point uses the `VERSINFO_*` metadata constants, and
-their Plugin Manager homepage is `https://samandarin.krtkovo.eu/`. SalamatrixAI
+their Plugin Manager homepage is `https://samandarin.net/`. SalamatrixAI
 uses the shared Framework icon at `src/res/sal_r.ico`; it remains a separate
 Menu Extension plugin and does not move AI ownership back into Automation.
 

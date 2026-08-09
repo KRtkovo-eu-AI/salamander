@@ -1,6 +1,6 @@
 # Avisos de software de terceros
 
-[Open Salamander: Samandarin](https://samandarin.krtkovo.eu/) se basa en el trabajo de muchos autores,
+[Open Salamander: Samandarin](https://samandarin.net/) se basa en el trabajo de muchos autores,
 mantenedores y proyectos. Esta página enumera los componentes, código, ideas
 y herramientas utilizados por la aplicación y sus complementos. Gracias a todos
 los aquí mencionados por hacer disponible su trabajo.

@@ -1,6 +1,6 @@
 # Avis de logiciels tiers
 
-[Open Salamander: Samandarin](https://samandarin.krtkovo.eu/) s'appuie sur le travail de nombreux auteurs,
+[Open Salamander: Samandarin](https://samandarin.net/) s'appuie sur le travail de nombreux auteurs,
 mainteneurs et projets. Cette page répertorie les composants, le code, les idées
 et les outils utilisés par l'application et ses plugins. Merci à tous ceux qui
 sont listés ici d'avoir rendu leur travail disponible.

@@ -15,6 +15,6 @@ COMMENT,"English version"
 
 [STRINGTABLE 1]
 48,1,"Пример плагина, который размещает управляемый WinForms UI через CLR."
-49,1,"https://samandarin.krtkovo.eu/"
+49,1,"https://samandarin.net/"
 50,1,"Показать окно &C# Demo"
 

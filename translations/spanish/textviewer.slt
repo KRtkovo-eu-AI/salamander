@@ -6,7 +6,7 @@ VERSION,"1,0,3,195"
 [TRANSLATION]
 LANGID,3082
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.krtkovo.eu/"
+WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Visor interno que muestra archivos de texto con resaltado de sintaxis administrado."
-49,1,"https://samandarin.krtkovo.eu/"
+49,1,"https://samandarin.net/"
 50,1,"No se pudo preparar el evento de sincronización requerido por el visor."
 51,1,"El archivo seleccionado es demasiado grande para abrirse. No se admiten archivos de más de 16 MB."
 

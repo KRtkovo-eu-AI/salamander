@@ -6,7 +6,7 @@ VERSION,"1,0,3,195"
 [TRANSLATION]
 LANGID,1029
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.krtkovo.eu/"
+WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Interní prohlížeč, který zobrazuje textové soubory se spravovaným zvýrazňováním syntaxe."
-49,1,"https://samandarin.krtkovo.eu/"
+49,1,"https://samandarin.net/"
 50,1,"Nelze připravit synchronizační událost vyžadovanou prohlížečem."
 51,1,"Vybraný soubor je příliš velký k otevření. Nejsou podporovány soubory větší než 16 MB."
 

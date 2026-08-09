@@ -34,9 +34,9 @@
       },
       "latestVersion": "0.2 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
+      "homepageUrl": "https://salamatrix.samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrix_0.2_x64/plugin_5.0_salamatrix_0.2_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/salamatrix.png",
+      "icon": "https://samandarin.net/catalogs/img/salamatrix.png",
       "packageType": "plugin"
     },
     {
@@ -50,12 +50,12 @@
       },
       "latestVersion": "0.1 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
+      "homepageUrl": "https://salamatrix.samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrixai_0.1_x64/plugin_5.0_salamatrixai_0.1_x64.7z",
       "dependencies": [
         "salamatrix"
       ],
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/salamatrix.png",
+      "icon": "https://samandarin.net/catalogs/img/salamatrix.png",
       "packageType": "plugin"
     },
     {
@@ -69,12 +69,12 @@
       },
       "latestVersion": "0.1 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
+      "homepageUrl": "https://salamatrix.samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrixailocalllama_0.1_x64/plugin_5.0_salamatrixailocalllama_0.1_x64.7z",
       "dependencies": [
         "salamatrixai"
       ],
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/salamatrix.png",
+      "icon": "https://samandarin.net/catalogs/img/salamatrix.png",
       "packageType": "plugin"
     },
     {
@@ -88,12 +88,12 @@
       },
       "latestVersion": "0.1 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
+      "homepageUrl": "https://salamatrix.samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_pythonruntime_0.1_x64/plugin_5.0_pythonruntime_0.1_x64.7z",
       "dependencies": [
         "salamatrix"
       ],
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png",
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
       "packageType": "plugin"
     },
     {
@@ -107,12 +107,12 @@
       },
       "latestVersion": "0.1 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
+      "homepageUrl": "https://salamatrix.samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_powershellruntime_0.1_x64/plugin_5.0_powershellruntime_0.1_x64.7z",
       "dependencies": [
         "salamatrix"
       ],
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png",
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
       "packageType": "plugin"
     },
     {
@@ -126,12 +126,12 @@
       },
       "latestVersion": "0.1 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
+      "homepageUrl": "https://salamatrix.samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_luaruntime_0.1_x64/plugin_5.0_luaruntime_0.1_x64.7z",
       "dependencies": [
         "salamatrix"
       ],
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png",
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
       "packageType": "plugin"
     },
     {
@@ -145,12 +145,12 @@
       },
       "latestVersion": "0.1 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
+      "homepageUrl": "https://salamatrix.samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_phpruntime_0.1_x64/plugin_5.0_phpruntime_0.1_x64.7z",
       "dependencies": [
         "salamatrix"
       ],
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png",
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
       "packageType": "plugin"
     },
     {
@@ -164,12 +164,12 @@
       },
       "latestVersion": "0.1 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
+      "homepageUrl": "https://salamatrix.samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_javascriptruntime_0.1_x64/plugin_5.0_javascriptruntime_0.1_x64.7z",
       "dependencies": [
         "salamatrix"
       ],
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png",
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
       "packageType": "plugin"
     },
     {
@@ -203,9 +203,9 @@
       },
       "latestVersion": "1.96 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/salamatrix/",
+      "homepageUrl": "https://salamatrix.samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_demoplug_1.96_x64/plugin_5.0_demoplug_1.96_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/demoplug.png",
+      "icon": "https://samandarin.net/catalogs/img/demoplug.png",
       "packageType": "plugin"
     }
   ]

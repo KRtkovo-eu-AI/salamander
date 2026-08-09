@@ -572,7 +572,7 @@ public:
     {
         LanguageID = 0x0409;
         lstrcpyW(Author, L"Open Salamander");
-        lstrcpyW(Web, L"https://samandarin.krtkovo.eu/");
+        lstrcpyW(Web, L"https://samandarin.net/");
         lstrcpyW(Comment, L"");
         lstrcpyW(HelpDir, L"");
         lstrcpyW(SLGIncomplete, L"");

@@ -1,6 +1,6 @@
 # Oznámení o softwaru třetích stran
 
-[Open Salamander: Samandarin](https://samandarin.krtkovo.eu/) je postaven na práci mnoha autorů, správců a
+[Open Salamander: Samandarin](https://samandarin.net/) je postaven na práci mnoha autorů, správců a
 projektů. Tato stránka uvádí komponenty, kód, nápady a nástroje, které
 aplikace a její pluginy využívají. Děkujeme všem zde uvedeným za zpřístupnění
 jejich práce.

@@ -783,8 +783,8 @@ HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-sam
 HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.4 (x64),UninstallString,1,%1\remove\remove.exe
 HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.4 (x64),QuietUninstallString,1,%1\remove\remove.exe /q
 HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.4 (x64),Publisher,1,Open Salamander Project
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.4 (x64),HelpLink,1,https://samandarin.krtkovo.eu/
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.4 (x64),UrlInfoAbout,1,https://samandarin.krtkovo.eu/
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.4 (x64),HelpLink,1,https://samandarin.net/
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.4 (x64),UrlInfoAbout,1,https://samandarin.net/
 
 [DelShellExts]
 %1\utils\salextx64.dll

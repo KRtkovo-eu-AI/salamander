@@ -6,7 +6,7 @@ VERSION,"1,0,4,195"
 [TRANSLATION]
 LANGID,1049
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.krtkovo.eu/"
+WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Средство просмотра, отображающее отрендеренные HTML-, Markdown- и веб-документы с использованием WebView2."
-49,1,"https://samandarin.krtkovo.eu/"
+49,1,"https://samandarin.net/"
 50,1,"Не удалось подготовить событие синхронизации, необходимое для средства просмотра."
 51,1,"Выбранный файл слишком большого размера для открытия. Файлы больше 32 МБ не поддерживаются."
 

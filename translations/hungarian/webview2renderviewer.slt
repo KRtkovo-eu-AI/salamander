@@ -6,7 +6,7 @@ VERSION,"1,0,4,195"
 [TRANSLATION]
 LANGID,1038
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.krtkovo.eu/"
+WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Olyan nézet, amely a WebView2 segítségével megjelenített renderelt HTML-, Markdown- és webdokumentumokat jelenít meg."
-49,1,"https://samandarin.krtkovo.eu/"
+49,1,"https://samandarin.net/"
 50,1,"Nem sikerült előkészíteni a nézet által megkövetelt szinkronizálási eseményt."
 51,1,"A kijelölt fájl túl nagy a megnyitáshoz. A 32 MB-nál nagyobb fájlok nem támogatottak."
 

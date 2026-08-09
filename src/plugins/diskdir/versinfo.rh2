@@ -20,7 +20,7 @@
 #define VERSINFO_INTERNAL    "DISKDIR"
 #define VERSINFO_ORIGINAL    VERSINFO_INTERNAL ".SPL"
 #endif
-#define VERSINFO_SLG_WEB     "samandarin.krtkovo.eu"
+#define VERSINFO_SLG_WEB     "samandarin.net"
 #define VERSINFO_SLG_COMMENT "English version"
 
 #endif

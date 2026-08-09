@@ -6,7 +6,7 @@ VERSION,"1,0,3,195"
 [TRANSLATION]
 LANGID,1043
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.krtkovo.eu/"
+WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Interne viewer die tekstbestanden rendert met beheerde syntaxisaccentuering."
-49,1,"https://samandarin.krtkovo.eu/"
+49,1,"https://samandarin.net/"
 50,1,"Niet gelukt om het synchronisatiegebeurtenis voor te bereiden dat door de viewer vereist is."
 51,1,"Het geselecteerde bestand is te groot om te openen. Bestanden groter dan 16 MB worden niet ondersteund."
 

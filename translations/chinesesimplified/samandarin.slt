@@ -6,7 +6,7 @@ VERSION,"0,9,0,196"
 [TRANSLATION]
 LANGID,2052
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.krtkovo.eu/"
+WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"检查 GitHub 版本发布，并提供打开最新的 Samandarin 构建。"
-49,1,"https://samandarin.krtkovo.eu/download"
+49,1,"https://samandarin.net/download"
 50,1,"立即检查更新"
 51,1,"意外的托管异常："
 52,1,"无法初始化 Samandarin 托管辅助程序。\n请验证 Samandarin.Managed.dll 是否位于插件旁边。"

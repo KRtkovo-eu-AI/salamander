@@ -151,7 +151,7 @@ vendor="© 1997-2026 Open Salamander Authors"
 
 ;www link in bottom-right corner of main sfx dialog
 
-link="https://samandarin.krtkovo.eu/"
+link="https://samandarin.net/"
 
 ;files containing icon data, it can be either an ICO file or an PE
 ;executable file (like win32 EXEs or DLLs) containing the icon
