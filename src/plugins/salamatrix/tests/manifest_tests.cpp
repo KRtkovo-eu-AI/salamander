@@ -31,7 +31,7 @@ static void TestCompleteManifest()
 {
     const char* json =
         "{"
-        "\"schemaVersion\":2,"
+        "\"schema\":2,"
         "\"id\":\"Example.Package\","
         "\"name\":\"Example \\u0161cript\","
         "\"version\":\"1.2.3\","
@@ -339,6 +339,30 @@ static void TestCapabilityDeclarationCompatibility()
     CHECK(manifest.Capabilities.empty());
 }
 
+static void TestSchemaCompatibility()
+{
+    CExtensionManifest manifest;
+    CExtensionManifestError error;
+    CHECK(Parse(
+        "{\"schema\":1,\"id\":\"Canonical\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\"}",
+        manifest, error));
+    CHECK(manifest.SchemaVersion == 1);
+
+    CHECK(Parse(
+        "{\"schemaVersion\":1,\"id\":\"CompatibilityAlias\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\"}",
+        manifest, error));
+    CHECK(manifest.SchemaVersion == 1);
+
+    CHECK(Parse(
+        "{\"schema\":2,\"schemaVersion\":2,\"id\":\"MatchingAliases\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\"}",
+        manifest, error));
+    CHECK(manifest.SchemaVersion == 2);
+
+    CHECK(!Parse(
+        "{\"schema\":1,\"schemaVersion\":2,\"id\":\"ConflictingAliases\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\"}",
+        manifest, error));
+}
+
 static void TestManifestFile(const wchar_t* path)
 {
     FILE* file = NULL;
@@ -380,6 +404,7 @@ int wmain(int argc, wchar_t** argv)
     TestSettingMigrations();
     TestInvalidDocuments();
     TestCapabilityDeclarationCompatibility();
+    TestSchemaCompatibility();
     for (int index = 1; index < argc; ++index)
         TestManifestFile(argv[index]);
 

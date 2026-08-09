@@ -47,7 +47,7 @@ export function createExtensionScaffold(spec: ExtensionScaffoldSpec): ScaffoldFi
     contextMenu: false, toolbar: false, requires: 'any', enabled: true, visible: true,
   };
   const manifest: ExtensionManifest = {
-    schemaVersion: 2, id: spec.id, name: spec.name, version: '1.0.0', description: spec.description,
+    schema: 2, id: spec.id, name: spec.name, version: '1.0.0', description: spec.description,
     runtime: spec.runtime, entryPoint: template.entryPoint, icon: 'icon.svg', iconDark: 'icon-dark.svg',
     capabilities: ['ui.dialogs'], commands: [command],
   };

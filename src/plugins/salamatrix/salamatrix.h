@@ -12,6 +12,7 @@ extern HINSTANCE HLanguage;
 extern CSalamanderGeneralAbstract* SalamanderGeneral;
 extern CSalamanderGUIAbstract* SalamanderGUI;
 extern WORD SalamanderLanguageID;
+extern char SalamatrixFSName[MAX_PATH];
 
 class CPluginInterface : public CPluginInterfaceAbstract
 {

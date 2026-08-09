@@ -50,7 +50,7 @@ to handler `main`:
 
 ```json
 {
-  "schemaVersion": 2,
+  "schema": 2,
   "id": "generated.example",
   "name": "Generated example",
   "version": "1.0.0",

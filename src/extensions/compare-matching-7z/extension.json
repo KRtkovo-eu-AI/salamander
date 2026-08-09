@@ -1,8 +1,8 @@
 {
-  "schemaVersion": 1,
+  "schema": 1,
   "id": "OpenSalamander.CompareMatching7z",
   "name": "Compare matching 7z names",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Selects 7z archives whose names exist on both source and target sides.",
   "runtime": "Lua",
   "entryPoint": "main.lua",

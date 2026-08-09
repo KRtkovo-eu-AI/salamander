@@ -840,20 +840,26 @@ bool CExtensionManifest::Parse(
     if (root.Type != JsonObject)
         return SetValidationError(error, "Manifest root must be a JSON object");
 
+    const JsonValue* schema = root.Find("schema");
     const JsonValue* schemaVersion = root.Find("schemaVersion");
-    if (schemaVersion != NULL)
+    const JsonValue* declaredSchema = schema != NULL ? schema : schemaVersion;
+    if (declaredSchema != NULL)
     {
-        if (schemaVersion->Type != JsonNumber ||
-            schemaVersion->Number < 1 ||
-            schemaVersion->Number > 0xffffffff ||
-            floor(schemaVersion->Number) != schemaVersion->Number)
+        if (declaredSchema->Type != JsonNumber ||
+            declaredSchema->Number < 1 ||
+            declaredSchema->Number > 0xffffffff ||
+            floor(declaredSchema->Number) != declaredSchema->Number)
         {
-            return SetValidationError(error, "schemaVersion must be a positive integer");
+            return SetValidationError(error, "schema must be a positive integer");
         }
-        SchemaVersion = static_cast<unsigned int>(schemaVersion->Number);
+        SchemaVersion = static_cast<unsigned int>(declaredSchema->Number);
     }
+    if (schema != NULL && schemaVersion != NULL &&
+        (schemaVersion->Type != JsonNumber ||
+         schemaVersion->Number != schema->Number))
+        return SetValidationError(error, "schema and schemaVersion must not conflict");
     if (SchemaVersion != 1 && SchemaVersion != 2)
-        return SetValidationError(error, "Unsupported Salamatrix manifest schemaVersion");
+        return SetValidationError(error, "Unsupported Salamatrix manifest schema");
 
     if (!ReadString(root, "id", true, Id, error) ||
         !ReadString(root, "name", false, Name, error) ||
@@ -1356,7 +1362,7 @@ bool CExtensionManifest::Parse(
     if (viewers != NULL)
     {
         if (SchemaVersion < 2)
-            return SetValidationError(error, "viewers require Salamatrix manifest schemaVersion 2");
+            return SetValidationError(error, "viewers require Salamatrix manifest schema 2");
         if (viewers->Type != JsonArray)
             return SetValidationError(error, "viewers must be an array");
         if (viewers->Array.size() > 16)
@@ -1400,7 +1406,7 @@ bool CExtensionManifest::Parse(
     if (fileSystems != NULL)
     {
         if (SchemaVersion < 2)
-            return SetValidationError(error, "fileSystems require Salamatrix manifest schemaVersion 2");
+            return SetValidationError(error, "fileSystems require Salamatrix manifest schema 2");
         if (fileSystems->Type != JsonArray)
             return SetValidationError(error, "fileSystems must be an array");
         if (fileSystems->Array.size() > 16)

@@ -105,7 +105,7 @@ th { background:var(--surface); } li { margin:.2em 0; }
 <p>The generated source contract is the same for a one-shot preview and for a saved extension. A one-shot script is executed immediately with the selected runtime. <strong>Save as extension</strong> creates a directory containing <code>extension.json</code> and the generated <code>main</code> entry point, then asks Salamatrix to refresh extension discovery. The assistant returns source code, not a JSON manifest embedded in the source.</p>
 <p>The generated manifest uses schema version 2 and binds one plugin-menu command to handler <code>main</code>:</p>
 <pre><code class="language-json">{
-  &quot;schemaVersion&quot;: 2,
+  &quot;schema&quot;: 2,
   &quot;id&quot;: &quot;generated.example&quot;,
   &quot;name&quot;: &quot;Generated example&quot;,
   &quot;version&quot;: &quot;1.0.0&quot;,

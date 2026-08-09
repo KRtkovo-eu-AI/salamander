@@ -241,6 +241,19 @@ def main() -> int:
         "Salamatrix does not advertise package configuration persistence")
     require(
         salamatrix,
+        r"FUNCTION_FILESYSTEM.*?PluginNameShort,\s*NULL,\s*\"salamatrix\"\).*?"
+        r"GetPluginFSName\(SalamatrixFSName,\s*0\)",
+        "Salamatrix advertises a file system without the mandatory FS name")
+    require(
+        packages,
+        r"ChangePanelPathToPluginFS\(panel,\s*SalamatrixFSName,",
+        "Salamatrix file system does not use its host-assigned FS name")
+    require(
+        plugins1,
+        r"supportFS\s*&&\s*fsName\s*==\s*NULL.*?Error\s*=\s*TRUE",
+        "host no longer treats a missing advertised FS name as a fatal load error")
+    require(
+        salamatrix,
         r"CPluginInterface::LoadConfiguration.*?"
         r"SalamatrixPackages->LoadConfiguration\(regKey, registry\).*?"
         r"CPluginInterface::SaveConfiguration.*?"
@@ -374,7 +387,7 @@ def main() -> int:
             r'fullFrameworkTerms.*?extensions.*?clipboard.*?application.*?ai',
             "full-framework AI requests do not receive every public API slice")
     require(ai_contract,
-            r'extensionManifest.*?schemaVersion.*?capabilityValues.*?generatedPackage',
+            r'extensionManifest.*?schema.*?schemaVersionAlias.*?capabilityValues.*?generatedPackage',
             "AI extension slice does not describe manifest packaging and capabilities")
     require(ai_contract,
             r'statictext.*?toolbarheader.*?styleFlags.*?buttonMask',
@@ -868,10 +881,10 @@ def main() -> int:
         "extension.json"))
     for manifest_path in manifest_paths:
         package_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        if "schema" in package_manifest or package_manifest.get(
-                "schemaVersion") not in {1, 2}:
+        if package_manifest.get("schema") not in {1, 2} or \
+                "schemaVersion" in package_manifest:
             raise AssertionError(
-                f"extension demo uses a stale schema field: {manifest_path}")
+                f"extension demo does not use canonical schema: {manifest_path}")
         aliases = {"ui.notify", "ui.progress"}.intersection(
             package_manifest.get("capabilities", []))
         if aliases:
@@ -884,7 +897,7 @@ def main() -> int:
                 raise AssertionError(
                     f"extension demo uses an invalid menu placement: "
                     f"{manifest_path}")
-    if (javascript_demo_manifest.get("schemaVersion") != 2 or
+    if (javascript_demo_manifest.get("schema") != 2 or
             javascript_demo_manifest.get("viewers", [{}])[0].get("handler") !=
             "viewDemo" or
             javascript_demo_manifest.get("fileSystems", [{}])[0].get(

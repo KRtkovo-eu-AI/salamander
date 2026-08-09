@@ -1,8 +1,8 @@
 {
-  "schemaVersion": 1,
+  "schema": 1,
   "id": "OpenSalamander.GitWorktreeNavigator",
   "name": "Git Worktree Navigator",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Browse, open, create, and safely remove Git worktrees from Open Salamander.",
   "runtime": "PowerShell",
   "entryPoint": "main.ps1",

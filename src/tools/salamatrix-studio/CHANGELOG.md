@@ -1,9 +1,14 @@
 # Change Log
 
+## 0.1.7
+
+- Restore `schema` as the canonical extension manifest key while accepting
+  `schemaVersion` as a compatibility alias; reject only conflicting aliases.
+
 ## 0.1.6
 
 - Scaffold Salamatrix manifest schema 2 and type Viewer and simple file-system
-  role declarations instead of emitting the obsolete `schema` field.
+  role declarations.
 
 ## 0.1.5
 

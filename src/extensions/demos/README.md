@@ -12,8 +12,9 @@ Salamatrix extension roots, then refresh the extension catalog. The package is
 shown as a registered extension row, its icon is taken from `icon.svg`, and its
 command contributes to the Plugin menu, panel context menu, and toolbar.
 
-All manifests use the public `schemaVersion` field and canonical capability
-names. The Node demo uses schema 2 to exercise the two native v1 roles:
+All manifests use the canonical public `schema` field and canonical capability
+names. The framework also accepts `schemaVersion` as a compatibility alias. The
+Node demo uses schema 2 to exercise the two native v1 roles:
 
 - Open `javascript-node/sample.smxview` after installing the package and
   restarting Salamander. The registered `*.smxview` Viewer handler reads the

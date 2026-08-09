@@ -24,6 +24,7 @@ CSalamanderGeneralAbstract* SalamanderGeneral = NULL;
 CSalamanderGUIAbstract* SalamanderGUI = NULL;
 WORD SalamanderLanguageID =
     MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
+char SalamatrixFSName[MAX_PATH] = "";
 CSalamanderDebugAbstract* SalamanderDebug = NULL;
 int SalamanderVersion = 0;
 
@@ -122,7 +123,8 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                        FUNCTION_LOADSAVECONFIGURATION,
                                    VERSINFO_VERSION_NO_PLATFORM, VERSINFO_COPYRIGHT,
                                    VERSINFO_DESCRIPTION,
-                                   PluginNameShort, NULL, NULL);
+                                   PluginNameShort, NULL, "salamatrix");
+    SalamanderGeneral->GetPluginFSName(SalamatrixFSName, 0);
     salamander->SetPluginHomePageURL("https://samandarin.net/");
 
     SalamanderGeneral->SetFlagLoadOnSalamanderStart(TRUE);
@@ -254,6 +256,7 @@ BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL force)
     DestroyRuntimeServices();
     SalamanderGeneral = NULL;
     SalamanderGUI = NULL;
+    SalamatrixFSName[0] = 0;
     return TRUE;
 }
 

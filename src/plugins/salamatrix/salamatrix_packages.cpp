@@ -1341,7 +1341,7 @@ public:
     { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(fsNameIndex); return new OpenFileSystem(Owner); }
     virtual void WINAPI CloseFS(CPluginFSInterfaceAbstract* fs) { delete fs; }
     virtual void WINAPI ExecuteChangeDriveMenuItem(int panel)
-    { int failReason = 0; SalamanderGeneral->ChangePanelPathToPluginFS(panel, "salamatrix", "", &failReason); }
+    { int failReason = 0; SalamanderGeneral->ChangePanelPathToPluginFS(panel, SalamatrixFSName, "", &failReason); }
     virtual BOOL WINAPI ChangeDriveMenuItemContextMenu(HWND parent, int panel, int x, int y, CPluginFSInterfaceAbstract* pluginFS, const char* pluginFSName, int pluginFSNameIndex, BOOL isDetachedFS, BOOL& refreshMenu, BOOL& closeMenu, int& postCmd, void*& postCmdParam)
     { UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(panel); UNREFERENCED_PARAMETER(x); UNREFERENCED_PARAMETER(y); UNREFERENCED_PARAMETER(pluginFS); UNREFERENCED_PARAMETER(pluginFSName); UNREFERENCED_PARAMETER(pluginFSNameIndex); UNREFERENCED_PARAMETER(isDetachedFS); UNREFERENCED_PARAMETER(refreshMenu); UNREFERENCED_PARAMETER(closeMenu); UNREFERENCED_PARAMETER(postCmd); UNREFERENCED_PARAMETER(postCmdParam); return FALSE; }
     virtual void WINAPI ExecuteChangeDrivePostCommand(int panel, int postCmd, void* postCmdParam)
