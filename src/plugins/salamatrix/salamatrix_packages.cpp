@@ -5,6 +5,7 @@
 #include "salamatrix_packages.h"
 #include "salamatrix_api_docs.h"
 #include "salamatrix_settings.h"
+#include "../shared/salamatrix_thread_join.h"
 #include "../../darkmode.h"
 
 #include <algorithm>
@@ -573,6 +574,7 @@ struct PackageManager::Package
     std::string IconDarkPath;
     BOOL RuntimeUsable;
     BOOL SettingsReady;
+    volatile LONG Stopping;
     CSalamanderForOperationsAbstract* Operations;
     UI::IProgressDialog* Progress;
     ULONGLONG ProgressId;
@@ -606,6 +608,7 @@ struct PackageManager::Package
         : Owner(owner),
           RuntimeUsable(FALSE),
           SettingsReady(TRUE),
+          Stopping(FALSE),
           Operations(NULL),
           Progress(NULL),
           ProgressId(0),
@@ -1989,19 +1992,11 @@ void PackageManager::RemovePackages()
     for (size_t index = 0; index < Packages.size(); ++index)
     {
         Package* package = Packages[index];
+        InterlockedExchange(&package->Stopping, TRUE);
         if (Extensions != NULL)
             Extensions->UnregisterExtension(package->Id.c_str(), package);
         ReleaseEventSubscriptions(package);
-        if (package->Session != NULL)
-        {
-            package->Session->Stop();
-            if (package->PumpThread != NULL)
-            {
-                WaitForSingleObject(package->PumpThread, 5000);
-                CloseHandle(package->PumpThread);
-            }
-            package->Session->Release();
-        }
+        StopSession(package);
         ReleaseProgress(package);
         ReleaseDialogs(package);
         delete package;
@@ -2093,6 +2088,7 @@ BOOL PackageManager::Activate(Package* package)
 {
     if (package == NULL || package->Session != NULL)
         return package != NULL;
+    InterlockedExchange(&package->Stopping, FALSE);
     Runtime::IRuntimeAdapter* adapter = Runtimes->FindAdapter(
         package->Manifest.RuntimeId.c_str(), package->Manifest.MinimumRuntimeVersion);
     if (adapter == NULL || !adapter->IsAvailable())
@@ -2128,18 +2124,9 @@ BOOL PackageManager::Deactivate(Package* package)
 {
     if (package == NULL)
         return TRUE;
+    InterlockedExchange(&package->Stopping, TRUE);
     ReleaseEventSubscriptions(package);
-    if (package->Session == NULL)
-        return TRUE;
-    package->Session->Stop();
-    if (package->PumpThread != NULL)
-    {
-        WaitForSingleObject(package->PumpThread, 5000);
-        CloseHandle(package->PumpThread);
-        package->PumpThread = NULL;
-    }
-    package->Session->Release();
-    package->Session = NULL;
+    StopSession(package);
     ReleaseDialogs(package);
     if (package->CommandsChanged)
     {
@@ -2155,6 +2142,32 @@ BOOL PackageManager::Deactivate(Package* package)
             General->PostPluginMenuChanged();
     }
     return TRUE;
+}
+
+void PackageManager::StopSession(Package* package)
+{
+    if (package == NULL)
+        return;
+    InterlockedExchange(&package->Stopping, TRUE);
+    if (package->Session != NULL)
+        package->Session->Stop();
+    if (package->PumpThread != NULL)
+    {
+        // Do not release the session or package after a timed wait. Its pump
+        // may be synchronously waiting for HostDispatchOnMainThread; dispatch
+        // that sent message while joining so no thread and no callback can
+        // outlive the package or the Salamatrix module.
+        Runtime::WaitForThreadWithSentMessageDispatch(
+            package->PumpThread,
+            General != NULL ? General->GetMainWindowHWND() : NULL);
+        CloseHandle(package->PumpThread);
+        package->PumpThread = NULL;
+    }
+    if (package->Session != NULL)
+    {
+        package->Session->Release();
+        package->Session = NULL;
+    }
 }
 
 void PackageManager::ReleaseEventSubscriptions(Package* package)
@@ -2684,6 +2697,8 @@ BOOL WINAPI PackageManager::HostDispatch(
     if (context == NULL || payloadJson == NULL)
         return FALSE;
     Package* package = static_cast<Package*>(context);
+    if (InterlockedCompareExchange(&package->Stopping, FALSE, FALSE) != FALSE)
+        return FALSE;
     PackageManager* owner = package->Owner;
     if (type == Runtime::Protocol::MessageHello)
         return CopyResult(
@@ -4381,6 +4396,12 @@ BOOL WINAPI PackageManager::HostDispatchOnMainThread(void* context)
     MainThreadDispatch* previous = CurrentMainThreadDispatch;
     CurrentMainThreadDispatch = call;
     Package* package = static_cast<Package*>(call->Context);
+    if (package == NULL ||
+        InterlockedCompareExchange(&package->Stopping, FALSE, FALSE) != FALSE)
+    {
+        CurrentMainThreadDispatch = previous;
+        return FALSE;
+    }
     PackageManager* owner = package != NULL ? package->Owner : NULL;
     if (owner != NULL)
         ++owner->ActiveHostDispatches;

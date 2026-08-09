@@ -76,6 +76,7 @@ def main() -> int:
     automation_header = read("src/plugins/automation/automationplug.h")
     automation = read("src/plugins/automation/automationplug.cpp")
     automation_entry = read("src/plugins/automation/entry.cpp")
+    automation_scriptlist = read("src/plugins/automation/scriptlist.cpp")
     plugins1 = read("src/plugins1.cpp")
     plugins2 = read("src/plugins2.cpp")
     mainwnd1 = read("src/mainwnd1.cpp")
@@ -820,6 +821,27 @@ def main() -> int:
             "Salamatrix does not publish native Viewer and FS roles")
     require(packages, r'FileSystemListing.*?salamander\.fileSystem\.addItem.*?4096',
             "flat FS dispatcher does not bound runtime-provided items")
+    require(
+        packages,
+        r'InterlockedExchange\(&package->Stopping,\s*TRUE\).*?'
+        r'WaitForThreadWithSentMessageDispatch.*?'
+        r'package->Session->Release\(\)',
+        "package shutdown can release a runtime session before its pump thread exits")
+    require_absent(
+        packages,
+        r'WaitForSingleObject\(package->PumpThread,\s*5000\)',
+        "package shutdown still frees a live pump thread after a timed wait")
+    require(
+        automation_scriptlist,
+        r'InterlockedExchange\(&m_lRuntimeStopping,\s*TRUE\).*?'
+        r'WaitForThreadWithSentMessageDispatch.*?'
+        r'm_pRuntimeSession->Release\(\)',
+        "Automation shutdown can release a runtime session before its pump thread exits")
+    require_absent(
+        automation_scriptlist,
+        r'(?:WaitForSingleObject\(m_hRuntimePumpThread,\s*5000\)|'
+        r'TerminateThread\(m_hRuntimePumpThread)',
+        "Automation still times out or terminates a live runtime pump thread")
     require(packages, r'FS_SERVICE_CONTEXTMENU.*?ContextMenu\(',
             "flat FS does not expose native actions")
     require(ui_contract + salamatrix_ui + salamatrix_runtime + packages,

@@ -200,6 +200,7 @@
     <ClInclude Include="..\salamatrix_runtime.h" />
     <ClInclude Include="..\salamatrix_runtime_api.h" />
     <ClInclude Include="..\salamatrix_runtime_protocol.h" />
+    <ClInclude Include="..\..\shared\salamatrix_thread_join.h" />
     <ClInclude Include="..\salamatrix_sides.h" />
     <ClInclude Include="..\salamatrix_events.h" />
     <ClInclude Include="..\salamatrix_extensions.h" />

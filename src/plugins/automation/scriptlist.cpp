@@ -15,6 +15,7 @@
 #include "scriptlist.h"
 #include "salamatrixsettings.h"
 #include "../salamatrix/salamatrix_manifest.h"
+#include "../shared/salamatrix_thread_join.h"
 #include "scriptsite.h"
 #include "aututils.h"
 #include "engassoc.h"
@@ -717,6 +718,7 @@ CScriptInfo::CScriptInfo(
     m_hAbortEvent = NULL;
     m_hwndAbortTarget = NULL;
     m_pRuntimeSession = NULL;
+    m_lRuntimeStopping = TRUE;
     m_hRuntimePumpThread = NULL;
     memset(m_runtimeEventSubscriptions, 0, sizeof(m_runtimeEventSubscriptions));
     m_nRuntimeEventSubscriptions = 0;
@@ -1557,7 +1559,9 @@ BOOL WINAPI CScriptInfo::RuntimeEventCallback(
     const Salamatrix::Events::EventPayload* payload)
 {
     CScriptInfo* script = static_cast<CScriptInfo*>(context);
-    if (script == NULL || payload == NULL || script->m_pRuntimeSession == NULL)
+    if (script == NULL || payload == NULL || script->m_pRuntimeSession == NULL ||
+        InterlockedCompareExchange(
+            &script->m_lRuntimeStopping, FALSE, FALSE) != FALSE)
         return FALSE;
 
     const char* name = RuntimeEventName(payload->Kind);
@@ -1604,7 +1608,9 @@ BOOL WINAPI CScriptInfo::RuntimeDialogEventCallback(
     RUNTIME_DIALOG* binding = static_cast<RUNTIME_DIALOG*>(context);
     if (binding == NULL || binding->Owner == NULL || event == NULL ||
         !binding->EventsEnabled || binding->EventName[0] == '\0' ||
-        binding->Owner->m_pRuntimeSession == NULL)
+        binding->Owner->m_pRuntimeSession == NULL ||
+        InterlockedCompareExchange(
+            &binding->Owner->m_lRuntimeStopping, FALSE, FALSE) != FALSE)
         return FALSE;
 
     char dialogId[32];
@@ -1677,6 +1683,9 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
     (void)requestId;
     CScriptInfo* script = static_cast<CScriptInfo*>(context);
     if (script == NULL || resultJson == NULL || resultLength == NULL)
+        return FALSE;
+    if (InterlockedCompareExchange(
+            &script->m_lRuntimeStopping, FALSE, FALSE) != FALSE)
         return FALSE;
 
     // Persistent runtime workers receive requests on their own pump thread,
@@ -4063,14 +4072,17 @@ BOOL WINAPI CScriptInfo::RuntimeLifecycleCallback(
     request.HostDispatch = CScriptInfo::RuntimeHostDispatch;
     request.HostDispatchContext = script;
 
+    InterlockedExchange(&script->m_lRuntimeStopping, FALSE);
     Salamatrix::Runtime::IRuntimeSession* session = NULL;
     if (!adapter->StartPersistent(&request, &session) || session == NULL)
     {
+        InterlockedExchange(&script->m_lRuntimeStopping, TRUE);
         script->ReleaseRuntimeCommand();
         return FALSE;
     }
     if (!session->IsAlive())
     {
+        InterlockedExchange(&script->m_lRuntimeStopping, TRUE);
         session->Release();
         script->ReleaseRuntimeCommand();
         return FALSE;
@@ -5685,6 +5697,7 @@ void CScriptInfo::ReleaseRuntimeProgress()
 
 void CScriptInfo::ReleaseRuntimeSession()
 {
+    InterlockedExchange(&m_lRuntimeStopping, TRUE);
     ReleaseRuntimeCommand();
     ReleaseRuntimeDialogs();
     ReleaseRuntimeProgress();
@@ -5694,12 +5707,14 @@ void CScriptInfo::ReleaseRuntimeSession()
     m_pRuntimeSession->Stop();
     if (m_hRuntimePumpThread != NULL)
     {
-        // A host callback may be blocked in a modal UI call. Never let
-        // extension teardown wait forever; Stop() has already terminated the
-        // child process, so the thread is safe to terminate as a last resort.
-        DWORD wait = WaitForSingleObject(m_hRuntimePumpThread, 5000);
-        if (wait == WAIT_TIMEOUT)
-            TerminateThread(m_hRuntimePumpThread, 1);
+        // A host callback may be synchronously waiting for this UI thread.
+        // Drain only sent messages while joining; the session and Automation
+        // module must remain alive until the pump has really returned.
+        Salamatrix::Runtime::WaitForThreadWithSentMessageDispatch(
+            m_hRuntimePumpThread,
+            SalamanderGeneral != NULL
+                ? SalamanderGeneral->GetMainWindowHWND()
+                : NULL);
         CloseHandle(m_hRuntimePumpThread);
         m_hRuntimePumpThread = NULL;
     }

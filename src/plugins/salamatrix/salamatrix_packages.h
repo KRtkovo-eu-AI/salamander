@@ -130,6 +130,7 @@ private:
     bool IsRemoved(const std::string& extensionId) const;
     BOOL Activate(Package* package);
     BOOL Deactivate(Package* package);
+    void StopSession(Package* package);
     void ReleaseProgress(Package* package);
     void ReleaseDialogs(Package* package);
     void ReleaseEventSubscriptions(Package* package);

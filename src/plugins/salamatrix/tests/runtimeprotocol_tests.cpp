@@ -8,6 +8,7 @@
 #include "../salamatrix_runtime_api.h"
 #include "../salamatrix_runtime_frame_queue.h"
 #include "../salamatrix_runtime_protocol.h"
+#include "../../shared/salamatrix_thread_join.h"
 
 namespace
 {
@@ -709,6 +710,68 @@ void TestRuntimeFrameQueue()
           "runtime frame queue writes the complete frame asynchronously");
     queue.Shutdown();
 }
+
+const UINT TestSentMessage = WM_APP + 197;
+
+LRESULT CALLBACK ThreadJoinWindowProc(
+    HWND window, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (message == TestSentMessage)
+        return 197;
+    return DefWindowProc(window, message, wParam, lParam);
+}
+
+struct ThreadJoinContext
+{
+    HWND Window;
+    LRESULT Result;
+
+    ThreadJoinContext() : Window(NULL), Result(0) {}
+};
+
+DWORD WINAPI SendSynchronousTestMessage(void* context)
+{
+    ThreadJoinContext* call = static_cast<ThreadJoinContext*>(context);
+    if (call == NULL)
+        return 1;
+    call->Result = SendMessage(call->Window, TestSentMessage, 0, 0);
+    return 0;
+}
+
+void TestThreadJoinDispatchesSynchronousMessages()
+{
+    const wchar_t className[] = L"SalamatrixThreadJoinTest";
+    WNDCLASSW windowClass = {};
+    windowClass.lpfnWndProc = ThreadJoinWindowProc;
+    windowClass.hInstance = GetModuleHandle(NULL);
+    windowClass.lpszClassName = className;
+    Check(RegisterClassW(&windowClass) != 0,
+          "register thread-join test window");
+    HWND window = CreateWindowExW(
+        0, className, L"", 0, 0, 0, 0, 0, HWND_MESSAGE,
+        NULL, windowClass.hInstance, NULL);
+    Check(window != NULL, "create thread-join test window");
+    if (window != NULL)
+    {
+        ThreadJoinContext context;
+        context.Window = window;
+        HANDLE thread = CreateThread(
+            NULL, 0, SendSynchronousTestMessage, &context, 0, NULL);
+        Check(thread != NULL, "start synchronous sender thread");
+        if (thread != NULL)
+        {
+            Check(
+                Salamatrix::Runtime::WaitForThreadWithSentMessageDispatch(
+                    thread, window) != FALSE,
+                "join dispatches synchronous sent message without timeout");
+            Check(context.Result == 197,
+                  "synchronous sender receives main-thread callback result");
+            CloseHandle(thread);
+        }
+        DestroyWindow(window);
+    }
+    UnregisterClassW(className, windowClass.hInstance);
+}
 } // namespace
 
 int main()
@@ -721,6 +784,7 @@ int main()
     TestAssistantService();
     TestCommandCatalog();
     TestRuntimeFrameQueue();
+    TestThreadJoinDispatchesSynchronousMessages();
     if (Failures != 0)
     {
         std::fprintf(stderr, "%d runtime protocol test(s) failed.\n", Failures);

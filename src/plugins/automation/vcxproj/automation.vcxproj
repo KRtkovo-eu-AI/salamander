@@ -409,6 +409,8 @@
     </ClInclude>
     <ClInclude Include="..\scriptlist.h">
     </ClInclude>
+    <ClInclude Include="..\..\shared\salamatrix_thread_join.h">
+    </ClInclude>
     <ClInclude Include="..\scriptsite.h">
     </ClInclude>
     <ClInclude Include="..\shim.h">

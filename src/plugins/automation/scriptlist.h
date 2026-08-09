@@ -178,6 +178,7 @@ private:
     HANDLE m_hAbortEvent; ///< Manually reset event signaled when the user requested abort.
     HWND m_hwndAbortTarget;
     Salamatrix::Runtime::IRuntimeSession* m_pRuntimeSession;
+    volatile LONG m_lRuntimeStopping;
     HANDLE m_hRuntimePumpThread;
     ULONGLONG m_runtimeEventSubscriptions[8];
     int m_nRuntimeEventSubscriptions;

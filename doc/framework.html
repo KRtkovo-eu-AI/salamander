@@ -511,6 +511,12 @@ which is not currently installed.
 [ Install Runtime ] [ Cancel ]
 </code></pre>
 <p>To by umožnilo oddělit samotný <strong>Salamander Extension API</strong> od jednotlivých jazyků.</p>
+<p>Persistentní runtime session musí mít pevný teardown kontrakt: nejprve
+zastavit přijímání nových callbacků, poté ukončit worker a počkat na skutečný
+návrat jeho pump threadu, a teprve potom uvolnit session nebo runtime plugin.
+Pokud pump thread synchronně čeká na host call v hlavním vlákně, join musí tento
+odeslaný callback obsloužit; timeout následovaný uvolněním živé session není
+bezpečný.</p>
 <p>A to je podle mě správná architektura:</p>
 <pre><code class="language-text">Python ?
           \
