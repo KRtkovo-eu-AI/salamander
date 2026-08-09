@@ -1,6 +1,6 @@
 # Notificări despre software-ul terților
 
-[Open Salamander: Samandarin](https://samandarin.krtkovo.eu/) se bazează pe munca multor autori, maintaineri și
+[Open Salamander: Samandarin](https://samandarin.net/) se bazează pe munca multor autori, maintaineri și
 proiecte. Această pagină enumeră componentele, codul, ideile și instrumentele
 folosite de aplicație și pluginurile sale. Mulțumim tuturor celor enumerați aici
 pentru punerea la dispoziție a muncii lor.

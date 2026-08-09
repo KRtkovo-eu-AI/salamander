@@ -25,7 +25,7 @@ STRINGTABLE
  IDS_PLUGINNAME,                 "WebView2 Render Viewer .NET"
  IDS_ABOUT,                      "About Plugin"
  IDS_PLUGIN_DESCRIPTION,         "Viewer that displays rendered HTML, Markdown, and web documents using WebView2."
- IDS_PLUGIN_HOME,                "https://samandarin.krtkovo.eu/"
+ IDS_PLUGIN_HOME,                "https://samandarin.net/"
  IDS_VIEWER_CREATE_EVENT_FAILED, "Unable to prepare synchronization event required by the viewer."
  IDS_FILE_TOO_LARGE,             "The selected file is too large to open. Files larger than 32 MB are not supported."
 }

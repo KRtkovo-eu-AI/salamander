@@ -37,7 +37,7 @@
 #endif
 
 // for SLG translators
-#define VERSINFO_SLG_WEB     "https://samandarin.krtkovo.eu"
+#define VERSINFO_SLG_WEB     "https://samandarin.net"
 #define VERSINFO_SLG_COMMENT "English version"
 
 #endif // __SAMANDARIN_VERSINFO_RH2

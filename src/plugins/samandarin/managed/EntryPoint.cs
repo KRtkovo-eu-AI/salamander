@@ -2923,10 +2923,10 @@ internal sealed class PluginCatalogSource
 
 internal static class PluginCatalogSources
 {
-    private const string StablePluginSource = "https://samandarin.krtkovo.eu/catalogs/plugins-stable.json";
-    private const string StableExtensionSource = "https://samandarin.krtkovo.eu/catalogs/extensions-stable.json";
-    private const string UnofficialExternalSource = "https://samandarin.krtkovo.eu/catalogs/plugins-unofficial.json";
-    private const string ExtensionRuntimesSource = "https://samandarin.krtkovo.eu/catalogs/extension-runtimes.json";
+    private const string StablePluginSource = "https://samandarin.net/catalogs/plugins-stable.json";
+    private const string StableExtensionSource = "https://samandarin.net/catalogs/extensions-stable.json";
+    private const string UnofficialExternalSource = "https://samandarin.net/catalogs/plugins-unofficial.json";
+    private const string ExtensionRuntimesSource = "https://samandarin.net/catalogs/extension-runtimes.json";
     private const string LegacyStablePluginSource = "https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-stable.json";
     private const string LegacyUnofficialExternalSource = "https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-unofficial.json";
 

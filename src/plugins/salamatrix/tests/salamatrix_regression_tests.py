@@ -285,7 +285,7 @@ def main() -> int:
     require(ai_rc2, r'#include\s+"versinfo\.rc2"', "AI rc2 does not include versinfo.rc2")
     require(ai, r'SetBasicPluginData\(\s*"Salamatrix AI",\s*FUNCTION_AUTOMATIONFRAMEWORK \| FUNCTION_DYNAMICMENUEXT,\s*VERSINFO_VERSION_NO_PLATFORM,\s*VERSINFO_COPYRIGHT,\s*VERSINFO_DESCRIPTION,\s*VERSINFO_INTERNAL,\s*NULL,\s*NULL\)',
             "AI SetBasicPluginData does not use versinfo macros")
-    require(ai, r'SetPluginHomePageURL\("https://samandarin\.krtkovo\.eu/"\)', "AI homepage URL is not set")
+    require(ai, r'SetPluginHomePageURL\("https://samandarin\.net/"\)', "AI homepage URL is not set")
     require(ai, r"SalamanderGeneral->LoadStr\(DLLInstance, IDS_AI_ASSISTANT_MENU", "AI menu caption does not use Salamander localization")
     require(ai, r'SalamanderPluginEntry\(.*?SalamanderGUI\s*=\s*salamander->GetSalamanderGUI\(\)', "AI plugin entry does not initialize SalamanderGUI")
     require(ai, r'caption\s*==\s*NULL.*\?\s*"Ask Salamatrix AI\.\.\."\s*:\s*caption',
@@ -670,7 +670,7 @@ def main() -> int:
         ("PHP", phpruntime, "PHPRegistration"),
         ("Lua", luaruntime, "LuaRegistration"),
     ):
-        require(runtime, r"SetPluginHomePageURL\(\"https://samandarin\.krtkovo\.eu/\"\)", f"{name} runtime homepage URL is not set")
+        require(runtime, r"SetPluginHomePageURL\(\"https://samandarin\.net/\"\)", f"{name} runtime homepage URL is not set")
         require(runtime, r"static void UnregisterRuntimeProvider\(",
                 f"{name} runtime release guard helper is missing")
         require(runtime, r"SalamanderGeneral->QueryService\(&query, &serviceResult\)",

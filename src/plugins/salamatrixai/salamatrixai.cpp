@@ -2034,7 +2034,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
         NULL,
         NULL);
     SalamanderGeneral->SetFlagLoadOnSalamanderStart(TRUE);
-    salamander->SetPluginHomePageURL("https://samandarin.krtkovo.eu/");
+    salamander->SetPluginHomePageURL("https://samandarin.net/");
     PluginInterface.Event(0, 0);
     return &PluginInterface;
 }

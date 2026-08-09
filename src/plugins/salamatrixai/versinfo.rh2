@@ -15,7 +15,7 @@
 #define VERSINFO_DESCRIPTION "Standalone local AI helper for Salamatrix."
 #define VERSINFO_INTERNAL    "SALAMATRIX.AI"
 #define VERSINFO_ORIGINAL    VERSINFO_INTERNAL ".SPL"
-#define VERSINFO_SLG_WEB     "samandarin.krtkovo.eu/salamatrix"
+#define VERSINFO_SLG_WEB     "salamatrix.samandarin.net"
 #define VERSINFO_SLG_COMMENT "English version"
 
 #endif

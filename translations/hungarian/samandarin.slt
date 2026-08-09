@@ -6,7 +6,7 @@ VERSION,"0,9,0,196"
 [TRANSLATION]
 LANGID,1038
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.krtkovo.eu/"
+WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Ellenőrzi a GitHub kiadásokat, és felajánlja a legújabb Samandarin build megnyitását."
-49,1,"https://samandarin.krtkovo.eu/download"
+49,1,"https://samandarin.net/download"
 50,1,"Frissítések ellenőrzése most"
 51,1,"Váratlan kezelt kivétel:"
 52,1,"Nem sikerült inicializálni a Samandarin kezelt segédet.\nEllenőrizze, hogy a Samandarin.Managed.dll a bővítmény mellett található."

@@ -105,9 +105,9 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 ### Plugin Updates in Samandarin plugin
 > [!NOTE]
 > Plugin catalog sources:
-> - Stable: https://samandarin.krtkovo.eu/catalogs/plugins-stable.json
-> - Unofficial 3rd party: https://samandarin.krtkovo.eu/catalogs/plugins-unofficial.json
-> - Extension Runtimes: https://samandarin.krtkovo.eu/catalogs/extension-runtimes.json
+> - Stable: https://samandarin.net/catalogs/plugins-stable.json
+> - Unofficial 3rd party: https://samandarin.net/catalogs/plugins-unofficial.json
+> - Extension Runtimes: https://samandarin.net/catalogs/extension-runtimes.json
 <img width="966" height="643" alt="image" src="https://github.com/user-attachments/assets/54f2a2fe-f5e0-4de3-b5d4-e3a96c71c4d4" />
 
 ### Digitally signed

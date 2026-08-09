@@ -332,7 +332,7 @@ HINSTANCE LoadSLG(const char* slgName)
         }
     }
     if (hSLG == NULL)
-        SalmonMessageBox(NULL, "Internal error: cannot load any language file. Please report this at https://samandarin.krtkovo.eu/issues.", APP_NAME, MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
+        SalmonMessageBox(NULL, "Internal error: cannot load any language file. Please report this at https://samandarin.net/issues.", APP_NAME, MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND);
     return hSLG;
 }
 

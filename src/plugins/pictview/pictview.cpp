@@ -691,7 +691,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    _T("PictView") /* do not translate! */);
 
     // set the plugin home page URL
-    salamander->SetPluginHomePageURL("https://samandarin.krtkovo.eu/");
+    salamander->SetPluginHomePageURL("https://samandarin.net/");
 
     // If we crash inside pictview.spl, this message box will be displayed
     // and the happy recipient of the images will be Honza Patera.

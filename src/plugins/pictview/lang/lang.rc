@@ -83,7 +83,7 @@ BEGIN
     LTEXT           "Image types:",IDC_STATIC_6,46,81,50,8
     LTEXT           "WIC codecs from Microsoft",IDC_ABOUT_EMAIL,99,81,120,8,WS_TABSTOP
     LTEXT           "Project site:",IDC_STATIC_7,46,92,50,8
-    LTEXT           "https://samandarin.krtkovo.eu/",IDC_ABOUT_WWW,99,92,160,8,WS_TABSTOP
+    LTEXT           "https://samandarin.net/",IDC_ABOUT_WWW,99,92,160,8,WS_TABSTOP
     CONTROL         "",IDC_STATIC_5,"Static",SS_ETCHEDHORZ | WS_GROUP,2,108,339,1
 END
 

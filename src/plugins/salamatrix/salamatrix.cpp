@@ -118,7 +118,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    VERSINFO_VERSION_NO_PLATFORM, VERSINFO_COPYRIGHT,
                                    VERSINFO_DESCRIPTION,
                                    PluginNameShort, NULL, NULL);
-    salamander->SetPluginHomePageURL("https://samandarin.krtkovo.eu/");
+    salamander->SetPluginHomePageURL("https://samandarin.net/");
 
     SalamanderGeneral->SetFlagLoadOnSalamanderStart(TRUE);
 

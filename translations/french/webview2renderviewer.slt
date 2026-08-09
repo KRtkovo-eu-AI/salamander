@@ -6,7 +6,7 @@ VERSION,"1,0,4,195"
 [TRANSLATION]
 LANGID,1036
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.krtkovo.eu/"
+WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Visionneuse qui affiche du HTML, du Markdown et des documents web rendus à l’aide de WebView2."
-49,1,"https://samandarin.krtkovo.eu/"
+49,1,"https://samandarin.net/"
 50,1,"Impossible de préparer l’événement de synchronisation requis par la visionneuse."
 51,1,"Le fichier sélectionné est trop volumineux pour être ouvert. Les fichiers de plus de 32 Mo ne sont pas pris en charge."
 

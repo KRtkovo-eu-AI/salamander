@@ -6,7 +6,7 @@ VERSION,"1,0,3,195"
 [TRANSLATION]
 LANGID,2052
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.krtkovo.eu/"
+WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"内部查看器，可使用托管语法高亮渲染文本文件。"
-49,1,"https://samandarin.krtkovo.eu/"
+49,1,"https://samandarin.net/"
 50,1,"无法准备查看器所需的同步事件。"
 51,1,"所选文件过大，无法打开。不支持大于 16 MB 的文件。"
 

@@ -6,7 +6,7 @@ VERSION,"1,0,8,195"
 [TRANSLATION]
 LANGID,1043
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.krtkovo.eu/"
+WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Toon lokale Hyper-V-virtuele machines in het deelvenster."
-49,1,"https://samandarin.krtkovo.eu/"
+49,1,"https://samandarin.net/"
 50,1,"Toon &Hyper-V-machinesvenster"
 51,1,"&VHD maken"
 52,1,"VHD &koppelen"

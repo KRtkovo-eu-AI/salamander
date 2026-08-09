@@ -6,7 +6,7 @@ VERSION,"0,9,0,196"
 [TRANSLATION]
 LANGID,1029
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.krtkovo.eu/"
+WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Kontroluje vydání na GitHubu a nabízí otevřít nejnovější sestavení Samandarin."
-49,1,"https://samandarin.krtkovo.eu/download"
+49,1,"https://samandarin.net/download"
 50,1,"Zkontrolovat aktualizace nyní"
 51,1,"Neočekávaná spravovaná výjimka:"
 52,1,"Nelze inicializovat spravovaného pomocníka Samandarin.\nOvěřte, že Samandarin.Managed.dll je umístěn vedle zásuvného modulu."

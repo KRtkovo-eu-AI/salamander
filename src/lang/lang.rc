@@ -683,7 +683,7 @@ BEGIN
     LTEXT           "Experimental community fork",IDC_STATIC_2,10,86,201,8
     LTEXT           "Copyright © 1997-2026 Open Salamander Authors, Ondřej Kotas (KRtekTM)",IDC_STATIC_1,10,108,279,8
     LTEXT           "Web:",IDC_STATIC_3,10,119,20,8
-    LTEXT           "https://samandarin.krtkovo.eu/",IDC_ABOUT_WWW,31,119,220,8,WS_TABSTOP
+    LTEXT           "https://samandarin.net/",IDC_ABOUT_WWW,31,119,220,8,WS_TABSTOP
     LTEXT           "Open Salamander is free software",IDC_STATIC_4,10,130,165,8
     LTEXT           "Licensed under GNU General Public License version 2 or later",IDC_STATIC_5,10,141,214,8
     CONTROL         "",IDC_ABOUT_BOTTOM,"Static",SS_ETCHEDHORZ | WS_GROUP,2,154,294,1

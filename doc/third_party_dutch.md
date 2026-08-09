@@ -1,6 +1,6 @@
 # Mededelingen over software van derden
 
-[Open Salamander: Samandarin](https://samandarin.krtkovo.eu/) bouwt voort op het werk van vele auteurs,
+[Open Salamander: Samandarin](https://samandarin.net/) bouwt voort op het werk van vele auteurs,
 beheerders en projecten. Deze pagina vermeldt de componenten, code, ideeën en
 hulpmiddelen die worden gebruikt door de applicatie en haar plug-ins. Bedankt
 aan iedereen die hier wordt genoemd voor het beschikbaar stellen van hun werk.

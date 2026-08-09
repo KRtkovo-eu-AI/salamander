@@ -1247,7 +1247,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(
         NULL,
         NULL);
     SalamanderGeneral->SetFlagLoadOnSalamanderStart(TRUE);
-    salamander->SetPluginHomePageURL("https://samandarin.krtkovo.eu/");
+    salamander->SetPluginHomePageURL("https://samandarin.net/");
     TryRegisterPHPRuntime();
     return &PluginInterface;
 }
