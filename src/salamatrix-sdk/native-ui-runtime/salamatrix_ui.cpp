@@ -38,6 +38,7 @@ namespace
 static const UINT WM_SALAMATRIX_APPLY_DARK_SCROLLBARS = WM_APP + 0x3A1;
 static const UINT WM_SALAMATRIX_SPLITTER_MOVED = WM_APP + 0x3A2;
 static std::vector<NativeDialog*> OpenNativeDialogs;
+static std::vector<HWND> OpenNotificationWindows;
 static BOOL ClosingAllNativeDialogs = FALSE;
 
 static void RegisterNativeDialog(NativeDialog* dialog)
@@ -53,6 +54,25 @@ static void UnregisterNativeDialog(NativeDialog* dialog)
         if (OpenNativeDialogs[index] == dialog)
         {
             OpenNativeDialogs.erase(OpenNativeDialogs.begin() + index);
+            return;
+        }
+    }
+}
+
+static void RegisterNotificationWindow(HWND window)
+{
+    if (window != NULL)
+        OpenNotificationWindows.push_back(window);
+}
+
+static void UnregisterNotificationWindow(HWND window)
+{
+    for (size_t index = 0; index < OpenNotificationWindows.size(); ++index)
+    {
+        if (OpenNotificationWindows[index] == window)
+        {
+            OpenNotificationWindows.erase(
+                OpenNotificationWindows.begin() + index);
             return;
         }
     }
@@ -302,6 +322,7 @@ static LRESULT CALLBACK NotificationWindowProc(
         return 0;
     }
     case WM_NCDESTROY:
+        UnregisterNotificationWindow(window);
         delete data;
         SetWindowLongPtrW(window, GWLP_USERDATA, 0);
         break;
@@ -501,6 +522,7 @@ BOOL WINAPI ShowNativeNotification(
         delete data;
         return FALSE;
     }
+    RegisterNotificationWindow(window);
     DWORD duration = timeoutMs == 0 ? 5000 : timeoutMs;
     if (duration > 600000)
         duration = 600000;
@@ -1726,6 +1748,39 @@ BOOL WINAPI ShowNativeControlsShowcase(HWND parent)
 void WINAPI CloseAllNativeDialogs()
 {
     ClosingAllNativeDialogs = TRUE;
+    while (!OpenNotificationWindows.empty())
+    {
+        HWND window = OpenNotificationWindows.back();
+        const size_t previousCount = OpenNotificationWindows.size();
+        if (IsWindow(window) && !DestroyWindow(window))
+        {
+            // The public UI contract is main-thread-only, so this is only a
+            // defensive fallback. Detach the module-owned procedure rather
+            // than allowing a live HWND to call into the unloaded provider.
+            KillTimer(window, 1);
+            NotificationData* data =
+                reinterpret_cast<NotificationData*>(GetWindowLongPtrW(
+                    window, GWLP_USERDATA));
+            SetWindowLongPtrW(window, GWLP_USERDATA, 0);
+            SetWindowLongPtrW(
+                window,
+                GWLP_WNDPROC,
+                reinterpret_cast<LONG_PTR>(DefWindowProcW));
+            delete data;
+        }
+        if (OpenNotificationWindows.size() == previousCount &&
+            OpenNotificationWindows.back() == window)
+        {
+            // Either the handle was already gone or its window procedure was
+            // detached by the defensive fallback above.
+            OpenNotificationWindows.pop_back();
+        }
+    }
+    if (NotificationInstance != NULL)
+    {
+        UnregisterClassW(NotificationClassName, NotificationInstance);
+        NotificationInstance = NULL;
+    }
     while (!OpenNativeDialogs.empty())
     {
         NativeDialog* dialog = OpenNativeDialogs.back();
@@ -2283,12 +2338,13 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
             Impl::Control* invalid = dialog->m_pImpl->FindInvalid();
             if (invalid != NULL)
             {
-                std::string message = invalid->ValidationMessage.empty()
-                                          ? "This field is required."
-                                          : invalid->ValidationMessage;
+                std::string validationMessage =
+                    invalid->ValidationMessage.empty()
+                        ? "This field is required."
+                        : invalid->ValidationMessage;
                 std::wstring messageWide;
                 std::wstring titleWide;
-                if (!Utf8ToWide(message.c_str(), messageWide))
+                if (!Utf8ToWide(validationMessage.c_str(), messageWide))
                     messageWide = L"This field is required.";
                 if (!Utf8ToWide(dialog->m_pImpl->Title.c_str(), titleWide))
                     titleWide = L"Salamander";

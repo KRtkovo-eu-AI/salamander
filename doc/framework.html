@@ -516,7 +516,9 @@ zastavit přijímání nových callbacků, poté ukončit worker a počkat na sk
 návrat jeho pump threadu, a teprve potom uvolnit session nebo runtime plugin.
 Pokud pump thread synchronně čeká na host call v hlavním vlákně, join musí tento
 odeslaný callback obsloužit; timeout následovaný uvolněním živé session není
-bezpečný.</p>
+bezpečný. Stejný lifetime kontrakt platí i pro všechna modeless okna vytvořená
+frameworkem, včetně dočasných notification popupů: před unloadem provideru musí
+být jejich HWND zničen a jejich window class odregistrována.</p>
 <p>A to je podle mě správná architektura:</p>
 <pre><code class="language-text">Python ?
           \

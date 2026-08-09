@@ -185,6 +185,17 @@ returned. When teardown runs on Salamander's UI thread, the shared join helper
 dispatches only nonqueued synchronous sent messages, avoiding the circular
 UI-thread/pump-thread wait without consuming posted application work.
 
+A follow-up close-time report from the same build exposed a separate native UI
+lifetime bug: a long-lived notification popup survived framework release, and
+USER32 later dispatched `WM_WINDOWPOSCHANGING` to
+`Salamatrix::UI::NotificationWindowProc` at RVA `0x5D5B0` after
+`salamatrix.spl` had been unloaded. Salamatrix Framework 0.7 tracks every
+notification HWND alongside modeless native dialogs, destroys those windows
+synchronously during `CPluginInterface::Release`, and unregisters their window
+class before the module can unload. The PR-running native UI test creates a
+long-timeout notification and verifies that the shutdown hook leaves no window
+of that class alive.
+
 ## Current verification snapshot
 
 The newest implementation commits include `d5f7e56d9` (runtime-built

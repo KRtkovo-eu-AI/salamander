@@ -962,9 +962,15 @@ def main() -> int:
             "Salamatrix UI provider does not track active native dialog lifetimes")
     require(salamatrix_ui, r'CloseAllNativeDialogs\(\).*?'
                            r'ClosingAllNativeDialogs = TRUE.*?'
+                           r'while \(!OpenNotificationWindows\.empty\(\)\).*?'
+                           r'DestroyWindow\(window\).*?'
                            r'while \(!OpenNativeDialogs\.empty\(\)\).*?'
                            r'dialog->Close\(\)',
-            "Salamatrix UI provider cannot close active dialogs before DLL unload")
+            "Salamatrix UI provider cannot close active windows before DLL unload")
+    require(salamatrix_ui, r'RegisterNotificationWindow\(window\)',
+            "Salamatrix UI provider does not track notification windows")
+    require(salamatrix_ui, r'WM_NCDESTROY.*?UnregisterNotificationWindow\(window\)',
+            "Salamatrix UI provider retains destroyed notification windows")
     require(salamatrix, r'CPluginInterface::Release.*?'
                         r'CloseAllNativeDialogs\(\).*?'
                         r'DestroyRuntimeServices\(\)',

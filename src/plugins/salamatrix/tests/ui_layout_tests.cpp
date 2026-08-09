@@ -14,23 +14,6 @@
 #include "../../../salamatrix-sdk/native-ui-runtime/salamatrix_ui_controls.h"
 #include "../../../salamatrix-sdk/native-ui-runtime/salamatrix_ui_host.h"
 
-namespace Salamatrix { namespace UI {
-namespace
-{
-INativeDialogHost* TestDialogHost = NULL;
-}
-
-void WINAPI SetNativeDialogHost(INativeDialogHost* host)
-{
-    TestDialogHost = host;
-}
-
-INativeDialogHost* WINAPI GetNativeDialogHost()
-{
-    return TestDialogHost;
-}
-} }
-
 namespace
 {
 int Failures = 0;
@@ -42,6 +25,27 @@ void Check(bool condition, const char* message)
         std::fprintf(stderr, "FAILED: %s\n", message);
         ++Failures;
     }
+}
+
+BOOL CALLBACK CountNotificationWindow(HWND window, LPARAM context)
+{
+    DWORD processId = 0;
+    GetWindowThreadProcessId(window, &processId);
+    wchar_t className[128];
+    if (processId == GetCurrentProcessId() &&
+        GetClassNameW(window, className, _countof(className)) > 0 &&
+        wcscmp(
+            className,
+            L"OpenSalamander.Salamatrix.Notification") == 0)
+        ++*reinterpret_cast<int*>(context);
+    return TRUE;
+}
+
+int GetNotificationWindowCount()
+{
+    int count = 0;
+    EnumWindows(CountNotificationWindow, reinterpret_cast<LPARAM>(&count));
+    return count;
 }
 
 class AccessibilityTestControl : public Salamatrix::UI::IControl
@@ -139,6 +143,16 @@ int main()
     Check(parent != NULL, "hidden SDK control host window is created");
     if (parent != NULL)
     {
+        Check(
+            Salamatrix::UI::ShowNativeNotification(
+                parent, "Shutdown test", "Tracked notification", 600000) != FALSE,
+            "native notification window is created");
+        Check(GetNotificationWindowCount() == 1,
+              "native notification window is tracked before shutdown");
+        Salamatrix::UI::CloseAllNativeDialogs();
+        Check(GetNotificationWindowCount() == 0,
+              "native notification window is destroyed before provider unload");
+
         CreateWindowExW(0, L"STATIC", L"Original", WS_CHILD | WS_VISIBLE,
                         4, 4, 180, 20, parent, reinterpret_cast<HMENU>(1001), NULL, NULL);
         CGUIStaticTextAbstract* text =
