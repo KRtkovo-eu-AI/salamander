@@ -144,7 +144,8 @@ private:
         const char* commandId,
         const char* handler,
         const char* invocationJson = NULL);
-    BOOL RunViewer(const char* fileName, const char* invocationJson);
+    BOOL RunViewer(const char* fileName, const char* invocationJson,
+                   const char* viewerLabel = NULL);
     BOOL ListFileSystem(
         const std::string& packageId,
         const std::string& fileSystemId,

@@ -80,6 +80,7 @@ def main() -> int:
     plugins_header = read("src/plugins.h")
     plugins1 = read("src/plugins1.cpp")
     plugins2 = read("src/plugins2.cpp")
+    fileswn5 = read("src/fileswn5.cpp")
     viewer_configuration = read("src/salamdr2.cpp")
     mainwnd1 = read("src/mainwnd1.cpp")
     mainwnd2 = read("src/mainwnd2.cpp")
@@ -839,6 +840,29 @@ def main() -> int:
         r'SetIconListForGUI\(CGUIIconListAbstract\* iconList\) = 0;.*?'
         r'AddViewerWithLabel\(const char\* masks, BOOL force,.*?\n};',
         "labeled Viewer registration is not append-only in the public connect ABI")
+    require(
+        general_contract,
+        r'CSalamanderPluginViewerData.*?'
+        r'SALAMANDER_PLUGIN_VIEWER_SELECTION_MAGIC.*?'
+        r'CSalamanderPluginViewerSelectionData.*?ViewerLabel',
+        "selected plug-in Viewer identity has no versioned viewer-data contract")
+    require(
+        fileswn5 + plugins_header + plugins1,
+        r'plugin->ViewFile\(.*?viewer->ViewerLabel.*?'
+        r'const char\* viewerLabel = NULL.*?'
+        r'CSalamanderPluginViewerSelectionData selectionData.*?'
+        r'SelectionMagic = SALAMANDER_PLUGIN_VIEWER_SELECTION_MAGIC.*?'
+        r'PluginIfaceForViewer\.ViewFile\(.*?viewerData',
+        "Alt+F3 does not carry the selected named Viewer to the plug-in")
+    require(
+        packages,
+        r'viewerData->Size >= sizeof\(CSalamanderPluginViewerSelectionData\).*?'
+        r'SelectionMagic ==.*?SALAMANDER_PLUGIN_VIEWER_SELECTION_MAGIC.*?'
+        r'RunViewer\(name, invocation\.c_str\(\), viewerLabel\).*?'
+        r'if \(viewerLabel != NULL && viewerLabel\[0\] != 0\).*?'
+        r'_stricmp\(label\.c_str\(\), viewerLabel\) == 0.*?'
+        r'viewer\.Handler\.c_str\(\)',
+        "selected named Viewer is still re-matched only by the file mask")
     require(
         packages,
         r'RegisteredViewers.*?AddViewerWithLabel\(group\.c_str\(\), FALSE.*?'

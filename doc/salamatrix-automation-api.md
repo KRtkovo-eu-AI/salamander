@@ -84,7 +84,11 @@ Schema 2 adds two optional native roles while schema 1 remains accepted:
   `name`, and a one-shot `handler`. Viewer configuration lists every registered
   package/Viewer identity as a separate **Associated viewer** choice instead of
   showing only the shared Salamatrix Framework plugin. The selected identity is
-  preserved with the association across configuration saves and restarts.
+  preserved with the association across configuration saves and restarts and
+  is carried to the framework when that association is invoked. Therefore a
+  concrete extension Viewer selected manually for `*.*` (including as an
+  alternate Viewer opened with Alt+F3) runs that exact handler even when the
+  opened file does not match the Viewer's original manifest mask.
   Declarative Viewer identities and masks are registered independently of
   runtime-provider startup order; dispatch still requires the runtime to be
   available when the Viewer is opened.

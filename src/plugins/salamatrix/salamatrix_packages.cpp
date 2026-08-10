@@ -885,7 +885,6 @@ public:
         int enumFilesSourceUID, int enumFilesCurrentIndex)
     {
         UNREFERENCED_PARAMETER(returnLock);
-        UNREFERENCED_PARAMETER(viewerData);
         if (lock != NULL)
             *lock = NULL;
         if (lockOwner != NULL)
@@ -905,7 +904,17 @@ public:
             std::to_string(enumFilesSourceUID) +
             ",\"enumFilesCurrentIndex\":" +
             std::to_string(enumFilesCurrentIndex) + "}";
-        return Owner->RunViewer(name, invocation.c_str());
+        const char* viewerLabel = NULL;
+        if (viewerData != NULL &&
+            viewerData->Size >= sizeof(CSalamanderPluginViewerSelectionData))
+        {
+            const CSalamanderPluginViewerSelectionData* selection =
+                static_cast<const CSalamanderPluginViewerSelectionData*>(viewerData);
+            if (selection->SelectionMagic ==
+                SALAMANDER_PLUGIN_VIEWER_SELECTION_MAGIC)
+                viewerLabel = selection->ViewerLabel;
+        }
+        return Owner->RunViewer(name, invocation.c_str(), viewerLabel);
     }
 
     virtual BOOL WINAPI CanViewFile(const char* name)
@@ -2451,7 +2460,8 @@ BOOL PackageManager::ExecuteCommand(
     return succeeded;
 }
 
-BOOL PackageManager::RunViewer(const char* fileName, const char* invocationJson)
+BOOL PackageManager::RunViewer(const char* fileName, const char* invocationJson,
+                               const char* viewerLabel)
 {
     if (fileName == NULL || General == NULL)
         return FALSE;
@@ -2467,6 +2477,22 @@ BOOL PackageManager::RunViewer(const char* fileName, const char* invocationJson)
         {
             const CExtensionManifestViewer& viewer =
                 package->Manifest.Viewers[viewerIndex];
+            if (viewerLabel != NULL && viewerLabel[0] != 0)
+            {
+                std::string label = package->Manifest.Name;
+                if (!viewer.Name.empty())
+                {
+                    label += " - ";
+                    label += viewer.Name;
+                }
+                if (_stricmp(label.c_str(), viewerLabel) == 0)
+                {
+                    return ExecuteCommand(
+                        package, NULL, "salamatrix.viewer",
+                        viewer.Handler.c_str(), invocationJson);
+                }
+                continue;
+            }
             for (size_t patternIndex = 0;
                  patternIndex < viewer.Patterns.size(); ++patternIndex)
             {

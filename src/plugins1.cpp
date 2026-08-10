@@ -3823,7 +3823,7 @@ BOOL CPluginData::CanViewFile(const char* name)
 BOOL CPluginData::ViewFile(const char* name, int left, int top, int width, int height,
                            UINT showCmd, BOOL alwaysOnTop, BOOL returnLock,
                            HANDLE* lock, BOOL* lockOwner, int enumFilesSourceUID,
-                           int enumFilesCurrentIndex)
+                           int enumFilesCurrentIndex, const char* viewerLabel)
 {
     CALL_STACK_MESSAGE13("CPluginData::ViewFile(%s, %d, %d, %d, %d, %u, %d, %d, , , %d, %d) (%s v. %s)",
                          name, left, top, width, height, showCmd, alwaysOnTop, returnLock,
@@ -3832,8 +3832,18 @@ BOOL CPluginData::ViewFile(const char* name, int left, int top, int width, int h
     if (InitDLL(MainWindow->HWindow)
         /*&& PluginIfaceForViewer.NotEmpty()*/) // unnecessary, because downgrade is impossible and InitDLL checks the interfaces
     {
+        CSalamanderPluginViewerSelectionData selectionData;
+        CSalamanderPluginViewerData* viewerData = NULL;
+        if (viewerLabel != NULL && viewerLabel[0] != 0)
+        {
+            selectionData.Size = sizeof(selectionData);
+            selectionData.FileName = name;
+            selectionData.SelectionMagic = SALAMANDER_PLUGIN_VIEWER_SELECTION_MAGIC;
+            selectionData.ViewerLabel = viewerLabel;
+            viewerData = &selectionData;
+        }
         ret = PluginIfaceForViewer.ViewFile(name, left, top, width, height, showCmd, alwaysOnTop,
-                                            returnLock, lock, lockOwner, NULL, enumFilesSourceUID,
+                                            returnLock, lock, lockOwner, viewerData, enumFilesSourceUID,
                                             enumFilesCurrentIndex);
         if (ret && returnLock && *lock != NULL && *lockOwner)
         { // add the 'lock' handle to HANDLES (disk cache will want to close it - it will search for it)

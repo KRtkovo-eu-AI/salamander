@@ -45,7 +45,9 @@ public:
     // prechod 'lock' do signaled stavu pouzit metodu CSalamanderGeneralAbstract::UnlockFileInCache);
     // pokud viewer nenastavi 'lock' (zustava NULL) je soubor 'name' platny jen do ukonceni volani teto
     // metody ViewFile; neni-li 'viewerData' NULL, jde o predani rozsirenych parametru viewru (viz
-    // CSalamanderGeneralAbstract::ViewFileInPluginViewer); 'enumFilesSourceUID' je UID zdroje (panelu
+    // CSalamanderGeneralAbstract::ViewFileInPluginViewer); u pojmenovane pluginove asociace muze
+    // obsahovat CSalamanderPluginViewerSelectionData s identitou konkretniho vieweru vybraneho
+    // v konfiguraci; 'enumFilesSourceUID' je UID zdroje (panelu
     // nebo Find okna), ze ktereho je viewer otviran, je-li -1, je zdroj neznamy (archivy a
     // file_systemy nebo Alt+F11, atd.) - viz napr. CSalamanderGeneralAbstract::GetNextFileNameForViewer;
     // 'enumFilesCurrentIndex' je index oteviraneho souboru ve zdroji (panelu nebo Find okne), je-li -1,

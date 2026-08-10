@@ -2701,7 +2701,8 @@ public:
     BOOL ViewFile(const char* name, int left, int top, int width, int height,
                   UINT showCmd, BOOL alwaysOnTop, BOOL returnLock,
                   HANDLE* lock, BOOL* lockOwner,
-                  int enumFilesSourceUID, int enumFilesCurrentIndex);
+                  int enumFilesSourceUID, int enumFilesCurrentIndex,
+                  const char* viewerLabel = NULL);
 
     // plugin call: OpenFS
     CPluginFSInterfaceAbstract* OpenFS(const char* fsName, int fsNameIndex);

@@ -1293,7 +1293,8 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                                      place.rcNormalPosition.bottom - place.rcNormalPosition.top,
                                      place.showCmd, Configuration.AlwaysOnTop,
                                      returnLock, &lockAux, &lockOwnerAux,
-                                     enumFileNamesSourceUID, enumFileNamesLastFileIndex))
+                                     enumFileNamesSourceUID, enumFileNamesLastFileIndex,
+                                     viewer->ViewerLabel))
                 {
                     success = TRUE;
                     if (returnLock && lockAux != NULL)
