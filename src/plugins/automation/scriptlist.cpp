@@ -5777,6 +5777,9 @@ void CScriptLookup::PublishSalamatrixExtensions()
             descriptor.Flags = Salamatrix::Extensions::ExtensionFlagManifest |
                                Salamatrix::Extensions::ExtensionFlagPackage |
                                Salamatrix::Extensions::ExtensionFlagPersistent;
+            if (!pScript->m_salamatrixManifestCommands.empty())
+                descriptor.Flags |=
+                    Salamatrix::Extensions::ExtensionFlagMenuExtension;
             CAutomationSalamatrixBridge* availabilityBridge =
                 g_oAutomationPlugin.GetSalamatrixBridge();
             Salamatrix::Runtime::IRuntimeService* runtimeService =

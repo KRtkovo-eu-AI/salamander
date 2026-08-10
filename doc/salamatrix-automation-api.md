@@ -112,6 +112,9 @@ Schema 2 adds two optional native roles while schema 1 remains accepted:
 The distributed Salamatrix extension demos (`src/extensions/demos/README.md`)
 include equivalent schema-2 Viewer and FS handlers for Node.js, Python,
 PowerShell, PHP, and Lua, each with a distinct sample file mask and provider.
+The existing Plugin Manager derives each package's **Functions** summary from
+these manifest contributions: `commands[]` is shown as **Menu Extension**,
+`viewers[]` as **File Viewer**, and `fileSystems[]` as **File System (FS)**.
 
 An extension must declare every applicable gated framework surface it calls.
 Public capability names are `panels.read`, `panels.write`, `ui.dialogs`, `commands`,

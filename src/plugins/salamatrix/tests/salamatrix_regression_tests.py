@@ -114,6 +114,8 @@ def main() -> int:
     )
     salamatrix = read("src/plugins/salamatrix/salamatrix.cpp")
     salamatrix_runtime = read("src/plugins/salamatrix/salamatrix_runtime.h")
+    extensions_contract = read(
+        "src/plugins/salamatrix/salamatrix_extensions.h")
     salamatrix_ui = ui_implementation
     salamatrix_props = read("src/plugins/salamatrix/vcxproj/salamatrix.props")
     salamatrix_project = read(
@@ -868,6 +870,39 @@ def main() -> int:
         r'RegisteredViewers.*?AddViewerWithLabel\(group\.c_str\(\), FALSE.*?'
         r'firstRegistration.*?AddViewerWithLabel\(group\.c_str\(\), TRUE',
         "new extension Viewer masks are not registered once while preserving user removals")
+    require(
+        extensions_contract + salamatrix_runtime,
+        r'SALAMATRIX_EXTENSIONS_VERSION_1_4.*?'
+        r'ExtensionFlagMenuExtension.*?ExtensionFlagViewer.*?'
+        r'ExtensionFlagFileSystem.*?'
+        r'RegisterServiceOwned\(SALAMATRIX_SERVICE_EXTENSIONS,\s*'
+        r'SALAMATRIX_EXTENSIONS_VERSION_1_4',
+        "Extensions 1.4 does not publish contribution metadata")
+    require(
+        packages,
+        r'!manifest\.Commands\.empty\(\).*?ExtensionFlagMenuExtension.*?'
+        r'!manifest\.Viewers\.empty\(\).*?ExtensionFlagViewer.*?'
+        r'!manifest\.FileSystems\.empty\(\).*?ExtensionFlagFileSystem',
+        "manifest contribution flags are not derived during package discovery")
+    require(
+        packages,
+        r'void PackageManager::RefreshContributionFlags\(Package\* package\).*?'
+        r'ExtensionFlagMenuExtension.*?RegisterExtension.*?'
+        r'commands\.register.*?RefreshContributionFlags\(package\).*?'
+        r'commands\.unregister.*?RefreshContributionFlags\(package\)',
+        "dynamic command registration does not refresh Menu Extension metadata")
+    require(
+        automation_scriptlist,
+        r'!pScript->m_salamatrixManifestCommands\.empty\(\).*?'
+        r'ExtensionFlagMenuExtension',
+        "Automation compatibility registration omits its menu contribution")
+    require(
+        dialogs,
+        r'ExtensionFlagViewer.*?IDS_PLUGINFUNCFILEVIEWER.*?'
+        r'ExtensionFlagMenuExtension.*?IDS_PLUGINFUNCMENUEXTENSION.*?'
+        r'ExtensionFlagFileSystem.*?IDS_PLUGINFUNCFILESYSTEM.*?'
+        r'IDC_PLUGINFUNCTIONS.*?extensionFunctions',
+        "Plugin Manager does not render extension contributions in Functions")
     viewer_registration = re.search(
         r'void PackageManager::RegisterViewerMasks\(.*?'
         r'(?=\nBOOL WINAPI PackageManager::LifecycleCallback)',

@@ -2340,7 +2340,7 @@ begin
   SetArrayLength(PluginIds, 0);
 
   AddPlugin('7zip', '7-Zip', '1.34 (x64)', True);
-  AddPlugin('automation', 'Automation', '2.1 (x64)', True);
+  AddPlugin('automation', 'Automation', '2.5 (x64)', True);
   AddPlugin('checksum', 'Checksum', '2.3 (x64)', True);
   AddPlugin('dbviewer', 'Database Viewer', '1.26 (x64)', True);
   AddPlugin('demoplug', 'Demo Plugin', '1.96 (x64)', False);
@@ -2368,7 +2368,7 @@ begin
   AddPlugin('textviewer', 'PrismSharp Text Viewer .NET', '1.03 (x64)', True);
   AddPlugin('regedt', 'Registry Editor', '1.15 (x64)', True);
   AddPlugin('renamer', 'Renamer', '1.15 (x64)', True);
-  AddPlugin('salamatrix', 'Salamatrix Framework', '0.74 (x64)', True);
+  AddPlugin('salamatrix', 'Salamatrix Framework', '0.75 (x64)', True);
   AddPlugin('salamatrixai', 'Salamatrix AI', '0.1 (x64)', False);
   AddPlugin('salamatrixailocalllama', 'Salamatrix AI Local LLaMA', '0.1 (x64)', False);
   AddPlugin('salamatrixdemos', 'Salamatrix Demo Sample Scripts', '1.4.1 (x64)', False);

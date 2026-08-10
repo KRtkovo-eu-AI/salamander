@@ -1926,6 +1926,12 @@ void PackageManager::DiscoverDirectory(
                     descriptor.Flags = Extensions::ExtensionFlagManifest |
                                        Extensions::ExtensionFlagPackage |
                                        Extensions::ExtensionFlagPersistent;
+                    if (!manifest.Commands.empty())
+                        descriptor.Flags |= Extensions::ExtensionFlagMenuExtension;
+                    if (!manifest.Viewers.empty())
+                        descriptor.Flags |= Extensions::ExtensionFlagViewer;
+                    if (!manifest.FileSystems.empty())
+                        descriptor.Flags |= Extensions::ExtensionFlagFileSystem;
                     BOOL enabled = TRUE;
                     if (Storage != NULL &&
                         Storage->GetValueType(
@@ -2293,11 +2299,35 @@ BOOL PackageManager::Deactivate(Package* package)
         package->CommandIconPaths = package->InitialCommandIconPaths;
         package->CommandIconDarkPaths = package->InitialCommandIconDarkPaths;
         package->CommandsChanged = FALSE;
+        RefreshContributionFlags(package);
         RegisterToolbarButtons();
         if (General != NULL)
             General->PostPluginMenuChanged();
     }
     return TRUE;
+}
+
+void PackageManager::RefreshContributionFlags(Package* package)
+{
+    if (package == NULL)
+        return;
+    const DWORD contributionMask =
+        Extensions::ExtensionFlagMenuExtension |
+        Extensions::ExtensionFlagViewer |
+        Extensions::ExtensionFlagFileSystem;
+    DWORD flags = package->Descriptor.Flags & ~contributionMask;
+    if (!package->Manifest.Commands.empty())
+        flags |= Extensions::ExtensionFlagMenuExtension;
+    if (!package->Manifest.Viewers.empty())
+        flags |= Extensions::ExtensionFlagViewer;
+    if (!package->Manifest.FileSystems.empty())
+        flags |= Extensions::ExtensionFlagFileSystem;
+    if (flags == package->Descriptor.Flags)
+        return;
+    package->Descriptor.Flags = flags;
+    if (Extensions != NULL)
+        Extensions->RegisterExtension(
+            &package->Descriptor, LifecycleCallback, package);
 }
 
 void PackageManager::StopSession(Package* package)
@@ -3213,6 +3243,7 @@ BOOL WINAPI PackageManager::HostDispatch(
                     static_cast<DWORD>(hotKey);
         }
         package->CommandsChanged = TRUE;
+        owner->RefreshContributionFlags(package);
         owner->RegisterToolbarButtons();
         owner->General->PostPluginMenuChanged();
         return CopyResult(
@@ -3253,6 +3284,7 @@ BOOL WINAPI PackageManager::HostDispatch(
         package->CommandIconDarkPaths.erase(
             package->CommandIconDarkPaths.begin() + commandIndex);
         package->CommandsChanged = TRUE;
+        owner->RefreshContributionFlags(package);
         owner->RegisterToolbarButtons();
         owner->General->PostPluginMenuChanged();
         return CopyResult(

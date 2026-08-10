@@ -1138,17 +1138,33 @@ void CPluginsDlg::OnSelChanged()
         SetPluginManagerText(
             GetDlgItem(HWindow, IDC_PLUGINTHUMBNAILS),
             LoadStr(IDS_PLUGINTHUMBNONE));
+        char extensionFunctions[500];
+        extensionFunctions[0] = 0;
+        const DWORD contributionFlags =
+            extension->Descriptor.Flags &
+            (Salamatrix::Extensions::ExtensionFlagMenuExtension |
+             Salamatrix::Extensions::ExtensionFlagViewer |
+             Salamatrix::Extensions::ExtensionFlagFileSystem);
+        const auto appendFunction = [&extensionFunctions](const char* text)
+        {
+            if (extensionFunctions[0] != 0)
+                strcat_s(extensionFunctions, ", ");
+            strcat_s(extensionFunctions, text);
+        };
+        if ((contributionFlags &
+             Salamatrix::Extensions::ExtensionFlagViewer) != 0)
+            appendFunction(LoadStr(IDS_PLUGINFUNCFILEVIEWER));
+        if ((contributionFlags &
+             Salamatrix::Extensions::ExtensionFlagMenuExtension) != 0)
+            appendFunction(LoadStr(IDS_PLUGINFUNCMENUEXTENSION));
+        if ((contributionFlags &
+             Salamatrix::Extensions::ExtensionFlagFileSystem) != 0)
+            appendFunction(LoadStr(IDS_PLUGINFUNCFILESYSTEM));
+        if (extensionFunctions[0] == 0)
+            appendFunction(LoadStr(IDS_PLUGINFUNCEXTENSION));
         SetPluginManagerText(
             GetDlgItem(HWindow, IDC_PLUGINFUNCTIONS),
-            disabled
-                ? LoadStr(IDS_PLUGINEXTDISABLED)
-                : dependencyUnavailable
-                ? LoadStr(IDS_PLUGINEXTWAITINGDEPENDENCY)
-                : runtimeUnavailable
-                ? LoadStr(IDS_PLUGINEXTWAITINGRUNTIME)
-                : runtimeExecutableUnavailable
-                      ? LoadStr(IDS_PLUGINEXTWAITINGEXECUTABLE)
-                : "Extension");
+            extensionFunctions);
 
         char extensionName[300];
         char extensionBarText[500];
