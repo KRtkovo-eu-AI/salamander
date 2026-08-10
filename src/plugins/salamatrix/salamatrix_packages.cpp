@@ -2146,7 +2146,13 @@ void PackageManager::RegisterViewerMasks(CSalamanderConnectAbstract* salamander)
     for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
     {
         Package* package = Packages[packageIndex];
-        if (package == NULL || !package->RuntimeUsable)
+        // Viewer masks and identities are declarative manifest metadata and
+        // must be published during Connect even when the independent runtime
+        // provider connects later in startup. RunViewer still requires a
+        // usable runtime before dispatching the handler.
+        if (package == NULL ||
+            (package->Descriptor.Flags &
+             Extensions::ExtensionFlagDisabled) != 0)
             continue;
         for (size_t viewerIndex = 0;
              viewerIndex < package->Manifest.Viewers.size(); ++viewerIndex)

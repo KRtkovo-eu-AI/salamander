@@ -14,7 +14,7 @@
 
 #define VERSINFO_MAJOR       0
 #define VERSINFO_MINORA      7
-#define VERSINFO_MINORB      2
+#define VERSINFO_MINORB      3
 
 #include "spl_vers.h" // retrieve version and build numbers
 

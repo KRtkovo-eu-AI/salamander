@@ -85,6 +85,9 @@ Schema 2 adds two optional native roles while schema 1 remains accepted:
   package/Viewer identity as a separate **Associated viewer** choice instead of
   showing only the shared Salamatrix Framework plugin. The selected identity is
   preserved with the association across configuration saves and restarts.
+  Declarative Viewer identities and masks are registered independently of
+  runtime-provider startup order; dispatch still requires the runtime to be
+  available when the Viewer is opened.
   The handler receives `Salamander.invocation` with `role="viewer"`, the local
   `path`, suggested window geometry, show state, always-on-top state, and the
   optional enumeration source/index. Viewer associations are registered during

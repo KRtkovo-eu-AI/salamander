@@ -844,6 +844,18 @@ def main() -> int:
         r'RegisteredViewers.*?AddViewerWithLabel\(group\.c_str\(\), FALSE.*?'
         r'firstRegistration.*?AddViewerWithLabel\(group\.c_str\(\), TRUE',
         "new extension Viewer masks are not registered once while preserving user removals")
+    viewer_registration = re.search(
+        r'void PackageManager::RegisterViewerMasks\(.*?'
+        r'(?=\nBOOL WINAPI PackageManager::LifecycleCallback)',
+        packages, re.MULTILINE | re.DOTALL)
+    if viewer_registration is None:
+        raise AssertionError("Viewer registration implementation is missing")
+    require_absent(
+        viewer_registration.group(0), r'RuntimeUsable',
+        "Viewer registration still depends on runtime-provider startup order")
+    require(
+        viewer_registration.group(0), r'ExtensionFlagDisabled',
+        "Viewer registration does not exclude disabled extensions")
     require(packages, r'FileSystemListing.*?salamander\.fileSystem\.addItem.*?4096',
             "flat FS dispatcher does not bound runtime-provided items")
     require(
