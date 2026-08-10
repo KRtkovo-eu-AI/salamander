@@ -2073,6 +2073,20 @@
       "Catalog entries can provide their own icons. Plugin Updates can download and install plugin, runtime, or extension packages automatically, resolve required catalog dependencies, and offer them for installation together.": "Las entradas del catálogo pueden proporcionar sus propios iconos. Plugin Updates puede descargar e instalar automáticamente paquetes de plugins, runtimes o extensiones, resolver las dependencias necesarias del catálogo y ofrecer su instalación conjunta."
     }
   };
+  const writtenAboutUsTranslations = {
+    cs: { "Written About Us": "Napsali o nás" },
+    nl: { "Written About Us": "Over ons geschreven" },
+    fr: { "Written About Us": "On parle de nous" },
+    de: { "Written About Us": "Berichte über uns" },
+    hu: { "Written About Us": "Írtak rólunk" },
+    zhHans: { "Written About Us": "媒体报道" },
+    ro: { "Written About Us": "S-a scris despre noi" },
+    ru: { "Written About Us": "О нас пишут" },
+    sk: { "Written About Us": "Napísali o nás" },
+    es: { "Written About Us": "Han escrito sobre nosotros" }
+  };
+
+  Object.entries(writtenAboutUsTranslations).forEach(([locale, values]) => Object.assign(dictionaries[locale], values));
   Object.entries(recentFeatureTranslations).forEach(([locale, values]) => Object.assign(dictionaries[locale], values));
 
 
