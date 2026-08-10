@@ -3234,25 +3234,6 @@ void CCfgPageViewers::Transfer(CTransferInfo& ti)
     if (ti.Type == ttDataToWindow)
     {
         Dirty = FALSE;
-        // populate the combo box with viewers
-        HWND hCombo = GetDlgItem(HWindow, IDC_VIEW_TYPE);
-        SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_VIEWER_EXTERNAL));
-        SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_VIEWER_INTERNAL));
-        int count = 0;
-        int index;
-        while ((index = Plugins.GetViewerIndex(count++)) != -1) // while "file viewer" plug-ins exist
-        {
-            CPluginData* p = Plugins.Get(index);
-            if (p != NULL)
-            {
-                char buf[MAX_PATH];
-                p->GetDisplayName(buf, MAX_PATH);
-                SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)buf);
-            }
-            else
-                TRACE_E("Unexpected situation in CCfgPageViewers::Transfer().");
-        }
-
         // populate the list of viewers
         int i;
         for (i = 0; i < ViewerMasks.Count; i++)
@@ -3340,6 +3321,32 @@ void CCfgPageViewers::LoadControls()
         item = (CViewerMasksItem*)itemID;
     DisableNotification = TRUE;
 
+    // Rebuild the type list for the selected association. A framework plug-in
+    // can register a per-association label, so the user sees the concrete
+    // delegated Viewer instead of only the common framework plug-in name.
+    HWND hCombo = GetDlgItem(HWindow, IDC_VIEW_TYPE);
+    SendMessage(hCombo, CB_RESETCONTENT, 0, 0);
+    SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_VIEWER_EXTERNAL));
+    SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_VIEWER_INTERNAL));
+    int viewerCount = 0;
+    int viewerIndex;
+    while ((viewerIndex = Plugins.GetViewerIndex(viewerCount++)) != -1)
+    {
+        CPluginData* plugin = Plugins.Get(viewerIndex);
+        if (plugin == NULL)
+        {
+            TRACE_E("Unexpected situation in CCfgPageViewers::LoadControls().");
+            continue;
+        }
+        char buf[MAX_PATH];
+        if (item != NULL && item->ViewerType == -viewerIndex - 1 &&
+            item->ViewerLabel != NULL && item->ViewerLabel[0] != 0)
+            lstrcpyn(buf, item->ViewerLabel, MAX_PATH);
+        else
+            plugin->GetDisplayName(buf, MAX_PATH);
+        SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)buf);
+    }
+
     int type = item == NULL ? 2 : item->ViewerType;
     int cmbSel = -1;
     switch (type)
@@ -3361,7 +3368,7 @@ void CCfgPageViewers::LoadControls()
         }
     }
     }
-    SendDlgItemMessage(HWindow, IDC_VIEW_TYPE, CB_SETCURSEL, cmbSel, 0);
+    SendMessage(hCombo, CB_SETCURSEL, cmbSel, 0);
     SendMessage(GetDlgItem(HWindow, IDE_COMMAND), EM_LIMITTEXT, MAX_PATH - 1, 0);
     SendMessage(GetDlgItem(HWindow, IDE_ARGUMENTS), EM_LIMITTEXT, MAX_PATH - 1, 0);
     SendMessage(GetDlgItem(HWindow, IDE_INITDIR), EM_LIMITTEXT, MAX_PATH - 1, 0);
@@ -3421,6 +3428,8 @@ void CCfgPageViewers::StoreControls()
             break;
         }
         }
+        if (item->ViewerType != type)
+            item->SetViewerLabel("");
         item->ViewerType = type;
     }
 }

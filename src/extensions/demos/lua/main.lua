@@ -1,3 +1,59 @@
+if Salamander.command_handler == "viewDemo" then
+    local path = tostring(Salamander.invocation.path or "")
+    local file, open_error = io.open(path, "rb")
+    if not file then
+        Salamander.ui.message_box(open_error or "Unable to read file.",
+            "Salamatrix Lua Viewer demo", "OK", "Error")
+    else
+        local contents = file:read("*a") or ""
+        file:close()
+        local preview = contents
+        if #contents > 3000 then
+            preview = contents:sub(1, 3000) .. "\n\n[preview truncated]"
+        end
+        Salamander.ui.message_box(
+            preview ~= "" and preview or "[empty file]",
+            "Salamatrix Lua Viewer demo — " .. path)
+    end
+    return
+end
+
+if Salamander.command_handler == "listDemoMachines" then
+    local machines = {
+        {id="development", name="Development VM", running=true},
+        {id="test-lab", name="Test lab", running=false},
+        {id="build-agent", name="Build agent", running=true}}
+    for _, machine in ipairs(machines) do
+        local running = Salamander.storage.get(
+            "machine." .. machine.id .. ".running", machine.running)
+        Salamander.file_system.add_item(
+            machine.id,
+            machine.name .. " — " .. (running and "Running" or "Stopped"),
+            {icon="icon.svg", directory=false, enabled=true})
+    end
+    return
+end
+
+if Salamander.command_handler == "inspectDemoMachine" or
+   Salamander.command_handler == "toggleDemoMachine" then
+    local item = Salamander.invocation.item or {}
+    local item_id = tostring(item.id or "unknown")
+    local item_name = tostring(item.name or item_id)
+    if Salamander.command_handler == "inspectDemoMachine" then
+        Salamander.ui.message_box(
+            "Id: " .. item_id .. "\nName: " .. item_name,
+            "Salamatrix FS item")
+    else
+        local key = "machine." .. item_id .. ".running"
+        local running = Salamander.storage.get(key, false)
+        Salamander.storage.set(key, not running)
+        Salamander.ui.notify(
+            item_name .. ": " .. (not running and "Running" or "Stopped"),
+            "Salamatrix FS demo", 2500)
+    end
+    return
+end
+
 if Salamander.command_handler == "run" then
     Salamander.ui.notify(
         "Lua extension package is running through Salamatrix.",

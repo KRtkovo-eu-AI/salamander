@@ -1,3 +1,48 @@
+if ($Salamander.command_handler -eq 'viewDemo') {
+    $path = [string]$Salamander.invocation.path
+    try {
+        $contents = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
+        $preview = if ($contents.Length -gt 3000) { $contents.Substring(0, 3000) + "`n`n[preview truncated]" } else { $contents }
+        if ([string]::IsNullOrEmpty($preview)) { $preview = '[empty file]' }
+        [void]$Salamander.ui.MessageBox($preview, "Salamatrix PowerShell Viewer demo — $path", 'OK', 'Information')
+    }
+    catch {
+        [void]$Salamander.ui.MessageBox($_.Exception.Message, 'Salamatrix PowerShell Viewer demo', 'OK', 'Error')
+    }
+    return
+}
+
+if ($Salamander.command_handler -eq 'listDemoMachines') {
+    $machines = @(
+        @{id='development'; name='Development VM'; running=$true},
+        @{id='test-lab'; name='Test lab'; running=$false},
+        @{id='build-agent'; name='Build agent'; running=$true})
+    foreach ($machine in $machines) {
+        $running = $Salamander.storage.Get("machine.$($machine.id).running", $machine.running)
+        $state = if ($running) { 'Running' } else { 'Stopped' }
+        [void]$Salamander.file_system.AddItem(
+            $machine.id, "$($machine.name) — $state",
+            @{icon='icon.svg'; directory=$false; enabled=$true})
+    }
+    return
+}
+
+if ($Salamander.command_handler -eq 'inspectDemoMachine' -or $Salamander.command_handler -eq 'toggleDemoMachine') {
+    $item = $Salamander.invocation.item
+    if ($Salamander.command_handler -eq 'inspectDemoMachine') {
+        [void]$Salamander.ui.MessageBox("Id: $($item.id)`nName: $($item.name)", 'Salamatrix FS item', 'OK', 'Information')
+    }
+    else {
+        $itemId = if ($item.id) { [string]$item.id } else { 'unknown' }
+        $key = "machine.$itemId.running"
+        $running = [bool]$Salamander.storage.Get($key, $false)
+        $Salamander.storage.Set($key, -not $running)
+        $state = if (-not $running) { 'Running' } else { 'Stopped' }
+        [void]$Salamander.ui.Notify("$($item.name): $state", 'Salamatrix FS demo', 2500)
+    }
+    return
+}
+
 if ($Salamander.command_handler -eq 'run') {
     $Salamander.ui.Notify('PowerShell extension package is running through Salamatrix.', 'Salamatrix PowerShell Demo', 2500)
     $progress = $Salamander.ui.Progress('Salamatrix PowerShell Progress Demo', 5)

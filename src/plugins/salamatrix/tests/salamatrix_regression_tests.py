@@ -120,6 +120,7 @@ def main() -> int:
     manifest = read("src/plugins/salamatrix/salamatrix_manifest.cpp")
     api_docs = read("src/plugins/salamatrix/salamatrix_api_docs.h")
     general_contract = read("src/plugins/shared/spl_gen.h")
+    base_contract = read("src/plugins/shared/spl_base.h")
     general_impl = read("src/zip.cpp")
     setup = read("doc/runbook-setup/inno_setup_salamander_x64.iss")
     runtime_package_verifier = read("tools/verify_runtime_packages.ps1")
@@ -127,10 +128,17 @@ def main() -> int:
     javascript_demo_manifest = json.loads(
         read("src/extensions/demos/javascript-node/extension.json"))
     python_demo = read("src/extensions/demos/python/main.py")
+    python_demo_manifest = json.loads(
+        read("src/extensions/demos/python/extension.json"))
     lua_demo = read("src/extensions/demos/lua/main.lua")
     lua_demo_manifest = json.loads(
         read("src/extensions/demos/lua/extension.json"))
     powershell_demo = read("src/extensions/demos/powershell/main.ps1")
+    powershell_demo_manifest = json.loads(
+        read("src/extensions/demos/powershell/extension.json"))
+    php_demo = read("src/extensions/demos/php/main.php")
+    php_demo_manifest = json.loads(
+        read("src/extensions/demos/php/extension.json"))
     javascript_worker = read(
         "src/plugins/javascriptruntime/runtime/salamatrix_worker.mjs")
     python_worker = read(
@@ -819,6 +827,20 @@ def main() -> int:
     require(salamatrix + packages,
             r'FUNCTION_VIEWER.*?FUNCTION_FILESYSTEM.*?RegisterViewerMasks.*?GetFileSystemExtension',
             "Salamatrix does not publish native Viewer and FS roles")
+    require(
+        plugins1 + dialogs + packages,
+        r'AddViewerWithLabel.*?ViewerLabel.*?AddViewerWithLabel',
+        "extension Viewer identity is not carried into Viewer configuration")
+    require(
+        base_contract,
+        r'SetIconListForGUI\(CGUIIconListAbstract\* iconList\) = 0;.*?'
+        r'AddViewerWithLabel\(const char\* masks, BOOL force,.*?\n};',
+        "labeled Viewer registration is not append-only in the public connect ABI")
+    require(
+        packages,
+        r'RegisteredViewers.*?AddViewerWithLabel\(group\.c_str\(\), FALSE.*?'
+        r'firstRegistration.*?AddViewerWithLabel\(group\.c_str\(\), TRUE',
+        "new extension Viewer masks are not registered once while preserving user removals")
     require(packages, r'FileSystemListing.*?salamander\.fileSystem\.addItem.*?4096',
             "flat FS dispatcher does not bound runtime-provided items")
     require(
@@ -844,6 +866,12 @@ def main() -> int:
         "Automation still times out or terminates a live runtime pump thread")
     require(packages, r'FS_SERVICE_CONTEXTMENU.*?ContextMenu\(',
             "flat FS does not expose native actions")
+    require(
+        packages,
+        r'DupStr\("\.\."\).*?FS_SERVICE_GETNEXTDIRLINEHOTPATH.*?'
+        r'FS_SERVICE_GETPATHFORMAINWNDTITLE.*?GetNextDirectoryLineHotPath.*?'
+        r'GetPathForMainWindowTitle',
+        "flat FS does not expose up-directory, breadcrumb and title path services")
     require(ui_contract + salamatrix_ui + salamatrix_runtime + packages,
             r'SALAMATRIX_UI_VERSION_1_4.*?'
             r'ShowControlsShowcase.*?ShowNativeControlsShowcase.*?'
@@ -919,20 +947,33 @@ def main() -> int:
                 raise AssertionError(
                     f"extension demo uses an invalid menu placement: "
                     f"{manifest_path}")
-    if (javascript_demo_manifest.get("schema") != 2 or
-            javascript_demo_manifest.get("viewers", [{}])[0].get("handler") !=
-            "viewDemo" or
-            javascript_demo_manifest.get("fileSystems", [{}])[0].get(
-                "listHandler") != "listDemoMachines"):
-        raise AssertionError(
-            "Node demo does not declare the schema 2 Viewer and file-system roles")
-    require(
-        javascript_demo,
-        r'handler === "viewDemo".*?Salamander\.invocation\.path.*?readFile.*?'
-        r'handler === "listDemoMachines".*?fileSystem\.addItem.*?'
-        r'handler === "inspectDemoMachine".*?invocation\.item.*?'
-        r'handler === "toggleDemoMachine".*?storage\.set',
-        "Node demo does not exercise Viewer and file-system role invocations")
+    demo_roles = {
+        "Node": (javascript_demo_manifest, javascript_demo),
+        "Python": (python_demo_manifest, python_demo),
+        "PowerShell": (powershell_demo_manifest, powershell_demo),
+        "PHP": (php_demo_manifest, php_demo),
+        "Lua": (lua_demo_manifest, lua_demo),
+    }
+    viewer_patterns = set()
+    for runtime_name, (demo_manifest, demo_source) in demo_roles.items():
+        viewers = demo_manifest.get("viewers", [])
+        file_systems = demo_manifest.get("fileSystems", [])
+        if (demo_manifest.get("schema") != 2 or not viewers or
+                demo_manifest.get("version") != "1.4.0" or
+                not viewers[0].get("name") or
+                viewers[0].get("handler") != "viewDemo" or
+                not file_systems or
+                file_systems[0].get("listHandler") != "listDemoMachines"):
+            raise AssertionError(
+                f"{runtime_name} demo does not declare named schema-2 Viewer/FS roles")
+        viewer_patterns.update(viewers[0].get("patterns", []))
+        for handler in ("viewDemo", "listDemoMachines",
+                        "inspectDemoMachine", "toggleDemoMachine"):
+            if handler not in demo_source:
+                raise AssertionError(
+                    f"{runtime_name} demo does not implement {handler}")
+    if len(viewer_patterns) != len(demo_roles):
+        raise AssertionError("demo Viewer masks must be distinct across runtimes")
     require(setup, r"extension-runtimes\\luaruntime\\luaruntime\.spl.*?IsPluginSelected\('luaruntime'\)",
             "x64 installer does not package LuaRuntime.SPL")
     require(setup, r"extension-runtimes\\luaruntime\\runtime\\salamatrix_worker\.lua.*?IsPluginSelected\('luaruntime'\)",
@@ -1218,9 +1259,11 @@ def main() -> int:
         r"ImageList_Add\(hotImageList",
         "Extension Bar SVG alpha is not flattened onto its light/dark background")
     require(python_demo, r"Salamander\.ui\.notify", "Python demo does not show a non-blocking result")
-    require_absent(python_demo, r"message_box", "Python demo must not block Salamander with a modal UI call")
+    require(python_demo, r'handler == "viewDemo".*?message_box.*?SystemExit',
+            "Python Viewer demo does not isolate its modal preview from ordinary commands")
     require(powershell_demo, r"\$Salamander\.ui\.Notify", "PowerShell demo does not show a non-blocking result")
-    require_absent(powershell_demo, r"MessageBox", "PowerShell demo must not block Salamander with a modal UI call")
+    require(powershell_demo, r"command_handler -eq 'viewDemo'.*?MessageBox.*?return",
+            "PowerShell Viewer demo does not isolate its modal preview from ordinary commands")
     require(
         navigator,
         r"source_side\.Context\(\)",

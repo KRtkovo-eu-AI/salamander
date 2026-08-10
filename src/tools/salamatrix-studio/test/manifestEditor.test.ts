@@ -12,10 +12,12 @@ describe('extension manifest designer model', () => {
       entryPoint: 'main.ps1',
       iconDark: 'icon-dark.svg',
       commands: [{ id: 'Example.run', title: 'Run', handler: 'run', customCommandField: 42 }],
+      viewers: [{ name: 'Example Viewer', patterns: ['*.example'], handler: 'viewExample' }],
     }));
     expect(manifest.iconDark).toBe('icon-dark.svg');
     expect(manifest.runtime).toMatchObject({ customRuntimeField: true });
     expect(manifest.commands?.[0]?.customCommandField).toBe(42);
+    expect(manifest.viewers?.[0]).toMatchObject({ name: 'Example Viewer', handler: 'viewExample' });
   });
 
   it('accepts both schema keys and rejects conflicting aliases', () => {

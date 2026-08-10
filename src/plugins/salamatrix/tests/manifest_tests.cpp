@@ -61,7 +61,7 @@ static void TestCompleteManifest()
         "{\"id\":\"Example.Second\",\"title\":\"Second\",\"placement\":\"context\","
         "\"visible\":false}"
         "],"
-        "\"viewers\":[{\"patterns\":[\"*.md\",\"*.markdown\"],"
+        "\"viewers\":[{\"name\":\"Markdown preview\",\"patterns\":[\"*.md\",\"*.markdown\"],"
         "\"handler\":\"viewMarkdown\"}],"
         "\"fileSystems\":[{\"id\":\"machines\",\"name\":\"Machines\","
         "\"listHandler\":\"listMachines\",\"openHandler\":\"openMachine\","
@@ -83,6 +83,8 @@ static void TestCompleteManifest()
     CHECK(manifest.EntryPoint == "scripts/main.py");
     CHECK(manifest.Icon == "assets/icon.svg");
     CHECK(manifest.IconDark == "assets/icon-dark.svg");
+    CHECK(manifest.Viewers.size() == 1);
+    CHECK(manifest.Viewers[0].Name == "Markdown preview");
     CHECK(manifest.CapabilitiesDeclared);
     CHECK(manifest.Capabilities.size() == 2);
     CHECK(manifest.Dependencies.size() == 2);
@@ -363,6 +365,19 @@ static void TestSchemaCompatibility()
         manifest, error));
 }
 
+static void TestViewerNameCompatibility()
+{
+    CExtensionManifest manifest;
+    CExtensionManifestError error;
+    CHECK(Parse(
+        "{\"schema\":2,\"id\":\"LegacyViewer\",\"runtime\":\"JS\","
+        "\"entryPoint\":\"main.js\",\"viewers\":[{\"patterns\":[\"*.legacy\"],"
+        "\"handler\":\"viewLegacy\"}]}",
+        manifest, error));
+    CHECK(manifest.Viewers.size() == 1);
+    CHECK(manifest.Viewers[0].Name.empty());
+}
+
 static void TestManifestFile(const wchar_t* path)
 {
     FILE* file = NULL;
@@ -405,6 +420,7 @@ int wmain(int argc, wchar_t** argv)
     TestInvalidDocuments();
     TestCapabilityDeclarationCompatibility();
     TestSchemaCompatibility();
+    TestViewerNameCompatibility();
     for (int index = 1; index < argc; ++index)
         TestManifestFile(argv[index]);
 

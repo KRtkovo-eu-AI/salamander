@@ -1373,8 +1373,11 @@ bool CExtensionManifest::Parse(
             if (viewerValue.Type != JsonObject)
                 return SetValidationError(error, "Every viewers entry must be an object");
             CExtensionManifestViewer viewer;
-            if (!ReadString(viewerValue, "handler", true, viewer.Handler, error))
+            if (!ReadString(viewerValue, "name", false, viewer.Name, error) ||
+                !ReadString(viewerValue, "handler", true, viewer.Handler, error))
                 return false;
+            if (viewer.Name.size() > 127)
+                return SetValidationError(error, "Viewer names must contain at most 127 UTF-8 bytes");
             if (!IsIdentifier(viewer.Handler))
                 return SetValidationError(error, "Viewer handlers must be valid identifiers");
             const JsonValue* patterns = viewerValue.Find("patterns");

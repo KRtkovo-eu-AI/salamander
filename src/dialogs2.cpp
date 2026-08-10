@@ -31,32 +31,35 @@ CViewerMasksItem::CViewerMasksItem(const char* masks, const char* command, const
                         masks, command, arguments, initDir, viewerType, oldType);
     OldType = oldType;
     Masks = NULL;
-    Command = Arguments = InitDir = NULL;
+    Command = Arguments = InitDir = ViewerLabel = NULL;
     ViewerType = viewerType;
     HandlerID = ViewerHandlerID++;
     Set(masks, command, arguments, initDir);
+    SetViewerLabel("");
 }
 
 CViewerMasksItem::CViewerMasksItem()
 {
     CALL_STACK_MESSAGE1("CViewerMasksItem()");
     Masks = NULL;
-    Command = Arguments = InitDir = NULL;
+    Command = Arguments = InitDir = ViewerLabel = NULL;
     ViewerType = VIEWER_EXTERNAL;
     HandlerID = ViewerHandlerID++;
     OldType = FALSE;
     Set("", "", "\"$(Name)\"", "$(FullPath)");
+    SetViewerLabel("");
 }
 
 CViewerMasksItem::CViewerMasksItem(CViewerMasksItem& item)
 {
     CALL_STACK_MESSAGE1("CViewerMasksItem(&)");
     Masks = NULL;
-    Command = Arguments = InitDir = NULL;
+    Command = Arguments = InitDir = ViewerLabel = NULL;
     ViewerType = item.ViewerType;
     OldType = item.OldType;
     HandlerID = item.HandlerID;
     Set(item.Masks->GetMasksString(), item.Command, item.Arguments, item.InitDir);
+    SetViewerLabel(item.ViewerLabel);
 }
 
 CViewerMasksItem::~CViewerMasksItem()
@@ -69,11 +72,29 @@ CViewerMasksItem::~CViewerMasksItem()
         free(Arguments);
     if (InitDir != NULL)
         free(InitDir);
+    if (ViewerLabel != NULL)
+        free(ViewerLabel);
 }
 
 BOOL CViewerMasksItem::IsGood()
 {
-    return Masks != NULL && Command != NULL && Arguments != NULL && InitDir != NULL;
+    return Masks != NULL && Command != NULL && Arguments != NULL && InitDir != NULL && ViewerLabel != NULL;
+}
+
+BOOL CViewerMasksItem::SetViewerLabel(const char* viewerLabel)
+{
+    const char* value = viewerLabel != NULL ? viewerLabel : "";
+    char* label = (char*)malloc(strlen(value) + 1);
+    if (label == NULL)
+    {
+        TRACE_E(LOW_MEMORY);
+        return FALSE;
+    }
+    strcpy(label, value);
+    if (ViewerLabel != NULL)
+        free(ViewerLabel);
+    ViewerLabel = label;
+    return TRUE;
 }
 
 BOOL CViewerMasksItem::Set(const char* masks, const char* command, const char* arguments, const char* initDir)

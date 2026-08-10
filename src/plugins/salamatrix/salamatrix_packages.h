@@ -43,6 +43,10 @@ private:
     std::vector<std::wstring> CustomPackages;
     std::vector<std::string> ExtensionOrder;
     std::vector<std::string> RemovedExtensions;
+    // Keys of viewer mask groups that have already been offered to the host.
+    // This permits a one-time force registration for newly installed extension
+    // viewers without restoring associations later removed by the user.
+    std::vector<std::string> RegisteredViewerKeys;
     std::vector<Package*> Packages;
     MenuExtension* Menu;
     ViewerExtension* Viewer;

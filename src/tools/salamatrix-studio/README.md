@@ -56,7 +56,8 @@ Studio never overwrites existing project files during scaffolding. Generated
   manifest fields outside their visual surface;
 - scaffolds canonical `schema: 2` manifests, accepts the `schemaVersion`
   compatibility alias, and preserves typed `viewers[]` and
-  `fileSystems[]` role declarations, including FS item actions and SVG artwork;
+  `fileSystems[]` role declarations, including optional Viewer display names,
+  FS item actions, and SVG artwork;
 - stores Studio-owned menu action metadata in `.salamatrix/menu.json`, previews
   plugin/context/toolbar placements with light or dark SVG icons, and can
   generate simple Program, Open, Command Line, and PowerShell actions;

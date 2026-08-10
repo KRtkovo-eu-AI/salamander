@@ -1,12 +1,28 @@
 {
-  "schema": 1,
+  "schema": 2,
   "id": "Salamatrix.Demo.PHP",
   "name": "Salamatrix PHP Demo",
-  "version": "1.2.2",
-  "description": "Demonstrates a PHP CLI Salamatrix extension package.",
+  "version": "1.4.0",
+  "description": "Demonstrates commands, Viewer and a simple panel file system in a PHP CLI Salamatrix extension package.",
   "runtime": "PHP.CLI",
   "entryPoint": "main.php",
   "icon": "icon.svg",
-  "capabilities": ["ui.dialogs", "storage"],
-  "commands": [{"id":"Salamatrix.Demo.PHP.run","title":"Run PHP demo","handler":"run","menu":"both","contextMenu":true,"toolbar":true,"requires":"any"}]
+  "capabilities": ["ui.dialogs", "storage", "file-system"],
+  "commands": [{"id":"Salamatrix.Demo.PHP.run","title":"Run PHP demo","handler":"run","menu":"both","contextMenu":true,"toolbar":true,"requires":"any"}],
+  "viewers": [{
+    "name": "PHP demo Viewer",
+    "patterns": ["*.smxphpview"],
+    "handler": "viewDemo"
+  }],
+  "fileSystems": [{
+    "id": "demo-machines",
+    "name": "Demo machines",
+    "listHandler": "listDemoMachines",
+    "icon": "icon.svg",
+    "refreshIntervalMs": 5000,
+    "actions": [
+      {"id": "inspect", "title": "Inspect", "handler": "inspectDemoMachine", "default": true},
+      {"id": "toggle", "title": "Toggle state", "handler": "toggleDemoMachine"}
+    ]
+  }]
 }

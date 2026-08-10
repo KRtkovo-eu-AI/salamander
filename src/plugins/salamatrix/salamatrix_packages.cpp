@@ -1063,6 +1063,40 @@ private:
         return TRUE;
     }
 
+    static BOOL NormalizeUserPart(const char* userPart, std::string* normalized)
+    {
+        normalized->clear();
+        const std::string input = userPart != NULL ? userPart : "";
+        std::vector<std::string> components;
+        size_t start = 0;
+        while (start <= input.size())
+        {
+            const size_t end = input.find_first_of("\\/", start);
+            const std::string component = input.substr(
+                start, end == std::string::npos ? std::string::npos : end - start);
+            if (!component.empty() && component != ".")
+            {
+                if (component == "..")
+                {
+                    if (!components.empty())
+                        components.pop_back();
+                }
+                else
+                    components.push_back(component);
+            }
+            if (end == std::string::npos)
+                break;
+            start = end + 1;
+        }
+        for (size_t index = 0; index < components.size(); ++index)
+        {
+            if (index != 0)
+                *normalized += "\\";
+            *normalized += components[index];
+        }
+        return TRUE;
+    }
+
     static std::string Invocation(
         const char* operation, const std::string& packageId,
         const std::string& fileSystemId,
@@ -1185,7 +1219,8 @@ public:
         UNREFERENCED_PARAMETER(mode);
         if (cutFileName != NULL) cutFileName[0] = '\0';
         if (pathWasCut != NULL) *pathWasCut = FALSE;
-        const std::string requested = userPart ? userPart : "";
+        std::string requested;
+        NormalizeUserPart(userPart, &requested);
         if (requested.empty()) { Path.clear(); return TRUE; }
         for (size_t p = 0; p < Owner->Packages.size(); ++p)
             for (size_t f = 0; f < Owner->Packages[p]->Manifest.FileSystems.size(); ++f)
@@ -1202,6 +1237,22 @@ public:
         if (pluginData == NULL) return FALSE;
         iconsType = pitFromPlugin;
         dir->SetValidData(VALID_DATA_NONE);
+        if (!Path.empty())
+        {
+            CFileData up;
+            memset(&up, 0, sizeof(up));
+            up.Name = SalamanderGeneral->DupStr("..");
+            if (up.Name == NULL)
+                return FALSE;
+            up.NameLen = 2;
+            up.Ext = up.Name + up.NameLen;
+            up.Attr = FILE_ATTRIBUTE_DIRECTORY;
+            if (!dir->AddDir(NULL, up, NULL))
+            {
+                SalamanderGeneral->Free(up.Name);
+                return FALSE;
+            }
+        }
         if (Path.empty())
         {
             for (size_t p = 0; p < Owner->Packages.size(); ++p)
@@ -1246,7 +1297,12 @@ public:
             SalamanderGeneral->AddPluginFSTimer(RefreshIntervalMs, this, 1);
     }
     virtual void WINAPI ReleaseObject(HWND parent) { UNREFERENCED_PARAMETER(parent); }
-    virtual DWORD WINAPI GetSupportedServices() { return FS_SERVICE_CONTEXTMENU | FS_SERVICE_GETFSICON; }
+    virtual DWORD WINAPI GetSupportedServices()
+    {
+        return FS_SERVICE_CONTEXTMENU | FS_SERVICE_GETFSICON |
+               FS_SERVICE_GETNEXTDIRLINEHOTPATH |
+               FS_SERVICE_GETPATHFORMAINWNDTITLE;
+    }
     virtual BOOL WINAPI GetChangeDriveOrDisconnectItem(const char* fsName, char*& title, HICON& icon, BOOL& destroyIcon)
     {
         std::string text = std::string("\t") + fsName + ":" + Path;
@@ -1259,11 +1315,61 @@ public:
     { UNREFERENCED_PARAMETER(srcFSPath); UNREFERENCED_PARAMETER(tgtFSPath); UNREFERENCED_PARAMETER(allowedEffects); UNREFERENCED_PARAMETER(keyState); *dropEffect = DROPEFFECT_NONE; }
     virtual void WINAPI GetFSFreeSpace(CQuadWord* retValue) { retValue->SetUI64(0); }
     virtual BOOL WINAPI GetNextDirectoryLineHotPath(const char* text, int pathLen, int& offset)
-    { UNREFERENCED_PARAMETER(text); UNREFERENCED_PARAMETER(pathLen); UNREFERENCED_PARAMETER(offset); return FALSE; }
+    {
+        if (text == NULL || offset < 0 || pathLen <= 0)
+            return FALSE;
+        const char* end = text + pathLen;
+        const char* root = text;
+        while (root < end && *root != ':')
+            ++root;
+        if (root < end && *root == ':')
+            ++root;
+
+        const char* current = text + offset;
+        if (current >= end)
+            return FALSE;
+        if (current < root)
+            current = root;
+        else
+        {
+            while (current < end && (*current == '\\' || *current == '/'))
+                ++current;
+            while (current < end && *current != '\\' && *current != '/')
+                ++current;
+        }
+        offset = static_cast<int>(current - text);
+        return current < end;
+    }
     virtual void WINAPI CompleteDirectoryLineHotPath(char* path, int pathBufSize)
     { UNREFERENCED_PARAMETER(path); UNREFERENCED_PARAMETER(pathBufSize); }
     virtual BOOL WINAPI GetPathForMainWindowTitle(const char* fsName, int mode, char* buf, int bufSize)
-    { UNREFERENCED_PARAMETER(mode); const std::string title = std::string(fsName) + ":" + Path; return SUCCEEDED(StringCchCopyA(buf, bufSize, title.c_str())); }
+    {
+        std::string title;
+        if (mode == 1)
+        {
+            if (Path.empty())
+                title = fsName;
+            else
+            {
+                const size_t separator = Path.find_last_of("\\/");
+                title = separator == std::string::npos
+                    ? Path : Path.substr(separator + 1);
+            }
+        }
+        else if (mode == 2)
+        {
+            const size_t first = Path.find_first_of("\\/");
+            const size_t last = Path.find_last_of("\\/");
+            if (first != std::string::npos && last != std::string::npos && first < last)
+                title = std::string(fsName) + ":" + Path.substr(0, first + 1) +
+                        "...\\" + Path.substr(last + 1);
+            else
+                title = std::string(fsName) + ":" + Path;
+        }
+        else
+            title = std::string(fsName) + ":" + Path;
+        return SUCCEEDED(StringCchCopyA(buf, bufSize, title.c_str()));
+    }
     virtual void WINAPI ShowInfoDialog(const char* fsName, HWND parent) { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(parent); }
     virtual BOOL WINAPI ExecuteCommandLine(HWND parent, char* command, int& selFrom, int& selTo)
     { UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(command); UNREFERENCED_PARAMETER(selFrom); UNREFERENCED_PARAMETER(selTo); return FALSE; }
@@ -1449,6 +1555,7 @@ void PackageManager::Shutdown()
     CustomPackages.clear();
     ExtensionOrder.clear();
     RemovedExtensions.clear();
+    RegisteredViewerKeys.clear();
     General = NULL;
     Runtimes = NULL;
     Extensions = NULL;
@@ -1466,6 +1573,7 @@ void PackageManager::LoadConfiguration(HKEY key, CSalamanderRegistryAbstract* re
     CustomPackages.clear();
     ExtensionOrder.clear();
     RemovedExtensions.clear();
+    RegisteredViewerKeys.clear();
     Roots.push_back(ExpandRoot(L"$(SalDir)\\extensions"));
     Roots.push_back(ExpandRoot(L"$(SalDir)\\plugins\\automation\\scripts"));
     if (key == NULL || registry == NULL)
@@ -1520,6 +1628,8 @@ void PackageManager::LoadConfiguration(HKEY key, CSalamanderRegistryAbstract* re
         key, "ExtensionOrder", registry, &ExtensionOrder);
     StringListLoader::Load(
         key, "RemovedExtensions", registry, &RemovedExtensions);
+    StringListLoader::Load(
+        key, "RegisteredViewers", registry, &RegisteredViewerKeys);
     std::vector<std::string> customPackages;
     StringListLoader::Load(
         key, "ExtensionManifests", registry, &customPackages);
@@ -1576,6 +1686,8 @@ void PackageManager::SaveConfiguration(HKEY key, CSalamanderRegistryAbstract* re
         key, "ExtensionOrder", registry, ExtensionOrder);
     StringListSaver::Save(
         key, "RemovedExtensions", registry, RemovedExtensions);
+    StringListSaver::Save(
+        key, "RegisteredViewers", registry, RegisteredViewerKeys);
     std::vector<std::string> customPackages;
     for (size_t index = 0; index < CustomPackages.size(); ++index)
     {
@@ -2023,10 +2135,6 @@ void PackageManager::RegisterViewerMasks(CSalamanderConnectAbstract* salamander)
 {
     if (salamander == NULL)
         return;
-    // AddViewer accepts a semicolon-separated mask group. Keep each call
-    // deliberately short because older host versions use a bounded merge
-    // buffer for viewer associations.
-    std::string group;
     for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
     {
         Package* package = Packages[packageIndex];
@@ -2037,23 +2145,48 @@ void PackageManager::RegisterViewerMasks(CSalamanderConnectAbstract* salamander)
         {
             const CExtensionManifestViewer& viewer =
                 package->Manifest.Viewers[viewerIndex];
+            std::string label = package->Manifest.Name;
+            if (!viewer.Name.empty())
+            {
+                label += " - ";
+                label += viewer.Name;
+            }
+            std::string group;
+            const auto registerGroup = [&]()
+            {
+                if (group.empty())
+                    return;
+                const std::string key = package->Id + "|" + viewer.Handler + "|" + group;
+                const bool firstRegistration =
+                    std::find(RegisteredViewerKeys.begin(), RegisteredViewerKeys.end(), key) ==
+                    RegisteredViewerKeys.end();
+
+                // The non-forced call handles a fresh Salamatrix plug-in
+                // installation and refreshes the label of an exact existing
+                // association. The forced call is made only once for a newly
+                // discovered extension viewer, so a later user removal stays
+                // respected.
+                salamander->AddViewerWithLabel(group.c_str(), FALSE, label.c_str());
+                if (firstRegistration)
+                {
+                    salamander->AddViewerWithLabel(group.c_str(), TRUE, label.c_str());
+                    RegisteredViewerKeys.push_back(key);
+                }
+                group.clear();
+            };
             for (size_t patternIndex = 0;
                  patternIndex < viewer.Patterns.size(); ++patternIndex)
             {
                 const std::string& pattern = viewer.Patterns[patternIndex];
                 if (!group.empty() && group.size() + pattern.size() + 1 > 190)
-                {
-                    salamander->AddViewer(group.c_str(), FALSE);
-                    group.clear();
-                }
+                    registerGroup();
                 if (!group.empty())
                     group += ";";
                 group += pattern;
             }
+            registerGroup();
         }
     }
-    if (!group.empty())
-        salamander->AddViewer(group.c_str(), FALSE);
 }
 
 BOOL WINAPI PackageManager::LifecycleCallback(

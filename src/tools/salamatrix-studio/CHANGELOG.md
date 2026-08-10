@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.1.8
+
+- Validate and preserve optional Viewer contribution names used by Salamander's
+  Viewer association configuration.
+
 ## 0.1.7
 
 - Restore `schema` as the canonical extension manifest key while accepting

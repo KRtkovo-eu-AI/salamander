@@ -638,11 +638,34 @@ void CSalamanderConnect::AddCustomUnpacker(const char* title, const char* masks,
 
 void CSalamanderConnect::AddViewer(const char* masks, BOOL force)
 {
-    CALL_STACK_MESSAGE3("CSalamanderConnect::AddViewer(%s, %d)", masks, force);
+    AddViewerWithLabel(masks, force, NULL);
+}
+
+void CSalamanderConnect::AddViewerWithLabel(const char* masks, BOOL force,
+                                            const char* viewerLabel)
+{
+    CALL_STACK_MESSAGE4("CSalamanderConnect::AddViewerWithLabel(%s, %d, %s)",
+                        masks, force, viewerLabel != NULL ? viewerLabel : "");
     if (strchr(masks, '|') != NULL)
     {
-        TRACE_E("CSalamanderConnect::AddViewer(): you can not use character '|', sorry"); // '|' acts as negation in group masks; merging masks in GetViewersAssoc can't handle it
+        TRACE_E("CSalamanderConnect::AddViewerWithLabel(): you can not use character '|', sorry"); // '|' acts as negation in group masks; merging masks in GetViewersAssoc can't handle it
         return;
+    }
+
+    // Labels are presentation metadata. Refresh an existing exact association
+    // even during an ordinary plug-in load, without resurrecting an association
+    // that the user deliberately removed.
+    if (viewerLabel != NULL && viewerLabel[0] != 0)
+    {
+        MainWindow->EnterViewerMasksCS();
+        for (int i = 0; i < MainWindow->ViewerMasks->Count; ++i)
+        {
+            CViewerMasksItem* item = MainWindow->ViewerMasks->At(i);
+            if (item->ViewerType == -Index - 1 &&
+                StrICmp(item->Masks->GetMasksString(), masks) == 0)
+                item->SetViewerLabel(viewerLabel);
+        }
+        MainWindow->LeaveViewerMasksCS();
     }
     if (Viewer || force)
     {
@@ -759,6 +782,8 @@ void CSalamanderConnect::AddViewer(const char* masks, BOOL force)
             !Viewer && force)   // plug-in update, but not during its installation
         {
             CViewerMasksItem* item = new CViewerMasksItem(masks, "", "", "", -Index - 1, FALSE);
+            if (item != NULL && viewerLabel != NULL)
+                item->SetViewerLabel(viewerLabel);
             if (item != NULL && item->IsGood())
             {
                 MainWindow->EnterViewerMasksCS();

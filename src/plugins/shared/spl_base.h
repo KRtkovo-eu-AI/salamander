@@ -397,6 +397,13 @@ public:
     // aby se ikony pri dalsim spusteni daly pouzivat bez loadu pluginu, proto do
     // ni vkladejte pouze potrebne ikony
     virtual void WINAPI SetIconListForGUI(CGUIIconListAbstract* iconList) = 0;
+
+    // Append-only variant of AddViewer(). 'viewerLabel' is an optional
+    // user-visible identity for this particular viewer association. It lets a
+    // framework plug-in expose several delegated viewers without presenting
+    // every association only under the framework plug-in name.
+    virtual void WINAPI AddViewerWithLabel(const char* masks, BOOL force,
+                                           const char* viewerLabel) = 0;
 };
 
 //

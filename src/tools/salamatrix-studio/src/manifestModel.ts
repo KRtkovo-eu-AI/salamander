@@ -16,6 +16,7 @@ export interface ExtensionCommand {
 }
 
 export interface ExtensionViewer {
+  name?: string;
   patterns: string[];
   handler: string;
 }
@@ -81,6 +82,12 @@ export function validateManifest(value: unknown): ExtensionManifest {
     if (command.toolbarMenu && !command.toolbar) throw new Error('toolbarMenu requires toolbar to be enabled.');
   }
   if (manifest.viewers !== undefined && (!Array.isArray(manifest.viewers) || schema !== 2)) throw new Error('Manifest viewers require schema 2.');
+  for (const viewer of manifest.viewers ?? []) {
+    if (!viewer || typeof viewer !== 'object') throw new Error('Every manifest Viewer must be an object.');
+    if (viewer.name !== undefined && typeof viewer.name !== 'string') throw new Error('Viewer name must be a string.');
+    if (typeof viewer.handler !== 'string' || viewer.handler.length === 0) throw new Error('Viewer handler is required.');
+    if (!Array.isArray(viewer.patterns) || viewer.patterns.length === 0 || viewer.patterns.some((pattern) => typeof pattern !== 'string' || pattern.length === 0)) throw new Error('Viewer patterns must be a non-empty string array.');
+  }
   if (manifest.fileSystems !== undefined && (!Array.isArray(manifest.fileSystems) || schema !== 2)) throw new Error('Manifest fileSystems require schema 2.');
   return manifest as ExtensionManifest;
 }

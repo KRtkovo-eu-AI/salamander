@@ -3565,6 +3565,8 @@ public:
     virtual void WINAPI SetPluginIcon(int iconIndex);
     virtual void WINAPI SetPluginMenuAndToolbarIcon(int iconIndex);
     virtual void WINAPI SetIconListForGUI(CGUIIconListAbstract* iconList);
+    virtual void WINAPI AddViewerWithLabel(const char* masks, BOOL force,
+                                           const char* viewerLabel);
 };
 
 //

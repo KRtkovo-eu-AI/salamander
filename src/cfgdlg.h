@@ -86,7 +86,8 @@ struct CViewerMasksItem
     CMaskGroup* Masks;
     char *Command,
         *Arguments,
-        *InitDir;
+        *InitDir,
+        *ViewerLabel;
 
     int ViewerType;
 
@@ -104,6 +105,7 @@ struct CViewerMasksItem
     ~CViewerMasksItem();
 
     BOOL Set(const char* masks, const char* command, const char* arguments, const char* initDir);
+    BOOL SetViewerLabel(const char* viewerLabel);
     BOOL IsGood();
 };
 

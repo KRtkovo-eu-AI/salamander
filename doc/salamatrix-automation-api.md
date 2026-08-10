@@ -80,7 +80,10 @@ unsupported schema versions.
 
 Schema 2 adds two optional native roles while schema 1 remains accepted:
 
-- `viewers[]` registers one or more file masks and a one-shot `handler`.
+- `viewers[]` registers one or more file masks, an optional user-visible
+  `name`, and a one-shot `handler`. Viewer configuration uses the package and
+  Viewer names to identify the concrete extension association instead of only
+  showing the shared Salamatrix Framework plugin.
   The handler receives `Salamander.invocation` with `role="viewer"`, the local
   `path`, suggested window geometry, show state, always-on-top state, and the
   optional enumeration source/index. Viewer associations are registered during
@@ -92,14 +95,15 @@ Schema 2 adds two optional native roles while schema 1 remains accepted:
   `Salamander.fileSystem.addItem` / `file_system.add_item`; item records contain
   `id`, `name`, optional package-relative SVG `icon`/`iconDark`, `directory`, and
   `enabled`. Enter executes the declared default action and the native context
-  menu exposes all declared actions. Rename/copy/move/delete/upload and complex
-  hierarchical navigation are intentionally unsupported in the flat v1 role.
+  menu exposes all declared actions. Provider contents include a native `..`
+  item, Directory Line exposes clickable breadcrumb segments, and the main
+  window honors full, shortened, and directory-only path display modes.
+  Rename/copy/move/delete/upload and complex hierarchical navigation are
+  intentionally unsupported in the flat v1 role.
 
 The distributed Salamatrix extension demos (`src/extensions/demos/README.md`)
-include a working Node.js schema 2 package: `*.smxview` exercises Viewer
-registration and `salamatrix:Salamatrix.Demo.JavaScriptNode!demo-machines`
-exercises FS items, SVG icons, default/context actions, extension storage, and
-timer refresh.
+include equivalent schema-2 Viewer and FS handlers for Node.js, Python,
+PowerShell, PHP, and Lua, each with a distinct sample file mask and provider.
 
 An extension must declare every applicable gated framework surface it calls.
 Public capability names are `panels.read`, `panels.write`, `ui.dialogs`, `commands`,

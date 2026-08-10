@@ -73,6 +73,9 @@ struct CExtensionManifestViewer
 {
     // Salamander viewer masks (for example "*.md" or "*.png;*.jpg").
     // The framework registers these during the Salamatrix connect phase.
+    // Name is optional for schema-2 backward compatibility. When omitted,
+    // the package name identifies the association in Viewer configuration.
+    std::string Name;
     std::vector<std::string> Patterns;
     std::string Handler;
 };
