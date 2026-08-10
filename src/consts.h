@@ -1560,6 +1560,7 @@ extern const char* VIEWERS_COMMAND_REG;
 extern const char* VIEWERS_ARGUMENTS_REG;
 extern const char* VIEWERS_INITDIR_REG;
 extern const char* VIEWERS_TYPE_REG;
+extern const char* VIEWERS_LABEL_REG;
 extern const char* EDITORS_MASKS_REG;
 extern const char* EDITORS_COMMAND_REG;
 extern const char* EDITORS_ARGUMENTS_REG;

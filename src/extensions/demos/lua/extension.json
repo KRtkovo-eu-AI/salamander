@@ -2,7 +2,7 @@
   "schema": 2,
   "id": "Salamatrix.Demo.Lua",
   "name": "Salamatrix Lua Demo",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Demonstrates commands, Viewer and a simple panel file system in a Lua Salamatrix extension package.",
   "runtime": "Lua",
   "entryPoint": "main.lua",

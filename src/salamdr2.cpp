@@ -2495,6 +2495,11 @@ BOOL LoadViewers(HKEY hKey, const char* name, CViewerMasks* viewerMasks)
                 if (!GetValue(subKey, VIEWERS_INITDIR_REG, REG_SZ, initDir, MAX_PATH))
                     *initDir = 0;
 
+                std::vector<char> viewerLabel(SAL_MAX_PATH);
+                if (!GetValue(subKey, VIEWERS_LABEL_REG, REG_SZ,
+                              viewerLabel.data(), static_cast<DWORD>(viewerLabel.size())))
+                    viewerLabel[0] = 0;
+
                 if (Configuration.ConfigVersion < 44) // convert extensions to lowercase
                 {
                     char masksAux[MAX_PATH];
@@ -2503,6 +2508,8 @@ BOOL LoadViewers(HKEY hKey, const char* name, CViewerMasks* viewerMasks)
                 }
                 CViewerMasksItem* item = new CViewerMasksItem(masks, command, arguments,
                                                               initDir, type, Configuration.ConfigVersion < 6);
+                if (item != NULL)
+                    item->SetViewerLabel(viewerLabel.data());
                 if (item != NULL && item->IsGood())
                 {
                     viewerMasks->Add(item);
@@ -2554,6 +2561,8 @@ BOOL SaveViewers(HKEY hKey, const char* name, CViewerMasks* viewerMasks)
                     SetValue(subKey, VIEWERS_ARGUMENTS_REG, REG_SZ, viewerMasks->At(i)->Arguments, -1);
                 if (viewerMasks->At(i)->InitDir[0] != 0)
                     SetValue(subKey, VIEWERS_INITDIR_REG, REG_SZ, viewerMasks->At(i)->InitDir, -1);
+                if (viewerMasks->At(i)->ViewerLabel[0] != 0)
+                    SetValue(subKey, VIEWERS_LABEL_REG, REG_SZ, viewerMasks->At(i)->ViewerLabel, -1);
                 SetValue(subKey, VIEWERS_TYPE_REG, REG_DWORD,
                          &viewerMasks->At(i)->ViewerType, sizeof(DWORD));
                 CloseKey(subKey);

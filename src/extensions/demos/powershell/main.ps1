@@ -35,7 +35,13 @@ if ($Salamander.command_handler -eq 'inspectDemoMachine' -or $Salamander.command
     else {
         $itemId = if ($item.id) { [string]$item.id } else { 'unknown' }
         $key = "machine.$itemId.running"
-        $running = [bool]$Salamander.storage.Get($key, $false)
+        $defaultRunning = @{
+            development=$true
+            'test-lab'=$false
+            'build-agent'=$true
+        }[$itemId]
+        if ($null -eq $defaultRunning) { $defaultRunning = $false }
+        $running = [bool]$Salamander.storage.Get($key, $defaultRunning)
         $Salamander.storage.Set($key, -not $running)
         $state = if (-not $running) { 'Running' } else { 'Stopped' }
         [void]$Salamander.ui.Notify("$($item.name): $state", 'Salamatrix FS demo', 2500)

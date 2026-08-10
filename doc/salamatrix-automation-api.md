@@ -81,9 +81,10 @@ unsupported schema versions.
 Schema 2 adds two optional native roles while schema 1 remains accepted:
 
 - `viewers[]` registers one or more file masks, an optional user-visible
-  `name`, and a one-shot `handler`. Viewer configuration uses the package and
-  Viewer names to identify the concrete extension association instead of only
-  showing the shared Salamatrix Framework plugin.
+  `name`, and a one-shot `handler`. Viewer configuration lists every registered
+  package/Viewer identity as a separate **Associated viewer** choice instead of
+  showing only the shared Salamatrix Framework plugin. The selected identity is
+  preserved with the association across configuration saves and restarts.
   The handler receives `Salamander.invocation` with `role="viewer"`, the local
   `path`, suggested window geometry, show state, always-on-top state, and the
   optional enumeration source/index. Viewer associations are registered during

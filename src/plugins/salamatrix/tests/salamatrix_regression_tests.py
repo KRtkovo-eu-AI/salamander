@@ -77,8 +77,10 @@ def main() -> int:
     automation = read("src/plugins/automation/automationplug.cpp")
     automation_entry = read("src/plugins/automation/entry.cpp")
     automation_scriptlist = read("src/plugins/automation/scriptlist.cpp")
+    plugins_header = read("src/plugins.h")
     plugins1 = read("src/plugins1.cpp")
     plugins2 = read("src/plugins2.cpp")
+    viewer_configuration = read("src/salamdr2.cpp")
     mainwnd1 = read("src/mainwnd1.cpp")
     mainwnd2 = read("src/mainwnd2.cpp")
     mainwnd3 = read("src/mainwnd3.cpp")
@@ -828,9 +830,10 @@ def main() -> int:
             r'FUNCTION_VIEWER.*?FUNCTION_FILESYSTEM.*?RegisterViewerMasks.*?GetFileSystemExtension',
             "Salamatrix does not publish native Viewer and FS roles")
     require(
-        plugins1 + dialogs + packages,
-        r'AddViewerWithLabel.*?ViewerLabel.*?AddViewerWithLabel',
-        "extension Viewer identity is not carried into Viewer configuration")
+        plugins_header + plugins1 + dialogs + viewer_configuration + packages,
+        r'ViewerLabels.*?AddViewerWithLabel.*?ViewerLabels.*?'
+        r'CB_SETITEMDATA.*?CB_GETITEMDATA.*?VIEWERS_LABEL_REG',
+        "registered extension Viewers are not separate persistent configuration choices")
     require(
         base_contract,
         r'SetIconListForGUI\(CGUIIconListAbstract\* iconList\) = 0;.*?'
@@ -872,6 +875,11 @@ def main() -> int:
         r'FS_SERVICE_GETPATHFORMAINWNDTITLE.*?GetNextDirectoryLineHotPath.*?'
         r'GetPathForMainWindowTitle',
         "flat FS does not expose up-directory, breadcrumb and title path services")
+    require(
+        packages,
+        r'if \(isDir == 2\).*?ChangePanelPathToPluginFS\(.*?"".*?'
+        r'SalamatrixFileSystemItemData\* data',
+        "flat FS rejects the native up-directory item before navigating")
     require(ui_contract + salamatrix_ui + salamatrix_runtime + packages,
             r'SALAMATRIX_UI_VERSION_1_4.*?'
             r'ShowControlsShowcase.*?ShowNativeControlsShowcase.*?'
@@ -959,7 +967,7 @@ def main() -> int:
         viewers = demo_manifest.get("viewers", [])
         file_systems = demo_manifest.get("fileSystems", [])
         if (demo_manifest.get("schema") != 2 or not viewers or
-                demo_manifest.get("version") != "1.4.0" or
+                demo_manifest.get("version") != "1.4.1" or
                 not viewers[0].get("name") or
                 viewers[0].get("handler") != "viewDemo" or
                 not file_systems or
@@ -974,6 +982,16 @@ def main() -> int:
                     f"{runtime_name} demo does not implement {handler}")
     if len(viewer_patterns) != len(demo_roles):
         raise AssertionError("demo Viewer masks must be distinct across runtimes")
+    for runtime_name, demo_source, obsolete_default in (
+        ("Node", javascript_demo, r'storage\.get\(key, false\)'),
+        ("Python", python_demo, r'storage\.get\(key, False\)'),
+        ("PowerShell", powershell_demo, r'storage\.Get\(\$key, \$false\)'),
+        ("PHP", php_demo, r'storage->get\(\$key, false\)'),
+        ("Lua", lua_demo, r'storage\.get\(key, false\)'),
+    ):
+        require_absent(
+            demo_source, obsolete_default,
+            f"{runtime_name} FS toggle ignores the item's initial running state")
     require(setup, r"extension-runtimes\\luaruntime\\luaruntime\.spl.*?IsPluginSelected\('luaruntime'\)",
             "x64 installer does not package LuaRuntime.SPL")
     require(setup, r"extension-runtimes\\luaruntime\\runtime\\salamatrix_worker\.lua.*?IsPluginSelected\('luaruntime'\)",

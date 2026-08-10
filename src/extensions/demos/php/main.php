@@ -34,7 +34,9 @@ if ($Salamander->command_handler === 'inspectDemoMachine' || $Salamander->comman
         $Salamander->ui->messageBox("Id: {$itemId}\nName: {$itemName}", 'Salamatrix FS item');
     } else {
         $key = 'machine.' . $itemId . '.running';
-        $running = (bool)$Salamander->storage->get($key, false);
+        $defaults = array('development'=>true, 'test-lab'=>false, 'build-agent'=>true);
+        $defaultRunning = isset($defaults[$itemId]) ? $defaults[$itemId] : false;
+        $running = (bool)$Salamander->storage->get($key, $defaultRunning);
         $Salamander->storage->set($key, !$running);
         $Salamander->ui->notify($itemName . ': ' . (!$running ? 'Running' : 'Stopped'), 'Salamatrix FS demo', 2500);
     }

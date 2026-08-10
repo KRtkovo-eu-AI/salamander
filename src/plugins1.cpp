@@ -652,6 +652,25 @@ void CSalamanderConnect::AddViewerWithLabel(const char* masks, BOOL force,
         return;
     }
 
+    if (viewerLabel != NULL && viewerLabel[0] != 0)
+    {
+        CPluginData* plugin = Plugins.Get(Index);
+        if (plugin != NULL)
+        {
+            bool found = false;
+            for (size_t i = 0; i < plugin->ViewerLabels.size(); ++i)
+            {
+                if (_stricmp(plugin->ViewerLabels[i].c_str(), viewerLabel) == 0)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+                plugin->ViewerLabels.push_back(viewerLabel);
+        }
+    }
+
     // Labels are presentation metadata. Refresh an existing exact association
     // even during an ordinary plug-in load, without resurrecting an association
     // that the user deliberately removed.

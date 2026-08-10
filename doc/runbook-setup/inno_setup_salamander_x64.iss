@@ -1934,7 +1934,7 @@ begin
   begin
     if FileExists(ExpandConstant('{app}\extensions\demos\README.md')) and
        FileExists(ExpandConstant('{app}\plugins\automation\scripts\Salamatrix Progress Demo\extension.json')) then
-      Result := '1.4.0';
+      Result := '1.4.1';
     Exit;
   end;
 
@@ -2368,10 +2368,10 @@ begin
   AddPlugin('textviewer', 'PrismSharp Text Viewer .NET', '1.03 (x64)', True);
   AddPlugin('regedt', 'Registry Editor', '1.15 (x64)', True);
   AddPlugin('renamer', 'Renamer', '1.15 (x64)', True);
-  AddPlugin('salamatrix', 'Salamatrix Framework', '0.7.1 (x64)', True);
+  AddPlugin('salamatrix', 'Salamatrix Framework', '0.7.2 (x64)', True);
   AddPlugin('salamatrixai', 'Salamatrix AI', '0.1 (x64)', False);
   AddPlugin('salamatrixailocalllama', 'Salamatrix AI Local LLaMA', '0.1 (x64)', False);
-  AddPlugin('salamatrixdemos', 'Salamatrix Demo Sample Scripts', '1.4.0 (x64)', False);
+  AddPlugin('salamatrixdemos', 'Salamatrix Demo Sample Scripts', '1.4.1 (x64)', False);
   AddPlugin('sftp', 'SFTP/SCP Client', '1.01 beta (x64)', True);
   AddPlugin('powershellruntime', 'PowerShell Runtime', '0.1 (x64)', True);
   AddPlugin('samandarin', 'Samandarin Update Notifier', '0.9 (x64)', True);

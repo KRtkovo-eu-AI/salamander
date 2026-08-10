@@ -45,7 +45,11 @@ if Salamander.command_handler == "inspectDemoMachine" or
             "Salamatrix FS item")
     else
         local key = "machine." .. item_id .. ".running"
-        local running = Salamander.storage.get(key, false)
+        local defaults = {
+            development=true, ["test-lab"]=false, ["build-agent"]=true}
+        local default_running = defaults[item_id]
+        if default_running == nil then default_running = false end
+        local running = Salamander.storage.get(key, default_running)
         Salamander.storage.set(key, not running)
         Salamander.ui.notify(
             item_name .. ": " .. (not running and "Running" or "Stopped"),

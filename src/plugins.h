@@ -2480,6 +2480,7 @@ public:
     char* RegKeyName;             // registry key name for configuration (max length MAX_PATH - 1)
     char* Extensions;             // archive extensions separated by ';' (max length MAX_PATH - 1)
     TIndirectArray<char> FSNames; // array of plugin filesystem names (each max length MAX_PATH - 1)
+    std::vector<std::string> ViewerLabels; // separately registered viewer identities exposed by this plug-in
 
     char* LastSLGName; // name of the last used .SLG file (NULL = none yet or same language as Salamander)
 

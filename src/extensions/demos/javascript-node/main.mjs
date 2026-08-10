@@ -42,7 +42,12 @@ if (handler === "viewDemo") {
 } else if (handler === "toggleDemoMachine") {
   const item = Salamander.invocation.item || {};
   const key = `machine.${item.id || "unknown"}.running`;
-  const running = await Salamander.storage.get(key, false);
+  const defaultRunning = {
+    development: true,
+    "test-lab": false,
+    "build-agent": true,
+  }[item.id] ?? false;
+  const running = await Salamander.storage.get(key, defaultRunning);
   await Salamander.storage.set(key, !running);
   await Salamander.ui.notify(
     `${item.name || item.id}: ${!running ? "Running" : "Stopped"}`,

@@ -2,7 +2,7 @@
   "schema": 2,
   "id": "Salamatrix.Demo.PowerShell",
   "name": "Salamatrix PowerShell Demo",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Demonstrates commands, Viewer and a simple panel file system in a PowerShell Salamatrix extension package.",
   "runtime": "PowerShell",
   "entryPoint": "main.ps1",

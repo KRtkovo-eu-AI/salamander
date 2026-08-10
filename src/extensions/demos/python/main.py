@@ -41,7 +41,12 @@ if handler in ("inspectDemoMachine", "toggleDemoMachine"):
     else:
         item_id = str(item.get("id", "unknown"))
         key = f"machine.{item_id}.running"
-        running = Salamander.storage.get(key, False)
+        default_running = {
+            "development": True,
+            "test-lab": False,
+            "build-agent": True,
+        }.get(item_id, False)
+        running = Salamander.storage.get(key, default_running)
         Salamander.storage.set(key, not running)
         Salamander.ui.notify(
             f"{item.get('name', item_id)}: {'Running' if not running else 'Stopped'}",

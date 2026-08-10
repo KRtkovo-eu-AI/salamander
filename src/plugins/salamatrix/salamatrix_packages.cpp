@@ -1459,8 +1459,16 @@ public:
     {
         UNREFERENCED_PARAMETER(pluginFSNameIndex);
         OpenFileSystem* opened = static_cast<OpenFileSystem*>(pluginFS);
+        if (opened == NULL) return;
+        if (isDir == 2)
+        {
+            int failReason = 0;
+            SalamanderGeneral->ChangePanelPathToPluginFS(
+                panel, pluginFSName, "", &failReason);
+            return;
+        }
         SalamatrixFileSystemItemData* data = reinterpret_cast<SalamatrixFileSystemItemData*>(file.PluginData);
-        if (opened == NULL || data == NULL) return;
+        if (data == NULL) return;
         if (opened->IsRoot() && isDir != 0)
         { int failReason = 0; SalamanderGeneral->ChangePanelPathToPluginFS(panel, pluginFSName, file.Name, &failReason); return; }
         opened->ExecuteDefault(file);
