@@ -19,6 +19,7 @@ struct BootstrapDispatchState
     int CommandCalls;
     int StorageCalls;
     int StorageKeysCalls;
+    int FileSystemCalls;
     int SubscribeCalls;
     int FileOperationCalls;
     int DialogCalls;
@@ -54,6 +55,7 @@ struct BootstrapDispatchState
           CommandCalls(0),
           StorageCalls(0),
           StorageKeysCalls(0),
+          FileSystemCalls(0),
           SubscribeCalls(0),
           FileOperationCalls(0),
           DialogCalls(0),
@@ -122,6 +124,12 @@ BOOL WINAPI WorkerHostDispatch(
         if (state != NULL)
             ++state->CommandCalls;
         response = "{\"ok\":true,\"result\":\"ok\"}";
+    }
+    else if (strstr(payloadJson, "salamander.fileSystem.addItem") != NULL)
+    {
+        if (state != NULL)
+            ++state->FileSystemCalls;
+        response = "{\"ok\":true,\"added\":true}";
     }
     else if (strstr(payloadJson, "salamander.ui.notify") != NULL)
     {
@@ -632,7 +640,11 @@ void RunPythonOneShotBootstrapTest()
               "if Salamander.invocation.get('path') != 'C:/test/readme.md':\n"
               "    raise RuntimeError('invocation path was not propagated')\n"
               "if Salamander.commands.execute('Copy') != 'ok':\n"
-              "    raise RuntimeError('one-shot host call failed')\n"),
+              "    raise RuntimeError('one-shot host call failed')\n"
+              "if not Salamander.file_system.add_item(\n"
+              "        'development', 'Development VM — Running',\n"
+              "        icon='icon.svg', directory=False, enabled=True):\n"
+              "    raise RuntimeError('file-system item call failed')\n"),
           "write one-shot python worker");
 
     CAutomationProcessRuntimeAdapter adapter(
@@ -675,6 +687,8 @@ void RunPythonOneShotBootstrapTest()
         Check(diagnostic.ExitCode == 0,
               "exited worker diagnostic preserves exit code");
         Check(state.CommandCalls == 1, "one-shot worker host call reached host");
+        Check(state.FileSystemCalls == 1,
+              "one-shot Python file-system item call reached host");
         session->Stop();
         session->Release();
     }
