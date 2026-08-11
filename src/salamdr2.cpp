@@ -2506,8 +2506,18 @@ BOOL LoadViewers(HKEY hKey, const char* name, CViewerMasks* viewerMasks)
                     lstrcpyn(masksAux, masks, MAX_PATH);
                     StrICpy(masks, masksAux);
                 }
-                CViewerMasksItem* item = new CViewerMasksItem(masks, command, arguments,
-                                                              initDir, type, Configuration.ConfigVersion < 6);
+#ifdef new
+#undef new
+#define RESTORE_CONFIG_VIEWER_MASK_ITEM_DEBUG_NEW_MACRO
+#endif
+                CViewerMasksItem* item =
+                    new (std::nothrow) CViewerMasksItem(
+                        masks, command, arguments, initDir, type,
+                        Configuration.ConfigVersion < 6);
+#ifdef RESTORE_CONFIG_VIEWER_MASK_ITEM_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_CONFIG_VIEWER_MASK_ITEM_DEBUG_NEW_MACRO
+#endif
                 if (item != NULL)
                     item->SetViewerLabel(viewerLabel.data());
                 if (item != NULL && item->IsGood())

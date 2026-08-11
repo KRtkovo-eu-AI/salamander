@@ -800,7 +800,16 @@ void CSalamanderConnect::AddViewerWithLabel(const char* masks, BOOL force,
         if (Viewer && !force || // plug-in installation
             !Viewer && force)   // plug-in update, but not during its installation
         {
-            CViewerMasksItem* item = new CViewerMasksItem(masks, "", "", "", -Index - 1, FALSE);
+#ifdef new
+#undef new
+#define RESTORE_VIEWER_MASK_ITEM_DEBUG_NEW_MACRO
+#endif
+            CViewerMasksItem* item =
+                new (std::nothrow) CViewerMasksItem(masks, "", "", "", -Index - 1, FALSE);
+#ifdef RESTORE_VIEWER_MASK_ITEM_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_VIEWER_MASK_ITEM_DEBUG_NEW_MACRO
+#endif
             if (item != NULL && viewerLabel != NULL)
                 item->SetViewerLabel(viewerLabel);
             if (item != NULL && item->IsGood())
