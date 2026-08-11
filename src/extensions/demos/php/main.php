@@ -1,4 +1,48 @@
 <?php
+if ($Salamander->command_handler === 'viewDemo') {
+    $path = isset($Salamander->invocation['path']) ? (string)$Salamander->invocation['path'] : '';
+    $contents = @file_get_contents($path);
+    if ($contents === false) {
+        $error = error_get_last();
+        $Salamander->ui->messageBox(isset($error['message']) ? $error['message'] : 'Unable to read file.', 'Salamatrix PHP Viewer demo', 'OK', 'Error');
+    } else {
+        $preview = strlen($contents) > 3000 ? substr($contents, 0, 3000) . "\n\n[preview truncated]" : $contents;
+        $Salamander->ui->messageBox($preview === '' ? '[empty file]' : $preview, 'Salamatrix PHP Viewer demo — ' . $path);
+    }
+    return;
+}
+
+if ($Salamander->command_handler === 'listDemoMachines') {
+    $machines = array(
+        array('id'=>'development', 'name'=>'Development VM', 'running'=>true),
+        array('id'=>'test-lab', 'name'=>'Test lab', 'running'=>false),
+        array('id'=>'build-agent', 'name'=>'Build agent', 'running'=>true));
+    foreach ($machines as $machine) {
+        $running = $Salamander->storage->get('machine.' . $machine['id'] . '.running', $machine['running']);
+        $Salamander->file_system->add_item(
+            $machine['id'], $machine['name'] . ' — ' . ($running ? 'Running' : 'Stopped'),
+            array('icon'=>'icon.svg', 'directory'=>false, 'enabled'=>true));
+    }
+    return;
+}
+
+if ($Salamander->command_handler === 'inspectDemoMachine' || $Salamander->command_handler === 'toggleDemoMachine') {
+    $item = isset($Salamander->invocation['item']) && is_array($Salamander->invocation['item']) ? $Salamander->invocation['item'] : array();
+    $itemId = isset($item['id']) ? (string)$item['id'] : 'unknown';
+    $itemName = isset($item['name']) ? (string)$item['name'] : $itemId;
+    if ($Salamander->command_handler === 'inspectDemoMachine') {
+        $Salamander->ui->messageBox("Id: {$itemId}\nName: {$itemName}", 'Salamatrix FS item');
+    } else {
+        $key = 'machine.' . $itemId . '.running';
+        $defaults = array('development'=>true, 'test-lab'=>false, 'build-agent'=>true);
+        $defaultRunning = isset($defaults[$itemId]) ? $defaults[$itemId] : false;
+        $running = (bool)$Salamander->storage->get($key, $defaultRunning);
+        $Salamander->storage->set($key, !$running);
+        $Salamander->ui->notify($itemName . ': ' . (!$running ? 'Running' : 'Stopped'), 'Salamatrix FS demo', 2500);
+    }
+    return;
+}
+
 if ($Salamander->command_handler === 'run') {
     $Salamander->ui->notify('PHP CLI extension package is running through Salamatrix.', 'Salamatrix PHP Demo', 2500);
     $progress = $Salamander->ui->progress('Salamatrix PHP Progress Demo', 5);

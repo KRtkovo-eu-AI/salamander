@@ -627,6 +627,10 @@ void RunPythonOneShotBootstrapTest()
               "    raise RuntimeError('command context was not propagated')\n"
               "if Salamander.command_handler != 'run_second':\n"
               "    raise RuntimeError('handler context was not propagated')\n"
+              "if Salamander.invocation.get('role') != 'viewer':\n"
+              "    raise RuntimeError('invocation context was not propagated')\n"
+              "if Salamander.invocation.get('path') != 'C:/test/readme.md':\n"
+              "    raise RuntimeError('invocation path was not propagated')\n"
               "if Salamander.commands.execute('Copy') != 'ok':\n"
               "    raise RuntimeError('one-shot host call failed')\n"),
           "write one-shot python worker");
@@ -639,6 +643,8 @@ void RunPythonOneShotBootstrapTest()
     request.EntryPoint = &script[0];
     request.CommandId = "bootstrap.second";
     request.CommandHandler = "run_second";
+    request.InvocationJson =
+        "{\"role\":\"viewer\",\"path\":\"C:/test/readme.md\"}";
     request.Flags =
         Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap |
         Salamatrix::Runtime::RuntimeExecutionFlagOneShotWorker;
@@ -784,7 +790,9 @@ void RunPythonBootstrapTest()
               "    raise RuntimeError('dialog show failed')\n"
               "if dialog.get('value').get('text') != 'seed':\n"
               "    raise RuntimeError('dialog get failed')\n"
-            "dialog.close()\n"),
+              "dialog.close()\n"
+              "if Salamander.commands.execute('__processruntime_bootstrap_complete__') != 'ok':\n"
+              "    raise RuntimeError('bootstrap completion call failed')\n"),
           "write python bootstrap worker");
 
     CAutomationProcessRuntimeAdapter adapter(
@@ -814,9 +822,9 @@ void RunPythonBootstrapTest()
         // A persistent worker can issue many calls after the subscription call;
         // stopping at SubscribeCalls would race the script and send shutdown
         // while it is still waiting for the next response.
-        for (int attempt = 0; attempt < 60 && state.DialogCalls < 22 && session->IsAlive(); ++attempt)
+        for (int attempt = 0; attempt < 60 && state.CommandCalls < 2 && session->IsAlive(); ++attempt)
             (void)session->Pump(250);
-        Check(state.CommandCalls == 1, "bootstrap command call reached host");
+        Check(state.CommandCalls == 2, "bootstrap command and completion calls reached host");
         Check(state.NotificationCalls == 1, "bootstrap notification call reached host");
         Check(state.MessageBoxCalls == 1, "bootstrap message box call reached host");
         Check(state.MessageBoxOptionsSeen, "bootstrap message box options reached host");
@@ -935,7 +943,8 @@ void RunPowerShellBootstrapTest()
               "$dialog.AddButton('ok', 'OK', 1, $true)\n"
               "if ($dialog.Show() -ne 1) { throw 'dialog show failed' }\n"
               "if ($dialog.Get('value').text -ne 'seed') { throw 'dialog get failed' }\n"
-              "$dialog.Close()\n"),
+              "$dialog.Close()\n"
+              "if ($Salamander.commands.execute('__processruntime_bootstrap_complete__') -ne 'ok') { throw 'bootstrap completion call failed' }\n"),
           "write powershell bootstrap worker");
     CAutomationProcessRuntimeAdapter adapter(
         "PowerShell", "PowerShell", "powershell", ".ps1",
@@ -955,9 +964,9 @@ void RunPowerShellBootstrapTest()
           "start powershell bootstrap worker");
     if (session != NULL)
     {
-        for (int attempt = 0; attempt < 60 && state.DialogCalls < 22 && session->IsAlive(); ++attempt)
+        for (int attempt = 0; attempt < 60 && state.CommandCalls < 2 && session->IsAlive(); ++attempt)
             (void)session->Pump(250);
-        Check(state.CommandCalls == 1, "powershell bootstrap command call");
+        Check(state.CommandCalls == 2, "powershell bootstrap command and completion calls");
         Check(state.MessageBoxCalls == 1, "powershell message box call");
         Check(state.MessageBoxOptionsSeen, "powershell message box options");
         Check(state.LanguageCalls == 1, "powershell host language call");
@@ -1068,6 +1077,7 @@ void RunPhpBootstrapTest()
               "if ($dialog->show() !== 1) throw new Exception('dialog show failed');\n"
               "if ($dialog->get('value')['text'] !== 'seed') throw new Exception('dialog get failed');\n"
               "$dialog->close();\n"
+              "if ($Salamander->commands->execute('__processruntime_bootstrap_complete__') !== 'ok') throw new Exception('bootstrap completion call failed');\n"
               "?>\n"),
           "write php bootstrap worker");
     CAutomationProcessRuntimeAdapter adapter(
@@ -1087,9 +1097,9 @@ void RunPhpBootstrapTest()
           "start php bootstrap worker");
     if (session != NULL)
     {
-        for (int attempt = 0; attempt < 60 && state.DialogCalls < 22 && session->IsAlive(); ++attempt)
+        for (int attempt = 0; attempt < 60 && state.CommandCalls < 2 && session->IsAlive(); ++attempt)
             (void)session->Pump(250);
-        Check(state.CommandCalls == 1, "php bootstrap command call");
+        Check(state.CommandCalls == 2, "php bootstrap command and completion calls");
         Check(state.MessageBoxCalls == 1, "php message box call");
         Check(state.MessageBoxOptionsSeen, "php message box options");
         Check(state.ControlsCalls == 1, "php controls showcase call");

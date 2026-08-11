@@ -76,8 +76,12 @@ def main() -> int:
     automation_header = read("src/plugins/automation/automationplug.h")
     automation = read("src/plugins/automation/automationplug.cpp")
     automation_entry = read("src/plugins/automation/entry.cpp")
+    automation_scriptlist = read("src/plugins/automation/scriptlist.cpp")
+    plugins_header = read("src/plugins.h")
     plugins1 = read("src/plugins1.cpp")
     plugins2 = read("src/plugins2.cpp")
+    fileswn5 = read("src/fileswn5.cpp")
+    viewer_configuration = read("src/salamdr2.cpp")
     mainwnd1 = read("src/mainwnd1.cpp")
     mainwnd2 = read("src/mainwnd2.cpp")
     mainwnd3 = read("src/mainwnd3.cpp")
@@ -110,22 +114,36 @@ def main() -> int:
     )
     salamatrix = read("src/plugins/salamatrix/salamatrix.cpp")
     salamatrix_runtime = read("src/plugins/salamatrix/salamatrix_runtime.h")
+    extensions_contract = read(
+        "src/plugins/salamatrix/salamatrix_extensions.h")
     salamatrix_ui = ui_implementation
     salamatrix_props = read("src/plugins/salamatrix/vcxproj/salamatrix.props")
     salamatrix_project = read(
         "src/plugins/salamatrix/vcxproj/salamatrix.vcxproj")
     manifest = read("src/plugins/salamatrix/salamatrix_manifest.cpp")
     packages = read("src/plugins/salamatrix/salamatrix_packages.cpp")
+    manifest = read("src/plugins/salamatrix/salamatrix_manifest.cpp")
     api_docs = read("src/plugins/salamatrix/salamatrix_api_docs.h")
     general_contract = read("src/plugins/shared/spl_gen.h")
+    base_contract = read("src/plugins/shared/spl_base.h")
     general_impl = read("src/zip.cpp")
     setup = read("doc/runbook-setup/inno_setup_salamander_x64.iss")
     runtime_package_verifier = read("tools/verify_runtime_packages.ps1")
+    javascript_demo = read("src/extensions/demos/javascript-node/main.mjs")
+    javascript_demo_manifest = json.loads(
+        read("src/extensions/demos/javascript-node/extension.json"))
     python_demo = read("src/extensions/demos/python/main.py")
+    python_demo_manifest = json.loads(
+        read("src/extensions/demos/python/extension.json"))
     lua_demo = read("src/extensions/demos/lua/main.lua")
     lua_demo_manifest = json.loads(
         read("src/extensions/demos/lua/extension.json"))
     powershell_demo = read("src/extensions/demos/powershell/main.ps1")
+    powershell_demo_manifest = json.loads(
+        read("src/extensions/demos/powershell/extension.json"))
+    php_demo = read("src/extensions/demos/php/main.php")
+    php_demo_manifest = json.loads(
+        read("src/extensions/demos/php/extension.json"))
     javascript_worker = read(
         "src/plugins/javascriptruntime/runtime/salamatrix_worker.mjs")
     python_worker = read(
@@ -235,6 +253,19 @@ def main() -> int:
         r"FUNCTION_DYNAMICMENUEXT\s*\|.*?"
         r"FUNCTION_LOADSAVECONFIGURATION",
         "Salamatrix does not advertise package configuration persistence")
+    require(
+        salamatrix,
+        r"FUNCTION_FILESYSTEM.*?PluginNameShort,\s*NULL,\s*\"salamatrix\"\).*?"
+        r"GetPluginFSName\(SalamatrixFSName,\s*0\)",
+        "Salamatrix advertises a file system without the mandatory FS name")
+    require(
+        packages,
+        r"ChangePanelPathToPluginFS\(panel,\s*SalamatrixFSName,",
+        "Salamatrix file system does not use its host-assigned FS name")
+    require(
+        plugins1,
+        r"supportFS\s*&&\s*fsName\s*==\s*NULL.*?Error\s*=\s*TRUE",
+        "host no longer treats a missing advertised FS name as a fatal load error")
     require(
         salamatrix,
         r"CPluginInterface::LoadConfiguration.*?"
@@ -370,7 +401,7 @@ def main() -> int:
             r'fullFrameworkTerms.*?extensions.*?clipboard.*?application.*?ai',
             "full-framework AI requests do not receive every public API slice")
     require(ai_contract,
-            r'extensionManifest.*?schemaVersion.*?capabilityValues.*?generatedPackage',
+            r'extensionManifest.*?schema.*?schemaVersionAlias.*?capabilityValues.*?generatedPackage',
             "AI extension slice does not describe manifest packaging and capabilities")
     require(ai_contract,
             r'statictext.*?toolbarheader.*?styleFlags.*?buttonMask',
@@ -763,6 +794,8 @@ def main() -> int:
         ("Python", "PowerShell", "JavaScript", "PHP", "Lua"), runtime_provider_sources):
         require(runtime, r"SetFlagLoadOnSalamanderStart\(TRUE\)",
                 f"{name} runtime provider is not loaded on Salamander startup")
+        require(runtime, r'InvocationJson.*?(?:invocation-json|InvocationJson)',
+                f"{name} runtime provider does not propagate invocation JSON")
     require(luaruntime, r'"Lua".*?"lua".*?"\.lua".*?SALAMATRIX_LUA',
             "Lua runtime descriptor or interpreter override is missing")
     require(luaruntime, r'salamatrix_worker\.lua',
@@ -789,6 +822,135 @@ def main() -> int:
                 f"{name} worker does not expose message-box buttons and icon")
         require(worker, r'salamander\.ui\.controls',
                 f"{name} worker does not expose the framework controls showcase")
+        require(worker, r'invocation',
+                f"{name} worker does not expose role invocation context")
+        require(worker, r'salamander\.fileSystem\.addItem',
+                f"{name} worker does not expose flat file-system item publication")
+    require(manifest,
+            r'SchemaVersion != 1 && SchemaVersion != 2.*?viewers.*?fileSystems.*?File-system actions',
+            "manifest schema 2 does not validate Viewer and flat FS contributions")
+    require(salamatrix + packages,
+            r'FUNCTION_VIEWER.*?FUNCTION_FILESYSTEM.*?RegisterViewerMasks.*?GetFileSystemExtension',
+            "Salamatrix does not publish native Viewer and FS roles")
+    require(
+        plugins_header + plugins1 + dialogs + viewer_configuration + packages,
+        r'ViewerLabels.*?AddViewerWithLabel.*?ViewerLabels.*?'
+        r'CB_SETITEMDATA.*?CB_GETITEMDATA.*?VIEWERS_LABEL_REG',
+        "registered extension Viewers are not separate persistent configuration choices")
+    require(
+        base_contract,
+        r'SetIconListForGUI\(CGUIIconListAbstract\* iconList\) = 0;.*?'
+        r'AddViewerWithLabel\(const char\* masks, BOOL force,.*?\n};',
+        "labeled Viewer registration is not append-only in the public connect ABI")
+    require(
+        general_contract,
+        r'CSalamanderPluginViewerData.*?'
+        r'SALAMANDER_PLUGIN_VIEWER_SELECTION_MAGIC.*?'
+        r'CSalamanderPluginViewerSelectionData.*?ViewerLabel',
+        "selected plug-in Viewer identity has no versioned viewer-data contract")
+    require(
+        fileswn5 + plugins_header + plugins1,
+        r'plugin->ViewFile\(.*?viewer->ViewerLabel.*?'
+        r'const char\* viewerLabel = NULL.*?'
+        r'CSalamanderPluginViewerSelectionData selectionData.*?'
+        r'SelectionMagic = SALAMANDER_PLUGIN_VIEWER_SELECTION_MAGIC.*?'
+        r'PluginIfaceForViewer\.ViewFile\(.*?viewerData',
+        "Alt+F3 does not carry the selected named Viewer to the plug-in")
+    require(
+        packages,
+        r'viewerData->Size >= sizeof\(CSalamanderPluginViewerSelectionData\).*?'
+        r'SelectionMagic ==.*?SALAMANDER_PLUGIN_VIEWER_SELECTION_MAGIC.*?'
+        r'RunViewer\(name, invocation\.c_str\(\), viewerLabel\).*?'
+        r'if \(viewerLabel != NULL && viewerLabel\[0\] != 0\).*?'
+        r'_stricmp\(label\.c_str\(\), viewerLabel\) == 0.*?'
+        r'viewer\.Handler\.c_str\(\)',
+        "selected named Viewer is still re-matched only by the file mask")
+    require(
+        packages,
+        r'RegisteredViewers.*?AddViewerWithLabel\(group\.c_str\(\), FALSE.*?'
+        r'firstRegistration.*?AddViewerWithLabel\(group\.c_str\(\), TRUE',
+        "new extension Viewer masks are not registered once while preserving user removals")
+    require(
+        extensions_contract + salamatrix_runtime,
+        r'SALAMATRIX_EXTENSIONS_VERSION_1_4.*?'
+        r'ExtensionFlagMenuExtension.*?ExtensionFlagViewer.*?'
+        r'ExtensionFlagFileSystem.*?'
+        r'RegisterServiceOwned\(SALAMATRIX_SERVICE_EXTENSIONS,\s*'
+        r'SALAMATRIX_EXTENSIONS_VERSION_1_4',
+        "Extensions 1.4 does not publish contribution metadata")
+    require(
+        packages,
+        r'!manifest\.Commands\.empty\(\).*?ExtensionFlagMenuExtension.*?'
+        r'!manifest\.Viewers\.empty\(\).*?ExtensionFlagViewer.*?'
+        r'!manifest\.FileSystems\.empty\(\).*?ExtensionFlagFileSystem',
+        "manifest contribution flags are not derived during package discovery")
+    require(
+        packages,
+        r'void PackageManager::RefreshContributionFlags\(Package\* package\).*?'
+        r'ExtensionFlagMenuExtension.*?RegisterExtension.*?'
+        r'commands\.register.*?RefreshContributionFlags\(package\).*?'
+        r'commands\.unregister.*?RefreshContributionFlags\(package\)',
+        "dynamic command registration does not refresh Menu Extension metadata")
+    require(
+        automation_scriptlist,
+        r'!pScript->m_salamatrixManifestCommands\.empty\(\).*?'
+        r'ExtensionFlagMenuExtension',
+        "Automation compatibility registration omits its menu contribution")
+    require(
+        dialogs,
+        r'ExtensionFlagViewer.*?IDS_PLUGINFUNCFILEVIEWER.*?'
+        r'ExtensionFlagMenuExtension.*?IDS_PLUGINFUNCMENUEXTENSION.*?'
+        r'ExtensionFlagFileSystem.*?IDS_PLUGINFUNCFILESYSTEM.*?'
+        r'IDC_PLUGINFUNCTIONS.*?extensionFunctions',
+        "Plugin Manager does not render extension contributions in Functions")
+    viewer_registration = re.search(
+        r'void PackageManager::RegisterViewerMasks\(.*?'
+        r'(?=\nBOOL WINAPI PackageManager::LifecycleCallback)',
+        packages, re.MULTILINE | re.DOTALL)
+    if viewer_registration is None:
+        raise AssertionError("Viewer registration implementation is missing")
+    require_absent(
+        viewer_registration.group(0), r'RuntimeUsable',
+        "Viewer registration still depends on runtime-provider startup order")
+    require(
+        viewer_registration.group(0), r'ExtensionFlagDisabled',
+        "Viewer registration does not exclude disabled extensions")
+    require(packages, r'FileSystemListing.*?salamander\.fileSystem\.addItem.*?4096',
+            "flat FS dispatcher does not bound runtime-provided items")
+    require(
+        packages,
+        r'InterlockedExchange\(&package->Stopping,\s*TRUE\).*?'
+        r'WaitForThreadWithSentMessageDispatch.*?'
+        r'package->Session->Release\(\)',
+        "package shutdown can release a runtime session before its pump thread exits")
+    require_absent(
+        packages,
+        r'WaitForSingleObject\(package->PumpThread,\s*5000\)',
+        "package shutdown still frees a live pump thread after a timed wait")
+    require(
+        automation_scriptlist,
+        r'InterlockedExchange\(&m_lRuntimeStopping,\s*TRUE\).*?'
+        r'WaitForThreadWithSentMessageDispatch.*?'
+        r'm_pRuntimeSession->Release\(\)',
+        "Automation shutdown can release a runtime session before its pump thread exits")
+    require_absent(
+        automation_scriptlist,
+        r'(?:WaitForSingleObject\(m_hRuntimePumpThread,\s*5000\)|'
+        r'TerminateThread\(m_hRuntimePumpThread)',
+        "Automation still times out or terminates a live runtime pump thread")
+    require(packages, r'FS_SERVICE_CONTEXTMENU.*?ContextMenu\(',
+            "flat FS does not expose native actions")
+    require(
+        packages,
+        r'DupStr\("\.\."\).*?FS_SERVICE_GETNEXTDIRLINEHOTPATH.*?'
+        r'FS_SERVICE_GETPATHFORMAINWNDTITLE.*?GetNextDirectoryLineHotPath.*?'
+        r'GetPathForMainWindowTitle',
+        "flat FS does not expose up-directory, breadcrumb and title path services")
+    require(
+        packages,
+        r'if \(isDir == 2\).*?ChangePanelPathToPluginFS\(.*?"".*?'
+        r'SalamatrixFileSystemItemData\* data',
+        "flat FS rejects the native up-directory item before navigating")
     require(ui_contract + salamatrix_ui + salamatrix_runtime + packages,
             r'SALAMATRIX_UI_VERSION_1_4.*?'
             r'ShowControlsShowcase.*?ShowNativeControlsShowcase.*?'
@@ -838,9 +1000,69 @@ def main() -> int:
     require(lua_demo,
             r'Salamander\.ui\.notify.*?Salamander\.ui\.progress.*?progress\.update.*?progress\.is_cancelled.*?progress\.close.*?Salamander\.storage\.set\("lastRun",\s*"Lua"\)',
             "Lua demo does not exercise the shared notify/progress/storage flow")
-    if "ui.progress" not in lua_demo_manifest.get("capabilities", []):
+    if "ui.dialogs" not in lua_demo_manifest.get("capabilities", []):
         raise AssertionError(
-            "Lua demo manifest does not declare the progress capability")
+            "Lua demo manifest does not declare the canonical UI capability")
+    manifest_paths = list((ROOT / "src/extensions").rglob("extension.json"))
+    manifest_paths.extend((ROOT / "src/tools/salamatrix-studio/examples").rglob(
+        "extension.json"))
+    manifest_paths.extend((ROOT / "src/plugins/automation/sample-scripts").rglob(
+        "extension.json"))
+    for manifest_path in manifest_paths:
+        package_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if package_manifest.get("schema") not in {1, 2} or \
+                "schemaVersion" in package_manifest:
+            raise AssertionError(
+                f"extension demo does not use canonical schema: {manifest_path}")
+        aliases = {"ui.notify", "ui.progress"}.intersection(
+            package_manifest.get("capabilities", []))
+        if aliases:
+            raise AssertionError(
+                f"extension demo uses non-canonical capabilities {aliases}: "
+                f"{manifest_path}")
+        for command in package_manifest.get("commands", []):
+            if command.get("menu", "plugin") not in {
+                    "plugin", "context", "both", "none"}:
+                raise AssertionError(
+                    f"extension demo uses an invalid menu placement: "
+                    f"{manifest_path}")
+    demo_roles = {
+        "Node": (javascript_demo_manifest, javascript_demo),
+        "Python": (python_demo_manifest, python_demo),
+        "PowerShell": (powershell_demo_manifest, powershell_demo),
+        "PHP": (php_demo_manifest, php_demo),
+        "Lua": (lua_demo_manifest, lua_demo),
+    }
+    viewer_patterns = set()
+    for runtime_name, (demo_manifest, demo_source) in demo_roles.items():
+        viewers = demo_manifest.get("viewers", [])
+        file_systems = demo_manifest.get("fileSystems", [])
+        if (demo_manifest.get("schema") != 2 or not viewers or
+                demo_manifest.get("version") != "1.4.1" or
+                not viewers[0].get("name") or
+                viewers[0].get("handler") != "viewDemo" or
+                not file_systems or
+                file_systems[0].get("listHandler") != "listDemoMachines"):
+            raise AssertionError(
+                f"{runtime_name} demo does not declare named schema-2 Viewer/FS roles")
+        viewer_patterns.update(viewers[0].get("patterns", []))
+        for handler in ("viewDemo", "listDemoMachines",
+                        "inspectDemoMachine", "toggleDemoMachine"):
+            if handler not in demo_source:
+                raise AssertionError(
+                    f"{runtime_name} demo does not implement {handler}")
+    if len(viewer_patterns) != len(demo_roles):
+        raise AssertionError("demo Viewer masks must be distinct across runtimes")
+    for runtime_name, demo_source, obsolete_default in (
+        ("Node", javascript_demo, r'storage\.get\(key, false\)'),
+        ("Python", python_demo, r'storage\.get\(key, False\)'),
+        ("PowerShell", powershell_demo, r'storage\.Get\(\$key, \$false\)'),
+        ("PHP", php_demo, r'storage->get\(\$key, false\)'),
+        ("Lua", lua_demo, r'storage\.get\(key, false\)'),
+    ):
+        require_absent(
+            demo_source, obsolete_default,
+            f"{runtime_name} FS toggle ignores the item's initial running state")
     require(setup, r"extension-runtimes\\luaruntime\\luaruntime\.spl.*?IsPluginSelected\('luaruntime'\)",
             "x64 installer does not package LuaRuntime.SPL")
     require(setup, r"extension-runtimes\\luaruntime\\runtime\\salamatrix_worker\.lua.*?IsPluginSelected\('luaruntime'\)",
@@ -870,9 +1092,15 @@ def main() -> int:
             "Salamatrix UI provider does not track active native dialog lifetimes")
     require(salamatrix_ui, r'CloseAllNativeDialogs\(\).*?'
                            r'ClosingAllNativeDialogs = TRUE.*?'
+                           r'while \(!OpenNotificationWindows\.empty\(\)\).*?'
+                           r'DestroyWindow\(window\).*?'
                            r'while \(!OpenNativeDialogs\.empty\(\)\).*?'
                            r'dialog->Close\(\)',
-            "Salamatrix UI provider cannot close active dialogs before DLL unload")
+            "Salamatrix UI provider cannot close active windows before DLL unload")
+    require(salamatrix_ui, r'RegisterNotificationWindow\(window\)',
+            "Salamatrix UI provider does not track notification windows")
+    require(salamatrix_ui, r'WM_NCDESTROY.*?UnregisterNotificationWindow\(window\)',
+            "Salamatrix UI provider retains destroyed notification windows")
     require(salamatrix, r'CPluginInterface::Release.*?'
                         r'CloseAllNativeDialogs\(\).*?'
                         r'DestroyRuntimeServices\(\)',
@@ -1120,9 +1348,11 @@ def main() -> int:
         r"ImageList_Add\(hotImageList",
         "Extension Bar SVG alpha is not flattened onto its light/dark background")
     require(python_demo, r"Salamander\.ui\.notify", "Python demo does not show a non-blocking result")
-    require_absent(python_demo, r"message_box", "Python demo must not block Salamander with a modal UI call")
+    require(python_demo, r'handler == "viewDemo".*?message_box.*?SystemExit',
+            "Python Viewer demo does not isolate its modal preview from ordinary commands")
     require(powershell_demo, r"\$Salamander\.ui\.Notify", "PowerShell demo does not show a non-blocking result")
-    require_absent(powershell_demo, r"MessageBox", "PowerShell demo must not block Salamander with a modal UI call")
+    require(powershell_demo, r"command_handler -eq 'viewDemo'.*?MessageBox.*?return",
+            "PowerShell Viewer demo does not isolate its modal preview from ordinary commands")
     require(
         navigator,
         r"source_side\.Context\(\)",

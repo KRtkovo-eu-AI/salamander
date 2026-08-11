@@ -100,6 +100,10 @@ void TestRegistrationAndLifecycle()
     void* owner = &callback;
     Salamatrix::Extensions::ExtensionDescriptor descriptor =
         MakeDescriptor("test.extension");
+    descriptor.Flags |=
+        Salamatrix::Extensions::ExtensionFlagMenuExtension |
+        Salamatrix::Extensions::ExtensionFlagViewer |
+        Salamatrix::Extensions::ExtensionFlagFileSystem;
 
     Check(extensions->RegisterExtension(&descriptor, LifecycleCallback, owner) != FALSE,
           "register extension");
@@ -110,6 +114,14 @@ void TestRegistrationAndLifecycle()
           "find extension case-insensitively");
     Check(info.State == Salamatrix::Extensions::ExtensionStateDiscovered,
           "initial discovered state");
+    Check((info.Descriptor.Flags &
+           (Salamatrix::Extensions::ExtensionFlagMenuExtension |
+            Salamatrix::Extensions::ExtensionFlagViewer |
+            Salamatrix::Extensions::ExtensionFlagFileSystem)) ==
+              (Salamatrix::Extensions::ExtensionFlagMenuExtension |
+               Salamatrix::Extensions::ExtensionFlagViewer |
+               Salamatrix::Extensions::ExtensionFlagFileSystem),
+          "preserve manifest contribution flags");
 
     Check(extensions->ActivateExtension("test.extension") != FALSE,
           "activate extension");

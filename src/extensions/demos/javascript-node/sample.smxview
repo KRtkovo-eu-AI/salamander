@@ -1,0 +1,5 @@
+Salamatrix Viewer role demo
+
+This UTF-8 text file is registered through the *.smxview mask in the Node demo
+package. Opening it invokes the viewDemo handler with Salamander.invocation
+containing role="viewer" and the local file path.

@@ -426,6 +426,21 @@ struct CSalamanderPluginViewerData
     const char* FileName;
 };
 
+// Signature for CSalamanderPluginViewerSelectionData. It prevents a plug-in
+// from mistaking another plug-in-specific viewer-data extension for this one.
+#define SALAMANDER_PLUGIN_VIEWER_SELECTION_MAGIC 0x56534C53 // 'SLSV'
+
+// Extended viewer data used when Salamander invokes a specifically named
+// viewer association exposed by a plug-in. The Size member distinguishes this
+// structure from the base and from plug-in-specific extensions. ViewerLabel is
+// valid only for the duration of CPluginInterfaceForViewerAbstract::ViewFile.
+// It is NULL for a generic plug-in association.
+struct CSalamanderPluginViewerSelectionData : public CSalamanderPluginViewerData
+{
+    DWORD SelectionMagic;
+    const char* ViewerLabel;
+};
+
 // rozsireni struktury CSalamanderPluginViewerData pro interni text/hex viewer
 struct CSalamanderPluginInternalViewerData : public CSalamanderPluginViewerData
 {

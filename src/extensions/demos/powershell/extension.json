@@ -1,12 +1,28 @@
 {
-  "schema": 1,
+  "schema": 2,
   "id": "Salamatrix.Demo.PowerShell",
   "name": "Salamatrix PowerShell Demo",
-  "version": "1.2.0",
-  "description": "Demonstrates a PowerShell Salamatrix extension package.",
+  "version": "1.4.1",
+  "description": "Demonstrates commands, Viewer and a simple panel file system in a PowerShell Salamatrix extension package.",
   "runtime": "PowerShell",
   "entryPoint": "main.ps1",
   "icon": "icon.svg",
-  "capabilities": ["ui.notify", "ui.progress", "ui.dialogs", "storage"],
-  "commands": [{"id":"Salamatrix.Demo.PowerShell.run","title":"Run PowerShell demo","handler":"run","menu":"both","contextMenu":true,"toolbar":true,"requires":"any"}]
+  "capabilities": ["ui.dialogs", "storage", "file-system"],
+  "commands": [{"id":"Salamatrix.Demo.PowerShell.run","title":"Run PowerShell demo","handler":"run","menu":"both","contextMenu":true,"toolbar":true,"requires":"any"}],
+  "viewers": [{
+    "name": "PowerShell demo Viewer",
+    "patterns": ["*.smxpsview"],
+    "handler": "viewDemo"
+  }],
+  "fileSystems": [{
+    "id": "demo-machines",
+    "name": "Demo machines",
+    "listHandler": "listDemoMachines",
+    "icon": "icon.svg",
+    "refreshIntervalMs": 5000,
+    "actions": [
+      {"id": "inspect", "title": "Inspect", "handler": "inspectDemoMachine", "default": true},
+      {"id": "toggle", "title": "Toggle state", "handler": "toggleDemoMachine"}
+    ]
+  }]
 }

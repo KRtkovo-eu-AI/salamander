@@ -23,6 +23,7 @@ namespace Extensions
 #define SALAMATRIX_EXTENSIONS_VERSION_1_1 0x00010001
 #define SALAMATRIX_EXTENSIONS_VERSION_1_2 0x00010002
 #define SALAMATRIX_EXTENSIONS_VERSION_1_3 0x00010003
+#define SALAMATRIX_EXTENSIONS_VERSION_1_4 0x00010004
 
 enum ExtensionState
 {
@@ -66,7 +67,13 @@ enum ExtensionFlags
     ExtensionFlagPackage = 0x00000040,
     // The provider is registered, but its interpreter/server executable is
     // not available on this machine (for example node.exe or php.exe).
-    ExtensionFlagRuntimeExecutableUnavailable = 0x00000080
+    ExtensionFlagRuntimeExecutableUnavailable = 0x00000080,
+    // Declarative contribution metadata. These bits let generic management
+    // surfaces describe what a manifest extension adds without parsing its
+    // package or depending on the owning runtime provider.
+    ExtensionFlagMenuExtension = 0x00000100,
+    ExtensionFlagViewer = 0x00000200,
+    ExtensionFlagFileSystem = 0x00000400
 };
 
 struct ExtensionDescriptor
@@ -513,7 +520,7 @@ public:
 
     virtual DWORD WINAPI GetVersion() const
     {
-        return SALAMATRIX_EXTENSIONS_VERSION_1_3;
+        return SALAMATRIX_EXTENSIONS_VERSION_1_4;
     }
 
     virtual BOOL WINAPI SetRefreshCallback(

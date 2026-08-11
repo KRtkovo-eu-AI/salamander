@@ -541,6 +541,7 @@ const Salamander = {
   command_id: "",
   commandHandler: "",
   command_handler: "",
+  invocation: {},
   ui,
   commands: {
     execute: (commandId) => hostCall(
@@ -566,6 +567,16 @@ const Salamander = {
   },
   fileOperations,
   file_operations: fileOperations,
+  fileSystem: {
+    addItem: (id, name, options = {}) => hostCall(
+      "salamander.fileSystem.addItem", { id, name, ...options }
+    ).then((result) => result.added === true),
+  },
+  file_system: {
+    add_item: (id, name, options = {}) => hostCall(
+      "salamander.fileSystem.addItem", { id, name, ...options }
+    ).then((result) => result.added === true),
+  },
   sides: {
     activeTab: (side = "source") =>
       hostCall("salamander.sides.activeTab", { side }),
@@ -685,6 +696,14 @@ Salamander.commandId = commandId;
 Salamander.command_id = commandId;
 Salamander.commandHandler = commandHandler;
 Salamander.command_handler = commandHandler;
+const invocationIndex = process.argv.indexOf("--invocation-json");
+const invocationJson = invocationIndex >= 0
+  ? process.argv[invocationIndex + 1] || "{}" : "{}";
+const invocation = JSON.parse(invocationJson);
+if (!invocation || Array.isArray(invocation) || typeof invocation !== "object") {
+  throw new Error("--invocation-json must contain a JSON object");
+}
+Salamander.invocation = invocation;
 
 globalThis.Salamander = Salamander;
 globalThis.Salamatrix = { Salamander };

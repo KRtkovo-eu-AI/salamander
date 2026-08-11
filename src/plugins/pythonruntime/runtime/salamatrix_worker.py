@@ -174,6 +174,16 @@ class _Storage:
         return keys if isinstance(keys, list) else []
 
 
+class _FileSystem:
+    def __init__(self, transport: _Transport) -> None:
+        self._transport = transport
+
+    def add_item(self, item_id: str, name: str, **options: Any) -> bool:
+        payload = {"id": item_id, "name": name, **options}
+        return bool(self._transport.call(
+            "salamander.fileSystem.addItem", payload).get("added"))
+
+
 class _FileOperations:
     def __init__(self, transport: _Transport) -> None:
         self._transport = transport
@@ -752,12 +762,14 @@ class _Application:
 
 class _Salamander:
     def __init__(self, transport: _Transport, command_id: str = "",
-                 command_handler: str = "") -> None:
+                 command_handler: str = "", invocation: Optional[dict] = None) -> None:
         self.command_id = command_id
         self.command_handler = command_handler
+        self.invocation = invocation or {}
         self.commands = _Commands(transport)
         self.storage = _Storage(transport)
         self.file_operations = _FileOperations(transport)
+        self.file_system = _FileSystem(transport)
         self.sides = _Sides(transport)
         self.ui = _UI(transport)
         self.clipboard = _Clipboard(transport)
@@ -776,13 +788,17 @@ def main() -> int:
     parser.add_argument("--entry", required=True)
     parser.add_argument("--command-id", default="")
     parser.add_argument("--command-handler", default="")
+    parser.add_argument("--invocation-json", default="{}")
     parser.add_argument("--one-shot", action="store_true")
     args = parser.parse_args()
     transport = _Transport()
     transport.handshake()
+    invocation = json.loads(args.invocation_json)
+    if not isinstance(invocation, dict):
+        raise ValueError("--invocation-json must contain a JSON object")
     globals_for_script = {
         "Salamander": _Salamander(
-            transport, args.command_id, args.command_handler)
+            transport, args.command_id, args.command_handler, invocation)
     }
     runpy.run_path(args.entry, init_globals=globals_for_script, run_name="__main__")
     if args.one_shot:

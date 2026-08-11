@@ -1,4 +1,57 @@
+from pathlib import Path
 import time
+
+handler = Salamander.command_handler
+
+if handler == "viewDemo":
+    path = str(Salamander.invocation.get("path", ""))
+    try:
+        contents = Path(path).read_text(encoding="utf-8")
+        preview = contents[:3000]
+        if len(contents) > 3000:
+            preview += "\n\n[preview truncated]"
+        Salamander.ui.message_box(
+            preview or "[empty file]",
+            f"Salamatrix Python Viewer demo — {path}")
+    except Exception as error:
+        Salamander.ui.message_box(
+            str(error), "Salamatrix Python Viewer demo", "OK", "Error")
+    raise SystemExit(0)
+
+if handler == "listDemoMachines":
+    machines = [
+        ("development", "Development VM", True),
+        ("test-lab", "Test lab", False),
+        ("build-agent", "Build agent", True),
+    ]
+    for machine_id, name, default_running in machines:
+        running = Salamander.storage.get(
+            f"machine.{machine_id}.running", default_running)
+        Salamander.file_system.add_item(
+            machine_id, f"{name} — {'Running' if running else 'Stopped'}",
+            icon="icon.svg", directory=False, enabled=True)
+    raise SystemExit(0)
+
+if handler in ("inspectDemoMachine", "toggleDemoMachine"):
+    item = Salamander.invocation.get("item") or {}
+    if handler == "inspectDemoMachine":
+        Salamander.ui.message_box(
+            f"Id: {item.get('id', '')}\nName: {item.get('name', '')}",
+            "Salamatrix FS item")
+    else:
+        item_id = str(item.get("id", "unknown"))
+        key = f"machine.{item_id}.running"
+        default_running = {
+            "development": True,
+            "test-lab": False,
+            "build-agent": True,
+        }.get(item_id, False)
+        running = Salamander.storage.get(key, default_running)
+        Salamander.storage.set(key, not running)
+        Salamander.ui.notify(
+            f"{item.get('name', item_id)}: {'Running' if not running else 'Stopped'}",
+            "Salamatrix FS demo", 2500)
+    raise SystemExit(0)
 
 Salamander.ui.notify("CPython extension package is running through Salamatrix.", "Salamatrix Python Demo", 2500)
 progress = Salamander.ui.progress("Salamatrix Python Progress Demo", 5)

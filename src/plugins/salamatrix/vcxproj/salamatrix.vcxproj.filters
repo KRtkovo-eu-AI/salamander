@@ -26,6 +26,7 @@
     <ClInclude Include="..\salamatrix_runtime.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\salamatrix_runtime_api.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\salamatrix_runtime_protocol.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\..\shared\salamatrix_thread_join.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\salamatrix_sides.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\salamatrix_events.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\salamatrix_extensions.h"><Filter>Header Files</Filter></ClInclude>

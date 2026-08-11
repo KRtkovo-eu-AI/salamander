@@ -1370,6 +1370,7 @@ const char* VIEWERS_COMMAND_REG = USERMENU_COMMAND_REG;
 const char* VIEWERS_ARGUMENTS_REG = USERMENU_ARGUMENTS_REG;
 const char* VIEWERS_INITDIR_REG = USERMENU_INITDIR_REG;
 const char* VIEWERS_TYPE_REG = "Type";
+const char* VIEWERS_LABEL_REG = "Viewer Label";
 
 const char* SALAMANDER_IZIP_REG = "Internal ZIP Packer";
 

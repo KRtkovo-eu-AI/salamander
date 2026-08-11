@@ -243,16 +243,26 @@ class SalamatrixEvents {
 $entry = null;
 $commandId = '';
 $commandHandler = '';
+$invocationJson = '{}';
 $oneShot = false;
 for ($i = 1; $i < count($argv); ++$i) {
     if ($argv[$i] === '--entry' && isset($argv[$i + 1])) $entry = $argv[++$i];
     elseif ($argv[$i] === '--command-id' && isset($argv[$i + 1])) $commandId = $argv[++$i];
     elseif ($argv[$i] === '--command-handler' && isset($argv[$i + 1])) $commandHandler = $argv[++$i];
+    elseif ($argv[$i] === '--invocation-json' && isset($argv[$i + 1])) $invocationJson = $argv[++$i];
     elseif ($argv[$i] === '--one-shot') $oneShot = true;
 }
 class SalamatrixRuntimes {
     private $client; public function __construct($client) { $this->client = $client; }
     public function list() { $r = $this->client->call('salamander.runtimes.list', array()); return isset($r['runtimes']) ? $r['runtimes'] : array(); }
+}
+class SalamatrixFileSystem {
+    private $client; public function __construct($client) { $this->client = $client; }
+    public function add_item($id, $name, $options = array()) {
+        $arguments = array_merge(array('id' => (string)$id, 'name' => (string)$name), $options);
+        $result = $this->client->call('salamander.fileSystem.addItem', $arguments);
+        return isset($result['added']) && $result['added'];
+    }
 }
 class SalamatrixApplication {
     private $client; public function __construct($client) { $this->client = $client; }
@@ -268,9 +278,12 @@ if (isset($hello['payload']['ok']) && !$hello['payload']['ok']) throw new Runtim
 $Salamander = new stdClass();
 $Salamander->command_id = $commandId;
 $Salamander->command_handler = $commandHandler;
+$Salamander->invocation = json_decode($invocationJson, true, 32, JSON_THROW_ON_ERROR);
+if (!is_array($Salamander->invocation)) throw new RuntimeException('--invocation-json must contain a JSON object');
 $Salamander->commands = new SalamatrixCommands($client);
 $Salamander->storage = new SalamatrixStorage($client);
 $Salamander->file_operations = new SalamatrixFileOperations($client);
+$Salamander->file_system = new SalamatrixFileSystem($client);
 $Salamander->sides = new SalamatrixSides($client);
 $Salamander->left_side = new SalamatrixSideView($Salamander->sides, 'left');
 $Salamander->right_side = new SalamatrixSideView($Salamander->sides, 'right');

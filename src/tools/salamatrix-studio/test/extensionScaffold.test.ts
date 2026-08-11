@@ -11,9 +11,9 @@ describe('extension project scaffolding', () => {
       const files = createExtensionScaffold({ id: 'Example.Test', name: 'Test', description: 'Demo', runtime });
       const manifest = JSON.parse(files.find((file) => file.path === 'extension.json')!.content);
       const entry = files.find((file) => file.path === manifest.entryPoint)!.content;
-      expect(manifest).toMatchObject({ id: 'Example.Test', runtime, version: '1.0.0' });
+      expect(manifest).toMatchObject({ schema: 2, id: 'Example.Test', runtime, version: '1.0.0' });
       expect(manifest.commands[0]).toMatchObject({ handler: 'run', title: 'Run Test' });
-      expect(manifest.capabilities).toContain('ui.notify');
+      expect(manifest.capabilities).toContain('ui.dialogs');
       expect(entry).toContain(menuDispatchMarker);
       expect(entry.toLowerCase()).toContain('hello from');
       if (runtime === 'Automation.JScript') {

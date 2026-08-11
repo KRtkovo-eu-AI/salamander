@@ -1574,6 +1574,8 @@
 #define IDS_PLUGINFUNCEXTENSIONHELPER 12127
 // plugins manager/functions: local AI model provider
 #define IDS_PLUGINFUNCLOCALAIMODEL   14310
+// plugins manager/functions: generic manifest extension
+#define IDS_PLUGINFUNCEXTENSION      14320
 // plugins manager: manifest extension lifecycle actions
 #define IDS_PLUGINEXTACTIVATE         12128
 #define IDS_PLUGINEXTDEACTIVATE       12129

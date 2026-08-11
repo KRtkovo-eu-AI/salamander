@@ -1,5 +1,20 @@
 # Change Log
 
+## 0.1.8
+
+- Validate and preserve optional Viewer contribution names used by Salamander's
+  Viewer association configuration.
+
+## 0.1.7
+
+- Restore `schema` as the canonical extension manifest key while accepting
+  `schemaVersion` as a compatibility alias; reject only conflicting aliases.
+
+## 0.1.6
+
+- Scaffold Salamatrix manifest schema 2 and type Viewer and simple file-system
+  role declarations.
+
 ## 0.1.5
 
 - Use the `KRtekTM` Marketplace publisher identity instead of the

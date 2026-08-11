@@ -24,6 +24,7 @@
 #include "../shared/spl_base.h"
 #include "../shared/spl_gen.h"
 #include "../shared/spl_menu.h"
+#include "../shared/spl_fs.h"
 #include "../shared/spl_view.h"
 #include "../shared/spl_thum.h"
 #include "versinfo.rh2"

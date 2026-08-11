@@ -1706,7 +1706,6 @@ Source: "{#PayloadDir}\utils\dbghelp.dll"; DestDir: "{app}\utils"; Flags: ignore
 Source: "{#PayloadDir}\utils\libeay32.dll"; DestDir: "{app}\utils"; Flags: ignoreversion
 Source: "{#PayloadDir}\utils\muires.dll"; DestDir: "{app}\utils"; Flags: ignoreversion
 Source: "{#PayloadDir}\utils\salextx64.dll"; DestDir: "{app}\utils"; Flags: ignoreversion
-Source: "{#PayloadDir}\utils\salextx86.dll"; DestDir: "{app}\utils"; Flags: ignoreversion
 Source: "{#PayloadDir}\utils\salmon.exe"; DestDir: "{app}\utils"; Flags: ignoreversion
 Source: "{#PayloadDir}\utils\salopen.exe"; DestDir: "{app}\utils"; Flags: ignoreversion
 Source: "{#PayloadDir}\utils\salspawn.exe"; DestDir: "{app}\utils"; Flags: ignoreversion
@@ -1935,7 +1934,7 @@ begin
   begin
     if FileExists(ExpandConstant('{app}\extensions\demos\README.md')) and
        FileExists(ExpandConstant('{app}\plugins\automation\scripts\Salamatrix Progress Demo\extension.json')) then
-      Result := '1.0.0';
+      Result := '1.4.1';
     Exit;
   end;
 
@@ -2341,7 +2340,7 @@ begin
   SetArrayLength(PluginIds, 0);
 
   AddPlugin('7zip', '7-Zip', '1.34 (x64)', True);
-  AddPlugin('automation', 'Automation', '2.1 (x64)', True);
+  AddPlugin('automation', 'Automation', '2.5 (x64)', True);
   AddPlugin('checksum', 'Checksum', '2.3 (x64)', True);
   AddPlugin('dbviewer', 'Database Viewer', '1.26 (x64)', True);
   AddPlugin('demoplug', 'Demo Plugin', '1.96 (x64)', False);
@@ -2369,10 +2368,10 @@ begin
   AddPlugin('textviewer', 'PrismSharp Text Viewer .NET', '1.03 (x64)', True);
   AddPlugin('regedt', 'Registry Editor', '1.15 (x64)', True);
   AddPlugin('renamer', 'Renamer', '1.15 (x64)', True);
-  AddPlugin('salamatrix', 'Salamatrix Framework', '0.2 (x64)', True);
+  AddPlugin('salamatrix', 'Salamatrix Framework', '0.75 (x64)', True);
   AddPlugin('salamatrixai', 'Salamatrix AI', '0.1 (x64)', False);
   AddPlugin('salamatrixailocalllama', 'Salamatrix AI Local LLaMA', '0.1 (x64)', False);
-  AddPlugin('salamatrixdemos', 'Salamatrix Demo Sample Scripts', '1.0.0 (x64)', False);
+  AddPlugin('salamatrixdemos', 'Salamatrix Demo Sample Scripts', '1.4.1 (x64)', False);
   AddPlugin('sftp', 'SFTP/SCP Client', '1.01 beta (x64)', True);
   AddPlugin('powershellruntime', 'PowerShell Runtime', '0.1 (x64)', True);
   AddPlugin('samandarin', 'Samandarin Update Notifier', '0.9 (x64)', True);

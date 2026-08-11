@@ -15,8 +15,33 @@ export interface ExtensionCommand {
   [key: string]: unknown;
 }
 
+export interface ExtensionViewer {
+  name?: string;
+  patterns: string[];
+  handler: string;
+}
+
+export interface ExtensionFileSystemAction {
+  id: string;
+  title: string;
+  handler: string;
+  default?: boolean;
+}
+
+export interface ExtensionFileSystem {
+  id: string;
+  name: string;
+  listHandler: string;
+  openHandler?: string;
+  icon?: string;
+  iconDark?: string;
+  refreshIntervalMs?: number;
+  actions?: ExtensionFileSystemAction[];
+}
+
 export interface ExtensionManifest {
-  schema?: number;
+  schema?: 1 | 2;
+  schemaVersion?: 1 | 2;
   id: string;
   name: string;
   version: string;
@@ -25,6 +50,8 @@ export interface ExtensionManifest {
   entryPoint: string;
   capabilities?: string[];
   commands?: ExtensionCommand[];
+  viewers?: ExtensionViewer[];
+  fileSystems?: ExtensionFileSystem[];
   [key: string]: unknown;
 }
 
@@ -35,6 +62,10 @@ export function parseManifest(text: string): ExtensionManifest {
 export function validateManifest(value: unknown): ExtensionManifest {
   if (!value || typeof value !== 'object') throw new Error('extension.json must contain a JSON object.');
   const manifest = value as Partial<ExtensionManifest>;
+  if (manifest.schema !== undefined && ![1, 2].includes(manifest.schema)) throw new Error('Unsupported manifest schema.');
+  if (manifest.schemaVersion !== undefined && ![1, 2].includes(manifest.schemaVersion)) throw new Error('Unsupported manifest schemaVersion compatibility alias.');
+  if (manifest.schema !== undefined && manifest.schemaVersion !== undefined && manifest.schema !== manifest.schemaVersion) throw new Error('Manifest schema and schemaVersion must not conflict.');
+  const schema = manifest.schema ?? manifest.schemaVersion ?? 1;
   for (const field of ['id', 'name', 'version', 'entryPoint'] as const) {
     if (typeof manifest[field] !== 'string' || manifest[field].length === 0) throw new Error(`Manifest field '${field}' is required.`);
   }
@@ -50,5 +81,13 @@ export function validateManifest(value: unknown): ExtensionManifest {
     if (command.requires && !['any', 'disk', 'focused', 'file', 'selection'].includes(command.requires)) throw new Error(`Invalid command requirement: ${command.requires}`);
     if (command.toolbarMenu && !command.toolbar) throw new Error('toolbarMenu requires toolbar to be enabled.');
   }
+  if (manifest.viewers !== undefined && (!Array.isArray(manifest.viewers) || schema !== 2)) throw new Error('Manifest viewers require schema 2.');
+  for (const viewer of manifest.viewers ?? []) {
+    if (!viewer || typeof viewer !== 'object') throw new Error('Every manifest Viewer must be an object.');
+    if (viewer.name !== undefined && typeof viewer.name !== 'string') throw new Error('Viewer name must be a string.');
+    if (typeof viewer.handler !== 'string' || viewer.handler.length === 0) throw new Error('Viewer handler is required.');
+    if (!Array.isArray(viewer.patterns) || viewer.patterns.length === 0 || viewer.patterns.some((pattern) => typeof pattern !== 'string' || pattern.length === 0)) throw new Error('Viewer patterns must be a non-empty string array.');
+  }
+  if (manifest.fileSystems !== undefined && (!Array.isArray(manifest.fileSystems) || schema !== 2)) throw new Error('Manifest fileSystems require schema 2.');
   return manifest as ExtensionManifest;
 }

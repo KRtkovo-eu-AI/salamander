@@ -265,6 +265,9 @@
     <ClInclude Include="..\scriptlist.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\shared\salamatrix_thread_join.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="..\scriptsite.h">
       <Filter>Header Files</Filter>
     </ClInclude>

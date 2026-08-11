@@ -2480,6 +2480,7 @@ public:
     char* RegKeyName;             // registry key name for configuration (max length MAX_PATH - 1)
     char* Extensions;             // archive extensions separated by ';' (max length MAX_PATH - 1)
     TIndirectArray<char> FSNames; // array of plugin filesystem names (each max length MAX_PATH - 1)
+    std::vector<std::string> ViewerLabels; // separately registered viewer identities exposed by this plug-in
 
     char* LastSLGName; // name of the last used .SLG file (NULL = none yet or same language as Salamander)
 
@@ -2700,7 +2701,8 @@ public:
     BOOL ViewFile(const char* name, int left, int top, int width, int height,
                   UINT showCmd, BOOL alwaysOnTop, BOOL returnLock,
                   HANDLE* lock, BOOL* lockOwner,
-                  int enumFilesSourceUID, int enumFilesCurrentIndex);
+                  int enumFilesSourceUID, int enumFilesCurrentIndex,
+                  const char* viewerLabel = NULL);
 
     // plugin call: OpenFS
     CPluginFSInterfaceAbstract* OpenFS(const char* fsName, int fsNameIndex);
@@ -3565,6 +3567,8 @@ public:
     virtual void WINAPI SetPluginIcon(int iconIndex);
     virtual void WINAPI SetPluginMenuAndToolbarIcon(int iconIndex);
     virtual void WINAPI SetIconListForGUI(CGUIIconListAbstract* iconList);
+    virtual void WINAPI AddViewerWithLabel(const char* masks, BOOL force,
+                                           const char* viewerLabel);
 };
 
 //

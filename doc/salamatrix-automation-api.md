@@ -45,12 +45,12 @@ and the generated `main` entry point, then asks Salamatrix to refresh extension
 discovery. The assistant returns source code, not a JSON manifest embedded in
 the source.
 
-The generated manifest uses schema version 1 and binds one plugin-menu command
+The generated manifest uses schema version 2 and binds one plugin-menu command
 to handler `main`:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schema": 2,
   "id": "generated.example",
   "name": "Generated example",
   "version": "1.0.0",
@@ -78,9 +78,50 @@ absolute paths and parent traversal are rejected. Manifests are strict UTF-8
 JSON and reject duplicate members, invalid types, duplicate command ids, and
 unsupported schema versions.
 
+Schema 2 adds two optional native roles while schema 1 remains accepted:
+
+- `viewers[]` registers one or more file masks, an optional user-visible
+  `name`, and a one-shot `handler`. Viewer configuration lists every registered
+  package/Viewer identity as a separate **Associated viewer** choice instead of
+  showing only the shared Salamatrix Framework plugin. The selected identity is
+  preserved with the association across configuration saves and restarts and
+  is carried to the framework when that association is invoked. Therefore a
+  concrete extension Viewer selected manually for `*.*` (including as an
+  alternate Viewer opened with Alt+F3) runs that exact handler even when the
+  opened file does not match the Viewer's original manifest mask.
+  Declarative Viewer identities and masks are registered independently of
+  runtime-provider startup order; dispatch still requires the runtime to be
+  available when the Viewer is opened.
+  The handler receives `Salamander.invocation` with `role="viewer"`, the local
+  `path`, suggested window geometry, show state, always-on-top state, and the
+  optional enumeration source/index. Viewer associations are registered during
+  Salamatrix startup; installing or changing a viewer package requires a host
+  restart before new masks enter the global viewer association list.
+- `fileSystems[]` contributes a flat provider under `salamatrix:`. Each provider
+  declares `id`, `name`, `listHandler`, optional `openHandler`, SVG icons,
+  `refreshIntervalMs`, and item `actions[]`. The list handler calls
+  `Salamander.fileSystem.addItem` / `file_system.add_item`; item records contain
+  `id`, `name`, optional package-relative SVG `icon`/`iconDark`, `directory`, and
+  `enabled`. Enter executes the declared default action and the native context
+  menu exposes all declared actions. Provider contents include a native `..`
+  item, Directory Line exposes clickable breadcrumb segments, and the main
+  window honors full, shortened, and directory-only path display modes.
+  Rename/copy/move/delete/upload and complex hierarchical navigation are
+  intentionally unsupported in the flat v1 role.
+
+The distributed Salamatrix extension demos (`src/extensions/demos/README.md`)
+include equivalent schema-2 Viewer and FS handlers for Node.js, Python,
+PowerShell, PHP, and Lua, each with a distinct sample file mask and provider.
+The existing Plugin Manager derives each package's **Functions** summary from
+these manifest contributions: `commands[]` is shown as **Menu Extension**,
+`viewers[]` as **File Viewer**, and `fileSystems[]` as **File System (FS)**.
+
 An extension must declare every applicable gated framework surface it calls.
 Public capability names are `panels.read`, `panels.write`, `ui.dialogs`, `commands`,
-`file-operations`, `storage`, `events`, `ai`, `clipboard`, and `runtimes`.
+`file-operations`, `file-system`, `storage`, `events`, `ai`, `clipboard`, and `runtimes`.
+For backward compatibility, omitting `capabilities` keeps the legacy unrestricted
+behavior. An explicitly empty `capabilities: []` is deny-all, and any non-empty
+list grants only the named surfaces (or `*`).
 Application language/appearance and other host metadata have no separate
 capability name.
 Direct use of language/runtime libraries does not add a Salamatrix capability,
@@ -92,6 +133,12 @@ Python, PHP, and Lua, and `CommandId`/`CommandHandler` in PowerShell. Persistent
 event subscriptions are useful only for an activated extension whose runtime
 supports persistent sessions; a one-shot script normally exits before a future
 event can arrive.
+
+Modern workers also expose the same parsed `Salamander.invocation` object. It is
+empty for ordinary commands and carries role-specific data for Viewer and FS
+list/action invocations. The runtime providers pass this append-only context as
+strict JSON and preserve Unicode and embedded quotes through Windows command-line
+escaping.
 
 ### How the AI consumes this contract
 

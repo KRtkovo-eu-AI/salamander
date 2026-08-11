@@ -7,6 +7,7 @@ param(
     [string]$EntryPoint,
     [string]$CommandId = '',
     [string]$CommandHandler = '',
+    [string]$InvocationJson = '{}',
     [switch]$OneShot
 )
 
@@ -54,7 +55,11 @@ function Invoke-Host {
         $frame = Read-Frame
         if ($frame.Kind -eq 'event') { Invoke-Event $frame.Payload; continue }
         if ($frame.Id -ne $id) { continue }
-        if ($frame.Kind -eq 'error' -or $frame.Payload.ok -eq $false) { throw [string]$frame.Payload.error }
+        if ($frame.Kind -eq 'error') { throw [string]$frame.Payload.error }
+        $okProperty = $frame.Payload.PSObject.Properties['ok']
+        if ($null -ne $okProperty -and $okProperty.Value -eq $false) {
+            throw [string]$frame.Payload.error
+        }
         if ($frame.Kind -ne 'result') { throw "Unexpected SMX1 response: $($frame.Kind)" }
         return $frame.Payload
     }
@@ -63,6 +68,123 @@ function Invoke-Host {
 Send-Frame -Kind 'hello' -Id 0 -Payload @{ protocol = 1; runtime = 'powershell' }
 do { $hello = Read-Frame } while ($hello.Kind -ne 'result' -or $hello.Id -ne 0)
 if ($hello.Payload.ok -eq $false) { throw 'Salamander host rejected the worker' }
+
+function Initialize-SalamatrixWindowIcon {
+    try {
+        $response = Invoke-Host -Method 'salamander.host.windowIcon' -Arguments @{}
+        if ($null -eq $response -or
+            [string]::IsNullOrWhiteSpace([string]$response.icon)) {
+            return
+        }
+
+        Add-Type -AssemblyName System.Drawing
+        Add-Type -AssemblyName System.Windows.Forms
+        if ($null -eq ('OpenSalamander.Salamatrix.ExtensionWindowIconFilter' -as [type])) {
+            $filterSource = @'
+using System;
+using System.Drawing;
+using System.Runtime.InteropServices;
+using System.Windows.Forms;
+
+namespace OpenSalamander.Salamatrix
+{
+    public sealed class ExtensionWindowIconFilter : IMessageFilter, IDisposable
+    {
+        private const int GA_ROOT = 2;
+        private const int WM_SETICON = 0x0080;
+        private const int ICON_SMALL = 0;
+        private const int ICON_BIG = 1;
+
+        private readonly Icon icon;
+        private IntPtr[] initializedWindows = new IntPtr[8];
+        private int initializedWindowCount;
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetAncestor(IntPtr hwnd, uint flags);
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(
+            IntPtr hwnd, out uint processId);
+
+        [DllImport("kernel32.dll")]
+        private static extern uint GetCurrentProcessId();
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(
+            IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam);
+
+        public ExtensionWindowIconFilter(Icon windowIcon)
+        {
+            icon = (Icon)windowIcon.Clone();
+        }
+
+        public bool PreFilterMessage(ref Message message)
+        {
+            IntPtr root = GetAncestor(message.HWnd, GA_ROOT);
+            if (root == IntPtr.Zero || IsInitialized(root))
+                return false;
+
+            uint processId;
+            GetWindowThreadProcessId(root, out processId);
+            if (processId != GetCurrentProcessId())
+                return false;
+
+            SendMessage(root, WM_SETICON, new IntPtr(ICON_BIG), icon.Handle);
+            SendMessage(root, WM_SETICON, new IntPtr(ICON_SMALL), icon.Handle);
+            if (initializedWindowCount == initializedWindows.Length)
+                Array.Resize(ref initializedWindows, initializedWindows.Length * 2);
+            initializedWindows[initializedWindowCount++] = root;
+            return false;
+        }
+
+        private bool IsInitialized(IntPtr hwnd)
+        {
+            for (int index = 0; index < initializedWindowCount; ++index)
+                if (initializedWindows[index] == hwnd)
+                    return true;
+            return false;
+        }
+
+        public void Dispose()
+        {
+            Application.RemoveMessageFilter(this);
+            icon.Dispose();
+        }
+    }
+}
+'@
+            if ($PSVersionTable.PSEdition -eq 'Core') {
+                $references = @(
+                    [System.Drawing.Icon].Assembly.Location
+                    [System.Windows.Forms.Form].Assembly.Location
+                    [System.Windows.Forms.Message].Assembly.Location
+                ) | Select-Object -Unique
+                Add-Type -ReferencedAssemblies $references -TypeDefinition $filterSource
+            } else {
+                Add-Type -ReferencedAssemblies 'System.Drawing', 'System.Windows.Forms' -TypeDefinition $filterSource
+            }
+        }
+
+        $bytes = [Convert]::FromBase64String([string]$response.icon)
+        $stream = New-Object System.IO.MemoryStream -ArgumentList @(,$bytes)
+        try {
+            $sourceIcon = New-Object System.Drawing.Icon -ArgumentList $stream
+            try {
+                $filter = New-Object OpenSalamander.Salamatrix.ExtensionWindowIconFilter -ArgumentList $sourceIcon
+                [System.Windows.Forms.Application]::AddMessageFilter($filter)
+                $global:SalamatrixWindowIconFilter = $filter
+            } finally {
+                $sourceIcon.Dispose()
+            }
+        } finally {
+            $stream.Dispose()
+        }
+    } catch {
+        # Window icon decoration is optional and must never block an extension.
+    }
+}
+
+Initialize-SalamatrixWindowIcon
 
 $commands = [pscustomobject]@{}
 $commands | Add-Member ScriptMethod Execute {
@@ -105,6 +227,11 @@ $storage | Add-Member ScriptMethod Clear {
 $storage | Add-Member ScriptMethod Schema {
     @((Invoke-Host -Method 'salamander.storage.schema' -Arguments @{}).settings)
 }
+$storage | Add-Member ScriptMethod Keys {
+    $result = Invoke-Host -Method 'salamander.storage.keys' -Arguments @{}
+    if ($null -ne $result -and $result.keys -is [array]) { return $result.keys }
+    return @()
+}
 $fileOperations = [pscustomobject]@{}
 $fileOperations | Add-Member ScriptMethod Rename { (Invoke-Host -Method 'salamander.fileOperations.rename' -Arguments @{}).result }
 $fileOperations | Add-Member ScriptMethod Copy { (Invoke-Host -Method 'salamander.fileOperations.copy' -Arguments @{}).result }
@@ -113,6 +240,13 @@ $fileOperations | Add-Member ScriptMethod Delete { (Invoke-Host -Method 'salaman
 $fileOperations | Add-Member ScriptMethod CreateDirectory { (Invoke-Host -Method 'salamander.fileOperations.createDirectory' -Arguments @{}).result }
 $fileOperations | Add-Member ScriptMethod Refresh { (Invoke-Host -Method 'salamander.fileOperations.refresh' -Arguments @{}).result }
 $fileOperations | Add-Member ScriptMethod Properties { (Invoke-Host -Method 'salamander.fileOperations.properties' -Arguments @{}).result }
+$fileSystem = [pscustomobject]@{}
+$fileSystem | Add-Member ScriptMethod AddItem {
+    param([string]$Id, [string]$Name, [hashtable]$Options = @{})
+    $arguments = @{ id = $Id; name = $Name }
+    foreach ($key in $Options.Keys) { $arguments[$key] = $Options[$key] }
+    [bool](Invoke-Host -Method 'salamander.fileSystem.addItem' -Arguments $arguments).added
+}
 $sides = [pscustomobject]@{}
 $sides | Add-Member ScriptMethod ActiveTab {
     param([string]$Side = 'source')
@@ -150,6 +284,15 @@ $sides | Add-Member ScriptMethod FocusItem {
     param([int]$Index, [string]$Side = 'source', [bool]$PartVisible = $true)
     (Invoke-Host -Method 'salamander.sides.focusItem' -Arguments @{ side = $Side; index = $Index; partVisible = $PartVisible }).changed
 }
+$sides | Add-Member ScriptMethod CreateTab {
+    param([string]$Side = 'source', [AllowNull()][string]$Path = $null, [Nullable[int]]$Index = $null)
+    $args = @{ side = $Side; path = $Path }; if ($null -ne $Index) { $args.index = $Index.Value }
+    Invoke-Host -Method 'salamander.sides.createTab' -Arguments $args
+}
+$sides | Add-Member ScriptMethod CloseTab { param([string]$TabId); (Invoke-Host -Method 'salamander.sides.closeTab' -Arguments @{ tabId = [string]$TabId }).ok }
+$sides | Add-Member ScriptMethod ReorderTab { param([string]$TabId, [int]$Index); (Invoke-Host -Method 'salamander.sides.reorderTab' -Arguments @{ tabId = [string]$TabId; index = $Index }).ok }
+$sides | Add-Member ScriptMethod MoveTab { param([string]$TabId, [string]$Side = 'source', [Nullable[int]]$Index = $null); $args = @{ tabId = [string]$TabId; side = $Side }; if ($null -ne $Index) { $args.index = $Index.Value }; (Invoke-Host -Method 'salamander.sides.moveTab' -Arguments $args).ok }
+$sides | Add-Member ScriptMethod SetDetached { param([bool]$Detached); (Invoke-Host -Method 'salamander.sides.setDetached' -Arguments @{ detached = $Detached }).ok }
 function New-SalamatrixSideView([string]$SideName) {
     $view = [pscustomobject]@{ Side = $SideName }
     $view | Add-Member ScriptMethod ActiveTab { Invoke-Host -Method 'salamander.sides.activeTab' -Arguments @{ side = $this.Side } }
@@ -161,6 +304,11 @@ function New-SalamatrixSideView([string]$SideName) {
     $view | Add-Member ScriptMethod SelectItem { param([int]$Index, [bool]$Select = $true, [bool]$Repaint = $true); (Invoke-Host -Method 'salamander.sides.selectItem' -Arguments @{ side = $this.Side; index = $Index; select = $Select; repaint = $Repaint }).changed }
     $view | Add-Member ScriptMethod SelectAll { param([bool]$Select = $true, [bool]$Repaint = $true); (Invoke-Host -Method 'salamander.sides.selectAll' -Arguments @{ side = $this.Side; select = $Select; repaint = $Repaint }).changed }
     $view | Add-Member ScriptMethod FocusItem { param([int]$Index, [bool]$PartVisible = $true); (Invoke-Host -Method 'salamander.sides.focusItem' -Arguments @{ side = $this.Side; index = $Index; partVisible = $PartVisible }).changed }
+    $view | Add-Member ScriptMethod CreateTab { param([AllowNull()][string]$Path = $null, [Nullable[int]]$Index = $null); $args = @{ side = $this.Side; path = $Path }; if ($null -ne $Index) { $args.index = $Index.Value }; Invoke-Host -Method 'salamander.sides.createTab' -Arguments $args }
+    $view | Add-Member ScriptMethod CloseTab { param([string]$TabId); (Invoke-Host -Method 'salamander.sides.closeTab' -Arguments @{ tabId = [string]$TabId }).ok }
+    $view | Add-Member ScriptMethod ReorderTab { param([string]$TabId, [int]$Index); (Invoke-Host -Method 'salamander.sides.reorderTab' -Arguments @{ tabId = [string]$TabId; index = $Index }).ok }
+    $view | Add-Member ScriptMethod MoveTab { param([string]$TabId, [string]$Side = $this.Side, [Nullable[int]]$Index = $null); $args = @{ tabId = [string]$TabId; side = $Side }; if ($null -ne $Index) { $args.index = $Index.Value }; (Invoke-Host -Method 'salamander.sides.moveTab' -Arguments $args).ok }
+    $view | Add-Member ScriptMethod SetDetached { param([bool]$Detached); (Invoke-Host -Method 'salamander.sides.setDetached' -Arguments @{ detached = $Detached }).ok }
     return $view
 }
 $leftSide = New-SalamatrixSideView 'left'
@@ -169,13 +317,27 @@ $sourceSide = New-SalamatrixSideView 'source'
 $targetSide = New-SalamatrixSideView 'target'
 $ui = [pscustomobject]@{}
 $ui | Add-Member ScriptMethod MessageBox {
-    param([string]$Message, [string]$Title = 'Salamander')
-    (Invoke-Host -Method 'salamander.ui.messageBox' -Arguments @{ message = $Message; title = $Title }).result
+    param(
+        [string]$Message,
+        [string]$Title = 'Salamander',
+        [string]$Buttons = 'OK',
+        [string]$Icon = 'Information'
+    )
+    (Invoke-Host -Method 'salamander.ui.messageBox' -Arguments @{
+        message = $Message
+        title = $Title
+        buttons = $Buttons
+        icon = $Icon
+    }).result
 }
 $ui | Add-Member ScriptMethod Notify {
     param([string]$Message, [string]$Title = 'Salamander', [int]$TimeoutMs = 5000)
     (Invoke-Host -Method 'salamander.ui.notify' -Arguments @{ message = $Message; title = $Title; timeoutMs = [Math]::Max(0, $TimeoutMs) }).shown
 }
+$ui | Add-Member ScriptMethod Controls {
+    (Invoke-Host -Method 'salamander.ui.controls' -Arguments @{}).shown
+}
+$ui | Add-Member ScriptMethod Uptime { [string](Invoke-Host -Method 'salamander.host.uptime' -Arguments @{}).milliseconds }
 $ui | Add-Member ScriptMethod InputBox {
     param([string]$Prompt, [string]$Title = 'Salamander', [string]$Initial = '')
     Invoke-Host -Method 'salamander.ui.inputBox' -Arguments @{ prompt = $Prompt; title = $Title; initial = $Initial }
@@ -238,13 +400,14 @@ $ui | Add-Member ScriptMethod Dialog {
     $created = Invoke-Host -Method 'salamander.ui.dialog.create' -Arguments @{ title = $Title; width = $Width; height = $Height }
     $dialog = [pscustomobject]@{ DialogId = [string]$created.dialogId }
     $dialog | Add-Member ScriptMethod AddControl {
-        param([string]$Kind, [string]$Id, [string]$Text = '', [bool]$ReadOnly = $false, [bool]$Checked = $false, [int]$DialogResult = 0, [hashtable]$Layout = $null, [bool]$KeepOpen = $false, [bool]$Multiline = $false)
+        param([string]$Kind, [string]$Id, [string]$Text = '', [bool]$ReadOnly = $false, [bool]$Checked = $false, [int]$DialogResult = 0, [hashtable]$Layout = $null, [bool]$KeepOpen = $false, [bool]$Multiline = $false, [hashtable]$Options = $null)
         $arguments = @{ dialogId = $this.DialogId; kind = $Kind; controlId = $Id; text = $Text; readOnly = $ReadOnly; checked = $Checked; dialogResult = $DialogResult; keepOpen = $KeepOpen; multiline = $Multiline }
         if ($null -ne $Layout) {
             foreach ($name in @('x', 'y', 'width', 'height')) {
                 if ($Layout.ContainsKey($name)) { $arguments[$name] = [int]$Layout[$name] }
             }
         }
+        if ($null -ne $Options) { foreach ($name in $Options.Keys) { $arguments[$name] = $Options[$name] } }
         [void](Invoke-Host -Method 'salamander.ui.dialog.add' -Arguments $arguments)
     }
     $dialog | Add-Member ScriptMethod SetValidation {
@@ -343,13 +506,27 @@ $runtimes = [pscustomobject]@{}
 $runtimes | Add-Member ScriptMethod List {
     (Invoke-Host -Method 'salamander.runtimes.list' -Arguments @{}).runtimes
 }
+$application = [pscustomobject]@{}
+$application | Add-Member ScriptMethod Language {
+    Invoke-Host -Method 'salamander.host.language' -Arguments @{}
+}
+$application | Add-Member ScriptMethod Appearance {
+    Invoke-Host -Method 'salamander.host.appearance' -Arguments @{}
+}
+
+$invocation = $InvocationJson | ConvertFrom-Json
+if ($null -eq $invocation -or $invocation -is [System.Array]) {
+    throw '-InvocationJson must contain a JSON object'
+}
 
 $Salamander = [pscustomobject]@{
     command_id = $CommandId
     command_handler = $CommandHandler
+    invocation = $invocation
     commands = $commands
     storage = $storage
     file_operations = $fileOperations
+    file_system = $fileSystem
     sides = $sides
     left_side = $leftSide
     right_side = $rightSide
@@ -360,11 +537,11 @@ $Salamander = [pscustomobject]@{
     ai = $ai
     events = $events
     runtimes = $runtimes
+    application = $application
 }
 
-# Extension return values must never leak onto stdout: stdout is the SMX1
-# transport.  Scripts are free to leave method results unassigned (as native
-# PowerShell scripts commonly do), so discard the invocation pipeline here.
+# stdout is reserved for SMX1 frames; discard unassigned PowerShell return
+# values from extension scripts so they cannot corrupt the transport.
 & $EntryPoint | Out-Null
 if ($OneShot) { exit 0 }
 while ($true) {

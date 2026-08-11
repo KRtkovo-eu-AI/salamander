@@ -6,11 +6,46 @@
 #include "../salamatrix_ai.h"
 #include "../salamatrix_commands.h"
 #include "../salamatrix_runtime_api.h"
+#include "../salamatrix_runtime_frame_queue.h"
 #include "../salamatrix_runtime_protocol.h"
+#include "../../shared/salamatrix_thread_join.h"
 
 namespace
 {
 int Failures = 0;
+
+class SlowFrameSession : public Salamatrix::Runtime::IRuntimeSession
+{
+public:
+    HANDLE Written;
+    std::string Frame;
+
+    SlowFrameSession()
+        : Written(CreateEvent(NULL, TRUE, FALSE, NULL))
+    {
+    }
+
+    virtual ~SlowFrameSession()
+    {
+        CloseHandle(Written);
+    }
+
+    virtual BOOL WINAPI IsAlive() const { return TRUE; }
+    virtual BOOL WINAPI SendFrame(const char* bytes, DWORD count)
+    {
+        Sleep(100);
+        Frame.assign(bytes, bytes + count);
+        SetEvent(Written);
+        return TRUE;
+    }
+    virtual BOOL WINAPI ReceiveFrame(char*, DWORD, DWORD, DWORD*)
+    {
+        return FALSE;
+    }
+    virtual BOOL WINAPI Pump(DWORD) { return FALSE; }
+    virtual void WINAPI Stop() {}
+    virtual void WINAPI Release() {}
+};
 
 class TestAssistantProvider : public Salamatrix::AI::IAssistantProvider
 {
@@ -660,6 +695,83 @@ void TestCommandCatalog()
     Check(entry != NULL && entry->SalamanderCommandId == SALCMD_CALCDIRSIZES,
           "command catalog exposes directory sizes");
 }
+
+void TestRuntimeFrameQueue()
+{
+    SlowFrameSession session;
+    Salamatrix::Runtime::RuntimeFrameQueue queue;
+    Check(queue.Start(&session), "runtime frame queue starts");
+    const ULONGLONG started = GetTickCount64();
+    Check(queue.Queue("event\n", 6), "runtime frame queue accepts event");
+    const ULONGLONG elapsed = GetTickCount64() - started;
+    Check(elapsed < 50, "runtime frame queue producer is non-blocking");
+    Check(WaitForSingleObject(session.Written, 1000) == WAIT_OBJECT_0 &&
+              session.Frame == "event\n",
+          "runtime frame queue writes the complete frame asynchronously");
+    queue.Shutdown();
+}
+
+const UINT TestSentMessage = WM_APP + 197;
+
+LRESULT CALLBACK ThreadJoinWindowProc(
+    HWND window, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (message == TestSentMessage)
+        return 197;
+    return DefWindowProc(window, message, wParam, lParam);
+}
+
+struct ThreadJoinContext
+{
+    HWND Window;
+    LRESULT Result;
+
+    ThreadJoinContext() : Window(NULL), Result(0) {}
+};
+
+DWORD WINAPI SendSynchronousTestMessage(void* context)
+{
+    ThreadJoinContext* call = static_cast<ThreadJoinContext*>(context);
+    if (call == NULL)
+        return 1;
+    call->Result = SendMessage(call->Window, TestSentMessage, 0, 0);
+    return 0;
+}
+
+void TestThreadJoinDispatchesSynchronousMessages()
+{
+    const wchar_t className[] = L"SalamatrixThreadJoinTest";
+    WNDCLASSW windowClass = {};
+    windowClass.lpfnWndProc = ThreadJoinWindowProc;
+    windowClass.hInstance = GetModuleHandle(NULL);
+    windowClass.lpszClassName = className;
+    Check(RegisterClassW(&windowClass) != 0,
+          "register thread-join test window");
+    HWND window = CreateWindowExW(
+        0, className, L"", 0, 0, 0, 0, 0, HWND_MESSAGE,
+        NULL, windowClass.hInstance, NULL);
+    Check(window != NULL, "create thread-join test window");
+    if (window != NULL)
+    {
+        ThreadJoinContext context;
+        context.Window = window;
+        HANDLE thread = CreateThread(
+            NULL, 0, SendSynchronousTestMessage, &context, 0, NULL);
+        Check(thread != NULL, "start synchronous sender thread");
+        if (thread != NULL)
+        {
+            Check(
+                Salamatrix::Runtime::WaitForThreadWithSentMessageDispatch(
+                    thread, window) != FALSE,
+                "join dispatches synchronous sent message without timeout");
+            Check(context.Result == 197,
+                  "synchronous sender receives main-thread callback result");
+            CloseHandle(thread);
+        }
+        DestroyWindow(window);
+    }
+    UnregisterClassW(className, windowClass.hInstance);
+}
 } // namespace
 
 int main()
@@ -671,6 +783,8 @@ int main()
     TestJsonMemberExtraction();
     TestAssistantService();
     TestCommandCatalog();
+    TestRuntimeFrameQueue();
+    TestThreadJoinDispatchesSynchronousMessages();
     if (Failures != 0)
     {
         std::fprintf(stderr, "%d runtime protocol test(s) failed.\n", Failures);

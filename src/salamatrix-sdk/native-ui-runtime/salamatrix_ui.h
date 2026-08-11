@@ -716,9 +716,10 @@ public:
         void* context);
 };
 
-// Closes every HWND created by NativeDialog before the UI provider DLL is
-// unloaded. This is a provider-internal lifecycle hook, not part of the
-// plug-in-facing IUIService ABI.
+// Closes every modeless HWND created by the native UI provider, including
+// NativeDialog and notification windows, before the provider DLL is unloaded.
+// This is a provider-internal lifecycle hook, not part of the plug-in-facing
+// IUIService ABI.
 void WINAPI CloseAllNativeDialogs();
 
 // Implemented by the Salamatrix native UI provider and used by its local

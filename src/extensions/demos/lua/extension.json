@@ -1,12 +1,28 @@
 {
-  "schema": 1,
+  "schema": 2,
   "id": "Salamatrix.Demo.Lua",
   "name": "Salamatrix Lua Demo",
-  "version": "1.2.0",
-  "description": "Demonstrates a Lua Salamatrix extension package.",
+  "version": "1.4.1",
+  "description": "Demonstrates commands, Viewer and a simple panel file system in a Lua Salamatrix extension package.",
   "runtime": "Lua",
   "entryPoint": "main.lua",
   "icon": "icon.svg",
-  "capabilities": ["ui.notify", "ui.progress", "ui.dialogs", "storage"],
-  "commands": [{"id":"Salamatrix.Demo.Lua.run","title":"Run Lua demo","handler":"run","menu":"both","contextMenu":true,"toolbar":true,"requires":"any"}]
+  "capabilities": ["ui.dialogs", "storage", "file-system"],
+  "commands": [{"id":"Salamatrix.Demo.Lua.run","title":"Run Lua demo","handler":"run","menu":"both","contextMenu":true,"toolbar":true,"requires":"any"}],
+  "viewers": [{
+    "name": "Lua demo Viewer",
+    "patterns": ["*.smxluaview"],
+    "handler": "viewDemo"
+  }],
+  "fileSystems": [{
+    "id": "demo-machines",
+    "name": "Demo machines",
+    "listHandler": "listDemoMachines",
+    "icon": "icon.svg",
+    "refreshIntervalMs": 5000,
+    "actions": [
+      {"id": "inspect", "title": "Inspect", "handler": "inspectDemoMachine", "default": true},
+      {"id": "toggle", "title": "Toggle state", "handler": "toggleDemoMachine"}
+    ]
+  }]
 }

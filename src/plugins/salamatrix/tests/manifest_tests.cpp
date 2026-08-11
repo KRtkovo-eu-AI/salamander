@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <vector>
 
 static int g_failures = 0;
 
@@ -30,7 +31,7 @@ static void TestCompleteManifest()
 {
     const char* json =
         "{"
-        "\"schemaVersion\":1,"
+        "\"schema\":2,"
         "\"id\":\"Example.Package\","
         "\"name\":\"Example \\u0161cript\","
         "\"version\":\"1.2.3\","
@@ -59,13 +60,21 @@ static void TestCompleteManifest()
         "\"enabled\":false,\"visible\":true},"
         "{\"id\":\"Example.Second\",\"title\":\"Second\",\"placement\":\"context\","
         "\"visible\":false}"
-        "]"
+        "],"
+        "\"viewers\":[{\"name\":\"Markdown preview\",\"patterns\":[\"*.md\",\"*.markdown\"],"
+        "\"handler\":\"viewMarkdown\"}],"
+        "\"fileSystems\":[{\"id\":\"machines\",\"name\":\"Machines\","
+        "\"listHandler\":\"listMachines\",\"openHandler\":\"openMachine\","
+        "\"icon\":\"assets/machines.svg\",\"iconDark\":\"assets/machines-dark.svg\","
+        "\"refreshIntervalMs\":1000,\"actions\":["
+        "{\"id\":\"connect\",\"title\":\"Connect\",\"handler\":\"connect\",\"default\":true},"
+        "{\"id\":\"start\",\"title\":\"Start\",\"handler\":\"start\"}]}]"
         "}";
 
     CExtensionManifest manifest;
     CExtensionManifestError error;
     CHECK(Parse(json, manifest, error));
-    CHECK(manifest.SchemaVersion == 1);
+    CHECK(manifest.SchemaVersion == 2);
     CHECK(manifest.Id == "Example.Package");
     CHECK(manifest.Name == "Example \xc5\xa1"
                            "cript");
@@ -74,6 +83,9 @@ static void TestCompleteManifest()
     CHECK(manifest.EntryPoint == "scripts/main.py");
     CHECK(manifest.Icon == "assets/icon.svg");
     CHECK(manifest.IconDark == "assets/icon-dark.svg");
+    CHECK(manifest.Viewers.size() == 1);
+    CHECK(manifest.Viewers[0].Name == "Markdown preview");
+    CHECK(manifest.CapabilitiesDeclared);
     CHECK(manifest.Capabilities.size() == 2);
     CHECK(manifest.Dependencies.size() == 2);
     CHECK(manifest.Dependencies[0] == "org.opensalamander.Core");
@@ -114,6 +126,15 @@ static void TestCompleteManifest()
     CHECK(manifest.Commands[1].Menu == "context");
     CHECK(!manifest.Commands[1].Visible);
     CHECK(!manifest.Commands[1].ToolbarMenu);
+    CHECK(manifest.Viewers.size() == 1);
+    CHECK(manifest.Viewers[0].Patterns.size() == 2);
+    CHECK(manifest.Viewers[0].Handler == "viewMarkdown");
+    CHECK(manifest.FileSystems.size() == 1);
+    CHECK(manifest.FileSystems[0].Id == "machines");
+    CHECK(manifest.FileSystems[0].ListHandler == "listMachines");
+    CHECK(manifest.FileSystems[0].RefreshIntervalMs == 1000);
+    CHECK(manifest.FileSystems[0].Actions.size() == 2);
+    CHECK(manifest.FileSystems[0].Actions[0].Default);
 
     const char* invalidToolbarMenu =
         "{\"id\":\"Example.InvalidToolbarMenu\",\"runtime\":\"PowerShell\","
@@ -258,7 +279,10 @@ static void TestInvalidDocuments()
         "\"commands\":[{\"icon\":\"icon.png\"}]}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
         "\"commands\":[{\"iconDark\":\"../icon.svg\"}]}",
-        "{\"schemaVersion\":2,\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\"}",
+        "{\"schemaVersion\":3,\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\"}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"viewers\":[]}",
+        "{\"schemaVersion\":2,\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"viewers\":[{\"patterns\":[\"dir/*.txt\"],\"handler\":\"view\"}]}",
+        "{\"schemaVersion\":2,\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"fileSystems\":[{\"id\":\"fs\",\"name\":\"FS\",\"listHandler\":\"list\",\"icon\":\"icon.png\"}]}",
         "{\"id\":\"Bad\",\"runtime\":{\"id\":\"JS\",\"minimumVersion\":\"1.x\"},"
         "\"entryPoint\":\"main.js\"}",
         "{\"id\":\"Bad space\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\"}",
@@ -300,13 +324,105 @@ static void TestInvalidDocuments()
     }
 }
 
-int main()
+static void TestCapabilityDeclarationCompatibility()
+{
+    CExtensionManifest manifest;
+    CExtensionManifestError error;
+    CHECK(Parse(
+        "{\"id\":\"Legacy\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\"}",
+        manifest, error));
+    CHECK(!manifest.CapabilitiesDeclared);
+    CHECK(manifest.Capabilities.empty());
+
+    CHECK(Parse(
+        "{\"id\":\"Restricted\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"capabilities\":[]}",
+        manifest, error));
+    CHECK(manifest.CapabilitiesDeclared);
+    CHECK(manifest.Capabilities.empty());
+}
+
+static void TestSchemaCompatibility()
+{
+    CExtensionManifest manifest;
+    CExtensionManifestError error;
+    CHECK(Parse(
+        "{\"schema\":1,\"id\":\"Canonical\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\"}",
+        manifest, error));
+    CHECK(manifest.SchemaVersion == 1);
+
+    CHECK(Parse(
+        "{\"schemaVersion\":1,\"id\":\"CompatibilityAlias\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\"}",
+        manifest, error));
+    CHECK(manifest.SchemaVersion == 1);
+
+    CHECK(Parse(
+        "{\"schema\":2,\"schemaVersion\":2,\"id\":\"MatchingAliases\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\"}",
+        manifest, error));
+    CHECK(manifest.SchemaVersion == 2);
+
+    CHECK(!Parse(
+        "{\"schema\":1,\"schemaVersion\":2,\"id\":\"ConflictingAliases\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\"}",
+        manifest, error));
+}
+
+static void TestViewerNameCompatibility()
+{
+    CExtensionManifest manifest;
+    CExtensionManifestError error;
+    CHECK(Parse(
+        "{\"schema\":2,\"id\":\"LegacyViewer\",\"runtime\":\"JS\","
+        "\"entryPoint\":\"main.js\",\"viewers\":[{\"patterns\":[\"*.legacy\"],"
+        "\"handler\":\"viewLegacy\"}]}",
+        manifest, error));
+    CHECK(manifest.Viewers.size() == 1);
+    CHECK(manifest.Viewers[0].Name.empty());
+}
+
+static void TestManifestFile(const wchar_t* path)
+{
+    FILE* file = NULL;
+    if (_wfopen_s(&file, path, L"rb") != 0 || file == NULL)
+    {
+        fwprintf(stderr, L"Cannot open demo manifest: %ls\n", path);
+        ++g_failures;
+        return;
+    }
+    _fseeki64(file, 0, SEEK_END);
+    const __int64 length = _ftelli64(file);
+    _fseeki64(file, 0, SEEK_SET);
+    if (length <= 0 || length > 4 * 1024 * 1024)
+    {
+        fwprintf(stderr, L"Invalid demo manifest size: %ls\n", path);
+        fclose(file);
+        ++g_failures;
+        return;
+    }
+    std::vector<char> bytes(static_cast<size_t>(length));
+    const size_t read = fread(&bytes[0], 1, bytes.size(), file);
+    fclose(file);
+    CExtensionManifest manifest;
+    CExtensionManifestError error;
+    if (read != bytes.size() || !manifest.Parse(&bytes[0], bytes.size(), error))
+    {
+        fwprintf(stderr, L"Invalid demo manifest: %ls\n", path);
+        if (!error.Message.empty())
+            fprintf(stderr, "  %s\n", error.Message.c_str());
+        ++g_failures;
+    }
+}
+
+int wmain(int argc, wchar_t** argv)
 {
     TestCompleteManifest();
     TestDefaults();
     TestLocaleText();
     TestSettingMigrations();
     TestInvalidDocuments();
+    TestCapabilityDeclarationCompatibility();
+    TestSchemaCompatibility();
+    TestViewerNameCompatibility();
+    for (int index = 1; index < argc; ++index)
+        TestManifestFile(argv[index]);
 
     if (g_failures != 0)
     {

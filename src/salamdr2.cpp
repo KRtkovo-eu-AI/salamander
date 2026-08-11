@@ -2495,14 +2495,31 @@ BOOL LoadViewers(HKEY hKey, const char* name, CViewerMasks* viewerMasks)
                 if (!GetValue(subKey, VIEWERS_INITDIR_REG, REG_SZ, initDir, MAX_PATH))
                     *initDir = 0;
 
+                std::vector<char> viewerLabel(SAL_MAX_PATH);
+                if (!GetValue(subKey, VIEWERS_LABEL_REG, REG_SZ,
+                              viewerLabel.data(), static_cast<DWORD>(viewerLabel.size())))
+                    viewerLabel[0] = 0;
+
                 if (Configuration.ConfigVersion < 44) // convert extensions to lowercase
                 {
                     char masksAux[MAX_PATH];
                     lstrcpyn(masksAux, masks, MAX_PATH);
                     StrICpy(masks, masksAux);
                 }
-                CViewerMasksItem* item = new CViewerMasksItem(masks, command, arguments,
-                                                              initDir, type, Configuration.ConfigVersion < 6);
+#ifdef new
+#undef new
+#define RESTORE_CONFIG_VIEWER_MASK_ITEM_DEBUG_NEW_MACRO
+#endif
+                CViewerMasksItem* item =
+                    new (std::nothrow) CViewerMasksItem(
+                        masks, command, arguments, initDir, type,
+                        Configuration.ConfigVersion < 6);
+#ifdef RESTORE_CONFIG_VIEWER_MASK_ITEM_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_CONFIG_VIEWER_MASK_ITEM_DEBUG_NEW_MACRO
+#endif
+                if (item != NULL)
+                    item->SetViewerLabel(viewerLabel.data());
                 if (item != NULL && item->IsGood())
                 {
                     viewerMasks->Add(item);
@@ -2554,6 +2571,8 @@ BOOL SaveViewers(HKEY hKey, const char* name, CViewerMasks* viewerMasks)
                     SetValue(subKey, VIEWERS_ARGUMENTS_REG, REG_SZ, viewerMasks->At(i)->Arguments, -1);
                 if (viewerMasks->At(i)->InitDir[0] != 0)
                     SetValue(subKey, VIEWERS_INITDIR_REG, REG_SZ, viewerMasks->At(i)->InitDir, -1);
+                if (viewerMasks->At(i)->ViewerLabel[0] != 0)
+                    SetValue(subKey, VIEWERS_LABEL_REG, REG_SZ, viewerMasks->At(i)->ViewerLabel, -1);
                 SetValue(subKey, VIEWERS_TYPE_REG, REG_DWORD,
                          &viewerMasks->At(i)->ViewerType, sizeof(DWORD));
                 CloseKey(subKey);

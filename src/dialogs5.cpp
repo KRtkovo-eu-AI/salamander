@@ -1138,17 +1138,33 @@ void CPluginsDlg::OnSelChanged()
         SetPluginManagerText(
             GetDlgItem(HWindow, IDC_PLUGINTHUMBNAILS),
             LoadStr(IDS_PLUGINTHUMBNONE));
+        char extensionFunctions[500];
+        extensionFunctions[0] = 0;
+        const DWORD contributionFlags =
+            extension->Descriptor.Flags &
+            (Salamatrix::Extensions::ExtensionFlagMenuExtension |
+             Salamatrix::Extensions::ExtensionFlagViewer |
+             Salamatrix::Extensions::ExtensionFlagFileSystem);
+        const auto appendFunction = [&extensionFunctions](const char* text)
+        {
+            if (extensionFunctions[0] != 0)
+                strcat_s(extensionFunctions, ", ");
+            strcat_s(extensionFunctions, text);
+        };
+        if ((contributionFlags &
+             Salamatrix::Extensions::ExtensionFlagViewer) != 0)
+            appendFunction(LoadStr(IDS_PLUGINFUNCFILEVIEWER));
+        if ((contributionFlags &
+             Salamatrix::Extensions::ExtensionFlagMenuExtension) != 0)
+            appendFunction(LoadStr(IDS_PLUGINFUNCMENUEXTENSION));
+        if ((contributionFlags &
+             Salamatrix::Extensions::ExtensionFlagFileSystem) != 0)
+            appendFunction(LoadStr(IDS_PLUGINFUNCFILESYSTEM));
+        if (extensionFunctions[0] == 0)
+            appendFunction(LoadStr(IDS_PLUGINFUNCEXTENSION));
         SetPluginManagerText(
             GetDlgItem(HWindow, IDC_PLUGINFUNCTIONS),
-            disabled
-                ? LoadStr(IDS_PLUGINEXTDISABLED)
-                : dependencyUnavailable
-                ? LoadStr(IDS_PLUGINEXTWAITINGDEPENDENCY)
-                : runtimeUnavailable
-                ? LoadStr(IDS_PLUGINEXTWAITINGRUNTIME)
-                : runtimeExecutableUnavailable
-                      ? LoadStr(IDS_PLUGINEXTWAITINGEXECUTABLE)
-                : "Extension");
+            extensionFunctions);
 
         char extensionName[300];
         char extensionBarText[500];
@@ -3234,25 +3250,6 @@ void CCfgPageViewers::Transfer(CTransferInfo& ti)
     if (ti.Type == ttDataToWindow)
     {
         Dirty = FALSE;
-        // populate the combo box with viewers
-        HWND hCombo = GetDlgItem(HWindow, IDC_VIEW_TYPE);
-        SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_VIEWER_EXTERNAL));
-        SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_VIEWER_INTERNAL));
-        int count = 0;
-        int index;
-        while ((index = Plugins.GetViewerIndex(count++)) != -1) // while "file viewer" plug-ins exist
-        {
-            CPluginData* p = Plugins.Get(index);
-            if (p != NULL)
-            {
-                char buf[MAX_PATH];
-                p->GetDisplayName(buf, MAX_PATH);
-                SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)buf);
-            }
-            else
-                TRACE_E("Unexpected situation in CCfgPageViewers::Transfer().");
-        }
-
         // populate the list of viewers
         int i;
         for (i = 0; i < ViewerMasks.Count; i++)
@@ -3340,28 +3337,64 @@ void CCfgPageViewers::LoadControls()
         item = (CViewerMasksItem*)itemID;
     DisableNotification = TRUE;
 
-    int type = item == NULL ? 2 : item->ViewerType;
-    int cmbSel = -1;
-    switch (type)
-    {
-    case VIEWER_EXTERNAL:
-        cmbSel = 0;
-        break;
-    case VIEWER_INTERNAL:
-        cmbSel = 1;
-        break;
+    // Rebuild the type list for the selected association. A framework plug-in
+    // can expose several delegated viewers through one native viewer interface;
+    // each registered identity must therefore have its own combo-box item.
+    HWND hCombo = GetDlgItem(HWindow, IDC_VIEW_TYPE);
+    SendMessage(hCombo, CB_RESETCONTENT, 0, 0);
+    SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_VIEWER_EXTERNAL));
+    SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_VIEWER_INTERNAL));
 
-    default:
+    int type = item == NULL ? 2 : item->ViewerType;
+    int cmbSel = type == VIEWER_EXTERNAL ? 0 :
+                 type == VIEWER_INTERNAL ? 1 : -1;
+    int viewerCount = 0;
+    int viewerIndex;
+    while ((viewerIndex = Plugins.GetViewerIndex(viewerCount++)) != -1)
     {
-        if (type < 0)
+        CPluginData* plugin = Plugins.Get(viewerIndex);
+        if (plugin == NULL)
         {
-            cmbSel = Plugins.GetViewerCount(-type - 1);
-            if (cmbSel != -1)
-                cmbSel += 2;
+            TRACE_E("Unexpected situation in CCfgPageViewers::LoadControls().");
+            continue;
+        }
+
+        const BOOL selectedPlugin = item != NULL &&
+                                    item->ViewerType == -viewerIndex - 1;
+        const BOOL selectedGeneric = selectedPlugin &&
+                                     (item->ViewerLabel == NULL ||
+                                      item->ViewerLabel[0] == 0);
+        if (plugin->ViewerLabels.empty() || selectedGeneric)
+        {
+            char buf[MAX_PATH];
+            plugin->GetDisplayName(buf, MAX_PATH);
+            const int comboIndex = static_cast<int>(
+                SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)buf));
+            if (comboIndex != CB_ERR && comboIndex != CB_ERRSPACE)
+            {
+                SendMessage(hCombo, CB_SETITEMDATA, comboIndex,
+                            static_cast<LPARAM>(viewerIndex) << 1);
+                if (selectedGeneric)
+                    cmbSel = comboIndex;
+            }
+        }
+
+        for (size_t labelIndex = 0;
+             labelIndex < plugin->ViewerLabels.size(); ++labelIndex)
+        {
+            const std::string& label = plugin->ViewerLabels[labelIndex];
+            const int comboIndex = static_cast<int>(SendMessage(
+                hCombo, CB_ADDSTRING, 0, (LPARAM)label.c_str()));
+            if (comboIndex == CB_ERR || comboIndex == CB_ERRSPACE)
+                continue;
+            SendMessage(hCombo, CB_SETITEMDATA, comboIndex,
+                        (static_cast<LPARAM>(viewerIndex) << 1) | 1);
+            if (selectedPlugin && item->ViewerLabel != NULL &&
+                _stricmp(item->ViewerLabel, label.c_str()) == 0)
+                cmbSel = comboIndex;
         }
     }
-    }
-    SendDlgItemMessage(HWindow, IDC_VIEW_TYPE, CB_SETCURSEL, cmbSel, 0);
+    SendMessage(hCombo, CB_SETCURSEL, cmbSel, 0);
     SendMessage(GetDlgItem(HWindow, IDE_COMMAND), EM_LIMITTEXT, MAX_PATH - 1, 0);
     SendMessage(GetDlgItem(HWindow, IDE_ARGUMENTS), EM_LIMITTEXT, MAX_PATH - 1, 0);
     SendMessage(GetDlgItem(HWindow, IDE_INITDIR), EM_LIMITTEXT, MAX_PATH - 1, 0);
@@ -3410,9 +3443,27 @@ void CCfgPageViewers::StoreControls()
 
         default:
         {
-            type = Plugins.GetViewerIndex(cmbSel - 2);
-            if (type != -1)
-                type = -type - 1;
+            const LRESULT viewerData = SendDlgItemMessage(
+                HWindow, IDC_VIEW_TYPE, CB_GETITEMDATA, cmbSel, 0);
+            if (viewerData != CB_ERR)
+            {
+                const int viewerIndex = static_cast<int>(viewerData >> 1);
+                type = -viewerIndex - 1;
+                if ((viewerData & 1) != 0)
+                {
+                    const LRESULT labelLength = SendDlgItemMessage(
+                        HWindow, IDC_VIEW_TYPE, CB_GETLBTEXTLEN, cmbSel, 0);
+                    if (labelLength != CB_ERR)
+                    {
+                        std::vector<char> label(static_cast<size_t>(labelLength) + 1);
+                        SendDlgItemMessage(HWindow, IDC_VIEW_TYPE, CB_GETLBTEXT,
+                                           cmbSel, (LPARAM)label.data());
+                        item->SetViewerLabel(label.data());
+                    }
+                }
+                else
+                    item->SetViewerLabel("");
+            }
             else
             {
                 TRACE_E("Unexpected situation in CCfgPageViewers::StoreControls().");
@@ -3421,6 +3472,8 @@ void CCfgPageViewers::StoreControls()
             break;
         }
         }
+        if (type >= 0 && item->ViewerType != type)
+            item->SetViewerLabel("");
         item->ViewerType = type;
     }
 }

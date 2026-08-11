@@ -638,11 +638,53 @@ void CSalamanderConnect::AddCustomUnpacker(const char* title, const char* masks,
 
 void CSalamanderConnect::AddViewer(const char* masks, BOOL force)
 {
-    CALL_STACK_MESSAGE3("CSalamanderConnect::AddViewer(%s, %d)", masks, force);
+    AddViewerWithLabel(masks, force, NULL);
+}
+
+void CSalamanderConnect::AddViewerWithLabel(const char* masks, BOOL force,
+                                            const char* viewerLabel)
+{
+    CALL_STACK_MESSAGE4("CSalamanderConnect::AddViewerWithLabel(%s, %d, %s)",
+                        masks, force, viewerLabel != NULL ? viewerLabel : "");
     if (strchr(masks, '|') != NULL)
     {
-        TRACE_E("CSalamanderConnect::AddViewer(): you can not use character '|', sorry"); // '|' acts as negation in group masks; merging masks in GetViewersAssoc can't handle it
+        TRACE_E("CSalamanderConnect::AddViewerWithLabel(): you can not use character '|', sorry"); // '|' acts as negation in group masks; merging masks in GetViewersAssoc can't handle it
         return;
+    }
+
+    if (viewerLabel != NULL && viewerLabel[0] != 0)
+    {
+        CPluginData* plugin = Plugins.Get(Index);
+        if (plugin != NULL)
+        {
+            bool found = false;
+            for (size_t i = 0; i < plugin->ViewerLabels.size(); ++i)
+            {
+                if (_stricmp(plugin->ViewerLabels[i].c_str(), viewerLabel) == 0)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+                plugin->ViewerLabels.push_back(viewerLabel);
+        }
+    }
+
+    // Labels are presentation metadata. Refresh an existing exact association
+    // even during an ordinary plug-in load, without resurrecting an association
+    // that the user deliberately removed.
+    if (viewerLabel != NULL && viewerLabel[0] != 0)
+    {
+        MainWindow->EnterViewerMasksCS();
+        for (int i = 0; i < MainWindow->ViewerMasks->Count; ++i)
+        {
+            CViewerMasksItem* item = MainWindow->ViewerMasks->At(i);
+            if (item->ViewerType == -Index - 1 &&
+                StrICmp(item->Masks->GetMasksString(), masks) == 0)
+                item->SetViewerLabel(viewerLabel);
+        }
+        MainWindow->LeaveViewerMasksCS();
     }
     if (Viewer || force)
     {
@@ -758,7 +800,18 @@ void CSalamanderConnect::AddViewer(const char* masks, BOOL force)
         if (Viewer && !force || // plug-in installation
             !Viewer && force)   // plug-in update, but not during its installation
         {
-            CViewerMasksItem* item = new CViewerMasksItem(masks, "", "", "", -Index - 1, FALSE);
+#ifdef new
+#undef new
+#define RESTORE_VIEWER_MASK_ITEM_DEBUG_NEW_MACRO
+#endif
+            CViewerMasksItem* item =
+                new (std::nothrow) CViewerMasksItem(masks, "", "", "", -Index - 1, FALSE);
+#ifdef RESTORE_VIEWER_MASK_ITEM_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_VIEWER_MASK_ITEM_DEBUG_NEW_MACRO
+#endif
+            if (item != NULL && viewerLabel != NULL)
+                item->SetViewerLabel(viewerLabel);
             if (item != NULL && item->IsGood())
             {
                 MainWindow->EnterViewerMasksCS();
@@ -3779,7 +3832,7 @@ BOOL CPluginData::CanViewFile(const char* name)
 BOOL CPluginData::ViewFile(const char* name, int left, int top, int width, int height,
                            UINT showCmd, BOOL alwaysOnTop, BOOL returnLock,
                            HANDLE* lock, BOOL* lockOwner, int enumFilesSourceUID,
-                           int enumFilesCurrentIndex)
+                           int enumFilesCurrentIndex, const char* viewerLabel)
 {
     CALL_STACK_MESSAGE13("CPluginData::ViewFile(%s, %d, %d, %d, %d, %u, %d, %d, , , %d, %d) (%s v. %s)",
                          name, left, top, width, height, showCmd, alwaysOnTop, returnLock,
@@ -3788,8 +3841,18 @@ BOOL CPluginData::ViewFile(const char* name, int left, int top, int width, int h
     if (InitDLL(MainWindow->HWindow)
         /*&& PluginIfaceForViewer.NotEmpty()*/) // unnecessary, because downgrade is impossible and InitDLL checks the interfaces
     {
+        CSalamanderPluginViewerSelectionData selectionData;
+        CSalamanderPluginViewerData* viewerData = NULL;
+        if (viewerLabel != NULL && viewerLabel[0] != 0)
+        {
+            selectionData.Size = sizeof(selectionData);
+            selectionData.FileName = name;
+            selectionData.SelectionMagic = SALAMANDER_PLUGIN_VIEWER_SELECTION_MAGIC;
+            selectionData.ViewerLabel = viewerLabel;
+            viewerData = &selectionData;
+        }
         ret = PluginIfaceForViewer.ViewFile(name, left, top, width, height, showCmd, alwaysOnTop,
-                                            returnLock, lock, lockOwner, NULL, enumFilesSourceUID,
+                                            returnLock, lock, lockOwner, viewerData, enumFilesSourceUID,
                                             enumFilesCurrentIndex);
         if (ret && returnLock && *lock != NULL && *lockOwner)
         { // add the 'lock' handle to HANDLES (disk cache will want to close it - it will search for it)

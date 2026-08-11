@@ -132,6 +132,11 @@ namespace Salamatrix
             /// Optional manifest handler associated with CommandId. This is
             /// appended to preserve the existing request field layout.
             const char* CommandHandler;
+            /// Optional strict UTF-8 JSON object describing the invocation
+            /// (viewer file, file-system item/action, or future role data).
+            /// Appended so older runtime providers can safely ignore it based
+            /// on StructSize.
+            const char* InvocationJson;
 
             RuntimeExecutionRequest()
                 : StructSize(sizeof(RuntimeExecutionRequest)),
@@ -146,7 +151,8 @@ namespace Salamatrix
                   CompatibilityContext(NULL),
                   HostDispatch(NULL),
                   HostDispatchContext(NULL),
-                  CommandHandler(NULL)
+                  CommandHandler(NULL),
+                  InvocationJson(NULL)
             {
             }
         };

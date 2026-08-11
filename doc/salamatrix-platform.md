@@ -387,6 +387,10 @@ deactivated through a callback that runs outside the registry lock. Automation
 registers valid manifest-backed scripts during initial load and refresh, using
 the `CScriptInfo` address as the owner; removed scripts are unregistered before
 their objects are deleted. Duplicate ids from another owner are rejected.
+Version 1.4 adds descriptor flag metadata for declarative menu-command, Viewer,
+and File System contributions. The flags do not change the descriptor layout;
+generic management UI can therefore describe package functions without parsing
+`extension.json` or depending on a particular runtime provider.
 
 Automation registrations carry a lifecycle callback. Activating a manifest
 looks up its selected runtime adapter and starts an `IRuntimeSession`; the
@@ -1162,7 +1166,9 @@ The platform skeleton is ready when:
     it. The command wrapper remains available for custom model adapters.
 46. The existing core Plugin Manager queries `Salamatrix.Extensions` and
     displays manifest-backed extensions alongside `.SPL` plugins. These rows
-    expose the manifest name, state, version, runtime, entry point, and ID;
+    expose the manifest name, state, version, runtime, entry point, and ID. The
+    Functions detail lists manifest commands as Menu Extension, `viewers[]` as
+    File Viewer, and `fileSystems[]` as File System (FS);
     the existing Test action becomes localized Activate/Deactivate for the
     selected manifest row. Script packages are still not treated as loadable
     native plugins; a separate Extension Manager is intentionally not

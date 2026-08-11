@@ -1,4 +1,60 @@
-if (Salamander.command_handler === "run") {
+const handler = Salamander.commandHandler || Salamander.command_handler;
+
+if (handler === "viewDemo") {
+  const { readFile } = await import("node:fs/promises");
+  const path = String(Salamander.invocation.path || "");
+  try {
+    const contents = await readFile(path, "utf8");
+    const preview = contents.length > 3000
+      ? `${contents.slice(0, 3000)}\n\n[preview truncated]`
+      : contents;
+    await Salamander.ui.messageBox(
+      preview || "[empty file]",
+      `Salamatrix Viewer demo — ${path}`,
+      "OK",
+      "Information",
+    );
+  } catch (error) {
+    await Salamander.ui.messageBox(
+      String(error), "Salamatrix Viewer demo", "OK", "Error");
+  }
+} else if (handler === "listDemoMachines") {
+  const machines = [
+    { id: "development", name: "Development VM", running: true },
+    { id: "test-lab", name: "Test lab", running: false },
+    { id: "build-agent", name: "Build agent", running: true },
+  ];
+  for (const machine of machines) {
+    const running = await Salamander.storage.get(
+      `machine.${machine.id}.running`, machine.running);
+    await Salamander.fileSystem.addItem(
+      machine.id,
+      `${machine.name} — ${running ? "Running" : "Stopped"}`,
+      { icon: "icon.svg", directory: false, enabled: true },
+    );
+  }
+} else if (handler === "inspectDemoMachine") {
+  const item = Salamander.invocation.item || {};
+  await Salamander.ui.messageBox(
+    `Id: ${item.id || ""}\nName: ${item.name || ""}`,
+    "Salamatrix FS item",
+  );
+} else if (handler === "toggleDemoMachine") {
+  const item = Salamander.invocation.item || {};
+  const key = `machine.${item.id || "unknown"}.running`;
+  const defaultRunning = {
+    development: true,
+    "test-lab": false,
+    "build-agent": true,
+  }[item.id] ?? false;
+  const running = await Salamander.storage.get(key, defaultRunning);
+  await Salamander.storage.set(key, !running);
+  await Salamander.ui.notify(
+    `${item.name || item.id}: ${!running ? "Running" : "Stopped"}`,
+    "Salamatrix FS demo",
+    2500,
+  );
+} else if (handler === "run") {
   await Salamander.ui.notify(
     "Node.js extension package is running through Salamatrix.",
     "Salamatrix Node Demo",

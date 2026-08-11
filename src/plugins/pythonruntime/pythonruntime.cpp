@@ -7,6 +7,7 @@
 #include "pythonruntime.rh"
 #include "versinfo.rh2"
 #include "../shared/runtime_configuration.h"
+#include "../salamatrix/salamatrix_runtime_frame_queue.h"
 #include <strsafe.h>
 #include <vector>
 
@@ -75,10 +76,18 @@ static std::wstring ToWin32Path(const std::wstring& value)
 
 static bool AppendQuotedArgument(std::wstring& command, const wchar_t* value)
 {
-    if (value == NULL || wcschr(value, L'"') != NULL)
+    if (value == NULL)
         return false;
     command.push_back(L'"');
-    command.append(value);
+    size_t backslashes = 0;
+    for (const wchar_t* current = value; *current != L'\0'; ++current)
+    {
+        if (*current == L'\\') { ++backslashes; continue; }
+        if (*current == L'"') { command.append(backslashes * 2 + 1, L'\\'); command.push_back(L'"'); }
+        else { command.append(backslashes, L'\\'); command.push_back(*current); }
+        backslashes = 0;
+    }
+    command.append(backslashes * 2, L'\\');
     command.push_back(L'"');
     return true;
 }
@@ -179,6 +188,7 @@ private:
     mutable DWORD m_exitCode;
     mutable CRITICAL_SECTION m_lock;
     std::string m_pending;
+    Salamatrix::Runtime::RuntimeFrameQueue m_eventQueue;
 
     CPythonRuntimeSession(
         HANDLE process,
@@ -199,6 +209,7 @@ private:
           m_exitCode(0)
     {
         InitializeCriticalSection(&m_lock);
+        m_eventQueue.Start(this);
     }
 
     static BOOL ReadAvailable(
@@ -243,6 +254,7 @@ public:
     virtual ~CPythonRuntimeSession()
     {
         Stop();
+        m_eventQueue.Shutdown();
         DeleteCriticalSection(&m_lock);
     }
 
@@ -317,6 +329,11 @@ public:
         }
         LeaveCriticalSection(&m_lock);
         return result;
+    }
+
+    virtual BOOL WINAPI QueueFrame(const char* bytes, DWORD count)
+    {
+        return m_eventQueue.Queue(bytes, count);
     }
 
     virtual BOOL WINAPI ReceiveFrame(
@@ -433,6 +450,7 @@ public:
 
     virtual void WINAPI Stop()
     {
+        m_eventQueue.Shutdown();
         EnterCriticalSection(&m_lock);
         if (m_hInput != NULL)
         {
@@ -1008,6 +1026,15 @@ BOOL WINAPI CPythonRuntimeAdapter::StartPersistent(
     {
         command.append(L" --command-handler ");
         if (!AppendUtf8QuotedArgument(command, request->CommandHandler))
+            return FALSE;
+    }
+    if ((request->Flags & Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap) != 0 &&
+        request->InvocationJson != NULL && request->InvocationJson[0] != '\0')
+    {
+        command.append(m_kind == ProcessKindPowerShell
+                           ? L" -InvocationJson "
+                           : L" --invocation-json ");
+        if (!AppendUtf8QuotedArgument(command, request->InvocationJson))
             return FALSE;
     }
     if ((request->Flags &
