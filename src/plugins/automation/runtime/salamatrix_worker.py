@@ -181,7 +181,7 @@ class _FileSystem:
     def add_item(self, item_id: str, name: str, **options: Any) -> bool:
         payload = {"id": item_id, "name": name, **options}
         return bool(self._transport.call(
-            "salamander.fileSystem.addItem", payload).get("added"))
+            "salamander.fileSystem.addItem", **payload).get("added"))
 
 
 class _FileOperations:
