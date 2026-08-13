@@ -1110,6 +1110,20 @@ def main() -> int:
     require(salamatrix_runtime, r"DarkModeMessageBoxW", "Salamatrix runtime message boxes do not use the Unicode dark-mode path")
     require(salamatrix_ui, r"WM_SETTINGCHANGE \|\| message == WM_THEMECHANGED", "Salamatrix dialog theme-change handling is missing")
     require(ui_salamander_host, r"DarkModeRefreshTitleBar\(window\)", "Salamatrix dialog title bar dark-mode refresh is missing")
+    require(
+        ui_salamander_host,
+        r'SalamanderGUI->AttachStaticText.*?'
+        r'SalamanderGUI->AttachHyperLink.*?'
+        r'SalamanderGUI->AttachProgressBar.*?'
+        r'SalamanderGUI->ChangeToArrowButton.*?'
+        r'SalamanderGUI->AttachButton.*?'
+        r'SalamanderGUI->AttachColorArrowButton.*?'
+        r'SalamanderGUI->AttachToolbarHeader',
+        "in-process Salamatrix dialogs do not use Salamander's native CGUI controls")
+    require_absent(
+        ui_salamander_host,
+        r'AttachNative(?:StaticText|HyperLink|ProgressBar|Button|ColorArrowButton|ToolbarHeader)',
+        "in-process Salamatrix dialogs incorrectly use the standalone preview fallback controls")
     require(salamatrix_ui + ui_salamander_host, r"ApplyDarkScrollbarScopes\(BOOL dark\).*?SetDarkScrollbars.*?DarkModeAllowDarkScrollbars\(window\).*?DarkModeDisallowDarkScrollbars\(window\)",
             "Salamatrix dialogs do not scope the host dark scrollbar hook to controls")
     require(salamatrix_ui, r"PostMessage\(hwnd, WM_SALAMATRIX_APPLY_DARK_SCROLLBARS",
@@ -1479,8 +1493,8 @@ def main() -> int:
         salamatrix_version,
         r'#define VERSINFO_MAJOR\s+0.*?'
         r'#define VERSINFO_MINORA\s+7.*?'
-        r'#define VERSINFO_MINORB\s+8',
-        "Salamatrix version was not bumped for detailed shutdown progress")
+        r'#define VERSINFO_MINORB\s+9',
+        "Salamatrix version was not bumped for restored native CGUI controls")
     require(
         automation_salamatrix,
         r'ApplyPositions\(BOOL delayedPaint\).*?'

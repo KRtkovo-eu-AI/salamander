@@ -47,6 +47,13 @@ Runtime providers remain independent `.SPL` plugins. In particular, Python,
 PowerShell, PHP, Node, and Lua dialogs do not require the Automation plugin to
 be installed or loaded.
 
+When hosted inside Open Salamander, `Salamatrix.UI` delegates static text,
+hyperlink, progress, arrow, text-arrow, color-arrow, and toolbar-header controls
+to the corresponding `CSalamanderGUI` implementations. This preserves the
+native button imagery, command behavior, color interaction, dark-mode styling,
+and control lifetime rules. The portable Win32 control implementation is only
+the fallback for standalone hosts such as Salamatrix Studio preview.
+
 ## Dialog lifecycle
 
 All facades follow the same lifecycle:
