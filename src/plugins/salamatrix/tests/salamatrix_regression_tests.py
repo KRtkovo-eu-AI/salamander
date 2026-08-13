@@ -516,7 +516,8 @@ def main() -> int:
             r'ref:\s*\$\{\{\s*github\.event\.pull_request\.head\.sha\s*\|\|\s*github\.sha\s*\}\}',
             "PR tests do not explicitly check out the selected source branch commit")
     require(pr_test_report_workflow,
-            r'pull_requests\[0\]\.head\.repo\.full_name != github\.repository.*?'
+            r'pull_requests\[0\] != null.*?'
+            r'workflow_run\.head_repository\.full_name != github\.repository.*?'
             r'dorny/test-reporter@v3.*?'
             r'use-actions-summary:\s*false.*?'
             r'dorny/test-reporter@v3.*?'
