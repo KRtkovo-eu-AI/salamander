@@ -383,7 +383,7 @@ SalamanderPluginEntry(CSalamanderPluginEntryAbstract* salamander)
         VERSINFO_COPYRIGHT,
         LoadStr(IDS_PLUGIN_DESCRIPTION),
         "DISKDIR", "lst");
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("https://samandarin.net/");
     return &PluginInterface;
 }
 

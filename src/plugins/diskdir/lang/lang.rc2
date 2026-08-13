@@ -12,7 +12,6 @@ STRINGTABLE
 BEGIN
     IDS_PLUGINNAME,                "DiskDir"
     IDS_PLUGIN_DESCRIPTION,        "Creates and browses Total Commander DiskDir-compatible file catalogs."
-    IDS_PLUGIN_HOME,               "https://samandarin.net/"
     IDS_DISKDIR_TITLE,             "DiskDir"
     IDS_ABOUT_TITLE,               "About DiskDir"
     IDS_ABOUT_TEXT,                "Native DiskDir-compatible catalog support.\n\nCatalog files contain names, sizes and timestamps, not file contents."
