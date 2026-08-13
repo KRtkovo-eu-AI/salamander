@@ -3088,7 +3088,8 @@ public:
     BOOL Remove(HWND parent, int index, BOOL canDelPluginRegKey);
 
     // Salamander is exiting; plugins should exit as well, returns success (TRUE = plugins unloaded)
-    BOOL UnloadAll(HWND parent);
+    BOOL UnloadAll(HWND parent,
+                   CSalamanderShutdownProgressAbstract* progress = NULL);
 
     // it stores a unique registry key name for plugin private data in 'uniqueKeyName',
     // the name is based on 'regKeyName'

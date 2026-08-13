@@ -3,7 +3,6 @@
 #include "precomp.h"
 #include "salamatrix_ui.h"
 #include "../../salamatrix-sdk/native-ui-runtime/salamatrix_ui_host.h"
-#include "../../salamatrix-sdk/native-ui-runtime/salamatrix_ui_controls.h"
 #include "../../third_party/darkmodelib/src/DmlibDpi.h"
 
 namespace
@@ -60,44 +59,58 @@ public:
     virtual CGUIStaticTextAbstract* AttachStaticText(
         HWND parent, int controlId, DWORD flags)
     {
-        return Salamatrix::UI::AttachNativeStaticText(parent, controlId, flags);
+        return SalamanderGUI != NULL
+                   ? SalamanderGUI->AttachStaticText(parent, controlId, flags)
+                   : NULL;
     }
 
     virtual CGUIHyperLinkAbstract* AttachHyperLink(
         HWND parent, int controlId, DWORD flags)
     {
-        return Salamatrix::UI::AttachNativeHyperLink(parent, controlId, flags);
+        return SalamanderGUI != NULL
+                   ? SalamanderGUI->AttachHyperLink(parent, controlId, flags)
+                   : NULL;
     }
 
     virtual CGUIProgressBarAbstract* AttachProgressBar(
         HWND parent, int controlId)
     {
-        return Salamatrix::UI::AttachNativeProgressBar(parent, controlId);
+        return SalamanderGUI != NULL
+                   ? SalamanderGUI->AttachProgressBar(parent, controlId)
+                   : NULL;
     }
 
     virtual BOOL ChangeToArrowButton(HWND parent, int controlId)
     {
-        return Salamatrix::UI::ChangeNativeArrowButton(parent, controlId);
+        return SalamanderGUI != NULL
+                   ? SalamanderGUI->ChangeToArrowButton(parent, controlId)
+                   : FALSE;
     }
 
     virtual CGUIButtonAbstract* AttachButton(
         HWND parent, int controlId, DWORD flags)
     {
-        return Salamatrix::UI::AttachNativeButton(parent, controlId, flags);
+        return SalamanderGUI != NULL
+                   ? SalamanderGUI->AttachButton(parent, controlId, flags)
+                   : NULL;
     }
 
     virtual CGUIColorArrowButtonAbstract* AttachColorArrowButton(
         HWND parent, int controlId, BOOL showArrow)
     {
-        return Salamatrix::UI::AttachNativeColorArrowButton(
-            parent, controlId, showArrow);
+        return SalamanderGUI != NULL
+                   ? SalamanderGUI->AttachColorArrowButton(
+                         parent, controlId, showArrow)
+                   : NULL;
     }
 
     virtual CGUIToolbarHeaderAbstract* AttachToolbarHeader(
         HWND parent, int controlId, HWND alignWindow, DWORD buttonMask)
     {
-        return Salamatrix::UI::AttachNativeToolbarHeader(
-            parent, controlId, alignWindow, buttonMask);
+        return SalamanderGUI != NULL
+                   ? SalamanderGUI->AttachToolbarHeader(
+                         parent, controlId, alignWindow, buttonMask)
+                   : NULL;
     }
 };
 

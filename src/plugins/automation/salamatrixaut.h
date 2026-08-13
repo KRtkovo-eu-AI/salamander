@@ -42,7 +42,7 @@ private:
     HRESULT RequireShown(LPCOLESTR propertyName);
     CQuadWord VariantToQuadWord(VARIANT* value, HRESULT* result);
     void ApplyTotals();
-    void ApplyPositions();
+    void ApplyPositions(BOOL delayedPaint);
 
 public:
     DECLARE_DISPOBJ_NAME(L"Salamander.UI.ProgressDialog")

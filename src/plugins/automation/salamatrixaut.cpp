@@ -228,14 +228,14 @@ void CSalamatrixProgressAutomation::ApplyTotals()
     }
 }
 
-void CSalamatrixProgressAutomation::ApplyPositions()
+void CSalamatrixProgressAutomation::ApplyPositions(BOOL delayedPaint)
 {
     if (m_bShown && m_pProgress != NULL)
     {
         if (m_style == StyleTwoBar)
-            m_pProgress->SetPositions(m_nPos, m_nTotalPos, FALSE);
+            m_pProgress->SetPositions(m_nPos, m_nTotalPos, delayedPaint);
         else
-            m_pProgress->SetPosition(m_nPos, FALSE);
+            m_pProgress->SetPosition(m_nPos, delayedPaint);
     }
 }
 
@@ -259,7 +259,10 @@ void CSalamatrixProgressAutomation::ApplyPositions()
     m_pProgress->Open(options);
     m_bShown = true;
     ApplyTotals();
-    ApplyPositions();
+    // Paint the initialized zero position before returning the newly opened
+    // dialog. Later script updates are coalesced to avoid two synchronous
+    // repaints for every text/position pair.
+    ApplyPositions(FALSE);
     return S_OK;
 }
 
@@ -302,7 +305,7 @@ void CSalamatrixProgressAutomation::ApplyPositions()
         return hr;
 
     _bstr_t textA(text);
-    m_pProgress->AddText(static_cast<const char*>(textA), FALSE);
+    m_pProgress->AddText(static_cast<const char*>(textA), TRUE);
     return S_OK;
 }
 
@@ -328,7 +331,9 @@ void CSalamatrixProgressAutomation::ApplyPositions()
     m_nPos = VariantToQuadWord(progress, &hr);
     if (FAILED(hr))
         return hr;
-    ApplyPositions();
+    // AddText is cached, so this one repaint publishes both the new label and
+    // position before a legacy script can block its UI thread in Sleep().
+    ApplyPositions(FALSE);
     return S_OK;
 }
 
@@ -346,7 +351,7 @@ void CSalamatrixProgressAutomation::ApplyPositions()
     m_nTotalPos = VariantToQuadWord(progress, &hr);
     if (FAILED(hr))
         return hr;
-    ApplyPositions();
+    ApplyPositions(FALSE);
     return S_OK;
 }
 

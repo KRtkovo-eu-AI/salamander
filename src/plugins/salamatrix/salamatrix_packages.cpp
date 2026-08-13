@@ -621,6 +621,29 @@ struct PackageManager::Package
     }
 };
 
+class PackageManager::ExecutionGuard
+{
+private:
+    PackageManager* Owner;
+
+    ExecutionGuard(const ExecutionGuard&);
+    ExecutionGuard& operator=(const ExecutionGuard&);
+
+public:
+    explicit ExecutionGuard(PackageManager* owner)
+        : Owner(owner)
+    {
+        if (Owner != NULL)
+            InterlockedIncrement(&Owner->ActiveExecutions);
+    }
+
+    ~ExecutionGuard()
+    {
+        if (Owner != NULL)
+            Owner->FinishExecution();
+    }
+};
+
 class PackageManager::MenuExtension : public CPluginInterfaceForMenuExtAbstract
 {
 private:
@@ -679,6 +702,7 @@ public:
         UNREFERENCED_PARAMETER(eventMask);
         if (Owner == NULL)
             return FALSE;
+        ExecutionGuard execution(Owner);
         if (id == CommandOpenAutomationApiReference)
             return Documentation::OpenAutomationApiReference(
                 Owner->General, parent);
@@ -1508,7 +1532,8 @@ PackageManager::PackageManager()
       FileSystem(NULL),
       RefreshInProgress(FALSE),
       RefreshPending(FALSE),
-      ActiveHostDispatches(0)
+      ActiveHostDispatches(0),
+      ActiveExecutions(0)
 {
 }
 
@@ -1718,18 +1743,22 @@ void PackageManager::SaveConfiguration(HKEY key, CSalamanderRegistryAbstract* re
 
 void PackageManager::Refresh()
 {
-    // A modal host call keeps its Package context alive while Windows pumps
-    // messages. Runtime/provider notifications can request another catalog
-    // refresh from that nested loop. Defer it until the host call unwinds;
-    // deleting the package here would invalidate the dispatch context and
-    // temporarily unregister every Extension Bar button.
-    if (RefreshInProgress || ActiveHostDispatches != 0)
+    // A package execution or modal host call keeps its Package context alive
+    // while Windows pumps messages. Runtime/provider notifications can request
+    // another catalog refresh from that nested loop. Defer it until the whole
+    // package operation unwinds; deleting the package here would invalidate
+    // the execution/dispatch context and its UI resources.
+    if (RefreshInProgress || ActiveHostDispatches != 0 ||
+        ActiveExecutions != 0)
     {
         RefreshPending = TRUE;
         return;
     }
     RefreshInProgress = TRUE;
     RefreshPending = FALSE;
+    ReportStartupProgress(
+        ssppDiscoveringExtensions, NULL, 0,
+        static_cast<int>(Roots.size() + CustomPackages.size()));
     // Toolbar registrations outlive the package objects that contributed
     // them.  Drop them before rebuilding the package list so a runtime
     // availability refresh cannot leave stale or missing Extension Bar
@@ -1754,7 +1783,8 @@ void PackageManager::Refresh()
     if (General != NULL)
         General->PostPluginMenuChanged();
     RefreshInProgress = FALSE;
-    if (RefreshPending && ActiveHostDispatches == 0)
+    if (RefreshPending && ActiveHostDispatches == 0 &&
+        ActiveExecutions == 0)
         Refresh();
 }
 
@@ -2071,6 +2101,12 @@ void PackageManager::ResolveDependenciesAndActivate()
     for (size_t index = 0; index < Packages.size(); ++index)
     {
         Package* package = Packages[index];
+        const char* progressDetail = package->Manifest.Name.empty()
+                                         ? package->Id.c_str()
+                                         : package->Manifest.Name.c_str();
+        ReportStartupProgress(
+            ssppRegisteringExtensions, progressDetail,
+            static_cast<int>(index + 1), static_cast<int>(Packages.size()));
         bool dependencyUnavailable = false;
         for (size_t dependencyIndex = 0;
              dependencyIndex < package->Manifest.Dependencies.size();
@@ -2106,11 +2142,39 @@ void PackageManager::ResolveDependenciesAndActivate()
                 ~Extensions::ExtensionFlagDependencyUnavailable;
         Extensions->RegisterExtension(
             &package->Descriptor, LifecycleCallback, package);
+
+        if (!package->Manifest.FileSystems.empty())
+        {
+            ReportStartupProgress(
+                ssppRegisteringFileSystems, progressDetail,
+                static_cast<int>(index + 1), static_cast<int>(Packages.size()));
+        }
+        bool hasMenuCommand = false;
+        for (size_t commandIndex = 0;
+             commandIndex < package->Manifest.Commands.size(); ++commandIndex)
+        {
+            const std::string& placement =
+                package->Manifest.Commands[commandIndex].Menu;
+            if (placement == "plugin" || placement == "both")
+            {
+                hasMenuCommand = true;
+                break;
+            }
+        }
+        if (hasMenuCommand)
+        {
+            ReportStartupProgress(
+                ssppRegisteringMenuCommands, progressDetail,
+                static_cast<int>(index + 1), static_cast<int>(Packages.size()));
+        }
     }
 
     for (size_t index = 0; index < Packages.size(); ++index)
     {
         Package* package = Packages[index];
+        const char* progressDetail = package->Manifest.Name.empty()
+                                         ? package->Id.c_str()
+                                         : package->Manifest.Name.c_str();
         const DWORD blocked =
             Extensions::ExtensionFlagDisabled |
             Extensions::ExtensionFlagRuntimeUnavailable |
@@ -2118,7 +2182,12 @@ void PackageManager::ResolveDependenciesAndActivate()
             Extensions::ExtensionFlagDependencyUnavailable;
         if (package->SettingsReady &&
             (package->Descriptor.Flags & blocked) == 0)
+        {
+            ReportStartupProgress(
+                ssppActivatingExtensions, progressDetail,
+                static_cast<int>(index + 1), static_cast<int>(Packages.size()));
             Extensions->ActivateExtension(package->Id.c_str());
+        }
     }
 }
 
@@ -2127,11 +2196,28 @@ void PackageManager::RemovePackages()
     for (size_t index = 0; index < Packages.size(); ++index)
     {
         Package* package = Packages[index];
+        const char* progressDetail = package->Manifest.Name.empty()
+                                         ? package->Id.c_str()
+                                         : package->Manifest.Name.c_str();
         InterlockedExchange(&package->Stopping, TRUE);
         if (Extensions != NULL)
+        {
+            ReportShutdownProgress(
+                ssdpUnregisteringExtensions, progressDetail,
+                static_cast<int>(index + 1),
+                static_cast<int>(Packages.size()));
             Extensions->UnregisterExtension(package->Id.c_str(), package);
+        }
         ReleaseEventSubscriptions(package);
+        ReportShutdownProgress(
+            ssdpStoppingExtensionRuntimes, progressDetail,
+            static_cast<int>(index + 1),
+            static_cast<int>(Packages.size()));
         StopSession(package);
+        ReportShutdownProgress(
+            ssdpClosingExtensionWindows, progressDetail,
+            static_cast<int>(index + 1),
+            static_cast<int>(Packages.size()));
         ReleaseProgress(package);
         ReleaseDialogs(package);
         delete package;
@@ -2169,6 +2255,16 @@ void PackageManager::RegisterViewerMasks(CSalamanderConnectAbstract* salamander)
             (package->Descriptor.Flags &
              Extensions::ExtensionFlagDisabled) != 0)
             continue;
+        if (!package->Manifest.Viewers.empty())
+        {
+            const char* progressDetail = package->Manifest.Name.empty()
+                                             ? package->Id.c_str()
+                                             : package->Manifest.Name.c_str();
+            ReportStartupProgress(
+                ssppRegisteringViewers, progressDetail,
+                static_cast<int>(packageIndex + 1),
+                static_cast<int>(Packages.size()));
+        }
         for (size_t viewerIndex = 0;
              viewerIndex < package->Manifest.Viewers.size(); ++viewerIndex)
         {
@@ -2495,6 +2591,7 @@ BOOL PackageManager::RunViewer(const char* fileName, const char* invocationJson,
 {
     if (fileName == NULL || General == NULL)
         return FALSE;
+    ExecutionGuard execution(this);
     const char* extension = strrchr(fileName, '.');
     const BOOL hasExtension = extension != NULL && extension[1] != '\0';
     for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
@@ -2560,6 +2657,7 @@ BOOL PackageManager::ListFileSystem(
 {
     if (items == NULL)
         return FALSE;
+    ExecutionGuard execution(this);
     items->clear();
     for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
     {
@@ -2611,6 +2709,7 @@ BOOL PackageManager::ExecuteFileSystemAction(
     const std::string& actionId,
     const char* invocationJson)
 {
+    ExecutionGuard execution(this);
     for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
     {
         Package* package = Packages[packageIndex];
@@ -2909,17 +3008,28 @@ BOOL WINAPI PackageManager::HostDispatch(
             resultJson, resultCapacity, resultLength);
     if (type != Runtime::Protocol::MessageCall)
         return FALSE;
+    std::string method;
+    if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "method", &method))
+        return FALSE;
     if (CurrentMainThreadDispatch == NULL && owner->General != NULL)
     {
         MainThreadDispatch call = {
             context, type, requestId, payloadJson,
             resultJson, resultCapacity, resultLength};
+        // Modal host UI calls are allowed to wait for the user indefinitely.
+        // A finite InvokeOnMainThread timeout would let this stack-backed call
+        // return while the UI thread is still inside ShowModal/a picker, and
+        // the eventual dialog close would resume through a dangling context.
+        const BOOL interactiveModalCall =
+            method == "salamander.ui.dialog.show" ||
+            method == "salamander.ui.controls" ||
+            method == "salamander.ui.messageBox" ||
+            method == "salamander.ui.pickFile" ||
+            method == "salamander.ui.pickFolder";
         return owner->General->InvokeOnMainThread(
-            HostDispatchOnMainThread, &call, 120000);
+            HostDispatchOnMainThread, &call,
+            interactiveModalCall ? INFINITE : 120000);
     }
-    std::string method;
-    if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "method", &method))
-        return FALSE;
     const char* requiredCapability = RuntimeCapabilityForMethod(method);
     if (!ManifestAllowsCapability(package->Manifest, requiredCapability))
     {
@@ -4623,8 +4733,62 @@ void PackageManager::FinishHostDispatch()
 {
     if (ActiveHostDispatches > 0)
         --ActiveHostDispatches;
-    if (ActiveHostDispatches == 0 && RefreshPending && !RefreshInProgress)
+    if (ActiveHostDispatches == 0 && ActiveExecutions == 0 &&
+        RefreshPending && !RefreshInProgress)
         Refresh();
+}
+
+void PackageManager::FinishExecution()
+{
+    const LONG active = InterlockedDecrement(&ActiveExecutions);
+    if (active < 0)
+    {
+        InterlockedExchange(&ActiveExecutions, 0);
+        return;
+    }
+    if (active == 0 && ActiveHostDispatches == 0 &&
+        RefreshPending && !RefreshInProgress)
+    {
+        Refresh();
+    }
+}
+
+void PackageManager::ReportStartupProgress(
+    CSalamanderStartupProgressPhase phase, const char* detail,
+    int current, int total) const
+{
+    if (General == NULL)
+        return;
+    CSalamanderServiceQuery query;
+    CSalamanderServiceResult result;
+    memset(&query, 0, sizeof(query));
+    memset(&result, 0, sizeof(result));
+    query.ServiceId = SALAMANDER_SERVICE_STARTUP_PROGRESS;
+    query.MinimumVersion = SALAMANDER_STARTUP_PROGRESS_VERSION_1_0;
+    if (General->QueryService(&query, &result) && result.Interface != NULL)
+    {
+        static_cast<CSalamanderStartupProgressAbstract*>(result.Interface)
+            ->ReportStartupProgress(phase, detail, current, total);
+    }
+}
+
+void PackageManager::ReportShutdownProgress(
+    CSalamanderShutdownProgressPhase phase, const char* detail,
+    int current, int total) const
+{
+    if (General == NULL)
+        return;
+    CSalamanderServiceQuery query;
+    CSalamanderServiceResult result;
+    memset(&query, 0, sizeof(query));
+    memset(&result, 0, sizeof(result));
+    query.ServiceId = SALAMANDER_SERVICE_SHUTDOWN_PROGRESS;
+    query.MinimumVersion = SALAMANDER_SHUTDOWN_PROGRESS_VERSION_1_0;
+    if (General->QueryService(&query, &result) && result.Interface != NULL)
+    {
+        static_cast<CSalamanderShutdownProgressAbstract*>(result.Interface)
+            ->ReportShutdownProgress(phase, detail, current, total);
+    }
 }
 
 void PackageManager::RegisterToolbarButtons()
@@ -4636,6 +4800,26 @@ void PackageManager::RegisterToolbarButtons()
         Package* package = Packages[p];
         if (!package->RuntimeUsable)
             continue;
+        bool hasToolbarCommand = false;
+        for (size_t c = 0; c < package->Manifest.Commands.size(); ++c)
+        {
+            const CExtensionManifestCommand& command =
+                package->Manifest.Commands[c];
+            if (command.Toolbar && command.Visible)
+            {
+                hasToolbarCommand = true;
+                break;
+            }
+        }
+        if (hasToolbarCommand)
+        {
+            const char* progressDetail = package->Manifest.Name.empty()
+                                             ? package->Id.c_str()
+                                             : package->Manifest.Name.c_str();
+            ReportStartupProgress(
+                ssppRegisteringToolbarButtons, progressDetail,
+                static_cast<int>(p + 1), static_cast<int>(Packages.size()));
+        }
         for (size_t c = 0; c < package->Manifest.Commands.size(); ++c)
         {
             const CExtensionManifestCommand& command = package->Manifest.Commands[c];
@@ -4698,8 +4882,20 @@ void PackageManager::UnregisterToolbarButtons()
     if (General == NULL)
         return;
     for (size_t p = 0; p < Packages.size(); ++p)
+    {
+        if (!Packages[p]->CommandIds.empty())
+        {
+            const char* progressDetail = Packages[p]->Manifest.Name.empty()
+                                             ? Packages[p]->Id.c_str()
+                                             : Packages[p]->Manifest.Name.c_str();
+            ReportShutdownProgress(
+                ssdpUnregisteringToolbarButtons, progressDetail,
+                static_cast<int>(p + 1),
+                static_cast<int>(Packages.size()));
+        }
         for (size_t c = 0; c < Packages[p]->CommandIds.size(); ++c)
             General->UnregisterToolbarButton(Packages[p]->CommandIds[c]);
+    }
 }
 
 std::wstring PackageManager::ExpandRoot(const std::wstring& root)

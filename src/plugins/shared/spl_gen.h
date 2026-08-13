@@ -880,6 +880,63 @@ struct CSalamanderServiceResult
     const char* ProviderName;
 };
 
+// Temporary host-owned service available while load-on-start plug-ins and
+// manifest extensions are initialized.  Consumers must query it for each
+// synchronous report and must not retain the returned pointer.
+#define SALAMANDER_SERVICE_STARTUP_PROGRESS "Salamander.StartupProgress"
+#define SALAMANDER_STARTUP_PROGRESS_VERSION_1_0 0x00010000
+
+enum CSalamanderStartupProgressPhase
+{
+    ssppLoadingPlugins = 1,
+    ssppDiscoveringExtensions,
+    ssppRegisteringExtensions,
+    ssppRegisteringFileSystems,
+    ssppRegisteringMenuCommands,
+    ssppActivatingExtensions,
+    ssppRegisteringToolbarButtons,
+    ssppRegisteringViewers,
+    ssppFinishingStartup
+};
+
+class CSalamanderStartupProgressAbstract
+{
+public:
+    // detail is UTF-8 and is copied before this synchronous call returns.
+    virtual void WINAPI ReportStartupProgress(
+        CSalamanderStartupProgressPhase phase, const char* detail,
+        int current, int total) = 0;
+};
+
+// Temporary host-owned service available while plug-ins and manifest
+// extensions are shut down. Consumers must query it for each synchronous
+// report and must not retain the returned pointer.
+#define SALAMANDER_SERVICE_SHUTDOWN_PROGRESS "Salamander.ShutdownProgress"
+#define SALAMANDER_SHUTDOWN_PROGRESS_VERSION_1_0 0x00010000
+
+enum CSalamanderShutdownProgressPhase
+{
+    ssdpUnloadingPlugins = 1,
+    ssdpNotifyingExtensions,
+    ssdpUnregisteringToolbarButtons,
+    ssdpUnregisteringExtensions,
+    ssdpStoppingExtensionRuntimes,
+    ssdpClosingExtensionWindows,
+    ssdpStoppingExtensionServices,
+    ssdpClosingPanels,
+    ssdpSavingConfiguration,
+    ssdpFinishingShutdown
+};
+
+class CSalamanderShutdownProgressAbstract
+{
+public:
+    // detail is UTF-8 and is copied before this synchronous call returns.
+    virtual void WINAPI ReportShutdownProgress(
+        CSalamanderShutdownProgressPhase phase, const char* detail,
+        int current, int total) = 0;
+};
+
 // Snapshot flags returned by GetPanelTabInfo(). No core panel pointer crosses
 // the plugin ABI; TabId is opaque and remains valid only for this process
 // lifetime and while the tab exists.

@@ -17,7 +17,7 @@
 #endif //defined(APSTUDIO_INVOKED) && !defined(APSTUDIO_READONLY_SYMBOLS)
 
 #define VERSINFO_MAJOR       2
-#define VERSINFO_MINORA      6
+#define VERSINFO_MINORA      8
 #define VERSINFO_MINORB      0  // POZOR: tady musi byt 0, jinak vyleti assert pri buildu
 
 #include "spl_vers.h" // get version and build numbers

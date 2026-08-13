@@ -75,6 +75,9 @@ def main() -> int:
     ai_rc2 = read("src/plugins/salamatrixai/salamatrixai.rc2")
     automation_header = read("src/plugins/automation/automationplug.h")
     automation = read("src/plugins/automation/automationplug.cpp")
+    automation_bridge = read("src/plugins/automation/salamatrixbridge.cpp")
+    automation_salamatrix = read("src/plugins/automation/salamatrixaut.cpp")
+    automation_version = read("src/plugins/automation/versinfo.rh2")
     automation_entry = read("src/plugins/automation/entry.cpp")
     automation_scriptlist = read("src/plugins/automation/scriptlist.cpp")
     plugins_header = read("src/plugins.h")
@@ -125,6 +128,7 @@ def main() -> int:
     salamatrix_props = read("src/plugins/salamatrix/vcxproj/salamatrix.props")
     salamatrix_project = read(
         "src/plugins/salamatrix/vcxproj/salamatrix.vcxproj")
+    salamatrix_version = read("src/plugins/salamatrix/versinfo.rh2")
     manifest = read("src/plugins/salamatrix/salamatrix_manifest.cpp")
     packages = read("src/plugins/salamatrix/salamatrix_packages.cpp")
     manifest = read("src/plugins/salamatrix/salamatrix_manifest.cpp")
@@ -1106,6 +1110,31 @@ def main() -> int:
     require(salamatrix_runtime, r"DarkModeMessageBoxW", "Salamatrix runtime message boxes do not use the Unicode dark-mode path")
     require(salamatrix_ui, r"WM_SETTINGCHANGE \|\| message == WM_THEMECHANGED", "Salamatrix dialog theme-change handling is missing")
     require(ui_salamander_host, r"DarkModeRefreshTitleBar\(window\)", "Salamatrix dialog title bar dark-mode refresh is missing")
+    require(
+        ui_salamander_host,
+        r'SalamanderGUI->AttachStaticText.*?'
+        r'SalamanderGUI->AttachHyperLink.*?'
+        r'SalamanderGUI->AttachProgressBar.*?'
+        r'SalamanderGUI->ChangeToArrowButton.*?'
+        r'SalamanderGUI->AttachButton.*?'
+        r'SalamanderGUI->AttachColorArrowButton.*?'
+        r'SalamanderGUI->AttachToolbarHeader',
+        "in-process Salamatrix dialogs do not use Salamander's native CGUI controls")
+    require_absent(
+        ui_salamander_host,
+        r'AttachNative(?:StaticText|HyperLink|ProgressBar|Button|ColorArrowButton|ToolbarHeader)',
+        "in-process Salamatrix dialogs incorrectly use the standalone preview fallback controls")
+    require(
+        salamatrix_ui,
+        r'control->KeepOpen \|\| control->DialogResult == 0',
+        "zero-result action buttons do not remain open for the legacy Automation facade")
+    require(
+        packages,
+        r'interactiveModalCall.*?salamander\.ui\.dialog\.show.*?'
+        r'salamander\.ui\.controls.*?salamander\.ui\.messageBox.*?'
+        r'salamander\.ui\.pickFile.*?salamander\.ui\.pickFolder.*?'
+        r'interactiveModalCall \? INFINITE : 120000',
+        "modal extension UI calls can time out while the user keeps a dialog open")
     require(salamatrix_ui + ui_salamander_host, r"ApplyDarkScrollbarScopes\(BOOL dark\).*?SetDarkScrollbars.*?DarkModeAllowDarkScrollbars\(window\).*?DarkModeDisallowDarkScrollbars\(window\)",
             "Salamatrix dialogs do not scope the host dark scrollbar hook to controls")
     require(salamatrix_ui, r"PostMessage\(hwnd, WM_SALAMATRIX_APPLY_DARK_SCROLLBARS",
@@ -1229,9 +1258,19 @@ def main() -> int:
         plugins2 + packages,
         r"toolbarIdCount.*?ToolbarButtons\[index\]\.ToolbarId == toolbarId.*?"
         r"NextToolbarButtonId = toolbarId.*?"
-        r"RefreshInProgress \|\| ActiveHostDispatches.*?RefreshPending.*?"
-        r"FinishHostDispatch",
-        "Extension Bar IDs are not recycled or package refresh can invalidate an active host call")
+        r"RefreshInProgress \|\| ActiveHostDispatches.*?ActiveExecutions.*?"
+        r"RefreshPending.*?FinishHostDispatch.*?FinishExecution",
+        "Extension Bar IDs are not recycled or package refresh can invalidate an active package operation")
+    require(
+        packages,
+        r"class PackageManager::ExecutionGuard.*?"
+        r"InterlockedIncrement\(&Owner->ActiveExecutions\).*?"
+        r"Owner->FinishExecution\(\).*?"
+        r"MenuExtension.*?ExecutionGuard execution\(Owner\).*?"
+        r"RunViewer.*?ExecutionGuard execution\(this\).*?"
+        r"ListFileSystem.*?ExecutionGuard execution\(this\).*?"
+        r"ExecuteFileSystemAction.*?ExecutionGuard execution\(this\)",
+        "package operations are not protected from a reentrant extension catalog refresh")
     require(
         general_contract + plugins2 + packages,
         r"CSalamanderToolbarMenuItem.*?IconPath.*?IconDarkPath.*?"
@@ -1363,12 +1402,13 @@ def main() -> int:
         r"CWaitWindow closingProgress\(\s*"
         r"HWindow, IDS_CLOSINGEXTENSIONS.*?"
         r"closingProgress\.Create\(\).*?"
-        r"Plugins\.UnloadAll\(closingProgress\.HWindow\).*?"
-        r"closingProgress\.SetText\(LoadStr\(IDS_CLOSINGPANELS\)\).*?"
+        r"Plugins\.UnloadAll\(closingProgress\.HWindow,\s*"
+        r"&shutdownProgressService\).*?"
+        r"ssdpClosingPanels.*?"
         r"ConfirmDetachedWindowClose\(closingProgress\.HWindow.*?"
-        r"closingProgress\.SetText\(LoadStr\(IDS_SAVINGCONFIGURATION\)\).*?"
+        r"ssdpSavingConfiguration.*?"
         r"SaveConfig\(closingProgress\.HWindow, FALSE\).*?"
-        r"closingProgress\.SetText\(LoadStr\(IDS_FINISHINGSHUTDOWN\)\).*?"
+        r"ssdpFinishingShutdown.*?"
         r"DiskCache\.PrepareForShutdown\(\).*?"
         r"DestroyWindow\(closingProgress\.HWindow\).*?"
         r"DestroyWindow\(HWindow\)",
@@ -1381,6 +1421,112 @@ def main() -> int:
         if occurrences != 10:
             raise AssertionError(
                 f"shutdown status {resource_id} is not localized in all 10 translations")
+    require(
+        general_contract,
+        r'SALAMANDER_SERVICE_STARTUP_PROGRESS.*?'
+        r'class CSalamanderStartupProgressAbstract.*?'
+        r'ReportStartupProgress',
+        "shared SDK does not expose the temporary startup progress service")
+    require(
+        plugins2,
+        r'CWaitWindow startupProgress\(.*?IDS_STARTUP_LOADINGPLUGINS.*?'
+        r'startupProgress\.Create\(\).*?'
+        r'RegisterService\(\s*SALAMANDER_SERVICE_STARTUP_PROGRESS.*?'
+        r'InitDLL\(progressParent, TRUE\).*?'
+        r'Event\(PLUGINEVENT_STARTUPCOMPLETE, 0\).*?'
+        r'ssppFinishingStartup.*?UnregisterService\(.*?'
+        r'DestroyWindow\(startupProgress\.HWindow\)',
+        "load-on-start plugins and extensions are not covered by one progress window")
+    for phase in (
+            "ssppDiscoveringExtensions", "ssppRegisteringExtensions",
+            "ssppRegisteringFileSystems", "ssppRegisteringMenuCommands",
+            "ssppActivatingExtensions", "ssppRegisteringToolbarButtons",
+            "ssppRegisteringViewers"):
+        require(
+            packages, phase,
+            f"Salamatrix startup does not report {phase}")
+    require(
+        packages,
+        r'query\.ServiceId = SALAMANDER_SERVICE_STARTUP_PROGRESS.*?'
+        r'QueryService\(&query, &result\).*?ReportStartupProgress',
+        "Salamatrix package manager does not use the temporary host progress service")
+    for resource_id in range(14320, 14330):
+        occurrences = len(re.findall(
+            rf"^{resource_id},1,\"[^\"]+\"$",
+            shutdown_translations,
+            re.MULTILINE))
+        if occurrences != 10:
+            raise AssertionError(
+                f"extension/startup status {resource_id} is not localized in all 10 translations")
+    require(
+        general_contract,
+        r'SALAMANDER_SERVICE_SHUTDOWN_PROGRESS.*?'
+        r'class CSalamanderShutdownProgressAbstract.*?'
+        r'ReportShutdownProgress',
+        "shared SDK does not expose the temporary shutdown progress service")
+    require(
+        mainwnd3,
+        r'CShutdownProgressService.*?'
+        r'RegisterService\(\s*SALAMANDER_SERVICE_SHUTDOWN_PROGRESS.*?'
+        r'Plugins\.UnloadAll\(closingProgress\.HWindow,\s*'
+        r'&shutdownProgressService\).*?'
+        r'ssdpClosingPanels.*?ssdpSavingConfiguration.*?'
+        r'ssdpFinishingShutdown.*?UnregisterService\(\s*'
+        r'SALAMANDER_SERVICE_SHUTDOWN_PROGRESS',
+        "application shutdown does not report its real phases through one progress service")
+    require(
+        plugins2,
+        r'CPlugins::UnloadAll\(.*?ReportShutdownProgress\(\s*'
+        r'ssdpUnloadingPlugins, Data\[i\]->Name',
+        "plug-in unload progress does not identify each loaded plug-in")
+    for phase in (
+            "ssdpUnregisteringToolbarButtons",
+            "ssdpUnregisteringExtensions",
+            "ssdpStoppingExtensionRuntimes",
+            "ssdpClosingExtensionWindows"):
+        require(
+            packages, phase,
+            f"Salamatrix shutdown does not report {phase}")
+    require(
+        packages,
+        r'query\.ServiceId = SALAMANDER_SERVICE_SHUTDOWN_PROGRESS.*?'
+        r'QueryService\(&query, &result\).*?ReportShutdownProgress',
+        "Salamatrix package manager does not use the temporary shutdown progress service")
+    for resource_id in range(14330, 14337):
+        occurrences = len(re.findall(
+            rf"^{resource_id},1,\"[^\"]+\"$",
+            shutdown_translations,
+            re.MULTILINE))
+        if occurrences != 10:
+            raise AssertionError(
+                f"extension/shutdown status {resource_id} is not localized in all 10 translations")
+    require(
+        salamatrix_version,
+        r'#define VERSINFO_MAJOR\s+0.*?'
+        r'#define VERSINFO_MINORA\s+7.*?'
+        r'#define VERSINFO_MINORB\s+10',
+        "Salamatrix version was not bumped for modal dialog lifetime safety")
+    require(
+        automation_salamatrix,
+        r'ApplyPositions\(BOOL delayedPaint\).*?'
+        r'SetPositions\(m_nPos, m_nTotalPos, delayedPaint\).*?'
+        r'AddText\(static_cast<const char\*>\(textA\), TRUE\).*?'
+        r'AddText is cached.*?ApplyPositions\(FALSE\).*?Step\(step, FALSE\)',
+        "Automation Salamatrix progress does not coalesce text and position into one repaint")
+    require(
+        automation_version,
+        r'#define VERSINFO_MAJOR\s+2.*?'
+        r'#define VERSINFO_MINORA\s+8.*?'
+        r'#define VERSINFO_MINORB\s+0',
+        "Automation version was not bumped for cached Salamatrix services")
+    require(
+        automation_bridge,
+        r'void CAutomationSalamatrixBridge::Refresh.*?'
+        r'QueryService\(salamander, SALAMATRIX_SERVICE_AUTOMATION_ADAPTER.*?'
+        r'if \(m_bQueried && m_pGeneral == salamander.*?'
+        r'm_pRuntimeService == runtimeService.*?return;.*?'
+        r'Reset\(\);.*?RegisterRuntimeAdapters\(\);',
+        "Automation rebuilds unchanged Salamatrix services and runtime adapters on every API getter")
     require(
         plugins2,
         r"Extension Bar Hidden.*?GetExtensionBarVisible.*?"

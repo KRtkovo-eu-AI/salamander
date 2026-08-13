@@ -29,6 +29,7 @@ private:
     class ViewerExtension;
     class FileSystemExtension;
     class OpenFileSystem;
+    class ExecutionGuard;
 
     CSalamanderGeneralAbstract* General;
     Runtime::IRuntimeService* Runtimes;
@@ -54,6 +55,7 @@ private:
     BOOL RefreshInProgress;
     BOOL RefreshPending;
     LONG ActiveHostDispatches;
+    LONG ActiveExecutions;
 
     PackageManager(const PackageManager&);
     PackageManager& operator=(const PackageManager&);
@@ -161,6 +163,13 @@ private:
     void RegisterToolbarButtons();
     void UnregisterToolbarButtons();
     void FinishHostDispatch();
+    void FinishExecution();
+    void ReportStartupProgress(
+        CSalamanderStartupProgressPhase phase, const char* detail,
+        int current, int total) const;
+    void ReportShutdownProgress(
+        CSalamanderShutdownProgressPhase phase, const char* detail,
+        int current, int total) const;
 
     static std::wstring ExpandRoot(const std::wstring& root);
     static BOOL MakeDisplayEntryPoint(

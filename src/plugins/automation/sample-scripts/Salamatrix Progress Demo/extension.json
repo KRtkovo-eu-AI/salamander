@@ -7,6 +7,7 @@
   "runtime": "Automation.JScript",
   "entryPoint": "main.js",
   "icon": "icon.svg",
+  "iconDark": "icon-dark.svg",
   "capabilities": ["ui.dialogs", "storage"],
   "commands": [{"id":"Salamatrix.JScript.ProgressDemo","title":"Run Progress Demo","menu":"both","contextMenu":true,"toolbar":true,"requires":"any"}]
 }
