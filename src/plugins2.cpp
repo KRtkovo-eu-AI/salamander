@@ -3780,19 +3780,210 @@ void CPlugins::LoadAll(HWND parent)
     }
 }
 
+class CStartupProgressService : public CSalamanderStartupProgressAbstract
+{
+private:
+    CWaitWindow* Window;
+    DWORD Progress;
+
+    static int PhaseText(CSalamanderStartupProgressPhase phase)
+    {
+        switch (phase)
+        {
+        case ssppLoadingPlugins:
+            return IDS_STARTUP_LOADINGPLUGINS;
+        case ssppDiscoveringExtensions:
+            return IDS_STARTUP_DISCOVERINGEXTENSIONS;
+        case ssppRegisteringExtensions:
+            return IDS_STARTUP_REGISTERINGEXTENSIONS;
+        case ssppRegisteringFileSystems:
+            return IDS_STARTUP_REGISTERINGFILESYSTEMS;
+        case ssppRegisteringMenuCommands:
+            return IDS_STARTUP_REGISTERINGMENUS;
+        case ssppActivatingExtensions:
+            return IDS_STARTUP_ACTIVATINGEXTENSIONS;
+        case ssppRegisteringToolbarButtons:
+            return IDS_STARTUP_REGISTERINGTOOLBARS;
+        case ssppRegisteringViewers:
+            return IDS_STARTUP_REGISTERINGVIEWERS;
+        case ssppFinishingStartup:
+            return IDS_STARTUP_FINISHING;
+        }
+        return IDS_STARTUP_LOADINGPLUGINS;
+    }
+
+    static void DetailToAnsi(const char* detail, char* buffer, int capacity)
+    {
+        if (capacity <= 0)
+            return;
+        buffer[0] = 0;
+        if (detail == NULL || detail[0] == 0)
+            return;
+
+        int wideLength = MultiByteToWideChar(
+            CP_UTF8, MB_ERR_INVALID_CHARS, detail, -1, NULL, 0);
+        if (wideLength > 0)
+        {
+            std::vector<wchar_t> wide(wideLength);
+            if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, detail, -1,
+                                    &wide[0], wideLength) != 0 &&
+                WideCharToMultiByte(CP_ACP, 0, &wide[0], -1, buffer, capacity,
+                                    NULL, NULL) != 0)
+                return;
+        }
+
+        // Core DLL paths are stored in the current Windows code page rather
+        // than UTF-8.  Preserve them when the UTF-8 validation above fails.
+        lstrcpyn(buffer, detail, capacity);
+    }
+
+    static DWORD PhaseProgress(CSalamanderStartupProgressPhase phase,
+                               int current, int total)
+    {
+        DWORD first = 0;
+        DWORD last = 100;
+        switch (phase)
+        {
+        case ssppLoadingPlugins:
+            first = 0;
+            last = 12;
+            break;
+        case ssppDiscoveringExtensions:
+            first = 12;
+            last = 22;
+            break;
+        case ssppRegisteringExtensions:
+            first = 22;
+            last = 36;
+            break;
+        case ssppRegisteringFileSystems:
+            first = 36;
+            last = 46;
+            break;
+        case ssppRegisteringMenuCommands:
+            first = 46;
+            last = 56;
+            break;
+        case ssppActivatingExtensions:
+            first = 56;
+            last = 70;
+            break;
+        case ssppRegisteringToolbarButtons:
+            first = 70;
+            last = 82;
+            break;
+        case ssppRegisteringViewers:
+            first = 82;
+            last = 96;
+            break;
+        case ssppFinishingStartup:
+            first = 96;
+            last = 100;
+            break;
+        }
+        if (total > 0)
+        {
+            if (current < 0)
+                current = 0;
+            if (current > total)
+                current = total;
+            return first + (last - first) * current / total;
+        }
+        return first;
+    }
+
+public:
+    CStartupProgressService(CWaitWindow* window)
+        : Window(window), Progress(0)
+    {
+    }
+
+    virtual void WINAPI ReportStartupProgress(
+        CSalamanderStartupProgressPhase phase, const char* detail,
+        int current, int total)
+    {
+        char detailAnsi[700];
+        char text[1000];
+        DetailToAnsi(detail, detailAnsi, _countof(detailAnsi));
+        if (detailAnsi[0] != 0)
+            _snprintf_s(text, _TRUNCATE, "%s\n%s",
+                        LoadStr(PhaseText(phase)), detailAnsi);
+        else
+            _snprintf_s(text, _TRUNCATE, "%s\n",
+                        LoadStr(PhaseText(phase)));
+        Window->SetText(text);
+
+        DWORD progress = PhaseProgress(phase, current, total);
+        if (progress > Progress)
+            Progress = progress;
+        Window->SetProgressPos(Progress);
+        if (Window->HWindow != NULL)
+            UpdateWindow(Window->HWindow);
+    }
+};
+
 void CPlugins::HandleLoadOnStartFlag(HWND parent)
 {
     CALL_STACK_MESSAGE1("CPlugins::HandleLoadOnStartFlag()");
 
     LoadInfoBase |= LOADINFO_LOADONSTART;
 
+    int toLoadCount = 0;
+    for (int i = 0; i < Data.Count; ++i)
+    {
+        if (!Data[i]->GetLoaded() && Data[i]->LoadOnStart)
+            ++toLoadCount;
+    }
+
+    CWaitWindow startupProgress(
+        parent, IDS_STARTUP_LOADINGPLUGINS, FALSE, ooStatic, TRUE);
+    CStartupProgressService progressService(&startupProgress);
+    CSalamanderGeneral startupRegistry;
+    BOOL serviceRegistered = FALSE;
+    HWND progressParent = parent;
+    HWND oldPluginMsgBoxParent = PluginMsgBoxParent;
+    HCURSOR oldCursor = NULL;
+    if (toLoadCount > 0)
+    {
+        const char* firstPlugin = NULL;
+        for (int i = 0; i < Data.Count; ++i)
+        {
+            if (!Data[i]->GetLoaded() && Data[i]->LoadOnStart)
+            {
+                firstPlugin = Data[i]->DLLName;
+                break;
+            }
+        }
+        startupProgress.SetProgressMax(100);
+        progressService.ReportStartupProgress(
+            ssppLoadingPlugins, firstPlugin, 0, toLoadCount);
+        if (startupProgress.Create() != NULL)
+        {
+            progressParent = startupProgress.HWindow;
+            EnableWindow(parent, FALSE);
+            PluginMsgBoxParent = progressParent;
+            oldCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
+            serviceRegistered = startupRegistry.RegisterService(
+                SALAMANDER_SERVICE_STARTUP_PROGRESS,
+                SALAMANDER_STARTUP_PROGRESS_VERSION_1_0,
+                &progressService, "Open Salamander");
+        }
+    }
+
     // load all plugins with the load-on-start flag...
-    int i;
-    for (i = 0; i < Data.Count; i++)
+    int loaded = 0;
+    for (int i = 0; i < Data.Count; i++)
     {
         if (!Data[i]->GetLoaded() && Data[i]->LoadOnStart)
         {
-            Data[i]->InitDLL(parent, TRUE);
+            if (startupProgress.HWindow != NULL)
+                progressService.ReportStartupProgress(
+                    ssppLoadingPlugins, Data[i]->DLLName,
+                    loaded + 1, toLoadCount);
+            Data[i]->InitDLL(progressParent, TRUE);
+            ++loaded;
+            if (startupProgress.HWindow != NULL)
+                UpdateWindow(MainWindow->HWindow);
         }
     }
 
@@ -3802,6 +3993,19 @@ void CPlugins::HandleLoadOnStartFlag(HWND parent)
     // broker. Give all already loaded plug-ins one deterministic retry point
     // after the complete load-on-start pass.
     Event(PLUGINEVENT_STARTUPCOMPLETE, 0);
+
+    if (startupProgress.HWindow != NULL)
+    {
+        progressService.ReportStartupProgress(
+            ssppFinishingStartup, NULL, 1, 1);
+        if (serviceRegistered)
+            startupRegistry.UnregisterService(
+                SALAMANDER_SERVICE_STARTUP_PROGRESS, &progressService);
+        PluginMsgBoxParent = oldPluginMsgBoxParent;
+        EnableWindow(parent, TRUE);
+        DestroyWindow(startupProgress.HWindow);
+        SetCursor(oldCursor);
+    }
 }
 
 void CPlugins::GetCmdAndUnloadMarkedPlugins(HWND parent, int* cmd, CPluginData** data)

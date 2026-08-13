@@ -3765,3 +3765,15 @@ SLGINCOMPLETE,""
 14318,1,"V cieľovom paneli vyberte aspoň jeden priečinok."
 14319,1,"Všetky vybraté cieľové priečinky musia byť na rovnakom zväzku."
 
+[STRINGTABLE 171]
+14320,1,"Rozšírenie"
+14321,1,"Načítavajú sa rozšírenia a pluginy, čakajte prosím..."
+14322,1,"Vyhľadávajú sa balíky rozšírení, čakajte prosím..."
+14323,1,"Registrujú sa rozšírenia, čakajte prosím..."
+14324,1,"Registrujú sa súborové systémy rozšírení, čakajte prosím..."
+14325,1,"Registrujú sa príkazy rozšírení v ponuke, čakajte prosím..."
+14326,1,"Aktivujú sa rozšírenia, čakajte prosím..."
+14327,1,"Registrujú sa tlačidlá rozšírení na paneli nástrojov, čakajte prosím..."
+14328,1,"Registrujú sa prehliadače rozšírení, čakajte prosím..."
+14329,1,"Dokončuje sa spustenie rozšírení, čakajte prosím..."
+

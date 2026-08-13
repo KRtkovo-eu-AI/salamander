@@ -3765,3 +3765,15 @@ SLGINCOMPLETE,""
 14318,1,"Vyberte v cílovém panelu alespoň jednu složku."
 14319,1,"Všechny vybrané cílové složky musí být na stejném svazku."
 
+[STRINGTABLE 171]
+14320,1,"Rozšíření"
+14321,1,"Načítání rozšíření a pluginů, čekejte prosím..."
+14322,1,"Vyhledávání balíčků rozšíření, čekejte prosím..."
+14323,1,"Registrování rozšíření, čekejte prosím..."
+14324,1,"Registrování souborových systémů rozšíření, čekejte prosím..."
+14325,1,"Registrování příkazů rozšíření v menu, čekejte prosím..."
+14326,1,"Aktivování rozšíření, čekejte prosím..."
+14327,1,"Registrování tlačítek rozšíření na nástrojové liště, čekejte prosím..."
+14328,1,"Registrování prohlížečů rozšíření, čekejte prosím..."
+14329,1,"Dokončování spuštění rozšíření, čekejte prosím..."
+

@@ -1730,6 +1730,9 @@ void PackageManager::Refresh()
     }
     RefreshInProgress = TRUE;
     RefreshPending = FALSE;
+    ReportStartupProgress(
+        ssppDiscoveringExtensions, NULL, 0,
+        static_cast<int>(Roots.size() + CustomPackages.size()));
     // Toolbar registrations outlive the package objects that contributed
     // them.  Drop them before rebuilding the package list so a runtime
     // availability refresh cannot leave stale or missing Extension Bar
@@ -2071,6 +2074,12 @@ void PackageManager::ResolveDependenciesAndActivate()
     for (size_t index = 0; index < Packages.size(); ++index)
     {
         Package* package = Packages[index];
+        const char* progressDetail = package->Manifest.Name.empty()
+                                         ? package->Id.c_str()
+                                         : package->Manifest.Name.c_str();
+        ReportStartupProgress(
+            ssppRegisteringExtensions, progressDetail,
+            static_cast<int>(index + 1), static_cast<int>(Packages.size()));
         bool dependencyUnavailable = false;
         for (size_t dependencyIndex = 0;
              dependencyIndex < package->Manifest.Dependencies.size();
@@ -2106,11 +2115,39 @@ void PackageManager::ResolveDependenciesAndActivate()
                 ~Extensions::ExtensionFlagDependencyUnavailable;
         Extensions->RegisterExtension(
             &package->Descriptor, LifecycleCallback, package);
+
+        if (!package->Manifest.FileSystems.empty())
+        {
+            ReportStartupProgress(
+                ssppRegisteringFileSystems, progressDetail,
+                static_cast<int>(index + 1), static_cast<int>(Packages.size()));
+        }
+        bool hasMenuCommand = false;
+        for (size_t commandIndex = 0;
+             commandIndex < package->Manifest.Commands.size(); ++commandIndex)
+        {
+            const std::string& placement =
+                package->Manifest.Commands[commandIndex].Menu;
+            if (placement == "plugin" || placement == "both")
+            {
+                hasMenuCommand = true;
+                break;
+            }
+        }
+        if (hasMenuCommand)
+        {
+            ReportStartupProgress(
+                ssppRegisteringMenuCommands, progressDetail,
+                static_cast<int>(index + 1), static_cast<int>(Packages.size()));
+        }
     }
 
     for (size_t index = 0; index < Packages.size(); ++index)
     {
         Package* package = Packages[index];
+        const char* progressDetail = package->Manifest.Name.empty()
+                                         ? package->Id.c_str()
+                                         : package->Manifest.Name.c_str();
         const DWORD blocked =
             Extensions::ExtensionFlagDisabled |
             Extensions::ExtensionFlagRuntimeUnavailable |
@@ -2118,7 +2155,12 @@ void PackageManager::ResolveDependenciesAndActivate()
             Extensions::ExtensionFlagDependencyUnavailable;
         if (package->SettingsReady &&
             (package->Descriptor.Flags & blocked) == 0)
+        {
+            ReportStartupProgress(
+                ssppActivatingExtensions, progressDetail,
+                static_cast<int>(index + 1), static_cast<int>(Packages.size()));
             Extensions->ActivateExtension(package->Id.c_str());
+        }
     }
 }
 
@@ -2169,6 +2211,16 @@ void PackageManager::RegisterViewerMasks(CSalamanderConnectAbstract* salamander)
             (package->Descriptor.Flags &
              Extensions::ExtensionFlagDisabled) != 0)
             continue;
+        if (!package->Manifest.Viewers.empty())
+        {
+            const char* progressDetail = package->Manifest.Name.empty()
+                                             ? package->Id.c_str()
+                                             : package->Manifest.Name.c_str();
+            ReportStartupProgress(
+                ssppRegisteringViewers, progressDetail,
+                static_cast<int>(packageIndex + 1),
+                static_cast<int>(Packages.size()));
+        }
         for (size_t viewerIndex = 0;
              viewerIndex < package->Manifest.Viewers.size(); ++viewerIndex)
         {
@@ -4627,6 +4679,25 @@ void PackageManager::FinishHostDispatch()
         Refresh();
 }
 
+void PackageManager::ReportStartupProgress(
+    CSalamanderStartupProgressPhase phase, const char* detail,
+    int current, int total) const
+{
+    if (General == NULL)
+        return;
+    CSalamanderServiceQuery query;
+    CSalamanderServiceResult result;
+    memset(&query, 0, sizeof(query));
+    memset(&result, 0, sizeof(result));
+    query.ServiceId = SALAMANDER_SERVICE_STARTUP_PROGRESS;
+    query.MinimumVersion = SALAMANDER_STARTUP_PROGRESS_VERSION_1_0;
+    if (General->QueryService(&query, &result) && result.Interface != NULL)
+    {
+        static_cast<CSalamanderStartupProgressAbstract*>(result.Interface)
+            ->ReportStartupProgress(phase, detail, current, total);
+    }
+}
+
 void PackageManager::RegisterToolbarButtons()
 {
     if (General == NULL)
@@ -4636,6 +4707,26 @@ void PackageManager::RegisterToolbarButtons()
         Package* package = Packages[p];
         if (!package->RuntimeUsable)
             continue;
+        bool hasToolbarCommand = false;
+        for (size_t c = 0; c < package->Manifest.Commands.size(); ++c)
+        {
+            const CExtensionManifestCommand& command =
+                package->Manifest.Commands[c];
+            if (command.Toolbar && command.Visible)
+            {
+                hasToolbarCommand = true;
+                break;
+            }
+        }
+        if (hasToolbarCommand)
+        {
+            const char* progressDetail = package->Manifest.Name.empty()
+                                             ? package->Id.c_str()
+                                             : package->Manifest.Name.c_str();
+            ReportStartupProgress(
+                ssppRegisteringToolbarButtons, progressDetail,
+                static_cast<int>(p + 1), static_cast<int>(Packages.size()));
+        }
         for (size_t c = 0; c < package->Manifest.Commands.size(); ++c)
         {
             const CExtensionManifestCommand& command = package->Manifest.Commands[c];

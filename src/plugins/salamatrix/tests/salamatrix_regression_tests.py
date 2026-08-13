@@ -125,6 +125,7 @@ def main() -> int:
     salamatrix_props = read("src/plugins/salamatrix/vcxproj/salamatrix.props")
     salamatrix_project = read(
         "src/plugins/salamatrix/vcxproj/salamatrix.vcxproj")
+    salamatrix_version = read("src/plugins/salamatrix/versinfo.rh2")
     manifest = read("src/plugins/salamatrix/salamatrix_manifest.cpp")
     packages = read("src/plugins/salamatrix/salamatrix_packages.cpp")
     manifest = read("src/plugins/salamatrix/salamatrix_manifest.cpp")
@@ -1381,6 +1382,49 @@ def main() -> int:
         if occurrences != 10:
             raise AssertionError(
                 f"shutdown status {resource_id} is not localized in all 10 translations")
+    require(
+        general_contract,
+        r'SALAMANDER_SERVICE_STARTUP_PROGRESS.*?'
+        r'class CSalamanderStartupProgressAbstract.*?'
+        r'ReportStartupProgress',
+        "shared SDK does not expose the temporary startup progress service")
+    require(
+        plugins2,
+        r'CWaitWindow startupProgress\(.*?IDS_STARTUP_LOADINGPLUGINS.*?'
+        r'startupProgress\.Create\(\).*?'
+        r'RegisterService\(\s*SALAMANDER_SERVICE_STARTUP_PROGRESS.*?'
+        r'InitDLL\(progressParent, TRUE\).*?'
+        r'Event\(PLUGINEVENT_STARTUPCOMPLETE, 0\).*?'
+        r'ssppFinishingStartup.*?UnregisterService\(.*?'
+        r'DestroyWindow\(startupProgress\.HWindow\)',
+        "load-on-start plugins and extensions are not covered by one progress window")
+    for phase in (
+            "ssppDiscoveringExtensions", "ssppRegisteringExtensions",
+            "ssppRegisteringFileSystems", "ssppRegisteringMenuCommands",
+            "ssppActivatingExtensions", "ssppRegisteringToolbarButtons",
+            "ssppRegisteringViewers"):
+        require(
+            packages, phase,
+            f"Salamatrix startup does not report {phase}")
+    require(
+        packages,
+        r'query\.ServiceId = SALAMANDER_SERVICE_STARTUP_PROGRESS.*?'
+        r'QueryService\(&query, &result\).*?ReportStartupProgress',
+        "Salamatrix package manager does not use the temporary host progress service")
+    for resource_id in range(14320, 14330):
+        occurrences = len(re.findall(
+            rf"^{resource_id},1,\"[^\"]+\"$",
+            shutdown_translations,
+            re.MULTILINE))
+        if occurrences != 10:
+            raise AssertionError(
+                f"extension/startup status {resource_id} is not localized in all 10 translations")
+    require(
+        salamatrix_version,
+        r'#define VERSINFO_MAJOR\s+0.*?'
+        r'#define VERSINFO_MINORA\s+7.*?'
+        r'#define VERSINFO_MINORB\s+6',
+        "Salamatrix version was not bumped for startup progress reporting")
     require(
         plugins2,
         r"Extension Bar Hidden.*?GetExtensionBarVisible.*?"

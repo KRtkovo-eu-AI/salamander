@@ -3765,3 +3765,15 @@ SLGINCOMPLETE,""
 14318,1,"Selecteer ten minste een map in het doelpaneel."
 14319,1,"Alle geselecteerde doelmappen moeten zich op hetzelfde volume bevinden."
 
+[STRINGTABLE 171]
+14320,1,"Extensie"
+14321,1,"Extensies en plug-ins worden geladen, even geduld..."
+14322,1,"Extensiepakketten worden gezocht, even geduld..."
+14323,1,"Extensies worden geregistreerd, even geduld..."
+14324,1,"Extensiebestandssystemen worden geregistreerd, even geduld..."
+14325,1,"Extensiemenuopdrachten worden geregistreerd, even geduld..."
+14326,1,"Extensies worden geactiveerd, even geduld..."
+14327,1,"Extensiewerkbalkknoppen worden geregistreerd, even geduld..."
+14328,1,"Extensieweergaven worden geregistreerd, even geduld..."
+14329,1,"Opstarten van extensies wordt voltooid, even geduld..."
+

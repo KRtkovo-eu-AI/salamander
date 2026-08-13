@@ -3765,3 +3765,15 @@ SLGINCOMPLETE,""
 14318,1,"Wählen Sie mindestens einen Ordner im Zielbereich aus."
 14319,1,"Alle ausgewählten Zielordner müssen sich auf demselben Laufwerk befinden."
 
+[STRINGTABLE 171]
+14320,1,"Erweiterung"
+14321,1,"Erweiterungen und Plug-ins werden geladen, bitte warten..."
+14322,1,"Erweiterungspakete werden gesucht, bitte warten..."
+14323,1,"Erweiterungen werden registriert, bitte warten..."
+14324,1,"Erweiterungsdateisysteme werden registriert, bitte warten..."
+14325,1,"Erweiterungsmenübefehle werden registriert, bitte warten..."
+14326,1,"Erweiterungen werden aktiviert, bitte warten..."
+14327,1,"Erweiterungsschaltflächen werden registriert, bitte warten..."
+14328,1,"Erweiterungsanzeiger werden registriert, bitte warten..."
+14329,1,"Der Erweiterungsstart wird abgeschlossen, bitte warten..."
+

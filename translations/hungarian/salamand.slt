@@ -3765,3 +3765,15 @@ SLGINCOMPLETE,""
 14318,1,"Válasszon ki legalább egy mappát a célpanelen."
 14319,1,"Az összes kijelölt célmappának ugyanazon a köteten kell lennie."
 
+[STRINGTABLE 171]
+14320,1,"Bővítmény"
+14321,1,"Bővítmények és beépülő modulok betöltése, kérem várjon..."
+14322,1,"Bővítménycsomagok keresése, kérem várjon..."
+14323,1,"Bővítmények regisztrálása, kérem várjon..."
+14324,1,"Bővítmény-fájlrendszerek regisztrálása, kérem várjon..."
+14325,1,"Bővítménymenü-parancsok regisztrálása, kérem várjon..."
+14326,1,"Bővítmények aktiválása, kérem várjon..."
+14327,1,"Bővítmény-eszköztárgombok regisztrálása, kérem várjon..."
+14328,1,"Bővítménynézegetők regisztrálása, kérem várjon..."
+14329,1,"A bővítmények indításának befejezése, kérem várjon..."
+

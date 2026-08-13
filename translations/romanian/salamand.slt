@@ -3765,3 +3765,15 @@ SLGINCOMPLETE,""
 14318,1,"Selecteaza cel putin un dosar in panoul tinta."
 14319,1,"Toate dosarele tinta selectate trebuie sa fie pe acelasi volum."
 
+[STRINGTABLE 171]
+14320,1,"Extensie"
+14321,1,"Se încarcă extensiile și modulele, așteptați..."
+14322,1,"Se caută pachetele de extensii, așteptați..."
+14323,1,"Se înregistrează extensiile, așteptați..."
+14324,1,"Se înregistrează sistemele de fișiere ale extensiilor, așteptați..."
+14325,1,"Se înregistrează comenzile de meniu ale extensiilor, așteptați..."
+14326,1,"Se activează extensiile, așteptați..."
+14327,1,"Se înregistrează butoanele extensiilor din bara de instrumente, așteptați..."
+14328,1,"Se înregistrează vizualizatoarele extensiilor, așteptați..."
+14329,1,"Se finalizează pornirea extensiilor, așteptați..."
+

@@ -3765,3 +3765,15 @@ SLGINCOMPLETE,""
 14318,1,"Seleccione al menos una carpeta en el panel de destino."
 14319,1,"Todas las carpetas de destino seleccionadas deben estar en el mismo volumen."
 
+[STRINGTABLE 171]
+14320,1,"Extensión"
+14321,1,"Cargando extensiones y complementos; por favor, espere..."
+14322,1,"Buscando paquetes de extensión; por favor, espere..."
+14323,1,"Registrando extensiones; por favor, espere..."
+14324,1,"Registrando sistemas de archivos de extensiones; por favor, espere..."
+14325,1,"Registrando comandos de menú de extensiones; por favor, espere..."
+14326,1,"Activando extensiones; por favor, espere..."
+14327,1,"Registrando botones de barra de herramientas de extensiones; por favor, espere..."
+14328,1,"Registrando visores de extensiones; por favor, espere..."
+14329,1,"Finalizando el inicio de extensiones; por favor, espere..."
+
