@@ -3656,6 +3656,9 @@ SLGINCOMPLETE,""
 
 [STRINGTABLE 164]
 14195,1,"Keres ablak bezárása, kérem várjon..."
+14196,1,"Bővítmények és beépülő modulok bezárása, kérem várjon..."
+14197,1,"Panelek és fájlrendszerek bezárása, kérem várjon..."
+14198,1,"A leállítás befejezése, kérem várjon..."
 14200,1,"C&lose shell window after command execution (in Command line)"
 14201,1,"C&lose shell window after command execution (only with default Command Shell)"
 14202,1,"Sablonok"

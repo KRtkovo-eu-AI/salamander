@@ -3656,6 +3656,9 @@ SLGINCOMPLETE,""
 
 [STRINGTABLE 164]
 14195,1,"Fermeture de la fenêtre Rechercher, veuillez patienter..."
+14196,1,"Fermeture des extensions et des modules complémentaires, veuillez patienter..."
+14197,1,"Fermeture des panneaux et des systèmes de fichiers, veuillez patienter..."
+14198,1,"Finalisation de la fermeture, veuillez patienter..."
 14200,1,"F&ermer la fenêtre du shell après l’exécution de la commande (dans la ligne de commande)"
 14201,1,"F&ermer la fenêtre du shell après l’exécution de la commande (uniquement avec l’invite de commande par défaut)"
 14202,1,"Modèles"

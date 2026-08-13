@@ -85,6 +85,11 @@ def main() -> int:
     mainwnd1 = read("src/mainwnd1.cpp")
     mainwnd2 = read("src/mainwnd2.cpp")
     mainwnd3 = read("src/mainwnd3.cpp")
+    shutdown_translations = "\n".join(
+        read(f"translations/{language}/salamand.slt")
+        for language in (
+            "chinesesimplified", "czech", "dutch", "french", "german",
+            "hungarian", "romanian", "russian", "slovak", "spanish"))
     toolbar4 = read("src/toolbar4.cpp")
     toolbar8 = read("src/toolbar8.cpp")
     main_menu = read("src/menu4.cpp")
@@ -1352,6 +1357,29 @@ def main() -> int:
         r"ExtensionBar = new \(std::nothrow\) CExtensionBar.*?"
         r"if \(ExtensionBar == NULL\)",
         "Extension Bar allocation guard is not backed by nothrow allocation")
+    require(
+        mainwnd3,
+        r"CWaitWindow closingProgress\(\s*"
+        r"HWindow, IDS_CLOSINGEXTENSIONS.*?"
+        r"closingProgress\.Create\(\).*?"
+        r"Plugins\.UnloadAll\(closingProgress\.HWindow\).*?"
+        r"closingProgress\.SetText\(LoadStr\(IDS_CLOSINGPANELS\)\).*?"
+        r"ConfirmDetachedWindowClose\(closingProgress\.HWindow.*?"
+        r"closingProgress\.SetText\(LoadStr\(IDS_SAVINGCONFIGURATION\)\).*?"
+        r"SaveConfig\(closingProgress\.HWindow, FALSE\).*?"
+        r"closingProgress\.SetText\(LoadStr\(IDS_FINISHINGSHUTDOWN\)\).*?"
+        r"DiskCache\.PrepareForShutdown\(\).*?"
+        r"DestroyWindow\(closingProgress\.HWindow\).*?"
+        r"DestroyWindow\(HWindow\)",
+        "ordinary close does not show localized progress across the full shutdown sequence")
+    for resource_id in range(14196, 14199):
+        occurrences = len(re.findall(
+            rf"^{resource_id},1,\"[^\"]+\"$",
+            shutdown_translations,
+            re.MULTILINE))
+        if occurrences != 10:
+            raise AssertionError(
+                f"shutdown status {resource_id} is not localized in all 10 translations")
     require(
         plugins2,
         r"Extension Bar Hidden.*?GetExtensionBarVisible.*?"

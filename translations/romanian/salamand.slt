@@ -3656,6 +3656,9 @@ SLGINCOMPLETE,""
 
 [STRINGTABLE 164]
 14195,1,"Inchid ferestrele Find windows, te rog asteapta..."
+14196,1,"Se închid extensiile și modulele, așteptați..."
+14197,1,"Se închid panourile și sistemele de fișiere, așteptați..."
+14198,1,"Se finalizează închiderea, așteptați..."
 14200,1,"C&hide fereastra shell după executarea comenzii (în Linia de comandă)"
 14201,1,"C&hide fereastra shell după executarea comenzii (doar cu Shell-ul de comandă implicit)"
 14202,1,"Șabloane"

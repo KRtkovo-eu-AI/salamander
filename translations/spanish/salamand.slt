@@ -3656,6 +3656,9 @@ SLGINCOMPLETE,""
 
 [STRINGTABLE 164]
 14195,1,"Cerrando ventanas de Búsqueda; por favor, espere..."
+14196,1,"Cerrando extensiones y complementos; por favor, espere..."
+14197,1,"Cerrando paneles y sistemas de archivos; por favor, espere..."
+14198,1,"Finalizando el cierre; por favor, espere..."
 14200,1,"C&errar la ventana del shell después de ejecutar el comando (en la línea de comandos)"
 14201,1,"C&errar la ventana del shell después de ejecutar el comando (solo con el Shell de comandos predeterminado)"
 14202,1,"Plantillas"
