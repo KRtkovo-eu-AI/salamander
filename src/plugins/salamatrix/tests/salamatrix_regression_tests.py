@@ -75,6 +75,7 @@ def main() -> int:
     ai_rc2 = read("src/plugins/salamatrixai/salamatrixai.rc2")
     automation_header = read("src/plugins/automation/automationplug.h")
     automation = read("src/plugins/automation/automationplug.cpp")
+    automation_bridge = read("src/plugins/automation/salamatrixbridge.cpp")
     automation_salamatrix = read("src/plugins/automation/salamatrixaut.cpp")
     automation_version = read("src/plugins/automation/versinfo.rh2")
     automation_entry = read("src/plugins/automation/entry.cpp")
@@ -1437,9 +1438,17 @@ def main() -> int:
     require(
         automation_version,
         r'#define VERSINFO_MAJOR\s+2.*?'
-        r'#define VERSINFO_MINORA\s+7.*?'
+        r'#define VERSINFO_MINORA\s+8.*?'
         r'#define VERSINFO_MINORB\s+0',
-        "Automation version was not bumped for coalesced progress updates")
+        "Automation version was not bumped for cached Salamatrix services")
+    require(
+        automation_bridge,
+        r'void CAutomationSalamatrixBridge::Refresh.*?'
+        r'QueryService\(salamander, SALAMATRIX_SERVICE_AUTOMATION_ADAPTER.*?'
+        r'if \(m_bQueried && m_pGeneral == salamander.*?'
+        r'm_pRuntimeService == runtimeService.*?return;.*?'
+        r'Reset\(\);.*?RegisterRuntimeAdapters\(\);',
+        "Automation rebuilds unchanged Salamatrix services and runtime adapters on every API getter")
     require(
         plugins2,
         r"Extension Bar Hidden.*?GetExtensionBarVisible.*?"

@@ -1664,48 +1664,107 @@ void* CAutomationSalamatrixBridge::QueryService(
 
 void CAutomationSalamatrixBridge::Refresh(CSalamanderGeneralAbstract* salamander)
 {
+    DWORD automationVersion = 0;
+    DWORD uiVersion = 0;
+    DWORD commandsVersion = 0;
+    DWORD fileOperationsVersion = 0;
+    DWORD runtimeVersion = 0;
+    DWORD sidesVersion = 0;
+    DWORD eventsVersion = 0;
+    DWORD extensionsVersion = 0;
+    DWORD storageVersion = 0;
+    DWORD assistantVersion = 0;
+
+    Salamatrix::Automation::ScriptRootAdapter* scriptRoot =
+        static_cast<Salamatrix::Automation::ScriptRootAdapter*>(
+            QueryService(salamander, SALAMATRIX_SERVICE_AUTOMATION_ADAPTER,
+                         SALAMATRIX_AUTOMATION_VERSION_1_0, &automationVersion));
+    Salamatrix::UI::IUIService* uiService =
+        static_cast<Salamatrix::UI::IUIService*>(
+            QueryService(salamander, SALAMATRIX_SERVICE_UI,
+                         SALAMATRIX_UI_VERSION_1_0, &uiVersion));
+    Salamatrix::Commands::ICommandService* commandService =
+        static_cast<Salamatrix::Commands::ICommandService*>(
+            QueryService(salamander, SALAMATRIX_SERVICE_COMMANDS,
+                         SALAMATRIX_COMMANDS_VERSION_1_0, &commandsVersion));
+    Salamatrix::FileOperations::IFileOperationsService* fileOperationsService =
+        static_cast<Salamatrix::FileOperations::IFileOperationsService*>(
+            QueryService(salamander, SALAMATRIX_SERVICE_FILEOPERATIONS,
+                         SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &fileOperationsVersion));
+    Salamatrix::Runtime::IRuntimeService* runtimeService =
+        static_cast<Salamatrix::Runtime::IRuntimeService*>(
+            QueryService(salamander, SALAMATRIX_SERVICE_RUNTIME,
+                         SALAMATRIX_RUNTIME_VERSION_1_0, &runtimeVersion));
+    Salamatrix::Sides::ISidesService* sidesService =
+        static_cast<Salamatrix::Sides::ISidesService*>(
+            QueryService(salamander, SALAMATRIX_SERVICE_SIDES,
+                         SALAMATRIX_SIDES_VERSION_1_0, &sidesVersion));
+    Salamatrix::Events::IEventsService* eventsService =
+        static_cast<Salamatrix::Events::IEventsService*>(
+            QueryService(salamander, SALAMATRIX_SERVICE_EVENTS,
+                         SALAMATRIX_EVENTS_VERSION_1_0, &eventsVersion));
+    Salamatrix::Extensions::IExtensionsService* extensionsService =
+        static_cast<Salamatrix::Extensions::IExtensionsService*>(
+            QueryService(salamander, SALAMATRIX_SERVICE_EXTENSIONS,
+                         SALAMATRIX_EXTENSIONS_VERSION_1_0, &extensionsVersion));
+    Salamatrix::Storage::IStorageService* storageService =
+        static_cast<Salamatrix::Storage::IStorageService*>(
+            QueryService(salamander, SALAMATRIX_SERVICE_STORAGE,
+                         SALAMATRIX_STORAGE_VERSION_1_0, &storageVersion));
+    Salamatrix::AI::IAssistantService* assistantService =
+        static_cast<Salamatrix::AI::IAssistantService*>(
+            QueryService(salamander, SALAMATRIX_SERVICE_AI,
+                         SALAMATRIX_AI_VERSION_1_0, &assistantVersion));
+
+    // Script-facing getters call Refresh frequently. Rebuilding an unchanged
+    // bridge would unregister and register four runtime adapters, and each of
+    // those operations refreshes the complete extension catalog. Apart from
+    // being unnecessary, doing that while one of the adapters is executing can
+    // turn a single API getter into several seconds of extension discovery.
+    if (m_bQueried && m_pGeneral == salamander &&
+        m_pScriptRoot == scriptRoot && m_pUIService == uiService &&
+        m_pCommandService == commandService &&
+        m_pFileOperationsService == fileOperationsService &&
+        m_pRuntimeService == runtimeService && m_pSidesService == sidesService &&
+        m_pEventsService == eventsService &&
+        m_pExtensionsService == extensionsService &&
+        m_pStorageService == storageService &&
+        m_pAssistantService == assistantService &&
+        m_dwAutomationVersion == automationVersion &&
+        m_dwUIVersion == uiVersion && m_dwCommandsVersion == commandsVersion &&
+        m_dwFileOperationsVersion == fileOperationsVersion &&
+        m_dwRuntimeVersion == runtimeVersion && m_dwSidesVersion == sidesVersion &&
+        m_dwEventsVersion == eventsVersion &&
+        m_dwExtensionsVersion == extensionsVersion &&
+        m_dwStorageVersion == storageVersion &&
+        m_dwAssistantVersion == assistantVersion)
+    {
+        return;
+    }
+
     Reset();
     m_bQueried = true;
     m_pGeneral = salamander;
-
-    m_pScriptRoot = static_cast<Salamatrix::Automation::ScriptRootAdapter*>(
-        QueryService(salamander, SALAMATRIX_SERVICE_AUTOMATION_ADAPTER,
-                     SALAMATRIX_AUTOMATION_VERSION_1_0, &m_dwAutomationVersion));
-
-    m_pUIService = static_cast<Salamatrix::UI::IUIService*>(
-        QueryService(salamander, SALAMATRIX_SERVICE_UI,
-                     SALAMATRIX_UI_VERSION_1_0, &m_dwUIVersion));
-
-    m_pCommandService = static_cast<Salamatrix::Commands::ICommandService*>(
-        QueryService(salamander, SALAMATRIX_SERVICE_COMMANDS,
-                     SALAMATRIX_COMMANDS_VERSION_1_0, &m_dwCommandsVersion));
-
-    m_pFileOperationsService = static_cast<Salamatrix::FileOperations::IFileOperationsService*>(
-        QueryService(salamander, SALAMATRIX_SERVICE_FILEOPERATIONS,
-                     SALAMATRIX_FILEOPERATIONS_VERSION_1_0, &m_dwFileOperationsVersion));
-
-    m_pRuntimeService = static_cast<Salamatrix::Runtime::IRuntimeService*>(
-        QueryService(salamander, SALAMATRIX_SERVICE_RUNTIME,
-                     SALAMATRIX_RUNTIME_VERSION_1_0, &m_dwRuntimeVersion));
-
-    m_pSidesService = static_cast<Salamatrix::Sides::ISidesService*>(
-        QueryService(salamander, SALAMATRIX_SERVICE_SIDES,
-                     SALAMATRIX_SIDES_VERSION_1_0, &m_dwSidesVersion));
-
-    m_pEventsService = static_cast<Salamatrix::Events::IEventsService*>(
-        QueryService(salamander, SALAMATRIX_SERVICE_EVENTS,
-                     SALAMATRIX_EVENTS_VERSION_1_0, &m_dwEventsVersion));
-
-    m_pExtensionsService = static_cast<Salamatrix::Extensions::IExtensionsService*>(
-        QueryService(salamander, SALAMATRIX_SERVICE_EXTENSIONS,
-                     SALAMATRIX_EXTENSIONS_VERSION_1_0, &m_dwExtensionsVersion));
-
-    m_pStorageService = static_cast<Salamatrix::Storage::IStorageService*>(
-        QueryService(salamander, SALAMATRIX_SERVICE_STORAGE,
-                     SALAMATRIX_STORAGE_VERSION_1_0, &m_dwStorageVersion));
-    m_pAssistantService = static_cast<Salamatrix::AI::IAssistantService*>(
-        QueryService(salamander, SALAMATRIX_SERVICE_AI,
-                     SALAMATRIX_AI_VERSION_1_0, &m_dwAssistantVersion));
+    m_pScriptRoot = scriptRoot;
+    m_pUIService = uiService;
+    m_pCommandService = commandService;
+    m_pFileOperationsService = fileOperationsService;
+    m_pRuntimeService = runtimeService;
+    m_pSidesService = sidesService;
+    m_pEventsService = eventsService;
+    m_pExtensionsService = extensionsService;
+    m_pStorageService = storageService;
+    m_pAssistantService = assistantService;
+    m_dwAutomationVersion = automationVersion;
+    m_dwUIVersion = uiVersion;
+    m_dwCommandsVersion = commandsVersion;
+    m_dwFileOperationsVersion = fileOperationsVersion;
+    m_dwRuntimeVersion = runtimeVersion;
+    m_dwSidesVersion = sidesVersion;
+    m_dwEventsVersion = eventsVersion;
+    m_dwExtensionsVersion = extensionsVersion;
+    m_dwStorageVersion = storageVersion;
+    m_dwAssistantVersion = assistantVersion;
     RegisterRuntimeAdapters();
 }
 
