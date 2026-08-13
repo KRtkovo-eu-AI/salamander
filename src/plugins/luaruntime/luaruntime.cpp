@@ -134,6 +134,38 @@ static bool AppendUtf8QuotedArgument(std::wstring& command, const char* value)
     return AppendQuotedArgument(command, &converted[0]);
 }
 
+static bool AppendBase64Utf8QuotedArgument(
+    std::wstring& command,
+    const char* value)
+{
+    if (value == NULL)
+        return false;
+    static const char alphabet[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const unsigned char* bytes =
+        reinterpret_cast<const unsigned char*>(value);
+    const size_t length = strlen(value);
+    std::wstring encoded;
+    encoded.reserve(((length + 2) / 3) * 4);
+    for (size_t offset = 0; offset < length; offset += 3)
+    {
+        const unsigned int first = bytes[offset];
+        const unsigned int second =
+            offset + 1 < length ? bytes[offset + 1] : 0;
+        const unsigned int third =
+            offset + 2 < length ? bytes[offset + 2] : 0;
+        encoded.push_back(alphabet[first >> 2]);
+        encoded.push_back(alphabet[((first & 0x03) << 4) | (second >> 4)]);
+        encoded.push_back(
+            offset + 1 < length
+                ? alphabet[((second & 0x0f) << 2) | (third >> 6)]
+                : '=');
+        encoded.push_back(
+            offset + 2 < length ? alphabet[third & 0x3f] : '=');
+    }
+    return AppendQuotedArgument(command, encoded.c_str());
+}
+
 static void SetRuntimeText(
     const std::string& value,
     wchar_t* output,
@@ -1082,8 +1114,11 @@ BOOL WINAPI CLuaRuntimeAdapter::StartPersistent(
     if ((request->Flags & Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap) != 0 &&
         request->InvocationJson != NULL && request->InvocationJson[0] != '\0')
     {
-        command.append(L" --invocation-json ");
-        if (!AppendUtf8QuotedArgument(command, request->InvocationJson))
+        // The upstream Windows Lua executable exposes narrow argv and converts
+        // the wide CreateProcess command line through the active ANSI code page.
+        // Keep arbitrary UTF-8 invocation data ASCII-only across that boundary.
+        command.append(L" --invocation-json-base64 ");
+        if (!AppendBase64Utf8QuotedArgument(command, request->InvocationJson))
             return FALSE;
     }
     if ((request->Flags &
