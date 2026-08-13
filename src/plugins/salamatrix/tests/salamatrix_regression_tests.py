@@ -75,6 +75,8 @@ def main() -> int:
     ai_rc2 = read("src/plugins/salamatrixai/salamatrixai.rc2")
     automation_header = read("src/plugins/automation/automationplug.h")
     automation = read("src/plugins/automation/automationplug.cpp")
+    automation_salamatrix = read("src/plugins/automation/salamatrixaut.cpp")
+    automation_version = read("src/plugins/automation/versinfo.rh2")
     automation_entry = read("src/plugins/automation/entry.cpp")
     automation_scriptlist = read("src/plugins/automation/scriptlist.cpp")
     plugins_header = read("src/plugins.h")
@@ -1425,6 +1427,19 @@ def main() -> int:
         r'#define VERSINFO_MINORA\s+7.*?'
         r'#define VERSINFO_MINORB\s+6',
         "Salamatrix version was not bumped for startup progress reporting")
+    require(
+        automation_salamatrix,
+        r'ApplyPositions\(BOOL delayedPaint\).*?'
+        r'SetPositions\(m_nPos, m_nTotalPos, delayedPaint\).*?'
+        r'AddText\(static_cast<const char\*>\(textA\), TRUE\).*?'
+        r'AddText is cached.*?ApplyPositions\(FALSE\).*?Step\(step, FALSE\)',
+        "Automation Salamatrix progress does not coalesce text and position into one repaint")
+    require(
+        automation_version,
+        r'#define VERSINFO_MAJOR\s+2.*?'
+        r'#define VERSINFO_MINORA\s+7.*?'
+        r'#define VERSINFO_MINORB\s+0',
+        "Automation version was not bumped for coalesced progress updates")
     require(
         plugins2,
         r"Extension Bar Hidden.*?GetExtensionBarVisible.*?"
