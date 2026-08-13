@@ -2196,11 +2196,28 @@ void PackageManager::RemovePackages()
     for (size_t index = 0; index < Packages.size(); ++index)
     {
         Package* package = Packages[index];
+        const char* progressDetail = package->Manifest.Name.empty()
+                                         ? package->Id.c_str()
+                                         : package->Manifest.Name.c_str();
         InterlockedExchange(&package->Stopping, TRUE);
         if (Extensions != NULL)
+        {
+            ReportShutdownProgress(
+                ssdpUnregisteringExtensions, progressDetail,
+                static_cast<int>(index + 1),
+                static_cast<int>(Packages.size()));
             Extensions->UnregisterExtension(package->Id.c_str(), package);
+        }
         ReleaseEventSubscriptions(package);
+        ReportShutdownProgress(
+            ssdpStoppingExtensionRuntimes, progressDetail,
+            static_cast<int>(index + 1),
+            static_cast<int>(Packages.size()));
         StopSession(package);
+        ReportShutdownProgress(
+            ssdpClosingExtensionWindows, progressDetail,
+            static_cast<int>(index + 1),
+            static_cast<int>(Packages.size()));
         ReleaseProgress(package);
         ReleaseDialogs(package);
         delete package;
@@ -4744,6 +4761,25 @@ void PackageManager::ReportStartupProgress(
     }
 }
 
+void PackageManager::ReportShutdownProgress(
+    CSalamanderShutdownProgressPhase phase, const char* detail,
+    int current, int total) const
+{
+    if (General == NULL)
+        return;
+    CSalamanderServiceQuery query;
+    CSalamanderServiceResult result;
+    memset(&query, 0, sizeof(query));
+    memset(&result, 0, sizeof(result));
+    query.ServiceId = SALAMANDER_SERVICE_SHUTDOWN_PROGRESS;
+    query.MinimumVersion = SALAMANDER_SHUTDOWN_PROGRESS_VERSION_1_0;
+    if (General->QueryService(&query, &result) && result.Interface != NULL)
+    {
+        static_cast<CSalamanderShutdownProgressAbstract*>(result.Interface)
+            ->ReportShutdownProgress(phase, detail, current, total);
+    }
+}
+
 void PackageManager::RegisterToolbarButtons()
 {
     if (General == NULL)
@@ -4835,8 +4871,20 @@ void PackageManager::UnregisterToolbarButtons()
     if (General == NULL)
         return;
     for (size_t p = 0; p < Packages.size(); ++p)
+    {
+        if (!Packages[p]->CommandIds.empty())
+        {
+            const char* progressDetail = Packages[p]->Manifest.Name.empty()
+                                             ? Packages[p]->Id.c_str()
+                                             : Packages[p]->Manifest.Name.c_str();
+            ReportShutdownProgress(
+                ssdpUnregisteringToolbarButtons, progressDetail,
+                static_cast<int>(p + 1),
+                static_cast<int>(Packages.size()));
+        }
         for (size_t c = 0; c < Packages[p]->CommandIds.size(); ++c)
             General->UnregisterToolbarButton(Packages[p]->CommandIds[c]);
+    }
 }
 
 std::wstring PackageManager::ExpandRoot(const std::wstring& root)

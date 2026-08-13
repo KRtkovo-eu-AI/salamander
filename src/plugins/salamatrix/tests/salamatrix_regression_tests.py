@@ -1377,12 +1377,13 @@ def main() -> int:
         r"CWaitWindow closingProgress\(\s*"
         r"HWindow, IDS_CLOSINGEXTENSIONS.*?"
         r"closingProgress\.Create\(\).*?"
-        r"Plugins\.UnloadAll\(closingProgress\.HWindow\).*?"
-        r"closingProgress\.SetText\(LoadStr\(IDS_CLOSINGPANELS\)\).*?"
+        r"Plugins\.UnloadAll\(closingProgress\.HWindow,\s*"
+        r"&shutdownProgressService\).*?"
+        r"ssdpClosingPanels.*?"
         r"ConfirmDetachedWindowClose\(closingProgress\.HWindow.*?"
-        r"closingProgress\.SetText\(LoadStr\(IDS_SAVINGCONFIGURATION\)\).*?"
+        r"ssdpSavingConfiguration.*?"
         r"SaveConfig\(closingProgress\.HWindow, FALSE\).*?"
-        r"closingProgress\.SetText\(LoadStr\(IDS_FINISHINGSHUTDOWN\)\).*?"
+        r"ssdpFinishingShutdown.*?"
         r"DiskCache\.PrepareForShutdown\(\).*?"
         r"DestroyWindow\(closingProgress\.HWindow\).*?"
         r"DestroyWindow\(HWindow\)",
@@ -1433,11 +1434,53 @@ def main() -> int:
             raise AssertionError(
                 f"extension/startup status {resource_id} is not localized in all 10 translations")
     require(
+        general_contract,
+        r'SALAMANDER_SERVICE_SHUTDOWN_PROGRESS.*?'
+        r'class CSalamanderShutdownProgressAbstract.*?'
+        r'ReportShutdownProgress',
+        "shared SDK does not expose the temporary shutdown progress service")
+    require(
+        mainwnd3,
+        r'CShutdownProgressService.*?'
+        r'RegisterService\(\s*SALAMANDER_SERVICE_SHUTDOWN_PROGRESS.*?'
+        r'Plugins\.UnloadAll\(closingProgress\.HWindow,\s*'
+        r'&shutdownProgressService\).*?'
+        r'ssdpClosingPanels.*?ssdpSavingConfiguration.*?'
+        r'ssdpFinishingShutdown.*?UnregisterService\(\s*'
+        r'SALAMANDER_SERVICE_SHUTDOWN_PROGRESS',
+        "application shutdown does not report its real phases through one progress service")
+    require(
+        plugins2,
+        r'CPlugins::UnloadAll\(.*?ReportShutdownProgress\(\s*'
+        r'ssdpUnloadingPlugins, Data\[i\]->Name',
+        "plug-in unload progress does not identify each loaded plug-in")
+    for phase in (
+            "ssdpUnregisteringToolbarButtons",
+            "ssdpUnregisteringExtensions",
+            "ssdpStoppingExtensionRuntimes",
+            "ssdpClosingExtensionWindows"):
+        require(
+            packages, phase,
+            f"Salamatrix shutdown does not report {phase}")
+    require(
+        packages,
+        r'query\.ServiceId = SALAMANDER_SERVICE_SHUTDOWN_PROGRESS.*?'
+        r'QueryService\(&query, &result\).*?ReportShutdownProgress',
+        "Salamatrix package manager does not use the temporary shutdown progress service")
+    for resource_id in range(14330, 14337):
+        occurrences = len(re.findall(
+            rf"^{resource_id},1,\"[^\"]+\"$",
+            shutdown_translations,
+            re.MULTILINE))
+        if occurrences != 10:
+            raise AssertionError(
+                f"extension/shutdown status {resource_id} is not localized in all 10 translations")
+    require(
         salamatrix_version,
         r'#define VERSINFO_MAJOR\s+0.*?'
         r'#define VERSINFO_MINORA\s+7.*?'
-        r'#define VERSINFO_MINORB\s+7',
-        "Salamatrix version was not bumped for package execution refresh safety")
+        r'#define VERSINFO_MINORB\s+8',
+        "Salamatrix version was not bumped for detailed shutdown progress")
     require(
         automation_salamatrix,
         r'ApplyPositions\(BOOL delayedPaint\).*?'

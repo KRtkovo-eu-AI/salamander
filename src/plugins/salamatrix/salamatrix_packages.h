@@ -167,6 +167,9 @@ private:
     void ReportStartupProgress(
         CSalamanderStartupProgressPhase phase, const char* detail,
         int current, int total) const;
+    void ReportShutdownProgress(
+        CSalamanderShutdownProgressPhase phase, const char* detail,
+        int current, int total) const;
 
     static std::wstring ExpandRoot(const std::wstring& root);
     static BOOL MakeDisplayEntryPoint(

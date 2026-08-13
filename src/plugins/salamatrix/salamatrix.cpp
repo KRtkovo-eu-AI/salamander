@@ -245,14 +245,37 @@ void WINAPI CPluginInterface::AcceptChangeOnPathNotification(
             SalamatrixRuntime->Events(), path, includingSubdirs);
 }
 
+static void ReportShutdownProgress(CSalamanderShutdownProgressPhase phase)
+{
+    CSalamanderServiceQuery progressQuery;
+    CSalamanderServiceResult progressResult;
+    memset(&progressQuery, 0, sizeof(progressQuery));
+    memset(&progressResult, 0, sizeof(progressResult));
+    progressQuery.ServiceId = SALAMANDER_SERVICE_SHUTDOWN_PROGRESS;
+    progressQuery.MinimumVersion = SALAMANDER_SHUTDOWN_PROGRESS_VERSION_1_0;
+    if (SalamanderGeneral != NULL &&
+        SalamanderGeneral->QueryService(&progressQuery, &progressResult) &&
+        progressResult.Interface != NULL)
+    {
+        CSalamanderShutdownProgressAbstract* shutdownProgress =
+            static_cast<CSalamanderShutdownProgressAbstract*>(
+                progressResult.Interface);
+        shutdownProgress->ReportShutdownProgress(
+            phase, NULL, 0, 0);
+    }
+}
+
 BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL force)
 {
+    ReportShutdownProgress(ssdpNotifyingExtensions);
     if (SalamatrixRuntime != NULL)
         SalamatrixRuntime->Events()->PublishLifecycle(
             Salamatrix::Events::EventKindHostShutdown);
+    ReportShutdownProgress(ssdpClosingExtensionWindows);
     Salamatrix::UI::CloseAllNativeDialogs();
     delete SalamatrixPackages;
     SalamatrixPackages = NULL;
+    ReportShutdownProgress(ssdpStoppingExtensionServices);
     DestroyRuntimeServices();
     SalamanderGeneral = NULL;
     SalamanderGUI = NULL;

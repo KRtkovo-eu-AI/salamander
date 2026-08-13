@@ -1872,17 +1872,28 @@ BOOL CPlugins::Remove(HWND parent, int index, BOOL canDelPluginRegKey)
     return FALSE;
 }
 
-BOOL CPlugins::UnloadAll(HWND parent)
+BOOL CPlugins::UnloadAll(
+    HWND parent, CSalamanderShutdownProgressAbstract* progress)
 {
     CALL_STACK_MESSAGE1("CPlugins::UnloadAll()");
     BOOL ret = TRUE;
+    int loadedCount = 0;
+    for (int index = 0; index < Data.Count; ++index)
+        if (Data[index]->GetLoaded())
+            ++loadedCount;
+    int unloaded = 0;
     int i;
     for (i = 0; i < Data.Count; i++)
     {
         if (Data[i]->GetLoaded())
         {
+            if (progress != NULL)
+                progress->ReportShutdownProgress(
+                    ssdpUnloadingPlugins, Data[i]->Name,
+                    unloaded + 1, loadedCount);
             if (!Data[i]->Unload(parent, FALSE))
                 ret = FALSE;
+            ++unloaded;
         }
     }
     return ret;

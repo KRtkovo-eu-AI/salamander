@@ -80,6 +80,88 @@ extern "C"
 CWaitWindow* GlobalSaveWaitWindow = NULL; // if a global wait window for Save exists, it's here (otherwise NULL)
 int GlobalSaveWaitWindowProgress = 0;     // current progress value of the global wait window for Save
 
+class CShutdownProgressService : public CSalamanderShutdownProgressAbstract
+{
+private:
+    CWaitWindow* Window;
+
+    static int PhaseText(CSalamanderShutdownProgressPhase phase)
+    {
+        switch (phase)
+        {
+        case ssdpUnloadingPlugins:
+            return IDS_SHUTDOWN_UNLOADINGPLUGIN;
+        case ssdpNotifyingExtensions:
+            return IDS_SHUTDOWN_NOTIFYINGEXTENSIONS;
+        case ssdpUnregisteringToolbarButtons:
+            return IDS_SHUTDOWN_UNREGISTERINGTOOLBARS;
+        case ssdpUnregisteringExtensions:
+            return IDS_SHUTDOWN_UNREGISTERINGEXTENSIONS;
+        case ssdpStoppingExtensionRuntimes:
+            return IDS_SHUTDOWN_STOPPINGRUNTIMES;
+        case ssdpClosingExtensionWindows:
+            return IDS_SHUTDOWN_CLOSINGEXTENSIONWINDOWS;
+        case ssdpStoppingExtensionServices:
+            return IDS_SHUTDOWN_STOPPINGSERVICES;
+        case ssdpClosingPanels:
+            return IDS_CLOSINGPANELS;
+        case ssdpSavingConfiguration:
+            return IDS_SAVINGCONFIGURATION;
+        case ssdpFinishingShutdown:
+            return IDS_FINISHINGSHUTDOWN;
+        }
+        return IDS_CLOSINGEXTENSIONS;
+    }
+
+    static void DetailToAnsi(const char* detail, char* buffer, int capacity)
+    {
+        if (capacity <= 0)
+            return;
+        buffer[0] = 0;
+        if (detail == NULL || detail[0] == 0)
+            return;
+
+        int wideLength = MultiByteToWideChar(
+            CP_UTF8, MB_ERR_INVALID_CHARS, detail, -1, NULL, 0);
+        if (wideLength > 0)
+        {
+            std::vector<wchar_t> wide(wideLength);
+            if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, detail, -1,
+                                    &wide[0], wideLength) != 0 &&
+                WideCharToMultiByte(CP_ACP, 0, &wide[0], -1, buffer, capacity,
+                                    NULL, NULL) != 0)
+                return;
+        }
+        lstrcpyn(buffer, detail, capacity);
+    }
+
+public:
+    CShutdownProgressService(CWaitWindow* window)
+        : Window(window)
+    {
+    }
+
+    virtual void WINAPI ReportShutdownProgress(
+        CSalamanderShutdownProgressPhase phase, const char* detail,
+        int current, int total)
+    {
+        UNREFERENCED_PARAMETER(current);
+        UNREFERENCED_PARAMETER(total);
+        char detailAnsi[700];
+        char text[1000];
+        DetailToAnsi(detail, detailAnsi, _countof(detailAnsi));
+        if (detailAnsi[0] != 0)
+            _snprintf_s(text, _TRUNCATE, "%s\n%s",
+                        LoadStr(PhaseText(phase)), detailAnsi);
+        else
+            _snprintf_s(text, _TRUNCATE, "%s\n",
+                        LoadStr(PhaseText(phase)));
+        Window->SetText(text);
+        if (Window->HWindow != NULL)
+            UpdateWindow(Window->HWindow);
+    }
+};
+
 // borrow constants from a newer SDK
 #define WM_APPCOMMAND 0x0319
 #define FAPPCOMMAND_MOUSE 0x8000
@@ -10912,6 +10994,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         HCURSOR hOldCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
         CWaitWindow closingProgress(
             HWindow, IDS_CLOSINGEXTENSIONS, FALSE, ooStatic, TRUE);
+        CShutdownProgressService shutdownProgressService(&closingProgress);
+        CSalamanderGeneral shutdownProgressRegistry;
+        BOOL shutdownProgressRegistered = FALSE;
         HWND oldPluginMsgBoxParent = PluginMsgBoxParent;
         BOOL shutdown = uMsg == WM_QUERYENDSESSION || uMsg == WM_ENDSESSION;
         if (shutdown)
@@ -10927,6 +11012,10 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             7 /* number from CMainWindow::SaveConfig() -- MUST stay in sync! */ +
             Plugins.GetPluginSaveCount()); // minus one so they can enjoy a viewing 100%
         closingProgress.Create();
+        shutdownProgressRegistered = shutdownProgressRegistry.RegisterService(
+            SALAMANDER_SERVICE_SHUTDOWN_PROGRESS,
+            SALAMANDER_SHUTDOWN_PROGRESS_VERSION_1_0,
+            &shutdownProgressService, "Open Salamander");
         GlobalSaveWaitWindow = &closingProgress;
         GlobalSaveWaitWindowProgress = 0;
         EnableWindow(HWindow, FALSE);
@@ -10940,7 +11029,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         // unload all plugins (paths in panels may point to fixed drives)
         SetDoNotLoadAnyPlugins(TRUE); // for now due to thumbnails
         UnloadingPluginsForMainWindowClose = TRUE;
-        if (!Plugins.UnloadAll(closingProgress.HWindow))
+        if (!Plugins.UnloadAll(closingProgress.HWindow,
+                               &shutdownProgressService))
         {
             UnloadingPluginsForMainWindowClose = FALSE;
             SetDoNotLoadAnyPlugins(FALSE);
@@ -10950,6 +11040,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         EXIT_WM_USER_CLOSE_MAINWND:
             UnloadingPluginsForMainWindowClose = FALSE;
+            if (shutdownProgressRegistered)
+            {
+                shutdownProgressRegistry.UnregisterService(
+                    SALAMANDER_SERVICE_SHUTDOWN_PROGRESS,
+                    &shutdownProgressService);
+                shutdownProgressRegistered = FALSE;
+            }
             GlobalSaveWaitWindow = NULL;
             GlobalSaveWaitWindowProgress = 0;
             EnableWindow(HWindow, TRUE);
@@ -10980,7 +11077,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             }
         }
         UnloadingPluginsForMainWindowClose = FALSE;
-        closingProgress.SetText(LoadStr(IDS_CLOSINGPANELS));
+        shutdownProgressService.ReportShutdownProgress(
+            ssdpClosingPanels, NULL, 0, 0);
 
         // if CShellExecuteWnd windows exist, offer to abort closing or send a bug report and terminate
         char reason[BUG_REPORT_REASON_MAX]; // problem reason + list of windows (multiline)
@@ -11116,14 +11214,16 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         if (Configuration.AutoSave)
         {
-            closingProgress.SetText(LoadStr(IDS_SAVINGCONFIGURATION));
+            shutdownProgressService.ReportShutdownProgress(
+                ssdpSavingConfiguration, NULL, 0, 0);
             // During automatic shutdown/close, do not show a modal save-error dialog here.
             // If the portable configuration file cannot be written (for example due to ACLs),
             // a dialog at this point can outlive the main window and leave Salamander hanging.
             SaveConfig(closingProgress.HWindow, FALSE);
         }
 
-        closingProgress.SetText(LoadStr(IDS_FINISHINGSHUTDOWN));
+        shutdownProgressService.ReportShutdownProgress(
+            ssdpFinishingShutdown, NULL, 0, 0);
 
         if (uMsg == WM_ENDSESSION)
             LoadSaveToRegistryMutex.Leave(); // pairs with Enter() called when WM_QUERYENDSESSION was received
@@ -11152,6 +11252,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         GlobalSaveWaitWindow = NULL;
         GlobalSaveWaitWindowProgress = 0;
+        if (shutdownProgressRegistered)
+        {
+            shutdownProgressRegistry.UnregisterService(
+                SALAMANDER_SERVICE_SHUTDOWN_PROGRESS,
+                &shutdownProgressService);
+            shutdownProgressRegistered = FALSE;
+        }
         EnableWindow(HWindow, TRUE);
         PluginMsgBoxParent = oldPluginMsgBoxParent;
         DestroyWindow(closingProgress.HWindow);
