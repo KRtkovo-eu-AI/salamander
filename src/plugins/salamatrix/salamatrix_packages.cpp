@@ -621,6 +621,29 @@ struct PackageManager::Package
     }
 };
 
+class PackageManager::ExecutionGuard
+{
+private:
+    PackageManager* Owner;
+
+    ExecutionGuard(const ExecutionGuard&);
+    ExecutionGuard& operator=(const ExecutionGuard&);
+
+public:
+    explicit ExecutionGuard(PackageManager* owner)
+        : Owner(owner)
+    {
+        if (Owner != NULL)
+            InterlockedIncrement(&Owner->ActiveExecutions);
+    }
+
+    ~ExecutionGuard()
+    {
+        if (Owner != NULL)
+            Owner->FinishExecution();
+    }
+};
+
 class PackageManager::MenuExtension : public CPluginInterfaceForMenuExtAbstract
 {
 private:
@@ -679,6 +702,7 @@ public:
         UNREFERENCED_PARAMETER(eventMask);
         if (Owner == NULL)
             return FALSE;
+        ExecutionGuard execution(Owner);
         if (id == CommandOpenAutomationApiReference)
             return Documentation::OpenAutomationApiReference(
                 Owner->General, parent);
@@ -1508,7 +1532,8 @@ PackageManager::PackageManager()
       FileSystem(NULL),
       RefreshInProgress(FALSE),
       RefreshPending(FALSE),
-      ActiveHostDispatches(0)
+      ActiveHostDispatches(0),
+      ActiveExecutions(0)
 {
 }
 
@@ -1718,12 +1743,13 @@ void PackageManager::SaveConfiguration(HKEY key, CSalamanderRegistryAbstract* re
 
 void PackageManager::Refresh()
 {
-    // A modal host call keeps its Package context alive while Windows pumps
-    // messages. Runtime/provider notifications can request another catalog
-    // refresh from that nested loop. Defer it until the host call unwinds;
-    // deleting the package here would invalidate the dispatch context and
-    // temporarily unregister every Extension Bar button.
-    if (RefreshInProgress || ActiveHostDispatches != 0)
+    // A package execution or modal host call keeps its Package context alive
+    // while Windows pumps messages. Runtime/provider notifications can request
+    // another catalog refresh from that nested loop. Defer it until the whole
+    // package operation unwinds; deleting the package here would invalidate
+    // the execution/dispatch context and its UI resources.
+    if (RefreshInProgress || ActiveHostDispatches != 0 ||
+        ActiveExecutions != 0)
     {
         RefreshPending = TRUE;
         return;
@@ -1757,7 +1783,8 @@ void PackageManager::Refresh()
     if (General != NULL)
         General->PostPluginMenuChanged();
     RefreshInProgress = FALSE;
-    if (RefreshPending && ActiveHostDispatches == 0)
+    if (RefreshPending && ActiveHostDispatches == 0 &&
+        ActiveExecutions == 0)
         Refresh();
 }
 
@@ -2547,6 +2574,7 @@ BOOL PackageManager::RunViewer(const char* fileName, const char* invocationJson,
 {
     if (fileName == NULL || General == NULL)
         return FALSE;
+    ExecutionGuard execution(this);
     const char* extension = strrchr(fileName, '.');
     const BOOL hasExtension = extension != NULL && extension[1] != '\0';
     for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
@@ -2612,6 +2640,7 @@ BOOL PackageManager::ListFileSystem(
 {
     if (items == NULL)
         return FALSE;
+    ExecutionGuard execution(this);
     items->clear();
     for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
     {
@@ -2663,6 +2692,7 @@ BOOL PackageManager::ExecuteFileSystemAction(
     const std::string& actionId,
     const char* invocationJson)
 {
+    ExecutionGuard execution(this);
     for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
     {
         Package* package = Packages[packageIndex];
@@ -4675,8 +4705,24 @@ void PackageManager::FinishHostDispatch()
 {
     if (ActiveHostDispatches > 0)
         --ActiveHostDispatches;
-    if (ActiveHostDispatches == 0 && RefreshPending && !RefreshInProgress)
+    if (ActiveHostDispatches == 0 && ActiveExecutions == 0 &&
+        RefreshPending && !RefreshInProgress)
         Refresh();
+}
+
+void PackageManager::FinishExecution()
+{
+    const LONG active = InterlockedDecrement(&ActiveExecutions);
+    if (active < 0)
+    {
+        InterlockedExchange(&ActiveExecutions, 0);
+        return;
+    }
+    if (active == 0 && ActiveHostDispatches == 0 &&
+        RefreshPending && !RefreshInProgress)
+    {
+        Refresh();
+    }
 }
 
 void PackageManager::ReportStartupProgress(

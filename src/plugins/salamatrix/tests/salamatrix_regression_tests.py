@@ -1233,9 +1233,19 @@ def main() -> int:
         plugins2 + packages,
         r"toolbarIdCount.*?ToolbarButtons\[index\]\.ToolbarId == toolbarId.*?"
         r"NextToolbarButtonId = toolbarId.*?"
-        r"RefreshInProgress \|\| ActiveHostDispatches.*?RefreshPending.*?"
-        r"FinishHostDispatch",
-        "Extension Bar IDs are not recycled or package refresh can invalidate an active host call")
+        r"RefreshInProgress \|\| ActiveHostDispatches.*?ActiveExecutions.*?"
+        r"RefreshPending.*?FinishHostDispatch.*?FinishExecution",
+        "Extension Bar IDs are not recycled or package refresh can invalidate an active package operation")
+    require(
+        packages,
+        r"class PackageManager::ExecutionGuard.*?"
+        r"InterlockedIncrement\(&Owner->ActiveExecutions\).*?"
+        r"Owner->FinishExecution\(\).*?"
+        r"MenuExtension.*?ExecutionGuard execution\(Owner\).*?"
+        r"RunViewer.*?ExecutionGuard execution\(this\).*?"
+        r"ListFileSystem.*?ExecutionGuard execution\(this\).*?"
+        r"ExecuteFileSystemAction.*?ExecutionGuard execution\(this\)",
+        "package operations are not protected from a reentrant extension catalog refresh")
     require(
         general_contract + plugins2 + packages,
         r"CSalamanderToolbarMenuItem.*?IconPath.*?IconDarkPath.*?"
@@ -1426,8 +1436,8 @@ def main() -> int:
         salamatrix_version,
         r'#define VERSINFO_MAJOR\s+0.*?'
         r'#define VERSINFO_MINORA\s+7.*?'
-        r'#define VERSINFO_MINORB\s+6',
-        "Salamatrix version was not bumped for startup progress reporting")
+        r'#define VERSINFO_MINORB\s+7',
+        "Salamatrix version was not bumped for package execution refresh safety")
     require(
         automation_salamatrix,
         r'ApplyPositions\(BOOL delayedPaint\).*?'
