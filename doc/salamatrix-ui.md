@@ -54,6 +54,14 @@ native button imagery, command behavior, color interaction, dark-mode styling,
 and control lifetime rules. The portable Win32 control implementation is only
 the fallback for standalone hosts such as Salamatrix Studio preview.
 
+Modal dialogs, message boxes, file/folder pickers, and the controls showcase do
+not inherit the ordinary 120-second host-call timeout. They remain synchronously
+owned by the UI thread until the user closes them, so a dialog may safely stay
+open for an arbitrary amount of time. A button with `dialogResult: 0` is an
+action button and stays open; buttons with a nonzero result close the dialog.
+This rule also keeps the legacy Automation COM dialog facade compatible even
+though its original `add()` signature predates the explicit `keepOpen` option.
+
 ## Dialog lifecycle
 
 All facades follow the same lifecycle:

@@ -3008,17 +3008,28 @@ BOOL WINAPI PackageManager::HostDispatch(
             resultJson, resultCapacity, resultLength);
     if (type != Runtime::Protocol::MessageCall)
         return FALSE;
+    std::string method;
+    if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "method", &method))
+        return FALSE;
     if (CurrentMainThreadDispatch == NULL && owner->General != NULL)
     {
         MainThreadDispatch call = {
             context, type, requestId, payloadJson,
             resultJson, resultCapacity, resultLength};
+        // Modal host UI calls are allowed to wait for the user indefinitely.
+        // A finite InvokeOnMainThread timeout would let this stack-backed call
+        // return while the UI thread is still inside ShowModal/a picker, and
+        // the eventual dialog close would resume through a dangling context.
+        const BOOL interactiveModalCall =
+            method == "salamander.ui.dialog.show" ||
+            method == "salamander.ui.controls" ||
+            method == "salamander.ui.messageBox" ||
+            method == "salamander.ui.pickFile" ||
+            method == "salamander.ui.pickFolder";
         return owner->General->InvokeOnMainThread(
-            HostDispatchOnMainThread, &call, 120000);
+            HostDispatchOnMainThread, &call,
+            interactiveModalCall ? INFINITE : 120000);
     }
-    std::string method;
-    if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "method", &method))
-        return FALSE;
     const char* requiredCapability = RuntimeCapabilityForMethod(method);
     if (!ManifestAllowsCapability(package->Manifest, requiredCapability))
     {

@@ -1124,6 +1124,17 @@ def main() -> int:
         ui_salamander_host,
         r'AttachNative(?:StaticText|HyperLink|ProgressBar|Button|ColorArrowButton|ToolbarHeader)',
         "in-process Salamatrix dialogs incorrectly use the standalone preview fallback controls")
+    require(
+        salamatrix_ui,
+        r'control->KeepOpen \|\| control->DialogResult == 0',
+        "zero-result action buttons do not remain open for the legacy Automation facade")
+    require(
+        packages,
+        r'interactiveModalCall.*?salamander\.ui\.dialog\.show.*?'
+        r'salamander\.ui\.controls.*?salamander\.ui\.messageBox.*?'
+        r'salamander\.ui\.pickFile.*?salamander\.ui\.pickFolder.*?'
+        r'interactiveModalCall \? INFINITE : 120000',
+        "modal extension UI calls can time out while the user keeps a dialog open")
     require(salamatrix_ui + ui_salamander_host, r"ApplyDarkScrollbarScopes\(BOOL dark\).*?SetDarkScrollbars.*?DarkModeAllowDarkScrollbars\(window\).*?DarkModeDisallowDarkScrollbars\(window\)",
             "Salamatrix dialogs do not scope the host dark scrollbar hook to controls")
     require(salamatrix_ui, r"PostMessage\(hwnd, WM_SALAMATRIX_APPLY_DARK_SCROLLBARS",
@@ -1493,8 +1504,8 @@ def main() -> int:
         salamatrix_version,
         r'#define VERSINFO_MAJOR\s+0.*?'
         r'#define VERSINFO_MINORA\s+7.*?'
-        r'#define VERSINFO_MINORB\s+9',
-        "Salamatrix version was not bumped for restored native CGUI controls")
+        r'#define VERSINFO_MINORB\s+10',
+        "Salamatrix version was not bumped for modal dialog lifetime safety")
     require(
         automation_salamatrix,
         r'ApplyPositions\(BOOL delayedPaint\).*?'

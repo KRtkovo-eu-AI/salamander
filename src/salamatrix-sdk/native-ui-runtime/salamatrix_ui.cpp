@@ -2355,7 +2355,10 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
             }
         }
         dialog->m_pImpl->NotifyChanged(control);
-        if (control->KeepOpen)
+        // A zero dialog result denotes an action button. This also preserves
+        // keep-open behavior for the legacy Automation COM facade, whose
+        // historical add() signature predates the explicit KeepOpen option.
+        if (control->KeepOpen || control->DialogResult == 0)
             return TRUE;
         dialog->m_pImpl->Result = control->DialogResult != 0
                                       ? control->DialogResult
