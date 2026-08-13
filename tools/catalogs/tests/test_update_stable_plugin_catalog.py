@@ -84,8 +84,31 @@ class CatalogUpdaterTests(unittest.TestCase):
 
             version, description = UPDATER.read_plugin_metadata("sftp", plugins_root)
 
-            self.assertEqual(version, "1.01 beta (x64)")
+            self.assertEqual(version, "1.0.1 beta (x64)")
             self.assertEqual(description, "SFTP client")
+
+    def test_plugin_zero_patch_version_is_omitted(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            plugins_root = Path(directory)
+            plugin_root = plugins_root / "zip"
+            plugin_root.mkdir()
+            (plugin_root / "versinfo.rh2").write_text(
+                "\n".join(
+                    (
+                        "#define VERSINFO_MAJOR 1",
+                        "#define VERSINFO_MINORA 7",
+                        "#define VERSINFO_MINORB 0",
+                        '#define VERSINFO_BETAVERSION_TXT_NO_PLATFORM ""',
+                        '#define VERSINFO_DESCRIPTION "ZIP archiver"',
+                    )
+                ),
+                encoding="utf-8",
+            )
+
+            version, description = UPDATER.read_plugin_metadata("zip", plugins_root)
+
+            self.assertEqual(version, "1.7 (x64)")
+            self.assertEqual(description, "ZIP archiver")
 
     def test_manifest_extension_is_added_with_version_and_runtime_dependency(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
