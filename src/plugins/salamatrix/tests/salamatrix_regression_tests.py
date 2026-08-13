@@ -152,6 +152,7 @@ def main() -> int:
         "src/plugins/powershellruntime/runtime/salamatrix_worker.ps1")
     php_worker = read(
         "src/plugins/phpruntime/runtime/salamatrix_worker.php")
+    lua_runtime = read("src/plugins/luaruntime/luaruntime.cpp")
     lua_worker = read(
         "src/plugins/luaruntime/runtime/salamatrix_worker.lua")
     navigator = read("src/extensions/git-worktree-navigator/main.ps1")
@@ -1073,6 +1074,15 @@ def main() -> int:
                 f"x64 installer does not package bundled Lua asset {bundled_asset}")
     require(setup, r"AddPluginDependency\('luaruntime',\s*'salamatrix'\)",
             "x64 installer does not select Salamatrix for Lua Runtime")
+    require(
+        lua_runtime,
+        r'AppendBase64Utf8QuotedArgument.*?'
+        r'--invocation-json-base64.*?request->InvocationJson',
+        "Lua runtime passes Unicode invocation JSON through narrow Windows argv")
+    require(
+        lua_worker,
+        r'function decode_base64.*?invocation_json_base64.*?decode_json',
+        "Lua worker does not restore Base64-protected Unicode invocation JSON")
     require(runtime_package_verifier,
             r"Name\s*=\s*'luaruntime'.*?extension-runtimes\\luaruntime.*?salamatrix_worker\.lua.*?lua\.exe.*?lua\.dll.*?LICENSE-LUA\.txt",
             "runtime package verifier does not validate the Lua provider layout")

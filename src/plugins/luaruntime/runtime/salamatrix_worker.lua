@@ -248,13 +248,15 @@ local options = {
     command_id = "",
     command_handler = "",
     invocation_json = "{}",
+    invocation_json_base64 = nil,
     one_shot = false
 }
 local index = 1
 while index <= #arg do
     local name = arg[index]
     if name == "--entry" or name == "--command-id" or
-       name == "--command-handler" or name == "--invocation-json" then
+       name == "--command-handler" or name == "--invocation-json" or
+       name == "--invocation-json-base64" then
         if index == #arg then error("Missing value for " .. name) end
         local key = name:sub(3):gsub("-", "_")
         options[key] = arg[index + 1]
@@ -268,6 +270,51 @@ while index <= #arg do
 end
 if not options.entry or options.entry == "" then
     error("The Lua worker requires --entry")
+end
+
+local function decode_base64(value)
+    if type(value) ~= "string" or #value % 4 ~= 0 then
+        error("Invalid Base64 invocation JSON")
+    end
+    local alphabet =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+    local decoded = {}
+    for offset = 1, #value, 4 do
+        local chunk = value:sub(offset, offset + 3)
+        local numbers = {}
+        local padding = 0
+        for index = 1, 4 do
+            local character = chunk:sub(index, index)
+            if character == "=" then
+                numbers[index] = 0
+                padding = padding + 1
+            else
+                local position = alphabet:find(character, 1, true)
+                if not position or padding ~= 0 then
+                    error("Invalid Base64 invocation JSON")
+                end
+                numbers[index] = position - 1
+            end
+        end
+        if padding > 2 or (padding ~= 0 and offset + 3 ~= #value) then
+            error("Invalid Base64 invocation JSON")
+        end
+        decoded[#decoded + 1] = string.char(
+            numbers[1] * 4 + math.floor(numbers[2] / 16))
+        if padding < 2 then
+            decoded[#decoded + 1] = string.char(
+                (numbers[2] % 16) * 16 + math.floor(numbers[3] / 4))
+        end
+        if padding == 0 then
+            decoded[#decoded + 1] = string.char(
+                (numbers[3] % 4) * 64 + numbers[4])
+        end
+    end
+    return table.concat(decoded)
+end
+
+if options.invocation_json_base64 then
+    options.invocation_json = decode_base64(options.invocation_json_base64)
 end
 
 local function send_frame(kind, id, payload)
