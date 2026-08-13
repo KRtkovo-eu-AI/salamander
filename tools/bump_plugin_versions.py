@@ -39,7 +39,7 @@ class PluginVersion:
 
     @property
     def display(self) -> str:
-        return f"{self.major}.{self.minora}" if self.minorb == 0 else f"{self.major}.{self.minora}{self.minorb}"
+        return f"{self.major}.{self.minora}" if self.minorb == 0 else f"{self.major}.{self.minora}.{self.minorb}"
 
     def bumped(self) -> "PluginVersion":
         if self.minorb == 0:

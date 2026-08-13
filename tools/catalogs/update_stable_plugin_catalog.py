@@ -159,7 +159,7 @@ def read_plugin_metadata(
     except (KeyError, ValueError) as exc:
         raise RuntimeError(f"Cannot parse version macros in {versinfo}") from exc
 
-    version = f"{major}.{minora}" if minorb == 0 else f"{major}.{minora}{minorb}"
+    version = f"{major}.{minora}" if minorb == 0 else f"{major}.{minora}.{minorb}"
     version += defines.get("VERSINFO_BETAVERSION_TXT_NO_PLATFORM", "")
     if include_platform:
         version = f"{version} (x64)"
