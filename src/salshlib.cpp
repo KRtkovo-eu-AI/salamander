@@ -136,16 +136,10 @@ BOOL IsFakeDataObject(IDataObject* pDataObject, int* fakeType, char* srcFSPathBu
     formatEtc.lindex = -1;
     formatEtc.tymed = TYMED_HGLOBAL;
 
-    STGMEDIUM stgMedium;
-    stgMedium.tymed = TYMED_HGLOBAL;
-    stgMedium.hGlobal = NULL;
-    stgMedium.pUnkForRelease = NULL;
-
-    if (pDataObject != NULL && pDataObject->GetData(&formatEtc, &stgMedium) == S_OK)
+    // This format is only a marker. Asking for its data used to make the clipboard
+    // proxy marshal an intentionally empty STGMEDIUM, which is not a valid S_OK result.
+    if (pDataObject != NULL && pDataObject->QueryGetData(&formatEtc) == S_OK)
     {
-        if (stgMedium.tymed != TYMED_HGLOBAL || stgMedium.hGlobal != NULL)
-            ReleaseStgMedium(&stgMedium);
-
         if (fakeType != NULL || srcFSPathBuf != NULL && srcFSPathBufSize > 0)
         {
             formatEtc.cfFormat = RegisterClipboardFormat(SALCF_FAKE_SRCTYPE);
@@ -154,6 +148,7 @@ BOOL IsFakeDataObject(IDataObject* pDataObject, int* fakeType, char* srcFSPathBu
             formatEtc.lindex = -1;
             formatEtc.tymed = TYMED_HGLOBAL;
 
+            STGMEDIUM stgMedium;
             stgMedium.tymed = TYMED_HGLOBAL;
             stgMedium.hGlobal = NULL;
             stgMedium.pUnkForRelease = NULL;
@@ -409,12 +404,7 @@ STDMETHODIMP CFakeCopyPasteDataObject::GetData(FORMATETC* formatEtc, STGMEDIUM* 
     if (formatEtc == NULL || medium == NULL)
         return E_INVALIDARG;
     if (formatEtc->cfFormat == CFSalFakeRealPath && (formatEtc->tymed & TYMED_HGLOBAL))
-    {
-        medium->tymed = TYMED_HGLOBAL;
-        medium->hGlobal = NULL;
-        medium->pUnkForRelease = NULL;
-        return S_OK; // return S_OK to satisfy the test in the IsFakeDataObject() function
-    }
+        return DV_E_FORMATETC; // presence is reported by QueryGetData(); S_OK requires a valid STGMEDIUM
     else
     {
         if (formatEtc->cfFormat == CFIdList)

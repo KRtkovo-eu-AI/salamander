@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "clipboard_data_object_contract.h"
+
 // mutex for accessing the shared memory
 extern HANDLE SalShExtSharedMemMutex;
 // shared memory - see the CSalShExtSharedMem structure
@@ -115,8 +117,13 @@ public:
     STDMETHOD(QueryGetData)
     (FORMATETC* formatEtc)
     {
+        if (formatEtc == NULL)
+            return E_INVALIDARG;
         if (formatEtc->cfFormat == CF_HDROP)
             return DV_E_FORMATETC; // this ensures a "NO" drop in simpler software (BOSS, WinCmd, SpeedCommander, MSIE, Word, etc.)
+        HRESULT fakeFormat = QueryPrivateHGlobalClipboardFormat(formatEtc, CFSalFakeRealPath);
+        if (fakeFormat != DV_E_FORMATETC)
+            return fakeFormat;
         return WinDataObject->QueryGetData(formatEtc);
     }
 
@@ -290,8 +297,13 @@ public:
     (FORMATETC* formatEtc)
     {
         //      TRACE_I("QueryGetData");
+        if (formatEtc == NULL)
+            return E_INVALIDARG;
         if (formatEtc->cfFormat == CF_HDROP)
             return DV_E_FORMATETC; // this enforces a "NO" drop in simpler softwares (BOSS, WinCmd, SpeedCommander, MSIE, Word, etc.)
+        HRESULT fakeFormat = QueryPrivateHGlobalClipboardFormat(formatEtc, CFSalFakeRealPath);
+        if (fakeFormat != DV_E_FORMATETC)
+            return fakeFormat;
         return WinDataObject->QueryGetData(formatEtc);
     }
 
