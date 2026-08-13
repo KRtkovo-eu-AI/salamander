@@ -695,6 +695,66 @@ void RunPythonOneShotBootstrapTest()
     DeleteFileW(&script[0]);
 }
 
+void RunPythonDemoLifecycleTest()
+{
+    std::vector<wchar_t> workerRoot(SAL_MAX_PATH);
+    DWORD rootLength = GetEnvironmentVariableW(
+        L"SALAMATRIX_WORKER_ROOT", &workerRoot[0],
+        static_cast<DWORD>(workerRoot.size()));
+    if (rootLength == 0 || rootLength >= workerRoot.size())
+        return;
+    std::vector<wchar_t> interpreter(SAL_MAX_PATH);
+    if (!FindProgram(
+            L"python.exe", &interpreter[0],
+            static_cast<int>(interpreter.size())))
+        return;
+    SetEnvironmentVariableW(L"SALAMATRIX_PYTHON", &interpreter[0]);
+
+    std::vector<wchar_t> entryPoint(SAL_MAX_PATH);
+    DWORD entryLength = GetFullPathNameW(
+        L"src\\extensions\\demos\\python\\main.py",
+        static_cast<DWORD>(entryPoint.size()), &entryPoint[0], NULL);
+    Check(entryLength != 0 && entryLength < entryPoint.size(),
+          "resolve Python demo lifecycle entry point");
+    if (entryLength == 0 || entryLength >= entryPoint.size())
+        return;
+
+    CAutomationProcessRuntimeAdapter adapter(
+        "Python.CPython", "CPython", "python", ".py",
+        L"SALAMATRIX_PYTHON", L"python.exe", L"python3.exe",
+        CAutomationProcessRuntimeAdapter::ProcessKindPython);
+    Salamatrix::Runtime::RuntimeExecutionRequest request;
+    request.EntryPoint = &entryPoint[0];
+    request.Flags =
+        Salamatrix::Runtime::RuntimeExecutionFlagPersistentWorker |
+        Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap;
+    request.TimeoutMs = 5000;
+    BootstrapDispatchState state;
+    request.HostDispatch = WorkerHostDispatch;
+    request.HostDispatchContext = &state;
+    Salamatrix::Runtime::IRuntimeSession* session = NULL;
+    Check(adapter.StartPersistent(&request, &session) != FALSE && session != NULL,
+          "start Python demo lifecycle worker");
+    if (session != NULL)
+    {
+        Check(session->Pump(1000) != FALSE,
+              "Python demo lifecycle worker handshake");
+        // Once the entry point has returned, a quiet persistent worker waits
+        // for events. The unfixed demo instead sends its Run notification here.
+        (void)session->Pump(500);
+        Check(session->IsAlive() != FALSE,
+              "Python demo lifecycle worker remains available for events");
+        Check(state.NotificationCalls == 0,
+              "Python demo lifecycle activation has no notification side effect");
+        Check(state.StorageCalls == 0,
+              "Python demo lifecycle activation has no storage side effect");
+        Check(state.DialogCalls == 0 && state.MessageBoxCalls == 0,
+              "Python demo lifecycle activation has no modal UI side effect");
+        session->Stop();
+        session->Release();
+    }
+}
+
 void RunPythonBootstrapTest()
 {
     std::vector<wchar_t> workerRoot(SAL_MAX_PATH);
@@ -1194,6 +1254,7 @@ int main()
     RunPythonTests();
     RunPythonFailureDiagnosticTest();
     RunPythonOneShotBootstrapTest();
+    RunPythonDemoLifecycleTest();
     RunPythonBootstrapTest();
     RunPowerShellBootstrapTest();
     RunPhpBootstrapTest();

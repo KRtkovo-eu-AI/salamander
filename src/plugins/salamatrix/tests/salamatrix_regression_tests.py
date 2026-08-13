@@ -1034,12 +1034,19 @@ def main() -> int:
         "PHP": (php_demo_manifest, php_demo),
         "Lua": (lua_demo_manifest, lua_demo),
     }
+    demo_versions = {
+        "Node": "1.4.1",
+        "Python": "1.4.2",
+        "PowerShell": "1.4.1",
+        "PHP": "1.4.1",
+        "Lua": "1.4.1",
+    }
     viewer_patterns = set()
     for runtime_name, (demo_manifest, demo_source) in demo_roles.items():
         viewers = demo_manifest.get("viewers", [])
         file_systems = demo_manifest.get("fileSystems", [])
         if (demo_manifest.get("schema") != 2 or not viewers or
-                demo_manifest.get("version") != "1.4.1" or
+                demo_manifest.get("version") != demo_versions[runtime_name] or
                 not viewers[0].get("name") or
                 viewers[0].get("handler") != "viewDemo" or
                 not file_systems or
@@ -1358,6 +1365,10 @@ def main() -> int:
         r"ImageList_Add\(hotImageList",
         "Extension Bar SVG alpha is not flattened onto its light/dark background")
     require(python_demo, r"Salamander\.ui\.notify", "Python demo does not show a non-blocking result")
+    require(
+        python_demo,
+        r'if handler == "run":.*?CPython extension package is running',
+        "Python demo executes its Run UI during lifecycle activation")
     require(python_demo, r'handler == "viewDemo".*?message_box.*?SystemExit',
             "Python Viewer demo does not isolate its modal preview from ordinary commands")
     require(powershell_demo, r"\$Salamander\.ui\.Notify", "PowerShell demo does not show a non-blocking result")
