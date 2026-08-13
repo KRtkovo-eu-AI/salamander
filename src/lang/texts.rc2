@@ -2066,6 +2066,9 @@ STRINGTABLE
  IDS_FORCEDSHUTDOWN, "Windows is rejecting to abort shutdown. This message will block it temporarily. Please wait to abort shutdown manually before you close this message, otherwise Open Salamander will be terminated without saving configuration."
  IDS_FORCEDSHUTDOWNDISKOPER, "Windows is rejecting to abort shutdown. This message will block it temporarily.\n\nYou have some disk operations in progress. Do you want to cancel them now? Click No only if you have aborted shutdown manually, otherwise you risk having unfinished files on your disk.\n\nPlease wait to abort shutdown manually before you answer this question, otherwise Open Salamander will be terminated without saving configuration."
  IDS_CLOSINGFINDWINDOWS, "Closing Find windows, please wait..."
+ IDS_CLOSINGEXTENSIONS, "Closing extensions and plug-ins, please wait..."
+ IDS_CLOSINGPANELS, "Closing panels and file systems, please wait..."
+ IDS_FINISHINGSHUTDOWN, "Finishing shutdown, please wait..."
 
  IDS_CLOSESHELL_COMMANDLINE, "C&lose shell window after command execution (in Command line)"
  IDS_CLOSESHELL_DEFAULTCMDONLY, "C&lose shell window after command execution (only with default Command Shell)"

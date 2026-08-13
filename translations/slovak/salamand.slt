@@ -3656,6 +3656,9 @@ SLGINCOMPLETE,""
 
 [STRINGTABLE 164]
 14195,1,"Zatváram okná vyhľadávania, prosím čakajte..."
+14196,1,"Zatváranie rozšírení a doplnkov, prosím čakajte..."
+14197,1,"Zatváranie panelov a súborových systémov, prosím čakajte..."
+14198,1,"Dokončovanie ukončenia aplikácie, prosím čakajte..."
 14200,1,"C&zatvoriť okno shellu po vykonaní príkazu (v príkazovom riadku)"
 14201,1,"C&zatvoriť okno shellu po vykonaní príkazu (iba s predvoleným príkazovým shellom)"
 14202,1,"Šablóny"

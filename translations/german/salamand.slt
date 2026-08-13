@@ -3656,6 +3656,9 @@ SLGINCOMPLETE,""
 
 [STRINGTABLE 164]
 14195,1,"Schließe Suchfenster, bitte warten..."
+14196,1,"Erweiterungen und Plug-ins werden geschlossen, bitte warten..."
+14197,1,"Fensterbereiche und Dateisysteme werden geschlossen, bitte warten..."
+14198,1,"Beenden wird abgeschlossen, bitte warten..."
 14200,1,"C&lose Shell-Fenster nach Ausführung des Befehls schließen (in der Befehlszeile)"
 14201,1,"C&lose Shell-Fenster nach Ausführung des Befehls schließen (nur mit der Standard-Befehls-Shell)"
 14202,1,"Vorlagen"

@@ -10909,27 +10909,30 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             MyShutdownBlockReasonCreate(HWindow, blockReason);
         }
 
-        HCURSOR hOldCursor = NULL;
-        CWaitWindow analysing(HWindow, IDS_SAVINGCONFIGURATION, FALSE, ooStatic, TRUE);
+        HCURSOR hOldCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
+        CWaitWindow closingProgress(
+            HWindow, IDS_CLOSINGEXTENSIONS, FALSE, ooStatic, TRUE);
         HWND oldPluginMsgBoxParent = PluginMsgBoxParent;
         BOOL shutdown = uMsg == WM_QUERYENDSESSION || uMsg == WM_ENDSESSION;
-        if (shutdown) // during shutdown/log-off/restart show a wait window for all Saves (including plugins) and process the message loop (so we aren't marked as "not responding" and killed early)
+        if (shutdown)
         {
             // start a thread that will handle registry work while saving the configuration;
             // meanwhile this (main) thread will pump messages in the message loop
             RegistryWorkerThread.StartThread();
-
-            hOldCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
-            analysing.SetProgressMax(7 /* number from CMainWindow::SaveConfig() -- MUST stay in sync! */ +
-                                     Plugins.GetPluginSaveCount()); // minus one so they can enjoy a viewing 100%
-            analysing.Create();
-            GlobalSaveWaitWindow = &analysing;
-            GlobalSaveWaitWindowProgress = 0;
-            EnableWindow(HWindow, FALSE);
-
-            // SaveConfiguration of plugins will be called too -> parent must be set for their message boxes
-            PluginMsgBoxParent = analysing.HWindow;
         }
+        // Show one progress window for the entire close sequence.  Plug-in
+        // unload may save configuration and can be the longest phase, so it
+        // must be visible during an ordinary close as well as system shutdown.
+        closingProgress.SetProgressMax(
+            7 /* number from CMainWindow::SaveConfig() -- MUST stay in sync! */ +
+            Plugins.GetPluginSaveCount()); // minus one so they can enjoy a viewing 100%
+        closingProgress.Create();
+        GlobalSaveWaitWindow = &closingProgress;
+        GlobalSaveWaitWindowProgress = 0;
+        EnableWindow(HWindow, FALSE);
+
+        // SaveConfiguration/Release of plug-ins may display a message box.
+        PluginMsgBoxParent = closingProgress.HWindow;
 
         // declare a "critical shutdown" so all routines should respect it and terminate everything as quickly as possible
         CriticalShutdown = uMsg == WM_ENDSESSION && (lParam & ENDSESSION_CRITICAL) != 0;
@@ -10937,7 +10940,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         // unload all plugins (paths in panels may point to fixed drives)
         SetDoNotLoadAnyPlugins(TRUE); // for now due to thumbnails
         UnloadingPluginsForMainWindowClose = TRUE;
-        if (!Plugins.UnloadAll(shutdown ? analysing.HWindow : HWindow))
+        if (!Plugins.UnloadAll(closingProgress.HWindow))
         {
             UnloadingPluginsForMainWindowClose = FALSE;
             SetDoNotLoadAnyPlugins(FALSE);
@@ -10947,15 +10950,15 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         EXIT_WM_USER_CLOSE_MAINWND:
             UnloadingPluginsForMainWindowClose = FALSE;
+            GlobalSaveWaitWindow = NULL;
+            GlobalSaveWaitWindowProgress = 0;
+            EnableWindow(HWindow, TRUE);
+            PluginMsgBoxParent = oldPluginMsgBoxParent;
+            DestroyWindow(closingProgress.HWindow);
+            SetCursor(hOldCursor);
+
             if (shutdown)
             {
-                GlobalSaveWaitWindow = NULL;
-                GlobalSaveWaitWindowProgress = 0;
-                EnableWindow(HWindow, TRUE);
-                PluginMsgBoxParent = oldPluginMsgBoxParent;
-                DestroyWindow(analysing.HWindow);
-                SetCursor(hOldCursor);
-
                 // stop the thread that handled registry work during configuration saving...
                 RegistryWorkerThread.StopThread();
             }
@@ -10977,16 +10980,17 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             }
         }
         UnloadingPluginsForMainWindowClose = FALSE;
+        closingProgress.SetText(LoadStr(IDS_CLOSINGPANELS));
 
         // if CShellExecuteWnd windows exist, offer to abort closing or send a bug report and terminate
         char reason[BUG_REPORT_REASON_MAX]; // problem reason + list of windows (multiline)
         strcpy(reason, "Some faulty shell extension has locked our main window.");
-        if (EnumCShellExecuteWnd(shutdown ? analysing.HWindow : HWindow,
+        if (EnumCShellExecuteWnd(closingProgress.HWindow,
                                  reason + (int)strlen(reason), BUG_REPORT_REASON_MAX - ((int)strlen(reason) + 1)) > 0)
         {
             // ask whether Salamander should continue or generate a bug report
             if (CriticalShutdown || // during critical shutdown there's no point in asking anything, let the system terminate us quietly
-                SalMessageBox(shutdown ? analysing.HWindow : HWindow,
+                SalMessageBox(closingProgress.HWindow,
                               LoadStr(IDS_SHELLEXTBREAK3), SALAMANDER_TEXT_VERSION,
                               MSGBOXEX_CONTINUEABORT | MB_ICONINFORMATION) != IDABORT)
             {
@@ -11010,7 +11014,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             if (wParam == 0)
             {
                 BOOL closeSalamander = FALSE;
-                if (!ConfirmDetachedWindowClose(HWindow, &closeSalamander))
+                if (!ConfirmDetachedWindowClose(closingProgress.HWindow, &closeSalamander))
                     goto EXIT_WM_USER_CLOSE_MAINWND;
                 if (!closeSalamander)
                 {
@@ -11060,14 +11064,14 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             {
                 CFilesWindow* panel = panels[i];
                 BOOL detachFS;
-                if (!panel->PrepareCloseCurrentPath(shutdown ? analysing.HWindow : panel->HWindow, TRUE, FALSE, detachFS,
+                if (!panel->PrepareCloseCurrentPath(closingProgress.HWindow, TRUE, FALSE, detachFS,
                                                     FSTRYCLOSE_UNLOADCLOSEFS /* zbytecne - pluginy (i FS) uz jsou unloadle */))
                 {
                     canClose = FALSE;
                     for (int j = i - 1; j >= 0; j--)
                     {
                         CFilesWindow* preparedPanel = panels[j];
-                        preparedPanel->CloseCurrentPath(shutdown ? analysing.HWindow : preparedPanel->HWindow, TRUE,
+                        preparedPanel->CloseCurrentPath(closingProgress.HWindow, TRUE,
                                                         detachFlags[j], FALSE, FALSE, TRUE);
                     }
                     break;
@@ -11088,7 +11092,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 CFilesWindow* panel = panels[i];
                 if (panel->UseSystemIcons || panel->UseThumbnails)
                     panel->SleepIconCacheThread();
-                panel->CloseCurrentPath(shutdown ? analysing.HWindow : panel->HWindow, FALSE, detachFlags[i], FALSE, FALSE, TRUE);
+                panel->CloseCurrentPath(closingProgress.HWindow, FALSE, detachFlags[i], FALSE, FALSE, TRUE);
 
                 panel->ListBox->SetItemsCount(0, 0, 0, TRUE);
                 panel->SelectedCount = 0;
@@ -11112,24 +11116,20 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         if (Configuration.AutoSave)
         {
+            closingProgress.SetText(LoadStr(IDS_SAVINGCONFIGURATION));
             // During automatic shutdown/close, do not show a modal save-error dialog here.
             // If the portable configuration file cannot be written (for example due to ACLs),
             // a dialog at this point can outlive the main window and leave Salamander hanging.
-            SaveConfig(NULL, FALSE);
+            SaveConfig(closingProgress.HWindow, FALSE);
         }
+
+        closingProgress.SetText(LoadStr(IDS_FINISHINGSHUTDOWN));
 
         if (uMsg == WM_ENDSESSION)
             LoadSaveToRegistryMutex.Leave(); // pairs with Enter() called when WM_QUERYENDSESSION was received
 
         if (shutdown)
         {
-            GlobalSaveWaitWindow = NULL;
-            GlobalSaveWaitWindowProgress = 0;
-            EnableWindow(HWindow, TRUE);
-            PluginMsgBoxParent = oldPluginMsgBoxParent;
-            DestroyWindow(analysing.HWindow);
-            SetCursor(hOldCursor);
-
             // stop the thread that handled registry work during configuration saving...
             RegistryWorkerThread.StopThread();
         }
@@ -11149,6 +11149,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             LeftTabWindow->DestroyWindow();
         if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
             RightTabWindow->DestroyWindow();
+
+        GlobalSaveWaitWindow = NULL;
+        GlobalSaveWaitWindowProgress = 0;
+        EnableWindow(HWindow, TRUE);
+        PluginMsgBoxParent = oldPluginMsgBoxParent;
+        DestroyWindow(closingProgress.HWindow);
+        SetCursor(hOldCursor);
 
         DestroyWindow(HWindow);
 

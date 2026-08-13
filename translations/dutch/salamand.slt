@@ -3656,6 +3656,9 @@ SLGINCOMPLETE,""
 
 [STRINGTABLE 164]
 14195,1,"Zoeken vensters sluiten, moment geduld a.u.b..."
+14196,1,"Extensies en plug-ins worden gesloten, even geduld..."
+14197,1,"Panelen en bestandssystemen worden gesloten, even geduld..."
+14198,1,"Afsluiten wordt voltooid, even geduld..."
 14200,1,"&Sluit het shellvenster na uitvoering van het commando (in opdrachtregel)"
 14201,1,"&Sluit het shellvenster na uitvoering van het commando (alleen met standaardopdracht-shell)"
 14202,1,"Sjablonen"
