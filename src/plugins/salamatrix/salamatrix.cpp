@@ -252,8 +252,6 @@ void WINAPI CPluginInterface::Event(int event, DWORD param)
     {
         if (event == PLUGINEVENT_STARTUPBATCHCOMPLETE)
             SalamatrixPackages->SetRefreshDeferred(FALSE);
-        else if (event == PLUGINEVENT_CONFIGURATIONCHANGED)
-            SalamatrixPackages->Refresh();
     }
 }
 

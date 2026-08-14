@@ -112,6 +112,18 @@ def main() -> None:
             "explicit detached-tab close is persisted immediately")
     require(mainwnd2, "ConfigurationStorage.Flush(FALSE);",
             "explicit detached-tab close flushes portable configuration")
+    require(mainwnd2,
+            "ConfigurationStorage.GetStorageType() == cstRegFile",
+            "file-backed stale save-marker recovery is limited to the active file backend")
+    require(mainwnd2,
+            "recovering stale Save In Progress marker in file-backed configuration",
+            "a prior interrupted file save cannot permanently disable autosave")
+    require(configstorage, "return SaveRegFile(showError);",
+            "portable flush routes through the selected ConfigurationStorage file path")
+    require_before(mainwnd3,
+                   "SaveConfig(closingProgress.HWindow, ordinaryClose);",
+                   "Plugins.UnloadAll(closingProgress.HWindow,",
+                   "complete live configuration save before plug-in teardown")
     require(tabwnd, "case WM_ERASEBKGND:\n        if (DarkModeIsWindowsDarkSchemeSelected())",
             "panel tab-bar dark initial erase")
     require_before(

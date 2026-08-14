@@ -1421,12 +1421,12 @@ def main() -> int:
         r"CWaitWindow closingProgress\(\s*"
         r"HWindow, IDS_CLOSINGEXTENSIONS.*?"
         r"closingProgress\.Create\(\).*?"
+        r"ssdpSavingConfiguration.*?"
+        r"SaveConfig\(closingProgress\.HWindow, ordinaryClose\).*?"
         r"Plugins\.UnloadAll\(closingProgress\.HWindow,\s*"
         r"&shutdownProgressService\).*?"
         r"ssdpClosingPanels.*?"
         r"ConfirmDetachedWindowClose\(closingProgress\.HWindow.*?"
-        r"ssdpSavingConfiguration.*?"
-        r"SaveConfig\(closingProgress\.HWindow, FALSE\).*?"
         r"ssdpFinishingShutdown.*?"
         r"DiskCache\.PrepareForShutdown\(\).*?"
         r"DestroyWindow\(closingProgress\.HWindow\).*?"
@@ -1476,6 +1476,10 @@ def main() -> int:
         r'SetRefreshDeferred\(IsLoadOnStartBatchActive\(\)\).*?'
         r'PLUGINEVENT_STARTUPBATCHCOMPLETE.*?SetRefreshDeferred\(FALSE\)',
         "load-on-start runtime registrations are not coalesced into one catalog refresh")
+    require_absent(
+        salamatrix,
+        r'PLUGINEVENT_CONFIGURATIONCHANGED.*?SalamatrixPackages->Refresh\(\)',
+        "ordinary configuration changes still tear down and rediscover live extension file systems")
     require(
         packages,
         r'if \(RefreshDeferred\).*?RefreshPending = TRUE.*?'
@@ -1500,12 +1504,17 @@ def main() -> int:
         mainwnd3,
         r'CShutdownProgressService.*?'
         r'RegisterService\(\s*SALAMANDER_SERVICE_SHUTDOWN_PROGRESS.*?'
+        r'ssdpSavingConfiguration.*?'
+        r'SaveConfig\(closingProgress\.HWindow, ordinaryClose\).*?'
         r'Plugins\.UnloadAll\(closingProgress\.HWindow,\s*'
-        r'&shutdownProgressService\).*?'
-        r'ssdpClosingPanels.*?ssdpSavingConfiguration.*?'
+        r'&shutdownProgressService\).*?ssdpClosingPanels.*?'
         r'ssdpFinishingShutdown.*?UnregisterService\(\s*'
         r'SALAMANDER_SERVICE_SHUTDOWN_PROGRESS',
         "application shutdown does not report its real phases through one progress service")
+    require(
+        plugins1,
+        r'SupportLoadSave.*?!UnloadingPluginsForMainWindowClose',
+        "shutdown still repeats every plug-in configuration save after the complete live SaveConfig pass")
     require(
         plugins2,
         r'CPlugins::UnloadAll\(.*?ReportShutdownProgress\(\s*'

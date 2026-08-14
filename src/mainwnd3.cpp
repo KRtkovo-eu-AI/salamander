@@ -11161,12 +11161,10 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             // meanwhile this (main) thread will pump messages in the message loop
             RegistryWorkerThread.StartThread();
         }
-        // Show one progress window for the entire close sequence.  Plug-in
-        // unload may save configuration and can be the longest phase, so it
-        // must be visible during an ordinary close as well as system shutdown.
+        // SaveConfig performs the one complete plug-in/core save before any
+        // panel or extension is torn down.  Unload must not repeat that work.
         closingProgress.SetProgressMax(
-            7 /* number from CMainWindow::SaveConfig() -- MUST stay in sync! */ +
-            Plugins.GetPluginSaveCount()); // minus one so they can enjoy a viewing 100%
+            7 /* number from CMainWindow::SaveConfig() -- MUST stay in sync! */);
         closingProgress.Create();
         shutdownProgressRegistered = shutdownProgressRegistry.RegisterService(
             SALAMANDER_SERVICE_SHUTDOWN_PROGRESS,
@@ -11182,8 +11180,22 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         // declare a "critical shutdown" so all routines should respect it and terminate everything as quickly as possible
         CriticalShutdown = uMsg == WM_ENDSESSION && (lParam & ENDSESSION_CRITICAL) != 0;
 
-        // unload all plugins (paths in panels may point to fixed drives)
+        // Persist the complete live state before unloading a plug-in can
+        // block, fail, or redirect its file systems to rescue paths.  This is
+        // the only full shutdown save; CPluginData::Unload skips its duplicate
+        // per-plug-in save while UnloadingPluginsForMainWindowClose is set.
         CapturePanelPathsForShutdown(Configuration.AutoSave);
+        if (Configuration.AutoSave)
+        {
+            shutdownProgressService.ReportShutdownProgress(
+                ssdpSavingConfiguration, NULL, 0, 0);
+            const BOOL ordinaryClose =
+                uMsg == WM_USER_CLOSE_MAINWND ||
+                uMsg == WM_USER_FORCECLOSE_MAINWND;
+            SaveConfig(closingProgress.HWindow, ordinaryClose);
+        }
+
+        // unload all plugins (paths in panels may point to fixed drives)
         SetDoNotLoadAnyPlugins(TRUE); // for now due to thumbnails
         UnloadingPluginsForMainWindowClose = TRUE;
         if (!Plugins.UnloadAll(closingProgress.HWindow,
@@ -11379,16 +11391,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             Plugins.ClearLastSLGNames(); // so that a new fallback language will be selected for all plugins if needed
             Configuration.UseAsAltSLGInOtherPlugins = FALSE;
             Configuration.AltPluginSLGName[0] = 0;
-        }
-
-        if (Configuration.AutoSave)
-        {
-            shutdownProgressService.ReportShutdownProgress(
-                ssdpSavingConfiguration, NULL, 0, 0);
-            // During automatic shutdown/close, do not show a modal save-error dialog here.
-            // If the portable configuration file cannot be written (for example due to ACLs),
-            // a dialog at this point can outlive the main window and leave Salamander hanging.
-            SaveConfig(closingProgress.HWindow, FALSE);
         }
 
         shutdownProgressService.ReportShutdownProgress(

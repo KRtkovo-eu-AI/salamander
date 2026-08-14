@@ -2801,11 +2801,26 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
         {
             DWORD saveInProgress = 1;
             if (GetValueAux(NULL, salamander, SALAMANDER_SAVE_IN_PROGRESS, REG_DWORD, &saveInProgress, sizeof(DWORD)))
-            {                    // use GetValueAux so we don't show the "Load Configuration" message
-                cfgIsOK = FALSE; // the configuration is corrupted; saving won't fix it (it wasn't stored completely)
-                TRACE_E("CMainWindow::SaveConfig(): unable to save configuration, configuration key in registry is corrupted");
+            { // use GetValueAux so we don't show the "Load Configuration" message
+                if (ConfigurationStorage.GetStorageType() == cstRegFile)
+                {
+                    // config.reg is replaced atomically only after a complete
+                    // dump.  A stale marker in the already loaded in-memory
+                    // tree must not permanently disable every future save.
+                    // Rewrite the complete current configuration and let the
+                    // atomic file replacement repair it.  Registry storage
+                    // keeps the legacy backup/recovery behavior below.
+                    TRACE_I("CMainWindow::SaveConfig(): recovering stale Save In Progress marker in file-backed configuration");
+                    DeleteValue(salamander, SALAMANDER_SAVE_IN_PROGRESS);
+                    IsSetSALAMANDER_SAVE_IN_PROGRESS = FALSE;
+                }
+                else
+                {
+                    cfgIsOK = FALSE; // the registry configuration is corrupted; use its backup/recovery path
+                    TRACE_E("CMainWindow::SaveConfig(): unable to save configuration, configuration key in registry is corrupted");
+                }
             }
-            else
+            if (cfgIsOK)
             {
                 saveInProgress = 1;
                 SetValue(salamander, SALAMANDER_SAVE_IN_PROGRESS, REG_DWORD, &saveInProgress, sizeof(DWORD));
