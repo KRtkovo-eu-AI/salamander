@@ -4133,6 +4133,52 @@ void CMainWindow::OnConfiguration(int mode, int param)
 LRESULT
 CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    // WindowProcImpl handles many commands and therefore has a large stack
+    // frame.  Interactive window dragging sends these messages for every
+    // pointer step, so keep them on this small, allocation-free path.
+    switch (uMsg)
+    {
+    case WM_MOVE:
+    case WM_MOVING:
+    case WM_WINDOWPOSCHANGING:
+        return CWindow::WindowProc(uMsg, wParam, lParam);
+
+    case WM_WINDOWPOSCHANGED:
+    {
+        GetWindowRect(HWindow, &WindowRect);
+
+        // Some detach/reattach paths move tab HWNDs between top-level hosts while Windows
+        // is also changing activation/z-order.  If the following maximize/resize does not
+        // deliver a usable WM_SIZE, the chrome and panel children keep their old rectangle
+        // and the newly exposed part of the main window remains empty.  Treat a changed,
+        // visible client size observed in WM_WINDOWPOSCHANGED as authoritative and run the
+        // same sizing path after the current position-change notification unwinds.  Do not
+        // synthesize restored-size layout while minimized: Windows sends the real
+        // SIZE_MINIMIZED WM_SIZE for that state, and laying out a 0x0 restored client area
+        // can re-enter the rebar/control notification path until the stack overflows.
+        if (Created && !DetachedPanels && !WindowPosSizeUpdatePending && !IsIconic(HWindow))
+        {
+            RECT clientRect;
+            GetClientRect(HWindow, &clientRect);
+            int clientWidth = clientRect.right - clientRect.left;
+            int clientHeight = clientRect.bottom - clientRect.top;
+            if (clientWidth > 0 && clientHeight > 0 &&
+                (clientWidth != WindowWidth || clientHeight != WindowHeight))
+            {
+                WindowPosSizeUpdatePending = TRUE;
+                PostMessage(HWindow, WM_SIZE, SIZE_RESTORED, MAKELPARAM(clientWidth, clientHeight));
+            }
+        }
+        return CWindow::WindowProc(uMsg, wParam, lParam);
+    }
+    }
+
+    return WindowProcImpl(uMsg, wParam, lParam);
+}
+
+LRESULT
+CMainWindow::WindowProcImpl(UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
     SLOW_CALL_STACK_MESSAGE4("CMainWindow::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
@@ -9710,35 +9756,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return 0;
         }
 
-        break;
-    }
-
-    case WM_WINDOWPOSCHANGED:
-    {
-        GetWindowRect(HWindow, &WindowRect);
-
-        // Some detach/reattach paths move tab HWNDs between top-level hosts while Windows
-        // is also changing activation/z-order.  If the following maximize/resize does not
-        // deliver a usable WM_SIZE, the chrome and panel children keep their old rectangle
-        // and the newly exposed part of the main window remains empty.  Treat a changed,
-        // visible client size observed in WM_WINDOWPOSCHANGED as authoritative and run the
-        // same sizing path after the current position-change notification unwinds.  Do not
-        // synthesize restored-size layout while minimized: Windows sends the real
-        // SIZE_MINIMIZED WM_SIZE for that state, and laying out a 0x0 restored client area
-        // can re-enter the rebar/control notification path until the stack overflows.
-        if (Created && !DetachedPanels && !WindowPosSizeUpdatePending && !IsIconic(HWindow))
-        {
-            RECT clientRect;
-            GetClientRect(HWindow, &clientRect);
-            int clientWidth = clientRect.right - clientRect.left;
-            int clientHeight = clientRect.bottom - clientRect.top;
-            if (clientWidth > 0 && clientHeight > 0 &&
-                (clientWidth != WindowWidth || clientHeight != WindowHeight))
-            {
-                WindowPosSizeUpdatePending = TRUE;
-                PostMessage(HWindow, WM_SIZE, SIZE_RESTORED, MAKELPARAM(clientWidth, clientHeight));
-            }
-        }
         break;
     }
 

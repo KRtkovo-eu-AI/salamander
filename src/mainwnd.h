@@ -908,6 +908,7 @@ public:
     }
 
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
+    LRESULT WindowProcImpl(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
     void SafeHandleMenuNewMsg2(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT* plResult);
 

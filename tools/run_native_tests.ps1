@@ -229,6 +229,14 @@ try {
                 (Join-Path $repositoryRoot `
                     'src\tests\detached_tab_contract_tests.py')
             )
+        },
+        @{
+            Name = 'main_window_move_contract_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\main_window_move_contract_tests.py')
+            )
         }
     )) {
         Write-Host "Running $($contractTest.Name)..."
