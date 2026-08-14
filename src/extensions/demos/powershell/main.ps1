@@ -17,13 +17,16 @@ if ($Salamander.command_handler -eq 'listDemoMachines') {
         @{id='development'; name='Development VM'; running=$true},
         @{id='test-lab'; name='Test lab'; running=$false},
         @{id='build-agent'; name='Build agent'; running=$true})
+    $items = New-Object 'System.Collections.Generic.List[hashtable]'
     foreach ($machine in $machines) {
         $running = $Salamander.storage.Get("machine.$($machine.id).running", $machine.running)
         $state = if ($running) { 'Running' } else { 'Stopped' }
-        [void]$Salamander.file_system.AddItem(
-            $machine.id, "$($machine.name) — $state",
-            @{icon='icon.svg'; directory=$false; enabled=$true})
+        $items.Add(@{
+            id=$machine.id; name="$($machine.name) — $state"
+            icon='icon.svg'; directory=$false; enabled=$true
+            columns=@{state=$state}})
     }
+    [void]$Salamander.file_system.AddItems($items.ToArray())
     return
 }
 

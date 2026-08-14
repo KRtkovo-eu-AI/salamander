@@ -17,12 +17,16 @@ if ($Salamander->command_handler === 'listDemoMachines') {
         array('id'=>'development', 'name'=>'Development VM', 'running'=>true),
         array('id'=>'test-lab', 'name'=>'Test lab', 'running'=>false),
         array('id'=>'build-agent', 'name'=>'Build agent', 'running'=>true));
+    $items = array();
     foreach ($machines as $machine) {
         $running = $Salamander->storage->get('machine.' . $machine['id'] . '.running', $machine['running']);
-        $Salamander->file_system->add_item(
-            $machine['id'], $machine['name'] . ' — ' . ($running ? 'Running' : 'Stopped'),
-            array('icon'=>'icon.svg', 'directory'=>false, 'enabled'=>true));
+        $items[] = array(
+            'id'=>$machine['id'],
+            'name'=>$machine['name'] . ' — ' . ($running ? 'Running' : 'Stopped'),
+            'icon'=>'icon.svg', 'directory'=>false, 'enabled'=>true,
+            'columns'=>array('state'=>$running ? 'Running' : 'Stopped'));
     }
+    $Salamander->file_system->add_items($items);
     return;
 }
 

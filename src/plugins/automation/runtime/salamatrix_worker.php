@@ -83,6 +83,10 @@ class SalamatrixFileSystem {
         $result = $this->client->call('salamander.fileSystem.addItem', $arguments);
         return isset($result['added']) && $result['added'];
     }
+    public function add_items($items) {
+        $result = $this->client->call('salamander.fileSystem.addItems', array('items' => array_values($items)));
+        return isset($result['addedCount']) ? (int)$result['addedCount'] : 0;
+    }
 }
 class SalamatrixSides {
     private $client; public function __construct($client) { $this->client = $client; }
@@ -124,6 +128,7 @@ class SalamatrixUi {
     public function messageBox($message, $title = 'Salamander', $buttons = 'OK', $icon = 'Information') { $r = $this->client->call('salamander.ui.messageBox', array('message' => $message, 'title' => $title, 'buttons' => $buttons, 'icon' => $icon)); return isset($r['result']) ? $r['result'] : 0; }
     public function notify($message, $title = 'Salamander', $timeoutMs = 5000) { $r = $this->client->call('salamander.ui.notify', array('message' => $message, 'title' => $title, 'timeoutMs' => max(0, (int)$timeoutMs))); return !empty($r['shown']); }
     public function controls() { $r = $this->client->call('salamander.ui.controls', array()); return !empty($r['shown']); }
+    public function fileProperties($path) { return $this->client->call('salamander.ui.fileProperties', array('path' => (string)$path)); }
     public function uptime() { $r = $this->client->call('salamander.host.uptime', array()); return (string)$r['milliseconds']; }
     public function inputBox($prompt, $title = 'Salamander', $initial = '') { return $this->client->call('salamander.ui.inputBox', array('prompt' => $prompt, 'title' => $title, 'initial' => $initial)); }
     public function pickFile($save = false, $title = '', $filter = '', $initial = '') { return $this->client->call('salamander.ui.pickFile', array('save' => (bool)$save, 'title' => $title, 'filter' => $filter, 'initial' => $initial)); }

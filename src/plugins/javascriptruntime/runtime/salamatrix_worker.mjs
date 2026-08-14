@@ -421,6 +421,9 @@ const ui = {
     }).then((result) => result.shown === true),
   controls: () => hostCall("salamander.ui.controls")
     .then((result) => result.shown === true),
+  fileProperties: (path) => hostCall("salamander.ui.fileProperties", {
+    path: String(path),
+  }),
   uptime: () => hostCall("salamander.host.uptime")
     .then((result) => String(result.milliseconds)),
   inputBox: (prompt, initial = "", title = "Salamander") =>
@@ -571,11 +574,17 @@ const Salamander = {
     addItem: (id, name, options = {}) => hostCall(
       "salamander.fileSystem.addItem", { id, name, ...options }
     ).then((result) => result.added === true),
+    addItems: (items) => hostCall(
+      "salamander.fileSystem.addItems", { items }
+    ).then((result) => Number(result.addedCount || 0)),
   },
   file_system: {
     add_item: (id, name, options = {}) => hostCall(
       "salamander.fileSystem.addItem", { id, name, ...options }
     ).then((result) => result.added === true),
+    add_items: (items) => hostCall(
+      "salamander.fileSystem.addItems", { items }
+    ).then((result) => Number(result.addedCount || 0)),
   },
   sides: {
     activeTab: (side = "source") =>

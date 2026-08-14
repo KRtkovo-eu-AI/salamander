@@ -116,30 +116,46 @@ BOOL CFilesMap::CreateMap()
             {
                 if (!Configuration.FullRowSelect)
                 {
-                    AlterFileName(formatedFileName, f->Name, -1, Configuration.FileNameFormat, 0, isDir);
-
-                    const char* s = formatedFileName;
-                    // skip the ".."
-                    if (*s == '.' && *(s + 1) == '.' && *(s + 2) == 0)
-                        s = NULL;
-
-                    width = IconSizes[ICONSIZE_16] + 2;
-
+                    const char* s;
                     int len;
-                    if (s != NULL)
+                    CColumn* nameColumn = &Panel->Columns[0];
+                    if (nameColumn->ID == COLUMN_ID_CUSTOM &&
+                        nameColumn->GetText != NULL)
                     {
-                        if ((!isDir || Configuration.SortDirsByExt) && Panel->GetViewMode() == vmDetailed &&
-                            Panel->IsExtensionInSeparateColumn() && f->Ext[0] != 0 && f->Ext > f->Name + 1) // exception for names like ".htaccess"; they appear in the Name column even though they are extensions
-                        {
-                            len = (int)(f->Ext - f->Name - 1);
-                        }
-                        else
-                            len = f->NameLen;
+                        TransferPluginDataIface = Panel->PluginData.GetInterface();
+                        TransferFileData = f;
+                        TransferIsDir = isDir ? (strcmp(f->Name, "..") == 0 ? 2 : 1) : 0;
+                        TransferRowData = 0;
+                        TransferActCustomData = nameColumn->CustomData;
+                        nameColumn->GetText();
+                        s = TransferBuffer;
+                        len = TransferLen;
                     }
                     else
                     {
-                        len = 0;
+                        AlterFileName(formatedFileName, f->Name, -1, Configuration.FileNameFormat, 0, isDir);
+                        s = formatedFileName;
+                        // skip the ".."
+                        if (*s == '.' && *(s + 1) == '.' && *(s + 2) == 0)
+                            s = NULL;
+
+                        if (s != NULL)
+                        {
+                            if ((!isDir || Configuration.SortDirsByExt) && Panel->GetViewMode() == vmDetailed &&
+                                Panel->IsExtensionInSeparateColumn() && f->Ext[0] != 0 && f->Ext > f->Name + 1) // exception for names like ".htaccess"; they appear in the Name column even though they are extensions
+                            {
+                                len = (int)(f->Ext - f->Name - 1);
+                            }
+                            else
+                                len = f->NameLen;
+                        }
+                        else
+                        {
+                            len = 0;
+                        }
                     }
+
+                    width = IconSizes[ICONSIZE_16] + 2;
 
                     // measure the actual text length
                     SIZE sz;

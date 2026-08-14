@@ -183,6 +183,10 @@ class _FileSystem:
         return bool(self._transport.call(
             "salamander.fileSystem.addItem", **payload).get("added"))
 
+    def add_items(self, items: list[dict[str, Any]]) -> int:
+        return int(self._transport.call(
+            "salamander.fileSystem.addItems", items=items).get("addedCount", 0))
+
 
 class _FileOperations:
     def __init__(self, transport: _Transport) -> None:
@@ -374,6 +378,10 @@ class _UI:
         return bool(self._transport.call(
             "salamander.ui.controls"
         ).get("shown", False))
+
+    def file_properties(self, path: str) -> dict:
+        return self._transport.call(
+            "salamander.ui.fileProperties", path=str(path))
 
     def uptime(self) -> str:
         return str(self._transport.call(

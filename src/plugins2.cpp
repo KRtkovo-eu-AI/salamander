@@ -3254,8 +3254,12 @@ BOOL CPlugins::ExecuteToolbarButton(CFilesWindow* panel, HWND parent,
             return TRUE;
         }
 
-        plugin->ExecuteMenuItem2(panel, parent, pluginIndex,
-                                 item.CommandId, unselect);
+        if (!plugin->ExecuteMenuItem2(panel, parent, pluginIndex,
+                                      item.CommandId, unselect))
+        {
+            plugin->ExecuteToolbarCommand(panel, parent, pluginIndex,
+                                          item.CommandId, unselect);
+        }
         return TRUE;
     }
     return FALSE;

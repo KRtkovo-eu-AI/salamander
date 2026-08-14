@@ -23,14 +23,17 @@ if Salamander.command_handler == "listDemoMachines" then
         {id="development", name="Development VM", running=true},
         {id="test-lab", name="Test lab", running=false},
         {id="build-agent", name="Build agent", running=true}}
+    local items = {}
     for _, machine in ipairs(machines) do
         local running = Salamander.storage.get(
             "machine." .. machine.id .. ".running", machine.running)
-        Salamander.file_system.add_item(
-            machine.id,
-            machine.name .. " — " .. (running and "Running" or "Stopped"),
-            {icon="icon.svg", directory=false, enabled=true})
+        items[#items + 1] = {
+            id=machine.id,
+            name=machine.name .. " — " .. (running and "Running" or "Stopped"),
+            icon="icon.svg", directory=false, enabled=true,
+            columns={state=running and "Running" or "Stopped"}}
     end
+    Salamander.file_system.add_items(items)
     return
 end
 

@@ -221,6 +221,7 @@
     <ExtensionMenuBuilderFiles Include="..\..\..\extensions\extension-menu-builder\**\*.*" />
     <GitWorktreeNavigatorFiles Include="..\..\..\extensions\git-worktree-navigator\**\*.*" />
     <FileLockInspectorFiles Include="..\..\..\extensions\file-lock-inspector\**\*.*" />
+    <ProcessExplorerFiles Include="..\..\..\extensions\process-explorer\**\*.*" />
     <AutomationProgressDemoFiles Include="..\..\automation\sample-scripts\Salamatrix Progress Demo\**\*.*" />
   </ItemGroup>
   <Target Name="CopySalamatrixDemoPackages" AfterTargets="Build"
@@ -240,6 +241,10 @@
     <MakeDir Directories="$(OutDir)..\..\extensions\file-lock-inspector" />
     <Copy SourceFiles="@(FileLockInspectorFiles)"
           DestinationFiles="@(FileLockInspectorFiles->'$(OutDir)..\..\extensions\file-lock-inspector\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <MakeDir Directories="$(OutDir)..\..\extensions\process-explorer" />
+    <Copy SourceFiles="@(ProcessExplorerFiles)"
+          DestinationFiles="@(ProcessExplorerFiles->'$(OutDir)..\..\extensions\process-explorer\%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
     <MakeDir Directories="$(OutDir)..\..\plugins\automation\scripts\Salamatrix Progress Demo" />
     <Copy SourceFiles="@(AutomationProgressDemoFiles)"

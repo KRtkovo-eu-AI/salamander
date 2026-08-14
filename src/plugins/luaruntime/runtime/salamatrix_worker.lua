@@ -449,6 +449,10 @@ function file_system.add_item(id, name, options)
     arguments.name = tostring(name)
     return host_call("salamander.fileSystem.addItem", arguments).added == true
 end
+function file_system.add_items(items)
+    local result = host_call("salamander.fileSystem.addItems", {items = items or {}})
+    return tonumber(result.addedCount) or 0
+end
 
 local sides = {}
 function sides.active_tab(side)
@@ -560,6 +564,11 @@ function ui.notify(message, title, timeout_ms)
 end
 function ui.controls()
     return host_call("salamander.ui.controls", {}).shown
+end
+function ui.file_properties(path)
+    return host_call("salamander.ui.fileProperties", {
+        path = tostring(path)
+    })
 end
 function ui.uptime() return tostring(host_call("salamander.host.uptime", {}).milliseconds) end
 function ui.input_box(prompt, title, initial)

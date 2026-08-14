@@ -24,15 +24,18 @@ if (handler === "viewDemo") {
     { id: "test-lab", name: "Test lab", running: false },
     { id: "build-agent", name: "Build agent", running: true },
   ];
+  const items = [];
   for (const machine of machines) {
     const running = await Salamander.storage.get(
       `machine.${machine.id}.running`, machine.running);
-    await Salamander.fileSystem.addItem(
-      machine.id,
-      `${machine.name} — ${running ? "Running" : "Stopped"}`,
-      { icon: "icon.svg", directory: false, enabled: true },
-    );
+    items.push({
+      id: machine.id,
+      name: `${machine.name} — ${running ? "Running" : "Stopped"}`,
+      icon: "icon.svg", directory: false, enabled: true,
+      columns: { state: running ? "Running" : "Stopped" },
+    });
   }
+  await Salamander.fileSystem.addItems(items);
 } else if (handler === "inspectDemoMachine") {
   const item = Salamander.invocation.item || {};
   await Salamander.ui.messageBox(

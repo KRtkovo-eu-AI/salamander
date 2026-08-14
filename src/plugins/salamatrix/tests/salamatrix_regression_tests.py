@@ -83,6 +83,10 @@ def main() -> int:
     plugins_header = read("src/plugins.h")
     plugins1 = read("src/plugins1.cpp")
     plugins2 = read("src/plugins2.cpp")
+    filesbx2 = read("src/filesbx2.cpp")
+    filesmap = read("src/filesmap.cpp")
+    fileswn3 = read("src/fileswn3.cpp")
+    fileswn4 = read("src/fileswn4.cpp")
     fileswn5 = read("src/fileswn5.cpp")
     viewer_configuration = read("src/salamdr2.cpp")
     mainwnd1 = read("src/mainwnd1.cpp")
@@ -170,6 +174,9 @@ def main() -> int:
     lock_inspector = read("src/extensions/file-lock-inspector/main.ps1")
     lock_inspector_manifest = json.loads(
         read("src/extensions/file-lock-inspector/extension.json"))
+    process_explorer = read("src/extensions/process-explorer/main.ps1")
+    process_explorer_manifest = json.loads(
+        read("src/extensions/process-explorer/extension.json"))
     menu_builder = read("src/extensions/extension-menu-builder/main.ps1")
     menu_builder_manifest = json.loads(
         read("src/extensions/extension-menu-builder/extension.json"))
@@ -837,6 +844,8 @@ def main() -> int:
                 f"{name} worker does not expose role invocation context")
         require(worker, r'salamander\.fileSystem\.addItem',
                 f"{name} worker does not expose flat file-system item publication")
+        require(worker, r'salamander\.fileSystem\.addItems.*?addedCount',
+                f"{name} worker does not expose batch file-system publication")
     require(manifest,
             r'SchemaVersion != 1 && SchemaVersion != 2.*?viewers.*?fileSystems.*?File-system actions',
             "manifest schema 2 does not validate Viewer and flat FS contributions")
@@ -928,6 +937,16 @@ def main() -> int:
         "Viewer registration does not exclude disabled extensions")
     require(packages, r'FileSystemListing.*?salamander\.fileSystem\.addItem.*?4096',
             "flat FS dispatcher does not bound runtime-provided items")
+    require(
+        packages,
+        r'salamander\.fileSystem\.addItems.*?FindRawMember.*?items.*?'
+        r'originalCount.*?PendingFileSystemItems\.resize\(originalCount\)',
+        "batch FS publication is not parsed and rolled back atomically")
+    require(
+        packages,
+        r'backgroundFileSystemItem.*?salamander\.fileSystem\.addItem.*?'
+        r'FileSystemListing.*?!backgroundFileSystemItem',
+        "FS items are still synchronously dispatched through the UI thread")
     require(
         packages,
         r'InterlockedExchange\(&package->Stopping,\s*TRUE\).*?'
@@ -1788,6 +1807,211 @@ def main() -> int:
         r"source_side\.Context\(\).*?selectedItems.*?focusedItem.*?"
         r"isDirectory.*?Show-InspectorWindow",
         "File Lock Inspector does not inspect the selected or focused files")
+    if set(process_explorer_manifest.get("locales", {})) != expected_locales:
+        raise AssertionError(
+            "Process Explorer does not declare every supported locale")
+    process_english_keys = None
+    for locale, relative in process_explorer_manifest["locales"].items():
+        localized = json.loads(read(
+            "src/extensions/process-explorer/" + relative))
+        file_system = localized.get("fileSystems", {}).get("processes", {})
+        if (not localized.get("name") or not localized.get("description") or
+                set(file_system.get("columns", {})) !=
+                {"pid", "status", "userName", "cpu", "memory"} or
+                set(file_system.get("actions", {})) !=
+                {"endTask", "endProcessTree", "openFileLocation", "properties"} or
+                set(localized.get("commands", {})) !=
+                {"OpenSalamander.ProcessExplorer.open"}):
+            raise AssertionError(
+                f"process explorer locale metadata is incomplete: {locale}")
+        keys = set(localized.get("strings", {}))
+        if process_english_keys is None:
+            process_english_keys = keys
+        elif keys != process_english_keys:
+            raise AssertionError(
+                f"process explorer runtime strings are incomplete: {locale}")
+    process_file_system = process_explorer_manifest["fileSystems"][0]
+    if (process_file_system.get("defaultFileIcon") != "default.ico" or
+            not (ROOT / "src/extensions/process-explorer/default.ico").is_file()):
+        raise AssertionError(
+            "Process Explorer does not declare its packaged default item icon")
+    columns = process_file_system.get("columns", [])
+    if [column.get("id") for column in columns] != [
+            "pid", "status", "cpu", "memory", "userName"] or not all(
+                columns[index].get("numeric") for index in (0, 2, 3)):
+        raise AssertionError("Process Explorer detailed columns are incomplete")
+    actions = process_explorer_manifest["fileSystems"][0].get("actions", [])
+    if ([action.get("id") for action in actions if not action.get("separator")] !=
+            ["endTask", "endProcessTree", "openFileLocation", "properties"] or
+            not actions[2].get("separator") or
+            actions[3].get("refresh", True) or actions[4].get("refresh", True)):
+        raise AssertionError("Process Explorer context actions are incomplete")
+    commands = process_explorer_manifest.get("commands", [])
+    if (len(commands) != 1 or not commands[0].get("toolbar") or
+            commands[0].get("menu") != "none" or
+            commands[0].get("path") !=
+            "salamatrix:OpenSalamander.ProcessExplorer!processes" or
+            commands[0].get("handler")):
+        raise AssertionError("Process Explorer toolbar command is incomplete")
+    require(
+        process_explorer,
+        r"Get-Process -IncludeUserName.*?MainModule.*?ModuleName.*?"
+        r"FileName.*?GetExecutablePath\(.*?\$process\.Id.*?"
+        r"Test-ProcessSuspended.*?UserName.*?"
+        r"GetPrivateWorkingSet.*?compactName=.*?columns=@\{.*?pid=.*?"
+        r"status=.*?userName=.*?cpu=.*?memory=.*?fileIcon.*?"
+        r"knownExecutablePaths.*?minimumSampleSeconds.*?ProcessorCount.*?"
+        r"TotalProcessorTime",
+        "Process Explorer does not publish Task Manager fields and executable icons")
+    require(
+        process_explorer,
+        r"List\[hashtable\].*?\$item = @\{.*?\.Add\(\$item\).*?"
+        r"file_system\.AddItems",
+        "Process Explorer does not publish its snapshot in one batch")
+    require(
+        process_explorer,
+        r"QueryFullProcessImageName.*?CreateToolhelp32Snapshot.*?"
+        r"TerminateProcess.*?ShellExecuteEx.*?ui\.FileProperties",
+        "Process Explorer process actions are not functional")
+    require(
+        packages,
+        r"salamander\.ui\.fileProperties.*?SHObjectProperties.*?"
+        r"SHOP_FILEPATH",
+        "File Properties is not hosted by Salamander through SHObjectProperties")
+    for worker_source, marker in (
+            (powershell_worker, "FileProperties"),
+            (python_worker, "file_properties"),
+            (javascript_worker, "fileProperties"),
+            (php_worker, "fileProperties"),
+            (lua_worker, "file_properties")):
+        if marker not in worker_source or "salamander.ui.fileProperties" not in worker_source:
+            raise AssertionError("File Properties runtime facade parity is incomplete")
+    require(
+        packages,
+        r"command\.Path.*?ManifestAllowsCapability.*?panels\.write.*?"
+        r"ChangePanelPath.*?PANEL_SOURCE",
+        "Declarative toolbar path does not navigate the active panel natively")
+    require(
+        plugins1 + plugins2,
+        r"ExecuteToolbarCommand.*?PluginIfaceForMenuExt\.ExecuteMenuItem.*?"
+        r"ExecuteMenuItem2.*?plugin->ExecuteToolbarCommand",
+        "Registered Extension Bar commands still depend on plugin-menu visibility")
+    require(
+        packages,
+        r"PrivateExtractIconsW.*?HasSimplePluginIcon.*?FileIcon.*?"
+        r"SalamatrixExtractFileIcon",
+        "Salamatrix FS items do not resolve native file icons")
+    require(
+        manifest + packages,
+        r"defaultFileIcon.*?DefaultFileIcon.*?"
+        r"SalamatrixExtractFileIcon\(DefaultFileIcon",
+        "Salamatrix FS does not apply its manifest default file icon fallback")
+    require(
+        packages,
+        r"CompareFilesFromFS.*?Item\.Id.*?strcmp",
+        "Salamatrix FS icon-cache comparator does not use stable item identity")
+    icon_compare = re.search(
+        r"virtual int WINAPI CompareFilesFromFS\(.*?"
+        r"(?=\n    virtual void WINAPI SetupView\()",
+        packages, re.MULTILINE | re.DOTALL)
+    if (icon_compare is None or
+            "SalamatrixFsTransferActCustomData" in icon_compare.group(0)):
+        raise AssertionError(
+            "Salamatrix FS icon-cache ordering still changes with the active sort column")
+    require(
+        packages,
+        r"SalamatrixFileSystemNameText.*?CompactName.*?COLUMN_ID_CUSTOM",
+        "Salamatrix FS compact names are not selected by panel view mode")
+    require(
+        fileswn4,
+        r"nameColumn->ID == COLUMN_ID_CUSTOM.*?nameColumn->GetText",
+        "Salamatrix FS compact names are not selected by panel view mode")
+    require(
+        filesmap,
+        r"nameColumn->ID == COLUMN_ID_CUSTOM.*?nameColumn->GetText.*?"
+        r"GetTextExtentPoint32\(dc, s, len",
+        "Salamatrix FS item widths ignore the displayed compact name")
+    require(
+        filesbx2,
+        r"index == 0.*?column->ID == COLUMN_ID_NAME.*?panel->SortType == stName.*?"
+        r"column->ID == COLUMN_ID_CUSTOM.*?panel->SortType == stCustom.*?"
+        r"index == 0.*?st = stName.*?column->ID == COLUMN_ID_CUSTOM\).*?"
+        r"ChangeCustomSortType",
+        "Plugin custom columns do not select or display their active sort order")
+    require(
+        fileswn3,
+        r"FillPluginCustomSortCache.*?GetText.*?SortType == stCustom.*?"
+        r"Is\(ptPluginFS\).*?SortPluginCustomNameExtAux",
+        "Plugin custom columns are not sorted through their text callbacks")
+    require(
+        fileswn3,
+        r"ParsePluginCustomNumber.*?strtod.*?KiB.*?multiplier",
+        "Numeric plugin custom columns ignore numeric values or memory units")
+    if "SHGetFileInfoW" in packages:
+        raise AssertionError(
+            "Salamatrix file icons still depend on extension associations")
+    require(
+        packages,
+        r"FindStringMember\(itemJson, \"fileIcon\", &item\.FileIcon\)",
+        "Salamatrix FS item parser drops the native file icon path")
+    require(
+        packages,
+        r"if \(currentPath.*?CachedItems\.clear\(\).*?"
+        r"if \(succeeded\).*?CacheReady = TRUE",
+        "Failed background listings can leave the FS in an infinite retry loop")
+    require(
+        packages,
+        r"action\.Separator.*?AppendMenuW\(menu, MF_SEPARATOR.*?"
+        r"AppendMenuW\(menu, MF_STRING.*?action\.Refresh",
+        "Salamatrix FS context menu does not support localized separators and refresh policy")
+    require(
+        packages,
+        r"FSE_PATHCHANGED.*?CacheReady.*?StartThrobber",
+        "Salamatrix FS does not show panel loading activity for an empty cache")
+    require(
+        packages,
+        r"SalamatrixFileSystemColumnText.*?InsertColumn",
+        "Salamatrix FS does not validate and render custom item columns")
+    require(
+        packages,
+        r"ListingFileSystem.*?FindRawMember\(itemJson, \"columns\"",
+        "Salamatrix FS does not validate custom item column payloads")
+    require(
+        packages,
+        r"class PackageManager::OpenFileSystem.*?RefreshThreadProc.*?"
+        r"RefreshInBackground.*?StartBackgroundRefresh.*?"
+        r"ListCurrentPath.*?CachedItems.*?StartBackgroundRefresh",
+        "Salamatrix FS listing is not cached and executed asynchronously")
+    require(
+        packages,
+        r"virtual ~OpenFileSystem\(\).*?ShuttingDown.*?"
+        r"WaitForThreadWithSentMessageDispatch.*?DeleteCriticalSection",
+        "Salamatrix FS background refresh is not joined safely on close")
+    listing_body = re.search(
+        r"virtual BOOL WINAPI ListCurrentPath\(.*?"
+        r"(?=\n    virtual BOOL WINAPI TryCloseOrDetach)",
+        packages, re.MULTILINE | re.DOTALL)
+    if listing_body is None or "Owner->ListFileSystem" in listing_body.group(0):
+        raise AssertionError(
+            "Salamatrix FS still executes runtime listing synchronously on the UI path")
+    require(
+        setup,
+        r"extensions\\process-explorer.*?IsPluginSelected\('processexplorer'\)",
+        "x64 installer does not package Process Explorer")
+    require(
+        setup,
+        r"AddPluginDependency\('processexplorer',\s*'powershellruntime'\)",
+        "x64 installer does not select the Process Explorer runtime")
+    require(
+        setup,
+        r"AddPlugin\('processexplorer',\s*'Process Explorer'",
+        "x64 installer does not offer Process Explorer")
+    require(
+        salamatrix_project,
+        r"ProcessExplorerFiles.*?process-explorer.*?"
+        r"Copy SourceFiles=\"@\(ProcessExplorerFiles\)\".*?"
+        r"extensions\\process-explorer",
+        "Salamatrix build does not stage Process Explorer")
     require(
         lock_inspector,
         r"CloseMainWindow.*?confirmEnd.*?\.Kill\(\)",
