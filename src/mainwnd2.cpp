@@ -2694,36 +2694,68 @@ void CMainWindow::SaveDetachedTabConfig(HKEY hSalamander)
         return;
     ClearKeyAux(key);
 
-    DWORD present = DetachedTabPanel != NULL ? 1 : 0;
+    DWORD present = (DWORD)GetDetachedTabCount();
     SetValue(key, DETACHED_TAB_PRESENT_REG, REG_DWORD, &present, sizeof(present));
-    if (DetachedTabPanel != NULL)
+    for (int i = 0; i < GetDetachedTabCount(); ++i)
     {
-        SavePanelSettingsToKey(DetachedTabPanel, key, TRUE);
-        DWORD side = DetachedTabOriginalSide == cpsRight ? 1 : 0;
-        DWORD index = DetachedTabOriginalIndex > 0 ? (DWORD)DetachedTabOriginalIndex : 1;
-        SetValue(key, DETACHED_TAB_SIDE_REG, REG_DWORD, &side, sizeof(side));
-        SetValue(key, DETACHED_TAB_INDEX_REG, REG_DWORD, &index, sizeof(index));
+        char tabKeyName[16];
+        wsprintf(tabKeyName, "Tab%d", i + 1);
+        HKEY tabKey;
+        if (!CreateKey(key, tabKeyName, tabKey))
+            continue;
+        CFilesWindow* panel = GetDetachedTabAt(i);
+        CDetachedTabInfo* info = FindDetachedTab(panel);
+        if (panel == NULL || info == NULL)
+        {
+            CloseKey(tabKey);
+            continue;
+        }
+        SavePanelSettingsToKey(panel, tabKey, TRUE);
+        DWORD side = info->OriginalSide == cpsRight ? 1 : 0;
+        DWORD index = info->OriginalIndex > 0 ? (DWORD)info->OriginalIndex : 1;
+        SetValue(tabKey, DETACHED_TAB_SIDE_REG, REG_DWORD, &side, sizeof(side));
+        SetValue(tabKey, DETACHED_TAB_INDEX_REG, REG_DWORD, &index, sizeof(index));
 
-        CPathHistory* history = DetachedTabPanel->GetWorkDirHistory();
+        CPathHistory* history = panel->GetWorkDirHistory();
         if (history != NULL)
-            history->SaveToRegistry(key, CONFIG_WORKDIRSHISTORY_REG, !Configuration.SaveWorkDirs);
+            history->SaveToRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG, !Configuration.SaveWorkDirs);
 
-        if (HDetachedTabWindow != NULL)
+        if (info->HWindow != NULL)
         {
-            Configuration.DetachedTabWindowPlacement.length = sizeof(WINDOWPLACEMENT);
-            GetWindowPlacement(HDetachedTabWindow, &Configuration.DetachedTabWindowPlacement);
+            info->Placement.length = sizeof(WINDOWPLACEMENT);
+            GetWindowPlacement(info->HWindow, &info->Placement);
         }
-        if (Configuration.DetachedTabWindowPlacement.length != 0)
+        if (info->Placement.length != 0)
         {
-            WINDOWPLACEMENT& place = Configuration.DetachedTabWindowPlacement;
-            SetValue(key, WINDOW_LEFT_REG, REG_DWORD, &place.rcNormalPosition.left, sizeof(DWORD));
-            SetValue(key, WINDOW_RIGHT_REG, REG_DWORD, &place.rcNormalPosition.right, sizeof(DWORD));
-            SetValue(key, WINDOW_TOP_REG, REG_DWORD, &place.rcNormalPosition.top, sizeof(DWORD));
-            SetValue(key, WINDOW_BOTTOM_REG, REG_DWORD, &place.rcNormalPosition.bottom, sizeof(DWORD));
-            SetValue(key, WINDOW_SHOW_REG, REG_DWORD, &place.showCmd, sizeof(DWORD));
+            WINDOWPLACEMENT& place = info->Placement;
+            SetValue(tabKey, WINDOW_LEFT_REG, REG_DWORD, &place.rcNormalPosition.left, sizeof(DWORD));
+            SetValue(tabKey, WINDOW_RIGHT_REG, REG_DWORD, &place.rcNormalPosition.right, sizeof(DWORD));
+            SetValue(tabKey, WINDOW_TOP_REG, REG_DWORD, &place.rcNormalPosition.top, sizeof(DWORD));
+            SetValue(tabKey, WINDOW_BOTTOM_REG, REG_DWORD, &place.rcNormalPosition.bottom, sizeof(DWORD));
+            SetValue(tabKey, WINDOW_SHOW_REG, REG_DWORD, &place.showCmd, sizeof(DWORD));
         }
+        CloseKey(tabKey);
     }
     CloseKey(key);
+}
+
+void CMainWindow::SaveDetachedTabConfigNow()
+{
+    if (SALAMANDER_ROOT_REG == NULL)
+        return;
+
+    LoadSaveToRegistryMutex.Enter();
+    HKEY salamander = NULL;
+    if (ConfigurationStorage.OpenConfigurationRootKey(salamander, TRUE))
+    {
+        SaveDetachedTabConfig(salamander);
+        CloseKey(salamander);
+        // Registry storage is already durable.  Portable storage is an
+        // in-memory registry and needs an explicit file flush here.
+        if (ConfigurationStorage.GetStorageType() == cstRegFile)
+            ConfigurationStorage.Flush(FALSE);
+    }
+    LoadSaveToRegistryMutex.Leave();
 }
 
 void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
@@ -2821,7 +2853,13 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                     GetWindowPlacement(HRightDetachedWindow, &Configuration.DetachedWindowPlacement);
                     Configuration.DetachedPanels = TRUE;
                 }
-                DWORD detachedPanels = Configuration.DetachedPanels ? 1 : 0;
+                // SetPanelsDetached(FALSE) is used as a temporary shutdown step so
+                // plug-ins can still be closed through the normal two-panel path.
+                // Preserve the user's detached layout across that reattach.
+                DWORD detachedPanels = (DetachedPanels || PreserveDetachedPanelsOnShutdown ||
+                                        Configuration.DetachedPanels)
+                                           ? 1
+                                           : 0;
                 SetValue(actKey, WINDOW_DETACHED_PANELS_REG, REG_DWORD, &detachedPanels, sizeof(DWORD));
                 if (Configuration.DetachedWindowPlacement.length != 0)
                 {
@@ -4120,25 +4158,7 @@ void CMainWindow::LoadDetachedTabConfig(HKEY hSalamander)
         return;
 
     DWORD present = 0;
-    DWORD sideValue = 0;
-    DWORD indexValue = 1;
     GetValue(key, DETACHED_TAB_PRESENT_REG, REG_DWORD, &present, sizeof(present));
-    GetValue(key, DETACHED_TAB_SIDE_REG, REG_DWORD, &sideValue, sizeof(sideValue));
-    GetValue(key, DETACHED_TAB_INDEX_REG, REG_DWORD, &indexValue, sizeof(indexValue));
-
-    BOOL placementExists = TRUE;
-    placementExists &= GetValue(key, WINDOW_LEFT_REG, REG_DWORD,
-                                &Configuration.DetachedTabWindowPlacement.rcNormalPosition.left, sizeof(DWORD));
-    placementExists &= GetValue(key, WINDOW_RIGHT_REG, REG_DWORD,
-                                &Configuration.DetachedTabWindowPlacement.rcNormalPosition.right, sizeof(DWORD));
-    placementExists &= GetValue(key, WINDOW_TOP_REG, REG_DWORD,
-                                &Configuration.DetachedTabWindowPlacement.rcNormalPosition.top, sizeof(DWORD));
-    placementExists &= GetValue(key, WINDOW_BOTTOM_REG, REG_DWORD,
-                                &Configuration.DetachedTabWindowPlacement.rcNormalPosition.bottom, sizeof(DWORD));
-    placementExists &= GetValue(key, WINDOW_SHOW_REG, REG_DWORD,
-                                &Configuration.DetachedTabWindowPlacement.showCmd, sizeof(DWORD));
-    if (placementExists)
-        Configuration.DetachedTabWindowPlacement.length = sizeof(WINDOWPLACEMENT);
 
     if (!present)
     {
@@ -4146,49 +4166,101 @@ void CMainWindow::LoadDetachedTabConfig(HKEY hSalamander)
         return;
     }
 
-    CPanelSide side = sideValue != 0 ? cpsRight : cpsLeft;
-    int insertIndex = max(1, (int)indexValue);
-    CFilesWindow* previous = side == cpsLeft ? LeftPanel : RightPanel;
-    CFilesWindow* panel = AddPanelTab(side, insertIndex);
-    if (panel == NULL)
+    for (DWORD detachedIndex = 0; detachedIndex < present; ++detachedIndex)
     {
-        CloseKey(key);
-        return;
-    }
-
-    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-    if (!panel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, panel))
-    {
-        int index = GetPanelTabIndex(side, panel);
-        if (index >= 0)
+        HKEY tabKey = key;
+        BOOL closeTabKey = FALSE;
+        char tabKeyName[16];
+        wsprintf(tabKeyName, "Tab%d", detachedIndex + 1);
+        HKEY openedTabKey;
+        if (OpenKey(key, tabKeyName, openedTabKey))
         {
-            CTabWindow* tabWnd = GetPanelTabWindow(side);
-            if (tabWnd != NULL && tabWnd->HWindow != NULL)
-                tabWnd->RemoveTab(index);
-            GetPanelTabs(side).Delete(index);
+            tabKey = openedTabKey;
+            closeTabKey = TRUE;
         }
-        delete panel;
-        if (previous != NULL)
-            SwitchPanelTab(previous);
-        CloseKey(key);
-        return;
-    }
+        else if (detachedIndex != 0)
+            continue; // only the old single-window format stored data in the root key
 
-    std::vector<char> path(2 * SAL_MAX_PATH);
-    LoadPanelSettingsFromKey(panel, key, path.data(), (int)path.size());
-    panel->SetTabLocked(false);
-    if (Configuration.SaveWorkDirs)
-    {
-        CPathHistory* history = panel->EnsureWorkDirHistory();
-        if (history != NULL)
-            history->LoadFromRegistry(key, CONFIG_WORKDIRSHISTORY_REG);
+        DWORD sideValue = 0;
+        DWORD indexValue = 1;
+        GetValue(tabKey, DETACHED_TAB_SIDE_REG, REG_DWORD, &sideValue, sizeof(sideValue));
+        GetValue(tabKey, DETACHED_TAB_INDEX_REG, REG_DWORD, &indexValue, sizeof(indexValue));
+        CPanelSide side = sideValue != 0 ? cpsRight : cpsLeft;
+        int insertIndex = max(1, (int)indexValue);
+        CFilesWindow* previous = side == cpsLeft ? LeftPanel : RightPanel;
+        CFilesWindow* panel = AddPanelTab(side, insertIndex);
+        if (panel == NULL)
+        {
+            if (closeTabKey)
+                CloseKey(tabKey);
+            continue;
+        }
+
+        DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+        if (!panel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, panel))
+        {
+            int index = GetPanelTabIndex(side, panel);
+            if (index >= 0)
+            {
+                CTabWindow* tabWnd = GetPanelTabWindow(side);
+                if (tabWnd != NULL && tabWnd->HWindow != NULL)
+                    tabWnd->RemoveTab(index);
+                GetPanelTabs(side).Delete(index);
+            }
+            delete panel;
+            if (previous != NULL)
+                SwitchPanelTab(previous);
+            if (closeTabKey)
+                CloseKey(tabKey);
+            continue;
+        }
+
+        std::vector<char> path(2 * SAL_MAX_PATH);
+        LoadPanelSettingsFromKey(panel, tabKey, path.data(), (int)path.size());
+        panel->SetTabLocked(false);
+        if (Configuration.SaveWorkDirs)
+        {
+            CPathHistory* history = panel->EnsureWorkDirHistory();
+            if (history != NULL)
+                history->LoadFromRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG);
+        }
+        WINDOWPLACEMENT placement;
+        memset(&placement, 0, sizeof(placement));
+        BOOL placementExists = TRUE;
+        placementExists &= GetValue(tabKey, WINDOW_LEFT_REG, REG_DWORD, &placement.rcNormalPosition.left, sizeof(DWORD));
+        placementExists &= GetValue(tabKey, WINDOW_RIGHT_REG, REG_DWORD, &placement.rcNormalPosition.right, sizeof(DWORD));
+        placementExists &= GetValue(tabKey, WINDOW_TOP_REG, REG_DWORD, &placement.rcNormalPosition.top, sizeof(DWORD));
+        placementExists &= GetValue(tabKey, WINDOW_BOTTOM_REG, REG_DWORD, &placement.rcNormalPosition.bottom, sizeof(DWORD));
+        placementExists &= GetValue(tabKey, WINDOW_SHOW_REG, REG_DWORD, &placement.showCmd, sizeof(DWORD));
+        if (placementExists)
+            placement.length = sizeof(WINDOWPLACEMENT);
+        if (closeTabKey)
+            CloseKey(tabKey);
+        if (DetachPanelTab(panel, NULL, FALSE))
+        {
+            CDetachedTabInfo* info = FindDetachedTab(panel);
+            if (info != NULL)
+            {
+                info->Placement = placement;
+                info->OriginalIndex = insertIndex;
+            }
+            // Open the saved path in its final window. Opening it before
+            // DetachPanelTab would start an extension listing in the main host,
+            // discard it on reparent, and immediately start the same work again.
+            RestorePanelPathFromConfig(this, panel, path.data());
+            UpdatePanelTabColor(panel);
+            UpdatePanelTabTitle(panel);
+        }
+        else
+        {
+            RestorePanelPathFromConfig(this, panel, path.data());
+            UpdatePanelTabColor(panel);
+            UpdatePanelTabTitle(panel);
+            if (previous != NULL)
+                SwitchPanelTab(previous);
+        }
     }
     CloseKey(key);
-    RestorePanelPathFromConfig(this, panel, path.data());
-    UpdatePanelTabColor(panel);
-    UpdatePanelTabTitle(panel);
-    if (!DetachPanelTab(panel, NULL, FALSE) && previous != NULL)
-        SwitchPanelTab(previous);
 }
 
 void LoadIconOvrlsInfo(const char* root)

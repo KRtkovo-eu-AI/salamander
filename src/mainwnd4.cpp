@@ -111,8 +111,12 @@ void CMainWindow::UpdateAllDirectoryLineHistoryStates()
         for (int i = 0; i < rightTabs.Count; i++)
             if (rightTabs[i]->DirectoryLine != NULL)
                 rightTabs[i]->DirectoryLine->SetHistory(hasHistory);
-        if (DetachedTabPanel != NULL && DetachedTabPanel->DirectoryLine != NULL)
-            DetachedTabPanel->DirectoryLine->SetHistory(hasHistory);
+        for (int i = 0; i < GetDetachedTabCount(); ++i)
+        {
+            CFilesWindow* panel = GetDetachedTabAt(i);
+            if (panel != NULL && panel->DirectoryLine != NULL)
+                panel->DirectoryLine->SetHistory(hasHistory);
+        }
     }
     else
     {
@@ -122,7 +126,8 @@ void CMainWindow::UpdateAllDirectoryLineHistoryStates()
         TIndirectArray<CFilesWindow>& rightTabs = GetPanelTabs(cpsRight);
         for (int i = 0; i < rightTabs.Count; i++)
             UpdateDirectoryLineHistoryState(rightTabs[i]);
-        UpdateDirectoryLineHistoryState(DetachedTabPanel);
+        for (int i = 0; i < GetDetachedTabCount(); ++i)
+            UpdateDirectoryLineHistoryState(GetDetachedTabAt(i));
     }
 }
 
@@ -141,7 +146,8 @@ void CMainWindow::CapturePanelPathsForShutdown(BOOL capture)
         updatePanel(LeftPanelTabs[i]);
     for (int i = 0; i < RightPanelTabs.Count; ++i)
         updatePanel(RightPanelTabs[i]);
-    updatePanel(DetachedTabPanel);
+    for (int i = 0; i < GetDetachedTabCount(); ++i)
+        updatePanel(GetDetachedTabAt(i));
 }
 
 void CMainWindow::RebuildSharedDirHistoryFromPanels()
@@ -166,9 +172,10 @@ void CMainWindow::RebuildSharedDirHistoryFromPanels()
         if (history != NULL)
             DirHistory->AppendFrom(*history);
     }
-    if (DetachedTabPanel != NULL)
+    for (int i = 0; i < GetDetachedTabCount(); ++i)
     {
-        CPathHistory* history = DetachedTabPanel->GetWorkDirHistory();
+        CFilesWindow* panel = GetDetachedTabAt(i);
+        CPathHistory* history = panel != NULL ? panel->GetWorkDirHistory() : NULL;
         if (history != NULL)
             DirHistory->AppendFrom(*history);
     }
@@ -206,11 +213,14 @@ void CMainWindow::HandleWorkDirsHistoryScopeChange(CWorkDirsHistoryScope previou
             if (history != NULL && DirHistory != NULL)
                 history->CopyFrom(*DirHistory);
         }
-        if (DetachedTabPanel != NULL)
+        for (int i = 0; i < GetDetachedTabCount(); ++i)
         {
-            CPathHistory* history = DetachedTabPanel->GetWorkDirHistory();
+            CFilesWindow* panel = GetDetachedTabAt(i);
+            if (panel == NULL)
+                continue;
+            CPathHistory* history = panel->GetWorkDirHistory();
             if (history == NULL)
-                history = DetachedTabPanel->EnsureWorkDirHistory();
+                history = panel->EnsureWorkDirHistory();
             if (history != NULL && !history->HasPaths() && DirHistory != NULL && DirHistory->HasPaths())
                 history->CopyFrom(*DirHistory);
         }
@@ -240,9 +250,10 @@ void CMainWindow::ClearPluginFSFromHistory(CPluginFSInterfaceAbstract* fs)
         if (history != NULL)
             history->ClearPluginFSFromHistory(fs);
     }
-    if (DetachedTabPanel != NULL)
+    for (int i = 0; i < GetDetachedTabCount(); ++i)
     {
-        CPathHistory* history = DetachedTabPanel->GetWorkDirHistory();
+        CFilesWindow* panel = GetDetachedTabAt(i);
+        CPathHistory* history = panel != NULL ? panel->GetWorkDirHistory() : NULL;
         if (history != NULL)
             history->ClearPluginFSFromHistory(fs);
     }
@@ -482,8 +493,9 @@ BOOL CMainWindow::CanUnloadPlugin(HWND parent, CPluginInterfaceAbstract* plugin)
         return FALSE;
     if (!canUnloadFromTabs(RightPanelTabs, RightPanel))
         return FALSE;
-    if (!canUnloadFromPanel(DetachedTabPanel))
-        return FALSE;
+    for (int i = 0; i < GetDetachedTabCount(); ++i)
+        if (!canUnloadFromPanel(GetDetachedTabAt(i)))
+            return FALSE;
 
     // find detached FS belonging to the plug-in 'plugin' and attempt to close them
     int i;

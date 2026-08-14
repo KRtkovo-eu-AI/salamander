@@ -292,10 +292,27 @@ BOOL CHotPathItems::Load1_52(HKEY hKey)
 // CMainWindow
 //
 
+class CDetachedTabsLock
+{
+private:
+    CRITICAL_SECTION* Lock;
+
+public:
+    explicit CDetachedTabsLock(CRITICAL_SECTION* lock) : Lock(lock)
+    {
+        HANDLES(EnterCriticalSection(Lock));
+    }
+    ~CDetachedTabsLock()
+    {
+        HANDLES(LeaveCriticalSection(Lock));
+    }
+};
+
 CMainWindow::CMainWindow()
     : ChangeNotifArray(3, 5), LeftPanelTabs(1, 1, dtNoDelete), RightPanelTabs(1, 1, dtNoDelete)
 {
     HANDLES(InitializeCriticalSection(&DispachChangeNotifCS));
+    HANDLES(InitializeCriticalSection(&DetachedTabsCS));
     LastDispachChangeNotifTime = 0;
     NeedToResentDispachChangeNotif = FALSE;
     DoNotLoadAnyPlugins = FALSE;
@@ -339,6 +356,7 @@ CMainWindow::CMainWindow()
     PanelTabCrossDragStoredInsertIndex = -1;
     PanelTabCrossDragStoredMarkItem = -1;
     PanelTabCrossDragStoredMarkFlags = 0;
+    HPanelTabDetachPreview = NULL;
     PanelTabMouseWheelAccumulator = 0;
     PanelTabMouseWheelSwitchTime = 0;
     //AnimateBar = NULL;
@@ -401,6 +419,7 @@ CMainWindow::CMainWindow()
     HDetachedBottomTBImageList = NULL;
     HDetachedHotBottomTBImageList = NULL;
     DetachedWindowDPI = 0;
+    PreserveDetachedPanelsOnShutdown = FALSE;
     DetachedTabPanel = NULL;
     DetachedTabOriginalSide = cpsLeft;
     DetachedTabOriginalIndex = -1;
@@ -408,6 +427,7 @@ CMainWindow::CMainWindow()
     HDetachedTabGrayToolBarImageList = NULL;
     HDetachedTabHotToolBarImageList = NULL;
     DetachedTabWindowDPI = 0;
+    MainWindowTitlePanel = NULL;
 
     PanelConfigPathsRestoredLeft = FALSE;
     PanelConfigPathsRestoredRight = FALSE;
@@ -502,13 +522,23 @@ BOOL CMainWindow::IsGood()
 CMainWindow::~CMainWindow()
 {
     HANDLES(DeleteCriticalSection(&DispachChangeNotifCS));
+    if (HPanelTabDetachPreview != NULL)
+    {
+        DestroyWindow(HPanelTabDetachPreview);
+        HPanelTabDetachPreview = NULL;
+    }
     DestroyDetachedChrome();
-    if (HDetachedTabWindow != NULL)
-        DestroyWindow(HDetachedTabWindow);
-    if (HDetachedTabHotToolBarImageList != NULL)
-        ImageList_Destroy(HDetachedTabHotToolBarImageList);
-    if (HDetachedTabGrayToolBarImageList != NULL)
-        ImageList_Destroy(HDetachedTabGrayToolBarImageList);
+    for (size_t i = 0; i < DetachedTabs.size(); ++i)
+    {
+        if (DetachedTabs[i].HWindow != NULL)
+            DestroyWindow(DetachedTabs[i].HWindow);
+        if (DetachedTabs[i].HHotToolBarImageList != NULL)
+            ImageList_Destroy(DetachedTabs[i].HHotToolBarImageList);
+        if (DetachedTabs[i].HGrayToolBarImageList != NULL)
+            ImageList_Destroy(DetachedTabs[i].HGrayToolBarImageList);
+    }
+    DetachedTabs.clear();
+    HANDLES(DeleteCriticalSection(&DetachedTabsCS));
     if (HLeftDetachedWindow != NULL)
         DestroyWindow(HLeftDetachedWindow);
     if (HRightDetachedWindow != NULL)
@@ -566,8 +596,9 @@ void CMainWindow::ClearHistory()
     TIndirectArray<CFilesWindow>& rightTabs = GetPanelTabs(cpsRight);
     for (int i = 0; i < rightTabs.Count; i++)
         rightTabs[i]->ClearWorkDirHistory();
-    if (DetachedTabPanel != NULL)
-        DetachedTabPanel->ClearWorkDirHistory();
+    for (size_t i = 0; i < DetachedTabs.size(); ++i)
+        if (DetachedTabs[i].Panel != NULL)
+            DetachedTabs[i].Panel->ClearWorkDirHistory();
 
     UpdateAllDirectoryLineHistoryStates();
     RefreshCommandStates();
@@ -1769,11 +1800,15 @@ void CMainWindow::SetFont()
             panel->RefreshTreeViewDPI();
         }
     }
-    if (DetachedTabPanel != NULL)
+    for (size_t i = 0; i < DetachedTabs.size(); ++i)
     {
-        DetachedTabPanel->RefreshDPIResources(TRUE);
-        DetachedTabPanel->SetFont();
-        DetachedTabPanel->RefreshTreeViewDPI();
+        CFilesWindow* panel = DetachedTabs[i].Panel;
+        if (panel != NULL)
+        {
+            panel->RefreshDPIResources(TRUE);
+            panel->SetFont();
+            panel->RefreshTreeViewDPI();
+        }
     }
 
     if (IsWindowVisible(HWindow))
@@ -2155,12 +2190,15 @@ BOOL CMainWindow::RebuildDetachedToolbarImageLists(int dpi)
     return TRUE;
 }
 
-BOOL CMainWindow::RebuildDetachedTabToolbarImageLists(int dpi)
+BOOL CMainWindow::RebuildDetachedTabToolbarImageLists(int dpi, HWND hWnd)
 {
+    CDetachedTabInfo* info = FindDetachedTab(hWnd != NULL ? hWnd : HDetachedTabWindow);
+    if (info == NULL)
+        return FALSE;
     if (dpi <= 0)
         dpi = USER_DEFAULT_SCREEN_DPI;
-    if (DetachedTabWindowDPI == dpi &&
-        HDetachedTabGrayToolBarImageList != NULL && HDetachedTabHotToolBarImageList != NULL)
+    if (info->WindowDPI == dpi &&
+        info->HGrayToolBarImageList != NULL && info->HHotToolBarImageList != NULL)
     {
         return TRUE;
     }
@@ -2221,27 +2259,35 @@ BOOL CMainWindow::RebuildDetachedTabToolbarImageLists(int dpi)
         }
     }
 
-    if (HDetachedTabHotToolBarImageList != NULL)
-        ImageList_Destroy(HDetachedTabHotToolBarImageList);
-    if (HDetachedTabGrayToolBarImageList != NULL)
-        ImageList_Destroy(HDetachedTabGrayToolBarImageList);
-    HDetachedTabHotToolBarImageList = newHot;
-    HDetachedTabGrayToolBarImageList = newGray;
-    DetachedTabWindowDPI = dpi;
+    if (info->HHotToolBarImageList != NULL)
+        ImageList_Destroy(info->HHotToolBarImageList);
+    if (info->HGrayToolBarImageList != NULL)
+        ImageList_Destroy(info->HGrayToolBarImageList);
+    info->HHotToolBarImageList = newHot;
+    info->HGrayToolBarImageList = newGray;
+    info->WindowDPI = dpi;
+    if (info->HWindow == HDetachedTabWindow)
+    {
+        HDetachedTabHotToolBarImageList = newHot;
+        HDetachedTabGrayToolBarImageList = newGray;
+        DetachedTabWindowDPI = dpi;
+    }
     return TRUE;
 }
 
 HIMAGELIST CMainWindow::GetToolbarImageListForWindow(HWND child, BOOL hot) const
 {
-    BOOL detachedTab = HDetachedTabWindow != NULL &&
-                       (child == HDetachedTabWindow ||
-                        (child != NULL && IsChild(HDetachedTabWindow, child)));
-    if (detachedTab)
+    for (size_t i = 0; i < DetachedTabs.size(); ++i)
     {
-        HIMAGELIST imageList = hot ? HDetachedTabHotToolBarImageList
-                                   : HDetachedTabGrayToolBarImageList;
-        if (imageList != NULL)
-            return imageList;
+        const CDetachedTabInfo& info = DetachedTabs[i];
+        if (info.HWindow != NULL &&
+            (child == info.HWindow || (child != NULL && IsChild(info.HWindow, child))))
+        {
+            HIMAGELIST imageList = hot ? info.HHotToolBarImageList : info.HGrayToolBarImageList;
+            if (imageList != NULL)
+                return imageList;
+            break;
+        }
     }
     BOOL detached = HRightDetachedWindow != NULL &&
                     (child == HRightDetachedWindow ||
@@ -3005,11 +3051,52 @@ static HWND CreateDetachedPanelWindow(CMainWindow* mainWindow, CPanelSide side)
         SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)((DWORD_PTR)mainWindow | (side == cpsRight ? 1 : 0)));
         DarkModeApplyWindow(hWnd);
         DarkModeRefreshTitleBar(hWnd);
+        DarkModeAllowDarkScrollbars(hWnd);
     }
     return hWnd;
 }
 
 static const char* DETACHED_TAB_CLASSNAME = "SalamanderDetachedTabWindow";
+static const char* DETACHED_TAB_PREVIEW_CLASSNAME = "SalamanderDetachedTabPreview";
+
+static LRESULT CALLBACK DetachedTabPreviewWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    switch (uMsg)
+    {
+    case WM_NCHITTEST:
+        return HTTRANSPARENT;
+
+    case WM_ERASEBKGND:
+        return TRUE;
+
+    case WM_PAINT:
+    {
+        PAINTSTRUCT ps;
+        HDC dc = BeginPaint(hWnd, &ps);
+        FillRect(dc, &ps.rcPaint, GetSysColorBrush(COLOR_HIGHLIGHT));
+        EndPaint(hWnd, &ps);
+        return 0;
+    }
+    }
+    return DefWindowProc(hWnd, uMsg, wParam, lParam);
+}
+
+static void RegisterDetachedTabPreviewWindowClass()
+{
+    static BOOL registered = FALSE;
+    if (registered)
+        return;
+
+    WNDCLASS wc;
+    memset(&wc, 0, sizeof(wc));
+    wc.lpfnWndProc = DetachedTabPreviewWindowProc;
+    wc.hInstance = HInstance;
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.hbrBackground = NULL;
+    wc.lpszClassName = DETACHED_TAB_PREVIEW_CLASSNAME;
+    RegisterClass(&wc);
+    registered = TRUE;
+}
 
 static void RegisterDetachedTabWindowClass()
 {
@@ -3030,13 +3117,28 @@ static void RegisterDetachedTabWindowClass()
     registered = TRUE;
 }
 
-static HWND CreateDetachedTabWindow(CMainWindow* mainWindow, const POINT* dropPoint)
+void CMainWindow::GetDetachedTabWindowRect(const POINT* dropPoint, CFilesWindow* sourcePanel, RECT* windowRect) const
 {
-    RegisterDetachedTabWindowClass();
-
     RECT mainRect;
-    GetWindowRect(mainWindow->HWindow, &mainRect);
+    GetWindowRect(HWindow, &mainRect);
     int width = max(320, (mainRect.right - mainRect.left) / 2);
+    if (sourcePanel != NULL && sourcePanel->HWindow != NULL)
+    {
+        RECT panelRect;
+        RECT hostRect;
+        RECT hostClient;
+        HWND sourceHost = GetAncestor(sourcePanel->HWindow, GA_ROOT);
+        if (GetWindowRect(sourcePanel->HWindow, &panelRect) && sourceHost != NULL &&
+            GetWindowRect(sourceHost, &hostRect) && GetClientRect(sourceHost, &hostClient))
+        {
+            // The detached top-level window has the same non-client frame as
+            // the source host. Include it so its client area (and therefore
+            // the panel) keeps exactly the width it had before the drag.
+            int nonClientWidth = (hostRect.right - hostRect.left) -
+                                 (hostClient.right - hostClient.left);
+            width = max(320, panelRect.right - panelRect.left + nonClientWidth);
+        }
+    }
     int height = max(240, mainRect.bottom - mainRect.top);
     int x = mainRect.right + 16;
     int y = mainRect.top;
@@ -3059,48 +3161,159 @@ static HWND CreateDetachedTabWindow(CMainWindow* mainWindow, const POINT* dropPo
                 y = max(mi.rcWork.top, mi.rcWork.bottom - height);
         }
     }
+    SetRect(windowRect, x, y, x + width, y + height);
+}
+
+void CMainWindow::ShowPanelTabDetachPreview(POINT screenPt)
+{
+    RECT previewRect;
+    CFilesWindow* sourcePanel = GetPanelTabAt(PanelTabCrossDragSourceSide,
+                                              PanelTabCrossDragSourceIndex);
+    GetDetachedTabWindowRect(&screenPt, sourcePanel, &previewRect);
+    int width = previewRect.right - previewRect.left;
+    int height = previewRect.bottom - previewRect.top;
+
+    if (HPanelTabDetachPreview == NULL)
+    {
+        RegisterDetachedTabPreviewWindowClass();
+        HPanelTabDetachPreview = CreateWindowEx(
+            WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT,
+            DETACHED_TAB_PREVIEW_CLASSNAME, "", WS_POPUP,
+            previewRect.left, previewRect.top, width, height,
+            HWindow, NULL, HInstance, NULL);
+        if (HPanelTabDetachPreview == NULL)
+            return;
+        DarkModeApplyWindow(HPanelTabDetachPreview);
+    }
+
+    int border = max(2, MulDiv(3, (int)WinLibDPIGetWindowDPI(HPanelTabDetachPreview), USER_DEFAULT_SCREEN_DPI));
+    HRGN outline = CreateRectRgn(0, 0, width, height);
+    HRGN interior = CreateRectRgn(border, border, max(border, width - border), max(border, height - border));
+    if (outline != NULL && interior != NULL)
+    {
+        CombineRgn(outline, outline, interior, RGN_DIFF);
+        if (SetWindowRgn(HPanelTabDetachPreview, outline, FALSE) == 0)
+            DeleteObject(outline);
+        outline = NULL; // SetWindowRgn owns it after success
+    }
+    if (outline != NULL)
+        DeleteObject(outline);
+    if (interior != NULL)
+        DeleteObject(interior);
+
+    SetWindowPos(HPanelTabDetachPreview, HWND_TOPMOST,
+                 previewRect.left, previewRect.top, width, height,
+                 SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    RedrawWindow(HPanelTabDetachPreview, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
+}
+
+void CMainWindow::HidePanelTabDetachPreview()
+{
+    if (HPanelTabDetachPreview != NULL)
+        ShowWindow(HPanelTabDetachPreview, SW_HIDE);
+}
+
+static HWND CreateDetachedTabWindow(CMainWindow* mainWindow, CFilesWindow* sourcePanel, const POINT* dropPoint)
+{
+    RegisterDetachedTabWindowClass();
+
+    RECT windowRect;
+    mainWindow->GetDetachedTabWindowRect(dropPoint, sourcePanel, &windowRect);
 
     HWND hWnd = CreateWindowEx(WS_EX_APPWINDOW,
                                 DETACHED_TAB_CLASSNAME,
                                 LoadStr(IDS_DETACHED_TAB_WINDOW_TITLE),
                                 WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
-                                x, y, width, height,
+                                windowRect.left, windowRect.top,
+                                windowRect.right - windowRect.left,
+                                windowRect.bottom - windowRect.top,
                                 NULL, NULL, HInstance, mainWindow);
     if (hWnd != NULL)
     {
         SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)mainWindow);
         DarkModeApplyWindow(hWnd);
         DarkModeRefreshTitleBar(hWnd);
+        DarkModeAllowDarkScrollbars(hWnd);
     }
     return hWnd;
 }
 
-static void PositionDetachedTabWindowAtDrop(HWND hWnd, const POINT* dropPoint)
+CDetachedTabInfo* CMainWindow::FindDetachedTab(CFilesWindow* panel)
 {
-    if (hWnd == NULL || dropPoint == NULL)
-        return;
+    for (size_t i = 0; i < DetachedTabs.size(); ++i)
+        if (DetachedTabs[i].Panel == panel)
+            return &DetachedTabs[i];
+    return NULL;
+}
 
-    RECT windowRect;
-    GetWindowRect(hWnd, &windowRect);
-    int width = windowRect.right - windowRect.left;
-    int height = windowRect.bottom - windowRect.top;
-    int x = dropPoint->x - width / 2;
-    int y = dropPoint->y - 24;
-    HMONITOR monitor = MonitorFromPoint(*dropPoint, MONITOR_DEFAULTTONEAREST);
-    MONITORINFO mi;
-    mi.cbSize = sizeof(mi);
-    if (GetMonitorInfo(monitor, &mi))
+const CDetachedTabInfo* CMainWindow::FindDetachedTab(CFilesWindow* panel) const
+{
+    for (size_t i = 0; i < DetachedTabs.size(); ++i)
+        if (DetachedTabs[i].Panel == panel)
+            return &DetachedTabs[i];
+    return NULL;
+}
+
+CDetachedTabInfo* CMainWindow::FindDetachedTab(HWND hWnd)
+{
+    for (size_t i = 0; i < DetachedTabs.size(); ++i)
+        if (DetachedTabs[i].HWindow == hWnd)
+            return &DetachedTabs[i];
+    return NULL;
+}
+
+const CDetachedTabInfo* CMainWindow::FindDetachedTab(HWND hWnd) const
+{
+    for (size_t i = 0; i < DetachedTabs.size(); ++i)
+        if (DetachedTabs[i].HWindow == hWnd)
+            return &DetachedTabs[i];
+    return NULL;
+}
+
+BOOL CMainWindow::SelectDetachedTab(HWND hWnd)
+{
+    CDetachedTabInfo* info = FindDetachedTab(hWnd);
+    if (info == NULL)
+        return FALSE;
+    DetachedTabPanel = info->Panel;
+    DetachedTabOriginalSide = info->OriginalSide;
+    DetachedTabOriginalIndex = info->OriginalIndex;
+    HDetachedTabWindow = info->HWindow;
+    HDetachedTabGrayToolBarImageList = info->HGrayToolBarImageList;
+    HDetachedTabHotToolBarImageList = info->HHotToolBarImageList;
+    DetachedTabWindowDPI = info->WindowDPI;
+    DetachedTabDPIRefreshPosted = info->DPIRefreshPosted;
+    return TRUE;
+}
+
+CPanelSide CMainWindow::GetDetachedTabOriginalSide(CFilesWindow* panel) const
+{
+    const CDetachedTabInfo* info = FindDetachedTab(panel);
+    return info != NULL ? info->OriginalSide : cpsLeft;
+}
+
+CFilesWindow* CMainWindow::FindDetachedTabPanelByPluginFS(CPluginFSInterfaceAbstract* pluginFS)
+{
+    if (pluginFS == NULL)
+        return NULL;
+    CFilesWindow* result = NULL;
+    CDetachedTabsLock lock(&DetachedTabsCS);
+    for (size_t i = 0; i < DetachedTabs.size(); ++i)
     {
-        x = max(mi.rcWork.left, min(x, mi.rcWork.right - width));
-        y = max(mi.rcWork.top, min(y, mi.rcWork.bottom - height));
+        CFilesWindow* panel = DetachedTabs[i].Panel;
+        if (panel != NULL && panel->Is(ptPluginFS) &&
+            panel->GetPluginFS()->Contains(pluginFS))
+        {
+            result = panel;
+            break;
+        }
     }
-    SetWindowPos(hWnd, NULL, x, y, 0, 0,
-                 SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOSIZE | SWP_NOZORDER);
+    return result;
 }
 
 BOOL CMainWindow::DetachPanelTab(CFilesWindow* panel, const POINT* dropPoint, BOOL showWindow)
 {
-    if (!Configuration.UsePanelTabs || panel == NULL || DetachedTabPanel != NULL)
+    if (!Configuration.UsePanelTabs || panel == NULL || FindDetachedTab(panel) != NULL)
         return FALSE;
 
     CPanelSide side = panel->GetPanelSide();
@@ -3108,13 +3321,9 @@ BOOL CMainWindow::DetachPanelTab(CFilesWindow* panel, const POINT* dropPoint, BO
     if (index <= 0 || panel->IsTabLocked())
         return FALSE;
 
-    BOOL windowAlreadyExisted = HDetachedTabWindow != NULL;
-    if (HDetachedTabWindow == NULL)
-        HDetachedTabWindow = CreateDetachedTabWindow(this, dropPoint);
-    if (HDetachedTabWindow == NULL)
+    HWND hDetachedWindow = CreateDetachedTabWindow(this, panel, dropPoint);
+    if (hDetachedWindow == NULL)
         return FALSE;
-    if (windowAlreadyExisted)
-        PositionDetachedTabWindowAtDrop(HDetachedTabWindow, dropPoint);
 
     CancelPanelsUI();
     TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
@@ -3135,22 +3344,36 @@ BOOL CMainWindow::DetachPanelTab(CFilesWindow* panel, const POINT* dropPoint, BO
         UpdatePanelTabVisibility(side);
 
     panel->DestroyTreeView();
-    DetachedTabPanel = panel;
-    DetachedTabOriginalSide = side;
-    DetachedTabOriginalIndex = index;
+    CDetachedTabInfo info;
+    info.Panel = panel;
+    info.OriginalSide = side;
+    info.OriginalIndex = index;
+    info.HWindow = hDetachedWindow;
+    {
+        CDetachedTabsLock lock(&DetachedTabsCS);
+        DetachedTabs.push_back(info);
+    }
+    SelectDetachedTab(hDetachedWindow);
     panel->SetPanelSide(side);
-    SetParent(panel->HWindow, HDetachedTabWindow);
-    RebuildDetachedTabToolbarImageLists((int)WinLibDPIGetWindowDPI(HDetachedTabWindow));
+    SetParent(panel->HWindow, hDetachedWindow);
+    DarkModeApplyTree(hDetachedWindow);
+    RebuildDetachedTabToolbarImageLists((int)WinLibDPIGetWindowDPI(hDetachedWindow), hDetachedWindow);
     SendMessage(panel->HWindow, WM_DPICHANGED_AFTERPARENT, 0, 0);
-    LayoutDetachedTabWindow();
+    // Reparenting a live panel invalidates its icon cache. During configuration
+    // restore the saved path is opened only after the panel reaches this final
+    // host, so an additional refresh here would enumerate an extension FS
+    // twice and visibly clear/repopulate it during startup.
+    if (!RestoringPanelPaths)
+        EnsurePanelRefreshAndRequest(panel, false, true);
+    LayoutDetachedTabWindow(hDetachedWindow);
     ShowWindow(panel->HWindow, SW_SHOW);
     Configuration.DetachedTab = TRUE;
     SetWindowTitle();
 
     if (showWindow)
     {
-        ShowWindow(HDetachedTabWindow, SW_SHOW);
-        SetForegroundWindow(HDetachedTabWindow);
+        ShowWindow(hDetachedWindow, SW_SHOW);
+        SetForegroundWindow(hDetachedWindow);
         SetFocus(panel->GetListBoxHWND());
         SetActivePanel(panel);
         panel->SetPanelSide(side);
@@ -3166,19 +3389,25 @@ BOOL CMainWindow::DetachPanelTab(CFilesWindow* panel, const POINT* dropPoint, BO
 
 BOOL CMainWindow::ReattachDetachedTab(CPanelSide targetSide, BOOL activate)
 {
-    if (DetachedTabPanel == NULL || (targetSide != cpsLeft && targetSide != cpsRight))
+    return ReattachDetachedTab(DetachedTabPanel, targetSide, activate);
+}
+
+BOOL CMainWindow::ReattachDetachedTab(CFilesWindow* panel, CPanelSide targetSide, BOOL activate)
+{
+    CDetachedTabInfo* info = FindDetachedTab(panel);
+    if (info == NULL || (targetSide != cpsLeft && targetSide != cpsRight))
         return FALSE;
 
-    CFilesWindow* panel = DetachedTabPanel;
-    CPanelSide originalSide = DetachedTabOriginalSide;
-    int insertIndex = targetSide == originalSide ? DetachedTabOriginalIndex : GetPanelTabs(targetSide).Count;
+    CPanelSide originalSide = info->OriginalSide;
+    int insertIndex = targetSide == originalSide ? info->OriginalIndex : GetPanelTabs(targetSide).Count;
     BOOL wasGloballyActive = GetActivePanel() == panel;
+    HWND detachedWindow = info->HWindow;
 
-    if (HDetachedTabWindow != NULL)
+    if (detachedWindow != NULL)
     {
-        Configuration.DetachedTabWindowPlacement.length = sizeof(WINDOWPLACEMENT);
-        GetWindowPlacement(HDetachedTabWindow, &Configuration.DetachedTabWindowPlacement);
-        ShowWindow(HDetachedTabWindow, SW_HIDE);
+        info->Placement.length = sizeof(WINDOWPLACEMENT);
+        GetWindowPlacement(detachedWindow, &info->Placement);
+        ShowWindow(detachedWindow, SW_HIDE);
     }
 
     HWND targetHost = DetachedPanels && targetSide == cpsRight && HRightDetachedWindow != NULL
@@ -3187,26 +3416,57 @@ BOOL CMainWindow::ReattachDetachedTab(CPanelSide targetSide, BOOL activate)
     SetParent(panel->HWindow, targetHost);
     if (!InsertPanelTabInstance(targetSide, insertIndex, panel, true))
     {
-        SetParent(panel->HWindow, HDetachedTabWindow);
-        ShowWindow(HDetachedTabWindow, SW_SHOW);
+        SetParent(panel->HWindow, detachedWindow);
+        ShowWindow(detachedWindow, SW_SHOW);
         return FALSE;
     }
 
-    DetachedTabPanel = NULL;
-    DetachedTabOriginalIndex = -1;
-    Configuration.DetachedTab = FALSE;
     SendMessage(panel->HWindow, WM_DPICHANGED_AFTERPARENT, 0, 0);
-    SetWindowTitle();
-
+    EnsurePanelRefreshAndRequest(panel, false, true);
+    size_t detachedIndex = (size_t)(info - &DetachedTabs[0]);
+    if (detachedWindow != NULL)
+        DestroyWindow(detachedWindow);
+    if (info->HHotToolBarImageList != NULL)
+        ImageList_Destroy(info->HHotToolBarImageList);
+    if (info->HGrayToolBarImageList != NULL)
+        ImageList_Destroy(info->HGrayToolBarImageList);
+    {
+        CDetachedTabsLock lock(&DetachedTabsCS);
+        DetachedTabs.erase(DetachedTabs.begin() + detachedIndex);
+    }
+    Configuration.DetachedTab = !DetachedTabs.empty();
+    if (!DetachedTabs.empty())
+        SelectDetachedTab(DetachedTabs.back().HWindow);
+    else
+    {
+        DetachedTabPanel = NULL;
+        DetachedTabOriginalIndex = -1;
+        HDetachedTabWindow = NULL;
+        HDetachedTabGrayToolBarImageList = NULL;
+        HDetachedTabHotToolBarImageList = NULL;
+        DetachedTabWindowDPI = 0;
+        DetachedTabDPIRefreshPosted = FALSE;
+    }
     if (activate)
         SwitchPanelTab(panel);
     else
     {
         ShowWindow(panel->HWindow, SW_HIDE);
         if (wasGloballyActive)
-            SetActivePanel(targetSide == cpsLeft ? LeftPanel : RightPanel);
+        {
+            if (!DetachedTabs.empty())
+            {
+                CDetachedTabInfo& remaining = DetachedTabs.back();
+                SelectDetachedTab(remaining.HWindow);
+                SetActivePanel(remaining.Panel);
+                remaining.Panel->SetPanelSide(remaining.OriginalSide);
+            }
+            else
+                SetActivePanel(targetSide == cpsLeft ? LeftPanel : RightPanel);
+        }
         UpdatePanelTabVisibility(targetSide);
     }
+    SetWindowTitle();
 
     if (Configuration.TreeViewVisible && activate)
         panel->UpdateTreeView(targetSide == cpsLeft || (DetachedPanels && targetSide == cpsRight));
@@ -3218,41 +3478,62 @@ BOOL CMainWindow::ReattachDetachedTab(CPanelSide targetSide, BOOL activate)
 
 void CMainWindow::CloseDetachedTab()
 {
-    if (DetachedTabPanel == NULL)
-        return;
-    CFilesWindow* panel = DetachedTabPanel;
-    CPanelSide side = DetachedTabOriginalSide;
-    if (ReattachDetachedTab(side, FALSE))
-        ClosePanelTab(panel);
+    CloseDetachedTab(DetachedTabPanel);
 }
 
-void CMainWindow::LayoutDetachedTabWindow()
+void CMainWindow::CloseDetachedTab(CFilesWindow* panel)
 {
-    if (HDetachedTabWindow == NULL || DetachedTabPanel == NULL || DetachedTabPanel->HWindow == NULL)
+    CDetachedTabInfo* info = FindDetachedTab(panel);
+    if (info == NULL)
+        return;
+    CPanelSide side = info->OriginalSide;
+    if (ReattachDetachedTab(panel, side, FALSE))
+    {
+        ClosePanelTab(panel);
+        // Do not leave an explicitly closed detached tab dependent on a later
+        // full application shutdown.  If shutdown is interrupted, the stale
+        // portable configuration must not resurrect this window next time.
+        SaveDetachedTabConfigNow();
+    }
+}
+
+void CMainWindow::LayoutDetachedTabWindow(HWND hWnd)
+{
+    if (hWnd == NULL)
+        hWnd = HDetachedTabWindow;
+    CDetachedTabInfo* info = FindDetachedTab(hWnd);
+    if (info == NULL || info->Panel == NULL || info->Panel->HWindow == NULL)
         return;
     RECT r;
-    GetClientRect(HDetachedTabWindow, &r);
+    GetClientRect(hWnd, &r);
     int width = max(0, r.right - r.left);
     int height = max(0, r.bottom - r.top);
-    MoveWindow(DetachedTabPanel->HWindow, 0, 0, width, height, TRUE);
-    SendMessage(DetachedTabPanel->HWindow, WM_SIZE, SIZE_RESTORED, MAKELPARAM(width, height));
-    DetachedTabPanel->LayoutListBoxChilds();
+    MoveWindow(info->Panel->HWindow, 0, 0, width, height, TRUE);
+    SendMessage(info->Panel->HWindow, WM_SIZE, SIZE_RESTORED, MAKELPARAM(width, height));
+    info->Panel->LayoutListBoxChilds();
 }
 
 void CMainWindow::ShowDetachedTabWindowFromConfig()
 {
-    if (DetachedTabPanel == NULL || HDetachedTabWindow == NULL)
-        return;
-    if (Configuration.DetachedTabWindowPlacement.length != 0)
+    ShowDetachedTabWindowsFromConfig();
+}
+
+void CMainWindow::ShowDetachedTabWindowsFromConfig()
+{
+    for (size_t i = 0; i < DetachedTabs.size(); ++i)
     {
-        WINDOWPLACEMENT place = Configuration.DetachedTabWindowPlacement;
-        place.length = sizeof(WINDOWPLACEMENT);
-        if (place.showCmd == SW_MINIMIZE || place.showCmd == SW_SHOWMINIMIZED)
-            place.showCmd = SW_SHOWNORMAL;
-        SetWindowPlacement(HDetachedTabWindow, &place);
+        CDetachedTabInfo& info = DetachedTabs[i];
+        if (info.Placement.length != 0)
+        {
+            WINDOWPLACEMENT place = info.Placement;
+            place.length = sizeof(WINDOWPLACEMENT);
+            if (place.showCmd == SW_MINIMIZE || place.showCmd == SW_SHOWMINIMIZED)
+                place.showCmd = SW_SHOWNORMAL;
+            SetWindowPlacement(info.HWindow, &place);
+        }
+        LayoutDetachedTabWindow(info.HWindow);
+        ShowWindow(info.HWindow, SW_SHOW);
     }
-    LayoutDetachedTabWindow();
-    ShowWindow(HDetachedTabWindow, SW_SHOW);
 }
 
 BOOL CMainWindow::SetPanelsDetached(BOOL detached)
@@ -3311,6 +3592,7 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
                 SendMessage(tabPanel->HWindow, WM_DPICHANGED_AFTERPARENT, 0, 0);
             }
         }
+        DarkModeApplyTree(HRightDetachedWindow);
 
         DetachedPanels = TRUE;
         Configuration.DetachedPanels = TRUE;
@@ -3533,8 +3815,9 @@ BOOL CMainWindow::TogglePanelsDetached()
 
 int CMainWindow::ConfirmDetachedTabWindowClose(HWND hWndDetached)
 {
+    const CDetachedTabInfo* info = FindDetachedTab(hWndDetached);
     if (!Configuration.CnfrmDetachTabClose)
-        return DetachedTabOriginalSide == cpsRight ? 3 : 2;
+        return info != NULL && info->OriginalSide == cpsRight ? 3 : 2;
 
     MSGBOXEX_PARAMS params;
     memset(&params, 0, sizeof(params));
@@ -3567,11 +3850,32 @@ int CMainWindow::ConfirmDetachedTabWindowClose(HWND hWndDetached)
 LRESULT CALLBACK CMainWindow::DetachedTabWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 #define WM_USER_REFRESH_DETACHED_TAB_DPI (WM_APP + 0x3C3)
+    // CreateWindow can erase the client area before GWLP_USERDATA is assigned.
+    // Paint that first frame here as well, otherwise a restored extension tab
+    // briefly exposes the system's white window background in the dark scheme.
+    if (uMsg == WM_ERASEBKGND)
+    {
+        RECT r;
+        GetClientRect(hWnd, &r);
+        HBRUSH background = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+        if (DarkModeIsWindowsDarkSchemeSelected())
+        {
+            HDC hDC = (HDC)wParam;
+            COLORREF oldColor = SetDCBrushColor(hDC, DarkModeGetColors().background);
+            FillRect(hDC, &r, (HBRUSH)GetStockObject(DC_BRUSH));
+            SetDCBrushColor(hDC, oldColor);
+        }
+        else
+            FillRect((HDC)wParam, &r, background);
+        return 1;
+    }
+
     CMainWindow* mainWindow = (CMainWindow*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
     if (uMsg == WM_CREATE)
         return 0;
     if (mainWindow != NULL)
     {
+        CDetachedTabInfo* info = mainWindow->FindDetachedTab(hWnd);
         switch (uMsg)
         {
         case WM_DPICHANGED:
@@ -3583,61 +3887,78 @@ LRESULT CALLBACK CMainWindow::DetachedTabWindowProc(HWND hWnd, UINT uMsg, WPARAM
                              suggested->bottom - suggested->top,
                              SWP_NOACTIVATE | SWP_NOZORDER);
             }
-            if (!mainWindow->DetachedTabDPIRefreshPosted)
+            if (info != NULL && !info->DPIRefreshPosted)
             {
-                mainWindow->DetachedTabDPIRefreshPosted = TRUE;
+                info->DPIRefreshPosted = TRUE;
                 PostMessage(hWnd, WM_USER_REFRESH_DETACHED_TAB_DPI, 0, 0);
             }
             return 0;
 
         case WM_USER_REFRESH_DETACHED_TAB_DPI:
-            mainWindow->DetachedTabDPIRefreshPosted = FALSE;
-            mainWindow->RebuildDetachedTabToolbarImageLists((int)WinLibDPIGetWindowDPI(hWnd));
-            if (mainWindow->DetachedTabPanel != NULL && mainWindow->DetachedTabPanel->HWindow != NULL)
-                SendMessage(mainWindow->DetachedTabPanel->HWindow, WM_DPICHANGED_AFTERPARENT, 0, 0);
-            mainWindow->LayoutDetachedTabWindow();
+            if (info != NULL)
+            {
+                info->DPIRefreshPosted = FALSE;
+                mainWindow->RebuildDetachedTabToolbarImageLists((int)WinLibDPIGetWindowDPI(hWnd), hWnd);
+                if (info->Panel != NULL && info->Panel->HWindow != NULL)
+                {
+                    SendMessage(info->Panel->HWindow, WM_DPICHANGED_AFTERPARENT, 0, 0);
+                    mainWindow->EnsurePanelRefreshAndRequest(info->Panel, false, true);
+                }
+            }
+            mainWindow->LayoutDetachedTabWindow(hWnd);
             RedrawWindow(hWnd, NULL, NULL,
                          RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
             return 0;
 
         case WM_SIZE:
-            mainWindow->LayoutDetachedTabWindow();
+            mainWindow->LayoutDetachedTabWindow(hWnd);
             return 0;
 
-        case WM_ERASEBKGND:
-        {
-            RECT r;
-            GetClientRect(hWnd, &r);
-            FillRect((HDC)wParam, &r, HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE));
-            return 1;
-        }
-
         case WM_SETFOCUS:
-            if (mainWindow->DetachedTabPanel != NULL)
-                SetFocus(mainWindow->DetachedTabPanel->GetListBoxHWND());
+            if (info != NULL && info->Panel != NULL)
+                SetFocus(info->Panel->GetListBoxHWND());
             return 0;
 
         case WM_MOUSEACTIVATE:
         case WM_ACTIVATE:
             if ((uMsg == WM_MOUSEACTIVATE || LOWORD(wParam) != WA_INACTIVE) &&
-                mainWindow->DetachedTabPanel != NULL)
+                info != NULL && info->Panel != NULL)
             {
                 CFilesWindow* oldPanel = mainWindow->GetActivePanel();
-                mainWindow->SetActivePanel(mainWindow->DetachedTabPanel);
-                mainWindow->DetachedTabPanel->SetPanelSide(mainWindow->DetachedTabOriginalSide);
+                mainWindow->SelectDetachedTab(hWnd);
+                mainWindow->SetActivePanel(info->Panel);
+                info->Panel->SetPanelSide(info->OriginalSide);
                 mainWindow->InvalidateDirectoryLine(oldPanel, FALSE);
-                mainWindow->InvalidateDirectoryLine(mainWindow->DetachedTabPanel, TRUE);
+                mainWindow->InvalidateDirectoryLine(info->Panel, TRUE);
                 mainWindow->RefreshCommandStates();
             }
             return uMsg == WM_MOUSEACTIVATE ? MA_ACTIVATE : 0;
 
         case WM_COMMAND:
+            if (info != NULL && info->Panel != NULL)
+            {
+                mainWindow->SelectDetachedTab(hWnd);
+                mainWindow->SetActivePanel(info->Panel);
+                info->Panel->SetPanelSide(info->OriginalSide);
+            }
             return SendMessage(mainWindow->HWindow, WM_COMMAND, wParam, lParam);
 
         case WM_NOTIFY:
+            if (info != NULL && info->Panel != NULL)
+            {
+                mainWindow->SelectDetachedTab(hWnd);
+                mainWindow->SetActivePanel(info->Panel);
+                info->Panel->SetPanelSide(info->OriginalSide);
+            }
             return SendMessage(mainWindow->HWindow, WM_NOTIFY, wParam, lParam);
 
         case WM_CONTEXTMENU:
+            if (info != NULL && info->Panel != NULL)
+            {
+                mainWindow->SelectDetachedTab(hWnd);
+                mainWindow->SetActivePanel(info->Panel);
+                info->Panel->SetPanelSide(info->OriginalSide);
+            }
             return SendMessage(mainWindow->HWindow, WM_CONTEXTMENU, wParam, lParam);
 
         case WM_APPCOMMAND:
@@ -3645,8 +3966,11 @@ LRESULT CALLBACK CMainWindow::DetachedTabWindowProc(HWND hWnd, UINT uMsg, WPARAM
             DWORD cmd = GET_APPCOMMAND_LPARAM(lParam);
             if (cmd == APPCOMMAND_BROWSER_BACKWARD || cmd == APPCOMMAND_BROWSER_FORWARD)
             {
-                if (mainWindow->DetachedTabPanel != NULL)
-                    mainWindow->SetActivePanel(mainWindow->DetachedTabPanel);
+                if (info != NULL && info->Panel != NULL)
+                {
+                    mainWindow->SelectDetachedTab(hWnd);
+                    mainWindow->SetActivePanel(info->Panel);
+                }
                 return SendMessage(mainWindow->HWindow, WM_COMMAND,
                                    cmd == APPCOMMAND_BROWSER_BACKWARD ? CM_ACTIVEBACK : CM_ACTIVEFORWARD, 0);
             }
@@ -3659,13 +3983,20 @@ LRESULT CALLBACK CMainWindow::DetachedTabWindowProc(HWND hWnd, UINT uMsg, WPARAM
             // fall through to the shared close decision
         case WM_CLOSE:
         {
+            CFilesWindow* panel = info != NULL ? info->Panel : NULL;
             int action = mainWindow->ConfirmDetachedTabWindowClose(hWnd);
             if (action == 1)
-                mainWindow->CloseDetachedTab();
+                mainWindow->CloseDetachedTab(panel);
             else if (action == 2)
-                mainWindow->ReattachDetachedTab(cpsLeft);
+            {
+                if (mainWindow->ReattachDetachedTab(panel, cpsLeft))
+                    mainWindow->SaveDetachedTabConfigNow();
+            }
             else if (action == 3)
-                mainWindow->ReattachDetachedTab(cpsRight);
+            {
+                if (mainWindow->ReattachDetachedTab(panel, cpsRight))
+                    mainWindow->SaveDetachedTabConfigNow();
+            }
             return 0;
         }
         }
@@ -3715,6 +4046,22 @@ BOOL CMainWindow::ConfirmDetachedWindowClose(HWND hWndDetached, BOOL* closeSalam
 LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 #define WM_USER_REFRESH_DETACHED_DPI (WM_APP + 0x3C2)
+    if (uMsg == WM_ERASEBKGND)
+    {
+        RECT r;
+        GetClientRect(hWnd, &r);
+        HDC hDC = (HDC)wParam;
+        if (DarkModeIsWindowsDarkSchemeSelected())
+        {
+            COLORREF oldColor = SetDCBrushColor(hDC, DarkModeGetColors().background);
+            FillRect(hDC, &r, (HBRUSH)GetStockObject(DC_BRUSH));
+            SetDCBrushColor(hDC, oldColor);
+        }
+        else
+            FillRect(hDC, &r, HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE));
+        return 1;
+    }
+
     LONG_PTR data = GetWindowLongPtr(hWnd, GWLP_USERDATA);
     CMainWindow* mainWindow = (CMainWindow*)(data & ~(LONG_PTR)1);
     CPanelSide side = (data & 1) ? cpsRight : cpsLeft;
@@ -3785,14 +4132,6 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
         case WM_SIZE:
             mainWindow->LayoutDetachedPanelWindow(side, LOWORD(lParam), HIWORD(lParam));
             return 0;
-
-        case WM_ERASEBKGND:
-        {
-            RECT r;
-            GetClientRect(hWnd, &r);
-            FillRect((HDC)wParam, &r, HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE));
-            return 1;
-        }
 
         case WM_SETFOCUS:
             if (!mainWindow->CreatingDetachedChrome)
@@ -4412,6 +4751,28 @@ void CMainWindow::SetWindowTitle(const char* text)
     std::wstring wideAppSuffix;
     std::wstring explicitDetachedText;
     std::wstring prefix;
+    CFilesWindow* mainTitlePanel = LeftPanel;
+    if (!DetachedPanels)
+    {
+        CFilesWindow* activePanel = GetActivePanel();
+        BOOL activePanelIsInMainWindow = FALSE;
+        for (int i = 0; i < LeftPanelTabs.Count && !activePanelIsInMainWindow; ++i)
+            activePanelIsInMainWindow = LeftPanelTabs[i] == activePanel;
+        for (int i = 0; i < RightPanelTabs.Count && !activePanelIsInMainWindow; ++i)
+            activePanelIsInMainWindow = RightPanelTabs[i] == activePanel;
+        if (activePanelIsInMainWindow)
+            MainWindowTitlePanel = activePanel;
+
+        BOOL rememberedPanelIsInMainWindow = FALSE;
+        for (int i = 0; i < LeftPanelTabs.Count && !rememberedPanelIsInMainWindow; ++i)
+            rememberedPanelIsInMainWindow = LeftPanelTabs[i] == MainWindowTitlePanel;
+        for (int i = 0; i < RightPanelTabs.Count && !rememberedPanelIsInMainWindow; ++i)
+            rememberedPanelIsInMainWindow = RightPanelTabs[i] == MainWindowTitlePanel;
+        if (rememberedPanelIsInMainWindow)
+            mainTitlePanel = MainWindowTitlePanel;
+        else
+            MainWindowTitlePanel = mainTitlePanel;
+    }
     if (text == NULL)
     {
         std::wstring suffix = MultiByteToWindowTitleWide(SALAMANDER_TEXT_VERSION);
@@ -4463,7 +4824,7 @@ void CMainWindow::SetWindowTitle(const char* text)
             mainSuffix += L" - ";
             mainSuffix += MultiByteToWindowTitleWide(LoadStr(IDS_MAIN_WINDOW_TITLE));
         }
-        wideText = BuildWindowTitleForPanel(DetachedPanels ? LeftPanel : GetActivePanel(), prefix, mainSuffix);
+        wideText = BuildWindowTitleForPanel(mainTitlePanel, prefix, mainSuffix);
 
     }
     else
@@ -4482,7 +4843,7 @@ void CMainWindow::SetWindowTitle(const char* text)
     {
         if (text == NULL)
         {
-            detachedText = BuildWindowTitleForPanel(DetachedPanels ? RightPanel : GetActivePanel(), prefix, wideAppSuffix);
+            detachedText = BuildWindowTitleForPanel(DetachedPanels ? RightPanel : mainTitlePanel, prefix, wideAppSuffix);
         }
         else
         {
@@ -4536,25 +4897,28 @@ void CMainWindow::SetWindowTitle(const char* text)
             ::SetWindowTextW(HRightDetachedWindow, detachedText.c_str());
     }
 
-    if (HDetachedTabWindow != NULL && DetachedTabPanel != NULL)
+    for (size_t i = 0; i < DetachedTabs.size(); ++i)
     {
+        CDetachedTabInfo& info = DetachedTabs[i];
+        if (info.HWindow == NULL || info.Panel == NULL)
+            continue;
         std::wstring detachedTabText;
         if (text == NULL)
-            detachedTabText = BuildWindowTitleForPanel(DetachedTabPanel, prefix, wideAppSuffix);
+            detachedTabText = BuildWindowTitleForPanel(info.Panel, prefix, wideAppSuffix);
         else
             detachedTabText = explicitDetachedText;
 
-        int detachedTabCurLen = GetWindowTextLengthW(HDetachedTabWindow);
+        int detachedTabCurLen = GetWindowTextLengthW(info.HWindow);
         std::wstring detachedTabCurTitle;
         if (detachedTabCurLen > 0)
         {
             detachedTabCurTitle.resize(detachedTabCurLen + 1);
-            int copied = GetWindowTextW(HDetachedTabWindow, &detachedTabCurTitle[0], detachedTabCurLen + 1);
+            int copied = GetWindowTextW(info.HWindow, &detachedTabCurTitle[0], detachedTabCurLen + 1);
             if (copied >= 0)
                 detachedTabCurTitle.resize(copied);
         }
         if (detachedTabText != detachedTabCurTitle)
-            ::SetWindowTextW(HDetachedTabWindow, detachedTabText.c_str());
+            ::SetWindowTextW(info.HWindow, detachedTabText.c_str());
     }
 }
 
@@ -6261,16 +6625,18 @@ void CMainWindow::OnColorsChanged(BOOL reloadUMIcons)
             RightPanelTabs[i]->OnColorsChanged();
     }
 
-    if (DetachedTabPanel != NULL)
+    for (size_t i = 0; i < DetachedTabs.size(); ++i)
     {
-        DetachedTabWindowDPI = 0; // color scheme changes the rasterized toolbar background
-        RebuildDetachedTabToolbarImageLists((int)WinLibDPIGetWindowDPI(HDetachedTabWindow));
-        DetachedTabPanel->OnColorsChanged();
-        if (HDetachedTabWindow != NULL)
+        CDetachedTabInfo& info = DetachedTabs[i];
+        info.WindowDPI = 0; // color scheme changes the rasterized toolbar background
+        RebuildDetachedTabToolbarImageLists((int)WinLibDPIGetWindowDPI(info.HWindow), info.HWindow);
+        if (info.Panel != NULL)
+            info.Panel->OnColorsChanged();
+        if (info.HWindow != NULL)
         {
-            DarkModeApplyTree(HDetachedTabWindow);
-            DarkModeRefreshTitleBar(HDetachedTabWindow);
-            RedrawWindow(HDetachedTabWindow, NULL, NULL,
+            DarkModeApplyTree(info.HWindow);
+            DarkModeRefreshTitleBar(info.HWindow);
+            RedrawWindow(info.HWindow, NULL, NULL,
                          RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
         }
     }

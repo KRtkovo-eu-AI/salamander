@@ -433,8 +433,8 @@ struct CConfiguration
 
     BOOL DetachedPanels;                    // TRUE = restore right side in a detached top-level window
     WINDOWPLACEMENT DetachedWindowPlacement; // invalid unless DetachedWindowPlacement.length != 0
-    BOOL DetachedTab;                       // TRUE = restore one non-default tab in its own window
-    WINDOWPLACEMENT DetachedTabWindowPlacement; // invalid unless length != 0
+    BOOL DetachedTab;                       // TRUE = restore at least one non-default tab in its own window
+    WINDOWPLACEMENT DetachedTabWindowPlacement; // legacy single-window placement, invalid unless length != 0
 
     // Change drive
     int ChangeDriveShowMountFolders; // display volumes mounted into folders

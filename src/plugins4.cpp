@@ -386,11 +386,12 @@ void CPlugins::HandlePluginFSTimers()
                         }
                     }
                 }
-                CFilesWindow* detachedPanel = MainWindow->GetDetachedTabPanel();
-                if (fs == NULL && detachedPanel != NULL && detachedPanel->Is(ptPluginFS) &&
-                    detachedPanel->GetPluginFS()->Contains(timer->TimerOwner))
+                for (int detachedIndex = 0; fs == NULL && detachedIndex < MainWindow->GetDetachedTabCount(); ++detachedIndex)
                 {
-                    fs = detachedPanel->GetPluginFS();
+                    CFilesWindow* detachedPanel = MainWindow->GetDetachedTabAt(detachedIndex);
+                    if (detachedPanel != NULL && detachedPanel->Is(ptPluginFS) &&
+                        detachedPanel->GetPluginFS()->Contains(timer->TimerOwner))
+                        fs = detachedPanel->GetPluginFS();
                 }
                 if (fs == NULL)
                 {

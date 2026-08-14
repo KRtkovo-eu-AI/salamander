@@ -730,7 +730,7 @@ BOOL CStatusWindow::IsDetachedPinButton() const
 
 BOOL CStatusWindow::ShouldShowZoomButton() const
 {
-    return MainWindow != NULL && FilesWindow != MainWindow->GetDetachedTabPanel() &&
+    return MainWindow != NULL && !MainWindow->IsDetachedTabPanel(FilesWindow) &&
            (Configuration.ShowPanelZoom || IsDetachedPinButton());
 }
 
@@ -2382,6 +2382,12 @@ CStatusWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             ItemBitmap.Enlarge(Width, Height); // alokace bitmapy v ItemBitmap.HMemDC
         }
         HDC dc = (HDC)wParam;
+        if (DarkModeIsWindowsDarkSchemeSelected())
+        {
+            COLORREF oldColor = SetDCBrushColor(dc, DarkModeGetColors().background);
+            FillRect(dc, &r, (HBRUSH)GetStockObject(DC_BRUSH));
+            SetDCBrushColor(dc, oldColor);
+        }
         if (Border != blNone)
         {
             HPEN oldPen = (HPEN)SelectObject(dc, BtnShadowPen);
@@ -2529,6 +2535,9 @@ void CStatusWindow::SetFont()
     {
         ToolBar->SetImageList(MainWindow->GetToolbarImageListForWindow(HWindow, FALSE));
         ToolBar->SetHotImageList(MainWindow->GetToolbarImageListForWindow(HWindow, TRUE));
+        if (DriveIcon != NULL)
+            ToolBar->ReplaceImage(Left ? CM_LCHANGEDRIVE : CM_RCHANGEDRIVE,
+                                  FALSE, DriveIcon, TRUE, TRUE);
         ToolBar->SetFont();
     }
 

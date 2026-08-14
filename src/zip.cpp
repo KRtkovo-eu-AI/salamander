@@ -869,6 +869,21 @@ CFilesWindow* FindPanelTabById(ULONGLONG tabId, int* side = NULL, int* index = N
             }
         }
     }
+    for (int detachedIndex = 0; detachedIndex < MainWindow->GetDetachedTabCount(); ++detachedIndex)
+    {
+        CFilesWindow* panel = MainWindow->GetDetachedTabAt(detachedIndex);
+        if (panel != NULL && panel->GetPanelTabId() == tabId)
+        {
+            if (side != NULL)
+                *side = MainWindow->GetDetachedTabOriginalSide(panel) == cpsLeft ? PANEL_LEFT : PANEL_RIGHT;
+            if (index != NULL)
+            {
+                const CDetachedTabInfo* info = MainWindow->FindDetachedTab(panel);
+                *index = info != NULL ? info->OriginalIndex : -1;
+            }
+            return panel;
+        }
+    }
     return NULL;
 }
 
@@ -971,6 +986,22 @@ BOOL CSalamanderGeneral::ActivatePanelTab(ULONGLONG tabId, BOOL focus)
     CFilesWindow* panel = FindPanelTabById(tabId);
     if (panel == NULL)
         return FALSE;
+
+    if (MainWindow->IsDetachedTabPanel(panel))
+    {
+        CDetachedTabInfo* info = MainWindow->FindDetachedTab(panel);
+        if (info == NULL || info->HWindow == NULL)
+            return FALSE;
+        MainWindow->SelectDetachedTab(info->HWindow);
+        ShowWindow(info->HWindow, SW_SHOW);
+        if (focus)
+        {
+            SetForegroundWindow(info->HWindow);
+            SetFocus(panel->GetListBoxHWND());
+            MainWindow->SetActivePanel(panel);
+        }
+        return TRUE;
+    }
 
     MainWindow->SwitchPanelTab(panel);
     if (focus)
@@ -1980,7 +2011,7 @@ int CSalamanderGeneral::GetSourcePanel()
         return PANEL_LEFT;
     }
     CFilesWindow* sourcePanel = MainWindow->GetActivePanel();
-    if (sourcePanel == MainWindow->GetDetachedTabPanel())
+    if (MainWindow->IsDetachedTabPanel(sourcePanel))
         return sourcePanel->IsLeftPanel() ? PANEL_LEFT : PANEL_RIGHT;
     if (sourcePanel == MainWindow->LeftPanel)
         return PANEL_LEFT;
@@ -2903,9 +2934,8 @@ BOOL CSalamanderGeneral::PostRefreshPanelFS2(CPluginFSInterfaceAbstract* modifie
                 }
             }
         }
-        CFilesWindow* detachedPanel = MainWindow->GetDetachedTabPanel();
-        if (detachedPanel != NULL && detachedPanel->Is(ptPluginFS) &&
-            detachedPanel->GetPluginFS()->Contains(modifiedFS))
+        CFilesWindow* detachedPanel = MainWindow->FindDetachedTabPanelByPluginFS(modifiedFS);
+        if (detachedPanel != NULL)
         {
             detachedPanel->FocusFirstNewItem = focusFirstNewItem;
             HANDLES(EnterCriticalSection(&TimeCounterSection));
@@ -5668,12 +5698,15 @@ BOOL CSalamanderGeneral::StopThrobber(int id)
             }
         }
     }
-    CFilesWindow* detachedPanel = MainWindow->GetDetachedTabPanel();
-    if (detachedPanel != NULL && detachedPanel->DirectoryLine != NULL &&
-        detachedPanel->DirectoryLine->IsThrobberVisible(id))
+    for (int i = 0; i < MainWindow->GetDetachedTabCount(); ++i)
     {
-        detachedPanel->DirectoryLine->SetThrobber(FALSE);
-        return TRUE;
+        CFilesWindow* detachedPanel = MainWindow->GetDetachedTabAt(i);
+        if (detachedPanel != NULL && detachedPanel->DirectoryLine != NULL &&
+            detachedPanel->DirectoryLine->IsThrobberVisible(id))
+        {
+            detachedPanel->DirectoryLine->SetThrobber(FALSE);
+            return TRUE;
+        }
     }
     return FALSE;
 }

@@ -1453,6 +1453,7 @@ def main() -> int:
         r'RegisterService\(\s*SALAMANDER_SERVICE_STARTUP_PROGRESS.*?'
         r'InitDLL\(progressParent, TRUE\).*?'
         r'Event\(PLUGINEVENT_STARTUPCOMPLETE, 0\).*?'
+        r'Event\(PLUGINEVENT_STARTUPBATCHCOMPLETE, 0\).*?'
         r'ssppFinishingStartup.*?UnregisterService\(.*?'
         r'DestroyWindow\(startupProgress\.HWindow\)',
         "load-on-start plugins and extensions are not covered by one progress window")
@@ -1469,6 +1470,18 @@ def main() -> int:
         r'query\.ServiceId = SALAMANDER_SERVICE_STARTUP_PROGRESS.*?'
         r'QueryService\(&query, &result\).*?ReportStartupProgress',
         "Salamatrix package manager does not use the temporary host progress service")
+    require(
+        salamatrix,
+        r'IsLoadOnStartBatchActive\(\).*?'
+        r'SetRefreshDeferred\(IsLoadOnStartBatchActive\(\)\).*?'
+        r'PLUGINEVENT_STARTUPBATCHCOMPLETE.*?SetRefreshDeferred\(FALSE\)',
+        "load-on-start runtime registrations are not coalesced into one catalog refresh")
+    require(
+        packages,
+        r'if \(RefreshDeferred\).*?RefreshPending = TRUE.*?'
+        r'SALAMANDER_SERVICE_SHUTDOWN_PROGRESS.*?'
+        r'QueryService\(&query, &result\).*?RefreshPending = FALSE',
+        "catalog refreshes are not deferred during startup and suppressed during shutdown")
     for resource_id in range(14320, 14330):
         occurrences = len(re.findall(
             rf"^{resource_id},1,\"[^\"]+\"$",
@@ -1987,6 +2000,14 @@ def main() -> int:
         r"virtual ~OpenFileSystem\(\).*?ShuttingDown.*?"
         r"WaitForThreadWithSentMessageDispatch.*?DeleteCriticalSection",
         "Salamatrix FS background refresh is not joined safely on close")
+    require(
+        packages,
+        r"virtual ~OpenFileSystem\(\).*?"
+        r"CancelFileSystemListingForShutdown\(RefreshPackageId\).*?"
+        r"WaitForThreadWithSentMessageDispatch.*?"
+        r"SALAMANDER_SERVICE_SHUTDOWN_PROGRESS.*?"
+        r"package->Session->Stop\(\)",
+        "shutdown can wait for an extension-FS listing before cancelling its runtime call")
     listing_body = re.search(
         r"virtual BOOL WINAPI ListCurrentPath\(.*?"
         r"(?=\n    virtual BOOL WINAPI TryCloseOrDetach)",

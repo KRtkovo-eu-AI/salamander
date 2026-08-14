@@ -6306,14 +6306,14 @@ void CCfgPagePanels::Transfer(CTransferInfo& ti)
             oldSortDetectNumbers != Configuration.SortDetectNumbers)
         {
             int totalPanels = MainWindow->LeftPanelTabs.Count + MainWindow->RightPanelTabs.Count +
-                              (MainWindow->GetDetachedTabPanel() != NULL ? 1 : 0);
+                              MainWindow->GetDetachedTabCount();
             TDirectArray<CFilesWindow*> panels(totalPanels, totalPanels);
             for (int i = 0; i < MainWindow->LeftPanelTabs.Count; i++)
                 panels.Add(MainWindow->LeftPanelTabs[i]);
             for (int i = 0; i < MainWindow->RightPanelTabs.Count; i++)
                 panels.Add(MainWindow->RightPanelTabs[i]);
-            if (MainWindow->GetDetachedTabPanel() != NULL)
-                panels.Add(MainWindow->GetDetachedTabPanel());
+            for (int i = 0; i < MainWindow->GetDetachedTabCount(); ++i)
+                panels.Add(MainWindow->GetDetachedTabAt(i));
 
             for (int i = 0; i < panels.Count; i++)
             {
