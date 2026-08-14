@@ -38,6 +38,9 @@ struct CExtensionManifestCommand
     std::string Id;
     std::string Title;
     std::string Handler;
+    // Optional host-owned path change executed directly on the active panel.
+    // It avoids starting a runtime worker for navigation-only commands.
+    std::string Path;
     std::string Menu;
     std::string Requires;
     // Optional command-specific toolbar artwork. When absent, the package
@@ -82,14 +85,27 @@ struct CExtensionManifestViewer
 
 struct CExtensionManifestFileSystem
 {
+    struct Column
+    {
+        std::string Id;
+        std::string Name;
+        std::string Description;
+        unsigned int Width;
+        bool Numeric;
+
+        Column() : Width(100), Numeric(false) {}
+    };
+
     struct Action
     {
         std::string Id;
         std::string Title;
         std::string Handler;
         bool Default;
+        bool Separator;
+        bool Refresh;
 
-        Action() : Default(false) {}
+        Action() : Default(false), Separator(false), Refresh(true) {}
     };
     // A package-local stable id. All Salamatrix file systems are exposed
     // through the framework-owned salamatrix: namespace.
@@ -99,7 +115,9 @@ struct CExtensionManifestFileSystem
     std::string OpenHandler;
     std::string Icon;
     std::string IconDark;
+    std::string DefaultFileIcon;
     unsigned int RefreshIntervalMs;
+    std::vector<Column> Columns;
     std::vector<Action> Actions;
 
     CExtensionManifestFileSystem()
@@ -191,11 +209,34 @@ struct CExtensionManifestLocalizedSetting
     std::string Group;
 };
 
+struct CExtensionManifestLocalizedFileSystemColumn
+{
+    std::string Id;
+    std::string Name;
+    std::string Description;
+};
+
+struct CExtensionManifestLocalizedFileSystemAction
+{
+    std::string Id;
+    std::string Title;
+};
+
+struct CExtensionManifestLocalizedFileSystem
+{
+    std::string Id;
+    std::string Name;
+    std::vector<CExtensionManifestLocalizedFileSystemColumn> Columns;
+    std::vector<CExtensionManifestLocalizedFileSystemAction> Actions;
+};
+
 struct CExtensionManifestLocaleText
 {
     std::string Name;
+    std::string Description;
     std::vector<CExtensionManifestLocalizedCommand> Commands;
     std::vector<CExtensionManifestLocalizedSetting> Settings;
+    std::vector<CExtensionManifestLocalizedFileSystem> FileSystems;
 };
 
 class CExtensionManifest
@@ -221,7 +262,7 @@ public:
     // this package can activate. Runtime adapters remain described by runtime.
     std::vector<std::string> Dependencies;
     // Optional package-owned BCP-47 locale table. The selected JSON resource
-    // can provide a name and command-title translations.
+    // can provide package and contribution translations.
     std::vector<CExtensionManifestLocale> Locales;
     // Optional typed settings declarations.  Declarations are metadata only;
     // values remain isolated in Salamatrix.Storage under the manifest id.

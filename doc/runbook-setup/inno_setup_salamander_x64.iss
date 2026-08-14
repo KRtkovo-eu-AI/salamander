@@ -387,6 +387,7 @@ Name: "{app}\extensions\demos"
 Name: "{app}\extensions\extension-menu-builder"
 Name: "{app}\extensions\git-worktree-navigator"
 Name: "{app}\extensions\file-lock-inspector"
+Name: "{app}\extensions\process-explorer"
 Name: "{app}\plugins\serviceexplorer"
 Name: "{app}\plugins\serviceexplorer\lang"
 Name: "{app}\plugins\splitcbn"
@@ -1438,6 +1439,7 @@ Source: "{#PayloadDir}\extensions\demos\*"; DestDir: "{app}\extensions\demos"; F
 Source: "{#PayloadDir}\extensions\extension-menu-builder\*"; DestDir: "{app}\extensions\extension-menu-builder"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('extensionmenubuilder')
 Source: "{#PayloadDir}\extensions\git-worktree-navigator\*"; DestDir: "{app}\extensions\git-worktree-navigator"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('gitworktreenavigator')
 Source: "{#PayloadDir}\extensions\file-lock-inspector\*"; DestDir: "{app}\extensions\file-lock-inspector"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('filelockinspector')
+Source: "{#PayloadDir}\extensions\process-explorer\*"; DestDir: "{app}\extensions\process-explorer"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('processexplorer')
 Source: "{#PayloadDir}\plugins\extension-runtimes\javascriptruntime\javascriptruntime.spl"; DestDir: "{app}\plugins\extension-runtimes\javascriptruntime"; Flags: ignoreversion; Check: IsPluginSelected('javascriptruntime')
 Source: "{#PayloadDir}\plugins\extension-runtimes\javascriptruntime\runtime\salamatrix_worker.mjs"; DestDir: "{app}\plugins\extension-runtimes\javascriptruntime\runtime"; Flags: ignoreversion; Check: IsPluginSelected('javascriptruntime')
 Source: "{#PayloadDir}\plugins\extension-runtimes\luaruntime\luaruntime.spl"; DestDir: "{app}\plugins\extension-runtimes\luaruntime"; Flags: ignoreversion; Check: IsPluginSelected('luaruntime')
@@ -1812,6 +1814,7 @@ begin
   AddPluginDependency('extensionmenubuilder', 'powershellruntime');
   AddPluginDependency('gitworktreenavigator', 'powershellruntime');
   AddPluginDependency('filelockinspector', 'powershellruntime');
+  AddPluginDependency('processexplorer', 'powershellruntime');
 
   { The demo package contains one Automation extension and five runtime demos. }
   AddPluginDependency('salamatrixdemos', 'automation');
@@ -1926,6 +1929,13 @@ begin
   if CompareText(PluginId, 'filelockinspector') = 0 then
   begin
     if FileExists(ExpandConstant('{app}\extensions\file-lock-inspector\extension.json')) then
+      Result := '1.0.0';
+    Exit;
+  end;
+
+  if CompareText(PluginId, 'processexplorer') = 0 then
+  begin
+    if FileExists(ExpandConstant('{app}\extensions\process-explorer\extension.json')) then
       Result := '1.0.0';
     Exit;
   end;
@@ -2349,6 +2359,7 @@ begin
   AddPlugin('extensionmenubuilder', 'Extension Menu Builder', '1.0.0 (x64)', True);
   AddPlugin('filecomp', 'File Comparator', '1.21 (x64)', True);
   AddPlugin('filelockinspector', 'File Lock Inspector', '1.0.0 (x64)', True);
+  AddPlugin('processexplorer', 'Process Explorer', '1.0.0 (x64)', True);
   AddPlugin('folders', 'Folders', '0.2 (x64)', False);
   AddPlugin('ftp', 'FTP Client', '1.36 (x64)', True);
   AddPlugin('gitworktreenavigator', 'Git Worktree Navigator', '1.0.0 (x64)', True);

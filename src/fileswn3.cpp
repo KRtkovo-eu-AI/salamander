@@ -168,6 +168,153 @@ LABEL_SortExplorerNameExtAux:
     }
 }
 
+struct CPluginCustomSortContext
+{
+    std::map<DWORD_PTR, std::string> ValuesByPluginData;
+    std::map<std::string, std::string> ValuesByName;
+    BOOL Numeric;
+};
+
+CPluginCustomSortContext* PluginCustomSortContext = NULL;
+
+std::string PluginCustomSortKey(const CFileData& file)
+{
+    if (file.PluginData != NULL)
+    {
+        std::map<DWORD_PTR, std::string>::const_iterator it =
+            PluginCustomSortContext->ValuesByPluginData.find(file.PluginData);
+        if (it != PluginCustomSortContext->ValuesByPluginData.end())
+            return it->second;
+    }
+    std::map<std::string, std::string>::const_iterator it =
+        PluginCustomSortContext->ValuesByName.find(file.Name);
+    return it != PluginCustomSortContext->ValuesByName.end() ? it->second : std::string();
+}
+
+BOOL ParsePluginCustomNumber(const std::string& text, double& value)
+{
+    const char* start = text.c_str();
+    char* end = NULL;
+    value = strtod(start, &end);
+    if (end == start)
+        return FALSE;
+    while (*end == ' ' || *end == '\t')
+        end++;
+    if (*end == 0 || strcmp(end, "%") == 0)
+        return TRUE;
+    double multiplier = 0;
+    if (_stricmp(end, "K") == 0 || _stricmp(end, "KB") == 0 || _stricmp(end, "KiB") == 0)
+        multiplier = 1024.0;
+    else if (_stricmp(end, "M") == 0 || _stricmp(end, "MB") == 0 || _stricmp(end, "MiB") == 0)
+        multiplier = 1024.0 * 1024.0;
+    else if (_stricmp(end, "G") == 0 || _stricmp(end, "GB") == 0 || _stricmp(end, "GiB") == 0)
+        multiplier = 1024.0 * 1024.0 * 1024.0;
+    else if (_stricmp(end, "T") == 0 || _stricmp(end, "TB") == 0 || _stricmp(end, "TiB") == 0)
+        multiplier = 1024.0 * 1024.0 * 1024.0 * 1024.0;
+    if (multiplier == 0)
+        return FALSE;
+    value *= multiplier;
+    return TRUE;
+}
+
+BOOL LessPluginCustomNameExt(const CFileData& f1, const CFileData& f2, BOOL reverse)
+{
+    std::string v1 = PluginCustomSortKey(f1);
+    std::string v2 = PluginCustomSortKey(f2);
+    BOOL empty1 = v1.empty();
+    BOOL empty2 = v2.empty();
+    if (empty1 != empty2)
+        return reverse ? !empty1 : empty1;
+    if (!empty1)
+    {
+        int result = 0;
+        double number1;
+        double number2;
+        if (PluginCustomSortContext->Numeric &&
+            ParsePluginCustomNumber(v1, number1) && ParsePluginCustomNumber(v2, number2))
+            result = number1 < number2 ? -1 : number1 > number2 ? 1 : 0;
+        else
+            result = RegSetStrICmpEx(v1.c_str(), (int)v1.length(),
+                                     v2.c_str(), (int)v2.length(), NULL);
+        if (result != 0)
+            return reverse ? result > 0 : result < 0;
+    }
+    return LessNameExt(f1, f2, FALSE);
+}
+
+void SortPluginCustomNameExtAux(CFilesArray& files, int left, int right, BOOL reverse)
+{
+LABEL_SortPluginCustomNameExtAux:
+    int i = left, j = right;
+    CFileData pivot = files[(i + j) / 2];
+    do
+    {
+        while (LessPluginCustomNameExt(files[i], pivot, reverse) && i < right)
+            i++;
+        while (LessPluginCustomNameExt(pivot, files[j], reverse) && j > left)
+            j--;
+        if (i <= j)
+        {
+            CFileData swap = files[i];
+            files[i] = files[j];
+            files[j] = swap;
+            i++;
+            j--;
+        }
+    } while (i <= j);
+    if (left < j)
+    {
+        if (i < right)
+        {
+            if (j - left < right - i)
+            {
+                SortPluginCustomNameExtAux(files, left, j, reverse);
+                left = i;
+                goto LABEL_SortPluginCustomNameExtAux;
+            }
+            else
+            {
+                SortPluginCustomNameExtAux(files, i, right, reverse);
+                right = j;
+                goto LABEL_SortPluginCustomNameExtAux;
+            }
+        }
+        else
+        {
+            right = j;
+            goto LABEL_SortPluginCustomNameExtAux;
+        }
+    }
+    else if (i < right)
+    {
+        left = i;
+        goto LABEL_SortPluginCustomNameExtAux;
+    }
+}
+
+void FillPluginCustomSortCache(CPluginCustomSortContext& context,
+                               CFilesArray* items, int firstIndex, BOOL isDir,
+                               const CColumn* column,
+                               CPluginDataInterfaceAbstract* pluginData)
+{
+    TransferPluginDataIface = pluginData;
+    TransferActCustomData = column->CustomData;
+    for (int i = firstIndex; i < items->Count; i++)
+    {
+        CFileData* file = &items->At(i);
+        TransferFileData = file;
+        TransferIsDir = isDir;
+        TransferRowData = 0;
+        TransferLen = 0;
+        column->GetText();
+        int length = max(0, min(TransferLen, TRANSFER_BUFFER_MAX));
+        std::string value(TransferBuffer, length);
+        if (file->PluginData != NULL)
+            context.ValuesByPluginData[file->PluginData] = value;
+        context.ValuesByName[file->Name] = value;
+    }
+}
+
 void FillExplorerSortCache(CExplorerSortContext& context, const char* path, const wchar_t* pathW,
                            CFilesArray* items, int firstIndex, int explorerIndex)
 {
@@ -2176,6 +2323,47 @@ void CFilesWindow::SortDirectory(CFilesArray* files, CFilesArray* dirs)
                 SortExplorerNameExtAux(*files, 0, files->Count - 1, ReverseSort);
             ExplorerSortContext = NULL;
         }
+    }
+    else if (SortType == stCustom && Is(ptPluginFS))
+    {
+        const CColumn* sortColumn = NULL;
+        for (int i = 0; i < Columns.Count; i++)
+        {
+            const CColumn* column = &Columns[i];
+            if (column->ID == COLUMN_ID_CUSTOM && column->SupportSorting &&
+                column->GetText != NULL && column->CustomData == SortCustomData)
+            {
+                sortColumn = column;
+                break;
+            }
+        }
+        if (sortColumn != NULL)
+        {
+            BOOL hasRoot = dirs->Count > 0 && dirs->At(0).NameLen == 2 &&
+                           dirs->At(0).Name[0] == '.' && dirs->At(0).Name[1] == '.';
+            int firstDirIndex = hasRoot ? 1 : 0;
+            CPluginCustomSortContext context;
+            context.Numeric = !sortColumn->LeftAlignment;
+            FillPluginCustomSortCache(context, files, 0, FALSE, sortColumn,
+                                      PluginData.GetInterface());
+            FillPluginCustomSortCache(context, dirs, firstDirIndex, TRUE, sortColumn,
+                                      PluginData.GetInterface());
+            PluginCustomSortContext = &context;
+            if (dirs->Count - firstDirIndex > 1)
+            {
+                if (Configuration.SortDirsByName)
+                    SortNameExt(*dirs, firstDirIndex, dirs->Count - 1, FALSE);
+                else
+                    SortPluginCustomNameExtAux(*dirs, firstDirIndex,
+                                               dirs->Count - 1, ReverseSort);
+            }
+            if (files->Count > 1)
+                SortPluginCustomNameExtAux(*files, 0, files->Count - 1, ReverseSort);
+            PluginCustomSortContext = NULL;
+        }
+        else
+            SortFilesAndDirectories(files, dirs, stName, FALSE,
+                                    Configuration.SortDirsByName);
     }
     else
         SortFilesAndDirectories(files, dirs, SortType, ReverseSort, Configuration.SortDirsByName);

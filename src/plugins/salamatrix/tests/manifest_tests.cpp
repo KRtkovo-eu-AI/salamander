@@ -59,16 +59,19 @@ static void TestCompleteManifest()
         "\"requiresExecutable\":\"example.exe\","
         "\"enabled\":false,\"visible\":true},"
         "{\"id\":\"Example.Second\",\"title\":\"Second\",\"placement\":\"context\","
-        "\"visible\":false}"
+        "\"path\":\"salamatrix:Example.Package!machines\",\"visible\":false}"
         "],"
         "\"viewers\":[{\"name\":\"Markdown preview\",\"patterns\":[\"*.md\",\"*.markdown\"],"
         "\"handler\":\"viewMarkdown\"}],"
         "\"fileSystems\":[{\"id\":\"machines\",\"name\":\"Machines\","
         "\"listHandler\":\"listMachines\",\"openHandler\":\"openMachine\","
         "\"icon\":\"assets/machines.svg\",\"iconDark\":\"assets/machines-dark.svg\","
-        "\"refreshIntervalMs\":1000,\"actions\":["
+        "\"defaultFileIcon\":\"assets/default.ico\","
+        "\"refreshIntervalMs\":1000,\"columns\":["
+        "{\"id\":\"pid\",\"name\":\"PID\",\"description\":\"Process id\",\"width\":72,\"numeric\":true}],\"actions\":["
         "{\"id\":\"connect\",\"title\":\"Connect\",\"handler\":\"connect\",\"default\":true},"
-        "{\"id\":\"start\",\"title\":\"Start\",\"handler\":\"start\"}]}]"
+        "{\"separator\":true},"
+        "{\"id\":\"start\",\"title\":\"Start\",\"handler\":\"start\",\"refresh\":false}]}]"
         "}";
 
     CExtensionManifest manifest;
@@ -124,6 +127,8 @@ static void TestCompleteManifest()
     CHECK(!manifest.Commands[0].Enabled);
     CHECK(manifest.Commands[0].Visible);
     CHECK(manifest.Commands[1].Menu == "context");
+    CHECK(manifest.Commands[1].Path ==
+          "salamatrix:Example.Package!machines");
     CHECK(!manifest.Commands[1].Visible);
     CHECK(!manifest.Commands[1].ToolbarMenu);
     CHECK(manifest.Viewers.size() == 1);
@@ -132,15 +137,37 @@ static void TestCompleteManifest()
     CHECK(manifest.FileSystems.size() == 1);
     CHECK(manifest.FileSystems[0].Id == "machines");
     CHECK(manifest.FileSystems[0].ListHandler == "listMachines");
+    CHECK(manifest.FileSystems[0].DefaultFileIcon == "assets/default.ico");
     CHECK(manifest.FileSystems[0].RefreshIntervalMs == 1000);
-    CHECK(manifest.FileSystems[0].Actions.size() == 2);
+    CHECK(manifest.FileSystems[0].Columns.size() == 1);
+    CHECK(manifest.FileSystems[0].Columns[0].Id == "pid");
+    CHECK(manifest.FileSystems[0].Columns[0].Width == 72);
+    CHECK(manifest.FileSystems[0].Columns[0].Numeric);
+    CHECK(manifest.FileSystems[0].Actions.size() == 3);
     CHECK(manifest.FileSystems[0].Actions[0].Default);
+    CHECK(manifest.FileSystems[0].Actions[1].Separator);
+    CHECK(!manifest.FileSystems[0].Actions[2].Refresh);
+
+    const char* invalidActionSeparator =
+        "{\"id\":\"Example.InvalidSeparator\",\"runtime\":\"PowerShell\","
+        "\"entryPoint\":\"main.ps1\",\"fileSystems\":[{\"id\":\"fs\","
+        "\"name\":\"FS\",\"listHandler\":\"list\",\"actions\":[{"
+        "\"separator\":true,\"id\":\"bad\"}]}]}";
+    CHECK(!Parse(invalidActionSeparator, manifest, error));
+    CHECK(!error.Message.empty());
 
     const char* invalidToolbarMenu =
         "{\"id\":\"Example.InvalidToolbarMenu\",\"runtime\":\"PowerShell\","
         "\"entryPoint\":\"main.ps1\",\"commands\":["
         "{\"toolbarMenu\":true}]}";
     CHECK(!Parse(invalidToolbarMenu, manifest, error));
+    CHECK(!error.Message.empty());
+
+    const char* invalidCommandPath =
+        "{\"id\":\"Example.InvalidCommandPath\",\"runtime\":\"PowerShell\","
+        "\"entryPoint\":\"main.ps1\",\"commands\":[{"
+        "\"handler\":\"open\",\"path\":\"salamatrix:Example!fs\"}]}";
+    CHECK(!Parse(invalidCommandPath, manifest, error));
     CHECK(!error.Message.empty());
 
     const char* invalidExecutable =
@@ -173,6 +200,10 @@ static void TestLocaleText()
 {
     const char* json =
         "{\"name\":\"Obr\\u00e1zkov\\u00e9 n\\u00e1stroje\","
+        "\"description\":\"Popis\","
+        "\"fileSystems\":{\"processes\":{\"name\":\"Procesy\",\"columns\":{"
+        "\"status\":{\"name\":\"Stav\",\"description\":\"Stav procesu\"}},"
+        "\"actions\":{\"endTask\":\"Ukon\\u010dit \\u00falohu\"}}},"
         "\"settings\":{\"repositoryUrl\":{\"label\":\"Zdroj\","
         "\"description\":\"Adresa bal\\u00ed\\u010dku\",\"group\":\"Obecn\\u00e9\"}},"
         "\"commands\":{\"Example.Resize\":\"Zm\\u011bnit velikost\"}}";
@@ -180,10 +211,27 @@ static void TestLocaleText()
     CExtensionManifestError error;
     const bool parsedLocale = CExtensionManifest::ParseLocaleText(
         json, strlen(json), localized, error);
+    if (!parsedLocale)
+        std::fprintf(stderr, "locale parse failed: %s\n", error.Message.c_str());
     CHECK(parsedLocale);
     if (parsedLocale)
     {
         CHECK(localized.Name == "Obr\xc3\xa1zkov\xc3\xa9 n\xc3\xa1stroje");
+        CHECK(localized.Description == "Popis");
+        CHECK(localized.FileSystems.size() == 1);
+        if (localized.FileSystems.size() == 1)
+        {
+            CHECK(localized.FileSystems[0].Id == "processes");
+            CHECK(localized.FileSystems[0].Name == "Procesy");
+            CHECK(localized.FileSystems[0].Columns.size() == 1);
+            if (localized.FileSystems[0].Columns.size() == 1)
+                CHECK(localized.FileSystems[0].Columns[0].Name == "Stav");
+            CHECK(localized.FileSystems[0].Actions.size() == 1);
+            if (localized.FileSystems[0].Actions.size() == 1)
+                CHECK(localized.FileSystems[0].Actions[0].Title ==
+                      "Ukon\xc4\x8d"
+                      "it \xc3\xbalohu");
+        }
         CHECK(localized.Commands.size() == 1);
         if (localized.Commands.size() == 1)
         {
@@ -283,6 +331,8 @@ static void TestInvalidDocuments()
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"viewers\":[]}",
         "{\"schemaVersion\":2,\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"viewers\":[{\"patterns\":[\"dir/*.txt\"],\"handler\":\"view\"}]}",
         "{\"schemaVersion\":2,\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"fileSystems\":[{\"id\":\"fs\",\"name\":\"FS\",\"listHandler\":\"list\",\"icon\":\"icon.png\"}]}",
+        "{\"schemaVersion\":2,\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"fileSystems\":[{\"id\":\"fs\",\"name\":\"FS\",\"listHandler\":\"list\",\"defaultFileIcon\":\"../default.ico\"}]}",
+        "{\"schemaVersion\":2,\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\",\"fileSystems\":[{\"id\":\"fs\",\"name\":\"FS\",\"listHandler\":\"list\",\"columns\":[{\"id\":\"bad id\",\"name\":\"Bad\"}]}]}",
         "{\"id\":\"Bad\",\"runtime\":{\"id\":\"JS\",\"minimumVersion\":\"1.x\"},"
         "\"entryPoint\":\"main.js\"}",
         "{\"id\":\"Bad space\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\"}",

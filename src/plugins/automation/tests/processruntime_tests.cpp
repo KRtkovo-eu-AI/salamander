@@ -33,6 +33,7 @@ struct BootstrapDispatchState
     int LanguageCalls;
     int AppearanceCalls;
     int MessageBoxCalls;
+    int FilePropertiesCalls;
     int CommandRegistrationCalls;
     int CommandStateCalls;
     int SchemaCalls;
@@ -69,6 +70,7 @@ struct BootstrapDispatchState
           LanguageCalls(0),
           AppearanceCalls(0),
           MessageBoxCalls(0),
+          FilePropertiesCalls(0),
           CommandRegistrationCalls(0),
           CommandStateCalls(0),
           SchemaCalls(0),
@@ -125,6 +127,12 @@ BOOL WINAPI WorkerHostDispatch(
             ++state->CommandCalls;
         response = "{\"ok\":true,\"result\":\"ok\"}";
     }
+    else if (strstr(payloadJson, "salamander.fileSystem.addItems") != NULL)
+    {
+        if (state != NULL)
+            ++state->FileSystemCalls;
+        response = "{\"ok\":true,\"added\":true,\"addedCount\":2}";
+    }
     else if (strstr(payloadJson, "salamander.fileSystem.addItem") != NULL)
     {
         if (state != NULL)
@@ -142,6 +150,12 @@ BOOL WINAPI WorkerHostDispatch(
         if (state != NULL)
             ++state->ControlsCalls;
         response = "{\"ok\":true,\"shown\":true}";
+    }
+    else if (strstr(payloadJson, "salamander.ui.fileProperties") != NULL)
+    {
+        if (state != NULL)
+            ++state->FilePropertiesCalls;
+        response = "{\"ok\":true,\"shown\":true,\"error\":0}";
     }
     else if (strstr(payloadJson, "salamander.ui.messageBox") != NULL)
     {
@@ -641,10 +655,10 @@ void RunPythonOneShotBootstrapTest()
               "    raise RuntimeError('invocation path was not propagated')\n"
               "if Salamander.commands.execute('Copy') != 'ok':\n"
               "    raise RuntimeError('one-shot host call failed')\n"
-              "if not Salamander.file_system.add_item(\n"
-              "        'development', 'Development VM — Running',\n"
-              "        icon='icon.svg', directory=False, enabled=True):\n"
-              "    raise RuntimeError('file-system item call failed')\n"),
+              "if Salamander.file_system.add_items([\n"
+              "        {'id': 'development', 'name': 'Development VM — Running'},\n"
+              "        {'id': 'test', 'name': 'Test VM — Stopped'}]) != 2:\n"
+              "    raise RuntimeError('file-system item batch call failed')\n"),
           "write one-shot python worker");
 
     CAutomationProcessRuntimeAdapter adapter(
@@ -688,7 +702,7 @@ void RunPythonOneShotBootstrapTest()
               "exited worker diagnostic preserves exit code");
         Check(state.CommandCalls == 1, "one-shot worker host call reached host");
         Check(state.FileSystemCalls == 1,
-              "one-shot Python file-system item call reached host");
+              "one-shot Python file-system item batch reached host");
         session->Stop();
         session->Release();
     }
@@ -783,6 +797,8 @@ void RunPythonBootstrapTest()
               "    raise RuntimeError('notification call failed')\n"
               "if Salamander.ui.message_box('Parity', 'Runtime', buttons='YesNo', icon='Question') != 1:\n"
               "    raise RuntimeError('message box options failed')\n"
+              "if not Salamander.ui.file_properties('C:/Test/app.exe').get('shown'):\n"
+              "    raise RuntimeError('file properties call failed')\n"
               "if Salamander.application.language().get('language') != 'en':\n"
               "    raise RuntimeError('host language call failed')\n"
               "if Salamander.application.appearance().get('darkMode') is not True:\n"
@@ -901,6 +917,7 @@ void RunPythonBootstrapTest()
         Check(state.CommandCalls == 2, "bootstrap command and completion calls reached host");
         Check(state.NotificationCalls == 1, "bootstrap notification call reached host");
         Check(state.MessageBoxCalls == 1, "bootstrap message box call reached host");
+        Check(state.FilePropertiesCalls == 1, "bootstrap file properties call reached host");
         Check(state.MessageBoxOptionsSeen, "bootstrap message box options reached host");
         Check(state.LanguageCalls == 1, "bootstrap host language call reached host");
         Check(state.AppearanceCalls == 1, "bootstrap host appearance call reached host");
@@ -969,6 +986,7 @@ void RunPowerShellBootstrapTest()
               &script[0],
               "if ($Salamander.commands.Execute('Copy') -ne 'ok') { throw 'command call failed' }\n"
               "if ($Salamander.ui.MessageBox('Parity', 'Runtime', 'YesNo', 'Question') -ne 1) { throw 'message box options failed' }\n"
+              "if (-not ($Salamander.ui.FileProperties('C:/Test/app.exe')).shown) { throw 'file properties call failed' }\n"
               "if ($Salamander.application.Language().language -ne 'en') { throw 'host language call failed' }\n"
               "if ($Salamander.application.Appearance().darkMode -ne $true) { throw 'host appearance call failed' }\n"
               "$Salamander.storage.Set('bootstrap', 'ok')\n"
@@ -996,6 +1014,7 @@ void RunPowerShellBootstrapTest()
               "if (-not ($Salamander.runtimes.List() | Where-Object { $_.id -eq 'Python.CPython' })) { throw 'runtime list call failed' }\n"
               "if (-not $Salamander.ai.Preview('list files', $null, $null, 'PowerShell', 'Write-Output 1', 'keep originals').canRun) { throw 'ai preview call failed' }\n"
               "if ($Salamander.file_operations.Refresh() -ne 'ok') { throw 'file operation call failed' }\n"
+              "if ($Salamander.file_system.AddItems(@(@{ id = 'one'; name = 'One' }, @{ id = 'two'; name = 'Two' })) -ne 2) { throw 'file-system item batch failed' }\n"
               "$dialog = $Salamander.ui.Dialog('Bootstrap', 640, 420)\n"
               "$dialog.AddControl('label', 'label', 'Hello', $false, $false, 0, @{ x = 12; y = 10; width = 180; height = 16 })\n"
               "$dialog.AddTextBox('value', 'seed', $false, $true)\n"
@@ -1042,6 +1061,7 @@ void RunPowerShellBootstrapTest()
             (void)session->Pump(250);
         Check(state.CommandCalls == 2, "powershell bootstrap command and completion calls");
         Check(state.MessageBoxCalls == 1, "powershell message box call");
+        Check(state.FilePropertiesCalls == 1, "powershell file properties call");
         Check(state.MessageBoxOptionsSeen, "powershell message box options");
         Check(state.LanguageCalls == 1, "powershell host language call");
         Check(state.AppearanceCalls == 1, "powershell host appearance call");
@@ -1053,6 +1073,7 @@ void RunPowerShellBootstrapTest()
         Check(state.SchemaCalls == 1, "powershell storage schema reached host");
         Check(state.StorageKeysCalls == 1, "powershell storage keys reached host");
         Check(state.SubscribeCalls == 1, "powershell bootstrap event subscription");
+        Check(state.FileSystemCalls == 1, "powershell file-system item batch reached host");
         Check(state.SideContextCalls == 1, "powershell bootstrap side context");
         Check(state.ClipboardCalls == 1, "powershell bootstrap clipboard");
         Check(state.PickerCalls == 1, "powershell bootstrap file picker");
@@ -1099,6 +1120,7 @@ void RunPhpBootstrapTest()
               "<?php\n"
               "if ($Salamander->commands->execute('Copy') !== 'ok') throw new Exception('command call failed');\n"
               "if ($Salamander->ui->messageBox('Parity', 'Runtime', 'YesNo', 'Question') !== 1) throw new Exception('message box options failed');\n"
+              "if (empty($Salamander->ui->fileProperties('C:/Test/app.exe')['shown'])) throw new Exception('file properties call failed');\n"
               "if (!$Salamander->ui->controls()) throw new Exception('controls showcase call failed');\n"
               "if ($Salamander->application->language()['language'] !== 'en') throw new Exception('host language call failed');\n"
               "if ($Salamander->application->appearance()['darkMode'] !== true) throw new Exception('host appearance call failed');\n"
@@ -1129,6 +1151,7 @@ void RunPhpBootstrapTest()
               "if (empty($runtimes) || $runtimes[0]['id'] !== 'Python.CPython') throw new Exception('runtime list call failed');\n"
               "if (!$Salamander->ai->preview('list files', null, null, 'PHP.CLI', '<?php echo 1; ?>', 'keep originals')['canRun']) throw new Exception('ai preview call failed');\n"
               "if ($Salamander->file_operations->refresh() !== 'ok') throw new Exception('file operation call failed');\n"
+              "if ($Salamander->file_system->add_items(array(array('id'=>'one', 'name'=>'One'), array('id'=>'two', 'name'=>'Two'))) !== 2) throw new Exception('file-system item batch failed');\n"
               "$dialog = $Salamander->ui->dialog('Bootstrap', 640, 420);\n"
               "$dialog->addControl('label', 'label', 'Hello', false, false, 0, array('x' => 12, 'y' => 10, 'width' => 180, 'height' => 16));\n"
               "$dialog->addTextBox('value', 'seed', false, true);\n"
@@ -1175,6 +1198,7 @@ void RunPhpBootstrapTest()
             (void)session->Pump(250);
         Check(state.CommandCalls == 2, "php bootstrap command and completion calls");
         Check(state.MessageBoxCalls == 1, "php message box call");
+        Check(state.FilePropertiesCalls == 1, "php file properties call");
         Check(state.MessageBoxOptionsSeen, "php message box options");
         Check(state.ControlsCalls == 1, "php controls showcase call");
         Check(state.LanguageCalls == 1, "php host language call");
@@ -1186,6 +1210,7 @@ void RunPhpBootstrapTest()
         Check(state.IntegerStorageSeen, "php integer storage reached host");
         Check(state.SchemaCalls == 1, "php storage schema reached host");
         Check(state.StorageKeysCalls == 1, "php storage keys reached host");
+        Check(state.FileSystemCalls == 1, "php file-system item batch reached host");
         Check(state.SubscribeCalls == 1, "php bootstrap event subscription");
         Check(state.SideContextCalls == 1, "php bootstrap side context");
         Check(state.ClipboardCalls == 1, "php bootstrap clipboard");

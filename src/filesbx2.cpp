@@ -261,7 +261,7 @@ void CHeaderLine::PaintItem(HDC hDC, int index, int x)
         HDC hMemDC = NULL;
         BOOL sort = FALSE;
         CFilesWindow* panel = Parent->Parent;
-        if (column->ID == COLUMN_ID_NAME && panel->SortType == stName)
+        if ((index == 0 || column->ID == COLUMN_ID_NAME) && panel->SortType == stName)
             sort = TRUE;
         else if (column->ID == COLUMN_ID_SIZE && panel->SortType == stSize)
             sort = TRUE;
@@ -271,8 +271,8 @@ void CHeaderLine::PaintItem(HDC hDC, int index, int x)
             sort = TRUE;
         else if (column->ID == COLUMN_ID_ATTRIBUTES && panel->SortType == stAttr)
             sort = TRUE;
-        else if (column->ID == COLUMN_ID_CUSTOM && column->GetText == InternalGetExplorerColumn &&
-                 panel->SortType == stCustom && panel->SortCustomData == column->CustomData)
+        else if (column->ID == COLUMN_ID_CUSTOM && panel->SortType == stCustom &&
+                 panel->SortCustomData == column->CustomData)
             sort = TRUE;
 
         // arrow indicating sort direction
@@ -774,6 +774,8 @@ CHeaderLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 CSortType st = stName;
                 if (index == 0 && extInName)
                     st = stExtension;
+                else if (index == 0)
+                    st = stName;
                 else if (column->ID == COLUMN_ID_NAME)
                     st = stName;
                 else if (column->ID == COLUMN_ID_EXTENSION)
@@ -784,7 +786,7 @@ CHeaderLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     st = stTime;
                 else if (column->ID == COLUMN_ID_ATTRIBUTES)
                     st = stAttr;
-                else if (column->ID == COLUMN_ID_CUSTOM && column->GetText == InternalGetExplorerColumn)
+                else if (column->ID == COLUMN_ID_CUSTOM)
                 {
                     Parent->Parent->ChangeCustomSortType(column->CustomData, TRUE);
                     return 0;

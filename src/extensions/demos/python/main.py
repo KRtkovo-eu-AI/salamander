@@ -24,12 +24,17 @@ if handler == "listDemoMachines":
         ("test-lab", "Test lab", False),
         ("build-agent", "Build agent", True),
     ]
+    items = []
     for machine_id, name, default_running in machines:
         running = Salamander.storage.get(
             f"machine.{machine_id}.running", default_running)
-        Salamander.file_system.add_item(
-            machine_id, f"{name} — {'Running' if running else 'Stopped'}",
-            icon="icon.svg", directory=False, enabled=True)
+        items.append({
+            "id": machine_id,
+            "name": f"{name} — {'Running' if running else 'Stopped'}",
+            "icon": "icon.svg", "directory": False, "enabled": True,
+            "columns": {"state": "Running" if running else "Stopped"},
+        })
+    Salamander.file_system.add_items(items)
     raise SystemExit(0)
 
 if handler in ("inspectDemoMachine", "toggleDemoMachine"):

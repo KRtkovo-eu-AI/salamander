@@ -712,7 +712,21 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
             }
             else
             {
-                AlterFileName(TransferBuffer, f->Name, -1, Configuration.FileNameFormat, 0, isDir);
+                CColumn* nameColumn = &Columns[0];
+                if (nameColumn->ID == COLUMN_ID_CUSTOM &&
+                    nameColumn->GetText != NULL)
+                {
+                    TransferPluginDataIface = PluginData.GetInterface();
+                    TransferFileData = f;
+                    TransferIsDir = isDir ? 1 : 0;
+                    TransferRowData = 0;
+                    TransferActCustomData = nameColumn->CustomData;
+                    nameColumn->GetText();
+                    nameLen = TransferLen;
+                }
+                else
+                    AlterFileName(TransferBuffer, f->Name, -1,
+                                  Configuration.FileNameFormat, 0, isDir);
                 fileNameFormated = TRUE;
             }
 

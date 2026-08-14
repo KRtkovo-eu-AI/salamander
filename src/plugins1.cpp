@@ -3649,6 +3649,23 @@ BOOL CPluginData::ExecuteMenuItem2(CFilesWindow* panel, HWND parent, int index, 
     return FALSE;
 }
 
+BOOL CPluginData::ExecuteToolbarCommand(CFilesWindow* panel, HWND parent,
+                                        int index, int id, BOOL& unselect)
+{
+    CALL_STACK_MESSAGE5("CPluginData::ExecuteToolbarCommand(, , %d, %d, ) (%s v. %s)",
+                        index, id, DLLName, Version);
+    unselect = FALSE;
+    if (PluginIfaceForMenuExt.NotEmpty())
+    {
+        const DWORD mask = GetMaskForMenuItems(index);
+        CSalamanderForOperations sm(panel);
+        unselect = PluginIfaceForMenuExt.ExecuteMenuItem(&sm, parent, id, mask);
+        return TRUE;
+    }
+    TRACE_E("PluginIfaceForMenuExt is not initialized!");
+    return FALSE;
+}
+
 BOOL CPluginData::HelpForMenuItem(HWND parent, int index, int suid, BOOL& helpDisplayed)
 {
     CALL_STACK_MESSAGE5("CPluginData::HelpForMenuItem(, %d, %d, ) (%s v. %s)", index, suid, DLLName, Version);

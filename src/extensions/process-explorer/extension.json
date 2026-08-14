@@ -1,0 +1,53 @@
+{
+  "schema": 2,
+  "id": "OpenSalamander.ProcessExplorer",
+  "name": "Process Explorer",
+  "version": "1.3.0",
+  "description": "Lists running Windows processes in a Salamander file-system panel.",
+  "runtime": "PowerShell",
+  "entryPoint": "main.ps1",
+  "icon": "icon.svg",
+  "iconDark": "icon-dark.svg",
+  "capabilities": ["file-system", "process.read", "process.write", "panels.write", "ui.dialogs"],
+  "commands": [{
+    "id": "OpenSalamander.ProcessExplorer.open",
+    "title": "Open Process Explorer",
+    "path": "salamatrix:OpenSalamander.ProcessExplorer!processes",
+    "menu": "none",
+    "toolbar": true,
+    "icon": "icon.svg",
+    "iconDark": "icon-dark.svg",
+    "requires": "any"
+  }],
+  "locales": {
+    "en": "locales/en.json", "cs": "locales/cs.json",
+    "de": "locales/de.json", "es": "locales/es.json",
+    "fr": "locales/fr.json", "hu": "locales/hu.json",
+    "nl": "locales/nl.json", "ro": "locales/ro.json",
+    "ru": "locales/ru.json", "sk": "locales/sk.json",
+    "zh-CN": "locales/zh-CN.json"
+  },
+  "fileSystems": [{
+    "id": "processes",
+    "name": "Processes",
+    "listHandler": "listProcesses",
+    "icon": "icon.svg",
+    "iconDark": "icon-dark.svg",
+    "defaultFileIcon": "default.ico",
+    "refreshIntervalMs": 5000,
+    "columns": [
+      {"id": "pid", "name": "PID", "description": "Process identifier", "width": 72, "numeric": true},
+      {"id": "status", "name": "Status", "description": "Process status", "width": 100},
+      {"id": "cpu", "name": "CPU", "description": "Current processor usage", "width": 72, "numeric": true},
+      {"id": "memory", "name": "Memory", "description": "Active private working set", "width": 110, "numeric": true},
+      {"id": "userName", "name": "User name", "description": "Account that owns the process", "width": 180}
+    ],
+    "actions": [
+      {"id":"endTask","title":"End task","handler":"endTask"},
+      {"id":"endProcessTree","title":"End process tree","handler":"endProcessTree"},
+      {"separator":true},
+      {"id":"openFileLocation","title":"Open file location","handler":"openFileLocation","refresh":false},
+      {"id":"properties","title":"Properties","handler":"properties","refresh":false}
+    ]
+  }]
+}

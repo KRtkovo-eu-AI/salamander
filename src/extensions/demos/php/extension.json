@@ -15,11 +15,12 @@
     "handler": "viewDemo"
   }],
   "fileSystems": [{
-    "id": "demo-machines",
-    "name": "Demo machines",
+    "id": "demo-machines-php",
+    "name": "Demo machines PHP",
     "listHandler": "listDemoMachines",
     "icon": "icon.svg",
     "refreshIntervalMs": 5000,
+    "columns": [{"id":"state","name":"State","description":"Machine state","width":100}],
     "actions": [
       {"id": "inspect", "title": "Inspect", "handler": "inspectDemoMachine", "default": true},
       {"id": "toggle", "title": "Toggle state", "handler": "toggleDemoMachine"}

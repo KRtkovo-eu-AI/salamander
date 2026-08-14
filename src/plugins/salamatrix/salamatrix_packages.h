@@ -56,6 +56,7 @@ private:
     BOOL RefreshPending;
     LONG ActiveHostDispatches;
     LONG ActiveExecutions;
+    SRWLOCK FileSystemExecutionLock;
 
     PackageManager(const PackageManager&);
     PackageManager& operator=(const PackageManager&);
@@ -67,6 +68,9 @@ public:
         std::string Name;
         std::string Icon;
         std::string IconDark;
+        std::string FileIcon;
+        std::string CompactName;
+        std::vector<std::string> ColumnValues;
         bool Directory;
         bool Enabled;
 

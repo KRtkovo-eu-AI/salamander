@@ -19,6 +19,11 @@
 
 namespace
 {
+    // Match CColumn's fixed SDK buffers without making the standalone manifest
+    // parser depend on the complete plug-in SDK header.
+    const size_t FileSystemColumnNameCapacity = 30;
+    const size_t FileSystemColumnDescriptionCapacity = 100;
+
     enum JsonType
     {
         JsonNull,
@@ -722,6 +727,13 @@ namespace
                _stricmp(path.substr(dot).c_str(), ".json") == 0;
     }
 
+    static bool IsIcoAssetPath(const std::string& path)
+    {
+        size_t dot = path.find_last_of('.');
+        return dot != std::string::npos &&
+               _stricmp(path.substr(dot).c_str(), ".ico") == 0;
+    }
+
     static bool IsLocaleTag(const std::string& language)
     {
         if (language.empty() || language.size() > 31 ||
@@ -1286,6 +1298,7 @@ bool CExtensionManifest::Parse(
             if (!ReadString(commandValue, "id", false, command.Id, error) ||
                 !ReadString(commandValue, "title", false, command.Title, error) ||
                 !ReadString(commandValue, "handler", false, command.Handler, error) ||
+                !ReadString(commandValue, "path", false, command.Path, error) ||
                 !ReadString(commandValue, "menu", false, command.Menu, error) ||
                 !ReadString(commandValue, "requires", false, command.Requires, error) ||
                 !ReadString(commandValue, "icon", false, command.Icon, error) ||
@@ -1319,6 +1332,10 @@ bool CExtensionManifest::Parse(
                 command.Title = Name;
             if (!IsIdentifier(command.Id))
                 return SetValidationError(error, "Command id contains unsupported characters or is too long");
+            if (command.Path.size() >= SAL_MAX_PATH)
+                return SetValidationError(error, "Command path is too long");
+            if (!command.Path.empty() && !command.Handler.empty())
+                return SetValidationError(error, "Command cannot specify both handler and path");
             if ((!command.Icon.empty() && !IsSafeRelativeEntryPoint(command.Icon)) ||
                 (!command.IconDark.empty() && !IsSafeRelativeEntryPoint(command.IconDark)) ||
                 (!command.Icon.empty() && !IsSvgAssetPath(command.Icon)) ||
@@ -1427,6 +1444,7 @@ bool CExtensionManifest::Parse(
                 !ReadString(fileSystemValue, "openHandler", false, fileSystem.OpenHandler, error) ||
                 !ReadString(fileSystemValue, "icon", false, fileSystem.Icon, error) ||
                 !ReadString(fileSystemValue, "iconDark", false, fileSystem.IconDark, error) ||
+                !ReadString(fileSystemValue, "defaultFileIcon", false, fileSystem.DefaultFileIcon, error) ||
                 !ReadInteger(fileSystemValue, "refreshIntervalMs", 3000, 250, 60000, refreshIntervalMs, error))
                 return false;
             fileSystem.RefreshIntervalMs = static_cast<unsigned int>(refreshIntervalMs);
@@ -1440,6 +1458,43 @@ bool CExtensionManifest::Parse(
                 (!fileSystem.IconDark.empty() &&
                  (!IsSafeRelativeEntryPoint(fileSystem.IconDark) || !IsSvgAssetPath(fileSystem.IconDark))))
                 return SetValidationError(error, "File-system icons must be safe relative SVG paths inside the extension");
+            if (!fileSystem.DefaultFileIcon.empty() &&
+                (!IsSafeRelativeEntryPoint(fileSystem.DefaultFileIcon) ||
+                 !IsIcoAssetPath(fileSystem.DefaultFileIcon)))
+                return SetValidationError(error, "File-system defaultFileIcon must be a safe relative ICO path inside the extension");
+            const JsonValue* columns = fileSystemValue.Find("columns");
+            if (columns != NULL)
+            {
+                if (columns->Type != JsonArray)
+                    return SetValidationError(error, "File-system columns must be an array");
+                if (columns->Array.size() > 16)
+                    return SetValidationError(error, "File system contains more than 16 columns");
+                for (size_t columnIndex = 0; columnIndex < columns->Array.size(); ++columnIndex)
+                {
+                    const JsonValue& columnValue = columns->Array[columnIndex];
+                    if (columnValue.Type != JsonObject)
+                        return SetValidationError(error, "Every file-system column must be an object");
+                    CExtensionManifestFileSystem::Column column;
+                    int width = 100;
+                    if (!ReadString(columnValue, "id", true, column.Id, error) ||
+                        !ReadString(columnValue, "name", true, column.Name, error) ||
+                        !ReadString(columnValue, "description", false, column.Description, error) ||
+                        !ReadInteger(columnValue, "width", 100, 24, 1000, width, error) ||
+                        !ReadBoolean(columnValue, "numeric", false, column.Numeric, error))
+                        return false;
+                    column.Width = static_cast<unsigned int>(width);
+                    if (!IsIdentifier(column.Id) || column.Name.empty() ||
+                        column.Name.size() >= FileSystemColumnNameCapacity ||
+                        column.Description.size() >= FileSystemColumnDescriptionCapacity)
+                        return SetValidationError(error, "File-system column metadata is invalid or too long");
+                    if (column.Description.empty())
+                        column.Description = column.Name;
+                    for (size_t existing = 0; existing < fileSystem.Columns.size(); ++existing)
+                        if (_stricmp(fileSystem.Columns[existing].Id.c_str(), column.Id.c_str()) == 0)
+                            return SetValidationError(error, "File-system column ids must be unique");
+                    fileSystem.Columns.push_back(column);
+                }
+            }
             const JsonValue* actions = fileSystemValue.Find("actions");
             if (actions != NULL)
             {
@@ -1454,11 +1509,21 @@ bool CExtensionManifest::Parse(
                     if (actionValue.Type != JsonObject)
                         return SetValidationError(error, "Every file-system action must be an object");
                     CExtensionManifestFileSystem::Action action;
-                    if (!ReadString(actionValue, "id", true, action.Id, error) ||
-                        !ReadString(actionValue, "title", true, action.Title, error) ||
-                        !ReadString(actionValue, "handler", true, action.Handler, error) ||
-                        !ReadBoolean(actionValue, "default", false, action.Default, error))
+                    if (!ReadBoolean(actionValue, "separator", false, action.Separator, error) ||
+                        !ReadString(actionValue, "id", !action.Separator, action.Id, error) ||
+                        !ReadString(actionValue, "title", !action.Separator, action.Title, error) ||
+                        !ReadString(actionValue, "handler", !action.Separator, action.Handler, error) ||
+                        !ReadBoolean(actionValue, "default", false, action.Default, error) ||
+                        !ReadBoolean(actionValue, "refresh", true, action.Refresh, error))
                         return false;
+                    if (action.Separator)
+                    {
+                        if (!action.Id.empty() || !action.Title.empty() ||
+                            !action.Handler.empty() || action.Default)
+                            return SetValidationError(error, "File-system action separators cannot declare id, title, handler, or default");
+                        fileSystem.Actions.push_back(action);
+                        continue;
+                    }
                     if (!IsIdentifier(action.Id) || !IsIdentifier(action.Handler) ||
                         action.Title.empty() || action.Title.size() > 255)
                         return SetValidationError(error, "File-system action ids, handlers, and titles are invalid");
@@ -1503,9 +1568,75 @@ bool CExtensionManifest::ParseLocaleText(
         return false;
     if (root.Type != JsonObject)
         return SetValidationError(error, "Locale resource root must be a JSON object");
-    if (!ReadString(root, "name", false, localized.Name, error))
+    if (!ReadString(root, "name", false, localized.Name, error) ||
+        !ReadString(root, "description", false, localized.Description, error) ||
+        localized.Description.size() > 1023)
     {
         return false;
+    }
+
+    const JsonValue* fileSystems = root.Find("fileSystems");
+    if (fileSystems != NULL)
+    {
+        if (fileSystems->Type != JsonObject || fileSystems->Object.size() > 16)
+            return SetValidationError(error, "Locale fileSystems must map at most 16 ids to metadata");
+        for (size_t fsIndex = 0; fsIndex < fileSystems->Object.size(); ++fsIndex)
+        {
+            const std::string& fsId = fileSystems->Object[fsIndex].first;
+            const JsonValue& fsValue = fileSystems->Object[fsIndex].second;
+            if (!IsIdentifier(fsId) || fsValue.Type != JsonObject)
+                return SetValidationError(error, "Locale file-system ids and metadata are invalid");
+            CExtensionManifestLocalizedFileSystem fileSystem;
+            fileSystem.Id = fsId;
+            if (!ReadString(fsValue, "name", false, fileSystem.Name, error) ||
+                fileSystem.Name.size() > 255)
+                return false;
+            const JsonValue* columns = fsValue.Find("columns");
+            if (columns != NULL)
+            {
+                if (columns->Type != JsonObject || columns->Object.size() > 16)
+                    return SetValidationError(error, "Locale file-system columns must map at most 16 ids to metadata");
+                for (size_t columnIndex = 0; columnIndex < columns->Object.size(); ++columnIndex)
+                {
+                    const std::string& columnId = columns->Object[columnIndex].first;
+                    const JsonValue& columnValue = columns->Object[columnIndex].second;
+                    if (!IsIdentifier(columnId) || columnValue.Type != JsonObject)
+                        return SetValidationError(error, "Locale file-system column metadata is invalid");
+                    CExtensionManifestLocalizedFileSystemColumn column;
+                    column.Id = columnId;
+                    if (!ReadString(columnValue, "name", false, column.Name, error) ||
+                        !ReadString(columnValue, "description", false, column.Description, error) ||
+                        column.Name.size() >= FileSystemColumnNameCapacity ||
+                        column.Description.size() >= FileSystemColumnDescriptionCapacity)
+                        return false;
+                    if (column.Name.empty() && column.Description.empty())
+                        return SetValidationError(error, "Locale file-system column metadata cannot be empty");
+                    fileSystem.Columns.push_back(column);
+                }
+            }
+            const JsonValue* actions = fsValue.Find("actions");
+            if (actions != NULL)
+            {
+                if (actions->Type != JsonObject || actions->Object.size() > 32)
+                    return SetValidationError(error, "Locale file-system actions must map at most 32 ids to titles");
+                for (size_t actionIndex = 0; actionIndex < actions->Object.size(); ++actionIndex)
+                {
+                    const std::string& actionId = actions->Object[actionIndex].first;
+                    const JsonValue& actionValue = actions->Object[actionIndex].second;
+                    if (!IsIdentifier(actionId) || actionValue.Type != JsonString ||
+                        actionValue.String.empty() || actionValue.String.size() > 255)
+                        return SetValidationError(error, "Locale file-system action ids and titles are invalid");
+                    CExtensionManifestLocalizedFileSystemAction action;
+                    action.Id = actionId;
+                    action.Title = actionValue.String;
+                    fileSystem.Actions.push_back(action);
+                }
+            }
+            if (fileSystem.Name.empty() && fileSystem.Columns.empty() &&
+                fileSystem.Actions.empty())
+                return SetValidationError(error, "Locale file-system metadata cannot be empty");
+            localized.FileSystems.push_back(fileSystem);
+        }
     }
 
     const JsonValue* settings = root.Find("settings");

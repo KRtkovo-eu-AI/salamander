@@ -247,6 +247,12 @@ $fileSystem | Add-Member ScriptMethod AddItem {
     foreach ($key in $Options.Keys) { $arguments[$key] = $Options[$key] }
     [bool](Invoke-Host -Method 'salamander.fileSystem.addItem' -Arguments $arguments).added
 }
+$fileSystem | Add-Member ScriptMethod AddItems {
+    param([object[]]$Items)
+    [int](Invoke-Host -Method 'salamander.fileSystem.addItems' -Arguments @{
+        items = @($Items)
+    }).addedCount
+}
 $sides = [pscustomobject]@{}
 $sides | Add-Member ScriptMethod ActiveTab {
     param([string]$Side = 'source')
@@ -336,6 +342,10 @@ $ui | Add-Member ScriptMethod Notify {
 }
 $ui | Add-Member ScriptMethod Controls {
     (Invoke-Host -Method 'salamander.ui.controls' -Arguments @{}).shown
+}
+$ui | Add-Member ScriptMethod FileProperties {
+    param([string]$Path)
+    Invoke-Host -Method 'salamander.ui.fileProperties' -Arguments @{ path = $Path }
 }
 $ui | Add-Member ScriptMethod Uptime { [string](Invoke-Host -Method 'salamander.host.uptime' -Arguments @{}).milliseconds }
 $ui | Add-Member ScriptMethod InputBox {
