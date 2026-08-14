@@ -14,3 +14,4 @@ dist/**/*.map
 preview-host/**
 native/**/*.pdb
 native/**/*.Signed.exe
+resources/studio-marketplace.svg

@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.1.9
+
+- Replace the generic dialog-builder artwork with the recognizable Salamander
+  mark across the Activity Bar and Marketplace icon.
+
 ## 0.1.8
 
 - Validate and preserve optional Viewer contribution names used by Salamander's
