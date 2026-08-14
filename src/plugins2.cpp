@@ -25,6 +25,29 @@
 
 namespace
 {
+BOOL NormalizeStoredPluginVersionWithLeadingZero(char* version, int versionSize)
+{
+    if (version == NULL || versionSize <= 0)
+        return FALSE;
+
+    const char* dot = strchr(version, '.');
+    if (dot == NULL || dot[1] != '0' || dot[2] < '1' || dot[2] > '9')
+        return FALSE;
+
+    const char* patchEnd = dot + 2;
+    while (*patchEnd >= '0' && *patchEnd <= '9')
+        ++patchEnd;
+    if (*patchEnd == '.')
+        return FALSE; // already a three-component version
+
+    char migrated[MAX_PATH];
+    const int prefixLength = static_cast<int>(dot - version) + 2;
+    _snprintf_s(migrated, _countof(migrated), _TRUNCATE,
+                "%.*s.%s", prefixLength, version, dot + 2);
+    lstrcpyn(version, migrated, versionSize);
+    return TRUE;
+}
+
 BOOL NormalizeStoredPluginVersion(char* version, int versionSize,
                                   const char* pluginsDir, const char* dllName)
 {
@@ -34,7 +57,7 @@ BOOL NormalizeStoredPluginVersion(char* version, int versionSize,
     std::wstring modulePath = SalMultiByteToWidePath(pluginsDir, CP_UTF8);
     std::wstring moduleName = SalMultiByteToWidePath(dllName, CP_UTF8);
     if (modulePath.empty() || moduleName.empty())
-        return FALSE;
+        return NormalizeStoredPluginVersionWithLeadingZero(version, versionSize);
     if ((moduleName.size() >= 2 && moduleName[1] == L':') ||
         (moduleName.size() >= 2 && moduleName[0] == L'\\' && moduleName[1] == L'\\'))
     {
@@ -42,14 +65,14 @@ BOOL NormalizeStoredPluginVersion(char* version, int versionSize,
     }
     else if (!SalPathAppendW(modulePath, moduleName.c_str()))
     {
-        return FALSE;
+        return NormalizeStoredPluginVersionWithLeadingZero(version, versionSize);
     }
     modulePath = SalPathAddExtendedPrefixW(modulePath.c_str());
 
     HINSTANCE module = HANDLES(LoadLibraryExW(
         modulePath.c_str(), NULL, LOAD_LIBRARY_AS_DATAFILE));
     if (module == NULL)
-        return FALSE;
+        return NormalizeStoredPluginVersionWithLeadingZero(version, versionSize);
 
     BOOL normalized = FALSE;
     HRSRC resource = FindResource(module, MAKEINTRESOURCE(VS_VERSION_INFO), RT_VERSION);
@@ -103,6 +126,8 @@ BOOL NormalizeStoredPluginVersion(char* version, int versionSize,
         }
     }
     HANDLES(FreeLibrary(module));
+    if (!normalized)
+        normalized = NormalizeStoredPluginVersionWithLeadingZero(version, versionSize);
     return normalized;
 }
 }
@@ -1149,7 +1174,11 @@ void CPlugins::AddNamesToListView(HWND hListView, BOOL setOnly, int* numOfLoaded
         ListView_SetItemText(hListView, i, 1,
                              LoadStr(plugin->GetLoaded() ? IDS_PLUGINS_LOADED_YES : IDS_PLUGINS_LOADED_NO));
         // version
-        ListView_SetItemText(hListView, i, 2, plugin->Version);
+        char displayVersion[MAX_PATH];
+        lstrcpyn(displayVersion, plugin->Version, _countof(displayVersion));
+        NormalizeStoredPluginVersionWithLeadingZero(
+            displayVersion, _countof(displayVersion));
+        ListView_SetItemText(hListView, i, 2, displayVersion);
         // location
         ListView_SetItemText(hListView, i, 3, plugin->DLLName);
     }
