@@ -69,8 +69,9 @@ BOOL NormalizeStoredPluginVersion(char* version, int versionSize,
     }
     modulePath = SalPathAddExtendedPrefixW(modulePath.c_str());
 
-    HINSTANCE module = HANDLES(LoadLibraryEx(
+    HINSTANCE module = NOHANDLES(LoadLibraryExW(
         modulePath.c_str(), NULL, LOAD_LIBRARY_AS_DATAFILE));
+    HANDLES_ADD(__htLibrary, __hoLoadLibraryEx, module);
     if (module == NULL)
         return NormalizeStoredPluginVersionWithLeadingZero(version, versionSize);
 
