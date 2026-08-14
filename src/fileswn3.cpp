@@ -656,7 +656,14 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         }
         UseThumbnails = readThumbnails;
 
-        const bool useWideDiskPath = GetPathW() != NULL && GetPathW()[0] != 0 && strlen(GetPath()) >= MAX_PATH;
+        // FindFirstFileA converts names through the active code page into the
+        // fixed WIN32_FIND_DATAA::cFileName buffer.  With the UTF-8 manifest a
+        // valid 255-character FAT/exFAT name can require more than MAX_PATH
+        // bytes, making FindNextFileA stop a partial listing with
+        // ERROR_MORE_DATA.  Enumerate wide whenever PathW is authoritative so
+        // the full on-disk name never passes through that fixed UTF-8 buffer.
+        const bool useWideDiskPath = GetPathW() != NULL && GetPathW()[0] != 0 &&
+                                     (GetACP() == CP_UTF8 || strlen(GetPath()) >= MAX_PATH);
         if (useWideDiskPath)
         {
             std::wstring currentDirW = SalPathAddExtendedPrefixW(GetPathW());
