@@ -89,6 +89,22 @@ struct BootstrapDispatchState
     }
 };
 
+void PumpBootstrapUntilComplete(
+    Salamatrix::Runtime::IRuntimeSession* session,
+    BootstrapDispatchState* state)
+{
+    const ULONGLONG deadline = GetTickCount64() + 30000;
+    while (state->CommandCalls < 2 && session->IsAlive())
+    {
+        ULONGLONG now = GetTickCount64();
+        if (now >= deadline)
+            break;
+        ULONGLONG remaining = deadline - now;
+        DWORD timeout = remaining < 250 ? static_cast<DWORD>(remaining) : 250;
+        (void)session->Pump(timeout);
+    }
+}
+
 void Check(bool condition, const char* message)
 {
     if (!condition)
@@ -912,8 +928,7 @@ void RunPythonBootstrapTest()
         // A persistent worker can issue many calls after the subscription call;
         // stopping at SubscribeCalls would race the script and send shutdown
         // while it is still waiting for the next response.
-        for (int attempt = 0; attempt < 60 && state.CommandCalls < 2 && session->IsAlive(); ++attempt)
-            (void)session->Pump(250);
+        PumpBootstrapUntilComplete(session, &state);
         Check(state.CommandCalls == 2, "bootstrap command and completion calls reached host");
         Check(state.NotificationCalls == 1, "bootstrap notification call reached host");
         Check(state.MessageBoxCalls == 1, "bootstrap message box call reached host");
@@ -1057,8 +1072,7 @@ void RunPowerShellBootstrapTest()
           "start powershell bootstrap worker");
     if (session != NULL)
     {
-        for (int attempt = 0; attempt < 60 && state.CommandCalls < 2 && session->IsAlive(); ++attempt)
-            (void)session->Pump(250);
+        PumpBootstrapUntilComplete(session, &state);
         Check(state.CommandCalls == 2, "powershell bootstrap command and completion calls");
         Check(state.MessageBoxCalls == 1, "powershell message box call");
         Check(state.FilePropertiesCalls == 1, "powershell file properties call");
@@ -1194,8 +1208,7 @@ void RunPhpBootstrapTest()
           "start php bootstrap worker");
     if (session != NULL)
     {
-        for (int attempt = 0; attempt < 60 && state.CommandCalls < 2 && session->IsAlive(); ++attempt)
-            (void)session->Pump(250);
+        PumpBootstrapUntilComplete(session, &state);
         Check(state.CommandCalls == 2, "php bootstrap command and completion calls");
         Check(state.MessageBoxCalls == 1, "php message box call");
         Check(state.FilePropertiesCalls == 1, "php file properties call");
