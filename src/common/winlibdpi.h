@@ -235,6 +235,25 @@ inline HFONT WinLibDPICreateMessageFontForDPI(UINT dpi)
     return CreateFontIndirect(&metrics.lfMessageFont);
 }
 
+inline HFONT WinLibDPICreateStatusFontForDPI(UINT dpi)
+{
+    NONCLIENTMETRICS metrics;
+    if (!WinLibDPIGetNonClientMetricsForDPI(dpi, &metrics))
+        return NULL;
+
+    if (dpi != 0 && metrics.lfStatusFont.lfHeight != 0)
+    {
+        int height = abs(metrics.lfStatusFont.lfHeight);
+        int expectedHeight = MulDiv(12, (int)dpi, USER_DEFAULT_SCREEN_DPI);
+        if (height < expectedHeight - 1 || height > expectedHeight + 2)
+        {
+            metrics.lfStatusFont.lfHeight =
+                metrics.lfStatusFont.lfHeight < 0 ? -expectedHeight : expectedHeight;
+        }
+    }
+    return CreateFontIndirect(&metrics.lfStatusFont);
+}
+
 inline void WinLibDPIScaleLogFont(HWND hwnd, LOGFONT* font)
 {
     if (font == NULL)

@@ -133,6 +133,14 @@ def main() -> None:
         "dark menu-bar background before suppressing erase",
     )
     require(mainwnd1, "case WM_DPICHANGED:", "per-monitor DPI handling")
+    require(tabwnd, "WinLibDPICreateStatusFontForDPI(dpi)",
+            "tab tooltip font created for its host-window DPI")
+    require(tabwnd, "SendMessage(HTabTipWnd, WM_SETFONT, (WPARAM)font, FALSE)",
+            "visible tab tooltip receives the refreshed per-monitor font")
+    require(tabwnd, "HTabTipFont != NULL ? HTabTipFont",
+            "tab tooltip measurement uses the same DPI font as painting")
+    require(tabwnd, "MulDiv(6, (int)dpi, USER_DEFAULT_SCREEN_DPI)",
+            "tab tooltip horizontal padding scales with per-monitor DPI")
     require(mainwnd1, "RebuildDetachedTabToolbarImageLists",
             "per-window directory-line toolbar images")
     require(mainwnd1, "BuildWindowTitleForPanel(info.Panel, prefix, wideAppSuffix)",

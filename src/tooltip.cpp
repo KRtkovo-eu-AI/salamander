@@ -343,20 +343,7 @@ BOOL CToolTip::UpdateFontForDPI(UINT dpi)
     if (WindowFont != NULL && WindowDPI == dpi)
         return TRUE;
 
-    NONCLIENTMETRICS metrics;
-    if (!WinLibDPIGetNonClientMetricsForDPI(dpi, &metrics))
-        return FALSE;
-
-    LOGFONT lf = metrics.lfStatusFont;
-    if (lf.lfHeight != 0)
-    {
-        int height = abs(lf.lfHeight);
-        int expectedHeight = MulDiv(12, (int)dpi, USER_DEFAULT_SCREEN_DPI);
-        if (height < expectedHeight - 1 || height > expectedHeight + 2)
-            lf.lfHeight = lf.lfHeight < 0 ? -expectedHeight : expectedHeight;
-    }
-
-    HFONT font = HANDLES(CreateFontIndirect(&lf));
+    HFONT font = HANDLES(WinLibDPICreateStatusFontForDPI(dpi));
     if (font == NULL)
         return FALSE;
     if (WindowFont != NULL)

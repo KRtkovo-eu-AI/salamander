@@ -216,6 +216,15 @@ static LRESULT CALLBACK TabTipWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 {
     switch (uMsg)
     {
+    case WM_SETFONT:
+        SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)wParam);
+        if (lParam != 0)
+            InvalidateRect(hWnd, NULL, TRUE);
+        return 0;
+
+    case WM_GETFONT:
+        return GetWindowLongPtr(hWnd, GWLP_USERDATA);
+
     case WM_PAINT:
     {
         PAINTSTRUCT ps;
@@ -225,7 +234,10 @@ static LRESULT CALLBACK TabTipWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
         FillRect(hdc, &rc, (HBRUSH)(COLOR_INFOBK + 1));
         SetBkMode(hdc, TRANSPARENT);
         SetTextColor(hdc, GetSysColor(COLOR_INFOTEXT));
-        HFONT hOldFont = (HFONT)SelectObject(hdc, GetStockObject(DEFAULT_GUI_FONT));
+        HFONT font = (HFONT)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+        if (font == NULL)
+            font = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        HFONT hOldFont = (HFONT)SelectObject(hdc, font);
         DrawText(hdc, g_TabTipText, -1, &rc, DT_CENTER | DT_VCENTER | DT_NOPREFIX | DT_SINGLELINE);
         SelectObject(hdc, hOldFont);
         EndPaint(hWnd, &ps);
@@ -265,6 +277,8 @@ CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
     MouseWheelAccumulator = 0;
     InitialEnsureSelectedTabVisiblePending = true;
     HTabTipWnd = NULL;
+    HTabTipFont = NULL;
+    TabTipDPI = 0;
     TabTipTabIndex = -1;
     TabTipHoverIndex = -1;
     TabTipTracking = false;
@@ -282,6 +296,8 @@ CTabWindow::~CTabWindow()
         HANDLES(DeleteObject(HDPIFont));
     if (HDPIFontBold != NULL)
         HANDLES(DeleteObject(HDPIFontBold));
+    if (HTabTipFont != NULL)
+        HANDLES(DeleteObject(HTabTipFont));
 }
 
 BOOL CTabWindow::Create(HWND parent, int controlID)
@@ -335,6 +351,8 @@ int CTabWindow::GetNeededHeight() const
 
 void CTabWindow::RefreshDPIResources()
 {
+    RefreshTabToolTipFont();
+
     LOGFONT lf;
     HFONT font = WinLibDPIGetIconTitleLogFont(HWindow, &lf)
                      ? HANDLES(CreateFontIndirect(&lf))
@@ -905,6 +923,26 @@ void CTabWindow::EnsureTabTipWnd()
                                 WS_POPUP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
                                 0, 0, 0, 0,
                                 HWindow, NULL, HInstance, NULL);
+    if (HTabTipWnd != NULL && HTabTipFont != NULL)
+        SendMessage(HTabTipWnd, WM_SETFONT, (WPARAM)HTabTipFont, FALSE);
+}
+
+void CTabWindow::RefreshTabToolTipFont()
+{
+    UINT dpi = WinLibDPIGetWindowDPI(HWindow);
+    if (HTabTipFont != NULL && TabTipDPI == dpi)
+        return;
+
+    HFONT font = HANDLES(WinLibDPICreateStatusFontForDPI(dpi));
+    if (font == NULL)
+        return;
+
+    if (HTabTipWnd != NULL)
+        SendMessage(HTabTipWnd, WM_SETFONT, (WPARAM)font, FALSE);
+    if (HTabTipFont != NULL)
+        HANDLES(DeleteObject(HTabTipFont));
+    HTabTipFont = font;
+    TabTipDPI = dpi;
 }
 
 void CTabWindow::ShowTabToolTip(int tabIndex)
@@ -935,13 +973,17 @@ void CTabWindow::ShowTabToolTip(int tabIndex)
     if (HTabTipWnd == NULL)
         return;
 
+    RefreshTabToolTipFont();
     HDC hdc = GetDC(HTabTipWnd);
-    SelectObject(hdc, (HFONT)GetStockObject(DEFAULT_GUI_FONT));
+    HFONT oldFont = (HFONT)SelectObject(
+        hdc, HTabTipFont != NULL ? HTabTipFont : (HFONT)GetStockObject(DEFAULT_GUI_FONT));
     SIZE sz;
     GetTextExtentPoint32(hdc, path, (int)strlen(path), &sz);
+    SelectObject(hdc, oldFont);
     ReleaseDC(HTabTipWnd, hdc);
-    int w = sz.cx + 6;
-    int h = sz.cy + 4;
+    UINT dpi = TabTipDPI != 0 ? TabTipDPI : USER_DEFAULT_SCREEN_DPI;
+    int w = sz.cx + MulDiv(6, (int)dpi, USER_DEFAULT_SCREEN_DPI);
+    int h = sz.cy + MulDiv(4, (int)dpi, USER_DEFAULT_SCREEN_DPI);
 
     RECT tabRect;
     SendMessage(HWindow, TCM_GETITEMRECT, tabIndex, (LPARAM)&tabRect);
