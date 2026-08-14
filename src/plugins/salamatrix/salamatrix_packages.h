@@ -95,6 +95,7 @@ public:
     void LoadConfiguration(HKEY key, CSalamanderRegistryAbstract* registry);
     void SaveConfiguration(HKEY key, CSalamanderRegistryAbstract* registry);
     void SetRefreshDeferred(BOOL deferred);
+    void CompleteStartupRefreshBatch();
     void Refresh();
 
     CPluginInterfaceForMenuExtAbstract* GetMenuExtension();

@@ -228,6 +228,12 @@ def main() -> None:
 
     require(mainwnd_h, "BOOL PreserveDetachedPanelsOnShutdown;",
             "explicit detached-panel shutdown persistence state")
+    require(mainwnd2,
+            "if (SetPanelsDetached(TRUE))\n            {\n"
+            "                // SaveConfig runs while the windows are still detached",
+            "detached transition restore of the saved main-window placement")
+    require(mainwnd2, "if (useWinPlacement)\n                    SetWindowPlacement(HWindow, &place);",
+            "saved detached main-window placement after the temporary startup split")
     require(mainwnd2, "DetachedPanels || PreserveDetachedPanelsOnShutdown ||",
             "detached-panel mode save across temporary shutdown reattach")
     require_before(

@@ -4117,6 +4117,12 @@ void CPlugins::HandleLoadOnStartFlag(HWND parent)
         }
     }
 
+    // Salamatrix can already be loaded while panel paths are restored, before
+    // the temporary startup-progress service exists. Explicitly start the
+    // provider batch so every runtime registration below is coalesced even in
+    // that case.
+    Event(PLUGINEVENT_STARTUPBATCHBEGIN, 0);
+
     // load all plugins with the load-on-start flag...
     int loaded = 0;
     for (int i = 0; i < Data.Count; i++)

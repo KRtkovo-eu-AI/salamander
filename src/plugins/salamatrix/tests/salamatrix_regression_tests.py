@@ -925,7 +925,7 @@ def main() -> int:
         "Plugin Manager does not render extension contributions in Functions")
     viewer_registration = re.search(
         r'void PackageManager::RegisterViewerMasks\(.*?'
-        r'(?=\nBOOL WINAPI PackageManager::LifecycleCallback)',
+        r'(?=\nvoid PackageManager::SetRefreshDeferred)',
         packages, re.MULTILINE | re.DOTALL)
     if viewer_registration is None:
         raise AssertionError("Viewer registration implementation is missing")
@@ -1451,6 +1451,7 @@ def main() -> int:
         r'CWaitWindow startupProgress\(.*?IDS_STARTUP_LOADINGPLUGINS.*?'
         r'startupProgress\.Create\(\).*?'
         r'RegisterService\(\s*SALAMANDER_SERVICE_STARTUP_PROGRESS.*?'
+        r'Event\(PLUGINEVENT_STARTUPBATCHBEGIN, 0\).*?'
         r'InitDLL\(progressParent, TRUE\).*?'
         r'Event\(PLUGINEVENT_STARTUPCOMPLETE, 0\).*?'
         r'Event\(PLUGINEVENT_STARTUPBATCHCOMPLETE, 0\).*?'
@@ -1474,8 +1475,14 @@ def main() -> int:
         salamatrix,
         r'IsLoadOnStartBatchActive\(\).*?'
         r'SetRefreshDeferred\(IsLoadOnStartBatchActive\(\)\).*?'
-        r'PLUGINEVENT_STARTUPBATCHCOMPLETE.*?SetRefreshDeferred\(FALSE\)',
+        r'PLUGINEVENT_STARTUPBATCHBEGIN.*?SetRefreshDeferred\(TRUE\).*?'
+        r'PLUGINEVENT_STARTUPBATCHCOMPLETE.*?CompleteStartupRefreshBatch\(\)',
         "load-on-start runtime registrations are not coalesced into one catalog refresh")
+    require(
+        packages,
+        r'CompleteStartupRefreshBatch\(\).*?RefreshPending = FALSE.*?'
+        r'ResolveDependenciesAndActivate\(\)',
+        "startup runtime completion still requires destructive catalog rediscovery")
     require_absent(
         salamatrix,
         r'PLUGINEVENT_CONFIGURATIONCHANGED.*?SalamatrixPackages->Refresh\(\)',

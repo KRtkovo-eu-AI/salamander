@@ -250,8 +250,10 @@ void WINAPI CPluginInterface::Event(int event, DWORD param)
         SalamatrixRuntime->Events()->PublishHostEvent(event, param);
     if (SalamatrixPackages != NULL)
     {
-        if (event == PLUGINEVENT_STARTUPBATCHCOMPLETE)
-            SalamatrixPackages->SetRefreshDeferred(FALSE);
+        if (event == PLUGINEVENT_STARTUPBATCHBEGIN)
+            SalamatrixPackages->SetRefreshDeferred(TRUE);
+        else if (event == PLUGINEVENT_STARTUPBATCHCOMPLETE)
+            SalamatrixPackages->CompleteStartupRefreshBatch();
     }
 }
 

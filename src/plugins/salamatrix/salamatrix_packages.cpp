@@ -2851,6 +2851,66 @@ void PackageManager::SetRefreshDeferred(BOOL deferred)
         Refresh();
 }
 
+void PackageManager::CompleteStartupRefreshBatch()
+{
+    RefreshDeferred = FALSE;
+    if (!RefreshPending)
+        return;
+
+    // The requests coalesced by PLUGINEVENT_STARTUPBATCHBEGIN come from
+    // runtime providers registering during the load-on-start pass. The
+    // manifests and package objects have already been loaded while restoring
+    // configuration, so do not run Refresh(): it would tear down live file
+    // systems and briefly blank every extension panel. Re-evaluate only the
+    // runtime-dependent flags and activate packages that just became usable.
+    RefreshPending = FALSE;
+    for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
+    {
+        Package* package = Packages[packageIndex];
+        if (package == NULL)
+            continue;
+
+        bool registeredRuntime = false;
+        bool availableRuntime = false;
+        for (int adapterIndex = 0; adapterIndex < Runtimes->GetAdapterCount(); ++adapterIndex)
+        {
+            Runtime::IRuntimeAdapter* adapter = Runtimes->GetAdapter(adapterIndex);
+            const Runtime::RuntimeAdapterDescriptor* descriptor =
+                adapter != NULL ? adapter->GetDescriptor() : NULL;
+            if (descriptor != NULL && descriptor->RuntimeId != NULL &&
+                _stricmp(descriptor->RuntimeId, package->Manifest.RuntimeId.c_str()) == 0 &&
+                descriptor->RuntimeVersion >= package->Manifest.MinimumRuntimeVersion)
+            {
+                registeredRuntime = true;
+                availableRuntime = adapter->IsAvailable() != FALSE;
+                break;
+            }
+        }
+        if ((!registeredRuntime || !availableRuntime) &&
+            _stricmp(package->Manifest.RuntimeId.c_str(), "Automation.JScript") == 0 &&
+            QueryScriptRunner(General) != NULL)
+        {
+            registeredRuntime = true;
+            availableRuntime = true;
+        }
+
+        package->Descriptor.Flags &=
+            ~(Extensions::ExtensionFlagRuntimeUnavailable |
+              Extensions::ExtensionFlagRuntimeExecutableUnavailable);
+        if (!registeredRuntime)
+            package->Descriptor.Flags |= Extensions::ExtensionFlagRuntimeUnavailable;
+        else if (!availableRuntime)
+            package->Descriptor.Flags |= Extensions::ExtensionFlagRuntimeExecutableUnavailable;
+        package->RuntimeUsable = registeredRuntime && availableRuntime;
+    }
+
+    ResolveDependenciesAndActivate();
+    UnregisterToolbarButtons();
+    RegisterToolbarButtons();
+    if (General != NULL)
+        General->PostPluginMenuChanged();
+}
+
 BOOL WINAPI PackageManager::LifecycleCallback(
     void* context, Extensions::ExtensionAction action, const Extensions::ExtensionInfo* info)
 {

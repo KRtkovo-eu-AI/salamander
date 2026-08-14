@@ -6107,15 +6107,25 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         }
         if (Configuration.DetachedPanels)
         {
-            if (SetPanelsDetached(TRUE) &&
-                Configuration.DetachedWindowPlacement.length != 0 &&
-                HRightDetachedWindow != NULL)
+            if (SetPanelsDetached(TRUE))
             {
-                WINDOWPLACEMENT detachedPlace = Configuration.DetachedWindowPlacement;
-                detachedPlace.length = sizeof(WINDOWPLACEMENT);
-                if (detachedPlace.showCmd == SW_MINIMIZE || detachedPlace.showCmd == SW_SHOWMINIMIZED)
-                    detachedPlace.showCmd = SW_SHOWNORMAL;
-                SetWindowPlacement(HRightDetachedWindow, &detachedPlace);
+                // SaveConfig runs while the windows are still detached, so
+                // 'place' already describes the final left/main window. The
+                // detach transition computes a temporary split; restore the
+                // persisted main placement afterwards instead of splitting
+                // the saved left-window width a second time.
+                if (useWinPlacement)
+                    SetWindowPlacement(HWindow, &place);
+                if (Configuration.DetachedWindowPlacement.length != 0 &&
+                    HRightDetachedWindow != NULL)
+                {
+                    WINDOWPLACEMENT detachedPlace = Configuration.DetachedWindowPlacement;
+                    detachedPlace.length = sizeof(WINDOWPLACEMENT);
+                    if (detachedPlace.showCmd == SW_MINIMIZE || detachedPlace.showCmd == SW_SHOWMINIMIZED)
+                        detachedPlace.showCmd = SW_SHOWNORMAL;
+                    SetWindowPlacement(HRightDetachedWindow, &detachedPlace);
+                }
+                LayoutWindows();
                 LayoutDetachedPanels();
             }
         }
