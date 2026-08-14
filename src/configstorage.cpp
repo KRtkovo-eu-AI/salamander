@@ -597,10 +597,9 @@ void CConfigurationStorage::RegisterActiveRegistryKey(HKEY key)
     if (key == NULL || StorageType != cstRegFile)
         return;
 
-    for (int i = 0; i < ActiveRegistryKeys.Count; i++)
-        if (ActiveRegistryKeys[i] == key)
-            return;
-
+    // The in-memory registry returns the same CKey pointer when the same key is
+    // opened more than once. Keep every open reference so closing one handle
+    // does not accidentally route the remaining one to the Windows registry.
     ActiveRegistryKeys.Add(key);
 }
 

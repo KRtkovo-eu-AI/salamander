@@ -269,6 +269,7 @@ struct CConfiguration
         CnfrmAlwaysOnTop,        // Show "Always on Top information"
         CnfrmOnSalClose,         // Show "do you want to close SS?"
         CnfrmDetachClose,        // Show prompt when closing detached window
+        CnfrmDetachTabClose,     // Show prompt when closing a detached tab window
         CnfrmSendEmail,          // Show "Do you want to Email selected files?"
         CnfrmAddToArchive,       // Show "Do you want to update existing archive?"
         CnfrmCreateDir,          // Show "The directory doesn't exist. Do you want to create it?"
@@ -432,6 +433,8 @@ struct CConfiguration
 
     BOOL DetachedPanels;                    // TRUE = restore right side in a detached top-level window
     WINDOWPLACEMENT DetachedWindowPlacement; // invalid unless DetachedWindowPlacement.length != 0
+    BOOL DetachedTab;                       // TRUE = restore one non-default tab in its own window
+    WINDOWPLACEMENT DetachedTabWindowPlacement; // invalid unless length != 0
 
     // Change drive
     int ChangeDriveShowMountFolders; // display volumes mounted into folders

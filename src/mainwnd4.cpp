@@ -111,6 +111,8 @@ void CMainWindow::UpdateAllDirectoryLineHistoryStates()
         for (int i = 0; i < rightTabs.Count; i++)
             if (rightTabs[i]->DirectoryLine != NULL)
                 rightTabs[i]->DirectoryLine->SetHistory(hasHistory);
+        if (DetachedTabPanel != NULL && DetachedTabPanel->DirectoryLine != NULL)
+            DetachedTabPanel->DirectoryLine->SetHistory(hasHistory);
     }
     else
     {
@@ -120,7 +122,26 @@ void CMainWindow::UpdateAllDirectoryLineHistoryStates()
         TIndirectArray<CFilesWindow>& rightTabs = GetPanelTabs(cpsRight);
         for (int i = 0; i < rightTabs.Count; i++)
             UpdateDirectoryLineHistoryState(rightTabs[i]);
+        UpdateDirectoryLineHistoryState(DetachedTabPanel);
     }
+}
+
+void CMainWindow::CapturePanelPathsForShutdown(BOOL capture)
+{
+    auto updatePanel = [capture](CFilesWindow* panel) {
+        if (panel == NULL)
+            return;
+        if (capture)
+            panel->CapturePathForShutdown();
+        else
+            panel->ClearPathCapturedForShutdown();
+    };
+
+    for (int i = 0; i < LeftPanelTabs.Count; ++i)
+        updatePanel(LeftPanelTabs[i]);
+    for (int i = 0; i < RightPanelTabs.Count; ++i)
+        updatePanel(RightPanelTabs[i]);
+    updatePanel(DetachedTabPanel);
 }
 
 void CMainWindow::RebuildSharedDirHistoryFromPanels()
@@ -142,6 +163,12 @@ void CMainWindow::RebuildSharedDirHistoryFromPanels()
     for (int i = 0; i < rightTabs.Count; i++)
     {
         CPathHistory* history = rightTabs[i]->GetWorkDirHistory();
+        if (history != NULL)
+            DirHistory->AppendFrom(*history);
+    }
+    if (DetachedTabPanel != NULL)
+    {
+        CPathHistory* history = DetachedTabPanel->GetWorkDirHistory();
         if (history != NULL)
             DirHistory->AppendFrom(*history);
     }
@@ -179,6 +206,14 @@ void CMainWindow::HandleWorkDirsHistoryScopeChange(CWorkDirsHistoryScope previou
             if (history != NULL && DirHistory != NULL)
                 history->CopyFrom(*DirHistory);
         }
+        if (DetachedTabPanel != NULL)
+        {
+            CPathHistory* history = DetachedTabPanel->GetWorkDirHistory();
+            if (history == NULL)
+                history = DetachedTabPanel->EnsureWorkDirHistory();
+            if (history != NULL && !history->HasPaths() && DirHistory != NULL && DirHistory->HasPaths())
+                history->CopyFrom(*DirHistory);
+        }
     }
     else
         RebuildSharedDirHistoryFromPanels();
@@ -202,6 +237,12 @@ void CMainWindow::ClearPluginFSFromHistory(CPluginFSInterfaceAbstract* fs)
     for (int i = 0; i < rightTabs.Count; i++)
     {
         CPathHistory* history = rightTabs[i]->GetWorkDirHistory();
+        if (history != NULL)
+            history->ClearPluginFSFromHistory(fs);
+    }
+    if (DetachedTabPanel != NULL)
+    {
+        CPathHistory* history = DetachedTabPanel->GetWorkDirHistory();
         if (history != NULL)
             history->ClearPluginFSFromHistory(fs);
     }
@@ -440,6 +481,8 @@ BOOL CMainWindow::CanUnloadPlugin(HWND parent, CPluginInterfaceAbstract* plugin)
     if (!canUnloadFromTabs(LeftPanelTabs, LeftPanel))
         return FALSE;
     if (!canUnloadFromTabs(RightPanelTabs, RightPanel))
+        return FALSE;
+    if (!canUnloadFromPanel(DetachedTabPanel))
         return FALSE;
 
     // find detached FS belonging to the plug-in 'plugin' and attempt to close them
@@ -1609,7 +1652,8 @@ void CMainWindow::FocusPanel(CFilesWindow* focus, BOOL testIfMainWndActive)
         LeftPanel->SetPanelSide(cpsLeft);
     if (RightPanel != NULL)
         RightPanel->SetPanelSide(cpsRight);
-    focus->SetPanelSide(focus == LeftPanel ? cpsLeft : cpsRight);
+    focus->SetPanelSide(focus == DetachedTabPanel ? DetachedTabOriginalSide :
+                        (focus == LeftPanel ? cpsLeft : cpsRight));
 
     UpdateDriveBars(); // press the correct drive in the drive bar
 
@@ -1631,7 +1675,11 @@ void CMainWindow::FocusPanel(CFilesWindow* focus, BOOL testIfMainWndActive)
         EditWindowSetDirectory();
         IdleRefreshStates = TRUE; // on the next Idle, force checking of state variables
         // broadcast this news to loaded plugins
-        Plugins.Event(PLUGINEVENT_PANELACTIVATED, focus == LeftPanel ? PANEL_LEFT : PANEL_RIGHT);
+        Plugins.Event(PLUGINEVENT_PANELACTIVATED,
+                      (focus == LeftPanel ||
+                       (focus == DetachedTabPanel && DetachedTabOriginalSide == cpsLeft))
+                          ? PANEL_LEFT
+                          : PANEL_RIGHT);
     }
     //---  restore DefaultDir
     MainWindow->UpdateDefaultDir(TRUE);
@@ -2428,8 +2476,12 @@ CMainWindow::GetPanel(int panel)
     case PANEL_TARGET:
         return GetNonActivePanel();
     case PANEL_LEFT:
+        if (GetActivePanel() == DetachedTabPanel && DetachedTabOriginalSide == cpsLeft)
+            return DetachedTabPanel;
         return LeftPanel;
     case PANEL_RIGHT:
+        if (GetActivePanel() == DetachedTabPanel && DetachedTabOriginalSide == cpsRight)
+            return DetachedTabPanel;
         return RightPanel;
     default:
         TRACE_E("Invalid panel (PANEL_XXX) constant: " << panel);

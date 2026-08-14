@@ -3784,3 +3784,15 @@ SLGINCOMPLETE,""
 14335,1,"Закрываются окна расширений. Пожалуйста, подождите..."
 14336,1,"Останавливаются службы расширений. Пожалуйста, подождите..."
 
+[STRINGTABLE 172]
+14337,1,"&Detach Tab"
+14338,1,"Detached tab"
+14339,1,"Close Detached Tab"
+14340,1,"Do you want to close this tab or reattach it to the left or right side?"
+14341,1,"&Don't show this message again\thow to revert\tYou can change this option later on the Confirmations page in the Configuration."
+14342,1,"Do you want to close a detached tab or reattach it to the left or right side?"
+14343,1,"&Close Tab"
+14344,1,"Reattach &Left"
+14345,1,"Reattach &Right"
+14346,1,"This operation is not supported from a detached tab because it requires the opposite panel."
+

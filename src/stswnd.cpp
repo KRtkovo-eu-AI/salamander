@@ -728,6 +728,12 @@ BOOL CStatusWindow::IsDetachedPinButton() const
     return MainWindow != NULL && MainWindow->DetachedPanels;
 }
 
+BOOL CStatusWindow::ShouldShowZoomButton() const
+{
+    return MainWindow != NULL && FilesWindow != MainWindow->GetDetachedTabPanel() &&
+           (Configuration.ShowPanelZoom || IsDetachedPinButton());
+}
+
 BOOL CStatusWindow::FindHotTrackItem(int xPos, int& index)
 {
     CALL_STACK_MESSAGE_NONE
@@ -997,7 +1003,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
         // zjistim, ktere polozky (text/history/size/zoom) se vejdou do dostupne plochy
         if (isDirectoryLine)
         {
-            if (Configuration.ShowPanelZoom || IsDetachedPinButton())
+            if (ShouldShowZoomButton())
             {
                 if (tmpR.right - tmpR.left < ZOOM_WIDTH + 4)
                     goto SKIP_MEASURING; // nevejde zoom/pin tlacitko - vypadneme z mereni

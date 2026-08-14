@@ -184,6 +184,7 @@ public:
     void SetDrivePressed(BOOL pressed); // Presses the drive icon
 
     BOOL IsDetachedPinButton() const;
+    BOOL ShouldShowZoomButton() const;
 
     BOOL GetTextFrameRect(RECT* r);   // Returns the rectangle around the text in screen coordinates
     BOOL GetFilterFrameRect(RECT* r); // Returns the rectangle around the filter symbol in screen coordinates

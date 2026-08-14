@@ -1072,7 +1072,7 @@ bool CTabWindow::IsReorderableIndex(int index) const
         return false;
     if (IsNewTabButtonIndex(index))
         return false;
-    if (GetTabCount() <= 2)
+    if (GetTabCount() <= 1)
         return false;
     TCITEMW item;
     ZeroMemory(&item, sizeof(item));

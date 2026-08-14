@@ -621,6 +621,7 @@ CConfiguration::CConfiguration()
     CnfrmAlwaysOnTop = TRUE;
     CnfrmOnSalClose = FALSE;
     CnfrmDetachClose = TRUE;
+    CnfrmDetachTabClose = TRUE;
     CnfrmSendEmail = TRUE;
     CnfrmAddToArchive = TRUE;
     CnfrmChangeDirTC = TRUE;
@@ -786,6 +787,8 @@ CConfiguration::CConfiguration()
     GripsVisible = TRUE;
     DetachedPanels = FALSE;
     DetachedWindowPlacement.length = 0;
+    DetachedTab = FALSE;
+    DetachedTabWindowPlacement.length = 0;
 
     // Packers / Unpackers
     UseAnotherPanelForPack = FALSE;   // like WinZip folks - let's annoy them

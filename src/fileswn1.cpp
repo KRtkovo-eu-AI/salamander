@@ -2828,6 +2828,15 @@ CPathHistory* CFilesWindow::EnsureWorkDirHistory()
     return WorkDirHistory;
 }
 
+void CFilesWindow::CapturePathForShutdown()
+{
+    std::vector<char> path(2 * SAL_MAX_PATH);
+    if (GetGeneralPath(path.data(), (int)path.size(), TRUE))
+        ShutdownGeneralPath.assign(path.data());
+    else
+        ShutdownGeneralPath.clear();
+}
+
 void CFilesWindow::ClearWorkDirHistory()
 {
     if (WorkDirHistory != NULL)

@@ -1979,7 +1979,10 @@ int CSalamanderGeneral::GetSourcePanel()
         TRACE_E("You can call CSalamanderGeneral::GetSourcePanel() only from main thread!");
         return PANEL_LEFT;
     }
-    if (MainWindow->GetActivePanel() == MainWindow->LeftPanel)
+    CFilesWindow* sourcePanel = MainWindow->GetActivePanel();
+    if (sourcePanel == MainWindow->GetDetachedTabPanel())
+        return sourcePanel->IsLeftPanel() ? PANEL_LEFT : PANEL_RIGHT;
+    if (sourcePanel == MainWindow->LeftPanel)
         return PANEL_LEFT;
     else
         return PANEL_RIGHT;
@@ -2899,6 +2902,17 @@ BOOL CSalamanderGeneral::PostRefreshPanelFS2(CPluginFSInterfaceAbstract* modifie
                     notified = TRUE;
                 }
             }
+        }
+        CFilesWindow* detachedPanel = MainWindow->GetDetachedTabPanel();
+        if (detachedPanel != NULL && detachedPanel->Is(ptPluginFS) &&
+            detachedPanel->GetPluginFS()->Contains(modifiedFS))
+        {
+            detachedPanel->FocusFirstNewItem = focusFirstNewItem;
+            HANDLES(EnterCriticalSection(&TimeCounterSection));
+            int t1 = MyTimeCounter++;
+            HANDLES(LeaveCriticalSection(&TimeCounterSection));
+            PostMessage(detachedPanel->HWindow, WM_USER_REFRESH_DIR, 0, t1);
+            notified = TRUE;
         }
     }
     if (notified)
@@ -5639,16 +5653,26 @@ BOOL CSalamanderGeneral::StopThrobber(int id)
         return FALSE;
     }
 
-    if (MainWindow->LeftPanel->DirectoryLine != NULL &&
-        MainWindow->LeftPanel->DirectoryLine->IsThrobberVisible(id))
+    CPanelSide sides[2] = {cpsLeft, cpsRight};
+    for (int sideIndex = 0; sideIndex < 2; sideIndex++)
     {
-        MainWindow->LeftPanel->DirectoryLine->SetThrobber(FALSE);
-        return TRUE;
+        int tabCount = MainWindow->GetPanelTabCount(sides[sideIndex]);
+        for (int i = 0; i < tabCount; i++)
+        {
+            CFilesWindow* panel = MainWindow->GetPanelTabAt(sides[sideIndex], i);
+            if (panel != NULL && panel->DirectoryLine != NULL &&
+                panel->DirectoryLine->IsThrobberVisible(id))
+            {
+                panel->DirectoryLine->SetThrobber(FALSE);
+                return TRUE;
+            }
+        }
     }
-    if (MainWindow->RightPanel->DirectoryLine != NULL &&
-        MainWindow->RightPanel->DirectoryLine->IsThrobberVisible(id))
+    CFilesWindow* detachedPanel = MainWindow->GetDetachedTabPanel();
+    if (detachedPanel != NULL && detachedPanel->DirectoryLine != NULL &&
+        detachedPanel->DirectoryLine->IsThrobberVisible(id))
     {
-        MainWindow->RightPanel->DirectoryLine->SetThrobber(FALSE);
+        detachedPanel->DirectoryLine->SetThrobber(FALSE);
         return TRUE;
     }
     return FALSE;

@@ -882,6 +882,11 @@ void CMainWindow::UpdatePanelTabTitle(CFilesWindow* panel)
 {
     if (panel == NULL)
         return;
+    if (panel == DetachedTabPanel)
+    {
+        SetWindowTitle();
+        return;
+    }
     CPanelSide side = panel->GetPanelSide();
     CTabWindow* tabWnd = GetPanelTabWindow(side);
     if (tabWnd == NULL || tabWnd->HWindow == NULL)
@@ -1214,6 +1219,8 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
     appendMenuItem(unlockCmd, unlockText, -1, canUnlock);
     appendMenuItem(duplicateOtherCmd, duplicateOtherText, IDX_TB_TABSDUPLICATE, canDuplicateOther);
     appendMenuItem(moveCmd, moveText, -1, canMove);
+    appendMenuItem(CM_DETACHTAB, IDS_MENU_DETACH_TAB, -1,
+                   canMove && DetachedTabPanel == NULL);
 
     appendSeparator();
 
@@ -1243,6 +1250,11 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
             SwitchPanelTab(tabs[index]);
             CommandCloseTab(side);
         }
+        break;
+
+    case CM_DETACHTAB:
+        if (targetPanel != NULL)
+            DetachPanelTab(targetPanel);
         break;
 
     case CM_LEFT_CLOSEALLEXCEPTTHISANDDEFAULT:
@@ -1551,6 +1563,17 @@ bool CMainWindow::OnPanelTabDragUpdated(CPanelSide side, int index, POINT screen
     PanelTabCrossDragDisplayedInsertIndex = -1;
     PanelTabCrossDragDisplayedMarkItem = -1;
     PanelTabCrossDragDisplayedMarkFlags = 0;
+
+    CFilesWindow* sourcePanel = GetPanelTabAt(side, index);
+    if (DetachedTabPanel == NULL && index > 0 && sourcePanel != NULL && !sourcePanel->IsTabLocked())
+    {
+        RECT r;
+        BOOL insideSalamander = HWindow != NULL && GetWindowRect(HWindow, &r) && PtInRect(&r, screenPt);
+        if (!insideSalamander && HRightDetachedWindow != NULL && IsWindowVisible(HRightDetachedWindow))
+            insideSalamander = GetWindowRect(HRightDetachedWindow, &r) && PtInRect(&r, screenPt);
+        if (!insideSalamander)
+            return true;
+    }
     return false;
 }
 
@@ -1604,7 +1627,19 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
     bool hadStoredTarget = usesCrossDragState && (PanelTabCrossDragStoredInsertIndex >= 0);
     bool shouldMoveToOtherSide = pointerOnTargetSide || (usesCrossDragState && PanelTabCrossDragHasTarget) || hadStoredTarget;
     if (!shouldMoveToOtherSide)
+    {
+        CFilesWindow* panel = GetPanelTabAt(side, index);
+        RECT r;
+        BOOL insideSalamander = HWindow != NULL && GetWindowRect(HWindow, &r) && PtInRect(&r, screenPt);
+        if (!insideSalamander && HRightDetachedWindow != NULL && IsWindowVisible(HRightDetachedWindow))
+            insideSalamander = GetWindowRect(HRightDetachedWindow, &r) && PtInRect(&r, screenPt);
+        if (!insideSalamander && DetachedTabPanel == NULL && index > 0 &&
+            panel != NULL && !panel->IsTabLocked())
+        {
+            return DetachPanelTab(panel, &screenPt) != FALSE;
+        }
         return false;
+    }
 
     int targetIndex = -1;
     int markItem = -1;
@@ -2588,6 +2623,8 @@ void CMainWindow::HandlePanelTabsEnabledChange(BOOL previouslyEnabled)
     UpdateTabbedPanelMenuItems(enabled);
     if (previouslyEnabled && !enabled)
     {
+        if (DetachedTabPanel != NULL)
+            ReattachDetachedTab(DetachedTabOriginalSide, FALSE);
         if (LeftPanelTabs.Count > 0)
         {
             SwitchPanelTab(LeftPanelTabs[0]);
@@ -5232,6 +5269,31 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return 0;
         }
 
+        if (IsDetachedTabActive())
+        {
+            BOOL needsOppositePanel = FALSE;
+            switch (LOWORD(wParam))
+            {
+            case CM_COPYTOSELECTEDDIRS:
+            case CM_COPYFILES:
+            case CM_MOVEFILES:
+            case CM_PACK:
+            case CM_UNPACK:
+            case CM_CREATEDIR:
+            case CM_ACTIVE_AS_OTHER:
+            case CM_SWAPPANELS:
+                needsOppositePanel = TRUE;
+                break;
+            }
+            if (needsOppositePanel)
+            {
+                SalMessageBox(HDetachedTabWindow != NULL ? HDetachedTabWindow : HWindow,
+                              LoadStr(IDS_DETACHED_TAB_UNSUPPORTED), LoadStr(IDS_INFOTITLE),
+                              MB_OK | MB_ICONINFORMATION);
+                return 0;
+            }
+        }
+
         // exit quick-search mode
         if (LOWORD(wParam) != CM_ACTIVEREFRESH &&         // except refresh in the active panel
             LOWORD(wParam) != CM_LEFTREFRESH &&           // except refresh in the left panel
@@ -6479,6 +6541,16 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             // change the current drive in the left panel
         case CM_LCHANGEDRIVE:
         {
+            if (DetachedTabPanel != NULL && activePanel == DetachedTabPanel &&
+                DetachedTabOriginalSide == cpsLeft)
+            {
+                if (DetachedTabPanel->DirectoryLine != NULL)
+                    DetachedTabPanel->DirectoryLine->SetDrivePressed(TRUE);
+                DetachedTabPanel->ChangeDrive();
+                if (DetachedTabPanel->DirectoryLine != NULL)
+                    DetachedTabPanel->DirectoryLine->SetDrivePressed(FALSE);
+                return 0;
+            }
             if (activePanel != LeftPanel)
             {
                 ChangePanel();
@@ -6496,6 +6568,16 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             // change of the current drive in the right panel
         case CM_RCHANGEDRIVE:
         {
+            if (DetachedTabPanel != NULL && activePanel == DetachedTabPanel &&
+                DetachedTabOriginalSide == cpsRight)
+            {
+                if (DetachedTabPanel->DirectoryLine != NULL)
+                    DetachedTabPanel->DirectoryLine->SetDrivePressed(TRUE);
+                DetachedTabPanel->ChangeDrive();
+                if (DetachedTabPanel->DirectoryLine != NULL)
+                    DetachedTabPanel->DirectoryLine->SetDrivePressed(FALSE);
+                return 0;
+            }
             if (activePanel != RightPanel)
             {
                 ChangePanel();
@@ -8499,6 +8581,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                                     panel->AcceptChangeOnPathNotification(path, includingSubdirs);
                             }
                         }
+
+                        if (DetachedTabPanel != NULL)
+                            DetachedTabPanel->AcceptChangeOnPathNotification(path, includingSubdirs);
 
                         if (DetachedFSList->Count > 0)
                         {
@@ -11027,6 +11112,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         CriticalShutdown = uMsg == WM_ENDSESSION && (lParam & ENDSESSION_CRITICAL) != 0;
 
         // unload all plugins (paths in panels may point to fixed drives)
+        CapturePanelPathsForShutdown(Configuration.AutoSave);
         SetDoNotLoadAnyPlugins(TRUE); // for now due to thumbnails
         UnloadingPluginsForMainWindowClose = TRUE;
         if (!Plugins.UnloadAll(closingProgress.HWindow,
@@ -11039,6 +11125,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 TRACE_I("WM_QUERYENDSESSION: cancelling shutdown: unable to unload all plugins");
 
         EXIT_WM_USER_CLOSE_MAINWND:
+            CapturePanelPathsForShutdown(FALSE);
             UnloadingPluginsForMainWindowClose = FALSE;
             if (shutdownProgressRegistered)
             {
@@ -11133,7 +11220,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         }
 
         // optame se panelu, jestli muzeme koncit
-        int totalPanels = LeftPanelTabs.Count + RightPanelTabs.Count;
+        int totalPanels = LeftPanelTabs.Count + RightPanelTabs.Count +
+                          (DetachedTabPanel != NULL ? 1 : 0);
         if (totalPanels > 0)
         {
             TDirectArray<CFilesWindow*> panels(totalPanels, totalPanels);
@@ -11155,6 +11243,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                     panels.Add(panel);
                     detachFlags.Add(FALSE);
                 }
+            }
+            if (DetachedTabPanel != NULL && DetachedTabPanel->HWindow != NULL &&
+                DetachedTabPanel->ListBox != NULL)
+            {
+                panels.Add(DetachedTabPanel);
+                detachFlags.Add(FALSE);
             }
 
             BOOL canClose = TRUE;

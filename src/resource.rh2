@@ -347,6 +347,7 @@
 #define CM_RIGHT_REOPENTAB     1137
 #define CM_RIGHT_LOCKTAB       1138
 #define CM_RIGHT_UNLOCKTAB     1139
+#define CM_DETACHTAB           1140
 
 // accelerators
 #define IDA_MAINACCELS1        935        // pouzitelne i v editacnim modu

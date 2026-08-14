@@ -3784,3 +3784,15 @@ SLGINCOMPLETE,""
 14335,1,"Zavírání oken rozšíření, čekejte prosím..."
 14336,1,"Zastavování služeb rozšíření, čekejte prosím..."
 
+[STRINGTABLE 172]
+14337,1,"&Odepnout kartu"
+14338,1,"Odepnutá karta"
+14339,1,"Zavřít odepnutou kartu"
+14340,1,"Chcete tuto kartu zavřít, nebo ji znovu připojit vlevo či vpravo?"
+14341,1,"&Příště se již neptat\thow to revert\tTuto volbu můžete později změnit na stránce Potvrzování v Konfiguraci."
+14342,1,"Chcete odepnutou kartu zavřít, nebo ji znovu připojit vlevo či vpravo?"
+14343,1,"&Zavřít kartu"
+14344,1,"Připojit &vlevo"
+14345,1,"Připojit v&pravo"
+14346,1,"Tato operace není z odepnuté karty podporována, protože vyžaduje protější panel."
+
