@@ -933,7 +933,10 @@ void CTabWindow::RefreshTabToolTipFont()
     if (HTabTipFont != NULL && TabTipDPI == dpi)
         return;
 
-    HFONT font = HANDLES(WinLibDPICreateStatusFontForDPI(dpi));
+    LOGFONT lf;
+    HFONT font = WinLibDPIGetStatusLogFontForDPI(dpi, &lf)
+                     ? HANDLES(CreateFontIndirect(&lf))
+                     : NULL;
     if (font == NULL)
         return;
 

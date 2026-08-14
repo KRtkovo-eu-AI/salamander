@@ -343,7 +343,10 @@ BOOL CToolTip::UpdateFontForDPI(UINT dpi)
     if (WindowFont != NULL && WindowDPI == dpi)
         return TRUE;
 
-    HFONT font = HANDLES(WinLibDPICreateStatusFontForDPI(dpi));
+    LOGFONT lf;
+    HFONT font = WinLibDPIGetStatusLogFontForDPI(dpi, &lf)
+                     ? HANDLES(CreateFontIndirect(&lf))
+                     : NULL;
     if (font == NULL)
         return FALSE;
     if (WindowFont != NULL)
