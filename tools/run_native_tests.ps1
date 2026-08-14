@@ -237,6 +237,14 @@ try {
                 (Join-Path $repositoryRoot `
                     'src\tests\main_window_move_contract_tests.py')
             )
+        },
+        @{
+            Name = 'webview2_render_viewer_contract_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\webview2_render_viewer_contract_tests.py')
+            )
         }
     )) {
         Write-Host "Running $($contractTest.Name)..."
