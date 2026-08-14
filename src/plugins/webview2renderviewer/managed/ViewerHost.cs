@@ -1503,9 +1503,22 @@ internal static class ViewerHost
         {
             try
             {
-                return new MarkdownPipelineBuilder()
-                    .UseAdvancedExtensions()
-                    .Build();
+                var builder = new MarkdownPipelineBuilder()
+                    .UseAdvancedExtensions();
+
+                // Generic attributes treat text such as "{name}" immediately
+                // following an inline HTML element as attribute syntax. This is
+                // surprising in a document viewer and makes placeholder text in
+                // constructs such as <code>{name} {type}</code> disappear.
+                for (int index = builder.Extensions.Count - 1; index >= 0; index--)
+                {
+                    if (builder.Extensions[index] is Markdig.Extensions.GenericAttributes.GenericAttributesExtension)
+                    {
+                        builder.Extensions.RemoveAt(index);
+                    }
+                }
+
+                return builder.Build();
             }
             catch (Exception ex)
             {
