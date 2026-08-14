@@ -4133,6 +4133,180 @@ void CMainWindow::OnConfiguration(int mode, int param)
 LRESULT
 CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    // WindowProcImpl handles many commands and therefore has a large stack
+    // frame.  Interactive window dragging sends these messages for every
+    // pointer step, so keep them on this small, allocation-free path.
+    switch (uMsg)
+    {
+    case WM_GETMINMAXINFO:
+    case WM_NCHITTEST:
+    case WM_NCMOUSEMOVE:
+    case WM_NCPAINT:
+    case WM_SYNCPAINT:
+    case WM_MOVE:
+    case WM_MOVING:
+    case WM_WINDOWPOSCHANGING:
+        return CWindow::WindowProc(uMsg, wParam, lParam);
+
+    case WM_SETCURSOR:
+        return OnSetCursor(wParam, lParam);
+
+    case WM_ERASEBKGND:
+        return OnEraseBkgnd(wParam);
+
+    case WM_PAINT:
+        return OnPaint();
+
+    case WM_WINDOWPOSCHANGED:
+    {
+        GetWindowRect(HWindow, &WindowRect);
+
+        // Some detach/reattach paths move tab HWNDs between top-level hosts while Windows
+        // is also changing activation/z-order.  If the following maximize/resize does not
+        // deliver a usable WM_SIZE, the chrome and panel children keep their old rectangle
+        // and the newly exposed part of the main window remains empty.  Treat a changed,
+        // visible client size observed in WM_WINDOWPOSCHANGED as authoritative and run the
+        // same sizing path after the current position-change notification unwinds.  Do not
+        // synthesize restored-size layout while minimized: Windows sends the real
+        // SIZE_MINIMIZED WM_SIZE for that state, and laying out a 0x0 restored client area
+        // can re-enter the rebar/control notification path until the stack overflows.
+        if (Created && !DetachedPanels && !WindowPosSizeUpdatePending && !IsIconic(HWindow))
+        {
+            RECT clientRect;
+            GetClientRect(HWindow, &clientRect);
+            int clientWidth = clientRect.right - clientRect.left;
+            int clientHeight = clientRect.bottom - clientRect.top;
+            if (clientWidth > 0 && clientHeight > 0 &&
+                (clientWidth != WindowWidth || clientHeight != WindowHeight))
+            {
+                WindowPosSizeUpdatePending = TRUE;
+                PostMessage(HWindow, WM_SIZE, SIZE_RESTORED, MAKELPARAM(clientWidth, clientHeight));
+            }
+        }
+        return CWindow::WindowProc(uMsg, wParam, lParam);
+    }
+    }
+
+    return WindowProcImpl(uMsg, wParam, lParam);
+}
+
+LRESULT
+CMainWindow::OnSetCursor(WPARAM wParam, LPARAM lParam)
+{
+    if (!HasLockedUI())
+    {
+        if (HelpMode)
+        {
+            SetCursor(HHelpCursor);
+            return TRUE;
+        }
+        POINT p, p2;
+        GetCursorPos(&p);
+        p2 = p;
+        ScreenToClient(HWindow, &p);
+        RECT r;
+        GetSplitRect(r);
+        if (IsWindowEnabled(HWindow) && PtInRect(&r, p) && GetCapture() == NULL)
+        {
+            BOOL aboveMiddle = FALSE;
+            if (MiddleToolBar != NULL && MiddleToolBar->HWindow != NULL)
+            {
+                GetWindowRect(MiddleToolBar->HWindow, &r);
+                aboveMiddle = PtInRect(&r, p2);
+            }
+            if (!aboveMiddle)
+            {
+                SetCursor(LoadCursor(NULL, IDC_SIZEWE));
+                return TRUE;
+            }
+        }
+    }
+    return CWindow::WindowProc(WM_SETCURSOR, wParam, lParam);
+}
+
+LRESULT
+CMainWindow::OnEraseBkgnd(WPARAM wParam)
+{
+    if (DarkModeIsWindowsDarkSchemeSelected())
+    {
+        HDC dc = (HDC)wParam;
+        RECT clientRect;
+        GetClientRect(HWindow, &clientRect);
+        COLORREF oldColor = SetDCBrushColor(dc, DarkModeGetColors().background);
+        FillRect(dc, &clientRect, (HBRUSH)GetStockObject(DC_BRUSH));
+        SetDCBrushColor(dc, oldColor);
+    }
+    return TRUE;
+}
+
+LRESULT
+CMainWindow::OnPaint()
+{
+    PAINTSTRUCT ps;
+
+    HDC dc = HANDLES(BeginPaint(HWindow, &ps));
+    RECT paintRect = ps.rcPaint;
+    if (DarkModeIsWindowsDarkSchemeSelected())
+    {
+        COLORREF oldColor = SetDCBrushColor(dc, DarkModeGetColors().background);
+        FillRect(dc, &paintRect, (HBRUSH)GetStockObject(DC_BRUSH));
+        SetDCBrushColor(dc, oldColor);
+    }
+    else
+        FillRect(dc, &paintRect, HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE));
+    HPEN oldPen = (HPEN)SelectObject(dc, BtnShadowPen);
+
+    RECT r;
+    if (TopToolBar->HWindow != NULL)
+    {
+        MoveToEx(dc, 0, 0, NULL);
+        LineTo(dc, WindowWidth + 1, 0);
+        SelectObject(dc, BtnHilightPen);
+        MoveToEx(dc, 0, 1, NULL);
+        LineTo(dc, WindowWidth + 1, 1);
+    }
+
+    if (PanelsHeight > 0)
+    {
+        r.left = SplitPositionPix;
+        r.top = TopRebarHeight;
+        r.right = SplitPositionPix + MainWindow->GetSplitBarWidth();
+        r.bottom = r.top + PanelsHeight;
+        FillRect(dc, &r, HDialogBrush);
+
+        SelectObject(dc, BtnFacePen);
+        MoveToEx(dc, 0, 0, NULL);
+        LineTo(dc, 0, WindowHeight - 1);
+        LineTo(dc, WindowWidth - 1, WindowHeight - 1);
+        LineTo(dc, WindowWidth - 1, 0);
+    }
+
+    if (EditWindow->HWindow != NULL)
+    {
+        r.left = 0;
+        r.top = TopRebarHeight + PanelsHeight;
+        r.right = WindowWidth;
+        r.bottom = r.top + 2;
+        FillRect(dc, &r, HDialogBrush);
+    }
+
+    if (BottomToolBar->HWindow != NULL)
+    {
+        r.left = 0;
+        r.top = TopRebarHeight + PanelsHeight + EditHeight;
+        r.right = WindowWidth;
+        r.bottom = r.top + 2;
+        FillRect(dc, &r, HDialogBrush);
+    }
+
+    SelectObject(dc, oldPen);
+    HANDLES(EndPaint(HWindow, &ps));
+    return 0;
+}
+
+LRESULT
+CMainWindow::WindowProcImpl(UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
     SLOW_CALL_STACK_MESSAGE4("CMainWindow::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
@@ -9152,38 +9326,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         return plResult;
     }
 
-    case WM_SETCURSOR:
-    {
-        if (HasLockedUI())
-            break;
-        if (HelpMode)
-        {
-            SetCursor(HHelpCursor);
-            return TRUE;
-        }
-        POINT p, p2;
-        GetCursorPos(&p);
-        p2 = p;
-        ScreenToClient(HWindow, &p);
-        RECT r;
-        GetSplitRect(r);
-        if (IsWindowEnabled(HWindow) && PtInRect(&r, p) && GetCapture() == NULL)
-        {
-            BOOL aboveMiddle = FALSE;
-            if (MiddleToolBar != NULL && MiddleToolBar->HWindow != NULL)
-            {
-                GetWindowRect(MiddleToolBar->HWindow, &r);
-                aboveMiddle = PtInRect(&r, p2);
-            }
-            if (!aboveMiddle)
-            {
-                SetCursor(LoadCursor(NULL, IDC_SIZEWE));
-                return TRUE;
-            }
-        }
-        break;
-    }
-
     case WM_CONTEXTMENU:
     {
         if (HasLockedUI())
@@ -9710,35 +9852,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return 0;
         }
 
-        break;
-    }
-
-    case WM_WINDOWPOSCHANGED:
-    {
-        GetWindowRect(HWindow, &WindowRect);
-
-        // Some detach/reattach paths move tab HWNDs between top-level hosts while Windows
-        // is also changing activation/z-order.  If the following maximize/resize does not
-        // deliver a usable WM_SIZE, the chrome and panel children keep their old rectangle
-        // and the newly exposed part of the main window remains empty.  Treat a changed,
-        // visible client size observed in WM_WINDOWPOSCHANGED as authoritative and run the
-        // same sizing path after the current position-change notification unwinds.  Do not
-        // synthesize restored-size layout while minimized: Windows sends the real
-        // SIZE_MINIMIZED WM_SIZE for that state, and laying out a 0x0 restored client area
-        // can re-enter the rebar/control notification path until the stack overflows.
-        if (Created && !DetachedPanels && !WindowPosSizeUpdatePending && !IsIconic(HWindow))
-        {
-            RECT clientRect;
-            GetClientRect(HWindow, &clientRect);
-            int clientWidth = clientRect.right - clientRect.left;
-            int clientHeight = clientRect.bottom - clientRect.top;
-            if (clientWidth > 0 && clientHeight > 0 &&
-                (clientWidth != WindowWidth || clientHeight != WindowHeight))
-            {
-                WindowPosSizeUpdatePending = TRUE;
-                PostMessage(HWindow, WM_SIZE, SIZE_RESTORED, MAKELPARAM(clientWidth, clientHeight));
-            }
-        }
         break;
     }
 
@@ -11450,99 +11563,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return TRUE; // if it gets this far, allow the shutdown
         }
         return 0; // return value for WM_USER_CLOSE_MAINWND, WM_USER_FORCECLOSE_MAINWND and WM_ENDSESSION
-    }
-
-    case WM_ERASEBKGND:
-    {
-        if (DarkModeIsWindowsDarkSchemeSelected())
-        {
-            HDC dc = (HDC)wParam;
-            RECT clientRect;
-            GetClientRect(HWindow, &clientRect);
-            COLORREF oldColor = SetDCBrushColor(dc, DarkModeGetColors().background);
-            FillRect(dc, &clientRect, (HBRUSH)GetStockObject(DC_BRUSH));
-            SetDCBrushColor(dc, oldColor);
-        }
-        /*
-      HDC dc = (HDC)wParam;
-      HPEN oldPen = (HPEN)SelectObject(dc, BtnFacePen);
-      MoveToEx(dc, 0, 0, NULL);
-      LineTo(dc, 0, WindowHeight - 1);
-      LineTo(dc, WindowWidth - 1, WindowHeight - 1);
-      LineTo(dc, WindowWidth - 1, 0);
-      SelectObject(dc, oldPen);
-*/
-        return TRUE;
-    }
-
-    case WM_PAINT:
-    {
-        PAINTSTRUCT ps;
-
-        HDC dc = HANDLES(BeginPaint(HWindow, &ps));
-        RECT paintRect = ps.rcPaint;
-        if (DarkModeIsWindowsDarkSchemeSelected())
-        {
-            COLORREF oldColor = SetDCBrushColor(dc, DarkModeGetColors().background);
-            FillRect(dc, &paintRect, (HBRUSH)GetStockObject(DC_BRUSH));
-            SetDCBrushColor(dc, oldColor);
-        }
-        else
-            FillRect(dc, &paintRect, HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE));
-        HPEN oldPen = (HPEN)SelectObject(dc, BtnShadowPen);
-
-        RECT r;
-        if (TopToolBar->HWindow != NULL)
-        {
-            MoveToEx(dc, 0, 0, NULL);
-            LineTo(dc, WindowWidth + 1, 0);
-            SelectObject(dc, BtnHilightPen);
-            MoveToEx(dc, 0, 1, NULL);
-            LineTo(dc, WindowWidth + 1, 1);
-        }
-
-        if (PanelsHeight > 0)
-        {
-            r.left = SplitPositionPix;
-            r.top = TopRebarHeight;
-            r.right = SplitPositionPix + MainWindow->GetSplitBarWidth();
-            //        SelectObject(dc, shadowPen);
-            //        MoveToEx(dc, r.left, r.top, NULL);
-            //        LineTo(dc, r.right, r.top);
-            //        SelectObject(dc, lightPen);
-            //        MoveToEx(dc, r.left, r.top + 1, NULL);
-            //        LineTo(dc, r.right, r.top + 1);
-            r.bottom = r.top + PanelsHeight;
-            FillRect(dc, &r, HDialogBrush);
-
-            SelectObject(dc, BtnFacePen);
-            MoveToEx(dc, 0, 0, NULL);
-            LineTo(dc, 0, WindowHeight - 1);
-            LineTo(dc, WindowWidth - 1, WindowHeight - 1);
-            LineTo(dc, WindowWidth - 1, 0);
-        }
-
-        if (EditWindow->HWindow != NULL)
-        {
-            r.left = 0;
-            r.top = TopRebarHeight + PanelsHeight;
-            r.right = WindowWidth;
-            r.bottom = r.top + 2;
-            FillRect(dc, &r, HDialogBrush);
-        }
-
-        if (BottomToolBar->HWindow != NULL)
-        {
-            r.left = 0;
-            r.top = TopRebarHeight + PanelsHeight + EditHeight;
-            r.right = WindowWidth;
-            r.bottom = r.top + 2;
-            FillRect(dc, &r, HDialogBrush);
-        }
-
-        SelectObject(dc, oldPen);
-        HANDLES(EndPaint(HWindow, &ps));
-        return 0;
     }
 
     case WM_DESTROY:

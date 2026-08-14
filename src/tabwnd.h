@@ -80,6 +80,7 @@ private:
     void ShowTabToolTip(int tabIndex);
     void HideTabToolTip();
     void EnsureTabTipWnd();
+    void RefreshTabToolTipFont();
 
     struct STabColor
     {
@@ -124,6 +125,8 @@ private:
     std::vector<STabColor> TabColors;
 
     HWND HTabTipWnd;
+    HFONT HTabTipFont;
+    UINT TabTipDPI;
     int TabTipTabIndex;
     int TabTipHoverIndex;
     bool TabTipTracking;
