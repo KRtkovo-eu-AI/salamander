@@ -3917,6 +3917,8 @@ class CStartupProgressService : public CSalamanderStartupProgressAbstract
 private:
     CWaitWindow* Window;
     DWORD Progress;
+    DWORD LastVisualUpdate;
+    int LastPhase;
 
     static int PhaseText(CSalamanderStartupProgressPhase phase)
     {
@@ -4026,7 +4028,7 @@ private:
 
 public:
     CStartupProgressService(CWaitWindow* window)
-        : Window(window), Progress(0)
+        : Window(window), Progress(0), LastVisualUpdate(0), LastPhase(-1)
     {
     }
 
@@ -4043,14 +4045,27 @@ public:
         else
             _snprintf_s(text, _TRUNCATE, "%s\n",
                         LoadStr(PhaseText(phase)));
-        Window->SetText(text);
-
         DWORD progress = PhaseProgress(phase, current, total);
         if (progress > Progress)
             Progress = progress;
-        Window->SetProgressPos(Progress);
-        if (Window->HWindow != NULL)
-            UpdateWindow(Window->HWindow);
+
+        // Salamatrix can report every discovered package and registration
+        // item. CWaitWindow paints synchronously from SetText/SetProgressPos,
+        // so repainting every report materially extends startup. Keep phase
+        // changes and completion immediate, otherwise cap visual work at 20 Hz.
+        DWORD now = GetTickCount();
+        BOOL force = LastPhase != (int)phase ||
+                     (total > 0 && current >= total) ||
+                     now - LastVisualUpdate >= 50;
+        if (force)
+        {
+            Window->SetText(text);
+            Window->SetProgressPos(Progress);
+            if (Window->HWindow != NULL)
+                UpdateWindow(Window->HWindow);
+            LastVisualUpdate = now;
+            LastPhase = (int)phase;
+        }
     }
 };
 
@@ -4102,6 +4117,12 @@ void CPlugins::HandleLoadOnStartFlag(HWND parent)
         }
     }
 
+    // Salamatrix can already be loaded while panel paths are restored, before
+    // the temporary startup-progress service exists. Explicitly start the
+    // provider batch so every runtime registration below is coalesced even in
+    // that case.
+    Event(PLUGINEVENT_STARTUPBATCHBEGIN, 0);
+
     // load all plugins with the load-on-start flag...
     int loaded = 0;
     for (int i = 0; i < Data.Count; i++)
@@ -4125,6 +4146,10 @@ void CPlugins::HandleLoadOnStartFlag(HWND parent)
     // broker. Give all already loaded plug-ins one deterministic retry point
     // after the complete load-on-start pass.
     Event(PLUGINEVENT_STARTUPCOMPLETE, 0);
+    // Provider retry callbacks above may themselves request expensive broker
+    // refreshes. Let brokers flush that coalesced work only after every plug-in
+    // has observed STARTUPCOMPLETE, independent of plug-in enumeration order.
+    Event(PLUGINEVENT_STARTUPBATCHCOMPLETE, 0);
 
     if (startupProgress.HWindow != NULL)
     {

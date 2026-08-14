@@ -221,6 +221,14 @@ try {
                     'tools\generate_salamatrix_automation_reference.py'),
                 '--check'
             )
+        },
+        @{
+            Name = 'detached_tab_contract_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\detached_tab_contract_tests.py')
+            )
         }
     )) {
         Write-Host "Running $($contractTest.Name)..."

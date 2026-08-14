@@ -76,6 +76,12 @@ CBottomBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 */
     case WM_ERASEBKGND:
     {
+        if (DarkModeIsWindowsDarkSchemeSelected())
+        {
+            RECT r;
+            GetClientRect(HWindow, &r);
+            FillRectWithColor((HDC)wParam, &r, DarkModeGetColors().background);
+        }
         return TRUE;
     }
 
@@ -508,6 +514,12 @@ CHeaderLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_ERASEBKGND:
     {
+        if (DarkModeIsWindowsDarkSchemeSelected())
+        {
+            RECT r;
+            GetClientRect(HWindow, &r);
+            FillRectWithColor((HDC)wParam, &r, DarkModeGetColors().background);
+        }
         return TRUE;
     }
 

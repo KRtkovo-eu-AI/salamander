@@ -925,7 +925,7 @@ def main() -> int:
         "Plugin Manager does not render extension contributions in Functions")
     viewer_registration = re.search(
         r'void PackageManager::RegisterViewerMasks\(.*?'
-        r'(?=\nBOOL WINAPI PackageManager::LifecycleCallback)',
+        r'(?=\nvoid PackageManager::SetRefreshDeferred)',
         packages, re.MULTILINE | re.DOTALL)
     if viewer_registration is None:
         raise AssertionError("Viewer registration implementation is missing")
@@ -1421,12 +1421,12 @@ def main() -> int:
         r"CWaitWindow closingProgress\(\s*"
         r"HWindow, IDS_CLOSINGEXTENSIONS.*?"
         r"closingProgress\.Create\(\).*?"
+        r"ssdpSavingConfiguration.*?"
+        r"SaveConfig\(closingProgress\.HWindow, ordinaryClose\).*?"
         r"Plugins\.UnloadAll\(closingProgress\.HWindow,\s*"
         r"&shutdownProgressService\).*?"
         r"ssdpClosingPanels.*?"
         r"ConfirmDetachedWindowClose\(closingProgress\.HWindow.*?"
-        r"ssdpSavingConfiguration.*?"
-        r"SaveConfig\(closingProgress\.HWindow, FALSE\).*?"
         r"ssdpFinishingShutdown.*?"
         r"DiskCache\.PrepareForShutdown\(\).*?"
         r"DestroyWindow\(closingProgress\.HWindow\).*?"
@@ -1451,8 +1451,10 @@ def main() -> int:
         r'CWaitWindow startupProgress\(.*?IDS_STARTUP_LOADINGPLUGINS.*?'
         r'startupProgress\.Create\(\).*?'
         r'RegisterService\(\s*SALAMANDER_SERVICE_STARTUP_PROGRESS.*?'
+        r'Event\(PLUGINEVENT_STARTUPBATCHBEGIN, 0\).*?'
         r'InitDLL\(progressParent, TRUE\).*?'
         r'Event\(PLUGINEVENT_STARTUPCOMPLETE, 0\).*?'
+        r'Event\(PLUGINEVENT_STARTUPBATCHCOMPLETE, 0\).*?'
         r'ssppFinishingStartup.*?UnregisterService\(.*?'
         r'DestroyWindow\(startupProgress\.HWindow\)',
         "load-on-start plugins and extensions are not covered by one progress window")
@@ -1469,6 +1471,28 @@ def main() -> int:
         r'query\.ServiceId = SALAMANDER_SERVICE_STARTUP_PROGRESS.*?'
         r'QueryService\(&query, &result\).*?ReportStartupProgress',
         "Salamatrix package manager does not use the temporary host progress service")
+    require(
+        salamatrix,
+        r'IsLoadOnStartBatchActive\(\).*?'
+        r'SetRefreshDeferred\(IsLoadOnStartBatchActive\(\)\).*?'
+        r'PLUGINEVENT_STARTUPBATCHBEGIN.*?SetRefreshDeferred\(TRUE\).*?'
+        r'PLUGINEVENT_STARTUPBATCHCOMPLETE.*?CompleteStartupRefreshBatch\(\)',
+        "load-on-start runtime registrations are not coalesced into one catalog refresh")
+    require(
+        packages,
+        r'CompleteStartupRefreshBatch\(\).*?RefreshPending = FALSE.*?'
+        r'ResolveDependenciesAndActivate\(\)',
+        "startup runtime completion still requires destructive catalog rediscovery")
+    require_absent(
+        salamatrix,
+        r'PLUGINEVENT_CONFIGURATIONCHANGED.*?SalamatrixPackages->Refresh\(\)',
+        "ordinary configuration changes still tear down and rediscover live extension file systems")
+    require(
+        packages,
+        r'if \(RefreshDeferred\).*?RefreshPending = TRUE.*?'
+        r'SALAMANDER_SERVICE_SHUTDOWN_PROGRESS.*?'
+        r'QueryService\(&query, &result\).*?RefreshPending = FALSE',
+        "catalog refreshes are not deferred during startup and suppressed during shutdown")
     for resource_id in range(14320, 14330):
         occurrences = len(re.findall(
             rf"^{resource_id},1,\"[^\"]+\"$",
@@ -1487,12 +1511,17 @@ def main() -> int:
         mainwnd3,
         r'CShutdownProgressService.*?'
         r'RegisterService\(\s*SALAMANDER_SERVICE_SHUTDOWN_PROGRESS.*?'
+        r'ssdpSavingConfiguration.*?'
+        r'SaveConfig\(closingProgress\.HWindow, ordinaryClose\).*?'
         r'Plugins\.UnloadAll\(closingProgress\.HWindow,\s*'
-        r'&shutdownProgressService\).*?'
-        r'ssdpClosingPanels.*?ssdpSavingConfiguration.*?'
+        r'&shutdownProgressService\).*?ssdpClosingPanels.*?'
         r'ssdpFinishingShutdown.*?UnregisterService\(\s*'
         r'SALAMANDER_SERVICE_SHUTDOWN_PROGRESS',
         "application shutdown does not report its real phases through one progress service")
+    require(
+        plugins1,
+        r'SupportLoadSave.*?!UnloadingPluginsForMainWindowClose',
+        "shutdown still repeats every plug-in configuration save after the complete live SaveConfig pass")
     require(
         plugins2,
         r'CPlugins::UnloadAll\(.*?ReportShutdownProgress\(\s*'
@@ -1987,6 +2016,14 @@ def main() -> int:
         r"virtual ~OpenFileSystem\(\).*?ShuttingDown.*?"
         r"WaitForThreadWithSentMessageDispatch.*?DeleteCriticalSection",
         "Salamatrix FS background refresh is not joined safely on close")
+    require(
+        packages,
+        r"virtual ~OpenFileSystem\(\).*?"
+        r"CancelFileSystemListingForShutdown\(RefreshPackageId\).*?"
+        r"WaitForThreadWithSentMessageDispatch.*?"
+        r"SALAMANDER_SERVICE_SHUTDOWN_PROGRESS.*?"
+        r"package->Session->Stop\(\)",
+        "shutdown can wait for an extension-FS listing before cancelling its runtime call")
     listing_body = re.search(
         r"virtual BOOL WINAPI ListCurrentPath\(.*?"
         r"(?=\n    virtual BOOL WINAPI TryCloseOrDetach)",

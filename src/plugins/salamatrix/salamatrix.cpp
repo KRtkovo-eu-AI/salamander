@@ -31,6 +31,19 @@ int SalamanderVersion = 0;
 static Salamatrix::Runtime::RuntimeServices* SalamatrixRuntime = NULL;
 static Salamatrix::Packages::PackageManager* SalamatrixPackages = NULL;
 
+static BOOL IsLoadOnStartBatchActive()
+{
+    if (SalamanderGeneral == NULL)
+        return FALSE;
+    CSalamanderServiceQuery query;
+    CSalamanderServiceResult result;
+    memset(&query, 0, sizeof(query));
+    memset(&result, 0, sizeof(result));
+    query.ServiceId = SALAMANDER_SERVICE_STARTUP_PROGRESS;
+    query.MinimumVersion = SALAMANDER_STARTUP_PROGRESS_VERSION_1_0;
+    return SalamanderGeneral->QueryService(&query, &result);
+}
+
 static void DestroyRuntimeServices()
 {
     delete SalamatrixRuntime;
@@ -64,6 +77,7 @@ static BOOL CreateRuntimeServices()
         DestroyRuntimeServices();
         return FALSE;
     }
+    SalamatrixPackages->SetRefreshDeferred(IsLoadOnStartBatchActive());
     return TRUE;
 }
 
@@ -162,14 +176,17 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
 {
     CALL_STACK_MESSAGE1("CPluginInterface::Connect(,) - Salamatrix Framework");
 
-    // Runtime provider plug-ins can connect before or after the framework.
-    // Re-evaluate package runtime states once the framework itself is fully
-    // connected, so Plugin Manager does not retain an early waiting-for-runtime
-    // classification from a provider-order race.
     if (SalamatrixPackages != NULL)
     {
-        SalamatrixPackages->Refresh();
+        // Viewer masks can only be registered through this short-lived Connect
+        // interface, so materialize the configured catalog once here. Resume
+        // batching afterwards; runtime providers loaded later in the same
+        // startup pass are folded into the final batch refresh.
+        const BOOL resumeStartupDeferral = IsLoadOnStartBatchActive();
+        SalamatrixPackages->SetRefreshDeferred(FALSE);
         SalamatrixPackages->RegisterViewerMasks(salamander);
+        if (resumeStartupDeferral)
+            SalamatrixPackages->SetRefreshDeferred(TRUE);
     }
     salamander->SetChangeDriveMenuItem(
         SalamanderGeneral->LoadStr(DLLInstance, IDS_FS_CHANGE_DRIVE), 0);
@@ -231,9 +248,13 @@ void WINAPI CPluginInterface::Event(int event, DWORD param)
 {
     if (SalamatrixRuntime != NULL)
         SalamatrixRuntime->Events()->PublishHostEvent(event, param);
-    if ((event == PLUGINEVENT_CONFIGURATIONCHANGED ||
-         event == PLUGINEVENT_STARTUPCOMPLETE) && SalamatrixPackages != NULL)
-        SalamatrixPackages->Refresh();
+    if (SalamatrixPackages != NULL)
+    {
+        if (event == PLUGINEVENT_STARTUPBATCHBEGIN)
+            SalamatrixPackages->SetRefreshDeferred(TRUE);
+        else if (event == PLUGINEVENT_STARTUPBATCHCOMPLETE)
+            SalamatrixPackages->CompleteStartupRefreshBatch();
+    }
 }
 
 void WINAPI CPluginInterface::AcceptChangeOnPathNotification(

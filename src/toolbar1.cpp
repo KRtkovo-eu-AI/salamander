@@ -898,19 +898,20 @@ CToolBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_ERASEBKGND:
     {
-        if (WindowsVistaAndLater) // pod vistou blika rebar
-            return TRUE;
         RECT r;
         GetClientRect(HWindow, &r);
-        if (Configuration.UseWindowsDarkMode && DarkMode_ShouldUseDark())
+        if (DarkModeIsWindowsDarkSchemeSelected())
         {
             HGDIOBJ oldBrush = SelectObject((HDC)wParam, GetStockObject(DC_BRUSH));
-            SetDCBrushColor((HDC)wParam, RGB(32, 32, 32));
+            COLORREF oldColor = SetDCBrushColor((HDC)wParam, DarkModeGetColors().background);
             FillRect((HDC)wParam, &r, (HBRUSH)GetStockObject(DC_BRUSH));
+            SetDCBrushColor((HDC)wParam, oldColor);
             SelectObject((HDC)wParam, oldBrush);
+            return TRUE;
         }
-        else
-            FillRect((HDC)wParam, &r, HDialogBrush);
+        if (WindowsVistaAndLater) // pod vistou blika rebar
+            return TRUE;
+        FillRect((HDC)wParam, &r, HDialogBrush);
         return TRUE;
     }
 

@@ -856,6 +856,7 @@ public:
     bool CustomTabPrefixValid;
     std::wstring CustomTabPrefix;
     bool TabLocked;
+    std::string ShutdownGeneralPath;
 
     BOOL StatusLineVisible;
     BOOL DirectoryLineVisible;
@@ -1764,6 +1765,12 @@ public:
     CPathHistory* GetWorkDirHistory() const { return WorkDirHistory; }
     CPathHistory* EnsureWorkDirHistory();
     void ClearWorkDirHistory();
+    void CapturePathForShutdown();
+    void ClearPathCapturedForShutdown() { ShutdownGeneralPath.clear(); }
+    const char* GetPathCapturedForShutdown() const
+    {
+        return ShutdownGeneralPath.empty() ? NULL : ShutdownGeneralPath.c_str();
+    }
 
     void OpenDirHistory();
 

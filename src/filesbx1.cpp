@@ -18,6 +18,154 @@
 
 const char* CFILESBOX_CLASSNAME = "SalamanderItemsBox";
 
+static const UINT_PTR DARK_PANEL_SCROLLBAR_SUBCLASS_ID = 0x53425344; // "DSBS"
+
+static void DrawDarkScrollArrow(HDC dc, const RECT& button, BOOL vertical, BOOL first)
+{
+    const int cx = (button.left + button.right) / 2;
+    const int cy = (button.top + button.bottom) / 2;
+    const int radius = max(2, min(button.right - button.left,
+                                  button.bottom - button.top) / 5);
+    HPEN pen = CreatePen(PS_SOLID, 1, DarkModeGetDisabledTextColor());
+    if (pen == NULL)
+        return;
+    HGDIOBJ oldPen = SelectObject(dc, pen);
+    if (vertical)
+    {
+        const int tip = first ? cy - radius : cy + radius;
+        const int base = first ? cy + radius / 2 : cy - radius / 2;
+        MoveToEx(dc, cx - radius, base, NULL);
+        LineTo(dc, cx, tip);
+        LineTo(dc, cx + radius + 1, base);
+    }
+    else
+    {
+        const int tip = first ? cx - radius : cx + radius;
+        const int base = first ? cx + radius / 2 : cx - radius / 2;
+        MoveToEx(dc, base, cy - radius, NULL);
+        LineTo(dc, tip, cy);
+        LineTo(dc, base, cy + radius + 1);
+    }
+    SelectObject(dc, oldPen);
+    DeleteObject(pen);
+}
+
+static void PaintDarkPanelScrollbar(HWND hWnd, HDC dc)
+{
+    RECT client;
+    GetClientRect(hWnd, &client);
+    const BOOL vertical = (GetWindowLongPtr(hWnd, GWL_STYLE) & SBS_VERT) != 0;
+    const int length = vertical ? client.bottom - client.top : client.right - client.left;
+    const int thickness = vertical ? client.right - client.left : client.bottom - client.top;
+    const int buttonExtent = min(max(0, thickness), max(0, length / 2));
+
+    HBRUSH background = CreateSolidBrush(DarkModeGetColors().background);
+    HBRUSH button = CreateSolidBrush(RGB(45, 45, 45));
+    HBRUSH thumb = CreateSolidBrush(RGB(82, 82, 82));
+    if (background != NULL)
+        FillRect(dc, &client, background);
+
+    RECT first = client;
+    RECT last = client;
+    if (vertical)
+    {
+        first.bottom = first.top + buttonExtent;
+        last.top = last.bottom - buttonExtent;
+    }
+    else
+    {
+        first.right = first.left + buttonExtent;
+        last.left = last.right - buttonExtent;
+    }
+    if (button != NULL)
+    {
+        FillRect(dc, &first, button);
+        FillRect(dc, &last, button);
+    }
+    DrawDarkScrollArrow(dc, first, vertical, TRUE);
+    DrawDarkScrollArrow(dc, last, vertical, FALSE);
+
+    SCROLLINFO si;
+    ZeroMemory(&si, sizeof(si));
+    si.cbSize = sizeof(si);
+    si.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
+    if (GetScrollInfo(hWnd, SB_CTL, &si))
+    {
+        const int trackStart = buttonExtent;
+        const int trackLength = max(0, length - 2 * buttonExtent);
+        const LONGLONG range = (LONGLONG)si.nMax - si.nMin + 1;
+        const LONGLONG page = si.nPage > 0 ? si.nPage : 1;
+        if (trackLength > 0 && range > page)
+        {
+            int thumbLength = (int)(trackLength * page / range);
+            thumbLength = min(trackLength, max(max(5, thickness / 2), thumbLength));
+            const LONGLONG maxPos = range - page;
+            LONGLONG pos = (LONGLONG)si.nPos - si.nMin;
+            pos = max((LONGLONG)0, min(maxPos, pos));
+            const int offset = maxPos > 0
+                                   ? (int)((trackLength - thumbLength) * pos / maxPos)
+                                   : 0;
+            RECT thumbRect = client;
+            if (vertical)
+            {
+                thumbRect.top = trackStart + offset;
+                thumbRect.bottom = thumbRect.top + thumbLength;
+            }
+            else
+            {
+                thumbRect.left = trackStart + offset;
+                thumbRect.right = thumbRect.left + thumbLength;
+            }
+            InflateRect(&thumbRect, vertical ? -2 : 0, vertical ? 0 : -2);
+            if (thumb != NULL)
+                FillRect(dc, &thumbRect, thumb);
+        }
+    }
+
+    if (thumb != NULL)
+        DeleteObject(thumb);
+    if (button != NULL)
+        DeleteObject(button);
+    if (background != NULL)
+        DeleteObject(background);
+}
+
+static LRESULT CALLBACK DarkPanelScrollbarProc(HWND hWnd, UINT msg,
+                                                WPARAM wParam, LPARAM lParam,
+                                                UINT_PTR subclassId,
+                                                DWORD_PTR data)
+{
+    UNREFERENCED_PARAMETER(data);
+    if (msg == WM_NCDESTROY)
+        RemoveWindowSubclass(hWnd, DarkPanelScrollbarProc, subclassId);
+
+    if (DarkModeIsWindowsDarkSchemeSelected())
+    {
+        if (msg == WM_ERASEBKGND)
+        {
+            PaintDarkPanelScrollbar(hWnd, (HDC)wParam);
+            return TRUE;
+        }
+        if (msg == WM_PAINT)
+        {
+            PAINTSTRUCT ps;
+            HDC dc = BeginPaint(hWnd, &ps);
+            PaintDarkPanelScrollbar(hWnd, dc);
+            EndPaint(hWnd, &ps);
+            return 0;
+        }
+    }
+
+    LRESULT result = DefSubclassProc(hWnd, msg, wParam, lParam);
+    if (msg == WM_THEMECHANGED || msg == WM_ENABLE ||
+        msg == SBM_SETSCROLLINFO || msg == SBM_SETPOS || msg == SBM_SETRANGE ||
+        msg == SBM_SETRANGEREDRAW)
+    {
+        InvalidateRect(hWnd, NULL, FALSE);
+    }
+    return result;
+}
+
 //****************************************************************************
 //
 // CFilesBox
@@ -1273,6 +1421,21 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_ERASEBKGND:
+    {
+        if (DarkModeIsWindowsDarkSchemeSelected())
+        {
+            RECT r;
+            GetClientRect(HWindow, &r);
+            HDC hDC = (HDC)wParam;
+            COLORREF oldColor = SetDCBrushColor(hDC, DarkModeGetColors().background);
+            FillRect(hDC, &r, (HBRUSH)GetStockObject(DC_BRUSH));
+            SetDCBrushColor(hDC, oldColor);
+            return TRUE;
+        }
+        break;
+    }
+
     case WM_PAINT:
     {
         PAINTSTRUCT ps;
@@ -2229,14 +2392,23 @@ BOOL CFilesBox::ShowHideChilds()
                          NULL, //HMenu
                          HInstance,
                          &BottomBar);
-        HHScrollBar = CreateWindow("scrollbar", "", WS_CHILD | SBS_HORZ | WS_VISIBLE | WS_CLIPSIBLINGS | SBS_HORZ,
+        // Theme the native scrollbar before it becomes visible. CreateWindow
+        // can paint a visible control synchronously with the system white
+        // background, which then remains on screen while an extension FS is
+        // still loading on the main thread.
+        HHScrollBar = CreateWindow("scrollbar", "", WS_CHILD | SBS_HORZ | WS_CLIPSIBLINGS | SBS_HORZ,
                                    0, 0, 0, 0,
                                    BottomBar.HWindow,
                                    NULL, //HMenu
                                    HInstance,
                                    NULL);
         if (HHScrollBar != NULL)
+        {
+            DarkModeAllowDarkScrollbars(HHScrollBar);
             DarkModeApplyWindow(HHScrollBar);
+            SetWindowSubclass(HHScrollBar, DarkPanelScrollbarProc,
+                              DARK_PANEL_SCROLLBAR_SUBCLASS_ID, 0);
+        }
         BottomBar.HScrollBar = HHScrollBar;
         change = TRUE;
     }
@@ -2249,14 +2421,19 @@ BOOL CFilesBox::ShowHideChilds()
     {
         if (HVScrollBar == NULL)
         {
-            HVScrollBar = CreateWindow("scrollbar", "", WS_CHILD | SBS_VERT | WS_VISIBLE | WS_CLIPSIBLINGS | SBS_VERT,
+            HVScrollBar = CreateWindow("scrollbar", "", WS_CHILD | SBS_VERT | WS_CLIPSIBLINGS | SBS_VERT,
                                        0, 0, 0, 0,
                                        HWindow,
                                        NULL, //HMenu
                                        HInstance,
                                        NULL);
             if (HVScrollBar != NULL)
+            {
+                DarkModeAllowDarkScrollbars(HVScrollBar);
                 DarkModeApplyWindow(HVScrollBar);
+                SetWindowSubclass(HVScrollBar, DarkPanelScrollbarProc,
+                                  DARK_PANEL_SCROLLBAR_SUBCLASS_ID, 0);
+            }
             change = TRUE;
         }
     }
@@ -2322,6 +2499,13 @@ void CFilesBox::SetupScrollBars(DWORD flags)
             if (showImage)
                 ImageDragShow(TRUE);
         }
+        // Keep the native control hidden until its range, page and disabled
+        // state are initialized. Otherwise Windows can expose its default
+        // white surface for one frame before the dark scrollbar hook paints it.
+        if (!IsWindowVisible(HHScrollBar))
+            ShowWindow(HHScrollBar, SW_SHOWNA);
+        RedrawWindow(HHScrollBar, NULL, NULL,
+                     RDW_INVALIDATE | RDW_UPDATENOW);
     }
 
     if (HVScrollBar != NULL && flags & UPDATE_VERT_SCROLL)
@@ -2366,6 +2550,10 @@ void CFilesBox::SetupScrollBars(DWORD flags)
             if (showImage)
                 ImageDragShow(TRUE);
         }
+        if (!IsWindowVisible(HVScrollBar))
+            ShowWindow(HVScrollBar, SW_SHOWNA);
+        RedrawWindow(HVScrollBar, NULL, NULL,
+                     RDW_INVALIDATE | RDW_UPDATENOW);
     }
 }
 

@@ -2197,7 +2197,7 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
             activePanelFS = FilesWindow->GetPluginFS();
             *fsListItem++ = activePanelFS;
         }
-        CFilesWindow* otherPanel = MainWindow->LeftPanel == FilesWindow ? MainWindow->RightPanel : MainWindow->LeftPanel;
+        CFilesWindow* otherPanel = FilesWindow->IsLeftPanel() ? MainWindow->RightPanel : MainWindow->LeftPanel;
         CPluginFSInterfaceEncapsulation* nonactivePanelFS = NULL;
         if (otherPanel->Is(ptPluginFS))
         {
@@ -2806,7 +2806,7 @@ BOOL CDrivesList::Track()
         FilesWindow->DirectoryLine->ToolBar != NULL &&
         FilesWindow->DirectoryLine->ToolBar->HWindow != NULL)
     {
-        DWORD changeDriveCmd = MainWindow->LeftPanel == FilesWindow ? CM_LCHANGEDRIVE : CM_RCHANGEDRIVE;
+        DWORD changeDriveCmd = FilesWindow->IsLeftPanel() ? CM_LCHANGEDRIVE : CM_RCHANGEDRIVE;
         int index = FilesWindow->DirectoryLine->ToolBar->FindItemPosition(changeDriveCmd);
         if (index != -1)
             buttonRectFound = FilesWindow->DirectoryLine->ToolBar->GetItemRect(index, buttonRect);

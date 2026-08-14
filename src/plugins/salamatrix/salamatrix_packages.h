@@ -52,6 +52,7 @@ private:
     MenuExtension* Menu;
     ViewerExtension* Viewer;
     FileSystemExtension* FileSystem;
+    BOOL RefreshDeferred;
     BOOL RefreshInProgress;
     BOOL RefreshPending;
     LONG ActiveHostDispatches;
@@ -93,6 +94,8 @@ public:
     void Shutdown();
     void LoadConfiguration(HKEY key, CSalamanderRegistryAbstract* registry);
     void SaveConfiguration(HKEY key, CSalamanderRegistryAbstract* registry);
+    void SetRefreshDeferred(BOOL deferred);
+    void CompleteStartupRefreshBatch();
     void Refresh();
 
     CPluginInterfaceForMenuExtAbstract* GetMenuExtension();
@@ -141,6 +144,7 @@ private:
     BOOL Activate(Package* package);
     BOOL Deactivate(Package* package);
     void RefreshContributionFlags(Package* package);
+    void CancelFileSystemListingForShutdown(const std::string& packageId);
     void StopSession(Package* package);
     void ReleaseProgress(Package* package);
     void ReleaseDialogs(Package* package);

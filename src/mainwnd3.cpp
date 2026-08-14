@@ -84,6 +84,8 @@ class CShutdownProgressService : public CSalamanderShutdownProgressAbstract
 {
 private:
     CWaitWindow* Window;
+    DWORD LastVisualUpdate;
+    int LastPhase;
 
     static int PhaseText(CSalamanderShutdownProgressPhase phase)
     {
@@ -137,7 +139,7 @@ private:
 
 public:
     CShutdownProgressService(CWaitWindow* window)
-        : Window(window)
+        : Window(window), LastVisualUpdate(0), LastPhase(-1)
     {
     }
 
@@ -145,8 +147,6 @@ public:
         CSalamanderShutdownProgressPhase phase, const char* detail,
         int current, int total)
     {
-        UNREFERENCED_PARAMETER(current);
-        UNREFERENCED_PARAMETER(total);
         char detailAnsi[700];
         char text[1000];
         DetailToAnsi(detail, detailAnsi, _countof(detailAnsi));
@@ -156,9 +156,21 @@ public:
         else
             _snprintf_s(text, _TRUNCATE, "%s\n",
                         LoadStr(PhaseText(phase)));
-        Window->SetText(text);
-        if (Window->HWindow != NULL)
-            UpdateWindow(Window->HWindow);
+        // Extension shutdown can emit many fine-grained reports. The wait
+        // window paints synchronously, so throttle detail-only updates while
+        // preserving every phase transition and completion immediately.
+        DWORD now = GetTickCount();
+        BOOL force = LastPhase != (int)phase ||
+                     (total > 0 && current >= total) ||
+                     now - LastVisualUpdate >= 50;
+        if (force)
+        {
+            Window->SetText(text);
+            if (Window->HWindow != NULL)
+                UpdateWindow(Window->HWindow);
+            LastVisualUpdate = now;
+            LastPhase = (int)phase;
+        }
     }
 };
 
@@ -285,6 +297,17 @@ BOOL CMainWindow::ClosePanelTabById(ULONGLONG tabId)
                 ClosePanelTab(panel);
                 return GetPanelTabAt(sides[i], index) != panel;
             }
+        }
+    }
+    for (int i = 0; i < GetDetachedTabCount(); ++i)
+    {
+        CFilesWindow* panel = GetDetachedTabAt(i);
+        if (panel != NULL && panel->GetPanelTabId() == tabId)
+        {
+            if (panel->IsTabLocked())
+                return FALSE;
+            CloseDetachedTab(panel);
+            return !IsDetachedTabPanel(panel);
         }
     }
     return FALSE;
@@ -882,6 +905,11 @@ void CMainWindow::UpdatePanelTabTitle(CFilesWindow* panel)
 {
     if (panel == NULL)
         return;
+    if (IsDetachedTabPanel(panel))
+    {
+        SetWindowTitle();
+        return;
+    }
     CPanelSide side = panel->GetPanelSide();
     CTabWindow* tabWnd = GetPanelTabWindow(side);
     if (tabWnd == NULL || tabWnd->HWindow == NULL)
@@ -1214,6 +1242,8 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
     appendMenuItem(unlockCmd, unlockText, -1, canUnlock);
     appendMenuItem(duplicateOtherCmd, duplicateOtherText, IDX_TB_TABSDUPLICATE, canDuplicateOther);
     appendMenuItem(moveCmd, moveText, -1, canMove);
+    appendMenuItem(CM_DETACHTAB, IDS_MENU_DETACH_TAB, -1,
+                   canMove);
 
     appendSeparator();
 
@@ -1243,6 +1273,11 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
             SwitchPanelTab(tabs[index]);
             CommandCloseTab(side);
         }
+        break;
+
+    case CM_DETACHTAB:
+        if (targetPanel != NULL)
+            DetachPanelTab(targetPanel);
         break;
 
     case CM_LEFT_CLOSEALLEXCEPTTHISANDDEFAULT:
@@ -1496,6 +1531,7 @@ void CMainWindow::OnPanelTabDragStarted(CPanelSide side, int index)
     if (!Configuration.UsePanelTabs)
         return;
 
+    HidePanelTabDetachPreview();
     PanelTabCrossDragActive = true;
     PanelTabCrossDragSourceSide = side;
     PanelTabCrossDragSourceIndex = index;
@@ -1518,6 +1554,7 @@ bool CMainWindow::OnPanelTabDragUpdated(CPanelSide side, int index, POINT screen
     CTabWindow* targetTabWnd = GetPanelTabWindow(targetSide);
     if (targetTabWnd == NULL || targetTabWnd->HWindow == NULL)
     {
+        HidePanelTabDetachPreview();
         ClearPanelTabDragTargetIndicator();
         return false;
     }
@@ -1527,6 +1564,7 @@ bool CMainWindow::OnPanelTabDragUpdated(CPanelSide side, int index, POINT screen
     DWORD markFlags = 0;
     if (targetTabWnd->ComputeExternalDropTarget(screenPt, targetIndex, markItem, markFlags))
     {
+        HidePanelTabDetachPreview();
         bool changed = !PanelTabCrossDragHasTarget ||
                        PanelTabCrossDragDisplayedInsertIndex != targetIndex ||
                        PanelTabCrossDragDisplayedMarkItem != markItem ||
@@ -1551,6 +1589,27 @@ bool CMainWindow::OnPanelTabDragUpdated(CPanelSide side, int index, POINT screen
     PanelTabCrossDragDisplayedInsertIndex = -1;
     PanelTabCrossDragDisplayedMarkItem = -1;
     PanelTabCrossDragDisplayedMarkFlags = 0;
+
+    CFilesWindow* sourcePanel = GetPanelTabAt(side, index);
+    if (index > 0 && sourcePanel != NULL && !sourcePanel->IsTabLocked())
+    {
+        RECT r;
+        BOOL insideSalamander = HWindow != NULL && GetWindowRect(HWindow, &r) && PtInRect(&r, screenPt);
+        if (!insideSalamander && HRightDetachedWindow != NULL && IsWindowVisible(HRightDetachedWindow))
+            insideSalamander = GetWindowRect(HRightDetachedWindow, &r) && PtInRect(&r, screenPt);
+        for (int i = 0; !insideSalamander && i < GetDetachedTabCount(); ++i)
+        {
+            const CDetachedTabInfo* info = FindDetachedTab(GetDetachedTabAt(i));
+            if (info != NULL && info->HWindow != NULL && IsWindowVisible(info->HWindow))
+                insideSalamander = GetWindowRect(info->HWindow, &r) && PtInRect(&r, screenPt);
+        }
+        if (!insideSalamander)
+        {
+            ShowPanelTabDetachPreview(screenPt);
+            return true;
+        }
+    }
+    HidePanelTabDetachPreview();
     return false;
 }
 
@@ -1558,6 +1617,8 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
 {
     if (!Configuration.UsePanelTabs)
         return false;
+
+    HidePanelTabDetachPreview();
 
     CPanelSide targetSide = (side == cpsLeft) ? cpsRight : cpsLeft;
     CTabWindow* targetTabWnd = GetPanelTabWindow(targetSide);
@@ -1604,7 +1665,25 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
     bool hadStoredTarget = usesCrossDragState && (PanelTabCrossDragStoredInsertIndex >= 0);
     bool shouldMoveToOtherSide = pointerOnTargetSide || (usesCrossDragState && PanelTabCrossDragHasTarget) || hadStoredTarget;
     if (!shouldMoveToOtherSide)
+    {
+        CFilesWindow* panel = GetPanelTabAt(side, index);
+        RECT r;
+        BOOL insideSalamander = HWindow != NULL && GetWindowRect(HWindow, &r) && PtInRect(&r, screenPt);
+        if (!insideSalamander && HRightDetachedWindow != NULL && IsWindowVisible(HRightDetachedWindow))
+            insideSalamander = GetWindowRect(HRightDetachedWindow, &r) && PtInRect(&r, screenPt);
+        for (int i = 0; !insideSalamander && i < GetDetachedTabCount(); ++i)
+        {
+            const CDetachedTabInfo* info = FindDetachedTab(GetDetachedTabAt(i));
+            if (info != NULL && info->HWindow != NULL && IsWindowVisible(info->HWindow))
+                insideSalamander = GetWindowRect(info->HWindow, &r) && PtInRect(&r, screenPt);
+        }
+        if (!insideSalamander && index > 0 &&
+            panel != NULL && !panel->IsTabLocked())
+        {
+            return DetachPanelTab(panel, &screenPt) != FALSE;
+        }
         return false;
+    }
 
     int targetIndex = -1;
     int markItem = -1;
@@ -1740,6 +1819,7 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
 
 void CMainWindow::CancelPanelTabDrag()
 {
+    HidePanelTabDetachPreview();
     if (!PanelTabCrossDragActive)
         return;
     ClearPanelTabDragTargetIndicator();
@@ -2588,6 +2668,11 @@ void CMainWindow::HandlePanelTabsEnabledChange(BOOL previouslyEnabled)
     UpdateTabbedPanelMenuItems(enabled);
     if (previouslyEnabled && !enabled)
     {
+        while (GetDetachedTabCount() > 0)
+        {
+            CFilesWindow* panel = GetDetachedTabAt(GetDetachedTabCount() - 1);
+            ReattachDetachedTab(panel, GetDetachedTabOriginalSide(panel), FALSE);
+        }
         if (LeftPanelTabs.Count > 0)
         {
             SwitchPanelTab(LeftPanelTabs[0]);
@@ -4079,6 +4164,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         DarkModeApplyWindow(HWindow);
         DarkModeRefreshTitleBar(HWindow);
+        DarkModeAllowDarkScrollbars(HWindow);
 
         CMWDropTarget* dropTarget = new CMWDropTarget();
         if (dropTarget != NULL)
@@ -4343,6 +4429,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         TaskbarRestartMsg = RegisterWindowMessage(TEXT("TaskbarCreated"));
 
+        DarkModeApplyTree(HWindow);
         Created = TRUE;
         return 0;
     }
@@ -5230,6 +5317,31 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         {
             TRACE_E("activePanel == NULL || LeftPanel == NULL || RightPanel == NULL");
             return 0;
+        }
+
+        if (IsDetachedTabActive())
+        {
+            BOOL needsOppositePanel = FALSE;
+            switch (LOWORD(wParam))
+            {
+            case CM_COPYTOSELECTEDDIRS:
+            case CM_COPYFILES:
+            case CM_MOVEFILES:
+            case CM_PACK:
+            case CM_UNPACK:
+            case CM_CREATEDIR:
+            case CM_ACTIVE_AS_OTHER:
+            case CM_SWAPPANELS:
+                needsOppositePanel = TRUE;
+                break;
+            }
+            if (needsOppositePanel)
+            {
+                SalMessageBox(HDetachedTabWindow != NULL ? HDetachedTabWindow : HWindow,
+                              LoadStr(IDS_DETACHED_TAB_UNSUPPORTED), LoadStr(IDS_INFOTITLE),
+                              MB_OK | MB_ICONINFORMATION);
+                return 0;
+            }
         }
 
         // exit quick-search mode
@@ -6479,6 +6591,16 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             // change the current drive in the left panel
         case CM_LCHANGEDRIVE:
         {
+            if (DetachedTabPanel != NULL && activePanel == DetachedTabPanel &&
+                DetachedTabOriginalSide == cpsLeft)
+            {
+                if (DetachedTabPanel->DirectoryLine != NULL)
+                    DetachedTabPanel->DirectoryLine->SetDrivePressed(TRUE);
+                DetachedTabPanel->ChangeDrive();
+                if (DetachedTabPanel->DirectoryLine != NULL)
+                    DetachedTabPanel->DirectoryLine->SetDrivePressed(FALSE);
+                return 0;
+            }
             if (activePanel != LeftPanel)
             {
                 ChangePanel();
@@ -6496,6 +6618,16 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             // change of the current drive in the right panel
         case CM_RCHANGEDRIVE:
         {
+            if (DetachedTabPanel != NULL && activePanel == DetachedTabPanel &&
+                DetachedTabOriginalSide == cpsRight)
+            {
+                if (DetachedTabPanel->DirectoryLine != NULL)
+                    DetachedTabPanel->DirectoryLine->SetDrivePressed(TRUE);
+                DetachedTabPanel->ChangeDrive();
+                if (DetachedTabPanel->DirectoryLine != NULL)
+                    DetachedTabPanel->DirectoryLine->SetDrivePressed(FALSE);
+                return 0;
+            }
             if (activePanel != RightPanel)
             {
                 ChangePanel();
@@ -8498,6 +8630,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                                 if (panel != NULL)
                                     panel->AcceptChangeOnPathNotification(path, includingSubdirs);
                             }
+                        }
+
+                        for (int i = 0; i < GetDetachedTabCount(); ++i)
+                        {
+                            CFilesWindow* panel = GetDetachedTabAt(i);
+                            if (panel != NULL)
+                                panel->AcceptChangeOnPathNotification(path, includingSubdirs);
                         }
 
                         if (DetachedFSList->Count > 0)
@@ -10611,6 +10750,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         // will 100% terminate, so perform at least the worst-case cleanup: cancel ongoing disk operations
         // (stopping searches and closing Find windows and viewers is pointless, just read)
         BOOL endAfterCleanup = FALSE;
+        BOOL detachedPanelsCloseConfirmed = FALSE;
 
         if (!CanClose)
         {
@@ -10673,6 +10813,22 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 endAfterCleanup = TRUE; // cannot be refused -> perform minimal cleanup
             else                        // cannot unload the plugin while we are in it!
                 return 0;               // refuse close/shutdown/logoff; a forced shutdown will be detected in WM_ENDSESSION
+        }
+
+        // Ask what to do with the detached panel window before stopping refreshes,
+        // closing viewers, or unloading plug-ins.  Reattach is not an application
+        // shutdown and must leave every plug-in and extension running.
+        if (uMsg == WM_USER_CLOSE_MAINWND && DetachedPanels && wParam == 0)
+        {
+            BOOL closeSalamander = FALSE;
+            if (!ConfirmDetachedWindowClose(HWindow, &closeSalamander))
+                return 0;
+            if (!closeSalamander)
+            {
+                SetPanelsDetached(FALSE);
+                return 0;
+            }
+            detachedPanelsCloseConfirmed = TRUE;
         }
 
         // if OnClose confirmation is enabled, ask the user to confirm closing the program
@@ -11005,12 +11161,10 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             // meanwhile this (main) thread will pump messages in the message loop
             RegistryWorkerThread.StartThread();
         }
-        // Show one progress window for the entire close sequence.  Plug-in
-        // unload may save configuration and can be the longest phase, so it
-        // must be visible during an ordinary close as well as system shutdown.
+        // SaveConfig performs the one complete plug-in/core save before any
+        // panel or extension is torn down.  Unload must not repeat that work.
         closingProgress.SetProgressMax(
-            7 /* number from CMainWindow::SaveConfig() -- MUST stay in sync! */ +
-            Plugins.GetPluginSaveCount()); // minus one so they can enjoy a viewing 100%
+            7 /* number from CMainWindow::SaveConfig() -- MUST stay in sync! */);
         closingProgress.Create();
         shutdownProgressRegistered = shutdownProgressRegistry.RegisterService(
             SALAMANDER_SERVICE_SHUTDOWN_PROGRESS,
@@ -11026,6 +11180,21 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         // declare a "critical shutdown" so all routines should respect it and terminate everything as quickly as possible
         CriticalShutdown = uMsg == WM_ENDSESSION && (lParam & ENDSESSION_CRITICAL) != 0;
 
+        // Persist the complete live state before unloading a plug-in can
+        // block, fail, or redirect its file systems to rescue paths.  This is
+        // the only full shutdown save; CPluginData::Unload skips its duplicate
+        // per-plug-in save while UnloadingPluginsForMainWindowClose is set.
+        CapturePanelPathsForShutdown(Configuration.AutoSave);
+        if (Configuration.AutoSave)
+        {
+            shutdownProgressService.ReportShutdownProgress(
+                ssdpSavingConfiguration, NULL, 0, 0);
+            const BOOL ordinaryClose =
+                uMsg == WM_USER_CLOSE_MAINWND ||
+                uMsg == WM_USER_FORCECLOSE_MAINWND;
+            SaveConfig(closingProgress.HWindow, ordinaryClose);
+        }
+
         // unload all plugins (paths in panels may point to fixed drives)
         SetDoNotLoadAnyPlugins(TRUE); // for now due to thumbnails
         UnloadingPluginsForMainWindowClose = TRUE;
@@ -11039,7 +11208,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 TRACE_I("WM_QUERYENDSESSION: cancelling shutdown: unable to unload all plugins");
 
         EXIT_WM_USER_CLOSE_MAINWND:
+            CapturePanelPathsForShutdown(FALSE);
             UnloadingPluginsForMainWindowClose = FALSE;
+            PreserveDetachedPanelsOnShutdown = FALSE;
             if (shutdownProgressRegistered)
             {
                 shutdownProgressRegistry.UnregisterService(
@@ -11109,7 +11280,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         if (DetachedPanels)
         {
-            if (wParam == 0)
+            if (wParam == 0 && !detachedPanelsCloseConfirmed)
             {
                 BOOL closeSalamander = FALSE;
                 if (!ConfirmDetachedWindowClose(closingProgress.HWindow, &closeSalamander))
@@ -11126,6 +11297,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             detachedPlace.length = sizeof(WINDOWPLACEMENT);
             BOOL haveDetachedPlace = HRightDetachedWindow != NULL &&
                                      GetWindowPlacement(HRightDetachedWindow, &detachedPlace);
+            PreserveDetachedPanelsOnShutdown = TRUE;
             SetPanelsDetached(FALSE);
             Configuration.DetachedPanels = TRUE;
             if (haveDetachedPlace)
@@ -11133,7 +11305,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         }
 
         // optame se panelu, jestli muzeme koncit
-        int totalPanels = LeftPanelTabs.Count + RightPanelTabs.Count;
+        int totalPanels = LeftPanelTabs.Count + RightPanelTabs.Count + GetDetachedTabCount();
         if (totalPanels > 0)
         {
             TDirectArray<CFilesWindow*> panels(totalPanels, totalPanels);
@@ -11150,6 +11322,15 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             for (int i = 0; i < RightPanelTabs.Count; i++)
             {
                 CFilesWindow* panel = RightPanelTabs[i];
+                if (panel != NULL && panel->HWindow != NULL && panel->ListBox != NULL)
+                {
+                    panels.Add(panel);
+                    detachFlags.Add(FALSE);
+                }
+            }
+            for (int i = 0; i < GetDetachedTabCount(); ++i)
+            {
+                CFilesWindow* panel = GetDetachedTabAt(i);
                 if (panel != NULL && panel->HWindow != NULL && panel->ListBox != NULL)
                 {
                     panels.Add(panel);
@@ -11210,16 +11391,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             Plugins.ClearLastSLGNames(); // so that a new fallback language will be selected for all plugins if needed
             Configuration.UseAsAltSLGInOtherPlugins = FALSE;
             Configuration.AltPluginSLGName[0] = 0;
-        }
-
-        if (Configuration.AutoSave)
-        {
-            shutdownProgressService.ReportShutdownProgress(
-                ssdpSavingConfiguration, NULL, 0, 0);
-            // During automatic shutdown/close, do not show a modal save-error dialog here.
-            // If the portable configuration file cannot be written (for example due to ACLs),
-            // a dialog at this point can outlive the main window and leave Salamander hanging.
-            SaveConfig(closingProgress.HWindow, FALSE);
         }
 
         shutdownProgressService.ReportShutdownProgress(
@@ -11283,6 +11454,15 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
     case WM_ERASEBKGND:
     {
+        if (DarkModeIsWindowsDarkSchemeSelected())
+        {
+            HDC dc = (HDC)wParam;
+            RECT clientRect;
+            GetClientRect(HWindow, &clientRect);
+            COLORREF oldColor = SetDCBrushColor(dc, DarkModeGetColors().background);
+            FillRect(dc, &clientRect, (HBRUSH)GetStockObject(DC_BRUSH));
+            SetDCBrushColor(dc, oldColor);
+        }
         /*
       HDC dc = (HDC)wParam;
       HPEN oldPen = (HPEN)SelectObject(dc, BtnFacePen);
@@ -11301,7 +11481,14 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         HDC dc = HANDLES(BeginPaint(HWindow, &ps));
         RECT paintRect = ps.rcPaint;
-        FillRect(dc, &paintRect, HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE));
+        if (DarkModeIsWindowsDarkSchemeSelected())
+        {
+            COLORREF oldColor = SetDCBrushColor(dc, DarkModeGetColors().background);
+            FillRect(dc, &paintRect, (HBRUSH)GetStockObject(DC_BRUSH));
+            SetDCBrushColor(dc, oldColor);
+        }
+        else
+            FillRect(dc, &paintRect, HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE));
         HPEN oldPen = (HPEN)SelectObject(dc, BtnShadowPen);
 
         RECT r;

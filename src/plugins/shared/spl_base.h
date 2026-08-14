@@ -488,6 +488,16 @@ public:
 // the startup sequence.
 #define PLUGINEVENT_STARTUPCOMPLETE 8
 
+// All recipients have processed PLUGINEVENT_STARTUPCOMPLETE. Providers use
+// the first event to retry dependency registration; brokers use this final
+// event to flush work coalesced across the complete load-on-start batch.
+#define PLUGINEVENT_STARTUPBATCHCOMPLETE 9
+
+// Sent immediately before the load-on-start plug-in pass. A broker that was
+// loaded earlier while restoring panel paths can use it to coalesce provider
+// registrations until PLUGINEVENT_STARTUPBATCHCOMPLETE.
+#define PLUGINEVENT_STARTUPBATCHBEGIN 10
+
 // kody udalosti v Password Manageru, prijima metoda CPluginInterfaceAbstract::PasswordManagerEvent():
 #define PME_MASTERPASSWORDCREATED 1 // uzivatel vytvoril master password (je potreba zasifrovat hesla)
 #define PME_MASTERPASSWORDCHANGED 2 // uzivatel zmenil master password (je potreba desifrovat a nasledne znovu zasifrovat hesla)

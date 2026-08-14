@@ -3784,3 +3784,15 @@ SLGINCOMPLETE,""
 14335,1,"Zatvárajú sa okná rozšírení, čakajte prosím..."
 14336,1,"Zastavujú sa služby rozšírení, čakajte prosím..."
 
+[STRINGTABLE 172]
+14337,1,"&Odpojiť kartu"
+14338,1,"Odpojená karta"
+14339,1,"Zavrieť odpojenú kartu"
+14340,1,"Chcete túto kartu zavrieť alebo ju znova pripojiť vľavo či vpravo?"
+14341,1,"&Nabudúce sa už nepýtať\thow to revert\tTúto voľbu môžete neskôr zmeniť na stránke Potvrdzovanie v Konfigurácii."
+14342,1,"Chcete odpojenú kartu zavrieť alebo ju znova pripojiť vľavo či vpravo?"
+14343,1,"&Zavrieť kartu"
+14344,1,"Pripojiť &vľavo"
+14345,1,"Pripojiť v&pravo"
+14346,1,"Táto operácia nie je z odpojenej karty podporovaná, pretože vyžaduje protiľahlý panel."
+

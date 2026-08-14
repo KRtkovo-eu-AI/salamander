@@ -1072,7 +1072,7 @@ bool CTabWindow::IsReorderableIndex(int index) const
         return false;
     if (IsNewTabButtonIndex(index))
         return false;
-    if (GetTabCount() <= 2)
+    if (GetTabCount() <= 1)
         return false;
     TCITEMW item;
     ZeroMemory(&item, sizeof(item));
@@ -2428,6 +2428,19 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         DarkModePreserveCustomTabControl(HWindow);
         UpdateOverflowButtonColors();
         PostMessage(HWindow, WM_USER_ENSURE_SELECTED_TAB_VISIBLE, 0, 0);
+        break;
+
+    case WM_ERASEBKGND:
+        if (DarkModeIsWindowsDarkSchemeSelected())
+        {
+            RECT r;
+            GetClientRect(HWindow, &r);
+            HDC hDC = (HDC)wParam;
+            COLORREF oldColor = SetDCBrushColor(hDC, DarkModeGetColors().background);
+            FillRect(hDC, &r, (HBRUSH)GetStockObject(DC_BRUSH));
+            SetDCBrushColor(hDC, oldColor);
+            return TRUE;
+        }
         break;
 
     case WM_USER_ENSURE_SELECTED_TAB_VISIBLE:

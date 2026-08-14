@@ -950,10 +950,15 @@ CMenuBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_ERASEBKGND:
     {
-        if (WindowsVistaAndLater) // under Vista the rebar flickers
-            return TRUE;
         RECT r;
         GetClientRect(HWindow, &r);
+        if (DarkModeIsWindowsDarkSchemeSelected())
+        {
+            FillRectWithColor((HDC)wParam, &r, DarkModeGetColors().background);
+            return TRUE;
+        }
+        if (WindowsVistaAndLater) // under Vista the rebar flickers
+            return TRUE;
         FillRectWithColor((HDC)wParam, &r, GetMenuBarBkColor(FALSE));
         return TRUE;
     }

@@ -3159,7 +3159,9 @@ BOOL CPluginData::Unload(HWND parent, BOOL ask)
             BOOL skipUnload = FALSE;
             BOOL skipTCProxyShutdownCallbacks = !ask && IsTotalCommanderProxyPlugin(DLLName);
             BOOL skipSamandarinShutdown = UnloadingPluginsForMainWindowClose && IsSamandarinPlugin(DLLName);
-            if (SupportLoadSave && ::Configuration.AutoSave && !skipTCProxyShutdownCallbacks)
+            if (SupportLoadSave && ::Configuration.AutoSave &&
+                !skipTCProxyShutdownCallbacks &&
+                !UnloadingPluginsForMainWindowClose)
             { // ask if the user wants to save configuration when "save on exit" is on
                 sprintf(buf, LoadStr(IDS_PLUGINSAVECONFIG), Name);
                 if (!ask || SalMessageBox(parent, buf, LoadStr(IDS_QUESTION), MB_YESNO | MB_ICONQUESTION) == IDYES)

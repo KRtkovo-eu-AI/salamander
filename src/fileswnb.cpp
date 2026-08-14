@@ -14,6 +14,7 @@
 #include "snooper.h"
 #include "shellib.h"
 #include "drivelst.h"
+#include "darkmode.h"
 extern "C"
 {
 #include "shexreg.h"
@@ -200,6 +201,16 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_ERASEBKGND:
     {
+        if (DarkModeIsWindowsDarkSchemeSelected())
+        {
+            RECT r;
+            GetClientRect(HWindow, &r);
+            HDC hDC = (HDC)wParam;
+            COLORREF oldColor = SetDCBrushColor(hDC, DarkModeGetColors().background);
+            FillRect(hDC, &r, (HBRUSH)GetStockObject(DC_BRUSH));
+            SetDCBrushColor(hDC, oldColor);
+            return TRUE;
+        }
         if (ListBox != NULL && ListBox->HWindow != NULL && DirectoryLine != NULL)
         {
             if (DirectoryLine->HWindow == NULL)

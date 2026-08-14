@@ -728,6 +728,12 @@ BOOL CStatusWindow::IsDetachedPinButton() const
     return MainWindow != NULL && MainWindow->DetachedPanels;
 }
 
+BOOL CStatusWindow::ShouldShowZoomButton() const
+{
+    return MainWindow != NULL && !MainWindow->IsDetachedTabPanel(FilesWindow) &&
+           (Configuration.ShowPanelZoom || IsDetachedPinButton());
+}
+
 BOOL CStatusWindow::FindHotTrackItem(int xPos, int& index)
 {
     CALL_STACK_MESSAGE_NONE
@@ -997,7 +1003,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
         // zjistim, ktere polozky (text/history/size/zoom) se vejdou do dostupne plochy
         if (isDirectoryLine)
         {
-            if (Configuration.ShowPanelZoom || IsDetachedPinButton())
+            if (ShouldShowZoomButton())
             {
                 if (tmpR.right - tmpR.left < ZOOM_WIDTH + 4)
                     goto SKIP_MEASURING; // nevejde zoom/pin tlacitko - vypadneme z mereni
@@ -2376,6 +2382,12 @@ CStatusWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             ItemBitmap.Enlarge(Width, Height); // alokace bitmapy v ItemBitmap.HMemDC
         }
         HDC dc = (HDC)wParam;
+        if (DarkModeIsWindowsDarkSchemeSelected())
+        {
+            COLORREF oldColor = SetDCBrushColor(dc, DarkModeGetColors().background);
+            FillRect(dc, &r, (HBRUSH)GetStockObject(DC_BRUSH));
+            SetDCBrushColor(dc, oldColor);
+        }
         if (Border != blNone)
         {
             HPEN oldPen = (HPEN)SelectObject(dc, BtnShadowPen);
@@ -2523,6 +2535,9 @@ void CStatusWindow::SetFont()
     {
         ToolBar->SetImageList(MainWindow->GetToolbarImageListForWindow(HWindow, FALSE));
         ToolBar->SetHotImageList(MainWindow->GetToolbarImageListForWindow(HWindow, TRUE));
+        if (DriveIcon != NULL)
+            ToolBar->ReplaceImage(Left ? CM_LCHANGEDRIVE : CM_RCHANGEDRIVE,
+                                  FALSE, DriveIcon, TRUE, TRUE);
         ToolBar->SetFont();
     }
 

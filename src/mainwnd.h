@@ -53,6 +53,27 @@ class CToolTip;
 class CAnimate;
 class CTabWindow;
 
+struct CDetachedTabInfo
+{
+    CFilesWindow* Panel;
+    CPanelSide OriginalSide;
+    int OriginalIndex;
+    HWND HWindow;
+    HIMAGELIST HGrayToolBarImageList;
+    HIMAGELIST HHotToolBarImageList;
+    int WindowDPI;
+    BOOL DPIRefreshPosted;
+    WINDOWPLACEMENT Placement;
+
+    CDetachedTabInfo()
+        : Panel(NULL), OriginalSide(cpsLeft), OriginalIndex(-1), HWindow(NULL),
+          HGrayToolBarImageList(NULL), HHotToolBarImageList(NULL), WindowDPI(0),
+          DPIRefreshPosted(FALSE)
+    {
+        memset(&Placement, 0, sizeof(Placement));
+    }
+};
+
 //****************************************************************************
 //
 // CToolTipWindow
@@ -443,6 +464,7 @@ public:
     BOOL MainWindowSizeInProgress; // blocks a reentrant WM_SIZE while child controls are being laid out
     BOOL DetachedDPIRefreshInProgress;
     BOOL DetachedDPIRefreshPosted;
+    BOOL DetachedTabDPIRefreshPosted;
 
     CHotPathItems HotPaths;
     CViewTemplates ViewTemplates;
@@ -545,6 +567,17 @@ protected:
     HIMAGELIST HDetachedBottomTBImageList;
     HIMAGELIST HDetachedHotBottomTBImageList;
     int DetachedWindowDPI;
+    BOOL PreserveDetachedPanelsOnShutdown;
+    CFilesWindow* DetachedTabPanel;
+    CPanelSide DetachedTabOriginalSide;
+    int DetachedTabOriginalIndex;
+    HWND HDetachedTabWindow;
+    HIMAGELIST HDetachedTabGrayToolBarImageList;
+    HIMAGELIST HDetachedTabHotToolBarImageList;
+    int DetachedTabWindowDPI;
+    CFilesWindow* MainWindowTitlePanel;
+    std::vector<CDetachedTabInfo> DetachedTabs;
+    CRITICAL_SECTION DetachedTabsCS;
 
     BOOL FirstActivateApp; // WM_ACTIVATEAPP uses this variable during startup
 
@@ -572,6 +605,7 @@ protected:
     int PanelTabCrossDragStoredInsertIndex;
     int PanelTabCrossDragStoredMarkItem;
     DWORD PanelTabCrossDragStoredMarkFlags;
+    HWND HPanelTabDetachPreview;
 
 public:
     CMainWindow();
@@ -628,6 +662,30 @@ public:
     bool OnPanelTabDragUpdated(CPanelSide side, int index, POINT screenPt);
     bool TryCompletePanelTabDrag(CPanelSide side, int index, POINT screenPt);
     void CancelPanelTabDrag();
+    void GetDetachedTabWindowRect(const POINT* dropPoint, CFilesWindow* sourcePanel, RECT* windowRect) const;
+    void ShowPanelTabDetachPreview(POINT screenPt);
+    void HidePanelTabDetachPreview();
+    BOOL DetachPanelTab(CFilesWindow* panel, const POINT* dropPoint = NULL, BOOL showWindow = TRUE);
+    BOOL ReattachDetachedTab(CPanelSide targetSide, BOOL activate = TRUE);
+    BOOL ReattachDetachedTab(CFilesWindow* panel, CPanelSide targetSide, BOOL activate = TRUE);
+    void CloseDetachedTab();
+    void CloseDetachedTab(CFilesWindow* panel);
+    BOOL IsDetachedTabActive() { return DetachedTabPanel != NULL && GetActivePanel() == DetachedTabPanel; }
+    CFilesWindow* GetDetachedTabPanel() const { return DetachedTabPanel; }
+    CPanelSide GetDetachedTabOriginalSide() const { return DetachedTabOriginalSide; }
+    int GetDetachedTabCount() const { return (int)DetachedTabs.size(); }
+    CFilesWindow* GetDetachedTabAt(int index) const
+    {
+        return index >= 0 && index < (int)DetachedTabs.size() ? DetachedTabs[index].Panel : NULL;
+    }
+    BOOL IsDetachedTabPanel(CFilesWindow* panel) const { return FindDetachedTab(panel) != NULL; }
+    CPanelSide GetDetachedTabOriginalSide(CFilesWindow* panel) const;
+    CDetachedTabInfo* FindDetachedTab(CFilesWindow* panel);
+    const CDetachedTabInfo* FindDetachedTab(CFilesWindow* panel) const;
+    CDetachedTabInfo* FindDetachedTab(HWND hWnd);
+    const CDetachedTabInfo* FindDetachedTab(HWND hWnd) const;
+    BOOL SelectDetachedTab(HWND hWnd);
+    CFilesWindow* FindDetachedTabPanelByPluginFS(CPluginFSInterfaceAbstract* pluginFS);
     int GetPanelTabIndex(CPanelSide side, CFilesWindow* panel) const;
     int GetPanelTabCount(CPanelSide side) const;
     CFilesWindow* GetPanelTabAt(CPanelSide side, int index) const;
@@ -661,6 +719,7 @@ public:
     BOOL HasDirHistory(CFilesWindow* panel) const;
     void UpdateDirectoryLineHistoryState(CFilesWindow* panel);
     void UpdateAllDirectoryLineHistoryStates();
+    void CapturePanelPathsForShutdown(BOOL capture);
     void HandleWorkDirsHistoryScopeChange(CWorkDirsHistoryScope previousScope);
     void HandlePanelTabsEnabledChange(BOOL previouslyEnabled);
     void RebuildSharedDirHistoryFromPanels();
@@ -688,6 +747,9 @@ public:
     BOOL LoadConfig(BOOL importingOldConfig, const CCommandLineParams* cmdLineParams);
     void SavePanelConfig(CPanelSide side, HKEY hSalamander, const char* reg);
     void LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalamander, const char* reg);
+    void SaveDetachedTabConfig(HKEY hSalamander);
+    void SaveDetachedTabConfigNow();
+    void LoadDetachedTabConfig(HKEY hSalamander);
     void DeleteOldConfigurations(BOOL* deleteConfigurations, BOOL autoImportConfig,
                                  const char* autoImportConfigFromKey, BOOL doNotDeleteImportedCfg);
 
@@ -741,6 +803,7 @@ public:
     BOOL EnsureDetachedChrome();
     void DestroyDetachedChrome();
     BOOL RebuildDetachedToolbarImageLists(int dpi);
+    BOOL RebuildDetachedTabToolbarImageLists(int dpi, HWND hWnd = NULL);
     HIMAGELIST GetToolbarImageListForWindow(HWND child, BOOL hot) const;
     void UpdateDetachedCommandLine();
     void LayoutDetachedPanelWindow(CPanelSide side, int width, int height);
@@ -749,6 +812,11 @@ public:
     HWND GetDetachedPanelWindow(CPanelSide side);
     static LRESULT CALLBACK DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
     BOOL ConfirmDetachedWindowClose(HWND hWndDetached, BOOL* closeSalamander);
+    int ConfirmDetachedTabWindowClose(HWND hWndDetached);
+    void LayoutDetachedTabWindow(HWND hWnd = NULL);
+    void ShowDetachedTabWindowFromConfig();
+    void ShowDetachedTabWindowsFromConfig();
+    static LRESULT CALLBACK DetachedTabWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
     BOOL ToggleTopToolBar(BOOL storePos = TRUE);
     BOOL TogglePluginsBar(BOOL storePos = TRUE);
     BOOL ToggleExtensionBar(BOOL storePos = TRUE);
@@ -833,7 +901,10 @@ public:
 
     CFilesWindow* GetNonActivePanel()
     {
-        return (GetActivePanel() == LeftPanel) ? RightPanel : LeftPanel;
+        CFilesWindow* activePanel = GetActivePanel();
+        if (activePanel == DetachedTabPanel)
+            return DetachedTabOriginalSide == cpsLeft ? RightPanel : LeftPanel;
+        return activePanel == LeftPanel ? RightPanel : LeftPanel;
     }
 
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -925,6 +996,14 @@ public:
     HWND GetRightDetachedWindowHWND() const { return HRightDetachedWindow; }
     HWND GetDetachedAwareDialogParent(HWND parent)
     {
+        HWND root = parent != NULL ? GetAncestor(parent, GA_ROOT) : NULL;
+        for (size_t i = 0; i < DetachedTabs.size(); ++i)
+        {
+            const CDetachedTabInfo& info = DetachedTabs[i];
+            if (info.HWindow != NULL && IsWindowVisible(info.HWindow) &&
+                (parent == info.HWindow || root == info.HWindow || GetActivePanel() == info.Panel))
+                return info.HWindow;
+        }
         if (parent == HWindow && DetachedPanels &&
             HRightDetachedWindow != NULL && IsWindowVisible(HRightDetachedWindow))
         {
@@ -932,7 +1011,7 @@ public:
             // menu command is being forwarded. Prefer the top-level window
             // from which the user actually invoked the command.
             HWND foreground = GetForegroundWindow();
-            HWND root = foreground != NULL ? GetAncestor(foreground, GA_ROOT) : NULL;
+            root = foreground != NULL ? GetAncestor(foreground, GA_ROOT) : NULL;
             if (root == HRightDetachedWindow)
                 return HRightDetachedWindow;
             if (root == HWindow)

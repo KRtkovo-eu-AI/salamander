@@ -371,15 +371,27 @@ void CPlugins::HandlePluginFSTimers()
                 PluginFSTimers.Detach(i--); // detach the timer from the array (its timeout occurred = it's "handled")
 
                 CPluginFSInterfaceEncapsulation* fs = NULL; // find the encapsulation of the timer's FS object (FS in a panel or a detached FS)
-                if (MainWindow->LeftPanel->Is(ptPluginFS) &&
-                    MainWindow->LeftPanel->GetPluginFS()->Contains(timer->TimerOwner))
+                CPanelSide sides[2] = {cpsLeft, cpsRight};
+                for (int sideIndex = 0; sideIndex < 2 && fs == NULL; sideIndex++)
                 {
-                    fs = MainWindow->LeftPanel->GetPluginFS();
+                    int tabCount = MainWindow->GetPanelTabCount(sides[sideIndex]);
+                    for (int tabIndex = 0; tabIndex < tabCount; tabIndex++)
+                    {
+                        CFilesWindow* panel = MainWindow->GetPanelTabAt(sides[sideIndex], tabIndex);
+                        if (panel != NULL && panel->Is(ptPluginFS) &&
+                            panel->GetPluginFS()->Contains(timer->TimerOwner))
+                        {
+                            fs = panel->GetPluginFS();
+                            break;
+                        }
+                    }
                 }
-                if (fs == NULL && MainWindow->RightPanel->Is(ptPluginFS) &&
-                    MainWindow->RightPanel->GetPluginFS()->Contains(timer->TimerOwner))
+                for (int detachedIndex = 0; fs == NULL && detachedIndex < MainWindow->GetDetachedTabCount(); ++detachedIndex)
                 {
-                    fs = MainWindow->RightPanel->GetPluginFS();
+                    CFilesWindow* detachedPanel = MainWindow->GetDetachedTabAt(detachedIndex);
+                    if (detachedPanel != NULL && detachedPanel->Is(ptPluginFS) &&
+                        detachedPanel->GetPluginFS()->Contains(timer->TimerOwner))
+                        fs = detachedPanel->GetPluginFS();
                 }
                 if (fs == NULL)
                 {

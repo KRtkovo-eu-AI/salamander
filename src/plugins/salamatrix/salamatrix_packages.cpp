@@ -593,14 +593,25 @@ private:
     SRWLOCK* Lock;
 
 public:
-    explicit ScopedExclusiveSRWLock(SRWLOCK* lock) : Lock(lock)
+    explicit ScopedExclusiveSRWLock(SRWLOCK* lock, BOOL tryOnly = FALSE) : Lock(NULL)
     {
-        AcquireSRWLockExclusive(Lock);
+        if (tryOnly)
+        {
+            if (TryAcquireSRWLockExclusive(lock))
+                Lock = lock;
+        }
+        else
+        {
+            AcquireSRWLockExclusive(lock);
+            Lock = lock;
+        }
     }
     ~ScopedExclusiveSRWLock()
     {
-        ReleaseSRWLockExclusive(Lock);
+        if (Lock != NULL)
+            ReleaseSRWLockExclusive(Lock);
     }
+    BOOL IsLocked() const { return Lock != NULL; }
 };
 
 struct PackageManager::Package
@@ -1545,6 +1556,13 @@ public:
         InterlockedExchange(&ShuttingDown, 1);
         if (RefreshThread != NULL)
         {
+            // During application shutdown the panel is closed before the
+            // Salamatrix plug-in reaches Release().  A listing worker can be
+            // blocked in a persistent runtime call at that point.  Requesting
+            // the session stop here makes that call return; otherwise every
+            // open extension-FS panel can delay the later SaveConfig() by the
+            // full runtime timeout.
+            Owner->CancelFileSystemListingForShutdown(RefreshPackageId);
             Runtime::WaitForThreadWithSentMessageDispatch(
                 RefreshThread,
                 SalamanderGeneral != NULL
@@ -1975,6 +1993,7 @@ PackageManager::PackageManager()
       Menu(NULL),
       Viewer(NULL),
       FileSystem(NULL),
+      RefreshDeferred(FALSE),
       RefreshInProgress(FALSE),
       RefreshPending(FALSE),
       ActiveHostDispatches(0),
@@ -2189,6 +2208,35 @@ void PackageManager::SaveConfiguration(HKEY key, CSalamanderRegistryAbstract* re
 
 void PackageManager::Refresh()
 {
+    // Runtime providers register and unregister through the same callback that
+    // is used for user-requested catalog refreshes. During load-on-start those
+    // callbacks arrive once per runtime provider; coalesce them into the one
+    // final refresh requested by PLUGINEVENT_STARTUPCOMPLETE.
+    if (RefreshDeferred)
+    {
+        RefreshPending = TRUE;
+        return;
+    }
+
+    // The host registers this temporary service before unloading any plug-in.
+    // Rebuilding and reactivating the complete extension catalog while runtime
+    // providers are being removed is both wasted work and can repeat once per
+    // provider, substantially extending shutdown.
+    if (General != NULL)
+    {
+        CSalamanderServiceQuery query;
+        CSalamanderServiceResult result;
+        memset(&query, 0, sizeof(query));
+        memset(&result, 0, sizeof(result));
+        query.ServiceId = SALAMANDER_SERVICE_SHUTDOWN_PROGRESS;
+        query.MinimumVersion = SALAMANDER_SHUTDOWN_PROGRESS_VERSION_1_0;
+        if (General->QueryService(&query, &result))
+        {
+            RefreshPending = FALSE;
+            return;
+        }
+    }
+
     // A package execution or modal host call keeps its Package context alive
     // while Windows pumps messages. Runtime/provider notifications can request
     // another catalog refresh from that nested loop. Defer it until the whole
@@ -2794,6 +2842,75 @@ void PackageManager::RegisterViewerMasks(CSalamanderConnectAbstract* salamander)
     }
 }
 
+void PackageManager::SetRefreshDeferred(BOOL deferred)
+{
+    if (RefreshDeferred == deferred)
+        return;
+    RefreshDeferred = deferred;
+    if (!RefreshDeferred && RefreshPending)
+        Refresh();
+}
+
+void PackageManager::CompleteStartupRefreshBatch()
+{
+    RefreshDeferred = FALSE;
+    if (!RefreshPending)
+        return;
+
+    // The requests coalesced by PLUGINEVENT_STARTUPBATCHBEGIN come from
+    // runtime providers registering during the load-on-start pass. The
+    // manifests and package objects have already been loaded while restoring
+    // configuration, so do not run Refresh(): it would tear down live file
+    // systems and briefly blank every extension panel. Re-evaluate only the
+    // runtime-dependent flags and activate packages that just became usable.
+    RefreshPending = FALSE;
+    for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
+    {
+        Package* package = Packages[packageIndex];
+        if (package == NULL)
+            continue;
+
+        bool registeredRuntime = false;
+        bool availableRuntime = false;
+        for (int adapterIndex = 0; adapterIndex < Runtimes->GetAdapterCount(); ++adapterIndex)
+        {
+            Runtime::IRuntimeAdapter* adapter = Runtimes->GetAdapter(adapterIndex);
+            const Runtime::RuntimeAdapterDescriptor* descriptor =
+                adapter != NULL ? adapter->GetDescriptor() : NULL;
+            if (descriptor != NULL && descriptor->RuntimeId != NULL &&
+                _stricmp(descriptor->RuntimeId, package->Manifest.RuntimeId.c_str()) == 0 &&
+                descriptor->RuntimeVersion >= package->Manifest.MinimumRuntimeVersion)
+            {
+                registeredRuntime = true;
+                availableRuntime = adapter->IsAvailable() != FALSE;
+                break;
+            }
+        }
+        if ((!registeredRuntime || !availableRuntime) &&
+            _stricmp(package->Manifest.RuntimeId.c_str(), "Automation.JScript") == 0 &&
+            QueryScriptRunner(General) != NULL)
+        {
+            registeredRuntime = true;
+            availableRuntime = true;
+        }
+
+        package->Descriptor.Flags &=
+            ~(Extensions::ExtensionFlagRuntimeUnavailable |
+              Extensions::ExtensionFlagRuntimeExecutableUnavailable);
+        if (!registeredRuntime)
+            package->Descriptor.Flags |= Extensions::ExtensionFlagRuntimeUnavailable;
+        else if (!availableRuntime)
+            package->Descriptor.Flags |= Extensions::ExtensionFlagRuntimeExecutableUnavailable;
+        package->RuntimeUsable = registeredRuntime && availableRuntime;
+    }
+
+    ResolveDependenciesAndActivate();
+    UnregisterToolbarButtons();
+    RegisterToolbarButtons();
+    if (General != NULL)
+        General->PostPluginMenuChanged();
+}
+
 BOOL WINAPI PackageManager::LifecycleCallback(
     void* context, Extensions::ExtensionAction action, const Extensions::ExtensionInfo* info)
 {
@@ -2929,6 +3046,38 @@ void PackageManager::StopSession(Package* package)
     {
         package->Session->Release();
         package->Session = NULL;
+    }
+}
+
+void PackageManager::CancelFileSystemListingForShutdown(
+    const std::string& packageId)
+{
+    if (General == NULL || packageId.empty())
+        return;
+
+    CSalamanderServiceQuery query;
+    CSalamanderServiceResult result;
+    memset(&query, 0, sizeof(query));
+    memset(&result, 0, sizeof(result));
+    query.ServiceId = SALAMANDER_SERVICE_SHUTDOWN_PROGRESS;
+    query.MinimumVersion = SALAMANDER_SHUTDOWN_PROGRESS_VERSION_1_0;
+    if (!General->QueryService(&query, &result))
+        return;
+
+    for (size_t index = 0; index < Packages.size(); ++index)
+    {
+        Package* package = Packages[index];
+        if (package != NULL &&
+            _stricmp(package->Id.c_str(), packageId.c_str()) == 0)
+        {
+            InterlockedExchange(&package->Stopping, TRUE);
+            // Do not release the session here: the listing worker still owns
+            // its current call.  RemovePackages()/StopSession() joins and
+            // releases it after the worker has unwound.
+            if (package->Session != NULL)
+                package->Session->Stop();
+            return;
+        }
     }
 }
 
@@ -3192,6 +3341,11 @@ BOOL PackageManager::ExecuteFileSystemAction(
     const std::string& actionId,
     const char* invocationJson)
 {
+    // A package uses shared transient dispatch/listing state. Keep actions
+    // serialized with background listings from every open panel instance.
+    ScopedExclusiveSRWLock fileSystemExecution(&FileSystemExecutionLock, TRUE);
+    if (!fileSystemExecution.IsLocked())
+        return FALSE;
     ExecutionGuard execution(this);
     for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
     {

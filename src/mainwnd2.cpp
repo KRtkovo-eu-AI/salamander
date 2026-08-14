@@ -1029,6 +1029,7 @@ const char* SALAMANDER_AUTOCONFIGDRIVES_REG = "Autoconfig Search Paths";
 
 const char* SALAMANDER_LEFTP_REG = "Left Panel";
 const char* SALAMANDER_RIGHTP_REG = "Right Panel";
+const char* SALAMANDER_DETACHED_TAB_REG = "Detached Tab";
 const char* PANEL_PATH_REG = "Path";
 const char* PANEL_VIEW_REG = "View Type";
 const char* PANEL_SORT_REG = "Sort Type";
@@ -1046,6 +1047,9 @@ const char* PANEL_ACTIVETAB_REG = "Active Tab";
 const char* PANEL_TABCOLOR_REG = "Tab Color";
 const char* PANEL_TABPREFIX_REG = "Tab Prefix";
 const char* PANEL_TABLOCKED_REG = "Tab Locked";
+const char* DETACHED_TAB_PRESENT_REG = "Present";
+const char* DETACHED_TAB_SIDE_REG = "Original Side";
+const char* DETACHED_TAB_INDEX_REG = "Original Index";
 
 const char* SALAMANDER_DEFDIRS_REG = "Default Directories";
 
@@ -1289,6 +1293,7 @@ const char* CONFIG_CNFRM_CREATETARGETPATH = "Create Target Path";
 const char* CONFIG_CNFRM_ALWAYSONTOP = "Always on Top";
 const char* CONFIG_CNFRM_ONSALCLOSE = "Close Salamander";
 const char* CONFIG_CNFRM_DETACHCLOSE = "Close Detached Window";
+const char* CONFIG_CNFRM_DETACHTABCLOSE = "Close Detached Tab";
 const char* CONFIG_CNFRM_SENDEMAIL = "Send Email";
 const char* CONFIG_CNFRM_ADDTOARCHIVE = "Add To Archive";
 const char* CONFIG_CNFRM_CREATEDIR = "Create Dir";
@@ -2401,7 +2406,10 @@ static void SavePanelSettingsToKey(CFilesWindow* panel, HKEY key, BOOL useGenera
     char path[2 * MAX_PATH];
     if (useGeneralPath)
     {
-        if (!panel->GetGeneralPath(path, _countof(path), TRUE))
+        const char* capturedPath = panel->GetPathCapturedForShutdown();
+        if (capturedPath != NULL)
+            lstrcpyn(path, capturedPath, _countof(path));
+        else if (!panel->GetGeneralPath(path, _countof(path), TRUE))
             path[0] = 0;
     }
     else
@@ -2679,6 +2687,77 @@ void CMainWindow::SavePanelConfig(CPanelSide side, HKEY hSalamander, const char*
     CloseKey(actKey);
 }
 
+void CMainWindow::SaveDetachedTabConfig(HKEY hSalamander)
+{
+    HKEY key;
+    if (!CreateKey(hSalamander, SALAMANDER_DETACHED_TAB_REG, key))
+        return;
+    ClearKeyAux(key);
+
+    DWORD present = (DWORD)GetDetachedTabCount();
+    SetValue(key, DETACHED_TAB_PRESENT_REG, REG_DWORD, &present, sizeof(present));
+    for (int i = 0; i < GetDetachedTabCount(); ++i)
+    {
+        char tabKeyName[16];
+        wsprintf(tabKeyName, "Tab%d", i + 1);
+        HKEY tabKey;
+        if (!CreateKey(key, tabKeyName, tabKey))
+            continue;
+        CFilesWindow* panel = GetDetachedTabAt(i);
+        CDetachedTabInfo* info = FindDetachedTab(panel);
+        if (panel == NULL || info == NULL)
+        {
+            CloseKey(tabKey);
+            continue;
+        }
+        SavePanelSettingsToKey(panel, tabKey, TRUE);
+        DWORD side = info->OriginalSide == cpsRight ? 1 : 0;
+        DWORD index = info->OriginalIndex > 0 ? (DWORD)info->OriginalIndex : 1;
+        SetValue(tabKey, DETACHED_TAB_SIDE_REG, REG_DWORD, &side, sizeof(side));
+        SetValue(tabKey, DETACHED_TAB_INDEX_REG, REG_DWORD, &index, sizeof(index));
+
+        CPathHistory* history = panel->GetWorkDirHistory();
+        if (history != NULL)
+            history->SaveToRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG, !Configuration.SaveWorkDirs);
+
+        if (info->HWindow != NULL)
+        {
+            info->Placement.length = sizeof(WINDOWPLACEMENT);
+            GetWindowPlacement(info->HWindow, &info->Placement);
+        }
+        if (info->Placement.length != 0)
+        {
+            WINDOWPLACEMENT& place = info->Placement;
+            SetValue(tabKey, WINDOW_LEFT_REG, REG_DWORD, &place.rcNormalPosition.left, sizeof(DWORD));
+            SetValue(tabKey, WINDOW_RIGHT_REG, REG_DWORD, &place.rcNormalPosition.right, sizeof(DWORD));
+            SetValue(tabKey, WINDOW_TOP_REG, REG_DWORD, &place.rcNormalPosition.top, sizeof(DWORD));
+            SetValue(tabKey, WINDOW_BOTTOM_REG, REG_DWORD, &place.rcNormalPosition.bottom, sizeof(DWORD));
+            SetValue(tabKey, WINDOW_SHOW_REG, REG_DWORD, &place.showCmd, sizeof(DWORD));
+        }
+        CloseKey(tabKey);
+    }
+    CloseKey(key);
+}
+
+void CMainWindow::SaveDetachedTabConfigNow()
+{
+    if (SALAMANDER_ROOT_REG == NULL)
+        return;
+
+    LoadSaveToRegistryMutex.Enter();
+    HKEY salamander = NULL;
+    if (ConfigurationStorage.OpenConfigurationRootKey(salamander, TRUE))
+    {
+        SaveDetachedTabConfig(salamander);
+        CloseKey(salamander);
+        // Registry storage is already durable.  Portable storage is an
+        // in-memory registry and needs an explicit file flush here.
+        if (ConfigurationStorage.GetStorageType() == cstRegFile)
+            ConfigurationStorage.Flush(FALSE);
+    }
+    LoadSaveToRegistryMutex.Leave();
+}
+
 void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
 {
     CALL_STACK_MESSAGE1("CMainWindow::SaveConfig()");
@@ -2722,11 +2801,26 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
         {
             DWORD saveInProgress = 1;
             if (GetValueAux(NULL, salamander, SALAMANDER_SAVE_IN_PROGRESS, REG_DWORD, &saveInProgress, sizeof(DWORD)))
-            {                    // use GetValueAux so we don't show the "Load Configuration" message
-                cfgIsOK = FALSE; // the configuration is corrupted; saving won't fix it (it wasn't stored completely)
-                TRACE_E("CMainWindow::SaveConfig(): unable to save configuration, configuration key in registry is corrupted");
+            { // use GetValueAux so we don't show the "Load Configuration" message
+                if (ConfigurationStorage.GetStorageType() == cstRegFile)
+                {
+                    // config.reg is replaced atomically only after a complete
+                    // dump.  A stale marker in the already loaded in-memory
+                    // tree must not permanently disable every future save.
+                    // Rewrite the complete current configuration and let the
+                    // atomic file replacement repair it.  Registry storage
+                    // keeps the legacy backup/recovery behavior below.
+                    TRACE_I("CMainWindow::SaveConfig(): recovering stale Save In Progress marker in file-backed configuration");
+                    DeleteValue(salamander, SALAMANDER_SAVE_IN_PROGRESS);
+                    IsSetSALAMANDER_SAVE_IN_PROGRESS = FALSE;
+                }
+                else
+                {
+                    cfgIsOK = FALSE; // the registry configuration is corrupted; use its backup/recovery path
+                    TRACE_E("CMainWindow::SaveConfig(): unable to save configuration, configuration key in registry is corrupted");
+                }
             }
-            else
+            if (cfgIsOK)
             {
                 saveInProgress = 1;
                 SetValue(salamander, SALAMANDER_SAVE_IN_PROGRESS, REG_DWORD, &saveInProgress, sizeof(DWORD));
@@ -2774,7 +2868,13 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                     GetWindowPlacement(HRightDetachedWindow, &Configuration.DetachedWindowPlacement);
                     Configuration.DetachedPanels = TRUE;
                 }
-                DWORD detachedPanels = Configuration.DetachedPanels ? 1 : 0;
+                // SetPanelsDetached(FALSE) is used as a temporary shutdown step so
+                // plug-ins can still be closed through the normal two-panel path.
+                // Preserve the user's detached layout across that reattach.
+                DWORD detachedPanels = (DetachedPanels || PreserveDetachedPanelsOnShutdown ||
+                                        Configuration.DetachedPanels)
+                                           ? 1
+                                           : 0;
                 SetValue(actKey, WINDOW_DETACHED_PANELS_REG, REG_DWORD, &detachedPanels, sizeof(DWORD));
                 if (Configuration.DetachedWindowPlacement.length != 0)
                 {
@@ -2818,6 +2918,7 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
 
             SavePanelConfig(cpsLeft, salamander, SALAMANDER_LEFTP_REG);
             SavePanelConfig(cpsRight, salamander, SALAMANDER_RIGHTP_REG);
+            SaveDetachedTabConfig(salamander);
 
             //---  default directories
 
@@ -3360,6 +3461,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                              &Configuration.CnfrmOnSalClose, sizeof(DWORD));
                     SetValue(actSubKey, CONFIG_CNFRM_DETACHCLOSE, REG_DWORD,
                              &Configuration.CnfrmDetachClose, sizeof(DWORD));
+                    SetValue(actSubKey, CONFIG_CNFRM_DETACHTABCLOSE, REG_DWORD,
+                             &Configuration.CnfrmDetachTabClose, sizeof(DWORD));
                     SetValue(actSubKey, CONFIG_CNFRM_SENDEMAIL, REG_DWORD,
                              &Configuration.CnfrmSendEmail, sizeof(DWORD));
                     SetValue(actSubKey, CONFIG_CNFRM_ADDTOARCHIVE, REG_DWORD,
@@ -4056,6 +4159,123 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         PanelConfigPathsRestoredRight = activeRestored;
 
     CloseKey(actKey);
+}
+
+void CMainWindow::LoadDetachedTabConfig(HKEY hSalamander)
+{
+    Configuration.DetachedTab = FALSE;
+    Configuration.DetachedTabWindowPlacement.length = 0;
+    if (!Configuration.UsePanelTabs)
+        return;
+
+    HKEY key;
+    if (!OpenKey(hSalamander, SALAMANDER_DETACHED_TAB_REG, key))
+        return;
+
+    DWORD present = 0;
+    GetValue(key, DETACHED_TAB_PRESENT_REG, REG_DWORD, &present, sizeof(present));
+
+    if (!present)
+    {
+        CloseKey(key);
+        return;
+    }
+
+    for (DWORD detachedIndex = 0; detachedIndex < present; ++detachedIndex)
+    {
+        HKEY tabKey = key;
+        BOOL closeTabKey = FALSE;
+        char tabKeyName[16];
+        wsprintf(tabKeyName, "Tab%d", detachedIndex + 1);
+        HKEY openedTabKey;
+        if (OpenKey(key, tabKeyName, openedTabKey))
+        {
+            tabKey = openedTabKey;
+            closeTabKey = TRUE;
+        }
+        else if (detachedIndex != 0)
+            continue; // only the old single-window format stored data in the root key
+
+        DWORD sideValue = 0;
+        DWORD indexValue = 1;
+        GetValue(tabKey, DETACHED_TAB_SIDE_REG, REG_DWORD, &sideValue, sizeof(sideValue));
+        GetValue(tabKey, DETACHED_TAB_INDEX_REG, REG_DWORD, &indexValue, sizeof(indexValue));
+        CPanelSide side = sideValue != 0 ? cpsRight : cpsLeft;
+        int insertIndex = max(1, (int)indexValue);
+        CFilesWindow* previous = side == cpsLeft ? LeftPanel : RightPanel;
+        CFilesWindow* panel = AddPanelTab(side, insertIndex);
+        if (panel == NULL)
+        {
+            if (closeTabKey)
+                CloseKey(tabKey);
+            continue;
+        }
+
+        DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+        if (!panel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, panel))
+        {
+            int index = GetPanelTabIndex(side, panel);
+            if (index >= 0)
+            {
+                CTabWindow* tabWnd = GetPanelTabWindow(side);
+                if (tabWnd != NULL && tabWnd->HWindow != NULL)
+                    tabWnd->RemoveTab(index);
+                GetPanelTabs(side).Delete(index);
+            }
+            delete panel;
+            if (previous != NULL)
+                SwitchPanelTab(previous);
+            if (closeTabKey)
+                CloseKey(tabKey);
+            continue;
+        }
+
+        std::vector<char> path(2 * SAL_MAX_PATH);
+        LoadPanelSettingsFromKey(panel, tabKey, path.data(), (int)path.size());
+        panel->SetTabLocked(false);
+        if (Configuration.SaveWorkDirs)
+        {
+            CPathHistory* history = panel->EnsureWorkDirHistory();
+            if (history != NULL)
+                history->LoadFromRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG);
+        }
+        WINDOWPLACEMENT placement;
+        memset(&placement, 0, sizeof(placement));
+        BOOL placementExists = TRUE;
+        placementExists &= GetValue(tabKey, WINDOW_LEFT_REG, REG_DWORD, &placement.rcNormalPosition.left, sizeof(DWORD));
+        placementExists &= GetValue(tabKey, WINDOW_RIGHT_REG, REG_DWORD, &placement.rcNormalPosition.right, sizeof(DWORD));
+        placementExists &= GetValue(tabKey, WINDOW_TOP_REG, REG_DWORD, &placement.rcNormalPosition.top, sizeof(DWORD));
+        placementExists &= GetValue(tabKey, WINDOW_BOTTOM_REG, REG_DWORD, &placement.rcNormalPosition.bottom, sizeof(DWORD));
+        placementExists &= GetValue(tabKey, WINDOW_SHOW_REG, REG_DWORD, &placement.showCmd, sizeof(DWORD));
+        if (placementExists)
+            placement.length = sizeof(WINDOWPLACEMENT);
+        if (closeTabKey)
+            CloseKey(tabKey);
+        if (DetachPanelTab(panel, NULL, FALSE))
+        {
+            CDetachedTabInfo* info = FindDetachedTab(panel);
+            if (info != NULL)
+            {
+                info->Placement = placement;
+                info->OriginalIndex = insertIndex;
+            }
+            // Open the saved path in its final window. Opening it before
+            // DetachPanelTab would start an extension listing in the main host,
+            // discard it on reparent, and immediately start the same work again.
+            RestorePanelPathFromConfig(this, panel, path.data());
+            UpdatePanelTabColor(panel);
+            UpdatePanelTabTitle(panel);
+        }
+        else
+        {
+            RestorePanelPathFromConfig(this, panel, path.data());
+            UpdatePanelTabColor(panel);
+            UpdatePanelTabTitle(panel);
+            if (previous != NULL)
+                SwitchPanelTab(previous);
+        }
+    }
+    CloseKey(key);
 }
 
 void LoadIconOvrlsInfo(const char* root)
@@ -5362,6 +5582,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                          &Configuration.CnfrmOnSalClose, sizeof(DWORD));
                 GetValue(actSubKey, CONFIG_CNFRM_DETACHCLOSE, REG_DWORD,
                          &Configuration.CnfrmDetachClose, sizeof(DWORD));
+                GetValue(actSubKey, CONFIG_CNFRM_DETACHTABCLOSE, REG_DWORD,
+                         &Configuration.CnfrmDetachTabClose, sizeof(DWORD));
                 GetValue(actSubKey, CONFIG_CNFRM_SENDEMAIL, REG_DWORD,
                          &Configuration.CnfrmSendEmail, sizeof(DWORD));
                 GetValue(actSubKey, CONFIG_CNFRM_ADDTOARCHIVE, REG_DWORD,
@@ -5736,6 +5958,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         RestoringPanelPaths = TRUE;
         LoadPanelConfig(leftPanelPath, cpsLeft, salamander, SALAMANDER_LEFTP_REG);
         LoadPanelConfig(rightPanelPath, cpsRight, salamander, SALAMANDER_RIGHTP_REG);
+        LoadDetachedTabConfig(salamander);
         RestoringPanelPaths = FALSE;
         if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
             RebuildSharedDirHistoryFromPanels();
@@ -5884,18 +6107,29 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         }
         if (Configuration.DetachedPanels)
         {
-            if (SetPanelsDetached(TRUE) &&
-                Configuration.DetachedWindowPlacement.length != 0 &&
-                HRightDetachedWindow != NULL)
+            if (SetPanelsDetached(TRUE))
             {
-                WINDOWPLACEMENT detachedPlace = Configuration.DetachedWindowPlacement;
-                detachedPlace.length = sizeof(WINDOWPLACEMENT);
-                if (detachedPlace.showCmd == SW_MINIMIZE || detachedPlace.showCmd == SW_SHOWMINIMIZED)
-                    detachedPlace.showCmd = SW_SHOWNORMAL;
-                SetWindowPlacement(HRightDetachedWindow, &detachedPlace);
+                // SaveConfig runs while the windows are still detached, so
+                // 'place' already describes the final left/main window. The
+                // detach transition computes a temporary split; restore the
+                // persisted main placement afterwards instead of splitting
+                // the saved left-window width a second time.
+                if (useWinPlacement)
+                    SetWindowPlacement(HWindow, &place);
+                if (Configuration.DetachedWindowPlacement.length != 0 &&
+                    HRightDetachedWindow != NULL)
+                {
+                    WINDOWPLACEMENT detachedPlace = Configuration.DetachedWindowPlacement;
+                    detachedPlace.length = sizeof(WINDOWPLACEMENT);
+                    if (detachedPlace.showCmd == SW_MINIMIZE || detachedPlace.showCmd == SW_SHOWMINIMIZED)
+                        detachedPlace.showCmd = SW_SHOWNORMAL;
+                    SetWindowPlacement(HRightDetachedWindow, &detachedPlace);
+                }
+                LayoutWindows();
                 LayoutDetachedPanels();
             }
         }
+        ShowDetachedTabWindowFromConfig();
         LeftPanel->SetupListBoxScrollBars();
         RightPanel->SetupListBoxScrollBars();
 
