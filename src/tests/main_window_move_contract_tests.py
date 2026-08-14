@@ -21,10 +21,18 @@ def main() -> None:
     implementation = mainwnd3[impl_start:]
 
     for message in (
+        "case WM_GETMINMAXINFO:",
+        "case WM_NCHITTEST:",
+        "case WM_NCMOUSEMOVE:",
+        "case WM_NCPAINT:",
+        "case WM_SYNCPAINT:",
         "case WM_MOVE:",
         "case WM_MOVING:",
         "case WM_WINDOWPOSCHANGING:",
         "case WM_WINDOWPOSCHANGED:",
+        "case WM_SETCURSOR:",
+        "case WM_ERASEBKGND:",
+        "case WM_PAINT:",
     ):
         require(fast_path, message, "interactive main-window move fast path")
         if message in implementation:

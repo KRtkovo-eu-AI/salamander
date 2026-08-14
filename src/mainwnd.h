@@ -909,6 +909,9 @@ public:
 
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
     LRESULT WindowProcImpl(UINT uMsg, WPARAM wParam, LPARAM lParam);
+    LRESULT OnSetCursor(WPARAM wParam, LPARAM lParam);
+    LRESULT OnEraseBkgnd(WPARAM wParam);
+    LRESULT OnPaint();
 
     void SafeHandleMenuNewMsg2(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT* plResult);
 
