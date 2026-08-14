@@ -16,11 +16,122 @@
 #include "pack.h"
 #include "dialogs.h"
 #include "common/winlibdpi.h"
+#include "common/widepath.h"
 
 // header for saving a DIB to the registry
 
 #define DIB_METHOD_STORE 1   // direct storage 1:1
 #define DIB_METHOD_HUFFMAN 2 // static huffman codec
+
+namespace
+{
+BOOL NormalizeStoredPluginVersionWithLeadingZero(char* version, int versionSize)
+{
+    if (version == NULL || versionSize <= 0)
+        return FALSE;
+
+    const char* dot = strchr(version, '.');
+    if (dot == NULL || dot[1] != '0' || dot[2] < '1' || dot[2] > '9')
+        return FALSE;
+
+    const char* patchEnd = dot + 2;
+    while (*patchEnd >= '0' && *patchEnd <= '9')
+        ++patchEnd;
+    if (*patchEnd == '.')
+        return FALSE; // already a three-component version
+
+    char migrated[MAX_PATH];
+    const int prefixLength = static_cast<int>(dot - version) + 2;
+    _snprintf_s(migrated, _countof(migrated), _TRUNCATE,
+                "%.*s.%s", prefixLength, version, dot + 2);
+    lstrcpyn(version, migrated, versionSize);
+    return TRUE;
+}
+
+BOOL NormalizeStoredPluginVersion(char* version, int versionSize,
+                                  const char* pluginsDir, const char* dllName)
+{
+    if (version == NULL || versionSize <= 0 || pluginsDir == NULL || dllName == NULL)
+        return FALSE;
+
+    std::wstring modulePath = SalMultiByteToWidePath(pluginsDir, CP_UTF8);
+    std::wstring moduleName = SalMultiByteToWidePath(dllName, CP_UTF8);
+    if (modulePath.empty() || moduleName.empty())
+        return NormalizeStoredPluginVersionWithLeadingZero(version, versionSize);
+    if ((moduleName.size() >= 2 && moduleName[1] == L':') ||
+        (moduleName.size() >= 2 && moduleName[0] == L'\\' && moduleName[1] == L'\\'))
+    {
+        modulePath = moduleName;
+    }
+    else if (!SalPathAppendW(modulePath, moduleName.c_str()))
+    {
+        return NormalizeStoredPluginVersionWithLeadingZero(version, versionSize);
+    }
+    modulePath = SalPathAddExtendedPrefixW(modulePath.c_str());
+
+    HINSTANCE module = NOHANDLES(LoadLibraryExW(
+        modulePath.c_str(), NULL, LOAD_LIBRARY_AS_DATAFILE));
+    HANDLES_ADD(__htLibrary, __hoLoadLibraryEx, module);
+    if (module == NULL)
+        return NormalizeStoredPluginVersionWithLeadingZero(version, versionSize);
+
+    BOOL normalized = FALSE;
+    HRSRC resource = FindResource(module, MAKEINTRESOURCE(VS_VERSION_INFO), RT_VERSION);
+    if (resource != NULL)
+    {
+        HGLOBAL loadedResource = LoadResource(module, resource);
+        DWORD resourceSize = SizeofResource(module, resource);
+        const BYTE* first = loadedResource != NULL
+                                ? static_cast<const BYTE*>(LockResource(loadedResource))
+                                : NULL;
+        const BYTE* end = first != NULL ? first + resourceSize : NULL;
+        const DWORD signature = 0xFEEF04BD;
+        const BYTE* iterator = first;
+        while (iterator != NULL && iterator + sizeof(signature) <= end &&
+               memcmp(iterator, &signature, sizeof(signature)) != 0)
+        {
+            ++iterator;
+        }
+        if (iterator != NULL && iterator + sizeof(VS_FIXEDFILEINFO) <= end)
+        {
+            const VS_FIXEDFILEINFO* info =
+                reinterpret_cast<const VS_FIXEDFILEINFO*>(iterator);
+            const unsigned major = HIWORD(info->dwFileVersionMS);
+            const unsigned minor = LOWORD(info->dwFileVersionMS);
+            const unsigned patch = HIWORD(info->dwFileVersionLS);
+            if (patch != 0)
+            {
+                char legacy[64];
+                char semantic[64];
+                _snprintf_s(legacy, _countof(legacy), _TRUNCATE,
+                            "%u.%u%u", major, minor, patch);
+                _snprintf_s(semantic, _countof(semantic), _TRUNCATE,
+                            "%u.%u.%u", major, minor, patch);
+                const size_t legacyLength = strlen(legacy);
+                const size_t storedLength = strlen(version);
+                const char boundary = storedLength >= legacyLength
+                                          ? version[legacyLength]
+                                          : 0;
+                if (storedLength >= legacyLength &&
+                    strncmp(version, legacy, legacyLength) == 0 &&
+                    (boundary == 0 ||
+                     ((boundary < '0' || boundary > '9') && boundary != '.')))
+                {
+                    char migrated[MAX_PATH];
+                    _snprintf_s(migrated, _countof(migrated), _TRUNCATE,
+                                "%s%s", semantic, version + legacyLength);
+                    lstrcpyn(version, migrated, versionSize);
+                    normalized = TRUE;
+                }
+            }
+        }
+    }
+    HANDLES(FreeLibrary(module));
+    if (!normalized)
+        normalized = NormalizeStoredPluginVersionWithLeadingZero(version, versionSize);
+    return normalized;
+}
+}
 
 struct CDIBHeader
 {
@@ -1064,7 +1175,11 @@ void CPlugins::AddNamesToListView(HWND hListView, BOOL setOnly, int* numOfLoaded
         ListView_SetItemText(hListView, i, 1,
                              LoadStr(plugin->GetLoaded() ? IDS_PLUGINS_LOADED_YES : IDS_PLUGINS_LOADED_NO));
         // version
-        ListView_SetItemText(hListView, i, 2, plugin->Version);
+        char displayVersion[MAX_PATH];
+        lstrcpyn(displayVersion, plugin->Version, _countof(displayVersion));
+        NormalizeStoredPluginVersionWithLeadingZero(
+            displayVersion, _countof(displayVersion));
+        ListView_SetItemText(hListView, i, 2, displayVersion);
         // location
         ListView_SetItemText(hListView, i, 3, plugin->DLLName);
     }
@@ -1414,6 +1529,8 @@ void CPlugins::Load(HWND parent, HKEY regKey)
                 }
                 else
                     strcpy(normalizedDLLName, dllName);
+                NormalizeStoredPluginVersion(version, _countof(version),
+                                             pluginsDir, normalizedDLLName);
                 int dummyIndex;
                 if (Plugins.FindDLL(normalizedDLLName, dummyIndex))
                 {
