@@ -1418,6 +1418,11 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_SIZE:
     {
         LayoutChilds();
+        // HPrivateDC is persistent and is also used by direct item paints. In
+        // brief view a resize can otherwise leave an old column-sized area
+        // outside the regions invalidated by LayoutChilds(), which then covers
+        // the panel until another full repaint happens.
+        InvalidateRect(HWindow, NULL, FALSE);
         break;
     }
 
@@ -1439,8 +1444,41 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_PAINT:
     {
         PAINTSTRUCT ps;
-        HANDLES(BeginPaint(HWindow, &ps));
-        PaintAllItems(NULL, 0);
+        HDC paintDC = HANDLES(BeginPaint(HWindow, &ps));
+        RECT clientRect;
+        GetClientRect(HWindow, &clientRect);
+        int width = clientRect.right - clientRect.left;
+        int height = clientRect.bottom - clientRect.top;
+        HDC memoryDC = width > 0 && height > 0 ? HANDLES(CreateCompatibleDC(paintDC)) : NULL;
+        HBITMAP memoryBitmap = memoryDC != NULL ? HANDLES(CreateCompatibleBitmap(paintDC, width, height)) : NULL;
+        if (memoryBitmap != NULL)
+        {
+            HBITMAP oldBitmap = (HBITMAP)SelectObject(memoryDC, memoryBitmap);
+            BitBlt(memoryDC, 0, 0, width, height, HPrivateDC, 0, 0, SRCCOPY);
+
+            // PaintAllItems can touch hundreds of cells. Drawing them directly
+            // into the persistent window DC exposes a visible erase/draw sweep
+            // to DWM. Build the complete frame off-screen and publish it once.
+            HDC windowDC = HPrivateDC;
+            HPrivateDC = memoryDC;
+            PaintAllItems(NULL, 0);
+            HPrivateDC = windowDC;
+
+            BitBlt(paintDC,
+                   ps.rcPaint.left, ps.rcPaint.top,
+                   ps.rcPaint.right - ps.rcPaint.left,
+                   ps.rcPaint.bottom - ps.rcPaint.top,
+                   memoryDC, ps.rcPaint.left, ps.rcPaint.top, SRCCOPY);
+            SelectObject(memoryDC, oldBitmap);
+            HANDLES(DeleteObject(memoryBitmap));
+            HANDLES(DeleteDC(memoryDC));
+        }
+        else
+        {
+            if (memoryDC != NULL)
+                HANDLES(DeleteDC(memoryDC));
+            PaintAllItems(NULL, 0);
+        }
         HANDLES(EndPaint(HWindow, &ps));
         SelectClipRgn(HPrivateDC, NULL);
         return 0;

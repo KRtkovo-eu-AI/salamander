@@ -456,6 +456,7 @@ public:
 
     BOOL Created;
     BOOL RestoringPanelPaths; // suppress repeated Tree View rebuilds while LoadConfig restores panels
+    BOOL StartupWindowCloaked; // TRUE while the fully initialized startup UI is hidden behind the splash
     BOOL DetachedPanels;      // TRUE = left and right sides are hosted in separate top-level windows
     BOOL CreatingDetachedChrome; // suppress detached-window activation while its child chrome is being built
     BOOL DetachedPanelsSwapFixNeeded; // TRUE after Swap Sides while detached; reattach replays a double swap to refresh layout state
@@ -745,6 +746,8 @@ public:
 
     void SaveConfig(HWND parent = NULL, BOOL showConfigFileSaveError = TRUE); // parent: NULL = MainWindow->HWindow
     BOOL LoadConfig(BOOL importingOldConfig, const CCommandLineParams* cmdLineParams);
+    void RevealStartupWindow();
+    void FinishStartupWindowReveal();
     void SavePanelConfig(CPanelSide side, HKEY hSalamander, const char* reg);
     void LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalamander, const char* reg);
     void SaveDetachedTabConfig(HKEY hSalamander);

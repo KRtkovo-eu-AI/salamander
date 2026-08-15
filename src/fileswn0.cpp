@@ -2268,6 +2268,53 @@ void CFilesWindow::RepaintIconOnly(int index)
         ListBox->PaintItem(index, DRAWFLAG_ICON_ONLY);
 }
 
+void CFilesWindow::RepaintIconsForExtension(const char* extension)
+{
+    CALL_STACK_MESSAGE_NONE
+    if (extension == NULL)
+        return;
+
+    // A newly resolved association changes only files with this extension.
+    // Repainting every icon in both panels for each association makes the
+    // persistent-DC list visibly sweep across the window during startup.
+    for (int i = 0; i < Files->Count; i++)
+    {
+        if (StrICmp(Files->At(i).Ext, extension) == 0)
+            ListBox->PaintItem(Dirs->Count + i, DRAWFLAG_ICON_ONLY);
+    }
+}
+
+void CFilesWindow::CompletePendingStartupRefreshes()
+{
+    // CFilesWindow::Activate posts this deliberately conservative refresh and
+    // its handler delays the actual directory read by 200 ms. During startup
+    // the directory has just been read, so allowing the pending work to run
+    // after the first frame was presented visibly clears and rebuilds the
+    // panel. Cancel both stages; a WM_TIMER already in the queue is harmless
+    // once RefreshDirExTimerSet is FALSE.
+    KillTimer(HWindow, IDT_REFRESH_DIR_EX);
+    RefreshDirExTimerSet = FALSE;
+    RefreshDirExLParam = 0;
+
+    MSG msg;
+    while (PeekMessage(&msg, HWindow, WM_USER_REFRESH_DIR_EX,
+                       WM_USER_REFRESH_DIR_EX, PM_REMOVE))
+        ;
+    while (PeekMessage(&msg, HWindow, WM_USER_REFRESH_DIR_EX_DELAYED,
+                       WM_USER_REFRESH_DIR_EX_DELAYED, PM_REMOVE))
+        ;
+
+    // WM_DPICHANGED_AFTERPARENT can invalidate the icon cache while the saved
+    // startup placement is applied. Its ordinary refresh is required, but it
+    // must finish while the top-level window is still cloaked. Otherwise the
+    // message loop clears and rebuilds each already-visible panel in turn.
+    while (PeekMessage(&msg, HWindow, WM_USER_REFRESH_DIR,
+                       WM_USER_REFRESH_DIR, PM_REMOVE))
+    {
+        SendMessage(HWindow, msg.message, msg.wParam, msg.lParam);
+    }
+}
+
 void ReleaseListingBody(CPanelType oldPanelType, CSalamanderDirectory*& oldArchiveDir,
                         CSalamanderDirectory*& oldPluginFSDir,
                         CPluginDataInterfaceEncapsulation& oldPluginData,

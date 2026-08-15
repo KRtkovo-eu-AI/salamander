@@ -20,6 +20,10 @@ ICLRRuntimeHost* gRuntimeHost = nullptr;
 std::wstring gAssemblyPath;
 std::wstring gCurrentVersion;
 bool gIsInitialized = false;
+SRWLOCK gRuntimeLock = SRWLOCK_INIT;
+HANDLE gInitializationThread = nullptr;
+DWORD gInitializationThreadId = 0;
+LONG gInitializationResult = 0;
 const wchar_t* const kManagedType = L"OpenSalamander.Samandarin.EntryPoint";
 const wchar_t* const kManagedMethod = L"Dispatch";
 const wchar_t* const kPluginCaption = L"Samandarin Update Notifier";
@@ -123,9 +127,24 @@ std::wstring BuildCurrentVersion()
     return result;
 }
 
-} // namespace
+void ResetRuntimeLocked()
+{
+    if (gRuntimeHost != nullptr)
+    {
+        if (gIsInitialized)
+        {
+            ExecuteCommand(L"Shutdown", nullptr, nullptr);
+            gIsInitialized = false;
+        }
+        gRuntimeHost->Stop();
+        gRuntimeHost->Release();
+        gRuntimeHost = nullptr;
+    }
+    gAssemblyPath.clear();
+    gCurrentVersion.clear();
+}
 
-bool ManagedBridge_EnsureInitialized(HWND parent)
+bool InitializeRuntimeLocked(HWND parent)
 {
     if (gRuntimeHost != nullptr)
     {
@@ -170,7 +189,7 @@ bool ManagedBridge_EnsureInitialized(HWND parent)
     if (GetModuleFileNameW(DLLInstance, modulePath, _countof(modulePath)) == 0)
     {
         ShowLoadError(parent, L"Failed to determine plugin path.");
-        ManagedBridge_Shutdown();
+        ResetRuntimeLocked();
         return false;
     }
 
@@ -190,7 +209,7 @@ bool ManagedBridge_EnsureInitialized(HWND parent)
         gIsInitialized = ExecuteCommand(L"Initialize", parent, gCurrentVersion.c_str());
         if (!gIsInitialized)
         {
-            ManagedBridge_Shutdown();
+            ResetRuntimeLocked();
             return false;
         }
     }
@@ -198,21 +217,74 @@ bool ManagedBridge_EnsureInitialized(HWND parent)
     return true;
 }
 
+DWORD WINAPI InitializeRuntimeThread(void* parameter)
+{
+    AcquireSRWLockExclusive(&gRuntimeLock);
+    const bool initialized = InitializeRuntimeLocked(static_cast<HWND>(parameter));
+    InterlockedExchange(&gInitializationResult, initialized ? 1 : -1);
+    ReleaseSRWLockExclusive(&gRuntimeLock);
+    return initialized ? 0 : 1;
+}
+
+void WaitForBackgroundInitialization()
+{
+    HANDLE thread = nullptr;
+    DWORD threadId = 0;
+    AcquireSRWLockShared(&gRuntimeLock);
+    thread = gInitializationThread;
+    threadId = gInitializationThreadId;
+    ReleaseSRWLockShared(&gRuntimeLock);
+    if (thread != nullptr && threadId != GetCurrentThreadId())
+        WaitForSingleObject(thread, INFINITE);
+}
+} // namespace
+
+bool ManagedBridge_BeginInitialize(HWND parent)
+{
+    AcquireSRWLockExclusive(&gRuntimeLock);
+    if (gIsInitialized || gInitializationThread != nullptr)
+    {
+        ReleaseSRWLockExclusive(&gRuntimeLock);
+        return true;
+    }
+    InterlockedExchange(&gInitializationResult, 0);
+    gInitializationThread = CreateThread(nullptr, 0, InitializeRuntimeThread, parent, 0,
+                                         &gInitializationThreadId);
+    const bool started = gInitializationThread != nullptr;
+    ReleaseSRWLockExclusive(&gRuntimeLock);
+    return started;
+}
+
+bool ManagedBridge_EnsureInitialized(HWND parent)
+{
+    WaitForBackgroundInitialization();
+    AcquireSRWLockExclusive(&gRuntimeLock);
+    if (gInitializationThread != nullptr)
+    {
+        CloseHandle(gInitializationThread);
+        gInitializationThread = nullptr;
+        gInitializationThreadId = 0;
+    }
+    bool initialized = gIsInitialized;
+    if (!initialized && InterlockedCompareExchange(&gInitializationResult, 0, 0) >= 0)
+        initialized = InitializeRuntimeLocked(parent);
+    ReleaseSRWLockExclusive(&gRuntimeLock);
+    return initialized;
+}
+
 void ManagedBridge_Shutdown()
 {
-    if (gRuntimeHost != nullptr)
+    WaitForBackgroundInitialization();
+    AcquireSRWLockExclusive(&gRuntimeLock);
+    if (gInitializationThread != nullptr)
     {
-        if (gIsInitialized)
-        {
-            ExecuteCommand(L"Shutdown", nullptr, nullptr);
-            gIsInitialized = false;
-        }
-        gRuntimeHost->Stop();
-        gRuntimeHost->Release();
-        gRuntimeHost = nullptr;
-        gAssemblyPath.clear();
-        gCurrentVersion.clear();
+        CloseHandle(gInitializationThread);
+        gInitializationThread = nullptr;
+        gInitializationThreadId = 0;
     }
+    ResetRuntimeLocked();
+    InterlockedExchange(&gInitializationResult, 0);
+    ReleaseSRWLockExclusive(&gRuntimeLock);
 }
 
 bool ManagedBridge_ShowConfiguration(HWND parent)

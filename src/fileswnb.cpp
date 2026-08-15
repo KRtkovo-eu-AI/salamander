@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+
 #include "common/winlibdpi.h"
 
 #include "cfgdlg.h"
@@ -847,11 +848,11 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                             {
                                 // panely prekreslime pouze pokud odpovidaji velikosti ikon
                                 if (iconSize == GetIconSizeForCurrentViewMode())
-                                    RepaintIconOnly(-1); // u nas vsechny
+                                    RepaintIconsForExtension(buf);
 
                                 CFilesWindow* otherPanel = MainWindow->GetOtherPanel(this);
-                                if (iconSize == otherPanel->GetIconSizeForCurrentViewMode())
-                                    otherPanel->RepaintIconOnly(-1); // a u sousedu vsechny
+                                if (otherPanel != NULL && iconSize == otherPanel->GetIconSizeForCurrentViewMode())
+                                    otherPanel->RepaintIconsForExtension(buf);
                             }
                             else
                                 PostAllIconsRepaint = TRUE;
@@ -1150,7 +1151,13 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         SelectViewTemplate(index, FALSE, FALSE);
         ShowWindow(ListBox->HWindow, SW_SHOW);
-        UpdateTreeView(IsActiveTreeViewHost());
+        // LoadConfig creates all tab windows while RestoringPanelPaths is set.
+        // Building the shared Tree View here enumerates the same shell tree for
+        // every transiently active tab (over a second for the first tab on a
+        // normal local path). FocusPanel performs the single required rebuild
+        // after RestoringPanelPaths is cleared.
+        if (MainWindow == NULL || !MainWindow->RestoringPanelPaths)
+            UpdateTreeView(IsActiveTreeViewHost());
 
         // srovname nastaveni promenne AutomaticRefresh a directory-liny
         SetAutomaticRefresh(AutomaticRefresh, TRUE);

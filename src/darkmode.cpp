@@ -2421,6 +2421,16 @@ bool DarkModeIsSupported()
     return gSupported;
 }
 
+bool DarkModeSetWindowCloaked(HWND hwnd, bool cloaked)
+{
+    EnsureInitialized();
+    if (gDwmSetWindowAttribute == nullptr)
+        return false;
+
+    BOOL value = cloaked ? TRUE : FALSE;
+    return SUCCEEDED(gDwmSetWindowAttribute(hwnd, 13 /* DWMWA_CLOAK */, &value, sizeof(value)));
+}
+
 void DarkModeDetectAndEnableSystemDarkMode()
 {
     EnsureInitialized();

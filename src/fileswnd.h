@@ -1744,6 +1744,8 @@ public:
     void LayoutListBoxChilds(); // after a font change layout must be updated
     void RepaintListBox(DWORD drawFlags);
     void RepaintIconOnly(int index);   // for index == -1 redraws icons of all items
+    void RepaintIconsForExtension(const char* extension);
+    void CompletePendingStartupRefreshes();
     void EnsureItemVisible(int index); // ensures the item is visible
     void SetQuickSearchCaretPos();     // sets caret position within FocusedIndex
 
