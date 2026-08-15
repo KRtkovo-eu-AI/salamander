@@ -221,8 +221,16 @@ void CSplashScreen::SetText(const char* text)
 {
     if (Bitmap != NULL && OriginalBitmap != NULL)
     {
-        // restore the background
-        BitBlt(Bitmap->HMemDC, StatusR.left, StatusR.top, StatusR.right - StatusR.left, StatusR.bottom - StatusR.top, OriginalBitmap->HMemDC, StatusR.left, StatusR.top, SRCCOPY);
+        // DrawText with DT_NOCLIP can antialias an overhanging glyph one pixel
+        // outside its logical origin. Restore and publish a padded dirty area;
+        // otherwise the first glyph of the previous status remains beside the
+        // new one (most visibly Reading... -> Initializing...).
+        RECT dirtyR = StatusR;
+        dirtyR.left = max(0, dirtyR.left - 2);
+        dirtyR.right = min(Width, dirtyR.right + 2);
+        BitBlt(Bitmap->HMemDC, dirtyR.left, dirtyR.top,
+               dirtyR.right - dirtyR.left, dirtyR.bottom - dirtyR.top,
+               OriginalBitmap->HMemDC, dirtyR.left, dirtyR.top, SRCCOPY);
         PaintText(text,
                   StatusR.left, StatusR.top,
                    FALSE, RGB(255, 255, 255));
@@ -231,7 +239,9 @@ void CSplashScreen::SetText(const char* text)
         if (HWindow != NULL)
         {
             HDC hDC = HANDLES(GetDC(HWindow));
-            BitBlt(hDC, StatusR.left, StatusR.top, StatusR.right - StatusR.left, StatusR.bottom - StatusR.top, Bitmap->HMemDC, StatusR.left, StatusR.top, SRCCOPY);
+            BitBlt(hDC, dirtyR.left, dirtyR.top,
+                   dirtyR.right - dirtyR.left, dirtyR.bottom - dirtyR.top,
+                   Bitmap->HMemDC, dirtyR.left, dirtyR.top, SRCCOPY);
             HANDLES(ReleaseDC(HWindow, hDC));
         }
     }

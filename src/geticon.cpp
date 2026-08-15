@@ -4,6 +4,10 @@
 
 #include "precomp.h"
 #include "commoncontrols.h"
+#include <shlwapi.h>
+
+#include <string>
+#include <vector>
 
 static UINT PrivateExtractSingleIcon(LPCTSTR fileName, int iconIndex, int iconSize, HICON* hIcon, UINT* iconID, UINT flags)
 {
@@ -214,6 +218,99 @@ static BOOL IsSolidBlackIcon(HICON icon, int pixelSize)
     return solidBlack;
 }
 
+static void DiscardSolidBlackIcon(HICON* icon, int pixelSize)
+{
+    if (icon != NULL && *icon != NULL && IsSolidBlackIcon(*icon, pixelSize))
+    {
+        HANDLES(DestroyIcon(*icon));
+        *icon = NULL;
+    }
+}
+
+static std::wstring PanelPathToWide(const char* path)
+{
+    if (path == NULL || path[0] == 0)
+        return std::wstring();
+
+    UINT codePage = CP_UTF8;
+    DWORD flags = MB_ERR_INVALID_CHARS;
+    int length = MultiByteToWideChar(codePage, flags, path, -1, NULL, 0);
+    if (length == 0)
+    {
+        codePage = CP_ACP;
+        flags = 0;
+        length = MultiByteToWideChar(codePage, flags, path, -1, NULL, 0);
+    }
+    if (length <= 1)
+        return std::wstring();
+
+    std::vector<wchar_t> wide(length);
+    if (MultiByteToWideChar(codePage, flags, path, -1, wide.data(), length) == 0)
+        return std::wstring();
+    return std::wstring(wide.data());
+}
+
+static HICON GetDefaultAssociationIcon(const char* path, int pixelSize)
+{
+    if (path == NULL || pixelSize <= 0)
+        return NULL;
+
+    const char* name = path;
+    for (const char* p = path; *p != 0; ++p)
+    {
+        if (*p == '\\' || *p == '/')
+            name = p + 1;
+    }
+    const char* extension = strrchr(name, '.');
+    if (extension == NULL || extension[1] == 0)
+        return NULL;
+
+    std::wstring wideExtension = PanelPathToWide(extension);
+    if (wideExtension.empty())
+        return NULL;
+
+    DWORD length = 0;
+    AssocQueryStringW(ASSOCF_NONE, ASSOCSTR_DEFAULTICON, wideExtension.c_str(), NULL, NULL, &length);
+    if (length <= 1)
+        return NULL;
+
+    std::vector<wchar_t> location(length);
+    if (FAILED(AssocQueryStringW(ASSOCF_NONE, ASSOCSTR_DEFAULTICON, wideExtension.c_str(),
+                                 NULL, location.data(), &length)))
+        return NULL;
+
+    int iconIndex = PathParseIconLocationW(location.data());
+    std::wstring iconPath;
+    if (_wcsicmp(location.data(), L"%1") == 0)
+        iconPath = PanelPathToWide(path);
+    else
+    {
+        DWORD expandedLength = ExpandEnvironmentStringsW(location.data(), NULL, 0);
+        if (expandedLength == 0)
+            return NULL;
+        std::vector<wchar_t> expanded(expandedLength);
+        if (ExpandEnvironmentStringsW(location.data(), expanded.data(), expandedLength) == 0)
+            return NULL;
+        iconPath.assign(expanded.data());
+    }
+    if (iconPath.empty())
+        return NULL;
+
+    HICON largeIcon = NULL;
+    HICON smallIcon = NULL;
+    HRESULT result = SHDefExtractIconW(iconPath.c_str(), iconIndex, 0, &largeIcon, &smallIcon,
+                                       MAKELONG(pixelSize, pixelSize));
+    if (FAILED(result))
+        return NULL;
+
+    HICON icon = smallIcon != NULL ? smallIcon : largeIcon;
+    if (largeIcon != NULL && largeIcon != icon)
+        HANDLES(DestroyIcon(largeIcon));
+    if (smallIcon != NULL && smallIcon != icon)
+        HANDLES(DestroyIcon(smallIcon));
+    return icon;
+}
+
 BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl, HICON* hIcon,
                         CIconSizeEnum iconSize, BOOL fallbackToDefIcon, BOOL defIconIsDir)
 {
@@ -264,8 +361,7 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
         // another way to get 48x48 icons is LoadImage, but we would need the file path and icon number
         // a "*" in the file name means iconIndex already refers to a system icon index
         //TRACE_I("  SalGetIconFromPIDL() wFlags="<<wFlags<<" iconFile='"<<iconFile<<"' TryObtainGetImageList="<<TryObtainGetImageList);
-        if ((wFlags & GIL_NOTFILENAME) && iconFile[0] == '*' && iconFile[1] == 0 &&
-            !preferExtractorSmallIcon)
+        if ((wFlags & GIL_NOTFILENAME) && iconFile[0] == '*' && iconFile[1] == 0)
         {
             // multiple attempts helped JIS, but if icon extraction keeps failing
             // we would waste 50 ms on each icon retrieval for no reason
@@ -287,6 +383,11 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
             {
                 if (imageListSmall->GetIcon(iconIndex, ILD_NORMAL, &hIconSmall) != S_OK)
                     hIconSmall = NULL;
+                // A successful image-list call can still return an all-black
+                // icon.  Treat that as extraction failure here so the direct
+                // SHGFI_ICON fallback below gets a chance to supply the same
+                // usable HICON that Explorer draws.
+                DiscardSolidBlackIcon(&hIconSmall, IconSizes[ICONSIZE_16]);
                 //TRACE_I("  SalGetIconFromPIDL() SHIL_SMALL IID_IImageList, hIconSmall="<<hIconSmall);
                 imageListSmall->Release();
             }
@@ -303,6 +404,7 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
                     if (hSysImageList != NULL)
                     {
                         hIconSmall = ImageList_GetIcon(hSysImageList, sfi.iIcon, ILD_NORMAL);
+                        DiscardSolidBlackIcon(&hIconSmall, IconSizes[ICONSIZE_16]);
                         //TRACE_I("  SalGetIconFromPIDL() ImageList_GetIcon for SHGFI_SMALLICON hIconSmall="<<hIconSmall<<" sfi.iIcon="<<sfi.iIcon<<" hSysImageList="<<hSysImageList);
                     }
                     if (hIconSmall == NULL)
@@ -312,6 +414,19 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
                         if (SHGetFileInfo(path, 0, &sfi, sizeof(sfi), SHGFI_ICON | SHGFI_SMALLICON) != 0)
                             hIconSmall = sfi.hIcon;
                         //TRACE_I("  SalGetIconFromPIDL() SHGetFileInfo for SHGFI_ICON | SHGFI_SMALLICON hIconSmall="<<hIconSmall);
+                    }
+                    if (hIconSmall == NULL || IsSolidBlackIcon(hIconSmall, IconSizes[ICONSIZE_16]))
+                    {
+                        HICON associationIcon = GetDefaultAssociationIcon(path, IconSizes[ICONSIZE_16]);
+                        if (associationIcon != NULL &&
+                            !IsSolidBlackIcon(associationIcon, IconSizes[ICONSIZE_16]))
+                        {
+                            if (hIconSmall != NULL)
+                                HANDLES(DestroyIcon(hIconSmall));
+                            hIconSmall = associationIcon;
+                        }
+                        else if (associationIcon != NULL)
+                            HANDLES(DestroyIcon(associationIcon));
                     }
                 }
                 //else TRACE_I("  SalGetIconFromPIDL() path == NULL");
@@ -421,11 +536,6 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
             //TRACE_I("  SalGetIconFromPIDL() ExtractIcons hIconLarge="<<hIconLarge<<" hIconSmall="<<hIconSmall);
         }
 
-        if (preferExtractorSmallIcon && hIconSmall == NULL && hIconLarge == NULL &&
-            (wFlags & GIL_NOTFILENAME) && iconFile[0] == '*' && iconFile[1] == 0)
-        {
-            hIconSmall = GetShellImageListIcon(SHIL_SMALL, iconIndex);
-        }
     }
     if (iconSize == ICONSIZE_16 && hIconSmall != NULL &&
         GetIconPixelWidth(hIconSmall) != IconSizes[ICONSIZE_16] && pxi != NULL)

@@ -4161,6 +4161,12 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         GetWindowRect(HWindow, &WindowRect);
 
+        // DefWindowProc synchronously sends the authoritative WM_SIZE for a
+        // real size change. Let it update WindowWidth/WindowHeight before
+        // deciding whether the detach/reattach fallback is needed; checking
+        // first posted a redundant second full-window layout at startup.
+        LRESULT result = CWindow::WindowProc(uMsg, wParam, lParam);
+
         // Some detach/reattach paths move tab HWNDs between top-level hosts while Windows
         // is also changing activation/z-order.  If the following maximize/resize does not
         // deliver a usable WM_SIZE, the chrome and panel children keep their old rectangle
@@ -4183,7 +4189,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 PostMessage(HWindow, WM_SIZE, SIZE_RESTORED, MAKELPARAM(clientWidth, clientHeight));
             }
         }
-        return CWindow::WindowProc(uMsg, wParam, lParam);
+        return result;
     }
     }
 
@@ -10576,6 +10582,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         {
             KillTimer(HWindow, IDT_ASSOCIATIONSCHNG);
             OnAssociationsChangedNotification(FALSE);
+            break;
+        }
+
+        case IDT_FINISHSTARTUPREVEAL:
+        {
+            KillTimer(HWindow, IDT_FINISHSTARTUPREVEAL);
+            FinishStartupWindowReveal();
             break;
         }
 

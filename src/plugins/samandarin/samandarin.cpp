@@ -309,7 +309,13 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
     salamander->AddMenuItem(-1, LoadStr(IDS_MENU_PLUGIN_UPDATES), 0, MENUCMD_PLUGIN_UPDATES, FALSE,
                             MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
 
-    if (!ManagedBridge_EnsureInitialized(parent))
+    // Loading and starting the CLR costs hundreds of milliseconds on a cold
+    // launch. The managed Initialize command already schedules the update
+    // check asynchronously, so prewarm the bridge without blocking the host's
+    // first window. Interactive entry points wait for this worker through
+    // ManagedBridge_EnsureInitialized, and Release joins it before unloading.
+    if (!ManagedBridge_BeginInitialize(parent) &&
+        !ManagedBridge_EnsureInitialized(parent))
     {
         ShowInitializationError(parent);
     }

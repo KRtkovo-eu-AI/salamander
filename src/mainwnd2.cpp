@@ -36,7 +36,6 @@ static const char* DetectProductName(const char* root);
 static BOOL MCDIsGeneratedConfigDisplayName(const char* root, const char* version, const char* displayName);
 static BOOL MCDGetCurrentInstancePath(char* path, int pathSize);
 
-
 static void SaveInstalledPluginVersionsToBootstrap()
 {
     char fileName[SAL_MAX_PATH];
@@ -4604,6 +4603,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
 
         WINDOWPLACEMENT place;
         BOOL useWinPlacement = FALSE;
+        BOOL deferMainWindowReveal = FALSE;
         if (OpenKey(salamander, SALAMANDER_WINDOW_REG, actKey))
         {
             place.length = sizeof(WINDOWPLACEMENT);
@@ -5715,6 +5715,14 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             GetValue(actKey, CONFIG_PANELTOOLTIPS_REG, REG_DWORD,
                      &Configuration.PanelTooltips, sizeof(DWORD));
 
+            // Every RB_INSERTBAND synchronously sends RBN_AUTOSIZE. Laying out the whole
+            // hidden main window after each individual band is wasted work and used to
+            // dominate configuration loading. Batch those notifications and perform one
+            // complete layout after all configured bars exist.
+            BOOL batchToolbarLayout = ret && !LayoutWindowsInProgress;
+            if (batchToolbarLayout)
+                LayoutWindowsInProgress = TRUE;
+
             if (ret) // if we return FALSE, everything will be inserted later
             {
                 // bands must be inserted in the correct order according to their index
@@ -5729,17 +5737,29 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                         menuInserted = TRUE;
                     }
                     if (idx == Configuration.TopToolbarIndex && Configuration.TopToolBarVisible)
+                    {
                         ToggleTopToolBar(FALSE);
+                    }
                     if (idx == Configuration.PluginsBarIndex && Configuration.PluginsBarVisible)
+                    {
                         TogglePluginsBar(FALSE);
+                    }
                     if (idx == Configuration.ExtensionBarIndex && Configuration.ExtensionBarVisible)
+                    {
                         ToggleExtensionBar(FALSE);
+                    }
                     if (idx == Configuration.UserMenuToolbarIndex && Configuration.UserMenuToolBarVisible)
+                    {
                         ToggleUserMenuToolBar(FALSE);
+                    }
                     if (idx == Configuration.HotPathsBarIndex && Configuration.HotPathsBarVisible)
+                    {
                         ToggleHotPathsBar(FALSE);
+                    }
                     if (idx == Configuration.DriveBarIndex && Configuration.DriveBarVisible)
+                    {
                         ToggleDriveBar(Configuration.DriveBar2Visible, FALSE);
+                    }
                 }
                 if (!menuInserted)
                 {
@@ -5748,7 +5768,9 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                     InsertMenuBand();
                 }
                 if (Configuration.MiddleToolBarVisible)
+                {
                     ToggleMiddleToolBar();
+                }
                 CreateAndInsertWorkerBand(); // insert the worker band at the end
             }
 
@@ -5758,7 +5780,15 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             // builds the default UI. Do not create the bottom toolbar here too, otherwise
             // the caller's default pass toggles it back off.
             if (ret && Configuration.BottomToolBarVisible)
+            {
                 ToggleBottomToolBar();
+            }
+
+            if (batchToolbarLayout)
+            {
+                LayoutWindowsInProgress = FALSE;
+                LayoutWindows();
+            }
 
             //      GetValue(actKey, CONFIG_SPACESELCALCSPACE, REG_DWORD,
             //               &Configuration.SpaceSelCalcSpace, sizeof(DWORD));
@@ -5944,6 +5974,9 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             CloseKey(actKey);
         }
 
+        // Registry/configuration loading is complete. Panel objects and their
+        // active directory listings are initialized in the next phase.
+        IfExistSetSplashScreenText(LoadStr(IDS_STARTUP_DATA));
         //---  left and right panel
 
         char leftPanelPath[MAX_PATH];
@@ -5972,17 +6005,6 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
 
         if (cmdLine && !SystemPolicies.GetNoRun())
             PostMessage(HWindow, WM_COMMAND, CM_TOGGLEEDITLINE, TRUE);
-
-        // Finish messages queued while the hidden main window and its controls were being
-        // initialized. In particular, toolbar/rebar layout and panel paints must settle before
-        // SetWindowPlacement reveals the window below; otherwise their intermediate state flashes
-        // on screen and panel contents can visibly change immediately after startup.
-        MSG msg;
-        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-        {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
 
         // set the active panel according to command line parameters
         if (ret && cmdLineParams != NULL)
@@ -6028,7 +6050,6 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             SetMenuItemInfo(h, SC_MAXIMIZE, FALSE, &mii);
         }
 
-        SplashScreenCloseIfExist();
         if (Configuration.StatusArea)
             AddTrayIcon();
 
@@ -6103,7 +6124,14 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                 }
                 }
             }
-            SetWindowPlacement(HWindow, &place);
+            // Keep the ordinary two-panel window hidden until both panel paths
+            // and their list boxes are fully initialized.  Showing it here
+            // exposes the saved panel contents first and the final directory
+            // refresh a moment later, which makes both panels visibly blink.
+            if (Configuration.DetachedPanels)
+                SetWindowPlacement(HWindow, &place);
+            else
+                deferMainWindowReveal = TRUE;
         }
         if (Configuration.DetachedPanels)
         {
@@ -6215,10 +6243,82 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         // restore DefaultDir
         MainWindow->UpdateDefaultDir(TRUE);
 
+        // Publish the first main-window frame only after all panel state is
+        // final.  The splash remains visible during preparation, and the
+        // synchronous redraw prevents DWM from presenting an empty interim
+        // client area after SetWindowPlacement makes the window visible.
+        if (deferMainWindowReveal)
+        {
+            const BOOL revealWindow = place.showCmd != SW_HIDE;
+            const BOOL windowCloaked = revealWindow && DarkModeSetWindowCloaked(HWindow, true);
+            SetWindowPlacement(HWindow, &place);
+            RedrawWindow(HWindow, NULL, NULL,
+                         RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
+            StartupWindowCloaked = windowCloaked;
+        }
+
         return ret;
     }
 
     LoadSaveToRegistryMutex.Leave();
 
     return FALSE;
+}
+
+void CMainWindow::RevealStartupWindow()
+{
+    // Plugin load-on-start and command-line processing still run after
+    // LoadConfig. Keep their owned wait windows and all resulting panel
+    // layouts behind the splash, then publish exactly one final frame.
+    // Closing the splash/startup wait owner causes one synthetic activation
+    // transition. The panels were read only moments ago, so letting that
+    // transition enter CFilesWindow::Activate queues a second complete
+    // directory/icon pass and visibly clears and repaints both panels.
+    FirstActivateApp = FALSE;
+    SkipOneActivateRefresh = TRUE;
+    PostMessage(HWindow, WM_USER_SKIPONEREFRESH, 0, 0);
+
+    MSG msg;
+    while (PeekMessage(&msg, HWindow, WM_USER_END_SUSPMODE, WM_USER_END_SUSPMODE, PM_REMOVE))
+        ;
+    ActivateSuspMode = 0;
+
+    // SetFont posts a WM_SIZE after the startup DPI transition. Complete that
+    // one deferred whole-window layout before processing the panel refreshes
+    // it generated; otherwise the message loop rebuilds all chrome during the
+    // first visible frames.
+    while (PeekMessage(&msg, HWindow, WM_SIZE, WM_SIZE, PM_REMOVE))
+        SendMessage(HWindow, msg.message, msg.wParam, msg.lParam);
+
+    // Do not uncloak here. Child DPI/rebar notifications processed during the
+    // first message-loop turn can still post another top-level layout and panel
+    // refresh. Publishing the window now exposes those intermediate frames.
+    // Queue the final barrier behind messages already posted by startup. A
+    // real timer is a low-priority message and was observed to leave the
+    // completed, cloaked window behind the splash for hundreds of milliseconds.
+    if (!PostMessage(HWindow, WM_TIMER, IDT_FINISHSTARTUPREVEAL, 0))
+    {
+        // Only an exhausted message queue leaves no asynchronous barrier.
+        // Keep the old synchronous fallback so startup can still complete.
+        FinishStartupWindowReveal();
+    }
+}
+
+void CMainWindow::FinishStartupWindowReveal()
+{
+    // The first message-loop turn may have generated fresh delayed activation
+    // or DPI refreshes. Finish or cancel them while the DWM surface is still
+    // cloaked, draw the one final frame, and only then publish the window.
+    LeftPanel->CompletePendingStartupRefreshes();
+    RightPanel->CompletePendingStartupRefreshes();
+
+    RedrawWindow(HWindow, NULL, NULL,
+                 RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
+
+    if (StartupWindowCloaked)
+    {
+        DarkModeSetWindowCloaked(HWindow, false);
+        StartupWindowCloaked = FALSE;
+    }
+    SplashScreenCloseIfExist();
 }

@@ -1641,7 +1641,13 @@ void CMainWindow::FocusPanel(CFilesWindow* focus, BOOL testIfMainWndActive)
 
     CFilesWindow* old = GetActivePanel();
     SetActivePanel(focus);
-    if (DetachedPanels && focus == RightPanel)
+    if (RestoringPanelPaths)
+    {
+        // LoadPanelConfig temporarily activates each side while all tab paths
+        // are restored.  The final FocusPanel call after restoration updates
+        // the shared Tree View once for the real active panel.
+    }
+    else if (DetachedPanels && focus == RightPanel)
     {
         // The detached window owns an independent tree-view host. Updating the
         // main-window tree while focus only moves inside the detached window

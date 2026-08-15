@@ -247,6 +247,14 @@ try {
             )
         },
         @{
+            Name = 'panel_rendering_contract_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\panel_rendering_contract_tests.py')
+            )
+        },
+        @{
             Name = 'webview2_render_viewer_contract_tests'
             Arguments = @(
                 '-B',

@@ -24,6 +24,10 @@ void DarkModeShutdown();
 // Returns true if native dark mode APIs are available on this system.
 bool DarkModeIsSupported();
 
+// Hides or reveals a window at the DWM compositor without changing its Win32
+// visibility. Returns false when the DWM API is unavailable or rejects it.
+bool DarkModeSetWindowCloaked(HWND hwnd, bool cloaked);
+
 // Enables or disables native dark mode integration for the process.
 void DarkModeSetEnabled(bool enabled);
 

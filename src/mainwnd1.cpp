@@ -381,6 +381,7 @@ CMainWindow::CMainWindow()
     strcpy(SelectionMask, "*.*");
     Created = FALSE;
     RestoringPanelPaths = FALSE;
+    StartupWindowCloaked = FALSE;
     DetachedPanels = FALSE;
     CreatingDetachedChrome = FALSE;
     DetachedPanelsSwapFixNeeded = FALSE;
@@ -637,7 +638,9 @@ BOOL CMainWindow::ToggleTopToolBar(BOOL storePos)
     if (TopToolBar == NULL)
         return FALSE;
 
-    LockWindowUpdate(HWindow);
+    const BOOL lockWindowUpdate = IsWindowVisible(HWindow) && !StartupWindowCloaked;
+    if (lockWindowUpdate)
+        LockWindowUpdate(HWindow);
 
     if (TopToolBar->HWindow != NULL)
     {
@@ -665,7 +668,8 @@ BOOL CMainWindow::ToggleTopToolBar(BOOL storePos)
             StoreBandsPos();
     }
 
-    LockWindowUpdate(NULL);
+    if (lockWindowUpdate)
+        LockWindowUpdate(NULL);
 
     if (DetachedPanels)
     {
@@ -696,7 +700,9 @@ BOOL CMainWindow::ToggleExtensionBar(BOOL storePos)
     if (ExtensionBar == NULL)
         return FALSE;
 
-    LockWindowUpdate(HWindow);
+    const BOOL lockWindowUpdate = IsWindowVisible(HWindow) && !StartupWindowCloaked;
+    if (lockWindowUpdate)
+        LockWindowUpdate(HWindow);
     if (ExtensionBar->HWindow != NULL)
     {
         int index = (int)SendMessage(HTopRebar, RB_IDTOINDEX,
@@ -719,7 +725,8 @@ BOOL CMainWindow::ToggleExtensionBar(BOOL storePos)
         if (storePos)
             StoreBandsPos();
     }
-    LockWindowUpdate(NULL);
+    if (lockWindowUpdate)
+        LockWindowUpdate(NULL);
 
     if (DetachedPanels)
     {
@@ -736,7 +743,9 @@ BOOL CMainWindow::TogglePluginsBar(BOOL storePos)
     if (PluginsBar == NULL)
         return FALSE;
 
-    LockWindowUpdate(HWindow);
+    const BOOL lockWindowUpdate = IsWindowVisible(HWindow) && !StartupWindowCloaked;
+    if (lockWindowUpdate)
+        LockWindowUpdate(HWindow);
 
     if (PluginsBar->HWindow != NULL)
     {
@@ -761,7 +770,8 @@ BOOL CMainWindow::TogglePluginsBar(BOOL storePos)
             StoreBandsPos();
     }
 
-    LockWindowUpdate(NULL);
+    if (lockWindowUpdate)
+        LockWindowUpdate(NULL);
 
     if (DetachedPanels)
     {
@@ -779,7 +789,9 @@ BOOL CMainWindow::ToggleMiddleToolBar()
     if (MiddleToolBar == NULL)
         return FALSE;
 
-    LockWindowUpdate(HWindow);
+    const BOOL lockWindowUpdate = IsWindowVisible(HWindow) && !StartupWindowCloaked;
+    if (lockWindowUpdate)
+        LockWindowUpdate(HWindow);
 
     if (MiddleToolBar->HWindow != NULL)
     {
@@ -798,7 +810,8 @@ BOOL CMainWindow::ToggleMiddleToolBar()
         Configuration.MiddleToolBarVisible = TRUE;
     }
 
-    LockWindowUpdate(NULL);
+    if (lockWindowUpdate)
+        LockWindowUpdate(NULL);
 
     return TRUE;
 }
@@ -809,7 +822,9 @@ BOOL CMainWindow::ToggleUserMenuToolBar(BOOL storePos)
     if (UMToolBar == NULL)
         return FALSE;
 
-    LockWindowUpdate(HWindow);
+    const BOOL lockWindowUpdate = IsWindowVisible(HWindow) && !StartupWindowCloaked;
+    if (lockWindowUpdate)
+        LockWindowUpdate(HWindow);
 
     if (UMToolBar->HWindow != NULL)
     {
@@ -835,7 +850,8 @@ BOOL CMainWindow::ToggleUserMenuToolBar(BOOL storePos)
             StoreBandsPos();
     }
 
-    LockWindowUpdate(NULL);
+    if (lockWindowUpdate)
+        LockWindowUpdate(NULL);
 
     if (DetachedPanels)
     {
@@ -853,7 +869,9 @@ BOOL CMainWindow::ToggleHotPathsBar(BOOL storePos)
     if (HPToolBar == NULL)
         return FALSE;
 
-    LockWindowUpdate(HWindow);
+    const BOOL lockWindowUpdate = IsWindowVisible(HWindow) && !StartupWindowCloaked;
+    if (lockWindowUpdate)
+        LockWindowUpdate(HWindow);
 
     if (HPToolBar->HWindow != NULL)
     {
@@ -877,7 +895,8 @@ BOOL CMainWindow::ToggleHotPathsBar(BOOL storePos)
             StoreBandsPos();
     }
 
-    LockWindowUpdate(NULL);
+    if (lockWindowUpdate)
+        LockWindowUpdate(NULL);
 
     if (DetachedPanels)
     {
@@ -895,7 +914,9 @@ BOOL CMainWindow::ToggleDriveBar(BOOL twoDriveBars, BOOL storePos)
     if (DriveBar == NULL || DriveBar2 == NULL)
         return FALSE;
 
-    LockWindowUpdate(HWindow);
+    const BOOL lockWindowUpdate = IsWindowVisible(HWindow) && !StartupWindowCloaked;
+    if (lockWindowUpdate)
+        LockWindowUpdate(HWindow);
 
     BOOL forceShow = TRUE;
     BOOL twoBarsVisible = (DriveBar2->HWindow != NULL);
@@ -949,7 +970,8 @@ BOOL CMainWindow::ToggleDriveBar(BOOL twoDriveBars, BOOL storePos)
             StoreBandsPos();
     }
 
-    LockWindowUpdate(NULL);
+    if (lockWindowUpdate)
+        LockWindowUpdate(NULL);
     //  InvalidateRect(HTopRebar, NULL, TRUE);
     //  UpdateWindow(HTopRebar);
     if (DetachedPanels)
@@ -3403,29 +3425,43 @@ BOOL CMainWindow::ReattachDetachedTab(CFilesWindow* panel, CPanelSide targetSide
     BOOL wasGloballyActive = GetActivePanel() == panel;
     HWND detachedWindow = info->HWindow;
 
+    const BOOL suppressDetachedRedraw = detachedWindow != NULL && IsWindowVisible(detachedWindow);
     if (detachedWindow != NULL)
     {
         info->Placement.length = sizeof(WINDOWPLACEMENT);
         GetWindowPlacement(detachedWindow, &info->Placement);
-        ShowWindow(detachedWindow, SW_HIDE);
+        if (suppressDetachedRedraw)
+            SendMessage(detachedWindow, WM_SETREDRAW, FALSE, 0);
     }
 
     HWND targetHost = DetachedPanels && targetSide == cpsRight && HRightDetachedWindow != NULL
                           ? HRightDetachedWindow
                           : HWindow;
+    const BOOL suppressTargetRedraw = IsWindowVisible(targetHost);
+    if (suppressTargetRedraw)
+        SendMessage(targetHost, WM_SETREDRAW, FALSE, 0);
     SetParent(panel->HWindow, targetHost);
     if (!InsertPanelTabInstance(targetSide, insertIndex, panel, true))
     {
         SetParent(panel->HWindow, detachedWindow);
-        ShowWindow(detachedWindow, SW_SHOW);
+        if (suppressTargetRedraw)
+        {
+            SendMessage(targetHost, WM_SETREDRAW, TRUE, 0);
+            RedrawWindow(targetHost, NULL, NULL,
+                         RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
+        }
+        if (suppressDetachedRedraw)
+        {
+            SendMessage(detachedWindow, WM_SETREDRAW, TRUE, 0);
+            RedrawWindow(detachedWindow, NULL, NULL,
+                         RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
+        }
         return FALSE;
     }
 
     SendMessage(panel->HWindow, WM_DPICHANGED_AFTERPARENT, 0, 0);
     EnsurePanelRefreshAndRequest(panel, false, true);
     size_t detachedIndex = (size_t)(info - &DetachedTabs[0]);
-    if (detachedWindow != NULL)
-        DestroyWindow(detachedWindow);
     if (info->HHotToolBarImageList != NULL)
         ImageList_Destroy(info->HHotToolBarImageList);
     if (info->HGrayToolBarImageList != NULL)
@@ -3473,6 +3509,21 @@ BOOL CMainWindow::ReattachDetachedTab(CFilesWindow* panel, CPanelSide targetSide
     LayoutWindows();
     RefreshCommandStates();
     Plugins.Event(PLUGINEVENT_TABCHANGED, targetSide == cpsRight ? PANEL_RIGHT : PANEL_LEFT);
+    if (suppressTargetRedraw)
+    {
+        SendMessage(targetHost, WM_SETREDRAW, TRUE, 0);
+        RedrawWindow(targetHost, NULL, NULL,
+                     RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
+    }
+    // Keep the old detached surface visible and frozen until the complete
+    // target-host frame exists behind it. Destroying it earlier exposes a hole
+    // followed by the target panel being assembled in several visible steps.
+    if (detachedWindow != NULL)
+    {
+        if (suppressDetachedRedraw)
+            DarkModeSetWindowCloaked(detachedWindow, true);
+        DestroyWindow(detachedWindow);
+    }
     return TRUE;
 }
 
@@ -3576,6 +3627,15 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         if (HRightDetachedWindow == NULL)
             return FALSE;
 
+        // Build the detached host as one compositor transaction. Reparenting
+        // the right panel first used to expose an empty half of the main window
+        // while its duplicate chrome and DPI resources were still being made.
+        const BOOL suppressMainRedraw = IsWindowVisible(HWindow);
+        if (suppressMainRedraw)
+            SendMessage(HWindow, WM_SETREDRAW, FALSE, 0);
+        SendMessage(HRightDetachedWindow, WM_SETREDRAW, FALSE, 0);
+        const BOOL detachedWindowCloaked = DarkModeSetWindowCloaked(HRightDetachedWindow, true);
+
         if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
         {
             SetParent(RightTabWindow->HWindow, HRightDetachedWindow);
@@ -3599,7 +3659,19 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         DetachedPanelsSwapFixNeeded = FALSE;
         UpdateDetachedMenuLabels();
         if (!EnsureDetachedChrome())
+        {
+            SendMessage(HRightDetachedWindow, WM_SETREDRAW, TRUE, 0);
+            if (detachedWindowCloaked)
+                DarkModeSetWindowCloaked(HRightDetachedWindow, false);
+            if (suppressMainRedraw)
+            {
+                SendMessage(HWindow, WM_SETREDRAW, TRUE, 0);
+                RedrawWindow(HWindow, NULL, NULL,
+                             RDW_INVALIDATE | RDW_ERASE | RDW_FRAME |
+                                 RDW_ALLCHILDREN | RDW_UPDATENOW);
+            }
             return FALSE;
+        }
         CreatingDetachedChrome = TRUE;
         RightPanel->TreeViewWidth = Configuration.DetachedTreeViewWidth;
         RightPanel->TreeViewAutoHide = Configuration.DetachedTreeViewAutoHide;
@@ -3614,10 +3686,39 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         LayoutWindows();
         LayoutDetachedPanels();
         SetWindowTitle();
+        SetActivePanel(RightPanel);
+        Plugins.Event(PLUGINEVENT_TABCHANGED, PANEL_RIGHT);
         CreatingDetachedChrome = FALSE;
+
+        SendMessage(HRightDetachedWindow, WM_SETREDRAW, TRUE, 0);
+        RedrawWindow(HRightDetachedWindow, NULL, NULL,
+                     RDW_INVALIDATE | RDW_ERASE | RDW_FRAME |
+                         RDW_ALLCHILDREN | RDW_UPDATENOW);
+        if (suppressMainRedraw)
+        {
+            SendMessage(HWindow, WM_SETREDRAW, TRUE, 0);
+            RedrawWindow(HWindow, NULL, NULL,
+                         RDW_INVALIDATE | RDW_ERASE | RDW_FRAME |
+                             RDW_ALLCHILDREN | RDW_UPDATENOW);
+        }
+        if (detachedWindowCloaked)
+            DarkModeSetWindowCloaked(HRightDetachedWindow, false);
+        return TRUE;
     }
     else
     {
+        // Reparenting the right-side tab strip and every panel, rebuilding the
+        // shared chrome, resizing the main window, and replaying swap state are
+        // one visual transaction. Keep both currently visible hosts frozen so
+        // none of those intermediate rectangles is presented.
+        const BOOL suppressMainRedraw = IsWindowVisible(HWindow);
+        const BOOL suppressDetachedRedraw = HRightDetachedWindow != NULL &&
+                                             IsWindowVisible(HRightDetachedWindow);
+        if (suppressMainRedraw)
+            SendMessage(HWindow, WM_SETREDRAW, FALSE, 0);
+        if (suppressDetachedRedraw)
+            SendMessage(HRightDetachedWindow, WM_SETREDRAW, FALSE, 0);
+
         RECT mainRectBeforeReattach;
         RECT mainClientBeforeReattach;
         RECT detachedRectBeforeReattach;
@@ -3670,8 +3771,6 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
         }
         CreatingDetachedChrome = FALSE;
         DestroyDetachedChrome();
-        if (HRightDetachedWindow != NULL)
-            ShowWindow(HRightDetachedWindow, SW_HIDE);
         // The detached menu used a different DPI and shared menu item metrics.
         // Re-measure the main menu before the rebar negotiates its bands again;
         // otherwise the old cxMinChild clips item captions on their right edge.
@@ -3785,8 +3884,6 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
 
         UpdatePanelTabVisibility(cpsLeft);
         UpdatePanelTabVisibility(cpsRight);
-        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_FRAME | RDW_UPDATENOW);
-
         if (DetachedPanelsSwapFixNeeded)
         {
             DetachedPanelsSwapFixNeeded = FALSE;
@@ -3798,14 +3895,28 @@ BOOL CMainWindow::SetPanelsDetached(BOOL detached)
             SendMessage(HWindow, WM_COMMAND, CM_SWAPPANELS, 0);
         }
 
-    }
-
-    if (DetachedPanels)
-        SetActivePanel(RightPanel);
-    else
         FocusPanel(GetActivePanel());
-    Plugins.Event(PLUGINEVENT_TABCHANGED, PANEL_RIGHT);
-    return TRUE;
+        Plugins.Event(PLUGINEVENT_TABCHANGED, PANEL_RIGHT);
+
+        if (suppressMainRedraw)
+        {
+            SendMessage(HWindow, WM_SETREDRAW, TRUE, 0);
+            RedrawWindow(HWindow, NULL, NULL,
+                         RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
+        }
+        // The detached window is the visual cover over the area by which the
+        // main window grows. Leave its last complete surface in place until
+        // the expanded main surface has been fully drawn behind it.
+        const BOOL detachedWindowCloaked = suppressDetachedRedraw &&
+                                           DarkModeSetWindowCloaked(HRightDetachedWindow, true);
+        if (suppressDetachedRedraw)
+            SendMessage(HRightDetachedWindow, WM_SETREDRAW, TRUE, 0);
+        if (HRightDetachedWindow != NULL)
+            ShowWindow(HRightDetachedWindow, SW_HIDE);
+        if (detachedWindowCloaked)
+            DarkModeSetWindowCloaked(HRightDetachedWindow, false);
+        return TRUE;
+    }
 }
 
 BOOL CMainWindow::TogglePanelsDetached()

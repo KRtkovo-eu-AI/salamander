@@ -6,6 +6,7 @@
 #include <string>
 
 bool ManagedBridge_EnsureInitialized(HWND parent);
+bool ManagedBridge_BeginInitialize(HWND parent);
 void ManagedBridge_Shutdown();
 bool ManagedBridge_ShowConfiguration(HWND parent);
 void ManagedBridge_NotifyColorsChanged();

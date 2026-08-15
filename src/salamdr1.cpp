@@ -5466,7 +5466,7 @@ FIND_NEW_SLG_FILE:
                         SendMessage(MainWindow->HWindow, WM_COMMAND, CM_TOGGLEEDITLINE, TRUE);
                     MainWindow->SetWindowIcon();
                     MainWindow->SetWindowTitle();
-                    SplashScreenCloseIfExist();
+                    MainWindow->StartupWindowCloaked = DarkModeSetWindowCloaked(MainWindow->HWindow, true);
                     ShowWindow(MainWindow->HWindow, cmdShow);
                     UpdateWindow(MainWindow->HWindow);
                     MainWindow->RefreshDirs();
@@ -5651,6 +5651,13 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
 
                     if (IsSLGIncomplete[0] != 0 && Configuration.ShowSLGIncomplete)
                         PostMessage(MainWindow->HWindow, WM_USER_SLGINCOMPLETE, 0, 0);
+
+                    // LoadConfig is not the end of startup: command-line
+                    // handling and load-on-start plug-ins can still relayout
+                    // both panels. Replace the splash only after all of that
+                    // work is complete, so no intermediate main-window frame
+                    // is ever presented.
+                    MainWindow->RevealStartupWindow();
 
                     //--- aplikacni smycka
                     CALL_STACK_MESSAGE1("WinMainBody::message_loop");

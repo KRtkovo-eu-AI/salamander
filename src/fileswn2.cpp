@@ -781,6 +781,10 @@ void CFilesWindow::ExpandTreeViewAutoHide()
         return;
     TreeViewAutoHideExpanded = TRUE;
     TreeViewAutoHideCollapseStart = 0;
+    // A collapsed auto-hide tree is deliberately not populated during startup.
+    // Populate it only when the user actually expands the panel.
+    RefreshTreeViewDPI();
+    RefreshTreeView();
     if (HTreeHeader != NULL)
         InvalidateRect(HTreeHeader, NULL, TRUE);
     if (MainWindow != NULL)
@@ -2240,7 +2244,10 @@ void CFilesWindow::CreateTreeView()
         DarkModeApplyWindow(HTreeView);
         DarkModePreserveCustomTreeView(HTreeView);
 
-        RefreshTreeViewDPI();
+        // Copying every shell image-list entry is expensive and pointless while
+        // an auto-hide tree is collapsed.  It is initialized on first expand.
+        if (!TreeViewAutoHide || TreeViewAutoHideExpanded)
+            RefreshTreeViewDPI();
         UpdateTreeViewColors();
     }
 
@@ -2465,7 +2472,7 @@ void CFilesWindow::UpdateTreeView(BOOL active)
     if (HTreeView != NULL)
     {
         ShowWindow(HTreeView, TreeViewActive && (!TreeViewAutoHide || TreeViewAutoHideExpanded) ? SW_SHOW : SW_HIDE);
-        if (TreeViewActive)
+        if (TreeViewActive && (!TreeViewAutoHide || TreeViewAutoHideExpanded))
             RefreshTreeView();
     }
     if (HTreeHeader != NULL)
