@@ -332,6 +332,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repository-root", type=Path, default=Path.cwd())
     parser.add_argument("--baseline-commit")
+    parser.add_argument("--baseline-label")
     parser.add_argument("--tag-prefix", default="5.0-samandarin-")
     parser.add_argument("--current-label", default="working tree")
     parser.add_argument("--output-json", type=Path)
@@ -340,9 +341,14 @@ def main() -> int:
     args = parser.parse_args()
 
     repository = args.repository_root.resolve()
-    baseline = resolve_baseline(repository, args.tag_prefix)
     if args.baseline_commit:
-        baseline["commit"] = str(git(repository, "rev-parse", args.baseline_commit)).strip().lower()
+        baseline = {
+            "tag": args.baseline_label or args.baseline_commit,
+            "version": "",
+            "commit": str(git(repository, "rev-parse", args.baseline_commit)).strip().lower(),
+        }
+    else:
+        baseline = resolve_baseline(repository, args.tag_prefix)
 
     if args.summary_only:
         summary = source_diff_summary(repository, baseline["commit"])
