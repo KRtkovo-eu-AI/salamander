@@ -107,6 +107,31 @@ def main() -> None:
         "RightTabWindow->RefreshDPIResources();",
         "attached right tab resources rebuilt by the complete main-window DPI refresh",
     )
+    require(
+        implementation,
+        "case WM_POWERBROADCAST:",
+        "power suspend and resume handling",
+    )
+    require(
+        implementation,
+        "GetWindowPlacement(HWindow, &PreSuspendWindowPlacement)",
+        "main-window placement captured before suspend",
+    )
+    require(
+        implementation,
+        "ScheduleResumeWindowPlacementRestore(HWindow);",
+        "placement restore deferred until resume display changes settle",
+    )
+    require(
+        mainwnd3,
+        "MultiMonEnsureRectVisible(&placement.rcNormalPosition, FALSE);",
+        "pre-suspend placement constrained to the resumed monitor topology",
+    )
+    require(
+        mainwnd3,
+        "SetWindowPlacement(hWindow, &placement);",
+        "complete pre-suspend placement restored after resume",
+    )
 
     print("Main-window move contract tests passed.")
 

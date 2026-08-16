@@ -1811,6 +1811,7 @@ DWORD CfgSkillLevelToMenu(BYTE cfgSkillLevel);
 #define IDT_DELAYEDTHROBBER 950
 #define IDT_UPDATETASKLIST 951
 #define IDT_FINISHSTARTUPREVEAL 952
+#define IDT_RESTOREWINDOWPLACEMENT 953
 
 // POZOR: skoro vsechny funkce v teto sekci pri chybe zobrazuji hlaseni o LOAD / SAVE
 //        konfigurace, coz z nich dela nevhodne pro bezny pristup do Registry,
