@@ -104,6 +104,10 @@ def main() -> None:
         require(source, "GetEffectiveDefaultUILogFont(",
                 f"effective UI font in window chrome from {relative_path}")
 
+    viewer = (ROOT / "src/viewer.cpp").read_text(encoding="utf-8")
+    require(viewer, 'SetProp(HWindow, _T("OpenSalamander.UIFont"), StatusFont)',
+            "Internal Viewer UI font handoff to dark menu rendering")
+
     splash = (ROOT / "src/logo.cpp").read_text(encoding="utf-8")
     require(splash, 'strcpy(lf.lfFaceName, "MS Shell Dlg 2")',
             "original fixed font in the Splash screen")
@@ -117,8 +121,8 @@ def main() -> None:
     viewer3 = (ROOT / "src/viewer3.cpp").read_text(encoding="utf-8")
     require(viewer3, "popup.SetTemplateMenu(subMenu)",
             "shared UI-font context menu in the Internal Viewer")
-    require(viewer3, "MeasureViewerMenuBarItem(",
-            "UI-font metrics in the Internal Viewer native menu bar")
+    if "WM_UAHMEASUREMENUITEM" in viewer3:
+        raise AssertionError("Internal Viewer must leave native menu measurement to Windows")
 
     require(plugin_winlib_h, "WinLibGetDefaultUILogFontForDPI",
             "shared plug-in DPI-aware UI font getter")
@@ -142,6 +146,13 @@ def main() -> None:
     require(pictview_status, "WinLibGetDefaultUILogFont(HWindow, &logFont)",
             "UI font in the PictView status bar")
 
+    dark_status = (ROOT / "src/third_party/darkmodelib/src/DmlibSubclassControl.cpp").read_text(
+        encoding="utf-8")
+    require(dark_status, "case WM_SETFONT:",
+            "custom font updates in dark status-bar painting")
+    require(dark_status, "pStatusBarData->setFont(reinterpret_cast<HFONT>(wParam))",
+            "dark status-bar font synchronization")
+
     for relative_path in (
         "src/plugins/filecomp/dialogs2.cpp",
         "src/plugins/filecomp/dialogs4.cpp",
@@ -151,8 +162,8 @@ def main() -> None:
         require(source, "SetTemplateMenu(",
                 f"shared UI-font context menu in {relative_path}")
     filecomp_main = (ROOT / "src/plugins/filecomp/mainwnd.cpp").read_text(encoding="utf-8")
-    require(filecomp_main, "MeasureFileCompMenuBarItem(",
-            "UI-font metrics in the File Comparator native menu bar")
+    if "WM_UAHMEASUREMENUITEM" in filecomp_main:
+        raise AssertionError("File Comparator must leave native menu measurement to Windows")
     require(filecomp_main, 'SetProp(HWindow, _T("OpenSalamander.UIFont"), EnvFont)',
             "dark native menu-bar UI font handoff in File Comparator")
 

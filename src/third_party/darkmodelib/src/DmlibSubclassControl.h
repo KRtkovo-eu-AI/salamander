@@ -376,8 +376,23 @@ namespace dmlib_subclass
 		StatusBarData() = delete;
 
 		explicit StatusBarData(const HFONT& hFont) noexcept
-			: m_fontData(hFont)
-		{}
+		{
+			setFont(hFont);
+		}
+
+		void setFont(HFONT hFont) noexcept
+		{
+			LOGFONTW lf{};
+			if (hFont != nullptr
+				&& ::GetObjectW(hFont, sizeof(lf), &lf) == sizeof(lf))
+			{
+				HFONT clonedFont = ::CreateFontIndirectW(&lf);
+				if (clonedFont != nullptr)
+				{
+					m_fontData.setFont(clonedFont);
+				}
+			}
+		}
 	};
 
 	/**

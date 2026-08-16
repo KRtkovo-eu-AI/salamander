@@ -119,9 +119,6 @@ LRESULT CALLBACK ViewerZoomControlSubclass(HWND hwnd, UINT message, WPARAM wPara
 #ifndef WM_UAHDRAWMENUITEM
 #define WM_UAHDRAWMENUITEM 0x0092
 #endif
-#ifndef WM_UAHMEASUREMENUITEM
-#define WM_UAHMEASUREMENUITEM 0x0094
-#endif
 
 typedef struct tagViewerUAHMENU
 {
@@ -163,13 +160,6 @@ typedef struct tagViewerUAHDRAWMENUITEM
     ViewerUAHMENU um;
     ViewerUAHMENUITEM umi;
 } ViewerUAHDRAWMENUITEM;
-
-typedef struct tagViewerUAHMEASUREMENUITEM
-{
-    MEASUREITEMSTRUCT mis;
-    ViewerUAHMENU um;
-    ViewerUAHMENUITEM umi;
-} ViewerUAHMEASUREMENUITEM;
 
 void FillViewerRectWithColor(HDC hdc, const RECT* rect, COLORREF color)
 {
@@ -282,41 +272,6 @@ void PaintViewerMenuBarItem(ViewerUAHDRAWMENUITEM* item)
         HANDLES(DeleteObject(font));
     SetTextColor(item->um.hdc, oldText);
     SetBkMode(item->um.hdc, oldBkMode);
-}
-
-void MeasureViewerMenuBarItem(ViewerUAHMEASUREMENUITEM* item)
-{
-    if (item == NULL || DialogFontMode == DIALOG_FONT_DEFAULT)
-        return;
-    wchar_t textBuf[MAX_PATH];
-    textBuf[0] = 0;
-    MENUITEMINFOW mii;
-    memset(&mii, 0, sizeof(mii));
-    mii.cbSize = sizeof(mii);
-    mii.fMask = MIIM_STRING;
-    mii.dwTypeData = textBuf;
-    mii.cch = _countof(textBuf) - 1;
-    if (!GetMenuItemInfoW(item->um.hmenu, (UINT)item->umi.iPosition, TRUE, &mii))
-        return;
-
-    LOGFONT logFont;
-    HWND dpiWindow = WindowFromDC(item->um.hdc);
-    GetEffectiveDefaultUILogFont(&logFont, dpiWindow);
-    HFONT font = HANDLES(CreateFontIndirect(&logFont));
-    if (font == NULL)
-        return;
-    HDC dc = HANDLES(GetDC(NULL));
-    HFONT oldFont = (HFONT)SelectObject(dc, font);
-    SIZE size;
-    if (GetTextExtentPoint32W(dc, textBuf, (int)wcslen(textBuf), &size))
-    {
-        item->mis.itemWidth = size.cx + WinLibDPIFromLogical(dpiWindow, 14);
-        item->mis.itemHeight = max(item->mis.itemHeight,
-                                   (UINT)(size.cy + WinLibDPIFromLogical(dpiWindow, 6)));
-    }
-    SelectObject(dc, oldFont);
-    HANDLES(ReleaseDC(NULL, dc));
-    HANDLES(DeleteObject(font));
 }
 
 void ApplyViewerMenuTheme(HWND hwnd)
@@ -981,16 +936,6 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             PaintViewerMenuBarItem(reinterpret_cast<ViewerUAHDRAWMENUITEM*>(lParam));
             return 0;
-        }
-        break;
-    }
-
-    case WM_UAHMEASUREMENUITEM:
-    {
-        if (DialogFontMode != DIALOG_FONT_DEFAULT && lParam != 0)
-        {
-            MeasureViewerMenuBarItem(reinterpret_cast<ViewerUAHMEASUREMENUITEM*>(lParam));
-            return TRUE;
         }
         break;
     }

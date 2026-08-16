@@ -2847,6 +2847,8 @@ void CViewerWindow::RefreshStatusBarDPI()
 
     HFONT oldFont = StatusFont;
     StatusFont = newFont;
+    SetProp(HWindow, _T("OpenSalamander.UIFont"), StatusFont);
+    DrawMenuBar(HWindow);
     if (oldFont != NULL)
         HANDLES(DeleteObject(oldFont));
 }

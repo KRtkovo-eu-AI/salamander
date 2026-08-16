@@ -24,9 +24,6 @@ namespace
 #ifndef WM_UAHDRAWMENUITEM
 #define WM_UAHDRAWMENUITEM 0x0092
 #endif
-#ifndef WM_UAHMEASUREMENUITEM
-#define WM_UAHMEASUREMENUITEM 0x0094
-#endif
 
 typedef struct tagFileCompUAHMENU
 {
@@ -47,13 +44,6 @@ typedef struct tagFileCompUAHDRAWMENUITEM
     FileCompUAHMENU um;
     FileCompUAHMENUITEM umi;
 } FileCompUAHDRAWMENUITEM;
-
-typedef struct tagFileCompUAHMEASUREMENUITEM
-{
-    MEASUREITEMSTRUCT mis;
-    FileCompUAHMENU um;
-    FileCompUAHMENUITEM umi;
-} FileCompUAHMEASUREMENUITEM;
 
 BOOL GetFileCompMenuText(HMENU menu, int position, wchar_t* text, int textCount)
 {
@@ -101,27 +91,6 @@ void PaintFileCompMenuBarItem(FileCompUAHDRAWMENUITEM* item)
     SetTextColor(item->um.hdc, oldTextColor);
     SetBkMode(item->um.hdc, oldBkMode);
     SelectObject(item->um.hdc, oldFont);
-}
-
-void MeasureFileCompMenuBarItem(FileCompUAHMEASUREMENUITEM* item)
-{
-    if (item == NULL || EnvFont == NULL)
-        return;
-    wchar_t text[MAX_PATH];
-    if (!GetFileCompMenuText(item->um.hmenu, item->umi.iPosition, text, _countof(text)))
-        return;
-    HDC dc = GetDC(NULL);
-    HFONT oldFont = (HFONT)SelectObject(dc, EnvFont);
-    SIZE size;
-    if (GetTextExtentPoint32W(dc, text, (int)wcslen(text), &size))
-    {
-        UINT dpi = WinLibDPIGetWindowDPI(WindowFromDC(item->um.hdc));
-        item->mis.itemWidth = size.cx + MulDiv(14, dpi, USER_DEFAULT_SCREEN_DPI);
-        item->mis.itemHeight = max(item->mis.itemHeight,
-                                   (UINT)(size.cy + MulDiv(6, dpi, USER_DEFAULT_SCREEN_DPI)));
-    }
-    SelectObject(dc, oldFont);
-    ReleaseDC(NULL, dc);
 }
 
 void ApplyFileCompMainWindowChrome(HWND hwnd, HWND toolbar, HWND rebar)
@@ -1326,14 +1295,6 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             PaintFileCompMenuBarItem((FileCompUAHDRAWMENUITEM*)lParam);
             return 0;
-        }
-        break;
-
-    case WM_UAHMEASUREMENUITEM:
-        if (lParam != 0)
-        {
-            MeasureFileCompMenuBarItem((FileCompUAHMEASUREMENUITEM*)lParam);
-            return TRUE;
         }
         break;
 
