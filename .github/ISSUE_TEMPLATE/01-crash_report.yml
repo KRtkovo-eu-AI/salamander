@@ -18,7 +18,7 @@ body:
     attributes:
       label: "Open Salamander: Samandarin version"
       description: "Enter the Open Salamander: Samandarin version/build that crashed."
-      placeholder: e.g. 4.0 beta, commit/build number
+      placeholder: e.g. 5.0-samandarin-0.14, commit hash or build number
     validations:
       required: true
   - type: input
