@@ -30,6 +30,22 @@ char* CommandHistory[MAX_HISTORY_ENTRIES];
 
 namespace
 {
+void FlushDWMForInteractiveMove()
+{
+    typedef HRESULT(WINAPI * FDwmFlush)();
+    static FDwmFlush dwmFlush = NULL;
+    static BOOL loaded = FALSE;
+    if (!loaded)
+    {
+        HMODULE dwmApi = GetModuleHandleW(L"dwmapi.dll");
+        if (dwmApi != NULL)
+            dwmFlush = reinterpret_cast<FDwmFlush>(GetProcAddress(dwmApi, "DwmFlush"));
+        loaded = TRUE;
+    }
+    if (dwmFlush != NULL)
+        dwmFlush();
+}
+
 std::wstring Utf8OrAnsiToWide(const char* text)
 {
     if (text == NULL || *text == 0)
@@ -2337,6 +2353,14 @@ CRenamerDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         Destroy();
         DialogStackPop();
+        break;
+    }
+
+    case WM_WINDOWPOSCHANGED:
+    {
+        const WINDOWPOS* windowPos = reinterpret_cast<const WINDOWPOS*>(lParam);
+        if (windowPos != NULL && (windowPos->flags & SWP_NOSIZE) != 0)
+            FlushDWMForInteractiveMove();
         break;
     }
     }
