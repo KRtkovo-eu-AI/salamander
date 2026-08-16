@@ -798,25 +798,26 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (file != NULL && !isDir &&                                   // jde o soubor
                 (!Is(ptPluginFS) || GetPluginIconsType() != pitFromPlugin)) // nejde o ikonu z plug-inu
             {
-                char buf[MAX_PATH + 4]; // pripona malymi pismeny
-                char *s1 = buf, *s2 = file->Ext;
+                char extension[MAX_PATH + 4]; // pripona malymi pismeny
+                char *s1 = extension, *s2 = file->Ext;
                 while (*s2 != 0)
                     *s1++ = LowerCase[*s2++];
                 *((DWORD*)s1) = 0;
                 int index;
                 CIconSizeEnum iconSize = IconCache->GetIconSize();
-                BOOL icoFileIcon = iconSize == ICONSIZE_16 && *(DWORD*)buf == *(DWORD*)"ico";
+                BOOL icoFileIcon = iconSize == ICONSIZE_16 && *(DWORD*)extension == *(DWORD*)"ico";
                 if (!icoFileIcon &&
-                    Associations.GetIndex(buf, index) &&             // pripona ma ikonku (asociaci)
+                    Associations.GetIndex(extension, index) &&       // pripona ma ikonku (asociaci)
                     (Associations[index].GetIndex(iconSize) == -1 || // jde o ikonku, ktera se nacita
                      Associations[index].GetIndex(iconSize) == -3))
                 {
                     int icon;
                     CIconList* srcIconList;
                     int srcIconListIndex;
-                    memmove(buf, file->Name, file->NameLen);
-                    *(DWORD*)(buf + file->NameLen) = 0;
-                    if (IconCache->GetIndex(buf, icon, NULL, NULL) &&                                 // icon-thread ji nacita
+                    char fileName[MAX_PATH + 4];
+                    memmove(fileName, file->Name, file->NameLen);
+                    *(DWORD*)(fileName + file->NameLen) = 0;
+                    if (IconCache->GetIndex(fileName, icon, NULL, NULL) &&                            // icon-thread ji nacita
                         (IconCache->At(icon).GetFlag() == 1 || IconCache->At(icon).GetFlag() == 2) && // ikona je nactena nova nebo stara
                         IconCache->GetIcon(IconCache->At(icon).GetIndex(),
                                            &srcIconList, &srcIconListIndex)) // povede se ziskat nactenou ikonku
@@ -848,11 +849,11 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                             {
                                 // panely prekreslime pouze pokud odpovidaji velikosti ikon
                                 if (iconSize == GetIconSizeForCurrentViewMode())
-                                    RepaintIconsForExtension(buf);
+                                    RepaintIconsForExtension(extension);
 
                                 CFilesWindow* otherPanel = MainWindow->GetOtherPanel(this);
                                 if (otherPanel != NULL && iconSize == otherPanel->GetIconSizeForCurrentViewMode())
-                                    otherPanel->RepaintIconsForExtension(buf);
+                                    otherPanel->RepaintIconsForExtension(extension);
                             }
                             else
                                 PostAllIconsRepaint = TRUE;

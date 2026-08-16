@@ -106,10 +106,23 @@ def main() -> int:
     )
     if (
         association_refresh is None
-        or "RepaintIconsForExtension(buf);" not in association_refresh.group(0)
+        or "RepaintIconsForExtension(extension);"
+        not in association_refresh.group(0)
         or "RepaintIconOnly(-1)" in association_refresh.group(0)
     ):
         print("association icon delivery must not repaint every icon in both panels")
+        return 1
+    if (
+        "Associations.GetIndex(extension, index)" not in association_refresh.group(0)
+        or "IconCache->GetIndex(fileName, icon" not in association_refresh.group(0)
+        or association_refresh.group(0).count(
+            "RepaintIconsForExtension(extension);"
+        )
+        != 2
+    ):
+        print(
+            "association icon delivery must preserve the extension while looking up the source file"
+        )
         return 1
 
     if "!TreeViewAutoHide || TreeViewAutoHideExpanded" not in fileswnd2:
