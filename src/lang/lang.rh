@@ -327,6 +327,8 @@
 #define IDC_RELOADENVVARS               625
 #define IDC_PATHAUTOCOMPLETE            626
 #define IDC_CREATEDIR_AUTOCOMPLETE      627
+#define IDB_DIALOGFONT                  628
+#define IDE_DIALOGFONT                  629
 #define IDD_CFGPAGE_VIEWER              630
 #define IDC_COPYFINDTEXT                631
 #define IDC_NULLEOL                     632

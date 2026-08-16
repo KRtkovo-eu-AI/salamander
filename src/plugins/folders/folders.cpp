@@ -92,7 +92,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     // obtain the interface providing customized Windows controls used in Salamander
     SalamanderGUI = salamander->GetSalamanderGUI();
 
-    if (!InitializeWinLib("Folders" /* neprekladat! */, DLLInstance))
+    if (!InitializeWinLib("Folders" /* neprekladat! */, DLLInstance, SalamanderGeneral))
         return NULL;
     SetWinLibStrings("Invalid number!", LoadStr(IDS_PLUGINNAME));
 

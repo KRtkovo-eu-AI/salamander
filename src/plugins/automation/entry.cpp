@@ -109,7 +109,7 @@ CPluginInterfaceAbstract*
     if (!g_hLangInst)
         return NULL;
 
-    if (!InitializeWinLib(MSGBOX_CAPTION, g_hInstance))
+    if (!InitializeWinLib(MSGBOX_CAPTION, g_hInstance, SalamanderGeneral))
     {
         return NULL;
     }

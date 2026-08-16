@@ -35,9 +35,9 @@
 
 #include "winliblt.h"
 #include "../../common/winlibdpi.h"
+#include "spl_gen.h"
 
 #ifdef USE_DARKMODELIB
-#include "spl_gen.h"
 #include "../../darkmode.h"
 #endif // USE_DARKMODELIB
 
@@ -62,6 +62,75 @@ FWinLibLTHelpCallback WinLibLTHelpCallback = NULL; // callbacku pro pripojeni na
 //
 // ****************************************************************************
 
+namespace
+{
+CSalamanderGeneralAbstract* WinLibDialogFontGeneral = NULL;
+DWORD WinLibDialogFontMainThreadId = 0;
+LOGFONT WinLibDialogLogFont = {};
+BOOL WinLibDialogFontKnown = FALSE;
+UINT WinLibDialogFontSourceDPI = USER_DEFAULT_SCREEN_DPI;
+}
+
+void InitializeWinLibDialogFont(CSalamanderGeneralAbstract* salamanderGeneral)
+{
+    WinLibDialogFontGeneral = salamanderGeneral;
+    WinLibDialogFontMainThreadId = GetCurrentThreadId();
+    RefreshWinLibDialogFontFromHost();
+}
+
+void RefreshWinLibDialogFontFromHost()
+{
+    if (WinLibDialogFontGeneral == NULL || WinLibDialogFontMainThreadId == 0 ||
+        GetCurrentThreadId() != WinLibDialogFontMainThreadId)
+    {
+        return;
+    }
+
+    LOGFONT dialogLogFont;
+    if (WinLibDialogFontGeneral->GetConfigParameter(SALCFG_DIALOGFONT,
+                                                    &dialogLogFont,
+                                                    sizeof(dialogLogFont),
+                                                    NULL) &&
+        (!WinLibDialogFontKnown || memcmp(&WinLibDialogLogFont, &dialogLogFont, sizeof(dialogLogFont)) != 0))
+    {
+        WinLibDialogLogFont = dialogLogFont;
+        WinLibDialogFontSourceDPI = WinLibDPIGetWindowDPI(WinLibDialogFontGeneral->GetMainWindowHWND());
+        WinLibDialogFontKnown = TRUE;
+    }
+}
+
+void WinLibApplyDialogFont(HWND hwnd)
+{
+    LOGFONT dialogLogFont;
+    if (WinLibGetDefaultUILogFont(hwnd, &dialogLogFont))
+        WinLibDPIApplyDialogLogFont(hwnd, &dialogLogFont);
+}
+
+BOOL WinLibGetDefaultUILogFont(HWND hwnd, LOGFONT* logFont)
+{
+    return WinLibGetDefaultUILogFontForDPI(WinLibDPIGetWindowDPI(hwnd), logFont);
+}
+
+BOOL WinLibGetDefaultUILogFontForDPI(UINT dpi, LOGFONT* logFont)
+{
+    if (logFont == NULL)
+        return FALSE;
+    RefreshWinLibDialogFontFromHost();
+    if (!WinLibDialogFontKnown)
+        return FALSE;
+    *logFont = WinLibDialogLogFont;
+    WinLibDPIScaleLogFontBetweenDPI(logFont, WinLibDialogFontSourceDPI,
+                                    dpi);
+    return TRUE;
+}
+
+static void ReleaseWinLibDialogFont()
+{
+    WinLibDialogFontGeneral = NULL;
+    WinLibDialogFontMainThreadId = 0;
+    WinLibDialogFontKnown = FALSE;
+    WinLibDialogFontSourceDPI = USER_DEFAULT_SCREEN_DPI;
+}
 
 #ifdef USE_DARKMODELIB
 namespace
@@ -161,6 +230,7 @@ BOOL HandleWinLibDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* 
 
 void InitializeWinLibDarkMode(CSalamanderGeneralAbstract* salamanderGeneral)
 {
+    InitializeWinLibDialogFont(salamanderGeneral);
     WinLibDarkModeGeneral = salamanderGeneral;
     WinLibDarkModeMainThreadId = GetCurrentThreadId();
     RefreshWinLibDarkModeFromHost();
@@ -222,8 +292,11 @@ void SetupWinLibHelp(FWinLibLTHelpCallback helpCallback)
     WinLibLTHelpCallback = helpCallback;
 }
 
-BOOL InitializeWinLib(const char* pluginName, HINSTANCE dllInstance)
+BOOL InitializeWinLib(const char* pluginName, HINSTANCE dllInstance,
+                      CSalamanderGeneralAbstract* salamanderGeneral)
 {
+    if (salamanderGeneral != NULL)
+        InitializeWinLibDialogFont(salamanderGeneral);
     lstrcpyn(CWINDOW_CLASSNAME, pluginName, 50);
     strcat(CWINDOW_CLASSNAME, " - WinLib Universal Window");
     lstrcpyn(CWINDOW_CLASSNAME2, pluginName, 50);
@@ -257,6 +330,7 @@ BOOL InitializeWinLib(const char* pluginName, HINSTANCE dllInstance)
 
 void ReleaseWinLib(HINSTANCE dllInstance)
 {
+    ReleaseWinLibDialogFont();
 #ifdef USE_DARKMODELIB
     ReleaseWinLibDarkMode();
 #endif // USE_DARKMODELIB
@@ -607,16 +681,36 @@ CDialog::Execute()
 {
     Modal = TRUE;
     CWinLibDPIContext dpiContext;
-    return DialogBoxParamW(Modul, MAKEINTRESOURCEW(ResID), Parent,
-                           (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
+    LOGFONT logFont;
+    BYTE* dialogTemplate = NULL;
+    if (WinLibGetDefaultUILogFont(Parent, &logFont))
+        dialogTemplate = WinLibDPICloneResourceDialogWithFont(Modul, ResID, &logFont,
+                                                              WinLibDPIGetWindowDPI(Parent), NULL);
+    INT_PTR result = dialogTemplate != NULL ?
+                         DialogBoxIndirectParamW(Modul, (LPCDLGTEMPLATEW)dialogTemplate, Parent,
+                                                 (DLGPROC)CDialog::CDialogProc, (LPARAM)this) :
+                         DialogBoxParamW(Modul, MAKEINTRESOURCEW(ResID), Parent,
+                                         (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
+    WinLibDPIFreeDialogTemplate(dialogTemplate);
+    return result;
 }
 
 HWND CDialog::Create()
 {
     Modal = FALSE;
     CWinLibDPIContext dpiContext;
-    return CreateDialogParamW(Modul, MAKEINTRESOURCEW(ResID), Parent,
-                              (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
+    LOGFONT logFont;
+    BYTE* dialogTemplate = NULL;
+    if (WinLibGetDefaultUILogFont(Parent, &logFont))
+        dialogTemplate = WinLibDPICloneResourceDialogWithFont(Modul, ResID, &logFont,
+                                                              WinLibDPIGetWindowDPI(Parent), NULL);
+    HWND result = dialogTemplate != NULL ?
+                      CreateDialogIndirectParamW(Modul, (LPCDLGTEMPLATEW)dialogTemplate, Parent,
+                                                 (DLGPROC)CDialog::CDialogProc, (LPARAM)this) :
+                      CreateDialogParamW(Modul, MAKEINTRESOURCEW(ResID), Parent,
+                                         (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
+    WinLibDPIFreeDialogTemplate(dialogTemplate);
+    return result;
 }
 
 INT_PTR
@@ -776,10 +870,17 @@ CDialog::CDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
     }
     //--- zavolani metody DialogProc(...) prislusneho objektu dialogu
+    INT_PTR dlgRes;
     if (dlg != NULL)
-        return dlg->DialogProc(uMsg, wParam, lParam);
+        dlgRes = dlg->DialogProc(uMsg, wParam, lParam);
     else
-        return FALSE; // chyba nebo message neprisla mezi WM_INITDIALOG a WM_DESTROY
+        dlgRes = FALSE; // chyba nebo message neprisla mezi WM_INITDIALOG a WM_DESTROY
+
+    // Template creation established the font-relative geometry. Install the exact
+    // LOGFONT after initialization; this operation intentionally does not resize.
+    if (uMsg == WM_INITDIALOG && dlg != NULL)
+        WinLibApplyDialogFont(hwndDlg);
+    return dlgRes;
 }
 
 //
@@ -818,12 +919,14 @@ void CPropSheetPage::Init(char* title, HINSTANCE modul, int resID,
     }
     Flags = flags;
     Icon = icon;
+    DialogTemplate = NULL;
 
     ParentDialog = NULL; // nastavuje se z CPropertyDialog::Execute()
 }
 
 CPropSheetPage::~CPropSheetPage()
 {
+    WinLibDPIFreeDialogTemplate(DialogTemplate);
     if (Title != NULL)
         delete[] Title;
 }
@@ -865,10 +968,24 @@ HPROPSHEETPAGE
 CPropSheetPage::CreatePropSheetPage()
 {
     PROPSHEETPAGE psp;
+    memset(&psp, 0, sizeof(psp));
     psp.dwSize = sizeof(PROPSHEETPAGE);
     psp.dwFlags = Flags;
     psp.hInstance = Modul;
-    psp.pszTemplate = MAKEINTRESOURCE(ResID);
+    WinLibDPIFreeDialogTemplate(DialogTemplate);
+    DialogTemplate = NULL;
+    HWND dpiWindow = ParentDialog != NULL ? ParentDialog->Parent : NULL;
+    LOGFONT logFont;
+    if (WinLibGetDefaultUILogFont(dpiWindow, &logFont))
+        DialogTemplate = WinLibDPICloneResourceDialogWithFont(Modul, ResID, &logFont,
+                                                              WinLibDPIGetWindowDPI(dpiWindow), NULL);
+    if (DialogTemplate != NULL)
+    {
+        psp.dwFlags |= PSP_DLGINDIRECT;
+        psp.pResource = (LPCDLGTEMPLATE)DialogTemplate;
+    }
+    else
+        psp.pszTemplate = MAKEINTRESOURCE(ResID);
     psp.hIcon = Icon;
     psp.pszTitle = Title;
     psp.pfnDlgProc = CPropSheetPage::CPropSheetPageProc;
@@ -1070,10 +1187,18 @@ CPropSheetPage::CPropSheetPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
     }
     }
     //--- zavolani metody DialogProc(...) prislusneho objektu dialogu
+    INT_PTR dlgRes;
     if (dlg != NULL)
-        return dlg->DialogProc(uMsg, wParam, lParam);
+        dlgRes = dlg->DialogProc(uMsg, wParam, lParam);
     else
-        return FALSE; // chyba nebo message neprisla mezi WM_INITDIALOG a WM_DESTROY
+        dlgRes = FALSE; // chyba nebo message neprisla mezi WM_INITDIALOG a WM_DESTROY
+
+    if (uMsg == WM_INITDIALOG && dlg != NULL)
+    {
+        WinLibApplyDialogFont(hwndDlg);
+        WinLibApplyDialogFont(dlg->Parent);
+    }
+    return dlgRes;
 }
 
 //
@@ -1107,8 +1232,8 @@ CPropertyDialog::Execute()
         psh.phpage = pages;
         for (int i = 0; i < Count; i++)
         {
-            psh.phpage[i] = At(i)->CreatePropSheetPage();
             At(i)->ParentDialog = this;
+            psh.phpage[i] = At(i)->CreatePropSheetPage();
         }
         psh.pfnCallback = Callback;
         INT_PTR ret = PropertySheet(&psh);

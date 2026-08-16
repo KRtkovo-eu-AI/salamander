@@ -97,6 +97,7 @@ protected:
     TCHAR* Title;
     DWORD Flags;
     HICON Icon;
+    BYTE* DialogTemplate;
 
     CPropertyDialog* ParentDialog; // vlastnik teto stranky
     // pro TreeDialog

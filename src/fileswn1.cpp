@@ -2634,8 +2634,7 @@ BOOL CFilesWindow::RefreshDPIResources(BOOL force)
     ClearIndependentIconLists();
 
     LOGFONT envLF;
-    if (!WinLibDPIGetIconTitleLogFont(dpiWindow, &envLF))
-        return FALSE;
+    GetEffectiveDefaultUILogFont(&envLF, dpiWindow);
 
     LOGFONT panelLF;
     if (UseCustomPanelFont)
@@ -2648,7 +2647,10 @@ BOOL CFilesWindow::RefreshDPIResources(BOOL force)
         panelLF.lfWidth = MulDiv(panelLF.lfWidth, dpi, sourceDPI);
     }
     else
-        panelLF = envLF;
+    {
+        if (!WinLibDPIGetIconTitleLogFont(dpiWindow, &panelLF))
+            GetSystemGUIFont(&panelLF);
+    }
 
     LOGFONT panelULLF = panelLF;
     panelULLF.lfUnderline = TRUE;

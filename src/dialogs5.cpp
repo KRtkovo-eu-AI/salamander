@@ -5659,8 +5659,14 @@ CCfgPageAppearance::CCfgPageAppearance()
     : CCommonPropSheetPage(NULL, HLanguage, IDD_CFGPAGE_APPEARANCE, IDD_CFGPAGE_APPEARANCE, PSP_USETITLE, NULL)
 {
     HPanelFont = NULL;
+    HDialogFont = NULL;
     LocalUseCustomPanelFont = UseCustomPanelFont;
     memcpy(&LocalPanelLogFont, &LogFont, sizeof(LocalPanelLogFont));
+    LocalDialogFontMode = DialogFontMode;
+    memcpy(&LocalDialogLogFont, &DialogLogFont, sizeof(LocalDialogLogFont));
+    LocalDialogFontPointSize = DialogFontPointSize;
+    GetEffectiveDialogLogFont(&OriginalEffectiveDialogFont);
+    DialogFontRestartMessageShown = FALSE;
     NotificationEnabled = TRUE;
 }
 
@@ -5668,34 +5674,68 @@ CCfgPageAppearance::~CCfgPageAppearance()
 {
     if (HPanelFont != NULL)
         HANDLES(DeleteObject(HPanelFont));
+    if (HDialogFont != NULL)
+        HANDLES(DeleteObject(HDialogFont));
+}
+
+void CCfgPageAppearance::LoadFontPreview(int editID, HFONT* previewFont, LOGFONT logFont,
+                                         int pointSize, int descriptionID)
+{
+    HWND hEdit = GetDlgItem(HWindow, editID);
+    logFont.lfHeight = GetWindowFontHeight(hEdit); // use the edit line's font size for font preview
+    if (*previewFont != NULL)
+        HANDLES(DeleteObject(*previewFont));
+    *previewFont = HANDLES(CreateFontIndirect(&logFont));
+
+    SendMessage(hEdit, WM_SETFONT, (WPARAM)*previewFont, MAKELPARAM(TRUE, 0));
+    char buf[LF_FACESIZE + 200];
+    _snprintf_s(buf, _TRUNCATE, "%d pt. %s (%s)",
+                pointSize,
+                logFont.lfFaceName,
+                LoadStr(descriptionID));
+    SetWindowText(hEdit, buf);
 }
 
 void CCfgPageAppearance::LoadControls()
 {
     CALL_STACK_MESSAGE1("CCfgPageAppearance::LoadControls()");
 
-    LOGFONT logFont;
-
+    LOGFONT panelFont;
     if (LocalUseCustomPanelFont)
-        logFont = LocalPanelLogFont;
+        panelFont = LocalPanelLogFont;
     else
-        GetSystemGUIFont(&logFont);
-
-    HWND hEdit = GetDlgItem(HWindow, IDE_PANELFONT);
-    int origHeight = logFont.lfHeight;
-    logFont.lfHeight = GetWindowFontHeight(hEdit); // use the edit line's font size for font preview
-    if (HPanelFont != NULL)
-        HANDLES(DeleteObject(HPanelFont));
-    HPanelFont = HANDLES(CreateFontIndirect(&logFont));
+        GetSystemGUIFont(&panelFont);
 
     HDC hDC = HANDLES(GetDC(HWindow));
-    SendMessage(hEdit, WM_SETFONT, (WPARAM)HPanelFont, MAKELPARAM(TRUE, 0));
-    char buf[LF_FACESIZE + 200];
-    _snprintf_s(buf, _TRUNCATE, LoadStr(IDS_FONTDESCRIPTION),
-                MulDiv(-origHeight, 72, GetDeviceCaps(hDC, LOGPIXELSY)),
-                logFont.lfFaceName,
-                LoadStr(LocalUseCustomPanelFont ? IDS_FONTDESCRIPTION_CST : IDS_FONTDESCRIPTION_DEF));
-    SetWindowText(hEdit, buf);
+    int panelPointSize = MulDiv(-panelFont.lfHeight, 72, GetDeviceCaps(hDC, LOGPIXELSY));
+    LoadFontPreview(IDE_PANELFONT, &HPanelFont, panelFont, panelPointSize,
+                    LocalUseCustomPanelFont ? IDS_FONTDESCRIPTION_CST : IDS_FONTDESCRIPTION_DEF);
+
+    LOGFONT dialogFont;
+    int dialogDescription;
+    int dialogPointSize;
+    if (LocalDialogFontMode == DIALOG_FONT_PANEL)
+    {
+        dialogFont = panelFont;
+        dialogPointSize = panelPointSize;
+        dialogDescription = IDS_FONTDESCRIPTION_PANEL;
+    }
+    else if (LocalDialogFontMode == DIALOG_FONT_CUSTOM)
+    {
+        dialogFont = LocalDialogLogFont;
+        dialogPointSize = LocalDialogFontPointSize;
+        dialogDescription = IDS_FONTDESCRIPTION_CST;
+    }
+    else
+    {
+        memset(&dialogFont, 0, sizeof(dialogFont));
+        dialogFont.lfWeight = FW_NORMAL;
+        dialogFont.lfCharSet = DEFAULT_CHARSET;
+        lstrcpyn(dialogFont.lfFaceName, _T("MS Shell Dlg"), LF_FACESIZE);
+        dialogPointSize = 8;
+        dialogDescription = IDS_FONTDESCRIPTION_DEF;
+    }
+    LoadFontPreview(IDE_DIALOGFONT, &HDialogFont, dialogFont, dialogPointSize, dialogDescription);
 
     HANDLES(ReleaseDC(HWindow, hDC));
 }
@@ -5736,6 +5776,19 @@ void CCfgPageAppearance::Transfer(CTransferInfo& ti)
     {
         UseCustomPanelFont = LocalUseCustomPanelFont;
         memcpy(&LogFont, &LocalPanelLogFont, sizeof(LocalPanelLogFont));
+        DialogFontMode = LocalDialogFontMode;
+        memcpy(&DialogLogFont, &LocalDialogLogFont, sizeof(DialogLogFont));
+        DialogFontPointSize = LocalDialogFontPointSize;
+
+        LOGFONT effectiveDialogFont;
+        GetEffectiveDialogLogFont(&effectiveDialogFont);
+        if (!DialogFontRestartMessageShown &&
+            memcmp(&OriginalEffectiveDialogFont, &effectiveDialogFont, sizeof(effectiveDialogFont)) != 0)
+        {
+            DialogFontRestartMessageShown = TRUE;
+            SalMessageBox(HWindow, LoadStr(IDS_DIALOGFONT_RESTART), LoadStr(IDS_INFOTITLE),
+                          MB_OK | MB_ICONINFORMATION);
+        }
     }
 }
 
@@ -5766,6 +5819,7 @@ CCfgPageAppearance::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         ChangeToArrowButton(HWindow, IDC_INFOLINEBROWSE);
         new CButton(HWindow, IDB_PANELFONT, BTF_RIGHTARROW);
+        new CButton(HWindow, IDB_DIALOGFONT, BTF_RIGHTARROW);
 
         // attach the UpDown control to the edit line
         int resID[] = {IDC_THUMBNAILSIZE, -1};
@@ -5866,6 +5920,69 @@ MENU_TEMPLATE_ITEM CfgPageAppearanceMenu[] =
                     return 0;
                 }
             }
+            return 0;
+        }
+
+        case IDB_DIALOGFONT:
+        {
+            /* used by the export_mnu.py script which generates salmenu.mnu for the Translator
+   keep synchronized with the InsertMenu() calls below...
+MENU_TEMPLATE_ITEM CfgPageDialogFontMenu[] =
+{
+  {MNTT_PB, 0
+  {MNTT_IT, IDS_USEDEFAULTFONT
+  {MNTT_IT, IDS_USEPANELFONT
+  {MNTT_IT, IDS_USECUSTOMFONT
+  {MNTT_PE, 0
+};
+*/
+            HMENU hMenu = CreatePopupMenu();
+            InsertMenu(hMenu, 0xFFFFFFFF, LocalDialogFontMode == DIALOG_FONT_DEFAULT ? MF_CHECKED | MF_BYCOMMAND | MF_STRING : MF_BYCOMMAND | MF_STRING,
+                       1, LoadStr(IDS_USEDEFAULTFONT));
+            InsertMenu(hMenu, 0xFFFFFFFF, LocalDialogFontMode == DIALOG_FONT_PANEL ? MF_CHECKED | MF_BYCOMMAND | MF_STRING : MF_BYCOMMAND | MF_STRING,
+                       2, LoadStr(IDS_USEPANELFONT));
+            InsertMenu(hMenu, 0xFFFFFFFF, LocalDialogFontMode == DIALOG_FONT_CUSTOM ? MF_CHECKED | MF_BYCOMMAND | MF_STRING : MF_BYCOMMAND | MF_STRING,
+                       3, LoadStr(IDS_USECUSTOMFONT));
+
+            TPMPARAMS tpmPar;
+            tpmPar.cbSize = sizeof(tpmPar);
+            GetWindowRect((HWND)lParam, &tpmPar.rcExclude);
+            DWORD cmd = TrackPopupMenuEx(hMenu, TPM_RETURNCMD | TPM_LEFTALIGN | TPM_RIGHTBUTTON,
+                                         tpmPar.rcExclude.right, tpmPar.rcExclude.top, HWindow, &tpmPar);
+            if (cmd == 1 || cmd == 2)
+            {
+                LocalDialogFontMode = cmd == 1 ? DIALOG_FONT_DEFAULT : DIALOG_FONT_PANEL;
+                LoadControls();
+            }
+            else if (cmd == 3)
+            {
+                if (LocalDialogLogFont.lfFaceName[0] == 0)
+                {
+                    memset(&LocalDialogLogFont, 0, sizeof(LocalDialogLogFont));
+                    LocalDialogLogFont.lfWeight = FW_NORMAL;
+                    LocalDialogLogFont.lfCharSet = DEFAULT_CHARSET;
+                    lstrcpyn(LocalDialogLogFont.lfFaceName, _T("MS Shell Dlg"), LF_FACESIZE);
+                }
+                LocalDialogLogFont.lfHeight = -MulDiv(LocalDialogFontPointSize,
+                                                      WinLibDPIGetWindowDPI(HWindow), 72);
+                CHOOSEFONT cf;
+                memset(&cf, 0, sizeof(cf));
+                cf.lStructSize = sizeof(cf);
+                cf.hwndOwner = HWindow;
+                cf.lpLogFont = &LocalDialogLogFont;
+                cf.iPointSize = LocalDialogFontPointSize * 10;
+                cf.Flags = CF_NOVERTFONTS | CF_SCREENFONTS | CF_INITTOLOGFONTSTRUCT | CF_LIMITSIZE;
+                cf.nSizeMin = 6;
+                cf.nSizeMax = 24;
+                DarkModePrepareChooseFont(&cf);
+                if (ChooseFont(&cf) != 0)
+                {
+                    LocalDialogFontPointSize = max(6, min(24, (cf.iPointSize + 5) / 10));
+                    LocalDialogFontMode = DIALOG_FONT_CUSTOM;
+                    LoadControls();
+                }
+            }
+            DestroyMenu(hMenu);
             return 0;
         }
 

@@ -168,11 +168,17 @@ BOOL CMenuSharedResources::Create(HWND hParent, int width, int height)
     ncm.cbSize = sizeof(ncm);
     SystemParametersInfoForPopupMenuDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0, dpi);
 
-    LOGFONT* lf = &ncm.lfMenuFont;
-    ScalePopupMenuFontForDPI(lf, dpi);
-    HNormalFont = HANDLES(CreateFontIndirect(lf));
-    lf->lfWeight = FW_BOLD;
-    HBoldFont = HANDLES(CreateFontIndirect(lf));
+    LOGFONT menuFont;
+    if (DialogFontMode == DIALOG_FONT_DEFAULT)
+    {
+        menuFont = ncm.lfMenuFont;
+        ScalePopupMenuFontForDPI(&menuFont, dpi);
+    }
+    else
+        GetEffectiveDefaultUILogFont(&menuFont, dpiWindow);
+    HNormalFont = HANDLES(CreateFontIndirect(&menuFont));
+    menuFont.lfWeight = FW_BOLD;
+    HBoldFont = HANDLES(CreateFontIndirect(&menuFont));
 
     CacheBitmap = new CBitmap();
     HDC hDC = HANDLES(GetDC(HParent));

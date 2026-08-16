@@ -94,7 +94,11 @@ void SetVScrollBarInfo(BOOL redraw)
 BOOL InitializeLogWindow(HWND hWindow)
 {
     LOGFONT lf;
-    GetObject(GetStockObject(DEFAULT_GUI_FONT), sizeof(lf), &lf);
+    if (SalGeneral == NULL ||
+        !SalGeneral->GetConfigParameter(SALCFG_DIALOGFONT, &lf, sizeof(lf), NULL))
+    {
+        GetObject(GetStockObject(DEFAULT_GUI_FONT), sizeof(lf), &lf);
+    }
 
     HNormalFont = CreateFontIndirect(&lf);
     lf.lfWeight = FW_BOLD;

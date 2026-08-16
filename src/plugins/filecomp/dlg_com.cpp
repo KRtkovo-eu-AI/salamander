@@ -438,16 +438,18 @@ BOOL CreateEnvFontForDPI(UINT dpi)
     if (dpi == 0)
         dpi = USER_DEFAULT_SCREEN_DPI;
 
-    // Always start from the 96-DPI logical system font and scale it ourselves.
-    // SystemParametersInfoForDpi can fall back to the thread/system metrics on
-    // RDP DPI changes, leaving the rebar caption, difference combo and file
-    // headers at 100% while the rest of the window is already at 150%.
-    NONCLIENTMETRICS ncm;
-    if (!WinLibDPIGetNonClientMetricsForDPI(USER_DEFAULT_SCREEN_DPI, &ncm))
-        return FALSE;
-    LOGFONT lf = ncm.lfMenuFont;
-    lf.lfHeight = MulDiv(lf.lfHeight, dpi, USER_DEFAULT_SCREEN_DPI);
-    lf.lfWidth = MulDiv(lf.lfWidth, dpi, USER_DEFAULT_SCREEN_DPI);
+    LOGFONT lf;
+    if (!WinLibGetDefaultUILogFontForDPI(dpi, &lf))
+    {
+        // Always start from the 96-DPI logical system font and scale it
+        // ourselves when an older host does not expose the UI font.
+        NONCLIENTMETRICS ncm;
+        if (!WinLibDPIGetNonClientMetricsForDPI(USER_DEFAULT_SCREEN_DPI, &ncm))
+            return FALSE;
+        lf = ncm.lfMenuFont;
+        lf.lfHeight = MulDiv(lf.lfHeight, dpi, USER_DEFAULT_SCREEN_DPI);
+        lf.lfWidth = MulDiv(lf.lfWidth, dpi, USER_DEFAULT_SCREEN_DPI);
+    }
 
     if (EnvFont != NULL)
         DeleteObject(EnvFont);
@@ -482,7 +484,7 @@ BOOL InitDialogs()
     HArrowCursor = LoadCursor(NULL, IDC_ARROW);
     HWaitCursor = LoadCursor(NULL, IDC_WAIT);
 
-    if (!InitializeWinLib("FILECOMP", DLLInstance))
+    if (!InitializeWinLib("FILECOMP", DLLInstance, SG))
         return FALSE;
     SetWinLibStrings(LoadStr(IDS_INVALIDNUMBER), LoadStr(IDS_PLUGINNAME));
     SetupWinLibHelp(HTMLHelpCallback);

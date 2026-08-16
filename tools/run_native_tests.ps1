@@ -231,6 +231,14 @@ try {
             )
         },
         @{
+            Name = 'ui_font_contract_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\ui_font_contract_tests.py')
+            )
+        },
+        @{
             Name = 'main_window_move_contract_tests'
             Arguments = @(
                 '-B',

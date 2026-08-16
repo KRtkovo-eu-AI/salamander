@@ -2111,9 +2111,8 @@ void CEditWindow::SetFont()
         Text != NULL && Text->HWindow != NULL)
     {
         LOGFONT lf;
-        HFONT newFont = WinLibDPIGetIconTitleLogFont(HWindow, &lf)
-                            ? HANDLES(CreateFontIndirect(&lf))
-                            : NULL;
+        GetEffectiveDefaultUILogFont(&lf, HWindow);
+        HFONT newFont = HANDLES(CreateFontIndirect(&lf));
         if (newFont != NULL)
         {
             HDC dc = HANDLES(GetDC(HWindow));

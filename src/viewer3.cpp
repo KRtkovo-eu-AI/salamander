@@ -13,6 +13,7 @@
 #include "dialogs.h"
 #include "shellib.h"
 #include "mainwnd.h"
+#include "menu.h"
 #include "codetbl.h"
 #include "consts.h"
 
@@ -225,18 +226,22 @@ void PaintViewerMenuBar(HWND hwnd, HDC hdc)
 
 void PaintViewerMenuBarItem(ViewerUAHDRAWMENUITEM* item)
 {
-    if (item == NULL || !DarkModeShouldUseDarkColors())
+    if (item == NULL || (DialogFontMode == DIALOG_FONT_DEFAULT && !DarkModeShouldUseDarkColors()))
         return;
 
+    const bool dark = DarkModeShouldUseDarkColors();
     const DarkModeColors& colors = DarkModeGetColors();
-    COLORREF background = colors.background;
-    COLORREF text = colors.readableText;
+    COLORREF background = dark ? colors.background : GetSysColor(COLOR_MENU);
+    COLORREF text = dark ? colors.readableText : GetSysColor(COLOR_MENUTEXT);
     if ((item->dis.itemState & ODS_SELECTED) != 0)
-        background = RGB(0x3A, 0x3A, 0x3A);
+    {
+        background = dark ? RGB(0x3A, 0x3A, 0x3A) : GetSysColor(COLOR_HIGHLIGHT);
+        text = dark ? RGB(245, 245, 245) : GetSysColor(COLOR_HIGHLIGHTTEXT);
+    }
     else if ((item->dis.itemState & ODS_HOTLIGHT) != 0)
-        background = RGB(0x45, 0x45, 0x45);
+        background = dark ? RGB(0x45, 0x45, 0x45) : GetSysColor(COLOR_MENUHILIGHT);
     if ((item->dis.itemState & (ODS_GRAYED | ODS_DISABLED | ODS_INACTIVE)) != 0)
-        text = RGB(0x80, 0x80, 0x80);
+        text = dark ? RGB(0x80, 0x80, 0x80) : GetSysColor(COLOR_GRAYTEXT);
 
     FillViewerRectWithColor(item->um.hdc, &item->dis.rcItem, background);
 
@@ -252,10 +257,19 @@ void PaintViewerMenuBarItem(ViewerUAHDRAWMENUITEM* item)
 
     int oldBkMode = SetBkMode(item->um.hdc, TRANSPARENT);
     COLORREF oldText = SetTextColor(item->um.hdc, text);
+    HWND dpiWindow = WindowFromDC(item->um.hdc);
+    LOGFONT logFont;
+    GetEffectiveDefaultUILogFont(&logFont, dpiWindow);
+    HFONT font = HANDLES(CreateFontIndirect(&logFont));
+    HFONT oldFont = font != NULL ? (HFONT)SelectObject(item->um.hdc, font) : NULL;
     UINT flags = DT_CENTER | DT_SINGLELINE | DT_VCENTER;
     if ((item->dis.itemState & ODS_NOACCEL) != 0)
         flags |= DT_HIDEPREFIX;
     DrawTextW(item->um.hdc, textBuf, -1, &item->dis.rcItem, flags);
+    if (oldFont != NULL)
+        SelectObject(item->um.hdc, oldFont);
+    if (font != NULL)
+        HANDLES(DeleteObject(font));
     SetTextColor(item->um.hdc, oldText);
     SetBkMode(item->um.hdc, oldBkMode);
 }
@@ -329,7 +343,11 @@ void CViewerWindow::SetViewerCaption()
         if (caption[0] != 0)
             strcat(caption, " - ");
         strcat(caption, LoadStr(IDS_VIEWERTITLE));
-        if (CodeType > 0)
+        const char* decodedEncoding =
+            Salamander::Unicode::EncodingDisplayName(TextEncoding, TextContentOffset);
+        if (decodedEncoding != NULL)
+            sprintf(caption + strlen(caption), " - [%s]", decodedEncoding);
+        else if (CodeType > 0)
         {
             char codeName[200];
             CodeTables.GetCodeName(CodeType, codeName, 200);
@@ -339,6 +357,13 @@ void CViewerWindow::SetViewerCaption()
                 s--;
             *s = 0; // trim extra spaces
             sprintf(caption + strlen(caption), " - [%s]", codeName);
+        }
+        else
+        {
+            char codeName[100];
+            CodeTables.GetWinCodePage(codeName);
+            if (codeName[0] != 0)
+                sprintf(caption + strlen(caption), " - [%s]", codeName);
         }
     }
     SetViewerWindowText(HWindow, caption);
@@ -907,7 +932,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_UAHDRAWMENUITEM:
     {
-        if (DarkModeShouldUseDarkColors() && lParam != 0)
+        if ((DarkModeShouldUseDarkColors() || DialogFontMode != DIALOG_FONT_DEFAULT) && lParam != 0)
         {
             PaintViewerMenuBarItem(reinterpret_cast<ViewerUAHDRAWMENUITEM*>(lParam));
             return 0;
@@ -3553,8 +3578,10 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 POINT p;
                 GetCursorPos(&p);
-                DWORD cmd = TrackPopupMenuEx(subMenu, TPM_RETURNCMD | TPM_LEFTALIGN | TPM_RIGHTBUTTON,
-                                             p.x, p.y, HWindow, NULL);
+                CMenuPopup popup;
+                popup.SetTemplateMenu(subMenu);
+                DWORD cmd = popup.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON,
+                                        p.x, p.y, HWindow, NULL);
                 if (cmd != 0)
                     PostMessage(HWindow, WM_COMMAND, cmd, 0);
             }

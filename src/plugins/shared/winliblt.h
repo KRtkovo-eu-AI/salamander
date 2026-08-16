@@ -24,9 +24,15 @@ void SetWinLibStrings(const char* invalidNumber, // "neni cislo" (u transferbuff
 // pouziva se pro odliseni jmen trid univerzalnich oken WinLibu (mezi pluginy se musi lisit,
 // jinak nastane kolize jmen trid a WinLib nemuze fungovat - bude fungovat jen prvni spusteny
 // plugin); 'dllInstance' je modul pluginu (pouziva se pri registraci univerzalnich trid WinLibu)
-BOOL InitializeWinLib(const char* pluginName, HINSTANCE dllInstance);
-#ifdef USE_DARKMODELIB
 class CSalamanderGeneralAbstract;
+BOOL InitializeWinLib(const char* pluginName, HINSTANCE dllInstance,
+                      CSalamanderGeneralAbstract* salamanderGeneral = NULL);
+void InitializeWinLibDialogFont(CSalamanderGeneralAbstract* salamanderGeneral);
+void RefreshWinLibDialogFontFromHost();
+BOOL WinLibGetDefaultUILogFont(HWND hwnd, LOGFONT* logFont);
+BOOL WinLibGetDefaultUILogFontForDPI(UINT dpi, LOGFONT* logFont);
+void WinLibApplyDialogFont(HWND hwnd);
+#ifdef USE_DARKMODELIB
 void InitializeWinLibDarkMode(CSalamanderGeneralAbstract* salamanderGeneral);
 void RefreshWinLibDarkModeFromHost();
 void WinLibApplyDarkMode(HWND hwnd);
@@ -338,6 +344,7 @@ protected:
     char* Title;
     DWORD Flags;
     HICON Icon;
+    BYTE* DialogTemplate;
 
     CPropertyDialog* ParentDialog; // vlastnik teto stranky
 

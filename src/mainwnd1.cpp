@@ -1684,6 +1684,54 @@ BOOL GetSystemGUIFont(LOGFONT* lf)
     return TRUE;
 }
 
+void GetEffectiveDialogLogFont(LOGFONT* logFont, HWND dpiWindow)
+{
+    if (DialogFontMode == DIALOG_FONT_PANEL)
+    {
+        if (UseCustomPanelFont)
+        {
+            *logFont = LogFont;
+            WinLibDPIScaleLogFontBetweenDPI(logFont, WinLibDPIGetSystemDPI(),
+                                            WinLibDPIGetWindowDPI(dpiWindow));
+        }
+        else
+        {
+            if (!WinLibDPIGetIconTitleLogFont(dpiWindow, logFont))
+                GetSystemGUIFont(logFont);
+        }
+        return;
+    }
+
+    if (DialogFontMode == DIALOG_FONT_CUSTOM)
+        *logFont = DialogLogFont;
+    else
+    {
+        memset(logFont, 0, sizeof(*logFont));
+        logFont->lfWeight = FW_NORMAL;
+        logFont->lfCharSet = DEFAULT_CHARSET;
+        lstrcpyn(logFont->lfFaceName, _T("MS Shell Dlg"), LF_FACESIZE);
+    }
+
+    int pointSize = DialogFontMode == DIALOG_FONT_CUSTOM ? DialogFontPointSize : 8;
+    UINT dpi = WinLibDPIGetWindowDPI(dpiWindow);
+    logFont->lfHeight = -MulDiv(pointSize, dpi, 72);
+    logFont->lfWidth = 0;
+}
+
+// Returns the font used by controls outside dialog templates. Keep the legacy
+// system font in the Default mode, but make the Panel/Custom selection the
+// application-wide UI default.
+void GetEffectiveDefaultUILogFont(LOGFONT* logFont, HWND dpiWindow)
+{
+    if (DialogFontMode == DIALOG_FONT_DEFAULT)
+    {
+        if (!WinLibDPIGetIconTitleLogFont(dpiWindow, logFont))
+            GetSystemGUIFont(logFont);
+    }
+    else
+        GetEffectiveDialogLogFont(logFont, dpiWindow);
+}
+
 // tooltip font
 BOOL GetSystemTooltipFont(LOGFONT* lf)
 {
@@ -1706,7 +1754,7 @@ BOOL CreatePanelFont()
     if (UseCustomPanelFont)
         lf = LogFont; // the user set a custom font
     else
-        GetSystemGUIFont(&lf); // get the font from the system
+        GetSystemGUIFont(&lf); // panel content has its own font setting
 
     Font = HANDLES(CreateFontIndirect(&lf));
     if (Font == NULL)
@@ -1744,7 +1792,7 @@ BOOL CreatePanelFont()
 BOOL CreateEnvFonts()
 {
     LOGFONT lf;
-    GetSystemGUIFont(&lf);
+    GetEffectiveDefaultUILogFont(&lf);
 
     if (EnvFont != NULL)
         HANDLES(DeleteObject(EnvFont));
@@ -1789,7 +1837,10 @@ BOOL CreateEnvFonts()
     HANDLES(ReleaseDC(NULL, dc));
 
     LOGFONT toolLF;
-    GetSystemTooltipFont(&toolLF);
+    if (DialogFontMode == DIALOG_FONT_DEFAULT)
+        GetSystemTooltipFont(&toolLF);
+    else
+        GetEffectiveDefaultUILogFont(&toolLF);
     if (TooltipFont != NULL)
         HANDLES(DeleteObject(TooltipFont));
     TooltipFont = HANDLES(CreateFontIndirect(&toolLF));

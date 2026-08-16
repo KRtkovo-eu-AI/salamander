@@ -5,8 +5,10 @@
 #include "precomp.h"
 #include "common/winlibdpi.h"
 
+#include <algorithm>
 #include <vector>
 #include <string>
+#include <usp10.h>
 
 #include "viewer.h"
 #include "common/widepath.h"
@@ -14,6 +16,7 @@
 #include "cfgdlg.h"
 #include "mainwnd.h"
 #include "codetbl.h"
+#include "codetbl_utils.h"
 #include "usermenu.h"
 #include "execute.h"
 #include "gui.h"
@@ -875,6 +878,21 @@ void MyTextOut(HDC hdc, int nXStart, int nYStart, LPCTSTR lpString, int cbString
     if (!ViewerFontMeasured)
         TRACE_E("MyTextOut(): ViewerFontMeasured is FALSE!");
 #endif // _DEBUG
+    // The UTF-8 activeCodePage manifest changes TextOutA semantics process-wide.
+    // Legacy viewer rows (including conversion-table output) are still bytes in
+    // the regional Windows code page, so invalid CP1250/CP1251 bytes otherwise
+    // disappear. Keep the historic ANSI path on non-UTF-8 systems and use
+    // Unicode GDI only where the manifest makes it necessary.
+    if (GetACP() == CP_UTF8)
+    {
+        std::wstring wide;
+        if (ConvertLegacyViewerTextToWide(lpString, cbString,
+                                          GetEffectiveConversionCodePage(), &wide))
+        {
+            TextOutW(hdc, nXStart, nYStart, wide.data(), (int)wide.size());
+            return;
+        }
+    }
     if (ViewerFontNeedsMapping)
     {
         const char* s = lpString;
@@ -917,7 +935,8 @@ void AppendVisualCell(Salamander::Unicode::DecodedRun& visual, std::uint32_t sca
 {
     if (scalar == L'\t')
     {
-        int tab = (int)(tabSize - (visual.CellCount() % tabSize));
+        std::size_t column = Salamander::Unicode::BuildTextElementMap(visual).Count();
+        int tab = (int)(tabSize - (column % tabSize));
         if (tab <= 0)
             tab = 1;
         while (tab-- > 0)
@@ -927,55 +946,157 @@ void AppendVisualCell(Salamander::Unicode::DecodedRun& visual, std::uint32_t sca
         visual.AppendCell(scalar, rawStart, rawEnd);
 }
 
-std::size_t DecodedSelectionStartCell(const Salamander::Unicode::DecodedRun& visual, __int64 offset)
+std::size_t DecodedSelectionStartElement(const Salamander::Unicode::DecodedRun& visual,
+                                         const Salamander::Unicode::TextElementMap& elements,
+                                         __int64 offset)
 {
-    for (std::size_t i = 0; i < visual.CellCount(); ++i)
+    for (std::size_t i = 0; i < elements.Count(); ++i)
     {
-        if (offset <= visual.RawStart[i])
+        std::size_t first = elements.CellStart(i);
+        std::size_t last = elements.CellEnd(i) - 1;
+        if (offset <= visual.RawStart[first])
             return i;
-        if (offset < visual.RawEnd[i])
+        if (offset < visual.RawEnd[last])
             return i;
     }
-    return visual.CellCount();
+    return elements.Count();
 }
 
-std::size_t DecodedSelectionEndCell(const Salamander::Unicode::DecodedRun& visual, __int64 offset)
+std::size_t DecodedSelectionEndElement(const Salamander::Unicode::DecodedRun& visual,
+                                       const Salamander::Unicode::TextElementMap& elements,
+                                       __int64 offset)
 {
-    for (std::size_t i = 0; i < visual.CellCount(); ++i)
+    for (std::size_t i = 0; i < elements.Count(); ++i)
     {
-        if (offset <= visual.RawStart[i])
+        std::size_t first = elements.CellStart(i);
+        std::size_t last = elements.CellEnd(i) - 1;
+        if (offset <= visual.RawStart[first])
             return i;
-        if (offset <= visual.RawEnd[i])
+        if (offset <= visual.RawEnd[last])
             return i + 1;
     }
-    return visual.CellCount();
+    return elements.Count();
 }
 
-void DrawDecodedCells(HDC dc, const Salamander::Unicode::DecodedRun& visual, std::size_t cellStart,
-                      std::size_t cellEnd, int xCell)
+void DrawDecodedElements(HDC dc, const Salamander::Unicode::DecodedRun& visual,
+                         const Salamander::Unicode::TextElementMap& elements,
+                         std::size_t elementStart, std::size_t elementEnd, int xCell)
 {
-    if (cellStart >= cellEnd)
+    if (elementStart >= elementEnd)
         return;
+    std::size_t cellStart = elements.CellStart(elementStart);
+    std::size_t cellEnd = elements.CellStart(elementEnd);
     std::size_t textStart = visual.TextIndexForCellEnd(cellStart);
     std::size_t textEnd = visual.TextIndexForCellEnd(cellEnd);
     if (textEnd > textStart)
-        MyTextOutW(dc, xCell * CharWidth, 0, visual.Text.c_str() + textStart, (int)(textEnd - textStart));
+    {
+        int textLength = (int)(textEnd - textStart);
+        SCRIPT_STRING_ANALYSIS analysis = nullptr;
+        int glyphCapacity = textLength + textLength / 2 + 16;
+        if (SUCCEEDED(ScriptStringAnalyse(dc, visual.Text.c_str() + textStart, textLength,
+                                          glyphCapacity, -1, SSA_GLYPHS | SSA_FALLBACK | SSA_LINK,
+                                          0, nullptr, nullptr, nullptr, nullptr, nullptr, &analysis)))
+        {
+            ScriptStringOut(analysis, xCell * CharWidth, 0, 0, nullptr, 0, 0, FALSE);
+            ScriptStringFree(&analysis);
+        }
+        else
+            MyTextOutW(dc, xCell * CharWidth, 0, visual.Text.c_str() + textStart, textLength);
+    }
 }
 
-int DecodedCellsPixelWidth(HDC dc, const Salamander::Unicode::DecodedRun& visual,
-                           std::size_t cellStart, std::size_t cellEnd)
+int DecodedElementsPixelWidth(HDC dc, const Salamander::Unicode::DecodedRun& visual,
+                              const Salamander::Unicode::TextElementMap& elements,
+                              std::size_t elementStart, std::size_t elementEnd)
 {
-    if (cellStart >= cellEnd)
+    if (elementStart >= elementEnd)
         return 0;
+    std::size_t cellStart = elements.CellStart(elementStart);
+    std::size_t cellEnd = elements.CellStart(elementEnd);
     std::size_t textStart = visual.TextIndexForCellEnd(cellStart);
     std::size_t textEnd = visual.TextIndexForCellEnd(cellEnd);
     if (textEnd <= textStart)
         return 0;
 
+    int textLength = (int)(textEnd - textStart);
+    SCRIPT_STRING_ANALYSIS analysis = nullptr;
+    int glyphCapacity = textLength + textLength / 2 + 16;
+    if (SUCCEEDED(ScriptStringAnalyse(dc, visual.Text.c_str() + textStart, textLength,
+                                      glyphCapacity, -1, SSA_GLYPHS | SSA_FALLBACK | SSA_LINK,
+                                      0, nullptr, nullptr, nullptr, nullptr, nullptr, &analysis)))
+    {
+        const SIZE* size = ScriptString_pSize(analysis);
+        int width = size != nullptr ? size->cx : 0;
+        ScriptStringFree(&analysis);
+        return width;
+    }
+
     SIZE size = {0, 0};
-    if (GetTextExtentPoint32W(dc, visual.Text.c_str() + textStart, (int)(textEnd - textStart), &size))
+    if (GetTextExtentPoint32W(dc, visual.Text.c_str() + textStart, textLength, &size))
         return size.cx;
-    return (int)(cellEnd - cellStart) * CharWidth;
+    return (int)(elementEnd - elementStart) * CharWidth;
+}
+
+struct DecodedPixelInterval
+{
+    int Left;
+    int Right;
+};
+
+std::vector<DecodedPixelInterval> DecodedSelectionPixelIntervals(
+    HDC dc, const Salamander::Unicode::DecodedRun& visual,
+    const Salamander::Unicode::TextElementMap& elements,
+    std::size_t visibleStart, std::size_t visibleEnd,
+    std::size_t selectedStart, std::size_t selectedEnd)
+{
+    std::vector<DecodedPixelInterval> intervals;
+    selectedStart = max(selectedStart, visibleStart);
+    selectedEnd = min(selectedEnd, visibleEnd);
+    if (selectedStart >= selectedEnd)
+        return intervals;
+
+    std::size_t baseText = visual.TextIndexForCellEnd(elements.CellStart(visibleStart));
+    std::size_t textEnd = visual.TextIndexForCellEnd(elements.CellStart(visibleEnd));
+    int textLength = (int)(textEnd - baseText);
+    SCRIPT_STRING_ANALYSIS analysis = nullptr;
+    int glyphCapacity = textLength + textLength / 2 + 16;
+    if (textLength > 0 &&
+        SUCCEEDED(ScriptStringAnalyse(dc, visual.Text.c_str() + baseText, textLength,
+                                      glyphCapacity, -1, SSA_GLYPHS | SSA_FALLBACK | SSA_LINK,
+                                      0, nullptr, nullptr, nullptr, nullptr, nullptr, &analysis)))
+    {
+        for (std::size_t element = selectedStart; element < selectedEnd; ++element)
+        {
+            int first = (int)(visual.TextIndexForCellEnd(elements.CellStart(element)) - baseText);
+            int last = (int)(visual.TextIndexForCellEnd(elements.CellEnd(element)) - baseText) - 1;
+            int leading = 0;
+            int trailing = 0;
+            if (last >= first && SUCCEEDED(ScriptStringCPtoX(analysis, first, FALSE, &leading)) &&
+                SUCCEEDED(ScriptStringCPtoX(analysis, last, TRUE, &trailing)))
+                intervals.push_back({min(leading, trailing), max(leading, trailing)});
+        }
+        ScriptStringFree(&analysis);
+    }
+
+    if (intervals.empty())
+    {
+        int left = DecodedElementsPixelWidth(dc, visual, elements, visibleStart, selectedStart);
+        int right = DecodedElementsPixelWidth(dc, visual, elements, visibleStart, selectedEnd);
+        intervals.push_back({min(left, right), max(left, right)});
+        return intervals;
+    }
+
+    std::sort(intervals.begin(), intervals.end(), [](const DecodedPixelInterval& left, const DecodedPixelInterval& right)
+              { return left.Left < right.Left; });
+    std::vector<DecodedPixelInterval> merged;
+    for (const DecodedPixelInterval& interval : intervals)
+    {
+        if (!merged.empty() && interval.Left <= merged.back().Right + 1)
+            merged.back().Right = max(merged.back().Right, interval.Right);
+        else
+            merged.push_back(interval);
+    }
+    return merged;
 }
 
 } // namespace
@@ -1053,27 +1174,32 @@ __int64 CViewerWindow::PreviousTextOffset(__int64 offset, BOOL& fatalErr)
     if (offset <= minSeek)
         return minSeek;
 
-    if (TextEncoding == Salamander::Unicode::BomEncoding::Utf16Le ||
-        TextEncoding == Salamander::Unicode::BomEncoding::Utf16Be)
+    __int64 windowStart = max(minSeek, offset - 4096);
+    windowStart = Salamander::Unicode::AlignToCodeUnit(TextEncoding, windowStart, TextContentOffset);
+    if (TextEncoding == Salamander::Unicode::BomEncoding::Utf8 && windowStart > minSeek)
     {
-        __int64 pos = Salamander::Unicode::AlignToCodeUnit(TextEncoding, offset - 1, TextContentOffset);
-        if (pos >= offset)
-            pos -= 2;
-        return max(minSeek, pos);
+        while (windowStart < offset)
+        {
+            __int64 len = Prepare(NULL, windowStart, 1, fatalErr);
+            if (fatalErr || len != 1)
+                return minSeek;
+            if ((*(Buffer + (windowStart - Seek)) & 0xC0) != 0x80)
+                break;
+            windowStart++;
+        }
     }
 
-    __int64 pos = offset - 1;
-    while (pos > minSeek)
+    Salamander::Unicode::DecodedRun run;
+    if (!DecodeTextRange(NULL, windowStart, offset, run, fatalErr, TRUE) || fatalErr)
+        return minSeek;
+    Salamander::Unicode::TextElementMap elements = Salamander::Unicode::BuildTextElementMap(run);
+    for (std::size_t element = elements.Count(); element-- > 0;)
     {
-        __int64 len = Prepare(NULL, pos, 1, fatalErr);
-        if (fatalErr || len != 1)
-            return minSeek;
-        unsigned char ch = *(Buffer + (pos - Seek));
-        if ((ch & 0xC0) != 0x80)
-            break;
-        pos--;
+        std::size_t first = elements.CellStart(element);
+        if (run.RawStart[first] < offset)
+            return run.RawStart[first];
     }
-    return max(minSeek, pos);
+    return windowStart;
 }
 
 __int64 CViewerWindow::NextTextOffset(__int64 offset, BOOL& fatalErr)
@@ -1086,10 +1212,35 @@ __int64 CViewerWindow::NextTextOffset(__int64 offset, BOOL& fatalErr)
     if (offset >= FileSize)
         return FileSize;
 
-    Salamander::Unicode::DecodedRun scalar;
-    if (!ReadDecodedScalar(NULL, offset, scalar, fatalErr) || fatalErr || scalar.CellCount() == 0)
+    __int64 minSeek = TextStartOffset();
+    __int64 windowStart = max(minSeek, offset - 4096);
+    windowStart = Salamander::Unicode::AlignToCodeUnit(TextEncoding, windowStart, TextContentOffset);
+    if (TextEncoding == Salamander::Unicode::BomEncoding::Utf8 && windowStart > minSeek)
+    {
+        while (windowStart < offset)
+        {
+            __int64 len = Prepare(NULL, windowStart, 1, fatalErr);
+            if (fatalErr || len != 1)
+                return offset;
+            if ((*(Buffer + (windowStart - Seek)) & 0xC0) != 0x80)
+                break;
+            windowStart++;
+        }
+    }
+
+    Salamander::Unicode::DecodedRun run;
+    __int64 windowEnd = min(FileSize, offset + 4096);
+    if (!DecodeTextRange(NULL, windowStart, windowEnd, run, fatalErr, windowEnd >= FileSize) || fatalErr)
         return offset;
-    return min(FileSize, scalar.RawEnd[0]);
+    Salamander::Unicode::TextElementMap elements = Salamander::Unicode::BuildTextElementMap(run);
+    for (std::size_t element = 0; element < elements.Count(); ++element)
+    {
+        std::size_t first = elements.CellStart(element);
+        std::size_t last = elements.CellEnd(element) - 1;
+        if (offset <= run.RawStart[first] || offset < run.RawEnd[last])
+            return min(FileSize, run.RawEnd[last]);
+    }
+    return min(FileSize, windowEnd);
 }
 
 BOOL CViewerWindow::ReadDecodedTextLine(HANDLE* hFile, __int64 lineOffset, __int64 maxCells,
@@ -1127,6 +1278,7 @@ BOOL CViewerWindow::ReadDecodedTextLine(HANDLE* hFile, __int64 lineOffset, __int
             return TRUE;
         }
 
+        bool foundEol = false;
         for (std::size_t i = 0; i < decoded.CellCount(); ++i)
         {
             std::uint32_t scalar = decoded.Scalars[i];
@@ -1154,7 +1306,8 @@ BOOL CViewerWindow::ReadDecodedTextLine(HANDLE* hFile, __int64 lineOffset, __int
                             nextLineBegin = nextScalar.RawEnd[0];
                             eol = TRUE;
                             eolBytes = (int)(nextLineBegin - lineEnd);
-                            return TRUE;
+                            foundEol = true;
+                            break;
                         }
                     }
                     if (Configuration.EOL_CR)
@@ -1163,7 +1316,8 @@ BOOL CViewerWindow::ReadDecodedTextLine(HANDLE* hFile, __int64 lineOffset, __int
                         nextLineBegin = decoded.RawEnd[i];
                         eol = TRUE;
                         eolBytes = (int)(nextLineBegin - lineEnd);
-                        return TRUE;
+                        foundEol = true;
+                        break;
                     }
                 }
                 else if (scalar == L'\n')
@@ -1174,7 +1328,8 @@ BOOL CViewerWindow::ReadDecodedTextLine(HANDLE* hFile, __int64 lineOffset, __int
                         nextLineBegin = decoded.RawEnd[i];
                         eol = TRUE;
                         eolBytes = (int)(nextLineBegin - lineEnd);
-                        return TRUE;
+                        foundEol = true;
+                        break;
                     }
                 }
                 else if (Configuration.EOL_NULL)
@@ -1183,19 +1338,44 @@ BOOL CViewerWindow::ReadDecodedTextLine(HANDLE* hFile, __int64 lineOffset, __int
                     nextLineBegin = decoded.RawEnd[i];
                     eol = TRUE;
                     eolBytes = (int)(nextLineBegin - lineEnd);
-                    return TRUE;
+                    foundEol = true;
+                    break;
                 }
             }
 
             AppendVisualCell(visualLine, scalar, decoded.RawStart[i], decoded.RawEnd[i], Configuration.TabSize);
             lineEnd = decoded.RawEnd[i];
             nextLineBegin = lineEnd;
-            if (WrapText && maxCells > 0 && (__int64)visualLine.CellCount() >= maxCells)
-            {
-                wrapped = TRUE;
-                return TRUE;
-            }
         }
+
+        Salamander::Unicode::TextElementMap elements = Salamander::Unicode::BuildTextElementMap(visualLine);
+        if (WrapText && maxCells > 0 && (__int64)elements.Count() > maxCells)
+        {
+            std::size_t cellLimit = elements.CellStart((std::size_t)maxCells);
+            // Expanded tab cells share one raw range.  Never split that range
+            // between visual rows; doing so would display part of the tab and
+            // decode the same source byte again on the following row.
+            while (cellLimit > 0 && cellLimit < visualLine.CellCount() &&
+                   visualLine.RawStart[cellLimit] == visualLine.RawStart[cellLimit - 1] &&
+                   visualLine.RawEnd[cellLimit] == visualLine.RawEnd[cellLimit - 1])
+                cellLimit++;
+            if (cellLimit == visualLine.CellCount() && foundEol)
+                return TRUE;
+            __int64 wrapOffset = cellLimit < visualLine.CellCount() ? visualLine.RawStart[cellLimit] :
+                                                                     visualLine.RawEnd[cellLimit - 1];
+            Salamander::Unicode::DecodedRun prefix;
+            for (std::size_t cell = 0; cell < cellLimit; ++cell)
+                prefix.AppendCell(visualLine.Scalars[cell], visualLine.RawStart[cell], visualLine.RawEnd[cell]);
+            visualLine = std::move(prefix);
+            lineEnd = nextLineBegin = wrapOffset;
+            eol = FALSE;
+            eolBytes = 0;
+            wrapped = TRUE;
+            return TRUE;
+        }
+        if (foundEol)
+            return TRUE;
+
         off += (__int64)decoded.RawBytesConsumed;
         if (decoded.RawBytesConsumed == 0)
             break;
@@ -1255,8 +1435,9 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
         if (fatalErr)
             break;
 
+        Salamander::Unicode::TextElementMap elements = Salamander::Unicode::BuildTextElementMap(visual);
         __int64 fullLineLen = max((__int64)0, nextLineBegin - lineOffset);
-        __int64 lineLen = (__int64)visual.CellCount();
+        __int64 lineLen = (__int64)elements.Count();
         LineOffset.Add(lineOffset);
         LineOffset.Add(lineEnd);
         LineOffset.Add(lineLen);
@@ -1270,8 +1451,8 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
         if (startSel == endSel)
             startSel = endSel = 0;
 
-        std::size_t selStartCell = DecodedSelectionStartCell(visual, startSel);
-        std::size_t selEndCell = DecodedSelectionEndCell(visual, endSel);
+        std::size_t selStartCell = DecodedSelectionStartElement(visual, elements, startSel);
+        std::size_t selEndCell = DecodedSelectionEndElement(visual, elements, endSel);
 
         if (ScrollToSelection)
         {
@@ -1361,23 +1542,28 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
                 // disappear even though it was drawn into the memory bitmap.
                 myLine.right = fullLine.right;
 
-                int selLeftPx = DecodedCellsPixelWidth(Bitmap.HMemDC, visual, left, left + u1);
-                int selRightPx = DecodedCellsPixelWidth(Bitmap.HMemDC, visual, left, left + u1 + u2);
+                std::size_t visibleEnd = left + u1 + u2 + u3;
+                std::vector<DecodedPixelInterval> selectedIntervals = DecodedSelectionPixelIntervals(
+                    Bitmap.HMemDC, visual, elements, left, visibleEnd, left + u1, left + u1 + u2);
+                FillRect(Bitmap.HMemDC, &myLine, BkgndBrush);
+                for (const DecodedPixelInterval& interval : selectedIntervals)
+                {
+                    RECT selectedRect = fullLine;
+                    selectedRect.left = interval.Left;
+                    selectedRect.right = interval.Right;
+                    FillRect(Bitmap.HMemDC, &selectedRect, BkgndBrushSel);
+                }
                 if (blackEnd)
                 {
                     // Selection continues past the end of this visual row.
-                    // Fill from the real selected pixel start to the viewport
-                    // edge; using cell counts here leaves holes after wide
-                    // Unicode glyphs.
-                    endRect.left = 0;
-                    endRect.right = selLeftPx;
-                    FillRect(Bitmap.HMemDC, &endRect, BkgndBrush);
-                    endRect.left = selLeftPx;
+                    // Highlight the empty row tail after the shaped text.  The
+                    // selected glyphs themselves are handled as visual bidi
+                    // intervals above.
+                    endRect.left = DecodedElementsPixelWidth(Bitmap.HMemDC, visual, elements, left, visibleEnd);
                     endRect.right = Width - GetTextLeft();
-                    FillRect(Bitmap.HMemDC, &endRect, BkgndBrushSel);
+                    if (endRect.left < endRect.right)
+                        FillRect(Bitmap.HMemDC, &endRect, BkgndBrushSel);
                 }
-                else
-                    FillRect(Bitmap.HMemDC, &myLine, BkgndBrush);
 
                 // Draw the complete visible decoded text run in one piece.
                 // Splitting Unicode text into selected/non-selected substrings
@@ -1385,24 +1571,18 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
                 // emoji sequences, etc.  For the selected part, clip a second
                 // full-run draw to the selection rectangle so glyph context is
                 // preserved while colors still differ.
-                if (u1 + u2 + u3 > 0)
-                    DrawDecodedCells(Bitmap.HMemDC, visual, left, left + u1 + u2 + u3, 0);
-                if (u2 > 0)
+                if (visibleEnd > left)
+                    DrawDecodedElements(Bitmap.HMemDC, visual, elements, left, visibleEnd, 0);
+                if (!selectedIntervals.empty())
                 {
-                    RECT selRect = fullLine;
-                    // Selection highlighting must use the same pixel advances
-                    // as GDI text output.  CJK/full-width glyphs can occupy
-                    // more than one average CharWidth, so cell counts alone
-                    // make the visual selection shorter than the copied text.
-                    selRect.left = selLeftPx;
-                    selRect.right = selRightPx;
-                    FillRect(Bitmap.HMemDC, &selRect, BkgndBrushSel);
-
-                    int savedDC = SaveDC(Bitmap.HMemDC);
-                    IntersectClipRect(Bitmap.HMemDC, selRect.left, selRect.top, selRect.right, selRect.bottom);
-                    SetTextColor(Bitmap.HMemDC, GetCOLORREF(ViewerColors[VIEWER_FG_SELECTED]));
-                    DrawDecodedCells(Bitmap.HMemDC, visual, left, left + u1 + u2 + u3, 0);
-                    RestoreDC(Bitmap.HMemDC, savedDC);
+                    for (const DecodedPixelInterval& interval : selectedIntervals)
+                    {
+                        int savedDC = SaveDC(Bitmap.HMemDC);
+                        IntersectClipRect(Bitmap.HMemDC, interval.Left, fullLine.top, interval.Right, fullLine.bottom);
+                        SetTextColor(Bitmap.HMemDC, GetCOLORREF(ViewerColors[VIEWER_FG_SELECTED]));
+                        DrawDecodedElements(Bitmap.HMemDC, visual, elements, left, visibleEnd, 0);
+                        RestoreDC(Bitmap.HMemDC, savedDC);
+                    }
                     SetTextColor(Bitmap.HMemDC, GetCOLORREF(ViewerColors[VIEWER_FG_NORMAL]));
                 }
 
@@ -2648,7 +2828,9 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
 
 void CViewerWindow::RefreshStatusBarDPI()
 {
-    HFONT newFont = WinLibDPICreateMessageFont(HWindow);
+    LOGFONT logFont;
+    GetEffectiveDefaultUILogFont(&logFont, HWindow);
+    HFONT newFont = HANDLES(CreateFontIndirect(&logFont));
     if (newFont == NULL)
         return;
 
@@ -2665,6 +2847,8 @@ void CViewerWindow::RefreshStatusBarDPI()
 
     HFONT oldFont = StatusFont;
     StatusFont = newFont;
+    SetProp(HWindow, _T("OpenSalamander.UIFont"), StatusFont);
+    DrawMenuBar(HWindow);
     if (oldFont != NULL)
         HANDLES(DeleteObject(oldFont));
 }
@@ -2774,7 +2958,7 @@ void CViewerWindow::UpdateStatusBar(__int64 offset)
                         Salamander::Unicode::DecodedRun visual;
                         BOOL fatalErr = FALSE;
                         if (DecodeTextRange(NULL, logicalLineStart, StatusOffset, visual, fatalErr, FALSE) && !fatalErr)
-                            column = (__int64)visual.CellCount() + 1;
+                            column = (__int64)Salamander::Unicode::BuildTextElementMap(visual).Count() + 1;
                         if (savedLoaded > 0)
                         {
                             BOOL restoreFatalErr = FALSE;
@@ -2812,7 +2996,7 @@ void CViewerWindow::UpdateStatusBar(__int64 offset)
                 Salamander::Unicode::DecodedRun selected;
                 BOOL fatalErr = FALSE;
                 if (DecodeTextRange(NULL, first, last, selected, fatalErr) && !fatalErr)
-                    CachedSelectionCharacterCount = (__int64)selected.CellCount();
+                    CachedSelectionCharacterCount = (__int64)Salamander::Unicode::BuildTextElementMap(selected).Count();
                 if (savedLoaded > 0)
                 {
                     BOOL restoreFatalErr = FALSE;

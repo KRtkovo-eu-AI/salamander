@@ -320,7 +320,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     if (!InterfaceForArchiver.Init())
         return NULL;
 
-    if (!InitializeWinLib("7zip", DLLInstance))
+    if (!InitializeWinLib("7zip", DLLInstance, SalamanderGeneral))
         return NULL;
     SetWinLibStrings("Invalid number!", LoadStr(IDS_PLUGINNAME));
     SetupWinLibHelp(HTMLHelpCallback);

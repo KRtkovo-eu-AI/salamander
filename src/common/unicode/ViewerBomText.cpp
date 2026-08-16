@@ -4,9 +4,17 @@
 
 #include "ViewerBomText.h"
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <usp10.h>
+
 #include <algorithm>
 #include <cwctype>
 #include <limits>
+
+#pragma comment(lib, "usp10.lib")
 
 namespace Salamander::Unicode
 {
@@ -40,6 +48,24 @@ std::uint16_t ReadUtf16(const std::uint8_t* data, BomEncoding encoding)
 bool IsContinuation(std::uint8_t value)
 {
     return (value & 0xC0) == 0x80;
+}
+
+bool IsFallbackContinuation(std::uint32_t scalar, std::uint32_t previous)
+{
+    if (scalar == 0x200C || scalar == 0x200D || previous == 0x200D ||
+        (scalar >= 0xFE00 && scalar <= 0xFE0F) ||
+        (scalar >= 0xE0100 && scalar <= 0xE01EF))
+        return true;
+
+    if (scalar <= 0xFFFF)
+    {
+        WORD type = 0;
+        wchar_t ch = (wchar_t)scalar;
+        if (GetStringTypeW(CT_CTYPE3, &ch, 1, &type) &&
+            (type & (C3_NONSPACING | C3_DIACRITIC | C3_VOWELMARK)) != 0)
+            return true;
+    }
+    return false;
 }
 
 std::uint32_t FoldScalar(std::uint32_t scalar, bool caseSensitive)
@@ -234,6 +260,21 @@ bool IsDecodedEncoding(BomEncoding encoding)
            encoding == BomEncoding::Utf16Be;
 }
 
+const char* EncodingDisplayName(BomEncoding encoding, std::int64_t textOffset)
+{
+    switch (encoding)
+    {
+    case BomEncoding::Utf8:
+        return textOffset > 0 ? "UTF-8 BOM" : "UTF-8 no BOM";
+    case BomEncoding::Utf16Le:
+        return "UTF-16 LE";
+    case BomEncoding::Utf16Be:
+        return "UTF-16 BE";
+    default:
+        return nullptr;
+    }
+}
+
 std::int64_t AlignToCodeUnit(BomEncoding encoding, std::int64_t offset, std::int64_t textOffset)
 {
     if (offset < textOffset)
@@ -376,6 +417,45 @@ DecodedRun DecodeBytes(BomEncoding encoding, const std::uint8_t* data, std::size
     }
     run.RawBytesConsumed = i;
     return run;
+}
+
+TextElementMap BuildTextElementMap(const DecodedRun& run)
+{
+    TextElementMap map;
+    map.CellBoundary.push_back(0);
+    if (run.CellCount() == 0)
+        return map;
+
+    const SCRIPT_LOGATTR* attributes = nullptr;
+    SCRIPT_STRING_ANALYSIS analysis = nullptr;
+    if (!run.Text.empty() && run.Text.size() <= (std::size_t)std::numeric_limits<int>::max())
+    {
+        int textLength = (int)run.Text.size();
+        int glyphCapacity = textLength + textLength / 2 + 16;
+        if (SUCCEEDED(ScriptStringAnalyse(nullptr, run.Text.data(), textLength, glyphCapacity, -1,
+                                          SSA_BREAK, 0, nullptr, nullptr, nullptr, nullptr, nullptr,
+                                          &analysis)))
+            attributes = ScriptString_pLogAttr(analysis);
+    }
+
+    for (std::size_t cell = 1; cell < run.CellCount(); ++cell)
+    {
+        bool isBoundary = false;
+        std::size_t textIndex = run.CellTextIndex[cell];
+        if (attributes != nullptr && textIndex < run.Text.size())
+            isBoundary = attributes[textIndex].fCharStop != 0;
+        else
+            isBoundary = !IsFallbackContinuation(run.Scalars[cell], run.Scalars[cell - 1]);
+        if (isBoundary && IsFallbackContinuation(run.Scalars[cell], run.Scalars[cell - 1]))
+            isBoundary = false;
+        if (isBoundary)
+            map.CellBoundary.push_back(cell);
+    }
+    map.CellBoundary.push_back(run.CellCount());
+
+    if (analysis != nullptr)
+        ScriptStringFree(&analysis);
+    return map;
 }
 
 std::size_t CountPatternCells(const std::wstring& pattern)

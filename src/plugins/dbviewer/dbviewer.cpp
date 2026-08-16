@@ -292,7 +292,7 @@ BOOL InitViewer()
         IsAlpha[j] = IsCharAlpha((char)j);
     }
 
-    if (!InitializeWinLib(PLUGIN_NAME, DLLInstance))
+    if (!InitializeWinLib(PLUGIN_NAME, DLLInstance, SalGeneral))
         return FALSE;
     SetWinLibStrings("Invalid number!", PLUGIN_NAME);
     SetupWinLibHelp(HTMLHelpCallback);

@@ -5,10 +5,12 @@
 #include "precomp.h"
 
 #include <string>
+#include <usp10.h>
 
 #include "viewer.h"
 #include "common/widepath.h"
 #include "codetbl.h"
+#include "codetbl_utils.h"
 
 #include "cfgdlg.h"
 #include "dialogs.h"
@@ -997,6 +999,12 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
                             // so disable Paint, which only clears the viewer background (e.g., the parts already displayed)
                             EnablePaint = FALSE;
                             RecognizeFileType(HWindow, recBuf, recLen, FALSE, &isText, codePage);
+                            if (isText && ShouldPreferWindowsCodePageText(
+                                              recBuf, recLen,
+                                              GetEffectiveConversionCodePage(), codePage))
+                            {
+                                CodeTables.GetWinCodePage(codePage);
+                            }
                             EnablePaint = oldEnablePaint;
                             if (defViewMode == 0)
                             {
@@ -1593,7 +1601,7 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
                 if (fatalErr)
                     return FALSE;
             }
-            *firstLineCharLen = (__int64)visual.CellCount();
+            *firstLineCharLen = (__int64)Salamander::Unicode::BuildTextElementMap(visual).Count();
         }
         return TRUE;
     }
@@ -1742,7 +1750,7 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
             if (fatalErr)
                 return FALSE;
         }
-        *firstLineCharLen = (__int64)visual.CellCount();
+        *firstLineCharLen = (__int64)Salamander::Unicode::BuildTextElementMap(visual).Count();
     }
     return TRUE;
 }
@@ -1878,7 +1886,8 @@ BOOL CViewerWindow::GetOffsetOrXAbs(__int64 x, __int64* offset, __int64* offsetX
             {
                 if (visual.Scalars[i] == L'\t')
                 {
-                    int tab = (int)(Configuration.TabSize - (expanded.CellCount() % Configuration.TabSize));
+                    std::size_t column = Salamander::Unicode::BuildTextElementMap(expanded).Count();
+                    int tab = (int)(Configuration.TabSize - (column % Configuration.TabSize));
                     if (tab <= 0)
                         tab = 1;
                     while (tab-- > 0)
@@ -1888,7 +1897,8 @@ BOOL CViewerWindow::GetOffsetOrXAbs(__int64 x, __int64* offset, __int64* offsetX
                     expanded.AppendCell(visual.Scalars[i], visual.RawStart[i], visual.RawEnd[i]);
             }
 
-            lineCharLen = (__int64)expanded.CellCount();
+            Salamander::Unicode::TextElementMap elements = Salamander::Unicode::BuildTextElementMap(expanded);
+            lineCharLen = (__int64)elements.Count();
             if (getXFromOffset ? findOffset == lineEndOff : x >= lineCharLen)
             {
                 if (foundX != NULL)
@@ -1910,17 +1920,19 @@ BOOL CViewerWindow::GetOffsetOrXAbs(__int64 x, __int64* offset, __int64* offsetX
                 return TRUE;
             }
 
-            for (std::size_t i = 0; i < expanded.CellCount(); ++i)
+            for (std::size_t i = 0; i < elements.Count(); ++i)
             {
+                std::size_t first = elements.CellStart(i);
+                std::size_t last = elements.CellEnd(i) - 1;
                 if (getXFromOffset)
                 {
-                    if (findOffset <= expanded.RawStart[i])
+                    if (findOffset <= expanded.RawStart[first])
                     {
                         if (foundX != NULL)
                             *foundX = (__int64)i;
                         return TRUE;
                     }
-                    if (findOffset <= expanded.RawEnd[i])
+                    if (findOffset <= expanded.RawEnd[last])
                     {
                         if (foundX != NULL)
                             *foundX = (__int64)i + 1;
@@ -1931,10 +1943,10 @@ BOOL CViewerWindow::GetOffsetOrXAbs(__int64 x, __int64* offset, __int64* offsetX
                 {
                     if (offset != NULL)
                     {
-                        if (expanded.RawEnd[i] - expanded.RawStart[i] > 1)
-                            *offset = x > (__int64)i ? expanded.RawEnd[i] : expanded.RawStart[i];
+                        if (expanded.RawEnd[last] - expanded.RawStart[first] > 1)
+                            *offset = x > (__int64)i ? expanded.RawEnd[last] : expanded.RawStart[first];
                         else
-                            *offset = expanded.RawEnd[i];
+                            *offset = expanded.RawEnd[last];
                     }
                     if (offsetX != NULL)
                         *offsetX = (__int64)i + 1;
@@ -2081,55 +2093,110 @@ BOOL CViewerWindow::GetDecodedOffsetFromPixel(__int64 pixelX, __int64 originCell
     if (visual.CellCount() == 0)
         return TRUE;
 
+    Salamander::Unicode::DecodedRun expanded;
+    for (std::size_t i = 0; i < visual.CellCount(); ++i)
+    {
+        if (visual.Scalars[i] == L'\t')
+        {
+            std::size_t column = Salamander::Unicode::BuildTextElementMap(expanded).Count();
+            int tab = (int)(Configuration.TabSize - (column % Configuration.TabSize));
+            if (tab <= 0)
+                tab = 1;
+            while (tab-- > 0)
+                expanded.AppendCell(L' ', visual.RawStart[i], visual.RawEnd[i]);
+        }
+        else
+            expanded.AppendCell(visual.Scalars[i], visual.RawStart[i], visual.RawEnd[i]);
+    }
+
+    Salamander::Unicode::TextElementMap allElements = Salamander::Unicode::BuildTextElementMap(expanded);
+    std::size_t firstElement = (std::size_t)min(max((__int64)0, originCell), (__int64)allElements.Count());
+    if (firstElement >= allElements.Count())
+    {
+        if (offset != NULL)
+            *offset = lineEndOff;
+        return TRUE;
+    }
+
+    Salamander::Unicode::DecodedRun shown;
+    for (std::size_t cell = allElements.CellStart(firstElement); cell < expanded.CellCount(); ++cell)
+        shown.AppendCell(expanded.Scalars[cell], expanded.RawStart[cell], expanded.RawEnd[cell]);
+    Salamander::Unicode::TextElementMap shownElements = Salamander::Unicode::BuildTextElementMap(shown);
+
     HDC dc = HANDLES(GetDC(HWindow));
     if (dc == NULL)
         return FALSE;
     HFONT oldFont = (HFONT)SelectObject(dc, ViewerFont);
 
-    UNREFERENCED_PARAMETER(originCell);
-    __int64 targetPixel = pixelX;
-    int currentRight = 0;
-    int visualCell = 0;
-    for (std::size_t i = 0; i < visual.CellCount(); ++i)
+    SCRIPT_STRING_ANALYSIS analysis = nullptr;
+    int textLength = (int)shown.Text.size();
+    int glyphCapacity = textLength + textLength / 2 + 16;
+    if (textLength > 0 &&
+        SUCCEEDED(ScriptStringAnalyse(dc, shown.Text.data(), textLength, glyphCapacity, -1,
+                                      SSA_GLYPHS | SSA_FALLBACK | SSA_LINK | SSA_BREAK, 0, nullptr, nullptr,
+                                      nullptr, nullptr, nullptr, &analysis)))
     {
-        int previousRight = currentRight;
-        if (visual.Scalars[i] == L'\t')
+        int character = 0;
+        int trailing = 0;
+        if (SUCCEEDED(ScriptStringXtoCP(analysis, (int)pixelX, &character, &trailing)))
         {
-            int tab = (int)(Configuration.TabSize - (visualCell % Configuration.TabSize));
-            if (tab <= 0)
-                tab = 1;
-            currentRight += tab * CharWidth;
-            visualCell += tab;
-        }
-        else
-        {
-            std::size_t textStart = visual.TextIndexForCellEnd(i);
-            std::size_t textEnd = visual.TextIndexForCellEnd(i + 1);
-            SIZE size = {0, 0};
-            if (textEnd > textStart &&
-                GetTextExtentPoint32W(dc, visual.Text.c_str() + textStart, (int)(textEnd - textStart), &size))
-                currentRight += max(1, size.cx);
+            if (character < 0)
+            {
+                if (offset != NULL)
+                    *offset = shown.RawStart[0];
+            }
+            else if (character >= textLength)
+            {
+                if (offset != NULL)
+                    *offset = lineEndOff;
+            }
             else
-                currentRight += CharWidth;
-            visualCell++;
+            {
+                std::size_t element = 0;
+                while (element + 1 < shownElements.Count() &&
+                       shown.TextIndexForCellEnd(shownElements.CellEnd(element)) <= (std::size_t)character)
+                    element++;
+                if (offset != NULL)
+                {
+                    if (trailing > 0)
+                        *offset = shown.RawEnd[shownElements.CellEnd(element) - 1];
+                    else
+                        *offset = shown.RawStart[shownElements.CellStart(element)];
+                }
+            }
+            ScriptStringFree(&analysis);
+            SelectObject(dc, oldFont);
+            HANDLES(ReleaseDC(HWindow, dc));
+            return TRUE;
         }
+        ScriptStringFree(&analysis);
+    }
 
-        if (targetPixel < (__int64)((previousRight + currentRight) / 2))
+    int previousRight = 0;
+    for (std::size_t i = 0; i < shownElements.Count(); ++i)
+    {
+        std::size_t textEnd = shown.TextIndexForCellEnd(shownElements.CellEnd(i));
+        SIZE size = {0, 0};
+        int currentRight = previousRight + CharWidth;
+        if (textEnd > 0 && GetTextExtentPoint32W(dc, shown.Text.c_str(), (int)textEnd, &size))
+            currentRight = size.cx;
+        if (pixelX < (__int64)((previousRight + currentRight) / 2))
         {
             if (offset != NULL)
-                *offset = visual.RawStart[i];
+                *offset = shown.RawStart[shownElements.CellStart(i)];
             SelectObject(dc, oldFont);
             HANDLES(ReleaseDC(HWindow, dc));
             return TRUE;
         }
-        if (targetPixel <= currentRight)
+        if (pixelX <= currentRight)
         {
             if (offset != NULL)
-                *offset = visual.RawEnd[i];
+                *offset = shown.RawEnd[shownElements.CellEnd(i) - 1];
             SelectObject(dc, oldFont);
             HANDLES(ReleaseDC(HWindow, dc));
             return TRUE;
         }
+        previousRight = currentRight;
     }
 
     if (offset != NULL)

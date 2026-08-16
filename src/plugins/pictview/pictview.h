@@ -258,10 +258,12 @@ public:
     HICON HPipette;
 
     HWND hProgBar;
+    HFONT HFont;
 
 public:
     CStatusBar();
     ~CStatusBar();
+    void SetFont();
 };
 
 //

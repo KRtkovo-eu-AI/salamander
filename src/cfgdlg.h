@@ -1150,8 +1150,14 @@ class CCfgPageAppearance : public CCommonPropSheetPage
 {
 protected:
     HFONT HPanelFont;
+    HFONT HDialogFont;
     BOOL LocalUseCustomPanelFont;
     LOGFONT LocalPanelLogFont;
+    int LocalDialogFontMode;
+    LOGFONT LocalDialogLogFont;
+    int LocalDialogFontPointSize;
+    LOGFONT OriginalEffectiveDialogFont;
+    BOOL DialogFontRestartMessageShown;
     BOOL NotificationEnabled;
 
 public:
@@ -1162,6 +1168,7 @@ public:
     virtual void Validate(CTransferInfo& ti);
 
     void LoadControls();
+    void LoadFontPreview(int editID, HFONT* previewFont, LOGFONT logFont, int pointSize, int descriptionID);
     void EnableControls();
 
 protected:

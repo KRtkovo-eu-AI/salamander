@@ -412,6 +412,7 @@ void CPropSheetPage::Init(const TCHAR* title, HINSTANCE modul, int resID,
     }
     Flags = flags;
     Icon = icon;
+    DialogTemplate = NULL;
 
     ParentDialog = NULL; // nastavuje se z CPropertyDialog::Execute()
     ParentPage = NULL;
@@ -427,6 +428,7 @@ void CPropSheetPage::Init(const TCHAR* title, HINSTANCE modul, int resID,
 
 CPropSheetPage::~CPropSheetPage()
 {
+    WinLibDPIFreeDialogTemplate(DialogTemplate);
     if (Title != NULL)
         delete[] Title;
     if (ElasticLayout != NULL)
@@ -474,10 +476,24 @@ HPROPSHEETPAGE
 CPropSheetPage::CreatePropSheetPage()
 {
     PROPSHEETPAGE psp;
+    memset(&psp, 0, sizeof(psp));
     psp.dwSize = sizeof(PROPSHEETPAGE);
     psp.dwFlags = Flags;
     psp.hInstance = Modul;
-    psp.pszTemplate = MAKEINTRESOURCE(ResID);
+    WinLibDPIFreeDialogTemplate(DialogTemplate);
+    DialogTemplate = NULL;
+    HWND dpiWindow = ParentDialog != NULL ? ParentDialog->Parent : NULL;
+    LOGFONT logFont;
+    if (WinLibGetConfiguredDialogLogFont(dpiWindow, &logFont))
+        DialogTemplate = WinLibDPICloneResourceDialogWithFont(Modul, ResID, &logFont,
+                                                              WinLibDPIGetWindowDPI(dpiWindow), NULL);
+    if (DialogTemplate != NULL)
+    {
+        psp.dwFlags |= PSP_DLGINDIRECT;
+        psp.pResource = (LPCDLGTEMPLATE)DialogTemplate;
+    }
+    else
+        psp.pszTemplate = MAKEINTRESOURCE(ResID);
     psp.hIcon = Icon;
     psp.pszTitle = Title;
     psp.pfnDlgProc = CPropSheetPage::CPropSheetPageProc;
@@ -1148,10 +1164,20 @@ CPropSheetPage::CPropSheetPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
     }
     }
     //--- zavolani metody DialogProc(...) prislusneho objektu dialogu
+    INT_PTR dlgRes;
     if (dlg != NULL)
-        return dlg->DialogProc(uMsg, wParam, lParam);
+        dlgRes = dlg->DialogProc(uMsg, wParam, lParam);
     else
-        return FALSE; // chyba nebo message neprisla mezi WM_INITDIALOG a WM_DESTROY
+        dlgRes = FALSE; // chyba nebo message neprisla mezi WM_INITDIALOG a WM_DESTROY
+
+    // Page geometry already comes from the font-aware template. Apply the exact
+    // LOGFONT to the page and the system-created sheet without changing geometry.
+    if (uMsg == WM_INITDIALOG && dlg != NULL)
+    {
+        WinLibApplyConfiguredDialogFont(hwndDlg);
+        WinLibApplyConfiguredDialogFont(dlg->Parent);
+    }
+    return dlgRes;
 }
 
 //
@@ -1185,8 +1211,8 @@ CPropertyDialog::Execute()
         psh.phpage = pages;
         for (int i = 0; i < Count; i++)
         {
-            psh.phpage[i] = At(i)->CreatePropSheetPage();
             At(i)->ParentDialog = this;
+            psh.phpage[i] = At(i)->CreatePropSheetPage();
         }
         psh.pfnCallback = Callback;
         INT_PTR ret = PropertySheet(&psh);
@@ -1982,15 +2008,18 @@ void CTreePropHolderDlg::UpdateTreeFontAndMetrics()
         return;
 
     // The dialog manager does not reliably replace an already assigned HFONT
-    // for the tree during a PMv2 transition. Build the dynamic template's
-    // 8-point MS Shell Dlg 2 font from the explicit notification DPI.
+    // for the tree during a PMv2 transition. Recreate the configured UI font
+    // from the explicit destination window DPI.
     LOGFONT lf;
-    ZeroMemory(&lf, sizeof(lf));
-    lf.lfHeight = -MulDiv(8, CurrentDPI, 72);
-    lf.lfWeight = FW_NORMAL;
-    lf.lfCharSet = ANSI_CHARSET;
-    lf.lfQuality = CLEARTYPE_QUALITY;
-    _tcscpy_s(lf.lfFaceName, _T("MS Shell Dlg 2"));
+    if (!WinLibGetConfiguredDialogLogFont(HWindow, &lf))
+    {
+        ZeroMemory(&lf, sizeof(lf));
+        lf.lfHeight = -MulDiv(8, CurrentDPI, 72);
+        lf.lfWeight = FW_NORMAL;
+        lf.lfCharSet = ANSI_CHARSET;
+        lf.lfQuality = CLEARTYPE_QUALITY;
+        _tcscpy_s(lf.lfFaceName, _T("MS Shell Dlg 2"));
+    }
     HFONT newFont = HANDLES(CreateFontIndirect(&lf));
     if (newFont != NULL)
     {
@@ -2001,17 +2030,25 @@ void CTreePropHolderDlg::UpdateTreeFontAndMetrics()
             HANDLES(DeleteObject(oldFont));
     }
 
-    // Historically the hand-painted page heading did not inherit the dialog
-    // font: it used DEFAULT_GUI_FONT enlarged by 20 percent. Recreate that
-    // exact 96-DPI metric and then scale it for the destination monitor.
+    // The hand-painted page heading uses the UI font enlarged by 20 percent.
     LOGFONT captionLF;
-    HFONT defaultGuiFont = (HFONT)HANDLES(GetStockObject(DEFAULT_GUI_FONT));
-    if (GetObject(defaultGuiFont, sizeof(captionLF), &captionLF) == sizeof(captionLF))
+    BOOL haveCaptionFont = WinLibGetConfiguredDialogLogFont(HWindow, &captionLF);
+    if (haveCaptionFont)
+        captionLF.lfHeight = (int)(captionLF.lfHeight * 1.2);
+    else
     {
-        captionLF.lfHeight = MulDiv((int)(captionLF.lfHeight * 1.2),
-                                    CurrentDPI, USER_DEFAULT_SCREEN_DPI);
-        captionLF.lfWidth = MulDiv(captionLF.lfWidth,
-                                   CurrentDPI, USER_DEFAULT_SCREEN_DPI);
+        HFONT defaultGuiFont = (HFONT)HANDLES(GetStockObject(DEFAULT_GUI_FONT));
+        haveCaptionFont = GetObject(defaultGuiFont, sizeof(captionLF), &captionLF) == sizeof(captionLF);
+        if (haveCaptionFont)
+        {
+            captionLF.lfHeight = MulDiv((int)(captionLF.lfHeight * 1.2),
+                                        CurrentDPI, USER_DEFAULT_SCREEN_DPI);
+            captionLF.lfWidth = MulDiv(captionLF.lfWidth,
+                                       CurrentDPI, USER_DEFAULT_SCREEN_DPI);
+        }
+    }
+    if (haveCaptionFont)
+    {
         HFONT newCaptionFont = HANDLES(CreateFontIndirect(&captionLF));
         if (newCaptionFont != NULL)
         {
@@ -2436,6 +2473,25 @@ int CTreePropDialog::Execute(const TCHAR* buttonOK,
         // postavim template dialogu: DLG nebo DLGEX, podle formatu stranek, musi byt shodny,
         // jinak dochazi k orezu controlu a lisi se pisma stranek a zbytku tree property dialogu
 
+        LOGFONT holderLogFont;
+        BOOL customHolderFont = WinLibGetConfiguredDialogLogFont(Parent, &holderLogFont);
+        int holderPointSize = 8;
+        int holderWeight = FW_NORMAL;
+        BYTE holderItalic = FALSE;
+        BYTE holderCharSet = ANSI_CHARSET;
+        const TCHAR* holderFaceName = _T("MS Shell Dlg 2");
+        if (customHolderFont)
+        {
+            holderPointSize = MulDiv(abs(holderLogFont.lfHeight), 72,
+                                     WinLibDPIGetWindowDPI(Parent));
+            if (holderPointSize < 1)
+                holderPointSize = 1;
+            holderWeight = holderLogFont.lfWeight;
+            holderItalic = holderLogFont.lfItalic;
+            holderCharSet = holderLogFont.lfCharSet;
+            holderFaceName = holderLogFont.lfFaceName;
+        }
+
         HGLOBAL hgbl;
 
         LPWORD lpw;
@@ -2452,7 +2508,7 @@ int CTreePropDialog::Execute(const TCHAR* buttonOK,
         lpw += 2;
         // style
         *(DWORD*)lpw = WS_VISIBLE | WS_POPUP | WS_BORDER | WS_SYSMENU | WS_CAPTION |
-                       DS_SETFONT | DS_MODALFRAME | DS_CENTER | DS_FIXEDSYS | WS_SIZEBOX;
+                       DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_SIZEBOX;
         lpw += 2;
         *lpw++ = 8; // cDlgItems (number of controls)
         *lpw++ = 0; // x
@@ -2463,13 +2519,13 @@ int CTreePropDialog::Execute(const TCHAR* buttonOK,
         *lpw++ = 0; // predefined dialog box class (by default)
         lpwsz = (LPWSTR)lpw;
         lpw += WinLibCopyText(lpwsz, Caption, 100); // title
-        *lpw++ = 8;                                 // MS Shell Dlg 2 font size used by the dynamic template
-        *lpw++ = FW_NORMAL;                         // font weight
-        *(BYTE*)lpw = FALSE;                        // is font italic?
-        *((BYTE*)lpw + 1) = ANSI_CHARSET;           // font charset
+        *lpw++ = (WORD)holderPointSize;
+        *lpw++ = (WORD)holderWeight;
+        *(BYTE*)lpw = holderItalic;
+        *((BYTE*)lpw + 1) = holderCharSet;
         lpw++;
         lpwsz = (LPWSTR)lpw; // font typeface
-        lpw += WinLibCopyText(lpwsz, _T("MS Shell Dlg 2"), 50);
+        lpw += WinLibCopyText(lpwsz, holderFaceName, 50);
 
         BOOL appIsThemed = IsAppThemed();
 

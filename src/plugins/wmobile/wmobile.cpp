@@ -143,7 +143,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     // set the help file name
     SalamanderGeneral->SetHelpFileName("wmobile.chm");
 
-    if (!InitializeWinLib("WMOBILE" /* do not translate! */, DLLInstance))
+    if (!InitializeWinLib("WMOBILE" /* do not translate! */, DLLInstance, SalamanderGeneral))
         return FALSE;
     SetupWinLibHelp(HTMLHelpCallback);
 

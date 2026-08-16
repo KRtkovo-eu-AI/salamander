@@ -21,6 +21,78 @@ const char* MAINWINDOW_CLASSNAME = "SFC Window Class";
 
 namespace
 {
+#ifndef WM_UAHDRAWMENUITEM
+#define WM_UAHDRAWMENUITEM 0x0092
+#endif
+
+typedef struct tagFileCompUAHMENU
+{
+    HMENU hmenu;
+    HDC hdc;
+    DWORD dwFlags;
+} FileCompUAHMENU;
+
+typedef struct tagFileCompUAHMENUITEM
+{
+    int iPosition;
+    DWORD metrics[12];
+} FileCompUAHMENUITEM;
+
+typedef struct tagFileCompUAHDRAWMENUITEM
+{
+    DRAWITEMSTRUCT dis;
+    FileCompUAHMENU um;
+    FileCompUAHMENUITEM umi;
+} FileCompUAHDRAWMENUITEM;
+
+BOOL GetFileCompMenuText(HMENU menu, int position, wchar_t* text, int textCount)
+{
+    MENUITEMINFOW mii;
+    ZeroMemory(&mii, sizeof(mii));
+    mii.cbSize = sizeof(mii);
+    mii.fMask = MIIM_STRING;
+    mii.dwTypeData = text;
+    mii.cch = textCount - 1;
+    text[0] = 0;
+    return GetMenuItemInfoW(menu, position, TRUE, &mii);
+}
+
+void PaintFileCompMenuBarItem(FileCompUAHDRAWMENUITEM* item)
+{
+    if (item == NULL || EnvFont == NULL)
+        return;
+    wchar_t text[MAX_PATH];
+    if (!GetFileCompMenuText(item->um.hmenu, item->umi.iPosition, text, _countof(text)))
+        return;
+
+    const bool dark = DarkModeShouldUseDarkColors();
+    COLORREF background = dark ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_MENU);
+    COLORREF textColor = dark ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_MENUTEXT);
+    if ((item->dis.itemState & ODS_SELECTED) != 0)
+    {
+        background = dark ? RGB(58, 58, 58) : GetSysColor(COLOR_HIGHLIGHT);
+        textColor = dark ? RGB(245, 245, 245) : GetSysColor(COLOR_HIGHLIGHTTEXT);
+    }
+    else if ((item->dis.itemState & ODS_HOTLIGHT) != 0)
+        background = dark ? RGB(69, 69, 69) : GetSysColor(COLOR_MENUHILIGHT);
+    if ((item->dis.itemState & (ODS_GRAYED | ODS_DISABLED | ODS_INACTIVE)) != 0)
+        textColor = dark ? RGB(128, 128, 128) : GetSysColor(COLOR_GRAYTEXT);
+
+    HBRUSH brush = CreateSolidBrush(background);
+    FillRect(item->um.hdc, &item->dis.rcItem, brush);
+    DeleteObject(brush);
+    HFONT oldFont = (HFONT)SelectObject(item->um.hdc, EnvFont);
+    int oldBkMode = SetBkMode(item->um.hdc, TRANSPARENT);
+    COLORREF oldTextColor = SetTextColor(item->um.hdc, textColor);
+    UINT flags = DT_CENTER | DT_SINGLELINE | DT_VCENTER;
+    if ((item->dis.itemState & ODS_NOACCEL) != 0)
+        flags |= DT_HIDEPREFIX;
+    DrawTextW(item->um.hdc, text, -1, &item->dis.rcItem, flags);
+    SetTextColor(item->um.hdc, oldTextColor);
+    SetBkMode(item->um.hdc, oldBkMode);
+    SelectObject(item->um.hdc, oldFont);
+}
+
 void ApplyFileCompMainWindowChrome(HWND hwnd, HWND toolbar, HWND rebar)
 {
     const bool dark = DarkModeShouldUseDarkColors();
@@ -1211,10 +1283,20 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (!CreateEnvFont(HWindow))
             return -1;
+        SendMessage(HWindow, WM_SETFONT, (WPARAM)EnvFont, FALSE);
+        SetProp(HWindow, _T("OpenSalamander.UIFont"), EnvFont);
         if (!Init())
             return -1;
         return 0;
     }
+
+    case WM_UAHDRAWMENUITEM:
+        if (lParam != 0)
+        {
+            PaintFileCompMenuBarItem((FileCompUAHDRAWMENUITEM*)lParam);
+            return 0;
+        }
+        break;
 
     case WM_ERASEBKGND:
     {
@@ -1245,6 +1327,8 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         UINT dpi = DpiUpdateValue != 0 ? DpiUpdateValue : USER_DEFAULT_SCREEN_DPI;
         if (CreateEnvFontForDPI(dpi))
         {
+            SendMessage(HWindow, WM_SETFONT, (WPARAM)EnvFont, FALSE);
+            SetProp(HWindow, _T("OpenSalamander.UIFont"), EnvFont);
             HeaderHeight = EnvFontHeight + MulDiv(4, dpi, USER_DEFAULT_SCREEN_DPI);
             RebuildToolbarImages();
             if (ComboBox != NULL && ComboBox->HWindow != NULL)

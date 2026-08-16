@@ -33,6 +33,10 @@ class CWinLibHelp;
 BOOL InitializeWinLib();
 // je potreba zavolat po pouziti WinLibu
 void ReleaseWinLib();
+typedef void (*FWinLibDialogFontProvider)(LOGFONT* logFont, HWND dpiWindow);
+void SetupWinLibDialogFontProvider(FWinLibDialogFontProvider provider);
+BOOL WinLibGetConfiguredDialogLogFont(HWND dpiWindow, LOGFONT* logFont);
+void WinLibApplyConfiguredDialogFont(HWND dialog);
 // je treba zavolat pred pouzivanim helpu
 BOOL SetupWinLibHelp(CWinLibHelp* winLibHelp);
 

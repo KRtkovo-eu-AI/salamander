@@ -1754,8 +1754,19 @@ void dmlib::removeHeaderCtrlSubclass(HWND hWnd)
  */
 void dmlib::setStatusBarCtrlSubclass(HWND hWnd)
 {
-	const auto lf = LOGFONT{ dmlib_dpi::getSysFontForDpi(::GetParent(hWnd), dmlib_dpi::FontType::status) };
-	dmlib_subclass::SetSubclass<dmlib_subclass::StatusBarData>(hWnd, dmlib_subclass::StatusBarSubclass, dmlib_subclass::SubclassID::statusBar, ::CreateFontIndirectW(&lf));
+	HFONT hFont = reinterpret_cast<HFONT>(::SendMessage(hWnd, WM_GETFONT, 0, 0));
+	HFONT fallbackFont = nullptr;
+	if (hFont == nullptr)
+	{
+		const auto lf = LOGFONT{ dmlib_dpi::getSysFontForDpi(::GetParent(hWnd), dmlib_dpi::FontType::status) };
+		fallbackFont = ::CreateFontIndirectW(&lf);
+		hFont = fallbackFont;
+	}
+	dmlib_subclass::SetSubclass<dmlib_subclass::StatusBarData>(hWnd, dmlib_subclass::StatusBarSubclass, dmlib_subclass::SubclassID::statusBar, hFont);
+	if (fallbackFont != nullptr)
+	{
+		::DeleteObject(fallbackFont);
+	}
 }
 
 /**

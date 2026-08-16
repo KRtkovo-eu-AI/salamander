@@ -156,7 +156,16 @@ CPropPageGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             TPMPARAMS tpmPar;
             tpmPar.cbSize = sizeof(tpmPar);
             tpmPar.rcExclude = r;
-            switch (TrackPopupMenuEx(hSubMenu, TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RIGHTBUTTON | TPM_NONOTIFY | TPM_RETURNCMD, r.right, r.top, HWindow, &tpmPar))
+            DWORD command = 0;
+            CGUIMenuPopupAbstract* popup = SalGUI->CreateMenuPopup();
+            if (popup != NULL)
+            {
+                popup->SetTemplateMenu(hSubMenu);
+                command = popup->Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON | MENU_TRACK_NONOTIFY,
+                                       r.right, r.top, HWindow, &tpmPar.rcExclude);
+                SalGUI->DestroyMenuPopup(popup);
+            }
+            switch (command)
             {
             case CM_CUSTOMFONT:
             {

@@ -21,6 +21,7 @@ HICON FTPOperIconBig = NULL; // large (32x32) icon of the operations dialog
 HCURSOR DragCursor = NULL;   // cursor for the drag & drop listbox in the Connect dialog
 HFONT FixedFont = NULL;      // font for the Welcome Message dialog (fixed so the text layout works better)
 HFONT SystemFont = NULL;     // environment font (dialogs, wait window, etc.)
+BOOL SystemFontOwned = FALSE;
 HICON WarningIcon = NULL;    // small (16x16) "warning" icon for the operations dialog
 
 const char* SAVEBITS_CLASSNAME = "SalamanderFTPClientSaveBits"; // class for CWaitWindow
@@ -56,7 +57,7 @@ BOOL InitFS()
     }
     HANDLES(InitializeCriticalSection(&WorkerMayBeClosedStateCS));
 
-    if (!InitializeWinLib("FTP_Client", DLLInstance))
+    if (!InitializeWinLib("FTP_Client", DLLInstance, SalamanderGeneral))
         return FALSE;
     SetupWinLibHelp(HTMLHelpCallback);
     SetWinLibStrings(LoadStr(IDS_INVALIDNUMBER), LoadStr(IDS_FTPPLUGINTITLE));
@@ -84,8 +85,16 @@ BOOL InitFS()
     DragCursor = LoadCursor(DLLInstance, MAKEINTRESOURCE(IDC_DRAGCURSOR));
 
     LOGFONT srcLF;
-    SystemFont = (HFONT)HANDLES(GetStockObject(DEFAULT_GUI_FONT));
-    GetObject(SystemFont, sizeof(srcLF), &srcLF);
+    if (WinLibGetDefaultUILogFont(NULL, &srcLF))
+    {
+        SystemFont = HANDLES(CreateFontIndirect(&srcLF));
+        SystemFontOwned = SystemFont != NULL;
+    }
+    if (SystemFont == NULL)
+    {
+        SystemFont = (HFONT)HANDLES(GetStockObject(DEFAULT_GUI_FONT));
+        GetObject(SystemFont, sizeof(srcLF), &srcLF);
+    }
 
     LOGFONT lf;
     lf.lfHeight = srcLF.lfHeight;
@@ -233,7 +242,10 @@ void ReleaseFS()
     // DragCursor is "shared", so it will be destroyed only when the plugin DLL is unloaded
     if (FixedFont != NULL)
         HANDLES(DeleteObject(FixedFont));
-    // SystemFont does not need to be deleted (stock object)
+    if (SystemFontOwned && SystemFont != NULL)
+        HANDLES(DeleteObject(SystemFont));
+    SystemFont = NULL;
+    SystemFontOwned = FALSE;
 
     ReleaseWinLib(DLLInstance);
 

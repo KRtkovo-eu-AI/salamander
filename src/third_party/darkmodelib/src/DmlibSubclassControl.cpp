@@ -3190,6 +3190,12 @@ LRESULT CALLBACK dmlib_subclass::StatusBarSubclass(
 
 	switch (uMsg)
 	{
+		case WM_SETFONT:
+		{
+			pStatusBarData->setFont(reinterpret_cast<HFONT>(wParam));
+			return ::DefSubclassProc(hWnd, uMsg, wParam, lParam);
+		}
+
 		case WM_NCDESTROY:
 		{
 			::RemoveWindowSubclass(hWnd, StatusBarSubclass, uIdSubclass);
@@ -3240,9 +3246,7 @@ LRESULT CALLBACK dmlib_subclass::StatusBarSubclass(
 		case WM_THEMECHANGED:
 		{
 			themeData.closeTheme();
-
-			const auto lf = LOGFONT{ dmlib_dpi::getSysFontForDpi(::GetParent(hWnd), dmlib_dpi::FontType::status) };
-			pStatusBarData->m_fontData.setFont(::CreateFontIndirectW(&lf));
+			pStatusBarData->setFont(reinterpret_cast<HFONT>(::SendMessage(hWnd, WM_GETFONT, 0, 0)));
 
 			if (uMsg != WM_THEMECHANGED)
 			{

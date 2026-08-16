@@ -3748,6 +3748,14 @@ BOOL CSalamanderGeneral::GetConfigParameter(int paramID, void* buffer, int buffe
         break;
     }
 
+    case SALCFG_DIALOGFONT:
+    {
+        auxType = SALCFGTYPE_LOGFONT;
+        auxDataSize = sizeof(LOGFONT);
+        GetEffectiveDialogLogFont((LOGFONT*)auxBuf, MainWindow != NULL ? MainWindow->HWindow : NULL);
+        break;
+    }
+
     case SALCFG_ARCOTHERPANELFORPACK:
         *((DWORD*)auxBuf) = (DWORD)Configuration.UseAnotherPanelForPack;
         break;

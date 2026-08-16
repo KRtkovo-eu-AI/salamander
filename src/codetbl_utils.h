@@ -5,6 +5,7 @@
 
 #include <windows.h>
 #include <stddef.h>
+#include <string>
 
 // The first argument is normally GetACP(). A UTF-8 activeCodePage manifest
 // makes the second argument authoritative for regional table auto-selection.
@@ -22,3 +23,17 @@ BOOL ParseConversionCodePageIdentifier(const char* text, size_t length, DWORD* i
 BOOL ConvertConversionTableText(const char* source, UINT sourceCodePage,
                                 UINT destinationCodePage, char* destination,
                                 size_t destinationSize);
+
+// Legacy viewer conversion tables produce bytes in the regional Windows code
+// page. Convert an exact text run to UTF-16 before passing it to Unicode GDI in
+// a process whose active code page is UTF-8.
+BOOL ConvertLegacyViewerTextToWide(const char* source, int sourceLength,
+                                   UINT sourceCodePage, std::wstring* destination);
+
+// ISO-8859 code pages reserve bytes 0x80..0x9F for C1 controls.  When those
+// bytes are letters in the configured Windows code page, the input is strong
+// evidence that it is already in that Windows code page and must not be
+// converted from ISO-8859.
+BOOL ShouldPreferWindowsCodePageText(const char* source, int sourceLength,
+                                     UINT windowsCodePage,
+                                     const char* recognizedCodePage);

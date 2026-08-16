@@ -33,6 +33,7 @@ CStatusBar::CStatusBar()
     if (HPipette == NULL)
         HPipette = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SB_PIPETTE), IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags());
     hProgBar = NULL;
+    HFont = NULL;
 }
 
 CStatusBar::~CStatusBar()
@@ -41,10 +42,26 @@ CStatusBar::~CStatusBar()
     DestroyIcon(HAnchor);
     DestroyIcon(HSize);
     DestroyIcon(HPipette);
+    if (HFont != NULL)
+        DeleteObject(HFont);
     if (hProgBar)
     {
         DestroyWindow(hProgBar);
     }
+}
+
+void CStatusBar::SetFont()
+{
+    LOGFONT logFont;
+    if (!WinLibGetDefaultUILogFont(HWindow, &logFont))
+        return;
+    HFONT font = CreateFontIndirect(&logFont);
+    if (font == NULL)
+        return;
+    SendMessage(HWindow, WM_SETFONT, (WPARAM)font, TRUE);
+    if (HFont != NULL)
+        DeleteObject(HFont);
+    HFont = font;
 }
 
 #define ICON_MARGIN 32 // space for the icon and margins

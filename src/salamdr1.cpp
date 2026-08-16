@@ -380,6 +380,10 @@ HFONT FontUL = NULL;
 LOGFONT LogFont;
 int FontCharHeight = 0;
 
+int DialogFontMode = DIALOG_FONT_DEFAULT;
+LOGFONT DialogLogFont;
+int DialogFontPointSize = 8;
+
 HFONT EnvFont = NULL;
 HFONT EnvFontBold = NULL;
 HFONT EnvFontUL = NULL;
@@ -4757,6 +4761,7 @@ int WinMainBody(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine,
         goto EXIT_1; // musime inicializovat WinLib pred prvnim zobrazenim
                      // wait dialogu (musi byt registrovany tridy oken)
                      // ImportConfiguration uz muze otevrit tento dialog
+    SetupWinLibDialogFontProvider(GetEffectiveDialogLogFont);
 
     LoadSaveToRegistryMutex.Init();
 

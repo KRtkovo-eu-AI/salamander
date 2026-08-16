@@ -103,7 +103,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     if (!InterfaceForArchiver.Init())
         return NULL;
 
-    if (!InitializeWinLib("UnCHM" /* do not translate! */, DLLInstance))
+    if (!InitializeWinLib("UnCHM" /* do not translate! */, DLLInstance, SalamanderGeneral))
         return NULL;
     SetWinLibStrings(LoadStr(IDS_INVALIDNUMBER), LoadStr(IDS_PLUGINNAME));
 

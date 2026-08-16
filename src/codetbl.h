@@ -4,11 +4,14 @@
 
 #pragma once
 
+#include <string>
+
 // ****************************************************************************
 
 struct CCodeTablesData
 {
-    char* Name;      // name shown in menu, NULL means a separator
+    char* Name;          // name in the active process encoding, NULL means a separator
+    std::wstring NameW;  // menu name decoded directly from convert.cfg's declared code page
     char Table[256]; // encoding table
 };
 
