@@ -1606,7 +1606,7 @@ BOOL InitViewer(HWND hParentWnd)
         return FALSE;
     }
 
-    if (!InitializeWinLib(PLUGIN_NAME_EN, DLLInstance))
+    if (!InitializeWinLib(PLUGIN_NAME_EN, DLLInstance, SalamanderGeneral))
     {
         if (!UnregisterClass(TIP_WINDOW_CLASSNAME, DLLInstance))
             TRACE_E("UnregisterClass(TIP_WINDOW_CLASSNAME) has failed");

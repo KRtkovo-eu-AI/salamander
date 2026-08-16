@@ -329,7 +329,11 @@ void CViewerWindow::SetViewerCaption()
         if (caption[0] != 0)
             strcat(caption, " - ");
         strcat(caption, LoadStr(IDS_VIEWERTITLE));
-        if (CodeType > 0)
+        const char* decodedEncoding =
+            Salamander::Unicode::EncodingDisplayName(TextEncoding, TextContentOffset);
+        if (decodedEncoding != NULL)
+            sprintf(caption + strlen(caption), " - [%s]", decodedEncoding);
+        else if (CodeType > 0)
         {
             char codeName[200];
             CodeTables.GetCodeName(CodeType, codeName, 200);
@@ -339,6 +343,13 @@ void CViewerWindow::SetViewerCaption()
                 s--;
             *s = 0; // trim extra spaces
             sprintf(caption + strlen(caption), " - [%s]", codeName);
+        }
+        else
+        {
+            char codeName[100];
+            CodeTables.GetWinCodePage(codeName);
+            if (codeName[0] != 0)
+                sprintf(caption + strlen(caption), " - [%s]", codeName);
         }
     }
     SetViewerWindowText(HWindow, caption);

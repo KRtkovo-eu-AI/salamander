@@ -42,6 +42,18 @@ struct DecodedRun
     void AppendRun(const DecodedRun& other);
 };
 
+// Maps user-visible text elements (caret stops / grapheme clusters) back to
+// the scalar cells and raw file offsets kept by DecodedRun.  CellBoundary
+// always contains zero and, for a non-empty run, the final CellCount().
+struct TextElementMap
+{
+    std::vector<std::size_t> CellBoundary;
+
+    std::size_t Count() const { return CellBoundary.empty() ? 0 : CellBoundary.size() - 1; }
+    std::size_t CellStart(std::size_t element) const { return CellBoundary[element]; }
+    std::size_t CellEnd(std::size_t element) const { return CellBoundary[element + 1]; }
+};
+
 struct LiteralMatch
 {
     std::size_t CellIndex = 0;
@@ -54,10 +66,12 @@ BomInfo DetectBom(const std::uint8_t* data, std::size_t size);
 BomInfo DetectTextEncoding(const std::uint8_t* data, std::size_t size);
 bool IsLikelyUtf8NoBom(const std::uint8_t* data, std::size_t size);
 bool IsDecodedEncoding(BomEncoding encoding);
+const char* EncodingDisplayName(BomEncoding encoding, std::int64_t textOffset = 0);
 std::int64_t AlignToCodeUnit(BomEncoding encoding, std::int64_t offset, std::int64_t textOffset);
 
 DecodedRun DecodeBytes(BomEncoding encoding, const std::uint8_t* data, std::size_t size,
                        std::int64_t rawOffset, bool flush);
+TextElementMap BuildTextElementMap(const DecodedRun& run);
 
 std::size_t CountPatternCells(const std::wstring& pattern);
 bool FindLiteralForward(const DecodedRun& run, const std::wstring& pattern, bool caseSensitive,

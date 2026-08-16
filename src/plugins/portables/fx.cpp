@@ -326,7 +326,7 @@ namespace Fx
         if (NeedsWinLib())
         {
             // Note that 's' variable still contains invariant name!
-            if (!InitializeWinLib(s, FxGetModuleInstance()))
+            if (!InitializeWinLib(s, FxGetModuleInstance(), SalamanderGeneral))
             {
                 return false;
             }

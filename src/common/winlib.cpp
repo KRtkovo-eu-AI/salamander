@@ -148,6 +148,28 @@ TCHAR WinLibStrings[WLS_COUNT][101] = {
     _T("Invalid number!"),
     _T("Error")};
 
+static FWinLibDialogFontProvider WinLibDialogFontProvider = NULL;
+
+void SetupWinLibDialogFontProvider(FWinLibDialogFontProvider provider)
+{
+    WinLibDialogFontProvider = provider;
+}
+
+BOOL WinLibGetConfiguredDialogLogFont(HWND dpiWindow, LOGFONT* logFont)
+{
+    if (WinLibDialogFontProvider == NULL || logFont == NULL)
+        return FALSE;
+    WinLibDialogFontProvider(logFont, dpiWindow);
+    return TRUE;
+}
+
+void WinLibApplyConfiguredDialogFont(HWND dialog)
+{
+    LOGFONT logFont;
+    if (WinLibGetConfiguredDialogLogFont(dialog, &logFont))
+        WinLibDPIApplyDialogLogFont(dialog, &logFont);
+}
+
 //
 // ****************************************************************************
 
@@ -177,6 +199,7 @@ void ReleaseWinLib()
     if (c > 0)
         TRACE_ET(_T("ReleaseWinLib(): WindowsManager still contains opened windows: ") << c);
     WinLibReleased = TRUE;
+    WinLibDialogFontProvider = NULL;
 }
 
 BOOL SetupWinLibHelp(CWinLibHelp* winLibHelp)
@@ -735,30 +758,60 @@ CDialog::Execute()
 {
     Modal = TRUE;
     CWinLibDPIContext dpiContext;
+    LOGFONT logFont;
+    BYTE* dialogTemplate = NULL;
+    if (WinLibGetConfiguredDialogLogFont(Parent, &logFont))
+        dialogTemplate = WinLibDPICloneResourceDialogWithFont(Modul, ResID, &logFont,
+                                                              WinLibDPIGetWindowDPI(Parent), NULL);
+    INT_PTR result;
 #ifndef _UNICODE
     if (UnicodeWnd)
     {
-        return DialogBoxParamW(Modul, MAKEINTRESOURCEW(ResID), Parent,
-                               (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
+        result = dialogTemplate != NULL ?
+                     DialogBoxIndirectParamW(Modul, (LPCDLGTEMPLATEW)dialogTemplate, Parent,
+                                             (DLGPROC)CDialog::CDialogProc, (LPARAM)this) :
+                     DialogBoxParamW(Modul, MAKEINTRESOURCEW(ResID), Parent,
+                                     (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
     }
+    else
 #endif // _UNICODE
-    return DialogBoxParam(Modul, MAKEINTRESOURCE(ResID), Parent,
-                          (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
+        result = dialogTemplate != NULL ?
+                     DialogBoxIndirectParam(Modul, (LPCDLGTEMPLATE)dialogTemplate, Parent,
+                                            (DLGPROC)CDialog::CDialogProc, (LPARAM)this) :
+                     DialogBoxParam(Modul, MAKEINTRESOURCE(ResID), Parent,
+                                    (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
+    WinLibDPIFreeDialogTemplate(dialogTemplate);
+    return result;
 }
 
 HWND CDialog::Create()
 {
     Modal = FALSE;
     CWinLibDPIContext dpiContext;
+    LOGFONT logFont;
+    BYTE* dialogTemplate = NULL;
+    if (WinLibGetConfiguredDialogLogFont(Parent, &logFont))
+        dialogTemplate = WinLibDPICloneResourceDialogWithFont(Modul, ResID, &logFont,
+                                                              WinLibDPIGetWindowDPI(Parent), NULL);
+    HWND result;
 #ifndef _UNICODE
     if (UnicodeWnd)
     {
-        return CreateDialogParamW(Modul, MAKEINTRESOURCEW(ResID), Parent,
-                                  (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
+        result = dialogTemplate != NULL ?
+                     CreateDialogIndirectParamW(Modul, (LPCDLGTEMPLATEW)dialogTemplate, Parent,
+                                                (DLGPROC)CDialog::CDialogProc, (LPARAM)this) :
+                     CreateDialogParamW(Modul, MAKEINTRESOURCEW(ResID), Parent,
+                                        (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
     }
+    else
 #endif // _UNICODE
-    return CreateDialogParam(Modul, MAKEINTRESOURCE(ResID), Parent,
-                             (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
+        result = dialogTemplate != NULL ?
+                     CreateDialogIndirectParam(Modul, (LPCDLGTEMPLATE)dialogTemplate, Parent,
+                                               (DLGPROC)CDialog::CDialogProc, (LPARAM)this) :
+                     CreateDialogParam(Modul, MAKEINTRESOURCE(ResID), Parent,
+                                       (DLGPROC)CDialog::CDialogProc, (LPARAM)this);
+    WinLibDPIFreeDialogTemplate(dialogTemplate);
+    return result;
 }
 
 INT_PTR
@@ -954,6 +1007,12 @@ CDialog::CDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
         dlgRes = dlg->DialogProc(uMsg, wParam, lParam);
     else
         dlgRes = FALSE; // chyba nebo message neprisla mezi WM_INITDIALOG a WM_DESTROY
+
+    // The template selected the font before creation and therefore established the
+    // geometry. Install the exact configured LOGFONT only after concrete initialization;
+    // this fallback deliberately does not resize any windows.
+    if (uMsg == WM_INITDIALOG && dlg != NULL)
+        WinLibApplyConfiguredDialogFont(hwndDlg);
 
     return dlgRes;
 }

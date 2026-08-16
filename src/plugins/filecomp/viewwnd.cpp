@@ -134,7 +134,7 @@ void CFileViewWindow::ReloadConfiguration(DWORD flags, BOOL updateWindow)
         if (HFont)
             DeleteObject(HFont);
         CurrentLogFont = Configuration.FileViewLogFont;
-        WinLibDPIScaleLogFont(HWindow, &CurrentLogFont);
+        WinLibDPIScaleSystemLogFont(HWindow, &CurrentLogFont);
         HFont = CreateFontIndirect(&CurrentLogFont);
         HFONT oldFont = (HFONT)SelectObject(hdc, HFont);
         TEXTMETRIC tm;

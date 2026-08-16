@@ -249,7 +249,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     // set the help file name
     SalamanderGeneral->SetHelpFileName("checksum.chm");
 
-    InitializeWinLib("Checksum" /* do not translate! */, DLLInstance);
+    InitializeWinLib("Checksum" /* do not translate! */, DLLInstance, SalamanderGeneral);
 
     SetupWinLibHelp(HTMLHelpCallback);
 

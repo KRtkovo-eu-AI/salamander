@@ -161,7 +161,7 @@ SalamanderPluginEntry(
     }
     g_hLangInstance = hLangInst;
 
-    if (!InitializeWinLib(PluginNameEN, g_hInstance))
+    if (!InitializeWinLib(PluginNameEN, g_hInstance, SalamanderGeneral))
     {
         return NULL;
     }

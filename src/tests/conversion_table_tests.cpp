@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "../codetbl_utils.h"
+#include "../common/winlibdpi.h"
 
 #include <filesystem>
 #include <fstream>
@@ -77,6 +78,59 @@ void TestRegionalTextConversion()
           "An unsupported source code page must preserve the loader fallback path");
 }
 
+void TestLegacyViewerTextConversion()
+{
+    const unsigned char sampleBytes[] = {
+        'H', 'e', 'l', 'l', 'o', ' ', 0xEC, 0x9A, 0xE8, 0xF8, 0x9E,
+        0xFD, 0xE1, 0xED, 0xE9, 0x9D, 0xF2, 0xFA, 0xF9, ' ', 'H',
+        'e', 'l', 'l', 'o'};
+    std::wstring converted;
+    Check(ConvertLegacyViewerTextToWide(
+              reinterpret_cast<const char*>(sampleBytes),
+              static_cast<int>(sizeof(sampleBytes)), 1250, &converted) &&
+              converted == L"Hello ěščřžýáíéťňúů Hello",
+          "The issue #649 CP1250 sample must reach Unicode GDI without losing diacritics");
+
+    Check(ConvertLegacyViewerTextToWide(NULL, 0, 1250, &converted) && converted.empty(),
+          "An empty legacy viewer run must convert safely");
+    Check(!ConvertLegacyViewerTextToWide("x", 1, 99999, &converted) && converted.empty(),
+          "An unsupported viewer code page must fail without stale output");
+}
+
+void TestInheritedViewerFontDpiScaling()
+{
+    LOGFONT font = {};
+    font.lfHeight = -20;
+    font.lfWidth = 10;
+    WinLibDPIScaleLogFontBetweenDPI(&font, 144, 144);
+    Check(font.lfHeight == -20 && font.lfWidth == 10,
+          "A viewer font already at the monitor DPI must not be scaled twice");
+
+    WinLibDPIScaleLogFontBetweenDPI(&font, 144, 96);
+    Check(font.lfHeight == -13 && font.lfWidth == 7,
+          "An inherited viewer font must scale relative to its source system DPI");
+}
+
+void TestLegacyAutoDetectionPreference()
+{
+    const unsigned char cp1250Bytes[] = {
+        'H', 'e', 'l', 'l', 'o', ' ', 0xEC, 0x9A,
+        0xE8, 0xF8, 0x9E, 0xFD,
+        0xE1, 0xED, 0xE9, 0x9D,
+        0xF2, 0xFA, 0xF9, ' ', 'H', 'e',
+        'l', 'l', 'o'};
+    const char* cp1250 = reinterpret_cast<const char*>(cp1250Bytes);
+    Check(ShouldPreferWindowsCodePageText(
+              cp1250, (int)sizeof(cp1250Bytes), 1250, "ISO-8859-1"),
+          "CP1250 letters in the ISO C1 range must prevent a false ISO-8859-1 conversion");
+    Check(!ShouldPreferWindowsCodePageText(
+              "plain ASCII", 11, 1250, "ISO-8859-1"),
+          "ASCII alone must not override automatic legacy-code-page recognition");
+    Check(!ShouldPreferWindowsCodePageText(
+              cp1250, (int)sizeof(cp1250Bytes), 1250, "CP852"),
+          "The preference is specific to ISO code pages whose C1 range contains controls");
+}
+
 bool ReadIdentifier(const std::filesystem::path& cfgPath, DWORD& identifier)
 {
     std::ifstream stream(cfgPath, std::ios::binary);
@@ -137,6 +191,9 @@ int main()
     TestAutomaticCodePageSelection();
     TestIdentifierParsing();
     TestRegionalTextConversion();
+    TestLegacyViewerTextConversion();
+    TestInheritedViewerFontDpiScaling();
+    TestLegacyAutoDetectionPreference();
     TestShippedConversionDirectories();
 
     if (Failures != 0)

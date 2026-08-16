@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "../filenamecase.h"
+#include "../panel_quick_search.h"
 
 #include <stdio.h>
 #include <string>
@@ -66,10 +67,41 @@ static void TestCzechUtf8CaseConversion()
     CHECK_EQUAL(longUpper, ChangeCase(longLower, TRUE));
 }
 
+static void TestQuickSearchCaretTextRange()
+{
+    using Salamander::Panel::GetQuickSearchCaretTextRange;
+
+    Salamander::Panel::QuickSearchCaretTextRange range =
+        GetQuickSearchCaretTextRange(L"cap.cap", 3, true);
+    CHECK_EQUAL((size_t)0, range.Start);
+    CHECK_EQUAL((size_t)3, range.Length);
+
+    range = GetQuickSearchCaretTextRange(L"cap.cap", 4, true);
+    CHECK_EQUAL((size_t)4, range.Start);
+    CHECK_EQUAL((size_t)0, range.Length);
+
+    range = GetQuickSearchCaretTextRange(L"cap.cap", 7, true);
+    CHECK_EQUAL((size_t)4, range.Start);
+    CHECK_EQUAL((size_t)3, range.Length);
+
+    range = GetQuickSearchCaretTextRange(L"archive.tar.gz", 14, true);
+    CHECK_EQUAL((size_t)12, range.Start);
+    CHECK_EQUAL((size_t)2, range.Length);
+
+    range = GetQuickSearchCaretTextRange(L"žluťoučký.kůň", 13, true);
+    CHECK_EQUAL((size_t)10, range.Start);
+    CHECK_EQUAL((size_t)3, range.Length);
+
+    range = GetQuickSearchCaretTextRange(L".htaccess", 9, false);
+    CHECK_EQUAL((size_t)0, range.Start);
+    CHECK_EQUAL((size_t)9, range.Length);
+}
+
 int main()
 {
     InitializeCaseTables();
     TestCzechUtf8CaseConversion();
+    TestQuickSearchCaretTextRange();
     if (Failures == 0)
         printf("All filename case tests passed.\n");
     return Failures == 0 ? 0 : 1;

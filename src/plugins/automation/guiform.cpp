@@ -330,28 +330,12 @@ HWND CSalamanderGuiForm::HwndNeeded()
     m_hFont = NULL;
     m_bDestroyFont = false;
 
-    if (SalIsWindowsVersionOrGreater(6, 0, 0))
+    LOGFONT lf = {};
+    if (WinLibGetDefaultUILogFont(hWnd, &lf))
     {
-        LOGFONT lf = {
-            0,
-        };
-        HDC hDC = GetDC(hWnd);
-
-        lf.lfHeight = -MulDiv(9, GetDeviceCaps(hDC, LOGPIXELSY), 72);
-        lf.lfWeight = FW_NORMAL;
-        lf.lfCharSet = ANSI_CHARSET;
-        lf.lfOutPrecision = OUT_DEFAULT_PRECIS;
-        lf.lfClipPrecision = CLIP_DEFAULT_PRECIS;
-        lf.lfQuality = DEFAULT_QUALITY;
-        StringCchCopy(lf.lfFaceName, _countof(lf.lfFaceName), _T("Segoe UI"));
-
-        ReleaseDC(hWnd, hDC);
-
         m_hFont = CreateFontIndirect(&lf);
         if (m_hFont)
-        {
             m_bDestroyFont = true;
-        }
     }
 
     if (m_hFont == NULL)

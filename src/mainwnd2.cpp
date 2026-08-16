@@ -1074,6 +1074,9 @@ const char* CONFIG_COMMANDLINEAPP_REG = "Command Line Application";
 const char* CONFIG_COMMANDLINEARGS_REG = "Command Line Arguments";
 const char* CONFIG_USECUSTOMPANELFONT_REG = "Use Custom Panel Font";
 const char* CONFIG_PANELFONT_REG = "Panel Font";
+const char* CONFIG_DIALOGFONTMODE_REG = "Dialog Font Mode";
+const char* CONFIG_DIALOGFONT_REG = "Dialog Font";
+const char* CONFIG_DIALOGFONTPOINTSIZE_REG = "Dialog Font Point Size";
 const char* CONFIG_NAMEDHISTORY_REG = "Named History";
 const char* CONFIG_LOOKINHISTORY_REG = "Look In History";
 const char* CONFIG_GREPHISTORY_REG = "Grep History";
@@ -3584,6 +3587,9 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
 
                 SetValue(actKey, CONFIG_USECUSTOMPANELFONT_REG, REG_DWORD, &UseCustomPanelFont, sizeof(DWORD));
                 SaveLogFont(actKey, CONFIG_PANELFONT_REG, &LogFont);
+                SetValue(actKey, CONFIG_DIALOGFONTMODE_REG, REG_DWORD, &DialogFontMode, sizeof(DWORD));
+                SaveLogFont(actKey, CONFIG_DIALOGFONT_REG, &DialogLogFont);
+                SetValue(actKey, CONFIG_DIALOGFONTPOINTSIZE_REG, REG_DWORD, &DialogFontPointSize, sizeof(DWORD));
 
                 if (GlobalSaveWaitWindow == NULL)
                     analysing.SetProgressPos(++savingProgress); // 4
@@ -5834,6 +5840,17 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             {
                 // if the user uses a custom font, propagate it now
                 SetFont();
+            }
+            GetValue(actKey, CONFIG_DIALOGFONTMODE_REG, REG_DWORD, &DialogFontMode, sizeof(DWORD));
+            LoadLogFont(actKey, CONFIG_DIALOGFONT_REG, &DialogLogFont);
+            GetValue(actKey, CONFIG_DIALOGFONTPOINTSIZE_REG, REG_DWORD, &DialogFontPointSize, sizeof(DWORD));
+            if (DialogFontMode < DIALOG_FONT_DEFAULT || DialogFontMode > DIALOG_FONT_CUSTOM)
+                DialogFontMode = DIALOG_FONT_DEFAULT;
+            DialogFontPointSize = max(6, min(24, DialogFontPointSize));
+            if (DialogFontMode != DIALOG_FONT_DEFAULT)
+            {
+                SetFont();
+                SetEnvFont();
             }
 
             LoadHistory(actKey, CONFIG_NAMEDHISTORY_REG, FindNamedHistory, FIND_NAMED_HISTORY_SIZE);

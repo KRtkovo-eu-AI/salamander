@@ -5,8 +5,8 @@
     <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{17BDB368-AF41-4BA0-9B78-83C293FD43FB}</ProjectGuid>
-    <RootNamespace>filenamecasetests</RootNamespace>
+    <ProjectGuid>{049C04D7-7CD2-4AA3-BEB3-A8DDBD7F638A}</ProjectGuid>
+    <RootNamespace>viewerunicodetests</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -23,7 +23,7 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <PropertyGroup>
     <OutDir>$(OPENSAL_BUILD_DIR)tests\$(Configuration)_$(Platform)\</OutDir>
-    <IntDir>$(OPENSAL_BUILD_DIR)tests\$(Configuration)_$(Platform)\FilenameCaseIntermediate\</IntDir>
+    <IntDir>$(OPENSAL_BUILD_DIR)tests\$(Configuration)_$(Platform)\ViewerUnicodeIntermediate\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
@@ -33,16 +33,13 @@
       <WarningLevel>Level4</WarningLevel>
       <TreatWarningAsError>true</TreatWarningAsError>
     </ClCompile>
-    <Link>
-      <AdditionalDependencies>user32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-    </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="filenamecase_tests.cpp" />
+    <ClCompile Include="viewer_unicode_tests.cpp" />
+    <ClCompile Include="..\common\unicode\ViewerBomText.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\filenamecase.h" />
-    <ClInclude Include="..\panel_quick_search.h" />
+    <ClInclude Include="..\common\unicode\ViewerBomText.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

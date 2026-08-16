@@ -76,9 +76,8 @@ void CToolBar::SetFont()
     if (Style & TLB_STYLE_TEXT)
     {
         LOGFONT lf;
-        HFONT newFont = WinLibDPIGetIconTitleLogFont(HWindow, &lf)
-                            ? HANDLES(CreateFontIndirect(&lf))
-                            : NULL;
+        GetEffectiveDefaultUILogFont(&lf, HWindow);
+        HFONT newFont = HANDLES(CreateFontIndirect(&lf));
         if (newFont != NULL)
         {
             if (HOwnedDPIFont != NULL)

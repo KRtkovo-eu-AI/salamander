@@ -2634,8 +2634,7 @@ BOOL CFilesWindow::RefreshDPIResources(BOOL force)
     ClearIndependentIconLists();
 
     LOGFONT envLF;
-    if (!WinLibDPIGetIconTitleLogFont(dpiWindow, &envLF))
-        return FALSE;
+    GetEffectiveDefaultUILogFont(&envLF, dpiWindow);
 
     LOGFONT panelLF;
     if (UseCustomPanelFont)

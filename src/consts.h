@@ -1409,6 +1409,19 @@ extern HFONT FontUL;            // podtrzena verze
 extern int FontCharHeight;      // vyska fontu
 extern LOGFONT LogFont;         // struktura popisujici panel font
 
+enum CDialogFontMode
+{
+    DIALOG_FONT_DEFAULT = 0,
+    DIALOG_FONT_PANEL = 1,
+    DIALOG_FONT_CUSTOM = 2
+};
+
+extern int DialogFontMode;
+extern LOGFONT DialogLogFont;
+extern int DialogFontPointSize;
+void GetEffectiveDialogLogFont(LOGFONT* logFont, HWND dpiWindow = NULL);
+void GetEffectiveDefaultUILogFont(LOGFONT* logFont, HWND dpiWindow = NULL);
+
 BOOL CreatePanelFont(); // naplni Font, FontULa FontCharHeight na zaklade LogFont
 
 extern HFONT EnvFont;         // environment font (edit, toolbar, header, status)

@@ -103,11 +103,23 @@ void SetFont(HWND child, HFONT font)
 HFONT CreateDefaultGuiFontForDPI(UINT dpi)
 {
     LOGFONT lf;
-    HFONT stockFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-    if (GetObject(stockFont, sizeof(lf), &lf) != sizeof(lf))
-        return nullptr;
-    lf.lfHeight = MulDiv(lf.lfHeight, dpi, USER_DEFAULT_SCREEN_DPI);
-    lf.lfWidth = MulDiv(lf.lfWidth, dpi, USER_DEFAULT_SCREEN_DPI);
+    BOOL haveFont = SalamanderGeneral != nullptr &&
+                    SalamanderGeneral->GetConfigParameter(
+                        SALCFG_DIALOGFONT, &lf, sizeof(lf), nullptr);
+    if (haveFont)
+    {
+        WinLibDPIScaleLogFontBetweenDPI(
+            &lf,
+            WinLibDPIGetWindowDPI(SalamanderGeneral->GetMainWindowHWND()), dpi);
+    }
+    else
+    {
+        HFONT stockFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        if (GetObject(stockFont, sizeof(lf), &lf) != sizeof(lf))
+            return nullptr;
+        lf.lfHeight = MulDiv(lf.lfHeight, dpi, USER_DEFAULT_SCREEN_DPI);
+        lf.lfWidth = MulDiv(lf.lfWidth, dpi, USER_DEFAULT_SCREEN_DPI);
+    }
     return CreateFontIndirect(&lf);
 }
 
@@ -153,8 +165,7 @@ void ApplyDialogDPI(CVhdDialogState* s, UINT newDpi, const RECT* suggestedRect)
         }
     }
 
-    // These controls historically used DEFAULT_GUI_FONT rather than the
-    // system message font. Preserve that metric at the notification DPI.
+    // Recreate the configured application UI font at the notification DPI.
     HFONT newFont = CreateDefaultGuiFontForDPI(newDpi);
     if (newFont != nullptr)
     {

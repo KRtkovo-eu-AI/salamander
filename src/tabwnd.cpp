@@ -354,9 +354,8 @@ void CTabWindow::RefreshDPIResources()
     RefreshTabToolTipFont();
 
     LOGFONT lf;
-    HFONT font = WinLibDPIGetIconTitleLogFont(HWindow, &lf)
-                     ? HANDLES(CreateFontIndirect(&lf))
-                     : NULL;
+    GetEffectiveDefaultUILogFont(&lf, HWindow);
+    HFONT font = HANDLES(CreateFontIndirect(&lf));
     if (font == NULL)
         return;
 
@@ -934,9 +933,12 @@ void CTabWindow::RefreshTabToolTipFont()
         return;
 
     LOGFONT lf;
-    HFONT font = WinLibDPIGetStatusLogFontForDPI(dpi, &lf)
-                     ? HANDLES(CreateFontIndirect(&lf))
-                     : NULL;
+    BOOL haveFont = TRUE;
+    if (DialogFontMode == DIALOG_FONT_DEFAULT)
+        haveFont = WinLibDPIGetStatusLogFontForDPI(dpi, &lf);
+    else
+        GetEffectiveDefaultUILogFont(&lf, HWindow);
+    HFONT font = haveFont ? HANDLES(CreateFontIndirect(&lf)) : NULL;
     if (font == NULL)
         return;
 

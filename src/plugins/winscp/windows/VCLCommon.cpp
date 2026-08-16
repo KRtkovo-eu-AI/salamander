@@ -10,6 +10,7 @@
 #include <RemoteFiles.h>
 #include <GUITools.h>
 #include <Tools.h>
+#include <winliblt.h>
 
 #include <FileCtrl.hpp>
 #include <ThemeMgr.hpp>
@@ -346,7 +347,23 @@ void __fastcall UseSystemSettingsPre(TCustomForm * Control, void ** Settings)
   Control->WindowProc = WindowProc;
 
   assert(Control && Control->Font);
-  Control->Font->Name = "MS Shell Dlg";
+  LOGFONT LogFont;
+  if (WinLibGetDefaultUILogFont(Control->Handle, &LogFont))
+  {
+    HFONT Font = CreateFontIndirect(&LogFont);
+    if (Font != NULL)
+    {
+      Control->Font->Handle = Font;
+    }
+    else
+    {
+      Control->Font->Name = "MS Shell Dlg";
+    }
+  }
+  else
+  {
+    Control->Font->Name = "MS Shell Dlg";
+  }
 
   if (Control->HelpKeyword.IsEmpty())
   {

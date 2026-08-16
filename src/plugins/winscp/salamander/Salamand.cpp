@@ -387,7 +387,7 @@ bool CPluginInterface::Init(CSalamanderPluginEntryAbstract* Salamander)
             assert(Application);
             SetParentWindow(SalamanderGeneral()->GetMainWindowHWND());
 
-            InitializeWinLib("WinSCP" /* neprekladat! */, DLLInstance);
+            InitializeWinLib("WinSCP" /* neprekladat! */, DLLInstance, SalamanderGeneral);
 
 #ifndef IDE
             HLanguage = Salamander->LoadLanguageModule(Salamander->GetParentWindow(),

@@ -100,7 +100,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     if (HLanguage == NULL)
         return NULL;
 
-    if (!InitializeWinLib(_T("PEVIEWER") /* do not translate! */, DLLInstance))
+    if (!InitializeWinLib(_T("PEVIEWER") /* do not translate! */, DLLInstance, SalGeneral))
     {
         return NULL;
     }

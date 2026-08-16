@@ -359,7 +359,7 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract *s
         salamander->SetPluginMenuAndToolbarIcon(0);
 
 
-        if (!InitializeWinLib(VERSINFO_PLUGINNAME, DLLInstance))
+        if (!InitializeWinLib(VERSINFO_PLUGINNAME, DLLInstance, SalamanderGeneral))
         {
                 //return FALSE;
         }

@@ -188,9 +188,12 @@ char* LoadStr(int resID)
 
 BOOL GDIInit()
 {
-    HFONT hTmpFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
     LOGFONT lf;
-    GetObject(hTmpFont, sizeof(lf), &lf);
+    if (!WinLibGetDefaultUILogFont(NULL, &lf))
+    {
+        HFONT hTmpFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        GetObject(hTmpFont, sizeof(lf), &lf);
+    }
     HNormalFont = CreateFontIndirect(&lf);
     lf.lfWeight = FW_BOLD;
     HBoldFont = CreateFontIndirect(&lf);
@@ -225,16 +228,21 @@ BOOL InitViewer()
 {
     HAccel = LoadAccelerators(DLLInstance, MAKEINTRESOURCE(IDA_ACCELERATORS));
 
+    if (!InitializeWinLib(PLUGIN_NAME, DLLInstance, SalGeneral))
+        return FALSE;
+
     HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
     GetObject(hFont, sizeof(CfgLogFont), &CfgLogFont);
 
-    GDIInit();
+    if (!GDIInit())
+    {
+        ReleaseWinLib(DLLInstance);
+        return FALSE;
+    }
 
     CfgSavePosition = FALSE;
     CfgWindowPlacement.length = 0;
 
-    if (!InitializeWinLib(PLUGIN_NAME, DLLInstance))
-        return FALSE;
     SetWinLibStrings("Invalid number!", PLUGIN_NAME);
     return TRUE;
 }

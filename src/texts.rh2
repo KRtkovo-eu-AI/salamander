@@ -2917,6 +2917,9 @@
 #define IDS_DPI_CHANGE_TITLE             14288
 #define IDS_DPI_CHANGE_RESTART           14289
 #define IDS_VIEWER_ZOOM_RESET            14290
+#define IDS_USEPANELFONT                 14361
+#define IDS_DIALOGFONT_RESTART           14362
+#define IDS_FONTDESCRIPTION_PANEL        14363
 #define IDS_PANELTIP_NAME                14295
 #define IDS_PANELTIP_TYPE                14296
 #define IDS_PANELTIP_MODIFIED            14297

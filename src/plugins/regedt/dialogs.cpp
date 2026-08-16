@@ -18,14 +18,18 @@ int EnvFontHeight;    // font height
 BOOL CreateEnvFont()
 {
     CALL_STACK_MESSAGE1("CreateEnvFont()");
-    NONCLIENTMETRICS ncm;
-    ncm.cbSize = sizeof(ncm);
-    SystemParametersInfo(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
-    LOGFONT* lf = &ncm.lfMenuFont;
+    LOGFONT lf;
+    if (!WinLibGetDefaultUILogFont(NULL, &lf))
+    {
+        NONCLIENTMETRICS ncm;
+        ncm.cbSize = sizeof(ncm);
+        SystemParametersInfo(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
+        lf = ncm.lfMenuFont;
+    }
 
     if (EnvFont != NULL)
         DeleteObject(EnvFont);
-    EnvFont = CreateFontIndirect(lf);
+    EnvFont = CreateFontIndirect(&lf);
     if (EnvFont == NULL)
     {
         TRACE_E("Failed to create the font.");
@@ -72,7 +76,7 @@ void WINAPI HTMLHelpCallback(HWND hWindow, UINT helpID)
 BOOL InitDialogs()
 {
     CALL_STACK_MESSAGE1("InitDialogs()");
-    if (!InitializeWinLib("RegEdt", DLLInstance))
+    if (!InitializeWinLib("RegEdt", DLLInstance, SG))
         return FALSE;
     SetupWinLibHelp(HTMLHelpCallback);
 

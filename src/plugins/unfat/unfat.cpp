@@ -112,7 +112,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     SalamanderGeneral->GetConfigParameter(SALCFG_SORTBYEXTDIRSASFILES, &SortByExtDirsAsFiles,
                                           sizeof(SortByExtDirsAsFiles), NULL);
 
-    if (!InitializeWinLib("UnFAT" /* do not translate! */, DLLInstance))
+    if (!InitializeWinLib("UnFAT" /* do not translate! */, DLLInstance, SalamanderGeneral))
         return NULL;
     SetWinLibStrings("Invalid number!", LoadStr(IDS_PLUGINNAME));
 

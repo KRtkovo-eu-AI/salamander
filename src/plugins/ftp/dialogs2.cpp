@@ -101,11 +101,17 @@ CFTPLogsTopMenuItem FTPLogsTopMenuItems[3];
 
 void SelectFTPLogsMenuFont(HDC hdc, HFONT& oldFont, HFONT& menuFont)
 {
-    NONCLIENTMETRICS ncm;
-    memset(&ncm, 0, sizeof(ncm));
-    ncm.cbSize = sizeof(ncm);
-    if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0))
-        menuFont = HANDLES(CreateFontIndirect(&ncm.lfMenuFont));
+    LOGFONT lf;
+    if (WinLibGetDefaultUILogFont(NULL, &lf))
+        menuFont = HANDLES(CreateFontIndirect(&lf));
+    else
+    {
+        NONCLIENTMETRICS ncm;
+        memset(&ncm, 0, sizeof(ncm));
+        ncm.cbSize = sizeof(ncm);
+        if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0))
+            menuFont = HANDLES(CreateFontIndirect(&ncm.lfMenuFont));
+    }
     if (menuFont == NULL)
         menuFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
     oldFont = (HFONT)SelectObject(hdc, menuFont);

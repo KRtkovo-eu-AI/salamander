@@ -51,7 +51,7 @@ BOOL InitDialogs()
         CommandHistory[i] = NULL;
     }
 
-    if (!InitializeWinLib("Renamer" /* do not translate! */, DLLInstance))
+    if (!InitializeWinLib("Renamer" /* do not translate! */, DLLInstance, SG))
         return FALSE;
     SetupWinLibHelp(HTMLHelpCallback);
 

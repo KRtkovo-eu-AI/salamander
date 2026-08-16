@@ -1106,6 +1106,8 @@
     </ClInclude>
     <ClInclude Include="..\common\unicode\ViewerBomText.h">
     </ClInclude>
+    <ClInclude Include="..\panel_quick_search.h">
+    </ClInclude>
     <ClInclude Include="..\worker.h">
     </ClInclude>
     <ClInclude Include="..\zip.h">

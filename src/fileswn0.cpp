@@ -15,6 +15,7 @@
 #include "shellib.h"
 #include "toolbar.h"
 #include "common/widepath.h"
+#include "panel_quick_search.h"
 
 //*****************************************************************************
 //
@@ -3360,7 +3361,7 @@ void CFilesWindow::SetQuickSearchCaretPos()
     if (!QuickSearchMode || FocusedIndex < 0 || FocusedIndex >= Dirs->Count + Files->Count)
         return;
 
-    SIZE s;
+    SIZE s = {0, 0};
     int isDir = 0;
     CFileData* file;
     if (FocusedIndex < Dirs->Count)
@@ -3405,7 +3406,10 @@ void CFilesWindow::SetQuickSearchCaretPos()
     {
         if (QuickSearchW.empty())
             QuickSearchW = QuickSearchTextToWide(QuickSearch);
-        GetTextExtentPoint32W(hDC, QuickSearchW.c_str(), (int)QuickSearchW.length(), &s);
+        std::wstring nameW = FileDataNameToWide(*file);
+        Salamander::Panel::QuickSearchCaretTextRange range =
+            Salamander::Panel::GetQuickSearchCaretTextRange(nameW, QuickSearchW.length(), ext != FALSE);
+        GetTextExtentPoint32W(hDC, QuickSearchW.c_str() + range.Start, (int)range.Length, &s);
     }
     else
         GetTextExtentPoint32(hDC, ss, qsLen, &s);

@@ -5,6 +5,7 @@
 
 #include <limits.h>
 #include <stdlib.h>
+#include <string.h>
 #include <wchar.h>
 
 DWORD GetConversionAutoCodePage(DWORD activeCodePage, DWORD systemLocaleCodePage)
@@ -103,4 +104,68 @@ BOOL ConvertConversionTableText(const char* source, UINT sourceCodePage,
     if (!result)
         destination[0] = 0;
     return result;
+}
+
+BOOL ConvertLegacyViewerTextToWide(const char* source, int sourceLength,
+                                   UINT sourceCodePage, std::wstring* destination)
+{
+    if (destination == NULL || sourceLength < 0 ||
+        (source == NULL && sourceLength != 0))
+    {
+        return FALSE;
+    }
+
+    destination->clear();
+    if (sourceLength == 0)
+        return TRUE;
+
+    int required = MultiByteToWideChar(sourceCodePage, 0, source, sourceLength,
+                                       NULL, 0);
+    if (required <= 0)
+        return FALSE;
+
+    destination->resize(required);
+    int converted = MultiByteToWideChar(sourceCodePage, 0, source, sourceLength,
+                                        &(*destination)[0], required);
+    if (converted != required)
+    {
+        destination->clear();
+        return FALSE;
+    }
+    return TRUE;
+}
+
+BOOL ShouldPreferWindowsCodePageText(const char* source, int sourceLength,
+                                     UINT windowsCodePage,
+                                     const char* recognizedCodePage)
+{
+    if (source == NULL || sourceLength <= 0 || recognizedCodePage == NULL ||
+        _strnicmp(recognizedCodePage, "ISO-8859-", 9) != 0 ||
+        !IsValidCodePage(windowsCodePage))
+    {
+        return FALSE;
+    }
+
+    for (int i = 0; i < sourceLength; ++i)
+    {
+        unsigned char byte = (unsigned char)source[i];
+        if (byte < 0x80 || byte > 0x9F)
+            continue;
+
+        WCHAR character = 0;
+        char encoded = (char)byte;
+        if (MultiByteToWideChar(windowsCodePage, MB_ERR_INVALID_CHARS,
+                                &encoded, 1, &character, 1) != 1)
+        {
+            continue;
+        }
+
+        WORD type = 0;
+        if (GetStringTypeW(CT_CTYPE1, &character, 1, &type) &&
+            (type & C1_ALPHA) != 0)
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
 }

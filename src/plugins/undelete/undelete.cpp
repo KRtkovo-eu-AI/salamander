@@ -379,7 +379,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
         OS<char>::OS_ReleaseLibraryData();
         return NULL;
     }
-    InitializeWinLib("Undelete" /* DO NOT TRANSLATE! */, DLLInstance);
+    InitializeWinLib("Undelete" /* DO NOT TRANSLATE! */, DLLInstance, SalamanderGeneral);
     SetupWinLibHelp(HTMLHelpCallback);
 
     InitIconOverlays();
