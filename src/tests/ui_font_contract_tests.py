@@ -31,6 +31,7 @@ def main() -> None:
     common_winlib = (ROOT / "src/common/winlib.cpp").read_text(encoding="utf-8")
     common_dpi = (ROOT / "src/common/winlibdpi.h").read_text(encoding="utf-8")
     common_sheets = (ROOT / "src/common/sheets.cpp").read_text(encoding="utf-8")
+    code_tables = (ROOT / "src/codetbl.cpp").read_text(encoding="utf-8")
     plugin_winlib = (ROOT / "src/plugins/shared/winliblt.cpp").read_text(encoding="utf-8")
     plugin_winlib_h = (ROOT / "src/plugins/shared/winliblt.h").read_text(encoding="utf-8")
     dialogs5 = (ROOT / "src/dialogs5.cpp").read_text(encoding="utf-8")
@@ -51,6 +52,8 @@ def main() -> None:
 
     require(common_winlib, "WinLibDPICloneResourceDialogWithFont",
             "template-time font in core dialogs")
+    require(code_tables, "InsertMenuItemW(menu, position, TRUE, &item)",
+            "Unicode Win32 insertion for dynamic conversion menu names")
     require(plugin_winlib, "WinLibDPICloneResourceDialogWithFont",
             "template-time font in plug-in dialogs")
     require(common_sheets, "PSP_DLGINDIRECT",

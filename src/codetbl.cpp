@@ -10,6 +10,35 @@
 
 CCodeTables CodeTables;
 
+namespace
+{
+BOOL InsertCodeTableMenuString(HMENU menu, int position, UINT command, const char* text)
+{
+    std::wstring wideText;
+    if (text != NULL &&
+        ConvertLegacyViewerTextToWide(text, (int)strlen(text), GetACP(), &wideText))
+    {
+        MENUITEMINFOW item;
+        memset(&item, 0, sizeof(item));
+        item.cbSize = sizeof(item);
+        item.fMask = MIIM_FTYPE | MIIM_ID | MIIM_STRING;
+        item.fType = MFT_STRING;
+        item.wID = command;
+        item.dwTypeData = wideText.empty() ? const_cast<wchar_t*>(L"") : &wideText[0];
+        return InsertMenuItemW(menu, position, TRUE, &item);
+    }
+
+    MENUITEMINFOA item;
+    memset(&item, 0, sizeof(item));
+    item.cbSize = sizeof(item);
+    item.fMask = MIIM_FTYPE | MIIM_ID | MIIM_STRING;
+    item.fType = MFT_STRING;
+    item.wID = command;
+    item.dwTypeData = const_cast<char*>(text != NULL ? text : "");
+    return InsertMenuItemA(menu, position, TRUE, &item);
+}
+} // namespace
+
 //
 //*****************************************************************************
 // CCodeTable
@@ -662,13 +691,8 @@ void CCodeTables::InitMenu(HMENU menu, int& codeType)
     if (GetMenuItemCount(menu) == 0) // empty menu, needs to be filled
     {
         int count = 0;
-        memset(&mi, 0, sizeof(mi));
-        mi.cbSize = sizeof(mi);
-        mi.fMask = MIIM_TYPE | MIIM_ID;
-        mi.fType = MFT_STRING;
-        mi.wID = CM_CODING_MIN;
-        mi.dwTypeData = LoadStr(IDS_VIEWERNONECODING);
-        InsertMenuItem(menu, count++, TRUE, &mi);
+        InsertCodeTableMenuString(menu, count++, CM_CODING_MIN,
+                                  LoadStr(IDS_VIEWERNONECODING));
 
         int i;
         for (i = 0; i < Table->Data.Count; i++)
@@ -687,18 +711,13 @@ void CCodeTables::InitMenu(HMENU menu, int& codeType)
             }
             else
             {
-                memset(&mi, 0, sizeof(mi));
-                mi.cbSize = sizeof(mi);
-                mi.fMask = MIIM_TYPE | MIIM_ID;
-                mi.fType = MFT_STRING;
-                mi.wID = CM_CODING_MIN + i + 1; // +1 because of 'None'
-                if (mi.wID > CM_CODING_MAX)
+                UINT command = CM_CODING_MIN + i + 1; // +1 because of 'None'
+                if (command > CM_CODING_MAX)
                 {
-                    TRACE_E("mi.wID > CM_CODING_MAX");
+                    TRACE_E("command > CM_CODING_MAX");
                     break;
                 }
-                mi.dwTypeData = Table->Data[i]->Name;
-                InsertMenuItem(menu, count++, TRUE, &mi);
+                InsertCodeTableMenuString(menu, count++, command, Table->Data[i]->Name);
             }
         }
     }

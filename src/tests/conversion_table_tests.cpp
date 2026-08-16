@@ -76,6 +76,13 @@ void TestRegionalTextConversion()
     Check(!ConvertConversionTableText(kamenicti, 99999, CP_UTF8, converted, sizeof(converted)) &&
               converted[0] == 0,
           "An unsupported source code page must preserve the loader fallback path");
+
+    const char utf8MenuText[] = u8"Kameničtí - ČS2";
+    std::wstring wideMenuText;
+    Check(ConvertLegacyViewerTextToWide(utf8MenuText, (int)strlen(utf8MenuText),
+                                        CP_UTF8, &wideMenuText) &&
+              wideMenuText == L"Kameničtí - ČS2",
+          "UTF-8 conversion menu names must reach the Unicode Win32 menu API intact");
 }
 
 void TestLegacyViewerTextConversion()
