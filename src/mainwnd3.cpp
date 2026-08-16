@@ -3829,6 +3829,32 @@ static BOOL DPIWindowRectAlreadyApplied = FALSE;
 static int MainWindowContentDPI = 0;
 static int InitialSessionDPI = 0;
 static BOOL DPIChangePromptShown = FALSE;
+static WINDOWPLACEMENT PreSuspendWindowPlacement = {sizeof(WINDOWPLACEMENT)};
+static BOOL PreSuspendWindowPlacementValid = FALSE;
+static BOOL ResumeWindowPlacementPending = FALSE;
+
+static void ScheduleResumeWindowPlacementRestore(HWND hWindow)
+{
+    if (!PreSuspendWindowPlacementValid)
+        return;
+
+    ResumeWindowPlacementPending = TRUE;
+    KillTimer(hWindow, IDT_RESTOREWINDOWPLACEMENT);
+    SetTimer(hWindow, IDT_RESTOREWINDOWPLACEMENT, 1000, NULL);
+}
+
+static void RestorePreSuspendWindowPlacement(HWND hWindow)
+{
+    KillTimer(hWindow, IDT_RESTOREWINDOWPLACEMENT);
+    ResumeWindowPlacementPending = FALSE;
+    if (!PreSuspendWindowPlacementValid)
+        return;
+
+    WINDOWPLACEMENT placement = PreSuspendWindowPlacement;
+    PreSuspendWindowPlacementValid = FALSE;
+    MultiMonEnsureRectVisible(&placement.rcNormalPosition, FALSE);
+    SetWindowPlacement(hWindow, &placement);
+}
 
 static BOOL DWMInteractiveMoveActive = FALSE;
 
@@ -4713,6 +4739,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         PendingDPIWindowRectApplied = FALSE;
         DPIWindowRectAlreadyApplied = FALSE;
         RefreshDPI(TRUE, dpi, suggestedRect);
+        if (ResumeWindowPlacementPending)
+            ScheduleResumeWindowPlacementRestore(HWindow);
         return 0;
     }
 
@@ -4737,7 +4765,26 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
     case WM_DISPLAYCHANGE:
     {
         TraceDPIState("WM_DISPLAYCHANGE", HWindow);
+        if (ResumeWindowPlacementPending)
+            ScheduleResumeWindowPlacementRestore(HWindow);
         break;
+    }
+
+    case WM_POWERBROADCAST:
+    {
+        if (wParam == PBT_APMSUSPEND)
+        {
+            KillTimer(HWindow, IDT_RESTOREWINDOWPLACEMENT);
+            ResumeWindowPlacementPending = FALSE;
+            PreSuspendWindowPlacement.length = sizeof(WINDOWPLACEMENT);
+            PreSuspendWindowPlacementValid = GetWindowPlacement(HWindow, &PreSuspendWindowPlacement);
+        }
+        else if (wParam == PBT_APMRESUMEAUTOMATIC || wParam == PBT_APMRESUMECRITICAL ||
+                 wParam == PBT_APMRESUMESUSPEND)
+        {
+            ScheduleResumeWindowPlacementRestore(HWindow);
+        }
+        return TRUE;
     }
 
     case WM_WTSSESSION_CHANGE:
@@ -10668,6 +10715,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             break;
         }
 
+        case IDT_RESTOREWINDOWPLACEMENT:
+        {
+            RestorePreSuspendWindowPlacement(HWindow);
+            break;
+        }
+
         default:
         {
             TRACE_E("Unknown WM_TIMER wParam=" << wParam);
@@ -11679,6 +11732,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         }
 
         UnregisterSessionNotification(HWindow);
+        KillTimer(HWindow, IDT_RESTOREWINDOWPLACEMENT);
 
         // notify the task list that we are exiting
         TaskList.SetProcessState(PROCESS_STATE_ENDING, NULL);
