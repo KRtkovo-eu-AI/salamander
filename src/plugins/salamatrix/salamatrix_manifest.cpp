@@ -1438,6 +1438,7 @@ bool CExtensionManifest::Parse(
                 return SetValidationError(error, "Every fileSystems entry must be an object");
             CExtensionManifestFileSystem fileSystem;
             int refreshIntervalMs = 3000;
+            int refreshDepth = 0;
             if (!ReadString(fileSystemValue, "id", true, fileSystem.Id, error) ||
                 !ReadString(fileSystemValue, "name", true, fileSystem.Name, error) ||
                 !ReadString(fileSystemValue, "listHandler", true, fileSystem.ListHandler, error) ||
@@ -1445,9 +1446,11 @@ bool CExtensionManifest::Parse(
                 !ReadString(fileSystemValue, "icon", false, fileSystem.Icon, error) ||
                 !ReadString(fileSystemValue, "iconDark", false, fileSystem.IconDark, error) ||
                 !ReadString(fileSystemValue, "defaultFileIcon", false, fileSystem.DefaultFileIcon, error) ||
-                !ReadInteger(fileSystemValue, "refreshIntervalMs", 3000, 250, 60000, refreshIntervalMs, error))
+                !ReadInteger(fileSystemValue, "refreshIntervalMs", 3000, 250, 60000, refreshIntervalMs, error) ||
+                !ReadInteger(fileSystemValue, "refreshDepth", 0, 0, 32, refreshDepth, error))
                 return false;
             fileSystem.RefreshIntervalMs = static_cast<unsigned int>(refreshIntervalMs);
+            fileSystem.RefreshDepth = static_cast<unsigned int>(refreshDepth);
             if (!IsIdentifier(fileSystem.Id) || !IsIdentifier(fileSystem.ListHandler) ||
                 (!fileSystem.OpenHandler.empty() && !IsIdentifier(fileSystem.OpenHandler)))
                 return SetValidationError(error, "File-system ids and handlers must be valid identifiers");
@@ -1462,6 +1465,32 @@ bool CExtensionManifest::Parse(
                 (!IsSafeRelativeEntryPoint(fileSystem.DefaultFileIcon) ||
                  !IsIcoAssetPath(fileSystem.DefaultFileIcon)))
                 return SetValidationError(error, "File-system defaultFileIcon must be a safe relative ICO path inside the extension");
+            const JsonValue* rootItems = fileSystemValue.Find("rootItems");
+            if (rootItems != NULL)
+            {
+                if (rootItems->Type != JsonArray || rootItems->Array.size() > 64)
+                    return SetValidationError(error, "File-system rootItems must be an array of at most 64 items");
+                for (size_t itemIndex = 0; itemIndex < rootItems->Array.size(); ++itemIndex)
+                {
+                    const JsonValue& itemValue = rootItems->Array[itemIndex];
+                    if (itemValue.Type != JsonObject)
+                        return SetValidationError(error, "Every file-system root item must be an object");
+                    CExtensionManifestFileSystem::RootItem item;
+                    if (!ReadString(itemValue, "id", true, item.Id, error) ||
+                        !ReadString(itemValue, "name", true, item.Name, error) ||
+                        !ReadString(itemValue, "icon", false, item.Icon, error) ||
+                        !ReadString(itemValue, "iconDark", false, item.IconDark, error))
+                        return false;
+                    if (!IsIdentifier(item.Id) || item.Name.empty() || item.Name.size() > 255 ||
+                        (!item.Icon.empty() && (!IsSafeRelativeEntryPoint(item.Icon) || !IsSvgAssetPath(item.Icon))) ||
+                        (!item.IconDark.empty() && (!IsSafeRelativeEntryPoint(item.IconDark) || !IsSvgAssetPath(item.IconDark))))
+                        return SetValidationError(error, "File-system root item metadata is invalid");
+                    for (size_t existing = 0; existing < fileSystem.RootItems.size(); ++existing)
+                        if (_stricmp(fileSystem.RootItems[existing].Id.c_str(), item.Id.c_str()) == 0)
+                            return SetValidationError(error, "File-system root item ids must be unique");
+                    fileSystem.RootItems.push_back(item);
+                }
+            }
             const JsonValue* columns = fileSystemValue.Find("columns");
             if (columns != NULL)
             {
@@ -1591,6 +1620,24 @@ bool CExtensionManifest::ParseLocaleText(
             if (!ReadString(fsValue, "name", false, fileSystem.Name, error) ||
                 fileSystem.Name.size() > 255)
                 return false;
+            const JsonValue* rootItems = fsValue.Find("rootItems");
+            if (rootItems != NULL)
+            {
+                if (rootItems->Type != JsonObject || rootItems->Object.size() > 64)
+                    return SetValidationError(error, "Locale file-system rootItems must map at most 64 ids to names");
+                for (size_t itemIndex = 0; itemIndex < rootItems->Object.size(); ++itemIndex)
+                {
+                    const std::string& itemId = rootItems->Object[itemIndex].first;
+                    const JsonValue& itemValue = rootItems->Object[itemIndex].second;
+                    if (!IsIdentifier(itemId) || itemValue.Type != JsonString ||
+                        itemValue.String.empty() || itemValue.String.size() > 255)
+                        return SetValidationError(error, "Locale file-system root item metadata is invalid");
+                    CExtensionManifestLocalizedFileSystemRootItem item;
+                    item.Id = itemId;
+                    item.Name = itemValue.String;
+                    fileSystem.RootItems.push_back(item);
+                }
+            }
             const JsonValue* columns = fsValue.Find("columns");
             if (columns != NULL)
             {

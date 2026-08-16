@@ -67,7 +67,8 @@ static void TestCompleteManifest()
         "\"listHandler\":\"listMachines\",\"openHandler\":\"openMachine\","
         "\"icon\":\"assets/machines.svg\",\"iconDark\":\"assets/machines-dark.svg\","
         "\"defaultFileIcon\":\"assets/default.ico\","
-        "\"refreshIntervalMs\":1000,\"columns\":["
+        "\"refreshIntervalMs\":1000,\"refreshDepth\":2,\"rootItems\":["
+        "{\"id\":\"cpu\",\"name\":\"CPU\",\"icon\":\"assets/cpu.svg\"}],\"columns\":["
         "{\"id\":\"pid\",\"name\":\"PID\",\"description\":\"Process id\",\"width\":72,\"numeric\":true}],\"actions\":["
         "{\"id\":\"connect\",\"title\":\"Connect\",\"handler\":\"connect\",\"default\":true},"
         "{\"separator\":true},"
@@ -139,6 +140,9 @@ static void TestCompleteManifest()
     CHECK(manifest.FileSystems[0].ListHandler == "listMachines");
     CHECK(manifest.FileSystems[0].DefaultFileIcon == "assets/default.ico");
     CHECK(manifest.FileSystems[0].RefreshIntervalMs == 1000);
+    CHECK(manifest.FileSystems[0].RefreshDepth == 2);
+    CHECK(manifest.FileSystems[0].RootItems.size() == 1);
+    CHECK(manifest.FileSystems[0].RootItems[0].Id == "cpu");
     CHECK(manifest.FileSystems[0].Columns.size() == 1);
     CHECK(manifest.FileSystems[0].Columns[0].Id == "pid");
     CHECK(manifest.FileSystems[0].Columns[0].Width == 72);
@@ -201,7 +205,8 @@ static void TestLocaleText()
     const char* json =
         "{\"name\":\"Obr\\u00e1zkov\\u00e9 n\\u00e1stroje\","
         "\"description\":\"Popis\","
-        "\"fileSystems\":{\"processes\":{\"name\":\"Procesy\",\"columns\":{"
+        "\"fileSystems\":{\"processes\":{\"name\":\"Procesy\","
+        "\"rootItems\":{\"cpu\":\"Procesor\"},\"columns\":{"
         "\"status\":{\"name\":\"Stav\",\"description\":\"Stav procesu\"}},"
         "\"actions\":{\"endTask\":\"Ukon\\u010dit \\u00falohu\"}}},"
         "\"settings\":{\"repositoryUrl\":{\"label\":\"Zdroj\","
@@ -223,6 +228,9 @@ static void TestLocaleText()
         {
             CHECK(localized.FileSystems[0].Id == "processes");
             CHECK(localized.FileSystems[0].Name == "Procesy");
+            CHECK(localized.FileSystems[0].RootItems.size() == 1);
+            if (localized.FileSystems[0].RootItems.size() == 1)
+                CHECK(localized.FileSystems[0].RootItems[0].Name == "Procesor");
             CHECK(localized.FileSystems[0].Columns.size() == 1);
             if (localized.FileSystems[0].Columns.size() == 1)
                 CHECK(localized.FileSystems[0].Columns[0].Name == "Stav");

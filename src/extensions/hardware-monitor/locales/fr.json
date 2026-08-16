@@ -6,6 +6,7 @@
   },
   "fileSystems": {
     "hardware-info": {
+      "rootItems": {"cpu":"Processeur","memory":"Mémoire","motherboard":"Carte mère","gpu":"Processeur graphique","storage":"Stockage","network":"Réseau","sensors":"Capteurs"},
       "name": "Moniteur matériel",
       "columns": {
         "property": {"name": "Champ", "description": "Nom de la propriété ou du capteur"},

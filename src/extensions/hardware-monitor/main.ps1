@@ -36,16 +36,16 @@ function Get-WmiPropertySafe {
 
 function Format-Bytes {
     param([uint64]$Bytes)
-    if ($Bytes -ge 1TB) { return '{0:N2} TB' -f ($Bytes / 1TB) }
-    if ($Bytes -ge 1GB) { return '{0:N2} GB' -f ($Bytes / 1GB) }
-    if ($Bytes -ge 1MB) { return '{0:N2} MB' -f ($Bytes / 1MB) }
-    if ($Bytes -ge 1KB) { return '{0:N2} KB' -f ($Bytes / 1KB) }
+    if ($Bytes -ge 1TB) { return '{0:F2} TB' -f ($Bytes / 1TB) }
+    if ($Bytes -ge 1GB) { return '{0:F2} GB' -f ($Bytes / 1GB) }
+    if ($Bytes -ge 1MB) { return '{0:F2} MB' -f ($Bytes / 1MB) }
+    if ($Bytes -ge 1KB) { return '{0:F2} KB' -f ($Bytes / 1KB) }
     return '{0} B' -f $Bytes
 }
 
 function Format-BytesMB {
     param([uint64]$Bytes)
-    return '{0:N0} MB' -f ($Bytes / 1MB)
+    return '{0:F0} MB' -f ($Bytes / 1MB)
 }
 
 # ============================================================================
@@ -53,7 +53,7 @@ function Format-BytesMB {
 # ============================================================================
 
 function Get-CpuInfo {
-    param([hashtable]$Strings)
+    param([object]$Strings)
     $items = New-Object 'System.Collections.Generic.List[hashtable]'
     try {
         $cpus = @(Get-CimInstance -ClassName Win32_Processor -ErrorAction Stop)
@@ -75,11 +75,11 @@ function Get-CpuInfo {
         $items.Add(@{id='cpu-l1d'; name='l1d'; directory=$false; enabled=$true;
             columns=@{property=[string]$Strings.strings.cpuL1dCache; value='48 KB'}})
 
-        $l2 = try { '{0:N0} KB' -f $cpu.L2CacheSize } catch { 'N/A' }
+        $l2 = try { '{0:F0} KB' -f $cpu.L2CacheSize } catch { 'N/A' }
         $items.Add(@{id='cpu-l2'; name='l2'; directory=$false; enabled=$true;
             columns=@{property=[string]$Strings.strings.cpuL2Cache; value=$l2}})
 
-        $l3 = try { '{0:N0} KB' -f $cpu.L3CacheSize } catch { 'N/A' }
+        $l3 = try { '{0:F0} KB' -f $cpu.L3CacheSize } catch { 'N/A' }
         $items.Add(@{id='cpu-l3'; name='l3'; directory=$false; enabled=$true;
             columns=@{property=[string]$Strings.strings.cpuL3Cache; value=$l3}})
 
@@ -97,7 +97,7 @@ function Get-CpuInfo {
         $items.Add(@{id='cpu-curclock'; name='curclock'; directory=$false; enabled=$true;
             columns=@{property=[string]$Strings.strings.cpuCurrentClock; value=$currentClock}})
 
-        $voltage = try { '{0:N3} V' -f ($cpu.CurrentVoltage / 1.0) } catch { 'N/A' }
+        $voltage = try { '{0:F3} V' -f ($cpu.CurrentVoltage / 1.0) } catch { 'N/A' }
         $items.Add(@{id='cpu-voltage'; name='voltage'; directory=$false; enabled=$true;
             columns=@{property=[string]$Strings.strings.cpuVoltage; value=$voltage}})
     } catch {
@@ -108,7 +108,7 @@ function Get-CpuInfo {
 }
 
 function Get-MultiCpuInfo {
-    param([hashtable]$Strings)
+    param([object]$Strings)
     $items = New-Object 'System.Collections.Generic.List[hashtable]'
     try {
         $cpus = @(Get-CimInstance -ClassName Win32_Processor -ErrorAction Stop)
@@ -124,7 +124,7 @@ function Get-MultiCpuInfo {
 }
 
 function Get-CpuUsageInfo {
-    param([hashtable]$Strings)
+    param([object]$Strings)
     $items = New-Object 'System.Collections.Generic.List[hashtable]'
     try {
         $procCount = [Environment]::ProcessorCount
@@ -148,7 +148,7 @@ function Get-CpuUsageInfo {
 }
 
 function Get-PhysicalMemoryInfo {
-    param([hashtable]$Strings)
+    param([object]$Strings)
     $items = New-Object 'System.Collections.Generic.List[hashtable]'
     try {
         $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
@@ -157,14 +157,15 @@ function Get-PhysicalMemoryInfo {
         $usedBytes = $totalBytes - $freeBytes
         $usagePct = if ($totalBytes -gt 0) { [Math]::Round($usedBytes * 100.0 / $totalBytes) } else { 0 }
 
-        $items.Add(@{id='mem-total'; name='total'; directory=$false; enabled=$true;
-            columns=@{property=[string]$Strings.strings.total; value=(Format-BytesMB $totalBytes)}})
-        $items.Add(@{id='mem-used'; name='used'; directory=$false; enabled=$true;
-            columns=@{property=[string]$Strings.strings.used; value=(Format-BytesMB $usedBytes)}})
-        $items.Add(@{id='mem-free'; name='free'; directory=$false; enabled=$true;
-            columns=@{property=[string]$Strings.strings.free; value=(Format-BytesMB $freeBytes)}})
-        $items.Add(@{id='mem-usage'; name='usage'; directory=$false; enabled=$true;
-            columns=@{property=[string]$Strings.strings.usage; value="$usagePct %"}})
+        $prefix = [string]$Strings.strings.physicalMemory
+        $items.Add(@{id='mem-total'; name="$prefix - $($Strings.strings.total)"; directory=$false; enabled=$true;
+            columns=@{property="$prefix - $($Strings.strings.total)"; value=(Format-BytesMB $totalBytes)}})
+        $items.Add(@{id='mem-used'; name="$prefix - $($Strings.strings.used)"; directory=$false; enabled=$true;
+            columns=@{property="$prefix - $($Strings.strings.used)"; value=(Format-BytesMB $usedBytes)}})
+        $items.Add(@{id='mem-free'; name="$prefix - $($Strings.strings.free)"; directory=$false; enabled=$true;
+            columns=@{property="$prefix - $($Strings.strings.free)"; value=(Format-BytesMB $freeBytes)}})
+        $items.Add(@{id='mem-usage'; name="$prefix - $($Strings.strings.usage)"; directory=$false; enabled=$true;
+            columns=@{property="$prefix - $($Strings.strings.usage)"; value="$usagePct %"}})
     } catch {
         $items.Add(@{id='mem-error'; name='error'; directory=$false; enabled=$true;
             columns=@{property='Error'; value=[string]$_.Exception.Message}})
@@ -173,7 +174,7 @@ function Get-PhysicalMemoryInfo {
 }
 
 function Get-VirtualMemoryInfo {
-    param([hashtable]$Strings)
+    param([object]$Strings)
     $items = New-Object 'System.Collections.Generic.List[hashtable]'
     try {
         $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
@@ -182,14 +183,15 @@ function Get-VirtualMemoryInfo {
         $usedBytes = $totalBytes - $freeBytes
         $usagePct = if ($totalBytes -gt 0) { [Math]::Round($usedBytes * 100.0 / $totalBytes) } else { 0 }
 
-        $items.Add(@{id='vm-total'; name='total'; directory=$false; enabled=$true;
-            columns=@{property=[string]$Strings.strings.total; value=(Format-BytesMB $totalBytes)}})
-        $items.Add(@{id='vm-used'; name='used'; directory=$false; enabled=$true;
-            columns=@{property=[string]$Strings.strings.used; value=(Format-BytesMB $usedBytes)}})
-        $items.Add(@{id='vm-free'; name='free'; directory=$false; enabled=$true;
-            columns=@{property=[string]$Strings.strings.free; value=(Format-BytesMB $freeBytes)}})
-        $items.Add(@{id='vm-usage'; name='usage'; directory=$false; enabled=$true;
-            columns=@{property=[string]$Strings.strings.usage; value="$usagePct %"}})
+        $prefix = [string]$Strings.strings.virtualMemory
+        $items.Add(@{id='vm-total'; name="$prefix - $($Strings.strings.total)"; directory=$false; enabled=$true;
+            columns=@{property="$prefix - $($Strings.strings.total)"; value=(Format-BytesMB $totalBytes)}})
+        $items.Add(@{id='vm-used'; name="$prefix - $($Strings.strings.used)"; directory=$false; enabled=$true;
+            columns=@{property="$prefix - $($Strings.strings.used)"; value=(Format-BytesMB $usedBytes)}})
+        $items.Add(@{id='vm-free'; name="$prefix - $($Strings.strings.free)"; directory=$false; enabled=$true;
+            columns=@{property="$prefix - $($Strings.strings.free)"; value=(Format-BytesMB $freeBytes)}})
+        $items.Add(@{id='vm-usage'; name="$prefix - $($Strings.strings.usage)"; directory=$false; enabled=$true;
+            columns=@{property="$prefix - $($Strings.strings.usage)"; value="$usagePct %"}})
     } catch {
         $items.Add(@{id='vm-error'; name='error'; directory=$false; enabled=$true;
             columns=@{property='Error'; value=[string]$_.Exception.Message}})
@@ -198,7 +200,7 @@ function Get-VirtualMemoryInfo {
 }
 
 function Get-PagefileInfo {
-    param([hashtable]$Strings)
+    param([object]$Strings)
     $items = New-Object 'System.Collections.Generic.List[hashtable]'
     try {
         $pagefiles = @(Get-CimInstance -ClassName Win32_PageFile -ErrorAction Stop)
@@ -206,12 +208,13 @@ function Get-PagefileInfo {
             $items.Add(@{id='pf-none'; name='none'; directory=$false; enabled=$true;
                 columns=@{property=[string]$Strings.strings.pagefileName; value='No pagefile found'}})
         } else {
-            foreach ($pf in $pagefiles) {
+            for ($i = 0; $i -lt $pagefiles.Count; $i++) {
+                $pf = $pagefiles[$i]
                 $name = [string]$pf.Name
                 $size = try { Format-BytesMB ([uint64]$pf.MaxSize * 1MB) } catch { 'N/A' }
-                $items.Add(@{id="pf-$name"; name=$name; directory=$false; enabled=$true;
+                $items.Add(@{id="pf-$i"; name="pagefile-$i"; directory=$false; enabled=$true;
                     columns=@{property=[string]$Strings.strings.pagefileName; value=$name}})
-                $items.Add(@{id="pf-size-$name"; name="size-$name"; directory=$false; enabled=$true;
+                $items.Add(@{id="pf-size-$i"; name="pagefile-size-$i"; directory=$false; enabled=$true;
                     columns=@{property=[string]$Strings.strings.currentSize; value=$size}})
             }
         }
@@ -223,34 +226,86 @@ function Get-PagefileInfo {
 }
 
 function Get-MemoryModulesInfo {
-    param([hashtable]$Strings)
+    param([object]$Strings)
     $items = New-Object 'System.Collections.Generic.List[hashtable]'
     try {
         $modules = @(Get-CimInstance -ClassName Win32_PhysicalMemory -ErrorAction Stop)
+        $slotCount = $modules.Count
+        try {
+            $arrays = @(Get-CimInstance -ClassName Win32_PhysicalMemoryArray -ErrorAction Stop)
+            $reportedSlotCount = [int](
+                ($arrays | Measure-Object -Property MemoryDevices -Sum).Sum)
+            if ($reportedSlotCount -ge $modules.Count -and
+                $reportedSlotCount -le 256) {
+                $slotCount = $reportedSlotCount
+            }
+        } catch {
+            # Some firmware does not publish a usable physical-memory array.
+        }
+
+        $items.Add(@{id='mem-slots-total'; name='slots-total'; directory=$false; enabled=$true;
+            columns=@{property=([string]$Strings.strings.memoryModules + ' - ' +
+                [string]$Strings.strings.total); value=[string]$slotCount}})
+        $items.Add(@{id='mem-slots-used'; name='slots-used'; directory=$false; enabled=$true;
+            columns=@{property=([string]$Strings.strings.memoryModules + ' - ' +
+                [string]$Strings.strings.used); value=[string]$modules.Count}})
+        $items.Add(@{id='mem-slots-free'; name='slots-free'; directory=$false; enabled=$true;
+            columns=@{property=([string]$Strings.strings.memoryModules + ' - ' +
+                [string]$Strings.strings.free); value=[string]([Math]::Max(0, $slotCount - $modules.Count))}})
+
         for ($i = 0; $i -lt $modules.Count; $i++) {
             $m = $modules[$i]
             $locator = Get-WmiPropertySafe $m 'DeviceLocator' "DIMM $($i+1)"
+            $bank = Get-WmiPropertySafe $m 'BankLabel' ''
+            $slotName = if ([string]::IsNullOrWhiteSpace($bank)) {
+                $locator
+            } else {
+                "$bank - $locator"
+            }
+            # FS item names are path components. A slash makes the host reject
+            # the complete AddItems batch, leaving the Memory directory empty.
+            $slotName = ([string]$slotName -replace '[\\/]', '-').Trim()
             $manufacturer = Get-WmiPropertySafe $m 'Manufacturer' 'Unknown'
             $capacity = try { Format-BytesMB ([uint64]$m.Capacity) } catch { 'N/A' }
-            $speed = try { '{0} MHz' -f $m.Speed } catch { 'N/A' }
-            $partNum = Get-WmiPropertySafe $m 'PartNumber' ''
-
-            $items.Add(@{id="mem-mod-$i"; name=$locator; directory=$false; enabled=$true;
-                columns=@{property=$locator; value="$capacity, $speed, $manufacturer"}})
+            $configuredSpeed = try {
+                $clock = if ([uint64]$m.ConfiguredClockSpeed -gt 0) {
+                    [uint64]$m.ConfiguredClockSpeed
+                } else { [uint64]$m.Speed }
+                '{0} MHz' -f $clock
+            } catch { 'N/A' }
+            $partNumber = (Get-WmiPropertySafe $m 'PartNumber' '').Trim()
+            $serialNumber = (Get-WmiPropertySafe $m 'SerialNumber' '').Trim()
+            $slotValues = @(
+                @('capacity', [string]$Strings.strings.total, $capacity),
+                @('speed', [string]$Strings.strings.networkSpeed, $configuredSpeed),
+                @('manufacturer', [string]$Strings.strings.manufacturer, $manufacturer),
+                @('part', [string]$Strings.strings.product, $partNumber),
+                @('serial', [string]$Strings.strings.serialNumber, $serialNumber)
+            )
+            foreach ($slotValue in $slotValues) {
+                if ([string]::IsNullOrWhiteSpace([string]$slotValue[2])) { continue }
+                $property = "$slotName - $($slotValue[1])"
+                $items.Add(@{id="mem-slot-$i-$($slotValue[0])"; name=$property;
+                    compactName=$property; directory=$false; enabled=$true;
+                    columns=@{property=$property; value=[string]$slotValue[2]}})
+            }
         }
-        if ($modules.Count -eq 0) {
-            $items.Add(@{id='mem-mod-none'; name='none'; directory=$false; enabled=$true;
-                columns=@{property='Memory Modules'; value='No memory modules detected'}})
+        for ($i = $modules.Count; $i -lt $slotCount; $i++) {
+            $slotName = "DIMM $($i + 1)"
+            $items.Add(@{id="mem-slot-$i"; name=$slotName; compactName=$slotName;
+                directory=$false; enabled=$true;
+                columns=@{property=$slotName; value=[string]$Strings.strings.free}})
         }
     } catch {
         $items.Add(@{id='mem-mod-error'; name='error'; directory=$false; enabled=$true;
-            columns=@{property='Error'; value=[string]$_.Exception.Message}})
+            columns=@{property=[string]$Strings.strings.memoryModules;
+                value=[string]$_.Exception.Message}})
     }
     return $items
 }
 
 function Get-MotherboardInfo {
-    param([hashtable]$Strings)
+    param([object]$Strings)
     $items = New-Object 'System.Collections.Generic.List[hashtable]'
     try {
         $board = Get-CimInstance -ClassName Win32_BaseBoard -ErrorAction Stop | Select-Object -First 1
@@ -292,7 +347,7 @@ function Get-MotherboardInfo {
 }
 
 function Get-GpuInfo {
-    param([hashtable]$Strings)
+    param([object]$Strings)
     $items = New-Object 'System.Collections.Generic.List[hashtable]'
     try {
         $gpus = @(Get-CimInstance -ClassName Win32_VideoController -ErrorAction Stop)
@@ -328,7 +383,7 @@ function Get-GpuInfo {
 }
 
 function Get-StorageInfo {
-    param([hashtable]$Strings)
+    param([object]$Strings)
     $items = New-Object 'System.Collections.Generic.List[hashtable]'
     try {
         $disks = @(Get-CimInstance -ClassName Win32_DiskDrive -ErrorAction Stop)
@@ -368,7 +423,7 @@ function Get-StorageInfo {
 }
 
 function Get-NetworkInfo {
-    param([hashtable]$Strings)
+    param([object]$Strings)
     $items = New-Object 'System.Collections.Generic.List[hashtable]'
     try {
         $adapters = @(Get-CimInstance -ClassName Win32_NetworkAdapterConfiguration -ErrorAction Stop |
@@ -394,7 +449,7 @@ function Get-NetworkInfo {
                 columns=@{property="$prefix$([string]$Strings.strings.networkMACAddress)"; value=$mac}})
 
             $speed = try {
-                if ($na.Speed) { '{0:N0} Mbps' -f ([uint64]$na.Speed / 1MB) } else { 'N/A' }
+                if ($na.Speed) { '{0:F0} Mbps' -f ([uint64]$na.Speed / 1MB) } else { 'N/A' }
             } catch { 'N/A' }
             $items.Add(@{id="net-speed-$i"; name="speed-$i"; directory=$false; enabled=$true;
                 columns=@{property="$prefix$([string]$Strings.strings.networkSpeed)"; value=$speed}})
@@ -443,7 +498,7 @@ function Initialize-SensorLibrary {
 }
 
 function Get-SensorInfo {
-    param([hashtable]$Strings)
+    param([object]$Strings)
     $items = New-Object 'System.Collections.Generic.List[hashtable]'
 
     $available = Initialize-SensorLibrary
@@ -462,51 +517,39 @@ function Get-SensorInfo {
         $script:MonitorManager::Update()
 
         $cpuTemp = $script:MonitorManager::GetCpuTemperature()
-        if ($cpuTemp -gt -90) {
+        if ($cpuTemp -ge 0) {
             $items.Add(@{id='sensor-cpu-temp'; name='CPU Temperature'; directory=$false; enabled=$true;
-                columns=@{property='CPU Temperature'; value='{0:N1} C' -f $cpuTemp}})
+                columns=@{property='CPU Temperature'; value='{0:F1} C' -f $cpuTemp}})
         }
 
         $cpuAvg = $script:MonitorManager::GetAverageCpuCoreTemperature()
         if ($cpuAvg -gt 0) {
             $items.Add(@{id='sensor-cpu-avg'; name='CPU Core Average'; directory=$false; enabled=$true;
-                columns=@{property='CPU Core Average'; value='{0:N1} C' -f $cpuAvg}})
+                columns=@{property='CPU Core Average'; value='{0:F1} C' -f $cpuAvg}})
         }
 
         $cpuMax = $script:MonitorManager::GetMaxCpuCoreTemperature()
         if ($cpuMax -gt 0) {
             $items.Add(@{id='sensor-cpu-max'; name='CPU Core Max'; directory=$false; enabled=$true;
-                columns=@{property='CPU Core Max'; value='{0:N1} C' -f $cpuMax}})
+                columns=@{property='CPU Core Max'; value='{0:F1} C' -f $cpuMax}})
         }
 
         $gpuTemp = $script:MonitorManager::GetGpuTemperature()
-        if ($gpuTemp -gt -90) {
+        if ($gpuTemp -ge 0) {
             $items.Add(@{id='sensor-gpu-temp'; name='GPU Temperature'; directory=$false; enabled=$true;
-                columns=@{property='GPU Temperature'; value='{0:N1} C' -f $gpuTemp}})
+                columns=@{property='GPU Temperature'; value='{0:F1} C' -f $gpuTemp}})
         }
 
         $mbTemp = $script:MonitorManager::GetMotherboardTemperature()
-        if ($mbTemp -gt -90) {
+        if ($mbTemp -ge 0) {
             $items.Add(@{id='sensor-mb-temp'; name='Motherboard Temperature'; directory=$false; enabled=$true;
-                columns=@{property='Motherboard Temperature'; value='{0:N1} C' -f $mbTemp}})
+                columns=@{property='Motherboard Temperature'; value='{0:F1} C' -f $mbTemp}})
         }
 
         $storageTemp = $script:MonitorManager::GetStorageTemperature()
-        if ($storageTemp -gt -90) {
+        if ($storageTemp -ge 0) {
             $items.Add(@{id='sensor-storage-temp'; name='Storage Temperature'; directory=$false; enabled=$true;
-                columns=@{property='Storage Temperature'; value='{0:N1} C' -f $storageTemp}})
-        }
-
-        $cpuFan = $script:MonitorManager::GetCpuFanRpm()
-        if ($cpuFan -gt 0) {
-            $items.Add(@{id='sensor-cpu-fan'; name='CPU Fan'; directory=$false; enabled=$true;
-                columns=@{property='CPU Fan'; value='{0:N0} RPM' -f $cpuFan}})
-        }
-
-        $gpuFan = $script:MonitorManager::GetGpuFanRpm()
-        if ($gpuFan -gt 0) {
-            $items.Add(@{id='sensor-gpu-fan'; name='GPU Fan'; directory=$false; enabled=$true;
-                columns=@{property='GPU Fan'; value='{0:N0} RPM' -f $gpuFan}})
+                columns=@{property='Storage Temperature'; value='{0:F1} C' -f $storageTemp}})
         }
 
         if ($items.Count -eq 0) {
@@ -528,15 +571,28 @@ $handler = [string]$Salamander.command_handler
 $locale = try { [string]$Salamander.application.Language() } catch { 'en' }
 $strings = Get-HardwareMonitorStrings $locale
 
-if ($handler -eq 'listHardwareCategories') {
+if ($handler -ne 'listHardware') { return }
+
+$fileSystemPath = try { [string]$Salamander.invocation.path } catch { '' }
+$categoryId = ''
+$viewId = ''
+if (-not [string]::IsNullOrWhiteSpace($fileSystemPath)) {
+    $components = @($fileSystemPath -split '[\\/]' | Where-Object {
+        -not [string]::IsNullOrWhiteSpace([string]$_)
+    })
+    if ($components.Count -gt 1) { $categoryId = [string]$components[1] }
+    if ($components.Count -gt 2) { $viewId = [string]$components[2] }
+}
+
+if ([string]::IsNullOrWhiteSpace($categoryId)) {
     $categories = @(
-        @{id='cpu'; name=[string]$Strings.categories.cpu},
-        @{id='memory'; name=[string]$Strings.categories.memory},
-        @{id='motherboard'; name=[string]$Strings.categories.motherboard},
-        @{id='gpu'; name=[string]$Strings.categories.gpu},
-        @{id='storage'; name=[string]$Strings.categories.storage},
-        @{id='network'; name=[string]$Strings.categories.network},
-        @{id='sensors'; name=[string]$Strings.categories.sensors}
+        @{id='cpu'; name=[string]$Strings.categories.cpu; icon='icons/cpu.svg'},
+        @{id='memory'; name=[string]$Strings.categories.memory; icon='icons/memory.svg'},
+        @{id='motherboard'; name=[string]$Strings.categories.motherboard; icon='icons/motherboard.svg'},
+        @{id='gpu'; name=[string]$Strings.categories.gpu; icon='icons/gpu.svg'},
+        @{id='storage'; name=[string]$Strings.categories.storage; icon='icons/storage.svg'},
+        @{id='network'; name=[string]$Strings.categories.network; icon='icons/network.svg'},
+        @{id='sensors'; name=[string]$Strings.categories.sensors; icon='icons/sensors.svg'}
     )
 
     $items = New-Object 'System.Collections.Generic.List[hashtable]'
@@ -546,6 +602,8 @@ if ($handler -eq 'listHardwareCategories') {
             name=$cat.name
             directory=$true
             enabled=$true
+            icon=$cat.icon
+            iconDark=($cat.icon -replace '\.svg$', '-dark.svg')
             columns=@{property=$cat.name; value=''}
         })
     }
@@ -553,61 +611,45 @@ if ($handler -eq 'listHardwareCategories') {
     return
 }
 
-if ($handler -eq 'openHardwareCategory') {
-    $item = $Salamander.invocation.item
-    $categoryId = if ($item -and $item.id) { [string]$item.id } else { '' }
-
+else {
     $subItems = $null
     switch ($categoryId) {
         'cpu' {
-            $cpuItems = Get-CpuInfo $strings
-            $multiItems = Get-MultiCpuInfo $strings
-            $usageItems = Get-CpuUsageInfo $strings
-
             $subItems = New-Object 'System.Collections.Generic.List[hashtable]'
-
-            $subItems.Add(@{id='cpu-props-header'; name='header-cpu-props';
-                directory=$false; enabled=$true;
-                columns=@{property=""; value=[string]$Strings.strings.cpuProperties}})
-            foreach ($ci in $cpuItems) { $subItems.Add($ci) }
-
-            $subItems.Add(@{id='multi-cpu-header'; name='header-multi-cpu';
-                directory=$false; enabled=$true;
-                columns=@{property=""; value=[string]$Strings.strings.multiCpu}})
-            foreach ($mi in $multiItems) { $subItems.Add($mi) }
-
-            $subItems.Add(@{id='cpu-usage-header'; name='header-cpu-usage';
-                directory=$false; enabled=$true;
-                columns=@{property=""; value=[string]$Strings.strings.cpuUsage}})
-            foreach ($ui in $usageItems) { $subItems.Add($ui) }
+            if ($viewId -eq 'usage') {
+                foreach ($ui in (Get-CpuUsageInfo $strings)) { $subItems.Add($ui) }
+            } else {
+                $subItems.Add(@{id='usage'; name=[string]$Strings.strings.cpuUsage;
+                    directory=$true; enabled=$true;
+                    columns=@{property=[string]$Strings.strings.cpuUsage; value=''}})
+                $subItems.Add(@{id='cpu-props-header'; name='header-cpu-props';
+                    directory=$false; enabled=$true;
+                    columns=@{property=""; value=[string]$Strings.strings.cpuProperties}})
+                foreach ($ci in (Get-CpuInfo $strings)) { $subItems.Add($ci) }
+                $subItems.Add(@{id='multi-cpu-header'; name='header-multi-cpu';
+                    directory=$false; enabled=$true;
+                    columns=@{property=""; value=[string]$Strings.strings.multiCpu}})
+                foreach ($mi in (Get-MultiCpuInfo $strings)) { $subItems.Add($mi) }
+            }
         }
         'memory' {
-            $physItems = Get-PhysicalMemoryInfo $strings
-            $virtItems = Get-VirtualMemoryInfo $strings
-            $pfItems = Get-PagefileInfo $strings
-            $modItems = Get-MemoryModulesInfo $strings
-
             $subItems = New-Object 'System.Collections.Generic.List[hashtable]'
-
-            $subItems.Add(@{id='mem-phys-header'; name='header-phys-mem';
-                directory=$false; enabled=$true;
-                columns=@{property=""; value=[string]$Strings.strings.physicalMemory}})
-            foreach ($pi in $physItems) { $subItems.Add($pi) }
-
-            $subItems.Add(@{id='mem-virt-header'; name='header-virt-mem';
-                directory=$false; enabled=$true;
-                columns=@{property=""; value=[string]$Strings.strings.virtualMemory}})
-            foreach ($vi in $virtItems) { $subItems.Add($vi) }
-
-            $subItems.Add(@{id='mem-pf-header'; name='header-pf';
-                directory=$false; enabled=$true;
-                columns=@{property=""; value=[string]$Strings.strings.pagefile}})
-            foreach ($pi in $pfItems) { $subItems.Add($pi) }
-
-            $subItems.Add(@{id='mem-mod-header'; name='header-mem-mod';
-                directory=$false; enabled=$true;
-                columns=@{property=""; value=[string]$Strings.strings.memoryModules}})
-            foreach ($mi in $modItems) { $subItems.Add($mi) }
+            if ($viewId -eq 'usage') {
+                foreach ($pi in (Get-PhysicalMemoryInfo $strings)) { $subItems.Add($pi) }
+                foreach ($vi in (Get-VirtualMemoryInfo $strings)) { $subItems.Add($vi) }
+            } else {
+                $subItems.Add(@{id='usage'; name=[string]$Strings.strings.usage;
+                    directory=$true; enabled=$true;
+                    columns=@{property=[string]$Strings.strings.usage; value=''}})
+                $subItems.Add(@{id='mem-pf-header'; name='header-pf';
+                    directory=$false; enabled=$true;
+                    columns=@{property=""; value=[string]$Strings.strings.pagefile}})
+                foreach ($pi in (Get-PagefileInfo $strings)) { $subItems.Add($pi) }
+                $subItems.Add(@{id='mem-mod-header'; name='header-mem-mod';
+                    directory=$false; enabled=$true;
+                    columns=@{property=""; value=[string]$Strings.strings.memoryModules}})
+                foreach ($mi in (Get-MemoryModulesInfo $strings)) { $subItems.Add($mi) }
+            }
         }
         'motherboard' {
             $subItems = New-Object 'System.Collections.Generic.List[hashtable]'
@@ -630,13 +672,22 @@ if ($handler -eq 'openHardwareCategory') {
             foreach ($ni in $netItems) { $subItems.Add($ni) }
         }
         'sensors' {
-            $sensorItems = Get-SensorInfo $strings
             $subItems = New-Object 'System.Collections.Generic.List[hashtable]'
-            foreach ($si in $sensorItems) { $subItems.Add($si) }
+            if ($viewId -eq 'temperatures') {
+                foreach ($si in (Get-SensorInfo $strings)) { $subItems.Add($si) }
+            } else {
+                $subItems.Add(@{id='temperatures'; name=[string]$Strings.strings.temperatures;
+                    directory=$true; enabled=$true;
+                    columns=@{property=[string]$Strings.strings.temperatures; value=''}})
+            }
         }
     }
 
     if ($null -ne $subItems -and $subItems.Count -gt 0) {
+        foreach ($subItem in $subItems) {
+            $subItem.icon = "icons/$categoryId.svg"
+            $subItem.iconDark = "icons/$categoryId-dark.svg"
+        }
         [void]$Salamander.file_system.AddItems($subItems.ToArray())
     }
     return

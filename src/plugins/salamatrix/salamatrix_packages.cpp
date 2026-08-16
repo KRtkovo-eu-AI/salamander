@@ -405,6 +405,15 @@ static const CExtensionManifestLocalizedFileSystemColumn* FindLocalizedFileSyste
     return NULL;
 }
 
+static const CExtensionManifestLocalizedFileSystemRootItem* FindLocalizedFileSystemRootItem(
+    const CExtensionManifestLocalizedFileSystem& localized, const std::string& id)
+{
+    for (size_t index = 0; index < localized.RootItems.size(); ++index)
+        if (_stricmp(localized.RootItems[index].Id.c_str(), id.c_str()) == 0)
+            return &localized.RootItems[index];
+    return NULL;
+}
+
 static const CExtensionManifestLocalizedFileSystemAction* FindLocalizedFileSystemAction(
     const CExtensionManifestLocalizedFileSystem& localized, const std::string& id)
 {
@@ -1096,6 +1105,8 @@ static int* SalamatrixFsTransferIsDir = NULL;
 static char* SalamatrixFsTransferBuffer = NULL;
 static int* SalamatrixFsTransferLen = NULL;
 static DWORD* SalamatrixFsTransferActCustomData = NULL;
+static volatile LONG SalamatrixFsNameColumnWidth[2] = {180, 180};
+static volatile LONG SalamatrixFsNameColumnFixed[2] = {1, 1};
 
 static void WINAPI SalamatrixFileSystemColumnText()
 {
@@ -1258,7 +1269,6 @@ public:
         BOOL leftPanel, CSalamanderViewAbstract* view,
         const char* archivePath, const CFileData* upperDir)
     {
-        UNREFERENCED_PARAMETER(leftPanel);
         UNREFERENCED_PARAMETER(archivePath);
         UNREFERENCED_PARAMETER(upperDir);
         const CFileData** fileData = NULL;
@@ -1283,6 +1293,11 @@ public:
                                          ? SALAMATRIX_FS_NAME_COLUMN_DETAILED
                                          : SALAMATRIX_FS_NAME_COLUMN_COMPACT;
             nameColumn->ID = COLUMN_ID_CUSTOM;
+            const int panelIndex = leftPanel ? 0 : 1;
+            nameColumn->Width = static_cast<int>(InterlockedCompareExchange(
+                &SalamatrixFsNameColumnWidth[panelIndex], 0, 0));
+            nameColumn->FixedWidth = static_cast<unsigned>(InterlockedCompareExchange(
+                &SalamatrixFsNameColumnFixed[panelIndex], 0, 0) != 0);
         }
         if (view->GetViewMode() == VIEW_MODE_DETAILED)
         {
@@ -1305,10 +1320,21 @@ public:
     }
     virtual void WINAPI ColumnFixedWidthShouldChange(
         BOOL leftPanel, const CColumn* column, int newFixedWidth)
-    { UNREFERENCED_PARAMETER(leftPanel); UNREFERENCED_PARAMETER(column); UNREFERENCED_PARAMETER(newFixedWidth); }
+    {
+        if (column != NULL &&
+            column->CustomData == SALAMATRIX_FS_NAME_COLUMN_DETAILED)
+            InterlockedExchange(&SalamatrixFsNameColumnFixed[leftPanel ? 0 : 1],
+                                newFixedWidth != 0 ? 1 : 0);
+    }
     virtual void WINAPI ColumnWidthWasChanged(
         BOOL leftPanel, const CColumn* column, int newWidth)
-    { UNREFERENCED_PARAMETER(leftPanel); UNREFERENCED_PARAMETER(column); UNREFERENCED_PARAMETER(newWidth); }
+    {
+        if (column != NULL &&
+            column->CustomData == SALAMATRIX_FS_NAME_COLUMN_DETAILED &&
+            newWidth >= 24)
+            InterlockedExchange(&SalamatrixFsNameColumnWidth[leftPanel ? 0 : 1],
+                                newWidth);
+    }
     virtual BOOL WINAPI GetInfoLineContent(
         int panel, const CFileData* file, BOOL isDir, int selectedFiles,
         int selectedDirs, BOOL displaySize, const CQuadWord& selectedSize,
@@ -1348,13 +1374,28 @@ private:
     volatile LONG ShuttingDown;
     volatile LONG PathGeneration;
     volatile LONG RefreshIntervalMs;
+    volatile LONG RefreshDepth;
     HANDLE RefreshThread;
     CRITICAL_SECTION CacheLock;
     std::vector<FileSystemItem> CachedItems;
     BOOL CacheReady;
     std::string RefreshPackageId;
     std::string RefreshFileSystemId;
+    std::string RefreshPath;
     LONG RefreshGeneration;
+
+    BOOL ShouldRefreshPeriodically()
+    {
+        const size_t separator = Path.find('!');
+        if (separator == std::string::npos)
+            return FALSE;
+        unsigned int depth = 0;
+        for (size_t i = separator + 1; i < Path.size(); ++i)
+            if (Path[i] == '\\' && i + 1 < Path.size())
+                ++depth;
+        return depth >= static_cast<unsigned int>(
+            InterlockedCompareExchange(&RefreshDepth, 0, 0));
+    }
 
     void PostPanelRefresh()
     {
@@ -1387,7 +1428,8 @@ private:
             InterlockedCompareExchange(&RefreshIntervalMs, 0, 0));
         const BOOL succeeded = Owner->ListFileSystem(
             RefreshPackageId, RefreshFileSystemId,
-            Invocation("list", RefreshPackageId, RefreshFileSystemId, NULL).c_str(),
+            Invocation("list", RefreshPackageId, RefreshFileSystemId, NULL,
+                       NULL, RefreshPath.c_str()).c_str(),
             &items, &interval);
         const BOOL currentPath =
             RefreshGeneration == InterlockedCompareExchange(&PathGeneration, 0, 0);
@@ -1451,6 +1493,7 @@ private:
         }
         RefreshPackageId = packageId;
         RefreshFileSystemId = fileSystemId;
+        RefreshPath = Path;
         RefreshGeneration = InterlockedCompareExchange(&PathGeneration, 0, 0);
         refreshThread = CreateThread(
             NULL, 0, RefreshThreadProc, this, CREATE_SUSPENDED, NULL);
@@ -1487,7 +1530,11 @@ private:
             separator + 1 >= Path.size())
             return FALSE;
         *packageId = Path.substr(0, separator);
-        *fileSystemId = Path.substr(separator + 1);
+        const size_t pathSeparator = Path.find_first_of("\\/", separator + 1);
+        *fileSystemId = Path.substr(
+            separator + 1,
+            pathSeparator == std::string::npos
+                ? std::string::npos : pathSeparator - separator - 1);
         return TRUE;
     }
 
@@ -1529,13 +1576,16 @@ private:
         const char* operation, const std::string& packageId,
         const std::string& fileSystemId,
         const SalamatrixFileSystemItemData* data,
-        const char* actionId = NULL)
+        const char* actionId = NULL,
+        const char* path = NULL)
     {
         std::string result = std::string("{\"role\":\"fileSystem\",\"operation\":\"") +
             JsonEscape(operation) + "\",\"packageId\":\"" + JsonEscape(packageId.c_str()) +
             "\",\"fileSystemId\":\"" + JsonEscape(fileSystemId.c_str()) + "\"";
         if (actionId != NULL)
             result += std::string(",\"actionId\":\"") + JsonEscape(actionId) + "\"";
+        if (path != NULL)
+            result += std::string(",\"path\":\"") + JsonEscape(path) + "\"";
         if (data != NULL)
             result += std::string(",\"item\":{\"id\":\"") + JsonEscape(data->Item.Id.c_str()) +
                 "\",\"name\":\"" + JsonEscape(data->Item.Name.c_str()) +
@@ -1594,7 +1644,7 @@ public:
     explicit OpenFileSystem(PackageManager* owner)
         : Owner(owner), RefreshPosted(0), RefreshRequested(1),
           RefreshThreadRunning(0), ShuttingDown(0), PathGeneration(0),
-          RefreshIntervalMs(3000), RefreshThread(NULL), CacheReady(FALSE),
+          RefreshIntervalMs(3000), RefreshDepth(0), RefreshThread(NULL), CacheReady(FALSE),
           RefreshGeneration(0)
     {
         InitializeCriticalSection(&CacheLock);
@@ -1653,6 +1703,13 @@ public:
     }
 
     BOOL IsRoot() const { return Path.empty() ? TRUE : FALSE; }
+    const std::string& GetPath() const { return Path; }
+    std::string GetParentPath() const
+    {
+        const size_t separator = Path.find_last_of("\\/");
+        return separator == std::string::npos
+            ? std::string() : Path.substr(0, separator);
+    }
 
     BOOL ExecuteDefault(const CFileData& file)
     {
@@ -1724,23 +1781,32 @@ public:
         }
         for (size_t p = 0; p < Owner->Packages.size(); ++p)
             for (size_t f = 0; f < Owner->Packages[p]->Manifest.FileSystems.size(); ++f)
-                if (_stricmp(requested.c_str(),
-                    (Owner->Packages[p]->Id + "!" + Owner->Packages[p]->Manifest.FileSystems[f].Id).c_str()) == 0)
+            {
+                const std::string provider = Owner->Packages[p]->Id + "!" +
+                    Owner->Packages[p]->Manifest.FileSystems[f].Id;
+                if (_stricmp(requested.c_str(), provider.c_str()) == 0 ||
+                    (requested.size() > provider.size() &&
+                     requested[provider.size()] == '\\' &&
+                     _strnicmp(requested.c_str(), provider.c_str(), provider.size()) == 0))
                 {
                     if (_stricmp(Path.c_str(), requested.c_str()) != 0)
                         ClearCacheForPathChange();
                     Path = requested;
                     return TRUE;
                 }
+            }
         return FALSE;
     }
     virtual BOOL WINAPI ListCurrentPath(CSalamanderDirectoryAbstract* dir, CPluginDataInterfaceAbstract*& pluginData, int& iconsType, BOOL forceRefresh)
     {
-        UNREFERENCED_PARAMETER(forceRefresh);
+        if (forceRefresh)
+            InterlockedExchange(&RefreshRequested, 1);
         InterlockedExchange(&RefreshPosted, 0);
         std::string packageId, fileSystemId;
         std::vector<CExtensionManifestFileSystem::Column> columns;
+        std::vector<CExtensionManifestFileSystem::RootItem> rootItems;
         std::string defaultFileIcon;
+        std::wstring packageDirectory;
         if (!Path.empty())
         {
             if (!SplitProvider(&packageId, &fileSystemId))
@@ -1753,6 +1819,10 @@ public:
                             const CExtensionManifestFileSystem& fileSystem =
                                 Owner->Packages[p]->Manifest.FileSystems[f];
                             columns = fileSystem.Columns;
+                            rootItems = fileSystem.RootItems;
+                            packageDirectory = Owner->Packages[p]->Directory;
+                            InterlockedExchange(&RefreshDepth,
+                                static_cast<LONG>(fileSystem.RefreshDepth));
                             std::wstring relative;
                             if (!fileSystem.DefaultFileIcon.empty() &&
                                 PackageManager::ToWide(fileSystem.DefaultFileIcon, &relative))
@@ -1815,6 +1885,27 @@ public:
             }
             return TRUE;
         }
+        const std::string provider = packageId + "!" + fileSystemId;
+        if (_stricmp(Path.c_str(), provider.c_str()) == 0 && !rootItems.empty())
+        {
+            for (size_t index = 0; index < rootItems.size(); ++index)
+            {
+                FileSystemItem item;
+                item.Id = rootItems[index].Id;
+                item.Name = rootItems[index].Name;
+                item.Directory = true;
+                std::wstring relative;
+                if (!rootItems[index].Icon.empty() &&
+                    PackageManager::ToWide(rootItems[index].Icon, &relative))
+                    PackageManager::ToUtf8(packageDirectory + L"\\" + relative, &item.Icon);
+                if (!rootItems[index].IconDark.empty() &&
+                    PackageManager::ToWide(rootItems[index].IconDark, &relative))
+                    PackageManager::ToUtf8(packageDirectory + L"\\" + relative, &item.IconDark);
+                if (!AddItem(dir, pluginData, item, packageId, fileSystemId))
+                    return FALSE;
+            }
+            return TRUE;
+        }
         std::vector<FileSystemItem> items;
         BOOL cacheReady = FALSE;
         EnterCriticalSection(&CacheLock);
@@ -1843,11 +1934,9 @@ public:
                 InterlockedCompareExchange(&RefreshThreadRunning, 0, 0) != 0)
                 SalamanderGeneral->StartThrobber(static_cast<int>(param), NULL, 0);
         }
-        if (event == FSE_ACTIVATEREFRESH || event == FSE_TIMER)
-        {
-            if (InterlockedCompareExchange(&RefreshThreadRunning, 0, 0) == 0)
-                RequestDataRefresh();
-        }
+        if (event == FSE_ACTIVATEREFRESH ||
+            (event == FSE_TIMER && ShouldRefreshPeriodically()))
+            RequestDataRefresh();
         if (event == FSE_OPENED || event == FSE_ATTACHED || event == FSE_TIMER)
             SalamanderGeneral->AddPluginFSTimer(
                 static_cast<DWORD>(InterlockedCompareExchange(&RefreshIntervalMs, 0, 0)),
@@ -2034,15 +2123,24 @@ public:
         if (opened == NULL) return;
         if (isDir == 2)
         {
+            const std::string parentPath = opened->GetParentPath();
             int failReason = 0;
             SalamanderGeneral->ChangePanelPathToPluginFS(
-                panel, pluginFSName, "", &failReason);
+                panel, pluginFSName, parentPath.c_str(), &failReason);
             return;
         }
         SalamatrixFileSystemItemData* data = reinterpret_cast<SalamatrixFileSystemItemData*>(file.PluginData);
         if (data == NULL) return;
         if (opened->IsRoot() && isDir != 0)
         { int failReason = 0; SalamanderGeneral->ChangePanelPathToPluginFS(panel, pluginFSName, data->Item.Id.c_str(), &failReason); return; }
+        if (isDir != 0)
+        {
+            const std::string path = opened->GetPath() + "\\" + data->Item.Id;
+            int failReason = 0;
+            SalamanderGeneral->ChangePanelPathToPluginFS(
+                panel, pluginFSName, path.c_str(), &failReason);
+            return;
+        }
         opened->ExecuteDefault(file);
         opened->RequestDataRefresh();
     }
@@ -2476,6 +2574,14 @@ void PackageManager::DiscoverDirectory(
                                     continue;
                                 if (!translatedFs->Name.empty())
                                     fileSystem.Name = translatedFs->Name;
+                                for (size_t itemIndex = 0; itemIndex < fileSystem.RootItems.size(); ++itemIndex)
+                                {
+                                    CExtensionManifestFileSystem::RootItem& item = fileSystem.RootItems[itemIndex];
+                                    const CExtensionManifestLocalizedFileSystemRootItem* translatedItem =
+                                        FindLocalizedFileSystemRootItem(*translatedFs, item.Id);
+                                    if (translatedItem != NULL)
+                                        item.Name = translatedItem->Name;
+                                }
                                 for (size_t columnIndex = 0; columnIndex < fileSystem.Columns.size(); ++columnIndex)
                                 {
                                     CExtensionManifestFileSystem::Column& column = fileSystem.Columns[columnIndex];

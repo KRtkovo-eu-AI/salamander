@@ -6,6 +6,7 @@
   },
   "fileSystems": {
     "hardware-info": {
+      "rootItems": {"cpu":"Processzor","memory":"Memória","motherboard":"Alaplap","gpu":"Grafikus processzor","storage":"Tárhely","network":"Hálózat","sensors":"Szenzorok"},
       "name": "Hardverfigyelő",
       "columns": {
         "property": {"name": "Mező", "description": "Tulajdonság vagy szenzor neve"},

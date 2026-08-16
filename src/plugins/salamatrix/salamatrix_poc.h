@@ -16,6 +16,21 @@ namespace Salamatrix
 {
 namespace Poc
 {
+inline Runtime::RuntimeServices* CreatePocRuntimeServices(
+    CSalamanderGeneralAbstract* general)
+{
+#ifdef new
+#undef new
+#define RESTORE_SALAMATRIX_POC_DEBUG_NEW_MACRO
+#endif
+    Runtime::RuntimeServices* services =
+        new (std::nothrow) Runtime::RuntimeServices(general, FALSE);
+#ifdef RESTORE_SALAMATRIX_POC_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_SALAMATRIX_POC_DEBUG_NEW_MACRO
+#endif
+    return services;
+}
 
 inline const char* WINAPI ResultToText(Runtime::OperationResult result)
 {
@@ -151,8 +166,13 @@ inline Runtime::OperationResult WINAPI ExecuteQuickRenamePoc(CSalamanderGeneralA
     if (hostCommands != NULL)
         return hostCommands->Execute("QuickRename", options);
 
-    Runtime::RuntimeServices services(general, FALSE);
-    return services.Commands()->Execute("QuickRename", options);
+    Runtime::RuntimeServices* services = CreatePocRuntimeServices(general);
+    if (services == NULL)
+        return Runtime::OperationResultError;
+    const Runtime::OperationResult result =
+        services->Commands()->Execute("QuickRename", options);
+    delete services;
+    return result;
 }
 
 inline Runtime::OperationResult WINAPI CopyInteractivePoc(CSalamanderGeneralAbstract* general)
@@ -164,8 +184,13 @@ inline Runtime::OperationResult WINAPI CopyInteractivePoc(CSalamanderGeneralAbst
     if (hostFileOperations != NULL)
         return hostFileOperations->CopyInteractive(options);
 
-    Runtime::RuntimeServices services(general, FALSE);
-    return services.FileOperations()->CopyInteractive(options);
+    Runtime::RuntimeServices* services = CreatePocRuntimeServices(general);
+    if (services == NULL)
+        return Runtime::OperationResultError;
+    const Runtime::OperationResult result =
+        services->FileOperations()->CopyInteractive(options);
+    delete services;
+    return result;
 }
 
 struct RunAllResult
@@ -193,22 +218,25 @@ struct RunAllResult
 inline RunAllResult WINAPI RunAllPoc(CSalamanderGeneralAbstract* general, CSalamanderForOperationsAbstract* operations)
 {
     RunAllResult result;
-    Runtime::RuntimeServices services(general, FALSE);
-    result.ServicesRegistered = services.IsRegistered();
+    Runtime::RuntimeServices* services = CreatePocRuntimeServices(general);
+    if (services == NULL)
+        return result;
+    result.ServicesRegistered = services->IsRegistered();
     result.HostServicesRegistered = QueryHostUI(general);
-    result.ServiceCount = services.Services()->GetCount();
+    result.ServiceCount = services->Services()->GetCount();
 
     result.NativeProgress = RunProgressDialogPoc(operations);
     result.ScriptProgress = RunAutomationProgressPoc(operations);
     Commands::ExecuteOptions commandOptions;
     commandOptions.RequireEnabled = FALSE;
     Commands::ICommandService* hostCommands = QueryHostCommands(general);
-    result.QuickRename = hostCommands != NULL ? hostCommands->Execute("QuickRename", commandOptions) : services.Commands()->Execute("QuickRename", commandOptions);
+    result.QuickRename = hostCommands != NULL ? hostCommands->Execute("QuickRename", commandOptions) : services->Commands()->Execute("QuickRename", commandOptions);
 
     FileOperations::InteractiveOptions fileOptions;
     fileOptions.RequireEnabled = FALSE;
     FileOperations::IFileOperationsService* hostFileOperations = QueryHostFileOperations(general);
-    result.CopyInteractive = hostFileOperations != NULL ? hostFileOperations->CopyInteractive(fileOptions) : services.FileOperations()->CopyInteractive(fileOptions);
+    result.CopyInteractive = hostFileOperations != NULL ? hostFileOperations->CopyInteractive(fileOptions) : services->FileOperations()->CopyInteractive(fileOptions);
+    delete services;
     return result;
 }
 

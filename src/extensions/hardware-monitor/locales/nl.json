@@ -6,6 +6,7 @@
   },
   "fileSystems": {
     "hardware-info": {
+      "rootItems": {"cpu":"Processor","memory":"Geheugen","motherboard":"Moederbord","gpu":"Grafische processor","storage":"Opslag","network":"Netwerk","sensors":"Sensoren"},
       "name": "Hardware-monitor",
       "columns": {
         "property": {"name": "Veld", "description": "Eigenschaps- of sensornaam"},

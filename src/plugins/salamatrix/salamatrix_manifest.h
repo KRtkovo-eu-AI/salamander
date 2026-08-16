@@ -85,6 +85,14 @@ struct CExtensionManifestViewer
 
 struct CExtensionManifestFileSystem
 {
+    struct RootItem
+    {
+        std::string Id;
+        std::string Name;
+        std::string Icon;
+        std::string IconDark;
+    };
+
     struct Column
     {
         std::string Id;
@@ -117,11 +125,13 @@ struct CExtensionManifestFileSystem
     std::string IconDark;
     std::string DefaultFileIcon;
     unsigned int RefreshIntervalMs;
+    unsigned int RefreshDepth;
+    std::vector<RootItem> RootItems;
     std::vector<Column> Columns;
     std::vector<Action> Actions;
 
     CExtensionManifestFileSystem()
-        : RefreshIntervalMs(3000)
+        : RefreshIntervalMs(3000), RefreshDepth(0)
     {
     }
 };
@@ -222,10 +232,17 @@ struct CExtensionManifestLocalizedFileSystemAction
     std::string Title;
 };
 
+struct CExtensionManifestLocalizedFileSystemRootItem
+{
+    std::string Id;
+    std::string Name;
+};
+
 struct CExtensionManifestLocalizedFileSystem
 {
     std::string Id;
     std::string Name;
+    std::vector<CExtensionManifestLocalizedFileSystemRootItem> RootItems;
     std::vector<CExtensionManifestLocalizedFileSystemColumn> Columns;
     std::vector<CExtensionManifestLocalizedFileSystemAction> Actions;
 };

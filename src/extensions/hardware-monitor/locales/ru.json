@@ -6,6 +6,7 @@
   },
   "fileSystems": {
     "hardware-info": {
+      "rootItems": {"cpu":"Процессор","memory":"Память","motherboard":"Материнская плата","gpu":"Графический процессор","storage":"Накопитель","network":"Сеть","sensors":"Датчики"},
       "name": "Аппаратный монитор",
       "columns": {
         "property": {"name": "Поле", "description": "Название свойства или датчика"},

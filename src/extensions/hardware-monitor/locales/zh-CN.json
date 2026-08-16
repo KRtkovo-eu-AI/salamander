@@ -6,6 +6,7 @@
   },
   "fileSystems": {
     "hardware-info": {
+      "rootItems": {"cpu":"处理器","memory":"内存","motherboard":"主板","gpu":"图形处理器","storage":"存储","network":"网络","sensors":"传感器"},
       "name": "硬件监控器",
       "columns": {
         "property": {"name": "字段", "description": "属性或传感器名称"},

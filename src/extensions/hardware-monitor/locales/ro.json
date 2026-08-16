@@ -6,6 +6,7 @@
   },
   "fileSystems": {
     "hardware-info": {
+      "rootItems": {"cpu":"Procesor","memory":"Memorie","motherboard":"Placă de bază","gpu":"Procesor grafic","storage":"Stocare","network":"Rețea","sensors":"Senzori"},
       "name": "Monitor de hardware",
       "columns": {
         "property": {"name": "Câmp", "description": "Numele proprietății sau al senzorului"},

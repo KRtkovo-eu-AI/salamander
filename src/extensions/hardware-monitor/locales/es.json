@@ -6,6 +6,7 @@
   },
   "fileSystems": {
     "hardware-info": {
+      "rootItems": {"cpu":"Procesador","memory":"Memoria","motherboard":"Placa base","gpu":"Procesador gráfico","storage":"Almacenamiento","network":"Red","sensors":"Sensores"},
       "name": "Monitor de Hardware",
       "columns": {
         "property": {"name": "Campo", "description": "Nombre de propiedad o sensor"},

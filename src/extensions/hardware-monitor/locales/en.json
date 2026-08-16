@@ -6,6 +6,7 @@
   },
   "fileSystems": {
     "hardware-info": {
+      "rootItems": {"cpu":"CPU","memory":"Memory","motherboard":"Motherboard","gpu":"GPU","storage":"Storage","network":"Network","sensors":"Sensors"},
       "name": "Hardware Monitor",
       "columns": {
         "property": {"name": "Field", "description": "Property or sensor name"},

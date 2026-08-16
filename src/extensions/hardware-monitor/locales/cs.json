@@ -6,6 +6,7 @@
   },
   "fileSystems": {
     "hardware-info": {
+      "rootItems": {"cpu":"Procesor","memory":"Paměť","motherboard":"Základní deska","gpu":"Grafický procesor","storage":"Úložiště","network":"Síť","sensors":"Senzory"},
       "name": "Monitor hardwaru",
       "columns": {
         "property": {"name": "Pole", "description": "Název vlastnosti nebo senzoru"},
