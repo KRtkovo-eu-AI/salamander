@@ -64,6 +64,14 @@
 | Juraj Rojko | Windows Mobile 插件 | 包含由 Juraj Rojko 编写的软件。Copyright (C) 2003-2026 Juraj Rojko. |
 | Microsoft .NET Framework 4.8 | Samandarin Update Notifier 插件 | 由 Microsoft Corporation 根据 Microsoft .NET Framework 许可条款提供。 |
 
+## 硬件监控器扩展
+
+| 组件 | 用途 | 归属和许可证说明 |
+| --- | --- | --- |
+| HardView | 硬件监控器扩展 | C++/CLI 桥接库，用于硬件监控。Copyright (c) 2025 gafoo。根据 MIT License 授权。源代码：[gafoo173/HardView](https://github.com/gafoo173/HardView)。 |
+| LibreHardwareMonitorLib 0.9.6.0 | 硬件监控器扩展 | .NET 硬件监控库。LibreHardwareMonitorLib 根据 GNU General Public License v3.0 授权。源代码：[LibreHardwareMonitor/LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)。 |
+| HidSharp 2.6.4.0 | 硬件监控器扩展 | HID 设备访问库，LibreHardwareMonitorLib 的传递依赖项。Copyright (C) 2010 James F. Bellinger。根据 GNU Lesser General Public License v3.0 授权。 |
+
 ## 用户界面、文档和 Markdown 渲染
 
 | 组件或贡献 | 用途 | 归属和许可证说明 |

@@ -1,3 +1,6 @@
 [submodule "src/plugins/sftp"]
 	path = src/plugins/sftp
 	url = https://github.com/KRtkovo-eu-AI/salamander-sftp-plugin.git
+[submodule "3rd-party/HardView"]
+	path = 3rd-party/HardView
+	url = https://github.com/gafoo173/HardView.git

@@ -67,6 +67,14 @@ sont listés ici d'avoir rendu leur travail disponible.
 | Juraj Rojko | Plugin Windows Mobile | Inclut du logiciel écrit par Juraj Rojko. Copyright (C) 2003-2026 Juraj Rojko. |
 | Microsoft .NET Framework 4.8 | Plugin Samandarin Update Notifier | Fourni par Microsoft Corporation sous les termes de la licence Microsoft .NET Framework. |
 
+## Extension Moniteur matériel
+
+| Composant | Utilisé dans | Notes sur l'attribution et la licence |
+| --- | --- | --- |
+| HardView | Extension Moniteur matériel | Bibliothèque pont C++/CLI pour la surveillance du matériel. Copyright (c) 2025 gafoo. Publié sous MIT License. Source : [gafoo173/HardView](https://github.com/gafoo173/HardView). |
+| LibreHardwareMonitorLib 0.9.6.0 | Extension Moniteur matériel | Bibliothèque .NET de surveillance du matériel. LibreHardwareMonitorLib est publié sous GNU General Public License v3.0. Source : [LibreHardwareMonitor/LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor). |
+| HidSharp 2.6.4.0 | Extension Moniteur matériel | Bibliothèque d'accès aux périphériques HID, dépendance transitive de LibreHardwareMonitorLib. Copyright (C) 2010 James F. Bellinger. Publié sous GNU Lesser General Public License v3.0. |
+
 ## Interface utilisateur, documentation et rendu Markdown
 
 | Composant ou contribution | Utilisé pour | Notes sur l'attribution et la licence |

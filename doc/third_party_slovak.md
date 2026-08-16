@@ -67,6 +67,14 @@ sprístupnenie ich práce.
 | Juraj Rojko | Plugin Windows Mobile | Obsahuje softvér napísaný Jurajom Rojkom. Copyright (C) 2003-2026 Juraj Rojko. |
 | Microsoft .NET Framework 4.8 | Plugin Samandarin Update Notifier | Poskytnuté Microsoft Corporation pod licenčnými podmienkami Microsoft .NET Framework. |
 
+## Rozšírenie Monitor hardvéru
+
+| Komponent | Použitie v | Informácie o autorstve a licencii |
+| --- | --- | --- |
+| HardView | Rozšírenie Monitor hardvéru | C++/CLI mostová knižnica pre monitorovanie hardvéru. Copyright (c) 2025 gafoo. Licencované pod MIT License. Zdroj: [gafoo173/HardView](https://github.com/gafoo173/HardView). |
+| LibreHardwareMonitorLib 0.9.6.0 | Rozšírenie Monitor hardvéru | .NET knižnica pre monitorovanie hardvéru. LibreHardwareMonitorLib je licencovaná pod GNU General Public License v3.0. Zdroj: [LibreHardwareMonitor/LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor). |
+| HidSharp 2.6.4.0 | Rozšírenie Monitor hardvéru | Knižnica pre prístup k HID zariadeniam, prechodná závislosť LibreHardwareMonitorLib. Copyright (C) 2010 James F. Bellinger. Licencovaná pod GNU Lesser General Public License v3.0. |
+
 ## Používateľské rozhranie, dokumentácia a vykresľovanie Markdownu
 
 | Komponent alebo príspevok | Použitie pre | Informácie o autorstve a licencii |

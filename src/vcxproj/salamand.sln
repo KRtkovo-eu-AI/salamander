@@ -251,6 +251,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenSalamander.ManagedBoots
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "salamatrixailocalllama", "..\plugins\salamatrixailocalllama\vcxproj\local_llama.vcxproj", "{F01B4D09-7B84-455D-8AC3-327FBC7EB2B2}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HardwareWrapper", "..\extensions\hardware-monitor\hardview-lib\HardwareWrapper\HardwareWrapper.vcxproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
+EndProject
+
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -3824,6 +3827,31 @@ Global
 		{F01B4D09-7B84-455D-8AC3-327FBC7EB2B2}.Utils (Release)|Win32.Build.0 = Release|Win32
 		{F01B4D09-7B84-455D-8AC3-327FBC7EB2B2}.Utils (Release)|x64.ActiveCfg = Release clean|x64
 		{F01B4D09-7B84-455D-8AC3-327FBC7EB2B2}.Utils (Release)|x64.Build.0 = Release clean|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|Any CPU.Build.0 = Debug|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|ARM64.ActiveCfg = Debug|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|Win32.ActiveCfg = Debug|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|x64.ActiveCfg = Debug|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|x64.Build.0 = Debug|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release clean|Any CPU.ActiveCfg = Release clean|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release clean|Any CPU.Build.0 = Release clean|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release clean|ARM64.ActiveCfg = Release clean|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release clean|Win32.ActiveCfg = Release clean|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release clean|x64.ActiveCfg = Release clean|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release clean|x64.Build.0 = Release clean|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|Any CPU.ActiveCfg = Release|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|Any CPU.Build.0 = Release|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|ARM64.ActiveCfg = Release|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|Win32.ActiveCfg = Release|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|x64.ActiveCfg = Release|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|x64.Build.0 = Release|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Utils (Release)|Any CPU.ActiveCfg = Release|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Utils (Release)|Any CPU.Build.0 = Release|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Utils (Release)|ARM64.ActiveCfg = Release|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Utils (Release)|Win32.ActiveCfg = Release|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Utils (Release)|x64.ActiveCfg = Release|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Utils (Release)|x64.Build.0 = Release|x64
+
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,0 +1,49 @@
+{
+  "schema": 2,
+  "id": "OpenSalamander.HardwareMonitor",
+  "name": "Hardware Monitor",
+  "version": "1.0.0",
+  "description": "Displays detailed hardware information, sensor readings, and system utilization in a Salamander file-system panel, similar to AIDA64.",
+  "runtime": "PowerShell",
+  "entryPoint": "main.ps1",
+  "icon": "icon.svg",
+  "iconDark": "icon-dark.svg",
+  "capabilities": ["file-system", "ui.dialogs"],
+  "commands": [{
+    "id": "OpenSalamander.HardwareMonitor.open",
+    "title": "Open Hardware Monitor",
+    "path": "salamatrix:OpenSalamander.HardwareMonitor!hardware-info",
+    "menu": "none",
+    "toolbar": true,
+    "icon": "icon.svg",
+    "iconDark": "icon-dark.svg",
+    "requires": "any"
+  }],
+  "locales": {
+    "en": "locales/en.json",
+    "cs": "locales/cs.json",
+    "de": "locales/de.json",
+    "es": "locales/es.json",
+    "fr": "locales/fr.json",
+    "hu": "locales/hu.json",
+    "nl": "locales/nl.json",
+    "ro": "locales/ro.json",
+    "ru": "locales/ru.json",
+    "sk": "locales/sk.json",
+    "zh-CN": "locales/zh-CN.json"
+  },
+  "fileSystems": [{
+    "id": "hardware-info",
+    "name": "Hardware Monitor",
+    "listHandler": "listHardwareCategories",
+    "openHandler": "openHardwareCategory",
+    "icon": "icon.svg",
+    "iconDark": "icon-dark.svg",
+    "defaultFileIcon": "default.ico",
+    "refreshIntervalMs": 5000,
+    "columns": [
+      {"id": "property", "name": "Field", "description": "Property or sensor name", "width": 280},
+      {"id": "value", "name": "Value", "description": "Property value or sensor reading", "width": 320}
+    ]
+  }]
+}

@@ -246,3 +246,7 @@ __pycache__/
 *.py[cod]
 
 plugin-packages-x64/
+
+src/vcxproj/packages/
+
+src/vcxproj/obj/

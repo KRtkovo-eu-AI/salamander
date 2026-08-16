@@ -67,6 +67,14 @@ szerepel, hogy hozzáférhetővé tették munkájukat.
 | Juraj Rojko | Windows Mobile bővítmény | Tartalmaz Juraj Rojko által írt szoftvert. Copyright (C) 2003-2026 Juraj Rojko. |
 | Microsoft .NET Framework 4.8 | Samandarin Update Notifier bővítmény | A Microsoft Corporation biztosítja a Microsoft .NET Framework licenc feltételei szerint. |
 
+## Hardverfigyelő kiterjesztés
+
+| Összetevő | Felhasználás | Szerzői jog és licenc megjegyzések |
+| --- | --- | --- |
+| HardView | Hardverfigyelő kiterjesztés | C++/CLI híd könyvtár hardverfigyeléshez. Copyright (c) 2025 gafoo. MIT License alatt licencelve. Forrás: [gafoo173/HardView](https://github.com/gafoo173/HardView). |
+| LibreHardwareMonitorLib 0.9.6.0 | Hardverfigyelő kiterjesztés | .NET hardverfigyelési könyvtár. A LibreHardwareMonitorLib a GNU General Public License v3.0 alatt van licencelve. Forrás: [LibreHardwareMonitor/LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor). |
+| HidSharp 2.6.4.0 | Hardverfigyelő kiterjesztés | HID eszközhozzáférési könyvtár, a LibreHardwareMonitorLib transzitív függősége. Copyright (C) 2010 James F. Bellinger. GNU Lesser General Public License v3.0 alatt licencelve. |
+
 ## Felhasználói felület, dokumentáció és Markdown megjelenítés
 
 | Összetevő vagy hozzájárulás | Felhasználás | Szerzői jog és licenc megjegyzések |
