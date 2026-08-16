@@ -48,6 +48,7 @@ def main() -> None:
     filesbx1 = (ROOT / "src/filesbx1.cpp").read_text(encoding="utf-8")
     filesbx2 = (ROOT / "src/filesbx2.cpp").read_text(encoding="utf-8")
     fileswnb = (ROOT / "src/fileswnb.cpp").read_text(encoding="utf-8")
+    shellsup = (ROOT / "src/shellsup.cpp").read_text(encoding="utf-8")
 
     require(mainwnd1, "index <= 0 || panel->IsTabLocked()",
             "default/locked tab detach guard")
@@ -190,6 +191,16 @@ def main() -> None:
             "explicit left plugin API routing to the detached tab")
     require(mainwnd4, "GetActivePanel() == DetachedTabPanel && DetachedTabOriginalSide == cpsRight",
             "explicit right plugin API routing to the detached tab")
+    require(shellsup, "MainWindow->GetDetachedTabOriginalSide(panel)",
+            "detached plugin callback routing by the tab's original side")
+    require(shellsup, "int panelID = panelSide == cpsLeft ? PANEL_LEFT : PANEL_RIGHT;",
+            "plugin callback panel ID derived from the actual tab side")
+    if "MainWindow->LeftPanel == panel ? PANEL_LEFT : PANEL_RIGHT" in shellsup:
+        raise AssertionError(
+            "Detached left plugin tabs are still misreported as PANEL_RIGHT")
+    require(salamatrix_packages,
+            "file->PluginData == static_cast<DWORD_PTR>(-1)",
+            "Salamatrix context-menu guard for a foreign panel item sentinel")
     require(mainwnd_h, "activePanel == DetachedTabPanel",
             "detached target-panel routing by original side")
     require(zip_cpp, "PostMessage(detachedPanel->HWindow, WM_USER_REFRESH_DIR, 0, t1);",

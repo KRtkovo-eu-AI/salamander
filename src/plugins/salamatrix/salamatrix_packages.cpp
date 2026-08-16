@@ -1956,9 +1956,12 @@ public:
         if (selectedFiles == 0 && selectedDirs == 0)
             file = SalamanderGeneral->GetPanelFocusedItem(panel, &isDir);
         else { int index = 0; file = SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir); }
-        if (file == NULL) return;
-        SalamatrixFileSystemItemData* data = reinterpret_cast<SalamatrixFileSystemItemData*>(file->PluginData);
-        if (data == NULL || !data->Item.Enabled) return;
+        if (file == NULL || file->PluginData == 0 ||
+            file->PluginData == static_cast<DWORD_PTR>(-1))
+            return;
+        SalamatrixFileSystemItemData* data =
+            reinterpret_cast<SalamatrixFileSystemItemData*>(file->PluginData);
+        if (!data->Item.Enabled) return;
         HMENU menu = CreatePopupMenu(); if (menu == NULL) return;
         const CExtensionManifestFileSystem* manifestFs = NULL;
         for (size_t p = 0; p < Owner->Packages.size() && manifestFs == NULL; ++p)
