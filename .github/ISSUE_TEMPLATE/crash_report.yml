@@ -1,5 +1,5 @@
 name: Crash report
-description: Report an Open Salamander crash and attach a prepared crash archive only after reviewing it for sensitive data.
+description: "Report an Open Salamander: Samandarin crash and attach a prepared crash archive only after reviewing it for sensitive data."
 title: "Crash: "
 labels:
   - bug
@@ -7,14 +7,14 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thank you for helping improve Open Salamander.
+        Thank you for helping improve Open Salamander: Samandarin.
 
         **Privacy warning:** crash report archives can contain sensitive data, including local file paths, names of opened files, loaded modules, registry/configuration details, and process memory from the time of the crash. Review the archive before attaching it to this public issue. If it contains sensitive information, do not attach it publicly; describe the crash and wait for a maintainer to suggest a private sharing method.
   - type: input
     id: version
     attributes:
-      label: Open Salamander version
-      description: Enter the Open Salamander version/build that crashed.
+      label: "Open Salamander: Samandarin version"
+      description: "Enter the Open Salamander: Samandarin version/build that crashed."
       placeholder: e.g. 4.0 beta, commit/build number
     validations:
       required: true
@@ -50,7 +50,7 @@ body:
     id: expected
     attributes:
       label: Expected behavior
-      description: What did you expect Open Salamander to do instead of crashing?
+      description: "What did you expect Open Salamander: Samandarin to do instead of crashing?"
     validations:
       required: false
   - type: textarea

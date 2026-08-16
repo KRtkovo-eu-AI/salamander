@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest a new feature or an improvement to Open Salamander.
+description: "Suggest a new feature or an improvement to Open Salamander: Samandarin."
 title: "Feature request: "
 labels:
   - enhancement
@@ -7,17 +7,17 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thank you for helping improve Open Salamander.
+        Thank you for helping improve Open Salamander: Samandarin.
 
         Please describe the problem first and then the behavior you propose. Concrete examples and testable acceptance criteria make a request much easier to understand and implement.
 
-        If existing behavior is broken, please open a bug report instead. If Open Salamander crashed, use the crash report form.
+        If existing behavior is broken, please open a bug report instead. If Open Salamander: Samandarin crashed, use the crash report form.
   - type: textarea
     id: summary
     attributes:
       label: Summary
       description: Briefly describe the requested feature or improvement.
-      placeholder: What should Open Salamander make possible or do differently?
+      placeholder: "What should Open Salamander: Samandarin make possible or do differently?"
     validations:
       required: true
   - type: textarea
@@ -37,7 +37,7 @@ body:
       label: Proposed behavior
       description: Describe the desired user-visible behavior. Focus on what should happen rather than only on implementation details.
       placeholder: |
-        When the user ..., Open Salamander should ...
+        When the user ..., Open Salamander: Samandarin should ...
         Existing behavior for ... should remain unchanged.
     validations:
       required: true
