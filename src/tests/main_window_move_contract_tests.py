@@ -87,44 +87,25 @@ def main() -> None:
     dpi_changed_start = implementation.index("case WM_DPICHANGED:")
     apply_dpi_start = implementation.index("case WM_USER_APPLY_DPI_CHANGE:")
     dpi_changed = implementation[dpi_changed_start:apply_dpi_start]
-    deferred_start = dpi_changed.index("if (DPIInSizeMove)")
-    immediate_start = dpi_changed.index("\n        else", deferred_start)
-    if "SetWindowPos(" in dpi_changed[deferred_start:immediate_start]:
-        raise AssertionError("interactive monitor drag must defer DPI window resizing")
     require(
-        dpi_changed[deferred_start:immediate_start],
-        "PendingDPIWindowRectApplied = FALSE;",
-        "deferred DPI transition marked for final-position scaling",
+        dpi_changed,
+        "RefreshDPI(TRUE, dpi, suggestedRect);",
+        "synchronous PMv2 resource and geometry update in WM_DPICHANGED",
     )
-    require(
-        dpi_changed[immediate_start:],
-        "SetWindowPos(HWindow",
-        "suggested DPI geometry retained outside interactive moves",
-    )
-    require(
-        implementation,
-        "PendingDPIWindowRectApplied = FALSE;\n            DPIRefreshPosted = TRUE;",
-        "single DPI scaling pass scheduled after WM_EXITSIZEMOVE",
-    )
-    require(
-        winlib,
-        "uMsg == WM_DPICHANGED_AFTERPARENT &&\n        ShouldDeferMainWindowChildDPIRefresh(hwnd)",
-        "central suppression of premature child DPI resource refresh",
-    )
-    require(
-        mainwnd3,
-        "GetAncestor(childWindow, GA_ROOT) == MainWindow->HWindow",
-        "DPI deferral limited to descendants of the moving main window",
-    )
+    if "DPIRefreshDeferredForSizeMove" in mainwnd3:
+        raise AssertionError("Microsoft-style candidate must not defer WM_DPICHANGED")
+    if "ShouldDeferMainWindowChildDPIRefresh" in mainwnd3 or \
+       "ShouldDeferMainWindowChildDPIRefresh" in winlib:
+        raise AssertionError("PMv2 child DPI notifications must run immediately")
     require(
         mainwnd1,
         "LeftTabWindow->RefreshDPIResources();",
-        "left tab resources rebuilt by the final main-window DPI refresh",
+        "left tab resources rebuilt by the complete main-window DPI refresh",
     )
     require(
         mainwnd1,
         "RightTabWindow->RefreshDPIResources();",
-        "attached right tab resources rebuilt by the final main-window DPI refresh",
+        "attached right tab resources rebuilt by the complete main-window DPI refresh",
     )
 
     print("Main-window move contract tests passed.")

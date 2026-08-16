@@ -26,10 +26,6 @@
 
 #ifdef INSIDE_SALAMANDER
 #include "../darkmode.h"
-
-// Implemented by the main window. PMv2 sends WM_DPICHANGED_AFTERPARENT to
-// child HWNDs while their top-level window is still in the modal move loop.
-extern BOOL ShouldDeferMainWindowChildDPIRefresh(HWND childWindow);
 #endif
 
 #ifdef INSIDE_SALAMANDER
@@ -591,13 +587,6 @@ CWindow::CWindowProcInt(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
     }
     }
     //--- zavolani metody WindowProc(...) prislusneho objektu okna
-#ifdef INSIDE_SALAMANDER
-    if (uMsg == WM_DPICHANGED_AFTERPARENT &&
-        ShouldDeferMainWindowChildDPIRefresh(hwnd))
-    {
-        return 0;
-    }
-#endif
     LRESULT lResult;
     if (wnd != NULL)
         lResult = wnd->WindowProc(uMsg, wParam, lParam);

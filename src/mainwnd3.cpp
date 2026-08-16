@@ -3799,7 +3799,6 @@ static void RestoreThreadDPIAwarenessAfterRefresh(HANDLE oldContext)
 
 static BOOL DPIRefreshInProgress = FALSE;
 static BOOL DPIRefreshPosted = FALSE;
-static BOOL DPIRefreshDeferredForSizeMove = FALSE;
 static BOOL DPIInSizeMove = FALSE;
 static int PendingDPI = 0;
 static BOOL PendingDPIWindowRectApplied = FALSE;
@@ -3809,13 +3808,6 @@ static int InitialSessionDPI = 0;
 static BOOL DPIChangePromptShown = FALSE;
 
 static BOOL DWMInteractiveMoveActive = FALSE;
-
-BOOL ShouldDeferMainWindowChildDPIRefresh(HWND childWindow)
-{
-    return DPIInSizeMove && childWindow != NULL && MainWindow != NULL &&
-           MainWindow->HWindow != NULL && childWindow != MainWindow->HWindow &&
-           GetAncestor(childWindow, GA_ROOT) == MainWindow->HWindow;
-}
 
 static void FlushDWMForInteractiveMove()
 {
@@ -4670,18 +4662,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             DWMInteractiveMoveActive = FALSE;
         }
         DPIInSizeMove = FALSE;
-        if (DPIRefreshDeferredForSizeMove && PendingDPI > 0 && !DPIRefreshPosted)
-        {
-            int windowDPI = GetDPIForWindow(HWindow);
-            if (windowDPI > 0)
-                PendingDPI = windowDPI; // final monitor can differ from the first WM_DPICHANGED during drag
-            // WM_DPICHANGED geometry was deliberately ignored while moving.
-            // RefreshDPI must scale the window once at its final position.
-            PendingDPIWindowRectApplied = FALSE;
-            DPIRefreshPosted = TRUE;
-            PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)PendingDPI, 0);
-        }
-        else if (!DPIRefreshPosted)
+        if (!DPIRefreshPosted)
         {
             int windowDPI = GetDPIForWindow(HWindow);
             int contentDPI = MainWindowContentDPI > 0 ? MainWindowContentDPI : GetSystemDPI();
@@ -4693,40 +4674,22 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)PendingDPI, 0);
             }
         }
-        DPIRefreshDeferredForSizeMove = FALSE;
         break;
     }
 
     case WM_DPICHANGED:
     {
         int dpi = HIWORD(wParam);
-        PendingDPI = dpi;
-        if (DPIInSizeMove)
-        {
-            // Keep the window at its current size for the remainder of the
-            // interactive move. Applying the suggested rectangle here makes
-            // the frame visibly rescale under the cursor. WM_EXITSIZEMOVE
-            // selects the final monitor and performs one complete DPI refresh.
-            PendingDPIWindowRectApplied = FALSE;
-            DPIRefreshDeferredForSizeMove = TRUE;
-        }
-        else
-        {
-            if (lParam != 0)
-            {
-                const RECT* suggestedRect = reinterpret_cast<const RECT*>(lParam);
-                SetWindowPos(HWindow, NULL, suggestedRect->left, suggestedRect->top,
-                             suggestedRect->right - suggestedRect->left,
-                             suggestedRect->bottom - suggestedRect->top,
-                             SWP_NOACTIVATE | SWP_NOZORDER);
-            }
-            PendingDPIWindowRectApplied = lParam != 0;
-            if (!DPIRefreshPosted)
-            {
-                DPIRefreshPosted = TRUE;
-                PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)dpi, 0);
-            }
-        }
+        const RECT* suggestedRect = lParam != 0 ? reinterpret_cast<const RECT*>(lParam) : NULL;
+
+        // Per-monitor-v2 contract: update DPI-dependent resources and accept
+        // the suggested top-level geometry in the WM_DPICHANGED handler. The
+        // RefreshDPI reentrancy guard covers nested notifications produced by
+        // SetWindowPos while PMv2 walks the child-window hierarchy.
+        PendingDPI = 0;
+        PendingDPIWindowRectApplied = FALSE;
+        DPIWindowRectAlreadyApplied = FALSE;
+        RefreshDPI(TRUE, dpi, suggestedRect);
         return 0;
     }
 
