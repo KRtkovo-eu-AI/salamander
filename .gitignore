@@ -250,3 +250,5 @@ plugin-packages-x64/
 src/vcxproj/packages/
 
 src/vcxproj/obj/
+
+src/vcxproj/x64/Release clean/
