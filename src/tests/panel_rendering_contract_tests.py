@@ -16,6 +16,7 @@ def main() -> int:
     fileswnd = (ROOT / "fileswn1.cpp").read_text(encoding="utf-8")
     fileswnd2 = (ROOT / "fileswn2.cpp").read_text(encoding="utf-8")
     fileswndb = (ROOT / "fileswnb.cpp").read_text(encoding="utf-8")
+    icon_cache = (ROOT / "icncache.cpp").read_text(encoding="utf-8")
     mainwnd1 = (ROOT / "mainwnd1.cpp").read_text(encoding="utf-8")
     mainwnd2 = (ROOT / "mainwnd2.cpp").read_text(encoding="utf-8")
     mainwnd3 = (ROOT / "mainwnd3.cpp").read_text(encoding="utf-8")
@@ -96,6 +97,23 @@ def main() -> int:
     if "SHDefExtractIconW(iconPath.c_str(), iconIndex" not in geticon:
         print("registered DefaultIcon must be extracted at the panel pixel size")
         return 1
+    explorer_icon = re.search(
+        r"static HICON GetExplorerFileIcon\(.*?\n\}", geticon, re.DOTALL
+    )
+    get_file_icon = re.search(
+        r"BOOL GetFileIcon\(.*?\n\}", geticon, re.DOTALL
+    )
+    if (
+        explorer_icon is None
+        or "PanelPathToWide(path)" not in explorer_icon.group(0)
+        or "SHGetFileInfoW" not in explorer_icon.group(0)
+        or "SHGFI_ICON | SHGFI_SMALLICON" not in explorer_icon.group(0)
+        or get_file_icon is None
+        or get_file_icon.group(0).find("GetExplorerFileIcon(")
+        > get_file_icon.group(0).find("SHILCreateFromPath(")
+    ):
+        print("ordinary small file icons must prefer Explorer's wide shell result")
+        return 1
     if "useExplorerFileTypeIcon" in fileswnd or "GetExplorerFileTypeIcon" in fileswnd:
         print("ordinary disk icon loading must not bypass GetFileIcon")
         return 1
@@ -123,6 +141,45 @@ def main() -> int:
         print(
             "association icon delivery must preserve the extension while looking up the source file"
         )
+        return 1
+    targeted_repaint = re.search(
+        r"void CFilesWindow::RepaintIconsForExtension\(.*?\n\}",
+        fileswnd0,
+        re.DOTALL,
+    )
+    if (
+        targeted_repaint is None
+        or "GetItemRect" not in targeted_repaint.group(0)
+        or "InvalidateRect(ListBox->HWindow" not in targeted_repaint.group(0)
+        or "UpdateWindow(ListBox->HWindow);" not in targeted_repaint.group(0)
+        or "PaintItem(" in targeted_repaint.group(0)
+    ):
+        print("association updates must be published through one synchronous paint")
+        return 1
+    modern_association = re.search(
+        r"static BOOL QueryShellAssociation\(.*?\n\}",
+        icon_cache,
+        re.DOTALL,
+    )
+    association_lookup = re.search(
+        r"BOOL CAssociations::IsAssociated\(char\* ext, BOOL& addtoIconCache,"
+        r".*?\n\}",
+        icon_cache,
+        re.DOTALL,
+    )
+    if (
+        modern_association is None
+        or "AssocQueryStringW" not in modern_association.group(0)
+        or "SHGFI_USEFILEATTRIBUTES" not in modern_association.group(0)
+        or "associatedInfo.iIcon != genericInfo.iIcon"
+        not in modern_association.group(0)
+        or association_lookup is None
+        or "QueryShellAssociation(ext, canOpen)"
+        not in association_lookup.group(0)
+        or "InsertData(\"shell: \"" not in association_lookup.group(0)
+        or "data.SetIndexAll(-1);" not in association_lookup.group(0)
+    ):
+        print("modern shell-only associations must enter the normal icon cache")
         return 1
 
     if "!TreeViewAutoHide || TreeViewAutoHideExpanded" not in fileswnd2:

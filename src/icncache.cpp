@@ -10,6 +10,11 @@
 #include "geticon.h"
 #include "logo.h"
 
+#include <shlwapi.h>
+
+#include <string>
+#include <vector>
+
 // melo by byt nasobkem hodnoty IL_ITEMS_IN_ROW
 // aby se plne vyuzil prostor v bitmape
 #define ICONS_IN_LIST 100
@@ -1449,10 +1454,91 @@ void CAssociations::ReadAssociations(BOOL showWaitWnd)
     }
 }
 
+static std::wstring AssociationExtensionToWide(const char* ext)
+{
+    if (ext == NULL || ext[0] == 0)
+        return std::wstring();
+
+    UINT codePage = CP_UTF8;
+    DWORD flags = MB_ERR_INVALID_CHARS;
+    int length = MultiByteToWideChar(codePage, flags, ext, -1, NULL, 0);
+    if (length == 0)
+    {
+        codePage = CP_ACP;
+        flags = 0;
+        length = MultiByteToWideChar(codePage, flags, ext, -1, NULL, 0);
+    }
+    if (length <= 1)
+        return std::wstring();
+
+    std::vector<wchar_t> wide(length);
+    if (MultiByteToWideChar(codePage, flags, ext, -1, wide.data(), length) == 0)
+        return std::wstring();
+
+    std::wstring result(L".");
+    result.append(wide.data());
+    return result;
+}
+
+static BOOL QueryShellAssociation(const char* ext, BOOL& canOpen)
+{
+    canOpen = FALSE;
+    std::wstring wideExtension = AssociationExtensionToWide(ext);
+    if (wideExtension.empty())
+        return FALSE;
+
+    DWORD commandLength = 0;
+    HRESULT commandResult = AssocQueryStringW(ASSOCF_NONE, ASSOCSTR_COMMAND,
+                                               wideExtension.c_str(), NULL,
+                                               NULL, &commandLength);
+    canOpen = SUCCEEDED(commandResult) && commandLength > 1;
+
+    std::wstring probeName(L"__opensalamander_file");
+    probeName.append(wideExtension);
+    SHFILEINFOW associatedInfo;
+    ZeroMemory(&associatedInfo, sizeof(associatedInfo));
+    if (SHGetFileInfoW(probeName.c_str(), FILE_ATTRIBUTE_NORMAL, &associatedInfo,
+                       sizeof(associatedInfo), SHGFI_USEFILEATTRIBUTES |
+                                                   SHGFI_SYSICONINDEX |
+                                                   SHGFI_SMALLICON) == 0)
+        return canOpen;
+
+    SHFILEINFOW genericInfo;
+    ZeroMemory(&genericInfo, sizeof(genericInfo));
+    if (SHGetFileInfoW(L"__opensalamander_file.__opensalamander_unknown__",
+                       FILE_ATTRIBUTE_NORMAL, &genericInfo, sizeof(genericInfo),
+                       SHGFI_USEFILEATTRIBUTES | SHGFI_SYSICONINDEX |
+                           SHGFI_SMALLICON) == 0)
+        return canOpen;
+
+    return canOpen || associatedInfo.iIcon != genericInfo.iIcon;
+}
+
 BOOL CAssociations::IsAssociated(char* ext, BOOL& addtoIconCache, CIconSizeEnum iconSize)
 {
     int index;
-    if (GetIndex(ext, index))
+    BOOL found = GetIndex(ext, index);
+    if (!found)
+    {
+        // The registry layout parsed by ReadAssociations predates per-user and
+        // application-managed associations. Explorer can still resolve those
+        // through the shell (for example PDF and torrent handlers), so add a
+        // lazy cache entry and let the normal icon thread read the real file.
+        BOOL canOpen;
+        if (QueryShellAssociation(ext, canOpen))
+        {
+            CAssociationData data;
+            data.SetFlag(canOpen ? 1 : 0);
+            data.SetIndexAll(-1);
+            LONG size;
+            char* end = ext + strlen(ext);
+            InsertData("shell: ", index, FALSE, ext, end, data, size, "", "");
+            found = IsGood();
+            if (!found)
+                ResetState();
+        }
+    }
+    if (found)
     {
         int i = At(index).GetIndex(iconSize);
         if (i == -1)
