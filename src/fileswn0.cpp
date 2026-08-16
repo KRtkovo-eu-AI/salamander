@@ -2277,11 +2277,19 @@ void CFilesWindow::RepaintIconsForExtension(const char* extension)
     // A newly resolved association changes only files with this extension.
     // Repainting every icon in both panels for each association makes the
     // persistent-DC list visibly sweep across the window during startup.
+    BOOL repaint = FALSE;
+    RECT itemRect;
     for (int i = 0; i < Files->Count; i++)
     {
-        if (StrICmp(Files->At(i).Ext, extension) == 0)
-            ListBox->PaintItem(Dirs->Count + i, DRAWFLAG_ICON_ONLY);
+        if (StrICmp(Files->At(i).Ext, extension) == 0 &&
+            ListBox->GetItemRect(Dirs->Count + i, &itemRect))
+        {
+            InvalidateRect(ListBox->HWindow, &itemRect, FALSE);
+            repaint = TRUE;
+        }
     }
+    if (repaint)
+        UpdateWindow(ListBox->HWindow);
 }
 
 void CFilesWindow::CompletePendingStartupRefreshes()

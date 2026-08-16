@@ -250,6 +250,39 @@ static std::wstring PanelPathToWide(const char* path)
     return std::wstring(wide.data());
 }
 
+static HICON GetExplorerFileIcon(const char* path, int pixelSize)
+{
+    if (path == NULL || pixelSize <= 0)
+        return NULL;
+
+    std::wstring widePath = PanelPathToWide(path);
+    if (widePath.empty())
+        return NULL;
+
+    SHFILEINFOW fileInfo;
+    ZeroMemory(&fileInfo, sizeof(fileInfo));
+    if (SHGetFileInfoW(widePath.c_str(), 0, &fileInfo, sizeof(fileInfo),
+                       SHGFI_ICON | SHGFI_SMALLICON) == 0 ||
+        fileInfo.hIcon == NULL)
+        return NULL;
+
+    HICON icon = fileInfo.hIcon;
+    if (GetIconPixelWidth(icon) != pixelSize)
+    {
+        HICON resized = (HICON)CopyImage(icon, IMAGE_ICON, pixelSize, pixelSize, 0);
+        if (resized == NULL)
+        {
+            HANDLES(DestroyIcon(icon));
+            return NULL;
+        }
+        HANDLES(DestroyIcon(icon));
+        icon = resized;
+    }
+
+    DiscardSolidBlackIcon(&icon, pixelSize);
+    return icon;
+}
+
 static HICON GetDefaultAssociationIcon(const char* path, int pixelSize)
 {
     if (path == NULL || pixelSize <= 0)
@@ -771,6 +804,16 @@ BOOL GetFileIcon(const char* path, BOOL pathIsPIDL, HICON* hIcon, CIconSizeEnum 
 */
     if (!pathIsPIDL && iconSize == ICONSIZE_16 && LoadIcoFileSmallIcon(path, hIcon))
         return TRUE;
+
+    // For ordinary small file icons use the same path-based shell result that
+    // Explorer displays. IExtractIcon resource locations and registered
+    // DefaultIcon values can both be valid yet select different artwork.
+    if (!pathIsPIDL && iconSize == ICONSIZE_16)
+    {
+        *hIcon = GetExplorerFileIcon(path, IconSizes[ICONSIZE_16]);
+        if (*hIcon != NULL)
+            return TRUE;
+    }
 
     if (!pathIsPIDL)
         pidlFull = SHILCreateFromPath(path);
