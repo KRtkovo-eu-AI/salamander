@@ -14,6 +14,20 @@ def require(text: str, needle: str, description: str) -> None:
 
 def main() -> None:
     mainwnd3 = (ROOT / "src/mainwnd3.cpp").read_text(encoding="utf-8")
+    mainwnd1 = (ROOT / "src/mainwnd1.cpp").read_text(encoding="utf-8")
+    winlib = (ROOT / "src/common/winlib.cpp").read_text(encoding="utf-8")
+
+    for profiler_marker in (
+        "CMoveMessageProfile",
+        "BeginMoveMessageProfile",
+        "RecordMoveMessageProfile",
+        "EndMoveMessageProfile",
+        ".move-profile.txt",
+    ):
+        if profiler_marker in winlib:
+            raise AssertionError(
+                f"Temporary main-window move profiler remains: {profiler_marker}"
+            )
 
     fast_start = mainwnd3.index("CMainWindow::WindowProc(UINT uMsg")
     impl_start = mainwnd3.index("CMainWindow::WindowProcImpl(UINT uMsg")
@@ -68,6 +82,49 @@ def main() -> None:
         fast_path,
         "(windowPos->flags & SWP_NOSIZE) != 0",
         "DWM synchronization limited to position-only changes",
+    )
+
+    dpi_changed_start = implementation.index("case WM_DPICHANGED:")
+    apply_dpi_start = implementation.index("case WM_USER_APPLY_DPI_CHANGE:")
+    dpi_changed = implementation[dpi_changed_start:apply_dpi_start]
+    deferred_start = dpi_changed.index("if (DPIInSizeMove)")
+    immediate_start = dpi_changed.index("\n        else", deferred_start)
+    if "SetWindowPos(" in dpi_changed[deferred_start:immediate_start]:
+        raise AssertionError("interactive monitor drag must defer DPI window resizing")
+    require(
+        dpi_changed[deferred_start:immediate_start],
+        "PendingDPIWindowRectApplied = FALSE;",
+        "deferred DPI transition marked for final-position scaling",
+    )
+    require(
+        dpi_changed[immediate_start:],
+        "SetWindowPos(HWindow",
+        "suggested DPI geometry retained outside interactive moves",
+    )
+    require(
+        implementation,
+        "PendingDPIWindowRectApplied = FALSE;\n            DPIRefreshPosted = TRUE;",
+        "single DPI scaling pass scheduled after WM_EXITSIZEMOVE",
+    )
+    require(
+        winlib,
+        "uMsg == WM_DPICHANGED_AFTERPARENT &&\n        ShouldDeferMainWindowChildDPIRefresh(hwnd)",
+        "central suppression of premature child DPI resource refresh",
+    )
+    require(
+        mainwnd3,
+        "GetAncestor(childWindow, GA_ROOT) == MainWindow->HWindow",
+        "DPI deferral limited to descendants of the moving main window",
+    )
+    require(
+        mainwnd1,
+        "LeftTabWindow->RefreshDPIResources();",
+        "left tab resources rebuilt by the final main-window DPI refresh",
+    )
+    require(
+        mainwnd1,
+        "RightTabWindow->RefreshDPIResources();",
+        "attached right tab resources rebuilt by the final main-window DPI refresh",
     )
 
     print("Main-window move contract tests passed.")

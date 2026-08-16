@@ -1799,6 +1799,21 @@ void CMainWindow::SetFont()
 
     CreatePanelFont();
 
+    // WM_DPICHANGED_AFTERPARENT is intentionally suppressed for children of
+    // the main window while it is being dragged between monitors. Rebuild the
+    // attached tab strips as part of the single final DPI refresh. A right tab
+    // strip hosted by a detached top-level window has its own DPI lifecycle.
+    if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL &&
+        GetAncestor(LeftTabWindow->HWindow, GA_ROOT) == HWindow)
+    {
+        LeftTabWindow->RefreshDPIResources();
+    }
+    if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL &&
+        GetAncestor(RightTabWindow->HWindow, GA_ROOT) == HWindow)
+    {
+        RightTabWindow->RefreshDPIResources();
+    }
+
     // Each panel can live under a different PMv2 top-level window. Keep its
     // drawing fonts and icon metrics tied to that window instead of copying
     // the main window's process-global DPI.

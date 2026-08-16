@@ -25,195 +25,11 @@
 #include "winlibdpi.h"
 
 #ifdef INSIDE_SALAMANDER
-// Temporary, low-overhead diagnostic for the main-window move regression.
-// Measurements stay in memory during the modal move loop and are written only
-// after WM_EXITSIZEMOVE, so the profiler does not create the lag it measures.
-struct CMoveMessageProfile
-{
-    ULONGLONG TotalTicks;
-    ULONGLONG MaxTicks;
-    DWORD Count;
-    HWND MaxWindow;
-};
-
-static CMoveMessageProfile MoveMessageProfiles[0x10000];
-static BOOL MoveMessageProfiling = FALSE;
-static LARGE_INTEGER MoveMessageFrequency;
-static LARGE_INTEGER MoveMessageStart;
-static ULONGLONG MoveInputAgeTotal = 0;
-static DWORD MoveInputAgeMax = 0;
-static DWORD MoveInputAgeSamples = 0;
-static BOOL MoveCursorOffsetValid = FALSE;
-static LONG MoveCursorOffsetX = 0;
-static LONG MoveCursorOffsetY = 0;
-static LONG MoveCursorLagMaxX = 0;
-static LONG MoveCursorLagMaxY = 0;
-static LONG MoveRectWidth = 0;
-static LONG MoveRectHeight = 0;
-static BOOL MoveButtonReleased = FALSE;
-static LARGE_INTEGER MoveButtonReleaseTime;
-static DWORD MoveMessagesAfterRelease = 0;
-
-static const char* GetMoveProfileMessageName(UINT message)
-{
-    switch (message)
-    {
-    case WM_PAINT: return "WM_PAINT";
-    case WM_TIMER: return "WM_TIMER";
-    case WM_MOVE: return "WM_MOVE";
-    case WM_MOVING: return "WM_MOVING";
-    case WM_SIZE: return "WM_SIZE";
-    case WM_WINDOWPOSCHANGING: return "WM_WINDOWPOSCHANGING";
-    case WM_WINDOWPOSCHANGED: return "WM_WINDOWPOSCHANGED";
-    case WM_NCHITTEST: return "WM_NCHITTEST";
-    case WM_NCMOUSEMOVE: return "WM_NCMOUSEMOVE";
-    case WM_SETCURSOR: return "WM_SETCURSOR";
-    case WM_ERASEBKGND: return "WM_ERASEBKGND";
-    case WM_ENTERSIZEMOVE: return "WM_ENTERSIZEMOVE";
-    case WM_EXITSIZEMOVE: return "WM_EXITSIZEMOVE";
-    default: return "";
-    }
-}
-
-static void BeginMoveMessageProfile()
-{
-    memset(MoveMessageProfiles, 0, sizeof(MoveMessageProfiles));
-    QueryPerformanceFrequency(&MoveMessageFrequency);
-    QueryPerformanceCounter(&MoveMessageStart);
-    MoveInputAgeTotal = 0;
-    MoveInputAgeMax = 0;
-    MoveInputAgeSamples = 0;
-    MoveCursorOffsetValid = FALSE;
-    MoveCursorLagMaxX = 0;
-    MoveCursorLagMaxY = 0;
-    MoveRectWidth = 0;
-    MoveRectHeight = 0;
-    MoveButtonReleased = FALSE;
-    MoveButtonReleaseTime.QuadPart = 0;
-    MoveMessagesAfterRelease = 0;
-    MoveMessageProfiling = TRUE;
-}
-
-static void RecordMoveMessageProfile(HWND hwnd, UINT message, LPARAM lParam, ULONGLONG ticks)
-{
-    if (!MoveMessageProfiling || message >= 0x10000)
-        return;
-    CMoveMessageProfile& profile = MoveMessageProfiles[message];
-    profile.TotalTicks += ticks;
-    ++profile.Count;
-    if (ticks > profile.MaxTicks)
-    {
-        profile.MaxTicks = ticks;
-        profile.MaxWindow = hwnd;
-    }
-    if (message == WM_MOVING && lParam != 0)
-    {
-        LARGE_INTEGER now;
-        QueryPerformanceCounter(&now);
-        if ((GetAsyncKeyState(VK_LBUTTON) & 0x8000) == 0)
-        {
-            if (!MoveButtonReleased)
-            {
-                MoveButtonReleased = TRUE;
-                MoveButtonReleaseTime = now;
-            }
-            ++MoveMessagesAfterRelease;
-        }
-
-        DWORD age = GetTickCount() - (DWORD)GetMessageTime();
-        MoveInputAgeTotal += age;
-        ++MoveInputAgeSamples;
-        if (age > MoveInputAgeMax)
-            MoveInputAgeMax = age;
-
-        POINT cursor;
-        if (GetCursorPos(&cursor))
-        {
-            const RECT* movingRect = reinterpret_cast<const RECT*>(lParam);
-            LONG width = movingRect->right - movingRect->left;
-            LONG height = movingRect->bottom - movingRect->top;
-            // Aero Snap and DPI transitions deliberately resize/re-anchor the
-            // rectangle. Start a fresh positional baseline instead of
-            // reporting that intentional change as cursor lag.
-            if (!MoveCursorOffsetValid || width != MoveRectWidth || height != MoveRectHeight)
-            {
-                MoveCursorOffsetX = cursor.x - movingRect->left;
-                MoveCursorOffsetY = cursor.y - movingRect->top;
-                MoveRectWidth = width;
-                MoveRectHeight = height;
-                MoveCursorOffsetValid = TRUE;
-            }
-            else if (!MoveButtonReleased)
-            {
-                LONG lagX = abs(cursor.x - (movingRect->left + MoveCursorOffsetX));
-                LONG lagY = abs(cursor.y - (movingRect->top + MoveCursorOffsetY));
-                if (lagX > MoveCursorLagMaxX)
-                    MoveCursorLagMaxX = lagX;
-                if (lagY > MoveCursorLagMaxY)
-                    MoveCursorLagMaxY = lagY;
-            }
-        }
-    }
-}
-
-static void EndMoveMessageProfile()
-{
-    MoveMessageProfiling = FALSE;
-    LARGE_INTEGER end;
-    QueryPerformanceCounter(&end);
-
-    wchar_t path[SAL_MAX_PATH];
-    DWORD length = GetModuleFileNameW(NULL, path, ARRAYSIZE(path));
-    if (length == 0 || length >= ARRAYSIZE(path))
-        return;
-    wchar_t* extension = wcsrchr(path, L'.');
-    wchar_t* slash = wcsrchr(path, L'\\');
-    if (extension == NULL || (slash != NULL && extension < slash))
-        extension = path + length;
-    if (wcscpy_s(extension, ARRAYSIZE(path) - (extension - path), L".move-profile.txt") != 0)
-        return;
-
-    FILE* output = NULL;
-    if (_wfopen_s(&output, path, L"wt") != 0 || output == NULL)
-        return;
-    double frequency = (double)MoveMessageFrequency.QuadPart;
-    fprintf(output, "duration_ms=%.3f\n", 1000.0 * (end.QuadPart - MoveMessageStart.QuadPart) / frequency);
-    fprintf(output, "input_age_avg_ms=%.3f\n",
-            MoveInputAgeSamples != 0 ? (double)MoveInputAgeTotal / MoveInputAgeSamples : 0.0);
-    fprintf(output, "input_age_max_ms=%lu\n", MoveInputAgeMax);
-    fprintf(output, "cursor_rect_lag_max_px=%ld,%ld\n", MoveCursorLagMaxX, MoveCursorLagMaxY);
-    fprintf(output, "moves_after_button_release=%lu\n", MoveMessagesAfterRelease);
-    fprintf(output, "button_release_to_exit_ms=%.3f\n",
-            MoveButtonReleased ? 1000.0 * (end.QuadPart - MoveButtonReleaseTime.QuadPart) / frequency : 0.0);
-    fprintf(output, "message,total_ms,max_ms,count,max_window_class\n");
-
-    BOOL emitted[0x10000] = {};
-    for (int rank = 0; rank < 40; ++rank)
-    {
-        UINT best = 0;
-        for (UINT message = 0; message < 0x10000; ++message)
-        {
-            if (!emitted[message] && MoveMessageProfiles[message].TotalTicks > MoveMessageProfiles[best].TotalTicks)
-                best = message;
-        }
-        const CMoveMessageProfile& profile = MoveMessageProfiles[best];
-        if (profile.Count == 0)
-            break;
-        emitted[best] = TRUE;
-        char className[128] = {};
-        if (profile.MaxWindow != NULL)
-            GetClassNameA(profile.MaxWindow, className, ARRAYSIZE(className));
-        const char* name = GetMoveProfileMessageName(best);
-        fprintf(output, "%s0x%04X,%.3f,%.3f,%lu,%s\n", name[0] != 0 ? name : "", best,
-                1000.0 * profile.TotalTicks / frequency, 1000.0 * profile.MaxTicks / frequency,
-                profile.Count, className);
-    }
-    fclose(output);
-}
-#endif // INSIDE_SALAMANDER
-
-#ifdef INSIDE_SALAMANDER
 #include "../darkmode.h"
+
+// Implemented by the main window. PMv2 sends WM_DPICHANGED_AFTERPARENT to
+// child HWNDs while their top-level window is still in the modal move loop.
+extern BOOL ShouldDeferMainWindowChildDPIRefresh(HWND childWindow);
 #endif
 
 #ifdef INSIDE_SALAMANDER
@@ -775,14 +591,14 @@ CWindow::CWindowProcInt(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
     }
     }
     //--- zavolani metody WindowProc(...) prislusneho objektu okna
-    LRESULT lResult;
 #ifdef INSIDE_SALAMANDER
-    if (wnd != NULL && uMsg == WM_ENTERSIZEMOVE)
-        BeginMoveMessageProfile();
-    LARGE_INTEGER profileStart;
-    if (MoveMessageProfiling)
-        QueryPerformanceCounter(&profileStart);
+    if (uMsg == WM_DPICHANGED_AFTERPARENT &&
+        ShouldDeferMainWindowChildDPIRefresh(hwnd))
+    {
+        return 0;
+    }
 #endif
+    LRESULT lResult;
     if (wnd != NULL)
         lResult = wnd->WindowProc(uMsg, wParam, lParam);
     else // chyba nebo message prisla pred WM_CREATE
@@ -793,17 +609,6 @@ CWindow::CWindowProcInt(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
         lResult = DefWindowProc(hwnd, uMsg, wParam, lParam);
 #endif // _UNICODE
     }
-
-#ifdef INSIDE_SALAMANDER
-    if (MoveMessageProfiling)
-    {
-        LARGE_INTEGER profileEnd;
-        QueryPerformanceCounter(&profileEnd);
-        RecordMoveMessageProfile(hwnd, uMsg, lParam, profileEnd.QuadPart - profileStart.QuadPart);
-        if (uMsg == WM_EXITSIZEMOVE)
-            EndMoveMessageProfile();
-    }
-#endif
 
     return lResult;
 }

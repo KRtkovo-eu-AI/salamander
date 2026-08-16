@@ -3810,6 +3810,13 @@ static BOOL DPIChangePromptShown = FALSE;
 
 static BOOL DWMInteractiveMoveActive = FALSE;
 
+BOOL ShouldDeferMainWindowChildDPIRefresh(HWND childWindow)
+{
+    return DPIInSizeMove && childWindow != NULL && MainWindow != NULL &&
+           MainWindow->HWindow != NULL && childWindow != MainWindow->HWindow &&
+           GetAncestor(childWindow, GA_ROOT) == MainWindow->HWindow;
+}
+
 static void FlushDWMForInteractiveMove()
 {
     typedef HRESULT(WINAPI * FDwmFlush)();
@@ -4668,6 +4675,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             int windowDPI = GetDPIForWindow(HWindow);
             if (windowDPI > 0)
                 PendingDPI = windowDPI; // final monitor can differ from the first WM_DPICHANGED during drag
+            // WM_DPICHANGED geometry was deliberately ignored while moving.
+            // RefreshDPI must scale the window once at its final position.
+            PendingDPIWindowRectApplied = FALSE;
             DPIRefreshPosted = TRUE;
             PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)PendingDPI, 0);
         }
@@ -4690,24 +4700,32 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
     case WM_DPICHANGED:
     {
         int dpi = HIWORD(wParam);
-        if (lParam != 0)
-        {
-            const RECT* suggestedRect = reinterpret_cast<const RECT*>(lParam);
-            SetWindowPos(HWindow, NULL, suggestedRect->left, suggestedRect->top,
-                         suggestedRect->right - suggestedRect->left,
-                         suggestedRect->bottom - suggestedRect->top,
-                         SWP_NOACTIVATE | SWP_NOZORDER);
-        }
         PendingDPI = dpi;
-        PendingDPIWindowRectApplied = lParam != 0;
         if (DPIInSizeMove)
         {
+            // Keep the window at its current size for the remainder of the
+            // interactive move. Applying the suggested rectangle here makes
+            // the frame visibly rescale under the cursor. WM_EXITSIZEMOVE
+            // selects the final monitor and performs one complete DPI refresh.
+            PendingDPIWindowRectApplied = FALSE;
             DPIRefreshDeferredForSizeMove = TRUE;
         }
-        else if (!DPIRefreshPosted)
+        else
         {
-            DPIRefreshPosted = TRUE;
-            PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)dpi, 0);
+            if (lParam != 0)
+            {
+                const RECT* suggestedRect = reinterpret_cast<const RECT*>(lParam);
+                SetWindowPos(HWindow, NULL, suggestedRect->left, suggestedRect->top,
+                             suggestedRect->right - suggestedRect->left,
+                             suggestedRect->bottom - suggestedRect->top,
+                             SWP_NOACTIVATE | SWP_NOZORDER);
+            }
+            PendingDPIWindowRectApplied = lParam != 0;
+            if (!DPIRefreshPosted)
+            {
+                DPIRefreshPosted = TRUE;
+                PostMessage(HWindow, WM_USER_APPLY_DPI_CHANGE, (WPARAM)dpi, 0);
+            }
         }
         return 0;
     }
