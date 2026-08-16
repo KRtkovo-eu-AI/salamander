@@ -3331,6 +3331,7 @@ void CViewerWindow::ToggleStatusBar()
         }
         ConfigurePictViewDarkModeFromHost();
         DarkModeApplyTree(StatusBar->HWindow);
+        StatusBar->SetFont();
         G.StatusbarVisible = TRUE;
     }
     else
@@ -3780,6 +3781,11 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             MenuBar->SetFont();
         if (ToolBar != NULL)
             ToolBar->SetFont();
+        if (StatusBar != NULL)
+        {
+            StatusBar->SetFont();
+            SetupStatusBarItems();
+        }
         if (HHistogramWindow != NULL)
             SendMessage(HHistogramWindow, WM_USER_SETTINGCHANGE, wParam, lParam);
         return 0;
@@ -3805,6 +3811,11 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             ToolBar->SetImageList(HGrayToolBarImageList);
             ToolBar->SetHotImageList(HHotToolBarImageList);
             ToolBar->SetFont();
+        }
+        if (StatusBar != NULL)
+        {
+            StatusBar->SetFont();
+            SetupStatusBarItems();
         }
         if (HRebar != NULL)
         {

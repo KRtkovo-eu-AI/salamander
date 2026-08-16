@@ -2647,7 +2647,10 @@ BOOL CFilesWindow::RefreshDPIResources(BOOL force)
         panelLF.lfWidth = MulDiv(panelLF.lfWidth, dpi, sourceDPI);
     }
     else
-        panelLF = envLF;
+    {
+        if (!WinLibDPIGetIconTitleLogFont(dpiWindow, &panelLF))
+            GetSystemGUIFont(&panelLF);
+    }
 
     LOGFONT panelULLF = panelLF;
     panelULLF.lfUnderline = TRUE;

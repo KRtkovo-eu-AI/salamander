@@ -2828,7 +2828,9 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
 
 void CViewerWindow::RefreshStatusBarDPI()
 {
-    HFONT newFont = WinLibDPICreateMessageFont(HWindow);
+    LOGFONT logFont;
+    GetEffectiveDefaultUILogFont(&logFont, HWindow);
+    HFONT newFont = HANDLES(CreateFontIndirect(&logFont));
     if (newFont == NULL)
         return;
 

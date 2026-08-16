@@ -1214,7 +1214,7 @@ static void paintMenuBar(HWND hWnd, HDC hdc) noexcept
  *
  * @see dmlib_subclass::WindowMenuBarSubclass()
  */
-static void paintMenuBarItems(UAHDRAWMENUITEM& UDMI, const HTHEME& hTheme)
+static void paintMenuBarItems(HWND hWnd, UAHDRAWMENUITEM& UDMI, const HTHEME& hTheme)
 {
 	// get the menu item string
 	auto buffer = std::wstring(MAX_PATH, L'\0');
@@ -1321,7 +1321,21 @@ static void paintMenuBarItems(UAHDRAWMENUITEM& UDMI, const HTHEME& hTheme)
 		}
 	}
 
-	::DrawThemeTextEx(hTheme, UDMI.um.hdc, MENU_BARITEM, iTextStateID, buffer.c_str(), static_cast<int>(mii.cch), dwFlags, &UDMI.dis.rcItem, &dttopts);
+	auto hFont = reinterpret_cast<HFONT>(::SendMessage(hWnd, WM_GETFONT, 0, 0));
+	if (hFont == nullptr)
+		hFont = reinterpret_cast<HFONT>(::GetPropW(hWnd, L"OpenSalamander.UIFont"));
+	if (hFont != nullptr)
+	{
+		const auto hOldFont = reinterpret_cast<HFONT>(::SelectObject(UDMI.um.hdc, hFont));
+		const int oldBkMode = ::SetBkMode(UDMI.um.hdc, TRANSPARENT);
+		const COLORREF oldTextColor = ::SetTextColor(UDMI.um.hdc, dttopts.crText);
+		::DrawTextW(UDMI.um.hdc, buffer.c_str(), static_cast<int>(mii.cch), &UDMI.dis.rcItem, dwFlags);
+		::SetTextColor(UDMI.um.hdc, oldTextColor);
+		::SetBkMode(UDMI.um.hdc, oldBkMode);
+		::SelectObject(UDMI.um.hdc, hOldFont);
+	}
+	else
+		::DrawThemeTextEx(hTheme, UDMI.um.hdc, MENU_BARITEM, iTextStateID, buffer.c_str(), static_cast<int>(mii.cch), dwFlags, &UDMI.dis.rcItem, &dttopts);
 }
 
 /**
@@ -1416,7 +1430,7 @@ LRESULT CALLBACK dmlib_subclass::WindowMenuBarSubclass(
 		{
 			const auto& hTheme = pMenuThemeData->getHTheme();
 			auto* pUDMI = reinterpret_cast<UAHDRAWMENUITEM*>(lParam);
-			paintMenuBarItems(*pUDMI, hTheme);
+			paintMenuBarItems(hWnd, *pUDMI, hTheme);
 
 			return 0;
 		}

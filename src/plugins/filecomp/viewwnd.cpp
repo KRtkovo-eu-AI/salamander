@@ -473,7 +473,13 @@ CFileViewWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             EnableMenuItem(hSubMenu, CM_COPY, IsSelected() ? (MF_BYCOMMAND | MF_ENABLED) : (MF_BYCOMMAND | MF_GRAYED));
             EnableMenuItem(hSubMenu, CM_SELECTALL, MF_BYCOMMAND | (ViewMode == fvmStandard ? MF_ENABLED : MF_GRAYED));
             HCURSOR oldCursor = SetCursor(HArrowCursor);
-            TrackPopupMenuEx(hSubMenu, TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RIGHTBUTTON, p.x, p.y, HWindow, NULL);
+            CGUIMenuPopupAbstract* popup = SalGUI->CreateMenuPopup();
+            if (popup != NULL)
+            {
+                popup->SetTemplateMenu(hSubMenu);
+                popup->Track(MENU_TRACK_RIGHTBUTTON, p.x, p.y, HWindow, NULL);
+                SalGUI->DestroyMenuPopup(popup);
+            }
             if (oldCursor)
                 SetCursor(oldCursor);
             DestroyMenu(hMenu);

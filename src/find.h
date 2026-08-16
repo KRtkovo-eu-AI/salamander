@@ -722,6 +722,7 @@ protected:
     CMenuPopup* MainMenu;
     CMenuBar* MenuBar;
     HWND HStatusBar;
+    HFONT HStatusFont;
     HWND HProgressBar; // status bar child window shown for certain operations in a special field
     BOOL TwoParts;     // does the status bar have two texts?
                        //    CFindAdvancedDialog FindAdvanced;

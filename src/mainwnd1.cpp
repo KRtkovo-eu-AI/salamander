@@ -1754,7 +1754,7 @@ BOOL CreatePanelFont()
     if (UseCustomPanelFont)
         lf = LogFont; // the user set a custom font
     else
-        GetEffectiveDefaultUILogFont(&lf); // use the application-wide UI default
+        GetSystemGUIFont(&lf); // panel content has its own font setting
 
     Font = HANDLES(CreateFontIndirect(&lf));
     if (Font == NULL)

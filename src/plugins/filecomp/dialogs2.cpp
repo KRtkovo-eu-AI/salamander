@@ -217,8 +217,16 @@ void CPropPageColors::ChooseColor(int item, int colorFG, int colorBK, const RECT
     TPMPARAMS tpmPar;
     tpmPar.cbSize = sizeof(tpmPar);
     tpmPar.rcExclude = *btnRect;
-    switch (TrackPopupMenuEx(hSubMenu, TPM_TOPALIGN | TPM_RIGHTBUTTON | TPM_NONOTIFY | TPM_RETURNCMD,
-                             btnRect->right, btnRect->top, HWindow, &tpmPar))
+    DWORD command = 0;
+    CGUIMenuPopupAbstract* popup = SalGUI->CreateMenuPopup();
+    if (popup != NULL)
+    {
+        popup->SetTemplateMenu(hSubMenu);
+        command = popup->Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON | MENU_TRACK_NONOTIFY,
+                               btnRect->right, btnRect->top, HWindow, &tpmPar.rcExclude);
+        SalGUI->DestroyMenuPopup(popup);
+    }
+    switch (command)
     {
     case CM_CUSTOMTEXT:
         color = colorFG; // keep going...

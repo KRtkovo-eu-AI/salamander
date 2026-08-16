@@ -191,11 +191,17 @@ void CMenuBar::SetFont()
     ncm.cbSize = sizeof(ncm);
     SystemParametersInfoForMenuDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0, dpi);
 
-    LOGFONT* lf = &ncm.lfMenuFont;
-    ScaleSmallMenuLogFontForDPI(lf, dpi);
+    LOGFONT menuFont;
+    if (DialogFontMode == DIALOG_FONT_DEFAULT)
+    {
+        menuFont = ncm.lfMenuFont;
+        ScaleSmallMenuLogFontForDPI(&menuFont, dpi);
+    }
+    else
+        GetEffectiveDefaultUILogFont(&menuFont, hDPIWindow);
     if (HFont != NULL)
         HANDLES(DeleteObject(HFont));
-    HFont = HANDLES(CreateFontIndirect(lf));
+    HFont = HANDLES(CreateFontIndirect(&menuFont));
 
     HDC hDC = HANDLES(GetDC(NULL));
     TEXTMETRIC tm;

@@ -1609,6 +1609,7 @@ CFindDialog::CFindDialog(HWND hCenterAgainst, const char* initPath)
     TBHeader = NULL;
     MenuBar = NULL;
     HStatusBar = NULL;
+    HStatusFont = NULL;
     HProgressBar = NULL;
     TwoParts = FALSE;
     FoundFilesListView = NULL;
@@ -1669,6 +1670,8 @@ CFindDialog::CFindDialog(HWND hCenterAgainst, const char* initPath)
 
 CFindDialog::~CFindDialog()
 {
+    if (HStatusFont != NULL)
+        HANDLES(DeleteObject(HStatusFont));
     if (CacheBitmap != NULL)
         delete CacheBitmap;
 }
@@ -3265,6 +3268,12 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             PostMessage(HWindow, WM_COMMAND, IDCANCEL, 0);
             break;
         }
+
+        LOGFONT statusLogFont;
+        GetEffectiveDefaultUILogFont(&statusLogFont, HWindow);
+        HStatusFont = HANDLES(CreateFontIndirect(&statusLogFont));
+        if (HStatusFont != NULL)
+            SendMessage(HStatusBar, WM_SETFONT, (WPARAM)HStatusFont, TRUE);
 
         DarkModeApplyTree(HStatusBar);
         SetTwoStatusParts(FALSE, TRUE);
