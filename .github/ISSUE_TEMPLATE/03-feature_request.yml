@@ -30,7 +30,7 @@ body:
         This is a problem because ...
         The current workaround is ...
     validations:
-      required: true
+      required: false
   - type: textarea
     id: proposed-behavior
     attributes:
@@ -69,7 +69,7 @@ body:
         - [ ] ...
         - [ ] Existing ... continues to work.
     validations:
-      required: true
+      required: false
   - type: textarea
     id: benefits
     attributes:
