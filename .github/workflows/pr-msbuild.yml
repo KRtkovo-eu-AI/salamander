@@ -194,6 +194,7 @@ jobs:
               if ($env:BUILD_SFTP_PLUGIN -ne 'true' -and $owner.Name -in @('sftp', 'lang_sftp')) { continue }
               if ('${{ matrix.platform }}' -in @('x64', 'ARM64') -and $owner.Name -in @('salextx86', 'zip2sfx')) { continue }
               if ('${{ matrix.platform }}' -eq 'Win32' -and $owner.Name -eq 'salextx64') { continue }
+              if ('${{ matrix.platform }}' -ne 'x64' -and $owner.Name -eq 'HardwareWrapper') { continue }
               if (-not ($selected | Where-Object { $_.Path -eq $owner.Path })) {
                 $selected.Add($owner)
               }
@@ -213,12 +214,19 @@ jobs:
           Add-Content -Path $env:GITHUB_OUTPUT -Value "has_changed_projects=$(if ($selected.Count -gt 0) { 'true' } else { 'false' })"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "needs_lua=$(if (@($selected | Where-Object Name -eq 'luaruntime').Count -gt 0) { 'true' } else { 'false' })"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "needs_unrar=$(if (@($selected | Where-Object Name -eq 'unrar').Count -gt 0) { 'true' } else { 'false' })"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "needs_dotnet_10=$(if (@($selected | Where-Object Name -eq 'HardwareWrapper').Count -gt 0) { 'true' } else { 'false' })"
           # The FTP plug-in loads OpenSSL dynamically and therefore compiles without
           # the runtime DLLs. The pinned legacy OpenSSL 1.0.2 port supports Win32/x64
           # only, so do not ask vcpkg to build it for the ARM64 compile check.
           $needsFtpOpenSsl = '${{ matrix.platform }}' -ne 'ARM64' -and
                              @($selected | Where-Object Name -eq 'ftp').Count -gt 0
           Add-Content -Path $env:GITHUB_OUTPUT -Value "needs_ftp_openssl=$(if ($needsFtpOpenSsl) { 'true' } else { 'false' })"
+
+      - name: Setup .NET 10 SDK for HardwareWrapper
+        if: steps.changed_projects.outputs.needs_dotnet_10 == 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
 
       - name: Install selected project dependencies
         if: >-

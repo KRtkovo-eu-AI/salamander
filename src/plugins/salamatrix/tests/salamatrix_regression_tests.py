@@ -71,6 +71,9 @@ def main() -> int:
     native_test_runner = read("tools/run_native_tests.ps1")
     pr_tests_workflow = read(".github/workflows/pr-tests.yml")
     pr_test_report_workflow = read(".github/workflows/pr-test-report.yml")
+    pr_msbuild_workflow = read(".github/workflows/pr-msbuild.yml")
+    hardware_wrapper_project = read(
+        "src/extensions/hardware-monitor/hardview-lib/HardwareWrapper/HardwareWrapper.vcxproj")
     runtime_protocol = read("src/plugins/salamatrix/salamatrix_runtime_protocol.h")
     ai_rc2 = read("src/plugins/salamatrixai/salamatrixai.rc2")
     automation_header = read("src/plugins/automation/automationplug.h")
@@ -2272,6 +2275,29 @@ def main() -> int:
         r"AddPluginDependency\('filelockinspector',\s*"
         r"'powershellruntime'\)",
         "x64 installer does not include File Lock Inspector dependencies")
+
+    require(
+        pr_msbuild_workflow,
+        r"matrix\.platform.*?-ne 'x64'.*?owner\.Name -eq 'HardwareWrapper'.*?continue",
+        "PR build does not exclude the x64-only HardwareWrapper on other platforms")
+    require(
+        pr_msbuild_workflow,
+        r"needs_dotnet_10=.*?HardwareWrapper.*?Setup \.NET 10 SDK for HardwareWrapper.*?"
+        r"actions/setup-dotnet@v4.*?dotnet-version: '10\.0\.x'",
+        "PR build does not provision .NET 10 for HardwareWrapper")
+    require(
+        hardware_wrapper_project,
+        r"<TargetFramework>net10\.0</TargetFramework>",
+        "HardwareWrapper does not target the .NET version used by HardView")
+    require(
+        hardware_wrapper_project,
+        r'HardwareWrapper\.cpp">.*?<DisableSpecificWarnings>4267;',
+        "upstream HardwareWrapper narrowing warnings are not scoped to its source file")
+    require_absent(
+        hardware_wrapper_project,
+        r"<ItemDefinitionGroup(?:(?!</ItemDefinitionGroup>).)*"
+        r"<DisableSpecificWarnings>4267;",
+        "HardwareWrapper suppresses narrowing warnings for the entire project")
 
     require(plugins1, r"CPluginData::InitDLL", "dynamic menu InitDLL lifecycle is missing")
     require(plugins1, r"PluginIfaceForMenuExt\.BuildMenu", "dynamic menu interface BuildMenu call is missing")
