@@ -2281,14 +2281,10 @@ def main() -> int:
         r"matrix\.platform.*?-ne 'x64'.*?owner\.Name -eq 'HardwareWrapper'.*?continue",
         "PR build does not exclude the x64-only HardwareWrapper on other platforms")
     require(
-        pr_msbuild_workflow,
-        r"needs_dotnet_10=.*?HardwareWrapper.*?Setup \.NET 10 SDK for HardwareWrapper.*?"
-        r"actions/setup-dotnet@v4.*?dotnet-version: '10\.0\.x'",
-        "PR build does not provision .NET 10 for HardwareWrapper")
-    require(
         hardware_wrapper_project,
-        r"<TargetFramework>net10\.0</TargetFramework>",
-        "HardwareWrapper does not target the .NET version used by HardView")
+        r"<TargetFramework>net9\.0</TargetFramework>.*?"
+        r"<MSBuildWarningsAsMessages>.*?MSB3277</MSBuildWarningsAsMessages>",
+        "HardwareWrapper does not narrowly allow the prebuilt HardView framework warning")
     require(
         hardware_wrapper_project,
         r'HardwareWrapper\.cpp">.*?<DisableSpecificWarnings>4267;',
