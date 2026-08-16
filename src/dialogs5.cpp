@@ -5689,7 +5689,7 @@ void CCfgPageAppearance::LoadFontPreview(int editID, HFONT* previewFont, LOGFONT
 
     SendMessage(hEdit, WM_SETFONT, (WPARAM)*previewFont, MAKELPARAM(TRUE, 0));
     char buf[LF_FACESIZE + 200];
-    _snprintf_s(buf, _TRUNCATE, LoadStr(IDS_FONTDESCRIPTION),
+    _snprintf_s(buf, _TRUNCATE, "%d pt. %s (%s)",
                 pointSize,
                 logFont.lfFaceName,
                 LoadStr(descriptionID));

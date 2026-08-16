@@ -33,6 +33,15 @@ def main() -> None:
     common_sheets = (ROOT / "src/common/sheets.cpp").read_text(encoding="utf-8")
     plugin_winlib = (ROOT / "src/plugins/shared/winliblt.cpp").read_text(encoding="utf-8")
     plugin_winlib_h = (ROOT / "src/plugins/shared/winliblt.h").read_text(encoding="utf-8")
+    dialogs5 = (ROOT / "src/dialogs5.cpp").read_text(encoding="utf-8")
+
+    font_preview = function_slice(
+        dialogs5, "void CCfgPageAppearance::LoadFontPreview(",
+        "void CCfgPageAppearance::LoadControls()")
+    require(font_preview, '_snprintf_s(buf, _TRUNCATE, "%d pt. %s (%s)",',
+            "constant and safe UI font description format")
+    if "LoadStr(IDS_FONTDESCRIPTION)" in font_preview:
+        raise AssertionError("UI font description must not use a resource as a printf format")
 
     core_dialog = function_slice(
         common_winlib, "CDialog::CDialogProc(", "CWindowsManager::CWindowsManager()")
