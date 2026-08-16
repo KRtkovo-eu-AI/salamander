@@ -72,7 +72,7 @@ body:
       description: Use `plugin` to extract the installed `.spl` icon, or provide an absolute URL, catalog-relative URL, or catalog-local image path.
       placeholder: plugin or https://example.com/plugin.png
     validations:
-      required: true
+      required: false
   - type: textarea
     id: dependencies
     attributes:
@@ -83,42 +83,144 @@ body:
         dependency-two
     validations:
       required: false
-  - type: textarea
-    id: translations
+  - type: input
+    id: chinesesimplified-name
     attributes:
-      label: Other language translations
-      description: Optionally provide a translated name and/or description for any supported catalog language. Omit languages for which no translation is available.
-      placeholder: |
-        chinesesimplified:
-          name:
-          description:
-        czech:
-          name:
-          description:
-        german:
-          name:
-          description:
-        dutch:
-          name:
-          description:
-        hungarian:
-          name:
-          description:
-        russian:
-          name:
-          description:
-        french:
-          name:
-          description:
-        slovak:
-          name:
-          description:
-        romanian:
-          name:
-          description:
-        spanish:
-          name:
-          description:
+      label: Chinese (Simplified) name
+      description: Optionally enter the plugin name in Simplified Chinese.
+    validations:
+      required: false
+  - type: textarea
+    id: chinesesimplified-description
+    attributes:
+      label: Chinese (Simplified) description
+      description: Optionally describe the plugin in Simplified Chinese.
+    validations:
+      required: false
+  - type: input
+    id: czech-name
+    attributes:
+      label: Czech name
+      description: Optionally enter the plugin name in Czech.
+    validations:
+      required: false
+  - type: textarea
+    id: czech-description
+    attributes:
+      label: Czech description
+      description: Optionally describe the plugin in Czech.
+    validations:
+      required: false
+  - type: input
+    id: german-name
+    attributes:
+      label: German name
+      description: Optionally enter the plugin name in German.
+    validations:
+      required: false
+  - type: textarea
+    id: german-description
+    attributes:
+      label: German description
+      description: Optionally describe the plugin in German.
+    validations:
+      required: false
+  - type: input
+    id: dutch-name
+    attributes:
+      label: Dutch name
+      description: Optionally enter the plugin name in Dutch.
+    validations:
+      required: false
+  - type: textarea
+    id: dutch-description
+    attributes:
+      label: Dutch description
+      description: Optionally describe the plugin in Dutch.
+    validations:
+      required: false
+  - type: input
+    id: hungarian-name
+    attributes:
+      label: Hungarian name
+      description: Optionally enter the plugin name in Hungarian.
+    validations:
+      required: false
+  - type: textarea
+    id: hungarian-description
+    attributes:
+      label: Hungarian description
+      description: Optionally describe the plugin in Hungarian.
+    validations:
+      required: false
+  - type: input
+    id: russian-name
+    attributes:
+      label: Russian name
+      description: Optionally enter the plugin name in Russian.
+    validations:
+      required: false
+  - type: textarea
+    id: russian-description
+    attributes:
+      label: Russian description
+      description: Optionally describe the plugin in Russian.
+    validations:
+      required: false
+  - type: input
+    id: french-name
+    attributes:
+      label: French name
+      description: Optionally enter the plugin name in French.
+    validations:
+      required: false
+  - type: textarea
+    id: french-description
+    attributes:
+      label: French description
+      description: Optionally describe the plugin in French.
+    validations:
+      required: false
+  - type: input
+    id: slovak-name
+    attributes:
+      label: Slovak name
+      description: Optionally enter the plugin name in Slovak.
+    validations:
+      required: false
+  - type: textarea
+    id: slovak-description
+    attributes:
+      label: Slovak description
+      description: Optionally describe the plugin in Slovak.
+    validations:
+      required: false
+  - type: input
+    id: romanian-name
+    attributes:
+      label: Romanian name
+      description: Optionally enter the plugin name in Romanian.
+    validations:
+      required: false
+  - type: textarea
+    id: romanian-description
+    attributes:
+      label: Romanian description
+      description: Optionally describe the plugin in Romanian.
+    validations:
+      required: false
+  - type: input
+    id: spanish-name
+    attributes:
+      label: Spanish name
+      description: Optionally enter the plugin name in Spanish.
+    validations:
+      required: false
+  - type: textarea
+    id: spanish-description
+    attributes:
+      label: Spanish description
+      description: Optionally describe the plugin in Spanish.
     validations:
       required: false
   - type: textarea
