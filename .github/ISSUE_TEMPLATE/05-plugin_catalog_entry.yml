@@ -1,0 +1,147 @@
+name: Suggest entry into Plugin catalog
+description: Suggest a plugin to add to the catalog or changes to an existing plugin entry.
+title: "Plugin catalog: "
+type: Plugin Catalog entry
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form to suggest a native Open Salamander plugin for the Plugin catalog or to update an existing entry.
+
+        Entries submitted through this form use `packageType: plugin`. English name and description are required; all other translations are optional.
+  - type: input
+    id: plugin-id
+    attributes:
+      label: Plugin ID
+      description: Provide the unique, stable catalog identifier using lowercase ASCII letters, digits, and hyphens where needed.
+      placeholder: example-plugin
+    validations:
+      required: true
+  - type: input
+    id: english-name
+    attributes:
+      label: English name
+      description: Enter the plugin name in English.
+      placeholder: Example Plugin
+    validations:
+      required: true
+  - type: input
+    id: author
+    attributes:
+      label: Author
+      description: Enter the plugin author or organization exactly as it should appear in the catalog.
+      placeholder: Author or organization name
+    validations:
+      required: true
+  - type: textarea
+    id: english-description
+    attributes:
+      label: English description
+      description: Briefly explain in English what the plugin does.
+      placeholder: Describe the plugin's purpose and main capabilities.
+    validations:
+      required: true
+  - type: input
+    id: latest-version
+    attributes:
+      label: Latest version
+      description: Enter the latest available version, including architecture when applicable.
+      placeholder: e.g. 1.0 (x64)
+    validations:
+      required: true
+  - type: input
+    id: version-scheme
+    attributes:
+      label: Version scheme
+      description: Specify how installed plugin versions should be detected and compared. Existing catalog entries use `fileversion`.
+      value: fileversion
+    validations:
+      required: true
+  - type: input
+    id: homepage-url
+    attributes:
+      label: Homepage URL
+      description: Link to the plugin homepage, source repository, or primary information page.
+      placeholder: https://example.com/plugin
+    validations:
+      required: true
+  - type: input
+    id: download-page-url
+    attributes:
+      label: Download page URL
+      description: Link directly to the current package or to a page where the supported plugin can be downloaded.
+      placeholder: https://example.com/plugin/download
+    validations:
+      required: true
+  - type: input
+    id: icon
+    attributes:
+      label: Icon
+      description: Use `plugin` to extract the installed `.spl` icon, or provide an absolute URL, catalog-relative URL, or catalog-local image path.
+      placeholder: plugin or https://example.com/plugin.png
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Optionally list catalog plugin IDs that must be installed with this plugin, one per line.
+      placeholder: |
+        dependency-one
+        dependency-two
+    validations:
+      required: false
+  - type: textarea
+    id: translations
+    attributes:
+      label: Other language translations
+      description: Optionally provide a translated name and/or description for any supported catalog language. Omit languages for which no translation is available.
+      placeholder: |
+        chinesesimplified:
+          name:
+          description:
+        czech:
+          name:
+          description:
+        german:
+          name:
+          description:
+        dutch:
+          name:
+          description:
+        hungarian:
+          name:
+          description:
+        russian:
+          name:
+          description:
+        french:
+          name:
+          description:
+        slovak:
+          name:
+          description:
+        romanian:
+          name:
+          description:
+        spanish:
+          name:
+          description:
+    validations:
+      required: false
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add compatibility notes, screenshots, licensing information, update details, or other context useful when reviewing the entry.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing catalog and issues and did not find an equivalent request.
+          required: true
+        - label: I verified that the homepage and download links are publicly accessible.
+          required: true
