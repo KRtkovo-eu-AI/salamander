@@ -1,0 +1,98 @@
+name: Bug report
+description: "Report incorrect or unexpected behavior observed in Open Salamander: Samandarin."
+title: "Bug: "
+type: Bug
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve Open Salamander: Samandarin.
+
+        Use this form for incorrect or unexpected behavior that you observed. If Open Salamander: Samandarin crashed, use the Crash report form instead. For ideas and new functionality, use the Feature request form.
+  - type: input
+    id: version
+    attributes:
+      label: "Open Salamander: Samandarin version"
+      description: Enter the version or build where you observed the problem.
+      placeholder: e.g. 4.0 beta, commit/build number
+    validations:
+      required: true
+  - type: input
+    id: windows-version
+    attributes:
+      label: Windows version
+      description: Include edition, architecture, and build if known.
+      placeholder: e.g. Windows 11 Pro 24H2 x64, build 26100
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Briefly describe the incorrect or unexpected behavior.
+      placeholder: What went wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the exact steps that lead to the problem. If it is not reliably reproducible, describe what you were doing when you observed it.
+      placeholder: |
+        1. Go to ...
+        2. Select ...
+        3. Press ...
+        4. The problem occurs
+    validations:
+      required: true
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual behavior
+      description: Describe what happened, including any error messages or visible symptoms.
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      description: Describe what you expected to happen instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: reproducibility
+    attributes:
+      label: Reproducibility
+      description: How consistently can you reproduce the problem?
+      options:
+        - Always
+        - Often
+        - Sometimes
+        - Once
+        - Unknown
+    validations:
+      required: true
+  - type: upload
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Add screenshots that help demonstrate the problem.
+    validations:
+      required: false
+      accept: ".png,.jpg,.jpeg,.gif,.svg,.webp"
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add screenshots, logs, sample files, paths safe to share, plugin names, file formats, or other relevant details.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing issues and did not find an equivalent bug report.
+          required: true

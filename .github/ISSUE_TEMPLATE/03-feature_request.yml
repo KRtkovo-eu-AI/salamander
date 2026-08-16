@@ -51,6 +51,14 @@ body:
         Example 2: ...
     validations:
       required: false
+  - type: upload
+    id: mockups
+    attributes:
+      label: Mockups
+      description: Add optional mockups or sketches that illustrate the proposed user interface or behavior.
+    validations:
+      required: false
+      accept: ".png,.jpg,.jpeg,.gif,.svg,.webp,.pdf"
   - type: textarea
     id: acceptance-criteria
     attributes:

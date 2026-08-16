@@ -1,6 +1,7 @@
 name: Crash report
 description: "Report an Open Salamander: Samandarin crash and attach a prepared crash archive only after reviewing it for sensitive data."
 title: "Crash: "
+type: Crash report
 labels:
   - bug
 body:
@@ -8,6 +9,8 @@ body:
     attributes:
       value: |
         Thank you for helping improve Open Salamander: Samandarin.
+
+        This form is intended primarily for crash reports opened by the built-in bug reporter. The bug reporter prepares a bug report and crash dump for this issue; attach the generated archive below.
 
         **Privacy warning:** crash report archives can contain sensitive data, including local file paths, names of opened files, loaded modules, registry/configuration details, and process memory from the time of the crash. Review the archive before attaching it to this public issue. If it contains sensitive information, do not attach it publicly; describe the crash and wait for a maintainer to suggest a private sharing method.
   - type: input
@@ -56,8 +59,8 @@ body:
   - type: textarea
     id: crash-archive
     attributes:
-      label: Crash report archive
-      description: The bug reporter opens the local report folder after preparing the archive. Attach the `.zip` file only if you reviewed it and are comfortable sharing it publicly.
+      label: Bug report and crash dump archive
+      description: The bug reporter opens the local report folder after preparing an archive containing the bug report and crash dump. Attach the `.zip` file only if you reviewed it and are comfortable sharing it publicly.
       placeholder: Attach the prepared .zip archive here, or explain why you cannot share it publicly.
     validations:
       required: false
