@@ -356,6 +356,9 @@ CMainWindow::CMainWindow()
     PanelTabCrossDragStoredInsertIndex = -1;
     PanelTabCrossDragStoredMarkItem = -1;
     PanelTabCrossDragStoredMarkFlags = 0;
+    PendingPanelTabContextCommand = 0;
+    PendingPanelTabContextTabId = 0;
+    PendingPanelTabContextSide = cpsLeft;
     HPanelTabDetachPreview = NULL;
     PanelTabMouseWheelAccumulator = 0;
     PanelTabMouseWheelSwitchTime = 0;
@@ -3159,13 +3162,27 @@ void CMainWindow::GetDetachedTabWindowRect(const POINT* dropPoint, CFilesWindow*
     RECT mainRect;
     GetWindowRect(HWindow, &mainRect);
     int width = max(320, (mainRect.right - mainRect.left) / 2);
-    if (sourcePanel != NULL && sourcePanel->HWindow != NULL)
+    CFilesWindow* geometryPanel = sourcePanel;
+    if (sourcePanel != NULL)
+    {
+        CFilesWindow* visibleSidePanel = sourcePanel->GetPanelSide() == cpsLeft ? LeftPanel : RightPanel;
+        if (visibleSidePanel != NULL && visibleSidePanel->HWindow != NULL &&
+            visibleSidePanel != sourcePanel)
+        {
+            // Hidden tabs keep the rectangle from the last time they were
+            // active.  Use the currently laid-out panel on the same side so a
+            // context-menu detach gets the same client size as an active-tab
+            // or drag detach.
+            geometryPanel = visibleSidePanel;
+        }
+    }
+    if (geometryPanel != NULL && geometryPanel->HWindow != NULL)
     {
         RECT panelRect;
         RECT hostRect;
         RECT hostClient;
-        HWND sourceHost = GetAncestor(sourcePanel->HWindow, GA_ROOT);
-        if (GetWindowRect(sourcePanel->HWindow, &panelRect) && sourceHost != NULL &&
+        HWND sourceHost = GetAncestor(geometryPanel->HWindow, GA_ROOT);
+        if (GetWindowRect(geometryPanel->HWindow, &panelRect) && sourceHost != NULL &&
             GetWindowRect(sourceHost, &hostRect) && GetClientRect(sourceHost, &hostClient))
         {
             // The detached top-level window has the same non-client frame as
@@ -3376,7 +3393,10 @@ BOOL CMainWindow::DetachPanelTab(CFilesWindow* panel, const POINT* dropPoint, BO
     if (tabs.Count > 0)
         replacement = tabs[min(index, tabs.Count - 1)];
     if (wasSideActive && replacement != NULL)
-        SwitchPanelTab(replacement);
+        // The detached window takes foreground below.  Populate the newly
+        // exposed source tab synchronously while it is still active, otherwise
+        // its posted refresh can be deferred until the next click.
+        SwitchPanelTab(replacement, false);
     else
         UpdatePanelTabVisibility(side);
 
@@ -3396,6 +3416,12 @@ BOOL CMainWindow::DetachPanelTab(CFilesWindow* panel, const POINT* dropPoint, BO
     DarkModeApplyTree(hDetachedWindow);
     RebuildDetachedTabToolbarImageLists((int)WinLibDPIGetWindowDPI(hDetachedWindow), hDetachedWindow);
     SendMessage(panel->HWindow, WM_DPICHANGED_AFTERPARENT, 0, 0);
+    // WM_DPICHANGED_AFTERPARENT refreshes children only when the DPI changed.
+    // A same-DPI detach still changes the owning top-level window and therefore
+    // its image lists.  Rebind the directory toolbar unconditionally so hidden
+    // tabs also restore Change Drive and the other dynamic button images.
+    if (panel->DirectoryLine != NULL)
+        panel->DirectoryLine->SetFont();
     // Reparenting a live panel invalidates its icon cache. During configuration
     // restore the saved path is opened only after the panel reaches this final
     // host, so an additional refresh here would enumerate an extension FS

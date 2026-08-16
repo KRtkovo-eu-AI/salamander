@@ -606,6 +606,9 @@ protected:
     int PanelTabCrossDragStoredInsertIndex;
     int PanelTabCrossDragStoredMarkItem;
     DWORD PanelTabCrossDragStoredMarkFlags;
+    UINT PendingPanelTabContextCommand;
+    ULONGLONG PendingPanelTabContextTabId;
+    CPanelSide PendingPanelTabContextSide;
     HWND HPanelTabDetachPreview;
 
 public:
@@ -645,7 +648,7 @@ public:
     BOOL MovePanelTab(ULONGLONG tabId, CPanelSide targetSide, int targetIndex);
     BOOL ClosePanelTabById(ULONGLONG tabId);
     bool InsertPanelTabInstance(CPanelSide side, int index, CFilesWindow* panel, bool preserveLockState);
-    void SwitchPanelTab(CFilesWindow* panel);
+    void SwitchPanelTab(CFilesWindow* panel, bool postRefreshMessage = true);
     void ClosePanelTab(CFilesWindow* panel, bool storeForReopen = true);
     void EnsurePanelAutomaticRefresh(CFilesWindow* panel);
     void EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuildDriveBars,

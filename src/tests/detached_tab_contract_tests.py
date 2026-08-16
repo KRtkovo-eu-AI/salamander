@@ -267,8 +267,18 @@ def main() -> None:
             "detached-tab preview cleanup")
     require(mainwnd1, "panelRect.right - panelRect.left + nonClientWidth",
             "detached window client width preserved from the dragged panel")
+    require(mainwnd1, "geometryPanel = visibleSidePanel;",
+            "inactive tab detach sized from the currently laid-out side")
     require(mainwnd1, "CreateDetachedTabWindow(this, panel, dropPoint)",
             "source panel geometry used by the real detached window")
+    require(mainwnd1, "panel->DirectoryLine->SetFont();",
+            "same-DPI inactive detach toolbar image-list rebinding")
+    require(mainwnd3, "case WM_USER_PANELTAB_CONTEXTCOMMAND:",
+            "tab context command deferred beyond NM_RCLICK")
+    require_before(mainwnd3,
+                   "if (!insideSalamander && index > 0 && panel != NULL && !panel->IsTabLocked())",
+                   "bool hadStoredTarget = usesCrossDragState",
+                   "current outside drop overrides a previously visited opposite tab bar")
 
     require(mainwnd3, "case CM_COPYFILES:", "copy operation guard")
     require(mainwnd3, "case CM_MOVEFILES:", "move operation guard")
