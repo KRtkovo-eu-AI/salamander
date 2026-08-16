@@ -1,0 +1,88 @@
+name: Feature request
+description: Suggest a new feature or an improvement to Open Salamander.
+title: "Feature request: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve Open Salamander.
+
+        Please describe the problem first and then the behavior you propose. Concrete examples and testable acceptance criteria make a request much easier to understand and implement.
+
+        If existing behavior is broken, please open a bug report instead. If Open Salamander crashed, use the crash report form.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Briefly describe the requested feature or improvement.
+      placeholder: What should Open Salamander make possible or do differently?
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation and current limitation
+      description: Explain the problem, who encounters it, and why the current behavior or workaround is insufficient.
+      placeholder: |
+        Today, when ...
+        This is a problem because ...
+        The current workaround is ...
+    validations:
+      required: true
+  - type: textarea
+    id: proposed-behavior
+    attributes:
+      label: Proposed behavior
+      description: Describe the desired user-visible behavior. Focus on what should happen rather than only on implementation details.
+      placeholder: |
+        When the user ..., Open Salamander should ...
+        Existing behavior for ... should remain unchanged.
+    validations:
+      required: true
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples and use cases
+      description: Add concrete scenarios, sample files or paths, keyboard actions, UI flows, or edge cases that clarify the request.
+      placeholder: |
+        Example 1: Given ..., when ..., then ...
+        Example 2: ...
+    validations:
+      required: false
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: List observable conditions that would show the feature is complete and existing behavior has not regressed.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+        - [ ] Existing ... continues to work.
+    validations:
+      required: true
+  - type: textarea
+    id: benefits
+    attributes:
+      label: Benefits
+      description: Summarize the practical benefits for users and, where relevant, any compatibility or safety improvements.
+      placeholder: |
+        - ...
+        - ...
+    validations:
+      required: false
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add alternatives, implementation ideas, screenshots, mockups, related issues, forum discussions, or documentation links.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing issues and did not find an equivalent feature request.
+          required: true
