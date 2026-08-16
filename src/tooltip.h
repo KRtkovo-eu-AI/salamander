@@ -58,6 +58,7 @@ protected:
     UINT_PTR TimerID; // vracene ze SetTimer, potrebujeme pro KillTimer
     HFONT WindowFont; // font matching the monitor of the tooltip owner
     UINT WindowDPI;
+    BOOL CompactPanelToolTip;
 
 public:
     CToolTip(CObjectOrigin origin = ooStatic);
@@ -84,6 +85,7 @@ public:
     // pokud je roven 0, pouzije se implicitni prodleva
     // pokud je -1, casovac se vubec nenastartuje
     void SetCurrentToolTip(HWND hNotifyWindow, DWORD id, int showDelay);
+    void SetCurrentPanelToolTip(HWND hNotifyWindow, DWORD id, int showDelay);
 
     // potlaci zobrazeni tooltipu na aktualnich souradnicich mysi
     // uzitecne volat pri aktivaci okna, ve kterem se tooltipy pouzivaji
@@ -105,8 +107,9 @@ protected:
 
     BOOL GetText();
     void GetNeededWindowSize(SIZE* sz);
-    BOOL UpdateFontForDPI(UINT dpi);
+    BOOL UpdateFontForDPI(UINT dpi, BOOL compactPanelToolTip);
     BOOL UpdateFontForWindow(HWND hWindow);
+    void SetCurrentToolTipInternal(HWND hNotifyWindow, DWORD id, int showDelay, BOOL compactPanelToolTip);
 
     void MessageLoop(); // pro modalni variantu tooltipu
 

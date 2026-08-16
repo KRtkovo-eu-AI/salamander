@@ -1020,6 +1020,7 @@ BOOL DirExists(const char* dirName);
 
 // tool tip
 void SetCurrentToolTip(HWND hNotifyWindow, DWORD id, int showDelay = 0); // popis v tooltip.h
+void SetCurrentPanelToolTip(HWND hNotifyWindow, DWORD id, int showDelay = 0);
 void SuppressToolTipOnCurrentMousePos();                                 // popis v tooltip.h
 
 // zajisti skoky kurzoru pri Ctrl+Left/Right po zpetnych lomitkach a mezerach

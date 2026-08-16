@@ -48,6 +48,12 @@ void SetCurrentToolTip(HWND hNotifyWindow, DWORD id, int showDelay)
         MainWindow->ToolTip->SetCurrentToolTip(hNotifyWindow, id, showDelay);
 }
 
+void SetCurrentPanelToolTip(HWND hNotifyWindow, DWORD id, int showDelay)
+{
+    if (MainWindow != NULL && MainWindow->ToolTip != NULL)
+        MainWindow->ToolTip->SetCurrentPanelToolTip(hNotifyWindow, id, showDelay);
+}
+
 void SuppressToolTipOnCurrentMousePos()
 {
     if (MainWindow != NULL && MainWindow->ToolTip != NULL)
