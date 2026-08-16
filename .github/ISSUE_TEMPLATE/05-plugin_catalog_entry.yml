@@ -50,14 +50,6 @@ body:
     validations:
       required: true
   - type: input
-    id: version-scheme
-    attributes:
-      label: Version scheme
-      description: Specify how installed plugin versions should be detected and compared. Existing catalog entries use `fileversion`.
-      value: fileversion
-    validations:
-      required: true
-  - type: input
     id: homepage-url
     attributes:
       label: Homepage URL
