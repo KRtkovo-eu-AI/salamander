@@ -55,6 +55,20 @@ def main() -> None:
         "PostMessage(HWindow, WM_SIZE, SIZE_RESTORED",
         "deferred size recovery retained on the fast path",
     )
+    if "EnableNonClientDpiScaling" in mainwnd3:
+        raise AssertionError("PMv2 main window must not enable legacy non-client DPI scaling")
+    if "SetDWMTransitionsForInteractiveMove" in mainwnd3:
+        raise AssertionError("main-window dragging must not toggle unrelated DWM transitions")
+    require(
+        fast_path,
+        "FlushDWMForInteractiveMove();",
+        "compositor synchronization for position-only drag",
+    )
+    require(
+        fast_path,
+        "(windowPos->flags & SWP_NOSIZE) != 0",
+        "DWM synchronization limited to position-only changes",
+    )
 
     print("Main-window move contract tests passed.")
 

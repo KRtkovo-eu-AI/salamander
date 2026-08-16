@@ -3808,6 +3808,24 @@ static int MainWindowContentDPI = 0;
 static int InitialSessionDPI = 0;
 static BOOL DPIChangePromptShown = FALSE;
 
+static BOOL DWMInteractiveMoveActive = FALSE;
+
+static void FlushDWMForInteractiveMove()
+{
+    typedef HRESULT(WINAPI * FDwmFlush)();
+    static FDwmFlush dwmFlush = NULL;
+    static BOOL loaded = FALSE;
+    if (!loaded)
+    {
+        HMODULE dwmApi = GetModuleHandleW(L"dwmapi.dll");
+        if (dwmApi != NULL)
+            dwmFlush = reinterpret_cast<FDwmFlush>(GetProcAddress(dwmApi, "DwmFlush"));
+        loaded = TRUE;
+    }
+    if (dwmFlush != NULL)
+        dwmFlush();
+}
+
 void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
 {
     if (DPIRefreshInProgress)
@@ -3916,22 +3934,6 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
     DPIRefreshInProgress = FALSE;
 }
 
-
-static void EnableNonClientDPIScalingIfAvailable(HWND hWindow)
-{
-    typedef BOOL(WINAPI * FEnableNonClientDpiScaling)(HWND hwnd);
-    static FEnableNonClientDpiScaling enableNonClientDpiScaling = NULL;
-    static BOOL loaded = FALSE;
-    if (!loaded)
-    {
-        HMODULE user32 = GetModuleHandle("user32.dll");
-        if (user32 != NULL)
-            enableNonClientDpiScaling = (FEnableNonClientDpiScaling)GetProcAddress(user32, "EnableNonClientDpiScaling");
-        loaded = TRUE;
-    }
-    if (enableNonClientDpiScaling != NULL)
-        enableNonClientDpiScaling(hWindow);
-}
 
 static BOOL RegisterSessionNotification(HWND hWindow)
 {
@@ -4167,6 +4169,13 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // first posted a redundant second full-window layout at startup.
         LRESULT result = CWindow::WindowProc(uMsg, wParam, lParam);
 
+        const WINDOWPOS* windowPos = reinterpret_cast<const WINDOWPOS*>(lParam);
+        if (DPIInSizeMove && windowPos != NULL && (windowPos->flags & SWP_NOSIZE) != 0)
+        {
+            FlushDWMForInteractiveMove();
+            DWMInteractiveMoveActive = TRUE;
+        }
+
         // Some detach/reattach paths move tab HWNDs between top-level hosts while Windows
         // is also changing activation/z-order.  If the following maximize/resize does not
         // deliver a usable WM_SIZE, the chrome and panel children keep their old rectangle
@@ -4324,12 +4333,6 @@ CMainWindow::WindowProcImpl(UINT uMsg, WPARAM wParam, LPARAM lParam)
             call->Callback == NULL)
             return 0;
         return call->Callback(call->Context) ? 1 : 0;
-    }
-
-    case WM_NCCREATE:
-    {
-        EnableNonClientDPIScalingIfAvailable(HWindow);
-        break;
     }
 
     case WM_CREATE:
@@ -4654,6 +4657,11 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
     case WM_EXITSIZEMOVE:
     {
+        if (DWMInteractiveMoveActive)
+        {
+            FlushDWMForInteractiveMove();
+            DWMInteractiveMoveActive = FALSE;
+        }
         DPIInSizeMove = FALSE;
         if (DPIRefreshDeferredForSizeMove && PendingDPI > 0 && !DPIRefreshPosted)
         {
