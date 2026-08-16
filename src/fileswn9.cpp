@@ -1706,7 +1706,7 @@ BOOL CFilesWindow::OnMouseMove(WPARAM wParam, LPARAM lParam, LRESULT* lResult)
                     index = -1;
             }
         }
-        SetCurrentToolTip(index >= 0 ? GetListBoxHWND() : NULL, index >= 0 ? (DWORD)index + 1 : 0);
+        SetCurrentPanelToolTip(index >= 0 ? GetListBoxHWND() : NULL, index >= 0 ? (DWORD)index + 1 : 0);
     }
 
     if (Configuration.SingleClick)

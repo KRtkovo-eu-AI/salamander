@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   report:
-    name: Source growth against latest Samandarin release
+    name: Source growth against latest release and PR base
     runs-on: windows-2022
     timeout-minutes: 10
 
@@ -39,6 +39,10 @@ jobs:
         run: |
           git remote add canonical "https://github.com/${{ github.repository }}.git"
           git fetch canonical 'refs/tags/5.0-samandarin-*:refs/tags/5.0-samandarin-*'
+
+      - name: Fetch canonical pull request base commit
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: git fetch canonical '${{ github.event.pull_request.base.sha }}'
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -62,17 +66,40 @@ jobs:
           $delta = [int]$report.comparison.summary.deltaNloc
           "title=$('{0:+#,#;-#,#;0} NLOC' -f $delta)" | Add-Content -Path $env:GITHUB_OUTPUT
 
+      - name: Generate pull request source code growth report
+        if: github.event_name == 'pull_request'
+        id: pr_report
+        run: |
+          New-Item -ItemType Directory -Force -Path code-growth-pr-report | Out-Null
+          python tools/code_metrics/report_code_growth.py `
+            --repository-root . `
+            --baseline-commit '${{ github.event.pull_request.base.sha }}' `
+            --baseline-label 'base branch: ${{ github.event.pull_request.base.ref }}' `
+            --current-label 'PR head: ${{ github.event.pull_request.head.sha }}' `
+            --output-json code-growth-pr-report/report.json `
+            --output-markdown code-growth-pr-report/report.md
+          "## Pull request source code growth" | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+          Get-Content code-growth-pr-report/report.md | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+          $report = Get-Content code-growth-pr-report/report.json -Raw | ConvertFrom-Json
+          $delta = [int]$report.comparison.summary.deltaNloc
+          "title=$('{0:+#,#;-#,#;0} NLOC in PR' -f $delta)" | Add-Content -Path $env:GITHUB_OUTPUT
+
       - name: Show source growth summary on the PR check
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         env:
           GH_TOKEN: ${{ github.token }}
           CHECK_RUN_ID: ${{ job.check_run_id }}
           REPORT_TITLE: ${{ steps.report.outputs.title }}
+          PR_REPORT_TITLE: ${{ steps.pr_report.outputs.title }}
         run: |
           $summary = Get-Content code-growth-report/report.md -Raw
+          if (Test-Path code-growth-pr-report/report.md) {
+            $summary += "`n`n---`n`n## Pull request source code growth`n`n"
+            $summary += Get-Content code-growth-pr-report/report.md -Raw
+          }
           @{
             output = @{
-              title = $env:REPORT_TITLE
+              title = if ($env:PR_REPORT_TITLE) { "$env:REPORT_TITLE; $env:PR_REPORT_TITLE" } else { $env:REPORT_TITLE }
               summary = $summary
             }
           } |
@@ -132,10 +159,69 @@ jobs:
               core.info(`Published source growth report: ${created.data.html_url}`);
             }
 
+      - name: Publish pull request source growth report
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/github-script@v7
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPORT_PATH: code-growth-pr-report/report.md
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- source-code-growth-pr-report -->';
+            const report = fs.readFileSync(process.env.REPORT_PATH, 'utf8').trim();
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const footer = `\n\n---\n<sub>Compared with base branch \`${process.env.BASE_REF}\` at \`${process.env.BASE_SHA}\`; updated for \`${process.env.HEAD_SHA}\`. [Open workflow run](${runUrl}).</sub>`;
+            const body = `${marker}\n${report}${footer}`;
+
+            if (body.length > 65000) {
+              core.setFailed(`PR source growth report is too large for a PR comment (${body.length} characters).`);
+              return;
+            }
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const existing = comments.find(
+              (comment) => comment.user?.type === 'Bot' && comment.body?.includes(marker),
+            );
+
+            if (existing) {
+              const updated = await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+              core.info(`Updated PR source growth report: ${updated.data.html_url}`);
+            } else {
+              const created = await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+              core.info(`Published PR source growth report: ${created.data.html_url}`);
+            }
+
       - name: Upload source growth report
         uses: actions/upload-artifact@v4
         with:
           name: source-code-growth-report
           path: code-growth-report/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload pull request source growth report
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-code-growth-pr-report
+          path: code-growth-pr-report/*
           if-no-files-found: error
           retention-days: 14

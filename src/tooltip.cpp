@@ -36,6 +36,7 @@ CToolTip::CToolTip(CObjectOrigin origin)
     TimerID = 0;
     WindowFont = NULL;
     WindowDPI = 0;
+    CompactPanelToolTip = FALSE;
 
     LastCursorPos.x = -1;
     LastCursorPos.y = -1;
@@ -321,12 +322,41 @@ void CToolTip::GetNeededWindowSize(SIZE* sz)
     HDC hDC = HANDLES(GetDC(HWindow));
     HFONT hFont = WindowFont != NULL ? WindowFont : TooltipFont;
     HFONT hOldFont = (HFONT)SelectObject(hDC, hFont);
-    RECT tR;
-    tR.left = 0;
-    tR.top = 0;
-    tR.right = 0;
-    tR.bottom = 0;
-    DrawText(hDC, Text, TextLen, &tR, DT_CALCRECT | DT_LEFT | DT_NOPREFIX | DT_EXPANDTABS);
+    RECT tR = {0, 0, 0, 0};
+    if (!CompactPanelToolTip)
+    {
+        DrawText(hDC, Text, TextLen, &tR, DT_CALCRECT | DT_LEFT | DT_NOPREFIX | DT_EXPANDTABS);
+    }
+    else
+    {
+        TEXTMETRIC tm;
+        GetTextMetrics(hDC, &tm);
+        UINT dpi = WindowDPI != 0 ? WindowDPI : USER_DEFAULT_SCREEN_DPI;
+        int lineStep = max(1, tm.tmHeight - MulDiv(1, (int)dpi, USER_DEFAULT_SCREEN_DPI));
+        int lineCount = 0;
+        int lineStart = 0;
+        while (lineStart <= TextLen)
+        {
+            int lineEnd = lineStart;
+            while (lineEnd < TextLen && Text[lineEnd] != '\n')
+                ++lineEnd;
+
+            int measuredEnd = lineEnd;
+            if (measuredEnd > lineStart && Text[measuredEnd - 1] == '\r')
+                --measuredEnd;
+
+            RECT lineRect = {0, 0, 0, 0};
+            DrawText(hDC, Text + lineStart, measuredEnd - lineStart, &lineRect,
+                     DT_CALCRECT | DT_SINGLELINE | DT_LEFT | DT_NOPREFIX | DT_EXPANDTABS);
+            tR.right = max(tR.right, lineRect.right);
+            ++lineCount;
+
+            if (lineEnd == TextLen)
+                break;
+            lineStart = lineEnd + 1;
+        }
+        tR.bottom = lineCount > 0 ? tm.tmHeight + (lineCount - 1) * lineStep : 0;
+    }
     SelectObject(hDC, hOldFont);
     HANDLES(ReleaseDC(HWindow, hDC));
     sz->cx = tR.right - tR.left;
@@ -336,29 +366,38 @@ void CToolTip::GetNeededWindowSize(SIZE* sz)
     sz->cy += MulDiv(2 + 2, (int)dpi, USER_DEFAULT_SCREEN_DPI);
 }
 
-BOOL CToolTip::UpdateFontForDPI(UINT dpi)
+BOOL CToolTip::UpdateFontForDPI(UINT dpi, BOOL compactPanelToolTip)
 {
     if (dpi == 0)
         dpi = USER_DEFAULT_SCREEN_DPI;
-    if (WindowFont != NULL && WindowDPI == dpi)
+    if (WindowFont != NULL && WindowDPI == dpi && CompactPanelToolTip == compactPanelToolTip)
         return TRUE;
 
     LOGFONT lf;
-    HFONT font = WinLibDPIGetStatusLogFontForDPI(dpi, &lf)
-                     ? HANDLES(CreateFontIndirect(&lf))
-                     : NULL;
+    HFONT font = NULL;
+    if (WinLibDPIGetStatusLogFontForDPI(dpi, &lf))
+    {
+        if (compactPanelToolTip && lf.lfHeight != 0)
+        {
+            int reduction = max(1, (int)((dpi + 36) / 72));
+            int height = max(1, abs(lf.lfHeight) - reduction);
+            lf.lfHeight = lf.lfHeight < 0 ? -height : height;
+        }
+        font = HANDLES(CreateFontIndirect(&lf));
+    }
     if (font == NULL)
         return FALSE;
     if (WindowFont != NULL)
         HANDLES(DeleteObject(WindowFont));
     WindowFont = font;
     WindowDPI = dpi;
+    CompactPanelToolTip = compactPanelToolTip;
     return TRUE;
 }
 
 BOOL CToolTip::UpdateFontForWindow(HWND hWindow)
 {
-    return UpdateFontForDPI(WinLibDPIGetWindowDPI(hWindow));
+    return UpdateFontForDPI(WinLibDPIGetWindowDPI(hWindow), CompactPanelToolTip);
 }
 
 BOOL CToolTip::Show(int x, int y, BOOL considerCursor, BOOL modal, HWND hParent)
@@ -456,9 +495,22 @@ void CToolTip::MyKillTimer()
 
 void CToolTip::SetCurrentToolTip(HWND hNotifyWindow, DWORD id, int showDelay)
 {
+    SetCurrentToolTipInternal(hNotifyWindow, id, showDelay, FALSE);
+}
+
+void CToolTip::SetCurrentPanelToolTip(HWND hNotifyWindow, DWORD id, int showDelay)
+{
+    SetCurrentToolTipInternal(hNotifyWindow, id, showDelay, TRUE);
+}
+
+void CToolTip::SetCurrentToolTipInternal(HWND hNotifyWindow, DWORD id, int showDelay,
+                                         BOOL compactPanelToolTip)
+{
     CALL_STACK_MESSAGE2("CToolTip::SetCurrentToolTip(, 0x%X)", id);
     if (IsModal)
         return; // behem modalniho tooltipu nebereme toto volani
+
+    CompactPanelToolTip = compactPanelToolTip;
 
     HWND hOldNotifyWindow = HNotifyWindow;
     HNotifyWindow = hNotifyWindow;
@@ -649,7 +701,7 @@ CToolTip::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_DPICHANGED:
     {
         UINT dpi = HIWORD(wParam);
-        UpdateFontForDPI(dpi);
+        UpdateFontForDPI(dpi, CompactPanelToolTip);
         SIZE sz;
         GetNeededWindowSize(&sz);
         int x = 0;
@@ -702,7 +754,39 @@ CToolTip::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         UINT dpi = WindowDPI != 0 ? WindowDPI : USER_DEFAULT_SCREEN_DPI;
         r.left += MulDiv(2, (int)dpi, USER_DEFAULT_SCREEN_DPI);
         r.top += MulDiv(1, (int)dpi, USER_DEFAULT_SCREEN_DPI);
-        DrawText(hDC, Text, TextLen, &r, DT_LEFT | DT_NOPREFIX | DT_NOCLIP | DT_EXPANDTABS);
+        if (!CompactPanelToolTip)
+        {
+            DrawText(hDC, Text, TextLen, &r, DT_LEFT | DT_NOPREFIX | DT_NOCLIP | DT_EXPANDTABS);
+        }
+        else
+        {
+            TEXTMETRIC tm;
+            GetTextMetrics(hDC, &tm);
+            int lineStep = max(1, tm.tmHeight - MulDiv(1, (int)dpi, USER_DEFAULT_SCREEN_DPI));
+            int lineStart = 0;
+            int lineNumber = 0;
+            while (lineStart <= TextLen)
+            {
+                int lineEnd = lineStart;
+                while (lineEnd < TextLen && Text[lineEnd] != '\n')
+                    ++lineEnd;
+
+                int measuredEnd = lineEnd;
+                if (measuredEnd > lineStart && Text[measuredEnd - 1] == '\r')
+                    --measuredEnd;
+
+                RECT lineRect = r;
+                lineRect.top += lineNumber * lineStep;
+                lineRect.bottom = lineRect.top + tm.tmHeight;
+                DrawText(hDC, Text + lineStart, measuredEnd - lineStart, &lineRect,
+                         DT_SINGLELINE | DT_LEFT | DT_NOPREFIX | DT_NOCLIP | DT_EXPANDTABS);
+                ++lineNumber;
+
+                if (lineEnd == TextLen)
+                    break;
+                lineStart = lineEnd + 1;
+            }
+        }
         SetBkMode(hDC, oldBkMode);
         SetTextColor(hDC, oldTextColor);
         SelectObject(hDC, hOldFont);

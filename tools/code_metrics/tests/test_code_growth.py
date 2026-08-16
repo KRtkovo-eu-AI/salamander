@@ -144,6 +144,44 @@ def test_release_report_allows_explicit_initial_non_release_tag(tmp_path: Path) 
     assert "Current: **5.0-samandarin-0.1**" in rendered
 
 
+def test_report_compares_to_explicit_pull_request_base_without_release_tags(tmp_path: Path) -> None:
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    create_repository(repository)
+    source = repository / "src" / "main.cpp"
+    source.parent.mkdir()
+    source.write_text("int Small() { return 1; }\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repository), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(repository), "commit", "-q", "-m", "base"], check=True)
+    base_commit = git(repository, "rev-parse", "HEAD")
+
+    source.write_text("int Small() { return 1; }\nint Larger() { return 2; }\n", encoding="utf-8")
+    output_json = tmp_path / "report.json"
+    output_markdown = tmp_path / "report.md"
+    subprocess.run(
+        [
+            sys.executable,
+            str(REPORT),
+            "--repository-root", str(repository),
+            "--baseline-commit", base_commit,
+            "--baseline-label", "PR base branch",
+            "--current-label", "PR head",
+            "--output-json", str(output_json),
+            "--output-markdown", str(output_markdown),
+        ],
+        check=True,
+    )
+
+    report = json.loads(output_json.read_text(encoding="utf-8"))
+    assert report["baseline"] == {
+        "tag": "PR base branch",
+        "version": "",
+        "commit": base_commit,
+    }
+    assert report["comparison"]["summary"]["deltaNloc"] > 0
+    assert "Baseline: **PR base branch**" in output_markdown.read_text(encoding="utf-8")
+
+
 def test_workflow_is_source_only_and_pr_build_calls_codeql_after_success() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     pr_build = PR_BUILD.read_text(encoding="utf-8")
@@ -151,6 +189,9 @@ def test_workflow_is_source_only_and_pr_build_calls_codeql_after_success() -> No
     assert "report_code_growth.py" in workflow
     assert "lizard==1.23.0" in workflow
     assert "<!-- source-code-growth-report -->" in workflow
+    assert "<!-- source-code-growth-pr-report -->" in workflow
+    assert "--baseline-commit" in workflow
+    assert "github.event.pull_request.base.sha" in workflow
     assert "github.rest.issues.createComment" in workflow
     assert "github.rest.issues.updateComment" in workflow
     assert "pull-requests: write" in workflow
