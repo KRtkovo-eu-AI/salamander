@@ -185,7 +185,7 @@ void MultiMonCenterWindow(HWND hWindow, HWND hByWnd, BOOL findTopWindow)
 // CMainDialog
 //
 
-const char* CRASH_REPORT_ISSUE_URL = "https://github.com/KRtkovo-eu-AI/salamander/issues/new?template=crash_report.yml";
+const char* CRASH_REPORT_ISSUE_URL = "https://github.com/KRtkovo-eu-AI/salamander/issues/new?template=01-crash_report.yml";
 
 HINSTANCE OpenCrashReportIssue(HWND hParent)
 {
