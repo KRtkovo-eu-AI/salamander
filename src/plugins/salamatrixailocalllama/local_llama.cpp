@@ -327,6 +327,7 @@ static void ShowConfiguration(HWND parent)
     Salamatrix::UI::ControlOptions closeOptions;
     closeOptions.Id = "close";
     closeOptions.Text = LoadLocalLlamaString(IDS_LLAMA_CLOSE);
+    closeOptions.DialogResult = IDCANCEL;
     Salamatrix::UI::ControlLayout closeLayout;
     closeLayout.HasBounds = TRUE;
     closeLayout.X = 290; closeLayout.Y = 98; closeLayout.Width = 62; closeLayout.Height = 16;

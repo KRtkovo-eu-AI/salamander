@@ -1148,6 +1148,11 @@ def main() -> int:
         r'control->KeepOpen \|\| control->DialogResult == 0',
         "zero-result action buttons do not remain open for the legacy Automation facade")
     require(
+        local_llama,
+        r'closeOptions\.Id = "close";.*?'
+        r'closeOptions\.DialogResult = IDCANCEL;',
+        "Local Llama configuration Close button does not close its modal dialog")
+    require(
         packages,
         r'interactiveModalCall.*?salamander\.ui\.dialog\.show.*?'
         r'salamander\.ui\.controls.*?salamander\.ui\.messageBox.*?'
