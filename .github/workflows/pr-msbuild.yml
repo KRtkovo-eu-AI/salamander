@@ -194,6 +194,7 @@ jobs:
               if ($env:BUILD_SFTP_PLUGIN -ne 'true' -and $owner.Name -in @('sftp', 'lang_sftp')) { continue }
               if ('${{ matrix.platform }}' -in @('x64', 'ARM64') -and $owner.Name -in @('salextx86', 'zip2sfx')) { continue }
               if ('${{ matrix.platform }}' -eq 'Win32' -and $owner.Name -eq 'salextx64') { continue }
+              if ('${{ matrix.platform }}' -ne 'x64' -and $owner.Name -eq 'HardwareWrapper') { continue }
               if (-not ($selected | Where-Object { $_.Path -eq $owner.Path })) {
                 $selected.Add($owner)
               }

@@ -67,6 +67,14 @@ pentru punerea la dispoziție a muncii lor.
 | Juraj Rojko | Plugin Windows Mobile | Include software scris de Juraj Rojko. Copyright (C) 2003-2026 Juraj Rojko. |
 | Microsoft .NET Framework 4.8 | Plugin Samandarin Update Notifier | Furnizat de Microsoft Corporation sub termenii licenței Microsoft .NET Framework. |
 
+## Extensia Monitor de hardware
+
+| Component | Utilizat în | Note despre atribuire și licență |
+| --- | --- | --- |
+| HardView | Extensia Monitor de hardware | Bibliotecă pod C++/CLI pentru monitorizarea hardware-ului. Copyright (c) 2025 gafoo. Licențiat sub MIT License. Sursă: [gafoo173/HardView](https://github.com/gafoo173/HardView). |
+| LibreHardwareMonitorLib 0.9.6.0 | Extensia Monitor de hardware | Bibliotecă .NET de monitorizare a hardware-ului. LibreHardwareMonitorLib este licențiată sub GNU General Public License v3.0. Sursă: [LibreHardwareMonitor/LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor). |
+| HidSharp 2.6.4.0 | Extensia Monitor de hardware | Bibliotecă de acces la dispozitive HID, dependență tranzitivă a LibreHardwareMonitorLib. Copyright (C) 2010 James F. Bellinger. Licențiată sub GNU Lesser General Public License v3.0. |
+
 ## Interfața cu utilizatorul, documentația și redarea Markdown
 
 | Component sau contribuție | Utilizat pentru | Note despre atribuire și licență |

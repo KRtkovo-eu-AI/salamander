@@ -246,3 +246,15 @@ __pycache__/
 *.py[cod]
 
 plugin-packages-x64/
+
+src/vcxproj/packages/
+
+src/vcxproj/obj/
+
+src/vcxproj/x64/Release clean/
+
+src/extensions/hardware-monitor/hardview-lib/HardwareWrapper/x64/Release clean/
+
+src/extensions/hardware-monitor/hardview-lib/HardwareWrapper/HardwareWrapper/x64/
+
+src/extensions/hardware-monitor/hardview-lib/HardwareWrapper/x64/

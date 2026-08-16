@@ -1,0 +1,58 @@
+{
+  "schema": 2,
+  "id": "OpenSalamander.HardwareMonitor",
+  "name": "Hardware Monitor",
+  "version": "1.0.0",
+  "description": "Displays detailed hardware information, sensor readings, and system utilization in a Salamander file-system panel, similar to AIDA64.",
+  "runtime": "PowerShell",
+  "entryPoint": "main.ps1",
+  "icon": "icon.svg",
+  "iconDark": "icon-dark.svg",
+  "capabilities": ["file-system", "panels.write", "ui.dialogs"],
+  "commands": [{
+    "id": "OpenSalamander.HardwareMonitor.open",
+    "title": "Open Hardware Monitor",
+    "path": "salamatrix:OpenSalamander.HardwareMonitor!hardware-info",
+    "menu": "none",
+    "toolbar": true,
+    "icon": "icon.svg",
+    "iconDark": "icon-dark.svg",
+    "requires": "any"
+  }],
+  "locales": {
+    "en": "locales/en.json",
+    "cs": "locales/cs.json",
+    "de": "locales/de.json",
+    "es": "locales/es.json",
+    "fr": "locales/fr.json",
+    "hu": "locales/hu.json",
+    "nl": "locales/nl.json",
+    "ro": "locales/ro.json",
+    "ru": "locales/ru.json",
+    "sk": "locales/sk.json",
+    "zh-CN": "locales/zh-CN.json"
+  },
+  "fileSystems": [{
+    "id": "hardware-info",
+    "name": "Hardware Monitor",
+    "listHandler": "listHardware",
+    "icon": "icon.svg",
+    "iconDark": "icon-dark.svg",
+    "defaultFileIcon": "default.ico",
+    "refreshIntervalMs": 5000,
+    "refreshDepth": 2,
+    "rootItems": [
+      {"id": "cpu", "name": "CPU", "icon": "icons/cpu.svg", "iconDark": "icons/cpu-dark.svg"},
+      {"id": "gpu", "name": "GPU", "icon": "icons/gpu.svg", "iconDark": "icons/gpu-dark.svg"},
+      {"id": "memory", "name": "Memory", "icon": "icons/memory.svg", "iconDark": "icons/memory-dark.svg"},
+      {"id": "motherboard", "name": "Motherboard", "icon": "icons/motherboard.svg", "iconDark": "icons/motherboard-dark.svg"},
+      {"id": "network", "name": "Network", "icon": "icons/network.svg", "iconDark": "icons/network-dark.svg"},
+      {"id": "sensors", "name": "Sensors", "icon": "icons/sensors.svg", "iconDark": "icons/sensors-dark.svg"},
+      {"id": "storage", "name": "Storage", "icon": "icons/storage.svg", "iconDark": "icons/storage-dark.svg"}
+    ],
+    "columns": [
+      {"id": "property", "name": "Field", "description": "Property or sensor name", "width": 280},
+      {"id": "value", "name": "Value", "description": "Property value or sensor reading", "width": 320}
+    ]
+  }]
+}

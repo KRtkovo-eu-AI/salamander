@@ -71,6 +71,9 @@ def main() -> int:
     native_test_runner = read("tools/run_native_tests.ps1")
     pr_tests_workflow = read(".github/workflows/pr-tests.yml")
     pr_test_report_workflow = read(".github/workflows/pr-test-report.yml")
+    pr_msbuild_workflow = read(".github/workflows/pr-msbuild.yml")
+    hardware_wrapper_project = read(
+        "src/extensions/hardware-monitor/hardview-lib/HardwareWrapper/HardwareWrapper.vcxproj")
     runtime_protocol = read("src/plugins/salamatrix/salamatrix_runtime_protocol.h")
     ai_rc2 = read("src/plugins/salamatrixai/salamatrixai.rc2")
     automation_header = read("src/plugins/automation/automationplug.h")
@@ -177,6 +180,9 @@ def main() -> int:
     process_explorer = read("src/extensions/process-explorer/main.ps1")
     process_explorer_manifest = json.loads(
         read("src/extensions/process-explorer/extension.json"))
+    hardware_monitor = read("src/extensions/hardware-monitor/main.ps1")
+    hardware_monitor_manifest = json.loads(
+        read("src/extensions/hardware-monitor/extension.json"))
     menu_builder = read("src/extensions/extension-menu-builder/main.ps1")
     menu_builder_manifest = json.loads(
         read("src/extensions/extension-menu-builder/extension.json"))
@@ -978,9 +984,9 @@ def main() -> int:
         "flat FS does not expose up-directory, breadcrumb and title path services")
     require(
         packages,
-        r'if \(isDir == 2\).*?ChangePanelPathToPluginFS\(.*?"".*?'
+        r'if \(isDir == 2\).*?GetParentPath\(\).*?ChangePanelPathToPluginFS\(.*?'
         r'SalamatrixFileSystemItemData\* data',
-        "flat FS rejects the native up-directory item before navigating")
+        "hierarchical FS does not navigate the native up-directory item to its parent")
     require(ui_contract + salamatrix_ui + salamatrix_runtime + packages,
             r'SALAMATRIX_UI_VERSION_1_4.*?'
             r'ShowControlsShowcase.*?ShowNativeControlsShowcase.*?'
@@ -2062,6 +2068,80 @@ def main() -> int:
         r"Copy SourceFiles=\"@\(ProcessExplorerFiles\)\".*?"
         r"extensions\\process-explorer",
         "Salamatrix build does not stage Process Explorer")
+    if "panels.write" not in hardware_monitor_manifest.get("capabilities", []):
+        raise AssertionError(
+            "Hardware Monitor toolbar path command cannot change the active panel")
+    if hardware_monitor_manifest["fileSystems"][0].get("openHandler"):
+        raise AssertionError(
+            "Hardware Monitor incorrectly uses an action handler to list a directory")
+    require(
+        hardware_monitor,
+        r"invocation\.path.*?categoryId.*?viewId.*?file_system\.AddItems",
+        "Hardware Monitor does not list category contents from its FS path")
+    if "param([hashtable]$Strings)" in hardware_monitor:
+        raise AssertionError(
+            "Hardware Monitor rejects ConvertFrom-Json localization objects")
+    require(
+        hardware_monitor,
+        r"Win32_PhysicalMemoryArray.*?MemoryDevices.*?"
+        r"mem-slots-used.*?mem-slots-free.*?ConfiguredClockSpeed",
+        "Hardware Monitor does not expose occupied and free RAM slots")
+    require(
+        hardware_monitor,
+        r"pagefile-\$i.*?slotName.*?-replace '\[\\\\/\]'.*?"
+        r"'cpu'.*?viewId -eq 'usage'.*?Get-CpuUsageInfo.*?"
+        r"'memory'.*?viewId -eq 'usage'.*?Get-PhysicalMemoryInfo",
+        "Hardware Monitor does not expose safe RAM slots and nested usage views")
+    require(
+        packages,
+        r"opened->GetPath\(\).*?data->Item\.Id.*?ChangePanelPathToPluginFS",
+        "Salamatrix FS does not navigate into extension-provided directories")
+    require(
+        packages,
+        r"isDir == 2.*?GetParentPath\(\).*?ChangePanelPathToPluginFS",
+        "Salamatrix FS parent item skips directly to the global root")
+    require(
+        packages,
+        r"if \(forceRefresh\).*?RefreshRequested.*?"
+        r"FSE_ACTIVATEREFRESH \|\|.*?FSE_TIMER.*?ShouldRefreshPeriodically.*?"
+        r"RequestDataRefresh",
+        "Salamatrix FS does not limit timer refreshes by virtual path depth")
+    if hardware_monitor_manifest["fileSystems"][0].get("refreshDepth") != 2:
+        raise AssertionError(
+            "Hardware Monitor refreshes static root or category paths")
+    root_items = hardware_monitor_manifest["fileSystems"][0].get("rootItems", [])
+    if [item.get("id") for item in root_items] != [
+            "cpu", "gpu", "memory", "motherboard", "network", "sensors", "storage"]:
+        raise AssertionError(
+            "Hardware Monitor root categories are not declared for synchronous listing")
+    require(
+        packages,
+        r"Path\.c_str\(\), provider\.c_str\(\).*?rootItems\.empty.*?"
+        r"AddItem\(dir, pluginData, item",
+        "Salamatrix FS does not synchronously list manifest rootItems")
+    require(
+        packages,
+        r"Invocation\(\"list\".*?RefreshPath\.c_str\(\)",
+        "Salamatrix FS does not pass the current virtual path to list handlers")
+    require(
+        read("src/plugins/salamatrix/salamatrix_poc.h"),
+        r"CreatePocRuntimeServices.*?new \(std::nothrow\) Runtime::RuntimeServices.*?"
+        r"RunAllPoc.*?Runtime::RuntimeServices\* services",
+        "Salamatrix PoC still places the multi-megabyte RuntimeServices object on the stack")
+    require(
+        setup,
+        r"extensions\\hardware-monitor.*?IsPluginSelected\('hardwaremonitor'\)",
+        "x64 installer does not package Hardware Monitor")
+    require(
+        setup,
+        r"AddPluginDependency\('hardwaremonitor',\s*'powershellruntime'\)",
+        "x64 installer does not select the Hardware Monitor runtime")
+    require(
+        salamatrix_project,
+        r"HardwareMonitorFiles.*?hardware-monitor.*?"
+        r"Copy SourceFiles=\"@\(HardwareMonitorFiles\)\".*?"
+        r"extensions\\hardware-monitor",
+        "Salamatrix build does not stage Hardware Monitor")
     require(
         lock_inspector,
         r"CloseMainWindow.*?confirmEnd.*?\.Kill\(\)",
@@ -2195,6 +2275,25 @@ def main() -> int:
         r"AddPluginDependency\('filelockinspector',\s*"
         r"'powershellruntime'\)",
         "x64 installer does not include File Lock Inspector dependencies")
+
+    require(
+        pr_msbuild_workflow,
+        r"matrix\.platform.*?-ne 'x64'.*?owner\.Name -eq 'HardwareWrapper'.*?continue",
+        "PR build does not exclude the x64-only HardwareWrapper on other platforms")
+    require(
+        hardware_wrapper_project,
+        r"<TargetFramework>net9\.0</TargetFramework>.*?"
+        r"<MSBuildWarningsAsMessages>.*?MSB3277</MSBuildWarningsAsMessages>",
+        "HardwareWrapper does not narrowly allow the prebuilt HardView framework warning")
+    require(
+        hardware_wrapper_project,
+        r'HardwareWrapper\.cpp">.*?<DisableSpecificWarnings>4267;',
+        "upstream HardwareWrapper narrowing warnings are not scoped to its source file")
+    require_absent(
+        hardware_wrapper_project,
+        r"<ItemDefinitionGroup(?:(?!</ItemDefinitionGroup>).)*"
+        r"<DisableSpecificWarnings>4267;",
+        "HardwareWrapper suppresses narrowing warnings for the entire project")
 
     require(plugins1, r"CPluginData::InitDLL", "dynamic menu InitDLL lifecycle is missing")
     require(plugins1, r"PluginIfaceForMenuExt\.BuildMenu", "dynamic menu interface BuildMenu call is missing")

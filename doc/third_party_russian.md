@@ -67,6 +67,14 @@
 | Juraj Rojko | Плагин Windows Mobile | Включает программное обеспечение, написанное Juraj Rojko. Copyright (C) 2003-2026 Juraj Rojko. |
 | Microsoft .NET Framework 4.8 | Плагин Samandarin Update Notifier | Предоставлено Microsoft Corporation по условиям лицензии Microsoft .NET Framework. |
 
+## Расширение Аппаратный монитор
+
+| Компонент | Используется в | Примечания об авторских правах и лицензии |
+| --- | --- | --- |
+| HardView | Расширение Аппаратный монитор | Библиотека-мост C++/CLI для мониторинга оборудования. Copyright (c) 2025 gafoo. Лицензировано под MIT License. Источник: [gafoo173/HardView](https://github.com/gafoo173/HardView). |
+| LibreHardwareMonitorLib 0.9.6.0 | Расширение Аппаратный монитор | .NET библиотека мониторинга оборудования. LibreHardwareMonitorLib лицензирована под GNU General Public License v3.0. Источник: [LibreHardwareMonitor/LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor). |
+| HidSharp 2.6.4.0 | Расширение Аппаратный монитор | Библиотека доступа к HID-устройствам, транзитивная зависимость LibreHardwareMonitorLib. Copyright (C) 2010 James F. Bellinger. Лицензировано под GNU Lesser General Public License v3.0. |
+
 ## Пользовательский интерфейс, документация и рендеринг Markdown
 
 | Компонент или вклад | Используется для | Примечания об авторских правах и лицензии |
