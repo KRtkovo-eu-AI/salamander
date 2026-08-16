@@ -492,7 +492,7 @@ static void SetPanelTabVisible(CFilesWindow* panel, BOOL visible)
     }
 }
 
-void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
+void CMainWindow::SwitchPanelTab(CFilesWindow* panel, bool postRefreshMessage)
 {
     CALL_STACK_MESSAGE1("CMainWindow::SwitchPanelTab()");
     if (panel == NULL)
@@ -605,7 +605,7 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     }
 
     bool refreshActive = (panel == GetActivePanel());
-    EnsurePanelRefreshAndRequest(panel, refreshActive, true);
+    EnsurePanelRefreshAndRequest(panel, refreshActive, postRefreshMessage);
 }
 
 void CMainWindow::ClosePanelTab(CFilesWindow* panel, bool storeForReopen)
@@ -901,6 +901,21 @@ CFilesWindow* CMainWindow::GetPanelTabAt(CPanelSide side, int index) const
     return tabs[index];
 }
 
+std::wstring CMainWindow::GetPanelTabDisplayText(CFilesWindow* panel) const
+{
+    if (panel == NULL)
+        return std::wstring();
+
+    int index = GetPanelTabIndex(panel->GetPanelSide(), panel);
+    if (index < 0)
+    {
+        const CDetachedTabInfo* info = FindDetachedTab(panel);
+        if (info != NULL)
+            index = info->OriginalIndex;
+    }
+    return BuildTabDisplayText(panel, index);
+}
+
 void CMainWindow::UpdatePanelTabTitle(CFilesWindow* panel)
 {
     if (panel == NULL)
@@ -917,7 +932,7 @@ void CMainWindow::UpdatePanelTabTitle(CFilesWindow* panel)
     int index = GetPanelTabIndex(side, panel);
     if (index < 0)
         return;
-    std::wstring text = BuildTabDisplayText(panel, index);
+    std::wstring text = GetPanelTabDisplayText(panel);
     tabWnd->SetTabText(index, text.c_str());
 }
 
@@ -1257,6 +1272,28 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
     if (command == 0)
         return;
 
+    if (command == CM_DETACHTAB || command == moveCmd)
+    {
+        // This function runs inside the tab control's NM_RCLICK notification.
+        // Removing or moving the clicked item before the notification unwinds
+        // makes the control finish the same right-click over the newly empty
+        // bar and open the new-tab-area menu.  Preserve the stable tab ID and
+        // execute the mutation from the main message loop instead.
+        if (targetPanel != NULL)
+        {
+            PendingPanelTabContextCommand = command;
+            PendingPanelTabContextTabId = targetPanel->GetPanelTabId();
+            PendingPanelTabContextSide = side;
+            if (!PostMessage(HWindow, WM_USER_PANELTAB_CONTEXTCOMMAND, 0, 0))
+            {
+                PendingPanelTabContextCommand = 0;
+                PendingPanelTabContextTabId = 0;
+                TRACE_E("Unable to post deferred panel-tab context command");
+            }
+        }
+        return;
+    }
+
     switch (command)
     {
     case CM_LEFT_NEWTAB:
@@ -1273,11 +1310,6 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
             SwitchPanelTab(tabs[index]);
             CommandCloseTab(side);
         }
-        break;
-
-    case CM_DETACHTAB:
-        if (targetPanel != NULL)
-            DetachPanelTab(targetPanel);
         break;
 
     case CM_LEFT_CLOSEALLEXCEPTTHISANDDEFAULT:
@@ -1417,18 +1449,6 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
         }
         break;
 
-    case CM_LEFT_MOVETABTORIGHT:
-    case CM_RIGHT_MOVETABTOLEFT:
-        if (index > 0 && index < tabs.Count)
-        {
-            CFilesWindow* panel = tabs[index];
-            if (panel != NULL)
-            {
-                SwitchPanelTab(panel);
-                CommandMoveTabToOtherSide(side, index);
-            }
-        }
-        break;
     }
 }
 
@@ -1662,28 +1682,28 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
         }
     }
 
+    CFilesWindow* panel = GetPanelTabAt(side, index);
+    RECT r;
+    BOOL insideSalamander = HWindow != NULL && GetWindowRect(HWindow, &r) && PtInRect(&r, screenPt);
+    if (!insideSalamander && HRightDetachedWindow != NULL && IsWindowVisible(HRightDetachedWindow))
+        insideSalamander = GetWindowRect(HRightDetachedWindow, &r) && PtInRect(&r, screenPt);
+    for (int i = 0; !insideSalamander && i < GetDetachedTabCount(); ++i)
+    {
+        const CDetachedTabInfo* info = FindDetachedTab(GetDetachedTabAt(i));
+        if (info != NULL && info->HWindow != NULL && IsWindowVisible(info->HWindow))
+            insideSalamander = GetWindowRect(info->HWindow, &r) && PtInRect(&r, screenPt);
+    }
+    // The current drop position wins over every target visited earlier in the
+    // drag.  Otherwise crossing the opposite tab bar permanently stores that
+    // target and releasing outside Salamander moves the tab instead of using
+    // the visible detach preview.
+    if (!insideSalamander && index > 0 && panel != NULL && !panel->IsTabLocked())
+        return DetachPanelTab(panel, &screenPt) != FALSE;
+
     bool hadStoredTarget = usesCrossDragState && (PanelTabCrossDragStoredInsertIndex >= 0);
     bool shouldMoveToOtherSide = pointerOnTargetSide || (usesCrossDragState && PanelTabCrossDragHasTarget) || hadStoredTarget;
     if (!shouldMoveToOtherSide)
-    {
-        CFilesWindow* panel = GetPanelTabAt(side, index);
-        RECT r;
-        BOOL insideSalamander = HWindow != NULL && GetWindowRect(HWindow, &r) && PtInRect(&r, screenPt);
-        if (!insideSalamander && HRightDetachedWindow != NULL && IsWindowVisible(HRightDetachedWindow))
-            insideSalamander = GetWindowRect(HRightDetachedWindow, &r) && PtInRect(&r, screenPt);
-        for (int i = 0; !insideSalamander && i < GetDetachedTabCount(); ++i)
-        {
-            const CDetachedTabInfo* info = FindDetachedTab(GetDetachedTabAt(i));
-            if (info != NULL && info->HWindow != NULL && IsWindowVisible(info->HWindow))
-                insideSalamander = GetWindowRect(info->HWindow, &r) && PtInRect(&r, screenPt);
-        }
-        if (!insideSalamander && index > 0 &&
-            panel != NULL && !panel->IsTabLocked())
-        {
-            return DetachPanelTab(panel, &screenPt) != FALSE;
-        }
         return false;
-    }
 
     int targetIndex = -1;
     int markItem = -1;
@@ -1752,7 +1772,6 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
         }
     }
 
-    CFilesWindow* panel = GetPanelTabAt(side, index);
     if (panel == NULL)
         return false;
 
@@ -2558,7 +2577,11 @@ int CMainWindow::CommandMoveTabToOtherSide(CPanelSide side, int index, int targe
                 newIndex = fromTabs.Count - 1;
             CFilesWindow* newPanel = fromTabs[newIndex];
             if (newPanel != NULL)
-                SwitchPanelTab(newPanel);
+                // The moved tab is activated on the target side below.  Finish
+                // loading the newly exposed source tab before that activation;
+                // an asynchronous refresh would otherwise see a passive panel
+                // and defer its listing until the user clicks it.
+                SwitchPanelTab(newPanel, false);
         }
     }
     else if (fromTabWnd != NULL && fromTabWnd->HWindow != NULL)
@@ -4998,6 +5021,38 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         return 0;
     }
 
+    case WM_USER_PANELTAB_CONTEXTCOMMAND:
+    {
+        UINT command = PendingPanelTabContextCommand;
+        ULONGLONG tabId = PendingPanelTabContextTabId;
+        CPanelSide side = PendingPanelTabContextSide;
+        PendingPanelTabContextCommand = 0;
+        PendingPanelTabContextTabId = 0;
+
+        CFilesWindow* panel = NULL;
+        TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+        for (int i = 0; i < tabs.Count; ++i)
+        {
+            if (tabs[i] != NULL && tabs[i]->GetPanelTabId() == tabId)
+            {
+                panel = tabs[i];
+                break;
+            }
+        }
+        if (panel == NULL)
+            return 0;
+
+        if (command == CM_DETACHTAB)
+            DetachPanelTab(panel);
+        else if ((side == cpsLeft && command == CM_LEFT_MOVETABTORIGHT) ||
+                 (side == cpsRight && command == CM_RIGHT_MOVETABTOLEFT))
+        {
+            SwitchPanelTab(panel);
+            CommandMoveTabToOtherSide(side, panel);
+        }
+        return 0;
+    }
+
     case WM_USER_ENTERMENULOOP:
     case WM_USER_LEAVEMENULOOP:
     {
@@ -5493,12 +5548,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             BOOL needsOppositePanel = FALSE;
             switch (LOWORD(wParam))
             {
-            case CM_COPYTOSELECTEDDIRS:
-            case CM_COPYFILES:
-            case CM_MOVEFILES:
-            case CM_PACK:
-            case CM_UNPACK:
-            case CM_CREATEDIR:
             case CM_ACTIVE_AS_OTHER:
             case CM_SWAPPANELS:
                 needsOppositePanel = TRUE;
@@ -7178,30 +7227,39 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         }
 
         case CM_COPYTOSELECTEDDIRS: // copy files and directories to selected directories in the other panel
-            if (!EnablerFilesCopy)
+        case CM_COPYFILES:          // copy files and directories
+        case CM_MOVEFILES:          // move/rename files and directories
+        case CM_DELETEFILES:        // delete files and directories
+        case CM_OCCUPIEDSPACE:      // calculate occupied disk space
+        case CM_CHANGECASE:         // change case in names
+        {
+            UINT command = LOWORD(wParam);
+            if (((command == CM_COPYTOSELECTEDDIRS || command == CM_COPYFILES) && !EnablerFilesCopy) ||
+                (command == CM_MOVEFILES && !EnablerFilesMove) ||
+                (command == CM_DELETEFILES && !EnablerFilesDelete) ||
+                (command == CM_OCCUPIEDSPACE && !EnablerOccupiedSpace) ||
+                (command == CM_CHANGECASE && !EnablerFilesOnDisk))
                 return 0;
-            if (!activePanel->Is(ptDisk) || !GetNonActivePanel()->Is(ptDisk))
+
+            CFilesWindow* operationTarget = NULL;
+            BOOL detachedTargetOperation = FALSE;
+            if (command == CM_COPYTOSELECTEDDIRS || command == CM_COPYFILES || command == CM_MOVEFILES)
             {
-                SalMessageBox(HWindow, LoadStr(IDS_COPYTOSELECTEDDIRS_NEEDDISKPANELS),
+                detachedTargetOperation = IsDetachedTabPanel(activePanel);
+                operationTarget = detachedTargetOperation
+                                      ? SelectDetachedOperationTarget(activePanel, command)
+                                      : GetNonActivePanel();
+                if (operationTarget == NULL)
+                    return 0;
+            }
+            if (command == CM_COPYTOSELECTEDDIRS &&
+                (!activePanel->Is(ptDisk) || !operationTarget->Is(ptDisk)))
+            {
+                SalMessageBox(activePanel->HWindow, LoadStr(IDS_COPYTOSELECTEDDIRS_NEEDDISKPANELS),
                               LoadStr(IDS_INFOTITLE), MB_OK | MB_ICONINFORMATION);
                 return 0;
             }
-        case CM_COPYFILES: // copy files and directories
-            if (!EnablerFilesCopy)
-                return 0;
-        case CM_MOVEFILES: // move/rename files and directories
-            if (LOWORD(wParam) == CM_MOVEFILES && !EnablerFilesMove)
-                return 0;
-        case CM_DELETEFILES: // delete files and directories
-            if (LOWORD(wParam) == CM_DELETEFILES && !EnablerFilesDelete)
-                return 0;
-        case CM_OCCUPIEDSPACE: // calculate occupied disk space
-            if (LOWORD(wParam) == CM_OCCUPIEDSPACE && !EnablerOccupiedSpace)
-                return 0;
-        case CM_CHANGECASE: // change case in names
-        {
-            if (LOWORD(wParam) == CM_CHANGECASE && !EnablerFilesOnDisk)
-                return 0;
+
             activePanel->UserWorkedOnThisPath = TRUE;
             activePanel->StoreSelection(); // save selection for Restore Selection command
 
@@ -7209,79 +7267,98 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             char temporarySelected[MAX_PATH];
             activePanel->SelectFocusedItemAndGetName(temporarySelected, MAX_PATH);
 
-            if (activePanel->Is(ptDisk)) // source is disk - all operations go here
+            BOOL changeTargetRequested;
+            do
             {
-                CActionType type;
-                switch (LOWORD(wParam))
+                changeTargetRequested = FALSE;
+                if (activePanel->Is(ptDisk)) // source is disk - all operations go here
                 {
-                case CM_COPYTOSELECTEDDIRS:
-                case CM_COPYFILES:
-                    type = atCopy;
-                    break;
-                case CM_MOVEFILES:
-                    type = atMove;
-                    break;
-                case CM_DELETEFILES:
-                    type = atDelete;
-                    break;
-                case CM_OCCUPIEDSPACE:
-                    type = atCountSize;
-                    break;
-                case CM_CHANGECASE:
-                    type = atChangeCase;
-                    break;
-                }
-
-                // perform the action
-                activePanel->FilesAction(type, GetNonActivePanel(), 0,
-                                         LOWORD(wParam) == CM_COPYTOSELECTEDDIRS);
-            }
-            else
-            {
-                if (activePanel->Is(ptZIPArchive)) // source is an archive - all operations go here
-                {
-                    BOOL archMaybeUpdated;
-                    activePanel->OfferArchiveUpdateIfNeeded(HWindow, IDS_ARCHIVECLOSEEDIT2, &archMaybeUpdated);
-                    if (!archMaybeUpdated)
+                    CActionType type;
+                    switch (command)
                     {
-                        switch (LOWORD(wParam))
-                        {
-                        case CM_OCCUPIEDSPACE:
-                            activePanel->CalculateOccupiedZIPSpace();
-                            break;
-                        case CM_COPYFILES:
-                            activePanel->UnpackZIPArchive(GetNonActivePanel());
-                            break;
-                        case CM_DELETEFILES:
-                            activePanel->DeleteFromZIPArchive();
-                            break;
-                        }
+                    case CM_COPYTOSELECTEDDIRS:
+                    case CM_COPYFILES:
+                        type = atCopy;
+                        break;
+                    case CM_MOVEFILES:
+                        type = atMove;
+                        break;
+                    case CM_DELETEFILES:
+                        type = atDelete;
+                        break;
+                    case CM_OCCUPIEDSPACE:
+                        type = atCountSize;
+                        break;
+                    case CM_CHANGECASE:
+                        type = atChangeCase;
+                        break;
                     }
+
+                    // perform the action
+                    activePanel->FilesAction(
+                        type, operationTarget, 0, command == CM_COPYTOSELECTEDDIRS,
+                        detachedTargetOperation && command != CM_COPYTOSELECTEDDIRS
+                            ? &changeTargetRequested
+                            : NULL);
                 }
                 else
                 {
-                    if (activePanel->Is(ptPluginFS)) // source is a FS - all operations go here
+                    if (activePanel->Is(ptZIPArchive)) // source is an archive - all operations go here
                     {
-                        CPluginFSActionType type;
-                        switch (LOWORD(wParam))
+                        BOOL archMaybeUpdated;
+                        activePanel->OfferArchiveUpdateIfNeeded(HWindow, IDS_ARCHIVECLOSEEDIT2, &archMaybeUpdated);
+                        if (!archMaybeUpdated)
                         {
-                        case CM_COPYFILES:
-                            type = fsatCopy;
-                            break;
-                        case CM_MOVEFILES:
-                            type = fsatMove;
-                            break;
-                        case CM_DELETEFILES:
-                            type = fsatDelete;
-                            break;
-                        case CM_OCCUPIEDSPACE:
-                            type = fsatCountSize;
-                            break;
+                            switch (command)
+                            {
+                            case CM_OCCUPIEDSPACE:
+                                activePanel->CalculateOccupiedZIPSpace();
+                                break;
+                            case CM_COPYFILES:
+                                activePanel->UnpackZIPArchive(
+                                    operationTarget, FALSE, NULL,
+                                    detachedTargetOperation ? &changeTargetRequested : NULL);
+                                break;
+                            case CM_DELETEFILES:
+                                activePanel->DeleteFromZIPArchive();
+                                break;
+                            }
                         }
-                        activePanel->PluginFSFilesAction(type);
+                    }
+                    else
+                    {
+                        if (activePanel->Is(ptPluginFS)) // source is a FS - all operations go here
+                        {
+                            CPluginFSActionType type;
+                            switch (command)
+                            {
+                            case CM_COPYFILES:
+                                type = fsatCopy;
+                                break;
+                            case CM_MOVEFILES:
+                                type = fsatMove;
+                                break;
+                            case CM_DELETEFILES:
+                                type = fsatDelete;
+                                break;
+                            case CM_OCCUPIEDSPACE:
+                                type = fsatCountSize;
+                                break;
+                            }
+                            activePanel->PluginFSFilesAction(
+                                type, operationTarget,
+                                detachedTargetOperation ? &changeTargetRequested : NULL);
+                        }
                     }
                 }
-            }
+
+                if (changeTargetRequested)
+                {
+                    operationTarget = SelectDetachedOperationTarget(activePanel, command, TRUE);
+                    if (operationTarget == NULL)
+                        changeTargetRequested = FALSE;
+                }
+            } while (changeTargetRequested);
 
             // if we selected an item temporarily, deselect it again
             activePanel->UnselectItemWithName(temporarySelected);
@@ -7401,9 +7478,14 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         {
             if (activePanel->Is(ptDisk))
             {
+                CFilesWindow* target = IsDetachedTabPanel(activePanel)
+                                           ? SelectDetachedOperationTarget(activePanel, CM_PACK)
+                                           : GetNonActivePanel();
+                if (target == NULL)
+                    return 0;
                 activePanel->UserWorkedOnThisPath = TRUE;
                 activePanel->StoreSelection(); // save selection for Restore Selection command
-                activePanel->Pack(GetNonActivePanel());
+                activePanel->Pack(target);
             }
             return 0;
         }
@@ -7412,9 +7494,14 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         {
             if (activePanel->Is(ptDisk))
             {
+                CFilesWindow* target = IsDetachedTabPanel(activePanel)
+                                           ? SelectDetachedOperationTarget(activePanel, CM_UNPACK)
+                                           : GetNonActivePanel();
+                if (target == NULL)
+                    return 0;
                 activePanel->UserWorkedOnThisPath = TRUE;
                 activePanel->StoreSelection(); // save selection for Restore Selection command
-                activePanel->Unpack(GetNonActivePanel());
+                activePanel->Unpack(target);
             }
             return 0;
         }
@@ -7545,7 +7632,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CM_CREATEDIR:
         {
             activePanel->UserWorkedOnThisPath = TRUE;
-            activePanel->CreateDir(GetNonActivePanel());
+            activePanel->CreateDir(NULL);
             return 0;
         }
 

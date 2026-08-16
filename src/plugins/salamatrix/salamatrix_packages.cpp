@@ -1332,6 +1332,14 @@ public:
 class PackageManager::OpenFileSystem : public CPluginFSInterfaceAbstract
 {
 private:
+    enum RefreshThreadState
+    {
+        RefreshThreadIdle = 0,
+        RefreshThreadStarting = 1,
+        RefreshThreadRunningState = 2,
+        RefreshThreadStopping = 3
+    };
+
     PackageManager* Owner;
     std::string Path;
     volatile LONG RefreshPosted;
@@ -1395,7 +1403,9 @@ private:
                 InterlockedExchange(&RefreshIntervalMs, static_cast<LONG>(interval));
         }
         LeaveCriticalSection(&CacheLock);
-        InterlockedExchange(&RefreshThreadRunning, 0);
+        InterlockedCompareExchange(
+            &RefreshThreadRunning,
+            RefreshThreadIdle, RefreshThreadRunningState);
         if (InterlockedCompareExchange(&ShuttingDown, 0, 0) == 0)
             PostPanelRefresh();
     }
@@ -1404,28 +1414,67 @@ private:
         const std::string& packageId, const std::string& fileSystemId)
     {
         if (InterlockedCompareExchange(&ShuttingDown, 0, 0) != 0 ||
-            InterlockedCompareExchange(&RefreshThreadRunning, 1, 0) != 0)
+            InterlockedCompareExchange(
+                &RefreshThreadRunning,
+                RefreshThreadStarting, RefreshThreadIdle) != RefreshThreadIdle)
             return FALSE;
-        if (RefreshThread != NULL)
+
+        // A previous worker changes the state immediately before returning.
+        // Join that short epilogue before replacing its published handle.
+        HANDLE refreshThread = reinterpret_cast<HANDLE>(
+            InterlockedExchangePointer(
+                reinterpret_cast<PVOID volatile*>(&RefreshThread), NULL));
+        if (refreshThread != NULL)
         {
-            if (WaitForSingleObject(RefreshThread, 0) == WAIT_OBJECT_0)
+            if (!Runtime::WaitForThreadWithSentMessageDispatch(
+                    refreshThread,
+                    SalamanderGeneral != NULL
+                        ? SalamanderGeneral->GetMainWindowHWND() : NULL))
             {
-                CloseHandle(RefreshThread);
-                RefreshThread = NULL;
-            }
-            else
-            {
-                InterlockedExchange(&RefreshThreadRunning, 0);
+                InterlockedExchangePointer(
+                    reinterpret_cast<PVOID volatile*>(&RefreshThread),
+                    refreshThread);
+                InterlockedExchange(
+                    &RefreshThreadRunning, RefreshThreadIdle);
                 return FALSE;
             }
+            CloseHandle(refreshThread);
+        }
+
+        // CloseFS can run concurrently with a detached panel refresh.  The
+        // Starting state keeps the object alive until this second check has
+        // either rejected the start or published a joinable worker handle.
+        if (InterlockedCompareExchange(&ShuttingDown, 0, 0) != 0)
+        {
+            InterlockedExchange(&RefreshThreadRunning, RefreshThreadIdle);
+            return FALSE;
         }
         RefreshPackageId = packageId;
         RefreshFileSystemId = fileSystemId;
         RefreshGeneration = InterlockedCompareExchange(&PathGeneration, 0, 0);
-        RefreshThread = CreateThread(NULL, 0, RefreshThreadProc, this, 0, NULL);
-        if (RefreshThread == NULL)
+        refreshThread = CreateThread(
+            NULL, 0, RefreshThreadProc, this, CREATE_SUSPENDED, NULL);
+        if (refreshThread == NULL)
         {
-            InterlockedExchange(&RefreshThreadRunning, 0);
+            InterlockedExchange(&RefreshThreadRunning, RefreshThreadIdle);
+            return FALSE;
+        }
+        // Publish the handle before the worker can touch the object, then
+        // expose Running.  CloseFS waits out Starting and can only observe
+        // Running after there is a handle it can join.
+        InterlockedExchangePointer(
+            reinterpret_cast<PVOID volatile*>(&RefreshThread), refreshThread);
+        InterlockedExchange(
+            &RefreshThreadRunning, RefreshThreadRunningState);
+        if (ResumeThread(refreshThread) == static_cast<DWORD>(-1))
+        {
+            if (InterlockedCompareExchangePointer(
+                    reinterpret_cast<PVOID volatile*>(&RefreshThread),
+                    NULL, refreshThread) == refreshThread)
+                CloseHandle(refreshThread);
+            InterlockedCompareExchange(
+                &RefreshThreadRunning,
+                RefreshThreadIdle, RefreshThreadRunningState);
             return FALSE;
         }
         return TRUE;
@@ -1554,7 +1603,32 @@ public:
     virtual ~OpenFileSystem()
     {
         InterlockedExchange(&ShuttingDown, 1);
-        if (RefreshThread != NULL)
+        for (;;)
+        {
+            const LONG state = InterlockedCompareExchange(
+                &RefreshThreadRunning, RefreshThreadIdle, RefreshThreadIdle);
+            if (state == RefreshThreadStarting)
+            {
+                SwitchToThread();
+                continue;
+            }
+            if (state == RefreshThreadIdle &&
+                InterlockedCompareExchange(
+                    &RefreshThreadRunning,
+                    RefreshThreadStopping, RefreshThreadIdle) != RefreshThreadIdle)
+                continue;
+            if (state == RefreshThreadRunningState &&
+                InterlockedCompareExchange(
+                    &RefreshThreadRunning,
+                    RefreshThreadStopping,
+                    RefreshThreadRunningState) != RefreshThreadRunningState)
+                continue;
+            break;
+        }
+        HANDLE refreshThread = reinterpret_cast<HANDLE>(
+            InterlockedExchangePointer(
+                reinterpret_cast<PVOID volatile*>(&RefreshThread), NULL));
+        if (refreshThread != NULL)
         {
             // During application shutdown the panel is closed before the
             // Salamatrix plug-in reaches Release().  A listing worker can be
@@ -1564,11 +1638,10 @@ public:
             // full runtime timeout.
             Owner->CancelFileSystemListingForShutdown(RefreshPackageId);
             Runtime::WaitForThreadWithSentMessageDispatch(
-                RefreshThread,
+                refreshThread,
                 SalamanderGeneral != NULL
                     ? SalamanderGeneral->GetMainWindowHWND() : NULL);
-            CloseHandle(RefreshThread);
-            RefreshThread = NULL;
+            CloseHandle(refreshThread);
         }
         DeleteCriticalSection(&CacheLock);
     }
@@ -1883,9 +1956,12 @@ public:
         if (selectedFiles == 0 && selectedDirs == 0)
             file = SalamanderGeneral->GetPanelFocusedItem(panel, &isDir);
         else { int index = 0; file = SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir); }
-        if (file == NULL) return;
-        SalamatrixFileSystemItemData* data = reinterpret_cast<SalamatrixFileSystemItemData*>(file->PluginData);
-        if (data == NULL || !data->Item.Enabled) return;
+        if (file == NULL || file->PluginData == 0 ||
+            file->PluginData == static_cast<DWORD_PTR>(-1))
+            return;
+        SalamatrixFileSystemItemData* data =
+            reinterpret_cast<SalamatrixFileSystemItemData*>(file->PluginData);
+        if (!data->Item.Enabled) return;
         HMENU menu = CreatePopupMenu(); if (menu == NULL) return;
         const CExtensionManifestFileSystem* manifestFs = NULL;
         for (size_t p = 0; p < Owner->Packages.size() && manifestFs == NULL; ++p)

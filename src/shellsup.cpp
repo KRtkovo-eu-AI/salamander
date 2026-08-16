@@ -1793,7 +1793,14 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
         // lower the thread priority to "normal" (so the operations do not overload the machine)
         SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
 
-        int panelID = MainWindow->LeftPanel == panel ? PANEL_LEFT : PANEL_RIGHT;
+        // A detached tab is a separate CFilesWindow instance, so comparing it
+        // with LeftPanel always classified it as PANEL_RIGHT.  Plugin callbacks
+        // would then enumerate the attached right panel instead of a detached
+        // tab that originated on the left side.
+        CPanelSide panelSide = MainWindow->IsDetachedTabPanel(panel)
+                                   ? MainWindow->GetDetachedTabOriginalSide(panel)
+                                   : panel->GetPanelSide();
+        int panelID = panelSide == cpsLeft ? PANEL_LEFT : PANEL_RIGHT;
 
         int selectedDirs = 0;
         if (count > 0)

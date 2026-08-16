@@ -63,12 +63,14 @@ struct CDetachedTabInfo
     HIMAGELIST HHotToolBarImageList;
     int WindowDPI;
     BOOL DPIRefreshPosted;
+    BOOL RememberOperationTarget;
+    ULONGLONG LastOperationTargetTabId;
     WINDOWPLACEMENT Placement;
 
     CDetachedTabInfo()
         : Panel(NULL), OriginalSide(cpsLeft), OriginalIndex(-1), HWindow(NULL),
           HGrayToolBarImageList(NULL), HHotToolBarImageList(NULL), WindowDPI(0),
-          DPIRefreshPosted(FALSE)
+          DPIRefreshPosted(FALSE), RememberOperationTarget(FALSE), LastOperationTargetTabId(0)
     {
         memset(&Placement, 0, sizeof(Placement));
     }
@@ -606,6 +608,9 @@ protected:
     int PanelTabCrossDragStoredInsertIndex;
     int PanelTabCrossDragStoredMarkItem;
     DWORD PanelTabCrossDragStoredMarkFlags;
+    UINT PendingPanelTabContextCommand;
+    ULONGLONG PendingPanelTabContextTabId;
+    CPanelSide PendingPanelTabContextSide;
     HWND HPanelTabDetachPreview;
 
 public:
@@ -645,13 +650,14 @@ public:
     BOOL MovePanelTab(ULONGLONG tabId, CPanelSide targetSide, int targetIndex);
     BOOL ClosePanelTabById(ULONGLONG tabId);
     bool InsertPanelTabInstance(CPanelSide side, int index, CFilesWindow* panel, bool preserveLockState);
-    void SwitchPanelTab(CFilesWindow* panel);
+    void SwitchPanelTab(CFilesWindow* panel, bool postRefreshMessage = true);
     void ClosePanelTab(CFilesWindow* panel, bool storeForReopen = true);
     void EnsurePanelAutomaticRefresh(CFilesWindow* panel);
     void EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuildDriveBars,
                                       bool postRefreshMessage = false);
     void RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars,
                              bool postRefreshMessage = false);
+    std::wstring GetPanelTabDisplayText(CFilesWindow* panel) const;
     void UpdatePanelTabTitle(CFilesWindow* panel);
     void UpdatePanelTabColor(CFilesWindow* panel);
     void RefreshPanelTabLayout();
@@ -681,6 +687,8 @@ public:
     }
     BOOL IsDetachedTabPanel(CFilesWindow* panel) const { return FindDetachedTab(panel) != NULL; }
     CPanelSide GetDetachedTabOriginalSide(CFilesWindow* panel) const;
+    CFilesWindow* SelectDetachedOperationTarget(CFilesWindow* sourcePanel, UINT command,
+                                                 BOOL forceDialog = FALSE);
     CDetachedTabInfo* FindDetachedTab(CFilesWindow* panel);
     const CDetachedTabInfo* FindDetachedTab(CFilesWindow* panel) const;
     CDetachedTabInfo* FindDetachedTab(HWND hWnd);

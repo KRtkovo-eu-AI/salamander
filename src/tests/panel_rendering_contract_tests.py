@@ -309,6 +309,60 @@ def main() -> int:
         print("WM_WINDOWPOSCHANGED must run the real WM_SIZE before considering its fallback")
         return 1
 
+    switch_tab = re.search(
+        r"void CMainWindow::SwitchPanelTab\(CFilesWindow\* panel, bool postRefreshMessage\)"
+        r".*?\n\}",
+        mainwnd3,
+        re.DOTALL,
+    )
+    move_tab = re.search(
+        r"int CMainWindow::CommandMoveTabToOtherSide\(CPanelSide side, int index,"
+        r".*?\n\}",
+        mainwnd3,
+        re.DOTALL,
+    )
+    detach_tab = re.search(
+        r"BOOL CMainWindow::DetachPanelTab\(CFilesWindow\* panel, const POINT\* dropPoint,"
+        r".*?\n\}",
+        mainwnd1,
+        re.DOTALL,
+    )
+    if (
+        switch_tab is None
+        or "EnsurePanelRefreshAndRequest(panel, refreshActive, postRefreshMessage);"
+        not in switch_tab.group(0)
+        or move_tab is None
+        or "SwitchPanelTab(newPanel, false);" not in move_tab.group(0)
+        or detach_tab is None
+        or "SwitchPanelTab(replacement, false);" not in detach_tab.group(0)
+    ):
+        print("detach and cross-side move must synchronously populate the exposed source tab")
+        return 1
+
+    tab_context_menu = re.search(
+        r"void CMainWindow::OnPanelTabContextMenu\(.*?"
+        r"void CMainWindow::OnPanelTabNewTabAreaContextMenu",
+        mainwnd3,
+        re.DOTALL,
+    )
+    context_body = tab_context_menu.group(0) if tab_context_menu is not None else ""
+    track_menu = context_body.find("DWORD command = popup.Track(")
+    defer_command = context_body.find(
+        "PostMessage(HWindow, WM_USER_PANELTAB_CONTEXTCOMMAND, 0, 0)"
+    )
+    if (
+        tab_context_menu is None
+        or "command == CM_DETACHTAB || command == moveCmd" not in context_body
+        or track_menu < 0
+        or defer_command < track_menu
+        or "PendingPanelTabContextTabId = targetPanel->GetPanelTabId();"
+        not in context_body
+        or "DetachPanelTab(targetPanel)" in context_body
+        or "case WM_USER_PANELTAB_CONTEXTCOMMAND:" not in mainwnd3
+    ):
+        print("tab detach and move must run after the NM_RCLICK notification unwinds")
+        return 1
+
     reattach_tab = re.search(
         r"BOOL CMainWindow::ReattachDetachedTab\(CFilesWindow\* panel.*?\n\}",
         mainwnd1,

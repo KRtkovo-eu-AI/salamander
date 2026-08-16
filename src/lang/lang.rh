@@ -771,14 +771,18 @@
 #define IDC_MCD_SYNC_NAME                6255
 #define IDC_MCD_DELETE_SOURCE_AFTER      6256
 #define IDC_FL_RECURSE                  6258
+#define IDD_DETACHED_TARGET             8202
+#define IDT_DETACHED_TARGET_PROMPT      6262
+#define IDC_DETACHED_TARGET_LIST        6263
+#define IDC_DETACHED_TARGET_REMEMBER    6264
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        8202
+#define _APS_NEXT_RESOURCE_VALUE        8203
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         6262
+#define _APS_NEXT_CONTROL_VALUE         6265
 #define _APS_NEXT_SYMED_VALUE           103
 #endif
 #endif

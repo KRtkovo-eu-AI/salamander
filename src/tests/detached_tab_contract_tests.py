@@ -25,6 +25,16 @@ def main() -> None:
     mainwnd3 = (ROOT / "src/mainwnd3.cpp").read_text(encoding="utf-8")
     mainwnd4 = (ROOT / "src/mainwnd4.cpp").read_text(encoding="utf-8")
     mainwnd_h = (ROOT / "src/mainwnd.h").read_text(encoding="utf-8")
+    lang_rc = (ROOT / "src/lang/lang.rc").read_text(encoding="utf-8")
+    texts_rc2 = (ROOT / "src/lang/texts.rc2").read_text(encoding="utf-8")
+    fileswnd_h = (ROOT / "src/fileswnd.h").read_text(encoding="utf-8")
+    fileswn8 = (ROOT / "src/fileswn8.cpp").read_text(encoding="utf-8")
+    fileswna = (ROOT / "src/fileswna.cpp").read_text(encoding="utf-8")
+    dialogs_h = (ROOT / "src/dialogs.h").read_text(encoding="utf-8")
+    dialogs3 = (ROOT / "src/dialogs3.cpp").read_text(encoding="utf-8")
+    salamand_h = (ROOT / "src/salamand.h").read_text(encoding="utf-8")
+    salamdr3 = (ROOT / "src/salamdr3.cpp").read_text(encoding="utf-8")
+    salamdr1 = (ROOT / "src/salamdr1.cpp").read_text(encoding="utf-8")
     zip_cpp = (ROOT / "src/zip.cpp").read_text(encoding="utf-8")
     plugins4 = (ROOT / "src/plugins4.cpp").read_text(encoding="utf-8")
     plugins2 = (ROOT / "src/plugins2.cpp").read_text(encoding="utf-8")
@@ -38,6 +48,7 @@ def main() -> None:
     filesbx1 = (ROOT / "src/filesbx1.cpp").read_text(encoding="utf-8")
     filesbx2 = (ROOT / "src/filesbx2.cpp").read_text(encoding="utf-8")
     fileswnb = (ROOT / "src/fileswnb.cpp").read_text(encoding="utf-8")
+    shellsup = (ROOT / "src/shellsup.cpp").read_text(encoding="utf-8")
 
     require(mainwnd1, "index <= 0 || panel->IsTabLocked()",
             "default/locked tab detach guard")
@@ -180,6 +191,16 @@ def main() -> None:
             "explicit left plugin API routing to the detached tab")
     require(mainwnd4, "GetActivePanel() == DetachedTabPanel && DetachedTabOriginalSide == cpsRight",
             "explicit right plugin API routing to the detached tab")
+    require(shellsup, "MainWindow->GetDetachedTabOriginalSide(panel)",
+            "detached plugin callback routing by the tab's original side")
+    require(shellsup, "int panelID = panelSide == cpsLeft ? PANEL_LEFT : PANEL_RIGHT;",
+            "plugin callback panel ID derived from the actual tab side")
+    if "MainWindow->LeftPanel == panel ? PANEL_LEFT : PANEL_RIGHT" in shellsup:
+        raise AssertionError(
+            "Detached left plugin tabs are still misreported as PANEL_RIGHT")
+    require(salamatrix_packages,
+            "file->PluginData == static_cast<DWORD_PTR>(-1)",
+            "Salamatrix context-menu guard for a foreign panel item sentinel")
     require(mainwnd_h, "activePanel == DetachedTabPanel",
             "detached target-panel routing by original side")
     require(zip_cpp, "PostMessage(detachedPanel->HWindow, WM_USER_REFRESH_DIR, 0, t1);",
@@ -267,15 +288,145 @@ def main() -> None:
             "detached-tab preview cleanup")
     require(mainwnd1, "panelRect.right - panelRect.left + nonClientWidth",
             "detached window client width preserved from the dragged panel")
+    require(mainwnd1, "geometryPanel = visibleSidePanel;",
+            "inactive tab detach sized from the currently laid-out side")
     require(mainwnd1, "CreateDetachedTabWindow(this, panel, dropPoint)",
             "source panel geometry used by the real detached window")
+    require(mainwnd1, "panel->DirectoryLine->SetFont();",
+            "same-DPI inactive detach toolbar image-list rebinding")
+    require(mainwnd3, "case WM_USER_PANELTAB_CONTEXTCOMMAND:",
+            "tab context command deferred beyond NM_RCLICK")
+    require_before(mainwnd3,
+                   "if (!insideSalamander && index > 0 && panel != NULL && !panel->IsTabLocked())",
+                   "bool hadStoredTarget = usesCrossDragState",
+                   "current outside drop overrides a previously visited opposite tab bar")
 
-    require(mainwnd3, "case CM_COPYFILES:", "copy operation guard")
-    require(mainwnd3, "case CM_MOVEFILES:", "move operation guard")
+    detached_guard_start = mainwnd3.find("if (IsDetachedTabActive())")
+    detached_guard_end = mainwnd3.find("// exit quick-search mode", detached_guard_start)
+    if detached_guard_start < 0 or detached_guard_end < 0:
+        raise AssertionError("Detached operation guard was not found")
+    detached_guard = mainwnd3[detached_guard_start:detached_guard_end]
+    require(detached_guard, "case CM_ACTIVE_AS_OTHER:", "Active as Other detached guard")
+    require(detached_guard, "case CM_SWAPPANELS:", "Swap Panels detached guard")
+    for command in ("CM_COPYFILES", "CM_MOVEFILES", "CM_PACK", "CM_UNPACK", "CM_CREATEDIR"):
+        if command in detached_guard:
+            raise AssertionError(f"Detached file operation is still blocked: {command}")
     require(mainwnd3, "IDS_DETACHED_TAB_UNSUPPORTED",
             "localized unsupported-operation feedback")
 
-    expected_ids = {str(value) for value in range(14337, 14347)}
+    require(mainwnd_h, "ULONGLONG LastOperationTargetTabId;",
+            "per-detach stable last operation target")
+    require(mainwnd_h, "BOOL RememberOperationTarget;",
+            "per-detach opt-in target memory flag")
+    require(mainwnd_h, "BOOL forceDialog = FALSE",
+            "detached operation target selector API")
+    target_selector_start = mainwnd1.find(
+        "CFilesWindow* CMainWindow::SelectDetachedOperationTarget")
+    target_selector_end = mainwnd1.find(
+        "CDetachedTabInfo* CMainWindow::FindDetachedTab", target_selector_start)
+    if target_selector_start < 0 or target_selector_end < 0:
+        raise AssertionError("Detached operation target selector was not found")
+    target_selector = mainwnd1[target_selector_start:target_selector_end]
+    require(target_selector, "GetPanelTabCount(side)", "attached target enumeration")
+    require_before(target_selector, "GetPanelTabCount(side)",
+                   "for (size_t i = 0; i < DetachedTabs.size(); ++i)",
+                   "visual target ordering with attached tabs before detached tabs")
+    require(mainwnd1, "target.TabId == PreferredTabId",
+            "remembered target preselection")
+    require(mainwnd1, "if (!forceDialog && sourceInfo->RememberOperationTarget)",
+            "remembered target skips the selector")
+    remembered_lookup = target_selector.find(
+        "if (!forceDialog && sourceInfo->RememberOperationTarget)")
+    dialog_creation = target_selector.find("CDetachedOperationTargetDialog dialog")
+    remembered_fallback = target_selector[remembered_lookup:dialog_creation]
+    if "RememberOperationTarget = FALSE" in remembered_fallback or \
+            "LastOperationTargetTabId = 0" in remembered_fallback:
+        raise AssertionError("Invalid remembered target must survive selector cancellation")
+    require(mainwnd1, "sourceInfo->RememberOperationTarget = dialog.GetRememberTarget();",
+            "remember preference changes only after target confirmation")
+    require(mainwnd1, "sourceInfo->RememberOperationTarget\n                                               ? selected->GetPanelTabId()\n                                               : 0;",
+            "unchecked confirmation clears remembered target")
+    require(mainwnd1, "IDC_DETACHED_TARGET_REMEMBER",
+            "localized remember-target checkbox")
+    require(mainwnd1, "BST_UNCHECKED",
+            "remember-target checkbox can be unchecked")
+    require(mainwnd1, "FindDetachedOperationTargetById", "confirmed target revalidation")
+    require(mainwnd1, "GetPathW()", "wide target path display")
+    require(mainwnd1, "LVM_SETITEMTEXTW", "Unicode target list content")
+    require(mainwnd1, "CDetachedOperationTargetDialog : public CCommonDialog",
+            "detached target selector dark-mode dialog base")
+    require(lang_rc, 'FONT 8, "MS Shell Dlg"', "standard detached target dialog font")
+    require(mainwnd1, "HasSelectedTargetDirectory(target)",
+            "Copy to Selected Directories target filtering")
+    require(mainwnd1, "IDS_DETACHED_TARGET_NONE", "no suitable target feedback")
+    if "LastOperationTargetTabId" in mainwnd2:
+        raise AssertionError("Detached operation target memory must not be persisted")
+
+    require(mainwnd3, "SelectDetachedOperationTarget(activePanel, command)",
+            "Copy/Move target selection")
+    require(mainwnd3, "SelectDetachedOperationTarget(activePanel, command, TRUE)",
+            "Change Selected Target Tab forces the selector")
+    require(mainwnd3, "activePanel->UnpackZIPArchive(",
+            "archive copy explicit target")
+    require(mainwnd3, "activePanel->PluginFSFilesAction(",
+            "plugin FS explicit target")
+    require(mainwnd3, "activePanel->CreateDir(NULL);",
+            "Create Directory detached-local routing")
+    require(fileswn8, "if ((type == atCopy || type == atMove) && target == NULL)",
+            "disk copy/move target requirement")
+    require(fileswn8, "if (type == atCopy || type == atMove)",
+            "local disk actions independent of target path")
+    require(fileswnd_h, "BOOL* changeTargetRequested = NULL",
+            "internal target-change result plumbing")
+    require(fileswnd_h, "PluginFSFilesAction(CPluginFSActionType type, CFilesWindow* target = NULL,",
+            "internal plugin FS explicit-target signature")
+    require(fileswna, "PluginFSFilesAction(CPluginFSActionType type, CFilesWindow* target,",
+            "plugin FS explicit-target implementation")
+    require(salamdr1, "SelectDetachedOperationTarget(activePanel, CM_PACK)",
+            "plugin-requested Pack target selection")
+    require(salamdr1, "SelectDetachedOperationTarget(activePanel, CM_UNPACK)",
+            "plugin-requested Unpack target selection")
+    require(salamdr1, "MainWindow->FindDetachedTab(activeWindow) != NULL",
+            "active detached top-level accelerator detection")
+    require(salamdr1, "TranslateAccelerator(acceleratorTarget, AccelTable1, &msg)",
+            "primary accelerator routing through the detached top-level")
+    require(salamdr1, "TranslateAccelerator(acceleratorTarget, AccelTable2, &msg)",
+            "file-operation accelerator routing through the detached top-level")
+
+    require(dialogs_h, "ID_CHANGE_SELECTED_TARGET_TAB",
+            "dedicated target-change dialog result")
+    require(dialogs3, "EndDialog(HWindow, ID_CHANGE_SELECTED_TARGET_TAB)",
+            "Copy/Move dialog returns to target selection")
+    require(salamdr3, "IDS_PATHMENU_CHANGE_TARGET_TAB",
+            "localized Change Selected Target Tab path-menu item")
+    require(salamdr3, "if (allowChangeTarget)",
+            "target-change menu is limited to eligible detached workflows")
+    require(texts_rc2, 'IDS_PATHMENU_LEFT, "&Active Left Panel Path',
+            "active left panel path menu wording")
+    require(texts_rc2, 'IDS_PATHMENU_RIGHT, "A&ctive Right Panel Path',
+            "active right panel path menu wording")
+    require(salamdr3, "IDS_PATHMENU_LEFT_SIDE_PATHS",
+            "left-side tab paths submenu")
+    require(salamdr3, "IDS_PATHMENU_RIGHT_SIDE_PATHS",
+            "right-side tab paths submenu")
+    require(salamdr3, "MENU_MASK_SUBMENU",
+            "dynamic path submenu ownership")
+    require_before(salamdr3, "GetPanelTabCount(side)",
+                   "GetDetachedTabCount()",
+                   "attached tab paths before detached tab paths")
+    require(salamdr3, "GetPanelTabDisplayText(panel)",
+            "path menu reuses the tab-button caption")
+    require(mainwnd3, "Configuration.TabCaptionMode",
+            "tab-button caption respects the configured display mode")
+    require(salamdr3, "IDS_DETACHED_TARGET_DETACHED : IDS_DETACHED_TARGET_ATTACHED",
+            "localized attached/detached tab path state")
+    require(salamdr3, "selectedTabPanel->GetGeneralPath(path.Data(), path.Capacity(), TRUE)",
+            "selected submenu tab supplies the path without activation")
+    require(salamand_h, "BOOL allowChangeTarget = FALSE",
+            "ordinary path menus retain their existing contents")
+    require(lang_rc, "IDC_DETACHED_TARGET_REMEMBER", "remember checkbox resource")
+
+    expected_ids = {str(value) for value in range(14337, 14361)}
     language_files = sorted((ROOT / "translations").glob("*/salamand.slt"))
     if not language_files:
         raise AssertionError("No salamand.slt translation files found")

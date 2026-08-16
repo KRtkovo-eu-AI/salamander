@@ -3782,6 +3782,87 @@ BOOL CFileHistory::HasItem()
 #define DIRECTORY_COMMAND_RIGHT 4     // path from the right panel
 #define DIRECTORY_COMMAND_HOTPATHF 5  // first hot path
 #define DIRECTORY_COMMAND_HOTPATHL 35 // last hot path
+#define DIRECTORY_COMMAND_CHANGE_TARGET 36
+#define DIRECTORY_COMMAND_LEFT_SIDE_PATHS 37
+#define DIRECTORY_COMMAND_RIGHT_SIDE_PATHS 38
+#define DIRECTORY_COMMAND_TAB_PATH_FIRST 1000
+
+struct CDirectoryTabMenuTarget
+{
+    DWORD Command;
+    CFilesWindow* Panel;
+};
+
+static std::string EscapeDirectoryTabMenuText(const std::string& text)
+{
+    std::string escaped;
+    escaped.reserve(text.size());
+    for (size_t i = 0; i < text.size(); ++i)
+    {
+        if (text[i] == '&')
+            escaped.push_back('&');
+        escaped.push_back(text[i]);
+    }
+    return escaped;
+}
+
+static void InsertDirectoryTabMenuItem(CMenuPopup* menu, CFilesWindow* panel,
+                                       BOOL detached, DWORD command,
+                                       std::vector<CDirectoryTabMenuTarget>& targets)
+{
+    std::wstring displayText = MainWindow->GetPanelTabDisplayText(panel);
+    std::string text = SalWideToMultiBytePath(displayText.c_str(), CP_ACP);
+    text.append(" (");
+    text.append(LoadStr(detached ? IDS_DETACHED_TARGET_DETACHED : IDS_DETACHED_TARGET_ATTACHED));
+    text.push_back(')');
+    text = EscapeDirectoryTabMenuText(text);
+
+    MENU_ITEM_INFO mii;
+    memset(&mii, 0, sizeof(mii));
+    mii.Mask = MENU_MASK_TYPE | MENU_MASK_ID | MENU_MASK_STRING | MENU_MASK_STATE |
+               MENU_MASK_FLAGS;
+    mii.Type = MENU_TYPE_STRING;
+    mii.ID = command;
+    mii.String = const_cast<char*>(text.c_str());
+    mii.State = 0;
+    mii.Flags = MENU_FLAG_NOHOTKEY;
+    if (menu->InsertItem(0xFFFFFFFF, TRUE, &mii))
+    {
+        CDirectoryTabMenuTarget target = {command, panel};
+        targets.push_back(target);
+    }
+}
+
+static void FillDirectorySidePathsMenu(CMenuPopup* menu, CPanelSide side, DWORD& nextCommand,
+                                       std::vector<CDirectoryTabMenuTarget>& targets)
+{
+    for (int i = 0; i < MainWindow->GetPanelTabCount(side); ++i)
+    {
+        CFilesWindow* panel = MainWindow->GetPanelTabAt(side, i);
+        if (panel != NULL)
+            InsertDirectoryTabMenuItem(menu, panel, FALSE, nextCommand++, targets);
+    }
+    for (int i = 0; i < MainWindow->GetDetachedTabCount(); ++i)
+    {
+        CFilesWindow* panel = MainWindow->GetDetachedTabAt(i);
+        if (panel != NULL && MainWindow->GetDetachedTabOriginalSide(panel) == side)
+            InsertDirectoryTabMenuItem(menu, panel, TRUE, nextCommand++, targets);
+    }
+}
+
+static CMenuPopup* NewDirectorySidePathsMenu()
+{
+#ifdef new
+#undef new
+#define RESTORE_DIRECTORY_MENU_DEBUG_NEW
+#endif
+    CMenuPopup* menu = new (std::nothrow) CMenuPopup();
+#ifdef RESTORE_DIRECTORY_MENU_DEBUG_NEW
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_DIRECTORY_MENU_DEBUG_NEW
+#endif
+    return menu;
+}
 
 BOOL SetEditOrComboText(HWND hWnd, const char* text)
 {
@@ -3813,8 +3894,11 @@ BOOL SetEditOrComboText(HWND hWnd, const char* text)
     return TRUE;
 }
 
-DWORD TrackDirectoryMenu(HWND hDialog, int buttonID, BOOL selectMenuItem)
+DWORD TrackDirectoryMenu(HWND hDialog, int buttonID, BOOL selectMenuItem, BOOL allowChangeTarget,
+                         CFilesWindow** selectedTabPanel)
 {
+    if (selectedTabPanel != NULL)
+        *selectedTabPanel = NULL;
     RECT r;
     GetWindowRect(GetDlgItem(hDialog, buttonID), &r);
 
@@ -3836,6 +3920,9 @@ MENU_TEMPLATE_ITEM CopyMoveBrowseMenu[] =
   {MNTT_IT, IDS_PATHMENU_BROWSE
   {MNTT_IT, IDS_PATHMENU_LEFT
   {MNTT_IT, IDS_PATHMENU_RIGHT
+  {MNTT_IT, IDS_PATHMENU_LEFT_SIDE_PATHS
+  {MNTT_IT, IDS_PATHMENU_RIGHT_SIDE_PATHS
+  {MNTT_IT, IDS_PATHMENU_CHANGE_TARGET_TAB
   {MNTT_PE, 0
 };
 */
@@ -3857,6 +3944,86 @@ MENU_TEMPLATE_ITEM CopyMoveBrowseMenu[] =
     mii.ID = DIRECTORY_COMMAND_RIGHT;
     mii.String = LoadStr(IDS_PATHMENU_RIGHT);
     popup.InsertItem(0xFFFFFFFF, TRUE, &mii);
+
+    CMenuPopup* leftPaths = NewDirectorySidePathsMenu();
+    CMenuPopup* rightPaths = NewDirectorySidePathsMenu();
+    if (leftPaths != NULL && rightPaths != NULL)
+    {
+        std::vector<CDirectoryTabMenuTarget> tabTargets;
+        DWORD nextTabCommand = DIRECTORY_COMMAND_TAB_PATH_FIRST;
+        FillDirectorySidePathsMenu(leftPaths, cpsLeft, nextTabCommand, tabTargets);
+        FillDirectorySidePathsMenu(rightPaths, cpsRight, nextTabCommand, tabTargets);
+
+        mii.Mask = MENU_MASK_TYPE | MENU_MASK_ID | MENU_MASK_STRING | MENU_MASK_STATE |
+                   MENU_MASK_SUBMENU;
+        mii.ID = DIRECTORY_COMMAND_LEFT_SIDE_PATHS;
+        mii.String = LoadStr(IDS_PATHMENU_LEFT_SIDE_PATHS);
+        mii.SubMenu = leftPaths;
+        if (popup.InsertItem(0xFFFFFFFF, TRUE, &mii))
+            leftPaths = NULL; // owned by popup
+
+        mii.ID = DIRECTORY_COMMAND_RIGHT_SIDE_PATHS;
+        mii.String = LoadStr(IDS_PATHMENU_RIGHT_SIDE_PATHS);
+        mii.SubMenu = rightPaths;
+        if (popup.InsertItem(0xFFFFFFFF, TRUE, &mii))
+            rightPaths = NULL; // owned by popup
+
+        if (leftPaths != NULL)
+        {
+            delete leftPaths;
+            leftPaths = NULL;
+        }
+        if (rightPaths != NULL)
+        {
+            delete rightPaths;
+            rightPaths = NULL;
+        }
+
+        if (allowChangeTarget)
+        {
+            popup.InsertItem(0xFFFFFFFF, TRUE, &miiSep);
+            mii.Mask = MENU_MASK_TYPE | MENU_MASK_ID | MENU_MASK_STRING | MENU_MASK_STATE;
+            mii.ID = DIRECTORY_COMMAND_CHANGE_TARGET;
+            mii.String = LoadStr(IDS_PATHMENU_CHANGE_TARGET_TAB);
+            popup.InsertItem(0xFFFFFFFF, TRUE, &mii);
+        }
+
+        // append hot paths if any exist
+        DWORD firstID = DIRECTORY_COMMAND_HOTPATHF;
+        MainWindow->HotPaths.FillHotPathsMenu(&popup, firstID, FALSE, FALSE, FALSE, TRUE);
+
+        DWORD flags = MENU_TRACK_RETURNCMD;
+        if (selectMenuItem)
+        {
+            popup.SetSelectedItemIndex(0);
+            flags |= MENU_TRACK_SELECT;
+        }
+        DWORD command = popup.Track(flags, r.right, r.top, hDialog, &r);
+        if (selectedTabPanel != NULL && command >= DIRECTORY_COMMAND_TAB_PATH_FIRST)
+        {
+            for (size_t i = 0; i < tabTargets.size(); ++i)
+            {
+                if (tabTargets[i].Command == command)
+                {
+                    *selectedTabPanel = tabTargets[i].Panel;
+                    return 0;
+                }
+            }
+        }
+        return command;
+    }
+    if (leftPaths != NULL)
+        delete leftPaths;
+    if (rightPaths != NULL)
+        delete rightPaths;
+
+    if (allowChangeTarget)
+    {
+        popup.InsertItem(0xFFFFFFFF, TRUE, &miiSep);
+        mii.ID = DIRECTORY_COMMAND_CHANGE_TARGET;
+        mii.String = LoadStr(IDS_PATHMENU_CHANGE_TARGET_TAB);
+        popup.InsertItem(0xFFFFFFFF, TRUE, &mii);
+    }
 
     // append hot paths if any exist
     DWORD firstID = DIRECTORY_COMMAND_HOTPATHF;
@@ -3902,14 +4069,35 @@ DWORD OnKeyDownHandleSelectAll(DWORD keyCode, HWND hDialog, int editID)
 
 void InvokeDirectoryMenuCommand(DWORD cmd, HWND hDialog, int editID, int editBufSize);
 
-void OnDirectoryButton(HWND hDialog, int editID, int editBufSize, int buttonID, WPARAM wParam, LPARAM lParam)
+BOOL OnDirectoryButton(HWND hDialog, int editID, int editBufSize, int buttonID,
+                       WPARAM wParam, LPARAM lParam, BOOL allowChangeTarget)
 {
     BOOL selectMenuItem = LOWORD(lParam);
-    DWORD cmd = TrackDirectoryMenu(hDialog, buttonID, selectMenuItem);
+    CFilesWindow* selectedTabPanel = NULL;
+    DWORD cmd = TrackDirectoryMenu(hDialog, buttonID, selectMenuItem, allowChangeTarget,
+                                   &selectedTabPanel);
+    if (selectedTabPanel != NULL)
+    {
+        CPathBuffer path;
+        if (selectedTabPanel->GetGeneralPath(path.Data(), path.Capacity(), TRUE))
+        {
+            if ((int)strlen(path.Data()) >= editBufSize)
+            {
+                TRACE_E("OnDirectoryButton(): too long tab path! len=" << (int)strlen(path.Data()));
+                path.Data()[editBufSize - 1] = 0;
+            }
+            SetEditOrComboText(GetDlgItem(hDialog, editID), path.Data());
+        }
+        return FALSE;
+    }
+    if (cmd == DIRECTORY_COMMAND_CHANGE_TARGET)
+        return TRUE;
     InvokeDirectoryMenuCommand(cmd, hDialog, editID, editBufSize);
+    return FALSE;
 }
 
-DWORD OnDirectoryKeyDown(DWORD keyCode, HWND hDialog, int editID, int editBufSize, int buttonID)
+DWORD OnDirectoryKeyDown(DWORD keyCode, HWND hDialog, int editID, int editBufSize, int buttonID,
+                         BOOL allowChangeTarget)
 {
     BOOL controlPressed = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
     BOOL altPressed = (GetKeyState(VK_MENU) & 0x8000) != 0;
@@ -3917,8 +4105,11 @@ DWORD OnDirectoryKeyDown(DWORD keyCode, HWND hDialog, int editID, int editBufSiz
 
     if (!controlPressed && !shiftPressed && altPressed && keyCode == VK_RIGHT)
     {
-        OnDirectoryButton(hDialog, editID, editBufSize, buttonID, MAKELPARAM(buttonID, 0), MAKELPARAM(TRUE, 0));
-        return TRUE;
+        return OnDirectoryButton(hDialog, editID, editBufSize, buttonID,
+                                 MAKELPARAM(buttonID, 0), MAKELPARAM(TRUE, 0),
+                                 allowChangeTarget)
+                   ? DIRECTORY_KEY_CHANGE_TARGET
+                   : TRUE;
     }
     if (controlPressed && !shiftPressed && !altPressed)
     {

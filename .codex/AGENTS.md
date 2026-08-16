@@ -109,3 +109,8 @@ When changing any plug-in-facing SDK interface, preserve binary compatibility wi
 - When an allocation is followed by a `NULL`/`LOW_MEMORY` branch, or the surrounding API is explicitly exception-free, use `new (std::nothrow)` and preserve the complete existing failure behavior. For required objects, return or otherwise stop before any later dereference; for optional UI helpers, retain the guarded degraded-mode path.
 - Main Salamander and many plug-ins redefine `new` in `precomp.h` for CRT debug allocation tracking. A placement form such as `new (std::nothrow)` must use the established narrow workaround: conditionally `#undef new`, define a uniquely named local restore marker, perform only the nothrow allocation, then immediately restore `#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)` and undefine the marker. Do not disable the debug macro for a wider scope.
 - Before applying an automated CodeQL/Copilot suggestion about allocation handling, inspect the constructor's ownership, all later dereferences, and the caller's low-memory contract. The correct fix must satisfy both CodeQL's throwing-`new` semantics and Salamander's existing runtime behavior; a clean alert alone is not sufficient.
+
+# Font used for C++ dialogs, windows etc.
+
+- Don't use SegoeUI.
+- Use: FONT 8, "MS Shell Dlg"

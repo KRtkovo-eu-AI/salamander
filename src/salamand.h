@@ -1154,10 +1154,13 @@ BOOL FindLanguageFromPrevVerOfSal(char* slgName);                               
 // LOWORD(wParam) contains ctrlID, and lParam contains the pressed key (wParam from the WM_KEYDOWN/WM_SYSKEYDOWN message)
 BOOL CreateKeyForwarder(HWND hDialog, int ctrlID);
 // call after receiving the WM_USER_KEYDOWN message; returns TRUE if the key was processed
-DWORD OnDirectoryKeyDown(DWORD keyCode, HWND hDialog, int editID, int editBufSize, int buttonID);
+#define DIRECTORY_KEY_CHANGE_TARGET 2
+DWORD OnDirectoryKeyDown(DWORD keyCode, HWND hDialog, int editID, int editBufSize, int buttonID,
+                         BOOL allowChangeTarget = FALSE);
 // call after receiving the WM_USER_BUTTON message; ensures the menu behind the 'buttonID' button is opened
 // and subsequently fills the 'editID' edit line
-void OnDirectoryButton(HWND hDialog, int editID, int editBufSize, int buttonID, WPARAM wParam, LPARAM lParam);
+BOOL OnDirectoryButton(HWND hDialog, int editID, int editBufSize, int buttonID,
+                       WPARAM wParam, LPARAM lParam, BOOL allowChangeTarget = FALSE);
 
 // call after receiving the WM_USER_BUTTON message; ensures Ctrl+A works on systems up to Windows Vista,
 // where the shortcut is already supported system-wide

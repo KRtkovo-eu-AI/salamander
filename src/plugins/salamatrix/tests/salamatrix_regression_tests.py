@@ -2014,8 +2014,16 @@ def main() -> int:
     require(
         packages,
         r"virtual ~OpenFileSystem\(\).*?ShuttingDown.*?"
+        r"RefreshThreadStarting.*?SwitchToThread.*?"
+        r"RefreshThreadStopping.*?"
         r"WaitForThreadWithSentMessageDispatch.*?DeleteCriticalSection",
-        "Salamatrix FS background refresh is not joined safely on close")
+        "Salamatrix FS close can free the cache while a refresh thread handle is being published")
+    require(
+        packages,
+        r"StartBackgroundRefresh.*?RefreshThreadStarting.*?"
+        r"InterlockedExchangePointer.*?ShuttingDown.*?CREATE_SUSPENDED.*?"
+        r"InterlockedExchangePointer.*?RefreshThreadRunningState.*?ResumeThread",
+        "Salamatrix FS refresh worker can start before its join handle is published")
     require(
         packages,
         r"virtual ~OpenFileSystem\(\).*?"

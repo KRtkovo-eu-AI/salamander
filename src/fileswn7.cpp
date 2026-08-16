@@ -728,8 +728,11 @@ static BOOL UnpackArchiveToPluginFSViaTemp(CFilesWindow* source, CFilesWindow* t
 static BOOL UnpackArchiveToArchiveViaTemp(CFilesWindow* source, CPanelTmpEnumData* data,
                                          char* targetPath, BOOL& invalidPathOrCancel);
 
-void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const char* tgtPath)
+void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const char* tgtPath,
+                                    BOOL* changeTargetRequested)
 {
+    if (changeTargetRequested != NULL)
+        *changeTargetRequested = FALSE;
     CALL_STACK_MESSAGE3("CFilesWindow::UnpackZIPArchive(, %d, %s)", deleteOp, tgtPath);
     if (Files->Count + Dirs->Count == 0)
         return;
@@ -884,11 +887,18 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
         }
 
         CCopyMoveDialog dlg(HWindow, path, SAL_MAX_PATH, LoadStr(IDS_UNPACKCOPY), &str, IDD_COPYDIALOG,
-                            Configuration.CopyHistory, COPY_HISTORY_SIZE, TRUE);
+                            Configuration.CopyHistory, COPY_HISTORY_SIZE, TRUE,
+                            changeTargetRequested != NULL);
 
     _DLG_AGAIN:
 
-        if (tgtPath != NULL || dlg.Execute() == IDOK)
+        int dialogResult = tgtPath != NULL ? IDOK : (int)dlg.Execute();
+        if (dialogResult == ID_CHANGE_SELECTED_TARGET_TAB)
+        {
+            *changeTargetRequested = TRUE;
+            dialogResult = IDCANCEL;
+        }
+        if (dialogResult == IDOK)
         {
             if (tgtPath != NULL)
                 lstrcpyn(path, tgtPath, MAX_PATH);

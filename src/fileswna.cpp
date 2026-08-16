@@ -427,15 +427,21 @@ static BOOL CopyOrMovePluginFSToArchiveViaTemp(CFilesWindow* source, BOOL copy, 
     return done;
 }
 
-void CFilesWindow::PluginFSFilesAction(CPluginFSActionType type)
+void CFilesWindow::PluginFSFilesAction(CPluginFSActionType type, CFilesWindow* target,
+                                       BOOL* changeTargetRequested)
 {
+    if (changeTargetRequested != NULL)
+        *changeTargetRequested = FALSE;
     CALL_STACK_MESSAGE2("CFilesWindow::PluginFSFilesAction(%d)", type);
     if (Dirs->Count + Files->Count == 0)
         return;
     if (!Is(ptPluginFS) || !GetPluginFS()->NotEmpty())
         return;
     int panel = IsLeftPanel() ? PANEL_LEFT : PANEL_RIGHT;
-    CFilesWindow* target = MainWindow->GetOtherPanel(this);
+    if ((type == fsatCopy || type == fsatMove) && target == NULL)
+        target = MainWindow->GetOtherPanel(this);
+    if ((type == fsatCopy || type == fsatMove) && target == NULL)
+        return;
     BOOL unselect = FALSE;
 
     BeginSuspendMode(); // the snooper takes a break
@@ -586,12 +592,21 @@ void CFilesWindow::PluginFSFilesAction(CPluginFSActionType type)
             {
                 if (!cancelOrHandlePath) // standard dialog
                 {
-                    if (CCopyMoveDialog(HWindow, targetPath, SAL_MAX_PATH,
-                                        LoadStr(copy ? IDS_COPY : IDS_MOVE), &str,
-                                        copy ? IDD_COPYDIALOG : IDD_MOVEDIALOG,
-                                        Configuration.CopyHistory, COPY_HISTORY_SIZE,
-                                        TRUE)
-                            .Execute() == IDOK)
+                    int dialogResult = (int)CCopyMoveDialog(
+                        HWindow, targetPath, SAL_MAX_PATH,
+                        LoadStr(copy ? IDS_COPY : IDS_MOVE), &str,
+                        copy ? IDD_COPYDIALOG : IDD_MOVEDIALOG,
+                        Configuration.CopyHistory, COPY_HISTORY_SIZE,
+                        TRUE, changeTargetRequested != NULL)
+                                           .Execute();
+                    if (dialogResult == ID_CHANGE_SELECTED_TARGET_TAB)
+                    {
+                        *changeTargetRequested = TRUE;
+                        UpdateWindow(MainWindow->HWindow);
+                        ret = TRUE;
+                        cancelOrHandlePath = TRUE;
+                    }
+                    else if (dialogResult == IDOK)
                     {
                         UpdateWindow(MainWindow->HWindow);
 

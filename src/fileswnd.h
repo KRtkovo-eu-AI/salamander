@@ -1470,8 +1470,9 @@ public:
     void GotoRoot();
 
     void FilesAction(CActionType type, CFilesWindow* target = NULL, int countSizeMode = 0,
-                     BOOL copyToSelectedDirs = FALSE);
-    void PluginFSFilesAction(CPluginFSActionType type);
+                     BOOL copyToSelectedDirs = FALSE, BOOL* changeTargetRequested = NULL);
+    void PluginFSFilesAction(CPluginFSActionType type, CFilesWindow* target = NULL,
+                             BOOL* changeTargetRequested = NULL);
     void CreateDir(CFilesWindow* target);
     void RenameFile(int specialIndex = -1);
     void RenameFileInternal(CFileData* f, const char* formatedFileName, BOOL isDir, BOOL* mayChange, BOOL* tryAgain);
@@ -1557,7 +1558,8 @@ public:
     // unpacking or deleting from archives (not only ZIP); 'target' may be NULL
     // if 'tgtPath' is not NULL; when 'tgtPath' is not NULL, the unpacking is done
     // to that path without asking the user
-    void UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp = FALSE, const char* tgtPath = NULL);
+    void UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp = FALSE, const char* tgtPath = NULL,
+                          BOOL* changeTargetRequested = NULL);
     // deleting from archives (not only ZIP) - simply calls UnpackZIPArchive
     void DeleteFromZIPArchive();
     // moves all files from the source directory to the target directory,

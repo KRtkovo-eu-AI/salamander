@@ -31,6 +31,8 @@ protected:
 //
 // ****************************************************************************
 
+#define ID_CHANGE_SELECTED_TARGET_TAB 0x7F01
+
 class CCopyMoveDialog : public CCommonDialog
 {
 protected:
@@ -41,6 +43,7 @@ protected:
     char** History;
     int HistoryCount;
     BOOL DirectoryHelper;
+    BOOL AllowChangeTarget;
     BOOL NameAutoCompleteMode;
     int SelectionEnd;
     int SelectionEndChars;
@@ -51,7 +54,8 @@ public:
     // 'selectionEnd' specifies up to which character the name is selected (used for quick rename), -1 == all
     CCopyMoveDialog(HWND parent, char* path, int pathBufSize, char* title,
                     CTruncatedString* subject, DWORD helpID,
-                    char* history[], int historyCount, BOOL directoryHelper);
+                    char* history[], int historyCount, BOOL directoryHelper,
+                    BOOL allowChangeTarget = FALSE);
 
     void SetSelectionEnd(int selectionEnd);
     virtual void Transfer(CTransferInfo& ti);
@@ -89,6 +93,7 @@ protected:
     BOOL HavePermissions;
     BOOL SupportsADS;
     const std::vector<std::string>* TargetPaths;
+    BOOL AllowChangeTarget;
 
     int OriginalWidth;    // full dialog width
     int OriginalHeight;   // full dialog height
@@ -105,7 +110,8 @@ public:
                         CTruncatedString* subject, DWORD helpID,
                         char* history[], int historyCount, CCriteriaData* criteriaInOut,
                         BOOL havePermissions, BOOL supportsADS,
-                        const std::vector<std::string>* targetPaths = NULL);
+                        const std::vector<std::string>* targetPaths = NULL,
+                        BOOL allowChangeTarget = FALSE);
     ~CCopyMoveMoreDialog();
 
     virtual void Validate(CTransferInfo& ti);
