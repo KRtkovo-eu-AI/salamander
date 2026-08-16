@@ -1214,4 +1214,14 @@
           DestinationFiles="$(TargetPath).config"
           SkipUnchangedFiles="true" />
   </Target>
+
+  <Target Name="StageSalamanderRuntimeFiles" AfterTargets="Build">
+    <PropertyGroup>
+      <OpenSalamanderStagingOutDir>$([System.String]::Copy('$(OutDir)').TrimEnd('\'))</OpenSalamanderStagingOutDir>
+    </PropertyGroup>
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(ProjectDir)..\..\tools\stage_inno_payload.ps1&quot; -RepositoryRoot &quot;$(ProjectDir)..\..&quot; -DestinationRoot &quot;$(OpenSalamanderStagingOutDir)&quot;"
+          WorkingDirectory="$(ProjectDir)..\.."
+          StandardOutputImportance="high"
+          StandardErrorImportance="high" />
+  </Target>
 </Project>
