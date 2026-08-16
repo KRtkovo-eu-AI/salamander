@@ -939,10 +939,12 @@ CFilterDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 CCopyMoveDialog::CCopyMoveDialog(HWND parent, char* path, int pathBufSize, char* title,
                                  CTruncatedString* subject, DWORD helpID,
-                                 char* history[], int historyCount, BOOL directoryHelper)
+                                 char* history[], int historyCount, BOOL directoryHelper,
+                                 BOOL allowChangeTarget)
     : CCommonDialog(HLanguage, history ? IDD_COPYMOVEDIALOG_CB : IDD_COPYMOVEDIALOG, parent)
 {
     DirectoryHelper = FALSE;
+    AllowChangeTarget = allowChangeTarget;
     NameAutoCompleteMode = helpID == IDD_CREATEDIRDIALOG || helpID == IDD_RENAMEDIALOG;
 #ifndef _UNICODE
     UnicodeWnd = TRUE; // Salamander-style: file name dialogs must not lose Unicode edit text
@@ -1074,7 +1076,15 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         BOOL processed = FALSE;
         if (DirectoryHelper)
-            processed = OnDirectoryKeyDown((DWORD)lParam, HWindow, IDE_PATH, PathBufSize, IDB_BROWSE);
+        {
+            processed = OnDirectoryKeyDown((DWORD)lParam, HWindow, IDE_PATH, PathBufSize,
+                                           IDB_BROWSE, AllowChangeTarget);
+            if (processed == DIRECTORY_KEY_CHANGE_TARGET)
+            {
+                EndDialog(HWindow, ID_CHANGE_SELECTED_TARGET_TAB);
+                return TRUE;
+            }
+        }
         if (!processed)
             processed = OnKeyDownHandleSelectAll((DWORD)lParam, HWindow, IDE_PATH);
         SetWindowLongPtr(HWindow, DWLP_MSGRESULT, processed);
@@ -1083,7 +1093,9 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_BUTTON:
     {
-        OnDirectoryButton(HWindow, IDE_PATH, PathBufSize, IDB_BROWSE, wParam, lParam);
+        if (OnDirectoryButton(HWindow, IDE_PATH, PathBufSize, IDB_BROWSE, wParam, lParam,
+                              AllowChangeTarget))
+            EndDialog(HWindow, ID_CHANGE_SELECTED_TARGET_TAB);
         return 0;
     }
 
@@ -1232,7 +1244,8 @@ CCopyMoveMoreDialog::CCopyMoveMoreDialog(HWND parent, char* path, int pathBufSiz
                                          CTruncatedString* subject, DWORD helpID,
                                          char* history[], int historyCount, CCriteriaData* criteriaInOut,
                                          BOOL havePermissions, BOOL supportsADS,
-                                         const std::vector<std::string>* targetPaths)
+                                         const std::vector<std::string>* targetPaths,
+                                         BOOL allowChangeTarget)
     : CCommonDialog(HLanguage,
                     targetPaths == NULL ? IDD_COPYMOVEMOREDIALOG : IDD_COPYTOSELECTEDDIRSDIALOG,
                     helpID, parent)
@@ -1253,6 +1266,7 @@ CCopyMoveMoreDialog::CCopyMoveMoreDialog(HWND parent, char* path, int pathBufSiz
     HavePermissions = havePermissions;
     SupportsADS = supportsADS;
     TargetPaths = targetPaths;
+    AllowChangeTarget = allowChangeTarget;
     MoreButton = NULL;
 }
 
@@ -1680,7 +1694,13 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (TargetPaths != NULL)
             return 0;
-        BOOL processed = OnDirectoryKeyDown((DWORD)lParam, HWindow, IDE_PATH, PathBufSize, IDB_BROWSE);
+        DWORD processed = OnDirectoryKeyDown((DWORD)lParam, HWindow, IDE_PATH, PathBufSize,
+                                             IDB_BROWSE, AllowChangeTarget);
+        if (processed == DIRECTORY_KEY_CHANGE_TARGET)
+        {
+            EndDialog(HWindow, ID_CHANGE_SELECTED_TARGET_TAB);
+            return TRUE;
+        }
         if (!processed)
             processed = OnKeyDownHandleSelectAll((DWORD)lParam, HWindow, IDE_PATH);
         SetWindowLongPtr(HWindow, DWLP_MSGRESULT, processed);
@@ -1690,7 +1710,11 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_USER_BUTTON:
     {
         if (TargetPaths == NULL)
-            OnDirectoryButton(HWindow, IDE_PATH, PathBufSize, IDB_BROWSE, wParam, lParam);
+        {
+            if (OnDirectoryButton(HWindow, IDE_PATH, PathBufSize, IDB_BROWSE, wParam, lParam,
+                                  AllowChangeTarget))
+                EndDialog(HWindow, ID_CHANGE_SELECTED_TARGET_TAB);
+        }
         return 0;
     }
 

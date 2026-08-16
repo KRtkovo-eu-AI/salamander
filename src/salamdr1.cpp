@@ -5700,12 +5700,25 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                                 MainWindow != NULL)
                                 MainWindow->UpdateBottomToolBar();
 
+                            HWND acceleratorTarget = MainWindow != NULL ? MainWindow->HWindow : NULL;
+                            BOOL detachedTabCaptionActive = FALSE;
+                            if (MainWindow != NULL)
+                            {
+                                HWND activeWindow = GetActiveWindow();
+                                if (MainWindow->FindDetachedTab(activeWindow) != NULL)
+                                {
+                                    acceleratorTarget = activeWindow;
+                                    detachedTabCaptionActive = TRUE;
+                                }
+                            }
+
                             if ((wnd == NULL || !wnd->Is(otDialog) ||
                                  !IsDialogMessage(wnd->HWindow, &msg)) &&
-                                (MainWindow == NULL || !MainWindow->CaptionIsActive || // pridano "!MainWindow->CaptionIsActive", aby se v nemodalnich oknech pluginu neprekladaly akceleratory (F7 v "FTP Logs" neni nic moc)
+                                (MainWindow == NULL ||
+                                 !MainWindow->CaptionIsActive && !detachedTabCaptionActive || // in non-modal plug-in windows, do not translate accelerators (F7 in "FTP Logs" is undesirable)
                                  MainWindow->QuickRenameWindowActive() ||
-                                 !TranslateAccelerator(MainWindow->HWindow, AccelTable1, &msg) &&
-                                     (MainWindow->EditMode || !TranslateAccelerator(MainWindow->HWindow, AccelTable2, &msg))))
+                                 !TranslateAccelerator(acceleratorTarget, AccelTable1, &msg) &&
+                                     (MainWindow->EditMode || !TranslateAccelerator(acceleratorTarget, AccelTable2, &msg))))
                             {
                                 TranslateMessage(&msg);
                                 DispatchMessage(&msg);
@@ -5893,11 +5906,17 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                                             CFilesWindow* activePanel = MainWindow->GetActivePanel();
                                             if (activePanel != NULL && activePanel->Is(ptDisk))
                                             { // otevreni Pack dialogu
+                                                CFilesWindow* target = MainWindow->IsDetachedTabPanel(activePanel)
+                                                                           ? MainWindow->SelectDetachedOperationTarget(activePanel, CM_PACK)
+                                                                           : MainWindow->GetNonActivePanel();
                                                 MainWindow->CancelPanelsUI();
-                                                activePanel->UserWorkedOnThisPath = TRUE;
-                                                activePanel->StoreSelection(); // ulozime selection pro prikaz Restore Selection
-                                                activePanel->Pack(MainWindow->GetNonActivePanel(), pluginIndex,
-                                                                  data->Name, data->PackDlgDelFilesAfterPacking);
+                                                if (target != NULL)
+                                                {
+                                                    activePanel->UserWorkedOnThisPath = TRUE;
+                                                    activePanel->StoreSelection(); // ulozime selection pro prikaz Restore Selection
+                                                    activePanel->Pack(target, pluginIndex,
+                                                                      data->Name, data->PackDlgDelFilesAfterPacking);
+                                                }
                                             }
                                             else
                                                 TRACE_E("Unexpected situation: type of active panel is not Disk!");
@@ -5911,11 +5930,17 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                                                 CFilesWindow* activePanel = MainWindow->GetActivePanel();
                                                 if (activePanel != NULL && activePanel->Is(ptDisk))
                                                 { // otevreni Unpack dialogu
+                                                    CFilesWindow* target = MainWindow->IsDetachedTabPanel(activePanel)
+                                                                               ? MainWindow->SelectDetachedOperationTarget(activePanel, CM_UNPACK)
+                                                                               : MainWindow->GetNonActivePanel();
                                                     MainWindow->CancelPanelsUI();
-                                                    activePanel->UserWorkedOnThisPath = TRUE;
-                                                    activePanel->StoreSelection(); // ulozime selection pro prikaz Restore Selection
-                                                    activePanel->Unpack(MainWindow->GetNonActivePanel(), pluginIndex,
-                                                                        data->Name, data->UnpackDlgUnpackMask);
+                                                    if (target != NULL)
+                                                    {
+                                                        activePanel->UserWorkedOnThisPath = TRUE;
+                                                        activePanel->StoreSelection(); // ulozime selection pro prikaz Restore Selection
+                                                        activePanel->Unpack(target, pluginIndex,
+                                                                            data->Name, data->UnpackDlgUnpackMask);
+                                                    }
                                                 }
                                                 else
                                                     TRACE_E("Unexpected situation: type of active panel is not Disk!");

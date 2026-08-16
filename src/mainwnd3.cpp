@@ -901,6 +901,21 @@ CFilesWindow* CMainWindow::GetPanelTabAt(CPanelSide side, int index) const
     return tabs[index];
 }
 
+std::wstring CMainWindow::GetPanelTabDisplayText(CFilesWindow* panel) const
+{
+    if (panel == NULL)
+        return std::wstring();
+
+    int index = GetPanelTabIndex(panel->GetPanelSide(), panel);
+    if (index < 0)
+    {
+        const CDetachedTabInfo* info = FindDetachedTab(panel);
+        if (info != NULL)
+            index = info->OriginalIndex;
+    }
+    return BuildTabDisplayText(panel, index);
+}
+
 void CMainWindow::UpdatePanelTabTitle(CFilesWindow* panel)
 {
     if (panel == NULL)
@@ -917,7 +932,7 @@ void CMainWindow::UpdatePanelTabTitle(CFilesWindow* panel)
     int index = GetPanelTabIndex(side, panel);
     if (index < 0)
         return;
-    std::wstring text = BuildTabDisplayText(panel, index);
+    std::wstring text = GetPanelTabDisplayText(panel);
     tabWnd->SetTabText(index, text.c_str());
 }
 
@@ -5533,12 +5548,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             BOOL needsOppositePanel = FALSE;
             switch (LOWORD(wParam))
             {
-            case CM_COPYTOSELECTEDDIRS:
-            case CM_COPYFILES:
-            case CM_MOVEFILES:
-            case CM_PACK:
-            case CM_UNPACK:
-            case CM_CREATEDIR:
             case CM_ACTIVE_AS_OTHER:
             case CM_SWAPPANELS:
                 needsOppositePanel = TRUE;
@@ -7218,30 +7227,39 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         }
 
         case CM_COPYTOSELECTEDDIRS: // copy files and directories to selected directories in the other panel
-            if (!EnablerFilesCopy)
+        case CM_COPYFILES:          // copy files and directories
+        case CM_MOVEFILES:          // move/rename files and directories
+        case CM_DELETEFILES:        // delete files and directories
+        case CM_OCCUPIEDSPACE:      // calculate occupied disk space
+        case CM_CHANGECASE:         // change case in names
+        {
+            UINT command = LOWORD(wParam);
+            if (((command == CM_COPYTOSELECTEDDIRS || command == CM_COPYFILES) && !EnablerFilesCopy) ||
+                (command == CM_MOVEFILES && !EnablerFilesMove) ||
+                (command == CM_DELETEFILES && !EnablerFilesDelete) ||
+                (command == CM_OCCUPIEDSPACE && !EnablerOccupiedSpace) ||
+                (command == CM_CHANGECASE && !EnablerFilesOnDisk))
                 return 0;
-            if (!activePanel->Is(ptDisk) || !GetNonActivePanel()->Is(ptDisk))
+
+            CFilesWindow* operationTarget = NULL;
+            BOOL detachedTargetOperation = FALSE;
+            if (command == CM_COPYTOSELECTEDDIRS || command == CM_COPYFILES || command == CM_MOVEFILES)
             {
-                SalMessageBox(HWindow, LoadStr(IDS_COPYTOSELECTEDDIRS_NEEDDISKPANELS),
+                detachedTargetOperation = IsDetachedTabPanel(activePanel);
+                operationTarget = detachedTargetOperation
+                                      ? SelectDetachedOperationTarget(activePanel, command)
+                                      : GetNonActivePanel();
+                if (operationTarget == NULL)
+                    return 0;
+            }
+            if (command == CM_COPYTOSELECTEDDIRS &&
+                (!activePanel->Is(ptDisk) || !operationTarget->Is(ptDisk)))
+            {
+                SalMessageBox(activePanel->HWindow, LoadStr(IDS_COPYTOSELECTEDDIRS_NEEDDISKPANELS),
                               LoadStr(IDS_INFOTITLE), MB_OK | MB_ICONINFORMATION);
                 return 0;
             }
-        case CM_COPYFILES: // copy files and directories
-            if (!EnablerFilesCopy)
-                return 0;
-        case CM_MOVEFILES: // move/rename files and directories
-            if (LOWORD(wParam) == CM_MOVEFILES && !EnablerFilesMove)
-                return 0;
-        case CM_DELETEFILES: // delete files and directories
-            if (LOWORD(wParam) == CM_DELETEFILES && !EnablerFilesDelete)
-                return 0;
-        case CM_OCCUPIEDSPACE: // calculate occupied disk space
-            if (LOWORD(wParam) == CM_OCCUPIEDSPACE && !EnablerOccupiedSpace)
-                return 0;
-        case CM_CHANGECASE: // change case in names
-        {
-            if (LOWORD(wParam) == CM_CHANGECASE && !EnablerFilesOnDisk)
-                return 0;
+
             activePanel->UserWorkedOnThisPath = TRUE;
             activePanel->StoreSelection(); // save selection for Restore Selection command
 
@@ -7249,79 +7267,98 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             char temporarySelected[MAX_PATH];
             activePanel->SelectFocusedItemAndGetName(temporarySelected, MAX_PATH);
 
-            if (activePanel->Is(ptDisk)) // source is disk - all operations go here
+            BOOL changeTargetRequested;
+            do
             {
-                CActionType type;
-                switch (LOWORD(wParam))
+                changeTargetRequested = FALSE;
+                if (activePanel->Is(ptDisk)) // source is disk - all operations go here
                 {
-                case CM_COPYTOSELECTEDDIRS:
-                case CM_COPYFILES:
-                    type = atCopy;
-                    break;
-                case CM_MOVEFILES:
-                    type = atMove;
-                    break;
-                case CM_DELETEFILES:
-                    type = atDelete;
-                    break;
-                case CM_OCCUPIEDSPACE:
-                    type = atCountSize;
-                    break;
-                case CM_CHANGECASE:
-                    type = atChangeCase;
-                    break;
-                }
-
-                // perform the action
-                activePanel->FilesAction(type, GetNonActivePanel(), 0,
-                                         LOWORD(wParam) == CM_COPYTOSELECTEDDIRS);
-            }
-            else
-            {
-                if (activePanel->Is(ptZIPArchive)) // source is an archive - all operations go here
-                {
-                    BOOL archMaybeUpdated;
-                    activePanel->OfferArchiveUpdateIfNeeded(HWindow, IDS_ARCHIVECLOSEEDIT2, &archMaybeUpdated);
-                    if (!archMaybeUpdated)
+                    CActionType type;
+                    switch (command)
                     {
-                        switch (LOWORD(wParam))
-                        {
-                        case CM_OCCUPIEDSPACE:
-                            activePanel->CalculateOccupiedZIPSpace();
-                            break;
-                        case CM_COPYFILES:
-                            activePanel->UnpackZIPArchive(GetNonActivePanel());
-                            break;
-                        case CM_DELETEFILES:
-                            activePanel->DeleteFromZIPArchive();
-                            break;
-                        }
+                    case CM_COPYTOSELECTEDDIRS:
+                    case CM_COPYFILES:
+                        type = atCopy;
+                        break;
+                    case CM_MOVEFILES:
+                        type = atMove;
+                        break;
+                    case CM_DELETEFILES:
+                        type = atDelete;
+                        break;
+                    case CM_OCCUPIEDSPACE:
+                        type = atCountSize;
+                        break;
+                    case CM_CHANGECASE:
+                        type = atChangeCase;
+                        break;
                     }
+
+                    // perform the action
+                    activePanel->FilesAction(
+                        type, operationTarget, 0, command == CM_COPYTOSELECTEDDIRS,
+                        detachedTargetOperation && command != CM_COPYTOSELECTEDDIRS
+                            ? &changeTargetRequested
+                            : NULL);
                 }
                 else
                 {
-                    if (activePanel->Is(ptPluginFS)) // source is a FS - all operations go here
+                    if (activePanel->Is(ptZIPArchive)) // source is an archive - all operations go here
                     {
-                        CPluginFSActionType type;
-                        switch (LOWORD(wParam))
+                        BOOL archMaybeUpdated;
+                        activePanel->OfferArchiveUpdateIfNeeded(HWindow, IDS_ARCHIVECLOSEEDIT2, &archMaybeUpdated);
+                        if (!archMaybeUpdated)
                         {
-                        case CM_COPYFILES:
-                            type = fsatCopy;
-                            break;
-                        case CM_MOVEFILES:
-                            type = fsatMove;
-                            break;
-                        case CM_DELETEFILES:
-                            type = fsatDelete;
-                            break;
-                        case CM_OCCUPIEDSPACE:
-                            type = fsatCountSize;
-                            break;
+                            switch (command)
+                            {
+                            case CM_OCCUPIEDSPACE:
+                                activePanel->CalculateOccupiedZIPSpace();
+                                break;
+                            case CM_COPYFILES:
+                                activePanel->UnpackZIPArchive(
+                                    operationTarget, FALSE, NULL,
+                                    detachedTargetOperation ? &changeTargetRequested : NULL);
+                                break;
+                            case CM_DELETEFILES:
+                                activePanel->DeleteFromZIPArchive();
+                                break;
+                            }
                         }
-                        activePanel->PluginFSFilesAction(type);
+                    }
+                    else
+                    {
+                        if (activePanel->Is(ptPluginFS)) // source is a FS - all operations go here
+                        {
+                            CPluginFSActionType type;
+                            switch (command)
+                            {
+                            case CM_COPYFILES:
+                                type = fsatCopy;
+                                break;
+                            case CM_MOVEFILES:
+                                type = fsatMove;
+                                break;
+                            case CM_DELETEFILES:
+                                type = fsatDelete;
+                                break;
+                            case CM_OCCUPIEDSPACE:
+                                type = fsatCountSize;
+                                break;
+                            }
+                            activePanel->PluginFSFilesAction(
+                                type, operationTarget,
+                                detachedTargetOperation ? &changeTargetRequested : NULL);
+                        }
                     }
                 }
-            }
+
+                if (changeTargetRequested)
+                {
+                    operationTarget = SelectDetachedOperationTarget(activePanel, command, TRUE);
+                    if (operationTarget == NULL)
+                        changeTargetRequested = FALSE;
+                }
+            } while (changeTargetRequested);
 
             // if we selected an item temporarily, deselect it again
             activePanel->UnselectItemWithName(temporarySelected);
@@ -7441,9 +7478,14 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         {
             if (activePanel->Is(ptDisk))
             {
+                CFilesWindow* target = IsDetachedTabPanel(activePanel)
+                                           ? SelectDetachedOperationTarget(activePanel, CM_PACK)
+                                           : GetNonActivePanel();
+                if (target == NULL)
+                    return 0;
                 activePanel->UserWorkedOnThisPath = TRUE;
                 activePanel->StoreSelection(); // save selection for Restore Selection command
-                activePanel->Pack(GetNonActivePanel());
+                activePanel->Pack(target);
             }
             return 0;
         }
@@ -7452,9 +7494,14 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         {
             if (activePanel->Is(ptDisk))
             {
+                CFilesWindow* target = IsDetachedTabPanel(activePanel)
+                                           ? SelectDetachedOperationTarget(activePanel, CM_UNPACK)
+                                           : GetNonActivePanel();
+                if (target == NULL)
+                    return 0;
                 activePanel->UserWorkedOnThisPath = TRUE;
                 activePanel->StoreSelection(); // save selection for Restore Selection command
-                activePanel->Unpack(GetNonActivePanel());
+                activePanel->Unpack(target);
             }
             return 0;
         }
@@ -7585,7 +7632,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CM_CREATEDIR:
         {
             activePanel->UserWorkedOnThisPath = TRUE;
-            activePanel->CreateDir(GetNonActivePanel());
+            activePanel->CreateDir(NULL);
             return 0;
         }
 

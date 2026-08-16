@@ -1841,8 +1841,8 @@ STRINGTABLE
  IDS_IMPORTCFG_DEFCFG, "Do not import, start with default configuration"
 
  IDS_PATHMENU_BROWSE, "&Browse...\tCtrl+B"
- IDS_PATHMENU_LEFT, "&Left Panel Path\tCtrl+["
- IDS_PATHMENU_RIGHT, "&Right Panel Path\tCtrl+]"
+ IDS_PATHMENU_LEFT, "&Active Left Panel Path\tCtrl+["
+ IDS_PATHMENU_RIGHT, "A&ctive Right Panel Path\tCtrl+]"
 
  IDS_NETWORK_NONE, "(none)"
  IDS_NETWORK_NETWORK, "Network"
@@ -2095,6 +2095,16 @@ STRINGTABLE
  IDS_DETACHED_TAB_BTN_LEFT, "Reattach &Left"
  IDS_DETACHED_TAB_BTN_RIGHT, "Reattach &Right"
  IDS_DETACHED_TAB_UNSUPPORTED, "This operation is not supported from a detached tab because it requires the opposite panel."
+ IDS_DETACHED_TARGET_TITLE, "Select Target Tab"
+ IDS_DETACHED_TARGET_PROMPT, "Select the target tab for this operation:"
+ IDS_DETACHED_TARGET_SIDE, "Side"
+ IDS_DETACHED_TARGET_PATH, "Path"
+ IDS_DETACHED_TARGET_STATE, "State"
+ IDS_DETACHED_TARGET_ATTACHED, "Attached"
+ IDS_DETACHED_TARGET_DETACHED, "Detached"
+ IDS_DETACHED_TARGET_LEFT, "Left"
+ IDS_DETACHED_TARGET_RIGHT, "Right"
+ IDS_DETACHED_TARGET_NONE, "No suitable target tab is available for this operation."
 
  IDS_CLOSESHELL_COMMANDLINE, "C&lose shell window after command execution (in Command line)"
  IDS_CLOSESHELL_DEFAULTCMDONLY, "C&lose shell window after command execution (only with default Command Shell)"
@@ -2159,6 +2169,11 @@ STRINGTABLE
  IDS_DPI_CHANGE_RESTART, "Windows display scaling or the remote desktop session DPI may have changed. Restart Open Salamander to redraw the whole user interface sharply in the current DPI."
 
  IDS_VIEWER_ZOOM_RESET, "Reset"
+
+ IDS_DETACHED_TARGET_REMEMBER, "&Remember selected target for this detached tab"
+ IDS_PATHMENU_CHANGE_TARGET_TAB, "Change Selected &Target Tab..."
+ IDS_PATHMENU_LEFT_SIDE_PATHS, "Left Side Paths..."
+ IDS_PATHMENU_RIGHT_SIDE_PATHS, "Right Side Paths..."
 
  IDS_MENU_OPT_MANAGECONFIG, "&Manage Configurations..."
  IDS_PANELTIP_NAME, "Name: "

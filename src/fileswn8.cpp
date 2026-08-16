@@ -203,11 +203,15 @@ void PluginFSConvertPathToExternal(char* path)
 // countSizeMode - 0 normal calculation, 1 calculation for the selected item,
 // 2 calculation for all subdirectories
 void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int countSizeMode,
-                               BOOL copyToSelectedDirs)
+                               BOOL copyToSelectedDirs, BOOL* changeTargetRequested)
 {
+    if (changeTargetRequested != NULL)
+        *changeTargetRequested = FALSE;
     CALL_STACK_MESSAGE4("CFilesWindow::FilesAction(%d, , %d, %d)", type, countSizeMode,
                         copyToSelectedDirs);
     if (Dirs->Count + Files->Count == 0)
+        return;
+    if ((type == atCopy || type == atMove) && target == NULL)
         return;
 
     std::vector<std::string> selectedTargetPaths;
@@ -369,77 +373,81 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
 
         //---  build the target path for copy/move
         char path[SAL_MAX_PATH];
-        if (copyToSelectedDirs)
-            lstrcpyn(path, selectedTargetPaths[0].c_str(), SAL_MAX_PATH);
-        else
-            target->GetGeneralPath(path, SAL_MAX_PATH);
-        if (target->Is(ptDisk) && !copyToSelectedDirs)
+        path[0] = 0;
+        if (type == atCopy || type == atMove)
         {
-            SalPathAppend(path, "*.*", SAL_MAX_PATH);
-        }
-        else
-        {
-            if (target->Is(ptZIPArchive))
+            if (copyToSelectedDirs)
+                lstrcpyn(path, selectedTargetPaths[0].c_str(), SAL_MAX_PATH);
+            else
+                target->GetGeneralPath(path, SAL_MAX_PATH);
+            if (target->Is(ptDisk) && !copyToSelectedDirs)
             {
-                SalPathAddBackslash(path, SAL_MAX_PATH);
-
-                // if packing to the archive in the other panel is not possible, leave the path empty
-                int format = PackerFormatConfig.PackIsArchive(target->GetZIPArchive());
-                if (format != 0) // we found a supported archive
-                {
-                    if (!PackerFormatConfig.GetUsePacker(format - 1)) // no edit -> empty operation target
-                    {
-                        path[0] = 0;
-                    }
-                }
+                SalPathAppend(path, "*.*", SAL_MAX_PATH);
             }
             else
             {
-                if (target->Is(ptPluginFS) && (type == atCopy || type == atMove))
+                if (target->Is(ptZIPArchive))
                 {
-                    if (target->GetPluginFS()->NotEmpty() &&
-                        (type == atCopy && target->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMDISKTOFS) ||
-                         type == atMove && target->GetPluginFS()->IsServiceSupported(FS_SERVICE_MOVEFROMDISKTOFS)))
+                    SalPathAddBackslash(path, SAL_MAX_PATH);
+
+                    // if packing to the archive in the other panel is not possible, leave the path empty
+                    int format = PackerFormatConfig.PackIsArchive(target->GetZIPArchive());
+                    if (format != 0) // we found a supported archive
                     {
-                        // // this is just a modification of the target path text in the plug-in -> no point in lowering the thread's priority
-                        int selFiles = 0;
-                        int selDirs = 0;
-                        if (count > 0) // some files are selected
+                        if (!PackerFormatConfig.GetUsePacker(format - 1)) // no edit -> empty operation target
                         {
-                            selFiles = files;
-                            selDirs = count - files;
+                            path[0] = 0;
                         }
-                        else // take the focused item
+                    }
+                }
+                else
+                {
+                    if (target->Is(ptPluginFS))
+                    {
+                        if (target->GetPluginFS()->NotEmpty() &&
+                            (type == atCopy && target->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMDISKTOFS) ||
+                             type == atMove && target->GetPluginFS()->IsServiceSupported(FS_SERVICE_MOVEFROMDISKTOFS)))
                         {
-                            int index = GetCaretIndex();
-                            if (index >= Dirs->Count)
-                                selFiles = 1;
+                            // // this is just a modification of the target path text in the plug-in -> no point in lowering the thread's priority
+                            int selFiles = 0;
+                            int selDirs = 0;
+                            if (count > 0) // some files are selected
+                            {
+                                selFiles = files;
+                                selDirs = count - files;
+                            }
+                            else // take the focused item
+                            {
+                                int index = GetCaretIndex();
+                                if (index >= Dirs->Count)
+                                    selFiles = 1;
+                                else
+                                    selDirs = 1;
+                            }
+                            if (!target->GetPluginFS()->CopyOrMoveFromDiskToFS(type == atCopy, 1,
+                                                                               target->GetPluginFS()->GetPluginFSName(),
+                                                                               HWindow, NULL, NULL, NULL,
+                                                                               selFiles, selDirs, path, NULL))
+                            {
+                                path[0] = 0; // error while retrieving the target path
+                            }
                             else
-                                selDirs = 1;
-                        }
-                        if (!target->GetPluginFS()->CopyOrMoveFromDiskToFS(type == atCopy, 1,
-                                                                           target->GetPluginFS()->GetPluginFSName(),
-                                                                           HWindow, NULL, NULL, NULL,
-                                                                           selFiles, selDirs, path, NULL))
-                        {
-                            path[0] = 0; // error while retrieving the target path
+                            {
+                                // convert the path to external format (before showing it in the dialog)
+                                PluginFSConvertPathToExternal(path);
+                            }
                         }
                         else
                         {
-                            // convert the path to external format (before showing it in the dialog)
-                            PluginFSConvertPathToExternal(path);
+                            path[0] = 0; // no copy/move from disk to FS
                         }
-                    }
-                    else
-                    {
-                        path[0] = 0; // no copy/move from disk to FS
                     }
                 }
             }
-        }
-        if (path[0] != 0)
-        {
-            target->UserWorkedOnThisPath = TRUE; // default action = working with the path in the target panel
+            if (path[0] != 0)
+            {
+                target->UserWorkedOnThisPath = TRUE; // default action = working with the path in the target panel
+            }
         }
         //---
         int recycle = 0;
@@ -589,8 +597,14 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                                                (type == atCopy) ? IDD_COPYDIALOG : IDD_MOVEDIALOG,
                                                Configuration.CopyHistory, COPY_HISTORY_SIZE,
                                                &criteria, havePermissions, supportsADS,
-                                               copyToSelectedDirs ? &selectedTargetPaths : NULL)
+                                               copyToSelectedDirs ? &selectedTargetPaths : NULL,
+                                               changeTargetRequested != NULL && !copyToSelectedDirs)
                           .Execute();
+                if (res == ID_CHANGE_SELECTED_TARGET_TAB)
+                {
+                    *changeTargetRequested = TRUE;
+                    res = IDCANCEL;
+                }
                 if (!havePermissions)
                     criteria.CopySecurity = FALSE;
                 if (res != IDOK)

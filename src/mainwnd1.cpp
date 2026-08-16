@@ -3292,6 +3292,314 @@ static HWND CreateDetachedTabWindow(CMainWindow* mainWindow, CFilesWindow* sourc
     return hWnd;
 }
 
+struct CDetachedOperationTarget
+{
+    CFilesWindow* Panel;
+    ULONGLONG TabId;
+    CPanelSide Side;
+    BOOL Detached;
+    std::wstring DisplayPath;
+};
+
+static std::wstring DetachedTargetTextToWide(const char* text)
+{
+    if (text == NULL || text[0] == 0)
+        return std::wstring();
+    int len = MultiByteToWideChar(CP_ACP, 0, text, -1, NULL, 0);
+    if (len <= 1)
+        return std::wstring();
+    std::wstring result(len, L'\0');
+    MultiByteToWideChar(CP_ACP, 0, text, -1, &result[0], len);
+    result.resize(len - 1);
+    return result;
+}
+
+class CDetachedOperationTargetDialog : public CCommonDialog
+{
+private:
+    const std::vector<CDetachedOperationTarget>& Targets;
+    ULONGLONG PreferredTabId;
+    ULONGLONG SelectedTabId;
+    BOOL RememberTarget;
+
+public:
+    CDetachedOperationTargetDialog(HWND parent,
+                                   const std::vector<CDetachedOperationTarget>& targets,
+                                   ULONGLONG preferredTabId, BOOL rememberTarget)
+        : CCommonDialog(HLanguage, IDD_DETACHED_TARGET, parent), Targets(targets),
+          PreferredTabId(preferredTabId), SelectedTabId(0), RememberTarget(rememberTarget)
+    {
+    }
+
+    ULONGLONG GetSelectedTabId() const { return SelectedTabId; }
+    BOOL GetRememberTarget() const { return RememberTarget; }
+
+protected:
+    virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+    {
+        switch (uMsg)
+        {
+        case WM_INITDIALOG:
+        {
+            INT_PTR ret = CCommonDialog::DialogProc(uMsg, wParam, lParam);
+            SetWindowText(HWindow, LoadStr(IDS_DETACHED_TARGET_TITLE));
+            SetDlgItemText(HWindow, IDT_DETACHED_TARGET_PROMPT, LoadStr(IDS_DETACHED_TARGET_PROMPT));
+            SetDlgItemText(HWindow, IDC_DETACHED_TARGET_REMEMBER,
+                           LoadStr(IDS_DETACHED_TARGET_REMEMBER));
+            SetDlgItemText(HWindow, IDOK, LoadStr(IDS_BUTTON_OK));
+            SetDlgItemText(HWindow, IDCANCEL, LoadStr(IDS_BUTTON_CANCEL));
+            CheckDlgButton(HWindow, IDC_DETACHED_TARGET_REMEMBER,
+                           RememberTarget ? BST_CHECKED : BST_UNCHECKED);
+
+            HWND list = GetDlgItem(HWindow, IDC_DETACHED_TARGET_LIST);
+            SendMessage(list, LVM_SETUNICODEFORMAT, TRUE, 0);
+            ListView_SetExtendedListViewStyle(list,
+                                              ListView_GetExtendedListViewStyle(list) |
+                                                  LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
+
+            RECT listRect;
+            GetClientRect(list, &listRect);
+            int listWidth = listRect.right - listRect.left;
+            const int widths[] = {listWidth / 5, listWidth * 3 / 5, listWidth / 5};
+            const int headings[] = {IDS_DETACHED_TARGET_SIDE, IDS_DETACHED_TARGET_PATH,
+                                    IDS_DETACHED_TARGET_STATE};
+            for (int column = 0; column < 3; ++column)
+            {
+                std::wstring heading = DetachedTargetTextToWide(LoadStr(headings[column]));
+                LVCOLUMNW lvc;
+                memset(&lvc, 0, sizeof(lvc));
+                lvc.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_FMT;
+                lvc.pszText = const_cast<wchar_t*>(heading.c_str());
+                lvc.cx = widths[column];
+                lvc.fmt = LVCFMT_LEFT;
+                SendMessageW(list, LVM_INSERTCOLUMNW, column, (LPARAM)&lvc);
+            }
+
+            int selectedIndex = 0;
+            for (size_t i = 0; i < Targets.size(); ++i)
+            {
+                const CDetachedOperationTarget& target = Targets[i];
+                std::wstring side = DetachedTargetTextToWide(
+                    LoadStr(target.Side == cpsLeft ? IDS_DETACHED_TARGET_LEFT : IDS_DETACHED_TARGET_RIGHT));
+                std::wstring state = DetachedTargetTextToWide(
+                    LoadStr(target.Detached ? IDS_DETACHED_TARGET_DETACHED : IDS_DETACHED_TARGET_ATTACHED));
+
+                LVITEMW item;
+                memset(&item, 0, sizeof(item));
+                item.mask = LVIF_TEXT | LVIF_PARAM;
+                item.iItem = (int)i;
+                item.pszText = const_cast<wchar_t*>(side.c_str());
+                item.lParam = (LPARAM)i;
+                int row = (int)SendMessageW(list, LVM_INSERTITEMW, 0, (LPARAM)&item);
+                if (row >= 0)
+                {
+                    item.mask = LVIF_TEXT;
+                    item.iItem = row;
+                    item.iSubItem = 1;
+                    item.pszText = const_cast<wchar_t*>(target.DisplayPath.c_str());
+                    SendMessageW(list, LVM_SETITEMTEXTW, row, (LPARAM)&item);
+                    item.iSubItem = 2;
+                    item.pszText = const_cast<wchar_t*>(state.c_str());
+                    SendMessageW(list, LVM_SETITEMTEXTW, row, (LPARAM)&item);
+                }
+                if (target.TabId == PreferredTabId)
+                    selectedIndex = (int)i;
+            }
+            ListView_SetItemState(list, selectedIndex, LVIS_SELECTED | LVIS_FOCUSED,
+                                  LVIS_SELECTED | LVIS_FOCUSED);
+            ListView_EnsureVisible(list, selectedIndex, FALSE);
+            SetFocus(list);
+            return FALSE;
+        }
+
+        case WM_NOTIFY:
+            if (((LPNMHDR)lParam)->idFrom == IDC_DETACHED_TARGET_LIST &&
+                ((LPNMHDR)lParam)->code == NM_DBLCLK)
+            {
+                PostMessage(HWindow, WM_COMMAND, IDOK, 0);
+                return TRUE;
+            }
+            break;
+
+        case WM_COMMAND:
+            if (LOWORD(wParam) == IDOK)
+            {
+                HWND list = GetDlgItem(HWindow, IDC_DETACHED_TARGET_LIST);
+                int row = ListView_GetNextItem(list, -1, LVNI_SELECTED);
+                if (row < 0)
+                    return TRUE;
+                LVITEMW item;
+                memset(&item, 0, sizeof(item));
+                item.mask = LVIF_PARAM;
+                item.iItem = row;
+                if (SendMessageW(list, LVM_GETITEMW, 0, (LPARAM)&item) &&
+                    item.lParam >= 0 && (size_t)item.lParam < Targets.size())
+                {
+                    SelectedTabId = Targets[(size_t)item.lParam].TabId;
+                }
+                if (SelectedTabId == 0)
+                    return TRUE;
+                RememberTarget = IsDlgButtonChecked(HWindow, IDC_DETACHED_TARGET_REMEMBER) == BST_CHECKED;
+            }
+            break;
+        }
+        return CCommonDialog::DialogProc(uMsg, wParam, lParam);
+    }
+};
+
+static BOOL HasSelectedTargetDirectory(CFilesWindow* panel)
+{
+    if (panel == NULL || !panel->Is(ptDisk))
+        return FALSE;
+    for (int i = 0; i < panel->Dirs->Count; ++i)
+    {
+        const CFileData& dir = panel->Dirs->At(i);
+        if (dir.Selected && strcmp(dir.Name, "..") != 0)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+static BOOL IsDetachedOperationTargetSuitable(CFilesWindow* source, CFilesWindow* target,
+                                              UINT command)
+{
+    if (source == NULL || target == NULL || source == target)
+        return FALSE;
+
+    if (command == CM_COPYTOSELECTEDDIRS)
+        return source->Is(ptDisk) && HasSelectedTargetDirectory(target);
+    if (command == CM_PACK || command == CM_UNPACK)
+        return target->Is(ptDisk);
+    if (command != CM_COPYFILES && command != CM_MOVEFILES)
+        return FALSE;
+
+    if (target->Is(ptDisk))
+        return TRUE;
+    if (target->Is(ptZIPArchive))
+    {
+        int format = PackerFormatConfig.PackIsArchive(target->GetZIPArchive());
+        return format != 0 && PackerFormatConfig.GetUsePacker(format - 1);
+    }
+    if (!target->Is(ptPluginFS) || !target->GetPluginFS()->NotEmpty())
+        return FALSE;
+
+    if (source->Is(ptDisk))
+    {
+        return target->GetPluginFS()->IsServiceSupported(
+            command == CM_COPYFILES ? FS_SERVICE_COPYFROMDISKTOFS : FS_SERVICE_MOVEFROMDISKTOFS);
+    }
+    return target->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMDISKTOFS);
+}
+
+static std::wstring GetDetachedTargetDisplayPath(CFilesWindow* panel)
+{
+    std::wstring result;
+    if (panel->HasCustomTabPrefix())
+    {
+        result = panel->GetCustomTabPrefix();
+        result.append(L" — ");
+    }
+    const wchar_t* path = panel->GetPathW();
+    if (path != NULL)
+        result.append(path);
+    return result;
+}
+
+static CFilesWindow* FindDetachedOperationTargetById(CMainWindow* mainWindow,
+                                                     CFilesWindow* sourcePanel,
+                                                     ULONGLONG tabId, UINT command)
+{
+    if (tabId == 0)
+        return NULL;
+    for (int sideIndex = 0; sideIndex < 2; ++sideIndex)
+    {
+        CPanelSide side = sideIndex == 0 ? cpsLeft : cpsRight;
+        for (int i = 0; i < mainWindow->GetPanelTabCount(side); ++i)
+        {
+            CFilesWindow* panel = mainWindow->GetPanelTabAt(side, i);
+            if (panel != NULL && panel->GetPanelTabId() == tabId &&
+                IsDetachedOperationTargetSuitable(sourcePanel, panel, command))
+                return panel;
+        }
+    }
+    for (int i = 0; i < mainWindow->GetDetachedTabCount(); ++i)
+    {
+        CFilesWindow* panel = mainWindow->GetDetachedTabAt(i);
+        if (panel != NULL && panel->GetPanelTabId() == tabId &&
+            IsDetachedOperationTargetSuitable(sourcePanel, panel, command))
+            return panel;
+    }
+    return NULL;
+}
+
+CFilesWindow* CMainWindow::SelectDetachedOperationTarget(CFilesWindow* sourcePanel, UINT command,
+                                                          BOOL forceDialog)
+{
+    CDetachedTabInfo* sourceInfo = FindDetachedTab(sourcePanel);
+    if (sourceInfo == NULL)
+        return GetOtherPanel(sourcePanel);
+
+    if (!forceDialog && sourceInfo->RememberOperationTarget)
+    {
+        CFilesWindow* remembered = FindDetachedOperationTargetById(
+            this, sourcePanel, sourceInfo->LastOperationTargetTabId, command);
+        if (remembered != NULL)
+            return remembered;
+    }
+
+    std::vector<CDetachedOperationTarget> targets;
+    for (int sideIndex = 0; sideIndex < 2; ++sideIndex)
+    {
+        CPanelSide side = sideIndex == 0 ? cpsLeft : cpsRight;
+        for (int i = 0; i < GetPanelTabCount(side); ++i)
+        {
+            CFilesWindow* panel = GetPanelTabAt(side, i);
+            if (IsDetachedOperationTargetSuitable(sourcePanel, panel, command))
+            {
+                CDetachedOperationTarget target = {panel, panel->GetPanelTabId(), side, FALSE,
+                                                   GetDetachedTargetDisplayPath(panel)};
+                targets.push_back(target);
+            }
+        }
+    }
+    for (size_t i = 0; i < DetachedTabs.size(); ++i)
+    {
+        CFilesWindow* panel = DetachedTabs[i].Panel;
+        if (IsDetachedOperationTargetSuitable(sourcePanel, panel, command))
+        {
+            CDetachedOperationTarget target = {panel, panel->GetPanelTabId(),
+                                               DetachedTabs[i].OriginalSide, TRUE,
+                                               GetDetachedTargetDisplayPath(panel)};
+            targets.push_back(target);
+        }
+    }
+
+    HWND parent = sourceInfo->HWindow != NULL ? sourceInfo->HWindow : HWindow;
+    if (targets.empty())
+    {
+        SalMessageBox(parent, LoadStr(IDS_DETACHED_TARGET_NONE), LoadStr(IDS_INFOTITLE),
+                      MB_OK | MB_ICONINFORMATION);
+        return NULL;
+    }
+
+    CDetachedOperationTargetDialog dialog(parent, targets, sourceInfo->LastOperationTargetTabId,
+                                           sourceInfo->RememberOperationTarget);
+    if (dialog.Execute() != IDOK)
+        return NULL;
+    CFilesWindow* selected = FindDetachedOperationTargetById(this, sourcePanel,
+                                                            dialog.GetSelectedTabId(), command);
+    sourceInfo = FindDetachedTab(sourcePanel);
+    if (sourceInfo == NULL)
+        return NULL;
+    if (selected == NULL)
+        return SelectDetachedOperationTarget(sourcePanel, command, TRUE);
+    sourceInfo->RememberOperationTarget = dialog.GetRememberTarget();
+    sourceInfo->LastOperationTargetTabId = sourceInfo->RememberOperationTarget
+                                               ? selected->GetPanelTabId()
+                                               : 0;
+    return selected;
+}
+
 CDetachedTabInfo* CMainWindow::FindDetachedTab(CFilesWindow* panel)
 {
     for (size_t i = 0; i < DetachedTabs.size(); ++i)
