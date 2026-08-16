@@ -37,6 +37,16 @@ These rules apply to all future agentic development in this repository.
 - Avoid truncating UTF-8 text by raw byte count. Truncation must not split a multi-byte sequence or surrogate pair, and must not introduce the replacement character `�`.
 - When shortening text for display, logs, captions, menus, or error messages, trim at Unicode code point / grapheme-safe boundaries where possible. If that is not possible, prefer a well-tested helper over ad hoc `lstrcpyn`/`strncpy` on UTF-8 text.
 
+## Legacy conversion-table encodings
+
+- Treat `convert/centeuro/convert.cfg`, `convert/cyrillic/convert.cfg`, and `convert/westeuro/convert.cfg` as legacy-encoded data files, not as UTF-8 text. Their non-ASCII bytes must remain encoded in the Windows code page declared by `WINDOWS_CODE_PAGE_IDENTIFIER`; do not add a BOM or convert the files to UTF-8.
+- When editing ASCII comments or otherwise touching these files, preserve every pre-existing non-ASCII byte. Do not let an editor, formatter, bulk rewrite, patch generator, or Git helper transparently transcode the complete file.
+- In `convert/centeuro/convert.cfg`, the CP1250 menu names must retain the single-byte values `E8` for `č`, `ED` for `í`, and `C8` for `Č`. UTF-8 sequences such as `C3 A8`, `C3 AD`, or `C3 88` in those positions are a regression even if a text editor displays readable characters.
+- Keep the loader behavior introduced by commit `c83187b4e4e7ddb5a4eda0ac7a1836c51ab8f910`: decode conversion-table UI names from the code page declared by the file, preserve an exact UTF-16 representation for Win32 UI APIs, and do not reinterpret already-normalized text through ACP a second time.
+- Keep `.tab` files as exact 256-byte binary single-byte mapping tables. Never apply text encoding conversion, newline normalization, or a formatter to them.
+- Any change touching conversion tables, their loader, Internal Viewer Convert menu construction, or staging/copy scripts must run the native conversion-table regression test. The test must read the shipped `convert.cfg` as binary and assert exact decoded names including `Kameničtí - CP1250` and `KOI-8 ČS2 - CP1250`; a synthetic string-only test is not sufficient.
+- Before a manual viewer test, refresh the staged `convert` directory beside the tested `salamand.exe` and restart Salamander because conversion tables are cached for the lifetime of the process. A stale staged `convert.cfg` is not valid verification of the source change.
+
 ## Viewer/editor/file-action specifics
 
 - Internal viewer code must support long and Unicode paths end-to-end: panel selection, history, title/caption, file open, refresh/reload, previous/next file navigation, and error reporting.

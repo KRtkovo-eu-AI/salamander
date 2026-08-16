@@ -12,11 +12,13 @@ CCodeTables CodeTables;
 
 namespace
 {
-BOOL InsertCodeTableMenuString(HMENU menu, int position, UINT command, const char* text)
+BOOL InsertCodeTableMenuString(HMENU menu, int position, UINT command,
+                               const char* text, const wchar_t* decodedText = NULL)
 {
     std::wstring wideText;
-    if (text != NULL &&
-        ConvertLegacyViewerTextToWide(text, (int)strlen(text), GetACP(), &wideText))
+    if (decodedText != NULL ||
+        (text != NULL &&
+         ConvertLegacyViewerTextToWide(text, (int)strlen(text), GetACP(), &wideText)))
     {
         MENUITEMINFOW item;
         memset(&item, 0, sizeof(item));
@@ -24,7 +26,7 @@ BOOL InsertCodeTableMenuString(HMENU menu, int position, UINT command, const cha
         item.fMask = MIIM_FTYPE | MIIM_ID | MIIM_STRING;
         item.fType = MFT_STRING;
         item.wID = command;
-        item.dwTypeData = wideText.empty() ? const_cast<wchar_t*>(L"") : &wideText[0];
+        item.dwTypeData = const_cast<wchar_t*>(decodedText != NULL ? decodedText : wideText.c_str());
         return InsertMenuItemW(menu, position, TRUE, &item);
     }
 
@@ -330,6 +332,17 @@ void InitAux(HWND hWindow, TIndirectArray<CCodeTablesData>& Data,
             {
                 if (Data[i]->Name != NULL)
                 {
+                    // Keep the UI representation independent of the process ACP.
+                    // Name is still normalized below for legacy char* consumers,
+                    // but menu text comes straight from the code page declared by
+                    // convert.cfg and can therefore never be decoded a second time.
+                    if (!ConvertLegacyViewerTextToWide(Data[i]->Name,
+                                                       (int)strlen(Data[i]->Name),
+                                                       *identifier, &Data[i]->NameW))
+                    {
+                        normalizationFailed = TRUE;
+                    }
+
                     if (ConvertConversionTableText(Data[i]->Name, *identifier, activeCodePage,
                                                    convertedName, sizeof(convertedName)))
                     {
@@ -462,6 +475,11 @@ CCodeTable::CCodeTable(HWND hWindow, const char* dirName)
                 }
                 else
                 {
+                    if (!ConvertLegacyViewerTextToWide(code->Name, (int)strlen(code->Name),
+                                                       GetACP(), &code->NameW))
+                    {
+                        code->NameW.clear();
+                    }
                     Data.Add(code);
                     if (!Data.IsGood())
                     {
@@ -717,7 +735,10 @@ void CCodeTables::InitMenu(HMENU menu, int& codeType)
                     TRACE_E("command > CM_CODING_MAX");
                     break;
                 }
-                InsertCodeTableMenuString(menu, count++, command, Table->Data[i]->Name);
+                const wchar_t* decodedName = Table->Data[i]->NameW.empty() ? NULL :
+                                                                           Table->Data[i]->NameW.c_str();
+                InsertCodeTableMenuString(menu, count++, command,
+                                          Table->Data[i]->Name, decodedName);
             }
         }
     }

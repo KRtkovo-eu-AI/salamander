@@ -190,6 +190,32 @@ void TestShippedConversionDirectories()
         Check(tableCount > 0,
               (std::string("No conversion tables found in ") + expected.Name).c_str());
     }
+
+    std::ifstream centralEuropeanConfig(
+        std::filesystem::path("convert") / "centeuro" / "convert.cfg",
+        std::ios::binary);
+    std::string configBytes((std::istreambuf_iterator<char>(centralEuropeanConfig)),
+                            std::istreambuf_iterator<char>());
+    const unsigned char rawKamenicti[] = {
+        'K', 'a', 'm', 'e', 'n', 'i', 0xE8, 't', 0xED, ' ', '-', ' ', 'C', 'P', '1', '2', '5', '0'};
+    const std::string rawName(reinterpret_cast<const char*>(rawKamenicti), sizeof(rawKamenicti));
+    const size_t rawNameOffset = configBytes.find(rawName);
+    std::wstring menuName;
+    Check(rawNameOffset != std::string::npos &&
+              ConvertLegacyViewerTextToWide(configBytes.data() + rawNameOffset,
+                                            (int)rawName.size(), 1250, &menuName) &&
+              menuName == L"Kameničtí - CP1250",
+          "The shipped CP1250 menu name must be decoded directly to exact UTF-16");
+
+    const unsigned char rawKoiCs2[] = {
+        'K', 'O', 'I', '-', '8', ' ', 0xC8, 'S', '2', ' ', '-', ' ', 'C', 'P', '1', '2', '5', '0'};
+    const std::string rawKoiName(reinterpret_cast<const char*>(rawKoiCs2), sizeof(rawKoiCs2));
+    const size_t rawKoiOffset = configBytes.find(rawKoiName);
+    Check(rawKoiOffset != std::string::npos &&
+              ConvertLegacyViewerTextToWide(configBytes.data() + rawKoiOffset,
+                                            (int)rawKoiName.size(), 1250, &menuName) &&
+              menuName == L"KOI-8 ČS2 - CP1250",
+          "The shipped CP1250 KOI-8 ČS2 menu name must be decoded to exact UTF-16");
 }
 } // namespace
 

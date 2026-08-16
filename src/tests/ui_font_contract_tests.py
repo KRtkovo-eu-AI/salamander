@@ -52,6 +52,8 @@ def main() -> None:
 
     require(common_winlib, "WinLibDPICloneResourceDialogWithFont",
             "template-time font in core dialogs")
+    require(code_tables, "Data[i]->NameW.c_str()",
+            "conversion menu names decoded directly from convert.cfg")
     require(code_tables, "InsertMenuItemW(menu, position, TRUE, &item)",
             "Unicode Win32 insertion for dynamic conversion menu names")
     require(plugin_winlib, "WinLibDPICloneResourceDialogWithFont",
