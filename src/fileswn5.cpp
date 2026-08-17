@@ -513,15 +513,22 @@ protected:
                         CTagItem* item = Tags[info->Index];
                         Tags.erase(Tags.begin() + info->Index);
                         Tags.insert(Tags.begin() + info->NewIndex, item);
+                        for (int i = 0; i < (int)Tags.size(); i++)
+                            TagsList->SetItemID(i, (INT_PTR)Tags[i]);
                     }
                     SetWindowLongPtr(HWindow, DWLP_MSGRESULT, FALSE);
                     return TRUE;
 
                 case EDTLBN_ENABLECOMMANDS:
                     info->Enable = TLBHDRMASK_NEW | TLBHDRMASK_SEARCH | TLBHDRMASK_FILTER;
+                    // CEditListBox starts both Modify and New through
+                    // OnBeginEdit(), which requires the MODIFY enabler. The
+                    // trailing item at Tags.size() is its editable placeholder.
+                    if (info->Index >= 0 && info->Index <= (int)Tags.size())
+                        info->Enable |= TLBHDRMASK_MODIFY;
                     if (info->Index >= 0 && info->Index < (int)Tags.size())
                     {
-                        info->Enable |= TLBHDRMASK_MODIFY | TLBHDRMASK_DELETE;
+                        info->Enable |= TLBHDRMASK_DELETE;
                         if (info->Index > 0)
                             info->Enable |= TLBHDRMASK_TOP | TLBHDRMASK_UP;
                         if (info->Index + 1 < (int)Tags.size())

@@ -689,6 +689,7 @@ public:
     BOOL IsAvailableColumnsFilterActive();
     BOOL AvailableColumnMatchesFilter(const char* text);
     void ToggleAvailableColumnsFilter();
+    void SyncExplorerColumnAvailabilityFromList();
     void LayoutViewsListControls();
     DWORD GetEnabledFunctions();
 

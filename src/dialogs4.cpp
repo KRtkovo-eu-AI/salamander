@@ -2728,6 +2728,25 @@ void CCfgPageView::ToggleAvailableColumnsFilter()
     LayoutViewsListControls();
 }
 
+void CCfgPageView::SyncExplorerColumnAvailabilityFromList()
+{
+    // Available Columns is the user-visible source of truth. Merge every
+    // Explorer property currently present in the list into Config before the
+    // chooser takes its snapshot. Do not clear anything here: when the list is
+    // filtered, selected properties that do not match are intentionally absent.
+    int count = ListView_GetItemCount(HListView2);
+    for (int i = 0; i < count; i++)
+    {
+        int columnIndex = GetAvailableColumnIndex(HListView2, i);
+        if (columnIndex < 0)
+        {
+            int explorerIndex = -columnIndex - 1;
+            if (explorerIndex >= 0 && explorerIndex < EXPLORER_COLUMNS_COUNT)
+                Config.SetExplorerColumnAvailable(explorerIndex, TRUE);
+        }
+    }
+}
+
 void CCfgPageView::LoadControls()
 {
     DisableNotification = TRUE;
@@ -3612,6 +3631,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (HIWORD(wParam) == TLBHDR_FILTER)
             {
                 StoreControls();
+                SyncExplorerColumnAvailabilityFromList();
                 int viewIndex = ListView_GetNextItem(HListView, -1, LVNI_SELECTED);
                 CExplorerColumnsDialog dialog(HWindow, &Config, viewIndex);
                 if (dialog.Execute() == IDOK)

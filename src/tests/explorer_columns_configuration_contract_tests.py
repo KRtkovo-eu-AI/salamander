@@ -114,7 +114,9 @@ def main() -> int:
         and "IDC_EDPROP_TAGS_LIST" in file_window
         and "ELB_RIGHTARROW" in file_window
         and "BST_INDETERMINATE" in file_window
-        and "CreateWindowExW" in file_window,
+        and "CreateWindowExW" in file_window
+        and "info->Index <= (int)Tags.size()" in file_window
+        and "TagsList->SetItemID(i, (INT_PTR)Tags[i]);" in file_window,
         "the Files command must expose the Salamander Tags editor and checkbox-gated selected properties",
     )
     require(
@@ -155,11 +157,17 @@ def main() -> int:
         "newly added Explorer properties must be checked for the current view",
     )
     require(
+        "void CCfgPageView::SyncExplorerColumnAvailabilityFromList()" in dialog
+        and "Config.SetExplorerColumnAvailable(explorerIndex, TRUE);" in dialog
+        and "StoreControls();\n                SyncExplorerColumnAvailabilityFromList();" in dialog,
+        "the chooser must merge Windows properties already present in Available Columns before taking its snapshot",
+    )
+    require(
         "IDC_EDPROP_TAGS_ENABLE" in lang_rc
         and "IDC_EDPROP_TAGS_LIST" in lang_rc
         and "IDC_EDPROP_PROPERTIES_GROUP" in lang_rc
         and "IDC_EDPROP_OPERATION" not in lang_rc.split("IDD_EDIT_PROPERTIES", 1)[1].split("END", 1)[0]
-        and 'IDS_MENU_FILES_EDITPROPERTIES, "Edit &Tags and Custom properties..."' in lang_texts,
+        and 'IDS_MENU_FILES_EDITPROPERTIES, "Edit &Tags and Windows Properties..."' in lang_texts,
         "property editing must use the form layout and the requested Files-menu caption",
     )
     return 0
