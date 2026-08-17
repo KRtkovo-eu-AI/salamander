@@ -2990,6 +2990,8 @@
 #define IDS_EXCOL_REMOVE                      14383
 #define IDS_EXCOL_MOVE_UP                     14384
 #define IDS_EXCOL_MOVE_DOWN                   14385
+#define IDS_EXCOL_EXECUTABLE                  14386
+#define IDS_EXCOL_ARCHIVE                     14387
 
 #define IDS_MENU_OPT_MANAGECONFIG        13169
 

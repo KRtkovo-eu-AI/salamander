@@ -1627,6 +1627,20 @@ static BOOL IsCommonExplorerColumn(int index)
     return FALSE;
 }
 
+enum CExplorerColumnFilter
+{
+    ecfAll,
+    ecfCommon,
+    ecfFileSystem,
+    ecfExecutable,
+    ecfDocument,
+    ecfImage,
+    ecfAudio,
+    ecfVideo,
+    ecfArchive,
+    ecfOther
+};
+
 CExplorerColumnsDialog::CExplorerColumnsDialog(HWND parent, CViewTemplates* config, int viewIndex)
     : CCommonDialog(HLanguage, IDD_EXPLORER_COLUMNS, parent)
 {
@@ -1670,13 +1684,14 @@ void CExplorerColumnsDialog::FillCategories()
     TreeView_DeleteAllItems(tree);
 
     int iconSize = MulDiv(24, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI);
-    HIMAGELIST images = ImageList_Create(iconSize, iconSize, ILC_COLOR32 | ILC_MASK, 8, 1);
+    HIMAGELIST images = ImageList_Create(iconSize, iconSize, ILC_COLOR32 | ILC_MASK, 10, 1);
     if (images != NULL)
     {
         const char* iconNames[] = {
             "SelectAll", "ExplorerCategoryCommon", "ExplorerCategoryFileSystem",
-            "ExplorerCategoryDocument", "ExplorerCategoryImage", "ExplorerCategoryAudio",
-            "ExplorerCategoryVideo", "ExplorerCategoryOther"};
+            "ExplorerCategoryExecutable", "ExplorerCategoryDocument", "ExplorerCategoryImage",
+            "ExplorerCategoryAudio", "ExplorerCategoryVideo", "ExplorerCategoryArchive",
+            "ExplorerCategoryOther"};
         for (int i = 0; i < _countof(iconNames); i++)
         {
             HBITMAP bitmap = NULL;
@@ -1695,8 +1710,9 @@ void CExplorerColumnsDialog::FillCategories()
 
     const char* names[] = {
         LoadStr(IDS_EXCOL_ALL), LoadStr(IDS_EXCOL_COMMON), LoadStr(IDS_EXCOL_FILESYSTEM),
-        LoadStr(IDS_EXCOL_DOCUMENT), LoadStr(IDS_EXCOL_IMAGE), LoadStr(IDS_EXCOL_AUDIO),
-        LoadStr(IDS_EXCOL_VIDEO), LoadStr(IDS_EXCOL_OTHER)};
+        LoadStr(IDS_EXCOL_EXECUTABLE), LoadStr(IDS_EXCOL_DOCUMENT), LoadStr(IDS_EXCOL_IMAGE),
+        LoadStr(IDS_EXCOL_AUDIO), LoadStr(IDS_EXCOL_VIDEO), LoadStr(IDS_EXCOL_ARCHIVE),
+        LoadStr(IDS_EXCOL_OTHER)};
     for (int i = 0; i < _countof(names); i++)
     {
         TVINSERTSTRUCT item;
@@ -1716,11 +1732,31 @@ void CExplorerColumnsDialog::FillCategories()
 
 BOOL CExplorerColumnsDialog::IsInCategory(int explorerIndex) const
 {
-    if (Category == 0)
+    if (Category == ecfAll)
         return TRUE;
-    if (Category == 1)
+    if (Category == ecfCommon)
         return IsCommonExplorerColumn(explorerIndex);
-    return GetExplorerColumnCategory(explorerIndex) == (CExplorerColumnCategory)(Category - 2);
+    if (Category == ecfExecutable)
+        return IsExplorerColumnInPanelTipCategory(explorerIndex, ptcExecutable);
+    if (Category == ecfArchive)
+        return IsExplorerColumnInPanelTipCategory(explorerIndex, ptcArchive);
+    CExplorerColumnCategory explorerCategory = GetExplorerColumnCategory(explorerIndex);
+    switch (Category)
+    {
+    case ecfFileSystem:
+        return explorerCategory == eccFileSystem;
+    case ecfDocument:
+        return explorerCategory == eccDocument;
+    case ecfImage:
+        return explorerCategory == eccImage;
+    case ecfAudio:
+        return explorerCategory == eccAudio;
+    case ecfVideo:
+        return explorerCategory == eccVideo;
+    case ecfOther:
+        return explorerCategory == eccOther;
+    }
+    return FALSE;
 }
 
 BOOL CExplorerColumnsDialog::MatchesSearch(int explorerIndex) const
@@ -1962,7 +1998,7 @@ void CExplorerColumnsDialog::UpdateDetails()
     int index = (int)item.lParam;
     char details[1024];
     char typeText[64];
-    _snprintf_s(details, _countof(details), _TRUNCATE, "%s\r\n\r\n%s: %s\r\n%s: %s\r\n%s: %s\r\n%s: %s%s%s",
+    _snprintf_s(details, _countof(details), _TRUNCATE, "%s\r\n\r\n%s: %s\r\n\r\n%s: %s\r\n\r\n%s: %s\r\n\r\n%s: %s%s%s",
                 GetExplorerColumnName(index),
                 LoadStr(IDS_EXCOL_CANONICAL), GetExplorerColumnCanonicalName(index),
                 LoadStr(IDS_EXCOL_CATEGORY), GetExplorerCategoryText(GetExplorerColumnCategory(index)),

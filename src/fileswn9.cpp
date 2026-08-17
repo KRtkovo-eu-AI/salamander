@@ -1403,17 +1403,6 @@ static BOOL AppendShellPropertyLine(char* text, int textSize, IPropertyStore* st
     return ret;
 }
 
-enum CPanelTipCategory
-{
-    ptcUnknown,
-    ptcExecutable,
-    ptcImage,
-    ptcAudio,
-    ptcVideo,
-    ptcDocument,
-    ptcArchive
-};
-
 static CPanelTipCategory GetPanelTipCategory(const CFileData* f)
 {
     static const char* const executableExts[] = {".exe", ".dll", ".ocx", ".cpl", ".sys", ".scr"};
@@ -1441,51 +1430,9 @@ static CPanelTipCategory GetPanelTipCategory(const CFileData* f)
 static BOOL AppendCategoryProperties(char* text, int textSize, const wchar_t* pathW, CPanelTipCategory category)
 {
     PROPERTYKEY keys[10];
-    int count = 0;
-    switch (category)
-    {
-    case ptcExecutable:
-        keys[count++] = PKEY_FileDescription;
-        keys[count++] = PKEY_Company;
-        keys[count++] = PKEY_FileVersion;
-        keys[count++] = PKEY_DateCreated;
-        keys[count++] = PKEY_Size;
-        break;
-    case ptcImage:
-        keys[count++] = PKEY_Image_Dimensions;
-        keys[count++] = PKEY_Image_BitDepth;
-        keys[count++] = PKEY_Size;
-        break;
-    case ptcAudio:
-        keys[count++] = PKEY_Title;
-        keys[count++] = PKEY_Music_Artist;
-        keys[count++] = PKEY_Music_AlbumTitle;
-        keys[count++] = PKEY_Media_Duration;
-        keys[count++] = PKEY_Audio_EncodingBitrate;
-        keys[count++] = PKEY_Size;
-        break;
-    case ptcVideo:
-        keys[count++] = PKEY_Video_FrameWidth;
-        keys[count++] = PKEY_Video_FrameHeight;
-        keys[count++] = PKEY_Media_Duration;
-        keys[count++] = PKEY_Video_FrameRate;
-        keys[count++] = PKEY_Size;
-        break;
-    case ptcDocument:
-        keys[count++] = PKEY_Title;
-        keys[count++] = PKEY_Author;
-        keys[count++] = PKEY_Document_PageCount;
-        keys[count++] = PKEY_DateModified;
-        keys[count++] = PKEY_Size;
-        break;
-    case ptcArchive:
-        keys[count++] = PKEY_ItemTypeText;
-        keys[count++] = PKEY_DateModified;
-        keys[count++] = PKEY_Size;
-        break;
-    default:
+    int count = GetPanelTipPropertyKeys(category, keys, _countof(keys));
+    if (count == 0)
         return FALSE;
-    }
 
     IPropertyStore* store = NULL;
     if (FAILED(SHGetPropertyStoreFromParsingName(pathW, NULL, GPS_DEFAULT, IID_IPropertyStore, (void**)&store)) || store == NULL)

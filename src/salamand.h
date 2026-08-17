@@ -344,6 +344,21 @@ const char* GetExplorerColumnName(int index);
 const char* GetExplorerColumnCanonicalName(int index);
 const char* GetExplorerColumnDescription(int index);
 VARTYPE GetExplorerColumnType(int index);
+const PROPERTYKEY* GetExplorerColumnPropertyKey(int index);
+
+enum CPanelTipCategory
+{
+    ptcUnknown,
+    ptcExecutable,
+    ptcImage,
+    ptcAudio,
+    ptcVideo,
+    ptcDocument,
+    ptcArchive
+};
+
+int GetPanelTipPropertyKeys(CPanelTipCategory category, PROPERTYKEY* keys, int maxKeys);
+BOOL IsExplorerColumnInPanelTipCategory(int index, CPanelTipCategory category);
 
 enum CExplorerColumnCategory
 {

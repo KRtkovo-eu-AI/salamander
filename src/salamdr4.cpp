@@ -4,6 +4,7 @@
 
 #include "precomp.h"
 #include <propsys.h>
+#include <propkey.h>
 #include <propvarutil.h>
 #undef PathIsPrefix // propsys/shlwapi can define this macro; plugins.h has a method with the same name
 
@@ -1987,6 +1988,81 @@ VARTYPE GetExplorerColumnType(int index)
 {
     LoadExplorerColumns();
     return index >= 0 && index < ExplorerColumnsCount ? ExplorerColumnTypes[index] : VT_EMPTY;
+}
+
+const PROPERTYKEY* GetExplorerColumnPropertyKey(int index)
+{
+    LoadExplorerColumns();
+    return index >= 0 && index < ExplorerColumnsCount ? &ExplorerColumnKeys[index] : NULL;
+}
+
+static void AddPanelTipPropertyKey(PROPERTYKEY* keys, int maxKeys, int* count, REFPROPERTYKEY key)
+{
+    if (*count < maxKeys)
+        keys[(*count)++] = key;
+}
+
+int GetPanelTipPropertyKeys(CPanelTipCategory category, PROPERTYKEY* keys, int maxKeys)
+{
+    if (keys == NULL || maxKeys <= 0)
+        return 0;
+    int count = 0;
+    switch (category)
+    {
+    case ptcExecutable:
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_FileDescription);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Company);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_FileVersion);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_DateCreated);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Size);
+        break;
+    case ptcImage:
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Image_Dimensions);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Image_BitDepth);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Size);
+        break;
+    case ptcAudio:
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Title);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Music_Artist);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Music_AlbumTitle);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Media_Duration);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Audio_EncodingBitrate);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Size);
+        break;
+    case ptcVideo:
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Video_FrameWidth);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Video_FrameHeight);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Media_Duration);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Video_FrameRate);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Size);
+        break;
+    case ptcDocument:
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Title);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Author);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Document_PageCount);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_DateModified);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Size);
+        break;
+    case ptcArchive:
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_ItemTypeText);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_DateModified);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Size);
+        break;
+    }
+    return count;
+}
+
+BOOL IsExplorerColumnInPanelTipCategory(int index, CPanelTipCategory category)
+{
+    const PROPERTYKEY* columnKey = GetExplorerColumnPropertyKey(index);
+    if (columnKey == NULL)
+        return FALSE;
+    PROPERTYKEY keys[10];
+    int count = GetPanelTipPropertyKeys(category, keys, _countof(keys));
+    for (int i = 0; i < count; i++)
+        if (IsEqualPropertyKey(*columnKey, keys[i]))
+            return TRUE;
+    return FALSE;
 }
 
 CExplorerColumnCategory GetExplorerColumnCategory(int index)

@@ -1210,6 +1210,8 @@ Source: "{#PayloadDir}\toolbars\ExplorerCategoryImage.svg"; DestDir: "{app}\tool
 Source: "{#PayloadDir}\toolbars\ExplorerCategoryAudio.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\ExplorerCategoryVideo.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\ExplorerCategoryOther.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\ExplorerCategoryExecutable.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\ExplorerCategoryArchive.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\pictview\Blue.svg"; DestDir: "{app}\toolbars\pictview"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\pictview\Copy.svg"; DestDir: "{app}\toolbars\pictview"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\pictview\Crop.svg"; DestDir: "{app}\toolbars\pictview"; Flags: ignoreversion
@@ -1338,6 +1340,8 @@ Source: "{#PayloadDir}\toolbars\darkmode\ExplorerCategoryImage.svg"; DestDir: "{
 Source: "{#PayloadDir}\toolbars\darkmode\ExplorerCategoryAudio.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\ExplorerCategoryVideo.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\ExplorerCategoryOther.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\darkmode\ExplorerCategoryExecutable.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\darkmode\ExplorerCategoryArchive.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\pictview\Blue.svg"; DestDir: "{app}\toolbars\darkmode\pictview"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\pictview\Copy.svg"; DestDir: "{app}\toolbars\darkmode\pictview"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\pictview\Crop.svg"; DestDir: "{app}\toolbars\darkmode\pictview"; Flags: ignoreversion

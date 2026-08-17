@@ -55,8 +55,21 @@ def main() -> int:
         '"ExplorerCategoryDocument"' in dialog
         and '"ExplorerCategoryImage"' in dialog
         and '"ExplorerCategoryAudio"' in dialog
-        and '"ExplorerCategoryVideo"' in dialog,
+        and '"ExplorerCategoryVideo"' in dialog
+        and '"ExplorerCategoryExecutable"' in dialog
+        and '"ExplorerCategoryArchive"' in dialog,
         "category rows must use category-specific icons",
+    )
+    require(
+        "GetPanelTipPropertyKeys(category, keys" in panel
+        and "int GetPanelTipPropertyKeys" in model
+        and "IsExplorerColumnInPanelTipCategory(explorerIndex, ptcExecutable)" in dialog
+        and "IsExplorerColumnInPanelTipCategory(explorerIndex, ptcArchive)" in dialog,
+        "Executable and Archive filters must share the panel file-tooltip property subsets",
+    )
+    require(
+        '"%s\\r\\n\\r\\n%s: %s\\r\\n\\r\\n%s: %s\\r\\n\\r\\n%s: %s\\r\\n\\r\\n%s: %s%s%s"' in dialog,
+        "property information fields must have readable blank-line spacing",
     )
     require(
         "{0, 1, 2, 3, 6, 4, 5, 9, 8, 7}" in gui
