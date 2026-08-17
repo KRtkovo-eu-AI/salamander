@@ -6,4 +6,14 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2420.47" PrivateAssets="all" />
   </ItemGroup>
+
+  <Target Name="EnsureRestoreBeforeBuild"
+          BeforeTargets="CollectPackageReferences;CollectPackageReferencesDesignTime;ResolveReferences;PrepareForBuild"
+          Condition="'$(RestoreDuringBuild)' != 'true' and !Exists('$(MSBuildProjectDirectory)\obj\project.assets.json')">
+    <Message Text="Running implicit restore for $(MSBuildProjectName) (missing $(MSBuildProjectDirectory)\obj\project.assets.json)."
+             Importance="High" />
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="Restore"
+             Properties="RestoreDuringBuild=true;RestoreFallbackFolders=$(RestoreFallbackFolders)" />
+  </Target>
 </Project>
