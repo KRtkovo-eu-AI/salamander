@@ -70,7 +70,7 @@ static void TestCompleteManifest()
         "\"refreshIntervalMs\":1000,\"refreshDepth\":2,\"rootItems\":["
         "{\"id\":\"cpu\",\"name\":\"CPU\",\"icon\":\"assets/cpu.svg\"}],\"columns\":["
         "{\"id\":\"pid\",\"name\":\"PID\",\"description\":\"Process id\",\"width\":72,\"numeric\":true,\"size\":true}],\"actions\":["
-        "{\"id\":\"connect\",\"title\":\"Connect\",\"handler\":\"connect\",\"default\":true},"
+        "{\"id\":\"connect\",\"title\":\"Connect\",\"handler\":\"connect\",\"itemIdPrefix\":\"machine-\",\"default\":true},"
         "{\"separator\":true},"
         "{\"id\":\"start\",\"title\":\"Start\",\"handler\":\"start\",\"refresh\":false}]}]"
         "}";
@@ -150,6 +150,7 @@ static void TestCompleteManifest()
     CHECK(manifest.FileSystems[0].Columns[0].Size);
     CHECK(manifest.FileSystems[0].Actions.size() == 3);
     CHECK(manifest.FileSystems[0].Actions[0].Default);
+    CHECK(manifest.FileSystems[0].Actions[0].ItemIdPrefix == "machine-");
     CHECK(manifest.FileSystems[0].Actions[1].Separator);
     CHECK(!manifest.FileSystems[0].Actions[2].Refresh);
 

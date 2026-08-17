@@ -6,7 +6,8 @@
   },
   "fileSystems": {
     "hardware-info": {
-      "rootItems": {"cpu":"处理器","memory":"内存","motherboard":"主板","gpu":"图形处理器","storage":"存储","network":"网络","sensors":"传感器"},
+      "rootItems": {"cpu":"处理器","memory":"内存","motherboard":"主板","gpu":"图形处理器","storage":"存储","network":"网络","sensors":"传感器","device-manager":"设备管理器"},
+      "actions":{"updateDriver":"更新驱动程序","disableDevice":"禁用设备","uninstallDevice":"卸载设备","scanDevices":"扫描检测硬件改动","deviceProperties":"属性"},
       "name": "硬件监控器",
       "columns": {
         "property": {"name": "字段", "description": "属性或传感器名称"},
@@ -21,10 +22,11 @@
     "gpu": "图形处理器",
     "storage": "存储",
     "network": "网络",
-    "sensors": "传感器"
+    "sensors": "传感器",
+    "deviceManager": "设备管理器"
   },
   "strings": {
-    "loading": "加载中...",
+    "disableDevice":"禁用设备","uninstallDevice":"卸载设备","confirmDeviceAction":"{0}“{1}”？","loading": "加载中...",
     "notAvailable": "不可用",
     "errorTitle": "硬件监控器",
     "sensorInitFailed": "无法加载硬件传感器库 (LibreHardwareMonitorLib.dll)。传感器数据将不可用。\n请将 DLL 放置在扩展目录或系统 PATH 中。",

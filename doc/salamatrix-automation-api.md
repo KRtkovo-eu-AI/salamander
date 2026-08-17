@@ -129,7 +129,8 @@ Schema 2 adds two optional native roles while schema 1 remains accepted:
   Columns are rendered and sorted by the native detailed panel;
   numeric columns use numeric ordering. An executable action declares `id`,
   `title`, `handler`, optional `default`, and optional `refresh` (true by
-  default); a standalone `{ "separator": true }` inserts a native menu separator.
+  default). Optional `itemIdPrefix` limits an action (or separator) to matching
+  item ids; a standalone `{ "separator": true }` inserts a native menu separator.
   Only an explicitly default action executes on Enter. The native Unicode context
   menu exposes the declared actions in order, and locale resources may translate
   their captions through `fileSystems.<fileSystemId>.actions.<actionId>`.

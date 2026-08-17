@@ -6,7 +6,8 @@
   },
   "fileSystems": {
     "hardware-info": {
-      "rootItems": {"cpu":"Processeur","memory":"Mémoire","motherboard":"Carte mère","gpu":"Processeur graphique","storage":"Stockage","network":"Réseau","sensors":"Capteurs"},
+      "rootItems": {"cpu":"Processeur","memory":"Mémoire","motherboard":"Carte mère","gpu":"Processeur graphique","storage":"Stockage","network":"Réseau","sensors":"Capteurs","device-manager":"Gestionnaire de périphériques"},
+      "actions":{"updateDriver":"Mettre à jour le pilote","disableDevice":"Désactiver le périphérique","uninstallDevice":"Désinstaller le périphérique","scanDevices":"Rechercher les modifications sur le matériel","deviceProperties":"Propriétés"},
       "name": "Moniteur matériel",
       "columns": {
         "property": {"name": "Champ", "description": "Nom de la propriété ou du capteur"},
@@ -21,10 +22,11 @@
     "gpu": "Processeur graphique",
     "storage": "Stockage",
     "network": "Réseau",
-    "sensors": "Capteurs"
+    "sensors": "Capteurs",
+    "deviceManager": "Gestionnaire de périphériques"
   },
   "strings": {
-    "loading": "Chargement...",
+    "disableDevice":"Désactiver le périphérique","uninstallDevice":"Désinstaller le périphérique","confirmDeviceAction":"{0} '{1}' ?","loading": "Chargement...",
     "notAvailable": "N/D",
     "errorTitle": "Moniteur matériel",
     "sensorInitFailed": "La bibliothèque de capteurs (LibreHardwareMonitorLib.dll) n'a pas pu être chargée. Les lectures de capteurs seront indisponibles.\nPlacez la DLL dans le répertoire de l'extension ou dans le PATH système.",

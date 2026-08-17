@@ -239,6 +239,7 @@
     <ProcessExplorerFiles Include="..\..\..\extensions\process-explorer\**\*.*" />
     <HardwareMonitorFiles Include="..\..\..\extensions\hardware-monitor\**\*.*"
                           Exclude="..\..\..\extensions\hardware-monitor\hardview-lib\**\*.*;..\..\..\extensions\hardware-monitor\copy-sensor-dlls.bat" />
+    <EventViewerFiles Include="..\..\..\extensions\event-viewer\**\*.*" />
     <AutomationProgressDemoFiles Include="..\..\automation\sample-scripts\Salamatrix Progress Demo\**\*.*" />
   </ItemGroup>
   <Target Name="CopySalamatrixDemoPackages" AfterTargets="Build"
@@ -267,6 +268,10 @@
     <Delete Files="$(OutDir)..\..\extensions\hardware-monitor\copy-sensor-dlls.bat" />
     <Copy SourceFiles="@(HardwareMonitorFiles)"
           DestinationFiles="@(HardwareMonitorFiles->'$(OutDir)..\..\extensions\hardware-monitor\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <MakeDir Directories="$(OutDir)..\..\extensions\event-viewer" />
+    <Copy SourceFiles="@(EventViewerFiles)"
+          DestinationFiles="@(EventViewerFiles->'$(OutDir)..\..\extensions\event-viewer\%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
     <MakeDir Directories="$(OutDir)..\..\plugins\automation\scripts\Salamatrix Progress Demo" />
     <Copy SourceFiles="@(AutomationProgressDemoFiles)"

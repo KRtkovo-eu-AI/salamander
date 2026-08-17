@@ -959,10 +959,156 @@ function Get-SmbiosMemoryInfo {
 # File System Handlers
 # ============================================================================
 
+function ConvertTo-DeviceItemId {
+    param([string]$DeviceId)
+    $bytes = [Text.Encoding]::UTF8.GetBytes($DeviceId)
+    return 'device-' + [Convert]::ToBase64String($bytes).TrimEnd('=').
+        Replace('+', '-').Replace('/', '_')
+}
+
+function Initialize-DeviceManagerNativeMethods {
+    if ($null -ne ('OpenSalamander.HardwareMonitor.DeviceManagerNative' -as [type])) { return }
+    Add-Type -ErrorAction Stop -TypeDefinition @'
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+
+namespace OpenSalamander.HardwareMonitor
+{
+    public static class DeviceManagerNative
+    {
+        [StructLayout(LayoutKind.Sequential)]
+        private struct SP_DEVINFO_DATA
+        {
+            public int cbSize;
+            public Guid ClassGuid;
+            public uint DevInst;
+            public IntPtr Reserved;
+        }
+
+        [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern IntPtr SetupDiGetClassDevsW(
+            IntPtr classGuid, string enumerator, IntPtr parent, uint flags);
+        [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern bool SetupDiOpenDeviceInfoW(
+            IntPtr deviceInfoSet, string instanceId, IntPtr parent,
+            uint flags, ref SP_DEVINFO_DATA deviceInfoData);
+        [DllImport("setupapi.dll", SetLastError = true)]
+        private static extern bool SetupDiDestroyDeviceInfoList(IntPtr deviceInfoSet);
+        [DllImport("newdev.dll", SetLastError = true)]
+        private static extern bool DiShowUpdateDevice(
+            IntPtr parent, IntPtr deviceInfoSet,
+            ref SP_DEVINFO_DATA deviceInfoData, bool allowNonInteractive);
+
+        public static void ShowUpdateDriver(string instanceId)
+        {
+            const uint DigcfAllClasses = 0x00000004;
+            IntPtr set = SetupDiGetClassDevsW(IntPtr.Zero, null, IntPtr.Zero,
+                                              DigcfAllClasses);
+            if (set == new IntPtr(-1))
+                throw new Win32Exception(Marshal.GetLastWin32Error());
+            try
+            {
+                SP_DEVINFO_DATA data = new SP_DEVINFO_DATA();
+                data.cbSize = Marshal.SizeOf(typeof(SP_DEVINFO_DATA));
+                if (!SetupDiOpenDeviceInfoW(set, instanceId, IntPtr.Zero, 0, ref data))
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+                if (!DiShowUpdateDevice(IntPtr.Zero, set, ref data, false))
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
+            finally { SetupDiDestroyDeviceInfoList(set); }
+        }
+    }
+}
+'@
+}
+
+function ConvertFrom-DeviceItemId {
+    param([string]$ItemId)
+    if (-not $ItemId.StartsWith('device-')) { return '' }
+    $encoded = $ItemId.Substring(7).Replace('-', '+').Replace('_', '/')
+    while (($encoded.Length % 4) -ne 0) { $encoded += '=' }
+    return [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($encoded))
+}
+
+function Get-DeviceManagerItems {
+    param([string]$ClassName)
+    $devices = @(Get-CimInstance Win32_PnPEntity -ErrorAction Stop)
+    if ([string]::IsNullOrWhiteSpace($ClassName)) {
+        return @($devices | ForEach-Object {
+            if ([string]::IsNullOrWhiteSpace([string]$_.PNPClass)) { 'Other devices' }
+            else { [string]$_.PNPClass }
+        } | Sort-Object -Unique | ForEach-Object {
+            @{id=('device-class-' + $_); name=$_; directory=$true; enabled=$true;
+              columns=@{property=$_; value=''}}
+        })
+    }
+    return @($devices | Where-Object {
+        $class = if ([string]::IsNullOrWhiteSpace([string]$_.PNPClass)) {
+            'Other devices'
+        } else { [string]$_.PNPClass }
+        $class -eq $ClassName
+    } | Sort-Object Name | ForEach-Object {
+        $status = if ([string]::IsNullOrWhiteSpace([string]$_.Status)) {
+            [string]$_.ConfigManagerErrorCode
+        } else { [string]$_.Status }
+        $maker = [string]$_.Manufacturer
+        $value = @($maker, $status | Where-Object {
+            -not [string]::IsNullOrWhiteSpace([string]$_)
+        }) -join ' - '
+        @{id=(ConvertTo-DeviceItemId ([string]$_.PNPDeviceID));
+          name=[string]$_.Name; directory=$false; enabled=$true;
+          columns=@{property=$ClassName; value=$value}}
+    })
+}
+
 $handler = [string]$Salamander.command_handler
 $locale = try { [string]$Salamander.application.Language() } catch { 'en' }
 $strings = Get-HardwareMonitorStrings $locale
+$deviceManagerName = if ($strings.categories.PSObject.Properties.Name -contains 'deviceManager') {
+    [string]$strings.categories.deviceManager
+} else { 'Device Manager' }
 
+if ($handler -in @('deviceProperties', 'updateDriver', 'disableDevice',
+        'uninstallDevice', 'scanDevices')) {
+    $deviceId = ConvertFrom-DeviceItemId ([string]$Salamander.invocation.item.id)
+    if ($handler -eq 'scanDevices') {
+        Start-Process -FilePath "$env:SystemRoot\System32\pnputil.exe" -ArgumentList '/scan-devices' -Wait
+    } elseif (-not [string]::IsNullOrWhiteSpace($deviceId)) {
+        if ($handler -eq 'disableDevice' -or $handler -eq 'uninstallDevice') {
+            $operation = if ($handler -eq 'disableDevice') {
+                if ($strings.strings.PSObject.Properties.Name -contains 'disableDevice') {
+                    [string]$strings.strings.disableDevice
+                } else { 'Disable device' }
+            } else {
+                if ($strings.strings.PSObject.Properties.Name -contains 'uninstallDevice') {
+                    [string]$strings.strings.uninstallDevice
+                } else { 'Uninstall device' }
+            }
+            $confirmation = if ($strings.strings.PSObject.Properties.Name -contains 'confirmDeviceAction') {
+                [string]$strings.strings.confirmDeviceAction
+            } else { "{0} '{1}'?" }
+            $answer = $Salamander.ui.MessageBox(
+                ([string]::Format($confirmation,
+                    $operation, [string]$Salamander.invocation.item.name)),
+                $deviceManagerName, 'YesNo', 'Warning')
+            if ($answer -ne 'Yes') { return }
+            $verb = if ($handler -eq 'disableDevice') {
+                '/disable-device'
+            } else { '/remove-device' }
+            Start-Process -FilePath "$env:SystemRoot\System32\pnputil.exe" -ArgumentList @(
+                $verb, ('"' + $deviceId.Replace('"', '') + '"')) -Wait
+        } elseif ($handler -eq 'updateDriver') {
+            Initialize-DeviceManagerNativeMethods
+            [OpenSalamander.HardwareMonitor.DeviceManagerNative]::ShowUpdateDriver($deviceId)
+        } else {
+        $arguments = 'devmgr.dll,DeviceProperties_RunDLL /DeviceID "' +
+            $deviceId.Replace('"', '') + '"'
+        Start-Process -FilePath "$env:SystemRoot\System32\rundll32.exe" -ArgumentList $arguments
+        }
+    }
+    return
+}
 if ($handler -ne 'listHardware') { return }
 
 $fileSystemPath = try { [string]$Salamander.invocation.path } catch { '' }
@@ -987,6 +1133,7 @@ if ([string]::IsNullOrWhiteSpace($categoryId)) {
         @{id='storage'; name=[string]$Strings.categories.storage; icon='icons/storage.svg'},
         @{id='network'; name=[string]$Strings.categories.network; icon='icons/network.svg'},
         @{id='sensors'; name=[string]$Strings.categories.sensors; icon='icons/sensors.svg'}
+        @{id='device-manager'; name=$deviceManagerName; icon='icons/device-manager.svg'}
     )
 
     $items = New-Object 'System.Collections.Generic.List[hashtable]'
@@ -1112,6 +1259,12 @@ else {
                     columns=@{property=[string]$Strings.strings.sensorTypes; value=''}})
                 $subItems.Add(@{id='hid'; name='HID'; directory=$true; enabled=$true;
                     columns=@{property='HID'; value=''}})
+            }
+        }
+        'device-manager' {
+            $subItems = New-Object 'System.Collections.Generic.List[hashtable]'
+            foreach ($deviceItem in (Get-DeviceManagerItems $viewId)) {
+                $subItems.Add($deviceItem)
             }
         }
     }

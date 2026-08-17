@@ -6,7 +6,8 @@
   },
   "fileSystems": {
     "hardware-info": {
-      "rootItems": {"cpu":"Processzor","memory":"Memória","motherboard":"Alaplap","gpu":"Grafikus processzor","storage":"Tárhely","network":"Hálózat","sensors":"Szenzorok"},
+      "rootItems": {"cpu":"Processzor","memory":"Memória","motherboard":"Alaplap","gpu":"Grafikus processzor","storage":"Tárhely","network":"Hálózat","sensors":"Szenzorok","device-manager":"Eszközkezelő"},
+      "actions":{"updateDriver":"Illesztőprogram frissítése","disableDevice":"Eszköz letiltása","uninstallDevice":"Eszköz eltávolítása","scanDevices":"Hardverváltozások keresése","deviceProperties":"Tulajdonságok"},
       "name": "Hardverfigyelő",
       "columns": {
         "property": {"name": "Mező", "description": "Tulajdonság vagy szenzor neve"},
@@ -21,10 +22,11 @@
     "gpu": "Grafikus processzor",
     "storage": "Tárhely",
     "network": "Hálózat",
-    "sensors": "Szenzorok"
+    "sensors": "Szenzorok",
+    "deviceManager": "Eszközkezelő"
   },
   "strings": {
-    "loading": "Betöltés...",
+    "disableDevice":"Eszköz letiltása","uninstallDevice":"Eszköz eltávolítása","confirmDeviceAction":"{0}: '{1}'?","loading": "Betöltés...",
     "notAvailable": "N/A",
     "errorTitle": "Hardverfigyelő",
     "sensorInitFailed": "A szenzorkönyvtár (LibreHardwareMonitorLib.dll) nem tölthető be. A szenzorértékek nem lesznek elérhetők.\nHelyezze a DLL-t a kiterjesztés könyvtárába vagy a rendszer PATH-jába.",

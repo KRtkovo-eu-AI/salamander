@@ -110,6 +110,7 @@ struct CExtensionManifestFileSystem
         std::string Id;
         std::string Title;
         std::string Handler;
+        std::string ItemIdPrefix;
         bool Default;
         bool Separator;
         bool Refresh;

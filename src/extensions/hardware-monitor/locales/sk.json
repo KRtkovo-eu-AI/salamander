@@ -6,7 +6,8 @@
   },
   "fileSystems": {
     "hardware-info": {
-      "rootItems": {"cpu":"Procesor","memory":"Pamäť","motherboard":"Základná doska","gpu":"Grafický procesor","storage":"Úložisko","network":"Sieť","sensors":"Senzory"},
+      "rootItems": {"cpu":"Procesor","memory":"Pamäť","motherboard":"Základná doska","gpu":"Grafický procesor","storage":"Úložisko","network":"Sieť","sensors":"Senzory","device-manager":"Správca zariadení"},
+      "actions":{"updateDriver":"Aktualizovať ovládač","disableDevice":"Zakázať zariadenie","uninstallDevice":"Odinštalovať zariadenie","scanDevices":"Vyhľadať zmeny hardvéru","deviceProperties":"Vlastnosti"},
       "name": "Monitor hardvéru",
       "columns": {
         "property": {"name": "Pole", "description": "Názov vlastnosti alebo senzora"},
@@ -21,10 +22,11 @@
     "gpu": "Grafický procesor",
     "storage": "Úložisko",
     "network": "Sieť",
-    "sensors": "Senzory"
+    "sensors": "Senzory",
+    "deviceManager": "Správca zariadení"
   },
   "strings": {
-    "loading": "Načítava sa...",
+    "disableDevice":"Zakázať zariadenie","uninstallDevice":"Odinštalovať zariadenie","confirmDeviceAction":"{0} '{1}'?","loading": "Načítava sa...",
     "notAvailable": "N/A",
     "errorTitle": "Monitor hardvéru",
     "sensorInitFailed": "Knižnicu senzorov (LibreHardwareMonitorLib.dll) sa nepodarilo načítať. Čítania senzorov nebudú dostupné.\nUmiestnite DLL do adresára rozšírenia alebo do systémovej PATH.",

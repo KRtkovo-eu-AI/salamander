@@ -184,6 +184,9 @@ def main() -> int:
     hardware_monitor = read("src/extensions/hardware-monitor/main.ps1")
     hardware_monitor_manifest = json.loads(
         read("src/extensions/hardware-monitor/extension.json"))
+    event_viewer = read("src/extensions/event-viewer/main.ps1")
+    event_viewer_manifest = json.loads(
+        read("src/extensions/event-viewer/extension.json"))
     menu_builder = read("src/extensions/extension-menu-builder/main.ps1")
     menu_builder_manifest = json.loads(
         read("src/extensions/extension-menu-builder/extension.json"))
@@ -2125,9 +2128,31 @@ def main() -> int:
             "Hardware Monitor refreshes static root or category paths")
     root_items = hardware_monitor_manifest["fileSystems"][0].get("rootItems", [])
     if [item.get("id") for item in root_items] != [
-            "cpu", "gpu", "memory", "motherboard", "network", "sensors", "storage"]:
+            "cpu", "gpu", "memory", "motherboard", "network", "sensors",
+            "storage", "device-manager"]:
         raise AssertionError(
             "Hardware Monitor root categories are not declared for synchronous listing")
+    expected_device_actions = {
+        "updateDriver", "disableDevice", "uninstallDevice", "scanDevices",
+        "deviceProperties"}
+    for language, relative in hardware_monitor_manifest.get("locales", {}).items():
+        localized = json.loads(read(
+            "src/extensions/hardware-monitor/" + relative))
+        localized_fs = localized.get("fileSystems", {}).get("hardware-info", {})
+        if not localized_fs.get("rootItems", {}).get("device-manager"):
+            raise AssertionError(
+                f"Hardware Monitor {language} locale omits Device Manager")
+        if set(localized_fs.get("actions", {})) != expected_device_actions:
+            raise AssertionError(
+                f"Hardware Monitor {language} locale has incomplete device actions")
+        if not localized.get("categories", {}).get("deviceManager"):
+            raise AssertionError(
+                f"Hardware Monitor {language} locale omits the device category")
+        localized_strings = localized.get("strings", {})
+        if not all(localized_strings.get(key) for key in (
+                "disableDevice", "uninstallDevice", "confirmDeviceAction")):
+            raise AssertionError(
+                f"Hardware Monitor {language} locale has incomplete confirmations")
     require(
         packages,
         r"Path\.c_str\(\), provider\.c_str\(\).*?rootItems\.empty.*?"
@@ -2137,6 +2162,39 @@ def main() -> int:
         packages,
         r"Invocation\(\"list\".*?RefreshPath\.c_str\(\)",
         "Salamatrix FS does not pass the current virtual path to list handlers")
+    if not all(marker in hardware_monitor for marker in (
+            "Get-CimInstance Win32_PnPEntity", "PNPClass", "PNPDeviceID",
+            "'device-manager'", "deviceProperties", "DeviceProperties_RunDLL",
+            "updateDriver", "DiShowUpdateDevice", "disableDevice",
+            "/disable-device", "uninstallDevice", "/remove-device",
+            "scanDevices", "/scan-devices")):
+        raise AssertionError(
+            "Hardware Monitor Device Manager hierarchy and actions are incomplete")
+    require(
+        manifest + packages + json.dumps(hardware_monitor_manifest),
+        r"itemIdPrefix.*?ItemIdPrefix.*?data->Item\.Id\.compare",
+        "Device Manager actions are not scoped to matching FS items")
+    event_fs = event_viewer_manifest["fileSystems"][0]
+    if [item.get("id") for item in event_fs.get("rootItems", [])] != [
+            "custom-views", "windows-logs", "applications-services"]:
+        raise AssertionError("Event Viewer root log hierarchy is incomplete")
+    if not all(marker in event_viewer for marker in (
+            "Get-WinEvent -ListLog", "IsClassicLog", "Get-WinEvent -LogName",
+            "-MaxEvents 250", "EventRecordID=$recordId", "Show-EventDetails",
+            "ToXml()", "$Salamander.ui.Dialog", "'textbox'")):
+        raise AssertionError(
+            "Event Viewer does not expose log hierarchy, events, and native details")
+    require(
+        setup,
+        r"extensions\\event-viewer.*?IsPluginSelected\('eventviewer'\).*?"
+        r"AddPluginDependency\('eventviewer',\s*'powershellruntime'\).*?"
+        r"AddPlugin\('eventviewer',\s*'Event Viewer'",
+        "x64 installer does not package Event Viewer with its runtime")
+    require(
+        salamatrix_project,
+        r"EventViewerFiles.*?event-viewer.*?"
+        r"Copy SourceFiles=\"@\(EventViewerFiles\)\".*?extensions\\event-viewer",
+        "Salamatrix build does not stage Event Viewer")
     require(
         read("src/plugins/salamatrix/salamatrix_poc.h"),
         r"CreatePocRuntimeServices.*?new \(std::nothrow\) Runtime::RuntimeServices.*?"

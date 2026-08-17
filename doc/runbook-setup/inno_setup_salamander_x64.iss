@@ -389,6 +389,7 @@ Name: "{app}\extensions\git-worktree-navigator"
 Name: "{app}\extensions\file-lock-inspector"
 Name: "{app}\extensions\process-explorer"
 Name: "{app}\extensions\hardware-monitor"
+Name: "{app}\extensions\event-viewer"
 Name: "{app}\plugins\serviceexplorer"
 Name: "{app}\plugins\serviceexplorer\lang"
 Name: "{app}\plugins\splitcbn"
@@ -1101,6 +1102,7 @@ Source: "{#PayloadDir}\extensions\git-worktree-navigator\*"; DestDir: "{app}\ext
 Source: "{#PayloadDir}\extensions\file-lock-inspector\*"; DestDir: "{app}\extensions\file-lock-inspector"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('filelockinspector')
 Source: "{#PayloadDir}\extensions\process-explorer\*"; DestDir: "{app}\extensions\process-explorer"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('processexplorer')
 Source: "{#PayloadDir}\extensions\hardware-monitor\*"; DestDir: "{app}\extensions\hardware-monitor"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('hardwaremonitor')
+Source: "{#PayloadDir}\extensions\event-viewer\*"; DestDir: "{app}\extensions\event-viewer"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('eventviewer')
 Source: "{#PayloadDir}\plugins\extension-runtimes\javascriptruntime\javascriptruntime.spl"; DestDir: "{app}\plugins\extension-runtimes\javascriptruntime"; Flags: ignoreversion; Check: IsPluginSelected('javascriptruntime')
 Source: "{#PayloadDir}\plugins\extension-runtimes\javascriptruntime\runtime\salamatrix_worker.mjs"; DestDir: "{app}\plugins\extension-runtimes\javascriptruntime\runtime"; Flags: ignoreversion; Check: IsPluginSelected('javascriptruntime')
 Source: "{#PayloadDir}\plugins\extension-runtimes\luaruntime\luaruntime.spl"; DestDir: "{app}\plugins\extension-runtimes\luaruntime"; Flags: ignoreversion; Check: IsPluginSelected('luaruntime')
@@ -1477,6 +1479,7 @@ begin
   AddPluginDependency('filelockinspector', 'powershellruntime');
   AddPluginDependency('processexplorer', 'powershellruntime');
   AddPluginDependency('hardwaremonitor', 'powershellruntime');
+  AddPluginDependency('eventviewer', 'powershellruntime');
 
   { The demo package contains one Automation extension and five runtime demos. }
   AddPluginDependency('salamatrixdemos', 'automation');
@@ -1605,6 +1608,13 @@ begin
   if CompareText(PluginId, 'hardwaremonitor') = 0 then
   begin
     if FileExists(ExpandConstant('{app}\extensions\hardware-monitor\extension.json')) then
+      Result := '1.0.0';
+    Exit;
+  end;
+
+  if CompareText(PluginId, 'eventviewer') = 0 then
+  begin
+    if FileExists(ExpandConstant('{app}\extensions\event-viewer\extension.json')) then
       Result := '1.0.0';
     Exit;
   end;
@@ -2030,6 +2040,7 @@ begin
   AddPlugin('filelockinspector', 'File Lock Inspector', '1.0.0 (x64)', True);
   AddPlugin('processexplorer', 'Process Explorer', '1.0.0 (x64)', True);
   AddPlugin('hardwaremonitor', 'Hardware Monitor', '1.0.0 (x64)', True);
+  AddPlugin('eventviewer', 'Event Viewer', '1.0.0 (x64)', True);
   AddPlugin('folders', 'Folders', '0.2 (x64)', False);
   AddPlugin('ftp', 'FTP Client', '1.36 (x64)', True);
   AddPlugin('gitworktreenavigator', 'Git Worktree Navigator', '1.0.0 (x64)', True);

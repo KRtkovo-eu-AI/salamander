@@ -8,7 +8,7 @@
   "entryPoint": "main.ps1",
   "icon": "icon.svg",
   "iconDark": "icon-dark.svg",
-  "capabilities": ["file-system", "panels.write", "ui.dialogs"],
+  "capabilities": ["file-system", "panels.write", "ui.dialogs", "process.write"],
   "commands": [{
     "id": "OpenSalamander.HardwareMonitor.open",
     "title": "Open Hardware Monitor",
@@ -49,10 +49,20 @@
       {"id": "network", "name": "Network", "icon": "icons/network.svg", "iconDark": "icons/network-dark.svg"},
       {"id": "sensors", "name": "Sensors", "icon": "icons/sensors.svg", "iconDark": "icons/sensors-dark.svg"},
       {"id": "storage", "name": "Storage", "icon": "icons/storage.svg", "iconDark": "icons/storage-dark.svg"}
+      ,{"id": "device-manager", "name": "Device Manager", "icon": "icons/device-manager.svg", "iconDark": "icons/device-manager-dark.svg"}
     ],
     "columns": [
       {"id": "property", "name": "Field", "description": "Property or sensor name", "width": 280},
       {"id": "value", "name": "Value", "description": "Property value or sensor reading", "width": 320}
+    ],
+    "actions": [
+      {"id":"updateDriver","title":"Update driver","handler":"updateDriver","itemIdPrefix":"device","refresh":false},
+      {"id":"disableDevice","title":"Disable device","handler":"disableDevice","itemIdPrefix":"device"},
+      {"id":"uninstallDevice","title":"Uninstall device","handler":"uninstallDevice","itemIdPrefix":"device"},
+      {"separator":true,"itemIdPrefix":"device"},
+      {"id":"scanDevices","title":"Scan for hardware changes","handler":"scanDevices","itemIdPrefix":"device"},
+      {"separator":true,"itemIdPrefix":"device"},
+      {"id":"deviceProperties","title":"Properties","handler":"deviceProperties","itemIdPrefix":"device-","default":true,"refresh":false}
     ]
   }]
 }

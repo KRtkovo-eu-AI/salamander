@@ -1794,7 +1794,10 @@ public:
                     continue;
                 const CExtensionManifestFileSystem::Action* selected = NULL;
                 for (size_t a = 0; a < fs.Actions.size(); ++a)
-                    if (!fs.Actions[a].Separator && fs.Actions[a].Default)
+                    if (!fs.Actions[a].Separator && fs.Actions[a].Default &&
+                        (fs.Actions[a].ItemIdPrefix.empty() ||
+                         data->Item.Id.compare(0, fs.Actions[a].ItemIdPrefix.size(),
+                                               fs.Actions[a].ItemIdPrefix) == 0))
                     { selected = &fs.Actions[a]; break; }
                 const std::string actionId = selected != NULL ? selected->Id : "open";
                 const std::string invocation = Invocation(
@@ -2127,6 +2130,10 @@ public:
         for (size_t a = 0; a < manifestFs->Actions.size(); ++a)
         {
             const CExtensionManifestFileSystem::Action& action = manifestFs->Actions[a];
+            if (!action.ItemIdPrefix.empty() &&
+                data->Item.Id.compare(0, action.ItemIdPrefix.size(),
+                                      action.ItemIdPrefix) != 0)
+                continue;
             if (action.Separator)
             {
                 AppendMenuW(menu, MF_SEPARATOR, 0, NULL);

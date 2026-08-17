@@ -1545,6 +1545,7 @@ bool CExtensionManifest::Parse(
                         !ReadString(actionValue, "id", !action.Separator, action.Id, error) ||
                         !ReadString(actionValue, "title", !action.Separator, action.Title, error) ||
                         !ReadString(actionValue, "handler", !action.Separator, action.Handler, error) ||
+                        !ReadString(actionValue, "itemIdPrefix", false, action.ItemIdPrefix, error) ||
                         !ReadBoolean(actionValue, "default", false, action.Default, error) ||
                         !ReadBoolean(actionValue, "refresh", true, action.Refresh, error))
                         return false;
@@ -1557,7 +1558,8 @@ bool CExtensionManifest::Parse(
                         continue;
                     }
                     if (!IsIdentifier(action.Id) || !IsIdentifier(action.Handler) ||
-                        action.Title.empty() || action.Title.size() > 255)
+                        action.Title.empty() || action.Title.size() > 255 ||
+                        action.ItemIdPrefix.size() > 255)
                         return SetValidationError(error, "File-system action ids, handlers, and titles are invalid");
                     if (action.Default && hasDefault)
                         return SetValidationError(error, "File system may declare only one default action");
