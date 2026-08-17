@@ -473,6 +473,7 @@ function Get-NetworkInfo {
 
 $script:MonitorManager = $null
 $script:SensorAvailable = $false
+$script:SensorInteropAvailable = $false
 
 function Initialize-SensorLibrary {
     if ($script:SensorAvailable) { return $true }
@@ -495,8 +496,24 @@ function Initialize-SensorLibrary {
                 }
                 $resolvedPath = (Resolve-Path -LiteralPath $dllPath).Path
                 Add-Type -Path $resolvedPath -ErrorAction Stop
+                if (-not ('HardViewSensorInterop' -as [type])) {
+                    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+public static class HardViewSensorInterop
+{
+    [DllImport("HardwareWrapper.dll", CallingConvention = CallingConvention.Cdecl)]
+    public static extern void GetAllSensorsPacked(out IntPtr data, out int size);
+
+    [DllImport("HardwareWrapper.dll", CallingConvention = CallingConvention.Cdecl)]
+    public static extern void FreePackedSensors(IntPtr data);
+}
+'@ -ErrorAction Stop
+                }
                 $script:MonitorManager = [MonitorManager]
                 $script:MonitorManager::Init()
+                $script:SensorInteropAvailable = $true
                 $script:SensorAvailable = $true
                 return $true
             } catch {
@@ -508,13 +525,17 @@ function Initialize-SensorLibrary {
     return $false
 }
 
-function Get-SensorInfo {
-    param([object]$Strings)
+function Get-HardViewSensorInfo {
+    param(
+        [object]$Strings,
+        [ValidateSet('Temperature', 'Fan')]
+        [string]$SensorType
+    )
     $items = New-Object 'System.Collections.Generic.List[hashtable]'
 
     $available = Initialize-SensorLibrary
 
-    if (-not $available) {
+    if (-not $available -or -not $script:SensorInteropAvailable) {
         $items.Add(@{id='sensor-na'; name='na'; directory=$false; enabled=$true;
             columns=@{property=[string]$Strings.strings.sensorTypes;
                 value='Place HardwareWrapper.dll in lib/ subdirectory for sensor data.'}})
@@ -524,43 +545,66 @@ function Get-SensorInfo {
         return $items
     }
 
+    $packedData = [IntPtr]::Zero
     try {
         $script:MonitorManager::Update()
+        $packedSize = 0
+        [HardViewSensorInterop]::GetAllSensorsPacked(
+            [ref]$packedData, [ref]$packedSize)
 
-        $cpuTemp = $script:MonitorManager::GetCpuTemperature()
-        if ($cpuTemp -ge 0) {
-            $items.Add(@{id='sensor-cpu-temp'; name='CPU Temperature'; directory=$false; enabled=$true;
-                columns=@{property='CPU Temperature'; value='{0:F1} C' -f $cpuTemp}})
-        }
+        if ($packedData -ne [IntPtr]::Zero -and $packedSize -gt 0) {
+            $bytes = [byte[]]::new($packedSize)
+            [Runtime.InteropServices.Marshal]::Copy(
+                $packedData, $bytes, 0, $packedSize)
+            $encoding = [Text.Encoding]::GetEncoding(
+                [Globalization.CultureInfo]::CurrentCulture.TextInfo.ANSICodePage)
+            $marker = " - $SensorType - "
+            $offset = 0
+            $ordinal = 0
 
-        $cpuAvg = $script:MonitorManager::GetAverageCpuCoreTemperature()
-        if ($cpuAvg -gt 0) {
-            $items.Add(@{id='sensor-cpu-avg'; name='CPU Core Average'; directory=$false; enabled=$true;
-                columns=@{property='CPU Core Average'; value='{0:F1} C' -f $cpuAvg}})
-        }
+            while ($offset -lt $packedSize) {
+                $nameStart = $offset
+                while ($offset -lt $packedSize -and $bytes[$offset] -ne 0) {
+                    $offset++
+                }
+                if ($offset -ge $packedSize -or $offset + 8 -ge $packedSize) {
+                    throw 'HardView returned malformed sensor data.'
+                }
 
-        $cpuMax = $script:MonitorManager::GetMaxCpuCoreTemperature()
-        if ($cpuMax -gt 0) {
-            $items.Add(@{id='sensor-cpu-max'; name='CPU Core Max'; directory=$false; enabled=$true;
-                columns=@{property='CPU Core Max'; value='{0:F1} C' -f $cpuMax}})
-        }
+                $fullName = $encoding.GetString(
+                    $bytes, $nameStart, $offset - $nameStart)
+                $offset++
+                $sensorValue = [BitConverter]::ToDouble($bytes, $offset)
+                $offset += 8
 
-        $gpuTemp = $script:MonitorManager::GetGpuTemperature()
-        if ($gpuTemp -ge 0) {
-            $items.Add(@{id='sensor-gpu-temp'; name='GPU Temperature'; directory=$false; enabled=$true;
-                columns=@{property='GPU Temperature'; value='{0:F1} C' -f $gpuTemp}})
-        }
+                $markerIndex = $fullName.IndexOf(
+                    $marker, [StringComparison]::Ordinal)
+                if ($markerIndex -lt 0) { continue }
 
-        $mbTemp = $script:MonitorManager::GetMotherboardTemperature()
-        if ($mbTemp -ge 0) {
-            $items.Add(@{id='sensor-mb-temp'; name='Motherboard Temperature'; directory=$false; enabled=$true;
-                columns=@{property='Motherboard Temperature'; value='{0:F1} C' -f $mbTemp}})
-        }
-
-        $storageTemp = $script:MonitorManager::GetStorageTemperature()
-        if ($storageTemp -ge 0) {
-            $items.Add(@{id='sensor-storage-temp'; name='Storage Temperature'; directory=$false; enabled=$true;
-                columns=@{property='Storage Temperature'; value='{0:F1} C' -f $storageTemp}})
+                $hardwareName = $fullName.Substring(0, $markerIndex)
+                $sensorName = $fullName.Substring($markerIndex + $marker.Length)
+                $displayName = "$hardwareName - $sensorName"
+                $formattedValue = [string]$Strings.strings.notAvailable
+                $validValue = -not [double]::IsNaN($sensorValue) -and
+                    -not [double]::IsInfinity($sensorValue) -and
+                    (($SensorType -eq 'Temperature' -and $sensorValue -gt 0) -or
+                     ($SensorType -eq 'Fan' -and $sensorValue -ge 0))
+                if ($validValue) {
+                    if ($SensorType -eq 'Temperature') {
+                        $formattedValue = '{0:F1} C' -f $sensorValue
+                    } else {
+                        $formattedValue = '{0:F0} RPM' -f $sensorValue
+                    }
+                }
+                $items.Add(@{
+                    id="sensor-$($SensorType.ToLowerInvariant())-$ordinal"
+                    name=$displayName
+                    directory=$false
+                    enabled=$true
+                    columns=@{property=$displayName; value=$formattedValue}
+                })
+                $ordinal++
+            }
         }
 
         if ($items.Count -eq 0) {
@@ -570,6 +614,10 @@ function Get-SensorInfo {
     } catch {
         $items.Add(@{id='sensor-error'; name='error'; directory=$false; enabled=$true;
             columns=@{property='Sensor Error'; value=[string]$_.Exception.Message}})
+    } finally {
+        if ($packedData -ne [IntPtr]::Zero) {
+            [HardViewSensorInterop]::FreePackedSensors($packedData)
+        }
     }
     return $items
 }
@@ -685,11 +733,20 @@ else {
         'sensors' {
             $subItems = New-Object 'System.Collections.Generic.List[hashtable]'
             if ($viewId -eq 'temperatures') {
-                foreach ($si in (Get-SensorInfo $strings)) { $subItems.Add($si) }
+                foreach ($si in (Get-HardViewSensorInfo $strings 'Temperature')) {
+                    $subItems.Add($si)
+                }
+            } elseif ($viewId -eq 'fans') {
+                foreach ($si in (Get-HardViewSensorInfo $strings 'Fan')) {
+                    $subItems.Add($si)
+                }
             } else {
                 $subItems.Add(@{id='temperatures'; name=[string]$Strings.strings.temperatures;
                     directory=$true; enabled=$true;
                     columns=@{property=[string]$Strings.strings.temperatures; value=''}})
+                $subItems.Add(@{id='fans'; name=[string]$Strings.strings.fans;
+                    directory=$true; enabled=$true;
+                    columns=@{property=[string]$Strings.strings.fans; value=''}})
             }
         }
     }

@@ -2152,6 +2152,18 @@ def main() -> int:
         r"salamanderRoot.*?msvcp140\.dll.*?env:PATH.*?Add-Type.*?finally.*?"
         r"env:PATH = \$originalPath",
         "Hardware Monitor does not resolve its shared VC runtime from Salamander")
+    require(
+        hardware_monitor,
+        r"GetAllSensorsPacked.*?FreePackedSensors.*?"
+        r"Get-HardViewSensorInfo.*?ValidateSet\('Temperature', 'Fan'\).*?"
+        r"BitConverter\]::ToDouble.*?Temperature.*?RPM",
+        "Hardware Monitor does not enumerate all HardView temperature and fan sensors")
+    require(
+        hardware_monitor,
+        r"viewId -eq 'temperatures'.*?Get-HardViewSensorInfo.*?'Temperature'.*?"
+        r"viewId -eq 'fans'.*?Get-HardViewSensorInfo.*?'Fan'.*?"
+        r"id='temperatures'.*?id='fans'",
+        "Hardware Monitor does not expose separate temperature and fan views")
     for redundant_library in (
             "HardwareWrapper.deps.json", "HardwareWrapper.runtimeconfig.json",
             "msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll",

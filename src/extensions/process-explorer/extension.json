@@ -29,7 +29,7 @@
   },
   "fileSystems": [{
     "id": "processes",
-    "name": "Processes",
+    "name": "Running Processes",
     "listHandler": "listProcesses",
     "icon": "icon.svg",
     "iconDark": "icon-dark.svg",
