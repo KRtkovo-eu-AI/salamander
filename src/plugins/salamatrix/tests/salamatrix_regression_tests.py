@@ -2172,8 +2172,14 @@ def main() -> int:
         r"ReloadStorages.*?SmartAttributes.*?RawValueULong.*?"
         r"Get-PhysicalDisk.*?Get-StorageReliabilityCounter.*?"
         r"HealthStatus.*?PowerOnHours.*?"
-        r"viewId -eq 'smart'",
+        r"components.Count -gt 3.*?detailId.*?"
+        r"viewId -eq 'smart'.*?Get-SmartStorageInfo \$strings \$detailId",
         "Hardware Monitor does not expose read-only SMART and NVMe information")
+    require(
+        hardware_monitor,
+        r"Get-SmartStorageCacheView.*?directory=\$true.*?"
+        r"Where-Object \{ \$_\.id -eq \$DiskId \}",
+        "Hardware Monitor does not group SMART information by physical disk")
     require(
         hardware_monitor,
         r"Get-HidDeviceInfo.*?HidSharp\.DeviceList.*?GetHidDevices.*?"

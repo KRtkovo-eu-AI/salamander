@@ -679,15 +679,37 @@ function Get-HardViewSensorInfo {
 $script:SmartStorageCache = $null
 $script:SmartStorageCacheTime = [datetime]::MinValue
 
+function Get-SmartStorageCacheView {
+    param([object[]]$Groups, [string]$DiskId, [object]$Strings)
+    $items = New-Object 'System.Collections.Generic.List[hashtable]'
+    if ([string]::IsNullOrWhiteSpace($DiskId)) {
+        foreach ($group in @($Groups)) {
+            $items.Add(@{id=$group.id; name=$group.name; directory=$true;
+                enabled=$true; columns=@{property=$group.name; value=$group.summary}})
+        }
+    } else {
+        $group = @($Groups | Where-Object { $_.id -eq $DiskId } | Select-Object -First 1)
+        if ($group.Count -gt 0) {
+            foreach ($item in @($group[0].items)) { $items.Add($item) }
+        } else {
+            $items.Add(@{id='smart-disk-missing'; name='SMART - NVMe';
+                directory=$false; enabled=$true; columns=@{property='SMART / NVMe';
+                    value=[string]$Strings.strings.notAvailable}})
+        }
+    }
+    return $items.ToArray()
+}
+
 function Get-SmartStorageInfo {
-    param([object]$Strings)
+    param([object]$Strings, [string]$DiskId = '')
 
     if ($null -ne $script:SmartStorageCache -and
         ((Get-Date) - $script:SmartStorageCacheTime).TotalSeconds -lt 60) {
-        return $script:SmartStorageCache
+        return Get-SmartStorageCacheView $script:SmartStorageCache $DiskId $Strings
     }
 
     $items = New-Object 'System.Collections.Generic.List[hashtable]'
+    $groups = New-Object 'System.Collections.Generic.List[hashtable]'
     try {
         $toolkitPath = Join-Path $PSScriptRoot 'lib\DiskInfoToolkit.dll'
         if (-not ('DiskInfoToolkit.StorageManager' -as [type])) {
@@ -695,9 +717,11 @@ function Get-SmartStorageInfo {
         }
         [DiskInfoToolkit.StorageManager]::ReloadStorages()
         $storages = @([DiskInfoToolkit.StorageManager]::Storages)
-        $ordinal = 0
+        $diskOrdinal = 0
 
         foreach ($storage in $storages) {
+            $diskItems = New-Object 'System.Collections.Generic.List[hashtable]'
+            $ordinal = 0
             try { $storage.Update() } catch {}
             $prefix = if ([string]::IsNullOrWhiteSpace([string]$storage.Model)) {
                 "PhysicalDrive$($storage.DriveNumber)"
@@ -733,7 +757,7 @@ function Get-SmartStorageInfo {
                     [string]$Strings.strings.notAvailable
                 } else { [string]$property.Value }
                 $displayName = "$prefix - $($property.Key)"
-                $items.Add(@{id="smart-$ordinal"; name=$displayName;
+                $diskItems.Add(@{id="smart-$ordinal"; name=$displayName;
                     directory=$false; enabled=$true;
                     columns=@{property=$displayName; value=$value}})
                 $ordinal++
@@ -745,20 +769,27 @@ function Get-SmartStorageInfo {
                         [string]$attribute.Info.Name
                     } else { "SMART Attribute $($attribute.Info.ID)" }
                     $displayName = "$prefix - $attributeName"
-                    $items.Add(@{id="smart-attribute-$ordinal"; name=$displayName;
+                    $diskItems.Add(@{id="smart-attribute-$ordinal"; name=$displayName;
                         directory=$false; enabled=$true;
                         columns=@{property=$displayName;
                             value=[string]$attribute.Attribute.RawValueULong}})
                     $ordinal++
                 }
             }
+            $summary = '{0}, {1}' -f $storage.BusType,
+                $(if ($null -ne $storage.Smart) { $storage.Smart.DiskStatus } else { 'SMART' })
+            $groups.Add(@{id="disk-$diskOrdinal"; name=$prefix; summary=$summary;
+                items=$diskItems.ToArray()})
+            $diskOrdinal++
         }
         # DiskInfoToolkit can legitimately return no devices when its low-level
         # provider is unavailable. Keep the view useful through the read-only
         # Windows Storage Management provider, including NVMe devices.
-        if ($items.Count -eq 0) {
-            $ordinal = 0
+        if ($groups.Count -eq 0) {
+            $diskOrdinal = 0
             foreach ($disk in @(Get-PhysicalDisk -ErrorAction Stop)) {
+                $diskItems = New-Object 'System.Collections.Generic.List[hashtable]'
+                $ordinal = 0
                 $reliability = try {
                     $disk | Get-StorageReliabilityCounter -ErrorAction Stop
                 } catch { $null }
@@ -793,14 +824,19 @@ function Get-SmartStorageInfo {
                         [string]$Strings.strings.notAvailable
                     } else { [string]$property.Value }
                     $displayName = "$prefix - $($property.Key)"
-                    $items.Add(@{id="storage-health-$ordinal"; name=$displayName;
+                    $diskItems.Add(@{id="storage-health-$ordinal"; name=$displayName;
                         directory=$false; enabled=$true;
                         columns=@{property=$displayName; value=$value}})
                     $ordinal++
                 }
+                $summary = '{0}, {1}, {2}' -f $disk.BusType,
+                    $disk.MediaType, $disk.HealthStatus
+                $groups.Add(@{id="disk-$diskOrdinal"; name=$prefix; summary=$summary;
+                    items=$diskItems.ToArray()})
+                $diskOrdinal++
             }
         }
-        if ($items.Count -eq 0) {
+        if ($groups.Count -eq 0) {
             $items.Add(@{id='smart-empty'; name='SMART / NVMe'; directory=$false;
                 enabled=$true; columns=@{property='SMART / NVMe';
                     value=[string]$Strings.strings.notAvailable}})
@@ -810,9 +846,10 @@ function Get-SmartStorageInfo {
             enabled=$true; columns=@{property='SMART / NVMe';
                 value=[string]$_.Exception.Message}})
     }
-    $script:SmartStorageCache = $items.ToArray()
+    $script:SmartStorageCache = $groups.ToArray()
     $script:SmartStorageCacheTime = Get-Date
-    return $script:SmartStorageCache
+    if ($script:SmartStorageCache.Count -eq 0) { return $items.ToArray() }
+    return Get-SmartStorageCacheView $script:SmartStorageCache $DiskId $Strings
 }
 
 $script:HidDeviceCache = $null
@@ -931,12 +968,14 @@ if ($handler -ne 'listHardware') { return }
 $fileSystemPath = try { [string]$Salamander.invocation.path } catch { '' }
 $categoryId = ''
 $viewId = ''
+$detailId = ''
 if (-not [string]::IsNullOrWhiteSpace($fileSystemPath)) {
     $components = @($fileSystemPath -split '[\\/]' | Where-Object {
         -not [string]::IsNullOrWhiteSpace([string]$_)
     })
     if ($components.Count -gt 1) { $categoryId = [string]$components[1] }
     if ($components.Count -gt 2) { $viewId = [string]$components[2] }
+    if ($components.Count -gt 3) { $detailId = [string]$components[3] }
 }
 
 if ([string]::IsNullOrWhiteSpace($categoryId)) {
@@ -1023,7 +1062,9 @@ else {
         'storage' {
             $subItems = New-Object 'System.Collections.Generic.List[hashtable]'
             if ($viewId -eq 'smart') {
-                foreach ($di in (Get-SmartStorageInfo $strings)) { $subItems.Add($di) }
+                foreach ($di in (Get-SmartStorageInfo $strings $detailId)) {
+                    $subItems.Add($di)
+                }
             } else {
                 $subItems.Add(@{id='smart'; name='SMART / NVMe'; directory=$true;
                     enabled=$true; columns=@{property='SMART / NVMe'; value=''}})
