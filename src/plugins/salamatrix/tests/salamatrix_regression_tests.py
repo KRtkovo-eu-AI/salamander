@@ -2155,15 +2155,33 @@ def main() -> int:
     require(
         hardware_monitor,
         r"GetAllSensorsPacked.*?FreePackedSensors.*?"
-        r"Get-HardViewSensorInfo.*?ValidateSet\('Temperature', 'Fan'\).*?"
-        r"BitConverter\]::ToDouble.*?Temperature.*?RPM",
-        "Hardware Monitor does not enumerate all HardView temperature and fan sensors")
+        r"Get-HardViewSensorInfo.*?ValidateSet\('Temperature', 'Fan', 'Voltage', 'All'\).*?"
+        r"BitConverter\]::ToDouble.*?Temperature.*?RPM.*?Throughput.*?B/s",
+        "Hardware Monitor does not enumerate and format all HardView sensors")
     require(
         hardware_monitor,
         r"viewId -eq 'temperatures'.*?Get-HardViewSensorInfo.*?'Temperature'.*?"
         r"viewId -eq 'fans'.*?Get-HardViewSensorInfo.*?'Fan'.*?"
-        r"id='temperatures'.*?id='fans'",
-        "Hardware Monitor does not expose separate temperature and fan views")
+        r"viewId -eq 'voltages'.*?Get-HardViewSensorInfo.*?'Voltage'.*?"
+        r"viewId -eq 'all'.*?Get-HardViewSensorInfo.*?'All'.*?"
+        r"id='temperatures'.*?id='fans'.*?id='voltages'.*?id='all'",
+        "Hardware Monitor does not expose focused and complete sensor views")
+    require(
+        hardware_monitor,
+        r"Get-SmartStorageInfo.*?DiskInfoToolkit\.StorageManager.*?"
+        r"ReloadStorages.*?SmartAttributes.*?RawValueULong.*?"
+        r"viewId -eq 'smart'",
+        "Hardware Monitor does not expose read-only SMART and NVMe information")
+    require(
+        hardware_monitor,
+        r"Get-HidDeviceInfo.*?HidSharp\.DeviceList.*?GetHidDevices.*?"
+        r"VendorID.*?ProductID.*?viewId -eq 'hid'",
+        "Hardware Monitor does not expose installed HID device information")
+    require(
+        hardware_monitor,
+        r"Get-SmbiosMemoryInfo.*?LibreHardwareMonitor\.Hardware\.SMBios.*?"
+        r"MemoryDevices.*?ConfiguredVoltage.*?viewId -eq 'spd'",
+        "Hardware Monitor does not expose safe SPD-like SMBIOS module information")
     for redundant_library in (
             "HardwareWrapper.deps.json", "HardwareWrapper.runtimeconfig.json",
             "msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll",

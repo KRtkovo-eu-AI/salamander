@@ -528,7 +528,7 @@ public static class HardViewSensorInterop
 function Get-HardViewSensorInfo {
     param(
         [object]$Strings,
-        [ValidateSet('Temperature', 'Fan')]
+        [ValidateSet('Temperature', 'Fan', 'Voltage', 'All')]
         [string]$SensorType
     )
     $items = New-Object 'System.Collections.Generic.List[hashtable]'
@@ -558,7 +558,12 @@ function Get-HardViewSensorInfo {
                 $packedData, $bytes, 0, $packedSize)
             $encoding = [Text.Encoding]::GetEncoding(
                 [Globalization.CultureInfo]::CurrentCulture.TextInfo.ANSICodePage)
-            $marker = " - $SensorType - "
+            $knownSensorTypes = @(
+                'Temperature', 'Fan', 'Voltage', 'Current', 'Power', 'Clock',
+                'Load', 'Frequency', 'Flow', 'Control', 'Level', 'Factor',
+                'Data', 'SmallData', 'Throughput', 'TimeSpan', 'Energy',
+                'Noise', 'Conductivity', 'Humidity')
+            $marker = if ($SensorType -eq 'All') { '' } else { " - $SensorType - " }
             $offset = 0
             $ordinal = 0
 
@@ -577,27 +582,67 @@ function Get-HardViewSensorInfo {
                 $sensorValue = [BitConverter]::ToDouble($bytes, $offset)
                 $offset += 8
 
-                $markerIndex = $fullName.IndexOf(
-                    $marker, [StringComparison]::Ordinal)
+                $actualType = $SensorType
+                $actualMarker = $marker
+                $markerIndex = -1
+                if ($SensorType -eq 'All') {
+                    foreach ($candidateType in $knownSensorTypes) {
+                        $candidateMarker = " - $candidateType - "
+                        $candidateIndex = $fullName.IndexOf(
+                            $candidateMarker, [StringComparison]::Ordinal)
+                        if ($candidateIndex -ge 0) {
+                            $actualType = $candidateType
+                            $actualMarker = $candidateMarker
+                            $markerIndex = $candidateIndex
+                            break
+                        }
+                    }
+                } else {
+                    $markerIndex = $fullName.IndexOf(
+                        $marker, [StringComparison]::Ordinal)
+                }
                 if ($markerIndex -lt 0) { continue }
 
                 $hardwareName = $fullName.Substring(0, $markerIndex)
-                $sensorName = $fullName.Substring($markerIndex + $marker.Length)
-                $displayName = "$hardwareName - $sensorName"
+                $sensorName = $fullName.Substring($markerIndex + $actualMarker.Length)
+                $displayName = if ($SensorType -eq 'All') {
+                    "[$actualType] $hardwareName - $sensorName"
+                } else {
+                    "$hardwareName - $sensorName"
+                }
                 $formattedValue = [string]$Strings.strings.notAvailable
                 $validValue = -not [double]::IsNaN($sensorValue) -and
                     -not [double]::IsInfinity($sensorValue) -and
-                    (($SensorType -eq 'Temperature' -and $sensorValue -gt 0) -or
-                     ($SensorType -eq 'Fan' -and $sensorValue -ge 0))
+                    $sensorValue -ge 0 -and
+                    ($actualType -ne 'Temperature' -or $sensorValue -gt 0)
                 if ($validValue) {
-                    if ($SensorType -eq 'Temperature') {
-                        $formattedValue = '{0:F1} C' -f $sensorValue
-                    } else {
-                        $formattedValue = '{0:F0} RPM' -f $sensorValue
+                    $format = switch ($actualType) {
+                        'Temperature' { '{0:F1} C' }
+                        'Fan'         { '{0:F0} RPM' }
+                        'Voltage'     { '{0:F3} V' }
+                        'Current'     { '{0:F3} A' }
+                        'Power'       { '{0:F2} W' }
+                        'Clock'       { '{0:F0} MHz' }
+                        'Load'        { '{0:F1} %' }
+                        'Control'     { '{0:F1} %' }
+                        'Level'       { '{0:F1} %' }
+                        'Frequency'   { '{0:F1} Hz' }
+                        'Flow'        { '{0:F1} L/h' }
+                        'Factor'      { '{0:F2} x' }
+                        'Data'        { '{0:F2} GB' }
+                        'SmallData'   { '{0:F2} MB' }
+                        'Throughput'  { '{0:F0} B/s' }
+                        'TimeSpan'    { '{0:F0} s' }
+                        'Energy'      { '{0:F0} mWh' }
+                        'Noise'       { '{0:F1} dBA' }
+                        'Conductivity'{ '{0:F1} uS/cm' }
+                        'Humidity'    { '{0:F1} %' }
+                        default       { '{0:G}' }
                     }
+                    $formattedValue = $format -f $sensorValue
                 }
                 $items.Add(@{
-                    id="sensor-$($SensorType.ToLowerInvariant())-$ordinal"
+                    id="sensor-$($actualType.ToLowerInvariant())-$ordinal"
                     name=$displayName
                     directory=$false
                     enabled=$true
@@ -620,6 +665,201 @@ function Get-HardViewSensorInfo {
         }
     }
     return $items
+}
+
+$script:SmartStorageCache = $null
+$script:SmartStorageCacheTime = [datetime]::MinValue
+
+function Get-SmartStorageInfo {
+    param([object]$Strings)
+
+    if ($null -ne $script:SmartStorageCache -and
+        ((Get-Date) - $script:SmartStorageCacheTime).TotalSeconds -lt 60) {
+        return $script:SmartStorageCache
+    }
+
+    $items = New-Object 'System.Collections.Generic.List[hashtable]'
+    try {
+        $toolkitPath = Join-Path $PSScriptRoot 'lib\DiskInfoToolkit.dll'
+        if (-not ('DiskInfoToolkit.StorageManager' -as [type])) {
+            Add-Type -Path $toolkitPath -ErrorAction Stop
+        }
+        [DiskInfoToolkit.StorageManager]::ReloadStorages()
+        $storages = @([DiskInfoToolkit.StorageManager]::Storages)
+        $ordinal = 0
+
+        foreach ($storage in $storages) {
+            try { $storage.Update() } catch {}
+            $prefix = if ([string]::IsNullOrWhiteSpace([string]$storage.Model)) {
+                "PhysicalDrive$($storage.DriveNumber)"
+            } else { [string]$storage.Model }
+            $properties = [ordered]@{
+                'Device' = $storage.PhysicalPath
+                'Bus' = $storage.BusType
+                'Firmware' = $storage.FirmwareRev
+                'NVMe' = $storage.IsNVMe
+                'SSD' = $storage.IsSSD
+                'TRIM' = $storage.IsTrimSupported
+                'Write Cache' = $storage.IsVolatileWriteCachePresent
+            }
+            if ($null -ne $storage.Smart) {
+                $smart = $storage.Smart
+                $properties['SMART Status'] = $smart.DiskStatus
+                $properties['Temperature'] = if ($null -ne $smart.Temperature) {
+                    "$($smart.Temperature) C"
+                } else { [string]$Strings.strings.notAvailable }
+                $properties['Life Remaining'] = if ($null -ne $smart.Life) {
+                    "$($smart.Life) %"
+                } else { [string]$Strings.strings.notAvailable }
+                $properties['Power-On Hours'] = $smart.DetectedPowerOnHours
+                $properties['Power-On Count'] = $smart.PowerOnCount
+                $properties['Host Reads'] = $smart.HostReads
+                $properties['Host Writes'] = $smart.HostWrites
+                $properties['NAND Writes'] = $smart.NandWrites
+                $properties['Wear Leveling Count'] = $smart.WearLevelingCount
+            }
+            foreach ($property in $properties.GetEnumerator()) {
+                $value = if ($null -eq $property.Value -or
+                    [string]::IsNullOrWhiteSpace([string]$property.Value)) {
+                    [string]$Strings.strings.notAvailable
+                } else { [string]$property.Value }
+                $displayName = "$prefix - $($property.Key)"
+                $items.Add(@{id="smart-$ordinal"; name=$displayName;
+                    directory=$false; enabled=$true;
+                    columns=@{property=$displayName; value=$value}})
+                $ordinal++
+            }
+            if ($null -ne $storage.Smart) {
+                foreach ($attribute in @($storage.Smart.SmartAttributes)) {
+                    $attributeName = if ($null -ne $attribute.Info -and
+                        -not [string]::IsNullOrWhiteSpace([string]$attribute.Info.Name)) {
+                        [string]$attribute.Info.Name
+                    } else { "SMART Attribute $($attribute.Info.ID)" }
+                    $displayName = "$prefix - $attributeName"
+                    $items.Add(@{id="smart-attribute-$ordinal"; name=$displayName;
+                        directory=$false; enabled=$true;
+                        columns=@{property=$displayName;
+                            value=[string]$attribute.Attribute.RawValueULong}})
+                    $ordinal++
+                }
+            }
+        }
+        if ($items.Count -eq 0) {
+            $items.Add(@{id='smart-empty'; name='SMART / NVMe'; directory=$false;
+                enabled=$true; columns=@{property='SMART / NVMe';
+                    value=[string]$Strings.strings.notAvailable}})
+        }
+    } catch {
+        $items.Add(@{id='smart-error'; name='SMART / NVMe'; directory=$false;
+            enabled=$true; columns=@{property='SMART / NVMe';
+                value=[string]$_.Exception.Message}})
+    }
+    $script:SmartStorageCache = $items.ToArray()
+    $script:SmartStorageCacheTime = Get-Date
+    return $script:SmartStorageCache
+}
+
+$script:HidDeviceCache = $null
+
+function Get-HidDeviceInfo {
+    param([object]$Strings)
+
+    if ($null -ne $script:HidDeviceCache) { return $script:HidDeviceCache }
+    $items = New-Object 'System.Collections.Generic.List[hashtable]'
+    try {
+        $hidSharpPath = Join-Path $PSScriptRoot 'lib\HidSharp.dll'
+        if (-not ('HidSharp.DeviceList' -as [type])) {
+            Add-Type -Path $hidSharpPath -ErrorAction Stop
+        }
+        $ordinal = 0
+        foreach ($device in @([HidSharp.DeviceList]::Local.GetHidDevices())) {
+            $manufacturer = try { [string]$device.Manufacturer } catch { '' }
+            $product = try { [string]$device.ProductName } catch { '' }
+            $serial = try { [string]$device.SerialNumber } catch { '' }
+            $friendlyName = try { [string]$device.GetFriendlyName() } catch { '' }
+            $displayName = @($manufacturer, $product, $friendlyName) |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                Select-Object -Unique
+            $displayName = $displayName -join ' - '
+            if ([string]::IsNullOrWhiteSpace($displayName)) {
+                $displayName = 'HID Device'
+            }
+            $details = 'VID {0:X4}, PID {1:X4}' -f
+                ([int]$device.VendorID), ([int]$device.ProductID)
+            if (-not [string]::IsNullOrWhiteSpace($serial)) {
+                $details += ", S/N $serial"
+            }
+            $items.Add(@{id="hid-$ordinal"; name=$displayName; directory=$false;
+                enabled=$true; columns=@{property=$displayName; value=$details}})
+            $ordinal++
+        }
+        if ($items.Count -eq 0) {
+            $items.Add(@{id='hid-empty'; name='HID'; directory=$false;
+                enabled=$true; columns=@{property='HID';
+                    value=[string]$Strings.strings.notAvailable}})
+        }
+    } catch {
+        $items.Add(@{id='hid-error'; name='HID'; directory=$false;
+            enabled=$true; columns=@{property='HID'; value=[string]$_.Exception.Message}})
+    }
+    $script:HidDeviceCache = $items.ToArray()
+    return $script:HidDeviceCache
+}
+
+$script:SmbiosMemoryCache = $null
+
+function Get-SmbiosMemoryInfo {
+    param([object]$Strings)
+
+    if ($null -ne $script:SmbiosMemoryCache) { return $script:SmbiosMemoryCache }
+    $items = New-Object 'System.Collections.Generic.List[hashtable]'
+    try {
+        if (-not (Initialize-SensorLibrary)) {
+            throw 'LibreHardwareMonitor is not available.'
+        }
+        $smbios = [LibreHardwareMonitor.Hardware.SMBios]::new()
+        $ordinal = 0
+        foreach ($memory in @($smbios.MemoryDevices)) {
+            $slot = if ([string]::IsNullOrWhiteSpace([string]$memory.DeviceLocator)) {
+                "Memory Module $($ordinal + 1)"
+            } else { [string]$memory.DeviceLocator }
+            $properties = [ordered]@{
+                'Type' = $memory.Type
+                'Manufacturer' = $memory.ManufacturerName
+                'Part Number' = $memory.PartNumber
+                'Serial Number' = $memory.SerialNumber
+                'Size' = if ($memory.Size -gt 0) { "$($memory.Size) MB" } else { $null }
+                'Speed' = if ($memory.Speed -gt 0) { "$($memory.Speed) MT/s" } else { $null }
+                'Configured Speed' = if ($memory.ConfiguredSpeed -gt 0) {
+                    "$($memory.ConfiguredSpeed) MT/s"
+                } else { $null }
+                'Configured Voltage' = if ($memory.ConfiguredVoltage -gt 0) {
+                    '{0:F3} V' -f ([double]$memory.ConfiguredVoltage / 1000.0)
+                } else { $null }
+            }
+            foreach ($property in $properties.GetEnumerator()) {
+                $value = if ($null -eq $property.Value -or
+                    [string]::IsNullOrWhiteSpace([string]$property.Value)) {
+                    [string]$Strings.strings.notAvailable
+                } else { [string]$property.Value }
+                $displayName = "$slot - $($property.Key)"
+                $items.Add(@{id="spd-$ordinal"; name=$displayName; directory=$false;
+                    enabled=$true; columns=@{property=$displayName; value=$value}})
+                $ordinal++
+            }
+        }
+        if ($items.Count -eq 0) {
+            $items.Add(@{id='spd-empty'; name='SPD / SMBIOS'; directory=$false;
+                enabled=$true; columns=@{property='SPD / SMBIOS';
+                    value=[string]$Strings.strings.notAvailable}})
+        }
+    } catch {
+        $items.Add(@{id='spd-error'; name='SPD / SMBIOS'; directory=$false;
+            enabled=$true; columns=@{property='SPD / SMBIOS';
+                value=[string]$_.Exception.Message}})
+    }
+    $script:SmbiosMemoryCache = $items.ToArray()
+    return $script:SmbiosMemoryCache
 }
 
 # ============================================================================
@@ -696,10 +936,14 @@ else {
             if ($viewId -eq 'usage') {
                 foreach ($pi in (Get-PhysicalMemoryInfo $strings)) { $subItems.Add($pi) }
                 foreach ($vi in (Get-VirtualMemoryInfo $strings)) { $subItems.Add($vi) }
+            } elseif ($viewId -eq 'spd') {
+                foreach ($mi in (Get-SmbiosMemoryInfo $strings)) { $subItems.Add($mi) }
             } else {
                 $subItems.Add(@{id='usage'; name=[string]$Strings.strings.usage;
                     directory=$true; enabled=$true;
                     columns=@{property=[string]$Strings.strings.usage; value=''}})
+                $subItems.Add(@{id='spd'; name='SPD / SMBIOS'; directory=$true;
+                    enabled=$true; columns=@{property='SPD / SMBIOS'; value=''}})
                 $subItems.Add(@{id='mem-pf-header'; name='header-pf';
                     directory=$false; enabled=$true;
                     columns=@{property=""; value=[string]$Strings.strings.pagefile}})
@@ -722,8 +966,14 @@ else {
         }
         'storage' {
             $subItems = New-Object 'System.Collections.Generic.List[hashtable]'
-            $diskItems = Get-StorageInfo $strings
-            foreach ($di in $diskItems) { $subItems.Add($di) }
+            if ($viewId -eq 'smart') {
+                foreach ($di in (Get-SmartStorageInfo $strings)) { $subItems.Add($di) }
+            } else {
+                $subItems.Add(@{id='smart'; name='SMART / NVMe'; directory=$true;
+                    enabled=$true; columns=@{property='SMART / NVMe'; value=''}})
+                $diskItems = Get-StorageInfo $strings
+                foreach ($di in $diskItems) { $subItems.Add($di) }
+            }
         }
         'network' {
             $subItems = New-Object 'System.Collections.Generic.List[hashtable]'
@@ -740,6 +990,16 @@ else {
                 foreach ($si in (Get-HardViewSensorInfo $strings 'Fan')) {
                     $subItems.Add($si)
                 }
+            } elseif ($viewId -eq 'voltages') {
+                foreach ($si in (Get-HardViewSensorInfo $strings 'Voltage')) {
+                    $subItems.Add($si)
+                }
+            } elseif ($viewId -eq 'all') {
+                foreach ($si in (Get-HardViewSensorInfo $strings 'All')) {
+                    $subItems.Add($si)
+                }
+            } elseif ($viewId -eq 'hid') {
+                foreach ($si in (Get-HidDeviceInfo $strings)) { $subItems.Add($si) }
             } else {
                 $subItems.Add(@{id='temperatures'; name=[string]$Strings.strings.temperatures;
                     directory=$true; enabled=$true;
@@ -747,6 +1007,14 @@ else {
                 $subItems.Add(@{id='fans'; name=[string]$Strings.strings.fans;
                     directory=$true; enabled=$true;
                     columns=@{property=[string]$Strings.strings.fans; value=''}})
+                $subItems.Add(@{id='voltages'; name=[string]$Strings.strings.voltages;
+                    directory=$true; enabled=$true;
+                    columns=@{property=[string]$Strings.strings.voltages; value=''}})
+                $subItems.Add(@{id='all'; name=[string]$Strings.strings.sensorTypes;
+                    directory=$true; enabled=$true;
+                    columns=@{property=[string]$Strings.strings.sensorTypes; value=''}})
+                $subItems.Add(@{id='hid'; name='HID'; directory=$true; enabled=$true;
+                    columns=@{property='HID'; value=''}})
             }
         }
     }
