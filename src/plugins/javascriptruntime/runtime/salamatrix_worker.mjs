@@ -424,6 +424,9 @@ const ui = {
   fileProperties: (path) => hostCall("salamander.ui.fileProperties", {
     path: String(path),
   }),
+  viewer: (path, options = {}) => hostCall("salamander.ui.viewer.open", {
+    path: String(path), renderer: String(options.renderer || "auto"),
+  }).then((result) => result.opened === true),
   uptime: () => hostCall("salamander.host.uptime")
     .then((result) => String(result.milliseconds)),
   inputBox: (prompt, initial = "", title = "Salamander") =>

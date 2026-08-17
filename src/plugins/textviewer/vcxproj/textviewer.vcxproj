@@ -39,6 +39,8 @@
     <ProjectGuid>{340CB50A-0325-4FAD-9C57-06FCC80E4482}</ProjectGuid>
     <RootNamespace>textviewer</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <MSBuildProjectExtensionsPath>$(MSBuildProjectDirectory)\obj\$(MSBuildProjectName)\</MSBuildProjectExtensionsPath>
+    <NuGetPackageRoot Condition="'$(NuGetPackageRoot)'==''">$(UserProfile)\.nuget\packages\</NuGetPackageRoot>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props">
   </Import>
@@ -200,6 +202,10 @@
     </ClCompile>
     <ClCompile Include="..\..\..\darkmode.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\shared\plugindarkmode.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\shared\webviewviewer\native_viewer.cpp">
+    </ClCompile>
     <ClCompile Include="..\textviewer.cpp">
     </ClCompile>
     <ClCompile Include="..\managed_bridge.cpp">
@@ -260,21 +266,25 @@
       <Project>{1DE1C48D-BFB7-4401-9E4C-3EF9FC3D3407}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
-    <ProjectReference Include="..\managed\TextViewer.Managed.csproj">
-      <Project>{755CF63D-31EB-43B6-8402-2BB9D7D3E53F}</Project>
+    <ProjectReference Include="..\..\shared\webviewviewer\WebView2.Dependencies.csproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
-  <ItemDefinitionGroup>
-    <PostBuildEvent>
-      <Command><![CDATA[
-call "$(ProjectDir)..\copy_managed_dependencies.cmd" "$(ProjectDir)..\" "$(Configuration)" "$(Platform)" "$(TextViewerPluginDir)"
-if errorlevel 1 exit /B 1
-]]></Command>
-    </PostBuildEvent>
-  </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets">
   </Import>
+  <PropertyGroup>
+    <PrismAssetsRoot>$(ProjectDir)..\..\shared\webviewviewer\prism\</PrismAssetsRoot>
+  </PropertyGroup>
+  <Target Name="RestorePrismAssets" BeforeTargets="Build" Condition="!Exists('$(PrismAssetsRoot)node_modules\prismjs\prism.js')">
+    <Exec Command="npm ci --prefix &quot;$(PrismAssetsRoot).&quot; --no-audit --no-fund" />
+  </Target>
+  <Target Name="StagePrismAssets" AfterTargets="Build" DependsOnTargets="RestorePrismAssets">
+    <ItemGroup>
+      <_PrismAsset Include="$(PrismAssetsRoot)node_modules\prismjs\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_PrismAsset)" DestinationFiles="@(_PrismAsset-&gt;'$(OutDir)prism\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(NuGetPackageRoot)microsoft.web.webview2\1.0.2420.47\build\native\Microsoft.Web.WebView2.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.web.webview2\1.0.2420.47\build\native\Microsoft.Web.WebView2.targets')" />
   </ImportGroup>
 </Project>

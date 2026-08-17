@@ -6,6 +6,7 @@
 #include "salamatrix_api_docs.h"
 #include "salamatrix_settings.h"
 #include "../shared/salamatrix_thread_join.h"
+#include "../shared/webviewviewer/native_viewer.h"
 #include "../../darkmode.h"
 
 #include <algorithm>
@@ -5151,6 +5152,61 @@ BOOL WINAPI PackageManager::HostDispatch(
                          owner->General->GetMsgBoxParent());
         return CopyResult(std::string("{\"ok\":true,\"shown\":") +
                               (shown ? "true}" : "false}"),
+                          resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.ui.viewer.open")
+    {
+        std::string path;
+        std::string renderer = "auto";
+        if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "path", &path) || path.empty())
+            return CopyResult("{\"ok\":false,\"error\":\"viewer path is required\"}", resultJson, resultCapacity, resultLength);
+        Runtime::Protocol::Json::FindStringMember(payloadJson, "renderer", &renderer);
+        std::wstring widePath;
+        if (!ToWide(path, &widePath))
+            return CopyResult("{\"ok\":false,\"error\":\"viewer path is not valid UTF-8\"}", resultJson, resultCapacity, resultLength);
+
+        NativeViewerKind kind = NativeViewerKind::PrismText;
+        if (_stricmp(renderer.c_str(), "document") == 0)
+            kind = NativeViewerKind::RenderDocument;
+        else if (_stricmp(renderer.c_str(), "prism") != 0 && _stricmp(renderer.c_str(), "auto") != 0)
+            return CopyResult("{\"ok\":false,\"error\":\"renderer must be auto, prism, or document\"}", resultJson, resultCapacity, resultLength);
+        else if (_stricmp(renderer.c_str(), "auto") == 0)
+        {
+            const char* extension = strrchr(path.c_str(), '.');
+            if (extension != NULL)
+            {
+                static const char* const documentExtensions[] = {
+                    ".html", ".htm", ".xhtml", ".mhtml", ".mht", ".md", ".markdown", ".mdown", ".mkd", ".mdx",
+                    ".svg", ".svgz", ".webp", ".avif", ".apng", ".png", ".jpg", ".jpeg", ".jfif", ".gif",
+                    ".bmp", ".ico", ".tif", ".tiff", ".pdf"};
+                for (const char* candidate : documentExtensions)
+                    if (_stricmp(extension, candidate) == 0) { kind = NativeViewerKind::RenderDocument; break; }
+            }
+        }
+
+        RECT placement = {};
+        HWND parent = owner->General->GetMainWindowHWND();
+        GetWindowRect(parent, &placement);
+        placement.left += 48;
+        placement.top += 48;
+        placement.right = placement.left + (std::max)(placement.right - placement.left - 96L, 640L);
+        placement.bottom = placement.top + (std::max)(placement.bottom - placement.top - 96L, 480L);
+        BOOL dark = FALSE;
+        int configType = 0;
+        owner->General->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE, &dark, sizeof(dark), &configType);
+        NativeViewerTheme theme = {dark != FALSE,
+            owner->General->GetCurrentColor(SALCOL_VIEWER_FG_NORMAL), owner->General->GetCurrentColor(SALCOL_VIEWER_BK_NORMAL),
+            owner->General->GetCurrentColor(SALCOL_VIEWER_FG_SELECTED)};
+        NativeViewerStrings strings = {
+            owner->General->LoadStrW(DLLInstance, IDS_VIEWER_NAME), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_FILE),
+            owner->General->LoadStrW(DLLInstance, IDS_VIEWER_VIEW), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_CLOSE),
+            owner->General->LoadStrW(DLLInstance, IDS_VIEWER_REFRESH), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_ZOOM_IN),
+            owner->General->LoadStrW(DLLInstance, IDS_VIEWER_ZOOM_OUT), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_ZOOM_RESET),
+            owner->General->LoadStrW(DLLInstance, IDS_VIEWER_LOADING), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_READY),
+            owner->General->LoadStrW(DLLInstance, IDS_VIEWER_WEBVIEW_FAILED), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_OPEN_FAILED)};
+        NativeViewerRequest request = {DLLInstance, parent, widePath.c_str(), placement, SW_SHOWNORMAL, false, NULL, kind, theme, strings};
+        const bool opened = NativeViewer_Show(request);
+        return CopyResult(std::string("{\"ok\":true,\"opened\":") + (opened ? "true}" : "false}"),
                           resultJson, resultCapacity, resultLength);
     }
     if (method == "salamander.ui.fileProperties")

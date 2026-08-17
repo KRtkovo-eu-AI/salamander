@@ -258,3 +258,17 @@ src/extensions/hardware-monitor/hardview-lib/HardwareWrapper/x64/Release clean/
 src/extensions/hardware-monitor/hardview-lib/HardwareWrapper/HardwareWrapper/x64/
 
 src/extensions/hardware-monitor/hardview-lib/HardwareWrapper/x64/
+
+src/plugins/shared/webviewviewer/obj/
+
+src/plugins/shared/webviewviewer/bin/x64/
+
+src/plugins/shared/webviewviewer/prism/node_modules/
+
+src/plugins/shared/webviewviewer/markdighelper/bin/
+
+src/plugins/shared/webviewviewer/markdighelper/obj/
+
+src/plugins/webview2renderviewer/markdighelper/bin/
+
+src/plugins/webview2renderviewer/markdighelper/obj/

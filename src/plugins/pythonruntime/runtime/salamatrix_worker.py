@@ -383,6 +383,11 @@ class _UI:
         return self._transport.call(
             "salamander.ui.fileProperties", path=str(path))
 
+    def viewer(self, path: str, renderer: str = "auto") -> bool:
+        return bool(self._transport.call(
+            "salamander.ui.viewer.open", path=str(path), renderer=str(renderer)
+        ).get("opened", False))
+
     def uptime(self) -> str:
         return str(self._transport.call(
             "salamander.host.uptime"

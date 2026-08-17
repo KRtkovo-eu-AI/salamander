@@ -570,6 +570,11 @@ function ui.file_properties(path)
         path = tostring(path)
     })
 end
+function ui.viewer(path, renderer)
+    return host_call("salamander.ui.viewer.open", {
+        path = tostring(path), renderer = renderer or "auto"
+    }).opened
+end
 function ui.uptime() return tostring(host_call("salamander.host.uptime", {}).milliseconds) end
 function ui.input_box(prompt, title, initial)
     return host_call("salamander.ui.inputBox", {

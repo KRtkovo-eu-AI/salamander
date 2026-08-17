@@ -1,0 +1,7 @@
+{
+  "name": "open-salamander-prism-assets",
+  "private": true,
+  "dependencies": {
+    "prismjs": "1.29.0"
+  }
+}

@@ -22,5 +22,16 @@
 #define IDS_PLUGIN_HOME                    49
 #define IDS_VIEWER_CREATE_EVENT_FAILED     50
 #define IDS_FILE_TOO_LARGE                 51
+#define IDS_VIEWER_FILE                    52
+#define IDS_VIEWER_VIEW                    53
+#define IDS_VIEWER_CLOSE                   54
+#define IDS_VIEWER_REFRESH                 55
+#define IDS_VIEWER_ZOOM_IN                 56
+#define IDS_VIEWER_ZOOM_OUT                57
+#define IDS_VIEWER_ZOOM_RESET              58
+#define IDS_VIEWER_LOADING                 59
+#define IDS_VIEWER_READY                   60
+#define IDS_VIEWER_WEBVIEW_FAILED          61
+#define IDS_VIEWER_OPEN_FAILED             62
 
 #endif // __TEXTVIEWER_RH2

@@ -347,6 +347,10 @@ $ui | Add-Member ScriptMethod FileProperties {
     param([string]$Path)
     Invoke-Host -Method 'salamander.ui.fileProperties' -Arguments @{ path = $Path }
 }
+$ui | Add-Member ScriptMethod Viewer {
+    param([string]$Path, [string]$Renderer = 'auto')
+    (Invoke-Host -Method 'salamander.ui.viewer.open' -Arguments @{ path = $Path; renderer = $Renderer }).opened
+}
 $ui | Add-Member ScriptMethod Uptime { [string](Invoke-Host -Method 'salamander.host.uptime' -Arguments @{}).milliseconds }
 $ui | Add-Member ScriptMethod InputBox {
     param([string]$Prompt, [string]$Title = 'Salamander', [string]$Initial = '')
