@@ -48,6 +48,15 @@ function Format-BytesMB {
     return '{0:F0} MB' -f ($Bytes / 1MB)
 }
 
+function ConvertTo-SafeHardwareItemName {
+    param([string]$Name)
+    if ([string]::IsNullOrWhiteSpace($Name)) { return 'item' }
+    $safeName = $Name.Replace('\', ' - ').Replace('/', ' - ')
+    $safeName = [regex]::Replace($safeName, '\s+', ' ').Trim()
+    if ($safeName -eq '.' -or $safeName -eq '..') { return "item-$safeName" }
+    return $safeName
+}
+
 # ============================================================================
 # Hardware Info Gathering Functions
 # ============================================================================
@@ -898,7 +907,7 @@ if ([string]::IsNullOrWhiteSpace($categoryId)) {
     foreach ($cat in $categories) {
         $items.Add(@{
             id=$cat.id
-            name=$cat.name
+            name=(ConvertTo-SafeHardwareItemName $cat.name)
             directory=$true
             enabled=$true
             icon=$cat.icon
@@ -1021,6 +1030,7 @@ else {
 
     if ($null -ne $subItems -and $subItems.Count -gt 0) {
         foreach ($subItem in $subItems) {
+            $subItem.name = ConvertTo-SafeHardwareItemName ([string]$subItem.name)
             $subItem.icon = "icons/$categoryId.svg"
             $subItem.iconDark = "icons/$categoryId-dark.svg"
         }

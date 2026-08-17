@@ -2182,6 +2182,11 @@ def main() -> int:
         r"Get-SmbiosMemoryInfo.*?LibreHardwareMonitor\.Hardware\.SMBios.*?"
         r"MemoryDevices.*?ConfiguredVoltage.*?viewId -eq 'spd'",
         "Hardware Monitor does not expose safe SPD-like SMBIOS module information")
+    require(
+        hardware_monitor,
+        r"ConvertTo-SafeHardwareItemName.*?Replace\('\\', ' - '\).*?"
+        r"Replace\('/', ' - '\).*?subItem\.name = ConvertTo-SafeHardwareItemName",
+        "Hardware Monitor does not sanitize FS item names before atomic AddItems")
     for redundant_library in (
             "HardwareWrapper.deps.json", "HardwareWrapper.runtimeconfig.json",
             "msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll",
