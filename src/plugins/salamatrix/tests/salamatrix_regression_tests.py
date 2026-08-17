@@ -2170,6 +2170,8 @@ def main() -> int:
         hardware_monitor,
         r"Get-SmartStorageInfo.*?DiskInfoToolkit\.StorageManager.*?"
         r"ReloadStorages.*?SmartAttributes.*?RawValueULong.*?"
+        r"Get-PhysicalDisk.*?Get-StorageReliabilityCounter.*?"
+        r"HealthStatus.*?PowerOnHours.*?"
         r"viewId -eq 'smart'",
         "Hardware Monitor does not expose read-only SMART and NVMe information")
     require(

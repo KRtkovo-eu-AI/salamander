@@ -753,6 +753,53 @@ function Get-SmartStorageInfo {
                 }
             }
         }
+        # DiskInfoToolkit can legitimately return no devices when its low-level
+        # provider is unavailable. Keep the view useful through the read-only
+        # Windows Storage Management provider, including NVMe devices.
+        if ($items.Count -eq 0) {
+            $ordinal = 0
+            foreach ($disk in @(Get-PhysicalDisk -ErrorAction Stop)) {
+                $reliability = try {
+                    $disk | Get-StorageReliabilityCounter -ErrorAction Stop
+                } catch { $null }
+                $prefix = if ([string]::IsNullOrWhiteSpace([string]$disk.FriendlyName)) {
+                    "Physical Disk $ordinal"
+                } else { [string]$disk.FriendlyName }
+                $properties = [ordered]@{
+                    'Health' = $disk.HealthStatus
+                    'Operational Status' = ($disk.OperationalStatus -join ', ')
+                    'Media Type' = $disk.MediaType
+                    'Bus Type' = $disk.BusType
+                    'Size' = if ($disk.Size -gt 0) { Format-Bytes ([uint64]$disk.Size) } else { $null }
+                    'Firmware' = $disk.FirmwareVersion
+                    'Serial Number' = $disk.SerialNumber
+                }
+                if ($null -ne $reliability) {
+                    $properties['Temperature'] = if ($null -ne $reliability.Temperature) {
+                        "$($reliability.Temperature) C"
+                    } else { $null }
+                    $properties['Wear'] = if ($null -ne $reliability.Wear) {
+                        "$($reliability.Wear) %"
+                    } else { $null }
+                    $properties['Power-On Hours'] = $reliability.PowerOnHours
+                    $properties['Read Errors Total'] = $reliability.ReadErrorsTotal
+                    $properties['Write Errors Total'] = $reliability.WriteErrorsTotal
+                    $properties['Read Latency Max'] = $reliability.ReadLatencyMax
+                    $properties['Write Latency Max'] = $reliability.WriteLatencyMax
+                }
+                foreach ($property in $properties.GetEnumerator()) {
+                    $value = if ($null -eq $property.Value -or
+                        [string]::IsNullOrWhiteSpace([string]$property.Value)) {
+                        [string]$Strings.strings.notAvailable
+                    } else { [string]$property.Value }
+                    $displayName = "$prefix - $($property.Key)"
+                    $items.Add(@{id="storage-health-$ordinal"; name=$displayName;
+                        directory=$false; enabled=$true;
+                        columns=@{property=$displayName; value=$value}})
+                    $ordinal++
+                }
+            }
+        }
         if ($items.Count -eq 0) {
             $items.Add(@{id='smart-empty'; name='SMART / NVMe'; directory=$false;
                 enabled=$true; columns=@{property='SMART / NVMe';
