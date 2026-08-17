@@ -2549,15 +2549,6 @@ HRESULT WriteFileStringVectorPropertyW(const wchar_t* path, REFPROPERTYKEY key,
     if (FAILED(hr) || store == NULL)
         return hr;
 
-    IPropertyStoreCapabilities* capabilities = NULL;
-    if (SUCCEEDED(store->QueryInterface(IID_IPropertyStoreCapabilities, (void**)&capabilities)) &&
-        capabilities != NULL)
-    {
-        if (capabilities->IsPropertyWritable(key) != S_OK)
-            hr = STG_E_ACCESSDENIED;
-        capabilities->Release();
-    }
-
     PROPVARIANT value;
     PropVariantInit(&value);
     if (SUCCEEDED(hr) && !tags.empty())
@@ -2679,15 +2670,6 @@ HRESULT WriteFilePropertyTextW(const wchar_t* path, REFPROPERTYKEY key,
                                                     IID_IPropertyStore, (void**)&store);
     if (FAILED(hr) || store == NULL)
         return hr;
-
-    IPropertyStoreCapabilities* capabilities = NULL;
-    if (SUCCEEDED(store->QueryInterface(IID_IPropertyStoreCapabilities, (void**)&capabilities)) &&
-        capabilities != NULL)
-    {
-        if (capabilities->IsPropertyWritable(key) != S_OK)
-            hr = STG_E_ACCESSDENIED;
-        capabilities->Release();
-    }
 
     PROPVARIANT value;
     PropVariantInit(&value);

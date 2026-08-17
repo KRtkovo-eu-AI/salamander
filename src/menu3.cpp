@@ -855,36 +855,74 @@ void CMenuPopup::DrawCheckImage(HDC hDC, CMenuItem* item, int yOffset, BOOL sele
 
     if (item->State & MENU_STATE_GRAYED)
     {
-        // the whole bitmap will be white (background)
-        PatBlt(SharedRes->MonoBitmap->HMemDC, 0, 0, targetBmpW, targetBmpH, WHITENESS);
-
-        // transfer a monochrome version of the icon into it (white will remain white)
-        if (item->HIcon != NULL)
-            DrawIconEx(SharedRes->MonoBitmap->HMemDC, 0, 0, item->HIcon,
-                       targetBmpW, targetBmpH, 0, NULL, DI_NORMAL);
+        if (DarkModeShouldUseDarkColors())
+        {
+            int x = 1 + xO;
+            int y = myYOffset + 1 + yO;
+            if (item->HIcon != NULL)
+            {
+                COLORREF oldBrushColor = SetDCBrushColor(SharedRes->CacheBitmap->HMemDC,
+                                                         SharedRes->GrayTextColor);
+                DrawState(SharedRes->CacheBitmap->HMemDC, (HBRUSH)GetStockObject(DC_BRUSH), NULL,
+                          (LPARAM)item->HIcon, 0, x, y, targetBmpW, targetBmpH,
+                          DST_ICON | DSS_MONO);
+                SetDCBrushColor(SharedRes->CacheBitmap->HMemDC, oldBrushColor);
+            }
+            else
+            {
+                // HImageList is the same grayscale list used by toolbars.
+                // Draw it once: dark mode must not use the legacy two-pass
+                // highlight/shadow emboss used by light mode.
+                HIMAGELIST grayImageList = item->ImageIndex != -1 && HImageList != NULL
+                                               ? HImageList
+                                               : hImageList;
+                ImageList_DrawEx(grayImageList, imageIndex, SharedRes->CacheBitmap->HMemDC,
+                                 x, y, targetBmpW, targetBmpH,
+                                 CLR_NONE, CLR_NONE, ILD_NORMAL | ILD_SCALE);
+            }
+            if (item->HOverlay != NULL)
+            {
+                COLORREF oldBrushColor = SetDCBrushColor(SharedRes->CacheBitmap->HMemDC,
+                                                         SharedRes->GrayTextColor);
+                DrawState(SharedRes->CacheBitmap->HMemDC, (HBRUSH)GetStockObject(DC_BRUSH), NULL,
+                          (LPARAM)item->HOverlay, 0, x, y, targetBmpW, targetBmpH,
+                          DST_ICON | DSS_MONO);
+                SetDCBrushColor(SharedRes->CacheBitmap->HMemDC, oldBrushColor);
+            }
+        }
         else
-            ImageList_DrawEx(hImageList, imageIndex, SharedRes->MonoBitmap->HMemDC,
-                             0, 0, targetBmpW, targetBmpH,
-                             CLR_NONE, CLR_NONE, ILD_TRANSPARENT | ILD_SCALE);
-        if (item->HOverlay != NULL)
-            DrawIconEx(SharedRes->MonoBitmap->HMemDC, 0, 0, item->HOverlay,
-                       targetBmpW, targetBmpH, 0, NULL, DI_NORMAL);
+        {
+            // the whole bitmap will be white (background)
+            PatBlt(SharedRes->MonoBitmap->HMemDC, 0, 0, targetBmpW, targetBmpH, WHITENESS);
 
-        // and then redirect that as the input
-        HDC hSourceDC = SharedRes->MonoBitmap->HMemDC;
+            // transfer a monochrome version of the icon into it (white will remain white)
+            if (item->HIcon != NULL)
+                DrawIconEx(SharedRes->MonoBitmap->HMemDC, 0, 0, item->HIcon,
+                           targetBmpW, targetBmpH, 0, NULL, DI_NORMAL);
+            else
+                ImageList_DrawEx(hImageList, imageIndex, SharedRes->MonoBitmap->HMemDC,
+                                 0, 0, targetBmpW, targetBmpH,
+                                 CLR_NONE, CLR_NONE, ILD_TRANSPARENT | ILD_SCALE);
+            if (item->HOverlay != NULL)
+                DrawIconEx(SharedRes->MonoBitmap->HMemDC, 0, 0, item->HOverlay,
+                           targetBmpW, targetBmpH, 0, NULL, DI_NORMAL);
 
-        // I have a monochrome bitmap and can draw it in the disabled state
-        int oldBkColor = SetBkColor(SharedRes->CacheBitmap->HMemDC, RGB(255, 255, 255));
-        int oldTextColor = SetTextColor(SharedRes->CacheBitmap->HMemDC, RGB(0, 0, 0));
-        HBRUSH hOldBrush2 = (HBRUSH)SelectObject(SharedRes->CacheBitmap->HMemDC, HMenuHilightBrush);
-        StretchBlt(SharedRes->CacheBitmap->HMemDC, 1 + xO + 1, myYOffset + 1 + yO + 1, targetBmpW, targetBmpH,
-                   hSourceDC, 0, 0, targetBmpW, targetBmpH, ROP_PSDPxax);
-        SelectObject(SharedRes->CacheBitmap->HMemDC, HMenuGrayTextBrush);
-        StretchBlt(SharedRes->CacheBitmap->HMemDC, 1 + xO, myYOffset + 1 + yO, targetBmpW, targetBmpH,
-                   hSourceDC, 0, 0, targetBmpW, targetBmpH, ROP_PSDPxax);
-        SelectObject(SharedRes->CacheBitmap->HMemDC, hOldBrush2);
-        SetTextColor(SharedRes->CacheBitmap->HMemDC, oldTextColor);
-        SetBkColor(SharedRes->CacheBitmap->HMemDC, oldBkColor);
+            // and then redirect that as the input
+            HDC hSourceDC = SharedRes->MonoBitmap->HMemDC;
+
+            // I have a monochrome bitmap and can draw it in the disabled state
+            int oldBkColor = SetBkColor(SharedRes->CacheBitmap->HMemDC, RGB(255, 255, 255));
+            int oldTextColor = SetTextColor(SharedRes->CacheBitmap->HMemDC, RGB(0, 0, 0));
+            HBRUSH hOldBrush2 = (HBRUSH)SelectObject(SharedRes->CacheBitmap->HMemDC, HMenuHilightBrush);
+            StretchBlt(SharedRes->CacheBitmap->HMemDC, 1 + xO + 1, myYOffset + 1 + yO + 1, targetBmpW, targetBmpH,
+                       hSourceDC, 0, 0, targetBmpW, targetBmpH, ROP_PSDPxax);
+            SelectObject(SharedRes->CacheBitmap->HMemDC, HMenuGrayTextBrush);
+            StretchBlt(SharedRes->CacheBitmap->HMemDC, 1 + xO, myYOffset + 1 + yO, targetBmpW, targetBmpH,
+                       hSourceDC, 0, 0, targetBmpW, targetBmpH, ROP_PSDPxax);
+            SelectObject(SharedRes->CacheBitmap->HMemDC, hOldBrush2);
+            SetTextColor(SharedRes->CacheBitmap->HMemDC, oldTextColor);
+            SetBkColor(SharedRes->CacheBitmap->HMemDC, oldBkColor);
+        }
     }
     else
     {

@@ -130,6 +130,7 @@ public:
     BOOL SetItemID(int index, INT_PTR itemID);
 
     int GetCount() { return ItemsCount; }
+    void Enable(BOOL enable);
 
     // modifies the static control so it covers the entire window and adds a toolbar to it
     BOOL MakeHeader(int ctrlID);

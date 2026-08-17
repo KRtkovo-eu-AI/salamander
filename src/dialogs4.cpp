@@ -552,6 +552,8 @@ CConfiguration::CConfiguration()
     ConfigurationViewsRightWidth = 0;
     PluginsManagerWidth = 0;
     PluginsManagerHeight = 0;
+    ExplorerColumnsDialogWidth = 0;
+    ExplorerColumnsDialogHeight = 0;
     ViewersAndEditorsExpanded = 0;
     PackersAndUnpackersExpanded = 0;
     ClearReadOnly = TRUE;
@@ -2021,53 +2023,98 @@ void CExplorerColumnsDialog::UpdateDetails()
     SetDlgItemText(HWindow, IDC_EXCOL_DETAILS, details);
 }
 
+static int ExplorerColumnsDialogX(HWND dialog, int dialogUnits)
+{
+    RECT rect = {0, 0, dialogUnits, 0};
+    MapDialogRect(dialog, &rect);
+    return rect.right;
+}
+
+static int ExplorerColumnsDialogY(HWND dialog, int dialogUnits)
+{
+    RECT rect = {0, 0, 0, dialogUnits};
+    MapDialogRect(dialog, &rect);
+    return rect.bottom;
+}
+
 void CExplorerColumnsDialog::LayoutControls()
 {
+    // WM_SIZE can arrive while the dialog template is still being created.
+    // Leave the resource layout intact until WM_INITDIALOG captures the
+    // initial (and minimum) window size.
+    if (MinWidth == 0 || MinHeight == 0)
+        return;
+
     RECT client;
     GetClientRect(HWindow, &client);
-    const int margin = 7;
-    const int buttonsY = client.bottom - 21;
-    const int contentTop = 28;
-    const int contentBottom = buttonsY - 8;
-    const int treeWidth = 105;
-    const int detailsWidth = max(174, (client.right - 3 * margin) / 3);
-    const int gap = 6;
+    const int margin = ExplorerColumnsDialogX(HWindow, 7);
+    const int buttonsY = client.bottom - ExplorerColumnsDialogY(HWindow, 21);
+    const int contentTop = ExplorerColumnsDialogY(HWindow, 28);
+    const int contentBottom = buttonsY - ExplorerColumnsDialogY(HWindow, 8);
+    const int treeWidth = ExplorerColumnsDialogX(HWindow, 105);
+    const int detailsWidth = max(ExplorerColumnsDialogX(HWindow, 174),
+                                 (client.right - 3 * margin) / 3);
+    const int gap = ExplorerColumnsDialogX(HWindow, 6);
     int listLeft = margin + treeWidth + gap;
     int detailsLeft = client.right - margin - detailsWidth;
     int listWidth = detailsLeft - gap - listLeft;
-    if (listWidth < 100)
-        listWidth = 100;
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_SEARCH), 80, 7, client.right - 87, 14, TRUE);
+    if (listWidth < ExplorerColumnsDialogX(HWindow, 100))
+        listWidth = ExplorerColumnsDialogX(HWindow, 100);
+    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_SEARCH),
+               ExplorerColumnsDialogX(HWindow, 80), ExplorerColumnsDialogY(HWindow, 7),
+               client.right - ExplorerColumnsDialogX(HWindow, 87),
+               ExplorerColumnsDialogY(HWindow, 14), TRUE);
     MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_CATEGORIES), margin, contentTop, treeWidth,
                contentBottom - contentTop, TRUE);
     MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES), listLeft, contentTop, listWidth,
                contentBottom - contentTop, TRUE);
     int rightHeight = contentBottom - contentTop;
-    int selectedHeight = max(105, rightHeight / 2);
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_GROUP), detailsLeft, contentTop - 4,
+    int selectedHeight = max(ExplorerColumnsDialogY(HWindow, 105), rightHeight / 2);
+    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_GROUP), detailsLeft,
+               contentTop - ExplorerColumnsDialogY(HWindow, 4),
                detailsWidth, selectedHeight, TRUE);
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST), detailsLeft + 8, contentTop + 10,
-               detailsWidth - 16, selectedHeight - 45, TRUE);
-    int buttonTop = contentTop + selectedHeight - 29;
-    int buttonWidth = (detailsWidth - 26) / 3;
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_REMOVE), detailsLeft + 8, buttonTop,
-               buttonWidth, 14, TRUE);
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_MOVE_UP), detailsLeft + 13 + buttonWidth, buttonTop,
-               buttonWidth, 14, TRUE);
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_MOVE_DOWN), detailsLeft + 18 + 2 * buttonWidth, buttonTop,
-               buttonWidth, 14, TRUE);
-    int detailsTop = contentTop + selectedHeight + 5;
+    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST),
+               detailsLeft + ExplorerColumnsDialogX(HWindow, 8),
+               contentTop + ExplorerColumnsDialogY(HWindow, 10),
+               detailsWidth - ExplorerColumnsDialogX(HWindow, 16),
+               selectedHeight - ExplorerColumnsDialogY(HWindow, 45), TRUE);
+    int buttonTop = contentTop + selectedHeight - ExplorerColumnsDialogY(HWindow, 29);
+    int buttonWidth = (detailsWidth - ExplorerColumnsDialogX(HWindow, 26)) / 3;
+    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_REMOVE),
+               detailsLeft + ExplorerColumnsDialogX(HWindow, 8), buttonTop,
+               buttonWidth, ExplorerColumnsDialogY(HWindow, 14), TRUE);
+    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_MOVE_UP),
+               detailsLeft + ExplorerColumnsDialogX(HWindow, 13) + buttonWidth, buttonTop,
+               buttonWidth, ExplorerColumnsDialogY(HWindow, 14), TRUE);
+    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_MOVE_DOWN),
+               detailsLeft + ExplorerColumnsDialogX(HWindow, 18) + 2 * buttonWidth, buttonTop,
+               buttonWidth, ExplorerColumnsDialogY(HWindow, 14), TRUE);
+    int detailsTop = contentTop + selectedHeight + ExplorerColumnsDialogY(HWindow, 5);
     MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_DETAILS_GROUP), detailsLeft, detailsTop,
                detailsWidth, contentBottom - detailsTop, TRUE);
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_DETAILS), detailsLeft + 8, detailsTop + 14,
-               detailsWidth - 16, contentBottom - detailsTop - 22, TRUE);
+    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_DETAILS),
+               detailsLeft + ExplorerColumnsDialogX(HWindow, 8),
+               detailsTop + ExplorerColumnsDialogY(HWindow, 14),
+               detailsWidth - ExplorerColumnsDialogX(HWindow, 16),
+               contentBottom - detailsTop - ExplorerColumnsDialogY(HWindow, 22), TRUE);
     ListView_SetColumnWidth(GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES), 0,
-                            max(40, listWidth - GetSystemMetrics(SM_CXVSCROLL) - 4));
+                            max(ExplorerColumnsDialogX(HWindow, 40),
+                                listWidth - GetSystemMetrics(SM_CXVSCROLL) -
+                                    ExplorerColumnsDialogX(HWindow, 4)));
     ListView_SetColumnWidth(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST), 0,
-                            max(40, detailsWidth - 16 - GetSystemMetrics(SM_CXVSCROLL) - 4));
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_COUNT), margin, buttonsY + 2, 220, 12, TRUE);
-    MoveWindow(GetDlgItem(HWindow, IDOK), client.right - 107, buttonsY, 50, 14, TRUE);
-    MoveWindow(GetDlgItem(HWindow, IDCANCEL), client.right - 50, buttonsY, 50, 14, TRUE);
+                            max(ExplorerColumnsDialogX(HWindow, 40),
+                                detailsWidth - ExplorerColumnsDialogX(HWindow, 16) -
+                                    GetSystemMetrics(SM_CXVSCROLL) -
+                                    ExplorerColumnsDialogX(HWindow, 4)));
+    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_COUNT), margin,
+               buttonsY + ExplorerColumnsDialogY(HWindow, 2),
+               ExplorerColumnsDialogX(HWindow, 220), ExplorerColumnsDialogY(HWindow, 12), TRUE);
+    MoveWindow(GetDlgItem(HWindow, IDOK),
+               client.right - ExplorerColumnsDialogX(HWindow, 107), buttonsY,
+               ExplorerColumnsDialogX(HWindow, 50), ExplorerColumnsDialogY(HWindow, 14), TRUE);
+    MoveWindow(GetDlgItem(HWindow, IDCANCEL),
+               client.right - ExplorerColumnsDialogX(HWindow, 50), buttonsY,
+               ExplorerColumnsDialogX(HWindow, 50), ExplorerColumnsDialogY(HWindow, 14), TRUE);
 }
 
 INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -2107,6 +2154,17 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
         GetWindowRect(HWindow, &windowRect);
         MinWidth = windowRect.right - windowRect.left;
         MinHeight = windowRect.bottom - windowRect.top;
+
+        int restoredWidth = max(MinWidth, (int)Configuration.ExplorerColumnsDialogWidth);
+        int restoredHeight = max(MinHeight, (int)Configuration.ExplorerColumnsDialogHeight);
+        RECT clipRect;
+        MultiMonGetClipRectByWindow(HWindow, &clipRect, NULL);
+        restoredWidth = max(MinWidth, min(restoredWidth, clipRect.right - clipRect.left));
+        restoredHeight = max(MinHeight, min(restoredHeight, clipRect.bottom - clipRect.top));
+        if (restoredWidth != MinWidth || restoredHeight != MinHeight)
+            SetWindowPos(HWindow, NULL, 0, 0, restoredWidth, restoredHeight,
+                         SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+        LayoutControls();
         FillCategories();
         FillProperties();
         FillSelected();
@@ -2147,6 +2205,18 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
         }
         if (LOWORD(wParam) == IDOK)
         {
+            if (ViewIndex >= 0 && ViewIndex < Config->GetCount())
+            {
+                CViewTemplate* view = Config->Get(ViewIndex);
+                for (int i = 0; i < EXPLORER_COLUMNS_COUNT; i++)
+                {
+                    // A property newly added to Available Columns should be
+                    // immediately enabled for the view from which the chooser
+                    // was opened.
+                    if (Available[i] && !Config->ExplorerColumnAvailable[i])
+                        view->ExplorerColumnVisible[i] = TRUE;
+                }
+            }
             memcpy(Config->ExplorerColumnAvailable, Available, sizeof(Available));
             ApplySelectedOrder();
             EndDialog(HWindow, IDOK);
@@ -2300,6 +2370,19 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
 
     case WM_DESTROY:
     {
+        WINDOWPLACEMENT placement;
+        ZeroMemory(&placement, sizeof(placement));
+        placement.length = sizeof(placement);
+        if (GetWindowPlacement(HWindow, &placement))
+        {
+            int width = placement.rcNormalPosition.right - placement.rcNormalPosition.left;
+            int height = placement.rcNormalPosition.bottom - placement.rcNormalPosition.top;
+            if (width >= MinWidth && height >= MinHeight)
+            {
+                Configuration.ExplorerColumnsDialogWidth = width;
+                Configuration.ExplorerColumnsDialogHeight = height;
+            }
+        }
         TreeView_SetImageList(GetDlgItem(HWindow, IDC_EXCOL_CATEGORIES), NULL, TVSIL_NORMAL);
         ListView_SetImageList(GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES), NULL, LVSIL_SMALL);
         ListView_SetImageList(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST), NULL, LVSIL_SMALL);
@@ -3022,7 +3105,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         Header2 = new CToolbarHeader(HWindow, IDC_VIEWLIST_HEADER2, HListView2,
                                      TLBHDRMASK_TOP | TLBHDRMASK_UP | TLBHDRMASK_DOWN |
                                          TLBHDRMASK_BOTTOM | TLBHDRMASK_FILTER,
-                                     0); // the FILTER slot is the Windows-properties button and stays right-aligned
+                                     0); // the FILTER slot is the Windows-properties button and stays rightmost
         Header2->SetButtonAppearance(TLBHDR_FILTER, "Windows", IDS_EXCOL_MANAGE);
 
         DWORD exFlags = LVS_EX_FULLROWSELECT /*| LVS_EX_CHECKBOXES*/;

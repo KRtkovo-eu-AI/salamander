@@ -2201,7 +2201,7 @@ STRINGTABLE
  IDS_EXCOL_MOVE_DOWN, "Move &down"
  IDS_EXCOL_EXECUTABLE, "Executable"
  IDS_EXCOL_ARCHIVE, "Archive"
- IDS_MENU_FILES_EDITPROPERTIES, "Edit &Tags and Properties..."
+ IDS_MENU_FILES_EDITPROPERTIES, "Edit &Tags and Custom properties..."
  IDS_EDPROP_TITLE, "Edit Tags and Windows Properties"
  IDS_EDPROP_PROPERTY, "&Property:"
  IDS_EDPROP_OPERATION, "&Operation:"
@@ -2221,6 +2221,9 @@ STRINGTABLE
  IDS_FFA_TAGS_REQUIRED, "Enter at least one tag."
  IDS_EDPROP_VECTOR_HINT, "Separate multiple values with semicolons."
  IDS_EDPROP_CURRENT_FIRST, "Current value (first selected file)"
+ IDS_EDPROP_CHANGE_TAGS, "&Change Tags"
+ IDS_EDPROP_OTHER_PROPERTIES, "Other selected properties"
+ IDS_EDPROP_MULTI_FORM_HINT, "For multiple files: indeterminate leaves a property unchanged; checked sets it; unchecked removes it."
  IDS_VIEW_DYNAMIC_LIMIT, "The maximum number of additional detailed views has been reached."
 
  IDS_MENU_OPT_MANAGECONFIG, "&Manage Configurations..."

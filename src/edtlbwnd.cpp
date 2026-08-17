@@ -279,6 +279,15 @@ BOOL CEditListBox::SetItemID(int index, INT_PTR itemID)
     return TRUE;
 }
 
+void CEditListBox::Enable(BOOL enable)
+{
+    if (!enable)
+        OnEndEdit();
+    ::EnableWindow(HWindow, enable);
+    if (Header != NULL)
+        ::EnableWindow(Header->HWindow, enable);
+}
+
 BOOL CEditListBox::GetCurSelItemID(INT_PTR& itemID)
 {
     LRESULT res = SendMessage(HWindow, LB_GETCURSEL, 0, 0);

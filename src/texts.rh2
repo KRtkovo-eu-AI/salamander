@@ -3012,6 +3012,9 @@
 #define IDS_FFA_TAGS_REQUIRED                  14408
 #define IDS_EDPROP_VECTOR_HINT                 14409
 #define IDS_EDPROP_CURRENT_FIRST               14410
+#define IDS_EDPROP_CHANGE_TAGS                 14411
+#define IDS_EDPROP_OTHER_PROPERTIES            14412
+#define IDS_EDPROP_MULTI_FORM_HINT              14413
 
 #define IDS_MENU_OPT_MANAGECONFIG        13169
 

@@ -23,151 +23,310 @@
 #include "codetbl.h"
 #include "find.h"
 #include "menu.h"
+#include "edtlbwnd.h"
 #include "common/widepath.h"
 #include "filetags.h"
 
 class CEditWindowsPropertiesDialog : public CCommonDialog
 {
+    enum
+    {
+        EDPROP_DYNAMIC_CHECK_FIRST = 30000,
+        EDPROP_DYNAMIC_EDIT_FIRST = 31000
+    };
+
+    struct CTagItem
+    {
+        std::string Text;
+    };
+
+    struct CPropertyRow
+    {
+        int ExplorerIndex;
+        HWND HCheck;
+        HWND HEdit;
+        BOOL HadValue;
+    };
+
     const std::vector<std::wstring>& Paths;
+    CEditListBox* TagsList;
+    std::vector<CTagItem*> Tags;
+    std::vector<CPropertyRow> PropertyRows;
+    int PropertyScrollPos;
+    BOOL TagsHadValue;
 
-    int GetPropertyIndex() const
+    BOOL IsMultiple() const { return Paths.size() > 1; }
+
+    static void TrimTag(std::string& value)
     {
-        HWND combo = GetDlgItem(HWindow, IDC_EDPROP_PROPERTY);
-        int item = (int)SendMessage(combo, CB_GETCURSEL, 0, 0);
-        return item >= 0 ? (int)SendMessage(combo, CB_GETITEMDATA, item, 0) : -1;
+        size_t first = value.find_first_not_of(" \t\r\n");
+        size_t last = value.find_last_not_of(" \t\r\n");
+        if (first == std::string::npos)
+            value.clear();
+        else
+            value = value.substr(first, last - first + 1);
     }
 
-    int GetOperation() const
+    BOOL HasTag(const std::string& value, const CTagItem* except = NULL) const
     {
-        HWND combo = GetDlgItem(HWindow, IDC_EDPROP_OPERATION);
-        int item = (int)SendMessage(combo, CB_GETCURSEL, 0, 0);
-        return item >= 0 ? (int)SendMessage(combo, CB_GETITEMDATA, item, 0) : ftoReplace;
+        for (size_t i = 0; i < Tags.size(); i++)
+            if (Tags[i] != except && _stricmp(Tags[i]->Text.c_str(), value.c_str()) == 0)
+                return TRUE;
+        return FALSE;
     }
 
-    BOOL IsTagsProperty(int index) const
+    void ClearTags()
     {
-        const PROPERTYKEY* key = GetExplorerColumnPropertyKey(index);
-        return key != NULL && IsEqualPropertyKey(*key, PKEY_Keywords);
+        for (size_t i = 0; i < Tags.size(); i++)
+            delete Tags[i];
+        Tags.clear();
     }
 
-    void AddOperation(HWND combo, int textID, int operation)
+    void UpdateEnabledState()
     {
-        int item = (int)SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)LoadStr(textID));
-        SendMessage(combo, CB_SETITEMDATA, item, operation);
+        BOOL tagsEnabled = IsDlgButtonChecked(HWindow, IDC_EDPROP_TAGS_ENABLE) == BST_CHECKED;
+        if (TagsList != NULL)
+            TagsList->Enable(tagsEnabled);
+        for (size_t i = 0; i < PropertyRows.size(); i++)
+            EnableWindow(PropertyRows[i].HEdit,
+                         SendMessage(PropertyRows[i].HCheck, BM_GETCHECK, 0, 0) == BST_CHECKED);
     }
 
-    void UpdateValueState()
+    void LayoutPropertyRows()
     {
-        BOOL enabled = GetOperation() != 3;
-        EnableWindow(GetDlgItem(HWindow, IDC_EDPROP_VALUE), enabled);
-        EnableWindow(GetDlgItem(HWindow, IDC_EDPROP_VALUE_LABEL), enabled);
-    }
+        HWND group = GetDlgItem(HWindow, IDC_EDPROP_PROPERTIES_GROUP);
+        HWND scroll = GetDlgItem(HWindow, IDC_EDPROP_PROPERTIES_SCROLL);
+        RECT groupRect;
+        GetWindowRect(group, &groupRect);
+        POINT topLeft = {groupRect.left, groupRect.top};
+        POINT bottomRight = {groupRect.right, groupRect.bottom};
+        ScreenToClient(HWindow, &topLeft);
+        ScreenToClient(HWindow, &bottomRight);
 
-    void UpdateControls()
-    {
-        int property = GetPropertyIndex();
-        BOOL tags = IsTagsProperty(property);
-        BOOL stringVector = GetExplorerColumnType(property) == (VT_VECTOR | VT_LPWSTR);
-        HWND operations = GetDlgItem(HWindow, IDC_EDPROP_OPERATION);
-        int oldOperationCount = (int)SendMessage(operations, CB_GETCOUNT, 0, 0);
-        int oldOperation = GetOperation();
-        if (oldOperationCount == 0 && tags && Paths.size() > 1)
-            oldOperation = ftoAdd;
-        SendMessage(operations, CB_RESETCONTENT, 0, 0);
-        AddOperation(operations, IDS_EDPROP_SET, ftoReplace);
-        if (tags)
+        RECT dlu = {0, 0, 135, 18};
+        MapDialogRect(HWindow, &dlu);
+        int rowHeight = dlu.bottom;
+        int checkWidth = dlu.right;
+        RECT marginDlu = {0, 0, 8, 14};
+        MapDialogRect(HWindow, &marginDlu);
+        int left = topLeft.x + marginDlu.right;
+        int top = topLeft.y + marginDlu.bottom;
+        int bottom = bottomRight.y - marginDlu.right;
+        int visibleRows = max(1, (bottom - top) / rowHeight);
+        int maxScroll = max(0, (int)PropertyRows.size() - visibleRows);
+        if (PropertyScrollPos > maxScroll)
+            PropertyScrollPos = maxScroll;
+
+        SCROLLINFO info;
+        ZeroMemory(&info, sizeof(info));
+        info.cbSize = sizeof(info);
+        info.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
+        info.nMin = 0;
+        info.nMax = max(0, (int)PropertyRows.size() - 1);
+        info.nPage = visibleRows;
+        info.nPos = PropertyScrollPos;
+        SetScrollInfo(scroll, SB_CTL, &info, TRUE);
+        ShowWindow(scroll, maxScroll > 0 ? SW_SHOW : SW_HIDE);
+
+        RECT scrollRect;
+        GetWindowRect(scroll, &scrollRect);
+        int right = max(left + checkWidth + 40, bottomRight.x - marginDlu.right -
+                                                   (maxScroll > 0 ? scrollRect.right - scrollRect.left + 3 : 0));
+        for (size_t i = 0; i < PropertyRows.size(); i++)
         {
-            AddOperation(operations, IDS_EDPROP_ADD, ftoAdd);
-            AddOperation(operations, IDS_EDPROP_REMOVE, ftoRemove);
-        }
-        AddOperation(operations, IDS_EDPROP_CLEAR, 3);
-        int selected = 0;
-        for (int i = 0; i < (int)SendMessage(operations, CB_GETCOUNT, 0, 0); i++)
-        {
-            if ((int)SendMessage(operations, CB_GETITEMDATA, i, 0) == oldOperation)
+            int visibleIndex = (int)i - PropertyScrollPos;
+            BOOL visible = visibleIndex >= 0 && visibleIndex < visibleRows;
+            if (visible)
             {
-                selected = i;
+                int y = top + visibleIndex * rowHeight;
+                MoveWindow(PropertyRows[i].HCheck, left, y, checkWidth, rowHeight - 2, TRUE);
+                MoveWindow(PropertyRows[i].HEdit, left + checkWidth + 4, y,
+                           max(40, right - left - checkWidth - 4), rowHeight - 2, TRUE);
+            }
+            ShowWindow(PropertyRows[i].HCheck, visible ? SW_SHOW : SW_HIDE);
+            ShowWindow(PropertyRows[i].HEdit, visible ? SW_SHOW : SW_HIDE);
+        }
+    }
+
+    void AddPropertyRows()
+    {
+        HFONT font = (HFONT)SendMessage(HWindow, WM_GETFONT, 0, 0);
+        int count = min(GetExplorerColumnCount(), EXPLORER_COLUMNS_COUNT);
+        for (int i = 0; i < count; i++)
+        {
+            const PROPERTYKEY* key = GetExplorerColumnPropertyKey(i);
+            if (key == NULL || IsEqualPropertyKey(*key, PKEY_Keywords) ||
+                !MainWindow->ViewTemplates.IsExplorerColumnAvailable(i))
+                continue;
+
+            DWORD checkStyle = WS_CHILD | WS_TABSTOP |
+                               (IsMultiple() ? BS_AUTO3STATE : BS_AUTOCHECKBOX);
+            HWND check = CreateWindowEx(0, "BUTTON", GetExplorerColumnName(i), checkStyle,
+                                        0, 0, 0, 0, HWindow,
+                                        (HMENU)(INT_PTR)(EDPROP_DYNAMIC_CHECK_FIRST + PropertyRows.size()),
+                                        HInstance, NULL);
+            HWND edit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+                                        WS_CHILD | WS_TABSTOP | ES_AUTOHSCROLL,
+                                        0, 0, 0, 0, HWindow,
+                                        (HMENU)(INT_PTR)(EDPROP_DYNAMIC_EDIT_FIRST + PropertyRows.size()),
+                                        HInstance, NULL);
+            if (check == NULL || edit == NULL)
+            {
+                if (check != NULL)
+                    DestroyWindow(check);
+                if (edit != NULL)
+                    DestroyWindow(edit);
+                continue;
+            }
+            SendMessage(check, WM_SETFONT, (WPARAM)font, TRUE);
+            SendMessage(edit, WM_SETFONT, (WPARAM)font, TRUE);
+            std::wstring current;
+            if (!Paths.empty())
+                ReadFilePropertyTextW(Paths[0].c_str(), *key, current);
+            SetWindowTextW(edit, current.c_str());
+            BOOL hadValue = !current.empty();
+            SendMessage(check, BM_SETCHECK,
+                        IsMultiple() ? BST_INDETERMINATE : hadValue ? BST_CHECKED : BST_UNCHECKED, 0);
+            CPropertyRow row = {i, check, edit, hadValue};
+            PropertyRows.push_back(row);
+        }
+        LayoutPropertyRows();
+    }
+
+    void AddInitialTags()
+    {
+        std::vector<std::wstring> current;
+        if (!Paths.empty())
+            ReadFileTagsW(Paths[0].c_str(), current);
+        TagsHadValue = !current.empty();
+        for (size_t i = 0; i < current.size(); i++)
+        {
+            CTagItem* item = new CTagItem;
+            if (item == NULL)
                 break;
-            }
+            item->Text = SalWideToMultiBytePath(current[i].c_str(), CP_ACP);
+            Tags.push_back(item);
+            TagsList->AddItem((INT_PTR)item);
         }
-        SendMessage(operations, CB_SETCURSEL, selected, 0);
+        SendMessage(GetDlgItem(HWindow, IDC_EDPROP_TAGS_ENABLE), BM_SETCHECK,
+                    IsMultiple() ? BST_INDETERMINATE : TagsHadValue ? BST_CHECKED : BST_UNCHECKED, 0);
+        if (!Tags.empty())
+            TagsList->SetCurSel(0);
+    }
 
-        HWND value = GetDlgItem(HWindow, IDC_EDPROP_VALUE);
-        SendMessage(value, CB_RESETCONTENT, 0, 0);
-        if (tags)
+    void ShowRecentTags(HWND edit, POINT point)
+    {
+        CMenuPopup popup;
+        std::vector<std::string> displayTags;
+        displayTags.reserve(TAG_HISTORY_SIZE);
+        for (int i = 0; i < TAG_HISTORY_SIZE && Configuration.TagHistory[i] != NULL; i++)
         {
-            for (int i = 0; i < TAG_HISTORY_SIZE && Configuration.TagHistory[i] != NULL; i++)
-            {
-                std::wstring tag = SalMultiByteToWidePath(Configuration.TagHistory[i], CP_UTF8);
-                SendMessageW(value, CB_ADDSTRING, 0, (LPARAM)tag.c_str());
-            }
+            std::wstring wide = SalMultiByteToWidePath(Configuration.TagHistory[i], CP_UTF8);
+            displayTags.push_back(SalWideToMultiBytePath(wide.c_str(), CP_ACP));
+            MENU_ITEM_INFO item;
+            ZeroMemory(&item, sizeof(item));
+            item.Mask = MENU_MASK_TYPE | MENU_MASK_ID | MENU_MASK_STRING;
+            item.Type = MENU_TYPE_STRING;
+            item.ID = i + 1;
+            item.String = (char*)displayTags.back().c_str();
+            popup.InsertItem(-1, TRUE, &item);
         }
-        SetDlgItemText(HWindow, IDC_EDPROP_HINT,
-                       LoadStr(tags ? IDS_EDPROP_TAG_HINT
-                                    : stringVector ? IDS_EDPROP_VECTOR_HINT : IDS_EDPROP_VALUE_HINT));
-        SetDlgItemText(HWindow, IDC_EDPROP_CURRENT_GROUP,
-                       LoadStr(Paths.size() > 1 ? IDS_EDPROP_CURRENT_FIRST : IDS_EDPROP_CURRENT));
+        if (displayTags.empty())
+            return;
+        DWORD command = popup.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON,
+                                    point.x, point.y, HWindow, NULL);
+        if (command > 0 && command <= displayTags.size())
+        {
+            SetWindowText(edit, displayTags[command - 1].c_str());
+            SetFocus(edit);
+            SendMessage(edit, EM_SETSEL, 0, -1);
+        }
+    }
 
-        std::wstring current;
-        const PROPERTYKEY* key = GetExplorerColumnPropertyKey(property);
-        if (key != NULL && !Paths.empty())
-            ReadFilePropertyTextW(Paths[0].c_str(), *key, current);
-        SetDlgItemTextW(HWindow, IDC_EDPROP_CURRENT, current.c_str());
-        SetDlgItemTextW(HWindow, IDC_EDPROP_VALUE, Paths.size() == 1 ? current.c_str() : L"");
-        UpdateValueState();
+    std::vector<std::wstring> GetTags() const
+    {
+        std::vector<std::wstring> result;
+        for (size_t i = 0; i < Tags.size(); i++)
+        {
+            std::wstring tag = SalMultiByteToWidePath(Tags[i]->Text.c_str(), CP_ACP);
+            if (!tag.empty())
+                result.push_back(tag);
+        }
+        return result;
     }
 
     BOOL Apply()
     {
-        int property = GetPropertyIndex();
-        const PROPERTYKEY* key = GetExplorerColumnPropertyKey(property);
-        if (key == NULL)
-            return FALSE;
-
-        int operation = GetOperation();
-        HWND valueControl = GetDlgItem(HWindow, IDC_EDPROP_VALUE);
-        int valueLength = GetWindowTextLengthW(valueControl);
-        std::vector<wchar_t> value(valueLength + 1);
-        GetWindowTextW(valueControl, value.data(), (int)value.size());
-
-        BOOL tagsProperty = IsTagsProperty(property);
-        BOOL stringVectorProperty = GetExplorerColumnType(property) == (VT_VECTOR | VT_LPWSTR);
-        std::vector<std::wstring> tags;
-        if (stringVectorProperty)
-            ParseFileTagsW(value.data(), tags);
-        if (operation == 3)
-            tags.clear();
-        if (tagsProperty && (operation == ftoAdd || operation == ftoRemove) && tags.empty())
+        if (TagsList != NULL)
         {
-            SalMessageBox(HWindow, LoadStr(IDS_FFA_TAGS_REQUIRED), LoadStr(IDS_EDPROP_TITLE),
-                          MB_ICONEXCLAMATION | MB_OK);
-            SetFocus(valueControl);
-            return FALSE;
+            TagsList->OnSaveEdit();
+            TagsList->OnEndEdit();
         }
-
+        int tagsState = IsDlgButtonChecked(HWindow, IDC_EDPROP_TAGS_ENABLE);
+        std::vector<std::wstring> tags = GetTags();
+        BOOL anyAttempted = FALSE;
+        BOOL tagsSucceeded = FALSE;
         int updated = 0;
         int failed = 0;
         HCURSOR oldCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
-        for (size_t i = 0; i < Paths.size(); i++)
+        for (size_t pathIndex = 0; pathIndex < Paths.size(); pathIndex++)
         {
-            HRESULT hr;
-            if (tagsProperty)
+            BOOL fileUpdated = FALSE;
+            BOOL fileFailed = FALSE;
+            if (tagsState != BST_INDETERMINATE &&
+                (tagsState == BST_CHECKED || IsMultiple() || TagsHadValue))
             {
-                CFileTagsOperation tagOperation = operation == 3 ? ftoReplace : (CFileTagsOperation)operation;
-                hr = UpdateFileTagsW(Paths[i].c_str(), tags, tagOperation);
+                anyAttempted = TRUE;
+                std::vector<std::wstring> values = tagsState == BST_CHECKED
+                                                       ? tags
+                                                       : std::vector<std::wstring>();
+                HRESULT hr = WriteFileTagsW(Paths[pathIndex].c_str(), values);
+                if (SUCCEEDED(hr))
+                {
+                    fileUpdated = TRUE;
+                    tagsSucceeded = TRUE;
+                }
+                else
+                    fileFailed = TRUE;
             }
-            else if (stringVectorProperty)
-                hr = WriteFileStringVectorPropertyW(Paths[i].c_str(), *key, tags);
-            else
-                hr = WriteFilePropertyTextW(Paths[i].c_str(), *key, value.data(), operation == 3);
-            if (SUCCEEDED(hr))
+            for (size_t rowIndex = 0; rowIndex < PropertyRows.size(); rowIndex++)
+            {
+                CPropertyRow& row = PropertyRows[rowIndex];
+                int state = (int)SendMessage(row.HCheck, BM_GETCHECK, 0, 0);
+                if (state == BST_INDETERMINATE ||
+                    (state == BST_UNCHECKED && !IsMultiple() && !row.HadValue))
+                    continue;
+                const PROPERTYKEY* key = GetExplorerColumnPropertyKey(row.ExplorerIndex);
+                if (key == NULL)
+                    continue;
+                anyAttempted = TRUE;
+                int length = GetWindowTextLengthW(row.HEdit);
+                std::vector<wchar_t> value(length + 1);
+                GetWindowTextW(row.HEdit, value.data(), (int)value.size());
+                HRESULT hr;
+                if (state == BST_CHECKED &&
+                    GetExplorerColumnType(row.ExplorerIndex) == (VT_VECTOR | VT_LPWSTR))
+                {
+                    std::vector<std::wstring> values;
+                    ParseFileTagsW(value.data(), values);
+                    hr = WriteFileStringVectorPropertyW(Paths[pathIndex].c_str(), *key, values);
+                }
+                else
+                    hr = WriteFilePropertyTextW(Paths[pathIndex].c_str(), *key, value.data(),
+                                                state != BST_CHECKED || value[0] == 0);
+                if (SUCCEEDED(hr))
+                    fileUpdated = TRUE;
+                else
+                    fileFailed = TRUE;
+            }
+            if (fileUpdated)
                 updated++;
-            else
+            if (fileFailed)
                 failed++;
         }
         SetCursor(oldCursor);
 
-        if (tagsProperty && updated > 0)
+        if (tagsSucceeded)
         {
             for (size_t i = tags.size(); i > 0; i--)
             {
@@ -176,18 +335,27 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
                                            tag.c_str(), FALSE);
             }
         }
-
-        char result[200];
-        _snprintf_s(result, _countof(result), _TRUNCATE, LoadStr(IDS_EDPROP_RESULT), updated, failed);
-        if (failed > 0 || Paths.size() > 1)
+        if (failed > 0 || (anyAttempted && Paths.size() > 1))
+        {
+            char result[200];
+            _snprintf_s(result, _countof(result), _TRUNCATE,
+                        LoadStr(IDS_EDPROP_RESULT), updated, failed);
             SalMessageBox(HWindow, result, LoadStr(IDS_EDPROP_TITLE),
                           failed > 0 ? MB_ICONEXCLAMATION | MB_OK : MB_ICONINFORMATION | MB_OK);
-        return updated > 0;
+        }
+        return failed == 0;
     }
 
 public:
     CEditWindowsPropertiesDialog(HWND parent, const std::vector<std::wstring>& paths)
-        : CCommonDialog(HLanguage, IDD_EDIT_PROPERTIES, parent), Paths(paths) {}
+        : CCommonDialog(HLanguage, IDD_EDIT_PROPERTIES, parent), Paths(paths)
+    {
+        TagsList = NULL;
+        PropertyScrollPos = 0;
+        TagsHadValue = FALSE;
+    }
+
+    ~CEditWindowsPropertiesDialog() { ClearTags(); }
 
 protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -197,37 +365,25 @@ protected:
         case WM_INITDIALOG:
         {
             SetWindowText(HWindow, LoadStr(IDS_EDPROP_TITLE));
-            SetDlgItemText(HWindow, IDC_STATIC_1, LoadStr(IDS_EDPROP_PROPERTY));
-            SetDlgItemText(HWindow, IDC_STATIC_2, LoadStr(IDS_EDPROP_OPERATION));
-            SetDlgItemText(HWindow, IDC_EDPROP_VALUE_LABEL, LoadStr(IDS_EDPROP_VALUE));
-            SetDlgItemText(HWindow, IDC_EDPROP_CURRENT_GROUP, LoadStr(IDS_EDPROP_CURRENT));
-            HWND properties = GetDlgItem(HWindow, IDC_EDPROP_PROPERTY);
-            int count = min(GetExplorerColumnCount(), EXPLORER_COLUMNS_COUNT);
-            int keywordsIndex = -1;
-            for (int i = 0; i < count; i++)
+            HWND tagsCheck = GetDlgItem(HWindow, IDC_EDPROP_TAGS_ENABLE);
+            LONG_PTR tagsCheckStyle = GetWindowLongPtr(tagsCheck, GWL_STYLE);
+            tagsCheckStyle &= ~BS_TYPEMASK;
+            tagsCheckStyle |= IsMultiple() ? BS_AUTO3STATE : BS_AUTOCHECKBOX;
+            SetWindowLongPtr(tagsCheck, GWL_STYLE, tagsCheckStyle);
+            SetDlgItemText(HWindow, IDC_EDPROP_TAGS_ENABLE, LoadStr(IDS_EDPROP_CHANGE_TAGS));
+            SetDlgItemText(HWindow, IDC_EDPROP_TAGS_HEADER, LoadStr(IDS_FFA_TAGS));
+            SetDlgItemText(HWindow, IDC_EDPROP_PROPERTIES_GROUP, LoadStr(IDS_EDPROP_OTHER_PROPERTIES));
+            SetDlgItemText(HWindow, IDC_EDPROP_MULTI_HINT,
+                           IsMultiple() ? LoadStr(IDS_EDPROP_MULTI_FORM_HINT) : "");
+            TagsList = new CEditListBox(HWindow, IDC_EDPROP_TAGS_LIST,
+                                        ELB_ENABLECOMMANDS | ELB_RIGHTARROW);
+            if (TagsList != NULL)
             {
-                if (IsTagsProperty(i))
-                {
-                    keywordsIndex = i;
-                    break;
-                }
+                TagsList->MakeHeader(IDC_EDPROP_TAGS_HEADER);
+                AddInitialTags();
             }
-            if (keywordsIndex >= 0)
-            {
-                int item = (int)SendMessage(properties, CB_ADDSTRING, 0,
-                                            (LPARAM)GetExplorerColumnName(keywordsIndex));
-                SendMessage(properties, CB_SETITEMDATA, item, keywordsIndex);
-            }
-            for (int i = 0; i < count; i++)
-            {
-                if (i == keywordsIndex || !MainWindow->ViewTemplates.IsExplorerColumnAvailable(i))
-                    continue;
-                int item = (int)SendMessage(properties, CB_ADDSTRING, 0,
-                                            (LPARAM)GetExplorerColumnName(i));
-                SendMessage(properties, CB_SETITEMDATA, item, i);
-            }
-            SendMessage(properties, CB_SETCURSEL, 0, 0);
-            UpdateControls();
+            AddPropertyRows();
+            UpdateEnabledState();
             if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
             {
                 DarkModeApplyTree(HWindow);
@@ -236,15 +392,18 @@ protected:
             }
             return TRUE;
         }
+
         case WM_COMMAND:
-            if (LOWORD(wParam) == IDC_EDPROP_PROPERTY && HIWORD(wParam) == CBN_SELCHANGE)
+            if (LOWORD(wParam) == IDC_EDPROP_TAGS_ENABLE && HIWORD(wParam) == BN_CLICKED)
             {
-                UpdateControls();
+                UpdateEnabledState();
                 return TRUE;
             }
-            if (LOWORD(wParam) == IDC_EDPROP_OPERATION && HIWORD(wParam) == CBN_SELCHANGE)
+            if (LOWORD(wParam) >= EDPROP_DYNAMIC_CHECK_FIRST &&
+                LOWORD(wParam) < EDPROP_DYNAMIC_CHECK_FIRST + (int)PropertyRows.size() &&
+                HIWORD(wParam) == BN_CLICKED)
             {
-                UpdateValueState();
+                UpdateEnabledState();
                 return TRUE;
             }
             if (LOWORD(wParam) == IDOK)
@@ -253,6 +412,133 @@ protected:
                     EndDialog(HWindow, IDOK);
                 return TRUE;
             }
+            break;
+
+        case WM_VSCROLL:
+            if ((HWND)lParam == GetDlgItem(HWindow, IDC_EDPROP_PROPERTIES_SCROLL))
+            {
+                SCROLLINFO info;
+                ZeroMemory(&info, sizeof(info));
+                info.cbSize = sizeof(info);
+                info.fMask = SIF_ALL;
+                GetScrollInfo((HWND)lParam, SB_CTL, &info);
+                int position = info.nPos;
+                switch (LOWORD(wParam))
+                {
+                case SB_LINEUP: position--; break;
+                case SB_LINEDOWN: position++; break;
+                case SB_PAGEUP: position -= info.nPage; break;
+                case SB_PAGEDOWN: position += info.nPage; break;
+                case SB_THUMBPOSITION:
+                case SB_THUMBTRACK: position = info.nTrackPos; break;
+                }
+                PropertyScrollPos = max(info.nMin,
+                                        min(position, info.nMax - (int)info.nPage + 1));
+                LayoutPropertyRows();
+                return TRUE;
+            }
+            break;
+
+        case WM_DRAWITEM:
+            if (wParam == IDC_EDPROP_TAGS_LIST && TagsList != NULL)
+            {
+                TagsList->OnDrawItem(lParam);
+                return TRUE;
+            }
+            break;
+
+        case WM_NOTIFY:
+        {
+            NMHDR* header = (NMHDR*)lParam;
+            if (header->idFrom == IDC_EDPROP_TAGS_LIST && TagsList != NULL)
+            {
+                EDTLB_DISPINFO* info = (EDTLB_DISPINFO*)lParam;
+                switch (header->code)
+                {
+                case EDTLBN_GETDISPINFO:
+                    if (info->ToDo == edtlbGetData)
+                    {
+                        CTagItem* item = (CTagItem*)info->ItemID;
+                        if (item != NULL && item != (CTagItem*)-1)
+                            lstrcpyn(info->Buffer, item->Text.c_str(), info->BufferLen);
+                        SetWindowLongPtr(HWindow, DWLP_MSGRESULT, FALSE);
+                    }
+                    else
+                    {
+                        std::string text = info->Buffer;
+                        TrimTag(text);
+                        CTagItem* item = info->ItemID == -1 ? NULL : (CTagItem*)info->ItemID;
+                        if (text.empty() || HasTag(text, item))
+                        {
+                            SetWindowLongPtr(HWindow, DWLP_MSGRESULT, FALSE);
+                            return TRUE;
+                        }
+                        if (item == NULL)
+                        {
+                            item = new CTagItem;
+                            if (item == NULL)
+                            {
+                                SetWindowLongPtr(HWindow, DWLP_MSGRESULT, FALSE);
+                                return TRUE;
+                            }
+                            item->Text = text;
+                            Tags.push_back(item);
+                            TagsList->SetItemData((INT_PTR)item);
+                        }
+                        else
+                            item->Text = text;
+                        InvalidateRect(TagsList->HWindow, NULL, FALSE);
+                        SetWindowLongPtr(HWindow, DWLP_MSGRESULT, TRUE);
+                    }
+                    return TRUE;
+
+                case EDTLBN_DELETEITEM:
+                {
+                    CTagItem* item = (CTagItem*)info->ItemID;
+                    for (std::vector<CTagItem*>::iterator it = Tags.begin(); it != Tags.end(); ++it)
+                        if (*it == item)
+                        {
+                            delete item;
+                            Tags.erase(it);
+                            break;
+                        }
+                    SetWindowLongPtr(HWindow, DWLP_MSGRESULT, FALSE);
+                    return TRUE;
+                }
+
+                case EDTLBN_MOVEITEM2:
+                    if (info->Index >= 0 && info->Index < (int)Tags.size() &&
+                        info->NewIndex >= 0 && info->NewIndex < (int)Tags.size())
+                    {
+                        CTagItem* item = Tags[info->Index];
+                        Tags.erase(Tags.begin() + info->Index);
+                        Tags.insert(Tags.begin() + info->NewIndex, item);
+                    }
+                    SetWindowLongPtr(HWindow, DWLP_MSGRESULT, FALSE);
+                    return TRUE;
+
+                case EDTLBN_ENABLECOMMANDS:
+                    info->Enable = TLBHDRMASK_NEW | TLBHDRMASK_SEARCH | TLBHDRMASK_FILTER;
+                    if (info->Index >= 0 && info->Index < (int)Tags.size())
+                    {
+                        info->Enable |= TLBHDRMASK_MODIFY | TLBHDRMASK_DELETE;
+                        if (info->Index > 0)
+                            info->Enable |= TLBHDRMASK_TOP | TLBHDRMASK_UP;
+                        if (info->Index + 1 < (int)Tags.size())
+                            info->Enable |= TLBHDRMASK_DOWN | TLBHDRMASK_BOTTOM;
+                    }
+                    return TRUE;
+
+                case EDTLBN_CONTEXTMENU:
+                    ShowRecentTags(info->HEdit, info->Point);
+                    return TRUE;
+                }
+            }
+            break;
+        }
+
+        case WM_DESTROY:
+            TagsList = NULL;
             break;
         }
         return CCommonDialog::DialogProc(uMsg, wParam, lParam);

@@ -802,6 +802,12 @@
 #define IDC_FFA_TAGSMODE                6285
 #define IDC_FFA_TAGS                    6286
 #define IDC_FFA_TAGS_HINT               6287
+#define IDC_EDPROP_TAGS_ENABLE          6288
+#define IDC_EDPROP_TAGS_HEADER          6289
+#define IDC_EDPROP_TAGS_LIST            6290
+#define IDC_EDPROP_PROPERTIES_GROUP     6291
+#define IDC_EDPROP_PROPERTIES_SCROLL    6292
+#define IDC_EDPROP_MULTI_HINT           6293
 
 // Next default values for new objects
 // 
@@ -809,7 +815,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        8205
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         6288
+#define _APS_NEXT_CONTROL_VALUE         6294
 #define _APS_NEXT_SYMED_VALUE           103
 #endif
 #endif

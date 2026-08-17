@@ -76,12 +76,12 @@ def main() -> int:
         "property information fields must have readable blank-line spacing",
     )
     require(
-        "LeftToolBar" in gui
-        and "LeftButtonMask" in gui
-        and "LayoutToolbars();" in gui
-        and "0); // the FILTER slot is the Windows-properties button" in dialog
+        "const int leadingButtonOrder[] = {7, 8}; // Filter, Search" in gui
+        and "LeadingButtonMask" in gui
+        and "const int buttonOrder[TLBHDR_COUNT] = {0, 1, 2, 3, 6, 4, 5, 9, 8, 7};" in gui
+        and "0); // the FILTER slot is the Windows-properties button and stays rightmost" in dialog
         and "ILC_COLOR32 | ILC_MASK" in gui,
-        "Search/Filter must be left-aligned while the Windows-property action stays right-aligned with SVG alpha",
+        "Search/Filter must lead the right-aligned button block while the Windows-property action stays rightmost with SVG alpha",
     )
     require(
         "TLBHDRMASK_SEARCH | TLBHDRMASK_FILTER" in edit_list
@@ -99,15 +99,23 @@ def main() -> int:
     require(
         "ReadFileTagsW" in file_tags
         and "WriteFileTagsW" in file_tags
-        and "IPropertyStoreCapabilities" in (ROOT / "salamdr4.cpp").read_text(encoding="utf-8")
+        and "GPS_READWRITE" in model
+        and "store->SetValue(key, value)" in model
+        and "store->Commit()" in model
+        and "IsPropertyWritable" not in model
         and "AddValueToStdHistoryValues(Configuration.TagHistory" in file_window,
-        "Tags editing must use the Windows property store, writable checks, and persistent recent tags",
+        "Tags editing must let SetValue/Commit determine writability and retain persistent recent tags",
     )
     require(
         "EditWindowsProperties" in file_window
         and "IsExplorerColumnAvailable(i)" in file_window
-        and "PKEY_Keywords" in file_window,
-        "the Files command must always expose Tags and additionally expose selected Explorer properties",
+        and "PKEY_Keywords" in file_window
+        and "CEditListBox" in file_window
+        and "IDC_EDPROP_TAGS_LIST" in file_window
+        and "ELB_RIGHTARROW" in file_window
+        and "BST_INDETERMINATE" in file_window
+        and "CreateWindowExW" in file_window,
+        "the Files command must expose the Salamander Tags editor and checkbox-gated selected properties",
     )
     require(
         "Criteria.TestTags" in find
@@ -118,9 +126,41 @@ def main() -> int:
         "Find Advanced must support any/all/none exact tag matching",
     )
     lang_rc = (ROOT / "lang" / "lang.rc").read_text(encoding="utf-8")
+    lang_texts = (ROOT / "lang" / "texts.rc2").read_text(encoding="utf-8")
     require(
         "IDD_EXPLORER_COLUMNS DIALOGEX 0, 0, 460, 320" in lang_rc,
         "the Windows property chooser must keep compact Configuration-like proportions",
+    )
+    require(
+        "ExplorerColumnsDialogX" in dialog
+        and "ExplorerColumnsDialogY" in dialog
+        and "MapDialogRect(dialog, &rect);" in dialog
+        and "if (MinWidth == 0 || MinHeight == 0)" in dialog
+        and "MinHeight = windowRect.bottom - windowRect.top;" in dialog
+        and "SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE" in dialog
+        and "LayoutControls();" in dialog,
+        "the resizable Windows property chooser must convert dialog units to pixels after initialization",
+    )
+    main_window_config = (ROOT / "mainwnd2.cpp").read_text(encoding="utf-8")
+    require(
+        "Configuration.ExplorerColumnsDialogWidth" in dialog
+        and "Configuration.ExplorerColumnsDialogHeight" in dialog
+        and "CONFIG_EXPLORER_COLUMNS_DIALOG_WIDTH" in main_window_config
+        and "CONFIG_EXPLORER_COLUMNS_DIALOG_HEIGHT" in main_window_config,
+        "the Windows property chooser must persist its last user-selected size",
+    )
+    require(
+        "if (Available[i] && !Config->ExplorerColumnAvailable[i])" in dialog
+        and "view->ExplorerColumnVisible[i] = TRUE;" in dialog,
+        "newly added Explorer properties must be checked for the current view",
+    )
+    require(
+        "IDC_EDPROP_TAGS_ENABLE" in lang_rc
+        and "IDC_EDPROP_TAGS_LIST" in lang_rc
+        and "IDC_EDPROP_PROPERTIES_GROUP" in lang_rc
+        and "IDC_EDPROP_OPERATION" not in lang_rc.split("IDD_EDIT_PROPERTIES", 1)[1].split("END", 1)[0]
+        and 'IDS_MENU_FILES_EDITPROPERTIES, "Edit &Tags and Custom properties..."' in lang_texts,
+        "property editing must use the form layout and the requested Files-menu caption",
     )
     return 0
 

@@ -1248,6 +1248,8 @@ const char* CONFIG_CONFIGURATION_WIDTH = "Configuration Width";
 const char* CONFIG_CONFIGURATION_TREE_WIDTH = "Configuration Tree Width";
 const char* CONFIG_PLUGINS_MANAGER_WIDTH = "Plugins Manager Width";
 const char* CONFIG_PLUGINS_MANAGER_HEIGHT = "Plugins Manager Height";
+const char* CONFIG_EXPLORER_COLUMNS_DIALOG_WIDTH = "Explorer Columns Dialog Width";
+const char* CONFIG_EXPLORER_COLUMNS_DIALOG_HEIGHT = "Explorer Columns Dialog Height";
 const char* CONFIG_CONFIGURATION_VIEWS_RIGHT_WIDTH = "Configuration Views Right Width";
 
 const char* CONFIG_MENUINDEX_REG = "Menu Index";
@@ -3578,6 +3580,10 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                          &Configuration.PluginsManagerWidth, sizeof(DWORD));
                 SetValue(actKey, CONFIG_PLUGINS_MANAGER_HEIGHT, REG_DWORD,
                          &Configuration.PluginsManagerHeight, sizeof(DWORD));
+                SetValue(actKey, CONFIG_EXPLORER_COLUMNS_DIALOG_WIDTH, REG_DWORD,
+                         &Configuration.ExplorerColumnsDialogWidth, sizeof(DWORD));
+                SetValue(actKey, CONFIG_EXPLORER_COLUMNS_DIALOG_HEIGHT, REG_DWORD,
+                         &Configuration.ExplorerColumnsDialogHeight, sizeof(DWORD));
                 SetValue(actKey, CONFIG_VIEWANDEDITEXPAND, REG_DWORD,
                          &Configuration.ViewersAndEditorsExpanded, sizeof(DWORD));
                 SetValue(actKey, CONFIG_PACKEPAND, REG_DWORD,
@@ -5830,6 +5836,10 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.PluginsManagerWidth, sizeof(DWORD));
             GetValue(actKey, CONFIG_PLUGINS_MANAGER_HEIGHT, REG_DWORD,
                      &Configuration.PluginsManagerHeight, sizeof(DWORD));
+            GetValue(actKey, CONFIG_EXPLORER_COLUMNS_DIALOG_WIDTH, REG_DWORD,
+                     &Configuration.ExplorerColumnsDialogWidth, sizeof(DWORD));
+            GetValue(actKey, CONFIG_EXPLORER_COLUMNS_DIALOG_HEIGHT, REG_DWORD,
+                     &Configuration.ExplorerColumnsDialogHeight, sizeof(DWORD));
             GetValue(actKey, CONFIG_VIEWANDEDITEXPAND, REG_DWORD,
                      &Configuration.ViewersAndEditorsExpanded, sizeof(DWORD));
             GetValue(actKey, CONFIG_PACKEPAND, REG_DWORD,

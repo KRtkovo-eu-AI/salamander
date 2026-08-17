@@ -313,7 +313,6 @@ class CToolbarHeader : public CWindow
 {
 protected:
     CToolBar* ToolBar;
-    CToolBar* LeftToolBar; // Search/Filter live next to the header text; other buttons stay right-aligned
 #ifdef TOOLBARHDR_USE_SVG
     HIMAGELIST HEnabledImageList;
     HIMAGELIST HDisabledImageList;
@@ -321,8 +320,8 @@ protected:
     HIMAGELIST HHotImageList;
     HIMAGELIST HGrayImageList;
 #endif
-    DWORD ButtonMask;   // pouzita tlacitka
-    DWORD LeftButtonMask;
+    DWORD ButtonMask;          // pouzita tlacitka
+    DWORD LeadingButtonMask;   // tlacitka zobrazena vlevo od ostatnich tlacitek v pravem bloku
     HWND HNotifyWindow; // kam posilam comandy
     WORD UIState;       // zobrazovani akceleratoru
     int CustomTooltips[TLBHDR_COUNT];
@@ -330,7 +329,7 @@ protected:
 
 public:
     CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD buttonMask,
-                   DWORD leftButtonMask = TLBHDRMASK_SEARCH | TLBHDRMASK_FILTER);
+                   DWORD leadingButtonMask = TLBHDRMASK_SEARCH | TLBHDRMASK_FILTER);
 
     void EnableToolbar(DWORD enableMask);
     void CheckToolbar(DWORD checkMask);
@@ -343,7 +342,7 @@ protected:
 #endif
     void RebuildImageLists();
     void ApplyCustomButtonImages();
-    void LayoutToolbars();
+    void LayoutToolbar();
 
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
