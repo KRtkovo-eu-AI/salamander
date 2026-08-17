@@ -5196,12 +5196,14 @@ BOOL WINAPI PackageManager::HostDispatch(
         owner->General->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE, &dark, sizeof(dark), &configType);
         NativeViewerTheme theme = {dark != FALSE,
             owner->General->GetCurrentColor(SALCOL_VIEWER_FG_NORMAL), owner->General->GetCurrentColor(SALCOL_VIEWER_BK_NORMAL),
-            owner->General->GetCurrentColor(SALCOL_VIEWER_FG_SELECTED)};
+            owner->General->GetCurrentColor(SALCOL_HOT_PANEL)};
         NativeViewerStrings strings = {
             owner->General->LoadStrW(DLLInstance, IDS_VIEWER_NAME), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_FILE),
             owner->General->LoadStrW(DLLInstance, IDS_VIEWER_VIEW), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_CLOSE),
             owner->General->LoadStrW(DLLInstance, IDS_VIEWER_REFRESH), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_ZOOM_IN),
             owner->General->LoadStrW(DLLInstance, IDS_VIEWER_ZOOM_OUT), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_ZOOM_RESET),
+            owner->General->LoadStrW(DLLInstance, IDS_VIEWER_LINE_NUMBERS), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_WRAP_LINES),
+            owner->General->LoadStrW(DLLInstance, IDS_VIEWER_SHOW_WHITESPACE),
             owner->General->LoadStrW(DLLInstance, IDS_VIEWER_LOADING), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_READY),
             owner->General->LoadStrW(DLLInstance, IDS_VIEWER_WEBVIEW_FAILED), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_OPEN_FAILED)};
         NativeViewerRequest request = {DLLInstance, parent, widePath.c_str(), placement, SW_SHOWNORMAL, false, NULL, kind, theme, strings};

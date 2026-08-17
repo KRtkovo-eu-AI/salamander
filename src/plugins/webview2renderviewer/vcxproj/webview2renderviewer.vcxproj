@@ -277,6 +277,8 @@
   </Import>
   <Target Name="PublishMarkdigRenderer" AfterTargets="Build">
     <Exec Command="dotnet publish &quot;$(ProjectDir)..\..\shared\webviewviewer\markdighelper\MarkdigRenderer.csproj&quot; --configuration Release --runtime $(MarkdigRuntimeIdentifier) --output &quot;$(OutDir).&quot;" />
+    <Delete Files="$(OutDir)MarkdigRenderer.pdb;$(OutDir)Markdig.dll;$(OutDir)Microsoft.Web.WebView2.Core.dll;$(OutDir)Microsoft.Web.WebView2.WinForms.dll;$(OutDir)Microsoft.Web.WebView2.Wpf.dll;$(OutDir)System.Buffers.dll;$(OutDir)System.Memory.dll;$(OutDir)System.Numerics.Vectors.dll;$(OutDir)System.Runtime.CompilerServices.Unsafe.dll;$(OutDir)System.Text.Encoding.CodePages.dll;$(OutDir)WebView2RenderViewer.Managed.dll" />
+    <RemoveDir Directories="$(OutDir)runtimes" />
   </Target>
   <ImportGroup Label="ExtensionTargets">
     <Import Project="$(NuGetPackageRoot)microsoft.web.webview2\1.0.2420.47\build\native\Microsoft.Web.WebView2.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.web.webview2\1.0.2420.47\build\native\Microsoft.Web.WebView2.targets')" />

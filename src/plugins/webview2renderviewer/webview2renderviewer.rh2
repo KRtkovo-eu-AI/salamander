@@ -33,5 +33,8 @@
 #define IDS_VIEWER_READY                   60
 #define IDS_VIEWER_WEBVIEW_FAILED          61
 #define IDS_VIEWER_OPEN_FAILED             62
+#define IDS_VIEWER_LINE_NUMBERS            63
+#define IDS_VIEWER_WRAP_LINES              64
+#define IDS_VIEWER_SHOW_WHITESPACE         65
 
 #endif // __WEBVIEW2RENDERVIEWER_RH2

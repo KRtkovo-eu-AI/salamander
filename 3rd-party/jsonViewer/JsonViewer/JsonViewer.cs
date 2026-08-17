@@ -226,9 +226,9 @@ namespace EPocalipse.Json.Viewer
                 lblError.Tag = null;
                 lblError.Enabled = false;
             };
-            lblError.Invoke(errInfo);
+            RunOnControl(lblError, errInfo);
             Action tabErrInfo = () => tabControl.SelectedTab = pageTextView;
-            tabControl.Invoke(tabErrInfo);
+            RunOnControl(tabControl, tabErrInfo);
         }
 
         public void ShowInfo( ErrorDetails error )
@@ -240,9 +240,22 @@ namespace EPocalipse.Json.Viewer
                 lblError.Tag = error;
                 lblError.Enabled = true;
             };
-            lblError.Invoke(errInfo);
+            RunOnControl(lblError, errInfo);
             Action tabErrInfo = () => tabControl.SelectedTab = pageTextView;
-            tabControl.Invoke(tabErrInfo);
+            RunOnControl(tabControl, tabErrInfo);
+        }
+
+        private static void RunOnControl(Control control, Action action)
+        {
+            if (control.IsDisposed)
+                return;
+            if (control.InvokeRequired)
+            {
+                if (control.IsHandleCreated)
+                    control.Invoke(action);
+                return;
+            }
+            action();
         }
 
         public void ClearInfo()
@@ -762,12 +775,21 @@ namespace EPocalipse.Json.Viewer
 
         public void refreshFromString(string text)
         {
-            txtJson.Text = text;
-            if (_json != text)
+            // Initial file loading is synchronous. Do not let TextChanged start a
+            // second delayed/background parse which can race the tree built below
+            // and leave Viewer mode empty.
+            txtJson.TextChanged -= txtJson_TextChangedAsync;
+            try
             {
-                _json = text.Trim();
-                Redraw();
+                txtJson.Text = text;
             }
+            finally
+            {
+                txtJson.TextChanged += txtJson_TextChangedAsync;
+            }
+            _json = text.Trim();
+            _errorDetails = default;
+            ClearInfo();
             try
             {
                 tvJson.BeginUpdate();
@@ -782,11 +804,16 @@ namespace EPocalipse.Json.Viewer
                         }
                         catch (JsonParseError err)
                         {
+                            _tree = null;
+                            tvJson.Nodes.Clear();
                             GetParseErrorDetails(err);
                             Mode = 3;
                         }
-                        VisualizeJsonTree(_tree);
-                        _oldTree = _tree;
+                        if (_tree != null)
+                        {
+                            VisualizeJsonTree(_tree);
+                            _oldTree = _tree;
+                        }
                     }
                     else
                     {

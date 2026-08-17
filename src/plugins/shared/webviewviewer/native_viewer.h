@@ -29,6 +29,9 @@ struct NativeViewerStrings
     const wchar_t* zoomIn;
     const wchar_t* zoomOut;
     const wchar_t* zoomReset;
+    const wchar_t* lineNumbers;
+    const wchar_t* wrapLines;
+    const wchar_t* showWhitespace;
     const wchar_t* loading;
     const wchar_t* ready;
     const wchar_t* initializationFailed;

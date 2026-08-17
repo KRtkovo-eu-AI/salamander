@@ -42,7 +42,7 @@ NativeViewerTheme ReadTheme()
         theme.dark = dark != FALSE;
         theme.foreground = SalamanderGeneral->GetCurrentColor(SALCOL_VIEWER_FG_NORMAL);
         theme.background = SalamanderGeneral->GetCurrentColor(SALCOL_VIEWER_BK_NORMAL);
-        theme.accent = SalamanderGeneral->GetCurrentColor(SALCOL_VIEWER_FG_SELECTED);
+        theme.accent = SalamanderGeneral->GetCurrentColor(SALCOL_HOT_PANEL);
     }
     return theme;
 }
@@ -57,6 +57,9 @@ NativeViewerStrings ReadStrings()
             SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_ZOOM_IN),
             SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_ZOOM_OUT),
             SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_ZOOM_RESET),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_LINE_NUMBERS),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_WRAP_LINES),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_SHOW_WHITESPACE),
             SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_LOADING),
             SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_READY),
             SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_WEBVIEW_FAILED),

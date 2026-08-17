@@ -42,14 +42,51 @@ constexpr int IDM_NV_REFRESH = 40002;
 constexpr int IDM_NV_ZOOM_IN = 40003;
 constexpr int IDM_NV_ZOOM_OUT = 40004;
 constexpr int IDM_NV_ZOOM_RESET = 40005;
+constexpr int IDM_NV_LINE_NUMBERS = 40006;
+constexpr int IDM_NV_WRAP_LINES = 40007;
+constexpr int IDM_NV_SHOW_WHITESPACE = 40008;
+constexpr int IDC_NV_ZOOM_RESET = 40101;
+constexpr int IDC_NV_ZOOM_OUT = 40102;
+constexpr int IDC_NV_ZOOM_EDIT = 40103;
+constexpr int IDC_NV_ZOOM_IN = 40104;
 
 std::mutex gWindowsLock;
 std::vector<HWND> gWindows;
 std::atomic<bool> gShuttingDown(false);
 
+constexpr const wchar_t* kViewerSettingsKey = L"Software\\Open Salamander\\ViewerFrame";
+
+DWORD ReadViewerSetting(const wchar_t* name, DWORD fallback)
+{
+    DWORD value = fallback;
+    DWORD size = sizeof(value);
+    if (RegGetValueW(HKEY_CURRENT_USER, kViewerSettingsKey, name, RRF_RT_REG_DWORD,
+                     nullptr, &value, &size) != ERROR_SUCCESS)
+        return fallback;
+    return value;
+}
+
+void WriteViewerSetting(const wchar_t* name, DWORD value)
+{
+    HKEY key = nullptr;
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, kViewerSettingsKey, 0, nullptr, 0, KEY_SET_VALUE,
+                        nullptr, &key, nullptr) == ERROR_SUCCESS)
+    {
+        RegSetValueExW(key, name, 0, REG_DWORD, reinterpret_cast<const BYTE*>(&value), sizeof(value));
+        RegCloseKey(key);
+    }
+}
+
 std::wstring CopyString(const wchar_t* value)
 {
     return value != nullptr ? value : L"";
+}
+
+std::wstring ControlLabel(const std::wstring& menuLabel)
+{
+    std::wstring result = menuLabel.substr(0, menuLabel.find(L'\t'));
+    result.erase(std::remove(result.begin(), result.end(), L'&'), result.end());
+    return result;
 }
 
 std::wstring ToIoPath(const std::wstring& path)
@@ -78,6 +115,12 @@ std::wstring ExtensionOf(const std::wstring& path)
     std::wstring ext = name.substr(dot);
     std::transform(ext.begin(), ext.end(), ext.begin(), towlower);
     return ext;
+}
+
+std::wstring DirectoryOf(const std::wstring& path)
+{
+    size_t slash = path.find_last_of(L"\\/");
+    return slash == std::wstring::npos ? L"" : path.substr(0, slash);
 }
 
 std::wstring PrismLanguageForExtension(const std::wstring& extension)
@@ -119,11 +162,51 @@ std::wstring HtmlEncode(const std::wstring& value)
     return result;
 }
 
+std::wstring WithBaseElement(std::wstring html, const std::wstring& baseUri)
+{
+    if (baseUri.empty())
+        return html;
+    std::wstring lower = html;
+    std::transform(lower.begin(), lower.end(), lower.begin(), towlower);
+    if (lower.find(L"<base") != std::wstring::npos)
+        return html;
+    const std::wstring element = L"<base href='" + HtmlEncode(baseUri) + L"'>";
+    size_t head = lower.find(L"<head");
+    if (head != std::wstring::npos)
+    {
+        size_t end = lower.find(L'>', head);
+        if (end != std::wstring::npos)
+        {
+            html.insert(end + 1, element);
+            return html;
+        }
+    }
+    size_t root = lower.find(L"<html");
+    if (root != std::wstring::npos)
+    {
+        size_t end = lower.find(L'>', root);
+        if (end != std::wstring::npos)
+        {
+            html.insert(end + 1, L"<head>" + element + L"</head>");
+            return html;
+        }
+    }
+    return element + html;
+}
+
 std::wstring CssColor(COLORREF color)
 {
     wchar_t value[8];
     swprintf_s(value, L"#%02X%02X%02X", GetRValue(color), GetGValue(color), GetBValue(color));
     return value;
+}
+
+COLORREF BlendColor(COLORREF background, COLORREF foreground, int foregroundPercent)
+{
+    const int backgroundPercent = 100 - foregroundPercent;
+    return RGB((GetRValue(background) * backgroundPercent + GetRValue(foreground) * foregroundPercent) / 100,
+               (GetGValue(background) * backgroundPercent + GetGValue(foreground) * foregroundPercent) / 100,
+               (GetBValue(background) * backgroundPercent + GetBValue(foreground) * foregroundPercent) / 100);
 }
 
 bool ReadFileBytes(const std::wstring& path, std::vector<unsigned char>& bytes)
@@ -172,8 +255,51 @@ std::wstring DecodeText(const std::vector<unsigned char>& bytes)
     }
     else if (size >= 2 && data[0] == 0xFF && data[1] == 0xFE)
     {
-        const wchar_t* wide = reinterpret_cast<const wchar_t*>(data + 2);
-        return std::wstring(wide, wide + (size - 2) / sizeof(wchar_t));
+        data += 2;
+        size -= 2;
+        std::wstring result;
+        result.reserve(size / 2);
+        for (size_t i = 0; i + 1 < size; i += 2)
+            result.push_back(static_cast<wchar_t>(data[i] | (data[i + 1] << 8)));
+        return result;
+    }
+    else if (size >= 2 && data[0] == 0xFE && data[1] == 0xFF)
+    {
+        data += 2;
+        size -= 2;
+        std::wstring result;
+        result.reserve(size / 2);
+        for (size_t i = 0; i + 1 < size; i += 2)
+            result.push_back(static_cast<wchar_t>((data[i] << 8) | data[i + 1]));
+        return result;
+    }
+
+    // HTML replaces embedded U+0000 with U+FFFD. Detect the common BOM-less
+    // UTF-16 case before treating the input as an 8-bit encoding.
+    if (size >= 4)
+    {
+        const size_t pairs = (std::min)(size / 2, static_cast<size_t>(2048));
+        size_t zeroEven = 0;
+        size_t zeroOdd = 0;
+        for (size_t i = 0; i < pairs; ++i)
+        {
+            zeroEven += data[i * 2] == 0;
+            zeroOdd += data[i * 2 + 1] == 0;
+        }
+        const bool littleEndian = zeroOdd * 5 > pairs * 3 && zeroEven * 5 < pairs;
+        const bool bigEndian = zeroEven * 5 > pairs * 3 && zeroOdd * 5 < pairs;
+        if (littleEndian || bigEndian)
+        {
+            std::wstring result;
+            result.reserve(size / 2);
+            for (size_t i = 0; i + 1 < size; i += 2)
+            {
+                unsigned int value = littleEndian ? data[i] | (data[i + 1] << 8)
+                                                  : (data[i] << 8) | data[i + 1];
+                result.push_back(static_cast<wchar_t>(value));
+            }
+            return result;
+        }
     }
 
     int count = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
@@ -181,7 +307,11 @@ std::wstring DecodeText(const std::vector<unsigned char>& bytes)
     DWORD flags = MB_ERR_INVALID_CHARS;
     if (count <= 0)
     {
-        codePage = CP_ACP;
+        // CP_ACP follows the user's Windows locale. On a Western code page,
+        // valid Windows-1250 bytes can decode to U+FFFD or to unrelated Latin-1
+        // characters. Text handled by these viewers uses UTF or Windows-1250,
+        // so use CP1250 as the deterministic legacy fallback.
+        codePage = 1250;
         flags = 0;
         count = MultiByteToWideChar(codePage, flags, reinterpret_cast<const char*>(data),
                                     static_cast<int>(size), nullptr, 0);
@@ -205,6 +335,29 @@ std::wstring PathToFileUri(const std::wstring& path)
         return L"";
     uri.resize(chars);
     return uri;
+}
+
+std::string WideToUtf8(const std::wstring& value);
+
+std::wstring UrlEncodePathSegment(const std::wstring& value)
+{
+    std::string utf8 = WideToUtf8(value);
+    static const wchar_t hex[] = L"0123456789ABCDEF";
+    std::wstring encoded;
+    encoded.reserve(utf8.size() * 3);
+    for (unsigned char ch : utf8)
+    {
+        if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+            (ch >= '0' && ch <= '9') || ch == '-' || ch == '_' || ch == '.' || ch == '~')
+            encoded.push_back(static_cast<wchar_t>(ch));
+        else
+        {
+            encoded.push_back(L'%');
+            encoded.push_back(hex[ch >> 4]);
+            encoded.push_back(hex[ch & 15]);
+        }
+    }
+    return encoded;
 }
 
 std::wstring ModuleDirectory(HINSTANCE module)
@@ -399,6 +552,9 @@ struct ViewerParameters
     std::wstring zoomIn;
     std::wstring zoomOut;
     std::wstring zoomReset;
+    std::wstring lineNumbers;
+    std::wstring wrapLines;
+    std::wstring showWhitespace;
     std::wstring loading;
     std::wstring ready;
     std::wstring initializationFailed;
@@ -408,7 +564,17 @@ struct ViewerParameters
 class ViewerWindow
 {
 public:
-    explicit ViewerWindow(std::unique_ptr<ViewerParameters> parameters) : parameters_(std::move(parameters)) {}
+    explicit ViewerWindow(std::unique_ptr<ViewerParameters> parameters) : parameters_(std::move(parameters))
+    {
+        zoomPercent_ = static_cast<int>(ReadViewerSetting(L"ZoomPercent", 100));
+        zoomPercent_ = (std::max)(25, (std::min)(zoomPercent_, 500));
+        if (parameters_->kind == NativeViewerKind::PrismText)
+        {
+            showLineNumbers_ = ReadViewerSetting(L"PrismLineNumbers", 0) != 0;
+            wrapLines_ = ReadViewerSetting(L"PrismWrapLines", 0) != 0;
+            showWhitespace_ = ReadViewerSetting(L"PrismShowWhitespace", 0) != 0;
+        }
+    }
     ~ViewerWindow()
     {
         CloseBrowser();
@@ -484,6 +650,13 @@ private:
         AppendMenuW(view, MF_STRING, IDM_NV_ZOOM_IN, parameters_->zoomIn.c_str());
         AppendMenuW(view, MF_STRING, IDM_NV_ZOOM_OUT, parameters_->zoomOut.c_str());
         AppendMenuW(view, MF_STRING, IDM_NV_ZOOM_RESET, parameters_->zoomReset.c_str());
+        if (parameters_->kind == NativeViewerKind::PrismText)
+        {
+            AppendMenuW(view, MF_SEPARATOR, 0, nullptr);
+            AppendMenuW(view, MF_STRING, IDM_NV_LINE_NUMBERS, parameters_->lineNumbers.c_str());
+            AppendMenuW(view, MF_STRING, IDM_NV_WRAP_LINES, parameters_->wrapLines.c_str());
+            AppendMenuW(view, MF_STRING, IDM_NV_SHOW_WHITESPACE, parameters_->showWhitespace.c_str());
+        }
         AppendMenuW(bar, MF_POPUP, reinterpret_cast<UINT_PTR>(view), parameters_->viewMenu.c_str());
         return bar;
     }
@@ -493,17 +666,32 @@ private:
         switch (message)
         {
         case WM_CREATE:
+        {
             status_ = CreateWindowExW(0, STATUSCLASSNAMEW, parameters_->loading.c_str(),
-                                      WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP, 0, 0, 0, 0,
-                                      window_, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_NV_STATUS)), parameters_->module, nullptr);
+                                       WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | SBARS_SIZEGRIP, 0, 0, 0, 0,
+                                       window_, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_NV_STATUS)), parameters_->module, nullptr);
+            const std::wstring resetLabel = ControlLabel(parameters_->zoomReset);
+            zoomReset_ = CreateWindowExW(0, L"BUTTON", resetLabel.c_str(),
+                                          WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | BS_PUSHBUTTON | BS_FLAT,
+                                          0, 0, 0, 0, window_, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_NV_ZOOM_RESET)), parameters_->module, nullptr);
+            zoomOut_ = CreateWindowExW(0, L"BUTTON", L"-", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | BS_PUSHBUTTON | BS_FLAT,
+                                        0, 0, 0, 0, window_, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_NV_ZOOM_OUT)), parameters_->module, nullptr);
+            zoomEdit_ = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"100 %", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | ES_CENTER | ES_AUTOHSCROLL,
+                                         0, 0, 0, 0, window_, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_NV_ZOOM_EDIT)), parameters_->module, nullptr);
+            zoomIn_ = CreateWindowExW(0, L"BUTTON", L"+", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | BS_PUSHBUTTON | BS_FLAT,
+                                       0, 0, 0, 0, window_, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_NV_ZOOM_IN)), parameters_->module, nullptr);
+            ApplyChromeFont();
+            UpdateZoomDisplay(zoomPercent_);
+            UpdateViewMenuChecks();
             ApplyTheme();
             BeginBrowserInitialization();
             return 0;
+        }
         case WM_SIZE:
             ResizeChildren();
             return 0;
         case WM_COMMAND:
-            HandleCommand(LOWORD(wParam));
+            HandleCommand(LOWORD(wParam), HIWORD(wParam));
             return 0;
         case WM_KEYDOWN:
             if (wParam == VK_ESCAPE)
@@ -533,6 +721,14 @@ private:
         PluginDarkMode_SetHostColors(parameters_->theme.foreground, parameters_->theme.background);
         PluginDarkMode_ApplyTitleBar(window_);
         PluginDarkMode_ApplyListTreeThemeRecursive(window_);
+    }
+
+    void ApplyChromeFont()
+    {
+        HFONT font = static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+        for (HWND control : {status_, zoomReset_, zoomOut_, zoomEdit_, zoomIn_})
+            if (control != nullptr)
+                SendMessageW(control, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
     }
 
     void BeginBrowserInitialization()
@@ -594,6 +790,70 @@ private:
             settings->put_AreDevToolsEnabled(TRUE);
             settings->put_IsZoomControlEnabled(TRUE);
         }
+        ComPtr<ICoreWebView2_13> webView13;
+        if (SUCCEEDED(webView_.As(&webView13)))
+        {
+            ComPtr<ICoreWebView2Profile> profile;
+            if (SUCCEEDED(webView13->get_Profile(&profile)) && profile)
+                profile->put_PreferredColorScheme(parameters_->theme.dark
+                    ? COREWEBVIEW2_PREFERRED_COLOR_SCHEME_DARK
+                    : COREWEBVIEW2_PREFERRED_COLOR_SCHEME_LIGHT);
+        }
+        const HWND viewerWindow = window_;
+        controller_->add_ZoomFactorChanged(
+            Callback<ICoreWebView2ZoomFactorChangedEventHandler>(
+                [viewerWindow](ICoreWebView2Controller* controller, IUnknown*) -> HRESULT
+                {
+                    ViewerWindow* self = IsWindow(viewerWindow)
+                        ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(viewerWindow, GWLP_USERDATA)) : nullptr;
+                    if (self != nullptr)
+                    {
+                        double zoom = 1.0;
+                        if (SUCCEEDED(controller->get_ZoomFactor(&zoom)))
+                        {
+                            self->UpdateZoomDisplay(static_cast<int>(zoom * 100.0 + 0.5));
+                            WriteViewerSetting(L"ZoomPercent", static_cast<DWORD>(self->zoomPercent_));
+                        }
+                    }
+                    return S_OK;
+                }).Get(), &zoomChangedToken_);
+        controller_->add_AcceleratorKeyPressed(
+            Callback<ICoreWebView2AcceleratorKeyPressedEventHandler>(
+                [viewerWindow](ICoreWebView2Controller*, ICoreWebView2AcceleratorKeyPressedEventArgs* args) -> HRESULT
+                {
+                    UINT virtualKey = 0;
+                    COREWEBVIEW2_KEY_EVENT_KIND kind = COREWEBVIEW2_KEY_EVENT_KIND_KEY_DOWN;
+                    args->get_VirtualKey(&virtualKey);
+                    args->get_KeyEventKind(&kind);
+                    if (kind != COREWEBVIEW2_KEY_EVENT_KIND_KEY_DOWN && kind != COREWEBVIEW2_KEY_EVENT_KIND_SYSTEM_KEY_DOWN)
+                        return S_OK;
+                    int command = 0;
+                    if (virtualKey == VK_ESCAPE)
+                    {
+                        args->put_Handled(TRUE);
+                        PostMessageW(viewerWindow, WM_CLOSE, 0, 0);
+                    }
+                    else if (virtualKey == VK_F5)
+                        command = IDM_NV_REFRESH;
+                    else if (virtualKey == VK_F2)
+                        command = IDM_NV_WRAP_LINES;
+                    else if ((GetKeyState(VK_CONTROL) & 0x8000) != 0)
+                    {
+                        if (virtualKey == '0' || virtualKey == VK_NUMPAD0)
+                            command = IDM_NV_ZOOM_RESET;
+                        else if (virtualKey == VK_OEM_PLUS || virtualKey == VK_ADD)
+                            command = IDM_NV_ZOOM_IN;
+                        else if (virtualKey == VK_OEM_MINUS || virtualKey == VK_SUBTRACT)
+                            command = IDM_NV_ZOOM_OUT;
+                    }
+                    if (command != 0)
+                    {
+                        args->put_Handled(TRUE);
+                        PostMessageW(viewerWindow, WM_COMMAND, command, 0);
+                    }
+                    return S_OK;
+                }).Get(), &acceleratorToken_);
+        controller_->put_ZoomFactor(static_cast<double>(zoomPercent_) / 100.0);
         webView_->add_NavigationCompleted(
             Callback<ICoreWebView2NavigationCompletedEventHandler>(
                 [this](ICoreWebView2*, ICoreWebView2NavigationCompletedEventArgs* args) -> HRESULT
@@ -601,8 +861,31 @@ private:
                     BOOL success = FALSE;
                     args->get_IsSuccess(&success);
                     SetWindowTextW(status_, success ? parameters_->ready.c_str() : parameters_->openFailed.c_str());
+                    if (success && parameters_->theme.dark && parameters_->kind == NativeViewerKind::RenderDocument)
+                    {
+                        std::wstring script = L"(function(){if(!document||!document.documentElement)return;"
+                            L"document.documentElement.style.colorScheme='dark';"
+                            L"var s=document.getElementById('salamander-viewer-dark');if(!s){s=document.createElement('style');"
+                            L"s.id='salamander-viewer-dark';s.textContent=':where(html,body){background-color:" +
+                            CssColor(parameters_->theme.background) + L";color:" + CssColor(parameters_->theme.foreground) +
+                            L"}:where(a:link){color:" + CssColor(parameters_->theme.accent) + L"}';document.head.appendChild(s);}})();";
+                        webView_->ExecuteScript(script.c_str(), nullptr);
+                    }
                     return S_OK;
                 }).Get(), &navigationToken_);
+    }
+
+    std::wstring MapLocalDocument()
+    {
+        ComPtr<ICoreWebView2_3> webView3;
+        std::wstring folder = DirectoryOf(parameters_->filePath);
+        if (folder.empty() || FAILED(webView_.As(&webView3)))
+            return L"";
+        HRESULT hr = webView3->SetVirtualHostNameToFolderMapping(
+            L"document.local", folder.c_str(), COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
+        if (FAILED(hr))
+            return L"";
+        return L"https://document.local/" + UrlEncodePathSegment(FileNameOf(parameters_->filePath));
     }
 
     void LoadDocument()
@@ -620,14 +903,28 @@ private:
             }
             std::wstring text = DecodeText(bytes);
             std::wstring language = PrismLanguageForExtension(extension);
-            std::wstring html = L"<!doctype html><html><head><meta charset='utf-8'><style>"
-                L"html,body{margin:0;background:" + CssColor(parameters_->theme.background) +
+            const wchar_t* prismTheme = parameters_->theme.dark ? L"prism-tomorrow.css" : L"prism.css";
+            std::wstring preClasses = L"language-" + language;
+            if (showLineNumbers_)
+                preClasses += L" line-numbers";
+            std::wstring html = L"<!doctype html><html><head><meta charset='utf-8'>"
+                L"<link rel='stylesheet' href='https://prism.local/themes/" + std::wstring(prismTheme) + L"'>"
+                L"<link rel='stylesheet' href='https://prism.local/plugins/line-numbers/prism-line-numbers.css'>" +
+                (showWhitespace_ ? L"<link rel='stylesheet' href='https://prism.local/plugins/show-invisibles/prism-show-invisibles.css'>" : L"") +
+                L"<style>"
+                L"html,body{margin:0;width:100%;height:100%;overflow:hidden;background:" + CssColor(parameters_->theme.background) +
                 L";color:" + CssColor(parameters_->theme.foreground) +
-                L"}pre{margin:0;padding:16px;white-space:pre;tab-size:4;font:14px Consolas,'Courier New',monospace}"
+                L";color-scheme:" + std::wstring(parameters_->theme.dark ? L"dark" : L"light") +
+                L"}pre[class*='language-']{box-sizing:border-box;margin:0;width:100%;height:100%;padding-top:16px;padding-bottom:16px;"
+                L"overflow:auto;white-space:" + std::wstring(wrapLines_ ? L"pre-wrap" : L"pre") +
+                L";overflow-wrap:" + std::wstring(wrapLines_ ? L"anywhere" : L"normal") +
+                L";tab-size:4;font:14px Consolas,'Courier New',monospace}"
                 L"</style><script src='https://prism.local/prism.js'></script>"
-                L"<script>Prism.plugins.autoloader.languages_path='https://prism.local/components/';</script>"
                 L"<script src='https://prism.local/plugins/autoloader/prism-autoloader.min.js'></script>"
-                L"</head><body><pre><code class='language-" +
+                L"<script>Prism.plugins.autoloader.languages_path='https://prism.local/components/';</script>"
+                L"<script src='https://prism.local/plugins/line-numbers/prism-line-numbers.min.js'></script>" +
+                (showWhitespace_ ? L"<script src='https://prism.local/plugins/show-invisibles/prism-show-invisibles.min.js'></script>" : L"") +
+                L"</head><body><pre class='" + HtmlEncode(preClasses) + L"'><code class='language-" +
                 HtmlEncode(language) + L"'>" + HtmlEncode(text) + L"</code></pre></body></html>";
 
             ComPtr<ICoreWebView2_3> webView3;
@@ -662,6 +959,21 @@ private:
             return;
         }
 
+        if (extension == L".html" || extension == L".htm" || extension == L".xhtml")
+        {
+            std::vector<unsigned char> bytes;
+            if (!ReadFileBytes(parameters_->filePath, bytes))
+            {
+                ShowError(parameters_->openFailed, HRESULT_FROM_WIN32(GetLastError()));
+                return;
+            }
+            std::wstring mappedUri = MapLocalDocument();
+            std::wstring base = mappedUri.empty() ? L"" : L"https://document.local/";
+            std::wstring html = WithBaseElement(DecodeText(bytes), base);
+            webView_->NavigateToString(html.c_str());
+            return;
+        }
+
         if (extension == L".md" || extension == L".markdown" || extension == L".mdown" ||
             extension == L".mkd" || extension == L".mdx")
         {
@@ -679,57 +991,138 @@ private:
                 SetWindowTextW(status_, parameters_->openFailed.c_str());
                 return;
             }
-            std::wstring sourceUri = PathToFileUri(parameters_->filePath);
-            size_t slash = sourceUri.find_last_of(L'/');
-            std::wstring base = slash == std::wstring::npos ? L"" : sourceUri.substr(0, slash + 1);
+            std::wstring mappedUri = MapLocalDocument();
+            std::wstring base = mappedUri.empty() ? L"" : L"https://document.local/";
+            COLORREF codeBackground = BlendColor(parameters_->theme.background, parameters_->theme.foreground,
+                                                  parameters_->theme.dark ? 10 : 6);
+            COLORREF border = BlendColor(parameters_->theme.background, parameters_->theme.foreground,
+                                         parameters_->theme.dark ? 22 : 18);
             std::wstring html = L"<!doctype html><html><head><meta charset='utf-8'><base href='" +
                 HtmlEncode(base) + L"'><style>html,body{margin:0;padding:16px;font:14px/1.6 Arial,sans-serif;background:" +
                 CssColor(parameters_->theme.background) + L";color:" + CssColor(parameters_->theme.foreground) +
-                L"}a{color:" + CssColor(parameters_->theme.accent) +
-                L"}pre,code{font-family:Consolas,'Courier New',monospace}pre{padding:12px;overflow:auto}"
-                L"table{border-collapse:collapse}th,td{border:1px solid #808080;padding:6px}img{max-width:100%}</style>"
+                L"}h1,h2,h3,h4,h5,h6{color:" + CssColor(parameters_->theme.foreground) +
+                L";margin-top:1.2em}a{color:" + CssColor(parameters_->theme.accent) +
+                L";text-decoration:none}a:hover{text-decoration:underline}code{font-family:Consolas,'Courier New',monospace;background:" +
+                CssColor(codeBackground) + L";padding:2px 4px;border-radius:4px}pre{padding:12px;overflow:auto;border-radius:6px;background:" +
+                CssColor(codeBackground) + L";border:1px solid " + CssColor(border) +
+                L"}pre code{padding:0;background:transparent}table{border-collapse:collapse;margin:1em 0;width:100%}th,td{border:1px solid " +
+                CssColor(border) + L";padding:8px;text-align:left}blockquote{border-left:4px solid " +
+                CssColor(parameters_->theme.accent) + L";margin:1em 0;padding:.5em 1em;background:" +
+                CssColor(codeBackground) + L"}img,video,iframe{max-width:100%;height:auto}hr{border:0;border-top:1px solid " +
+                CssColor(border) + L";margin:2em 0}ul,ol{margin:0 0 1em 1.5em}</style>"
                 L"</head><body>" + fragment + L"</body></html>";
             webView_->NavigateToString(html.c_str());
             return;
         }
-        std::wstring uri = PathToFileUri(parameters_->filePath);
+        std::wstring uri = MapLocalDocument();
         if (uri.empty())
             ShowError(parameters_->openFailed, E_INVALIDARG);
         else
             webView_->Navigate(uri.c_str());
     }
 
-    void HandleCommand(int command)
+    void UpdateZoomDisplay(int percent)
+    {
+        zoomPercent_ = (std::max)(25, (std::min)(percent, 500));
+        wchar_t text[16];
+        swprintf_s(text, L"%d %%", zoomPercent_);
+        if (zoomEdit_)
+            SetWindowTextW(zoomEdit_, text);
+    }
+
+    void SetZoom(int percent)
+    {
+        UpdateZoomDisplay(percent);
+        WriteViewerSetting(L"ZoomPercent", static_cast<DWORD>(zoomPercent_));
+        if (controller_)
+            controller_->put_ZoomFactor(static_cast<double>(zoomPercent_) / 100.0);
+    }
+
+    void UpdateViewMenuChecks()
+    {
+        HMENU menu = GetMenu(window_);
+        CheckMenuItem(menu, IDM_NV_LINE_NUMBERS, MF_BYCOMMAND | (showLineNumbers_ ? MF_CHECKED : MF_UNCHECKED));
+        CheckMenuItem(menu, IDM_NV_WRAP_LINES, MF_BYCOMMAND | (wrapLines_ ? MF_CHECKED : MF_UNCHECKED));
+        CheckMenuItem(menu, IDM_NV_SHOW_WHITESPACE, MF_BYCOMMAND | (showWhitespace_ ? MF_CHECKED : MF_UNCHECKED));
+    }
+
+    void HandleCommand(int command, int notification)
     {
         if (command == IDM_NV_CLOSE)
             DestroyWindow(window_);
         else if (command == IDM_NV_REFRESH && webView_)
-            webView_->Reload();
-        else if (controller_ && (command == IDM_NV_ZOOM_IN || command == IDM_NV_ZOOM_OUT || command == IDM_NV_ZOOM_RESET))
+            LoadDocument();
+        else if (command == IDM_NV_ZOOM_IN || command == IDC_NV_ZOOM_IN)
+            SetZoom(zoomPercent_ + 10);
+        else if (command == IDM_NV_ZOOM_OUT || command == IDC_NV_ZOOM_OUT)
+            SetZoom(zoomPercent_ - 10);
+        else if (command == IDM_NV_ZOOM_RESET || command == IDC_NV_ZOOM_RESET)
+            SetZoom(100);
+        else if (command == IDC_NV_ZOOM_EDIT && notification == EN_KILLFOCUS)
         {
-            double zoom = 1.0;
-            controller_->get_ZoomFactor(&zoom);
-            if (command == IDM_NV_ZOOM_IN)
-                zoom = (std::min)(zoom + 0.1, 5.0);
-            else if (command == IDM_NV_ZOOM_OUT)
-                zoom = (std::max)(zoom - 0.1, 0.25);
+            wchar_t text[32];
+            GetWindowTextW(zoomEdit_, text, static_cast<int>(std::size(text)));
+            SetZoom(_wtoi(text));
+        }
+        else if (parameters_->kind == NativeViewerKind::PrismText &&
+                 (command == IDM_NV_LINE_NUMBERS || command == IDM_NV_WRAP_LINES || command == IDM_NV_SHOW_WHITESPACE))
+        {
+            if (command == IDM_NV_LINE_NUMBERS)
+            {
+                showLineNumbers_ = !showLineNumbers_;
+                WriteViewerSetting(L"PrismLineNumbers", showLineNumbers_ ? 1 : 0);
+            }
+            else if (command == IDM_NV_WRAP_LINES)
+            {
+                wrapLines_ = !wrapLines_;
+                WriteViewerSetting(L"PrismWrapLines", wrapLines_ ? 1 : 0);
+            }
             else
-                zoom = 1.0;
-            controller_->put_ZoomFactor(zoom);
+            {
+                showWhitespace_ = !showWhitespace_;
+                WriteViewerSetting(L"PrismShowWhitespace", showWhitespace_ ? 1 : 0);
+            }
+            UpdateViewMenuChecks();
+            LoadDocument();
         }
     }
 
     void ResizeChildren()
     {
         if (status_)
+        {
             SendMessageW(status_, WM_SIZE, 0, 0);
+        }
         RECT client = {};
         GetClientRect(window_, &client);
+        int statusHeight = 0;
         if (status_)
         {
             RECT statusRect = {};
             GetWindowRect(status_, &statusRect);
-            client.bottom -= statusRect.bottom - statusRect.top;
+            statusHeight = statusRect.bottom - statusRect.top;
+            client.bottom -= statusHeight;
+
+            const int buttonWidth = 24;
+            const int editWidth = 56;
+            const int resetWidth = 76;
+            const int gripWidth = GetSystemMetrics(SM_CXVSCROLL);
+            const int top = client.bottom + 2;
+            const int height = (std::max)(statusHeight - 4, 1);
+            int x = client.right - gripWidth;
+            x -= buttonWidth;
+            SetWindowPos(zoomIn_, HWND_TOP, x, top, buttonWidth, height, SWP_NOACTIVATE);
+            x -= editWidth;
+            SetWindowPos(zoomEdit_, HWND_TOP, x, top + 1, editWidth, (std::max)(height - 2, 1), SWP_NOACTIVATE);
+            x -= buttonWidth;
+            SetWindowPos(zoomOut_, HWND_TOP, x, top, buttonWidth, height, SWP_NOACTIVATE);
+            x -= resetWidth;
+            SetWindowPos(zoomReset_, HWND_TOP, x, top, resetWidth, height, SWP_NOACTIVATE);
+            int parts[] = {(std::max)(x - 4, 0), -1};
+            SendMessageW(status_, SB_SETPARTS, 2, reinterpret_cast<LPARAM>(parts));
+            SetWindowPos(status_, HWND_BOTTOM, 0, client.bottom, client.right, statusHeight, SWP_NOACTIVATE);
+            RedrawWindow(window_, nullptr, nullptr,
+                         RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
         }
         if (controller_)
             controller_->put_Bounds(client);
@@ -750,7 +1143,13 @@ private:
             webView_->remove_NavigationCompleted(navigationToken_);
         webView_.Reset();
         if (controller_)
+        {
+            if (zoomChangedToken_.value != 0)
+                controller_->remove_ZoomFactorChanged(zoomChangedToken_);
+            if (acceleratorToken_.value != 0)
+                controller_->remove_AcceleratorKeyPressed(acceleratorToken_);
             controller_->Close();
+        }
         controller_.Reset();
         environment_.Reset();
     }
@@ -767,10 +1166,20 @@ private:
     std::unique_ptr<ViewerParameters> parameters_;
     HWND window_ = nullptr;
     HWND status_ = nullptr;
+    HWND zoomReset_ = nullptr;
+    HWND zoomOut_ = nullptr;
+    HWND zoomEdit_ = nullptr;
+    HWND zoomIn_ = nullptr;
     ComPtr<ICoreWebView2Environment> environment_;
     ComPtr<ICoreWebView2Controller> controller_;
     ComPtr<ICoreWebView2> webView_;
     EventRegistrationToken navigationToken_ = {};
+    EventRegistrationToken acceleratorToken_ = {};
+    EventRegistrationToken zoomChangedToken_ = {};
+    int zoomPercent_ = 100;
+    bool showLineNumbers_ = false;
+    bool wrapLines_ = false;
+    bool showWhitespace_ = false;
 };
 
 DWORD WINAPI ViewerThread(void* raw)
@@ -795,10 +1204,38 @@ DWORD WINAPI ViewerThread(void* raw)
         gWindows.push_back(viewer->Window());
     }
     viewer->Show();
+    const HWND viewerWindow = viewer->Window();
 
     MSG message;
     while (GetMessageW(&message, nullptr, 0, 0) > 0)
     {
+        if (message.message == WM_KEYDOWN || message.message == WM_SYSKEYDOWN)
+        {
+            int command = 0;
+            if (message.wParam == VK_ESCAPE)
+            {
+                PostMessageW(viewerWindow, WM_CLOSE, 0, 0);
+                continue;
+            }
+            if (message.wParam == VK_F5)
+                command = IDM_NV_REFRESH;
+            else if (message.wParam == VK_F2)
+                command = IDM_NV_WRAP_LINES;
+            else if ((GetKeyState(VK_CONTROL) & 0x8000) != 0)
+            {
+                if (message.wParam == '0' || message.wParam == VK_NUMPAD0)
+                    command = IDM_NV_ZOOM_RESET;
+                else if (message.wParam == VK_OEM_PLUS || message.wParam == VK_ADD)
+                    command = IDM_NV_ZOOM_IN;
+                else if (message.wParam == VK_OEM_MINUS || message.wParam == VK_SUBTRACT)
+                    command = IDM_NV_ZOOM_OUT;
+            }
+            if (command != 0)
+            {
+                PostMessageW(viewerWindow, WM_COMMAND, command, 0);
+                continue;
+            }
+        }
         TranslateMessage(&message);
         DispatchMessageW(&message);
     }
@@ -834,6 +1271,9 @@ bool NativeViewer_Show(const NativeViewerRequest& request)
     data->zoomIn = CopyString(request.strings.zoomIn);
     data->zoomOut = CopyString(request.strings.zoomOut);
     data->zoomReset = CopyString(request.strings.zoomReset);
+    data->lineNumbers = CopyString(request.strings.lineNumbers);
+    data->wrapLines = CopyString(request.strings.wrapLines);
+    data->showWhitespace = CopyString(request.strings.showWhitespace);
     data->loading = CopyString(request.strings.loading);
     data->ready = CopyString(request.strings.ready);
     data->initializationFailed = CopyString(request.strings.initializationFailed);

@@ -277,11 +277,19 @@
     <Exec Command="npm ci --prefix &quot;$(PrismAssetsRoot).&quot; --no-audit --no-fund" />
   </Target>
   <Target Name="StageViewerPrismAssets" AfterTargets="Build" DependsOnTargets="RestoreViewerPrismAssets">
-    <ItemGroup><_ViewerPrismAsset Include="$(PrismAssetsRoot)node_modules\prismjs\**\*" /></ItemGroup>
-    <Copy SourceFiles="@(_ViewerPrismAsset)" DestinationFiles="@(_ViewerPrismAsset-&gt;'$(OutDir)prism\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <ItemGroup><_ViewerPrismComponent Include="$(PrismAssetsRoot)node_modules\prismjs\components\prism-*.min.js" /></ItemGroup>
+    <RemoveDir Directories="$(OutDir)prism" />
+    <MakeDir Directories="$(OutDir)prism\components;$(OutDir)prism\themes;$(OutDir)prism\plugins\autoloader;$(OutDir)prism\plugins\line-numbers;$(OutDir)prism\plugins\show-invisibles" />
+    <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\prism.js" DestinationFolder="$(OutDir)prism" />
+    <Copy SourceFiles="@(_ViewerPrismComponent)" DestinationFolder="$(OutDir)prism\components" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\themes\prism.css;$(PrismAssetsRoot)node_modules\prismjs\themes\prism-tomorrow.css" DestinationFolder="$(OutDir)prism\themes" />
+    <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\plugins\autoloader\prism-autoloader.min.js" DestinationFolder="$(OutDir)prism\plugins\autoloader" />
+    <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\plugins\line-numbers\prism-line-numbers.min.js;$(PrismAssetsRoot)node_modules\prismjs\plugins\line-numbers\prism-line-numbers.css" DestinationFolder="$(OutDir)prism\plugins\line-numbers" />
+    <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\plugins\show-invisibles\prism-show-invisibles.min.js;$(PrismAssetsRoot)node_modules\prismjs\plugins\show-invisibles\prism-show-invisibles.css" DestinationFolder="$(OutDir)prism\plugins\show-invisibles" />
   </Target>
   <Target Name="PublishViewerMarkdigRenderer" AfterTargets="Build">
     <Exec Command="dotnet publish &quot;$(ProjectDir)..\..\shared\webviewviewer\markdighelper\MarkdigRenderer.csproj&quot; --configuration Release --runtime $(MarkdigRuntimeIdentifier) --output &quot;$(OutDir).&quot;" />
+    <Delete Files="$(OutDir)MarkdigRenderer.pdb" />
   </Target>
   <ImportGroup Label="ExtensionTargets">
     <Import Project="$(NuGetPackageRoot)microsoft.web.webview2\1.0.2420.47\build\native\Microsoft.Web.WebView2.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.web.webview2\1.0.2420.47\build\native\Microsoft.Web.WebView2.targets')" />

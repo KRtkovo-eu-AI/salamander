@@ -62,6 +62,11 @@ namespace EPocalipse.Json.Viewer
             txtJson.BackColor = palette.InputBackground;
             txtJson.ForeColor = palette.InputForeground;
 
+            tvJson.BackColor = palette.InputBackground;
+            tvJson.ForeColor = palette.InputForeground;
+            tvJson.LineColor = palette.Accent;
+            ThemeHelper.ApplyNativeDarkMode(tvJson);
+
             lblError.LinkColor = palette.Accent;
             lblError.ActiveLinkColor = palette.HighlightForeground;
             lblError.VisitedLinkColor = palette.Accent;

@@ -280,9 +280,18 @@
   </Target>
   <Target Name="StagePrismAssets" AfterTargets="Build" DependsOnTargets="RestorePrismAssets">
     <ItemGroup>
-      <_PrismAsset Include="$(PrismAssetsRoot)node_modules\prismjs\**\*" />
+      <_PrismComponent Include="$(PrismAssetsRoot)node_modules\prismjs\components\prism-*.min.js" />
     </ItemGroup>
-    <Copy SourceFiles="@(_PrismAsset)" DestinationFiles="@(_PrismAsset-&gt;'$(OutDir)prism\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <RemoveDir Directories="$(OutDir)prism" />
+    <MakeDir Directories="$(OutDir)prism\components;$(OutDir)prism\themes;$(OutDir)prism\plugins\autoloader;$(OutDir)prism\plugins\line-numbers;$(OutDir)prism\plugins\show-invisibles" />
+    <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\prism.js" DestinationFolder="$(OutDir)prism" />
+    <Copy SourceFiles="@(_PrismComponent)" DestinationFolder="$(OutDir)prism\components" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\themes\prism.css;$(PrismAssetsRoot)node_modules\prismjs\themes\prism-tomorrow.css" DestinationFolder="$(OutDir)prism\themes" />
+    <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\plugins\autoloader\prism-autoloader.min.js" DestinationFolder="$(OutDir)prism\plugins\autoloader" />
+    <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\plugins\line-numbers\prism-line-numbers.min.js;$(PrismAssetsRoot)node_modules\prismjs\plugins\line-numbers\prism-line-numbers.css" DestinationFolder="$(OutDir)prism\plugins\line-numbers" />
+    <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\plugins\show-invisibles\prism-show-invisibles.min.js;$(PrismAssetsRoot)node_modules\prismjs\plugins\show-invisibles\prism-show-invisibles.css" DestinationFolder="$(OutDir)prism\plugins\show-invisibles" />
+    <RemoveDir Directories="$(OutDir)data;$(OutDir)runtimes" />
+    <Delete Files="$(OutDir)Microsoft.Web.WebView2.Core.dll;$(OutDir)Microsoft.Web.WebView2.WinForms.dll;$(OutDir)Newtonsoft.Json.dll;$(OutDir)PrismSharp.dll;$(OutDir)TextViewer.Managed.dll" />
   </Target>
   <ImportGroup Label="ExtensionTargets">
     <Import Project="$(NuGetPackageRoot)microsoft.web.webview2\1.0.2420.47\build\native\Microsoft.Web.WebView2.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.web.webview2\1.0.2420.47\build\native\Microsoft.Web.WebView2.targets')" />
