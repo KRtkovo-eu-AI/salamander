@@ -467,8 +467,8 @@ function Get-NetworkInfo {
 
 # ============================================================================
 # Sensor Info - Uses HardView's HardwareWrapper.dll (C++/CLI managed wrapper)
-# Required files in lib/: HardwareWrapper.dll, HardwareWrapper.deps.json,
-#   HardwareWrapper.runtimeconfig.json, LibreHardwareMonitorLib.dll, HidSharp.dll
+# The wrapper and its managed HardView dependencies live in lib/. The shared
+# VC runtime is resolved from the Salamander application directory.
 # ============================================================================
 
 $script:MonitorManager = $null
@@ -484,14 +484,25 @@ function Initialize-SensorLibrary {
 
     foreach ($dllPath in $wrapperPaths) {
         if (Test-Path -LiteralPath $dllPath -PathType Leaf) {
+            $originalPath = $env:PATH
             try {
+                # The portable Salamander package already carries the VC runtime
+                # beside salamand.exe. Make that shared copy visible while the
+                # mixed-mode HardView wrapper resolves its native dependencies.
+                $salamanderRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+                if (Test-Path -LiteralPath (Join-Path $salamanderRoot 'msvcp140.dll')) {
+                    $env:PATH = $salamanderRoot + [IO.Path]::PathSeparator + $originalPath
+                }
                 $resolvedPath = (Resolve-Path -LiteralPath $dllPath).Path
                 Add-Type -Path $resolvedPath -ErrorAction Stop
                 $script:MonitorManager = [MonitorManager]
                 $script:MonitorManager::Init()
                 $script:SensorAvailable = $true
                 return $true
-            } catch {}
+            } catch {
+            } finally {
+                $env:PATH = $originalPath
+            }
         }
     }
     return $false

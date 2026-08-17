@@ -2143,6 +2143,28 @@ def main() -> int:
         r"extensions\\hardware-monitor",
         "Salamatrix build does not stage Hardware Monitor")
     require(
+        salamatrix_project,
+        r"HardwareMonitorFiles.*?Exclude=.*?copy-sensor-dlls\.bat.*?"
+        r"Delete Files=.*?copy-sensor-dlls\.bat",
+        "Salamatrix build ships the Hardware Monitor developer copy helper")
+    require(
+        hardware_monitor,
+        r"salamanderRoot.*?msvcp140\.dll.*?env:PATH.*?Add-Type.*?finally.*?"
+        r"env:PATH = \$originalPath",
+        "Hardware Monitor does not resolve its shared VC runtime from Salamander")
+    for redundant_library in (
+            "HardwareWrapper.deps.json", "HardwareWrapper.runtimeconfig.json",
+            "msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll",
+            "hostpolicy.dll"):
+        require_absent(
+            hardware_wrapper_project,
+            rf'<Copy SourceFiles=.*?{re.escape(redundant_library)}',
+            f"Hardware Monitor still stages redundant {redundant_library}")
+        require(
+            hardware_wrapper_project,
+            rf'RedundantHardwareMonitorFile Include=.*?{re.escape(redundant_library)}',
+            f"Hardware Monitor does not clean stale {redundant_library}")
+    require(
         lock_inspector,
         r"CloseMainWindow.*?confirmEnd.*?\.Kill\(\)",
         "File Lock Inspector does not separate graceful close from forced termination")

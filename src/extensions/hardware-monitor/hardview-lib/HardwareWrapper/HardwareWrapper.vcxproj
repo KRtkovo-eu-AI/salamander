@@ -161,6 +161,15 @@
     </PropertyGroup>
     <MakeDir Directories="$(ExtensionDst)\locales" />
     <MakeDir Directories="$(ExtensionDst)\lib" />
+    <ItemGroup>
+      <RedundantHardwareMonitorFile Include="$(ExtensionDst)\lib\HardwareWrapper.deps.json" />
+      <RedundantHardwareMonitorFile Include="$(ExtensionDst)\lib\HardwareWrapper.runtimeconfig.json" />
+      <RedundantHardwareMonitorFile Include="$(ExtensionDst)\lib\msvcp140.dll" />
+      <RedundantHardwareMonitorFile Include="$(ExtensionDst)\lib\vcruntime140.dll" />
+      <RedundantHardwareMonitorFile Include="$(ExtensionDst)\lib\vcruntime140_1.dll" />
+      <RedundantHardwareMonitorFile Include="$(ExtensionDst)\lib\hostpolicy.dll" />
+    </ItemGroup>
+    <Delete Files="@(RedundantHardwareMonitorFile)" />
     <Copy SourceFiles="$(ExtensionSrc)\extension.json" DestinationFolder="$(ExtensionDst)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(ExtensionSrc)\main.ps1" DestinationFolder="$(ExtensionDst)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(ExtensionSrc)\icon.svg" DestinationFolder="$(ExtensionDst)" SkipUnchangedFiles="true" />
@@ -180,11 +189,6 @@
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(ExtensionDst)\lib" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(HardViewLibSrc)\LibreHardwareMonitorLib.dll" DestinationFolder="$(ExtensionDst)\lib" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(HardViewLibSrc)\HidSharp.dll" DestinationFolder="$(ExtensionDst)\lib" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="$(HardViewLibSrc)\HardwareWrapper.deps.json" DestinationFolder="$(ExtensionDst)\lib" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="$(HardViewLibSrc)\HardwareWrapper.runtimeconfig.json" DestinationFolder="$(ExtensionDst)\lib" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="$(HardViewLibSrc)\msvcp140.dll" DestinationFolder="$(ExtensionDst)\lib" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="$(HardViewLibSrc)\vcruntime140.dll" DestinationFolder="$(ExtensionDst)\lib" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="$(HardViewLibSrc)\vcruntime140_1.dll" DestinationFolder="$(ExtensionDst)\lib" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(HardViewLibSrc)\System.Management.dll" DestinationFolder="$(ExtensionDst)\lib" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(HardViewLibSrc)\System.CodeDom.dll" DestinationFolder="$(ExtensionDst)\lib" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(HardViewLibSrc)\System.IO.Ports.dll" DestinationFolder="$(ExtensionDst)\lib" SkipUnchangedFiles="true" />
@@ -192,7 +196,6 @@
     <Copy SourceFiles="$(HardViewLibSrc)\DiskInfoToolkit.dll" DestinationFolder="$(ExtensionDst)\lib" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(HardViewLibSrc)\RAMSPDToolkit-NDD.dll" DestinationFolder="$(ExtensionDst)\lib" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(HardViewLibSrc)\Ijwhost.dll" DestinationFolder="$(ExtensionDst)\lib" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="$(HardViewLibSrc)\hostpolicy.dll" DestinationFolder="$(ExtensionDst)\lib" SkipUnchangedFiles="true" />
   </Target>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
