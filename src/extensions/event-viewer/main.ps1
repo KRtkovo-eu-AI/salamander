@@ -130,7 +130,10 @@ $parts = @($path -split '[\\/]' | Where-Object {
     -not [string]::IsNullOrWhiteSpace([string]$_)
 })
 $section = if ($parts.Count -gt 1) { [string]$parts[1] } else { '' }
-$subPath = if ($parts.Count -gt 2) { @($parts[2..($parts.Count - 1)]) } else { @() }
+$subPath = @()
+if ($parts.Count -gt 2) {
+    $subPath = @($parts[2..($parts.Count - 1)])
+}
 
 if ($section -eq 'windows-logs') {
     $logs = @('Application','Security','Setup','System','ForwardedEvents')
@@ -141,7 +144,7 @@ if ($section -eq 'windows-logs') {
         })
         [void]$Salamander.file_system.AddItems($items)
     } else {
-        $logName = [string]$subPath[0]
+        $logName = ([string]$subPath[0]) -replace '^log-', ''
         Add-EventRows @(Get-WinEvent -LogName $logName -MaxEvents 250 -ErrorAction Stop) $logName $strings
     }
     return
@@ -167,7 +170,10 @@ if ($section -eq 'applications-services') {
     $allLogs = @(Get-WinEvent -ListLog * -ErrorAction SilentlyContinue |
         Where-Object { -not $_.IsClassicLog -and $_.LogName -like '*/*' } |
         Select-Object -ExpandProperty LogName)
-    $prefix = if ($subPath.Count -gt 0) { $subPath -join '/' } else { '' }
+    $decodedPath = @($subPath | ForEach-Object {
+        ([string]$_) -replace '^log-node-', ''
+    })
+    $prefix = if ($decodedPath.Count -gt 0) { $decodedPath -join '/' } else { '' }
     if ($allLogs -contains $prefix) {
         Add-EventRows @(Get-WinEvent -LogName $prefix -MaxEvents 250 -ErrorAction Stop) $prefix $strings
         return

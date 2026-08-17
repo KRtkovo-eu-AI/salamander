@@ -2171,6 +2171,11 @@ def main() -> int:
         raise AssertionError(
             "Hardware Monitor Device Manager hierarchy and actions are incomplete")
     require(
+        hardware_monitor,
+        r"viewId\.StartsWith\('device-class-'\).*?Substring.*?"
+        r"Get-DeviceManagerItems \$deviceClass",
+        "Hardware Monitor does not decode a selected PnP class before listing devices")
+    require(
         manifest + packages + json.dumps(hardware_monitor_manifest),
         r"itemIdPrefix.*?ItemIdPrefix.*?data->Item\.Id\.compare",
         "Device Manager actions are not scoped to matching FS items")
@@ -2184,6 +2189,12 @@ def main() -> int:
             "ToXml()", "$Salamander.ui.Dialog", "'textbox'")):
         raise AssertionError(
             "Event Viewer does not expose log hierarchy, events, and native details")
+    require(
+        event_viewer,
+        r"subPath = @\(\).*?parts\.Count -gt 2.*?"
+        r"subPath\[0\].*?-replace '\^log-'.*?Get-WinEvent -LogName \$logName.*?"
+        r"decodedPath.*?-replace '\^log-node-'.*?decodedPath -join '/'",
+        "Event Viewer does not decode nested log ids before querying Windows")
     require(
         setup,
         r"extensions\\event-viewer.*?IsPluginSelected\('eventviewer'\).*?"

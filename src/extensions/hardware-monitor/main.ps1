@@ -1263,7 +1263,10 @@ else {
         }
         'device-manager' {
             $subItems = New-Object 'System.Collections.Generic.List[hashtable]'
-            foreach ($deviceItem in (Get-DeviceManagerItems $viewId)) {
+            $deviceClass = if ($viewId.StartsWith('device-class-')) {
+                $viewId.Substring('device-class-'.Length)
+            } else { $viewId }
+            foreach ($deviceItem in (Get-DeviceManagerItems $deviceClass)) {
                 $subItems.Add($deviceItem)
             }
         }
