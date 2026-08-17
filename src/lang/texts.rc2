@@ -2195,6 +2195,10 @@ STRINGTABLE
  IDS_EXCOL_CANONICAL, "Canonical name"
  IDS_EXCOL_COUNT, "%d properties selected"
  IDS_EXCOL_MANAGE, "Choose Windows properties shown in Available Columns"
+ IDS_EXCOL_SELECTED_GROUP, "Selected properties"
+ IDS_EXCOL_REMOVE, "&Remove"
+ IDS_EXCOL_MOVE_UP, "Move &up"
+ IDS_EXCOL_MOVE_DOWN, "Move &down"
  IDS_VIEW_DYNAMIC_LIMIT, "The maximum number of additional detailed views has been reached."
 
  IDS_MENU_OPT_MANAGECONFIG, "&Manage Configurations..."

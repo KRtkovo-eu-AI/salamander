@@ -615,21 +615,32 @@ class CExplorerColumnsDialog : public CCommonDialog
 protected:
     CViewTemplates* Config;
     BYTE Available[EXPLORER_COLUMNS_COUNT];
+    WORD SelectedOrder[EXPLORER_COLUMNS_COUNT];
+    int SelectedCount;
+    int ViewIndex;
     BOOL DisableNotification;
     int Category;
     int MinWidth;
     int MinHeight;
+    HIMAGELIST HCategoryImages;
+    HIMAGELIST HPropertySpacingImages;
+    HIMAGELIST HSelectedSpacingImages;
 
     void FillCategories();
     void FillProperties();
+    void FillSelected(int explorerIndex = -1);
     void UpdateDetails();
     void UpdateSelectedCount();
+    void UpdateSelectedButtons();
+    void SetAvailable(int explorerIndex, BOOL available);
+    void MoveSelected(BOOL up);
+    void ApplySelectedOrder();
     BOOL IsInCategory(int explorerIndex) const;
     BOOL MatchesSearch(int explorerIndex) const;
     void LayoutControls();
 
 public:
-    CExplorerColumnsDialog(HWND parent, CViewTemplates* config);
+    CExplorerColumnsDialog(HWND parent, CViewTemplates* config, int viewIndex);
 
 protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);

@@ -20,6 +20,7 @@ def main() -> int:
     edit_list = (ROOT / "edtlbwnd.cpp").read_text(encoding="utf-8")
     panel = (ROOT / "fileswn9.cpp").read_text(encoding="utf-8")
     menu = (ROOT / "mainwnd3.cpp").read_text(encoding="utf-8")
+    gui = (ROOT / "gui.cpp").read_text(encoding="utf-8")
 
     require(
         "SALAMANDER_VIEWTEMPLATE_AVAILABLEEXPLORERCOLUMNS" in model
@@ -39,8 +40,28 @@ def main() -> int:
         "class CExplorerColumnsDialog" in (ROOT / "cfgdlg.h").read_text(encoding="utf-8")
         and "IDS_EXCOL_COMMON" in dialog
         and "GetExplorerColumnCategory" in dialog
-        and "IDC_EXCOL_SEARCH" in dialog,
-        "the property selector must retain categories, Common, and live search",
+        and "IDC_EXCOL_SEARCH" in dialog
+        and "TVIF_PARAM" in dialog
+        and "ListView_EnableGroupView(list, TRUE)" in dialog,
+        "the property selector must retain working category filters, grouped categories, Common, and live search",
+    )
+    require(
+        "IDC_EXCOL_SELECTED_LIST" in dialog
+        and "void CExplorerColumnsDialog::MoveSelected" in dialog
+        and "ApplySelectedOrder();" in dialog,
+        "selected properties must remain directly removable and reorderable",
+    )
+    require(
+        '"ExplorerCategoryDocument"' in dialog
+        and '"ExplorerCategoryImage"' in dialog
+        and '"ExplorerCategoryAudio"' in dialog
+        and '"ExplorerCategoryVideo"' in dialog,
+        "category rows must use category-specific icons",
+    )
+    require(
+        "{0, 1, 2, 3, 6, 4, 5, 9, 8, 7}" in gui
+        and "ILC_COLOR32 | ILC_MASK" in gui,
+        "the Windows-property header action must stay on the right and preserve SVG alpha",
     )
     require(
         "TLBHDRMASK_SEARCH | TLBHDRMASK_FILTER" in edit_list

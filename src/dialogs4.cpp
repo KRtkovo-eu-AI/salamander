@@ -1627,15 +1627,41 @@ static BOOL IsCommonExplorerColumn(int index)
     return FALSE;
 }
 
-CExplorerColumnsDialog::CExplorerColumnsDialog(HWND parent, CViewTemplates* config)
+CExplorerColumnsDialog::CExplorerColumnsDialog(HWND parent, CViewTemplates* config, int viewIndex)
     : CCommonDialog(HLanguage, IDD_EXPLORER_COLUMNS, parent)
 {
     Config = config;
     memcpy(Available, config->ExplorerColumnAvailable, sizeof(Available));
+    SelectedCount = 0;
+    ViewIndex = viewIndex;
+    BOOL used[EXPLORER_COLUMNS_COUNT];
+    ZeroMemory(used, sizeof(used));
+    CViewTemplate* view = viewIndex >= 0 && viewIndex < config->GetCount() ? config->Get(viewIndex) : NULL;
+    if (view != NULL)
+    {
+        for (int i = 0; i < EXPLORER_COLUMNS_COUNT; i++)
+        {
+            int explorerIndex = view->ExplorerColumnOrder[i];
+            if (explorerIndex >= 0 && explorerIndex < EXPLORER_COLUMNS_COUNT &&
+                !used[explorerIndex])
+            {
+                used[explorerIndex] = TRUE;
+                if (Available[explorerIndex])
+                    SelectedOrder[SelectedCount++] = (WORD)explorerIndex;
+            }
+        }
+    }
+    int explorerCount = min(GetExplorerColumnCount(), EXPLORER_COLUMNS_COUNT);
+    for (int i = 0; i < explorerCount && i < EXPLORER_COLUMNS_COUNT; i++)
+        if (Available[i] && !used[i])
+            SelectedOrder[SelectedCount++] = (WORD)i;
     DisableNotification = FALSE;
     Category = 0;
     MinWidth = 0;
     MinHeight = 0;
+    HCategoryImages = NULL;
+    HPropertySpacingImages = NULL;
+    HSelectedSpacingImages = NULL;
 }
 
 void CExplorerColumnsDialog::FillCategories()
@@ -1643,13 +1669,14 @@ void CExplorerColumnsDialog::FillCategories()
     HWND tree = GetDlgItem(HWindow, IDC_EXCOL_CATEGORIES);
     TreeView_DeleteAllItems(tree);
 
-    int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
+    int iconSize = MulDiv(24, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI);
     HIMAGELIST images = ImageList_Create(iconSize, iconSize, ILC_COLOR32 | ILC_MASK, 8, 1);
     if (images != NULL)
     {
         const char* iconNames[] = {
-            "SelectAll", "Views", "OpenFolder", "Properties",
-            "View", "View", "View", "Windows"};
+            "SelectAll", "ExplorerCategoryCommon", "ExplorerCategoryFileSystem",
+            "ExplorerCategoryDocument", "ExplorerCategoryImage", "ExplorerCategoryAudio",
+            "ExplorerCategoryVideo", "ExplorerCategoryOther"};
         for (int i = 0; i < _countof(iconNames); i++)
         {
             HBITMAP bitmap = NULL;
@@ -1662,7 +1689,9 @@ void CExplorerColumnsDialog::FillCategories()
                 ImageList_AddIcon(images, LoadIcon(NULL, IDI_APPLICATION));
         }
         TreeView_SetImageList(tree, images, TVSIL_NORMAL);
+        HCategoryImages = images;
     }
+    TreeView_SetItemHeight(tree, iconSize + MulDiv(4, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI));
 
     const char* names[] = {
         LoadStr(IDS_EXCOL_ALL), LoadStr(IDS_EXCOL_COMMON), LoadStr(IDS_EXCOL_FILESYSTEM),
@@ -1728,18 +1757,42 @@ void CExplorerColumnsDialog::FillProperties()
 
     DisableNotification = TRUE;
     ListView_DeleteAllItems(list);
+    ListView_RemoveAllGroups(list);
+    BOOL usedCategories[6];
+    ZeroMemory(usedCategories, sizeof(usedCategories));
+    int count = min(GetExplorerColumnCount(), EXPLORER_COLUMNS_COUNT);
+    for (int i = 0; i < count; i++)
+        if (IsInCategory(i) && MatchesSearch(i))
+            usedCategories[GetExplorerColumnCategory(i)] = TRUE;
+    for (int category = eccFileSystem; category <= eccOther; category++)
+    {
+        if (!usedCategories[category])
+            continue;
+        LVGROUP group;
+        ZeroMemory(&group, sizeof(group));
+        group.cbSize = sizeof(group);
+        group.mask = LVGF_HEADER | LVGF_GROUPID;
+        wchar_t header[128];
+        MultiByteToWideChar(CP_ACP, 0,
+                            GetExplorerCategoryText((CExplorerColumnCategory)category), -1,
+                            header, _countof(header));
+        header[_countof(header) - 1] = 0;
+        group.pszHeader = header;
+        group.iGroupId = category;
+        ListView_InsertGroup(list, -1, &group);
+    }
     int itemToSelect = -1;
-    int count = GetExplorerColumnCount();
     for (int i = 0; i < count; i++)
     {
         if (!IsInCategory(i) || !MatchesSearch(i))
             continue;
         LVITEM item;
         ZeroMemory(&item, sizeof(item));
-        item.mask = LVIF_TEXT | LVIF_PARAM;
+        item.mask = LVIF_TEXT | LVIF_PARAM | LVIF_GROUPID;
         item.iItem = ListView_GetItemCount(list);
         item.pszText = (char*)GetExplorerColumnName(i);
         item.lParam = i;
+        item.iGroupId = GetExplorerColumnCategory(i);
         int inserted = ListView_InsertItem(list, &item);
         ListView_SetCheckState(list, inserted, Available[i] != 0);
         if (i == selectedExplorerIndex)
@@ -1755,10 +1808,131 @@ void CExplorerColumnsDialog::FillProperties()
     UpdateSelectedCount();
 }
 
+void CExplorerColumnsDialog::FillSelected(int explorerIndex)
+{
+    HWND list = GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST);
+    if (explorerIndex < 0)
+    {
+        int selectedItem = ListView_GetNextItem(list, -1, LVNI_SELECTED);
+        if (selectedItem >= 0)
+        {
+            LVITEM item;
+            ZeroMemory(&item, sizeof(item));
+            item.mask = LVIF_PARAM;
+            item.iItem = selectedItem;
+            if (ListView_GetItem(list, &item))
+                explorerIndex = (int)item.lParam;
+        }
+    }
+    DisableNotification = TRUE;
+    ListView_DeleteAllItems(list);
+    int itemToSelect = -1;
+    for (int i = 0; i < SelectedCount; i++)
+    {
+        int index = SelectedOrder[i];
+        LVITEM item;
+        ZeroMemory(&item, sizeof(item));
+        item.mask = LVIF_TEXT | LVIF_PARAM;
+        item.iItem = i;
+        item.pszText = (char*)GetExplorerColumnName(index);
+        item.lParam = index;
+        ListView_InsertItem(list, &item);
+        if (index == explorerIndex)
+            itemToSelect = i;
+    }
+    if (itemToSelect >= 0)
+    {
+        ListView_SetItemState(list, itemToSelect, LVIS_SELECTED | LVIS_FOCUSED,
+                              LVIS_SELECTED | LVIS_FOCUSED);
+        ListView_EnsureVisible(list, itemToSelect, FALSE);
+    }
+    DisableNotification = FALSE;
+    UpdateSelectedButtons();
+    UpdateSelectedCount();
+}
+
+void CExplorerColumnsDialog::SetAvailable(int explorerIndex, BOOL available)
+{
+    if (explorerIndex < 0 || explorerIndex >= EXPLORER_COLUMNS_COUNT ||
+        Available[explorerIndex] == (available ? TRUE : FALSE))
+        return;
+    Available[explorerIndex] = available ? TRUE : FALSE;
+    if (available && SelectedCount < EXPLORER_COLUMNS_COUNT)
+        SelectedOrder[SelectedCount++] = (WORD)explorerIndex;
+    else
+    {
+        for (int i = 0; i < SelectedCount; i++)
+            if (SelectedOrder[i] == explorerIndex)
+            {
+                memmove(SelectedOrder + i, SelectedOrder + i + 1,
+                        (SelectedCount - i - 1) * sizeof(SelectedOrder[0]));
+                SelectedCount--;
+                break;
+            }
+    }
+    FillSelected(available ? explorerIndex : -1);
+    UpdateDetails();
+}
+
+void CExplorerColumnsDialog::UpdateSelectedButtons()
+{
+    HWND list = GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST);
+    int item = ListView_GetNextItem(list, -1, LVNI_SELECTED);
+    EnableWindow(GetDlgItem(HWindow, IDC_EXCOL_REMOVE), item >= 0);
+    EnableWindow(GetDlgItem(HWindow, IDC_EXCOL_MOVE_UP), item > 0);
+    EnableWindow(GetDlgItem(HWindow, IDC_EXCOL_MOVE_DOWN), item >= 0 && item + 1 < SelectedCount);
+}
+
+void CExplorerColumnsDialog::MoveSelected(BOOL up)
+{
+    HWND list = GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST);
+    int item = ListView_GetNextItem(list, -1, LVNI_SELECTED);
+    int other = up ? item - 1 : item + 1;
+    if (item < 0 || other < 0 || other >= SelectedCount)
+        return;
+    WORD tmp = SelectedOrder[item];
+    SelectedOrder[item] = SelectedOrder[other];
+    SelectedOrder[other] = tmp;
+    FillSelected(SelectedOrder[other]);
+}
+
+void CExplorerColumnsDialog::ApplySelectedOrder()
+{
+    if (ViewIndex < 0 || ViewIndex >= Config->GetCount())
+        return;
+    CViewTemplate* view = Config->Get(ViewIndex);
+    WORD order[EXPLORER_COLUMNS_COUNT];
+    BOOL used[EXPLORER_COLUMNS_COUNT];
+    ZeroMemory(used, sizeof(used));
+    int out = 0;
+    for (int i = 0; i < SelectedCount; i++)
+    {
+        int index = SelectedOrder[i];
+        if (index >= 0 && index < EXPLORER_COLUMNS_COUNT && !used[index])
+        {
+            order[out++] = (WORD)index;
+            used[index] = TRUE;
+        }
+    }
+    for (int i = 0; i < EXPLORER_COLUMNS_COUNT; i++)
+    {
+        int index = view->ExplorerColumnOrder[i];
+        if (index >= 0 && index < EXPLORER_COLUMNS_COUNT && !used[index])
+        {
+            order[out++] = (WORD)index;
+            used[index] = TRUE;
+        }
+    }
+    for (int i = 0; i < EXPLORER_COLUMNS_COUNT; i++)
+        if (!used[i])
+            order[out++] = (WORD)i;
+    memcpy(view->ExplorerColumnOrder, order, sizeof(order));
+}
+
 void CExplorerColumnsDialog::UpdateSelectedCount()
 {
     int selected = 0;
-    int count = GetExplorerColumnCount();
+    int count = min(GetExplorerColumnCount(), EXPLORER_COLUMNS_COUNT);
     for (int i = 0; i < count; i++)
         if (Available[i])
             selected++;
@@ -1770,6 +1944,9 @@ void CExplorerColumnsDialog::UpdateSelectedCount()
 void CExplorerColumnsDialog::UpdateDetails()
 {
     HWND list = GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES);
+    HWND selectedList = GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST);
+    if (GetFocus() == selectedList)
+        list = selectedList;
     int itemIndex = ListView_GetNextItem(list, -1, LVNI_SELECTED);
     if (itemIndex < 0)
     {
@@ -1804,9 +1981,9 @@ void CExplorerColumnsDialog::LayoutControls()
     const int buttonsY = client.bottom - 21;
     const int contentTop = 28;
     const int contentBottom = buttonsY - 8;
-    const int treeWidth = 112;
-    const int detailsWidth = 170;
-    const int gap = 5;
+    const int treeWidth = 120;
+    const int detailsWidth = max(210, (client.right - 3 * margin) / 3);
+    const int gap = 6;
     int listLeft = margin + treeWidth + gap;
     int detailsLeft = client.right - margin - detailsWidth;
     int listWidth = detailsLeft - gap - listLeft;
@@ -1817,10 +1994,29 @@ void CExplorerColumnsDialog::LayoutControls()
                contentBottom - contentTop, TRUE);
     MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES), listLeft, contentTop, listWidth,
                contentBottom - contentTop, TRUE);
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_DETAILS_GROUP), detailsLeft, contentTop - 4,
-               detailsWidth, contentBottom - contentTop + 4, TRUE);
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_DETAILS), detailsLeft + 8, contentTop + 10,
-               detailsWidth - 16, contentBottom - contentTop - 18, TRUE);
+    int rightHeight = contentBottom - contentTop;
+    int selectedHeight = max(118, rightHeight / 2);
+    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_GROUP), detailsLeft, contentTop - 4,
+               detailsWidth, selectedHeight, TRUE);
+    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST), detailsLeft + 8, contentTop + 10,
+               detailsWidth - 16, selectedHeight - 45, TRUE);
+    int buttonTop = contentTop + selectedHeight - 29;
+    int buttonWidth = (detailsWidth - 26) / 3;
+    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_REMOVE), detailsLeft + 8, buttonTop,
+               buttonWidth, 14, TRUE);
+    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_MOVE_UP), detailsLeft + 13 + buttonWidth, buttonTop,
+               buttonWidth, 14, TRUE);
+    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_MOVE_DOWN), detailsLeft + 18 + 2 * buttonWidth, buttonTop,
+               buttonWidth, 14, TRUE);
+    int detailsTop = contentTop + selectedHeight + 5;
+    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_DETAILS_GROUP), detailsLeft, detailsTop,
+               detailsWidth, contentBottom - detailsTop, TRUE);
+    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_DETAILS), detailsLeft + 8, detailsTop + 14,
+               detailsWidth - 16, contentBottom - detailsTop - 22, TRUE);
+    ListView_SetColumnWidth(GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES), 0,
+                            max(40, listWidth - GetSystemMetrics(SM_CXVSCROLL) - 4));
+    ListView_SetColumnWidth(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST), 0,
+                            max(40, detailsWidth - 16 - GetSystemMetrics(SM_CXVSCROLL) - 4));
     MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_COUNT), margin, buttonsY + 2, 220, 12, TRUE);
     MoveWindow(GetDlgItem(HWindow, IDOK), client.right - 107, buttonsY, 50, 14, TRUE);
     MoveWindow(GetDlgItem(HWindow, IDCANCEL), client.right - 50, buttonsY, 50, 14, TRUE);
@@ -1835,27 +2031,47 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
         SetWindowText(HWindow, LoadStr(IDS_EXCOL_TITLE));
         SetDlgItemText(HWindow, IDC_EXCOL_SEARCH_LABEL, LoadStr(IDS_EXCOL_SEARCH));
         SetDlgItemText(HWindow, IDC_EXCOL_DETAILS_GROUP, LoadStr(IDS_EXCOL_DETAILS));
+        SetDlgItemText(HWindow, IDC_EXCOL_SELECTED_GROUP, LoadStr(IDS_EXCOL_SELECTED_GROUP));
+        SetDlgItemText(HWindow, IDC_EXCOL_REMOVE, LoadStr(IDS_EXCOL_REMOVE));
+        SetDlgItemText(HWindow, IDC_EXCOL_MOVE_UP, LoadStr(IDS_EXCOL_MOVE_UP));
+        SetDlgItemText(HWindow, IDC_EXCOL_MOVE_DOWN, LoadStr(IDS_EXCOL_MOVE_DOWN));
         SetDlgItemText(HWindow, IDC_EXCOL_SEARCH, "");
         HWND list = GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES);
         ListView_SetExtendedListViewStyle(list, LVS_EX_FULLROWSELECT | LVS_EX_CHECKBOXES | LVS_EX_DOUBLEBUFFER);
+        ListView_EnableGroupView(list, TRUE);
         LVCOLUMN column;
         ZeroMemory(&column, sizeof(column));
         column.mask = LVCF_WIDTH;
-        column.cx = 200;
+        column.cx = 240;
         ListView_InsertColumn(list, 0, &column);
+        HWND selectedList = GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST);
+        ListView_SetExtendedListViewStyle(selectedList, LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
+        column.cx = 200;
+        ListView_InsertColumn(selectedList, 0, &column);
+        int rowHeight = MulDiv(23, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI);
+        HPropertySpacingImages = ImageList_Create(1, rowHeight, ILC_COLOR32, 1, 1);
+        HSelectedSpacingImages = ImageList_Create(1, rowHeight, ILC_COLOR32, 1, 1);
+        if (HPropertySpacingImages != NULL)
+            ListView_SetImageList(list, HPropertySpacingImages, LVSIL_SMALL);
+        if (HSelectedSpacingImages != NULL)
+            ListView_SetImageList(selectedList, HSelectedSpacingImages, LVSIL_SMALL);
         RECT windowRect;
         GetWindowRect(HWindow, &windowRect);
         MinWidth = windowRect.right - windowRect.left;
         MinHeight = windowRect.bottom - windowRect.top;
         FillCategories();
         FillProperties();
+        FillSelected();
         UpdateConfigListViewColors(list);
+        UpdateConfigListViewColors(selectedList);
         RemoveListViewWhiteClientEdge(list);
+        RemoveListViewWhiteClientEdge(selectedList);
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
         {
             DarkModeApplyTree(HWindow);
             DarkModeRefreshTitleBar(HWindow);
             RemoveListViewWhiteClientEdge(list);
+            RemoveListViewWhiteClientEdge(selectedList);
             DarkModeApplyStaticTextColors(HWindow, NULL);
         }
         return TRUE;
@@ -1884,7 +2100,36 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
         if (LOWORD(wParam) == IDOK)
         {
             memcpy(Config->ExplorerColumnAvailable, Available, sizeof(Available));
+            ApplySelectedOrder();
             EndDialog(HWindow, IDOK);
+            return TRUE;
+        }
+        if (LOWORD(wParam) == IDC_EXCOL_REMOVE && HIWORD(wParam) == BN_CLICKED)
+        {
+            HWND selectedList = GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST);
+            int selectedItem = ListView_GetNextItem(selectedList, -1, LVNI_SELECTED);
+            if (selectedItem >= 0)
+            {
+                LVITEM item;
+                ZeroMemory(&item, sizeof(item));
+                item.mask = LVIF_PARAM;
+                item.iItem = selectedItem;
+                if (ListView_GetItem(selectedList, &item))
+                {
+                    SetAvailable((int)item.lParam, FALSE);
+                    FillProperties();
+                }
+            }
+            return TRUE;
+        }
+        if (LOWORD(wParam) == IDC_EXCOL_MOVE_UP && HIWORD(wParam) == BN_CLICKED)
+        {
+            MoveSelected(TRUE);
+            return TRUE;
+        }
+        if (LOWORD(wParam) == IDC_EXCOL_MOVE_DOWN && HIWORD(wParam) == BN_CLICKED)
+        {
+            MoveSelected(FALSE);
             return TRUE;
         }
         break;
@@ -1926,10 +2171,15 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
                                        !ListView_GetCheckState(hdr->hwndFrom, hit.iItem));
             return TRUE;
         }
-        if (hdr->idFrom == IDC_EXCOL_CATEGORIES && hdr->code == TVN_SELCHANGED)
+        if (hdr->idFrom == IDC_EXCOL_CATEGORIES &&
+            (hdr->code == TVN_SELCHANGEDA || hdr->code == TVN_SELCHANGEDW))
         {
-            LPNMTREEVIEW change = (LPNMTREEVIEW)lParam;
-            Category = (int)change->itemNew.lParam;
+            TVITEM item;
+            ZeroMemory(&item, sizeof(item));
+            item.mask = TVIF_PARAM;
+            item.hItem = TreeView_GetSelection(hdr->hwndFrom);
+            if (TreeView_GetItem(hdr->hwndFrom, &item))
+                Category = (int)item.lParam;
             FillProperties();
             return TRUE;
         }
@@ -1946,11 +2196,26 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
                 {
                     int index = (int)item.lParam;
                     if ((change->uOldState & LVIS_STATEIMAGEMASK) != (change->uNewState & LVIS_STATEIMAGEMASK))
-                        Available[index] = ListView_GetCheckState(hdr->hwndFrom, change->iItem) ? TRUE : FALSE;
+                        SetAvailable(index, ListView_GetCheckState(hdr->hwndFrom, change->iItem));
                 }
                 UpdateDetails();
                 UpdateSelectedCount();
             }
+            return TRUE;
+        }
+        if (hdr->idFrom == IDC_EXCOL_SELECTED_LIST && hdr->code == LVN_ITEMCHANGED)
+        {
+            if (!DisableNotification)
+            {
+                UpdateSelectedButtons();
+                UpdateDetails();
+            }
+            return TRUE;
+        }
+        if (hdr->idFrom == IDC_EXCOL_SELECTED_LIST && hdr->code == NM_DBLCLK)
+        {
+            SendMessage(HWindow, WM_COMMAND, MAKEWPARAM(IDC_EXCOL_REMOVE, BN_CLICKED),
+                        (LPARAM)hdr->hwndFrom);
             return TRUE;
         }
         break;
@@ -1962,14 +2227,18 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
             DarkModeApplyTree(HWindow);
             DarkModeRefreshTitleBar(HWindow);
             DarkModeUpdateListViewColors(GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES));
+            DarkModeUpdateListViewColors(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST));
             RemoveListViewWhiteClientEdge(GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES));
+            RemoveListViewWhiteClientEdge(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST));
             DarkModeApplyStaticTextColors(HWindow, NULL);
         }
         break;
 
     case WM_SYSCOLORCHANGE:
         UpdateConfigListViewColors(GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES));
+        UpdateConfigListViewColors(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST));
         RemoveListViewWhiteClientEdge(GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES));
+        RemoveListViewWhiteClientEdge(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST));
         break;
 
     case WM_CTLCOLORSTATIC:
@@ -1983,11 +2252,18 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
 
     case WM_DESTROY:
     {
-        HWND tree = GetDlgItem(HWindow, IDC_EXCOL_CATEGORIES);
-        HIMAGELIST images = TreeView_GetImageList(tree, TVSIL_NORMAL);
-        TreeView_SetImageList(tree, NULL, TVSIL_NORMAL);
-        if (images != NULL)
-            ImageList_Destroy(images);
+        TreeView_SetImageList(GetDlgItem(HWindow, IDC_EXCOL_CATEGORIES), NULL, TVSIL_NORMAL);
+        ListView_SetImageList(GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES), NULL, LVSIL_SMALL);
+        ListView_SetImageList(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST), NULL, LVSIL_SMALL);
+        if (HCategoryImages != NULL)
+            ImageList_Destroy(HCategoryImages);
+        if (HPropertySpacingImages != NULL)
+            ImageList_Destroy(HPropertySpacingImages);
+        if (HSelectedSpacingImages != NULL)
+            ImageList_Destroy(HSelectedSpacingImages);
+        HCategoryImages = NULL;
+        HPropertySpacingImages = NULL;
+        HSelectedSpacingImages = NULL;
         break;
     }
     }
@@ -3202,7 +3478,8 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (HIWORD(wParam) == TLBHDR_FILTER)
             {
                 StoreControls();
-                CExplorerColumnsDialog dialog(HWindow, &Config);
+                int viewIndex = ListView_GetNextItem(HListView, -1, LVNI_SELECTED);
+                CExplorerColumnsDialog dialog(HWindow, &Config, viewIndex);
                 if (dialog.Execute() == IDOK)
                 {
                     LoadControls();

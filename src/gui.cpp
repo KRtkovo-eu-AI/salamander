@@ -2980,7 +2980,7 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
     TLBI_ITEM_INFO2 tii;
     tii.Mask = TLBI_MASK_ID | TLBI_MASK_IMAGEINDEX;
     int buttonsCount = 0;
-    const int buttonOrder[TLBHDR_COUNT] = {8, 7, 0, 1, 2, 3, 6, 4, 5, 9};
+    const int buttonOrder[TLBHDR_COUNT] = {0, 1, 2, 3, 6, 4, 5, 9, 8, 7};
     for (int orderIndex = 0; orderIndex < TLBHDR_COUNT; orderIndex++)
     {
         int i = buttonOrder[orderIndex];
@@ -3067,9 +3067,9 @@ void CToolbarHeader::RebuildImageLists()
     ZeroMemory(&bitmap, sizeof(bitmap));
     GetObject(colorBitmap, sizeof(bitmap), &bitmap);
     int iconSize = bitmap.bmHeight > 0 ? bitmap.bmHeight : MulDiv(16, dpi, 96);
-    HIMAGELIST hot = ImageList_Create(iconSize, iconSize, ILC_MASK | ILC_COLORDDB,
+    HIMAGELIST hot = ImageList_Create(iconSize, iconSize, ILC_COLOR32 | ILC_MASK,
                                       TLBHDR_COUNT, 1);
-    HIMAGELIST gray = ImageList_Create(iconSize, iconSize, ILC_MASK | ILC_COLORDDB,
+    HIMAGELIST gray = ImageList_Create(iconSize, iconSize, ILC_COLOR32 | ILC_MASK,
                                        TLBHDR_COUNT, 1);
     if (hot != NULL)
         ImageList_Add(hot, colorBitmap, maskBitmap);
