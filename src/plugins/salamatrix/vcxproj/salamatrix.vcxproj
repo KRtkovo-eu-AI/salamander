@@ -293,7 +293,7 @@
     <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\plugins\line-numbers\prism-line-numbers.min.js;$(PrismAssetsRoot)node_modules\prismjs\plugins\line-numbers\prism-line-numbers.css" DestinationFolder="$(OutDir)prism\plugins\line-numbers" />
     <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\plugins\show-invisibles\prism-show-invisibles.min.js;$(PrismAssetsRoot)node_modules\prismjs\plugins\show-invisibles\prism-show-invisibles.css" DestinationFolder="$(OutDir)prism\plugins\show-invisibles" />
   </Target>
-  <Target Name="PublishViewerMarkdigRenderer" AfterTargets="Build">
+  <Target Name="PublishViewerMarkdigRenderer" AfterTargets="Build" Condition="'$(Platform)' != 'Win32'">
     <Exec Command="dotnet publish &quot;$(ProjectDir)..\..\shared\webviewviewer\markdighelper\MarkdigRenderer.csproj&quot; --configuration Release --runtime $(MarkdigRuntimeIdentifier) --output &quot;$(OutDir).&quot;" />
     <Delete Files="$(OutDir)MarkdigRenderer.pdb" />
   </Target>
