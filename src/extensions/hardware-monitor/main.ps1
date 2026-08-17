@@ -999,6 +999,17 @@ namespace OpenSalamander.HardwareMonitor
         private static extern bool DiShowUpdateDevice(
             IntPtr parent, IntPtr deviceInfoSet,
             ref SP_DEVINFO_DATA deviceInfoData, bool allowNonInteractive);
+        [DllImport("devmgr.dll", CharSet = CharSet.Unicode,
+            EntryPoint = "DeviceProperties_RunDLLW", ExactSpelling = true)]
+        private static extern void DevicePropertiesRunDll(
+            IntPtr parent, IntPtr instance, string commandLine, int showCommand);
+
+        public static void LaunchDeviceProperties(string instanceId, long parent)
+        {
+            string safeId = instanceId.Replace("\"", String.Empty);
+            DevicePropertiesRunDll(new IntPtr(parent), IntPtr.Zero,
+                "/DeviceID \"" + safeId + "\"", 1);
+        }
 
         public static void ShowUpdateDriver(string instanceId)
         {
@@ -1033,7 +1044,13 @@ function ConvertFrom-DeviceItemId {
 
 function Get-DeviceManagerItems {
     param([string]$ClassName)
-    $devices = @(Get-CimInstance Win32_PnPEntity -ErrorAction Stop)
+    $devices = if ([string]::IsNullOrWhiteSpace($ClassName)) {
+        @(Get-CimInstance Win32_PnPEntity -ErrorAction Stop)
+    } else {
+        $escapedClass = $ClassName.Replace("'", "''")
+        @(Get-CimInstance Win32_PnPEntity -Filter "PNPClass='$escapedClass'" `
+            -ErrorAction Stop)
+    }
     if ([string]::IsNullOrWhiteSpace($ClassName)) {
         return @($devices | ForEach-Object {
             if ([string]::IsNullOrWhiteSpace([string]$_.PNPClass)) { 'Other devices' }
@@ -1102,9 +1119,12 @@ if ($handler -in @('deviceProperties', 'updateDriver', 'disableDevice',
             Initialize-DeviceManagerNativeMethods
             [OpenSalamander.HardwareMonitor.DeviceManagerNative]::ShowUpdateDriver($deviceId)
         } else {
-        $arguments = 'devmgr.dll,DeviceProperties_RunDLL /DeviceID "' +
-            $deviceId.Replace('"', '') + '"'
-        Start-Process -FilePath "$env:SystemRoot\System32\rundll32.exe" -ArgumentList $arguments
+            Initialize-DeviceManagerNativeMethods
+            $parentWindow = try {
+                [long]([string]$Salamander.invocation.parentWindow)
+            } catch { 0L }
+            [OpenSalamander.HardwareMonitor.DeviceManagerNative]::LaunchDeviceProperties(
+                $deviceId, $parentWindow)
         }
     }
     return

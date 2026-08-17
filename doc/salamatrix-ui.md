@@ -78,7 +78,7 @@ Worker calls use these host methods:
 
 | Method | Purpose |
 | --- | --- |
-| `salamander.ui.dialog.create` | Create a framework-owned dialog. |
+| `salamander.ui.dialog.create` | Create a framework-owned dialog; `resizable` enables its native sizing frame and adaptive layout. |
 | `salamander.ui.dialog.add` | Add a control and optional explicit bounds. |
 | `salamander.ui.dialog.item` | Add a combo/list/tree/tab item. |
 | `salamander.ui.dialog.column` | Add a ListView column. |
@@ -196,7 +196,7 @@ controls and await every host operation:
 ```javascript
 const dialog = await Salamander.ui.dialog(
   "Salamatrix UI capabilities",
-  { width: 463, height: 236 },
+  { width: 463, height: 236, resizable: true },
 ).create();
 
 const add = (kind, id, text, x, y, width, height, options = {}) =>
@@ -224,7 +224,7 @@ Python creates the native dialog synchronously and accepts the extended option
 map through `options`:
 
 ```python
-dialog = Salamander.ui.dialog("Salamatrix UI capabilities", 463, 236)
+dialog = Salamander.ui.dialog("Salamatrix UI capabilities", 463, 236, True)
 
 def add(kind, control_id, text, x, y, width, height, **options):
     dialog.add_control(

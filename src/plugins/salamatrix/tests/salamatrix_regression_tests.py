@@ -91,6 +91,10 @@ def main() -> int:
     fileswn3 = read("src/fileswn3.cpp")
     fileswn4 = read("src/fileswn4.cpp")
     fileswn5 = read("src/fileswn5.cpp")
+    fileswn0 = read("src/fileswn0.cpp")
+    fileswn2 = read("src/fileswn2.cpp")
+    fileswnb = read("src/fileswnb.cpp")
+    fs_contract = read("src/plugins/shared/spl_fs.h")
     viewer_configuration = read("src/salamdr2.cpp")
     mainwnd1 = read("src/mainwnd1.cpp")
     mainwnd2 = read("src/mainwnd2.cpp")
@@ -149,6 +153,42 @@ def main() -> int:
     javascript_demo = read("src/extensions/demos/javascript-node/main.mjs")
     javascript_demo_manifest = json.loads(
         read("src/extensions/demos/javascript-node/extension.json"))
+    require(
+        fs_contract,
+        r"#define FS_SERVICE_NO_REFRESH_WAIT_CURSOR 0x04000000",
+        "Plugin FS contract does not expose opt-in refresh wait-cursor suppression")
+    require(
+        fileswn2,
+        r"ChangePathToPluginFS.*?ShouldShowWaitCursorForRefresh\(\).*?IDC_WAIT",
+        "Plugin FS path changes still force a redundant wait cursor")
+    require(
+        manifest,
+        r"refreshIntervalMs\", 3000, 0, 60000",
+        "Manifest validation still rejects refreshIntervalMs=0")
+    require(
+        packages,
+        r"GetSupportedServices\(\).*?FS_SERVICE_NO_REFRESH_WAIT_CURSOR",
+        "Salamatrix FS does not suppress the redundant refresh wait cursor")
+    require(
+        packages,
+        r"needsPersistentWorker.*?!package->Manifest.EventsDeclared.*?"
+        r"!package->Manifest.Events.empty\(\).*?ActivateExtension",
+        "Salamatrix still starts every extension runtime during splash startup")
+    if (sum(source.count("ShouldShowWaitCursorForRefresh()")
+           for source in (fileswn0, fileswnb)) < 3):
+        raise AssertionError(
+            "Panel refresh wait cursor is not guarded in both refresh paths")
+    runtime_process_sources = (
+        automation_bridge,
+        read("src/plugins/javascriptruntime/javascriptruntime.cpp"),
+        read("src/plugins/pythonruntime/pythonruntime.cpp"),
+        read("src/plugins/powershellruntime/powershellruntime.cpp"),
+        read("src/plugins/phpruntime/phpruntime.cpp"),
+        read("src/plugins/luaruntime/luaruntime.cpp"))
+    if not all("STARTF_USESTDHANDLES | STARTF_FORCEOFFFEEDBACK" in source
+               for source in runtime_process_sources):
+        raise AssertionError(
+            "A Salamatrix runtime can still trigger the system startup cursor")
     python_demo = read("src/extensions/demos/python/main.py")
     python_demo_manifest = json.loads(
         read("src/extensions/demos/python/extension.json"))
@@ -190,6 +230,16 @@ def main() -> int:
     menu_builder = read("src/extensions/extension-menu-builder/main.ps1")
     menu_builder_manifest = json.loads(
         read("src/extensions/extension-menu-builder/extension.json"))
+    bundled_one_shot_manifests = (
+        javascript_demo_manifest, python_demo_manifest, lua_demo_manifest,
+        powershell_demo_manifest, php_demo_manifest, navigator_manifest,
+        lock_inspector_manifest, process_explorer_manifest,
+        hardware_monitor_manifest, event_viewer_manifest,
+        menu_builder_manifest)
+    if any(item.get("events") != []
+           for item in bundled_one_shot_manifests):
+        raise AssertionError(
+            "A bundled one-shot extension still starts a worker at startup")
 
     update_check = re.search(
         r"public static async Task CheckForUpdatesAsync\(.*?"
@@ -2115,6 +2165,20 @@ def main() -> int:
         "Salamatrix FS does not navigate into extension-provided directories")
     require(
         packages,
+        r"GetSupportedServices\(\).*?FS_SERVICE_VIEWFILE.*?ViewFile\(.*?ExecuteDefault",
+        "Salamatrix FS leaf items do not advertise and dispatch their default action")
+    require(
+        packages,
+        r"Invocation\(.*?parentWindow.*?GetMainWindowHWND\(\)",
+        "Salamatrix FS actions do not receive their invoking parent window")
+    require(
+        packages,
+        r"ScopedExclusiveSRWLock\(SRWLOCK\* lock, HWND mainWindow\).*?"
+        r"MsgWaitForMultipleObjects\(.*?QS_SENDMESSAGE.*?PeekMessage.*?"
+        r"ExecuteFileSystemAction\(.*?GetMainWindowHWND\(\)",
+        "Salamatrix silently drops FS actions while a background listing is active")
+    require(
+        packages,
         r"isDir == 2.*?GetParentPath\(\).*?ChangePanelPathToPluginFS",
         "Salamatrix FS parent item skips directly to the global root")
     require(
@@ -2123,9 +2187,34 @@ def main() -> int:
         r"FSE_ACTIVATEREFRESH \|\|.*?FSE_TIMER.*?ShouldRefreshPeriodically.*?"
         r"RequestDataRefresh",
         "Salamatrix FS does not limit timer refreshes by virtual path depth")
+    require(
+        packages,
+        r"GetPanelItem\(\s*panel, &enumeration, &isDir\).*?panelItemIndex.*?"
+        r"panelItemIds.*?AppendPanelNavigation\(&invocation, panel, data\)",
+        "Salamatrix FS actions do not receive the current panel order")
+    require(
+        packages,
+        r"maxNavigationItems = 64.*?firstItem.*?lastItem.*?"
+        r"for \(size_t index = firstItem; index < lastItem; \+\+index\)",
+        "Salamatrix passes an unbounded panel order on the worker command line")
+    require(
+        packages,
+        r"if \(executed && selected != NULL && selected->Refresh\).*?"
+        r"opened->ExecuteDefault\(file, panel\)",
+        "Salamatrix FS default actions do not respect refresh=false")
     if hardware_monitor_manifest["fileSystems"][0].get("refreshDepth") != 2:
         raise AssertionError(
             "Hardware Monitor refreshes static root or category paths")
+    if hardware_monitor_manifest["fileSystems"][0].get("refreshPaths") != [
+            "cpu/usage", "memory/usage", "sensors/temperatures",
+            "sensors/fans", "sensors/voltages", "sensors/all"]:
+        raise AssertionError(
+            "Hardware Monitor does not limit timer refreshes to dynamic views")
+    require(
+        packages,
+        r"PeriodicRefreshPaths\.empty\(\).*?relativePath.*?"
+        r"PeriodicRefreshPaths\[index\]",
+        "Salamatrix ignores file-system refreshPaths")
     root_items = hardware_monitor_manifest["fileSystems"][0].get("rootItems", [])
     if [item.get("id") for item in root_items] != [
             "cpu", "gpu", "memory", "motherboard", "network", "sensors",
@@ -2165,11 +2254,17 @@ def main() -> int:
     if not all(marker in hardware_monitor for marker in (
             "Get-CimInstance Win32_PnPEntity", "PNPClass", "PNPDeviceID",
             "'device-manager'", "deviceProperties", "DeviceProperties_RunDLL",
+            "LaunchDeviceProperties", "DevicePropertiesRunDll",
+            "invocation.parentWindow",
             "updateDriver", "DiShowUpdateDevice", "disableDevice",
             "/disable-device", "uninstallDevice", "/remove-device",
             "scanDevices", "/scan-devices")):
         raise AssertionError(
             "Hardware Monitor Device Manager hierarchy and actions are incomplete")
+    require_absent(
+        hardware_monitor,
+        r"WaitForInputIdle|MainWindowHandle|SetWindowPos|rundll32\.exe",
+        "Hardware Monitor still polls and repositions Device Properties")
     require(
         hardware_monitor,
         r"viewId\.StartsWith\('device-class-'\).*?Substring.*?"
@@ -2180,15 +2275,53 @@ def main() -> int:
         r"itemIdPrefix.*?ItemIdPrefix.*?data->Item\.Id\.compare",
         "Device Manager actions are not scoped to matching FS items")
     event_fs = event_viewer_manifest["fileSystems"][0]
+    if event_fs.get("refreshIntervalMs") != 0:
+        raise AssertionError(
+            "Event Viewer still queues background listings behind its modal dialog")
     if [item.get("id") for item in event_fs.get("rootItems", [])] != [
             "custom-views", "windows-logs", "applications-services"]:
         raise AssertionError("Event Viewer root log hierarchy is incomplete")
     if not all(marker in event_viewer for marker in (
             "Get-WinEvent -ListLog", "IsClassicLog", "Get-WinEvent -LogName",
             "-MaxEvents 250", "EventRecordID=$recordId", "Show-EventDetails",
-            "ToXml()", "$Salamander.ui.Dialog", "'textbox'")):
+            "ToXml()", "$Salamander.ui.Dialog", "'textbox'",
+            "previousEvent", "nextEvent", "dialog.Show()", "$true)",
+            "panelItemIds", "panelItemIndex", "$nextIndex",
+            "-MaxEvents 1")):
         raise AssertionError(
             "Event Viewer does not expose log hierarchy, events, and native details")
+    require_absent(
+        event_viewer,
+        r"function Get-AdjacentEvent|EventRecordID [<>] \$RecordId",
+        "Event Properties navigation ignores the current panel sort order")
+    require_absent(
+        event_viewer,
+        r"Show-EventDetails.*?Get-WinEvent -LogName \$LogName -MaxEvents 500",
+        "Event Properties still blocks its initial display on a 500-event query")
+    runtime_workers = [
+        read("src/plugins/javascriptruntime/runtime/salamatrix_worker.mjs"),
+        read("src/plugins/pythonruntime/runtime/salamatrix_worker.py"),
+        read("src/plugins/powershellruntime/runtime/salamatrix_worker.ps1"),
+        read("src/plugins/phpruntime/runtime/salamatrix_worker.php"),
+        read("src/plugins/luaruntime/runtime/salamatrix_worker.lua")]
+    if not all("resizable" in worker.lower() for worker in runtime_workers):
+        raise AssertionError(
+            "Resizable native dialogs are not exposed by every runtime provider")
+    for demo_manifest in (
+            javascript_demo_manifest, python_demo_manifest,
+            lua_demo_manifest, php_demo_manifest, powershell_demo_manifest):
+        if demo_manifest["fileSystems"][0].get("refreshIntervalMs") != 0:
+            raise AssertionError(
+                "A demo FS still refreshes continuously without a data change")
+    if "resizable=false" not in read(
+            "src/plugins/salamatrix/salamatrix_ai.h"):
+        raise AssertionError(
+            "Model-visible UI contract omits the resizable dialog option")
+    for language, relative in event_viewer_manifest.get("locales", {}).items():
+        localized = json.loads(read("src/extensions/event-viewer/" + relative))
+        if not localized.get("descriptionLabel"):
+            raise AssertionError(
+                f"Event Viewer {language} locale omits the description label")
     require(
         event_viewer,
         r"subPath = @\(\).*?parts\.Count -gt 2.*?"

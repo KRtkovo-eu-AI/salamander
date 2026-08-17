@@ -1446,11 +1446,39 @@ bool CExtensionManifest::Parse(
                 !ReadString(fileSystemValue, "icon", false, fileSystem.Icon, error) ||
                 !ReadString(fileSystemValue, "iconDark", false, fileSystem.IconDark, error) ||
                 !ReadString(fileSystemValue, "defaultFileIcon", false, fileSystem.DefaultFileIcon, error) ||
-                !ReadInteger(fileSystemValue, "refreshIntervalMs", 3000, 250, 60000, refreshIntervalMs, error) ||
+                !ReadInteger(fileSystemValue, "refreshIntervalMs", 3000, 0, 60000, refreshIntervalMs, error) ||
                 !ReadInteger(fileSystemValue, "refreshDepth", 0, 0, 32, refreshDepth, error))
                 return false;
             fileSystem.RefreshIntervalMs = static_cast<unsigned int>(refreshIntervalMs);
             fileSystem.RefreshDepth = static_cast<unsigned int>(refreshDepth);
+            const JsonValue* refreshPaths = fileSystemValue.Find("refreshPaths");
+            if (refreshPaths != NULL)
+            {
+                if (refreshPaths->Type != JsonArray)
+                    return SetValidationError(error, "fileSystem refreshPaths must be an array");
+                if (refreshPaths->Array.size() > 32)
+                    return SetValidationError(error, "fileSystem contains more than 32 refreshPaths");
+                for (size_t pathIndex = 0; pathIndex < refreshPaths->Array.size(); ++pathIndex)
+                {
+                    if (refreshPaths->Array[pathIndex].Type != JsonString ||
+                        refreshPaths->Array[pathIndex].String.empty() ||
+                        refreshPaths->Array[pathIndex].String.size() > 255)
+                    {
+                        return SetValidationError(error,
+                            "Every fileSystem refresh path must be a non-empty string of at most 255 UTF-8 bytes");
+                    }
+                    std::string path = refreshPaths->Array[pathIndex].String;
+                    for (size_t character = 0; character < path.size(); ++character)
+                        if (path[character] == '/') path[character] = '\\';
+                    if (path[0] == '\\' || path[path.size() - 1] == '\\' ||
+                        path.find("..") != std::string::npos)
+                    {
+                        return SetValidationError(error,
+                            "fileSystem refresh paths must be safe provider-relative paths");
+                    }
+                    fileSystem.RefreshPaths.push_back(path);
+                }
+            }
             if (!IsIdentifier(fileSystem.Id) || !IsIdentifier(fileSystem.ListHandler) ||
                 (!fileSystem.OpenHandler.empty() && !IsIdentifier(fileSystem.OpenHandler)))
                 return SetValidationError(error, "File-system ids and handlers must be valid identifiers");

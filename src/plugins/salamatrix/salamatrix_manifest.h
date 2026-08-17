@@ -128,6 +128,7 @@ struct CExtensionManifestFileSystem
     std::string DefaultFileIcon;
     unsigned int RefreshIntervalMs;
     unsigned int RefreshDepth;
+    std::vector<std::string> RefreshPaths;
     std::vector<RootItem> RootItems;
     std::vector<Column> Columns;
     std::vector<Action> Actions;

@@ -878,7 +878,7 @@ BOOL WINAPI CLuaRuntimeAdapter::Execute(
     memset(&startup, 0, sizeof(startup));
     memset(&process, 0, sizeof(process));
     startup.cb = sizeof(startup);
-    startup.dwFlags = STARTF_USESTDHANDLES;
+    startup.dwFlags = STARTF_USESTDHANDLES | STARTF_FORCEOFFFEEDBACK;
     startup.hStdInput = inputHandle;
     startup.hStdOutput = outputWrite;
     startup.hStdError = outputWrite;
@@ -1170,7 +1170,7 @@ BOOL WINAPI CLuaRuntimeAdapter::StartPersistent(
     memset(&startup, 0, sizeof(startup));
     memset(&process, 0, sizeof(process));
     startup.cb = sizeof(startup);
-    startup.dwFlags = STARTF_USESTDHANDLES;
+    startup.dwFlags = STARTF_USESTDHANDLES | STARTF_FORCEOFFFEEDBACK;
     startup.hStdInput = childInput;
     startup.hStdOutput = childOutput;
     startup.hStdError = errorHandle;

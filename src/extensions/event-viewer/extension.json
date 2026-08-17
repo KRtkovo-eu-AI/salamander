@@ -9,6 +9,7 @@
   "icon": "icon.svg",
   "iconDark": "icon-dark.svg",
   "capabilities": ["file-system", "panels.write", "ui.dialogs"],
+  "events": [],
   "commands": [{
     "id": "OpenSalamander.EventViewer.open",
     "title": "Open Event Viewer",
@@ -31,7 +32,7 @@
     "listHandler": "listEvents",
     "icon": "icon.svg",
     "iconDark": "icon-dark.svg",
-    "refreshIntervalMs": 15000,
+    "refreshIntervalMs": 0,
     "refreshDepth": 2,
     "rootItems": [
       {"id":"custom-views","name":"Custom Views","icon":"icons/custom-views.svg","iconDark":"icons/custom-views-dark.svg"},

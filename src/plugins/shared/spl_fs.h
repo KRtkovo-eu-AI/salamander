@@ -220,6 +220,9 @@ public:
 #define FS_SERVICE_OPENACTIVEFOLDER 0x01000000
 // show security information (click on security icon in Directory Line, see CSalamanderGeneralAbstract::ShowSecurityIcon)
 #define FS_SERVICE_SHOWSECURITYINFO 0x02000000
+// panel refreshes do not change the mouse cursor to the wait cursor; the FS provides its own
+// non-modal loading feedback (for example the Directory Line throbber)
+#define FS_SERVICE_NO_REFRESH_WAIT_CURSOR 0x04000000
 
 // chybi: Change Case, Convert, Properties, Make File List
 

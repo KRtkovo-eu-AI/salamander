@@ -1030,7 +1030,7 @@ void RunPowerShellBootstrapTest()
               "if (-not $Salamander.ai.Preview('list files', $null, $null, 'PowerShell', 'Write-Output 1', 'keep originals').canRun) { throw 'ai preview call failed' }\n"
               "if ($Salamander.file_operations.Refresh() -ne 'ok') { throw 'file operation call failed' }\n"
               "if ($Salamander.file_system.AddItems(@(@{ id = 'one'; name = 'One' }, @{ id = 'two'; name = 'Two' })) -ne 2) { throw 'file-system item batch failed' }\n"
-              "$dialog = $Salamander.ui.Dialog('Bootstrap', 640, 420)\n"
+              "$dialog = $Salamander.ui.Dialog('Bootstrap', 640, 420, $true)\n"
               "$dialog.AddControl('label', 'label', 'Hello', $false, $false, 0, @{ x = 12; y = 10; width = 180; height = 16 })\n"
               "$dialog.AddTextBox('value', 'seed', $false, $true)\n"
               "$dialog.AddFolderPicker('folder', 'C:\\Temp')\n"

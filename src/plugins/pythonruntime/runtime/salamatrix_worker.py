@@ -431,10 +431,10 @@ class _UI:
         return _Progress(self._transport, str(result["progressId"]))
 
     def dialog(self, title: str = "Salamander", width: int = 320,
-               height: int = 180) -> "_Dialog":
+               height: int = 180, resizable: bool = False) -> "_Dialog":
         result = self._transport.call(
             "salamander.ui.dialog.create", title=title,
-            width=int(width), height=int(height)
+            width=int(width), height=int(height), resizable=bool(resizable)
         )
         return _Dialog(self._transport, str(result["dialogId"]))
 

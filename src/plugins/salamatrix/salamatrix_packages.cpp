@@ -616,6 +616,30 @@ public:
             Lock = lock;
         }
     }
+    ScopedExclusiveSRWLock(SRWLOCK* lock, HWND mainWindow) : Lock(NULL)
+    {
+        const DWORD mainThreadId = mainWindow != NULL
+            ? GetWindowThreadProcessId(mainWindow, NULL) : 0;
+        if (mainThreadId == 0 || mainThreadId != GetCurrentThreadId())
+        {
+            AcquireSRWLockExclusive(lock);
+            Lock = lock;
+            return;
+        }
+        while (!TryAcquireSRWLockExclusive(lock))
+        {
+            const DWORD wait = MsgWaitForMultipleObjects(
+                0, NULL, FALSE, 50, QS_SENDMESSAGE);
+            if (wait == WAIT_OBJECT_0)
+            {
+                // Dispatch cross-thread SendMessage calls needed by the
+                // listing worker, but do not consume posted UI input here.
+                MSG message;
+                PeekMessage(&message, NULL, WM_NULL, WM_NULL, PM_NOREMOVE);
+            }
+        }
+        Lock = lock;
+    }
     ~ScopedExclusiveSRWLock()
     {
         if (Lock != NULL)
@@ -665,6 +689,7 @@ struct PackageManager::Package
     std::vector<ULONGLONG> EventSubscriptions;
     Runtime::IRuntimeSession* Session;
     HANDLE PumpThread;
+    SRWLOCK FileSystemExecutionLock;
     BOOL FileSystemListing;
     const CExtensionManifestFileSystem* ListingFileSystem;
     std::vector<PackageManager::FileSystemItem> PendingFileSystemItems;
@@ -684,6 +709,7 @@ struct PackageManager::Package
           FileSystemListing(FALSE),
           ListingFileSystem(NULL)
     {
+        InitializeSRWLock(&FileSystemExecutionLock);
     }
 };
 
@@ -1440,6 +1466,7 @@ private:
     volatile LONG PathGeneration;
     volatile LONG RefreshIntervalMs;
     volatile LONG RefreshDepth;
+    std::vector<std::string> PeriodicRefreshPaths;
     HANDLE RefreshThread;
     CRITICAL_SECTION CacheLock;
     std::vector<FileSystemItem> CachedItems;
@@ -1451,6 +1478,8 @@ private:
 
     BOOL ShouldRefreshPeriodically()
     {
+        if (InterlockedCompareExchange(&RefreshIntervalMs, 0, 0) <= 0)
+            return FALSE;
         const size_t separator = Path.find('!');
         if (separator == std::string::npos)
             return FALSE;
@@ -1458,8 +1487,20 @@ private:
         for (size_t i = separator + 1; i < Path.size(); ++i)
             if (Path[i] == '\\' && i + 1 < Path.size())
                 ++depth;
-        return depth >= static_cast<unsigned int>(
-            InterlockedCompareExchange(&RefreshDepth, 0, 0));
+        if (depth < static_cast<unsigned int>(
+                InterlockedCompareExchange(&RefreshDepth, 0, 0)))
+            return FALSE;
+        if (PeriodicRefreshPaths.empty())
+            return TRUE;
+        const size_t relativeSeparator = Path.find('\\', separator + 1);
+        if (relativeSeparator == std::string::npos ||
+            relativeSeparator + 1 >= Path.size())
+            return FALSE;
+        const char* relativePath = Path.c_str() + relativeSeparator + 1;
+        for (size_t index = 0; index < PeriodicRefreshPaths.size(); ++index)
+            if (_stricmp(relativePath, PeriodicRefreshPaths[index].c_str()) == 0)
+                return TRUE;
+        return FALSE;
     }
 
     void PostPanelRefresh()
@@ -1642,7 +1683,8 @@ private:
         const std::string& fileSystemId,
         const SalamatrixFileSystemItemData* data,
         const char* actionId = NULL,
-        const char* path = NULL)
+        const char* path = NULL,
+        HWND parentWindow = NULL)
     {
         std::string result = std::string("{\"role\":\"fileSystem\",\"operation\":\"") +
             JsonEscape(operation) + "\",\"packageId\":\"" + JsonEscape(packageId.c_str()) +
@@ -1651,12 +1693,75 @@ private:
             result += std::string(",\"actionId\":\"") + JsonEscape(actionId) + "\"";
         if (path != NULL)
             result += std::string(",\"path\":\"") + JsonEscape(path) + "\"";
+        if (parentWindow != NULL)
+            result += std::string(",\"parentWindow\":\"") +
+                std::to_string(static_cast<unsigned long long>(
+                    reinterpret_cast<ULONG_PTR>(parentWindow))) + "\"";
         if (data != NULL)
             result += std::string(",\"item\":{\"id\":\"") + JsonEscape(data->Item.Id.c_str()) +
                 "\",\"name\":\"" + JsonEscape(data->Item.Name.c_str()) +
                 "\",\"directory\":" + (data->Item.Directory ? "true" : "false") + "}";
         result += "}";
         return result;
+    }
+
+    static void AppendPanelNavigation(
+        std::string* invocation, int panel,
+        const SalamatrixFileSystemItemData* selectedData)
+    {
+        if (invocation == NULL || selectedData == NULL ||
+            SalamanderGeneral == NULL || invocation->empty() ||
+            invocation->back() != '}')
+            return;
+        std::vector<std::string> itemIds;
+        int selectedIndex = -1;
+        int enumeration = 0;
+        BOOL isDir = FALSE;
+        const CFileData* item = NULL;
+        while ((item = SalamanderGeneral->GetPanelItem(
+                    panel, &enumeration, &isDir)) != NULL)
+        {
+            if (isDir || item->PluginData == 0 ||
+                item->PluginData == static_cast<DWORD_PTR>(-1))
+                continue;
+            SalamatrixFileSystemItemData* data =
+                reinterpret_cast<SalamatrixFileSystemItemData*>(item->PluginData);
+            if (data->PackageId != selectedData->PackageId ||
+                data->FileSystemId != selectedData->FileSystemId)
+                continue;
+            if (data->Item.Id == selectedData->Item.Id)
+                selectedIndex = static_cast<int>(itemIds.size());
+            itemIds.push_back(data->Item.Id);
+        }
+        if (selectedIndex < 0 || itemIds.empty())
+            return;
+        // Invocation JSON is passed to one-shot workers on their command line.
+        // A complete Event Viewer panel can contain hundreds of long base64
+        // identities and exceed CreateProcessW's command-line limit. Keep a
+        // useful ordered window around the selected item instead.
+        const size_t maxNavigationItems = 64;
+        size_t firstItem = 0;
+        if (itemIds.size() > maxNavigationItems)
+        {
+            const size_t halfWindow = maxNavigationItems / 2;
+            firstItem = static_cast<size_t>(selectedIndex) > halfWindow
+                ? static_cast<size_t>(selectedIndex) - halfWindow : 0;
+            if (firstItem + maxNavigationItems > itemIds.size())
+                firstItem = itemIds.size() - maxNavigationItems;
+        }
+        const size_t lastItem = (std::min)(
+            itemIds.size(), firstItem + maxNavigationItems);
+        selectedIndex -= static_cast<int>(firstItem);
+        invocation->pop_back();
+        *invocation += ",\"panelItemIndex\":" +
+            std::to_string(selectedIndex) + ",\"panelItemIds\":[";
+        for (size_t index = firstItem; index < lastItem; ++index)
+        {
+            if (index != firstItem)
+                *invocation += ",";
+            *invocation += "\"" + JsonEscape(itemIds[index].c_str()) + "\"";
+        }
+        *invocation += "]}";
     }
 
     BOOL AddItem(
@@ -1776,7 +1881,7 @@ public:
             ? std::string() : Path.substr(0, separator);
     }
 
-    BOOL ExecuteDefault(const CFileData& file)
+    BOOL ExecuteDefault(const CFileData& file, int panel)
     {
         SalamatrixFileSystemItemData* data =
             reinterpret_cast<SalamatrixFileSystemItemData*>(file.PluginData);
@@ -1800,12 +1905,18 @@ public:
                                                fs.Actions[a].ItemIdPrefix) == 0))
                     { selected = &fs.Actions[a]; break; }
                 const std::string actionId = selected != NULL ? selected->Id : "open";
-                const std::string invocation = Invocation(
+                std::string invocation = Invocation(
                     "action", data->PackageId, data->FileSystemId,
-                    data, actionId.c_str());
-                return Owner->ExecuteFileSystemAction(
+                    data, actionId.c_str(), NULL,
+                    SalamanderGeneral != NULL
+                        ? SalamanderGeneral->GetMainWindowHWND() : NULL);
+                AppendPanelNavigation(&invocation, panel, data);
+                const BOOL executed = Owner->ExecuteFileSystemAction(
                     data->PackageId, data->FileSystemId,
                     actionId, invocation.c_str());
+                if (executed && selected != NULL && selected->Refresh)
+                    RequestDataRefresh();
+                return executed;
             }
         }
         return FALSE;
@@ -1891,6 +2002,7 @@ public:
                             packageDirectory = Owner->Packages[p]->Directory;
                             InterlockedExchange(&RefreshDepth,
                                 static_cast<LONG>(fileSystem.RefreshDepth));
+                            PeriodicRefreshPaths = fileSystem.RefreshPaths;
                             std::wstring relative;
                             if (!fileSystem.DefaultFileIcon.empty() &&
                                 PackageManager::ToWide(fileSystem.DefaultFileIcon, &relative))
@@ -2002,20 +2114,24 @@ public:
                 InterlockedCompareExchange(&RefreshThreadRunning, 0, 0) != 0)
                 SalamanderGeneral->StartThrobber(static_cast<int>(param), NULL, 0);
         }
-        if (event == FSE_ACTIVATEREFRESH ||
-            (event == FSE_TIMER && ShouldRefreshPeriodically()))
+        if ((event == FSE_ACTIVATEREFRESH || event == FSE_TIMER) &&
+            ShouldRefreshPeriodically())
             RequestDataRefresh();
-        if (event == FSE_OPENED || event == FSE_ATTACHED || event == FSE_TIMER)
+        const LONG refreshInterval =
+            InterlockedCompareExchange(&RefreshIntervalMs, 0, 0);
+        if ((event == FSE_OPENED || event == FSE_ATTACHED || event == FSE_TIMER) &&
+            refreshInterval > 0)
             SalamanderGeneral->AddPluginFSTimer(
-                static_cast<DWORD>(InterlockedCompareExchange(&RefreshIntervalMs, 0, 0)),
-                this, 1);
+                static_cast<DWORD>(refreshInterval), this, 1);
     }
     virtual void WINAPI ReleaseObject(HWND parent) { UNREFERENCED_PARAMETER(parent); }
     virtual DWORD WINAPI GetSupportedServices()
     {
         return FS_SERVICE_CONTEXTMENU | FS_SERVICE_GETFSICON |
+               FS_SERVICE_VIEWFILE |
                FS_SERVICE_GETNEXTDIRLINEHOTPATH |
-               FS_SERVICE_GETPATHFORMAINWNDTITLE;
+               FS_SERVICE_GETPATHFORMAINWNDTITLE |
+               FS_SERVICE_NO_REFRESH_WAIT_CURSOR;
     }
     virtual BOOL WINAPI GetChangeDriveOrDisconnectItem(const char* fsName, char*& title, HICON& icon, BOOL& destroyIcon)
     {
@@ -2094,7 +2210,7 @@ public:
     virtual BOOL WINAPI CreateDir(const char* fsName, int mode, HWND parent, char* newName, BOOL& cancel)
     { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(mode); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(newName); cancel = FALSE; return FALSE; }
     virtual void WINAPI ViewFile(const char* fsName, HWND parent, CSalamanderForViewFileOnFSAbstract* salamander, CFileData& file)
-    { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(salamander); ExecuteDefault(file); }
+    { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(salamander); ExecuteDefault(file, SalamanderGeneral->GetSourcePanel()); }
     virtual BOOL WINAPI Delete(const char* fsName, int mode, HWND parent, int panel, int selectedFiles, int selectedDirs, BOOL& cancelOrError)
     { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(mode); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(panel); UNREFERENCED_PARAMETER(selectedFiles); UNREFERENCED_PARAMETER(selectedDirs); cancelOrError = FALSE; return FALSE; }
     virtual BOOL WINAPI CopyOrMoveFromFS(BOOL copy, int mode, const char* fsName, HWND parent, int panel, int selectedFiles, int selectedDirs, char* targetPath, BOOL& operationMask, BOOL& cancelOrHandlePath, HWND dropTarget)
@@ -2152,7 +2268,12 @@ public:
             const CExtensionManifestFileSystem::Action& action = manifestFs->Actions[selected - 4000];
             if (action.Separator)
                 return;
-            const std::string invocation = Invocation("action", data->PackageId, data->FileSystemId, data, action.Id.c_str());
+            std::string invocation = Invocation(
+                "action", data->PackageId, data->FileSystemId,
+                data, action.Id.c_str(), NULL,
+                SalamanderGeneral != NULL
+                    ? SalamanderGeneral->GetMainWindowHWND() : NULL);
+            AppendPanelNavigation(&invocation, panel, data);
             Owner->ExecuteFileSystemAction(data->PackageId, data->FileSystemId, action.Id, invocation.c_str());
             if (action.Refresh)
                 RequestDataRefresh();
@@ -2213,8 +2334,7 @@ public:
                 panel, pluginFSName, path.c_str(), &failReason);
             return;
         }
-        opened->ExecuteDefault(file);
-        opened->RequestDataRefresh();
+        opened->ExecuteDefault(file, panel);
     }
     virtual BOOL WINAPI DisconnectFS(HWND parent, BOOL isInPanel, int panel, CPluginFSInterfaceAbstract* pluginFS, const char* pluginFSName, int pluginFSNameIndex)
     { UNREFERENCED_PARAMETER(isInPanel); UNREFERENCED_PARAMETER(panel); UNREFERENCED_PARAMETER(pluginFSName); UNREFERENCED_PARAMETER(pluginFSNameIndex); SalamanderGeneral->CloseDetachedFS(parent, pluginFS); return TRUE; }
@@ -2245,7 +2365,6 @@ PackageManager::PackageManager()
       ActiveHostDispatches(0),
       ActiveExecutions(0)
 {
-    InitializeSRWLock(&FileSystemExecutionLock);
 }
 
 PackageManager::~PackageManager()
@@ -2962,7 +3081,10 @@ void PackageManager::ResolveDependenciesAndActivate()
             Extensions::ExtensionFlagRuntimeUnavailable |
             Extensions::ExtensionFlagRuntimeExecutableUnavailable |
             Extensions::ExtensionFlagDependencyUnavailable;
-        if (package->SettingsReady &&
+        const bool needsPersistentWorker =
+            !package->Manifest.EventsDeclared ||
+            !package->Manifest.Events.empty();
+        if (needsPersistentWorker && package->SettingsReady &&
             (package->Descriptor.Flags & blocked) == 0)
         {
             ReportStartupProgress(
@@ -3540,7 +3662,6 @@ BOOL PackageManager::ListFileSystem(
 {
     if (items == NULL)
         return FALSE;
-    ScopedExclusiveSRWLock fileSystemExecution(&FileSystemExecutionLock);
     ExecutionGuard execution(this);
     items->clear();
     for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
@@ -3549,6 +3670,8 @@ BOOL PackageManager::ListFileSystem(
         if (package == NULL || !package->RuntimeUsable ||
             _stricmp(package->Id.c_str(), packageId.c_str()) != 0)
             continue;
+        ScopedExclusiveSRWLock fileSystemExecution(
+            &package->FileSystemExecutionLock);
         for (size_t fileSystemIndex = 0;
              fileSystemIndex < package->Manifest.FileSystems.size(); ++fileSystemIndex)
         {
@@ -3597,9 +3720,11 @@ BOOL PackageManager::ExecuteFileSystemAction(
 {
     // A package uses shared transient dispatch/listing state. Keep actions
     // serialized with background listings from every open panel instance.
-    ScopedExclusiveSRWLock fileSystemExecution(&FileSystemExecutionLock, TRUE);
-    if (!fileSystemExecution.IsLocked())
-        return FALSE;
+    // Never drop a default/context action merely because an asynchronous
+    // listing currently owns the shared package dispatch state.  On the UI
+    // thread keep dispatching only nonqueued sent messages while waiting so
+    // that a listing worker blocked in a host call can finish without a
+    // deadlock.
     ExecutionGuard execution(this);
     for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
     {
@@ -3607,6 +3732,9 @@ BOOL PackageManager::ExecuteFileSystemAction(
         if (package == NULL || !package->RuntimeUsable ||
             _stricmp(package->Id.c_str(), packageId.c_str()) != 0)
             continue;
+        ScopedExclusiveSRWLock fileSystemExecution(
+            &package->FileSystemExecutionLock,
+            General != NULL ? General->GetMainWindowHWND() : NULL);
         for (size_t fileSystemIndex = 0;
              fileSystemIndex < package->Manifest.FileSystems.size(); ++fileSystemIndex)
         {

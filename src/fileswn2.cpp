@@ -3910,7 +3910,8 @@ BOOL CFilesWindow::ChangePathToPluginFS(const char* fsName, const char* fsUserPa
         MainWindow->CancelPanelsUI(); // cancel QuickSearch and QuickEdit
 
     //---  start the waiting cursor
-    BOOL setWait = (GetCursor() != LoadCursor(NULL, IDC_WAIT)); // is it already waiting?
+    BOOL setWait = ShouldShowWaitCursorForRefresh() &&
+                   GetCursor() != LoadCursor(NULL, IDC_WAIT); // is it already waiting?
     HCURSOR oldCur;
     if (setWait)
         oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));

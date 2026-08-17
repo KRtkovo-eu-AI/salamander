@@ -57,7 +57,6 @@ private:
     BOOL RefreshPending;
     LONG ActiveHostDispatches;
     LONG ActiveExecutions;
-    SRWLOCK FileSystemExecutionLock;
 
     PackageManager(const PackageManager&);
     PackageManager& operator=(const PackageManager&);

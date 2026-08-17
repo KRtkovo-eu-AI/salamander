@@ -410,8 +410,8 @@ $ui | Add-Member ScriptMethod Progress {
     return $progress
 }
 $ui | Add-Member ScriptMethod Dialog {
-    param([string]$Title = 'Salamander', [int]$Width = 320, [int]$Height = 180)
-    $created = Invoke-Host -Method 'salamander.ui.dialog.create' -Arguments @{ title = $Title; width = $Width; height = $Height }
+    param([string]$Title = 'Salamander', [int]$Width = 320, [int]$Height = 180, [bool]$Resizable = $false)
+    $created = Invoke-Host -Method 'salamander.ui.dialog.create' -Arguments @{ title = $Title; width = $Width; height = $Height; resizable = $Resizable }
     $dialog = [pscustomobject]@{ DialogId = [string]$created.dialogId }
     $dialog | Add-Member ScriptMethod AddControl {
         param([string]$Kind, [string]$Id, [string]$Text = '', [bool]$ReadOnly = $false, [bool]$Checked = $false, [int]$DialogResult = 0, [hashtable]$Layout = $null, [bool]$KeepOpen = $false, [bool]$Multiline = $false, [hashtable]$Options = $null)

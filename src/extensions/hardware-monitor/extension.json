@@ -9,6 +9,7 @@
   "icon": "icon.svg",
   "iconDark": "icon-dark.svg",
   "capabilities": ["file-system", "panels.write", "ui.dialogs", "process.write"],
+  "events": [],
   "commands": [{
     "id": "OpenSalamander.HardwareMonitor.open",
     "title": "Open Hardware Monitor",
@@ -41,6 +42,14 @@
     "defaultFileIcon": "default.ico",
     "refreshIntervalMs": 5000,
     "refreshDepth": 2,
+    "refreshPaths": [
+      "cpu/usage",
+      "memory/usage",
+      "sensors/temperatures",
+      "sensors/fans",
+      "sensors/voltages",
+      "sensors/all"
+    ],
     "rootItems": [
       {"id": "cpu", "name": "CPU", "icon": "icons/cpu.svg", "iconDark": "icons/cpu-dark.svg"},
       {"id": "gpu", "name": "GPU", "icon": "icons/gpu.svg", "iconDark": "icons/gpu-dark.svg"},

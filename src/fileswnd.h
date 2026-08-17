@@ -1533,6 +1533,7 @@ public:
     // 'forceReloadThumbnails' is TRUE when all thumbnails need to be regenerated again (not only those
     // of changed files); 'isInactiveRefresh' is TRUE when refreshing an inactive window-we load
     // only visible icons/thumbnails/overlays; others are loaded once the main window becomes active
+    BOOL ShouldShowWaitCursorForRefresh();
     void RefreshDirectory(BOOL probablyUselessRefresh = FALSE, BOOL forceReloadThumbnails = FALSE,
                           BOOL isInactiveRefresh = FALSE);
 

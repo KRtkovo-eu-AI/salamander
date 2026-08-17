@@ -128,7 +128,7 @@ class SalamatrixUi {
         $r = $this->client->call('salamander.ui.progress.create', $args);
         return new SalamatrixProgress($this->client, (string)$r['progressId']);
     }
-    public function dialog($title = 'Salamander', $width = 320, $height = 180) { $r = $this->client->call('salamander.ui.dialog.create', array('title' => $title, 'width' => (int)$width, 'height' => (int)$height)); return new SalamatrixDialog($this->client, (string)$r['dialogId']); }
+    public function dialog($title = 'Salamander', $width = 320, $height = 180, $resizable = false) { $r = $this->client->call('salamander.ui.dialog.create', array('title' => $title, 'width' => (int)$width, 'height' => (int)$height, 'resizable' => (bool)$resizable)); return new SalamatrixDialog($this->client, (string)$r['dialogId']); }
 }
 class SalamatrixProgress {
     private $client; private $id; private $closed = false;

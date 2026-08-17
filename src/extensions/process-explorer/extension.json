@@ -9,6 +9,7 @@
   "icon": "icon.svg",
   "iconDark": "icon-dark.svg",
   "capabilities": ["file-system", "process.read", "process.write", "panels.write", "ui.dialogs"],
+  "events": [],
   "commands": [{
     "id": "OpenSalamander.ProcessExplorer.open",
     "title": "Open Process Explorer",

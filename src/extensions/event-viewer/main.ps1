@@ -78,34 +78,75 @@ function Add-EventRows {
 
 function Show-EventDetails {
     param($Event, [string]$LogName, $Strings)
-    $message = try { [string]$Event.FormatDescription() } catch {
-        try { [string]$Event.Message } catch { [string]$Strings.messageUnavailable }
+    $current = $Event
+    $orderedIds = @($Salamander.invocation.panelItemIds)
+    $currentIndex = try {
+        [int]$Salamander.invocation.panelItemIndex
+    } catch { -1 }
+    while ($null -ne $current) {
+        $message = try { [string]$current.FormatDescription() } catch {
+            try { [string]$current.Message } catch {
+                [string]$Strings.messageUnavailable
+            }
+        }
+        if ([string]::IsNullOrWhiteSpace($message)) {
+            $message = [string]$Strings.messageUnavailable
+        }
+        $xml = try { [string]$current.ToXml() } catch { '' }
+        $metadata = [string]::Format([string]$Strings.metadata,
+            $LogName, [string]$current.ProviderName, [string]$current.Id,
+            (Get-EventLevelText $current $Strings),
+            $current.TimeCreated.ToString('g'),
+            [string]$current.TaskDisplayName, [string]$current.UserId,
+            [string]$current.MachineName, [string]$current.RecordId)
+        $title = [string]::Format([string]$Strings.windowTitle,
+            [string]$current.Id, [string]$current.ProviderName)
+        $dialog = $Salamander.ui.Dialog($title, 420, 340, $true)
+        $dialog.AddControl('label', 'generalLabel', [string]$Strings.general,
+            $false, $false, 0, @{x=10;y=8;width=120;height=12})
+        $dialog.AddControl('statictext', 'metadata', $metadata, $true, $false, 0,
+            @{x=10;y=22;width=350;height=70})
+        $dialog.AddControl('label', 'descriptionLabel',
+            [string]$Strings.descriptionLabel,
+            $false, $false, 0, @{x=10;y=98;width=120;height=12})
+        $dialog.AddControl('textbox', 'message', $message, $true, $false, 0,
+            @{x=10;y=112;width=400;height=100}, $false, $true)
+        $dialog.AddControl('label', 'detailsLabel', [string]$Strings.details,
+            $false, $false, 0, @{x=10;y=218;width=120;height=12})
+        $dialog.AddControl('textbox', 'xml', $xml, $true, $false, 0,
+            @{x=10;y=232;width=350;height=72}, $false, $true)
+        $dialog.AddControl('button', 'previousEvent', ([string][char]0x25B2),
+            $false, $false, 101, @{x=370;y=22;width=40;height=22})
+        $dialog.AddControl('button', 'nextEvent', ([string][char]0x25BC),
+            $false, $false, 102, @{x=370;y=50;width=40;height=22})
+        $dialog.AddControl('button', 'close', [string]$Strings.close,
+            $false, $false, 1, @{x=350;y=312;width=60;height=20})
+        try { $result = [int]$dialog.Show() } finally { $dialog.Close() }
+        if (($result -eq 101 -or $result -eq 102) -and
+            $orderedIds.Count -gt 0 -and $currentIndex -ge 0) {
+            $offset = if ($result -eq 101) { -1 } else { 1 }
+            $nextIndex = $currentIndex + $offset
+            if ($nextIndex -ge 0 -and $nextIndex -lt $orderedIds.Count) {
+                $identity = ConvertFrom-EventItemId `
+                    ([string]$orderedIds[$nextIndex])
+                if ($null -ne $identity) {
+                    $recordId = [long]$identity.recordId
+                    $adjacent = Get-WinEvent `
+                        -LogName ([string]$identity.logName) `
+                        -FilterXPath "*[System[EventRecordID=$recordId]]" `
+                        -MaxEvents 1 -ErrorAction SilentlyContinue |
+                        Select-Object -First 1
+                    if ($null -ne $adjacent) {
+                        $currentIndex = $nextIndex
+                        $current = $adjacent
+                        $LogName = [string]$identity.logName
+                        continue
+                    }
+                }
+            }
+        }
+        break
     }
-    if ([string]::IsNullOrWhiteSpace($message)) {
-        $message = [string]$Strings.messageUnavailable
-    }
-    $xml = try { [string]$Event.ToXml() } catch { '' }
-    $level = Get-EventLevelText $Event $Strings
-    $metadata = [string]::Format([string]$Strings.metadata,
-        $LogName, [string]$Event.ProviderName, [string]$Event.Id,
-        $level, $Event.TimeCreated.ToString('g'), [string]$Event.TaskDisplayName,
-        [string]$Event.UserId, [string]$Event.MachineName, [string]$Event.RecordId)
-    $title = [string]::Format([string]$Strings.windowTitle,
-        [string]$Event.Id, [string]$Event.ProviderName)
-    $dialog = $Salamander.ui.Dialog($title, 600, 410)
-    $dialog.AddControl('label', 'generalLabel', [string]$Strings.general,
-        $false, $false, 0, @{x=10;y=8;width=80;height=12})
-    $dialog.AddControl('textbox', 'message', $message, $true, $false, 0,
-        @{x=10;y=24;width=580;height=180}, $false, $true)
-    $dialog.AddControl('textbox', 'metadata', $metadata, $true, $false, 0,
-        @{x=10;y=212;width=580;height=82}, $false, $true)
-    $dialog.AddControl('label', 'detailsLabel', [string]$Strings.details,
-        $false, $false, 0, @{x=10;y=302;width=80;height=12})
-    $dialog.AddControl('textbox', 'xml', $xml, $true, $false, 0,
-        @{x=10;y=318;width=500;height=80}, $false, $true)
-    $dialog.AddControl('button', 'close', [string]$Strings.close,
-        $false, $false, 1, @{x=520;y=376;width=70;height=22})
-    try { [void]$dialog.Show() } finally { $dialog.Close() }
 }
 
 $handler = [string]$Salamander.command_handler

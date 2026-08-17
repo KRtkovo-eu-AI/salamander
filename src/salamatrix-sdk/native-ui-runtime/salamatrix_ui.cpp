@@ -1052,6 +1052,72 @@ struct NativeDialog::Impl
     void* ResizeContext;
     DialogCloseCallback CloseCallback;
     void* CloseContext;
+    int InitialClientWidth;
+    int InitialClientHeight;
+    std::vector<RECT> InitialControlBounds;
+
+    void ApplyResizableLayout(int width, int height)
+    {
+        if (!Options.Resizable || Window == NULL || width <= 0 || height <= 0)
+            return;
+        if (InitialClientWidth == 0 || InitialClientHeight == 0)
+        {
+            InitialClientWidth = width;
+            InitialClientHeight = height;
+            InitialControlBounds.resize(Controls.size());
+            for (size_t index = 0; index < Controls.size(); ++index)
+            {
+                RECT bounds = {0, 0, 0, 0};
+                if (Controls[index]->WindowHandle != NULL &&
+                    GetWindowRect(Controls[index]->WindowHandle, &bounds))
+                    MapWindowPoints(NULL, Window,
+                                    reinterpret_cast<POINT*>(&bounds), 2);
+                InitialControlBounds[index] = bounds;
+            }
+            return;
+        }
+
+        const int dx = width - InitialClientWidth;
+        const int dy = height - InitialClientHeight;
+        size_t firstMultiline = Controls.size();
+        for (size_t index = 0; index < Controls.size(); ++index)
+            if (Controls[index]->Kind == ControlKindTextBox &&
+                Controls[index]->Multiline)
+            { firstMultiline = index; break; }
+
+        for (size_t index = 0; index < Controls.size() &&
+                               index < InitialControlBounds.size(); ++index)
+        {
+            Control* control = Controls[index];
+            RECT bounds = InitialControlBounds[index];
+            int x = bounds.left;
+            int y = bounds.top;
+            int controlWidth = bounds.right - bounds.left;
+            int controlHeight = bounds.bottom - bounds.top;
+            const int rightMargin = InitialClientWidth - bounds.right;
+            const int bottomMargin = InitialClientHeight - bounds.bottom;
+            const bool wide = controlWidth >= InitialClientWidth / 2;
+            const bool multiline = control->Kind == ControlKindTextBox &&
+                                   control->Multiline;
+
+            if (multiline && wide)
+                controlWidth += dx;
+            else if (rightMargin <= 48)
+                x += dx;
+
+            if (index == firstMultiline)
+                controlHeight += dy;
+            else if (firstMultiline < Controls.size() &&
+                     bounds.top > InitialControlBounds[firstMultiline].bottom)
+                y += dy;
+            else if (bottomMargin <= 48)
+                y += dy;
+
+            control->SetBounds(x, y,
+                               controlWidth > 16 ? controlWidth : 16,
+                               controlHeight > 12 ? controlHeight : 12);
+        }
+    }
 
     void ApplyDarkScrollbarScopes(BOOL dark)
     {
@@ -1087,7 +1153,9 @@ struct NativeDialog::Impl
           ResizeCallback(NULL),
           ResizeContext(NULL),
           CloseCallback(NULL),
-          CloseContext(NULL)
+          CloseContext(NULL),
+          InitialClientWidth(0),
+          InitialClientHeight(0)
     {
     }
 
@@ -1272,7 +1340,7 @@ int WINAPI NativeDialog::ShowModal()
     if (!m_pImpl->Options.Modeless)
         header->style |= DS_MODALFRAME;
     if (m_pImpl->Options.Resizable)
-        header->style |= WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
+        header->style |= WS_THICKFRAME;
     // Let dialog-manager keyboard navigation traverse child controls,
     // including the two controls composing an editable file picker.
     header->dwExtendedStyle = WS_EX_CONTROLPARENT |
@@ -2194,16 +2262,20 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
         MINMAXINFO* limits = reinterpret_cast<MINMAXINFO*>(lParam);
         if (limits != NULL)
         {
-            limits->ptMinTrackSize.x = 640;
-            limits->ptMinTrackSize.y = 460;
+            limits->ptMinTrackSize.x = ScaleDialogMetric(
+                360, 96, dialog->m_pImpl->CurrentDpi);
+            limits->ptMinTrackSize.y = ScaleDialogMetric(
+                320, 96, dialog->m_pImpl->CurrentDpi);
         }
         return TRUE;
     }
-    if (message == WM_SIZE && dialog->m_pImpl->ResizeCallback != NULL)
+    if (message == WM_SIZE && dialog->m_pImpl->Options.Resizable)
     {
-        dialog->m_pImpl->ResizeCallback(
-            dialog->m_pImpl->ResizeContext, dialog,
-            LOWORD(lParam), HIWORD(lParam));
+        dialog->m_pImpl->ApplyResizableLayout(LOWORD(lParam), HIWORD(lParam));
+        if (dialog->m_pImpl->ResizeCallback != NULL)
+            dialog->m_pImpl->ResizeCallback(
+                dialog->m_pImpl->ResizeContext, dialog,
+                LOWORD(lParam), HIWORD(lParam));
         RedrawWindow(hwnd, NULL, NULL,
                      RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
         return TRUE;

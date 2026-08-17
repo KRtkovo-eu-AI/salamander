@@ -853,6 +853,33 @@ private:
                     }
                     return S_OK;
                 }).Get(), &acceleratorToken_);
+        if (parameters_->kind == NativeViewerKind::RenderDocument)
+        {
+            webView_->add_WebMessageReceived(
+                Callback<ICoreWebView2WebMessageReceivedEventHandler>(
+                    [this](ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs* args) -> HRESULT
+                    {
+                        LPWSTR message = nullptr;
+                        if (args == nullptr || FAILED(args->TryGetWebMessageAsString(&message)) || message == nullptr)
+                            return S_OK;
+
+                        const std::wstring value(message);
+                        CoTaskMemFree(message);
+                        constexpr wchar_t prefix[] = L"salamander-link:";
+                        if (value == L"salamander-link-clear")
+                            SetWindowTextW(status_, parameters_->ready.c_str());
+                        else if (value.compare(0, std::size(prefix) - 1, prefix) == 0)
+                            SetWindowTextW(status_, value.c_str() + (std::size(prefix) - 1));
+                        return S_OK;
+                    }).Get(), &webMessageToken_);
+
+            constexpr wchar_t hoverScript[] =
+                L"(function(){document.addEventListener('mouseover',function(e){var a=e.target&&e.target.closest?e.target.closest('a'):null;"
+                L"if(a&&a.href)window.chrome.webview.postMessage('salamander-link:'+a.href);});"
+                L"document.addEventListener('mouseout',function(e){var a=e.target&&e.target.closest?e.target.closest('a'):null;"
+                L"if(a&&!a.contains(e.relatedTarget))window.chrome.webview.postMessage('salamander-link-clear');});})();";
+            webView_->AddScriptToExecuteOnDocumentCreated(hoverScript, nullptr);
+        }
         controller_->put_ZoomFactor(static_cast<double>(zoomPercent_) / 100.0);
         webView_->add_NavigationCompleted(
             Callback<ICoreWebView2NavigationCompletedEventHandler>(
@@ -1141,6 +1168,8 @@ private:
     {
         if (webView_ && navigationToken_.value != 0)
             webView_->remove_NavigationCompleted(navigationToken_);
+        if (webView_ && webMessageToken_.value != 0)
+            webView_->remove_WebMessageReceived(webMessageToken_);
         webView_.Reset();
         if (controller_)
         {
@@ -1174,6 +1203,7 @@ private:
     ComPtr<ICoreWebView2Controller> controller_;
     ComPtr<ICoreWebView2> webView_;
     EventRegistrationToken navigationToken_ = {};
+    EventRegistrationToken webMessageToken_ = {};
     EventRegistrationToken acceleratorToken_ = {};
     EventRegistrationToken zoomChangedToken_ = {};
     int zoomPercent_ = 100;

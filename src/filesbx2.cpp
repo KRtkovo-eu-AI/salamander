@@ -540,6 +540,11 @@ CHeaderLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_SETCURSOR:
     {
+        if (!Parent->Parent->ShouldShowWaitCursorForRefresh())
+        {
+            SetCursor(LoadCursor(NULL, IDC_ARROW));
+            return TRUE;
+        }
         if (MouseIsTracked)
             return TRUE;
         break;

@@ -108,6 +108,7 @@ class Dialog {
       title: this.title,
       width: Number(this.options.width ?? 320),
       height: Number(this.options.height ?? 180),
+      resizable: Boolean(this.options.resizable),
     });
     this.id = result.dialogId;
     return this;
