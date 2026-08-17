@@ -138,6 +138,7 @@ def main() -> int:
     salamatrix_version = read("src/plugins/salamatrix/versinfo.rh2")
     manifest = read("src/plugins/salamatrix/salamatrix_manifest.cpp")
     packages = read("src/plugins/salamatrix/salamatrix_packages.cpp")
+    panel_tooltips = read("src/fileswn9.cpp")
     manifest = read("src/plugins/salamatrix/salamatrix_manifest.cpp")
     api_docs = read("src/plugins/salamatrix/salamatrix_api_docs.h")
     general_contract = read("src/plugins/shared/spl_gen.h")
@@ -2282,6 +2283,22 @@ def main() -> int:
         r'salamander\.host\.appearance.*?'
         r'DarkModeIsWindowsDarkSchemeSelected\(\).*?windowsDarkMode',
         "framework package host does not expose the explicit Windows dark scheme")
+    require(
+        panel_tooltips,
+        r"Is\(ptPluginFS\).*?PluginData\.GetInfoLineContent\(.*?"
+        r"AppendTipText\(text, textSize, info\).*?return;",
+        "plugin file-system tooltips do not reuse item information-line details")
+    require(
+        panel_tooltips,
+        r"ValidFileData\s*&\s*\(VALID_DATA_DATE\s*\|\s*VALID_DATA_TIME\).*?"
+        r"FormatTipFileTime.*?ValidFileData\s*&\s*VALID_DATA_SIZE",
+        "generic panel tooltips render invalid date or size metadata")
+    require(
+        packages,
+        r"GetInfoLineContent\(.*?data->Item\.ColumnValues.*?"
+        r"Columns\[index\]\.Name\.c_str\(\).*?value\.c_str\(\).*?"
+        r"return buffer\[0\] != '\\0';",
+        "Salamatrix FS tooltips do not expose declared item column values")
     require(
         powershell_worker,
         r'ScriptMethod Appearance.*?salamander\.host\.appearance',

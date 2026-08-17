@@ -1341,11 +1341,41 @@ public:
         int selectedDirs, BOOL displaySize, const CQuadWord& selectedSize,
         char* buffer, DWORD* hotTexts, int& hotTextsCount)
     {
-        UNREFERENCED_PARAMETER(panel); UNREFERENCED_PARAMETER(file);
+        UNREFERENCED_PARAMETER(panel);
         UNREFERENCED_PARAMETER(isDir); UNREFERENCED_PARAMETER(selectedFiles);
         UNREFERENCED_PARAMETER(selectedDirs); UNREFERENCED_PARAMETER(displaySize);
         UNREFERENCED_PARAMETER(selectedSize); UNREFERENCED_PARAMETER(hotTexts);
-        hotTextsCount = 0; if (buffer != NULL) buffer[0] = '\0'; return FALSE;
+        hotTextsCount = 0;
+        if (buffer == NULL)
+            return FALSE;
+        buffer[0] = '\0';
+        if (file == NULL || file->PluginData == 0 ||
+            file->PluginData == static_cast<DWORD_PTR>(-1))
+            return FALSE;
+        const SalamatrixFileSystemItemData* data =
+            reinterpret_cast<const SalamatrixFileSystemItemData*>(file->PluginData);
+        size_t used = 0;
+        for (size_t index = 0;
+             index < Columns.size() && index < data->Item.ColumnValues.size();
+             ++index)
+        {
+            const std::string& value = data->Item.ColumnValues[index];
+            if (value.empty())
+                continue;
+            const char* separator = used == 0 ? "" : "\n";
+            const int written = _snprintf_s(
+                buffer + used, 1000 - used, _TRUNCATE, "%s%s: %s",
+                separator, Columns[index].Name.c_str(), value.c_str());
+            if (written < 0)
+            {
+                buffer[999] = '\0';
+                break;
+            }
+            used += static_cast<size_t>(written);
+            if (used >= 999)
+                break;
+        }
+        return buffer[0] != '\0';
     }
     virtual BOOL WINAPI CanBeCopiedToClipboard() { return FALSE; }
     virtual BOOL WINAPI GetByteSize(const CFileData* file, BOOL isDir, CQuadWord* size)
