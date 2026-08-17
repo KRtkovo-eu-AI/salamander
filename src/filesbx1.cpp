@@ -1770,6 +1770,11 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_SETCURSOR:
     {
+        if (!Parent->ShouldShowWaitCursorForRefresh())
+        {
+            SetCursor(LoadCursor(NULL, IDC_ARROW));
+            return TRUE;
+        }
         if (Parent->TrackingSingleClick)
             return TRUE;
         break;

@@ -8,6 +8,7 @@
   "entryPoint": "main.mjs",
   "icon": "icon.svg",
   "capabilities": ["ui.dialogs", "storage", "file-system"],
+  "events": [],
   "commands": [{
     "id": "Salamatrix.Demo.JavaScriptNode.run",
     "title": "Run Node demo",
@@ -27,11 +28,12 @@
     "name": "Demo machines Node.js",
     "listHandler": "listDemoMachines",
     "icon": "icon.svg",
-    "refreshIntervalMs": 5000,
+      "refreshIntervalMs": 0,
+    "refreshDepth": 1,
     "columns": [{"id":"state","name":"State","description":"Machine state","width":100}],
     "actions": [
       {"id": "inspect", "title": "Inspect", "handler": "inspectDemoMachine", "default": true},
-      {"id": "toggle", "title": "Toggle state", "handler": "toggleDemoMachine"}
+      {"id": "toggle", "title": "Toggle state", "handler": "toggleDemoMachine", "refresh": true}
     ]
   }]
 }

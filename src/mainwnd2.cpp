@@ -6329,6 +6329,12 @@ void CMainWindow::FinishStartupWindowReveal()
     LeftPanel->CompletePendingStartupRefreshes();
     RightPanel->CompletePendingStartupRefreshes();
 
+    // WM_ACTIVATE used to hide a stale first frame by reaching LayoutWindows
+    // through FocusPanel -> UpdateTreeView.  Do that authoritative two-panel
+    // layout while the window is still cloaked instead of requiring the user
+    // to click or move the window before the second side appears.
+    LayoutWindows();
+
     RedrawWindow(HWindow, NULL, NULL,
                  RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
 

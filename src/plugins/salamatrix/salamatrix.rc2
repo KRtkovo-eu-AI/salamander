@@ -14,3 +14,22 @@
 
 #include "versinfo.rh2"
 #include "versinfo.rc2"
+
+STRINGTABLE
+{
+ IDS_VIEWER_NAME,               "Salamatrix Viewer"
+ IDS_VIEWER_FILE,               "&File"
+ IDS_VIEWER_VIEW,               "&View"
+ IDS_VIEWER_CLOSE,              "&Close\tEsc"
+ IDS_VIEWER_REFRESH,            "&Refresh\tF5"
+ IDS_VIEWER_ZOOM_IN,            "Zoom &In\tCtrl++"
+ IDS_VIEWER_ZOOM_OUT,           "Zoom &Out\tCtrl+-"
+ IDS_VIEWER_ZOOM_RESET,         "&Reset Zoom\tCtrl+0"
+ IDS_VIEWER_LINE_NUMBERS,       "Show &Line Numbers"
+ IDS_VIEWER_WRAP_LINES,         "&Wrap Lines\tF2"
+ IDS_VIEWER_SHOW_WHITESPACE,    "Show &Whitespace"
+ IDS_VIEWER_LOADING,            "Loading..."
+ IDS_VIEWER_READY,              "Ready"
+ IDS_VIEWER_WEBVIEW_FAILED,     "Unable to initialize the WebView2 renderer."
+ IDS_VIEWER_OPEN_FAILED,        "Unable to open the selected file."
+}

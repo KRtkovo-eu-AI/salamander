@@ -383,6 +383,11 @@ class _UI:
         return self._transport.call(
             "salamander.ui.fileProperties", path=str(path))
 
+    def viewer(self, path: str, renderer: str = "auto") -> bool:
+        return bool(self._transport.call(
+            "salamander.ui.viewer.open", path=str(path), renderer=str(renderer)
+        ).get("opened", False))
+
     def uptime(self) -> str:
         return str(self._transport.call(
             "salamander.host.uptime"
@@ -426,10 +431,10 @@ class _UI:
         return _Progress(self._transport, str(result["progressId"]))
 
     def dialog(self, title: str = "Salamander", width: int = 320,
-               height: int = 180) -> "_Dialog":
+               height: int = 180, resizable: bool = False) -> "_Dialog":
         result = self._transport.call(
             "salamander.ui.dialog.create", title=title,
-            width=int(width), height=int(height)
+            width=int(width), height=int(height), resizable=bool(resizable)
         )
         return _Dialog(self._transport, str(result["dialogId"]))
 

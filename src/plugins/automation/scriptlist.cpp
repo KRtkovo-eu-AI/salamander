@@ -2449,6 +2449,7 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
             std::string title;
             int width = 320;
             int height = 180;
+            BOOL resizable = FALSE;
             Salamatrix::Runtime::Protocol::Json::FindStringMember(
                 payloadJson, "title", &title);
             if (title.empty())
@@ -2457,11 +2458,14 @@ BOOL WINAPI CScriptInfo::RuntimeHostDispatch(
                 payloadJson, "width", &width);
             Salamatrix::Runtime::Protocol::Json::FindIntegerMember(
                 payloadJson, "height", &height);
+            Salamatrix::Runtime::Protocol::Json::FindBoolMember(
+                payloadJson, "resizable", &resizable);
             Salamatrix::UI::DialogOptions options;
             options.Title = title.c_str();
             options.Parent = SalamanderGeneral->GetMsgBoxParent();
             options.Width = static_cast<short>(width < 160 ? 160 : (width > 1200 ? 1200 : width));
             options.Height = static_cast<short>(height < 100 ? 100 : (height > 900 ? 900 : height));
+            options.Resizable = resizable;
             Salamatrix::UI::IDialog* dialog = ui->CreateSalamatrixDialog(options);
             if (dialog == NULL)
                 return FALSE;

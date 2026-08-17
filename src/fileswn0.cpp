@@ -2476,6 +2476,12 @@ BOOL AreTheSameFiles(DWORD validFileData, CPluginDataInterfaceEncapsulation* plu
     return FALSE;
 }
 
+BOOL CFilesWindow::ShouldShowWaitCursorForRefresh()
+{
+    return !Is(ptPluginFS) ||
+           !GetPluginFS()->IsServiceSupported(FS_SERVICE_NO_REFRESH_WAIT_CURSOR);
+}
+
 void CFilesWindow::RefreshDirectory(BOOL probablyUselessRefresh, BOOL forceReloadThumbnails, BOOL isInactiveRefresh)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::RefreshDirectory()");
@@ -2488,7 +2494,8 @@ void CFilesWindow::RefreshDirectory(BOOL probablyUselessRefresh, BOOL forceReloa
 #endif // _DEBUG
 
     // show wait cursor
-    BOOL setWait = (GetCursor() != LoadCursor(NULL, IDC_WAIT)); // is it already waiting?
+    BOOL setWait = ShouldShowWaitCursorForRefresh() &&
+                   GetCursor() != LoadCursor(NULL, IDC_WAIT); // is it already waiting?
     HCURSOR oldCur;
     if (setWait)
         oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));

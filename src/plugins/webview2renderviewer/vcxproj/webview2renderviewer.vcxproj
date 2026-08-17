@@ -39,6 +39,8 @@
     <ProjectGuid>{EAD529CD-9A84-474B-B8EA-32B0F5954045}</ProjectGuid>
     <RootNamespace>webview2renderviewer</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <MSBuildProjectExtensionsPath>$(MSBuildProjectDirectory)\obj\$(MSBuildProjectName)\</MSBuildProjectExtensionsPath>
+    <NuGetPackageRoot Condition="'$(NuGetPackageRoot)'==''">$(UserProfile)\.nuget\packages\</NuGetPackageRoot>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props">
   </Import>
@@ -158,6 +160,9 @@
     <RenderViewerPluginDir>$(RenderViewerBuildRoot)$(Configuration)_$(ShortPlatform)\plugins\webview2renderviewer\</RenderViewerPluginDir>
     <OutDir>$(RenderViewerPluginDir)</OutDir>
     <IntDir>$(OutDir)Intermediate\</IntDir>
+    <MarkdigRuntimeIdentifier Condition="'$(Platform)'=='Win32'">win-x86</MarkdigRuntimeIdentifier>
+    <MarkdigRuntimeIdentifier Condition="'$(Platform)'=='x64'">win-x64</MarkdigRuntimeIdentifier>
+    <MarkdigRuntimeIdentifier Condition="'$(Platform)'=='ARM64'">win-arm64</MarkdigRuntimeIdentifier>
   </PropertyGroup>
   <PropertyGroup Label="UserMacros">
   </PropertyGroup>
@@ -199,6 +204,10 @@
     <ClCompile Include="..\..\shared\mhandles.cpp">
     </ClCompile>
     <ClCompile Include="..\..\..\darkmode.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\shared\plugindarkmode.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\shared\webviewviewer\native_viewer.cpp">
     </ClCompile>
     <ClCompile Include="..\webview2renderviewer.cpp">
     </ClCompile>
@@ -260,21 +269,18 @@
       <Project>{83B6607E-0476-4AC8-BD46-CCF17C1F31D4}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
-    <ProjectReference Include="..\managed\WebView2RenderViewer.Managed.csproj">
-      <Project>{025C488C-8A97-446A-B36B-872E59BD566D}</Project>
+    <ProjectReference Include="..\..\shared\webviewviewer\WebView2.Dependencies.csproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
-  <ItemDefinitionGroup>
-    <PostBuildEvent>
-      <Command><![CDATA[
-call "$(ProjectDir)..\copy_managed_dependencies.cmd" "$(ProjectDir)..\" "$(Configuration)" "$(Platform)" "$(RenderViewerPluginDir)"
-if errorlevel 1 exit /B 1
-]]></Command>
-    </PostBuildEvent>
-  </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets">
   </Import>
+  <Target Name="PublishMarkdigRenderer" AfterTargets="Build" Condition="'$(Platform)' != 'Win32'">
+    <Exec Command="dotnet publish &quot;$(ProjectDir)..\..\shared\webviewviewer\markdighelper\MarkdigRenderer.csproj&quot; --configuration Release --runtime $(MarkdigRuntimeIdentifier) --output &quot;$(OutDir).&quot;" />
+    <Delete Files="$(OutDir)MarkdigRenderer.pdb;$(OutDir)Markdig.dll;$(OutDir)Microsoft.Web.WebView2.Core.dll;$(OutDir)Microsoft.Web.WebView2.WinForms.dll;$(OutDir)Microsoft.Web.WebView2.Wpf.dll;$(OutDir)System.Buffers.dll;$(OutDir)System.Memory.dll;$(OutDir)System.Numerics.Vectors.dll;$(OutDir)System.Runtime.CompilerServices.Unsafe.dll;$(OutDir)System.Text.Encoding.CodePages.dll;$(OutDir)WebView2RenderViewer.Managed.dll" />
+    <RemoveDir Directories="$(OutDir)runtimes" />
+  </Target>
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="..\..\shared\webviewviewer\WebView2.Native.targets" />
   </ImportGroup>
 </Project>

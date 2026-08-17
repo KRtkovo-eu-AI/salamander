@@ -570,6 +570,11 @@ function ui.file_properties(path)
         path = tostring(path)
     })
 end
+function ui.viewer(path, renderer)
+    return host_call("salamander.ui.viewer.open", {
+        path = tostring(path), renderer = renderer or "auto"
+    }).opened
+end
 function ui.uptime() return tostring(host_call("salamander.host.uptime", {}).milliseconds) end
 function ui.input_box(prompt, title, initial)
     return host_call("salamander.ui.inputBox", {
@@ -643,10 +648,10 @@ function ui.progress(title, total, options)
     return progress
 end
 
-function ui.dialog(title, width, height)
+function ui.dialog(title, width, height, resizable)
     local created = host_call("salamander.ui.dialog.create", {
         title = title or "Salamander", width = width or 320,
-        height = height or 180
+        height = height or 180, resizable = resizable == true
     })
     local dialog = {id = created.dialogId}
     function dialog.add_control(kind, control_id, text, options)

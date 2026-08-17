@@ -271,17 +271,19 @@ def main() -> int:
         print("startup window must remain cloaked through the first message-loop turn")
         return 1
     final_refresh = finish_body.group(0).find("LeftPanel->CompletePendingStartupRefreshes();")
+    final_layout = finish_body.group(0).find("LayoutWindows();")
     final_redraw = finish_body.group(0).find("RedrawWindow(HWindow")
     final_uncloak = finish_body.group(0).find("DarkModeSetWindowCloaked(HWindow, false)")
     splash_close = finish_body.group(0).find("SplashScreenCloseIfExist();")
     if (
         final_refresh < 0
-        or final_redraw < final_refresh
+        or final_layout < final_refresh
+        or final_redraw < final_layout
         or final_uncloak < final_redraw
         or splash_close < final_uncloak
         or "case IDT_FINISHSTARTUPREVEAL:" not in mainwnd3
     ):
-        print("final refresh and redraw must complete before uncloak and splash close")
+        print("final refresh, two-panel layout, and redraw must complete before uncloak and splash close")
         return 1
     cancel_refresh = re.search(
         r"void CFilesWindow::CompletePendingStartupRefreshes\(\).*?\n\}",

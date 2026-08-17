@@ -1516,6 +1516,26 @@ void CFilesWindow::GetPanelItemToolTip(DWORD id, char* text, int textSize)
     FormatPanelTipName(f, displayName, _countof(displayName));
     AppendTipLine(text, textSize, IDS_PANELTIP_NAME, displayName);
 
+    // File-system plug-ins already provide the most useful item summary for
+    // the information line.  Reuse it in the panel tooltip as well, so the
+    // values remain available in Brief and other views which hide plug-in
+    // columns.  Keep the standard tooltip as a fallback for older plug-ins.
+    if (Is(ptPluginFS) && PluginData.NotEmpty())
+    {
+        char info[1000];
+        DWORD hotTexts[100];
+        int hotTextsCount = _countof(hotTexts);
+        info[0] = 0;
+        if (PluginData.GetInfoLineContent(
+                IsLeftPanel() ? PANEL_LEFT : PANEL_RIGHT,
+                f, isDir, 0, 0, TRUE, CQuadWord(0, 0), info,
+                hotTexts, hotTextsCount) && info[0] != 0)
+        {
+            AppendTipText(text, textSize, info);
+            return;
+        }
+    }
+
     CPanelTipCategory category = isDir ? ptcUnknown : GetPanelTipCategory(f);
     BOOL categoryAppended = FALSE;
     if (!isDir && Is(ptDisk) && category != ptcUnknown)
@@ -1530,11 +1550,15 @@ void CFilesWindow::GetPanelItemToolTip(DWORD id, char* text, int textSize)
         const char* type = isDir ? LoadStr(IDS_PANELTIP_KIND_DIRECTORY) : (f->Ext != NULL && f->Ext[0] != 0 ? (f->Ext[0] == '.' ? f->Ext + 1 : f->Ext) : LoadStr(IDS_PANELTIP_KIND_FILE));
         AppendTipLine(text, textSize, IDS_PANELTIP_TYPE, type);
 
-        char timeBuf[160];
-        FormatTipFileTime(&f->LastWrite, timeBuf, _countof(timeBuf));
-        AppendTipLine(text, textSize, IDS_PANELTIP_MODIFIED, timeBuf);
+        if ((ValidFileData & (VALID_DATA_DATE | VALID_DATA_TIME)) ==
+            (VALID_DATA_DATE | VALID_DATA_TIME))
+        {
+            char timeBuf[160];
+            FormatTipFileTime(&f->LastWrite, timeBuf, _countof(timeBuf));
+            AppendTipLine(text, textSize, IDS_PANELTIP_MODIFIED, timeBuf);
+        }
 
-        if (!isDir || f->SizeValid)
+        if ((ValidFileData & VALID_DATA_SIZE) != 0 && (!isDir || f->SizeValid))
         {
             char sizeBuf[100];
             PrintDiskSize(sizeBuf, f->Size, 1);

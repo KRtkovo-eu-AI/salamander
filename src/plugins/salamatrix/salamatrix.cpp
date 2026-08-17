@@ -12,6 +12,7 @@
 */
 
 #include "precomp.h"
+#include "../shared/webviewviewer/native_viewer.h"
 
 CPluginInterface PluginInterface;
 
@@ -293,11 +294,14 @@ BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL force)
         SalamatrixRuntime->Events()->PublishLifecycle(
             Salamatrix::Events::EventKindHostShutdown);
     ReportShutdownProgress(ssdpClosingExtensionWindows);
+    if (!NativeViewer_RequestShutdown(force != FALSE))
+        return FALSE;
     Salamatrix::UI::CloseAllNativeDialogs();
     delete SalamatrixPackages;
     SalamatrixPackages = NULL;
     ReportShutdownProgress(ssdpStoppingExtensionServices);
     DestroyRuntimeServices();
+    NativeViewer_Shutdown();
     SalamanderGeneral = NULL;
     SalamanderGUI = NULL;
     SalamatrixFSName[0] = 0;

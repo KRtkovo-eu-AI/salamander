@@ -114,6 +114,10 @@ The five modern workers expose the same Salamatrix dialog surface. Their
 language facades differ only in naming and async syntax; they send the same
 `salamander.ui.dialog.*` methods and option fields to the package dispatcher
 owned by Salamatrix Framework. Automation is not a dependency of this path.
+All five facades expose the same optional `resizable` dialog flag. Resizable
+dialogs retain compact native controls while the framework stretches content
+and keeps lower/right controls anchored; font, DPI, and selected color scheme
+remain framework-owned.
 
 The common control set contains labels, host static text, text boxes,
 check/radio buttons, combo boxes, ordinary buttons, ListView/TreeView/TabControl,

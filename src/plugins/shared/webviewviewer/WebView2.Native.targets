@@ -1,0 +1,27 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <WebView2PackageVersion>1.0.2420.47</WebView2PackageVersion>
+    <WebView2PackagesRoot Condition="'$(NuGetPackageRoot)' != ''">$(NuGetPackageRoot)</WebView2PackagesRoot>
+    <WebView2PackagesRoot Condition="'$(WebView2PackagesRoot)' == '' and '$(RestorePackagesPath)' != ''">$(RestorePackagesPath)\</WebView2PackagesRoot>
+    <WebView2PackagesRoot Condition="'$(WebView2PackagesRoot)' == ''">$([System.Environment]::GetFolderPath(SpecialFolder.UserProfile))\.nuget\packages\</WebView2PackagesRoot>
+    <WebView2NativeRoot>$(WebView2PackagesRoot)microsoft.web.webview2\$(WebView2PackageVersion)\build\native\</WebView2NativeRoot>
+    <WebView2Platform>$(Platform)</WebView2Platform>
+    <WebView2Platform Condition="'$(Platform)' == 'Win32'">x86</WebView2Platform>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(WebView2NativeRoot)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>WebView2Loader.dll.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(WebView2NativeRoot)$(WebView2Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+
+  <Target Name="StageWebView2Loader" AfterTargets="Build">
+    <Copy SourceFiles="$(WebView2NativeRoot)$(WebView2Platform)\WebView2Loader.dll"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>

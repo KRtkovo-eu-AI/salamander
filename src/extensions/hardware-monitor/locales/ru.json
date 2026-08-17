@@ -6,7 +6,8 @@
   },
   "fileSystems": {
     "hardware-info": {
-      "rootItems": {"cpu":"Процессор","memory":"Память","motherboard":"Материнская плата","gpu":"Графический процессор","storage":"Накопитель","network":"Сеть","sensors":"Датчики"},
+      "rootItems": {"cpu":"Процессор","memory":"Память","motherboard":"Материнская плата","gpu":"Графический процессор","storage":"Накопитель","network":"Сеть","sensors":"Датчики","device-manager":"Диспетчер устройств"},
+      "actions":{"updateDriver":"Обновить драйвер","disableDevice":"Отключить устройство","uninstallDevice":"Удалить устройство","scanDevices":"Обновить конфигурацию оборудования","deviceProperties":"Свойства"},
       "name": "Аппаратный монитор",
       "columns": {
         "property": {"name": "Поле", "description": "Название свойства или датчика"},
@@ -21,10 +22,11 @@
     "gpu": "Графический процессор",
     "storage": "Накопитель",
     "network": "Сеть",
-    "sensors": "Датчики"
+    "sensors": "Датчики",
+    "deviceManager": "Диспетчер устройств"
   },
   "strings": {
-    "loading": "Загрузка...",
+    "disableDevice":"Отключить устройство","uninstallDevice":"Удалить устройство","confirmDeviceAction":"{0} '{1}'?","loading": "Загрузка...",
     "notAvailable": "Н/Д",
     "errorTitle": "Аппаратный монитор",
     "sensorInitFailed": "Не удалось загрузить библиотеку датчиков (LibreHardwareMonitorLib.dll). Показания датчиков будут недоступны.\nПоместите DLL в каталог расширения или в системный PATH.",

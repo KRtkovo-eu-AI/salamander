@@ -6,7 +6,8 @@
   },
   "fileSystems": {
     "hardware-info": {
-      "rootItems": {"cpu":"CPU","memory":"Memory","motherboard":"Motherboard","gpu":"GPU","storage":"Storage","network":"Network","sensors":"Sensors"},
+      "rootItems": {"cpu":"CPU","memory":"Memory","motherboard":"Motherboard","gpu":"GPU","storage":"Storage","network":"Network","sensors":"Sensors","device-manager":"Device Manager"},
+      "actions":{"updateDriver":"Update driver","disableDevice":"Disable device","uninstallDevice":"Uninstall device","scanDevices":"Scan for hardware changes","deviceProperties":"Properties"},
       "name": "Hardware Monitor",
       "columns": {
         "property": {"name": "Field", "description": "Property or sensor name"},
@@ -21,10 +22,11 @@
     "gpu": "GPU",
     "storage": "Storage",
     "network": "Network",
-    "sensors": "Sensors"
+    "sensors": "Sensors",
+    "deviceManager": "Device Manager"
   },
   "strings": {
-    "loading": "Loading...",
+    "disableDevice":"Disable device","uninstallDevice":"Uninstall device","confirmDeviceAction":"{0} '{1}'?","loading": "Loading...",
     "notAvailable": "N/A",
     "errorTitle": "Hardware Monitor",
     "sensorInitFailed": "Hardware sensor library (LibreHardwareMonitorLib.dll) could not be loaded. Sensor data will be unavailable.\nPlace the DLL in the extension directory or system PATH.",

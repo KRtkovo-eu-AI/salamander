@@ -1,0 +1,53 @@
+{
+  "schema": 2,
+  "id": "OpenSalamander.EventViewer",
+  "name": "Event Viewer",
+  "version": "1.0.0",
+  "description": "Browses Windows event logs in a Salamander file-system panel.",
+  "runtime": "PowerShell",
+  "entryPoint": "main.ps1",
+  "icon": "icon.svg",
+  "iconDark": "icon-dark.svg",
+  "capabilities": ["file-system", "panels.write", "ui.dialogs"],
+  "events": [],
+  "commands": [{
+    "id": "OpenSalamander.EventViewer.open",
+    "title": "Open Event Viewer",
+    "path": "salamatrix:OpenSalamander.EventViewer!events",
+    "menu": "none",
+    "toolbar": true,
+    "icon": "icon.svg",
+    "iconDark": "icon-dark.svg",
+    "requires": "any"
+  }],
+  "locales": {
+    "en":"locales/en.json", "cs":"locales/cs.json", "de":"locales/de.json",
+    "es":"locales/es.json", "fr":"locales/fr.json", "hu":"locales/hu.json",
+    "nl":"locales/nl.json", "ro":"locales/ro.json", "ru":"locales/ru.json",
+    "sk":"locales/sk.json", "zh-CN":"locales/zh-CN.json"
+  },
+  "fileSystems": [{
+    "id": "events",
+    "name": "Event Viewer",
+    "listHandler": "listEvents",
+    "icon": "icon.svg",
+    "iconDark": "icon-dark.svg",
+    "refreshIntervalMs": 0,
+    "refreshDepth": 2,
+    "rootItems": [
+      {"id":"custom-views","name":"Custom Views","icon":"icons/custom-views.svg","iconDark":"icons/custom-views-dark.svg"},
+      {"id":"windows-logs","name":"Windows Logs","icon":"icons/windows-logs.svg","iconDark":"icons/windows-logs-dark.svg"},
+      {"id":"applications-services","name":"Applications and Services Logs","icon":"icons/applications-services.svg","iconDark":"icons/applications-services-dark.svg"}
+    ],
+    "columns": [
+      {"id":"level","name":"Level","description":"Event severity","width":100},
+      {"id":"logged","name":"Date and Time","description":"Time the event was logged","width":150},
+      {"id":"source","name":"Source","description":"Event provider","width":190},
+      {"id":"eventId","name":"Event ID","description":"Event identifier","width":80,"numeric":true},
+      {"id":"task","name":"Task Category","description":"Event task category","width":150}
+    ],
+    "actions": [
+      {"id":"openEvent","title":"Event Properties","handler":"openEvent","default":true,"refresh":false}
+    ]
+  }]
+}

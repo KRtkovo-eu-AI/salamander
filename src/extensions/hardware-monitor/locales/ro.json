@@ -6,7 +6,8 @@
   },
   "fileSystems": {
     "hardware-info": {
-      "rootItems": {"cpu":"Procesor","memory":"Memorie","motherboard":"Placă de bază","gpu":"Procesor grafic","storage":"Stocare","network":"Rețea","sensors":"Senzori"},
+      "rootItems": {"cpu":"Procesor","memory":"Memorie","motherboard":"Placă de bază","gpu":"Procesor grafic","storage":"Stocare","network":"Rețea","sensors":"Senzori","device-manager":"Manager dispozitive"},
+      "actions":{"updateDriver":"Actualizare driver","disableDevice":"Dezactivare dispozitiv","uninstallDevice":"Dezinstalare dispozitiv","scanDevices":"Scanare pentru modificări hardware","deviceProperties":"Proprietăți"},
       "name": "Monitor de hardware",
       "columns": {
         "property": {"name": "Câmp", "description": "Numele proprietății sau al senzorului"},
@@ -21,10 +22,11 @@
     "gpu": "Procesor grafic",
     "storage": "Stocare",
     "network": "Rețea",
-    "sensors": "Senzori"
+    "sensors": "Senzori",
+    "deviceManager": "Manager dispozitive"
   },
   "strings": {
-    "loading": "Se încarcă...",
+    "disableDevice":"Dezactivare dispozitiv","uninstallDevice":"Dezinstalare dispozitiv","confirmDeviceAction":"{0} '{1}'?","loading": "Se încarcă...",
     "notAvailable": "N/A",
     "errorTitle": "Monitor de hardware",
     "sensorInitFailed": "Biblioteca de senzori (LibreHardwareMonitorLib.dll) nu a putut fi încărcată. Citirile senzorilor nu vor fi disponibile.\nPlasați DLL-ul în directorul extensiei sau în PATH-ul de sistem.",

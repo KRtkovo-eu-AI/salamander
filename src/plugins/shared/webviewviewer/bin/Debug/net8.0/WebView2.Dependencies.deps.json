@@ -1,0 +1,66 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "WebView2.Dependencies/1.0.0": {
+        "dependencies": {
+          "Microsoft.Web.WebView2": "1.0.2420.47"
+        },
+        "runtime": {
+          "WebView2.Dependencies.dll": {}
+        }
+      },
+      "Microsoft.Web.WebView2/1.0.2420.47": {
+        "runtime": {
+          "lib/netcoreapp3.0/Microsoft.Web.WebView2.Core.dll": {
+            "assemblyVersion": "1.0.2420.47",
+            "fileVersion": "1.0.2420.47"
+          },
+          "lib/netcoreapp3.0/Microsoft.Web.WebView2.WinForms.dll": {
+            "assemblyVersion": "1.0.2420.47",
+            "fileVersion": "1.0.2420.47"
+          },
+          "lib/netcoreapp3.0/Microsoft.Web.WebView2.Wpf.dll": {
+            "assemblyVersion": "1.0.2420.47",
+            "fileVersion": "1.0.2420.47"
+          }
+        },
+        "runtimeTargets": {
+          "runtimes/win-arm64/native/WebView2Loader.dll": {
+            "rid": "win-arm64",
+            "assetType": "native",
+            "fileVersion": "1.0.2420.47"
+          },
+          "runtimes/win-x64/native/WebView2Loader.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "1.0.2420.47"
+          },
+          "runtimes/win-x86/native/WebView2Loader.dll": {
+            "rid": "win-x86",
+            "assetType": "native",
+            "fileVersion": "1.0.2420.47"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "WebView2.Dependencies/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Microsoft.Web.WebView2/1.0.2420.47": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-XYZjxkepD+MwmIdeiWqjm2T8x4UmVZq4CDKUe7U6L1r+9VGo2Q88OeEgvyLYtgvebGGuSP6D74Z3wxdRwjH8IQ==",
+      "path": "microsoft.web.webview2/1.0.2420.47",
+      "hashPath": "microsoft.web.webview2.1.0.2420.47.nupkg.sha512"
+    }
+  }
+}

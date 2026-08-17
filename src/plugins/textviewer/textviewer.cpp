@@ -24,7 +24,7 @@ CPluginInterface PluginInterface;
 CPluginInterfaceForViewer InterfaceForViewer;
 
 // globalni data
-const char* PluginNameEN = "PrismSharp Text Viewer .NET"; // neprekladane jmeno pluginu
+const char* PluginNameEN = "Prism Text Viewer"; // neprekladane jmeno pluginu
 const char* PluginNameShort = "TEXTVIEWER";    // jmeno pluginu (kratce, bez mezer)
 
 HINSTANCE DLLInstance = NULL; // handle k SPL-ku - jazykove nezavisle resourcy
@@ -37,7 +37,7 @@ CSalamanderGUIAbstract* SalamanderGUI = NULL;
 // definice promenne pro "dbg.h"
 CSalamanderDebugAbstract* SalamanderDebug = NULL;
 
-// maximum file size (in bytes) allowed for the managed viewer
+// maximum file size (in bytes) allowed for the native viewer
 static const ULONGLONG kMaxTextFileSize = 16ULL * 1024ULL * 1024ULL; // 16 MB
 
 // definice promenne pro "spl_com.h"

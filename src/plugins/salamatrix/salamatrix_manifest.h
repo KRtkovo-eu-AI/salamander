@@ -100,8 +100,9 @@ struct CExtensionManifestFileSystem
         std::string Description;
         unsigned int Width;
         bool Numeric;
+        bool Size;
 
-        Column() : Width(100), Numeric(false) {}
+        Column() : Width(100), Numeric(false), Size(false) {}
     };
 
     struct Action
@@ -109,6 +110,7 @@ struct CExtensionManifestFileSystem
         std::string Id;
         std::string Title;
         std::string Handler;
+        std::string ItemIdPrefix;
         bool Default;
         bool Separator;
         bool Refresh;
@@ -126,6 +128,7 @@ struct CExtensionManifestFileSystem
     std::string DefaultFileIcon;
     unsigned int RefreshIntervalMs;
     unsigned int RefreshDepth;
+    std::vector<std::string> RefreshPaths;
     std::vector<RootItem> RootItems;
     std::vector<Column> Columns;
     std::vector<Action> Actions;

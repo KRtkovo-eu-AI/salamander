@@ -24,7 +24,7 @@ CPluginInterface PluginInterface;
 CPluginInterfaceForViewer InterfaceForViewer;
 
 // globalni data
-const char* PluginNameEN = "WebView2 Render Viewer .NET"; // neprekladane jmeno pluginu
+const char* PluginNameEN = "WebView2 Render Viewer"; // neprekladane jmeno pluginu
 const char* PluginNameShort = "WEBVIEW2VIEWER";    // jmeno pluginu (kratce, bez mezer)
 
 HINSTANCE DLLInstance = NULL; // handle k SPL-ku - jazykove nezavisle resourcy
@@ -37,7 +37,7 @@ CSalamanderGUIAbstract* SalamanderGUI = NULL;
 // definice promenne pro "dbg.h"
 CSalamanderDebugAbstract* SalamanderDebug = NULL;
 
-// maximum file size (in bytes) allowed for the managed viewer
+// maximum file size (in bytes) allowed for the native viewer
 static const ULONGLONG kMaxDocumentFileSize = 32ULL * 1024ULL * 1024ULL; // 32 MB
 
 // definice promenne pro "spl_com.h"

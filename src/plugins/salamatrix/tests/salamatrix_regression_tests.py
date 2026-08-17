@@ -91,6 +91,10 @@ def main() -> int:
     fileswn3 = read("src/fileswn3.cpp")
     fileswn4 = read("src/fileswn4.cpp")
     fileswn5 = read("src/fileswn5.cpp")
+    fileswn0 = read("src/fileswn0.cpp")
+    fileswn2 = read("src/fileswn2.cpp")
+    fileswnb = read("src/fileswnb.cpp")
+    fs_contract = read("src/plugins/shared/spl_fs.h")
     viewer_configuration = read("src/salamdr2.cpp")
     mainwnd1 = read("src/mainwnd1.cpp")
     mainwnd2 = read("src/mainwnd2.cpp")
@@ -138,6 +142,7 @@ def main() -> int:
     salamatrix_version = read("src/plugins/salamatrix/versinfo.rh2")
     manifest = read("src/plugins/salamatrix/salamatrix_manifest.cpp")
     packages = read("src/plugins/salamatrix/salamatrix_packages.cpp")
+    panel_tooltips = read("src/fileswn9.cpp")
     manifest = read("src/plugins/salamatrix/salamatrix_manifest.cpp")
     api_docs = read("src/plugins/salamatrix/salamatrix_api_docs.h")
     general_contract = read("src/plugins/shared/spl_gen.h")
@@ -148,6 +153,42 @@ def main() -> int:
     javascript_demo = read("src/extensions/demos/javascript-node/main.mjs")
     javascript_demo_manifest = json.loads(
         read("src/extensions/demos/javascript-node/extension.json"))
+    require(
+        fs_contract,
+        r"#define FS_SERVICE_NO_REFRESH_WAIT_CURSOR 0x04000000",
+        "Plugin FS contract does not expose opt-in refresh wait-cursor suppression")
+    require(
+        fileswn2,
+        r"ChangePathToPluginFS.*?ShouldShowWaitCursorForRefresh\(\).*?IDC_WAIT",
+        "Plugin FS path changes still force a redundant wait cursor")
+    require(
+        manifest,
+        r"refreshIntervalMs\", 3000, 0, 60000",
+        "Manifest validation still rejects refreshIntervalMs=0")
+    require(
+        packages,
+        r"GetSupportedServices\(\).*?FS_SERVICE_NO_REFRESH_WAIT_CURSOR",
+        "Salamatrix FS does not suppress the redundant refresh wait cursor")
+    require(
+        packages,
+        r"needsPersistentWorker.*?!package->Manifest.EventsDeclared.*?"
+        r"!package->Manifest.Events.empty\(\).*?ActivateExtension",
+        "Salamatrix still starts every extension runtime during splash startup")
+    if (sum(source.count("ShouldShowWaitCursorForRefresh()")
+           for source in (fileswn0, fileswnb)) < 3):
+        raise AssertionError(
+            "Panel refresh wait cursor is not guarded in both refresh paths")
+    runtime_process_sources = (
+        automation_bridge,
+        read("src/plugins/javascriptruntime/javascriptruntime.cpp"),
+        read("src/plugins/pythonruntime/pythonruntime.cpp"),
+        read("src/plugins/powershellruntime/powershellruntime.cpp"),
+        read("src/plugins/phpruntime/phpruntime.cpp"),
+        read("src/plugins/luaruntime/luaruntime.cpp"))
+    if not all("STARTF_USESTDHANDLES | STARTF_FORCEOFFFEEDBACK" in source
+               for source in runtime_process_sources):
+        raise AssertionError(
+            "A Salamatrix runtime can still trigger the system startup cursor")
     python_demo = read("src/extensions/demos/python/main.py")
     python_demo_manifest = json.loads(
         read("src/extensions/demos/python/extension.json"))
@@ -183,9 +224,22 @@ def main() -> int:
     hardware_monitor = read("src/extensions/hardware-monitor/main.ps1")
     hardware_monitor_manifest = json.loads(
         read("src/extensions/hardware-monitor/extension.json"))
+    event_viewer = read("src/extensions/event-viewer/main.ps1")
+    event_viewer_manifest = json.loads(
+        read("src/extensions/event-viewer/extension.json"))
     menu_builder = read("src/extensions/extension-menu-builder/main.ps1")
     menu_builder_manifest = json.loads(
         read("src/extensions/extension-menu-builder/extension.json"))
+    bundled_one_shot_manifests = (
+        javascript_demo_manifest, python_demo_manifest, lua_demo_manifest,
+        powershell_demo_manifest, php_demo_manifest, navigator_manifest,
+        lock_inspector_manifest, process_explorer_manifest,
+        hardware_monitor_manifest, event_viewer_manifest,
+        menu_builder_manifest)
+    if any(item.get("events") != []
+           for item in bundled_one_shot_manifests):
+        raise AssertionError(
+            "A bundled one-shot extension still starts a worker at startup")
 
     update_check = re.search(
         r"public static async Task CheckForUpdatesAsync\(.*?"
@@ -1294,13 +1348,36 @@ def main() -> int:
     require(
         packages,
         r"class PackageManager::ExecutionGuard.*?"
-        r"InterlockedIncrement\(&Owner->ActiveExecutions\).*?"
+        r"Owner->BeginExecution\(\).*?"
         r"Owner->FinishExecution\(\).*?"
         r"MenuExtension.*?ExecutionGuard execution\(Owner\).*?"
         r"RunViewer.*?ExecutionGuard execution\(this\).*?"
         r"ListFileSystem.*?ExecutionGuard execution\(this\).*?"
         r"ExecuteFileSystemAction.*?ExecutionGuard execution\(this\)",
         "package operations are not protected from a reentrant extension catalog refresh")
+    require(
+        packages,
+        r"!action\.Refresh.*?QueueFileSystemAction.*?"
+        r"CreateThread\(.*?FileSystemActionThreadProc.*?"
+        r"ExecuteFileSystemActionNow.*?FinishExecution",
+        "non-refreshing FS modal actions still block the panel callback thread")
+    require(
+        packages,
+        r"ExecutionsIdleEvent\(CreateEvent.*?Shutdown.*?"
+        r"WaitForThreadWithSentMessageDispatch.*?BeginExecution.*?"
+        r"ResetEvent.*?FinishExecution.*?SetEvent",
+        "asynchronous FS actions are not joined safely during shutdown")
+    require(
+        packages,
+        r"FileSystemActionGeneration.*?FileSystemActionPending.*?"
+        r"InterlockedCompareExchange.*?generation.*?"
+        r"FileSystemActionThreadProc.*?task->Generation",
+        "repeated FS modal actions can queue duplicate dialogs")
+    require(
+        packages,
+        r"FileSystemExecutionLock.*?FileSystemActionExecutionLock.*?"
+        r"ExecuteFileSystemActionNow.*?FileSystemActionExecutionLock",
+        "modal FS actions can deadlock the UI by holding the listing lock")
     require(
         general_contract + plugins2 + packages,
         r"CSalamanderToolbarMenuItem.*?IconPath.*?IconDarkPath.*?"
@@ -1905,6 +1982,19 @@ def main() -> int:
         "Process Explorer does not publish Task Manager fields and executable icons")
     require(
         process_explorer,
+        r"GetPrivateWorkingSet.*?\[uint64\]\$privateWorkingSet\)\.ToString\(.*?"
+        r"InvariantCulture.*?memory=\$memoryText",
+        "Process Explorer does not publish its memory value as raw bytes")
+    if not columns[3].get("size"):
+        raise AssertionError(
+            "Process Explorer memory column does not declare byte-size semantics")
+    require(
+        manifest + packages,
+        r'ReadBoolean\(columnValue, "size".*?column\.Numeric = true.*?'
+        r'SALCFG_SIZEFORMAT.*?PrintDiskSize.*?Columns\[index\]\.Size',
+        "Salamatrix size columns do not follow the user's panel size format")
+    require(
+        process_explorer,
         r"List\[hashtable\].*?\$item = @\{.*?\.Add\(\$item\).*?"
         r"file_system\.AddItems",
         "Process Explorer does not publish its snapshot in one batch")
@@ -2098,6 +2188,20 @@ def main() -> int:
         "Salamatrix FS does not navigate into extension-provided directories")
     require(
         packages,
+        r"GetSupportedServices\(\).*?FS_SERVICE_VIEWFILE.*?ViewFile\(.*?ExecuteDefault",
+        "Salamatrix FS leaf items do not advertise and dispatch their default action")
+    require(
+        packages,
+        r"Invocation\(.*?parentWindow.*?GetMainWindowHWND\(\)",
+        "Salamatrix FS actions do not receive their invoking parent window")
+    require(
+        packages,
+        r"ScopedExclusiveSRWLock\(SRWLOCK\* lock, HWND mainWindow\).*?"
+        r"MsgWaitForMultipleObjects\(.*?QS_SENDMESSAGE.*?PeekMessage.*?"
+        r"ExecuteFileSystemAction\(.*?GetMainWindowHWND\(\)",
+        "Salamatrix silently drops FS actions while a background listing is active")
+    require(
+        packages,
         r"isDir == 2.*?GetParentPath\(\).*?ChangePanelPathToPluginFS",
         "Salamatrix FS parent item skips directly to the global root")
     require(
@@ -2106,14 +2210,61 @@ def main() -> int:
         r"FSE_ACTIVATEREFRESH \|\|.*?FSE_TIMER.*?ShouldRefreshPeriodically.*?"
         r"RequestDataRefresh",
         "Salamatrix FS does not limit timer refreshes by virtual path depth")
+    require(
+        packages,
+        r"GetPanelItem\(\s*panel, &enumeration, &isDir\).*?panelItemIndex.*?"
+        r"panelItemIds.*?AppendPanelNavigation\(&invocation, panel, data\)",
+        "Salamatrix FS actions do not receive the current panel order")
+    require(
+        packages,
+        r"maxNavigationItems = 64.*?firstItem.*?lastItem.*?"
+        r"for \(size_t index = firstItem; index < lastItem; \+\+index\)",
+        "Salamatrix passes an unbounded panel order on the worker command line")
+    require(
+        packages,
+        r"if \(executed && selected != NULL && selected->Refresh\).*?"
+        r"opened->ExecuteDefault\(file, panel\)",
+        "Salamatrix FS default actions do not respect refresh=false")
     if hardware_monitor_manifest["fileSystems"][0].get("refreshDepth") != 2:
         raise AssertionError(
             "Hardware Monitor refreshes static root or category paths")
+    if hardware_monitor_manifest["fileSystems"][0].get("refreshPaths") != [
+            "cpu/usage", "memory/usage", "sensors/temperatures",
+            "sensors/fans", "sensors/voltages", "sensors/all"]:
+        raise AssertionError(
+            "Hardware Monitor does not limit timer refreshes to dynamic views")
+    require(
+        packages,
+        r"PeriodicRefreshPaths\.empty\(\).*?relativePath.*?"
+        r"PeriodicRefreshPaths\[index\]",
+        "Salamatrix ignores file-system refreshPaths")
     root_items = hardware_monitor_manifest["fileSystems"][0].get("rootItems", [])
     if [item.get("id") for item in root_items] != [
-            "cpu", "gpu", "memory", "motherboard", "network", "sensors", "storage"]:
+            "cpu", "gpu", "memory", "motherboard", "network", "sensors",
+            "storage", "device-manager"]:
         raise AssertionError(
             "Hardware Monitor root categories are not declared for synchronous listing")
+    expected_device_actions = {
+        "updateDriver", "disableDevice", "uninstallDevice", "scanDevices",
+        "deviceProperties"}
+    for language, relative in hardware_monitor_manifest.get("locales", {}).items():
+        localized = json.loads(read(
+            "src/extensions/hardware-monitor/" + relative))
+        localized_fs = localized.get("fileSystems", {}).get("hardware-info", {})
+        if not localized_fs.get("rootItems", {}).get("device-manager"):
+            raise AssertionError(
+                f"Hardware Monitor {language} locale omits Device Manager")
+        if set(localized_fs.get("actions", {})) != expected_device_actions:
+            raise AssertionError(
+                f"Hardware Monitor {language} locale has incomplete device actions")
+        if not localized.get("categories", {}).get("deviceManager"):
+            raise AssertionError(
+                f"Hardware Monitor {language} locale omits the device category")
+        localized_strings = localized.get("strings", {})
+        if not all(localized_strings.get(key) for key in (
+                "disableDevice", "uninstallDevice", "confirmDeviceAction")):
+            raise AssertionError(
+                f"Hardware Monitor {language} locale has incomplete confirmations")
     require(
         packages,
         r"Path\.c_str\(\), provider\.c_str\(\).*?rootItems\.empty.*?"
@@ -2123,6 +2274,107 @@ def main() -> int:
         packages,
         r"Invocation\(\"list\".*?RefreshPath\.c_str\(\)",
         "Salamatrix FS does not pass the current virtual path to list handlers")
+    if not all(marker in hardware_monitor for marker in (
+            "Get-CimInstance Win32_PnPEntity", "PNPClass", "PNPDeviceID",
+            "'device-manager'", "deviceProperties", "DeviceProperties_RunDLL",
+            "LaunchDeviceProperties", "DevicePropertiesRunDll",
+            "invocation.parentWindow",
+            "updateDriver", "DiShowUpdateDevice", "disableDevice",
+            "/disable-device", "uninstallDevice", "/remove-device",
+            "scanDevices", "/scan-devices")):
+        raise AssertionError(
+            "Hardware Monitor Device Manager hierarchy and actions are incomplete")
+    require_absent(
+        hardware_monitor,
+        r"WaitForInputIdle|MainWindowHandle|SetWindowPos|rundll32\.exe",
+        "Hardware Monitor still polls and repositions Device Properties")
+    require(
+        hardware_monitor,
+        r"viewId\.StartsWith\('device-class-'\).*?Substring.*?"
+        r"Get-DeviceManagerItems \$deviceClass",
+        "Hardware Monitor does not decode a selected PnP class before listing devices")
+    require(
+        manifest + packages + json.dumps(hardware_monitor_manifest),
+        r"itemIdPrefix.*?ItemIdPrefix.*?data->Item\.Id\.compare",
+        "Device Manager actions are not scoped to matching FS items")
+    event_fs = event_viewer_manifest["fileSystems"][0]
+    if event_fs.get("refreshIntervalMs") != 0:
+        raise AssertionError(
+            "Event Viewer still queues background listings behind its modal dialog")
+    if [item.get("id") for item in event_fs.get("rootItems", [])] != [
+            "custom-views", "windows-logs", "applications-services"]:
+        raise AssertionError("Event Viewer root log hierarchy is incomplete")
+    if not all(marker in event_viewer for marker in (
+            "Get-WinEvent -ListLog", "IsClassicLog", "Get-WinEvent -LogName",
+            "-MaxEvents 250", "EventRecordID=$recordId", "Show-EventDetails",
+            "ToXml()", "$Salamander.ui.Dialog", "'textbox'",
+            "previousEvent", "nextEvent", "dialog.Show()", "$true)",
+            "panelItemIds", "panelItemIndex", "$nextIndex",
+            "-MaxEvents 1")):
+        raise AssertionError(
+            "Event Viewer does not expose log hierarchy, events, and native details")
+    require_absent(
+        event_viewer,
+        r"function Get-AdjacentEvent|EventRecordID [<>] \$RecordId",
+        "Event Properties navigation ignores the current panel sort order")
+    require_absent(
+        event_viewer,
+        r"Show-EventDetails.*?Get-WinEvent -LogName \$LogName -MaxEvents 500",
+        "Event Properties still blocks its initial display on a 500-event query")
+    require(
+        event_viewer,
+        r"AddControl\('label', 'metadata'.*?width=350;height=70",
+        "Event Properties metadata is not rendered as a bounded multiline label")
+    runtime_workers = [
+        read("src/plugins/javascriptruntime/runtime/salamatrix_worker.mjs"),
+        read("src/plugins/pythonruntime/runtime/salamatrix_worker.py"),
+        read("src/plugins/powershellruntime/runtime/salamatrix_worker.ps1"),
+        read("src/plugins/phpruntime/runtime/salamatrix_worker.php"),
+        read("src/plugins/luaruntime/runtime/salamatrix_worker.lua")]
+    if not all("resizable" in worker.lower() for worker in runtime_workers):
+        raise AssertionError(
+            "Resizable native dialogs are not exposed by every runtime provider")
+    require(
+        packages,
+        r'FindBoolMember\(\s*payloadJson, "resizable", &options\.Resizable\)',
+        "Salamatrix host ignores the runtime dialog resizable option")
+    require(
+        packages,
+        r'dialog\.destroy.*?DestroyDialog\(dialog\).*?'
+        r'InterlockedExchange\(&package->FileSystemActionPending, FALSE\)',
+        "Closing a modal FS action still waits for worker teardown before reopening")
+    for demo_manifest in (
+            javascript_demo_manifest, python_demo_manifest,
+            lua_demo_manifest, php_demo_manifest, powershell_demo_manifest):
+        if demo_manifest["fileSystems"][0].get("refreshIntervalMs") != 0:
+            raise AssertionError(
+                "A demo FS still refreshes continuously without a data change")
+    if "resizable=false" not in read(
+            "src/plugins/salamatrix/salamatrix_ai.h"):
+        raise AssertionError(
+            "Model-visible UI contract omits the resizable dialog option")
+    for language, relative in event_viewer_manifest.get("locales", {}).items():
+        localized = json.loads(read("src/extensions/event-viewer/" + relative))
+        if not localized.get("descriptionLabel"):
+            raise AssertionError(
+                f"Event Viewer {language} locale omits the description label")
+    require(
+        event_viewer,
+        r"subPath = @\(\).*?parts\.Count -gt 2.*?"
+        r"subPath\[0\].*?-replace '\^log-'.*?Get-WinEvent -LogName \$logName.*?"
+        r"decodedPath.*?-replace '\^log-node-'.*?decodedPath -join '/'",
+        "Event Viewer does not decode nested log ids before querying Windows")
+    require(
+        setup,
+        r"extensions\\event-viewer.*?IsPluginSelected\('eventviewer'\).*?"
+        r"AddPluginDependency\('eventviewer',\s*'powershellruntime'\).*?"
+        r"AddPlugin\('eventviewer',\s*'Event Viewer'",
+        "x64 installer does not package Event Viewer with its runtime")
+    require(
+        salamatrix_project,
+        r"EventViewerFiles.*?event-viewer.*?"
+        r"Copy SourceFiles=\"@\(EventViewerFiles\)\".*?extensions\\event-viewer",
+        "Salamatrix build does not stage Event Viewer")
     require(
         read("src/plugins/salamatrix/salamatrix_poc.h"),
         r"CreatePocRuntimeServices.*?new \(std::nothrow\) Runtime::RuntimeServices.*?"
@@ -2142,6 +2394,71 @@ def main() -> int:
         r"Copy SourceFiles=\"@\(HardwareMonitorFiles\)\".*?"
         r"extensions\\hardware-monitor",
         "Salamatrix build does not stage Hardware Monitor")
+    require(
+        salamatrix_project,
+        r"HardwareMonitorFiles.*?Exclude=.*?copy-sensor-dlls\.bat.*?"
+        r"Delete Files=.*?copy-sensor-dlls\.bat",
+        "Salamatrix build ships the Hardware Monitor developer copy helper")
+    require(
+        hardware_monitor,
+        r"salamanderRoot.*?msvcp140\.dll.*?env:PATH.*?Add-Type.*?finally.*?"
+        r"env:PATH = \$originalPath",
+        "Hardware Monitor does not resolve its shared VC runtime from Salamander")
+    require(
+        hardware_monitor,
+        r"GetAllSensorsPacked.*?FreePackedSensors.*?"
+        r"Get-HardViewSensorInfo.*?ValidateSet\('Temperature', 'Fan', 'Voltage', 'All'\).*?"
+        r"BitConverter\]::ToDouble.*?Temperature.*?RPM.*?Throughput.*?B/s",
+        "Hardware Monitor does not enumerate and format all HardView sensors")
+    require(
+        hardware_monitor,
+        r"viewId -eq 'temperatures'.*?Get-HardViewSensorInfo.*?'Temperature'.*?"
+        r"viewId -eq 'fans'.*?Get-HardViewSensorInfo.*?'Fan'.*?"
+        r"viewId -eq 'voltages'.*?Get-HardViewSensorInfo.*?'Voltage'.*?"
+        r"viewId -eq 'all'.*?Get-HardViewSensorInfo.*?'All'.*?"
+        r"id='temperatures'.*?id='fans'.*?id='voltages'.*?id='all'",
+        "Hardware Monitor does not expose focused and complete sensor views")
+    require(
+        hardware_monitor,
+        r"Get-SmartStorageInfo.*?DiskInfoToolkit\.StorageManager.*?"
+        r"ReloadStorages.*?SmartAttributes.*?RawValueULong.*?"
+        r"Get-PhysicalDisk.*?Get-StorageReliabilityCounter.*?"
+        r"HealthStatus.*?PowerOnHours.*?"
+        r"components.Count -gt 3.*?detailId.*?"
+        r"viewId -eq 'smart'.*?Get-SmartStorageInfo \$strings \$detailId",
+        "Hardware Monitor does not expose read-only SMART and NVMe information")
+    require(
+        hardware_monitor,
+        r"Get-SmartStorageCacheView.*?directory=\$true.*?"
+        r"Where-Object \{ \$_\.id -eq \$DiskId \}",
+        "Hardware Monitor does not group SMART information by physical disk")
+    require(
+        hardware_monitor,
+        r"Get-HidDeviceInfo.*?HidSharp\.DeviceList.*?GetHidDevices.*?"
+        r"VendorID.*?ProductID.*?viewId -eq 'hid'",
+        "Hardware Monitor does not expose installed HID device information")
+    require(
+        hardware_monitor,
+        r"Get-SmbiosMemoryInfo.*?LibreHardwareMonitor\.Hardware\.SMBios.*?"
+        r"MemoryDevices.*?ConfiguredVoltage.*?viewId -eq 'spd'",
+        "Hardware Monitor does not expose safe SPD-like SMBIOS module information")
+    require(
+        hardware_monitor,
+        r"ConvertTo-SafeHardwareItemName.*?Replace\('\\', ' - '\).*?"
+        r"Replace\('/', ' - '\).*?subItem\.name = ConvertTo-SafeHardwareItemName",
+        "Hardware Monitor does not sanitize FS item names before atomic AddItems")
+    for redundant_library in (
+            "HardwareWrapper.deps.json", "HardwareWrapper.runtimeconfig.json",
+            "msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll",
+            "hostpolicy.dll"):
+        require_absent(
+            hardware_wrapper_project,
+            rf'<Copy SourceFiles=.*?{re.escape(redundant_library)}',
+            f"Hardware Monitor still stages redundant {redundant_library}")
+        require(
+            hardware_wrapper_project,
+            rf'RedundantHardwareMonitorFile Include=.*?{re.escape(redundant_library)}',
+            f"Hardware Monitor does not clean stale {redundant_library}")
     require(
         lock_inspector,
         r"CloseMainWindow.*?confirmEnd.*?\.Kill\(\)",
@@ -2217,6 +2534,22 @@ def main() -> int:
         r'salamander\.host\.appearance.*?'
         r'DarkModeIsWindowsDarkSchemeSelected\(\).*?windowsDarkMode',
         "framework package host does not expose the explicit Windows dark scheme")
+    require(
+        panel_tooltips,
+        r"Is\(ptPluginFS\).*?PluginData\.GetInfoLineContent\(.*?"
+        r"AppendTipText\(text, textSize, info\).*?return;",
+        "plugin file-system tooltips do not reuse item information-line details")
+    require(
+        panel_tooltips,
+        r"ValidFileData\s*&\s*\(VALID_DATA_DATE\s*\|\s*VALID_DATA_TIME\).*?"
+        r"FormatTipFileTime.*?ValidFileData\s*&\s*VALID_DATA_SIZE",
+        "generic panel tooltips render invalid date or size metadata")
+    require(
+        packages,
+        r"GetInfoLineContent\(.*?data->Item\.ColumnValues.*?"
+        r"Columns\[index\]\.Name\.c_str\(\).*?value\.c_str\(\).*?"
+        r"return buffer\[0\] != '\\0';",
+        "Salamatrix FS tooltips do not expose declared item column values")
     require(
         powershell_worker,
         r'ScriptMethod Appearance.*?salamander\.host\.appearance',

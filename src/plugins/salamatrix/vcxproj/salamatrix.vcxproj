@@ -39,6 +39,8 @@
     <ProjectGuid>{73B6E7C6-05D3-4762-AF2B-1E4D5D18ED28}</ProjectGuid>
     <RootNamespace>salamatrix</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <MSBuildProjectExtensionsPath>$(MSBuildProjectDirectory)\obj\$(MSBuildProjectName)\</MSBuildProjectExtensionsPath>
+    <NuGetPackageRoot Condition="'$(NuGetPackageRoot)'==''">$(UserProfile)\.nuget\packages\</NuGetPackageRoot>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32' Or '$(Configuration)|$(Platform)'=='Release clean|Win32'" Label="Configuration">
@@ -116,6 +118,12 @@
     <Import Project="salamatrix.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <PrismAssetsRoot>$(ProjectDir)..\..\shared\webviewviewer\prism\</PrismAssetsRoot>
+    <MarkdigRuntimeIdentifier Condition="'$(Platform)'=='Win32'">win-x86</MarkdigRuntimeIdentifier>
+    <MarkdigRuntimeIdentifier Condition="'$(Platform)'=='x64'">win-x64</MarkdigRuntimeIdentifier>
+    <MarkdigRuntimeIdentifier Condition="'$(Platform)'=='ARM64'">win-arm64</MarkdigRuntimeIdentifier>
+  </PropertyGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\darkmode.cpp" />
     <ClCompile Include="..\..\..\darkmode_backend_darkmodelib.cpp" />
@@ -157,6 +165,8 @@
     </ClCompile>
     <ClCompile Include="..\..\shared\dbg.cpp" />
     <ClCompile Include="..\..\shared\mhandles.cpp" />
+    <ClCompile Include="..\..\shared\plugindarkmode.cpp" />
+    <ClCompile Include="..\..\shared\webviewviewer\native_viewer.cpp" />
     <ClCompile Include="..\salamatrix.cpp" />
     <ClCompile Include="..\salamatrix_manifest.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -217,13 +227,19 @@
     <ResourceCompile Include="..\salamatrix.rc" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\shared\webviewviewer\WebView2.Dependencies.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
     <DemoPackageFiles Include="..\..\..\extensions\demos\**\*.*" />
     <ExtensionMenuBuilderFiles Include="..\..\..\extensions\extension-menu-builder\**\*.*" />
     <GitWorktreeNavigatorFiles Include="..\..\..\extensions\git-worktree-navigator\**\*.*" />
     <FileLockInspectorFiles Include="..\..\..\extensions\file-lock-inspector\**\*.*" />
     <ProcessExplorerFiles Include="..\..\..\extensions\process-explorer\**\*.*" />
     <HardwareMonitorFiles Include="..\..\..\extensions\hardware-monitor\**\*.*"
-                          Exclude="..\..\..\extensions\hardware-monitor\hardview-lib\**\*.*" />
+                          Exclude="..\..\..\extensions\hardware-monitor\hardview-lib\**\*.*;..\..\..\extensions\hardware-monitor\copy-sensor-dlls.bat" />
+    <EventViewerFiles Include="..\..\..\extensions\event-viewer\**\*.*" />
     <AutomationProgressDemoFiles Include="..\..\automation\sample-scripts\Salamatrix Progress Demo\**\*.*" />
   </ItemGroup>
   <Target Name="CopySalamatrixDemoPackages" AfterTargets="Build"
@@ -249,8 +265,13 @@
           DestinationFiles="@(ProcessExplorerFiles->'$(OutDir)..\..\extensions\process-explorer\%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
     <MakeDir Directories="$(OutDir)..\..\extensions\hardware-monitor" />
+    <Delete Files="$(OutDir)..\..\extensions\hardware-monitor\copy-sensor-dlls.bat" />
     <Copy SourceFiles="@(HardwareMonitorFiles)"
           DestinationFiles="@(HardwareMonitorFiles->'$(OutDir)..\..\extensions\hardware-monitor\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <MakeDir Directories="$(OutDir)..\..\extensions\event-viewer" />
+    <Copy SourceFiles="@(EventViewerFiles)"
+          DestinationFiles="@(EventViewerFiles->'$(OutDir)..\..\extensions\event-viewer\%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
     <MakeDir Directories="$(OutDir)..\..\plugins\automation\scripts\Salamatrix Progress Demo" />
     <Copy SourceFiles="@(AutomationProgressDemoFiles)"
@@ -258,5 +279,25 @@
           SkipUnchangedFiles="true" />
   </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets" />
+  <Target Name="RestoreViewerPrismAssets" BeforeTargets="Build" Condition="!Exists('$(PrismAssetsRoot)node_modules\prismjs\prism.js')">
+    <Exec Command="npm ci --prefix &quot;$(PrismAssetsRoot).&quot; --no-audit --no-fund" />
+  </Target>
+  <Target Name="StageViewerPrismAssets" AfterTargets="Build" DependsOnTargets="RestoreViewerPrismAssets">
+    <ItemGroup><_ViewerPrismComponent Include="$(PrismAssetsRoot)node_modules\prismjs\components\prism-*.min.js" /></ItemGroup>
+    <RemoveDir Directories="$(OutDir)prism" />
+    <MakeDir Directories="$(OutDir)prism\components;$(OutDir)prism\themes;$(OutDir)prism\plugins\autoloader;$(OutDir)prism\plugins\line-numbers;$(OutDir)prism\plugins\show-invisibles" />
+    <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\prism.js" DestinationFolder="$(OutDir)prism" />
+    <Copy SourceFiles="@(_ViewerPrismComponent)" DestinationFolder="$(OutDir)prism\components" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\themes\prism.css;$(PrismAssetsRoot)node_modules\prismjs\themes\prism-tomorrow.css" DestinationFolder="$(OutDir)prism\themes" />
+    <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\plugins\autoloader\prism-autoloader.min.js" DestinationFolder="$(OutDir)prism\plugins\autoloader" />
+    <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\plugins\line-numbers\prism-line-numbers.min.js;$(PrismAssetsRoot)node_modules\prismjs\plugins\line-numbers\prism-line-numbers.css" DestinationFolder="$(OutDir)prism\plugins\line-numbers" />
+    <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\plugins\show-invisibles\prism-show-invisibles.min.js;$(PrismAssetsRoot)node_modules\prismjs\plugins\show-invisibles\prism-show-invisibles.css" DestinationFolder="$(OutDir)prism\plugins\show-invisibles" />
+  </Target>
+  <Target Name="PublishViewerMarkdigRenderer" AfterTargets="Build" Condition="'$(Platform)' != 'Win32'">
+    <Exec Command="dotnet publish &quot;$(ProjectDir)..\..\shared\webviewviewer\markdighelper\MarkdigRenderer.csproj&quot; --configuration Release --runtime $(MarkdigRuntimeIdentifier) --output &quot;$(OutDir).&quot;" />
+    <Delete Files="$(OutDir)MarkdigRenderer.pdb" />
+  </Target>
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="..\..\shared\webviewviewer\WebView2.Native.targets" />
+  </ImportGroup>
 </Project>

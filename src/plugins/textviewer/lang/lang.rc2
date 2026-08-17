@@ -22,10 +22,24 @@
 
 STRINGTABLE
 {
- IDS_PLUGINNAME,                 "PrismSharp Text Viewer .NET"
+ IDS_PLUGINNAME,                 "Prism Text Viewer"
  IDS_ABOUT,                      "About Plugin"
- IDS_PLUGIN_DESCRIPTION,         "Internal viewer that renders text files with managed syntax highlighting."
+ IDS_PLUGIN_DESCRIPTION,         "Native viewer that renders text files with Prism.js syntax highlighting."
  IDS_PLUGIN_HOME,                "https://samandarin.net/"
  IDS_VIEWER_CREATE_EVENT_FAILED, "Unable to prepare synchronization event required by the viewer."
  IDS_FILE_TOO_LARGE,             "The selected file is too large to open. Files larger than 16 MB are not supported."
+ IDS_VIEWER_FILE,                "&File"
+ IDS_VIEWER_VIEW,                "&View"
+ IDS_VIEWER_CLOSE,               "&Close\tEsc"
+ IDS_VIEWER_REFRESH,             "&Refresh\tF5"
+ IDS_VIEWER_ZOOM_IN,             "Zoom &In\tCtrl++"
+ IDS_VIEWER_ZOOM_OUT,            "Zoom &Out\tCtrl+-"
+ IDS_VIEWER_ZOOM_RESET,          "&Reset Zoom\tCtrl+0"
+ IDS_VIEWER_LINE_NUMBERS,        "Show &Line Numbers"
+ IDS_VIEWER_WRAP_LINES,          "&Wrap Lines\tF2"
+ IDS_VIEWER_SHOW_WHITESPACE,     "Show &Whitespace"
+ IDS_VIEWER_LOADING,             "Loading..."
+ IDS_VIEWER_READY,               "Ready"
+ IDS_VIEWER_WEBVIEW_FAILED,      "Unable to initialize the WebView2 renderer."
+ IDS_VIEWER_OPEN_FAILED,         "Unable to open the selected file."
 }

@@ -15,6 +15,7 @@
     "process.terminate",
     "ui.dialogs"
   ],
+  "events": [],
   "locales": {
     "en": "locales/en.json",
     "cs": "locales/cs.json",

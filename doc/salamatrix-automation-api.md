@@ -104,14 +104,21 @@ Schema 2 adds two optional native roles while schema 1 remains accepted:
   restart before new masks enter the global viewer association list.
 - `fileSystems[]` contributes a provider under `salamatrix:`. Each provider
   declares `id`, `name`, `listHandler`, optional `openHandler`, SVG icons,
-  optional package-relative ICO `defaultFileIcon`, `refreshIntervalMs`, optional
+  optional package-relative ICO `defaultFileIcon`, `refreshIntervalMs` (`0`
+  disables periodic refresh), optional
   `refreshDepth` (minimum virtual-path depth for timer refreshes), optional
+  `refreshPaths[]` (provider-relative paths eligible for timer refreshes), optional
   declarative directory-only `rootItems[]`, detailed-view `columns[]`, and item
   `actions[]`. A non-empty `rootItems[]` is rendered synchronously at the provider
   root without starting its runtime worker; locale resources can translate names
-  through `fileSystems.<fileSystemId>.rootItems.<itemId>`. `refreshDepth` defaults to `0`, preserving
-  periodic refresh at every level; manual refresh always reloads the current path.
-  A column declares `id`, `name`, optional `description`, `width`, and `numeric`.
+  through `fileSystems.<fileSystemId>.rootItems.<itemId>`. `refreshDepth` defaults
+  to `0`, preserving periodic refresh at every level. When `refreshPaths[]` is
+  non-empty, timer refresh is further limited to exact matching paths; manual
+  refresh always reloads the current path.
+  A column declares `id`, `name`, optional `description`, `width`, `numeric`,
+  and `size`. A `size` column carries an unsigned byte count and is formatted
+  using the user's Configuration > Panels > Show sizes choice (bytes, KB, or
+  short mixed units); it is implicitly numeric.
   The list handler calls `Salamander.fileSystem.addItems` /
   `file_system.add_items` once for a snapshot (or `addItem` / `add_item` for a
   small incremental list). The batch call returns the number of accepted items
@@ -126,7 +133,8 @@ Schema 2 adds two optional native roles while schema 1 remains accepted:
   Columns are rendered and sorted by the native detailed panel;
   numeric columns use numeric ordering. An executable action declares `id`,
   `title`, `handler`, optional `default`, and optional `refresh` (true by
-  default); a standalone `{ "separator": true }` inserts a native menu separator.
+  default). Optional `itemIdPrefix` limits an action (or separator) to matching
+  item ids; a standalone `{ "separator": true }` inserts a native menu separator.
   Only an explicitly default action executes on Enter. The native Unicode context
   menu exposes the declared actions in order, and locale resources may translate
   their captions through `fileSystems.<fileSystemId>.actions.<actionId>`.

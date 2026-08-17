@@ -23,6 +23,7 @@ struct BootstrapDispatchState
     int SubscribeCalls;
     int FileOperationCalls;
     int DialogCalls;
+    int DialogShowCalls;
     int FolderPickerControlCalls;
     int FilePickerControlCalls;
     int SideContextCalls;
@@ -60,6 +61,7 @@ struct BootstrapDispatchState
           SubscribeCalls(0),
           FileOperationCalls(0),
           DialogCalls(0),
+          DialogShowCalls(0),
           FolderPickerControlCalls(0),
           FilePickerControlCalls(0),
           SideContextCalls(0),
@@ -141,6 +143,8 @@ BOOL WINAPI WorkerHostDispatch(
     {
         if (state != NULL)
             ++state->CommandCalls;
+        if (strstr(payloadJson, "__processruntime_event_error__") != NULL)
+            std::fprintf(stderr, "Event Viewer script error: %s\n", payloadJson);
         response = "{\"ok\":true,\"result\":\"ok\"}";
     }
     else if (strstr(payloadJson, "salamander.fileSystem.addItems") != NULL)
@@ -380,6 +384,8 @@ BOOL WINAPI WorkerHostDispatch(
         if (state != NULL)
         {
             ++state->DialogCalls;
+            if (strstr(payloadJson, "salamander.ui.dialog.show") != NULL)
+                ++state->DialogShowCalls;
             if (strstr(payloadJson, "folderpicker") != NULL)
                 ++state->FolderPickerControlCalls;
             if (strstr(payloadJson, "filepicker") != NULL)
@@ -1030,7 +1036,7 @@ void RunPowerShellBootstrapTest()
               "if (-not $Salamander.ai.Preview('list files', $null, $null, 'PowerShell', 'Write-Output 1', 'keep originals').canRun) { throw 'ai preview call failed' }\n"
               "if ($Salamander.file_operations.Refresh() -ne 'ok') { throw 'file operation call failed' }\n"
               "if ($Salamander.file_system.AddItems(@(@{ id = 'one'; name = 'One' }, @{ id = 'two'; name = 'Two' })) -ne 2) { throw 'file-system item batch failed' }\n"
-              "$dialog = $Salamander.ui.Dialog('Bootstrap', 640, 420)\n"
+              "$dialog = $Salamander.ui.Dialog('Bootstrap', 640, 420, $true)\n"
               "$dialog.AddControl('label', 'label', 'Hello', $false, $false, 0, @{ x = 12; y = 10; width = 180; height = 16 })\n"
               "$dialog.AddTextBox('value', 'seed', $false, $true)\n"
               "$dialog.AddFolderPicker('folder', 'C:\\Temp')\n"
@@ -1114,6 +1120,114 @@ void RunPowerShellBootstrapTest()
         session->Release();
     }
     DeleteFileW(&script[0]);
+}
+
+void RunPowerShellEventViewerOpenEventTest()
+{
+    std::vector<wchar_t> workerRoot(SAL_MAX_PATH);
+    DWORD rootLength = GetEnvironmentVariableW(
+        L"SALAMATRIX_WORKER_ROOT", &workerRoot[0],
+        static_cast<DWORD>(workerRoot.size()));
+    if (rootLength == 0 || rootLength >= workerRoot.size())
+        return;
+    std::vector<wchar_t> interpreter(SAL_MAX_PATH);
+    if (!FindProgram(
+            L"pwsh.exe", &interpreter[0], static_cast<int>(interpreter.size())))
+        return;
+    SetEnvironmentVariableW(L"SALAMATRIX_POWERSHELL", &interpreter[0]);
+
+    std::vector<wchar_t> entryPoint(SAL_MAX_PATH);
+    DWORD entryLength = GetFullPathNameW(
+        L"src\\extensions\\event-viewer\\main.ps1",
+        static_cast<DWORD>(entryPoint.size()), &entryPoint[0], NULL);
+    Check(entryLength != 0 && entryLength < entryPoint.size(),
+          "resolve Event Viewer entry point");
+    if (entryLength == 0 || entryLength >= entryPoint.size())
+        return;
+    SetEnvironmentVariableW(
+        L"SALAMATRIX_EVENT_VIEWER_TEST_ENTRY", &entryPoint[0]);
+
+    std::vector<wchar_t> productionWorkerRoot(SAL_MAX_PATH);
+    DWORD productionRootLength = GetFullPathNameW(
+        L"src\\plugins\\powershellruntime\\runtime",
+        static_cast<DWORD>(productionWorkerRoot.size()),
+        &productionWorkerRoot[0], NULL);
+    Check(productionRootLength != 0 &&
+              productionRootLength < productionWorkerRoot.size(),
+          "resolve production PowerShell worker root");
+    if (productionRootLength == 0 ||
+        productionRootLength >= productionWorkerRoot.size())
+        return;
+    SetEnvironmentVariableW(
+        L"SALAMATRIX_WORKER_ROOT", &productionWorkerRoot[0]);
+
+    std::vector<wchar_t> script(SAL_MAX_PATH);
+    MakePath(L"-event-viewer.ps1", &script[0], static_cast<int>(script.size()));
+    Check(WriteScript(
+              &script[0],
+              "function Get-WinEvent {\n"
+              "  $event = [pscustomobject]@{ ProviderName='MockProvider'; Id=42; Level=4; TimeCreated=[datetime]'2026-01-02T03:04:05'; TaskDisplayName='Mock Task'; UserId='S-1-5-18'; MachineName='MockHost'; RecordId=1; Message='Mock message' }\n"
+              "  $event | Add-Member ScriptMethod FormatDescription { 'Mock description' }\n"
+              "  $event | Add-Member ScriptMethod ToXml { '<Event><System /></Event>' }\n"
+              "  return $event\n"
+              "}\n"
+              "try { & $env:SALAMATRIX_EVENT_VIEWER_TEST_ENTRY } catch {\n"
+              "  $detail = $_.Exception.Message + ' @ ' + $_.InvocationInfo.PositionMessage\n"
+              "  [void]$Salamander.commands.Execute('__processruntime_event_error__:' + $detail)\n"
+              "  throw\n"
+              "}\n"),
+          "write Event Viewer openEvent wrapper");
+
+    CAutomationProcessRuntimeAdapter adapter(
+        "PowerShell", "PowerShell", "powershell", ".ps1",
+        L"SALAMATRIX_POWERSHELL", L"pwsh.exe", L"powershell.exe",
+        CAutomationProcessRuntimeAdapter::ProcessKindPowerShell);
+    Salamatrix::Runtime::RuntimeExecutionRequest request;
+    request.EntryPoint = &script[0];
+    request.CommandId = "OpenSalamander.EventViewer.openEvent";
+    request.CommandHandler = "openEvent";
+    request.InvocationJson =
+        "{\"item\":{\"id\":\"event-QXBwbGljYXRpb24KMQ\"},"
+        "\"panelItemIds\":[\"event-QXBwbGljYXRpb24KMQ\"],"
+        "\"panelItemIndex\":0}";
+    request.Flags =
+        Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap |
+        Salamatrix::Runtime::RuntimeExecutionFlagOneShotWorker;
+    request.TimeoutMs = 5000;
+    BootstrapDispatchState state;
+    request.HostDispatch = WorkerHostDispatch;
+    request.HostDispatchContext = &state;
+    Salamatrix::Runtime::IRuntimeSession* session = NULL;
+    Check(adapter.StartPersistent(&request, &session) != FALSE && session != NULL,
+          "start Event Viewer openEvent worker");
+    if (session != NULL)
+    {
+        for (int attempt = 0; attempt < 40 && session->IsAlive(); ++attempt)
+            session->Pump(250);
+        DWORD exitCode = 1;
+        const BOOL hasExitCode = session->GetExitCode(&exitCode);
+        if (hasExitCode == FALSE || exitCode != 0)
+        {
+            Salamatrix::Runtime::RuntimeSessionDiagnostic diagnostic;
+            if (session->GetDiagnostic(&diagnostic) != FALSE)
+                std::fwprintf(
+                    stderr, L"Event Viewer worker diagnostic: state=%d exit=%lu error=0x%08lX message=%ls\n",
+                    static_cast<int>(diagnostic.State), diagnostic.ExitCode,
+                    static_cast<unsigned long>(diagnostic.ErrorCode),
+                    diagnostic.Message);
+        }
+        Check(hasExitCode != FALSE && exitCode == 0,
+              "Event Viewer openEvent worker exits successfully");
+        Check(state.DialogShowCalls == 1,
+              "Event Viewer openEvent reaches native dialog show");
+        Check(state.DialogCalls == 12,
+              "Event Viewer openEvent builds and destroys its native dialog");
+        session->Stop();
+        session->Release();
+    }
+    DeleteFileW(&script[0]);
+    SetEnvironmentVariableW(L"SALAMATRIX_EVENT_VIEWER_TEST_ENTRY", NULL);
+    SetEnvironmentVariableW(L"SALAMATRIX_WORKER_ROOT", &workerRoot[0]);
 }
 
 void RunPhpBootstrapTest()
@@ -1295,6 +1409,7 @@ int main()
     RunPythonDemoLifecycleTest();
     RunPythonBootstrapTest();
     RunPowerShellBootstrapTest();
+    RunPowerShellEventViewerOpenEventTest();
     RunPhpBootstrapTest();
     RunPowerShellTest();
     RunPhpTest();

@@ -408,8 +408,8 @@ foreach ($process in $processes) {
             [OpenSalamander.ProcessExplorer.NativeMethods]::GetPrivateWorkingSet(
                 $process.Id)
         $memoryText = if ($privateWorkingSet -gt 0) {
-            ([Math]::Round($privateWorkingSet / 1KB)).ToString(
-                [Globalization.CultureInfo]::InvariantCulture) + ' K'
+            ([uint64]$privateWorkingSet).ToString(
+                [Globalization.CultureInfo]::InvariantCulture)
         } else { '' }
         $item = @{
             id=$processIdText; name=$name

@@ -108,6 +108,7 @@ class Dialog {
       title: this.title,
       width: Number(this.options.width ?? 320),
       height: Number(this.options.height ?? 180),
+      resizable: Boolean(this.options.resizable),
     });
     this.id = result.dialogId;
     return this;
@@ -424,6 +425,9 @@ const ui = {
   fileProperties: (path) => hostCall("salamander.ui.fileProperties", {
     path: String(path),
   }),
+  viewer: (path, options = {}) => hostCall("salamander.ui.viewer.open", {
+    path: String(path), renderer: String(options.renderer || "auto"),
+  }).then((result) => result.opened === true),
   uptime: () => hostCall("salamander.host.uptime")
     .then((result) => String(result.milliseconds)),
   inputBox: (prompt, initial = "", title = "Salamander") =>

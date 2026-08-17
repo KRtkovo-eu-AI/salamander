@@ -67,10 +67,11 @@ static void TestCompleteManifest()
         "\"listHandler\":\"listMachines\",\"openHandler\":\"openMachine\","
         "\"icon\":\"assets/machines.svg\",\"iconDark\":\"assets/machines-dark.svg\","
         "\"defaultFileIcon\":\"assets/default.ico\","
-        "\"refreshIntervalMs\":1000,\"refreshDepth\":2,\"rootItems\":["
+        "\"refreshIntervalMs\":0,\"refreshDepth\":2,"
+        "\"refreshPaths\":[\"cpu/usage\",\"sensors/temperatures\"],\"rootItems\":["
         "{\"id\":\"cpu\",\"name\":\"CPU\",\"icon\":\"assets/cpu.svg\"}],\"columns\":["
-        "{\"id\":\"pid\",\"name\":\"PID\",\"description\":\"Process id\",\"width\":72,\"numeric\":true}],\"actions\":["
-        "{\"id\":\"connect\",\"title\":\"Connect\",\"handler\":\"connect\",\"default\":true},"
+        "{\"id\":\"pid\",\"name\":\"PID\",\"description\":\"Process id\",\"width\":72,\"numeric\":true,\"size\":true}],\"actions\":["
+        "{\"id\":\"connect\",\"title\":\"Connect\",\"handler\":\"connect\",\"itemIdPrefix\":\"machine-\",\"default\":true},"
         "{\"separator\":true},"
         "{\"id\":\"start\",\"title\":\"Start\",\"handler\":\"start\",\"refresh\":false}]}]"
         "}";
@@ -139,16 +140,21 @@ static void TestCompleteManifest()
     CHECK(manifest.FileSystems[0].Id == "machines");
     CHECK(manifest.FileSystems[0].ListHandler == "listMachines");
     CHECK(manifest.FileSystems[0].DefaultFileIcon == "assets/default.ico");
-    CHECK(manifest.FileSystems[0].RefreshIntervalMs == 1000);
+    CHECK(manifest.FileSystems[0].RefreshIntervalMs == 0);
     CHECK(manifest.FileSystems[0].RefreshDepth == 2);
+    CHECK(manifest.FileSystems[0].RefreshPaths.size() == 2);
+    CHECK(manifest.FileSystems[0].RefreshPaths[0] == "cpu\\usage");
+    CHECK(manifest.FileSystems[0].RefreshPaths[1] == "sensors\\temperatures");
     CHECK(manifest.FileSystems[0].RootItems.size() == 1);
     CHECK(manifest.FileSystems[0].RootItems[0].Id == "cpu");
     CHECK(manifest.FileSystems[0].Columns.size() == 1);
     CHECK(manifest.FileSystems[0].Columns[0].Id == "pid");
     CHECK(manifest.FileSystems[0].Columns[0].Width == 72);
     CHECK(manifest.FileSystems[0].Columns[0].Numeric);
+    CHECK(manifest.FileSystems[0].Columns[0].Size);
     CHECK(manifest.FileSystems[0].Actions.size() == 3);
     CHECK(manifest.FileSystems[0].Actions[0].Default);
+    CHECK(manifest.FileSystems[0].Actions[0].ItemIdPrefix == "machine-");
     CHECK(manifest.FileSystems[0].Actions[1].Separator);
     CHECK(!manifest.FileSystems[0].Actions[2].Refresh);
 

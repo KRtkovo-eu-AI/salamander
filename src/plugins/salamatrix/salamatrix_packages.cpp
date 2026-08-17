@@ -6,6 +6,7 @@
 #include "salamatrix_api_docs.h"
 #include "salamatrix_settings.h"
 #include "../shared/salamatrix_thread_join.h"
+#include "../shared/webviewviewer/native_viewer.h"
 #include "../../darkmode.h"
 
 #include <algorithm>
@@ -615,6 +616,30 @@ public:
             Lock = lock;
         }
     }
+    ScopedExclusiveSRWLock(SRWLOCK* lock, HWND mainWindow) : Lock(NULL)
+    {
+        const DWORD mainThreadId = mainWindow != NULL
+            ? GetWindowThreadProcessId(mainWindow, NULL) : 0;
+        if (mainThreadId == 0 || mainThreadId != GetCurrentThreadId())
+        {
+            AcquireSRWLockExclusive(lock);
+            Lock = lock;
+            return;
+        }
+        while (!TryAcquireSRWLockExclusive(lock))
+        {
+            const DWORD wait = MsgWaitForMultipleObjects(
+                0, NULL, FALSE, 50, QS_SENDMESSAGE);
+            if (wait == WAIT_OBJECT_0)
+            {
+                // Dispatch cross-thread SendMessage calls needed by the
+                // listing worker, but do not consume posted UI input here.
+                MSG message;
+                PeekMessage(&message, NULL, WM_NULL, WM_NULL, PM_NOREMOVE);
+            }
+        }
+        Lock = lock;
+    }
     ~ScopedExclusiveSRWLock()
     {
         if (Lock != NULL)
@@ -664,6 +689,10 @@ struct PackageManager::Package
     std::vector<ULONGLONG> EventSubscriptions;
     Runtime::IRuntimeSession* Session;
     HANDLE PumpThread;
+    SRWLOCK FileSystemExecutionLock;
+    SRWLOCK FileSystemActionExecutionLock;
+    volatile LONG FileSystemActionGeneration;
+    volatile LONG FileSystemActionPending;
     BOOL FileSystemListing;
     const CExtensionManifestFileSystem* ListingFileSystem;
     std::vector<PackageManager::FileSystemItem> PendingFileSystemItems;
@@ -680,9 +709,13 @@ struct PackageManager::Package
           CommandsChanged(FALSE),
           Session(NULL),
           PumpThread(NULL),
+          FileSystemActionGeneration(0),
+          FileSystemActionPending(FALSE),
           FileSystemListing(FALSE),
           ListingFileSystem(NULL)
     {
+        InitializeSRWLock(&FileSystemExecutionLock);
+        InitializeSRWLock(&FileSystemActionExecutionLock);
     }
 };
 
@@ -699,7 +732,7 @@ public:
         : Owner(owner)
     {
         if (Owner != NULL)
-            InterlockedIncrement(&Owner->ActiveExecutions);
+            Owner->BeginExecution();
     }
 
     ~ExecutionGuard()
@@ -707,6 +740,17 @@ public:
         if (Owner != NULL)
             Owner->FinishExecution();
     }
+};
+
+struct PackageManager::FileSystemActionTask
+{
+    PackageManager* Owner;
+    Package* PackageContext;
+    LONG Generation;
+    std::string PackageId;
+    std::string FileSystemId;
+    std::string ActionId;
+    std::string InvocationJson;
 };
 
 class PackageManager::MenuExtension : public CPluginInterfaceForMenuExtAbstract
@@ -1107,6 +1151,34 @@ static int* SalamatrixFsTransferLen = NULL;
 static DWORD* SalamatrixFsTransferActCustomData = NULL;
 static volatile LONG SalamatrixFsNameColumnWidth[2] = {180, 180};
 static volatile LONG SalamatrixFsNameColumnFixed[2] = {1, 1};
+static const DWORD SALAMATRIX_FS_SIZE_COLUMN = 0x40000000;
+
+static std::string SalamatrixFormatFileSystemColumnValue(
+    const std::string& value, bool sizeColumn)
+{
+    if (!sizeColumn || value.empty())
+        return value;
+    char* end = NULL;
+    const unsigned __int64 bytes = _strtoui64(value.c_str(), &end, 10);
+    if (end == value.c_str() || end == NULL || *end != '\0')
+        return value;
+    if (SalamanderGeneral == NULL)
+        return value;
+    int sizeFormat = 2;
+    int configType = 0;
+    SalamanderGeneral->GetConfigParameter(
+        SALCFG_SIZEFORMAT, &sizeFormat, sizeof(sizeFormat), &configType);
+    int printMode = 0;
+    if (sizeFormat == 0)
+        printMode = 2;
+    else if (sizeFormat == 1)
+        printMode = 3;
+    char formatted[200];
+    const CQuadWord size(
+        static_cast<DWORD>(bytes), static_cast<DWORD>(bytes >> 32));
+    SalamanderGeneral->PrintDiskSize(formatted, size, printMode);
+    return formatted;
+}
 
 static void WINAPI SalamatrixFileSystemColumnText()
 {
@@ -1117,10 +1189,14 @@ static void WINAPI SalamatrixFileSystemColumnText()
         return;
     const SalamatrixFileSystemItemData* data =
         reinterpret_cast<const SalamatrixFileSystemItemData*>((*SalamatrixFsTransferFileData)->PluginData);
-    const size_t index = static_cast<size_t>(*SalamatrixFsTransferActCustomData - 1);
+    const DWORD customData = *SalamatrixFsTransferActCustomData;
+    const bool sizeColumn = (customData & SALAMATRIX_FS_SIZE_COLUMN) != 0;
+    const size_t index = static_cast<size_t>(
+        (customData & ~SALAMATRIX_FS_SIZE_COLUMN) - 1);
     if (data == NULL || index >= data->Item.ColumnValues.size())
         return;
-    const std::string& value = data->Item.ColumnValues[index];
+    const std::string value = SalamatrixFormatFileSystemColumnValue(
+        data->Item.ColumnValues[index], sizeColumn);
     const size_t length = min(value.size(), static_cast<size_t>(TRANSFER_BUFFER_MAX));
     memcpy(SalamatrixFsTransferBuffer, value.data(), length);
     *SalamatrixFsTransferLen = static_cast<int>(length);
@@ -1308,7 +1384,8 @@ public:
                 StringCchCopyA(column.Name, _countof(column.Name), Columns[index].Name.c_str());
                 StringCchCopyA(column.Description, _countof(column.Description), Columns[index].Description.c_str());
                 column.GetText = SalamatrixFileSystemColumnText;
-                column.CustomData = static_cast<DWORD>(index + 1);
+                column.CustomData = static_cast<DWORD>(index + 1) |
+                    (Columns[index].Size ? SALAMATRIX_FS_SIZE_COLUMN : 0);
                 column.SupportSorting = 1;
                 column.LeftAlignment = Columns[index].Numeric ? 0 : 1;
                 column.ID = COLUMN_ID_CUSTOM;
@@ -1340,11 +1417,42 @@ public:
         int selectedDirs, BOOL displaySize, const CQuadWord& selectedSize,
         char* buffer, DWORD* hotTexts, int& hotTextsCount)
     {
-        UNREFERENCED_PARAMETER(panel); UNREFERENCED_PARAMETER(file);
+        UNREFERENCED_PARAMETER(panel);
         UNREFERENCED_PARAMETER(isDir); UNREFERENCED_PARAMETER(selectedFiles);
         UNREFERENCED_PARAMETER(selectedDirs); UNREFERENCED_PARAMETER(displaySize);
         UNREFERENCED_PARAMETER(selectedSize); UNREFERENCED_PARAMETER(hotTexts);
-        hotTextsCount = 0; if (buffer != NULL) buffer[0] = '\0'; return FALSE;
+        hotTextsCount = 0;
+        if (buffer == NULL)
+            return FALSE;
+        buffer[0] = '\0';
+        if (file == NULL || file->PluginData == 0 ||
+            file->PluginData == static_cast<DWORD_PTR>(-1))
+            return FALSE;
+        const SalamatrixFileSystemItemData* data =
+            reinterpret_cast<const SalamatrixFileSystemItemData*>(file->PluginData);
+        size_t used = 0;
+        for (size_t index = 0;
+             index < Columns.size() && index < data->Item.ColumnValues.size();
+             ++index)
+        {
+            const std::string value = SalamatrixFormatFileSystemColumnValue(
+                data->Item.ColumnValues[index], Columns[index].Size);
+            if (value.empty())
+                continue;
+            const char* separator = used == 0 ? "" : "\n";
+            const int written = _snprintf_s(
+                buffer + used, 1000 - used, _TRUNCATE, "%s%s: %s",
+                separator, Columns[index].Name.c_str(), value.c_str());
+            if (written < 0)
+            {
+                buffer[999] = '\0';
+                break;
+            }
+            used += static_cast<size_t>(written);
+            if (used >= 999)
+                break;
+        }
+        return buffer[0] != '\0';
     }
     virtual BOOL WINAPI CanBeCopiedToClipboard() { return FALSE; }
     virtual BOOL WINAPI GetByteSize(const CFileData* file, BOOL isDir, CQuadWord* size)
@@ -1375,6 +1483,7 @@ private:
     volatile LONG PathGeneration;
     volatile LONG RefreshIntervalMs;
     volatile LONG RefreshDepth;
+    std::vector<std::string> PeriodicRefreshPaths;
     HANDLE RefreshThread;
     CRITICAL_SECTION CacheLock;
     std::vector<FileSystemItem> CachedItems;
@@ -1386,6 +1495,8 @@ private:
 
     BOOL ShouldRefreshPeriodically()
     {
+        if (InterlockedCompareExchange(&RefreshIntervalMs, 0, 0) <= 0)
+            return FALSE;
         const size_t separator = Path.find('!');
         if (separator == std::string::npos)
             return FALSE;
@@ -1393,8 +1504,20 @@ private:
         for (size_t i = separator + 1; i < Path.size(); ++i)
             if (Path[i] == '\\' && i + 1 < Path.size())
                 ++depth;
-        return depth >= static_cast<unsigned int>(
-            InterlockedCompareExchange(&RefreshDepth, 0, 0));
+        if (depth < static_cast<unsigned int>(
+                InterlockedCompareExchange(&RefreshDepth, 0, 0)))
+            return FALSE;
+        if (PeriodicRefreshPaths.empty())
+            return TRUE;
+        const size_t relativeSeparator = Path.find('\\', separator + 1);
+        if (relativeSeparator == std::string::npos ||
+            relativeSeparator + 1 >= Path.size())
+            return FALSE;
+        const char* relativePath = Path.c_str() + relativeSeparator + 1;
+        for (size_t index = 0; index < PeriodicRefreshPaths.size(); ++index)
+            if (_stricmp(relativePath, PeriodicRefreshPaths[index].c_str()) == 0)
+                return TRUE;
+        return FALSE;
     }
 
     void PostPanelRefresh()
@@ -1577,7 +1700,8 @@ private:
         const std::string& fileSystemId,
         const SalamatrixFileSystemItemData* data,
         const char* actionId = NULL,
-        const char* path = NULL)
+        const char* path = NULL,
+        HWND parentWindow = NULL)
     {
         std::string result = std::string("{\"role\":\"fileSystem\",\"operation\":\"") +
             JsonEscape(operation) + "\",\"packageId\":\"" + JsonEscape(packageId.c_str()) +
@@ -1586,12 +1710,75 @@ private:
             result += std::string(",\"actionId\":\"") + JsonEscape(actionId) + "\"";
         if (path != NULL)
             result += std::string(",\"path\":\"") + JsonEscape(path) + "\"";
+        if (parentWindow != NULL)
+            result += std::string(",\"parentWindow\":\"") +
+                std::to_string(static_cast<unsigned long long>(
+                    reinterpret_cast<ULONG_PTR>(parentWindow))) + "\"";
         if (data != NULL)
             result += std::string(",\"item\":{\"id\":\"") + JsonEscape(data->Item.Id.c_str()) +
                 "\",\"name\":\"" + JsonEscape(data->Item.Name.c_str()) +
                 "\",\"directory\":" + (data->Item.Directory ? "true" : "false") + "}";
         result += "}";
         return result;
+    }
+
+    static void AppendPanelNavigation(
+        std::string* invocation, int panel,
+        const SalamatrixFileSystemItemData* selectedData)
+    {
+        if (invocation == NULL || selectedData == NULL ||
+            SalamanderGeneral == NULL || invocation->empty() ||
+            invocation->back() != '}')
+            return;
+        std::vector<std::string> itemIds;
+        int selectedIndex = -1;
+        int enumeration = 0;
+        BOOL isDir = FALSE;
+        const CFileData* item = NULL;
+        while ((item = SalamanderGeneral->GetPanelItem(
+                    panel, &enumeration, &isDir)) != NULL)
+        {
+            if (isDir || item->PluginData == 0 ||
+                item->PluginData == static_cast<DWORD_PTR>(-1))
+                continue;
+            SalamatrixFileSystemItemData* data =
+                reinterpret_cast<SalamatrixFileSystemItemData*>(item->PluginData);
+            if (data->PackageId != selectedData->PackageId ||
+                data->FileSystemId != selectedData->FileSystemId)
+                continue;
+            if (data->Item.Id == selectedData->Item.Id)
+                selectedIndex = static_cast<int>(itemIds.size());
+            itemIds.push_back(data->Item.Id);
+        }
+        if (selectedIndex < 0 || itemIds.empty())
+            return;
+        // Invocation JSON is passed to one-shot workers on their command line.
+        // A complete Event Viewer panel can contain hundreds of long base64
+        // identities and exceed CreateProcessW's command-line limit. Keep a
+        // useful ordered window around the selected item instead.
+        const size_t maxNavigationItems = 64;
+        size_t firstItem = 0;
+        if (itemIds.size() > maxNavigationItems)
+        {
+            const size_t halfWindow = maxNavigationItems / 2;
+            firstItem = static_cast<size_t>(selectedIndex) > halfWindow
+                ? static_cast<size_t>(selectedIndex) - halfWindow : 0;
+            if (firstItem + maxNavigationItems > itemIds.size())
+                firstItem = itemIds.size() - maxNavigationItems;
+        }
+        const size_t lastItem = (std::min)(
+            itemIds.size(), firstItem + maxNavigationItems);
+        selectedIndex -= static_cast<int>(firstItem);
+        invocation->pop_back();
+        *invocation += ",\"panelItemIndex\":" +
+            std::to_string(selectedIndex) + ",\"panelItemIds\":[";
+        for (size_t index = firstItem; index < lastItem; ++index)
+        {
+            if (index != firstItem)
+                *invocation += ",";
+            *invocation += "\"" + JsonEscape(itemIds[index].c_str()) + "\"";
+        }
+        *invocation += "]}";
     }
 
     BOOL AddItem(
@@ -1711,7 +1898,7 @@ public:
             ? std::string() : Path.substr(0, separator);
     }
 
-    BOOL ExecuteDefault(const CFileData& file)
+    BOOL ExecuteDefault(const CFileData& file, int panel)
     {
         SalamatrixFileSystemItemData* data =
             reinterpret_cast<SalamatrixFileSystemItemData*>(file.PluginData);
@@ -1729,15 +1916,24 @@ public:
                     continue;
                 const CExtensionManifestFileSystem::Action* selected = NULL;
                 for (size_t a = 0; a < fs.Actions.size(); ++a)
-                    if (!fs.Actions[a].Separator && fs.Actions[a].Default)
+                    if (!fs.Actions[a].Separator && fs.Actions[a].Default &&
+                        (fs.Actions[a].ItemIdPrefix.empty() ||
+                         data->Item.Id.compare(0, fs.Actions[a].ItemIdPrefix.size(),
+                                               fs.Actions[a].ItemIdPrefix) == 0))
                     { selected = &fs.Actions[a]; break; }
                 const std::string actionId = selected != NULL ? selected->Id : "open";
-                const std::string invocation = Invocation(
+                std::string invocation = Invocation(
                     "action", data->PackageId, data->FileSystemId,
-                    data, actionId.c_str());
-                return Owner->ExecuteFileSystemAction(
+                    data, actionId.c_str(), NULL,
+                    SalamanderGeneral != NULL
+                        ? SalamanderGeneral->GetMainWindowHWND() : NULL);
+                AppendPanelNavigation(&invocation, panel, data);
+                const BOOL executed = Owner->ExecuteFileSystemAction(
                     data->PackageId, data->FileSystemId,
                     actionId, invocation.c_str());
+                if (executed && selected != NULL && selected->Refresh)
+                    RequestDataRefresh();
+                return executed;
             }
         }
         return FALSE;
@@ -1823,6 +2019,7 @@ public:
                             packageDirectory = Owner->Packages[p]->Directory;
                             InterlockedExchange(&RefreshDepth,
                                 static_cast<LONG>(fileSystem.RefreshDepth));
+                            PeriodicRefreshPaths = fileSystem.RefreshPaths;
                             std::wstring relative;
                             if (!fileSystem.DefaultFileIcon.empty() &&
                                 PackageManager::ToWide(fileSystem.DefaultFileIcon, &relative))
@@ -1934,20 +2131,24 @@ public:
                 InterlockedCompareExchange(&RefreshThreadRunning, 0, 0) != 0)
                 SalamanderGeneral->StartThrobber(static_cast<int>(param), NULL, 0);
         }
-        if (event == FSE_ACTIVATEREFRESH ||
-            (event == FSE_TIMER && ShouldRefreshPeriodically()))
+        if ((event == FSE_ACTIVATEREFRESH || event == FSE_TIMER) &&
+            ShouldRefreshPeriodically())
             RequestDataRefresh();
-        if (event == FSE_OPENED || event == FSE_ATTACHED || event == FSE_TIMER)
+        const LONG refreshInterval =
+            InterlockedCompareExchange(&RefreshIntervalMs, 0, 0);
+        if ((event == FSE_OPENED || event == FSE_ATTACHED || event == FSE_TIMER) &&
+            refreshInterval > 0)
             SalamanderGeneral->AddPluginFSTimer(
-                static_cast<DWORD>(InterlockedCompareExchange(&RefreshIntervalMs, 0, 0)),
-                this, 1);
+                static_cast<DWORD>(refreshInterval), this, 1);
     }
     virtual void WINAPI ReleaseObject(HWND parent) { UNREFERENCED_PARAMETER(parent); }
     virtual DWORD WINAPI GetSupportedServices()
     {
         return FS_SERVICE_CONTEXTMENU | FS_SERVICE_GETFSICON |
+               FS_SERVICE_VIEWFILE |
                FS_SERVICE_GETNEXTDIRLINEHOTPATH |
-               FS_SERVICE_GETPATHFORMAINWNDTITLE;
+               FS_SERVICE_GETPATHFORMAINWNDTITLE |
+               FS_SERVICE_NO_REFRESH_WAIT_CURSOR;
     }
     virtual BOOL WINAPI GetChangeDriveOrDisconnectItem(const char* fsName, char*& title, HICON& icon, BOOL& destroyIcon)
     {
@@ -2026,7 +2227,7 @@ public:
     virtual BOOL WINAPI CreateDir(const char* fsName, int mode, HWND parent, char* newName, BOOL& cancel)
     { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(mode); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(newName); cancel = FALSE; return FALSE; }
     virtual void WINAPI ViewFile(const char* fsName, HWND parent, CSalamanderForViewFileOnFSAbstract* salamander, CFileData& file)
-    { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(salamander); ExecuteDefault(file); }
+    { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(salamander); ExecuteDefault(file, SalamanderGeneral->GetSourcePanel()); }
     virtual BOOL WINAPI Delete(const char* fsName, int mode, HWND parent, int panel, int selectedFiles, int selectedDirs, BOOL& cancelOrError)
     { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(mode); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(panel); UNREFERENCED_PARAMETER(selectedFiles); UNREFERENCED_PARAMETER(selectedDirs); cancelOrError = FALSE; return FALSE; }
     virtual BOOL WINAPI CopyOrMoveFromFS(BOOL copy, int mode, const char* fsName, HWND parent, int panel, int selectedFiles, int selectedDirs, char* targetPath, BOOL& operationMask, BOOL& cancelOrHandlePath, HWND dropTarget)
@@ -2062,6 +2263,10 @@ public:
         for (size_t a = 0; a < manifestFs->Actions.size(); ++a)
         {
             const CExtensionManifestFileSystem::Action& action = manifestFs->Actions[a];
+            if (!action.ItemIdPrefix.empty() &&
+                data->Item.Id.compare(0, action.ItemIdPrefix.size(),
+                                      action.ItemIdPrefix) != 0)
+                continue;
             if (action.Separator)
             {
                 AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
@@ -2080,7 +2285,12 @@ public:
             const CExtensionManifestFileSystem::Action& action = manifestFs->Actions[selected - 4000];
             if (action.Separator)
                 return;
-            const std::string invocation = Invocation("action", data->PackageId, data->FileSystemId, data, action.Id.c_str());
+            std::string invocation = Invocation(
+                "action", data->PackageId, data->FileSystemId,
+                data, action.Id.c_str(), NULL,
+                SalamanderGeneral != NULL
+                    ? SalamanderGeneral->GetMainWindowHWND() : NULL);
+            AppendPanelNavigation(&invocation, panel, data);
             Owner->ExecuteFileSystemAction(data->PackageId, data->FileSystemId, action.Id, invocation.c_str());
             if (action.Refresh)
                 RequestDataRefresh();
@@ -2141,8 +2351,7 @@ public:
                 panel, pluginFSName, path.c_str(), &failReason);
             return;
         }
-        opened->ExecuteDefault(file);
-        opened->RequestDataRefresh();
+        opened->ExecuteDefault(file, panel);
     }
     virtual BOOL WINAPI DisconnectFS(HWND parent, BOOL isInPanel, int panel, CPluginFSInterfaceAbstract* pluginFS, const char* pluginFSName, int pluginFSNameIndex)
     { UNREFERENCED_PARAMETER(isInPanel); UNREFERENCED_PARAMETER(panel); UNREFERENCED_PARAMETER(pluginFSName); UNREFERENCED_PARAMETER(pluginFSNameIndex); SalamanderGeneral->CloseDetachedFS(parent, pluginFS); return TRUE; }
@@ -2171,14 +2380,22 @@ PackageManager::PackageManager()
       RefreshInProgress(FALSE),
       RefreshPending(FALSE),
       ActiveHostDispatches(0),
-      ActiveExecutions(0)
+      ActiveExecutions(0),
+      ShuttingDown(FALSE),
+      ExecutionsIdleEvent(CreateEvent(NULL, TRUE, TRUE, NULL))
 {
-    InitializeSRWLock(&FileSystemExecutionLock);
+    InitializeCriticalSection(&FileSystemActionThreadsLock);
 }
 
 PackageManager::~PackageManager()
 {
     Shutdown();
+    if (ExecutionsIdleEvent != NULL)
+    {
+        CloseHandle(ExecutionsIdleEvent);
+        ExecutionsIdleEvent = NULL;
+    }
+    DeleteCriticalSection(&FileSystemActionThreadsLock);
 }
 
 BOOL PackageManager::Initialize(
@@ -2192,6 +2409,7 @@ BOOL PackageManager::Initialize(
     Storage::IStorageService* storage,
     UI::IUIService* ui)
 {
+    InterlockedExchange(&ShuttingDown, FALSE);
     General = general;
     Runtimes = runtimes;
     Extensions = extensions;
@@ -2219,6 +2437,26 @@ BOOL PackageManager::Initialize(
 
 void PackageManager::Shutdown()
 {
+    InterlockedExchange(&ShuttingDown, TRUE);
+    for (size_t index = 0; index < Packages.size(); ++index)
+        InterlockedExchange(&Packages[index]->Stopping, TRUE);
+    if (ExecutionsIdleEvent != NULL)
+    {
+        Runtime::WaitForThreadWithSentMessageDispatch(
+            ExecutionsIdleEvent,
+            General != NULL ? General->GetMainWindowHWND() : NULL);
+    }
+    std::vector<HANDLE> actionThreads;
+    EnterCriticalSection(&FileSystemActionThreadsLock);
+    actionThreads.swap(FileSystemActionThreads);
+    LeaveCriticalSection(&FileSystemActionThreadsLock);
+    for (size_t index = 0; index < actionThreads.size(); ++index)
+    {
+        Runtime::WaitForThreadWithSentMessageDispatch(
+            actionThreads[index],
+            General != NULL ? General->GetMainWindowHWND() : NULL);
+        CloseHandle(actionThreads[index]);
+    }
     if (Extensions != NULL)
     {
         Extensions->SetRefreshCallback(NULL, NULL);
@@ -2382,6 +2620,8 @@ void PackageManager::SaveConfiguration(HKEY key, CSalamanderRegistryAbstract* re
 
 void PackageManager::Refresh()
 {
+    if (InterlockedCompareExchange(&ShuttingDown, FALSE, FALSE) != FALSE)
+        return;
     // Runtime providers register and unregister through the same callback that
     // is used for user-requested catalog refreshes. During load-on-start those
     // callbacks arrive once per runtime provider; coalesce them into the one
@@ -2890,7 +3130,10 @@ void PackageManager::ResolveDependenciesAndActivate()
             Extensions::ExtensionFlagRuntimeUnavailable |
             Extensions::ExtensionFlagRuntimeExecutableUnavailable |
             Extensions::ExtensionFlagDependencyUnavailable;
-        if (package->SettingsReady &&
+        const bool needsPersistentWorker =
+            !package->Manifest.EventsDeclared ||
+            !package->Manifest.Events.empty();
+        if (needsPersistentWorker && package->SettingsReady &&
             (package->Descriptor.Flags & blocked) == 0)
         {
             ReportStartupProgress(
@@ -3468,7 +3711,6 @@ BOOL PackageManager::ListFileSystem(
 {
     if (items == NULL)
         return FALSE;
-    ScopedExclusiveSRWLock fileSystemExecution(&FileSystemExecutionLock);
     ExecutionGuard execution(this);
     items->clear();
     for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
@@ -3477,6 +3719,8 @@ BOOL PackageManager::ListFileSystem(
         if (package == NULL || !package->RuntimeUsable ||
             _stricmp(package->Id.c_str(), packageId.c_str()) != 0)
             continue;
+        ScopedExclusiveSRWLock fileSystemExecution(
+            &package->FileSystemExecutionLock);
         for (size_t fileSystemIndex = 0;
              fileSystemIndex < package->Manifest.FileSystems.size(); ++fileSystemIndex)
         {
@@ -3523,18 +3767,64 @@ BOOL PackageManager::ExecuteFileSystemAction(
     const std::string& actionId,
     const char* invocationJson)
 {
-    // A package uses shared transient dispatch/listing state. Keep actions
-    // serialized with background listings from every open panel instance.
-    ScopedExclusiveSRWLock fileSystemExecution(&FileSystemExecutionLock, TRUE);
-    if (!fileSystemExecution.IsLocked())
+    if (InterlockedCompareExchange(&ShuttingDown, FALSE, FALSE) != FALSE)
         return FALSE;
-    ExecutionGuard execution(this);
+    // A non-refreshing action is normally a Properties-style modal command.
+    // Starting and pumping its one-shot runtime inside the panel callback
+    // prevents the main thread from dispatching ordinary window messages.
+    // Queue it and let HostDispatch marshal native UI calls back to the main
+    // thread only when the worker is ready to display the dialog.
     for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
     {
         Package* package = Packages[packageIndex];
         if (package == NULL || !package->RuntimeUsable ||
             _stricmp(package->Id.c_str(), packageId.c_str()) != 0)
             continue;
+        for (size_t fileSystemIndex = 0;
+             fileSystemIndex < package->Manifest.FileSystems.size(); ++fileSystemIndex)
+        {
+            const CExtensionManifestFileSystem& fileSystem =
+                package->Manifest.FileSystems[fileSystemIndex];
+            if (_stricmp(fileSystem.Id.c_str(), fileSystemId.c_str()) != 0)
+                continue;
+            for (size_t actionIndex = 0;
+                 actionIndex < fileSystem.Actions.size(); ++actionIndex)
+            {
+                const CExtensionManifestFileSystem::Action& action =
+                    fileSystem.Actions[actionIndex];
+                if (_stricmp(action.Id.c_str(), actionId.c_str()) == 0 &&
+                    !action.Refresh)
+                {
+                    return QueueFileSystemAction(
+                        packageId, fileSystemId, actionId, invocationJson);
+                }
+            }
+        }
+    }
+    ExecutionGuard execution(this);
+    return ExecuteFileSystemActionNow(
+        packageId, fileSystemId, actionId, invocationJson);
+}
+
+BOOL PackageManager::ExecuteFileSystemActionNow(
+    const std::string& packageId,
+    const std::string& fileSystemId,
+    const std::string& actionId,
+    const char* invocationJson)
+{
+    // Actions must not hold the listing lock while they synchronously marshal
+    // a modal dialog to the UI thread. A panel reload can otherwise block the
+    // UI on FileSystemExecutionLock while this worker is blocked waiting for
+    // that same UI thread: a classic lock inversion. Actions are serialized
+    // independently; listings retain their original lock and stay responsive.
+    for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
+    {
+        Package* package = Packages[packageIndex];
+        if (package == NULL || !package->RuntimeUsable ||
+            _stricmp(package->Id.c_str(), packageId.c_str()) != 0)
+            continue;
+        ScopedExclusiveSRWLock actionExecution(
+            &package->FileSystemActionExecutionLock);
         for (size_t fileSystemIndex = 0;
              fileSystemIndex < package->Manifest.FileSystems.size(); ++fileSystemIndex)
         {
@@ -3560,6 +3850,115 @@ BOOL PackageManager::ExecuteFileSystemAction(
         }
     }
     return FALSE;
+}
+
+BOOL PackageManager::QueueFileSystemAction(
+    const std::string& packageId,
+    const std::string& fileSystemId,
+    const std::string& actionId,
+    const char* invocationJson)
+{
+    Package* package = NULL;
+    for (size_t index = 0; index < Packages.size(); ++index)
+    {
+        if (Packages[index] != NULL &&
+            _stricmp(Packages[index]->Id.c_str(), packageId.c_str()) == 0)
+        {
+            package = Packages[index];
+            break;
+        }
+    }
+    if (package == NULL)
+        return FALSE;
+    // Ignore repeated double-click/context invocations while the same package
+    // is already starting or showing a non-refreshing modal action. This keeps
+    // impatient retries from building a queue of dialogs behind the package
+    // execution lock.
+    LONG generation = InterlockedIncrement(&package->FileSystemActionGeneration);
+    if (generation == 0)
+        generation = InterlockedIncrement(&package->FileSystemActionGeneration);
+    if (InterlockedCompareExchange(
+            &package->FileSystemActionPending, generation, 0) != 0)
+        return TRUE;
+#ifdef new
+#undef new
+#define RESTORE_SALAMATRIX_FS_ACTION_DEBUG_NEW_MACRO
+#endif
+    FileSystemActionTask* task = new (std::nothrow) FileSystemActionTask;
+#ifdef RESTORE_SALAMATRIX_FS_ACTION_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_SALAMATRIX_FS_ACTION_DEBUG_NEW_MACRO
+#endif
+    if (task == NULL)
+    {
+        InterlockedCompareExchange(
+            &package->FileSystemActionPending, 0, generation);
+        return FALSE;
+    }
+    task->Owner = this;
+    task->PackageContext = package;
+    task->Generation = generation;
+    task->PackageId = packageId;
+    task->FileSystemId = fileSystemId;
+    task->ActionId = actionId;
+    task->InvocationJson = invocationJson != NULL ? invocationJson : "{}";
+    BeginExecution();
+    if (InterlockedCompareExchange(&ShuttingDown, FALSE, FALSE) != FALSE)
+    {
+        InterlockedCompareExchange(
+            &package->FileSystemActionPending, 0, generation);
+        FinishExecution();
+        delete task;
+        return FALSE;
+    }
+    HANDLE thread = CreateThread(
+        NULL, 0, FileSystemActionThreadProc, task, 0, NULL);
+    if (thread == NULL)
+    {
+        InterlockedCompareExchange(
+            &package->FileSystemActionPending, 0, generation);
+        FinishExecution();
+        delete task;
+        return FALSE;
+    }
+    EnterCriticalSection(&FileSystemActionThreadsLock);
+    for (size_t index = FileSystemActionThreads.size(); index > 0; --index)
+    {
+        if (WaitForSingleObject(FileSystemActionThreads[index - 1], 0) ==
+            WAIT_OBJECT_0)
+        {
+            CloseHandle(FileSystemActionThreads[index - 1]);
+            FileSystemActionThreads.erase(
+                FileSystemActionThreads.begin() + index - 1);
+        }
+    }
+    FileSystemActionThreads.push_back(thread);
+    LeaveCriticalSection(&FileSystemActionThreadsLock);
+    return TRUE;
+}
+
+DWORD WINAPI PackageManager::FileSystemActionThreadProc(void* context)
+{
+    FileSystemActionTask* task = static_cast<FileSystemActionTask*>(context);
+    if (task == NULL || task->Owner == NULL)
+    {
+        delete task;
+        return 0;
+    }
+    PackageManager* owner = task->Owner;
+    Package* package = task->PackageContext;
+    if (InterlockedCompareExchange(&owner->ShuttingDown, FALSE, FALSE) == FALSE)
+    {
+        owner->ExecuteFileSystemActionNow(
+            task->PackageId, task->FileSystemId,
+            task->ActionId, task->InvocationJson.c_str());
+    }
+    if (package != NULL)
+        InterlockedCompareExchange(
+            &package->FileSystemActionPending, 0, task->Generation);
+    delete task;
+    owner->FinishExecution();
+    return 0;
 }
 
 BOOL WINAPI PackageManager::ManagementCallback(
@@ -4881,6 +5280,8 @@ BOOL WINAPI PackageManager::HostDispatch(
             options.Parent = owner->General->GetMsgBoxParent();
             options.Width = static_cast<short>(width < 160 ? 160 : (width > 1200 ? 1200 : width));
             options.Height = static_cast<short>(height < 100 ? 100 : (height > 900 ? 900 : height));
+            Runtime::Protocol::Json::FindBoolMember(
+                payloadJson, "resizable", &options.Resizable);
             UI::IDialog* dialog = owner->UI->CreateSalamatrixDialog(options);
             if (dialog == NULL)
                 return FALSE;
@@ -4954,80 +5355,80 @@ BOOL WINAPI PackageManager::HostDispatch(
                 {"textarrowbutton", UI::ControlKindTextArrowButton},
                 {"colorarrowbutton", UI::ControlKindColorArrowButton},
                 {"toolbarheader", UI::ControlKindToolbarHeader}};
-            UI::ControlKind kind = UI::ControlKindLabel;
-            bool kindFound = false;
-            for (size_t index = 0; index < _countof(kinds); ++index)
-                if (_stricmp(kindName.c_str(), kinds[index].Name) == 0)
-                {
-                    kind = kinds[index].Kind;
-                    kindFound = true;
-                    break;
-                }
-            if (!kindFound)
-                return FALSE;
-
-            UI::ControlOptions options;
-            options.Id = controlId.c_str();
-            options.Text = controlText.c_str();
-            Runtime::Protocol::Json::FindBoolMember(payloadJson, "readOnly", &options.ReadOnly);
-            Runtime::Protocol::Json::FindBoolMember(payloadJson, "checked", &options.Checked);
-            Runtime::Protocol::Json::FindBoolMember(payloadJson, "keepOpen", &options.KeepOpen);
-            Runtime::Protocol::Json::FindBoolMember(payloadJson, "multiline", &options.Multiline);
-            Runtime::Protocol::Json::FindIntegerMember(payloadJson, "dialogResult", &options.DialogResult);
-            std::string fileFilter;
-            Runtime::Protocol::Json::FindStringMember(payloadJson, "filter", &fileFilter);
-            options.FileFilter = fileFilter.empty() ? NULL : fileFilter.c_str();
-            Runtime::Protocol::Json::FindBoolMember(payloadJson, "save", &options.FileSave);
-            UI::ControlLayout layout;
-            std::string raw;
-            layout.HasBounds = Runtime::Protocol::Json::FindRawMember(payloadJson, "x", &raw);
-            if (layout.HasBounds)
-            {
-                if (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "x", &layout.X) ||
-                    !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "y", &layout.Y) ||
-                    !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "width", &layout.Width) ||
-                    !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "height", &layout.Height))
+                UI::ControlKind kind = UI::ControlKindLabel;
+                bool kindFound = false;
+                for (size_t index = 0; index < _countof(kinds); ++index)
+                    if (_stricmp(kindName.c_str(), kinds[index].Name) == 0)
+                    {
+                        kind = kinds[index].Kind;
+                        kindFound = true;
+                        break;
+                    }
+                if (!kindFound)
                     return FALSE;
-            }
-            UI::IControl* control = dialog->AddControlEx(kind, options, layout);
-            if (control == NULL)
-                return FALSE;
-            int integerValue = 0;
-            std::string stringValue;
-            if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "styleFlags", &integerValue) &&
-                !control->SetStyleFlags(static_cast<DWORD>(integerValue))) return FALSE;
-            if (Runtime::Protocol::Json::FindStringMember(payloadJson, "pathSeparator", &stringValue) &&
-                (stringValue.size() != 1 || !control->SetPathSeparator(stringValue[0]))) return FALSE;
-            if (Runtime::Protocol::Json::FindStringMember(payloadJson, "toolTip", &stringValue) &&
-                !control->SetToolTipText(stringValue.c_str())) return FALSE;
-            if (Runtime::Protocol::Json::FindStringMember(payloadJson, "actionOpen", &stringValue) &&
-                !control->SetActionOpen(stringValue.c_str())) return FALSE;
-            if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "actionCommand", &integerValue) &&
-                !control->SetActionPostCommand(static_cast<WORD>(integerValue))) return FALSE;
-            if (Runtime::Protocol::Json::FindStringMember(payloadJson, "actionHint", &stringValue) &&
-                !control->SetActionShowHint(stringValue.c_str())) return FALSE;
-            std::string progressText;
-            Runtime::Protocol::Json::FindStringMember(payloadJson, "progressText", &progressText);
-            if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "progress", &integerValue) &&
-                !control->SetProgress(integerValue, progressText.empty() ? NULL : progressText.c_str())) return FALSE;
-            LONGLONG current = 0, total = 0;
-            if (Runtime::Protocol::Json::FindInteger64Member(payloadJson, "progressCurrent", &current) &&
-                (!Runtime::Protocol::Json::FindInteger64Member(payloadJson, "progressTotal", &total) ||
-                 current < 0 || total < 0 || !control->SetProgressValues(current, total,
-                    progressText.empty() ? NULL : progressText.c_str()))) return FALSE;
-            int duration = 0, interval = 0;
-            if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "indeterminateDuration", &duration) &&
-                (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "indeterminateInterval", &interval) ||
-                 !control->SetIndeterminateTiming(static_cast<DWORD>(duration), static_cast<DWORD>(interval)))) return FALSE;
-            int textColor = 0, backgroundColor = 0;
-            if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "textColor", &textColor) &&
-                (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "backgroundColor", &backgroundColor) ||
-                 !control->SetColor(static_cast<COLORREF>(textColor), static_cast<COLORREF>(backgroundColor)))) return FALSE;
-            std::string alignId;
-            int buttonMask = 0;
-            if (Runtime::Protocol::Json::FindStringMember(payloadJson, "alignControlId", &alignId) &&
-                (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "buttonMask", &buttonMask) ||
-                 !control->SetToolbarHeader(alignId.c_str(), static_cast<DWORD>(buttonMask)))) return FALSE;
+
+                UI::ControlOptions options;
+                options.Id = controlId.c_str();
+                options.Text = controlText.c_str();
+                Runtime::Protocol::Json::FindBoolMember(payloadJson, "readOnly", &options.ReadOnly);
+                Runtime::Protocol::Json::FindBoolMember(payloadJson, "checked", &options.Checked);
+                Runtime::Protocol::Json::FindBoolMember(payloadJson, "keepOpen", &options.KeepOpen);
+                Runtime::Protocol::Json::FindBoolMember(payloadJson, "multiline", &options.Multiline);
+                Runtime::Protocol::Json::FindIntegerMember(payloadJson, "dialogResult", &options.DialogResult);
+                std::string fileFilter;
+                Runtime::Protocol::Json::FindStringMember(payloadJson, "filter", &fileFilter);
+                options.FileFilter = fileFilter.empty() ? NULL : fileFilter.c_str();
+                Runtime::Protocol::Json::FindBoolMember(payloadJson, "save", &options.FileSave);
+                UI::ControlLayout layout;
+                std::string raw;
+                layout.HasBounds = Runtime::Protocol::Json::FindRawMember(payloadJson, "x", &raw);
+                if (layout.HasBounds)
+                {
+                    if (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "x", &layout.X) ||
+                        !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "y", &layout.Y) ||
+                        !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "width", &layout.Width) ||
+                        !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "height", &layout.Height))
+                        return FALSE;
+                }
+                UI::IControl* control = dialog->AddControlEx(kind, options, layout);
+                if (control == NULL)
+                    return FALSE;
+                int integerValue = 0;
+                std::string stringValue;
+                if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "styleFlags", &integerValue) &&
+                    !control->SetStyleFlags(static_cast<DWORD>(integerValue))) return FALSE;
+                if (Runtime::Protocol::Json::FindStringMember(payloadJson, "pathSeparator", &stringValue) &&
+                    (stringValue.size() != 1 || !control->SetPathSeparator(stringValue[0]))) return FALSE;
+                if (Runtime::Protocol::Json::FindStringMember(payloadJson, "toolTip", &stringValue) &&
+                    !control->SetToolTipText(stringValue.c_str())) return FALSE;
+                if (Runtime::Protocol::Json::FindStringMember(payloadJson, "actionOpen", &stringValue) &&
+                    !control->SetActionOpen(stringValue.c_str())) return FALSE;
+                if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "actionCommand", &integerValue) &&
+                    !control->SetActionPostCommand(static_cast<WORD>(integerValue))) return FALSE;
+                if (Runtime::Protocol::Json::FindStringMember(payloadJson, "actionHint", &stringValue) &&
+                    !control->SetActionShowHint(stringValue.c_str())) return FALSE;
+                std::string progressText;
+                Runtime::Protocol::Json::FindStringMember(payloadJson, "progressText", &progressText);
+                if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "progress", &integerValue) &&
+                    !control->SetProgress(integerValue, progressText.empty() ? NULL : progressText.c_str())) return FALSE;
+                LONGLONG current = 0, total = 0;
+                if (Runtime::Protocol::Json::FindInteger64Member(payloadJson, "progressCurrent", &current) &&
+                    (!Runtime::Protocol::Json::FindInteger64Member(payloadJson, "progressTotal", &total) ||
+                     current < 0 || total < 0 || !control->SetProgressValues(current, total,
+                        progressText.empty() ? NULL : progressText.c_str()))) return FALSE;
+                int duration = 0, interval = 0;
+                if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "indeterminateDuration", &duration) &&
+                    (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "indeterminateInterval", &interval) ||
+                     !control->SetIndeterminateTiming(static_cast<DWORD>(duration), static_cast<DWORD>(interval)))) return FALSE;
+                int textColor = 0, backgroundColor = 0;
+                if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "textColor", &textColor) &&
+                    (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "backgroundColor", &backgroundColor) ||
+                     !control->SetColor(static_cast<COLORREF>(textColor), static_cast<COLORREF>(backgroundColor)))) return FALSE;
+                std::string alignId;
+                int buttonMask = 0;
+                if (Runtime::Protocol::Json::FindStringMember(payloadJson, "alignControlId", &alignId) &&
+                    (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "buttonMask", &buttonMask) ||
+                     !control->SetToolbarHeader(alignId.c_str(), static_cast<DWORD>(buttonMask)))) return FALSE;
             return CopyResult("{\"ok\":true}", resultJson, resultCapacity, resultLength);
         }
         if (method == "salamander.ui.dialog.item")
@@ -5139,6 +5540,10 @@ BOOL WINAPI PackageManager::HostDispatch(
             owner->UI->DestroyDialog(dialog);
             package->Dialogs.erase(package->Dialogs.begin() + dialogIndex);
             delete binding;
+            // A properties-style action is usable again as soon as its modal
+            // UI has closed. Do not keep swallowing a new double-click while
+            // the one-shot process performs its final transport teardown.
+            InterlockedExchange(&package->FileSystemActionPending, FALSE);
             return CopyResult("{\"ok\":true}", resultJson, resultCapacity, resultLength);
         }
         return FALSE;
@@ -5151,6 +5556,63 @@ BOOL WINAPI PackageManager::HostDispatch(
                          owner->General->GetMsgBoxParent());
         return CopyResult(std::string("{\"ok\":true,\"shown\":") +
                               (shown ? "true}" : "false}"),
+                          resultJson, resultCapacity, resultLength);
+    }
+    if (method == "salamander.ui.viewer.open")
+    {
+        std::string path;
+        std::string renderer = "auto";
+        if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "path", &path) || path.empty())
+            return CopyResult("{\"ok\":false,\"error\":\"viewer path is required\"}", resultJson, resultCapacity, resultLength);
+        Runtime::Protocol::Json::FindStringMember(payloadJson, "renderer", &renderer);
+        std::wstring widePath;
+        if (!ToWide(path, &widePath))
+            return CopyResult("{\"ok\":false,\"error\":\"viewer path is not valid UTF-8\"}", resultJson, resultCapacity, resultLength);
+
+        NativeViewerKind kind = NativeViewerKind::PrismText;
+        if (_stricmp(renderer.c_str(), "document") == 0)
+            kind = NativeViewerKind::RenderDocument;
+        else if (_stricmp(renderer.c_str(), "prism") != 0 && _stricmp(renderer.c_str(), "auto") != 0)
+            return CopyResult("{\"ok\":false,\"error\":\"renderer must be auto, prism, or document\"}", resultJson, resultCapacity, resultLength);
+        else if (_stricmp(renderer.c_str(), "auto") == 0)
+        {
+            const char* extension = strrchr(path.c_str(), '.');
+            if (extension != NULL)
+            {
+                static const char* const documentExtensions[] = {
+                    ".html", ".htm", ".xhtml", ".mhtml", ".mht", ".md", ".markdown", ".mdown", ".mkd", ".mdx",
+                    ".svg", ".svgz", ".webp", ".avif", ".apng", ".png", ".jpg", ".jpeg", ".jfif", ".gif",
+                    ".bmp", ".ico", ".tif", ".tiff", ".pdf"};
+                for (const char* candidate : documentExtensions)
+                    if (_stricmp(extension, candidate) == 0) { kind = NativeViewerKind::RenderDocument; break; }
+            }
+        }
+
+        RECT placement = {};
+        HWND parent = owner->General->GetMainWindowHWND();
+        GetWindowRect(parent, &placement);
+        placement.left += 48;
+        placement.top += 48;
+        placement.right = placement.left + (std::max)(placement.right - placement.left - 96L, 640L);
+        placement.bottom = placement.top + (std::max)(placement.bottom - placement.top - 96L, 480L);
+        BOOL dark = FALSE;
+        int configType = 0;
+        owner->General->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE, &dark, sizeof(dark), &configType);
+        NativeViewerTheme theme = {dark != FALSE,
+            owner->General->GetCurrentColor(SALCOL_VIEWER_FG_NORMAL), owner->General->GetCurrentColor(SALCOL_VIEWER_BK_NORMAL),
+            owner->General->GetCurrentColor(SALCOL_HOT_PANEL)};
+        NativeViewerStrings strings = {
+            owner->General->LoadStrW(DLLInstance, IDS_VIEWER_NAME), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_FILE),
+            owner->General->LoadStrW(DLLInstance, IDS_VIEWER_VIEW), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_CLOSE),
+            owner->General->LoadStrW(DLLInstance, IDS_VIEWER_REFRESH), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_ZOOM_IN),
+            owner->General->LoadStrW(DLLInstance, IDS_VIEWER_ZOOM_OUT), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_ZOOM_RESET),
+            owner->General->LoadStrW(DLLInstance, IDS_VIEWER_LINE_NUMBERS), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_WRAP_LINES),
+            owner->General->LoadStrW(DLLInstance, IDS_VIEWER_SHOW_WHITESPACE),
+            owner->General->LoadStrW(DLLInstance, IDS_VIEWER_LOADING), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_READY),
+            owner->General->LoadStrW(DLLInstance, IDS_VIEWER_WEBVIEW_FAILED), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_OPEN_FAILED)};
+        NativeViewerRequest request = {DLLInstance, parent, widePath.c_str(), placement, SW_SHOWNORMAL, false, NULL, kind, theme, strings};
+        const bool opened = NativeViewer_Show(request);
+        return CopyResult(std::string("{\"ok\":true,\"opened\":") + (opened ? "true}" : "false}"),
                           resultJson, resultCapacity, resultLength);
     }
     if (method == "salamander.ui.fileProperties")
@@ -5688,14 +6150,25 @@ void PackageManager::FinishHostDispatch()
         Refresh();
 }
 
+void PackageManager::BeginExecution()
+{
+    if (ExecutionsIdleEvent != NULL)
+        ResetEvent(ExecutionsIdleEvent);
+    InterlockedIncrement(&ActiveExecutions);
+}
+
 void PackageManager::FinishExecution()
 {
     const LONG active = InterlockedDecrement(&ActiveExecutions);
     if (active < 0)
     {
         InterlockedExchange(&ActiveExecutions, 0);
+        if (ExecutionsIdleEvent != NULL)
+            SetEvent(ExecutionsIdleEvent);
         return;
     }
+    if (active == 0 && ExecutionsIdleEvent != NULL)
+        SetEvent(ExecutionsIdleEvent);
     if (active == 0 && ActiveHostDispatches == 0 &&
         RefreshPending && !RefreshInProgress)
     {
