@@ -102,9 +102,21 @@ def main() -> int:
         and "GPS_READWRITE" in model
         and "store->SetValue(key, value)" in model
         and "store->Commit()" in model
-        and "IsPropertyWritable" not in model
+        and "BOOL IsFilePropertyWritableW" in model
+        and "capabilities->IsPropertyWritable(key) == S_OK" in model
+        and "TagsWritable = IsPropertyWritableForAll(PKEY_Keywords)" in file_window
+        and "EnableWindow(tagsCheck, TagsWritable)" in file_window
+        and "SendMessage(tagsCheck, BM_SETCHECK, BST_UNCHECKED, 0)" in file_window
         and "AddValueToStdHistoryValues(Configuration.TagHistory" in file_window,
-        "Tags editing must let SetValue/Commit determine writability and retain persistent recent tags",
+        "Tags UI must disable and uncheck unsupported selections while writes still use SetValue/Commit",
+    )
+    require(
+        "IsPropertyWritableForAll(*key)" in file_window
+        and "EnableWindow(check, writable)" in file_window
+        and "if (!row.Writable)" in file_window
+        and "IDS_EDPROP_RESULT_DETAIL" in file_window
+        and "IDS_EDPROP_REASON_UNSUPPORTED" in file_window,
+        "unsupported custom properties must be unchecked and disabled and write errors must explain why",
     )
     require(
         "EditWindowsProperties" in file_window

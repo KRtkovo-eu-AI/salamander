@@ -2537,6 +2537,28 @@ HRESULT ReadFileTagsW(const wchar_t* path, std::vector<std::wstring>& tags)
     return hr;
 }
 
+BOOL IsFilePropertyWritableW(const wchar_t* path, REFPROPERTYKEY key)
+{
+    if (path == NULL || path[0] == 0)
+        return FALSE;
+
+    IPropertyStore* store = NULL;
+    HRESULT hr = SHGetPropertyStoreFromParsingName(path, NULL, GPS_READWRITE,
+                                                    IID_IPropertyStore, (void**)&store);
+    if (FAILED(hr) || store == NULL)
+        return FALSE;
+
+    BOOL writable = TRUE;
+    IPropertyStoreCapabilities* capabilities = NULL;
+    if (SUCCEEDED(store->QueryInterface(IID_PPV_ARGS(&capabilities))) && capabilities != NULL)
+    {
+        writable = capabilities->IsPropertyWritable(key) == S_OK;
+        capabilities->Release();
+    }
+    store->Release();
+    return writable;
+}
+
 HRESULT WriteFileStringVectorPropertyW(const wchar_t* path, REFPROPERTYKEY key,
                                        const std::vector<std::wstring>& tags)
 {

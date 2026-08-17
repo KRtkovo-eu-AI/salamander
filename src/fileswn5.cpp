@@ -46,6 +46,7 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
         HWND HCheck;
         HWND HEdit;
         BOOL HadValue;
+        BOOL Writable;
     };
 
     const std::vector<std::wstring>& Paths;
@@ -54,8 +55,19 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
     std::vector<CPropertyRow> PropertyRows;
     int PropertyScrollPos;
     BOOL TagsHadValue;
+    BOOL TagsWritable;
 
     BOOL IsMultiple() const { return Paths.size() > 1; }
+
+    BOOL IsPropertyWritableForAll(REFPROPERTYKEY key) const
+    {
+        if (Paths.empty())
+            return FALSE;
+        for (size_t i = 0; i < Paths.size(); i++)
+            if (!IsFilePropertyWritableW(Paths[i].c_str(), key))
+                return FALSE;
+        return TRUE;
+    }
 
     static void TrimTag(std::string& value)
     {
@@ -84,11 +96,12 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
 
     void UpdateEnabledState()
     {
-        BOOL tagsEnabled = IsDlgButtonChecked(HWindow, IDC_EDPROP_TAGS_ENABLE) == BST_CHECKED;
+        BOOL tagsEnabled = TagsWritable &&
+                           IsDlgButtonChecked(HWindow, IDC_EDPROP_TAGS_ENABLE) == BST_CHECKED;
         if (TagsList != NULL)
             TagsList->Enable(tagsEnabled);
         for (size_t i = 0; i < PropertyRows.size(); i++)
-            EnableWindow(PropertyRows[i].HEdit,
+            EnableWindow(PropertyRows[i].HEdit, PropertyRows[i].Writable &&
                          SendMessage(PropertyRows[i].HCheck, BM_GETCHECK, 0, 0) == BST_CHECKED);
     }
 
@@ -185,9 +198,13 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
                 ReadFilePropertyTextW(Paths[0].c_str(), *key, current);
             SetWindowTextW(edit, current.c_str());
             BOOL hadValue = !current.empty();
-            SendMessage(check, BM_SETCHECK,
-                        IsMultiple() ? BST_INDETERMINATE : hadValue ? BST_CHECKED : BST_UNCHECKED, 0);
-            CPropertyRow row = {i, check, edit, hadValue};
+            BOOL writable = IsPropertyWritableForAll(*key);
+            SendMessage(check, BM_SETCHECK, writable ? (IsMultiple() ? BST_INDETERMINATE
+                                                                     : hadValue ? BST_CHECKED : BST_UNCHECKED)
+                                                     : BST_UNCHECKED,
+                        0);
+            EnableWindow(check, writable);
+            CPropertyRow row = {i, check, edit, hadValue, writable};
             PropertyRows.push_back(row);
         }
         LayoutPropertyRows();
@@ -268,12 +285,16 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
         BOOL tagsSucceeded = FALSE;
         int updated = 0;
         int failed = 0;
+        std::wstring firstFailedPath;
+        std::string firstFailedProperty;
+        HRESULT firstFailure = S_OK;
+        BOOL firstFailureUnsupported = FALSE;
         HCURSOR oldCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
         for (size_t pathIndex = 0; pathIndex < Paths.size(); pathIndex++)
         {
             BOOL fileUpdated = FALSE;
             BOOL fileFailed = FALSE;
-            if (tagsState != BST_INDETERMINATE &&
+            if (TagsWritable && tagsState != BST_INDETERMINATE &&
                 (tagsState == BST_CHECKED || IsMultiple() || TagsHadValue))
             {
                 anyAttempted = TRUE;
@@ -287,11 +308,23 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
                     tagsSucceeded = TRUE;
                 }
                 else
+                {
                     fileFailed = TRUE;
+                    if (firstFailedPath.empty())
+                    {
+                        firstFailedPath = Paths[pathIndex];
+                        firstFailedProperty = LoadStr(IDS_FFA_TAGS);
+                        firstFailure = hr;
+                        firstFailureUnsupported = !IsFilePropertyWritableW(
+                            Paths[pathIndex].c_str(), PKEY_Keywords);
+                    }
+                }
             }
             for (size_t rowIndex = 0; rowIndex < PropertyRows.size(); rowIndex++)
             {
                 CPropertyRow& row = PropertyRows[rowIndex];
+                if (!row.Writable)
+                    continue;
                 int state = (int)SendMessage(row.HCheck, BM_GETCHECK, 0, 0);
                 if (state == BST_INDETERMINATE ||
                     (state == BST_UNCHECKED && !IsMultiple() && !row.HadValue))
@@ -317,7 +350,17 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
                 if (SUCCEEDED(hr))
                     fileUpdated = TRUE;
                 else
+                {
                     fileFailed = TRUE;
+                    if (firstFailedPath.empty())
+                    {
+                        firstFailedPath = Paths[pathIndex];
+                        firstFailedProperty = GetExplorerColumnName(row.ExplorerIndex);
+                        firstFailure = hr;
+                        firstFailureUnsupported = !IsFilePropertyWritableW(
+                            Paths[pathIndex].c_str(), *key);
+                    }
+                }
             }
             if (fileUpdated)
                 updated++;
@@ -337,9 +380,31 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
         }
         if (failed > 0 || (anyAttempted && Paths.size() > 1))
         {
-            char result[200];
+            char result[1200];
             _snprintf_s(result, _countof(result), _TRUNCATE,
                         LoadStr(IDS_EDPROP_RESULT), updated, failed);
+            if (failed > 0 && !firstFailedPath.empty())
+            {
+                const char* reason = LoadStr(IDS_EDPROP_REASON_OTHER);
+                DWORD attributes = GetFileAttributesW(firstFailedPath.c_str());
+                if (firstFailure == E_ACCESSDENIED || firstFailure == STG_E_ACCESSDENIED ||
+                    firstFailure == HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED) ||
+                    firstFailure == HRESULT_FROM_WIN32(ERROR_WRITE_PROTECT) ||
+                    firstFailure == HRESULT_FROM_WIN32(ERROR_SHARING_VIOLATION) ||
+                    (attributes != INVALID_FILE_ATTRIBUTES &&
+                     (attributes & FILE_ATTRIBUTE_READONLY) != 0))
+                    reason = LoadStr(IDS_EDPROP_REASON_READONLY);
+                else if (firstFailure == (HRESULT)0x88982F41L || firstFailureUnsupported)
+                    reason = LoadStr(IDS_EDPROP_REASON_UNSUPPORTED);
+
+                char detail[800];
+                std::string path = SalWideToMultiBytePath(firstFailedPath.c_str(), CP_ACP);
+                _snprintf_s(detail, _countof(detail), _TRUNCATE,
+                            LoadStr(IDS_EDPROP_RESULT_DETAIL), path.c_str(),
+                            firstFailedProperty.c_str(), reason, (DWORD)firstFailure);
+                strncat_s(result, _countof(result), "\n\n", _TRUNCATE);
+                strncat_s(result, _countof(result), detail, _TRUNCATE);
+            }
             SalMessageBox(HWindow, result, LoadStr(IDS_EDPROP_TITLE),
                           failed > 0 ? MB_ICONEXCLAMATION | MB_OK : MB_ICONINFORMATION | MB_OK);
         }
@@ -353,6 +418,7 @@ public:
         TagsList = NULL;
         PropertyScrollPos = 0;
         TagsHadValue = FALSE;
+        TagsWritable = FALSE;
     }
 
     ~CEditWindowsPropertiesDialog() { ClearTags(); }
@@ -375,6 +441,7 @@ protected:
             SetDlgItemText(HWindow, IDC_EDPROP_PROPERTIES_GROUP, LoadStr(IDS_EDPROP_OTHER_PROPERTIES));
             SetDlgItemText(HWindow, IDC_EDPROP_MULTI_HINT,
                            IsMultiple() ? LoadStr(IDS_EDPROP_MULTI_FORM_HINT) : "");
+            TagsWritable = IsPropertyWritableForAll(PKEY_Keywords);
             TagsList = new CEditListBox(HWindow, IDC_EDPROP_TAGS_LIST,
                                         ELB_ENABLECOMMANDS | ELB_RIGHTARROW);
             if (TagsList != NULL)
@@ -382,6 +449,9 @@ protected:
                 TagsList->MakeHeader(IDC_EDPROP_TAGS_HEADER);
                 AddInitialTags();
             }
+            if (!TagsWritable)
+                SendMessage(tagsCheck, BM_SETCHECK, BST_UNCHECKED, 0);
+            EnableWindow(tagsCheck, TagsWritable);
             AddPropertyRows();
             UpdateEnabledState();
             if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))

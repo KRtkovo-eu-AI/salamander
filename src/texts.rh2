@@ -3015,6 +3015,10 @@
 #define IDS_EDPROP_CHANGE_TAGS                 14411
 #define IDS_EDPROP_OTHER_PROPERTIES            14412
 #define IDS_EDPROP_MULTI_FORM_HINT              14413
+#define IDS_EDPROP_RESULT_DETAIL                14414
+#define IDS_EDPROP_REASON_UNSUPPORTED            14415
+#define IDS_EDPROP_REASON_READONLY               14416
+#define IDS_EDPROP_REASON_OTHER                  14417
 
 #define IDS_MENU_OPT_MANAGECONFIG        13169
 

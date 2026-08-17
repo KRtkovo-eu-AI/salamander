@@ -2224,6 +2224,10 @@ STRINGTABLE
  IDS_EDPROP_CHANGE_TAGS, "&Change Tags"
  IDS_EDPROP_OTHER_PROPERTIES, "Other selected properties"
  IDS_EDPROP_MULTI_FORM_HINT, "For multiple files: indeterminate leaves a property unchanged; checked sets it; unchecked removes it."
+ IDS_EDPROP_RESULT_DETAIL, "First failure:\nFile: %s\nProperty: %s\nReason: %s (0x%08X)"
+ IDS_EDPROP_REASON_UNSUPPORTED, "This file type does not support this property."
+ IDS_EDPROP_REASON_READONLY, "The file or property is read-only or access was denied."
+ IDS_EDPROP_REASON_OTHER, "Windows could not write the property."
  IDS_VIEW_DYNAMIC_LIMIT, "The maximum number of additional detailed views has been reached."
 
  IDS_MENU_OPT_MANAGECONFIG, "&Manage Configurations..."
