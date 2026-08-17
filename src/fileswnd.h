@@ -1434,6 +1434,7 @@ public:
 
     void ChangeAttr(BOOL setCompress = FALSE, BOOL compressed = FALSE,
                     BOOL setEncryption = FALSE, BOOL encrypted = FALSE);
+    void EditWindowsProperties();
     void Convert(); // converts character sets and line endings
     // handlerID specifies which viewer/editor should open the file; 0xFFFFFFFF = no preference
     void ViewFile(char* name, BOOL altView, DWORD handlerID, int enumFileNamesSourceUID,

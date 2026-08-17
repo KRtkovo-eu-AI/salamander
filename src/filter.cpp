@@ -4,6 +4,10 @@
 
 #include "precomp.h"
 
+#include "cfgdlg.h"
+#include "filetags.h"
+#include "common/widepath.h"
+
 // Attributes
 const char* FILTERCRITERIA_ATTRIBUTESMASK_REG = "Attributes Mask";
 const char* FILTERCRITERIA_ATTRIBUTESVALUE_REG = "Attributes Value";
@@ -29,6 +33,9 @@ const char* FILTERCRITERIA_USETODATE_REG = "UseToDate";
 const char* FILTERCRITERIA_USETOTIME_REG = "UseToTime";
 const char* FILTERCRITERIA_TOLO_REG = "ToLo";
 const char* FILTERCRITERIA_TOHI_REG = "ToHi";
+const char* FILTERCRITERIA_USETAGS_REG = "UseTags";
+const char* FILTERCRITERIA_TAGSMODE_REG = "TagsMode";
+const char* FILTERCRITERIA_TAGSTEXT_REG = "TagsText";
 
 // we used the following variables in Altap Salamander 2.5,
 // where we switched to CFilterCriteria and its Save/Load
@@ -102,6 +109,9 @@ void CFilterCriteria::Reset()
     UseFromTime = FALSE;
     UseToDate = TRUE;
     UseToTime = FALSE;
+    UseTags = FALSE;
+    TagsMode = ftmmAny;
+    TagsText[0] = 0;
 
     // Set 'From' to one day back and 'To' to the current date
     SYSTEMTIME st;
@@ -420,6 +430,16 @@ BOOL CFilterCriteria::Test(DWORD attributes, const CQuadWord* size, const FILETI
     return ok;
 }
 
+BOOL CFilterCriteria::TestTags(const wchar_t* path) const
+{
+    if (!HasTags())
+        return TRUE;
+    std::wstring text = SalMultiByteToWidePath(TagsText, CP_UTF8);
+    std::vector<std::wstring> tags;
+    ParseFileTagsW(text.c_str(), tags);
+    return FileTagsMatchW(path, tags, TagsMode);
+}
+
 BOOL CFilterCriteria::GetAdvancedDescription(char* buffer, int maxLen, BOOL& dirty)
 {
     char buff[300];
@@ -476,6 +496,14 @@ BOOL CFilterCriteria::GetAdvancedDescription(char* buffer, int maxLen, BOOL& dir
         if (count > 1)
             lstrcat(buff, ", ");
         lstrcat(buff, LoadStr(IDS_FFA_TIME));
+        count++;
+    }
+
+    if (HasTags())
+    {
+        if (count > 1)
+            lstrcat(buff, ", ");
+        lstrcat(buff, LoadStr(IDS_FFA_TAGS));
         count++;
     }
 
@@ -551,6 +579,12 @@ BOOL CFilterCriteria::Save(HKEY hKey)
         SetValue(hKey, FILTERCRITERIA_TOLO_REG, REG_DWORD, &(((FILETIME*)&To)->dwLowDateTime), sizeof(DWORD));
         SetValue(hKey, FILTERCRITERIA_TOHI_REG, REG_DWORD, &(((FILETIME*)&To)->dwHighDateTime), sizeof(DWORD));
     }
+    if (UseTags != def.UseTags)
+        SetValue(hKey, FILTERCRITERIA_USETAGS_REG, REG_DWORD, &UseTags, sizeof(DWORD));
+    if (TagsMode != def.TagsMode)
+        SetValue(hKey, FILTERCRITERIA_TAGSMODE_REG, REG_DWORD, &TagsMode, sizeof(DWORD));
+    if (strcmp(TagsText, def.TagsText) != 0)
+        SetValue(hKey, FILTERCRITERIA_TAGSTEXT_REG, REG_SZ, TagsText, -1);
     return TRUE;
 }
 
@@ -582,6 +616,9 @@ BOOL CFilterCriteria::Load(HKEY hKey)
     GetValue(hKey, FILTERCRITERIA_USETOTIME_REG, REG_DWORD, &UseToTime, sizeof(DWORD));
     GetValue(hKey, FILTERCRITERIA_TOLO_REG, REG_DWORD, &(((FILETIME*)&To)->dwLowDateTime), sizeof(DWORD));
     GetValue(hKey, FILTERCRITERIA_TOHI_REG, REG_DWORD, &(((FILETIME*)&To)->dwHighDateTime), sizeof(DWORD));
+    GetValue(hKey, FILTERCRITERIA_USETAGS_REG, REG_DWORD, &UseTags, sizeof(DWORD));
+    GetValue(hKey, FILTERCRITERIA_TAGSMODE_REG, REG_DWORD, &TagsMode, sizeof(DWORD));
+    GetValue(hKey, FILTERCRITERIA_TAGSTEXT_REG, REG_SZ, TagsText, sizeof(TagsText));
 
     NeedPrepare = TRUE;
 
@@ -958,6 +995,27 @@ void CFilterCriteriaDialog::Transfer(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CFilterCriteriaDialog::Transfer()");
 
+    if (EnableDirectory)
+    {
+        ti.CheckBox(IDC_FFA_USETAGS, Data->UseTags);
+        if (ti.Type == ttDataToWindow)
+        {
+            SendDlgItemMessage(HWindow, IDC_FFA_TAGSMODE, CB_SETCURSEL, Data->TagsMode, 0);
+            std::wstring tags = SalMultiByteToWidePath(Data->TagsText, CP_UTF8);
+            SetDlgItemTextW(HWindow, IDC_FFA_TAGS, tags.c_str());
+        }
+        else
+        {
+            Data->TagsMode = (CFileTagsMatchMode)SendDlgItemMessage(HWindow, IDC_FFA_TAGSMODE, CB_GETCURSEL, 0, 0);
+            HWND tagsControl = GetDlgItem(HWindow, IDC_FFA_TAGS);
+            int len = GetWindowTextLengthW(tagsControl);
+            std::vector<wchar_t> tags(len + 1);
+            GetWindowTextW(tagsControl, tags.data(), (int)tags.size());
+            std::string utf8 = SalWideToMultiBytePath(tags.data(), CP_UTF8);
+            lstrcpyn(Data->TagsText, utf8.c_str(), _countof(Data->TagsText));
+        }
+    }
+
     // Attributes
     AttributeCheckBox(&ti, IDC_FFA_ATTRARCHIVE, FILE_ATTRIBUTE_ARCHIVE, &Data->AttributesMask, &Data->AttributesValue);
     AttributeCheckBox(&ti, IDC_FFA_ATTRREADONLY, FILE_ATTRIBUTE_READONLY, &Data->AttributesMask, &Data->AttributesValue);
@@ -1068,6 +1126,13 @@ void CFilterCriteriaDialog::Validate(CTransferInfo& ti)
     Data = &data;
 
     TransferData(ttDataFromWindow);
+
+    if (ti.IsGood() && Data->UseTags && Data->TagsText[0] == 0)
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_FFA_TAGS_REQUIRED), LoadStr(IDS_ERRORTITLE),
+                      MB_ICONEXCLAMATION | MB_OK);
+        ti.ErrorOn(IDC_FFA_TAGS);
+    }
 
     // Size Min/Max
 
@@ -1251,6 +1316,14 @@ void CFilterCriteriaDialog::EnableControls()
     }
     EnableWindow(GetDlgItem(HWindow, IDC_FFA_TO_TIME), enabledTo);
 
+    if (EnableDirectory)
+    {
+        BOOL tagsEnabled = IsDlgButtonChecked(HWindow, IDC_FFA_USETAGS) == BST_CHECKED;
+        EnableWindow(GetDlgItem(HWindow, IDC_FFA_TAGSMODE), tagsEnabled);
+        EnableWindow(GetDlgItem(HWindow, IDC_FFA_TAGS), tagsEnabled);
+        EnableWindow(GetDlgItem(HWindow, IDC_FFA_TAGS_HINT), tagsEnabled);
+    }
+
     // if the user pressed the Reset button via hot key, it could
     // disable the control that currently has focus; we handle it
     if (hFocus != NULL && !IsWindowEnabled(hFocus))
@@ -1265,6 +1338,43 @@ CFilterCriteriaDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
+        if (EnableDirectory)
+        {
+            HWND tagsMode = GetDlgItem(HWindow, IDC_FFA_TAGSMODE);
+            SendMessage(tagsMode, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_FFA_TAGS_ANY));
+            SendMessage(tagsMode, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_FFA_TAGS_ALL));
+            SendMessage(tagsMode, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_FFA_TAGS_NONE));
+            HWND tags = GetDlgItem(HWindow, IDC_FFA_TAGS);
+            for (int historyIndex = 0; historyIndex < TAG_HISTORY_SIZE && Configuration.TagHistory[historyIndex] != NULL; historyIndex++)
+            {
+                std::wstring tag = SalMultiByteToWidePath(Configuration.TagHistory[historyIndex], CP_UTF8);
+                SendMessageW(tags, CB_ADDSTRING, 0, (LPARAM)tag.c_str());
+            }
+        }
+        else
+        {
+            const int hiddenControls[] = {IDC_FFA_USETAGS, IDC_FFA_TAGSMODE, IDC_FFA_TAGS,
+                                          IDC_FFA_TAGS_HINT, IDC_STATIC_10};
+            for (int hidden = 0; hidden < _countof(hiddenControls); hidden++)
+                ShowWindow(GetDlgItem(HWindow, hiddenControls[hidden]), SW_HIDE);
+            RECT delta = {0, 0, 0, 45};
+            MapDialogRect(HWindow, &delta);
+            const int buttons[] = {IDC_FFA_DEFAULTVALS, IDOK, IDCANCEL, IDHELP};
+            for (int button = 0; button < _countof(buttons); button++)
+            {
+                HWND control = GetDlgItem(HWindow, buttons[button]);
+                RECT rect;
+                GetWindowRect(control, &rect);
+                MapWindowPoints(NULL, HWindow, (POINT*)&rect, 2);
+                SetWindowPos(control, NULL, rect.left, rect.top - delta.bottom,
+                             0, 0, SWP_NOSIZE | SWP_NOZORDER);
+            }
+            RECT window;
+            GetWindowRect(HWindow, &window);
+            SetWindowPos(HWindow, NULL, 0, 0, window.right - window.left,
+                         window.bottom - window.top - delta.bottom,
+                         SWP_NOMOVE | SWP_NOZORDER);
+        }
         // attach the UpDown control to the edit line
         int resID[] = {IDC_FFA_SIZEMIN_VALUE, IDC_FFA_SIZEMAX_VALUE, IDC_FFA_TIMEDURING_VALUE, -1};
         int upDownID[] = {IDC_FFA_SIZEMIN_UPDOWN, IDC_FFA_SIZEMAX_UPDOWN, IDC_FFA_TIMEDURING_UPDOWN};

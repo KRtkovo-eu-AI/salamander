@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "filetags.h"
+
 //*****************************************************************************
 //
 // CFilterCriteria
@@ -74,6 +76,11 @@ protected:
     int UseToTime;
     unsigned __int64 To; // local time
 
+    // Windows System.Keywords, used by Find Files only
+    int UseTags;
+    CFileTagsMatchMode TagsMode;
+    char TagsText[1024]; // UTF-8, semicolon-separated
+
     // variables precomputed in PrepareForTest
     BOOL UseMinTime;          // check MinTime
     unsigned __int64 MinTime; // local time
@@ -95,6 +102,9 @@ public:
     // returns TRUE if the file/directory parameters satisfy the criteria
     // 'modified' is UTC and will be converted to local time
     BOOL Test(DWORD attributes, const CQuadWord* size, const FILETIME* modified);
+    BOOL HasTags() const { return UseTags && TagsText[0] != 0; }
+    const char* GetTagsText() const { return TagsText; }
+    BOOL TestTags(const wchar_t* path) const;
 
     // fills 'buffer' with a description of the set values if they differ from the default ones
     // (after calling the Reset method). 'maxLen' specifies the maximum length of the 'buffer' string.

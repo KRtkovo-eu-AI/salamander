@@ -1091,6 +1091,7 @@ const char* CONFIG_QUICKRENAMEHISTORY_REG = "Quick Rename History";
 const char* CONFIG_EDITNEWHISTORY_REG = "Edit New History";
 const char* CONFIG_CONVERTHISTORY_REG = "Convert History";
 const char* CONFIG_FILTERHISTORY_REG = "Filter History";
+const char* CONFIG_TAGHISTORY_REG = "Tag History";
 const char* CONFIG_WORKDIRSHISTORY_REG = "Working Directories";
 const char* CONFIG_FILELISTNAME_REG = "Make File List Name";
 const char* CONFIG_FILELISTAPPEND_REG = "Make File List Append";
@@ -3632,6 +3633,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                             CONVERT_HISTORY_SIZE, !Configuration.SaveHistory);
                 SaveHistory(actKey, CONFIG_FILTERHISTORY_REG, Configuration.FilterHistory,
                             FILTER_HISTORY_SIZE, !Configuration.SaveHistory);
+                SaveHistory(actKey, CONFIG_TAGHISTORY_REG, Configuration.TagHistory,
+                            TAG_HISTORY_SIZE, !Configuration.SaveHistory);
 
                 if (DirHistory != NULL)
                 {
@@ -5873,6 +5876,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             LoadHistory(actKey, CONFIG_EDITNEWHISTORY_REG, Configuration.EditNewHistory, EDITNEW_HISTORY_SIZE);
             LoadHistory(actKey, CONFIG_CONVERTHISTORY_REG, Configuration.ConvertHistory, CONVERT_HISTORY_SIZE);
             LoadHistory(actKey, CONFIG_FILTERHISTORY_REG, Configuration.FilterHistory, FILTER_HISTORY_SIZE);
+            LoadHistory(actKey, CONFIG_TAGHISTORY_REG, Configuration.TagHistory, TAG_HISTORY_SIZE);
             if (DirHistory != NULL)
             {
                 if (UsingSharedWorkDirHistory())

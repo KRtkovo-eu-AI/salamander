@@ -720,6 +720,8 @@ CConfiguration::CConfiguration()
         ConvertHistory[i] = NULL;
     for (i = 0; i < FILTER_HISTORY_SIZE; i++)
         FilterHistory[i] = NULL;
+    for (i = 0; i < TAG_HISTORY_SIZE; i++)
+        TagHistory[i] = NULL;
 
     FileListHistory[0] = DupStr("$(FileName)$(CRLF)"); // default for MakeFileList
 
@@ -970,6 +972,15 @@ void CConfiguration::ClearHistory()
         {
             free(FilterHistory[i]);
             FilterHistory[i] = NULL;
+        }
+    }
+
+    for (i = 0; i < TAG_HISTORY_SIZE; i++)
+    {
+        if (TagHistory[i] != NULL)
+        {
+            free(TagHistory[i]);
+            TagHistory[i] = NULL;
         }
     }
 }
@@ -1560,6 +1571,7 @@ static const char* GetExplorerCategoryText(CExplorerColumnCategory category)
     default:
         return LoadStr(IDS_EXCOL_OTHER);
     }
+
 }
 
 static const char* GetExplorerVariantTypeText(VARTYPE type, char* buffer, int bufferSize)
@@ -2017,8 +2029,8 @@ void CExplorerColumnsDialog::LayoutControls()
     const int buttonsY = client.bottom - 21;
     const int contentTop = 28;
     const int contentBottom = buttonsY - 8;
-    const int treeWidth = 120;
-    const int detailsWidth = max(210, (client.right - 3 * margin) / 3);
+    const int treeWidth = 105;
+    const int detailsWidth = max(174, (client.right - 3 * margin) / 3);
     const int gap = 6;
     int listLeft = margin + treeWidth + gap;
     int detailsLeft = client.right - margin - detailsWidth;
@@ -2031,7 +2043,7 @@ void CExplorerColumnsDialog::LayoutControls()
     MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES), listLeft, contentTop, listWidth,
                contentBottom - contentTop, TRUE);
     int rightHeight = contentBottom - contentTop;
-    int selectedHeight = max(118, rightHeight / 2);
+    int selectedHeight = max(105, rightHeight / 2);
     MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_GROUP), detailsLeft, contentTop - 4,
                detailsWidth, selectedHeight, TRUE);
     MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST), detailsLeft + 8, contentTop + 10,
@@ -3007,7 +3019,10 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HListView2 = GetDlgItem(HWindow, IDC_VIEW_LIST2);
         Header = new CToolbarHeader(HWindow, IDC_VIEWLIST_HEADER, HListView,
                                     TLBHDRMASK_MODIFY | TLBHDRMASK_NEW | TLBHDRMASK_DELETE);
-        Header2 = new CToolbarHeader(HWindow, IDC_VIEWLIST_HEADER2, HListView2, TLBHDRMASK_TOP | TLBHDRMASK_UP | TLBHDRMASK_DOWN | TLBHDRMASK_BOTTOM | TLBHDRMASK_FILTER);
+        Header2 = new CToolbarHeader(HWindow, IDC_VIEWLIST_HEADER2, HListView2,
+                                     TLBHDRMASK_TOP | TLBHDRMASK_UP | TLBHDRMASK_DOWN |
+                                         TLBHDRMASK_BOTTOM | TLBHDRMASK_FILTER,
+                                     0); // the FILTER slot is the Windows-properties button and stays right-aligned
         Header2->SetButtonAppearance(TLBHDR_FILTER, "Windows", IDS_EXCOL_MANAGE);
 
         DWORD exFlags = LVS_EX_FULLROWSELECT /*| LVS_EX_CHECKBOXES*/;

@@ -21,6 +21,10 @@ def main() -> int:
     panel = (ROOT / "fileswn9.cpp").read_text(encoding="utf-8")
     menu = (ROOT / "mainwnd3.cpp").read_text(encoding="utf-8")
     gui = (ROOT / "gui.cpp").read_text(encoding="utf-8")
+    file_tags = (ROOT / "filetags.h").read_text(encoding="utf-8")
+    file_window = (ROOT / "fileswn5.cpp").read_text(encoding="utf-8")
+    find = (ROOT / "find.cpp").read_text(encoding="utf-8")
+    filter_source = (ROOT / "filter.cpp").read_text(encoding="utf-8")
 
     require(
         "SALAMANDER_VIEWTEMPLATE_AVAILABLEEXPLORERCOLUMNS" in model
@@ -72,9 +76,12 @@ def main() -> int:
         "property information fields must have readable blank-line spacing",
     )
     require(
-        "{0, 1, 2, 3, 6, 4, 5, 9, 8, 7}" in gui
+        "LeftToolBar" in gui
+        and "LeftButtonMask" in gui
+        and "LayoutToolbars();" in gui
+        and "0); // the FILTER slot is the Windows-properties button" in dialog
         and "ILC_COLOR32 | ILC_MASK" in gui,
-        "the Windows-property header action must stay on the right and preserve SVG alpha",
+        "Search/Filter must be left-aligned while the Windows-property action stays right-aligned with SVG alpha",
     )
     require(
         "TLBHDRMASK_SEARCH | TLBHDRMASK_FILTER" in edit_list
@@ -88,6 +95,32 @@ def main() -> int:
         and "CM_ACTIVEEXTRAMODE_MIN" in menu
         and "if (i < VIEW_TEMPLATES_COUNT)" in menu,
         "additional detailed views must use stable storage and menu-only commands",
+    )
+    require(
+        "ReadFileTagsW" in file_tags
+        and "WriteFileTagsW" in file_tags
+        and "IPropertyStoreCapabilities" in (ROOT / "salamdr4.cpp").read_text(encoding="utf-8")
+        and "AddValueToStdHistoryValues(Configuration.TagHistory" in file_window,
+        "Tags editing must use the Windows property store, writable checks, and persistent recent tags",
+    )
+    require(
+        "EditWindowsProperties" in file_window
+        and "IsExplorerColumnAvailable(i)" in file_window
+        and "PKEY_Keywords" in file_window,
+        "the Files command must always expose Tags and additionally expose selected Explorer properties",
+    )
+    require(
+        "Criteria.TestTags" in find
+        and "IDC_FFA_USETAGS" in filter_source
+        and "ftmmAny" in file_tags
+        and "ftmmAll" in file_tags
+        and "ftmmNone" in file_tags,
+        "Find Advanced must support any/all/none exact tag matching",
+    )
+    lang_rc = (ROOT / "lang" / "lang.rc").read_text(encoding="utf-8")
+    require(
+        "IDD_EXPLORER_COLUMNS DIALOGEX 0, 0, 460, 320" in lang_rc,
+        "the Windows property chooser must keep compact Configuration-like proportions",
     )
     return 0
 

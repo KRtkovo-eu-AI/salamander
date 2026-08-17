@@ -367,6 +367,7 @@ struct CConfiguration
     char* EditNewHistory[EDITNEW_HISTORY_SIZE];
     char* ConvertHistory[CONVERT_HISTORY_SIZE];
     char* FilterHistory[FILTER_HISTORY_SIZE];
+    char* TagHistory[TAG_HISTORY_SIZE];
 
     char FileListName[MAX_PATH]; // file name
     BOOL FileListAppend;

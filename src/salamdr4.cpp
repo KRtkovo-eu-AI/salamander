@@ -6,7 +6,12 @@
 #include <propsys.h>
 #include <propkey.h>
 #include <propvarutil.h>
+#include <cwctype>
+#include <string>
+#include <vector>
 #undef PathIsPrefix // propsys/shlwapi can define this macro; plugins.h has a method with the same name
+
+#include "filetags.h"
 
 #include "cfgdlg.h"
 #include "plugins.h"
@@ -2434,6 +2439,277 @@ BOOL GetExplorerColumnTextForPathW(const WCHAR* pathW, int columnIndex, char* bu
     PropVariantClear(&value);
     store->Release();
     return ret;
+}
+
+static void TrimFileTag(std::wstring& tag)
+{
+    size_t first = 0;
+    while (first < tag.size() && iswspace(tag[first]))
+        first++;
+    size_t last = tag.size();
+    while (last > first && iswspace(tag[last - 1]))
+        last--;
+    tag = tag.substr(first, last - first);
+}
+
+static BOOL ContainsFileTag(const std::vector<std::wstring>& tags, const std::wstring& tag)
+{
+    for (size_t i = 0; i < tags.size(); i++)
+    {
+        if (_wcsicmp(tags[i].c_str(), tag.c_str()) == 0)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+void ParseFileTagsW(const wchar_t* text, std::vector<std::wstring>& tags)
+{
+    tags.clear();
+    if (text == NULL)
+        return;
+
+    const wchar_t* start = text;
+    for (const wchar_t* p = text;; p++)
+    {
+        if (*p == L';' || *p == 0)
+        {
+            std::wstring tag(start, p - start);
+            TrimFileTag(tag);
+            if (!tag.empty() && !ContainsFileTag(tags, tag))
+                tags.push_back(tag);
+            if (*p == 0)
+                break;
+            start = p + 1;
+        }
+    }
+}
+
+std::wstring FormatFileTagsW(const std::vector<std::wstring>& tags)
+{
+    std::wstring result;
+    for (size_t i = 0; i < tags.size(); i++)
+    {
+        if (!result.empty())
+            result += L"; ";
+        result += tags[i];
+    }
+    return result;
+}
+
+HRESULT ReadFileTagsW(const wchar_t* path, std::vector<std::wstring>& tags)
+{
+    tags.clear();
+    if (path == NULL || path[0] == 0)
+        return E_INVALIDARG;
+
+    IPropertyStore* store = NULL;
+    HRESULT hr = SHGetPropertyStoreFromParsingName(path, NULL, GPS_DEFAULT,
+                                                    IID_IPropertyStore, (void**)&store);
+    if (FAILED(hr) || store == NULL)
+        return hr;
+
+    PROPVARIANT value;
+    PropVariantInit(&value);
+    hr = store->GetValue(PKEY_Keywords, &value);
+    if (SUCCEEDED(hr) && value.vt != VT_EMPTY && value.vt != VT_NULL)
+    {
+        PWSTR* values = NULL;
+        ULONG count = 0;
+        hr = PropVariantToStringVectorAlloc(value, &values, &count);
+        if (SUCCEEDED(hr))
+        {
+            for (ULONG i = 0; i < count; i++)
+            {
+                std::wstring tag = values[i] != NULL ? values[i] : L"";
+                TrimFileTag(tag);
+                if (!tag.empty() && !ContainsFileTag(tags, tag))
+                    tags.push_back(tag);
+                CoTaskMemFree(values[i]);
+            }
+            CoTaskMemFree(values);
+        }
+    }
+    else if (SUCCEEDED(hr))
+        hr = S_OK;
+
+    PropVariantClear(&value);
+    store->Release();
+    return hr;
+}
+
+HRESULT WriteFileStringVectorPropertyW(const wchar_t* path, REFPROPERTYKEY key,
+                                       const std::vector<std::wstring>& tags)
+{
+    if (path == NULL || path[0] == 0)
+        return E_INVALIDARG;
+
+    IPropertyStore* store = NULL;
+    HRESULT hr = SHGetPropertyStoreFromParsingName(path, NULL, GPS_READWRITE,
+                                                    IID_IPropertyStore, (void**)&store);
+    if (FAILED(hr) || store == NULL)
+        return hr;
+
+    IPropertyStoreCapabilities* capabilities = NULL;
+    if (SUCCEEDED(store->QueryInterface(IID_IPropertyStoreCapabilities, (void**)&capabilities)) &&
+        capabilities != NULL)
+    {
+        if (capabilities->IsPropertyWritable(key) != S_OK)
+            hr = STG_E_ACCESSDENIED;
+        capabilities->Release();
+    }
+
+    PROPVARIANT value;
+    PropVariantInit(&value);
+    if (SUCCEEDED(hr) && !tags.empty())
+    {
+        std::vector<PCWSTR> values;
+        for (size_t i = 0; i < tags.size(); i++)
+            values.push_back(tags[i].c_str());
+        hr = InitPropVariantFromStringVector(values.data(), (ULONG)values.size(), &value);
+    }
+    if (SUCCEEDED(hr))
+        hr = store->SetValue(key, value);
+    if (SUCCEEDED(hr))
+        hr = store->Commit();
+
+    PropVariantClear(&value);
+    store->Release();
+    return hr;
+}
+
+HRESULT WriteFileTagsW(const wchar_t* path, const std::vector<std::wstring>& tags)
+{
+    return WriteFileStringVectorPropertyW(path, PKEY_Keywords, tags);
+}
+
+HRESULT UpdateFileTagsW(const wchar_t* path, const std::vector<std::wstring>& tags,
+                        CFileTagsOperation operation)
+{
+    if (operation == ftoReplace)
+        return WriteFileTagsW(path, tags);
+
+    std::vector<std::wstring> current;
+    HRESULT hr = ReadFileTagsW(path, current);
+    if (FAILED(hr))
+        return hr;
+
+    if (operation == ftoAdd)
+    {
+        for (size_t i = 0; i < tags.size(); i++)
+        {
+            if (!ContainsFileTag(current, tags[i]))
+                current.push_back(tags[i]);
+        }
+    }
+    else
+    {
+        for (std::vector<std::wstring>::iterator it = current.begin(); it != current.end();)
+        {
+            if (ContainsFileTag(tags, *it))
+                it = current.erase(it);
+            else
+                ++it;
+        }
+    }
+    return WriteFileTagsW(path, current);
+}
+
+BOOL FileTagsMatchW(const wchar_t* path, const std::vector<std::wstring>& tags,
+                    CFileTagsMatchMode mode)
+{
+    if (tags.empty())
+        return TRUE;
+
+    std::vector<std::wstring> fileTags;
+    if (FAILED(ReadFileTagsW(path, fileTags)))
+        return mode == ftmmNone;
+
+    int found = 0;
+    for (size_t i = 0; i < tags.size(); i++)
+    {
+        if (ContainsFileTag(fileTags, tags[i]))
+            found++;
+    }
+    if (mode == ftmmAny)
+        return found > 0;
+    if (mode == ftmmAll)
+        return found == (int)tags.size();
+    return found == 0;
+}
+
+HRESULT ReadFilePropertyTextW(const wchar_t* path, REFPROPERTYKEY key, std::wstring& text)
+{
+    text.clear();
+    if (path == NULL || path[0] == 0)
+        return E_INVALIDARG;
+
+    IPropertyStore* store = NULL;
+    HRESULT hr = SHGetPropertyStoreFromParsingName(path, NULL, GPS_DEFAULT,
+                                                    IID_IPropertyStore, (void**)&store);
+    if (FAILED(hr) || store == NULL)
+        return hr;
+    PROPVARIANT value;
+    PropVariantInit(&value);
+    hr = store->GetValue(key, &value);
+    if (SUCCEEDED(hr) && value.vt != VT_EMPTY && value.vt != VT_NULL)
+    {
+        PWSTR display = NULL;
+        hr = PSFormatForDisplayAlloc(key, value, PDFF_DEFAULT, &display);
+        if (SUCCEEDED(hr) && display != NULL)
+        {
+            text = display;
+            CoTaskMemFree(display);
+        }
+    }
+    else if (SUCCEEDED(hr))
+        hr = S_OK;
+    PropVariantClear(&value);
+    store->Release();
+    return hr;
+}
+
+HRESULT WriteFilePropertyTextW(const wchar_t* path, REFPROPERTYKEY key,
+                               const wchar_t* text, BOOL clearValue)
+{
+    if (path == NULL || path[0] == 0)
+        return E_INVALIDARG;
+
+    IPropertyStore* store = NULL;
+    HRESULT hr = SHGetPropertyStoreFromParsingName(path, NULL, GPS_READWRITE,
+                                                    IID_IPropertyStore, (void**)&store);
+    if (FAILED(hr) || store == NULL)
+        return hr;
+
+    IPropertyStoreCapabilities* capabilities = NULL;
+    if (SUCCEEDED(store->QueryInterface(IID_IPropertyStoreCapabilities, (void**)&capabilities)) &&
+        capabilities != NULL)
+    {
+        if (capabilities->IsPropertyWritable(key) != S_OK)
+            hr = STG_E_ACCESSDENIED;
+        capabilities->Release();
+    }
+
+    PROPVARIANT value;
+    PropVariantInit(&value);
+    IPropertyDescription* description = NULL;
+    if (SUCCEEDED(hr) && !clearValue)
+    {
+        hr = InitPropVariantFromString(text != NULL ? text : L"", &value);
+        if (SUCCEEDED(hr))
+            hr = PSGetPropertyDescription(key, IID_IPropertyDescription, (void**)&description);
+        if (SUCCEEDED(hr) && description != NULL)
+            hr = description->CoerceToCanonicalValue(&value);
+    }
+    if (SUCCEEDED(hr))
+        hr = store->SetValue(key, value);
+    if (SUCCEEDED(hr))
+        hr = store->Commit();
+
+    if (description != NULL)
+        description->Release();
+    PropVariantClear(&value);
+    store->Release();
+    return hr;
 }
 
 void WINAPI InternalGetExplorerColumn()

@@ -1330,6 +1330,7 @@ extern int SPACE_WIDTH; // mezera mezi sloupcema v detailed view
 #define QUICKRENAME_HISTORY_SIZE 20 // quick rename
 #define EDITNEW_HISTORY_SIZE 20     // edit new
 #define CONVERT_HISTORY_SIZE 15     // convert
+#define TAG_HISTORY_SIZE 15         // recently used file tags
 
 #define VK_LBRACKET 219
 #define VK_BACKSLASH 220

@@ -2992,6 +2992,26 @@
 #define IDS_EXCOL_MOVE_DOWN                   14385
 #define IDS_EXCOL_EXECUTABLE                  14386
 #define IDS_EXCOL_ARCHIVE                     14387
+#define IDS_MENU_FILES_EDITPROPERTIES         14388
+#define IDS_EDPROP_TITLE                      14389
+#define IDS_EDPROP_PROPERTY                   14390
+#define IDS_EDPROP_OPERATION                  14391
+#define IDS_EDPROP_VALUE                      14392
+#define IDS_EDPROP_CURRENT                    14393
+#define IDS_EDPROP_SET                        14394
+#define IDS_EDPROP_ADD                        14395
+#define IDS_EDPROP_REMOVE                     14396
+#define IDS_EDPROP_CLEAR                      14397
+#define IDS_EDPROP_TAG_HINT                    14399
+#define IDS_EDPROP_VALUE_HINT                  14400
+#define IDS_EDPROP_RESULT                      14402
+#define IDS_FFA_TAGS                           14404
+#define IDS_FFA_TAGS_ANY                       14405
+#define IDS_FFA_TAGS_ALL                       14406
+#define IDS_FFA_TAGS_NONE                      14407
+#define IDS_FFA_TAGS_REQUIRED                  14408
+#define IDS_EDPROP_VECTOR_HINT                 14409
+#define IDS_EDPROP_CURRENT_FIRST               14410
 
 #define IDS_MENU_OPT_MANAGECONFIG        13169
 

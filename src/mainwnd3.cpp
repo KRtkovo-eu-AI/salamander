@@ -7499,6 +7499,17 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return 0;
         }
 
+        case CM_EDITPROPERTIES:
+        {
+            if (EnablerFilesOnDisk)
+            {
+                activePanel->UserWorkedOnThisPath = TRUE;
+                activePanel->StoreSelection();
+                activePanel->EditWindowsProperties();
+            }
+            return 0;
+        }
+
         case CM_CONVERTFILES:
         {
             if (activePanel->Is(ptDisk))

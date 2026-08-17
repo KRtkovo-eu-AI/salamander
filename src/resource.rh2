@@ -285,6 +285,7 @@
 #define CM_CODING_MAX          920
 
 #define CM_SEC_PERMISSIONS     921
+#define CM_EDITPROPERTIES      922
 
 #define CM_DIRMENU             924        // otevre CtxMenu pro aktualni adresar aktivniho panelu
 

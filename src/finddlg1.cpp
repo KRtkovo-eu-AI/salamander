@@ -2326,6 +2326,18 @@ void CFindDialog::StartSearch(WORD command)
 
     // advanced search
     memmove(&GrepData.Criteria, &Data.Criteria, sizeof(Data.Criteria));
+    if (Data.Criteria.HasTags())
+    {
+        std::wstring tagsText = SalMultiByteToWidePath(Data.Criteria.GetTagsText(), CP_UTF8);
+        std::vector<std::wstring> tags;
+        ParseFileTagsW(tagsText.c_str(), tags);
+        for (size_t i = tags.size(); i > 0; i--)
+        {
+            std::string tag = SalWideToMultiBytePath(tags[i - 1].c_str(), CP_UTF8);
+            AddValueToStdHistoryValues(Configuration.TagHistory, TAG_HISTORY_SIZE,
+                                       tag.c_str(), FALSE);
+        }
+    }
 
     GrepData.FoundFilesListView = FoundFilesListView;
     GrepData.FoundVisibleCount = 0;

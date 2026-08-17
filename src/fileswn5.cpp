@@ -24,6 +24,240 @@
 #include "find.h"
 #include "menu.h"
 #include "common/widepath.h"
+#include "filetags.h"
+
+class CEditWindowsPropertiesDialog : public CCommonDialog
+{
+    const std::vector<std::wstring>& Paths;
+
+    int GetPropertyIndex() const
+    {
+        HWND combo = GetDlgItem(HWindow, IDC_EDPROP_PROPERTY);
+        int item = (int)SendMessage(combo, CB_GETCURSEL, 0, 0);
+        return item >= 0 ? (int)SendMessage(combo, CB_GETITEMDATA, item, 0) : -1;
+    }
+
+    int GetOperation() const
+    {
+        HWND combo = GetDlgItem(HWindow, IDC_EDPROP_OPERATION);
+        int item = (int)SendMessage(combo, CB_GETCURSEL, 0, 0);
+        return item >= 0 ? (int)SendMessage(combo, CB_GETITEMDATA, item, 0) : ftoReplace;
+    }
+
+    BOOL IsTagsProperty(int index) const
+    {
+        const PROPERTYKEY* key = GetExplorerColumnPropertyKey(index);
+        return key != NULL && IsEqualPropertyKey(*key, PKEY_Keywords);
+    }
+
+    void AddOperation(HWND combo, int textID, int operation)
+    {
+        int item = (int)SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)LoadStr(textID));
+        SendMessage(combo, CB_SETITEMDATA, item, operation);
+    }
+
+    void UpdateValueState()
+    {
+        BOOL enabled = GetOperation() != 3;
+        EnableWindow(GetDlgItem(HWindow, IDC_EDPROP_VALUE), enabled);
+        EnableWindow(GetDlgItem(HWindow, IDC_EDPROP_VALUE_LABEL), enabled);
+    }
+
+    void UpdateControls()
+    {
+        int property = GetPropertyIndex();
+        BOOL tags = IsTagsProperty(property);
+        BOOL stringVector = GetExplorerColumnType(property) == (VT_VECTOR | VT_LPWSTR);
+        HWND operations = GetDlgItem(HWindow, IDC_EDPROP_OPERATION);
+        int oldOperationCount = (int)SendMessage(operations, CB_GETCOUNT, 0, 0);
+        int oldOperation = GetOperation();
+        if (oldOperationCount == 0 && tags && Paths.size() > 1)
+            oldOperation = ftoAdd;
+        SendMessage(operations, CB_RESETCONTENT, 0, 0);
+        AddOperation(operations, IDS_EDPROP_SET, ftoReplace);
+        if (tags)
+        {
+            AddOperation(operations, IDS_EDPROP_ADD, ftoAdd);
+            AddOperation(operations, IDS_EDPROP_REMOVE, ftoRemove);
+        }
+        AddOperation(operations, IDS_EDPROP_CLEAR, 3);
+        int selected = 0;
+        for (int i = 0; i < (int)SendMessage(operations, CB_GETCOUNT, 0, 0); i++)
+        {
+            if ((int)SendMessage(operations, CB_GETITEMDATA, i, 0) == oldOperation)
+            {
+                selected = i;
+                break;
+            }
+        }
+        SendMessage(operations, CB_SETCURSEL, selected, 0);
+
+        HWND value = GetDlgItem(HWindow, IDC_EDPROP_VALUE);
+        SendMessage(value, CB_RESETCONTENT, 0, 0);
+        if (tags)
+        {
+            for (int i = 0; i < TAG_HISTORY_SIZE && Configuration.TagHistory[i] != NULL; i++)
+            {
+                std::wstring tag = SalMultiByteToWidePath(Configuration.TagHistory[i], CP_UTF8);
+                SendMessageW(value, CB_ADDSTRING, 0, (LPARAM)tag.c_str());
+            }
+        }
+        SetDlgItemText(HWindow, IDC_EDPROP_HINT,
+                       LoadStr(tags ? IDS_EDPROP_TAG_HINT
+                                    : stringVector ? IDS_EDPROP_VECTOR_HINT : IDS_EDPROP_VALUE_HINT));
+        SetDlgItemText(HWindow, IDC_EDPROP_CURRENT_GROUP,
+                       LoadStr(Paths.size() > 1 ? IDS_EDPROP_CURRENT_FIRST : IDS_EDPROP_CURRENT));
+
+        std::wstring current;
+        const PROPERTYKEY* key = GetExplorerColumnPropertyKey(property);
+        if (key != NULL && !Paths.empty())
+            ReadFilePropertyTextW(Paths[0].c_str(), *key, current);
+        SetDlgItemTextW(HWindow, IDC_EDPROP_CURRENT, current.c_str());
+        SetDlgItemTextW(HWindow, IDC_EDPROP_VALUE, Paths.size() == 1 ? current.c_str() : L"");
+        UpdateValueState();
+    }
+
+    BOOL Apply()
+    {
+        int property = GetPropertyIndex();
+        const PROPERTYKEY* key = GetExplorerColumnPropertyKey(property);
+        if (key == NULL)
+            return FALSE;
+
+        int operation = GetOperation();
+        HWND valueControl = GetDlgItem(HWindow, IDC_EDPROP_VALUE);
+        int valueLength = GetWindowTextLengthW(valueControl);
+        std::vector<wchar_t> value(valueLength + 1);
+        GetWindowTextW(valueControl, value.data(), (int)value.size());
+
+        BOOL tagsProperty = IsTagsProperty(property);
+        BOOL stringVectorProperty = GetExplorerColumnType(property) == (VT_VECTOR | VT_LPWSTR);
+        std::vector<std::wstring> tags;
+        if (stringVectorProperty)
+            ParseFileTagsW(value.data(), tags);
+        if (operation == 3)
+            tags.clear();
+        if (tagsProperty && (operation == ftoAdd || operation == ftoRemove) && tags.empty())
+        {
+            SalMessageBox(HWindow, LoadStr(IDS_FFA_TAGS_REQUIRED), LoadStr(IDS_EDPROP_TITLE),
+                          MB_ICONEXCLAMATION | MB_OK);
+            SetFocus(valueControl);
+            return FALSE;
+        }
+
+        int updated = 0;
+        int failed = 0;
+        HCURSOR oldCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
+        for (size_t i = 0; i < Paths.size(); i++)
+        {
+            HRESULT hr;
+            if (tagsProperty)
+            {
+                CFileTagsOperation tagOperation = operation == 3 ? ftoReplace : (CFileTagsOperation)operation;
+                hr = UpdateFileTagsW(Paths[i].c_str(), tags, tagOperation);
+            }
+            else if (stringVectorProperty)
+                hr = WriteFileStringVectorPropertyW(Paths[i].c_str(), *key, tags);
+            else
+                hr = WriteFilePropertyTextW(Paths[i].c_str(), *key, value.data(), operation == 3);
+            if (SUCCEEDED(hr))
+                updated++;
+            else
+                failed++;
+        }
+        SetCursor(oldCursor);
+
+        if (tagsProperty && updated > 0)
+        {
+            for (size_t i = tags.size(); i > 0; i--)
+            {
+                std::string tag = SalWideToMultiBytePath(tags[i - 1].c_str(), CP_UTF8);
+                AddValueToStdHistoryValues(Configuration.TagHistory, TAG_HISTORY_SIZE,
+                                           tag.c_str(), FALSE);
+            }
+        }
+
+        char result[200];
+        _snprintf_s(result, _countof(result), _TRUNCATE, LoadStr(IDS_EDPROP_RESULT), updated, failed);
+        if (failed > 0 || Paths.size() > 1)
+            SalMessageBox(HWindow, result, LoadStr(IDS_EDPROP_TITLE),
+                          failed > 0 ? MB_ICONEXCLAMATION | MB_OK : MB_ICONINFORMATION | MB_OK);
+        return updated > 0;
+    }
+
+public:
+    CEditWindowsPropertiesDialog(HWND parent, const std::vector<std::wstring>& paths)
+        : CCommonDialog(HLanguage, IDD_EDIT_PROPERTIES, parent), Paths(paths) {}
+
+protected:
+    virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+    {
+        switch (uMsg)
+        {
+        case WM_INITDIALOG:
+        {
+            SetWindowText(HWindow, LoadStr(IDS_EDPROP_TITLE));
+            SetDlgItemText(HWindow, IDC_STATIC_1, LoadStr(IDS_EDPROP_PROPERTY));
+            SetDlgItemText(HWindow, IDC_STATIC_2, LoadStr(IDS_EDPROP_OPERATION));
+            SetDlgItemText(HWindow, IDC_EDPROP_VALUE_LABEL, LoadStr(IDS_EDPROP_VALUE));
+            SetDlgItemText(HWindow, IDC_EDPROP_CURRENT_GROUP, LoadStr(IDS_EDPROP_CURRENT));
+            HWND properties = GetDlgItem(HWindow, IDC_EDPROP_PROPERTY);
+            int count = min(GetExplorerColumnCount(), EXPLORER_COLUMNS_COUNT);
+            int keywordsIndex = -1;
+            for (int i = 0; i < count; i++)
+            {
+                if (IsTagsProperty(i))
+                {
+                    keywordsIndex = i;
+                    break;
+                }
+            }
+            if (keywordsIndex >= 0)
+            {
+                int item = (int)SendMessage(properties, CB_ADDSTRING, 0,
+                                            (LPARAM)GetExplorerColumnName(keywordsIndex));
+                SendMessage(properties, CB_SETITEMDATA, item, keywordsIndex);
+            }
+            for (int i = 0; i < count; i++)
+            {
+                if (i == keywordsIndex || !MainWindow->ViewTemplates.IsExplorerColumnAvailable(i))
+                    continue;
+                int item = (int)SendMessage(properties, CB_ADDSTRING, 0,
+                                            (LPARAM)GetExplorerColumnName(i));
+                SendMessage(properties, CB_SETITEMDATA, item, i);
+            }
+            SendMessage(properties, CB_SETCURSEL, 0, 0);
+            UpdateControls();
+            if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+            {
+                DarkModeApplyTree(HWindow);
+                DarkModeRefreshTitleBar(HWindow);
+                DarkModeApplyStaticTextColors(HWindow, NULL);
+            }
+            return TRUE;
+        }
+        case WM_COMMAND:
+            if (LOWORD(wParam) == IDC_EDPROP_PROPERTY && HIWORD(wParam) == CBN_SELCHANGE)
+            {
+                UpdateControls();
+                return TRUE;
+            }
+            if (LOWORD(wParam) == IDC_EDPROP_OPERATION && HIWORD(wParam) == CBN_SELCHANGE)
+            {
+                UpdateValueState();
+                return TRUE;
+            }
+            if (LOWORD(wParam) == IDOK)
+            {
+                if (Apply())
+                    EndDialog(HWindow, IDOK);
+                return TRUE;
+            }
+            break;
+        }
+        return CCommonDialog::DialogProc(uMsg, wParam, lParam);
+    }
+};
 
 //
 
@@ -266,6 +500,48 @@ void CFilesWindow::Convert()
         FilesActionInProgress = FALSE;
     }
     EndStopRefresh(); // snooper will start again now
+}
+
+void CFilesWindow::EditWindowsProperties()
+{
+    CALL_STACK_MESSAGE1("CFilesWindow::EditWindowsProperties()");
+    if (!Is(ptDisk) || CheckPath(TRUE) != ERROR_SUCCESS)
+        return;
+
+    std::vector<int> indexes;
+    int selected = GetSelCount();
+    if (selected > 0)
+    {
+        indexes.resize(selected);
+        GetSelItems(selected, indexes.data());
+    }
+    else
+        indexes.push_back(GetCaretIndex());
+
+    std::vector<std::wstring> paths;
+    std::wstring panelPath = GetPathW() != NULL && GetPathW()[0] != 0
+                                 ? std::wstring(GetPathW())
+                                 : SalMultiByteToWidePath(GetPath());
+    for (size_t i = 0; i < indexes.size(); i++)
+    {
+        int index = indexes[i];
+        if (index < Dirs->Count || index >= Dirs->Count + Files->Count)
+            continue;
+        CFileData* file = &Files->At(index - Dirs->Count);
+        std::wstring path = panelPath;
+        std::wstring name = file->UseWideName() ? std::wstring(file->NameW) : SalMultiByteToWidePath(file->Name);
+        SalPathAppendW(path, name.c_str());
+        paths.push_back(path);
+    }
+    if (paths.empty())
+        return;
+
+    CEditWindowsPropertiesDialog dialog(HWindow, paths);
+    if (dialog.Execute() == IDOK)
+    {
+        RefreshListBox(-1, -1, FocusedIndex, FALSE, FALSE);
+        PostMessage(HWindow, WM_USER_REFRESH_DIR, 0, GetTickCount());
+    }
 }
 
 void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncryption, BOOL encrypted)

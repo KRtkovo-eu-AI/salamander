@@ -2908,12 +2908,15 @@ int TlbHdrTooltips[TLBHDR_COUNT] =
         IDS_EDTLB_BOTTOM,
 };
 
-CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD buttonMask)
+CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD buttonMask,
+                               DWORD leftButtonMask)
     : CWindow(hDlg, ctrlID, ooAllocated)
 {
     CALL_STACK_MESSAGE3("CToolbarHeader::CToolbarHeader(, %d, , %u)", ctrlID, buttonMask);
     HNotifyWindow = hDlg;
     ButtonMask = buttonMask;
+    LeftButtonMask = leftButtonMask & buttonMask;
+    LeftToolBar = NULL;
     for (int customIndex = 0; customIndex < TLBHDR_COUNT; customIndex++)
     {
         CustomTooltips[customIndex] = -1;
@@ -2922,6 +2925,12 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
     SetProp(HWindow, _T("SalamanderToolbarHeader"), (HANDLE)1);
     ToolBar = new CToolBar(HWindow);
     ToolBar->CreateWnd(HWindow);
+    leftButtonMask = LeftButtonMask;
+    if (leftButtonMask != 0)
+    {
+        LeftToolBar = new CToolBar(HWindow);
+        LeftToolBar->CreateWnd(HWindow);
+    }
 
 #ifdef TOOLBARHDR_USE_SVG
     HEnabledImageList = NULL;
@@ -2980,7 +2989,7 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
     TLBI_ITEM_INFO2 tii;
     tii.Mask = TLBI_MASK_ID | TLBI_MASK_IMAGEINDEX;
     int buttonsCount = 0;
-    const int buttonOrder[TLBHDR_COUNT] = {0, 1, 2, 3, 6, 4, 5, 9, 8, 7};
+    const int buttonOrder[TLBHDR_COUNT] = {0, 1, 2, 3, 6, 4, 5, 9, 7, 8};
     for (int orderIndex = 0; orderIndex < TLBHDR_COUNT; orderIndex++)
     {
         int i = buttonOrder[orderIndex];
@@ -2988,7 +2997,8 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
         {
             tii.ImageIndex = i;
             tii.ID = i + 1;
-            ToolBar->InsertItem2(buttonsCount, TRUE, &tii);
+            CToolBar* target = ((1 << i) & LeftButtonMask) != 0 && LeftToolBar != NULL ? LeftToolBar : ToolBar;
+            target->InsertItem2(0xFFFFFFFF, TRUE, &tii);
             buttonsCount++;
         }
     }
@@ -3000,13 +3010,43 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
     RECT r;
     GetWindowRect(hAlignWindow, &r);
     int width = r.right - r.left;
-    int height = sz.cy + 2;
+    int leftHeight = LeftToolBar != NULL ? LeftToolBar->GetNeededHeight() : 0;
+    int height = max(sz.cy, leftHeight) + 2;
     POINT p;
     p.x = r.left;
     p.y = r.top - height;
     ScreenToClient(hDlg, &p);
     SetWindowPos(HWindow, 0, p.x, p.y, width, height, SWP_NOZORDER);
-    SetWindowPos(ToolBar->HWindow, HWND_TOP, width - sz.cx - 1, 1, sz.cx, sz.cy, SWP_SHOWWINDOW);
+    LayoutToolbars();
+}
+
+void CToolbarHeader::LayoutToolbars()
+{
+    if (ToolBar == NULL || ToolBar->HWindow == NULL)
+        return;
+    RECT client;
+    GetClientRect(HWindow, &client);
+    SIZE right = {ToolBar->GetNeededWidth(), ToolBar->GetNeededHeight()};
+    SetWindowPos(ToolBar->HWindow, HWND_TOP, client.right - right.cx - 1, 1,
+                 right.cx, right.cy, SWP_SHOWWINDOW);
+
+    if (LeftToolBar != NULL && LeftToolBar->HWindow != NULL)
+    {
+        SIZE left = {LeftToolBar->GetNeededWidth(), LeftToolBar->GetNeededHeight()};
+        char text[100];
+        GetWindowText(HWindow, text, _countof(text));
+        HDC dc = GetDC(HWindow);
+        HFONT oldFont = (HFONT)SelectObject(dc, (HFONT)SendMessage(HWindow, WM_GETFONT, 0, 0));
+        SIZE textSize = {0, 0};
+        GetTextExtentPoint32(dc, text, lstrlen(text), &textSize);
+        SelectObject(dc, oldFont);
+        ReleaseDC(HWindow, dc);
+        int x = textSize.cx + 9;
+        int maxX = client.right - right.cx - left.cx - 3;
+        if (x > maxX)
+            x = max(1, maxX);
+        SetWindowPos(LeftToolBar->HWindow, HWND_TOP, x, 1, left.cx, left.cy, SWP_SHOWWINDOW);
+    }
 }
 
 void CToolbarHeader::RebuildImageLists()
@@ -3030,6 +3070,11 @@ void CToolbarHeader::RebuildImageLists()
     HDisabledImageList = disabled;
     ToolBar->SetImageList(HDisabledImageList);
     ToolBar->SetHotImageList(HEnabledImageList);
+    if (LeftToolBar != NULL)
+    {
+        LeftToolBar->SetImageList(HDisabledImageList);
+        LeftToolBar->SetHotImageList(HEnabledImageList);
+    }
     if (oldEnabled != NULL)
         ImageList_Destroy(oldEnabled);
     if (oldDisabled != NULL)
@@ -3093,6 +3138,11 @@ void CToolbarHeader::RebuildImageLists()
     HGrayImageList = gray;
     ToolBar->SetImageList(HGrayImageList);
     ToolBar->SetHotImageList(HHotImageList);
+    if (LeftToolBar != NULL)
+    {
+        LeftToolBar->SetImageList(HGrayImageList);
+        LeftToolBar->SetHotImageList(HHotImageList);
+    }
     if (oldHot != NULL)
         ImageList_Destroy(oldHot);
     if (oldGray != NULL)
@@ -3138,6 +3188,8 @@ void CToolbarHeader::SetButtonAppearance(int command, const char* svgName, int t
     ApplyCustomButtonImages();
     if (ToolBar != NULL && ToolBar->HWindow != NULL)
         InvalidateRect(ToolBar->HWindow, NULL, TRUE);
+    if (LeftToolBar != NULL && LeftToolBar->HWindow != NULL)
+        InvalidateRect(LeftToolBar->HWindow, NULL, TRUE);
 }
 
 #ifdef TOOLBARHDR_USE_SVG
@@ -3199,7 +3251,10 @@ void CToolbarHeader::EnableToolbar(DWORD enableMask)
     for (i = 0; i < TLBHDR_COUNT; i++)
     {
         if ((1 << i) & ButtonMask)
-            ToolBar->EnableItem(i + 1, FALSE, ((1 << i) & enableMask) != 0);
+        {
+            CToolBar* target = ((1 << i) & LeftButtonMask) != 0 && LeftToolBar != NULL ? LeftToolBar : ToolBar;
+            target->EnableItem(i + 1, FALSE, ((1 << i) & enableMask) != 0);
+        }
     }
 }
 
@@ -3209,7 +3264,10 @@ void CToolbarHeader::CheckToolbar(DWORD checkMask)
     for (i = 0; i < TLBHDR_COUNT; i++)
     {
         if ((1 << i) & ButtonMask)
-            ToolBar->CheckItem(i + 1, FALSE, ((1 << i) & checkMask) != 0);
+        {
+            CToolBar* target = ((1 << i) & LeftButtonMask) != 0 && LeftToolBar != NULL ? LeftToolBar : ToolBar;
+            target->CheckItem(i + 1, FALSE, ((1 << i) & checkMask) != 0);
+        }
     }
 }
 
@@ -3292,6 +3350,8 @@ CToolbarHeader::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         RebuildImageLists();
         if (ToolBar != NULL)
             ToolBar->SetFont();
+        if (LeftToolBar != NULL)
+            LeftToolBar->SetFont();
         RECT r;
         GetClientRect(HWindow, &r);
         SendMessage(HWindow, WM_SIZE, SIZE_RESTORED,
@@ -3306,6 +3366,8 @@ CToolbarHeader::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         RemoveProp(HWindow, _T("SalamanderToolbarHeader"));
         if (ToolBar != NULL)
             DestroyWindow(ToolBar->HWindow);
+        if (LeftToolBar != NULL)
+            DestroyWindow(LeftToolBar->HWindow);
 #ifdef TOOLBARHDR_USE_SVG
         if (HEnabledImageList != NULL)
             ImageList_Destroy(HEnabledImageList);
@@ -3333,15 +3395,7 @@ CToolbarHeader::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_SIZE:
     {
-        if (ToolBar != NULL && ToolBar->HWindow != NULL)
-        {
-            SIZE sz;
-            sz.cx = ToolBar->GetNeededWidth();
-            sz.cy = ToolBar->GetNeededHeight();
-            RECT r;
-            GetClientRect(HWindow, &r);
-            SetWindowPos(ToolBar->HWindow, HWND_TOP, r.right - sz.cx - 1, 1, sz.cx, sz.cy, SWP_SHOWWINDOW);
-        }
+        LayoutToolbars();
         break;
     }
     case WM_UPDATEUISTATE:
@@ -3367,7 +3421,8 @@ CToolbarHeader::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_COMMAND:
     {
-        if ((HWND)lParam == ToolBar->HWindow)
+        if ((HWND)lParam == ToolBar->HWindow ||
+            (LeftToolBar != NULL && (HWND)lParam == LeftToolBar->HWindow))
             PostMessage(HNotifyWindow, WM_COMMAND,
                         MAKEWPARAM((WORD)(UINT_PTR)GetMenu(HWindow), LOWORD(wParam)), (LPARAM)HWindow);
         else if (HNotifyWindow != NULL)
