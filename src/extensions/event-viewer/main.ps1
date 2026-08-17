@@ -104,7 +104,9 @@ function Show-EventDetails {
         $dialog = $Salamander.ui.Dialog($title, 420, 340, $true)
         $dialog.AddControl('label', 'generalLabel', [string]$Strings.general,
             $false, $false, 0, @{x=10;y=8;width=120;height=12})
-        $dialog.AddControl('statictext', 'metadata', $metadata, $true, $false, 0,
+        # A multiline label preserves the field rows. StaticText is a
+        # value-display helper and intentionally flattens CR/LF.
+        $dialog.AddControl('label', 'metadata', $metadata, $true, $false, 0,
             @{x=10;y=22;width=350;height=70})
         $dialog.AddControl('label', 'descriptionLabel',
             [string]$Strings.descriptionLabel,

@@ -690,6 +690,9 @@ struct PackageManager::Package
     Runtime::IRuntimeSession* Session;
     HANDLE PumpThread;
     SRWLOCK FileSystemExecutionLock;
+    SRWLOCK FileSystemActionExecutionLock;
+    volatile LONG FileSystemActionGeneration;
+    volatile LONG FileSystemActionPending;
     BOOL FileSystemListing;
     const CExtensionManifestFileSystem* ListingFileSystem;
     std::vector<PackageManager::FileSystemItem> PendingFileSystemItems;
@@ -706,10 +709,13 @@ struct PackageManager::Package
           CommandsChanged(FALSE),
           Session(NULL),
           PumpThread(NULL),
+          FileSystemActionGeneration(0),
+          FileSystemActionPending(FALSE),
           FileSystemListing(FALSE),
           ListingFileSystem(NULL)
     {
         InitializeSRWLock(&FileSystemExecutionLock);
+        InitializeSRWLock(&FileSystemActionExecutionLock);
     }
 };
 
@@ -726,7 +732,7 @@ public:
         : Owner(owner)
     {
         if (Owner != NULL)
-            InterlockedIncrement(&Owner->ActiveExecutions);
+            Owner->BeginExecution();
     }
 
     ~ExecutionGuard()
@@ -734,6 +740,17 @@ public:
         if (Owner != NULL)
             Owner->FinishExecution();
     }
+};
+
+struct PackageManager::FileSystemActionTask
+{
+    PackageManager* Owner;
+    Package* PackageContext;
+    LONG Generation;
+    std::string PackageId;
+    std::string FileSystemId;
+    std::string ActionId;
+    std::string InvocationJson;
 };
 
 class PackageManager::MenuExtension : public CPluginInterfaceForMenuExtAbstract
@@ -2363,13 +2380,22 @@ PackageManager::PackageManager()
       RefreshInProgress(FALSE),
       RefreshPending(FALSE),
       ActiveHostDispatches(0),
-      ActiveExecutions(0)
+      ActiveExecutions(0),
+      ShuttingDown(FALSE),
+      ExecutionsIdleEvent(CreateEvent(NULL, TRUE, TRUE, NULL))
 {
+    InitializeCriticalSection(&FileSystemActionThreadsLock);
 }
 
 PackageManager::~PackageManager()
 {
     Shutdown();
+    if (ExecutionsIdleEvent != NULL)
+    {
+        CloseHandle(ExecutionsIdleEvent);
+        ExecutionsIdleEvent = NULL;
+    }
+    DeleteCriticalSection(&FileSystemActionThreadsLock);
 }
 
 BOOL PackageManager::Initialize(
@@ -2383,6 +2409,7 @@ BOOL PackageManager::Initialize(
     Storage::IStorageService* storage,
     UI::IUIService* ui)
 {
+    InterlockedExchange(&ShuttingDown, FALSE);
     General = general;
     Runtimes = runtimes;
     Extensions = extensions;
@@ -2410,6 +2437,26 @@ BOOL PackageManager::Initialize(
 
 void PackageManager::Shutdown()
 {
+    InterlockedExchange(&ShuttingDown, TRUE);
+    for (size_t index = 0; index < Packages.size(); ++index)
+        InterlockedExchange(&Packages[index]->Stopping, TRUE);
+    if (ExecutionsIdleEvent != NULL)
+    {
+        Runtime::WaitForThreadWithSentMessageDispatch(
+            ExecutionsIdleEvent,
+            General != NULL ? General->GetMainWindowHWND() : NULL);
+    }
+    std::vector<HANDLE> actionThreads;
+    EnterCriticalSection(&FileSystemActionThreadsLock);
+    actionThreads.swap(FileSystemActionThreads);
+    LeaveCriticalSection(&FileSystemActionThreadsLock);
+    for (size_t index = 0; index < actionThreads.size(); ++index)
+    {
+        Runtime::WaitForThreadWithSentMessageDispatch(
+            actionThreads[index],
+            General != NULL ? General->GetMainWindowHWND() : NULL);
+        CloseHandle(actionThreads[index]);
+    }
     if (Extensions != NULL)
     {
         Extensions->SetRefreshCallback(NULL, NULL);
@@ -2573,6 +2620,8 @@ void PackageManager::SaveConfiguration(HKEY key, CSalamanderRegistryAbstract* re
 
 void PackageManager::Refresh()
 {
+    if (InterlockedCompareExchange(&ShuttingDown, FALSE, FALSE) != FALSE)
+        return;
     // Runtime providers register and unregister through the same callback that
     // is used for user-requested catalog refreshes. During load-on-start those
     // callbacks arrive once per runtime provider; coalesce them into the one
@@ -3718,23 +3767,64 @@ BOOL PackageManager::ExecuteFileSystemAction(
     const std::string& actionId,
     const char* invocationJson)
 {
-    // A package uses shared transient dispatch/listing state. Keep actions
-    // serialized with background listings from every open panel instance.
-    // Never drop a default/context action merely because an asynchronous
-    // listing currently owns the shared package dispatch state.  On the UI
-    // thread keep dispatching only nonqueued sent messages while waiting so
-    // that a listing worker blocked in a host call can finish without a
-    // deadlock.
-    ExecutionGuard execution(this);
+    if (InterlockedCompareExchange(&ShuttingDown, FALSE, FALSE) != FALSE)
+        return FALSE;
+    // A non-refreshing action is normally a Properties-style modal command.
+    // Starting and pumping its one-shot runtime inside the panel callback
+    // prevents the main thread from dispatching ordinary window messages.
+    // Queue it and let HostDispatch marshal native UI calls back to the main
+    // thread only when the worker is ready to display the dialog.
     for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
     {
         Package* package = Packages[packageIndex];
         if (package == NULL || !package->RuntimeUsable ||
             _stricmp(package->Id.c_str(), packageId.c_str()) != 0)
             continue;
-        ScopedExclusiveSRWLock fileSystemExecution(
-            &package->FileSystemExecutionLock,
-            General != NULL ? General->GetMainWindowHWND() : NULL);
+        for (size_t fileSystemIndex = 0;
+             fileSystemIndex < package->Manifest.FileSystems.size(); ++fileSystemIndex)
+        {
+            const CExtensionManifestFileSystem& fileSystem =
+                package->Manifest.FileSystems[fileSystemIndex];
+            if (_stricmp(fileSystem.Id.c_str(), fileSystemId.c_str()) != 0)
+                continue;
+            for (size_t actionIndex = 0;
+                 actionIndex < fileSystem.Actions.size(); ++actionIndex)
+            {
+                const CExtensionManifestFileSystem::Action& action =
+                    fileSystem.Actions[actionIndex];
+                if (_stricmp(action.Id.c_str(), actionId.c_str()) == 0 &&
+                    !action.Refresh)
+                {
+                    return QueueFileSystemAction(
+                        packageId, fileSystemId, actionId, invocationJson);
+                }
+            }
+        }
+    }
+    ExecutionGuard execution(this);
+    return ExecuteFileSystemActionNow(
+        packageId, fileSystemId, actionId, invocationJson);
+}
+
+BOOL PackageManager::ExecuteFileSystemActionNow(
+    const std::string& packageId,
+    const std::string& fileSystemId,
+    const std::string& actionId,
+    const char* invocationJson)
+{
+    // Actions must not hold the listing lock while they synchronously marshal
+    // a modal dialog to the UI thread. A panel reload can otherwise block the
+    // UI on FileSystemExecutionLock while this worker is blocked waiting for
+    // that same UI thread: a classic lock inversion. Actions are serialized
+    // independently; listings retain their original lock and stay responsive.
+    for (size_t packageIndex = 0; packageIndex < Packages.size(); ++packageIndex)
+    {
+        Package* package = Packages[packageIndex];
+        if (package == NULL || !package->RuntimeUsable ||
+            _stricmp(package->Id.c_str(), packageId.c_str()) != 0)
+            continue;
+        ScopedExclusiveSRWLock actionExecution(
+            &package->FileSystemActionExecutionLock);
         for (size_t fileSystemIndex = 0;
              fileSystemIndex < package->Manifest.FileSystems.size(); ++fileSystemIndex)
         {
@@ -3760,6 +3850,115 @@ BOOL PackageManager::ExecuteFileSystemAction(
         }
     }
     return FALSE;
+}
+
+BOOL PackageManager::QueueFileSystemAction(
+    const std::string& packageId,
+    const std::string& fileSystemId,
+    const std::string& actionId,
+    const char* invocationJson)
+{
+    Package* package = NULL;
+    for (size_t index = 0; index < Packages.size(); ++index)
+    {
+        if (Packages[index] != NULL &&
+            _stricmp(Packages[index]->Id.c_str(), packageId.c_str()) == 0)
+        {
+            package = Packages[index];
+            break;
+        }
+    }
+    if (package == NULL)
+        return FALSE;
+    // Ignore repeated double-click/context invocations while the same package
+    // is already starting or showing a non-refreshing modal action. This keeps
+    // impatient retries from building a queue of dialogs behind the package
+    // execution lock.
+    LONG generation = InterlockedIncrement(&package->FileSystemActionGeneration);
+    if (generation == 0)
+        generation = InterlockedIncrement(&package->FileSystemActionGeneration);
+    if (InterlockedCompareExchange(
+            &package->FileSystemActionPending, generation, 0) != 0)
+        return TRUE;
+#ifdef new
+#undef new
+#define RESTORE_SALAMATRIX_FS_ACTION_DEBUG_NEW_MACRO
+#endif
+    FileSystemActionTask* task = new (std::nothrow) FileSystemActionTask;
+#ifdef RESTORE_SALAMATRIX_FS_ACTION_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_SALAMATRIX_FS_ACTION_DEBUG_NEW_MACRO
+#endif
+    if (task == NULL)
+    {
+        InterlockedCompareExchange(
+            &package->FileSystemActionPending, 0, generation);
+        return FALSE;
+    }
+    task->Owner = this;
+    task->PackageContext = package;
+    task->Generation = generation;
+    task->PackageId = packageId;
+    task->FileSystemId = fileSystemId;
+    task->ActionId = actionId;
+    task->InvocationJson = invocationJson != NULL ? invocationJson : "{}";
+    BeginExecution();
+    if (InterlockedCompareExchange(&ShuttingDown, FALSE, FALSE) != FALSE)
+    {
+        InterlockedCompareExchange(
+            &package->FileSystemActionPending, 0, generation);
+        FinishExecution();
+        delete task;
+        return FALSE;
+    }
+    HANDLE thread = CreateThread(
+        NULL, 0, FileSystemActionThreadProc, task, 0, NULL);
+    if (thread == NULL)
+    {
+        InterlockedCompareExchange(
+            &package->FileSystemActionPending, 0, generation);
+        FinishExecution();
+        delete task;
+        return FALSE;
+    }
+    EnterCriticalSection(&FileSystemActionThreadsLock);
+    for (size_t index = FileSystemActionThreads.size(); index > 0; --index)
+    {
+        if (WaitForSingleObject(FileSystemActionThreads[index - 1], 0) ==
+            WAIT_OBJECT_0)
+        {
+            CloseHandle(FileSystemActionThreads[index - 1]);
+            FileSystemActionThreads.erase(
+                FileSystemActionThreads.begin() + index - 1);
+        }
+    }
+    FileSystemActionThreads.push_back(thread);
+    LeaveCriticalSection(&FileSystemActionThreadsLock);
+    return TRUE;
+}
+
+DWORD WINAPI PackageManager::FileSystemActionThreadProc(void* context)
+{
+    FileSystemActionTask* task = static_cast<FileSystemActionTask*>(context);
+    if (task == NULL || task->Owner == NULL)
+    {
+        delete task;
+        return 0;
+    }
+    PackageManager* owner = task->Owner;
+    Package* package = task->PackageContext;
+    if (InterlockedCompareExchange(&owner->ShuttingDown, FALSE, FALSE) == FALSE)
+    {
+        owner->ExecuteFileSystemActionNow(
+            task->PackageId, task->FileSystemId,
+            task->ActionId, task->InvocationJson.c_str());
+    }
+    if (package != NULL)
+        InterlockedCompareExchange(
+            &package->FileSystemActionPending, 0, task->Generation);
+    delete task;
+    owner->FinishExecution();
+    return 0;
 }
 
 BOOL WINAPI PackageManager::ManagementCallback(
@@ -5081,6 +5280,8 @@ BOOL WINAPI PackageManager::HostDispatch(
             options.Parent = owner->General->GetMsgBoxParent();
             options.Width = static_cast<short>(width < 160 ? 160 : (width > 1200 ? 1200 : width));
             options.Height = static_cast<short>(height < 100 ? 100 : (height > 900 ? 900 : height));
+            Runtime::Protocol::Json::FindBoolMember(
+                payloadJson, "resizable", &options.Resizable);
             UI::IDialog* dialog = owner->UI->CreateSalamatrixDialog(options);
             if (dialog == NULL)
                 return FALSE;
@@ -5154,80 +5355,80 @@ BOOL WINAPI PackageManager::HostDispatch(
                 {"textarrowbutton", UI::ControlKindTextArrowButton},
                 {"colorarrowbutton", UI::ControlKindColorArrowButton},
                 {"toolbarheader", UI::ControlKindToolbarHeader}};
-            UI::ControlKind kind = UI::ControlKindLabel;
-            bool kindFound = false;
-            for (size_t index = 0; index < _countof(kinds); ++index)
-                if (_stricmp(kindName.c_str(), kinds[index].Name) == 0)
-                {
-                    kind = kinds[index].Kind;
-                    kindFound = true;
-                    break;
-                }
-            if (!kindFound)
-                return FALSE;
-
-            UI::ControlOptions options;
-            options.Id = controlId.c_str();
-            options.Text = controlText.c_str();
-            Runtime::Protocol::Json::FindBoolMember(payloadJson, "readOnly", &options.ReadOnly);
-            Runtime::Protocol::Json::FindBoolMember(payloadJson, "checked", &options.Checked);
-            Runtime::Protocol::Json::FindBoolMember(payloadJson, "keepOpen", &options.KeepOpen);
-            Runtime::Protocol::Json::FindBoolMember(payloadJson, "multiline", &options.Multiline);
-            Runtime::Protocol::Json::FindIntegerMember(payloadJson, "dialogResult", &options.DialogResult);
-            std::string fileFilter;
-            Runtime::Protocol::Json::FindStringMember(payloadJson, "filter", &fileFilter);
-            options.FileFilter = fileFilter.empty() ? NULL : fileFilter.c_str();
-            Runtime::Protocol::Json::FindBoolMember(payloadJson, "save", &options.FileSave);
-            UI::ControlLayout layout;
-            std::string raw;
-            layout.HasBounds = Runtime::Protocol::Json::FindRawMember(payloadJson, "x", &raw);
-            if (layout.HasBounds)
-            {
-                if (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "x", &layout.X) ||
-                    !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "y", &layout.Y) ||
-                    !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "width", &layout.Width) ||
-                    !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "height", &layout.Height))
+                UI::ControlKind kind = UI::ControlKindLabel;
+                bool kindFound = false;
+                for (size_t index = 0; index < _countof(kinds); ++index)
+                    if (_stricmp(kindName.c_str(), kinds[index].Name) == 0)
+                    {
+                        kind = kinds[index].Kind;
+                        kindFound = true;
+                        break;
+                    }
+                if (!kindFound)
                     return FALSE;
-            }
-            UI::IControl* control = dialog->AddControlEx(kind, options, layout);
-            if (control == NULL)
-                return FALSE;
-            int integerValue = 0;
-            std::string stringValue;
-            if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "styleFlags", &integerValue) &&
-                !control->SetStyleFlags(static_cast<DWORD>(integerValue))) return FALSE;
-            if (Runtime::Protocol::Json::FindStringMember(payloadJson, "pathSeparator", &stringValue) &&
-                (stringValue.size() != 1 || !control->SetPathSeparator(stringValue[0]))) return FALSE;
-            if (Runtime::Protocol::Json::FindStringMember(payloadJson, "toolTip", &stringValue) &&
-                !control->SetToolTipText(stringValue.c_str())) return FALSE;
-            if (Runtime::Protocol::Json::FindStringMember(payloadJson, "actionOpen", &stringValue) &&
-                !control->SetActionOpen(stringValue.c_str())) return FALSE;
-            if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "actionCommand", &integerValue) &&
-                !control->SetActionPostCommand(static_cast<WORD>(integerValue))) return FALSE;
-            if (Runtime::Protocol::Json::FindStringMember(payloadJson, "actionHint", &stringValue) &&
-                !control->SetActionShowHint(stringValue.c_str())) return FALSE;
-            std::string progressText;
-            Runtime::Protocol::Json::FindStringMember(payloadJson, "progressText", &progressText);
-            if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "progress", &integerValue) &&
-                !control->SetProgress(integerValue, progressText.empty() ? NULL : progressText.c_str())) return FALSE;
-            LONGLONG current = 0, total = 0;
-            if (Runtime::Protocol::Json::FindInteger64Member(payloadJson, "progressCurrent", &current) &&
-                (!Runtime::Protocol::Json::FindInteger64Member(payloadJson, "progressTotal", &total) ||
-                 current < 0 || total < 0 || !control->SetProgressValues(current, total,
-                    progressText.empty() ? NULL : progressText.c_str()))) return FALSE;
-            int duration = 0, interval = 0;
-            if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "indeterminateDuration", &duration) &&
-                (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "indeterminateInterval", &interval) ||
-                 !control->SetIndeterminateTiming(static_cast<DWORD>(duration), static_cast<DWORD>(interval)))) return FALSE;
-            int textColor = 0, backgroundColor = 0;
-            if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "textColor", &textColor) &&
-                (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "backgroundColor", &backgroundColor) ||
-                 !control->SetColor(static_cast<COLORREF>(textColor), static_cast<COLORREF>(backgroundColor)))) return FALSE;
-            std::string alignId;
-            int buttonMask = 0;
-            if (Runtime::Protocol::Json::FindStringMember(payloadJson, "alignControlId", &alignId) &&
-                (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "buttonMask", &buttonMask) ||
-                 !control->SetToolbarHeader(alignId.c_str(), static_cast<DWORD>(buttonMask)))) return FALSE;
+
+                UI::ControlOptions options;
+                options.Id = controlId.c_str();
+                options.Text = controlText.c_str();
+                Runtime::Protocol::Json::FindBoolMember(payloadJson, "readOnly", &options.ReadOnly);
+                Runtime::Protocol::Json::FindBoolMember(payloadJson, "checked", &options.Checked);
+                Runtime::Protocol::Json::FindBoolMember(payloadJson, "keepOpen", &options.KeepOpen);
+                Runtime::Protocol::Json::FindBoolMember(payloadJson, "multiline", &options.Multiline);
+                Runtime::Protocol::Json::FindIntegerMember(payloadJson, "dialogResult", &options.DialogResult);
+                std::string fileFilter;
+                Runtime::Protocol::Json::FindStringMember(payloadJson, "filter", &fileFilter);
+                options.FileFilter = fileFilter.empty() ? NULL : fileFilter.c_str();
+                Runtime::Protocol::Json::FindBoolMember(payloadJson, "save", &options.FileSave);
+                UI::ControlLayout layout;
+                std::string raw;
+                layout.HasBounds = Runtime::Protocol::Json::FindRawMember(payloadJson, "x", &raw);
+                if (layout.HasBounds)
+                {
+                    if (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "x", &layout.X) ||
+                        !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "y", &layout.Y) ||
+                        !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "width", &layout.Width) ||
+                        !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "height", &layout.Height))
+                        return FALSE;
+                }
+                UI::IControl* control = dialog->AddControlEx(kind, options, layout);
+                if (control == NULL)
+                    return FALSE;
+                int integerValue = 0;
+                std::string stringValue;
+                if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "styleFlags", &integerValue) &&
+                    !control->SetStyleFlags(static_cast<DWORD>(integerValue))) return FALSE;
+                if (Runtime::Protocol::Json::FindStringMember(payloadJson, "pathSeparator", &stringValue) &&
+                    (stringValue.size() != 1 || !control->SetPathSeparator(stringValue[0]))) return FALSE;
+                if (Runtime::Protocol::Json::FindStringMember(payloadJson, "toolTip", &stringValue) &&
+                    !control->SetToolTipText(stringValue.c_str())) return FALSE;
+                if (Runtime::Protocol::Json::FindStringMember(payloadJson, "actionOpen", &stringValue) &&
+                    !control->SetActionOpen(stringValue.c_str())) return FALSE;
+                if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "actionCommand", &integerValue) &&
+                    !control->SetActionPostCommand(static_cast<WORD>(integerValue))) return FALSE;
+                if (Runtime::Protocol::Json::FindStringMember(payloadJson, "actionHint", &stringValue) &&
+                    !control->SetActionShowHint(stringValue.c_str())) return FALSE;
+                std::string progressText;
+                Runtime::Protocol::Json::FindStringMember(payloadJson, "progressText", &progressText);
+                if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "progress", &integerValue) &&
+                    !control->SetProgress(integerValue, progressText.empty() ? NULL : progressText.c_str())) return FALSE;
+                LONGLONG current = 0, total = 0;
+                if (Runtime::Protocol::Json::FindInteger64Member(payloadJson, "progressCurrent", &current) &&
+                    (!Runtime::Protocol::Json::FindInteger64Member(payloadJson, "progressTotal", &total) ||
+                     current < 0 || total < 0 || !control->SetProgressValues(current, total,
+                        progressText.empty() ? NULL : progressText.c_str()))) return FALSE;
+                int duration = 0, interval = 0;
+                if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "indeterminateDuration", &duration) &&
+                    (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "indeterminateInterval", &interval) ||
+                     !control->SetIndeterminateTiming(static_cast<DWORD>(duration), static_cast<DWORD>(interval)))) return FALSE;
+                int textColor = 0, backgroundColor = 0;
+                if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "textColor", &textColor) &&
+                    (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "backgroundColor", &backgroundColor) ||
+                     !control->SetColor(static_cast<COLORREF>(textColor), static_cast<COLORREF>(backgroundColor)))) return FALSE;
+                std::string alignId;
+                int buttonMask = 0;
+                if (Runtime::Protocol::Json::FindStringMember(payloadJson, "alignControlId", &alignId) &&
+                    (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "buttonMask", &buttonMask) ||
+                     !control->SetToolbarHeader(alignId.c_str(), static_cast<DWORD>(buttonMask)))) return FALSE;
             return CopyResult("{\"ok\":true}", resultJson, resultCapacity, resultLength);
         }
         if (method == "salamander.ui.dialog.item")
@@ -5339,6 +5540,10 @@ BOOL WINAPI PackageManager::HostDispatch(
             owner->UI->DestroyDialog(dialog);
             package->Dialogs.erase(package->Dialogs.begin() + dialogIndex);
             delete binding;
+            // A properties-style action is usable again as soon as its modal
+            // UI has closed. Do not keep swallowing a new double-click while
+            // the one-shot process performs its final transport teardown.
+            InterlockedExchange(&package->FileSystemActionPending, FALSE);
             return CopyResult("{\"ok\":true}", resultJson, resultCapacity, resultLength);
         }
         return FALSE;
@@ -5945,14 +6150,25 @@ void PackageManager::FinishHostDispatch()
         Refresh();
 }
 
+void PackageManager::BeginExecution()
+{
+    if (ExecutionsIdleEvent != NULL)
+        ResetEvent(ExecutionsIdleEvent);
+    InterlockedIncrement(&ActiveExecutions);
+}
+
 void PackageManager::FinishExecution()
 {
     const LONG active = InterlockedDecrement(&ActiveExecutions);
     if (active < 0)
     {
         InterlockedExchange(&ActiveExecutions, 0);
+        if (ExecutionsIdleEvent != NULL)
+            SetEvent(ExecutionsIdleEvent);
         return;
     }
+    if (active == 0 && ExecutionsIdleEvent != NULL)
+        SetEvent(ExecutionsIdleEvent);
     if (active == 0 && ActiveHostDispatches == 0 &&
         RefreshPending && !RefreshInProgress)
     {

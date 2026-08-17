@@ -30,6 +30,7 @@ private:
     class FileSystemExtension;
     class OpenFileSystem;
     class ExecutionGuard;
+    struct FileSystemActionTask;
 
     CSalamanderGeneralAbstract* General;
     Runtime::IRuntimeService* Runtimes;
@@ -57,6 +58,10 @@ private:
     BOOL RefreshPending;
     LONG ActiveHostDispatches;
     LONG ActiveExecutions;
+    volatile LONG ShuttingDown;
+    HANDLE ExecutionsIdleEvent;
+    CRITICAL_SECTION FileSystemActionThreadsLock;
+    std::vector<HANDLE> FileSystemActionThreads;
 
     PackageManager(const PackageManager&);
     PackageManager& operator=(const PackageManager&);
@@ -115,6 +120,7 @@ private:
         const wchar_t* manifestPath,
         int moveDelta);
     static DWORD WINAPI PumpThreadProc(void* context);
+    static DWORD WINAPI FileSystemActionThreadProc(void* context);
     static BOOL WINAPI HostDispatch(
         void* context,
         Runtime::Protocol::MessageType type,
@@ -167,9 +173,20 @@ private:
         const std::string& fileSystemId,
         const std::string& actionId,
         const char* invocationJson);
+    BOOL ExecuteFileSystemActionNow(
+        const std::string& packageId,
+        const std::string& fileSystemId,
+        const std::string& actionId,
+        const char* invocationJson);
+    BOOL QueueFileSystemAction(
+        const std::string& packageId,
+        const std::string& fileSystemId,
+        const std::string& actionId,
+        const char* invocationJson);
     void RegisterToolbarButtons();
     void UnregisterToolbarButtons();
     void FinishHostDispatch();
+    void BeginExecution();
     void FinishExecution();
     void ReportStartupProgress(
         CSalamanderStartupProgressPhase phase, const char* detail,

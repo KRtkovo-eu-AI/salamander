@@ -1348,13 +1348,36 @@ def main() -> int:
     require(
         packages,
         r"class PackageManager::ExecutionGuard.*?"
-        r"InterlockedIncrement\(&Owner->ActiveExecutions\).*?"
+        r"Owner->BeginExecution\(\).*?"
         r"Owner->FinishExecution\(\).*?"
         r"MenuExtension.*?ExecutionGuard execution\(Owner\).*?"
         r"RunViewer.*?ExecutionGuard execution\(this\).*?"
         r"ListFileSystem.*?ExecutionGuard execution\(this\).*?"
         r"ExecuteFileSystemAction.*?ExecutionGuard execution\(this\)",
         "package operations are not protected from a reentrant extension catalog refresh")
+    require(
+        packages,
+        r"!action\.Refresh.*?QueueFileSystemAction.*?"
+        r"CreateThread\(.*?FileSystemActionThreadProc.*?"
+        r"ExecuteFileSystemActionNow.*?FinishExecution",
+        "non-refreshing FS modal actions still block the panel callback thread")
+    require(
+        packages,
+        r"ExecutionsIdleEvent\(CreateEvent.*?Shutdown.*?"
+        r"WaitForThreadWithSentMessageDispatch.*?BeginExecution.*?"
+        r"ResetEvent.*?FinishExecution.*?SetEvent",
+        "asynchronous FS actions are not joined safely during shutdown")
+    require(
+        packages,
+        r"FileSystemActionGeneration.*?FileSystemActionPending.*?"
+        r"InterlockedCompareExchange.*?generation.*?"
+        r"FileSystemActionThreadProc.*?task->Generation",
+        "repeated FS modal actions can queue duplicate dialogs")
+    require(
+        packages,
+        r"FileSystemExecutionLock.*?FileSystemActionExecutionLock.*?"
+        r"ExecuteFileSystemActionNow.*?FileSystemActionExecutionLock",
+        "modal FS actions can deadlock the UI by holding the listing lock")
     require(
         general_contract + plugins2 + packages,
         r"CSalamanderToolbarMenuItem.*?IconPath.*?IconDarkPath.*?"
@@ -2298,6 +2321,10 @@ def main() -> int:
         event_viewer,
         r"Show-EventDetails.*?Get-WinEvent -LogName \$LogName -MaxEvents 500",
         "Event Properties still blocks its initial display on a 500-event query")
+    require(
+        event_viewer,
+        r"AddControl\('label', 'metadata'.*?width=350;height=70",
+        "Event Properties metadata is not rendered as a bounded multiline label")
     runtime_workers = [
         read("src/plugins/javascriptruntime/runtime/salamatrix_worker.mjs"),
         read("src/plugins/pythonruntime/runtime/salamatrix_worker.py"),
@@ -2307,6 +2334,15 @@ def main() -> int:
     if not all("resizable" in worker.lower() for worker in runtime_workers):
         raise AssertionError(
             "Resizable native dialogs are not exposed by every runtime provider")
+    require(
+        packages,
+        r'FindBoolMember\(\s*payloadJson, "resizable", &options\.Resizable\)',
+        "Salamatrix host ignores the runtime dialog resizable option")
+    require(
+        packages,
+        r'dialog\.destroy.*?DestroyDialog\(dialog\).*?'
+        r'InterlockedExchange\(&package->FileSystemActionPending, FALSE\)',
+        "Closing a modal FS action still waits for worker teardown before reopening")
     for demo_manifest in (
             javascript_demo_manifest, python_demo_manifest,
             lua_demo_manifest, php_demo_manifest, powershell_demo_manifest):
