@@ -298,6 +298,6 @@
     <Delete Files="$(OutDir)MarkdigRenderer.pdb" />
   </Target>
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(NuGetPackageRoot)microsoft.web.webview2\1.0.2420.47\build\native\Microsoft.Web.WebView2.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.web.webview2\1.0.2420.47\build\native\Microsoft.Web.WebView2.targets')" />
+    <Import Project="..\..\shared\webviewviewer\WebView2.Native.targets" />
   </ImportGroup>
 </Project>
