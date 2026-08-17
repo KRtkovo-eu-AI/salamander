@@ -2968,6 +2968,24 @@
 #define IDS_PATHMENU_CHANGE_TARGET_TAB      14358
 #define IDS_PATHMENU_LEFT_SIDE_PATHS         14359
 #define IDS_PATHMENU_RIGHT_SIDE_PATHS        14360
+#define IDS_EXCOL_TITLE                      14364
+#define IDS_EXCOL_SEARCH                     14365
+#define IDS_EXCOL_ALL                        14366
+#define IDS_EXCOL_COMMON                     14367
+#define IDS_EXCOL_FILESYSTEM                 14368
+#define IDS_EXCOL_DOCUMENT                   14369
+#define IDS_EXCOL_IMAGE                      14370
+#define IDS_EXCOL_AUDIO                      14371
+#define IDS_EXCOL_VIDEO                      14372
+#define IDS_EXCOL_OTHER                      14373
+#define IDS_EXCOL_DETAILS                    14374
+#define IDS_EXCOL_SELECTED                   14375
+#define IDS_EXCOL_TYPE                       14376
+#define IDS_EXCOL_CATEGORY                   14377
+#define IDS_EXCOL_CANONICAL                  14378
+#define IDS_EXCOL_COUNT                      14379
+#define IDS_EXCOL_MANAGE                     14380
+#define IDS_VIEW_DYNAMIC_LIMIT               14381
 
 #define IDS_MENU_OPT_MANAGECONFIG        13169
 

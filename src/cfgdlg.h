@@ -610,6 +610,31 @@ protected:
 
 class CToolbarHeader;
 
+class CExplorerColumnsDialog : public CCommonDialog
+{
+protected:
+    CViewTemplates* Config;
+    BYTE Available[EXPLORER_COLUMNS_COUNT];
+    BOOL DisableNotification;
+    int Category;
+    int MinWidth;
+    int MinHeight;
+
+    void FillCategories();
+    void FillProperties();
+    void UpdateDetails();
+    void UpdateSelectedCount();
+    BOOL IsInCategory(int explorerIndex) const;
+    BOOL MatchesSearch(int explorerIndex) const;
+    void LayoutControls();
+
+public:
+    CExplorerColumnsDialog(HWND parent, CViewTemplates* config);
+
+protected:
+    virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
+};
+
 class CCfgPageView : public CCommonPropSheetPage
 {
 protected:
@@ -638,6 +663,7 @@ public:
     virtual void Transfer(CTransferInfo& ti);
 
     void OnModify();
+    void OnNew();
     void OnDelete();
     void OnMove(BOOL up);
 

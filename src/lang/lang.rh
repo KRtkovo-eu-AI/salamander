@@ -777,14 +777,22 @@
 #define IDT_DETACHED_TARGET_PROMPT      6262
 #define IDC_DETACHED_TARGET_LIST        6263
 #define IDC_DETACHED_TARGET_REMEMBER    6264
+#define IDD_EXPLORER_COLUMNS            8203
+#define IDC_EXCOL_SEARCH                6265
+#define IDC_EXCOL_CATEGORIES            6266
+#define IDC_EXCOL_PROPERTIES            6267
+#define IDC_EXCOL_DETAILS               6268
+#define IDC_EXCOL_SELECTED_COUNT        6269
+#define IDC_EXCOL_DETAILS_GROUP         6270
+#define IDC_EXCOL_SEARCH_LABEL          6271
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        8203
+#define _APS_NEXT_RESOURCE_VALUE        8204
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         6265
+#define _APS_NEXT_CONTROL_VALUE         6272
 #define _APS_NEXT_SYMED_VALUE           103
 #endif
 #endif

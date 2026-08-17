@@ -2500,7 +2500,8 @@ BOOL CFilesWindow::BuildColumnsTemplate()
         int explorerIndex = ViewTemplate->ExplorerColumnOrder[i];
         if (explorerIndex < 0 || explorerIndex >= explorerCount)
             explorerIndex = i;
-        if (ViewTemplate->ExplorerColumnVisible[explorerIndex])
+        if (Parent->ViewTemplates.IsExplorerColumnAvailable(explorerIndex) &&
+            ViewTemplate->ExplorerColumnVisible[explorerIndex])
         {
             lstrcpyn(column.Name, GetExplorerColumnName(explorerIndex), COLUMN_NAME_MAX);
             lstrcpyn(column.Description, GetExplorerColumnName(explorerIndex), COLUMN_DESCRIPTION_MAX);

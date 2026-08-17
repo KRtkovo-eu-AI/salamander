@@ -2401,7 +2401,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     CustomTabPrefixValid = false;
     CustomTabPrefix.clear();
     TabLocked = false;
-    ViewTemplate = &parent->ViewTemplates.Items[2]; // detailed view
+    ViewTemplate = parent->ViewTemplates.Get(2); // detailed view
     BuildColumnsTemplate();
     CopyColumnsTemplateToColumns();
     ListBox = NULL;

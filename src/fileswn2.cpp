@@ -1804,7 +1804,7 @@ void CFilesWindow::ToggleHeaderLine()
 
 int CFilesWindow::GetViewTemplateIndex()
 {
-    return (int)(ViewTemplate - MainWindow->ViewTemplates.Items);
+    return MainWindow->ViewTemplates.GetIndex(ViewTemplate);
 }
 
 int CFilesWindow::GetNextTemplateIndex(BOOL forward, BOOL wrap)
@@ -1819,20 +1819,20 @@ int CFilesWindow::GetNextTemplateIndex(BOOL forward, BOOL wrap)
         {
             if (forward)
             {
-                if (newIndex > 9)
+                if (newIndex >= Parent->ViewTemplates.GetCount())
                     newIndex = 1; // the edge item was empty; jump to the other end of the list
             }
             else
             {
                 if (newIndex < 1)
-                    newIndex = 9; // the edge item was empty; jump to the other end of the list
+                    newIndex = Parent->ViewTemplates.GetCount() - 1; // jump to the other end of the list
             }
         }
         else
         {
             if (forward)
             {
-                if (newIndex > 9)
+                if (newIndex >= Parent->ViewTemplates.GetCount())
                     newIndex = oldIndex; // the edge item was empty; return to the last valid one
             }
             else
@@ -1841,16 +1841,16 @@ int CFilesWindow::GetNextTemplateIndex(BOOL forward, BOOL wrap)
                     newIndex = oldIndex; // the edge item was empty; return to the last valid one
             }
         }
-    } while (Parent->ViewTemplates.Items[newIndex].Name[0] == 0 && newIndex != oldIndex);
+    } while (Parent->ViewTemplates.Get(newIndex)->Name[0] == 0 && newIndex != oldIndex);
     return newIndex;
 }
 
 BOOL CFilesWindow::IsViewTemplateValid(int templateIndex)
 {
     CALL_STACK_MESSAGE2("CFilesWindow::IsViewTemplateValid(%d)", templateIndex);
-    if (templateIndex < 1) // tree is not supported yet
+    if (templateIndex < 1 || templateIndex >= Parent->ViewTemplates.GetCount()) // tree is not supported yet
         return FALSE;
-    CViewTemplate* newTemplate = &Parent->ViewTemplates.Items[templateIndex];
+    CViewTemplate* newTemplate = Parent->ViewTemplates.Get(templateIndex);
     if (lstrlen(newTemplate->Name) == 0)
         return FALSE;
     return TRUE;
@@ -1863,14 +1863,14 @@ BOOL CFilesWindow::SelectViewTemplate(int templateIndex, BOOL canRefreshPath,
     CALL_STACK_MESSAGE5("CFilesWindow::SelectViewTemplate(%d, %d, %d, 0x%X)", templateIndex,
                         canRefreshPath, calledFromPluginBeforeListing, columnValidMask);
 
-    if (templateIndex == 0)
+    if (templateIndex <= 0 || templateIndex >= Parent->ViewTemplates.GetCount())
         return FALSE;
-    CViewTemplate* newTemplate = &Parent->ViewTemplates.Items[templateIndex];
+    CViewTemplate* newTemplate = Parent->ViewTemplates.Get(templateIndex);
     if (lstrlen(newTemplate->Name) == 0)
     {
         // undefined view is not desired - we force the detailed view which always exists
         templateIndex = 2;
-        newTemplate = &Parent->ViewTemplates.Items[templateIndex];
+        newTemplate = Parent->ViewTemplates.Get(templateIndex);
     }
 
     CViewModeEnum oldViewMode = GetViewMode();

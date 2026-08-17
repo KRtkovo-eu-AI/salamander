@@ -2914,6 +2914,11 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
     CALL_STACK_MESSAGE3("CToolbarHeader::CToolbarHeader(, %d, , %u)", ctrlID, buttonMask);
     HNotifyWindow = hDlg;
     ButtonMask = buttonMask;
+    for (int customIndex = 0; customIndex < TLBHDR_COUNT; customIndex++)
+    {
+        CustomTooltips[customIndex] = -1;
+        CustomSVGNames[customIndex][0] = 0;
+    }
     SetProp(HWindow, _T("SalamanderToolbarHeader"), (HANDLE)1);
     ToolBar = new CToolBar(HWindow);
     ToolBar->CreateWnd(HWindow);
@@ -2975,7 +2980,7 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
     TLBI_ITEM_INFO2 tii;
     tii.Mask = TLBI_MASK_ID | TLBI_MASK_IMAGEINDEX;
     int buttonsCount = 0;
-    const int buttonOrder[TLBHDR_COUNT] = {8, 0, 1, 2, 3, 6, 4, 5, 9, 7};
+    const int buttonOrder[TLBHDR_COUNT] = {8, 7, 0, 1, 2, 3, 6, 4, 5, 9};
     for (int orderIndex = 0; orderIndex < TLBHDR_COUNT; orderIndex++)
     {
         int i = buttonOrder[orderIndex];
@@ -3093,6 +3098,46 @@ void CToolbarHeader::RebuildImageLists()
     if (oldGray != NULL)
         ImageList_Destroy(oldGray);
 #endif
+    ApplyCustomButtonImages();
+}
+
+void CToolbarHeader::ApplyCustomButtonImages()
+{
+    for (int i = 0; i < TLBHDR_COUNT; i++)
+    {
+        if (CustomSVGNames[i][0] == 0)
+            continue;
+        int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
+        HBITMAP enabled = NULL;
+        HBITMAP disabled = NULL;
+        if (RenderSVGIconBitmap(CustomSVGNames[i], iconSize, TRUE, &enabled) &&
+            RenderSVGIconBitmap(CustomSVGNames[i], iconSize, FALSE, &disabled))
+        {
+#ifdef TOOLBARHDR_USE_SVG
+            ImageList_Replace(HEnabledImageList, i, enabled, NULL);
+            ImageList_Replace(HDisabledImageList, i, disabled, NULL);
+#else
+            ImageList_Replace(HHotImageList, i, enabled, NULL);
+            ImageList_Replace(HGrayImageList, i, disabled, NULL);
+#endif
+        }
+        if (enabled != NULL)
+            DeleteObject(enabled);
+        if (disabled != NULL)
+            DeleteObject(disabled);
+    }
+}
+
+void CToolbarHeader::SetButtonAppearance(int command, const char* svgName, int tooltipResID)
+{
+    int index = command - 1;
+    if (index < 0 || index >= TLBHDR_COUNT)
+        return;
+    lstrcpyn(CustomSVGNames[index], svgName != NULL ? svgName : "", _countof(CustomSVGNames[index]));
+    CustomTooltips[index] = tooltipResID;
+    ApplyCustomButtonImages();
+    if (ToolBar != NULL && ToolBar->HWindow != NULL)
+        InvalidateRect(ToolBar->HWindow, NULL, TRUE);
 }
 
 #ifdef TOOLBARHDR_USE_SVG
@@ -3333,7 +3378,11 @@ CToolbarHeader::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_USER_TBGETTOOLTIP:
     {
         TOOLBAR_TOOLTIP* tt = (TOOLBAR_TOOLTIP*)lParam;
-        lstrcpy(tt->Buffer, LoadStr(TlbHdrTooltips[tt->ID - 1]));
+        int index = tt->ID - 1;
+        int tooltip = index >= 0 && index < TLBHDR_COUNT && CustomTooltips[index] != -1
+                          ? CustomTooltips[index]
+                          : TlbHdrTooltips[index];
+        lstrcpy(tt->Buffer, LoadStr(tooltip));
         return TRUE;
     }
 

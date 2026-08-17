@@ -323,6 +323,8 @@ protected:
     DWORD ButtonMask;   // pouzita tlacitka
     HWND HNotifyWindow; // kam posilam comandy
     WORD UIState;       // zobrazovani akceleratoru
+    int CustomTooltips[TLBHDR_COUNT];
+    char CustomSVGNames[TLBHDR_COUNT][32];
 
 public:
     CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD buttonMask);
@@ -330,12 +332,14 @@ public:
     void EnableToolbar(DWORD enableMask);
     void CheckToolbar(DWORD checkMask);
     void SetNotifyWindow(HWND hWnd) { HNotifyWindow = hWnd; }
+    void SetButtonAppearance(int command, const char* svgName, int tooltipResID);
 
 protected:
 #ifdef TOOLBARHDR_USE_SVG
     void CreateImageLists(HIMAGELIST* enabled, HIMAGELIST* disabled);
 #endif
     void RebuildImageLists();
+    void ApplyCustomButtonImages();
 
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 

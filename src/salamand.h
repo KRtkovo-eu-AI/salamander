@@ -341,6 +341,21 @@ BOOL GetExplorerColumnTextForFile(const char* panelPath, const WCHAR* panelPathW
 BOOL GetExplorerColumnTextForPathW(const WCHAR* pathW, int columnIndex, char* buffer, int bufferSize);
 int GetExplorerColumnCount();
 const char* GetExplorerColumnName(int index);
+const char* GetExplorerColumnCanonicalName(int index);
+const char* GetExplorerColumnDescription(int index);
+VARTYPE GetExplorerColumnType(int index);
+
+enum CExplorerColumnCategory
+{
+    eccFileSystem,
+    eccDocument,
+    eccImage,
+    eccAudio,
+    eccVideo,
+    eccOther
+};
+
+CExplorerColumnCategory GetExplorerColumnCategory(int index);
 
 // function to get the index of simple icons for FS with custom icons (pitFromPlugin)
 int WINAPI InternalGetPluginIconIndex();
@@ -401,6 +416,7 @@ struct CColumnConfig
 
 struct CViewTemplate
 {
+    DWORD ID;                 // stable identity used by dynamic menus and persistence
     DWORD Mode;               // view display mode (tree/brief/detailed)
     char Name[VIEW_NAME_MAX]; // name under which the view will appear in the configuration/menu;
                               // if it is an empty string, the view is not defined
@@ -423,9 +439,19 @@ public:
     // the first views cannot be moved or deleted; they can, however, be renamed
     // the Mode variable is fixed for all ten views and cannot be changed
     CViewTemplate Items[VIEW_TEMPLATES_COUNT];
+    TIndirectArray<CViewTemplate> ExtraItems;
+    BYTE ExplorerColumnAvailable[EXPLORER_COLUMNS_COUNT]; // globally selected Explorer properties shown in Available Columns
+    DWORD NextID;
 
 public:
     CViewTemplates();
+
+    int GetCount() const { return VIEW_TEMPLATES_COUNT + ExtraItems.Count; }
+    CViewTemplate* Get(int index);
+    const CViewTemplate* Get(int index) const;
+    int GetIndex(const CViewTemplate* item) const;
+    int AddDetailedView(const char* name);
+    BOOL DeleteView(int index);
 
     // sets the attributes
     void Set(DWORD index, DWORD viewMode, const char* name, DWORD flags, BOOL leftSmartMode, BOOL rightSmartMode);
@@ -442,14 +468,14 @@ public:
     void LoadColumnOrder(WORD* order, char* buffer, int count);
     int SaveExplorerColumnVisible(BYTE* visible, char* buffer);                           // convert Explorer column visibility to a string
     void LoadExplorerColumnVisible(BYTE* visible, char* buffer);                          // and back again
+    BOOL IsExplorerColumnAvailable(int index) const;
+    void SetExplorerColumnAvailable(int index, BOOL available);
 
     BOOL Save(HKEY hKey); // saves the entire array
     BOOL Load(HKEY hKey); // loads the entire array
 
     void Load(CViewTemplates& source)
-    {
-        memcpy(Items, source.Items, sizeof(Items));
-    }
+    ;
 };
 
 //****************************************************************************

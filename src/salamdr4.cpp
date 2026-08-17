@@ -1036,8 +1036,14 @@ const char* SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNVISIBLE = "Explorer Column Vis
 const char* SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNORDER = "Explorer Column Order";
 const char* SALAMANDER_VIEWTEMPLATE_LEFTSMARTMODE = "Left Smart Mode";
 const char* SALAMANDER_VIEWTEMPLATE_RIGHTSMARTMODE = "Right Smart Mode";
+const char* SALAMANDER_VIEWTEMPLATE_AVAILABLEEXPLORERCOLUMNS = "Available Explorer Columns";
+const char* SALAMANDER_VIEWTEMPLATE_EXTRACOUNT = "Extra View Count";
+const char* SALAMANDER_VIEWTEMPLATE_NEXTID = "Next View ID";
+const char* SALAMANDER_VIEWTEMPLATE_ID = "ID";
+const int EXPLORER_COLUMN_CANONICAL_NAME_MAX = 256;
 
 CViewTemplates::CViewTemplates()
+    : ExtraItems(3, 3)
 {
     // default values
     Set(0, VIEW_MODE_TREE, LoadStr(IDS_TREE_VIEW), 0, TRUE, TRUE);
@@ -1053,6 +1059,7 @@ CViewTemplates::CViewTemplates()
         Set(i, VIEW_MODE_DETAILED, "", 0, TRUE, TRUE);
     for (i = 0; i < VIEW_TEMPLATES_COUNT; i++)
     {
+        Items[i].ID = i + 1;
         ZeroMemory(Items[i].Columns, sizeof(Items[i].Columns));
         ZeroMemory(Items[i].ExplorerColumns, sizeof(Items[i].ExplorerColumns));
         ZeroMemory(Items[i].ExplorerColumnVisible, sizeof(Items[i].ExplorerColumnVisible));
@@ -1061,6 +1068,114 @@ CViewTemplates::CViewTemplates()
         for (int j = 0; j < STANDARD_COLUMNS_COUNT; j++)
             Items[i].ColumnOrder[j] = (BYTE)j;
     }
+    ZeroMemory(ExplorerColumnAvailable, sizeof(ExplorerColumnAvailable));
+    NextID = VIEW_TEMPLATES_COUNT + 1;
+}
+
+CViewTemplate* CViewTemplates::Get(int index)
+{
+    if (index < 0 || index >= GetCount())
+        return NULL;
+    return index < VIEW_TEMPLATES_COUNT ? &Items[index] : ExtraItems[index - VIEW_TEMPLATES_COUNT];
+}
+
+const CViewTemplate* CViewTemplates::Get(int index) const
+{
+    if (index < 0 || index >= GetCount())
+        return NULL;
+    return index < VIEW_TEMPLATES_COUNT
+               ? &Items[index]
+               : const_cast<CViewTemplates*>(this)->ExtraItems[index - VIEW_TEMPLATES_COUNT];
+}
+
+int CViewTemplates::GetIndex(const CViewTemplate* item) const
+{
+    for (int i = 0; i < GetCount(); i++)
+        if (Get(i) == item)
+            return i;
+    return -1;
+}
+
+int CViewTemplates::AddDetailedView(const char* name)
+{
+    if (ExtraItems.Count >= CM_ACTIVEEXTRAMODE_MAX - CM_ACTIVEEXTRAMODE_MIN + 1)
+        return -1;
+#ifdef new
+#undef new
+#define RESTORE_ADD_VIEW_TEMPLATE_DEBUG_NEW_MACRO
+#endif
+    CViewTemplate* item = new (std::nothrow) CViewTemplate;
+#ifdef RESTORE_ADD_VIEW_TEMPLATE_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_ADD_VIEW_TEMPLATE_DEBUG_NEW_MACRO
+#endif
+    if (item == NULL)
+        return -1;
+    memcpy(item, &Items[2], sizeof(*item));
+    item->ID = NextID++;
+    CopyStringTruncateUtf8(item->Name, VIEW_NAME_MAX, name != NULL ? name : "");
+    ExtraItems.Add(item);
+    if (!ExtraItems.IsGood())
+    {
+        ExtraItems.ResetState();
+        delete item;
+        return -1;
+    }
+    return GetCount() - 1;
+}
+
+BOOL CViewTemplates::DeleteView(int index)
+{
+    if (index < 7 || index >= GetCount())
+        return FALSE;
+    if (index < VIEW_TEMPLATES_COUNT)
+    {
+        Items[index].Name[0] = 0;
+        return TRUE;
+    }
+    ExtraItems.Delete(index - VIEW_TEMPLATES_COUNT);
+    return TRUE;
+}
+
+void CViewTemplates::Load(CViewTemplates& source)
+{
+    memcpy(Items, source.Items, sizeof(Items));
+    memcpy(ExplorerColumnAvailable, source.ExplorerColumnAvailable, sizeof(ExplorerColumnAvailable));
+    NextID = source.NextID;
+    ExtraItems.DestroyMembers();
+    for (int i = 0; i < source.ExtraItems.Count; i++)
+    {
+#ifdef new
+#undef new
+#define RESTORE_COPY_VIEW_TEMPLATE_DEBUG_NEW_MACRO
+#endif
+        CViewTemplate* item = new (std::nothrow) CViewTemplate;
+#ifdef RESTORE_COPY_VIEW_TEMPLATE_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_COPY_VIEW_TEMPLATE_DEBUG_NEW_MACRO
+#endif
+        if (item == NULL)
+            break;
+        memcpy(item, source.ExtraItems[i], sizeof(*item));
+        ExtraItems.Add(item);
+        if (!ExtraItems.IsGood())
+        {
+            ExtraItems.ResetState();
+            delete item;
+            break;
+        }
+    }
+}
+
+BOOL CViewTemplates::IsExplorerColumnAvailable(int index) const
+{
+    return index >= 0 && index < EXPLORER_COLUMNS_COUNT && ExplorerColumnAvailable[index] != 0;
+}
+
+void CViewTemplates::SetExplorerColumnAvailable(int index, BOOL available)
+{
+    if (index >= 0 && index < EXPLORER_COLUMNS_COUNT)
+        ExplorerColumnAvailable[index] = available ? TRUE : FALSE;
 }
 
 void CViewTemplates::Set(DWORD index, const char* name, DWORD flags, BOOL leftSmartMode, BOOL rightSmartMode)
@@ -1287,40 +1402,124 @@ void CViewTemplates::LoadExplorerColumnVisible(BYTE* visible, char* buffer)
 BOOL CViewTemplates::Save(HKEY hKey)
 {
     char buff[12 * EXPLORER_COLUMNS_COUNT + 1];
-    char keyName[5];
+    char keyName[32];
     int i;
-    for (i = 0; i < VIEW_TEMPLATES_COUNT; i++)
+    DWORD extraCount = ExtraItems.Count;
+    SetValue(hKey, SALAMANDER_VIEWTEMPLATE_EXTRACOUNT, REG_DWORD, &extraCount, sizeof(extraCount));
+    SetValue(hKey, SALAMANDER_VIEWTEMPLATE_NEXTID, REG_DWORD, &NextID, sizeof(NextID));
+    for (i = 0; i < GetCount(); i++)
     {
-        itoa(i < VIEW_TEMPLATES_COUNT - 1 ? i + 1 : 0, keyName, 10);
+        if (i < VIEW_TEMPLATES_COUNT)
+            itoa(i < VIEW_TEMPLATES_COUNT - 1 ? i + 1 : 0, keyName, 10);
+        else
+            _snprintf_s(keyName, _TRUNCATE, "Extra %d", i - VIEW_TEMPLATES_COUNT + 1);
+        CViewTemplate* view = Get(i);
         HKEY actKey;
         if (CreateKey(hKey, keyName, actKey))
         {
-            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_NAME, REG_SZ, Items[i].Name, -1);
-            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_FLAGS, REG_DWORD, &Items[i].Flags, sizeof(DWORD));
-            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNS, REG_SZ, buff, SaveColumns(Items[i].Columns, buff));
-            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNORDER, REG_SZ, buff, SaveColumnOrder(Items[i].ColumnOrder, buff));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_ID, REG_DWORD, &view->ID, sizeof(view->ID));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_NAME, REG_SZ, view->Name, -1);
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_FLAGS, REG_DWORD, &view->Flags, sizeof(DWORD));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNS, REG_SZ, buff, SaveColumns(view->Columns, buff));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNORDER, REG_SZ, buff, SaveColumnOrder(view->ColumnOrder, buff));
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNS, REG_SZ, buff,
-                     SaveColumns(Items[i].ExplorerColumns, buff, EXPLORER_COLUMNS_COUNT));
-            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNVISIBLE, REG_SZ, buff, SaveExplorerColumnVisible(Items[i].ExplorerColumnVisible, buff));
-            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNORDER, REG_SZ, buff, SaveColumnOrder(Items[i].ExplorerColumnOrder, buff, EXPLORER_COLUMNS_COUNT));
-            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_LEFTSMARTMODE, REG_DWORD, &Items[i].LeftSmartMode, sizeof(DWORD));
-            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_RIGHTSMARTMODE, REG_DWORD, &Items[i].RightSmartMode, sizeof(DWORD));
+                     SaveColumns(view->ExplorerColumns, buff, EXPLORER_COLUMNS_COUNT));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNVISIBLE, REG_SZ, buff, SaveExplorerColumnVisible(view->ExplorerColumnVisible, buff));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNORDER, REG_SZ, buff, SaveColumnOrder(view->ExplorerColumnOrder, buff, EXPLORER_COLUMNS_COUNT));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_LEFTSMARTMODE, REG_DWORD, &view->LeftSmartMode, sizeof(DWORD));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_RIGHTSMARTMODE, REG_DWORD, &view->RightSmartMode, sizeof(DWORD));
             CloseKey(actKey);
         }
+    }
+    const int availableBufferSize = EXPLORER_COLUMNS_COUNT * EXPLORER_COLUMN_CANONICAL_NAME_MAX + 1;
+    char* availableBuffer = (char*)malloc(availableBufferSize);
+    if (availableBuffer != NULL)
+    {
+        char* out = availableBuffer;
+        int remaining = availableBufferSize;
+        int explorerCount = GetExplorerColumnCount();
+        for (i = 0; i < explorerCount; i++)
+        {
+            if (!ExplorerColumnAvailable[i])
+                continue;
+            const char* canonicalName = GetExplorerColumnCanonicalName(i);
+            int len = lstrlen(canonicalName);
+            if (len == 0 || len + 2 > remaining)
+                continue;
+            if (out != availableBuffer)
+            {
+                *out++ = '\n';
+                remaining--;
+            }
+            memcpy(out, canonicalName, len);
+            out += len;
+            remaining -= len;
+        }
+        *out = 0;
+        SetValue(hKey, SALAMANDER_VIEWTEMPLATE_AVAILABLEEXPLORERCOLUMNS, REG_SZ,
+                 availableBuffer, (int)(out - availableBuffer) + 1);
+        free(availableBuffer);
     }
     return TRUE;
 }
 
 BOOL CViewTemplates::Load(HKEY hKey)
 {
+    ExtraItems.DestroyMembers();
+    NextID = VIEW_TEMPLATES_COUNT + 1;
     char buff[12 * EXPLORER_COLUMNS_COUNT + 1];
-    char keyName[5];
+    char keyName[32];
     int i;
-    for (i = 0; i < VIEW_TEMPLATES_COUNT; i++)
+    BOOL availableLoaded = FALSE;
+    const int availableBufferSize = EXPLORER_COLUMNS_COUNT * EXPLORER_COLUMN_CANONICAL_NAME_MAX + 1;
+    char* availableBuffer = (char*)malloc(availableBufferSize);
+    if (availableBuffer != NULL &&
+        GetValue(hKey, SALAMANDER_VIEWTEMPLATE_AVAILABLEEXPLORERCOLUMNS, REG_SZ,
+                 availableBuffer, availableBufferSize))
     {
-        itoa(i < VIEW_TEMPLATES_COUNT - 1 ? i + 1 : 0, keyName, 10);
+        ZeroMemory(ExplorerColumnAvailable, sizeof(ExplorerColumnAvailable));
+        char* context = NULL;
+        char* canonicalName = strtok_s(availableBuffer, "\n", &context);
+        while (canonicalName != NULL)
+        {
+            int explorerCount = GetExplorerColumnCount();
+            for (int explorerIndex = 0; explorerIndex < explorerCount; explorerIndex++)
+            {
+                if (_stricmp(canonicalName, GetExplorerColumnCanonicalName(explorerIndex)) == 0)
+                {
+                    ExplorerColumnAvailable[explorerIndex] = TRUE;
+                    break;
+                }
+            }
+            canonicalName = strtok_s(NULL, "\n", &context);
+        }
+        availableLoaded = TRUE;
+    }
+    if (availableBuffer != NULL)
+        free(availableBuffer);
+    DWORD extraCount = 0;
+    if (GetValue(hKey, SALAMANDER_VIEWTEMPLATE_EXTRACOUNT, REG_DWORD, &extraCount, sizeof(extraCount)))
+    {
+        if (extraCount > 1000)
+            extraCount = 1000;
+        for (DWORD extra = 0; extra < extraCount; extra++)
+            if (AddDetailedView("") < 0)
+                break;
+    }
+    DWORD loadedNextID = NextID;
+    GetValue(hKey, SALAMANDER_VIEWTEMPLATE_NEXTID, REG_DWORD, &loadedNextID, sizeof(loadedNextID));
+    if (loadedNextID > NextID)
+        NextID = loadedNextID;
+
+    for (i = 0; i < GetCount(); i++)
+    {
+        if (i < VIEW_TEMPLATES_COUNT)
+            itoa(i < VIEW_TEMPLATES_COUNT - 1 ? i + 1 : 0, keyName, 10);
+        else
+            _snprintf_s(keyName, _TRUNCATE, "Extra %d", i - VIEW_TEMPLATES_COUNT + 1);
         if (i == 6 && Configuration.ConfigVersion < 23)
             continue; // for the IDS_TYPES_VIEW view we want default columns
+        CViewTemplate* view = Get(i);
         HKEY actKey;
         if (OpenKey(hKey, keyName, actKey))
         {
@@ -1331,21 +1530,23 @@ BOOL CViewTemplates::Load(HKEY hKey)
             buff[0] = 0;
             DWORD leftSM = TRUE;
             DWORD rightSM = TRUE;
+            DWORD id = view->ID;
+            GetValue(actKey, SALAMANDER_VIEWTEMPLATE_ID, REG_DWORD, &id, sizeof(id));
             GetValue(actKey, SALAMANDER_VIEWTEMPLATE_LEFTSMARTMODE, REG_DWORD, &leftSM, sizeof(DWORD));
             GetValue(actKey, SALAMANDER_VIEWTEMPLATE_RIGHTSMARTMODE, REG_DWORD, &rightSM, sizeof(DWORD));
             if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_NAME, REG_SZ, name, SAL_MAX_PATH) &&
                 GetValue(actKey, SALAMANDER_VIEWTEMPLATE_FLAGS, REG_DWORD, &flags, sizeof(DWORD)) &&
                 GetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNS, REG_SZ, buff, sizeof(buff)))
             {
-                LoadColumns(Items[i].Columns, buff);
+                LoadColumns(view->Columns, buff);
                 if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNORDER, REG_SZ, buff, sizeof(buff)))
-                    LoadColumnOrder(Items[i].ColumnOrder, buff);
+                    LoadColumnOrder(view->ColumnOrder, buff);
                 if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNS, REG_SZ, buff, sizeof(buff)))
-                    LoadColumns(Items[i].ExplorerColumns, buff, EXPLORER_COLUMNS_COUNT);
+                    LoadColumns(view->ExplorerColumns, buff, EXPLORER_COLUMNS_COUNT);
                 if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNVISIBLE, REG_SZ, buff, sizeof(buff)))
-                    LoadExplorerColumnVisible(Items[i].ExplorerColumnVisible, buff);
+                    LoadExplorerColumnVisible(view->ExplorerColumnVisible, buff);
                 if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNORDER, REG_SZ, buff, sizeof(buff)))
-                    LoadColumnOrder(Items[i].ExplorerColumnOrder, buff, EXPLORER_COLUMNS_COUNT);
+                    LoadColumnOrder(view->ExplorerColumnOrder, buff, EXPLORER_COLUMNS_COUNT);
                 CleanName(name);
 
                 // overwrite file names the user could not change anyway
@@ -1377,10 +1578,30 @@ BOOL CViewTemplates::Load(HKEY hKey)
                 if (resID != -1)
                     strcpy(name, LoadStr(resID));
 
-                Set(i, name, flags, leftSM, rightSM);
+                if (i < VIEW_TEMPLATES_COUNT)
+                    Set(i, name, flags, leftSM, rightSM);
+                else
+                {
+                    view->Mode = VIEW_MODE_DETAILED;
+                    CopyStringTruncateUtf8(view->Name, VIEW_NAME_MAX, name);
+                    view->Flags = flags;
+                    view->LeftSmartMode = leftSM;
+                    view->RightSmartMode = rightSM;
+                }
+                view->ID = id;
+                if (id >= NextID)
+                    NextID = id + 1;
             }
             CloseKey(actKey);
         }
+    }
+    if (!availableLoaded)
+    {
+        ZeroMemory(ExplorerColumnAvailable, sizeof(ExplorerColumnAvailable));
+        for (i = 0; i < GetCount(); i++)
+            for (int j = 0; j < EXPLORER_COLUMNS_COUNT; j++)
+                if (Get(i)->ExplorerColumnVisible[j])
+                    ExplorerColumnAvailable[j] = TRUE;
     }
     return TRUE;
 }
@@ -1657,6 +1878,9 @@ BOOL CopyHTextToClipboard(HGLOBAL hGlobalText, int textLen, BOOL showEcho, HWND 
 
 // Windows Explorer property columns discovered through the Property System.
 static char ExplorerColumnNames[EXPLORER_COLUMNS_COUNT][COLUMN_DESCRIPTION_MAX];
+static char ExplorerColumnCanonicalNames[EXPLORER_COLUMNS_COUNT][EXPLORER_COLUMN_CANONICAL_NAME_MAX];
+static char ExplorerColumnDescriptions[EXPLORER_COLUMNS_COUNT][COLUMN_DESCRIPTION_MAX];
+static VARTYPE ExplorerColumnTypes[EXPLORER_COLUMNS_COUNT];
 static PROPERTYKEY ExplorerColumnKeys[EXPLORER_COLUMNS_COUNT];
 static int ExplorerColumnsCount = -1;
 
@@ -1689,7 +1913,8 @@ static void LoadExplorerColumns()
                         BOOL duplicate = FALSE;
                         for (int j = 0; j < ExplorerColumnsCount; j++)
                         {
-                            if (StrICmp(name, ExplorerColumnNames[j]) == 0)
+                            if (key.pid == ExplorerColumnKeys[j].pid &&
+                                IsEqualGUID(key.fmtid, ExplorerColumnKeys[j].fmtid))
                             {
                                 duplicate = TRUE;
                                 break;
@@ -1699,6 +1924,26 @@ static void LoadExplorerColumns()
                         {
                             lstrcpyn(ExplorerColumnNames[ExplorerColumnsCount], name, COLUMN_DESCRIPTION_MAX);
                             ExplorerColumnKeys[ExplorerColumnsCount] = key;
+                            ExplorerColumnCanonicalNames[ExplorerColumnsCount][0] = 0;
+                            ExplorerColumnDescriptions[ExplorerColumnsCount][0] = 0;
+                            ExplorerColumnTypes[ExplorerColumnsCount] = VT_EMPTY;
+                            PWSTR canonicalName = NULL;
+                            if (SUCCEEDED(PSGetNameFromPropertyKey(key, &canonicalName)) && canonicalName != NULL)
+                            {
+                                WideCharToMultiByte(CP_UTF8, 0, canonicalName, -1,
+                                                    ExplorerColumnCanonicalNames[ExplorerColumnsCount],
+                                                    EXPLORER_COLUMN_CANONICAL_NAME_MAX, NULL, NULL);
+                                CoTaskMemFree(canonicalName);
+                            }
+                            LPWSTR invitation = NULL;
+                            if (SUCCEEDED(propDesc->GetEditInvitation(&invitation)) && invitation != NULL)
+                            {
+                                WideCharToMultiByte(CP_ACP, 0, invitation, -1,
+                                                    ExplorerColumnDescriptions[ExplorerColumnsCount],
+                                                    COLUMN_DESCRIPTION_MAX, NULL, NULL);
+                                CoTaskMemFree(invitation);
+                            }
+                            propDesc->GetPropertyType(&ExplorerColumnTypes[ExplorerColumnsCount]);
                             ExplorerColumnsCount++;
                         }
                     }
@@ -1724,6 +1969,41 @@ const char* GetExplorerColumnName(int index)
 {
     LoadExplorerColumns();
     return index >= 0 && index < ExplorerColumnsCount ? ExplorerColumnNames[index] : "";
+}
+
+const char* GetExplorerColumnCanonicalName(int index)
+{
+    LoadExplorerColumns();
+    return index >= 0 && index < ExplorerColumnsCount ? ExplorerColumnCanonicalNames[index] : "";
+}
+
+const char* GetExplorerColumnDescription(int index)
+{
+    LoadExplorerColumns();
+    return index >= 0 && index < ExplorerColumnsCount ? ExplorerColumnDescriptions[index] : "";
+}
+
+VARTYPE GetExplorerColumnType(int index)
+{
+    LoadExplorerColumns();
+    return index >= 0 && index < ExplorerColumnsCount ? ExplorerColumnTypes[index] : VT_EMPTY;
+}
+
+CExplorerColumnCategory GetExplorerColumnCategory(int index)
+{
+    const char* name = GetExplorerColumnCanonicalName(index);
+    if (_strnicmp(name, "System.Document.", 16) == 0)
+        return eccDocument;
+    if (_strnicmp(name, "System.Image.", 13) == 0 || _strnicmp(name, "System.Photo.", 13) == 0)
+        return eccImage;
+    if (_strnicmp(name, "System.Audio.", 13) == 0 || _strnicmp(name, "System.Music.", 13) == 0)
+        return eccAudio;
+    if (_strnicmp(name, "System.Video.", 13) == 0 || _strnicmp(name, "System.Media.", 13) == 0)
+        return eccVideo;
+    if (_strnicmp(name, "System.File", 11) == 0 || _strnicmp(name, "System.Item", 11) == 0 ||
+        _strnicmp(name, "System.Size", 11) == 0 || _strnicmp(name, "System.Date", 11) == 0)
+        return eccFileSystem;
+    return eccOther;
 }
 
 //****************************************************************************

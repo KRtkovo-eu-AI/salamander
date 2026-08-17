@@ -106,12 +106,13 @@ CEditLBEdit::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 //
 
 CEditListBox::CEditListBox(HWND hDlg, int ctrlID, DWORD flags, CObjectOrigin origin)
-    : CWindow(hDlg, ctrlID, origin)
+    : CWindow(hDlg, ctrlID, origin), FilterItems(20, 20)
 {
     HDlg = hDlg;
     Header = NULL;
     HSearchEdit = NULL;
     SearchVisible = FALSE;
+    FilterVisible = FALSE;
     SearchText[0] = 0;
     Flags = flags;
     DeleteAllItems();
@@ -237,6 +238,17 @@ void CEditListBox::DeleteAllItems()
 
 BOOL CEditListBox::SetCurSel(int index)
 {
+    if (FilterVisible && index >= 0 && index < FilterItems.Count)
+    {
+        INT_PTR wanted = FilterItems[index];
+        index = -1;
+        for (int i = 0; i < ItemsCount; i++)
+            if ((INT_PTR)SendMessage(HWindow, LB_GETITEMDATA, i, 0) == wanted)
+            {
+                index = i;
+                break;
+            }
+    }
     LRESULT ret = (SendMessage(HWindow, LB_SETCURSEL, index, 0) != LB_ERR || index == -1);
     CommandParent(LBN_SELCHANGE);
     return (BOOL)ret;
@@ -246,12 +258,17 @@ BOOL CEditListBox::GetCurSel(int& index)
 {
     LRESULT res = SendMessage(HWindow, LB_GETCURSEL, 0, 0);
     if (res != LB_ERR)
-        index = (int)res;
+        index = GetLogicalIndex((int)res);
     return res != LB_ERR;
 }
 
 BOOL CEditListBox::GetItemID(int index, INT_PTR& itemID)
 {
+    if (FilterVisible && index >= 0 && index < FilterItems.Count)
+    {
+        itemID = FilterItems[index];
+        return TRUE;
+    }
     itemID = (INT_PTR)SendMessage(HWindow, LB_GETITEMDATA, index, 0);
     return TRUE;
 }
@@ -277,7 +294,7 @@ BOOL CEditListBox::MakeHeader(int ctrlID)
 {
     Header = new CToolbarHeader(HDlg, ctrlID, HWindow,
                                 TLBHDRMASK_MODIFY | TLBHDRMASK_NEW | TLBHDRMASK_DELETE |
-                                    TLBHDRMASK_SEARCH | TLBHDRMASK_TOP | TLBHDRMASK_UP | TLBHDRMASK_DOWN | TLBHDRMASK_BOTTOM);
+                                    TLBHDRMASK_SEARCH | TLBHDRMASK_FILTER | TLBHDRMASK_TOP | TLBHDRMASK_UP | TLBHDRMASK_DOWN | TLBHDRMASK_BOTTOM);
     if (Header == NULL)
     {
         TRACE_E(LOW_MEMORY);
@@ -325,15 +342,19 @@ void CEditListBox::CommandParent(UINT code)
 DWORD CEditListBox::GetEnabler()
 {
     DWORD enabler = TLBHDRMASK_MODIFY | TLBHDRMASK_NEW | TLBHDRMASK_DELETE |
-                   TLBHDRMASK_SEARCH | TLBHDRMASK_TOP | TLBHDRMASK_UP | TLBHDRMASK_DOWN | TLBHDRMASK_BOTTOM;
+                   TLBHDRMASK_SEARCH | TLBHDRMASK_FILTER | TLBHDRMASK_TOP | TLBHDRMASK_UP | TLBHDRMASK_DOWN | TLBHDRMASK_BOTTOM;
     if (Flags & ELB_ENABLECOMMANDS)
     {
         int index = (int)SendMessage(HWindow, LB_GETCURSEL, 0, 0);
         DispInfo.ItemID = (INT_PTR)SendMessage(HWindow, LB_GETITEMDATA, index, 0);
-        DispInfo.Index = index;
+        DispInfo.Index = GetLogicalIndex(index);
         NotifyParent(&DispInfo, EDTLBN_ENABLECOMMANDS);
         enabler = DispInfo.Enable;
     }
+    if (enabler & TLBHDRMASK_SEARCH)
+        enabler |= TLBHDRMASK_FILTER;
+    if (FilterVisible)
+        enabler &= TLBHDRMASK_SEARCH | TLBHDRMASK_FILTER;
     return enabler;
 }
 
@@ -346,16 +367,19 @@ void CEditListBox::OnSelChanged()
 
     DWORD mask = 0;
     if (!disableAll)
-        mask |= (enabler & (TLBHDRMASK_MODIFY | TLBHDRMASK_NEW | TLBHDRMASK_SEARCH));
-    if (!disableAll && ItemsCount > 0 && index != ItemsCount)
+        mask |= (enabler & (TLBHDRMASK_SEARCH | TLBHDRMASK_FILTER));
+    if (!disableAll && !FilterVisible)
+        mask |= (enabler & (TLBHDRMASK_MODIFY | TLBHDRMASK_NEW));
+    if (!disableAll && !FilterVisible && ItemsCount > 0 && index != ItemsCount)
         mask |= (enabler & TLBHDRMASK_DELETE);
-    if (!disableAll && index > 0 && index < ItemsCount)
+    if (!disableAll && !FilterVisible && index > 0 && index < ItemsCount)
         mask |= (enabler & (TLBHDRMASK_TOP | TLBHDRMASK_UP));
-    if (!disableAll && index >= 0 && index < ItemsCount - 1)
+    if (!disableAll && !FilterVisible && index >= 0 && index < ItemsCount - 1)
         mask |= (enabler & (TLBHDRMASK_DOWN | TLBHDRMASK_BOTTOM));
 
     Header->EnableToolbar(mask);
-    Header->CheckToolbar(SearchVisible ? TLBHDRMASK_SEARCH : 0);
+    Header->CheckToolbar((SearchVisible ? TLBHDRMASK_SEARCH : 0) |
+                         (FilterVisible ? TLBHDRMASK_FILTER : 0));
 }
 
 
@@ -368,7 +392,7 @@ void CEditListBox::LayoutSearchEdit()
     RECT headerRect;
     GetClientRect(Header->HWindow, &headerRect);
 
-    const int buttonsWidth = 8 * 22 + 4; // Search, Modify, New, Delete, Top, Up, Down, Bottom in edit-list headers.
+    const int buttonsWidth = 9 * 22 + 4; // Search, Filter, Modify, New, Delete, Top, Up, Down, Bottom.
     int width = headerRect.right - headerRect.left - buttonsWidth - 4;
     if (width > 180)
         width = 180;
@@ -379,7 +403,7 @@ void CEditListBox::LayoutSearchEdit()
         left = 4;
     SetWindowPos(HSearchEdit, HWND_TOP, left, 2,
                  width, headerRect.bottom - headerRect.top - 4,
-                 SearchVisible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW);
+                 (SearchVisible || FilterVisible) ? SWP_SHOWWINDOW : SWP_HIDEWINDOW);
 }
 
 BOOL CEditListBox::SearchMatches(const char* text)
@@ -399,11 +423,106 @@ BOOL CEditListBox::SearchMatches(const char* text)
     return strstr(haystack, needle) != NULL;
 }
 
+BOOL CEditListBox::TextMatches(const char* text)
+{
+    if (SearchText[0] == 0)
+        return TRUE;
+    if (text == NULL)
+        return FALSE;
+    char needle[100];
+    lstrcpyn(needle, SearchText, _countof(needle));
+    CharLowerBuffA(needle, lstrlen(needle));
+    char haystack[MAX_PATH];
+    lstrcpyn(haystack, text, _countof(haystack));
+    CharLowerBuffA(haystack, lstrlen(haystack));
+    return strstr(haystack, needle) != NULL;
+}
+
+int CEditListBox::GetLogicalIndex(int visibleIndex)
+{
+    if (!FilterVisible || visibleIndex < 0 || visibleIndex >= ItemsCount)
+        return visibleIndex;
+    INT_PTR itemID = (INT_PTR)SendMessage(HWindow, LB_GETITEMDATA, visibleIndex, 0);
+    for (int i = 0; i < FilterItems.Count; i++)
+        if (FilterItems[i] == itemID)
+            return i;
+    return visibleIndex;
+}
+
+void CEditListBox::CaptureFilterItems()
+{
+    FilterItems.DestroyMembers();
+    for (int i = 0; i < ItemsCount; i++)
+        FilterItems.Add((INT_PTR)SendMessage(HWindow, LB_GETITEMDATA, i, 0));
+    if (!FilterItems.IsGood())
+        FilterItems.ResetState();
+}
+
+void CEditListBox::RebuildFilteredItems(BOOL filter)
+{
+    INT_PTR selectedID = -1;
+    int selected = (int)SendMessage(HWindow, LB_GETCURSEL, 0, 0);
+    if (selected >= 0 && selected < ItemsCount)
+        selectedID = (INT_PTR)SendMessage(HWindow, LB_GETITEMDATA, selected, 0);
+
+    SendMessage(HWindow, LB_RESETCONTENT, 0, 0);
+    SendMessage(HWindow, LB_ADDSTRING, 0, -1); // trailing editable placeholder
+    ItemsCount = 0;
+    int selectedVisible = -1;
+    for (int i = 0; i < FilterItems.Count; i++)
+    {
+        INT_PTR itemID = FilterItems[i];
+        BOOL include = TRUE;
+        if (filter && SearchText[0] != 0)
+        {
+            DispInfo.ToDo = edtlbGetData;
+            DispInfo.Buffer = Buffer;
+            DispInfo.BufferLen = MAX_PATH;
+            DispInfo.Index = i;
+            DispInfo.ItemID = itemID;
+            DispInfo.HIcon = NULL;
+            DispInfo.Bold = FALSE;
+            Buffer[0] = 0;
+            NotifyParent(&DispInfo, EDTLBN_GETDISPINFO);
+            include = TextMatches(Buffer);
+        }
+        if (include)
+        {
+            LRESULT inserted = SendMessage(HWindow, LB_INSERTSTRING, ItemsCount, 1);
+            if (inserted != LB_ERR)
+            {
+                SendMessage(HWindow, LB_SETITEMDATA, inserted, itemID);
+                if (itemID == selectedID)
+                    selectedVisible = ItemsCount;
+                ItemsCount++;
+            }
+        }
+    }
+    if (selectedVisible < 0 && ItemsCount > 0)
+        selectedVisible = 0;
+    SendMessage(HWindow, LB_SETCURSEL, selectedVisible, 0);
+    CommandParent(LBN_SELCHANGE);
+    InvalidateRect(HWindow, NULL, TRUE);
+}
+
+void CEditListBox::ApplyFilter()
+{
+    if (HSearchEdit != NULL)
+        GetWindowText(HSearchEdit, SearchText, _countof(SearchText));
+    RebuildFilteredItems(TRUE);
+    OnSelChanged();
+}
+
 void CEditListBox::ApplySearch()
 {
     if (HSearchEdit != NULL)
         GetWindowText(HSearchEdit, SearchText, _countof(SearchText));
 
+    if (FilterVisible)
+    {
+        ApplyFilter();
+        return;
+    }
     if (SearchVisible && SearchText[0] != 0)
     {
         for (int i = 0; i < ItemsCount; i++)
@@ -431,6 +550,11 @@ void CEditListBox::ApplySearch()
 
 void CEditListBox::ToggleSearch()
 {
+    if (FilterVisible)
+    {
+        FilterVisible = FALSE;
+        RebuildFilteredItems(FALSE);
+    }
     SearchVisible = !SearchVisible;
     if (!SearchVisible)
         SearchText[0] = 0;
@@ -444,6 +568,35 @@ void CEditListBox::ToggleSearch()
     }
     LayoutSearchEdit();
     ApplySearch();
+}
+
+void CEditListBox::ToggleFilter()
+{
+    if (SearchVisible)
+        SearchVisible = FALSE;
+    if (!FilterVisible)
+    {
+        CaptureFilterItems();
+        FilterVisible = TRUE;
+    }
+    else
+    {
+        FilterVisible = FALSE;
+        SearchText[0] = 0;
+        RebuildFilteredItems(FALSE);
+    }
+    if (HSearchEdit != NULL)
+    {
+        SetWindowText(HSearchEdit, SearchText);
+        ShowWindow(HSearchEdit, (SearchVisible || FilterVisible) ? SW_SHOW : SW_HIDE);
+        if (FilterVisible)
+            SetFocus(HSearchEdit);
+    }
+    LayoutSearchEdit();
+    if (FilterVisible)
+        ApplyFilter();
+    else
+        OnSelChanged();
 }
 
 void CEditListBox::OnMoveTop()
@@ -505,6 +658,8 @@ void CEditListBox::OnMoveBottom()
 void CEditListBox::MoveItem(int newIndex)
 {
     CALL_STACK_MESSAGE2("CEditListBox::MoveItem(%d)", newIndex);
+    if (FilterVisible)
+        return;
     int index;
     if (!GetCurSel(index))
         return;
@@ -531,6 +686,8 @@ void CEditListBox::MoveItem(int newIndex)
 void CEditListBox::OnNew()
 {
     CALL_STACK_MESSAGE1("CEditListBox::OnNew()");
+    if (FilterVisible)
+        return;
     SendMessage(HWindow, LB_SETCURSEL, ItemsCount, 0);
     CommandParent(LBN_SELCHANGE);
     OnBeginEdit();
@@ -572,6 +729,8 @@ void CEditListBox::OnDelete()
 void CEditListBox::OnBeginEdit(int start, int end)
 {
     CALL_STACK_MESSAGE3("CEditListBox::OnBeginEdit(%d, %d)", start, end);
+    if (FilterVisible)
+        return;
     SaveDisabled = FALSE;
     if (EditLine != NULL)
         return;
@@ -770,7 +929,7 @@ void CEditListBox::OnDrawItem(LPARAM lParam)
                 int oldColor = SetTextColor(lpdis->hDC, textColor);
                 DispInfo.ToDo = edtlbGetData;
                 DispInfo.ItemID = itemID;
-                DispInfo.Index = lpdis->itemID;
+                DispInfo.Index = GetLogicalIndex(lpdis->itemID);
                 DispInfo.Buffer = Buffer;
                 DispInfo.BufferLen = MAX_PATH - 1;
                 DispInfo.Buffer[0] = 0;
@@ -950,6 +1109,9 @@ CEditListBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             case TLBHDR_SEARCH:
                 ToggleSearch();
                 break;
+            case TLBHDR_FILTER:
+                ToggleFilter();
+                break;
             case TLBHDR_TOP:
                 OnMoveTop();
                 break;
@@ -981,11 +1143,13 @@ CEditListBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             // should we deliver the SPACE message as a click on the icon?
             if (wParam == 32 && (Flags & ELB_SPACEASICONCLICK))
             {
-                int index;
-                if (GetCurSel(index))
+                if (FilterVisible)
+                    return 0;
+                int index = (int)SendMessage(HWindow, LB_GETCURSEL, 0, 0);
+                if (index != LB_ERR)
                 {
                     DispInfo.ItemID = (INT_PTR)SendMessage(HWindow, LB_GETITEMDATA, index, 0);
-                    DispInfo.Index = index;
+                    DispInfo.Index = GetLogicalIndex(index);
                     NotifyParent(&DispInfo, EDTLBN_ICONCLICKED);
                 }
             }
@@ -1062,8 +1226,8 @@ CEditListBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_LBUTTONDOWN:
     case WM_LBUTTONDBLCLK:
     {
-        int index;
-        if (GetCurSel(index))
+        int index = (int)SendMessage(HWindow, LB_GETCURSEL, 0, 0);
+        if (index != LB_ERR)
         {
             if (EditLine != NULL && (Flags & ELB_RIGHTARROW))
             {
@@ -1114,11 +1278,13 @@ CEditListBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
             if ((Flags & ELB_SHOWICON) && (pt.x < IconSizes[ICONSIZE_16] + 2))
             {
+                if (FilterVisible)
+                    return 0;
                 DispInfo.ItemID = (INT_PTR)SendMessage(HWindow, LB_GETITEMDATA, index, 0);
-                DispInfo.Index = index;
+                DispInfo.Index = GetLogicalIndex(index);
                 NotifyParent(&DispInfo, EDTLBN_ICONCLICKED);
             }
-            else if (HMarkWindow != NULL && item < ItemsCount) // we must not allow dragging of an empty item
+            else if (!FilterVisible && HMarkWindow != NULL && item < ItemsCount) // do not drag a filtered projection
             {
                 WaitForDrag = TRUE;
                 DragAnchor = pt;

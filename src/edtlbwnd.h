@@ -74,7 +74,9 @@ protected:
     CEditLBEdit* EditLine;
     HWND HSearchEdit;
     BOOL SearchVisible;
+    BOOL FilterVisible;
     char SearchText[100];
+    TDirectArray<INT_PTR> FilterItems;
     HWND HDlg;
     EDTLB_DISPINFO DispInfo;
     char Buffer[MAX_PATH];
@@ -144,9 +146,15 @@ public:
     void OnMoveBottom();
     void MoveItem(int newIndex);
     void ToggleSearch();
+    void ToggleFilter();
     void ApplySearch();
+    void ApplyFilter();
     void LayoutSearchEdit();
     BOOL SearchMatches(const char* text);
+    BOOL TextMatches(const char* text);
+    int GetLogicalIndex(int visibleIndex);
+    void CaptureFilterItems();
+    void RebuildFilteredItems(BOOL filter);
 
     // returns which commands are enabled (can query the parent)
     DWORD GetEnabler();

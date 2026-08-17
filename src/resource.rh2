@@ -700,6 +700,14 @@
 #define CM_VIEW_STATUSBAR     6102
 #define CM_LOGVIEWMODE       6103
 
+// Transient command ranges used by dynamically added detailed view templates.
+#define CM_ACTIVEEXTRAMODE_MIN 6104
+#define CM_ACTIVEEXTRAMODE_MAX 6135
+#define CM_LEFTEXTRAMODE_MIN   6136
+#define CM_LEFTEXTRAMODE_MAX   6167
+#define CM_RIGHTEXTRAMODE_MIN  6168
+#define CM_RIGHTEXTRAMODE_MAX  6199
+
 
 // timers
 #define IDT_AUTOSCROLL        6200
