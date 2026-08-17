@@ -111,7 +111,10 @@ Schema 2 adds two optional native roles while schema 1 remains accepted:
   root without starting its runtime worker; locale resources can translate names
   through `fileSystems.<fileSystemId>.rootItems.<itemId>`. `refreshDepth` defaults to `0`, preserving
   periodic refresh at every level; manual refresh always reloads the current path.
-  A column declares `id`, `name`, optional `description`, `width`, and `numeric`.
+  A column declares `id`, `name`, optional `description`, `width`, `numeric`,
+  and `size`. A `size` column carries an unsigned byte count and is formatted
+  using the user's Configuration > Panels > Show sizes choice (bytes, KB, or
+  short mixed units); it is implicitly numeric.
   The list handler calls `Salamander.fileSystem.addItems` /
   `file_system.add_items` once for a snapshot (or `addItem` / `add_item` for a
   small incremental list). The batch call returns the number of accepted items

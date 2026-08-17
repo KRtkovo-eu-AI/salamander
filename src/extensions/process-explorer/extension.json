@@ -39,7 +39,7 @@
       {"id": "pid", "name": "PID", "description": "Process identifier", "width": 72, "numeric": true},
       {"id": "status", "name": "Status", "description": "Process status", "width": 100},
       {"id": "cpu", "name": "CPU", "description": "Current processor usage", "width": 72, "numeric": true},
-      {"id": "memory", "name": "Memory", "description": "Active private working set", "width": 110, "numeric": true},
+      {"id": "memory", "name": "Memory", "description": "Active private working set", "width": 110, "numeric": true, "size": true},
       {"id": "userName", "name": "User name", "description": "Account that owns the process", "width": 180}
     ],
     "actions": [

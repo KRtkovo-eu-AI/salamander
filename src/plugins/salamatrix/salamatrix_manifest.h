@@ -100,8 +100,9 @@ struct CExtensionManifestFileSystem
         std::string Description;
         unsigned int Width;
         bool Numeric;
+        bool Size;
 
-        Column() : Width(100), Numeric(false) {}
+        Column() : Width(100), Numeric(false), Size(false) {}
     };
 
     struct Action

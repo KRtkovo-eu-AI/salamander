@@ -1509,8 +1509,11 @@ bool CExtensionManifest::Parse(
                         !ReadString(columnValue, "name", true, column.Name, error) ||
                         !ReadString(columnValue, "description", false, column.Description, error) ||
                         !ReadInteger(columnValue, "width", 100, 24, 1000, width, error) ||
-                        !ReadBoolean(columnValue, "numeric", false, column.Numeric, error))
+                        !ReadBoolean(columnValue, "numeric", false, column.Numeric, error) ||
+                        !ReadBoolean(columnValue, "size", false, column.Size, error))
                         return false;
+                    if (column.Size)
+                        column.Numeric = true;
                     column.Width = static_cast<unsigned int>(width);
                     if (!IsIdentifier(column.Id) || column.Name.empty() ||
                         column.Name.size() >= FileSystemColumnNameCapacity ||

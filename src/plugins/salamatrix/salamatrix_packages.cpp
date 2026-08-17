@@ -1108,6 +1108,34 @@ static int* SalamatrixFsTransferLen = NULL;
 static DWORD* SalamatrixFsTransferActCustomData = NULL;
 static volatile LONG SalamatrixFsNameColumnWidth[2] = {180, 180};
 static volatile LONG SalamatrixFsNameColumnFixed[2] = {1, 1};
+static const DWORD SALAMATRIX_FS_SIZE_COLUMN = 0x40000000;
+
+static std::string SalamatrixFormatFileSystemColumnValue(
+    const std::string& value, bool sizeColumn)
+{
+    if (!sizeColumn || value.empty())
+        return value;
+    char* end = NULL;
+    const unsigned __int64 bytes = _strtoui64(value.c_str(), &end, 10);
+    if (end == value.c_str() || end == NULL || *end != '\0')
+        return value;
+    if (SalamanderGeneral == NULL)
+        return value;
+    int sizeFormat = 2;
+    int configType = 0;
+    SalamanderGeneral->GetConfigParameter(
+        SALCFG_SIZEFORMAT, &sizeFormat, sizeof(sizeFormat), &configType);
+    int printMode = 0;
+    if (sizeFormat == 0)
+        printMode = 2;
+    else if (sizeFormat == 1)
+        printMode = 3;
+    char formatted[200];
+    const CQuadWord size(
+        static_cast<DWORD>(bytes), static_cast<DWORD>(bytes >> 32));
+    SalamanderGeneral->PrintDiskSize(formatted, size, printMode);
+    return formatted;
+}
 
 static void WINAPI SalamatrixFileSystemColumnText()
 {
@@ -1118,10 +1146,14 @@ static void WINAPI SalamatrixFileSystemColumnText()
         return;
     const SalamatrixFileSystemItemData* data =
         reinterpret_cast<const SalamatrixFileSystemItemData*>((*SalamatrixFsTransferFileData)->PluginData);
-    const size_t index = static_cast<size_t>(*SalamatrixFsTransferActCustomData - 1);
+    const DWORD customData = *SalamatrixFsTransferActCustomData;
+    const bool sizeColumn = (customData & SALAMATRIX_FS_SIZE_COLUMN) != 0;
+    const size_t index = static_cast<size_t>(
+        (customData & ~SALAMATRIX_FS_SIZE_COLUMN) - 1);
     if (data == NULL || index >= data->Item.ColumnValues.size())
         return;
-    const std::string& value = data->Item.ColumnValues[index];
+    const std::string value = SalamatrixFormatFileSystemColumnValue(
+        data->Item.ColumnValues[index], sizeColumn);
     const size_t length = min(value.size(), static_cast<size_t>(TRANSFER_BUFFER_MAX));
     memcpy(SalamatrixFsTransferBuffer, value.data(), length);
     *SalamatrixFsTransferLen = static_cast<int>(length);
@@ -1309,7 +1341,8 @@ public:
                 StringCchCopyA(column.Name, _countof(column.Name), Columns[index].Name.c_str());
                 StringCchCopyA(column.Description, _countof(column.Description), Columns[index].Description.c_str());
                 column.GetText = SalamatrixFileSystemColumnText;
-                column.CustomData = static_cast<DWORD>(index + 1);
+                column.CustomData = static_cast<DWORD>(index + 1) |
+                    (Columns[index].Size ? SALAMATRIX_FS_SIZE_COLUMN : 0);
                 column.SupportSorting = 1;
                 column.LeftAlignment = Columns[index].Numeric ? 0 : 1;
                 column.ID = COLUMN_ID_CUSTOM;
@@ -1359,7 +1392,8 @@ public:
              index < Columns.size() && index < data->Item.ColumnValues.size();
              ++index)
         {
-            const std::string& value = data->Item.ColumnValues[index];
+            const std::string value = SalamatrixFormatFileSystemColumnValue(
+                data->Item.ColumnValues[index], Columns[index].Size);
             if (value.empty())
                 continue;
             const char* separator = used == 0 ? "" : "\n";

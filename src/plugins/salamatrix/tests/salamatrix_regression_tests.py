@@ -1906,6 +1906,19 @@ def main() -> int:
         "Process Explorer does not publish Task Manager fields and executable icons")
     require(
         process_explorer,
+        r"GetPrivateWorkingSet.*?\[uint64\]\$privateWorkingSet\)\.ToString\(.*?"
+        r"InvariantCulture.*?memory=\$memoryText",
+        "Process Explorer does not publish its memory value as raw bytes")
+    if not columns[3].get("size"):
+        raise AssertionError(
+            "Process Explorer memory column does not declare byte-size semantics")
+    require(
+        manifest + packages,
+        r'ReadBoolean\(columnValue, "size".*?column\.Numeric = true.*?'
+        r'SALCFG_SIZEFORMAT.*?PrintDiskSize.*?Columns\[index\]\.Size',
+        "Salamatrix size columns do not follow the user's panel size format")
+    require(
+        process_explorer,
         r"List\[hashtable\].*?\$item = @\{.*?\.Add\(\$item\).*?"
         r"file_system\.AddItems",
         "Process Explorer does not publish its snapshot in one batch")

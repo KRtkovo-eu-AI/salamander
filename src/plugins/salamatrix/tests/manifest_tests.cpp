@@ -69,7 +69,7 @@ static void TestCompleteManifest()
         "\"defaultFileIcon\":\"assets/default.ico\","
         "\"refreshIntervalMs\":1000,\"refreshDepth\":2,\"rootItems\":["
         "{\"id\":\"cpu\",\"name\":\"CPU\",\"icon\":\"assets/cpu.svg\"}],\"columns\":["
-        "{\"id\":\"pid\",\"name\":\"PID\",\"description\":\"Process id\",\"width\":72,\"numeric\":true}],\"actions\":["
+        "{\"id\":\"pid\",\"name\":\"PID\",\"description\":\"Process id\",\"width\":72,\"numeric\":true,\"size\":true}],\"actions\":["
         "{\"id\":\"connect\",\"title\":\"Connect\",\"handler\":\"connect\",\"default\":true},"
         "{\"separator\":true},"
         "{\"id\":\"start\",\"title\":\"Start\",\"handler\":\"start\",\"refresh\":false}]}]"
@@ -147,6 +147,7 @@ static void TestCompleteManifest()
     CHECK(manifest.FileSystems[0].Columns[0].Id == "pid");
     CHECK(manifest.FileSystems[0].Columns[0].Width == 72);
     CHECK(manifest.FileSystems[0].Columns[0].Numeric);
+    CHECK(manifest.FileSystems[0].Columns[0].Size);
     CHECK(manifest.FileSystems[0].Actions.size() == 3);
     CHECK(manifest.FileSystems[0].Actions[0].Default);
     CHECK(manifest.FileSystems[0].Actions[1].Separator);
