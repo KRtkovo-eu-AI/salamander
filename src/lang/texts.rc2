@@ -2201,7 +2201,7 @@ STRINGTABLE
  IDS_EXCOL_MOVE_DOWN, "Move &down"
  IDS_EXCOL_EXECUTABLE, "Executable"
  IDS_EXCOL_ARCHIVE, "Archive"
- IDS_MENU_FILES_EDITPROPERTIES, "Edit &Tags and Custom properties..."
+ IDS_MENU_FILES_EDITPROPERTIES, "Edit &Tags and Windows Properties..."
  IDS_EDPROP_TITLE, "Edit Tags and Windows Properties"
  IDS_EDPROP_PROPERTY, "&Property:"
  IDS_EDPROP_OPERATION, "&Operation:"
