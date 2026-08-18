@@ -3019,6 +3019,7 @@
 #define IDS_EDPROP_REASON_UNSUPPORTED            14415
 #define IDS_EDPROP_REASON_READONLY               14416
 #define IDS_EDPROP_REASON_OTHER                  14417
+#define IDS_EDPROP_VALUE_COLUMN                  14418
 
 #define IDS_MENU_OPT_MANAGECONFIG        13169
 

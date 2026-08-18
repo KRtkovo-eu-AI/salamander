@@ -285,7 +285,17 @@ void CEditListBox::Enable(BOOL enable)
         OnEndEdit();
     ::EnableWindow(HWindow, enable);
     if (Header != NULL)
+    {
+        if (!enable)
+            Header->EnableToolbar(0);
         ::EnableWindow(Header->HWindow, enable);
+        if (enable)
+            OnSelChanged();
+        RedrawWindow(Header->HWindow, NULL, NULL,
+                     RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+    }
+    if (HSearchEdit != NULL)
+        ::EnableWindow(HSearchEdit, enable);
 }
 
 BOOL CEditListBox::GetCurSelItemID(INT_PTR& itemID)
@@ -350,6 +360,8 @@ void CEditListBox::CommandParent(UINT code)
 
 DWORD CEditListBox::GetEnabler()
 {
+    if (!IsWindowEnabled(HWindow))
+        return 0;
     DWORD enabler = TLBHDRMASK_MODIFY | TLBHDRMASK_NEW | TLBHDRMASK_DELETE |
                    TLBHDRMASK_SEARCH | TLBHDRMASK_FILTER | TLBHDRMASK_TOP | TLBHDRMASK_UP | TLBHDRMASK_DOWN | TLBHDRMASK_BOTTOM;
     if (Flags & ELB_ENABLECOMMANDS)
@@ -892,7 +904,8 @@ void CEditListBox::OnDrawItem(LPARAM lParam)
 #else
             const COLORREF darkBg = darkColors.background;
 #endif
-            if (lpdis->itemState & ODS_SELECTED)
+            const BOOL enabled = IsWindowEnabled(HWindow);
+            if (enabled && lpdis->itemState & ODS_SELECTED)
             {
                 if (lpdis->itemState & ODS_FOCUS)
                     bkColor = useDark ? darkBg : COLOR_HIGHLIGHT;
@@ -931,7 +944,10 @@ void CEditListBox::OnDrawItem(LPARAM lParam)
                 dtp.iLeftMargin = dtp.iRightMargin = 4;
                 int oldBkMode = SetBkMode(lpdis->hDC, TRANSPARENT);
                 COLORREF textColor;
-                if (lpdis->itemState & ODS_SELECTED && lpdis->itemState & ODS_FOCUS)
+                if (!enabled)
+                    textColor = useDark ? DarkModeGetDisabledTextColor()
+                                        : GetSysColor(COLOR_GRAYTEXT);
+                else if (lpdis->itemState & ODS_SELECTED && lpdis->itemState & ODS_FOCUS)
                     textColor = useDark ? darkColors.readableText : GetSysColor(COLOR_HIGHLIGHTTEXT);
                 else
                     textColor = useDark ? darkColors.readableText : GetSysColor(COLOR_WINDOWTEXT);

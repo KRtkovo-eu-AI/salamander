@@ -140,11 +140,28 @@ def main() -> int:
     )
     require(
         "IsPropertyWritableForAll(*key)" in file_window
-        and "EnableWindow(check, writable)" in file_window
+        and "!PropertyRows[change->iItem].Writable" in file_window
+        and "SetWindowLongPtr(HWindow, DWLP_MSGRESULT, TRUE)" in file_window
         and "if (!row.Writable)" in file_window
         and "IDS_EDPROP_RESULT_DETAIL" in file_window
         and "IDS_EDPROP_REASON_UNSUPPORTED" in file_window,
         "unsupported custom properties must be unchecked and disabled and write errors must explain why",
+    )
+    require(
+        "LVS_EX_FULLROWSELECT | LVS_EX_CHECKBOXES | LVS_EX_DOUBLEBUFFER" in file_window
+        and "ListView_InsertColumn(PropertiesList, 0" in file_window
+        and "ListView_InsertColumn(PropertiesList, 1" in file_window
+        and "BeginPropertyEdit" in file_window
+        and "ListView_GetSubItemRect(PropertiesList, row, 1" in file_window
+        and "MainWindow->ViewTemplates.IsExplorerColumnAvailable(i)" in file_window
+        and "if (!hadValue && !MainWindow->ViewTemplates.IsExplorerColumnAvailable(i))" in file_window,
+        "Windows properties must use an editable Name/Value checklist and include selected or populated properties",
+    )
+    require(
+        "Header->EnableToolbar(0);" in edit_list
+        and "IsWindowEnabled(HWindow)" in gui
+        and "DarkModeGetDisabledTextColor()" in gui,
+        "disabling Tags must visibly disable its list, header caption, and header commands",
     )
     require(
         "EditWindowsProperties" in file_window
@@ -180,6 +197,14 @@ def main() -> int:
         and '"%s\\r\\n%s: %s\\r\\n%s: %s\\r\\n%s: %s\\r\\n%s: %s%s%s"' in dialog
         and 'GetExplorerColumnDescription(index)[0] != 0 ? "\\r\\n" : ""' in dialog,
         "the Windows property chooser must use Configuration-like compact rows and detail spacing",
+    )
+    require(
+        "const int contentTop = ExplorerColumnsDialogY(HWindow, 27);" in dialog
+        and "int detailsTop = contentTop + selectedHeight;" in dialog
+        and "IDC_EXCOL_CATEGORIES,\"SysTreeView32\"" in lang_rc
+        and ",4,27,105,271" in lang_rc
+        and "IDC_EXCOL_DETAILS_GROUP,282,162,174,136" in lang_rc,
+        "the chooser must add space below Search while keeping only a half-height gap between right-side groups",
     )
     require(
         "ExplorerColumnsDialogX" in dialog

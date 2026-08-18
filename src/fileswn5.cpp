@@ -66,8 +66,9 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
 {
     enum
     {
-        EDPROP_DYNAMIC_CHECK_FIRST = 30000,
-        EDPROP_DYNAMIC_EDIT_FIRST = 31000
+        EDPROP_VALUE_EDIT = 31000,
+        EDPROP_COMMIT_VALUE = WM_APP + 117,
+        EDPROP_CANCEL_VALUE = WM_APP + 118
     };
 
     struct CTagItem
@@ -78,8 +79,7 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
     struct CPropertyRow
     {
         int ExplorerIndex;
-        HWND HCheck;
-        HWND HEdit;
+        std::wstring Value;
         BOOL HadValue;
         BOOL Writable;
     };
@@ -88,7 +88,10 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
     CEditListBox* TagsList;
     std::vector<CTagItem*> Tags;
     std::vector<CPropertyRow> PropertyRows;
-    int PropertyScrollPos;
+    HWND PropertiesList;
+    HWND PropertyEdit;
+    int EditingProperty;
+    BOOL FillingProperties;
     BOOL TagsHadValue;
     BOOL TagsWritable;
 
@@ -135,114 +138,121 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
                            IsDlgButtonChecked(HWindow, IDC_EDPROP_TAGS_ENABLE) == BST_CHECKED;
         if (TagsList != NULL)
             TagsList->Enable(tagsEnabled);
-        for (size_t i = 0; i < PropertyRows.size(); i++)
-            EnableWindow(PropertyRows[i].HEdit, PropertyRows[i].Writable &&
-                         SendMessage(PropertyRows[i].HCheck, BM_GETCHECK, 0, 0) == BST_CHECKED);
+        InvalidateRect(GetDlgItem(HWindow, IDC_EDPROP_TAGS_HEADER), NULL, TRUE);
+        InvalidateRect(GetDlgItem(HWindow, IDC_EDPROP_TAGS_LIST), NULL, TRUE);
     }
 
-    void LayoutPropertyRows()
+    static LRESULT CALLBACK PropertyEditSubclass(HWND hwnd, UINT message, WPARAM wParam,
+                                                 LPARAM lParam, UINT_PTR, DWORD_PTR data)
     {
-        HWND group = GetDlgItem(HWindow, IDC_EDPROP_PROPERTIES_GROUP);
-        HWND scroll = GetDlgItem(HWindow, IDC_EDPROP_PROPERTIES_SCROLL);
-        RECT groupRect;
-        GetWindowRect(group, &groupRect);
-        POINT topLeft = {groupRect.left, groupRect.top};
-        POINT bottomRight = {groupRect.right, groupRect.bottom};
-        ScreenToClient(HWindow, &topLeft);
-        ScreenToClient(HWindow, &bottomRight);
-
-        RECT dlu = {0, 0, 135, 18};
-        MapDialogRect(HWindow, &dlu);
-        int rowHeight = dlu.bottom;
-        int checkWidth = dlu.right;
-        RECT marginDlu = {0, 0, 8, 14};
-        MapDialogRect(HWindow, &marginDlu);
-        int left = topLeft.x + marginDlu.right;
-        int top = topLeft.y + marginDlu.bottom;
-        int bottom = bottomRight.y - marginDlu.right;
-        int visibleRows = max(1, (bottom - top) / rowHeight);
-        int maxScroll = max(0, (int)PropertyRows.size() - visibleRows);
-        if (PropertyScrollPos > maxScroll)
-            PropertyScrollPos = maxScroll;
-
-        SCROLLINFO info;
-        ZeroMemory(&info, sizeof(info));
-        info.cbSize = sizeof(info);
-        info.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
-        info.nMin = 0;
-        info.nMax = max(0, (int)PropertyRows.size() - 1);
-        info.nPage = visibleRows;
-        info.nPos = PropertyScrollPos;
-        SetScrollInfo(scroll, SB_CTL, &info, TRUE);
-        ShowWindow(scroll, maxScroll > 0 ? SW_SHOW : SW_HIDE);
-
-        RECT scrollRect;
-        GetWindowRect(scroll, &scrollRect);
-        int right = max(left + checkWidth + 40, bottomRight.x - marginDlu.right -
-                                                   (maxScroll > 0 ? scrollRect.right - scrollRect.left + 3 : 0));
-        for (size_t i = 0; i < PropertyRows.size(); i++)
+        CEditWindowsPropertiesDialog* dialog = (CEditWindowsPropertiesDialog*)data;
+        if (message == WM_GETDLGCODE)
+            return DLGC_WANTALLKEYS;
+        if (message == WM_KEYDOWN)
         {
-            int visibleIndex = (int)i - PropertyScrollPos;
-            BOOL visible = visibleIndex >= 0 && visibleIndex < visibleRows;
-            if (visible)
+            if (wParam == VK_RETURN)
             {
-                int y = top + visibleIndex * rowHeight;
-                MoveWindow(PropertyRows[i].HCheck, left, y, checkWidth, rowHeight - 2, TRUE);
-                MoveWindow(PropertyRows[i].HEdit, left + checkWidth + 4, y,
-                           max(40, right - left - checkWidth - 4), rowHeight - 2, TRUE);
+                PostMessage(dialog->HWindow, EDPROP_COMMIT_VALUE, 0, 0);
+                return 0;
             }
-            ShowWindow(PropertyRows[i].HCheck, visible ? SW_SHOW : SW_HIDE);
-            ShowWindow(PropertyRows[i].HEdit, visible ? SW_SHOW : SW_HIDE);
+            if (wParam == VK_ESCAPE)
+            {
+                PostMessage(dialog->HWindow, EDPROP_CANCEL_VALUE, 0, 0);
+                return 0;
+            }
         }
+        return DefSubclassProc(hwnd, message, wParam, lParam);
+    }
+
+    void FinishPropertyEdit(BOOL save)
+    {
+        if (PropertyEdit == NULL || EditingProperty < 0)
+            return;
+        if (save && EditingProperty < (int)PropertyRows.size())
+        {
+            int length = GetWindowTextLengthW(PropertyEdit);
+            std::vector<wchar_t> value(length + 1);
+            GetWindowTextW(PropertyEdit, value.data(), (int)value.size());
+            PropertyRows[EditingProperty].Value = value.data();
+            LVITEMW item;
+            ZeroMemory(&item, sizeof(item));
+            item.iSubItem = 1;
+            item.pszText = (wchar_t*)PropertyRows[EditingProperty].Value.c_str();
+            SendMessageW(PropertiesList, LVM_SETITEMTEXTW, EditingProperty, (LPARAM)&item);
+        }
+        EditingProperty = -1;
+        ShowWindow(PropertyEdit, SW_HIDE);
+        SetFocus(PropertiesList);
+    }
+
+    void BeginPropertyEdit(int row)
+    {
+        if (row < 0 || row >= (int)PropertyRows.size() || !PropertyRows[row].Writable ||
+            !ListView_GetCheckState(PropertiesList, row))
+            return;
+        FinishPropertyEdit(TRUE);
+        RECT rect;
+        if (!ListView_GetSubItemRect(PropertiesList, row, 1, LVIR_BOUNDS, &rect))
+            return;
+        POINT points[2] = {{rect.left, rect.top}, {rect.right, rect.bottom}};
+        MapWindowPoints(PropertiesList, HWindow, points, 2);
+        if (PropertyEdit == NULL)
+        {
+            PropertyEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+                                           WS_CHILD | WS_TABSTOP | ES_AUTOHSCROLL,
+                                           0, 0, 0, 0, HWindow,
+                                           (HMENU)(INT_PTR)EDPROP_VALUE_EDIT, HInstance, NULL);
+            if (PropertyEdit == NULL)
+                return;
+            SendMessage(PropertyEdit, WM_SETFONT, SendMessage(HWindow, WM_GETFONT, 0, 0), TRUE);
+            SetWindowSubclass(PropertyEdit, PropertyEditSubclass, 1, (DWORD_PTR)this);
+        }
+        EditingProperty = row;
+        SetWindowTextW(PropertyEdit, PropertyRows[row].Value.c_str());
+        MoveWindow(PropertyEdit, points[0].x, points[0].y,
+                   max(1, points[1].x - points[0].x), max(1, points[1].y - points[0].y), TRUE);
+        ShowWindow(PropertyEdit, SW_SHOW);
+        SetFocus(PropertyEdit);
+        SendMessage(PropertyEdit, EM_SETSEL, 0, -1);
     }
 
     void AddPropertyRows()
     {
-        HFONT font = (HFONT)SendMessage(HWindow, WM_GETFONT, 0, 0);
+        FillingProperties = TRUE;
         int count = min(GetExplorerColumnCount(), EXPLORER_COLUMNS_COUNT);
         for (int i = 0; i < count; i++)
         {
             const PROPERTYKEY* key = GetExplorerColumnPropertyKey(i);
-            if (key == NULL || IsEqualPropertyKey(*key, PKEY_Keywords) ||
-                !MainWindow->ViewTemplates.IsExplorerColumnAvailable(i))
+            if (key == NULL || IsEqualPropertyKey(*key, PKEY_Keywords))
                 continue;
-
-            DWORD checkStyle = WS_CHILD | WS_TABSTOP |
-                               (IsMultiple() ? BS_AUTO3STATE : BS_AUTOCHECKBOX);
-            HWND check = CreateWindowEx(0, "BUTTON", GetExplorerColumnName(i), checkStyle,
-                                        0, 0, 0, 0, HWindow,
-                                        (HMENU)(INT_PTR)(EDPROP_DYNAMIC_CHECK_FIRST + PropertyRows.size()),
-                                        HInstance, NULL);
-            HWND edit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
-                                        WS_CHILD | WS_TABSTOP | ES_AUTOHSCROLL,
-                                        0, 0, 0, 0, HWindow,
-                                        (HMENU)(INT_PTR)(EDPROP_DYNAMIC_EDIT_FIRST + PropertyRows.size()),
-                                        HInstance, NULL);
-            if (check == NULL || edit == NULL)
-            {
-                if (check != NULL)
-                    DestroyWindow(check);
-                if (edit != NULL)
-                    DestroyWindow(edit);
-                continue;
-            }
-            SendMessage(check, WM_SETFONT, (WPARAM)font, TRUE);
-            SendMessage(edit, WM_SETFONT, (WPARAM)font, TRUE);
             std::wstring current;
             if (!Paths.empty())
                 ReadFilePropertyTextW(Paths[0].c_str(), *key, current);
-            SetWindowTextW(edit, current.c_str());
             BOOL hadValue = !current.empty();
+            if (!hadValue && !MainWindow->ViewTemplates.IsExplorerColumnAvailable(i))
+                continue;
             BOOL writable = IsPropertyWritableForAll(*key);
-            SendMessage(check, BM_SETCHECK, writable ? (IsMultiple() ? BST_INDETERMINATE
-                                                                     : hadValue ? BST_CHECKED : BST_UNCHECKED)
-                                                     : BST_UNCHECKED,
-                        0);
-            EnableWindow(check, writable);
-            CPropertyRow row = {i, check, edit, hadValue, writable};
+            CPropertyRow row = {i, current, hadValue, writable};
             PropertyRows.push_back(row);
+            LVITEM item;
+            ZeroMemory(&item, sizeof(item));
+            item.mask = LVIF_TEXT | LVIF_PARAM;
+            item.iItem = (int)PropertyRows.size() - 1;
+            item.pszText = (char*)GetExplorerColumnName(i);
+            item.lParam = item.iItem;
+            int inserted = ListView_InsertItem(PropertiesList, &item);
+            LVITEMW valueItem;
+            ZeroMemory(&valueItem, sizeof(valueItem));
+            valueItem.iSubItem = 1;
+            valueItem.pszText = (wchar_t*)current.c_str();
+            SendMessageW(PropertiesList, LVM_SETITEMTEXTW, inserted, (LPARAM)&valueItem);
+            ListView_SetCheckState(PropertiesList, inserted,
+                                   writable && (IsMultiple() || hadValue));
+            if (IsMultiple() && writable)
+                ListView_SetItemState(PropertiesList, inserted, INDEXTOSTATEIMAGEMASK(3),
+                                      LVIS_STATEIMAGEMASK);
         }
-        LayoutPropertyRows();
+        FillingProperties = FALSE;
     }
 
     void AddInitialTags()
@@ -368,7 +378,10 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
                 CPropertyRow& row = PropertyRows[rowIndex];
                 if (!row.Writable)
                     continue;
-                int state = (int)SendMessage(row.HCheck, BM_GETCHECK, 0, 0);
+                int state = ListView_GetItemState(PropertiesList, (int)rowIndex,
+                                                  LVIS_STATEIMAGEMASK) >> 12;
+                state = state == 3 ? BST_INDETERMINATE :
+                        state == 2 ? BST_CHECKED : BST_UNCHECKED;
                 if (state == BST_INDETERMINATE ||
                     (state == BST_UNCHECKED && !IsMultiple() && !row.HadValue))
                     continue;
@@ -376,20 +389,17 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
                 if (key == NULL)
                     continue;
                 anyAttempted = TRUE;
-                int length = GetWindowTextLengthW(row.HEdit);
-                std::vector<wchar_t> value(length + 1);
-                GetWindowTextW(row.HEdit, value.data(), (int)value.size());
                 HRESULT hr;
                 if (state == BST_CHECKED &&
                     GetExplorerColumnType(row.ExplorerIndex) == (VT_VECTOR | VT_LPWSTR))
                 {
                     std::vector<std::wstring> values;
-                    ParseFileTagsW(value.data(), values);
+                    ParseFileTagsW(row.Value.c_str(), values);
                     hr = WriteFileStringVectorPropertyW(Paths[pathIndex].c_str(), *key, values);
                 }
                 else
-                    hr = WriteFilePropertyTextW(Paths[pathIndex].c_str(), *key, value.data(),
-                                                state != BST_CHECKED || value[0] == 0);
+                    hr = WriteFilePropertyTextW(Paths[pathIndex].c_str(), *key, row.Value.c_str(),
+                                                state != BST_CHECKED || row.Value.empty());
                 if (SUCCEEDED(hr))
                     fileUpdated = TRUE;
                 else
@@ -470,7 +480,10 @@ public:
         : CCommonDialog(HLanguage, IDD_EDIT_PROPERTIES, parent), Paths(paths)
     {
         TagsList = NULL;
-        PropertyScrollPos = 0;
+        PropertiesList = NULL;
+        PropertyEdit = NULL;
+        EditingProperty = -1;
+        FillingProperties = FALSE;
         TagsHadValue = FALSE;
         TagsWritable = FALSE;
     }
@@ -495,6 +508,22 @@ protected:
             SetDlgItemText(HWindow, IDC_EDPROP_PROPERTIES_GROUP, LoadStr(IDS_EDPROP_OTHER_PROPERTIES));
             SetDlgItemText(HWindow, IDC_EDPROP_MULTI_HINT,
                            IsMultiple() ? LoadStr(IDS_EDPROP_MULTI_FORM_HINT) : "");
+            PropertiesList = GetDlgItem(HWindow, IDC_EDPROP_PROPERTIES_SCROLL);
+            ListView_SetExtendedListViewStyle(
+                PropertiesList, ListView_GetExtendedListViewStyle(PropertiesList) |
+                                    LVS_EX_FULLROWSELECT | LVS_EX_CHECKBOXES | LVS_EX_DOUBLEBUFFER);
+            ListView_SetUnicodeFormat(PropertiesList, TRUE);
+            LVCOLUMN propertyColumn;
+            ZeroMemory(&propertyColumn, sizeof(propertyColumn));
+            propertyColumn.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
+            propertyColumn.pszText = LoadStr(IDS_ICONOVRLS_NAME);
+            propertyColumn.cx = 210;
+            propertyColumn.iSubItem = 0;
+            ListView_InsertColumn(PropertiesList, 0, &propertyColumn);
+            propertyColumn.pszText = LoadStr(IDS_EDPROP_VALUE_COLUMN);
+            propertyColumn.cx = 380;
+            propertyColumn.iSubItem = 1;
+            ListView_InsertColumn(PropertiesList, 1, &propertyColumn);
             TagsWritable = IsPropertyWritableForAll(PKEY_Keywords);
 #ifdef new
 #undef new
@@ -516,10 +545,13 @@ protected:
             EnableWindow(tagsCheck, TagsWritable);
             AddPropertyRows();
             UpdateEnabledState();
+            RemoveListViewWhiteClientEdge(PropertiesList);
             if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
             {
                 DarkModeApplyTree(HWindow);
                 DarkModeRefreshTitleBar(HWindow);
+                DarkModeUpdateListViewColors(PropertiesList);
+                RemoveListViewWhiteClientEdge(PropertiesList);
                 DarkModeApplyStaticTextColors(HWindow, NULL);
             }
             return TRUE;
@@ -531,45 +563,24 @@ protected:
                 UpdateEnabledState();
                 return TRUE;
             }
-            if (LOWORD(wParam) >= EDPROP_DYNAMIC_CHECK_FIRST &&
-                LOWORD(wParam) < EDPROP_DYNAMIC_CHECK_FIRST + (int)PropertyRows.size() &&
-                HIWORD(wParam) == BN_CLICKED)
-            {
-                UpdateEnabledState();
-                return TRUE;
-            }
+            if (LOWORD(wParam) == EDPROP_VALUE_EDIT && HIWORD(wParam) == EN_KILLFOCUS)
+                FinishPropertyEdit(TRUE);
             if (LOWORD(wParam) == IDOK)
             {
+                FinishPropertyEdit(TRUE);
                 if (Apply())
                     EndDialog(HWindow, IDOK);
                 return TRUE;
             }
             break;
 
-        case WM_VSCROLL:
-            if ((HWND)lParam == GetDlgItem(HWindow, IDC_EDPROP_PROPERTIES_SCROLL))
-            {
-                SCROLLINFO info;
-                ZeroMemory(&info, sizeof(info));
-                info.cbSize = sizeof(info);
-                info.fMask = SIF_ALL;
-                GetScrollInfo((HWND)lParam, SB_CTL, &info);
-                int position = info.nPos;
-                switch (LOWORD(wParam))
-                {
-                case SB_LINEUP: position--; break;
-                case SB_LINEDOWN: position++; break;
-                case SB_PAGEUP: position -= info.nPage; break;
-                case SB_PAGEDOWN: position += info.nPage; break;
-                case SB_THUMBPOSITION:
-                case SB_THUMBTRACK: position = info.nTrackPos; break;
-                }
-                PropertyScrollPos = max(info.nMin,
-                                        min(position, info.nMax - (int)info.nPage + 1));
-                LayoutPropertyRows();
-                return TRUE;
-            }
-            break;
+        case EDPROP_COMMIT_VALUE:
+            FinishPropertyEdit(TRUE);
+            return TRUE;
+
+        case EDPROP_CANCEL_VALUE:
+            FinishPropertyEdit(FALSE);
+            return TRUE;
 
         case WM_DRAWITEM:
             if (wParam == IDC_EDPROP_TAGS_LIST && TagsList != NULL)
@@ -582,6 +593,68 @@ protected:
         case WM_NOTIFY:
         {
             NMHDR* header = (NMHDR*)lParam;
+            if (header->idFrom == IDC_EDPROP_PROPERTIES_SCROLL)
+            {
+                if (header->code == NM_CUSTOMDRAW)
+                {
+                    NMLVCUSTOMDRAW* draw = (NMLVCUSTOMDRAW*)lParam;
+                    LRESULT result = CDRF_DODEFAULT;
+                    if (draw->nmcd.dwDrawStage == CDDS_PREPAINT)
+                        result = CDRF_NOTIFYITEMDRAW;
+                    else if (draw->nmcd.dwDrawStage == CDDS_ITEMPREPAINT)
+                    {
+                        int row = (int)draw->nmcd.dwItemSpec;
+                        if (row >= 0 && row < (int)PropertyRows.size() &&
+                            !PropertyRows[row].Writable)
+                            draw->clrText = DarkModeShouldUseDarkColors()
+                                                ? DarkModeGetDisabledTextColor()
+                                                : GetSysColor(COLOR_GRAYTEXT);
+                        if (DarkModeShouldUseDarkColors())
+                        {
+                            draw->clrTextBk = DarkModeGetDialogBackgroundColor();
+                            if (ShouldCustomDrawListViewCheckboxes())
+                                result = CDRF_NOTIFYPOSTPAINT;
+                        }
+                    }
+                    else if (draw->nmcd.dwDrawStage == CDDS_ITEMPOSTPAINT &&
+                             DarkModeShouldUseDarkColors())
+                        DrawDarkModeListViewCheckboxes(PropertiesList, draw, 2);
+                    SetWindowLongPtr(HWindow, DWLP_MSGRESULT, result);
+                    return TRUE;
+                }
+                if (header->code == NM_DBLCLK)
+                {
+                    DWORD position = GetMessagePos();
+                    LVHITTESTINFO hit;
+                    ZeroMemory(&hit, sizeof(hit));
+                    hit.pt.x = GET_X_LPARAM(position);
+                    hit.pt.y = GET_Y_LPARAM(position);
+                    ScreenToClient(PropertiesList, &hit.pt);
+                    ListView_SubItemHitTest(PropertiesList, &hit);
+                    if (hit.iSubItem == 1)
+                        BeginPropertyEdit(hit.iItem);
+                    return TRUE;
+                }
+                if (header->code == LVN_KEYDOWN)
+                {
+                    NMLVKEYDOWN* key = (NMLVKEYDOWN*)lParam;
+                    if (key->wVKey == VK_F2)
+                        BeginPropertyEdit(ListView_GetNextItem(PropertiesList, -1, LVNI_SELECTED));
+                    return TRUE;
+                }
+                if (header->code == LVN_ITEMCHANGING && !FillingProperties)
+                {
+                    NMLISTVIEW* change = (NMLISTVIEW*)lParam;
+                    if (change->iItem >= 0 && change->iItem < (int)PropertyRows.size() &&
+                        !PropertyRows[change->iItem].Writable &&
+                        (change->uOldState & LVIS_STATEIMAGEMASK) !=
+                            (change->uNewState & LVIS_STATEIMAGEMASK))
+                    {
+                        SetWindowLongPtr(HWindow, DWLP_MSGRESULT, TRUE);
+                        return TRUE;
+                    }
+                }
+            }
             if (header->idFrom == IDC_EDPROP_TAGS_LIST && TagsList != NULL)
             {
                 EDTLB_DISPINFO* info = (EDTLB_DISPINFO*)lParam;
@@ -684,8 +757,25 @@ protected:
             break;
         }
 
+        case WM_THEMECHANGED:
+            if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+            {
+                DarkModeApplyTree(HWindow);
+                DarkModeRefreshTitleBar(HWindow);
+                DarkModeUpdateListViewColors(PropertiesList);
+                RemoveListViewWhiteClientEdge(PropertiesList);
+                DarkModeApplyStaticTextColors(HWindow, NULL);
+                RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+                return TRUE;
+            }
+            break;
+
         case WM_DESTROY:
+            if (PropertyEdit != NULL)
+                RemoveWindowSubclass(PropertyEdit, PropertyEditSubclass, 1);
             TagsList = NULL;
+            PropertiesList = NULL;
+            PropertyEdit = NULL;
             break;
         }
         return CCommonDialog::DialogProc(uMsg, wParam, lParam);

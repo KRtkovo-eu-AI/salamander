@@ -2078,7 +2078,7 @@ void CExplorerColumnsDialog::LayoutControls()
     GetClientRect(HWindow, &client);
     const int margin = ExplorerColumnsDialogX(HWindow, 4);
     const int buttonsY = client.bottom - ExplorerColumnsDialogY(HWindow, 18);
-    const int contentTop = ExplorerColumnsDialogY(HWindow, 23);
+    const int contentTop = ExplorerColumnsDialogY(HWindow, 27);
     const int contentBottom = buttonsY - ExplorerColumnsDialogY(HWindow, 4);
     const int treeWidth = ExplorerColumnsDialogX(HWindow, 105);
     const int detailsWidth = max(ExplorerColumnsDialogX(HWindow, 174),
@@ -2122,7 +2122,7 @@ void CExplorerColumnsDialog::LayoutControls()
     MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_MOVE_DOWN),
                detailsLeft + ExplorerColumnsDialogX(HWindow, 18) + 2 * buttonWidth, buttonTop,
                buttonWidth, ExplorerColumnsDialogY(HWindow, 14), TRUE);
-    int detailsTop = contentTop + selectedHeight + ExplorerColumnsDialogY(HWindow, 4);
+    int detailsTop = contentTop + selectedHeight;
     MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_DETAILS_GROUP), detailsLeft, detailsTop,
                detailsWidth, contentBottom - detailsTop, TRUE);
     MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_DETAILS),
