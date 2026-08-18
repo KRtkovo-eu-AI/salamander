@@ -50,6 +50,13 @@ def main() -> int:
         "the property selector must retain working category filters, grouped categories, Common, and live search",
     )
     require(
+        "void UpdateExplorerColumnsGroupTextColor(HWND listView)" in dialog
+        and "metrics.mask = LVGMF_TEXTCOLOR;" in dialog
+        and "DarkModeShouldUseDarkColors() ? DarkModeGetDialogTextColor() : CLR_DEFAULT" in dialog
+        and dialog.count("UpdateExplorerColumnsGroupTextColor(GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES));") >= 2,
+        "grouped property headers must use readable dialog text in dark mode and restore native colors in light mode",
+    )
+    require(
         "IDC_EXCOL_SELECTED_LIST" in dialog
         and "void CExplorerColumnsDialog::MoveSelected" in dialog
         and "ApplySelectedOrder();" in dialog,
@@ -151,9 +158,11 @@ def main() -> int:
         and "MapDialogRect(dialog, &rect);" in dialog
         and "if (MinWidth == 0 || MinHeight == 0)" in dialog
         and "MinHeight = windowRect.bottom - windowRect.top;" in dialog
+        and "int detailsRight = detailsLeft + detailsWidth;" in dialog
+        and "detailsRight - ExplorerColumnsDialogX(HWindow, 50), buttonsY" in dialog
         and "SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE" in dialog
         and "LayoutControls();" in dialog,
-        "the resizable Windows property chooser must convert dialog units to pixels after initialization",
+        "the resizable Windows property chooser must convert dialog units to pixels and align Cancel with Property Information",
     )
     main_window_config = (ROOT / "mainwnd2.cpp").read_text(encoding="utf-8")
     require(

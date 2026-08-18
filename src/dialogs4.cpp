@@ -139,6 +139,20 @@ static void RemoveListViewsWhiteClientEdge(HWND listView, HWND listView2)
     RemoveListViewWhiteClientEdge(listView2);
 }
 
+static void UpdateExplorerColumnsGroupTextColor(HWND listView)
+{
+    if (listView == NULL)
+        return;
+
+    LVGROUPMETRICS metrics;
+    ZeroMemory(&metrics, sizeof(metrics));
+    metrics.cbSize = sizeof(metrics);
+    metrics.mask = LVGMF_TEXTCOLOR;
+    metrics.crHeader = DarkModeShouldUseDarkColors() ? DarkModeGetDialogTextColor() : CLR_DEFAULT;
+    metrics.crFooter = metrics.crHeader;
+    ListView_SetGroupMetrics(listView, &metrics);
+}
+
 bool ShouldCustomDrawListViewCheckboxes()
 {
     // Keep the post-paint path for checkbox list views whenever dark colors are
@@ -2057,6 +2071,7 @@ void CExplorerColumnsDialog::LayoutControls()
     const int gap = ExplorerColumnsDialogX(HWindow, 6);
     int listLeft = margin + treeWidth + gap;
     int detailsLeft = client.right - margin - detailsWidth;
+    int detailsRight = detailsLeft + detailsWidth;
     int listWidth = detailsLeft - gap - listLeft;
     if (listWidth < ExplorerColumnsDialogX(HWindow, 100))
         listWidth = ExplorerColumnsDialogX(HWindow, 100);
@@ -2110,10 +2125,10 @@ void CExplorerColumnsDialog::LayoutControls()
                buttonsY + ExplorerColumnsDialogY(HWindow, 2),
                ExplorerColumnsDialogX(HWindow, 220), ExplorerColumnsDialogY(HWindow, 12), TRUE);
     MoveWindow(GetDlgItem(HWindow, IDOK),
-               client.right - ExplorerColumnsDialogX(HWindow, 107), buttonsY,
+               detailsRight - ExplorerColumnsDialogX(HWindow, 107), buttonsY,
                ExplorerColumnsDialogX(HWindow, 50), ExplorerColumnsDialogY(HWindow, 14), TRUE);
     MoveWindow(GetDlgItem(HWindow, IDCANCEL),
-               client.right - ExplorerColumnsDialogX(HWindow, 50), buttonsY,
+               detailsRight - ExplorerColumnsDialogX(HWindow, 50), buttonsY,
                ExplorerColumnsDialogX(HWindow, 50), ExplorerColumnsDialogY(HWindow, 14), TRUE);
 }
 
@@ -2180,6 +2195,7 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
             RemoveListViewWhiteClientEdge(selectedList);
             DarkModeApplyStaticTextColors(HWindow, NULL);
         }
+        UpdateExplorerColumnsGroupTextColor(list);
         return TRUE;
     }
 
@@ -2350,6 +2366,7 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
             RemoveListViewWhiteClientEdge(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST));
             DarkModeApplyStaticTextColors(HWindow, NULL);
         }
+        UpdateExplorerColumnsGroupTextColor(GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES));
         break;
 
     case WM_SYSCOLORCHANGE:
@@ -2357,6 +2374,7 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
         UpdateConfigListViewColors(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST));
         RemoveListViewWhiteClientEdge(GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES));
         RemoveListViewWhiteClientEdge(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST));
+        UpdateExplorerColumnsGroupTextColor(GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES));
         break;
 
     case WM_CTLCOLORSTATIC:
