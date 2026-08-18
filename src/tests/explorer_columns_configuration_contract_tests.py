@@ -50,11 +50,14 @@ def main() -> int:
         "the property selector must retain working category filters, grouped categories, Common, and live search",
     )
     require(
-        "void UpdateExplorerColumnsGroupTextColor(HWND listView)" in dialog
-        and "metrics.mask = LVGMF_TEXTCOLOR;" in dialog
-        and "DarkModeShouldUseDarkColors() ? DarkModeGetDialogTextColor() : CLR_DEFAULT" in dialog
-        and dialog.count("UpdateExplorerColumnsGroupTextColor(GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES));") >= 2,
-        "grouped property headers must use readable dialog text in dark mode and restore native colors in light mode",
+        "void DrawDarkModeListViewGroupHeader(HWND listView, NMLVCUSTOMDRAW* customDraw)" in dialog
+        and "customDraw->dwItemType == LVCDI_GROUP" in dialog
+        and "FillRectWithSysColor(customDraw->nmcd.hdc, textRect, ListView_GetBkColor(listView));" in dialog
+        and "SetTextColor(customDraw->nmcd.hdc, DarkModeGetDialogTextColor())" in dialog
+        and "DrawTextW(customDraw->nmcd.hdc, header, -1, &textRect, format);" in dialog
+        and "customDraw->dwItemType == LVCDI_ITEM" in dialog
+        and "LVGMF_TEXTCOLOR" not in dialog,
+        "grouped property headers must be explicitly repainted with readable dark text without treating groups as checkbox items",
     )
     require(
         "IDC_EXCOL_SELECTED_LIST" in dialog
