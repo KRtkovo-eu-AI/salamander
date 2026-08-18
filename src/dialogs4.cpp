@@ -23,6 +23,31 @@
 #include "svg.h"
 #include <uxtheme.h>
 
+static void FormatExplorerLocalizedArguments(char* output, size_t outputSize,
+                                             const char* format, const char* const* arguments,
+                                             size_t argumentCount)
+{
+    std::string result;
+    size_t argument = 0;
+    for (const char* p = format != NULL ? format : ""; *p != 0;)
+    {
+        if (p[0] == '%' && p[1] == '%')
+        {
+            result.push_back('%');
+            p += 2;
+        }
+        else if (p[0] == '%' && (p[1] == 'd' || p[1] == 's') && argument < argumentCount)
+        {
+            const char* value = arguments[argument++];
+            result.append(value != NULL ? value : "");
+            p += 2;
+        }
+        else
+            result.push_back(*p++);
+    }
+    _snprintf_s(output, outputSize, _TRUNCATE, "%s", result.c_str());
+}
+
 #ifndef DARKMODE_TRACE_CTLFLOW
 #define DARKMODE_TRACE_CTLFLOW 0
 #endif
@@ -1987,7 +2012,11 @@ void CExplorerColumnsDialog::UpdateSelectedCount()
         if (Available[i])
             selected++;
     char text[100];
-    _snprintf_s(text, _TRUNCATE, LoadStr(IDS_EXCOL_COUNT), selected);
+    char selectedText[32];
+    _snprintf_s(selectedText, _countof(selectedText), _TRUNCATE, "%d", selected);
+    const char* arguments[] = {selectedText};
+    FormatExplorerLocalizedArguments(text, _countof(text), LoadStr(IDS_EXCOL_COUNT),
+                                     arguments, _countof(arguments));
     SetDlgItemText(HWindow, IDC_EXCOL_SELECTED_COUNT, text);
 }
 

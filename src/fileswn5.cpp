@@ -4,6 +4,7 @@
 
 #include "precomp.h"
 
+#include <new>
 #include <string>
 #include <vector>
 
@@ -26,6 +27,40 @@
 #include "edtlbwnd.h"
 #include "common/widepath.h"
 #include "filetags.h"
+
+static void FormatEditPropertiesLocalizedArguments(char* output, size_t outputSize,
+                                                   const char* format, const char* const* arguments,
+                                                   size_t argumentCount)
+{
+    std::string result;
+    size_t argument = 0;
+    for (const char* p = format != NULL ? format : ""; *p != 0;)
+    {
+        if (p[0] == '%' && p[1] == '%')
+        {
+            result.push_back('%');
+            p += 2;
+        }
+        else
+        {
+            size_t tokenLength = 0;
+            if (p[0] == '%' && (p[1] == 'd' || p[1] == 's'))
+                tokenLength = 2;
+            else if (p[0] == '%' && strncmp(p, "%08X", 4) == 0)
+                tokenLength = 4;
+
+            if (tokenLength != 0 && argument < argumentCount)
+            {
+                const char* value = arguments[argument++];
+                result.append(value != NULL ? value : "");
+                p += tokenLength;
+            }
+            else
+                result.push_back(*p++);
+        }
+    }
+    _snprintf_s(output, outputSize, _TRUNCATE, "%s", result.c_str());
+}
 
 class CEditWindowsPropertiesDialog : public CCommonDialog
 {
@@ -218,7 +253,15 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
         TagsHadValue = !current.empty();
         for (size_t i = 0; i < current.size(); i++)
         {
-            CTagItem* item = new CTagItem;
+#ifdef new
+#undef new
+#define RESTORE_INITIAL_TAG_ITEM_DEBUG_NEW_MACRO
+#endif
+            CTagItem* item = new (std::nothrow) CTagItem;
+#ifdef RESTORE_INITIAL_TAG_ITEM_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_INITIAL_TAG_ITEM_DEBUG_NEW_MACRO
+#endif
             if (item == NULL)
                 break;
             item->Text = SalWideToMultiBytePath(current[i].c_str(), CP_ACP);
@@ -381,8 +424,14 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
         if (failed > 0 || (anyAttempted && Paths.size() > 1))
         {
             char result[1200];
-            _snprintf_s(result, _countof(result), _TRUNCATE,
-                        LoadStr(IDS_EDPROP_RESULT), updated, failed);
+            char updatedText[32];
+            char failedText[32];
+            _snprintf_s(updatedText, _countof(updatedText), _TRUNCATE, "%d", updated);
+            _snprintf_s(failedText, _countof(failedText), _TRUNCATE, "%d", failed);
+            const char* resultArguments[] = {updatedText, failedText};
+            FormatEditPropertiesLocalizedArguments(result, _countof(result),
+                                                    LoadStr(IDS_EDPROP_RESULT), resultArguments,
+                                                    _countof(resultArguments));
             if (failed > 0 && !firstFailedPath.empty())
             {
                 const char* reason = LoadStr(IDS_EDPROP_REASON_OTHER);
@@ -399,9 +448,14 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
 
                 char detail[800];
                 std::string path = SalWideToMultiBytePath(firstFailedPath.c_str(), CP_ACP);
-                _snprintf_s(detail, _countof(detail), _TRUNCATE,
-                            LoadStr(IDS_EDPROP_RESULT_DETAIL), path.c_str(),
-                            firstFailedProperty.c_str(), reason, (DWORD)firstFailure);
+                char failureCode[32];
+                _snprintf_s(failureCode, _countof(failureCode), _TRUNCATE, "%08X",
+                            (DWORD)firstFailure);
+                const char* detailArguments[] = {
+                    path.c_str(), firstFailedProperty.c_str(), reason, failureCode};
+                FormatEditPropertiesLocalizedArguments(detail, _countof(detail),
+                                                        LoadStr(IDS_EDPROP_RESULT_DETAIL),
+                                                        detailArguments, _countof(detailArguments));
                 strncat_s(result, _countof(result), "\n\n", _TRUNCATE);
                 strncat_s(result, _countof(result), detail, _TRUNCATE);
             }
@@ -442,8 +496,16 @@ protected:
             SetDlgItemText(HWindow, IDC_EDPROP_MULTI_HINT,
                            IsMultiple() ? LoadStr(IDS_EDPROP_MULTI_FORM_HINT) : "");
             TagsWritable = IsPropertyWritableForAll(PKEY_Keywords);
-            TagsList = new CEditListBox(HWindow, IDC_EDPROP_TAGS_LIST,
-                                        ELB_ENABLECOMMANDS | ELB_RIGHTARROW);
+#ifdef new
+#undef new
+#define RESTORE_TAGS_EDIT_LIST_DEBUG_NEW_MACRO
+#endif
+            TagsList = new (std::nothrow) CEditListBox(HWindow, IDC_EDPROP_TAGS_LIST,
+                                                       ELB_ENABLECOMMANDS | ELB_RIGHTARROW);
+#ifdef RESTORE_TAGS_EDIT_LIST_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_TAGS_EDIT_LIST_DEBUG_NEW_MACRO
+#endif
             if (TagsList != NULL)
             {
                 TagsList->MakeHeader(IDC_EDPROP_TAGS_HEADER);
@@ -545,7 +607,15 @@ protected:
                         }
                         if (item == NULL)
                         {
-                            item = new CTagItem;
+#ifdef new
+#undef new
+#define RESTORE_NEW_TAG_ITEM_DEBUG_NEW_MACRO
+#endif
+                            item = new (std::nothrow) CTagItem;
+#ifdef RESTORE_NEW_TAG_ITEM_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_NEW_TAG_ITEM_DEBUG_NEW_MACRO
+#endif
                             if (item == NULL)
                             {
                                 SetWindowLongPtr(HWindow, DWLP_MSGRESULT, FALSE);

@@ -187,6 +187,16 @@ def main() -> int:
         "newly added Explorer properties must be checked for the current view",
     )
     require(
+        "FormatExplorerLocalizedArguments" in dialog
+        and "_snprintf_s(text, _TRUNCATE, LoadStr(IDS_EXCOL_COUNT), selected)" not in dialog
+        and "FormatEditPropertiesLocalizedArguments" in file_window
+        and "LoadStr(IDS_EDPROP_RESULT), updated, failed" not in file_window
+        and "LoadStr(IDS_EDPROP_RESULT_DETAIL), path.c_str()" not in file_window
+        and file_window.count("new (std::nothrow) CTagItem") >= 2
+        and "new (std::nothrow) CEditListBox" in file_window,
+        "localized property summaries must avoid dynamic printf formats and low-memory branches must use nothrow allocation",
+    )
+    require(
         "void CCfgPageView::SyncExplorerColumnAvailabilityFromList()" in dialog
         and "Config.SetExplorerColumnAvailable(explorerIndex, TRUE);" in dialog
         and "StoreControls();\n                SyncExplorerColumnAvailabilityFromList();" in dialog,
