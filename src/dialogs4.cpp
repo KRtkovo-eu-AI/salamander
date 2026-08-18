@@ -1722,7 +1722,7 @@ void CExplorerColumnsDialog::FillCategories()
     HWND tree = GetDlgItem(HWindow, IDC_EXCOL_CATEGORIES);
     TreeView_DeleteAllItems(tree);
 
-    int iconSize = MulDiv(24, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI);
+    int iconSize = MulDiv(16, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI);
     HIMAGELIST images = ImageList_Create(iconSize, iconSize, ILC_COLOR32 | ILC_MASK, 10, 1);
     if (images != NULL)
     {
@@ -1745,7 +1745,7 @@ void CExplorerColumnsDialog::FillCategories()
         TreeView_SetImageList(tree, images, TVSIL_NORMAL);
         HCategoryImages = images;
     }
-    TreeView_SetItemHeight(tree, iconSize + MulDiv(4, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI));
+    TreeView_SetItemHeight(tree, iconSize + MulDiv(2, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI));
 
     const char* names[] = {
         LoadStr(IDS_EXCOL_ALL), LoadStr(IDS_EXCOL_COMMON), LoadStr(IDS_EXCOL_FILESYSTEM),
@@ -2041,13 +2041,13 @@ void CExplorerColumnsDialog::UpdateDetails()
     int index = (int)item.lParam;
     char details[1024];
     char typeText[64];
-    _snprintf_s(details, _countof(details), _TRUNCATE, "%s\r\n\r\n%s: %s\r\n\r\n%s: %s\r\n\r\n%s: %s\r\n\r\n%s: %s%s%s",
+    _snprintf_s(details, _countof(details), _TRUNCATE, "%s\r\n%s: %s\r\n%s: %s\r\n%s: %s\r\n%s: %s%s%s",
                 GetExplorerColumnName(index),
                 LoadStr(IDS_EXCOL_CANONICAL), GetExplorerColumnCanonicalName(index),
                 LoadStr(IDS_EXCOL_CATEGORY), GetExplorerCategoryText(GetExplorerColumnCategory(index)),
                 LoadStr(IDS_EXCOL_TYPE), GetExplorerVariantTypeText(GetExplorerColumnType(index), typeText, _countof(typeText)),
                 LoadStr(IDS_EXCOL_SELECTED), Available[index] ? LoadStr(IDS_INFODLGYES) : LoadStr(IDS_INFODLGNO),
-                GetExplorerColumnDescription(index)[0] != 0 ? "\r\n\r\n" : "",
+                GetExplorerColumnDescription(index)[0] != 0 ? "\r\n" : "",
                 GetExplorerColumnDescription(index));
     SetDlgItemText(HWindow, IDC_EXCOL_DETAILS, details);
 }
@@ -2076,23 +2076,26 @@ void CExplorerColumnsDialog::LayoutControls()
 
     RECT client;
     GetClientRect(HWindow, &client);
-    const int margin = ExplorerColumnsDialogX(HWindow, 7);
-    const int buttonsY = client.bottom - ExplorerColumnsDialogY(HWindow, 21);
-    const int contentTop = ExplorerColumnsDialogY(HWindow, 28);
-    const int contentBottom = buttonsY - ExplorerColumnsDialogY(HWindow, 8);
+    const int margin = ExplorerColumnsDialogX(HWindow, 4);
+    const int buttonsY = client.bottom - ExplorerColumnsDialogY(HWindow, 18);
+    const int contentTop = ExplorerColumnsDialogY(HWindow, 23);
+    const int contentBottom = buttonsY - ExplorerColumnsDialogY(HWindow, 4);
     const int treeWidth = ExplorerColumnsDialogX(HWindow, 105);
     const int detailsWidth = max(ExplorerColumnsDialogX(HWindow, 174),
                                  (client.right - 3 * margin) / 3);
-    const int gap = ExplorerColumnsDialogX(HWindow, 6);
+    const int gap = ExplorerColumnsDialogX(HWindow, 4);
     int listLeft = margin + treeWidth + gap;
     int detailsLeft = client.right - margin - detailsWidth;
     int detailsRight = detailsLeft + detailsWidth;
     int listWidth = detailsLeft - gap - listLeft;
     if (listWidth < ExplorerColumnsDialogX(HWindow, 100))
         listWidth = ExplorerColumnsDialogX(HWindow, 100);
+    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_SEARCH_LABEL), margin,
+               ExplorerColumnsDialogY(HWindow, 6), ExplorerColumnsDialogX(HWindow, 70),
+               ExplorerColumnsDialogY(HWindow, 8), TRUE);
     MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_SEARCH),
-               ExplorerColumnsDialogX(HWindow, 80), ExplorerColumnsDialogY(HWindow, 7),
-               client.right - ExplorerColumnsDialogX(HWindow, 87),
+               ExplorerColumnsDialogX(HWindow, 78), ExplorerColumnsDialogY(HWindow, 4),
+               client.right - ExplorerColumnsDialogX(HWindow, 82),
                ExplorerColumnsDialogY(HWindow, 14), TRUE);
     MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_CATEGORIES), margin, contentTop, treeWidth,
                contentBottom - contentTop, TRUE);
@@ -2119,7 +2122,7 @@ void CExplorerColumnsDialog::LayoutControls()
     MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_MOVE_DOWN),
                detailsLeft + ExplorerColumnsDialogX(HWindow, 18) + 2 * buttonWidth, buttonTop,
                buttonWidth, ExplorerColumnsDialogY(HWindow, 14), TRUE);
-    int detailsTop = contentTop + selectedHeight + ExplorerColumnsDialogY(HWindow, 5);
+    int detailsTop = contentTop + selectedHeight + ExplorerColumnsDialogY(HWindow, 4);
     MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_DETAILS_GROUP), detailsLeft, detailsTop,
                detailsWidth, contentBottom - detailsTop, TRUE);
     MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_DETAILS),
@@ -2173,7 +2176,7 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
         ListView_SetExtendedListViewStyle(selectedList, LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
         column.cx = 200;
         ListView_InsertColumn(selectedList, 0, &column);
-        int rowHeight = MulDiv(23, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI);
+        int rowHeight = MulDiv(18, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI);
         HPropertySpacingImages = ImageList_Create(1, rowHeight, ILC_COLOR32, 1, 1);
         HSelectedSpacingImages = ImageList_Create(1, rowHeight, ILC_COLOR32, 1, 1);
         if (HPropertySpacingImages != NULL)

@@ -1787,6 +1787,7 @@ public:
 
     // fills a popup based on available columns
     BOOL FillSortByMenu(CMenuPopup* popup);
+    int GetExplorerSortColumnByMenuIndex(int menuIndex);
 
     // if the user changes the column width, this method will be called (after the dragging ends)
     void OnHeaderLineColWidthChanged();

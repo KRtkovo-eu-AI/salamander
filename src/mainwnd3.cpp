@@ -6105,6 +6105,24 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return 0;
         }
 
+        if (LOWORD(wParam) >= CM_LEFTSORTBY_MIN && LOWORD(wParam) <= CM_LEFTSORTBY_MAX)
+        {
+            CFilesWindow* targetPanel = IsDetachedTabActive() && DetachedTabOriginalSide == cpsLeft ? activePanel : LeftPanel;
+            int explorerIndex = targetPanel->GetExplorerSortColumnByMenuIndex(LOWORD(wParam) - CM_LEFTSORTBY_MIN);
+            if (explorerIndex >= 0)
+                targetPanel->ChangeCustomSortType(explorerIndex, TRUE);
+            return 0;
+        }
+
+        if (LOWORD(wParam) >= CM_RIGHTSORTBY_MIN && LOWORD(wParam) <= CM_RIGHTSORTBY_MAX)
+        {
+            CFilesWindow* targetPanel = IsDetachedTabActive() && DetachedTabOriginalSide == cpsRight ? activePanel : RightPanel;
+            int explorerIndex = targetPanel->GetExplorerSortColumnByMenuIndex(LOWORD(wParam) - CM_RIGHTSORTBY_MIN);
+            if (explorerIndex >= 0)
+                targetPanel->ChangeCustomSortType(explorerIndex, TRUE);
+            return 0;
+        }
+
         if (LOWORD(wParam) >= CM_ACTIVEHOTPATH_MIN && LOWORD(wParam) < CM_ACTIVEHOTPATH_MIN + HOT_PATHS_COUNT)
         {
             activePanel->GotoHotPath(LOWORD(wParam) - CM_ACTIVEHOTPATH_MIN);
@@ -9278,7 +9296,10 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CML_RIGHT_SORTBY:
         {
             BOOL left = popupID == CML_LEFT_SORTBY;
-            (left ? LeftPanel : RightPanel)->FillSortByMenu(popup);
+            CFilesWindow* targetPanel = left ? LeftPanel : RightPanel;
+            if (IsDetachedTabActive() && DetachedTabOriginalSide == (left ? cpsLeft : cpsRight))
+                targetPanel = GetActivePanel();
+            targetPanel->FillSortByMenu(popup);
             break;
         }
 

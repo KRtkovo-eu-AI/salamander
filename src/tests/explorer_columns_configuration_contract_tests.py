@@ -21,6 +21,7 @@ def main() -> int:
     edit_list = (ROOT / "edtlbwnd.cpp").read_text(encoding="utf-8")
     panel = (ROOT / "fileswn9.cpp").read_text(encoding="utf-8")
     menu = (ROOT / "mainwnd3.cpp").read_text(encoding="utf-8")
+    sort_menu = (ROOT / "fileswnb.cpp").read_text(encoding="utf-8")
     gui = (ROOT / "gui.cpp").read_text(encoding="utf-8")
     file_tags = (ROOT / "filetags.h").read_text(encoding="utf-8")
     file_window = (ROOT / "fileswn5.cpp").read_text(encoding="utf-8")
@@ -40,6 +41,16 @@ def main() -> int:
     require(
         "IsExplorerColumnAvailable(explorerIndex)" in panel,
         "globally removed Explorer properties must not remain visible in panels",
+    )
+    require(
+        "column->GetText != InternalGetExplorerColumn" in sort_menu
+        and "CM_LEFTSORTBY_MIN" in sort_menu
+        and "CM_RIGHTSORTBY_MIN" in sort_menu
+        and "SortType == stCustom && SortCustomData == column->CustomData" in sort_menu
+        and "GetExplorerSortColumnByMenuIndex" in sort_menu
+        and "targetPanel->ChangeCustomSortType(explorerIndex, TRUE);" in menu
+        and "IsDetachedTabActive() && DetachedTabOriginalSide" in menu,
+        "Sort By must list displayed Windows property columns, mark the active one, and route commands to main or detached panels",
     )
     require(
         "class CExplorerColumnsDialog" in (ROOT / "cfgdlg.h").read_text(encoding="utf-8")
@@ -88,8 +99,9 @@ def main() -> int:
         "Executable and Archive filters must share the panel file-tooltip property subsets",
     )
     require(
-        '"%s\\r\\n\\r\\n%s: %s\\r\\n\\r\\n%s: %s\\r\\n\\r\\n%s: %s\\r\\n\\r\\n%s: %s%s%s"' in dialog,
-        "property information fields must have readable blank-line spacing",
+        '"%s\\r\\n%s: %s\\r\\n%s: %s\\r\\n%s: %s\\r\\n%s: %s%s%s"' in dialog
+        and '"%s\\r\\n\\r\\n%s: %s' not in dialog,
+        "property information fields must use compact single-line spacing",
     )
     require(
         "const int leadingButtonOrder[] = {7, 8}; // Filter, Search" in gui
@@ -160,6 +172,14 @@ def main() -> int:
     require(
         "IDD_EXPLORER_COLUMNS DIALOGEX 0, 0, 460, 320" in lang_rc,
         "the Windows property chooser must keep compact Configuration-like proportions",
+    )
+    require(
+        "MulDiv(16, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI)" in dialog
+        and "iconSize + MulDiv(2, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI)" in dialog
+        and "MulDiv(18, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI)" in dialog
+        and '"%s\\r\\n%s: %s\\r\\n%s: %s\\r\\n%s: %s\\r\\n%s: %s%s%s"' in dialog
+        and 'GetExplorerColumnDescription(index)[0] != 0 ? "\\r\\n" : ""' in dialog,
+        "the Windows property chooser must use Configuration-like compact rows and detail spacing",
     )
     require(
         "ExplorerColumnsDialogX" in dialog

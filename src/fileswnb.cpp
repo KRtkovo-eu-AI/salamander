@@ -1684,6 +1684,34 @@ MENU_TEMPLATE_ITEM SortByMenu[] =
             mii.State = MENU_STATE_CHECKED;
         popup->InsertItem(-1, TRUE, &mii);
     }
+
+    // Windows Explorer property columns that are actually displayed in this panel.
+    // The command ranges are intentionally limited to 20 items (see resource.rh2).
+    int explorerSortCount = 0;
+    int explorerSortLimit = (IsLeftPanel() ? CM_LEFTSORTBY_MAX - CM_LEFTSORTBY_MIN :
+                                             CM_RIGHTSORTBY_MAX - CM_RIGHTSORTBY_MIN) + 1;
+    for (i = 0; i < Columns.Count && explorerSortCount < explorerSortLimit; i++)
+    {
+        CColumn* column = &Columns.At(i);
+        if (column->ID != COLUMN_ID_CUSTOM || column->GetText != InternalGetExplorerColumn)
+            continue;
+
+        if (explorerSortCount == 0)
+        {
+            mii.Mask = MENU_MASK_TYPE;
+            mii.Type = MENU_TYPE_SEPARATOR;
+            popup->InsertItem(-1, TRUE, &mii);
+        }
+
+        mii.Mask = MENU_MASK_TYPE | MENU_MASK_STRING | MENU_MASK_ID | MENU_MASK_STATE;
+        mii.Type = MENU_TYPE_STRING;
+        mii.String = column->Name;
+        mii.ID = (IsLeftPanel() ? CM_LEFTSORTBY_MIN : CM_RIGHTSORTBY_MIN) + explorerSortCount;
+        mii.State = SortType == stCustom && SortCustomData == column->CustomData ? MENU_STATE_CHECKED : 0;
+        popup->InsertItem(-1, TRUE, &mii);
+        explorerSortCount++;
+    }
+
     // separator
     mii.Mask = MENU_MASK_TYPE;
     mii.Type = MENU_TYPE_SEPARATOR;
@@ -1696,6 +1724,24 @@ MENU_TEMPLATE_ITEM SortByMenu[] =
     popup->InsertItem(-1, TRUE, &mii);
 
     return TRUE;
+}
+
+int CFilesWindow::GetExplorerSortColumnByMenuIndex(int menuIndex)
+{
+    if (menuIndex < 0)
+        return -1;
+
+    for (int i = 0; i < Columns.Count; i++)
+    {
+        const CColumn* column = &Columns.At(i);
+        if (column->ID == COLUMN_ID_CUSTOM && column->GetText == InternalGetExplorerColumn)
+        {
+            if (menuIndex == 0)
+                return (int)column->CustomData;
+            menuIndex--;
+        }
+    }
+    return -1;
 }
 
 void CFilesWindow::SetThumbnailSize(int size)
