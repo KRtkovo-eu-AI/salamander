@@ -3,6 +3,7 @@
 
 #include "precomp.h"
 #include <tchar.h>
+#include "common/winlibdpi.h"
 #include "darkmode_backend_darkmodelib.h"
 #include "darkmode.h"
 #include "salamand.rh"
@@ -1932,6 +1933,73 @@ void PaintDarkListViewBorder(HWND hwnd)
     ReleaseDC(hwnd, hdc);
 }
 
+void PaintDarkListViewGroupHeaders(HWND hwnd, HDC hdc, COLORREF background)
+{
+    if (hwnd == NULL || hdc == NULL ||
+        SendMessage(hwnd, LVM_ISGROUPVIEWENABLED, 0, 0) == FALSE)
+    {
+        return;
+    }
+
+    const int groupCount = (int)SendMessage(hwnd, LVM_GETGROUPCOUNT, 0, 0);
+    if (groupCount <= 0)
+        return;
+
+#if USE_DARKMODELIB
+    const COLORREF textColor = dmlib::getTextColor();
+#else
+    const COLORREF textColor = DarkModeGetDialogTextColor();
+#endif
+    HFONT font = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0);
+    HGDIOBJ oldFont = font != NULL ? SelectObject(hdc, font) : NULL;
+    int oldBkMode = SetBkMode(hdc, TRANSPARENT);
+    COLORREF oldTextColor = SetTextColor(hdc, textColor);
+
+    RECT client;
+    GetClientRect(hwnd, &client);
+    const int dpi = (int)WinLibDPIGetWindowDPI(hwnd);
+    for (int groupIndex = 0; groupIndex < groupCount; ++groupIndex)
+    {
+        wchar_t header[256];
+        LVGROUP group;
+        ZeroMemory(&group, sizeof(group));
+        group.cbSize = sizeof(group);
+        group.mask = LVGF_GROUPID | LVGF_HEADER | LVGF_ALIGN;
+        group.pszHeader = header;
+        group.cchHeader = _countof(header);
+        if (SendMessage(hwnd, LVM_GETGROUPINFOBYINDEX, groupIndex, (LPARAM)&group) == FALSE)
+            continue;
+
+        RECT headerRect;
+        ZeroMemory(&headerRect, sizeof(headerRect));
+        headerRect.top = LVGGR_HEADER;
+        if (SendMessage(hwnd, LVM_GETGROUPRECT, group.iGroupId, (LPARAM)&headerRect) == FALSE)
+            continue;
+
+        RECT visibleRect;
+        if (!IntersectRect(&visibleRect, &headerRect, &client))
+            continue;
+
+        FillRectWithColor(hdc, visibleRect, background);
+        RECT textRect = headerRect;
+        textRect.left += MulDiv(8, dpi, USER_DEFAULT_SCREEN_DPI);
+        textRect.right -= MulDiv(4, dpi, USER_DEFAULT_SCREEN_DPI);
+        UINT format = DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS;
+        if ((group.uAlign & LVGA_HEADER_CENTER) != 0)
+            format |= DT_CENTER;
+        else if ((group.uAlign & LVGA_HEADER_RIGHT) != 0)
+            format |= DT_RIGHT;
+        else
+            format |= DT_LEFT;
+        DrawTextW(hdc, header, -1, &textRect, format);
+    }
+
+    SetTextColor(hdc, oldTextColor);
+    SetBkMode(hdc, oldBkMode);
+    if (oldFont != NULL)
+        SelectObject(hdc, oldFont);
+}
+
 LRESULT CALLBACK DarkListViewSurfaceSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
                                              UINT_PTR subclassId, DWORD_PTR refData)
 {
@@ -1991,6 +2059,7 @@ LRESULT CALLBACK DarkListViewSurfaceSubclass(HWND hwnd, UINT msg, WPARAM wParam,
         }
         if (unused.top < unused.bottom)
             FillRectWithColor(hdc, unused, background);
+        PaintDarkListViewGroupHeaders(hwnd, hdc, background);
         ReleaseDC(hwnd, hdc);
         PaintDarkListViewBorder(hwnd);
     }

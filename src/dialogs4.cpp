@@ -139,38 +139,6 @@ static void RemoveListViewsWhiteClientEdge(HWND listView, HWND listView2)
     RemoveListViewWhiteClientEdge(listView2);
 }
 
-static void DrawDarkModeListViewGroupHeader(HWND listView, NMLVCUSTOMDRAW* customDraw)
-{
-    if (listView == NULL || customDraw == NULL || customDraw->nmcd.hdc == NULL ||
-        customDraw->dwItemType != LVCDI_GROUP)
-        return;
-
-    wchar_t header[128];
-    LVGROUP group;
-    ZeroMemory(&group, sizeof(group));
-    group.cbSize = sizeof(group);
-    group.mask = LVGF_HEADER;
-    group.pszHeader = header;
-    group.cchHeader = _countof(header);
-    if (ListView_GetGroupInfo(listView, (int)customDraw->nmcd.dwItemSpec, &group) == -1)
-        return;
-
-    RECT textRect = customDraw->rcText;
-    FillRectWithSysColor(customDraw->nmcd.hdc, textRect, ListView_GetBkColor(listView));
-    int oldBkMode = SetBkMode(customDraw->nmcd.hdc, TRANSPARENT);
-    COLORREF oldTextColor = SetTextColor(customDraw->nmcd.hdc, DarkModeGetDialogTextColor());
-    UINT format = DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX;
-    if (customDraw->uAlign == LVGA_HEADER_CENTER)
-        format |= DT_CENTER;
-    else if (customDraw->uAlign == LVGA_HEADER_RIGHT)
-        format |= DT_RIGHT;
-    else
-        format |= DT_LEFT;
-    DrawTextW(customDraw->nmcd.hdc, header, -1, &textRect, format);
-    SetTextColor(customDraw->nmcd.hdc, oldTextColor);
-    SetBkMode(customDraw->nmcd.hdc, oldBkMode);
-}
-
 bool ShouldCustomDrawListViewCheckboxes()
 {
     // Keep the post-paint path for checkbox list views whenever dark colors are
@@ -2304,9 +2272,7 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
                 }
                 else if (customDraw->nmcd.dwDrawStage == CDDS_ITEMPOSTPAINT)
                 {
-                    if (customDraw->dwItemType == LVCDI_GROUP)
-                        DrawDarkModeListViewGroupHeader(hdr->hwndFrom, customDraw);
-                    else if (customDraw->dwItemType == LVCDI_ITEM)
+                    if (customDraw->dwItemType == LVCDI_ITEM)
                         DrawDarkModeListViewCheckboxes(hdr->hwndFrom, customDraw, 1);
                 }
             }

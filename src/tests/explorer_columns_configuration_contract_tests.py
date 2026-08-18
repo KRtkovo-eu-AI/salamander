@@ -17,6 +17,7 @@ def main() -> int:
     model = (ROOT / "salamdr4.cpp").read_text(encoding="utf-8")
     header = (ROOT / "salamand.h").read_text(encoding="utf-8")
     dialog = (ROOT / "dialogs4.cpp").read_text(encoding="utf-8")
+    dark_mode = (ROOT / "darkmode.cpp").read_text(encoding="utf-8")
     edit_list = (ROOT / "edtlbwnd.cpp").read_text(encoding="utf-8")
     panel = (ROOT / "fileswn9.cpp").read_text(encoding="utf-8")
     menu = (ROOT / "mainwnd3.cpp").read_text(encoding="utf-8")
@@ -50,14 +51,19 @@ def main() -> int:
         "the property selector must retain working category filters, grouped categories, Common, and live search",
     )
     require(
-        "void DrawDarkModeListViewGroupHeader(HWND listView, NMLVCUSTOMDRAW* customDraw)" in dialog
-        and "customDraw->dwItemType == LVCDI_GROUP" in dialog
-        and "FillRectWithSysColor(customDraw->nmcd.hdc, textRect, ListView_GetBkColor(listView));" in dialog
-        and "SetTextColor(customDraw->nmcd.hdc, DarkModeGetDialogTextColor())" in dialog
-        and "DrawTextW(customDraw->nmcd.hdc, header, -1, &textRect, format);" in dialog
+        "void PaintDarkListViewGroupHeaders(HWND hwnd, HDC hdc, COLORREF background)" in dark_mode
+        and "LVM_GETGROUPINFOBYINDEX" in dark_mode
+        and "headerRect.top = LVGGR_HEADER;" in dark_mode
+        and "LVM_GETGROUPRECT" in dark_mode
+        and '#include "common/winlibdpi.h"' in dark_mode
+        and "WinLibDPIGetWindowDPI(hwnd)" in dark_mode
+        and "GetDPIForWindow(hwnd)" not in dark_mode
+        and "FillRectWithColor(hdc, visibleRect, background);" in dark_mode
+        and "DrawTextW(hdc, header, -1, &textRect, format);" in dark_mode
+        and "PaintDarkListViewGroupHeaders(hwnd, hdc, background);" in dark_mode
         and "customDraw->dwItemType == LVCDI_ITEM" in dialog
         and "LVGMF_TEXTCOLOR" not in dialog,
-        "grouped property headers must be explicitly repainted with readable dark text without treating groups as checkbox items",
+        "dark grouped list views must repaint actual group rectangles after native painting and not treat groups as checkbox items",
     )
     require(
         "IDC_EXCOL_SELECTED_LIST" in dialog
