@@ -312,15 +312,6 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets">
   </Import>
-  <Target Name="PublishMarkdigRenderer" AfterTargets="Build" Condition="'$(Platform)' != 'Win32'">
-    <Exec Command="dotnet publish &quot;$(ProjectDir)..\..\shared\webviewviewer\markdighelper\MarkdigRenderer.csproj&quot; --configuration Release --runtime $(MarkdigRuntimeIdentifier) --output &quot;$(IntDir)MarkdigRenderer&quot;" />
-    <MakeDir Directories="$(OutDir)..\..\utils" />
-    <Copy SourceFiles="$(IntDir)MarkdigRenderer\MarkdigRenderer.exe"
-          DestinationFolder="$(OutDir)..\..\utils"
-          SkipUnchangedFiles="true" />
-    <Delete Files="$(OutDir)MarkdigRenderer.exe;$(OutDir)MarkdigRenderer.pdb;$(OutDir)..\..\MarkdigRenderer.exe" />
-    <RemoveDir Directories="$(OutDir)runtimes" />
-  </Target>
   <ImportGroup Label="ExtensionTargets">
     <Import Project="..\..\shared\webviewviewer\WebView2.Native.targets" />
   </ImportGroup>
