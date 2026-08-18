@@ -432,6 +432,15 @@ Name: "{app}\toolbars\darkmode"
 Name: "{app}\toolbars\pictview"
 Name: "{app}\toolbars\darkmode\pictview"
 
+[InstallDelete]
+Type: files; Name: "{app}\MarkdigRenderer.exe"
+Type: files; Name: "{app}\WebView2Loader.dll"
+Type: files; Name: "{app}\plugins\salamatrix\WebView2Loader.dll"
+Type: files; Name: "{app}\plugins\salamatrix\MarkdigRenderer.exe"
+Type: files; Name: "{app}\plugins\textviewer\WebView2Loader.dll"
+Type: files; Name: "{app}\plugins\webview2renderviewer\WebView2Loader.dll"
+Type: files; Name: "{app}\plugins\webview2renderviewer\MarkdigRenderer.exe"
+
 [Files]
 Source: "{#PayloadDir}\concrt140.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PayloadDir}\convert\centeuro\1-1.tab"; DestDir: "{app}\convert\centeuro"; Flags: ignoreversion
@@ -911,7 +920,6 @@ Source: "{#PayloadDir}\plugins\textviewer\lang\russian.slg"; DestDir: "{app}\plu
 Source: "{#PayloadDir}\plugins\textviewer\lang\slovak.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
 Source: "{#PayloadDir}\plugins\textviewer\lang\spanish.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
 Source: "{#PayloadDir}\plugins\textviewer\SUPPORTED_FILE_TYPES.md"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
-Source: "{#PayloadDir}\plugins\textviewer\WebView2Loader.dll"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
 Source: "{#PayloadDir}\plugins\textviewer\prism\*"; DestDir: "{app}\plugins\textviewer\prism"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('textviewer')
 Source: "{#PayloadDir}\plugins\textviewer\textviewer.spl"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
 Source: "{#PayloadDir}\plugins\unarj\lang\czech.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
@@ -1049,8 +1057,6 @@ Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\russian.slg"; DestDir: 
 Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\slovak.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
 Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\spanish.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
 Source: "{#PayloadDir}\plugins\webview2renderviewer\SUPPORTED_FILE_TYPES.md"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
-Source: "{#PayloadDir}\plugins\webview2renderviewer\WebView2Loader.dll"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
-Source: "{#PayloadDir}\plugins\webview2renderviewer\MarkdigRenderer.exe"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
 Source: "{#PayloadDir}\plugins\webview2renderviewer\webview2renderviewer.spl"; DestDir: "{app}\plugins\webview2renderviewer"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
 Source: "{#PayloadDir}\plugins\wmobile\lang\czech.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion; Check: IsPluginSelected('wmobile')
 Source: "{#PayloadDir}\plugins\wmobile\lang\dutch.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion; Check: IsPluginSelected('wmobile')
@@ -1080,8 +1086,6 @@ Source: "{#PayloadDir}\plugins\zip\zip2sfx\readme.txt"; DestDir: "{app}\plugins\
 Source: "{#PayloadDir}\plugins\zip\zip2sfx\sam_cz.set"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
 Source: "{#PayloadDir}\plugins\zip\zip2sfx\sample.set"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
 Source: "{#PayloadDir}\plugins\zip\zip2sfx\zip2sfx.exe"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
-Source: "{#PayloadDir}\plugins\salamatrix\WebView2Loader.dll"; DestDir: "{app}\plugins\salamatrix"; Flags: ignoreversion; Check: IsPluginSelected('salamatrix')
-Source: "{#PayloadDir}\plugins\salamatrix\MarkdigRenderer.exe"; DestDir: "{app}\plugins\salamatrix"; Flags: ignoreversion; Check: IsPluginSelected('salamatrix')
 Source: "{#PayloadDir}\plugins\salamatrix\prism\*"; DestDir: "{app}\plugins\salamatrix\prism"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('salamatrix')
 Source: "{#PayloadDir}\plugins\salamatrix\salamatrix.spl"; DestDir: "{app}\plugins\salamatrix"; Flags: ignoreversion; Check: IsPluginSelected('salamatrix')
 Source: "{#PayloadDir}\plugins\salamatrix\salamatrix-automation-api.html"; DestDir: "{app}\plugins\salamatrix"; Flags: ignoreversion; Check: IsPluginSelected('salamatrix')
@@ -1396,6 +1400,8 @@ Source: "{#PayloadDir}\utils\sqlite.dll"; DestDir: "{app}\utils"; Flags: ignorev
 Source: "{#PayloadDir}\utils\ssleay32.dll"; DestDir: "{app}\utils"; Flags: ignoreversion
 Source: "{#PayloadDir}\vcruntime140.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PayloadDir}\vcruntime140_1.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#PayloadDir}\utils\MarkdigRenderer.exe"; DestDir: "{app}\utils"; Flags: ignoreversion
+Source: "{#PayloadDir}\utils\WebView2Loader.dll"; DestDir: "{app}\utils"; Flags: ignoreversion
 [Icons]
 Name: "{autodesktop}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#AppToInstallExeName}"; WorkingDir: "{app}"; Check: ShouldCreateShortcut('desktop')
 Name: "{group}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#AppToInstallExeName}"; WorkingDir: "{app}"; Check: ShouldCreateShortcut('startmenu')

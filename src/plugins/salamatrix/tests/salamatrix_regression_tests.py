@@ -132,11 +132,25 @@ def main() -> int:
         luaruntime,
     )
     salamatrix = read("src/plugins/salamatrix/salamatrix.cpp")
+    native_viewer = read("src/plugins/shared/webviewviewer/native_viewer.cpp")
+    plugin_darkmode_header = read("src/plugins/shared/plugindarkmode.h")
+    plugin_darkmode = read("src/plugins/shared/plugindarkmode.cpp")
+    webview2_targets = read(
+        "src/plugins/shared/webviewviewer/WebView2.Native.targets")
+    webview2_viewer_project = read(
+        "src/plugins/webview2renderviewer/vcxproj/webview2renderviewer.vcxproj")
+    text_viewer_project = read(
+        "src/plugins/textviewer/vcxproj/textviewer.vcxproj")
     salamatrix_runtime = read("src/plugins/salamatrix/salamatrix_runtime.h")
     extensions_contract = read(
         "src/plugins/salamatrix/salamatrix_extensions.h")
     salamatrix_ui = ui_implementation
     salamatrix_props = read("src/plugins/salamatrix/vcxproj/salamatrix.props")
+    viewer_darkmode_props = (
+        salamatrix_props,
+        read("src/plugins/textviewer/vcxproj/textviewer.props"),
+        read("src/plugins/webview2renderviewer/vcxproj/webview2renderviewer.props"),
+    )
     salamatrix_project = read(
         "src/plugins/salamatrix/vcxproj/salamatrix.vcxproj")
     salamatrix_version = read("src/plugins/salamatrix/versinfo.rh2")
@@ -153,6 +167,91 @@ def main() -> int:
     javascript_demo = read("src/extensions/demos/javascript-node/main.mjs")
     javascript_demo_manifest = json.loads(
         read("src/extensions/demos/javascript-node/extension.json"))
+    require(
+        plugin_darkmode_header,
+        r"PluginDarkMode_ApplyMenuBar\(HWND hwnd\).*?"
+        r"PluginDarkMode_ApplyStatusBar\(HWND hwnd\)",
+        "Plugin dark-mode facade does not expose menu/status bar theming")
+    require(
+        plugin_darkmode,
+        r"setWindowMenuBarSubclass\(hwnd\).*?setStatusBarCtrlSubclass\(hwnd\)",
+        "Plugin dark-mode facade does not use win32-darkmodelib for menu/status bars")
+    require(
+        native_viewer,
+        r"PluginDarkMode_ApplyMenuBar\(window_\).*?"
+        r"PluginDarkMode_ApplyStatusBar\(status_\).*?"
+        r"PluginDarkMode_ApplyListTreeThemeRecursive\(window_\)",
+        "Shared viewer frame does not theme its menu and status bars")
+    require(
+        native_viewer,
+        r"PluginDarkMode_HandleCtlColor\(message, wParam, lParam, &colorResult\)",
+        "Shared viewer frame does not dark-theme its status chrome controls")
+    require(
+        native_viewer,
+        r"WM_NV_APPLY_ZOOM.*?case WM_NV_APPLY_ZOOM:\s*"
+        r"ApplyZoomEdit\(\).*?"
+        r"message\.wParam == VK_RETURN.*?"
+        r"GetDlgCtrlID\(message\.hwnd\) == IDC_NV_ZOOM_EDIT.*?"
+        r"SendMessageW\(viewerWindow, WM_NV_APPLY_ZOOM",
+        "Enter does not apply a manually entered viewer zoom value")
+    for viewer_props in viewer_darkmode_props:
+        require(
+            viewer_props,
+            r"USE_DARKMODELIB=1;_DARKMODELIB_NO_INI_CONFIG",
+            "A shared viewer-frame consumer compiles darkmodelib menu/status support as a no-op")
+    for viewer_project in (salamatrix_project, text_viewer_project,
+                           webview2_viewer_project):
+        require(
+            viewer_project,
+            r"darkmode_backend_darkmodelib\.cpp.*?"
+            r"third_party\\darkmodelib\\src\\Darkmodelib\.cpp.*?"
+            r"third_party\\darkmodelib\\src\\DmlibSubclassControl\.cpp.*?"
+            r"third_party\\darkmodelib\\src\\DmlibSubclassWindow\.cpp",
+            "A shared viewer-frame consumer does not link the darkmodelib backend")
+    require(
+        native_viewer,
+        r"LoadLibraryExW\(modulePath\.data\(\).*?"
+        r"GetProcAddress\(loader, \"CreateCoreWebView2EnvironmentWithOptions\"\).*?"
+        r"HRESULT_FROM_WIN32\(ERROR_MOD_NOT_FOUND\)",
+        "The shared native viewer still makes WebView2Loader.dll a mandatory plugin import")
+    require_absent(
+        native_viewer,
+        r"HRESULT hr = CreateCoreWebView2EnvironmentWithOptions\(",
+        "The shared native viewer directly imports WebView2Loader.dll")
+    require(
+        native_viewer,
+        r"GetModuleFileNameW\(nullptr, modulePath\.data\(\).*?"
+        r'L"utils\\\\WebView2Loader\.dll"',
+        "The shared native viewer does not resolve WebView2Loader under utils")
+    require(
+        webview2_targets,
+        r"DestinationFolder=\"\$\(OutDir\)\.\.\\\.\.\\utils\".*?"
+        r"Delete Files=\"\$\(OutDir\)WebView2Loader\.dll(?:;|\")",
+        "WebView2Loader is not staged once under utils")
+    require(
+        inno_setup_x64,
+        r'Source: "\{#PayloadDir\}\\utils\\WebView2Loader\.dll"; '
+        r'DestDir: "\{app\}\\utils"; Flags: ignoreversion',
+        "Setup does not install the shared WebView2Loader under utils")
+    if len(re.findall(r'^Source: .*WebView2Loader\.dll', inno_setup_x64,
+                      re.MULTILINE)) != 1:
+        raise AssertionError(
+            "Setup installs duplicate per-plugin WebView2Loader copies")
+    require(
+        native_viewer,
+        r'ModuleDirectory\(nullptr\) \+ L"utils\\\\MarkdigRenderer\.exe"',
+        "The native viewer does not resolve shared MarkdigRenderer under utils")
+    for project in (salamatrix_project, webview2_viewer_project):
+        require(
+            project,
+            r'--output &quot;\$\(IntDir\)MarkdigRenderer&quot;.*?'
+            r'DestinationFolder="\$\(OutDir\)\.\.\\\.\.\\utils".*?'
+            r'Delete Files="\$\(OutDir\)MarkdigRenderer\.exe',
+            "A WebView2 project still stages a private MarkdigRenderer copy")
+    if len(re.findall(r'^Source: .*MarkdigRenderer\.exe', inno_setup_x64,
+                      re.MULTILINE)) != 1:
+        raise AssertionError(
+            "Setup installs duplicate per-plugin MarkdigRenderer copies")
     require(
         fs_contract,
         r"#define FS_SERVICE_NO_REFRESH_WAIT_CURSOR 0x04000000",

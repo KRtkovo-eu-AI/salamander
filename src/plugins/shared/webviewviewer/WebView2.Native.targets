@@ -20,8 +20,10 @@
   </ItemDefinitionGroup>
 
   <Target Name="StageWebView2Loader" AfterTargets="Build">
+    <MakeDir Directories="$(OutDir)..\..\utils" />
     <Copy SourceFiles="$(WebView2NativeRoot)$(WebView2Platform)\WebView2Loader.dll"
-          DestinationFolder="$(OutDir)"
+          DestinationFolder="$(OutDir)..\..\utils"
           SkipUnchangedFiles="true" />
+    <Delete Files="$(OutDir)WebView2Loader.dll;$(OutDir)..\..\WebView2Loader.dll" />
   </Target>
 </Project>

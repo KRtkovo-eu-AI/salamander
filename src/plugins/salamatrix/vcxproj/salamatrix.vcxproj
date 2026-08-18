@@ -294,8 +294,13 @@
     <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\plugins\show-invisibles\prism-show-invisibles.min.js;$(PrismAssetsRoot)node_modules\prismjs\plugins\show-invisibles\prism-show-invisibles.css" DestinationFolder="$(OutDir)prism\plugins\show-invisibles" />
   </Target>
   <Target Name="PublishViewerMarkdigRenderer" AfterTargets="Build" Condition="'$(Platform)' != 'Win32'">
-    <Exec Command="dotnet publish &quot;$(ProjectDir)..\..\shared\webviewviewer\markdighelper\MarkdigRenderer.csproj&quot; --configuration Release --runtime $(MarkdigRuntimeIdentifier) --output &quot;$(OutDir).&quot;" />
-    <Delete Files="$(OutDir)MarkdigRenderer.pdb" />
+    <Exec Command="dotnet publish &quot;$(ProjectDir)..\..\shared\webviewviewer\markdighelper\MarkdigRenderer.csproj&quot; --configuration Release --runtime $(MarkdigRuntimeIdentifier) --output &quot;$(IntDir)MarkdigRenderer&quot;" />
+    <MakeDir Directories="$(OutDir)..\..\utils" />
+    <Copy SourceFiles="$(IntDir)MarkdigRenderer\MarkdigRenderer.exe"
+          DestinationFolder="$(OutDir)..\..\utils"
+          SkipUnchangedFiles="true" />
+    <Delete Files="$(OutDir)MarkdigRenderer.exe;$(OutDir)MarkdigRenderer.pdb;$(OutDir)..\..\MarkdigRenderer.exe" />
+    <RemoveDir Directories="$(OutDir)runtimes" />
   </Target>
   <ImportGroup Label="ExtensionTargets">
     <Import Project="..\..\shared\webviewviewer\WebView2.Native.targets" />
