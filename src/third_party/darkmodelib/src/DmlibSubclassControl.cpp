@@ -39,6 +39,36 @@
 static constexpr int CP_DROPDOWNITEM = 9; // for some reason mingw use only enum up to 8
 #endif
 
+static HFONT getControlTextFont(HWND hWnd, bool groupboxCaption, bool& isFontCreated)
+{
+	isFontCreated = false;
+	if (::GetPropW(hWnd, L"Darkmodelib.Button.UseConfiguredFont") == nullptr)
+	{
+		return nullptr;
+	}
+	HFONT controlFont = reinterpret_cast<HFONT>(::SendMessage(hWnd, WM_GETFONT, 0, 0));
+	if (controlFont == nullptr || !groupboxCaption)
+	{
+		return controlFont;
+	}
+
+	LOGFONT lf{};
+	if (::GetObjectW(controlFont, sizeof(lf), &lf) != sizeof(lf))
+	{
+		return controlFont;
+	}
+
+	lf.lfHeight = static_cast<LONG>(lf.lfHeight * 1.2);
+	lf.lfWidth = 0;
+	HFONT captionFont = ::CreateFontIndirectW(&lf);
+	if (captionFont != nullptr)
+	{
+		isFontCreated = true;
+		return captionFont;
+	}
+	return controlFont;
+}
+
 /**
  * @brief Draws a themed owner drawn checkbox, radio, or tri-state button (excluding push-like buttons).
  *
@@ -69,21 +99,21 @@ static void renderButton(
 {
 	// Font part
 
-	HFONT hFont = nullptr;
+	const bool useGroupboxCaptionStyle =
+		::GetPropW(hWnd, L"Darkmodelib.Button.UseGroupboxCaptionStyle") != nullptr;
+	const bool useConfiguredFont =
+		::GetPropW(hWnd, L"Darkmodelib.Button.UseConfiguredFont") != nullptr;
 	bool isFontCreated = false;
+	HFONT hFont = useGroupboxCaptionStyle
+		? getControlTextFont(hWnd, true, isFontCreated)
+		: reinterpret_cast<HFONT>(::SendMessage(hWnd, WM_GETFONT, 0, 0));
 	LOGFONT lf{};
-	if (SUCCEEDED(::GetThemeFont(hTheme, hdc, iPartID, iStateID, TMT_FONT, &lf)))
+	if (hFont == nullptr &&
+		SUCCEEDED(::GetThemeFont(hTheme, hdc, iPartID, iStateID, TMT_FONT, &lf)))
 	{
 		hFont = ::CreateFontIndirectW(&lf);
 		isFontCreated = true;
 	}
-	if (hFont == nullptr)
-	{
-		hFont = reinterpret_cast<HFONT>(::SendMessage(hWnd, WM_GETFONT, 0, 0));
-		isFontCreated = false;
-	}
-	const bool useGroupboxCaptionStyle =
-		::GetPropW(hWnd, L"Darkmodelib.Button.UseGroupboxCaptionStyle") != nullptr;
 
 	const auto holdFont = dmlib_paint::GdiObject{ hdc, hFont, !isFontCreated };
 
@@ -166,7 +196,13 @@ static void renderButton(
 	dtto.dwFlags = DTT_TEXTCOLOR;
 	dtto.crText = (::IsWindowEnabled(hWnd) == FALSE) ? dmlib::getDisabledTextColor() : dmlib::getTextColor();
 
-	if (useGroupboxCaptionStyle)
+	if (useGroupboxCaptionStyle && useConfiguredFont)
+	{
+		::SetBkMode(hdc, TRANSPARENT);
+		::SetTextColor(hdc, dtto.crText);
+		::DrawTextW(hdc, buffer.c_str(), -1, &rcText, dtFlags);
+	}
+	else if (useGroupboxCaptionStyle)
 	{
 		::DrawThemeTextEx(hTheme, hdc, BP_GROUPBOX, GBS_NORMAL, buffer.c_str(), -1,
 						  dtFlags, &rcText, &dtto);
@@ -182,7 +218,9 @@ static void renderButton(
 	if (((nState & BST_FOCUS) == BST_FOCUS) && ((uiState & UISF_HIDEFOCUS) != UISF_HIDEFOCUS))
 	{
 		RECT rcFocusText{ rcText };
-		if (useGroupboxCaptionStyle)
+		if (useGroupboxCaptionStyle && useConfiguredFont)
+			::DrawTextW(hdc, buffer.c_str(), -1, &rcFocusText, dtFlags | DT_CALCRECT);
+		else if (useGroupboxCaptionStyle)
 			::DrawThemeTextEx(hTheme, hdc, BP_GROUPBOX, GBS_NORMAL, buffer.c_str(), -1,
 							  dtFlags | DT_CALCRECT, &rcFocusText, &dtto);
 		else
@@ -522,22 +560,19 @@ static void paintGroupbox(HWND hWnd, HDC hdc, const dmlib_subclass::ButtonData& 
 	const bool isDisabled = ::IsWindowEnabled(hWnd) == FALSE;
 	static constexpr int iPartID = BP_GROUPBOX;
 	const int iStateID = isDisabled ? GBS_DISABLED : GBS_NORMAL;
+	const bool useConfiguredFont =
+		::GetPropW(hWnd, L"Darkmodelib.Button.UseConfiguredFont") != nullptr;
 
 	// Font part
 
 	bool isFontCreated = false;
-	HFONT hFont = nullptr;
+	HFONT hFont = getControlTextFont(hWnd, true, isFontCreated);
 	LOGFONT lf{};
-	if (SUCCEEDED(::GetThemeFont(hTheme, hdc, iPartID, iStateID, TMT_FONT, &lf)))
+	if (hFont == nullptr &&
+		SUCCEEDED(::GetThemeFont(hTheme, hdc, iPartID, iStateID, TMT_FONT, &lf)))
 	{
 		hFont = ::CreateFontIndirectW(&lf);
 		isFontCreated = true;
-	}
-
-	if (hFont == nullptr)
-	{
-		hFont = reinterpret_cast<HFONT>(::SendMessage(hWnd, WM_GETFONT, 0, 0));
-		isFontCreated = false;
 	}
 
 	const auto holdFont = dmlib_paint::GdiObject{ hdc, hFont, !isFontCreated };
@@ -609,7 +644,14 @@ static void paintGroupbox(HWND hWnd, HDC hdc, const dmlib_subclass::ButtonData& 
 			dtFlags |= DT_HIDEPREFIX;
 		}
 
-		::DrawThemeTextEx(hTheme, hdc, BP_GROUPBOX, iStateID, buffer.c_str(), -1, dtFlags | DT_SINGLELINE, &rcText, &dtto);
+		if (useConfiguredFont)
+		{
+			::SetBkMode(hdc, TRANSPARENT);
+			::SetTextColor(hdc, dtto.crText);
+			::DrawTextW(hdc, buffer.c_str(), -1, &rcText, dtFlags | DT_SINGLELINE);
+		}
+		else
+			::DrawThemeTextEx(hTheme, hdc, BP_GROUPBOX, iStateID, buffer.c_str(), -1, dtFlags | DT_SINGLELINE, &rcText, &dtto);
 	}
 }
 

@@ -760,7 +760,7 @@ CDialog::Execute()
     CWinLibDPIContext dpiContext;
     LOGFONT logFont;
     BYTE* dialogTemplate = NULL;
-    if (WinLibGetConfiguredDialogLogFont(Parent, &logFont))
+    if (UseConfiguredDialogFont() && WinLibGetConfiguredDialogLogFont(Parent, &logFont))
         dialogTemplate = WinLibDPICloneResourceDialogWithFont(Modul, ResID, &logFont,
                                                               WinLibDPIGetWindowDPI(Parent), NULL);
     INT_PTR result;
@@ -790,7 +790,7 @@ HWND CDialog::Create()
     CWinLibDPIContext dpiContext;
     LOGFONT logFont;
     BYTE* dialogTemplate = NULL;
-    if (WinLibGetConfiguredDialogLogFont(Parent, &logFont))
+    if (UseConfiguredDialogFont() && WinLibGetConfiguredDialogLogFont(Parent, &logFont))
         dialogTemplate = WinLibDPICloneResourceDialogWithFont(Modul, ResID, &logFont,
                                                               WinLibDPIGetWindowDPI(Parent), NULL);
     HWND result;
@@ -1012,7 +1012,8 @@ CDialog::CDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
     // geometry. Install the exact configured LOGFONT only after concrete initialization;
     // this fallback deliberately does not resize any windows.
     if (uMsg == WM_INITDIALOG && dlg != NULL)
-        WinLibApplyConfiguredDialogFont(hwndDlg);
+        if (dlg->UseConfiguredDialogFont())
+            WinLibApplyConfiguredDialogFont(hwndDlg);
 
     return dlgRes;
 }

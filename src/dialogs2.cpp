@@ -276,6 +276,24 @@ void CCommonDialog::NotifDlgJustCreated()
     ArrangeHorizontalLines(HWindow);
 }
 
+static void MarkConfiguredButtonFonts(HWND parent)
+{
+    for (HWND child = GetWindow(parent, GW_CHILD); child != NULL;
+         child = GetWindow(child, GW_HWNDNEXT))
+    {
+        TCHAR className[16];
+        if (GetClassName(child, className, _countof(className)) != 0 &&
+            _tcsicmp(className, _T("Button")) == 0)
+        {
+            if (DialogFontMode != DIALOG_FONT_DEFAULT)
+                SetPropW(child, L"Darkmodelib.Button.UseConfiguredFont", (HANDLE)1);
+            else
+                RemovePropW(child, L"Darkmodelib.Button.UseConfiguredFont");
+        }
+        MarkConfiguredButtonFonts(child);
+    }
+}
+
 INT_PTR
 CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -315,6 +333,7 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
         {
+            MarkConfiguredButtonFonts(HWindow);
             DarkModeApplyTree(HWindow);
             DarkModeRefreshTitleBar(HWindow);
             DarkModeApplyStaticTextColors(HWindow, NULL);
@@ -359,6 +378,7 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
         {
+            MarkConfiguredButtonFonts(HWindow);
             DarkModeApplyTree(HWindow);
             DarkModeRefreshTitleBar(HWindow);
             DarkModeApplyStaticTextColors(HWindow, NULL);
@@ -372,6 +392,7 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (DarkModeHandleSettingChange(uMsg, lParam) &&
             WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
         {
+            MarkConfiguredButtonFonts(HWindow);
             DarkModeApplyTree(HWindow);
             DarkModeRefreshTitleBar(HWindow);
             DarkModeApplyStaticTextColors(HWindow, NULL);
@@ -412,6 +433,14 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 void CCommonPropSheetPage::NotifDlgJustCreated()
 {
     ArrangeHorizontalLines(HWindow);
+}
+
+INT_PTR
+CCommonPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    if (uMsg == WM_INITDIALOG || uMsg == WM_THEMECHANGED || uMsg == WM_SETTINGCHANGE)
+        MarkConfiguredButtonFonts(HWindow);
+    return CPropSheetPage::DialogProc(uMsg, wParam, lParam);
 }
 
 //
