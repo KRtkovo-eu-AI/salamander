@@ -116,9 +116,12 @@ Schema 2 adds two optional native roles while schema 1 remains accepted:
   non-empty, timer refresh is further limited to exact matching paths; manual
   refresh always reloads the current path.
   A column declares `id`, `name`, optional `description`, `width`, `numeric`,
-  and `size`. A `size` column carries an unsigned byte count and is formatted
+  `size`, and `dateTime`. A `size` column carries an unsigned byte count and is formatted
   using the user's Configuration > Panels > Show sizes choice (bytes, KB, or
-  short mixed units); it is implicitly numeric.
+  short mixed units); it is implicitly numeric. A `dateTime` column carries
+  Unix milliseconds in each item's `columns` value. It sorts by that numeric
+  UTC instant and displays date and time using the user's Windows regional
+  format and time zone.
   The list handler calls `Salamander.fileSystem.addItems` /
   `file_system.add_items` once for a snapshot (or `addItem` / `add_item` for a
   small incremental list). The batch call returns the number of accepted items

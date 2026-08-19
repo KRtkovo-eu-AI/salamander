@@ -2407,10 +2407,10 @@ def main() -> int:
             "custom-views", "windows-logs", "applications-services"]:
         raise AssertionError("Event Viewer root log hierarchy is incomplete")
     if not all(marker in event_viewer for marker in (
-            "Get-WinEvent -ListLog", "IsClassicLog", "Get-WinEvent -LogName",
+            "Get-WinEvent -ListLog", "IsClassicLog", "Get-EventRecord",
             "-MaxEvents 250", "EventRecordID=$recordId", "Show-EventDetails",
             "ToXml()", "$Salamander.ui.Dialog", "'textbox'",
-            "previousEvent", "nextEvent", "dialog.Show()", "$true)",
+            "eventNavigation", "toolbarheader", "dialog.Show()", "$true)",
             "panelItemIds", "panelItemIndex", "$nextIndex",
             "-MaxEvents 1")):
         raise AssertionError(
@@ -2425,8 +2425,54 @@ def main() -> int:
         "Event Properties still blocks its initial display on a 500-event query")
     require(
         event_viewer,
-        r"AddControl\('label', 'metadata'.*?width=350;height=70",
+        r"Add-EventDialogControl \$dialog @\('label', 'metadata'.*?"
+        r"width=400;height=70",
         "Event Properties metadata is not rendered as a bounded multiline label")
+    require(
+        event_viewer,
+        r"@\('button', 'close'.*?@\{x=350;y=312;width=60.*?"
+        r"@\('textbox', 'message'.*?width=400.*?"
+        r"@\('textbox', 'xml'.*?width=400",
+        "Event Properties content blocks do not share the Close-button right edge")
+    require(
+        event_viewer,
+        r"function Get-EventRecord.*?foreach \(\$attempt in 1\.\.5\).*?"
+        r"Get-WinEvent.*?-FilterXPath.*?Start-Sleep -Milliseconds 75.*?"
+        r"if \(\$handler -eq 'openEvent'\).*?Get-EventRecord.*?"
+        r"Salamander\.ui\.MessageBox",
+        "Event Properties can still disappear silently after a transient event query failure")
+    require(
+        json.dumps(event_viewer_manifest) + event_viewer,
+        r'"id"\s*:\s*"logged".*?"dateTime"\s*:\s*true.*?'
+        r'ToUnixTimeMilliseconds\(\).*?InvariantCulture',
+        "Event Viewer Date and Time is not backed by a locale-independent UTC sort key")
+    require(
+        event_viewer,
+        r"function Limit-EventDialogText.*?\$limit = 30000.*?"
+        r"IsHighSurrogate.*?textTruncated.*?"
+        r"\$message = Limit-EventDialogText.*?"
+        r"\$xml = Limit-EventDialogText.*?"
+        r"\$dialog = .*?try \{.*?finally \{ \$dialog\.Close\(\) \}",
+        "Event Properties can leak a dialog or overflow host transport on a large event")
+    require(
+        event_viewer,
+        r"'toolbarheader',\s*'eventNavigation'.*?buttonMask=0x30.*?"
+        r"\$result -eq 5.*?\$result -eq 6.*?"
+        r"\$offset = if \(\$result -eq 5\) \{ -1 \} else \{ 1 \}",
+        "Event navigation does not use the native Up/Down toolbar commands")
+    require(
+        ui_implementation,
+        r"ControlKindToolbarHeader.*?HIWORD\(wParam\).*?"
+        r"TLBHDR_MODIFY.*?TLBHDR_BOTTOM.*?EndDialog\(hwnd, toolbarCommand\)",
+        "native toolbar-header commands are not returned to modal runtime dialogs")
+    require(
+        read("src/plugins/salamatrix/salamatrix_manifest.h") + manifest +
+        packages + fileswn3,
+        r"bool DateTime.*?ReadBoolean\(columnValue, \"dateTime\".*?"
+        r"SALAMATRIX_FS_DATETIME_COLUMN.*?"
+        r"SalamatrixFormatFileSystemDateTime.*?LOCALE_USER_DEFAULT.*?"
+        r"salamatrixDateTimeColumn.*?salamatrixSortKey",
+        "dateTime columns do not separate the UTC sort key from user-locale display text")
     runtime_workers = [
         read("src/plugins/javascriptruntime/runtime/salamatrix_worker.mjs"),
         read("src/plugins/pythonruntime/runtime/salamatrix_worker.py"),
@@ -2457,9 +2503,12 @@ def main() -> int:
             "Model-visible UI contract omits the resizable dialog option")
     for language, relative in event_viewer_manifest.get("locales", {}).items():
         localized = json.loads(read("src/extensions/event-viewer/" + relative))
-        if not localized.get("descriptionLabel"):
+        if (not localized.get("descriptionLabel") or
+                not localized.get("textTruncated") or
+                not localized.get("openErrorTitle") or
+                "{0}" not in localized.get("openError", "")):
             raise AssertionError(
-                f"Event Viewer {language} locale omits the description label")
+                f"Event Viewer {language} locale omits required dialog text")
     require(
         event_viewer,
         r"subPath = @\(\).*?parts\.Count -gt 2.*?"

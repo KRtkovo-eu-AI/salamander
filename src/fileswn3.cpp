@@ -298,7 +298,14 @@ void FillPluginCustomSortCache(CPluginCustomSortContext& context,
                                CPluginDataInterfaceAbstract* pluginData)
 {
     TransferPluginDataIface = pluginData;
+    // Salamatrix dateTime columns display a user-locale value but expose a
+    // raw Unix-millisecond key while sorting. The opt-in marker is private to
+    // Salamatrix custom columns and leaves every existing plug-in unchanged.
+    const DWORD salamatrixDateTimeColumn = 0x20000000;
+    const DWORD salamatrixSortKey = 0x80000000;
     TransferActCustomData = column->CustomData;
+    if ((column->CustomData & salamatrixDateTimeColumn) != 0)
+        TransferActCustomData |= salamatrixSortKey;
     for (int i = firstIndex; i < items->Count; i++)
     {
         CFileData* file = &items->At(i);
@@ -2442,7 +2449,12 @@ void CFilesWindow::SortDirectory(CFilesArray* files, CFilesArray* dirs)
                            dirs->At(0).Name[0] == '.' && dirs->At(0).Name[1] == '.';
             int firstDirIndex = hasRoot ? 1 : 0;
             CPluginCustomSortContext context;
-            context.Numeric = !sortColumn->LeftAlignment;
+            // Salamatrix dateTime columns remain left-aligned for display but
+            // expose Unix milliseconds as their private sort key.
+            const DWORD salamatrixDateTimeColumn = 0x20000000;
+            context.Numeric = !sortColumn->LeftAlignment ||
+                              (sortColumn->CustomData &
+                               salamatrixDateTimeColumn) != 0;
             FillPluginCustomSortCache(context, files, 0, FALSE, sortColumn,
                                       PluginData.GetInterface());
             FillPluginCustomSortCache(context, dirs, firstDirIndex, TRUE, sortColumn,

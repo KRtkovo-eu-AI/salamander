@@ -52,6 +52,52 @@ function Get-EventLevelText {
     }
 }
 
+function Get-EventRecord {
+    param([string]$LogName, [long]$recordId)
+    # Event Log can transiently reject a point query while its channel is
+    # being updated. The old one-shot query terminated before Dialog.Show(),
+    # leaving the user with neither a window nor an explanation.
+    $lastError = $null
+    foreach ($attempt in 1..5) {
+        try {
+            $event = Get-WinEvent -LogName $LogName `
+                -FilterXPath "*[System[EventRecordID=$recordId]]" `
+                -MaxEvents 1 -ErrorAction Stop | Select-Object -First 1
+            if ($null -ne $event) { return $event }
+        } catch {
+            $lastError = $_
+        }
+        if ($attempt -lt 5) { Start-Sleep -Milliseconds 75 }
+    }
+    if ($null -ne $lastError) { throw $lastError }
+    throw "Event record $recordId was not found in log '$LogName'."
+}
+
+function Limit-EventDialogText {
+    param([string]$Text, $Strings)
+    # Each control is transported as one JSON protocol frame. Keep enough
+    # headroom for UTF-8 expansion and JSON escaping, and do not split a UTF-16
+    # surrogate pair at the boundary.
+    $limit = 30000
+    if ($null -eq $Text -or $Text.Length -le $limit) { return [string]$Text }
+    if ([char]::IsHighSurrogate($Text[$limit - 1])) { --$limit }
+    return $Text.Substring(0, $limit) + "`r`n`r`n" +
+        [string]$Strings.textTruncated
+}
+
+function Add-EventDialogControl {
+    param($Dialog, [object[]]$Arguments)
+    $controlId = if ($Arguments.Count -gt 1) {
+        [string]$Arguments[1]
+    } else { '<unknown>' }
+    try {
+        [void]$Dialog.AddControl.Invoke($Arguments)
+    } catch {
+        throw "Event Properties control '$controlId' failed: " +
+            [string]$_.Exception.Message
+    }
+}
+
 function Add-EventRows {
     param([object[]]$Events, [string]$LogName, $Strings)
     $items = New-Object 'System.Collections.Generic.List[hashtable]'
@@ -68,7 +114,8 @@ function Add-EventRows {
             directory=$false; enabled=$true
             columns=@{
                 level=(Get-EventLevelText $event $Strings)
-                logged=$event.TimeCreated.ToString('g')
+                logged=([DateTimeOffset]$event.TimeCreated).ToUnixTimeMilliseconds().ToString(
+                    [Globalization.CultureInfo]::InvariantCulture)
                 source=$provider; eventId=$eventId; task=$task
             }
         })
@@ -93,6 +140,8 @@ function Show-EventDetails {
             $message = [string]$Strings.messageUnavailable
         }
         $xml = try { [string]$current.ToXml() } catch { '' }
+        $message = Limit-EventDialogText $message $Strings
+        $xml = Limit-EventDialogText $xml $Strings
         $metadata = [string]::Format([string]$Strings.metadata,
             $LogName, [string]$current.ProviderName, [string]$current.Id,
             (Get-EventLevelText $current $Strings),
@@ -102,42 +151,48 @@ function Show-EventDetails {
         $title = [string]::Format([string]$Strings.windowTitle,
             [string]$current.Id, [string]$current.ProviderName)
         $dialog = $Salamander.ui.Dialog($title, 420, 340, $true)
-        $dialog.AddControl('label', 'generalLabel', [string]$Strings.general,
-            $false, $false, 0, @{x=10;y=8;width=120;height=12})
-        # A multiline label preserves the field rows. StaticText is a
-        # value-display helper and intentionally flattens CR/LF.
-        $dialog.AddControl('label', 'metadata', $metadata, $true, $false, 0,
-            @{x=10;y=22;width=350;height=70})
-        $dialog.AddControl('label', 'descriptionLabel',
-            [string]$Strings.descriptionLabel,
-            $false, $false, 0, @{x=10;y=98;width=120;height=12})
-        $dialog.AddControl('textbox', 'message', $message, $true, $false, 0,
-            @{x=10;y=112;width=400;height=100}, $false, $true)
-        $dialog.AddControl('label', 'detailsLabel', [string]$Strings.details,
-            $false, $false, 0, @{x=10;y=218;width=120;height=12})
-        $dialog.AddControl('textbox', 'xml', $xml, $true, $false, 0,
-            @{x=10;y=232;width=350;height=72}, $false, $true)
-        $dialog.AddControl('button', 'previousEvent', ([string][char]0x25B2),
-            $false, $false, 101, @{x=370;y=22;width=40;height=22})
-        $dialog.AddControl('button', 'nextEvent', ([string][char]0x25BC),
-            $false, $false, 102, @{x=370;y=50;width=40;height=22})
-        $dialog.AddControl('button', 'close', [string]$Strings.close,
-            $false, $false, 1, @{x=350;y=312;width=60;height=20})
-        try { $result = [int]$dialog.Show() } finally { $dialog.Close() }
-        if (($result -eq 101 -or $result -eq 102) -and
+        try {
+            # Framework-owned toolbar header uses Salamander's existing
+            # MoveItemUp/MoveItemDown SVGs, including dark-scheme variants.
+            Add-EventDialogControl $dialog @('toolbarheader', 'eventNavigation',
+                [string]$Strings.general, $false, $false, 1,
+                @{x=10;y=8;width=400;height=12}, $false, $false,
+                @{alignControlId='metadata';buttonMask=0x30})
+            Add-EventDialogControl $dialog @('button', 'close',
+                [string]$Strings.close,
+                $false, $false, 1, @{x=350;y=312;width=60;height=20})
+            # A multiline label preserves the field rows. StaticText is a
+            # value-display helper and intentionally flattens CR/LF.
+            Add-EventDialogControl $dialog @('label', 'metadata', $metadata,
+                $true, $false, 0, @{x=10;y=22;width=400;height=70})
+            Add-EventDialogControl $dialog @('label', 'descriptionLabel',
+                [string]$Strings.descriptionLabel, $false, $false, 0,
+                @{x=10;y=98;width=120;height=12})
+            Add-EventDialogControl $dialog @('textbox', 'message', $message,
+                $true, $false,
+                0, @{x=10;y=112;width=400;height=100}, $false, $true)
+            Add-EventDialogControl $dialog @('label', 'detailsLabel',
+                [string]$Strings.details, $false, $false, 0,
+                @{x=10;y=218;width=120;height=12})
+            Add-EventDialogControl $dialog @('textbox', 'xml', $xml, $true,
+                $false, 0,
+                @{x=10;y=232;width=400;height=72}, $false, $true)
+            $result = [int]$dialog.Show()
+        } finally { $dialog.Close() }
+        # TLBHDR_UP=5 and TLBHDR_DOWN=6. Only this script resolves the
+        # adjacent record in the panel's current ordering.
+        if (($result -eq 5 -or $result -eq 6) -and
             $orderedIds.Count -gt 0 -and $currentIndex -ge 0) {
-            $offset = if ($result -eq 101) { -1 } else { 1 }
+            $offset = if ($result -eq 5) { -1 } else { 1 }
             $nextIndex = $currentIndex + $offset
             if ($nextIndex -ge 0 -and $nextIndex -lt $orderedIds.Count) {
                 $identity = ConvertFrom-EventItemId `
                     ([string]$orderedIds[$nextIndex])
                 if ($null -ne $identity) {
                     $recordId = [long]$identity.recordId
-                    $adjacent = Get-WinEvent `
-                        -LogName ([string]$identity.logName) `
-                        -FilterXPath "*[System[EventRecordID=$recordId]]" `
-                        -MaxEvents 1 -ErrorAction SilentlyContinue |
-                        Select-Object -First 1
+                    $adjacent = try {
+                        Get-EventRecord ([string]$identity.logName) $recordId
+                    } catch { $null }
                     if ($null -ne $adjacent) {
                         $currentIndex = $nextIndex
                         $current = $adjacent
@@ -159,10 +214,15 @@ if ($handler -eq 'openEvent') {
     $identity = ConvertFrom-EventItemId ([string]$Salamander.invocation.item.id)
     if ($null -ne $identity) {
         $recordId = [long]$identity.recordId
-        $event = Get-WinEvent -LogName ([string]$identity.logName) `
-            -FilterXPath "*[System[EventRecordID=$recordId]]" -MaxEvents 1 `
-            -ErrorAction Stop | Select-Object -First 1
-        if ($null -ne $event) { Show-EventDetails $event $identity.logName $strings }
+        try {
+            $event = Get-EventRecord ([string]$identity.logName) $recordId
+            Show-EventDetails $event $identity.logName $strings
+        } catch {
+            $detail = [string]$_.Exception.Message
+            [void]$Salamander.ui.MessageBox(
+                ([string]::Format([string]$strings.openError, $detail)),
+                [string]$strings.openErrorTitle, 'OK', 'Error')
+        }
     }
     return
 }

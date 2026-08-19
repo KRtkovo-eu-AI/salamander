@@ -101,8 +101,9 @@ struct CExtensionManifestFileSystem
         unsigned int Width;
         bool Numeric;
         bool Size;
+        bool DateTime;
 
-        Column() : Width(100), Numeric(false), Size(false) {}
+        Column() : Width(100), Numeric(false), Size(false), DateTime(false) {}
     };
 
     struct Action

@@ -1165,10 +1165,13 @@ void RunPowerShellEventViewerOpenEventTest()
     MakePath(L"-event-viewer.ps1", &script[0], static_cast<int>(script.size()));
     Check(WriteScript(
               &script[0],
+              "$global:eventQueryAttempts = 0\n"
               "function Get-WinEvent {\n"
+              "  ++$global:eventQueryAttempts\n"
+              "  if ($global:eventQueryAttempts -lt 5) { throw 'transient event query failure' }\n"
               "  $event = [pscustomobject]@{ ProviderName='MockProvider'; Id=42; Level=4; TimeCreated=[datetime]'2026-01-02T03:04:05'; TaskDisplayName='Mock Task'; UserId='S-1-5-18'; MachineName='MockHost'; RecordId=1; Message='Mock message' }\n"
               "  $event | Add-Member ScriptMethod FormatDescription { 'Mock description' }\n"
-              "  $event | Add-Member ScriptMethod ToXml { '<Event><System /></Event>' }\n"
+              "  $event | Add-Member ScriptMethod ToXml { '<Event>' + ('x' * 1100000) + '</Event>' }\n"
               "  return $event\n"
               "}\n"
               "try { & $env:SALAMATRIX_EVENT_VIEWER_TEST_ENTRY } catch {\n"
@@ -1193,7 +1196,7 @@ void RunPowerShellEventViewerOpenEventTest()
     request.Flags =
         Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap |
         Salamatrix::Runtime::RuntimeExecutionFlagOneShotWorker;
-    request.TimeoutMs = 5000;
+    request.TimeoutMs = 10000;
     BootstrapDispatchState state;
     request.HostDispatch = WorkerHostDispatch;
     request.HostDispatchContext = &state;
@@ -1202,7 +1205,7 @@ void RunPowerShellEventViewerOpenEventTest()
           "start Event Viewer openEvent worker");
     if (session != NULL)
     {
-        for (int attempt = 0; attempt < 40 && session->IsAlive(); ++attempt)
+        for (int attempt = 0; attempt < 60 && session->IsAlive(); ++attempt)
             session->Pump(250);
         DWORD exitCode = 1;
         const BOOL hasExitCode = session->GetExitCode(&exitCode);
@@ -1219,7 +1222,7 @@ void RunPowerShellEventViewerOpenEventTest()
         Check(hasExitCode != FALSE && exitCode == 0,
               "Event Viewer openEvent worker exits successfully");
         Check(state.DialogShowCalls == 1,
-              "Event Viewer openEvent reaches native dialog show");
+              "Event Viewer truncates an oversized event and reaches native dialog show");
         Check(state.DialogCalls == 12,
               "Event Viewer openEvent builds and destroys its native dialog");
         session->Stop();
