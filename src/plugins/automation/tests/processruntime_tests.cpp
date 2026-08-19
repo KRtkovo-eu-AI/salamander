@@ -24,6 +24,7 @@ struct BootstrapDispatchState
     int FileOperationCalls;
     int DialogCalls;
     int DialogShowCalls;
+    int ToolbarHeaderControlCalls;
     int FolderPickerControlCalls;
     int FilePickerControlCalls;
     int SideContextCalls;
@@ -62,6 +63,7 @@ struct BootstrapDispatchState
           FileOperationCalls(0),
           DialogCalls(0),
           DialogShowCalls(0),
+          ToolbarHeaderControlCalls(0),
           FolderPickerControlCalls(0),
           FilePickerControlCalls(0),
           SideContextCalls(0),
@@ -386,6 +388,14 @@ BOOL WINAPI WorkerHostDispatch(
             ++state->DialogCalls;
             if (strstr(payloadJson, "salamander.ui.dialog.show") != NULL)
                 ++state->DialogShowCalls;
+            if (strstr(payloadJson, "salamander.ui.dialog.add") != NULL)
+            {
+                std::string kind;
+                if (Salamatrix::Runtime::Protocol::Json::FindStringMember(
+                        payloadJson, "kind", &kind) != FALSE &&
+                    kind == "toolbarheader")
+                    ++state->ToolbarHeaderControlCalls;
+            }
             if (strstr(payloadJson, "folderpicker") != NULL)
                 ++state->FolderPickerControlCalls;
             if (strstr(payloadJson, "filepicker") != NULL)
@@ -1223,8 +1233,10 @@ void RunPowerShellEventViewerOpenEventTest()
               "Event Viewer openEvent worker exits successfully");
         Check(state.DialogShowCalls == 1,
               "Event Viewer truncates an oversized event and reaches native dialog show");
-        Check(state.DialogCalls == 12,
+        Check(state.DialogCalls == 10,
               "Event Viewer openEvent builds and destroys its native dialog");
+        Check(state.ToolbarHeaderControlCalls == 1,
+              "Event Viewer openEvent uses one toolbar header for navigation");
         session->Stop();
         session->Release();
     }
