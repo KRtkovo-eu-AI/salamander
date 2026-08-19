@@ -1742,17 +1742,17 @@ MENU_TEMPLATE_ITEM SortByMenu[] =
     }
 
     // Windows Explorer property columns that are actually displayed in this panel.
-    // The command ranges are intentionally limited to 20 items (see resource.rh2).
-    int explorerSortCount = 0;
-    int explorerSortLimit = (IsLeftPanel() ? CM_LEFTSORTBY_MAX - CM_LEFTSORTBY_MIN :
-                                             CM_RIGHTSORTBY_MAX - CM_RIGHTSORTBY_MIN) + 1;
-    for (i = 0; i < Columns.Count && explorerSortCount < explorerSortLimit; i++)
+    // The command ranges are intentionally limited to 32 items (see resource.rh2).
+    int customSortCount = 0;
+    int customSortLimit = (IsLeftPanel() ? CM_LEFTSORTBY_MAX - CM_LEFTSORTBY_MIN :
+                                           CM_RIGHTSORTBY_MAX - CM_RIGHTSORTBY_MIN) + 1;
+    for (i = 0; i < Columns.Count && customSortCount < customSortLimit; i++)
     {
         CColumn* column = &Columns.At(i);
         if (column->ID != COLUMN_ID_CUSTOM || column->GetText != InternalGetExplorerColumn)
             continue;
 
-        if (explorerSortCount == 0)
+        if (customSortCount == 0)
         {
             mii.Mask = MENU_MASK_TYPE;
             mii.Type = MENU_TYPE_SEPARATOR;
@@ -1762,10 +1762,34 @@ MENU_TEMPLATE_ITEM SortByMenu[] =
         mii.Mask = MENU_MASK_TYPE | MENU_MASK_STRING | MENU_MASK_ID | MENU_MASK_STATE;
         mii.Type = MENU_TYPE_STRING;
         mii.String = column->Name;
-        mii.ID = (IsLeftPanel() ? CM_LEFTSORTBY_MIN : CM_RIGHTSORTBY_MIN) + explorerSortCount;
+        mii.ID = (IsLeftPanel() ? CM_LEFTSORTBY_MIN : CM_RIGHTSORTBY_MIN) + customSortCount;
         mii.State = SortType == stCustom && SortCustomData == column->CustomData ? MENU_STATE_CHECKED : 0;
         popup->InsertItem(-1, TRUE, &mii);
-        explorerSortCount++;
+        customSortCount++;
+    }
+
+    // Plugin/extension columns that are actually displayed in this panel and support sorting.
+    for (i = 0; i < Columns.Count && customSortCount < customSortLimit; i++)
+    {
+        CColumn* column = &Columns.At(i);
+        if (column->ID != COLUMN_ID_CUSTOM || column->GetText == InternalGetExplorerColumn ||
+            !column->SupportSorting)
+            continue;
+
+        if (customSortCount == 0)
+        {
+            mii.Mask = MENU_MASK_TYPE;
+            mii.Type = MENU_TYPE_SEPARATOR;
+            popup->InsertItem(-1, TRUE, &mii);
+        }
+
+        mii.Mask = MENU_MASK_TYPE | MENU_MASK_STRING | MENU_MASK_ID | MENU_MASK_STATE;
+        mii.Type = MENU_TYPE_STRING;
+        mii.String = column->Name;
+        mii.ID = (IsLeftPanel() ? CM_LEFTSORTBY_MIN : CM_RIGHTSORTBY_MIN) + customSortCount;
+        mii.State = SortType == stCustom && SortCustomData == column->CustomData ? MENU_STATE_CHECKED : 0;
+        popup->InsertItem(-1, TRUE, &mii);
+        customSortCount++;
     }
 
     // separator
@@ -1782,15 +1806,28 @@ MENU_TEMPLATE_ITEM SortByMenu[] =
     return TRUE;
 }
 
-int CFilesWindow::GetExplorerSortColumnByMenuIndex(int menuIndex)
+int CFilesWindow::GetCustomSortColumnByMenuIndex(int menuIndex)
 {
     if (menuIndex < 0)
         return -1;
 
+    // First pass: Explorer columns (same order as in FillSortByMenu)
     for (int i = 0; i < Columns.Count; i++)
     {
         const CColumn* column = &Columns.At(i);
         if (column->ID == COLUMN_ID_CUSTOM && column->GetText == InternalGetExplorerColumn)
+        {
+            if (menuIndex == 0)
+                return (int)column->CustomData;
+            menuIndex--;
+        }
+    }
+    // Second pass: plugin/extension columns (same order as in FillSortByMenu)
+    for (int i = 0; i < Columns.Count; i++)
+    {
+        const CColumn* column = &Columns.At(i);
+        if (column->ID == COLUMN_ID_CUSTOM && column->GetText != InternalGetExplorerColumn &&
+            column->SupportSorting)
         {
             if (menuIndex == 0)
                 return (int)column->CustomData;
