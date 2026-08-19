@@ -440,6 +440,7 @@ struct CViewTemplate
 
     CColumnConfig Columns[STANDARD_COLUMNS_COUNT]; // stores widths and elasticity of columns
     CColumnConfig ExplorerColumns[EXPLORER_COLUMNS_COUNT]; // stores widths and elasticity of Explorer property columns
+    BYTE ExplorerColumnAvailable[EXPLORER_COLUMNS_COUNT]; // Explorer properties offered by this view
     BYTE ExplorerColumnVisible[EXPLORER_COLUMNS_COUNT]; // visible Explorer property columns
     WORD ExplorerColumnOrder[EXPLORER_COLUMNS_COUNT]; // order of Explorer property columns
     BYTE ColumnOrder[STANDARD_COLUMNS_COUNT]; // order of standard columns in detailed views/configuration
@@ -455,7 +456,7 @@ public:
     // the Mode variable is fixed for all ten views and cannot be changed
     CViewTemplate Items[VIEW_TEMPLATES_COUNT];
     TIndirectArray<CViewTemplate> ExtraItems;
-    BYTE ExplorerColumnAvailable[EXPLORER_COLUMNS_COUNT]; // globally selected Explorer properties shown in Available Columns
+    BYTE ExplorerColumnAvailable[EXPLORER_COLUMNS_COUNT]; // union of per-view availability for legacy consumers
     DWORD NextID;
 
 public:
@@ -485,6 +486,7 @@ public:
     void LoadExplorerColumnVisible(BYTE* visible, char* buffer);                          // and back again
     BOOL IsExplorerColumnAvailable(int index) const;
     void SetExplorerColumnAvailable(int index, BOOL available);
+    void RebuildExplorerColumnAvailable();
 
     BOOL Save(HKEY hKey); // saves the entire array
     BOOL Load(HKEY hKey); // loads the entire array

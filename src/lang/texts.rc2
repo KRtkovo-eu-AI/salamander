@@ -2179,6 +2179,7 @@ STRINGTABLE
  IDS_PATHMENU_RIGHT_SIDE_PATHS, "Right Side Paths..."
 
  IDS_EXCOL_TITLE, "Choose Windows Properties"
+ IDS_EXCOL_VIEW_TITLE, "%s - Choose Windows Properties"
  IDS_EXCOL_SEARCH, "&Search properties:"
  IDS_EXCOL_ALL, "All"
  IDS_EXCOL_COMMON, "Common"

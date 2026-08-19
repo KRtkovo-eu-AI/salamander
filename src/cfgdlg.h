@@ -632,6 +632,7 @@ protected:
     void FillCategories();
     void FillProperties();
     void FillSelected(int explorerIndex = -1);
+    void NormalizeSelectedOrder();
     void UpdateDetails();
     void UpdateSelectedCount();
     void UpdateSelectedButtons();
@@ -643,7 +644,8 @@ protected:
     void LayoutControls();
 
 public:
-    CExplorerColumnsDialog(HWND parent, CViewTemplates* config, int viewIndex);
+    CExplorerColumnsDialog(HWND parent, CViewTemplates* config, int viewIndex,
+                           const BYTE* available);
 
 protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -689,7 +691,7 @@ public:
     BOOL IsAvailableColumnsFilterActive();
     BOOL AvailableColumnMatchesFilter(const char* text);
     void ToggleAvailableColumnsFilter();
-    void SyncExplorerColumnAvailabilityFromList();
+    void SyncExplorerColumnAvailabilityFromList(int viewIndex, BYTE* available);
     void LayoutViewsListControls();
     DWORD GetEnabledFunctions();
 

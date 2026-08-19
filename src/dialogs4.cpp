@@ -1680,18 +1680,27 @@ enum CExplorerColumnFilter
     ecfOther
 };
 
-CExplorerColumnsDialog::CExplorerColumnsDialog(HWND parent, CViewTemplates* config, int viewIndex)
+CExplorerColumnsDialog::CExplorerColumnsDialog(HWND parent, CViewTemplates* config, int viewIndex,
+                                               const BYTE* available)
     : CCommonDialog(HLanguage, IDD_EXPLORER_COLUMNS, parent)
 {
     Config = config;
-    memcpy(Available, config->ExplorerColumnAvailable, sizeof(Available));
+    CViewTemplate* view = viewIndex >= 0 && viewIndex < config->GetCount() ? config->Get(viewIndex) : NULL;
+    memcpy(Available,
+           available != NULL ? available :
+           (view != NULL ? view->ExplorerColumnAvailable : config->ExplorerColumnAvailable),
+           sizeof(Available));
     SelectedCount = 0;
     ViewIndex = viewIndex;
     BOOL used[EXPLORER_COLUMNS_COUNT];
     ZeroMemory(used, sizeof(used));
-    CViewTemplate* view = viewIndex >= 0 && viewIndex < config->GetCount() ? config->Get(viewIndex) : NULL;
     if (view != NULL)
     {
+        // Keep the chooser usable with configurations saved by versions that
+        // persisted view visibility but an empty/incomplete availability list.
+        for (int i = 0; i < EXPLORER_COLUMNS_COUNT; i++)
+            if (view->ExplorerColumnVisible[i])
+                Available[i] = TRUE;
         for (int i = 0; i < EXPLORER_COLUMNS_COUNT; i++)
         {
             int explorerIndex = view->ExplorerColumnOrder[i];
@@ -1722,7 +1731,7 @@ void CExplorerColumnsDialog::FillCategories()
     HWND tree = GetDlgItem(HWindow, IDC_EXCOL_CATEGORIES);
     TreeView_DeleteAllItems(tree);
 
-    int iconSize = MulDiv(16, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI);
+    int iconSize = MulDiv(24, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI);
     HIMAGELIST images = ImageList_Create(iconSize, iconSize, ILC_COLOR32 | ILC_MASK, 10, 1);
     if (images != NULL)
     {
@@ -1830,6 +1839,7 @@ void CExplorerColumnsDialog::FillProperties()
             selectedExplorerIndex = (int)oldItem.lParam;
     }
 
+    BOOL oldDisableNotification = DisableNotification;
     DisableNotification = TRUE;
     ListView_DeleteAllItems(list);
     ListView_RemoveAllGroups(list);
@@ -1878,7 +1888,7 @@ void CExplorerColumnsDialog::FillProperties()
     if (itemToSelect >= 0)
         ListView_SetItemState(list, itemToSelect, LVIS_SELECTED | LVIS_FOCUSED,
                               LVIS_SELECTED | LVIS_FOCUSED);
-    DisableNotification = FALSE;
+    DisableNotification = oldDisableNotification;
     UpdateDetails();
     UpdateSelectedCount();
 }
@@ -1899,6 +1909,8 @@ void CExplorerColumnsDialog::FillSelected(int explorerIndex)
                 explorerIndex = (int)item.lParam;
         }
     }
+    NormalizeSelectedOrder();
+    BOOL oldDisableNotification = DisableNotification;
     DisableNotification = TRUE;
     ListView_DeleteAllItems(list);
     int itemToSelect = -1;
@@ -1907,13 +1919,15 @@ void CExplorerColumnsDialog::FillSelected(int explorerIndex)
         int index = SelectedOrder[i];
         LVITEM item;
         ZeroMemory(&item, sizeof(item));
-        item.mask = LVIF_TEXT | LVIF_PARAM;
-        item.iItem = i;
+        item.mask = LVIF_TEXT | LVIF_PARAM | LVIF_IMAGE;
+        item.iItem = ListView_GetItemCount(list);
+        item.iSubItem = 0;
+        item.iImage = I_IMAGENONE;
         item.pszText = (char*)GetExplorerColumnName(index);
         item.lParam = index;
-        ListView_InsertItem(list, &item);
-        if (index == explorerIndex)
-            itemToSelect = i;
+        int inserted = ListView_InsertItem(list, &item);
+        if (inserted >= 0 && index == explorerIndex)
+            itemToSelect = inserted;
     }
     if (itemToSelect >= 0)
     {
@@ -1921,9 +1935,55 @@ void CExplorerColumnsDialog::FillSelected(int explorerIndex)
                               LVIS_SELECTED | LVIS_FOCUSED);
         ListView_EnsureVisible(list, itemToSelect, FALSE);
     }
-    DisableNotification = FALSE;
+    DisableNotification = oldDisableNotification;
     UpdateSelectedButtons();
     UpdateSelectedCount();
+}
+
+void CExplorerColumnsDialog::NormalizeSelectedOrder()
+{
+    WORD normalized[EXPLORER_COLUMNS_COUNT];
+    BOOL used[EXPLORER_COLUMNS_COUNT];
+    ZeroMemory(used, sizeof(used));
+    int count = 0;
+    int explorerCount = min(GetExplorerColumnCount(), EXPLORER_COLUMNS_COUNT);
+
+    // Preserve ordering already established in this dialog (including moves).
+    for (int i = 0; i < SelectedCount; i++)
+    {
+        int index = SelectedOrder[i];
+        if (index >= 0 && index < explorerCount && Available[index] && !used[index])
+        {
+            normalized[count++] = (WORD)index;
+            used[index] = TRUE;
+        }
+    }
+
+    // Add any checked property missing from the dialog order using the order
+    // persisted for the current view.
+    CViewTemplate* view = ViewIndex >= 0 && ViewIndex < Config->GetCount()
+                              ? Config->Get(ViewIndex)
+                              : NULL;
+    if (view != NULL)
+    {
+        for (int i = 0; i < EXPLORER_COLUMNS_COUNT; i++)
+        {
+            int index = view->ExplorerColumnOrder[i];
+            if (index >= 0 && index < explorerCount && Available[index] && !used[index])
+            {
+                normalized[count++] = (WORD)index;
+                used[index] = TRUE;
+            }
+        }
+    }
+
+    // A corrupt/incomplete persisted order must never hide a checked property.
+    for (int index = 0; index < explorerCount; index++)
+        if (Available[index] && !used[index])
+            normalized[count++] = (WORD)index;
+
+    memcpy(SelectedOrder, normalized, count * sizeof(normalized[0]));
+    SelectedCount = count;
 }
 
 void CExplorerColumnsDialog::SetAvailable(int explorerIndex, BOOL available)
@@ -2102,7 +2162,7 @@ void CExplorerColumnsDialog::LayoutControls()
     MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES), listLeft, contentTop, listWidth,
                contentBottom - contentTop, TRUE);
     int rightHeight = contentBottom - contentTop;
-    int selectedHeight = max(ExplorerColumnsDialogY(HWindow, 105), rightHeight / 2);
+    int selectedHeight = max(ExplorerColumnsDialogY(HWindow, 105), 2 * rightHeight / 3);
     MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_GROUP), detailsLeft,
                contentTop - ExplorerColumnsDialogY(HWindow, 4),
                detailsWidth, selectedHeight, TRUE);
@@ -2156,14 +2216,18 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
     {
     case WM_INITDIALOG:
     {
-        SetWindowText(HWindow, LoadStr(IDS_EXCOL_TITLE));
+        char title[VIEW_NAME_MAX + 100];
+        CViewTemplate* view = ViewIndex >= 0 && ViewIndex < Config->GetCount() ? Config->Get(ViewIndex) : NULL;
+        const char* arguments[] = {view != NULL ? view->Name : ""};
+        FormatExplorerLocalizedArguments(title, _countof(title), LoadStr(IDS_EXCOL_VIEW_TITLE),
+                                         arguments, _countof(arguments));
+        SetWindowText(HWindow, title);
         SetDlgItemText(HWindow, IDC_EXCOL_SEARCH_LABEL, LoadStr(IDS_EXCOL_SEARCH));
         SetDlgItemText(HWindow, IDC_EXCOL_DETAILS_GROUP, LoadStr(IDS_EXCOL_DETAILS));
         SetDlgItemText(HWindow, IDC_EXCOL_SELECTED_GROUP, LoadStr(IDS_EXCOL_SELECTED_GROUP));
         SetDlgItemText(HWindow, IDC_EXCOL_REMOVE, LoadStr(IDS_EXCOL_REMOVE));
         SetDlgItemText(HWindow, IDC_EXCOL_MOVE_UP, LoadStr(IDS_EXCOL_MOVE_UP));
         SetDlgItemText(HWindow, IDC_EXCOL_MOVE_DOWN, LoadStr(IDS_EXCOL_MOVE_DOWN));
-        SetDlgItemText(HWindow, IDC_EXCOL_SEARCH, "");
         HWND list = GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES);
         ListView_SetExtendedListViewStyle(list, LVS_EX_FULLROWSELECT | LVS_EX_CHECKBOXES | LVS_EX_DOUBLEBUFFER);
         ListView_EnableGroupView(list, TRUE);
@@ -2230,6 +2294,50 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
         LayoutControls();
         return TRUE;
 
+    case WM_DRAWITEM:
+        if (wParam == IDC_EXCOL_DETAILS)
+        {
+            DRAWITEMSTRUCT* draw = (DRAWITEMSTRUCT*)lParam;
+            char text[1024];
+            GetWindowText(draw->hwndItem, text, _countof(text));
+            const BOOL dark = DarkModeShouldUseDarkColors();
+            COLORREF background = dark ? DarkModeGetDialogBackgroundColor()
+                                       : GetSysColor(COLOR_3DFACE);
+            HBRUSH brush = CreateSolidBrush(background);
+            FillRect(draw->hDC, &draw->rcItem, brush);
+            DeleteObject(brush);
+
+            HFONT oldFont = (HFONT)SelectObject(
+                draw->hDC, (HFONT)SendMessage(draw->hwndItem, WM_GETFONT, 0, 0));
+            int oldBkMode = SetBkMode(draw->hDC, TRANSPARENT);
+            COLORREF oldTextColor = SetTextColor(
+                draw->hDC, dark ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_BTNTEXT));
+            int y = draw->rcItem.top;
+            const int lineGap = ExplorerColumnsDialogY(HWindow, 2);
+            for (char* line = text; line != NULL && *line != 0;)
+            {
+                char* end = strstr(line, "\r\n");
+                int length = end != NULL ? (int)(end - line) : (int)strlen(line);
+                RECT lineRect = {draw->rcItem.left, y, draw->rcItem.right,
+                                 draw->rcItem.bottom};
+                DrawText(draw->hDC, line, length, &lineRect,
+                         DT_LEFT | DT_TOP | DT_WORDBREAK | DT_NOPREFIX | DT_CALCRECT);
+                if (lineRect.bottom > draw->rcItem.bottom)
+                    lineRect.bottom = draw->rcItem.bottom;
+                DrawText(draw->hDC, line, length, &lineRect,
+                         DT_LEFT | DT_TOP | DT_WORDBREAK | DT_NOPREFIX);
+                y = lineRect.bottom + lineGap;
+                if (y >= draw->rcItem.bottom || end == NULL)
+                    break;
+                line = end + 2;
+            }
+            SetTextColor(draw->hDC, oldTextColor);
+            SetBkMode(draw->hDC, oldBkMode);
+            SelectObject(draw->hDC, oldFont);
+            return TRUE;
+        }
+        break;
+
     case WM_COMMAND:
         if (LOWORD(wParam) == IDC_EXCOL_SEARCH && HIWORD(wParam) == EN_CHANGE)
         {
@@ -2246,11 +2354,14 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
                     // A property newly added to Available Columns should be
                     // immediately enabled for the view from which the chooser
                     // was opened.
-                    if (Available[i] && !Config->ExplorerColumnAvailable[i])
+                    if (Available[i] && !view->ExplorerColumnAvailable[i])
                         view->ExplorerColumnVisible[i] = TRUE;
+                    else if (!Available[i])
+                        view->ExplorerColumnVisible[i] = FALSE;
                 }
+                memcpy(view->ExplorerColumnAvailable, Available, sizeof(Available));
+                Config->RebuildExplorerColumnAvailable();
             }
-            memcpy(Config->ExplorerColumnAvailable, Available, sizeof(Available));
             ApplySelectedOrder();
             EndDialog(HWindow, IDOK);
             return TRUE;
@@ -2764,12 +2875,17 @@ void CCfgPageView::ToggleAvailableColumnsFilter()
     LayoutViewsListControls();
 }
 
-void CCfgPageView::SyncExplorerColumnAvailabilityFromList()
+void CCfgPageView::SyncExplorerColumnAvailabilityFromList(int viewIndex, BYTE* available)
 {
     // Available Columns is the user-visible source of truth. Merge every
-    // Explorer property currently present in the list into Config before the
-    // chooser takes its snapshot. Do not clear anything here: when the list is
-    // filtered, selected properties that do not match are intentionally absent.
+    // Explorer property currently present in the list into the selected view
+    // and into the exact snapshot passed to the chooser. Do not clear anything
+    // here: when the list is filtered, selected properties that do not match
+    // are intentionally absent from the control but remain in the snapshot.
+    CViewTemplate* view = viewIndex >= 0 ? Config.Get(viewIndex) : NULL;
+    if (view != NULL)
+        memcpy(available, view->ExplorerColumnAvailable,
+               EXPLORER_COLUMNS_COUNT * sizeof(BYTE));
     int count = ListView_GetItemCount(HListView2);
     for (int i = 0; i < count; i++)
     {
@@ -2778,7 +2894,11 @@ void CCfgPageView::SyncExplorerColumnAvailabilityFromList()
         {
             int explorerIndex = -columnIndex - 1;
             if (explorerIndex >= 0 && explorerIndex < EXPLORER_COLUMNS_COUNT)
-                Config.SetExplorerColumnAvailable(explorerIndex, TRUE);
+            {
+                available[explorerIndex] = TRUE;
+                if (view != NULL)
+                    view->ExplorerColumnAvailable[explorerIndex] = TRUE;
+            }
         }
     }
 }
@@ -2787,6 +2907,8 @@ void CCfgPageView::LoadControls()
 {
     DisableNotification = TRUE;
     int index = ListView_GetNextItem(HListView, -1, LVNI_SELECTED);
+    if (index >= 0)
+        SelectIndex = index;
 
     BOOL checked[CFGP2ItemsCount];
 
@@ -2827,7 +2949,7 @@ void CCfgPageView::LoadControls()
         for (i = 0; i < explorerColumnsCount; i++)
         {
             int explorerIndex = Config.Get(index)->ExplorerColumnOrder[i];
-            if (!Config.IsExplorerColumnAvailable(explorerIndex))
+            if (!Config.Get(index)->ExplorerColumnAvailable[explorerIndex])
                 continue;
             LVITEM lvi;
             lvi.mask = LVIF_TEXT | LVIF_STATE | LVIF_PARAM | LVIF_IMAGE;
@@ -3525,7 +3647,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     OnMove(nmhk->wVKey == VK_UP);
                 }
                 if (!LabelEdit && nmhk->wVKey == VK_INSERT)
-                    ListView_EditLabel(HListView, index);
+                    OnNew();
                 break;
             }
 
@@ -3548,7 +3670,8 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 break;
             }
 
-            case LVN_BEGINLABELEDIT:
+            case LVN_BEGINLABELEDITA:
+            case LVN_BEGINLABELEDITW:
             {
                 if (GetEnabledFunctions() & TLBHDRMASK_MODIFY)
                 {
@@ -3563,24 +3686,53 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 break;
             }
 
-            case LVN_ENDLABELEDIT:
+            case LVN_ENDLABELEDITA:
+            case LVN_ENDLABELEDITW:
             {
-                NMLVDISPINFO* nmhd = (NMLVDISPINFO*)nmh;
                 LabelEdit = FALSE;
                 EnableHeader();
-                if (nmhd->item.pszText != NULL)
+                int index = -1;
+                BOOL hasLabel = FALSE;
+                char name[VIEW_NAME_MAX];
+                name[0] = 0;
+                if (nmh->code == LVN_ENDLABELEDITW)
                 {
-                    char name[VIEW_NAME_MAX];
-                    CopyStringTruncateUtf8(name, VIEW_NAME_MAX, nmhd->item.pszText);
+                    NMLVDISPINFOW* nmhd = (NMLVDISPINFOW*)nmh;
+                    index = nmhd->item.iItem;
+                    if (nmhd->item.pszText != NULL)
+                    {
+                        WideCharToMultiByte(CP_ACP, 0, nmhd->item.pszText, -1,
+                                            name, VIEW_NAME_MAX, NULL, NULL);
+                        name[VIEW_NAME_MAX - 1] = 0;
+                        hasLabel = TRUE;
+                    }
+                }
+                else
+                {
+                    NMLVDISPINFOA* nmhd = (NMLVDISPINFOA*)nmh;
+                    index = nmhd->item.iItem;
+                    if (nmhd->item.pszText != NULL)
+                    {
+                        CopyStringTruncateUtf8(name, VIEW_NAME_MAX, nmhd->item.pszText);
+                        hasLabel = TRUE;
+                    }
+                }
+                if (index >= 0 && index < Config.GetCount() && hasLabel)
+                {
                     Config.CleanName(name);
-                    int index = nmhd->item.iItem;
                     if (lstrlen(Config.Get(index)->Name) == 0)
                         Config.Get(index)->Flags = 0;
-                    lstrcpy(Config.Get(index)->Name, name);
-                    LoadControls();
-                    ListView_SetItemText(HListView, index, 0, name);
+                    CopyStringTruncateUtf8(Config.Get(index)->Name, VIEW_NAME_MAX, name);
                     Dirty = TRUE;
-                    break;
+
+                    // The control applies the accepted label after this
+                    // notification returns. Updating the row or reloading its
+                    // dependent controls here can make the native edit control
+                    // restore the old (empty for a new view) label.
+                    EnableControls();
+                    EnableHeader();
+                    SetWindowLongPtr(HWindow, DWLP_MSGRESULT, TRUE);
+                    return TRUE;
                 }
                 break;
             }
@@ -3662,14 +3814,21 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (LOWORD(wParam) == IDC_VIEWLIST_HEADER2)
         {
+            // Capture both the view and its exact Explorer-property subset
+            // before moving focus or storing any controls. HListView2 still
+            // represents the view which produced the currently displayed rows.
+            int viewIndex = ListView_GetNextItem(HListView, -1, LVNI_SELECTED);
+            if (viewIndex < 0)
+                viewIndex = SelectIndex;
+            BYTE available[EXPLORER_COLUMNS_COUNT];
+            ZeroMemory(available, sizeof(available));
+            SyncExplorerColumnAvailabilityFromList(viewIndex, available);
             if (GetFocus() != HListView2)
                 SetFocus(HListView2);
             if (HIWORD(wParam) == TLBHDR_FILTER)
             {
                 StoreControls();
-                SyncExplorerColumnAvailabilityFromList();
-                int viewIndex = ListView_GetNextItem(HListView, -1, LVNI_SELECTED);
-                CExplorerColumnsDialog dialog(HWindow, &Config, viewIndex);
+                CExplorerColumnsDialog dialog(HWindow, &Config, viewIndex, available);
                 if (dialog.Execute() == IDOK)
                 {
                     LoadControls();

@@ -34,9 +34,13 @@ def main() -> int:
         "available Explorer properties must persist by stable canonical identity",
     )
     require(
-        "if (!availableLoaded)" in model
-        and "ExplorerColumnVisible[j]" in model,
-        "legacy configurations must migrate the union of used Explorer columns",
+        "SALAMANDER_VIEWTEMPLATE_EXPLORERAVAILABILITYVERSION" in model
+        and "EXPLORER_COLUMN_AVAILABILITY_VERSION" in model
+        and "memcpy(Get(2)->ExplorerColumnAvailable, ExplorerColumnAvailable" in model
+        and "explorerAvailabilityVersion >= EXPLORER_COLUMN_AVAILABILITY_VERSION" in model
+        and "Get(i)->ExplorerColumnAvailable[j] = TRUE;" in model
+        and "RebuildExplorerColumnAvailable();" in model,
+        "legacy and broken cloned configurations must migrate to independent per-view subsets while preserving visible columns",
     )
     require(
         "IsExplorerColumnAvailable(explorerIndex)" in panel,
@@ -191,7 +195,7 @@ def main() -> int:
         "the Windows property chooser must keep compact Configuration-like proportions",
     )
     require(
-        "MulDiv(16, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI)" in dialog
+        "MulDiv(24, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI)" in dialog
         and "iconSize + MulDiv(2, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI)" in dialog
         and "MulDiv(18, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI)" in dialog
         and '"%s\\r\\n%s: %s\\r\\n%s: %s\\r\\n%s: %s\\r\\n%s: %s%s%s"' in dialog
@@ -201,10 +205,21 @@ def main() -> int:
     require(
         "const int contentTop = ExplorerColumnsDialogY(HWindow, 27);" in dialog
         and "int detailsTop = contentTop + selectedHeight;" in dialog
+        and "2 * rightHeight / 3" in dialog
         and "IDC_EXCOL_CATEGORIES,\"SysTreeView32\"" in lang_rc
         and ",4,27,105,271" in lang_rc
-        and "IDC_EXCOL_DETAILS_GROUP,282,162,174,136" in lang_rc,
-        "the chooser must add space below Search while keeping only a half-height gap between right-side groups",
+        and "IDC_EXCOL_SELECTED_GROUP,282,23,174,180" in lang_rc
+        and "IDC_EXCOL_SELECTED_LIST,\"SysListView32\"" in lang_rc
+        and ",290,37,158,135" in lang_rc
+        and "IDC_EXCOL_DETAILS_GROUP,282,207,174,91" in lang_rc,
+        "the chooser must add space below Search and reserve two thirds of the right side for selected properties",
+    )
+    require(
+        "wParam == IDC_EXCOL_DETAILS" in dialog
+        and "const int lineGap = ExplorerColumnsDialogY(HWindow, 2);" in dialog
+        and "DT_WORDBREAK | DT_NOPREFIX | DT_CALCRECT" in dialog
+        and "IDC_EXCOL_DETAILS,290,221,158,69,SS_LEFT | SS_NOPREFIX | SS_OWNERDRAW" in lang_rc,
+        "Property information must preserve wrapping and add exactly 2 DLU between rows",
     )
     require(
         "ExplorerColumnsDialogX" in dialog
@@ -227,9 +242,38 @@ def main() -> int:
         "the Windows property chooser must persist its last user-selected size",
     )
     require(
-        "if (Available[i] && !Config->ExplorerColumnAvailable[i])" in dialog
-        and "view->ExplorerColumnVisible[i] = TRUE;" in dialog,
-        "newly added Explorer properties must be checked for the current view",
+        "if (Available[i] && !view->ExplorerColumnAvailable[i])" in dialog
+        and "view->ExplorerColumnVisible[i] = TRUE;" in dialog
+        and "else if (!Available[i])" in dialog
+        and "view->ExplorerColumnVisible[i] = FALSE;" in dialog,
+        "added Explorer properties must be checked and removed properties hidden only for the current view",
+    )
+    require(
+        "if (view->ExplorerColumnVisible[i])" in dialog
+        and "Available[i] = TRUE;" in dialog
+        and "if (Get(i)->ExplorerColumnVisible[j])" in model
+        and "Get(i)->ExplorerColumnAvailable[j] = TRUE;" in model,
+        "persisted visible Explorer properties must always be restored into chooser availability",
+    )
+    require(
+        "void CExplorerColumnsDialog::NormalizeSelectedOrder()" in dialog
+        and "NormalizeSelectedOrder();" in dialog
+        and "BOOL oldDisableNotification = DisableNotification;" in dialog
+        and "Available[index] && !used[index]" in dialog
+        and "SelectedCount = count;" in dialog,
+        "every checked Windows property must be normalized into Selected properties before the list is filled",
+    )
+    require(
+        "item.mask = LVIF_TEXT | LVIF_PARAM | LVIF_IMAGE;" in dialog
+        and "item.iImage = I_IMAGENONE;" in dialog
+        and "int inserted = ListView_InsertItem(list, &item);" in dialog,
+        "Selected properties rows must explicitly opt out of the spacing image list",
+    )
+    require(
+        'SetDlgItemText(HWindow, IDC_EXCOL_SEARCH, "");' not in dialog
+        and dialog.count("BOOL oldDisableNotification = DisableNotification;") >= 2
+        and dialog.count("DisableNotification = oldDisableNotification;") >= 2,
+        "chooser initialization must not populate properties before checkbox styles exist, and nested fills must preserve notification suppression",
     )
     require(
         "FormatExplorerLocalizedArguments" in dialog
@@ -242,10 +286,44 @@ def main() -> int:
         "localized property summaries must avoid dynamic printf formats and low-memory branches must use nothrow allocation",
     )
     require(
-        "void CCfgPageView::SyncExplorerColumnAvailabilityFromList()" in dialog
-        and "Config.SetExplorerColumnAvailable(explorerIndex, TRUE);" in dialog
-        and "StoreControls();\n                SyncExplorerColumnAvailabilityFromList();" in dialog,
-        "the chooser must merge Windows properties already present in Available Columns before taking its snapshot",
+        "void CCfgPageView::SyncExplorerColumnAvailabilityFromList(int viewIndex, BYTE* available)" in dialog
+        and "view->ExplorerColumnAvailable[explorerIndex] = TRUE;" in dialog
+        and "available[explorerIndex] = TRUE;" in dialog
+        and "if (view != NULL)\n                    view->ExplorerColumnAvailable[explorerIndex] = TRUE;" in dialog
+        and "SyncExplorerColumnAvailabilityFromList(viewIndex, available);" in dialog
+        and "CExplorerColumnsDialog dialog(HWindow, &Config, viewIndex, available);" in dialog
+        and "available != NULL ? available" in dialog
+        and "BYTE available[EXPLORER_COLUMNS_COUNT];" in dialog
+        and "if (index >= 0)\n        SelectIndex = index;" in dialog
+        and "if (viewIndex < 0)\n                viewIndex = SelectIndex;" in dialog
+        and dialog.index("SyncExplorerColumnAvailabilityFromList(viewIndex, available);")
+        < dialog.index("SetFocus(HListView2);")
+        < dialog.index("StoreControls();", dialog.index("if (LOWORD(wParam) == IDC_VIEWLIST_HEADER2)"))
+        and "Config.Get(index)->ExplorerColumnAvailable[explorerIndex]" in dialog,
+        "Available Columns and the chooser must share an explicit snapshot of the selected view",
+    )
+    require(
+        "SaveExplorerColumnAvailable(actKey, view->ExplorerColumnAvailable" in model
+        and "LoadExplorerColumnAvailable(actKey, view->ExplorerColumnAvailable" in model
+        and "BYTE ExplorerColumnAvailable[EXPLORER_COLUMNS_COUNT]; // Explorer properties offered by this view" in header,
+        "each view must persist its Windows-property subset by canonical identity",
+    )
+    require(
+        "LoadStr(IDS_EXCOL_VIEW_TITLE)" in dialog
+        and 'IDS_EXCOL_VIEW_TITLE, "%s - Choose Windows Properties"' in lang_texts,
+        "the chooser title must identify the view being edited",
+    )
+    require(
+        "case LVN_BEGINLABELEDITA:" in dialog
+        and "case LVN_BEGINLABELEDITW:" in dialog
+        and "case LVN_ENDLABELEDITA:" in dialog
+        and "case LVN_ENDLABELEDITW:" in dialog
+        and "NMLVDISPINFOW* nmhd" in dialog
+        and "NMLVDISPINFOA* nmhd" in dialog
+        and "nmhk->wVKey == VK_INSERT)\n                    OnNew();" in dialog
+        and "SetWindowLongPtr(HWindow, DWLP_MSGRESULT, TRUE);" in dialog
+        and "ListView_SetItemText(HListView, index, 0, name);" not in dialog,
+        "custom-view label editing must accept both ANSI and Unicode notifications without overwriting the native edit result",
     )
     require(
         "IDC_EDPROP_TAGS_ENABLE" in lang_rc
