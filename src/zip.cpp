@@ -3331,6 +3331,20 @@ BOOL CSalamanderGeneral::OpenFileInConfiguredViewer(HWND parent,
                        lock, lockOwner, FALSE, -1, -1);
 }
 
+int CSalamanderGeneral::RegisterPanelColumnDefinition(
+    const char* ownerKey, const char* ownerName,
+    const char* stableId, const char* name,
+    const char* description)
+{
+    CALL_STACK_MESSAGE1("CSalamanderGeneral::RegisterPanelColumnDefinition()");
+    if (MainThreadID != GetCurrentThreadId() || MainWindow == NULL ||
+        ownerKey == NULL || ownerKey[0] == 0 || stableId == NULL ||
+        stableId[0] == 0 || name == NULL || name[0] == 0)
+        return -1;
+    return MainWindow->ViewTemplates.RegisterPluginColumn(
+        ownerKey, ownerName, stableId, name, description);
+}
+
 void CSalamanderGeneral::ExecuteAssociation(HWND parent, const char* path, const char* name)
 {
     CALL_STACK_MESSAGE4("CSalamanderGeneral::ExecuteAssociation(0x%p, %s, %s)", parent, path, name);

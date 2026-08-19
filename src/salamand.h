@@ -372,6 +372,8 @@ enum CExplorerColumnCategory
 };
 
 CExplorerColumnCategory GetExplorerColumnCategory(int index);
+struct CViewTemplate;
+void NormalizeViewColumnOrder(CViewTemplate* view);
 
 // function to get the index of simple icons for FS with custom icons (pitFromPlugin)
 int WINAPI InternalGetPluginIconIndex();
@@ -383,6 +385,8 @@ int WINAPI InternalGetPluginIconIndex();
 
 #define STANDARD_COLUMNS_COUNT 9 // number of standard columns for the view
 #define EXPLORER_COLUMNS_COUNT 1024 // maximum Windows Explorer property columns shown in the view configuration
+#define PLUGIN_COLUMNS_COUNT 256 // maximum discovered plug-in/extension columns retained in configuration
+#define VIEW_COLUMNS_COUNT (STANDARD_COLUMNS_COUNT + EXPLORER_COLUMNS_COUNT + PLUGIN_COLUMNS_COUNT)
 #define VIEW_TEMPLATES_COUNT 10
 #define VIEW_NAME_MAX 100
 // column Name is always visible and if the flag VIEW_SHOW_EXTENSION is not set, it also contains the extension
@@ -444,10 +448,24 @@ struct CViewTemplate
     BYTE ExplorerColumnAvailable[EXPLORER_COLUMNS_COUNT]; // Explorer properties offered by this view
     BYTE ExplorerColumnVisible[EXPLORER_COLUMNS_COUNT]; // visible Explorer property columns
     WORD ExplorerColumnOrder[EXPLORER_COLUMNS_COUNT]; // order of Explorer property columns
+    CColumnConfig PluginColumns[PLUGIN_COLUMNS_COUNT]; // widths of discovered plug-in columns
+    BYTE PluginColumnAvailable[PLUGIN_COLUMNS_COUNT]; // plug-in columns offered by this view
+    BYTE PluginColumnVisible[PLUGIN_COLUMNS_COUNT]; // visible plug-in columns
+    WORD AllColumnOrder[VIEW_COLUMNS_COUNT]; // common order: standard, Explorer, then plug-in tokens
     BYTE ColumnOrder[STANDARD_COLUMNS_COUNT]; // order of standard columns in detailed views/configuration
 
     BOOL LeftSmartMode;  // smart mode for the left panel (only the elastic Name column: the column narrows so a horizontal scrollbar is not needed)
     BOOL RightSmartMode; // smart mode for the right panel (only the elastic Name column: the column narrows so a horizontal scrollbar is not needed)
+};
+
+struct CPluginColumnDefinition
+{
+    char OwnerKey[128];
+    char OwnerName[128];
+    char StableId[128];
+    char Name[COLUMN_NAME_MAX];
+    char Description[COLUMN_DESCRIPTION_MAX];
+    BOOL RuntimeAvailable; // deliberately not trusted when loaded from configuration
 };
 
 class CViewTemplates
@@ -458,6 +476,9 @@ public:
     CViewTemplate Items[VIEW_TEMPLATES_COUNT];
     TIndirectArray<CViewTemplate> ExtraItems;
     BYTE ExplorerColumnAvailable[EXPLORER_COLUMNS_COUNT]; // union of per-view availability for legacy consumers
+    BYTE ExplorerColumnFavorite[EXPLORER_COLUMNS_COUNT]; // favorite Explorer properties shared by all views
+    CPluginColumnDefinition PluginColumns[PLUGIN_COLUMNS_COUNT];
+    int PluginColumnCount;
     DWORD NextID;
 
 public:
@@ -488,6 +509,10 @@ public:
     BOOL IsExplorerColumnAvailable(int index) const;
     void SetExplorerColumnAvailable(int index, BOOL available);
     void RebuildExplorerColumnAvailable();
+    int RegisterPluginColumn(const char* ownerKey, const char* ownerName,
+                             const char* stableId, const char* name,
+                             const char* description);
+    int FindPluginColumn(const char* ownerKey, const char* stableId) const;
 
     BOOL Save(HKEY hKey); // saves the entire array
     BOOL Load(HKEY hKey); // loads the entire array

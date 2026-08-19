@@ -1156,7 +1156,8 @@ static const DWORD SALAMATRIX_FS_DATETIME_COLUMN = 0x20000000;
 static const DWORD SALAMATRIX_FS_SORT_KEY = 0x80000000;
 static const DWORD SALAMATRIX_FS_COLUMN_FLAGS =
     SALAMATRIX_FS_SIZE_COLUMN | SALAMATRIX_FS_DATETIME_COLUMN |
-    SALAMATRIX_FS_SORT_KEY;
+    SALAMATRIX_FS_SORT_KEY | COLUMN_CONFIG_INDEX_FLAG |
+    COLUMN_CONFIG_INDEX_MASK;
 
 static std::string SalamatrixFormatFileSystemDateTime(const std::string& value)
 {
@@ -1287,12 +1288,19 @@ private:
     HIMAGELIST Images;
     std::vector<CExtensionManifestFileSystem::Column> Columns;
     std::string DefaultFileIcon;
+    std::string PackageId;
+    std::string PackageName;
+    std::string FileSystemId;
 
 public:
     SalamatrixFileSystemPluginData(
         const std::vector<CExtensionManifestFileSystem::Column>& columns,
-        const std::string& defaultFileIcon)
-        : Images(NULL), Columns(columns), DefaultFileIcon(defaultFileIcon) {}
+        const std::string& defaultFileIcon,
+        const std::string& packageId,
+        const std::string& packageName,
+        const std::string& fileSystemId)
+        : Images(NULL), Columns(columns), DefaultFileIcon(defaultFileIcon),
+          PackageId(packageId), PackageName(packageName), FileSystemId(fileSystemId) {}
     virtual ~SalamatrixFileSystemPluginData()
     {
         if (Images != NULL)
@@ -1436,9 +1444,18 @@ public:
                 StringCchCopyA(column.Name, _countof(column.Name), Columns[index].Name.c_str());
                 StringCchCopyA(column.Description, _countof(column.Description), Columns[index].Description.c_str());
                 column.GetText = SalamatrixFileSystemColumnText;
+                std::string ownerKey = "extension:" + PackageId;
+                std::string stableId = FileSystemId + "/" + Columns[index].Id;
+                int catalogIndex = SalamanderGeneral->RegisterPanelColumnDefinition(
+                    ownerKey.c_str(), PackageName.c_str(), stableId.c_str(),
+                    Columns[index].Name.c_str(), Columns[index].Description.c_str());
                 column.CustomData = static_cast<DWORD>(index + 1) |
                     (Columns[index].Size ? SALAMATRIX_FS_SIZE_COLUMN : 0) |
-                    (Columns[index].DateTime ? SALAMATRIX_FS_DATETIME_COLUMN : 0);
+                    (Columns[index].DateTime ? SALAMATRIX_FS_DATETIME_COLUMN : 0) |
+                    (catalogIndex >= 0
+                         ? COLUMN_CONFIG_INDEX_FLAG |
+                               (static_cast<DWORD>(catalogIndex + 1) << COLUMN_CONFIG_INDEX_SHIFT)
+                         : 0);
                 column.SupportSorting = 1;
                 column.LeftAlignment = Columns[index].Numeric ? 0 : 1;
                 column.ID = COLUMN_ID_CUSTOM;
@@ -2058,6 +2075,7 @@ public:
         std::vector<CExtensionManifestFileSystem::Column> columns;
         std::vector<CExtensionManifestFileSystem::RootItem> rootItems;
         std::string defaultFileIcon;
+        std::string packageName;
         std::wstring packageDirectory;
         if (!Path.empty())
         {
@@ -2071,6 +2089,7 @@ public:
                             const CExtensionManifestFileSystem& fileSystem =
                                 Owner->Packages[p]->Manifest.FileSystems[f];
                             columns = fileSystem.Columns;
+                            packageName = Owner->Packages[p]->Manifest.Name;
                             rootItems = fileSystem.RootItems;
                             packageDirectory = Owner->Packages[p]->Directory;
                             InterlockedExchange(&RefreshDepth,
@@ -2091,7 +2110,7 @@ public:
 #define RESTORE_SALAMATRIX_FS_PLUGIN_DATA_DEBUG_NEW_MACRO
 #endif
         pluginData = new (std::nothrow) SalamatrixFileSystemPluginData(
-            columns, defaultFileIcon);
+            columns, defaultFileIcon, packageId, packageName, fileSystemId);
 #ifdef RESTORE_SALAMATRIX_FS_PLUGIN_DATA_DEBUG_NEW_MACRO
 #define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
 #undef RESTORE_SALAMATRIX_FS_PLUGIN_DATA_DEBUG_NEW_MACRO
@@ -2915,6 +2934,22 @@ void PackageManager::DiscoverDirectory(
                                 command.RequiresExecutable))
                         {
                             command.Enabled = false;
+                        }
+                    }
+                    if (General != NULL)
+                    {
+                        const std::string ownerKey = "extension:" + manifest.Id;
+                        for (size_t fsIndex = 0; fsIndex < manifest.FileSystems.size(); ++fsIndex)
+                        {
+                            const CExtensionManifestFileSystem& fileSystem = manifest.FileSystems[fsIndex];
+                            for (size_t columnIndex = 0; columnIndex < fileSystem.Columns.size(); ++columnIndex)
+                            {
+                                const CExtensionManifestFileSystem::Column& column = fileSystem.Columns[columnIndex];
+                                const std::string stableId = fileSystem.Id + "/" + column.Id;
+                                General->RegisterPanelColumnDefinition(
+                                    ownerKey.c_str(), manifest.Name.c_str(), stableId.c_str(),
+                                    column.Name.c_str(), column.Description.c_str());
+                            }
                         }
                     }
                     Package* package = new Package(this);

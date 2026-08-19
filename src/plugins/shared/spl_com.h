@@ -529,6 +529,14 @@ struct CColumn
                             // tak, aby byla hlavicka sloupce vzdy viditelna
 };
 
+// Optional CustomData encoding for columns registered through
+// RegisterPanelColumnDefinition(). The low 16 bits remain available to the
+// plug-in; bits 16..24 contain catalog index + 1.
+#define COLUMN_CONFIG_INDEX_FLAG 0x10000000
+#define COLUMN_CONFIG_INDEX_SHIFT 16
+#define COLUMN_CONFIG_INDEX_MASK 0x01FF0000
+#define COLUMN_CONFIG_PLUGIN_DATA_MASK 0x0000FFFF
+
 // Plugin prostrednictvim tohoto rozhrani muze pri zmene cesty zmenit rezim
 // zobrazeni v panelu. Veskera prace se sloupci se tyka jen vsech detailed rezimu
 // (Detailed + Types + tri volitelne rezimy Alt+8/9/0). Pri zmene cesty dostane

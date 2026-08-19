@@ -2398,17 +2398,19 @@ BOOL CFilesWindow::BuildColumnsTemplate()
     // select from the template the views corresponding to the configuration array
     CColumnConfig* colCfg = ViewTemplate->Columns;
 
-    // add visible columns according to the template
-    int i;
-    for (i = 0; i < STANDARD_COLUMNS_COUNT; i++)
+    // Add standard and Windows-property columns in their common per-view
+    // order. Name is normalized to token zero and remains permanently first.
+    NormalizeViewColumnOrder(ViewTemplate);
+    int explorerCount = GetExplorerColumnCount();
+    for (int orderIndex = 0; orderIndex < VIEW_COLUMNS_COUNT; orderIndex++)
     {
-        int columnIndex = ViewTemplate->ColumnOrder[i];
-        if (columnIndex < 0 || columnIndex >= STANDARD_COLUMNS_COUNT)
-            columnIndex = i;
-        item = GetStdColumn(columnIndex, Is(ptDisk));
-        // the Name column (i==0) is always visible
-        if (columnIndex == 0 || ViewTemplate->Flags & item->Flag)
+        int token = ViewTemplate->AllColumnOrder[orderIndex];
+        if (token < STANDARD_COLUMNS_COUNT)
         {
+            int columnIndex = token;
+            item = GetStdColumn(columnIndex, Is(ptDisk));
+            if (columnIndex != 0 && (ViewTemplate->Flags & item->Flag) == 0)
+                continue;
             lstrcpy(column.Name, LoadStr(item->NameResID));
             lstrcpy(column.Description, LoadStr(item->DescResID));
             if (columnIndex == 0) // column "Name"
@@ -2439,17 +2441,13 @@ BOOL CFilesWindow::BuildColumnsTemplate()
                 return FALSE;
             }
         }
-    }
-
-    int explorerCount = GetExplorerColumnCount();
-    for (i = 0; i < explorerCount && i < EXPLORER_COLUMNS_COUNT; i++)
-    {
-        int explorerIndex = ViewTemplate->ExplorerColumnOrder[i];
-        if (explorerIndex < 0 || explorerIndex >= explorerCount)
-            explorerIndex = i;
-        if (Parent->ViewTemplates.IsExplorerColumnAvailable(explorerIndex) &&
-            ViewTemplate->ExplorerColumnVisible[explorerIndex])
+        else if (token < STANDARD_COLUMNS_COUNT + EXPLORER_COLUMNS_COUNT)
         {
+            int explorerIndex = token - STANDARD_COLUMNS_COUNT;
+            if (explorerIndex < 0 || explorerIndex >= explorerCount ||
+                !Parent->ViewTemplates.IsExplorerColumnAvailable(explorerIndex) ||
+                !ViewTemplate->ExplorerColumnVisible[explorerIndex])
+                continue;
             lstrcpyn(column.Name, GetExplorerColumnName(explorerIndex), COLUMN_NAME_MAX);
             lstrcpyn(column.Description, GetExplorerColumnName(explorerIndex), COLUMN_DESCRIPTION_MAX);
             column.GetText = InternalGetExplorerColumn;
@@ -2591,6 +2589,38 @@ void CFilesWindow::OnHeaderLineColWidthChanged()
         }
         else if (column->ID == COLUMN_ID_CUSTOM) // it is a column added by a plugin
         {
+            const char* dllName = PluginData.GetDLLName();
+            CPluginData* plugin = dllName != NULL ? Plugins.GetPluginData(dllName) : NULL;
+            const char* ownerKey = plugin != NULL && plugin->RegKeyName != NULL && plugin->RegKeyName[0] != 0
+                                       ? plugin->RegKeyName
+                                       : (dllName != NULL ? dllName : "Plugin");
+            DWORD encodedIndex = (column->CustomData & COLUMN_CONFIG_INDEX_MASK) >>
+                                 COLUMN_CONFIG_INDEX_SHIFT;
+            int pluginColumnIndex = (column->CustomData & COLUMN_CONFIG_INDEX_FLAG) != 0 && encodedIndex > 0
+                                        ? (int)encodedIndex - 1
+                                        : -1;
+            if (pluginColumnIndex < 0 ||
+                pluginColumnIndex >= MainWindow->ViewTemplates.PluginColumnCount)
+            {
+                char stableId[256];
+                _snprintf_s(stableId, _countof(stableId), _TRUNCATE, "%08X:%s",
+                            (unsigned)column->CustomData, column->Name);
+                pluginColumnIndex = MainWindow->ViewTemplates.FindPluginColumn(ownerKey, stableId);
+            }
+            if (pluginColumnIndex >= 0)
+            {
+                CColumnConfig* colCfg = &ViewTemplate->PluginColumns[pluginColumnIndex];
+                if (leftPanel)
+                {
+                    colCfg->LeftWidth = column->Width;
+                    colCfg->LeftFixedWidth = column->FixedWidth;
+                }
+                else
+                {
+                    colCfg->RightWidth = column->Width;
+                    colCfg->RightFixedWidth = column->FixedWidth;
+                }
+            }
             if (column->FixedWidth && PluginData.NotEmpty()) // only non-elastic columns + "always true"
             {
                 PluginData.ColumnWidthWasChanged(leftPanel, column, column->Width);

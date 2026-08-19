@@ -1398,8 +1398,18 @@ def main() -> int:
                 r"OpenFileInConfiguredViewer",
             "Automation API reference is not resolved from the installed Salamatrix plugin directory")
     require(general_contract, r"SetPanelsDetached.*?"
-                r"OpenFileInConfiguredViewer\(HWND parent",
+                r"OpenFileInConfiguredViewer\(HWND parent.*?"
+                r"RegisterPanelColumnDefinition",
             "configured-viewer SDK method is not append-only")
+    require(
+        packages,
+        r'ownerKey = "extension:" \+ manifest\.Id.*?'
+        r'fileSystem\.Id \+ "/" \+ column\.Id.*?RegisterPanelColumnDefinition',
+        "manifest filesystem columns are not registered before opening an extension panel")
+    require(
+        packages,
+        r'COLUMN_CONFIG_INDEX_FLAG.*?COLUMN_CONFIG_INDEX_SHIFT.*?InsertColumn',
+        "runtime Salamatrix columns do not retain their host catalog identity")
     require(general_impl, r"OpenFileInConfiguredViewer.*?"
                 r"ViewFileInt\(parent, fileName, FALSE, 0xFFFFFFFF",
             "plugin documentation does not use the same configured-viewer selection path as built-in documentation")

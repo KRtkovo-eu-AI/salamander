@@ -3709,6 +3709,14 @@ public:
     // Appended to preserve the published SDK vtable prefix.
     virtual BOOL WINAPI OpenFileInConfiguredViewer(HWND parent,
                                                     const char* fileName) = 0;
+
+    // Registers a stable panel-column definition before the plug-in creates a
+    // concrete CColumn. Appended to preserve the published SDK vtable prefix.
+    // Returns a host catalog index, or -1 when the definition cannot be stored.
+    virtual int WINAPI RegisterPanelColumnDefinition(
+        const char* ownerKey, const char* ownerName,
+        const char* stableId, const char* name,
+        const char* description) = 0;
 };
 
 #ifdef _MSC_VER

@@ -27,6 +27,7 @@ def main() -> int:
     file_window = (ROOT / "fileswn5.cpp").read_text(encoding="utf-8")
     find = (ROOT / "find.cpp").read_text(encoding="utf-8")
     filter_source = (ROOT / "filter.cpp").read_text(encoding="utf-8")
+    installer = (ROOT.parent / "doc" / "runbook-setup" / "inno_setup_salamander_x64.iss").read_text(encoding="utf-8")
 
     require(
         "SALAMANDER_VIEWTEMPLATE_AVAILABLEEXPLORERCOLUMNS" in model
@@ -98,9 +99,45 @@ def main() -> int:
     require(
         "GetPanelTipPropertyKeys(category, keys" in panel
         and "int GetPanelTipPropertyKeys" in model
-        and "IsExplorerColumnInPanelTipCategory(explorerIndex, ptcExecutable)" in dialog
-        and "IsExplorerColumnInPanelTipCategory(explorerIndex, ptcArchive)" in dialog,
+        and "IsExplorerColumnInPanelTipCategory(index, ptcExecutable)" in dialog
+        and "IsExplorerColumnInPanelTipCategory(index, ptcArchive)" in dialog,
         "Executable and Archive filters must share the panel file-tooltip property subsets",
+    )
+    require(
+        "IsExplorerColumnCompatibleWithCategory" in dialog
+        and '"System.ProductName"' in dialog
+        and '"System.Media."' in dialog
+        and "nativeCategory == eccAudio" in dialog
+        and "IsUsefulDescriptiveExplorerColumn(index)" in dialog
+        and "IsUsefulFileMetadataExplorerColumn(index)" in dialog,
+        "file-type categories must include useful properties whose native Windows category differs",
+    )
+    require(
+        "GetPreferredExplorerNativeCategory" in dialog
+        and "categoryOrder[categoryCount++] = preferredCategory;" in dialog
+        and "category != preferredCategory" in dialog
+        and "GetExplorerColumnCategory(i) != category" in dialog
+        and "item.iGroupId = category;" in dialog,
+        "type filters must show their matching native subcategory first and insert every group's items with its header",
+    )
+    require(
+        "BYTE ExplorerColumnFavorite[EXPLORER_COLUMNS_COUNT]" in header
+        and "SALAMANDER_VIEWTEMPLATE_FAVORITEEXPLORERCOLUMNS" in model
+        and "SaveExplorerColumnSet(hKey, SALAMANDER_VIEWTEMPLATE_FAVORITEEXPLORERCOLUMNS" in model
+        and "LoadExplorerColumnSet(hKey, SALAMANDER_VIEWTEMPLATE_FAVORITEEXPLORERCOLUMNS" in model
+        and "GetExplorerColumnCanonicalName(i)" in model
+        and "ecfFavorites" in dialog
+        and "IDC_EXCOL_FAVORITE" in dialog
+        and 'isFavorite ? "ExplorerCategoryFavoritesRed" : "ExplorerCategoryFavorites"' in dialog
+        and "TTM_UPDATETIPTEXT" in dialog
+        and "memcpy(Config->ExplorerColumnFavorite, Favorite" in dialog,
+        "Favorites must be editable from Property information and persist globally by canonical identity",
+    )
+    require(
+        (ROOT / "res" / "toolbars" / "ExplorerCategoryFavorites.svg").is_file()
+        and (ROOT / "res" / "toolbars" / "darkmode" / "ExplorerCategoryFavorites.svg").is_file()
+        and installer.count("ExplorerCategoryFavorites.svg") == 2,
+        "the Favorites icon must ship in light and dark variants",
     )
     require(
         '"%s\\r\\n%s: %s\\r\\n%s: %s\\r\\n%s: %s\\r\\n%s: %s%s%s"' in dialog
@@ -271,7 +308,17 @@ def main() -> int:
         "the resizable Windows property chooser must convert dialog units to pixels and align Cancel with Property Information",
     )
     require(
-        "BeginDeferWindowPos(14)" in dialog
+        "const int favoriteButtonSize = max(1, MulDiv(moveButtonSize, 2, 3));" in dialog
+        and "detailsRight - detailsInsetX - favoriteButtonSize" in dialog
+        and "detailsTop + detailsInsetY" in dialog
+        and "int iconSize = max(1, min(buttonRect.right, buttonRect.bottom));" in dialog
+        and 'IDC_EXCOL_FAVORITE,"Button",BS_ICON | WS_TABSTOP,399,207,9,9' in lang_rc
+        and 'DEFPUSHBUTTON   "OK",IDOK,309,302,50,14' in lang_rc
+        and 'PUSHBUTTON      "Cancel",IDCANCEL,366,302,50,14' in lang_rc,
+        "the compact Favorites button and bottom action buttons must keep the current aligned layout",
+    )
+    require(
+        "BeginDeferWindowPos(15)" in dialog
         and "SWP_NOZORDER | SWP_NOREDRAW" in dialog
         and "RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW" in dialog,
         "the chooser resize must reposition children atomically and repaint the complete dialog",
@@ -356,8 +403,30 @@ def main() -> int:
         and dialog.index("SyncExplorerColumnAvailabilityFromList(viewIndex, available);")
         < dialog.index("SetFocus(HListView2);")
         < dialog.index("StoreControls();", dialog.index("if (LOWORD(wParam) == IDC_VIEWLIST_HEADER2)"))
-        and "Config.Get(index)->ExplorerColumnAvailable[explorerIndex]" in dialog,
+        and "view->ExplorerColumnAvailable[explorerIndex] = TRUE;" in dialog,
         "Available Columns and the chooser must share an explicit snapshot of the selected view",
+    )
+    require(
+        "ecfPlugins" in dialog
+        and "LoadStr(IDS_EXCOL_PLUGINS)" in dialog
+        and "for (int pluginIndex = 0; pluginIndex < Plugins.GetCount(); pluginIndex++)" in dialog
+        and "ListView_InsertGroup(list, -1, &group);" in dialog
+        and "definition->RuntimeAvailable" in dialog
+        and '"extension:", 10' in dialog
+        and "firstDefinition->OwnerName" in dialog
+        and "BYTE PluginAvailable[PLUGIN_COLUMNS_COUNT]" in (ROOT / "cfgdlg.h").read_text(encoding="utf-8"),
+        "Plugins must have their own category, installed-plugin subgroups, and per-view checkbox availability",
+    )
+    require(
+        "WORD AllColumnOrder[VIEW_COLUMNS_COUNT]" in header
+        and "SALAMANDER_VIEWTEMPLATE_ALLCOLUMNORDER" in model
+        and "NormalizeViewColumnOrder" in model
+        and "normalized[out++] = 0; // Name is permanently first." in model
+        and "view.FinalizePluginColumns();" in (ROOT / "fileswn2.cpp").read_text(encoding="utf-8")
+        and (ROOT / "fileswn3.cpp").read_text(encoding="utf-8").count("view.FinalizePluginColumns();") == 2
+        and "RegisterPluginColumn" in model
+        and "PluginColumnAvailable[catalogIndex]" in model,
+        "native, Windows, and discovered plugin columns must share one persisted order with Name fixed first",
     )
     require(
         "SaveExplorerColumnAvailable(actKey, view->ExplorerColumnAvailable" in model
@@ -396,7 +465,7 @@ def main() -> int:
         and "LISTBOX         IDC_EDPROP_TAGS_LIST,14,33,402,76" in lang_rc
         and 'GROUPBOX        "Windows properties",IDC_EDPROP_PROPERTIES_GROUP,7,125,416,139' in lang_rc
         and "IDD_EDIT_PROPERTIES DIALOGEX 0, 0, 430, 291" in lang_rc
-        and 'DEFPUSHBUTTON   "OK",IDOK,316,270,50,14' in lang_rc
+        and 'DEFPUSHBUTTON   "OK",IDOK,319,270,50,14' in lang_rc
         and 'PUSHBUTTON      "Cancel",IDCANCEL,373,270,50,14' in lang_rc,
         "Edit Tags must be the aligned title of a matching group and the dialog must not leave excess space above its buttons",
     )

@@ -1668,6 +1668,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 CSalamanderView view(this);
                 PluginData.SetupView(IsLeftPanel(), &view, GetZIPPath(),
                                      GetArchiveDir()->GetUpperDir(GetZIPPath()));
+                view.FinalizePluginColumns();
             }
 
             // setting of icon size for IconCache
@@ -1932,6 +1933,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 {
                     CSalamanderView view(this);
                     PluginData.SetupView(IsLeftPanel(), &view, NULL, NULL);
+                    view.FinalizePluginColumns();
                 }
 
                 // setting of icon size for IconCache

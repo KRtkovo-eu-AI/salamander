@@ -1917,6 +1917,7 @@ BOOL CFilesWindow::SelectViewTemplate(int templateIndex, BOOL canRefreshPath,
             PluginData.SetupView(IsLeftPanel(),
                                  &view, Is(ptZIPArchive) ? GetZIPPath() : NULL,
                                  Is(ptZIPArchive) ? GetArchiveDir()->GetUpperDir(GetZIPPath()) : NULL);
+            view.FinalizePluginColumns();
         }
 
         // once the view mode differs we must refresh (a different icon or thumbnail size is required)

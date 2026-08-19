@@ -116,6 +116,8 @@ void SetPluginManagerText(HWND ctrl, const char* text)
     SetWindowText(ctrl, text);
 }
 
+} // anonymous namespace
+
 Salamatrix::Extensions::IExtensionsService* QueryExtensionService()
 {
     CSalamanderServiceQuery query;
@@ -153,7 +155,6 @@ Salamatrix::UI::IUIService* QueryExtensionUIService()
     if (!Plugins.QueryService(&query, &result) || result.Interface == NULL)
         return NULL;
     return static_cast<Salamatrix::UI::IUIService*>(result.Interface);
-}
 }
 
 //

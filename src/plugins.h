@@ -1555,6 +1555,7 @@ protected:
 
 public:
     CSalamanderView(CFilesWindow* panel);
+    void FinalizePluginColumns();
 
     // -------------- panel ----------------
     virtual DWORD WINAPI GetViewMode();
@@ -2402,6 +2403,10 @@ public:
     virtual BOOL WINAPI SetPanelsDetached(BOOL detached);
     virtual BOOL WINAPI OpenFileInConfiguredViewer(HWND parent,
                                                    const char* fileName);
+    virtual int WINAPI RegisterPanelColumnDefinition(
+        const char* ownerKey, const char* ownerName,
+        const char* stableId, const char* name,
+        const char* description);
 };
 
 //

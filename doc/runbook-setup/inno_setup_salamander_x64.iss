@@ -1208,6 +1208,8 @@ Source: "{#PayloadDir}\toolbars\Views.svg"; DestDir: "{app}\toolbars"; Flags: ig
 Source: "{#PayloadDir}\toolbars\WhatIsThis.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\Windows.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\ExplorerCategoryCommon.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\ExplorerCategoryFavorites.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\ExplorerCategoryFavoritesRed.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\ExplorerCategoryFileSystem.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\ExplorerCategoryDocument.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\ExplorerCategoryImage.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
@@ -1338,6 +1340,8 @@ Source: "{#PayloadDir}\toolbars\darkmode\Views.svg"; DestDir: "{app}\toolbars\da
 Source: "{#PayloadDir}\toolbars\darkmode\WhatIsThis.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\Windows.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\ExplorerCategoryCommon.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\darkmode\ExplorerCategoryFavorites.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
+Source: "{#PayloadDir}\toolbars\darkmode\ExplorerCategoryFavoritesRed.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\ExplorerCategoryFileSystem.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\ExplorerCategoryDocument.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\darkmode\ExplorerCategoryImage.svg"; DestDir: "{app}\toolbars\darkmode"; Flags: ignoreversion

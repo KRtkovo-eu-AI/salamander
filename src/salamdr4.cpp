@@ -1043,6 +1043,12 @@ const char* SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNORDER = "Explorer Column Order
 const char* SALAMANDER_VIEWTEMPLATE_LEFTSMARTMODE = "Left Smart Mode";
 const char* SALAMANDER_VIEWTEMPLATE_RIGHTSMARTMODE = "Right Smart Mode";
 const char* SALAMANDER_VIEWTEMPLATE_AVAILABLEEXPLORERCOLUMNS = "Available Explorer Columns";
+const char* SALAMANDER_VIEWTEMPLATE_FAVORITEEXPLORERCOLUMNS = "Favorite Explorer Columns";
+const char* SALAMANDER_VIEWTEMPLATE_PLUGINCATALOG = "Plugin Column Catalog";
+const char* SALAMANDER_VIEWTEMPLATE_PLUGINCOUNT = "Plugin Column Count";
+const char* SALAMANDER_VIEWTEMPLATE_PLUGINAVAILABLE = "Plugin Column Available";
+const char* SALAMANDER_VIEWTEMPLATE_PLUGINVISIBLE = "Plugin Column Visible";
+const char* SALAMANDER_VIEWTEMPLATE_ALLCOLUMNORDER = "All Column Order";
 const char* SALAMANDER_VIEWTEMPLATE_EXPLORERAVAILABILITYVERSION = "Explorer Availability Version";
 const char* SALAMANDER_VIEWTEMPLATE_EXTRACOUNT = "Extra View Count";
 const char* SALAMANDER_VIEWTEMPLATE_NEXTID = "Next View ID";
@@ -1072,12 +1078,20 @@ CViewTemplates::CViewTemplates()
         ZeroMemory(Items[i].ExplorerColumns, sizeof(Items[i].ExplorerColumns));
         ZeroMemory(Items[i].ExplorerColumnAvailable, sizeof(Items[i].ExplorerColumnAvailable));
         ZeroMemory(Items[i].ExplorerColumnVisible, sizeof(Items[i].ExplorerColumnVisible));
+        ZeroMemory(Items[i].PluginColumns, sizeof(Items[i].PluginColumns));
+        ZeroMemory(Items[i].PluginColumnAvailable, sizeof(Items[i].PluginColumnAvailable));
+        ZeroMemory(Items[i].PluginColumnVisible, sizeof(Items[i].PluginColumnVisible));
         for (int j = 0; j < EXPLORER_COLUMNS_COUNT; j++)
             Items[i].ExplorerColumnOrder[j] = (WORD)j;
+        for (int j = 0; j < VIEW_COLUMNS_COUNT; j++)
+            Items[i].AllColumnOrder[j] = (WORD)j;
         for (int j = 0; j < STANDARD_COLUMNS_COUNT; j++)
             Items[i].ColumnOrder[j] = (BYTE)j;
     }
     ZeroMemory(ExplorerColumnAvailable, sizeof(ExplorerColumnAvailable));
+    ZeroMemory(ExplorerColumnFavorite, sizeof(ExplorerColumnFavorite));
+    ZeroMemory(PluginColumns, sizeof(PluginColumns));
+    PluginColumnCount = 0;
     NextID = VIEW_TEMPLATES_COUNT + 1;
 }
 
@@ -1150,6 +1164,9 @@ void CViewTemplates::Load(CViewTemplates& source)
 {
     memcpy(Items, source.Items, sizeof(Items));
     memcpy(ExplorerColumnAvailable, source.ExplorerColumnAvailable, sizeof(ExplorerColumnAvailable));
+    memcpy(ExplorerColumnFavorite, source.ExplorerColumnFavorite, sizeof(ExplorerColumnFavorite));
+    memcpy(PluginColumns, source.PluginColumns, sizeof(PluginColumns));
+    PluginColumnCount = source.PluginColumnCount;
     NextID = source.NextID;
     ExtraItems.DestroyMembers();
     for (int i = 0; i < source.ExtraItems.Count; i++)
@@ -1176,6 +1193,44 @@ void CViewTemplates::Load(CViewTemplates& source)
     }
 }
 
+int CViewTemplates::FindPluginColumn(const char* ownerKey, const char* stableId) const
+{
+    if (ownerKey == NULL || stableId == NULL)
+        return -1;
+    for (int i = 0; i < PluginColumnCount; i++)
+        if (_stricmp(PluginColumns[i].OwnerKey, ownerKey) == 0 &&
+            _stricmp(PluginColumns[i].StableId, stableId) == 0)
+            return i;
+    return -1;
+}
+
+int CViewTemplates::RegisterPluginColumn(const char* ownerKey, const char* ownerName,
+                                         const char* stableId, const char* name,
+                                         const char* description)
+{
+    int index = FindPluginColumn(ownerKey, stableId);
+    if (index < 0)
+    {
+        if (PluginColumnCount >= PLUGIN_COLUMNS_COUNT)
+            return -1;
+        index = PluginColumnCount++;
+        ZeroMemory(&PluginColumns[index], sizeof(PluginColumns[index]));
+        for (int viewIndex = 0; viewIndex < GetCount(); viewIndex++)
+        {
+            Get(viewIndex)->PluginColumnAvailable[index] = TRUE;
+            Get(viewIndex)->PluginColumnVisible[index] = TRUE;
+        }
+    }
+    CPluginColumnDefinition* definition = &PluginColumns[index];
+    lstrcpyn(definition->OwnerKey, ownerKey != NULL ? ownerKey : "", _countof(definition->OwnerKey));
+    lstrcpyn(definition->OwnerName, ownerName != NULL ? ownerName : ownerKey, _countof(definition->OwnerName));
+    lstrcpyn(definition->StableId, stableId != NULL ? stableId : "", _countof(definition->StableId));
+    lstrcpyn(definition->Name, name != NULL ? name : "", _countof(definition->Name));
+    lstrcpyn(definition->Description, description != NULL ? description : "", _countof(definition->Description));
+    definition->RuntimeAvailable = TRUE;
+    return index;
+}
+
 BOOL CViewTemplates::IsExplorerColumnAvailable(int index) const
 {
     return index >= 0 && index < EXPLORER_COLUMNS_COUNT && ExplorerColumnAvailable[index] != 0;
@@ -1196,6 +1251,43 @@ void CViewTemplates::RebuildExplorerColumnAvailable()
         for (int j = 0; j < EXPLORER_COLUMNS_COUNT; j++)
             if (view->ExplorerColumnAvailable[j] || view->ExplorerColumnVisible[j])
                 ExplorerColumnAvailable[j] = TRUE;
+    }
+}
+
+void NormalizeViewColumnOrder(CViewTemplate* view)
+{
+    if (view == NULL)
+        return;
+    BOOL used[VIEW_COLUMNS_COUNT];
+    ZeroMemory(used, sizeof(used));
+    WORD normalized[VIEW_COLUMNS_COUNT];
+    int out = 0;
+    normalized[out++] = 0; // Name is permanently first.
+    used[0] = TRUE;
+    for (int i = 0; i < VIEW_COLUMNS_COUNT; i++)
+    {
+        int token = view->AllColumnOrder[i];
+        if (token > 0 && token < VIEW_COLUMNS_COUNT && !used[token])
+        {
+            normalized[out++] = (WORD)token;
+            used[token] = TRUE;
+        }
+    }
+    for (int token = 1; token < VIEW_COLUMNS_COUNT; token++)
+        if (!used[token])
+            normalized[out++] = (WORD)token;
+    memcpy(view->AllColumnOrder, normalized, sizeof(normalized));
+
+    int nativeOut = 0;
+    int explorerOut = 0;
+    for (int i = 0; i < VIEW_COLUMNS_COUNT; i++)
+    {
+        int token = normalized[i];
+        if (token < STANDARD_COLUMNS_COUNT)
+            view->ColumnOrder[nativeOut++] = (BYTE)token;
+        else if (token < STANDARD_COLUMNS_COUNT + EXPLORER_COLUMNS_COUNT)
+            view->ExplorerColumnOrder[explorerOut++] =
+                (WORD)(token - STANDARD_COLUMNS_COUNT);
     }
 }
 
@@ -1420,15 +1512,15 @@ void CViewTemplates::LoadExplorerColumnVisible(BYTE* visible, char* buffer)
     }
 }
 
-static void SaveExplorerColumnAvailable(HKEY hKey, const BYTE* available,
-                                        char* buffer, int bufferSize)
+static void SaveExplorerColumnSet(HKEY hKey, const char* valueName, const BYTE* selected,
+                                  char* buffer, int bufferSize)
 {
     char* out = buffer;
     int remaining = bufferSize;
     int explorerCount = GetExplorerColumnCount();
     for (int i = 0; i < explorerCount; i++)
     {
-        if (!available[i])
+        if (!selected[i])
             continue;
         const char* canonicalName = GetExplorerColumnCanonicalName(i);
         int len = lstrlen(canonicalName);
@@ -1444,17 +1536,15 @@ static void SaveExplorerColumnAvailable(HKEY hKey, const BYTE* available,
         remaining -= len;
     }
     *out = 0;
-    SetValue(hKey, SALAMANDER_VIEWTEMPLATE_AVAILABLEEXPLORERCOLUMNS, REG_SZ,
-             buffer, (int)(out - buffer) + 1);
+    SetValue(hKey, valueName, REG_SZ, buffer, (int)(out - buffer) + 1);
 }
 
-static BOOL LoadExplorerColumnAvailable(HKEY hKey, BYTE* available,
-                                        char* buffer, int bufferSize)
+static BOOL LoadExplorerColumnSet(HKEY hKey, const char* valueName, BYTE* selected,
+                                  char* buffer, int bufferSize)
 {
-    if (!GetValue(hKey, SALAMANDER_VIEWTEMPLATE_AVAILABLEEXPLORERCOLUMNS, REG_SZ,
-                  buffer, bufferSize))
+    if (!GetValue(hKey, valueName, REG_SZ, buffer, bufferSize))
         return FALSE;
-    ZeroMemory(available, EXPLORER_COLUMNS_COUNT * sizeof(BYTE));
+    ZeroMemory(selected, EXPLORER_COLUMNS_COUNT * sizeof(BYTE));
     char* context = NULL;
     char* canonicalName = strtok_s(buffer, "\n", &context);
     while (canonicalName != NULL)
@@ -1464,13 +1554,27 @@ static BOOL LoadExplorerColumnAvailable(HKEY hKey, BYTE* available,
         {
             if (_stricmp(canonicalName, GetExplorerColumnCanonicalName(explorerIndex)) == 0)
             {
-                available[explorerIndex] = TRUE;
+                selected[explorerIndex] = TRUE;
                 break;
             }
         }
         canonicalName = strtok_s(NULL, "\n", &context);
     }
     return TRUE;
+}
+
+static void SaveExplorerColumnAvailable(HKEY hKey, const BYTE* available,
+                                        char* buffer, int bufferSize)
+{
+    SaveExplorerColumnSet(hKey, SALAMANDER_VIEWTEMPLATE_AVAILABLEEXPLORERCOLUMNS,
+                          available, buffer, bufferSize);
+}
+
+static BOOL LoadExplorerColumnAvailable(HKEY hKey, BYTE* available,
+                                        char* buffer, int bufferSize)
+{
+    return LoadExplorerColumnSet(hKey, SALAMANDER_VIEWTEMPLATE_AVAILABLEEXPLORERCOLUMNS,
+                                 available, buffer, bufferSize);
 }
 
 BOOL CViewTemplates::Save(HKEY hKey)
@@ -1482,6 +1586,12 @@ BOOL CViewTemplates::Save(HKEY hKey)
     RebuildExplorerColumnAvailable();
     SetValue(hKey, SALAMANDER_VIEWTEMPLATE_EXTRACOUNT, REG_DWORD, &extraCount, sizeof(extraCount));
     SetValue(hKey, SALAMANDER_VIEWTEMPLATE_NEXTID, REG_DWORD, &NextID, sizeof(NextID));
+    DWORD pluginColumnCount = PluginColumnCount;
+    SetValue(hKey, SALAMANDER_VIEWTEMPLATE_PLUGINCOUNT, REG_DWORD,
+             &pluginColumnCount, sizeof(pluginColumnCount));
+    if (PluginColumnCount > 0)
+        SetValue(hKey, SALAMANDER_VIEWTEMPLATE_PLUGINCATALOG, REG_BINARY,
+                 PluginColumns, PluginColumnCount * sizeof(PluginColumns[0]));
     for (i = 0; i < GetCount(); i++)
     {
         if (i < VIEW_TEMPLATES_COUNT)
@@ -1501,6 +1611,12 @@ BOOL CViewTemplates::Save(HKEY hKey)
                      SaveColumns(view->ExplorerColumns, buff, EXPLORER_COLUMNS_COUNT));
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNVISIBLE, REG_SZ, buff, SaveExplorerColumnVisible(view->ExplorerColumnVisible, buff));
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNORDER, REG_SZ, buff, SaveColumnOrder(view->ExplorerColumnOrder, buff, EXPLORER_COLUMNS_COUNT));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_PLUGINAVAILABLE, REG_BINARY,
+                     view->PluginColumnAvailable, sizeof(view->PluginColumnAvailable));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_PLUGINVISIBLE, REG_BINARY,
+                     view->PluginColumnVisible, sizeof(view->PluginColumnVisible));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_ALLCOLUMNORDER, REG_BINARY,
+                     view->AllColumnOrder, sizeof(view->AllColumnOrder));
             const int availableBufferSize = EXPLORER_COLUMNS_COUNT * EXPLORER_COLUMN_CANONICAL_NAME_MAX + 1;
             char* availableBuffer = (char*)malloc(availableBufferSize);
             if (availableBuffer != NULL)
@@ -1525,6 +1641,8 @@ BOOL CViewTemplates::Save(HKEY hKey)
     {
         SaveExplorerColumnAvailable(hKey, ExplorerColumnAvailable,
                                     availableBuffer, availableBufferSize);
+        SaveExplorerColumnSet(hKey, SALAMANDER_VIEWTEMPLATE_FAVORITEEXPLORERCOLUMNS,
+                              ExplorerColumnFavorite, availableBuffer, availableBufferSize);
         free(availableBuffer);
     }
     return TRUE;
@@ -1534,6 +1652,24 @@ BOOL CViewTemplates::Load(HKEY hKey)
 {
     ExtraItems.DestroyMembers();
     NextID = VIEW_TEMPLATES_COUNT + 1;
+    ZeroMemory(ExplorerColumnFavorite, sizeof(ExplorerColumnFavorite));
+    ZeroMemory(PluginColumns, sizeof(PluginColumns));
+    PluginColumnCount = 0;
+    DWORD pluginColumnCount = 0;
+    if (GetValue(hKey, SALAMANDER_VIEWTEMPLATE_PLUGINCOUNT, REG_DWORD,
+                 &pluginColumnCount, sizeof(pluginColumnCount)))
+    {
+        if (pluginColumnCount > PLUGIN_COLUMNS_COUNT)
+            pluginColumnCount = PLUGIN_COLUMNS_COUNT;
+        if (pluginColumnCount > 0 &&
+            GetValue(hKey, SALAMANDER_VIEWTEMPLATE_PLUGINCATALOG, REG_BINARY,
+                     PluginColumns, pluginColumnCount * sizeof(PluginColumns[0])))
+        {
+            PluginColumnCount = (int)pluginColumnCount;
+            for (int pluginColumn = 0; pluginColumn < PluginColumnCount; pluginColumn++)
+                PluginColumns[pluginColumn].RuntimeAvailable = FALSE;
+        }
+    }
     char buff[12 * EXPLORER_COLUMNS_COUNT + 1];
     char keyName[32];
     int i;
@@ -1544,8 +1680,12 @@ BOOL CViewTemplates::Load(HKEY hKey)
     const int availableBufferSize = EXPLORER_COLUMNS_COUNT * EXPLORER_COLUMN_CANONICAL_NAME_MAX + 1;
     char* availableBuffer = (char*)malloc(availableBufferSize);
     if (availableBuffer != NULL)
+    {
         availableLoaded = LoadExplorerColumnAvailable(hKey, ExplorerColumnAvailable,
                                                       availableBuffer, availableBufferSize);
+        LoadExplorerColumnSet(hKey, SALAMANDER_VIEWTEMPLATE_FAVORITEEXPLORERCOLUMNS,
+                              ExplorerColumnFavorite, availableBuffer, availableBufferSize);
+    }
     DWORD extraCount = 0;
     if (GetValue(hKey, SALAMANDER_VIEWTEMPLATE_EXTRACOUNT, REG_DWORD, &extraCount, sizeof(extraCount)))
     {
@@ -1563,6 +1703,11 @@ BOOL CViewTemplates::Load(HKEY hKey)
     for (i = 0; i < GetCount(); i++)
         ZeroMemory(Get(i)->ExplorerColumnAvailable,
                    sizeof(Get(i)->ExplorerColumnAvailable));
+    for (i = 0; i < GetCount(); i++)
+    {
+        ZeroMemory(Get(i)->PluginColumnAvailable, sizeof(Get(i)->PluginColumnAvailable));
+        ZeroMemory(Get(i)->PluginColumnVisible, sizeof(Get(i)->PluginColumnVisible));
+    }
 
     // Configurations without the version marker include both the original
     // global availability format and builds which incorrectly cloned that
@@ -1587,6 +1732,13 @@ BOOL CViewTemplates::Load(HKEY hKey)
         HKEY actKey;
         if (OpenKey(hKey, keyName, actKey))
         {
+            BOOL allColumnOrderLoaded = GetValue(
+                actKey, SALAMANDER_VIEWTEMPLATE_ALLCOLUMNORDER, REG_BINARY,
+                view->AllColumnOrder, sizeof(view->AllColumnOrder));
+            GetValue(actKey, SALAMANDER_VIEWTEMPLATE_PLUGINAVAILABLE, REG_BINARY,
+                     view->PluginColumnAvailable, sizeof(view->PluginColumnAvailable));
+            GetValue(actKey, SALAMANDER_VIEWTEMPLATE_PLUGINVISIBLE, REG_BINARY,
+                     view->PluginColumnVisible, sizeof(view->PluginColumnVisible));
             if (explorerAvailabilityVersion >= EXPLORER_COLUMN_AVAILABILITY_VERSION &&
                 availableBuffer != NULL)
                 LoadExplorerColumnAvailable(actKey, view->ExplorerColumnAvailable,
@@ -1615,6 +1767,19 @@ BOOL CViewTemplates::Load(HKEY hKey)
                     LoadExplorerColumnVisible(view->ExplorerColumnVisible, buff);
                 if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNORDER, REG_SZ, buff, sizeof(buff)))
                     LoadColumnOrder(view->ExplorerColumnOrder, buff, EXPLORER_COLUMNS_COUNT);
+                if (!allColumnOrderLoaded)
+                {
+                    int order = 0;
+                    for (int native = 0; native < STANDARD_COLUMNS_COUNT; native++)
+                        view->AllColumnOrder[order++] = view->ColumnOrder[native];
+                    for (int explorer = 0; explorer < EXPLORER_COLUMNS_COUNT; explorer++)
+                        view->AllColumnOrder[order++] =
+                            (WORD)(STANDARD_COLUMNS_COUNT + view->ExplorerColumnOrder[explorer]);
+                    for (int pluginColumn = 0; pluginColumn < PLUGIN_COLUMNS_COUNT; pluginColumn++)
+                        view->AllColumnOrder[order++] =
+                            (WORD)(STANDARD_COLUMNS_COUNT + EXPLORER_COLUMNS_COUNT + pluginColumn);
+                }
+                NormalizeViewColumnOrder(view);
                 CleanName(name);
 
                 // overwrite file names the user could not change anyway
@@ -2867,6 +3032,134 @@ CSalamanderView::CSalamanderView(CFilesWindow* panel)
 {
     Panel = panel;
     Panel->GetPluginIconIndex = InternalGetPluginIconIndex;
+}
+
+static int GetStandardColumnOrderToken(DWORD id)
+{
+    switch (id)
+    {
+    case COLUMN_ID_NAME: return 0;
+    case COLUMN_ID_EXTENSION: return 1;
+    case COLUMN_ID_DOSNAME: return 2;
+    case COLUMN_ID_SIZE: return 3;
+    case COLUMN_ID_TYPE: return 4;
+    case COLUMN_ID_DATE: return 5;
+    case COLUMN_ID_TIME: return 6;
+    case COLUMN_ID_ATTRIBUTES: return 7;
+    case COLUMN_ID_DESCRIPTION: return 8;
+    }
+    return -1;
+}
+
+static int GetRuntimeColumnOrderToken(const CColumn* column, const char* ownerKey)
+{
+    int token = GetStandardColumnOrderToken(column->ID);
+    if (column->ID == COLUMN_ID_CUSTOM && column->GetText == InternalGetExplorerColumn)
+        return STANDARD_COLUMNS_COUNT + column->CustomData;
+    if (column->ID == COLUMN_ID_CUSTOM)
+    {
+        DWORD encodedIndex = (column->CustomData & COLUMN_CONFIG_INDEX_MASK) >>
+                             COLUMN_CONFIG_INDEX_SHIFT;
+        if ((column->CustomData & COLUMN_CONFIG_INDEX_FLAG) != 0 && encodedIndex > 0)
+        {
+            int catalogIndex = (int)encodedIndex - 1;
+            if (catalogIndex < MainWindow->ViewTemplates.PluginColumnCount)
+                return STANDARD_COLUMNS_COUNT + EXPLORER_COLUMNS_COUNT + catalogIndex;
+        }
+        char stableId[256];
+        _snprintf_s(stableId, _countof(stableId), _TRUNCATE, "%08X:%s",
+                    (unsigned)column->CustomData, column->Name);
+        int catalogIndex = MainWindow->ViewTemplates.FindPluginColumn(ownerKey, stableId);
+        if (catalogIndex >= 0)
+            token = STANDARD_COLUMNS_COUNT + EXPLORER_COLUMNS_COUNT + catalogIndex;
+    }
+    return token;
+}
+
+void CSalamanderView::FinalizePluginColumns()
+{
+    if (Panel == NULL || Panel->ViewTemplate == NULL || MainWindow == NULL)
+        return;
+    const char* dllName = Panel->PluginData.GetDLLName();
+    CPluginData* plugin = dllName != NULL ? Plugins.GetPluginData(dllName) : NULL;
+    const char* ownerKey = plugin != NULL && plugin->RegKeyName != NULL && plugin->RegKeyName[0] != 0
+                               ? plugin->RegKeyName
+                               : (dllName != NULL ? dllName : "Plugin");
+    const char* ownerName = plugin != NULL && plugin->Name != NULL ? plugin->Name : ownerKey;
+
+    for (int i = Panel->Columns.Count - 1; i >= 0; i--)
+    {
+        CColumn* column = &Panel->Columns[i];
+        if (i == 0 || column->ID != COLUMN_ID_CUSTOM ||
+            column->GetText == InternalGetExplorerColumn)
+            continue;
+        DWORD encodedIndex = (column->CustomData & COLUMN_CONFIG_INDEX_MASK) >>
+                             COLUMN_CONFIG_INDEX_SHIFT;
+        int catalogIndex = (column->CustomData & COLUMN_CONFIG_INDEX_FLAG) != 0 && encodedIndex > 0
+                               ? (int)encodedIndex - 1
+                               : -1;
+        int previousCatalogIndex = catalogIndex;
+        if (catalogIndex < 0 || catalogIndex >= MainWindow->ViewTemplates.PluginColumnCount)
+        {
+            char stableId[256];
+            _snprintf_s(stableId, _countof(stableId), _TRUNCATE, "%08X:%s",
+                        (unsigned)column->CustomData, column->Name);
+            previousCatalogIndex = MainWindow->ViewTemplates.FindPluginColumn(ownerKey, stableId);
+            catalogIndex = MainWindow->ViewTemplates.RegisterPluginColumn(
+                ownerKey, ownerName, stableId, column->Name, column->Description);
+        }
+        else
+            MainWindow->ViewTemplates.PluginColumns[catalogIndex].RuntimeAvailable = TRUE;
+        if (catalogIndex < 0)
+            continue;
+        CColumnConfig* config = &Panel->ViewTemplate->PluginColumns[catalogIndex];
+        if (config->LeftWidth == 0)
+            config->LeftWidth = column->Width;
+        if (config->RightWidth == 0)
+            config->RightWidth = column->Width;
+        if (previousCatalogIndex < 0)
+        {
+            config->LeftFixedWidth = column->FixedWidth;
+            config->RightFixedWidth = column->FixedWidth;
+        }
+        column->Width = Panel->IsLeftPanel() ? config->LeftWidth : config->RightWidth;
+        column->FixedWidth = Panel->IsLeftPanel() ? config->LeftFixedWidth : config->RightFixedWidth;
+        if (!Panel->ViewTemplate->PluginColumnAvailable[catalogIndex] ||
+            !Panel->ViewTemplate->PluginColumnVisible[catalogIndex])
+            Panel->Columns.Delete(i);
+    }
+
+    NormalizeViewColumnOrder(Panel->ViewTemplate);
+    for (int i = 1; i < Panel->Columns.Count; i++)
+    {
+        CColumn moving = Panel->Columns[i];
+        int movingToken = GetRuntimeColumnOrderToken(&moving, ownerKey);
+        int movingRank = VIEW_COLUMNS_COUNT;
+        for (int rank = 0; rank < VIEW_COLUMNS_COUNT; rank++)
+            if (Panel->ViewTemplate->AllColumnOrder[rank] == movingToken)
+            {
+                movingRank = rank;
+                break;
+            }
+        int target = i;
+        while (target > 1)
+        {
+            CColumn* previous = &Panel->Columns[target - 1];
+            int previousToken = GetRuntimeColumnOrderToken(previous, ownerKey);
+            int previousRank = VIEW_COLUMNS_COUNT;
+            for (int rank = 0; rank < VIEW_COLUMNS_COUNT; rank++)
+                if (Panel->ViewTemplate->AllColumnOrder[rank] == previousToken)
+                {
+                    previousRank = rank;
+                    break;
+                }
+            if (previousRank <= movingRank)
+                break;
+            Panel->Columns[target] = *previous;
+            target--;
+        }
+        Panel->Columns[target] = moving;
+    }
 }
 
 DWORD

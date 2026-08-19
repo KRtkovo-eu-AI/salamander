@@ -618,16 +618,20 @@ class CExplorerColumnsDialog : public CCommonDialog
 protected:
     CViewTemplates* Config;
     BYTE Available[EXPLORER_COLUMNS_COUNT];
-    WORD SelectedOrder[EXPLORER_COLUMNS_COUNT];
+    BYTE PluginAvailable[PLUGIN_COLUMNS_COUNT];
+    BYTE Favorite[EXPLORER_COLUMNS_COUNT];
+    WORD SelectedOrder[EXPLORER_COLUMNS_COUNT + PLUGIN_COLUMNS_COUNT];
     int SelectedCount;
     int ViewIndex;
     BOOL DisableNotification;
     int Category;
     int MinWidth;
     int MinHeight;
+    int DetailsExplorerIndex;
     HIMAGELIST HCategoryImages;
     HIMAGELIST HPropertySpacingImages;
     HIMAGELIST HSelectedSpacingImages;
+    HWND HFavoriteToolTip;
 
     void FillCategories();
     void FillProperties();
@@ -643,6 +647,8 @@ protected:
     BOOL MatchesSearch(int explorerIndex) const;
     void LayoutControls();
     void UpdateMoveButtonIcons();
+    void UpdateFavoriteButton();
+    int GetDetailsExplorerIndex(HWND sourceList = NULL) const;
 
 public:
     CExplorerColumnsDialog(HWND parent, CViewTemplates* config, int viewIndex,
@@ -661,6 +667,7 @@ protected:
     CToolbarHeader* Header2;
     HWND HListView2;
     HIMAGELIST HAvailableColumnsImageList;
+    int PluginColumnImageIndices[PLUGIN_COLUMNS_COUNT];
     HWND HAvailableColumnsFilter;
     BOOL AvailableColumnsFilterVisible;
     char AvailableColumnsFilterText[100];
@@ -692,6 +699,7 @@ public:
     BOOL IsAvailableColumnsFilterActive();
     BOOL AvailableColumnMatchesFilter(const char* text);
     void ToggleAvailableColumnsFilter();
+    int GetPluginColumnImageIndex(int pluginColumnIndex);
     void SyncExplorerColumnAvailabilityFromList(int viewIndex, BYTE* available);
     void LayoutViewsListControls();
     DWORD GetEnabledFunctions();
