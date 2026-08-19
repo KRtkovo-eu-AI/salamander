@@ -46,6 +46,8 @@ CNethoodFSInterface::CNethoodFSInterface()
 
     m_bShowThrobber = false;
     m_iThrobberID = -1;
+
+    m_pPendingEnsurePath = NULL;
 }
 
 CNethoodFSInterface::~CNethoodFSInterface()
@@ -57,6 +59,12 @@ CNethoodFSInterface::~CNethoodFSInterface()
         g_oNethoodCache.ReleaseNode(m_pathNode);
         delete m_pPathNodeEventConsumer;
         m_pPathNodeEventConsumer = NULL;
+    }
+
+    if (m_pPendingEnsurePath != NULL)
+    {
+        InterlockedExchange(&m_pPendingEnsurePath->Cancelled, 1);
+        m_pPendingEnsurePath = NULL;
     }
 }
 
@@ -345,6 +353,12 @@ CNethoodFSInterface::ChangePath(
     }
 
     StringCchCopy(m_szCurrentPath, COUNTOF(m_szCurrentPath), szPath);
+
+    if (m_pPendingEnsurePath != NULL)
+    {
+        InterlockedExchange(&m_pPendingEnsurePath->Cancelled, 1);
+        m_pPendingEnsurePath = NULL;
+    }
 
     TRACE_I("Nethood: ChangePath: Path changed to " << m_szCurrentPath);
 
@@ -1275,8 +1289,10 @@ void CNethoodFSInterface::NotifyPathUpdated(__in CNethoodCache::Node node)
 
         if (!SalamanderGeneral->PostRefreshPanelFS2(this))
         {
-            // Petr: Give the main thread some time to attach this FS to the panel.
-            // FIXME: Milan: Not a good idea to sleep while holding the cache lock!
+            // The FS is not yet attached to the panel. Give the main thread
+            // time to complete the attachment. The cache lock is held by the
+            // caller (NotifyNodeUpdated), but this brief sleep is acceptable
+            // as it only occurs during the initial FS attachment race.
             Sleep(200);
             SalamanderGeneral->PostRefreshPanelFS2(this);
         }
@@ -1437,6 +1453,49 @@ bool CNethoodFSInterface::AreItemsSuitableForContextMenu(
     g_oNethoodCache.UnlockCache();
 
     return bOk;
+}
+
+void CNethoodFSInterface::SetPendingEnsurePathData(__in CNethoodEnsurePathAsyncData* pData)
+{
+    if (m_pPendingEnsurePath != NULL)
+    {
+        InterlockedExchange(&m_pPendingEnsurePath->Cancelled, 1);
+    }
+    m_pPendingEnsurePath = pData;
+}
+
+void CNethoodFSInterface::OnEnsurePathComplete(__in CNethoodEnsurePathAsyncData* data)
+{
+    StopThrobber();
+
+    if (data == NULL)
+        return;
+
+    m_pPendingEnsurePath = NULL;
+
+    if (data->Cancelled)
+    {
+        delete data;
+        return;
+    }
+
+    TCHAR szServerName[MAX_PATH];
+    StringCchCopy(szServerName, COUNTOF(szServerName), data->Path.c_str());
+
+    PTSTR pszServer = szServerName;
+    if (pszServer[0] == TEXT('\\') && pszServer[1] == TEXT('\\'))
+        pszServer += 2;
+    PTSTR pszSlash = _tcschr(pszServer, TEXT('\\'));
+    if (pszSlash != NULL)
+        *pszSlash = TEXT('\0');
+
+    int iPanel = data->Panel;
+    m_pPendingEnsurePath = NULL;
+    delete data;
+
+    if (!SalamanderGeneral->ChangePanelPathToDisk(iPanel, szServerName))
+    {
+    }
 }
 
 void CNethoodFSInterface::ConfigurationChanged()

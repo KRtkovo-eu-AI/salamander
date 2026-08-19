@@ -93,6 +93,10 @@ private:
     /// Contains throbber identification number.
     int m_iThrobberID;
 
+    /// Pending asynchronous EnsurePathExists data. Non-NULL when an
+    /// async ensure-path operation is in progress for share navigation.
+    CNethoodEnsurePathAsyncData* m_pPendingEnsurePath;
+
     /// True if the workgroup/domain servers should not be displayed
     /// in root.
     static bool s_bHideServersInRoot;
@@ -111,11 +115,7 @@ private:
 
     bool PostRedirectPathToSalamander(__in PCTSTR pszPath);
 
-    void StartThrobber();
-
     void PostStartThrobber(__in CNethoodCache::Node node);
-
-    void StopThrobber();
 
     bool IsRootForContextMenu();
 
@@ -282,6 +282,18 @@ public:
 
 public:
     void NotifyPathUpdated(__in CNethoodCache::Node node);
+
+    /// Called when an asynchronous EnsurePathExists operation completes.
+    void OnEnsurePathComplete(__in CNethoodEnsurePathAsyncData* data);
+
+    /// Sets pending ensure-path data for async share navigation.
+    void SetPendingEnsurePathData(__in CNethoodEnsurePathAsyncData* pData);
+
+    /// Start throbber animation in the directory line.
+    void StartThrobber();
+
+    /// Stop throbber animation in the directory line.
+    void StopThrobber();
 
     CNethoodCache::Node GetCurrentNode() const
     {

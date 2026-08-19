@@ -159,6 +159,33 @@ CNethoodPluginInterfaceForMenuExt::ExecuteMenuItem(
         return FALSE;
     }
 
+    case MENUCMD_ENSURE_DONE_LEFT:
+    case MENUCMD_ENSURE_DONE_RIGHT:
+    {
+        int iPanel = id - MENUCMD_ENSURE_DONE_BASE;
+        assert(iPanel == PANEL_LEFT || iPanel == PANEL_RIGHT);
+
+        CNethoodEnsurePathAsyncData* data = g_pPendingEnsurePathData[iPanel];
+        g_pPendingEnsurePathData[iPanel] = NULL;
+
+        if (data != NULL)
+        {
+            CNethoodFSInterface* pFS = static_cast<CNethoodFSInterface*>(
+                SalamanderGeneral->GetPanelPluginFS(iPanel + PANEL_LEFT));
+
+            if (pFS != NULL)
+            {
+                pFS->OnEnsurePathComplete(data);
+            }
+            else
+            {
+                delete data;
+            }
+        }
+
+        return FALSE;
+    }
+
     default:
         assert(0);
     }

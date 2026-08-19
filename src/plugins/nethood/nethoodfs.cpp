@@ -154,8 +154,6 @@ CNethoodPluginInterfaceForFS::ExecuteOnFS(
             // It's a share. Change path to Salamander.
             pFSInterface = NULL; // Pointer may be invalid after ChangePanelPathToXxx
 
-            // SalamanderGeneral->SetUserWorkedOnPanelPath(panel);  // Petr Solin: I think this is not the reason to add current path to List Of Working Directories (Alt+F12)
-
             if (!SalamanderGeneral->ChangePanelPathToDisk(panel,
                                                           nodeData.GetName()))
             {

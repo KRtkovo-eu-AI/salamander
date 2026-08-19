@@ -651,6 +651,25 @@ public:
 /// The specified path is actually a symbolic link to other path.
 #define ERROR_NETHOODCACHE_SYMLINK (ERROR_NETHOODCACHE_BASE + 2)
 
+/// Data for asynchronous EnsurePathExists operation.
+struct CNethoodEnsurePathAsyncData
+{
+    /// Handle to the panel window for PostMessage completion notification.
+    HWND HPanelWindow;
+
+    /// Panel index (PANEL_LEFT or PANEL_RIGHT).
+    int Panel;
+
+    /// UNC path to ensure exists. Uses std::string to match the plugin's
+    /// TCHAR=MBCS build configuration.
+    std::string Path;
+
+    /// Cancellation flag. Checked periodically by the thread.
+    volatile LONG Cancelled;
+
+    CNethoodEnsurePathAsyncData() : HPanelWindow(NULL), Panel(-1), Cancelled(0) {}
+};
+
 /// Implements network cache.
 class CNethoodCache
 {
@@ -1060,6 +1079,12 @@ public:
     ///         Otherwise the return value is one of the Windows system
     ///         error code.
     UINT EnsurePathExists(__in PCTSTR pszPath);
+
+    /// Asynchronous version of EnsurePathExists. Starts a background thread
+    /// to ensure the path exists, then posts a menu extension command
+    /// to route back to the UI thread when complete.
+    UINT EnsurePathExistsAsync(__in PCTSTR pszPath, __in HWND hPanelWnd,
+                               __in int panel, __out CNethoodEnsurePathAsyncData** ppData);
 
     void AddRefNode(__in Node node);
     void ReleaseNode(__in Node node);

@@ -37,3 +37,5 @@ int g_iPostedThrobberQueue;
 
 TCHAR g_aszFocusShareName[2][MAX_SHARE_NAME];
 int g_iFocusSharePanel;
+
+CNethoodEnsurePathAsyncData* g_pPendingEnsurePathData[2] = {NULL, NULL};

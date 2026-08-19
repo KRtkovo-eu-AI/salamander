@@ -12,6 +12,9 @@
 
 #pragma once
 
+// Forward declaration for async ensure-path data (defined in cache.h).
+struct CNethoodEnsurePathAsyncData;
+
 /**
 	General Salamander services.
 */
@@ -81,6 +84,11 @@ extern int g_iFocusSharePanel;
 extern DWORD_PTR g_adwPostedThrobberQueue[POSTED_THROBBER_QUEUE_LEN];
 extern int g_iPostedThrobberQueue;
 
+/// Pending async EnsurePathExists data for share navigation.
+/// Indexed by panel (0=left, 1=right). Only one async ensure-path
+/// can be pending per panel at a time.
+extern CNethoodEnsurePathAsyncData* g_pPendingEnsurePathData[2];
+
 //CNethoodIcons		g_oIcons;
 
 /**
@@ -118,6 +126,11 @@ static inline HINSTANCE GetLangInstance()
 #define MENUCMD_FOCUS_SHARE_LEFT (MENUCMD_FOCUS_SHARE_BASE + 0)
 #define MENUCMD_FOCUS_SHARE_RIGHT (MENUCMD_FOCUS_SHARE_BASE + 1)
 #define MENUCMD_FOCUS_SHARE_LAST MENUCMD_FOCUS_SHARE_RIGHT
+
+#define MENUCMD_ENSURE_DONE_BASE (MENUCMD_FOCUS_SHARE_LAST + 1)
+#define MENUCMD_ENSURE_DONE_LEFT (MENUCMD_ENSURE_DONE_BASE + 0)
+#define MENUCMD_ENSURE_DONE_RIGHT (MENUCMD_ENSURE_DONE_BASE + 1)
+#define MENUCMD_ENSURE_DONE_LAST MENUCMD_ENSURE_DONE_RIGHT
 
 /**
 	Period before the throbber starts to spin, in milliseconds.

@@ -17,6 +17,7 @@
 #include "nethoodfs.h"
 #include "cache.h"
 #include "globals.h"
+#include "nethoodmenu.h"
 #include "nethood.rh"
 #include "nethood.rh2"
 #include "lang\lang.rh"
@@ -1584,6 +1585,83 @@ UINT CNethoodCache::EnsurePathExists(__in PCTSTR pszPath)
 
     return NO_ERROR;
 }
+
+//------------------------------------------------------------------------------
+
+static DWORD WINAPI EnsurePathExistsThreadBody(void* param)
+{
+    CNethoodEnsurePathAsyncData* data = static_cast<CNethoodEnsurePathAsyncData*>(param);
+
+    UINT uResult = data->Cancelled ? ERROR_CANCELLED : NO_ERROR;
+
+    if (uResult == NO_ERROR)
+    {
+        extern CNethoodCache g_oNethoodCache;
+        uResult = g_oNethoodCache.EnsurePathExists(data->Path.c_str());
+    }
+
+    data->Cancelled = uResult == NO_ERROR ? 0 : 1;
+
+    extern CNethoodEnsurePathAsyncData* g_pPendingEnsurePathData[2];
+    extern CSalamanderGeneralAbstract* SalamanderGeneral;
+    int iPanel = data->Panel - PANEL_LEFT;
+    if (iPanel >= 0 && iPanel < 2)
+    {
+        g_pPendingEnsurePathData[iPanel] = data;
+    }
+
+    extern CNethoodPluginInterfaceForMenuExt g_oMenuExt;
+    int cmdId = (data->Panel == PANEL_LEFT) ? MENUCMD_ENSURE_DONE_LEFT : MENUCMD_ENSURE_DONE_RIGHT;
+    SalamanderGeneral->PostMenuExtCommand(cmdId, FALSE);
+
+    return 0;
+}
+
+UINT CNethoodCache::EnsurePathExistsAsync(
+    __in PCTSTR pszPath,
+    __in HWND hPanelWnd,
+    __in int panel,
+    __out CNethoodEnsurePathAsyncData** ppData)
+{
+    if (pszPath == NULL || pszPath[0] == TEXT('\0') || hPanelWnd == NULL || ppData == NULL)
+        return ERROR_INVALID_PARAMETER;
+
+    *ppData = NULL;
+
+    int iPanel = panel - PANEL_LEFT;
+    if (iPanel < 0 || iPanel >= 2)
+        return ERROR_INVALID_PARAMETER;
+
+    extern CNethoodEnsurePathAsyncData* g_pPendingEnsurePathData[2];
+    if (g_pPendingEnsurePathData[iPanel] != NULL)
+    {
+        InterlockedExchange(&g_pPendingEnsurePathData[iPanel]->Cancelled, 1);
+        g_pPendingEnsurePathData[iPanel] = NULL;
+    }
+
+    CNethoodEnsurePathAsyncData* data = new (std::nothrow) CNethoodEnsurePathAsyncData();
+    if (data == NULL)
+        return ERROR_NOT_ENOUGH_MEMORY;
+
+    data->HPanelWindow = hPanelWnd;
+    data->Panel = panel;
+    data->Path = pszPath;
+    data->Cancelled = 0;
+
+    DWORD threadID;
+    HANDLE hThread = HANDLES(CreateThread(NULL, 0, EnsurePathExistsThreadBody, data, 0, &threadID));
+    if (hThread == NULL)
+    {
+        delete data;
+        return GetLastError();
+    }
+
+    HANDLES(CloseHandle(hThread));
+    *ppData = data;
+    return NO_ERROR;
+}
+
+//------------------------------------------------------------------------------
 
 void CNethoodCache::AddRefNode(__in Node node)
 {
