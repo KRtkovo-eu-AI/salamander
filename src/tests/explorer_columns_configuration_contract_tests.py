@@ -52,10 +52,10 @@ def main() -> int:
         and "CM_LEFTSORTBY_MIN" in sort_menu
         and "CM_RIGHTSORTBY_MIN" in sort_menu
         and "SortType == stCustom && SortCustomData == column->CustomData" in sort_menu
-        and "GetExplorerSortColumnByMenuIndex" in sort_menu
-        and "targetPanel->ChangeCustomSortType(explorerIndex, TRUE);" in menu
+        and "GetCustomSortColumnByMenuIndex" in sort_menu
+        and "targetPanel->ChangeCustomSortType(customIndex, TRUE);" in menu
         and "IsDetachedTabActive() && DetachedTabOriginalSide" in menu,
-        "Sort By must list displayed Windows property columns, mark the active one, and route commands to main or detached panels",
+        "Sort By must list displayed Windows property and plugin columns, mark the active one, and route commands to main or detached panels",
     )
     require(
         "class CExplorerColumnsDialog" in (ROOT / "cfgdlg.h").read_text(encoding="utf-8")

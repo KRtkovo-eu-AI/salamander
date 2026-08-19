@@ -501,11 +501,11 @@
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! FREESPACE
 
-// vyhrazene intervaly pro SortBy a FixedWidth po 20 polozkach; vic proste nezobrazime
-#define CM_LEFTSORTBY_MIN          2890
-#define CM_LEFTSORTBY_MAX          2909
-#define CM_RIGHTSORTBY_MIN         2910
-#define CM_RIGHTSORTBY_MAX         2929
+// vyhrazene intervaly pro SortBy: max 32 polozek na panel (Explorer + plugin/extension columns)
+#define CM_LEFTSORTBY_MIN          2860
+#define CM_LEFTSORTBY_MAX          2891
+#define CM_RIGHTSORTBY_MIN         2892
+#define CM_RIGHTSORTBY_MAX         2923
 
 #define CM_SKILLLEVEL              2930
 

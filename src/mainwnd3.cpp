@@ -6108,18 +6108,18 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (LOWORD(wParam) >= CM_LEFTSORTBY_MIN && LOWORD(wParam) <= CM_LEFTSORTBY_MAX)
         {
             CFilesWindow* targetPanel = IsDetachedTabActive() && DetachedTabOriginalSide == cpsLeft ? activePanel : LeftPanel;
-            int explorerIndex = targetPanel->GetExplorerSortColumnByMenuIndex(LOWORD(wParam) - CM_LEFTSORTBY_MIN);
-            if (explorerIndex >= 0)
-                targetPanel->ChangeCustomSortType(explorerIndex, TRUE);
+            int customIndex = targetPanel->GetCustomSortColumnByMenuIndex(LOWORD(wParam) - CM_LEFTSORTBY_MIN);
+            if (customIndex >= 0)
+                targetPanel->ChangeCustomSortType(customIndex, TRUE);
             return 0;
         }
 
         if (LOWORD(wParam) >= CM_RIGHTSORTBY_MIN && LOWORD(wParam) <= CM_RIGHTSORTBY_MAX)
         {
             CFilesWindow* targetPanel = IsDetachedTabActive() && DetachedTabOriginalSide == cpsRight ? activePanel : RightPanel;
-            int explorerIndex = targetPanel->GetExplorerSortColumnByMenuIndex(LOWORD(wParam) - CM_RIGHTSORTBY_MIN);
-            if (explorerIndex >= 0)
-                targetPanel->ChangeCustomSortType(explorerIndex, TRUE);
+            int customIndex = targetPanel->GetCustomSortColumnByMenuIndex(LOWORD(wParam) - CM_RIGHTSORTBY_MIN);
+            if (customIndex >= 0)
+                targetPanel->ChangeCustomSortType(customIndex, TRUE);
             return 0;
         }
 
