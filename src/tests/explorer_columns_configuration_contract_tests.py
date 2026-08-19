@@ -276,6 +276,12 @@ def main() -> int:
         "chooser initialization must not populate properties before checkbox styles exist, and nested fills must preserve notification suppression",
     )
     require(
+        "void CExplorerColumnsDialog::UpdateDetails(HWND sourceList)" in dialog
+        and dialog.count("UpdateDetails(hdr->hwndFrom);") >= 2
+        and "if (list != propertiesList && list != selectedList)" in dialog,
+        "Property information must use the listview which emitted the selection notification instead of relying on focus timing",
+    )
+    require(
         "FormatExplorerLocalizedArguments" in dialog
         and "_snprintf_s(text, _TRUNCATE, LoadStr(IDS_EXCOL_COUNT), selected)" not in dialog
         and "FormatEditPropertiesLocalizedArguments" in file_window

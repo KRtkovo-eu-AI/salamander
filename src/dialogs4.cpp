@@ -1889,7 +1889,7 @@ void CExplorerColumnsDialog::FillProperties()
         ListView_SetItemState(list, itemToSelect, LVIS_SELECTED | LVIS_FOCUSED,
                               LVIS_SELECTED | LVIS_FOCUSED);
     DisableNotification = oldDisableNotification;
-    UpdateDetails();
+    UpdateDetails(list);
     UpdateSelectedCount();
 }
 
@@ -2080,12 +2080,13 @@ void CExplorerColumnsDialog::UpdateSelectedCount()
     SetDlgItemText(HWindow, IDC_EXCOL_SELECTED_COUNT, text);
 }
 
-void CExplorerColumnsDialog::UpdateDetails()
+void CExplorerColumnsDialog::UpdateDetails(HWND sourceList)
 {
-    HWND list = GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES);
+    HWND propertiesList = GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES);
     HWND selectedList = GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST);
-    if (GetFocus() == selectedList)
-        list = selectedList;
+    HWND list = sourceList;
+    if (list != propertiesList && list != selectedList)
+        list = GetFocus() == selectedList ? selectedList : propertiesList;
     int itemIndex = ListView_GetNextItem(list, -1, LVNI_SELECTED);
     if (itemIndex < 0)
     {
@@ -2463,7 +2464,7 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
                     if ((change->uOldState & LVIS_STATEIMAGEMASK) != (change->uNewState & LVIS_STATEIMAGEMASK))
                         SetAvailable(index, ListView_GetCheckState(hdr->hwndFrom, change->iItem));
                 }
-                UpdateDetails();
+                UpdateDetails(hdr->hwndFrom);
                 UpdateSelectedCount();
             }
             return TRUE;
@@ -2473,7 +2474,7 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
             if (!DisableNotification)
             {
                 UpdateSelectedButtons();
-                UpdateDetails();
+                UpdateDetails(hdr->hwndFrom);
             }
             return TRUE;
         }

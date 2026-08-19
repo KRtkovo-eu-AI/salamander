@@ -633,7 +633,7 @@ protected:
     void FillProperties();
     void FillSelected(int explorerIndex = -1);
     void NormalizeSelectedOrder();
-    void UpdateDetails();
+    void UpdateDetails(HWND sourceList = NULL);
     void UpdateSelectedCount();
     void UpdateSelectedButtons();
     void SetAvailable(int explorerIndex, BOOL available);
