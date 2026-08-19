@@ -241,13 +241,16 @@ def main() -> int:
         native_viewer,
         r'ModuleDirectory\(nullptr\) \+ L"utils\\\\MarkdigRenderer\.exe"',
         "The native viewer does not resolve shared MarkdigRenderer under utils")
-    for project in (salamatrix_project, webview2_viewer_project):
-        require(
-            project,
-            r'--output &quot;\$\(IntDir\)MarkdigRenderer&quot;.*?'
-            r'DestinationFolder="\$\(OutDir\)\.\.\\\.\.\\utils".*?'
-            r'Delete Files="\$\(OutDir\)MarkdigRenderer\.exe',
-            "A WebView2 project still stages a private MarkdigRenderer copy")
+    require(
+        salamatrix_project,
+        r'--output &quot;\$\(IntDir\)MarkdigRenderer&quot;.*?'
+        r'DestinationFolder="\$\(OutDir\)\.\.\\\.\.\\utils".*?'
+        r'Delete Files="\$\(OutDir\)MarkdigRenderer\.exe',
+        "Salamatrix does not stage the shared MarkdigRenderer under utils")
+    require_absent(
+        webview2_viewer_project,
+        r'dotnet publish.*?MarkdigRenderer|MarkdigRenderer\.csproj',
+        "webview2renderviewer still produces a private MarkdigRenderer copy")
     if len(re.findall(r'^Source: .*MarkdigRenderer\.exe', inno_setup_x64,
                       re.MULTILINE)) != 1:
         raise AssertionError(
