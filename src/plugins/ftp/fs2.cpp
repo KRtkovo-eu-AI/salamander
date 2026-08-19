@@ -567,6 +567,8 @@ BOOL CPluginFSInterface::ChangePath(int currentFSNameIndex, char* fsName, int fs
 
             lstrcpyn(newUserPart, userPart, FTP_USERPART_SIZE);
             char *u, *host, *p, *path, *password;
+            char passwordBuf[PASSWORD_MAX_SIZE];
+            passwordBuf[0] = 0;
             char firstCharOfPath = '/';
             FTPSplitPath(newUserPart, &u, &password, &host, &p, &path, &firstCharOfPath, 0);
             if (password != NULL && *password == 0)
@@ -614,6 +616,33 @@ BOOL CPluginFSInterface::ChangePath(int currentFSNameIndex, char* fsName, int fs
 
             ClearHostFromListingCacheIfFirstCon(Host, Port, User);
 
+            // If no password in the URL and not anonymous, try to find one from saved bookmarks
+            if (password == NULL && strcmp(user, FTP_ANONYMOUS) != 0)
+            {
+                for (int i = 0; i < Config.FTPServerList.Count; i++)
+                {
+                    CFTPServer* bookmark = Config.FTPServerList[i];
+                    if (bookmark != NULL && bookmark->SavePassword &&
+                        bookmark->EncryptedPassword != NULL && bookmark->EncryptedPasswordSize > 0 &&
+                        SalamanderGeneral->StrNICmp(HandleNULLStr(bookmark->Address), host, HOST_MAX_SIZE) == 0 &&
+                        SalamanderGeneral->StrNICmp(HandleNULLStr(bookmark->UserName), user, USER_MAX_SIZE) == 0 &&
+                        bookmark->Port == port)
+                    {
+                        char* plainPassword;
+                        CSalamanderPasswordManagerAbstract* passwordManager = SalamanderGeneral->GetSalamanderPasswordManager();
+                        if (bookmark->EnsurePasswordCanBeDecrypted(SalamanderGeneral->GetMsgBoxParent()) &&
+                            passwordManager->DecryptPassword(bookmark->EncryptedPassword, bookmark->EncryptedPasswordSize, &plainPassword))
+                        {
+                            lstrcpyn(passwordBuf, plainPassword, PASSWORD_MAX_SIZE);
+                            memset(plainPassword, 0, lstrlen(plainPassword));
+                            SalamanderGeneral->Free(plainPassword);
+                            password = passwordBuf;
+                            break;
+                        }
+                    }
+                }
+            }
+
             if (strcmp(user, FTP_ANONYMOUS) == 0 && password == NULL)
                 password = anonymousPasswd;
             ControlConnection->SetConnectionParameters(Host, Port, User, HandleNULLStr(password),
@@ -626,6 +655,7 @@ BOOL CPluginFSInterface::ChangePath(int currentFSNameIndex, char* fsName, int fs
 
             // password - if not NULL, contains the password for the connection
             memset(newUserPart, 0, FTP_USERPART_SIZE + 1); // erase the memory that contained the password
+            memset(passwordBuf, 0, PASSWORD_MAX_SIZE);      // erase the bookmark password (if any)
         }
 
         ControlConnection->SetStartTime();
