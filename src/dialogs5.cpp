@@ -5658,6 +5658,8 @@ CCfgPageMainWindow::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 // CCfgPageAppearance
 //
 
+static const UINT WM_APP_APPEARANCE_RESTORE_FONT_PREVIEWS = WM_APP + 0x3A9;
+
 CCfgPageAppearance::CCfgPageAppearance()
     : CCommonPropSheetPage(NULL, HLanguage, IDD_CFGPAGE_APPEARANCE, IDD_CFGPAGE_APPEARANCE, PSP_USETITLE, NULL)
 {
@@ -5842,7 +5844,20 @@ CCfgPageAppearance::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             DarkModeApplyUpDownSubclass(hWnd);
         }
 
+        // The property sheet applies the configured UI font after this handler
+        // returns. Restore the two intentional font previews afterwards.
+        PostMessage(HWindow, WM_APP_APPEARANCE_RESTORE_FONT_PREVIEWS, 0, 0);
+
         break;
+    }
+
+    case WM_APP_APPEARANCE_RESTORE_FONT_PREVIEWS:
+    {
+        if (HPanelFont != NULL)
+            SendDlgItemMessage(HWindow, IDE_PANELFONT, WM_SETFONT, (WPARAM)HPanelFont, TRUE);
+        if (HDialogFont != NULL)
+            SendDlgItemMessage(HWindow, IDE_DIALOGFONT, WM_SETFONT, (WPARAM)HDialogFont, TRUE);
+        return 0;
     }
 
     case WM_COMMAND:
@@ -6233,8 +6248,37 @@ CCfgPageChangeDrive::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 RECT textExtent = {};
                 SIZE glyphSize = {};
-                if (SUCCEEDED(GetThemeTextExtent(theme, dc, BP_GROUPBOX, GBS_NORMAL,
-                                                 text.c_str(), -1, DT_SINGLELINE, NULL, &textExtent)) &&
+                BOOL textMeasured = FALSE;
+                if (DialogFontMode == DIALOG_FONT_DEFAULT)
+                {
+                    textMeasured = SUCCEEDED(GetThemeTextExtent(theme, dc, BP_GROUPBOX, GBS_NORMAL,
+                                                               text.c_str(), -1, DT_SINGLELINE,
+                                                               NULL, &textExtent));
+                }
+                else
+                {
+                    HFONT font = (HFONT)SendMessage(mountFolders, WM_GETFONT, 0, 0);
+                    HFONT captionFont = NULL;
+                    if (font != NULL)
+                    {
+                        LOGFONT lf;
+                        if (GetObject(font, sizeof(lf), &lf) == sizeof(lf))
+                        {
+                            lf.lfHeight = (int)(lf.lfHeight * 1.2);
+                            lf.lfWidth = 0;
+                            captionFont = HANDLES(CreateFontIndirect(&lf));
+                        }
+                    }
+                    HFONT measuredFont = captionFont != NULL ? captionFont : font;
+                    HFONT oldFont = measuredFont != NULL ? (HFONT)SelectObject(dc, measuredFont) : NULL;
+                    textMeasured = DrawTextW(dc, text.c_str(), -1, &textExtent,
+                                             DT_SINGLELINE | DT_CALCRECT) != 0;
+                    if (oldFont != NULL)
+                        SelectObject(dc, oldFont);
+                    if (captionFont != NULL)
+                        HANDLES(DeleteObject(captionFont));
+                }
+                if (textMeasured &&
                     SUCCEEDED(GetThemePartSize(theme, dc, BP_CHECKBOX, CBS_UNCHECKEDNORMAL,
                                                NULL, TS_DRAW, &glyphSize)))
                 {

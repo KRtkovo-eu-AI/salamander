@@ -874,6 +874,7 @@ public:
     ~CAboutDialog();
 
 protected:
+    virtual BOOL UseConfiguredDialogFont() { return FALSE; }
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 };
 

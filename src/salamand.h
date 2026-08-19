@@ -894,6 +894,7 @@ public:
         : CPropSheetPage(title, modul, resID, helpID, flags, icon, origin) {}
 
 protected:
+    virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
     virtual void NotifDlgJustCreated();
 };
 

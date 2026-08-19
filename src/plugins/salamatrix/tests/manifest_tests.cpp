@@ -70,7 +70,8 @@ static void TestCompleteManifest()
         "\"refreshIntervalMs\":0,\"refreshDepth\":2,"
         "\"refreshPaths\":[\"cpu/usage\",\"sensors/temperatures\"],\"rootItems\":["
         "{\"id\":\"cpu\",\"name\":\"CPU\",\"icon\":\"assets/cpu.svg\"}],\"columns\":["
-        "{\"id\":\"pid\",\"name\":\"PID\",\"description\":\"Process id\",\"width\":72,\"numeric\":true,\"size\":true}],\"actions\":["
+        "{\"id\":\"pid\",\"name\":\"PID\",\"description\":\"Process id\",\"width\":72,\"numeric\":true,\"size\":true},"
+        "{\"id\":\"logged\",\"name\":\"Logged\",\"dateTime\":true}],\"actions\":["
         "{\"id\":\"connect\",\"title\":\"Connect\",\"handler\":\"connect\",\"itemIdPrefix\":\"machine-\",\"default\":true},"
         "{\"separator\":true},"
         "{\"id\":\"start\",\"title\":\"Start\",\"handler\":\"start\",\"refresh\":false}]}]"
@@ -147,11 +148,15 @@ static void TestCompleteManifest()
     CHECK(manifest.FileSystems[0].RefreshPaths[1] == "sensors\\temperatures");
     CHECK(manifest.FileSystems[0].RootItems.size() == 1);
     CHECK(manifest.FileSystems[0].RootItems[0].Id == "cpu");
-    CHECK(manifest.FileSystems[0].Columns.size() == 1);
+    CHECK(manifest.FileSystems[0].Columns.size() == 2);
     CHECK(manifest.FileSystems[0].Columns[0].Id == "pid");
     CHECK(manifest.FileSystems[0].Columns[0].Width == 72);
     CHECK(manifest.FileSystems[0].Columns[0].Numeric);
     CHECK(manifest.FileSystems[0].Columns[0].Size);
+    CHECK(!manifest.FileSystems[0].Columns[0].DateTime);
+    CHECK(manifest.FileSystems[0].Columns[1].Id == "logged");
+    CHECK(manifest.FileSystems[0].Columns[1].DateTime);
+    CHECK(!manifest.FileSystems[0].Columns[1].Size);
     CHECK(manifest.FileSystems[0].Actions.size() == 3);
     CHECK(manifest.FileSystems[0].Actions[0].Default);
     CHECK(manifest.FileSystems[0].Actions[0].ItemIdPrefix == "machine-");
@@ -163,6 +168,14 @@ static void TestCompleteManifest()
         "\"entryPoint\":\"main.ps1\",\"fileSystems\":[{\"id\":\"fs\","
         "\"name\":\"FS\",\"listHandler\":\"list\",\"actions\":[{"
         "\"separator\":true,\"id\":\"bad\"}]}]}";
+
+    const char* invalidTypedColumn =
+        "{\"id\":\"Example.InvalidColumn\",\"runtime\":\"PowerShell\","
+        "\"entryPoint\":\"main.ps1\",\"fileSystems\":[{\"id\":\"fs\","
+        "\"name\":\"FS\",\"listHandler\":\"list\",\"columns\":[{"
+        "\"id\":\"when\",\"name\":\"When\",\"size\":true,"
+        "\"dateTime\":true}]}]}";
+    CHECK(!Parse(invalidTypedColumn, manifest, error));
     CHECK(!Parse(invalidActionSeparator, manifest, error));
     CHECK(!error.Message.empty());
 

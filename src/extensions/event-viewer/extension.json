@@ -41,7 +41,7 @@
     ],
     "columns": [
       {"id":"level","name":"Level","description":"Event severity","width":100},
-      {"id":"logged","name":"Date and Time","description":"Time the event was logged","width":150},
+      {"id":"logged","name":"Date and Time","description":"Time the event was logged","width":150,"dateTime":true},
       {"id":"source","name":"Source","description":"Event provider","width":190},
       {"id":"eventId","name":"Event ID","description":"Event identifier","width":80,"numeric":true},
       {"id":"task","name":"Task Category","description":"Event task category","width":150}

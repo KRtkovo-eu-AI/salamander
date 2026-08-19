@@ -1152,6 +1152,53 @@ static DWORD* SalamatrixFsTransferActCustomData = NULL;
 static volatile LONG SalamatrixFsNameColumnWidth[2] = {180, 180};
 static volatile LONG SalamatrixFsNameColumnFixed[2] = {1, 1};
 static const DWORD SALAMATRIX_FS_SIZE_COLUMN = 0x40000000;
+static const DWORD SALAMATRIX_FS_DATETIME_COLUMN = 0x20000000;
+static const DWORD SALAMATRIX_FS_SORT_KEY = 0x80000000;
+static const DWORD SALAMATRIX_FS_COLUMN_FLAGS =
+    SALAMATRIX_FS_SIZE_COLUMN | SALAMATRIX_FS_DATETIME_COLUMN |
+    SALAMATRIX_FS_SORT_KEY;
+
+static std::string SalamatrixFormatFileSystemDateTime(const std::string& value)
+{
+    char* end = NULL;
+    const __int64 milliseconds = _strtoi64(value.c_str(), &end, 10);
+    if (end == value.c_str() || end == NULL || *end != '\0')
+        return value;
+    const __int64 windowsEpochMilliseconds = 11644473600000LL;
+    const unsigned __int64 ticks =
+        static_cast<unsigned __int64>(milliseconds + windowsEpochMilliseconds) *
+        10000ULL;
+    FILETIME utc = {
+        static_cast<DWORD>(ticks), static_cast<DWORD>(ticks >> 32)};
+    SYSTEMTIME utcSystemTime;
+    SYSTEMTIME systemTime;
+    if (!FileTimeToSystemTime(&utc, &utcSystemTime) ||
+        !SystemTimeToTzSpecificLocalTime(
+            NULL, &utcSystemTime, &systemTime))
+        return value;
+    wchar_t date[80];
+    wchar_t time[80];
+    if (GetDateFormatW(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &systemTime,
+                       NULL, date, _countof(date)) == 0 ||
+        GetTimeFormatW(LOCALE_USER_DEFAULT, TIME_NOSECONDS, &systemTime,
+                       NULL, time, _countof(time)) == 0)
+        return value;
+    std::wstring formatted(date);
+    formatted += L" ";
+    formatted += time;
+    const int length = WideCharToMultiByte(
+        CP_UTF8, WC_ERR_INVALID_CHARS, formatted.c_str(), -1,
+        NULL, 0, NULL, NULL);
+    if (length <= 1)
+        return value;
+    std::string result(static_cast<size_t>(length), '\0');
+    if (WideCharToMultiByte(
+            CP_UTF8, WC_ERR_INVALID_CHARS, formatted.c_str(), -1,
+            &result[0], length, NULL, NULL) == 0)
+        return value;
+    result.resize(static_cast<size_t>(length - 1));
+    return result;
+}
 
 static std::string SalamatrixFormatFileSystemColumnValue(
     const std::string& value, bool sizeColumn)
@@ -1191,12 +1238,17 @@ static void WINAPI SalamatrixFileSystemColumnText()
         reinterpret_cast<const SalamatrixFileSystemItemData*>((*SalamatrixFsTransferFileData)->PluginData);
     const DWORD customData = *SalamatrixFsTransferActCustomData;
     const bool sizeColumn = (customData & SALAMATRIX_FS_SIZE_COLUMN) != 0;
+    const bool dateTimeColumn =
+        (customData & SALAMATRIX_FS_DATETIME_COLUMN) != 0;
+    const bool sortKey = (customData & SALAMATRIX_FS_SORT_KEY) != 0;
     const size_t index = static_cast<size_t>(
-        (customData & ~SALAMATRIX_FS_SIZE_COLUMN) - 1);
+        (customData & ~SALAMATRIX_FS_COLUMN_FLAGS) - 1);
     if (data == NULL || index >= data->Item.ColumnValues.size())
         return;
-    const std::string value = SalamatrixFormatFileSystemColumnValue(
-        data->Item.ColumnValues[index], sizeColumn);
+    const std::string value = dateTimeColumn && !sortKey
+        ? SalamatrixFormatFileSystemDateTime(data->Item.ColumnValues[index])
+        : SalamatrixFormatFileSystemColumnValue(
+              data->Item.ColumnValues[index], sizeColumn);
     const size_t length = min(value.size(), static_cast<size_t>(TRANSFER_BUFFER_MAX));
     memcpy(SalamatrixFsTransferBuffer, value.data(), length);
     *SalamatrixFsTransferLen = static_cast<int>(length);
@@ -1385,7 +1437,8 @@ public:
                 StringCchCopyA(column.Description, _countof(column.Description), Columns[index].Description.c_str());
                 column.GetText = SalamatrixFileSystemColumnText;
                 column.CustomData = static_cast<DWORD>(index + 1) |
-                    (Columns[index].Size ? SALAMATRIX_FS_SIZE_COLUMN : 0);
+                    (Columns[index].Size ? SALAMATRIX_FS_SIZE_COLUMN : 0) |
+                    (Columns[index].DateTime ? SALAMATRIX_FS_DATETIME_COLUMN : 0);
                 column.SupportSorting = 1;
                 column.LeftAlignment = Columns[index].Numeric ? 0 : 1;
                 column.ID = COLUMN_ID_CUSTOM;
@@ -1435,8 +1488,11 @@ public:
              index < Columns.size() && index < data->Item.ColumnValues.size();
              ++index)
         {
-            const std::string value = SalamatrixFormatFileSystemColumnValue(
-                data->Item.ColumnValues[index], Columns[index].Size);
+            const std::string value = Columns[index].DateTime
+                ? SalamatrixFormatFileSystemDateTime(
+                      data->Item.ColumnValues[index])
+                : SalamatrixFormatFileSystemColumnValue(
+                      data->Item.ColumnValues[index], Columns[index].Size);
             if (value.empty())
                 continue;
             const char* separator = used == 0 ? "" : "\n";
@@ -4218,7 +4274,9 @@ BOOL WINAPI PackageManager::HostDispatch(
         return FALSE;
     Package* package = static_cast<Package*>(context);
     if (InterlockedCompareExchange(&package->Stopping, FALSE, FALSE) != FALSE)
-        return FALSE;
+        return CopyResult(
+            "{\"ok\":false,\"error\":\"extension package is stopping\"}",
+            resultJson, resultCapacity, resultLength);
     PackageManager* owner = package->Owner;
     if (type == Runtime::Protocol::MessageHello)
         return CopyResult(
@@ -5317,11 +5375,13 @@ BOOL WINAPI PackageManager::HostDispatch(
 
         std::string idText;
         if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "dialogId", &idText))
-            return FALSE;
+            return CopyResult("{\"ok\":false,\"error\":\"dialogId is missing\"}",
+                              resultJson, resultCapacity, resultLength);
         char* idEnd = NULL;
         const ULONGLONG dialogId = _strtoui64(idText.c_str(), &idEnd, 10);
         if (idEnd == idText.c_str() || *idEnd != '\0')
-            return FALSE;
+            return CopyResult("{\"ok\":false,\"error\":\"dialogId is invalid\"}",
+                              resultJson, resultCapacity, resultLength);
         size_t dialogIndex = package->Dialogs.size();
         for (size_t index = 0; index < package->Dialogs.size(); ++index)
             if (package->Dialogs[index] != NULL && package->Dialogs[index]->Id == dialogId)
@@ -5331,7 +5391,10 @@ BOOL WINAPI PackageManager::HostDispatch(
             }
         if (dialogIndex == package->Dialogs.size() || package->Dialogs[dialogIndex] == NULL ||
             package->Dialogs[dialogIndex]->Dialog == NULL)
-            return FALSE;
+            return CopyResult(
+                std::string("{\"ok\":false,\"error\":\"dialog not found: ") +
+                    JsonEscape(idText.c_str()) + "\"}",
+                resultJson, resultCapacity, resultLength);
         Package::RuntimeDialog* binding = package->Dialogs[dialogIndex];
         UI::IDialog* dialog = binding->Dialog;
 
@@ -5340,7 +5403,9 @@ BOOL WINAPI PackageManager::HostDispatch(
             std::string kindName, controlId, controlText;
             if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "kind", &kindName) ||
                 !Runtime::Protocol::Json::FindStringMember(payloadJson, "controlId", &controlId))
-                return FALSE;
+                return CopyResult(
+                    "{\"ok\":false,\"error\":\"dialog control kind or id is missing\"}",
+                    resultJson, resultCapacity, resultLength);
             Runtime::Protocol::Json::FindStringMember(payloadJson, "text", &controlText);
             struct KindName { const char* Name; UI::ControlKind Kind; };
             static const KindName kinds[] = {
@@ -5365,7 +5430,10 @@ BOOL WINAPI PackageManager::HostDispatch(
                         break;
                     }
                 if (!kindFound)
-                    return FALSE;
+                    return CopyResult(
+                        std::string("{\"ok\":false,\"error\":\"unknown dialog control kind: ") +
+                            JsonEscape(kindName.c_str()) + "\"}",
+                        resultJson, resultCapacity, resultLength);
 
                 UI::ControlOptions options;
                 options.Id = controlId.c_str();
@@ -5388,11 +5456,24 @@ BOOL WINAPI PackageManager::HostDispatch(
                         !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "y", &layout.Y) ||
                         !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "width", &layout.Width) ||
                         !Runtime::Protocol::Json::FindIntegerMember(payloadJson, "height", &layout.Height))
-                        return FALSE;
+                        return CopyResult(
+                            std::string("{\"ok\":false,\"error\":\"invalid layout for dialog control: ") +
+                                JsonEscape(controlId.c_str()) + "\"}",
+                            resultJson, resultCapacity, resultLength);
                 }
+                if (!controlId.empty() && dialog->FindControl(controlId.c_str()) != NULL)
+                    return CopyResult(
+                        std::string("{\"ok\":false,\"error\":\"duplicate dialog control: ") +
+                            JsonEscape(controlId.c_str()) + " in dialog " +
+                            JsonEscape(idText.c_str()) + "\"}",
+                        resultJson, resultCapacity, resultLength);
                 UI::IControl* control = dialog->AddControlEx(kind, options, layout);
                 if (control == NULL)
-                    return FALSE;
+                    return CopyResult(
+                        std::string("{\"ok\":false,\"error\":\"native dialog rejected control: ") +
+                            JsonEscape(controlId.c_str()) + " in dialog " +
+                            JsonEscape(idText.c_str()) + "\"}",
+                        resultJson, resultCapacity, resultLength);
                 int integerValue = 0;
                 std::string stringValue;
                 if (Runtime::Protocol::Json::FindIntegerMember(payloadJson, "styleFlags", &integerValue) &&

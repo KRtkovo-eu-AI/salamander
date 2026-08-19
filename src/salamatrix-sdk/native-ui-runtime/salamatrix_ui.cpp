@@ -2368,6 +2368,24 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
     Impl::Control* control = dialog->m_pImpl->Find(LOWORD(wParam));
     if (control == NULL)
         return FALSE;
+    if (control->Kind == ControlKindToolbarHeader)
+    {
+        // CGUIToolbarHeader forwards its stable TLBHDR_* command in HIWORD.
+        // A non-zero DialogResult opts a modal runtime dialog into returning
+        // that command; zero preserves action-only toolbar headers.
+        const int toolbarCommand = HIWORD(wParam);
+        if (toolbarCommand < TLBHDR_MODIFY || toolbarCommand > TLBHDR_BOTTOM)
+            return FALSE;
+        dialog->m_pImpl->NotifyChanged(control);
+        if (control->KeepOpen || control->DialogResult == 0)
+            return TRUE;
+        dialog->m_pImpl->Result = toolbarCommand;
+        if (dialog->m_pImpl->Options.Modeless)
+            DestroyWindow(hwnd);
+        else
+            EndDialog(hwnd, toolbarCommand);
+        return TRUE;
+    }
     if (control->Kind == ControlKindFolderPicker)
     {
         std::string selectedPath;

@@ -377,6 +377,7 @@ public:
     virtual void Validate(CTransferInfo& /*ti*/) {}
     virtual BOOL TransferData(CTransferType type);
     virtual void Transfer(CTransferInfo& /*ti*/) {}
+    virtual BOOL UseConfiguredDialogFont() { return TRUE; }
 
     virtual BOOL Is(int type) { return type == otDialog; }
     virtual int GetObjectType() { return otDialog; }

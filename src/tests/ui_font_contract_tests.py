@@ -29,6 +29,7 @@ def require(text: str, needle: str, description: str) -> None:
 
 def main() -> None:
     common_winlib = (ROOT / "src/common/winlib.cpp").read_text(encoding="utf-8")
+    common_winlib_h = (ROOT / "src/common/winlib.h").read_text(encoding="utf-8")
     common_dpi = (ROOT / "src/common/winlibdpi.h").read_text(encoding="utf-8")
     common_sheets = (ROOT / "src/common/sheets.cpp").read_text(encoding="utf-8")
     code_tables = (ROOT / "src/codetbl.cpp").read_text(encoding="utf-8")
@@ -44,11 +45,29 @@ def main() -> None:
     if "LoadStr(IDS_FONTDESCRIPTION)" in font_preview:
         raise AssertionError("UI font description must not use a resource as a printf format")
 
+    appearance_dialog = function_slice(
+        dialogs5, "CCfgPageAppearance::DialogProc(", "// CCfgPageChangeDrive")
+    require(appearance_dialog,
+            "PostMessage(HWindow, WM_APP_APPEARANCE_RESTORE_FONT_PREVIEWS, 0, 0)",
+            "deferred restoration of font previews after property-sheet UI font application")
+    require(appearance_dialog,
+            "SendDlgItemMessage(HWindow, IDE_PANELFONT, WM_SETFONT, (WPARAM)HPanelFont, TRUE)",
+            "selected panel font restored in its preview field")
+    require(appearance_dialog,
+            "SendDlgItemMessage(HWindow, IDE_DIALOGFONT, WM_SETFONT, (WPARAM)HDialogFont, TRUE)",
+            "selected UI font restored in its preview field")
+
     core_dialog = function_slice(
         common_winlib, "CDialog::CDialogProc(", "CWindowsManager::CWindowsManager()")
     require_after(core_dialog, "dlg->DialogProc(uMsg, wParam, lParam)",
                   "WinLibApplyConfiguredDialogFont(hwndDlg)",
                   "core dialog font after concrete WM_INITDIALOG")
+    require(common_winlib_h, "virtual BOOL UseConfiguredDialogFont() { return TRUE; }",
+            "per-dialog opt-out from the configured UI font")
+    require(common_winlib, "UseConfiguredDialogFont() && WinLibGetConfiguredDialogLogFont",
+            "template-time configured font guarded by the per-dialog opt-out")
+    require(core_dialog, "if (dlg->UseConfiguredDialogFont())",
+            "post-init configured font guarded by the per-dialog opt-out")
 
     require(common_winlib, "WinLibDPICloneResourceDialogWithFont",
             "template-time font in core dialogs")
@@ -119,6 +138,11 @@ def main() -> None:
     if "GetEffectiveDefaultUILogFont" in splash:
         raise AssertionError("Splash screen must not inherit the custom UI font")
 
+    dialogs_h = (ROOT / "src/dialogs.h").read_text(encoding="utf-8")
+    about_dialog = function_slice(dialogs_h, "class CAboutDialog", "struct CExecuteItem")
+    require(about_dialog, "virtual BOOL UseConfiguredDialogFont() { return FALSE; }",
+            "fixed resource font in the About dialog")
+
     find_dialog = (ROOT / "src/finddlg1.cpp").read_text(encoding="utf-8")
     require(find_dialog, "SendMessage(HStatusBar, WM_SETFONT, (WPARAM)HStatusFont, TRUE)",
             "UI font in the Find status bar")
@@ -153,6 +177,23 @@ def main() -> None:
 
     dark_status = (ROOT / "src/third_party/darkmodelib/src/DmlibSubclassControl.cpp").read_text(
         encoding="utf-8")
+    dark_button = function_slice(dark_status, "static void renderButton(", "static void paintButton(")
+    require_after(dark_button, "getControlTextFont(", "GetThemeFont(",
+                  "configured control font before theme fallback in dark checkboxes")
+    require_after(dark_button, "SendMessage(hWnd, WM_GETFONT", "GetThemeFont(",
+                  "dialog-assigned font before theme fallback for ordinary buttons")
+    dark_groupbox = function_slice(
+        dark_status, "static void paintGroupbox(", "dmlib_subclass::GroupboxSubclass(")
+    require_after(dark_groupbox, "getControlTextFont(hWnd, true", "GetThemeFont(",
+                  "configured control font before theme fallback in dark groupboxes")
+    require(dark_status, "lf.lfHeight = static_cast<LONG>(lf.lfHeight * 1.2);",
+            "same 20-percent emphasis as the configured property-page heading")
+    require(dark_status, 'GetPropW(hWnd, L"Darkmodelib.Button.UseConfiguredFont")',
+            "control-local configured-font opt-in preserving default themed fonts")
+    require(dark_groupbox, "::DrawTextW(hdc, buffer.c_str()",
+            "configured groupbox font rendered through the selected HDC font")
+    require(dark_groupbox, "::DrawThemeTextEx(hTheme, hdc, BP_GROUPBOX",
+            "unchanged themed groupbox text path for the default UI font")
     require(dark_status, "case WM_SETFONT:",
             "custom font updates in dark status-bar painting")
     require(dark_status, "pStatusBarData->setFont(reinterpret_cast<HFONT>(wParam))",
@@ -175,6 +216,24 @@ def main() -> None:
     lang_rc = (ROOT / "src/lang/lang.rc").read_text(encoding="utf-8")
     require(lang_rc, "UI Fonts for Salamander and Plug-ins",
             "visible scope of the UI font setting")
+    require(dialogs5, "DrawTextW(dc, text.c_str(), -1, &textExtent,",
+            "mounted-volumes group caption measured with its configured control font")
+    require(dialogs5, "lf.lfHeight = (int)(lf.lfHeight * 1.2);",
+            "property-page-heading sizing for the mounted-volumes checkbox")
+    require(dialogs5, "if (DialogFontMode == DIALOG_FONT_DEFAULT)",
+            "unchanged themed measurement for the default UI font")
+    dialogs2 = (ROOT / "src/dialogs2.cpp").read_text(encoding="utf-8")
+    require(dialogs2, "MarkConfiguredButtonFonts(HWindow);",
+            "main application marks every button control after page initialization")
+    require(dialogs2, '_tcsicmp(className, _T("Button")) == 0',
+            "configured UI font includes checkboxes and radio buttons")
+    require(dialogs2, "CCommonPropSheetPage::DialogProc(",
+            "configuration pages install their caption-font markers")
+    require(dialogs2, "if (DialogFontMode != DIALOG_FONT_DEFAULT)",
+            "configured caption path only outside the default UI font mode")
+    darkmode = (ROOT / "src/darkmode.cpp").read_text(encoding="utf-8")
+    if "DialogFontMode" in darkmode:
+        raise AssertionError("shared darkmode.cpp must not depend on main-app font globals")
 
 
 if __name__ == "__main__":

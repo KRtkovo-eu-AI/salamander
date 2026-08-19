@@ -1538,8 +1538,11 @@ bool CExtensionManifest::Parse(
                         !ReadString(columnValue, "description", false, column.Description, error) ||
                         !ReadInteger(columnValue, "width", 100, 24, 1000, width, error) ||
                         !ReadBoolean(columnValue, "numeric", false, column.Numeric, error) ||
-                        !ReadBoolean(columnValue, "size", false, column.Size, error))
+                        !ReadBoolean(columnValue, "size", false, column.Size, error) ||
+                        !ReadBoolean(columnValue, "dateTime", false, column.DateTime, error))
                         return false;
+                    if (column.Size && column.DateTime)
+                        return SetValidationError(error, "File-system column cannot be both size and dateTime");
                     if (column.Size)
                         column.Numeric = true;
                     column.Width = static_cast<unsigned int>(width);

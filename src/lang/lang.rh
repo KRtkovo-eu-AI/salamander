@@ -808,6 +808,7 @@
 #define IDC_EDPROP_PROPERTIES_GROUP     6291
 #define IDC_EDPROP_PROPERTIES_SCROLL    6292
 #define IDC_EDPROP_MULTI_HINT           6293
+#define IDC_EDPROP_TAGS_GROUP           6294
 
 // Next default values for new objects
 // 
@@ -815,7 +816,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        8205
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         6294
+#define _APS_NEXT_CONTROL_VALUE         6295
 #define _APS_NEXT_SYMED_VALUE           103
 #endif
 #endif

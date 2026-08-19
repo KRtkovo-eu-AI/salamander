@@ -642,6 +642,7 @@ protected:
     BOOL IsInCategory(int explorerIndex) const;
     BOOL MatchesSearch(int explorerIndex) const;
     void LayoutControls();
+    void UpdateMoveButtonIcons();
 
 public:
     CExplorerColumnsDialog(HWND parent, CViewTemplates* config, int viewIndex,
