@@ -2437,6 +2437,37 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
                                        !ListView_GetCheckState(hdr->hwndFrom, hit.iItem));
             return TRUE;
         }
+        if (hdr->idFrom == IDC_EXCOL_CATEGORIES && hdr->code == NM_CLICK)
+        {
+            DWORD pos = GetMessagePos();
+            TVHITTESTINFO hit;
+            ZeroMemory(&hit, sizeof(hit));
+            hit.pt.x = GET_X_LPARAM(pos);
+            hit.pt.y = GET_Y_LPARAM(pos);
+            ScreenToClient(hdr->hwndFrom, &hit.pt);
+            TreeView_HitTest(hdr->hwndFrom, &hit);
+
+            // SysTreeView32 reports the empty area to the right of an item's
+            // text as TVHT_NOWHERE.  Resolve that area by the vertical bounds
+            // of visible rows so the whole row selects its category.
+            if (hit.hItem != NULL && (hit.flags & TVHT_ONITEMBUTTON) == 0)
+                TreeView_SelectItem(hdr->hwndFrom, hit.hItem);
+            else if (hit.hItem == NULL)
+            {
+                for (HTREEITEM item = TreeView_GetFirstVisible(hdr->hwndFrom);
+                     item != NULL; item = TreeView_GetNextVisible(hdr->hwndFrom, item))
+                {
+                    RECT row;
+                    if (TreeView_GetItemRect(hdr->hwndFrom, item, &row, FALSE) &&
+                        hit.pt.y >= row.top && hit.pt.y < row.bottom)
+                    {
+                        TreeView_SelectItem(hdr->hwndFrom, item);
+                        break;
+                    }
+                }
+            }
+            return TRUE;
+        }
         if (hdr->idFrom == IDC_EXCOL_CATEGORIES &&
             (hdr->code == TVN_SELCHANGEDA || hdr->code == TVN_SELCHANGEDW))
         {

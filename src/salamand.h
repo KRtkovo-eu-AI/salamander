@@ -319,6 +319,7 @@ extern CPluginDataInterfaceAbstract* TransferPluginDataIface; // plugin data int
 extern DWORD TransferActCustomData;                           // column CustomData for which text is obtained (for which the callback is invoked) // FIXME_X64 - too small for a pointer, is it ever needed?
 extern char TransferPanelPath[SAL_MAX_PATH];                  // current disk panel path for Explorer property columns
 extern WCHAR TransferPanelPathW[SAL_MAX_PATH];                // Unicode variant of TransferPanelPath
+extern CFilesWindow* TransferPanelWindow;                     // panel owning the current column callback
 
 // if the extension was already looked up in Associations, the search result is stored here
 extern int TransferAssocIndex; // -2 not searched yet, -1 not present, >=0 valid index

@@ -8,6 +8,9 @@
 #include <string>
 #include <vector>
 
+#include <uxtheme.h>
+#include <vsstyle.h>
+
 #include "tasklist.h"
 #include "mainwnd.h"
 #include "edtlbwnd.h"
@@ -6214,6 +6217,50 @@ CCfgPageChangeDrive::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_INITDIALOG:
     {
+        HWND mountFolders = GetDlgItem(HWindow, IDC_CHD_SHOWMOUNTFOLDERS);
+        RECT mountFoldersRect;
+        if (mountFolders != NULL && GetWindowRect(mountFolders, &mountFoldersRect))
+        {
+            // Match a real groupbox caption: leave only enough opaque control
+            // background for the checkbox glyph, its gap and the themed title.
+            HTHEME theme = OpenThemeData(mountFolders, L"Button");
+            HDC dc = HANDLES(GetDC(mountFolders));
+            if (theme != NULL && dc != NULL)
+            {
+                int textLength = GetWindowTextLengthW(mountFolders);
+                std::wstring text(textLength + 1, L'\0');
+                GetWindowTextW(mountFolders, &text[0], textLength + 1);
+
+                RECT textExtent = {};
+                SIZE glyphSize = {};
+                if (SUCCEEDED(GetThemeTextExtent(theme, dc, BP_GROUPBOX, GBS_NORMAL,
+                                                 text.c_str(), -1, DT_SINGLELINE, NULL, &textExtent)) &&
+                    SUCCEEDED(GetThemePartSize(theme, dc, BP_CHECKBOX, CBS_UNCHECKEDNORMAL,
+                                               NULL, TS_DRAW, &glyphSize)))
+                {
+                    int captionMargin = MulDiv(4, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI);
+                    int glyphGap = MulDiv(3, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI);
+                    int width = glyphSize.cx + glyphGap + textExtent.right - textExtent.left + captionMargin;
+                    SetWindowPos(mountFolders, NULL, 0, 0, width,
+                                 mountFoldersRect.bottom - mountFoldersRect.top,
+                                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+                }
+
+                HANDLES(ReleaseDC(mountFolders, dc));
+                CloseThemeData(theme);
+            }
+            else
+            {
+                if (dc != NULL)
+                    HANDLES(ReleaseDC(mountFolders, dc));
+                if (theme != NULL)
+                    CloseThemeData(theme);
+            }
+        }
+
+        SetPropW(mountFolders,
+                 L"Darkmodelib.Button.UseGroupboxCaptionStyle", reinterpret_cast<HANDLE>(1));
+
         int staticsArr[] = {IDC_STATIC_6, IDS_CHD_HOTPATHS, IDC_STATIC_7, IDS_CHD_PLUGINS, IDC_STATIC_8, 0};
         CondenseStaticTexts(HWindow, staticsArr);
 

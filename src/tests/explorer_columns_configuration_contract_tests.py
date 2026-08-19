@@ -244,6 +244,14 @@ def main() -> int:
         "the chooser must add space below Search and reserve two thirds of the right side for selected properties",
     )
     require(
+        "hdr->idFrom == IDC_EXCOL_CATEGORIES && hdr->code == NM_CLICK" in dialog
+        and "hit.hItem != NULL && (hit.flags & TVHT_ONITEMBUTTON) == 0" in dialog
+        and "TreeView_GetFirstVisible(hdr->hwndFrom)" in dialog
+        and "hit.pt.y >= row.top && hit.pt.y < row.bottom" in dialog
+        and "TreeView_SelectItem(hdr->hwndFrom, item);" in dialog,
+        "the entire visible category row must be clickable, including empty space after its text",
+    )
+    require(
         "wParam == IDC_EXCOL_DETAILS" in dialog
         and "const int lineGap = ExplorerColumnsDialogY(HWindow, 2);" in dialog
         and "DT_WORDBREAK | DT_NOPREFIX | DT_CALCRECT" in dialog

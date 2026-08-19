@@ -77,12 +77,13 @@ static void renderButton(
 		hFont = ::CreateFontIndirectW(&lf);
 		isFontCreated = true;
 	}
-
 	if (hFont == nullptr)
 	{
 		hFont = reinterpret_cast<HFONT>(::SendMessage(hWnd, WM_GETFONT, 0, 0));
 		isFontCreated = false;
 	}
+	const bool useGroupboxCaptionStyle =
+		::GetPropW(hWnd, L"Darkmodelib.Button.UseGroupboxCaptionStyle") != nullptr;
 
 	const auto holdFont = dmlib_paint::GdiObject{ hdc, hFont, !isFontCreated };
 
@@ -165,16 +166,33 @@ static void renderButton(
 	dtto.dwFlags = DTT_TEXTCOLOR;
 	dtto.crText = (::IsWindowEnabled(hWnd) == FALSE) ? dmlib::getDisabledTextColor() : dmlib::getTextColor();
 
-	::DrawThemeTextEx(hTheme, hdc, iPartID, iStateID, buffer.c_str(), -1, dtFlags, &rcText, &dtto);
+	if (useGroupboxCaptionStyle)
+	{
+		::DrawThemeTextEx(hTheme, hdc, BP_GROUPBOX, GBS_NORMAL, buffer.c_str(), -1,
+						  dtFlags, &rcText, &dtto);
+	}
+	else
+	{
+		::DrawThemeTextEx(hTheme, hdc, iPartID, iStateID, buffer.c_str(), -1, dtFlags, &rcText, &dtto);
+	}
 
 	// Focus rect
 
 	const auto nState = static_cast<DWORD>(::SendMessage(hWnd, BM_GETSTATE, 0, 0));
 	if (((nState & BST_FOCUS) == BST_FOCUS) && ((uiState & UISF_HIDEFOCUS) != UISF_HIDEFOCUS))
 	{
-		dtto.dwFlags |= DTT_CALCRECT;
-		::DrawThemeTextEx(hTheme, hdc, iPartID, iStateID, buffer.c_str(), -1, dtFlags | DT_CALCRECT, &rcText, &dtto);
-		const RECT rcFocus{ rcText.left - 1, rcText.top, rcText.right + 1, rcText.bottom + 1 };
+		RECT rcFocusText{ rcText };
+		if (useGroupboxCaptionStyle)
+			::DrawThemeTextEx(hTheme, hdc, BP_GROUPBOX, GBS_NORMAL, buffer.c_str(), -1,
+							  dtFlags | DT_CALCRECT, &rcFocusText, &dtto);
+		else
+		{
+			dtto.dwFlags |= DTT_CALCRECT;
+			::DrawThemeTextEx(hTheme, hdc, iPartID, iStateID, buffer.c_str(), -1,
+							  dtFlags | DT_CALCRECT, &rcFocusText, &dtto);
+		}
+		const RECT rcFocus{ rcFocusText.left - 1, rcFocusText.top,
+							rcFocusText.right + 1, rcFocusText.bottom + 1 };
 		::DrawFocusRect(hdc, &rcFocus);
 	}
 }

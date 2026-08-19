@@ -2163,6 +2163,7 @@ int TransferIsDir;
 char TransferBuffer[TRANSFER_BUFFER_MAX];
 char TransferPanelPath[SAL_MAX_PATH];
 WCHAR TransferPanelPathW[SAL_MAX_PATH];
+CFilesWindow* TransferPanelWindow = NULL;
 int TransferLen;
 DWORD TransferRowData;
 CPluginDataInterfaceAbstract* TransferPluginDataIface;
@@ -2830,8 +2831,14 @@ void WINAPI InternalGetExplorerColumn()
         return;
 
     char text[TRANSFER_BUFFER_MAX];
-    if (GetExplorerColumnTextForFile(TransferPanelPath, TransferPanelPathW, TransferFileData,
-                                     (int)TransferActCustomData, text, TRANSFER_BUFFER_MAX))
+    BOOL hasText = TransferPanelWindow != NULL
+                       ? TransferPanelWindow->GetCachedExplorerColumnText(
+                             TransferFileData, (int)TransferActCustomData,
+                             text, TRANSFER_BUFFER_MAX)
+                       : GetExplorerColumnTextForFile(
+                             TransferPanelPath, TransferPanelPathW, TransferFileData,
+                             (int)TransferActCustomData, text, TRANSFER_BUFFER_MAX);
+    if (hasText)
     {
         TransferLen = (int)strlen(text);
         if (TransferLen > TRANSFER_BUFFER_MAX)

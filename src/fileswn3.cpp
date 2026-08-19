@@ -337,8 +337,16 @@ struct CExplorerSortAsyncData
     int ColumnIndex;
     std::wstring PanelPath;
     std::vector<CExplorerSortAsyncItem> Items;
+    std::vector<int> ColumnIndices;
     std::map<std::string, std::string> Values;
+    std::map<std::pair<std::string, int>, std::string> PropertyValues;
     volatile LONG Cancelled;
+};
+
+struct CExplorerPropertyCache
+{
+    std::wstring PanelPath;
+    std::map<std::pair<std::string, int>, std::string> Values;
 };
 
 static DWORD WINAPI ExplorerSortThreadBody(void* param)
@@ -350,10 +358,19 @@ static DWORD WINAPI ExplorerSortThreadBody(void* param)
     for (size_t i = 0; i < data->Items.size() && InterlockedCompareExchange(&data->Cancelled, 0, 0) == 0; i++)
     {
         const CExplorerSortAsyncItem& item = data->Items[i];
-        if (GetExplorerColumnTextForPathW(item.FullPath.c_str(), data->ColumnIndex, text, TRANSFER_BUFFER_MAX))
-            data->Values[item.Name] = text;
-        else
-            data->Values[item.Name] = "";
+        for (size_t column = 0; column < data->ColumnIndices.size() &&
+                                InterlockedCompareExchange(&data->Cancelled, 0, 0) == 0;
+             column++)
+        {
+            int columnIndex = data->ColumnIndices[column];
+            std::string value;
+            if (GetExplorerColumnTextForPathW(item.FullPath.c_str(), columnIndex,
+                                              text, TRANSFER_BUFFER_MAX))
+                value = text;
+            data->PropertyValues[std::make_pair(item.Name, columnIndex)] = value;
+            if (columnIndex == data->ColumnIndex)
+                data->Values[item.Name] = value;
+        }
     }
 
     if (SUCCEEDED(initializeResult))
@@ -397,7 +414,19 @@ BOOL CFilesWindow::StartExplorerSortAsync(CFilesArray* files, CFilesArray* dirs,
     data->ColumnIndex = (int)SortCustomData;
     data->PanelPath = panelPath;
     data->Cancelled = 0;
-    data->Items.reserve(files->Count + (Configuration.SortDirsByName ? 0 : dirs->Count - firstDirIndex));
+    for (int column = 0; column < Columns.Count; column++)
+    {
+        const CColumn* panelColumn = &Columns[column];
+        if (panelColumn->ID == COLUMN_ID_CUSTOM &&
+            panelColumn->GetText == InternalGetExplorerColumn)
+            data->ColumnIndices.push_back((int)panelColumn->CustomData);
+    }
+    if (data->ColumnIndices.empty())
+    {
+        delete data;
+        return FALSE;
+    }
+    data->Items.reserve(files->Count + dirs->Count - firstDirIndex);
 
     int i;
     for (i = 0; i < files->Count; i++)
@@ -407,17 +436,16 @@ BOOL CFilesWindow::StartExplorerSortAsync(CFilesArray* files, CFilesArray* dirs,
         item.FullPath = GetExplorerSortItemPath(panelPath, &files->At(i));
         data->Items.push_back(item);
     }
-    if (!Configuration.SortDirsByName)
+    for (i = firstDirIndex; i < dirs->Count; i++)
     {
-        for (i = firstDirIndex; i < dirs->Count; i++)
-        {
-            CExplorerSortAsyncItem item;
-            item.Name = dirs->At(i).Name;
-            item.FullPath = GetExplorerSortItemPath(panelPath, &dirs->At(i));
-            data->Items.push_back(item);
-        }
+        CExplorerSortAsyncItem item;
+        item.Name = dirs->At(i).Name;
+        item.FullPath = GetExplorerSortItemPath(panelPath, &dirs->At(i));
+        data->Items.push_back(item);
     }
 
+    delete ExplorerPropertyCache;
+    ExplorerPropertyCache = NULL;
     ExplorerSortData = data;
     DWORD threadID;
     ExplorerSortThread = HANDLES(CreateThread(NULL, 0, ExplorerSortThreadBody, data, 0, &threadID));
@@ -426,6 +454,11 @@ BOOL CFilesWindow::StartExplorerSortAsync(CFilesArray* files, CFilesArray* dirs,
         ExplorerSortData = NULL;
         delete data;
         return FALSE;
+    }
+    if (DirectoryLine != NULL)
+    {
+        ExplorerSortThrobberID = DirectoryLine->ChangeThrobberID();
+        DirectoryLine->SetThrobber(TRUE, 150);
     }
     return TRUE;
 }
@@ -459,6 +492,23 @@ void CFilesWindow::FinishExplorerSortAsync(CExplorerSortAsyncData* data)
     if (data == ExplorerSortData)
         ExplorerSortData = NULL;
 
+    if (apply || data->PanelTabId == PanelTabId)
+    {
+        const wchar_t* currentPath = GetPathW();
+        if (currentPath != NULL && _wcsicmp(currentPath, data->PanelPath.c_str()) == 0)
+        {
+            delete ExplorerPropertyCache;
+            ExplorerPropertyCache = new CExplorerPropertyCache;
+            ExplorerPropertyCache->PanelPath = data->PanelPath;
+            ExplorerPropertyCache->Values.swap(data->PropertyValues);
+        }
+    }
+
+    if (DirectoryLine != NULL && ExplorerSortThrobberID != -1 &&
+        DirectoryLine->IsThrobberVisible(ExplorerSortThrobberID))
+        DirectoryLine->SetThrobber(FALSE);
+    ExplorerSortThrobberID = -1;
+
     if (apply)
     {
         CExplorerSortContext context;
@@ -484,7 +534,45 @@ void CFilesWindow::FinishExplorerSortAsync(CExplorerSortAsyncData* data)
         VisibleItemsArraySurround.InvalidateArr();
         RefreshListBox(-1, -1, FocusedIndex, FALSE, FALSE);
     }
+    else if (ExplorerPropertyCache != NULL)
+        RefreshListBox(-1, -1, FocusedIndex, FALSE, FALSE);
     delete data;
+}
+
+BOOL CFilesWindow::GetCachedExplorerColumnText(const CFileData* file, int columnIndex,
+                                                char* buffer, int bufferSize)
+{
+    if (buffer == NULL || bufferSize <= 0)
+        return FALSE;
+    buffer[0] = 0;
+    if (file == NULL)
+        return FALSE;
+    if (ExplorerPropertyCache == NULL)
+    {
+        // A running worker deliberately leaves the cell empty.  If the worker
+        // could not be created, retain the old synchronous fallback instead of
+        // permanently hiding the property value.
+        return ExplorerSortData == NULL &&
+               GetExplorerColumnTextForFile(GetPath(), GetPathW(), file, columnIndex,
+                                            buffer, bufferSize);
+    }
+
+    const wchar_t* currentPath = GetPathW();
+    if (currentPath == NULL || _wcsicmp(currentPath, ExplorerPropertyCache->PanelPath.c_str()) != 0)
+        return FALSE;
+
+    std::map<std::pair<std::string, int>, std::string>::const_iterator value =
+        ExplorerPropertyCache->Values.find(std::make_pair(std::string(file->Name), columnIndex));
+    if (value == ExplorerPropertyCache->Values.end() || value->second.empty())
+        return FALSE;
+    CopyStringTruncateUtf8(buffer, bufferSize, value->second.c_str());
+    return TRUE;
+}
+
+void CFilesWindow::ClearExplorerPropertyCache()
+{
+    delete ExplorerPropertyCache;
+    ExplorerPropertyCache = NULL;
 }
 
 void CFilesWindow::StopExplorerSortAsync()
@@ -514,6 +602,10 @@ void CFilesWindow::StopExplorerSortAsync()
         ExplorerSortData = NULL;
         delete data;
     }
+    if (DirectoryLine != NULL && ExplorerSortThrobberID != -1 &&
+        DirectoryLine->IsThrobberVisible(ExplorerSortThrobberID))
+        DirectoryLine->SetThrobber(FALSE);
+    ExplorerSortThrobberID = -1;
 }
 
 //
@@ -2304,7 +2396,7 @@ void CFilesWindow::SortDirectory(CFilesArray* files, CFilesArray* dirs)
             }
             asyncSortPending = _wcsicmp(currentPath, explorerSortData->PanelPath.c_str()) == 0;
         }
-        if (!asyncSortPending && sortingPanelListing && Parent->RestoringPanelPaths)
+        if (!asyncSortPending && sortingPanelListing)
             asyncSortPending = StartExplorerSortAsync(files, dirs, firstDirIndex);
 
         if (asyncSortPending)
@@ -2373,7 +2465,15 @@ void CFilesWindow::SortDirectory(CFilesArray* files, CFilesArray* dirs)
                                     Configuration.SortDirsByName);
     }
     else
+    {
         SortFilesAndDirectories(files, dirs, SortType, ReverseSort, Configuration.SortDirsByName);
+        if (sortingPanelListing && Is(ptDisk) && ExplorerSortData == NULL)
+        {
+            BOOL hasRoot = dirs->Count > 0 && dirs->At(0).NameLen == 2 &&
+                           dirs->At(0).Name[0] == '.' && dirs->At(0).Name[1] == '.';
+            StartExplorerSortAsync(files, dirs, hasRoot ? 1 : 0);
+        }
+    }
 
     // single-purpose monitors for changes of Configuration.SortUsesLocale and Configuration.SortDetectNumbers
     // variables for the method CFilesWindow::RefreshDirectory
