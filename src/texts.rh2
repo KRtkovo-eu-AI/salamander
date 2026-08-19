@@ -3021,6 +3021,7 @@
 #define IDS_EDPROP_REASON_OTHER                  14417
 #define IDS_EDPROP_VALUE_COLUMN                  14418
 #define IDS_EXCOL_VIEW_TITLE                     14419
+#define IDS_EDPROP_VIEW_TITLE                     14420
 
 #define IDS_MENU_OPT_MANAGECONFIG        13169
 

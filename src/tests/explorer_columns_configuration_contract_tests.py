@@ -390,6 +390,26 @@ def main() -> int:
         and 'IDS_MENU_FILES_EDITPROPERTIES, "Edit &Tags and Windows Properties..."' in lang_texts,
         "property editing must use the form layout and the requested Files-menu caption",
     )
+    require(
+        'GROUPBOX        "",IDC_EDPROP_TAGS_GROUP,7,7,416,110' in lang_rc
+        and 'CONTROL         "Change Tags",IDC_EDPROP_TAGS_ENABLE,"Button",BS_AUTO3STATE | WS_TABSTOP,14,4,90,12' in lang_rc
+        and "LISTBOX         IDC_EDPROP_TAGS_LIST,14,33,402,76" in lang_rc
+        and 'GROUPBOX        "Windows properties",IDC_EDPROP_PROPERTIES_GROUP,7,125,416,139' in lang_rc
+        and "IDD_EDIT_PROPERTIES DIALOGEX 0, 0, 430, 291" in lang_rc
+        and 'DEFPUSHBUTTON   "OK",IDOK,316,270,50,14' in lang_rc
+        and 'PUSHBUTTON      "Cancel",IDCANCEL,373,270,50,14' in lang_rc,
+        "Edit Tags must be the aligned title of a matching group and the dialog must not leave excess space above its buttons",
+    )
+    require(
+        "SetWindowTextW(HWindow, title.c_str());" in file_window
+        and "MultiByteToWideChar(CP_ACP" in file_window
+        and "Paths[0].find_last_of(L\"\\\\/\")" in file_window
+        and "ExpandPluralFilesDirs(fileCount" in file_window
+        and "epfdmNormal, FALSE" in file_window
+        and "LoadStr(IDS_EDPROP_VIEW_TITLE)" in file_window
+        and 'IDS_EDPROP_VIEW_TITLE, "%s - Edit Tags and Windows Properties"' in lang_texts,
+        "the Edit Tags and Windows Properties title must identify one Unicode file or a localized plural file count",
+    )
     return 0
 
 

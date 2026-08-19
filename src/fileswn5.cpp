@@ -63,6 +63,17 @@ static void FormatEditPropertiesLocalizedArguments(char* output, size_t outputSi
     _snprintf_s(output, outputSize, _TRUNCATE, "%s", result.c_str());
 }
 
+static std::wstring EditPropertiesLocalizedToWide(const char* text)
+{
+    int length = MultiByteToWideChar(CP_ACP, 0, text != NULL ? text : "", -1, NULL, 0);
+    if (length <= 0)
+        return std::wstring();
+    std::wstring result((size_t)length, L'\0');
+    MultiByteToWideChar(CP_ACP, 0, text != NULL ? text : "", -1, &result[0], length);
+    result.resize((size_t)length - 1);
+    return result;
+}
+
 class CEditWindowsPropertiesDialog : public CCommonDialog
 {
     enum
@@ -103,6 +114,29 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
     int InitialTagsState;
 
     BOOL IsMultiple() const { return Paths.size() > 1; }
+
+    void SetDialogTitle()
+    {
+        std::wstring prefix;
+        if (IsMultiple())
+        {
+            char fileCount[200];
+            ExpandPluralFilesDirs(fileCount, _countof(fileCount), (int)Paths.size(), 0,
+                                  epfdmNormal, FALSE);
+            prefix = EditPropertiesLocalizedToWide(fileCount);
+        }
+        else if (!Paths.empty())
+        {
+            size_t nameStart = Paths[0].find_last_of(L"\\/");
+            prefix = Paths[0].substr(nameStart == std::wstring::npos ? 0 : nameStart + 1);
+        }
+
+        std::wstring title = EditPropertiesLocalizedToWide(LoadStr(IDS_EDPROP_VIEW_TITLE));
+        size_t prefixPlaceholder = title.find(L"%s");
+        if (prefixPlaceholder != std::wstring::npos)
+            title.replace(prefixPlaceholder, 2, prefix);
+        SetWindowTextW(HWindow, title.c_str());
+    }
 
     int GetPropertyState(int row) const
     {
@@ -550,7 +584,7 @@ protected:
         {
         case WM_INITDIALOG:
         {
-            SetWindowText(HWindow, LoadStr(IDS_EDPROP_TITLE));
+            SetDialogTitle();
             HWND tagsCheck = GetDlgItem(HWindow, IDC_EDPROP_TAGS_ENABLE);
             LONG_PTR tagsCheckStyle = GetWindowLongPtr(tagsCheck, GWL_STYLE);
             tagsCheckStyle &= ~BS_TYPEMASK;
