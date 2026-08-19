@@ -3208,6 +3208,7 @@ void CMainWindow::FillViewModeMenu(CMenuPopup* popup, int firstIndex, int type)
     char buff[VIEW_NAME_MAX + 10];
 
     DWORD fistCMID;
+    DWORD extraCMID;
     CFilesWindow* panel;
 
     switch (type)
@@ -3215,6 +3216,7 @@ void CMainWindow::FillViewModeMenu(CMenuPopup* popup, int firstIndex, int type)
     case 0:
     {
         fistCMID = CM_ACTIVEMODE_1;
+        extraCMID = CM_ACTIVEEXTRAMODE_MIN;
         panel = GetActivePanel();
         break;
     }
@@ -3222,6 +3224,7 @@ void CMainWindow::FillViewModeMenu(CMenuPopup* popup, int firstIndex, int type)
     case 1:
     {
         fistCMID = CM_LEFTMODE_1;
+        extraCMID = CM_LEFTEXTRAMODE_MIN;
         panel = LeftPanel;
         break;
     }
@@ -3229,6 +3232,7 @@ void CMainWindow::FillViewModeMenu(CMenuPopup* popup, int firstIndex, int type)
     case 2:
     {
         fistCMID = CM_RIGHTMODE_1;
+        extraCMID = CM_RIGHTEXTRAMODE_MIN;
         panel = RightPanel;
         break;
     }
@@ -3246,17 +3250,28 @@ void CMainWindow::FillViewModeMenu(CMenuPopup* popup, int firstIndex, int type)
     mii.Type = MENU_TYPE_STRING | MENU_TYPE_RADIOCHECK;
     mii.String = buff;
     int i;
-    for (i = 0; i < VIEW_TEMPLATES_COUNT; i++)
+    for (i = 0; i < ViewTemplates.GetCount(); i++)
     {
         if (i == 0) // tree view is not shown yet
             continue;
 
-        CViewTemplate* tmpl = &ViewTemplates.Items[i];
+        CViewTemplate* tmpl = ViewTemplates.Get(i);
         if (tmpl->Name[0] != 0)
         {
-            sprintf(buff, "%s\tAlt+%d", tmpl->Name, i < VIEW_TEMPLATES_COUNT - 1 ? i + 1 : 0);
+            if (i < VIEW_TEMPLATES_COUNT)
+                sprintf(buff, "%s\tAlt+%d", tmpl->Name, i < VIEW_TEMPLATES_COUNT - 1 ? i + 1 : 0);
+            else
+                lstrcpyn(buff, tmpl->Name, _countof(buff));
 
-            mii.ID = fistCMID + i;
+            if (i < VIEW_TEMPLATES_COUNT)
+                mii.ID = fistCMID + i;
+            else
+            {
+                int extraIndex = i - VIEW_TEMPLATES_COUNT;
+                if (extraIndex > CM_ACTIVEEXTRAMODE_MAX - CM_ACTIVEEXTRAMODE_MIN)
+                    break;
+                mii.ID = extraCMID + extraIndex;
+            }
 
             //      mii.SkillLevel = MENU_LEVEL_INTERMEDIATE | MENU_LEVEL_ADVANCED;
             //      if (i > 2)
@@ -5557,6 +5572,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 id = CM_LEFTMODE_1;
             if (id > CM_RIGHTMODE_1 && id <= CM_RIGHTMODE_10)
                 id = CM_RIGHTMODE_1;
+            if (id >= CM_ACTIVEEXTRAMODE_MIN && id <= CM_RIGHTEXTRAMODE_MAX)
+                id = CM_ACTIVEMODE_1;
 
             if (id > CM_LEFTSORTBY_MIN && id <= CM_LEFTSORTBY_MAX)
                 id = CM_LEFTSORTBY_MIN;
@@ -6061,6 +6078,48 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             int index = LOWORD(wParam) - CM_RIGHTMODE_1;
             if (RightPanel->IsViewTemplateValid(index))
                 RightPanel->SelectViewTemplate(index, TRUE, FALSE);
+            return 0;
+        }
+
+        if (LOWORD(wParam) >= CM_ACTIVEEXTRAMODE_MIN && LOWORD(wParam) <= CM_ACTIVEEXTRAMODE_MAX)
+        {
+            int index = VIEW_TEMPLATES_COUNT + LOWORD(wParam) - CM_ACTIVEEXTRAMODE_MIN;
+            if (activePanel->IsViewTemplateValid(index))
+                activePanel->SelectViewTemplate(index, TRUE, FALSE);
+            return 0;
+        }
+
+        if (LOWORD(wParam) >= CM_LEFTEXTRAMODE_MIN && LOWORD(wParam) <= CM_LEFTEXTRAMODE_MAX)
+        {
+            int index = VIEW_TEMPLATES_COUNT + LOWORD(wParam) - CM_LEFTEXTRAMODE_MIN;
+            if (LeftPanel->IsViewTemplateValid(index))
+                LeftPanel->SelectViewTemplate(index, TRUE, FALSE);
+            return 0;
+        }
+
+        if (LOWORD(wParam) >= CM_RIGHTEXTRAMODE_MIN && LOWORD(wParam) <= CM_RIGHTEXTRAMODE_MAX)
+        {
+            int index = VIEW_TEMPLATES_COUNT + LOWORD(wParam) - CM_RIGHTEXTRAMODE_MIN;
+            if (RightPanel->IsViewTemplateValid(index))
+                RightPanel->SelectViewTemplate(index, TRUE, FALSE);
+            return 0;
+        }
+
+        if (LOWORD(wParam) >= CM_LEFTSORTBY_MIN && LOWORD(wParam) <= CM_LEFTSORTBY_MAX)
+        {
+            CFilesWindow* targetPanel = IsDetachedTabActive() && DetachedTabOriginalSide == cpsLeft ? activePanel : LeftPanel;
+            int explorerIndex = targetPanel->GetExplorerSortColumnByMenuIndex(LOWORD(wParam) - CM_LEFTSORTBY_MIN);
+            if (explorerIndex >= 0)
+                targetPanel->ChangeCustomSortType(explorerIndex, TRUE);
+            return 0;
+        }
+
+        if (LOWORD(wParam) >= CM_RIGHTSORTBY_MIN && LOWORD(wParam) <= CM_RIGHTSORTBY_MAX)
+        {
+            CFilesWindow* targetPanel = IsDetachedTabActive() && DetachedTabOriginalSide == cpsRight ? activePanel : RightPanel;
+            int explorerIndex = targetPanel->GetExplorerSortColumnByMenuIndex(LOWORD(wParam) - CM_RIGHTSORTBY_MIN);
+            if (explorerIndex >= 0)
+                targetPanel->ChangeCustomSortType(explorerIndex, TRUE);
             return 0;
         }
 
@@ -7454,6 +7513,17 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 activePanel->UserWorkedOnThisPath = TRUE;
                 activePanel->StoreSelection(); // save selection for Restore Selection command
                 activePanel->ChangeAttr();
+            }
+            return 0;
+        }
+
+        case CM_EDITPROPERTIES:
+        {
+            if (EnablerFilesOnDisk)
+            {
+                activePanel->UserWorkedOnThisPath = TRUE;
+                activePanel->StoreSelection();
+                activePanel->EditWindowsProperties();
             }
             return 0;
         }
@@ -9226,7 +9296,10 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CML_RIGHT_SORTBY:
         {
             BOOL left = popupID == CML_LEFT_SORTBY;
-            (left ? LeftPanel : RightPanel)->FillSortByMenu(popup);
+            CFilesWindow* targetPanel = left ? LeftPanel : RightPanel;
+            if (IsDetachedTabActive() && DetachedTabOriginalSide == (left ? cpsLeft : cpsRight))
+                targetPanel = GetActivePanel();
+            targetPanel->FillSortByMenu(popup);
             break;
         }
 

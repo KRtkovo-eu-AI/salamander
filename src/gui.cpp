@@ -2908,12 +2908,19 @@ int TlbHdrTooltips[TLBHDR_COUNT] =
         IDS_EDTLB_BOTTOM,
 };
 
-CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD buttonMask)
+CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD buttonMask,
+                               DWORD leadingButtonMask)
     : CWindow(hDlg, ctrlID, ooAllocated)
 {
     CALL_STACK_MESSAGE3("CToolbarHeader::CToolbarHeader(, %d, , %u)", ctrlID, buttonMask);
     HNotifyWindow = hDlg;
     ButtonMask = buttonMask;
+    LeadingButtonMask = leadingButtonMask & buttonMask;
+    for (int customIndex = 0; customIndex < TLBHDR_COUNT; customIndex++)
+    {
+        CustomTooltips[customIndex] = -1;
+        CustomSVGNames[customIndex][0] = 0;
+    }
     SetProp(HWindow, _T("SalamanderToolbarHeader"), (HANDLE)1);
     ToolBar = new CToolBar(HWindow);
     ToolBar->CreateWnd(HWindow);
@@ -2975,16 +2982,29 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
     TLBI_ITEM_INFO2 tii;
     tii.Mask = TLBI_MASK_ID | TLBI_MASK_IMAGEINDEX;
     int buttonsCount = 0;
-    const int buttonOrder[TLBHDR_COUNT] = {8, 0, 1, 2, 3, 6, 4, 5, 9, 7};
-    for (int orderIndex = 0; orderIndex < TLBHDR_COUNT; orderIndex++)
+    const int leadingButtonOrder[] = {7, 8}; // Filter, Search
+    for (int orderIndex = 0; orderIndex < _countof(leadingButtonOrder); orderIndex++)
     {
-        int i = buttonOrder[orderIndex];
-        if ((1 << i) & ButtonMask)
+        int i = leadingButtonOrder[orderIndex];
+        if (((1 << i) & ButtonMask) != 0 && ((1 << i) & LeadingButtonMask) != 0)
         {
             tii.ImageIndex = i;
             tii.ID = i + 1;
-            ToolBar->InsertItem2(buttonsCount, TRUE, &tii);
-            buttonsCount++;
+            ToolBar->InsertItem2(buttonsCount++, TRUE, &tii);
+        }
+    }
+
+    // Keep the historical order for the remaining buttons. Search/Filter are
+    // last here so a repurposed slot (Windows properties) can stay rightmost.
+    const int buttonOrder[TLBHDR_COUNT] = {0, 1, 2, 3, 6, 4, 5, 9, 8, 7};
+    for (int orderIndex = 0; orderIndex < TLBHDR_COUNT; orderIndex++)
+    {
+        int i = buttonOrder[orderIndex];
+        if (((1 << i) & ButtonMask) != 0 && ((1 << i) & LeadingButtonMask) == 0)
+        {
+            tii.ImageIndex = i;
+            tii.ID = i + 1;
+            ToolBar->InsertItem2(buttonsCount++, TRUE, &tii);
         }
     }
 
@@ -3001,7 +3021,18 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
     p.y = r.top - height;
     ScreenToClient(hDlg, &p);
     SetWindowPos(HWindow, 0, p.x, p.y, width, height, SWP_NOZORDER);
-    SetWindowPos(ToolBar->HWindow, HWND_TOP, width - sz.cx - 1, 1, sz.cx, sz.cy, SWP_SHOWWINDOW);
+    LayoutToolbar();
+}
+
+void CToolbarHeader::LayoutToolbar()
+{
+    if (ToolBar == NULL || ToolBar->HWindow == NULL)
+        return;
+    RECT client;
+    GetClientRect(HWindow, &client);
+    SIZE right = {ToolBar->GetNeededWidth(), ToolBar->GetNeededHeight()};
+    SetWindowPos(ToolBar->HWindow, HWND_TOP, client.right - right.cx - 1, 1,
+                 right.cx, right.cy, SWP_SHOWWINDOW);
 }
 
 void CToolbarHeader::RebuildImageLists()
@@ -3062,9 +3093,9 @@ void CToolbarHeader::RebuildImageLists()
     ZeroMemory(&bitmap, sizeof(bitmap));
     GetObject(colorBitmap, sizeof(bitmap), &bitmap);
     int iconSize = bitmap.bmHeight > 0 ? bitmap.bmHeight : MulDiv(16, dpi, 96);
-    HIMAGELIST hot = ImageList_Create(iconSize, iconSize, ILC_MASK | ILC_COLORDDB,
+    HIMAGELIST hot = ImageList_Create(iconSize, iconSize, ILC_COLOR32 | ILC_MASK,
                                       TLBHDR_COUNT, 1);
-    HIMAGELIST gray = ImageList_Create(iconSize, iconSize, ILC_MASK | ILC_COLORDDB,
+    HIMAGELIST gray = ImageList_Create(iconSize, iconSize, ILC_COLOR32 | ILC_MASK,
                                        TLBHDR_COUNT, 1);
     if (hot != NULL)
         ImageList_Add(hot, colorBitmap, maskBitmap);
@@ -3093,6 +3124,46 @@ void CToolbarHeader::RebuildImageLists()
     if (oldGray != NULL)
         ImageList_Destroy(oldGray);
 #endif
+    ApplyCustomButtonImages();
+}
+
+void CToolbarHeader::ApplyCustomButtonImages()
+{
+    for (int i = 0; i < TLBHDR_COUNT; i++)
+    {
+        if (CustomSVGNames[i][0] == 0)
+            continue;
+        int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
+        HBITMAP enabled = NULL;
+        HBITMAP disabled = NULL;
+        if (RenderSVGIconBitmap(CustomSVGNames[i], iconSize, TRUE, &enabled) &&
+            RenderSVGIconBitmap(CustomSVGNames[i], iconSize, FALSE, &disabled))
+        {
+#ifdef TOOLBARHDR_USE_SVG
+            ImageList_Replace(HEnabledImageList, i, enabled, NULL);
+            ImageList_Replace(HDisabledImageList, i, disabled, NULL);
+#else
+            ImageList_Replace(HHotImageList, i, enabled, NULL);
+            ImageList_Replace(HGrayImageList, i, disabled, NULL);
+#endif
+        }
+        if (enabled != NULL)
+            DeleteObject(enabled);
+        if (disabled != NULL)
+            DeleteObject(disabled);
+    }
+}
+
+void CToolbarHeader::SetButtonAppearance(int command, const char* svgName, int tooltipResID)
+{
+    int index = command - 1;
+    if (index < 0 || index >= TLBHDR_COUNT)
+        return;
+    lstrcpyn(CustomSVGNames[index], svgName != NULL ? svgName : "", _countof(CustomSVGNames[index]));
+    CustomTooltips[index] = tooltipResID;
+    ApplyCustomButtonImages();
+    if (ToolBar != NULL && ToolBar->HWindow != NULL)
+        InvalidateRect(ToolBar->HWindow, NULL, TRUE);
 }
 
 #ifdef TOOLBARHDR_USE_SVG
@@ -3217,10 +3288,14 @@ void CToolbarHeader::OnPaint(HDC hDC, BOOL hideAccel, BOOL prefixOnly)
 
     HFONT hOldFont = (HFONT)SelectObject(hDC, (HFONT)SendMessage(HWindow, WM_GETFONT, 0, 0));
     int oldBkMode = SetBkMode(hDC, TRANSPARENT);
-    const COLORREF baseText = useDark
-                                  ? DarkModeEnsureReadableForeground(GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]),
-                                                                     GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]))
-                                  : GetSysColor(COLOR_BTNTEXT);
+    const BOOL enabled = IsWindowEnabled(HWindow);
+    const COLORREF baseText = !enabled
+                                  ? (useDark ? DarkModeGetDisabledTextColor()
+                                             : GetSysColor(COLOR_GRAYTEXT))
+                                  : useDark
+                                        ? DarkModeEnsureReadableForeground(GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]),
+                                                                           GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]))
+                                        : GetSysColor(COLOR_BTNTEXT);
     COLORREF oldColor = SetTextColor(hDC, baseText);
 
     DWORD dtFlags = DT_SINGLELINE | DT_LEFT | DT_VCENTER;
@@ -3288,15 +3363,7 @@ CToolbarHeader::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_SIZE:
     {
-        if (ToolBar != NULL && ToolBar->HWindow != NULL)
-        {
-            SIZE sz;
-            sz.cx = ToolBar->GetNeededWidth();
-            sz.cy = ToolBar->GetNeededHeight();
-            RECT r;
-            GetClientRect(HWindow, &r);
-            SetWindowPos(ToolBar->HWindow, HWND_TOP, r.right - sz.cx - 1, 1, sz.cx, sz.cy, SWP_SHOWWINDOW);
-        }
+        LayoutToolbar();
         break;
     }
     case WM_UPDATEUISTATE:
@@ -3333,7 +3400,11 @@ CToolbarHeader::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_USER_TBGETTOOLTIP:
     {
         TOOLBAR_TOOLTIP* tt = (TOOLBAR_TOOLTIP*)lParam;
-        lstrcpy(tt->Buffer, LoadStr(TlbHdrTooltips[tt->ID - 1]));
+        int index = tt->ID - 1;
+        int tooltip = index >= 0 && index < TLBHDR_COUNT && CustomTooltips[index] != -1
+                          ? CustomTooltips[index]
+                          : TlbHdrTooltips[index];
+        lstrcpy(tt->Buffer, LoadStr(tooltip));
         return TRUE;
     }
 

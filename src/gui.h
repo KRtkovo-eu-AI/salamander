@@ -320,22 +320,29 @@ protected:
     HIMAGELIST HHotImageList;
     HIMAGELIST HGrayImageList;
 #endif
-    DWORD ButtonMask;   // pouzita tlacitka
+    DWORD ButtonMask;          // pouzita tlacitka
+    DWORD LeadingButtonMask;   // tlacitka zobrazena vlevo od ostatnich tlacitek v pravem bloku
     HWND HNotifyWindow; // kam posilam comandy
     WORD UIState;       // zobrazovani akceleratoru
+    int CustomTooltips[TLBHDR_COUNT];
+    char CustomSVGNames[TLBHDR_COUNT][32];
 
 public:
-    CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD buttonMask);
+    CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD buttonMask,
+                   DWORD leadingButtonMask = TLBHDRMASK_SEARCH | TLBHDRMASK_FILTER);
 
     void EnableToolbar(DWORD enableMask);
     void CheckToolbar(DWORD checkMask);
     void SetNotifyWindow(HWND hWnd) { HNotifyWindow = hWnd; }
+    void SetButtonAppearance(int command, const char* svgName, int tooltipResID);
 
 protected:
 #ifdef TOOLBARHDR_USE_SVG
     void CreateImageLists(HIMAGELIST* enabled, HIMAGELIST* disabled);
 #endif
     void RebuildImageLists();
+    void ApplyCustomButtonImages();
+    void LayoutToolbar();
 
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 

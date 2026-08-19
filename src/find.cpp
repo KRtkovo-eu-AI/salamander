@@ -1601,8 +1601,19 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
                         // let the extension be resolved if ext==NULL
                         if (masksGroup->AgreeMasks(file.cFileName, NULL)) // mask is OK
                         {
-                            BOOL ok;
-                            if (data->Grep)
+                            BOOL ok = TRUE;
+                            if (data->Criteria.HasTags())
+                            {
+                                if (isDir)
+                                    ok = FALSE;
+                                else
+                                {
+                                    strcpy_s(end, _countof(path) - (end - path), file.cFileName);
+                                    std::wstring pathW = SalMultiByteToWidePath(path, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                                    ok = data->Criteria.TestTags(pathW.c_str());
+                                }
+                            }
+                            if (ok && data->Grep)
                             {
                                 // content
                                 if (isDir)
@@ -1616,8 +1627,6 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
                                     ok = TestFileContent(file.nFileSizeLow, file.nFileSizeHigh, path, data, isLink);
                                 }
                             }
-                            else
-                                ok = TRUE;
 
                             // if the item matches all criteria,
                             // add it to the list of found items
@@ -1822,6 +1831,17 @@ void RefineData(CMaskGroup* masksGroup, CGrepData* data)
         if (ok && !( !refineData->NameW.empty() ? masksGroup->AgreeMasksW(refineData->NameW.c_str(), NULL) : masksGroup->AgreeMasks(refineData->Name, NULL)))
             ok = FALSE;
 
+        if (ok && data->Criteria.HasTags())
+        {
+            if (refineData->IsDir)
+                ok = FALSE;
+            else
+            {
+                std::wstring fullPath = refineData->GetFullNameW();
+                ok = data->Criteria.TestTags(fullPath.c_str());
+            }
+        }
+
         // content
         if (ok && data->Grep)
         {
@@ -1862,6 +1882,7 @@ unsigned GrepThreadFBody(void* ptr)
     TRACE_I("Begin");
     //  Sleep(200);  // give the dialog a moment to redraw...
     CGrepData* data = (CGrepData*)ptr;
+    HRESULT tagsCOM = data->Criteria.HasTags() ? CoInitializeEx(NULL, COINIT_MULTITHREADED) : S_FALSE;
     data->NeedRefresh = FALSE;
     data->Criteria.PrepareForTest();
     char path[MAX_PATH];
@@ -1977,6 +1998,8 @@ unsigned GrepThreadFBody(void* ptr)
     data->SearchStopped = data->StopSearch;
     SendMessage(data->HWindow, WM_USER_ADDFILE, 0, 0); // update the listview
     PostMessage(data->HWindow, WM_COMMAND, IDC_FIND_STOP, 0);
+    if (data->Criteria.HasTags() && SUCCEEDED(tagsCOM))
+        CoUninitialize();
     TRACE_I("End");
     return 0;
 }

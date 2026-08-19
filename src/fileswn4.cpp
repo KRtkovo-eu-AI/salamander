@@ -857,6 +857,7 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
             // the order of additional columns is optional => their content will be obtained using
             // callback that fill the buffer with text and then we draw the column
             TransferPluginDataIface = PluginData.GetInterface();
+            TransferPanelWindow = this;
             TransferPanelPath[0] = 0;
             TransferPanelPathW[0] = 0;
             if (Is(ptDisk))

@@ -18,6 +18,8 @@ void PluginDarkMode_SetHostResolvedColors(COLORREF text, COLORREF background, CO
 BOOL PluginDarkMode_ShouldUseDark();
 PluginDarkModeColors PluginDarkMode_GetColors();
 void PluginDarkMode_ApplyTitleBar(HWND hwnd);
+void PluginDarkMode_ApplyMenuBar(HWND hwnd);
+void PluginDarkMode_ApplyStatusBar(HWND hwnd);
 void PluginDarkMode_ApplyListTreeThemeRecursive(HWND hwnd);
 HBRUSH PluginDarkMode_GetDialogCtlColorBrush(HDC dc, UINT message);
 BOOL PluginDarkMode_HandleThemeMessage(HWND hwnd, UINT message, LPARAM lParam);

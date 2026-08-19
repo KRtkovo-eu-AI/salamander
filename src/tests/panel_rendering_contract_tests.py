@@ -15,15 +15,20 @@ def main() -> int:
     fileswnd0 = (ROOT / "fileswn0.cpp").read_text(encoding="utf-8")
     fileswnd = (ROOT / "fileswn1.cpp").read_text(encoding="utf-8")
     fileswnd2 = (ROOT / "fileswn2.cpp").read_text(encoding="utf-8")
+    fileswnd3 = (ROOT / "fileswn3.cpp").read_text(encoding="utf-8")
     fileswndb = (ROOT / "fileswnb.cpp").read_text(encoding="utf-8")
+    dialogs5 = (ROOT / "dialogs5.cpp").read_text(encoding="utf-8")
+    darkmodelib_controls = (ROOT / "third_party/darkmodelib/src/DmlibSubclassControl.cpp").read_text(encoding="utf-8")
     icon_cache = (ROOT / "icncache.cpp").read_text(encoding="utf-8")
     mainwnd1 = (ROOT / "mainwnd1.cpp").read_text(encoding="utf-8")
     mainwnd2 = (ROOT / "mainwnd2.cpp").read_text(encoding="utf-8")
     mainwnd3 = (ROOT / "mainwnd3.cpp").read_text(encoding="utf-8")
     mainwnd4 = (ROOT / "mainwnd4.cpp").read_text(encoding="utf-8")
     logo = (ROOT / "logo.cpp").read_text(encoding="utf-8")
+    lang_rc = (ROOT / "lang/lang.rc").read_text(encoding="utf-8")
     plugins2 = (ROOT / "plugins2.cpp").read_text(encoding="utf-8")
     salamdr1 = (ROOT / "salamdr1.cpp").read_text(encoding="utf-8")
+    salamdr4 = (ROOT / "salamdr4.cpp").read_text(encoding="utf-8")
     samandarin = (ROOT / "plugins/samandarin/samandarin.cpp").read_text(encoding="utf-8")
     managed_bridge = (ROOT / "plugins/samandarin/managed_bridge.cpp").read_text(encoding="utf-8")
 
@@ -187,6 +192,53 @@ def main() -> int:
         return 1
     if "RefreshTreeViewDPI();\n    RefreshTreeView();" not in fileswnd2:
         print("deferred auto-hide Tree View must be initialized when expanded")
+        return 1
+    if (
+        "PopulateTreeViewItem(hCurrent, FALSE, TRUE, sourcePath);" not in fileswnd
+        or "PopulateTreeViewItem(nextItem, FALSE, TRUE, targetPath);" not in fileswndb
+    ):
+        print("the first Tree View reveal must follow the current path asynchronously")
+        return 1
+    if (
+        "ExplorerSortThrobberID = DirectoryLine->ChangeThrobberID();" not in fileswnd3
+        or "DirectoryLine->SetThrobber(TRUE, 150);" not in fileswnd3
+        or fileswnd3.count("DirectoryLine->IsThrobberVisible(ExplorerSortThrobberID)") != 2
+        or "panelColumn->GetText == InternalGetExplorerColumn" not in fileswnd3
+        or "ExplorerPropertyCache->Values.find" not in fileswnd3
+        or "TransferPanelWindow->GetCachedExplorerColumnText" not in salamdr4
+    ):
+        print("Explorer properties must load off the UI thread with an owned Directory Line throbber")
+        return 1
+    additional_items = re.search(
+        r'GROUPBOX\s+" Additional items ".*?(?=\nEND)',
+        lang_rc,
+        re.DOTALL,
+    )
+    if (
+        not re.search(r'IDC_CHD_SHOWMOUNTFOLDERS,\s*\n\s*"Button".*?,9,97,175,12', lang_rc)
+        or
+        additional_items is None
+        or 'IDC_STATIC_9,1,164,294,65' not in additional_items.group(0)
+        or not re.search(r'IDC_CHD_SHOWMYDOC.*?,9,176,55,12', additional_items.group(0))
+        or not re.search(r'IDC_CHD_SHOWNET.*?,103,176,44,12', additional_items.group(0))
+        or not re.search(r'IDC_CHD_SHOWCLOUDSTORAGE,.*?,197,176,89,12', additional_items.group(0), re.DOTALL)
+        or not re.search(r'IDC_CHD_SHOWANOTHER,.*?,9,215,161,12', additional_items.group(0), re.DOTALL)
+        or 'IDC_STATIC_6,1,238,91,8' not in additional_items.group(0)
+    ):
+        print("Change Drive Additional items must use the compact four-row layout")
+        return 1
+    if (
+        'L"Darkmodelib.Button.UseGroupboxCaptionStyle"' not in dialogs5
+        or "GetThemeTextExtent(theme, dc, BP_GROUPBOX, GBS_NORMAL" not in dialogs5
+        or "GetThemePartSize(theme, dc, BP_CHECKBOX, CBS_UNCHECKEDNORMAL" not in dialogs5
+        or "glyphSize.cx + glyphGap + textExtent.right - textExtent.left + captionMargin" not in dialogs5
+        or "SetWindowPos(mountFolders, NULL, 0, 0, width" not in dialogs5
+        or 'GetPropW(hWnd, L"Darkmodelib.Button.UseGroupboxCaptionStyle")' not in darkmodelib_controls
+        or "if (useGroupboxCaptionStyle)" not in darkmodelib_controls
+        or "DrawThemeTextEx(hTheme, hdc, BP_GROUPBOX, GBS_NORMAL" not in darkmodelib_controls
+        or "SetDlgItemText(HWindow, IDC_STATIC_5" in dialogs5
+    ):
+        print("mounted-folders caption must use the surrounding groupbox theme font")
         return 1
     if "!MainWindow->RestoringPanelPaths" not in fileswndb or "if (RestoringPanelPaths)" not in mainwnd4:
         print("panel restoration must suppress transient Tree View rebuilds")

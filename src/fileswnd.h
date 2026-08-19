@@ -6,6 +6,7 @@
 
 class CFilesWindow;
 struct CExplorerSortAsyncData;
+struct CExplorerPropertyCache;
 
 #include "plugins.h"
 #include <string>
@@ -752,6 +753,7 @@ struct CTreeViewAsyncLoadData
     CFilesWindow* Panel;                       // owning panel
     HTREEITEM hParentItem;                     // parent tree item handle
     char Path[32768];                          // path to read; disk paths can be long-path aware
+    char TargetPath[32768];                    // optional path to reveal after this level is ready
     CTreeViewPopulateEntry* DirEntries;        // results: directories
     int DirCount;
     BOOL HasChildren;
@@ -807,6 +809,8 @@ public:
     // selected property sort is populated away from the UI thread.
     HANDLE ExplorerSortThread;
     volatile CExplorerSortAsyncData* ExplorerSortData;
+    CExplorerPropertyCache* ExplorerPropertyCache;
+    int ExplorerSortThrobberID;
 
     BOOL AutomaticRefresh;      // is the panel refreshed automatically (or manually)?
     BOOL NeedsRefreshOnActivation; // TRUE when the panel should reload its listing when it becomes visible again
@@ -1423,7 +1427,8 @@ public:
     void RefreshTreeViewDPI();
     void UpdateTreeView(BOOL active);
     void RefreshTreeView(BOOL forceRefresh = FALSE);
-    BOOL PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh = FALSE, BOOL async = FALSE);
+    BOOL PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh = FALSE, BOOL async = FALSE,
+                              const char* asyncTargetPath = NULL);
 
     void ConnectNet(BOOL readOnlyUNC, const char* netRootPath = NULL, BOOL changeToNewDrive = TRUE, char* newlyMappedDrive = NULL);
     void DisconnectNet();
@@ -1434,6 +1439,7 @@ public:
 
     void ChangeAttr(BOOL setCompress = FALSE, BOOL compressed = FALSE,
                     BOOL setEncryption = FALSE, BOOL encrypted = FALSE);
+    void EditWindowsProperties();
     void Convert(); // converts character sets and line endings
     // handlerID specifies which viewer/editor should open the file; 0xFFFFFFFF = no preference
     void ViewFile(char* name, BOOL altView, DWORD handlerID, int enumFileNamesSourceUID,
@@ -1521,6 +1527,9 @@ public:
     BOOL StartExplorerSortAsync(CFilesArray* files, CFilesArray* dirs, int firstDirIndex);
     void FinishExplorerSortAsync(CExplorerSortAsyncData* data);
     void StopExplorerSortAsync();
+    void ClearExplorerPropertyCache();
+    BOOL GetCachedExplorerColumnText(const CFileData* file, int columnIndex,
+                                     char* buffer, int bufferSize);
 
     void RefreshListBox(int suggestedXOffset,         // if not -1 this value is used
                         int suggestedTopIndex,        // if not -1 this value is used
@@ -1786,6 +1795,7 @@ public:
 
     // fills a popup based on available columns
     BOOL FillSortByMenu(CMenuPopup* popup);
+    int GetExplorerSortColumnByMenuIndex(int menuIndex);
 
     // if the user changes the column width, this method will be called (after the dragging ends)
     void OnHeaderLineColWidthChanged();

@@ -4,8 +4,14 @@
 
 #include "precomp.h"
 #include <propsys.h>
+#include <propkey.h>
 #include <propvarutil.h>
+#include <cwctype>
+#include <string>
+#include <vector>
 #undef PathIsPrefix // propsys/shlwapi can define this macro; plugins.h has a method with the same name
+
+#include "filetags.h"
 
 #include "cfgdlg.h"
 #include "plugins.h"
@@ -1036,8 +1042,16 @@ const char* SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNVISIBLE = "Explorer Column Vis
 const char* SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNORDER = "Explorer Column Order";
 const char* SALAMANDER_VIEWTEMPLATE_LEFTSMARTMODE = "Left Smart Mode";
 const char* SALAMANDER_VIEWTEMPLATE_RIGHTSMARTMODE = "Right Smart Mode";
+const char* SALAMANDER_VIEWTEMPLATE_AVAILABLEEXPLORERCOLUMNS = "Available Explorer Columns";
+const char* SALAMANDER_VIEWTEMPLATE_EXPLORERAVAILABILITYVERSION = "Explorer Availability Version";
+const char* SALAMANDER_VIEWTEMPLATE_EXTRACOUNT = "Extra View Count";
+const char* SALAMANDER_VIEWTEMPLATE_NEXTID = "Next View ID";
+const char* SALAMANDER_VIEWTEMPLATE_ID = "ID";
+const int EXPLORER_COLUMN_CANONICAL_NAME_MAX = 256;
+const DWORD EXPLORER_COLUMN_AVAILABILITY_VERSION = 1;
 
 CViewTemplates::CViewTemplates()
+    : ExtraItems(3, 3)
 {
     // default values
     Set(0, VIEW_MODE_TREE, LoadStr(IDS_TREE_VIEW), 0, TRUE, TRUE);
@@ -1053,13 +1067,135 @@ CViewTemplates::CViewTemplates()
         Set(i, VIEW_MODE_DETAILED, "", 0, TRUE, TRUE);
     for (i = 0; i < VIEW_TEMPLATES_COUNT; i++)
     {
+        Items[i].ID = i + 1;
         ZeroMemory(Items[i].Columns, sizeof(Items[i].Columns));
         ZeroMemory(Items[i].ExplorerColumns, sizeof(Items[i].ExplorerColumns));
+        ZeroMemory(Items[i].ExplorerColumnAvailable, sizeof(Items[i].ExplorerColumnAvailable));
         ZeroMemory(Items[i].ExplorerColumnVisible, sizeof(Items[i].ExplorerColumnVisible));
         for (int j = 0; j < EXPLORER_COLUMNS_COUNT; j++)
             Items[i].ExplorerColumnOrder[j] = (WORD)j;
         for (int j = 0; j < STANDARD_COLUMNS_COUNT; j++)
             Items[i].ColumnOrder[j] = (BYTE)j;
+    }
+    ZeroMemory(ExplorerColumnAvailable, sizeof(ExplorerColumnAvailable));
+    NextID = VIEW_TEMPLATES_COUNT + 1;
+}
+
+CViewTemplate* CViewTemplates::Get(int index)
+{
+    if (index < 0 || index >= GetCount())
+        return NULL;
+    return index < VIEW_TEMPLATES_COUNT ? &Items[index] : ExtraItems[index - VIEW_TEMPLATES_COUNT];
+}
+
+const CViewTemplate* CViewTemplates::Get(int index) const
+{
+    if (index < 0 || index >= GetCount())
+        return NULL;
+    return index < VIEW_TEMPLATES_COUNT
+               ? &Items[index]
+               : const_cast<CViewTemplates*>(this)->ExtraItems[index - VIEW_TEMPLATES_COUNT];
+}
+
+int CViewTemplates::GetIndex(const CViewTemplate* item) const
+{
+    for (int i = 0; i < GetCount(); i++)
+        if (Get(i) == item)
+            return i;
+    return -1;
+}
+
+int CViewTemplates::AddDetailedView(const char* name)
+{
+    if (ExtraItems.Count >= CM_ACTIVEEXTRAMODE_MAX - CM_ACTIVEEXTRAMODE_MIN + 1)
+        return -1;
+#ifdef new
+#undef new
+#define RESTORE_ADD_VIEW_TEMPLATE_DEBUG_NEW_MACRO
+#endif
+    CViewTemplate* item = new (std::nothrow) CViewTemplate;
+#ifdef RESTORE_ADD_VIEW_TEMPLATE_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_ADD_VIEW_TEMPLATE_DEBUG_NEW_MACRO
+#endif
+    if (item == NULL)
+        return -1;
+    memcpy(item, &Items[2], sizeof(*item));
+    item->ID = NextID++;
+    CopyStringTruncateUtf8(item->Name, VIEW_NAME_MAX, name != NULL ? name : "");
+    ExtraItems.Add(item);
+    if (!ExtraItems.IsGood())
+    {
+        ExtraItems.ResetState();
+        delete item;
+        return -1;
+    }
+    return GetCount() - 1;
+}
+
+BOOL CViewTemplates::DeleteView(int index)
+{
+    if (index < 7 || index >= GetCount())
+        return FALSE;
+    if (index < VIEW_TEMPLATES_COUNT)
+    {
+        Items[index].Name[0] = 0;
+        return TRUE;
+    }
+    ExtraItems.Delete(index - VIEW_TEMPLATES_COUNT);
+    return TRUE;
+}
+
+void CViewTemplates::Load(CViewTemplates& source)
+{
+    memcpy(Items, source.Items, sizeof(Items));
+    memcpy(ExplorerColumnAvailable, source.ExplorerColumnAvailable, sizeof(ExplorerColumnAvailable));
+    NextID = source.NextID;
+    ExtraItems.DestroyMembers();
+    for (int i = 0; i < source.ExtraItems.Count; i++)
+    {
+#ifdef new
+#undef new
+#define RESTORE_COPY_VIEW_TEMPLATE_DEBUG_NEW_MACRO
+#endif
+        CViewTemplate* item = new (std::nothrow) CViewTemplate;
+#ifdef RESTORE_COPY_VIEW_TEMPLATE_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_COPY_VIEW_TEMPLATE_DEBUG_NEW_MACRO
+#endif
+        if (item == NULL)
+            break;
+        memcpy(item, source.ExtraItems[i], sizeof(*item));
+        ExtraItems.Add(item);
+        if (!ExtraItems.IsGood())
+        {
+            ExtraItems.ResetState();
+            delete item;
+            break;
+        }
+    }
+}
+
+BOOL CViewTemplates::IsExplorerColumnAvailable(int index) const
+{
+    return index >= 0 && index < EXPLORER_COLUMNS_COUNT && ExplorerColumnAvailable[index] != 0;
+}
+
+void CViewTemplates::SetExplorerColumnAvailable(int index, BOOL available)
+{
+    if (index >= 0 && index < EXPLORER_COLUMNS_COUNT)
+        ExplorerColumnAvailable[index] = available ? TRUE : FALSE;
+}
+
+void CViewTemplates::RebuildExplorerColumnAvailable()
+{
+    ZeroMemory(ExplorerColumnAvailable, sizeof(ExplorerColumnAvailable));
+    for (int i = 0; i < GetCount(); i++)
+    {
+        CViewTemplate* view = Get(i);
+        for (int j = 0; j < EXPLORER_COLUMNS_COUNT; j++)
+            if (view->ExplorerColumnAvailable[j] || view->ExplorerColumnVisible[j])
+                ExplorerColumnAvailable[j] = TRUE;
     }
 }
 
@@ -1284,46 +1420,177 @@ void CViewTemplates::LoadExplorerColumnVisible(BYTE* visible, char* buffer)
     }
 }
 
+static void SaveExplorerColumnAvailable(HKEY hKey, const BYTE* available,
+                                        char* buffer, int bufferSize)
+{
+    char* out = buffer;
+    int remaining = bufferSize;
+    int explorerCount = GetExplorerColumnCount();
+    for (int i = 0; i < explorerCount; i++)
+    {
+        if (!available[i])
+            continue;
+        const char* canonicalName = GetExplorerColumnCanonicalName(i);
+        int len = lstrlen(canonicalName);
+        if (len == 0 || len + 2 > remaining)
+            continue;
+        if (out != buffer)
+        {
+            *out++ = '\n';
+            remaining--;
+        }
+        memcpy(out, canonicalName, len);
+        out += len;
+        remaining -= len;
+    }
+    *out = 0;
+    SetValue(hKey, SALAMANDER_VIEWTEMPLATE_AVAILABLEEXPLORERCOLUMNS, REG_SZ,
+             buffer, (int)(out - buffer) + 1);
+}
+
+static BOOL LoadExplorerColumnAvailable(HKEY hKey, BYTE* available,
+                                        char* buffer, int bufferSize)
+{
+    if (!GetValue(hKey, SALAMANDER_VIEWTEMPLATE_AVAILABLEEXPLORERCOLUMNS, REG_SZ,
+                  buffer, bufferSize))
+        return FALSE;
+    ZeroMemory(available, EXPLORER_COLUMNS_COUNT * sizeof(BYTE));
+    char* context = NULL;
+    char* canonicalName = strtok_s(buffer, "\n", &context);
+    while (canonicalName != NULL)
+    {
+        int explorerCount = GetExplorerColumnCount();
+        for (int explorerIndex = 0; explorerIndex < explorerCount; explorerIndex++)
+        {
+            if (_stricmp(canonicalName, GetExplorerColumnCanonicalName(explorerIndex)) == 0)
+            {
+                available[explorerIndex] = TRUE;
+                break;
+            }
+        }
+        canonicalName = strtok_s(NULL, "\n", &context);
+    }
+    return TRUE;
+}
+
 BOOL CViewTemplates::Save(HKEY hKey)
 {
     char buff[12 * EXPLORER_COLUMNS_COUNT + 1];
-    char keyName[5];
+    char keyName[32];
     int i;
-    for (i = 0; i < VIEW_TEMPLATES_COUNT; i++)
+    DWORD extraCount = ExtraItems.Count;
+    RebuildExplorerColumnAvailable();
+    SetValue(hKey, SALAMANDER_VIEWTEMPLATE_EXTRACOUNT, REG_DWORD, &extraCount, sizeof(extraCount));
+    SetValue(hKey, SALAMANDER_VIEWTEMPLATE_NEXTID, REG_DWORD, &NextID, sizeof(NextID));
+    for (i = 0; i < GetCount(); i++)
     {
-        itoa(i < VIEW_TEMPLATES_COUNT - 1 ? i + 1 : 0, keyName, 10);
+        if (i < VIEW_TEMPLATES_COUNT)
+            itoa(i < VIEW_TEMPLATES_COUNT - 1 ? i + 1 : 0, keyName, 10);
+        else
+            _snprintf_s(keyName, _TRUNCATE, "Extra %d", i - VIEW_TEMPLATES_COUNT + 1);
+        CViewTemplate* view = Get(i);
         HKEY actKey;
         if (CreateKey(hKey, keyName, actKey))
         {
-            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_NAME, REG_SZ, Items[i].Name, -1);
-            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_FLAGS, REG_DWORD, &Items[i].Flags, sizeof(DWORD));
-            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNS, REG_SZ, buff, SaveColumns(Items[i].Columns, buff));
-            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNORDER, REG_SZ, buff, SaveColumnOrder(Items[i].ColumnOrder, buff));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_ID, REG_DWORD, &view->ID, sizeof(view->ID));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_NAME, REG_SZ, view->Name, -1);
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_FLAGS, REG_DWORD, &view->Flags, sizeof(DWORD));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNS, REG_SZ, buff, SaveColumns(view->Columns, buff));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNORDER, REG_SZ, buff, SaveColumnOrder(view->ColumnOrder, buff));
             SetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNS, REG_SZ, buff,
-                     SaveColumns(Items[i].ExplorerColumns, buff, EXPLORER_COLUMNS_COUNT));
-            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNVISIBLE, REG_SZ, buff, SaveExplorerColumnVisible(Items[i].ExplorerColumnVisible, buff));
-            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNORDER, REG_SZ, buff, SaveColumnOrder(Items[i].ExplorerColumnOrder, buff, EXPLORER_COLUMNS_COUNT));
-            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_LEFTSMARTMODE, REG_DWORD, &Items[i].LeftSmartMode, sizeof(DWORD));
-            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_RIGHTSMARTMODE, REG_DWORD, &Items[i].RightSmartMode, sizeof(DWORD));
+                     SaveColumns(view->ExplorerColumns, buff, EXPLORER_COLUMNS_COUNT));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNVISIBLE, REG_SZ, buff, SaveExplorerColumnVisible(view->ExplorerColumnVisible, buff));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNORDER, REG_SZ, buff, SaveColumnOrder(view->ExplorerColumnOrder, buff, EXPLORER_COLUMNS_COUNT));
+            const int availableBufferSize = EXPLORER_COLUMNS_COUNT * EXPLORER_COLUMN_CANONICAL_NAME_MAX + 1;
+            char* availableBuffer = (char*)malloc(availableBufferSize);
+            if (availableBuffer != NULL)
+            {
+                SaveExplorerColumnAvailable(actKey, view->ExplorerColumnAvailable,
+                                            availableBuffer, availableBufferSize);
+                free(availableBuffer);
+            }
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_LEFTSMARTMODE, REG_DWORD, &view->LeftSmartMode, sizeof(DWORD));
+            SetValue(actKey, SALAMANDER_VIEWTEMPLATE_RIGHTSMARTMODE, REG_DWORD, &view->RightSmartMode, sizeof(DWORD));
             CloseKey(actKey);
         }
+    }
+    // Write the marker only after all per-view values. An interrupted save is
+    // therefore migrated again instead of trusting a partial set of subsets.
+    DWORD explorerAvailabilityVersion = EXPLORER_COLUMN_AVAILABILITY_VERSION;
+    SetValue(hKey, SALAMANDER_VIEWTEMPLATE_EXPLORERAVAILABILITYVERSION, REG_DWORD,
+             &explorerAvailabilityVersion, sizeof(explorerAvailabilityVersion));
+    const int availableBufferSize = EXPLORER_COLUMNS_COUNT * EXPLORER_COLUMN_CANONICAL_NAME_MAX + 1;
+    char* availableBuffer = (char*)malloc(availableBufferSize);
+    if (availableBuffer != NULL)
+    {
+        SaveExplorerColumnAvailable(hKey, ExplorerColumnAvailable,
+                                    availableBuffer, availableBufferSize);
+        free(availableBuffer);
     }
     return TRUE;
 }
 
 BOOL CViewTemplates::Load(HKEY hKey)
 {
+    ExtraItems.DestroyMembers();
+    NextID = VIEW_TEMPLATES_COUNT + 1;
     char buff[12 * EXPLORER_COLUMNS_COUNT + 1];
-    char keyName[5];
+    char keyName[32];
     int i;
-    for (i = 0; i < VIEW_TEMPLATES_COUNT; i++)
+    DWORD explorerAvailabilityVersion = 0;
+    GetValue(hKey, SALAMANDER_VIEWTEMPLATE_EXPLORERAVAILABILITYVERSION, REG_DWORD,
+             &explorerAvailabilityVersion, sizeof(explorerAvailabilityVersion));
+    BOOL availableLoaded = FALSE;
+    const int availableBufferSize = EXPLORER_COLUMNS_COUNT * EXPLORER_COLUMN_CANONICAL_NAME_MAX + 1;
+    char* availableBuffer = (char*)malloc(availableBufferSize);
+    if (availableBuffer != NULL)
+        availableLoaded = LoadExplorerColumnAvailable(hKey, ExplorerColumnAvailable,
+                                                      availableBuffer, availableBufferSize);
+    DWORD extraCount = 0;
+    if (GetValue(hKey, SALAMANDER_VIEWTEMPLATE_EXTRACOUNT, REG_DWORD, &extraCount, sizeof(extraCount)))
     {
-        itoa(i < VIEW_TEMPLATES_COUNT - 1 ? i + 1 : 0, keyName, 10);
+        if (extraCount > 1000)
+            extraCount = 1000;
+        for (DWORD extra = 0; extra < extraCount; extra++)
+            if (AddDetailedView("") < 0)
+                break;
+    }
+    DWORD loadedNextID = NextID;
+    GetValue(hKey, SALAMANDER_VIEWTEMPLATE_NEXTID, REG_DWORD, &loadedNextID, sizeof(loadedNextID));
+    if (loadedNextID > NextID)
+        NextID = loadedNextID;
+
+    for (i = 0; i < GetCount(); i++)
+        ZeroMemory(Get(i)->ExplorerColumnAvailable,
+                   sizeof(Get(i)->ExplorerColumnAvailable));
+
+    // Configurations without the version marker include both the original
+    // global availability format and builds which incorrectly cloned that
+    // global subset into every view. There is no reliable provenance for
+    // unchecked properties in those files. Keep the legacy global subset on
+    // the primary Detailed view and reconstruct every other view from its
+    // independently persisted visibility below.
+    if (explorerAvailabilityVersion < EXPLORER_COLUMN_AVAILABILITY_VERSION &&
+        availableLoaded && GetCount() > 2)
+        memcpy(Get(2)->ExplorerColumnAvailable, ExplorerColumnAvailable,
+               sizeof(Get(2)->ExplorerColumnAvailable));
+
+    for (i = 0; i < GetCount(); i++)
+    {
+        if (i < VIEW_TEMPLATES_COUNT)
+            itoa(i < VIEW_TEMPLATES_COUNT - 1 ? i + 1 : 0, keyName, 10);
+        else
+            _snprintf_s(keyName, _TRUNCATE, "Extra %d", i - VIEW_TEMPLATES_COUNT + 1);
         if (i == 6 && Configuration.ConfigVersion < 23)
             continue; // for the IDS_TYPES_VIEW view we want default columns
+        CViewTemplate* view = Get(i);
         HKEY actKey;
         if (OpenKey(hKey, keyName, actKey))
         {
+            if (explorerAvailabilityVersion >= EXPLORER_COLUMN_AVAILABILITY_VERSION &&
+                availableBuffer != NULL)
+                LoadExplorerColumnAvailable(actKey, view->ExplorerColumnAvailable,
+                                            availableBuffer, availableBufferSize);
             char name[SAL_MAX_PATH];
             DWORD flags;
             name[0] = 0;
@@ -1331,21 +1598,23 @@ BOOL CViewTemplates::Load(HKEY hKey)
             buff[0] = 0;
             DWORD leftSM = TRUE;
             DWORD rightSM = TRUE;
+            DWORD id = view->ID;
+            GetValue(actKey, SALAMANDER_VIEWTEMPLATE_ID, REG_DWORD, &id, sizeof(id));
             GetValue(actKey, SALAMANDER_VIEWTEMPLATE_LEFTSMARTMODE, REG_DWORD, &leftSM, sizeof(DWORD));
             GetValue(actKey, SALAMANDER_VIEWTEMPLATE_RIGHTSMARTMODE, REG_DWORD, &rightSM, sizeof(DWORD));
             if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_NAME, REG_SZ, name, SAL_MAX_PATH) &&
                 GetValue(actKey, SALAMANDER_VIEWTEMPLATE_FLAGS, REG_DWORD, &flags, sizeof(DWORD)) &&
                 GetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNS, REG_SZ, buff, sizeof(buff)))
             {
-                LoadColumns(Items[i].Columns, buff);
+                LoadColumns(view->Columns, buff);
                 if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_COLUMNORDER, REG_SZ, buff, sizeof(buff)))
-                    LoadColumnOrder(Items[i].ColumnOrder, buff);
+                    LoadColumnOrder(view->ColumnOrder, buff);
                 if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNS, REG_SZ, buff, sizeof(buff)))
-                    LoadColumns(Items[i].ExplorerColumns, buff, EXPLORER_COLUMNS_COUNT);
+                    LoadColumns(view->ExplorerColumns, buff, EXPLORER_COLUMNS_COUNT);
                 if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNVISIBLE, REG_SZ, buff, sizeof(buff)))
-                    LoadExplorerColumnVisible(Items[i].ExplorerColumnVisible, buff);
+                    LoadExplorerColumnVisible(view->ExplorerColumnVisible, buff);
                 if (GetValue(actKey, SALAMANDER_VIEWTEMPLATE_EXPLORERCOLUMNORDER, REG_SZ, buff, sizeof(buff)))
-                    LoadColumnOrder(Items[i].ExplorerColumnOrder, buff, EXPLORER_COLUMNS_COUNT);
+                    LoadColumnOrder(view->ExplorerColumnOrder, buff, EXPLORER_COLUMNS_COUNT);
                 CleanName(name);
 
                 // overwrite file names the user could not change anyway
@@ -1377,11 +1646,34 @@ BOOL CViewTemplates::Load(HKEY hKey)
                 if (resID != -1)
                     strcpy(name, LoadStr(resID));
 
-                Set(i, name, flags, leftSM, rightSM);
+                if (i < VIEW_TEMPLATES_COUNT)
+                    Set(i, name, flags, leftSM, rightSM);
+                else
+                {
+                    view->Mode = VIEW_MODE_DETAILED;
+                    CopyStringTruncateUtf8(view->Name, VIEW_NAME_MAX, name);
+                    view->Flags = flags;
+                    view->LeftSmartMode = leftSM;
+                    view->RightSmartMode = rightSM;
+                }
+                view->ID = id;
+                if (id >= NextID)
+                    NextID = id + 1;
             }
             CloseKey(actKey);
         }
     }
+    if (availableBuffer != NULL)
+        free(availableBuffer);
+    if (!availableLoaded)
+        ZeroMemory(ExplorerColumnAvailable, sizeof(ExplorerColumnAvailable));
+    // A visible property must always remain available for its own view. This
+    // also reconstructs independent subsets while migrating old configurations.
+    for (i = 0; i < GetCount(); i++)
+        for (int j = 0; j < EXPLORER_COLUMNS_COUNT; j++)
+            if (Get(i)->ExplorerColumnVisible[j])
+                Get(i)->ExplorerColumnAvailable[j] = TRUE;
+    RebuildExplorerColumnAvailable();
     return TRUE;
 }
 
@@ -1657,6 +1949,9 @@ BOOL CopyHTextToClipboard(HGLOBAL hGlobalText, int textLen, BOOL showEcho, HWND 
 
 // Windows Explorer property columns discovered through the Property System.
 static char ExplorerColumnNames[EXPLORER_COLUMNS_COUNT][COLUMN_DESCRIPTION_MAX];
+static char ExplorerColumnCanonicalNames[EXPLORER_COLUMNS_COUNT][EXPLORER_COLUMN_CANONICAL_NAME_MAX];
+static char ExplorerColumnDescriptions[EXPLORER_COLUMNS_COUNT][COLUMN_DESCRIPTION_MAX];
+static VARTYPE ExplorerColumnTypes[EXPLORER_COLUMNS_COUNT];
 static PROPERTYKEY ExplorerColumnKeys[EXPLORER_COLUMNS_COUNT];
 static int ExplorerColumnsCount = -1;
 
@@ -1689,7 +1984,8 @@ static void LoadExplorerColumns()
                         BOOL duplicate = FALSE;
                         for (int j = 0; j < ExplorerColumnsCount; j++)
                         {
-                            if (StrICmp(name, ExplorerColumnNames[j]) == 0)
+                            if (key.pid == ExplorerColumnKeys[j].pid &&
+                                IsEqualGUID(key.fmtid, ExplorerColumnKeys[j].fmtid))
                             {
                                 duplicate = TRUE;
                                 break;
@@ -1699,6 +1995,26 @@ static void LoadExplorerColumns()
                         {
                             lstrcpyn(ExplorerColumnNames[ExplorerColumnsCount], name, COLUMN_DESCRIPTION_MAX);
                             ExplorerColumnKeys[ExplorerColumnsCount] = key;
+                            ExplorerColumnCanonicalNames[ExplorerColumnsCount][0] = 0;
+                            ExplorerColumnDescriptions[ExplorerColumnsCount][0] = 0;
+                            ExplorerColumnTypes[ExplorerColumnsCount] = VT_EMPTY;
+                            PWSTR canonicalName = NULL;
+                            if (SUCCEEDED(PSGetNameFromPropertyKey(key, &canonicalName)) && canonicalName != NULL)
+                            {
+                                WideCharToMultiByte(CP_UTF8, 0, canonicalName, -1,
+                                                    ExplorerColumnCanonicalNames[ExplorerColumnsCount],
+                                                    EXPLORER_COLUMN_CANONICAL_NAME_MAX, NULL, NULL);
+                                CoTaskMemFree(canonicalName);
+                            }
+                            LPWSTR invitation = NULL;
+                            if (SUCCEEDED(propDesc->GetEditInvitation(&invitation)) && invitation != NULL)
+                            {
+                                WideCharToMultiByte(CP_ACP, 0, invitation, -1,
+                                                    ExplorerColumnDescriptions[ExplorerColumnsCount],
+                                                    COLUMN_DESCRIPTION_MAX, NULL, NULL);
+                                CoTaskMemFree(invitation);
+                            }
+                            propDesc->GetPropertyType(&ExplorerColumnTypes[ExplorerColumnsCount]);
                             ExplorerColumnsCount++;
                         }
                     }
@@ -1726,6 +2042,116 @@ const char* GetExplorerColumnName(int index)
     return index >= 0 && index < ExplorerColumnsCount ? ExplorerColumnNames[index] : "";
 }
 
+const char* GetExplorerColumnCanonicalName(int index)
+{
+    LoadExplorerColumns();
+    return index >= 0 && index < ExplorerColumnsCount ? ExplorerColumnCanonicalNames[index] : "";
+}
+
+const char* GetExplorerColumnDescription(int index)
+{
+    LoadExplorerColumns();
+    return index >= 0 && index < ExplorerColumnsCount ? ExplorerColumnDescriptions[index] : "";
+}
+
+VARTYPE GetExplorerColumnType(int index)
+{
+    LoadExplorerColumns();
+    return index >= 0 && index < ExplorerColumnsCount ? ExplorerColumnTypes[index] : VT_EMPTY;
+}
+
+const PROPERTYKEY* GetExplorerColumnPropertyKey(int index)
+{
+    LoadExplorerColumns();
+    return index >= 0 && index < ExplorerColumnsCount ? &ExplorerColumnKeys[index] : NULL;
+}
+
+static void AddPanelTipPropertyKey(PROPERTYKEY* keys, int maxKeys, int* count, REFPROPERTYKEY key)
+{
+    if (*count < maxKeys)
+        keys[(*count)++] = key;
+}
+
+int GetPanelTipPropertyKeys(CPanelTipCategory category, PROPERTYKEY* keys, int maxKeys)
+{
+    if (keys == NULL || maxKeys <= 0)
+        return 0;
+    int count = 0;
+    switch (category)
+    {
+    case ptcExecutable:
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_FileDescription);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Company);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_FileVersion);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_DateCreated);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Size);
+        break;
+    case ptcImage:
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Image_Dimensions);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Image_BitDepth);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Size);
+        break;
+    case ptcAudio:
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Title);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Music_Artist);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Music_AlbumTitle);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Media_Duration);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Audio_EncodingBitrate);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Size);
+        break;
+    case ptcVideo:
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Video_FrameWidth);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Video_FrameHeight);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Media_Duration);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Video_FrameRate);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Size);
+        break;
+    case ptcDocument:
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Title);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Author);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Document_PageCount);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_DateModified);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Size);
+        break;
+    case ptcArchive:
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_ItemTypeText);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_DateModified);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Size);
+        break;
+    }
+    return count;
+}
+
+BOOL IsExplorerColumnInPanelTipCategory(int index, CPanelTipCategory category)
+{
+    const PROPERTYKEY* columnKey = GetExplorerColumnPropertyKey(index);
+    if (columnKey == NULL)
+        return FALSE;
+    PROPERTYKEY keys[10];
+    int count = GetPanelTipPropertyKeys(category, keys, _countof(keys));
+    for (int i = 0; i < count; i++)
+        if (IsEqualPropertyKey(*columnKey, keys[i]))
+            return TRUE;
+    return FALSE;
+}
+
+CExplorerColumnCategory GetExplorerColumnCategory(int index)
+{
+    const char* name = GetExplorerColumnCanonicalName(index);
+    if (_strnicmp(name, "System.Document.", 16) == 0)
+        return eccDocument;
+    if (_strnicmp(name, "System.Image.", 13) == 0 || _strnicmp(name, "System.Photo.", 13) == 0)
+        return eccImage;
+    if (_strnicmp(name, "System.Audio.", 13) == 0 || _strnicmp(name, "System.Music.", 13) == 0)
+        return eccAudio;
+    if (_strnicmp(name, "System.Video.", 13) == 0 || _strnicmp(name, "System.Media.", 13) == 0)
+        return eccVideo;
+    if (_strnicmp(name, "System.File", 11) == 0 || _strnicmp(name, "System.Item", 11) == 0 ||
+        _strnicmp(name, "System.Size", 11) == 0 || _strnicmp(name, "System.Date", 11) == 0)
+        return eccFileSystem;
+    return eccOther;
+}
+
 //****************************************************************************
 //
 // Internal functions for retrieving column content
@@ -1737,6 +2163,7 @@ int TransferIsDir;
 char TransferBuffer[TRANSFER_BUFFER_MAX];
 char TransferPanelPath[SAL_MAX_PATH];
 WCHAR TransferPanelPathW[SAL_MAX_PATH];
+CFilesWindow* TransferPanelWindow = NULL;
 int TransferLen;
 DWORD TransferRowData;
 CPluginDataInterfaceAbstract* TransferPluginDataIface;
@@ -2080,6 +2507,323 @@ BOOL GetExplorerColumnTextForPathW(const WCHAR* pathW, int columnIndex, char* bu
     return ret;
 }
 
+static void TrimFileTag(std::wstring& tag)
+{
+    size_t first = 0;
+    while (first < tag.size() && iswspace(tag[first]))
+        first++;
+    size_t last = tag.size();
+    while (last > first && iswspace(tag[last - 1]))
+        last--;
+    tag = tag.substr(first, last - first);
+}
+
+static BOOL ContainsFileTag(const std::vector<std::wstring>& tags, const std::wstring& tag)
+{
+    for (size_t i = 0; i < tags.size(); i++)
+    {
+        if (_wcsicmp(tags[i].c_str(), tag.c_str()) == 0)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+void ParseFileTagsW(const wchar_t* text, std::vector<std::wstring>& tags)
+{
+    tags.clear();
+    if (text == NULL)
+        return;
+
+    const wchar_t* start = text;
+    for (const wchar_t* p = text;; p++)
+    {
+        if (*p == L';' || *p == 0)
+        {
+            std::wstring tag(start, p - start);
+            TrimFileTag(tag);
+            if (!tag.empty() && !ContainsFileTag(tags, tag))
+                tags.push_back(tag);
+            if (*p == 0)
+                break;
+            start = p + 1;
+        }
+    }
+}
+
+std::wstring FormatFileTagsW(const std::vector<std::wstring>& tags)
+{
+    std::wstring result;
+    for (size_t i = 0; i < tags.size(); i++)
+    {
+        if (!result.empty())
+            result += L"; ";
+        result += tags[i];
+    }
+    return result;
+}
+
+HRESULT ReadFileTagsW(const wchar_t* path, std::vector<std::wstring>& tags)
+{
+    tags.clear();
+    if (path == NULL || path[0] == 0)
+        return E_INVALIDARG;
+
+    IPropertyStore* store = NULL;
+    HRESULT hr = SHGetPropertyStoreFromParsingName(path, NULL, GPS_DEFAULT,
+                                                    IID_IPropertyStore, (void**)&store);
+    if (FAILED(hr) || store == NULL)
+        return hr;
+
+    PROPVARIANT value;
+    PropVariantInit(&value);
+    hr = store->GetValue(PKEY_Keywords, &value);
+    if (SUCCEEDED(hr) && value.vt != VT_EMPTY && value.vt != VT_NULL)
+    {
+        PWSTR* values = NULL;
+        ULONG count = 0;
+        hr = PropVariantToStringVectorAlloc(value, &values, &count);
+        if (SUCCEEDED(hr))
+        {
+            for (ULONG i = 0; i < count; i++)
+            {
+                std::wstring tag = values[i] != NULL ? values[i] : L"";
+                TrimFileTag(tag);
+                if (!tag.empty() && !ContainsFileTag(tags, tag))
+                    tags.push_back(tag);
+                CoTaskMemFree(values[i]);
+            }
+            CoTaskMemFree(values);
+        }
+    }
+    else if (SUCCEEDED(hr))
+        hr = S_OK;
+
+    PropVariantClear(&value);
+    store->Release();
+    return hr;
+}
+
+BOOL IsFilePropertyWritableW(const wchar_t* path, REFPROPERTYKEY key)
+{
+    if (path == NULL || path[0] == 0)
+        return FALSE;
+
+    IPropertyStore* store = NULL;
+    HRESULT hr = SHGetPropertyStoreFromParsingName(path, NULL, GPS_READWRITE,
+                                                    IID_IPropertyStore, (void**)&store);
+    if (FAILED(hr) || store == NULL)
+        return FALSE;
+
+    BOOL writable = TRUE;
+    IPropertyStoreCapabilities* capabilities = NULL;
+    if (SUCCEEDED(store->QueryInterface(IID_PPV_ARGS(&capabilities))) && capabilities != NULL)
+    {
+        writable = capabilities->IsPropertyWritable(key) == S_OK;
+        capabilities->Release();
+    }
+    store->Release();
+    return writable;
+}
+
+HRESULT WriteFileStringVectorPropertyW(const wchar_t* path, REFPROPERTYKEY key,
+                                       const std::vector<std::wstring>& tags)
+{
+    if (path == NULL || path[0] == 0)
+        return E_INVALIDARG;
+
+    IPropertyStore* store = NULL;
+    HRESULT hr = SHGetPropertyStoreFromParsingName(path, NULL, GPS_READWRITE,
+                                                    IID_IPropertyStore, (void**)&store);
+    if (FAILED(hr) || store == NULL)
+        return hr;
+
+    PROPVARIANT value;
+    PropVariantInit(&value);
+    if (SUCCEEDED(hr) && !tags.empty())
+    {
+        std::vector<PCWSTR> values;
+        for (size_t i = 0; i < tags.size(); i++)
+            values.push_back(tags[i].c_str());
+        hr = InitPropVariantFromStringVector(values.data(), (ULONG)values.size(), &value);
+    }
+    if (SUCCEEDED(hr))
+        hr = store->SetValue(key, value);
+    if (SUCCEEDED(hr))
+        hr = store->Commit();
+
+    PropVariantClear(&value);
+    store->Release();
+    return hr;
+}
+
+HRESULT WriteFileTagsW(const wchar_t* path, const std::vector<std::wstring>& tags)
+{
+    return WriteFileStringVectorPropertyW(path, PKEY_Keywords, tags);
+}
+
+HRESULT UpdateFileTagsW(const wchar_t* path, const std::vector<std::wstring>& tags,
+                        CFileTagsOperation operation)
+{
+    if (operation == ftoReplace)
+        return WriteFileTagsW(path, tags);
+
+    std::vector<std::wstring> current;
+    HRESULT hr = ReadFileTagsW(path, current);
+    if (FAILED(hr))
+        return hr;
+
+    if (operation == ftoAdd)
+    {
+        for (size_t i = 0; i < tags.size(); i++)
+        {
+            if (!ContainsFileTag(current, tags[i]))
+                current.push_back(tags[i]);
+        }
+    }
+    else
+    {
+        for (std::vector<std::wstring>::iterator it = current.begin(); it != current.end();)
+        {
+            if (ContainsFileTag(tags, *it))
+                it = current.erase(it);
+            else
+                ++it;
+        }
+    }
+    return WriteFileTagsW(path, current);
+}
+
+BOOL FileTagsMatchW(const wchar_t* path, const std::vector<std::wstring>& tags,
+                    CFileTagsMatchMode mode)
+{
+    if (tags.empty())
+        return TRUE;
+
+    std::vector<std::wstring> fileTags;
+    if (FAILED(ReadFileTagsW(path, fileTags)))
+        return mode == ftmmNone;
+
+    int found = 0;
+    for (size_t i = 0; i < tags.size(); i++)
+    {
+        if (ContainsFileTag(fileTags, tags[i]))
+            found++;
+    }
+    if (mode == ftmmAny)
+        return found > 0;
+    if (mode == ftmmAll)
+        return found == (int)tags.size();
+    return found == 0;
+}
+
+HRESULT ReadFilePropertyTextW(const wchar_t* path, REFPROPERTYKEY key, std::wstring& text)
+{
+    text.clear();
+    if (path == NULL || path[0] == 0)
+        return E_INVALIDARG;
+
+    IPropertyStore* store = NULL;
+    HRESULT hr = SHGetPropertyStoreFromParsingName(path, NULL, GPS_DEFAULT,
+                                                    IID_IPropertyStore, (void**)&store);
+    if (FAILED(hr) || store == NULL)
+        return hr;
+    PROPVARIANT value;
+    PropVariantInit(&value);
+    hr = store->GetValue(key, &value);
+    if (SUCCEEDED(hr) && value.vt != VT_EMPTY && value.vt != VT_NULL)
+    {
+        PWSTR display = NULL;
+        hr = PSFormatForDisplayAlloc(key, value, PDFF_DEFAULT, &display);
+        if (SUCCEEDED(hr) && display != NULL)
+        {
+            text = display;
+            CoTaskMemFree(display);
+        }
+    }
+    else if (SUCCEEDED(hr))
+        hr = S_OK;
+    PropVariantClear(&value);
+    store->Release();
+    return hr;
+}
+
+static HRESULT InitFilePropertyValueFromText(const wchar_t* text,
+                                             IPropertyDescription* description,
+                                             PROPVARIANT* value)
+{
+    IPropertyEnumTypeList* enumTypes = NULL;
+    HRESULT hr = description->GetEnumTypeList(IID_IPropertyEnumTypeList,
+                                               (void**)&enumTypes);
+    if (SUCCEEDED(hr) && enumTypes != NULL)
+    {
+        UINT count = 0;
+        if (SUCCEEDED(enumTypes->GetCount(&count)))
+        {
+            for (UINT i = 0; i < count; i++)
+            {
+                IPropertyEnumType* enumType = NULL;
+                if (SUCCEEDED(enumTypes->GetAt(i, IID_IPropertyEnumType,
+                                               (void**)&enumType)) &&
+                    enumType != NULL)
+                {
+                    LPWSTR displayText = NULL;
+                    HRESULT displayResult = enumType->GetDisplayText(&displayText);
+                    BOOL matches = SUCCEEDED(displayResult) && displayText != NULL &&
+                                   _wcsicmp(displayText, text != NULL ? text : L"") == 0;
+                    CoTaskMemFree(displayText);
+                    if (matches)
+                        hr = enumType->GetValue(value);
+                    enumType->Release();
+                    if (matches)
+                    {
+                        enumTypes->Release();
+                        return hr;
+                    }
+                }
+            }
+        }
+        enumTypes->Release();
+    }
+
+    hr = InitPropVariantFromString(text != NULL ? text : L"", value);
+    if (SUCCEEDED(hr))
+        hr = description->CoerceToCanonicalValue(value);
+    return hr;
+}
+
+HRESULT WriteFilePropertyTextW(const wchar_t* path, REFPROPERTYKEY key,
+                               const wchar_t* text, BOOL clearValue)
+{
+    if (path == NULL || path[0] == 0)
+        return E_INVALIDARG;
+
+    IPropertyStore* store = NULL;
+    HRESULT hr = SHGetPropertyStoreFromParsingName(path, NULL, GPS_READWRITE,
+                                                    IID_IPropertyStore, (void**)&store);
+    if (FAILED(hr) || store == NULL)
+        return hr;
+
+    PROPVARIANT value;
+    PropVariantInit(&value);
+    IPropertyDescription* description = NULL;
+    if (SUCCEEDED(hr) && !clearValue)
+    {
+        hr = PSGetPropertyDescription(key, IID_IPropertyDescription, (void**)&description);
+        if (SUCCEEDED(hr) && description != NULL)
+            hr = InitFilePropertyValueFromText(text, description, &value);
+    }
+    if (SUCCEEDED(hr))
+        hr = store->SetValue(key, value);
+    if (SUCCEEDED(hr))
+        hr = store->Commit();
+
+    if (description != NULL)
+        description->Release();
+    PropVariantClear(&value);
+    store->Release();
+    return hr;
+}
+
 void WINAPI InternalGetExplorerColumn()
 {
     TransferLen = 0;
@@ -2087,8 +2831,14 @@ void WINAPI InternalGetExplorerColumn()
         return;
 
     char text[TRANSFER_BUFFER_MAX];
-    if (GetExplorerColumnTextForFile(TransferPanelPath, TransferPanelPathW, TransferFileData,
-                                     (int)TransferActCustomData, text, TRANSFER_BUFFER_MAX))
+    BOOL hasText = TransferPanelWindow != NULL
+                       ? TransferPanelWindow->GetCachedExplorerColumnText(
+                             TransferFileData, (int)TransferActCustomData,
+                             text, TRANSFER_BUFFER_MAX)
+                       : GetExplorerColumnTextForFile(
+                             TransferPanelPath, TransferPanelPathW, TransferFileData,
+                             (int)TransferActCustomData, text, TRANSFER_BUFFER_MAX);
+    if (hasText)
     {
         TransferLen = (int)strlen(text);
         if (TransferLen > TRANSFER_BUFFER_MAX)

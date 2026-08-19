@@ -1077,6 +1077,19 @@ void CFilesWindow::RefreshTreeView(BOOL forceRefresh)
         if (hCurrent == NULL)
             break;
 
+        CTreeViewNodeData* rootData = GetTreeViewItemDataPtr(HTreeView, hCurrent);
+        if (!forceRefresh && rootData != NULL && !rootData->Populated)
+        {
+            // The first reveal used to enumerate every directory from the drive
+            // root to the current path on the UI thread.  Load one level at a
+            // time and let WM_USER_TREEVIEW_ASYNC_DONE continue towards the
+            // current directory.
+            PopulateTreeViewItem(hCurrent, FALSE, TRUE, sourcePath);
+            TreeView_SelectItem(HTreeView, hCurrent);
+            hRestoreSelected = hCurrent;
+            break;
+        }
+
         PopulateTreeViewItem(hCurrent, forceRefresh);
         TreeView_Expand(HTreeView, hCurrent, TVE_EXPAND);
 
@@ -1147,7 +1160,8 @@ void CFilesWindow::RefreshTreeView(BOOL forceRefresh)
     RedrawWindow(HTreeView, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE);
 }
 
-BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh, BOOL async)
+BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh, BOOL async,
+                                        const char* asyncTargetPath)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::PopulateTreeViewItem()");
 
@@ -1187,6 +1201,8 @@ BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh, BOOL
         loadData->Panel = this;
         loadData->hParentItem = hItem;
         lstrcpyn(loadData->Path, itemPath, _countof(loadData->Path));
+        if (asyncTargetPath != NULL)
+            lstrcpyn(loadData->TargetPath, asyncTargetPath, _countof(loadData->TargetPath));
         loadData->Cancelled = FALSE;
 
         TreeViewAsyncLoadData = loadData;
@@ -2401,7 +2417,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     CustomTabPrefixValid = false;
     CustomTabPrefix.clear();
     TabLocked = false;
-    ViewTemplate = &parent->ViewTemplates.Items[2]; // detailed view
+    ViewTemplate = parent->ViewTemplates.Get(2); // detailed view
     BuildColumnsTemplate();
     CopyColumnsTemplateToColumns();
     ListBox = NULL;
@@ -2433,6 +2449,8 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     TreeViewAsyncLoadData = NULL;
     ExplorerSortThread = NULL;
     ExplorerSortData = NULL;
+    ExplorerPropertyCache = NULL;
+    ExplorerSortThrobberID = -1;
     StatusLineVisible = TRUE;
     DirectoryLineVisible = TRUE;
     HeaderLineVisible = TRUE;
@@ -2544,6 +2562,7 @@ CFilesWindow::~CFilesWindow()
 
     ClearIndependentIconLists();
     StopExplorerSortAsync();
+    ClearExplorerPropertyCache();
 
     if (DeviceNotification != NULL)
         TRACE_E("CFilesWindow::~CFilesWindow(): unexpected situation: DeviceNotification != NULL");

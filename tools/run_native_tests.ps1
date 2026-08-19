@@ -263,6 +263,14 @@ try {
             )
         },
         @{
+            Name = 'explorer_columns_configuration_contract_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\explorer_columns_configuration_contract_tests.py')
+            )
+        },
+        @{
             Name = 'webview2_render_viewer_contract_tests'
             Arguments = @(
                 '-B',

@@ -367,6 +367,7 @@ struct CConfiguration
     char* EditNewHistory[EDITNEW_HISTORY_SIZE];
     char* ConvertHistory[CONVERT_HISTORY_SIZE];
     char* FilterHistory[FILTER_HISTORY_SIZE];
+    char* TagHistory[TAG_HISTORY_SIZE];
 
     char FileListName[MAX_PATH]; // file name
     BOOL FileListAppend;
@@ -500,6 +501,8 @@ struct CConfiguration
     DWORD ConfigurationViewsRightWidth; // width of Available Columns in the Views configuration page
     DWORD PluginsManagerWidth;      // last user-selected Plugin Manager width in pixels
     DWORD PluginsManagerHeight;     // last user-selected Plugin Manager height in pixels
+    DWORD ExplorerColumnsDialogWidth;  // last user-selected Choose Windows Properties width in pixels
+    DWORD ExplorerColumnsDialogHeight; // last user-selected Choose Windows Properties height in pixels
     BOOL ViewersAndEditorsExpanded; // expanded items in the tree
     BOOL PackersAndUnpackersExpanded;
 
@@ -610,6 +613,44 @@ protected:
 
 class CToolbarHeader;
 
+class CExplorerColumnsDialog : public CCommonDialog
+{
+protected:
+    CViewTemplates* Config;
+    BYTE Available[EXPLORER_COLUMNS_COUNT];
+    WORD SelectedOrder[EXPLORER_COLUMNS_COUNT];
+    int SelectedCount;
+    int ViewIndex;
+    BOOL DisableNotification;
+    int Category;
+    int MinWidth;
+    int MinHeight;
+    HIMAGELIST HCategoryImages;
+    HIMAGELIST HPropertySpacingImages;
+    HIMAGELIST HSelectedSpacingImages;
+
+    void FillCategories();
+    void FillProperties();
+    void FillSelected(int explorerIndex = -1);
+    void NormalizeSelectedOrder();
+    void UpdateDetails(HWND sourceList = NULL);
+    void UpdateSelectedCount();
+    void UpdateSelectedButtons();
+    void SetAvailable(int explorerIndex, BOOL available);
+    void MoveSelected(BOOL up);
+    void ApplySelectedOrder();
+    BOOL IsInCategory(int explorerIndex) const;
+    BOOL MatchesSearch(int explorerIndex) const;
+    void LayoutControls();
+
+public:
+    CExplorerColumnsDialog(HWND parent, CViewTemplates* config, int viewIndex,
+                           const BYTE* available);
+
+protected:
+    virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
+};
+
 class CCfgPageView : public CCommonPropSheetPage
 {
 protected:
@@ -638,6 +679,7 @@ public:
     virtual void Transfer(CTransferInfo& ti);
 
     void OnModify();
+    void OnNew();
     void OnDelete();
     void OnMove(BOOL up);
 
@@ -649,6 +691,7 @@ public:
     BOOL IsAvailableColumnsFilterActive();
     BOOL AvailableColumnMatchesFilter(const char* text);
     void ToggleAvailableColumnsFilter();
+    void SyncExplorerColumnAvailabilityFromList(int viewIndex, BYTE* available);
     void LayoutViewsListControls();
     DWORD GetEnabledFunctions();
 

@@ -6,6 +6,10 @@
 
 #include <commctrl.h>
 
+#if USE_DARKMODELIB
+#include "../../third_party/darkmodelib/include/Darkmodelib.h"
+#endif
+
 #ifndef HDM_SETBKCOLOR
 #define HDM_SETBKCOLOR (HDM_FIRST + 29)
 #endif
@@ -27,6 +31,24 @@ HBRUSH gInputBrush = NULL;
 fnSetWindowTheme gSetWindowTheme = NULL;
 fnDwmSetWindowAttribute gDwmSetWindowAttribute = NULL;
 thread_local int gThemeBatchDepth = 0;
+const wchar_t* PLUGIN_DARKMODE_MENU_PROP = L"Salamander.PluginDarkMode.Menu";
+
+void ConfigurePluginDarkModelib(BOOL dark)
+{
+#if USE_DARKMODELIB
+    static bool initialized = false;
+    if (!initialized)
+    {
+        dmlib::initDarkMode();
+        initialized = true;
+    }
+    dmlib::setDarkModeConfigEx(static_cast<UINT>(dark ? dmlib::DarkModeType::dark
+                                                      : dmlib::DarkModeType::classic));
+    dmlib::setDefaultColors(true);
+#else
+    UNREFERENCED_PARAMETER(dark);
+#endif
+}
 
 void ResetPluginBrushes()
 {
@@ -268,6 +290,8 @@ void ApplyRecursive(HWND hwnd, BOOL dark)
             else if (type == BS_AUTOCHECKBOX || type == BS_CHECKBOX || type == BS_AUTO3STATE ||
                      type == BS_3STATE || type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON)
                 gSetWindowTheme(hwnd, dark ? L"DarkMode_Explorer" : nullptr, nullptr);
+            else
+                gSetWindowTheme(hwnd, dark ? L"DarkMode_Explorer" : nullptr, nullptr);
             InvalidateRect(hwnd, NULL, TRUE);
         }
     }
@@ -406,6 +430,43 @@ void PluginDarkMode_ApplyTitleBar(HWND hwnd)
         gDwmSetWindowAttribute(hwnd, 20, &dark, sizeof(dark));
 }
 
+void PluginDarkMode_ApplyMenuBar(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return;
+    const BOOL dark = PluginDarkMode_ShouldUseDark();
+    ConfigurePluginDarkModelib(dark);
+#if USE_DARKMODELIB
+    const BOOL wasDark = GetPropW(hwnd, PLUGIN_DARKMODE_MENU_PROP) != NULL;
+    if (dark && !wasDark)
+    {
+        dmlib::setWindowMenuBarSubclass(hwnd);
+        SetPropW(hwnd, PLUGIN_DARKMODE_MENU_PROP, reinterpret_cast<HANDLE>(1));
+    }
+    else if (!dark && wasDark)
+    {
+        dmlib::removeWindowMenuBarSubclass(hwnd);
+        RemovePropW(hwnd, PLUGIN_DARKMODE_MENU_PROP);
+    }
+#endif
+    DrawMenuBar(hwnd);
+}
+
+void PluginDarkMode_ApplyStatusBar(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return;
+    const BOOL dark = PluginDarkMode_ShouldUseDark();
+    ConfigurePluginDarkModelib(dark);
+#if USE_DARKMODELIB
+    if (dark)
+        dmlib::setStatusBarCtrlSubclass(hwnd);
+    else
+        dmlib::removeStatusBarCtrlSubclass(hwnd);
+#endif
+    InvalidateRect(hwnd, NULL, TRUE);
+}
+
 void PluginDarkMode_ApplyListTreeThemeRecursive(HWND hwnd)
 {
     PluginDarkMode_EnsureApis();
@@ -442,6 +503,7 @@ BOOL PluginDarkMode_HandleThemeMessage(HWND hwnd, UINT message, LPARAM lParam)
     if (!scope.Root())
         return TRUE;
     PluginDarkMode_ApplyTitleBar(hwnd);
+    PluginDarkMode_ApplyMenuBar(hwnd);
     PluginDarkMode_ApplyListTreeThemeRecursive(hwnd);
     InvalidateKnownDarkArtifacts(hwnd);
     InvalidateRect(hwnd, NULL, TRUE);

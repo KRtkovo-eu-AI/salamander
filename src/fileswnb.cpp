@@ -1469,22 +1469,78 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         SendMessage(HTreeView, WM_SETREDRAW, TRUE, 0);
 
-        // The async load is started from TVN_ITEMEXPANDING before the item has
-        // real child nodes.  The common control cannot complete that first
-        // expansion until the children exist, so expand the item now to make
-        // the original click on the +/- button take effect immediately.
-        if (hasChildren)
-            TreeView_Expand(HTreeView, loadData->hParentItem, TVE_EXPAND);
-
-        TreeViewDisableNotify = FALSE;
-        RedrawWindow(HTreeView, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE);
-
+        char targetPath[32768];
+        lstrcpyn(targetPath, loadData->TargetPath, _countof(targetPath));
+        HTREEITEM loadedParent = loadData->hParentItem;
         if (TreeViewAsyncLoadData == loadData)
             TreeViewAsyncLoadData = NULL;
         for (i = 0; i < loadData->DirCount; i++)
             free(loadData->DirEntries[i].FullPath);
         free(loadData->DirEntries);
         free(loadData);
+
+        // The common control cannot complete the original expansion before
+        // real children exist.  For an initial reveal, continue asynchronously
+        // down the one branch that contains the panel's current directory.
+        HTREEITEM nextItem = NULL;
+        if (hasChildren)
+        {
+            TreeView_Expand(HTreeView, loadedParent, TVE_EXPAND);
+            if (targetPath[0] != 0)
+            {
+                const char* parentPath = parentData->FullPath;
+                if (parentPath != NULL && IsTheSamePath(parentPath, targetPath))
+                    TreeView_SelectItem(HTreeView, loadedParent);
+                else if (parentPath != NULL)
+                {
+                    size_t parentLen = strlen(parentPath);
+                    if (_strnicmp(parentPath, targetPath, parentLen) == 0)
+                    {
+                        const char* segment = targetPath + parentLen;
+                        while (*segment == '\\' || *segment == '/')
+                            segment++;
+                        const char* end = segment;
+                        while (*end != 0 && *end != '\\' && *end != '/')
+                            end++;
+                        char nextPath[32768];
+                        lstrcpyn(nextPath, parentPath, _countof(nextPath));
+                        char name[32768];
+                        size_t nameLen = end - segment;
+                        if (nameLen < _countof(name))
+                        {
+                            memcpy(name, segment, nameLen);
+                            name[nameLen] = 0;
+                            if (SalPathAppend(nextPath, name, _countof(nextPath)))
+                            {
+                                for (HTREEITEM child = TreeView_GetChild(HTreeView, loadedParent);
+                                     child != NULL; child = TreeView_GetNextSibling(HTreeView, child))
+                                {
+                                    TVITEM childItem;
+                                    memset(&childItem, 0, sizeof(childItem));
+                                    childItem.mask = TVIF_PARAM;
+                                    childItem.hItem = child;
+                                    if (TreeView_GetItem(HTreeView, &childItem) && childItem.lParam != 0 &&
+                                        ((CTreeViewNodeData*)childItem.lParam)->FullPath != NULL &&
+                                        IsTheSamePath(((CTreeViewNodeData*)childItem.lParam)->FullPath, nextPath))
+                                    {
+                                        nextItem = child;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        TreeViewDisableNotify = FALSE;
+        RedrawWindow(HTreeView, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE);
+        if (nextItem != NULL)
+        {
+            TreeView_SelectItem(HTreeView, nextItem);
+            PopulateTreeViewItem(nextItem, FALSE, TRUE, targetPath);
+        }
         return 0;
     }
 
@@ -1684,6 +1740,34 @@ MENU_TEMPLATE_ITEM SortByMenu[] =
             mii.State = MENU_STATE_CHECKED;
         popup->InsertItem(-1, TRUE, &mii);
     }
+
+    // Windows Explorer property columns that are actually displayed in this panel.
+    // The command ranges are intentionally limited to 20 items (see resource.rh2).
+    int explorerSortCount = 0;
+    int explorerSortLimit = (IsLeftPanel() ? CM_LEFTSORTBY_MAX - CM_LEFTSORTBY_MIN :
+                                             CM_RIGHTSORTBY_MAX - CM_RIGHTSORTBY_MIN) + 1;
+    for (i = 0; i < Columns.Count && explorerSortCount < explorerSortLimit; i++)
+    {
+        CColumn* column = &Columns.At(i);
+        if (column->ID != COLUMN_ID_CUSTOM || column->GetText != InternalGetExplorerColumn)
+            continue;
+
+        if (explorerSortCount == 0)
+        {
+            mii.Mask = MENU_MASK_TYPE;
+            mii.Type = MENU_TYPE_SEPARATOR;
+            popup->InsertItem(-1, TRUE, &mii);
+        }
+
+        mii.Mask = MENU_MASK_TYPE | MENU_MASK_STRING | MENU_MASK_ID | MENU_MASK_STATE;
+        mii.Type = MENU_TYPE_STRING;
+        mii.String = column->Name;
+        mii.ID = (IsLeftPanel() ? CM_LEFTSORTBY_MIN : CM_RIGHTSORTBY_MIN) + explorerSortCount;
+        mii.State = SortType == stCustom && SortCustomData == column->CustomData ? MENU_STATE_CHECKED : 0;
+        popup->InsertItem(-1, TRUE, &mii);
+        explorerSortCount++;
+    }
+
     // separator
     mii.Mask = MENU_MASK_TYPE;
     mii.Type = MENU_TYPE_SEPARATOR;
@@ -1696,6 +1780,24 @@ MENU_TEMPLATE_ITEM SortByMenu[] =
     popup->InsertItem(-1, TRUE, &mii);
 
     return TRUE;
+}
+
+int CFilesWindow::GetExplorerSortColumnByMenuIndex(int menuIndex)
+{
+    if (menuIndex < 0)
+        return -1;
+
+    for (int i = 0; i < Columns.Count; i++)
+    {
+        const CColumn* column = &Columns.At(i);
+        if (column->ID == COLUMN_ID_CUSTOM && column->GetText == InternalGetExplorerColumn)
+        {
+            if (menuIndex == 0)
+                return (int)column->CustomData;
+            menuIndex--;
+        }
+    }
+    return -1;
 }
 
 void CFilesWindow::SetThumbnailSize(int size)

@@ -14,6 +14,30 @@ VIEWER_HOST = (
     / "managed"
     / "ViewerHost.cs"
 )
+WEBVIEW_PROJECT = (
+    REPOSITORY_ROOT
+    / "src"
+    / "plugins"
+    / "webview2renderviewer"
+    / "vcxproj"
+    / "webview2renderviewer.vcxproj"
+)
+SALAMATRIX_PROJECT = (
+    REPOSITORY_ROOT
+    / "src"
+    / "plugins"
+    / "salamatrix"
+    / "vcxproj"
+    / "salamatrix.vcxproj"
+)
+NATIVE_VIEWER = (
+    REPOSITORY_ROOT
+    / "src"
+    / "plugins"
+    / "shared"
+    / "webviewviewer"
+    / "native_viewer.cpp"
+)
 
 
 def main() -> None:
@@ -44,6 +68,20 @@ def main() -> None:
         raise AssertionError(
             "generic attributes must be removed after advanced setup and before pipeline build"
         )
+
+    webview_project = WEBVIEW_PROJECT.read_text(encoding="utf-8")
+    salamatrix_project = SALAMATRIX_PROJECT.read_text(encoding="utf-8")
+    native_viewer = NATIVE_VIEWER.read_text(encoding="utf-8")
+    publish_command = "dotnet publish"
+    renderer_project = "markdighelper\\MarkdigRenderer.csproj"
+    if publish_command in webview_project or renderer_project in webview_project:
+        raise AssertionError(
+            "webview2renderviewer must consume MarkdigRenderer, not publish it"
+        )
+    if salamatrix_project.count(publish_command) != 1 or renderer_project not in salamatrix_project:
+        raise AssertionError("salamatrix must be the single MarkdigRenderer producer")
+    if 'L"utils\\\\MarkdigRenderer.exe"' not in native_viewer:
+        raise AssertionError("the shared native viewer must consume MarkdigRenderer from utils")
 
     print("WebView2 render viewer source-contract tests passed.")
 

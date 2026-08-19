@@ -36,6 +36,7 @@ using Microsoft::WRL::ComPtr;
 namespace
 {
 constexpr UINT WM_NV_CLOSE_ALL = WM_APP + 0x631;
+constexpr UINT WM_NV_APPLY_ZOOM = WM_APP + 0x632;
 constexpr int IDC_NV_STATUS = 101;
 constexpr int IDM_NV_CLOSE = 40001;
 constexpr int IDM_NV_REFRESH = 40002;
@@ -53,6 +54,49 @@ constexpr int IDC_NV_ZOOM_IN = 40104;
 std::mutex gWindowsLock;
 std::vector<HWND> gWindows;
 std::atomic<bool> gShuttingDown(false);
+
+using CreateWebView2EnvironmentFn = HRESULT(STDAPICALLTYPE*)(
+    PCWSTR, PCWSTR, ICoreWebView2EnvironmentOptions*,
+    ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler*);
+
+CreateWebView2EnvironmentFn GetCreateWebView2Environment()
+{
+    static CreateWebView2EnvironmentFn createEnvironment = []() -> CreateWebView2EnvironmentFn
+    {
+        std::vector<wchar_t> modulePath(512);
+        for (;;)
+        {
+            DWORD length = GetModuleFileNameW(nullptr, modulePath.data(),
+                                              static_cast<DWORD>(modulePath.size()));
+            if (length == 0)
+                return nullptr;
+            if (length < modulePath.size() - 1)
+            {
+                modulePath.resize(length);
+                break;
+            }
+            modulePath.resize(modulePath.size() * 2);
+        }
+
+        size_t slash = std::wstring(modulePath.data(), modulePath.size()).find_last_of(L"\\/");
+        if (slash == std::wstring::npos)
+            return nullptr;
+        modulePath.resize(slash + 1);
+        static constexpr wchar_t loaderName[] = L"utils\\WebView2Loader.dll";
+        modulePath.insert(modulePath.end(), loaderName, loaderName + _countof(loaderName));
+
+        HMODULE loader = LoadLibraryExW(modulePath.data(), nullptr,
+                                        LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR |
+                                        LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+        if (loader == nullptr && GetLastError() == ERROR_INVALID_PARAMETER)
+            loader = LoadLibraryW(modulePath.data());
+        if (loader == nullptr)
+            return nullptr;
+        return reinterpret_cast<CreateWebView2EnvironmentFn>(
+            GetProcAddress(loader, "CreateCoreWebView2EnvironmentWithOptions"));
+    }();
+    return createEnvironment;
+}
 
 constexpr const wchar_t* kViewerSettingsKey = L"Software\\Open Salamander\\ViewerFrame";
 
@@ -443,7 +487,8 @@ std::wstring Utf8ToWide(const std::vector<unsigned char>& value)
 
 bool RenderMarkdown(HINSTANCE module, const std::wstring& markdown, std::wstring& html, std::wstring& error)
 {
-    std::wstring executable = ModuleDirectory(module) + L"MarkdigRenderer.exe";
+    UNREFERENCED_PARAMETER(module);
+    std::wstring executable = ModuleDirectory(nullptr) + L"utils\\MarkdigRenderer.exe";
     if (GetFileAttributesW(ToIoPath(executable).c_str()) == INVALID_FILE_ATTRIBUTES)
     {
         error = L"MarkdigRenderer.exe was not found.";
@@ -663,6 +708,10 @@ private:
 
     LRESULT HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
     {
+        LRESULT colorResult = 0;
+        if (PluginDarkMode_HandleCtlColor(message, wParam, lParam, &colorResult))
+            return colorResult;
+
         switch (message)
         {
         case WM_CREATE:
@@ -704,6 +753,9 @@ private:
         case WM_NV_CLOSE_ALL:
             DestroyWindow(window_);
             return 0;
+        case WM_NV_APPLY_ZOOM:
+            ApplyZoomEdit();
+            return 0;
         case WM_CLOSE:
             DestroyWindow(window_);
             return 0;
@@ -720,7 +772,11 @@ private:
         PluginDarkMode_SetHostPolicyAvailable(TRUE, parameters_->theme.dark ? TRUE : FALSE);
         PluginDarkMode_SetHostColors(parameters_->theme.foreground, parameters_->theme.background);
         PluginDarkMode_ApplyTitleBar(window_);
+        PluginDarkMode_ApplyMenuBar(window_);
+        PluginDarkMode_ApplyStatusBar(status_);
         PluginDarkMode_ApplyListTreeThemeRecursive(window_);
+        RedrawWindow(window_, nullptr, nullptr,
+                     RDW_INVALIDATE | RDW_FRAME | RDW_ALLCHILDREN);
     }
 
     void ApplyChromeFont()
@@ -741,7 +797,9 @@ private:
             CoTaskMemFree(appData);
         }
         HWND target = window_;
-        HRESULT hr = CreateCoreWebView2EnvironmentWithOptions(nullptr, userData.empty() ? nullptr : userData.c_str(),
+        CreateWebView2EnvironmentFn createEnvironment = GetCreateWebView2Environment();
+        HRESULT hr = createEnvironment != nullptr
+            ? createEnvironment(nullptr, userData.empty() ? nullptr : userData.c_str(),
             nullptr, Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
                 [target](HRESULT result, ICoreWebView2Environment* environment) -> HRESULT
                 {
@@ -775,7 +833,8 @@ private:
                                 self->LoadDocument();
                                 return S_OK;
                             }).Get());
-                }).Get());
+                }).Get())
+            : HRESULT_FROM_WIN32(ERROR_MOD_NOT_FOUND);
         if (FAILED(hr))
             ShowError(parameters_->initializationFailed, hr);
     }
@@ -1065,6 +1124,13 @@ private:
             controller_->put_ZoomFactor(static_cast<double>(zoomPercent_) / 100.0);
     }
 
+    void ApplyZoomEdit()
+    {
+        wchar_t text[32];
+        GetWindowTextW(zoomEdit_, text, static_cast<int>(std::size(text)));
+        SetZoom(_wtoi(text));
+    }
+
     void UpdateViewMenuChecks()
     {
         HMENU menu = GetMenu(window_);
@@ -1086,11 +1152,7 @@ private:
         else if (command == IDM_NV_ZOOM_RESET || command == IDC_NV_ZOOM_RESET)
             SetZoom(100);
         else if (command == IDC_NV_ZOOM_EDIT && notification == EN_KILLFOCUS)
-        {
-            wchar_t text[32];
-            GetWindowTextW(zoomEdit_, text, static_cast<int>(std::size(text)));
-            SetZoom(_wtoi(text));
-        }
+            ApplyZoomEdit();
         else if (parameters_->kind == NativeViewerKind::PrismText &&
                  (command == IDM_NV_LINE_NUMBERS || command == IDM_NV_WRAP_LINES || command == IDM_NV_SHOW_WHITESPACE))
         {
@@ -1241,6 +1303,14 @@ DWORD WINAPI ViewerThread(void* raw)
     {
         if (message.message == WM_KEYDOWN || message.message == WM_SYSKEYDOWN)
         {
+            if (message.message == WM_KEYDOWN && message.wParam == VK_RETURN &&
+                GetParent(message.hwnd) == viewerWindow &&
+                GetDlgCtrlID(message.hwnd) == IDC_NV_ZOOM_EDIT)
+            {
+                SendMessageW(viewerWindow, WM_NV_APPLY_ZOOM, 0, 0);
+                SendMessageW(message.hwnd, EM_SETSEL, 0, -1);
+                continue;
+            }
             int command = 0;
             if (message.wParam == VK_ESCAPE)
             {
