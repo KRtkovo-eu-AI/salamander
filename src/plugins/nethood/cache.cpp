@@ -1639,7 +1639,7 @@ UINT CNethoodCache::EnsurePathExistsAsync(
         g_pPendingEnsurePathData[iPanel] = NULL;
     }
 
-    CNethoodEnsurePathAsyncData* data = new (std::nothrow) CNethoodEnsurePathAsyncData();
+    CNethoodEnsurePathAsyncData* data = new CNethoodEnsurePathAsyncData();
     if (data == NULL)
         return ERROR_NOT_ENOUGH_MEMORY;
 
