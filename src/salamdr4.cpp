@@ -2746,6 +2746,50 @@ HRESULT ReadFilePropertyTextW(const wchar_t* path, REFPROPERTYKEY key, std::wstr
     return hr;
 }
 
+static HRESULT InitFilePropertyValueFromText(const wchar_t* text,
+                                             IPropertyDescription* description,
+                                             PROPVARIANT* value)
+{
+    IPropertyEnumTypeList* enumTypes = NULL;
+    HRESULT hr = description->GetEnumTypeList(IID_IPropertyEnumTypeList,
+                                               (void**)&enumTypes);
+    if (SUCCEEDED(hr) && enumTypes != NULL)
+    {
+        UINT count = 0;
+        if (SUCCEEDED(enumTypes->GetCount(&count)))
+        {
+            for (UINT i = 0; i < count; i++)
+            {
+                IPropertyEnumType* enumType = NULL;
+                if (SUCCEEDED(enumTypes->GetAt(i, IID_IPropertyEnumType,
+                                               (void**)&enumType)) &&
+                    enumType != NULL)
+                {
+                    LPWSTR displayText = NULL;
+                    HRESULT displayResult = enumType->GetDisplayText(&displayText);
+                    BOOL matches = SUCCEEDED(displayResult) && displayText != NULL &&
+                                   _wcsicmp(displayText, text != NULL ? text : L"") == 0;
+                    CoTaskMemFree(displayText);
+                    if (matches)
+                        hr = enumType->GetValue(value);
+                    enumType->Release();
+                    if (matches)
+                    {
+                        enumTypes->Release();
+                        return hr;
+                    }
+                }
+            }
+        }
+        enumTypes->Release();
+    }
+
+    hr = InitPropVariantFromString(text != NULL ? text : L"", value);
+    if (SUCCEEDED(hr))
+        hr = description->CoerceToCanonicalValue(value);
+    return hr;
+}
+
 HRESULT WriteFilePropertyTextW(const wchar_t* path, REFPROPERTYKEY key,
                                const wchar_t* text, BOOL clearValue)
 {
@@ -2763,11 +2807,9 @@ HRESULT WriteFilePropertyTextW(const wchar_t* path, REFPROPERTYKEY key,
     IPropertyDescription* description = NULL;
     if (SUCCEEDED(hr) && !clearValue)
     {
-        hr = InitPropVariantFromString(text != NULL ? text : L"", &value);
-        if (SUCCEEDED(hr))
-            hr = PSGetPropertyDescription(key, IID_IPropertyDescription, (void**)&description);
+        hr = PSGetPropertyDescription(key, IID_IPropertyDescription, (void**)&description);
         if (SUCCEEDED(hr) && description != NULL)
-            hr = description->CoerceToCanonicalValue(&value);
+            hr = InitFilePropertyValueFromText(text, description, &value);
     }
     if (SUCCEEDED(hr))
         hr = store->SetValue(key, value);

@@ -152,6 +152,35 @@ def main() -> int:
         "unsupported custom properties must be unchecked and disabled and write errors must explain why",
     )
     require(
+        "std::wstring OriginalValue;" in file_window
+        and "int InitialState;" in file_window
+        and "row.Value != row.OriginalValue" in file_window
+        and "GetPropertyState(rowIndex) != row.InitialState" in file_window
+        and "if (state == BST_INDETERMINATE || !row.Modified)" in file_window
+        and "BOOL tagsChanged = tagsState != InitialTagsState || tags != InitialTags;" in file_window
+        and "TagsWritable && tagsChanged" in file_window,
+        "Edit Tags and Windows Properties must write only values or checkbox states explicitly changed by the user",
+    )
+    require(
+        "BOOL Modified;" in file_window
+        and "void UpdatePropertyModifiedState(int rowIndex)" in file_window
+        and 'RenderSVGIconBitmap("Modify"' in file_window
+        and "item.iImage = row.Modified && PropertyImages != NULL ? 0 : I_IMAGENONE;" in file_window
+        and "propertyAttempted[rowIndex] && !propertyFailed[rowIndex]" in file_window
+        and "row.OriginalValue = row.Value;" in file_window
+        and "UpdatePropertyModifiedState((int)rowIndex);" in file_window,
+        "edited property rows must show an icon which clears only after every target file was updated successfully",
+    )
+    require(
+        "InitFilePropertyValueFromText" in model
+        and "description->GetEnumTypeList" in model
+        and "IID_IPropertyEnumType" in model
+        and "enumType->GetDisplayText" in model
+        and "enumType->GetValue(value)" in model
+        and "description->CoerceToCanonicalValue(value)" in model,
+        "writable scalar and enum properties such as JPEG Orientation must convert display text to their canonical PROPVARIANT type",
+    )
+    require(
         "LVS_EX_FULLROWSELECT | LVS_EX_CHECKBOXES | LVS_EX_DOUBLEBUFFER" in file_window
         and "ListView_InsertColumn(PropertiesList, 0" in file_window
         and "ListView_InsertColumn(PropertiesList, 1" in file_window

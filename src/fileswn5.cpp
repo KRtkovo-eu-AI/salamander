@@ -27,6 +27,7 @@
 #include "edtlbwnd.h"
 #include "common/widepath.h"
 #include "filetags.h"
+#include "svg.h"
 
 static void FormatEditPropertiesLocalizedArguments(char* output, size_t outputSize,
                                                    const char* format, const char* const* arguments,
@@ -80,8 +81,11 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
     {
         int ExplorerIndex;
         std::wstring Value;
+        std::wstring OriginalValue;
         BOOL HadValue;
         BOOL Writable;
+        int InitialState;
+        BOOL Modified;
     };
 
     const std::vector<std::wstring>& Paths;
@@ -90,12 +94,38 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
     std::vector<CPropertyRow> PropertyRows;
     HWND PropertiesList;
     HWND PropertyEdit;
+    HIMAGELIST PropertyImages;
     int EditingProperty;
     BOOL FillingProperties;
     BOOL TagsHadValue;
     BOOL TagsWritable;
+    std::vector<std::wstring> InitialTags;
+    int InitialTagsState;
 
     BOOL IsMultiple() const { return Paths.size() > 1; }
+
+    int GetPropertyState(int row) const
+    {
+        int state = ListView_GetItemState(PropertiesList, row, LVIS_STATEIMAGEMASK) >> 12;
+        return state == 3 ? BST_INDETERMINATE :
+               state == 2 ? BST_CHECKED : BST_UNCHECKED;
+    }
+
+    void UpdatePropertyModifiedState(int rowIndex)
+    {
+        if (rowIndex < 0 || rowIndex >= (int)PropertyRows.size())
+            return;
+        CPropertyRow& row = PropertyRows[rowIndex];
+        row.Modified = row.Value != row.OriginalValue ||
+                       GetPropertyState(rowIndex) != row.InitialState;
+        LVITEM item;
+        ZeroMemory(&item, sizeof(item));
+        item.mask = LVIF_IMAGE;
+        item.iItem = rowIndex;
+        item.iSubItem = 0;
+        item.iImage = row.Modified && PropertyImages != NULL ? 0 : I_IMAGENONE;
+        ListView_SetItem(PropertiesList, &item);
+    }
 
     BOOL IsPropertyWritableForAll(REFPROPERTYKEY key) const
     {
@@ -179,6 +209,7 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
             item.iSubItem = 1;
             item.pszText = (wchar_t*)PropertyRows[EditingProperty].Value.c_str();
             SendMessageW(PropertiesList, LVM_SETITEMTEXTW, EditingProperty, (LPARAM)&item);
+            UpdatePropertyModifiedState(EditingProperty);
         }
         EditingProperty = -1;
         ShowWindow(PropertyEdit, SW_HIDE);
@@ -232,12 +263,15 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
             if (!hadValue && !MainWindow->ViewTemplates.IsExplorerColumnAvailable(i))
                 continue;
             BOOL writable = IsPropertyWritableForAll(*key);
-            CPropertyRow row = {i, current, hadValue, writable};
+            int initialState = writable && IsMultiple() ? BST_INDETERMINATE :
+                               writable && hadValue ? BST_CHECKED : BST_UNCHECKED;
+            CPropertyRow row = {i, current, current, hadValue, writable, initialState, FALSE};
             PropertyRows.push_back(row);
             LVITEM item;
             ZeroMemory(&item, sizeof(item));
-            item.mask = LVIF_TEXT | LVIF_PARAM;
+            item.mask = LVIF_TEXT | LVIF_PARAM | LVIF_IMAGE;
             item.iItem = (int)PropertyRows.size() - 1;
+            item.iImage = I_IMAGENONE;
             item.pszText = (char*)GetExplorerColumnName(i);
             item.lParam = item.iItem;
             int inserted = ListView_InsertItem(PropertiesList, &item);
@@ -246,9 +280,8 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
             valueItem.iSubItem = 1;
             valueItem.pszText = (wchar_t*)current.c_str();
             SendMessageW(PropertiesList, LVM_SETITEMTEXTW, inserted, (LPARAM)&valueItem);
-            ListView_SetCheckState(PropertiesList, inserted,
-                                   writable && (IsMultiple() || hadValue));
-            if (IsMultiple() && writable)
+            ListView_SetCheckState(PropertiesList, inserted, initialState == BST_CHECKED);
+            if (initialState == BST_INDETERMINATE)
                 ListView_SetItemState(PropertiesList, inserted, INDEXTOSTATEIMAGEMASK(3),
                                       LVIS_STATEIMAGEMASK);
         }
@@ -278,10 +311,13 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
             Tags.push_back(item);
             TagsList->AddItem((INT_PTR)item);
         }
+        InitialTagsState = IsMultiple() ? BST_INDETERMINATE :
+                           TagsHadValue ? BST_CHECKED : BST_UNCHECKED;
         SendMessage(GetDlgItem(HWindow, IDC_EDPROP_TAGS_ENABLE), BM_SETCHECK,
-                    IsMultiple() ? BST_INDETERMINATE : TagsHadValue ? BST_CHECKED : BST_UNCHECKED, 0);
+                    InitialTagsState, 0);
         if (!Tags.empty())
             TagsList->SetCurSel(0);
+        InitialTags = GetTags();
     }
 
     void ShowRecentTags(HWND edit, POINT point)
@@ -334,6 +370,7 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
         }
         int tagsState = IsDlgButtonChecked(HWindow, IDC_EDPROP_TAGS_ENABLE);
         std::vector<std::wstring> tags = GetTags();
+        BOOL tagsChanged = tagsState != InitialTagsState || tags != InitialTags;
         BOOL anyAttempted = FALSE;
         BOOL tagsSucceeded = FALSE;
         int updated = 0;
@@ -342,13 +379,14 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
         std::string firstFailedProperty;
         HRESULT firstFailure = S_OK;
         BOOL firstFailureUnsupported = FALSE;
+        std::vector<BYTE> propertyAttempted(PropertyRows.size(), FALSE);
+        std::vector<BYTE> propertyFailed(PropertyRows.size(), FALSE);
         HCURSOR oldCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
         for (size_t pathIndex = 0; pathIndex < Paths.size(); pathIndex++)
         {
             BOOL fileUpdated = FALSE;
             BOOL fileFailed = FALSE;
-            if (TagsWritable && tagsState != BST_INDETERMINATE &&
-                (tagsState == BST_CHECKED || IsMultiple() || TagsHadValue))
+            if (TagsWritable && tagsChanged && tagsState != BST_INDETERMINATE)
             {
                 anyAttempted = TRUE;
                 std::vector<std::wstring> values = tagsState == BST_CHECKED
@@ -378,17 +416,15 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
                 CPropertyRow& row = PropertyRows[rowIndex];
                 if (!row.Writable)
                     continue;
-                int state = ListView_GetItemState(PropertiesList, (int)rowIndex,
-                                                  LVIS_STATEIMAGEMASK) >> 12;
-                state = state == 3 ? BST_INDETERMINATE :
-                        state == 2 ? BST_CHECKED : BST_UNCHECKED;
-                if (state == BST_INDETERMINATE ||
-                    (state == BST_UNCHECKED && !IsMultiple() && !row.HadValue))
+                UpdatePropertyModifiedState((int)rowIndex);
+                int state = GetPropertyState((int)rowIndex);
+                if (state == BST_INDETERMINATE || !row.Modified)
                     continue;
                 const PROPERTYKEY* key = GetExplorerColumnPropertyKey(row.ExplorerIndex);
                 if (key == NULL)
                     continue;
                 anyAttempted = TRUE;
+                propertyAttempted[rowIndex] = TRUE;
                 HRESULT hr;
                 if (state == BST_CHECKED &&
                     GetExplorerColumnType(row.ExplorerIndex) == (VT_VECTOR | VT_LPWSTR))
@@ -405,6 +441,7 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
                 else
                 {
                     fileFailed = TRUE;
+                    propertyFailed[rowIndex] = TRUE;
                     if (firstFailedPath.empty())
                     {
                         firstFailedPath = Paths[pathIndex];
@@ -422,8 +459,22 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
         }
         SetCursor(oldCursor);
 
+        for (size_t rowIndex = 0; rowIndex < PropertyRows.size(); rowIndex++)
+        {
+            if (propertyAttempted[rowIndex] && !propertyFailed[rowIndex])
+            {
+                CPropertyRow& row = PropertyRows[rowIndex];
+                row.OriginalValue = row.Value;
+                row.InitialState = GetPropertyState((int)rowIndex);
+                row.HadValue = row.InitialState == BST_CHECKED && !row.Value.empty();
+                UpdatePropertyModifiedState((int)rowIndex);
+            }
+        }
+
         if (tagsSucceeded)
         {
+            InitialTags = tags;
+            InitialTagsState = tagsState;
             for (size_t i = tags.size(); i > 0; i--)
             {
                 std::string tag = SalWideToMultiBytePath(tags[i - 1].c_str(), CP_UTF8);
@@ -482,10 +533,12 @@ public:
         TagsList = NULL;
         PropertiesList = NULL;
         PropertyEdit = NULL;
+        PropertyImages = NULL;
         EditingProperty = -1;
         FillingProperties = FALSE;
         TagsHadValue = FALSE;
         TagsWritable = FALSE;
+        InitialTagsState = BST_UNCHECKED;
     }
 
     ~CEditWindowsPropertiesDialog() { ClearTags(); }
@@ -513,6 +566,24 @@ protected:
                 PropertiesList, ListView_GetExtendedListViewStyle(PropertiesList) |
                                     LVS_EX_FULLROWSELECT | LVS_EX_CHECKBOXES | LVS_EX_DOUBLEBUFFER);
             ListView_SetUnicodeFormat(PropertiesList, TRUE);
+            int propertyIconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
+            PropertyImages = ImageList_Create(propertyIconSize, propertyIconSize,
+                                              ILC_COLOR32, 1, 1);
+            if (PropertyImages != NULL)
+            {
+                HBITMAP editBitmap = NULL;
+                if (RenderSVGIconBitmap("Modify", propertyIconSize, TRUE, &editBitmap))
+                {
+                    ImageList_Add(PropertyImages, editBitmap, NULL);
+                    DeleteObject(editBitmap);
+                    ListView_SetImageList(PropertiesList, PropertyImages, LVSIL_SMALL);
+                }
+                else
+                {
+                    ImageList_Destroy(PropertyImages);
+                    PropertyImages = NULL;
+                }
+            }
             LVCOLUMN propertyColumn;
             ZeroMemory(&propertyColumn, sizeof(propertyColumn));
             propertyColumn.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
@@ -654,6 +725,13 @@ protected:
                         return TRUE;
                     }
                 }
+                if (header->code == LVN_ITEMCHANGED && !FillingProperties)
+                {
+                    NMLISTVIEW* change = (NMLISTVIEW*)lParam;
+                    if ((change->uOldState & LVIS_STATEIMAGEMASK) !=
+                        (change->uNewState & LVIS_STATEIMAGEMASK))
+                        UpdatePropertyModifiedState(change->iItem);
+                }
             }
             if (header->idFrom == IDC_EDPROP_TAGS_LIST && TagsList != NULL)
             {
@@ -773,9 +851,14 @@ protected:
         case WM_DESTROY:
             if (PropertyEdit != NULL)
                 RemoveWindowSubclass(PropertyEdit, PropertyEditSubclass, 1);
+            if (PropertiesList != NULL)
+                ListView_SetImageList(PropertiesList, NULL, LVSIL_SMALL);
+            if (PropertyImages != NULL)
+                ImageList_Destroy(PropertyImages);
             TagsList = NULL;
             PropertiesList = NULL;
             PropertyEdit = NULL;
+            PropertyImages = NULL;
             break;
         }
         return CCommonDialog::DialogProc(uMsg, wParam, lParam);
