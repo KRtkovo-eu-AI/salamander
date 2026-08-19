@@ -220,7 +220,7 @@ def main() -> int:
     lang_rc = (ROOT / "lang" / "lang.rc").read_text(encoding="utf-8")
     lang_texts = (ROOT / "lang" / "texts.rc2").read_text(encoding="utf-8")
     require(
-        "IDD_EXPLORER_COLUMNS DIALOGEX 0, 0, 460, 320" in lang_rc,
+        "IDD_EXPLORER_COLUMNS DIALOGEX 0, 0, 420, 320" in lang_rc,
         "the Windows property chooser must keep compact Configuration-like proportions",
     )
     require(
@@ -237,10 +237,10 @@ def main() -> int:
         and "2 * rightHeight / 3" in dialog
         and "IDC_EXCOL_CATEGORIES,\"SysTreeView32\"" in lang_rc
         and ",4,27,105,271" in lang_rc
-        and "IDC_EXCOL_SELECTED_GROUP,282,23,174,180" in lang_rc
+        and "IDC_EXCOL_SELECTED_GROUP,262,23,154,180" in lang_rc
         and "IDC_EXCOL_SELECTED_LIST,\"SysListView32\"" in lang_rc
-        and ",290,37,158,135" in lang_rc
-        and "IDC_EXCOL_DETAILS_GROUP,282,207,174,91" in lang_rc,
+        and ",270,37,138,135" in lang_rc
+        and "IDC_EXCOL_DETAILS_GROUP,262,207,154,91" in lang_rc,
         "the chooser must add space below Search and reserve two thirds of the right side for selected properties",
     )
     require(
@@ -255,7 +255,7 @@ def main() -> int:
         "wParam == IDC_EXCOL_DETAILS" in dialog
         and "const int lineGap = ExplorerColumnsDialogY(HWindow, 2);" in dialog
         and "DT_WORDBREAK | DT_NOPREFIX | DT_CALCRECT" in dialog
-        and "IDC_EXCOL_DETAILS,290,221,158,69,SS_LEFT | SS_NOPREFIX | SS_OWNERDRAW" in lang_rc,
+        and "IDC_EXCOL_DETAILS,270,221,138,69,SS_LEFT | SS_NOPREFIX | SS_OWNERDRAW" in lang_rc,
         "Property information must preserve wrapping and add exactly 2 DLU between rows",
     )
     require(
@@ -269,6 +269,20 @@ def main() -> int:
         and "SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE" in dialog
         and "LayoutControls();" in dialog,
         "the resizable Windows property chooser must convert dialog units to pixels and align Cancel with Property Information",
+    )
+    require(
+        "BeginDeferWindowPos(14)" in dialog
+        and "SWP_NOZORDER | SWP_NOREDRAW" in dialog
+        and "RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW" in dialog,
+        "the chooser resize must reposition children atomically and repaint the complete dialog",
+    )
+    require(
+        "IDD_EXPLORER_COLUMNS DIALOGEX 0, 0, 420, 320" in lang_rc
+        and 'CONTROL         "Move up",IDC_EXCOL_MOVE_UP,"Button",BS_ICON | WS_TABSTOP,324,178,14,14' in lang_rc
+        and 'CONTROL         "Move down",IDC_EXCOL_MOVE_DOWN,"Button",BS_ICON | WS_TABSTOP,344,178,14,14' in lang_rc
+        and 'const char* iconNames[] = {"MoveItemUp", "MoveItemDown"};' in dialog
+        and "const int moveButtonSize = ExplorerColumnsDialogY(HWindow, 14);" in dialog,
+        "the chooser must be narrower and use square SVG Move up/down buttons",
     )
     main_window_config = (ROOT / "mainwnd2.cpp").read_text(encoding="utf-8")
     require(

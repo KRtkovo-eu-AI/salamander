@@ -2127,6 +2127,58 @@ static int ExplorerColumnsDialogY(HWND dialog, int dialogUnits)
     return rect.bottom;
 }
 
+static HICON CreateExplorerColumnsSVGIcon(const char* svgName, int iconSize)
+{
+    HBITMAP colorBitmap = NULL;
+    if (!RenderSVGIconBitmap(svgName, iconSize, TRUE, &colorBitmap))
+        return NULL;
+
+    const int maskStride = ((iconSize + 15) / 16) * 2;
+    BYTE* maskBits = (BYTE*)calloc(maskStride, iconSize);
+    if (maskBits == NULL)
+    {
+        HANDLES(DeleteObject(colorBitmap));
+        return NULL;
+    }
+    HBITMAP maskBitmap = HANDLES(CreateBitmap(iconSize, iconSize, 1, 1, maskBits));
+    free(maskBits);
+    if (maskBitmap == NULL)
+    {
+        HANDLES(DeleteObject(colorBitmap));
+        return NULL;
+    }
+
+    ICONINFO iconInfo;
+    ZeroMemory(&iconInfo, sizeof(iconInfo));
+    iconInfo.fIcon = TRUE;
+    iconInfo.hbmMask = maskBitmap;
+    iconInfo.hbmColor = colorBitmap;
+    HICON icon = HANDLES(CreateIconIndirect(&iconInfo));
+    HANDLES(DeleteObject(maskBitmap));
+    HANDLES(DeleteObject(colorBitmap));
+    return icon;
+}
+
+void CExplorerColumnsDialog::UpdateMoveButtonIcons()
+{
+    const int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
+    const int buttonIDs[] = {IDC_EXCOL_MOVE_UP, IDC_EXCOL_MOVE_DOWN};
+    const char* iconNames[] = {"MoveItemUp", "MoveItemDown"};
+    for (int i = 0; i < _countof(buttonIDs); i++)
+    {
+        HWND button = GetDlgItem(HWindow, buttonIDs[i]);
+        HICON icon = CreateExplorerColumnsSVGIcon(iconNames[i], iconSize);
+        if (button != NULL && icon != NULL)
+        {
+            HICON oldIcon = (HICON)SendMessage(button, BM_SETIMAGE, IMAGE_ICON, (LPARAM)icon);
+            if (oldIcon != NULL)
+                HANDLES(DestroyIcon(oldIcon));
+        }
+        else if (icon != NULL)
+            HANDLES(DestroyIcon(icon));
+    }
+}
+
 void CExplorerColumnsDialog::LayoutControls()
 {
     // WM_SIZE can arrive while the dialog template is still being created.
@@ -2142,7 +2194,7 @@ void CExplorerColumnsDialog::LayoutControls()
     const int contentTop = ExplorerColumnsDialogY(HWindow, 27);
     const int contentBottom = buttonsY - ExplorerColumnsDialogY(HWindow, 4);
     const int treeWidth = ExplorerColumnsDialogX(HWindow, 105);
-    const int detailsWidth = max(ExplorerColumnsDialogX(HWindow, 174),
+    const int detailsWidth = max(ExplorerColumnsDialogX(HWindow, 154),
                                  (client.right - 3 * margin) / 3);
     const int gap = ExplorerColumnsDialogX(HWindow, 4);
     int listLeft = margin + treeWidth + gap;
@@ -2151,46 +2203,50 @@ void CExplorerColumnsDialog::LayoutControls()
     int listWidth = detailsLeft - gap - listLeft;
     if (listWidth < ExplorerColumnsDialogX(HWindow, 100))
         listWidth = ExplorerColumnsDialogX(HWindow, 100);
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_SEARCH_LABEL), margin,
+    HDWP hdwp = HANDLES(BeginDeferWindowPos(14));
+#define EXCOL_DEFER(id, x, y, width, height)                                      \
+    hdwp = HANDLES(DeferWindowPos(hdwp, GetDlgItem(HWindow, id), NULL,             \
+                                  x, y, width, height, SWP_NOZORDER | SWP_NOREDRAW))
+    EXCOL_DEFER(IDC_EXCOL_SEARCH_LABEL, margin,
                ExplorerColumnsDialogY(HWindow, 6), ExplorerColumnsDialogX(HWindow, 70),
-               ExplorerColumnsDialogY(HWindow, 8), TRUE);
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_SEARCH),
+               ExplorerColumnsDialogY(HWindow, 8));
+    EXCOL_DEFER(IDC_EXCOL_SEARCH,
                ExplorerColumnsDialogX(HWindow, 78), ExplorerColumnsDialogY(HWindow, 4),
                client.right - ExplorerColumnsDialogX(HWindow, 82),
-               ExplorerColumnsDialogY(HWindow, 14), TRUE);
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_CATEGORIES), margin, contentTop, treeWidth,
-               contentBottom - contentTop, TRUE);
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES), listLeft, contentTop, listWidth,
-               contentBottom - contentTop, TRUE);
+               ExplorerColumnsDialogY(HWindow, 14));
+    EXCOL_DEFER(IDC_EXCOL_CATEGORIES, margin, contentTop, treeWidth,
+               contentBottom - contentTop);
+    EXCOL_DEFER(IDC_EXCOL_PROPERTIES, listLeft, contentTop, listWidth,
+               contentBottom - contentTop);
     int rightHeight = contentBottom - contentTop;
     int selectedHeight = max(ExplorerColumnsDialogY(HWindow, 105), 2 * rightHeight / 3);
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_GROUP), detailsLeft,
+    EXCOL_DEFER(IDC_EXCOL_SELECTED_GROUP, detailsLeft,
                contentTop - ExplorerColumnsDialogY(HWindow, 4),
-               detailsWidth, selectedHeight, TRUE);
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST),
+               detailsWidth, selectedHeight);
+    EXCOL_DEFER(IDC_EXCOL_SELECTED_LIST,
                detailsLeft + ExplorerColumnsDialogX(HWindow, 8),
                contentTop + ExplorerColumnsDialogY(HWindow, 10),
                detailsWidth - ExplorerColumnsDialogX(HWindow, 16),
-               selectedHeight - ExplorerColumnsDialogY(HWindow, 45), TRUE);
+               selectedHeight - ExplorerColumnsDialogY(HWindow, 45));
     int buttonTop = contentTop + selectedHeight - ExplorerColumnsDialogY(HWindow, 29);
-    int buttonWidth = (detailsWidth - ExplorerColumnsDialogX(HWindow, 26)) / 3;
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_REMOVE),
+    const int moveButtonSize = ExplorerColumnsDialogY(HWindow, 14);
+    EXCOL_DEFER(IDC_EXCOL_REMOVE,
                detailsLeft + ExplorerColumnsDialogX(HWindow, 8), buttonTop,
-               buttonWidth, ExplorerColumnsDialogY(HWindow, 14), TRUE);
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_MOVE_UP),
-               detailsLeft + ExplorerColumnsDialogX(HWindow, 13) + buttonWidth, buttonTop,
-               buttonWidth, ExplorerColumnsDialogY(HWindow, 14), TRUE);
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_MOVE_DOWN),
-               detailsLeft + ExplorerColumnsDialogX(HWindow, 18) + 2 * buttonWidth, buttonTop,
-               buttonWidth, ExplorerColumnsDialogY(HWindow, 14), TRUE);
+               ExplorerColumnsDialogX(HWindow, 48), ExplorerColumnsDialogY(HWindow, 14));
+    EXCOL_DEFER(IDC_EXCOL_MOVE_UP,
+               detailsLeft + ExplorerColumnsDialogX(HWindow, 62), buttonTop,
+               moveButtonSize, moveButtonSize);
+    EXCOL_DEFER(IDC_EXCOL_MOVE_DOWN,
+               detailsLeft + ExplorerColumnsDialogX(HWindow, 82), buttonTop,
+               moveButtonSize, moveButtonSize);
     int detailsTop = contentTop + selectedHeight;
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_DETAILS_GROUP), detailsLeft, detailsTop,
-               detailsWidth, contentBottom - detailsTop, TRUE);
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_DETAILS),
+    EXCOL_DEFER(IDC_EXCOL_DETAILS_GROUP, detailsLeft, detailsTop,
+               detailsWidth, contentBottom - detailsTop);
+    EXCOL_DEFER(IDC_EXCOL_DETAILS,
                detailsLeft + ExplorerColumnsDialogX(HWindow, 8),
                detailsTop + ExplorerColumnsDialogY(HWindow, 14),
                detailsWidth - ExplorerColumnsDialogX(HWindow, 16),
-               contentBottom - detailsTop - ExplorerColumnsDialogY(HWindow, 22), TRUE);
+               contentBottom - detailsTop - ExplorerColumnsDialogY(HWindow, 22));
     ListView_SetColumnWidth(GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES), 0,
                             max(ExplorerColumnsDialogX(HWindow, 40),
                                 listWidth - GetSystemMetrics(SM_CXVSCROLL) -
@@ -2200,15 +2256,20 @@ void CExplorerColumnsDialog::LayoutControls()
                                 detailsWidth - ExplorerColumnsDialogX(HWindow, 16) -
                                     GetSystemMetrics(SM_CXVSCROLL) -
                                     ExplorerColumnsDialogX(HWindow, 4)));
-    MoveWindow(GetDlgItem(HWindow, IDC_EXCOL_SELECTED_COUNT), margin,
+    EXCOL_DEFER(IDC_EXCOL_SELECTED_COUNT, margin,
                buttonsY + ExplorerColumnsDialogY(HWindow, 2),
-               ExplorerColumnsDialogX(HWindow, 220), ExplorerColumnsDialogY(HWindow, 12), TRUE);
-    MoveWindow(GetDlgItem(HWindow, IDOK),
+               ExplorerColumnsDialogX(HWindow, 220), ExplorerColumnsDialogY(HWindow, 12));
+    EXCOL_DEFER(IDOK,
                detailsRight - ExplorerColumnsDialogX(HWindow, 107), buttonsY,
-               ExplorerColumnsDialogX(HWindow, 50), ExplorerColumnsDialogY(HWindow, 14), TRUE);
-    MoveWindow(GetDlgItem(HWindow, IDCANCEL),
+               ExplorerColumnsDialogX(HWindow, 50), ExplorerColumnsDialogY(HWindow, 14));
+    EXCOL_DEFER(IDCANCEL,
                detailsRight - ExplorerColumnsDialogX(HWindow, 50), buttonsY,
-               ExplorerColumnsDialogX(HWindow, 50), ExplorerColumnsDialogY(HWindow, 14), TRUE);
+               ExplorerColumnsDialogX(HWindow, 50), ExplorerColumnsDialogY(HWindow, 14));
+#undef EXCOL_DEFER
+    if (hdwp != NULL)
+        HANDLES(EndDeferWindowPos(hdwp));
+    RedrawWindow(HWindow, NULL, NULL,
+                 RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
 }
 
 INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -2229,6 +2290,7 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
         SetDlgItemText(HWindow, IDC_EXCOL_REMOVE, LoadStr(IDS_EXCOL_REMOVE));
         SetDlgItemText(HWindow, IDC_EXCOL_MOVE_UP, LoadStr(IDS_EXCOL_MOVE_UP));
         SetDlgItemText(HWindow, IDC_EXCOL_MOVE_DOWN, LoadStr(IDS_EXCOL_MOVE_DOWN));
+        UpdateMoveButtonIcons();
         HWND list = GetDlgItem(HWindow, IDC_EXCOL_PROPERTIES);
         ListView_SetExtendedListViewStyle(list, LVS_EX_FULLROWSELECT | LVS_EX_CHECKBOXES | LVS_EX_DOUBLEBUFFER);
         ListView_EnableGroupView(list, TRUE);
@@ -2519,6 +2581,7 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
     }
 
     case WM_THEMECHANGED:
+        UpdateMoveButtonIcons();
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
         {
             DarkModeApplyTree(HWindow);
@@ -2549,6 +2612,14 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
 
     case WM_DESTROY:
     {
+        const int moveButtonIDs[] = {IDC_EXCOL_MOVE_UP, IDC_EXCOL_MOVE_DOWN};
+        for (int i = 0; i < _countof(moveButtonIDs); i++)
+        {
+            HICON icon = (HICON)SendDlgItemMessage(HWindow, moveButtonIDs[i], BM_SETIMAGE,
+                                                   IMAGE_ICON, 0);
+            if (icon != NULL)
+                HANDLES(DestroyIcon(icon));
+        }
         WINDOWPLACEMENT placement;
         ZeroMemory(&placement, sizeof(placement));
         placement.length = sizeof(placement);
