@@ -1665,6 +1665,13 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 
             if (PluginData.NotEmpty())
             {
+                const char* dllName = PluginData.GetDLLName();
+                CPluginData* plugin = dllName != NULL ? Plugins.GetPluginData(dllName) : NULL;
+                const char* ownerKey = plugin != NULL && plugin->RegKeyName != NULL && plugin->RegKeyName[0] != 0
+                                           ? plugin->RegKeyName
+                                           : (dllName != NULL ? dllName : NULL);
+                if (ownerKey != NULL)
+                    MainWindow->ViewTemplates.ResetPluginColumnsForOwner(ownerKey);
                 CSalamanderView view(this);
                 PluginData.SetupView(IsLeftPanel(), &view, GetZIPPath(),
                                      GetArchiveDir()->GetUpperDir(GetZIPPath()));
@@ -1931,6 +1938,13 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 
                 if (PluginData.NotEmpty())
                 {
+                    const char* dllName = PluginData.GetDLLName();
+                    CPluginData* plugin = dllName != NULL ? Plugins.GetPluginData(dllName) : NULL;
+                    const char* ownerKey = plugin != NULL && plugin->RegKeyName != NULL && plugin->RegKeyName[0] != 0
+                                               ? plugin->RegKeyName
+                                               : (dllName != NULL ? dllName : NULL);
+                    if (ownerKey != NULL)
+                        MainWindow->ViewTemplates.ResetPluginColumnsForOwner(ownerKey);
                     CSalamanderView view(this);
                     PluginData.SetupView(IsLeftPanel(), &view, NULL, NULL);
                     view.FinalizePluginColumns();

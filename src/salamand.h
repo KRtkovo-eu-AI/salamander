@@ -513,6 +513,7 @@ public:
                              const char* stableId, const char* name,
                              const char* description);
     int FindPluginColumn(const char* ownerKey, const char* stableId) const;
+    void ResetPluginColumnsForOwner(const char* ownerKey);
 
     BOOL Save(HKEY hKey); // saves the entire array
     BOOL Load(HKEY hKey); // loads the entire array

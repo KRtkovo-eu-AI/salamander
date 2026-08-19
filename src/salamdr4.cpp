@@ -1204,6 +1204,15 @@ int CViewTemplates::FindPluginColumn(const char* ownerKey, const char* stableId)
     return -1;
 }
 
+void CViewTemplates::ResetPluginColumnsForOwner(const char* ownerKey)
+{
+    if (ownerKey == NULL)
+        return;
+    for (int i = 0; i < PluginColumnCount; i++)
+        if (_stricmp(PluginColumns[i].OwnerKey, ownerKey) == 0)
+            PluginColumns[i].RuntimeAvailable = FALSE;
+}
+
 int CViewTemplates::RegisterPluginColumn(const char* ownerKey, const char* ownerName,
                                          const char* stableId, const char* name,
                                          const char* description)

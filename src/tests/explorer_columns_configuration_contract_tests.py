@@ -411,7 +411,6 @@ def main() -> int:
         and "LoadStr(IDS_EXCOL_PLUGINS)" in dialog
         and "for (int pluginIndex = 0; pluginIndex < Plugins.GetCount(); pluginIndex++)" in dialog
         and "ListView_InsertGroup(list, -1, &group);" in dialog
-        and "definition->RuntimeAvailable" in dialog
         and '"extension:", 10' in dialog
         and "firstDefinition->OwnerName" in dialog
         and "BYTE PluginAvailable[PLUGIN_COLUMNS_COUNT]" in (ROOT / "cfgdlg.h").read_text(encoding="utf-8"),
@@ -436,7 +435,7 @@ def main() -> int:
     )
     require(
         "LoadStr(IDS_EXCOL_VIEW_TITLE)" in dialog
-        and 'IDS_EXCOL_VIEW_TITLE, "%s - Choose Windows Properties"' in lang_texts,
+        and 'IDS_EXCOL_VIEW_TITLE, "%s - Choose Custom Properties"' in lang_texts,
         "the chooser title must identify the view being edited",
     )
     require(

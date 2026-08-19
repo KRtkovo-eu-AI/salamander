@@ -1819,8 +1819,7 @@ CExplorerColumnsDialog::CExplorerColumnsDialog(HWND parent, CViewTemplates* conf
             BOOL availableProperty = propertyToken >= 0 &&
                                      ((propertyToken < EXPLORER_COLUMNS_COUNT && Available[propertyToken]) ||
                                       (IsPluginPropertyToken(propertyToken) &&
-                                       PluginAvailable[propertyToken - EXPLORER_COLUMNS_COUNT] &&
-                                       config->PluginColumns[propertyToken - EXPLORER_COLUMNS_COUNT].RuntimeAvailable));
+                                       PluginAvailable[propertyToken - EXPLORER_COLUMNS_COUNT]));
             if (availableProperty && !used[propertyToken])
             {
                 used[propertyToken] = TRUE;
@@ -1833,8 +1832,7 @@ CExplorerColumnsDialog::CExplorerColumnsDialog(HWND parent, CViewTemplates* conf
         if (Available[i] && !used[i])
             SelectedOrder[SelectedCount++] = (WORD)i;
     for (int i = 0; i < config->PluginColumnCount; i++)
-        if (config->PluginColumns[i].RuntimeAvailable && PluginAvailable[i] &&
-            !used[EXPLORER_COLUMNS_COUNT + i])
+        if (PluginAvailable[i] && !used[EXPLORER_COLUMNS_COUNT + i])
             SelectedOrder[SelectedCount++] = (WORD)(EXPLORER_COLUMNS_COUNT + i);
     DisableNotification = FALSE;
     Category = 0;
@@ -1844,7 +1842,111 @@ CExplorerColumnsDialog::CExplorerColumnsDialog(HWND parent, CViewTemplates* conf
     HCategoryImages = NULL;
     HPropertySpacingImages = NULL;
     HSelectedSpacingImages = NULL;
+    HSelectedImages = NULL;
+    for (int i = 0; i < PLUGIN_COLUMNS_COUNT; i++)
+        PluginColumnImageIndices[i] = -2;
     HFavoriteToolTip = NULL;
+}
+
+int CExplorerColumnsDialog::GetPluginColumnImageIndex(int pluginColumnIndex)
+{
+    if (pluginColumnIndex < 0 || pluginColumnIndex >= Config->PluginColumnCount ||
+        HSelectedImages == NULL)
+        return I_IMAGENONE;
+    if (PluginColumnImageIndices[pluginColumnIndex] != -2)
+        return PluginColumnImageIndices[pluginColumnIndex];
+
+    CPluginColumnDefinition* definition = &Config->PluginColumns[pluginColumnIndex];
+    for (int previous = 0; previous < pluginColumnIndex; previous++)
+        if (_stricmp(Config->PluginColumns[previous].OwnerKey, definition->OwnerKey) == 0 &&
+            PluginColumnImageIndices[previous] != -2)
+        {
+            PluginColumnImageIndices[pluginColumnIndex] = PluginColumnImageIndices[previous];
+            return PluginColumnImageIndices[pluginColumnIndex];
+        }
+
+    int iconWidth = 0;
+    int iconHeight = 0;
+    if (!ImageList_GetIconSize(HSelectedImages, &iconWidth, &iconHeight) ||
+        iconWidth <= 0 || iconWidth != iconHeight)
+    {
+        PluginColumnImageIndices[pluginColumnIndex] = I_IMAGENONE;
+        return I_IMAGENONE;
+    }
+
+    int imageIndex = -1;
+    if (_strnicmp(definition->OwnerKey, "extension:", 10) == 0)
+    {
+        Salamatrix::Extensions::IExtensionsService* service = QueryExtensionService();
+        if (service != NULL)
+        {
+            const char* extensionId = definition->OwnerKey + 10;
+            for (int index = 0; index < service->GetExtensionCount(); index++)
+            {
+                Salamatrix::Extensions::ExtensionInfo info;
+                if (!service->GetExtensionInfo(index, &info) ||
+                    _stricmp(info.Descriptor.Id, extensionId) != 0)
+                    continue;
+                const char* lightPath = info.Descriptor.IconPath;
+                const char* preferredPath = DarkModeIsWindowsDarkSchemeSelected() &&
+                                                    info.Descriptor.IconDarkPath[0] != 0
+                                                ? info.Descriptor.IconDarkPath
+                                                : lightPath;
+                HBITMAP bitmap = NULL;
+                BOOL rendered = lightPath[0] != 0 &&
+                                RenderSVGIconBitmapFromFile(preferredPath, iconWidth, TRUE, &bitmap);
+                if (!rendered && preferredPath != lightPath)
+                {
+                    if (bitmap != NULL)
+                        HANDLES(DeleteObject(bitmap));
+                    bitmap = NULL;
+                    rendered = RenderSVGIconBitmapFromFile(lightPath, iconWidth, TRUE, &bitmap);
+                }
+                if (rendered && bitmap != NULL)
+                    imageIndex = ImageList_Add(HSelectedImages, bitmap, NULL);
+                if (bitmap != NULL)
+                    HANDLES(DeleteObject(bitmap));
+                break;
+            }
+        }
+    }
+    else
+    {
+        for (int index = 0; index < Plugins.GetCount(); index++)
+        {
+            CPluginData* plugin = Plugins.Get(index);
+            if (plugin == NULL ||
+                !((plugin->RegKeyName != NULL &&
+                   _stricmp(plugin->RegKeyName, definition->OwnerKey) == 0) ||
+                  (plugin->DLLName != NULL &&
+                   _stricmp(plugin->DLLName, definition->OwnerKey) == 0)))
+                continue;
+            if (plugin->PluginIcons != NULL && plugin->PluginIconIndex >= 0)
+            {
+                CIconList* iconList = plugin->PluginIcons;
+                if (DarkModeIsWindowsDarkSchemeSelected() && plugin->PluginIconsGray != NULL)
+                    iconList = plugin->PluginIconsGray;
+                HICON icon = iconList->GetIcon(plugin->PluginIconIndex, TRUE);
+                if (icon != NULL)
+                {
+                    imageIndex = ImageList_AddIcon(HSelectedImages, icon);
+                    HANDLES(DestroyIcon(icon));
+                }
+            }
+            break;
+        }
+    }
+    if (imageIndex < 0)
+    {
+        HICON icon = SalLoadIcon(HInstance, IDI_PLUGIN, iconWidth);
+        if (icon != NULL)
+        {
+            imageIndex = ImageList_AddIcon(HSelectedImages, icon);
+            HANDLES(DestroyIcon(icon));
+        }
+    }
+    PluginColumnImageIndices[pluginColumnIndex] = imageIndex >= 0 ? imageIndex : I_IMAGENONE;
+    return PluginColumnImageIndices[pluginColumnIndex];
 }
 
 void CExplorerColumnsDialog::FillCategories()
@@ -1988,7 +2090,7 @@ void CExplorerColumnsDialog::FillProperties()
             {
                 CPluginColumnDefinition* definition = &Config->PluginColumns[columnIndex];
                 if (_stricmp(definition->OwnerKey, ownerKey) == 0 &&
-                    definition->RuntimeAvailable && PluginColumnMatchesSearch(HWindow, definition))
+                    PluginColumnMatchesSearch(HWindow, definition))
                     hasMatchingColumn = TRUE;
             }
             if (!groupMatchesSearch && !hasMatchingColumn)
@@ -2010,7 +2112,6 @@ void CExplorerColumnsDialog::FillProperties()
             {
                 CPluginColumnDefinition* definition = &Config->PluginColumns[columnIndex];
                 if (_stricmp(definition->OwnerKey, ownerKey) != 0 ||
-                    !definition->RuntimeAvailable ||
                     (!groupMatchesSearch && !PluginColumnMatchesSearch(HWindow, definition)))
                     continue;
                 int propertyToken = EXPLORER_COLUMNS_COUNT + columnIndex;
@@ -2060,7 +2161,6 @@ void CExplorerColumnsDialog::FillProperties()
             for (int columnIndex = firstColumn; columnIndex < Config->PluginColumnCount; columnIndex++)
                 if (_stricmp(Config->PluginColumns[columnIndex].OwnerKey,
                              firstDefinition->OwnerKey) == 0 &&
-                    Config->PluginColumns[columnIndex].RuntimeAvailable &&
                     PluginColumnMatchesSearch(HWindow, &Config->PluginColumns[columnIndex]))
                     hasMatchingColumn = TRUE;
             if (!groupMatchesSearch && !hasMatchingColumn)
@@ -2081,7 +2181,6 @@ void CExplorerColumnsDialog::FillProperties()
             {
                 CPluginColumnDefinition* definition = &Config->PluginColumns[columnIndex];
                 if (_stricmp(definition->OwnerKey, firstDefinition->OwnerKey) != 0 ||
-                    !definition->RuntimeAvailable ||
                     (!groupMatchesSearch && !PluginColumnMatchesSearch(HWindow, definition)))
                     continue;
                 int propertyToken = EXPLORER_COLUMNS_COUNT + columnIndex;
@@ -2211,7 +2310,12 @@ void CExplorerColumnsDialog::FillSelected(int explorerIndex)
         item.mask = LVIF_TEXT | LVIF_PARAM | LVIF_IMAGE;
         item.iItem = ListView_GetItemCount(list);
         item.iSubItem = 0;
-        item.iImage = I_IMAGENONE;
+        if (IsPluginPropertyToken(index))
+            item.iImage = GetPluginColumnImageIndex(index - EXPLORER_COLUMNS_COUNT);
+        else if (index >= 0 && index < EXPLORER_COLUMNS_COUNT)
+            item.iImage = 0;
+        else
+            item.iImage = I_IMAGENONE;
         item.pszText = (char*)GetPropertyTokenName(Config, index);
         item.lParam = index;
         int inserted = ListView_InsertItem(list, &item);
@@ -2244,8 +2348,7 @@ void CExplorerColumnsDialog::NormalizeSelectedOrder()
         BOOL available = index >= 0 &&
                          ((index < explorerCount && Available[index]) ||
                           (IsPluginPropertyToken(index) &&
-                           PluginAvailable[index - EXPLORER_COLUMNS_COUNT] &&
-                           Config->PluginColumns[index - EXPLORER_COLUMNS_COUNT].RuntimeAvailable));
+                           PluginAvailable[index - EXPLORER_COLUMNS_COUNT]));
         if (available && !used[index])
         {
             normalized[count++] = (WORD)index;
@@ -2266,8 +2369,7 @@ void CExplorerColumnsDialog::NormalizeSelectedOrder()
             BOOL available = index >= 0 &&
                              ((index < explorerCount && Available[index]) ||
                               (IsPluginPropertyToken(index) &&
-                               PluginAvailable[index - EXPLORER_COLUMNS_COUNT] &&
-                               Config->PluginColumns[index - EXPLORER_COLUMNS_COUNT].RuntimeAvailable));
+                               PluginAvailable[index - EXPLORER_COLUMNS_COUNT]));
             if (available && !used[index])
             {
                 normalized[count++] = (WORD)index;
@@ -2283,7 +2385,7 @@ void CExplorerColumnsDialog::NormalizeSelectedOrder()
     for (int index = 0; index < Config->PluginColumnCount; index++)
     {
         int token = EXPLORER_COLUMNS_COUNT + index;
-        if (Config->PluginColumns[index].RuntimeAvailable && PluginAvailable[index] && !used[token])
+        if (PluginAvailable[index] && !used[token])
             normalized[count++] = (WORD)token;
     }
 
@@ -2388,7 +2490,7 @@ void CExplorerColumnsDialog::UpdateSelectedCount()
         if (Available[i])
             selected++;
     for (int i = 0; i < Config->PluginColumnCount; i++)
-        if (Config->PluginColumns[i].RuntimeAvailable && PluginAvailable[i])
+        if (PluginAvailable[i])
             selected++;
     char text[100];
     char selectedText[32];
@@ -2708,9 +2810,22 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
         int rowHeight = MulDiv(18, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI);
         HPropertySpacingImages = ImageList_Create(1, rowHeight, ILC_COLOR32, 1, 1);
         HSelectedSpacingImages = ImageList_Create(1, rowHeight, ILC_COLOR32, 1, 1);
+        int iconSize = MulDiv(16, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI);
+        HSelectedImages = ImageList_Create(iconSize, iconSize, ILC_COLOR32 | ILC_MASK, 8, 1);
+        if (HSelectedImages != NULL)
+        {
+            HBITMAP hBitmap = NULL;
+            if (RenderSVGIconBitmap("Windows", iconSize, TRUE, &hBitmap))
+            {
+                ImageList_Add(HSelectedImages, hBitmap, NULL);
+                DeleteObject(hBitmap);
+            }
+        }
         if (HPropertySpacingImages != NULL)
             ListView_SetImageList(list, HPropertySpacingImages, LVSIL_SMALL);
-        if (HSelectedSpacingImages != NULL)
+        if (HSelectedImages != NULL)
+            ListView_SetImageList(selectedList, HSelectedImages, LVSIL_SMALL);
+        else if (HSelectedSpacingImages != NULL)
             ListView_SetImageList(selectedList, HSelectedSpacingImages, LVSIL_SMALL);
         RECT windowRect;
         GetWindowRect(HWindow, &windowRect);
@@ -3067,9 +3182,12 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
             ImageList_Destroy(HPropertySpacingImages);
         if (HSelectedSpacingImages != NULL)
             ImageList_Destroy(HSelectedSpacingImages);
+        if (HSelectedImages != NULL)
+            ImageList_Destroy(HSelectedImages);
         HCategoryImages = NULL;
         HPropertySpacingImages = NULL;
         HSelectedSpacingImages = NULL;
+        HSelectedImages = NULL;
         if (HFavoriteToolTip != NULL)
             DestroyWindow(HFavoriteToolTip);
         HFavoriteToolTip = NULL;
@@ -3625,7 +3743,6 @@ void CCfgPageView::LoadControls()
             {
                 int pluginIndex = token - STANDARD_COLUMNS_COUNT - EXPLORER_COLUMNS_COUNT;
                 if (pluginIndex >= Config.PluginColumnCount ||
-                    !Config.PluginColumns[pluginIndex].RuntimeAvailable ||
                     !view->PluginColumnAvailable[pluginIndex])
                     continue;
                 columnIndex = -(EXPLORER_COLUMNS_COUNT + pluginIndex + 1);

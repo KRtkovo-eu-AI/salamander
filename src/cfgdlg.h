@@ -501,8 +501,8 @@ struct CConfiguration
     DWORD ConfigurationViewsRightWidth; // width of Available Columns in the Views configuration page
     DWORD PluginsManagerWidth;      // last user-selected Plugin Manager width in pixels
     DWORD PluginsManagerHeight;     // last user-selected Plugin Manager height in pixels
-    DWORD ExplorerColumnsDialogWidth;  // last user-selected Choose Windows Properties width in pixels
-    DWORD ExplorerColumnsDialogHeight; // last user-selected Choose Windows Properties height in pixels
+    DWORD ExplorerColumnsDialogWidth;  // last user-selected Choose Custom Properties width in pixels
+    DWORD ExplorerColumnsDialogHeight; // last user-selected Choose Custom Properties height in pixels
     BOOL ViewersAndEditorsExpanded; // expanded items in the tree
     BOOL PackersAndUnpackersExpanded;
 
@@ -631,6 +631,8 @@ protected:
     HIMAGELIST HCategoryImages;
     HIMAGELIST HPropertySpacingImages;
     HIMAGELIST HSelectedSpacingImages;
+    HIMAGELIST HSelectedImages;
+    int PluginColumnImageIndices[PLUGIN_COLUMNS_COUNT];
     HWND HFavoriteToolTip;
 
     void FillCategories();
@@ -649,6 +651,7 @@ protected:
     void UpdateMoveButtonIcons();
     void UpdateFavoriteButton();
     int GetDetailsExplorerIndex(HWND sourceList = NULL) const;
+    int GetPluginColumnImageIndex(int pluginColumnIndex);
 
 public:
     CExplorerColumnsDialog(HWND parent, CViewTemplates* config, int viewIndex,
