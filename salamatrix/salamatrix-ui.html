@@ -67,11 +67,10 @@
   <main id="content">
     <section class="hero-panel ui-hero" id="overview">
       <div class="hero-panel__copy">
-        <p class="eyebrow">One native UI service · seven caller surfaces</p>
         <h2>Build the window in your language. Let Salamander make it native.</h2>
         <p>Salamatrix.UI is the framework-owned dialog and control layer for Open Salamander extensions. Node, Python, PowerShell, PHP, Lua, Automation JScript, and native C++ all describe the same controls and receive the same native window.</p>
         <p>Dark mode, current Salamander colors, DPI scaling, keyboard traversal, host controls, accessibility metadata, validation, and cleanup stay inside Salamatrix. A runtime provider never needs its own GUI toolkit.</p>
-        <p class="hero-actions"><a aria="button" href="#gallery">See every language</a> <a class="button-secondary" aria="button" href="salamatrix-ui.md">Read the complete Markdown guide</a></p>
+        <p class="hero-actions"><a aria="button" href="#gallery">See every language</a><!-- <a class="button-secondary" aria="button" href="salamatrix-ui.md">Read the complete Markdown guide</a>--></p>
       </div>
       <div class="hero-panel__visual ui-window-demo" aria-label="Schematic Salamatrix UI capabilities dialog">
         <img class="preview" width="1247" height="845" alt="Salamatrix UI Capabilities preview" src="../images/salamatrix_preview.png">
@@ -80,7 +79,7 @@
 
     <section class="content-grid">
       <h2 id="model">Framework ownership, not a prebuilt gallery</h2>
-      <p>The capabilities window is both a gallery and real extension source. Every bundled demo creates the dialog, adds every control, sets every native property, shows it, and destroys it. The old shortcut that merely opened a framework-owned showcase is not used by these demos.</p>
+      <p>The capabilities window is both a gallery and real extension source. Every bundled demo creates the dialog, adds every control, sets every native property, shows it, and destroys it.</p>
       <div class="ownership-flow" aria-label="Salamatrix UI ownership flow">
         <div><strong>Extension source</strong><span>Node · Python · PowerShell · PHP · Lua</span></div><i>SMX1</i><div><strong>Salamatrix package host</strong><span>Dialog IDs · ownership · events · cleanup</span></div><i>ABI</i><div><strong>NativeDialog</strong><span>Open Salamander controls · DPI · dark mode</span></div>
       </div>
