@@ -1942,4 +1942,5 @@ CTreeViewNodeData* GetTreeViewItemDataPtr(HWND hTreeView, HTREEITEM hItem);
 HTREEITEM InsertTreeViewItem(HWND hTreeView, HTREEITEM hParent, const char* text,
                               CTreeViewNodeTypeEnum type, const char* fullPath,
                               const char* focusPath, const char* focusName, BOOL hasChildren);
+void RefreshTreeViewImageList(HWND hTreeView, HIMAGELIST systemImageList);
 void SetTreeViewItemChildren(HWND hTreeView, HTREEITEM hItem, int children);
