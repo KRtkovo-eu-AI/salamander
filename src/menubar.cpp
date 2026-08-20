@@ -19,35 +19,6 @@
 
 
 
-static void ScaleSmallMenuLogFontForDPI(LOGFONT* lf, int dpi)
-{
-    if (lf == NULL || lf->lfHeight == 0)
-        return;
-
-    int height = abs(lf->lfHeight);
-    int expected = MulDiv(12, dpi, 96);
-    if (height < expected - 1 || height > expected + 2)
-        lf->lfHeight = lf->lfHeight < 0 ? -expected : expected;
-}
-
-static BOOL SystemParametersInfoForMenuDPI(UINT action, UINT uiParam, PVOID pvParam, UINT fWinIni, int dpi)
-{
-    typedef BOOL(WINAPI * FSystemParametersInfoForDpi)(UINT uiAction, UINT uiParam, PVOID pvParam, UINT fWinIni, UINT dpi);
-    static FSystemParametersInfoForDpi systemParametersInfoForDpi = NULL;
-    static BOOL loaded = FALSE;
-    if (!loaded)
-    {
-        HMODULE user32 = GetModuleHandle("user32.dll");
-        if (user32 != NULL)
-            systemParametersInfoForDpi = (FSystemParametersInfoForDpi)GetProcAddress(user32, "SystemParametersInfoForDpi");
-        loaded = TRUE;
-    }
-    if (systemParametersInfoForDpi != NULL &&
-        systemParametersInfoForDpi(action, uiParam, pvParam, fWinIni, dpi))
-        return TRUE;
-    return SystemParametersInfo(action, uiParam, pvParam, fWinIni);
-}
-
 static void UpdateMenuBarRebarBandSize(HWND hMenuBar, int minWidth, int minHeight)
 {
     if (hMenuBar == NULL)
@@ -187,18 +158,10 @@ void CMenuBar::SetFont()
     int dpi = (int)WinLibDPIGetWindowDPI(hDPIWindow);
     HorizontalMargin = MulDiv(MENUBAR_LR_MARGIN, dpi, USER_DEFAULT_SCREEN_DPI);
     VerticalMargin = MulDiv(MENUBAR_TB_MARGIN, dpi, USER_DEFAULT_SCREEN_DPI);
-    NONCLIENTMETRICS ncm;
-    ncm.cbSize = sizeof(ncm);
-    SystemParametersInfoForMenuDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0, dpi);
-
     LOGFONT menuFont;
-    if (DialogFontMode == DIALOG_FONT_DEFAULT)
-    {
-        menuFont = ncm.lfMenuFont;
-        ScaleSmallMenuLogFontForDPI(&menuFont, dpi);
-    }
-    else
-        GetEffectiveDefaultUILogFont(&menuFont, hDPIWindow);
+    // The menu bar is application UI, including the explicit MS Shell Dlg
+    // default.  Do not silently replace that selection with lfMenuFont.
+    GetEffectiveMenuLogFont(&menuFont, hDPIWindow);
     if (HFont != NULL)
         HANDLES(DeleteObject(HFont));
     HFont = HANDLES(CreateFontIndirect(&menuFont));

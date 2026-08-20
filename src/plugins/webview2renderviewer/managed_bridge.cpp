@@ -7,6 +7,8 @@
 
 #include <string>
 
+extern CSalamanderGUIAbstract* SalamanderGUI;
+
 namespace
 {
 std::wstring PathToWide(const char* path)
@@ -33,6 +35,7 @@ std::wstring PathToWide(const char* path)
 NativeViewerTheme ReadTheme()
 {
     NativeViewerTheme theme = {false, GetSysColor(COLOR_WINDOWTEXT), GetSysColor(COLOR_WINDOW),
+                               GetSysColor(COLOR_HIGHLIGHT), GetSysColor(COLOR_HIGHLIGHTTEXT),
                                GetSysColor(COLOR_HIGHLIGHT)};
     BOOL dark = FALSE;
     int type = 0;
@@ -43,8 +46,21 @@ NativeViewerTheme ReadTheme()
         theme.foreground = SalamanderGeneral->GetCurrentColor(SALCOL_VIEWER_FG_NORMAL);
         theme.background = SalamanderGeneral->GetCurrentColor(SALCOL_VIEWER_BK_NORMAL);
         theme.accent = SalamanderGeneral->GetCurrentColor(SALCOL_HOT_PANEL);
+        theme.selectedForeground = SalamanderGeneral->GetCurrentColor(SALCOL_VIEWER_FG_SELECTED);
+        theme.selectedBackground = SalamanderGeneral->GetCurrentColor(SALCOL_VIEWER_BK_SELECTED);
     }
     return theme;
+}
+
+LOGFONT ReadMenuFont()
+{
+    LOGFONT font = {};
+    if (SalamanderGeneral == nullptr ||
+        !SalamanderGeneral->GetConfigParameter(SALCFG_MENUFONT, &font, sizeof(font), nullptr))
+    {
+        GetObjectW(GetStockObject(DEFAULT_GUI_FONT), sizeof(font), &font);
+    }
+    return font;
 }
 
 NativeViewerStrings ReadStrings()
@@ -88,7 +104,7 @@ bool ManagedBridge_ViewDocument(HWND parent, const char* filePath, const RECT& p
     std::wstring path = PathToWide(filePath);
     NativeViewerRequest request = {DLLInstance, parent, path.c_str(), placement, showCmd,
                                    alwaysOnTop != FALSE, fileLock, NativeViewerKind::RenderDocument,
-                                   ReadTheme(), ReadStrings()};
+                                   ReadTheme(), ReadStrings(), ReadMenuFont(), SalamanderGUI};
     return NativeViewer_Show(request);
 }
 

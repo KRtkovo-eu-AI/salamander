@@ -111,6 +111,8 @@ def main() -> None:
             "vertical scrollbar direct dark-hook opt-in")
     require(filesbx1, "PaintDarkPanelScrollbar",
             "dark panel scrollbar paints its complete surface before native theme paint")
+    require(filesbx1, "CreateSolidBrush(RGB(23, 23, 23))",
+            "panel scrollbar track retains its intentional dark RGB(23,23,23) background")
     require(filesbx1, "DrawDarkScrollArrow",
             "dark panel scrollbar remains visibly identifiable instead of a blank band")
     require(filesbx1, "SetWindowSubclass(HHScrollBar, DarkPanelScrollbarProc",

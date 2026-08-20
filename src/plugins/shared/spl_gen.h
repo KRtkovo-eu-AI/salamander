@@ -524,6 +524,7 @@ struct CSalamanderPluginInternalViewerData : public CSalamanderPluginViewerData
 #define SALCFG_VIEWERWRAPTEXT 127         // BOOL, wrap text (divide long text line to more lines)
 #define SALCFG_AUTOCOPYSELTOCLIPBOARD 128 // BOOL, TRUE = when user selects some text, this text is instantly copied to the cliboard
 #define SALCFG_DIALOGFONT 129             // LOGFONT, effective font for application and plug-in dialogs
+#define SALCFG_MENUFONT 130               // LOGFONT, effective font for application menu bars and menus
 // archivers
 #define SALCFG_ARCOTHERPANELFORPACK 140    // BOOL, should it pack to other panel path?
 #define SALCFG_ARCOTHERPANELFORUNPACK 141  // BOOL, should it unpack to other panel path?

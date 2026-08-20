@@ -7,6 +7,8 @@
 
 #include <string>
 
+extern CSalamanderGUIAbstract* SalamanderGUI;
+
 namespace
 {
 std::wstring PathToWide(const char* path)
@@ -33,6 +35,7 @@ std::wstring PathToWide(const char* path)
 NativeViewerTheme ReadTheme()
 {
     NativeViewerTheme theme = {false, GetSysColor(COLOR_WINDOWTEXT), GetSysColor(COLOR_WINDOW),
+                               GetSysColor(COLOR_HIGHLIGHT), GetSysColor(COLOR_HIGHLIGHTTEXT),
                                GetSysColor(COLOR_HIGHLIGHT)};
     BOOL dark = FALSE;
     int type = 0;
@@ -43,8 +46,21 @@ NativeViewerTheme ReadTheme()
         theme.foreground = SalamanderGeneral->GetCurrentColor(SALCOL_VIEWER_FG_NORMAL);
         theme.background = SalamanderGeneral->GetCurrentColor(SALCOL_VIEWER_BK_NORMAL);
         theme.accent = SalamanderGeneral->GetCurrentColor(SALCOL_HOT_PANEL);
+        theme.selectedForeground = SalamanderGeneral->GetCurrentColor(SALCOL_VIEWER_FG_SELECTED);
+        theme.selectedBackground = SalamanderGeneral->GetCurrentColor(SALCOL_VIEWER_BK_SELECTED);
     }
     return theme;
+}
+
+LOGFONT ReadMenuFont()
+{
+    LOGFONT font = {};
+    if (SalamanderGeneral == nullptr ||
+        !SalamanderGeneral->GetConfigParameter(SALCFG_MENUFONT, &font, sizeof(font), nullptr))
+    {
+        GetObjectW(GetStockObject(DEFAULT_GUI_FONT), sizeof(font), &font);
+    }
+    return font;
 }
 
 NativeViewerStrings ReadStrings()
@@ -63,7 +79,22 @@ NativeViewerStrings ReadStrings()
             SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_LOADING),
             SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_READY),
             SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_WEBVIEW_FAILED),
-            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_OPEN_FAILED)};
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_OPEN_FAILED),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_SYNTAX_HIGHLIGHTER),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_AUTOMATIC)};
+}
+
+LOGFONT ReadViewerFont()
+{
+    LOGFONT font = {};
+    if (SalamanderGeneral == nullptr ||
+        !SalamanderGeneral->GetConfigParameter(SALCFG_VIEWERFONT, &font, sizeof(font), nullptr))
+    {
+        font.lfHeight = -13;
+        font.lfWeight = FW_NORMAL;
+        strcpy_s(font.lfFaceName, "Consolas");
+    }
+    return font;
 }
 }
 
@@ -88,7 +119,8 @@ bool ManagedBridge_ViewTextFile(HWND parent, const char* filePath, const RECT& p
     std::wstring path = PathToWide(filePath);
     NativeViewerRequest request = {DLLInstance, parent, path.c_str(), placement, showCmd,
                                    alwaysOnTop != FALSE, fileLock, NativeViewerKind::PrismText,
-                                   ReadTheme(), ReadStrings()};
+                                   ReadTheme(), ReadStrings(), ReadMenuFont(), SalamanderGUI,
+                                   ReadViewerFont()};
     return NativeViewer_Show(request);
 }
 

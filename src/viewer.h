@@ -18,6 +18,9 @@
 
 #include "common/unicode/ViewerBomText.h"
 
+class CMenuPopup;
+class CMenuBar;
+
 #define VIEWER_HISTORY_SIZE 30 // number of remembered strings
 
 // menu positions - redo when the menu changes!
@@ -127,6 +130,10 @@ public:
                   BOOL wholeCaption, CObjectOrigin origin, int enumFileNamesSourceUID,
                   int enumFileNamesLastFileIndex);
     ~CViewerWindow();
+
+    // The menu bar is a child CWindow.  Its HWND must be destroyed before the
+    // CMenuBar object is released, otherwise WinLib can still dispatch to it.
+    void DestroyViewerMenuControls();
 
     void OpenFile(const char* file, const char* caption, BOOL wholeCaption); // does not manage Lock
     void OpenFileW(const wchar_t* file, const char* caption, BOOL wholeCaption); // does not manage Lock
@@ -443,6 +450,9 @@ protected:
     CBitmap Bitmap;
     HFONT ViewerFont;
     HFONT StatusFont;
+    HFONT MenuFont;
+    CMenuPopup* ViewerPopupMenu;
+    CMenuBar* ViewerMenuBar;
 
     HWND HStatusBar;
     HWND HScrollBar;

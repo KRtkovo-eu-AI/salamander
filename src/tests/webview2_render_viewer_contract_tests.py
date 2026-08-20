@@ -82,6 +82,12 @@ def main() -> None:
         raise AssertionError("salamatrix must be the single MarkdigRenderer producer")
     if 'L"utils\\\\MarkdigRenderer.exe"' not in native_viewer:
         raise AssertionError("the shared native viewer must consume MarkdigRenderer from utils")
+    if "WM_NV_PREWARM_ENVIRONMENT" not in native_viewer:
+        raise AssertionError("WebView2 runtime must be prewarmed before the first viewer invocation")
+    if "ViewerHostThread" not in native_viewer or "gSharedEnvironment" not in native_viewer:
+        raise AssertionError("Viewer Frame must retain one STA host and its shared WebView2 environment")
+    if 'if (extension == L".svg")' not in native_viewer or "webView_->NavigateToString(svg.c_str())" not in native_viewer:
+        raise AssertionError("small standalone SVG documents must use the direct in-memory navigation path")
 
     print("WebView2 render viewer source-contract tests passed.")
 

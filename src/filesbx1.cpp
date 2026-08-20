@@ -59,7 +59,9 @@ static void PaintDarkPanelScrollbar(HWND hWnd, HDC dc)
     const int thickness = vertical ? client.right - client.left : client.bottom - client.top;
     const int buttonExtent = min(max(0, thickness), max(0, length / 2));
 
-    HBRUSH background = CreateSolidBrush(DarkModeGetColors().background);
+    // Keep the panel scrollbar track darker than the panel surface. This exact
+    // color is intentional and must not follow the configurable panel color.
+    HBRUSH background = CreateSolidBrush(RGB(23, 23, 23));
     HBRUSH button = CreateSolidBrush(RGB(45, 45, 45));
     HBRUSH thumb = CreateSolidBrush(RGB(82, 82, 82));
     if (background != NULL)

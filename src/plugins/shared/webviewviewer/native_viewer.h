@@ -5,6 +5,8 @@
 
 #include <windows.h>
 
+class CSalamanderGUIAbstract;
+
 enum class NativeViewerKind
 {
     PrismText,
@@ -17,6 +19,8 @@ struct NativeViewerTheme
     COLORREF foreground;
     COLORREF background;
     COLORREF accent;
+    COLORREF selectedForeground;
+    COLORREF selectedBackground;
 };
 
 struct NativeViewerStrings
@@ -36,6 +40,8 @@ struct NativeViewerStrings
     const wchar_t* ready;
     const wchar_t* initializationFailed;
     const wchar_t* openFailed;
+    const wchar_t* syntaxHighlighter;
+    const wchar_t* automatic;
 };
 
 struct NativeViewerRequest
@@ -50,6 +56,9 @@ struct NativeViewerRequest
     NativeViewerKind kind;
     NativeViewerTheme theme;
     NativeViewerStrings strings;
+    LOGFONT menuFont;
+    CSalamanderGUIAbstract* gui;
+    LOGFONT viewerFont;
 };
 
 bool NativeViewer_EnsureInitialized();

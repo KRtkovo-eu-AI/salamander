@@ -5661,16 +5661,47 @@ CCfgPageMainWindow::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 static const UINT WM_APP_APPEARANCE_RESTORE_FONT_PREVIEWS = WM_APP + 0x3A9;
 
+static int GetAppearanceFontPointSize(HWND window, const LOGFONT& logFont)
+{
+    HDC dc = HANDLES(GetDC(window));
+    int pointSize = dc != NULL ? MulDiv(abs(logFont.lfHeight), 72, GetDeviceCaps(dc, LOGPIXELSY)) : 8;
+    if (dc != NULL)
+        HANDLES(ReleaseDC(window, dc));
+    return max(1, pointSize);
+}
+
+static BOOL ChooseAppearanceMenuFont(HWND owner, LOGFONT* logFont)
+{
+    if (logFont->lfFaceName[0] == 0)
+        GetEffectiveDialogLogFont(logFont, owner);
+    CHOOSEFONT cf;
+    memset(&cf, 0, sizeof(cf));
+    cf.lStructSize = sizeof(cf);
+    cf.hwndOwner = owner;
+    cf.lpLogFont = logFont;
+    cf.iPointSize = GetAppearanceFontPointSize(owner, *logFont) * 10;
+    cf.Flags = CF_NOVERTFONTS | CF_SCREENFONTS | CF_INITTOLOGFONTSTRUCT;
+    DarkModePrepareChooseFont(&cf);
+    return ChooseFont(&cf) != 0;
+}
+
 CCfgPageAppearance::CCfgPageAppearance()
     : CCommonPropSheetPage(NULL, HLanguage, IDD_CFGPAGE_APPEARANCE, IDD_CFGPAGE_APPEARANCE, PSP_USETITLE, NULL)
 {
     HPanelFont = NULL;
     HDialogFont = NULL;
+    HMenuFont = NULL;
+    HPanelContextMenuFont = NULL;
     LocalUseCustomPanelFont = UseCustomPanelFont;
     memcpy(&LocalPanelLogFont, &LogFont, sizeof(LocalPanelLogFont));
     LocalDialogFontMode = DialogFontMode;
     memcpy(&LocalDialogLogFont, &DialogLogFont, sizeof(LocalDialogLogFont));
     LocalDialogFontPointSize = DialogFontPointSize;
+    LocalUseCustomMenuFont = UseCustomMenuFont;
+    memcpy(&LocalMenuLogFont, &MenuLogFont, sizeof(LocalMenuLogFont));
+    LocalUseCustomPanelContextMenuFont = UseCustomPanelContextMenuFont;
+    memcpy(&LocalPanelContextMenuLogFont, &PanelContextMenuLogFont,
+           sizeof(LocalPanelContextMenuLogFont));
     GetEffectiveDialogLogFont(&OriginalEffectiveDialogFont);
     DialogFontRestartMessageShown = FALSE;
     NotificationEnabled = TRUE;
@@ -5682,6 +5713,10 @@ CCfgPageAppearance::~CCfgPageAppearance()
         HANDLES(DeleteObject(HPanelFont));
     if (HDialogFont != NULL)
         HANDLES(DeleteObject(HDialogFont));
+    if (HMenuFont != NULL)
+        HANDLES(DeleteObject(HMenuFont));
+    if (HPanelContextMenuFont != NULL)
+        HANDLES(DeleteObject(HPanelContextMenuFont));
 }
 
 void CCfgPageAppearance::LoadFontPreview(int editID, HFONT* previewFont, LOGFONT logFont,
@@ -5743,6 +5778,18 @@ void CCfgPageAppearance::LoadControls()
     }
     LoadFontPreview(IDE_DIALOGFONT, &HDialogFont, dialogFont, dialogPointSize, dialogDescription);
 
+    LOGFONT menuFont = LocalUseCustomMenuFont ? LocalMenuLogFont : dialogFont;
+    LoadFontPreview(IDE_MENUFONT, &HMenuFont, menuFont,
+                    GetAppearanceFontPointSize(HWindow, menuFont),
+                    LocalUseCustomMenuFont ? IDS_FONTDESCRIPTION_CST : IDS_FONTDESCRIPTION_UI);
+
+    LOGFONT panelContextMenuFont = LocalUseCustomPanelContextMenuFont
+                                      ? LocalPanelContextMenuLogFont
+                                      : dialogFont;
+    LoadFontPreview(IDE_PANELCONTEXTMENUFONT, &HPanelContextMenuFont, panelContextMenuFont,
+                    GetAppearanceFontPointSize(HWindow, panelContextMenuFont),
+                    LocalUseCustomPanelContextMenuFont ? IDS_FONTDESCRIPTION_CST : IDS_FONTDESCRIPTION_UI);
+
     HANDLES(ReleaseDC(HWindow, hDC));
 }
 
@@ -5785,6 +5832,11 @@ void CCfgPageAppearance::Transfer(CTransferInfo& ti)
         DialogFontMode = LocalDialogFontMode;
         memcpy(&DialogLogFont, &LocalDialogLogFont, sizeof(DialogLogFont));
         DialogFontPointSize = LocalDialogFontPointSize;
+        UseCustomMenuFont = LocalUseCustomMenuFont;
+        memcpy(&MenuLogFont, &LocalMenuLogFont, sizeof(MenuLogFont));
+        UseCustomPanelContextMenuFont = LocalUseCustomPanelContextMenuFont;
+        memcpy(&PanelContextMenuLogFont, &LocalPanelContextMenuLogFont,
+               sizeof(PanelContextMenuLogFont));
 
         LOGFONT effectiveDialogFont;
         GetEffectiveDialogLogFont(&effectiveDialogFont);
@@ -5826,6 +5878,8 @@ CCfgPageAppearance::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ChangeToArrowButton(HWindow, IDC_INFOLINEBROWSE);
         new CButton(HWindow, IDB_PANELFONT, BTF_RIGHTARROW);
         new CButton(HWindow, IDB_DIALOGFONT, BTF_RIGHTARROW);
+        new CButton(HWindow, IDB_MENUFONT, BTF_RIGHTARROW);
+        new CButton(HWindow, IDB_PANELCONTEXTMENUFONT, BTF_RIGHTARROW);
 
         // attach the UpDown control to the edit line
         int resID[] = {IDC_THUMBNAILSIZE, -1};
@@ -5858,6 +5912,11 @@ CCfgPageAppearance::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             SendDlgItemMessage(HWindow, IDE_PANELFONT, WM_SETFONT, (WPARAM)HPanelFont, TRUE);
         if (HDialogFont != NULL)
             SendDlgItemMessage(HWindow, IDE_DIALOGFONT, WM_SETFONT, (WPARAM)HDialogFont, TRUE);
+        if (HMenuFont != NULL)
+            SendDlgItemMessage(HWindow, IDE_MENUFONT, WM_SETFONT, (WPARAM)HMenuFont, TRUE);
+        if (HPanelContextMenuFont != NULL)
+            SendDlgItemMessage(HWindow, IDE_PANELCONTEXTMENUFONT, WM_SETFONT,
+                               (WPARAM)HPanelContextMenuFont, TRUE);
         return 0;
     }
 
@@ -6005,6 +6064,39 @@ MENU_TEMPLATE_ITEM CfgPageDialogFontMenu[] =
             return 0;
         }
 
+        case IDB_MENUFONT:
+        case IDB_PANELCONTEXTMENUFONT:
+        {
+            BOOL* useCustom = LOWORD(wParam) == IDB_MENUFONT
+                                  ? &LocalUseCustomMenuFont
+                                  : &LocalUseCustomPanelContextMenuFont;
+            LOGFONT* logFont = LOWORD(wParam) == IDB_MENUFONT
+                                    ? &LocalMenuLogFont
+                                    : &LocalPanelContextMenuLogFont;
+            HMENU hMenu = CreatePopupMenu();
+            InsertMenu(hMenu, 0xFFFFFFFF, *useCustom ? 0 : MF_CHECKED | MF_BYCOMMAND | MF_STRING,
+                       1, LoadStr(IDS_USEDEFAULTFONT));
+            InsertMenu(hMenu, 0xFFFFFFFF, *useCustom ? MF_CHECKED : MF_BYCOMMAND | MF_STRING,
+                       2, LoadStr(IDS_USECUSTOMFONT));
+            TPMPARAMS tpmPar;
+            tpmPar.cbSize = sizeof(tpmPar);
+            GetWindowRect((HWND)lParam, &tpmPar.rcExclude);
+            DWORD cmd = TrackPopupMenuEx(hMenu, TPM_RETURNCMD | TPM_LEFTALIGN | TPM_RIGHTBUTTON,
+                                         tpmPar.rcExclude.right, tpmPar.rcExclude.top, HWindow, &tpmPar);
+            if (cmd == 1)
+            {
+                *useCustom = FALSE;
+                LoadControls();
+            }
+            else if (cmd == 2 && ChooseAppearanceMenuFont(HWindow, logFont))
+            {
+                *useCustom = TRUE;
+                LoadControls();
+            }
+            DestroyMenu(hMenu);
+            return 0;
+        }
+
         case IDC_INFOLINEBROWSE:
         {
             TrackExecuteMenu(HWindow, IDC_INFOLINEBROWSE, IDC_INFOLINECONTENT, FALSE,
@@ -6025,6 +6117,7 @@ MENU_TEMPLATE_ITEM CfgPageDialogFontMenu[] =
 
 const int DRIVES_COUNT = 'z' - 'a' + 1;
 const char FIRST_DRIVE = 'a'; // use 'A' here if uppercase letters are desired
+static const UINT WM_APP_CHANGE_DRIVE_APPLY_CAPTION_FONT = WM_APP + 0x3AA;
 
 // restrict the listbox so clicks outside existing items have no effect
 class CDriveListBox : public CWindow
@@ -6207,6 +6300,67 @@ void CCfgPageChangeDrive::InitList(int resID)
     SendMessage(hList, LB_SETCOUNT, DRIVES_COUNT, 0);
 }
 
+void CCfgPageChangeDrive::ApplyMountFoldersCaptionFontAndSize()
+{
+    HWND mountFolders = GetDlgItem(HWindow, IDC_CHD_SHOWMOUNTFOLDERS);
+    HWND groupBox = GetDlgItem(HWindow, IDC_STATIC_5);
+    if (mountFolders == NULL || groupBox == NULL)
+        return;
+
+    // CCommonPropSheetPage applies the final default/custom dialog font after
+    // the concrete WM_INITDIALOG handler returns. Copy that final groupbox font
+    // only now, then measure exactly the font path used by darkmodelib.
+    HFONT groupFont = (HFONT)SendMessage(groupBox, WM_GETFONT, 0, 0);
+    if (groupFont != NULL)
+        SendMessage(mountFolders, WM_SETFONT, (WPARAM)groupFont, FALSE);
+
+    RECT mountFoldersRect;
+    if (!GetWindowRect(mountFolders, &mountFoldersRect))
+        return;
+
+    HTHEME theme = OpenThemeData(mountFolders, L"Button");
+    HDC dc = HANDLES(GetDC(mountFolders));
+    if (theme != NULL && dc != NULL)
+    {
+        int textLength = GetWindowTextLengthW(mountFolders);
+        std::wstring text(textLength + 1, L'\0');
+        GetWindowTextW(mountFolders, &text[0], textLength + 1);
+
+        RECT textExtent = {};
+        SIZE glyphSize = {};
+        BOOL textMeasured = FALSE;
+        if (GetPropW(mountFolders, L"Darkmodelib.Button.UseConfiguredFont") != NULL && groupFont != NULL)
+        {
+            HFONT oldFont = (HFONT)SelectObject(dc, groupFont);
+            textMeasured = DrawTextW(dc, text.c_str(), -1, &textExtent,
+                                     DT_SINGLELINE | DT_CALCRECT) != 0;
+            SelectObject(dc, oldFont);
+        }
+        else
+        {
+            textMeasured = SUCCEEDED(GetThemeTextExtent(theme, dc, BP_GROUPBOX, GBS_NORMAL,
+                                                       text.c_str(), -1, DT_SINGLELINE,
+                                                       NULL, &textExtent));
+        }
+        if (textMeasured &&
+            SUCCEEDED(GetThemePartSize(theme, dc, BP_CHECKBOX, CBS_UNCHECKEDNORMAL,
+                                       NULL, TS_DRAW, &glyphSize)))
+        {
+            int captionMargin = MulDiv(4, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI);
+            int glyphGap = MulDiv(3, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI);
+            int width = glyphSize.cx + glyphGap + textExtent.right - textExtent.left + captionMargin;
+            SetWindowPos(mountFolders, NULL, 0, 0, width,
+                         mountFoldersRect.bottom - mountFoldersRect.top,
+                         SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+    }
+    if (dc != NULL)
+        HANDLES(ReleaseDC(mountFolders, dc));
+    if (theme != NULL)
+        CloseThemeData(theme);
+    InvalidateRect(mountFolders, NULL, TRUE);
+}
+
 INT_PTR
 CCfgPageChangeDrive::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -6234,77 +6388,9 @@ CCfgPageChangeDrive::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_INITDIALOG:
     {
         HWND mountFolders = GetDlgItem(HWindow, IDC_CHD_SHOWMOUNTFOLDERS);
-        RECT mountFoldersRect;
-        if (mountFolders != NULL && GetWindowRect(mountFolders, &mountFoldersRect))
-        {
-            // Match a real groupbox caption: leave only enough opaque control
-            // background for the checkbox glyph, its gap and the themed title.
-            HTHEME theme = OpenThemeData(mountFolders, L"Button");
-            HDC dc = HANDLES(GetDC(mountFolders));
-            if (theme != NULL && dc != NULL)
-            {
-                int textLength = GetWindowTextLengthW(mountFolders);
-                std::wstring text(textLength + 1, L'\0');
-                GetWindowTextW(mountFolders, &text[0], textLength + 1);
-
-                RECT textExtent = {};
-                SIZE glyphSize = {};
-                BOOL textMeasured = FALSE;
-                if (DialogFontMode == DIALOG_FONT_DEFAULT)
-                {
-                    textMeasured = SUCCEEDED(GetThemeTextExtent(theme, dc, BP_GROUPBOX, GBS_NORMAL,
-                                                               text.c_str(), -1, DT_SINGLELINE,
-                                                               NULL, &textExtent));
-                }
-                else
-                {
-                    HFONT font = (HFONT)SendMessage(mountFolders, WM_GETFONT, 0, 0);
-                    HFONT captionFont = NULL;
-                    if (font != NULL)
-                    {
-                        LOGFONT lf;
-                        if (GetObject(font, sizeof(lf), &lf) == sizeof(lf))
-                        {
-                            lf.lfHeight = (int)(lf.lfHeight * 1.2);
-                            lf.lfWidth = 0;
-                            captionFont = HANDLES(CreateFontIndirect(&lf));
-                        }
-                    }
-                    HFONT measuredFont = captionFont != NULL ? captionFont : font;
-                    HFONT oldFont = measuredFont != NULL ? (HFONT)SelectObject(dc, measuredFont) : NULL;
-                    textMeasured = DrawTextW(dc, text.c_str(), -1, &textExtent,
-                                             DT_SINGLELINE | DT_CALCRECT) != 0;
-                    if (oldFont != NULL)
-                        SelectObject(dc, oldFont);
-                    if (captionFont != NULL)
-                        HANDLES(DeleteObject(captionFont));
-                }
-                if (textMeasured &&
-                    SUCCEEDED(GetThemePartSize(theme, dc, BP_CHECKBOX, CBS_UNCHECKEDNORMAL,
-                                               NULL, TS_DRAW, &glyphSize)))
-                {
-                    int captionMargin = MulDiv(4, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI);
-                    int glyphGap = MulDiv(3, GetDPIForWindow(HWindow), USER_DEFAULT_SCREEN_DPI);
-                    int width = glyphSize.cx + glyphGap + textExtent.right - textExtent.left + captionMargin;
-                    SetWindowPos(mountFolders, NULL, 0, 0, width,
-                                 mountFoldersRect.bottom - mountFoldersRect.top,
-                                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-                }
-
-                HANDLES(ReleaseDC(mountFolders, dc));
-                CloseThemeData(theme);
-            }
-            else
-            {
-                if (dc != NULL)
-                    HANDLES(ReleaseDC(mountFolders, dc));
-                if (theme != NULL)
-                    CloseThemeData(theme);
-            }
-        }
-
         SetPropW(mountFolders,
                  L"Darkmodelib.Button.UseGroupboxCaptionStyle", reinterpret_cast<HANDLE>(1));
+        PostMessage(HWindow, WM_APP_CHANGE_DRIVE_APPLY_CAPTION_FONT, 0, 0);
 
         int staticsArr[] = {IDC_STATIC_6, IDS_CHD_HOTPATHS, IDC_STATIC_7, IDS_CHD_PLUGINS, IDC_STATIC_8, 0};
         CondenseStaticTexts(HWindow, staticsArr);
@@ -6345,6 +6431,10 @@ CCfgPageChangeDrive::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         break;
     }
+
+    case WM_APP_CHANGE_DRIVE_APPLY_CAPTION_FONT:
+        ApplyMountFoldersCaptionFontAndSize();
+        return 0;
 
     case WM_DRAWITEM:
     {

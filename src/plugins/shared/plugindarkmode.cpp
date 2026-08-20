@@ -438,12 +438,16 @@ void PluginDarkMode_ApplyMenuBar(HWND hwnd)
     ConfigurePluginDarkModelib(dark);
 #if USE_DARKMODELIB
     const BOOL wasDark = GetPropW(hwnd, PLUGIN_DARKMODE_MENU_PROP) != NULL;
-    if (dark && !wasDark)
+    // The menu-bar subclass also supplies the explicit WM_SETFONT font. Keep
+    // it attached in light mode when a caller provided that font; otherwise a
+    // native menu bar silently falls back to the system menu font.
+    const BOOL useConfiguredFont = GetPropW(hwnd, L"OpenSalamander.UIFont") != NULL;
+    if ((dark || useConfiguredFont) && !wasDark)
     {
         dmlib::setWindowMenuBarSubclass(hwnd);
         SetPropW(hwnd, PLUGIN_DARKMODE_MENU_PROP, reinterpret_cast<HANDLE>(1));
     }
-    else if (!dark && wasDark)
+    else if (!dark && !useConfiguredFont && wasDark)
     {
         dmlib::removeWindowMenuBarSubclass(hwnd);
         RemovePropW(hwnd, PLUGIN_DARKMODE_MENU_PROP);

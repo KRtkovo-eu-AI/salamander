@@ -28,6 +28,9 @@ void ApplyPictViewDarkMode(HWND hwnd)
     {
         DarkModeApplyWindow(hwnd);
         DarkModeRefreshTitleBar(hwnd);
+        // The description field in the EXIF dialog owns a native vertical
+        // scrollbar. Include this dialog subtree in the scoped scrollbar hook.
+        DarkModeAllowDarkScrollbars(hwnd);
         DarkModeApplyTree(hwnd);
     }
 }

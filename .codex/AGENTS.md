@@ -83,6 +83,7 @@ By Darkmode we always means the situation when user has set the Configuration - 
 - Darkmode win32 winapi components and controls should use the win32-darkmodelib library included our project. USE_DARKMODELIB=1
 - Darkmode windows and dialogs have to use dark window title bar, IMMERSIVEMODE and other undocumented Windows API calls.
 - If creating any new window, any new dialog, showing new messagebox, creating new plugin etc., always don't forget to support the darkmode!
+- The horizontal and vertical scrollbars in both file panels intentionally paint their track/background as `RGB(23, 23, 23)` in darkmode. Preserve this exact panel-specific color and the `DarkPanelScrollbarProc` custom painting path when changing scrollbar hooks, theming, invalidation, Viewer code, or shared darkmode code. Never replace it with `DarkModeGetColors().background`, a system brush, or native light background. Keep a source-contract regression test for both panel scrollbar opt-ins and this exact track color.
 
 ## Setup/Installer
 

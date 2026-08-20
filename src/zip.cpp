@@ -3770,6 +3770,14 @@ BOOL CSalamanderGeneral::GetConfigParameter(int paramID, void* buffer, int buffe
         break;
     }
 
+    case SALCFG_MENUFONT:
+    {
+        auxType = SALCFGTYPE_LOGFONT;
+        auxDataSize = sizeof(LOGFONT);
+        GetEffectiveMenuLogFont((LOGFONT*)auxBuf, MainWindow != NULL ? MainWindow->HWindow : NULL);
+        break;
+    }
+
     case SALCFG_ARCOTHERPANELFORPACK:
         *((DWORD*)auxBuf) = (DWORD)Configuration.UseAnotherPanelForPack;
         break;

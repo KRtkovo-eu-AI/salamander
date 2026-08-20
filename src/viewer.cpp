@@ -11,6 +11,7 @@
 #include <usp10.h>
 
 #include "viewer.h"
+#include "menu.h"
 #include "common/widepath.h"
 
 #include "cfgdlg.h"
@@ -641,6 +642,9 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     LineNumberBrush = NULL;
     ViewerFont = NULL;
     StatusFont = NULL;
+    MenuFont = NULL;
+    ViewerPopupMenu = NULL;
+    ViewerMenuBar = NULL;
     HStatusBar = HScrollBar = VScrollBar = HZoomReset = HZoomOut = HZoomEdit = HZoomIn = NULL;
     StatusBarHeight = 0;
     ZoomPercent = Configuration.ViewerZoomPercent;
@@ -752,6 +756,9 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
 
 CViewerWindow::~CViewerWindow()
 {
+    DestroyViewerMenuControls();
+    if (MenuFont != NULL)
+        HANDLES(DeleteObject(MenuFont));
     if (StatusFont != NULL)
         HANDLES(DeleteObject(StatusFont));
     if (ViewerFont != NULL)
@@ -769,6 +776,23 @@ CViewerWindow::~CViewerWindow()
     FileNameW.erase();
     if (Caption != NULL)
         free(Caption);
+}
+
+void CViewerWindow::DestroyViewerMenuControls()
+{
+    if (ViewerMenuBar != NULL)
+    {
+        HWND menuBarWindow = ViewerMenuBar->GetHWND();
+        if (menuBarWindow != NULL && IsWindow(menuBarWindow))
+            DestroyWindow(menuBarWindow);
+        delete ViewerMenuBar;
+        ViewerMenuBar = NULL;
+    }
+    if (ViewerPopupMenu != NULL)
+    {
+        delete ViewerPopupMenu;
+        ViewerPopupMenu = NULL;
+    }
 }
 
 HANDLE
@@ -1693,7 +1717,12 @@ void CViewerWindow::Paint(HDC dc)
         r.right = GetTextLeft();
         r.top = 0;
         r.bottom = Height;
-        FillRect(dc, &r, ShowLineNumbers ? LineNumberBrush : BkgndBrush);
+        // The numbered gutter is composed one complete row at a time in the
+        // line bitmap below.  Clearing it directly here would expose an empty
+        // gutter before the numbers are drawn and causes visible flicker while
+        // scrolling.
+        if (!ShowLineNumbers)
+            FillRect(dc, &r, BkgndBrush);
         RECT fullLine;
         fullLine.left = 0;
         fullLine.top = 0;
@@ -2349,30 +2378,42 @@ void CViewerWindow::Paint(HDC dc)
         VisibleFirstDocumentLine = documentLine;
         if (ShowLineNumbers)
         {
-            // Keep the gutter visibly distinct from document text in both
-            // standard light schemes and Windows Dark Mode.
-            SetTextColor(dc, DarkModeShouldUseDarkColors() ? RGB(160, 160, 160) : RGB(96, 96, 96));
-            int gutterBkMode = SetBkMode(dc, TRANSPARENT);
-            for (int i = 0; i < LineOffset.Count / 3; i++)
+            // Compose the background and number together off-screen.  The
+            // document rows use the same bitmap, so scrolling never exposes a
+            // directly cleared gutter beside already buffered document text.
+            SetTextColor(Bitmap.HMemDC, DarkModeShouldUseDarkColors() ? RGB(160, 160, 160) : RGB(96, 96, 96));
+            int gutterBkMode = SetBkMode(Bitmap.HMemDC, TRANSPARENT);
+            const int gutterWidth = min(GetTextLeft(), Width);
+            const int numberedRows = LineOffset.Count / 3;
+            for (int i = 0, y = 0; y < Height; i++, y += CharHeight)
             {
-                BOOL isWrap = (i > 0 && LineOffset[i * 3] <= LineOffset[i * 3 - 2]);
-                if (!isWrap && i > 0)
-                    ++documentLine;
-                RECT numberRect = {0, i * CharHeight, GetTextLeft() - BORDER_WIDTH, (i + 1) * CharHeight};
-                if (isWrap)
+                const int rowHeight = min(CharHeight, Height - y);
+                RECT gutterRect = {0, 0, gutterWidth, rowHeight};
+                FillRect(Bitmap.HMemDC, &gutterRect, LineNumberBrush);
+                if (i < numberedRows)
                 {
-                    // Show a rightwards arrow with hook for wrapped lines
-                    // instead of repeating the line number.
-                    DrawTextW(dc, L"\x21AA", -1, &numberRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+                    BOOL isWrap = (i > 0 && LineOffset[i * 3] <= LineOffset[i * 3 - 2]);
+                    if (!isWrap && i > 0)
+                        ++documentLine;
+                    RECT numberRect = {0, 0, max(0, gutterWidth - BORDER_WIDTH), rowHeight};
+                    if (isWrap)
+                    {
+                        // Show a rightwards arrow with hook for wrapped lines
+                        // instead of repeating the line number.
+                        DrawTextW(Bitmap.HMemDC, L"\x21AA", -1, &numberRect,
+                                  DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+                    }
+                    else
+                    {
+                        char number[32];
+                        sprintf(number, "%I64d", documentLine);
+                        DrawText(Bitmap.HMemDC, number, -1, &numberRect,
+                                 DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+                    }
                 }
-                else
-                {
-                    char number[32];
-                    sprintf(number, "%I64d", documentLine);
-                    DrawText(dc, number, -1, &numberRect, DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-                }
+                BitBlt(dc, 0, y, gutterWidth, rowHeight, Bitmap.HMemDC, 0, 0, SRCCOPY);
             }
-            SetBkMode(dc, gutterBkMode);
+            SetBkMode(Bitmap.HMemDC, gutterBkMode);
         }
         //---
         SelectObject(dc, oldFont);
@@ -2476,7 +2517,7 @@ BOOL InitializeViewer()
                                                 HANDLES(LoadIcon(HInstance,
                                                                  MAKEINTRESOURCE(IDI_VIEWER))),
                                                 LoadCursor(NULL, IDC_ARROW),
-                                                (HBRUSH)(COLOR_WINDOW + 1),
+                                                NULL, // WM_ERASEBKGND uses the active Viewer background color
                                                 NULL,
                                                 CVIEWERWINDOW_CLASSNAMEW,
                                                 NULL))
@@ -2487,7 +2528,7 @@ BOOL InitializeViewer()
                                                HANDLES(LoadIcon(HInstance,
                                                                 MAKEINTRESOURCE(IDI_VIEWER))),
                                                LoadCursor(NULL, IDC_ARROW),
-                                               (HBRUSH)(COLOR_WINDOW + 1),
+                                               NULL, // WM_ERASEBKGND uses the active Viewer background color
                                                NULL,
                                                CVIEWERWINDOW_CLASSNAMEW,
                                                NULL))
@@ -2847,7 +2888,21 @@ void CViewerWindow::RefreshStatusBarDPI()
 
     HFONT oldFont = StatusFont;
     StatusFont = newFont;
-    SetProp(HWindow, _T("OpenSalamander.UIFont"), StatusFont);
+
+    LOGFONT menuLogFont;
+    GetEffectiveMenuLogFont(&menuLogFont, HWindow);
+    HFONT newMenuFont = HANDLES(CreateFontIndirect(&menuLogFont));
+    if (newMenuFont != NULL)
+    {
+        HFONT oldMenuFont = MenuFont;
+        MenuFont = newMenuFont;
+        // Native menu-bar rendering and darkmodelib both query the main
+        // window for this font, rather than the status-bar controls.
+        SendMessage(HWindow, WM_SETFONT, (WPARAM)MenuFont, FALSE);
+        SetProp(HWindow, _T("OpenSalamander.UIFont"), MenuFont);
+        if (oldMenuFont != NULL)
+            HANDLES(DeleteObject(oldMenuFont));
+    }
     DrawMenuBar(HWindow);
     if (oldFont != NULL)
         HANDLES(DeleteObject(oldFont));
@@ -2859,6 +2914,13 @@ void CViewerWindow::LayoutStatusBar()
         return;
     RECT rc;
     GetClientRect(HWindow, &rc);
+    int menuHeight = 0;
+    if (ViewerMenuBar != NULL)
+    {
+        menuHeight = ViewerMenuBar->GetNeededHeight();
+        SetWindowPos(ViewerMenuBar->GetHWND(), HWND_TOP, 0, 0, rc.right, menuHeight,
+                     SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    }
     // The status bar and its controls are window chrome.  Their dimensions
     // must not follow the document font zoom.
     int fontHeight = 0;
@@ -2891,8 +2953,8 @@ void CViewerWindow::LayoutStatusBar()
     SetWindowPos(HScrollBar, NULL, 0, rc.bottom - StatusBarHeight - scrollHeight,
                  rc.right - scrollWidth, scrollHeight,
                  SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
-    SetWindowPos(VScrollBar, NULL, rc.right - scrollWidth, 0, scrollWidth,
-                 rc.bottom - StatusBarHeight - scrollHeight,
+    SetWindowPos(VScrollBar, NULL, rc.right - scrollWidth, menuHeight, scrollWidth,
+                 rc.bottom - menuHeight - StatusBarHeight - scrollHeight,
                  SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
     // Keep the native status bar behind its interactive children.
     SetWindowPos(HStatusBar, HWND_BOTTOM, 0, rc.bottom - StatusBarHeight, rc.right, StatusBarHeight, SWP_NOACTIVATE);

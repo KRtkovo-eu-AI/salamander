@@ -329,6 +329,10 @@
 #define IDC_CREATEDIR_AUTOCOMPLETE      627
 #define IDB_DIALOGFONT                  628
 #define IDE_DIALOGFONT                  629
+#define IDB_MENUFONT                    1800
+#define IDE_MENUFONT                    1801
+#define IDB_PANELCONTEXTMENUFONT        1802
+#define IDE_PANELCONTEXTMENUFONT        1803
 #define IDD_CFGPAGE_VIEWER              630
 #define IDC_COPYFINDTEXT                631
 #define IDC_NULLEOL                     632

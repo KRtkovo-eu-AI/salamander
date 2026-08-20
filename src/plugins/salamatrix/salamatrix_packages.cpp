@@ -5716,7 +5716,9 @@ BOOL WINAPI PackageManager::HostDispatch(
         owner->General->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE, &dark, sizeof(dark), &configType);
         NativeViewerTheme theme = {dark != FALSE,
             owner->General->GetCurrentColor(SALCOL_VIEWER_FG_NORMAL), owner->General->GetCurrentColor(SALCOL_VIEWER_BK_NORMAL),
-            owner->General->GetCurrentColor(SALCOL_HOT_PANEL)};
+            owner->General->GetCurrentColor(SALCOL_HOT_PANEL),
+            owner->General->GetCurrentColor(SALCOL_VIEWER_FG_SELECTED),
+            owner->General->GetCurrentColor(SALCOL_VIEWER_BK_SELECTED)};
         NativeViewerStrings strings = {
             owner->General->LoadStrW(DLLInstance, IDS_VIEWER_NAME), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_FILE),
             owner->General->LoadStrW(DLLInstance, IDS_VIEWER_VIEW), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_CLOSE),
