@@ -295,26 +295,6 @@ static void MarkConfiguredButtonFonts(HWND parent)
     }
 }
 
-static void ApplyPanelFontToListControls(HWND parent)
-{
-    for (HWND child = GetWindow(parent, GW_CHILD); child != NULL;
-         child = GetWindow(child, GW_HWNDNEXT))
-    {
-        TCHAR className[32];
-        if (GetClassName(child, className, _countof(className)) != 0 &&
-            (_tcsicmp(className, _T("ListBox")) == 0 ||
-             _tcsicmp(className, WC_LISTVIEW) == 0))
-        {
-            // List contents are panel data, not dialog chrome.  Keep this
-            // consistent for list boxes and report list views on every page.
-            SendMessage(child, WM_SETFONT, (WPARAM)Font, MAKELPARAM(TRUE, 0));
-        }
-        ApplyPanelFontToListControls(child);
-    }
-}
-
-static const UINT WM_APP_APPLY_PANEL_LIST_FONTS = WM_APP + 0x3AA;
-
 INT_PTR
 CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -461,17 +441,6 @@ CCommonPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     if (uMsg == WM_INITDIALOG || uMsg == WM_THEMECHANGED || uMsg == WM_SETTINGCHANGE)
         MarkConfiguredButtonFonts(HWindow);
-    if (uMsg == WM_INITDIALOG)
-    {
-        // CPropSheetPageProc applies the UI font after this handler returns.
-        // Restore the deliberately independent panel font afterwards.
-        PostMessage(HWindow, WM_APP_APPLY_PANEL_LIST_FONTS, 0, 0);
-    }
-    else if (uMsg == WM_APP_APPLY_PANEL_LIST_FONTS)
-    {
-        ApplyPanelFontToListControls(HWindow);
-        return 0;
-    }
     return CPropSheetPage::DialogProc(uMsg, wParam, lParam);
 }
 

@@ -42,6 +42,8 @@ def main() -> None:
     plugin_winlib_h = (ROOT / "src/plugins/shared/winliblt.h").read_text(encoding="utf-8")
     pictview_dialogs = (ROOT / "src/plugins/pictview/dialogs.cpp").read_text(encoding="utf-8")
     dialogs5 = (ROOT / "src/dialogs5.cpp").read_text(encoding="utf-8")
+    dialogsp = (ROOT / "src/dialogsp.cpp").read_text(encoding="utf-8")
+    edit_listbox = (ROOT / "src/edtlbwnd.cpp").read_text(encoding="utf-8")
 
     font_preview = function_slice(
         dialogs5, "void CCfgPageAppearance::LoadFontPreview(",
@@ -309,6 +311,10 @@ def main() -> None:
             "Internal Viewer refreshes dynamically populated custom submenus")
     require(internal_viewer, "DestroyViewerMenuControls();\n        DestroyWindow(HWindow);",
             "Internal Viewer releases the custom menu bar before closing its parent window")
+    require(internal_viewer, "ViewerPopupMenu = new (std::nothrow) CMenuPopup;",
+            "Internal Viewer popup menu preserves its checked low-memory failure path")
+    require(internal_viewer, "ViewerMenuBar = new (std::nothrow) CMenuBar(ViewerPopupMenu, HWindow);",
+            "Internal Viewer menu bar preserves its checked low-memory failure path")
     require(viewer_core, "DestroyWindow(menuBarWindow);",
             "Internal Viewer destroys the menu-bar child HWND before deleting its CMenuBar object")
     require(internal_viewer, "if (ShowLineNumbers)\n                {\n                    // The gutter is painted directly",
@@ -356,8 +362,18 @@ def main() -> None:
             "configuration pages install their caption-font markers")
     require(dialogs2, "SetPropW(child, L\"Darkmodelib.Button.UseConfiguredFont\", (HANDLE)1);",
             "configured caption path also in the default UI font mode")
-    require(dialogs2, "ApplyPanelFontToListControls(HWindow);",
-            "property-page list controls restore the panel font after UI font application")
+    require_absent(dialogs2, "ApplyPanelFontToList",
+                   "Configuration list controls must retain the configured UI font")
+    require_absent(dialogs2, "WM_APP_APPLY_PANEL_LIST_FONTS",
+                   "Configuration must not restore Panel font after applying the UI font")
+    require(edit_listbox, "case WM_SETFONT:",
+            "editable Configuration listboxes react to the final UI font")
+    require(edit_listbox, "UpdateFontMetrics((HFONT)wParam);",
+            "owner-drawn Configuration listbox fonts and item heights stay synchronized")
+    require(edit_listbox, "CreateFontIndirect(&lf)",
+            "owner-drawn normal and bold listbox fonts derive from the control UI font")
+    require(dialogsp, "PostMessage(HWindow, WM_APP_EXTERNAL_ARCHIVERS_UPDATE_FONT, 0, 0);",
+            "External Archivers listbox recalculates its height after final UI font application")
     require(plugin_winlib, "MarkConfiguredButtonFonts(hwnd);",
             "plug-in groupbox captions retain their configured dialog font")
     require(plugin_winlib, "SetPropW(child, L\"Darkmodelib.Button.UseConfiguredFont\", (HANDLE)1);",

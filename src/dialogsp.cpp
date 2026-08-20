@@ -865,6 +865,8 @@ CCfgPageUnpackers::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 // CCfgPageExternalArchivers
 //
 
+static const UINT WM_APP_EXTERNAL_ARCHIVERS_UPDATE_FONT = WM_APP + 170;
+
 CCfgPageExternalArchivers::CCfgPageExternalArchivers()
     : CCommonPropSheetPage(NULL, HLanguage, IDD_CFGPAGE_ARCHIVERSLOCATIONS, IDD_CFGPAGE_ARCHIVERSLOCATIONS, PSP_USETITLE, NULL)
 {
@@ -1015,6 +1017,10 @@ CCfgPageExternalArchivers::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         SelectObject(hdc, hOldFont);
         HANDLES(ReleaseDC(HWindow, hdc));
         SendMessage(HListbox, LB_SETITEMHEIGHT, 0, MAKELPARAM(tm.tmHeight + 1, 0));
+        // The common property-page procedure applies the configured UI font
+        // after this concrete WM_INITDIALOG handler returns. Recalculate the
+        // standard listbox item height once that final font is in place.
+        PostMessage(HWindow, WM_APP_EXTERNAL_ARCHIVERS_UPDATE_FONT, 0, 0);
 
         SendDlgItemMessage(HWindow, IDC_P3_VIEW, EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
         SendDlgItemMessage(HWindow, IDC_P3_EDIT, EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
@@ -1026,6 +1032,20 @@ CCfgPageExternalArchivers::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ElasticVerticalLayout(1, IDC_P3_LIST);
 
         break;
+    }
+
+    case WM_APP_EXTERNAL_ARCHIVERS_UPDATE_FONT:
+    {
+        HFONT hFont = (HFONT)SendMessage(HListbox, WM_GETFONT, 0, 0);
+        TEXTMETRIC tm;
+        HDC hdc = HANDLES(GetDC(HListbox));
+        HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
+        GetTextMetrics(hdc, &tm);
+        SelectObject(hdc, hOldFont);
+        HANDLES(ReleaseDC(HListbox, hdc));
+        SendMessage(HListbox, LB_SETITEMHEIGHT, 0, MAKELPARAM(tm.tmHeight + 1, 0));
+        InvalidateRect(HListbox, NULL, TRUE);
+        return 0;
     }
 
     case WM_COMMAND:

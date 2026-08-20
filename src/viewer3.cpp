@@ -981,10 +981,26 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // viewer (not unrelated dialogs) receives the Explorer scrollbar theme.
         DarkModeAllowDarkScrollbars(HWindow);
 
-        ViewerPopupMenu = new CMenuPopup;
+#ifdef new
+#undef new
+#define RESTORE_VIEWER_POPUP_MENU_DEBUG_NEW_MACRO
+#endif
+        ViewerPopupMenu = new (std::nothrow) CMenuPopup;
+#ifdef RESTORE_VIEWER_POPUP_MENU_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_VIEWER_POPUP_MENU_DEBUG_NEW_MACRO
+#endif
         if (ViewerPopupMenu == NULL || !ViewerPopupMenu->LoadTemplateMenu(ViewerMenu))
             return -1;
-        ViewerMenuBar = new CMenuBar(ViewerPopupMenu, HWindow);
+#ifdef new
+#undef new
+#define RESTORE_VIEWER_MENU_BAR_DEBUG_NEW_MACRO
+#endif
+        ViewerMenuBar = new (std::nothrow) CMenuBar(ViewerPopupMenu, HWindow);
+#ifdef RESTORE_VIEWER_MENU_BAR_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_VIEWER_MENU_BAR_DEBUG_NEW_MACRO
+#endif
         if (ViewerMenuBar == NULL || !ViewerMenuBar->CreateWnd(HWindow))
             return -1;
         ViewerMenuBar->SetFont();

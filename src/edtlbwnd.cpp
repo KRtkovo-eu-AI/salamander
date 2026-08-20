@@ -129,14 +129,42 @@ CEditListBox::CEditListBox(HWND hDlg, int ctrlID, DWORD flags, CObjectOrigin ori
     Dragging = FALSE;
     HMarkWindow = NULL;
 
-    HFONT hFont = (HFONT)SendMessage(HWindow, WM_GETFONT, 0, 0);
+    UpdateFontMetrics((HFONT)SendMessage(HWindow, WM_GETFONT, 0, 0));
+
+    // MakeDragList subclasses the list box and we stop receiving basic messages
+    // such as WM_LBUTTONDOWN, WM_MOUSEMOVE, ect. That makes this function unusable,
+    // so we implement drag&drop support ourselves.
+    //  MakeDragList(HWindow);
+    //  DragNotify = RegisterWindowMessage(DRAGLISTMSGSTRING);
+}
+
+void CEditListBox::UpdateFontMetrics(HFONT hFont)
+{
+    if (hFont == NULL)
+        return;
 
     LOGFONT lf;
-    GetObject(hFont, sizeof(lf), &lf);
-    // construct two fonts
-    HNormalFont = HANDLES(CreateFontIndirect(&lf));
+    if (GetObject(hFont, sizeof(lf), &lf) == 0)
+        return;
+
+    HFONT hNormalFont = HANDLES(CreateFontIndirect(&lf));
     lf.lfWeight = FW_BOLD;
-    HBoldFont = HANDLES(CreateFontIndirect(&lf));
+    HFONT hBoldFont = HANDLES(CreateFontIndirect(&lf));
+    if (hNormalFont == NULL || hBoldFont == NULL)
+    {
+        if (hNormalFont != NULL)
+            HANDLES(DeleteObject(hNormalFont));
+        if (hBoldFont != NULL)
+            HANDLES(DeleteObject(hBoldFont));
+        return;
+    }
+
+    if (HNormalFont != NULL)
+        HANDLES(DeleteObject(HNormalFont));
+    if (HBoldFont != NULL)
+        HANDLES(DeleteObject(HBoldFont));
+    HNormalFont = hNormalFont;
+    HBoldFont = hBoldFont;
 
     TEXTMETRIC tm;
     HDC hdc = HANDLES(GetDC(HWindow));
@@ -147,11 +175,10 @@ CEditListBox::CEditListBox(HWND hDlg, int ctrlID, DWORD flags, CObjectOrigin ori
     int itemHeight = max(tm.tmHeight + 4, IconSizes[ICONSIZE_16]);
     SendMessage(HWindow, LB_SETITEMHEIGHT, 0, MAKELPARAM(itemHeight, 0));
 
-    // MakeDragList subclasses the list box and we stop receiving basic messages
-    // such as WM_LBUTTONDOWN, WM_MOUSEMOVE, ect. That makes this function unusable,
-    // so we implement drag&drop support ourselves.
-    //  MakeDragList(HWindow);
-    //  DragNotify = RegisterWindowMessage(DRAGLISTMSGSTRING);
+    if (HSearchEdit != NULL)
+        SendMessage(HSearchEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
+    if (EditLine != NULL)
+        SendMessage(EditLine->HWindow, WM_SETFONT, (WPARAM)hFont, TRUE);
 }
 
 CEditListBox::~CEditListBox()
@@ -1109,6 +1136,13 @@ CEditListBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     CALL_STACK_MESSAGE4("CEditListBox::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_SETFONT:
+    {
+        LRESULT result = CWindow::WindowProc(uMsg, wParam, lParam);
+        UpdateFontMetrics((HFONT)wParam);
+        return result;
+    }
+
     case WM_COMMAND:
     {
         if (HIWORD(wParam) == EN_KILLFOCUS)
