@@ -67,6 +67,7 @@ CMenuPopup::CMenuPopup(DWORD id)
     ModifyMode = FALSE;
     UpDownTimerRunnig = FALSE;
     SkillLevel = MENU_LEVEL_ADVANCED;
+    UsePanelContextMenuFont = FALSE;
     Cleanup();
 }
 
@@ -1240,6 +1241,12 @@ BOOL CMenuPopup::LoadFromHandle()
 BOOL CMenuPopup::LoadFromTemplate(HINSTANCE hInstance, const MENU_TEMPLATE_ITEM* menuTemplate, DWORD* enablersOffset, HIMAGELIST hImageList, HIMAGELIST hHotImageList)
 {
     return LoadFromTemplate2(hInstance, menuTemplate, enablersOffset, hImageList, hHotImageList, NULL);
+}
+
+BOOL CMenuPopup::LoadTemplateMenu(HMENU hWindowsMenu)
+{
+    HWindowsMenu = hWindowsMenu;
+    return LoadFromHandle();
 }
 
 // based on the 'menuTemplate' template, load 'menuPopup'
@@ -3079,6 +3086,7 @@ CMenuPopup::TrackInternal(DWORD trackFlags, int x, int y, HWND hwnd, const RECT*
     SharedRes->MenuBar = menuBar;
     SharedRes->ExcludeRect = exclude;
     SharedRes->SkillLevel = SkillLevel;
+    SharedRes->UsePanelContextMenuFont = UsePanelContextMenuFont;
     if (menuBar != NULL)
     {
         SharedRes->MenuBar->IndexToOpen = -1;

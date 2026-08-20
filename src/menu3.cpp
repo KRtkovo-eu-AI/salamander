@@ -72,6 +72,7 @@ CMenuSharedResources::CMenuSharedResources()
     BitmapsZoom = 1;
     ChangeTickCount = INFINITE;
     HideAccel = FALSE;
+    UsePanelContextMenuFont = FALSE;
 
     HCloseEvent = NULL;
 }
@@ -106,33 +107,6 @@ CMenuSharedResources::~CMenuSharedResources()
 }
 
 
-static BOOL SystemParametersInfoForPopupMenuDPI(UINT action, UINT uiParam, PVOID pvParam, UINT fWinIni, int dpi)
-{
-    typedef BOOL(WINAPI * FSystemParametersInfoForDpi)(UINT uiAction, UINT uiParam, PVOID pvParam, UINT fWinIni, UINT dpi);
-    static FSystemParametersInfoForDpi systemParametersInfoForDpi = NULL;
-    static BOOL loaded = FALSE;
-    if (!loaded)
-    {
-        HMODULE user32 = GetModuleHandle("user32.dll");
-        if (user32 != NULL)
-            systemParametersInfoForDpi = (FSystemParametersInfoForDpi)GetProcAddress(user32, "SystemParametersInfoForDpi");
-        loaded = TRUE;
-    }
-    if (systemParametersInfoForDpi != NULL && systemParametersInfoForDpi(action, uiParam, pvParam, fWinIni, dpi))
-        return TRUE;
-    return SystemParametersInfo(action, uiParam, pvParam, fWinIni);
-}
-
-static void ScalePopupMenuFontForDPI(LOGFONT* lf, int dpi)
-{
-    if (lf == NULL || lf->lfHeight == 0)
-        return;
-    int expected = MulDiv(12, dpi, 96);
-    int height = abs(lf->lfHeight);
-    if (height < expected - 1 || height > expected + 2)
-        lf->lfHeight = lf->lfHeight < 0 ? -expected : expected;
-}
-
 BOOL CMenuSharedResources::Create(HWND hParent, int width, int height)
 {
     CALL_STACK_MESSAGE3("CMenuSharedResources::Create(, %d, %d)", width, height);
@@ -163,19 +137,15 @@ BOOL CMenuSharedResources::Create(HWND hParent, int width, int height)
     HWND dpiWindow = HParent;
     if (MainWindow != NULL)
         dpiWindow = MainWindow->GetDetachedAwareDialogParent(HParent);
-    int dpi = (int)WinLibDPIGetWindowDPI(dpiWindow);
-    NONCLIENTMETRICS ncm;
-    ncm.cbSize = sizeof(ncm);
-    SystemParametersInfoForPopupMenuDPI(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0, dpi);
-
+    const int dpi = (int)WinLibDPIGetWindowDPI(dpiWindow);
     LOGFONT menuFont;
-    if (DialogFontMode == DIALOG_FONT_DEFAULT)
-    {
-        menuFont = ncm.lfMenuFont;
-        ScalePopupMenuFontForDPI(&menuFont, dpi);
-    }
+    // Popup/context menus follow the selected UI font as well.  In
+    // particular, the MS Shell Dlg default must not be substituted by the
+    // system menu font, otherwise it is indistinguishable from Panel/Segoe UI.
+    if (UsePanelContextMenuFont)
+        GetEffectivePanelContextMenuLogFont(&menuFont, dpiWindow);
     else
-        GetEffectiveDefaultUILogFont(&menuFont, dpiWindow);
+        GetEffectiveMenuLogFont(&menuFont, dpiWindow);
     HNormalFont = HANDLES(CreateFontIndirect(&menuFont));
     menuFont.lfWeight = FW_BOLD;
     HBoldFont = HANDLES(CreateFontIndirect(&menuFont));

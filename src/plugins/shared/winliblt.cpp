@@ -99,11 +99,31 @@ void RefreshWinLibDialogFontFromHost()
     }
 }
 
+// Darkmodelib normally prefers the themed caption font for Button controls.
+// A group box is a Button control too, so explicitly retain the dialog font
+// (including the explicit default supplied by the resource) for every such
+// control in plug-in dialogs.
+static void MarkConfiguredButtonFonts(HWND parent)
+{
+    for (HWND child = GetWindow(parent, GW_CHILD); child != NULL;
+         child = GetWindow(child, GW_HWNDNEXT))
+    {
+        wchar_t className[16];
+        if (GetClassNameW(child, className, _countof(className)) != 0 &&
+            lstrcmpiW(className, L"Button") == 0)
+        {
+            SetPropW(child, L"Darkmodelib.Button.UseConfiguredFont", (HANDLE)1);
+        }
+        MarkConfiguredButtonFonts(child);
+    }
+}
+
 void WinLibApplyDialogFont(HWND hwnd)
 {
     LOGFONT dialogLogFont;
     if (WinLibGetDefaultUILogFont(hwnd, &dialogLogFont))
         WinLibDPIApplyDialogLogFont(hwnd, &dialogLogFont);
+    MarkConfiguredButtonFonts(hwnd);
 }
 
 BOOL WinLibGetDefaultUILogFont(HWND hwnd, LOGFONT* logFont)

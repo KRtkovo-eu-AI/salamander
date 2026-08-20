@@ -285,10 +285,11 @@ static void MarkConfiguredButtonFonts(HWND parent)
         if (GetClassName(child, className, _countof(className)) != 0 &&
             _tcsicmp(className, _T("Button")) == 0)
         {
-            if (DialogFontMode != DIALOG_FONT_DEFAULT)
-                SetPropW(child, L"Darkmodelib.Button.UseConfiguredFont", (HANDLE)1);
-            else
-                RemovePropW(child, L"Darkmodelib.Button.UseConfiguredFont");
+            // Every dialog template (including the explicit "MS Shell Dlg"
+            // default) assigns its UI font to this control.  Darkmodelib must
+            // use that font for group-box captions instead of falling back to
+            // the theme's unrelated group-box font.
+            SetPropW(child, L"Darkmodelib.Button.UseConfiguredFont", (HANDLE)1);
         }
         MarkConfiguredButtonFonts(child);
     }

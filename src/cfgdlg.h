@@ -1206,11 +1206,17 @@ class CCfgPageAppearance : public CCommonPropSheetPage
 protected:
     HFONT HPanelFont;
     HFONT HDialogFont;
+    HFONT HMenuFont;
+    HFONT HPanelContextMenuFont;
     BOOL LocalUseCustomPanelFont;
     LOGFONT LocalPanelLogFont;
     int LocalDialogFontMode;
     LOGFONT LocalDialogLogFont;
     int LocalDialogFontPointSize;
+    BOOL LocalUseCustomMenuFont;
+    LOGFONT LocalMenuLogFont;
+    BOOL LocalUseCustomPanelContextMenuFont;
+    LOGFONT LocalPanelContextMenuLogFont;
     LOGFONT OriginalEffectiveDialogFont;
     BOOL DialogFontRestartMessageShown;
     BOOL NotificationEnabled;
@@ -1275,6 +1281,7 @@ protected:
     DWORD GetDrivesFromListbox(int redID);
     void InitList(int resID); // setup listbox
     void EnableMountFolderControls();
+    void ApplyMountFoldersCaptionFontAndSize();
 
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 };

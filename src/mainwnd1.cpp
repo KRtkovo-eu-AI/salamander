@@ -1732,6 +1732,22 @@ void GetEffectiveDefaultUILogFont(LOGFONT* logFont, HWND dpiWindow)
         GetEffectiveDialogLogFont(logFont, dpiWindow);
 }
 
+void GetEffectiveMenuLogFont(LOGFONT* logFont, HWND dpiWindow)
+{
+    if (UseCustomMenuFont)
+        *logFont = MenuLogFont;
+    else
+        GetEffectiveDialogLogFont(logFont, dpiWindow);
+}
+
+void GetEffectivePanelContextMenuLogFont(LOGFONT* logFont, HWND dpiWindow)
+{
+    if (UseCustomPanelContextMenuFont)
+        *logFont = PanelContextMenuLogFont;
+    else
+        GetEffectiveDialogLogFont(logFont, dpiWindow);
+}
+
 // tooltip font
 BOOL GetSystemTooltipFont(LOGFONT* lf)
 {

@@ -221,6 +221,9 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
 {
     CALL_STACK_MESSAGE1("CPluginInterface::Connect(,)");
 
+    // Preload WebView2Loader before the first text document is opened.
+    ManagedBridge_EnsureInitialized(parent);
+
     static const char* const kBaseExtensions[] = {
         "cfg",
         "conf",

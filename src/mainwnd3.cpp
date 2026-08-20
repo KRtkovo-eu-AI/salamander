@@ -4094,6 +4094,10 @@ void CMainWindow::OnConfiguration(int mode, int param)
         UserMenuIconBkgndReader.BeginUserMenuIconsInUse();
     BOOL oldUseCustomPanelFont = UseCustomPanelFont;
     LOGFONT oldLogFont = LogFont;
+    BOOL oldUseCustomMenuFont = UseCustomMenuFont;
+    LOGFONT oldMenuLogFont = MenuLogFont;
+    BOOL oldUseCustomPanelContextMenuFont = UseCustomPanelContextMenuFont;
+    LOGFONT oldPanelContextMenuLogFont = PanelContextMenuLogFont;
     CConfigurationDlg dlg(GetDetachedAwareDialogParent(HWindow), UserMenuItems, mode, param);
     int res = dlg.Execute(LoadStr(IDS_BUTTON_OK), LoadStr(IDS_BUTTON_CANCEL),
                           LoadStr(IDS_BUTTON_HELP));
@@ -4119,6 +4123,16 @@ void CMainWindow::OnConfiguration(int mode, int param)
             // if the header line is shown, we must set its correct size
             LeftPanel->LayoutListBoxChilds();
             RightPanel->LayoutListBoxChilds();
+        }
+        if (oldUseCustomMenuFont != UseCustomMenuFont ||
+            memcmp(&oldMenuLogFont, &MenuLogFont, sizeof(MenuLogFont)) != 0 ||
+            oldUseCustomPanelContextMenuFont != UseCustomPanelContextMenuFont ||
+            memcmp(&oldPanelContextMenuLogFont, &PanelContextMenuLogFont,
+                   sizeof(PanelContextMenuLogFont)) != 0)
+        {
+            // The menu bar owns its font; panel context menus read theirs
+            // when they are opened.  Refresh the already visible menu bar.
+            SetEnvFont();
         }
 
         if (Configuration.ThumbnailSize != LeftPanel->GetThumbnailSize() ||

@@ -233,6 +233,8 @@ def main() -> int:
         or "GetThemePartSize(theme, dc, BP_CHECKBOX, CBS_UNCHECKEDNORMAL" not in dialogs5
         or "glyphSize.cx + glyphGap + textExtent.right - textExtent.left + captionMargin" not in dialogs5
         or "SetWindowPos(mountFolders, NULL, 0, 0, width" not in dialogs5
+        or "PostMessage(HWindow, WM_APP_CHANGE_DRIVE_APPLY_CAPTION_FONT, 0, 0);" not in dialogs5
+        or "SendMessage(mountFolders, WM_SETFONT, (WPARAM)groupFont, FALSE);" not in dialogs5
         or 'GetPropW(hWnd, L"Darkmodelib.Button.UseGroupboxCaptionStyle")' not in darkmodelib_controls
         or "if (useGroupboxCaptionStyle)" not in darkmodelib_controls
         or "DrawThemeTextEx(hTheme, hdc, BP_GROUPBOX, GBS_NORMAL" not in darkmodelib_controls

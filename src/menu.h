@@ -118,6 +118,7 @@ public:
     CMenuBar* MenuBar; // okno je aktivovano z MenuBar; jinak je rovno NULL
     DWORD SkillLevel;  // honodta pro retezec popupu -- urcuje, kerer itemy budou zobrazeny
     BOOL HideAccel;    // maji se skryt akceleratory
+    BOOL UsePanelContextMenuFont;
 
     const RECT* ExcludeRect; // tento obdelnik nesmime prekryt
 
@@ -263,6 +264,7 @@ protected:
     BOOL ModifyMode;           // pokud je menu zobrazeno, neni mozne nad nim provadet zmeny, neni-li v ModifyMode
     DWORD SkillLevel;          // urcuje, ktere polozky budou v tomto popupu zobrazeny
     int MouseWheelAccumulator; // vertical
+    BOOL UsePanelContextMenuFont;
 
 public:
     //
@@ -282,6 +284,8 @@ public:
     virtual int WINAPI GetSelectedItemIndex() { return SelectedItemIndex; }
 
     virtual void WINAPI SetTemplateMenu(HMENU hWindowsMenu) { HWindowsMenu = hWindowsMenu; }
+    BOOL LoadTemplateMenu(HMENU hWindowsMenu);
+    void SetUsePanelContextMenuFont(BOOL use) { UsePanelContextMenuFont = use; }
     virtual HMENU WINAPI GetTemplateMenu() { return HWindowsMenu; }
 
     virtual CGUIMenuPopupAbstract* WINAPI GetSubMenu(DWORD position, BOOL byPosition);

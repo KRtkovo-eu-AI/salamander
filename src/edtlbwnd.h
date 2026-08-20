@@ -176,6 +176,7 @@ public:
     void EnableDrag(HWND hMarkWindow);
 
 protected:
+    void UpdateFontMetrics(HFONT hFont);
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
     int NotifyParent(void* nmhdr, UINT code, BOOL send = TRUE);

@@ -1423,6 +1423,13 @@ extern int DialogFontPointSize;
 void GetEffectiveDialogLogFont(LOGFONT* logFont, HWND dpiWindow = NULL);
 void GetEffectiveDefaultUILogFont(LOGFONT* logFont, HWND dpiWindow = NULL);
 
+extern BOOL UseCustomMenuFont;
+extern LOGFONT MenuLogFont;
+extern BOOL UseCustomPanelContextMenuFont;
+extern LOGFONT PanelContextMenuLogFont;
+void GetEffectiveMenuLogFont(LOGFONT* logFont, HWND dpiWindow = NULL);
+void GetEffectivePanelContextMenuLogFont(LOGFONT* logFont, HWND dpiWindow = NULL);
+
 BOOL CreatePanelFont(); // naplni Font, FontULa FontCharHeight na zaklade LogFont
 
 extern HFONT EnvFont;         // environment font (edit, toolbar, header, status)

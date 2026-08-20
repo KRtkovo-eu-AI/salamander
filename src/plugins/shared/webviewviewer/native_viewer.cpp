@@ -37,6 +37,9 @@ namespace
 {
 constexpr UINT WM_NV_CLOSE_ALL = WM_APP + 0x631;
 constexpr UINT WM_NV_APPLY_ZOOM = WM_APP + 0x632;
+constexpr UINT WM_NV_CREATE_VIEWER = WM_APP + 0x633;
+constexpr UINT WM_NV_STOP_HOST = WM_APP + 0x634;
+constexpr UINT WM_NV_PREWARM_ENVIRONMENT = WM_APP + 0x635;
 constexpr int IDC_NV_STATUS = 101;
 constexpr int IDM_NV_CLOSE = 40001;
 constexpr int IDM_NV_REFRESH = 40002;
@@ -46,14 +49,39 @@ constexpr int IDM_NV_ZOOM_RESET = 40005;
 constexpr int IDM_NV_LINE_NUMBERS = 40006;
 constexpr int IDM_NV_WRAP_LINES = 40007;
 constexpr int IDM_NV_SHOW_WHITESPACE = 40008;
+constexpr int IDM_NV_SYNTAX_AUTOMATIC = 40999;
+constexpr int IDM_NV_SYNTAX_FIRST = 41000;
 constexpr int IDC_NV_ZOOM_RESET = 40101;
 constexpr int IDC_NV_ZOOM_OUT = 40102;
 constexpr int IDC_NV_ZOOM_EDIT = 40103;
 constexpr int IDC_NV_ZOOM_IN = 40104;
 
+#ifndef WM_UAHDRAWMENU
+#define WM_UAHDRAWMENU 0x0091
+#endif
+#ifndef WM_UAHDRAWMENUITEM
+#define WM_UAHDRAWMENUITEM 0x0092
+#endif
+
+struct NativeViewerUAHMenu { HMENU menu; HDC dc; DWORD flags; };
+struct NativeViewerUAHMenuItem { int position; DWORD metrics[16]; };
+struct NativeViewerUAHDrawMenuItem
+{
+    DRAWITEMSTRUCT draw;
+    NativeViewerUAHMenu menu;
+    NativeViewerUAHMenuItem item;
+};
+
 std::mutex gWindowsLock;
 std::vector<HWND> gWindows;
 std::atomic<bool> gShuttingDown(false);
+std::mutex gViewerHostLock;
+HANDLE gViewerHostThread = nullptr;
+DWORD gViewerHostThreadId = 0;
+HANDLE gViewerHostReady = nullptr;
+ComPtr<ICoreWebView2Environment> gSharedEnvironment;
+std::vector<HWND> gPendingEnvironmentWindows;
+bool gCreatingSharedEnvironment = false;
 
 using CreateWebView2EnvironmentFn = HRESULT(STDAPICALLTYPE*)(
     PCWSTR, PCWSTR, ICoreWebView2EnvironmentOptions*,
@@ -99,6 +127,16 @@ CreateWebView2EnvironmentFn GetCreateWebView2Environment()
 }
 
 constexpr const wchar_t* kViewerSettingsKey = L"Software\\Open Salamander\\ViewerFrame";
+
+std::wstring ViewerUserDataFolder()
+{
+    PWSTR appData = nullptr;
+    if (FAILED(SHGetKnownFolderPath(FOLDERID_LocalAppData, KF_FLAG_DEFAULT, nullptr, &appData)))
+        return L"";
+    std::wstring result = std::wstring(appData) + L"\\Open Salamander\\Native WebView2 Viewer";
+    CoTaskMemFree(appData);
+    return result;
+}
 
 DWORD ReadViewerSetting(const wchar_t* name, DWORD fallback)
 {
@@ -172,20 +210,56 @@ std::wstring PrismLanguageForExtension(const std::wstring& extension)
     std::wstring value = extension.empty() ? L"none" : extension.substr(1);
     struct Mapping { const wchar_t* extension; const wchar_t* language; };
     static const Mapping mappings[] = {
-        {L"axaml", L"xml"}, {L"cmd", L"batch"}, {L"config", L"xml"},
-        {L"csproj", L"xml"}, {L"cxx", L"cpp"}, {L"fsproj", L"xml"},
+        {L"axaml", L"markup"}, {L"cmd", L"batch"}, {L"config", L"markup"},
+        {L"cs", L"csharp"}, {L"csproj", L"markup"}, {L"cxx", L"cpp"}, {L"fsproj", L"markup"},
         {L"h", L"c"}, {L"hh", L"cpp"}, {L"hpp", L"cpp"}, {L"hxx", L"cpp"},
-        {L"htm", L"html"}, {L"jsonc", L"json"}, {L"json5", L"json"},
-        {L"md", L"markdown"}, {L"markdown", L"markdown"}, {L"nuspec", L"xml"},
-        {L"plist", L"xml"}, {L"props", L"xml"}, {L"ps1", L"powershell"},
-        {L"psd1", L"powershell"}, {L"psm1", L"powershell"}, {L"storyboard", L"xml"},
-        {L"targets", L"xml"}, {L"vcxproj", L"xml"}, {L"vcproj", L"xml"},
-        {L"vbproj", L"xml"}, {L"xaml", L"xml"}, {L"xlf", L"xml"}, {L"yml", L"yaml"}
+        {L"htm", L"markup"}, {L"html", L"markup"}, {L"js", L"javascript"},
+        {L"jsonc", L"json"}, {L"json5", L"json"}, {L"md", L"markdown"},
+        {L"markdown", L"markdown"}, {L"nuspec", L"markup"}, {L"plist", L"markup"},
+        {L"props", L"markup"}, {L"ps1", L"powershell"}, {L"py", L"python"},
+        {L"psd1", L"powershell"}, {L"psm1", L"powershell"}, {L"storyboard", L"markup"},
+        {L"reg", L"properties"}, {L"rb", L"ruby"}, {L"sh", L"bash"},
+        {L"targets", L"markup"}, {L"ts", L"typescript"}, {L"vcxproj", L"markup"},
+        {L"vcproj", L"markup"}, {L"vbproj", L"markup"}, {L"xaml", L"markup"},
+        {L"xlf", L"markup"}, {L"xml", L"markup"}, {L"yml", L"yaml"}
     };
     for (const Mapping& mapping : mappings)
         if (value == mapping.extension)
             return mapping.language;
     return value;
+}
+
+std::wstring ModuleDirectory(HINSTANCE module);
+
+std::vector<std::wstring> InstalledPrismLanguages(HINSTANCE module)
+{
+    std::vector<std::wstring> languages;
+    const std::wstring folder = ModuleDirectory(module);
+    if (folder.empty())
+        return languages;
+    WIN32_FIND_DATAW data = {};
+    HANDLE find = FindFirstFileW((folder + L"\\prism\\components\\prism-*.min.js").c_str(), &data);
+    if (find == INVALID_HANDLE_VALUE)
+        return languages;
+    do
+    {
+        std::wstring name = data.cFileName;
+        constexpr size_t prefixLength = 6;
+        constexpr size_t suffixLength = 7;
+        if (name.size() > prefixLength + suffixLength &&
+            name.compare(0, prefixLength, L"prism-") == 0 &&
+            name.compare(name.size() - suffixLength, suffixLength, L".min.js") == 0)
+        {
+            name = name.substr(prefixLength, name.size() - prefixLength - suffixLength);
+            if (name != L"core" && name.find(L"-extras") == std::wstring::npos &&
+                name != L"javadoclike" && name != L"markup-templating")
+                languages.push_back(name);
+        }
+    } while (FindNextFileW(find, &data));
+    FindClose(find);
+    std::sort(languages.begin(), languages.end());
+    languages.erase(std::unique(languages.begin(), languages.end()), languages.end());
+    return languages;
 }
 
 std::wstring HtmlEncode(const std::wstring& value)
@@ -589,6 +663,8 @@ struct ViewerParameters
     HANDLE closeEvent = nullptr;
     NativeViewerKind kind = NativeViewerKind::RenderDocument;
     NativeViewerTheme theme = {};
+    LOGFONT menuFont = {};
+    CSalamanderGUIAbstract* gui = nullptr;
     std::wstring pluginName;
     std::wstring fileMenu;
     std::wstring viewMenu;
@@ -604,6 +680,9 @@ struct ViewerParameters
     std::wstring ready;
     std::wstring initializationFailed;
     std::wstring openFailed;
+    std::wstring syntaxHighlighter;
+    std::wstring automatic;
+    LOGFONT viewerFont = {};
 };
 
 class ViewerWindow
@@ -618,11 +697,22 @@ public:
             showLineNumbers_ = ReadViewerSetting(L"PrismLineNumbers", 0) != 0;
             wrapLines_ = ReadViewerSetting(L"PrismWrapLines", 0) != 0;
             showWhitespace_ = ReadViewerSetting(L"PrismShowWhitespace", 0) != 0;
+            automaticLanguage_ = PrismLanguageForExtension(ExtensionOf(parameters_->filePath));
+            installedLanguages_ = InstalledPrismLanguages(parameters_->module);
+            if (!std::binary_search(installedLanguages_.begin(), installedLanguages_.end(), automaticLanguage_))
+                automaticLanguage_ = L"none";
+            activeLanguage_ = automaticLanguage_;
         }
     }
     ~ViewerWindow()
     {
         CloseBrowser();
+        if (parameters_->gui != nullptr && menuBar_ != nullptr)
+            parameters_->gui->DestroyMenuBar(menuBar_);
+        if (parameters_->gui != nullptr && mainMenu_ != nullptr)
+            parameters_->gui->DestroyMenuPopup(mainMenu_);
+        if (menuFont_ != nullptr && menuFont_ != GetStockObject(DEFAULT_GUI_FONT))
+            DeleteObject(menuFont_);
         if (parameters_->closeEvent != nullptr)
             SetEvent(parameters_->closeEvent);
     }
@@ -661,17 +751,19 @@ public:
         cls.hIconSm = static_cast<HICON>(LoadImageW(parameters_->module, MAKEINTRESOURCEW(8000), IMAGE_ICON,
                                                     GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR));
         cls.hCursor = LoadCursor(nullptr, IDC_ARROW);
-        cls.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
+        // Do not let USER paint COLOR_WINDOW before the WebView controller and
+        // document exist.  WM_ERASEBKGND below uses the viewer's actual theme.
+        cls.hbrBackground = nullptr;
         cls.lpszClassName = className;
         RegisterClassExW(&cls);
 
         int width = (std::max)(parameters_->placement.right - parameters_->placement.left, 320L);
         int height = (std::max)(parameters_->placement.bottom - parameters_->placement.top, 240L);
-        std::wstring title = FileNameOf(parameters_->filePath) + L" - " + parameters_->pluginName;
+        std::wstring title = WindowTitle();
         window_ = CreateWindowExW(parameters_->alwaysOnTop ? WS_EX_TOPMOST : 0, className, title.c_str(),
                                   WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
                                   parameters_->placement.left, parameters_->placement.top, width, height,
-                                  nullptr, CreateMenuBar(), parameters_->module, this);
+                                  nullptr, nullptr, parameters_->module, this);
         return window_ != nullptr;
     }
 
@@ -683,12 +775,43 @@ public:
     }
 
 private:
+    struct SyntaxMenuItem
+    {
+        int command;
+        std::wstring language;
+        CGUIMenuPopupAbstract* menu;
+    };
+
+    CGUIMenuPopupAbstract* mainMenu_ = nullptr;
+    CGUIMenuBarAbstract* menuBar_ = nullptr;
+    CGUIMenuPopupAbstract* syntaxMenu_ = nullptr;
+
+    std::wstring WindowTitle() const
+    {
+        std::wstring title = FileNameOf(parameters_->filePath) + L" - " + parameters_->pluginName;
+        if (parameters_->kind == NativeViewerKind::PrismText)
+            title += L" - [" + (activeLanguage_.empty() ? std::wstring(L"none") : activeLanguage_) + L"]";
+        return title;
+    }
+
+    void UpdateWindowTitle()
+    {
+        if (window_ != nullptr)
+        {
+            const std::wstring title = WindowTitle();
+            SetWindowTextW(window_, title.c_str());
+        }
+    }
+
     HMENU CreateMenuBar()
     {
         HMENU bar = CreateMenu();
         HMENU file = CreatePopupMenu();
         AppendMenuW(file, MF_STRING, IDM_NV_CLOSE, parameters_->close.c_str());
-        AppendMenuW(bar, MF_POPUP, reinterpret_cast<UINT_PTR>(file), parameters_->fileMenu.c_str());
+        // Native menu bars do not add enough breathing room for these short
+        // captions. Padding also gives the first item a left inset.
+        std::wstring fileCaption = L"  " + parameters_->fileMenu + L"  ";
+        AppendMenuW(bar, MF_POPUP, reinterpret_cast<UINT_PTR>(file), fileCaption.c_str());
         HMENU view = CreatePopupMenu();
         AppendMenuW(view, MF_STRING, IDM_NV_REFRESH, parameters_->refresh.c_str());
         AppendMenuW(view, MF_SEPARATOR, 0, nullptr);
@@ -702,8 +825,140 @@ private:
             AppendMenuW(view, MF_STRING, IDM_NV_WRAP_LINES, parameters_->wrapLines.c_str());
             AppendMenuW(view, MF_STRING, IDM_NV_SHOW_WHITESPACE, parameters_->showWhitespace.c_str());
         }
-        AppendMenuW(bar, MF_POPUP, reinterpret_cast<UINT_PTR>(view), parameters_->viewMenu.c_str());
+        std::wstring viewCaption = L"  " + parameters_->viewMenu + L"  ";
+        AppendMenuW(bar, MF_POPUP, reinterpret_cast<UINT_PTR>(view), viewCaption.c_str());
+        if (parameters_->kind == NativeViewerKind::PrismText)
+        {
+            HMENU syntax = CreatePopupMenu();
+            AppendMenuW(syntax, MF_STRING, IDM_NV_SYNTAX_AUTOMATIC,
+                        (parameters_->automatic.empty() ? L"&Automatic" : parameters_->automatic.c_str()));
+            AppendMenuW(syntax, MF_SEPARATOR, 0, nullptr);
+            wchar_t currentGroup = 0;
+            HMENU groupMenu = nullptr;
+            for (size_t index = 0; index < installedLanguages_.size(); ++index)
+            {
+                const std::wstring& language = installedLanguages_[index];
+                wchar_t group = language.empty() ? L'#' : static_cast<wchar_t>(towupper(language[0]));
+                if (group < L'A' || group > L'Z')
+                    group = L'#';
+                if (group != currentGroup)
+                {
+                    currentGroup = group;
+                    groupMenu = CreatePopupMenu();
+                    const std::wstring groupCaption(1, group);
+                    AppendMenuW(syntax, MF_POPUP, reinterpret_cast<UINT_PTR>(groupMenu), groupCaption.c_str());
+                }
+                AppendMenuW(groupMenu, MF_STRING, IDM_NV_SYNTAX_FIRST + static_cast<UINT>(index),
+                            language.c_str());
+            }
+            const std::wstring syntaxCaption = L"  " +
+                (parameters_->syntaxHighlighter.empty() ? std::wstring(L"Syntax &Highlighter")
+                                                        : parameters_->syntaxHighlighter) + L"  ";
+            AppendMenuW(bar, MF_POPUP, reinterpret_cast<UINT_PTR>(syntax), syntaxCaption.c_str());
+        }
         return bar;
+    }
+
+    static std::string Utf8MenuText(const std::wstring& text)
+    {
+        const int bytes = WideCharToMultiByte(CP_UTF8, 0, text.c_str(), -1, nullptr, 0, nullptr, nullptr);
+        std::string result(bytes > 0 ? bytes : 0, '\0');
+        if (bytes > 0)
+            WideCharToMultiByte(CP_UTF8, 0, text.c_str(), -1, &result[0], bytes, nullptr, nullptr);
+        if (!result.empty())
+            result.pop_back();
+        return result;
+    }
+
+    static BOOL AddMenuItem(CGUIMenuPopupAbstract* menu, const std::wstring& text, DWORD id,
+                            CGUIMenuPopupAbstract* subMenu = nullptr)
+    {
+        std::string utf8 = Utf8MenuText(text);
+        MENU_ITEM_INFO item = {};
+        item.Mask = MENU_MASK_TYPE | MENU_MASK_STRING | MENU_MASK_ID | MENU_MASK_SUBMENU;
+        item.Type = MENU_TYPE_STRING;
+        item.ID = id;
+        item.String = const_cast<char*>(utf8.c_str());
+        item.SubMenu = subMenu;
+        return menu->InsertItem(-1, TRUE, &item);
+    }
+
+    static BOOL AddMenuSeparator(CGUIMenuPopupAbstract* menu)
+    {
+        MENU_ITEM_INFO item = {};
+        item.Mask = MENU_MASK_TYPE;
+        item.Type = MENU_TYPE_SEPARATOR;
+        return menu->InsertItem(-1, TRUE, &item);
+    }
+
+    bool CreateSyntaxHighlighterMenu()
+    {
+        syntaxMenu_ = parameters_->gui->CreateMenuPopup();
+        if (syntaxMenu_ == nullptr)
+            return false;
+        AddMenuItem(syntaxMenu_, parameters_->automatic.empty() ? L"&Automatic" : parameters_->automatic,
+                    IDM_NV_SYNTAX_AUTOMATIC);
+        AddMenuSeparator(syntaxMenu_);
+        wchar_t currentGroup = 0;
+        CGUIMenuPopupAbstract* groupMenu = nullptr;
+        for (size_t index = 0; index < installedLanguages_.size(); ++index)
+        {
+            const std::wstring& language = installedLanguages_[index];
+            wchar_t group = language.empty() ? L'#' : static_cast<wchar_t>(towupper(language[0]));
+            if (group < L'A' || group > L'Z')
+                group = L'#';
+            if (group != currentGroup)
+            {
+                currentGroup = group;
+                groupMenu = parameters_->gui->CreateMenuPopup();
+                if (groupMenu == nullptr)
+                    return false;
+                AddMenuItem(syntaxMenu_, std::wstring(1, group), 0, groupMenu);
+            }
+            const int command = IDM_NV_SYNTAX_FIRST + static_cast<int>(index);
+            AddMenuItem(groupMenu, language, command);
+            syntaxMenuItems_.push_back({command, language, groupMenu});
+        }
+        return true;
+    }
+
+    bool CreateCustomMenuBar()
+    {
+        if (parameters_->gui == nullptr)
+            return false;
+        mainMenu_ = parameters_->gui->CreateMenuPopup();
+        CGUIMenuPopupAbstract* file = parameters_->gui->CreateMenuPopup();
+        CGUIMenuPopupAbstract* view = parameters_->gui->CreateMenuPopup();
+        if (mainMenu_ == nullptr || file == nullptr || view == nullptr)
+            return false;
+        AddMenuItem(file, parameters_->close, IDM_NV_CLOSE);
+        AddMenuItem(view, parameters_->refresh, IDM_NV_REFRESH);
+        AddMenuSeparator(view);
+        AddMenuItem(view, parameters_->zoomIn, IDM_NV_ZOOM_IN);
+        AddMenuItem(view, parameters_->zoomOut, IDM_NV_ZOOM_OUT);
+        AddMenuItem(view, parameters_->zoomReset, IDM_NV_ZOOM_RESET);
+        if (parameters_->kind == NativeViewerKind::PrismText)
+        {
+            AddMenuSeparator(view);
+            AddMenuItem(view, parameters_->lineNumbers, IDM_NV_LINE_NUMBERS);
+            AddMenuItem(view, parameters_->wrapLines, IDM_NV_WRAP_LINES);
+            AddMenuItem(view, parameters_->showWhitespace, IDM_NV_SHOW_WHITESPACE);
+            if (!CreateSyntaxHighlighterMenu())
+                return false;
+        }
+        if (!AddMenuItem(mainMenu_, parameters_->fileMenu, 0, file) ||
+            !AddMenuItem(mainMenu_, parameters_->viewMenu, 0, view) ||
+            (parameters_->kind == NativeViewerKind::PrismText &&
+             !AddMenuItem(mainMenu_,
+                          parameters_->syntaxHighlighter.empty() ? L"Syntax &Highlighter"
+                                                                 : parameters_->syntaxHighlighter,
+                          0, syntaxMenu_)))
+            return false;
+        menuBar_ = parameters_->gui->CreateMenuBar(mainMenu_, window_);
+        if (menuBar_ == nullptr || !menuBar_->CreateWnd(window_))
+            return false;
+        menuBar_->SetFont();
+        return true;
     }
 
     LRESULT HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
@@ -714,8 +969,41 @@ private:
 
         switch (message)
         {
+        case WM_ERASEBKGND:
+        {
+            RECT client = {};
+            GetClientRect(window_, &client);
+            HBRUSH brush = CreateSolidBrush(parameters_->theme.background);
+            if (brush != nullptr)
+            {
+                FillRect(reinterpret_cast<HDC>(wParam), &client, brush);
+                DeleteObject(brush);
+            }
+            return 1;
+        }
+        case WM_PAINT:
+        {
+            PAINTSTRUCT paint = {};
+            HDC dc = BeginPaint(window_, &paint);
+            HGDIOBJ oldBrush = SelectObject(dc, GetStockObject(DC_BRUSH));
+            COLORREF oldColor = SetDCBrushColor(dc, parameters_->theme.background);
+            FillRect(dc, &paint.rcPaint, reinterpret_cast<HBRUSH>(GetStockObject(DC_BRUSH)));
+            SetDCBrushColor(dc, oldColor);
+            SelectObject(dc, oldBrush);
+            EndPaint(window_, &paint);
+            return 0;
+        }
+        case WM_UAHDRAWMENUITEM:
+            if (!parameters_->theme.dark && lParam != 0)
+            {
+                PaintLightMenuBarItem(reinterpret_cast<NativeViewerUAHDrawMenuItem*>(lParam));
+                return 0;
+            }
+            break;
         case WM_CREATE:
         {
+            if (!CreateCustomMenuBar())
+                return -1;
             status_ = CreateWindowExW(0, STATUSCLASSNAMEW, parameters_->loading.c_str(),
                                        WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | SBARS_SIZEGRIP, 0, 0, 0, 0,
                                        window_, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_NV_STATUS)), parameters_->module, nullptr);
@@ -730,6 +1018,7 @@ private:
             zoomIn_ = CreateWindowExW(0, L"BUTTON", L"+", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | BS_PUSHBUTTON | BS_FLAT,
                                        0, 0, 0, 0, window_, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_NV_ZOOM_IN)), parameters_->module, nullptr);
             ApplyChromeFont();
+            ApplyMenuFont();
             UpdateZoomDisplay(zoomPercent_);
             UpdateViewMenuChecks();
             ApplyTheme();
@@ -761,7 +1050,6 @@ private:
             return 0;
         case WM_DESTROY:
             RemoveWindow();
-            PostQuitMessage(0);
             return 0;
         }
         return DefWindowProcW(window_, message, wParam, lParam);
@@ -779,6 +1067,14 @@ private:
                      RDW_INVALIDATE | RDW_FRAME | RDW_ALLCHILDREN);
     }
 
+    void SetLoadProgress(int percent)
+    {
+        loadProgress_ = (std::max)(0, (std::min)(percent, 100));
+        if (status_ == nullptr || loadProgress_ >= 100)
+            return;
+        SetWindowTextW(status_, (parameters_->loading + L" " + std::to_wstring(loadProgress_) + L" %").c_str());
+    }
+
     void ApplyChromeFont()
     {
         HFONT font = static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
@@ -787,60 +1083,154 @@ private:
                 SendMessageW(control, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
     }
 
+    void ApplyMenuFont()
+    {
+        if (menuFont_ != nullptr && menuFont_ != GetStockObject(DEFAULT_GUI_FONT))
+            DeleteObject(menuFont_);
+        menuFont_ = CreateFontIndirect(&parameters_->menuFont);
+        if (menuFont_ == nullptr)
+            menuFont_ = static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+        SendMessageW(window_, WM_SETFONT, reinterpret_cast<WPARAM>(menuFont_), FALSE);
+        SetPropW(window_, L"OpenSalamander.UIFont", menuFont_);
+    }
+
+    void PaintLightMenuBarItem(const NativeViewerUAHDrawMenuItem* item)
+    {
+        if (item == nullptr || menuFont_ == nullptr)
+            return;
+        wchar_t text[MAX_PATH] = {};
+        MENUITEMINFOW info = {};
+        info.cbSize = sizeof(info);
+        info.fMask = MIIM_STRING;
+        info.dwTypeData = text;
+        info.cch = _countof(text) - 1;
+        if (!GetMenuItemInfoW(item->menu.menu, static_cast<UINT>(item->item.position), TRUE, &info))
+            return;
+        const bool selected = (item->draw.itemState & (ODS_SELECTED | ODS_HOTLIGHT)) != 0;
+        FillRect(item->menu.dc, &item->draw.rcItem,
+                 GetSysColorBrush(selected ? COLOR_MENUHILIGHT : COLOR_MENUBAR));
+        HGDIOBJ oldFont = SelectObject(item->menu.dc, menuFont_);
+        int oldBkMode = SetBkMode(item->menu.dc, TRANSPARENT);
+        COLORREF oldText = SetTextColor(item->menu.dc,
+                                        GetSysColor(selected ? COLOR_HIGHLIGHTTEXT : COLOR_MENUTEXT));
+        RECT rect = item->draw.rcItem;
+        DrawTextW(item->menu.dc, text, -1, &rect, DT_CENTER | DT_SINGLELINE | DT_VCENTER |
+                  ((item->draw.itemState & ODS_NOACCEL) != 0 ? DT_HIDEPREFIX : 0));
+        SetTextColor(item->menu.dc, oldText);
+        SetBkMode(item->menu.dc, oldBkMode);
+        SelectObject(item->menu.dc, oldFont);
+    }
+
     void BeginBrowserInitialization()
     {
-        std::wstring userData;
-        PWSTR appData = nullptr;
-        if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_LocalAppData, KF_FLAG_DEFAULT, nullptr, &appData)))
+        SetLoadProgress(15);
+        if (gSharedEnvironment)
         {
-            userData = std::wstring(appData) + L"\\Open Salamander\\Native WebView2 Viewer";
-            CoTaskMemFree(appData);
+            CreateBrowserController(gSharedEnvironment.Get());
+            return;
         }
-        HWND target = window_;
+
+        gPendingEnvironmentWindows.push_back(window_);
+        if (gCreatingSharedEnvironment)
+            return;
+
+        gCreatingSharedEnvironment = true;
+        std::wstring userData = ViewerUserDataFolder();
         CreateWebView2EnvironmentFn createEnvironment = GetCreateWebView2Environment();
         HRESULT hr = createEnvironment != nullptr
             ? createEnvironment(nullptr, userData.empty() ? nullptr : userData.c_str(),
             nullptr, Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
-                [target](HRESULT result, ICoreWebView2Environment* environment) -> HRESULT
+                [](HRESULT result, ICoreWebView2Environment* environment) -> HRESULT
+                {
+                    if (FAILED(result) || environment == nullptr)
+                    {
+                        for (HWND target : gPendingEnvironmentWindows)
+                        {
+                            ViewerWindow* self = IsWindow(target)
+                                ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(target, GWLP_USERDATA)) : nullptr;
+                            if (self != nullptr)
+                                self->ShowError(self->parameters_->initializationFailed, result);
+                        }
+                        gPendingEnvironmentWindows.clear();
+                        gCreatingSharedEnvironment = false;
+                        return S_OK;
+                    }
+                    gSharedEnvironment = environment;
+                    std::vector<HWND> pending;
+                    pending.swap(gPendingEnvironmentWindows);
+                    gCreatingSharedEnvironment = false;
+                    for (HWND target : pending)
+                    {
+                        ViewerWindow* self = IsWindow(target)
+                            ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(target, GWLP_USERDATA)) : nullptr;
+                        if (self != nullptr)
+                            self->CreateBrowserController(gSharedEnvironment.Get());
+                    }
+                    return S_OK;
+                }).Get())
+            : HRESULT_FROM_WIN32(ERROR_MOD_NOT_FOUND);
+        if (FAILED(hr))
+        {
+            gCreatingSharedEnvironment = false;
+            std::vector<HWND> pending;
+            pending.swap(gPendingEnvironmentWindows);
+            for (HWND target : pending)
+            {
+                ViewerWindow* self = IsWindow(target)
+                    ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(target, GWLP_USERDATA)) : nullptr;
+                if (self != nullptr)
+                    self->ShowError(self->parameters_->initializationFailed, hr);
+            }
+        }
+    }
+
+public:
+    void CreateBrowserController(ICoreWebView2Environment* environment)
+    {
+        if (environment == nullptr)
+            return;
+        SetLoadProgress(35);
+        const HWND target = window_;
+        environment->CreateCoreWebView2Controller(target,
+            Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
+                [target](HRESULT controllerResult, ICoreWebView2Controller* controller) -> HRESULT
                 {
                     ViewerWindow* self = IsWindow(target)
                         ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(target, GWLP_USERDATA)) : nullptr;
                     if (self == nullptr)
                         return S_OK;
-                    if (FAILED(result) || environment == nullptr)
+                    if (FAILED(controllerResult) || controller == nullptr)
                     {
-                        self->ShowError(self->parameters_->initializationFailed, result);
+                        self->ShowError(self->parameters_->initializationFailed, controllerResult);
                         return S_OK;
                     }
-                    self->environment_ = environment;
-                    return environment->CreateCoreWebView2Controller(target,
-                        Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
-                            [target](HRESULT controllerResult, ICoreWebView2Controller* controller) -> HRESULT
-                            {
-                                ViewerWindow* self = IsWindow(target)
-                                    ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(target, GWLP_USERDATA)) : nullptr;
-                                if (self == nullptr)
-                                    return S_OK;
-                                if (FAILED(controllerResult) || controller == nullptr)
-                                {
-                                    self->ShowError(self->parameters_->initializationFailed, controllerResult);
-                                    return S_OK;
-                                }
-                                self->controller_ = controller;
-                                self->controller_->get_CoreWebView2(&self->webView_);
-                                self->ConfigureBrowser();
-                                self->ResizeChildren();
-                                self->LoadDocument();
-                                return S_OK;
-                            }).Get());
-                }).Get())
-            : HRESULT_FROM_WIN32(ERROR_MOD_NOT_FOUND);
-        if (FAILED(hr))
-            ShowError(parameters_->initializationFailed, hr);
+                    self->controller_ = controller;
+                    // The WebView default is white.  Keep the controller hidden
+                    // while assigning its background and loading the first page,
+                    // otherwise a dark viewer visibly flashes white on opening.
+                    self->controller_->put_IsVisible(FALSE);
+                    self->controller_->get_CoreWebView2(&self->webView_);
+                    self->SetLoadProgress(55);
+                    self->ConfigureBrowser();
+                    self->ResizeChildren();
+                    self->LoadDocument();
+                    return S_OK;
+                }).Get());
     }
 
+private:
     void ConfigureBrowser()
     {
+        ComPtr<ICoreWebView2Controller2> controller2;
+        if (SUCCEEDED(controller_.As(&controller2)) && controller2)
+        {
+            COREWEBVIEW2_COLOR background = {
+                255,
+                GetRValue(parameters_->theme.background),
+                GetGValue(parameters_->theme.background),
+                GetBValue(parameters_->theme.background)};
+            controller2->put_DefaultBackgroundColor(background);
+        }
         ComPtr<ICoreWebView2Settings> settings;
         if (SUCCEEDED(webView_->get_Settings(&settings)) && settings)
         {
@@ -859,6 +1249,16 @@ private:
                     : COREWEBVIEW2_PREFERRED_COLOR_SCHEME_LIGHT);
         }
         const HWND viewerWindow = window_;
+        webView_->add_NavigationStarting(
+            Callback<ICoreWebView2NavigationStartingEventHandler>(
+                [viewerWindow](ICoreWebView2*, ICoreWebView2NavigationStartingEventArgs*) -> HRESULT
+                {
+                    ViewerWindow* self = IsWindow(viewerWindow)
+                        ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(viewerWindow, GWLP_USERDATA)) : nullptr;
+                    if (self != nullptr)
+                        self->SetLoadProgress(90);
+                    return S_OK;
+                }).Get(), &navigationStartingToken_);
         controller_->add_ZoomFactorChanged(
             Callback<ICoreWebView2ZoomFactorChangedEventHandler>(
                 [viewerWindow](ICoreWebView2Controller* controller, IUnknown*) -> HRESULT
@@ -957,6 +1357,12 @@ private:
                             L"}:where(a:link){color:" + CssColor(parameters_->theme.accent) + L"}';document.head.appendChild(s);}})();";
                         webView_->ExecuteScript(script.c_str(), nullptr);
                     }
+                    if (!browserVisible_ && controller_)
+                    {
+                        controller_->put_IsVisible(TRUE);
+                        browserVisible_ = true;
+                    }
+                    loadProgress_ = 100;
                     return S_OK;
                 }).Get(), &navigationToken_);
     }
@@ -978,6 +1384,7 @@ private:
     {
         if (!webView_)
             return;
+        SetLoadProgress(70);
         std::wstring extension = ExtensionOf(parameters_->filePath);
         if (parameters_->kind == NativeViewerKind::PrismText)
         {
@@ -988,11 +1395,71 @@ private:
                 return;
             }
             std::wstring text = DecodeText(bytes);
-            std::wstring language = PrismLanguageForExtension(extension);
+            activeLanguage_ = selectedLanguage_.empty() ? automaticLanguage_ : selectedLanguage_;
+            std::wstring language = activeLanguage_;
+            UpdateWindowTitle();
             const wchar_t* prismTheme = parameters_->theme.dark ? L"prism-tomorrow.css" : L"prism.css";
             std::wstring preClasses = L"language-" + language;
             if (showLineNumbers_)
                 preClasses += L" line-numbers";
+            int lineCount = 1;
+            for (wchar_t ch : text)
+                if (ch == L'\n')
+                    ++lineCount;
+            int lineDigits = 1;
+            for (int value = lineCount; value >= 10; value /= 10)
+                ++lineDigits;
+            HDC fontDC = GetDC(window_);
+            TEXTMETRIC viewerMetrics = {};
+            viewerMetrics.tmHeight = parameters_->viewerFont.lfHeight != 0
+                                         ? abs(parameters_->viewerFont.lfHeight) : 13;
+            viewerMetrics.tmAveCharWidth = 8;
+            HFONT viewerFont = CreateFontIndirect(&parameters_->viewerFont);
+            if (fontDC != nullptr && viewerFont != nullptr)
+            {
+                HFONT oldFont = static_cast<HFONT>(SelectObject(fontDC, viewerFont));
+                GetTextMetrics(fontDC, &viewerMetrics);
+                SelectObject(fontDC, oldFont);
+            }
+            if (viewerFont != nullptr)
+                DeleteObject(viewerFont);
+            if (fontDC != nullptr)
+                ReleaseDC(window_, fontDC);
+            // GDI already returned DPI-adjusted metrics in this client coordinate
+            // space. Scaling them by 96 / DPI again made the gutter too narrow.
+            const double fontPixelSize = (parameters_->viewerFont.lfHeight != 0
+                                              ? abs(parameters_->viewerFont.lfHeight) : 13);
+            const double linePixelHeight = (std::max)(viewerMetrics.tmHeight, 1L);
+            const double charPixelWidth = (std::max)(viewerMetrics.tmAveCharWidth, 1L);
+            wchar_t fontSize[32];
+            wchar_t lineHeight[32];
+            wchar_t charWidth[32];
+            swprintf_s(fontSize, L"%.3fpx", fontPixelSize);
+            swprintf_s(lineHeight, L"%.3fpx", linePixelHeight);
+            swprintf_s(charWidth, L"%.3fpx", charPixelWidth);
+            std::wstring fontFace = L"Consolas";
+            if (parameters_->viewerFont.lfFaceName[0] != '\0')
+            {
+                int faceLength = MultiByteToWideChar(CP_ACP, 0, parameters_->viewerFont.lfFaceName,
+                                                     -1, nullptr, 0);
+                if (faceLength > 1)
+                {
+                    std::vector<wchar_t> wideFace(static_cast<size_t>(faceLength));
+                    if (MultiByteToWideChar(CP_ACP, 0, parameters_->viewerFont.lfFaceName, -1,
+                                            wideFace.data(), faceLength) > 0)
+                        fontFace.assign(wideFace.data());
+                }
+            }
+            size_t quote = 0;
+            while ((quote = fontFace.find(L'\'', quote)) != std::wstring::npos)
+            {
+                fontFace.insert(quote, L"\\");
+                quote += 2;
+            }
+            wchar_t gutterWidth[32];
+            swprintf_s(gutterWidth, L"%.3fpx", 1.0 + (lineDigits + 1) * charPixelWidth);
+            const std::wstring gutterBackground = parameters_->theme.dark ? L"#262626" : L"#f5f5f5";
+            const std::wstring gutterForeground = parameters_->theme.dark ? L"#a0a0a0" : L"#606060";
             std::wstring html = L"<!doctype html><html><head><meta charset='utf-8'>"
                 L"<link rel='stylesheet' href='https://prism.local/themes/" + std::wstring(prismTheme) + L"'>"
                 L"<link rel='stylesheet' href='https://prism.local/plugins/line-numbers/prism-line-numbers.css'>" +
@@ -1001,10 +1468,35 @@ private:
                 L"html,body{margin:0;width:100%;height:100%;overflow:hidden;background:" + CssColor(parameters_->theme.background) +
                 L";color:" + CssColor(parameters_->theme.foreground) +
                 L";color-scheme:" + std::wstring(parameters_->theme.dark ? L"dark" : L"light") +
-                L"}pre[class*='language-']{box-sizing:border-box;margin:0;width:100%;height:100%;padding-top:16px;padding-bottom:16px;"
+                L"}pre[class*='language-']{box-sizing:border-box;margin:0;width:100%;height:100%;padding:0 0 0 1px;"
                 L"overflow:auto;white-space:" + std::wstring(wrapLines_ ? L"pre-wrap" : L"pre") +
                 L";overflow-wrap:" + std::wstring(wrapLines_ ? L"anywhere" : L"normal") +
-                L";tab-size:4;font:14px Consolas,'Courier New',monospace}"
+                L";--salamander-char-width:" + std::wstring(charWidth) +
+                L";tab-size:4;font:" + std::wstring(fontSize) + L"/" + std::wstring(lineHeight) + L" '" + fontFace +
+                L"',monospace;background:" + CssColor(parameters_->theme.background) +
+                L";color:" + CssColor(parameters_->theme.foreground) +
+                L";font-weight:" + std::to_wstring(parameters_->viewerFont.lfWeight > 0
+                                                        ? parameters_->viewerFont.lfWeight : FW_NORMAL) +
+                L";font-style:" + std::wstring(parameters_->viewerFont.lfItalic ? L"italic" : L"normal") +
+                L";letter-spacing:calc(var(--salamander-char-width) - 1ch);text-decoration:" +
+                std::wstring(parameters_->viewerFont.lfUnderline
+                                                         ? L"underline" : parameters_->viewerFont.lfStrikeOut
+                                                                                ? L"line-through" : L"none") + L"}"
+                L"pre[class*='language-']>code{font:inherit;line-height:inherit;letter-spacing:inherit}"
+                L"pre[class*='language-'].line-numbers{--salamander-gutter-width:" + std::wstring(gutterWidth) +
+                L";padding-left:var(--salamander-gutter-width);background:linear-gradient(to right," +
+                gutterBackground + L" 0," + gutterBackground + L" var(--salamander-gutter-width)," +
+                CssColor(parameters_->theme.background) + L" var(--salamander-gutter-width)," +
+                CssColor(parameters_->theme.background) + L" 100%)}"
+                L"pre.line-numbers .line-numbers-rows{left:calc(-1 * var(--salamander-gutter-width));"
+                L"width:var(--salamander-gutter-width);border-right:0;background:" + gutterBackground +
+                L";line-height:" + std::wstring(lineHeight) +
+                L";letter-spacing:calc(var(--salamander-char-width) - 1ch)}"
+                L"pre.line-numbers .line-numbers-rows>span{line-height:" + std::wstring(lineHeight) + L"}"
+                L"pre.line-numbers .line-numbers-rows>span:before{box-sizing:border-box;position:relative;top:-1px;"
+                L"padding-right:1px;text-align:right;color:" +
+                gutterForeground + L"}::selection{background:" + CssColor(parameters_->theme.selectedBackground) +
+                L";color:" + CssColor(parameters_->theme.selectedForeground) + L"}"
                 L"</style><script src='https://prism.local/prism.js'></script>"
                 L"<script src='https://prism.local/plugins/autoloader/prism-autoloader.min.js'></script>"
                 L"<script>Prism.plugins.autoloader.languages_path='https://prism.local/components/';</script>"
@@ -1041,6 +1533,7 @@ private:
                     }
                 }
             }
+            SetLoadProgress(80);
             webView_->NavigateToString(html.c_str());
             return;
         }
@@ -1056,8 +1549,30 @@ private:
             std::wstring mappedUri = MapLocalDocument();
             std::wstring base = mappedUri.empty() ? L"" : L"https://document.local/";
             std::wstring html = WithBaseElement(DecodeText(bytes), base);
+            SetLoadProgress(80);
             webView_->NavigateToString(html.c_str());
             return;
+        }
+
+        // A standalone SVG does not need a virtual HTTPS host.  Giving its
+        // small markup directly to WebView avoids the host-mapping and local
+        // resource navigation path, which was disproportionately expensive
+        // for icon-sized SVG files.
+        if (extension == L".svg")
+        {
+            std::vector<unsigned char> bytes;
+            if (!ReadFileBytes(parameters_->filePath, bytes))
+            {
+                ShowError(parameters_->openFailed, HRESULT_FROM_WIN32(GetLastError()));
+                return;
+            }
+            std::wstring svg = DecodeText(bytes);
+            if (svg.size() <= 2 * 1024 * 1024 && svg.find(L"<svg") != std::wstring::npos)
+            {
+                SetLoadProgress(80);
+                webView_->NavigateToString(svg.c_str());
+                return;
+            }
         }
 
         if (extension == L".md" || extension == L".markdown" || extension == L".mdown" ||
@@ -1097,6 +1612,7 @@ private:
                 CssColor(codeBackground) + L"}img,video,iframe{max-width:100%;height:auto}hr{border:0;border-top:1px solid " +
                 CssColor(border) + L";margin:2em 0}ul,ol{margin:0 0 1em 1.5em}</style>"
                 L"</head><body>" + fragment + L"</body></html>";
+            SetLoadProgress(80);
             webView_->NavigateToString(html.c_str());
             return;
         }
@@ -1104,7 +1620,10 @@ private:
         if (uri.empty())
             ShowError(parameters_->openFailed, E_INVALIDARG);
         else
+        {
+            SetLoadProgress(80);
             webView_->Navigate(uri.c_str());
+        }
     }
 
     void UpdateZoomDisplay(int percent)
@@ -1133,10 +1652,18 @@ private:
 
     void UpdateViewMenuChecks()
     {
-        HMENU menu = GetMenu(window_);
-        CheckMenuItem(menu, IDM_NV_LINE_NUMBERS, MF_BYCOMMAND | (showLineNumbers_ ? MF_CHECKED : MF_UNCHECKED));
-        CheckMenuItem(menu, IDM_NV_WRAP_LINES, MF_BYCOMMAND | (wrapLines_ ? MF_CHECKED : MF_UNCHECKED));
-        CheckMenuItem(menu, IDM_NV_SHOW_WHITESPACE, MF_BYCOMMAND | (showWhitespace_ ? MF_CHECKED : MF_UNCHECKED));
+        if (mainMenu_ == nullptr)
+            return;
+        CGUIMenuPopupAbstract* view = mainMenu_->GetSubMenu(1, TRUE);
+        if (view == nullptr)
+            return;
+        view->CheckItem(IDM_NV_LINE_NUMBERS, FALSE, showLineNumbers_ ? TRUE : FALSE);
+        view->CheckItem(IDM_NV_WRAP_LINES, FALSE, wrapLines_ ? TRUE : FALSE);
+        view->CheckItem(IDM_NV_SHOW_WHITESPACE, FALSE, showWhitespace_ ? TRUE : FALSE);
+        if (syntaxMenu_ != nullptr)
+            syntaxMenu_->CheckItem(IDM_NV_SYNTAX_AUTOMATIC, FALSE, selectedLanguage_.empty() ? TRUE : FALSE);
+        for (const SyntaxMenuItem& item : syntaxMenuItems_)
+            item.menu->CheckItem(item.command, FALSE, selectedLanguage_ == item.language ? TRUE : FALSE);
     }
 
     void HandleCommand(int command, int notification)
@@ -1174,6 +1701,20 @@ private:
             UpdateViewMenuChecks();
             LoadDocument();
         }
+        else if (parameters_->kind == NativeViewerKind::PrismText && command == IDM_NV_SYNTAX_AUTOMATIC)
+        {
+            selectedLanguage_.clear();
+            UpdateViewMenuChecks();
+            LoadDocument();
+        }
+        else if (parameters_->kind == NativeViewerKind::PrismText &&
+                 command >= IDM_NV_SYNTAX_FIRST &&
+                 command < IDM_NV_SYNTAX_FIRST + static_cast<int>(syntaxMenuItems_.size()))
+        {
+            selectedLanguage_ = syntaxMenuItems_[command - IDM_NV_SYNTAX_FIRST].language;
+            UpdateViewMenuChecks();
+            LoadDocument();
+        }
     }
 
     void ResizeChildren()
@@ -1184,6 +1725,13 @@ private:
         }
         RECT client = {};
         GetClientRect(window_, &client);
+        if (menuBar_ != nullptr)
+        {
+            const int menuHeight = menuBar_->GetNeededHeight();
+            SetWindowPos(menuBar_->GetHWND(), HWND_TOP, 0, 0, client.right, menuHeight,
+                         SWP_NOACTIVATE | SWP_SHOWWINDOW);
+            client.top += menuHeight;
+        }
         int statusHeight = 0;
         if (status_)
         {
@@ -1194,7 +1742,7 @@ private:
 
             const int buttonWidth = 24;
             const int editWidth = 56;
-            const int resetWidth = 76;
+            const int resetWidth = 42;
             const int gripWidth = GetSystemMetrics(SM_CXVSCROLL);
             const int top = client.bottom + 2;
             const int height = (std::max)(statusHeight - 4, 1);
@@ -1228,6 +1776,8 @@ private:
 
     void CloseBrowser()
     {
+        if (webView_ && navigationStartingToken_.value != 0)
+            webView_->remove_NavigationStarting(navigationStartingToken_);
         if (webView_ && navigationToken_.value != 0)
             webView_->remove_NavigationCompleted(navigationToken_);
         if (webView_ && webMessageToken_.value != 0)
@@ -1242,7 +1792,6 @@ private:
             controller_->Close();
         }
         controller_.Reset();
-        environment_.Reset();
     }
 
     void RemoveWindow()
@@ -1256,15 +1805,16 @@ private:
 
     std::unique_ptr<ViewerParameters> parameters_;
     HWND window_ = nullptr;
+    HFONT menuFont_ = nullptr;
     HWND status_ = nullptr;
     HWND zoomReset_ = nullptr;
     HWND zoomOut_ = nullptr;
     HWND zoomEdit_ = nullptr;
     HWND zoomIn_ = nullptr;
-    ComPtr<ICoreWebView2Environment> environment_;
     ComPtr<ICoreWebView2Controller> controller_;
     ComPtr<ICoreWebView2> webView_;
     EventRegistrationToken navigationToken_ = {};
+    EventRegistrationToken navigationStartingToken_ = {};
     EventRegistrationToken webMessageToken_ = {};
     EventRegistrationToken acceleratorToken_ = {};
     EventRegistrationToken zoomChangedToken_ = {};
@@ -1272,37 +1822,105 @@ private:
     bool showLineNumbers_ = false;
     bool wrapLines_ = false;
     bool showWhitespace_ = false;
+    std::wstring automaticLanguage_;
+    std::wstring selectedLanguage_;
+    std::wstring activeLanguage_;
+    std::vector<std::wstring> installedLanguages_;
+    std::vector<SyntaxMenuItem> syntaxMenuItems_;
+    bool browserVisible_ = false;
+    int loadProgress_ = 0;
 };
 
-DWORD WINAPI ViewerThread(void* raw)
+void PrewarmSharedEnvironment()
+{
+    if (gSharedEnvironment || gCreatingSharedEnvironment)
+        return;
+
+    gCreatingSharedEnvironment = true;
+    std::wstring userData = ViewerUserDataFolder();
+    CreateWebView2EnvironmentFn createEnvironment = GetCreateWebView2Environment();
+    if (createEnvironment == nullptr)
+    {
+        gCreatingSharedEnvironment = false;
+        return;
+    }
+    HRESULT hr = createEnvironment(nullptr, userData.empty() ? nullptr : userData.c_str(), nullptr,
+        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
+            [](HRESULT result, ICoreWebView2Environment* environment) -> HRESULT
+            {
+                gCreatingSharedEnvironment = false;
+                if (FAILED(result) || environment == nullptr)
+                    return S_OK;
+                gSharedEnvironment = environment;
+                std::vector<HWND> pending;
+                pending.swap(gPendingEnvironmentWindows);
+                for (HWND target : pending)
+                {
+                    ViewerWindow* viewer = IsWindow(target)
+                        ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(target, GWLP_USERDATA)) : nullptr;
+                    if (viewer != nullptr)
+                        viewer->CreateBrowserController(gSharedEnvironment.Get());
+                }
+                return S_OK;
+            }).Get());
+    if (FAILED(hr))
+        gCreatingSharedEnvironment = false;
+}
+
+static void CreateViewerWindow(ViewerParameters* raw)
 {
     std::unique_ptr<ViewerParameters> parameters(static_cast<ViewerParameters*>(raw));
-    if (FAILED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED)))
-    {
-        if (parameters->closeEvent)
-            SetEvent(parameters->closeEvent);
-        return 1;
-    }
-
     ViewerWindow* viewer = new ViewerWindow(std::move(parameters));
     if (!viewer->Create())
     {
         delete viewer;
-        CoUninitialize();
-        return 1;
+        return;
     }
     {
         std::lock_guard<std::mutex> guard(gWindowsLock);
         gWindows.push_back(viewer->Window());
     }
     viewer->Show();
-    const HWND viewerWindow = viewer->Window();
+}
 
+DWORD WINAPI ViewerHostThread(void* readyEvent)
+{
+    if (FAILED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED)))
+    {
+        SetEvent(static_cast<HANDLE>(readyEvent));
+        return 1;
+    }
+
+    // PostThreadMessage requires a message queue to exist before the caller
+    // can enqueue the first viewer request.
     MSG message;
+    PeekMessageW(&message, nullptr, 0, 0, PM_NOREMOVE);
+    {
+        std::lock_guard<std::mutex> guard(gViewerHostLock);
+        gViewerHostThreadId = GetCurrentThreadId();
+    }
+    SetEvent(static_cast<HANDLE>(readyEvent));
+
     while (GetMessageW(&message, nullptr, 0, 0) > 0)
     {
+        if (message.hwnd == nullptr && message.message == WM_NV_CREATE_VIEWER)
+        {
+            CreateViewerWindow(reinterpret_cast<ViewerParameters*>(message.wParam));
+            continue;
+        }
+        if (message.hwnd == nullptr && message.message == WM_NV_PREWARM_ENVIRONMENT)
+        {
+            PrewarmSharedEnvironment();
+            continue;
+        }
+        if (message.hwnd == nullptr && message.message == WM_NV_STOP_HOST)
+            break;
+
         if (message.message == WM_KEYDOWN || message.message == WM_SYSKEYDOWN)
         {
+            HWND viewerWindow = message.hwnd != nullptr ? GetAncestor(message.hwnd, GA_ROOT) : nullptr;
+            if (viewerWindow == nullptr)
+                continue;
             if (message.message == WM_KEYDOWN && message.wParam == VK_RETURN &&
                 GetParent(message.hwnd) == viewerWindow &&
                 GetDlgCtrlID(message.hwnd) == IDC_NV_ZOOM_EDIT)
@@ -1339,14 +1957,53 @@ DWORD WINAPI ViewerThread(void* raw)
         TranslateMessage(&message);
         DispatchMessageW(&message);
     }
+    gPendingEnvironmentWindows.clear();
+    gSharedEnvironment.Reset();
+    gCreatingSharedEnvironment = false;
     CoUninitialize();
     return 0;
+}
+
+bool EnsureViewerHost(DWORD* hostThreadId)
+{
+    HANDLE readyEvent = nullptr;
+    {
+        std::lock_guard<std::mutex> guard(gViewerHostLock);
+        if (gViewerHostThread == nullptr)
+        {
+            gViewerHostReady = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+            if (gViewerHostReady == nullptr)
+                return false;
+            gViewerHostThread = CreateThread(nullptr, 0, ViewerHostThread, gViewerHostReady, 0, nullptr);
+            if (gViewerHostThread == nullptr)
+            {
+                CloseHandle(gViewerHostReady);
+                gViewerHostReady = nullptr;
+                return false;
+            }
+        }
+        readyEvent = gViewerHostReady;
+    }
+    if (WaitForSingleObject(readyEvent, 10000) != WAIT_OBJECT_0)
+        return false;
+    std::lock_guard<std::mutex> guard(gViewerHostLock);
+    if (gViewerHostThreadId == 0)
+        return false;
+    if (hostThreadId != nullptr)
+        *hostThreadId = gViewerHostThreadId;
+    return true;
 }
 }
 
 bool NativeViewer_EnsureInitialized()
 {
-    return !gShuttingDown.load();
+    // Loading WebView2Loader here moves the disk/DLL work out of the first
+    // viewer invocation (Connect calls this while the plug-in is initialized).
+    if (gShuttingDown.load() || GetCreateWebView2Environment() == nullptr)
+        return false;
+    DWORD hostThreadId = 0;
+    return EnsureViewerHost(&hostThreadId) &&
+           PostThreadMessageW(hostThreadId, WM_NV_PREWARM_ENVIRONMENT, 0, 0) != FALSE;
 }
 
 bool NativeViewer_Show(const NativeViewerRequest& request)
@@ -1363,6 +2020,9 @@ bool NativeViewer_Show(const NativeViewerRequest& request)
     data->closeEvent = request.closeEvent;
     data->kind = request.kind;
     data->theme = request.theme;
+    data->menuFont = request.menuFont;
+    data->viewerFont = request.viewerFont;
+    data->gui = request.gui;
     data->pluginName = CopyString(request.strings.pluginName);
     data->fileMenu = CopyString(request.strings.fileMenu);
     data->viewMenu = CopyString(request.strings.viewMenu);
@@ -1378,12 +2038,16 @@ bool NativeViewer_Show(const NativeViewerRequest& request)
     data->ready = CopyString(request.strings.ready);
     data->initializationFailed = CopyString(request.strings.initializationFailed);
     data->openFailed = CopyString(request.strings.openFailed);
+    data->syntaxHighlighter = CopyString(request.strings.syntaxHighlighter);
+    data->automatic = CopyString(request.strings.automatic);
 
-    HANDLE thread = CreateThread(nullptr, 0, ViewerThread, data.get(), 0, nullptr);
-    if (thread == nullptr)
+    DWORD hostThreadId = 0;
+    if (!EnsureViewerHost(&hostThreadId))
+        return false;
+    if (hostThreadId == 0 || !PostThreadMessageW(hostThreadId, WM_NV_CREATE_VIEWER,
+                                                   reinterpret_cast<WPARAM>(data.get()), 0))
         return false;
     data.release();
-    CloseHandle(thread);
     return true;
 }
 
@@ -1418,4 +2082,22 @@ void NativeViewer_Shutdown()
 {
     gShuttingDown.store(true);
     NativeViewer_RequestShutdown(true);
+    HANDLE thread = nullptr;
+    DWORD threadId = 0;
+    {
+        std::lock_guard<std::mutex> guard(gViewerHostLock);
+        thread = gViewerHostThread;
+        threadId = gViewerHostThreadId;
+    }
+    if (thread != nullptr && threadId != 0)
+    {
+        PostThreadMessageW(threadId, WM_NV_STOP_HOST, 0, 0);
+        WaitForSingleObject(thread, 5000);
+        std::lock_guard<std::mutex> guard(gViewerHostLock);
+        CloseHandle(gViewerHostThread);
+        gViewerHostThread = nullptr;
+        gViewerHostThreadId = 0;
+        CloseHandle(gViewerHostReady);
+        gViewerHostReady = nullptr;
+    }
 }

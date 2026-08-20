@@ -28,6 +28,7 @@ enum
     IDC_VIEWER_ZOOM_IN
 };
 
+
 void FillViewerRectWithColor(HDC hdc, const RECT* rect, COLORREF color);
 
 LRESULT CALLBACK ViewerZoomControlSubclass(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam,
@@ -119,6 +120,9 @@ LRESULT CALLBACK ViewerZoomControlSubclass(HWND hwnd, UINT message, WPARAM wPara
 #ifndef WM_UAHDRAWMENUITEM
 #define WM_UAHDRAWMENUITEM 0x0092
 #endif
+#ifndef WM_UAHMEASUREMENUITEM
+#define WM_UAHMEASUREMENUITEM 0x0094
+#endif
 
 typedef struct tagViewerUAHMENU
 {
@@ -160,6 +164,13 @@ typedef struct tagViewerUAHDRAWMENUITEM
     ViewerUAHMENU um;
     ViewerUAHMENUITEM umi;
 } ViewerUAHDRAWMENUITEM;
+
+typedef struct tagViewerUAHMEASUREMENUITEM
+{
+    MEASUREITEMSTRUCT mis;
+    ViewerUAHMENU um;
+    ViewerUAHMENUITEM umi;
+} ViewerUAHMEASUREMENUITEM;
 
 void FillViewerRectWithColor(HDC hdc, const RECT* rect, COLORREF color)
 {
@@ -206,7 +217,7 @@ HBRUSH EnsureViewerMenuBrush(COLORREF color, bool enable)
 
 void PaintViewerMenuBar(HWND hwnd, HDC hdc)
 {
-    if (hwnd == NULL || hdc == NULL || !DarkModeShouldUseDarkColors())
+    if (hwnd == NULL || hdc == NULL)
         return;
 
     MENUBARINFO mbi;
@@ -221,12 +232,16 @@ void PaintViewerMenuBar(HWND hwnd, HDC hdc)
     OffsetRect(&barRect, -wndRect.left, -wndRect.top);
     barRect.top -= 1;
 
-    FillViewerRectWithColor(hdc, &barRect, DarkModeGetColors().background);
+    const COLORREF background = DarkModeShouldUseDarkColors()
+                                    ? DarkModeGetColors().background
+                                    : GetSysColor(COLOR_MENUBAR);
+    FillViewerRectWithColor(hdc, &barRect, background);
 }
 
 void PaintViewerMenuBarItem(ViewerUAHDRAWMENUITEM* item)
 {
-    if (item == NULL || (DialogFontMode == DIALOG_FONT_DEFAULT && !DarkModeShouldUseDarkColors()))
+    if (item == NULL || (!UseCustomMenuFont && DialogFontMode == DIALOG_FONT_DEFAULT &&
+                         !DarkModeShouldUseDarkColors()))
         return;
 
     const bool dark = DarkModeShouldUseDarkColors();
@@ -259,7 +274,7 @@ void PaintViewerMenuBarItem(ViewerUAHDRAWMENUITEM* item)
     COLORREF oldText = SetTextColor(item->um.hdc, text);
     HWND dpiWindow = WindowFromDC(item->um.hdc);
     LOGFONT logFont;
-    GetEffectiveDefaultUILogFont(&logFont, dpiWindow);
+    GetEffectiveMenuLogFont(&logFont, dpiWindow);
     HFONT font = HANDLES(CreateFontIndirect(&logFont));
     HFONT oldFont = font != NULL ? (HFONT)SelectObject(item->um.hdc, font) : NULL;
     UINT flags = DT_CENTER | DT_SINGLELINE | DT_VCENTER;
@@ -520,12 +535,11 @@ BOOL CViewerWindow::ScrollViewLineUp(DWORD repeatCmd, BOOL* scrolled, BOOL repai
                 *scrolled = TRUE;
             if (repaint)
             {
-                if (ShowLineNumbers && WrapText)
+                if (ShowLineNumbers)
                 {
-                    // Wrapped continuations can turn a line number into a wrap
-                    // marker (or back) when a new visual row enters the top of
-                    // the viewport, so the gutter cannot be preserved by a raw
-                    // pixel scroll.
+                    // The gutter is painted directly while document text is
+                    // double-buffered. Do not pixel-scroll one independently
+                    // from the other: shifted stale numbers visibly flicker.
                     InvalidateRect(HWindow, NULL, FALSE);
                 }
                 else
@@ -557,10 +571,10 @@ BOOL CViewerWindow::ScrollViewLineDown(BOOL fullRedraw)
         {
             if (!fullRedraw)
             {
-                if (ShowLineNumbers && WrapText)
+                if (ShowLineNumbers)
                 {
-                    // Wrapped line-number gutters depend on the new top visual
-                    // row; repaint instead of shifting stale numbers/markers.
+                    // Keep direct-painted line numbers in the same paint pass
+                    // as the newly rendered document rows.
                     fullRedraw = TRUE;
                     InvalidateRect(HWindow, NULL, FALSE);
                 }
@@ -773,6 +787,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             switch (LOWORD(wParam))
             {
             case CM_EXIT:
+                DestroyViewerMenuControls();
                 DestroyWindow(HWindow);
                 return 0;
             }
@@ -921,7 +936,8 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_UAHDRAWMENU:
     {
-        if (DarkModeShouldUseDarkColors() && lParam != 0)
+        if ((DarkModeShouldUseDarkColors() || DialogFontMode != DIALOG_FONT_DEFAULT ||
+             UseCustomMenuFont) && lParam != 0)
         {
             ViewerUAHMENU* menu = reinterpret_cast<ViewerUAHMENU*>(lParam);
             PaintViewerMenuBar(HWindow, menu->hdc);
@@ -932,7 +948,8 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_UAHDRAWMENUITEM:
     {
-        if ((DarkModeShouldUseDarkColors() || DialogFontMode != DIALOG_FONT_DEFAULT) && lParam != 0)
+        if ((DarkModeShouldUseDarkColors() || DialogFontMode != DIALOG_FONT_DEFAULT ||
+             UseCustomMenuFont) && lParam != 0)
         {
             PaintViewerMenuBarItem(reinterpret_cast<ViewerUAHDRAWMENUITEM*>(lParam));
             return 0;
@@ -963,6 +980,30 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // viewer before its child SCROLLBAR controls are created, so only this
         // viewer (not unrelated dialogs) receives the Explorer scrollbar theme.
         DarkModeAllowDarkScrollbars(HWindow);
+
+#ifdef new
+#undef new
+#define RESTORE_VIEWER_POPUP_MENU_DEBUG_NEW_MACRO
+#endif
+        ViewerPopupMenu = new (std::nothrow) CMenuPopup;
+#ifdef RESTORE_VIEWER_POPUP_MENU_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_VIEWER_POPUP_MENU_DEBUG_NEW_MACRO
+#endif
+        if (ViewerPopupMenu == NULL || !ViewerPopupMenu->LoadTemplateMenu(ViewerMenu))
+            return -1;
+#ifdef new
+#undef new
+#define RESTORE_VIEWER_MENU_BAR_DEBUG_NEW_MACRO
+#endif
+        ViewerMenuBar = new (std::nothrow) CMenuBar(ViewerPopupMenu, HWindow);
+#ifdef RESTORE_VIEWER_MENU_BAR_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_VIEWER_MENU_BAR_DEBUG_NEW_MACRO
+#endif
+        if (ViewerMenuBar == NULL || !ViewerMenuBar->CreateWnd(HWindow))
+            return -1;
+        ViewerMenuBar->SetFont();
 
         SetWindowLong(HWindow, GWL_STYLE, GetWindowLong(HWindow, GWL_STYLE) & ~WS_VSCROLL);
         SetWindowPos(HWindow, NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
@@ -1078,11 +1119,15 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             LayoutNeeded = FALSE;
             LayoutStatusBar();
         }
+        POINT oldViewport;
+        const int menuHeight = ViewerMenuBar != NULL ? ViewerMenuBar->GetNeededHeight() : 0;
+        SetViewportOrgEx(ps.hdc, 0, menuHeight, &oldViewport);
         Paint(ps.hdc);
+        SetViewportOrgEx(ps.hdc, oldViewport.x, oldViewport.y, NULL);
         RECT corner = {
-            Width, Height,
+            Width, menuHeight + Height,
             Width + WinLibDPIGetSystemMetric(HWindow, SM_CXVSCROLL),
-            Height + WinLibDPIGetSystemMetric(HWindow, SM_CYHSCROLL)};
+            menuHeight + Height + WinLibDPIGetSystemMetric(HWindow, SM_CYHSCROLL)};
         if (ShowStatusBar)
         {
             // The child scrollbars leave one intersection cell above the
@@ -1157,7 +1202,8 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (Width < 0)
                 Width = 0;
             int scrollHeight = WinLibDPIGetSystemMetric(HWindow, SM_CYHSCROLL);
-            int viewHeight = max(0, clientHeight - StatusBarHeight);
+            const int menuHeight = ViewerMenuBar != NULL ? ViewerMenuBar->GetNeededHeight() : 0;
+            int viewHeight = max(0, clientHeight - menuHeight - StatusBarHeight);
             if (Height != viewHeight ||
                 widthChanged && Type == vtText && WrapText)
             {
@@ -1460,6 +1506,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             return 0;
 
         case CM_EXIT:
+            DestroyViewerMenuControls();
             DestroyWindow(HWindow);
             return 0;
 
@@ -2989,7 +3036,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                             BOOL fullRedraw = FALSE; // ensure the new end-of-block position is visible
                             EnsureXVisibleInView(curX, EndSelection > StartSelection, fullRedraw, firstLineCharLen);
-                            if (fullRedraw || ShowLineNumbers && WrapText)
+                            if (fullRedraw || ShowLineNumbers)
                                 InvalidateRect(HWindow, NULL, FALSE);
                             else
                             {
@@ -3143,7 +3190,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 BOOL fullRedraw = FALSE; // ensure the new end-of-block position is visible
                                 if (curX != -1)
                                     EnsureXVisibleInView(curX, EndSelection > StartSelection, fullRedraw, firstLineCharLen);
-                                if (fullRedraw || ShowLineNumbers && WrapText)
+                                if (fullRedraw || ShowLineNumbers)
                                     InvalidateRect(HWindow, NULL, FALSE);
                                 else
                                 {
@@ -3817,8 +3864,9 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
 
     case WM_INITMENU:
+    case WM_INITMENUPOPUP:
     {
-        HMENU main = GetMenu(HWindow);
+        HMENU main = ViewerMenu;
         if (main == NULL)
             TRACE_E("Main window of viewer has no menu?");
         else
@@ -4026,6 +4074,22 @@ MENU_TEMPLATE_ITEM ViewerCodingMenu[] =
         }
         break;
     }
+
+    case WM_UAHMEASUREMENUITEM:
+    {
+        // Windows measures native captions without the padding used by
+        // Salamander's menu bar. Preserve that measurement and add the same
+        // 8 px left/right margins, scaled for the current monitor.
+        LRESULT result = CWindow::WindowProc(uMsg, wParam, lParam);
+        if (lParam != 0)
+        {
+            ViewerUAHMEASUREMENUITEM* item = reinterpret_cast<ViewerUAHMEASUREMENUITEM*>(lParam);
+            const int margin = MulDiv(16, WinLibDPIGetWindowDPI(HWindow), USER_DEFAULT_SCREEN_DPI);
+            item->mis.itemWidth += margin;
+        }
+        return result;
+    }
+
 
     case WM_SYSKEYDOWN:
     case WM_KEYDOWN:
@@ -4257,8 +4321,15 @@ MENU_TEMPLATE_ITEM ViewerCodingMenu[] =
         break;
     }
 
+    case WM_CLOSE:
+        DestroyViewerMenuControls();
+        DestroyWindow(HWindow);
+        return 0;
+
     case WM_DESTROY:
     {
+        // WM_DESTROY can also be reached through a direct DestroyWindow call.
+        DestroyViewerMenuControls();
         KillTimer(HWindow, IDT_LOGVIEWREFRESH);
         // The scrollbar hook stores HWNDs.  Remove this entry before Windows
         // can recycle the handle for an unrelated top-level dialog.

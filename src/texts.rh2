@@ -3026,6 +3026,7 @@
 #define IDS_EXCOL_ADD_FAVORITE                     14422
 #define IDS_EXCOL_REMOVE_FAVORITE                  14423
 #define IDS_EXCOL_PLUGINS                          14424
+#define IDS_FONTDESCRIPTION_UI                      14425
 
 #define IDS_MENU_OPT_MANAGECONFIG        13169
 

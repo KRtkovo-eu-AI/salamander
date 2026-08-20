@@ -1961,6 +1961,7 @@ STRINGTABLE
  IDS_USEPANELFONT, "Use &panel font"
  IDS_DIALOGFONT_RESTART, "UI font changes do not take effect until Open Salamander is restarted."
  IDS_FONTDESCRIPTION_PANEL, "panel font"
+ IDS_FONTDESCRIPTION_UI, "UI font"
  
  IDS_TASKLISTLINE, "PID=%d, started on %s, %s%s"
  IDS_TASKLISTCURLINE, ", current process"

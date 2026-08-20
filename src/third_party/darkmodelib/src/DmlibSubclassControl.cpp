@@ -39,7 +39,7 @@
 static constexpr int CP_DROPDOWNITEM = 9; // for some reason mingw use only enum up to 8
 #endif
 
-static HFONT getControlTextFont(HWND hWnd, bool groupboxCaption, bool& isFontCreated)
+static HFONT getControlTextFont(HWND hWnd, bool& isFontCreated)
 {
 	isFontCreated = false;
 	if (::GetPropW(hWnd, L"Darkmodelib.Button.UseConfiguredFont") == nullptr)
@@ -47,25 +47,6 @@ static HFONT getControlTextFont(HWND hWnd, bool groupboxCaption, bool& isFontCre
 		return nullptr;
 	}
 	HFONT controlFont = reinterpret_cast<HFONT>(::SendMessage(hWnd, WM_GETFONT, 0, 0));
-	if (controlFont == nullptr || !groupboxCaption)
-	{
-		return controlFont;
-	}
-
-	LOGFONT lf{};
-	if (::GetObjectW(controlFont, sizeof(lf), &lf) != sizeof(lf))
-	{
-		return controlFont;
-	}
-
-	lf.lfHeight = static_cast<LONG>(lf.lfHeight * 1.2);
-	lf.lfWidth = 0;
-	HFONT captionFont = ::CreateFontIndirectW(&lf);
-	if (captionFont != nullptr)
-	{
-		isFontCreated = true;
-		return captionFont;
-	}
 	return controlFont;
 }
 
@@ -105,7 +86,7 @@ static void renderButton(
 		::GetPropW(hWnd, L"Darkmodelib.Button.UseConfiguredFont") != nullptr;
 	bool isFontCreated = false;
 	HFONT hFont = useGroupboxCaptionStyle
-		? getControlTextFont(hWnd, true, isFontCreated)
+		? getControlTextFont(hWnd, isFontCreated)
 		: reinterpret_cast<HFONT>(::SendMessage(hWnd, WM_GETFONT, 0, 0));
 	LOGFONT lf{};
 	if (hFont == nullptr &&
@@ -566,7 +547,7 @@ static void paintGroupbox(HWND hWnd, HDC hdc, const dmlib_subclass::ButtonData& 
 	// Font part
 
 	bool isFontCreated = false;
-	HFONT hFont = getControlTextFont(hWnd, true, isFontCreated);
+	HFONT hFont = getControlTextFont(hWnd, isFontCreated);
 	LOGFONT lf{};
 	if (hFont == nullptr &&
 		SUCCEEDED(::GetThemeFont(hTheme, hdc, iPartID, iStateID, TMT_FONT, &lf)))
