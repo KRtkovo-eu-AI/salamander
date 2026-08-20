@@ -370,7 +370,8 @@ void SetTreeViewItemChildren(HWND hTreeView, HTREEITEM hItem, int children)
 }
 
 static BOOL GetTreeViewShellIconIndexes(const char* path, BOOL isDirectory,
-                                        int* imageIndex, int* selectedImageIndex)
+                                        int* imageIndex, int* selectedImageIndex,
+                                        HIMAGELIST* systemImageList)
 {
     SHFILEINFO sfi;
     memset(&sfi, 0, sizeof(sfi));
@@ -378,9 +379,13 @@ static BOOL GetTreeViewShellIconIndexes(const char* path, BOOL isDirectory,
     DWORD attributes = isDirectory ? FILE_ATTRIBUTE_DIRECTORY : FILE_ATTRIBUTE_NORMAL;
     UINT flags = SHGFI_SYSICONINDEX | SHGFI_SMALLICON | SHGFI_USEFILEATTRIBUTES;
 
-    if (SHGetFileInfo(path ? path : "", attributes, &sfi, sizeof(sfi), flags) == 0)
+    HIMAGELIST images = (HIMAGELIST)SHGetFileInfo(path ? path : "", attributes,
+                                                  &sfi, sizeof(sfi), flags);
+    if (images == NULL)
         return FALSE;
 
+    if (systemImageList != NULL)
+        *systemImageList = images;
     *imageIndex = sfi.iIcon;
 
     if (isDirectory)
@@ -400,7 +405,8 @@ static BOOL GetTreeViewShellIconIndexes(const char* path, BOOL isDirectory,
 }
 
 static CTreeViewNodeData* CreateTreeViewNodeData(CTreeViewNodeTypeEnum type, const char* fullPath,
-                                                 const char* focusPath, const char* focusName)
+                                                 const char* focusPath, const char* focusName,
+                                                 HIMAGELIST* systemImageList)
 {
     CTreeViewNodeData* itemData = (CTreeViewNodeData*)malloc(sizeof(CTreeViewNodeData));
     if (itemData == NULL)
@@ -420,7 +426,8 @@ static CTreeViewNodeData* CreateTreeViewNodeData(CTreeViewNodeTypeEnum type, con
     }
 
     if (!GetTreeViewShellIconIndexes(fullPath, type == tvntDirectory,
-                                     &itemData->ImageIndex, &itemData->SelectedImageIndex))
+                                     &itemData->ImageIndex, &itemData->SelectedImageIndex,
+                                     systemImageList))
     {
         itemData->ImageIndex = I_IMAGECALLBACK;
         itemData->SelectedImageIndex = I_IMAGECALLBACK;
@@ -429,13 +436,70 @@ static CTreeViewNodeData* CreateTreeViewNodeData(CTreeViewNodeTypeEnum type, con
     return itemData;
 }
 
+static void CopyTreeViewImage(HWND hTreeView, HIMAGELIST systemImageList, int imageIndex)
+{
+    if (hTreeView == NULL || systemImageList == NULL || imageIndex < 0)
+        return;
+
+    HIMAGELIST targetImageList = TreeView_GetImageList(hTreeView, TVSIL_NORMAL);
+    if (targetImageList == NULL || targetImageList == systemImageList)
+        return;
+
+    // Tree View currently contains directories only, so the generic closed
+    // and open folder indices repeat for every inserted node.  A present
+    // index was already copied into this newly created sparse list.
+    if (ImageList_GetImageCount(targetImageList) > imageIndex)
+        return;
+    if (!ImageList_SetImageCount(targetImageList, imageIndex + 1))
+        return;
+
+    HICON icon = ImageList_GetIcon(systemImageList, imageIndex, ILD_TRANSPARENT);
+    if (icon != NULL)
+    {
+        ImageList_ReplaceIcon(targetImageList, imageIndex, icon);
+        DestroyIcon(icon);
+    }
+}
+
+static void RefreshTreeViewImageListAux(HWND hTreeView, HTREEITEM hItem,
+                                        HIMAGELIST systemImageList)
+{
+    while (hItem != NULL)
+    {
+        CTreeViewNodeData* itemData = GetTreeViewItemDataPtr(hTreeView, hItem);
+        if (itemData != NULL)
+        {
+            CopyTreeViewImage(hTreeView, systemImageList, itemData->ImageIndex);
+            if (itemData->SelectedImageIndex != itemData->ImageIndex)
+                CopyTreeViewImage(hTreeView, systemImageList, itemData->SelectedImageIndex);
+        }
+        RefreshTreeViewImageListAux(hTreeView, TreeView_GetChild(hTreeView, hItem), systemImageList);
+        hItem = TreeView_GetNextSibling(hTreeView, hItem);
+    }
+}
+
+void RefreshTreeViewImageList(HWND hTreeView, HIMAGELIST systemImageList)
+{
+    if (hTreeView != NULL && systemImageList != NULL)
+        RefreshTreeViewImageListAux(hTreeView, TreeView_GetRoot(hTreeView), systemImageList);
+}
+
 HTREEITEM InsertTreeViewItem(HWND hTreeView, HTREEITEM hParent, const char* text,
                                     CTreeViewNodeTypeEnum type, const char* fullPath,
                                     const char* focusPath, const char* focusName, BOOL hasChildren)
 {
-    CTreeViewNodeData* itemData = CreateTreeViewNodeData(type, fullPath, focusPath, focusName);
+    HIMAGELIST systemImageList = NULL;
+    CTreeViewNodeData* itemData = CreateTreeViewNodeData(type, fullPath, focusPath, focusName,
+                                                        &systemImageList);
     if (itemData == NULL)
         return NULL;
+
+    // The panel owns a DPI-sized sparse image list.  Copy only the shell
+    // indices referenced by real tree items instead of cloning the complete
+    // process-wide shell list during the first auto-hide expansion.
+    CopyTreeViewImage(hTreeView, systemImageList, itemData->ImageIndex);
+    if (itemData->SelectedImageIndex != itemData->ImageIndex)
+        CopyTreeViewImage(hTreeView, systemImageList, itemData->SelectedImageIndex);
 
     std::wstring textW = TreeViewTextToWide(text);
 

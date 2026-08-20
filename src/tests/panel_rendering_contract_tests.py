@@ -193,6 +193,21 @@ def main() -> int:
     if "RefreshTreeViewDPI();\n    RefreshTreeView();" not in fileswnd2:
         print("deferred auto-hide Tree View must be initialized when expanded")
         return 1
+    tree_dpi_refresh = re.search(
+        r"void CFilesWindow::RefreshTreeViewDPI\(\).*?^\}",
+        fileswnd2,
+        re.DOTALL | re.MULTILINE,
+    )
+    if (
+        tree_dpi_refresh is None
+        or "ImageList_GetImageCount(systemImageList)" in tree_dpi_refresh.group(0)
+        or "RefreshTreeViewImageList(HTreeView, systemImageList);"
+        not in tree_dpi_refresh.group(0)
+        or "ImageList_SetImageCount(targetImageList, imageIndex + 1)" not in fileswnd
+        or "Copy only the shell" not in fileswnd
+    ):
+        print("Tree View DPI images must be copied lazily instead of freezing first reveal")
+        return 1
     if (
         "PopulateTreeViewItem(hCurrent, FALSE, TRUE, sourcePath);" not in fileswnd
         or "PopulateTreeViewItem(nextItem, FALSE, TRUE, targetPath);" not in fileswndb
