@@ -285,8 +285,10 @@ def main() -> None:
             "Prism overrides the stock 3.8em gutter padding with Internal Viewer geometry")
     require(native_viewer, "padding-right:1px;text-align:right",
             "Prism line numbers use the same one-pixel right gap as Internal Viewer")
-    require(native_viewer, "pre.line-numbers .line-numbers-rows>span:before{box-sizing:border-box;position:relative;top:-1px",
-            "Prism line-number glyph baselines are optically aligned with code text")
+    require(native_viewer, "padding:1px 0 0 0;line-height:",
+            "Prism line-number rows keep their requested one-pixel top padding")
+    require(native_viewer, "pre.line-numbers .line-numbers-rows>span:before{box-sizing:border-box;display:block;height:",
+            "Prism line-number glyphs use fixed-height line boxes")
     require(native_viewer, "InstalledPrismLanguages(parameters_->module)",
             "Prism enumerates the syntax highlighters installed beside the plug-in")
     require(native_viewer, "IDM_NV_SYNTAX_AUTOMATIC",
@@ -317,7 +319,7 @@ def main() -> None:
             "Internal Viewer menu bar preserves its checked low-memory failure path")
     require(viewer_core, "DestroyWindow(menuBarWindow);",
             "Internal Viewer destroys the menu-bar child HWND before deleting its CMenuBar object")
-    require(internal_viewer, "if (ShowLineNumbers)\n                {\n                    // The gutter is painted directly",
+    require(internal_viewer, "if (ShowLineNumbers)\n                {\n                    // The gutter must be calculated from the freshly rendered",
             "Internal Viewer repaints line-number gutters instead of pixel-scrolling stale rows")
     require(viewer_lifecycle, "WS_OVERLAPPEDWINDOW | WS_VSCROLL | WS_CLIPCHILDREN",
             "Internal Viewer parent painting excludes its child scrollbars")
