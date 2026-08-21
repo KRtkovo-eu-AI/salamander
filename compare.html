@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Compare Open Salamander: Samandarin versions</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="consent.css">
+  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <meta name="description" content="Feature comparison of Open Salamander: Samandarin and historical Salamander versions.">
+  <link rel="canonical" href="https://samandarin.krtkovo.eu/compare.html">
+  <meta name="theme-color" content="#242424">
+  <style>
+    .compare-hero { grid-template-columns: 1fr; }
+    .scroll { overflow-x: auto; border: 1px solid color-mix(in srgb, CanvasText 25%, Canvas); }
+    table { width: 100%; min-width: 54rem; border-collapse: collapse; font-family: Tahoma, sans-serif; }
+    th, td { border: 1px solid color-mix(in srgb, CanvasText 20%, Canvas); text-align: center; vertical-align: top; }
+    th:first-child, td:first-child { width: 46%; text-align: left; }
+    thead th { position: sticky; top: 0; z-index: 1; }
+    th { padding: .3em .2em .3em .8em; font-size: 12px; font-weight: 400; }
+    td { padding: .3em .2em .3em .8em; font-size: 12px; }
+    .section th { text-align: left; }
+    .addition td { background: #323232; }
+    .yes { color: #087a32; }
+    .no { color: #777; }
+    @media (prefers-color-scheme: dark) { .yes { color: #6ee787; } thead th { background: #fd9506; color: #000; } .section th { background: #fd9506; color: #000; } .addition td { background: #323232; } }
+
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <a class="skip-link" href="#content" data-i18n="skipToContent">Skip to content</a>
+    <div class="site-header__row">
+      <div class="site-branding">
+        <h1><a href="index.html"><img id="header-logo" src="samandarin_logo_64px.png" alt="Samandarin logo"></a>Open Salamander <span class="site-branding__accent">Samandarin</span></h1>
+        <p id="description-text">Fast and reliable two-panel file manager for Windows 11 enhanced with modern features.</p>
+      </div>
+      <label class="language-switcher">
+        <select id="language-select" aria-label="Language selector"></select>
+      </label>
+    </div>
+    <nav class="section-nav" aria-label="Page sections" data-i18n-attr="aria-label:Page sections">
+      <a href="index.html" id="site-branding__small_logo"><img src="samandarin_logo_64px.png" alt="Samandarin logo"></a>
+      <a href="index.html#download" data-i18n="navDownload">Download</a>
+      <div class="section-nav__item section-nav__item--has-submenu">
+        <a href="index.html#features" data-i18n="navFeatures" aria-haspopup="true">Features</a>
+        <div class="section-nav__submenu">
+          <a href="compare.html">Comparison between Salamander versions</a>
+          <a href="index.html#feature-unicode-long-paths">Unicode and long paths support</a>
+          <a href="index.html#feature-internal-viewer-unicode">Internal Viewer</a>
+          <a href="index.html#feature-translations">Translations</a>
+          <a href="index.html#feature-portability">Portability</a>
+          <a href="index.html#feature-manage-configurations">Manage configurations</a>
+          <a href="index.html#feature-detached-panels">Split panels into detached window</a>
+          <a href="index.html#feature-tabbed-panels">Tabbed Panels</a>
+          <a href="index.html#feature-history">Shared/separate History</a>
+          <a href="index.html#feature-dark-mode">Dark Mode</a>
+          <a href="index.html#feature-dpi-awareness">DPI Awareness</a>
+          <a href="index.html#feature-windows-explorer-columns">Columns from Windows Explorer</a>
+          <a href="index.html#feature-command-shell">Configurable Command Shell Application</a>
+          <a href="index.html#feature-mounted-folder-volumes">Mounted folder volumes</a>
+          <a href="index.html#feature-tree-view">Tree View panel</a>
+          <a href="index.html#feature-user-folders">User Folders</a>
+          <a href="index.html#feature-plugin-archives">Copy/Move between plugin-FS and archives</a>
+          <a href="index.html#feature-multi-target-copy">Multi-target copy</a>
+          <a href="index.html#feature-disk-catalogs">Disk catalogs and recursive file lists</a>
+          <a href="index.html#feature-extended-confirm-delete">Extended Confirm Delete</a>
+          <a href="index.html#feature-panel-item-info-tooltip">Panel item info tooltip</a>
+          <a href="index.html#feature-autocomplete-path">Autocomplete path</a>
+          <a href="index.html#feature-salamatrix">Salamatrix Extension Framework</a>
+          <a href="index.html#feature-digitally-signed">Digitally signed</a>
+        </div>
+      </div>
+      <a href="index.html#plugins" data-i18n="navPlugins">Plugins</a>
+      <a href="salamatrix/index.html">Salamatrix Extensions</a>
+      <a href="index.html#fork" data-i18n="navFork">Fork</a>
+      <a href="index.html#origin" data-i18n="navOrigin">Origin</a>
+      <a href="index.html#resources" data-i18n="navResources">Resources</a>
+      <a href="https://github.com/KRtkovo-eu-AI/salamander">GitHub</a>
+    </nav>
+  </header>
+  <main id="content">
+    <section class="hero-panel compare-hero" aria-labelledby="compare-title">
+      <div class="hero-panel__copy">
+        <p class="eyebrow">Comparison between Salamander versions:<br>
+          <blockquote>Servant Salamander 1.52,<br>
+          Altap Salamander 2.54,<br>
+          Altap Salamander 4.0,<br>
+          Open Salamander 5.0,<br>
+          Open Salamander: Samandarin</blockquote></p>
+        <p>Rows with lighter background color are Samandarin's additional capabilities compared to <a href="https://github.com/OpenSalamander/salamander">Open Salamander 5.0</a> or <a href="https://www.altap.cz/">Altap Salamander 4.0</a>.</p>
+        <p style="font-family: monospace; white-space: pre; margin: 0; margin-left: -5rem;">
+          <span>⬤</span> supported;
+          <span>⭘</span> supported with a condition or explanatory note;
+          <span class="no">–</span> unavailable or unsupported.
+          UI = unpack internally, PI = pack internally, UE = unpack externally, PE = pack externally.</p>
+      </div>
+    </section>
+    <section class="content-grid">
+    <div class="scroll">
+    <table>
+      <thead><tr><th><b>Features</b></th><th>Version 5.0-samandarin-0.14</th><th width="125px">Version 5.0</th><th width="125px">Version 4.0</th><th width="125px">Version 2.54</th><th width="125px">Version 1.52</th></tr></thead>
+      <tbody>
+        <tr><td>Released</td><td class="yes">in development August 2026</td><td>Unreleased</td><td>June 2019</td><td>September 2010</td><td>May 1998</td></tr>
+        <tr><td>License</td><td class="yes">Open source<br>(GNU GPL v2.0)</td><td>Open source<br>(GNU GPL v2.0)</td><td>Freeware</td><td>Commercial</td><td>Freeware</td></tr>
+        <tr>
+          <td>64-bit / ARM64 / 32-bit version (x64 / ARM64 / x86)<br>
+            <b>*</b> <small><i>For Samandarin, ARM64 and x86 can be built from source, but no binaries are released.</i></small>
+          </td>
+          <td class="yes">⬤ / ⭘ / ⭘</td><td>⬤ / – / ⬤</td><td>⬤ / – / ⬤</td><td>– / – / ⬤</td><td>– / – / ⬤</td>
+        </tr>
+        <tr><td>Guaranteed system compatibility</td><td class="yes">Windows 10,<br>Windows 11</td><td>Unreleased</td><td>Windows 7,<br>Windows 8,<br>Windows 8.1,<br>Windows 10</td><td>Windows 2000,<br>Windows XP,<br>Windows 7,<br>Windows Vista</td><td>Windows 95,<br>Windows 98,<br>Windows ME,<br>Windows NT 4.0,<br>Windows 2000,<br>Windows XP</td></tr>
+        <tr><td>High DPI display support</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Per-window and Per-monitor DPI-aware dialogs, controls, icons and panels</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr><td>Progress bars in Windows 7+ taskbar buttons</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
+        <tr><td>Hot paths in Windows 7+ jump list</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
+        <tr><td>Download size</td><td class="yes">16.1 MB</td><td>Unreleased</td><td>7.4 MB</td><td>7 MB</td><td>0.2 MB</td></tr>
+        <tr class="addition"><td>Unicode file names, including emoji and non-system code pages</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Windows extended-length local and UNC paths (up to about 32,767 characters)</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Windows Dark Mode across the application and participating plug-ins</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr><td>Digitally signed binaries and installer</td><td class="yes">⬤</td><td>Unreleased</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+
+        <tr class="section"><th colspan="6"><b>Cloud Storage Services support</b></th></tr>
+        <tr><td>Dropbox</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
+        <tr><td>Google Drive</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
+        <tr><td>Microsoft SkyDrive</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
+
+        <tr class="section"><th colspan="6"><b>Improved files copy routine</b></th></tr>
+        <tr><td>Fast asynchronous algorithm for copying from/to network</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
+        <tr><td>Verifying of copied part of file during resume</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
+        <tr><td>Option to copy link target or just create empty directory</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
+        <tr><td>Option remove ADS from copied files and directories</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
+        <tr><td>Optimizations for slow VPN networks</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Copy and move between plug-in file systems and archives</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+
+        <tr class="section"><th colspan="6"><b>Integrated Viewers</b></th></tr>
+        <tr><td>Text / HEX (binary)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>PictView: GIF, JPG, over 40 bitmap formats</td><td class="yes">⬤</td><td>–</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Multimedia: MP3, 5 audio formats</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Database: DBF, CSV, 8 database formats</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Internet Explorer: HTML, XML</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Portable executable: EXE, DLL</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr class="addition"><td>Internal text viewer: Unicode encodings</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Internal text viewer: line/column and selected characters/lines status</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Internal text viewer: zoom and optional line numbers</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Prism text viewer with syntax highlighting for text, configuration and source formats</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>JSON Viewer .NET (.json, .pc and .jbeam)</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>WebView2 Render Viewer: HTML, Markdown, SVG, WebP/AVIF/APNG, raster images and PDF</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+
+        <tr class="section"><th colspan="6"><b>Archives Support:</b> <b>U</b>npack / <b>P</b>ack, <b>I</b>nternal / <b>E</b>xternal (requires third party software)</th></tr>
+        <tr><td>ZIP</td><td class="yes">UI / PI</td><td>UI / PI</td><td>UI / PI</td><td>UI / PI</td><td>–</td></tr>
+        <tr><td>RAR</td><td class="yes">UI / PE</td><td>–</td><td>UI / PE</td><td>UI / PE</td><td>–</td></tr>
+        <tr><td>RAR (WinRAR) 5.0</td><td class="yes">UI / PE</td><td>–</td><td>UI / PE</td><td>–</td><td>–</td></tr>
+        <tr><td>ARJ</td><td class="yes">UI / PE</td><td>UI / PE</td><td>UI / PE</td><td>UI / PE</td><td>–</td></tr>
+        <tr><td>CAB</td><td class="yes">UI</td><td>UI</td><td>UI</td><td>UI</td><td>–</td></tr>
+        <tr><td>PAK (Quake PAK)</td><td class="yes">UI</td><td>UI</td><td>UI</td><td>UI</td><td>–</td></tr>
+        <tr><td>LZH, LHA, LZS</td><td class="yes">UI / PE</td><td>UI / PE</td><td>UI / PE</td><td>UI / PE</td><td>–</td></tr>
+        <tr><td>JAR archives</td><td class="yes">UE / PE</td><td>UE / PE</td><td>UE / PE</td><td>UE / PE</td><td>–</td></tr>
+        <tr><td>UC2</td><td class="yes">UE / PE</td><td>UE / PE</td><td>UE / PE</td><td>UE / PE</td><td>–</td></tr>
+        <tr><td>TAR, TGZ, GZ</td><td class="yes">UI</td><td>UI</td><td>UI</td><td>UI</td><td>–</td></tr>
+        <tr><td>TAZ, TBZ, BZ, BZ2, Z, RPM, DEB, CPIO</td><td class="yes">UI</td><td>UI</td><td>UI</td><td>UI</td><td>–</td></tr>
+        <tr><td>EML, B64, UUE, XXE, HQX, NTX</td><td class="yes" class="yes">UI</td><td>UI</td><td>UI</td><td>UI</td><td>–</td></tr>
+        <tr><td>ISO, NRG, BIN, IMG, PDI, CDI, CIF, NCD, C2D (CD/DVD images)</td><td class="yes">UI</td><td>UI</td><td>UI</td><td>UI</td><td>–</td></tr>
+        <tr><td>7Z (7-Zip archives)</td><td class="yes">UI / PI</td><td>UI / PI</td><td>UI / PI</td><td>UI / PI</td><td>–</td></tr>
+        <tr><td>7Z (7-Zip archives) 9.22 Beta</td><td class="yes">–</td><td>UI / PI</td><td>UI / PI</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>7Z (7-Zip archives) 26.02: updated engine with additional archive and disk-image formats</td><td class="yes">UI / PI</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr><td>IMA (FAT disk images)</td><td class="yes">UI</td><td>UI</td><td>UI</td><td>UI</td><td>–</td></tr>
+        <tr><td>Create Self-Extract archives</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Automatic search for external archivers</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>View / Edit files in archives</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+
+        <tr class="section"><th colspan="6"><b>Basic Commands</b></th></tr>
+        <tr><td>Rename, View, Edit, Copy, Move, Delete</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Create Directory</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Hot paths count</td><td class="yes">30</td><td>30</td><td>30</td><td>10</td><td>10</td></tr>
+        <tr><td>Compare directories</td><td class="yes">By content</td><td>By content</td><td>By content</td><td>By content</td><td>⬤</td></tr>
+        <tr><td>Connect / Disconnect network drives</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>New command (folder, shortcut, document)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Archives Pack / Unpack</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Email files</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr class="addition"><td>Path autocomplete in Copy, Move, Quick Rename, Create Directory and Change Directory dialogs</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Extended Delete confirmation with a table of selected file names</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        
+        <tr class="section"><th colspan="6"><b>Advanced Commands</b></th></tr>
+        <tr><td>Change case</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Change attributes, date, and time</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Drive information</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Calculate occupied space</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>User menu</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>User menu: reading icons in separate thread</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
+        <tr><td>Open Windows folders</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Open Command Shell</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>NTFS Compress / NTFS Uncompress</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>NTFS Encrypt / NTFS Decrypt</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Make list of files and directories</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>List of opened files</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>List of working directories</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Display directory sizes in panel</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Convert files (EOLs, character sets)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>List of shared directories</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Go to shortcut target</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr class="addition"><td>Configurable command-shell application and command line</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Direct access to additional Windows user folders</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        
+        <tr class="section"><th colspan="6"><b>Plugins</b></th></tr>
+        <tr><td>FTP Client</td><td class="yes">⬤</td><td>–</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>FTP Client: contains OpenSSL library</td><td class="yes">⬤</td><td>–</td><td>⬤</td><td>–</td><td>–</td></tr>
+        <tr><td>FTP Client: SSL session reuse supported</td><td class="yes">⬤</td><td>–</td><td>⬤</td><td>–</td><td>–</td></tr>
+        <tr><td>WinSCP: SSH, SCP, and SFTP Client</td><td class="yes">–</td><td>–</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>WinSCP: faster upload speed</td><td class="yes">–</td><td>–</td><td>⬤</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>SFTP/SCP file-system plug-in with automatic SCP fallback</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>SFTP: password, private-key/PPK and keyboard-interactive authentication</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>SFTP: known_hosts verification, modern OpenSSL crypto, resume, remote edit and chmod</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr><td>File comparator (show differences)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Undelete files on NTFS and FAT</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Checksum: Create / Verify SVF / MD5 checksums</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Checksum: support for SHA-512</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
+        <tr><td>Split / Combine files</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Batch rename of files and directories</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Registry editor, find in Registry</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Encrypt / Decrypt: AES, Blowfish, 3DES</td><td class="yes">–</td><td>–</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Windows Mobile access from panels</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Automation of common task using scripts</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Network browser</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>DiskMap graphically displays disk usage</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Automatic check for updates</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr class="addition"><td>Salamatrix extension platform with versioned host services and capability declarations</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Out-of-process extension runtimes: JavaScript/Node.js, Python, PowerShell, PHP and Lua</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Declarative extension packages: commands, context-menu entries, toolbars, viewers and panel file systems</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Runtime-provided file systems with typed columns, refresh, custom actions and localization</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Salamatrix native dialog, picker, progress, notification, storage, clipboard and event APIs for extensions</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Experimental Local AI provider support (Ollama or OpenAI-compatible endpoint) and optional bundled local Llama runtime</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Process Explorer panel: process list, process tree termination, file location and properties</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Hardware Monitor panel: hardware, sensors, utilization and Device Manager actions</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Windows Event Viewer panel with event properties and XML details</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>File Lock Inspector: locate and terminate processes locking a selected file</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Git Worktree Navigator: browse, open, create, remove worktrees and commit</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Interactive Extension Menu Builder</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Salamatrix Studio VS Code/VSCodium extension: visual dialog and menu designer, preview and code generation</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Hyper-V panel and VHD/VHDX create, attach and detach commands</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        
+        <tr class="section"><th colspan="6"><b>Icons &amp; Thumbnails</b></th></tr>
+        <tr><td>Reading icons in separate thread</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Reading thumbnails in separate thread</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Reading visible icons &amp; thumbnails first</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Support for XP alpha blended icons</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Support for overlay icons (Tortoise)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Simple icons option for higher speed</td><td class="yes">Selective</td><td>Selective</td><td>Selective</td><td>Selective</td><td>⬤</td></tr>
+        <tr><td>Supported icon size (in pixels)</td><td class="yes">16x16, 32x32, 48x48</td><td>16x16, 32x32, 48x48</td><td>16x16, 32x32, 48x48</td><td>16x16, 32x32, 48x48</td><td>16x16</td></tr>
+        
+        <tr class="section"><th colspan="6"><b>Operations</b></th></tr>
+        <tr><td>Background operations</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr class="addition"><td>Bulk copy to all selected target folders (Shift+F5)</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr><td>Display transfer speed, time estimation</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Option to limit transfer speed</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Option to Pause / Resume operations</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Option to overwrite older and skip other files</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Option to process files in queue</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Option to copy NTFS security permissions</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Option to filter files by name mask</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Option to filter files by attributes, size, time</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Two progress bars: Total and File</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Options: Skip [All], Overwrite [All]</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Robust error states handling, Retry option</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        
+        <tr class="section"><th colspan="6"><b>User Interface</b></th></tr>
+        <tr><td>Drag-and-drop from / to disks</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Drag-and-drop from / to archives</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Keyboard shortcuts for most of commands</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Colors and panel font configuration</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>Font only</td></tr>
+        <tr class="addition"><td>UI and menu fonts configuration</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr><td>Command line</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Context menus for files and directories</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Context menus for user interface</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Always on top option</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Option to minimize into tray</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Context help</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Adjustable menu to user skill level</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Support for Windows XP visual themes</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Display current path in window caption</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Support for Fast User Switching</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Support Terminal Services (Remote Desktop)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr class="addition"><td>Detached left and right sides in independent windows (full window with toolbars)</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        
+        <tr class="section"><th colspan="6"><b>Toolbars</b></th></tr>
+        <tr><td>Top toolbar</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Bottom toolbar</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>User menu bar</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Middle toolbar</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Hot paths bar</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Plugins bar</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr class="addition"><td>Extensions bar</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr><td>Option to lock toolbars</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        
+        <tr class="section"><th colspan="6"><b>Panels</b></th></tr>
+        <tr><td>Display modes Thumbnails, Icons, Tiles</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Display modes Brief, Detailed (count of customizable Detailed mode presets)</td><td class="yes">⬤ (6+)</td><td>⬤ (6)</td><td>⬤ (6)</td><td>⬤ (6)</td><td>⬤ (1)</td></tr>
+        <tr><td>Quick Search through displayed items</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Automatic column widths</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Information Line, Directory Line</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Header Line for sorting and columns widths</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Path shortening by mouse in directory line</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Ellipses in truncated texts</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Selecting using mouse drag</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Special colors by wildcard and attributes</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Option: Full row select</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Option: Single-click to open item</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Swap panels command</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Option to filter names using wildcard</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Option to display Size column in KB</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Zoom command to maximize panel</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr class="addition"><td>Tabbed panels, including mouse-wheel tab scrolling and right-button tab switching</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Detachable tabs in independent windows (simple window)</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Docked or floating Tree View for the active disk panel</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Windows Explorer columns in Detailed view</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Panel item information tooltips with file-type metadata</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        
+        <tr class="section"><th colspan="6"><b>Find</b></th></tr>
+        <tr><td>Find files and directories</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Find by time, size, attributes, content</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Find operations in background</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Find duplicated files</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Refine or append found items</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Ignore Directory List for skipping directories</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Regular expressions</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Save Find criteria for future</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        
+        <tr class="section"><th colspan="6"><b>Sorting Options</b></th></tr>
+        <tr><td>Sort by name, extension, time, size</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Sort in both directions</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Respect regional settings</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Use numerical sort for numbers in names</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        
+        <tr class="section"><th colspan="6"><b>Clipboard Commands</b></th></tr>
+        <tr><td>Clipboard Copy, Cut, Paste, Paste Shortcut</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Paste: go to directory</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Paste: go to directory and focus file</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Copy path + name as text</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Copy name as text</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Copy path as text</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Copy UNC path + name as text</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        
+        <tr class="section"><th colspan="6"><b>Selection Commands</b></th></tr>
+        <tr><td>Select / Unselect using wildcards</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Select / Unselect all</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Invert selection</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Save / Load selected names</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Restore selection</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Advanced selection operations</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        
+        <tr class="section"><th colspan="6"><b>Integration With Windows Shell And File System</b></th></tr>
+        <tr><td>Support for deleting to Recycle Bin</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Support for UNC paths (\\server\share)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr class="addition"><td>Volumes mounted in folders</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr><td>Files and directories changes detection</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Environment variables change detection</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Change of file associations detection</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Support for removable disks disconnection</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Multiple monitors support</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Alternate data streams (ADS) support</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Allocate whole file size before operation</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Access to Sysnative directory (64-bit Windows)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Access to File System Redirector exempted directories</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Support for Windows Policies (restrictions)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Support for files over 4GB</td><td class="yes">Full</td><td>Full</td><td>Full</td><td>Full</td><td>Basic</td></tr>
+        
+        <tr class="section"><th colspan="6"><b>History</b></th></tr>
+        <tr><td>Command line history</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Find options history</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Select / Unselect history</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Go to directory history</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Copy / Move history</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Edit New history</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Quick Rename history</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Create Directory history</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Privacy options to clear histories</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr class="addition"><td>Shared or separate history for the two panels</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Persistent folder history (list forward and backward after restart)</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Keep panel location after restart even for plugins and extensions</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        
+        <tr class="section"><th colspan="6"><b>Security</b></th></tr>
+        <tr><td>Password Manager with strong AES-256 cypher</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>FTP and WinSCP clients can store password safely</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Support for TLS FTP (FTPS or FTPES with AUTH TLS)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        
+        <tr class="section"><th colspan="6"><b>Extensibility</b></th></tr>
+        <tr><td>Altap Salamander SDK</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Automation plugin</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr class="addition"><td>Salamatrix SDK and host-independent dialog contract</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Native preview host for extension dialog designs</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        
+        <tr class="section"><th colspan="6"><b>Configuration</b></th></tr>
+        <tr><td>Configuration stored in Registry</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Configurable</td><td class="yes">Highly</td><td>Highly</td><td>Highly</td><td>Highly</td><td>Yes</td></tr>
+        <tr><td>Suppressible confirmation count</td><td class="yes">23</td><td>23</td><td>23</td><td>23</td><td>0</td></tr>
+        <tr><td>Import / export configuration</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr class="addition"><td>Portable file-based configuration storage</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Configuration manager and restore wizard</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Automatic OpenAI-assisted translation workflow</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        
+        <tr class="section"><th colspan="6"><b>Language Translations</b></th></tr>
+        <tr><td>English</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Czech</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Dutch</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>⬤</td></tr>
+        <tr><td>French</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
+        <tr><td>German</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Hungarian</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Italian</td><td class="yes">–</td><td>–</td><td>–</td><td>–</td><td>⬤</td></tr>
+        <tr><td>Romanian</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Russian</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
+        <tr><td>Simplified Chinese</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
+        <tr><td>Slovak</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
+        <tr><td>Spanish</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        
+        <tr class="section"><th colspan="6"><b>Setup</b></th></tr>
+        <tr><td>Installable beside other versions</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Install / Uninstall</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Transfer (import) old configuration</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Transfer (import) old registration keys</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Import registration keys during installation</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>Unattended (quiet) installation</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr class="addition"><td>Portable installation (no Registry entries)</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        
+        <tr class="section"><th colspan="6"><b></b>Further Samandarin additions identified from code history and merged pull requests</b></th></tr>
+        <tr class="addition"><td>Service Explorer panel: enumerate, sort, register, start, stop and delete Windows services</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Plug-in Manager: stable/unofficial catalogues, dependency resolution, automatic plug-in and extension installation, update action and resizable management UI</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Configurable Extension Bar and plug-in toolbar menus for runtime extensions</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Windows Explorer property columns: choose, group, reorder, persist, sort, edit supported properties and search/edit tags</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Panel sort menu can include columns contributed by plug-ins and Salamatrix extensions</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Matching file icons with Windows Explorer, including ICO images as thumbnails</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>WebP and SVG thumbnail support; PictView Windows Imaging Component (WIC) decoding backend</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Unicode and long-path support in ZIP, 7-Zip and RAR workflows, Checksum, File Comparator and managed viewers</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Shift+F5: copy to selected target directories</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>DiskDir: recursive file-list generation</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Checksum: copy all calculated values and labels to the clipboard</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Configurable Backspace action in panels</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Locked tabs, protected path changes and tab-width/bold-active-tab options</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Drive bar support for volumes mounted into folders and occupied-space filesystem boundary option</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Optional Windows Sandbox mounted-volume display</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Internal Viewer Log View Mode</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Modern Command Shell templates: discovered Windows Terminal profiles and elevated-shell shortcut</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Configuration autosave/recovery improvements and main-window-size preservation after sleep</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>SFTP usability improvements, including saved-password reconnect prefill and responsive drag/layout handling</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Compatibility layer for existing Altap Salamander 4.0 plug-ins</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        
+        <tr class="section"><th colspan="6"><b>Internals</b></th></tr>
+        <tr><td>Created in</td><td class="yes">MS Visual C++ 2022 / C# 10.0 (.NET 4.8.2/8.0)</td><td>MS Visual C++ 2019</td><td>MS Visual C++ 2019</td><td>MS Visual C++ 6.0</td><td>Watcom C++ 11</td></tr>
+        <tr><td>Essential utilities</td><td class="yes">Git</td><td>Mercurial SCM</td><td>Mercurial SCM</td><td>CVS</td><td>–</td></tr>
+        <tr><td>Source code lines</td><td class="yes"><a href="https://github.com/KRtkovo-eu-AI/salamander/issues/646">See source-code growth report</a></td><td>674,000</td><td>674,000</td><td>656,000</td><td>42,000</td></tr>
+        <tr><td>Source code size</td><td class="yes"><a href="https://github.com/KRtkovo-eu-AI/salamander/issues/646">See source-code growth report</a></td><td>22.3 MB</td><td>22.3 MB</td><td>21.6 MB</td><td>1.27 MB</td></tr>
+        <tr><td>Open plugins architecture (C/C++ interface)</td><td class="yes">Advanced</td><td>Advanced</td><td>Advanced</td><td>Advanced</td><td>No</td></tr>
+        <tr><td>Open extensions architecture (different language runtimes)</td><td class="yes">Lua, PowerShell, Python, Node.js, PHP</td><td>No</td><td>No</td><td>No</td><td>No</td></tr>
+        <tr><td>Number of plugins</td><td class="yes">33+ native plug-ins and Salamatrix providers/extensions</td><td>29</td><td>34</td><td>35</td><td>0</td></tr>
+        <tr><td>Bug reporting system</td><td class="yes">Advanced + GitHub Issues</td><td>Advanced</td><td>Advanced</td><td>Standard</td><td>No</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Supported formats and plug-in sources</h2>
+  <p class="intro">The following tables reproduce the format tables that appear below the historical comparison table and extend them with formats and sources supported by Samandarin plug-ins and extensions. Entries marked “Samandarin addition” were not present in the 4.0 comparison.</p>
+
+  <h3>PictView Viewer: WIC-decoded image formats</h3>
+  <p class="intro">PictView queries the local Windows Imaging Component (WIC) decoder inventory at start-up. The detected extensions are used for both viewing and thumbnails, so installed WIC codecs are supported without a hard-coded extension list.</p>
+  <div class="scroll"><table><thead><tr><th>Extension</th><th>Format description</th></tr></thead><tbody>
+    <tr class="addition"><td>All extensions advertised by installed WIC decoders</td><td>Samandarin addition: PictView enumerates <i>IWICBitmapDecoderInfo::GetFileExtensions</i> at start-up and updates viewer and thumbnail registrations from that system inventory.</td></tr>
+    <tr><td>BMP, DIB, RLE</td><td>Windows Bitmap, through the built-in WIC BMP decoder.</td></tr>
+    <tr><td>GIF</td><td>Graphics Interchange Format, including animation frames exposed by WIC.</td></tr>
+    <tr><td>ICO</td><td>Windows Icon, through the built-in WIC icon decoder.</td></tr>
+    <tr><td>JPG, JPE, JPEG, JFIF</td><td>JPEG / JFIF, through the built-in WIC JPEG decoder.</td></tr>
+    <tr><td>PNG</td><td>Portable Network Graphics, through the built-in WIC PNG decoder.</td></tr>
+    <tr><td>TIF, TIFF</td><td>Tagged Image File Format, through the built-in WIC TIFF decoder.</td></tr>
+    <tr><td>JXR, WDP</td><td>JPEG XR / HD Photo (Windows Media Photo), through the built-in WIC codec.</td></tr>
+    <tr><td>DDS</td><td>DirectDraw Surface variants accepted by the WIC DDS decoder.</td></tr>
+    <tr class="addition"><td>WebP, HEIF/HEIC, DNG/RAW and other optional image formats</td><td>Available when their WIC codec is installed on the local Windows system; their extensions are discovered automatically and are not treated as universal support.</td></tr>
+  </tbody></table></div>
+
+  <h3>Multimedia Viewer: supported audio formats</h3>
+  <div class="scroll"><table><thead><tr><th>Extension</th><th>Format description</th></tr></thead><tbody>
+    <tr><td>MP3, MP2</td><td>MPEG 1 or MPEG 2 audio files, layer I, II and III; ID3 tag versions 1 and 2</td></tr>
+    <tr><td>OGG</td><td>Ogg Vorbis audio files</td></tr><tr><td>WMA</td><td>Windows Media Audio</td></tr><tr><td>WAV</td><td>Microsoft sound format</td></tr>
+    <tr><td>VQF, 669, IT, MOD, MTM, S3M, STM, XM</td><td>Tracker modules</td></tr>
+  </tbody></table></div>
+
+  <h3>Database Viewer: supported database formats</h3>
+  <div class="scroll"><table><thead><tr><th>Extension</th><th>Format description</th></tr></thead><tbody>
+    <tr><td>DBF</td><td>dBase II, III, IV, V, Visual dBase 7 and FoxPRO</td></tr><tr><td>CSV</td><td>Comma-separated values</td></tr><tr><td>TXT</td><td>Tab-delimited text</td></tr>
+  </tbody></table></div>
+
+  <h3>Checksum: supported hash algorithms</h3>
+  <div class="scroll"><table><thead><tr><th>Algorithm</th><th>Description</th></tr></thead><tbody>
+    <tr><td>CRC</td><td>Cyclic Redundancy Check stored in SFV checksum files</td></tr><tr><td>MD5</td><td>Message-Digest algorithm 5</td></tr>
+    <tr><td>SHA1</td><td>Secure Hash Algorithm SHA-1</td></tr><tr><td>SHA256</td><td>Secure Hash Algorithm SHA-256 (SHA-2 family)</td></tr>
+  </tbody></table></div>
+
+  <h3>Supported archive formats</h3>
+  <div class="scroll"><table><thead><tr><th>Extension</th><th>Format description</th><th>Plug-in</th></tr></thead><tbody>
+    <tr><td>7Z</td><td>7-Zip</td><td>7zip</td></tr><tr><td>ZIP</td><td>ZIP</td><td>ZIP</td></tr><tr><td>ARJ</td><td>ARJ</td><td>UnARJ</td></tr><tr><td>CAB</td><td>Microsoft Cabinet</td><td>UnCAB</td></tr>
+    <tr><td>B64, EML, HQX, NTX, UUE, XXE</td><td>MIME, e-mail, Binhex, yEnc and UU/XX encodings</td><td>UnMIME</td></tr>
+    <tr><td>PAK</td><td>Quake PAK files</td><td>UnPAK</td></tr><tr><td>IMA</td><td>FAT 12, 16 and 32 disk images</td><td>UnFAT</td></tr><tr><td>RAR</td><td>RAR</td><td>UnRAR</td></tr>
+    <tr><td>LZH, LHA, LZS</td><td>LHArc compressed archives</td><td>UnLHA</td></tr>
+    <tr><td>TAR, GZ, TGZ, BZ2, BZ, TBZ, Z, TAZ, CPIO, RPM, DEB</td><td>GNU tar, gzip, bzip, compress and package archive formats</td><td>TAR</td></tr>
+    <tr><td>BIN, BWI, C2D, CDI, CIF, IMG, ISO, NCD, NRG, PDI, XBOX</td><td>CD/DVD and XBOX image formats</td><td>UnISO</td></tr><tr><td>CHM</td><td>Microsoft Help</td><td>UnCHM</td></tr>
+    <tr class="addition"><td>ZIP, 7Z and RAR with Unicode/long paths</td><td>Samandarin addition: archive workflows preserve Unicode names and extended paths.</td><td>ZIP, 7zip, UnRAR</td></tr>
+    <tr class="addition"><td>XZ, TXZ, BZIP2, TBZ2, GZIP, TPZ, OVA, Z01, ZIPX, XPI, ODT, ODS, DOCX, XLSX, EPUB</td><td>Samandarin addition: modern compressed archives and document/package containers, browsed and extracted by bundled 7-Zip 26.02.</td><td>7zip</td></tr>
+    <tr class="addition"><td>WIM, SWM, ESD, APM, APFS, AR, A, UDEB, LIB, CRAMFS, DMG, EXT/EXT2/EXT3/EXT4, GPT, HFS/HFSX, IHEX, LZMA, MBR, MSI/MSP, NSIS, NTFS, QCOW/QCOW2/QCOW2C, SQUASHFS, UDF, SCAP, UEFI/UEFIF, VDI, VHD/VHDX, VMDK, XAR</td><td>Samandarin addition: operating-system packages, file systems, disk images and virtual-machine images, browsed and extracted by bundled 7-Zip 26.02.</td><td>7zip</td></tr>
+  </tbody></table></div>
+
+  <h3>Additional Samandarin viewer file types</h3>
+  <div class="scroll"><table><thead><tr><th>Plug-in</th><th>Category</th><th>Supported file types</th></tr></thead><tbody>
+    <tr><td>Prism Text Viewer</td><td>Plain text and logs</td><td>.txt, .log</td></tr>
+    <tr><td>Prism Text Viewer</td><td>Configuration</td><td>.ini, .cfg, .conf, .config, .json, .jsonc, .json5, .yaml, .yml</td></tr>
+    <tr><td>Prism Text Viewer</td><td>Markup and delimited text</td><td>.xml, .html, .htm, .php, .axaml, .xaml, .xlf, .nuspec, .plist, .storyboard, .md, .markdown, .csv</td></tr>
+    <tr><td>Prism Text Viewer</td><td>Windows scripting and C-family source</td><td>.bat, .cmd, .ps1, .psd1, .psm1, .cs, .cpp, .c, .cxx, .h, .hh, .hpp, .hxx</td></tr>
+    <tr><td>Prism Text Viewer</td><td>Project and build files</td><td>.csproj, .fsproj, .vbproj, .vcxproj, .vcproj, .props, .targets</td></tr>
+    <tr><td>Prism Text Viewer</td><td>Syntax grammars</td><td>Hundreds of bundled PrismSharp language identifiers, including ABAP, Bash, C/C++, C#, CSS, Docker, Go, Java, JavaScript, JSON, Kotlin, Lua, Markdown, PHP, PowerShell, Python, Ruby, Rust, SQL, TypeScript, XML and YAML. The complete controlled list is maintained in <code>src/plugins/textviewer/SUPPORTED_FILE_TYPES.md</code>.</td></tr>
+    <tr><td>JSON Viewer .NET</td><td>JSON documents</td><td>.json, .pc, .jbeam</td></tr>
+    <tr><td>WebView2 Render Viewer</td><td>HTML and web archives</td><td>.html, .htm, .xhtml, .mhtml, .mht</td></tr>
+    <tr><td>WebView2 Render Viewer</td><td>Markdown</td><td>.md, .markdown, .mdown, .mkd, .mdx</td></tr>
+    <tr><td>WebView2 Render Viewer</td><td>Vector and modern images</td><td>.svg, .svgz, .webp, .avif, .apng</td></tr>
+    <tr><td>WebView2 Render Viewer</td><td>Raster images and PDF</td><td>.png, .jpg, .jpeg, .jfif, .gif, .bmp, .ico, .tif, .tiff, .pdf</td></tr>
+  </tbody></table></div>
+
+  <h3>Samandarin extensions: supported sources</h3>
+  <div class="scroll"><table><thead><tr><th>Extension</th><th>Supported source / scope</th></tr></thead><tbody>
+    <tr><td>Process Explorer</td><td>Running Windows processes; actions include end task, end process tree, open file location and properties.</td></tr>
+    <tr><td>Hardware Monitor</td><td>CPU, GPU, memory, motherboard, network, storage, sensors and Device Manager; reads hardware information and utilization.</td></tr>
+    <tr><td>Event Viewer</td><td>Windows Custom Views, Windows Logs, and Applications and Services Logs; event properties and XML details.</td></tr>
+    <tr><td>File Lock Inspector</td><td>Selected files; locates processes which prevent modification, move or deletion.</td></tr>
+    <tr><td>Git Worktree Navigator</td><td>Disk folders that contain Git repositories and worktrees.</td></tr>
+    <tr><td>Extension Menu Builder</td><td>Interactive creation and editing of menu-driven Salamatrix extensions.</td></tr>
+  </tbody></table></div>
+
+    </section>
+  </main>
+  <a class="back-to-top" href="#content" aria-label="Back to top" title="Back to top" data-back-to-top>↑</a>
+  <script src="js/i18n.js" defer></script>
+  <script src="js/back-to-top.js" defer></script>
+  <script src="js/consent.js" defer></script>
+</body>
+</html>
