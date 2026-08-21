@@ -771,6 +771,10 @@ public:
     void Show()
     {
         ShowWindow(window_, parameters_->showCommand);
+        // A new viewer is an explicit open request.  Do not leave it behind an
+        // already open viewer window on the host UI thread.
+        BringWindowToTop(window_);
+        SetForegroundWindow(window_);
         UpdateWindow(window_);
     }
 
@@ -1312,9 +1316,7 @@ private:
                     }
                     return S_OK;
                 }).Get(), &acceleratorToken_);
-        if (parameters_->kind == NativeViewerKind::RenderDocument)
-        {
-            webView_->add_WebMessageReceived(
+        webView_->add_WebMessageReceived(
                 Callback<ICoreWebView2WebMessageReceivedEventHandler>(
                     [this](ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs* args) -> HRESULT
                     {
@@ -1324,6 +1326,19 @@ private:
 
                         const std::wstring value(message);
                         CoTaskMemFree(message);
+                        if (value == L"salamander-prism-ready")
+                        {
+                            SetWindowTextW(status_, parameters_->ready.c_str());
+                            if (!browserVisible_ && controller_)
+                            {
+                                controller_->put_IsVisible(TRUE);
+                                browserVisible_ = true;
+                            }
+                            loadProgress_ = 100;
+                            return S_OK;
+                        }
+                        if (parameters_->kind != NativeViewerKind::RenderDocument)
+                            return S_OK;
                         constexpr wchar_t prefix[] = L"salamander-link:";
                         if (value == L"salamander-link-clear")
                             SetWindowTextW(status_, parameters_->ready.c_str());
@@ -1332,6 +1347,8 @@ private:
                         return S_OK;
                     }).Get(), &webMessageToken_);
 
+        if (parameters_->kind == NativeViewerKind::RenderDocument)
+        {
             constexpr wchar_t hoverScript[] =
                 L"(function(){document.addEventListener('mouseover',function(e){var a=e.target&&e.target.closest?e.target.closest('a'):null;"
                 L"if(a&&a.href)window.chrome.webview.postMessage('salamander-link:'+a.href);});"
@@ -1346,7 +1363,8 @@ private:
                 {
                     BOOL success = FALSE;
                     args->get_IsSuccess(&success);
-                    SetWindowTextW(status_, success ? parameters_->ready.c_str() : parameters_->openFailed.c_str());
+                    if (!success || parameters_->kind != NativeViewerKind::PrismText)
+                        SetWindowTextW(status_, success ? parameters_->ready.c_str() : parameters_->openFailed.c_str());
                     if (success && parameters_->theme.dark && parameters_->kind == NativeViewerKind::RenderDocument)
                     {
                         std::wstring script = L"(function(){if(!document||!document.documentElement)return;"
@@ -1357,12 +1375,15 @@ private:
                             L"}:where(a:link){color:" + CssColor(parameters_->theme.accent) + L"}';document.head.appendChild(s);}})();";
                         webView_->ExecuteScript(script.c_str(), nullptr);
                     }
+                    // Show Prism's parsed source as soon as navigation completes;
+                    // syntax tokenization may still finish asynchronously.
                     if (!browserVisible_ && controller_)
                     {
                         controller_->put_IsVisible(TRUE);
                         browserVisible_ = true;
                     }
-                    loadProgress_ = 100;
+                    if (!success || parameters_->kind != NativeViewerKind::PrismText)
+                        loadProgress_ = 100;
                     return S_OK;
                 }).Get(), &navigationToken_);
     }
@@ -1460,6 +1481,27 @@ private:
             swprintf_s(gutterWidth, L"%.3fpx", 1.0 + (lineDigits + 1) * charPixelWidth);
             const std::wstring gutterBackground = parameters_->theme.dark ? L"#262626" : L"#f5f5f5";
             const std::wstring gutterForeground = parameters_->theme.dark ? L"#a0a0a0" : L"#606060";
+            const std::wstring syntaxColors = parameters_->theme.dark
+                ? L".token.comment,.token.prolog,.token.doctype,.token.cdata{color:#6a9955}"
+                  L".token.punctuation,.token.operator,.token.entity,.token.url{color:#d4d4d4;background:transparent}"
+                  L".token.keyword,.token.atrule{color:#569cd6}"
+                  L".token.control-keyword{color:#c586c0}"
+                  L".token.class-name{color:#4ec9b0}"
+                  L".token.function{color:#dcdcaa}"
+                  L".token.string,.token.char,.token.attr-value{color:#ce9178}"
+                  L".token.number,.token.boolean,.token.constant,.token.symbol{color:#b5cea8}"
+                  L".token.variable{color:#9cdcfe}"
+                  L".token.namespace{color:#d4d4d4;opacity:1}"
+                : L".token.comment,.token.prolog,.token.doctype,.token.cdata{color:#008000}"
+                  L".token.punctuation,.token.operator,.token.entity,.token.url{color:#000000;background:transparent}"
+                  L".token.keyword,.token.atrule{color:#0000ff}"
+                  L".token.control-keyword{color:#0000ff}"
+                  L".token.class-name{color:#2b91af}"
+                  L".token.function{color:#000000}"
+                  L".token.string,.token.char,.token.attr-value{color:#a31515}"
+                  L".token.number,.token.boolean,.token.constant,.token.symbol{color:#098658}"
+                  L".token.variable{color:#000000}"
+                  L".token.namespace{color:#000000;opacity:1}";
             std::wstring html = L"<!doctype html><html><head><meta charset='utf-8'>"
                 L"<link rel='stylesheet' href='https://prism.local/themes/" + std::wstring(prismTheme) + L"'>"
                 L"<link rel='stylesheet' href='https://prism.local/plugins/line-numbers/prism-line-numbers.css'>" +
@@ -1484,26 +1526,46 @@ private:
                                                                                 ? L"line-through" : L"none") + L"}"
                 L"pre[class*='language-']>code{font:inherit;line-height:inherit;letter-spacing:inherit}"
                 L"pre[class*='language-'].line-numbers{--salamander-gutter-width:" + std::wstring(gutterWidth) +
-                L";padding-left:var(--salamander-gutter-width);background:linear-gradient(to right," +
+                L";padding-left:calc(var(--salamander-gutter-width) + 1px);background:linear-gradient(to right," +
                 gutterBackground + L" 0," + gutterBackground + L" var(--salamander-gutter-width)," +
                 CssColor(parameters_->theme.background) + L" var(--salamander-gutter-width)," +
                 CssColor(parameters_->theme.background) + L" 100%)}"
-                L"pre.line-numbers .line-numbers-rows{left:calc(-1 * var(--salamander-gutter-width));"
+                L"pre.line-numbers .line-numbers-rows{left:calc(-1 * var(--salamander-gutter-width) - 1px);"
                 L"width:var(--salamander-gutter-width);border-right:0;background:" + gutterBackground +
-                L";line-height:" + std::wstring(lineHeight) +
+                L";padding:1px 0 0 0;line-height:" + std::wstring(lineHeight) +
                 L";letter-spacing:calc(var(--salamander-char-width) - 1ch)}"
-                L"pre.line-numbers .line-numbers-rows>span{line-height:" + std::wstring(lineHeight) + L"}"
-                L"pre.line-numbers .line-numbers-rows>span:before{box-sizing:border-box;position:relative;top:-1px;"
-                L"padding-right:1px;text-align:right;color:" +
+                // Give every generated number an explicit, identical line box.
+                // Relying on the plug-in's nested inline boxes caused WebView's
+                // font metrics to vary the apparent vertical spacing.
+                L"pre.line-numbers .line-numbers-rows>span{display:block;height:" + std::wstring(lineHeight) +
+                L";line-height:" + std::wstring(lineHeight) + L"}"
+                L"pre.line-numbers .line-numbers-rows>span:before{box-sizing:border-box;display:block;height:" +
+                std::wstring(lineHeight) + L";line-height:" + std::wstring(lineHeight) +
+                L";padding-right:1px;text-align:right;color:" +
                 gutterForeground + L"}::selection{background:" + CssColor(parameters_->theme.selectedBackground) +
                 L";color:" + CssColor(parameters_->theme.selectedForeground) + L"}"
-                L"</style><script src='https://prism.local/prism.js'></script>"
+                + syntaxColors + L"</style><script>window.Prism={manual:true};</script><script src='https://prism.local/prism.js'></script>"
                 L"<script src='https://prism.local/plugins/autoloader/prism-autoloader.min.js'></script>"
-                L"<script>Prism.plugins.autoloader.languages_path='https://prism.local/components/';</script>"
+                L"<script>Prism.plugins.autoloader.languages_path='https://prism.local/components/';"
+                L"var salamanderCSharpPatched=false,salamanderPrismReady=false;"
+                L"Prism.hooks.add('before-highlight',function(env){if(salamanderCSharpPatched||env.language!=='csharp')return;"
+                L"var grammar=Prism.languages.csharp,strings=grammar&&grammar.string;if(!Array.isArray(strings)||!strings[0])return;"
+                L"strings[0].pattern=/(^|[^$\\\\])@\"(?:\"\"|[^\"])*\"(?!\")/;"
+                L"Prism.languages.insertBefore('csharp','class-name',{'type-name':{pattern:/\\b[A-Z]\\w*(?=\\s*(?:\\.|[),;\\]}]))/,alias:'class-name'}});"
+                L"Prism.languages.insertBefore('csharp','keyword',{'control-keyword':{pattern:/\\b(?:return|try|catch|finally|throw|switch|case|default)\\b/}});"
+                L"Prism.languages.insertBefore('csharp','number',{'variable':{pattern:/\\b[a-z_]\\w*\\b/,alias:'variable'}});"
+                L"env.grammar=Prism.languages.csharp;salamanderCSharpPatched=true;});"
+                L"Prism.hooks.add('complete',function(env){if(salamanderPrismReady||env.element.id!=='salamander-code')return;"
+                L"salamanderPrismReady=true;requestAnimationFrame(function(){requestAnimationFrame(function(){"
+                L"window.chrome.webview.postMessage('salamander-prism-ready');});});});"
+                L"document.addEventListener('DOMContentLoaded',function(){var code=document.getElementById('salamander-code');"
+                L"var highlight=function(){Prism.highlightElement(code)};var language=code.getAttribute('data-salamander-language');"
+                L"if(!language||language==='none')highlight();else Prism.plugins.autoloader.loadLanguages([language],highlight,highlight);});</script>"
                 L"<script src='https://prism.local/plugins/line-numbers/prism-line-numbers.min.js'></script>" +
                 (showWhitespace_ ? L"<script src='https://prism.local/plugins/show-invisibles/prism-show-invisibles.min.js'></script>" : L"") +
                 L"</head><body><pre class='" + HtmlEncode(preClasses) + L"'><code class='language-" +
-                HtmlEncode(language) + L"'>" + HtmlEncode(text) + L"</code></pre></body></html>";
+                HtmlEncode(language) + L"' id='salamander-code' data-salamander-language='" + HtmlEncode(language) +
+                L"'>" + HtmlEncode(text) + L"</code></pre></body></html>";
 
             ComPtr<ICoreWebView2_3> webView3;
             if (SUCCEEDED(webView_.As(&webView3)))

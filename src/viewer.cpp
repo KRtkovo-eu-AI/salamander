@@ -2395,7 +2395,10 @@ void CViewerWindow::Paint(HDC dc)
                     BOOL isWrap = (i > 0 && LineOffset[i * 3] <= LineOffset[i * 3 - 2]);
                     if (!isWrap && i > 0)
                         ++documentLine;
-                    RECT numberRect = {0, 0, max(0, gutterWidth - BORDER_WIDTH), rowHeight};
+                    // Keep the baseline anchored to a full text row.  The last
+                    // visible row may be clipped by the window edge; centering
+                    // its number in the clipped height made it jump upward.
+                    RECT numberRect = {0, 0, max(0, gutterWidth - BORDER_WIDTH), CharHeight};
                     if (isWrap)
                     {
                         // Show a rightwards arrow with hook for wrapped lines

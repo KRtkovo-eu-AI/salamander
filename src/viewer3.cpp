@@ -537,16 +537,15 @@ BOOL CViewerWindow::ScrollViewLineUp(DWORD repeatCmd, BOOL* scrolled, BOOL repai
             {
                 if (ShowLineNumbers)
                 {
-                    // The gutter is painted directly while document text is
-                    // double-buffered. Do not pixel-scroll one independently
-                    // from the other: shifted stale numbers visibly flicker.
+                    // The gutter must be calculated from the freshly rendered
+                    // rows. Pixel-scrolling it can expose stale numbers when
+                    // the viewport is repainted asynchronously.
                     InvalidateRect(HWindow, NULL, FALSE);
                 }
                 else
                 {
-                    RECT documentRect = {0, 0, Width, Height};
-                    // Keep child scrollbars and status controls fixed while only
-                    // the document surface is scrolled.
+                    const int menuHeight = ViewerMenuBar != NULL ? ViewerMenuBar->GetNeededHeight() : 0;
+                    RECT documentRect = {0, menuHeight, Width, menuHeight + Height};
                     ScrollWindowEx(HWindow, 0, CharHeight, &documentRect, &documentRect,
                                    NULL, NULL, SW_INVALIDATE);
                 }
@@ -573,16 +572,13 @@ BOOL CViewerWindow::ScrollViewLineDown(BOOL fullRedraw)
             {
                 if (ShowLineNumbers)
                 {
-                    // Keep direct-painted line numbers in the same paint pass
-                    // as the newly rendered document rows.
                     fullRedraw = TRUE;
                     InvalidateRect(HWindow, NULL, FALSE);
                 }
                 else
                 {
-                    RECT documentRect = {0, 0, Width, Height};
-                    // Keep child scrollbars and status controls fixed while only
-                    // the document surface is scrolled.
+                    const int menuHeight = ViewerMenuBar != NULL ? ViewerMenuBar->GetNeededHeight() : 0;
+                    RECT documentRect = {0, menuHeight, Width, menuHeight + Height};
                     ScrollWindowEx(HWindow, 0, -CharHeight, &documentRect, &documentRect,
                                    NULL, NULL, SW_INVALIDATE);
                 }
@@ -3040,7 +3036,8 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 InvalidateRect(HWindow, NULL, FALSE);
                             else
                             {
-                                RECT documentRect = {0, 0, Width, Height};
+                                const int menuHeight = ViewerMenuBar != NULL ? ViewerMenuBar->GetNeededHeight() : 0;
+                                RECT documentRect = {0, menuHeight, Width, menuHeight + Height};
                                 ScrollWindowEx(HWindow, 0, CharHeight, &documentRect, &documentRect,
                                                NULL, NULL, SW_INVALIDATE);
                             }
@@ -3194,7 +3191,8 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                     InvalidateRect(HWindow, NULL, FALSE);
                                 else
                                 {
-                                    RECT documentRect = {0, 0, Width, Height};
+                                    const int menuHeight = ViewerMenuBar != NULL ? ViewerMenuBar->GetNeededHeight() : 0;
+                                    RECT documentRect = {0, menuHeight, Width, menuHeight + Height};
                                     ScrollWindowEx(HWindow, 0, CharHeight, &documentRect, &documentRect,
                                                    NULL, NULL, SW_INVALIDATE);
                                 }
