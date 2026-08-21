@@ -199,6 +199,20 @@ def main() -> int:
     ):
         print("the first Tree View reveal must follow the current path asynchronously")
         return 1
+    async_done = re.search(
+        r"case WM_USER_TREEVIEW_ASYNC_DONE:.*?\n        return 0;\n    }",
+        fileswndb,
+        re.DOTALL,
+    )
+    if async_done is None:
+        print("missing Tree View async-completion handler")
+        return 1
+    async_done_text = async_done.group(0)
+    last_select = async_done_text.rfind("TreeView_SelectItem(HTreeView")
+    enable_notify = async_done_text.rfind("TreeViewDisableNotify = FALSE;")
+    if last_select < 0 or enable_notify < last_select:
+        print("Tree View async completion must suppress selection notifications while selecting")
+        return 1
     if (
         "ExplorerSortThrobberID = DirectoryLine->ChangeThrobberID();" not in fileswnd3
         or "DirectoryLine->SetThrobber(TRUE, 150);" not in fileswnd3

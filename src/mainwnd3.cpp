@@ -225,7 +225,12 @@ CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index)
         return NULL;
     }
 
-    SwitchPanelTab(panel);
+    // Creating a tab and making it active are deliberately separate operations.
+    // Callers must first finish initializing the new panel (in particular, copy
+    // the source tab's path) and activate it only afterwards.  Activating here
+    // loses the source-side current-tab context while the caller is still using
+    // it, which can make tab creation, duplication, and configuration restore
+    // persist or reuse the wrong location.
     return panel;
 }
 
@@ -238,6 +243,24 @@ BOOL CMainWindow::CreatePanelTab(CPanelSide side, const char* path, int insertIn
 
     *tabId = 0;
     CFilesWindow* previous = (side == cpsLeft) ? LeftPanel : RightPanel;
+
+    // The caller may pass a pointer owned by the currently visible panel.
+    // Creating a child window can synchronously run focus/layout handlers, so
+    // keep an owned copy before any operation which can alter that panel.
+    char targetPath[2 * MAX_PATH];
+    targetPath[0] = 0;
+    if (path != NULL && path[0] != 0)
+        lstrcpyn(targetPath, path, _countof(targetPath));
+    else if (previous != NULL)
+    {
+        if (!previous->GetGeneralPath(targetPath, _countof(targetPath), TRUE))
+        {
+            const char* previousPath = previous->GetPath();
+            if (previousPath != NULL)
+                lstrcpyn(targetPath, previousPath, _countof(targetPath));
+        }
+    }
+
     CFilesWindow* panel = AddPanelTab(side, insertIndex);
     if (panel == NULL)
         return FALSE;
@@ -262,9 +285,7 @@ BOOL CMainWindow::CreatePanelTab(CPanelSide side, const char* path, int insertIn
         return FALSE;
     }
 
-    const char* targetPath = path != NULL && path[0] != 0 ? path :
-                             (previous != NULL ? previous->GetPath() : panel->GetPath());
-    if (targetPath != NULL && targetPath[0] != 0 && !panel->ChangeDir(targetPath))
+    if (targetPath[0] != 0 && !panel->ChangeDir(targetPath))
     {
         ClosePanelTab(panel, false);
         if (previous != NULL)
@@ -434,28 +455,21 @@ void CMainWindow::EnsurePanelAutomaticRefresh(CFilesWindow* panel)
     if (panel == NULL)
         return;
 
-    bool refreshOnActivate = panel->NeedsRefreshOnActivation != FALSE;
     const bool isDiskLike = panel->Is(ptDisk) || panel->Is(ptZIPArchive);
     const char* path = panel->GetPath();
     if (isDiskLike && path != NULL && path[0] != 0)
     {
         BOOL registerDevNotification = panel->GetPathDriveType() == DRIVE_REMOVABLE ||
                                        panel->GetPathDriveType() == DRIVE_FIXED;
-        if (!panel->GetMonitorChanges())
-        {
-            refreshOnActivate = true;
-        }
-        else
-        {
+        if (panel->GetMonitorChanges())
             EnsureWatching(panel, registerDevNotification);
-            if (!panel->AutomaticRefresh)
-                refreshOnActivate = true;
-        }
-
-        if (refreshOnActivate && panel->HWindow != NULL)
-            panel->ChangePathToDisk(panel->HWindow, path);
     }
 
+    // Tab activation is not navigation.  The actual refresh is requested by
+    // EnsurePanelRefreshAndRequest() below.  Calling ChangePathToDisk() here
+    // used the navigation path for a refresh, which may shorten an inaccessible
+    // path or select a rescue drive and therefore changed an already-existing
+    // tab's location when another tab was closed, duplicated, or restored.
     if (panel == GetActivePanel())
         panel->NeedsRefreshOnActivation = FALSE;
 }
@@ -1892,6 +1906,20 @@ void CMainWindow::CommandNewTab(CPanelSide side, bool addAtEnd)
 
     CFilesWindow* previous = (side == cpsLeft) ? LeftPanel : RightPanel;
 
+    // Do not retain a pointer into the source panel across Create().  Window
+    // creation may synchronously dispatch messages which change panel state.
+    char targetPath[2 * MAX_PATH];
+    targetPath[0] = 0;
+    if (previous != NULL)
+    {
+        if (!previous->GetGeneralPath(targetPath, _countof(targetPath), TRUE))
+        {
+            const char* previousPath = previous->GetPath();
+            if (previousPath != NULL)
+                lstrcpyn(targetPath, previousPath, _countof(targetPath));
+        }
+    }
+
     CFilesWindow* panel = AddPanelTab(side, insertIndex);
     if (panel == NULL)
         return;
@@ -1924,8 +1952,7 @@ void CMainWindow::CommandNewTab(CPanelSide side, bool addAtEnd)
             panel->SelectViewTemplate(templateIndex, TRUE, FALSE);
     }
 
-    const char* targetPath = (previous != NULL && previous != panel) ? previous->GetPath() : panel->GetPath();
-    if (targetPath != NULL)
+    if (targetPath[0] != 0)
         panel->ChangeDir(targetPath);
 
     UpdatePanelTabTitle(panel);
@@ -2265,6 +2292,18 @@ CFilesWindow* CMainWindow::CreateDuplicatePanelTab(CPanelSide targetSide, CFiles
 
     CFilesWindow* previousTarget = (targetSide == cpsLeft) ? LeftPanel : RightPanel;
 
+    // Capture this before creating the target HWND or copying view state.
+    // Both can synchronously dispatch UI messages, while sourcePanel can be a
+    // hidden tab which must retain its own location throughout the operation.
+    char sourcePath[2 * MAX_PATH];
+    sourcePath[0] = 0;
+    if (!sourcePanel->GetGeneralPath(sourcePath, _countof(sourcePath), TRUE))
+    {
+        const char* currentSourcePath = sourcePanel->GetPath();
+        if (currentSourcePath != NULL)
+            lstrcpyn(sourcePath, currentSourcePath, _countof(sourcePath));
+    }
+
     CFilesWindow* newPanel = AddPanelTab(targetSide, insertIndex);
     if (newPanel == NULL)
         return NULL;
@@ -2343,16 +2382,8 @@ CFilesWindow* CMainWindow::CreateDuplicatePanelTab(CPanelSide targetSide, CFiles
 
     newPanel->UserWorkedOnThisPath = sourcePanel->UserWorkedOnThisPath;
 
-    char path[2 * MAX_PATH];
-    path[0] = 0;
-    if (sourcePanel->GetGeneralPath(path, _countof(path), TRUE))
-        newPanel->ChangeDir(path);
-    else
-    {
-        const char* srcPath = sourcePanel->GetPath();
-        if (srcPath != NULL)
-            newPanel->ChangeDir(srcPath);
-    }
+    if (sourcePath[0] != 0)
+        newPanel->ChangeDir(sourcePath);
 
     UpdatePanelTabColor(newPanel);
     UpdatePanelTabTitle(newPanel);
