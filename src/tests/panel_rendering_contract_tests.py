@@ -204,6 +204,8 @@ def main() -> int:
         or "RefreshTreeViewImageList(HTreeView, systemImageList);"
         not in tree_dpi_refresh.group(0)
         or "ImageList_SetImageCount(targetImageList, imageIndex + 1)" not in fileswnd
+        or "ImageList_GetImageCount(targetImageList) > imageIndex" in fileswnd
+        or "leaves those slots rendered\n    // as black squares" not in fileswnd
         or "Copy only the shell" not in fileswnd
     ):
         print("Tree View DPI images must be copied lazily instead of freezing first reveal")

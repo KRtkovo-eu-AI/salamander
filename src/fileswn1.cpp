@@ -445,12 +445,13 @@ static void CopyTreeViewImage(HWND hTreeView, HIMAGELIST systemImageList, int im
     if (targetImageList == NULL || targetImageList == systemImageList)
         return;
 
-    // Tree View currently contains directories only, so the generic closed
-    // and open folder indices repeat for every inserted node.  A present
-    // index was already copied into this newly created sparse list.
-    if (ImageList_GetImageCount(targetImageList) > imageIndex)
-        return;
-    if (!ImageList_SetImageCount(targetImageList, imageIndex + 1))
+    // Enlarging an image list creates empty slots between the old end and
+    // imageIndex.  Its count therefore cannot tell us that this particular
+    // shell index was copied: treating it as such leaves those slots rendered
+    // as black squares.  Replacing the requested index is cheap and keeps the
+    // list sparse without ever handing Tree View an uninitialized image.
+    if (ImageList_GetImageCount(targetImageList) <= imageIndex &&
+        !ImageList_SetImageCount(targetImageList, imageIndex + 1))
         return;
 
     HICON icon = ImageList_GetIcon(systemImageList, imageIndex, ILD_TRANSPARENT);
