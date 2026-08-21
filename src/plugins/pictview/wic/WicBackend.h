@@ -134,6 +134,7 @@ public:
     static Backend& Instance();
 
     bool Populate(CPVW32DLL& table);
+    bool GetDecoderMasks(std::vector<std::string>& masks) const;
 
     IWICImagingFactory* Factory() const { return m_factory.Get(); }
 
