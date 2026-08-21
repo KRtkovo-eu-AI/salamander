@@ -46,6 +46,13 @@ class Tests(unittest.TestCase):
   self.assertEqual(seen[0]["target_langid"],1049)
   self.assertEqual(seen[0]["target_script"],"Cyrillic")
 
+ def test_italian_language_metadata(self):
+  info=slt.language_info("italian")
+  self.assertEqual(info["name"],"Italian")
+  self.assertEqual(info["locale"],"it-IT")
+  self.assertEqual(info["langid"],1040)
+  self.assertEqual(info["script"],"Italian Latin with accents")
+
  def test_translation_updates_langid_even_without_untranslated_items(self):
   os.environ["OPENAI_API_KEY"]="test"
   content = """[EXPORTINFO]

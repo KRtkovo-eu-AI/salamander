@@ -230,6 +230,7 @@ $languageLangIds = @{
     french = 1036
     german = 1031
     hungarian = 1038
+    italian = 1040
     romanian = 1048
     russian = 1049
     slovak = 1051

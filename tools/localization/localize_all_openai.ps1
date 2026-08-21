@@ -18,7 +18,7 @@ $syncScript=Join-Path $PSScriptRoot 'sync_plugin_translations.ps1'; if(Test-Path
 
 $langIdByLanguage = @{
  chinesesimplified = 2052; czech = 1029; dutch = 1043; french = 1036; german = 1031
- hungarian = 1038; romanian = 1048; russian = 1049; slovak = 1051; spanish = 3082
+ hungarian = 1038; italian = 1040; romanian = 1048; russian = 1049; slovak = 1051; spanish = 3082
 }
 function Set-SltLangId([string]$Path,[string]$Language){
  $langId=$langIdByLanguage[$Language]
