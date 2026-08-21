@@ -1534,13 +1534,18 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
         }
 
-        TreeViewDisableNotify = FALSE;
-        RedrawWindow(HTreeView, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE);
+        // This completion can arrive after its panel stopped being the Tree
+        // View source (for example after closing, duplicating, or switching a
+        // tab). Selecting the next item is only presentation of the original
+        // async request; it must not enter TVN_SELCHANGED, whose handler would
+        // navigate the currently active tab to this stale request's path.
         if (nextItem != NULL)
         {
             TreeView_SelectItem(HTreeView, nextItem);
             PopulateTreeViewItem(nextItem, FALSE, TRUE, targetPath);
         }
+        TreeViewDisableNotify = FALSE;
+        RedrawWindow(HTreeView, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE);
         return 0;
     }
 

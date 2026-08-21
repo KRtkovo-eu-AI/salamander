@@ -627,18 +627,28 @@ void CMainWindow::UpdateDefaultDir(BOOL activePrefered)
         active = GetActivePanel();
         nonactive = GetNonActivePanel();
     }
-    const char* pathActive = active->GetPath();
-    if (!active->Is(ptPluginFS) && pathActive[0] != '\\')
-    {
-        lstrcpyn(DefaultDir[LowerCase[pathActive[0]] - 'a'], pathActive,
-                 _countof(DefaultDir[LowerCase[pathActive[0]] - 'a']));
-    }
-    const char* pathPasive = nonactive->GetPath();
-    if (!nonactive->Is(ptPluginFS) && pathPasive[0] != '\\')
-    {
-        lstrcpyn(DefaultDir[LowerCase[pathPasive[0]] - 'a'], pathPasive,
-                 _countof(DefaultDir[LowerCase[pathPasive[0]] - 'a']));
-    }
+
+    // A tab may exist before its path is initialized (creation, restore, or a
+    // failed transition).  Such a panel must not be used as a drive-letter
+    // index: LowerCase['\0'] - 'a' writes before DefaultDir and corrupts
+    // unrelated panel state, including other tab locations.
+    auto updateFromPanel = [](CFilesWindow* panel) {
+        if (panel == NULL || panel->Is(ptPluginFS))
+            return;
+
+        const char* path = panel->GetPath();
+        if (path == NULL || path[0] == 0 || path[1] != ':' ||
+            LowerCase[path[0]] < 'a' || LowerCase[path[0]] > 'z')
+        {
+            return;
+        }
+
+        int driveIndex = LowerCase[path[0]] - 'a';
+        lstrcpyn(DefaultDir[driveIndex], path, _countof(DefaultDir[driveIndex]));
+    };
+
+    updateFromPanel(active);
+    updateFromPanel(nonactive);
 }
 
 BOOL CMainWindow::ToggleTopToolBar(BOOL storePos)

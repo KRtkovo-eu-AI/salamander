@@ -193,11 +193,42 @@ def main() -> int:
     if "RefreshTreeViewDPI();\n    RefreshTreeView();" not in fileswnd2:
         print("deferred auto-hide Tree View must be initialized when expanded")
         return 1
+    tree_dpi_refresh = re.search(
+        r"void CFilesWindow::RefreshTreeViewDPI\(\).*?^\}",
+        fileswnd2,
+        re.DOTALL | re.MULTILINE,
+    )
+    if (
+        tree_dpi_refresh is None
+        or "ImageList_GetImageCount(systemImageList)" in tree_dpi_refresh.group(0)
+        or "RefreshTreeViewImageList(HTreeView, systemImageList);"
+        not in tree_dpi_refresh.group(0)
+        or "ImageList_SetImageCount(targetImageList, imageIndex + 1)" not in fileswnd
+        or "ImageList_GetImageCount(targetImageList) > imageIndex" in fileswnd
+        or "leaves those slots rendered\n    // as black squares" not in fileswnd
+        or "Copy only the shell" not in fileswnd
+    ):
+        print("Tree View DPI images must be copied lazily instead of freezing first reveal")
+        return 1
     if (
         "PopulateTreeViewItem(hCurrent, FALSE, TRUE, sourcePath);" not in fileswnd
         or "PopulateTreeViewItem(nextItem, FALSE, TRUE, targetPath);" not in fileswndb
     ):
         print("the first Tree View reveal must follow the current path asynchronously")
+        return 1
+    async_done = re.search(
+        r"case WM_USER_TREEVIEW_ASYNC_DONE:.*?\n        return 0;\n    }",
+        fileswndb,
+        re.DOTALL,
+    )
+    if async_done is None:
+        print("missing Tree View async-completion handler")
+        return 1
+    async_done_text = async_done.group(0)
+    last_select = async_done_text.rfind("TreeView_SelectItem(HTreeView")
+    enable_notify = async_done_text.rfind("TreeViewDisableNotify = FALSE;")
+    if last_select < 0 or enable_notify < last_select:
+        print("Tree View async completion must suppress selection notifications while selecting")
         return 1
     if (
         "ExplorerSortThrobberID = DirectoryLine->ChangeThrobberID();" not in fileswnd3

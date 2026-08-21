@@ -263,6 +263,14 @@ try {
             )
         },
         @{
+            Name = 'panel_tab_location_contract_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\panel_tab_location_contract_tests.py')
+            )
+        },
+        @{
             Name = 'explorer_columns_configuration_contract_tests'
             Arguments = @(
                 '-B',

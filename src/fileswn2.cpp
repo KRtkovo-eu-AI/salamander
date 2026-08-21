@@ -2340,8 +2340,11 @@ void CFilesWindow::RefreshTreeViewDPI()
     {
         // Shell's shared small system image list can keep the primary/high-DPI
         // pixel size even when this window moves back to a 96-DPI monitor.
-        // Preserve its indices but copy the icons into a list owned by this
-        // panel at the exact per-window size.
+        // Preserve its indices in a list owned by this panel at the exact
+        // per-window size.  The shell list may contain thousands of entries;
+        // copying all of them here used to freeze the UI on the first reveal
+        // of a collapsed auto-hide tree.  Only indices referenced by existing
+        // and newly inserted tree items are copied.
         TreeView_SetImageList(HTreeView, NULL, TVSIL_NORMAL);
         SHFILEINFO sfi;
         memset(&sfi, 0, sizeof(sfi));
@@ -2352,27 +2355,16 @@ void CFilesWindow::RefreshTreeViewDPI()
         if (systemImageList != NULL)
         {
             int iconSize = GetIconSize(ICONSIZE_16);
-            int count = ImageList_GetImageCount(systemImageList);
             newImageList = ImageList_Create(iconSize, iconSize, ILC_COLOR32 | ILC_MASK,
-                                            max(count, 1), 32);
+                                            1, 16);
             if (newImageList != NULL)
-            {
                 ImageList_SetBkColor(newImageList, CLR_NONE);
-                for (int i = 0; i < count; ++i)
-                {
-                    HICON icon = ImageList_GetIcon(systemImageList, i, ILD_TRANSPARENT);
-                    if (icon != NULL)
-                    {
-                        ImageList_AddIcon(newImageList, icon);
-                        DestroyIcon(icon);
-                    }
-                    else
-                        ImageList_SetImageCount(newImageList, i + 1);
-                }
-            }
         }
         if (newImageList != NULL)
+        {
             TreeView_SetImageList(HTreeView, newImageList, TVSIL_NORMAL);
+            RefreshTreeViewImageList(HTreeView, systemImageList);
+        }
         else if (systemImageList != NULL)
             TreeView_SetImageList(HTreeView, systemImageList, TVSIL_NORMAL);
         if (HTreeDPIImageList != NULL)
