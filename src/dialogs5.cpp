@@ -5780,14 +5780,17 @@ void CCfgPageAppearance::LoadControls()
 
     LOGFONT menuFont = LocalUseCustomMenuFont ? LocalMenuLogFont : dialogFont;
     LoadFontPreview(IDE_MENUFONT, &HMenuFont, menuFont,
-                    GetAppearanceFontPointSize(HWindow, menuFont),
+                    LocalUseCustomMenuFont ? GetAppearanceFontPointSize(HWindow, menuFont)
+                                           : dialogPointSize,
                     LocalUseCustomMenuFont ? IDS_FONTDESCRIPTION_CST : IDS_FONTDESCRIPTION_UI);
 
     LOGFONT panelContextMenuFont = LocalUseCustomPanelContextMenuFont
                                       ? LocalPanelContextMenuLogFont
                                       : dialogFont;
     LoadFontPreview(IDE_PANELCONTEXTMENUFONT, &HPanelContextMenuFont, panelContextMenuFont,
-                    GetAppearanceFontPointSize(HWindow, panelContextMenuFont),
+                    LocalUseCustomPanelContextMenuFont
+                        ? GetAppearanceFontPointSize(HWindow, panelContextMenuFont)
+                        : dialogPointSize,
                     LocalUseCustomPanelContextMenuFont ? IDS_FONTDESCRIPTION_CST : IDS_FONTDESCRIPTION_UI);
 
     HANDLES(ReleaseDC(HWindow, hDC));

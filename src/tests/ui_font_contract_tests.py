@@ -390,6 +390,18 @@ def main() -> None:
             "panel context menus use their custom font or the selected UI font")
     require(dialogs5, "IDB_MENUFONT", "menu-font selector in Appearance")
     require(dialogs5, "IDB_PANELCONTEXTMENUFONT", "panel-context-menu-font selector in Appearance")
+    lang_rc = (ROOT / "src/lang/lang.rc").read_text(encoding="utf-8")
+    require(lang_rc, 'PUSHBUTTON      "Panel context &menu",IDB_PANELCONTEXTMENUFONT,7,171,88,14',
+            "wide, fully labelled panel-context-menu font selector")
+    require(lang_rc, 'EDITTEXT        IDE_PANELCONTEXTMENUFONT,100,171,188,14',
+            "panel-context-menu font preview adjusted for wider selector")
+    appearance_controls = function_slice(
+        dialogs5, "void CCfgPageAppearance::LoadControls()",
+        "void CCfgPageAppearance::EnableControls()")
+    require(appearance_controls, ": dialogPointSize,\n                    LocalUseCustomMenuFont ? IDS_FONTDESCRIPTION_CST",
+            "default menu-font preview reuses the UI-font point size")
+    require(appearance_controls, ": dialogPointSize,\n                    LocalUseCustomPanelContextMenuFont ? IDS_FONTDESCRIPTION_CST",
+            "default panel-context-menu preview reuses the UI-font point size")
     main_window_config = (ROOT / "src/mainwnd3.cpp").read_text(encoding="utf-8")
     require(main_window_config, "oldUseCustomPanelContextMenuFont",
             "live refresh after changing the panel context-menu font")
