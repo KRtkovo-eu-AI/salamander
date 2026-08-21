@@ -232,11 +232,16 @@
         <tr class="addition"><td>Out-of-process extension runtimes: JavaScript/Node.js, Python, PowerShell, PHP and Lua</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Declarative extension packages: commands, context-menu entries, toolbars, viewers and panel file systems</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Runtime-provided file systems with typed columns, refresh, custom actions and localization</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
-        <tr class="addition"><td>Salamatrix native dialog, picker, progress, notification, storage, clipboard and event APIs for extensions</td><td class="yes">⭘</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
-        <tr class="addition"><td>Experimental Local AI provider support (Ollama or OpenAI-compatible endpoint) and optional bundled local Llama runtime</td><td class="yes">⭘</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
-        <tr class="addition"><td>Process Explorer panel: process list, process tree termination, file location and properties</td><td class="yes">⭘</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
-        <tr class="addition"><td>Hardware Monitor panel: hardware, sensors, utilization and Device Manager actions</td><td class="yes">⭘</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
-        <tr class="addition"><td>Windows Event Viewer panel with event properties and XML details</td><td class="yes">⭘</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Salamatrix native dialog, picker, progress, notification, storage, clipboard and event APIs for extensions<br>
+            <b>*</b> <small><i>Experimental, under development</i></small></td><td class="yes">⭘</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Local AI provider support (Ollama or OpenAI-compatible endpoint) and optional bundled local Llama runtime<br>
+            <b>*</b> <small><i>Experimental, under development</i></small></td><td class="yes">⭘</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Process Explorer panel: process list, process tree termination, file location and properties<br>
+            <b>*</b> <small><i>Experimental, under development</i></small></td><td class="yes">⭘</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Hardware Monitor panel: hardware, sensors, utilization and Device Manager actions<br>
+            <b>*</b> <small><i>Experimental, under development</i></small></td><td class="yes">⭘</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Windows Event Viewer panel with event properties and XML details<br>
+            <b>*</b> <small><i>Experimental, under development</i></small></td><td class="yes">⭘</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>File Lock Inspector: locate and terminate processes locking a selected file</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Git Worktree Navigator: browse, open, create, remove worktrees and commit</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Interactive Extension Menu Builder</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
@@ -336,6 +341,7 @@
         <tr><td>Sort in both directions</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Respect regional settings</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Use numerical sort for numbers in names</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr class="addition"><td>Sorting with respect to Unicode characters</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         
         <tr class="section"><th colspan="6"><b>Clipboard Commands</b></th></tr>
         <tr><td>Clipboard Copy, Cut, Paste, Paste Shortcut</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
@@ -357,7 +363,7 @@
         <tr class="section"><th colspan="6"><b>Integration With Windows Shell And File System</b></th></tr>
         <tr><td>Support for deleting to Recycle Bin</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Support for UNC paths (\\server\share)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
-        <tr class="addition"><td>Volumes mounted in folders</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Volumes mounted in NTFS folders</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr><td>Files and directories changes detection</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Environment variables change detection</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Change of file associations detection</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
@@ -369,6 +375,7 @@
         <tr><td>Access to File System Redirector exempted directories</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Support for Windows Policies (restrictions)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Support for files over 4GB</td><td class="yes">Full</td><td>Full</td><td>Full</td><td>Full</td><td>Basic</td></tr>
+        <tr class="addition"><td>Select if the occupied space calculation should include links and mounted volumes</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         
         <tr class="section"><th colspan="6"><b>History</b></th></tr>
         <tr><td>Command line history</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
@@ -386,7 +393,9 @@
         
         <tr class="section"><th colspan="6"><b>Security</b></th></tr>
         <tr><td>Password Manager with strong AES-256 cypher</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
-        <tr><td>FTP and WinSCP clients can store password safely</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr><td>FTP and WinSCP* clients can store password safely<br>
+            <b>*</b> <small><i>WinSCP is not available in version 5.0.</i></small>
+          </td><td class="yes">⭘</td><td>⭘</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Support for TLS FTP (FTPS or FTPES with AUTH TLS)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         
         <tr class="section"><th colspan="6"><b>Extensibility</b></th></tr>
@@ -402,7 +411,6 @@
         <tr><td>Suppressible confirmation count</td><td class="yes">26</td><td>23</td><td>23</td><td>23</td><td>0</td></tr>
         <tr><td>Import / export configuration</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr class="addition"><td>Configuration manager and restore wizard</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
-        <tr class="addition"><td>Automatic OpenAI-assisted translation workflow</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         
         <tr class="section"><th colspan="6"><b>Language Translations</b></th></tr>
         <tr><td>English</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
@@ -411,12 +419,16 @@
         <tr><td>French</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
         <tr><td>German</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Hungarian</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
-        <tr><td>Italian</td><td class="yes">–</td><td>–</td><td>–</td><td>–</td><td>⬤</td></tr>
+        <tr><td>Italian<br>
+            <b>*</b> <small><i>In Samandarin, the stubs are ready for translation to Italian.</i></small></td><td class="yes">⭘</td><td>–</td><td>–</td><td>–</td><td>⬤</td></tr>
         <tr><td>Romanian</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Russian</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
         <tr><td>Simplified Chinese</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
         <tr><td>Slovak</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
         <tr><td>Spanish</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr><td>Manual translation<br>
+            <b>*</b> <small><i>Only corrections are made manually for Samandarin.</i></small></td><td class="yes">⭘</td><td>Unreleased</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr class="addition"><td>AI-assisted translation workflow</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         
         <tr class="section"><th colspan="6"><b>Setup</b></th></tr>
         <tr><td>Installable beside other versions</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
