@@ -390,6 +390,20 @@ def main() -> None:
             "panel context menus use their custom font or the selected UI font")
     require(dialogs5, "IDB_MENUFONT", "menu-font selector in Appearance")
     require(dialogs5, "IDB_PANELCONTEXTMENUFONT", "panel-context-menu-font selector in Appearance")
+    require(dialogs5, "LoadStr(IDS_USEDEFAULTUIFONT)",
+            "menu-font selectors identify their default as the UI font")
+    require(dialogs5, "LoadStr(IDS_USEPANELFONT)",
+            "menu-font selectors offer the panel font")
+    require(dialogs5, "LocalUsePanelFontForMenu",
+            "menu font can inherit the panel font")
+    require(dialogs5, "LocalUsePanelFontForPanelContextMenu",
+            "panel context-menu font can inherit the panel font")
+    require(dialogs5, "LoadStr(IDS_USEUIFONT)",
+            "panel-font selector offers the current UI font")
+    require(dialogs5, "LocalPanelLogFont = LocalDialogLogFont;",
+            "custom UI font can be copied to the panel-font setting")
+    require(dialogs5, 'lstrcpyn(LocalPanelLogFont.lfFaceName, _T("MS Shell Dlg"), LF_FACESIZE);',
+            "default UI font can be copied to the panel-font setting")
     lang_rc = (ROOT / "src/lang/lang.rc").read_text(encoding="utf-8")
     require(lang_rc, 'PUSHBUTTON      "Panel context &menu",IDB_PANELCONTEXTMENUFONT,7,171,88,14',
             "wide, fully labelled panel-context-menu font selector")
@@ -405,6 +419,8 @@ def main() -> None:
     main_window_config = (ROOT / "src/mainwnd3.cpp").read_text(encoding="utf-8")
     require(main_window_config, "oldUseCustomPanelContextMenuFont",
             "live refresh after changing the panel context-menu font")
+    require(main_window_config, "UsePanelFontForMenu || UsePanelFontForPanelContextMenu",
+            "panel-font changes refresh dependent menu fonts")
     shellsup = (ROOT / "src/shellsup.cpp").read_text(encoding="utf-8")
     require(shellsup, "Native TrackPopupMenuEx always uses the system menu",
             "panel shell context menus use the UI-font-aware renderer on Windows 11")

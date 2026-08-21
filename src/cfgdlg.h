@@ -1215,8 +1215,10 @@ protected:
     int LocalDialogFontPointSize;
     BOOL LocalUseCustomMenuFont;
     LOGFONT LocalMenuLogFont;
+    BOOL LocalUsePanelFontForMenu;
     BOOL LocalUseCustomPanelContextMenuFont;
     LOGFONT LocalPanelContextMenuLogFont;
+    BOOL LocalUsePanelFontForPanelContextMenu;
     LOGFONT OriginalEffectiveDialogFont;
     BOOL DialogFontRestartMessageShown;
     BOOL NotificationEnabled;

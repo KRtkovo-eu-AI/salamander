@@ -240,7 +240,7 @@ void PaintViewerMenuBar(HWND hwnd, HDC hdc)
 
 void PaintViewerMenuBarItem(ViewerUAHDRAWMENUITEM* item)
 {
-    if (item == NULL || (!UseCustomMenuFont && DialogFontMode == DIALOG_FONT_DEFAULT &&
+    if (item == NULL || (!UseCustomMenuFont && !UsePanelFontForMenu && DialogFontMode == DIALOG_FONT_DEFAULT &&
                          !DarkModeShouldUseDarkColors()))
         return;
 
@@ -933,7 +933,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_UAHDRAWMENU:
     {
         if ((DarkModeShouldUseDarkColors() || DialogFontMode != DIALOG_FONT_DEFAULT ||
-             UseCustomMenuFont) && lParam != 0)
+             UseCustomMenuFont || UsePanelFontForMenu) && lParam != 0)
         {
             ViewerUAHMENU* menu = reinterpret_cast<ViewerUAHMENU*>(lParam);
             PaintViewerMenuBar(HWindow, menu->hdc);
@@ -945,7 +945,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_UAHDRAWMENUITEM:
     {
         if ((DarkModeShouldUseDarkColors() || DialogFontMode != DIALOG_FONT_DEFAULT ||
-             UseCustomMenuFont) && lParam != 0)
+             UseCustomMenuFont || UsePanelFontForMenu) && lParam != 0)
         {
             PaintViewerMenuBarItem(reinterpret_cast<ViewerUAHDRAWMENUITEM*>(lParam));
             return 0;

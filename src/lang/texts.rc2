@@ -1959,6 +1959,8 @@ STRINGTABLE
  IDS_USEDEFAULTFONT, "Use &default font"
  IDS_USECUSTOMFONT, "Use &custom font..."
  IDS_USEPANELFONT, "Use &panel font"
+ IDS_USEUIFONT, "Use &UI font"
+ IDS_USEDEFAULTUIFONT, "Use default (&UI) font"
  IDS_DIALOGFONT_RESTART, "UI font changes do not take effect until Open Salamander is restarted."
  IDS_FONTDESCRIPTION_PANEL, "panel font"
  IDS_FONTDESCRIPTION_UI, "UI font"

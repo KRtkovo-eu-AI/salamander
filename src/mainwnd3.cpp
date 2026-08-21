@@ -4127,8 +4127,10 @@ void CMainWindow::OnConfiguration(int mode, int param)
     LOGFONT oldLogFont = LogFont;
     BOOL oldUseCustomMenuFont = UseCustomMenuFont;
     LOGFONT oldMenuLogFont = MenuLogFont;
+    BOOL oldUsePanelFontForMenu = UsePanelFontForMenu;
     BOOL oldUseCustomPanelContextMenuFont = UseCustomPanelContextMenuFont;
     LOGFONT oldPanelContextMenuLogFont = PanelContextMenuLogFont;
+    BOOL oldUsePanelFontForPanelContextMenu = UsePanelFontForPanelContextMenu;
     CConfigurationDlg dlg(GetDetachedAwareDialogParent(HWindow), UserMenuItems, mode, param);
     int res = dlg.Execute(LoadStr(IDS_BUTTON_OK), LoadStr(IDS_BUTTON_CANCEL),
                           LoadStr(IDS_BUTTON_HELP));
@@ -4157,9 +4159,14 @@ void CMainWindow::OnConfiguration(int mode, int param)
         }
         if (oldUseCustomMenuFont != UseCustomMenuFont ||
             memcmp(&oldMenuLogFont, &MenuLogFont, sizeof(MenuLogFont)) != 0 ||
+            oldUsePanelFontForMenu != UsePanelFontForMenu ||
             oldUseCustomPanelContextMenuFont != UseCustomPanelContextMenuFont ||
             memcmp(&oldPanelContextMenuLogFont, &PanelContextMenuLogFont,
-                   sizeof(PanelContextMenuLogFont)) != 0)
+                   sizeof(PanelContextMenuLogFont)) != 0 ||
+            oldUsePanelFontForPanelContextMenu != UsePanelFontForPanelContextMenu ||
+            ((oldUseCustomPanelFont != UseCustomPanelFont ||
+              memcmp(&oldLogFont, &LogFont, sizeof(LogFont)) != 0) &&
+             (UsePanelFontForMenu || UsePanelFontForPanelContextMenu)))
         {
             // The menu bar owns its font; panel context menus read theirs
             // when they are opened.  Refresh the already visible menu bar.

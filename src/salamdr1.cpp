@@ -386,8 +386,10 @@ int DialogFontPointSize = 8;
 
 BOOL UseCustomMenuFont = FALSE;
 LOGFONT MenuLogFont;
+BOOL UsePanelFontForMenu = FALSE;
 BOOL UseCustomPanelContextMenuFont = FALSE;
 LOGFONT PanelContextMenuLogFont;
+BOOL UsePanelFontForPanelContextMenu = FALSE;
 
 HFONT EnvFont = NULL;
 HFONT EnvFontBold = NULL;

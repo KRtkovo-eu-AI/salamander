@@ -2920,6 +2920,8 @@
 #define IDS_USEPANELFONT                 14361
 #define IDS_DIALOGFONT_RESTART           14362
 #define IDS_FONTDESCRIPTION_PANEL        14363
+#define IDS_USEUIFONT                    14999
+#define IDS_USEDEFAULTUIFONT             14998
 #define IDS_PANELTIP_NAME                14295
 #define IDS_PANELTIP_TYPE                14296
 #define IDS_PANELTIP_MODIFIED            14297
