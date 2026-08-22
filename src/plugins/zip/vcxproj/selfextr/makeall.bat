@@ -20,6 +20,7 @@ if not exist "%OPENSAL_BUILD_DIR%salamander" (
 )
 
 setlocal
+pushd "%~dp0"
 set making_all_versions=dummy
 
 echo Making all language versions.
@@ -27,8 +28,8 @@ echo Making all language versions.
 for %%v in (ENGLISH_VERSION CZECH_VERSION SLOVAK_VERSION GERMAN_VERSION ^
             HUNGARIAN_VERSION SPANISH_VERSION ROMANIAN_VERSION ^
             RUSSIAN_VERSION CHINESESIMPL_VERSION DUTCH_VERSION ^
-            FRENCH_VERSION) do (
-  call sfxmake.bat %%v sfx\
+            FRENCH_VERSION ITALIAN_VERSION) do (
+  call "%~dp0sfxmake.bat" %%v sfx\
 )
 
 echo.
@@ -42,23 +43,26 @@ rem @mkdir Other_SFX
 rem @call :sfxmove ..\..\RELEASE\plugins\zip\sfx\hungarian.sfx Other_SFX\hungarian.sfx
 
 echo.
-echo Press any key to copy SFX packages to %OPENSAL_BUILD_DIR%salamander...
-echo.
-pause
-
-for %%t in (Debug_x86 Release_x86 Debug_x64 Release_x64) do (
+if "%makeall_should_pause%"=="" (
+  echo Press any key to copy SFX packages to %OPENSAL_BUILD_DIR%salamander...
   echo.
-  echo Copying SFX packages to %%t...
-  if not exist "%OPENSAL_BUILD_DIR%salamander\%%t\plugins\zip\sfx" mkdir "%OPENSAL_BUILD_DIR%salamander\%%t\plugins\zip\sfx"
+  pause
+)
+
+for %%t in (Debug_x86 Release_x86 Debug_x64 Release_x64 Release_arm64 "Release clean_x64" "Release clean_arm64") do (
+  echo.
+  echo Copying SFX packages to %%~t...
+  if not exist "%OPENSAL_BUILD_DIR%salamander\%%~t\plugins\zip\sfx" mkdir "%OPENSAL_BUILD_DIR%salamander\%%~t\plugins\zip\sfx"
   for %%s in (czech.sfx english.sfx german.sfx slovak.sfx spanish.sfx ^
               romanian.sfx hungarian.sfx russian.sfx chinesesimplified.sfx ^
-              dutch.sfx french.sfx) do (
-    @call :sfxcopy "sfx\%%s" "%OPENSAL_BUILD_DIR%salamander\%%t\plugins\zip\sfx\%%s"
+              dutch.sfx french.sfx italian.sfx) do (
+    @call :sfxcopy "sfx\%%s" "%OPENSAL_BUILD_DIR%salamander\%%~t\plugins\zip\sfx\%%s"
   )
 )
 
 if exist sfx rmdir /Q /S sfx
 
+popd
 endlocal
 if "%makeall_should_pause%"=="" (
   echo.

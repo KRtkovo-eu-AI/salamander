@@ -26,7 +26,7 @@
     </ResourceCompile>
     <PostBuildEvent>
       <Command>if not "$(OpenSalamanderReleaseClean)"=="true" call ..\..\..\..\..\tools\codesign\sign_with_retry.cmd "$(TargetPath)"
-               call copytozip2sfxdir.bat "$(OutDir)" "$(TargetFileName)" "$(Configuration)"</Command>
+               call copytozip2sfxdir.bat "$(OutDir)" "$(TargetFileName)" "$(Configuration)" "$(OpenSalamanderCopyPdb)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
 </Project>

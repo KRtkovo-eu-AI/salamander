@@ -1,0 +1,13 @@
+﻿09
+
+"Archivio ZIP autoestraente"
+
+"Questo estrarrà l'archivio ZIP."
+
+"Versione 1.40"
+
+"&Estrai"
+
+"Self-Extractor © 2000-2026 Open Salamander Authors"
+
+"https://www.altap.cz"

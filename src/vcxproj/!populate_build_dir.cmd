@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 
 set SAL_POPULATE_ROOT=%~dp0%
 
@@ -45,7 +45,7 @@ call :copy_files Release_x64 x64\Microsoft.VC143.CRT                      concrt
 echo.
 echo Copying third-party files...
 
-for %%t in (Debug_x86 Debug_x64 Release_x86 Release_x64) do (
+for %%t in (Debug_x86 Debug_x64 Release_x86 Release_x64 Release_arm64 "Release clean_x64" "Release clean_arm64") do (
   echo.
   echo Target directory: %%t
   call :copy_thirdparty "%OPENSAL_BUILD_DIR%salamander\%%t"
@@ -137,6 +137,9 @@ call :mycopy_with_mkdir_bat *.* ..\plugins\ieviewer\cmark-gfm\css %1\plugins\iev
 call :mycopy_with_mkdir_bat readme.txt     ..\plugins\zip\zip2sfx %1\plugins\zip\zip2sfx
 call :mycopy_with_mkdir_bat sam_cz.set     ..\plugins\zip\zip2sfx %1\plugins\zip\zip2sfx
 call :mycopy_with_mkdir_bat sample.set     ..\plugins\zip\zip2sfx %1\plugins\zip\zip2sfx
+call :mycopy_with_mkdir_bat license.txt    ..\plugins\zip\zip2sfx %1\plugins\zip\zip2sfx
+call :mycopy_with_mkdir_bat license_cz.txt ..\plugins\zip\zip2sfx %1\plugins\zip\zip2sfx
+call :mycopy_with_mkdir_bat readme.cz      ..\plugins\zip\zip2sfx %1\plugins\zip\zip2sfx
 
 exit /b
 

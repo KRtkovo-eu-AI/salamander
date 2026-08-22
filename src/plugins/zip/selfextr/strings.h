@@ -47,6 +47,11 @@ typedef enum
 #define LANG_DEFINED
 #endif // DUTCH_VERSION
 
+#ifdef ITALIAN_VERSION
+#include "language\\italian\\texts.h"
+#define LANG_DEFINED
+#endif // ITALIAN_VERSION
+
 #ifdef FRENCH_VERSION
 #include "language\\french\\texts.h"
 #define LANG_DEFINED
