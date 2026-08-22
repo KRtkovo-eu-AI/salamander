@@ -2268,7 +2268,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     if (attr != 0xFFFFFFFF)
                     {
                         char text[300];
-                        sprintf(text, LoadStr(IDS_FILEALREADYEXIST), fileName);
+                        StringCchPrintf(text, _countof(text), LoadStr(IDS_FILEALREADYEXIST), fileName);
                         int res = SalMessageBox(HWindow, text, LoadStr(IDS_VIEWERTITLE),
                                                 MB_YESNOCANCEL | MB_ICONQUESTION | MB_DEFBUTTON2);
                         if (res == IDNO)

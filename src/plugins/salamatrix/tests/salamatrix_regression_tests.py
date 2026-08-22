@@ -74,6 +74,7 @@ def main() -> int:
     pr_msbuild_workflow = read(".github/workflows/pr-msbuild.yml")
     salmon = read("src/salmon/salmon.cpp")
     viewer = read("src/viewer.cpp")
+    viewer3 = read("src/viewer3.cpp")
     regedt_fs5 = read("src/plugins/regedt/fs5.cpp")
     regedt_finddlg = read("src/plugins/regedt/finddlg.cpp")
     csvlib = read("src/plugins/dbviewer/csvlib/csvlib.cpp")
@@ -2826,6 +2827,14 @@ def main() -> int:
         viewer,
         r"lstrcpyn\(DefaultConvert, Configuration\.DefaultConvert, _countof\(DefaultConvert\)\).*?StringCchPrintf\(text \+ strlen\(text\), _countof\(text\) - strlen\(text\),",
         "Viewer configuration or status text does not retain an explicit capacity")
+    require_absent(
+        viewer3,
+        r"sprintf\(text, LoadStr\(IDS_FILEALREADYEXIST\), fileName\)",
+        "Viewer overwrite warning formats a path without a capacity")
+    require(
+        viewer3,
+        r"StringCchPrintf\(text, _countof\(text\), LoadStr\(IDS_FILEALREADYEXIST\), fileName\)",
+        "Viewer overwrite warning does not retain its text-buffer capacity")
     require(
         pr_msbuild_workflow,
         r"matrix\.platform.*?-ne 'x64'.*?owner\.Name -eq 'HardwareWrapper'.*?continue",
