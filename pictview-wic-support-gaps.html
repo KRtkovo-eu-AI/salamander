@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<!-- saved from url=(0011)about:blank -->
+<html data-theme="dark" style="color-scheme: dark;"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!--<base href="file:///I:/_projects/salamander/doc/">--><base href="."><meta name="color-scheme" content="dark light"><title>pictview-wic-support-gaps.md</title><script>(function(){if(window.chrome&&window.chrome.webview&&document){document.addEventListener('keydown',function(ev){if(ev&&ev.key==='Escape'){ev.preventDefault();try{window.chrome.webview.postMessage('escape');}catch(e){}}});}})();</script><style>html,body{margin:0;padding:16px;font-family:'Segoe UI',SegoeUI,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;background-color:#202020;color:#DCDCDC;}h1,h2,h3,h4,h5,h6{color:#DCDCDC;margin-top:1.2em;}a{color:#0078D7;text-decoration:none;}a:hover{text-decoration:underline;}code{font-family:'Consolas','Courier New',monospace;background-color:#313131;padding:2px 4px;border-radius:4px;}pre{overflow:auto;padding:12px;border-radius:6px;background-color:#313131;border:1px solid #434343;}table{border-collapse:collapse;margin:1em 0;width:100%;}th,td{border:1px solid #434343;padding:8px;text-align:left;}blockquote{border-left:4px solid #0078D7;margin:1em 0;padding:0.5em 1em;color:#494949;background-color:#8F8F8F;}img,video,iframe{max-width:100%;height:auto;display:block;margin:0.5em 0;}hr{border:0;border-top:1px solid #434343;margin:2em 0;}ul,ol{margin:0 0 1em 1.5em;}</style></head><body><h1 id="pictview-wic-support-and-backfill-list">PictView WIC support and backfill list</h1>
+<h2 id="current-behaviour">Current behaviour</h2>
+<p>PictView no longer uses the historical <code>PVW32DLL</code> decoder set.  On every
+plug-in connection it enumerates the local WIC decoder inventory through
+<code>IWICBitmapDecoderInfo::GetFileExtensions</code> and uses those masks for both the
+viewer and thumbnail loader.</p>
+<p>Consequences:</p>
+<ul>
+<li>A codec installed by the user or Windows (for example WebP, HEIF/HEIC, DNG
+or a camera RAW codec) is picked up automatically at the next Salamander
+start.  It is not necessary to add its extension to a static list.</li>
+<li>If that codec is uninstalled, the corresponding PictView association is
+removed on the next start.</li>
+<li>The built-in WIC baseline is BMP (<code>.bmp</code>, <code>.dib</code>, <code>.rle</code>), GIF, ICO, JPEG (<code>.jpg</code>, <code>.jpe</code>, <code>.jpeg</code>,
+<code>.jfif</code>), PNG, TIFF (<code>.tif</code>, <code>.tiff</code>), JPEG XR / HD Photo (<code>.jxr</code>, <code>.wdp</code>)
+and WIC-compatible DDS.  The runtime inventory remains the source
+of truth for the exact extensions on an individual computer.</li>
+</ul>
+<h2 id="legacy-formats-requiring-an-implementation-or-a-wic-codec">Legacy formats requiring an implementation or a WIC codec</h2>
+<p>The old static registration advertised 114 masks.  The masks below are not
+part of the guaranteed native WIC baseline, so the current backend must not
+claim them unless a locally installed WIC decoder advertises the mask.  To
+restore platform-independent PictView support, implement a decoder/rasterizer
+in PictView (or bundle and maintain an appropriate codec), add test files, and
+then add the capability to the comparison page.</p>
+<pre><code class="language-text">2BP, 82I, 83I, 85I, 86I, 89I, 92I,
+AI, ANI, ARW, AWD,
+BLP, BMI, BW,
+CAL, CALS, CDR, CDT, CEL, CIT, CLK, CLP, CMX, COT, CPT, CR2, CRW, CUR, CUT,
+DCX, DNG, DTX,
+EPS, EPT,
+FLC, FLI,
+GEM,
+HAM, HMR, HPI, HRZ,
+ICN, IFF, IMG, ITIFF,
+JFF, JIF, JMX,
+LBM,
+MAC, MACP, MBM, MIL, MNG, MOV, MPNT, MSP,
+NEF,
+OFX, ORF,
+PAINT, PAN, PAT, PBM, PC2, PCD, PCT, PCX, PEF, PGM, PIC, PICT, PNM, PNTG,
+PPM, PSP*, PSD, PYX,
+QFX,
+RAF, RAS, RGB,
+SAM, SCX, SEP, SGI, SKA, ST, STW, SUN,
+TGA, THM, THUMB,
+UDI,
+WBMP, WEB, WPG,
+XAR,
+ZBR, ZMF, ZNO.
+</code></pre>
+<h2 id="formats-that-need-special-treatment">Formats that need special treatment</h2>
+<table>
+<thead>
+<tr>
+<th>Format family</th>
+<th>Status and required work</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WebP</td>
+<td>Supported automatically only when the Windows WebP WIC codec is installed. Do not advertise it as universal support. A bundled decoder would make it guaranteed.<br>
+<small>Official Microsoft codec available in <a href="https://apps.microsoft.com/detail/9pg2dk419drg?hl=cs-CZ&gl=CZ">Microsoft Store</a>.</small></td>
+</tr>
+<tr>
+<td>HEIF/HEIC, AVIF</td>
+<td>Not historically registered. They become available automatically if their WIC extension codec exposes a mask. Add test files before describing them as a product guarantee.</td>
+</tr>
+<tr>
+<td>DNG and camera RAW</td>
+<td>May be exposed by a WIC Raw Image Extension or vendor codec. Native decoding is required for a consistent guarantee across machines.<br>
+<small>Official Microsoft codec available in <a href="https://apps.microsoft.com/detail/9nctdw2w1bh8?hl=cs-CZ&gl=CZ">Microsoft Store</a>.</small></td>
+</tr>
+<tr>
+<td>SVG</td>
+<td>Not a WIC bitmap decoder. Restore thumbnails/viewing only through an SVG rasterizer or a dedicated thumbnail implementation.<br>
+<small>Functionally replaceable with WebView2 Render Viewer. PictView could implement Viewer Frame component from Salamatrix framework which provides shared WebView2 capability.</small></td>
+</tr>
+<tr>
+<td>DDS</td>
+<td>The WIC decoder supports only WIC-compatible DDS variants. Test each required DXGI compression format before promising full DDS support.</td>
+</tr>
+<tr>
+<td>EPS/EPT/AI, MOV</td>
+<td>The previous implementation relied on embedded previews. Proper rendering needs a PostScript/PDF/vector rasterizer and a video-frame decoder, respectively.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="maintenance-rule">Maintenance rule</h2>
+<p>Do not add a new PictView suffix by hand merely because an old table listed it.
+Either let WIC enumerate it from an installed decoder, or add a tested native
+implementation and document its exact feature limits.</p>
+</body></html>

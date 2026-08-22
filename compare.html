@@ -146,14 +146,15 @@
 
         <tr class="section"><th colspan="6"><b>Integrated Viewers</b></th></tr>
         <tr><td>Text / HEX (binary)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
-        <tr><td>PictView: GIF, JPG, over 40 bitmap formats</td><td class="yes">⬤</td><td>–</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr class="addition"><td>Internal text viewer: Unicode encodings</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Internal text viewer: line/column and selected characters/lines status</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Internal text viewer: zoom and optional line numbers</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr><td>PictView (PVW32.DLL): GIF, JPG, over 40 bitmap formats</td><td class="yes">–</td><td>–</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr class="addition"><td>PictView (WIC): <a href="https://learn.microsoft.com/en-us/windows/win32/wic/native-wic-codecs">Windows Imaging Component (WIC) compatible</a> file formats support<br><small>Gaps in Current PictView formats support due to unavailable PVW32.DLL and WIC codecs are described in <a href="pictview-wic-support-gaps.html">this document</a>.</small></td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr><td>Multimedia: MP3, 5 audio formats</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Database: DBF, CSV, 8 database formats</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Internet Explorer: HTML, XML</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Portable executable: EXE, DLL</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
-        <tr class="addition"><td>Internal text viewer: Unicode encodings</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
-        <tr class="addition"><td>Internal text viewer: line/column and selected characters/lines status</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
-        <tr class="addition"><td>Internal text viewer: zoom and optional line numbers</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Prism text viewer with syntax highlighting for text, configuration and source formats</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>JSON Viewer .NET (.json, .pc and .jbeam)</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>WebView2 Render Viewer: HTML, Markdown, SVG, WebP/AVIF/APNG, raster images and PDF</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
@@ -235,6 +236,11 @@
         <tr><td>Network browser</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>DiskMap graphically displays disk usage</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Automatic check for updates</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr class="addition"><td>Automatic plugin/extension update installation (including dependencies)</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Hyper-V panel and VHD/VHDX create, attach and detach commands</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Windows Service Explorer</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Windows Portable Devices</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>DiskDir - Create catalogs in Total Commander compatible format (includes recursive listing for Make File List capability)</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Salamatrix extension platform with versioned host services and capability declarations</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Out-of-process extension runtimes: JavaScript/Node.js, Python, PowerShell, PHP and Lua</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Declarative extension packages: commands, context-menu entries, toolbars, viewers and panel file systems</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
@@ -253,7 +259,6 @@
         <tr class="addition"><td>Git Worktree Navigator: browse, open, create, remove worktrees and commit</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Interactive Extension Menu Builder</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Salamatrix Studio VS Code/VSCodium extension: visual dialog and menu designer, preview and code generation</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
-        <tr class="addition"><td>Hyper-V panel and VHD/VHDX create, attach and detach commands</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         
         <tr class="section"><th colspan="6"><b>Icons &amp; Thumbnails</b></th></tr>
         <tr><td>Reading icons in separate thread</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
