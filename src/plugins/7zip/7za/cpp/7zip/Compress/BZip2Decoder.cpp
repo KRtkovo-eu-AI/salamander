@@ -1470,7 +1470,7 @@ void CDecoder::RunScout()
           if (res != S_OK)
             break;
           
-          if (GetInputProcessedSize() - packPos > 0) // kProgressStep
+          if (GetInputProcessedSize() != packPos) // kProgressStep
             break;
           continue;
         }

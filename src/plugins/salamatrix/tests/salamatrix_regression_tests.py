@@ -72,6 +72,8 @@ def main() -> int:
     pr_tests_workflow = read(".github/workflows/pr-tests.yml")
     pr_test_report_workflow = read(".github/workflows/pr-test-report.yml")
     pr_msbuild_workflow = read(".github/workflows/pr-msbuild.yml")
+    csvlib = read("src/plugins/dbviewer/csvlib/csvlib.cpp")
+    bzip2_decoder = read("src/plugins/7zip/7za/cpp/7zip/Compress/BZip2Decoder.cpp")
     codeql_workflow = read(".github/workflows/codeql.yml")
     hardware_wrapper_project = read(
         "src/extensions/hardware-monitor/hardview-lib/HardwareWrapper/HardwareWrapper.vcxproj")
@@ -2779,6 +2781,14 @@ def main() -> int:
         codeql_workflow,
         r"Install Lua runtime dependency.*?build-third-party-libs\.ps1 -Triplet x64-windows -NoDefaultFeatures -ManifestFeature lua-runtime -SkipLegacyCopy",
         "CodeQL does not install only the Lua runtime dependency")
+    require_absent(
+        csvlib,
+        r"index - rowSeek > 0",
+        "CSV row detection compares an unsigned difference with zero")
+    require_absent(
+        bzip2_decoder,
+        r"GetInputProcessedSize\(\) - packPos > 0",
+        "BZip2 decoder compares an unsigned difference with zero")
     require(
         pr_msbuild_workflow,
         r"matrix\.platform.*?-ne 'x64'.*?owner\.Name -eq 'HardwareWrapper'.*?continue",
