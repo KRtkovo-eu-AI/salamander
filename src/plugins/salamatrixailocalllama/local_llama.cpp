@@ -291,7 +291,8 @@ static void ShowConfiguration(HWND parent)
     statusLayout.Width = 344; statusLayout.Height = 38;
     Salamatrix::UI::ControlOptions statusOptions;
     statusOptions.Id = "status";
-    statusOptions.Text = AssetStatus().c_str();
+    const std::wstring assetStatus = AssetStatus();
+    statusOptions.Text = assetStatus.c_str();
     statusOptions.ReadOnly = TRUE;
     statusOptions.Multiline = TRUE;
     Salamatrix::UI::IControl* status = dialog->AddControlEx(

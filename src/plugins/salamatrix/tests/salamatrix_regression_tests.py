@@ -2789,6 +2789,19 @@ def main() -> int:
         bzip2_decoder,
         r"GetInputProcessedSize\(\) - packPos > 0",
         "BZip2 decoder compares an unsigned difference with zero")
+    require_absent(
+        ai,
+        r"Options\.Text\s*=\s*LoadAssistantString\([^)]*\)\.c_str\(\)",
+        "Salamatrix AI control options retain pointers to temporary labels")
+    require_absent(
+        local_llama,
+        r"Options\.Text\s*=\s*AssetStatus\(\)\.c_str\(\)",
+        "Local Llama status control retains a pointer to a temporary label")
+
+    require(
+        codeql_workflow,
+        r"Setup MSVC Developer Command Prompt.*?Install Lua runtime dependency.*?Initialize CodeQL",
+        "CodeQL starts tracing before the Lua dependency build")
     require(
         pr_msbuild_workflow,
         r"matrix\.platform.*?-ne 'x64'.*?owner\.Name -eq 'HardwareWrapper'.*?continue",

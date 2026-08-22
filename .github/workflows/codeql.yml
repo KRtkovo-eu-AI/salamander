@@ -94,15 +94,6 @@ jobs:
           fetch-depth: 2
           submodules: recursive
 
-      - name: Initialize CodeQL
-        if: steps.codeql_gate.outputs.should_analyze == 'true'
-        uses: github/codeql-action/init@v3
-        with:
-          languages: cpp
-          queries: security-extended
-          ram: 14144
-          threads: 4
-
       - name: Setup MSBuild in PATH (VS2022)
         if: steps.codeql_gate.outputs.should_analyze == 'true'
         uses: microsoft/setup-msbuild@v2
@@ -123,6 +114,16 @@ jobs:
         if: steps.codeql_gate.outputs.should_analyze == 'true'
         run: |
           .\tools\vcpkg\build-third-party-libs.ps1 -Triplet x64-windows -NoDefaultFeatures -ManifestFeature lua-runtime -SkipLegacyCopy
+      - name: Initialize CodeQL
+        if: steps.codeql_gate.outputs.should_analyze == 'true'
+        uses: github/codeql-action/init@v3
+        with:
+          languages: cpp
+          queries: security-extended
+          ram: 14144
+          threads: 4
+
+
       - name: Build with MSBuild (Release | x64)
         if: steps.codeql_gate.outputs.should_analyze == 'true'
         run: |
