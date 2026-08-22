@@ -2838,7 +2838,7 @@ def main() -> int:
         "Loaded SLG name is copied without its destination capacity")
     require(
         viewer3,
-        r"StringCchPrintf\(text, _countof\(text\), LoadStr\(IDS_FILEALREADYEXIST\), fileName\)",
+        r"_snprintf_s\(text, _countof\(text\), _TRUNCATE, LoadStr\(IDS_FILEALREADYEXIST\), fileName\)",
         "Viewer overwrite warning does not retain its text-buffer capacity")
     require(
         pr_msbuild_workflow,
