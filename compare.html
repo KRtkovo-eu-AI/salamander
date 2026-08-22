@@ -20,6 +20,8 @@
     thead th { position: sticky; top: 0; z-index: 1; }
     th { padding: .3em .2em; font-size: 12px; font-weight: 400; }
     td { padding: .3em .2em; font-size: 12px; }
+    th:first-of-type { padding-left: .4em; }
+    td:first-of-type { padding-left: .8em; }
     .section th { text-align: left; }
     .addition td { background: #323232; }
     .yes { color: #087a32; }
@@ -490,7 +492,7 @@
 
   <h3>PictView Viewer: WIC-decoded image formats</h3>
   <p class="intro">PictView queries the local Windows Imaging Component (WIC) decoder inventory at start-up. The detected extensions are used for both viewing and thumbnails, so installed WIC codecs are supported without a hard-coded extension list.</p>
-  <div class="scroll"><table><thead><tr><th>Extension</th><th>Format description</th></tr></thead><tbody>
+  <div class="scroll"><table><thead><tr><th><b>Extension</b></th><th><b>Format description</b></th></tr></thead><tbody>
     <tr class="addition"><td>All extensions advertised by installed WIC decoders</td><td>Samandarin addition: PictView enumerates <i>IWICBitmapDecoderInfo::GetFileExtensions</i> at start-up and updates viewer and thumbnail registrations from that system inventory.</td></tr>
     <tr><td>BMP, DIB, RLE</td><td>Windows Bitmap, through the built-in WIC BMP decoder.</td></tr>
     <tr><td>GIF</td><td>Graphics Interchange Format, including animation frames exposed by WIC.</td></tr>
@@ -504,25 +506,25 @@
   </tbody></table></div>
 
   <h3>Multimedia Viewer: supported audio formats</h3>
-  <div class="scroll"><table><thead><tr><th>Extension</th><th>Format description</th></tr></thead><tbody>
+  <div class="scroll"><table><thead><tr><th><b>Extension</b></th><th><b>Format description</b></th></tr></thead><tbody>
     <tr><td>MP3, MP2</td><td>MPEG 1 or MPEG 2 audio files, layer I, II and III; ID3 tag versions 1 and 2</td></tr>
     <tr><td>OGG</td><td>Ogg Vorbis audio files</td></tr><tr><td>WMA</td><td>Windows Media Audio</td></tr><tr><td>WAV</td><td>Microsoft sound format</td></tr>
     <tr><td>VQF, 669, IT, MOD, MTM, S3M, STM, XM</td><td>Tracker modules</td></tr>
   </tbody></table></div>
 
   <h3>Database Viewer: supported database formats</h3>
-  <div class="scroll"><table><thead><tr><th>Extension</th><th>Format description</th></tr></thead><tbody>
+  <div class="scroll"><table><thead><tr><th><b>Extension</b></th><th><b>Format description</b></th></tr></thead><tbody>
     <tr><td>DBF</td><td>dBase II, III, IV, V, Visual dBase 7 and FoxPRO</td></tr><tr><td>CSV</td><td>Comma-separated values</td></tr><tr><td>TXT</td><td>Tab-delimited text</td></tr>
   </tbody></table></div>
 
   <h3>Checksum: supported hash algorithms</h3>
-  <div class="scroll"><table><thead><tr><th>Algorithm</th><th>Description</th></tr></thead><tbody>
+  <div class="scroll"><table><thead><tr><th><b>Algorithm</b></th><th><b>Description</b></th></tr></thead><tbody>
     <tr><td>CRC</td><td>Cyclic Redundancy Check stored in SFV checksum files</td></tr><tr><td>MD5</td><td>Message-Digest algorithm 5</td></tr>
     <tr><td>SHA1</td><td>Secure Hash Algorithm SHA-1</td></tr><tr><td>SHA256</td><td>Secure Hash Algorithm SHA-256 (SHA-2 family)</td></tr>
   </tbody></table></div>
 
   <h3>Supported archive formats</h3>
-  <div class="scroll"><table><thead><tr><th>Extension</th><th>Format description</th><th>Plug-in</th></tr></thead><tbody>
+  <div class="scroll"><table><thead><tr><th><b>Extension</b></th><th><b>Format description</b></th><th><b>Plug-in</b></th></tr></thead><tbody>
     <tr><td>7Z</td><td>7-Zip</td><td>7zip</td></tr><tr><td>ZIP</td><td>ZIP</td><td>ZIP</td></tr><tr><td>ARJ</td><td>ARJ</td><td>UnARJ</td></tr><tr><td>CAB</td><td>Microsoft Cabinet</td><td>UnCAB</td></tr>
     <tr><td>B64, EML, HQX, NTX, UUE, XXE</td><td>MIME, e-mail, Binhex, yEnc and UU/XX encodings</td><td>UnMIME</td></tr>
     <tr><td>PAK</td><td>Quake PAK files</td><td>UnPAK</td></tr><tr><td>IMA</td><td>FAT 12, 16 and 32 disk images</td><td>UnFAT</td></tr><tr><td>RAR</td><td>RAR</td><td>UnRAR</td></tr>
@@ -535,7 +537,7 @@
   </tbody></table></div>
 
   <h3>Additional Samandarin viewer file types</h3>
-  <div class="scroll"><table><thead><tr><th>Plug-in</th><th>Category</th><th>Supported file types</th></tr></thead><tbody>
+  <div class="scroll"><table><thead><tr><th><b>Plug-in</b></th><th><b>Category</b></th><th><b>Supported file types</b></th></tr></thead><tbody>
     <tr><td>Prism Text Viewer</td><td>Plain text and logs</td><td>.txt, .log</td></tr>
     <tr><td>Prism Text Viewer</td><td>Configuration</td><td>.ini, .cfg, .conf, .config, .json, .jsonc, .json5, .yaml, .yml</td></tr>
     <tr><td>Prism Text Viewer</td><td>Markup and delimited text</td><td>.xml, .html, .htm, .php, .axaml, .xaml, .xlf, .nuspec, .plist, .storyboard, .md, .markdown, .csv</td></tr>
@@ -550,7 +552,7 @@
   </tbody></table></div>
 
   <h3>Samandarin extensions: supported sources</h3>
-  <div class="scroll"><table><thead><tr><th>Extension</th><th>Supported source / scope</th></tr></thead><tbody>
+  <div class="scroll"><table><thead><tr><th><b>Extension</b></th><th><b>Supported source / scope</b></th></tr></thead><tbody>
     <tr><td>Process Explorer</td><td>Running Windows processes; actions include end task, end process tree, open file location and properties.</td></tr>
     <tr><td>Hardware Monitor</td><td>CPU, GPU, memory, motherboard, network, storage, sensors and Device Manager; reads hardware information and utilization.</td></tr>
     <tr><td>Event Viewer</td><td>Windows Custom Views, Windows Logs, and Applications and Services Logs; event properties and XML details.</td></tr>
