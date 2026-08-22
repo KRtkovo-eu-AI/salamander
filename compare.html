@@ -27,7 +27,8 @@
     blockquote { display: inline-flexbox; flex-direction: row; line-height: 1.8em; }
     blockquote div { display: inline-flex; padding: 0 .5em; width: max-content; align-items: center; gap: 0.5em; border: 1px solid #4d4d4d; border-radius: .75em; }
     blockquote img { display: inline-block !important; vertical-align: middle; width: 16px; height: 16px; border: none !important; background: none !important; margin: 0 !important; padding: 0 !important; }
-    
+    .hero-panel__copy > p:not(.eyebrow) { max-width: 100%; }
+
     @media (prefers-color-scheme: dark) {
       .yes { color: #6ee787; }
       td { background: #202020;}
@@ -104,8 +105,8 @@
             <div><img src="images/servant_salamander.png">&nbsp;Servant Salamander 1.52</div>
           </blockquote>
         </p>
-        <p>Rows with lighter background color are Samandarin's additional capabilities compared to <a href="https://github.com/OpenSalamander/salamander">Open Salamander 5.0</a> or <a href="https://www.altap.cz/">Altap Salamander 4.0</a>.</p>
         <p class="table-legend">
+          <span>Rows with lighter background color are Samandarin's additional capabilities compared to <a href="https://github.com/OpenSalamander/salamander">Open Salamander 5.0</a> or <a href="https://www.altap.cz/">Altap Salamander 4.0</a>.</span><br>&nbsp;<br>
           <span>⬤</span> supported;
           <span>⭘</span> supported with a condition or explanatory note;
           <span class="no">–</span> unavailable or unsupported.<br>
