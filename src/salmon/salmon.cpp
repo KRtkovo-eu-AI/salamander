@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -624,9 +624,8 @@ BOOL SaveDescriptionAndEmail()
         return FALSE;
 
     BOOL ret = FALSE;
-    char name[MAX_PATH];
-    sprintf(name, "%s%s.INF", BugReportPath, BugReports[0].Name); // work with the newest name
-    HANDLE hFile = CreateFile(name, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    const std::string reportPath = std::string(BugReportPath) + BugReports[0].Name + ".INF"; // work with the newest name
+    HANDLE hFile = CreateFile(reportPath.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hFile != INVALID_HANDLE_VALUE)
     {
         ret = TRUE;

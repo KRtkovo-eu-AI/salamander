@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -465,7 +465,7 @@ BOOL CopyOrMoveKey(int sourceRoot, LPWSTR source, int targetRoot, LPWSTR target,
                 RegCloseKey(targetHKey);
                 return Error(IDS_LOWMEM);
             }
-            wcscpy(ptr, name);
+            memcpy(ptr, name, (nameLen + 1) * sizeof(*ptr));
         }
         else
         {

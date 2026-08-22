@@ -72,6 +72,9 @@ def main() -> int:
     pr_tests_workflow = read(".github/workflows/pr-tests.yml")
     pr_test_report_workflow = read(".github/workflows/pr-test-report.yml")
     pr_msbuild_workflow = read(".github/workflows/pr-msbuild.yml")
+    salmon = read("src/salmon/salmon.cpp")
+    regedt_fs5 = read("src/plugins/regedt/fs5.cpp")
+    regedt_finddlg = read("src/plugins/regedt/finddlg.cpp")
     csvlib = read("src/plugins/dbviewer/csvlib/csvlib.cpp")
     bzip2_decoder = read("src/plugins/7zip/7za/cpp/7zip/Compress/BZip2Decoder.cpp")
     codeql_workflow = read(".github/workflows/codeql.yml")
@@ -2802,6 +2805,18 @@ def main() -> int:
         codeql_workflow,
         r"Setup MSVC Developer Command Prompt.*?Install Lua runtime dependency.*?Initialize CodeQL",
         "CodeQL starts tracing before the Lua dependency build")
+    require_absent(
+        salmon,
+        r'sprintf\(name, "%%s%%s\.INF"',
+        "Bug reporter builds an unbounded report path")
+    require_absent(
+        regedt_fs5,
+        r"wcscpy\(ptr, name\)",
+        "Registry copy uses an unbounded subkey copy")
+    require_absent(
+        regedt_finddlg,
+        r"wcscpy\(ptr, name\)",
+        "Registry search uses an unbounded subkey copy")
     require(
         pr_msbuild_workflow,
         r"matrix\.platform.*?-ne 'x64'.*?owner\.Name -eq 'HardwareWrapper'.*?continue",
