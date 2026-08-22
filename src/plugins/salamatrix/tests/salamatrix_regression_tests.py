@@ -72,6 +72,7 @@ def main() -> int:
     pr_tests_workflow = read(".github/workflows/pr-tests.yml")
     pr_test_report_workflow = read(".github/workflows/pr-test-report.yml")
     pr_msbuild_workflow = read(".github/workflows/pr-msbuild.yml")
+    codeql_workflow = read(".github/workflows/codeql.yml")
     hardware_wrapper_project = read(
         "src/extensions/hardware-monitor/hardview-lib/HardwareWrapper/HardwareWrapper.vcxproj")
     runtime_protocol = read("src/plugins/salamatrix/salamatrix_runtime_protocol.h")
@@ -2770,6 +2771,14 @@ def main() -> int:
         r"'powershellruntime'\)",
         "x64 installer does not include File Lock Inspector dependencies")
 
+    require(
+        codeql_workflow,
+        r"uses: actions/checkout@v4.*?submodules: recursive",
+        "CodeQL does not checkout the HardView submodule recursively")
+    require(
+        codeql_workflow,
+        r"Install Lua runtime dependency.*?build-third-party-libs\.ps1 -Triplet x64-windows -NoDefaultFeatures -ManifestFeature lua-runtime -SkipLegacyCopy",
+        "CodeQL does not install only the Lua runtime dependency")
     require(
         pr_msbuild_workflow,
         r"matrix\.platform.*?-ne 'x64'.*?owner\.Name -eq 'HardwareWrapper'.*?continue",

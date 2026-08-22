@@ -92,6 +92,7 @@ jobs:
         with:
           ref: ${{ inputs.target_ref || github.event.inputs['target-ref'] || github.ref }}
           fetch-depth: 2
+          submodules: recursive
 
       - name: Initialize CodeQL
         if: steps.codeql_gate.outputs.should_analyze == 'true'
@@ -116,6 +117,12 @@ jobs:
         if: steps.codeql_gate.outputs.should_analyze == 'true'
         uses: ammaraskar/msvc-problem-matcher@master
 
+      # The manual full-solution build includes luaruntime. Install only its
+      # manifest feature; do not build the unshipped SFTP plug-in in CodeQL.
+      - name: Install Lua runtime dependency
+        if: steps.codeql_gate.outputs.should_analyze == 'true'
+        run: |
+          .\tools\vcpkg\build-third-party-libs.ps1 -Triplet x64-windows -NoDefaultFeatures -ManifestFeature lua-runtime -SkipLegacyCopy
       - name: Build with MSBuild (Release | x64)
         if: steps.codeql_gate.outputs.should_analyze == 'true'
         run: |
