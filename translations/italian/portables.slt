@@ -1,0 +1,50 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\portables\portables.atp"
+TEXTVERSION,"0.4 (x64)"
+VERSION,"0,4,0,196"
+
+[TRANSLATION]
+LANGID,1040
+AUTHOR,"Open Salamander"
+WEB,"https://samandarin.net/"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+128,1,"{!}%d dispositivi selezionati{2:s|0||1|s}"
+129,1,"Nessun dispositivo"
+130,1,"Dispositivi portatili"
+131,1,"Annulla"
+132,1,"Preparazione..."
+133,1,"File:"
+134,1,"Totale:"
+135,1,"Riduci a icona"
+136,1,"Pausa"
+137,1,"Il dispositivo portatile non risponde. Disconnetterlo e riconnetterlo. Il pannello Dispositivi portatili tornerà all'elenco dei dispositivi."
+138,1,"%s di %s copiati"
+139,1,"Copia"
+140,1,"Sposta"
+141,1,"Elimina"
+142,1,"Copia in corso"
+143,1,"Spostamento"
+
+[STRINGTABLE 1]
+144,1,"Eliminazione"
+145,1,"a"
+146,1,"%s di %s spostati"
+147,1,"%s di %s elaborati"
+148,1,"Eliminazione elementi selezionati"
+
+[STRINGTABLE 2]
+8192,1,"Dispositivi portatili"
+8193,1,"Gestisci dispositivi portatili."
+
+[STRINGTABLE 3]
+9216,1,"Informazioni plugin"
+
+[STRINGTABLE 4]
+10240,1,"Errore modifica cartella"
+10241,0,"Path: "%s"\r\nError: %s"
+
+[STRINGTABLE 5]
+19457,1,"Il percorso specificato contiene un percorso file."
+

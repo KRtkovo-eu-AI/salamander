@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\unchm\unchm.atp"
+TEXTVERSION,"1.0.5 (x64)"
+VERSION,"1,0,5,196"
+
+[TRANSLATION]
+LANGID,1040
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnCHM"
+1001,1,"Impossibile aprire il file."
+1002,1,"Errore non specificato."
+1003,1,"Decomprimere archivio CHM"
+1004,1,"Errore durante la decompressione del file."
+1005,1,"Impossibile gestire questo file."
+1006,1,"Memoria insufficiente."
+1007,1,"Informazioni sul plug-in"
+
+[STRINGTABLE 1]
+1009,1,"Sfoglia ed estrai file CHM."
+1010,1,"Impossibile creare la cartella temporanea."
+1011,1,"Impossibile eliminare il file temporaneo."
+1012,1,"Formato file sconosciuto o immagine CHM non valida.\n\nSe sei sicuro che sia un'immagine CHM valida, contatta support@altap.cz e aiutaci a supportare questo formato."
+1013,1,"Impossibile aprire questo file."
+1014,1,"Creazione del file temporaneo non riuscita."
+1015,1,"Impossibile impostare gli attributi del file."
+1016,1,"Impossibile creare la directory '%s'."
+1020,1,"Sì"
+1021,1,"No"
+1022,1,"Errore"
+1023,1,"Avviso"
+
+[STRINGTABLE 2]
+1032,1,"Errore interno del plugin."
+
+[STRINGTABLE 3]
+1100,1,"Errore di lettura"
+1101,1,"Errore di scrittura"
+
+[STRINGTABLE 4]
+1105,1,"Numero non valido."
+1106,1,"Annullamento dell'operazione in corso, attendere..."
+1107,1,"Copyright della libreria CHMLIB © 2001-2010 Jed Wing"
+

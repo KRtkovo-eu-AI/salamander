@@ -1,0 +1,39 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\textviewer\textviewer.atp"
+TEXTVERSION,"1.0.3 (x64)"
+VERSION,"1,0,3,196"
+
+[TRANSLATION]
+LANGID,1040
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"Visualizzatore Prism"
+47,1,"Informazioni sul plugin"
+
+[STRINGTABLE 1]
+48,1,"Visualizzatore nativo che esegue il rendering dei file di testo con evidenziazione della sintassi Prism.js."
+49,1,"https://samandarin.net/"
+50,1,"Impossibile preparare l'evento di sincronizzazione richiesto dal visualizzatore."
+51,1,"Il file selezionato è troppo grande per essere aperto. I file più grandi di 16 MB non sono supportati."
+52,1,"&File"
+53,1,"&Visualizza"
+54,1,"&Chiudi\tEsc"
+55,1,"&Aggiorna\tF5"
+56,1,"Zoom &In\tCtrl++"
+57,1,"Zoom &Out\tCtrl+-"
+58,1,"&Ripristina\tCtrl+0"
+59,1,"Caricamento..."
+60,1,"Pronto"
+61,1,"Impossibile inizializzare il renderer WebView2."
+62,1,"Impossibile aprire il file selezionato."
+63,1,"Mostra &numeri di riga"
+
+[STRINGTABLE 2]
+64,1,"&A capo\tF2"
+65,1,"Mostra &spazi bianchi"
+66,1,"&Evidenziatore sintassi"
+67,1,"&Automatico"
+

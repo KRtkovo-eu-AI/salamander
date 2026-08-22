@@ -1,0 +1,88 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\unarj\unarj.atp"
+TEXTVERSION,"1.22 (x64)"
+VERSION,"1,22,0,196"
+
+[TRANSLATION]
+LANGID,1040
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[DIALOG 100]
+194,110,1,"Volume archivio successivo"
+300,12,9,234,32,1,"Inserire il disco con il volume di archivio successivo oppure individuare il file appropriato sul disco.\n\nPremere OK quando pronti."
+301,12,48,77,8,1,"Volume precedente:"
+103,73,48,109,12,1,""
+302,12,62,82,8,1,"&Volume successivo:"
+101,12,72,155,12,1,""
+102,170,72,13,12,1,"..."
+1,39,91,50,14,1,"OK"
+2,102,91,67,14,1,"Annulla"
+
+[DIALOG 103]
+352,85,1,"Errore"
+300,6,10,26,8,1,"Nome:"
+104,36,10,309,8,1,""
+301,6,23,34,8,1,"Errore:"
+302,36,23,365,16,1,"Impossibile estrarre il file perché è continuato da un volume precedente. Per estrarre questo file, devi avviare un volume in cui il file inizia."
+105,36,44,225,12,1,"&Non visualizzare questo messaggio in futuro."
+1,121,63,50,14,1,"OK"
+2,181,63,67,14,1,"Annulla"
+
+[DIALOG 106]
+220,85,1,"Configurazione UnARJ"
+300,23,22,247,8,1,"durante l'estrazione."
+107,12,10,254,12,1,"&Salta automaticamente i file continuati dalla precedente unità"
+301,23,44,180,8,1,"non può essere elencato."
+116,12,32,288,12,1,"&Non visualizzare l'attenzione quando tutto il contenuto dell'archivio"
+302,6,60,208,1,1,""
+1,57,66,50,14,1,"OK"
+2,112,66,67,14,1,"Annulla"
+
+[DIALOG 115]
+213,107,1,"UnARJ - Attenzione"
+300,11,10,278,24,1,"Non tutti i file nell'archivio multi-volume possono essere elencati (e visualizzati nel pannello), perché alcuni volumi dell'archivio non possono essere trovati."
+301,11,41,298,16,1,"Per elencare l'intero contenuto dell'archivio, copia tutti i volumi dell'archivio nella stessa cartella."
+105,11,66,193,12,1,"&Non visualizzare questo messaggio in futuro"
+302,5,83,203,1,1,""
+1,153,89,50,14,1,"OK"
+
+[STRINGTABLE 0]
+1000,1,"UnARJ"
+1001,1,"Memoria insufficiente."
+1002,1,"Fine imprevista del file di archivio."
+1005,1,"L'archivio è danneggiato."
+1006,1,"Il file è in un formato sconosciuto o non è un archivio ARJ valido."
+1007,1,"Impossibile aprire il file di archivio."
+
+[STRINGTABLE 1]
+1008,1,"Si è verificato un errore sconosciuto."
+1010,1,"Impossibile accedere al file di archivio."
+1011,1,"File di archivio ARJ (*.A*)"
+1012,1,"Seleziona file di archivio"
+1013,1,"Errore nei dati compressi. La CRC non corrisponde."
+1014,1,"Impossibile aggiungere la voce dell'archivio all'elenco dei file."
+1015,1,"Decompressione dell'archivio ARJ - %s"
+1016,1,"preparazione dei dati e creazione delle directory..."
+1017,1,"decompressione..."
+1018,1,"decompressione: "
+1019,1,"Impossibile ottenere il puntatore del file: "
+1020,1,"Impossibile scrivere nel file:"
+1021,1,"Impossibile impostare il puntatore del file: "
+1022,1,"Impossibile completare l'operazione a causa di un nome di percorso troppo lungo."
+1023,1,"Impossibile completare l'operazione a causa di una maschera troppo lunga."
+
+[STRINGTABLE 2]
+1024,1,"Versione sconosciuta del file compresso."
+1025,1,"Tipo sconosciuto del file compresso."
+1026,1,"Il file è compresso con un metodo non supportato dal plug-in UnARJ."
+1027,1,"Spiacenti, i file crittografati non sono supportati."
+1028,1,"Volume non valido o struttura di archivio sconosciuta."
+1029,1,"Spiacenti, il plug-in è scaduto. Controlla il nostro sito web per una versione più recente."
+1030,1,"File non trovato."
+1031,1,"Errore"
+1032,1,"Tutti i file (*.*)"
+1033,1,"Sfoglia ed estrai archivi ARJ."
+1034,1,"Informazioni sul plug-in"
+

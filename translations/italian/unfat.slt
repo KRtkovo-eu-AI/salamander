@@ -1,0 +1,30 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\unfat\unfat.atp"
+TEXTVERSION,"1.2 (x64)"
+VERSION,"1,2,0,196"
+
+[TRANSLATION]
+LANGID,1040
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnFAT"
+1001,1,"Informazioni sul plugin"
+1003,1,"Esplora ed estrae immagini disco FAT 12, 16 e 32."
+
+[STRINGTABLE 1]
+1100,0,"Error opening file "%s"."
+1101,0,"Error reading file "%s"."
+1102,0,"Error parsing file "%s".\n\n%s"
+1103,1,"Il settore di avvio e danneggiato oppure questo file non e un'immagine FAT 12, 16 o 32."
+
+[STRINGTABLE 2]
+1104,0,"Error reading directory from file "%s".\n%s\nSector: %d, Offset: 0x%s\n\nFile is not valid FAT 12, 16, or 32 image."
+1106,0,"Error reading file from file "%s".\n%s\nCluster: %d\n\nFile is not valid FAT 12, 16, or 32 image."
+1107,1,"Errore scrittura file"
+1108,0,"The file "%s" appears to be an image of entire harddisk.\nSuch images are not supported by the UnFAT plugin."
+1109,1,"Estraendo immagine FAT - %s"
+1110,1,"estrazione: %s"
+

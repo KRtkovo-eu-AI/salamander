@@ -1,0 +1,54 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\hypervm\hypervm.atp"
+TEXTVERSION,"1.0.8 (x64)"
+VERSION,"1,0,8,196"
+
+[TRANSLATION]
+LANGID,1040
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"Macchine Hyper-V"
+47,1,"Informazioni sul plug-in"
+
+[STRINGTABLE 1]
+48,1,"Mostra le macchine virtuali Hyper-V locali nel pannello."
+49,1,"https://samandarin.net/"
+50,1,"Mostra finestra delle macchine &Hyper-V"
+51,1,"Crea &VHD"
+52,1,"&Collega VHD"
+60,1,"Crea e collega disco rigido virtuale"
+61,1,"Collega disco rigido virtuale"
+62,1,"Scollega disco rigido virtuale"
+63,1,"Posizione:"
+
+[STRINGTABLE 2]
+64,1,"Sfoglia..."
+65,1,"Dimensione del disco rigido virtuale:"
+66,1,"Formato del disco rigido virtuale"
+67,1,"Tipo del disco rigido virtuale"
+68,1,"Supporta dischi virtuali fino a 2040 GB di dimensione."
+69,1,"Supporta dischi virtuali di dimensioni superiori a 2040 GB (massimo supportato di 64 TB) ed è resistente agli eventi di interruzione di corrente."
+70,1,"Dimensione fissa (consigliata)"
+71,1,"Espansione dinamica"
+72,1,"Il file del disco rigido virtuale viene allocato alla sua dimensione massima quando il disco rigido virtuale viene creato."
+73,1,"Il file del disco rigido virtuale cresce fino alla dimensione massima man mano che i dati vengono scritti nel disco rigido virtuale."
+74,1,"Solo lettura."
+75,1,"Specificare la posizione del disco rigido virtuale sul computer."
+76,1,"Specificare la posizione del disco rigido virtuale sul computer."
+77,1,"Scollegare il disco rigido virtuale {0}?"
+78,1,"Disco rigido virtuale collegato: {0}"
+79,1,"Non sono state trovate macchine virtuali Hyper-V."
+
+[STRINGTABLE 3]
+80,1,"Configurazione"
+81,1,"Nessuna configurazione disponibile."
+82,1,"OK"
+83,1,"Annulla"
+84,1,"Dischi rigidi virtuali (*.vhd;*.vhdx)|*.vhd;*.vhdx"
+85,1,"Macchine Hyper-V"
+86,1,"Crea e collega un disco rigido virtuale"
+87,1,"Collega un disco rigido virtuale"
+

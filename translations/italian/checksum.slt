@@ -1,0 +1,116 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\checksum\checksum.atp"
+TEXTVERSION,"2.3 (x64)"
+VERSION,"2,3,0,196"
+
+[TRANSLATION]
+LANGID,1040
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[DIALOG 1000]
+344,84,1,"Calcola checksum"
+1001,5,5,334,54,1,"List1"
+1007,5,68,42,8,1,"Calcolo:"
+1006,50,68,161,8,1,"Avanzamento1"
+1002,162,65,55,14,1,"Con&figura..."
+1003,223,65,71,14,1,"&Salva..."
+1004,284,65,139,14,1,"&Interrompi"
+1005,5,68,78,8,1,"suggerimento appunti"
+
+[DIALOG 1001]
+189,109,1,"Configurazione checksum"
+300,8,5,174,76,1," Calcola checksum "
+100,15,16,105,10,1,"&CRC/SFV"
+101,15,28,105,10,1,"&MD5"
+102,15,40,105,10,1,"SHA-&1"
+103,15,52,105,10,1,"SHA-&256"
+104,15,64,105,10,1,"SHA-&512"
+1,14,88,50,14,1,"OK"
+2,69,88,67,14,1,"Annulla"
+9,124,88,71,14,1,"Guida"
+
+[DIALOG 2000]
+260,84,1,""
+1001,5,5,250,54,1,"List1"
+1007,5,68,34,8,1,"Verifica:"
+1006,42,68,154,8,1,"Avanzamento1"
+2002,5,68,140,8,1,""
+2001,149,65,134,14,1,"&Messa a fuoco"
+1004,205,65,126,14,1,"&Interrompi"
+
+[STRINGTABLE 0]
+1,1,"Checksum"
+2,1,"Informazioni sul plug-in"
+3,1,"Verificatore e calcolatore di checksum SFV, MD5, SHA-1, SHA-256 e SHA-512."
+4,1,"Memoria esaurita"
+5,1,"Errore durante l'apertura del file"
+6,1,"Errore di lettura"
+7,1,"Errore di scrittura"
+
+[STRINGTABLE 1]
+40,1,"Saltiato"
+41,1,"Calcolo..."
+42,1,"Annullato"
+43,1,"Fare clic con il pulsante destro su un elemento per copiare un checksum negli appunti."
+44,1,"Copia valore &CRC negli appunti\tCtrl+C"
+45,1,"Copia checksum &MD5 negli appunti\tCtrl+M"
+46,1,"Copia checksum SHA-&1 negli appunti\tCtrl+1"
+47,1,"Copia checksum SHA-&256 negli appunti\tCtrl+2"
+
+[STRINGTABLE 2]
+48,1,"Copia checksum SHA-&512 negli appunti\tCtrl+5"
+52,1,"Copia &tutti i valori negli appunti"
+53,1,"&Rimuovi elemento\tCancella"
+54,1,"Il file '%s' esiste gia.\nDesideri sovrascriverlo?"
+55,1,"Errore durante la creazione del file."
+56,1,"File saltati o annullati durante il calcolo non sono stati salvati."
+57,1,"Errore durante l'apertura del file '%s'."
+58,1,"Mancante"
+59,1,"Il file selezionato non ha le estensioni SFV, MD5, SHA1, SHA256 o SHA512. Vuoi continuare comunque?"
+60,1,"Il file selezionato non e un file SFV, MD5, SHA-1, SHA-256 o SHA-512 valido."
+61,1,"Verifica..."
+62,1,"OK"
+63,1,"Danneggiato"
+
+[STRINGTABLE 3]
+65,1,"&Verifica checksum..."
+66,1,"&Calcola checksum..."
+67,1,"La configurazione e gia aperta."
+68,1,"Le modifiche avranno effetto quando la finestra 'Calcola checksum' verra aperta la prossima volta."
+70,1,"Tutti i file OK"
+71,1,"%d danneggiati, %d mancanti, %d saltati"
+72,1,"Open Salamander e occupato. Impossibile completare il comando richiesto, riprova piu tardi."
+74,1,"&Chiudi"
+75,1,"Lettura dell'albero delle directory, attendere..."
+76,1,"Errore durante la lettura della directory"
+77,1,"Nessun file"
+78,1,"Verifica checksum"
+79,1,"File"
+
+[STRINGTABLE 4]
+80,1,"Dimensione"
+81,1,"Stato"
+82,1,"CRC"
+83,1,"MD5"
+84,1,"SHA-1"
+85,1,"SHA-256"
+86,1,"SHA-512"
+90,1,"Salva file checksum"
+91,1,"File SFV (*.sfv)|*.sfv|"
+92,1,"File MD5 (*.md5)|*.md5|"
+93,1,"File SHA-1 (*.sha1)|*.sha1|"
+94,1,"File SHA-256 (*.sha256)|*.sha256|"
+95,1,"File SHA-512 (*.sha512)|*.sha512|"
+
+[STRINGTABLE 5]
+100,1,"Verifica CRC"
+101,1,"Verifica MD5"
+102,1,"Verifica SHA-1"
+103,1,"Verifica SHA-256"
+104,1,"Verifica SHA-512"
+
+[STRINGTABLE 6]
+120,1,"Impossibile completare l'operazione a causa di un nome troppo lungo."
+

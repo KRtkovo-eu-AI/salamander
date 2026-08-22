@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\unlha\unlha.atp"
+TEXTVERSION,"1.14 (x64)"
+VERSION,"1,14,0,196"
+
+[TRANSLATION]
+LANGID,1040
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1,1,"File LZH non valido o formato sconosciuto."
+2,1,"Errore di checksum dell'intestazione.\nL'archivio e' danneggiato - non tutti i file possono essere elencati."
+3,1,"Memoria esaurita."
+4,1,"Errore di scrittura"
+5,1,"UnLHA"
+6,1,"Impossibile aprire l'archivio."
+7,1,"Impossibile aggiungere la voce dell'archivio all'elenco dei file."
+8,1,"L'archivio contiene uno o piu' collegamenti simbolici UNIX, che non verranno visualizzati."
+10,1,"Impossibile estrarre il file."
+11,1,"Errore nei dati compressi. Il CRC non corrisponde."
+12,1,"Errore durante la lettura dell'archivio."
+13,1,"Estrazione dell'archivio LHA - %s"
+14,1,"preparazione dei dati e creazione delle directory..."
+15,1,"estrazione: "
+
+[STRINGTABLE 1]
+16,1,"estrazione..."
+17,1,"Impossibile completare l'operazione a causa di un nome di percorso troppo lungo."
+18,1,"Impossibile completare l'operazione a causa di una maschera troppo lunga."
+19,1,"Metodo di compressione sconosciuto. Il file non può essere estratto."
+20,1,"metodo sconosciuto ignorato..."
+21,1,"Sfoglia ed estrai archivi LHA."
+22,1,"Informazioni sul plugin"
+

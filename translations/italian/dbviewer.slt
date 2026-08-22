@@ -1,0 +1,228 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\dbviewer\dbviewer.atp"
+TEXTVERSION,"1.26 (x64)"
+VERSION,"1,26,0,196"
+
+[TRANSLATION]
+LANGID,1040
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[DIALOG 12200]
+235,181,1,"Proprietà"
+1,179,162,50,14,1,"OK"
+13000,4,155,227,1,1,""
+12201,5,5,224,143,1,""
+
+[DIALOG 12220]
+282,105,1,"Configurazione visualizzatore database"
+13000,6,10,698,35,1,"Carattere"
+12221,13,23,114,14,1,"&Carattere"
+12222,69,23,200,14,1,""
+13001,6,48,372,27,1,"Posizione finestra"
+12223,14,58,103,12,1,"&Salva alla chiusura"
+12224,107,58,255,12,1,"S&et sulla posizione della finestra principale di Salamander"
+12225,13,85,60,14,1,"Opzioni CSV..."
+1,113,85,50,14,1,"OK"
+2,168,85,67,14,1,"Annulla"
+9,223,85,71,14,1,"Aiuto"
+
+[DIALOG 12240]
+282,178,1,"Campi"
+12241,6,6,270,142,1,""
+13000,4,153,274,1,1,""
+12242,6,159,168,14,1,"&Ripristina impostazioni predefinite"
+1,115,159,50,14,1,"OK"
+2,170,159,67,14,1,"Annulla"
+9,225,159,71,14,1,"Guida"
+
+[DIALOG 12250]
+303,137,1,"Opzioni CSV"
+13000,6,6,113,101,1,"&Separatore"
+12264,15,18,100,12,1,"Selezione autom."
+12261,15,32,76,12,1,"Tabulatore"
+12260,15,46,100,12,1,"Punto e virgola (;)"
+12259,15,60,84,12,1,"Virgola (,)"
+12258,15,74,76,12,1,"Spazio ( )"
+12257,15,88,32,12,1,"Altro"
+12256,49,88,16,12,1,""
+13001,106,6,138,101,1,"Testo &Qualificatore"
+12262,115,18,125,12,1,"Selezione automatica"
+12255,115,32,74,12,0,"Double Quotes (")"
+12254,115,46,103,12,1,"Virgolette (' )"
+12253,115,60,120,12,1,"Nessuno"
+13002,206,6,113,101,1,"&Prima riga"
+12263,215,18,125,12,1,"Selezione automatica"
+12265,215,32,158,12,1,"Come intestazioni di colonna"
+12266,215,46,88,12,1,"Come dati"
+1,136,118,50,14,1,"OK"
+2,191,118,67,14,1,"Annulla"
+9,246,118,71,14,1,"Guida"
+12252,6,118,120,14,1,"Imposta come &predefinito"
+
+[DIALOG 12300]
+210,131,1,"Trova"
+13000,28,11,174,1,1,""
+13001,9,7,23,8,1,"&Trova"
+12301,16,17,182,64,1,""
+13002,38,47,164,1,1,""
+13003,9,43,28,8,1,"Opzioni"
+12302,16,53,66,12,1,"Cerca avanza&d"
+12303,16,65,72,12,1,"Cerca i&ndietro"
+12304,113,53,76,12,1,"&Parole intere"
+12305,113,65,92,12,1,"&Maiuscole/minuscole"
+12306,113,77,95,12,1,"&Espressione regolare"
+13004,8,102,194,1,1,""
+1,20,110,50,14,1,"OK"
+2,80,110,67,14,1,"Annulla"
+9,140,110,71,14,1,"Guida"
+
+[DIALOG 12400]
+123,54,1,"Vai al record"
+13000,8,9,41,8,1,"&Registra:"
+100,40,7,74,12,1,""
+1,8,32,50,14,1,"OK"
+2,65,32,67,14,1,"Annulla"
+
+[STRINGTABLE 0]
+11089,1,"Visualizzatore di database"
+11090,1,"Mostra file di database dBase, FoxPro e CSV."
+11092,1,"Informazioni sul plugin"
+11101,1,"Alcune finestre del Visualizzatore di database sono aperte. Vuoi chiuderle?"
+
+[STRINGTABLE 1]
+11110,1,"Memoria insufficiente."
+11111,1,"Il file ha un formato di database non riconosciuto."
+11112,1,"Il file non è stato trovato."
+11113,1,"Errore durante la lettura del file di database. Potrebbe essere stato troncato."
+11114,1,"Errore durante la scrittura del file di database."
+11115,1,"Errore durante la ricerca nel file di database."
+11116,1,"Il file Memo non è disponibile."
+11117,1,"Il file Memo è danneggiato."
+
+[STRINGTABLE 2]
+11120,1,"File di database (*.csv;*.dbf;*.jsonl;*.txt)|*.csv;*.dbf;*.jsonl;*.txt|Tutti i file (*.*)|*.*|"
+11121,1,"%d pt. %s (%s)"
+11122,1,"La configurazione è già aperta."
+11123,1,"Nome"
+11124,1,"Tipo"
+11125,1,"Larg."
+11126,1,"Decimali"
+11130,1,"dBase II"
+11131,1,"dBase III"
+11132,1,"dBase IV"
+11133,1,"dBase V"
+11134,1,"Visual dBase 7"
+11135,1,"FoxPro"
+
+[STRINGTABLE 3]
+11136,1,"Sconosciuto"
+11140,1,"Carattere"
+11141,1,"Numero"
+11142,1,"Logico"
+11143,1,"Data"
+11144,1,"Memo"
+11145,1,"Virgola mobile"
+11146,1,"Binario"
+11147,1,"Generale"
+11148,1,"Immagine"
+11149,1,"Valuta"
+11150,1,"Data/Ora"
+11151,1,"Intero"
+
+[STRINGTABLE 4]
+11152,1,"Sconosciuto"
+11153,1,"Double"
+11154,1,"Timestamp"
+11155,1,"AutoIncrement"
+11160,1,"Almeno un campo deve essere visibile."
+11162,1,"Non ci sono campi validi in questo database."
+11163,1,"Vero"
+11164,1,"Falso"
+11165,1,"Modificato"
+11166,1,"Dimensione"
+11167,1,"Versione"
+
+[STRINGTABLE 5]
+11168,1,"Conteggio record"
+11169,1,"Conteggio campi"
+11170,1,"Conteggio campi memo"
+11171,1,"Dimensione intestazione"
+11172,1,"Dimensione record"
+11173,1,"Pagine codice"
+
+[STRINGTABLE 6]
+11194,1,"Errore di espressione regolare"
+11195,1,"Trova"
+11196,1,"Impossibile trovare la stringa '%s'."
+11197,1,"Impossibile trovare una corrispondenza per l'espressione regolare '%s'."
+
+[STRINGTABLE 7]
+11200,1,"&File"
+11201,1,"&Apri...\tCtr+O"
+11202,1,"&Aggiorna\tCtr+R"
+11203,1,"Pro&prietà...\tCtrl+F1"
+11204,1,"A&ltri file"
+11205,1,"&Precedente\tBackspace"
+11206,1,"&Successivo\tSpazio"
+11207,1,"P&recedente selezione\tCtrl+Backspace"
+11208,1,"N&ext selezione\tCtrl+Space"
+11209,1,"&Primo\tShift+Backspace"
+11210,1,"&Ultimo\tShift+Spazio"
+11211,1,"E&sci\tAlt+F4"
+
+[STRINGTABLE 8]
+11217,1,"&Modifica"
+11218,1,"&Copia\tCtrl+C"
+11219,1,"&Seleziona tutto\tCtrl+A"
+11220,1,"&Trova...\tCtrl+F"
+11221,1,"Trova &successivo\tCtrl+N"
+11222,1,"Trova &precedente\tCtrl+P"
+11223,1,"&Attiva segnalibro\tCtrl+F2"
+11224,1,"N&ext segnalibro\tF2"
+11225,1,"P&recedente segnalibro\tShift+F2"
+11226,1,"Pulisci &tutti i segnalibri\tCtrl+Shift+F2"
+11230,1,"&Visualizza"
+11231,1,"&Vai al record...\tG"
+
+[STRINGTABLE 9]
+11232,1,"Cam&pi...\tI"
+11233,1,"&Schermo intero\tF11"
+
+[STRINGTABLE 10]
+11250,1,"&Converti"
+11251,1,"&Selezione automatica"
+11252,1,"&Non convertire"
+11253,1,"Imposta come predefinito"
+11254,1,"Successivo\tF8"
+11255,1,"Precedente\tShift+F8"
+
+[STRINGTABLE 11]
+11270,1,"&Opzioni"
+11271,1,"Opzioni &CSV..."
+11272,1,"&Configurazione..."
+
+[STRINGTABLE 12]
+11280,1,"&Guida"
+11281,1,"&Informazioni..."
+11282,1,"&Contenuti\tF1"
+11283,1,"&Indice..."
+11284,1,"&Cerca..."
+
+[STRINGTABLE 13]
+11500,1,"Copia\tCtrl+C"
+11501,1,"Apri\tCtrl+O"
+11502,1,"Trova\tCtrl+F"
+11503,1,"Proprietà\tCtrl+F1"
+
+[STRINGTABLE 14]
+11504,1,"Schermo intero\tF11"
+11505,1,"Record corrente/Numero record\tG"
+
+[STRINGTABLE 15]
+11520,1,"Usa &carattere predefinito"
+11521,1,"Usa &carattere personalizzato..."
+11522,1,"carattere predefinito"
+11523,1,"carattere personalizzato"
+
