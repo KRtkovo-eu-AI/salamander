@@ -26,7 +26,14 @@
     .no { color: #777; }
     .table-legend { font-family: Tahoma, sans-serif; font-size: 10px !important; margin: 0; }
     
-    @media (prefers-color-scheme: dark) { .yes { color: #6ee787; } thead th { background: #fd9506; color: #000; } .section th { background: #fd9506; color: #000; } .addition td { background: #323232; } }
+    @media (prefers-color-scheme: dark) {
+      .yes { color: #6ee787; }
+      thead th { background: #fd9506; color: #000; }
+      .section th { background: #fd9506; color: #000; }
+      .addition td { background: #323232; }
+      table td a:link, table td a:visited { color: #008cff; text-decoration: underline; }
+      table td a:hover { color: #fd9506; }
+    }
 
   </style>
 </head>
