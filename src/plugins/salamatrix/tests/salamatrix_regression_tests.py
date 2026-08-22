@@ -73,6 +73,7 @@ def main() -> int:
     pr_test_report_workflow = read(".github/workflows/pr-test-report.yml")
     pr_msbuild_workflow = read(".github/workflows/pr-msbuild.yml")
     salmon = read("src/salmon/salmon.cpp")
+    viewer = read("src/viewer.cpp")
     regedt_fs5 = read("src/plugins/regedt/fs5.cpp")
     regedt_finddlg = read("src/plugins/regedt/finddlg.cpp")
     csvlib = read("src/plugins/dbviewer/csvlib/csvlib.cpp")
@@ -2817,6 +2818,14 @@ def main() -> int:
         regedt_finddlg,
         r"wcscpy\(ptr, name\)",
         "Registry search uses an unbounded subkey copy")
+    require_absent(
+        viewer,
+        r"strcpy\(newText, Text\)|strcpy\(FileName, name\)|strcat\(text, selection\)",
+        "Viewer history, file names, or status text use an unbounded copy")
+    require(
+        viewer,
+        r"lstrcpyn\(DefaultConvert, Configuration\.DefaultConvert, _countof\(DefaultConvert\)\).*?StringCchPrintf\(text \+ strlen\(text\), _countof\(text\) - strlen\(text\),",
+        "Viewer configuration or status text does not retain an explicit capacity")
     require(
         pr_msbuild_workflow,
         r"matrix\.platform.*?-ne 'x64'.*?owner\.Name -eq 'HardwareWrapper'.*?continue",
