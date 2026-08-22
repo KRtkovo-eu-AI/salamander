@@ -4940,7 +4940,7 @@ FIND_NEW_SLG_FILE:
     }
 
 
-    strcpy(Configuration.LoadedSLGName, Configuration.SLGName);
+    lstrcpyn(Configuration.LoadedSLGName, Configuration.SLGName, _countof(Configuration.LoadedSLGName));
     if (initialLanguageBootstrapPath[0] != 0)
         DeleteFile(initialLanguageBootstrapPath);
 

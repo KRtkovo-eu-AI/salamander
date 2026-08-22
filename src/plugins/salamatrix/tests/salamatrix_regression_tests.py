@@ -73,6 +73,7 @@ def main() -> int:
     pr_test_report_workflow = read(".github/workflows/pr-test-report.yml")
     pr_msbuild_workflow = read(".github/workflows/pr-msbuild.yml")
     salmon = read("src/salmon/salmon.cpp")
+    salamdr1 = read("src/salamdr1.cpp")
     viewer = read("src/viewer.cpp")
     viewer3 = read("src/viewer3.cpp")
     regedt_fs5 = read("src/plugins/regedt/fs5.cpp")
@@ -2831,6 +2832,10 @@ def main() -> int:
         viewer3,
         r"sprintf\(text, LoadStr\(IDS_FILEALREADYEXIST\), fileName\)",
         "Viewer overwrite warning formats a path without a capacity")
+    require_absent(
+        salamdr1,
+        r"strcpy\(Configuration\.LoadedSLGName, Configuration\.SLGName\)",
+        "Loaded SLG name is copied without its destination capacity")
     require(
         viewer3,
         r"StringCchPrintf\(text, _countof\(text\), LoadStr\(IDS_FILEALREADYEXIST\), fileName\)",
