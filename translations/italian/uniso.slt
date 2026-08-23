@@ -11,12 +11,12 @@ COMMENT,"English version"
 
 [DIALOG 1200]
 220,83,1,"Configurazione UnISO"
-1201,8,11,241,10,1,"&Rimuovi attributo di sola lettura quando copi da archivio"
-1202,8,23,279,10,1,"&Mostra sessione come directory (consenti accesso a tutte le sessioni)"
-1203,8,35,179,10,1,"S&mostra disco immagine di avvio come file"
+1201,8,11,200,10,1,"&Rimuovi attributo di sola lettura quando copi da archivio"
+1202,8,23,243,10,1,"&Mostra sessione come directory (consenti accesso a tutte le sessioni)"
+1203,8,35,154,10,1,"S&mostra disco immagine di avvio come file"
 3000,2,58,216,1,1,""
 1,108,64,50,14,1,"OK"
-2,163,64,67,14,1,"Annulla"
+2,163,64,50,14,1,"Annulla"
 
 [STRINGTABLE 0]
 1000,1,"UnISO"

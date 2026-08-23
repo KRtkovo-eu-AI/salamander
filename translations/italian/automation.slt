@@ -11,19 +11,19 @@ COMMENT,"English version"
 
 [DIALOG 100]
 205,64,1,"Casella di immissione"
-1150,8,8,310,8,1,"Richiesta:"
+1150,8,8,189,8,1,"Richiesta:"
 101,8,18,189,12,1,""
 1,48,42,50,14,1,"OK"
-2,107,42,67,14,1,"Annulla"
+2,107,42,50,14,1,"Annulla"
 
 [DIALOG 101]
 332,143,1,"Configurazione automazione"
-375,8,9,92,8,1,"&Directory degli script:"
+375,8,9,74,8,1,"&Directory degli script:"
 371,8,19,316,73,1,""
 1001,8,102,105,10,1,"Abilita script e &debug"
 1,75,121,50,14,1,"OK"
-2,141,121,67,14,1,"Annulla"
-9,207,121,69,14,1,"&Aiuto"
+2,141,121,50,14,1,"Annulla"
+9,207,121,50,14,1,"&Aiuto"
 
 [MENU 106]
 0,1,"[POPUP]"

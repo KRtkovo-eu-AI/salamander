@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\russian\renamer\renamer.atp"
 TEXTVERSION,"1.15 (x64)"
-VERSION,"1,1,5,195"
+VERSION,"1,15,0,196"
 
 [TRANSLATION]
 LANGID,1049
@@ -259,7 +259,7 @@ COMMENT,"Русская версия"
 1107,1,"Ошибка нового имени: %s"
 1108,0,"<Invalid value in some input field>"
 1109,1,"Ошибка регулярного выражения: %s"
-1110,1,"<Ошибка Boyer-Moore: %s>"
+1110,1,"<Ошибка Бойера-Мура: %s>"
 1111,1,"<Ошибка: %s>"
 1112,1,"Ошибки отсутствуют."
 1113,1,"Недостаточно памяти."

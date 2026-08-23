@@ -11,15 +11,15 @@ COMMENT,"English version"
 
 [DIALOG 100]
 194,73,1,"Ottimizza archivio PAK"
-300,8,9,87,8,1,"Dimensione dati valida:"
+300,8,9,80,8,1,"Dimensione dati valida:"
 101,64,9,118,8,1,""
-301,8,20,81,8,1,"Dimensione file totale:"
+301,8,20,77,8,1,"Dimensione file totale:"
 102,64,20,118,8,1,""
-302,8,31,73,8,1,"Spazio sprecato:"
+302,8,31,58,8,1,"Spazio sprecato:"
 103,64,31,118,8,1,""
 303,8,44,178,1,1,""
-1,41,53,64,14,1,"Ottimizza"
-2,101,53,67,14,1,"Annulla"
+1,41,53,50,14,1,"Ottimizza"
+2,101,53,50,14,1,"Annulla"
 
 [STRINGTABLE 0]
 500,1,"Impossibile aprire il file: %s"

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\french\textviewer\textviewer.atp"
-TEXTVERSION,"1.03 (x64)"
-VERSION,"1,0,3,195"
+TEXTVERSION,"1.0.4 (x64)"
+VERSION,"1,0,4,196"
 
 [TRANSLATION]
 LANGID,1036
@@ -18,4 +18,22 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 49,1,"https://samandarin.net/"
 50,1,"Impossible de préparer l’événement de synchronisation requis par la visionneuse."
 51,1,"Le fichier sélectionné est trop volumineux pour être ouvert. Les fichiers de plus de 16 Mo ne sont pas pris en charge."
+52,1,"&Fichier"
+53,1,"&Affichage"
+54,1,"&Fermer\tEsc"
+55,1,"&Actualiser\tF5"
+56,1,"Zoom &avant\tCtrl++"
+57,1,"Zoom &arriere\tCtrl+-"
+58,1,"&Reinitialiser\tCtrl+0"
+59,1,"Chargement..."
+60,1,"Pret"
+61,1,"Impossible d'initialiser le moteur WebView2."
+62,1,"Impossible d'ouvrir le fichier selectionne."
+63,1,"Afficher les &numeros de ligne"
+
+[STRINGTABLE 2]
+64,1,"&Renvoi des lignes\tF2"
+65,1,"Afficher les &espaces"
+66,1,"&Surlignage syntaxique"
+67,1,"&Automatique"
 

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\webview2renderviewer\webview2renderviewer.atp"
-TEXTVERSION,"1.04 (x64)"
-VERSION,"1,0,4,195"
+TEXTVERSION,"1.0.5 (x64)"
+VERSION,"1,0,5,196"
 
 [TRANSLATION]
 LANGID,1048
@@ -18,4 +18,20 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 49,1,"https://samandarin.net/"
 50,1,"Nu se poate pregăti evenimentul de sincronizare necesar pentru vizualizator."
 51,1,"Fișierul selectat este prea mare pentru a fi deschis. Nu sunt acceptate fișiere mai mari de 32 MB."
+52,1,"&Fișier"
+53,1,"&Vizualizare"
+54,1,"&Închide\tEsc"
+55,1,"&Reîmprospătare\tF5"
+56,1,"Mărire &În\tCtrl++"
+57,1,"Mărire &Ieș\tCtrl+-"
+58,1,"&Resetare\tCtrl+0"
+59,1,"Se încarcă..."
+60,1,"Gata"
+61,1,"Nu se poate inițializa randatorul WebView2."
+62,1,"Nu se poate deschide fișierul selectat."
+63,1,"Afișează &numerele rândurilor"
+
+[STRINGTABLE 2]
+64,1,"&Încadrează rândurile\tF2"
+65,1,"Afișează &spațiile"
 

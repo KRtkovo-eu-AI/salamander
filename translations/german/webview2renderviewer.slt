@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\webview2renderviewer\webview2renderviewer.atp"
-TEXTVERSION,"1.04 (x64)"
-VERSION,"1,0,4,195"
+TEXTVERSION,"1.0.5 (x64)"
+VERSION,"1,0,5,196"
 
 [TRANSLATION]
 LANGID,1031
@@ -18,4 +18,20 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 49,1,"https://samandarin.net/"
 50,1,"Synchronisierungsevent, das für die Ansicht erforderlich ist, konnte nicht vorbereitet werden."
 51,1,"Die ausgewählte Datei ist zu groß, um sie zu öffnen. Dateien, die größer als 32 MB sind, werden nicht unterstützt."
+52,1,"&Datei"
+53,1,"&Ansicht"
+54,1,"&Schließen\tEsc"
+55,1,"&Aktualisieren\tF5"
+56,1,"Zoom &Hinein\tCtrl++"
+57,1,"Zoom &Hinaus\tCtrl+-"
+58,1,"&Zurücksetzen\tCtrl+0"
+59,1,"Wird geladen..."
+60,1,"Bereit"
+61,1,"Der WebView2-Renderer konnte nicht initialisiert werden."
+62,1,"Die ausgewählte Datei konnte nicht geöffnet werden."
+63,1,"Zeilennummern &anzeigen"
+
+[STRINGTABLE 2]
+64,1,"Zeilen &umbrechen\tF2"
+65,1,"Leerraum &anzeigen"
 

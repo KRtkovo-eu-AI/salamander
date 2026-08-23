@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\checksum\checksum.atp"
-TEXTVERSION,"2.3 (x64)"
-VERSION,"2,3,0,196"
+TEXTVERSION,"2.4 (x64)"
+VERSION,"2,4,0,196"
 
 [TRANSLATION]
 LANGID,1040
@@ -13,11 +13,11 @@ COMMENT,"English version"
 344,84,1,"Calcola checksum"
 1001,5,5,334,54,1,"List1"
 1007,5,68,42,8,1,"Calcolo:"
-1006,50,68,161,8,1,"Avanzamento1"
+1006,50,68,105,8,1,"Avanzamento1"
 1002,162,65,55,14,1,"Con&figura..."
-1003,223,65,71,14,1,"&Salva..."
-1004,284,65,139,14,1,"&Interrompi"
-1005,5,68,78,8,1,"suggerimento appunti"
+1003,223,65,55,14,1,"&Salva..."
+1004,284,65,55,14,1,"&Interrompi"
+1005,5,68,76,8,1,"suggerimento appunti"
 
 [DIALOG 1001]
 189,109,1,"Configurazione checksum"
@@ -28,17 +28,17 @@ COMMENT,"English version"
 103,15,52,105,10,1,"SHA-&256"
 104,15,64,105,10,1,"SHA-&512"
 1,14,88,50,14,1,"OK"
-2,69,88,67,14,1,"Annulla"
-9,124,88,71,14,1,"Guida"
+2,69,88,50,14,1,"Annulla"
+9,124,88,50,14,1,"Guida"
 
 [DIALOG 2000]
 260,84,1,""
 1001,5,5,250,54,1,"List1"
 1007,5,68,34,8,1,"Verifica:"
-1006,42,68,154,8,1,"Avanzamento1"
+1006,42,68,101,8,1,"Avanzamento1"
 2002,5,68,140,8,1,""
-2001,149,65,134,14,1,"&Messa a fuoco"
-1004,205,65,126,14,1,"&Interrompi"
+2001,149,65,50,14,1,"&Messa a fuoco"
+1004,205,65,50,14,1,"&Interrompi"
 
 [STRINGTABLE 0]
 1,1,"Checksum"

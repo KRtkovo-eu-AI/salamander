@@ -11,15 +11,15 @@ COMMENT,"English version"
 
 [DIALOG 101]
 251,111,1,"Configurazione UnMIME"
-2000,7,7,53,8,1,"Opzioni elenco"
+2000,7,7,51,8,1,"Opzioni elenco"
 2001,49,11,196,1,1,""
-1000,18,20,116,10,1,"Elenco posta &intestazioni"
-1001,18,35,101,10,1,"Elenco messaggi &corpi"
+1000,18,20,96,10,1,"Elenco posta &intestazioni"
+1001,18,35,87,10,1,"Elenco messaggi &corpi"
 1003,31,50,210,10,1,"Aggiungi info &charset al nome file se diverso da US-ASCII"
 1002,18,65,69,10,1,"Elenca &allegati"
 2002,6,82,239,1,1,""
 1,137,90,50,14,1,"OK"
-2,194,90,67,14,1,"Annulla"
+2,194,90,50,14,1,"Annulla"
 
 [STRINGTABLE 0]
 1,1,"UnMIME"

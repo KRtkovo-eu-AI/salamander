@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\hungarian\webview2renderviewer\webview2renderviewer.atp"
-TEXTVERSION,"1.04 (x64)"
-VERSION,"1,0,4,195"
+TEXTVERSION,"1.0.5 (x64)"
+VERSION,"1,0,5,196"
 
 [TRANSLATION]
 LANGID,1038
@@ -18,4 +18,20 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 49,1,"https://samandarin.net/"
 50,1,"Nem sikerült előkészíteni a nézet által megkövetelt szinkronizálási eseményt."
 51,1,"A kijelölt fájl túl nagy a megnyitáshoz. A 32 MB-nál nagyobb fájlok nem támogatottak."
+52,1,"&Fájl"
+53,1,"&Nézet"
+54,1,"&Bezárás\tEsc"
+55,1,"&Frissítés\tF5"
+56,1,"Nagyítás &Be\tCtrl++"
+57,1,"Kicsinyítés &Ki\tCtrl+-"
+58,1,"&Visszaállítás\tCtrl+0"
+59,1,"Betöltés..."
+60,1,"Kész"
+61,1,"Nem sikerült inicializálni a WebView2 renderelőt."
+62,1,"Nem sikerült megnyitni a kijelölt fájlt."
+63,1,"Sorszámok &megjelenítése"
+
+[STRINGTABLE 2]
+64,1,"&Sorok tördelése\tF2"
+65,1,"Sz&óközök megjelenítése"
 

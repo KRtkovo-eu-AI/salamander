@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\peviewer\peviewer.atp"
-TEXTVERSION,"3.0 (x64)"
-VERSION,"3,0,0,196"
+TEXTVERSION,"3.1 (x64)"
+VERSION,"3,1,0,196"
 
 [TRANSLATION]
 LANGID,1040
@@ -11,17 +11,17 @@ COMMENT,"English version"
 
 [DIALOG 8501]
 346,154,1,"Configurazione Visualizzatore PE"
-1300,7,7,77,8,1,"Sezioni dis&ponibili:"
+1300,7,7,64,8,1,"Sezioni dis&ponibili:"
 8700,7,17,105,130,1,""
-8702,119,17,98,14,1,"&Aggiungi ->"
-8703,119,35,63,14,1,"<- &Rimuovi"
+8702,119,17,50,14,1,"&Aggiungi ->"
+8703,119,35,50,14,1,"<- &Rimuovi"
 1301,176,7,58,8,1,"Sezioni &visibili:"
 8701,176,17,105,130,1,""
-8704,289,17,71,14,1,"Sposta &su"
-8705,289,35,63,14,1,"Sposta &giù"
+8704,289,17,50,14,1,"Sposta &su"
+8705,289,35,50,14,1,"Sposta &giù"
 1,289,97,50,14,1,"OK"
-2,289,115,67,14,1,"Annulla"
-8706,289,133,95,14,1,"Re&imposta"
+2,289,115,50,14,1,"Annulla"
+8706,289,133,50,14,1,"Re&imposta"
 
 [STRINGTABLE 0]
 1016,1,"Informazioni sul plugin"

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\serviceexplorer\serviceexplorer.atp"
-TEXTVERSION,"0.0.13 (x64)"
-VERSION,"0,0,13,196"
+TEXTVERSION,"0.0.14 (x64)"
+VERSION,"0,0,14,196"
 
 [TRANSLATION]
 LANGID,1040
@@ -11,7 +11,7 @@ COMMENT,"Original English resources."
 
 [DIALOG 490]
 205,61,1,"Visualizzatore"
-1031,6,8,199,16,1,"Service Explorer non dispone di opzioni di visualizzazione."
+1031,6,8,193,16,1,"Service Explorer non dispone di opzioni di visualizzazione."
 
 [DIALOG 500]
 268,212,1,"Generale"
@@ -21,17 +21,17 @@ COMMENT,"Original English resources."
 1005,4,111,252,14,1,""
 503,60,136,198,50,1,""
 1009,6,181,54,15,1,"&Avvia"
-1010,72,181,111,15,1,"Arrest& a"
+1010,72,181,54,15,1,"Arrest& a"
 1011,138,181,54,15,1,"&Pausa"
-1012,204,181,64,15,1,"&Riprendi"
-3000,6,12,56,8,1,"Nome servizio:"
-3001,6,30,64,8,1,"Visualizza &nome:"
+1012,204,181,54,15,1,"&Riprendi"
+3000,6,12,51,8,1,"Nome servizio:"
+3001,6,30,58,8,1,"Visualizza &nome:"
 3004,6,54,52,8,1,"Descrizione:"
-3005,4,100,134,8,1,"Percorso da eseguire:"
+3005,4,100,111,8,1,"Percorso da eseguire:"
 1013,6,72,46,8,1,"Servicename"
-1032,6,136,54,8,1,"Tipo di avvio:"
-1033,6,160,71,8,1,"Stato del servizio:"
-1014,60,160,208,8,1,"Stato servizio"
+1032,6,136,47,8,1,"Tipo di avvio:"
+1033,6,160,62,8,1,"Stato del servizio:"
+1014,60,160,198,8,1,"Stato servizio"
 
 [DIALOG 510]
 230,70,1,"Controllo servizio"
@@ -40,26 +40,26 @@ COMMENT,"Original English resources."
 
 [DIALOG 520]
 306,180,1,"Registra nuovo servizio"
-1034,7,9,95,8,1,"Nome visualizzato:"
+1034,7,9,65,8,1,"Nome visualizzato:"
 1019,70,7,229,12,1,""
-1035,7,26,74,8,1,"Nome servizio:"
+1035,7,26,60,8,1,"Nome servizio:"
 1020,70,24,229,12,1,""
 1036,7,43,60,8,1,"Eseguibile:"
 1021,70,41,189,12,1,""
-1022,263,40,49,14,1,"&Sfoglia..."
+1022,263,40,39,14,1,"&Sfoglia..."
 1037,7,60,60,8,1,"Argomenti:"
 1023,70,58,229,12,1,""
-1038,7,79,74,8,1,"Tipo di avvio:"
+1038,7,79,60,8,1,"Tipo di avvio:"
 1024,70,77,120,60,1,""
-1039,7,96,82,8,1,"Accedi come:"
+1039,7,96,60,8,1,"Accedi come:"
 1025,70,94,120,60,1,""
 1026,7,113,60,8,1,"Nome account:"
 1027,70,111,229,12,1,""
 1028,7,130,60,8,1,"Password:"
 1029,70,128,229,12,1,""
-1030,7,146,201,10,1,"Avvia il servizio dopo la creazione"
+1030,7,146,140,10,1,"Avvia il servizio dopo la creazione"
 1,200,159,44,14,1,"OK"
-2,252,159,59,14,1,"Annulla"
+2,252,159,44,14,1,"Annulla"
 
 [STRINGTABLE 0]
 101,1,"Sfoglia e configura i servizi."

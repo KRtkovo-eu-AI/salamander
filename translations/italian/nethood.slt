@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\nethood\nethood.atp"
-TEXTVERSION,"1.0.9 (x64)"
-VERSION,"1,0,9,196"
+TEXTVERSION,"1.10 (x64)"
+VERSION,"1,10,0,196"
 
 [TRANSLATION]
 LANGID,1040
@@ -11,16 +11,16 @@ COMMENT,"English version"
 
 [DIALOG 102]
 220,127,1,"Configurazione di rete"
-1201,7,7,171,10,1,"Mostra le condivisioni &amministrative"
-1203,13,22,259,10,1,"Mostra le condivisioni amministrative come elementi &nascosti"
-1202,7,37,267,10,1,"Mostra gli elementi da &Risorse di rete al primo livello cartella"
-1204,7,52,214,10,1,"Mostra la rete &computer nel primo livello cartella"
-1206,7,67,213,10,1,"Mostra i &dischi connessi tramite Desktop remoto"
-1205,7,82,183,10,1,"&Scansiona la rete all'avvio di Salamander"
+1201,7,7,135,10,1,"Mostra le condivisioni &amministrative"
+1203,13,22,215,10,1,"Mostra le condivisioni amministrative come elementi &nascosti"
+1202,7,37,214,10,1,"Mostra gli elementi da &Risorse di rete al primo livello cartella"
+1204,7,52,174,10,1,"Mostra la rete &computer nel primo livello cartella"
+1206,7,67,173,10,1,"Mostra i &dischi connessi tramite Desktop remoto"
+1205,7,82,148,10,1,"&Scansiona la rete all'avvio di Salamander"
 3000,7,99,206,1,1,""
 1,30,106,50,14,1,"OK"
-2,85,106,67,14,1,"Annulla"
-9,140,106,71,14,1,"Guida"
+2,85,106,50,14,1,"Annulla"
+9,140,106,50,14,1,"Guida"
 
 [STRINGTABLE 0]
 128,1,"Rete"

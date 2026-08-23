@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\textviewer\textviewer.atp"
-TEXTVERSION,"1.03 (x64)"
-VERSION,"1,0,3,195"
+TEXTVERSION,"1.0.4 (x64)"
+VERSION,"1,0,4,196"
 
 [TRANSLATION]
 LANGID,1031
@@ -18,4 +18,22 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 49,1,"https://samandarin.net/"
 50,1,"Konnte das für den Viewer erforderliche Synchronisierungsereignis nicht vorbereiten."
 51,1,"Die ausgewählte Datei ist zu groß, um sie zu öffnen. Dateien größer als 16 MB werden nicht unterstützt."
+52,1,"&Datei"
+53,1,"&Ansicht"
+54,1,"&Schließen\tEsc"
+55,1,"&Aktualisieren\tF5"
+56,1,"Vergrößern &In\tCtrl++"
+57,1,"Verkleinern &Out\tCtrl+-"
+58,1,"&Zurücksetzen\tCtrl+0"
+59,1,"Wird geladen..."
+60,1,"Bereit"
+61,1,"WebView2-Renderer konnte nicht initialisiert werden."
+62,1,"Die ausgewählte Datei konnte nicht geöffnet werden."
+63,1,"&Zeilennummern anzeigen"
+
+[STRINGTABLE 2]
+64,1,"&Zeilen umbrechen\tF2"
+65,1,"Leerzeichen &anzeigen"
+66,1,"Syntax&Highlighter"
+67,1,"&Automatisch"
 
