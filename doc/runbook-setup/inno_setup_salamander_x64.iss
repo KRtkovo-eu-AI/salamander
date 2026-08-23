@@ -86,6 +86,7 @@ Name: "dutch"; MessagesFile: "compiler:Languages\Dutch.isl"; LicenseFile: "{#Sou
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"; LicenseFile: "{#SourcePath}\license.french.txt"
 Name: "german"; MessagesFile: "compiler:Languages\German.isl"; LicenseFile: "{#SourcePath}\license.german.txt"
 Name: "hungarian"; MessagesFile: "compiler:Languages\Hungarian.isl"; LicenseFile: "{#SourcePath}\license.hungarian.txt"
+Name: "italian"; MessagesFile: "compiler:Languages\Italian.isl"; LicenseFile: "{#SourcePath}\license.italian.txt"
 Name: "romanian"; MessagesFile: "compiler:Languages\Romanian.isl"; LicenseFile: "{#SourcePath}\license.romanian.txt"
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"; LicenseFile: "{#SourcePath}\license.russian.txt"
 Name: "slovak"; MessagesFile: "compiler:Languages\Slovak.isl"; LicenseFile: "{#SourcePath}\license.slovak.txt"
@@ -127,6 +128,11 @@ hungarian.FileStorage=Fájltároló:
 hungarian.RegistryKey=Beállításkulcs:
 hungarian.RemoveUserConfigFiles=Válassza az Igen lehetőséget a konfigurációs fájlok törléséhez, vagy a Nem lehetőséget a beállítások megtartásához.
 hungarian.RemoveUserConfigRegistry=Válassza az Igen lehetőséget a kulcs és teljes tartalmának törléséhez, vagy a Nem lehetőséget a beállítások megtartásához.
+italian.RemoveUserConfigQuestion=Vuoi rimuovere la configurazione utente di Open Salamander Samandarin?
+italian.FileStorage=Archiviazione file:
+italian.RegistryKey=Chiave del Registro di sistema:
+italian.RemoveUserConfigFiles=Scegli Sì per eliminare i file di configurazione oppure No per mantenere le impostazioni.
+italian.RemoveUserConfigRegistry=Scegli Sì per eliminare la chiave e tutto il suo contenuto oppure No per mantenere le impostazioni.
 romanian.RemoveUserConfigQuestion=Doriți să eliminați configurația de utilizator Open Salamander Samandarin?
 romanian.FileStorage=Stocare în fișiere:
 romanian.RegistryKey=Cheie de registru:
@@ -203,6 +209,14 @@ hungarian.StartMenuShortcut=&Start menü parancsikon létrehozása
 hungarian.DesktopShortcut=&Asztali parancsikon létrehozása
 hungarian.Shortcuts=Parancsikonok:
 hungarian.LaunchProgram={#AppToInstallName} indítása
+italian.InstallMode=Modalità di installazione:
+italian.StandardInstall=Installa normalmente (menu Start, Programmi e programma di disinstallazione)
+italian.PortableInstall=Estrai come versione portatile (nessuna voce in Programmi né programma di disinstallazione)
+italian.PortableDirName=samandarin
+italian.StartMenuShortcut=Crea un collegamento nel menu &Start
+italian.DesktopShortcut=Crea un collegamento sul &desktop
+italian.Shortcuts=Collegamenti:
+italian.LaunchProgram=Avvia {#AppToInstallName}
 romanian.InstallMode=Mod de instalare:
 romanian.StandardInstall=Instalare normală (Meniul Start, Programe și dezinstalator)
 romanian.PortableInstall=Extrageți ca versiune portabilă (fără intrare în Programe sau dezinstalator)
@@ -249,6 +263,8 @@ german.CodePageWarningTitle=Codepage-Kompatibilitätswarnung
 german.CodePageWarning=Die ausgewählte Sprache zeigt möglicherweise nicht alle Zeichen korrekt an, da Ihre Windows-Systemgebietsschema-Codepage (%u) nicht mit der von dieser Sprache erwarteten Codepage (%u) übereinstimmt.\n\nUm dies zu beheben, ändern Sie Ihr Systemgebietsschema in Windows: Einstellungen > Zeit und Sprache > Region > Verwaltung > Systemsprache ändern.
 hungarian.CodePageWarningTitle=Kódlap kompatibilitási figyelmeztetés
 hungarian.CodePageWarning=A kiválasztott nyelv nem jeleníti meg helyesen az összes karaktert, mert a Windows rendszerterületi kódlapja (%u) nem egyezik ezzel a nyelvvel elvárt kódlappal (%u).\n\nA javításhoz módosítsa a rendszerterületet a Windowsban: Beállítások > Idő és nyelv > Régió > Kezelés > Rendszerterület módosítása.
+italian.CodePageWarningTitle=Avviso di compatibilità della pagina di codice
+italian.CodePageWarning=La lingua selezionata potrebbe non visualizzare correttamente tutti i caratteri perché la pagina di codice delle impostazioni locali di sistema di Windows (%u) non corrisponde a quella prevista per questa lingua (%u).\n\nPer risolvere il problema, modifica le impostazioni locali di sistema in Windows: Impostazioni > Data/ora e lingua > Lingua e area geografica > Impostazioni lingua amministrative > Modifica impostazioni locali di sistema.
 romanian.CodePageWarningTitle=Avertisament compatibilitate pagină de coduri
 romanian.CodePageWarning=Limba selectată poate să nu afișeze corect toate caracterele, deoarece pagina de coduri a setărilor de sistem Windows (%u) nu corespunde paginii de coduri așteptate de această limbă (%u).\n\nPentru a remedia, modificați setările de sistem în Windows: Setări > Ora și limba > Regiune > Administrare > Modificarea setărilor de sistem.
 russian.CodePageWarningTitle=Предупреждение о совместимости кодовых страниц
@@ -264,6 +280,7 @@ dutch.KeepConfigQuestion=Er is een bestaand configuratiebestand (configstorage.i
 french.KeepConfigQuestion=Un fichier de configuration existant (configstorage.ini) a été trouvé.\n\nIl sera renommé en configstorage.ini.BAK et la nouvelle configuration par défaut sera installée.
 german.KeepConfigQuestion=Eine bestehende Konfigurationsdatei (configstorage.ini) wurde gefunden.\n\nSie wird in configstorage.ini.BAK umbenannt und die neue Standardkonfiguration wird installiert.
 hungarian.KeepConfigQuestion=Meglévő konfigurációs fájl található (configstorage.ini).\n\nÁtnevezésre kerül configstorage.ini.BAK névre, és az új alapértelmezett konfiguráció telepítésre kerül.
+italian.KeepConfigQuestion=È stato trovato un file di configurazione esistente (configstorage.ini).\n\nVerrà rinominato configstorage.ini.BAK e verrà installata la nuova configurazione predefinita.
 romanian.KeepConfigQuestion=A fost găsit un fișier de configurare existent (configstorage.ini).\n\nAcesta va fi redenumit în configstorage.ini.BAK și va fi instalată noua configurație implicită.
 russian.KeepConfigQuestion=Обнаружен существующий файл конфигурации (configstorage.ini).\n\nОн будет переименован в configstorage.ini.BAK и установлена новая конфигурация по умолчанию.
 slovak.KeepConfigQuestion=Bol nájdený existujúci konfiguračný súbor (configstorage.ini).\n\nBude premenovaný na configstorage.ini.BAK a nainštaluje sa nová predvolená konfigurácia.
@@ -280,6 +297,8 @@ german.PluginSelectionTitle=Plugins auswählen
 german.PluginSelectionDescription=Wählen Sie aus, welche mitgelieferten Plugins installiert oder entpackt werden.
 hungarian.PluginSelectionTitle=Bővítmények kiválasztása
 hungarian.PluginSelectionDescription=Válassza ki a telepítendő vagy kicsomagolandó mellékelt bővítményeket.
+italian.PluginSelectionTitle=Seleziona plugin
+italian.PluginSelectionDescription=Scegli quali plugin inclusi installare o estrarre.
 romanian.PluginSelectionTitle=Selectare pluginuri
 romanian.PluginSelectionDescription=Alegeți pluginurile incluse care vor fi instalate sau extrase.
 russian.PluginSelectionTitle=Выбор плагинов
@@ -296,6 +315,7 @@ dutch.InstalledVersionLabel=geïnstalleerd
 french.InstalledVersionLabel=installé
 german.InstalledVersionLabel=installiert
 hungarian.InstalledVersionLabel=telepítve
+italian.InstalledVersionLabel=installato
 romanian.InstalledVersionLabel=instalat
 russian.InstalledVersionLabel=установлено
 slovak.InstalledVersionLabel=nainštalované
@@ -524,6 +544,7 @@ Source: "{#PayloadDir}\doc\third_party_dutch.md"; DestDir: "{app}\doc"; Flags: i
 Source: "{#PayloadDir}\doc\third_party_french.md"; DestDir: "{app}\doc"; Flags: ignoreversion
 Source: "{#PayloadDir}\doc\third_party_german.md"; DestDir: "{app}\doc"; Flags: ignoreversion
 Source: "{#PayloadDir}\doc\third_party_hungarian.md"; DestDir: "{app}\doc"; Flags: ignoreversion
+Source: "{#PayloadDir}\doc\third_party_italian.md"; DestDir: "{app}\doc"; Flags: ignoreversion
 Source: "{#PayloadDir}\doc\third_party_chinesesimplified.md"; DestDir: "{app}\doc"; Flags: ignoreversion
 Source: "{#PayloadDir}\doc\third_party_romanian.md"; DestDir: "{app}\doc"; Flags: ignoreversion
 Source: "{#PayloadDir}\doc\third_party_russian.md"; DestDir: "{app}\doc"; Flags: ignoreversion
@@ -568,6 +589,7 @@ Source: "{#PayloadDir}\lang\english.slg"; DestDir: "{app}\lang"; Flags: ignoreve
 Source: "{#PayloadDir}\lang\french.slg"; DestDir: "{app}\lang"; Flags: ignoreversion
 Source: "{#PayloadDir}\lang\german.slg"; DestDir: "{app}\lang"; Flags: ignoreversion
 Source: "{#PayloadDir}\lang\hungarian.slg"; DestDir: "{app}\lang"; Flags: ignoreversion
+Source: "{#PayloadDir}\lang\italian.slg"; DestDir: "{app}\lang"; Flags: ignoreversion
 Source: "{#PayloadDir}\lang\chinesesimplified.slg"; DestDir: "{app}\lang"; Flags: ignoreversion
 Source: "{#PayloadDir}\lang\romanian.slg"; DestDir: "{app}\lang"; Flags: ignoreversion
 Source: "{#PayloadDir}\lang\russian.slg"; DestDir: "{app}\lang"; Flags: ignoreversion
