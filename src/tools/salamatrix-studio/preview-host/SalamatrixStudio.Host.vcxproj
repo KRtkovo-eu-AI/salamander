@@ -5,7 +5,7 @@
   </ItemGroup>
   <PropertyGroup Label="Globals"><ProjectGuid>{7AF486E7-C6EF-4A21-A792-5685B2E80DA5}</ProjectGuid><Keyword>Win32Proj</Keyword><RootNamespace>SalamatrixStudioHost</RootNamespace><WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion></PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><CharacterSet>Unicode</CharacterSet><WholeProgramOptimization>true</WholeProgramOptimization></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v145</PlatformToolset><CharacterSet>Unicode</CharacterSet><WholeProgramOptimization>true</WholeProgramOptimization></PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'"><OutDir>$(ProjectDir)..\native\win32-x64\</OutDir><IntDir>$(ProjectDir)obj\x64\</IntDir><TargetName>SalamatrixStudio.Host</TargetName></PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
