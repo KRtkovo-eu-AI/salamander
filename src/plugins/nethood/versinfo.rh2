@@ -1,4 +1,4 @@
-﻿//****************************************************************************
+//****************************************************************************
 //
 // Copyright (c) 2023 Open Salamander Authors
 //
@@ -18,8 +18,8 @@
 // look at shared\versinfo.rc
 
 #define VERSINFO_MAJOR       1
-#define VERSINFO_MINORA      0
-#define VERSINFO_MINORB      9
+#define VERSINFO_MINORA      10
+#define VERSINFO_MINORB      0
 
 #include "spl_vers.h" // get version and build numbers
 
