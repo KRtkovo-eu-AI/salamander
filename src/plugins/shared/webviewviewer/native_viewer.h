@@ -6,6 +6,7 @@
 #include <windows.h>
 
 class CSalamanderGUIAbstract;
+class CSalamanderGeneralAbstract;
 
 enum class NativeViewerKind
 {
@@ -42,6 +43,30 @@ struct NativeViewerStrings
     const wchar_t* openFailed;
     const wchar_t* syntaxHighlighter;
     const wchar_t* automatic;
+    const wchar_t* colors;
+    const wchar_t* visualStudio;
+    const wchar_t* defaultPrism;
+    const wchar_t* customPalette;
+    const wchar_t* editCustom;
+    const wchar_t* editCustomTitle;
+    const wchar_t* save;
+    const wchar_t* cancel;
+    const wchar_t* light;
+    const wchar_t* dark;
+    const wchar_t* tokenComment;
+    const wchar_t* tokenPunctuation;
+    const wchar_t* tokenKeyword;
+    const wchar_t* tokenControlKeyword;
+    const wchar_t* tokenClassName;
+    const wchar_t* tokenFunction;
+    const wchar_t* tokenString;
+    const wchar_t* tokenNumber;
+    const wchar_t* tokenBoolean;
+    const wchar_t* tokenVariable;
+    const wchar_t* tokenNamespace;
+    const wchar_t* tokenRegex;
+    const wchar_t* saveFailed;
+    const wchar_t* uiUnavailable;
 };
 
 struct NativeViewerRequest
@@ -59,6 +84,7 @@ struct NativeViewerRequest
     LOGFONT menuFont;
     CSalamanderGUIAbstract* gui;
     LOGFONT viewerFont;
+    CSalamanderGeneralAbstract* general;
 };
 
 bool NativeViewer_EnsureInitialized();

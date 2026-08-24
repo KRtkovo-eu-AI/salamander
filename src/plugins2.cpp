@@ -2393,25 +2393,38 @@ void CPlugins::CheckData()
         }
     }
 
+}
+
+void CPlugins::CheckViewerData()
+{
+    CALL_STACK_MESSAGE1("CPlugins::CheckViewerData()");
     CViewerMasks* viewerMasks;
     MainWindow->EnterViewerMasksCS();
-    int k;
-    for (k = 0; k < 2; k++)
+    for (int k = 0; k < 2; ++k)
     {
-        if (k == 0)
-            viewerMasks = MainWindow->ViewerMasks;
-        else
-            viewerMasks = MainWindow->AltViewerMasks;
-        for (i = 0; i < viewerMasks->Count; i++)
+        viewerMasks = k == 0 ? MainWindow->ViewerMasks : MainWindow->AltViewerMasks;
+        for (int i = 0; i < viewerMasks->Count; ++i)
         {
-            int t = viewerMasks->At(i)->ViewerType;
-            if (t != VIEWER_EXTERNAL &&                 // not external
-                t != VIEWER_INTERNAL &&                 // not internal
-                (t > 0 || Plugins.Get(-t - 1) == NULL)) // not a plugin either
+            const int type = viewerMasks->At(i)->ViewerType;
+            if (type == VIEWER_EXTERNAL || type == VIEWER_INTERNAL)
+                continue;
+            if (type < 0)
             {
-                TRACE_E("Invalid viewer-type in (Alt)ViewerMasks, masks = " << (viewerMasks->At(i)->Masks != NULL ? viewerMasks->At(i)->Masks->GetMasksString() : "NULL"));
-                viewerMasks->Delete(i--);
+                if (Get(-type - 1) == NULL)
+                {
+                    // Keep unresolved plug-in associations. The plug-in list can be
+                    // temporarily incomplete during an update or a partial local build;
+                    // deleting these rows would make the next configuration save permanent.
+                    TRACE_E("Unresolved plug-in viewer-type preserved in (Alt)ViewerMasks, masks = "
+                            << (viewerMasks->At(i)->Masks != NULL
+                                    ? viewerMasks->At(i)->Masks->GetMasksString() : "NULL"));
+                }
+                continue;
             }
+            TRACE_E("Invalid viewer-type in (Alt)ViewerMasks, masks = "
+                    << (viewerMasks->At(i)->Masks != NULL
+                            ? viewerMasks->At(i)->Masks->GetMasksString() : "NULL"));
+            viewerMasks->Delete(i--);
         }
     }
     MainWindow->LeaveViewerMasksCS();

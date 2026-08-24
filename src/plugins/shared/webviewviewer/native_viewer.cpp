@@ -19,13 +19,21 @@
 
 #include "native_viewer.h"
 #include "../plugindarkmode.h"
+#include "../salamatrix/salamatrix_ui.h"
+#include "../spl_gen.h"
 
 #include <algorithm>
 #include <atomic>
+#include <cerrno>
 #include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <cwchar>
 #include <memory>
 #include <mutex>
+#include <new>
 #include <string>
+#include <utility>
 #include <vector>
 
 #pragma comment(lib, "shlwapi.lib")
@@ -40,6 +48,14 @@ constexpr UINT WM_NV_APPLY_ZOOM = WM_APP + 0x632;
 constexpr UINT WM_NV_CREATE_VIEWER = WM_APP + 0x633;
 constexpr UINT WM_NV_STOP_HOST = WM_APP + 0x634;
 constexpr UINT WM_NV_PREWARM_ENVIRONMENT = WM_APP + 0x635;
+constexpr UINT WM_NV_PREPARATION_COMPLETE = WM_APP + 0x636;
+constexpr size_t NV_PRISM_VIRTUAL_THRESHOLD = 512U * 1024U;
+constexpr size_t NV_PRISM_FILE_LIMIT = 16U * 1024U * 1024U;
+constexpr size_t NV_MARKDOWN_FILE_LIMIT = 32U * 1024U * 1024U;
+constexpr size_t NV_VIRTUAL_CHUNK_LINES = 80;
+constexpr size_t NV_VIRTUAL_CHUNK_CHARS = 96U * 1024U;
+static_assert(NV_PRISM_VIRTUAL_THRESHOLD > NV_VIRTUAL_CHUNK_CHARS,
+              "virtual highlighting chunks must stay smaller than the old full-document threshold");
 constexpr int IDC_NV_STATUS = 101;
 constexpr int IDM_NV_CLOSE = 40001;
 constexpr int IDM_NV_REFRESH = 40002;
@@ -49,6 +65,13 @@ constexpr int IDM_NV_ZOOM_RESET = 40005;
 constexpr int IDM_NV_LINE_NUMBERS = 40006;
 constexpr int IDM_NV_WRAP_LINES = 40007;
 constexpr int IDM_NV_SHOW_WHITESPACE = 40008;
+constexpr int IDM_NV_COLORS_VISUAL_STUDIO = 40009;
+constexpr int IDM_NV_COLORS_PRISM = 40010;
+constexpr int IDM_NV_COLORS_CUSTOM = 40011;
+constexpr int IDM_NV_COLORS_EDIT_CUSTOM = 40012;
+constexpr DWORD NV_PALETTE_VISUAL_STUDIO = 0;
+constexpr DWORD NV_PALETTE_PRISM = 1;
+constexpr DWORD NV_PALETTE_CUSTOM = 2;
 constexpr int IDM_NV_SYNTAX_AUTOMATIC = 40999;
 constexpr int IDM_NV_SYNTAX_FIRST = 41000;
 constexpr int IDC_NV_ZOOM_RESET = 40101;
@@ -82,6 +105,22 @@ HANDLE gViewerHostReady = nullptr;
 ComPtr<ICoreWebView2Environment> gSharedEnvironment;
 std::vector<HWND> gPendingEnvironmentWindows;
 bool gCreatingSharedEnvironment = false;
+std::atomic<uint64_t> gNextPreparationGeneration(1);
+
+template <typename T, typename... Args>
+T* NewNoThrow(Args&&... args)
+{
+#ifdef new
+#define SAL_RESTORE_DEBUG_NEW_NOTHROW
+#undef new
+#endif
+    T* value = new (std::nothrow) T(std::forward<Args>(args)...);
+#ifdef SAL_RESTORE_DEBUG_NEW_NOTHROW
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef SAL_RESTORE_DEBUG_NEW_NOTHROW
+#endif
+    return value;
+}
 
 using CreateWebView2EnvironmentFn = HRESULT(STDAPICALLTYPE*)(
     PCWSTR, PCWSTR, ICoreWebView2EnvironmentOptions*,
@@ -159,6 +198,39 @@ void WriteViewerSetting(const wchar_t* name, DWORD value)
     }
 }
 
+std::wstring ReadViewerSettingString(const wchar_t* name)
+{
+    DWORD size = 0;
+    if (name == nullptr ||
+        RegGetValueW(HKEY_CURRENT_USER, kViewerSettingsKey, name, RRF_RT_REG_SZ, nullptr, nullptr,
+                     &size) != ERROR_SUCCESS ||
+        size < sizeof(wchar_t))
+        return {};
+    std::wstring value(size / sizeof(wchar_t), L'\0');
+    if (RegGetValueW(HKEY_CURRENT_USER, kViewerSettingsKey, name, RRF_RT_REG_SZ, nullptr, value.data(),
+                     &size) != ERROR_SUCCESS)
+        return {};
+    if (!value.empty() && value.back() == L'\0')
+        value.pop_back();
+    const size_t length = wcsnlen(value.c_str(), value.size());
+    value.resize(length);
+    return value;
+}
+
+bool WriteViewerSettingString(const wchar_t* name, const std::wstring& value)
+{
+    HKEY key = nullptr;
+    if (name == nullptr ||
+        RegCreateKeyExW(HKEY_CURRENT_USER, kViewerSettingsKey, 0, nullptr, 0, KEY_SET_VALUE,
+                        nullptr, &key, nullptr) != ERROR_SUCCESS)
+        return false;
+    const DWORD bytes = static_cast<DWORD>((value.size() + 1) * sizeof(wchar_t));
+    const LSTATUS status = RegSetValueExW(key, name, 0, REG_SZ,
+                                          reinterpret_cast<const BYTE*>(value.c_str()), bytes);
+    RegCloseKey(key);
+    return status == ERROR_SUCCESS;
+}
+
 std::wstring CopyString(const wchar_t* value)
 {
     return value != nullptr ? value : L"";
@@ -210,7 +282,7 @@ std::wstring PrismLanguageForExtension(const std::wstring& extension)
     std::wstring value = extension.empty() ? L"none" : extension.substr(1);
     struct Mapping { const wchar_t* extension; const wchar_t* language; };
     static const Mapping mappings[] = {
-        {L"axaml", L"markup"}, {L"cmd", L"batch"}, {L"config", L"markup"},
+        {L"axaml", L"markup"}, {L"bat", L"batch"}, {L"cmd", L"batch"}, {L"config", L"markup"},
         {L"cs", L"csharp"}, {L"csproj", L"markup"}, {L"cxx", L"cpp"}, {L"fsproj", L"markup"},
         {L"h", L"c"}, {L"hh", L"cpp"}, {L"hpp", L"cpp"}, {L"hxx", L"cpp"},
         {L"htm", L"markup"}, {L"html", L"markup"}, {L"js", L"javascript"},
@@ -549,6 +621,18 @@ std::string WideToUtf8(const std::wstring& value)
     return result;
 }
 
+std::wstring Utf8ToWideText(const std::string& value)
+{
+    if (value.empty())
+        return {};
+    int count = MultiByteToWideChar(CP_UTF8, 0, value.data(), static_cast<int>(value.size()), nullptr, 0);
+    if (count <= 0)
+        return {};
+    std::wstring result(static_cast<size_t>(count), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, value.data(), static_cast<int>(value.size()), result.data(), count);
+    return result;
+}
+
 std::wstring Utf8ToWide(const std::vector<unsigned char>& value)
 {
     if (value.empty())
@@ -658,6 +742,250 @@ bool RenderMarkdown(HINSTANCE module, const std::wstring& markdown, std::wstring
     return true;
 }
 
+void AddLazyImageAttributes(std::wstring& html)
+{
+    const auto hasAttribute = [](const std::wstring& tag, const wchar_t* name)
+    {
+        const size_t nameLength = wcslen(name);
+        size_t found = 0;
+        while ((found = tag.find(name, found)) != std::wstring::npos)
+        {
+            const bool startsAttribute = found > 0 && iswspace(tag[found - 1]);
+            size_t after = found + nameLength;
+            while (after < tag.size() && iswspace(tag[after]))
+                ++after;
+            if (startsAttribute && (after == tag.size() || tag[after] == L'=' ||
+                                    tag[after] == L'/' || tag[after] == L'>'))
+                return true;
+            found += nameLength;
+        }
+        return false;
+    };
+    size_t position = 0;
+    while ((position = html.find(L'<', position)) != std::wstring::npos)
+    {
+        if (position + 4 > html.size() ||
+            towlower(html[position + 1]) != L'i' ||
+            towlower(html[position + 2]) != L'm' ||
+            towlower(html[position + 3]) != L'g' ||
+            (position + 4 < html.size() && !iswspace(html[position + 4]) &&
+             html[position + 4] != L'/' && html[position + 4] != L'>'))
+        {
+            ++position;
+            continue;
+        }
+        wchar_t quote = 0;
+        size_t end = position + 4;
+        for (; end < html.size(); ++end)
+        {
+            const wchar_t ch = html[end];
+            if (quote != 0)
+            {
+                if (ch == quote)
+                    quote = 0;
+            }
+            else if (ch == L'\'' || ch == L'"')
+                quote = ch;
+            else if (ch == L'>')
+                break;
+        }
+        if (end == html.size())
+            break;
+        std::wstring tag = html.substr(position, end - position + 1);
+        std::wstring lower = tag;
+        std::transform(lower.begin(), lower.end(), lower.begin(), towlower);
+        std::wstring attributes;
+        if (!hasAttribute(lower, L"loading"))
+            attributes += L" loading=\"lazy\"";
+        if (!hasAttribute(lower, L"decoding"))
+            attributes += L" decoding=\"async\"";
+        if (!hasAttribute(lower, L"fetchpriority"))
+            attributes += L" fetchpriority=\"low\"";
+        if (!attributes.empty())
+        {
+            const size_t insert = end > position && html[end - 1] == L'/' ? end - 1 : end;
+            html.insert(insert, attributes);
+            position = end + attributes.size() + 1;
+        }
+        else
+            position = end + 1;
+    }
+}
+
+enum class PreparationKind
+{
+    PrismVirtual,
+    Markdown
+};
+
+struct PreparationTarget
+{
+    std::atomic<long> references{1};
+    std::mutex lock;
+    bool alive = true;
+};
+
+void ReleasePreparationTarget(PreparationTarget* target)
+{
+    if (target != nullptr && target->references.fetch_sub(1) == 1)
+        delete target;
+}
+
+struct PreparationContext
+{
+    HWND window = nullptr;
+    PreparationTarget* target = nullptr;
+    uint64_t generation = 0;
+    HINSTANCE module = nullptr;
+    std::wstring path;
+    bool markdown = false;
+};
+
+struct PreparationResult
+{
+    uint64_t generation = 0;
+    PreparationKind kind = PreparationKind::PrismVirtual;
+    DWORD error = ERROR_SUCCESS;
+    std::wstring text;
+    std::wstring renderError;
+    std::vector<size_t> lineStarts;
+};
+
+DWORD WINAPI PrepareDocumentWorker(void* parameter)
+{
+    std::unique_ptr<PreparationContext> context(static_cast<PreparationContext*>(parameter));
+    PreparationResult* result = NewNoThrow<PreparationResult>();
+    if (result == nullptr)
+    {
+        {
+            std::lock_guard<std::mutex> guard(context->target->lock);
+            if (context->target->alive)
+                PostMessageW(context->window, WM_NV_PREPARATION_COMPLETE,
+                             static_cast<WPARAM>(context->generation), 0);
+        }
+        ReleasePreparationTarget(context->target);
+        return 0;
+    }
+    result->generation = context->generation;
+
+    std::vector<unsigned char> bytes;
+    if (!ReadFileBytes(context->path, bytes))
+    {
+        const DWORD error = GetLastError();
+        result->error = error == ERROR_SUCCESS ? ERROR_READ_FAULT : error;
+    }
+    else if (bytes.size() > (context->markdown ? NV_MARKDOWN_FILE_LIMIT : NV_PRISM_FILE_LIMIT))
+        result->error = ERROR_FILE_TOO_LARGE;
+    else
+    {
+        result->text = DecodeText(bytes);
+        if (context->markdown)
+        {
+            result->kind = PreparationKind::Markdown;
+            std::wstring fragment;
+            if (!RenderMarkdown(context->module, result->text, fragment, result->renderError))
+                result->error = ERROR_INVALID_DATA;
+            else
+            {
+                AddLazyImageAttributes(fragment);
+                result->text = std::move(fragment);
+            }
+        }
+        else
+        {
+            result->kind = PreparationKind::PrismVirtual;
+            result->lineStarts.reserve(1 + result->text.size() / 40);
+            result->lineStarts.push_back(0);
+            for (size_t index = 0; index < result->text.size(); ++index)
+                if (result->text[index] == L'\n')
+                    result->lineStarts.push_back(index + 1);
+        }
+    }
+
+    {
+        std::lock_guard<std::mutex> guard(context->target->lock);
+        if (!context->target->alive ||
+            !PostMessageW(context->window, WM_NV_PREPARATION_COMPLETE, 0,
+                          reinterpret_cast<LPARAM>(result)))
+            delete result;
+    }
+    ReleasePreparationTarget(context->target);
+    return 0;
+}
+
+std::wstring JsonString(const std::wstring& value)
+{
+    static const wchar_t hex[] = L"0123456789ABCDEF";
+    std::wstring result;
+    result.reserve(value.size() + 2);
+    result.push_back(L'"');
+    for (size_t index = 0; index < value.size(); ++index)
+    {
+        const wchar_t ch = value[index];
+        switch (ch)
+        {
+        case L'"': result += L"\\\""; break;
+        case L'\\': result += L"\\\\"; break;
+        case L'\b': result += L"\\b"; break;
+        case L'\f': result += L"\\f"; break;
+        case L'\n': result += L"\\n"; break;
+        case L'\r': result += L"\\r"; break;
+        case L'\t': result += L"\\t"; break;
+        default:
+            if (ch < 0x20 || (ch >= 0xD800 && ch <= 0xDFFF))
+            {
+                wchar_t escaped[] = {L'\\', L'u', hex[(ch >> 12) & 15], hex[(ch >> 8) & 15],
+                                     hex[(ch >> 4) & 15], hex[ch & 15], 0};
+                if (ch >= 0xD800 && ch <= 0xDBFF &&
+                    (index + 1 >= value.size() || value[index + 1] < 0xDC00 || value[index + 1] > 0xDFFF))
+                    result += L"\\uFFFD";
+                else if (ch >= 0xDC00 && ch <= 0xDFFF &&
+                         (index == 0 || value[index - 1] < 0xD800 || value[index - 1] > 0xDBFF))
+                    result += L"\\uFFFD";
+                else
+                    result += escaped;
+            }
+            else
+                result.push_back(ch);
+            break;
+        }
+    }
+    result.push_back(L'"');
+    return result;
+}
+
+bool IsMarkupPrismLanguage(std::wstring language)
+{
+    std::transform(language.begin(), language.end(), language.begin(), towlower);
+    static const wchar_t* const names[] = {
+        L"markup", L"xml", L"html", L"htm", L"xhtml", L"svg", L"mathml", L"ssml",
+        L"atom", L"rss", L"config", L"targets", L"props", L"csproj", L"fsproj",
+        L"vbproj", L"vcxproj", L"vcproj", L"xaml", L"axaml", L"nuspec", L"plist",
+        L"storyboard", L"xlf"
+    };
+    for (const wchar_t* name : names)
+        if (language == name)
+            return true;
+    return false;
+}
+
+size_t RFindTokenBefore(const std::wstring& text, const wchar_t* token, size_t offset)
+{
+    const size_t tokenLength = wcslen(token);
+    if (offset < tokenLength)
+        return std::wstring::npos;
+    return text.rfind(token, offset - tokenLength);
+}
+
+bool MarkupCommentOpenAt(const std::wstring& text, size_t offset)
+{
+    const size_t open = RFindTokenBefore(text, L"<!--", offset);
+    if (open == std::wstring::npos)
+        return false;
+    const size_t close = RFindTokenBefore(text, L"-->", offset);
+    return close == std::wstring::npos || open > close;
+}
+
 struct ViewerParameters
 {
     HINSTANCE module = nullptr;
@@ -688,13 +1016,280 @@ struct ViewerParameters
     std::wstring openFailed;
     std::wstring syntaxHighlighter;
     std::wstring automatic;
+    std::wstring colors;
+    std::wstring visualStudio;
+    std::wstring defaultPrism;
+    std::wstring customPalette;
+    std::wstring editCustom;
+    std::wstring editCustomTitle;
+    std::wstring save;
+    std::wstring cancel;
+    std::wstring light;
+    std::wstring dark;
+    std::wstring tokenComment;
+    std::wstring tokenPunctuation;
+    std::wstring tokenKeyword;
+    std::wstring tokenControlKeyword;
+    std::wstring tokenClassName;
+    std::wstring tokenFunction;
+    std::wstring tokenString;
+    std::wstring tokenNumber;
+    std::wstring tokenBoolean;
+    std::wstring tokenVariable;
+    std::wstring tokenNamespace;
+    std::wstring tokenRegex;
+    std::wstring saveFailed;
+    std::wstring uiUnavailable;
     LOGFONT viewerFont = {};
+    CSalamanderGeneralAbstract* general = nullptr;
 };
+
+constexpr size_t kPrismTokenCount = 12;
+const char* const kPrismTokenKeys[kPrismTokenCount] = {
+    "comment", "punctuation", "keyword", "controlKeyword", "className",
+    "function", "string", "number", "boolean", "variable", "namespace", "regex"
+};
+const COLORREF kPrismTokenLightDefaults[kPrismTokenCount] = {
+    RGB(0x00, 0x80, 0x00), RGB(0x00, 0x00, 0x00), RGB(0x00, 0x00, 0xff), RGB(0x00, 0x00, 0xff),
+    RGB(0x2b, 0x91, 0xaf), RGB(0x00, 0x00, 0x00), RGB(0xa3, 0x15, 0x15), RGB(0x09, 0x86, 0x58),
+    RGB(0x00, 0x00, 0xff), RGB(0x00, 0x00, 0x00), RGB(0x00, 0x00, 0x00), RGB(0x81, 0x1f, 0x3f)
+};
+const COLORREF kPrismTokenDarkDefaults[kPrismTokenCount] = {
+    RGB(0x6a, 0x99, 0x55), RGB(0xd4, 0xd4, 0xd4), RGB(0x56, 0x9c, 0xd6), RGB(0xc5, 0x86, 0xc0),
+    RGB(0x4e, 0xc9, 0xb0), RGB(0xdc, 0xdc, 0xaa), RGB(0xce, 0x91, 0x78), RGB(0xb5, 0xce, 0xa8),
+    RGB(0x56, 0x9c, 0xd6), RGB(0x9c, 0xdc, 0xfe), RGB(0xd4, 0xd4, 0xd4), RGB(0xd1, 0x69, 0x69)
+};
+
+std::wstring CustomPalettePath()
+{
+    return PrismAssetsDirectory() + L"\\viewer\\custom-palette.json";
+}
+
+std::string Utf8Or(const std::wstring& value, const char* fallback)
+{
+    std::string utf8 = WideToUtf8(value);
+    return utf8.empty() ? std::string(fallback) : utf8;
+}
+
+std::string ColorToHex(COLORREF color)
+{
+    char text[8];
+    sprintf_s(text, "#%02x%02x%02x", GetRValue(color), GetGValue(color), GetBValue(color));
+    return text;
+}
+
+bool ParseHexColor(const std::string& text, COLORREF& color)
+{
+    if (text.size() != 7 || text[0] != '#')
+        return false;
+    unsigned red = 0;
+    unsigned green = 0;
+    unsigned blue = 0;
+    if (sscanf_s(text.c_str() + 1, "%02x%02x%02x", &red, &green, &blue) != 3)
+        return false;
+    color = RGB(red, green, blue);
+    return true;
+}
+
+bool FindJsonObject(const std::string& json, const char* name, size_t& begin, size_t& end)
+{
+    const std::string key = std::string("\"") + name + "\"";
+    size_t pos = json.find(key);
+    if (pos == std::string::npos)
+        return false;
+    pos = json.find('{', pos);
+    if (pos == std::string::npos)
+        return false;
+    int depth = 1;
+    size_t index = pos + 1;
+    while (index < json.size() && depth > 0)
+    {
+        if (json[index] == '{')
+            ++depth;
+        else if (json[index] == '}')
+            --depth;
+        ++index;
+    }
+    if (depth != 0)
+        return false;
+    begin = pos;
+    end = index;
+    return true;
+}
+
+bool ReadTokenColor(const std::string& json, size_t begin, size_t end, const char* key, COLORREF& color)
+{
+    const std::string needle = std::string("\"") + key + "\"";
+    size_t pos = json.find(needle, begin);
+    if (pos == std::string::npos || pos >= end)
+        return false;
+    pos = json.find(':', pos);
+    if (pos == std::string::npos || pos >= end)
+        return false;
+    pos = json.find('"', pos);
+    if (pos == std::string::npos || pos + 8 >= end)
+        return false;
+    return ParseHexColor(json.substr(pos + 1, 7), color);
+}
+
+bool ParseCustomPaletteJson(const std::string& json, COLORREF light[kPrismTokenCount], COLORREF dark[kPrismTokenCount])
+{
+    size_t lightBegin = 0;
+    size_t lightEnd = 0;
+    size_t darkBegin = 0;
+    size_t darkEnd = 0;
+    if (!FindJsonObject(json, "light", lightBegin, lightEnd) ||
+        !FindJsonObject(json, "dark", darkBegin, darkEnd))
+        return false;
+    for (size_t index = 0; index < kPrismTokenCount; ++index)
+    {
+        ReadTokenColor(json, lightBegin, lightEnd, kPrismTokenKeys[index], light[index]);
+        ReadTokenColor(json, darkBegin, darkEnd, kPrismTokenKeys[index], dark[index]);
+    }
+    return true;
+}
+
+bool ReadCustomPaletteFile(COLORREF light[kPrismTokenCount], COLORREF dark[kPrismTokenCount])
+{
+    memcpy(light, kPrismTokenLightDefaults, sizeof(kPrismTokenLightDefaults));
+    memcpy(dark, kPrismTokenDarkDefaults, sizeof(kPrismTokenDarkDefaults));
+    const std::wstring stored = ReadViewerSettingString(L"PrismCustomPalette");
+    if (!stored.empty() && ParseCustomPaletteJson(WideToUtf8(stored), light, dark))
+        return true;
+    const std::wstring path = CustomPalettePath();
+    HANDLE handle = CreateFileW(ToIoPath(path).c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
+                                OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (handle == INVALID_HANDLE_VALUE)
+        return false;
+    LARGE_INTEGER size = {};
+    std::string json;
+    bool ok = GetFileSizeEx(handle, &size) && size.QuadPart > 0 && size.QuadPart < 64 * 1024;
+    if (ok)
+    {
+        json.resize(static_cast<size_t>(size.QuadPart));
+        ok = ReadAll(handle, json.data(), json.size());
+    }
+    CloseHandle(handle);
+    return ok && ParseCustomPaletteJson(json, light, dark);
+}
+
+std::string FormatPaletteMapsJson(const COLORREF light[kPrismTokenCount], const COLORREF dark[kPrismTokenCount])
+{
+    std::string json = "{\"light\":{";
+    for (size_t index = 0; index < kPrismTokenCount; ++index)
+    {
+        json += "\"";
+        json += kPrismTokenKeys[index];
+        json += "\":\"";
+        json += ColorToHex(light[index]);
+        json += index + 1 < kPrismTokenCount ? "\"," : "\"";
+    }
+    json += "},\"dark\":{";
+    for (size_t index = 0; index < kPrismTokenCount; ++index)
+    {
+        json += "\"";
+        json += kPrismTokenKeys[index];
+        json += "\":\"";
+        json += ColorToHex(dark[index]);
+        json += index + 1 < kPrismTokenCount ? "\"," : "\"";
+    }
+    json += "}}";
+    return json;
+}
+
+std::string FormatCustomPaletteJson(const COLORREF light[kPrismTokenCount], const COLORREF dark[kPrismTokenCount])
+{
+    std::string json =
+        "{\n"
+        "  \"_comment\": \"Prism Text Viewer custom token colors. Choose Colors > Custom, or Colors > Edit Custom.\",\n"
+        "  \"light\": {\n";
+    for (size_t index = 0; index < kPrismTokenCount; ++index)
+    {
+        json += "    \"";
+        json += kPrismTokenKeys[index];
+        json += "\": \"";
+        json += ColorToHex(light[index]);
+        json += index + 1 < kPrismTokenCount ? "\",\n" : "\"\n";
+    }
+    json += "  },\n  \"dark\": {\n";
+    for (size_t index = 0; index < kPrismTokenCount; ++index)
+    {
+        json += "    \"";
+        json += kPrismTokenKeys[index];
+        json += "\": \"";
+        json += ColorToHex(dark[index]);
+        json += index + 1 < kPrismTokenCount ? "\",\n" : "\"\n";
+    }
+    json += "  }\n}\n";
+    return json;
+}
+
+void AppendCustomPaletteJson(std::wstring& json, const COLORREF* light, const COLORREF* dark)
+{
+    COLORREF lightColors[kPrismTokenCount];
+    COLORREF darkColors[kPrismTokenCount];
+    if (light == nullptr || dark == nullptr)
+        ReadCustomPaletteFile(lightColors, darkColors);
+    json += L",\"custom\":";
+    json += Utf8ToWideText(FormatPaletteMapsJson(
+        light != nullptr ? light : lightColors,
+        dark != nullptr ? dark : darkColors));
+}
+
+bool WriteCustomPaletteFile(const COLORREF light[kPrismTokenCount], const COLORREF dark[kPrismTokenCount])
+{
+    const std::string json = FormatCustomPaletteJson(light, dark);
+    const bool stored = WriteViewerSettingString(L"PrismCustomPalette", Utf8ToWideText(json));
+    const std::wstring path = CustomPalettePath();
+    const std::wstring ioPath = ToIoPath(path);
+    HANDLE handle = CreateFileW(ioPath.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
+                                FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (handle == INVALID_HANDLE_VALUE)
+        return stored;
+    const bool written = WriteAll(handle, json.data(), json.size());
+    CloseHandle(handle);
+    return written || stored;
+}
+
+Salamatrix::UI::IUIService* QueryViewerUI(CSalamanderGeneralAbstract* general)
+{
+    if (general == nullptr)
+        return nullptr;
+    CSalamanderServiceQuery query = {};
+    query.ServiceId = SALAMATRIX_SERVICE_UI;
+    query.MinimumVersion = SALAMATRIX_UI_VERSION_1_2;
+    CSalamanderServiceResult result = {};
+    return general->QueryService(&query, &result)
+               ? static_cast<Salamatrix::UI::IUIService*>(result.Interface)
+               : nullptr;
+}
+
+Salamatrix::UI::IControl* AddPaletteControl(
+    Salamatrix::UI::IDialog* dialog,
+    Salamatrix::UI::ControlKind kind,
+    const char* id,
+    const char* text,
+    int x, int y, int width, int height,
+    int dialogResult = 0)
+{
+    Salamatrix::UI::ControlOptions options;
+    options.Id = id;
+    options.Text = text;
+    options.DialogResult = dialogResult;
+    Salamatrix::UI::ControlLayout layout;
+    layout.HasBounds = TRUE;
+    layout.X = x;
+    layout.Y = y;
+    layout.Width = width;
+    layout.Height = height;
+    return dialog->AddControlEx(kind, options, layout);
+}
 
 class ViewerWindow
 {
 public:
-    explicit ViewerWindow(std::unique_ptr<ViewerParameters> parameters) : parameters_(std::move(parameters))
+    explicit ViewerWindow(std::unique_ptr<ViewerParameters> parameters)
+        : parameters_(std::move(parameters)), preparationTarget_(NewNoThrow<PreparationTarget>())
     {
         zoomPercent_ = static_cast<int>(ReadViewerSetting(L"ZoomPercent", 100));
         zoomPercent_ = (std::max)(25, (std::min)(zoomPercent_, 500));
@@ -703,15 +1298,17 @@ public:
             showLineNumbers_ = ReadViewerSetting(L"PrismLineNumbers", 0) != 0;
             wrapLines_ = ReadViewerSetting(L"PrismWrapLines", 0) != 0;
             showWhitespace_ = ReadViewerSetting(L"PrismShowWhitespace", 0) != 0;
+            colorPalette_ = ReadViewerSetting(L"PrismColorPalette", NV_PALETTE_VISUAL_STUDIO);
+            if (colorPalette_ > NV_PALETTE_CUSTOM)
+                colorPalette_ = NV_PALETTE_VISUAL_STUDIO;
             automaticLanguage_ = PrismLanguageForExtension(ExtensionOf(parameters_->filePath));
             installedLanguages_ = InstalledPrismLanguages();
-            if (!std::binary_search(installedLanguages_.begin(), installedLanguages_.end(), automaticLanguage_))
-                automaticLanguage_ = L"none";
             activeLanguage_ = automaticLanguage_;
         }
     }
     ~ViewerWindow()
     {
+        ClosePreparationTarget();
         CloseBrowser();
         if (parameters_->gui != nullptr && menuBar_ != nullptr)
             parameters_->gui->DestroyMenuBar(menuBar_);
@@ -739,6 +1336,7 @@ public:
         if (message == WM_NCDESTROY)
         {
             SetWindowLongPtrW(window, GWLP_USERDATA, 0);
+            self->ClosePreparationTarget();
             delete self;
         }
         return result;
@@ -794,6 +1392,7 @@ private:
 
     CGUIMenuPopupAbstract* mainMenu_ = nullptr;
     CGUIMenuBarAbstract* menuBar_ = nullptr;
+    CGUIMenuPopupAbstract* colorsMenu_ = nullptr;
     CGUIMenuPopupAbstract* syntaxMenu_ = nullptr;
 
     std::wstring WindowTitle() const
@@ -839,6 +1438,20 @@ private:
         AppendMenuW(bar, MF_POPUP, reinterpret_cast<UINT_PTR>(view), viewCaption.c_str());
         if (parameters_->kind == NativeViewerKind::PrismText)
         {
+            HMENU colors = CreatePopupMenu();
+            AppendMenuW(colors, MF_STRING, IDM_NV_COLORS_VISUAL_STUDIO,
+                        (parameters_->visualStudio.empty() ? L"&Visual Studio" : parameters_->visualStudio.c_str()));
+            AppendMenuW(colors, MF_STRING, IDM_NV_COLORS_PRISM,
+                        (parameters_->defaultPrism.empty() ? L"Default &Prism" : parameters_->defaultPrism.c_str()));
+            AppendMenuW(colors, MF_SEPARATOR, 0, nullptr);
+            AppendMenuW(colors, MF_STRING, IDM_NV_COLORS_CUSTOM,
+                        (parameters_->customPalette.empty() ? L"&Custom" : parameters_->customPalette.c_str()));
+            AppendMenuW(colors, MF_SEPARATOR, 0, nullptr);
+            AppendMenuW(colors, MF_STRING, IDM_NV_COLORS_EDIT_CUSTOM,
+                        (parameters_->editCustom.empty() ? L"Edit &Custom" : parameters_->editCustom.c_str()));
+            const std::wstring colorsCaption = L"  " +
+                (parameters_->colors.empty() ? std::wstring(L"&Colors") : parameters_->colors) + L"  ";
+            AppendMenuW(bar, MF_POPUP, reinterpret_cast<UINT_PTR>(colors), colorsCaption.c_str());
             HMENU syntax = CreatePopupMenu();
             AppendMenuW(syntax, MF_STRING, IDM_NV_SYNTAX_AUTOMATIC,
                         (parameters_->automatic.empty() ? L"&Automatic" : parameters_->automatic.c_str()));
@@ -932,6 +1545,24 @@ private:
         return true;
     }
 
+    bool CreateColorsMenu()
+    {
+        colorsMenu_ = parameters_->gui->CreateMenuPopup();
+        if (colorsMenu_ == nullptr)
+            return false;
+        AddMenuItem(colorsMenu_, parameters_->visualStudio.empty() ? L"&Visual Studio" : parameters_->visualStudio,
+                    IDM_NV_COLORS_VISUAL_STUDIO);
+        AddMenuItem(colorsMenu_, parameters_->defaultPrism.empty() ? L"Default &Prism" : parameters_->defaultPrism,
+                    IDM_NV_COLORS_PRISM);
+        AddMenuSeparator(colorsMenu_);
+        AddMenuItem(colorsMenu_, parameters_->customPalette.empty() ? L"&Custom" : parameters_->customPalette,
+                    IDM_NV_COLORS_CUSTOM);
+        AddMenuSeparator(colorsMenu_);
+        AddMenuItem(colorsMenu_, parameters_->editCustom.empty() ? L"Edit &Custom" : parameters_->editCustom,
+                    IDM_NV_COLORS_EDIT_CUSTOM);
+        return true;
+    }
+
     bool CreateCustomMenuBar()
     {
         if (parameters_->gui == nullptr)
@@ -953,16 +1584,19 @@ private:
             AddMenuItem(view, parameters_->lineNumbers, IDM_NV_LINE_NUMBERS);
             AddMenuItem(view, parameters_->wrapLines, IDM_NV_WRAP_LINES);
             AddMenuItem(view, parameters_->showWhitespace, IDM_NV_SHOW_WHITESPACE);
-            if (!CreateSyntaxHighlighterMenu())
+            if (!CreateColorsMenu() || !CreateSyntaxHighlighterMenu())
                 return false;
         }
         if (!AddMenuItem(mainMenu_, parameters_->fileMenu, 0, file) ||
             !AddMenuItem(mainMenu_, parameters_->viewMenu, 0, view) ||
             (parameters_->kind == NativeViewerKind::PrismText &&
-             !AddMenuItem(mainMenu_,
+             (!AddMenuItem(mainMenu_,
+                           parameters_->colors.empty() ? L"&Colors" : parameters_->colors,
+                           0, colorsMenu_) ||
+              !AddMenuItem(mainMenu_,
                           parameters_->syntaxHighlighter.empty() ? L"Syntax &Highlighter"
                                                                  : parameters_->syntaxHighlighter,
-                          0, syntaxMenu_)))
+                          0, syntaxMenu_))))
             return false;
         menuBar_ = parameters_->gui->CreateMenuBar(mainMenu_, window_);
         if (menuBar_ == nullptr || !menuBar_->CreateWnd(window_))
@@ -1055,6 +1689,10 @@ private:
         case WM_NV_APPLY_ZOOM:
             ApplyZoomEdit();
             return 0;
+        case WM_NV_PREPARATION_COMPLETE:
+            HandlePreparationResult(reinterpret_cast<PreparationResult*>(lParam),
+                                    static_cast<uint64_t>(wParam));
+            return 0;
         case WM_CLOSE:
             DestroyWindow(window_);
             return 0;
@@ -1083,6 +1721,29 @@ private:
         if (status_ == nullptr || loadProgress_ >= 100)
             return;
         SetWindowTextW(status_, (parameters_->loading + L" " + std::to_wstring(loadProgress_) + L" %").c_str());
+    }
+
+    void CompletePrismDisplay()
+    {
+        SetWindowTextW(status_, parameters_->ready.c_str());
+        ShowPrismBrowser();
+        loadProgress_ = 100;
+    }
+
+    void ShowPrismBrowser()
+    {
+        ApplyControllerZoom();
+        if (!browserVisible_ && controller_)
+        {
+            controller_->put_IsVisible(TRUE);
+            browserVisible_ = true;
+        }
+    }
+
+    void ApplyControllerZoom()
+    {
+        if (controller_)
+            controller_->put_ZoomFactor(static_cast<double>(zoomPercent_) / 100.0);
     }
 
     void ApplyChromeFont()
@@ -1269,6 +1930,39 @@ private:
                         self->SetLoadProgress(90);
                     return S_OK;
                 }).Get(), &navigationStartingToken_);
+        ComPtr<ICoreWebView2_2> webView2;
+        if (SUCCEEDED(webView_.As(&webView2)) && webView2)
+        {
+            webView2->add_DOMContentLoaded(
+                Callback<ICoreWebView2DOMContentLoadedEventHandler>(
+                    [viewerWindow](ICoreWebView2*, ICoreWebView2DOMContentLoadedEventArgs*) -> HRESULT
+                    {
+                        ViewerWindow* self = IsWindow(viewerWindow)
+                            ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(viewerWindow, GWLP_USERDATA)) : nullptr;
+                        if (self == nullptr || self->parameters_->kind != NativeViewerKind::RenderDocument)
+                            return S_OK;
+                        if (self->parameters_->theme.dark)
+                        {
+                            std::wstring script = L"(function(){if(!document||!document.documentElement)return;"
+                                L"document.documentElement.style.colorScheme='dark';"
+                                L"var s=document.getElementById('salamander-viewer-dark');if(!s){s=document.createElement('style');"
+                                L"s.id='salamander-viewer-dark';s.textContent=':where(html,body){background-color:" +
+                                CssColor(self->parameters_->theme.background) + L";color:" +
+                                CssColor(self->parameters_->theme.foreground) +
+                                L"}:where(a:link){color:" + CssColor(self->parameters_->theme.accent) +
+                                L"}';document.head.appendChild(s);}})();";
+                            self->webView_->ExecuteScript(script.c_str(), nullptr);
+                        }
+                        SetWindowTextW(self->status_, self->parameters_->ready.c_str());
+                        if (!self->browserVisible_ && self->controller_)
+                        {
+                            self->controller_->put_IsVisible(TRUE);
+                            self->browserVisible_ = true;
+                        }
+                        self->loadProgress_ = 100;
+                        return S_OK;
+                    }).Get(), &domContentLoadedToken_);
+        }
         controller_->add_ZoomFactorChanged(
             Callback<ICoreWebView2ZoomFactorChangedEventHandler>(
                 [viewerWindow](ICoreWebView2Controller* controller, IUnknown*) -> HRESULT
@@ -1282,6 +1976,8 @@ private:
                         {
                             self->UpdateZoomDisplay(static_cast<int>(zoom * 100.0 + 0.5));
                             WriteViewerSetting(L"ZoomPercent", static_cast<DWORD>(self->zoomPercent_));
+                            if (self->parameters_->kind == NativeViewerKind::PrismText && self->webView_)
+                                self->webView_->PostWebMessageAsString(L"salamander-resize");
                         }
                     }
                     return S_OK;
@@ -1324,8 +2020,12 @@ private:
                 }).Get(), &acceleratorToken_);
         webView_->add_WebMessageReceived(
                 Callback<ICoreWebView2WebMessageReceivedEventHandler>(
-                    [this](ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs* args) -> HRESULT
+                    [viewerWindow](ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs* args) -> HRESULT
                     {
+                        ViewerWindow* self = IsWindow(viewerWindow)
+                            ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(viewerWindow, GWLP_USERDATA)) : nullptr;
+                        if (self == nullptr)
+                            return S_OK;
                         LPWSTR message = nullptr;
                         if (args == nullptr || FAILED(args->TryGetWebMessageAsString(&message)) || message == nullptr)
                             return S_OK;
@@ -1334,24 +2034,69 @@ private:
                         CoTaskMemFree(message);
                         if (value == L"salamander-prism-ready")
                         {
-                            SetWindowTextW(status_, parameters_->ready.c_str());
-                            if (!browserVisible_ && controller_)
-                            {
-                                controller_->put_IsVisible(TRUE);
-                                browserVisible_ = true;
-                            }
-                            loadProgress_ = 100;
+                            self->CompletePrismDisplay();
                             return S_OK;
                         }
-                        if (parameters_->kind != NativeViewerKind::RenderDocument)
+                        if (value == L"salamander-prism-theme-ready")
+                        {
+                            self->ShowPrismBrowser();
+                            return S_OK;
+                        }
+                        if (value == L"salamander-virtual-ready")
+                        {
+                            self->virtualInitSent_ = false;
+                            self->PostVirtualInit();
+                            return S_OK;
+                        }
+                        constexpr wchar_t chunkPrefix[] = L"salamander-chunk:";
+                        if (value.compare(0, std::size(chunkPrefix) - 1, chunkPrefix) == 0)
+                        {
+                            self->HandleVirtualChunk(value);
+                            return S_OK;
+                        }
+                        if (self->parameters_->kind != NativeViewerKind::RenderDocument)
                             return S_OK;
                         constexpr wchar_t prefix[] = L"salamander-link:";
                         if (value == L"salamander-link-clear")
-                            SetWindowTextW(status_, parameters_->ready.c_str());
+                            SetWindowTextW(self->status_, self->parameters_->ready.c_str());
                         else if (value.compare(0, std::size(prefix) - 1, prefix) == 0)
-                            SetWindowTextW(status_, value.c_str() + (std::size(prefix) - 1));
+                            SetWindowTextW(self->status_, value.c_str() + (std::size(prefix) - 1));
                         return S_OK;
                     }).Get(), &webMessageToken_);
+        webView_->AddWebResourceRequestedFilter(
+            L"https://markdown.local/*", COREWEBVIEW2_WEB_RESOURCE_CONTEXT_DOCUMENT);
+        webView_->add_WebResourceRequested(
+            Callback<ICoreWebView2WebResourceRequestedEventHandler>(
+                [viewerWindow](ICoreWebView2*, ICoreWebView2WebResourceRequestedEventArgs* args) -> HRESULT
+                {
+                    ViewerWindow* self = IsWindow(viewerWindow)
+                        ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(viewerWindow, GWLP_USERDATA)) : nullptr;
+                    if (self == nullptr || args == nullptr || self->markdownDocumentUri_.empty())
+                        return S_OK;
+                    ComPtr<ICoreWebView2WebResourceRequest> request;
+                    LPWSTR uri = nullptr;
+                    if (FAILED(args->get_Request(&request)) || !request ||
+                        FAILED(request->get_Uri(&uri)) || uri == nullptr)
+                        return S_OK;
+                    const bool matches = self->markdownDocumentUri_ == uri;
+                    CoTaskMemFree(uri);
+                    if (!matches || self->markdownDocumentUtf8_.size() > UINT_MAX || !gSharedEnvironment)
+                        return S_OK;
+                    ComPtr<IStream> content;
+                    content.Attach(SHCreateMemStream(
+                        reinterpret_cast<const BYTE*>(self->markdownDocumentUtf8_.data()),
+                        static_cast<UINT>(self->markdownDocumentUtf8_.size())));
+                    if (!content)
+                        return E_OUTOFMEMORY;
+                    ComPtr<ICoreWebView2WebResourceResponse> response;
+                    HRESULT hr = gSharedEnvironment->CreateWebResourceResponse(
+                        content.Get(), 200, L"OK",
+                        L"Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store",
+                        &response);
+                    if (SUCCEEDED(hr) && response)
+                        hr = args->put_Response(response.Get());
+                    return hr;
+                }).Get(), &webResourceRequestedToken_);
 
         if (parameters_->kind == NativeViewerKind::RenderDocument)
         {
@@ -1362,34 +2107,28 @@ private:
                 L"if(a&&!a.contains(e.relatedTarget))window.chrome.webview.postMessage('salamander-link-clear');});})();";
             webView_->AddScriptToExecuteOnDocumentCreated(hoverScript, nullptr);
         }
-        controller_->put_ZoomFactor(static_cast<double>(zoomPercent_) / 100.0);
         webView_->add_NavigationCompleted(
             Callback<ICoreWebView2NavigationCompletedEventHandler>(
-                [this](ICoreWebView2*, ICoreWebView2NavigationCompletedEventArgs* args) -> HRESULT
+                [viewerWindow](ICoreWebView2*, ICoreWebView2NavigationCompletedEventArgs* args) -> HRESULT
                 {
+                    ViewerWindow* self = IsWindow(viewerWindow)
+                        ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(viewerWindow, GWLP_USERDATA)) : nullptr;
+                    if (self == nullptr)
+                        return S_OK;
                     BOOL success = FALSE;
                     args->get_IsSuccess(&success);
-                    if (!success || parameters_->kind != NativeViewerKind::PrismText)
-                        SetWindowTextW(status_, success ? parameters_->ready.c_str() : parameters_->openFailed.c_str());
-                    if (success && parameters_->theme.dark && parameters_->kind == NativeViewerKind::RenderDocument)
+                    if (success)
+                        self->ApplyControllerZoom();
+                    if (!success)
                     {
-                        std::wstring script = L"(function(){if(!document||!document.documentElement)return;"
-                            L"document.documentElement.style.colorScheme='dark';"
-                            L"var s=document.getElementById('salamander-viewer-dark');if(!s){s=document.createElement('style');"
-                            L"s.id='salamander-viewer-dark';s.textContent=':where(html,body){background-color:" +
-                            CssColor(parameters_->theme.background) + L";color:" + CssColor(parameters_->theme.foreground) +
-                            L"}:where(a:link){color:" + CssColor(parameters_->theme.accent) + L"}';document.head.appendChild(s);}})();";
-                        webView_->ExecuteScript(script.c_str(), nullptr);
+                        SetWindowTextW(self->status_, self->parameters_->openFailed.c_str());
+                        if (!self->browserVisible_ && self->controller_)
+                        {
+                            self->controller_->put_IsVisible(TRUE);
+                            self->browserVisible_ = true;
+                        }
+                        self->loadProgress_ = 100;
                     }
-                    // Show Prism's parsed source as soon as navigation completes;
-                    // syntax tokenization may still finish asynchronously.
-                    if (!browserVisible_ && controller_)
-                    {
-                        controller_->put_IsVisible(TRUE);
-                        browserVisible_ = true;
-                    }
-                    if (!success || parameters_->kind != NativeViewerKind::PrismText)
-                        loadProgress_ = 100;
                     return S_OK;
                 }).Get(), &navigationToken_);
     }
@@ -1407,261 +2146,520 @@ private:
         return L"https://document.local/" + UrlEncodePathSegment(FileNameOf(parameters_->filePath));
     }
 
+    struct PrismStyleMetrics
+    {
+        double fontSize = 13;
+        double lineHeight = 13;
+        double charWidth = 8;
+        double gutterWidth = 17;
+        std::wstring fontFace = L"Consolas";
+        int fontWeight = FW_NORMAL;
+        std::wstring fontStyle = L"normal";
+        std::wstring textDecoration = L"none";
+        std::wstring gutterForeground;
+        std::wstring gutterBackground;
+    };
+
+    PrismStyleMetrics GetPrismStyleMetrics(size_t lineCount)
+    {
+        PrismStyleMetrics style;
+        TEXTMETRIC viewerMetrics = {};
+        viewerMetrics.tmHeight = parameters_->viewerFont.lfHeight != 0
+                                     ? abs(parameters_->viewerFont.lfHeight) : 13;
+        viewerMetrics.tmAveCharWidth = 8;
+        HDC fontDC = GetDC(window_);
+        HFONT viewerFont = CreateFontIndirect(&parameters_->viewerFont);
+        if (fontDC != nullptr && viewerFont != nullptr)
+        {
+            HFONT oldFont = static_cast<HFONT>(SelectObject(fontDC, viewerFont));
+            GetTextMetrics(fontDC, &viewerMetrics);
+            SelectObject(fontDC, oldFont);
+        }
+        if (viewerFont != nullptr)
+            DeleteObject(viewerFont);
+        if (fontDC != nullptr)
+            ReleaseDC(window_, fontDC);
+        style.fontSize = parameters_->viewerFont.lfHeight != 0
+                           ? abs(parameters_->viewerFont.lfHeight) : 13;
+        style.lineHeight = (std::max)(viewerMetrics.tmHeight, 1L);
+        const double charPixelWidth = (std::max)(viewerMetrics.tmAveCharWidth, 1L);
+        style.charWidth = charPixelWidth;
+        int lineDigits = 1;
+        for (size_t value = lineCount; value >= 10; value /= 10)
+            ++lineDigits;
+        style.gutterWidth = 1.0 + (lineDigits + 1) * style.charWidth;
+        if (parameters_->viewerFont.lfFaceName[0] != '\0')
+        {
+            int length = MultiByteToWideChar(CP_ACP, 0, parameters_->viewerFont.lfFaceName,
+                                             -1, nullptr, 0);
+            if (length > 1)
+            {
+                std::vector<wchar_t> face(static_cast<size_t>(length));
+                if (MultiByteToWideChar(CP_ACP, 0, parameters_->viewerFont.lfFaceName, -1,
+                                        face.data(), length) > 0)
+                    style.fontFace.assign(face.data());
+            }
+        }
+        style.fontWeight = parameters_->viewerFont.lfWeight > 0
+                             ? parameters_->viewerFont.lfWeight : FW_NORMAL;
+        style.fontStyle = parameters_->viewerFont.lfItalic ? L"italic" : L"normal";
+        style.textDecoration = parameters_->viewerFont.lfUnderline ? L"underline"
+                               : parameters_->viewerFont.lfStrikeOut ? L"line-through" : L"none";
+        style.gutterBackground = parameters_->theme.dark ? L"#262626" : L"#f5f5f5";
+        style.gutterForeground = parameters_->theme.dark ? L"#a0a0a0" : L"#606060";
+        return style;
+    }
+
+    void ClosePreparationTarget()
+    {
+        if (preparationTarget_ == nullptr)
+            return;
+        {
+            std::lock_guard<std::mutex> guard(preparationTarget_->lock);
+            preparationTarget_->alive = false;
+            preparationGeneration_ = gNextPreparationGeneration.fetch_add(1);
+            MSG pending = {};
+            while (PeekMessageW(&pending, window_, WM_NV_PREPARATION_COMPLETE,
+                                WM_NV_PREPARATION_COMPLETE, PM_REMOVE))
+                delete reinterpret_cast<PreparationResult*>(pending.lParam);
+        }
+        ReleasePreparationTarget(preparationTarget_);
+        preparationTarget_ = nullptr;
+    }
+
+    void StartPreparation(bool markdown)
+    {
+        if (preparationTarget_ == nullptr)
+        {
+            ShowError(parameters_->openFailed, E_OUTOFMEMORY);
+            return;
+        }
+        preparationGeneration_ = gNextPreparationGeneration.fetch_add(1);
+        virtualGeneration_ = 0;
+        virtualInitSent_ = false;
+        virtualText_.clear();
+        virtualLineStarts_.clear();
+        PreparationContext* context = NewNoThrow<PreparationContext>();
+        if (context == nullptr)
+        {
+            ShowError(parameters_->openFailed, E_OUTOFMEMORY);
+            return;
+        }
+        context->window = window_;
+        context->target = preparationTarget_;
+        preparationTarget_->references.fetch_add(1);
+        context->generation = preparationGeneration_;
+        context->module = parameters_->module;
+        context->path = parameters_->filePath;
+        context->markdown = markdown;
+        HANDLE worker = CreateThread(nullptr, 0, PrepareDocumentWorker, context, 0, nullptr);
+        if (worker == nullptr)
+        {
+            ReleasePreparationTarget(context->target);
+            delete context;
+            ShowError(parameters_->openFailed, HRESULT_FROM_WIN32(GetLastError()));
+            return;
+        }
+        CloseHandle(worker);
+    }
+
+    void NavigateMarkdown(const std::wstring& fragment)
+    {
+        std::wstring mappedUri = MapLocalDocument();
+        std::wstring base = mappedUri.empty() ? L"" : L"https://document.local/";
+        COLORREF codeBackground = BlendColor(parameters_->theme.background, parameters_->theme.foreground,
+                                              parameters_->theme.dark ? 10 : 6);
+        COLORREF border = BlendColor(parameters_->theme.background, parameters_->theme.foreground,
+                                     parameters_->theme.dark ? 22 : 18);
+        std::wstring html = L"<!doctype html><html><head><meta charset='utf-8'><base href='" +
+            HtmlEncode(base) + L"'><style>html,body{margin:0;padding:16px;font:14px/1.6 Arial,sans-serif;background:" +
+            CssColor(parameters_->theme.background) + L";color:" + CssColor(parameters_->theme.foreground) +
+            L"}h1,h2,h3,h4,h5,h6{color:" + CssColor(parameters_->theme.foreground) +
+            L";margin-top:1.2em}a{color:" + CssColor(parameters_->theme.accent) +
+            L";text-decoration:none}a:hover{text-decoration:underline}code{font-family:Consolas,'Courier New',monospace;background:" +
+            CssColor(codeBackground) + L";padding:2px 4px;border-radius:4px}pre{padding:12px;overflow:auto;border-radius:6px;background:" +
+            CssColor(codeBackground) + L";border:1px solid " + CssColor(border) +
+            L"}pre code{padding:0;background:transparent}table{border-collapse:collapse;margin:1em 0;width:100%}th,td{border:1px solid " +
+            CssColor(border) + L";padding:8px;text-align:left}blockquote{border-left:4px solid " +
+            CssColor(parameters_->theme.accent) + L";margin:1em 0;padding:.5em 1em;background:" +
+            CssColor(codeBackground) + L"}img,video,iframe{max-width:100%;height:auto}hr{border:0;border-top:1px solid " +
+            CssColor(border) + L";margin:2em 0}ul,ol{margin:0 0 1em 1.5em}</style>"
+            L"</head><body>" + fragment + L"</body></html>";
+        markdownDocumentUtf8_ = WideToUtf8(html);
+        markdownDocumentUri_ = L"https://markdown.local/document.html?generation=" +
+                               std::to_wstring(preparationGeneration_);
+        SetLoadProgress(80);
+        webView_->Navigate(markdownDocumentUri_.c_str());
+    }
+
+    void HandlePreparationResult(PreparationResult* raw, uint64_t failedGeneration)
+    {
+        std::unique_ptr<PreparationResult> result(raw);
+        if (result == nullptr)
+        {
+            if (failedGeneration == preparationGeneration_)
+                ShowError(parameters_->openFailed, E_OUTOFMEMORY);
+            return;
+        }
+        if (result->generation != preparationGeneration_ || !webView_)
+            return;
+        if (result->error != ERROR_SUCCESS)
+        {
+            if (result->kind == PreparationKind::Markdown && !result->renderError.empty())
+            {
+                MessageBoxW(window_, result->renderError.c_str(), parameters_->pluginName.c_str(),
+                            MB_OK | MB_ICONERROR);
+                SetWindowTextW(status_, parameters_->openFailed.c_str());
+            }
+            else
+                ShowError(parameters_->openFailed, HRESULT_FROM_WIN32(result->error));
+            return;
+        }
+        if (result->kind == PreparationKind::Markdown)
+        {
+            NavigateMarkdown(result->text);
+            return;
+        }
+        activeLanguage_ = selectedLanguage_.empty() ? automaticLanguage_ : selectedLanguage_;
+        UpdateWindowTitle();
+        virtualText_ = std::move(result->text);
+        virtualLineStarts_ = std::move(result->lineStarts);
+        virtualGeneration_ = result->generation;
+        ComPtr<ICoreWebView2_3> webView3;
+        if (FAILED(webView_.As(&webView3)) || !webView3)
+        {
+            ShowError(parameters_->openFailed, E_NOINTERFACE);
+            return;
+        }
+        const std::wstring folder = PrismAssetsDirectory();
+        if (FAILED(webView3->SetVirtualHostNameToFolderMapping(
+                L"prism.local", folder.c_str(), COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW)))
+        {
+            ShowError(parameters_->openFailed, E_FAIL);
+            return;
+        }
+        SetLoadProgress(80);
+        const std::wstring uri = L"https://prism.local/viewer/virtual-viewer.html?g=" +
+                                 std::to_wstring(virtualGeneration_);
+        webView_->Navigate(uri.c_str());
+    }
+
+    void PostVirtualInit()
+    {
+        if (!webView_ || virtualGeneration_ == 0 || virtualInitSent_)
+            return;
+        const size_t lineCount = virtualLineStarts_.size();
+        const PrismStyleMetrics style = GetPrismStyleMetrics(lineCount);
+        std::wstring json =
+            L"{\"type\":\"init\",\"generation\":" + std::to_wstring(virtualGeneration_) +
+            L",\"lineCount\":" + std::to_wstring(lineCount) +
+            L",\"chunkLines\":" + std::to_wstring(NV_VIRTUAL_CHUNK_LINES) +
+            L",\"language\":" + JsonString(activeLanguage_) +
+            L",\"showLineNumbers\":" + (showLineNumbers_ ? std::wstring(L"true") : L"false") +
+            L",\"wrapLines\":" + (wrapLines_ ? std::wstring(L"true") : L"false") +
+            L",\"showWhitespace\":" + (showWhitespace_ ? std::wstring(L"true") : L"false") +
+            L",\"lineHeight\":" + std::to_wstring(style.lineHeight) +
+            L",\"charWidth\":" + std::to_wstring(style.charWidth) +
+            L",\"gutterWidth\":" + std::to_wstring(style.gutterWidth) +
+            L",\"fontSize\":" + std::to_wstring(style.fontSize) +
+            L",\"fontFace\":" + JsonString(style.fontFace) +
+            L",\"fontWeight\":" + JsonString(std::to_wstring(style.fontWeight)) +
+            L",\"fontStyle\":" + JsonString(style.fontStyle) +
+            L",\"textDecoration\":" + JsonString(style.textDecoration) +
+            L",\"foreground\":" + JsonString(CssColor(parameters_->theme.foreground)) +
+            L",\"background\":" + JsonString(CssColor(parameters_->theme.background)) +
+            L",\"selectedForeground\":" + JsonString(CssColor(parameters_->theme.selectedForeground)) +
+            L",\"selectedBackground\":" + JsonString(CssColor(parameters_->theme.selectedBackground)) +
+            L",\"gutterForeground\":" + JsonString(style.gutterForeground) +
+            L",\"gutterBackground\":" + JsonString(style.gutterBackground) +
+            L",\"palette\":" + JsonString(ColorPaletteName());
+        AppendCustomPaletteJson(json, nullptr, nullptr);
+        json += L"}";
+        if (SUCCEEDED(webView_->PostWebMessageAsJson(json.c_str())))
+            virtualInitSent_ = true;
+    }
+
+    std::wstring ColorPaletteName() const
+    {
+        if (colorPalette_ == NV_PALETTE_PRISM)
+            return L"prism";
+        if (colorPalette_ == NV_PALETTE_CUSTOM)
+            return L"custom";
+        return L"visual-studio";
+    }
+
+    void PostColorPalette(const COLORREF* light = nullptr, const COLORREF* dark = nullptr)
+    {
+        if (!webView_ || !virtualInitSent_)
+            return;
+        std::wstring json =
+            L"{\"type\":\"palette\",\"palette\":" + JsonString(ColorPaletteName());
+        AppendCustomPaletteJson(json, light, dark);
+        json += L"}";
+        webView_->PostWebMessageAsJson(json.c_str());
+    }
+
+    std::wstring Utf8ToWideString(const std::string& value) const
+    {
+        if (value.empty())
+            return {};
+        int count = MultiByteToWideChar(CP_UTF8, 0, value.data(), static_cast<int>(value.size()),
+                                        nullptr, 0);
+        if (count <= 0)
+            return {};
+        std::wstring result(static_cast<size_t>(count), L'\0');
+        MultiByteToWideChar(CP_UTF8, 0, value.data(), static_cast<int>(value.size()),
+                            result.data(), count);
+        return result;
+    }
+
+    const std::wstring& TokenLabel(size_t index) const
+    {
+        switch (index)
+        {
+        case 0: return parameters_->tokenComment;
+        case 1: return parameters_->tokenPunctuation;
+        case 2: return parameters_->tokenKeyword;
+        case 3: return parameters_->tokenControlKeyword;
+        case 4: return parameters_->tokenClassName;
+        case 5: return parameters_->tokenFunction;
+        case 6: return parameters_->tokenString;
+        case 7: return parameters_->tokenNumber;
+        case 8: return parameters_->tokenBoolean;
+        case 9: return parameters_->tokenVariable;
+        case 10: return parameters_->tokenNamespace;
+        default: return parameters_->tokenRegex;
+        }
+    }
+
+    void ShowEditCustomPalette()
+    {
+        Salamatrix::UI::IUIService* ui = QueryViewerUI(parameters_->general);
+        const std::string title = Utf8Or(parameters_->editCustomTitle, "Edit Custom");
+        if (ui == nullptr)
+        {
+            const std::string message = Utf8Or(
+                parameters_->uiUnavailable, "Salamatrix.UI is not available.");
+            MessageBoxW(window_, Utf8ToWideString(message).c_str(),
+                        Utf8ToWideString(title).c_str(), MB_OK | MB_ICONWARNING);
+            return;
+        }
+
+        COLORREF lightColors[kPrismTokenCount];
+        COLORREF darkColors[kPrismTokenCount];
+        ReadCustomPaletteFile(lightColors, darkColors);
+
+        Salamatrix::UI::DialogOptions options;
+        options.Title = title.c_str();
+        options.Parent = window_;
+        options.Width = 184;
+        options.Height = 216;
+        Salamatrix::UI::IDialog* dialog = ui->CreateSalamatrixDialog(options);
+        if (dialog == nullptr)
+            return;
+
+        const char* tokenFallbacks[kPrismTokenCount] = {
+            "Comment", "Punctuation", "Keyword", "Control keyword", "Class name",
+            "Function", "String", "Number", "Boolean", "Variable", "Namespace",
+            "Regular expression"
+        };
+        std::string lightHeader = Utf8Or(parameters_->light, "Light");
+        std::string darkHeader = Utf8Or(parameters_->dark, "Dark");
+        std::string saveText = Utf8Or(parameters_->save, "&Save");
+        std::string cancelText = Utf8Or(parameters_->cancel, "Cancel");
+        std::string labelText[kPrismTokenCount];
+        std::string labelIds[kPrismTokenCount];
+        std::string lightIds[kPrismTokenCount];
+        std::string darkIds[kPrismTokenCount];
+        for (size_t index = 0; index < kPrismTokenCount; ++index)
+        {
+            labelText[index] = Utf8Or(TokenLabel(index), tokenFallbacks[index]);
+            labelIds[index] = std::string("lbl-") + kPrismTokenKeys[index];
+            lightIds[index] = std::string("light-") + kPrismTokenKeys[index];
+            darkIds[index] = std::string("dark-") + kPrismTokenKeys[index];
+        }
+
+        constexpr int kLabelX = 8;
+        constexpr int kLabelW = 96;
+        constexpr int kColorW = 30;
+        constexpr int kColorH = 12;
+        constexpr int kRow = 14;
+        constexpr int kLightX = 110;
+        constexpr int kDarkX = 146;
+        AddPaletteControl(dialog, Salamatrix::UI::ControlKindLabel, "hdr-light",
+                          lightHeader.c_str(), kLightX, 6, kColorW, 8);
+        AddPaletteControl(dialog, Salamatrix::UI::ControlKindLabel, "hdr-dark",
+                          darkHeader.c_str(), kDarkX, 6, kColorW, 8);
+        Salamatrix::UI::IControl* lightButtons[kPrismTokenCount] = {};
+        Salamatrix::UI::IControl* darkButtons[kPrismTokenCount] = {};
+        for (size_t index = 0; index < kPrismTokenCount; ++index)
+        {
+            const int buttonY = 20 + static_cast<int>(index) * kRow;
+            AddPaletteControl(dialog, Salamatrix::UI::ControlKindLabel, labelIds[index].c_str(),
+                              labelText[index].c_str(), kLabelX, buttonY + 2, kLabelW, 8);
+            lightButtons[index] = AddPaletteControl(
+                dialog, Salamatrix::UI::ControlKindColorArrowButton, lightIds[index].c_str(), "",
+                kLightX, buttonY, kColorW, kColorH);
+            darkButtons[index] = AddPaletteControl(
+                dialog, Salamatrix::UI::ControlKindColorArrowButton, darkIds[index].c_str(), "",
+                kDarkX, buttonY, kColorW, kColorH);
+            if (lightButtons[index] != nullptr)
+                lightButtons[index]->SetColor(lightColors[index], lightColors[index]);
+            if (darkButtons[index] != nullptr)
+                darkButtons[index]->SetColor(darkColors[index], darkColors[index]);
+        }
+        Salamatrix::UI::IControl* save = AddPaletteControl(
+            dialog, Salamatrix::UI::ControlKindButton, "save", saveText.c_str(),
+            70, 196, 50, 14, IDOK);
+        AddPaletteControl(dialog, Salamatrix::UI::ControlKindButton, "cancel", cancelText.c_str(),
+                          126, 196, 50, 14, IDCANCEL);
+        if (save != nullptr)
+            save->SetStyleFlags(Salamatrix::UI::ButtonDefault);
+
+        const int result = dialog->ShowModal();
+        if (result == IDOK)
+        {
+            for (size_t index = 0; index < kPrismTokenCount; ++index)
+            {
+                COLORREF text = 0;
+                COLORREF background = 0;
+                if (lightButtons[index] != nullptr &&
+                    lightButtons[index]->GetColor(&text, &background))
+                    lightColors[index] = background;
+                if (darkButtons[index] != nullptr &&
+                    darkButtons[index]->GetColor(&text, &background))
+                    darkColors[index] = background;
+            }
+            if (!WriteCustomPaletteFile(lightColors, darkColors))
+            {
+                const std::string message = Utf8Or(
+                    parameters_->saveFailed, "Unable to save the custom color palette.");
+                ui->ShowMessageBox(window_, message.c_str(), title.c_str(),
+                                   MB_OK | MB_ICONWARNING);
+            }
+            else
+            {
+                colorPalette_ = NV_PALETTE_CUSTOM;
+                WriteViewerSetting(L"PrismColorPalette", colorPalette_);
+                UpdateViewMenuChecks();
+                PostColorPalette(lightColors, darkColors);
+            }
+        }
+        ui->DestroyDialog(dialog);
+    }
+
+    static bool ParseUnsigned(const std::wstring& value, uint64_t& number)
+    {
+        if (value.empty() ||
+            std::find_if(value.begin(), value.end(), [](wchar_t ch) { return ch < L'0' || ch > L'9'; }) != value.end())
+            return false;
+        wchar_t* end = nullptr;
+        errno = 0;
+        unsigned long long parsed = wcstoull(value.c_str(), &end, 10);
+        if (errno == ERANGE || end == nullptr || *end != L'\0')
+            return false;
+        number = static_cast<uint64_t>(parsed);
+        return true;
+    }
+
+    void HandleVirtualChunk(const std::wstring& message)
+    {
+        constexpr wchar_t prefix[] = L"salamander-chunk:";
+        const size_t prefixLength = std::size(prefix) - 1;
+        if (message.compare(0, prefixLength, prefix) != 0)
+            return;
+        const size_t first = message.find(L':', prefixLength);
+        const size_t second = first == std::wstring::npos ? std::wstring::npos : message.find(L':', first + 1);
+        if (first == std::wstring::npos || second == std::wstring::npos ||
+            message.find(L':', second + 1) != std::wstring::npos)
+            return;
+        uint64_t generation = 0;
+        uint64_t start = 0;
+        uint64_t requested = 0;
+        if (!ParseUnsigned(message.substr(prefixLength, first - prefixLength), generation) ||
+            !ParseUnsigned(message.substr(first + 1, second - first - 1), start) ||
+            !ParseUnsigned(message.substr(second + 1), requested) ||
+            generation != virtualGeneration_ || generation != preparationGeneration_ ||
+            requested == 0 || requested > NV_VIRTUAL_CHUNK_LINES ||
+            start >= virtualLineStarts_.size() ||
+            requested > virtualLineStarts_.size() - static_cast<size_t>(start))
+            return;
+        const size_t startLine = static_cast<size_t>(start);
+        const size_t lineCount = static_cast<size_t>(requested);
+        const size_t textStart = virtualLineStarts_[startLine];
+        size_t textEnd = startLine + lineCount < virtualLineStarts_.size()
+                           ? virtualLineStarts_[startLine + lineCount] : virtualText_.size();
+        if (textEnd - textStart > NV_VIRTUAL_CHUNK_CHARS)
+        {
+            textEnd = textStart + NV_VIRTUAL_CHUNK_CHARS;
+            if (textEnd < virtualText_.size() && textEnd > textStart &&
+                virtualText_[textEnd - 1] >= 0xD800 && virtualText_[textEnd - 1] <= 0xDBFF &&
+                virtualText_[textEnd] >= 0xDC00 && virtualText_[textEnd] <= 0xDFFF)
+                --textEnd;
+        }
+        const bool insideMarkupComment =
+            IsMarkupPrismLanguage(activeLanguage_) &&
+            MarkupCommentOpenAt(virtualText_, textStart);
+        const std::wstring json =
+            L"{\"type\":\"chunk\",\"generation\":" + std::to_wstring(generation) +
+            L",\"startLine\":" + std::to_wstring(startLine) +
+            L",\"lineCount\":" + std::to_wstring(lineCount) +
+            L",\"insideMarkupComment\":" + (insideMarkupComment ? std::wstring(L"true") : std::wstring(L"false")) +
+            L",\"text\":" + JsonString(virtualText_.substr(textStart, textEnd - textStart)) + L"}";
+        if (FAILED(webView_->PostWebMessageAsJson(json.c_str())))
+        {
+            const std::wstring fallback =
+                L"{\"type\":\"chunk\",\"generation\":" + std::to_wstring(generation) +
+                L",\"startLine\":" + std::to_wstring(startLine) +
+                L",\"lineCount\":" + std::to_wstring(lineCount) +
+                L",\"insideMarkupComment\":false" +
+                L",\"text\":\"\"}";
+            webView_->PostWebMessageAsJson(fallback.c_str());
+        }
+    }
+
     void LoadDocument()
     {
         if (!webView_)
             return;
         SetLoadProgress(70);
-        std::wstring extension = ExtensionOf(parameters_->filePath);
+        const std::wstring extension = ExtensionOf(parameters_->filePath);
         if (parameters_->kind == NativeViewerKind::PrismText)
         {
-            std::vector<unsigned char> bytes;
-            if (!ReadFileBytes(parameters_->filePath, bytes))
-            {
-                ShowError(parameters_->openFailed, HRESULT_FROM_WIN32(GetLastError()));
-                return;
-            }
-            std::wstring text = DecodeText(bytes);
-            activeLanguage_ = selectedLanguage_.empty() ? automaticLanguage_ : selectedLanguage_;
-            std::wstring language = activeLanguage_;
-            UpdateWindowTitle();
-            const wchar_t* prismTheme = parameters_->theme.dark ? L"prism-tomorrow.css" : L"prism.css";
-            std::wstring preClasses = L"language-" + language;
-            if (showLineNumbers_)
-                preClasses += L" line-numbers";
-            int lineCount = 1;
-            for (wchar_t ch : text)
-                if (ch == L'\n')
-                    ++lineCount;
-            int lineDigits = 1;
-            for (int value = lineCount; value >= 10; value /= 10)
-                ++lineDigits;
-            HDC fontDC = GetDC(window_);
-            TEXTMETRIC viewerMetrics = {};
-            viewerMetrics.tmHeight = parameters_->viewerFont.lfHeight != 0
-                                         ? abs(parameters_->viewerFont.lfHeight) : 13;
-            viewerMetrics.tmAveCharWidth = 8;
-            HFONT viewerFont = CreateFontIndirect(&parameters_->viewerFont);
-            if (fontDC != nullptr && viewerFont != nullptr)
-            {
-                HFONT oldFont = static_cast<HFONT>(SelectObject(fontDC, viewerFont));
-                GetTextMetrics(fontDC, &viewerMetrics);
-                SelectObject(fontDC, oldFont);
-            }
-            if (viewerFont != nullptr)
-                DeleteObject(viewerFont);
-            if (fontDC != nullptr)
-                ReleaseDC(window_, fontDC);
-            // GDI already returned DPI-adjusted metrics in this client coordinate
-            // space. Scaling them by 96 / DPI again made the gutter too narrow.
-            const double fontPixelSize = (parameters_->viewerFont.lfHeight != 0
-                                              ? abs(parameters_->viewerFont.lfHeight) : 13);
-            const double linePixelHeight = (std::max)(viewerMetrics.tmHeight, 1L);
-            const double charPixelWidth = (std::max)(viewerMetrics.tmAveCharWidth, 1L);
-            wchar_t fontSize[32];
-            wchar_t lineHeight[32];
-            wchar_t charWidth[32];
-            swprintf_s(fontSize, L"%.3fpx", fontPixelSize);
-            swprintf_s(lineHeight, L"%.3fpx", linePixelHeight);
-            swprintf_s(charWidth, L"%.3fpx", charPixelWidth);
-            std::wstring fontFace = L"Consolas";
-            if (parameters_->viewerFont.lfFaceName[0] != '\0')
-            {
-                int faceLength = MultiByteToWideChar(CP_ACP, 0, parameters_->viewerFont.lfFaceName,
-                                                     -1, nullptr, 0);
-                if (faceLength > 1)
-                {
-                    std::vector<wchar_t> wideFace(static_cast<size_t>(faceLength));
-                    if (MultiByteToWideChar(CP_ACP, 0, parameters_->viewerFont.lfFaceName, -1,
-                                            wideFace.data(), faceLength) > 0)
-                        fontFace.assign(wideFace.data());
-                }
-            }
-            size_t quote = 0;
-            while ((quote = fontFace.find(L'\'', quote)) != std::wstring::npos)
-            {
-                fontFace.insert(quote, L"\\");
-                quote += 2;
-            }
-            wchar_t gutterWidth[32];
-            swprintf_s(gutterWidth, L"%.3fpx", 1.0 + (lineDigits + 1) * charPixelWidth);
-            const std::wstring gutterBackground = parameters_->theme.dark ? L"#262626" : L"#f5f5f5";
-            const std::wstring gutterForeground = parameters_->theme.dark ? L"#a0a0a0" : L"#606060";
-            const std::wstring syntaxColors = parameters_->theme.dark
-                ? L".token.comment,.token.prolog,.token.doctype,.token.cdata{color:#6a9955}"
-                  L".token.punctuation,.token.operator,.token.entity,.token.url{color:#d4d4d4;background:transparent}"
-                  L".token.keyword,.token.atrule{color:#569cd6}"
-                  L".token.control-keyword{color:#c586c0}"
-                  L".token.class-name{color:#4ec9b0}"
-                  L".token.function{color:#dcdcaa}"
-                  L".token.string,.token.char,.token.attr-value{color:#ce9178}"
-                  L".token.number,.token.boolean,.token.constant,.token.symbol{color:#b5cea8}"
-                  L".token.variable{color:#9cdcfe}"
-                  L".token.namespace{color:#d4d4d4;opacity:1}"
-                : L".token.comment,.token.prolog,.token.doctype,.token.cdata{color:#008000}"
-                  L".token.punctuation,.token.operator,.token.entity,.token.url{color:#000000;background:transparent}"
-                  L".token.keyword,.token.atrule{color:#0000ff}"
-                  L".token.control-keyword{color:#0000ff}"
-                  L".token.class-name{color:#2b91af}"
-                  L".token.function{color:#000000}"
-                  L".token.string,.token.char,.token.attr-value{color:#a31515}"
-                  L".token.number,.token.boolean,.token.constant,.token.symbol{color:#098658}"
-                  L".token.variable{color:#000000}"
-                  L".token.namespace{color:#000000;opacity:1}";
-            std::wstring html = L"<!doctype html><html><head><meta charset='utf-8'>"
-                L"<link rel='stylesheet' href='https://prism.local/themes/" + std::wstring(prismTheme) + L"'>"
-                L"<link rel='stylesheet' href='https://prism.local/plugins/line-numbers/prism-line-numbers.css'>" +
-                (showWhitespace_ ? L"<link rel='stylesheet' href='https://prism.local/plugins/show-invisibles/prism-show-invisibles.css'>" : L"") +
-                L"<style>"
-                L"html,body{margin:0;width:100%;height:100%;overflow:hidden;background:" + CssColor(parameters_->theme.background) +
-                L";color:" + CssColor(parameters_->theme.foreground) +
-                L";color-scheme:" + std::wstring(parameters_->theme.dark ? L"dark" : L"light") +
-                L"}pre[class*='language-']{box-sizing:border-box;margin:0;width:100%;height:100%;padding:0 0 0 1px;"
-                L"overflow:auto;white-space:" + std::wstring(wrapLines_ ? L"pre-wrap" : L"pre") +
-                L";overflow-wrap:" + std::wstring(wrapLines_ ? L"anywhere" : L"normal") +
-                L";--salamander-char-width:" + std::wstring(charWidth) +
-                L";tab-size:4;font:" + std::wstring(fontSize) + L"/" + std::wstring(lineHeight) + L" '" + fontFace +
-                L"',monospace;background:" + CssColor(parameters_->theme.background) +
-                L";color:" + CssColor(parameters_->theme.foreground) +
-                L";font-weight:" + std::to_wstring(parameters_->viewerFont.lfWeight > 0
-                                                        ? parameters_->viewerFont.lfWeight : FW_NORMAL) +
-                L";font-style:" + std::wstring(parameters_->viewerFont.lfItalic ? L"italic" : L"normal") +
-                L";letter-spacing:calc(var(--salamander-char-width) - 1ch);text-decoration:" +
-                std::wstring(parameters_->viewerFont.lfUnderline
-                                                         ? L"underline" : parameters_->viewerFont.lfStrikeOut
-                                                                                ? L"line-through" : L"none") + L"}"
-                L"pre[class*='language-']>code{font:inherit;line-height:inherit;letter-spacing:inherit}"
-                L"pre[class*='language-'].line-numbers{--salamander-gutter-width:" + std::wstring(gutterWidth) +
-                L";padding-left:calc(var(--salamander-gutter-width) + 1px);background:linear-gradient(to right," +
-                gutterBackground + L" 0," + gutterBackground + L" var(--salamander-gutter-width)," +
-                CssColor(parameters_->theme.background) + L" var(--salamander-gutter-width)," +
-                CssColor(parameters_->theme.background) + L" 100%)}"
-                L"pre.line-numbers .line-numbers-rows{left:calc(-1 * var(--salamander-gutter-width) - 1px);"
-                L"width:var(--salamander-gutter-width);border-right:0;background:" + gutterBackground +
-                L";padding:1px 0 0 0;line-height:" + std::wstring(lineHeight) +
-                L";letter-spacing:calc(var(--salamander-char-width) - 1ch)}"
-                // Give every generated number an explicit, identical line box.
-                // Relying on the plug-in's nested inline boxes caused WebView's
-                // font metrics to vary the apparent vertical spacing.
-                L"pre.line-numbers .line-numbers-rows>span{display:block;height:" + std::wstring(lineHeight) +
-                L";line-height:" + std::wstring(lineHeight) + L"}"
-                L"pre.line-numbers .line-numbers-rows>span:before{box-sizing:border-box;display:block;height:" +
-                std::wstring(lineHeight) + L";line-height:" + std::wstring(lineHeight) +
-                L";padding-right:1px;text-align:right;color:" +
-                gutterForeground + L"}::selection{background:" + CssColor(parameters_->theme.selectedBackground) +
-                L";color:" + CssColor(parameters_->theme.selectedForeground) + L"}"
-                + syntaxColors + L"</style><script>window.Prism={manual:true};</script><script src='https://prism.local/prism.js'></script>"
-                L"<script src='https://prism.local/plugins/autoloader/prism-autoloader.min.js'></script>"
-                L"<script>Prism.plugins.autoloader.languages_path='https://prism.local/components/';"
-                L"var salamanderCSharpPatched=false,salamanderPrismReady=false;"
-                L"Prism.hooks.add('before-highlight',function(env){if(salamanderCSharpPatched||env.language!=='csharp')return;"
-                L"var grammar=Prism.languages.csharp,strings=grammar&&grammar.string;if(!Array.isArray(strings)||!strings[0])return;"
-                L"strings[0].pattern=/(^|[^$\\\\])@\"(?:\"\"|[^\"])*\"(?!\")/;"
-                L"Prism.languages.insertBefore('csharp','class-name',{'type-name':{pattern:/\\b[A-Z]\\w*(?=\\s*(?:\\.|[),;\\]}]))/,alias:'class-name'}});"
-                L"Prism.languages.insertBefore('csharp','keyword',{'control-keyword':{pattern:/\\b(?:return|try|catch|finally|throw|switch|case|default)\\b/}});"
-                L"Prism.languages.insertBefore('csharp','number',{'variable':{pattern:/\\b[a-z_]\\w*\\b/,alias:'variable'}});"
-                L"env.grammar=Prism.languages.csharp;salamanderCSharpPatched=true;});"
-                L"Prism.hooks.add('complete',function(env){if(salamanderPrismReady||env.element.id!=='salamander-code')return;"
-                L"salamanderPrismReady=true;requestAnimationFrame(function(){requestAnimationFrame(function(){"
-                L"window.chrome.webview.postMessage('salamander-prism-ready');});});});"
-                L"document.addEventListener('DOMContentLoaded',function(){var code=document.getElementById('salamander-code');"
-                L"var highlight=function(){Prism.highlightElement(code)};var language=code.getAttribute('data-salamander-language');"
-                L"if(!language||language==='none')highlight();else Prism.plugins.autoloader.loadLanguages([language],highlight,highlight);});</script>"
-                L"<script src='https://prism.local/plugins/line-numbers/prism-line-numbers.min.js'></script>" +
-                (showWhitespace_ ? L"<script src='https://prism.local/plugins/show-invisibles/prism-show-invisibles.min.js'></script>" : L"") +
-                L"</head><body><pre class='" + HtmlEncode(preClasses) + L"'><code class='language-" +
-                HtmlEncode(language) + L"' id='salamander-code' data-salamander-language='" + HtmlEncode(language) +
-                L"'>" + HtmlEncode(text) + L"</code></pre></body></html>";
-
-            ComPtr<ICoreWebView2_3> webView3;
-            if (SUCCEEDED(webView_.As(&webView3)))
-            {
-                const std::wstring folder = PrismAssetsDirectory();
-                webView3->SetVirtualHostNameToFolderMapping(
-                    L"prism.local", folder.c_str(),
-                    COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY_CORS);
-            }
-            SetLoadProgress(80);
-            webView_->NavigateToString(html.c_str());
+            StartPreparation(false);
             return;
         }
 
         if (extension == L".html" || extension == L".htm" || extension == L".xhtml")
         {
-            std::vector<unsigned char> bytes;
-            if (!ReadFileBytes(parameters_->filePath, bytes))
-            {
-                ShowError(parameters_->openFailed, HRESULT_FROM_WIN32(GetLastError()));
-                return;
-            }
             std::wstring mappedUri = MapLocalDocument();
-            std::wstring base = mappedUri.empty() ? L"" : L"https://document.local/";
-            std::wstring html = WithBaseElement(DecodeText(bytes), base);
-            SetLoadProgress(80);
-            webView_->NavigateToString(html.c_str());
+            if (mappedUri.empty())
+                ShowError(parameters_->openFailed, E_INVALIDARG);
+            else
+            {
+                SetLoadProgress(80);
+                webView_->Navigate(mappedUri.c_str());
+            }
             return;
         }
 
-        // A standalone SVG does not need a virtual HTTPS host.  Giving its
-        // small markup directly to WebView avoids the host-mapping and local
-        // resource navigation path, which was disproportionately expensive
-        // for icon-sized SVG files.
         if (extension == L".svg")
         {
-            std::vector<unsigned char> bytes;
-            if (!ReadFileBytes(parameters_->filePath, bytes))
-            {
-                ShowError(parameters_->openFailed, HRESULT_FROM_WIN32(GetLastError()));
-                return;
-            }
-            std::wstring svg = DecodeText(bytes);
-            if (svg.size() <= 2 * 1024 * 1024 && svg.find(L"<svg") != std::wstring::npos)
+            std::wstring mappedUri = MapLocalDocument();
+            if (mappedUri.empty())
+                ShowError(parameters_->openFailed, E_INVALIDARG);
+            else
             {
                 SetLoadProgress(80);
-                webView_->NavigateToString(svg.c_str());
-                return;
+                webView_->Navigate(mappedUri.c_str());
             }
+            return;
         }
 
         if (extension == L".md" || extension == L".markdown" || extension == L".mdown" ||
             extension == L".mkd" || extension == L".mdx")
         {
-            std::vector<unsigned char> bytes;
-            if (!ReadFileBytes(parameters_->filePath, bytes))
-            {
-                ShowError(parameters_->openFailed, HRESULT_FROM_WIN32(GetLastError()));
-                return;
-            }
-            std::wstring fragment;
-            std::wstring renderError;
-            if (!RenderMarkdown(parameters_->module, DecodeText(bytes), fragment, renderError))
-            {
-                MessageBoxW(window_, renderError.c_str(), parameters_->pluginName.c_str(), MB_OK | MB_ICONERROR);
-                SetWindowTextW(status_, parameters_->openFailed.c_str());
-                return;
-            }
-            std::wstring mappedUri = MapLocalDocument();
-            std::wstring base = mappedUri.empty() ? L"" : L"https://document.local/";
-            COLORREF codeBackground = BlendColor(parameters_->theme.background, parameters_->theme.foreground,
-                                                  parameters_->theme.dark ? 10 : 6);
-            COLORREF border = BlendColor(parameters_->theme.background, parameters_->theme.foreground,
-                                         parameters_->theme.dark ? 22 : 18);
-            std::wstring html = L"<!doctype html><html><head><meta charset='utf-8'><base href='" +
-                HtmlEncode(base) + L"'><style>html,body{margin:0;padding:16px;font:14px/1.6 Arial,sans-serif;background:" +
-                CssColor(parameters_->theme.background) + L";color:" + CssColor(parameters_->theme.foreground) +
-                L"}h1,h2,h3,h4,h5,h6{color:" + CssColor(parameters_->theme.foreground) +
-                L";margin-top:1.2em}a{color:" + CssColor(parameters_->theme.accent) +
-                L";text-decoration:none}a:hover{text-decoration:underline}code{font-family:Consolas,'Courier New',monospace;background:" +
-                CssColor(codeBackground) + L";padding:2px 4px;border-radius:4px}pre{padding:12px;overflow:auto;border-radius:6px;background:" +
-                CssColor(codeBackground) + L";border:1px solid " + CssColor(border) +
-                L"}pre code{padding:0;background:transparent}table{border-collapse:collapse;margin:1em 0;width:100%}th,td{border:1px solid " +
-                CssColor(border) + L";padding:8px;text-align:left}blockquote{border-left:4px solid " +
-                CssColor(parameters_->theme.accent) + L";margin:1em 0;padding:.5em 1em;background:" +
-                CssColor(codeBackground) + L"}img,video,iframe{max-width:100%;height:auto}hr{border:0;border-top:1px solid " +
-                CssColor(border) + L";margin:2em 0}ul,ol{margin:0 0 1em 1.5em}</style>"
-                L"</head><body>" + fragment + L"</body></html>";
-            SetLoadProgress(80);
-            webView_->NavigateToString(html.c_str());
+            StartPreparation(true);
             return;
         }
         std::wstring uri = MapLocalDocument();
@@ -1708,6 +2706,13 @@ private:
         view->CheckItem(IDM_NV_LINE_NUMBERS, FALSE, showLineNumbers_ ? TRUE : FALSE);
         view->CheckItem(IDM_NV_WRAP_LINES, FALSE, wrapLines_ ? TRUE : FALSE);
         view->CheckItem(IDM_NV_SHOW_WHITESPACE, FALSE, showWhitespace_ ? TRUE : FALSE);
+        if (colorsMenu_ != nullptr)
+        {
+            const int checked = colorPalette_ == NV_PALETTE_PRISM ? IDM_NV_COLORS_PRISM
+                                : colorPalette_ == NV_PALETTE_CUSTOM ? IDM_NV_COLORS_CUSTOM
+                                                                     : IDM_NV_COLORS_VISUAL_STUDIO;
+            colorsMenu_->CheckRadioItem(IDM_NV_COLORS_VISUAL_STUDIO, IDM_NV_COLORS_CUSTOM, checked, FALSE);
+        }
         if (syntaxMenu_ != nullptr)
             syntaxMenu_->CheckItem(IDM_NV_SYNTAX_AUTOMATIC, FALSE, selectedLanguage_.empty() ? TRUE : FALSE);
         for (const SyntaxMenuItem& item : syntaxMenuItems_)
@@ -1748,6 +2753,22 @@ private:
             }
             UpdateViewMenuChecks();
             LoadDocument();
+        }
+        else if (parameters_->kind == NativeViewerKind::PrismText &&
+                 (command == IDM_NV_COLORS_VISUAL_STUDIO || command == IDM_NV_COLORS_PRISM ||
+                  command == IDM_NV_COLORS_CUSTOM))
+        {
+            colorPalette_ = command == IDM_NV_COLORS_PRISM ? NV_PALETTE_PRISM
+                            : command == IDM_NV_COLORS_CUSTOM ? NV_PALETTE_CUSTOM
+                                                             : NV_PALETTE_VISUAL_STUDIO;
+            WriteViewerSetting(L"PrismColorPalette", colorPalette_);
+            UpdateViewMenuChecks();
+            PostColorPalette();
+        }
+        else if (parameters_->kind == NativeViewerKind::PrismText &&
+                 command == IDM_NV_COLORS_EDIT_CUSTOM)
+        {
+            ShowEditCustomPalette();
         }
         else if (parameters_->kind == NativeViewerKind::PrismText && command == IDM_NV_SYNTAX_AUTOMATIC)
         {
@@ -1806,11 +2827,17 @@ private:
             int parts[] = {(std::max)(x - 4, 0), -1};
             SendMessageW(status_, SB_SETPARTS, 2, reinterpret_cast<LPARAM>(parts));
             SetWindowPos(status_, HWND_BOTTOM, 0, client.bottom, client.right, statusHeight, SWP_NOACTIVATE);
-            RedrawWindow(window_, nullptr, nullptr,
-                         RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+            // The child controls and WebView controller repaint after their
+            // bounds change. Invalidating every descendant here queued a full
+            // WebView repaint for every intermediate sizing message.
+            InvalidateRect(window_, nullptr, FALSE);
         }
         if (controller_)
+        {
             controller_->put_Bounds(client);
+            if (parameters_->kind == NativeViewerKind::PrismText && webView_)
+                webView_->PostWebMessageAsString(L"salamander-resize");
+        }
     }
 
     void ShowError(const std::wstring& message, HRESULT error)
@@ -1826,10 +2853,18 @@ private:
     {
         if (webView_ && navigationStartingToken_.value != 0)
             webView_->remove_NavigationStarting(navigationStartingToken_);
+        if (webView_ && domContentLoadedToken_.value != 0)
+        {
+            ComPtr<ICoreWebView2_2> webView2;
+            if (SUCCEEDED(webView_.As(&webView2)) && webView2)
+                webView2->remove_DOMContentLoaded(domContentLoadedToken_);
+        }
         if (webView_ && navigationToken_.value != 0)
             webView_->remove_NavigationCompleted(navigationToken_);
         if (webView_ && webMessageToken_.value != 0)
             webView_->remove_WebMessageReceived(webMessageToken_);
+        if (webView_ && webResourceRequestedToken_.value != 0)
+            webView_->remove_WebResourceRequested(webResourceRequestedToken_);
         webView_.Reset();
         if (controller_)
         {
@@ -1863,13 +2898,16 @@ private:
     ComPtr<ICoreWebView2> webView_;
     EventRegistrationToken navigationToken_ = {};
     EventRegistrationToken navigationStartingToken_ = {};
+    EventRegistrationToken domContentLoadedToken_ = {};
     EventRegistrationToken webMessageToken_ = {};
+    EventRegistrationToken webResourceRequestedToken_ = {};
     EventRegistrationToken acceleratorToken_ = {};
     EventRegistrationToken zoomChangedToken_ = {};
     int zoomPercent_ = 100;
     bool showLineNumbers_ = false;
     bool wrapLines_ = false;
     bool showWhitespace_ = false;
+    DWORD colorPalette_ = NV_PALETTE_VISUAL_STUDIO;
     std::wstring automaticLanguage_;
     std::wstring selectedLanguage_;
     std::wstring activeLanguage_;
@@ -1877,6 +2915,14 @@ private:
     std::vector<SyntaxMenuItem> syntaxMenuItems_;
     bool browserVisible_ = false;
     int loadProgress_ = 0;
+    PreparationTarget* preparationTarget_ = nullptr;
+    uint64_t preparationGeneration_ = 0;
+    uint64_t virtualGeneration_ = 0;
+    bool virtualInitSent_ = false;
+    std::wstring virtualText_;
+    std::vector<size_t> virtualLineStarts_;
+    std::wstring markdownDocumentUri_;
+    std::string markdownDocumentUtf8_;
 };
 
 void PrewarmSharedEnvironment()
@@ -1918,7 +2964,9 @@ void PrewarmSharedEnvironment()
 static void CreateViewerWindow(ViewerParameters* raw)
 {
     std::unique_ptr<ViewerParameters> parameters(static_cast<ViewerParameters*>(raw));
-    ViewerWindow* viewer = new ViewerWindow(std::move(parameters));
+    ViewerWindow* viewer = NewNoThrow<ViewerWindow>(std::move(parameters));
+    if (viewer == nullptr)
+        return;
     if (!viewer->Create())
     {
         delete viewer;
@@ -2058,7 +3106,9 @@ bool NativeViewer_Show(const NativeViewerRequest& request)
 {
     if (gShuttingDown.load() || request.filePath == nullptr || request.filePath[0] == L'\0')
         return false;
-    std::unique_ptr<ViewerParameters> data(new ViewerParameters());
+    std::unique_ptr<ViewerParameters> data(NewNoThrow<ViewerParameters>());
+    if (!data)
+        return false;
     data->module = request.module;
     data->owner = request.owner;
     data->filePath = request.filePath;
@@ -2088,6 +3138,31 @@ bool NativeViewer_Show(const NativeViewerRequest& request)
     data->openFailed = CopyString(request.strings.openFailed);
     data->syntaxHighlighter = CopyString(request.strings.syntaxHighlighter);
     data->automatic = CopyString(request.strings.automatic);
+    data->colors = CopyString(request.strings.colors);
+    data->visualStudio = CopyString(request.strings.visualStudio);
+    data->defaultPrism = CopyString(request.strings.defaultPrism);
+    data->customPalette = CopyString(request.strings.customPalette);
+    data->editCustom = CopyString(request.strings.editCustom);
+    data->editCustomTitle = CopyString(request.strings.editCustomTitle);
+    data->save = CopyString(request.strings.save);
+    data->cancel = CopyString(request.strings.cancel);
+    data->light = CopyString(request.strings.light);
+    data->dark = CopyString(request.strings.dark);
+    data->tokenComment = CopyString(request.strings.tokenComment);
+    data->tokenPunctuation = CopyString(request.strings.tokenPunctuation);
+    data->tokenKeyword = CopyString(request.strings.tokenKeyword);
+    data->tokenControlKeyword = CopyString(request.strings.tokenControlKeyword);
+    data->tokenClassName = CopyString(request.strings.tokenClassName);
+    data->tokenFunction = CopyString(request.strings.tokenFunction);
+    data->tokenString = CopyString(request.strings.tokenString);
+    data->tokenNumber = CopyString(request.strings.tokenNumber);
+    data->tokenBoolean = CopyString(request.strings.tokenBoolean);
+    data->tokenVariable = CopyString(request.strings.tokenVariable);
+    data->tokenNamespace = CopyString(request.strings.tokenNamespace);
+    data->tokenRegex = CopyString(request.strings.tokenRegex);
+    data->saveFailed = CopyString(request.strings.saveFailed);
+    data->uiUnavailable = CopyString(request.strings.uiUnavailable);
+    data->general = request.general;
 
     DWORD hostThreadId = 0;
     if (!EnsureViewerHost(&hostThreadId))

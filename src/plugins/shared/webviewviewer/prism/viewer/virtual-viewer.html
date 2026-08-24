@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title></title>
+  <style>
+    :root {
+      --viewer-line-height: 16px;
+      --viewer-char-width: 8px;
+      --viewer-gutter-width: 0px;
+      --viewer-font-size: 13px;
+      --viewer-font-face: Consolas, monospace;
+      --viewer-font-weight: normal;
+      --viewer-font-style: normal;
+      --viewer-text-decoration: none;
+      --viewer-foreground: #000;
+      --viewer-background: transparent;
+      --viewer-selected-foreground: #fff;
+      --viewer-selected-background: #06c;
+      --viewer-gutter-foreground: #606060;
+      --viewer-gutter-background: #f5f5f5;
+      --token-comment: #008000;
+      --token-punctuation: #000000;
+      --token-keyword: #0000ff;
+      --token-control-keyword: #0000ff;
+      --token-class-name: #2b91af;
+      --token-function: #000000;
+      --token-string: #a31515;
+      --token-number: #098658;
+      --token-variable: #000000;
+      --token-namespace: #000000;
+      --token-boolean: #0000ff;
+      --token-regex: #811f3f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-width: 100%;
+      min-height: 100%;
+      margin: 0;
+      background: var(--viewer-background);
+      color: var(--viewer-foreground);
+    }
+
+    body {
+      overflow-anchor: none;
+      font-family: var(--viewer-font-face);
+      font-size: var(--viewer-font-size);
+      font-weight: var(--viewer-font-weight);
+      font-style: var(--viewer-font-style);
+      text-decoration: var(--viewer-text-decoration);
+    }
+
+    .visually-hidden {
+      position: fixed;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    #virtual-spacer {
+      position: relative;
+      width: 100%;
+    }
+
+    .chunk-slot {
+      position: relative;
+      min-width: 100%;
+    }
+
+    .chunk-slot[aria-busy="true"]::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    pre.viewer-chunk {
+      position: relative;
+      min-width: 100%;
+      min-height: 0;
+      margin: 0;
+      padding: 0 0 0 1px;
+      overflow: visible;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      line-height: var(--viewer-line-height);
+      letter-spacing: calc(var(--viewer-char-width) - 1ch);
+      text-align: left;
+      text-shadow: none;
+      tab-size: 4;
+      hyphens: none;
+    }
+
+    pre.viewer-chunk > code {
+      position: relative;
+      display: block;
+      min-width: max-content;
+      padding: 0;
+      color: inherit;
+      background: transparent;
+      font: inherit;
+      line-height: inherit;
+      letter-spacing: inherit;
+      text-align: inherit;
+      text-shadow: none;
+      word-spacing: normal;
+      word-break: normal;
+      word-wrap: normal;
+      tab-size: inherit;
+      hyphens: none;
+    }
+
+    body.wrap-lines pre.viewer-chunk > code {
+      min-width: 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    body:not(.wrap-lines) pre.viewer-chunk > code {
+      white-space: pre;
+    }
+
+    ::selection {
+      color: var(--viewer-selected-foreground);
+      background: var(--viewer-selected-background);
+    }
+
+    pre.line-numbers {
+      padding-left: calc(var(--viewer-gutter-width) + 1px);
+      background: linear-gradient(to right, var(--viewer-gutter-background) 0,
+        var(--viewer-gutter-background) var(--viewer-gutter-width),
+        var(--viewer-background) var(--viewer-gutter-width),
+        var(--viewer-background) 100%);
+      counter-reset: linenumber;
+    }
+
+    .line-numbers .line-numbers-rows {
+      position: absolute;
+      z-index: 1;
+      top: 0;
+      left: calc(-1 * var(--viewer-gutter-width) - 1px);
+      width: var(--viewer-gutter-width);
+      border: 0;
+      padding: 1px 0 0 0;
+      background: var(--viewer-gutter-background);
+      color: var(--viewer-gutter-foreground);
+      font: inherit;
+      line-height: inherit;
+      letter-spacing: normal;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .line-numbers-rows > span {
+      position: relative;
+      display: block;
+      min-height: var(--viewer-line-height);
+      counter-increment: linenumber;
+    }
+
+    .line-numbers-rows > span::before {
+      box-sizing: border-box;
+      display: block;
+      height: var(--viewer-line-height);
+      padding-right: 1px;
+      color: inherit;
+      content: counter(linenumber);
+      text-align: right;
+    }
+
+    .wrap-marker {
+      position: absolute;
+      left: 0;
+      display: flex;
+      width: 100%;
+      height: var(--viewer-line-height);
+      align-items: center;
+      justify-content: center;
+      color: var(--viewer-gutter-foreground);
+      line-height: var(--viewer-line-height);
+    }
+
+    .wrap-marker::before {
+      content: "\21AA";
+    }
+
+    .token.comment,
+    .token.prolog,
+    .token.doctype,
+    .token.cdata {
+      color: var(--token-comment);
+    }
+
+    .token.punctuation,
+    .token.operator,
+    .token.entity,
+    .token.url {
+      color: var(--token-punctuation);
+      background: transparent;
+    }
+
+    .token.keyword,
+    .token.atrule,
+    .token.important,
+    .token.tag {
+      color: var(--token-keyword);
+    }
+
+    .token.tag .token.punctuation {
+      color: var(--token-punctuation);
+    }
+
+    .token.control-keyword,
+    .token.keyword.control-keyword {
+      color: var(--token-control-keyword);
+    }
+
+    .token.boolean {
+      color: var(--token-boolean);
+    }
+
+    .token.class-name,
+    .token.maybe-class-name,
+    .token.return-type {
+      color: var(--token-class-name);
+    }
+
+    .token.function,
+    .token.generic-method {
+      color: var(--token-function);
+    }
+
+    .token.string,
+    .token.char,
+    .token.attr-value,
+    .token.builtin,
+    .token.selector {
+      color: var(--token-string);
+    }
+
+    .token.attr-name {
+      color: var(--token-variable);
+    }
+
+    .token.attr-value .token.punctuation {
+      color: var(--token-string);
+    }
+
+    .token.attr-value .token.punctuation.attr-equals {
+      color: var(--token-punctuation);
+    }
+
+    .token.number,
+    .token.constant,
+    .token.symbol,
+    .token.unit {
+      color: var(--token-number);
+    }
+
+    .token.regex {
+      color: var(--token-regex);
+    }
+
+    .token.variable,
+    .token.parameter,
+    .token.named-parameter,
+    .token.msbuild-property {
+      color: var(--token-variable);
+    }
+
+    .token.maybe-member,
+    .token.interpolation {
+      color: var(--viewer-foreground);
+    }
+
+    .token.namespace,
+    .token.maybe-namespace,
+    .token.class-name .token.namespace,
+    .token.class-name .token.maybe-namespace {
+      color: var(--token-namespace);
+      opacity: 1;
+    }
+
+    .token.important,
+    .token.bold {
+      font-weight: bold;
+    }
+
+    .token.italic {
+      font-style: italic;
+    }
+
+    .token.entity {
+      cursor: help;
+    }
+
+    .language-batch .token.string .token.variable {
+      color: inherit;
+    }
+
+    .show-whitespace .token.tab:not(:empty),
+    .show-whitespace .token.cr,
+    .show-whitespace .token.lf,
+    .show-whitespace .token.space {
+      position: relative;
+    }
+
+    .show-whitespace .token.tab:not(:empty)::before,
+    .show-whitespace .token.cr::before,
+    .show-whitespace .token.lf::before,
+    .show-whitespace .token.space::before {
+      position: absolute;
+      color: var(--viewer-gutter-foreground);
+      opacity: 0.65;
+    }
+
+    .show-whitespace .token.tab:not(:empty)::before {
+      content: "\21E5";
+    }
+
+    .show-whitespace .token.cr::before {
+      content: "\240D";
+    }
+
+    .show-whitespace .token.crlf::before {
+      content: "\240D\240A";
+    }
+
+    .show-whitespace .token.lf::before {
+      content: "\240A";
+    }
+
+    .show-whitespace .token.space::before {
+      content: "\00B7";
+    }
+  </style>
+  <script>window.Prism = { manual: true };</script>
+  <script src="../prism.js"></script>
+  <script src="../plugins/autoloader/prism-autoloader.min.js"></script>
+  <script src="prism-patches.js?v=vs-tokens-12"></script>
+  <script src="virtual-viewer.js?v=vs-tokens-12" defer></script>
+</head>
+<body>
+  <div id="viewer-status" class="visually-hidden" role="status" aria-live="polite"></div>
+  <main id="virtual-spacer" role="document" aria-busy="true"></main>
+</body>
+</html>

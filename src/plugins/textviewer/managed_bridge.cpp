@@ -81,7 +81,31 @@ NativeViewerStrings ReadStrings()
             SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_WEBVIEW_FAILED),
             SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_OPEN_FAILED),
             SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_SYNTAX_HIGHLIGHTER),
-            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_AUTOMATIC)};
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_AUTOMATIC),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_VISUAL_STUDIO),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_PRISM),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_CUSTOM),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_EDIT_CUSTOM),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_EDIT_TITLE),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_SAVE),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_CANCEL),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_LIGHT),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_DARK),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_COMMENT),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_PUNCTUATION),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_KEYWORD),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_CONTROL_KEYWORD),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_CLASS_NAME),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_FUNCTION),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_STRING),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_NUMBER),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_BOOLEAN),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_VARIABLE),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_NAMESPACE),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_REGEX),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_SAVE_FAILED),
+            SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_UI_UNAVAILABLE)};
 }
 
 LOGFONT ReadViewerFont()
@@ -120,7 +144,7 @@ bool ManagedBridge_ViewTextFile(HWND parent, const char* filePath, const RECT& p
     NativeViewerRequest request = {DLLInstance, parent, path.c_str(), placement, showCmd,
                                    alwaysOnTop != FALSE, fileLock, NativeViewerKind::PrismText,
                                    ReadTheme(), ReadStrings(), ReadMenuFont(), SalamanderGUI,
-                                   ReadViewerFont()};
+                                   ReadViewerFont(), SalamanderGeneral};
     return NativeViewer_Show(request);
 }
 

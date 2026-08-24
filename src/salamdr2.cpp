@@ -2539,7 +2539,11 @@ BOOL LoadViewers(HKEY hKey, const char* name, CViewerMasks* viewerMasks)
                 }
             }
             else
-                break;
+            {
+                // One damaged record must not truncate every viewer that follows it.
+                // Close the key below, skip this item, and continue with the sequence.
+                TRACE_E("Skipping invalid viewer configuration record " << buf);
+            }
             itoa(++i, buf, 10);
             CloseKey(subKey);
         }
@@ -2555,34 +2559,67 @@ BOOL SaveViewers(HKEY hKey, const char* name, CViewerMasks* viewerMasks)
     HKEY viewersKey;
     if (CreateKey(hKey, name, viewersKey))
     {
-        ClearKey(viewersKey);
         HKEY subKey;
         char buf[30];
+        BOOL saved = TRUE;
         int i;
         for (i = 0; i < viewerMasks->Count; i++)
         {
             itoa(i + 1, buf, 10);
             if (CreateKey(viewersKey, buf, subKey))
             {
-                SetValue(subKey, VIEWERS_MASKS_REG, REG_SZ, viewerMasks->At(i)->Masks->GetMasksString(), -1);
+                BOOL itemSaved = SetValue(subKey, VIEWERS_MASKS_REG, REG_SZ,
+                                          viewerMasks->At(i)->Masks->GetMasksString(), -1);
                 if (viewerMasks->At(i)->Command[0] != 0)
-                    SetValue(subKey, VIEWERS_COMMAND_REG, REG_SZ, viewerMasks->At(i)->Command, -1);
+                    itemSaved &= SetValue(subKey, VIEWERS_COMMAND_REG, REG_SZ,
+                                          viewerMasks->At(i)->Command, -1);
+                else
+                    DeleteValue(subKey, VIEWERS_COMMAND_REG);
                 if (viewerMasks->At(i)->Arguments[0] != 0)
-                    SetValue(subKey, VIEWERS_ARGUMENTS_REG, REG_SZ, viewerMasks->At(i)->Arguments, -1);
+                    itemSaved &= SetValue(subKey, VIEWERS_ARGUMENTS_REG, REG_SZ,
+                                          viewerMasks->At(i)->Arguments, -1);
+                else
+                    DeleteValue(subKey, VIEWERS_ARGUMENTS_REG);
                 if (viewerMasks->At(i)->InitDir[0] != 0)
-                    SetValue(subKey, VIEWERS_INITDIR_REG, REG_SZ, viewerMasks->At(i)->InitDir, -1);
+                    itemSaved &= SetValue(subKey, VIEWERS_INITDIR_REG, REG_SZ,
+                                          viewerMasks->At(i)->InitDir, -1);
+                else
+                    DeleteValue(subKey, VIEWERS_INITDIR_REG);
                 if (viewerMasks->At(i)->ViewerLabel[0] != 0)
-                    SetValue(subKey, VIEWERS_LABEL_REG, REG_SZ, viewerMasks->At(i)->ViewerLabel, -1);
-                SetValue(subKey, VIEWERS_TYPE_REG, REG_DWORD,
-                         &viewerMasks->At(i)->ViewerType, sizeof(DWORD));
+                    itemSaved &= SetValue(subKey, VIEWERS_LABEL_REG, REG_SZ,
+                                          viewerMasks->At(i)->ViewerLabel, -1);
+                else
+                    DeleteValue(subKey, VIEWERS_LABEL_REG);
+                itemSaved &= SetValue(subKey, VIEWERS_TYPE_REG, REG_DWORD,
+                                      &viewerMasks->At(i)->ViewerType, sizeof(DWORD));
                 CloseKey(subKey);
+                if (!itemSaved)
+                {
+                    saved = FALSE;
+                    break;
+                }
             }
             else
+            {
+                saved = FALSE;
                 break;
+            }
+        }
+        if (saved)
+        {
+            // Remove obsolete trailing records only after every current record has
+            // been written successfully. A failed save must never truncate the list.
+            for (;;)
+            {
+                itoa(++i, buf, 10);
+                if (!DeleteKey(viewersKey, buf))
+                    break;
+            }
         }
         CloseKey(viewersKey);
+        return saved;
     }
-    return TRUE;
+    return FALSE;
 }
 
 // ****************************************************************************

@@ -21,7 +21,6 @@
 #define IDS_PLUGIN_DESCRIPTION             48
 #define IDS_PLUGIN_HOME                    49
 #define IDS_VIEWER_CREATE_EVENT_FAILED     50
-#define IDS_FILE_TOO_LARGE                 51
 #define IDS_VIEWER_FILE                    52
 #define IDS_VIEWER_VIEW                    53
 #define IDS_VIEWER_CLOSE                   54
@@ -38,5 +37,29 @@
 #define IDS_VIEWER_SHOW_WHITESPACE         65
 #define IDS_VIEWER_SYNTAX_HIGHLIGHTER      66
 #define IDS_VIEWER_AUTOMATIC               67
+#define IDS_VIEWER_COLORS                  68
+#define IDS_VIEWER_COLORS_VISUAL_STUDIO    69
+#define IDS_VIEWER_COLORS_PRISM            70
+#define IDS_VIEWER_COLORS_CUSTOM           71
+#define IDS_VIEWER_COLORS_EDIT_CUSTOM      72
+#define IDS_VIEWER_COLORS_EDIT_TITLE       73
+#define IDS_VIEWER_COLORS_SAVE             74
+#define IDS_VIEWER_COLORS_CANCEL           75
+#define IDS_VIEWER_COLORS_LIGHT            76
+#define IDS_VIEWER_COLORS_DARK             77
+#define IDS_VIEWER_COLORS_COMMENT          78
+#define IDS_VIEWER_COLORS_PUNCTUATION      79
+#define IDS_VIEWER_COLORS_KEYWORD          80
+#define IDS_VIEWER_COLORS_CONTROL_KEYWORD  81
+#define IDS_VIEWER_COLORS_CLASS_NAME       82
+#define IDS_VIEWER_COLORS_FUNCTION         83
+#define IDS_VIEWER_COLORS_STRING           84
+#define IDS_VIEWER_COLORS_NUMBER           85
+#define IDS_VIEWER_COLORS_BOOLEAN          86
+#define IDS_VIEWER_COLORS_VARIABLE         87
+#define IDS_VIEWER_COLORS_NAMESPACE        88
+#define IDS_VIEWER_COLORS_REGEX            89
+#define IDS_VIEWER_COLORS_SAVE_FAILED      90
+#define IDS_VIEWER_COLORS_UI_UNAVAILABLE   91
 
 #endif // __TEXTVIEWER_RH2

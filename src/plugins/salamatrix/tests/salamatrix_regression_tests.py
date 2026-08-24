@@ -1165,6 +1165,10 @@ def main() -> int:
             r'AttachProgressBar.*?ChangeToArrowButton.*?AttachButton.*?'
             r'AttachColorArrowButton.*?AttachToolbarHeader',
             "Salamatrix UI does not expose every host control demonstrated by DemoPlug")
+    require(ui_implementation, r'ControlKindColorArrowButton.*?ChooseColorW',
+            "ColorArrowButton must open the Windows color picker")
+    require(ui_contract, r'GetColor\(COLORREF\*',
+            "IControl must expose GetColor for ColorArrowButton swatches")
     require(salamatrix_ui,
             r'options\.Width = 463.*?options\.Height = 236.*?'
             r'"CGUIStaticTextAbstract", 6, 4, 254, 108.*?'

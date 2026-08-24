@@ -3030,6 +3030,9 @@ public:
     // adjusts all archive-related data structures -> ensures data consistency
     void CheckData();
 
+    // validates viewer types after the startup plugin list has been reconciled
+    void CheckViewerData();
+
     // removes from Data all plugins whose .spl file no longer exists; if 'canDelPluginRegKey' is TRUE,
     // their configuration in the registry is also deleted. in the 'notLoadedPluginNames' (buffer of size
     // 'notLoadedPluginNamesSize') returns a list of names (up to 'maxNotLoadedPluginNames' names) of

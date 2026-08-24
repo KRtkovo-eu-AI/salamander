@@ -40,6 +40,7 @@ static const UINT WM_SALAMATRIX_SPLITTER_MOVED = WM_APP + 0x3A2;
 static std::vector<NativeDialog*> OpenNativeDialogs;
 static std::vector<HWND> OpenNotificationWindows;
 static BOOL ClosingAllNativeDialogs = FALSE;
+static COLORREF ColorPickerCustomColors[16] = {};
 
 static void RegisterNativeDialog(NativeDialog* dialog)
 {
@@ -996,6 +997,17 @@ struct NativeDialog::Impl
                 return FALSE;
             ToolbarAlignControlId.assign(alignControlId);
             ToolbarButtonMask = buttonMask;
+            return TRUE;
+        }
+
+        virtual BOOL WINAPI GetColor(COLORREF* textColor, COLORREF* backgroundColor) const
+        {
+            if (Kind != ControlKindColorArrowButton)
+                return FALSE;
+            if (textColor != NULL)
+                *textColor = TextColor;
+            if (backgroundColor != NULL)
+                *backgroundColor = BackgroundColor;
             return TRUE;
         }
     };
@@ -2417,6 +2429,31 @@ INT_PTR CALLBACK NativeDialog::DialogProc(
                 SetWindowTextW(
                     GetDlgItem(hwnd, control->NumericId),
                     selectedWide.c_str());
+            dialog->m_pImpl->NotifyChanged(control);
+        }
+        return TRUE;
+    }
+    if (control->Kind == ControlKindColorArrowButton)
+    {
+        CHOOSECOLORW choose = {};
+        choose.lStructSize = sizeof(choose);
+        choose.hwndOwner = hwnd;
+        choose.lpCustColors = ColorPickerCustomColors;
+        choose.rgbResult = control->ColorArrowButton != NULL
+                               ? control->ColorArrowButton->GetBkgndColor()
+                               : control->BackgroundColor;
+        choose.Flags = CC_RGBINIT | CC_FULLOPEN;
+        if (ChooseColorW(&choose))
+        {
+            COLORREF text = control->ColorArrowButton != NULL
+                                ? control->ColorArrowButton->GetTextColor()
+                                : control->TextColor;
+            const COLORREF background = control->ColorArrowButton != NULL
+                                            ? control->ColorArrowButton->GetBkgndColor()
+                                            : control->BackgroundColor;
+            if (text == background)
+                text = choose.rgbResult;
+            control->SetColor(text, choose.rgbResult);
             dialog->m_pImpl->NotifyChanged(control);
         }
         return TRUE;

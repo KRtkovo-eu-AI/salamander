@@ -731,9 +731,19 @@ BOOL WINAPI CPluginInterfaceForViewer::ViewFile(const char* name, int left, int 
 
     if (IsFileTooLarge(name, kMaxTextFileSize))
     {
-        SalamanderGeneral->SalMessageBox(parent, LoadStr(IDS_FILE_TOO_LARGE), LoadStr(IDS_PLUGINNAME),
-                                         MB_OK | MB_ICONINFORMATION);
-        return FALSE;
+        CSalamanderPluginInternalViewerData fallbackData;
+        fallbackData.Size = sizeof(fallbackData);
+        fallbackData.FileName = name;
+        fallbackData.Mode = 0;
+        fallbackData.Caption = NULL;
+        fallbackData.WholeCaption = FALSE;
+
+        // A lock request means that Salamander owns this temporary file. Transfer it to
+        // the Internal Viewer's cache so its lifetime remains tied to the fallback viewer.
+        const char* fileNameInCache = returnLock ? SalamanderGeneral->SalPathFindFileName(name) : NULL;
+        int error;
+        return SalamanderGeneral->ViewFileInPluginViewer(NULL, &fallbackData, returnLock,
+                                                         NULL, fileNameInCache, error);
     }
 
     RECT placement;
@@ -777,9 +787,9 @@ BOOL WINAPI CPluginInterfaceForViewer::CanViewFile(const char* name)
         return FALSE;
 
     static const char* const kExtensions[] = {
-        ".txt", ".log", ".ini", ".cfg", ".json", ".yaml", ".yml", ".xml", ".html", ".htm", ".md",
-        ".cs", ".cpp", ".c", ".h", ".hpp", ".py", ".js", ".ts", ".css", ".sql", ".bat", ".ps1",
-        ".php"
+        ".txt", ".log", ".ini", ".cfg", ".conf", ".config", ".json", ".yaml", ".yml", ".xml",
+        ".html", ".htm", ".md", ".cs", ".cpp", ".c", ".h", ".hpp", ".py", ".js", ".ts", ".css",
+        ".sql", ".bat", ".cmd", ".ps1", ".psd1", ".psm1", ".php", ".targets", ".props", ".csproj"
     };
 
     for (size_t i = 0; i < _countof(kExtensions); ++i)

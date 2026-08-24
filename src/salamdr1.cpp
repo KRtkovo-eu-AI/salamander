@@ -5562,6 +5562,9 @@ FIND_NEW_SLG_FILE:
                         // instalace plug-inu pred prvnim spustenim Salamandera)
                         if (Plugins.ReadPluginsVer(MainWindow->HWindow, Configuration.ConfigVersion < THIS_CONFIG_VERSION))
                             saveNewConfig = TRUE; // nova konfigurace se musi ulozit (aby se tohle pri pristim spusteni neopakovalo)
+                        // Viewer plug-in indices are meaningful only after plugins.ver has
+                        // installed, removed, and remapped the final startup plug-in list.
+                        Plugins.CheckViewerData();
                         // load plug-inu, ktere maji nastaveny flag load-on-start
                         Plugins.HandleLoadOnStartFlag(MainWindow->HWindow);
                         // pokud startujeme poprve se zmenenym jazykem, naloadime vsechny pluginy, aby se ukazalo,

@@ -283,15 +283,22 @@
     <Exec Command="npm ci --prefix &quot;$(PrismAssetsRoot).&quot; --no-audit --no-fund" />
   </Target>
   <Target Name="StageViewerPrismAssets" AfterTargets="Build" DependsOnTargets="RestoreViewerPrismAssets">
-    <ItemGroup><_ViewerPrismComponent Include="$(PrismAssetsRoot)node_modules\prismjs\components\prism-*.min.js" /></ItemGroup>
+    <ItemGroup>
+      <_ViewerPrismComponent Include="$(PrismAssetsRoot)node_modules\prismjs\components\prism-*.min.js" />
+      <_ViewerPrismPage Include="$(PrismAssetsRoot)viewer\**\*.*" />
+    </ItemGroup>
     <RemoveDir Directories="$(OutDir)prism" />
-    <MakeDir Directories="$(OutDir)prism\components;$(OutDir)prism\themes;$(OutDir)prism\plugins\autoloader;$(OutDir)prism\plugins\line-numbers;$(OutDir)prism\plugins\show-invisibles" />
+    <MakeDir Directories="$(OutDir)prism\components;$(OutDir)prism\themes;$(OutDir)prism\plugins\autoloader;$(OutDir)prism\plugins\line-numbers;$(OutDir)prism\plugins\show-invisibles;$(OutDir)prism\viewer" />
     <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\prism.js" DestinationFolder="$(OutDir)prism" />
+    <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\components.json" DestinationFolder="$(OutDir)prism" />
     <Copy SourceFiles="@(_ViewerPrismComponent)" DestinationFolder="$(OutDir)prism\components" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\themes\prism.css;$(PrismAssetsRoot)node_modules\prismjs\themes\prism-tomorrow.css" DestinationFolder="$(OutDir)prism\themes" />
     <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\plugins\autoloader\prism-autoloader.min.js" DestinationFolder="$(OutDir)prism\plugins\autoloader" />
     <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\plugins\line-numbers\prism-line-numbers.min.js;$(PrismAssetsRoot)node_modules\prismjs\plugins\line-numbers\prism-line-numbers.css" DestinationFolder="$(OutDir)prism\plugins\line-numbers" />
     <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\plugins\show-invisibles\prism-show-invisibles.min.js;$(PrismAssetsRoot)node_modules\prismjs\plugins\show-invisibles\prism-show-invisibles.css" DestinationFolder="$(OutDir)prism\plugins\show-invisibles" />
+    <Copy SourceFiles="@(_ViewerPrismPage)"
+          DestinationFiles="@(_ViewerPrismPage->'$(OutDir)prism\viewer\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
   </Target>
   <Target Name="PublishViewerMarkdigRenderer" AfterTargets="Build" Condition="'$(Platform)' != 'Win32'">
     <Exec Command="dotnet publish &quot;$(ProjectDir)..\..\shared\webviewviewer\markdighelper\MarkdigRenderer.csproj&quot; --configuration Release --runtime $(MarkdigRuntimeIdentifier) --output &quot;$(IntDir)MarkdigRenderer&quot;" />
