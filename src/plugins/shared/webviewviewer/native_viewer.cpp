@@ -230,15 +230,16 @@ std::wstring PrismLanguageForExtension(const std::wstring& extension)
 }
 
 std::wstring ModuleDirectory(HINSTANCE module);
+std::wstring PrismAssetsDirectory();
 
-std::vector<std::wstring> InstalledPrismLanguages(HINSTANCE module)
+std::vector<std::wstring> InstalledPrismLanguages()
 {
     std::vector<std::wstring> languages;
-    const std::wstring folder = ModuleDirectory(module);
+    const std::wstring folder = PrismAssetsDirectory();
     if (folder.empty())
         return languages;
     WIN32_FIND_DATAW data = {};
-    HANDLE find = FindFirstFileW((folder + L"\\prism\\components\\prism-*.min.js").c_str(), &data);
+    HANDLE find = FindFirstFileW(ToIoPath(folder + L"\\components\\prism-*.min.js").c_str(), &data);
     if (find == INVALID_HANDLE_VALUE)
         return languages;
     do
@@ -499,6 +500,11 @@ std::wstring ModuleDirectory(HINSTANCE module)
     return result;
 }
 
+std::wstring PrismAssetsDirectory()
+{
+    return ModuleDirectory(nullptr) + L"plugins\\salamatrix\\prism";
+}
+
 bool WriteAll(HANDLE handle, const void* data, size_t size)
 {
     const unsigned char* current = static_cast<const unsigned char*>(data);
@@ -698,7 +704,7 @@ public:
             wrapLines_ = ReadViewerSetting(L"PrismWrapLines", 0) != 0;
             showWhitespace_ = ReadViewerSetting(L"PrismShowWhitespace", 0) != 0;
             automaticLanguage_ = PrismLanguageForExtension(ExtensionOf(parameters_->filePath));
-            installedLanguages_ = InstalledPrismLanguages(parameters_->module);
+            installedLanguages_ = InstalledPrismLanguages();
             if (!std::binary_search(installedLanguages_.begin(), installedLanguages_.end(), automaticLanguage_))
                 automaticLanguage_ = L"none";
             activeLanguage_ = automaticLanguage_;
@@ -1570,30 +1576,10 @@ private:
             ComPtr<ICoreWebView2_3> webView3;
             if (SUCCEEDED(webView_.As(&webView3)))
             {
-                std::vector<wchar_t> modulePath(512);
-                DWORD length = 0;
-                for (;;)
-                {
-                    length = GetModuleFileNameW(parameters_->module, modulePath.data(),
-                                                static_cast<DWORD>(modulePath.size()));
-                    if (length == 0)
-                        break;
-                    if (length < modulePath.size() - 1)
-                        break;
-                    modulePath.resize(modulePath.size() * 2);
-                }
-                if (length > 0)
-                {
-                    std::wstring folder(modulePath.data(), length);
-                    size_t slash = folder.find_last_of(L"\\/");
-                    if (slash != std::wstring::npos)
-                    {
-                        folder.resize(slash + 1);
-                        folder += L"prism";
-                        webView3->SetVirtualHostNameToFolderMapping(L"prism.local", folder.c_str(),
-                            COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY_CORS);
-                    }
-                }
+                const std::wstring folder = PrismAssetsDirectory();
+                webView3->SetVirtualHostNameToFolderMapping(
+                    L"prism.local", folder.c_str(),
+                    COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY_CORS);
             }
             SetLoadProgress(80);
             webView_->NavigateToString(html.c_str());

@@ -48,13 +48,9 @@
 | libexif | Плагин PictView | Части плагина PictView используют libexif. Copyright (C) 2001-2019 Curtis Galloway и Lutz Muller. |
 | Newtonsoft.Json 13.0.3 | Плагин JSON Viewer | Автор: James Newton-King, выпущено под лицензией MIT. |
 | Microsoft .NET Framework 4.8 | Плагин JSON Viewer | Предоставлено Microsoft Corporation по условиям лицензии Microsoft .NET Framework. |
-| PrismSharp 1.0.0-beta | Плагин PrismSharp Text Viewer | Автор: Tomáš Kubec, выпущено под лицензией MIT. Включает Prism.js от Lea Verou и контрибьюторов PrismJS под лицензией MIT. |
-| Microsoft.Web.WebView2 1.0.2420.47 | Плагин PrismSharp Text Viewer | Автор: Microsoft Corporation, распространяется под лицензией BSD 3-Clause. |
-| Microsoft .NET Framework 4.8 | Плагин PrismSharp Text Viewer | Предоставлено Microsoft Corporation по условиям лицензии Microsoft .NET Framework. |
-| Newtonsoft.Json 13.0.3 | Плагин PrismSharp Text Viewer | Автор: James Newton-King, выпущено под лицензией MIT. |
-| Markdig 0.36.2 | Плагин WebView2 Render Viewer | Автор: Alexandre Mutel и контрибьюторы, выпущено под лицензией BSD 2-Clause. |
-| Microsoft.Web.WebView2 1.0.2420.47 | Плагин WebView2 Render Viewer | Автор: Microsoft Corporation, распространяется под лицензией BSD 3-Clause. |
-| Microsoft .NET Framework 4.8 | Плагин WebView2 Render Viewer | Предоставлено Microsoft Corporation по условиям лицензии Microsoft .NET Framework. |
+| Prism.js 1.29.0 | Viewer Frame (Salamatrix и Prism Text Viewer) | Авторы: Lea Verou и контрибьюторы PrismJS, выпущено под лицензией MIT. |
+| Microsoft.Web.WebView2 1.0.2420.47 | Viewer Frame | Автор: Microsoft Corporation, распространяется под лицензией BSD 3-Clause. |
+| Markdig 0.36.2 | MarkdigRenderer для WebView2 Render Viewer | Авторы: Alexandre Mutel и контрибьюторы, выпущено под лицензией BSD 2-Clause. |
 
 ## Плагины сети, синхронизации и устройств
 

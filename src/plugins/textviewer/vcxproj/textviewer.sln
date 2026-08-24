@@ -7,8 +7,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "textviewer", "textviewer.vc
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lang_textviewer", "lang_textviewer.vcxproj", "{1DE1C48D-BFB7-4401-9E4C-3EF9FC3D3407}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TextViewer.Managed", "..\managed\TextViewer.Managed.csproj", "{755CF63D-31EB-43B6-8402-2BB9D7D3E53F}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{1BDAFFE2-B264-44E9-A670-B7EC029A726F}"
 	ProjectSection(SolutionItems) = preProject
 		..\..\..\.editorconfig = ..\..\..\.editorconfig
@@ -48,18 +46,6 @@ Global
                 {1DE1C48D-BFB7-4401-9E4C-3EF9FC3D3407}.SDK|x64.Build.0 = SDK|x64
                 {1DE1C48D-BFB7-4401-9E4C-3EF9FC3D3407}.SDK|x86.ActiveCfg = SDK|Win32
                 {1DE1C48D-BFB7-4401-9E4C-3EF9FC3D3407}.SDK|x86.Build.0 = SDK|Win32
-                {755CF63D-31EB-43B6-8402-2BB9D7D3E53F}.Debug|x64.ActiveCfg = Debug|Any CPU
-                {755CF63D-31EB-43B6-8402-2BB9D7D3E53F}.Debug|x64.Build.0 = Debug|Any CPU
-                {755CF63D-31EB-43B6-8402-2BB9D7D3E53F}.Debug|x86.ActiveCfg = Debug|Any CPU
-                {755CF63D-31EB-43B6-8402-2BB9D7D3E53F}.Debug|x86.Build.0 = Debug|Any CPU
-                {755CF63D-31EB-43B6-8402-2BB9D7D3E53F}.Release|x64.ActiveCfg = Release|Any CPU
-                {755CF63D-31EB-43B6-8402-2BB9D7D3E53F}.Release|x64.Build.0 = Release|Any CPU
-                {755CF63D-31EB-43B6-8402-2BB9D7D3E53F}.Release|x86.ActiveCfg = Release|Any CPU
-                {755CF63D-31EB-43B6-8402-2BB9D7D3E53F}.Release|x86.Build.0 = Release|Any CPU
-                {755CF63D-31EB-43B6-8402-2BB9D7D3E53F}.SDK|x64.ActiveCfg = Release|Any CPU
-                {755CF63D-31EB-43B6-8402-2BB9D7D3E53F}.SDK|x64.Build.0 = Release|Any CPU
-                {755CF63D-31EB-43B6-8402-2BB9D7D3E53F}.SDK|x86.ActiveCfg = Release|Any CPU
-                {755CF63D-31EB-43B6-8402-2BB9D7D3E53F}.SDK|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

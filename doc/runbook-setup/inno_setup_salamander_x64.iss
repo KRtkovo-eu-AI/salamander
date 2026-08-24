@@ -458,6 +458,7 @@ Type: files; Name: "{app}\WebView2Loader.dll"
 Type: files; Name: "{app}\plugins\salamatrix\WebView2Loader.dll"
 Type: files; Name: "{app}\plugins\salamatrix\MarkdigRenderer.exe"
 Type: files; Name: "{app}\plugins\textviewer\WebView2Loader.dll"
+Type: filesandordirs; Name: "{app}\plugins\textviewer\prism"
 Type: files; Name: "{app}\plugins\webview2renderviewer\WebView2Loader.dll"
 Type: files; Name: "{app}\plugins\webview2renderviewer\MarkdigRenderer.exe"
 
@@ -968,7 +969,6 @@ Source: "{#PayloadDir}\plugins\textviewer\lang\russian.slg"; DestDir: "{app}\plu
 Source: "{#PayloadDir}\plugins\textviewer\lang\slovak.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
 Source: "{#PayloadDir}\plugins\textviewer\lang\spanish.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
 Source: "{#PayloadDir}\plugins\textviewer\SUPPORTED_FILE_TYPES.md"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
-Source: "{#PayloadDir}\plugins\textviewer\prism\*"; DestDir: "{app}\plugins\textviewer\prism"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('textviewer')
 Source: "{#PayloadDir}\plugins\textviewer\textviewer.spl"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
 Source: "{#PayloadDir}\plugins\unarj\lang\czech.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
 Source: "{#PayloadDir}\plugins\unarj\lang\dutch.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
@@ -1567,7 +1567,8 @@ procedure InitializePluginDependencies;
 begin
   SetArrayLength(PluginDependencies, 0);
 
-  { Runtime providers and Salamatrix AI use the Salamatrix Framework. }
+  { Text Viewer, runtime providers, and Salamatrix AI use the Salamatrix Framework. }
+  AddPluginDependency('textviewer', 'salamatrix');
   AddPluginDependency('javascriptruntime', 'salamatrix');
   AddPluginDependency('luaruntime', 'salamatrix');
   AddPluginDependency('phpruntime', 'salamatrix');

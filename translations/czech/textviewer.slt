@@ -10,11 +10,11 @@ WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
-46,1,"PrismSharp Text Viewer .NET"
+46,1,"Textový prohlížeč Prism"
 47,1,"O pluginu"
 
 [STRINGTABLE 1]
-48,1,"Interní prohlížeč, který zobrazuje textové soubory se spravovaným zvýrazňováním syntaxe."
+48,1,"Nativní prohlížeč, který zobrazuje textové soubory se zvýrazňováním syntaxe pomocí Prism.js."
 49,1,"https://samandarin.net/"
 50,1,"Nelze připravit synchronizační událost vyžadovanou prohlížečem."
 51,1,"Vybraný soubor je příliš velký k otevření. Nejsou podporovány soubory větší než 16 MB."

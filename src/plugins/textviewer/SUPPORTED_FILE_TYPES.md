@@ -1,4 +1,4 @@
-# PrismSharp Text Viewer .NET Supported File Types
+# Prism Text Viewer Supported File Types
 
 The viewer focuses on human-readable text content and syntax-highlighted source files. Extensions are matched case-insensitively.
 
@@ -19,7 +19,7 @@ The viewer focuses on human-readable text content and syntax-highlighted source 
 
 ## Prism syntax highlighting identifiers
 
-The viewer also registers PrismSharp lexers so matching file extensions open in this viewer. The supported identifiers are:
+The viewer also registers Prism.js language identifiers so matching file extensions open in this viewer. The supported identifiers are:
 
 `.abap`, `.abnf`, `.actionscript`, `.ada`, `.adoc`, `.agda`, `.al`, `.antlr4`, `.apacheconf`,
 `.apex`, `.apl`, `.applescript`, `.aql`, `.arduino`, `.arff`, `.asciidoc`, `.asm6502`, `.asmatmel`,

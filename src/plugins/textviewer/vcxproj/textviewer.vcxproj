@@ -309,24 +309,8 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets">
   </Import>
-  <PropertyGroup>
-    <PrismAssetsRoot>$(ProjectDir)..\..\shared\webviewviewer\prism\</PrismAssetsRoot>
-  </PropertyGroup>
-  <Target Name="RestorePrismAssets" BeforeTargets="Build" Condition="!Exists('$(PrismAssetsRoot)node_modules\prismjs\prism.js')">
-    <Exec Command="npm ci --prefix &quot;$(PrismAssetsRoot).&quot; --no-audit --no-fund" />
-  </Target>
-  <Target Name="StagePrismAssets" AfterTargets="Build" DependsOnTargets="RestorePrismAssets">
-    <ItemGroup>
-      <_PrismComponent Include="$(PrismAssetsRoot)node_modules\prismjs\components\prism-*.min.js" />
-    </ItemGroup>
+  <Target Name="RemoveLegacyViewerAssets" AfterTargets="Build">
     <RemoveDir Directories="$(OutDir)prism" />
-    <MakeDir Directories="$(OutDir)prism\components;$(OutDir)prism\themes;$(OutDir)prism\plugins\autoloader;$(OutDir)prism\plugins\line-numbers;$(OutDir)prism\plugins\show-invisibles" />
-    <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\prism.js" DestinationFolder="$(OutDir)prism" />
-    <Copy SourceFiles="@(_PrismComponent)" DestinationFolder="$(OutDir)prism\components" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\themes\prism.css;$(PrismAssetsRoot)node_modules\prismjs\themes\prism-tomorrow.css" DestinationFolder="$(OutDir)prism\themes" />
-    <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\plugins\autoloader\prism-autoloader.min.js" DestinationFolder="$(OutDir)prism\plugins\autoloader" />
-    <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\plugins\line-numbers\prism-line-numbers.min.js;$(PrismAssetsRoot)node_modules\prismjs\plugins\line-numbers\prism-line-numbers.css" DestinationFolder="$(OutDir)prism\plugins\line-numbers" />
-    <Copy SourceFiles="$(PrismAssetsRoot)node_modules\prismjs\plugins\show-invisibles\prism-show-invisibles.min.js;$(PrismAssetsRoot)node_modules\prismjs\plugins\show-invisibles\prism-show-invisibles.css" DestinationFolder="$(OutDir)prism\plugins\show-invisibles" />
     <RemoveDir Directories="$(OutDir)data;$(OutDir)runtimes" />
     <Delete Files="$(OutDir)Microsoft.Web.WebView2.Core.dll;$(OutDir)Microsoft.Web.WebView2.WinForms.dll;$(OutDir)Newtonsoft.Json.dll;$(OutDir)PrismSharp.dll;$(OutDir)TextViewer.Managed.dll" />
   </Target>

@@ -10,11 +10,11 @@ WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
-46,1,"PrismSharp Text Viewer .NET"
+46,1,"Visionneuse de texte Prism"
 47,1,"À propos du plug-in"
 
 [STRINGTABLE 1]
-48,1,"Visionneuse interne qui affiche les fichiers texte avec une mise en forme (surlignage) syntaxique gérée."
+48,1,"Visionneuse native qui affiche les fichiers texte avec la coloration syntaxique Prism.js."
 49,1,"https://samandarin.net/"
 50,1,"Impossible de préparer l’événement de synchronisation requis par la visionneuse."
 51,1,"Le fichier sélectionné est trop volumineux pour être ouvert. Les fichiers de plus de 16 Mo ne sont pas pris en charge."

@@ -10,11 +10,11 @@ WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
-46,1,"PrismSharp 文本查看器 .NET"
+46,1,"Prism 文本查看器"
 47,1,"关于插件"
 
 [STRINGTABLE 1]
-48,1,"内部查看器，可使用托管语法高亮渲染文本文件。"
+48,1,"原生查看器，使用 Prism.js 语法高亮呈现文本文件。"
 49,1,"https://samandarin.net/"
 50,1,"无法准备查看器所需的同步事件。"
 51,1,"所选文件过大，无法打开。不支持大于 16 MB 的文件。"

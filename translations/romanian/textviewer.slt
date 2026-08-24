@@ -10,11 +10,11 @@ WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
-46,1,"PrismSharp Text Viewer .NET"
+46,1,"Vizualizator de text Prism"
 47,1,"Despre plugin"
 
 [STRINGTABLE 1]
-48,1,"Vizualizator intern care redă fișiere text cu evidențiere sintactică gestionată."
+48,1,"Vizualizator nativ care redă fișiere text cu evidențiere sintactică Prism.js."
 49,1,"https://samandarin.net/"
 50,1,"Nu s-a putut pregăti evenimentul de sincronizare necesar pentru vizualizator."
 51,1,"Fișierul selectat este prea mare pentru a fi deschis. Nu sunt acceptate fișiere mai mari de 16 MB."

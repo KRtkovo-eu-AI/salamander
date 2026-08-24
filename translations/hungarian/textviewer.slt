@@ -10,11 +10,11 @@ WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
-46,1,"PrismSharp szövegmegtekintő .NET"
+46,1,"Prism szövegmegtekintő"
 47,1,"Bővítmény névjegye"
 
 [STRINGTABLE 1]
-48,1,"Belső megtekintő, amely kezelt szintaktikai kiemeléssel jeleníti meg a szövegfájlokat."
+48,1,"Natív megtekintő, amely Prism.js szintaxiskiemeléssel jeleníti meg a szövegfájlokat."
 49,1,"https://samandarin.net/"
 50,1,"Nem sikerült előkészíteni a nézethez szükséges szinkronizálási eseményt."
 51,1,"A kijelölt fájl túl nagy a megnyitáshoz. A 16 MB-nál nagyobb fájlok nem támogatottak."

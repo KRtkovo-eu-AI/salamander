@@ -6,13 +6,17 @@ import re
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-VIEWER_HOST = (
+MARKDIG_RENDERER = (
     REPOSITORY_ROOT
     / "src"
     / "plugins"
-    / "webview2renderviewer"
-    / "managed"
-    / "ViewerHost.cs"
+    / "shared"
+    / "webviewviewer"
+    / "markdighelper"
+    / "Program.cs"
+)
+TEXTVIEWER_PROJECT = (
+    REPOSITORY_ROOT / "src" / "plugins" / "textviewer" / "vcxproj" / "textviewer.vcxproj"
 )
 WEBVIEW_PROJECT = (
     REPOSITORY_ROOT
@@ -41,10 +45,10 @@ NATIVE_VIEWER = (
 
 
 def main() -> None:
-    source = VIEWER_HOST.read_text(encoding="utf-8")
+    source = MARKDIG_RENDERER.read_text(encoding="utf-8")
 
     create_pipeline = re.search(
-        r"private static MarkdownPipeline CreatePipeline\(\).*?\n        }\n    }",
+        r"private static MarkdownPipeline CreatePipeline\(\).*?(?=\n    private static)",
         source,
         re.DOTALL,
     )
@@ -69,6 +73,7 @@ def main() -> None:
             "generic attributes must be removed after advanced setup and before pipeline build"
         )
 
+    textviewer_project = TEXTVIEWER_PROJECT.read_text(encoding="utf-8")
     webview_project = WEBVIEW_PROJECT.read_text(encoding="utf-8")
     salamatrix_project = SALAMATRIX_PROJECT.read_text(encoding="utf-8")
     native_viewer = NATIVE_VIEWER.read_text(encoding="utf-8")
@@ -80,6 +85,12 @@ def main() -> None:
         )
     if salamatrix_project.count(publish_command) != 1 or renderer_project not in salamatrix_project:
         raise AssertionError("salamatrix must be the single MarkdigRenderer producer")
+    if "StagePrismAssets" in textviewer_project or "RestorePrismAssets" in textviewer_project:
+        raise AssertionError("textviewer must consume Salamatrix's shared Prism assets")
+    if salamatrix_project.count("StageViewerPrismAssets") != 1:
+        raise AssertionError("salamatrix must be the single Prism asset producer")
+    if 'L"plugins\\\\salamatrix\\\\prism"' not in native_viewer:
+        raise AssertionError("Viewer Frame must consume Prism assets from Salamatrix")
     if 'L"utils\\\\MarkdigRenderer.exe"' not in native_viewer:
         raise AssertionError("the shared native viewer must consume MarkdigRenderer from utils")
     if "WM_NV_PREWARM_ENVIRONMENT" not in native_viewer:

@@ -1,7 +1,8 @@
-# WebView2 Render Viewer .NET Dependencies
+# WebView2 Render Viewer Dependencies
 
-The WebView2 Render Viewer .NET plugin relies on the following components:
+The native WebView2 Render Viewer uses the shared Viewer Frame and relies on:
 
-- **Microsoft .NET Framework 4.8** — target framework for the managed assembly, provided by Microsoft Corporation under the Microsoft .NET Framework license terms.
-- **Microsoft.Web.WebView2 1.0.2420.47** — WebView2 WinForms control by Microsoft Corporation, distributed under the BSD 3-Clause license (see the package `LICENSE.txt`).
-- **Markdig 0.36.2** — Markdown processor for .NET by Alexandre Mutel and contributors, released under the BSD 2-Clause license.
+- **Microsoft.Web.WebView2 1.0.2420.47** — native WebView2 SDK and loader by Microsoft Corporation, distributed under the BSD 3-Clause license (see the package `LICENSE.txt`).
+- **Markdig 0.36.2** — Markdown processor by Alexandre Mutel and contributors, released under the BSD 2-Clause license. It runs in the NativeAOT `MarkdigRenderer.exe` helper staged by Salamatrix.
+
+The viewer does not load the .NET runtime into Salamander.

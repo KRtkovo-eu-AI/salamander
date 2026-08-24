@@ -48,13 +48,9 @@ szerepel, hogy hozzáférhetővé tették munkájukat.
 | libexif | PictView bővítmény | A PictView bővítmény egyes részei libexif-et használnak. Copyright (C) 2001-2019 Curtis Galloway és Lutz Muller. |
 | Newtonsoft.Json 13.0.3 | JSON Viewer bővítmény | James Newton-King, MIT Licenc alatt kiadva. |
 | Microsoft .NET Framework 4.8 | JSON Viewer bővítmény | A Microsoft Corporation biztosítja a Microsoft .NET Framework licenc feltételei szerint. |
-| PrismSharp 1.0.0-beta | PrismSharp Text Viewer bővítmény | Tomáš Kubec, MIT Licenc alatt kiadva. Tartalmazza a Prism.js-t, szerző: Lea Verou és a PrismJS közreműködők, MIT Licenc alatt. |
-| Microsoft.Web.WebView2 1.0.2420.47 | PrismSharp Text Viewer bővítmény | Microsoft Corporation, BSD 3-Clause Licenc alatt terjesztve. |
-| Microsoft .NET Framework 4.8 | PrismSharp Text Viewer bővítmény | A Microsoft Corporation biztosítja a Microsoft .NET Framework licenc feltételei szerint. |
-| Newtonsoft.Json 13.0.3 | PrismSharp Text Viewer bővítmény | James Newton-King, MIT Licenc alatt kiadva. |
-| Markdig 0.36.2 | WebView2 Render Viewer bővítmény | Alexandre Mutel és közreműködők, BSD 2-Clause Licenc alatt kiadva. |
-| Microsoft.Web.WebView2 1.0.2420.47 | WebView2 Render Viewer bővítmény | Microsoft Corporation, BSD 3-Clause Licenc alatt terjesztve. |
-| Microsoft .NET Framework 4.8 | WebView2 Render Viewer bővítmény | A Microsoft Corporation biztosítja a Microsoft .NET Framework licenc feltételei szerint. |
+| Prism.js 1.29.0 | Viewer Frame (Salamatrix és Prism Text Viewer) | Lea Verou és a PrismJS közreműködők, MIT Licenc alatt kiadva. |
+| Microsoft.Web.WebView2 1.0.2420.47 | Viewer Frame | Microsoft Corporation, BSD 3-Clause Licenc alatt terjesztve. |
+| Markdig 0.36.2 | MarkdigRenderer a WebView2 Render Viewerhez | Alexandre Mutel és közreműködők, BSD 2-Clause Licenc alatt kiadva. |
 
 ## Hálózati, szinkronizációs és eszköz bővítmények
 

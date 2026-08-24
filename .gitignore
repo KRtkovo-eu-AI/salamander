@@ -200,14 +200,6 @@ src/vcxproj/sqlite/salamander/Release_x86/
 
 src/vcxproj/salamander/Release_x86/
 
-src/plugins/webview2renderviewer/managed/obj/
-
-src/plugins/webview2renderviewer/managed/bin/
-
-src/plugins/textviewer/managed/bin/
-
-src/plugins/textviewer/managed/obj/
-
 src/plugins/samandarin/managed/bin/
 
 src/plugins/samandarin/managed/obj/

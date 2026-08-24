@@ -191,7 +191,7 @@ function Get-KnownPluginDescriptions {
         'serviceexplorer' = 'Browse and configure services.'
         'splitcbn' = 'Split & Combine plugin for Open Salamander'
         'tar' = 'TAR plugin for Open Salamander'
-        'textviewer' = 'PrismSharp Text Viewer .NET plugin for Open Salamander'
+        'textviewer' = 'Prism Text Viewer plugin for Open Salamander'
         'unarj' = 'UnARJ plugin for Open Salamander'
         'uncab' = 'UnCAB plugin for Open Salamander'
         'unchm' = 'UnCHM plugin for Open Salamander'

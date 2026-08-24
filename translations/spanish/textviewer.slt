@@ -10,11 +10,11 @@ WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
-46,1,"Visor de texto PrismSharp .NET"
+46,1,"Visor de texto Prism"
 47,1,"Acerca del complemento"
 
 [STRINGTABLE 1]
-48,1,"Visor interno que muestra archivos de texto con resaltado de sintaxis administrado."
+48,1,"Visor nativo que muestra archivos de texto con resaltado de sintaxis de Prism.js."
 49,1,"https://samandarin.net/"
 50,1,"No se pudo preparar el evento de sincronización requerido por el visor."
 51,1,"El archivo seleccionado es demasiado grande para abrirse. No se admiten archivos de más de 16 MB."

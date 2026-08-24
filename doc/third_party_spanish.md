@@ -48,13 +48,9 @@ los aquí mencionados por hacer disponible su trabajo.
 | libexif | Complemento PictView | Partes del complemento PictView usan libexif. Copyright (C) 2001-2019 Curtis Galloway y Lutz Muller. |
 | Newtonsoft.Json 13.0.3 | Complemento JSON Viewer | Por James Newton-King, publicado bajo la licencia MIT. |
 | Microsoft .NET Framework 4.8 | Complemento JSON Viewer | Proporcionado por Microsoft Corporation bajo los términos de licencia de Microsoft .NET Framework. |
-| PrismSharp 1.0.0-beta | Complemento PrismSharp Text Viewer | Por Tomáš Kubec, publicado bajo la licencia MIT. Incluye Prism.js de Lea Verou y los colaboradores de PrismJS bajo la licencia MIT. |
-| Microsoft.Web.WebView2 1.0.2420.47 | Complemento PrismSharp Text Viewer | Por Microsoft Corporation, distribuido bajo la licencia BSD 3-Clause. |
-| Microsoft .NET Framework 4.8 | Complemento PrismSharp Text Viewer | Proporcionado por Microsoft Corporation bajo los términos de licencia de Microsoft .NET Framework. |
-| Newtonsoft.Json 13.0.3 | Complemento PrismSharp Text Viewer | Por James Newton-King, publicado bajo la licencia MIT. |
-| Markdig 0.36.2 | Complemento WebView2 Render Viewer | Por Alexandre Mutel y colaboradores, publicado bajo la licencia BSD 2-Clause. |
-| Microsoft.Web.WebView2 1.0.2420.47 | Complemento WebView2 Render Viewer | Por Microsoft Corporation, distribuido bajo la licencia BSD 3-Clause. |
-| Microsoft .NET Framework 4.8 | Complemento WebView2 Render Viewer | Proporcionado por Microsoft Corporation bajo los términos de licencia de Microsoft .NET Framework. |
+| Prism.js 1.29.0 | Viewer Frame (Salamatrix y Prism Text Viewer) | Por Lea Verou y los colaboradores de PrismJS, publicado bajo la licencia MIT. |
+| Microsoft.Web.WebView2 1.0.2420.47 | Viewer Frame | Por Microsoft Corporation, distribuido bajo la licencia BSD 3-Clause. |
+| Markdig 0.36.2 | MarkdigRenderer para WebView2 Render Viewer | Por Alexandre Mutel y colaboradores, publicado bajo la licencia BSD 2-Clause. |
 
 ## Complementos de red, sincronización y dispositivos
 

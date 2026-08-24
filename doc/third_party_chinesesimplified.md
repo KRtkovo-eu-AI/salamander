@@ -45,13 +45,9 @@
 | libexif | PictView 插件 | PictView 插件的部分内容使用 libexif。Copyright (C) 2001-2019 Curtis Galloway 和 Lutz Muller. |
 | Newtonsoft.Json 13.0.3 | JSON Viewer 插件 | 由 James Newton-King 提供，在 MIT 许可证下发布。 |
 | Microsoft .NET Framework 4.8 | JSON Viewer 插件 | 由 Microsoft Corporation 根据 Microsoft .NET Framework 许可条款提供。 |
-| PrismSharp 1.0.0-beta | PrismSharp Text Viewer 插件 | 由 Tomáš Kubec 提供，在 MIT 许可证下发布。包含 Lea Verou 和 PrismJS 贡献者的 Prism.js，在 MIT 许可证下。 |
-| Microsoft.Web.WebView2 1.0.2420.47 | PrismSharp Text Viewer 插件 | 由 Microsoft Corporation 提供，在 BSD 3-Clause 许可证下分发。 |
-| Microsoft .NET Framework 4.8 | PrismSharp Text Viewer 插件 | 由 Microsoft Corporation 根据 Microsoft .NET Framework 许可条款提供。 |
-| Newtonsoft.Json 13.0.3 | PrismSharp Text Viewer 插件 | 由 James Newton-King 提供，在 MIT 许可证下发布。 |
-| Markdig 0.36.2 | WebView2 Render Viewer 插件 | 由 Alexandre Mutel 和贡献者提供，在 BSD 2-Clause 许可证下发布。 |
-| Microsoft.Web.WebView2 1.0.2420.47 | WebView2 Render Viewer 插件 | 由 Microsoft Corporation 提供，在 BSD 3-Clause 许可证下分发。 |
-| Microsoft .NET Framework 4.8 | WebView2 Render Viewer 插件 | 由 Microsoft Corporation 根据 Microsoft .NET Framework 许可条款提供。 |
+| Prism.js 1.29.0 | Viewer Frame（Salamatrix 和 Prism Text Viewer） | 由 Lea Verou 和 PrismJS 贡献者提供，在 MIT 许可证下发布。 |
+| Microsoft.Web.WebView2 1.0.2420.47 | Viewer Frame | 由 Microsoft Corporation 提供，在 BSD 3-Clause 许可证下分发。 |
+| Markdig 0.36.2 | 用于 WebView2 Render Viewer 的 MarkdigRenderer | 由 Alexandre Mutel 和贡献者提供，在 BSD 2-Clause 许可证下发布。 |
 
 ## 网络、同步和设备插件
 

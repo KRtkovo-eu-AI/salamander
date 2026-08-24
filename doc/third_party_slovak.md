@@ -48,13 +48,9 @@ sprístupnenie ich práce.
 | libexif | Plugin PictView | Časti pluginu PictView používajú libexif. Copyright (C) 2001-2019 Curtis Galloway a Lutz Muller. |
 | Newtonsoft.Json 13.0.3 | Plugin JSON Viewer | Od Jamese Newton-Kinga, vydané pod MIT License. |
 | Microsoft .NET Framework 4.8 | Plugin JSON Viewer | Poskytnuté Microsoft Corporation pod licenčnými podmienkami Microsoft .NET Framework. |
-| PrismSharp 1.0.0-beta | Plugin PrismSharp Text Viewer | Od Tomáša Kubca, vydané pod MIT License. Obsahuje Prism.js od Lea Verou a prispievateľov PrismJS pod MIT License. |
-| Microsoft.Web.WebView2 1.0.2420.47 | Plugin PrismSharp Text Viewer | Od Microsoft Corporation, distribuované pod BSD 3-Clause License. |
-| Microsoft .NET Framework 4.8 | Plugin PrismSharp Text Viewer | Poskytnuté Microsoft Corporation pod licenčnými podmienkami Microsoft .NET Framework. |
-| Newtonsoft.Json 13.0.3 | Plugin PrismSharp Text Viewer | Od Jamese Newton-Kinga, vydané pod MIT License. |
-| Markdig 0.36.2 | Plugin WebView2 Render Viewer | Od Alexendra Mutela a prispievateľov, vydané pod BSD 2-Clause License. |
-| Microsoft.Web.WebView2 1.0.2420.47 | Plugin WebView2 Render Viewer | Od Microsoft Corporation, distribuované pod BSD 3-Clause License. |
-| Microsoft .NET Framework 4.8 | Plugin WebView2 Render Viewer | Poskytnuté Microsoft Corporation pod licenčnými podmienkami Microsoft .NET Framework. |
+| Prism.js 1.29.0 | Viewer Frame (Salamatrix a Prism Text Viewer) | Od Ley Verou a prispievateľov PrismJS, vydané pod MIT License. |
+| Microsoft.Web.WebView2 1.0.2420.47 | Viewer Frame | Od Microsoft Corporation, distribuované pod BSD 3-Clause License. |
+| Markdig 0.36.2 | MarkdigRenderer pre WebView2 Render Viewer | Od Alexendra Mutela a prispievateľov, vydané pod BSD 2-Clause License. |
 
 ## Pluginy pre sieť, synchronizáciu a zariadenia
 

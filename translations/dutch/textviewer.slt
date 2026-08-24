@@ -10,11 +10,11 @@ WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
-46,1,"PrismSharp Tekstviewer .NET"
+46,1,"Prism-tekstviewer"
 47,1,"Over plug-in"
 
 [STRINGTABLE 1]
-48,1,"Interne viewer die tekstbestanden rendert met beheerde syntaxisaccentuering."
+48,1,"Native viewer die tekstbestanden rendert met Prism.js-syntaxisaccentuering."
 49,1,"https://samandarin.net/"
 50,1,"Niet gelukt om het synchronisatiegebeurtenis voor te bereiden dat door de viewer vereist is."
 51,1,"Het geselecteerde bestand is te groot om te openen. Bestanden groter dan 16 MB worden niet ondersteund."

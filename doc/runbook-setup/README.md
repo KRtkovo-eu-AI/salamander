@@ -4,8 +4,8 @@ Use this runbook after all binaries and plugins have been built and copied into
 `%OPENSAL_BUILD_DIR%` (for example by running `build.cmd` followed by
 `!populate_build_dir.cmd`). The goal is to produce redistributable
 `setup.exe`/`remove.exe` installers that include every staged plugin, including
-new managed plugins such as JsonViewer, TextViewer, WebView2RenderViewer and
-Samandarin.
+managed plugins such as JsonViewer and Samandarin, and native Viewer Frame
+plugins such as TextViewer and WebView2RenderViewer.
 
 ## Prerequisites
 
@@ -26,7 +26,8 @@ Samandarin.
 1. **Ensure build outputs are complete**
    - Verify that every plugin directory in
      `%OPENSAL_BUILD_DIR%\salamander\Release_{x64,x86}\plugins` contains the
-     expected `.spl`, managed DLLs, language packs, data folders, etc.
+     expected `.spl`, managed DLLs where applicable, language packs, shared
+     assets, etc.
    - If you keep PDBs for debugging, leave them in place; otherwise delete them
      now to shrink the installer payload.
 

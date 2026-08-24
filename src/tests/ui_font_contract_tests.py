@@ -289,8 +289,8 @@ def main() -> None:
             "Prism line-number rows keep their requested one-pixel top padding")
     require(native_viewer, "pre.line-numbers .line-numbers-rows>span:before{box-sizing:border-box;display:block;height:",
             "Prism line-number glyphs use fixed-height line boxes")
-    require(native_viewer, "InstalledPrismLanguages(parameters_->module)",
-            "Prism enumerates the syntax highlighters installed beside the plug-in")
+    require(native_viewer, "const std::wstring folder = PrismAssetsDirectory();",
+            "Prism enumerates syntax highlighters from Salamatrix's shared assets")
     require(native_viewer, "IDM_NV_SYNTAX_AUTOMATIC",
             "Prism exposes automatic syntax detection in its highlighter submenu")
     require(native_viewer, "!AddMenuItem(mainMenu_,\n                          parameters_->syntaxHighlighter.empty()",
