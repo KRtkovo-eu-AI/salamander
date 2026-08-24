@@ -1026,6 +1026,11 @@ STRINGTABLE
  IDS_STARTUP_CONFIG, "Reading configuration from registry..."
  IDS_STARTUP_POLICY, "Reading group policy from registry..."
  IDS_STARTUP_USERMENU, "Reading User Menu items from registry..."
+ IDS_STARTUP_CONFIG_FILE_STORAGE, "Reading configuration from file storage..."
+ IDS_STARTUP_ASSOCIATIONS_FILE_STORAGE, "Reading associations from file storage..."
+ IDS_STARTUP_IMPORT_CONFIG_FILE_STORAGE, "Importing configuration to file storage..."
+ IDS_STARTUP_POLICY_FILE_STORAGE, "Reading group policy from file storage..."
+ IDS_STARTUP_USERMENU_FILE_STORAGE, "Reading User Menu items from file storage..."
 
 //trim or drag path
  IDS_TRIM_DRAG_PATH, "Click to change path in panel or Drag path to other panel or to Command line"
@@ -1455,6 +1460,9 @@ STRINGTABLE
  IDS_TRYINGRECONNECTESC, "Trying to connect network drive, press the ESC key to cancel..."
  IDS_SAVINGCONFIGURATION, "Saving configuration to registry, please wait..."
  IDS_DELETINGCONFIGURATION, "Deleting old configuration from registry, please wait..."
+ IDS_READINGASSOCIATIONS_FILE_STORAGE, "Reading associations from file storage, please wait..."
+ IDS_SAVINGCONFIGURATION_FILE_STORAGE, "Saving configuration to file storage, please wait..."
+ IDS_DELETINGCONFIGURATION_FILE_STORAGE, "Deleting old configuration from file storage, please wait..."
 
  IDS_SAVECFG_EXPFILEEXISTS, "The file ""%s"" was found. This file contains exported configuration which is loaded on every start of Open Salamander. If you don't want to load configuration from this file, rename or delete it. Press OK to save configuration or Cancel to focus the file."
 

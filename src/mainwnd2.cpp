@@ -2333,7 +2333,11 @@ void CMainWindow::DeleteOldConfigurations(BOOL* deleteConfigurations, BOOL autoI
     {
         // remove old configurations
         HCURSOR hOldCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
-        CWaitWindow analysing(HWindow, IDS_DELETINGCONFIGURATION, FALSE, ooStatic);
+        CWaitWindow analysing(HWindow,
+                              ConfigurationStorage.GetStorageType() == cstRegFile
+                                  ? IDS_DELETINGCONFIGURATION_FILE_STORAGE
+                                  : IDS_DELETINGCONFIGURATION,
+                              FALSE, ooStatic);
         analysing.Create();
         EnableWindow(HWindow, FALSE);
         LoadSaveToRegistryMutex.Enter();
@@ -2785,7 +2789,11 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
     HCURSOR hOldCursor = NULL;
     if (GlobalSaveWaitWindow == NULL)
         hOldCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
-    CWaitWindow analysing(parent, IDS_SAVINGCONFIGURATION, FALSE, ooStatic, TRUE);
+    CWaitWindow analysing(parent,
+                          ConfigurationStorage.GetStorageType() == cstRegFile
+                              ? IDS_SAVINGCONFIGURATION_FILE_STORAGE
+                              : IDS_SAVINGCONFIGURATION,
+                          FALSE, ooStatic, TRUE);
     int savingProgress = 0;
     HWND oldPluginMsgBoxParent = PluginMsgBoxParent;
     if (GlobalSaveWaitWindow == NULL)
@@ -4374,7 +4382,9 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         HKEY actKey;
         BOOL ret = TRUE;
 
-        IfExistSetSplashScreenText(LoadStr(IDS_STARTUP_CONFIG));
+        IfExistSetSplashScreenText(LoadStr(ConfigurationStorage.GetStorageType() == cstRegFile
+                                               ? IDS_STARTUP_CONFIG_FILE_STORAGE
+                                               : IDS_STARTUP_CONFIG));
 
         Configuration.ConfigVersion = 1; // this configuration is from version 1.52 or older
                                          //--- version
@@ -4969,7 +4979,9 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
 
         //---  user menu
 
-        IfExistSetSplashScreenText(LoadStr(IDS_STARTUP_USERMENU));
+        IfExistSetSplashScreenText(LoadStr(ConfigurationStorage.GetStorageType() == cstRegFile
+                                               ? IDS_STARTUP_USERMENU_FILE_STORAGE
+                                               : IDS_STARTUP_USERMENU));
 
         if (OpenKey(salamander, SALAMANDER_USERMENU_REG, actKey))
         {
@@ -5131,7 +5143,9 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             CloseKey(actKey);
         }
 
-        IfExistSetSplashScreenText(LoadStr(IDS_STARTUP_CONFIG));
+        IfExistSetSplashScreenText(LoadStr(ConfigurationStorage.GetStorageType() == cstRegFile
+                                               ? IDS_STARTUP_CONFIG_FILE_STORAGE
+                                               : IDS_STARTUP_CONFIG));
 
         //---  configuration
 

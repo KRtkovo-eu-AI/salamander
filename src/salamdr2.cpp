@@ -2751,7 +2751,9 @@ BOOL ImportConfiguration(HWND hParent, const char* fileName, BOOL ignoreIfNotExi
         return FALSE;
     }
 
-    IfExistSetSplashScreenText(LoadStr(IDS_STARTUP_IMPORT_CONFIG));
+    IfExistSetSplashScreenText(LoadStr(Configuration.StorageType == cstRegFile
+                                           ? IDS_STARTUP_IMPORT_CONFIG_FILE_STORAGE
+                                           : IDS_STARTUP_IMPORT_CONFIG));
 
     BOOL ret = FALSE;
     LPTSTR buf = NULL;

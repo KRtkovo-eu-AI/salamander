@@ -5444,7 +5444,9 @@ FIND_NEW_SLG_FILE:
                 PluginMsgBoxParent = MainWindow->HWindow;
 
                 // vytahneme z registry Group Policy
-                IfExistSetSplashScreenText(LoadStr(IDS_STARTUP_POLICY));
+                IfExistSetSplashScreenText(LoadStr(ConfigurationStorage.GetStorageType() == cstRegFile
+                                                       ? IDS_STARTUP_POLICY_FILE_STORAGE
+                                                       : IDS_STARTUP_POLICY));
                 SystemPolicies.LoadFromRegistry();
 
                 CALL_STACK_MESSAGE1("WinMainBody::load_config");

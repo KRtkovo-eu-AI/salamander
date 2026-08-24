@@ -108,7 +108,9 @@ private:
         case ssdpClosingPanels:
             return IDS_CLOSINGPANELS;
         case ssdpSavingConfiguration:
-            return IDS_SAVINGCONFIGURATION;
+            return ConfigurationStorage.GetStorageType() == cstRegFile
+                       ? IDS_SAVINGCONFIGURATION_FILE_STORAGE
+                       : IDS_SAVINGCONFIGURATION;
         case ssdpFinishingShutdown:
             return IDS_FINISHINGSHUTDOWN;
         }
