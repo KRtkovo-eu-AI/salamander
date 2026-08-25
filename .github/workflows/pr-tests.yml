@@ -64,6 +64,7 @@ jobs:
           python -m pytest `
             src/plugins/automation/tests/salamatrix_ai_local_tests.py `
             tools/code_metrics/tests `
+            tools/codeql/tests `
             tools/localization/tests `
             --junitxml=test-results/python.xml
 
