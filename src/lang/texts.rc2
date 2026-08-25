@@ -273,6 +273,7 @@ STRINGTABLE
  IDS_FFMENU_OPTIONS,        "&Options"
  IDS_FFMENU_OPT_SHOWERRORS, "&Show Error Messages After Finding"
  IDS_FFMENU_OPT_FULLROWSEL, "&Full Row Select"
+ IDS_FFMENU_OPT_SORTMIXED,  "Sort Files and Directories &Together"
  IDS_FFMENU_OPT_ONEINSTANCE,"Allow Only &One Find Window"
  IDS_FFMENU_OPT_ADD,        "&Add Current\tCtrl+N"
  IDS_FFMENU_OPT_MANAGE,     "&Manage...\tCtrl+M"

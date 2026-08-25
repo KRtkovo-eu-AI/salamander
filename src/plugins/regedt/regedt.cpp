@@ -45,6 +45,7 @@ const char* CONFIG_DATATIMECOLFW = "DataTimeColFW";
 const char* CONFIG_DATATIMECOLW = "DataTimeColW";
 const char* CONFIG_SIZECOLFW = "SizeColFW";
 const char* CONFIG_SIZECOLW = "SizeColW";
+const char* CONFIG_SORTMIXED = "Sort Keys And Values Together";
 
 // FS name assigned by Salamander after loading the plug-in
 char AssignedFSName[MAX_PATH] = "";
@@ -429,6 +430,11 @@ BOOL CPluginInterface::Release(HWND parent, BOOL force)
             ReleaseDialogs();
             ReleaseFS();
             ReleaseRegEdtDarkModeResources();
+            if (HRegEdtHeaderSort != NULL)
+            {
+                DeleteObject(HRegEdtHeaderSort);
+                HRegEdtHeaderSort = NULL;
+            }
 
 #ifdef DUMP_MEM
             _CrtMemDumpAllObjectsSince(&___CrtMemState);
@@ -448,6 +454,7 @@ void CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRe
     strcpy(Arguments, "\"$(Name)\"");
     strcpy(InitDir, "$(FullPath)");
     strcpy(LastExportPath, "");
+    SortKeysAndValuesTogether = FALSE;
     if (regKey)
     {
         registry->GetValue(regKey, CONFIG_RECENTPATH, REG_BINARY, RecentFullPath, MAX_FULL_KEYNAME * 2);
@@ -478,6 +485,7 @@ void CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRe
         registry->GetValue(regKey, CONFIG_DATATIMECOLW, REG_DWORD, &DataTimeColW, sizeof(int));
         registry->GetValue(regKey, CONFIG_SIZECOLFW, REG_DWORD, &SizeColFW, sizeof(int));
         registry->GetValue(regKey, CONFIG_SIZECOLW, REG_DWORD, &SizeColW, sizeof(int));
+        registry->GetValue(regKey, CONFIG_SORTMIXED, REG_DWORD, &SortKeysAndValuesTogether, sizeof(BOOL));
     }
 }
 
@@ -536,6 +544,7 @@ void CPluginInterface::SaveConfiguration(HWND parent, HKEY regKey, CSalamanderRe
     registry->SetValue(regKey, CONFIG_DATATIMECOLW, REG_DWORD, &DataTimeColW, sizeof(int));
     registry->SetValue(regKey, CONFIG_SIZECOLFW, REG_DWORD, &SizeColFW, sizeof(int));
     registry->SetValue(regKey, CONFIG_SIZECOLW, REG_DWORD, &SizeColW, sizeof(int));
+    registry->SetValue(regKey, CONFIG_SORTMIXED, REG_DWORD, &SortKeysAndValuesTogether, sizeof(BOOL));
 }
 
 void CPluginInterface::Configuration(HWND parent)

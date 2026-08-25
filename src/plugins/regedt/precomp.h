@@ -49,4 +49,5 @@
 #include "editor.h"
 #include "export.h"
 
+#include "listview_sort_header.h"
 #include "../../darkmode.h"

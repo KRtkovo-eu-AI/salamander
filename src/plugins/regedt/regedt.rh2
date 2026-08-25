@@ -15,6 +15,7 @@
 #define IDI_UNKNOWN 503
 #define IDI_FIND  504
 #define IDB_REGEDT 505
+#define IDB_HEADERSORT 506
 
 // menu commandy
 #define CMD_EXPORT  800

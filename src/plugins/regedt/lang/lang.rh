@@ -52,6 +52,7 @@
 #define IDD_RENAME                      175
 #define IDS_NOTDWORD                    176
 #define IDD_EXPORT                      177
+#define IDC_SORTMIXED                   178
 
 // Next default values for new objects
 // 

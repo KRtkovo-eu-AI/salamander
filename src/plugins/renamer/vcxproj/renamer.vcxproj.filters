@@ -112,6 +112,9 @@
     <ClCompile Include="..\..\shared\winliblt.cpp">
       <Filter>common</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\shared\listview_sort_header.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\shared\lukas\str.cpp">
       <Filter>lukas-shared</Filter>
     </ClCompile>
@@ -181,6 +184,9 @@
       <Filter>common</Filter>
     </ClInclude>
     <ClInclude Include="..\..\shared\winliblt.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\shared\listview_sort_header.h">
       <Filter>common</Filter>
     </ClInclude>
     <ClInclude Include="..\..\shared\lukas\str.h">

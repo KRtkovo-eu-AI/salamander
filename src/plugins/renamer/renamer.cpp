@@ -44,6 +44,7 @@ const char* CONFIG_LASTMASK = "Last Last Mask";
 const char* CONFIG_LASTSUBDIRS = "Last Subdirs";
 const char* CONFIG_LASTREMOVESOURCE = "Last Remove Source Path";
 const char* CONFIG_CONFIRMESCCLOSE = "Confirm ESC Close";
+const char* CONFIG_SORTMIXED = "Sort Files And Dirs Together";
 
 CThreadQueue ThreadQueue("Renamer Dialogs");
 CWindowQueueEx WindowQueue;
@@ -400,6 +401,11 @@ BOOL CPluginInterface::Release(HWND parent, BOOL force)
         else
         {
             ReleaseRenamerDarkModeResources();
+            if (HRenamerHeaderSort != NULL)
+            {
+                DeleteObject(HRenamerHeaderSort);
+                HRenamerHeaderSort = NULL;
+            }
             ReleaseDialogs();
 
 #ifdef DUMP_MEM
@@ -421,6 +427,7 @@ void CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRe
     LastRemoveSourcePath = FALSE;
     UseCustomFont = FALSE;
     ConfirmESCClose = TRUE;
+    SortFilesAndDirsTogether = FALSE;
     strcpy(Command, "notepad");
     strcpy(Arguments, "\"$(Name)\"");
     strcpy(InitDir, "$(FullPath)");
@@ -465,6 +472,7 @@ void CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRe
         registry->GetValue(regKey, CONFIG_INITDIR, REG_SZ, InitDir, MAX_PATH);
 
         registry->GetValue(regKey, CONFIG_CONFIRMESCCLOSE, REG_DWORD, &ConfirmESCClose, sizeof(BOOL));
+        registry->GetValue(regKey, CONFIG_SORTMIXED, REG_DWORD, &SortFilesAndDirsTogether, sizeof(BOOL));
     }
 }
 
@@ -544,6 +552,7 @@ void CPluginInterface::SaveConfiguration(HWND parent, HKEY regKey, CSalamanderRe
     registry->SetValue(regKey, CONFIG_ARGUMENTS, REG_SZ, Arguments, -1);
     registry->SetValue(regKey, CONFIG_INITDIR, REG_SZ, InitDir, -1);
     registry->SetValue(regKey, CONFIG_CONFIRMESCCLOSE, REG_DWORD, &ConfirmESCClose, sizeof(BOOL));
+    registry->SetValue(regKey, CONFIG_SORTMIXED, REG_DWORD, &SortFilesAndDirsTogether, sizeof(BOOL));
 }
 
 void OnConfiguration(HWND hParent)

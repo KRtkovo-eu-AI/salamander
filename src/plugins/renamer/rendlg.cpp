@@ -17,6 +17,24 @@ BOOL LastRemoveSourcePath;
 LOGFONT ManualModeLogFont;
 BOOL UseCustomFont;
 BOOL ConfirmESCClose;
+BOOL SortFilesAndDirsTogether;
+HBITMAP HRenamerHeaderSort = NULL;
+BOOL RenamerHeaderSortDark = FALSE;
+
+void RecreateRenamerHeaderSortBitmap()
+{
+    BOOL dark = DarkModeShouldUseDarkColors();
+    if (HRenamerHeaderSort != NULL && RenamerHeaderSortDark == dark)
+        return;
+    if (HRenamerHeaderSort != NULL)
+    {
+        DeleteObject(HRenamerHeaderSort);
+        HRenamerHeaderSort = NULL;
+    }
+    COLORREF arrow = dark ? DarkModeGetColors().readableText : GetSysColor(COLOR_BTNTEXT);
+    HRenamerHeaderSort = CreateListViewSortHeaderBitmap(DLLInstance, IDB_HEADERSORT, dark, arrow);
+    RenamerHeaderSortDark = dark;
+}
 
 HACCEL HAccels;
 
@@ -118,6 +136,7 @@ MENU_TEMPLATE_ITEM MenuTemplate[] =
         {MNTT_IT, IDS_MENU_FULLPATH, MNTS_ALL, CMD_FULLPATH, -1, 0, NULL},
         {MNTT_SP, -1, MNTS_ALL, 0, -1, 0, NULL},
         {MNTT_IT, IDS_MENU_REMOVESOURCEPATH, MNTS_ALL, CMD_RMSOURCEPATH, -1, 0, NULL},
+        {MNTT_IT, IDS_MENU_SORTMIXED, MNTS_ALL, CMD_SORTMIXED, -1, 0, NULL},
         // {MNTT_SP, -1,      MNTS_ALL, 0,    -1, 0,  NULL},
         //   // Manual Mode Font
         //   {MNTT_PB, IDS_MENU_FONT,   MNTS_ALL, CMD_FONTPOPUP,  -1, 0,  NULL},
@@ -737,6 +756,7 @@ CRenamerDialog::CRenamerDialog(HWND parent)
     ManualModeHFont = NULL;
     FocusHWnd = NULL;
     SortBy = -1;
+    ReverseSort = FALSE;
     TransferDontSaveHistory = FALSE;
 
     SalMaskGroup = SG->AllocSalamanderMaskGroup();
@@ -1110,6 +1130,7 @@ void CRenamerDialog::UpdateMenuItems()
         subMenu->CheckRadioItem(CMD_FILENAMES, CMD_FULLPATH,
                                 CMD_FILENAMES + RenamerOptions.Spec, FALSE);
         subMenu->CheckItem(CMD_RMSOURCEPATH, FALSE, RemoveSourcePath);
+        subMenu->CheckItem(CMD_SORTMIXED, FALSE, SortFilesAndDirsTogether);
     }
 
     // subMenu = subMenu->GetSubMenu(CMD_FONTPOPUP, FALSE);
@@ -1337,6 +1358,14 @@ void CRenamerDialog::ReloadSourceFiles()
     }
 
     SortBy = -1;
+    ReverseSort = FALSE;
+    if (Preview != NULL)
+    {
+        RecreateRenamerHeaderSortBitmap();
+        UpdateListViewSortHeaderOverlay(Preview->HWindow, SortBy, ReverseSort,
+                                        HRenamerHeaderSort, CI_DATE, CI_TIME,
+                                        DarkModeShouldUseDarkColors());
+    }
 
     EnableWindow(HWindow, TRUE);
     if (FocusHWnd)
@@ -1729,6 +1758,13 @@ CRenamerDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             ApplyRenamerDarkMode(HWindow);
             if (MenuBar != NULL)
                 InvalidateRect(MenuBar->GetHWND(), NULL, TRUE);
+            if (Preview != NULL)
+            {
+                RecreateRenamerHeaderSortBitmap();
+                UpdateListViewSortHeaderOverlay(Preview->HWindow, SortBy, ReverseSort,
+                                                HRenamerHeaderSort, CI_DATE, CI_TIME,
+                                                DarkModeShouldUseDarkColors());
+            }
             RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
             return TRUE;
         }
@@ -2005,29 +2041,53 @@ CRenamerDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case CMD_SORTOLD:
         {
+            if (SortBy != CI_OLDNAME)
+            {
+                SortBy = CI_OLDNAME;
+                ReverseSort = FALSE;
+            }
+            else
+                ReverseSort = !ReverseSort;
             Preview->SortItems(CI_OLDNAME);
-            SortBy = CI_OLDNAME;
             break;
         }
 
         case CMD_SORTSIZE:
         {
+            if (SortBy != CI_SIZE)
+            {
+                SortBy = CI_SIZE;
+                ReverseSort = FALSE;
+            }
+            else
+                ReverseSort = !ReverseSort;
             Preview->SortItems(CI_SIZE);
-            SortBy = CI_SIZE;
             break;
         }
 
         case CMD_SORTTIME:
         {
+            if (SortBy != CI_TIME)
+            {
+                SortBy = CI_TIME;
+                ReverseSort = FALSE;
+            }
+            else
+                ReverseSort = !ReverseSort;
             Preview->SortItems(CI_TIME);
-            SortBy = CI_TIME;
             break;
         }
 
         case CMD_SORTPATH:
         {
+            if (SortBy != CI_PATH)
+            {
+                SortBy = CI_PATH;
+                ReverseSort = FALSE;
+            }
+            else
+                ReverseSort = !ReverseSort;
             Preview->SortItems(CI_PATH);
-            SortBy = CI_PATH;
             break;
         }
 
@@ -2058,6 +2118,14 @@ CRenamerDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             RenamerOptions.Spec = rsFileName;
             SortBy = -1;
+            ReverseSort = FALSE;
+            if (Preview != NULL)
+            {
+                RecreateRenamerHeaderSortBitmap();
+                UpdateListViewSortHeaderOverlay(Preview->HWindow, SortBy, ReverseSort,
+                                                HRenamerHeaderSort, CI_DATE, CI_TIME,
+                                                DarkModeShouldUseDarkColors());
+            }
             Preview->Update(TRUE);
             break;
         }
@@ -2068,6 +2136,14 @@ CRenamerDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 RenamerOptions.Spec = rsRelativePath;
                 SortBy = -1;
+                ReverseSort = FALSE;
+                if (Preview != NULL)
+                {
+                    RecreateRenamerHeaderSortBitmap();
+                    UpdateListViewSortHeaderOverlay(Preview->HWindow, SortBy, ReverseSort,
+                                                    HRenamerHeaderSort, CI_DATE, CI_TIME,
+                                                    DarkModeShouldUseDarkColors());
+                }
                 Preview->Update(TRUE);
             }
             break;
@@ -2077,6 +2153,14 @@ CRenamerDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             RenamerOptions.Spec = rsFullPath;
             SortBy = -1;
+            ReverseSort = FALSE;
+            if (Preview != NULL)
+            {
+                RecreateRenamerHeaderSortBitmap();
+                UpdateListViewSortHeaderOverlay(Preview->HWindow, SortBy, ReverseSort,
+                                                HRenamerHeaderSort, CI_DATE, CI_TIME,
+                                                DarkModeShouldUseDarkColors());
+            }
             Preview->Update(TRUE);
             break;
         }
@@ -2084,6 +2168,14 @@ CRenamerDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         case CMD_RMSOURCEPATH:
         {
             RemoveSourcePath = !RemoveSourcePath;
+            break;
+        }
+
+        case CMD_SORTMIXED:
+        {
+            SortFilesAndDirsTogether = !SortFilesAndDirsTogether;
+            if (SortBy >= 0)
+                Preview->SortItems(SortBy);
             break;
         }
 
@@ -2152,6 +2244,30 @@ CRenamerDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_NOTIFY:
     {
+        if (Preview != NULL && Preview->HWindow != NULL)
+        {
+            LPNMHDR nmhdr = (LPNMHDR)lParam;
+            HWND header = ListView_GetHeader(Preview->HWindow);
+            if (nmhdr != NULL && header != NULL && nmhdr->hwndFrom == header &&
+                nmhdr->code == NM_CUSTOMDRAW)
+            {
+                RecreateRenamerHeaderSortBitmap();
+                LPNMCUSTOMDRAW cd = (LPNMCUSTOMDRAW)lParam;
+                BOOL showSort = ListViewHeaderColumnShowsSort(SortBy, (int)cd->dwItemSpec, CI_DATE, CI_TIME);
+                BOOL dark = DarkModeShouldUseDarkColors();
+                COLORREF darkBg = RGB(0x20, 0x20, 0x20);
+                COLORREF darkText = dark ? DarkModeGetColors().readableText : GetSysColor(COLOR_BTNTEXT);
+                COLORREF darkLine = RGB(0x38, 0x38, 0x38);
+                LRESULT customDrawResult = 0;
+                if (HandleListViewHeaderSortCustomDraw(cd, &customDrawResult, showSort, ReverseSort,
+                                                       HRenamerHeaderSort, dark, darkBg, darkText, darkLine))
+                {
+                    SetWindowLongPtr(HWindow, DWLP_MSGRESULT, customDrawResult);
+                    return TRUE;
+                }
+            }
+        }
+
         if (wParam == IDL_PREVIEW)
         {
             switch (((LPNMHDR)lParam)->code)

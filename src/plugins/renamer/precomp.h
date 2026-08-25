@@ -41,6 +41,8 @@
 #include "renamer.rh2"
 #include "lang\lang.rh"
 
+#include "listview_sort_header.h"
+
 #include "str.h"
 #include "regiface.h"
 #include "utils.h"

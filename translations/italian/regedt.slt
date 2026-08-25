@@ -75,6 +75,7 @@ COMMENT,"English version"
 153,139,119,80,12,1,""
 158,225,121,81,8,1,"hh:mm:ss dd.mm.yyyy"
 148,6,132,109,8,1,"Elementi trovati &:"
+178,80,131,160,12,1,"Ordina chiavi e valori insieme"
 149,6,142,309,57,1,""
 
 [DIALOG 165]

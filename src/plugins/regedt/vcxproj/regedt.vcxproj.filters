@@ -73,6 +73,9 @@
     <ClCompile Include="..\..\shared\winliblt.cpp">
       <Filter>common</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\shared\listview_sort_header.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\chmon.h">
@@ -130,6 +133,9 @@
       <Filter>common</Filter>
     </ClInclude>
     <ClInclude Include="..\..\shared\winliblt.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\shared\listview_sort_header.h">
       <Filter>common</Filter>
     </ClInclude>
   </ItemGroup>

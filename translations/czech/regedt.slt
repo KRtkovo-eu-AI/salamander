@@ -75,6 +75,7 @@ COMMENT,"Česká verze"
 153,139,119,80,12,1,""
 158,225,121,81,8,1,"hh:mm:ss dd.mm.rrrr"
 148,6,132,109,8,1,"Nal&ezené položky:"
+178,80,131,160,12,1,"Řadit klíče a hodnoty dohromady"
 149,6,142,309,57,1,""
 
 [DIALOG 165]

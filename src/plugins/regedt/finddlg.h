@@ -112,6 +112,8 @@ protected:
     TIndirectArray<CFoundFilesData> Data;
     CCS DataCriticalSection; // critical section for accessing the data
     CFindDialog* SearchDialog;
+    int SortBy;
+    BOOL ReverseSort;
 
 public:
     CFoundFilesListView(CFindDialog* searchDialog);
@@ -120,9 +122,14 @@ public:
     void StoreItemsState();
     void RestoreItemsState();
 
+    int GetSortBy() const { return SortBy; }
+    BOOL GetReverseSort() const { return ReverseSort; }
+    void ApplyCurrentSort();
+    void InvalidateSortHeader();
+
     int CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2, int sortBy);
     void QuickSort(int left, int right, int sortBy);
-    void SortItems(int sortBy);
+    void SortItems(int sortBy, BOOL reverse = TRUE, BOOL force = FALSE);
 
     // interface pro Data
     CFoundFilesData* At(int index);
@@ -222,6 +229,7 @@ protected:
     BOOL ShowOptions;
 
 public:
+    BOOL SortKeysAndValuesTogether;
     CFindDialog(LPWSTR lookInInit);
     virtual ~CFindDialog() { ; }
     void SetZeroOnDestroy(CFindDialog** zeroOnDestroy) { ZeroOnDestroy = zeroOnDestroy; }

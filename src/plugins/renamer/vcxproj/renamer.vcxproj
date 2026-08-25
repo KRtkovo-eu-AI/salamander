@@ -227,6 +227,9 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PreprocessorDefinitions>UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <ClCompile Include="..\..\shared\listview_sort_header.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="..\..\shared\winliblt.cpp">
     </ClCompile>
     <ClCompile Include="..\crename2.cpp">
@@ -290,6 +293,8 @@
     <ClInclude Include="..\..\shared\spl_vers.h">
     </ClInclude>
     <ClInclude Include="..\..\shared\winliblt.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\listview_sort_header.h">
     </ClInclude>
     <ClInclude Include="..\crenamer.h">
     </ClInclude>

@@ -478,6 +478,8 @@ CFoundFilesListView::CFoundFilesListView(CFindDialog* searchDialog)
     CALL_STACK_MESSAGE_NONE
     //  CALL_STACK_MESSAGE1("CFoundFilesListView::CFoundFilesListView()");
     SearchDialog = searchDialog;
+    SortBy = -1;
+    ReverseSort = FALSE;
 }
 
 CFoundFilesListView::~CFoundFilesListView()
@@ -541,7 +543,7 @@ int CFoundFilesListView::CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2, i
         {
         case CI_NAME:
         {
-            if (f1->IsDir == f2->IsDir)
+            if (f1->IsDir == f2->IsDir || SearchDialog->SortKeysAndValuesTogether)
             {
                 res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->Name, -1, f2->Name, -1) - 2;
                 if (res == 0)
@@ -554,29 +556,31 @@ int CFoundFilesListView::CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2, i
 
         case CI_PATH:
         {
-            res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->Path, -1, f2->Path, -1) - 2;
-            if (res == 0)
-                res = CompareStringW(LOCALE_USER_DEFAULT, 0, f1->Path, -1, f2->Path, -1) - 2;
+            if (f1->IsDir == f2->IsDir || SearchDialog->SortKeysAndValuesTogether)
+            {
+                res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->Path, -1, f2->Path, -1) - 2;
+                if (res == 0)
+                    res = CompareStringW(LOCALE_USER_DEFAULT, 0, f1->Path, -1, f2->Path, -1) - 2;
+            }
+            else
+                res = f1->IsDir ? -1 : 1;
             break;
         }
 
         case CI_TYPE:
         {
-            if (f1->IsDir == f2->IsDir)
+            if (f1->IsDir == f2->IsDir || SearchDialog->SortKeysAndValuesTogether)
             {
-                if (f1->IsDir)
+                if (!SearchDialog->SortKeysAndValuesTogether && f1->IsDir)
                     res = 0;
                 else
                 {
                     if (f1->Type < f2->Type)
                         res = -1;
+                    else if (f1->Type == f2->Type)
+                        res = 0;
                     else
-                    {
-                        if (f1->Type == f2->Type)
-                            res = 0;
-                        else
-                            res = 1;
-                    }
+                        res = 1;
                 }
             }
             else
@@ -586,21 +590,18 @@ int CFoundFilesListView::CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2, i
 
         case CI_SIZE:
         {
-            if (f1->IsDir == f2->IsDir)
+            if (f1->IsDir == f2->IsDir || SearchDialog->SortKeysAndValuesTogether)
             {
-                if (f1->IsDir)
+                if (!SearchDialog->SortKeysAndValuesTogether && f1->IsDir)
                     res = 0;
                 else
                 {
                     if (f1->Size < f2->Size)
                         res = -1;
+                    else if (f1->Size == f2->Size)
+                        res = 0;
                     else
-                    {
-                        if (f1->Size == f2->Size)
-                            res = 0;
-                        else
-                            res = 1;
-                    }
+                        res = 1;
                 }
             }
             else
@@ -611,13 +612,16 @@ int CFoundFilesListView::CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2, i
 
         case CI_TIME:
         {
-            if (f1->IsDir == f2->IsDir)
+            if (f1->IsDir == f2->IsDir || SearchDialog->SortKeysAndValuesTogether)
                 res = CompareFileTime(&f1->Time, &f2->Time);
             else
                 res = f1->IsDir ? -1 : 1;
             break;
         }
         }
+        if (ReverseSort && res != 0 &&
+            (SearchDialog->SortKeysAndValuesTogether || f1->IsDir == f2->IsDir))
+            res = -res;
         if (next == sortByIndex)
         {
             if (sortBy != 0)
@@ -699,23 +703,29 @@ LABEL_QuickSort:
     }
 }
 
-void CFoundFilesListView::SortItems(int sortBy)
+void CFoundFilesListView::InvalidateSortHeader()
 {
-    CALL_STACK_MESSAGE2("CFoundFilesListView::SortItems(%d)", sortBy);
+    RecreateRegEdtHeaderSortBitmap();
+    UpdateListViewSortHeaderOverlay(HWindow, SortBy, ReverseSort, HRegEdtHeaderSort, CI_DATE, CI_TIME,
+                                    DarkModeShouldUseDarkColors());
+}
+
+void CFoundFilesListView::ApplyCurrentSort()
+{
+    if (SortBy < 0)
+    {
+        InvalidateSortHeader();
+        return;
+    }
+
     HCURSOR hCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
     DataCriticalSection.Enter();
-
-    // if we have any items in the data that are not in the list view, transfer them
     SearchDialog->UpdateListViewItems();
 
     if (Data.Count > 0)
     {
-        // save the state of the selected and focused items
         StoreItemsState();
-
-        // sort the array according to the requested criterion
-        QuickSort(0, Data.Count - 1, sortBy);
-
+        QuickSort(0, Data.Count - 1, SortBy);
         RestoreItemsState();
         int focusIndex = ListView_GetNextItem(HWindow, -1, LVNI_FOCUSED);
         if (focusIndex != -1)
@@ -725,7 +735,35 @@ void CFoundFilesListView::SortItems(int sortBy)
     }
 
     DataCriticalSection.Leave();
+    InvalidateSortHeader();
     SetCursor(hCursor);
+}
+
+void CFoundFilesListView::SortItems(int sortBy, BOOL reverse, BOOL force)
+{
+    CALL_STACK_MESSAGE2("CFoundFilesListView::SortItems(%d)", sortBy);
+    if (sortBy == CI_DATE)
+        sortBy = CI_TIME;
+    if (sortBy == CI_DATA || sortBy < 0)
+        return;
+
+    if (!force && SortBy == sortBy && !reverse)
+        return;
+
+    if (SortBy != sortBy)
+    {
+        SortBy = sortBy;
+        ReverseSort = force ? reverse : FALSE;
+    }
+    else
+    {
+        if (force)
+            ReverseSort = reverse;
+        else if (reverse)
+            ReverseSort = !ReverseSort;
+    }
+
+    ApplyCurrentSort();
 }
 
 CFoundFilesData*
@@ -818,6 +856,7 @@ BOOL CFoundFilesListView::InitColumns()
           + GetSystemMetrics(SM_CXHSCROLL) - 1;
     ListView_SetColumnWidth(HWindow, CI_DATA, cx);
     ListView_SetImageList(HWindow, ImageList, LVSIL_SMALL);
+    InvalidateSortHeader();
 
     return TRUE;
 }
@@ -859,6 +898,27 @@ CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     SLOW_CALL_STACK_MESSAGE4("CFoundFilesListView::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_NOTIFY:
+    {
+        LPNMHDR hdr = (LPNMHDR)lParam;
+        HWND header = ListView_GetHeader(HWindow);
+        if (hdr != NULL && header != NULL && hdr->hwndFrom == header && hdr->code == NM_CUSTOMDRAW)
+        {
+            RecreateRegEdtHeaderSortBitmap();
+            LPNMCUSTOMDRAW cd = (LPNMCUSTOMDRAW)lParam;
+            BOOL showSort = ListViewHeaderColumnShowsSort(SortBy, (int)cd->dwItemSpec, CI_DATE, CI_TIME);
+            BOOL dark = DarkModeShouldUseDarkColors();
+            COLORREF darkBg = RGB(0x20, 0x20, 0x20);
+            COLORREF darkText = dark ? DarkModeGetColors().readableText : GetSysColor(COLOR_BTNTEXT);
+            COLORREF darkLine = RGB(0x38, 0x38, 0x38);
+            LRESULT customDrawResult = 0;
+            if (HandleListViewHeaderSortCustomDraw(cd, &customDrawResult, showSort, ReverseSort,
+                                                   HRegEdtHeaderSort, dark, darkBg, darkText, darkLine))
+                return customDrawResult;
+        }
+        break;
+    }
+
     case WM_GETDLGCODE:
     {
         if (lParam != NULL)

@@ -557,6 +557,8 @@ protected:
     CRITICAL_SECTION DataCriticalSection; // critical section for accessing data
     CFindDialog* FindDialog;
     TIndirectArray<CFoundFilesData> DataForRefine;
+    int SortBy;       // active sort column; Date and Time share key 3; -1 = not sorted yet
+    BOOL ReverseSort; // TRUE = descending within the selected criterion
 
 public:
     int EnumFileNamesSourceUID; // UID of the source for name enumeration in viewers
@@ -572,9 +574,15 @@ public:
     void StoreItemsState();
     void RestoreItemsState();
 
+    int GetSortBy() const { return SortBy; }
+    BOOL GetReverseSort() const { return ReverseSort; }
+    BOOL ColumnShowsSortArrow(int column) const;
+    void InvalidateSortHeader();
+    void ApplyCurrentSort();
+
     int CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2, int sortBy);
     void QuickSort(int left, int right, int sortBy);
-    void SortItems(int sortBy);
+    void SortItems(int sortBy, BOOL reverse = TRUE, BOOL force = FALSE);
 
     void QuickSortDuplicates(int left, int right, BOOL byName);
     int CompareDuplicatesFunc(CFoundFilesData* f1, CFoundFilesData* f2, BOOL byName);
@@ -868,6 +876,7 @@ protected:
     BOOL DoYouWantToStopSearching();
 
     void SetFullRowSelect(BOOL fullRow);
+    void SetSortFilesAndDirsTogether(BOOL sortTogether);
 
     friend class CFoundFilesListView;
 };
