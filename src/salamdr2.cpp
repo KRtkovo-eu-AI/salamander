@@ -2664,7 +2664,17 @@ BOOL LoadEditors(HKEY hKey, const char* name, CEditorMasks* editorMasks)
                     lstrcpyn(masksAux, masks, MAX_GROUPMASK);
                     StrICpy(masks, masksAux);
                 }
-                CEditorMasksItem* item = new CEditorMasksItem(masks, command.data(), arguments.data(), initDir.data());
+#ifdef new
+#undef new
+#define RESTORE_CONFIG_EDITOR_MASK_ITEM_DEBUG_NEW_MACRO
+#endif
+                CEditorMasksItem* item =
+                    new (std::nothrow) CEditorMasksItem(
+                        masks, command.data(), arguments.data(), initDir.data());
+#ifdef RESTORE_CONFIG_EDITOR_MASK_ITEM_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_CONFIG_EDITOR_MASK_ITEM_DEBUG_NEW_MACRO
+#endif
                 if (item != NULL && item->IsGood())
                 {
                     editorMasks->Add(item);

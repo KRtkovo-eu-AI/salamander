@@ -94,6 +94,10 @@ def main() -> None:
         raise AssertionError(
             "LoadViewers must load viewer command/arguments/init-dir with SAL_MAX_PATH capacity"
         )
+    if "new (std::nothrow) CViewerMasksItem(" not in load_source:
+        raise AssertionError(
+            "LoadViewers must use nothrow allocation so a NULL check remains valid"
+        )
 
     load_editors = re.search(
         r"BOOL LoadEditors\(.*?(?=^BOOL SaveEditors\()",
@@ -107,6 +111,10 @@ def main() -> None:
         raise AssertionError("LoadEditors must load Masks into a MAX_GROUPMASK buffer")
     if "GetValue(subKey, EDITORS_MASKS_REG, REG_SZ, masks, MAX_PATH)" in editors_source:
         raise AssertionError("LoadEditors must not cap Masks at MAX_PATH")
+    if "new (std::nothrow) CEditorMasksItem(" not in editors_source:
+        raise AssertionError(
+            "LoadEditors must use nothrow allocation so a NULL check remains valid"
+        )
 
     if "GetValue(hSubKey, SALAMANDER_HLT_ITEM_MASKS, REG_SZ, masks, MAX_GROUPMASK)" not in configuration:
         raise AssertionError("highlight Masks must load into a MAX_GROUPMASK buffer")
