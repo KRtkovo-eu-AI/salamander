@@ -2840,10 +2840,14 @@ def main() -> int:
         salamdr1,
         r"strcpy\(Configuration\.LoadedSLGName, Configuration\.SLGName\)",
         "Loaded SLG name is copied without its destination capacity")
-    require(
+    require_absent(
         viewer3,
         r"_snprintf_s\(text, _countof\(text\), _TRUNCATE, LoadStr\(IDS_FILEALREADYEXIST\), fileName\)",
-        "Viewer overwrite warning does not retain its text-buffer capacity")
+        "Viewer overwrite warning still uses a non-constant printf format")
+    require(
+        viewer3,
+        r"strstr\(fmt, \"%s\"\).*lstrcpyn\(text \+ prefixLen, fileName, _countof\(text\) - prefixLen\)",
+        "Viewer overwrite warning does not insert the path with a bounded copy")
     require(
         pr_msbuild_workflow,
         r"matrix\.platform.*?-ne 'x64'.*?owner\.Name -eq 'HardwareWrapper'.*?continue",
