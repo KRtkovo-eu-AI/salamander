@@ -237,6 +237,21 @@ def main() -> None:
         raise AssertionError("File Comparator must leave native menu measurement to Windows")
     require(filecomp_main, 'SetProp(HWindow, _T("OpenSalamander.UIFont"), EnvFont)',
             "dark native menu-bar UI font handoff in File Comparator")
+    filecomp_view = (ROOT / "src/plugins/filecomp/viewwnd.cpp").read_text(encoding="utf-8")
+    require(filecomp_view, "WinLibDPIScaleSystemLogFont(HWindow, &CurrentLogFont)",
+            "File Compare view fonts scale from system DPI, not 96 DPI")
+    filecomp_general = (ROOT / "src/plugins/filecomp/dialogs4.cpp").read_text(encoding="utf-8")
+    require(filecomp_general, "SendMessageW(whiteSpace, CB_ADDSTRING",
+            "File Compare whitespace combo uses Unicode items")
+    require_absent(filecomp_general, '"%-3d - %c", i, (char)i',
+                   "File Compare whitespace combo still inserts raw 8-bit code points")
+    dbviewer_renderer = (ROOT / "src/plugins/dbviewer/renmain.cpp").read_text(encoding="utf-8")
+    require(dbviewer_renderer, "WinLibDPIScaleSystemLogFont(HWindow, &lf)",
+            "Database Viewer custom fonts scale from system DPI, not 96 DPI")
+    require_absent(dbviewer_renderer, "WinLibDPIScaleLogFont(HWindow, &lf)",
+                   "Database Viewer still scales configuration fonts from 96 DPI")
+    require(dbviewer_renderer, "WinLibDPIGetIconTitleLogFont(HWindow, &lf)",
+            "Database Viewer default font is requested at the window DPI")
     native_viewer = (ROOT / "src/plugins/shared/webviewviewer/native_viewer.cpp").read_text(encoding="utf-8")
     virtual_html = (ROOT / "src/plugins/shared/webviewviewer/prism/viewer/virtual-viewer.html").read_text(encoding="utf-8")
     virtual_viewer = (ROOT / "src/plugins/shared/webviewviewer/prism/viewer/virtual-viewer.js").read_text(encoding="utf-8")

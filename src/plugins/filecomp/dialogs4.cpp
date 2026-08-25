@@ -110,12 +110,18 @@ void CPropPageGeneral::LoadControls(BOOL initCombo)
     {
         SendMessage(whiteSpace, WM_SETREDRAW, FALSE, 0);
         SendMessage(whiteSpace, CB_RESETCONTENT, 0, 0);
-        char buf[20];
+        // The combo is filled through Unicode. A raw 8-bit `%c` becomes an
+        // invalid UTF-8 sequence under the process UTF-8 ACP, so bytes 128-255
+        // showed missing glyphs while the compare view still painted · correctly.
+        wchar_t buf[32];
         int i;
         for (i = 1; i < 256; i++)
         {
-            sprintf(buf, "%-3d - %c", i, (char)i);
-            SendMessage(whiteSpace, CB_ADDSTRING, 0, (LPARAM)buf);
+            if (i < 32)
+                swprintf_s(buf, L"%-3d", i);
+            else
+                swprintf_s(buf, L"%-3d - %c", i, (wchar_t)i);
+            SendMessageW(whiteSpace, CB_ADDSTRING, 0, (LPARAM)buf);
         }
         SendMessage(whiteSpace, WM_SETREDRAW, TRUE, 0);
     }
