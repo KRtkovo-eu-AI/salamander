@@ -14,6 +14,9 @@
 namespace NArchive {
 namespace NZip {
 
+UINT GetZipLegacyOemCodePage();
+UINT GetZipLegacyAnsiCodePage();
+
 /*
 extern const char *k_SpecName_NTFS_STREAM;
 extern const char *k_SpecName_MAC_RESOURCE_FORK;
@@ -275,7 +278,7 @@ public:
   {
     if (IsUtf8())
       return CP_UTF8;
-    return CP_OEMCP;
+    return GetZipLegacyOemCodePage();
   }
 };
 
@@ -341,13 +344,13 @@ public:
     if (IsUtf8())
       return CP_UTF8;
     if (!FromCentral)
-      return CP_OEMCP;
+      return GetZipLegacyOemCodePage();
     Byte hostOS = MadeByVersion.HostOS;
     return (UINT)((
            hostOS == NFileHeader::NHostOS::kFAT
         || hostOS == NFileHeader::NHostOS::kNTFS
         || hostOS == NFileHeader::NHostOS::kUnix // do we need it?
-        ) ? CP_OEMCP : CP_ACP);
+        ) ? GetZipLegacyOemCodePage() : GetZipLegacyAnsiCodePage());
   }
 };
 

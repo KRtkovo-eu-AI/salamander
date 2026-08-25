@@ -296,6 +296,8 @@ extern CConfiguration Config;
 char* LoadStr(int resID);
 WCHAR* LoadStrW(int resID);
 bool IsUTF8Encoded(const char* s, int len);
+int ZipEncodeEntryName(const char* utf8Path, bool isDir, char* dest, int destMax, bool* usedUtf8);
+void ZipUtf8ToOemBuffer(char* name, int nameMax);
 
 int InflateBuffer(char* sour, int sourSize, char* dest, int* destSize);
 int LoadSfxFileData(char* fileName, CSfxLang** lang);

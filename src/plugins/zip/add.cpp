@@ -270,7 +270,7 @@ int CZipPack::PackMultiVol(SalEnumSelection2 next, void* param)
             char archName[MAX_PATH];
             MakeFileName(1, Options.SeqNames, SalamanderGeneral->SalPathFindFileName(ZipName), archName,
                          false);
-            CharToOem(archName, archName);
+            ZipUtf8ToOemBuffer(archName, MAX_PATH);
             if (!WriteSFXHeader(archName, 0, 0) ||
                 Write(TempFile, &EONewCentrDir, sizeof(CEOCentrDirRecord), NULL) || // just as a placeholder, we update it later
                 Flush(TempFile, TempFile->OutputBuffer, TempFile->BufferPosition, NULL))
@@ -661,6 +661,7 @@ int CZipPack::ExportLocalHeader(CFileInfo* fileInfo, char* buffer)
         Zip64Size = 8 + 8; // In Local Header, both Size and CompSize must be present, if any
     }
     localHeader->NameLen = ExportName(buffer + sizeof(CLocalFileHeader), fileInfo);
+    localHeader->Flag = fileInfo->Flag;
     localHeader->ExtraLen = 0;
     if (Zip64Size)
     {
@@ -781,6 +782,7 @@ int CZipPack::WriteCentralHeader(CFileInfo* fileInfo, char* buffer, BOOL first, 
     }
 
     centralHeader->NameLen = ExportName(buffer + sizeof(CFileHeader), fileInfo);
+    centralHeader->Flag = fileInfo->Flag;
     centralHeader->ExtraLen = 0;
     centralHeader->CommentLen = 0;
     if (fileInfo->StartDisk < 0xFFFF)
@@ -859,25 +861,14 @@ int CZipPack::ExportName(char* name, CFileInfo* fileInfo)
 {
     CALL_STACK_MESSAGE1("CZipPack::ExportName(, )");
 
-    char* sour = fileInfo->Name;
-    char* dest = name;
-
-    while (*sour)
-        if (*sour == '\\')
-        {
-            *dest++ = '/';
-            sour++;
-        }
-        else
-            *dest++ = *sour++;
-    if (fileInfo->IsDir)
-        *dest++ = '/';
-    *dest = 0;
-
-    CharToOem(name, name);
-
-    //*dest = NULL;
-    return (int)(dest - name);
+    bool usedUtf8 = false;
+    int nameLen = ZipEncodeEntryName(fileInfo->Name, fileInfo->IsDir != 0, name,
+                                     MAX_HEADER_SIZE - (int)sizeof(CFileHeader), &usedUtf8);
+    if (usedUtf8)
+        fileInfo->Flag |= GPF_UTF8;
+    else
+        fileInfo->Flag &= ~GPF_UTF8;
+    return nameLen;
 }
 
 int CZipPack::CreateTempFile()
