@@ -166,7 +166,8 @@ BEGIN
     LTEXT           "Olde&r or equal to:",IDS_OLDER,61,121,76,8
     EDITTEXT        IDC_MAXTIME,139,119,80,12,ES_AUTOHSCROLL
     LTEXT           "hh:mm:ss dd.mm.yyyy",IDS_FORMAT2,225,121,81,8
-    LTEXT           "Found &Items:",IDC_FOUND_FILES,6,132,109,8
+    LTEXT           "Found &Items:",IDC_FOUND_FILES,6,132,70,8
+    CONTROL         "Sort keys and values together",IDC_SORTMIXED,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,80,131,160,12
     CONTROL         "",IDC_RESULTS,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_OWNERDATA | WS_CLIPCHILDREN | WS_BORDER | WS_TABSTOP,6,142,309,57
 END
 

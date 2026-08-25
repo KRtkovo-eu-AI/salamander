@@ -53,6 +53,7 @@ STRINGTABLE
   IDS_MENU_CUSTOMFONT, "Use &Custom Font..."
   IDS_MENU_AUTOFONT, "Use &Default Font"
   IDS_MENU_REMOVESOURCEPATH, "Remove &Emptied Directories"
+  IDS_MENU_SORTMIXED, "Sort Files and Directories &Together"
   IDS_MENU_UNDO, "&Undo\tCtrl+U"
   IDS_MENU_EDIT, "&Edit"
   IDS_MENU_STORELIST, "&Store List to Clipboard\tF2"

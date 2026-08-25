@@ -152,6 +152,10 @@ BOOL CPreviewWindow::InitColumns()
     ListView_SetColumnWidth(HWindow, CI_PATH, cx);
 
     ListView_SetImageList(HWindow, HSymbolsImageList, LVSIL_SMALL);
+    RecreateRenamerHeaderSortBitmap();
+    UpdateListViewSortHeaderOverlay(HWindow, RenamerDialog->SortBy, RenamerDialog->ReverseSort,
+                                    HRenamerHeaderSort, CI_DATE, CI_TIME,
+                                    DarkModeShouldUseDarkColors());
 
     return TRUE;
 }
@@ -477,6 +481,7 @@ int CPreviewWindow::CompareFunc(CSourceFile* f1, CSourceFile* f2, int sortBy)
     CALL_STACK_MESSAGE2("CPreviewWindow::CompareFunc(, , %d)", sortBy);
     int res;
     int next = 0, sortByIndex;
+    const BOOL mixed = SortFilesAndDirsTogether;
     static int sortKeys[] = {CI_OLDNAME, CI_PATH, CI_SIZE, CI_TIME};
     switch (sortBy)
     {
@@ -506,7 +511,7 @@ int CPreviewWindow::CompareFunc(CSourceFile* f1, CSourceFile* f2, int sortBy)
         {
         case CI_OLDNAME:
         {
-            if (f1->IsDir == f2->IsDir)
+            if (f1->IsDir == f2->IsDir || SortFilesAndDirsTogether)
             {
                 switch (RenamerOptions.Spec)
                 {
@@ -531,43 +536,42 @@ int CPreviewWindow::CompareFunc(CSourceFile* f1, CSourceFile* f2, int sortBy)
 
         case CI_PATH:
         {
-            switch (RenamerOptions.Spec)
+            if (f1->IsDir == f2->IsDir || mixed)
             {
-            case rsFileName:
-            {
-                res = SG->RegSetStrICmpEx(f1->FullName, (int)(f1->FullName - f1->Name),
-                                          f2->FullName, (int)(f2->FullName - f2->Name), NULL);
-                if (!res)
-                    res = SG->RegSetStrCmpEx(f1->FullName, (int)(f1->FullName - f1->Name),
-                                             f2->FullName, (int)(f2->FullName - f2->Name), NULL);
-                break;
+                switch (RenamerOptions.Spec)
+                {
+                case rsFileName:
+                {
+                    res = SG->RegSetStrICmpEx(f1->FullName, (int)(f1->FullName - f1->Name),
+                                              f2->FullName, (int)(f2->FullName - f2->Name), NULL);
+                    if (!res)
+                        res = SG->RegSetStrCmpEx(f1->FullName, (int)(f1->FullName - f1->Name),
+                                                 f2->FullName, (int)(f2->FullName - f2->Name), NULL);
+                    break;
+                }
+                case rsRelativePath:
+                case rsFullPath:
+                    res = 0;
+                    break;
+                }
             }
-            case rsRelativePath:
-            case rsFullPath:
-                res = 0;
-                break;
-            }
+            else
+                res = f1->IsDir ? -1 : 1;
             break;
         }
 
         case CI_SIZE:
         {
-            if (f1->IsDir == f2->IsDir)
+            if (f1->IsDir == f2->IsDir || SortFilesAndDirsTogether)
             {
-                if (f1->IsDir)
+                if (!SortFilesAndDirsTogether && f1->IsDir)
+                    res = 0;
+                else if (f1->Size < f2->Size)
+                    res = -1;
+                else if (f1->Size == f2->Size)
                     res = 0;
                 else
-                {
-                    if (f1->Size < f2->Size)
-                        res = -1;
-                    else
-                    {
-                        if (f1->Size == f2->Size)
-                            res = 0;
-                        else
-                            res = 1;
-                    }
-                }
+                    res = 1;
             }
             else
                 res = f1->IsDir ? -1 : 1;
@@ -577,13 +581,16 @@ int CPreviewWindow::CompareFunc(CSourceFile* f1, CSourceFile* f2, int sortBy)
 
         case CI_TIME:
         {
-            if (f1->IsDir == f2->IsDir)
+            if (f1->IsDir == f2->IsDir || SortFilesAndDirsTogether)
                 res = CompareFileTime(&f1->LastWrite, &f2->LastWrite);
             else
                 res = f1->IsDir ? -1 : 1;
             break;
         }
         }
+        if (res != 0 && RenamerDialog->ReverseSort &&
+            (mixed || f1->IsDir == f2->IsDir))
+            res = -res;
         if (next == sortByIndex)
         {
             if (sortByIndex != 0)
@@ -678,9 +685,11 @@ void CPreviewWindow::SortItems(int sortBy)
         // sort the array by the requested criterion
         QuickSort(0, SourceFiles.Count - 1, sortBy);
 
-        // restore the selection
-        // if (focusIndex != -1) ListView_EnsureVisible(HWindow, focusIndex, FALSE);
         Update(TRUE);
+        RecreateRenamerHeaderSortBitmap();
+        UpdateListViewSortHeaderOverlay(HWindow, RenamerDialog->SortBy, RenamerDialog->ReverseSort,
+                                        HRenamerHeaderSort, CI_DATE, CI_TIME,
+                                        DarkModeShouldUseDarkColors());
     }
 
     SetCursor(hCursor);
@@ -800,6 +809,28 @@ CPreviewWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         wParam, lParam);
     switch (uMsg)
     {
+    case WM_NOTIFY:
+    {
+        LPNMHDR hdr = (LPNMHDR)lParam;
+        HWND header = ListView_GetHeader(HWindow);
+        if (hdr != NULL && header != NULL && hdr->hwndFrom == header && hdr->code == NM_CUSTOMDRAW)
+        {
+            RecreateRenamerHeaderSortBitmap();
+            LPNMCUSTOMDRAW cd = (LPNMCUSTOMDRAW)lParam;
+            BOOL showSort = ListViewHeaderColumnShowsSort(RenamerDialog->SortBy, (int)cd->dwItemSpec,
+                                                          CI_DATE, CI_TIME);
+            BOOL dark = DarkModeShouldUseDarkColors();
+            COLORREF darkBg = RGB(0x20, 0x20, 0x20);
+            COLORREF darkText = dark ? DarkModeGetColors().readableText : GetSysColor(COLOR_BTNTEXT);
+            COLORREF darkLine = RGB(0x38, 0x38, 0x38);
+            LRESULT customDrawResult = 0;
+            if (HandleListViewHeaderSortCustomDraw(cd, &customDrawResult, showSort, RenamerDialog->ReverseSort,
+                                                   HRenamerHeaderSort, dark, darkBg, darkText, darkLine))
+                return customDrawResult;
+        }
+        break;
+    }
+
     case WM_CTLCOLORSTATIC:
         if (HWND(lParam) == Static)
         {

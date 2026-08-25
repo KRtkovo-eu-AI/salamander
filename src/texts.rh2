@@ -2369,6 +2369,7 @@
 #define IDS_FFMENU_OPT_ERRORS           13345
 #define IDS_FFMENU_OPT_IGNORE           13346
 #define IDS_FFMENU_OPT_FULLROWSEL       13347
+#define IDS_FFMENU_OPT_SORTMIXED        13348
 
 #define IDS_FFMENU_HELP                 13350
 

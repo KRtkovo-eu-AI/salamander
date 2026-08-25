@@ -541,6 +541,9 @@
     </ClCompile>
     <ClCompile Include="..\finddlg1.cpp">
     </ClCompile>
+    <ClCompile Include="..\plugins\shared\listview_sort_header.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="..\finddlg2.cpp">
     </ClCompile>
     <ClCompile Include="..\geticon.cpp">

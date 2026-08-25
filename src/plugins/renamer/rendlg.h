@@ -17,6 +17,10 @@ extern BOOL LastRemoveSourcePath;
 extern LOGFONT ManualModeLogFont;
 extern BOOL UseCustomFont;
 extern BOOL ConfirmESCClose;
+extern BOOL SortFilesAndDirsTogether;
+extern HBITMAP HRenamerHeaderSort;
+
+void RecreateRenamerHeaderSortBitmap();
 
 extern HACCEL HAccels;
 
@@ -63,6 +67,7 @@ protected:
     BOOL SkipAllBadDirs;
     HWND FocusHWnd;
     int SortBy;
+    BOOL ReverseSort;
     BOOL TransferDontSaveHistory;
     BOOL WaitCursor;
     BOOL CloseOnEnable;

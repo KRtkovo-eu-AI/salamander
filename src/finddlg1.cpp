@@ -13,6 +13,7 @@
 #include "shellib.h"
 #include "find.h"
 #include "gui.h"
+#include "plugins/shared/listview_sort_header.h"
 #include "usermenu.h"
 #include "execute.h"
 #include "tasklist.h"
@@ -123,6 +124,12 @@ void UpdateFindDarkChrome(HWND dialog, HWND statusBar, HWND listView, CFindTBHea
 
     if (listView != NULL)
         ApplyFindResultsFontAndColors(listView);
+    if (listView != NULL)
+    {
+        HWND header = ListView_GetHeader(listView);
+        if (header != NULL)
+            InvalidateRect(header, NULL, TRUE);
+    }
 
     if (statusBar != NULL)
     {
@@ -134,10 +141,93 @@ void UpdateFindDarkChrome(HWND dialog, HWND statusBar, HWND listView, CFindTBHea
         InvalidateRect(tbHeader->HWindow, NULL, TRUE);
 }
 
-bool PaintFindListHeader(LPNMCUSTOMDRAW cd, LRESULT& result)
+#define FIND_SORT_BITMAP_W 8
+#define FIND_SORT_BITMAP_H 8
+
+void PaintFindHeaderSortArrow(HDC hdc, const RECT* itemRect, const char* text, UINT format, BOOL reverse)
 {
-    if (cd == NULL || !DarkModeShouldUseDarkColors())
+    if (hdc == NULL || itemRect == NULL || HHeaderSort == NULL)
+        return;
+
+    SIZE sz;
+    sz.cx = 0;
+    sz.cy = 0;
+    int textLen = text != NULL ? (int)strlen(text) : 0;
+    if (textLen > 0)
+        GetTextExtentPoint32(hdc, text, textLen, &sz);
+
+    int x;
+    if ((format & DT_RIGHT) != 0)
+    {
+        x = itemRect->right - 5 - sz.cx - FIND_SORT_BITMAP_W - 2;
+        if (x < itemRect->left + 5)
+            x = itemRect->left + 5;
+    }
+    else
+        x = itemRect->left + 5 + sz.cx + FIND_SORT_BITMAP_W;
+
+    int y = itemRect->top + ((itemRect->bottom - itemRect->top) - FIND_SORT_BITMAP_H) / 2;
+    HDC hMemDC = HANDLES(CreateCompatibleDC(hdc));
+    if (hMemDC == NULL)
+        return;
+    HBITMAP oldBmp = (HBITMAP)SelectObject(hMemDC, HHeaderSort);
+    BitBlt(hdc, x, y, FIND_SORT_BITMAP_W, FIND_SORT_BITMAP_H,
+           hMemDC, reverse ? FIND_SORT_BITMAP_W : 0, 0, SRCCOPY);
+    SelectObject(hMemDC, oldBmp);
+    HANDLES(DeleteDC(hMemDC));
+}
+
+bool PaintFindListHeader(LPNMCUSTOMDRAW cd, LRESULT& result, int sortBy, BOOL reverseSort)
+{
+    if (cd == NULL)
         return false;
+
+    const BOOL dark = DarkModeShouldUseDarkColors();
+    const int column = (int)cd->dwItemSpec;
+    BOOL showSort = FALSE;
+    if (sortBy >= 0)
+    {
+        if (sortBy == 3)
+            showSort = column == 3 || column == 4;
+        else
+            showSort = sortBy == column;
+    }
+
+    if (!dark)
+    {
+        switch (cd->dwDrawStage)
+        {
+        case CDDS_PREPAINT:
+            result = CDRF_NOTIFYITEMDRAW;
+            return true;
+        case CDDS_ITEMPREPAINT:
+            result = CDRF_NOTIFYPOSTPAINT;
+            return true;
+        case CDDS_ITEMPOSTPAINT:
+        {
+            if (showSort)
+            {
+                char text[256];
+                text[0] = 0;
+                HDITEM item;
+                memset(&item, 0, sizeof(item));
+                item.mask = HDI_TEXT | HDI_FORMAT;
+                item.pszText = text;
+                item.cchTextMax = _countof(text);
+                Header_GetItem(cd->hdr.hwndFrom, column, &item);
+                UINT format = DT_LEFT;
+                if ((item.fmt & HDF_RIGHT) != 0)
+                    format = DT_RIGHT;
+                else if ((item.fmt & HDF_CENTER) != 0)
+                    format = DT_CENTER;
+                PaintFindHeaderSortArrow(cd->hdc, &cd->rc, text, format, reverseSort);
+            }
+            result = CDRF_DODEFAULT;
+            return true;
+        }
+        }
+        return false;
+    }
 
     switch (cd->dwDrawStage)
     {
@@ -158,10 +248,17 @@ bool PaintFindListHeader(LPNMCUSTOMDRAW cd, LRESULT& result)
         item.mask = HDI_TEXT | HDI_FORMAT;
         item.pszText = text;
         item.cchTextMax = _countof(text);
-        Header_GetItem(cd->hdr.hwndFrom, (int)cd->dwItemSpec, &item);
+        Header_GetItem(cd->hdr.hwndFrom, column, &item);
 
         rc.left += 5;
         rc.right -= 5;
+        if (showSort)
+        {
+            if ((item.fmt & HDF_RIGHT) != 0)
+                rc.left += FIND_SORT_BITMAP_W + 2;
+            else
+                rc.right -= FIND_SORT_BITMAP_W * 3;
+        }
         UINT format = DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS;
         if ((item.fmt & HDF_RIGHT) != 0)
             format |= DT_RIGHT;
@@ -175,6 +272,9 @@ bool PaintFindListHeader(LPNMCUSTOMDRAW cd, LRESULT& result)
         DrawText(cd->hdc, text, -1, &rc, format);
         SetTextColor(cd->hdc, oldText);
         SetBkMode(cd->hdc, oldBkMode);
+
+        if (showSort)
+            PaintFindHeaderSortArrow(cd->hdc, &cd->rc, text, format, reverseSort);
 
         RECT line = cd->rc;
         line.left = line.right - 1;
@@ -417,6 +517,8 @@ CFoundFilesListView::CFoundFilesListView(HWND dlg, int ctrlID, CFindDialog* find
     : Data(1000, 500), DataForRefine(1, 1000), CWindow(dlg, ctrlID)
 {
     FindDialog = findDialog;
+    SortBy = -1;
+    ReverseSort = FALSE;
     HANDLES(InitializeCriticalSection(&DataCriticalSection));
 
     // add this panel to the array of sources for enumerating files in viewers
@@ -709,9 +811,64 @@ void CFoundFilesListView::RestoreItemsState()
     }
 }
 
-void CFoundFilesListView::SortItems(int sortBy)
+BOOL CFoundFilesListView::ColumnShowsSortArrow(int column) const
 {
-    if (sortBy == 5)
+    if (SortBy < 0)
+        return FALSE;
+    if (SortBy == 3)
+        return column == 3 || column == 4;
+    return SortBy == column;
+}
+
+void CFoundFilesListView::InvalidateSortHeader()
+{
+    UpdateListViewSortHeaderOverlay(HWindow, SortBy, ReverseSort, HHeaderSort, 3, 4,
+                                    DarkModeShouldUseDarkColors());
+}
+
+void CFoundFilesListView::ApplyCurrentSort()
+{
+    if (SortBy < 0)
+    {
+        InvalidateSortHeader();
+        return;
+    }
+
+    HCURSOR hCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
+    HANDLES(EnterCriticalSection(&DataCriticalSection));
+
+    FindDialog->UpdateListViewItems();
+
+    if (Data.Count > 0)
+    {
+        StoreItemsState();
+
+        QuickSort(0, Data.Count - 1, SortBy);
+        if (FindDialog->GrepData.FindDuplicates)
+        {
+            QuickSortDuplicates(0, Data.Count - 1, SortBy == 0);
+            SetDifferentByGroup();
+        }
+
+        RestoreItemsState();
+
+        int focusIndex = ListView_GetNextItem(HWindow, -1, LVNI_FOCUSED);
+        if (focusIndex != -1)
+            ListView_EnsureVisible(HWindow, focusIndex, FALSE);
+        ListView_RedrawItems(HWindow, 0, Data.Count - 1);
+        UpdateWindow(HWindow);
+    }
+
+    HANDLES(LeaveCriticalSection(&DataCriticalSection));
+    InvalidateSortHeader();
+    SetCursor(hCursor);
+}
+
+void CFoundFilesListView::SortItems(int sortBy, BOOL reverse, BOOL force)
+{
+    if (sortBy == 4)
+        sortBy = 3; // Time shares LastWrite with Date
+    if (sortBy == 5 || sortBy < 0)
         return; // sorting by attributes is unsupported
 
     BOOL enabledNameSize = TRUE;
@@ -727,46 +884,26 @@ void CFoundFilesListView::SortItems(int sortBy)
 
     if (!enabledNameSize && (sortBy == 0 || sortBy == 2))
         return;
-    if (!enabledPathTime && (sortBy == 1 || sortBy == 3 || sortBy == 4))
+    if (!enabledPathTime && (sortBy == 1 || sortBy == 3))
         return;
 
-    HCURSOR hCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
-    HANDLES(EnterCriticalSection(&DataCriticalSection));
+    if (!force && SortBy == sortBy && !reverse)
+        return;
 
-    //   EnumFileNamesChangeSourceUID(HWindow, &EnumFileNamesSourceUID);  // commented out, not sure why it is here: Petr
-
-    // if some items are still in data but not in the listview, transfer them
-    FindDialog->UpdateListViewItems();
-
-    if (Data.Count > 0)
+    if (SortBy != sortBy)
     {
-        // save the selected and focused item state
-        StoreItemsState();
-
-        // sort the array by the requested criterion
-        QuickSort(0, Data.Count - 1, sortBy);
-        if (FindDialog->GrepData.FindDuplicates)
-        {
-            QuickSortDuplicates(0, Data.Count - 1, sortBy == 0);
-            SetDifferentByGroup();
-        }
-        else
-        {
-            QuickSort(0, Data.Count - 1, sortBy);
-        }
-
-        // restore the item states
-        RestoreItemsState();
-
-        int focusIndex = ListView_GetNextItem(HWindow, -1, LVNI_FOCUSED);
-        if (focusIndex != -1)
-            ListView_EnsureVisible(HWindow, focusIndex, FALSE);
-        ListView_RedrawItems(HWindow, 0, Data.Count - 1);
-        UpdateWindow(HWindow);
+        SortBy = sortBy;
+        ReverseSort = force ? reverse : FALSE;
+    }
+    else
+    {
+        if (force)
+            ReverseSort = reverse;
+        else if (reverse)
+            ReverseSort = !ReverseSort;
     }
 
-    HANDLES(LeaveCriticalSection(&DataCriticalSection));
-    SetCursor(hCursor);
+    ApplyCurrentSort();
 }
 
 void CFoundFilesListView::SetDifferentByGroup()
@@ -863,9 +1000,10 @@ int CFoundFilesListView::CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2, i
 {
     int res;
     int next = sortBy;
+    const BOOL mixed = Configuration.FindSortFilesAndDirsTogether;
     do
     {
-        if (f1->IsDir == f2->IsDir) // are the items from the same group (directories/files)?
+        if (mixed || f1->IsDir == f2->IsDir) // same group, or files and directories sorted together
         {
             switch (next)
             {
@@ -878,7 +1016,6 @@ int CFoundFilesListView::CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2, i
             case 1:
             {
                 res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->PathW.c_str(), -1, f2->PathW.c_str(), -1) - CSTR_EQUAL;
-                break;
                 break;
             }
 
@@ -902,6 +1039,8 @@ int CFoundFilesListView::CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2, i
                 break;
             }
             }
+            if (ReverseSort && res != 0)
+                res = -res;
         }
         else
             res = f1->IsDir ? -1 : 1;
@@ -1049,6 +1188,8 @@ int CFoundFilesListView::CompareDuplicatesFunc(CFoundFilesData* f1, CFoundFilesD
     }
     if (res == 0)
         res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->PathW.c_str(), -1, f2->PathW.c_str(), -1) - CSTR_EQUAL;
+    if (ReverseSort && res != 0)
+        res = -res;
     return res;
 }
 
@@ -1125,6 +1266,19 @@ CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     SLOW_CALL_STACK_MESSAGE4("CFoundFilesListView::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_NOTIFY:
+    {
+        LPNMHDR hdr = (LPNMHDR)lParam;
+        HWND header = ListView_GetHeader(HWindow);
+        if (hdr != NULL && header != NULL && hdr->hwndFrom == header && hdr->code == NM_CUSTOMDRAW)
+        {
+            LRESULT result = 0;
+            if (PaintFindListHeader((LPNMCUSTOMDRAW)lParam, result, SortBy, ReverseSort))
+                return result;
+        }
+        break;
+    }
+
     case WM_GETDLGCODE:
     {
         if (lParam != NULL)
@@ -1141,13 +1295,17 @@ CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_THEMECHANGED:
     {
         DarkModeUpdateListViewColors(HWindow);
+        InvalidateSortHeader();
         break;
     }
 
     case WM_SETTINGCHANGE:
     {
         if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
             DarkModeUpdateListViewColors(HWindow);
+            InvalidateSortHeader();
+        }
         break;
     }
 
@@ -1562,6 +1720,7 @@ BOOL CFoundFilesListView::InitColumns()
     ListView_SetImageList(HWindow, HFindSymbolsImageList, LVSIL_SMALL);
 
     DarkModeUpdateListViewColors(HWindow);
+    InvalidateSortHeader();
 
     return TRUE;
 }
@@ -2450,6 +2609,8 @@ void CFindDialog::StopSearch()
     if (GrepData.Refine != 0)
         FoundFilesListView->DestroyDataForRefine();
     UpdateListViewItems();
+    if (FoundFilesListView != NULL)
+        FoundFilesListView->ApplyCurrentSort();
     EnableControls();
 }
 
@@ -3202,6 +3363,12 @@ void CFindDialog::SetFullRowSelect(BOOL fullRow)
     FindDialogQueue.BroadcastMessage(WM_USER_FINDFULLROWSEL, 0, 0);
 }
 
+void CFindDialog::SetSortFilesAndDirsTogether(BOOL sortTogether)
+{
+    Configuration.FindSortFilesAndDirsTogether = sortTogether;
+    FindDialogQueue.BroadcastMessage(WM_USER_FINDSORTMIXED, 0, 0);
+}
+
 INT_PTR
 CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -3353,6 +3520,8 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ShowWindow(GetDlgItem(HWindow, IDC_FIND_INCLUDE_ARCHIVES), FALSE);
 
         UpdateFindDarkChrome(HWindow, HStatusBar, FoundFilesListView != NULL ? FoundFilesListView->HWindow : NULL, TBHeader);
+        if (FoundFilesListView != NULL)
+            FoundFilesListView->InvalidateSortHeader();
 
         EnableControls();
         break;
@@ -3401,13 +3570,19 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_THEMECHANGED:
     {
         UpdateFindDarkChrome(HWindow, HStatusBar, FoundFilesListView != NULL ? FoundFilesListView->HWindow : NULL, TBHeader);
+        if (FoundFilesListView != NULL)
+            FoundFilesListView->InvalidateSortHeader();
         break;
     }
 
     case WM_SETTINGCHANGE:
     {
         if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
             UpdateFindDarkChrome(HWindow, HStatusBar, FoundFilesListView != NULL ? FoundFilesListView->HWindow : NULL, TBHeader);
+            if (FoundFilesListView != NULL)
+                FoundFilesListView->InvalidateSortHeader();
+        }
         break;
     }
 
@@ -3423,6 +3598,13 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 flags &= ~LVS_EX_FULLROWSELECT;
             ListView_SetExtendedListViewStyle(FoundFilesListView->HWindow, flags); // 4.71
         }
+        return TRUE;
+    }
+
+    case WM_USER_FINDSORTMIXED:
+    {
+        if (FoundFilesListView != NULL)
+            FoundFilesListView->ApplyCurrentSort();
         return TRUE;
     }
 
@@ -3543,6 +3725,11 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 popup->EnableItem(CM_FIND_PATH, FALSE, enabledPathTime && totalCount > 0);
                 popup->EnableItem(CM_FIND_TIME, FALSE, enabledPathTime && totalCount > 0);
                 popup->EnableItem(CM_FIND_SIZE, FALSE, enabledNameSize && totalCount > 0);
+                int sortBy = FoundFilesListView->GetSortBy();
+                popup->CheckItem(CM_FIND_NAME, FALSE, sortBy == 0);
+                popup->CheckItem(CM_FIND_PATH, FALSE, sortBy == 1);
+                popup->CheckItem(CM_FIND_TIME, FALSE, sortBy == 3);
+                popup->CheckItem(CM_FIND_SIZE, FALSE, sortBy == 2);
                 break;
             }
 
@@ -3554,6 +3741,7 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 popup->CheckItem(CM_FIND_SHOWERRORS, FALSE, Configuration.ShowGrepErrors);
                 popup->CheckItem(CM_FIND_FULLROWSEL, FALSE, Configuration.FindFullRowSelect);
+                popup->CheckItem(CM_FIND_SORTMIXED, FALSE, Configuration.FindSortFilesAndDirsTogether);
                 // if the manage dialog is open, disable it in another window and also disable adding to the list
                 popup->EnableItem(CM_FIND_ADD_CURRENT, FALSE, !FindManageInUse);
                 popup->EnableItem(CM_FIND_MANAGE, FALSE, !FindManageInUse);
@@ -4131,6 +4319,12 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
             return TRUE;
         }
 
+        case CM_FIND_SORTMIXED:
+        {
+            SetSortFilesAndDirsTogether(!Configuration.FindSortFilesAndDirsTogether);
+            return TRUE;
+        }
+
         case CM_FIND_MESSAGES:
         {
             if (TBHeader != NULL)
@@ -4239,7 +4433,8 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
             notifyHeader->code == NM_CUSTOMDRAW)
         {
             LRESULT customDrawResult = 0;
-            if (PaintFindListHeader((LPNMCUSTOMDRAW)lParam, customDrawResult))
+            if (PaintFindListHeader((LPNMCUSTOMDRAW)lParam, customDrawResult,
+                                    FoundFilesListView->GetSortBy(), FoundFilesListView->GetReverseSort()))
             {
                 SetWindowLongPtr(HWindow, DWLP_MSGRESULT, customDrawResult);
                 return TRUE;

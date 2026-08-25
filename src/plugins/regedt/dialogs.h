@@ -32,6 +32,10 @@ extern int DataTimeColFW; // LO/HI-WORD: left/right panel: Data/Time column: Fix
 extern int DataTimeColW;  // LO/HI-WORD: left/right panel: Data/Time column: Width
 extern int SizeColFW;     // LO/HI-WORD: left/right panel: Size column: FixedWidth
 extern int SizeColW;      // LO/HI-WORD: left/right panel: Size column: Width
+extern BOOL SortKeysAndValuesTogether;
+extern HBITMAP HRegEdtHeaderSort;
+
+void RecreateRegEdtHeaderSortBitmap();
 
 extern HFONT EnvFont;     // environment font (edit, toolbar, header, status)
 extern int EnvFontHeight; // font height

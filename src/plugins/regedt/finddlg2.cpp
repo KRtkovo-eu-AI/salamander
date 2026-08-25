@@ -6,6 +6,24 @@
 int DialogWidth;
 int DialogHeight;
 BOOL Maximized;
+BOOL SortKeysAndValuesTogether = FALSE;
+HBITMAP HRegEdtHeaderSort = NULL;
+BOOL RegEdtHeaderSortDark = FALSE;
+
+void RecreateRegEdtHeaderSortBitmap()
+{
+    BOOL dark = DarkModeShouldUseDarkColors();
+    if (HRegEdtHeaderSort != NULL && RegEdtHeaderSortDark == dark)
+        return;
+    if (HRegEdtHeaderSort != NULL)
+    {
+        DeleteObject(HRegEdtHeaderSort);
+        HRegEdtHeaderSort = NULL;
+    }
+    COLORREF arrow = dark ? DarkModeGetColors().readableText : GetSysColor(COLOR_BTNTEXT);
+    HRegEdtHeaderSort = CreateListViewSortHeaderBitmap(DLLInstance, IDB_HEADERSORT, dark, arrow);
+    RegEdtHeaderSortDark = dark;
+}
 
 //*********************************************************************************
 //
@@ -50,6 +68,7 @@ CFindDialog::CFindDialog(LPWSTR lookInInit)
     SearchInProgress = FALSE;
     CloseWhenSearchFinishes = FALSE;
     ShowOptions = FALSE;
+    SortKeysAndValuesTogether = ::SortKeysAndValuesTogether;
 }
 
 void CFindDialog::GetLayoutParams()
@@ -143,7 +162,7 @@ void CFindDialog::LayoutControls(BOOL showOrHideControls)
 
     int resultsY = ShowOptions ? ResultsY : (int)(OptionsY + OptionsH * 1.1);
 
-    HDWP hdwp = BeginDeferWindowPos(8);
+    HDWP hdwp = BeginDeferWindowPos(9);
     if (hdwp != NULL)
     {
         // place the status bar
@@ -181,6 +200,22 @@ void CFindDialog::LayoutControls(BOOL showOrHideControls)
         hdwp = DeferWindowPos(hdwp, GetDlgItem(HWindow, IDC_FOUND_FILES), NULL,
                               HMargin, resultsY - FoundItemsH - 2, 0, 0,
                               SWP_NOZORDER | SWP_NOSIZE);
+
+        HWND mix = GetDlgItem(HWindow, IDC_SORTMIXED);
+        RECT foundRect;
+        GetWindowRect(GetDlgItem(HWindow, IDC_FOUND_FILES), &foundRect);
+        RECT mixRect;
+        GetWindowRect(mix, &mixRect);
+        int mixW = mixRect.right - mixRect.left;
+        int mixH = mixRect.bottom - mixRect.top;
+        int mixX = HMargin + (foundRect.right - foundRect.left) + 8;
+        if (mixX + mixW > clientRect.right - HMargin)
+            mixX = clientRect.right - HMargin - mixW;
+        if (mixX < HMargin)
+            mixX = HMargin;
+        hdwp = DeferWindowPos(hdwp, mix, NULL,
+                              mixX, resultsY - FoundItemsH - 4, mixW, mixH,
+                              SWP_NOZORDER);
 
         // place the Options checkbox
         hdwp = DeferWindowPos(hdwp, GetDlgItem(HWindow, IDC_OPTIONS), NULL,
@@ -597,6 +632,7 @@ void CFindDialog::Transfer(CTransferInfoEx& ti)
 {
     CALL_STACK_MESSAGE1("CFindDialog::Transfer()");
     ti.CheckBox(IDC_OPTIONS, ShowOptions);
+    ti.CheckBox(IDC_SORTMIXED, SortKeysAndValuesTogether);
     WCHAR lookIn[1024];
     lookIn[0] = 0;
     HistoryComboBox(ti, IDC_PATTERN, Pattern, MAX_KEYNAME, MAX_HISTORY_ENTRIES, PatternHistory);
@@ -791,6 +827,8 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             InvalidateRect(StatusBar->HWindow, NULL, TRUE);
         }
         RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        if (List != NULL)
+            List->InvalidateSortHeader();
         return TRUE;
     }
 
@@ -801,6 +839,8 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             ApplyRegEdtDarkMode(HWindow);
             InvalidateRect(HWindow, NULL, TRUE);
+            if (List != NULL)
+                List->InvalidateSortHeader();
             return TRUE;
         }
         break;
@@ -865,6 +905,15 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             ShowOptions = SendMessage((HWND)lParam, BM_GETCHECK, 0, 0) == BST_CHECKED;
             LayoutControls(TRUE);
+            break;
+        }
+
+        case IDC_SORTMIXED:
+        {
+            SortKeysAndValuesTogether = SendMessage((HWND)lParam, BM_GETCHECK, 0, 0) == BST_CHECKED;
+            ::SortKeysAndValuesTogether = SortKeysAndValuesTogether;
+            if (List != NULL)
+                List->ApplyCurrentSort();
             break;
         }
 
@@ -946,6 +995,31 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_NOTIFY:
     {
+        if (List != NULL && List->HWindow != NULL)
+        {
+            LPNMHDR nmhdr = (LPNMHDR)lParam;
+            HWND header = ListView_GetHeader(List->HWindow);
+            if (nmhdr != NULL && header != NULL && nmhdr->hwndFrom == header &&
+                nmhdr->code == NM_CUSTOMDRAW)
+            {
+                RecreateRegEdtHeaderSortBitmap();
+                LPNMCUSTOMDRAW cd = (LPNMCUSTOMDRAW)lParam;
+                BOOL showSort = ListViewHeaderColumnShowsSort(List->GetSortBy(), (int)cd->dwItemSpec,
+                                                              CI_DATE, CI_TIME);
+                BOOL dark = DarkModeShouldUseDarkColors();
+                COLORREF darkBg = RGB(0x20, 0x20, 0x20);
+                COLORREF darkText = dark ? DarkModeGetColors().readableText : GetSysColor(COLOR_BTNTEXT);
+                COLORREF darkLine = RGB(0x38, 0x38, 0x38);
+                LRESULT customDrawResult = 0;
+                if (HandleListViewHeaderSortCustomDraw(cd, &customDrawResult, showSort, List->GetReverseSort(),
+                                                       HRegEdtHeaderSort, dark, darkBg, darkText, darkLine))
+                {
+                    SetWindowLongPtr(HWindow, DWLP_MSGRESULT, customDrawResult);
+                    return TRUE;
+                }
+            }
+        }
+
         if (wParam == IDC_RESULTS)
         {
             switch (((LPNMHDR)lParam)->code)
@@ -1120,6 +1194,8 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         SetWindowText(GetDlgItem(HWindow, IDOK), LoadStr(IDS_START));
         CloseHandle(CancelEvent); // we will not need it anymore
         UpdateListViewItems();
+        if (List != NULL)
+            List->ApplyCurrentSort();
         //UpdateStatusText();
         EnableControls(TRUE);
         KillTimer(HWindow, IDT_REFRESH_LISTVIEW);

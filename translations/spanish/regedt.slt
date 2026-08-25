@@ -75,6 +75,7 @@ COMMENT,"Versión en español"
 153,139,119,80,12,1,""
 158,225,121,81,8,1,"hh:mm:ss dd.mm.aaaa"
 148,6,132,109,8,1,"&Elementos encontrados:"
+178,80,131,160,12,1,"Ordenar claves y valores juntos"
 149,6,142,309,57,1,""
 
 [DIALOG 165]

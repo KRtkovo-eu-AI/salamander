@@ -82,21 +82,26 @@ is used as the new list of new names.
 <dt><i>View/Sort by Original Name</i></dt>
 
 <dd>Changes sorting of items in the Preview listview to sorting by the Original Name column.
+Click the command again (or click the same column header again) to reverse the sort direction.
 </dd>
 
 <dt><i>View/Sort by Size</i></dt>
 
 <dd>Changes sorting of items in the Preview listview to sorting by the Size column.
+Click the command again (or click the same column header again) to reverse the sort direction.
 </dd>
 
 <dt><i>View/Sort by Time</i></dt>
 
 <dd>Changes sorting of items in the Preview listview to sorting by the Date and Time columns.
+Date and Time share one sort key, so both headers show the current direction.
+Click the command again (or click the same column header again) to reverse the sort direction.
 </dd>
 
 <dt><i>View/Sort by Path</i></dt>
 
 <dd>Changes sorting of items in the Preview listview to sorting by the Path column.
+Click the command again (or click the same column header again) to reverse the sort direction.
 </dd>
 
 <dt><i>View/All Files</i></dt>
@@ -139,6 +144,13 @@ you to move files to another directories and drives.
 <dd>When you rename (move) files to another directories, some of original directories
 can be emptied (all files from these directories are moved away). Check this option if
 you want to delete such empty directories.
+</dd>
+
+<dt><i>Options/Sort Files and Directories Together</i></dt>
+
+<dd>By default, directories stay in a separate group above files when you sort the Preview
+listview. Enable this option to sort files and directories as one list. Reverse sorting
+then also applies to the whole list instead of only inside each group.
 </dd>
 
 <dt><i>Options/Last Used</i></dt>
@@ -265,7 +277,9 @@ the new name (the extension part of name is ignored).
 <dd>You can see all planned changes in a real-time preview of resulting names. Columns
 contain original names, new names, sizes, dates, times, and paths. New names are
 displayed in a gray color if they are the same as original names. You can sort this
-preview by clicking on column headers or in the View menu.
+preview by clicking on column headers or in the View menu. Click the same column again
+to reverse the sort direction. Date and Time share one sort key. The New Name column
+cannot be used for sorting.
 </dd>
 
 </dl>

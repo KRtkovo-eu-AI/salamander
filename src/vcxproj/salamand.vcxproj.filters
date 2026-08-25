@@ -180,6 +180,9 @@
     <ClCompile Include="..\finddlg1.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
+    <ClCompile Include="..\plugins\shared\listview_sort_header.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
     <ClCompile Include="..\finddlg2.cpp">
       <Filter>cpp</Filter>
     </ClCompile>

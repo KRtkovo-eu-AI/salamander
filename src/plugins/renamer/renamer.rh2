@@ -11,6 +11,7 @@
 
 #define IDI_RENAMER 500
 #define IDB_RENAMER 510
+#define IDB_HEADERSORT 511
 
 #define IDS_PLUGINNAME 1000
 #define IDS_DESCRIPTION 1001
@@ -284,6 +285,7 @@
 #define IDS_EXP_BROWSE 1284
 #define IDS_EXP_SALDIR 1285
 #define IDS_CNFRM_ESC_CLOSE2 1286
+#define IDS_MENU_SORTMIXED 1287
 
 // commands
 #define CMD_VALIDATE  600
@@ -316,6 +318,7 @@
 #define CMD_LOADLIST  625
 #define CMD_EDIT  626
 #define CMD_ADVANCED  627
+#define CMD_SORTMIXED 628
 
 // IDs for linking to help
 #define IDH_BATCHRENAME  2000

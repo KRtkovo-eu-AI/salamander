@@ -1193,7 +1193,8 @@ struct COpenViewerData
 
 #define WM_USER_WAKEUP_FROM_IDLE WM_APP + 411 // [0, 0] - pokud je hlavni thread v IDLE, probere se
 
-#define WM_USER_FINDFULLROWSEL WM_APP + 412 // [0, 0] - find okna maji nastavit sve list view, aby odpovidalo promenne Configuration.FindFullRowSelect
+#define WM_USER_FINDFULLROWSEL WM_APP + 412 // [0, 0] - find windows should set their list view to match Configuration.FindFullRowSelect
+#define WM_USER_FINDSORTMIXED WM_APP + 413  // [0, 0] - find windows should re-sort results according to Configuration.FindSortFilesAndDirsTogether
 
 #define WM_USER_SLGINCOMPLETE WM_APP + 414 // [0, 0] - upozorneni, ze SLG neni kompletne prelozene, motivacni text aby se zapojili
 

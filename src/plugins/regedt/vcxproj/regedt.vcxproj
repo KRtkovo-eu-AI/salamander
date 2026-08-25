@@ -223,6 +223,9 @@
     </ClCompile>
     <ClCompile Include="..\..\shared\dbg.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\shared\listview_sort_header.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="..\..\shared\winliblt.cpp">
     </ClCompile>
     <ClCompile Include="..\chmon.cpp">
@@ -284,6 +287,8 @@
     <ClInclude Include="..\..\shared\spl_vers.h">
     </ClInclude>
     <ClInclude Include="..\..\shared\winliblt.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\listview_sort_header.h">
     </ClInclude>
     <ClInclude Include="..\chmon.h">
     </ClInclude>

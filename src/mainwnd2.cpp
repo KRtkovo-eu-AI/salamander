@@ -1063,6 +1063,7 @@ const char* CONFIG_RECYCLEMASKS_REG = "Use Recycle Bin For";
 const char* CONFIG_SAVEONEXIT_REG = "Save Configuration On Exit";
 const char* CONFIG_SHOWGREPERRORS_REG = "Show Errors In Find Files";
 const char* CONFIG_FINDFULLROW_REG = "Show Full Row In Find Files";
+const char* CONFIG_FINDSORTMIXED_REG = "Sort Files And Dirs Together In Find";
 const char* CONFIG_MINBEEPWHENDONE_REG = "Use Speeker Beep";
 const char* CONFIG_INTRN_VIEWER_REG = "Internal Viewer";
 const char* CONFIG_VIEWER_REG = "External Viewer";
@@ -3215,6 +3216,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                          &Configuration.ShowGrepErrors, sizeof(DWORD));
                 SetValue(actKey, CONFIG_FINDFULLROW_REG, REG_DWORD,
                          &Configuration.FindFullRowSelect, sizeof(DWORD));
+                SetValue(actKey, CONFIG_FINDSORTMIXED_REG, REG_DWORD,
+                         &Configuration.FindSortFilesAndDirsTogether, sizeof(DWORD));
                 SetValue(actKey, CONFIG_MINBEEPWHENDONE_REG, REG_DWORD,
                          &Configuration.MinBeepWhenDone, sizeof(DWORD));
                 SetValue(actKey, CONFIG_CLOSESHELL_REG, REG_DWORD,
@@ -5259,6 +5262,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.ShowGrepErrors, sizeof(DWORD));
             GetValue(actKey, CONFIG_FINDFULLROW_REG, REG_DWORD,
                      &Configuration.FindFullRowSelect, sizeof(DWORD));
+            GetValue(actKey, CONFIG_FINDSORTMIXED_REG, REG_DWORD,
+                     &Configuration.FindSortFilesAndDirsTogether, sizeof(DWORD));
             if (Configuration.ConfigVersion <= 6)
                 Configuration.ShowGrepErrors = FALSE; // force FALSE so we don't annoy users unnecessarily (others do it this way too)
             GetValue(actKey, CONFIG_MINBEEPWHENDONE_REG, REG_DWORD,
