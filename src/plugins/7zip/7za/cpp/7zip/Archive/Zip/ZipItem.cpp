@@ -15,11 +15,40 @@
 
 #include "ZipItem.h"
 
+#include <stdlib.h>
+
 namespace NArchive {
 namespace NZip {
 
 using namespace NFileHeader;
 
+static UINT ZipLocaleInteger(LCTYPE type, UINT fallback)
+{
+  wchar_t buf[16] = {};
+  if (::GetLocaleInfoW(LOCALE_SYSTEM_DEFAULT, type, buf, 16) <= 0 &&
+      ::GetLocaleInfoW(LOCALE_USER_DEFAULT, type, buf, 16) <= 0)
+    return fallback;
+  UINT parsed = (UINT)_wtoi(buf);
+  return (parsed != 0 && parsed != CP_UTF8) ? parsed : fallback;
+}
+
+UINT GetZipLegacyOemCodePage()
+{
+  // salamand.exe declares UTF-8 activeCodePage, so GetOEMCP()/CP_OEMCP are 65001.
+  // Traditional ZIP names without the UTF-8 flag are still DOS OEM (CP852 on Czech Windows).
+  UINT oem = ::GetOEMCP();
+  if (oem != 0 && oem != CP_UTF8)
+    return oem;
+  return ZipLocaleInteger(LOCALE_IDEFAULTCODEPAGE, 852);
+}
+
+UINT GetZipLegacyAnsiCodePage()
+{
+  UINT acp = ::GetACP();
+  if (acp != 0 && acp != CP_UTF8)
+    return acp;
+  return ZipLocaleInteger(LOCALE_IDEFAULTANSICODEPAGE, 1250);
+}
 
 /*
 const char *k_SpecName_NTFS_STREAM = "@@NTFS@STREAM@";

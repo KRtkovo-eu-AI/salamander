@@ -25,47 +25,24 @@
 #include "common.h"
 #include "list.h"
 
-static wchar_t* DupZipLeafNameW(CFileHeader* header)
+static wchar_t* DupZipUtf8NameW(const char* name, int nameLen)
 {
-    if ((header->Flag & GPF_UTF8) == 0 && (header->Version >> 8) != HS_UNIX)
+    if (name == NULL || nameLen <= 0)
         return NULL;
 
-    const char* rawName = (const char*)header + sizeof(CFileHeader);
-    int rawLen = header->NameLen;
-    if (rawLen <= 0 || !IsUTF8Encoded(rawName, rawLen))
-        return NULL;
-
-    while (rawLen > 0 && (rawName[rawLen - 1] == '/' || rawName[rawLen - 1] == '\\' || rawName[rawLen - 1] == 0))
-        rawLen--;
-    const char* leaf = rawName;
-    for (int i = 0; i < rawLen; i++)
-        if (rawName[i] == '/' || rawName[i] == '\\')
-            leaf = rawName + i + 1;
-    int leafLen = rawLen - (int)(leaf - rawName);
-    if (leafLen <= 0)
-        return NULL;
-
-    int wideLen = MultiByteToWideChar(CP_UTF8, 0, leaf, leafLen, NULL, 0);
-    if (wideLen <= 0 || wideLen > 511)
+    int wideLen = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, name, nameLen, NULL, 0);
+    if (wideLen <= 0)
         return NULL;
 
     wchar_t* nameW = (wchar_t*)malloc((wideLen + 1) * sizeof(wchar_t));
     if (nameW == NULL)
         return NULL;
-    if (MultiByteToWideChar(CP_UTF8, 0, leaf, leafLen, nameW, wideLen) != wideLen)
+    if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, name, nameLen, nameW, wideLen) != wideLen)
     {
         free(nameW);
         return NULL;
     }
     nameW[wideLen] = 0;
-
-    for (wchar_t* s = nameW; *s != 0; s++)
-    {
-        if (*s < 32 || (wcschr(L"*?<>|\":\\/ ", *s) != NULL && (*s != L' ' || s == nameW)))
-            *s = L'_';
-    }
-    for (wchar_t* s = nameW + wideLen - 1; s >= nameW && *s == L' '; s--)
-        *s = L'_';
     return nameW;
 }
 
@@ -189,7 +166,7 @@ START_LIST:
                 break;
             }
             memcpy(file.Name, name, sizeof(TCHAR) * (file.NameLen + 1));
-            file.NameW = DupZipLeafNameW(centralHeader);
+            file.NameW = DupZipUtf8NameW(name, nameLen);
             //initialize remaining members of CFileData
             file.Size = CQuadWord().SetUI64(fileInfo.Size);
             file.Attr = fileInfo.FileAttr & FILE_ATTTRIBUTE_MASK;

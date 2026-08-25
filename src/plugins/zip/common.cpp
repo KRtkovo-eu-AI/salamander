@@ -6,6 +6,8 @@
 #include <ostream>
 #include <stdio.h>
 #include <string>
+#include <cstring>
+#include <string.h>
 #include <commctrl.h>
 #include <tchar.h>
 
@@ -36,27 +38,209 @@ static std::wstring ZipPathAddExtendedPrefix(const std::wstring& path)
     return std::wstring(L"\\\\?\\") + path;
 }
 
+static bool ZipBytesToWide(UINT codePage, const char* src, int srcLen, std::wstring& wide)
+{
+    wide.clear();
+    if (src == NULL)
+        return false;
+    if (srcLen < 0)
+        srcLen = (int)strlen(src);
+    if (srcLen == 0)
+        return true;
+
+    DWORD flags = (codePage == CP_UTF8) ? MB_ERR_INVALID_CHARS : 0;
+    int n = MultiByteToWideChar(codePage, flags, src, srcLen, NULL, 0);
+    if (n <= 0)
+        return false;
+    wide.assign((size_t)n, L'\0');
+    if (MultiByteToWideChar(codePage, flags, src, srcLen, &wide[0], n) != n)
+    {
+        wide.clear();
+        return false;
+    }
+    return true;
+}
+
+static bool ZipWideToUtf8(const wchar_t* src, int srcChars, std::string& utf8)
+{
+    utf8.clear();
+    if (src == NULL)
+        return false;
+    if (srcChars < 0)
+        srcChars = (int)wcslen(src);
+    if (srcChars == 0)
+        return true;
+
+    int n = WideCharToMultiByte(CP_UTF8, 0, src, srcChars, NULL, 0, NULL, NULL);
+    if (n <= 0)
+        return false;
+    utf8.assign((size_t)n, '\0');
+    if (WideCharToMultiByte(CP_UTF8, 0, src, srcChars, &utf8[0], n, NULL, NULL) != n)
+    {
+        utf8.clear();
+        return false;
+    }
+    return true;
+}
+
+static bool ZipWideIsAscii(const wchar_t* src, int srcChars)
+{
+    if (src == NULL)
+        return true;
+    for (int i = 0; i < srcChars; i++)
+    {
+        if ((unsigned)src[i] >= 0x80)
+            return false;
+    }
+    return true;
+}
+
+static UINT ZipLocaleInteger(LCTYPE type, UINT fallback)
+{
+    wchar_t buf[16] = {};
+    if (GetLocaleInfoEx(LOCALE_NAME_SYSTEM_DEFAULT, type, buf, 16) <= 0 &&
+        GetLocaleInfoW(LOCALE_USER_DEFAULT, type, buf, 16) <= 0)
+        return fallback;
+    UINT parsed = (UINT)_wtoi(buf);
+    return (parsed != 0 && parsed != CP_UTF8) ? parsed : fallback;
+}
+
+static UINT ZipLegacyOemCodePage()
+{
+    // salamand.exe declares UTF-8 activeCodePage, so GetOEMCP()/CP_OEMCP are 65001.
+    // Traditional ZIP names without GPF_UTF8 are still DOS OEM (CP852 on Czech Windows).
+    UINT oem = GetOEMCP();
+    if (oem != 0 && oem != CP_UTF8)
+        return oem;
+    return ZipLocaleInteger(LOCALE_IDEFAULTCODEPAGE, 852);
+}
+
+static UINT ZipLegacyAnsiCodePage()
+{
+    UINT acp = GetACP();
+    if (acp != 0 && acp != CP_UTF8)
+        return acp;
+    return ZipLocaleInteger(LOCALE_IDEFAULTANSICODEPAGE, 1250);
+}
+
+static size_t ZipUtf8PrefixBytes(const char* s, size_t len, size_t maxBytes)
+{
+    if (s == NULL || maxBytes == 0)
+        return 0;
+    if (len <= maxBytes)
+        return len;
+    size_t n = maxBytes;
+    while (n > 0 && (((unsigned char)s[n]) & 0xC0) == 0x80)
+        n--;
+    return n;
+}
+
+static bool ZipIsOemCodedName(const CFileHeader* fileHeader)
+{
+    if (fileHeader == NULL || (fileHeader->Flag & GPF_UTF8))
+        return false;
+    unsigned host = fileHeader->Version >> 8;
+    unsigned ver = fileHeader->Version & 0xFF;
+    // ZIP built-in to WinXP writes Version 0x0b14 and uses OEM.
+    // Altap Salamander writes version 0x0016 and uses OEM.
+    return host == HS_FAT || host == HS_HPFS ||
+           (host == HS_NTFS && (ver <= 20 || ver >= 25));
+}
+
+static bool ZipDecodeZipNameToUtf8(const CFileHeader* fileHeader, std::string& utf8)
+{
+    utf8.clear();
+    if (fileHeader == NULL)
+        return false;
+
+    const char* sour = (const char*)fileHeader + sizeof(CFileHeader);
+    int len = fileHeader->NameLen;
+    const void* zero = memchr(sour, 0, (size_t)len);
+    if (zero)
+        len = (int)((const char*)zero - sour);
+    if (len < 0)
+        return false;
+
+    const bool utf8Flag = (fileHeader->Flag & GPF_UTF8) != 0;
+    const bool unixOrigin = ((fileHeader->Version >> 8) == HS_UNIX);
+    const bool looksUtf8 = IsUTF8Encoded(sour, len);
+    std::wstring wide;
+    bool decoded = false;
+
+    if (utf8Flag || looksUtf8)
+        decoded = ZipBytesToWide(CP_UTF8, sour, len, wide);
+    if (!decoded && ZipIsOemCodedName(fileHeader))
+        decoded = ZipBytesToWide(ZipLegacyOemCodePage(), sour, len, wide);
+    if (!decoded && !unixOrigin)
+        decoded = ZipBytesToWide(ZipLegacyAnsiCodePage(), sour, len, wide);
+    if (!decoded)
+        return false;
+    return ZipWideToUtf8(wide.data(), (int)wide.size(), utf8);
+}
+
 static std::wstring ZipPathToWide(const char* path)
 {
     if (path == NULL || *path == 0)
         return std::wstring();
 
-    UINT codePage = CP_UTF8;
-    int len = MultiByteToWideChar(codePage, 0, path, -1, NULL, 0);
-    if (len <= 0)
-    {
-        codePage = CP_ACP;
-        len = MultiByteToWideChar(codePage, 0, path, -1, NULL, 0);
-    }
-    if (len <= 0)
-        return std::wstring();
-
-    std::wstring widePath(len, L'\0');
-    MultiByteToWideChar(codePage, 0, path, -1, &widePath[0], len);
-    widePath.resize(len - 1);
+    std::wstring widePath;
+    if (!ZipBytesToWide(CP_UTF8, path, -1, widePath))
+        ZipBytesToWide(CP_ACP, path, -1, widePath);
+    if (widePath.empty())
+        return widePath;
     if (widePath.length() >= MAX_PATH)
         widePath = ZipPathAddExtendedPrefix(widePath);
     return widePath;
+}
+
+int ZipEncodeEntryName(const char* utf8Path, bool isDir, char* dest, int destMax, bool* usedUtf8)
+{
+    if (usedUtf8)
+        *usedUtf8 = false;
+    if (dest == NULL || destMax <= 1)
+        return 0;
+    if (utf8Path == NULL)
+        utf8Path = "";
+
+    std::string unixPath;
+    unixPath.reserve(strlen(utf8Path) + 2);
+    for (const char* s = utf8Path; *s != 0; s++)
+        unixPath.push_back(*s == '\\' ? '/' : *s);
+    if (isDir && (unixPath.empty() || unixPath[unixPath.size() - 1] != '/'))
+        unixPath.push_back('/');
+
+    std::wstring wide;
+    if (!ZipBytesToWide(CP_UTF8, unixPath.data(), (int)unixPath.size(), wide))
+        ZipBytesToWide(CP_ACP, unixPath.data(), (int)unixPath.size(), wide);
+
+    // The 7-Zip plugin lists *.zip in the panel. Store non-ASCII names as UTF-8
+    // with GPF_UTF8 so listing does not depend on OEM code pages. Legacy OEM
+    // archives without that flag are decoded on listing (ZIP plugin and 7za).
+    const bool storeUtf8 = !ZipWideIsAscii(wide.c_str(), (int)wide.size());
+
+    size_t copyLen = ZipUtf8PrefixBytes(unixPath.data(), unixPath.size(), (size_t)destMax - 1);
+    memcpy(dest, unixPath.data(), copyLen);
+    dest[copyLen] = 0;
+    if (usedUtf8)
+        *usedUtf8 = storeUtf8;
+    return (int)copyLen;
+}
+
+void ZipUtf8ToOemBuffer(char* name, int nameMax)
+{
+    if (name == NULL || nameMax <= 1 || *name == 0)
+        return;
+
+    std::wstring wide;
+    if (!ZipBytesToWide(CP_UTF8, name, -1, wide) && !ZipBytesToWide(CP_ACP, name, -1, wide))
+        return;
+
+    const UINT oemCp = ZipLegacyOemCodePage();
+    BOOL usedDefault = FALSE;
+    int n = WideCharToMultiByte(oemCp, 0, wide.c_str(), -1, NULL, 0, NULL, &usedDefault);
+    if (n <= 0 || n > nameMax)
+        return;
+    WideCharToMultiByte(oemCp, 0, wide.c_str(), -1, name, nameMax, NULL, NULL);
 }
 
 #ifndef SSZIP
@@ -1445,91 +1629,40 @@ int CZipCommon::ProcessName(CFileHeader* fileHeader, char* outputName)
 {
     CALL_STACK_MESSAGE_NONE // time-critical method
                             //  CALL_STACK_MESSAGE1("CZipCommon::ProcessName");
-        char* sour;
+        const char* sour;
     char* dest;
     sour = (char*)fileHeader + sizeof(CFileHeader);
     size_t len = fileHeader->NameLen;
 
-    char* sourLocEnc = NULL;
-    // If the file is originating on Unix (or Mac), we check if it is a true UTF8 string
-    // if yes, then we convert it to local encoding
-    if (((fileHeader->Version >> 8 == HS_UNIX) || (fileHeader->Flag & GPF_UTF8)))
+    std::string utf8Name;
+    // Panel paths are UTF-8. Decode ZIP OEM / UTF-8 entry names into UTF-8 instead of
+    // ACP, otherwise Czech diacritics become U+FFFD replacement characters.
+    if (ZipDecodeZipNameToUtf8(fileHeader, utf8Name))
     {
-        void* zero = memchr(sour, 0, len);
+        sour = utf8Name.c_str();
+        len = utf8Name.size();
+    }
+    else
+    {
+        const void* zero = memchr(sour, 0, len);
         if (zero)
-        {
-            len = (char*)zero - sour + 1;
-        }
-        if (IsUTF8Encoded(sour, (int)len))
-        {
-            LPWSTR wsour = (LPWSTR)malloc(len * sizeof(WCHAR));
-            if (wsour)
-            {
-                // CodePage 65001 is UTF8 and is supported since W2K (or WNT4?)
-                int wlen = (int)MultiByteToWideChar(CP_UTF8, 0, sour, (int)len, wsour, (int)len);
-
-                if (wlen > 0)
-                {
-                    // Convert ZIP UTF-8 names to the local encoding used by the archive panel tree.
-                    // If a character cannot be represented there (for example supplementary Unicode
-                    // characters), use an ASCII-safe replacement instead of feeding raw UTF-8
-                    // into the legacy multibyte panel path code.
-                    BOOL usedDefaultChar = FALSE;
-                    int lenLocEnc = WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK | WC_NO_BEST_FIT_CHARS,
-                                                        wsour, wlen, NULL, 0, NULL, &usedDefaultChar);
-                    if (lenLocEnc > 0 && !usedDefaultChar)
-                    {
-                        sourLocEnc = (char*)malloc(lenLocEnc);
-                        if (sourLocEnc)
-                        {
-                            len = WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK | WC_NO_BEST_FIT_CHARS,
-                                                      wsour, wlen, sourLocEnc, lenLocEnc, NULL, NULL);
-                            sour = sourLocEnc;
-                        }
-                    }
-                    else
-                    {
-                        sourLocEnc = (char*)malloc(len * 3 + 1);
-                        if (sourLocEnc)
-                        {
-                            char* encoded = sourLocEnc;
-                            static const char hex[] = "0123456789ABCDEF";
-                            for (size_t i = 0; i < len && sour[i] != 0; i++)
-                            {
-                                unsigned char ch = (unsigned char)sour[i];
-                                if (ch < 0x80)
-                                    *encoded++ = (char)ch;
-                                else
-                                {
-                                    *encoded++ = '%';
-                                    *encoded++ = hex[ch >> 4];
-                                    *encoded++ = hex[ch & 0x0f];
-                                }
-                            }
-                            *encoded = 0;
-                            len = encoded - sourLocEnc;
-                            sour = sourLocEnc;
-                        }
-                    }
-                }
-                free(wsour);
-            }
-        }
+            len = (size_t)((const char*)zero - sour);
     }
 
-    char* end = sour + len;
+    const char* end = sour + len;
     dest = outputName;
+    char* destEnd = outputName + MAX_HEADER_SIZE - 1;
 
     // remove leading slashes
     while ((sour < end) && (*sour == '/' || *sour == '\\'))
         sour++;
     // replace leading spaces with underscores
-    while ((sour < end) && *sour == ' ')
+    while ((sour < end) && *sour == ' ' && dest < destEnd)
     {
         *dest++ = '_';
         sour++;
     }
-    while ((sour < end) && *sour != 0)
+    while ((sour < end) && *sour != 0 && dest < destEnd)
     {
         if (*sour == '/' || *sour == '\\')
         {
@@ -1543,7 +1676,7 @@ int CZipCommon::ProcessName(CFileHeader* fileHeader, char* outputName)
                 *iter-- = '_';
             *dest++ = '\\';
             // replace leading spaces in the current filename component with underscores
-            while ((sour < end) && *sour == ' ')
+            while ((sour < end) && *sour == ' ' && dest < destEnd)
             {
                 *dest++ = '_';
                 sour++;
@@ -1571,18 +1704,7 @@ int CZipCommon::ProcessName(CFileHeader* fileHeader, char* outputName)
     while ((iter >= outputName) && *iter == ' ')
         *iter-- = '_';
 
-    if (sourLocEnc)
-        free(sourLocEnc);
-
     *dest = 0;
-    if (!(fileHeader->Flag & GPF_UTF8) && ((fileHeader->Version >> 8 == HS_FAT /*0*/) ||
-                                           (fileHeader->Version >> 8 == HS_HPFS /*6*/) ||
-                                           //       ((fileHeader->Version >> 8 == HS_NTFS/*11*/) && ((fileHeader->Version & 0x0F) == 0x50)) // Patera 2010.03.30: This doesn't make sense -> disabled
-                                           // The following line got inspiration in MultiArc plugin of FAR
-                                           ((fileHeader->Version >> 8 == HS_NTFS /*11*/) && (((fileHeader->Version & 0xFF) <= 20) || ((fileHeader->Version & 0xFF) >= 25)))))
-        // ZIP built-in to WinXP writes Version 0x0b14 and uses OEM
-        // AS writes version 0x0016 and uses OEM
-        OemToChar(outputName, outputName);
     //  TRACE_I("Processed name " << outputName);
     return (int)(dest - outputName);
 }

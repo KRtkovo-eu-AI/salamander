@@ -16,6 +16,8 @@
 #include "7zip.rh2"
 #include "lang\lang.rh"
 
+#include <stdlib.h>
+
 // ****************************************************************************
 //
 // C7zClient
@@ -299,14 +301,52 @@ BOOL C7zClient::FillItemData(IInArchive* archive, UINT32 index, C7zClient::CItem
     return TRUE;
 }
 
+static wchar_t* DupUtf8NameW(const char* name, int nameLen)
+{
+    if (name == NULL || nameLen <= 0)
+        return NULL;
+
+    int wideLen = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, name, nameLen, NULL, 0);
+    if (wideLen <= 0)
+        return NULL;
+
+    wchar_t* nameW = (wchar_t*)malloc((wideLen + 1) * sizeof(wchar_t));
+    if (nameW == NULL)
+        return NULL;
+    if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, name, nameLen, nameW, wideLen) != wideLen)
+    {
+        free(nameW);
+        return NULL;
+    }
+    nameW[wideLen] = 0;
+    return nameW;
+}
+
+static void FreeListedFileDataName(CFileData& fd)
+{
+    if (fd.NameW != NULL)
+    {
+        free(fd.NameW);
+        fd.NameW = NULL;
+    }
+    if (fd.Name != NULL)
+    {
+        SalamanderGeneral->Free(fd.Name);
+        fd.Name = NULL;
+    }
+}
+
 BOOL C7zClient::AddFileDir(IInArchive* archive, UINT32 idx,
                            CSalamanderDirectoryAbstract* dir, CPluginDataInterface*& pluginData,
                            BOOL* reportTooLongPathErr, const char* archiveName)
 {
     NWindows::NCOM::CPropVariant propVariant;
-    // path
+    // path: 7-Zip already decoded the archive name to Unicode (OEM vs UTF-8 flag).
+    // Convert to UTF-8 for CFileData::Name; do not use GetAnsiString/CP_ACP.
     archive->GetProperty(idx, kpidPath, &propVariant);
-    CSysString path = GetAnsiString(propVariant.bstrVal);
+    AString path;
+    if (propVariant.vt == VT_BSTR && propVariant.bstrVal != NULL && propVariant.bstrVal[0] != 0)
+        path = UnicodeStringToMultiByte(UString(propVariant.bstrVal), CP_UTF8);
 
     BOOL ret = FALSE;
     LPTSTR p = NULL;
@@ -347,6 +387,7 @@ BOOL C7zClient::AddFileDir(IInArchive* archive, UINT32 idx,
         } // if
 
         fd.NameLen = _tcslen(fd.Name);
+        fd.NameW = DupUtf8NameW(fd.Name, (int)fd.NameLen);
         LPTSTR s = _tcsrchr(fd.Name, '.');
         if (s != NULL)
             fd.Ext = s + 1; // ".cvspass" is treated as an extension on Windows ...
@@ -356,14 +397,14 @@ BOOL C7zClient::AddFileDir(IInArchive* archive, UINT32 idx,
         itemData = new C7zClient::CItemData;
         if (!itemData)
         {
-            SalamanderGeneral->Free(fd.Name);
+            FreeListedFileDataName(fd);
             Error(IDS_INSUFFICIENT_MEMORY);
             throw FALSE;
         }
 
         if (!FillItemData(archive, idx, itemData))
         {
-            SalamanderGeneral->Free(fd.Name);
+            FreeListedFileDataName(fd);
             delete itemData;
             throw FALSE;
         }
@@ -410,7 +451,7 @@ BOOL C7zClient::AddFileDir(IInArchive* archive, UINT32 idx,
 
             if (dir && !dir->AddDir(filePath, fd, pluginData))
             {
-                SalamanderGeneral->Free(fd.Name);
+                FreeListedFileDataName(fd);
                 delete itemData; // already stored in fd.PluginData
                 // dir->Clear(pluginData);  // Petr: no reason to throw the rest away
                 if (_tcslen(filePath) > SAL_MAX_PATH - 5) // Petr: too-long-path test copied from Salamander
@@ -437,7 +478,7 @@ BOOL C7zClient::AddFileDir(IInArchive* archive, UINT32 idx,
             // file
             if (dir && !dir->AddFile(filePath, fd, pluginData))
             {
-                SalamanderGeneral->Free(fd.Name);
+                FreeListedFileDataName(fd);
                 delete itemData; // already stored in fd.PluginData
                 // dir->Clear(pluginData);  // Petr: no reason to throw the rest away
                 if (_tcslen(filePath) > SAL_MAX_PATH - 5) // Petr: too-long-path test copied from Salamander

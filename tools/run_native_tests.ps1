@@ -255,6 +255,14 @@ try {
             )
         },
         @{
+            Name = 'zip_filename_encoding_contract_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\zip_filename_encoding_contract_tests.py')
+            )
+        },
+        @{
             Name = 'panel_rendering_contract_tests'
             Arguments = @(
                 '-B',
