@@ -149,6 +149,21 @@ jobs:
           $solutionPath = Join-Path (Get-Location) $env:SOLUTION_PATH
           $solutionDir = Split-Path -Parent $solutionPath
           $changedFiles = $env:CHANGED_FILES_JSON | ConvertFrom-Json
+          $buildPlatform = '${{ matrix.platform }}'
+          $buildConfiguration = $env:BUILD_CONFIGURATION
+
+          function Test-VcxprojHasConfig {
+            param(
+              [string]$ProjectPath,
+              [string]$Configuration,
+              [string]$Platform
+            )
+            if ($ProjectPath -notmatch '\.vcxproj$') { return $true }
+            $fullPath = [System.IO.Path]::GetFullPath((Join-Path (Get-Location) $ProjectPath))
+            if (-not (Test-Path -LiteralPath $fullPath)) { return $true }
+            $needle = "Include=`"$Configuration|$Platform`""
+            return [bool](Select-String -LiteralPath $fullPath -SimpleMatch -Pattern $needle -Quiet)
+          }
           $projectMatches = Select-String -LiteralPath $solutionPath -Pattern '^Project\("\{[^}]+\}"\) = "([^"]+)", "([^"]+)", "\{([^}]+)\}"'
           $projects = foreach ($match in $projectMatches) {
             $relativePath = $match.Matches[0].Groups[2].Value
@@ -195,6 +210,9 @@ jobs:
               if ('${{ matrix.platform }}' -in @('x64', 'ARM64') -and $owner.Name -in @('salextx86', 'zip2sfx')) { continue }
               if ('${{ matrix.platform }}' -eq 'Win32' -and $owner.Name -eq 'salextx64') { continue }
               if ('${{ matrix.platform }}' -ne 'x64' -and $owner.Name -eq 'HardwareWrapper') { continue }
+              # Win32-only helpers such as sfx7zip, tserver, and translator have no
+              # Debug|x64 or Debug|ARM64 project configuration (MSB8013).
+              if (-not (Test-VcxprojHasConfig $owner.Path $buildConfiguration $buildPlatform)) { continue }
               if (-not ($selected | Where-Object { $_.Path -eq $owner.Path })) {
                 $selected.Add($owner)
               }
@@ -299,6 +317,8 @@ jobs:
           if ('${{ matrix.platform }}' -in @('x64', 'ARM64')) {
             $excludedProjects += 'zip2sfx'
           }
+          $buildPlatform = '${{ matrix.platform }}'
+          $buildConfiguration = $env:BUILD_CONFIGURATION
 
           $projects = Select-String -LiteralPath $solutionPath -Pattern '^Project\("\{[^}]+\}"\) = "([^"]+)", "([^"]+)", "\{[^}]+\}"' |
             ForEach-Object {
@@ -308,6 +328,12 @@ jobs:
               }
             } |
             Where-Object { $_.Path -match '\.(?:vcxproj|csproj)$' -and $_.Name -notin $excludedProjects } |
+            Where-Object {
+              if ($_.Path -notmatch '\.vcxproj$') { return $true }
+              $fullPath = [System.IO.Path]::GetFullPath((Join-Path $solutionDir $_.Path))
+              $needle = "Include=`"$buildConfiguration|$buildPlatform`""
+              Select-String -LiteralPath $fullPath -SimpleMatch -Pattern $needle -Quiet
+            } |
             ForEach-Object { $_.Path }
 
           @{
