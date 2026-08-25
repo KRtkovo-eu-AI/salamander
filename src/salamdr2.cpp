@@ -4,6 +4,8 @@
 
 #include "precomp.h"
 
+#include <vector>
+
 #include "cfgdlg.h"
 #include "mainwnd.h"
 #include "dialogs.h"
@@ -2474,26 +2476,29 @@ BOOL LoadViewers(HKEY hKey, const char* name, CViewerMasks* viewerMasks)
         HKEY subKey;
         char buf[30];
         strcpy(buf, "1");
-        char masks[MAX_PATH];
-        char command[MAX_PATH];
-        char arguments[MAX_PATH];
-        char initDir[MAX_PATH];
+        char masks[MAX_GROUPMASK];
+        std::vector<char> command(SAL_MAX_PATH);
+        std::vector<char> arguments(SAL_MAX_PATH);
+        std::vector<char> initDir(SAL_MAX_PATH);
         int type;
         int i = 1;
         viewerMasks->DestroyMembers();
 
         while (OpenKey(viewersKey, buf, subKey))
         {
-            if (GetValue(subKey, VIEWERS_MASKS_REG, REG_SZ, masks, MAX_PATH) &&
+            if (GetValue(subKey, VIEWERS_MASKS_REG, REG_SZ, masks, MAX_GROUPMASK) &&
                 strchr(masks, '|') == NULL &&
                 GetValue(subKey, VIEWERS_TYPE_REG, REG_DWORD, &type, sizeof(DWORD)))
             {
-                if (!GetValue(subKey, VIEWERS_COMMAND_REG, REG_SZ, command, MAX_PATH))
-                    *command = 0;
-                if (!GetValue(subKey, VIEWERS_ARGUMENTS_REG, REG_SZ, arguments, MAX_PATH))
-                    *arguments = 0;
-                if (!GetValue(subKey, VIEWERS_INITDIR_REG, REG_SZ, initDir, MAX_PATH))
-                    *initDir = 0;
+                if (!GetValue(subKey, VIEWERS_COMMAND_REG, REG_SZ,
+                              command.data(), static_cast<DWORD>(command.size())))
+                    command[0] = 0;
+                if (!GetValue(subKey, VIEWERS_ARGUMENTS_REG, REG_SZ,
+                              arguments.data(), static_cast<DWORD>(arguments.size())))
+                    arguments[0] = 0;
+                if (!GetValue(subKey, VIEWERS_INITDIR_REG, REG_SZ,
+                              initDir.data(), static_cast<DWORD>(initDir.size())))
+                    initDir[0] = 0;
 
                 std::vector<char> viewerLabel(SAL_MAX_PATH);
                 if (!GetValue(subKey, VIEWERS_LABEL_REG, REG_SZ,
@@ -2502,8 +2507,8 @@ BOOL LoadViewers(HKEY hKey, const char* name, CViewerMasks* viewerMasks)
 
                 if (Configuration.ConfigVersion < 44) // convert extensions to lowercase
                 {
-                    char masksAux[MAX_PATH];
-                    lstrcpyn(masksAux, masks, MAX_PATH);
+                    char masksAux[MAX_GROUPMASK];
+                    lstrcpyn(masksAux, masks, MAX_GROUPMASK);
                     StrICpy(masks, masksAux);
                 }
 #ifdef new
@@ -2512,7 +2517,7 @@ BOOL LoadViewers(HKEY hKey, const char* name, CViewerMasks* viewerMasks)
 #endif
                 CViewerMasksItem* item =
                     new (std::nothrow) CViewerMasksItem(
-                        masks, command, arguments, initDir, type,
+                        masks, command.data(), arguments.data(), initDir.data(), type,
                         Configuration.ConfigVersion < 6);
 #ifdef RESTORE_CONFIG_VIEWER_MASK_ITEM_DEBUG_NEW_MACRO
 #define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
@@ -2632,31 +2637,34 @@ BOOL LoadEditors(HKEY hKey, const char* name, CEditorMasks* editorMasks)
         HKEY subKey;
         char buf[30];
         strcpy(buf, "1");
-        char masks[MAX_PATH];
-        char command[MAX_PATH];
-        char arguments[MAX_PATH];
-        char initDir[MAX_PATH];
+        char masks[MAX_GROUPMASK];
+        std::vector<char> command(SAL_MAX_PATH);
+        std::vector<char> arguments(SAL_MAX_PATH);
+        std::vector<char> initDir(SAL_MAX_PATH);
         int i = 1;
         editorMasks->DestroyMembers();
 
         while (OpenKey(editorKey, buf, subKey))
         {
-            if (GetValue(subKey, EDITORS_MASKS_REG, REG_SZ, masks, MAX_PATH))
+            if (GetValue(subKey, EDITORS_MASKS_REG, REG_SZ, masks, MAX_GROUPMASK))
             {
-                if (!GetValue(subKey, EDITORS_COMMAND_REG, REG_SZ, command, MAX_PATH))
-                    *command = 0;
-                if (!GetValue(subKey, EDITORS_ARGUMENTS_REG, REG_SZ, arguments, MAX_PATH))
-                    *arguments = 0;
-                if (!GetValue(subKey, EDITORS_INITDIR_REG, REG_SZ, initDir, MAX_PATH))
-                    *initDir = 0;
+                if (!GetValue(subKey, EDITORS_COMMAND_REG, REG_SZ,
+                              command.data(), static_cast<DWORD>(command.size())))
+                    command[0] = 0;
+                if (!GetValue(subKey, EDITORS_ARGUMENTS_REG, REG_SZ,
+                              arguments.data(), static_cast<DWORD>(arguments.size())))
+                    arguments[0] = 0;
+                if (!GetValue(subKey, EDITORS_INITDIR_REG, REG_SZ,
+                              initDir.data(), static_cast<DWORD>(initDir.size())))
+                    initDir[0] = 0;
 
                 if (Configuration.ConfigVersion < 44) // convert extensions to lowercase
                 {
-                    char masksAux[MAX_PATH];
-                    lstrcpyn(masksAux, masks, MAX_PATH);
+                    char masksAux[MAX_GROUPMASK];
+                    lstrcpyn(masksAux, masks, MAX_GROUPMASK);
                     StrICpy(masks, masksAux);
                 }
-                CEditorMasksItem* item = new CEditorMasksItem(masks, command, arguments, initDir);
+                CEditorMasksItem* item = new CEditorMasksItem(masks, command.data(), arguments.data(), initDir.data());
                 if (item != NULL && item->IsGood())
                 {
                     editorMasks->Add(item);

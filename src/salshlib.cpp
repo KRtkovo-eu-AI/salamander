@@ -121,6 +121,60 @@ void ReleaseSalShLib()
     SalShExtSharedMemMutex = NULL;
 }
 
+HRESULT SafeIDataObjectQueryGetData(IDataObject* pDataObject, FORMATETC* formatEtc)
+{
+    if (pDataObject == NULL || formatEtc == NULL)
+        return E_INVALIDARG;
+    HRESULT hr = E_FAIL;
+    __try
+    {
+        hr = pDataObject->QueryGetData(formatEtc);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        // Clipboard proxies (Explorer, cloud clipboard, dataexchange.dll) sometimes AV
+        // inside combase when queried for a private format during idle paste-state checks.
+        // Swallow the exception here instead of writing a bug report and terminating.
+        TRACE_E("IDataObject::QueryGetData raised an SEH exception");
+        return E_UNEXPECTED;
+    }
+    return hr;
+}
+
+HRESULT SafeIDataObjectGetData(IDataObject* pDataObject, FORMATETC* formatEtc, STGMEDIUM* medium)
+{
+    if (pDataObject == NULL || formatEtc == NULL || medium == NULL)
+        return E_INVALIDARG;
+    HRESULT hr = E_FAIL;
+    __try
+    {
+        hr = pDataObject->GetData(formatEtc, medium);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        TRACE_E("IDataObject::GetData raised an SEH exception");
+        return E_UNEXPECTED;
+    }
+    return hr;
+}
+
+HRESULT SafeIDataObjectEnumFormatEtc(IDataObject* pDataObject, DWORD direction, IEnumFORMATETC** ppEnum)
+{
+    if (pDataObject == NULL || ppEnum == NULL)
+        return E_INVALIDARG;
+    HRESULT hr = E_FAIL;
+    __try
+    {
+        hr = pDataObject->EnumFormatEtc(direction, ppEnum);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        TRACE_E("IDataObject::EnumFormatEtc raised an SEH exception");
+        return E_UNEXPECTED;
+    }
+    return hr;
+}
+
 BOOL IsFakeDataObject(IDataObject* pDataObject, int* fakeType, char* srcFSPathBuf, int srcFSPathBufSize)
 {
     CALL_STACK_MESSAGE1("IsFakeDataObject()");
@@ -138,7 +192,7 @@ BOOL IsFakeDataObject(IDataObject* pDataObject, int* fakeType, char* srcFSPathBu
 
     // This format is only a marker. Asking for its data used to make the clipboard
     // proxy marshal an intentionally empty STGMEDIUM, which is not a valid S_OK result.
-    if (pDataObject != NULL && pDataObject->QueryGetData(&formatEtc) == S_OK)
+    if (pDataObject != NULL && SafeIDataObjectQueryGetData(pDataObject, &formatEtc) == S_OK)
     {
         if (fakeType != NULL || srcFSPathBuf != NULL && srcFSPathBufSize > 0)
         {
@@ -154,7 +208,7 @@ BOOL IsFakeDataObject(IDataObject* pDataObject, int* fakeType, char* srcFSPathBu
             stgMedium.pUnkForRelease = NULL;
 
             BOOL isFS = FALSE;
-            if (pDataObject->GetData(&formatEtc, &stgMedium) == S_OK)
+            if (SafeIDataObjectGetData(pDataObject, &formatEtc, &stgMedium) == S_OK)
             {
                 if (stgMedium.tymed == TYMED_HGLOBAL && stgMedium.hGlobal != NULL)
                 {
@@ -182,7 +236,7 @@ BOOL IsFakeDataObject(IDataObject* pDataObject, int* fakeType, char* srcFSPathBu
                 stgMedium.tymed = TYMED_HGLOBAL;
                 stgMedium.hGlobal = NULL;
                 stgMedium.pUnkForRelease = NULL;
-                if (pDataObject->GetData(&formatEtc, &stgMedium) == S_OK)
+                if (SafeIDataObjectGetData(pDataObject, &formatEtc, &stgMedium) == S_OK)
                 {
                     if (stgMedium.tymed == TYMED_HGLOBAL && stgMedium.hGlobal != NULL)
                     {

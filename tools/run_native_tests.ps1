@@ -293,6 +293,22 @@ try {
                 (Join-Path $repositoryRoot `
                     'src\tests\webview2_render_viewer_contract_tests.py')
             )
+        },
+        @{
+            Name = 'viewer_mask_persistence_contract_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\viewer_mask_persistence_contract_tests.py')
+            )
+        },
+        @{
+            Name = 'codepage_and_clipboard_contract_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\codepage_and_clipboard_contract_tests.py')
+            )
         }
     )) {
         Write-Host "Running $($contractTest.Name)..."

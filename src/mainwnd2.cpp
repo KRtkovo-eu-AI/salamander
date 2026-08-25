@@ -2525,8 +2525,8 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
                 panel->ToggleStatusLine();
         GetValue(key, PANEL_FILTER_ENABLE, REG_DWORD, &panel->FilterEnabled, sizeof(DWORD));
 
-        char filter[MAX_PATH];
-        if (!GetValue(key, PANEL_FILTER, REG_SZ, filter, MAX_PATH))
+        char filter[MAX_GROUPMASK];
+        if (!GetValue(key, PANEL_FILTER, REG_SZ, filter, MAX_GROUPMASK))
         {
             filter[0] = 0;
             if (Configuration.ConfigVersion < 22)
@@ -2540,10 +2540,9 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
                     if (panel->FilterEnabled && Configuration.ConfigVersion < 14)
                         GetValue(key, PANEL_FILTER_INVERSE, REG_DWORD, &filterInverse, sizeof(DWORD));
                     if (filterInverse)
-                        strcpy(filter, "|");
+                        _snprintf_s(filter, _TRUNCATE, "|%s", filterHistory[0]);
                     else
-                        filter[0] = 0;
-                    strcat(filter, filterHistory[0]);
+                        lstrcpyn(filter, filterHistory[0], MAX_GROUPMASK);
                     free(filterHistory[0]);
                 }
             }
@@ -4578,8 +4577,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                 HighlightMasks->DestroyMembers();
                 while (OpenKey(hHltKey, buf, hSubKey))
                 {
-                    char masks[MAX_PATH];
-                    if (GetValue(hSubKey, SALAMANDER_HLT_ITEM_MASKS, REG_SZ, masks, MAX_PATH))
+                    char masks[MAX_GROUPMASK];
+                    if (GetValue(hSubKey, SALAMANDER_HLT_ITEM_MASKS, REG_SZ, masks, MAX_GROUPMASK))
                     {
                         CHighlightMasksItem* item = new CHighlightMasksItem();
                         if (item == NULL || !item->Set(masks))
@@ -4587,34 +4586,38 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                             TRACE_E(LOW_MEMORY);
                             if (item != NULL)
                                 delete item;
-                            continue;
                         }
-                        int errPos;
-                        item->Masks->PrepareMasks(errPos);
-
-                        GetValue(hSubKey, SALAMANDER_HLT_ITEM_ATTR, REG_DWORD, &item->Attr, sizeof(DWORD));
-                        GetValue(hSubKey, SALAMANDER_HLT_ITEM_VALIDATTR, REG_DWORD, &item->ValidAttr, sizeof(DWORD));
-
-                        LoadRGBF(hSubKey, SALAMANDER_HLT_ITEM_FG_NORMAL_REG, item->NormalFg);
-                        LoadRGBF(hSubKey, SALAMANDER_HLT_ITEM_FG_SELECTED_REG, item->SelectedFg);
-                        LoadRGBF(hSubKey, SALAMANDER_HLT_ITEM_FG_FOCUSED_REG, item->FocusedFg);
-                        LoadRGBF(hSubKey, SALAMANDER_HLT_ITEM_FG_FOCSEL_REG, item->FocSelFg);
-                        LoadRGBF(hSubKey, SALAMANDER_HLT_ITEM_FG_HIGHLIGHT_REG, item->HighlightFg);
-
-                        LoadRGBF(hSubKey, SALAMANDER_HLT_ITEM_BK_NORMAL_REG, item->NormalBk);
-                        LoadRGBF(hSubKey, SALAMANDER_HLT_ITEM_BK_SELECTED_REG, item->SelectedBk);
-                        LoadRGBF(hSubKey, SALAMANDER_HLT_ITEM_BK_FOCUSED_REG, item->FocusedBk);
-                        LoadRGBF(hSubKey, SALAMANDER_HLT_ITEM_BK_FOCSEL_REG, item->FocSelBk);
-                        LoadRGBF(hSubKey, SALAMANDER_HLT_ITEM_BK_HIGHLIGHT_REG, item->HighlightBk);
-                        HighlightMasks->Add(item);
-                        if (!HighlightMasks->IsGood())
+                        else
                         {
-                            HighlightMasks->ResetState();
-                            delete item;
+                            int errPos;
+                            item->Masks->PrepareMasks(errPos);
+
+                            GetValue(hSubKey, SALAMANDER_HLT_ITEM_ATTR, REG_DWORD, &item->Attr, sizeof(DWORD));
+                            GetValue(hSubKey, SALAMANDER_HLT_ITEM_VALIDATTR, REG_DWORD, &item->ValidAttr, sizeof(DWORD));
+
+                            LoadRGBF(hSubKey, SALAMANDER_HLT_ITEM_FG_NORMAL_REG, item->NormalFg);
+                            LoadRGBF(hSubKey, SALAMANDER_HLT_ITEM_FG_SELECTED_REG, item->SelectedFg);
+                            LoadRGBF(hSubKey, SALAMANDER_HLT_ITEM_FG_FOCUSED_REG, item->FocusedFg);
+                            LoadRGBF(hSubKey, SALAMANDER_HLT_ITEM_FG_FOCSEL_REG, item->FocSelFg);
+                            LoadRGBF(hSubKey, SALAMANDER_HLT_ITEM_FG_HIGHLIGHT_REG, item->HighlightFg);
+
+                            LoadRGBF(hSubKey, SALAMANDER_HLT_ITEM_BK_NORMAL_REG, item->NormalBk);
+                            LoadRGBF(hSubKey, SALAMANDER_HLT_ITEM_BK_SELECTED_REG, item->SelectedBk);
+                            LoadRGBF(hSubKey, SALAMANDER_HLT_ITEM_BK_FOCUSED_REG, item->FocusedBk);
+                            LoadRGBF(hSubKey, SALAMANDER_HLT_ITEM_BK_FOCSEL_REG, item->FocSelBk);
+                            LoadRGBF(hSubKey, SALAMANDER_HLT_ITEM_BK_HIGHLIGHT_REG, item->HighlightBk);
+                            HighlightMasks->Add(item);
+                            if (!HighlightMasks->IsGood())
+                            {
+                                HighlightMasks->ResetState();
+                                delete item;
+                            }
                         }
-                        itoa(++i, buf, 10);
-                        CloseKey(hSubKey);
                     }
+                    else
+                        TRACE_E("Skipping invalid highlight-mask configuration record " << buf);
+                    itoa(++i, buf, 10);
+                    CloseKey(hSubKey);
                 }
                 if (Configuration.ConfigVersion < 16) // add highlighting for encrypted files/directories
                 {
@@ -5255,7 +5258,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.UseRecycleBin, sizeof(DWORD));
             // a bit ugly: we provide MasksString, but the range is checked so it's fine
             GetValue(actKey, CONFIG_RECYCLEMASKS_REG, REG_SZ,
-                     Configuration.RecycleMasks.GetWritableMasksString(), MAX_PATH);
+                     Configuration.RecycleMasks.GetWritableMasksString(), MAX_GROUPMASK);
             GetValue(actKey, CONFIG_SAVEONEXIT_REG, REG_DWORD,
                      &Configuration.AutoSave, sizeof(DWORD));
             GetValue(actKey, CONFIG_SHOWGREPERRORS_REG, REG_DWORD,
@@ -5554,9 +5557,9 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.CompareIgnoreDirs, sizeof(DWORD));
             // a bit ugly: we provide MasksString, but the range is checked so it's fine
             GetValue(actKey, CONFIG_CONFIGTIGNOREFILESMASKS_REG, REG_SZ,
-                     Configuration.CompareIgnoreFilesMasks.GetWritableMasksString(), MAX_PATH);
+                     Configuration.CompareIgnoreFilesMasks.GetWritableMasksString(), MAX_GROUPMASK);
             GetValue(actKey, CONFIG_CONFIGTIGNOREDIRSMASKS_REG, REG_SZ,
-                     Configuration.CompareIgnoreDirsMasks.GetWritableMasksString(), MAX_PATH);
+                     Configuration.CompareIgnoreDirsMasks.GetWritableMasksString(), MAX_GROUPMASK);
             int errPos;
             Configuration.CompareIgnoreFilesMasks.PrepareMasks(errPos);
             Configuration.CompareIgnoreDirsMasks.PrepareMasks(errPos);
@@ -5996,7 +5999,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.DefViewMode, sizeof(DWORD));
             // a bit ugly: we provide MasksString, but the range is checked so it's fine
             GetValue(actKey, VIEWER_CONFIGTEXTMASK_REG, REG_SZ,
-                     Configuration.TextModeMasks.GetWritableMasksString(), MAX_PATH);
+                     Configuration.TextModeMasks.GetWritableMasksString(), MAX_GROUPMASK);
             if (Configuration.ConfigVersion < 17 &&
                 strcmp(Configuration.TextModeMasks.GetWritableMasksString(), "*.txt;*.602") == 0)
             {
@@ -6006,7 +6009,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             Configuration.TextModeMasks.PrepareMasks(errPos);
             // a bit ugly: we provide MasksString, but the range is checked so it's fine
             GetValue(actKey, VIEWER_CONFIGHEXMASK_REG, REG_SZ,
-                     Configuration.HexModeMasks.GetWritableMasksString(), MAX_PATH);
+                     Configuration.HexModeMasks.GetWritableMasksString(), MAX_GROUPMASK);
             Configuration.HexModeMasks.PrepareMasks(errPos);
 
             GetValue(actKey, VIEWER_CONFIGUSECUSTOMFONT_REG, REG_DWORD,
