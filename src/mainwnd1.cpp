@@ -1744,7 +1744,18 @@ void GetEffectiveDefaultUILogFont(LOGFONT* logFont, HWND dpiWindow)
 
 void GetEffectiveMenuLogFont(LOGFONT* logFont, HWND dpiWindow)
 {
-    if (UseCustomMenuFont)
+    if (UsePanelFontForMenu)
+    {
+        if (UseCustomPanelFont)
+        {
+            *logFont = LogFont;
+            WinLibDPIScaleLogFontBetweenDPI(logFont, WinLibDPIGetSystemDPI(),
+                                            WinLibDPIGetWindowDPI(dpiWindow));
+        }
+        else if (!WinLibDPIGetIconTitleLogFont(dpiWindow, logFont))
+            GetSystemGUIFont(logFont);
+    }
+    else if (UseCustomMenuFont)
         *logFont = MenuLogFont;
     else
         GetEffectiveDialogLogFont(logFont, dpiWindow);
@@ -1752,7 +1763,18 @@ void GetEffectiveMenuLogFont(LOGFONT* logFont, HWND dpiWindow)
 
 void GetEffectivePanelContextMenuLogFont(LOGFONT* logFont, HWND dpiWindow)
 {
-    if (UseCustomPanelContextMenuFont)
+    if (UsePanelFontForPanelContextMenu)
+    {
+        if (UseCustomPanelFont)
+        {
+            *logFont = LogFont;
+            WinLibDPIScaleLogFontBetweenDPI(logFont, WinLibDPIGetSystemDPI(),
+                                            WinLibDPIGetWindowDPI(dpiWindow));
+        }
+        else if (!WinLibDPIGetIconTitleLogFont(dpiWindow, logFont))
+            GetSystemGUIFont(logFont);
+    }
+    else if (UseCustomPanelContextMenuFont)
         *logFont = PanelContextMenuLogFont;
     else
         GetEffectiveDialogLogFont(logFont, dpiWindow);

@@ -72,6 +72,14 @@ def main() -> int:
     pr_tests_workflow = read(".github/workflows/pr-tests.yml")
     pr_test_report_workflow = read(".github/workflows/pr-test-report.yml")
     pr_msbuild_workflow = read(".github/workflows/pr-msbuild.yml")
+    salmon = read("src/salmon/salmon.cpp")
+    salamdr1 = read("src/salamdr1.cpp")
+    viewer = read("src/viewer.cpp")
+    viewer3 = read("src/viewer3.cpp")
+    regedt_fs5 = read("src/plugins/regedt/fs5.cpp")
+    regedt_finddlg = read("src/plugins/regedt/finddlg.cpp")
+    csvlib = read("src/plugins/dbviewer/csvlib/csvlib.cpp")
+    bzip2_decoder = read("src/plugins/7zip/7za/cpp/7zip/Compress/BZip2Decoder.cpp")
     codeql_workflow = read(".github/workflows/codeql.yml")
     hardware_wrapper_project = read(
         "src/extensions/hardware-monitor/hardview-lib/HardwareWrapper/HardwareWrapper.vcxproj")
@@ -1157,6 +1165,10 @@ def main() -> int:
             r'AttachProgressBar.*?ChangeToArrowButton.*?AttachButton.*?'
             r'AttachColorArrowButton.*?AttachToolbarHeader',
             "Salamatrix UI does not expose every host control demonstrated by DemoPlug")
+    require(ui_implementation, r'ControlKindColorArrowButton.*?ChooseColorW',
+            "ColorArrowButton must open the Windows color picker")
+    require(ui_contract, r'GetColor\(COLORREF\*',
+            "IControl must expose GetColor for ColorArrowButton swatches")
     require(salamatrix_ui,
             r'options\.Width = 463.*?options\.Height = 236.*?'
             r'"CGUIStaticTextAbstract", 6, 4, 254, 108.*?'
@@ -2779,6 +2791,63 @@ def main() -> int:
         codeql_workflow,
         r"Install Lua runtime dependency.*?build-third-party-libs\.ps1 -Triplet x64-windows -NoDefaultFeatures -ManifestFeature lua-runtime -SkipLegacyCopy",
         "CodeQL does not install only the Lua runtime dependency")
+    require_absent(
+        csvlib,
+        r"index - rowSeek > 0",
+        "CSV row detection compares an unsigned difference with zero")
+    require_absent(
+        bzip2_decoder,
+        r"GetInputProcessedSize\(\) - packPos > 0",
+        "BZip2 decoder compares an unsigned difference with zero")
+    require_absent(
+        ai,
+        r"Options\.Text\s*=\s*LoadAssistantString\([^)]*\)\.c_str\(\)",
+        "Salamatrix AI control options retain pointers to temporary labels")
+    require_absent(
+        local_llama,
+        r"Options\.Text\s*=\s*AssetStatus\(\)\.c_str\(\)",
+        "Local Llama status control retains a pointer to a temporary label")
+
+    require(
+        codeql_workflow,
+        r"Setup MSVC Developer Command Prompt.*?Install Lua runtime dependency.*?Initialize CodeQL",
+        "CodeQL starts tracing before the Lua dependency build")
+    require_absent(
+        salmon,
+        r'sprintf\(name, "%%s%%s\.INF"',
+        "Bug reporter builds an unbounded report path")
+    require_absent(
+        regedt_fs5,
+        r"wcscpy\(ptr, name\)",
+        "Registry copy uses an unbounded subkey copy")
+    require_absent(
+        regedt_finddlg,
+        r"wcscpy\(ptr, name\)",
+        "Registry search uses an unbounded subkey copy")
+    require_absent(
+        viewer,
+        r"strcpy\(newText, Text\)|strcpy\(FileName, name\)|strcat\(text, selection\)",
+        "Viewer history, file names, or status text use an unbounded copy")
+    require(
+        viewer,
+        r"lstrcpyn\(DefaultConvert, Configuration\.DefaultConvert, _countof\(DefaultConvert\)\).*?StringCchPrintf\(text \+ strlen\(text\), _countof\(text\) - strlen\(text\),",
+        "Viewer configuration or status text does not retain an explicit capacity")
+    require_absent(
+        viewer3,
+        r"sprintf\(text, LoadStr\(IDS_FILEALREADYEXIST\), fileName\)",
+        "Viewer overwrite warning formats a path without a capacity")
+    require_absent(
+        salamdr1,
+        r"strcpy\(Configuration\.LoadedSLGName, Configuration\.SLGName\)",
+        "Loaded SLG name is copied without its destination capacity")
+    require_absent(
+        viewer3,
+        r"_snprintf_s\(text, _countof\(text\), _TRUNCATE, LoadStr\(IDS_FILEALREADYEXIST\), fileName\)",
+        "Viewer overwrite warning still uses a non-constant printf format")
+    require(
+        viewer3,
+        r"strstr\(fmt, \"%s\"\).*lstrcpyn\(text \+ prefixLen, fileName, _countof\(text\) - prefixLen\)",
+        "Viewer overwrite warning does not insert the path with a bounded copy")
     require(
         pr_msbuild_workflow,
         r"matrix\.platform.*?-ne 'x64'.*?owner\.Name -eq 'HardwareWrapper'.*?continue",

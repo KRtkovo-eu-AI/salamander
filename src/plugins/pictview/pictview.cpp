@@ -10,6 +10,8 @@
 #include <limits>
 #include <cstddef>
 #include <cwchar>
+#include <iterator>
+#include <vector>
 
 #include "lib/pvw32dll.h"
 #include "pictview.h"
@@ -77,9 +79,11 @@ BOOL SalamanderRegistered = FALSE;
 //               20 - Salamander 2.5 RC2: Added RAW Digital Camera images: *.ARW;*.CR2;*.DNG;*.PEF
 //               21 - Salamander 2.5 RC3: Added Olympus *.ORF Digital Camera images
 //               22 - Salamander 2.52 B1: Added *.BLP files used by Blizzard Entertainment in World of Wordcraft
+//               23 - Viewer and thumbnail masks are discovered from WIC decoders installed in Windows
 
 int ConfigVersion = 0;
-#define CURRENT_CONFIG_VERSION 22
+#define CURRENT_CONFIG_VERSION 23
+std::string WicDecoderMasks;
 
 SGlobals G; // initialized in InitViewer
 TDirectArray<DWORD> ExifHighlights(20, 10);
@@ -104,6 +108,7 @@ LPCTSTR CONFIG_EXIFDLGWIDTH = _T("ExifDlgWidth");
 LPCTSTR CONFIG_EXIFDLGHEIGHT = _T("ExifDlgHeight");
 LPCTSTR CONFIG_PATHINTITLE = _T("ShowPathInTitle");
 LPCTSTR CONFIG_DONTSHOWANYMORE = _T("DontShowAnymore");
+LPCTSTR CONFIG_WIC_DECODER_MASKS = _T("WIC decoder masks");
 
 LPCTSTR CONFIG_RGBRENDBGCOLOR = _T("RendererBGColor");
 LPCTSTR CONFIG_RGBRENDWSCOLOR = _T("RendererWSColor");
@@ -812,11 +817,17 @@ void CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRe
     HKEY hSaveKey;
 
     CALL_STACK_MESSAGE1("CPluginInterface::LoadConfiguration(, ,)");
+    WicDecoderMasks.clear();
     if (regKey != NULL) // load from the registry
     {
         if (!registry->GetValue(regKey, CONFIG_VERSION, REG_DWORD, &ConfigVersion, sizeof(DWORD)))
         {
             ConfigVersion = CURRENT_CONFIG_VERSION; // probably some prankster... ;-)
+        }
+        char wicMasks[5000];
+        if (registry->GetValue(regKey, CONFIG_WIC_DECODER_MASKS, REG_SZ, wicMasks, sizeof(wicMasks)))
+        {
+            WicDecoderMasks = wicMasks;
         }
         if (!registry->GetValue(regKey, CONFIG_SHRINK, REG_DWORD, &G.ZoomType, sizeof(DWORD)))
         {
@@ -994,6 +1005,7 @@ void CPluginInterface::SaveConfiguration(HWND parent, HKEY regKey, CSalamanderRe
     HKEY hSaveKey;
 
     registry->SetValue(regKey, CONFIG_VERSION, REG_DWORD, &v, sizeof(DWORD));
+    registry->SetValue(regKey, CONFIG_WIC_DECODER_MASKS, REG_SZ, WicDecoderMasks.c_str(), -1);
     v = G.ZoomType;
     registry->SetValue(regKey, CONFIG_SHRINK, REG_DWORD, &v, sizeof(DWORD));
     v = G.PageDnUpScrolls;
@@ -1124,113 +1136,148 @@ void CPluginInterface::Configuration(HWND parent)
     OnConfiguration(parent);
 }
 
+namespace
+{
+const char* const HistoricPictViewViewerMaskGroups[] = {
+    "*.psp*;*.dtx;*.dds;*.nef;*.crw;*.eps;*.ept;*.ai;*.raf;*.mov;*.hpi",
+    "*.pntg;*.thumb;*.tiff;*.wbmp;*.ani;*.clk;*.mbm;*.thm;*.zno;*.mng",
+    "*.st;*.cals;*.itiff;*.jfif;*.jpeg;*.macp;*.mpnt;*.paint;*.pict;*.2bp",
+    "*.stw;*.sun;*.tga;*.tif;*.udi;*.web;*.wpg;*.xar;*.zbr;*.zmf;*.bw",
+    "*.psd;*.pyx;*.qfx;*.ras;*.rgb;*.rle;*.sam;*.scx;*.sep;*.sgi;*.ska",
+    "*.pat;*.pbm;*.pc2;*.pcd;*.pct;*.pcx;*.pgm;*.pic;*.png;*.pnm;*.ppm",
+    "*.jff;*.jif;*.jmx;*.jpe;*.jpg;*.lbm;*.mac;*.mil;*.msp;*.ofx;*.pan",
+    "*.flc;*.fli;*.gem;*.gif;*.ham;*.hmr;*.hrz;*.icn;*.ico;*.iff;*.img",
+    "*.cdt;*.cel;*.clp;*.cit;*.cmx;*.cot;*.cpt;*.cur;*.cut;*.dcx;*.dib",
+    "*.82i;*.83i;*.85i;*.86i;*.89i;*.92i;*.awd;*.bmi;*.bmp;*.cal;*.cdr",
+    "*.arw;*.blp;*.cr2;*.dng;*.orf;*.pef",
+};
+
+const char* const FallbackWicDecoderMasks =
+    "*.bmp;*.dib;*.dds;*.exif;*.gif;*.ico;*.icon;*.jfif;*.jpe;*.jpeg;*.jpg;*.jxr;*.png;*.rle;*.tif;*.tiff;*.wdp";
+
+std::vector<std::string> SplitViewerMasks(const std::string& masks)
+{
+    std::vector<std::string> result;
+    size_t begin = 0;
+    while (begin < masks.size())
+    {
+        size_t end = masks.find(';', begin);
+        if (end == std::string::npos)
+        {
+            end = masks.size();
+        }
+        if (end > begin)
+        {
+            result.emplace_back(masks.substr(begin, end - begin));
+        }
+        begin = end + 1;
+    }
+    std::sort(result.begin(), result.end());
+    result.erase(std::unique(result.begin(), result.end()), result.end());
+    return result;
+}
+
+std::vector<std::string> HistoricPictViewViewerMasks()
+{
+    std::vector<std::string> result;
+    for (const char* group : HistoricPictViewViewerMaskGroups)
+    {
+        std::vector<std::string> groupMasks = SplitViewerMasks(group);
+        result.insert(result.end(), groupMasks.begin(), groupMasks.end());
+    }
+    std::sort(result.begin(), result.end());
+    result.erase(std::unique(result.begin(), result.end()), result.end());
+    return result;
+}
+
+std::string JoinViewerMasks(const std::vector<std::string>& masks)
+{
+    std::string result;
+    for (const std::string& mask : masks)
+    {
+        if (!result.empty())
+        {
+            result += ';';
+        }
+        result += mask;
+    }
+    return result;
+}
+
+std::vector<std::string> Difference(const std::vector<std::string>& left, const std::vector<std::string>& right)
+{
+    std::vector<std::string> result;
+    std::set_difference(left.begin(), left.end(), right.begin(), right.end(), std::back_inserter(result));
+    return result;
+}
+
+void AddViewerMasks(CSalamanderConnectAbstract* salamander, const std::vector<std::string>& masks, BOOL force)
+{
+    constexpr size_t kMaxMasksLength = 280; // AddViewer internally copies at most 299 bytes.
+    std::string group;
+    for (const std::string& mask : masks)
+    {
+        const size_t additionalLength = group.empty() ? mask.size() : mask.size() + 1;
+        if (!group.empty() && group.size() + additionalLength > kMaxMasksLength)
+        {
+            salamander->AddViewer(group.c_str(), force);
+            group.clear();
+        }
+        if (!group.empty())
+        {
+            group += ';';
+        }
+        group += mask;
+    }
+    if (!group.empty())
+    {
+        salamander->AddViewer(group.c_str(), force);
+    }
+}
+
+void RemoveViewerMasks(CSalamanderConnectAbstract* salamander, const std::vector<std::string>& masks)
+{
+    for (const std::string& mask : masks)
+    {
+        salamander->ForceRemoveViewer(mask.c_str());
+    }
+}
+
+void ConfigureWicMasks(CSalamanderConnectAbstract* salamander)
+{
+    std::vector<std::string> previousMasks = SplitViewerMasks(WicDecoderMasks);
+    std::vector<std::string> currentMasks;
+    if (!PictView::Wic::Backend::Instance().GetDecoderMasks(currentMasks))
+    {
+        // The viewer itself cannot be initialized without WIC. Keep the last known
+        // associations if decoder enumeration is temporarily unavailable.
+        currentMasks = previousMasks.empty() ? SplitViewerMasks(FallbackWicDecoderMasks) : previousMasks;
+    }
+
+    const bool migrateHistoricMasks = ConfigVersion < CURRENT_CONFIG_VERSION || previousMasks.empty();
+    if (migrateHistoricMasks)
+    {
+        RemoveViewerMasks(salamander, HistoricPictViewViewerMasks());
+        AddViewerMasks(salamander, currentMasks, TRUE);
+    }
+    else
+    {
+        RemoveViewerMasks(salamander, Difference(previousMasks, currentMasks));
+        AddViewerMasks(salamander, Difference(currentMasks, previousMasks), TRUE);
+    }
+
+    WicDecoderMasks = JoinViewerMasks(currentMasks);
+    salamander->SetThumbnailLoader(WicDecoderMasks.c_str());
+}
+} // namespace
+
 void CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamander)
 {
     CALL_STACK_MESSAGE1("CPluginInterface::Connect(,)");
 
-    // this section should contain all suffixes the viewer can process,
-    // the suffixes are added only when inserting the plugin into Salamander (during
-    // plugin installation or auto-installation at the first Salamander launch),
-    // this entire section is ignored for plugin upgrades
-    salamander->AddViewer("*.psp*;*.dtx;*.dds;*.nef;*.crw;*.eps;*.ept;*.ai;*.raf;*.mov;*.hpi", FALSE);
-    salamander->AddViewer("*.pntg;*.thumb;*.tiff;*.wbmp;*.ani;*.clk;*.mbm;*.thm;*.zno;*.mng", FALSE);
-    salamander->AddViewer("*.st;*.cals;*.itiff;*.jfif;*.jpeg;*.macp;*.mpnt;*.paint;*.pict;*.2bp", FALSE);
-    salamander->AddViewer("*.stw;*.sun;*.tga;*.tif;*.udi;*.web;*.wpg;*.xar;*.zbr;*.zmf;*.bw", FALSE);
-    salamander->AddViewer("*.psd;*.pyx;*.qfx;*.ras;*.rgb;*.rle;*.sam;*.scx;*.sep;*.sgi;*.ska", FALSE);
-    salamander->AddViewer("*.pat;*.pbm;*.pc2;*.pcd;*.pct;*.pcx;*.pgm;*.pic;*.png;*.pnm;*.ppm", FALSE);
-    salamander->AddViewer("*.jff;*.jif;*.jmx;*.jpe;*.jpg;*.lbm;*.mac;*.mil;*.msp;*.ofx;*.pan", FALSE);
-    salamander->AddViewer("*.flc;*.fli;*.gem;*.gif;*.ham;*.hmr;*.hrz;*.icn;*.ico;*.iff;*.img", FALSE);
-    salamander->AddViewer("*.cdt;*.cel;*.clp;*.cit;*.cmx;*.cot;*.cpt;*.cur;*.cut;*.dcx;*.dib", FALSE);
-    salamander->AddViewer("*.82i;*.83i;*.85i;*.86i;*.89i;*.92i;*.awd;*.bmi;*.bmp;*.cal;*.cdr", FALSE);
-    salamander->AddViewer("*.arw;*.blp;*.cr2;*.dng;*.orf;*.pef", FALSE);
-
-    // this section contains all suffixes added in (removed from) version X
-    if (ConfigVersion < 3) // suffixes added in version 3
-    {
-        salamander->AddViewer("*.cal;*.cals;*.cit;*.mil;*.st;*.stw;*.zmf", TRUE);
-    }
-    if (ConfigVersion < 4) // suffixes added in version 4
-    {
-        salamander->AddViewer("*.macp;*.mpnt;*.paint;*.pntg", TRUE);
-    }
-    if (ConfigVersion < 5) // suffixes added in version 5
-    {
-        salamander->AddViewer("*.cot", TRUE);
-    }
-    if (ConfigVersion < 6) // suffixes added in (removed from) version 6
-    {
-        salamander->AddViewer("*.hmr;*.itiff", TRUE);
-    }
-    if (ConfigVersion < 7) // suffixes added in (removed from) version 7
-    {
-        salamander->AddViewer("*.gem;*.awd", TRUE);
-    }
-    if (ConfigVersion < 8) // suffixes added in (removed from) version 8; SS 2.5 Beta 1
-    {
-        // THUMB: PCTV Vision belonging to the Pinnacle Systems Studio PCTV PRO TV tuner
-        salamander->AddViewer("*.82i;*.83i;*.85i;*.86i;*.89i;*.92i;*.ska;*.sun;*.thumb;*.web;*.xar;*.wbmp;*.mbm", TRUE);
-    }
-    if (ConfigVersion < 9) // suffixes added in (removed from) version 9; SS 2.5 Beta 2
-    {
-        salamander->AddViewer("*.ani;*.psp", TRUE);
-    }
-    if (ConfigVersion < 10) // suffixes added in (removed from) version 10; SS 2.5 Beta 3
-    {
-        // added the .2bp suffix (BMP under Pocket PC, comes in handy for the POCKETPC plugin)
-        salamander->AddViewer("*.clk;*.thm;*.zno;*.2bp", TRUE);
-    }
-    if (ConfigVersion < 11) // suffixes added in (removed from) version 11; SS 2.5 Beta 4
-    {
-        salamander->AddViewer("*.mng", TRUE);
-    }
-    if (ConfigVersion < 12) // suffixes added in (removed from) version 12
-    {
-        // PSP8 uses ugly suffixes like pspimage
-        salamander->ForceRemoveViewer("*.psp");
-        salamander->AddViewer("*.dtx;*.psp*", TRUE);
-    }
-    if (ConfigVersion < 13) // suffixes added in (removed from) version 13; SS 2.5 Beta 5
-    {
-        salamander->AddViewer("*.dds", TRUE);
-    }
-    if (ConfigVersion < 15) // initial support for NEF (so far we handle D70 and D100, hopefully people will send more)
-    {
-        salamander->AddViewer("*.nef", TRUE);
-    }
-    if (ConfigVersion < 16) // added the CRW format
-    {
-        salamander->AddViewer("*.crw", TRUE);
-    }
-
-    if (ConfigVersion < 17) // Added EPS/EPT/AI format (Only encapsulated EPS w/ TIFF thumbnail)
-    {
-        salamander->AddViewer("*.eps;*.ept;*.ai", TRUE);
-    }
-
-    if (ConfigVersion < 18) // Added FUJI raw; QuickTime MJPEG PICT video from digital cameras
-    {
-        salamander->AddViewer("*.raf;*.mov", TRUE);
-    }
-
-    if (ConfigVersion < 19) // Added Hemera Photo Objets, see http://www.halley.cc/ed/linux/interop/hemera.html
-    {
-        salamander->AddViewer("*.hpi", TRUE);
-    }
-
-    if (ConfigVersion < 20) // Added Sony, Canon, Adobe Digital Negative, Pentax Digital Camera images
-    {
-        salamander->AddViewer("*.arw;*.cr2;*.dng;*.pef", TRUE);
-    }
-
-    if (ConfigVersion < 21) // Added Olympus Digital Camera images
-    {
-        salamander->AddViewer("*.orf", TRUE);
-    }
-
-    if (ConfigVersion < 22) // Added *.blp textures used by Blizzard Entertainment in World of Warcraft
-    {
-        salamander->AddViewer("*.blp", TRUE);
-    }
+    // Both the viewer associations and thumbnail masks follow the WIC decoder
+    // inventory from the local Windows installation.
+    ConfigureWicMasks(salamander);
 
     /* used by the export_mnu.py script that generates salmenu.mnu for Translator
    keep synchronized with the salamander->AddMenuItem() calls below...
@@ -1271,18 +1318,6 @@ MENU_TEMPLATE_ITEM PluginMenu[] =
     salamander->SetPluginIcon(0);
     salamander->SetPluginMenuAndToolbarIcon(0);
 
-    // we can provide thumbnails for these formats:
-    salamander->SetThumbnailLoader("*.webp;*.svg;*.mng;*.dtx;*.dds;*.nef;*.crw;*.eps;*.ept;*.ai;*.raf;*.mov;*.hpi;"
-                                   "*.pntg;*.thumb;*.tiff;*.wbmp;*.mbm;*.ani;*.psp*;*.clk;*.thm;*.zno;"
-                                   "*.st;*.cals;*.itiff;*.jfif;*.jpeg;*.macp;*.mpnt;*.paint;*.pict;*.2bp;"
-                                   "*.stw;*.sun;*.tga;*.tif;*.udi;*.web;*.wpg;*.xar;*.zbr;*.zmf;*.bw;"
-                                   "*.psd;*.pyx;*.qfx;*.ras;*.rgb;*.rle;*.sam;*.scx;*.sep;*.sgi;*.ska;"
-                                   "*.pat;*.pbm;*.pc2;*.pcd;*.pct;*.pcx;*.pgm;*.pic;*.png;*.pnm;*.ppm;"
-                                   "*.jff;*.jif;*.jmx;*.jpe;*.jpg;*.lbm;*.mac;*.mil;*.msp;*.ofx;*.pan;"
-                                   "*.flc;*.fli;*.gem;*.gif;*.ham;*.hmr;*.hrz;*.icn;*.ico;*.iff;*.img;"
-                                   "*.cdt;*.cel;*.clp;*.cit;*.cmx;*.cot;*.cpt;*.cur;*.cut;*.dcx;*.dib;"
-                                   "*.82i;*.83i;*.85i;*.86i;*.89i;*.92i;*.awd;*.bmi;*.bmp;*.cal;*.cdr;"
-                                   "*.arw;*.blp;*.cr2;*.dng;*.orf;*.pef");
 }
 
 void CPluginInterface::ClearHistory(HWND parent)

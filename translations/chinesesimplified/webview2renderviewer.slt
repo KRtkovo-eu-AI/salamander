@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\chinesesimplified\webview2renderviewer\webview2renderviewer.atp"
-TEXTVERSION,"1.04 (x64)"
-VERSION,"1,0,4,195"
+TEXTVERSION,"1.0.5 (x64)"
+VERSION,"1,0,5,196"
 
 [TRANSLATION]
 LANGID,2052
@@ -18,4 +18,20 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 49,1,"https://samandarin.net/"
 50,1,"无法为查看器准备所需的同步事件。"
 51,1,"所选文件过大，无法打开。不支持大于 32 MB 的文件。"
+52,1,"&文件"
+53,1,"&视图"
+54,1,"&关闭\tEsc"
+55,1,"&刷新\tF5"
+56,1,"放大(&I)\tCtrl++"
+57,1,"缩小(&O)\tCtrl+-"
+58,1,"&重置\tCtrl+0"
+59,1,"正在加载..."
+60,1,"就绪"
+61,1,"无法初始化 WebView2 渲染器。"
+62,1,"无法打开所选文件。"
+63,1,"显示(&L)行号"
+
+[STRINGTABLE 2]
+64,1,"&自动换行\tF2"
+65,1,"显示(&W)空白"
 

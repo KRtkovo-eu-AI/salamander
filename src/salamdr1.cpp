@@ -386,8 +386,10 @@ int DialogFontPointSize = 8;
 
 BOOL UseCustomMenuFont = FALSE;
 LOGFONT MenuLogFont;
+BOOL UsePanelFontForMenu = FALSE;
 BOOL UseCustomPanelContextMenuFont = FALSE;
 LOGFONT PanelContextMenuLogFont;
+BOOL UsePanelFontForPanelContextMenu = FALSE;
 
 HFONT EnvFont = NULL;
 HFONT EnvFontBold = NULL;
@@ -4938,7 +4940,7 @@ FIND_NEW_SLG_FILE:
     }
 
 
-    strcpy(Configuration.LoadedSLGName, Configuration.SLGName);
+    lstrcpyn(Configuration.LoadedSLGName, Configuration.SLGName, _countof(Configuration.LoadedSLGName));
     if (initialLanguageBootstrapPath[0] != 0)
         DeleteFile(initialLanguageBootstrapPath);
 
@@ -5442,7 +5444,9 @@ FIND_NEW_SLG_FILE:
                 PluginMsgBoxParent = MainWindow->HWindow;
 
                 // vytahneme z registry Group Policy
-                IfExistSetSplashScreenText(LoadStr(IDS_STARTUP_POLICY));
+                IfExistSetSplashScreenText(LoadStr(ConfigurationStorage.GetStorageType() == cstRegFile
+                                                       ? IDS_STARTUP_POLICY_FILE_STORAGE
+                                                       : IDS_STARTUP_POLICY));
                 SystemPolicies.LoadFromRegistry();
 
                 CALL_STACK_MESSAGE1("WinMainBody::load_config");
@@ -5558,6 +5562,9 @@ FIND_NEW_SLG_FILE:
                         // instalace plug-inu pred prvnim spustenim Salamandera)
                         if (Plugins.ReadPluginsVer(MainWindow->HWindow, Configuration.ConfigVersion < THIS_CONFIG_VERSION))
                             saveNewConfig = TRUE; // nova konfigurace se musi ulozit (aby se tohle pri pristim spusteni neopakovalo)
+                        // Viewer plug-in indices are meaningful only after plugins.ver has
+                        // installed, removed, and remapped the final startup plug-in list.
+                        Plugins.CheckViewerData();
                         // load plug-inu, ktere maji nastaveny flag load-on-start
                         Plugins.HandleLoadOnStartFlag(MainWindow->HWindow);
                         // pokud startujeme poprve se zmenenym jazykem, naloadime vsechny pluginy, aby se ukazalo,

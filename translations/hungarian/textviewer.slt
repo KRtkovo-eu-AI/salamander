@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\hungarian\textviewer\textviewer.atp"
-TEXTVERSION,"1.03 (x64)"
-VERSION,"1,0,3,195"
+TEXTVERSION,"1.0.4 (x64)"
+VERSION,"1,0,4,196"
 
 [TRANSLATION]
 LANGID,1038
@@ -10,12 +10,56 @@ WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
-46,1,"PrismSharp szövegmegtekintő .NET"
+46,1,"Prism szövegmegtekintő"
 47,1,"Bővítmény névjegye"
 
 [STRINGTABLE 1]
-48,1,"Belső megtekintő, amely kezelt szintaktikai kiemeléssel jeleníti meg a szövegfájlokat."
+48,1,"Natív megtekintő, amely Prism.js szintaxiskiemeléssel jeleníti meg a szövegfájlokat."
 49,1,"https://samandarin.net/"
 50,1,"Nem sikerült előkészíteni a nézethez szükséges szinkronizálási eseményt."
-51,1,"A kijelölt fájl túl nagy a megnyitáshoz. A 16 MB-nál nagyobb fájlok nem támogatottak."
+52,1,"&Fájl"
+53,1,"&Nézet"
+54,1,"&Bezárás\tEsc"
+55,1,"&Frissítés\tF5"
+56,1,"Nagyítás &Be\tCtrl++"
+57,1,"Kicsinyítés &Ki\tCtrl+-"
+58,1,"&Visszaállítás\tCtrl+0"
+59,1,"Betöltés..."
+60,1,"Kész"
+61,1,"Nem sikerült inicializálni a WebView2 megjelenítőt."
+62,1,"Nem sikerült megnyitni a kijelölt fájlt."
+63,1,"Sorok &megjelenítése"
+
+[STRINGTABLE 2]
+64,1,"Sorok &tördelése\tF2"
+65,1,"Whitespace &megjelenítése"
+66,1,"Szintaxis &kiemelő"
+67,1,"&Automatikus"
+68,1,"&Színek"
+69,1,"&Visual Studio"
+70,1,"Alapértelmezett &Prism"
+71,1,"&Egyéni"
+
+[STRINGTABLE 3]
+72,1,"Egyéni &szerkesztése"
+73,1,"Egyéni szerkesztése"
+74,1,"&Mentés"
+75,1,"Mégse"
+76,1,"Világos"
+77,1,"Sötét"
+78,1,"Megjegyzés"
+79,1,"Írásjel"
+80,1,"Kulcsszó"
+81,1,"Vezérlő kulcsszó"
+82,1,"Osztálynév"
+83,1,"Függvény"
+84,1,"Karakterlánc"
+85,1,"Szám"
+86,1,"Logikai"
+87,1,"Változó"
+88,1,"Névtér"
+89,1,"Reguláris kifejezés"
+90,1,"Az egyéni színpaletta mentése nem sikerült."
+91,1,"A Salamatrix.UI nem érhető el."
+
 

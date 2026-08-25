@@ -22,13 +22,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32' Or '$(Configuration)|$(Platform)'=='Release clean|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
@@ -94,8 +94,8 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_ALLOW_RTCc_IN_STL;SAFE_ALLOC;_DEBUG;__DEBUG_WINLIB;TRACE_ENABLE;HANDLES_ENABLE;MESSAGES_DEBUG;MULTITHREADED_TRACE_ENABLE;MULTITHREADED_MESSAGES_ENABLE;MULTITHREADED_HANDLES_ENABLE;_CRTDBG_MAP_ALLOC;_MT;WIN32;_CONSOLE;WINVER=0x0601;_WIN32_WINNT=0x0601;_WIN32_IE=0x0800;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES;_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES_COUNT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <SmallerTypeCheck>true</SmallerTypeCheck>
+      <PreprocessorDefinitions>SAFE_ALLOC;_DEBUG;__DEBUG_WINLIB;TRACE_ENABLE;HANDLES_ENABLE;MESSAGES_DEBUG;MULTITHREADED_TRACE_ENABLE;MULTITHREADED_MESSAGES_ENABLE;MULTITHREADED_HANDLES_ENABLE;_CRTDBG_MAP_ALLOC;_MT;WIN32;_CONSOLE;WINVER=0x0601;_WIN32_WINNT=0x0601;_WIN32_IE=0x0800;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES;_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES_COUNT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SmallerTypeCheck>false</SmallerTypeCheck>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <AdditionalOptions> /J</AdditionalOptions>
       <PrecompiledHeader>Use</PrecompiledHeader>

@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\diskdir\diskdir.atp"
+TEXTVERSION,"1.1 (x64)"
+VERSION,"1,1,0,196"
+
+[TRANSLATION]
+LANGID,1040
+AUTHOR,"KRtkovo.eu"
+WEB,"samandarin.net"
+COMMENT,"English version"
+
+[DIALOG 200]
+278,94,1,"Crea catalogo DiskDir"
+1004,8,9,34,8,1,"Catalogo:"
+1001,42,9,228,8,1,""
+1005,8,23,262,1,1,""
+1002,16,32,122,12,1,"Includi anche i nomi dei percorsi"
+1003,16,48,154,12,1,"Comprimi in modo ricorsivo le sottocartelle"
+1006,8,66,262,1,1,""
+1,84,74,50,14,1,"OK"
+2,144,74,50,14,1,"Annulla"
+
+[STRINGTABLE 0]
+100,1,"DiskDir"
+101,1,"Crea e sfoglia cataloghi di file compatibili con Total Commander DiskDir."
+102,1,"DiskDir"
+103,1,"Informazioni su DiskDir"
+104,1,"Supporto nativo dei cataloghi compatibili con DiskDir.\n\nI file di catalogo contengono nomi, dimensioni e timestamp, non i contenuti dei file."
+105,1,"Catalogo DiskDir"
+106,1,"Il percorso della raccolta non è valido o è troppo lungo."
+107,1,"Il nome della raccolta è già usato da una directory."
+108,0,"The catalog already exists:\n\n"
+109,1,"\n\nVuoi sovrascriverlo? "
+110,1,"I cataloghi DiskDir non memorizzano i contenuti dei file, quindi i file di origine non possono essere spostati."
+111,1,"L'aggiunta di voci a un catalogo DiskDir esistente non è supportata."
+
+[STRINGTABLE 1]
+112,1,"Impossibile creare il catalogo DiskDir."
+113,1,"Il file originale nel catalogo non è disponibile."
+114,1,"Uno o più file originali nel catalogo non sono disponibili."
+115,1,"Impossibile aprire il catalogo."
+116,1,"Il catalogo è troppo grande."
+117,1,"Impossibile leggere il catalogo."
+118,1,"Il catalogo UTF-8 contiene testo non valido."
+119,1,"Il file non contiene un catalogo DiskDir valido."
+120,1,"Impossibile scrivere il catalogo DiskDir."
+

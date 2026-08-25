@@ -12,8 +12,8 @@
  </ItemGroup>
  <PropertyGroup Label="Globals"><VCProjectVersion>16.0</VCProjectVersion><ProjectGuid>{9B1D6C6A-AB4E-4AF4-8E15-5A1B9A6F1C11}</ProjectGuid><RootNamespace>salamatrixai</RootNamespace><WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion></PropertyGroup>
  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
- <PropertyGroup Condition="'$(Configuration)'=='Debug'" Label="Configuration"><ConfigurationType>DynamicLibrary</ConfigurationType><UseDebugLibraries>true</UseDebugLibraries><PlatformToolset>v143</PlatformToolset></PropertyGroup>
- <PropertyGroup Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Release clean'" Label="Configuration"><ConfigurationType>DynamicLibrary</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset></PropertyGroup>
+ <PropertyGroup Condition="'$(Configuration)'=='Debug'" Label="Configuration"><ConfigurationType>DynamicLibrary</ConfigurationType><UseDebugLibraries>true</UseDebugLibraries><PlatformToolset>v145</PlatformToolset></PropertyGroup>
+ <PropertyGroup Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Release clean'" Label="Configuration"><ConfigurationType>DynamicLibrary</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v145</PlatformToolset></PropertyGroup>
  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets"><Import Project="..\..\shared\vcxproj\x86.props" /><Import Project="..\..\shared\vcxproj\plugin_base.props" /><Import Project="..\..\shared\vcxproj\plugin_debug.props" /><Import Project="salamatrixai.props" /></ImportGroup>
  <ImportGroup Condition="('$(Configuration)'=='Release' Or '$(Configuration)'=='Release clean') And '$(Platform)'=='Win32'" Label="PropertySheets"><Import Project="..\..\shared\vcxproj\x86.props" /><Import Project="..\..\shared\vcxproj\plugin_base.props" /><Import Project="..\..\shared\vcxproj\plugin_release.props" /><Import Project="salamatrixai.props" /></ImportGroup>

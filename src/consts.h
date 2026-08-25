@@ -1425,8 +1425,10 @@ void GetEffectiveDefaultUILogFont(LOGFONT* logFont, HWND dpiWindow = NULL);
 
 extern BOOL UseCustomMenuFont;
 extern LOGFONT MenuLogFont;
+extern BOOL UsePanelFontForMenu;
 extern BOOL UseCustomPanelContextMenuFont;
 extern LOGFONT PanelContextMenuLogFont;
+extern BOOL UsePanelFontForPanelContextMenu;
 void GetEffectiveMenuLogFont(LOGFONT* logFont, HWND dpiWindow = NULL);
 void GetEffectivePanelContextMenuLogFont(LOGFONT* logFont, HWND dpiWindow = NULL);
 

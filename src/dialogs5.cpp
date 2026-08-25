@@ -5699,9 +5699,11 @@ CCfgPageAppearance::CCfgPageAppearance()
     LocalDialogFontPointSize = DialogFontPointSize;
     LocalUseCustomMenuFont = UseCustomMenuFont;
     memcpy(&LocalMenuLogFont, &MenuLogFont, sizeof(LocalMenuLogFont));
+    LocalUsePanelFontForMenu = UsePanelFontForMenu;
     LocalUseCustomPanelContextMenuFont = UseCustomPanelContextMenuFont;
     memcpy(&LocalPanelContextMenuLogFont, &PanelContextMenuLogFont,
            sizeof(LocalPanelContextMenuLogFont));
+    LocalUsePanelFontForPanelContextMenu = UsePanelFontForPanelContextMenu;
     GetEffectiveDialogLogFont(&OriginalEffectiveDialogFont);
     DialogFontRestartMessageShown = FALSE;
     NotificationEnabled = TRUE;
@@ -5778,17 +5780,24 @@ void CCfgPageAppearance::LoadControls()
     }
     LoadFontPreview(IDE_DIALOGFONT, &HDialogFont, dialogFont, dialogPointSize, dialogDescription);
 
-    LOGFONT menuFont = LocalUseCustomMenuFont ? LocalMenuLogFont : dialogFont;
+    LOGFONT menuFont = LocalUsePanelFontForMenu ? panelFont
+                       : LocalUseCustomMenuFont ? LocalMenuLogFont : dialogFont;
     LoadFontPreview(IDE_MENUFONT, &HMenuFont, menuFont,
-                    GetAppearanceFontPointSize(HWindow, menuFont),
-                    LocalUseCustomMenuFont ? IDS_FONTDESCRIPTION_CST : IDS_FONTDESCRIPTION_UI);
+                    LocalUseCustomMenuFont ? GetAppearanceFontPointSize(HWindow, menuFont)
+                                           : LocalUsePanelFontForMenu ? panelPointSize : dialogPointSize,
+                    LocalUseCustomMenuFont ? IDS_FONTDESCRIPTION_CST
+                    : LocalUsePanelFontForMenu ? IDS_FONTDESCRIPTION_PANEL : IDS_FONTDESCRIPTION_UI);
 
-    LOGFONT panelContextMenuFont = LocalUseCustomPanelContextMenuFont
+    LOGFONT panelContextMenuFont = LocalUsePanelFontForPanelContextMenu ? panelFont
+                                  : LocalUseCustomPanelContextMenuFont
                                       ? LocalPanelContextMenuLogFont
                                       : dialogFont;
     LoadFontPreview(IDE_PANELCONTEXTMENUFONT, &HPanelContextMenuFont, panelContextMenuFont,
-                    GetAppearanceFontPointSize(HWindow, panelContextMenuFont),
-                    LocalUseCustomPanelContextMenuFont ? IDS_FONTDESCRIPTION_CST : IDS_FONTDESCRIPTION_UI);
+                    LocalUseCustomPanelContextMenuFont
+                        ? GetAppearanceFontPointSize(HWindow, panelContextMenuFont)
+                        : LocalUsePanelFontForPanelContextMenu ? panelPointSize : dialogPointSize,
+                    LocalUseCustomPanelContextMenuFont ? IDS_FONTDESCRIPTION_CST
+                    : LocalUsePanelFontForPanelContextMenu ? IDS_FONTDESCRIPTION_PANEL : IDS_FONTDESCRIPTION_UI);
 
     HANDLES(ReleaseDC(HWindow, hDC));
 }
@@ -5834,9 +5843,11 @@ void CCfgPageAppearance::Transfer(CTransferInfo& ti)
         DialogFontPointSize = LocalDialogFontPointSize;
         UseCustomMenuFont = LocalUseCustomMenuFont;
         memcpy(&MenuLogFont, &LocalMenuLogFont, sizeof(MenuLogFont));
+        UsePanelFontForMenu = LocalUsePanelFontForMenu;
         UseCustomPanelContextMenuFont = LocalUseCustomPanelContextMenuFont;
         memcpy(&PanelContextMenuLogFont, &LocalPanelContextMenuLogFont,
                sizeof(PanelContextMenuLogFont));
+        UsePanelFontForPanelContextMenu = LocalUsePanelFontForPanelContextMenu;
 
         LOGFONT effectiveDialogFont;
         GetEffectiveDialogLogFont(&effectiveDialogFont);
@@ -5959,6 +5970,7 @@ MENU_TEMPLATE_ITEM CfgPageAppearanceMenu[] =
 {
   {MNTT_PB, 0
   {MNTT_IT, IDS_USEDEFAULTFONT
+  {MNTT_IT, IDS_USEUIFONT
   {MNTT_IT, IDS_USECUSTOMFONT
   {MNTT_PE, 0
 };
@@ -5966,7 +5978,8 @@ MENU_TEMPLATE_ITEM CfgPageAppearanceMenu[] =
             HMENU hMenu = CreatePopupMenu();
             BOOL cstFont = LocalUseCustomPanelFont;
             InsertMenu(hMenu, 0xFFFFFFFF, cstFont ? 0 : MF_CHECKED | MF_BYCOMMAND | MF_STRING, 1, LoadStr(IDS_USEDEFAULTFONT));
-            InsertMenu(hMenu, 0xFFFFFFFF, cstFont ? MF_CHECKED : 0 | MF_BYCOMMAND | MF_STRING, 2, LoadStr(IDS_USECUSTOMFONT));
+            InsertMenu(hMenu, 0xFFFFFFFF, MF_BYCOMMAND | MF_STRING, 2, LoadStr(IDS_USEUIFONT));
+            InsertMenu(hMenu, 0xFFFFFFFF, cstFont ? MF_CHECKED : 0 | MF_BYCOMMAND | MF_STRING, 3, LoadStr(IDS_USECUSTOMFONT));
 
             TPMPARAMS tpmPar;
             tpmPar.cbSize = sizeof(tpmPar);
@@ -5980,7 +5993,27 @@ MENU_TEMPLATE_ITEM CfgPageAppearanceMenu[] =
                     LocalUseCustomPanelFont = FALSE;
                     LoadControls();
                 }
-                if (cmd == 2) // custom font
+                if (cmd == 2) // copy UI font
+                {
+                    if (LocalDialogFontMode == DIALOG_FONT_PANEL)
+                    {
+                        if (!LocalUseCustomPanelFont)
+                            GetSystemGUIFont(&LocalPanelLogFont);
+                    }
+                    else if (LocalDialogFontMode == DIALOG_FONT_CUSTOM)
+                        LocalPanelLogFont = LocalDialogLogFont;
+                    else
+                    {
+                        memset(&LocalPanelLogFont, 0, sizeof(LocalPanelLogFont));
+                        LocalPanelLogFont.lfWeight = FW_NORMAL;
+                        LocalPanelLogFont.lfCharSet = DEFAULT_CHARSET;
+                        lstrcpyn(LocalPanelLogFont.lfFaceName, _T("MS Shell Dlg"), LF_FACESIZE);
+                        LocalPanelLogFont.lfHeight = -MulDiv(8, WinLibDPIGetWindowDPI(HWindow), 72);
+                    }
+                    LocalUseCustomPanelFont = TRUE;
+                    LoadControls();
+                }
+                if (cmd == 3) // custom font
                 {
                     CHOOSEFONT cf;
                     memset(&cf, 0, sizeof(CHOOSEFONT));
@@ -6070,14 +6103,19 @@ MENU_TEMPLATE_ITEM CfgPageDialogFontMenu[] =
             BOOL* useCustom = LOWORD(wParam) == IDB_MENUFONT
                                   ? &LocalUseCustomMenuFont
                                   : &LocalUseCustomPanelContextMenuFont;
+            BOOL* usePanelFont = LOWORD(wParam) == IDB_MENUFONT
+                                     ? &LocalUsePanelFontForMenu
+                                     : &LocalUsePanelFontForPanelContextMenu;
             LOGFONT* logFont = LOWORD(wParam) == IDB_MENUFONT
                                     ? &LocalMenuLogFont
                                     : &LocalPanelContextMenuLogFont;
             HMENU hMenu = CreatePopupMenu();
-            InsertMenu(hMenu, 0xFFFFFFFF, *useCustom ? 0 : MF_CHECKED | MF_BYCOMMAND | MF_STRING,
-                       1, LoadStr(IDS_USEDEFAULTFONT));
-            InsertMenu(hMenu, 0xFFFFFFFF, *useCustom ? MF_CHECKED : MF_BYCOMMAND | MF_STRING,
-                       2, LoadStr(IDS_USECUSTOMFONT));
+            InsertMenu(hMenu, 0xFFFFFFFF, (!*useCustom && !*usePanelFont ? MF_CHECKED : 0) | MF_BYCOMMAND | MF_STRING,
+                       1, LoadStr(IDS_USEDEFAULTUIFONT));
+            InsertMenu(hMenu, 0xFFFFFFFF, (*usePanelFont ? MF_CHECKED : 0) | MF_BYCOMMAND | MF_STRING,
+                       2, LoadStr(IDS_USEPANELFONT));
+            InsertMenu(hMenu, 0xFFFFFFFF, (*useCustom ? MF_CHECKED : 0) | MF_BYCOMMAND | MF_STRING,
+                       3, LoadStr(IDS_USECUSTOMFONT));
             TPMPARAMS tpmPar;
             tpmPar.cbSize = sizeof(tpmPar);
             GetWindowRect((HWND)lParam, &tpmPar.rcExclude);
@@ -6086,11 +6124,19 @@ MENU_TEMPLATE_ITEM CfgPageDialogFontMenu[] =
             if (cmd == 1)
             {
                 *useCustom = FALSE;
+                *usePanelFont = FALSE;
                 LoadControls();
             }
-            else if (cmd == 2 && ChooseAppearanceMenuFont(HWindow, logFont))
+            else if (cmd == 2)
+            {
+                *useCustom = FALSE;
+                *usePanelFont = TRUE;
+                LoadControls();
+            }
+            else if (cmd == 3 && ChooseAppearanceMenuFont(HWindow, logFont))
             {
                 *useCustom = TRUE;
+                *usePanelFont = FALSE;
                 LoadControls();
             }
             DestroyMenu(hMenu);

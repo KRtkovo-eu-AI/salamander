@@ -31,7 +31,7 @@ concurrency:
 jobs:
   analyze:
     name: Analyze C++ (MSBuild)
-    runs-on: windows-2022
+    runs-on: windows-2025
 
     defaults:
       run:
@@ -91,19 +91,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.target_ref || github.event.inputs['target-ref'] || github.ref }}
-          fetch-depth: 2
+          fetch-depth: 0
           submodules: recursive
 
-      - name: Initialize CodeQL
-        if: steps.codeql_gate.outputs.should_analyze == 'true'
-        uses: github/codeql-action/init@v3
-        with:
-          languages: cpp
-          queries: security-extended
-          ram: 14144
-          threads: 4
-
-      - name: Setup MSBuild in PATH (VS2022)
+      - name: Setup MSBuild in PATH (VS2026)
         if: steps.codeql_gate.outputs.should_analyze == 'true'
         uses: microsoft/setup-msbuild@v2
 
@@ -123,6 +114,16 @@ jobs:
         if: steps.codeql_gate.outputs.should_analyze == 'true'
         run: |
           .\tools\vcpkg\build-third-party-libs.ps1 -Triplet x64-windows -NoDefaultFeatures -ManifestFeature lua-runtime -SkipLegacyCopy
+      - name: Initialize CodeQL
+        if: steps.codeql_gate.outputs.should_analyze == 'true'
+        uses: github/codeql-action/init@v3
+        with:
+          languages: cpp
+          queries: security-extended
+          ram: 14144
+          threads: 4
+
+
       - name: Build with MSBuild (Release | x64)
         if: steps.codeql_gate.outputs.should_analyze == 'true'
         run: |
@@ -181,11 +182,49 @@ jobs:
             exit $LASTEXITCODE
           }
 
+      - name: Setup Python
+        if: steps.codeql_gate.outputs.should_analyze == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Perform CodeQL Analysis
         if: steps.codeql_gate.outputs.should_analyze == 'true'
         uses: github/codeql-action/analyze@v3
         with:
-          category: '/language:cpp'
+          category: "/language:cpp"
+          upload: never
+          output: ${{ github.workspace }}/codeql-sarif
+          wait-for-processing: false
+
+      # GitHub's compare API truncates at 300 files, so large PRs mislabel
+      # baseline alerts as new. Restrict the uploaded SARIF to lines added or
+      # modified in this pull request using the paginated files API.
+      - name: Keep CodeQL alerts on PR-changed lines
+        if: >-
+          steps.codeql_gate.outputs.should_analyze == 'true' &&
+          github.event_name != 'workflow_dispatch'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          $sarifFiles = @(Get-ChildItem -Path "${{ github.workspace }}/codeql-sarif" -Filter *.sarif)
+          if ($sarifFiles.Count -eq 0) { throw "CodeQL SARIF output was not produced." }
+          foreach ($sarif in $sarifFiles) {
+            python tools/codeql/filter_sarif_to_pr_diff.py `
+              --sarif $sarif.FullName `
+              --output $sarif.FullName `
+              --repo ${{ github.repository }} `
+              --pr ${{ inputs.pr_number }}
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Upload CodeQL SARIF
+        if: steps.codeql_gate.outputs.should_analyze == 'true'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ github.workspace }}/codeql-sarif
+          category: "/language:cpp"
+          wait-for-processing: true
 
       - name: Upload build logs
         if: always() && steps.codeql_gate.outputs.should_analyze == 'true'

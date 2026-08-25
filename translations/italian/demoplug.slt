@@ -1,0 +1,146 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\demoplug\demoplug.atp"
+TEXTVERSION,"2.0 (x64)"
+VERSION,"2,0,0,196"
+
+[TRANSLATION]
+LANGID,1040
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[DIALOG 490]
+205,61,1,"Visualizzatore"
+3000,4,6,199,41,1,"Posizione della finestra"
+491,11,17,75,12,1,"&Salva alla chiusura"
+492,11,29,184,12,1,"S&postato alla posizione della finestra di Salamander"
+
+[DIALOG 500]
+205,84,1,"Prima pagina"
+3000,7,10,52,8,1,"Stringa di test:"
+501,53,8,144,12,1,""
+3001,7,25,55,8,1,"Numero di test:"
+502,53,23,54,12,1,""
+3002,112,25,86,8,1,"deve essere minore di 10"
+3003,57,53,143,1,1,""
+3004,5,49,81,8,1,"Ecco una combinazione"
+3005,15,62,74,8,1,"Combinazione di test:"
+503,61,60,113,50,1,""
+
+[DIALOG 510]
+205,61,1,"Seconda pagina"
+511,5,5,70,12,1,"Casella di spunta"
+512,5,20,60,12,1,"Radio 1"
+513,5,32,60,12,1,"Radio 2"
+514,5,44,60,12,1,"Radio 3"
+
+[DIALOG 520]
+205,68,1,"Connetti percorso"
+3000,7,10,64,8,1,"&Connetti percorso:"
+521,7,20,191,80,1,""
+1,48,45,50,14,1,"OK"
+2,107,45,50,14,1,"Annulla"
+
+[DIALOG 530]
+205,79,1,"Inserisci percorso disco"
+3000,7,10,40,8,1,"Percorso:"
+531,53,8,144,12,1,""
+532,9,31,171,12,1,"Percorso del file (off = percorso della directory)"
+1,18,55,50,14,1,"OK"
+2,77,55,50,14,1,"Annulla"
+9,136,55,50,14,1,"Guida"
+
+[DIALOG 540]
+353,77,1,""
+3000,-32,11,72,8,1,"Eliminazione in corso"
+541,43,11,305,8,1,""
+3001,14,35,26,8,1,"Totale:"
+542,43,34,297,12,1,""
+2,151,57,50,14,1,"Annulla"
+
+[DIALOG 550]
+463,236,1,"Controlli forniti da Open Salamander"
+3000,6,4,254,108,1,"CGUIStaticTextAbstract"
+3001,14,17,92,8,1,"Testo statico non collegato"
+551,102,17,152,8,1,"Il sistema è stato avviato %d ms fa."
+3002,14,27,75,8,1,"0 (nessun flag)"
+565,102,27,152,8,1,"dummy"
+3003,14,37,75,8,1,"STF_CACHED_PAINT"
+554,102,37,152,8,1,"dummy"
+3004,14,47,75,8,1,"STF_BOLD"
+552,102,47,152,8,1,"Grassetto &testo"
+3005,14,56,75,8,1,"STF_UNDERLINE"
+553,102,56,152,8,1,"Testo sottolineato"
+3006,14,66,75,8,1,"STF_END_ELLIPSIS"
+556,102,66,237,8,1,"Stringa molto molto molto molto molto molto molto molto molto lunga."
+3007,14,76,75,8,1,"STF_PATH_ELLIPSIS"
+555,102,76,216,8,1,"C:\\Program Files\\Some Application With Long Path\\example.exe"
+3008,14,87,75,8,1,"STF_PATH_ELLIPSIS"
+564,102,87,160,8,1,"ftp://ftp.altap.cz/pub/salamander/example.exe"
+3009,98,97,156,8,1,"Trascina i testi per modificarne la dimensione."
+3010,6,118,254,66,1,"CGUIProgressBarAbstract"
+3011,15,129,78,8,1,"Etichetta avanzamento"
+559,15,138,235,12,1,""
+3012,15,154,88,8,1,"Avanzamento sconosciuto"
+570,15,163,235,12,1,""
+3013,6,188,254,40,1,"Pulsante, CGUITextArrowButtonAbstract, CGUIColorArrowButtonAbstract"
+566,15,204,15,14,1,"..."
+562,37,204,15,14,1,""
+560,60,204,50,14,1,"&Scegli"
+568,117,204,50,14,1,"&Rilascia"
+561,174,204,33,14,1,""
+563,215,204,33,14,1,"Testo"
+3014,269,4,185,48,1,"CGUIHyperLinkAbstract"
+3015,277,17,75,8,1,"SetActionOpen"
+557,365,17,47,8,1,"www.altap.cz"
+3016,277,27,81,8,1,"SetActionPostCommand"
+558,365,27,55,8,1,"Dì qualcosa!"
+3017,277,37,81,8,1,"SetActionPostCommand"
+569,365,37,81,8,1,"suggerimenti maschera"
+3018,269,59,185,31,1,"SetCurrentToolTip"
+567,278,73,169,8,1,"Sposta il puntatore del mouse sopra questo testo."
+2510,269,102,96,8,1,"CGUIToolbarHeaderAbstract"
+2511,269,113,185,50,1,""
+1,403,213,50,14,1,"Chiudi"
+
+[STRINGTABLE 0]
+46,1,"DemoPlug"
+47,1,"Informazioni sul plug-in"
+
+[STRINGTABLE 1]
+48,1,"Questo plug-in dovrebbe aiutarti a creare i tuoi plug-in."
+49,1,"www.altap.cz"
+50,1,"Si è verificata un'eccezione in DemoPlug, informa gli autori!\nSe hai lavorato con un file .dop quando si è verificata l'eccezione,\nprova a riprodurre il bug con questo file .dop e, se l'eccezione\nsi verifica di nuovo, inviaci questo file .dop (lo riprodurremo e correggeremo il bug).\nGrazie!"
+51,1,"petr.solin@altap.cz"
+52,1,"La configurazione è già aperta."
+53,1,"Sono aperte alcune finestre di visualizzazione di DemoPlug. Vuoi chiuderle?"
+54,1,"Configurazione DemoPlug"
+55,1,"Numero non valido!"
+56,1,"DemoPlug Files (*.dop)|*.dop|All Files (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&File"
+2001,1,"&Apri\tCtrl+O"
+2002,1,"E&sci"
+2010,1,"&Modifica"
+2011,1,"&Taglia\tCtrl+X"
+2012,1,"&Copia\tCtrl+C"
+2013,1,"&Incolla\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&Visualizza"
+2021,1,"&Filtro"
+2022,1,"Filtro"
+2025,1,"&Opzioni"
+2026,1,"&Configurazione..."
+
+[STRINGTABLE 4]
+2032,1,"&Guida"
+2033,1,"&Informazioni"
+
+[STRINGTABLE 5]
+2500,1,"Taglia\tCtrl+X"
+2501,1,"Copia\tCtrl+C"
+2502,1,"Incolla\tCtrl+V"
+2503,1,"Filtro\tCtrl+U"
+

@@ -19,14 +19,14 @@
 
 #define VERSINFO_MAJOR       1
 #define VERSINFO_MINORA      0
-#define VERSINFO_MINORB      3
+#define VERSINFO_MINORB      4
 
-#include "spl_vers.h" // vytahneme cisla verzi + buildu
+#include "spl_vers.h" // Pull in version and build numbers.
 
 #define VERSINFO_COPYRIGHT   "Copyleft 2025 Ondrej Kotas (KRtekTM), Tomas Kubec"
 #define VERSINFO_COMPANY     "Open Salamander"
 
-#define VERSINFO_DESCRIPTION "PrismSharp Text Viewer .NET plugin for Open Salamander"
+#define VERSINFO_DESCRIPTION "Prism Text Viewer plugin for Open Salamander"
 
 #ifdef _LANG
 #define VERSINFO_INTERNAL    "ENGLISH"

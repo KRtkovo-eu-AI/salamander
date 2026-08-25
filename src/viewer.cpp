@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <vector>
 #include <string>
+#include <strsafe.h>
 #include <usp10.h>
 
 #include "viewer.h"
@@ -244,7 +245,7 @@ void HistoryComboBox(HWND hWindow, CTransferInfo& ti, int ctrlID, char* Text,
                         char* newText = (char*)malloc(strlen(Text) + 1);
                         if (newText != NULL)
                         {
-                            strcpy(newText, Text);
+                            memcpy(newText, Text, strlen(Text) + 1);
                             if (history[historySize - 1] != NULL)
                                 free(history[historySize - 1]);
                             memmove(history + 1, history,
@@ -693,7 +694,7 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
             FileName = (char*)malloc(strlen(name) + 1);
             if (FileName != NULL)
             {
-                strcpy(FileName, name);
+                memcpy(FileName, name, strlen(name) + 1);
                 FileNameW = ViewerPathToWide(name);
             }
         }
@@ -733,7 +734,7 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     LogViewMode = FALSE;
     LineNumberDigits = 1;
     CodePageAutoSelect = Configuration.CodePageAutoSelect;
-    strcpy(DefaultConvert, Configuration.DefaultConvert);
+    lstrcpyn(DefaultConvert, Configuration.DefaultConvert, _countof(DefaultConvert));
     LastFindSeekY = -1;
     LastFindOffset = -1;
 
@@ -3038,9 +3039,9 @@ void CViewerWindow::UpdateStatusBar(__int64 offset)
     }
     char text[256];
     if (line == 0)
-        strcpy(text, "Line -, Column -");
+        StringCchCopy(text, _countof(text), "Line -, Column -");
     else
-        sprintf(text, "Line %I64d, Column %I64d", line, column);
+        StringCchPrintf(text, _countof(text), "Line %I64d, Column %I64d", line, column);
     if (StartSelection != -1 && EndSelection != -1 && StartSelection != EndSelection)
     {
         __int64 first = min(StartSelection, EndSelection);
@@ -3069,10 +3070,9 @@ void CViewerWindow::UpdateStatusBar(__int64 offset)
                 }
             }
         }
-        char selection[96];
-        sprintf(selection, "  |  %I64d characters, %I64d lines selected", CachedSelectionCharacterCount,
-                max((__int64)1, CachedSelectionLineCount));
-        strcat(text, selection);
+        StringCchPrintf(text + strlen(text), _countof(text) - strlen(text),
+                        "  |  %I64d characters, %I64d lines selected", CachedSelectionCharacterCount,
+                        max((__int64)1, CachedSelectionLineCount));
     }
     SendMessage(HStatusBar, SB_SETTEXT, 0, (LPARAM)text);
 }

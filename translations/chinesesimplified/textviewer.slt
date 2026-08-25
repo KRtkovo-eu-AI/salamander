@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\chinesesimplified\textviewer\textviewer.atp"
-TEXTVERSION,"1.03 (x64)"
-VERSION,"1,0,3,195"
+TEXTVERSION,"1.0.4 (x64)"
+VERSION,"1,0,4,196"
 
 [TRANSLATION]
 LANGID,2052
@@ -10,12 +10,56 @@ WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
-46,1,"PrismSharp 文本查看器 .NET"
+46,1,"Prism 文本查看器"
 47,1,"关于插件"
 
 [STRINGTABLE 1]
-48,1,"内部查看器，可使用托管语法高亮渲染文本文件。"
+48,1,"原生查看器，使用 Prism.js 语法高亮呈现文本文件。"
 49,1,"https://samandarin.net/"
 50,1,"无法准备查看器所需的同步事件。"
-51,1,"所选文件过大，无法打开。不支持大于 16 MB 的文件。"
+52,1,"&文件"
+53,1,"&查看"
+54,1,"&关闭\tEsc"
+55,1,"&刷新\tF5"
+56,1,"放大(&In)\tCtrl++"
+57,1,"缩小(&Out)\tCtrl+-"
+58,1,"&重置\tCtrl+0"
+59,1,"正在加载..."
+60,1,"就绪"
+61,1,"无法初始化 WebView2 渲染器。"
+62,1,"无法打开所选文件。"
+63,1,"显示&行号"
+
+[STRINGTABLE 2]
+64,1,"&自动换行\tF2"
+65,1,"显示&空白字符"
+66,1,"语法&高亮"
+67,1,"&自动"
+68,1,"&颜色"
+69,1,"&Visual Studio"
+70,1,"默认 &Prism"
+71,1,"&自定义"
+
+[STRINGTABLE 3]
+72,1,"编辑&自定义"
+73,1,"编辑自定义"
+74,1,"保存(&S)"
+75,1,"取消"
+76,1,"浅色"
+77,1,"深色"
+78,1,"注释"
+79,1,"标点"
+80,1,"关键字"
+81,1,"控制关键字"
+82,1,"类名"
+83,1,"函数"
+84,1,"字符串"
+85,1,"数字"
+86,1,"布尔值"
+87,1,"变量"
+88,1,"命名空间"
+89,1,"正则表达式"
+90,1,"无法保存自定义调色板。"
+91,1,"Salamatrix.UI 不可用。"
+
 

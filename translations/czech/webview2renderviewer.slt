@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\czech\webview2renderviewer\webview2renderviewer.atp"
-TEXTVERSION,"1.04 (x64)"
-VERSION,"1,0,4,195"
+TEXTVERSION,"1.0.5 (x64)"
+VERSION,"1,0,5,196"
 
 [TRANSLATION]
 LANGID,1029
@@ -18,4 +18,20 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 49,1,"https://samandarin.net/"
 50,1,"Nelze připravit synchronizační událost vyžadovanou zobrazovačem."
 51,1,"Vybraný soubor je příliš velký k otevření. Soubory větší než 32 MB nejsou podporovány."
+52,1,"&Soubor"
+53,1,"&Zobrazení"
+54,1,"&Zavřít\tEsc"
+55,1,"&Obnovit\tF5"
+56,1,"Přiblížit &In\tCtrl++"
+57,1,"Oddálit &Out\tCtrl+-"
+58,1,"&Obnovit\tCtrl+0"
+59,1,"Načítání..."
+60,1,"Připraveno"
+61,1,"Nelze inicializovat vykreslování WebView2."
+62,1,"Nelze otevřít vybraný soubor."
+63,1,"Zobrazit &čísla řádků"
+
+[STRINGTABLE 2]
+64,1,"&Zalomit řádky\tF2"
+65,1,"Zobrazit &mezery"
 

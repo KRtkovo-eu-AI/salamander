@@ -24,12 +24,12 @@
   </Import>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32' Or '$(Configuration)|$(Platform)'=='Release clean|Win32'" Label="Configuration">
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <ConfigurationType>Application</ConfigurationType>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <ConfigurationType>Application</ConfigurationType>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props">
@@ -120,6 +120,31 @@
     <None Include="..\..\zip2sfx\zip2sfx.rh">
     </None>
   </ItemGroup>
+  <Target Name="BuildZipSfxPackages"
+          AfterTargets="Build"
+          Condition="('$(Configuration)' == 'Release' Or '$(Configuration)' == 'Release clean') And '$(Platform)' == 'Win32' And '$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <Zip2SfxPayload Include="$(MSBuildProjectDirectory)\..\..\zip2sfx\license.txt" />
+      <Zip2SfxPayload Include="$(MSBuildProjectDirectory)\..\..\zip2sfx\license_cz.txt" />
+      <Zip2SfxPayload Include="$(MSBuildProjectDirectory)\..\..\zip2sfx\readme.cz" />
+      <Zip2SfxPayload Include="$(MSBuildProjectDirectory)\..\..\zip2sfx\readme.txt" />
+      <Zip2SfxPayload Include="$(MSBuildProjectDirectory)\..\..\zip2sfx\sample.set" />
+      <Zip2SfxPayload Include="$(MSBuildProjectDirectory)\..\..\zip2sfx\sam_cz.set" />
+    </ItemGroup>
+    <MakeDir Directories="$(OPENSAL_BUILD_DIR)salamander\$(Configuration)_x64\plugins\zip\zip2sfx" />
+    <Copy SourceFiles="@(Zip2SfxPayload)"
+          DestinationFolder="$(OPENSAL_BUILD_DIR)salamander\$(Configuration)_x64\plugins\zip\zip2sfx"
+          SkipUnchangedFiles="true" />
+    <MakeDir Directories="$(OPENSAL_BUILD_DIR)salamander\$(Configuration)_arm64\plugins\zip\zip2sfx" />
+    <Copy SourceFiles="@(Zip2SfxPayload)"
+          DestinationFolder="$(OPENSAL_BUILD_DIR)salamander\$(Configuration)_arm64\plugins\zip\zip2sfx"
+          SkipUnchangedFiles="true" />
+    <Exec Command="set &quot;makeall_should_pause=no&quot; &amp; set &quot;MSB=$(MSBuildToolsPath)\MSBuild.exe&quot; &amp; call &quot;$(MSBuildProjectDirectory)\..\selfextr\makeall.bat&quot;"
+          WorkingDirectory="$(MSBuildProjectDirectory)"
+          ConsoleToMSBuild="true"
+          StandardOutputImportance="high"
+          StandardErrorImportance="high" />
+  </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets">
   </Import>
   <ImportGroup Label="ExtensionTargets">

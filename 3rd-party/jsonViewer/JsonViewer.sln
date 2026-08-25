@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.28307.271
+VisualStudioVersion = 18.9.12112.369
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JsonVisualizer", "Visualizer\JsonVisualizer.csproj", "{32BEAE8D-282C-4414-9B7F-2F0E9450369A}"
 EndProject

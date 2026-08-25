@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\folders\folders.atp"
+TEXTVERSION,"0.3 (x64)"
+VERSION,"0,3,0,196"
+
+[TRANSLATION]
+LANGID,1040
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"Cartelle"
+1001,1,"Informazioni sul plug-in"
+1003,1,"Sfoglia cartelle come Desktop, Pannello di controllo, Cestino, ecc."
+1004,1,"'\tDesktop"
+

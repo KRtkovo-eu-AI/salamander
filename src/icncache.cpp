@@ -4,6 +4,7 @@
 #include "precomp.h"
 
 #include "cfgdlg.h"
+#include "configstorage.h"
 #include "dialogs.h"
 #include "mainwnd.h"
 #include "plugins.h"
@@ -1151,7 +1152,11 @@ void CAssociations::ReadAssociations(BOOL showWaitWnd)
     // potom se rozesle notifikace o zmene asociaci SHCNE_ASSOCCHANGED
     // v dusledku se zavola tato fce, ktera zobrazi okenko a vytahne ho nahoru
     // s nim vytahne celeho Salamandera, proto ho docasne zakazuji
-    CWaitWindow waitWnd(parent, IDS_READINGASSOCIATIONS, FALSE, ooStatic);
+    CWaitWindow waitWnd(parent,
+                        ConfigurationStorage.GetStorageType() == cstRegFile
+                            ? IDS_READINGASSOCIATIONS_FILE_STORAGE
+                            : IDS_READINGASSOCIATIONS,
+                        FALSE, ooStatic);
     BOOL closeDialog = FALSE;
     if (!ExistSplashScreen())
     {
@@ -1161,7 +1166,9 @@ void CAssociations::ReadAssociations(BOOL showWaitWnd)
         closeDialog = TRUE;
     }
     else
-        IfExistSetSplashScreenText(LoadStr(IDS_STARTUP_ASSOCIATIONS));
+        IfExistSetSplashScreenText(LoadStr(ConfigurationStorage.GetStorageType() == cstRegFile
+                                               ? IDS_STARTUP_ASSOCIATIONS_FILE_STORAGE
+                                               : IDS_STARTUP_ASSOCIATIONS));
     //---  vycisteni pole + cache
     Release();
     //---  projiti registry zaznamu o classech (extenzich)

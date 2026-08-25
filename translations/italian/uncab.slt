@@ -1,0 +1,95 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\uncab\uncab.atp"
+TEXTVERSION,"1.28 (x64)"
+VERSION,"1,28,0,196"
+
+[TRANSLATION]
+LANGID,1040
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[DIALOG 100]
+221,122,1,"Volume successivo del cabinet"
+112,12,9,198,32,1,""
+300,12,48,56,8,1,"Nome del disco:"
+110,54,48,156,8,1,""
+301,12,59,40,8,1,"Nome CAB:"
+111,54,59,156,8,1,""
+302,12,70,34,8,1,"&Percorso:"
+101,12,80,182,12,1,""
+102,197,80,13,12,1,"..."
+1,106,103,50,14,1,"OK"
+2,160,103,50,14,1,"Annulla"
+303,6,97,209,1,1,""
+
+[DIALOG 103]
+352,85,1,"Errore"
+300,6,10,26,8,1,"Nome:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Errore:"
+302,36,23,309,16,1,"Il file non può essere estratto perché è continuato da un volume precedente. Per estrarre questo file, devi iniziare con un volume in cui il file ha inizio."
+105,36,44,183,12,1,"&Non visualizzare questo messaggio in futuro."
+108,91,63,50,14,1,"&Salta"
+109,151,63,50,14,1,"Salta &tutto"
+2,211,63,50,14,1,"Annulla"
+
+[DIALOG 106]
+220,85,1,"Configurazione UnCAB"
+300,23,22,154,8,1,"durante l'unpacking."
+107,12,10,220,12,1,"&Salta automaticamente i file continuati dal volume precedente"
+301,23,44,111,8,1,"non può essere elencato."
+116,12,32,236,12,1,"&Non visualizzare l'attenzione quando l'intero contenuto dell'archivio"
+302,6,60,208,1,1,""
+1,57,66,50,14,1,"OK"
+2,112,66,50,14,1,"Annulla"
+
+[DIALOG 115]
+213,108,1,"UnCAB - Attenzione"
+300,11,9,193,24,1,"Non tutti i file nell'archivio multi-volume possono essere elencati (e visualizzati nel pannello), perché alcuni volumi dell'archivio non possono essere trovati."
+301,11,40,193,16,1,"Per elencare l'intero contenuto dell'archivio copia tutti i volumi dell'archivio nella stessa directory e apri il PRIMO volume dell'archivio."
+105,11,65,159,12,1,"&Non visualizzare questo messaggio in futuro"
+302,5,83,202,1,1,""
+1,154,90,50,14,1,"OK"
+
+[STRINGTABLE 0]
+1000,1,"UnCAB"
+1001,1,"Memoria insufficiente."
+
+[STRINGTABLE 1]
+1008,1,"Si è verificato un errore sconosciuto."
+1012,1,"Seleziona cartella"
+1014,1,"Impossibile aggiungere la voce dell'archivio all'elenco dei file."
+1015,1,"Decompressione dell'archivio CAB - %s"
+1016,1,"preparazione dei dati e creazione delle directory..."
+1017,1,"decompressione..."
+1018,1,"decompressione: "
+1019,1,"Impossibile ottenere il puntatore al file: "
+1020,1,"Impossibile scrivere nel file:"
+1021,1,"Impossibile impostare il puntatore al file: "
+1022,1,"Impossibile completare l'operazione a causa del nome del percorso troppo lungo."
+1023,1,"Impossibile completare l'operazione a causa della maschera troppo lunga."
+
+[STRINGTABLE 2]
+1025,1,"Spiacenti, il plug-in è scaduto. Controlla il nostro sito web per una versione più recente."
+1026,1,"Impossibile creare o aprire il file."
+1027,1,"Impossibile leggere il file."
+1028,1,"Cabinet non trovato."
+1029,1,"Il file cabinet non ha il formato corretto."
+1030,1,"Il file cabinet ha un numero di versione sconosciuto."
+1031,1,"Il file cabinet è danneggiato."
+1032,1,"Tipo di compressione sconosciuto in una cartella cabinet."
+1033,1,"Errore durante la decompressione dei dati da un file cabinet."
+1034,1,"I cabinet in un set non hanno le stesse dimensioni RESERVE."
+1035,1,"Interruzione dell'utente."
+1036,1,"Seleziona una cartella contenente '%s'."
+1037,1,"File cabinet non corretto."
+1038,1,"File non trovato."
+1039,1,"saltare file"
+
+[STRINGTABLE 3]
+1040,1,"Inserisci un disco con il numero di volume del cabinet %d oppure individua il file cabinet appropriato sul disco.\n\nPremi OK quando sei pronto."
+1041,1,"Errore"
+1042,1,"Sfoglia ed estrai archivi CAB."
+1043,1,"Informazioni sul plug-in"
+

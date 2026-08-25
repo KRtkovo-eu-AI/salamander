@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\french\textviewer\textviewer.atp"
-TEXTVERSION,"1.03 (x64)"
-VERSION,"1,0,3,195"
+TEXTVERSION,"1.0.4 (x64)"
+VERSION,"1,0,4,196"
 
 [TRANSLATION]
 LANGID,1036
@@ -10,12 +10,56 @@ WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
-46,1,"PrismSharp Text Viewer .NET"
+46,1,"Visionneuse de texte Prism"
 47,1,"À propos du plug-in"
 
 [STRINGTABLE 1]
-48,1,"Visionneuse interne qui affiche les fichiers texte avec une mise en forme (surlignage) syntaxique gérée."
+48,1,"Visionneuse native qui affiche les fichiers texte avec la coloration syntaxique Prism.js."
 49,1,"https://samandarin.net/"
 50,1,"Impossible de préparer l’événement de synchronisation requis par la visionneuse."
-51,1,"Le fichier sélectionné est trop volumineux pour être ouvert. Les fichiers de plus de 16 Mo ne sont pas pris en charge."
+52,1,"&Fichier"
+53,1,"&Affichage"
+54,1,"&Fermer\tEsc"
+55,1,"&Actualiser\tF5"
+56,1,"Zoom &avant\tCtrl++"
+57,1,"Zoom &arriere\tCtrl+-"
+58,1,"&Reinitialiser\tCtrl+0"
+59,1,"Chargement..."
+60,1,"Pret"
+61,1,"Impossible d'initialiser le moteur WebView2."
+62,1,"Impossible d'ouvrir le fichier selectionne."
+63,1,"Afficher les &numeros de ligne"
+
+[STRINGTABLE 2]
+64,1,"&Renvoi des lignes\tF2"
+65,1,"Afficher les &espaces"
+66,1,"&Surlignage syntaxique"
+67,1,"&Automatique"
+68,1,"&Couleurs"
+69,1,"&Visual Studio"
+70,1,"&Prism par défaut"
+71,1,"&Personnalisé"
+
+[STRINGTABLE 3]
+72,1,"Modifier la palette &personnalisée"
+73,1,"Palette personnalisée"
+74,1,"&Enregistrer"
+75,1,"Annuler"
+76,1,"Clair"
+77,1,"Sombre"
+78,1,"Commentaire"
+79,1,"Ponctuation"
+80,1,"Mot-clé"
+81,1,"Mot-clé de contrôle"
+82,1,"Nom de classe"
+83,1,"Fonction"
+84,1,"Chaîne"
+85,1,"Nombre"
+86,1,"Booléen"
+87,1,"Variable"
+88,1,"Espace de noms"
+89,1,"Expression régulière"
+90,1,"Impossible d'enregistrer la palette de couleurs personnalisée."
+91,1,"Salamatrix.UI n'est pas disponible."
+
 

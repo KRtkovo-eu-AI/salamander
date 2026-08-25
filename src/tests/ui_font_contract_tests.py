@@ -238,6 +238,8 @@ def main() -> None:
     require(filecomp_main, 'SetProp(HWindow, _T("OpenSalamander.UIFont"), EnvFont)',
             "dark native menu-bar UI font handoff in File Comparator")
     native_viewer = (ROOT / "src/plugins/shared/webviewviewer/native_viewer.cpp").read_text(encoding="utf-8")
+    virtual_html = (ROOT / "src/plugins/shared/webviewviewer/prism/viewer/virtual-viewer.html").read_text(encoding="utf-8")
+    virtual_viewer = (ROOT / "src/plugins/shared/webviewviewer/prism/viewer/virtual-viewer.js").read_text(encoding="utf-8")
     plugin_dark_mode = (ROOT / "src/plugins/shared/plugindarkmode.cpp").read_text(encoding="utf-8")
     require(native_viewer, "ApplyMenuFont();",
             "configured menu font applied to Viewer Frame")
@@ -261,11 +263,11 @@ def main() -> None:
             "Viewer Frame advances loading feedback when navigation actually begins")
     require(native_viewer, "data->viewerFont = request.viewerFont;",
             "Prism uses the configured Internal Viewer font")
-    require(native_viewer, "padding:0 0 0 1px",
+    require(virtual_html, "padding: 0 0 0 1px",
             "Prism removes its document padding to match Internal Viewer spacing")
-    require(native_viewer, "--salamander-gutter-width:",
+    require(native_viewer, "gutterWidth",
             "Prism sizes its gutter from the document line-number digit count")
-    require(native_viewer, "::selection{background:",
+    require(virtual_html, "::selection {",
             "Prism uses the Internal Viewer selection colors")
     require(native_viewer, "parameters_->viewerFont.lfWeight",
             "Prism preserves the configured Internal Viewer font weight")
@@ -275,26 +277,38 @@ def main() -> None:
             "Prism gutter uses the already DPI-adjusted GDI character width directly")
     require_absent(native_viewer, "const double cssScale = static_cast<double>(USER_DEFAULT_SCREEN_DPI)",
                    "Prism does not shrink DPI-adjusted GDI metrics a second time")
-    require(native_viewer, "letter-spacing:calc(var(--salamander-char-width) - 1ch)",
+    require(virtual_html, "letter-spacing: calc(var(--viewer-char-width) - 1ch)",
             "Prism matches the Internal Viewer fixed-character pitch")
-    require(native_viewer, "pre[class*='language-']>code{font:inherit;line-height:inherit;letter-spacing:inherit}",
+    require(virtual_html, "letter-spacing: inherit",
             "Prism theme code styles cannot override the Internal Viewer font metrics")
-    require(native_viewer, "background:linear-gradient(to right,",
+    require(virtual_html, "background: linear-gradient(to right,",
             "Prism paints the complete gutter as one continuous background color")
-    require(native_viewer, "pre[class*='language-'].line-numbers{--salamander-gutter-width:",
+    require(virtual_html, "padding-left: calc(var(--viewer-gutter-width) + 1px)",
             "Prism overrides the stock 3.8em gutter padding with Internal Viewer geometry")
-    require(native_viewer, "padding-right:1px;text-align:right",
+    require(virtual_html, "padding-right: 1px",
             "Prism line numbers use the same one-pixel right gap as Internal Viewer")
-    require(native_viewer, "padding:1px 0 0 0;line-height:",
+    require(virtual_html, "padding: 1px 0 0 0",
             "Prism line-number rows keep their requested one-pixel top padding")
-    require(native_viewer, "pre.line-numbers .line-numbers-rows>span:before{box-sizing:border-box;display:block;height:",
+    require(virtual_html, "box-sizing: border-box",
             "Prism line-number glyphs use fixed-height line boxes")
-    require(native_viewer, "InstalledPrismLanguages(parameters_->module)",
-            "Prism enumerates the syntax highlighters installed beside the plug-in")
+    require(virtual_html, 'content: "\\21AA"',
+            "Prism uses the Internal Viewer wrapped-line symbol")
+    require(virtual_viewer, "layoutLineNumbers(pre, state, true)",
+            "Prism refreshes wrapped-line gutter markers after highlighting")
+    require(virtual_viewer, 'window.addEventListener("resize", scheduleResize)',
+            "Prism refreshes wrapped-line gutter markers after layout and window resizing")
+    require(native_viewer, "const std::wstring folder = PrismAssetsDirectory();",
+            "Prism enumerates syntax highlighters from Salamatrix's shared assets")
     require(native_viewer, "IDM_NV_SYNTAX_AUTOMATIC",
             "Prism exposes automatic syntax detection in its highlighter submenu")
+    require(native_viewer, "IDM_NV_COLORS_CUSTOM",
+            "Prism exposes Colors as a top-level menu-bar button")
+    require(native_viewer, "IDM_NV_COLORS_EDIT_CUSTOM",
+            "Prism Colors includes Edit Custom for the user palette")
+    require(native_viewer, "parameters_->colors.empty() ? L\"&Colors\"",
+            "Prism Colors is the third top-level menu-bar button")
     require(native_viewer, "!AddMenuItem(mainMenu_,\n                          parameters_->syntaxHighlighter.empty()",
-            "Prism exposes Syntax Highlighter as the third top-level menu-bar button")
+            "Prism exposes Syntax Highlighter as a top-level menu-bar button")
     require(native_viewer, "title += L\" - [\" +",
             "Prism window title reports the active syntax highlighter as a separated suffix")
     require(native_viewer, "parameters_->gui->CreateMenuPopup()",
@@ -390,9 +404,37 @@ def main() -> None:
             "panel context menus use their custom font or the selected UI font")
     require(dialogs5, "IDB_MENUFONT", "menu-font selector in Appearance")
     require(dialogs5, "IDB_PANELCONTEXTMENUFONT", "panel-context-menu-font selector in Appearance")
+    require(dialogs5, "LoadStr(IDS_USEDEFAULTUIFONT)",
+            "menu-font selectors identify their default as the UI font")
+    require(dialogs5, "LoadStr(IDS_USEPANELFONT)",
+            "menu-font selectors offer the panel font")
+    require(dialogs5, "LocalUsePanelFontForMenu",
+            "menu font can inherit the panel font")
+    require(dialogs5, "LocalUsePanelFontForPanelContextMenu",
+            "panel context-menu font can inherit the panel font")
+    require(dialogs5, "LoadStr(IDS_USEUIFONT)",
+            "panel-font selector offers the current UI font")
+    require(dialogs5, "LocalPanelLogFont = LocalDialogLogFont;",
+            "custom UI font can be copied to the panel-font setting")
+    require(dialogs5, 'lstrcpyn(LocalPanelLogFont.lfFaceName, _T("MS Shell Dlg"), LF_FACESIZE);',
+            "default UI font can be copied to the panel-font setting")
+    lang_rc = (ROOT / "src/lang/lang.rc").read_text(encoding="utf-8")
+    require(lang_rc, 'PUSHBUTTON      "Panel context &menu",IDB_PANELCONTEXTMENUFONT,7,171,88,14',
+            "wide, fully labelled panel-context-menu font selector")
+    require(lang_rc, 'EDITTEXT        IDE_PANELCONTEXTMENUFONT,100,171,188,14',
+            "panel-context-menu font preview adjusted for wider selector")
+    appearance_controls = function_slice(
+        dialogs5, "void CCfgPageAppearance::LoadControls()",
+        "void CCfgPageAppearance::EnableControls()")
+    require(appearance_controls, ": dialogPointSize,\n                    LocalUseCustomMenuFont ? IDS_FONTDESCRIPTION_CST",
+            "default menu-font preview reuses the UI-font point size")
+    require(appearance_controls, ": dialogPointSize,\n                    LocalUseCustomPanelContextMenuFont ? IDS_FONTDESCRIPTION_CST",
+            "default panel-context-menu preview reuses the UI-font point size")
     main_window_config = (ROOT / "src/mainwnd3.cpp").read_text(encoding="utf-8")
     require(main_window_config, "oldUseCustomPanelContextMenuFont",
             "live refresh after changing the panel context-menu font")
+    require(main_window_config, "UsePanelFontForMenu || UsePanelFontForPanelContextMenu",
+            "panel-font changes refresh dependent menu fonts")
     shellsup = (ROOT / "src/shellsup.cpp").read_text(encoding="utf-8")
     require(shellsup, "Native TrackPopupMenuEx always uses the system menu",
             "panel shell context menus use the UI-font-aware renderer on Windows 11")

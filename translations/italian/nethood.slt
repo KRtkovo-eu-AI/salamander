@@ -1,0 +1,40 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\nethood\nethood.atp"
+TEXTVERSION,"1.10 (x64)"
+VERSION,"1,10,0,196"
+
+[TRANSLATION]
+LANGID,1040
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[DIALOG 102]
+220,127,1,"Configurazione di rete"
+1201,7,7,135,10,1,"Mostra le condivisioni &amministrative"
+1203,13,22,215,10,1,"Mostra le condivisioni amministrative come elementi &nascosti"
+1202,7,37,214,10,1,"Mostra gli elementi da &Risorse di rete al primo livello cartella"
+1204,7,52,174,10,1,"Mostra la rete &computer nel primo livello cartella"
+1206,7,67,173,10,1,"Mostra i &dischi connessi tramite Desktop remoto"
+1205,7,82,148,10,1,"&Scansiona la rete all'avvio di Salamander"
+3000,7,99,206,1,1,""
+1,30,106,50,14,1,"OK"
+2,85,106,50,14,1,"Annulla"
+9,140,106,50,14,1,"Guida"
+
+[STRINGTABLE 0]
+128,1,"Rete"
+129,1,"Fornisce accesso ai computer in rete."
+
+[STRINGTABLE 1]
+1024,1,"Commento"
+1025,1,"{!}<%d> oggetto selezionato{|1|i}"
+1026,1,"Rete"
+1027,1,"Scansione della rete…"
+1028,1,"La rete non è disponibile."
+1029,1,"Informazioni sul plugin"
+1030,1,"%1 su %2"
+1031,1,"Computer locale"
+1032,1,"Computer host"
+1033,1,"Dischi da %s"
+

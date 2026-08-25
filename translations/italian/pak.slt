@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\pak\pak.atp"
+TEXTVERSION,"1.72 (x64)"
+VERSION,"1,72,0,196"
+
+[TRANSLATION]
+LANGID,1040
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[DIALOG 100]
+194,73,1,"Ottimizza archivio PAK"
+300,8,9,80,8,1,"Dimensione dati valida:"
+101,64,9,118,8,1,""
+301,8,20,77,8,1,"Dimensione file totale:"
+102,64,20,118,8,1,""
+302,8,31,58,8,1,"Spazio sprecato:"
+103,64,31,118,8,1,""
+303,8,44,178,1,1,""
+1,41,53,50,14,1,"Ottimizza"
+2,101,53,50,14,1,"Annulla"
+
+[STRINGTABLE 0]
+500,1,"Impossibile aprire il file: %s"
+501,1,"Impossibile inizializzare l'interfaccia paklib. È già aperto un file."
+502,1,"Impossibile aprire il file. È già aperto un file."
+503,1,"Impossibile ottenere la dimensione del file: %s"
+504,1,"Formato dati non valido."
+505,1,"Memoria insufficiente."
+506,1,"directory centrale PAK corrente"
+507,1,"Impossibile impostare il puntatore del file: %s"
+508,1,"Impossibile leggere dal file: %s"
+509,1,"Impossibile ottenere il puntatore del file: %s"
+510,1,"Impossibile scrivere sul file: %s"
+511,1,"Impossibile aggiungere il file: nome troppo lungo."
+
+[STRINGTABLE 1]
+1000,1,"PAK"
+1001,1,"Memoria insufficiente."
+1002,1,"Impossibile aggiungere il file all'elenco."
+1003,1,"Impossibile caricare paklib.dll o ottenere l'indirizzo della procedura: "
+1004,1,"Decompressione archivio PAK - %s"
+1005,1,"preparazione dei dati..."
+1006,1,"decompressione..."
+1007,1,"decompressione: "
+
+[STRINGTABLE 2]
+1008,1,"Impossibile completare l'operazione: nome del percorso troppo lungo."
+1009,1,"Impossibile impostare il puntatore del file: "
+1010,1,"Impossibile ottenere il puntatore del file: "
+1011,1,"Impossibile scrivere sul file:"
+1013,1,"Impossibile aprire il file: "
+1014,1,"Impossibile completare l'operazione: maschera troppo lunga."
+1015,1,"Eliminazione da archivio PAK - %s"
+1016,1,"eliminazione..."
+1017,1,"eliminazione: "
+1018,1,"annullamento dell'operazione, attendere..."
+1019,1,"Creazione archivio PAK - %s"
+1020,1,"Impossibile aggiungere il file: il file è troppo grande."
+1021,1,"creazione..."
+1022,1,"Impossibile aggiungere il file: nome troppo lungo."
+1023,1,"creazione: "
+
+[STRINGTABLE 3]
+1024,1,"Impossibile leggere dal file: "
+1025,1,"Impossibile connettere il plug-in a Open Salamander."
+1026,1,"ottimizzazione, attendere..."
+1027,1,"Ottimizzazione archivio PAK - %s"
+1028,1,"L'eliminazione dei file non è stata completata correttamente. Potrebbe essere necessario avviare l'ottimizzazione PAK dal menu del plug-in PAK per preservare lo spreco di spazio su disco."
+1029,1,"&Ottimizza PAK"
+1030,1,"Spiacenti, il plug-in è scaduto. Controlla il nostro sito web per una versione più recente."
+1031,1,"Sfoglia ed estrai archivi PAK di Quake."
+1032,1,"Informazioni sul plug-in"
+

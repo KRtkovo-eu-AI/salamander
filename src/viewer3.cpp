@@ -240,7 +240,7 @@ void PaintViewerMenuBar(HWND hwnd, HDC hdc)
 
 void PaintViewerMenuBarItem(ViewerUAHDRAWMENUITEM* item)
 {
-    if (item == NULL || (!UseCustomMenuFont && DialogFontMode == DIALOG_FONT_DEFAULT &&
+    if (item == NULL || (!UseCustomMenuFont && !UsePanelFontForMenu && DialogFontMode == DIALOG_FONT_DEFAULT &&
                          !DarkModeShouldUseDarkColors()))
         return;
 
@@ -933,7 +933,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_UAHDRAWMENU:
     {
         if ((DarkModeShouldUseDarkColors() || DialogFontMode != DIALOG_FONT_DEFAULT ||
-             UseCustomMenuFont) && lParam != 0)
+             UseCustomMenuFont || UsePanelFontForMenu) && lParam != 0)
         {
             ViewerUAHMENU* menu = reinterpret_cast<ViewerUAHMENU*>(lParam);
             PaintViewerMenuBar(HWindow, menu->hdc);
@@ -945,7 +945,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_UAHDRAWMENUITEM:
     {
         if ((DarkModeShouldUseDarkColors() || DialogFontMode != DIALOG_FONT_DEFAULT ||
-             UseCustomMenuFont) && lParam != 0)
+             UseCustomMenuFont || UsePanelFontForMenu) && lParam != 0)
         {
             PaintViewerMenuBarItem(reinterpret_cast<ViewerUAHDRAWMENUITEM*>(lParam));
             return 0;
@@ -2267,8 +2267,26 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     }
                     if (attr != 0xFFFFFFFF)
                     {
-                        char text[300];
-                        sprintf(text, LoadStr(IDS_FILEALREADYEXIST), fileName);
+                        char text[1024];
+                        const char* fmt = LoadStr(IDS_FILEALREADYEXIST);
+                        const char* placeholder = strstr(fmt, "%s");
+                        if (placeholder == NULL)
+                            lstrcpyn(text, fmt, _countof(text));
+                        else
+                        {
+                            const int prefixLen = (int)(placeholder - fmt);
+                            if (prefixLen < 0 || prefixLen >= _countof(text))
+                                lstrcpyn(text, fmt, _countof(text));
+                            else
+                            {
+                                memcpy(text, fmt, prefixLen);
+                                text[prefixLen] = 0;
+                                lstrcpyn(text + prefixLen, fileName, _countof(text) - prefixLen);
+                                const int used = (int)strlen(text);
+                                if (used < _countof(text) - 1)
+                                    lstrcpyn(text + used, placeholder + 2, _countof(text) - used);
+                            }
+                        }
                         int res = SalMessageBox(HWindow, text, LoadStr(IDS_VIEWERTITLE),
                                                 MB_YESNOCANCEL | MB_ICONQUESTION | MB_DEFBUTTON2);
                         if (res == IDNO)

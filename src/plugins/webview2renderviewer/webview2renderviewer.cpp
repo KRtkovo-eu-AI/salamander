@@ -37,7 +37,7 @@ CSalamanderGUIAbstract* SalamanderGUI = NULL;
 // definice promenne pro "dbg.h"
 CSalamanderDebugAbstract* SalamanderDebug = NULL;
 
-// maximum file size (in bytes) allowed for the native viewer
+// Maximum file size (in bytes) allowed for the native viewer.
 static const ULONGLONG kMaxDocumentFileSize = 32ULL * 1024ULL * 1024ULL; // 32 MB
 
 // definice promenne pro "spl_com.h"

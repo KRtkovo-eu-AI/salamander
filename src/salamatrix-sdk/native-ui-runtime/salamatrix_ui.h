@@ -615,6 +615,16 @@ public:
         return FALSE;
     }
 
+    /// Reads the current ColorArrowButton swatch. Other control kinds return
+    /// FALSE. Appended after the 1.4 host-control surface so older providers
+    /// keep their vtable layout.
+    virtual BOOL WINAPI GetColor(COLORREF* textColor, COLORREF* backgroundColor) const
+    {
+        (void)textColor;
+        (void)backgroundColor;
+        return FALSE;
+    }
+
 protected:
     virtual ~IControl() {}
 };

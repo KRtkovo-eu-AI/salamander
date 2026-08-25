@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\french\renamer\renamer.atp"
 TEXTVERSION,"1.15 (x64)"
-VERSION,"1,1,5,195"
+VERSION,"1,15,0,196"
 
 [TRANSLATION]
 LANGID,1036
@@ -258,7 +258,7 @@ COMMENT,"Version française"
 1106,1,"Spécification du caractère de remplissage attendu"
 1107,1,"Erreur de nouveau nom : %s"
 1108,0,"<Invalid value in some input field>"
-1109,1,"Erreur d’expression régulière : %s"
+1109,1,"Erreur d'expression régulière : %s"
 1110,1,"<Erreur Boyer-Moore : %s>"
 1111,1,"<Erreur : %s>"
 1112,1,"Pas d'erreur."
@@ -280,7 +280,7 @@ COMMENT,"Version française"
 1127,1,"Débordement de la pile"
 1128,1,"Expression compilée requise."
 1129,1,"Impossible de démarrer un nouveau thread."
-1130,1,"<Erreur de modèle de remplacement : %s>"
+1130,1,"<Erreur de motif de remplacement : %s>"
 1131,1,"Parenthèse fermante ou spécification de casse attendue ('minuscules', 'majuscules', 'casse mixe', ou 'diacritics')."
 1132,1,"Parenthèse fermante attendue."
 1133,1,"Parenthèse fermante ou caractère ':' suivi d'une spécification de casse attendu ('minuscules', 'majuscules', 'casse mixe', or 'diacritics')."

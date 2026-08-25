@@ -48,13 +48,9 @@ alle hier Genannten für die Bereitstellung ihrer Arbeit.
 | libexif | PictView-Plugin | Teile des PictView-Plugins verwenden libexif. Copyright (C) 2001-2019 Curtis Galloway und Lutz Muller. |
 | Newtonsoft.Json 13.0.3 | JSON Viewer Plugin | Von James Newton-King, veröffentlicht unter der MIT-Lizenz. |
 | Microsoft .NET Framework 4.8 | JSON Viewer Plugin | Bereitgestellt von Microsoft Corporation unter den Lizenzbedingungen des Microsoft .NET Framework. |
-| PrismSharp 1.0.0-beta | PrismSharp Text Viewer Plugin | Von Tomáš Kubec, veröffentlicht unter der MIT-Lizenz. Enthält Prism.js von Lea Verou und den PrismJS-Mitwirkenden unter der MIT-Lizenz. |
-| Microsoft.Web.WebView2 1.0.2420.47 | PrismSharp Text Viewer Plugin | Von Microsoft Corporation, vertrieben unter der BSD 3-Clause-Lizenz. |
-| Microsoft .NET Framework 4.8 | PrismSharp Text Viewer Plugin | Bereitgestellt von Microsoft Corporation unter den Lizenzbedingungen des Microsoft .NET Framework. |
-| Newtonsoft.Json 13.0.3 | PrismSharp Text Viewer Plugin | Von James Newton-King, veröffentlicht unter der MIT-Lizenz. |
-| Markdig 0.36.2 | WebView2 Render Viewer Plugin | Von Alexandre Mutel und Mitwirkenden, veröffentlicht unter der BSD 2-Clause-Lizenz. |
-| Microsoft.Web.WebView2 1.0.2420.47 | WebView2 Render Viewer Plugin | Von Microsoft Corporation, vertrieben unter der BSD 3-Clause-Lizenz. |
-| Microsoft .NET Framework 4.8 | WebView2 Render Viewer Plugin | Bereitgestellt von Microsoft Corporation unter den Lizenzbedingungen des Microsoft .NET Framework. |
+| Prism.js 1.29.0 | Viewer Frame (Salamatrix und Prism Text Viewer) | Von Lea Verou und den PrismJS-Mitwirkenden, veröffentlicht unter der MIT-Lizenz. |
+| Microsoft.Web.WebView2 1.0.2420.47 | Viewer Frame | Von Microsoft Corporation, vertrieben unter der BSD 3-Clause-Lizenz. |
+| Markdig 0.36.2 | MarkdigRenderer für WebView2 Render Viewer | Von Alexandre Mutel und Mitwirkenden, veröffentlicht unter der BSD 2-Clause-Lizenz. |
 
 ## Netzwerk-, Synchronisations- und Geräte-Plugins
 

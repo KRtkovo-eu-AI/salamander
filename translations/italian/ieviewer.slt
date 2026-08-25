@@ -1,0 +1,18 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\ieviewer\ieviewer.atp"
+TEXTVERSION,"1.12 (x64)"
+VERSION,"1,12,0,196"
+
+[TRANSLATION]
+LANGID,1040
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+10100,1,"Visualizzatore di Internet Explorer"
+10101,1,"Impossibile aprire il Visualizzatore di Internet Explorer.\nSegnala questo problema a support@altap.cz."
+10102,1,"Errore"
+10103,1,"Visualizzatore HTML e XML leggero basato su Internet Explorer."
+10105,1,"Informazioni sul plug-in"
+

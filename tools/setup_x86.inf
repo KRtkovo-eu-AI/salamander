@@ -218,15 +218,8 @@
 %0\plugins\tar\tar.spl,%1\plugins\tar\tar.spl
 %0\plugins\tar\lang\%SLG,%1\plugins\tar\lang\%SLG
 %0\plugins\textviewer\textviewer.spl,%1\plugins\textviewer\textviewer.spl
-%0\plugins\textviewer\TextViewer.Managed.dll,%1\plugins\textviewer\TextViewer.Managed.dll
-%0\plugins\textviewer\PrismSharp.dll,%1\plugins\textviewer\PrismSharp.dll
-%0\plugins\textviewer\Newtonsoft.Json.dll,%1\plugins\textviewer\Newtonsoft.Json.dll
-%0\plugins\textviewer\Microsoft.Web.WebView2.WinForms.dll,%1\plugins\textviewer\Microsoft.Web.WebView2.WinForms.dll
-%0\plugins\textviewer\Microsoft.Web.WebView2.Core.dll,%1\plugins\textviewer\Microsoft.Web.WebView2.Core.dll
-%0\plugins\textviewer\WebView2Loader.dll,%1\plugins\textviewer\WebView2Loader.dll
 %0\plugins\textviewer\DEPENDENCIES.md,%1\plugins\textviewer\DEPENDENCIES.md
 %0\plugins\textviewer\SUPPORTED_FILE_TYPES.md,%1\plugins\textviewer\SUPPORTED_FILE_TYPES.md
-%0\plugins\textviewer\data,%1\plugins\textviewer\data
 %0\plugins\textviewer\lang\%SLG,%1\plugins\textviewer\lang\%SLG
 %0\plugins\unarj\unarj.spl,%1\plugins\unarj\unarj.spl
 %0\plugins\unarj\lang\%SLG,%1\plugins\unarj\lang\%SLG
@@ -246,12 +239,6 @@
 %0\plugins\unmime\unmime.spl,%1\plugins\unmime\unmime.spl
 %0\plugins\unmime\lang\%SLG,%1\plugins\unmime\lang\%SLG
 %0\plugins\webview2renderviewer\webview2renderviewer.spl,%1\plugins\webview2renderviewer\webview2renderviewer.spl
-%0\plugins\webview2renderviewer\WebView2RenderViewer.Managed.dll,%1\plugins\webview2renderviewer\WebView2RenderViewer.Managed.dll
-%0\plugins\webview2renderviewer\Markdig.dll,%1\plugins\webview2renderviewer\Markdig.dll
-%0\plugins\webview2renderviewer\Microsoft.Web.WebView2.WinForms.dll,%1\plugins\webview2renderviewer\Microsoft.Web.WebView2.WinForms.dll
-%0\plugins\webview2renderviewer\Microsoft.Web.WebView2.Core.dll,%1\plugins\webview2renderviewer\Microsoft.Web.WebView2.Core.dll
-%0\plugins\webview2renderviewer\WebView2Loader.dll,%1\plugins\webview2renderviewer\WebView2Loader.dll
-%0\plugins\webview2renderviewer\System.Text.Encoding.CodePages.dll,%1\plugins\webview2renderviewer\System.Text.Encoding.CodePages.dll
 %0\plugins\webview2renderviewer\DEPENDENCIES.md,%1\plugins\webview2renderviewer\DEPENDENCIES.md
 %0\plugins\webview2renderviewer\SUPPORTED_FILE_TYPES.md,%1\plugins\webview2renderviewer\SUPPORTED_FILE_TYPES.md
 %0\plugins\webview2renderviewer\lang\%SLG,%1\plugins\webview2renderviewer\lang\%SLG
@@ -396,7 +383,6 @@
 %1\plugins\tar\lang
 %1\plugins\textviewer
 %1\plugins\textviewer\lang
-%1\plugins\textviewer\data
 %1\plugins\unarj
 %1\plugins\unarj\lang
 %1\plugins\uncab

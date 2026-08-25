@@ -21,9 +21,9 @@ BOOL CtrlHandler(DWORD fdwCtrlType)
 {
     switch (fdwCtrlType)
     {
-    // vyignorujeme CTRL+C, Ctrl+Break a dalsi dobre duvody pro ukonceni... protoze ukoncit
-    // se musi nejdrive spousteny externi archivator (jinak archivator pokracuje ve spousteni,
-    // i kdyz uz Salamander pise, ze komprimace/dekomprimace skoncila)
+    // Ignore Ctrl+C, Ctrl+Break, and other console-close reasons: the spawned
+    // archiver must exit first, otherwise it keeps running after Salamander has
+    // already reported that compression/decompression finished.
     case CTRL_C_EVENT:
     case CTRL_BREAK_EVENT:
     case CTRL_CLOSE_EVENT:
@@ -40,7 +40,7 @@ BOOL CtrlHandler(DWORD fdwCtrlType)
 // EnableExceptionsOn64
 //
 
-// Chceme se dozvedet o SEH Exceptions i na x64 Windows 7 SP1 a dal
+// Report SEH exceptions even on x64 Windows 7 SP1 and later.
 // http://blog.paulbetts.org/index.php/2010/07/20/the-case-of-the-disappearing-onload-exception-user-mode-callback-exceptions-in-x64/
 // http://connect.microsoft.com/VisualStudio/feedback/details/550944/hardware-exceptions-on-x64-machines-are-silently-caught-in-wndproc-messages
 // http://support.microsoft.com/kb/976038
@@ -78,13 +78,16 @@ void mainCRTStartup()
     BOOL help = FALSE;
     BOOL error = FALSE;
     int retBase = 10000;
-    wchar_t exeName[32768];
+    const int exeNameChars = 32768;
+    wchar_t* exeName = (wchar_t*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
+                                           exeNameChars * sizeof(wchar_t));
     wchar_t* cmdline;
     DWORD exitCode;
 
-    exeName[0] = '\0';
+    if (exeName == NULL)
+        ExitProcess(retBase);
 
-    // nechceme zadne kriticke chyby jako "no disk in drive A:"
+    // Do not show critical errors such as "no disk in drive A:".
     SetErrorMode(SetErrorMode(0) | SEM_FAILCRITICALERRORS);
 
     cmdline = GetCommandLineW();
@@ -145,7 +148,7 @@ void mainCRTStartup()
         else
         {
             int len = 0;
-            while (len < _countof(exeName) - 1 && *cmdline != L'\0')
+            while (len < exeNameChars - 1 && *cmdline != L'\0')
                 exeName[len++] = *cmdline++;
             exeName[len] = L'\0';
         }

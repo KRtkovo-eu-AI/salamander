@@ -1,0 +1,31 @@
+{
+  "_comment": "Prism Text Viewer custom token colors. Choose Colors > Custom in the viewer, or Colors > Edit Custom to change these values. The light or dark map is used from the viewer background. Rebuilding the plug-in overwrites this staged copy unless you save the palette again.",
+  "light": {
+    "comment": "#008000",
+    "punctuation": "#000000",
+    "keyword": "#0000ff",
+    "controlKeyword": "#0000ff",
+    "className": "#2b91af",
+    "function": "#000000",
+    "string": "#a31515",
+    "number": "#098658",
+    "boolean": "#0000ff",
+    "variable": "#000000",
+    "namespace": "#000000",
+    "regex": "#811f3f"
+  },
+  "dark": {
+    "comment": "#6a9955",
+    "punctuation": "#d4d4d4",
+    "keyword": "#569cd6",
+    "controlKeyword": "#c586c0",
+    "className": "#4ec9b0",
+    "function": "#dcdcaa",
+    "string": "#ce9178",
+    "number": "#b5cea8",
+    "boolean": "#569cd6",
+    "variable": "#9cdcfe",
+    "namespace": "#d4d4d4",
+    "regex": "#d16969"
+  }
+}

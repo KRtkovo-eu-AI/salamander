@@ -18,6 +18,7 @@ LANGUAGES = {
     "french": {"name": "French", "locale": "fr-FR", "langid": 1036, "script": "French Latin with accents"},
     "german": {"name": "German", "locale": "de-DE", "langid": 1031, "script": "German Latin with umlauts and ß"},
     "hungarian": {"name": "Hungarian", "locale": "hu-HU", "langid": 1038, "script": "Hungarian Latin with accents"},
+    "italian": {"name": "Italian", "locale": "it-IT", "langid": 1040, "script": "Italian Latin with accents"},
     "romanian": {"name": "Romanian", "locale": "ro-RO", "langid": 1048, "script": "Romanian Latin with ș/ț diacritics"},
     "russian": {"name": "Russian", "locale": "ru-RU", "langid": 1049, "script": "Cyrillic"},
     "slovak": {"name": "Slovak", "locale": "sk-SK", "langid": 1051, "script": "Slovak Latin with accents"},

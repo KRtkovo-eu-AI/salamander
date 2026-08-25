@@ -24,11 +24,15 @@
   <Target Name="OpenSalamanderReleaseCleanCleanup"
           AfterTargets="Build"
           Condition="'$(OpenSalamanderReleaseClean)' == 'true'">
+    <!-- Visual Studio keeps $(IntDir)$(ProjectName).log open until the project
+         build finishes, so only command-line builds can remove IntDir here. -->
     <RemoveDir Directories="$(IntDir)"
-               Condition="'$(IntDir)' != '' and Exists('$(IntDir)')"
+               Condition="'$(BuildingInsideVisualStudio)' != 'true' and
+                          '$(IntDir)' != '' and Exists('$(IntDir)')"
                ContinueOnError="WarnAndContinue" />
     <RemoveDir Directories="$(IntermediateOutputPath)"
-               Condition="'$(IntermediateOutputPath)' != '' and Exists('$(IntermediateOutputPath)')"
+               Condition="'$(BuildingInsideVisualStudio)' != 'true' and
+                          '$(IntermediateOutputPath)' != '' and Exists('$(IntermediateOutputPath)')"
                ContinueOnError="WarnAndContinue" />
     <ItemGroup>
       <OpenSalamanderReleaseCleanPdb Include="$(OutDir)**\*.pdb" />

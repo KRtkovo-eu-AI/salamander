@@ -1,0 +1,65 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\textviewer\textviewer.atp"
+TEXTVERSION,"1.0.4 (x64)"
+VERSION,"1,0,4,196"
+
+[TRANSLATION]
+LANGID,1040
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"Visualizzatore di testo Prism"
+47,1,"Informazioni sul plugin"
+
+[STRINGTABLE 1]
+48,1,"Visualizzatore nativo che esegue il rendering dei file di testo con evidenziazione della sintassi Prism.js."
+49,1,"https://samandarin.net/"
+50,1,"Impossibile preparare l'evento di sincronizzazione richiesto dal visualizzatore."
+52,1,"&File"
+53,1,"&Visualizza"
+54,1,"&Chiudi\tEsc"
+55,1,"&Aggiorna\tF5"
+56,1,"Zoom &In\tCtrl++"
+57,1,"Zoom &Out\tCtrl+-"
+58,1,"&Ripristina\tCtrl+0"
+59,1,"Caricamento..."
+60,1,"Pronto"
+61,1,"Impossibile inizializzare il renderer WebView2."
+62,1,"Impossibile aprire il file selezionato."
+63,1,"Mostra &numeri di riga"
+
+[STRINGTABLE 2]
+64,1,"&A capo\tF2"
+65,1,"Mostra &spazi bianchi"
+66,1,"&Evidenziatore sintassi"
+67,1,"&Automatico"
+68,1,"&Colori"
+69,1,"&Visual Studio"
+70,1,"&Prism predefinito"
+71,1,"&Personalizzato"
+
+[STRINGTABLE 3]
+72,1,"Modifica &personalizzato"
+73,1,"Modifica personalizzato"
+74,1,"&Salva"
+75,1,"Annulla"
+76,1,"Chiaro"
+77,1,"Scuro"
+78,1,"Commento"
+79,1,"Punteggiatura"
+80,1,"Parola chiave"
+81,1,"Parola chiave di controllo"
+82,1,"Nome classe"
+83,1,"Funzione"
+84,1,"Stringa"
+85,1,"Numero"
+86,1,"Booleano"
+87,1,"Variabile"
+88,1,"Spazio dei nomi"
+89,1,"Espressione regolare"
+90,1,"Impossibile salvare la tavolozza colori personalizzata."
+91,1,"Salamatrix.UI non è disponibile."
+
+

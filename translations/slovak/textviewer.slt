@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\slovak\textviewer\textviewer.atp"
-TEXTVERSION,"1.03 (x64)"
-VERSION,"1,0,3,195"
+TEXTVERSION,"1.0.4 (x64)"
+VERSION,"1,0,4,196"
 
 [TRANSLATION]
 LANGID,1051
@@ -10,12 +10,56 @@ WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
-46,1,"PrismSharp Text Viewer .NET"
+46,1,"Textový prehliadač Prism"
 47,1,"O doplnku"
 
 [STRINGTABLE 1]
-48,1,"Interný prehliadač, ktorý vykresľuje textové súbory so spravovaným zvýrazňovaním syntaxe."
+48,1,"Natívny prehliadač, ktorý zobrazuje textové súbory so zvýrazňovaním syntaxe pomocou Prism.js."
 49,1,"https://samandarin.net/"
 50,1,"Nepodarilo sa pripraviť synchronizačnú udalosť potrebnú pre prehliadač."
-51,1,"Vybratý súbor je príliš veľký na otvorenie. Súbory väčšie než 16 MB nie sú podporované."
+52,1,"&Súbor"
+53,1,"&Zobraziť"
+54,1,"&Zavrieť\tEsc"
+55,1,"&Obnoviť\tF5"
+56,1,"Priblížiť &In\tCtrl++"
+57,1,"Priblížiť &Out\tCtrl+-"
+58,1,"&Reset\tCtrl+0"
+59,1,"Načítava sa..."
+60,1,"Pripravené"
+61,1,"Nepodarilo sa inicializovať vykresľovač WebView2."
+62,1,"Nepodarilo sa otvoriť vybratý súbor."
+63,1,"Zobraziť &čísla riadkov"
+
+[STRINGTABLE 2]
+64,1,"&Zalamovať riadky\tF2"
+65,1,"Zobraziť &biele znaky"
+66,1,"&Zvýrazňovač syntaxe"
+67,1,"&Automaticky"
+68,1,"&Farby"
+69,1,"&Visual Studio"
+70,1,"Predvolený &Prism"
+71,1,"&Vlastné"
+
+[STRINGTABLE 3]
+72,1,"Upraviť &vlastné"
+73,1,"Upraviť vlastné"
+74,1,"&Uložiť"
+75,1,"Storno"
+76,1,"Svetlá"
+77,1,"Tmavá"
+78,1,"Komentár"
+79,1,"Interpunkcia"
+80,1,"Kľúčové slovo"
+81,1,"Riadiace kľúčové slovo"
+82,1,"Názov triedy"
+83,1,"Funkcia"
+84,1,"Reťazec"
+85,1,"Číslo"
+86,1,"Boolean"
+87,1,"Premenná"
+88,1,"Menný priestor"
+89,1,"Regulárny výraz"
+90,1,"Vlastnú paletu farieb sa nepodarilo uložiť."
+91,1,"Služba Salamatrix.UI nie je dostupná."
+
 

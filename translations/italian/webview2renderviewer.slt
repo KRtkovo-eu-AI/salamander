@@ -1,0 +1,37 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.0.5 (x64)"
+VERSION,"1,0,5,196"
+
+[TRANSLATION]
+LANGID,1040
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"Visualizzatore Render WebView2"
+47,1,"Informazioni sul plug-in"
+
+[STRINGTABLE 1]
+48,1,"Visualizzatore che visualizza HTML, Markdown e documenti web renderizzati tramite WebView2."
+49,1,"https://samandarin.net/"
+50,1,"Impossibile preparare l'evento di sincronizzazione richiesto dal visualizzatore."
+51,1,"Il file selezionato è troppo grande per essere aperto. I file più grandi di 32 MB non sono supportati."
+52,1,"&File"
+53,1,"&Visualizza"
+54,1,"&Chiudi\tEsc"
+55,1,"&Aggiorna\tF5"
+56,1,"Ingrandisci &In\tCtrl++"
+57,1,"Rimpicciolisci &Out\tCtrl+-"
+58,1,"&Ripristina\tCtrl+0"
+59,1,"Caricamento..."
+60,1,"Pronto"
+61,1,"Impossibile inizializzare il renderer WebView2."
+62,1,"Impossibile aprire il file selezionato."
+63,1,"Mostra &numeri di riga"
+
+[STRINGTABLE 2]
+64,1,"&A capo\tF2"
+65,1,"Mostra &spazi bianchi"
+

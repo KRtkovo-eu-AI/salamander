@@ -1,0 +1,40 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\unmime\unmime.atp"
+TEXTVERSION,"1.15 (x64)"
+VERSION,"1,15,0,196"
+
+[TRANSLATION]
+LANGID,1040
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[DIALOG 101]
+251,111,1,"Configurazione UnMIME"
+2000,7,7,51,8,1,"Opzioni elenco"
+2001,49,11,196,1,1,""
+1000,18,20,96,10,1,"Elenco posta &intestazioni"
+1001,18,35,87,10,1,"Elenco messaggi &corpi"
+1003,31,50,210,10,1,"Aggiungi info &charset al nome file se diverso da US-ASCII"
+1002,18,65,69,10,1,"Elenca &allegati"
+2002,6,82,239,1,1,""
+1,137,90,50,14,1,"OK"
+2,194,90,50,14,1,"Annulla"
+
+[STRINGTABLE 0]
+1,1,"UnMIME"
+2,1,"Impossibile aprire il file."
+3,1,"Memoria insufficiente."
+4,1,"Impossibile aggiungere la voce dell'archivio all'elenco dei file."
+5,1,"Questo file contiene uno o più blocchi con codifica sconosciuta.\nQuesti blocchi non verranno decodificati."
+6,1,"Errore di scrittura"
+7,1,"Estrazione file di posta - %s"
+8,1,"scompattamento: "
+9,1,"Analisi del file..."
+10,1,"Uno o più blocchi %s sono danneggiati oppure hanno\nformato sconosciuto e non verranno decodificati."
+11,1,"CRC non valido in uno o più blocchi %s.\nQuesti blocchi non verranno decodificati."
+12,1,"Sfoglia ed estrai file MIME/Base64, UU/XXEncode, yEncode e BinHex."
+13,1,"Informazioni sul plug-in"
+14,1,"Attenzione: questo file contiene una risorsa Mac fork.\nQuesta fork non verrà estratta."
+15,1,"&Non visualizzare di nuovo"
+

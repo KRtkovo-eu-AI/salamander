@@ -1,4 +1,4 @@
-; Inno Setup script for Open Salamander Samandarin x64.
+﻿; Inno Setup script for Open Salamander Samandarin x64.
 ;
 ; This file is intentionally kept in the runbook folder next to setup_x64.inf.
 ; It mirrors the file list, shortcut locations, registry keys and private setup
@@ -86,6 +86,7 @@ Name: "dutch"; MessagesFile: "compiler:Languages\Dutch.isl"; LicenseFile: "{#Sou
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"; LicenseFile: "{#SourcePath}\license.french.txt"
 Name: "german"; MessagesFile: "compiler:Languages\German.isl"; LicenseFile: "{#SourcePath}\license.german.txt"
 Name: "hungarian"; MessagesFile: "compiler:Languages\Hungarian.isl"; LicenseFile: "{#SourcePath}\license.hungarian.txt"
+Name: "italian"; MessagesFile: "compiler:Languages\Italian.isl"; LicenseFile: "{#SourcePath}\license.italian.txt"
 Name: "romanian"; MessagesFile: "compiler:Languages\Romanian.isl"; LicenseFile: "{#SourcePath}\license.romanian.txt"
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"; LicenseFile: "{#SourcePath}\license.russian.txt"
 Name: "slovak"; MessagesFile: "compiler:Languages\Slovak.isl"; LicenseFile: "{#SourcePath}\license.slovak.txt"
@@ -127,6 +128,11 @@ hungarian.FileStorage=Fájltároló:
 hungarian.RegistryKey=Beállításkulcs:
 hungarian.RemoveUserConfigFiles=Válassza az Igen lehetőséget a konfigurációs fájlok törléséhez, vagy a Nem lehetőséget a beállítások megtartásához.
 hungarian.RemoveUserConfigRegistry=Válassza az Igen lehetőséget a kulcs és teljes tartalmának törléséhez, vagy a Nem lehetőséget a beállítások megtartásához.
+italian.RemoveUserConfigQuestion=Vuoi rimuovere la configurazione utente di Open Salamander Samandarin?
+italian.FileStorage=Archiviazione file:
+italian.RegistryKey=Chiave del Registro di sistema:
+italian.RemoveUserConfigFiles=Scegli Sì per eliminare i file di configurazione oppure No per mantenere le impostazioni.
+italian.RemoveUserConfigRegistry=Scegli Sì per eliminare la chiave e tutto il suo contenuto oppure No per mantenere le impostazioni.
 romanian.RemoveUserConfigQuestion=Doriți să eliminați configurația de utilizator Open Salamander Samandarin?
 romanian.FileStorage=Stocare în fișiere:
 romanian.RegistryKey=Cheie de registru:
@@ -203,6 +209,14 @@ hungarian.StartMenuShortcut=&Start menü parancsikon létrehozása
 hungarian.DesktopShortcut=&Asztali parancsikon létrehozása
 hungarian.Shortcuts=Parancsikonok:
 hungarian.LaunchProgram={#AppToInstallName} indítása
+italian.InstallMode=Modalità di installazione:
+italian.StandardInstall=Installa normalmente (menu Start, Programmi e programma di disinstallazione)
+italian.PortableInstall=Estrai come versione portatile (nessuna voce in Programmi né programma di disinstallazione)
+italian.PortableDirName=samandarin
+italian.StartMenuShortcut=Crea un collegamento nel menu &Start
+italian.DesktopShortcut=Crea un collegamento sul &desktop
+italian.Shortcuts=Collegamenti:
+italian.LaunchProgram=Avvia {#AppToInstallName}
 romanian.InstallMode=Mod de instalare:
 romanian.StandardInstall=Instalare normală (Meniul Start, Programe și dezinstalator)
 romanian.PortableInstall=Extrageți ca versiune portabilă (fără intrare în Programe sau dezinstalator)
@@ -249,6 +263,8 @@ german.CodePageWarningTitle=Codepage-Kompatibilitätswarnung
 german.CodePageWarning=Die ausgewählte Sprache zeigt möglicherweise nicht alle Zeichen korrekt an, da Ihre Windows-Systemgebietsschema-Codepage (%u) nicht mit der von dieser Sprache erwarteten Codepage (%u) übereinstimmt.\n\nUm dies zu beheben, ändern Sie Ihr Systemgebietsschema in Windows: Einstellungen > Zeit und Sprache > Region > Verwaltung > Systemsprache ändern.
 hungarian.CodePageWarningTitle=Kódlap kompatibilitási figyelmeztetés
 hungarian.CodePageWarning=A kiválasztott nyelv nem jeleníti meg helyesen az összes karaktert, mert a Windows rendszerterületi kódlapja (%u) nem egyezik ezzel a nyelvvel elvárt kódlappal (%u).\n\nA javításhoz módosítsa a rendszerterületet a Windowsban: Beállítások > Idő és nyelv > Régió > Kezelés > Rendszerterület módosítása.
+italian.CodePageWarningTitle=Avviso di compatibilità della pagina di codice
+italian.CodePageWarning=La lingua selezionata potrebbe non visualizzare correttamente tutti i caratteri perché la pagina di codice delle impostazioni locali di sistema di Windows (%u) non corrisponde a quella prevista per questa lingua (%u).\n\nPer risolvere il problema, modifica le impostazioni locali di sistema in Windows: Impostazioni > Data/ora e lingua > Lingua e area geografica > Impostazioni lingua amministrative > Modifica impostazioni locali di sistema.
 romanian.CodePageWarningTitle=Avertisament compatibilitate pagină de coduri
 romanian.CodePageWarning=Limba selectată poate să nu afișeze corect toate caracterele, deoarece pagina de coduri a setărilor de sistem Windows (%u) nu corespunde paginii de coduri așteptate de această limbă (%u).\n\nPentru a remedia, modificați setările de sistem în Windows: Setări > Ora și limba > Regiune > Administrare > Modificarea setărilor de sistem.
 russian.CodePageWarningTitle=Предупреждение о совместимости кодовых страниц
@@ -264,6 +280,7 @@ dutch.KeepConfigQuestion=Er is een bestaand configuratiebestand (configstorage.i
 french.KeepConfigQuestion=Un fichier de configuration existant (configstorage.ini) a été trouvé.\n\nIl sera renommé en configstorage.ini.BAK et la nouvelle configuration par défaut sera installée.
 german.KeepConfigQuestion=Eine bestehende Konfigurationsdatei (configstorage.ini) wurde gefunden.\n\nSie wird in configstorage.ini.BAK umbenannt und die neue Standardkonfiguration wird installiert.
 hungarian.KeepConfigQuestion=Meglévő konfigurációs fájl található (configstorage.ini).\n\nÁtnevezésre kerül configstorage.ini.BAK névre, és az új alapértelmezett konfiguráció telepítésre kerül.
+italian.KeepConfigQuestion=È stato trovato un file di configurazione esistente (configstorage.ini).\n\nVerrà rinominato configstorage.ini.BAK e verrà installata la nuova configurazione predefinita.
 romanian.KeepConfigQuestion=A fost găsit un fișier de configurare existent (configstorage.ini).\n\nAcesta va fi redenumit în configstorage.ini.BAK și va fi instalată noua configurație implicită.
 russian.KeepConfigQuestion=Обнаружен существующий файл конфигурации (configstorage.ini).\n\nОн будет переименован в configstorage.ini.BAK и установлена новая конфигурация по умолчанию.
 slovak.KeepConfigQuestion=Bol nájdený existujúci konfiguračný súbor (configstorage.ini).\n\nBude premenovaný na configstorage.ini.BAK a nainštaluje sa nová predvolená konfigurácia.
@@ -280,6 +297,8 @@ german.PluginSelectionTitle=Plugins auswählen
 german.PluginSelectionDescription=Wählen Sie aus, welche mitgelieferten Plugins installiert oder entpackt werden.
 hungarian.PluginSelectionTitle=Bővítmények kiválasztása
 hungarian.PluginSelectionDescription=Válassza ki a telepítendő vagy kicsomagolandó mellékelt bővítményeket.
+italian.PluginSelectionTitle=Seleziona plugin
+italian.PluginSelectionDescription=Scegli quali plugin inclusi installare o estrarre.
 romanian.PluginSelectionTitle=Selectare pluginuri
 romanian.PluginSelectionDescription=Alegeți pluginurile incluse care vor fi instalate sau extrase.
 russian.PluginSelectionTitle=Выбор плагинов
@@ -296,6 +315,7 @@ dutch.InstalledVersionLabel=geïnstalleerd
 french.InstalledVersionLabel=installé
 german.InstalledVersionLabel=installiert
 hungarian.InstalledVersionLabel=telepítve
+italian.InstalledVersionLabel=installato
 romanian.InstalledVersionLabel=instalat
 russian.InstalledVersionLabel=установлено
 slovak.InstalledVersionLabel=nainštalované
@@ -438,6 +458,7 @@ Type: files; Name: "{app}\WebView2Loader.dll"
 Type: files; Name: "{app}\plugins\salamatrix\WebView2Loader.dll"
 Type: files; Name: "{app}\plugins\salamatrix\MarkdigRenderer.exe"
 Type: files; Name: "{app}\plugins\textviewer\WebView2Loader.dll"
+Type: filesandordirs; Name: "{app}\plugins\textviewer\prism"
 Type: files; Name: "{app}\plugins\webview2renderviewer\WebView2Loader.dll"
 Type: files; Name: "{app}\plugins\webview2renderviewer\MarkdigRenderer.exe"
 
@@ -524,6 +545,7 @@ Source: "{#PayloadDir}\doc\third_party_dutch.md"; DestDir: "{app}\doc"; Flags: i
 Source: "{#PayloadDir}\doc\third_party_french.md"; DestDir: "{app}\doc"; Flags: ignoreversion
 Source: "{#PayloadDir}\doc\third_party_german.md"; DestDir: "{app}\doc"; Flags: ignoreversion
 Source: "{#PayloadDir}\doc\third_party_hungarian.md"; DestDir: "{app}\doc"; Flags: ignoreversion
+Source: "{#PayloadDir}\doc\third_party_italian.md"; DestDir: "{app}\doc"; Flags: ignoreversion
 Source: "{#PayloadDir}\doc\third_party_chinesesimplified.md"; DestDir: "{app}\doc"; Flags: ignoreversion
 Source: "{#PayloadDir}\doc\third_party_romanian.md"; DestDir: "{app}\doc"; Flags: ignoreversion
 Source: "{#PayloadDir}\doc\third_party_russian.md"; DestDir: "{app}\doc"; Flags: ignoreversion
@@ -568,6 +590,7 @@ Source: "{#PayloadDir}\lang\english.slg"; DestDir: "{app}\lang"; Flags: ignoreve
 Source: "{#PayloadDir}\lang\french.slg"; DestDir: "{app}\lang"; Flags: ignoreversion
 Source: "{#PayloadDir}\lang\german.slg"; DestDir: "{app}\lang"; Flags: ignoreversion
 Source: "{#PayloadDir}\lang\hungarian.slg"; DestDir: "{app}\lang"; Flags: ignoreversion
+Source: "{#PayloadDir}\lang\italian.slg"; DestDir: "{app}\lang"; Flags: ignoreversion
 Source: "{#PayloadDir}\lang\chinesesimplified.slg"; DestDir: "{app}\lang"; Flags: ignoreversion
 Source: "{#PayloadDir}\lang\romanian.slg"; DestDir: "{app}\lang"; Flags: ignoreversion
 Source: "{#PayloadDir}\lang\russian.slg"; DestDir: "{app}\lang"; Flags: ignoreversion
@@ -580,6 +603,7 @@ Source: "{#PayloadDir}\plugins\7zip\7zwrapper.dll"; DestDir: "{app}\plugins\7zip
 Source: "{#PayloadDir}\plugins\7zip\lang\czech.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
 Source: "{#PayloadDir}\plugins\7zip\lang\dutch.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
 Source: "{#PayloadDir}\plugins\7zip\lang\english.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
+Source: "{#PayloadDir}\plugins\7zip\lang\italian.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
 Source: "{#PayloadDir}\plugins\7zip\lang\french.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
 Source: "{#PayloadDir}\plugins\7zip\lang\german.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
 Source: "{#PayloadDir}\plugins\7zip\lang\hungarian.slg"; DestDir: "{app}\plugins\7zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('7zip')
@@ -592,6 +616,7 @@ Source: "{#PayloadDir}\plugins\automation\automation.spl"; DestDir: "{app}\plugi
 Source: "{#PayloadDir}\plugins\automation\lang\czech.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion; Check: IsPluginSelected('automation')
 Source: "{#PayloadDir}\plugins\automation\lang\dutch.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion; Check: IsPluginSelected('automation')
 Source: "{#PayloadDir}\plugins\automation\lang\english.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion; Check: IsPluginSelected('automation')
+Source: "{#PayloadDir}\plugins\automation\lang\italian.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion; Check: IsPluginSelected('automation')
 Source: "{#PayloadDir}\plugins\automation\lang\french.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion; Check: IsPluginSelected('automation')
 Source: "{#PayloadDir}\plugins\automation\lang\german.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion; Check: IsPluginSelected('automation')
 Source: "{#PayloadDir}\plugins\automation\lang\hungarian.slg"; DestDir: "{app}\plugins\automation\lang"; Flags: ignoreversion; Check: IsPluginSelected('automation')
@@ -612,6 +637,7 @@ Source: "{#PayloadDir}\plugins\dbviewer\dbviewer.spl"; DestDir: "{app}\plugins\d
 Source: "{#PayloadDir}\plugins\dbviewer\lang\czech.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
 Source: "{#PayloadDir}\plugins\dbviewer\lang\dutch.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
 Source: "{#PayloadDir}\plugins\dbviewer\lang\english.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
+Source: "{#PayloadDir}\plugins\dbviewer\lang\italian.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
 Source: "{#PayloadDir}\plugins\dbviewer\lang\french.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
 Source: "{#PayloadDir}\plugins\dbviewer\lang\german.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
 Source: "{#PayloadDir}\plugins\dbviewer\lang\hungarian.slg"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('dbviewer')
@@ -624,6 +650,7 @@ Source: "{#PayloadDir}\plugins\diskdir\diskdir.spl"; DestDir: "{app}\plugins\dis
 Source: "{#PayloadDir}\plugins\diskdir\lang\czech.slg"; DestDir: "{app}\plugins\diskdir\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskdir')
 Source: "{#PayloadDir}\plugins\diskdir\lang\dutch.slg"; DestDir: "{app}\plugins\diskdir\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskdir')
 Source: "{#PayloadDir}\plugins\diskdir\lang\english.slg"; DestDir: "{app}\plugins\diskdir\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskdir')
+Source: "{#PayloadDir}\plugins\diskdir\lang\italian.slg"; DestDir: "{app}\plugins\diskdir\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskdir')
 Source: "{#PayloadDir}\plugins\diskdir\lang\french.slg"; DestDir: "{app}\plugins\diskdir\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskdir')
 Source: "{#PayloadDir}\plugins\diskdir\lang\german.slg"; DestDir: "{app}\plugins\diskdir\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskdir')
 Source: "{#PayloadDir}\plugins\diskdir\lang\hungarian.slg"; DestDir: "{app}\plugins\diskdir\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskdir')
@@ -636,6 +663,7 @@ Source: "{#PayloadDir}\plugins\diskmap\diskmap.spl"; DestDir: "{app}\plugins\dis
 Source: "{#PayloadDir}\plugins\diskmap\lang\czech.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
 Source: "{#PayloadDir}\plugins\diskmap\lang\dutch.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
 Source: "{#PayloadDir}\plugins\diskmap\lang\english.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
+Source: "{#PayloadDir}\plugins\diskmap\lang\italian.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
 Source: "{#PayloadDir}\plugins\diskmap\lang\french.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
 Source: "{#PayloadDir}\plugins\diskmap\lang\german.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
 Source: "{#PayloadDir}\plugins\diskmap\lang\hungarian.slg"; DestDir: "{app}\plugins\diskmap\lang"; Flags: ignoreversion; Check: IsPluginSelected('diskmap')
@@ -649,6 +677,7 @@ Source: "{#PayloadDir}\plugins\filecomp\filecomp.spl"; DestDir: "{app}\plugins\f
 Source: "{#PayloadDir}\plugins\filecomp\lang\czech.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion; Check: IsPluginSelected('filecomp')
 Source: "{#PayloadDir}\plugins\filecomp\lang\dutch.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion; Check: IsPluginSelected('filecomp')
 Source: "{#PayloadDir}\plugins\filecomp\lang\english.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion; Check: IsPluginSelected('filecomp')
+Source: "{#PayloadDir}\plugins\filecomp\lang\italian.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion; Check: IsPluginSelected('filecomp')
 Source: "{#PayloadDir}\plugins\filecomp\lang\french.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion; Check: IsPluginSelected('filecomp')
 Source: "{#PayloadDir}\plugins\filecomp\lang\german.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion; Check: IsPluginSelected('filecomp')
 Source: "{#PayloadDir}\plugins\filecomp\lang\hungarian.slg"; DestDir: "{app}\plugins\filecomp\lang"; Flags: ignoreversion; Check: IsPluginSelected('filecomp')
@@ -661,6 +690,7 @@ Source: "{#PayloadDir}\plugins\folders\folders.spl"; DestDir: "{app}\plugins\fol
 Source: "{#PayloadDir}\plugins\folders\lang\czech.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion; Check: IsPluginSelected('folders')
 Source: "{#PayloadDir}\plugins\folders\lang\dutch.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion; Check: IsPluginSelected('folders')
 Source: "{#PayloadDir}\plugins\folders\lang\english.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion; Check: IsPluginSelected('folders')
+Source: "{#PayloadDir}\plugins\folders\lang\italian.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion; Check: IsPluginSelected('folders')
 Source: "{#PayloadDir}\plugins\folders\lang\french.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion; Check: IsPluginSelected('folders')
 Source: "{#PayloadDir}\plugins\folders\lang\german.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion; Check: IsPluginSelected('folders')
 Source: "{#PayloadDir}\plugins\folders\lang\hungarian.slg"; DestDir: "{app}\plugins\folders\lang"; Flags: ignoreversion; Check: IsPluginSelected('folders')
@@ -673,6 +703,7 @@ Source: "{#PayloadDir}\plugins\ftp\ftp.spl"; DestDir: "{app}\plugins\ftp"; Flags
 Source: "{#PayloadDir}\plugins\ftp\lang\czech.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
 Source: "{#PayloadDir}\plugins\ftp\lang\dutch.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
 Source: "{#PayloadDir}\plugins\ftp\lang\english.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
+Source: "{#PayloadDir}\plugins\ftp\lang\italian.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
 Source: "{#PayloadDir}\plugins\ftp\lang\french.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
 Source: "{#PayloadDir}\plugins\ftp\lang\german.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
 Source: "{#PayloadDir}\plugins\ftp\lang\hungarian.slg"; DestDir: "{app}\plugins\ftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('ftp')
@@ -686,6 +717,7 @@ Source: "{#PayloadDir}\plugins\sftp\libssh2.dll"; DestDir: "{app}\plugins\sftp";
 Source: "{#PayloadDir}\plugins\sftp\lang\czech.slg"; DestDir: "{app}\plugins\sftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
 Source: "{#PayloadDir}\plugins\sftp\lang\dutch.slg"; DestDir: "{app}\plugins\sftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
 Source: "{#PayloadDir}\plugins\sftp\lang\english.slg"; DestDir: "{app}\plugins\sftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
+Source: "{#PayloadDir}\plugins\sftp\lang\italian.slg"; DestDir: "{app}\plugins\sftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
 Source: "{#PayloadDir}\plugins\sftp\lang\french.slg"; DestDir: "{app}\plugins\sftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
 Source: "{#PayloadDir}\plugins\sftp\lang\german.slg"; DestDir: "{app}\plugins\sftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
 Source: "{#PayloadDir}\plugins\sftp\lang\hungarian.slg"; DestDir: "{app}\plugins\sftp\lang"; Flags: ignoreversion; Check: IsPluginSelected('sftp')
@@ -701,6 +733,7 @@ Source: "{#PayloadDir}\plugins\hypervm\hypervm.spl"; DestDir: "{app}\plugins\hyp
 Source: "{#PayloadDir}\plugins\hypervm\lang\czech.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
 Source: "{#PayloadDir}\plugins\hypervm\lang\dutch.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
 Source: "{#PayloadDir}\plugins\hypervm\lang\english.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
+Source: "{#PayloadDir}\plugins\hypervm\lang\italian.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
 Source: "{#PayloadDir}\plugins\hypervm\lang\french.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
 Source: "{#PayloadDir}\plugins\hypervm\lang\german.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
 Source: "{#PayloadDir}\plugins\hypervm\lang\hungarian.slg"; DestDir: "{app}\plugins\hypervm\lang"; Flags: ignoreversion; Check: IsPluginSelected('hypervm')
@@ -713,6 +746,7 @@ Source: "{#PayloadDir}\plugins\checksum\checksum.spl"; DestDir: "{app}\plugins\c
 Source: "{#PayloadDir}\plugins\checksum\lang\czech.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion; Check: IsPluginSelected('checksum')
 Source: "{#PayloadDir}\plugins\checksum\lang\dutch.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion; Check: IsPluginSelected('checksum')
 Source: "{#PayloadDir}\plugins\checksum\lang\english.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion; Check: IsPluginSelected('checksum')
+Source: "{#PayloadDir}\plugins\checksum\lang\italian.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion; Check: IsPluginSelected('checksum')
 Source: "{#PayloadDir}\plugins\checksum\lang\french.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion; Check: IsPluginSelected('checksum')
 Source: "{#PayloadDir}\plugins\checksum\lang\german.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion; Check: IsPluginSelected('checksum')
 Source: "{#PayloadDir}\plugins\checksum\lang\hungarian.slg"; DestDir: "{app}\plugins\checksum\lang"; Flags: ignoreversion; Check: IsPluginSelected('checksum')
@@ -726,6 +760,7 @@ Source: "{#PayloadDir}\plugins\ieviewer\ieviewer.spl"; DestDir: "{app}\plugins\i
 Source: "{#PayloadDir}\plugins\ieviewer\lang\czech.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('ieviewer')
 Source: "{#PayloadDir}\plugins\ieviewer\lang\dutch.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('ieviewer')
 Source: "{#PayloadDir}\plugins\ieviewer\lang\english.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('ieviewer')
+Source: "{#PayloadDir}\plugins\ieviewer\lang\italian.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('ieviewer')
 Source: "{#PayloadDir}\plugins\ieviewer\lang\french.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('ieviewer')
 Source: "{#PayloadDir}\plugins\ieviewer\lang\german.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('ieviewer')
 Source: "{#PayloadDir}\plugins\ieviewer\lang\hungarian.slg"; DestDir: "{app}\plugins\ieviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('ieviewer')
@@ -740,6 +775,7 @@ Source: "{#PayloadDir}\plugins\jsonviewer\jsonviewer.spl"; DestDir: "{app}\plugi
 Source: "{#PayloadDir}\plugins\jsonviewer\lang\czech.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
 Source: "{#PayloadDir}\plugins\jsonviewer\lang\dutch.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
 Source: "{#PayloadDir}\plugins\jsonviewer\lang\english.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
+Source: "{#PayloadDir}\plugins\jsonviewer\lang\italian.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
 Source: "{#PayloadDir}\plugins\jsonviewer\lang\french.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
 Source: "{#PayloadDir}\plugins\jsonviewer\lang\german.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
 Source: "{#PayloadDir}\plugins\jsonviewer\lang\hungarian.slg"; DestDir: "{app}\plugins\jsonviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('jsonviewer')
@@ -754,6 +790,7 @@ Source: "{#PayloadDir}\plugins\jsonviewer\SUPPORTED_FILE_TYPES.md"; DestDir: "{a
 Source: "{#PayloadDir}\plugins\mmviewer\lang\czech.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('mmviewer')
 Source: "{#PayloadDir}\plugins\mmviewer\lang\dutch.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('mmviewer')
 Source: "{#PayloadDir}\plugins\mmviewer\lang\english.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('mmviewer')
+Source: "{#PayloadDir}\plugins\mmviewer\lang\italian.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('mmviewer')
 Source: "{#PayloadDir}\plugins\mmviewer\lang\french.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('mmviewer')
 Source: "{#PayloadDir}\plugins\mmviewer\lang\german.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('mmviewer')
 Source: "{#PayloadDir}\plugins\mmviewer\lang\hungarian.slg"; DestDir: "{app}\plugins\mmviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('mmviewer')
@@ -766,6 +803,7 @@ Source: "{#PayloadDir}\plugins\mmviewer\mmviewer.spl"; DestDir: "{app}\plugins\m
 Source: "{#PayloadDir}\plugins\nethood\lang\czech.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion; Check: IsPluginSelected('nethood')
 Source: "{#PayloadDir}\plugins\nethood\lang\dutch.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion; Check: IsPluginSelected('nethood')
 Source: "{#PayloadDir}\plugins\nethood\lang\english.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion; Check: IsPluginSelected('nethood')
+Source: "{#PayloadDir}\plugins\nethood\lang\italian.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion; Check: IsPluginSelected('nethood')
 Source: "{#PayloadDir}\plugins\nethood\lang\french.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion; Check: IsPluginSelected('nethood')
 Source: "{#PayloadDir}\plugins\nethood\lang\german.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion; Check: IsPluginSelected('nethood')
 Source: "{#PayloadDir}\plugins\nethood\lang\hungarian.slg"; DestDir: "{app}\plugins\nethood\lang"; Flags: ignoreversion; Check: IsPluginSelected('nethood')
@@ -778,6 +816,7 @@ Source: "{#PayloadDir}\plugins\nethood\nethood.spl"; DestDir: "{app}\plugins\net
 Source: "{#PayloadDir}\plugins\pak\lang\czech.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion; Check: IsPluginSelected('pak')
 Source: "{#PayloadDir}\plugins\pak\lang\dutch.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion; Check: IsPluginSelected('pak')
 Source: "{#PayloadDir}\plugins\pak\lang\english.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion; Check: IsPluginSelected('pak')
+Source: "{#PayloadDir}\plugins\pak\lang\italian.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion; Check: IsPluginSelected('pak')
 Source: "{#PayloadDir}\plugins\pak\lang\french.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion; Check: IsPluginSelected('pak')
 Source: "{#PayloadDir}\plugins\pak\lang\german.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion; Check: IsPluginSelected('pak')
 Source: "{#PayloadDir}\plugins\pak\lang\hungarian.slg"; DestDir: "{app}\plugins\pak\lang"; Flags: ignoreversion; Check: IsPluginSelected('pak')
@@ -790,6 +829,7 @@ Source: "{#PayloadDir}\plugins\pak\pak.spl"; DestDir: "{app}\plugins\pak"; Flags
 Source: "{#PayloadDir}\plugins\peviewer\lang\czech.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('peviewer')
 Source: "{#PayloadDir}\plugins\peviewer\lang\dutch.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('peviewer')
 Source: "{#PayloadDir}\plugins\peviewer\lang\english.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('peviewer')
+Source: "{#PayloadDir}\plugins\peviewer\lang\italian.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('peviewer')
 Source: "{#PayloadDir}\plugins\peviewer\lang\french.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('peviewer')
 Source: "{#PayloadDir}\plugins\peviewer\lang\german.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('peviewer')
 Source: "{#PayloadDir}\plugins\peviewer\lang\hungarian.slg"; DestDir: "{app}\plugins\peviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('peviewer')
@@ -803,6 +843,7 @@ Source: "{#PayloadDir}\plugins\pictview\exif.dll"; DestDir: "{app}\plugins\pictv
 Source: "{#PayloadDir}\plugins\pictview\lang\czech.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
 Source: "{#PayloadDir}\plugins\pictview\lang\dutch.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
 Source: "{#PayloadDir}\plugins\pictview\lang\english.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
+Source: "{#PayloadDir}\plugins\pictview\lang\italian.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
 Source: "{#PayloadDir}\plugins\pictview\lang\french.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
 Source: "{#PayloadDir}\plugins\pictview\lang\german.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
 Source: "{#PayloadDir}\plugins\pictview\lang\hungarian.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
@@ -816,6 +857,7 @@ Source: "{#PayloadDir}\plugins\plugins.ver"; DestDir: "{app}\plugins"; Flags: ig
 Source: "{#PayloadDir}\plugins\portables\lang\czech.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion; Check: IsPluginSelected('portables')
 Source: "{#PayloadDir}\plugins\portables\lang\dutch.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion; Check: IsPluginSelected('portables')
 Source: "{#PayloadDir}\plugins\portables\lang\english.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion; Check: IsPluginSelected('portables')
+Source: "{#PayloadDir}\plugins\portables\lang\italian.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion; Check: IsPluginSelected('portables')
 Source: "{#PayloadDir}\plugins\portables\lang\french.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion; Check: IsPluginSelected('portables')
 Source: "{#PayloadDir}\plugins\portables\lang\german.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion; Check: IsPluginSelected('portables')
 Source: "{#PayloadDir}\plugins\portables\lang\hungarian.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion; Check: IsPluginSelected('portables')
@@ -828,6 +870,7 @@ Source: "{#PayloadDir}\plugins\portables\portables.spl"; DestDir: "{app}\plugins
 Source: "{#PayloadDir}\plugins\regedt\lang\czech.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion; Check: IsPluginSelected('regedt')
 Source: "{#PayloadDir}\plugins\regedt\lang\dutch.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion; Check: IsPluginSelected('regedt')
 Source: "{#PayloadDir}\plugins\regedt\lang\english.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion; Check: IsPluginSelected('regedt')
+Source: "{#PayloadDir}\plugins\regedt\lang\italian.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion; Check: IsPluginSelected('regedt')
 Source: "{#PayloadDir}\plugins\regedt\lang\french.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion; Check: IsPluginSelected('regedt')
 Source: "{#PayloadDir}\plugins\regedt\lang\german.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion; Check: IsPluginSelected('regedt')
 Source: "{#PayloadDir}\plugins\regedt\lang\hungarian.slg"; DestDir: "{app}\plugins\regedt\lang"; Flags: ignoreversion; Check: IsPluginSelected('regedt')
@@ -840,6 +883,7 @@ Source: "{#PayloadDir}\plugins\regedt\regedt.spl"; DestDir: "{app}\plugins\reged
 Source: "{#PayloadDir}\plugins\renamer\lang\czech.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion; Check: IsPluginSelected('renamer')
 Source: "{#PayloadDir}\plugins\renamer\lang\dutch.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion; Check: IsPluginSelected('renamer')
 Source: "{#PayloadDir}\plugins\renamer\lang\english.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion; Check: IsPluginSelected('renamer')
+Source: "{#PayloadDir}\plugins\renamer\lang\italian.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion; Check: IsPluginSelected('renamer')
 Source: "{#PayloadDir}\plugins\renamer\lang\french.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion; Check: IsPluginSelected('renamer')
 Source: "{#PayloadDir}\plugins\renamer\lang\german.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion; Check: IsPluginSelected('renamer')
 Source: "{#PayloadDir}\plugins\renamer\lang\hungarian.slg"; DestDir: "{app}\plugins\renamer\lang"; Flags: ignoreversion; Check: IsPluginSelected('renamer')
@@ -852,6 +896,7 @@ Source: "{#PayloadDir}\plugins\renamer\renamer.spl"; DestDir: "{app}\plugins\ren
 Source: "{#PayloadDir}\plugins\samandarin\lang\czech.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
 Source: "{#PayloadDir}\plugins\samandarin\lang\dutch.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
 Source: "{#PayloadDir}\plugins\samandarin\lang\english.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
+Source: "{#PayloadDir}\plugins\samandarin\lang\italian.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
 Source: "{#PayloadDir}\plugins\samandarin\lang\french.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
 Source: "{#PayloadDir}\plugins\samandarin\lang\german.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
 Source: "{#PayloadDir}\plugins\samandarin\lang\hungarian.slg"; DestDir: "{app}\plugins\samandarin\lang"; Flags: ignoreversion; Check: IsPluginSelected('samandarin')
@@ -874,6 +919,7 @@ Source: "{#PayloadDir}\plugins\samandarin\System.Threading.Tasks.Extensions.dll"
 Source: "{#PayloadDir}\plugins\serviceexplorer\lang\czech.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
 Source: "{#PayloadDir}\plugins\serviceexplorer\lang\dutch.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
 Source: "{#PayloadDir}\plugins\serviceexplorer\lang\english.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
+Source: "{#PayloadDir}\plugins\serviceexplorer\lang\italian.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
 Source: "{#PayloadDir}\plugins\serviceexplorer\lang\french.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
 Source: "{#PayloadDir}\plugins\serviceexplorer\lang\german.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
 Source: "{#PayloadDir}\plugins\serviceexplorer\lang\hungarian.slg"; DestDir: "{app}\plugins\serviceexplorer\lang"; Flags: ignoreversion; Check: IsPluginSelected('serviceexplorer')
@@ -886,6 +932,7 @@ Source: "{#PayloadDir}\plugins\serviceexplorer\serviceexplorer.spl"; DestDir: "{
 Source: "{#PayloadDir}\plugins\splitcbn\lang\czech.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion; Check: IsPluginSelected('splitcbn')
 Source: "{#PayloadDir}\plugins\splitcbn\lang\dutch.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion; Check: IsPluginSelected('splitcbn')
 Source: "{#PayloadDir}\plugins\splitcbn\lang\english.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion; Check: IsPluginSelected('splitcbn')
+Source: "{#PayloadDir}\plugins\splitcbn\lang\italian.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion; Check: IsPluginSelected('splitcbn')
 Source: "{#PayloadDir}\plugins\splitcbn\lang\french.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion; Check: IsPluginSelected('splitcbn')
 Source: "{#PayloadDir}\plugins\splitcbn\lang\german.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion; Check: IsPluginSelected('splitcbn')
 Source: "{#PayloadDir}\plugins\splitcbn\lang\hungarian.slg"; DestDir: "{app}\plugins\splitcbn\lang"; Flags: ignoreversion; Check: IsPluginSelected('splitcbn')
@@ -898,6 +945,7 @@ Source: "{#PayloadDir}\plugins\splitcbn\splitcbn.spl"; DestDir: "{app}\plugins\s
 Source: "{#PayloadDir}\plugins\tar\lang\czech.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion; Check: IsPluginSelected('tar')
 Source: "{#PayloadDir}\plugins\tar\lang\dutch.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion; Check: IsPluginSelected('tar')
 Source: "{#PayloadDir}\plugins\tar\lang\english.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion; Check: IsPluginSelected('tar')
+Source: "{#PayloadDir}\plugins\tar\lang\italian.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion; Check: IsPluginSelected('tar')
 Source: "{#PayloadDir}\plugins\tar\lang\french.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion; Check: IsPluginSelected('tar')
 Source: "{#PayloadDir}\plugins\tar\lang\german.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion; Check: IsPluginSelected('tar')
 Source: "{#PayloadDir}\plugins\tar\lang\hungarian.slg"; DestDir: "{app}\plugins\tar\lang"; Flags: ignoreversion; Check: IsPluginSelected('tar')
@@ -911,6 +959,7 @@ Source: "{#PayloadDir}\plugins\textviewer\DEPENDENCIES.md"; DestDir: "{app}\plug
 Source: "{#PayloadDir}\plugins\textviewer\lang\czech.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
 Source: "{#PayloadDir}\plugins\textviewer\lang\dutch.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
 Source: "{#PayloadDir}\plugins\textviewer\lang\english.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
+Source: "{#PayloadDir}\plugins\textviewer\lang\italian.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
 Source: "{#PayloadDir}\plugins\textviewer\lang\french.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
 Source: "{#PayloadDir}\plugins\textviewer\lang\german.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
 Source: "{#PayloadDir}\plugins\textviewer\lang\hungarian.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
@@ -920,11 +969,11 @@ Source: "{#PayloadDir}\plugins\textviewer\lang\russian.slg"; DestDir: "{app}\plu
 Source: "{#PayloadDir}\plugins\textviewer\lang\slovak.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
 Source: "{#PayloadDir}\plugins\textviewer\lang\spanish.slg"; DestDir: "{app}\plugins\textviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
 Source: "{#PayloadDir}\plugins\textviewer\SUPPORTED_FILE_TYPES.md"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
-Source: "{#PayloadDir}\plugins\textviewer\prism\*"; DestDir: "{app}\plugins\textviewer\prism"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('textviewer')
 Source: "{#PayloadDir}\plugins\textviewer\textviewer.spl"; DestDir: "{app}\plugins\textviewer"; Flags: ignoreversion; Check: IsPluginSelected('textviewer')
 Source: "{#PayloadDir}\plugins\unarj\lang\czech.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
 Source: "{#PayloadDir}\plugins\unarj\lang\dutch.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
 Source: "{#PayloadDir}\plugins\unarj\lang\english.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
+Source: "{#PayloadDir}\plugins\unarj\lang\italian.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
 Source: "{#PayloadDir}\plugins\unarj\lang\french.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
 Source: "{#PayloadDir}\plugins\unarj\lang\german.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
 Source: "{#PayloadDir}\plugins\unarj\lang\hungarian.slg"; DestDir: "{app}\plugins\unarj\lang"; Flags: ignoreversion; Check: IsPluginSelected('unarj')
@@ -937,6 +986,7 @@ Source: "{#PayloadDir}\plugins\unarj\unarj.spl"; DestDir: "{app}\plugins\unarj";
 Source: "{#PayloadDir}\plugins\uncab\lang\czech.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion; Check: IsPluginSelected('uncab')
 Source: "{#PayloadDir}\plugins\uncab\lang\dutch.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion; Check: IsPluginSelected('uncab')
 Source: "{#PayloadDir}\plugins\uncab\lang\english.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion; Check: IsPluginSelected('uncab')
+Source: "{#PayloadDir}\plugins\uncab\lang\italian.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion; Check: IsPluginSelected('uncab')
 Source: "{#PayloadDir}\plugins\uncab\lang\french.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion; Check: IsPluginSelected('uncab')
 Source: "{#PayloadDir}\plugins\uncab\lang\german.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion; Check: IsPluginSelected('uncab')
 Source: "{#PayloadDir}\plugins\uncab\lang\hungarian.slg"; DestDir: "{app}\plugins\uncab\lang"; Flags: ignoreversion; Check: IsPluginSelected('uncab')
@@ -949,6 +999,7 @@ Source: "{#PayloadDir}\plugins\uncab\uncab.spl"; DestDir: "{app}\plugins\uncab";
 Source: "{#PayloadDir}\plugins\undelete\lang\czech.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion; Check: IsPluginSelected('undelete')
 Source: "{#PayloadDir}\plugins\undelete\lang\dutch.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion; Check: IsPluginSelected('undelete')
 Source: "{#PayloadDir}\plugins\undelete\lang\english.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion; Check: IsPluginSelected('undelete')
+Source: "{#PayloadDir}\plugins\undelete\lang\italian.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion; Check: IsPluginSelected('undelete')
 Source: "{#PayloadDir}\plugins\undelete\lang\french.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion; Check: IsPluginSelected('undelete')
 Source: "{#PayloadDir}\plugins\undelete\lang\german.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion; Check: IsPluginSelected('undelete')
 Source: "{#PayloadDir}\plugins\undelete\lang\hungarian.slg"; DestDir: "{app}\plugins\undelete\lang"; Flags: ignoreversion; Check: IsPluginSelected('undelete')
@@ -961,6 +1012,7 @@ Source: "{#PayloadDir}\plugins\undelete\undelete.spl"; DestDir: "{app}\plugins\u
 Source: "{#PayloadDir}\plugins\unfat\lang\czech.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion; Check: IsPluginSelected('unfat')
 Source: "{#PayloadDir}\plugins\unfat\lang\dutch.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion; Check: IsPluginSelected('unfat')
 Source: "{#PayloadDir}\plugins\unfat\lang\english.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion; Check: IsPluginSelected('unfat')
+Source: "{#PayloadDir}\plugins\unfat\lang\italian.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion; Check: IsPluginSelected('unfat')
 Source: "{#PayloadDir}\plugins\unfat\lang\french.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion; Check: IsPluginSelected('unfat')
 Source: "{#PayloadDir}\plugins\unfat\lang\german.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion; Check: IsPluginSelected('unfat')
 Source: "{#PayloadDir}\plugins\unfat\lang\hungarian.slg"; DestDir: "{app}\plugins\unfat\lang"; Flags: ignoreversion; Check: IsPluginSelected('unfat')
@@ -974,6 +1026,7 @@ Source: "{#PayloadDir}\plugins\unchm\chmlib.dll"; DestDir: "{app}\plugins\unchm"
 Source: "{#PayloadDir}\plugins\unchm\lang\czech.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion; Check: IsPluginSelected('unchm')
 Source: "{#PayloadDir}\plugins\unchm\lang\dutch.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion; Check: IsPluginSelected('unchm')
 Source: "{#PayloadDir}\plugins\unchm\lang\english.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion; Check: IsPluginSelected('unchm')
+Source: "{#PayloadDir}\plugins\unchm\lang\italian.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion; Check: IsPluginSelected('unchm')
 Source: "{#PayloadDir}\plugins\unchm\lang\french.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion; Check: IsPluginSelected('unchm')
 Source: "{#PayloadDir}\plugins\unchm\lang\german.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion; Check: IsPluginSelected('unchm')
 Source: "{#PayloadDir}\plugins\unchm\lang\hungarian.slg"; DestDir: "{app}\plugins\unchm\lang"; Flags: ignoreversion; Check: IsPluginSelected('unchm')
@@ -986,6 +1039,7 @@ Source: "{#PayloadDir}\plugins\unchm\unchm.spl"; DestDir: "{app}\plugins\unchm";
 Source: "{#PayloadDir}\plugins\uniso\lang\czech.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion; Check: IsPluginSelected('uniso')
 Source: "{#PayloadDir}\plugins\uniso\lang\dutch.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion; Check: IsPluginSelected('uniso')
 Source: "{#PayloadDir}\plugins\uniso\lang\english.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion; Check: IsPluginSelected('uniso')
+Source: "{#PayloadDir}\plugins\uniso\lang\italian.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion; Check: IsPluginSelected('uniso')
 Source: "{#PayloadDir}\plugins\uniso\lang\french.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion; Check: IsPluginSelected('uniso')
 Source: "{#PayloadDir}\plugins\uniso\lang\german.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion; Check: IsPluginSelected('uniso')
 Source: "{#PayloadDir}\plugins\uniso\lang\hungarian.slg"; DestDir: "{app}\plugins\uniso\lang"; Flags: ignoreversion; Check: IsPluginSelected('uniso')
@@ -998,6 +1052,7 @@ Source: "{#PayloadDir}\plugins\uniso\uniso.spl"; DestDir: "{app}\plugins\uniso";
 Source: "{#PayloadDir}\plugins\unlha\lang\czech.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion; Check: IsPluginSelected('unlha')
 Source: "{#PayloadDir}\plugins\unlha\lang\dutch.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion; Check: IsPluginSelected('unlha')
 Source: "{#PayloadDir}\plugins\unlha\lang\english.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion; Check: IsPluginSelected('unlha')
+Source: "{#PayloadDir}\plugins\unlha\lang\italian.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion; Check: IsPluginSelected('unlha')
 Source: "{#PayloadDir}\plugins\unlha\lang\french.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion; Check: IsPluginSelected('unlha')
 Source: "{#PayloadDir}\plugins\unlha\lang\german.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion; Check: IsPluginSelected('unlha')
 Source: "{#PayloadDir}\plugins\unlha\lang\hungarian.slg"; DestDir: "{app}\plugins\unlha\lang"; Flags: ignoreversion; Check: IsPluginSelected('unlha')
@@ -1010,6 +1065,7 @@ Source: "{#PayloadDir}\plugins\unlha\unlha.spl"; DestDir: "{app}\plugins\unlha";
 Source: "{#PayloadDir}\plugins\unmime\lang\czech.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion; Check: IsPluginSelected('unmime')
 Source: "{#PayloadDir}\plugins\unmime\lang\dutch.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion; Check: IsPluginSelected('unmime')
 Source: "{#PayloadDir}\plugins\unmime\lang\english.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion; Check: IsPluginSelected('unmime')
+Source: "{#PayloadDir}\plugins\unmime\lang\italian.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion; Check: IsPluginSelected('unmime')
 Source: "{#PayloadDir}\plugins\unmime\lang\french.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion; Check: IsPluginSelected('unmime')
 Source: "{#PayloadDir}\plugins\unmime\lang\german.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion; Check: IsPluginSelected('unmime')
 Source: "{#PayloadDir}\plugins\unmime\lang\hungarian.slg"; DestDir: "{app}\plugins\unmime\lang"; Flags: ignoreversion; Check: IsPluginSelected('unmime')
@@ -1022,6 +1078,7 @@ Source: "{#PayloadDir}\plugins\unmime\unmime.spl"; DestDir: "{app}\plugins\unmim
 Source: "{#PayloadDir}\plugins\unole\lang\czech.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion; Check: IsPluginSelected('unole')
 Source: "{#PayloadDir}\plugins\unole\lang\dutch.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion; Check: IsPluginSelected('unole')
 Source: "{#PayloadDir}\plugins\unole\lang\english.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion; Check: IsPluginSelected('unole')
+Source: "{#PayloadDir}\plugins\unole\lang\italian.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion; Check: IsPluginSelected('unole')
 Source: "{#PayloadDir}\plugins\unole\lang\french.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion; Check: IsPluginSelected('unole')
 Source: "{#PayloadDir}\plugins\unole\lang\german.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion; Check: IsPluginSelected('unole')
 Source: "{#PayloadDir}\plugins\unole\lang\hungarian.slg"; DestDir: "{app}\plugins\unole\lang"; Flags: ignoreversion; Check: IsPluginSelected('unole')
@@ -1034,6 +1091,7 @@ Source: "{#PayloadDir}\plugins\unole\unole.spl"; DestDir: "{app}\plugins\unole";
 Source: "{#PayloadDir}\plugins\unrar\lang\czech.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion; Check: IsPluginSelected('unrar')
 Source: "{#PayloadDir}\plugins\unrar\lang\dutch.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion; Check: IsPluginSelected('unrar')
 Source: "{#PayloadDir}\plugins\unrar\lang\english.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion; Check: IsPluginSelected('unrar')
+Source: "{#PayloadDir}\plugins\unrar\lang\italian.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion; Check: IsPluginSelected('unrar')
 Source: "{#PayloadDir}\plugins\unrar\lang\french.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion; Check: IsPluginSelected('unrar')
 Source: "{#PayloadDir}\plugins\unrar\lang\german.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion; Check: IsPluginSelected('unrar')
 Source: "{#PayloadDir}\plugins\unrar\lang\hungarian.slg"; DestDir: "{app}\plugins\unrar\lang"; Flags: ignoreversion; Check: IsPluginSelected('unrar')
@@ -1048,6 +1106,7 @@ Source: "{#PayloadDir}\plugins\webview2renderviewer\DEPENDENCIES.md"; DestDir: "
 Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\czech.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
 Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\dutch.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
 Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\english.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
+Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\italian.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
 Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\french.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
 Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\german.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
 Source: "{#PayloadDir}\plugins\webview2renderviewer\lang\hungarian.slg"; DestDir: "{app}\plugins\webview2renderviewer\lang"; Flags: ignoreversion; Check: IsPluginSelected('webview2renderviewer')
@@ -1061,6 +1120,7 @@ Source: "{#PayloadDir}\plugins\webview2renderviewer\webview2renderviewer.spl"; D
 Source: "{#PayloadDir}\plugins\wmobile\lang\czech.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion; Check: IsPluginSelected('wmobile')
 Source: "{#PayloadDir}\plugins\wmobile\lang\dutch.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion; Check: IsPluginSelected('wmobile')
 Source: "{#PayloadDir}\plugins\wmobile\lang\english.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion; Check: IsPluginSelected('wmobile')
+Source: "{#PayloadDir}\plugins\wmobile\lang\italian.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion; Check: IsPluginSelected('wmobile')
 Source: "{#PayloadDir}\plugins\wmobile\lang\french.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion; Check: IsPluginSelected('wmobile')
 Source: "{#PayloadDir}\plugins\wmobile\lang\german.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion; Check: IsPluginSelected('wmobile')
 Source: "{#PayloadDir}\plugins\wmobile\lang\hungarian.slg"; DestDir: "{app}\plugins\wmobile\lang"; Flags: ignoreversion; Check: IsPluginSelected('wmobile')
@@ -1073,6 +1133,7 @@ Source: "{#PayloadDir}\plugins\wmobile\wmobile.spl"; DestDir: "{app}\plugins\wmo
 Source: "{#PayloadDir}\plugins\zip\lang\czech.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('zip')
 Source: "{#PayloadDir}\plugins\zip\lang\dutch.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('zip')
 Source: "{#PayloadDir}\plugins\zip\lang\english.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\lang\italian.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('zip')
 Source: "{#PayloadDir}\plugins\zip\lang\french.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('zip')
 Source: "{#PayloadDir}\plugins\zip\lang\german.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('zip')
 Source: "{#PayloadDir}\plugins\zip\lang\hungarian.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('zip')
@@ -1082,6 +1143,21 @@ Source: "{#PayloadDir}\plugins\zip\lang\russian.slg"; DestDir: "{app}\plugins\zi
 Source: "{#PayloadDir}\plugins\zip\lang\slovak.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('zip')
 Source: "{#PayloadDir}\plugins\zip\lang\spanish.slg"; DestDir: "{app}\plugins\zip\lang"; Flags: ignoreversion; Check: IsPluginSelected('zip')
 Source: "{#PayloadDir}\plugins\zip\zip.spl"; DestDir: "{app}\plugins\zip"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\sfx\chinesesimplified.sfx"; DestDir: "{app}\plugins\zip\sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\sfx\czech.sfx"; DestDir: "{app}\plugins\zip\sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\sfx\dutch.sfx"; DestDir: "{app}\plugins\zip\sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\sfx\english.sfx"; DestDir: "{app}\plugins\zip\sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\sfx\french.sfx"; DestDir: "{app}\plugins\zip\sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\sfx\german.sfx"; DestDir: "{app}\plugins\zip\sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\sfx\hungarian.sfx"; DestDir: "{app}\plugins\zip\sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\sfx\italian.sfx"; DestDir: "{app}\plugins\zip\sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\sfx\romanian.sfx"; DestDir: "{app}\plugins\zip\sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\sfx\russian.sfx"; DestDir: "{app}\plugins\zip\sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\sfx\slovak.sfx"; DestDir: "{app}\plugins\zip\sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\sfx\spanish.sfx"; DestDir: "{app}\plugins\zip\sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\zip2sfx\license.txt"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\zip2sfx\license_cz.txt"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
+Source: "{#PayloadDir}\plugins\zip\zip2sfx\readme.cz"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
 Source: "{#PayloadDir}\plugins\zip\zip2sfx\readme.txt"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
 Source: "{#PayloadDir}\plugins\zip\zip2sfx\sam_cz.set"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
 Source: "{#PayloadDir}\plugins\zip\zip2sfx\sample.set"; DestDir: "{app}\plugins\zip\zip2sfx"; Flags: ignoreversion; Check: IsPluginSelected('zip')
@@ -1100,6 +1176,7 @@ Source: "{#PayloadDir}\plugins\salamatrixailocalllama\salamatrixailocalllama.spl
 Source: "{#PayloadDir}\plugins\salamatrixailocalllama\runtime\install_llama.ps1"; DestDir: "{app}\plugins\salamatrixailocalllama\runtime"; Flags: ignoreversion; Check: IsPluginSelected('salamatrixailocalllama')
 Source: "{#PayloadDir}\plugins\demoplug\demoplug.spl"; DestDir: "{app}\plugins\demoplug"; Flags: ignoreversion; Check: IsPluginSelected('demoplug')
 Source: "{#PayloadDir}\plugins\demoplug\lang\english.slg"; DestDir: "{app}\plugins\demoplug\lang"; Flags: ignoreversion; Check: IsPluginSelected('demoplug')
+Source: "{#PayloadDir}\plugins\demoplug\lang\italian.slg"; DestDir: "{app}\plugins\demoplug\lang"; Flags: ignoreversion; Check: IsPluginSelected('demoplug')
 Source: "{#PayloadDir}\extensions\demos\*"; DestDir: "{app}\extensions\demos"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('salamatrixdemos')
 Source: "{#PayloadDir}\extensions\extension-menu-builder\*"; DestDir: "{app}\extensions\extension-menu-builder"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('extensionmenubuilder')
 Source: "{#PayloadDir}\extensions\git-worktree-navigator\*"; DestDir: "{app}\extensions\git-worktree-navigator"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('gitworktreenavigator')
@@ -1490,7 +1567,8 @@ procedure InitializePluginDependencies;
 begin
   SetArrayLength(PluginDependencies, 0);
 
-  { Runtime providers and Salamatrix AI use the Salamatrix Framework. }
+  { Text Viewer, runtime providers, and Salamatrix AI use the Salamatrix Framework. }
+  AddPluginDependency('textviewer', 'salamatrix');
   AddPluginDependency('javascriptruntime', 'salamatrix');
   AddPluginDependency('luaruntime', 'salamatrix');
   AddPluginDependency('phpruntime', 'salamatrix');

@@ -1,0 +1,38 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\peviewer\peviewer.atp"
+TEXTVERSION,"3.1 (x64)"
+VERSION,"3,1,0,196"
+
+[TRANSLATION]
+LANGID,1040
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[DIALOG 8501]
+346,154,1,"Configurazione Visualizzatore PE"
+1300,7,7,64,8,1,"Sezioni dis&ponibili:"
+8700,7,17,105,130,1,""
+8702,119,17,50,14,1,"&Aggiungi ->"
+8703,119,35,50,14,1,"<- &Rimuovi"
+1301,176,7,58,8,1,"Sezioni &visibili:"
+8701,176,17,105,130,1,""
+8704,289,17,50,14,1,"Sposta &su"
+8705,289,35,50,14,1,"Sposta &giù"
+1,289,97,50,14,1,"OK"
+2,289,115,50,14,1,"Annulla"
+8706,289,133,50,14,1,"Re&imposta"
+
+[STRINGTABLE 0]
+1016,1,"Informazioni sul plugin"
+
+[STRINGTABLE 1]
+10100,1,"Visualizzatore di eseguibili portabili"
+10101,1,"Impossibile aprire il file %s."
+10102,1,"Creazione del file temporaneo non riuscita."
+10103,1,"Si è verificata un'eccezione.\n\nFile visualizzato: %s\n\nSe pensi che il file visualizzato non sia danneggiato, invia questo file a support@altap.cz.\nRiprodurremo e correggeremo il bug del visualizzatore. Grazie per la collaborazione!"
+10104,1,"Visualizza informazioni sui file Portable Executable come EXE, DLL, ecc."
+
+[STRINGTABLE 2]
+10118,1,"Nella configurazione del plugin non è stata trovata alcuna sezione Portable Executable selezionata.\nUsa il menu Opzioni > Configurazione plugin > Portable Executable Viewer\nin nella finestra principale di Open Salamander per impostare le sezioni visibili."
+

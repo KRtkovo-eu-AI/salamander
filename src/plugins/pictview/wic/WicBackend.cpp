@@ -5678,6 +5678,109 @@ Backend& Backend::Instance()
     return instance;
 }
 
+bool Backend::GetDecoderMasks(std::vector<std::string>& masks) const
+{
+    masks.clear();
+    if (!m_factory)
+    {
+        return false;
+    }
+
+    ComPtr<IEnumUnknown> enumerator;
+    HRESULT hr = m_factory->CreateComponentEnumerator(WICDecoder, WICComponentEnumerateDefault,
+                                                       enumerator.GetAddressOf());
+    if (FAILED(hr) || !enumerator)
+    {
+        return false;
+    }
+
+    for (;;)
+    {
+        ComPtr<IUnknown> component;
+        ULONG fetched = 0;
+        hr = enumerator->Next(1, component.GetAddressOf(), &fetched);
+        if (hr != S_OK || fetched != 1)
+        {
+            break;
+        }
+
+        ComPtr<IWICBitmapDecoderInfo> decoder;
+        if (FAILED(component.As(&decoder)) || !decoder)
+        {
+            continue;
+        }
+
+        UINT characters = 0;
+        if (FAILED(decoder->GetFileExtensions(0, nullptr, &characters)) || characters == 0)
+        {
+            continue;
+        }
+
+        std::vector<WCHAR> extensions(characters);
+        if (FAILED(decoder->GetFileExtensions(characters, extensions.data(), &characters)))
+        {
+            continue;
+        }
+
+        const std::wstring list(extensions.data());
+        size_t begin = 0;
+        while (begin < list.size())
+        {
+            size_t end = list.find_first_of(L";,", begin);
+            if (end == std::wstring::npos)
+            {
+                end = list.size();
+            }
+
+            size_t first = begin;
+            while (first < end && (list[first] == L' ' || list[first] == L'\t'))
+            {
+                ++first;
+            }
+            size_t last = end;
+            while (last > first && (list[last - 1] == L' ' || list[last - 1] == L'\t'))
+            {
+                --last;
+            }
+
+            const size_t dot = list.find(L'.', first);
+            if (dot != std::wstring::npos && dot + 1 < last)
+            {
+                std::string extension;
+                bool valid = true;
+                for (size_t i = dot + 1; i < last; ++i)
+                {
+                    const WCHAR character = list[i];
+                    if ((character >= L'a' && character <= L'z') ||
+                        (character >= L'A' && character <= L'Z') ||
+                        (character >= L'0' && character <= L'9') ||
+                        character == L'.' || character == L'_' || character == L'-')
+                    {
+                        extension.push_back(static_cast<char>(character >= L'A' && character <= L'Z'
+                                                                  ? character - L'A' + L'a'
+                                                                  : character));
+                    }
+                    else
+                    {
+                        valid = false;
+                        break;
+                    }
+                }
+                if (valid && !extension.empty())
+                {
+                    masks.emplace_back("*." + extension);
+                }
+            }
+
+            begin = end + 1;
+        }
+    }
+
+    std::sort(masks.begin(), masks.end());
+    masks.erase(std::unique(masks.begin(), masks.end()), masks.end());
+    return !masks.empty();
+}
+
 bool Backend::Populate(CPVW32DLL& table)
 {
     if (!m_factory)

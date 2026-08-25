@@ -1079,8 +1079,10 @@ const char* CONFIG_DIALOGFONT_REG = "Dialog Font";
 const char* CONFIG_DIALOGFONTPOINTSIZE_REG = "Dialog Font Point Size";
 const char* CONFIG_USECUSTOMMENUFONT_REG = "Use Custom Menu Font";
 const char* CONFIG_MENUFONT_REG = "Menu Font";
+const char* CONFIG_USEPANELFONTFORMENU_REG = "Use Panel Font For Menu";
 const char* CONFIG_USECUSTOMPANELCONTEXTMENUFONT_REG = "Use Custom Panel Context Menu Font";
 const char* CONFIG_PANELCONTEXTMENUFONT_REG = "Panel Context Menu Font";
+const char* CONFIG_USEPANELFONTFORPANELCONTEXTMENU_REG = "Use Panel Font For Panel Context Menu";
 const char* CONFIG_NAMEDHISTORY_REG = "Named History";
 const char* CONFIG_LOOKINHISTORY_REG = "Look In History";
 const char* CONFIG_GREPHISTORY_REG = "Grep History";
@@ -2331,7 +2333,11 @@ void CMainWindow::DeleteOldConfigurations(BOOL* deleteConfigurations, BOOL autoI
     {
         // remove old configurations
         HCURSOR hOldCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
-        CWaitWindow analysing(HWindow, IDS_DELETINGCONFIGURATION, FALSE, ooStatic);
+        CWaitWindow analysing(HWindow,
+                              ConfigurationStorage.GetStorageType() == cstRegFile
+                                  ? IDS_DELETINGCONFIGURATION_FILE_STORAGE
+                                  : IDS_DELETINGCONFIGURATION,
+                              FALSE, ooStatic);
         analysing.Create();
         EnableWindow(HWindow, FALSE);
         LoadSaveToRegistryMutex.Enter();
@@ -2783,7 +2789,11 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
     HCURSOR hOldCursor = NULL;
     if (GlobalSaveWaitWindow == NULL)
         hOldCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
-    CWaitWindow analysing(parent, IDS_SAVINGCONFIGURATION, FALSE, ooStatic, TRUE);
+    CWaitWindow analysing(parent,
+                          ConfigurationStorage.GetStorageType() == cstRegFile
+                              ? IDS_SAVINGCONFIGURATION_FILE_STORAGE
+                              : IDS_SAVINGCONFIGURATION,
+                          FALSE, ooStatic, TRUE);
     int savingProgress = 0;
     HWND oldPluginMsgBoxParent = PluginMsgBoxParent;
     if (GlobalSaveWaitWindow == NULL)
@@ -3603,9 +3613,12 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                 SetValue(actKey, CONFIG_DIALOGFONTPOINTSIZE_REG, REG_DWORD, &DialogFontPointSize, sizeof(DWORD));
                 SetValue(actKey, CONFIG_USECUSTOMMENUFONT_REG, REG_DWORD, &UseCustomMenuFont, sizeof(DWORD));
                 SaveLogFont(actKey, CONFIG_MENUFONT_REG, &MenuLogFont);
+                SetValue(actKey, CONFIG_USEPANELFONTFORMENU_REG, REG_DWORD, &UsePanelFontForMenu, sizeof(DWORD));
                 SetValue(actKey, CONFIG_USECUSTOMPANELCONTEXTMENUFONT_REG, REG_DWORD,
                          &UseCustomPanelContextMenuFont, sizeof(DWORD));
                 SaveLogFont(actKey, CONFIG_PANELCONTEXTMENUFONT_REG, &PanelContextMenuLogFont);
+                SetValue(actKey, CONFIG_USEPANELFONTFORPANELCONTEXTMENU_REG, REG_DWORD,
+                         &UsePanelFontForPanelContextMenu, sizeof(DWORD));
 
                 if (GlobalSaveWaitWindow == NULL)
                     analysing.SetProgressPos(++savingProgress); // 4
@@ -4369,7 +4382,9 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         HKEY actKey;
         BOOL ret = TRUE;
 
-        IfExistSetSplashScreenText(LoadStr(IDS_STARTUP_CONFIG));
+        IfExistSetSplashScreenText(LoadStr(ConfigurationStorage.GetStorageType() == cstRegFile
+                                               ? IDS_STARTUP_CONFIG_FILE_STORAGE
+                                               : IDS_STARTUP_CONFIG));
 
         Configuration.ConfigVersion = 1; // this configuration is from version 1.52 or older
                                          //--- version
@@ -4964,7 +4979,9 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
 
         //---  user menu
 
-        IfExistSetSplashScreenText(LoadStr(IDS_STARTUP_USERMENU));
+        IfExistSetSplashScreenText(LoadStr(ConfigurationStorage.GetStorageType() == cstRegFile
+                                               ? IDS_STARTUP_USERMENU_FILE_STORAGE
+                                               : IDS_STARTUP_USERMENU));
 
         if (OpenKey(salamander, SALAMANDER_USERMENU_REG, actKey))
         {
@@ -5126,7 +5143,9 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             CloseKey(actKey);
         }
 
-        IfExistSetSplashScreenText(LoadStr(IDS_STARTUP_CONFIG));
+        IfExistSetSplashScreenText(LoadStr(ConfigurationStorage.GetStorageType() == cstRegFile
+                                               ? IDS_STARTUP_CONFIG_FILE_STORAGE
+                                               : IDS_STARTUP_CONFIG));
 
         //---  configuration
 
@@ -5868,14 +5887,18 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             GetValue(actKey, CONFIG_DIALOGFONTPOINTSIZE_REG, REG_DWORD, &DialogFontPointSize, sizeof(DWORD));
             GetValue(actKey, CONFIG_USECUSTOMMENUFONT_REG, REG_DWORD, &UseCustomMenuFont, sizeof(DWORD));
             LoadLogFont(actKey, CONFIG_MENUFONT_REG, &MenuLogFont);
+            GetValue(actKey, CONFIG_USEPANELFONTFORMENU_REG, REG_DWORD, &UsePanelFontForMenu, sizeof(DWORD));
             GetValue(actKey, CONFIG_USECUSTOMPANELCONTEXTMENUFONT_REG, REG_DWORD,
                      &UseCustomPanelContextMenuFont, sizeof(DWORD));
             LoadLogFont(actKey, CONFIG_PANELCONTEXTMENUFONT_REG, &PanelContextMenuLogFont);
+            GetValue(actKey, CONFIG_USEPANELFONTFORPANELCONTEXTMENU_REG, REG_DWORD,
+                     &UsePanelFontForPanelContextMenu, sizeof(DWORD));
             if (DialogFontMode < DIALOG_FONT_DEFAULT || DialogFontMode > DIALOG_FONT_CUSTOM)
                 DialogFontMode = DIALOG_FONT_DEFAULT;
             DialogFontPointSize = max(6, min(24, DialogFontPointSize));
             if (DialogFontMode != DIALOG_FONT_DEFAULT || UseCustomMenuFont ||
-                UseCustomPanelContextMenuFont)
+                UsePanelFontForMenu || UseCustomPanelContextMenuFont ||
+                UsePanelFontForPanelContextMenu)
             {
                 SetFont();
                 SetEnvFont();

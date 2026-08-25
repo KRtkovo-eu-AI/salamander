@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\textviewer\textviewer.atp"
-TEXTVERSION,"1.03 (x64)"
-VERSION,"1,0,3,195"
+TEXTVERSION,"1.0.4 (x64)"
+VERSION,"1,0,4,196"
 
 [TRANSLATION]
 LANGID,1031
@@ -10,12 +10,56 @@ WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
-46,1,"PrismSharp Text Viewer .NET"
+46,1,"Prism-Textbetrachter"
 47,1,"Über das Plugin"
 
 [STRINGTABLE 1]
-48,1,"Interner Viewer, der Textdateien mit verwalteter Syntaxhervorhebung rendert."
+48,1,"Nativer Betrachter, der Textdateien mit Prism.js-Syntaxhervorhebung darstellt."
 49,1,"https://samandarin.net/"
 50,1,"Konnte das für den Viewer erforderliche Synchronisierungsereignis nicht vorbereiten."
-51,1,"Die ausgewählte Datei ist zu groß, um sie zu öffnen. Dateien größer als 16 MB werden nicht unterstützt."
+52,1,"&Datei"
+53,1,"&Ansicht"
+54,1,"&Schließen\tEsc"
+55,1,"&Aktualisieren\tF5"
+56,1,"Vergrößern &In\tCtrl++"
+57,1,"Verkleinern &Out\tCtrl+-"
+58,1,"&Zurücksetzen\tCtrl+0"
+59,1,"Wird geladen..."
+60,1,"Bereit"
+61,1,"WebView2-Renderer konnte nicht initialisiert werden."
+62,1,"Die ausgewählte Datei konnte nicht geöffnet werden."
+63,1,"&Zeilennummern anzeigen"
+
+[STRINGTABLE 2]
+64,1,"&Zeilen umbrechen\tF2"
+65,1,"Leerzeichen &anzeigen"
+66,1,"Syntax&Highlighter"
+67,1,"&Automatisch"
+68,1,"&Farben"
+69,1,"&Visual Studio"
+70,1,"Standard-&Prism"
+71,1,"&Benutzerdefiniert"
+
+[STRINGTABLE 3]
+72,1,"&Benutzerdefiniert bearbeiten"
+73,1,"Benutzerdefinierte Palette"
+74,1,"&Speichern"
+75,1,"Abbrechen"
+76,1,"Hell"
+77,1,"Dunkel"
+78,1,"Kommentar"
+79,1,"Interpunktion"
+80,1,"Schlüsselwort"
+81,1,"Steuerwort"
+82,1,"Klassenname"
+83,1,"Funktion"
+84,1,"Zeichenfolge"
+85,1,"Zahl"
+86,1,"Boolean"
+87,1,"Variable"
+88,1,"Namespace"
+89,1,"Regulärer Ausdruck"
+90,1,"Die benutzerdefinierte Farbpalette konnte nicht gespeichert werden."
+91,1,"Salamatrix.UI ist nicht verfügbar."
+
 

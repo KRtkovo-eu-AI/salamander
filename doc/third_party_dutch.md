@@ -48,13 +48,9 @@ aan iedereen die hier wordt genoemd voor het beschikbaar stellen van hun werk.
 | libexif | PictView plug-in | Delen van de PictView plug-in gebruiken libexif. Copyright (C) 2001-2019 Curtis Galloway en Lutz Muller. |
 | Newtonsoft.Json 13.0.3 | JSON Viewer plug-in | Door James Newton-King, uitgegeven onder de MIT-licentie. |
 | Microsoft .NET Framework 4.8 | JSON Viewer plug-in | Verstrekt door Microsoft Corporation onder de licentievoorwaarden van het Microsoft .NET Framework. |
-| PrismSharp 1.0.0-beta | PrismSharp Text Viewer plug-in | Door Tomáš Kubec, uitgegeven onder de MIT-licentie. Bevat Prism.js door Lea Verou en de PrismJS-bijdragers onder de MIT-licentie. |
-| Microsoft.Web.WebView2 1.0.2420.47 | PrismSharp Text Viewer plug-in | Door Microsoft Corporation, gedistribueerd onder de BSD 3-Clause-licentie. |
-| Microsoft .NET Framework 4.8 | PrismSharp Text Viewer plug-in | Verstrekt door Microsoft Corporation onder de licentievoorwaarden van het Microsoft .NET Framework. |
-| Newtonsoft.Json 13.0.3 | PrismSharp Text Viewer plug-in | Door James Newton-King, uitgegeven onder de MIT-licentie. |
-| Markdig 0.36.2 | WebView2 Render Viewer plug-in | Door Alexandre Mutel en bijdragers, uitgegeven onder de BSD 2-Clause-licentie. |
-| Microsoft.Web.WebView2 1.0.2420.47 | WebView2 Render Viewer plug-in | Door Microsoft Corporation, gedistribueerd onder de BSD 3-Clause-licentie. |
-| Microsoft .NET Framework 4.8 | WebView2 Render Viewer plug-in | Verstrekt door Microsoft Corporation onder de licentievoorwaarden van het Microsoft .NET Framework. |
+| Prism.js 1.29.0 | Viewer Frame (Salamatrix en Prism Text Viewer) | Door Lea Verou en PrismJS-bijdragers, uitgegeven onder de MIT-licentie. |
+| Microsoft.Web.WebView2 1.0.2420.47 | Viewer Frame | Door Microsoft Corporation, gedistribueerd onder de BSD 3-Clause-licentie. |
+| Markdig 0.36.2 | MarkdigRenderer voor WebView2 Render Viewer | Door Alexandre Mutel en bijdragers, uitgegeven onder de BSD 2-Clause-licentie. |
 
 ## Netwerk-, synchronisatie- en apparaat plug-ins
 

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\spanish\textviewer\textviewer.atp"
-TEXTVERSION,"1.03 (x64)"
-VERSION,"1,0,3,195"
+TEXTVERSION,"1.0.4 (x64)"
+VERSION,"1,0,4,196"
 
 [TRANSLATION]
 LANGID,3082
@@ -10,12 +10,56 @@ WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
-46,1,"Visor de texto PrismSharp .NET"
+46,1,"Visor de texto Prism"
 47,1,"Acerca del complemento"
 
 [STRINGTABLE 1]
-48,1,"Visor interno que muestra archivos de texto con resaltado de sintaxis administrado."
+48,1,"Visor nativo que muestra archivos de texto con resaltado de sintaxis de Prism.js."
 49,1,"https://samandarin.net/"
 50,1,"No se pudo preparar el evento de sincronización requerido por el visor."
-51,1,"El archivo seleccionado es demasiado grande para abrirse. No se admiten archivos de más de 16 MB."
+52,1,"&Archivo"
+53,1,"&Ver"
+54,1,"&Cerrar\tEsc"
+55,1,"&Actualizar\tF5"
+56,1,"Zoom &In\tCtrl++"
+57,1,"Zoom &Out\tCtrl+-"
+58,1,"&Reiniciar\tCtrl+0"
+59,1,"Cargando..."
+60,1,"Listo"
+61,1,"No se pudo inicializar el motor de WebView2."
+62,1,"No se puede abrir el archivo seleccionado."
+63,1,"Mostrar &números de línea"
+
+[STRINGTABLE 2]
+64,1,"&Ajustar líneas\tF2"
+65,1,"Mostrar &espacios en blanco"
+66,1,"Resaltador de &sintaxis"
+67,1,"&Automático"
+68,1,"&Colores"
+69,1,"&Visual Studio"
+70,1,"&Prism predeterminado"
+71,1,"&Personalizado"
+
+[STRINGTABLE 3]
+72,1,"Editar &personalizado"
+73,1,"Editar personalizado"
+74,1,"&Guardar"
+75,1,"Cancelar"
+76,1,"Claro"
+77,1,"Oscuro"
+78,1,"Comentario"
+79,1,"Puntuación"
+80,1,"Palabra clave"
+81,1,"Palabra clave de control"
+82,1,"Nombre de clase"
+83,1,"Función"
+84,1,"Cadena"
+85,1,"Número"
+86,1,"Booleano"
+87,1,"Variable"
+88,1,"Espacio de nombres"
+89,1,"Expresión regular"
+90,1,"No se pudo guardar la paleta de colores personalizada."
+91,1,"Salamatrix.UI no está disponible."
+
 

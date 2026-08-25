@@ -1,0 +1,64 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\tar\tar.atp"
+TEXTVERSION,"3.34 (x64)"
+VERSION,"3,34,0,196"
+
+[TRANSLATION]
+LANGID,1040
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+11200,1,"Errore del plugin TAR"
+11201,1,"Formato dell'archivio non riconosciuto o non supportato."
+11202,1,"Dati non validi nell'intestazione TAR - archivio danneggiato."
+11203,1,"Checksum errato di file o intestazione - archivio danneggiato."
+11204,1,"Errore interno: struttura dei dati del file danneggiata."
+11205,1,"Firma del blocco sconosciuta - operazione in corso di salto."
+11206,1,"File richiesto non trovato nell'archivio."
+11207,1,"Errore di allocazione della memoria."
+
+[STRINGTABLE 1]
+11240,1,"Gli archivi LZH non sono ancora supportati."
+
+[STRINGTABLE 2]
+11250,1,"Estrai"
+11251,1,"Estrazione "
+11252,1,"Salto "
+11260,1,"Errore GZip"
+11261,1,"Metodo di compressione sconosciuto, impossibile estrarre."
+11262,1,"Questo file è crittografato. La crittografia non è supportata negli archivi GZip."
+11263,1,"Questo file fa parte di un archivio in più parti. Gli archivi GZip in più parti non sono supportati."
+
+[STRINGTABLE 3]
+11264,1,"Rilevate flag sconosciute nell'intestazione GZip, impossibile estrarre."
+11265,1,"Errore durante l'apertura del file di archivio: "
+11266,1,"Fine file imprevista rilevata."
+11267,1,"Errore durante la lettura del file di archivio: "
+11268,1,"Errore durante la scrittura del file di output: "
+11269,1,"La funzione WriteFile ha rifiutato di scrivere tutti i dati richiesti."
+11270,1,"Rilevato un blocco non valido nel flusso GZip, impossibile estrarre."
+11271,1,"Errore interno nel plugin TAR, comunicaci il problema all'indirizzo support@altap.cz."
+11272,1,"Errore di allocazione della memoria."
+11273,1,"Errore CRC."
+11274,1,"Dati inattesi nel flusso compresso, archivio danneggiato."
+11275,1,"Errore durante la ricerca nel file di archivio: "
+
+[STRINGTABLE 4]
+11280,1,"Visualizzatore RPM"
+11281,1,"Errore RPM"
+11282,1,"Errore nella creazione del nome del file temporaneo."
+11283,1,"Errore nella creazione del file temporaneo."
+11284,1,"Il file non è stato riconosciuto come archivio RPM."
+11285,1,"La versione di RPM richiesta da questo archivio non è supportata."
+11286,1,"Firma dell'archivio RPM sconosciuta rilevata."
+11291,1,"Il record del file ha una firma non valida."
+11292,1,"Record dell'intestazione del file danneggiato."
+11293,1,"Formato dell'intestazione cpio sconosciuto."
+
+[STRINGTABLE 5]
+11299,1,"TAR"
+11300,1,"Sfoglia ed estrai archivi Unix."
+11301,1,"Informazioni sul plugin"
+

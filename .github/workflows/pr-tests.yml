@@ -17,7 +17,7 @@ concurrency:
 jobs:
   test:
     name: Native and Python tests
-    runs-on: windows-2022
+    runs-on: windows-2025
     timeout-minutes: 30
 
     defaults:
@@ -64,6 +64,7 @@ jobs:
           python -m pytest `
             src/plugins/automation/tests/salamatrix_ai_local_tests.py `
             tools/code_metrics/tests `
+            tools/codeql/tests `
             tools/localization/tests `
             --junitxml=test-results/python.xml
 

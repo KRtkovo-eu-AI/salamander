@@ -2,7 +2,7 @@
 
 setlocal
 
-set MSB=C:\Program Files\Microsoft Visual Studio\2022\Community\Msbuild\Current\Bin\MSBuild.exe
+if "%MSB%"=="" set "MSB=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
 
 REM 
 REM Set the resulting package version to match the version
@@ -47,6 +47,7 @@ if %1==RUSSIAN_VERSION goto RUSSIAN
 if %1==CHINESESIMPL_VERSION goto CHINESESIMPL
 if %1==DUTCH_VERSION goto DUTCH
 if %1==FRENCH_VERSION goto FRENCH
+if %1==ITALIAN_VERSION goto ITALIAN
 
 goto INVALID_LANGUAGE2
 
@@ -122,6 +123,11 @@ goto END
 :FRENCH
 
 call :MAKE_SFX %1 windows-1252 french
+goto END
+
+:ITALIAN
+
+call :MAKE_SFX %1 windows-1252 italian
 goto END
 
 :INVALID_LANGUAGE1
