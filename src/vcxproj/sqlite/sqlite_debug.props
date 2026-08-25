@@ -10,7 +10,8 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <SmallerTypeCheck>true</SmallerTypeCheck>
+      <!-- /RTCc is rejected by the MSVC 14.50+ STL (STL1013). -->
+      <SmallerTypeCheck>false</SmallerTypeCheck>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>

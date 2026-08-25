@@ -103,9 +103,9 @@
       <AdditionalOptions>/MP %(AdditionalOptions)</AdditionalOptions>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>..\..\common;..\..\common\dep;..\..\third_party\darkmodelib\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_DEBUG;SAFE_ALLOC;__DEBUG_WINLIB;TRACE_ENABLE;HANDLES_ENABLE;MESSAGES_DEBUG;MULTITHREADED_TRACE_ENABLE;MULTITHREADED_MESSAGES_ENABLE;MULTITHREADED_HANDLES_ENABLE;_CRTDBG_MAP_ALLOC;_MT;WIN32;_WINDOWS;INSIDE_SALAMANDER;USE_DARKMODELIB=1;_DARKMODELIB_NO_INI_CONFIG;WINVER=0x0601;_WIN32_WINNT=0x0601;_WIN32_IE=0x0800;_ALLOW_RTCc_IN_STL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;SAFE_ALLOC;__DEBUG_WINLIB;TRACE_ENABLE;HANDLES_ENABLE;MESSAGES_DEBUG;MULTITHREADED_TRACE_ENABLE;MULTITHREADED_MESSAGES_ENABLE;MULTITHREADED_HANDLES_ENABLE;_CRTDBG_MAP_ALLOC;_MT;WIN32;_WINDOWS;INSIDE_SALAMANDER;USE_DARKMODELIB=1;_DARKMODELIB_NO_INI_CONFIG;WINVER=0x0601;_WIN32_WINNT=0x0601;_WIN32_IE=0x0800;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
-      <SmallerTypeCheck>true</SmallerTypeCheck>
+      <SmallerTypeCheck>false</SmallerTypeCheck>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>precomp.h</PrecompiledHeaderFile>

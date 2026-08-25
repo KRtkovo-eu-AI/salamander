@@ -102,8 +102,8 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>..\..\tserver;..\..\common;..\..\common\dep;..;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;SAFE_ALLOC;__TRACESERVER;TRACE_ENABLE;TRACE_TO_FILE;HANDLES_ENABLE;MULTITHREADED_TRACE_ENABLE;MULTITHREADED_MESSAGES_ENABLE;MULTITHREADED_HANDLES_ENABLE;MULTITHREADED_HEAP_ENABLE;MESSAGES_DEBUG;_CRTDBG_MAP_ALLOC;_ALLOW_RTCc_IN_STL;WINVER=0x0601;_WIN32_IE=0x0800;_WIN32_WINNT=0x0601;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <SmallerTypeCheck>true</SmallerTypeCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;SAFE_ALLOC;__TRACESERVER;TRACE_ENABLE;TRACE_TO_FILE;HANDLES_ENABLE;MULTITHREADED_TRACE_ENABLE;MULTITHREADED_MESSAGES_ENABLE;MULTITHREADED_HANDLES_ENABLE;MULTITHREADED_HEAP_ENABLE;MESSAGES_DEBUG;_CRTDBG_MAP_ALLOC;WINVER=0x0601;_WIN32_IE=0x0800;_WIN32_WINNT=0x0601;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SmallerTypeCheck>false</SmallerTypeCheck>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>precomp.h</PrecompiledHeaderFile>

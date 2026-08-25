@@ -8,10 +8,11 @@
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <PreprocessorDefinitions>_DEBUG;__DEBUG_WINLIB;TRACE_ENABLE;HANDLES_ENABLE;MESSAGES_DEBUG;MULTITHREADED_TRACE_ENABLE;MULTITHREADED_MESSAGES_ENABLE;MULTITHREADED_HANDLES_ENABLE;_CRTDBG_MAP_ALLOC;_ALLOW_RTCc_IN_STL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;__DEBUG_WINLIB;TRACE_ENABLE;HANDLES_ENABLE;MESSAGES_DEBUG;MULTITHREADED_TRACE_ENABLE;MULTITHREADED_MESSAGES_ENABLE;MULTITHREADED_HANDLES_ENABLE;_CRTDBG_MAP_ALLOC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <Optimization>Disabled</Optimization>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
-      <SmallerTypeCheck>true</SmallerTypeCheck>
+      <!-- /RTCc is rejected by the MSVC 14.50+ STL (STL1013). -->
+      <SmallerTypeCheck>false</SmallerTypeCheck>
     </ClCompile>
     <Link>
       <RandomizedBaseAddress Condition="'$(Platform)'!='ARM64'">false</RandomizedBaseAddress>

@@ -9,8 +9,9 @@
   <ItemDefinitionGroup>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>_DEBUG;TRACE_ENABLE;TRACE_IGNORE_AUTOCLEAR;HANDLES_ENABLE;MESSAGES_DEBUG;MULTITHREADED_TRACE_ENABLE;MULTITHREADED_MESSAGES_ENABLE;MULTITHREADED_HANDLES_ENABLE;_CRTDBG_MAP_ALLOC;_ALLOW_RTCc_IN_STL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <SmallerTypeCheck>true</SmallerTypeCheck>
+      <PreprocessorDefinitions>_DEBUG;TRACE_ENABLE;TRACE_IGNORE_AUTOCLEAR;HANDLES_ENABLE;MESSAGES_DEBUG;MULTITHREADED_TRACE_ENABLE;MULTITHREADED_MESSAGES_ENABLE;MULTITHREADED_HANDLES_ENABLE;_CRTDBG_MAP_ALLOC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <!-- /RTCc is rejected by the MSVC 14.50+ STL (STL1013). -->
+      <SmallerTypeCheck>false</SmallerTypeCheck>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
