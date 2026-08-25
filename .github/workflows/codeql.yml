@@ -29,20 +29,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  analyze:
-    name: Analyze C++ (MSBuild)
-    runs-on: windows-2025
-
-    defaults:
-      run:
-        shell: pwsh
-
-    env:
-      BUILD_CONFIGURATION: Release
-      PROJECT_PATH: '.\\src\\vcxproj\\salamand.vcxproj'
-      SOLUTION_PATH: '.\\src\\vcxproj\\salamand.sln'
-      LOG_DIRECTORY: build_logs
-
+  # Keep this cheap: the required "Analyze C++" check must still succeed when
+  # analysis is not needed, but it must not sit in the windows-2025 queue just
+  # to skip every later step.
+  decide:
+    name: Decide whether to analyze
+    runs-on: ubuntu-latest
+    outputs:
+      should_analyze: ${{ steps.codeql_gate.outputs.should_analyze }}
     steps:
       - name: Check whether CodeQL should run
         id: codeql_gate
@@ -86,8 +80,29 @@ jobs:
             core.setOutput('should_analyze', 'true');
             core.info(`CodeQL analysis will run because these main-project .cpp/.h files changed: ${relevantFiles.join(', ')}`);
 
+  analyze:
+    name: Analyze C++ (MSBuild)
+    needs: decide
+    runs-on: ${{ needs.decide.outputs.should_analyze == 'true' && 'windows-2025' || 'ubuntu-latest' }}
+
+    defaults:
+      run:
+        shell: pwsh
+
+    env:
+      BUILD_CONFIGURATION: Release
+      PROJECT_PATH: '.\\src\\vcxproj\\salamand.vcxproj'
+      SOLUTION_PATH: '.\\src\\vcxproj\\salamand.sln'
+      LOG_DIRECTORY: build_logs
+
+    steps:
+      - name: Skip analysis when no main-project C++ changed
+        if: needs.decide.outputs.should_analyze != 'true'
+        shell: bash
+        run: echo "No main-project .cpp or .h files changed; CodeQL analysis is not required."
+
       - name: Checkout repository
-        if: steps.codeql_gate.outputs.should_analyze == 'true'
+        if: needs.decide.outputs.should_analyze == 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.target_ref || github.event.inputs['target-ref'] || github.ref }}
@@ -95,27 +110,27 @@ jobs:
           submodules: recursive
 
       - name: Setup MSBuild in PATH (VS2026)
-        if: steps.codeql_gate.outputs.should_analyze == 'true'
+        if: needs.decide.outputs.should_analyze == 'true'
         uses: microsoft/setup-msbuild@v2
 
       - name: Setup MSVC Developer Command Prompt (x64 toolchain)
-        if: steps.codeql_gate.outputs.should_analyze == 'true'
+        if: needs.decide.outputs.should_analyze == 'true'
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
       - name: Register MSVC problem matcher
-        if: steps.codeql_gate.outputs.should_analyze == 'true'
+        if: needs.decide.outputs.should_analyze == 'true'
         uses: ammaraskar/msvc-problem-matcher@master
 
       # The manual full-solution build includes luaruntime. Install only its
       # manifest feature; do not build the unshipped SFTP plug-in in CodeQL.
       - name: Install Lua runtime dependency
-        if: steps.codeql_gate.outputs.should_analyze == 'true'
+        if: needs.decide.outputs.should_analyze == 'true'
         run: |
           .\tools\vcpkg\build-third-party-libs.ps1 -Triplet x64-windows -NoDefaultFeatures -ManifestFeature lua-runtime -SkipLegacyCopy
       - name: Initialize CodeQL
-        if: steps.codeql_gate.outputs.should_analyze == 'true'
+        if: needs.decide.outputs.should_analyze == 'true'
         uses: github/codeql-action/init@v3
         with:
           languages: cpp
@@ -125,7 +140,7 @@ jobs:
 
 
       - name: Build with MSBuild (Release | x64)
-        if: steps.codeql_gate.outputs.should_analyze == 'true'
+        if: needs.decide.outputs.should_analyze == 'true'
         run: |
           $logDir = Join-Path (Get-Location) $env:LOG_DIRECTORY
           New-Item -ItemType Directory -Force -Path $logDir | Out-Null
@@ -183,13 +198,13 @@ jobs:
           }
 
       - name: Setup Python
-        if: steps.codeql_gate.outputs.should_analyze == 'true'
+        if: needs.decide.outputs.should_analyze == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Perform CodeQL Analysis
-        if: steps.codeql_gate.outputs.should_analyze == 'true'
+        if: needs.decide.outputs.should_analyze == 'true'
         uses: github/codeql-action/analyze@v3
         with:
           category: "/language:cpp"
@@ -202,7 +217,7 @@ jobs:
       # modified in this pull request using the paginated files API.
       - name: Keep CodeQL alerts on PR-changed lines
         if: >-
-          steps.codeql_gate.outputs.should_analyze == 'true' &&
+          needs.decide.outputs.should_analyze == 'true' &&
           github.event_name != 'workflow_dispatch'
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -219,7 +234,7 @@ jobs:
           }
 
       - name: Upload CodeQL SARIF
-        if: steps.codeql_gate.outputs.should_analyze == 'true'
+        if: needs.decide.outputs.should_analyze == 'true'
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: ${{ github.workspace }}/codeql-sarif
@@ -227,7 +242,7 @@ jobs:
           wait-for-processing: true
 
       - name: Upload build logs
-        if: always() && steps.codeql_gate.outputs.should_analyze == 'true'
+        if: always() && needs.decide.outputs.should_analyze == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: codeql-msbuild-logs

@@ -699,9 +699,12 @@ def main() -> int:
             "PR tests do not explicitly check out the selected source branch commit")
     require(pr_test_report_workflow,
             r'pull_requests\[0\] != null.*?'
-            r'workflow_run\.head_repository\.full_name != github\.repository.*?'
+            r'Same-repository reports already published.*?'
+            r'head_repository\.full_name == github\.repository.*?'
+            r'head_repository\.full_name != github\.repository.*?'
             r'dorny/test-reporter@v3.*?'
             r'use-actions-summary:\s*false.*?'
+            r'head_repository\.full_name != github\.repository.*?'
             r'dorny/test-reporter@v3.*?'
             r'use-actions-summary:\s*false',
             "workflow_run Test Reporter fallback is not limited to fork PRs")
@@ -2783,6 +2786,17 @@ def main() -> int:
         r"'powershellruntime'\)",
         "x64 installer does not include File Lock Inspector dependencies")
 
+    require(
+        codeql_workflow,
+        r"name: Decide whether to analyze.*?runs-on: ubuntu-latest.*?id: codeql_gate",
+        "CodeQL still decides whether to analyze on a Windows runner")
+    require(
+        codeql_workflow,
+        r"name: Analyze C\+\+ \(MSBuild\).*?"
+        r"needs: decide.*?"
+        r"windows-2025.*?ubuntu-latest.*?"
+        r"Skip analysis when no main-project C\+\+ changed",
+        "CodeQL required analysis check does not succeed on Ubuntu when analysis is skipped")
     require(
         codeql_workflow,
         r"uses: actions/checkout@v4.*?submodules: recursive",
