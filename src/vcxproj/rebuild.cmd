@@ -9,7 +9,7 @@ if not defined MSB (
   exit /b
 )
 
-call :check_v143
+call :check_v145
 if errorlevel 1 (
   echo.
   pause
@@ -175,28 +175,28 @@ if exist "%VSROOT%\MSBuild\Current\Bin\MSBuild.exe" (
 )
 exit /b
 
-:check_v143
+:check_v145
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
 if exist "%VSWHERE%" (
-  set "V143ROOT="
-  for /f "usebackq delims=" %%I in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.v143.x86.x64 -property installationPath`) do set "V143ROOT=%%I"
-  if defined V143ROOT (
-    call :select_v143_toolset
-    exit /b 0
+  set "V145ROOT="
+  for /f "usebackq delims=" %%I in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "V145ROOT=%%I"
+  if defined V145ROOT (
+    call :select_v145_toolset
+    if defined V145TOOLS exit /b 0
   )
 )
 
-call :select_v143_toolset
-if defined V143TOOLS exit /b 0
+call :select_v145_toolset
+if defined V145TOOLS exit /b 0
 
-echo Visual Studio C++ v143 build tools are not installed.
-echo Open Salamander requires PlatformToolset=v143. Install component:
-echo   Microsoft.VisualStudio.Component.VC.v143.x86.x64
+echo Visual Studio C++ v145 build tools are not installed.
+echo Open Salamander requires PlatformToolset=v145 (Visual Studio 2026).
+echo Install the Desktop development with C++ workload.
 echo.
 exit /b 1
 
-:select_v143_toolset
-set "V143TOOLS="
+:select_v145_toolset
+set "V145TOOLS="
 if not defined VSROOT (
   if exist "%VSWHERE%" (
     for /f "usebackq delims=" %%I in (`"%VSWHERE%" -latest -products * -property installationPath`) do set "VSROOT=%%I"
@@ -204,8 +204,8 @@ if not defined VSROOT (
 )
 if not defined VSROOT exit /b
 
-for /f "delims=" %%I in ('dir /b /ad "%VSROOT%\VC\Tools\MSVC\14.4*" 2^>nul') do set "V143TOOLS=%%I"
-if not defined V143TOOLS exit /b
+for /f "delims=" %%I in ('dir /b /ad "%VSROOT%\VC\Tools\MSVC\14.5*" 2^>nul') do set "V145TOOLS=%%I"
+if not defined V145TOOLS exit /b
 
-if not defined VCToolsVersion set "VCToolsVersion=%V143TOOLS%"
+if not defined VCToolsVersion set "VCToolsVersion=%V145TOOLS%"
 exit /b

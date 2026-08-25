@@ -2,9 +2,9 @@
 
 ### Prerequisites
 - Windows 11 or newer
-- [Visual Studio 2022](https://visualstudio.microsoft.com/downloads/)
-- [Desktop development with C++](https://learn.microsoft.com/en-us/cpp/build/vscpp-step-0-installation?view=msvc-170) workload installed in VS2022
-- [Windows 11 (10.0.26100.4654) SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/) optional component installed in VS2022
+- [Visual Studio 2026](https://visualstudio.microsoft.com/downloads/)
+- [Desktop development with C++](https://learn.microsoft.com/en-us/cpp/build/vscpp-step-0-installation?view=msvc-170) workload installed in VS2026
+- [Windows 11 (10.0.26100.4654) SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/) optional component installed in VS2026
 
 ### Optional requirements
 - [Git](https://git-scm.com/downloads)

@@ -31,7 +31,7 @@ concurrency:
 jobs:
   analyze:
     name: Analyze C++ (MSBuild)
-    runs-on: windows-2022
+    runs-on: windows-2025
 
     defaults:
       run:
@@ -94,7 +94,7 @@ jobs:
           fetch-depth: 2
           submodules: recursive
 
-      - name: Setup MSBuild in PATH (VS2022)
+      - name: Setup MSBuild in PATH (VS2026)
         if: steps.codeql_gate.outputs.should_analyze == 'true'
         uses: microsoft/setup-msbuild@v2
 

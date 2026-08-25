@@ -19,7 +19,7 @@ concurrency:
 jobs:
   build:
     name: Build ${{ matrix.platform }} Debug (fail on warnings)
-    runs-on: windows-2022
+    runs-on: windows-2025
 
     strategy:
       fail-fast: false
@@ -121,7 +121,7 @@ jobs:
               Set-Content -LiteralPath $sftpProps -Encoding UTF8
           }
 
-      - name: Setup MSBuild in PATH (VS2022)
+      - name: Setup MSBuild in PATH (VS2026)
         if: steps.build_changes.outputs.has_build_relevant_changes == 'true'
         uses: microsoft/setup-msbuild@v2
 
@@ -213,7 +213,12 @@ jobs:
           Add-Content -Path $env:GITHUB_OUTPUT -Value "project_paths_json=$json"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "has_changed_projects=$(if ($selected.Count -gt 0) { 'true' } else { 'false' })"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "needs_lua=$(if (@($selected | Where-Object Name -eq 'luaruntime').Count -gt 0) { 'true' } else { 'false' })"
-          Add-Content -Path $env:GITHUB_OUTPUT -Value "needs_unrar=$(if (@($selected | Where-Object Name -eq 'unrar').Count -gt 0) { 'true' } else { 'false' })"
+          # The UnRAR plug-in loads unrar.dll dynamically and therefore compiles
+          # without the runtime DLL. The vcpkg unrar port supports Win32/x64 only
+          # (windows & !arm), so do not ask vcpkg to build it for ARM64.
+          $needsUnrar = '${{ matrix.platform }}' -ne 'ARM64' -and
+                        @($selected | Where-Object Name -eq 'unrar').Count -gt 0
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "needs_unrar=$(if ($needsUnrar) { 'true' } else { 'false' })"
           # The FTP plug-in loads OpenSSL dynamically and therefore compiles without
           # the runtime DLLs. The pinned legacy OpenSSL 1.0.2 port supports Win32/x64
           # only, so do not ask vcpkg to build it for the ARM64 compile check.
