@@ -1756,6 +1756,7 @@ LRESULT CRendererWindow::OnPaint()
                     if (gotInfo)
                     {
                         int cmd;
+                        int cmd2;
 
                         if ((info.flags & (TEI_WIDTH | TEI_HEIGHT)) == (TEI_WIDTH | TEI_HEIGHT))
                         {
@@ -1784,27 +1785,35 @@ LRESULT CRendererWindow::OnPaint()
                             }
                         }
                         cmd = 0;
+                        cmd2 = 0;
+                        // info.Orient is EXIF Orientation 1-8. Orientation 1 is identity.
+                        // Do not use PVFF_* bitflags as case labels: PVFF_BOTTOMTOTOP is 1,
+                        // which would treat a normal JPEG as a horizontal flip.
                         switch (info.Orient)
                         {
                         case 2:
                             cmd = CMD_MIRROR_HOR;
                             break;
-                        case PVFF_BOTTOMTOTOP | PVFF_FLIP_HOR:
+                        case 3:
                             cmd = CMD_ROTATE180;
                             break;
-                        case PVFF_BOTTOMTOTOP:
-                            cmd = CMD_MIRROR_HOR;
+                        case 4:
+                            cmd = CMD_MIRROR_VERT;
                             break;
-                        case PVFF_BOTTOMTOTOP | PVFF_ROTATE90:
-                            cmd = CMD_ROTATE_LEFT;
+                        case 5:
+                            // Transpose: rotate 90 CW first (mirrors still off), then flip horizontally.
+                            cmd = CMD_ROTATE_RIGHT;
+                            cmd2 = CMD_MIRROR_HOR;
                             break;
-                        case PVFF_ROTATE90:
+                        case 6:
                             cmd = CMD_ROTATE_RIGHT;
                             break;
-                        case PVFF_FLIP_HOR | PVFF_ROTATE90:
+                        case 7:
+                            // Flip horizontally then rotate 90 CW == rotate 90 CW then flip vertically.
                             cmd = CMD_ROTATE_RIGHT;
+                            cmd2 = CMD_MIRROR_VERT;
                             break;
-                        case PVFF_BOTTOMTOTOP | PVFF_FLIP_HOR | PVFF_ROTATE90:
+                        case 8:
                             cmd = CMD_ROTATE_LEFT;
                             break;
                         }
@@ -1818,6 +1827,8 @@ LRESULT CRendererWindow::OnPaint()
                             if (PVC_OK == code)
                             {
                                 PostMessage(HWindow, WM_COMMAND, cmd, 0);
+                                if (cmd2)
+                                    PostMessage(HWindow, WM_COMMAND, cmd2, 0);
                             }
                         }
                     }

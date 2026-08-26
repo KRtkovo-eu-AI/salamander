@@ -15,6 +15,7 @@ INTERNAL = (ROOT / "src/plugins/pictview/native/NativeInternal.h").read_text(enc
 HEADER = (ROOT / "src/plugins/pictview/native/NativeDecoder.h").read_text(encoding="utf-8")
 SHELL = (ROOT / "src/plugins/pictview/wic/ShellPreviewHost.cpp").read_text(encoding="utf-8")
 THUMBS = (ROOT / "src/plugins/pictview/thumbs.cpp").read_text(encoding="utf-8")
+RENDER1 = (ROOT / "src/plugins/pictview/render1.cpp").read_text(encoding="utf-8")
 PLUGIN = (ROOT / "src/plugins/pictview/pictview.cpp").read_text(encoding="utf-8")
 SDK = (ROOT / "src/plugins/shared/spl_gen.h").read_text(encoding="utf-8")
 GAPS = (ROOT / "doc/pictview-wic-support-gaps.md").read_text(encoding="utf-8")
@@ -165,6 +166,14 @@ def main() -> None:
             "STL thumbs must flatten onto SALCOL_ITEM_BK_NORMAL")
     require(SHELL, "TranslateAccelerator",
             "STL IPreviewHandlerFrame must translate host accelerators including Escape")
+    require(SHELL, "VK_SPACE",
+            "STL preview must advertise Space as next-file so IPreviewHandler forwards it")
+    require(SHELL, "CMD_FILE_NEXT",
+            "STL preview must map Space to next file")
+    require(SHELL, "CMD_FILE_PREV",
+            "STL preview must keep Backspace as previous file")
+    require(SHELL, "kPreviewHostAccels",
+            "STL preview must use a host accel table, not steal 3D-viewer zoom/pan keys")
     require(SHELL, "VK_ESCAPE",
             "STL preview must close the PictView window on Escape")
     require(RC2, "VK_ESCAPE, CMD_CLOSE",
@@ -195,6 +204,16 @@ def main() -> None:
             "support gaps must list 3MF ZIP thumbnails")
     require(GAPS, "isometric native",
             "support gaps must document isometric STL panel thumbnails")
+    require(RENDER1, "case 3:",
+            "viewer AutoRotate must treat info.Orient as EXIF 1-8, not PVFF bitflags")
+    require(RENDER1, "cmd = CMD_MIRROR_VERT;",
+            "viewer AutoRotate must map EXIF orientation 4 to a vertical flip")
+    require(RENDER1, "cmd2 = CMD_MIRROR_HOR;",
+            "viewer AutoRotate must compose EXIF orientation 5 as rotate then horizontal flip")
+    if "case PVFF_BOTTOMTOTOP:" in RENDER1:
+        raise AssertionError(
+            "viewer AutoRotate must not use PVFF_BOTTOMTOTOP as an Orient case "
+            "(the flag value is 1, which is EXIF orientation-normal)")
 
     print("pictview_native_decoder_contract_tests: ok")
 

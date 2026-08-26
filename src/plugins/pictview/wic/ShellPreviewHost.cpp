@@ -30,6 +30,97 @@ constexpr CLSID kClsid3DViewerPreview = {
 
 constexpr wchar_t kPreviewHandlerShellEx[] = L"{8895b1c6-b41f-4c1c-a562-0d564250836f}";
 
+// Shortcuts that still belong to PictView while IPreviewHandler has focus.
+// Zoom, pan, crop and tool keys stay with the 3D viewer.
+const ACCEL kPreviewHostAccels[] = {
+    {FVIRTKEY | FNOINVERT, VK_ESCAPE, CMD_CLOSE},
+    {FVIRTKEY | FNOINVERT, VK_SPACE, CMD_FILE_NEXT},
+    {FVIRTKEY | FNOINVERT | FCONTROL, VK_SPACE, CMD_FILE_NEXTSELFILE},
+    {FVIRTKEY | FNOINVERT | FSHIFT, VK_SPACE, CMD_FILE_LAST},
+    {FVIRTKEY | FNOINVERT, VK_BACK, CMD_FILE_PREV},
+    {FVIRTKEY | FNOINVERT | FCONTROL, VK_BACK, CMD_FILE_PREVSELFILE},
+    {FVIRTKEY | FNOINVERT | FSHIFT, VK_BACK, CMD_FILE_FIRST},
+    {FVIRTKEY | FNOINVERT, VK_F1, CMD_HELP_CONTENTS},
+    {FVIRTKEY | FNOINVERT, VK_F2, CMD_IMG_RENAME},
+    {FVIRTKEY | FNOINVERT, VK_F3, CMD_IMG_PROP},
+    {FVIRTKEY | FNOINVERT, VK_F11, CMD_FULLSCREEN},
+    {FVIRTKEY | FNOINVERT, VK_DELETE, CMD_IMG_DELETE},
+    {FVIRTKEY | FNOINVERT | FSHIFT, VK_DELETE, CMD_IMG_DELETE},
+    {FVIRTKEY | FNOINVERT, VK_INSERT, CMD_FILE_TOGGLESELECT},
+    {FVIRTKEY | FNOINVERT | FCONTROL, 'O', CMD_OPEN},
+    {FVIRTKEY | FNOINVERT | FCONTROL, 'R', CMD_RELOAD},
+    {FVIRTKEY | FNOINVERT | FCONTROL, 'S', CMD_SAVEAS},
+    {FVIRTKEY | FNOINVERT | FCONTROL, 'C', CMD_COPY},
+    {FVIRTKEY | FNOINVERT, 'F', CMD_IMG_FOCUS},
+    {FVIRTKEY | FNOINVERT, 'I', CMD_IMG_PROP},
+    {FVIRTKEY | FNOINVERT, 'X', CMD_IMG_COPYTO},
+};
+
+HACCEL CreatePreviewHostAccel()
+{
+    return CreateAcceleratorTable(const_cast<ACCEL*>(kPreviewHostAccels),
+                                  static_cast<int>(ARRAYSIZE(kPreviewHostAccels)));
+}
+
+WORD CommandFromPreviewKey(const MSG* pmsg)
+{
+    if (pmsg == nullptr || (pmsg->message != WM_KEYDOWN && pmsg->message != WM_SYSKEYDOWN))
+    {
+        return 0;
+    }
+    const BOOL shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+    const BOOL control = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+    switch (pmsg->wParam)
+    {
+    case VK_ESCAPE:
+        return CMD_CLOSE;
+    case VK_SPACE:
+        if (control && !shift)
+            return CMD_FILE_NEXTSELFILE;
+        if (!control && shift)
+            return CMD_FILE_LAST;
+        if (!control && !shift)
+            return CMD_FILE_NEXT;
+        return 0;
+    case VK_BACK:
+        if (control && !shift)
+            return CMD_FILE_PREVSELFILE;
+        if (!control && shift)
+            return CMD_FILE_FIRST;
+        if (!control && !shift)
+            return CMD_FILE_PREV;
+        return 0;
+    case VK_F1:
+        return control || shift ? 0 : CMD_HELP_CONTENTS;
+    case VK_F2:
+        return control || shift ? 0 : CMD_IMG_RENAME;
+    case VK_F3:
+        return control || shift ? 0 : CMD_IMG_PROP;
+    case VK_F11:
+        return control || shift ? 0 : CMD_FULLSCREEN;
+    case VK_DELETE:
+        return control ? 0 : CMD_IMG_DELETE;
+    case VK_INSERT:
+        return control || shift ? 0 : CMD_FILE_TOGGLESELECT;
+    case 'O':
+        return control && !shift ? CMD_OPEN : 0;
+    case 'R':
+        return control && !shift ? CMD_RELOAD : 0;
+    case 'S':
+        return control && !shift ? CMD_SAVEAS : 0;
+    case 'C':
+        return control && !shift ? CMD_COPY : 0;
+    case 'F':
+        return !control && !shift ? CMD_IMG_FOCUS : 0;
+    case 'I':
+        return !control && !shift ? CMD_IMG_PROP : 0;
+    case 'X':
+        return !control && !shift ? CMD_IMG_COPYTO : 0;
+    default:
+        return 0;
+    }
+}
+
 class PreviewHandlerFrame final : public IPreviewHandlerFrame, public IServiceProvider
 {
 public:
@@ -83,8 +174,13 @@ public:
         {
             return E_POINTER;
         }
-        info->haccel = G.HAccel;
-        info->cAccelEntries = G.HAccel != nullptr ? CopyAcceleratorTable(G.HAccel, nullptr, 0) : 0;
+        if (m_accel == nullptr)
+        {
+            m_accel = CreatePreviewHostAccel();
+        }
+        info->haccel = m_accel != nullptr ? m_accel : G.HAccel;
+        HACCEL table = info->haccel;
+        info->cAccelEntries = table != nullptr ? CopyAcceleratorTable(table, nullptr, 0) : 0;
         return S_OK;
     }
 
@@ -94,14 +190,19 @@ public:
         {
             return E_POINTER;
         }
-        if (m_host != nullptr && G.HAccel != nullptr && ::TranslateAccelerator(m_host, G.HAccel, pmsg))
+        if (m_accel == nullptr)
+        {
+            m_accel = CreatePreviewHostAccel();
+        }
+        HACCEL table = m_accel != nullptr ? m_accel : G.HAccel;
+        if (m_host != nullptr && table != nullptr && ::TranslateAccelerator(m_host, table, pmsg))
         {
             return S_OK;
         }
-        if ((pmsg->message == WM_KEYDOWN || pmsg->message == WM_SYSKEYDOWN) && pmsg->wParam == VK_ESCAPE &&
-            m_host != nullptr)
+        const WORD cmd = CommandFromPreviewKey(pmsg);
+        if (cmd != 0 && m_host != nullptr)
         {
-            PostMessage(m_host, WM_COMMAND, MAKEWPARAM(CMD_CLOSE, 0), 0);
+            PostMessage(m_host, WM_COMMAND, MAKEWPARAM(cmd, 0), 0);
             return S_OK;
         }
         return S_FALSE;
@@ -121,9 +222,16 @@ public:
     }
 
 private:
-    ~PreviewHandlerFrame() = default;
+    ~PreviewHandlerFrame()
+    {
+        if (m_accel != nullptr)
+        {
+            DestroyAcceleratorTable(m_accel);
+        }
+    }
     LONG m_ref = 1;
     HWND m_host = nullptr;
+    HACCEL m_accel = nullptr;
 };
 
 void BindPreviewFrameHost(IUnknown* site, HWND hwnd)
