@@ -51,6 +51,9 @@
     <ClCompile Include="..\configstorage.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
+    <ClCompile Include="..\pluginsecurity.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
     <ClCompile Include="..\color.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
@@ -559,6 +562,9 @@
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\configstorage.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\pluginsecurity.h">
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\codetbl.h">

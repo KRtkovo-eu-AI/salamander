@@ -601,6 +601,8 @@
 #define IDB_PLUGINKEYS                  2622
 #define IDB_PLUGINUPDATES               2623
 #define IDC_PLUGINS_GRIP                2624
+#define IDC_PLUGINSECURITY              2625
+#define IDC_STATIC_PLUGINSECURITY       2626
 #define IDI_KES_ICON                    2632
 #define IDD_SKILLLEVEL                  2635
 #define IDC_SL_BEGINNER                 2636

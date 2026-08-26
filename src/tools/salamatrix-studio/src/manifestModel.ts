@@ -48,6 +48,14 @@ export interface ExtensionManifest {
   description?: string;
   runtime: string | { id?: string; [key: string]: unknown };
   entryPoint: string;
+  web?: string;
+  security?: {
+    networkAccess?: string;
+    externalProcesses?: string;
+    scriptExecution?: string;
+    activeWebContent?: string;
+    elevation?: string;
+  };
   capabilities?: string[];
   commands?: ExtensionCommand[];
   viewers?: ExtensionViewer[];

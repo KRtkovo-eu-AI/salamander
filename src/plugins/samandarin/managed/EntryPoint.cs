@@ -284,6 +284,30 @@ internal enum NativeStringId
     PluginUpdateScheduled = 122,
     PluginDependenciesRequired = 123,
     PluginDependencyUnavailable = 124,
+    PluginInstallMissingHash = 125,
+    PluginInstallHashMismatch = 126,
+    PluginInstallUnsignedBinary = 127,
+    PluginInstallUnsignedBinaryNamed = 128,
+    PluginInstallUnexpectedPublisher = 129,
+    PluginSecurityLabel = 130,
+    PluginSecurityNetwork = 131,
+    PluginSecurityProcesses = 132,
+    PluginSecurityScript = 133,
+    PluginSecurityWeb = 134,
+    PluginSecurityElevation = 135,
+    PluginSecuritySource = 136,
+    PluginSecuritySigner = 137,
+    PluginSecurityHash = 138,
+    PluginSecurityVerified = 139,
+    PluginSecurityUnverified = 140,
+    PluginSecurityUnknown = 141,
+    PluginSecurityYes = 142,
+    PluginSecurityNo = 143,
+    PluginSecurityPossible = 144,
+    PluginSecurityElevationInstall = 145,
+    PluginSecurityElevationNever = 146,
+    PluginSecurityCapabilitiesConfirm = 147,
+    PluginSecurityBundled = 148,
 }
 
 internal static class NativeStrings
@@ -1238,6 +1262,7 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
     private readonly LinkLabel _detailHomepageValue;
     private readonly LinkLabel _detailDownloadValue;
     private readonly TextBox _detailDescriptionValue;
+    private readonly TextBox _detailSecurityValue;
     private ListViewItem? _contextMenuItem;
     private static readonly int[] ListColumnMinimumWidths = { 46, 120, 180, 90, 90, 120, 110 };
     private static readonly float[] ListColumnWidthWeights = { 0.00f, 0.15f, 0.30f, 0.12f, 0.12f, 0.18f, 0.13f };
@@ -1332,13 +1357,14 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
         layout.Controls.Add(_showOnlyUpdates, 0, 2);
 
         var detailGroup = new ThemedGroupBox { Text = NativeStrings.Get(NativeStringId.PluginDetails), Dock = DockStyle.Fill, Padding = new Padding(10) };
-        var detailLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 5 };
+        var detailLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 6 };
         detailLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         detailLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
         detailLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         detailLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
         for (int i = 0; i < 4; i++) detailLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        detailLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+        detailLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
+        detailLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
 
         _detailNameValue = AddValue(detailLayout, NativeStringId.PluginColumnName, 0, 0);
         _detailSourceValue = AddValue(detailLayout, NativeStringId.PluginColumnSource, 2, 0);
@@ -1353,6 +1379,11 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
         _detailDescriptionValue = new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle };
         detailLayout.SetColumnSpan(_detailDescriptionValue, 3);
         detailLayout.Controls.Add(_detailDescriptionValue, 1, 4);
+
+        detailLayout.Controls.Add(new Label { Text = NativeStrings.Get(NativeStringId.PluginSecurityLabel), AutoSize = true, Anchor = AnchorStyles.Left | AnchorStyles.Top, Padding = new Padding(0, 3, 8, 0) }, 0, 5);
+        _detailSecurityValue = new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle };
+        detailLayout.SetColumnSpan(_detailSecurityValue, 3);
+        detailLayout.Controls.Add(_detailSecurityValue, 1, 5);
 
         detailGroup.Controls.Add(detailLayout);
         layout.Controls.Add(detailGroup, 0, 3);
@@ -2052,6 +2083,7 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
         _detailHomepageValue.Text = row?.Homepage ?? string.Empty;
         _detailDownloadValue.Text = row?.WebUrl ?? string.Empty;
         _detailDescriptionValue.Text = row?.Description ?? string.Empty;
+        _detailSecurityValue.Text = FormatSecurityDetails(row);
         var supportsAutomaticInstall = PluginPackageInstaller.CanInstall(row);
         _installButton.Text = supportsAutomaticInstall
             ? row is not null && !string.IsNullOrWhiteSpace(row.InstallDirectory)
@@ -2159,6 +2191,11 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
             return;
         }
 
+        if (!ConfirmSecurityCapabilities(row, dependencyPlan))
+        {
+            return;
+        }
+
         await ExecuteActionPlanAsync(row, dependencyPlan).ConfigureAwait(true);
     }
 
@@ -2198,6 +2235,144 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
             NativeStrings.PluginCaption,
             MessageBoxButtons.YesNo,
             MessageBoxIcon.Warning) == DialogResult.Yes;
+    }
+
+    private bool ConfirmSecurityCapabilities(PluginUpdateRow row, PluginDependencyPlan dependencyPlan)
+    {
+        var risky = new List<PluginUpdateRow>();
+        if (row.Security?.IsHigherRisk() == true)
+        {
+            risky.Add(row);
+        }
+        foreach (var dependency in dependencyPlan.MissingDependencies)
+        {
+            if (dependency.Security?.IsHigherRisk() == true)
+            {
+                risky.Add(dependency);
+            }
+        }
+
+        if (risky.Count == 0)
+        {
+            return true;
+        }
+
+        var lines = risky.Select(item =>
+            "- " + item.Name + ": " + FormatCapabilitySummary(item.Security));
+        var message = string.Format(
+            CultureInfo.CurrentCulture,
+            NativeStrings.Get(NativeStringId.PluginSecurityCapabilitiesConfirm),
+            string.Join(Environment.NewLine, lines));
+        return ThemeHelper.ShowMessageBox(
+            this,
+            message,
+            NativeStrings.PluginCaption,
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Warning) == DialogResult.Yes;
+    }
+
+    private static string FormatCapabilitySummary(PluginCatalogSecurity? security)
+    {
+        if (security is null)
+        {
+            return NativeStrings.Get(NativeStringId.PluginSecurityUnknown);
+        }
+
+        var parts = new List<string>();
+        AppendCapability(parts, NativeStringId.PluginSecurityNetwork, security.networkAccess);
+        AppendCapability(parts, NativeStringId.PluginSecurityProcesses, security.externalProcesses);
+        AppendCapability(parts, NativeStringId.PluginSecurityScript, security.scriptExecution);
+        AppendCapability(parts, NativeStringId.PluginSecurityWeb, security.activeWebContent);
+        return parts.Count == 0
+            ? NativeStrings.Get(NativeStringId.PluginSecurityUnknown)
+            : string.Join(", ", parts);
+    }
+
+    private static void AppendCapability(List<string> parts, NativeStringId label, string? value)
+    {
+        if (string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(value, "possible", StringComparison.OrdinalIgnoreCase))
+        {
+            parts.Add(NativeStrings.Get(label) + ": " + FormatCapabilityValue(label, value));
+        }
+    }
+
+    private static string FormatSecurityDetails(PluginUpdateRow? row)
+    {
+        if (row is null)
+        {
+            return string.Empty;
+        }
+
+        var lines = new List<string>();
+        var security = row.Security;
+        lines.Add(NativeStrings.Get(NativeStringId.PluginSecurityNetwork) + ": " +
+                  FormatCapabilityValue(NativeStringId.PluginSecurityNetwork, security?.networkAccess));
+        lines.Add(NativeStrings.Get(NativeStringId.PluginSecurityProcesses) + ": " +
+                  FormatCapabilityValue(NativeStringId.PluginSecurityProcesses, security?.externalProcesses));
+        lines.Add(NativeStrings.Get(NativeStringId.PluginSecurityScript) + ": " +
+                  FormatCapabilityValue(NativeStringId.PluginSecurityScript, security?.scriptExecution));
+        lines.Add(NativeStrings.Get(NativeStringId.PluginSecurityWeb) + ": " +
+                  FormatCapabilityValue(NativeStringId.PluginSecurityWeb, security?.activeWebContent));
+        lines.Add(NativeStrings.Get(NativeStringId.PluginSecurityElevation) + ": " +
+                  FormatCapabilityValue(NativeStringId.PluginSecurityElevation, security?.elevation));
+
+        var verified = PluginPackageInstaller.CanInstall(row);
+        var receipt = PluginReceiptStore.Find(
+            row.Id,
+            row.CatalogKind == InstalledPackageKind.Extension ? "extension" : "plugin");
+        lines.Add(NativeStrings.Get(NativeStringId.PluginSecuritySource) + ": " +
+                  (string.IsNullOrWhiteSpace(row.WebUrl)
+                      ? NativeStrings.Get(NativeStringId.PluginSecurityUnknown)
+                      : row.WebUrl));
+        var signer = receipt?.signer;
+        lines.Add(NativeStrings.Get(NativeStringId.PluginSecuritySigner) + ": " +
+                  (string.IsNullOrWhiteSpace(signer)
+                      ? NativeStrings.Get(NativeStringId.PluginSecurityUnknown)
+                      : signer));
+        var hash = !string.IsNullOrWhiteSpace(row.PackageSha256) ? row.PackageSha256 : receipt?.packageSha256;
+        lines.Add(NativeStrings.Get(NativeStringId.PluginSecurityHash) + ": " +
+                  (string.IsNullOrWhiteSpace(hash)
+                      ? NativeStrings.Get(NativeStringId.PluginSecurityUnknown)
+                      : hash));
+        lines.Add(verified
+            ? NativeStrings.Get(NativeStringId.PluginSecurityVerified)
+            : NativeStrings.Get(NativeStringId.PluginSecurityUnverified));
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static string FormatCapabilityValue(NativeStringId label, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return NativeStrings.Get(NativeStringId.PluginSecurityUnknown);
+        }
+
+        if (label == NativeStringId.PluginSecurityElevation)
+        {
+            if (string.Equals(value, "install", StringComparison.OrdinalIgnoreCase))
+            {
+                return NativeStrings.Get(NativeStringId.PluginSecurityElevationInstall);
+            }
+            if (string.Equals(value, "never", StringComparison.OrdinalIgnoreCase))
+            {
+                return NativeStrings.Get(NativeStringId.PluginSecurityElevationNever);
+            }
+        }
+
+        if (string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase))
+        {
+            return NativeStrings.Get(NativeStringId.PluginSecurityYes);
+        }
+        if (string.Equals(value, "no", StringComparison.OrdinalIgnoreCase))
+        {
+            return NativeStrings.Get(NativeStringId.PluginSecurityNo);
+        }
+        if (string.Equals(value, "possible", StringComparison.OrdinalIgnoreCase))
+        {
+            return NativeStrings.Get(NativeStringId.PluginSecurityPossible);
+        }
+        return value!;
     }
 
     private async Task ExecuteActionPlanAsync(
@@ -2870,7 +3045,11 @@ internal static class PluginCatalogService
     private static PluginUpdateRow BuildCatalogOnlyRow(PluginCatalogEntry entry)
     {
         var homepage = entry.homepageUrl ?? string.Empty;
-        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? entry.id ?? NativeStrings.Get(NativeStringId.Unknown), string.Empty, entry.latestVersion ?? string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInstalled), entry.author ?? string.Empty, homepage, PluginUpdateStatus.Other, entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, null, entry.icon ?? string.Empty, entry.sourceUrl ?? string.Empty, entry.id, catalogKind: PluginCatalogMetadata.GetPackageKind(entry.packageType), dependencies: entry.dependencies);
+        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? entry.id ?? NativeStrings.Get(NativeStringId.Unknown), string.Empty, entry.latestVersion ?? string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInstalled), entry.author ?? string.Empty, homepage, PluginUpdateStatus.Other, entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, null, entry.icon ?? string.Empty, entry.sourceUrl ?? string.Empty, entry.id, catalogKind: PluginCatalogMetadata.GetPackageKind(entry.packageType), dependencies: entry.dependencies)
+        {
+            PackageSha256 = entry.packageSha256 ?? string.Empty,
+            Security = entry.security,
+        };
     }
 
     private static PluginUpdateRow BuildRow(InstalledPlugin plugin, PluginCatalogEntry? entry)
@@ -2893,7 +3072,11 @@ internal static class PluginCatalogService
         var displayName = IsTotalCommanderProxyCatalogEntry(entry) && IsTotalCommanderProxyInstance(plugin)
             ? plugin.DisplayName
             : LocalizedText.Resolve(entry.name) ?? plugin.DisplayName;
-        return new PluginUpdateRow(displayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), entry.author ?? string.Empty, homepage, ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, plugin.IconPath, entry.icon ?? string.Empty, entry.sourceUrl ?? string.Empty, entry.id ?? plugin.Id, plugin.Kind, PluginCatalogMetadata.GetPackageKind(entry.packageType), plugin.InstallDirectory, entry.dependencies);
+        return new PluginUpdateRow(displayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), entry.author ?? string.Empty, homepage, ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty, plugin.IconPath, entry.icon ?? string.Empty, entry.sourceUrl ?? string.Empty, entry.id ?? plugin.Id, plugin.Kind, PluginCatalogMetadata.GetPackageKind(entry.packageType), plugin.InstallDirectory, entry.dependencies)
+        {
+            PackageSha256 = entry.packageSha256 ?? string.Empty,
+            Security = entry.security,
+        };
     }
 
     private static PluginUpdateStatus ToStatus(PluginVersionComparison comparison) => comparison == PluginVersionComparison.UpdateAvailable ? PluginUpdateStatus.UpdateAvailable : PluginUpdateStatus.Other;
@@ -2923,12 +3106,16 @@ internal sealed class PluginCatalogSource
 
 internal static class PluginCatalogSources
 {
-    private const string StablePluginSource = "https://samandarin.net/catalogs/plugins-stable.json";
-    private const string StableExtensionSource = "https://samandarin.net/catalogs/extensions-stable.json";
-    private const string UnofficialExternalSource = "https://samandarin.net/catalogs/plugins-unofficial.json";
-    private const string ExtensionRuntimesSource = "https://samandarin.net/catalogs/extension-runtimes.json";
+    private const string StablePluginSource = "https://samandarin.krtkovo.eu/catalogs/plugins-stable.json";
+    private const string StableExtensionSource = "https://samandarin.krtkovo.eu/catalogs/extensions-stable.json";
+    private const string UnofficialExternalSource = "https://samandarin.krtkovo.eu/catalogs/plugins-unofficial.json";
+    private const string ExtensionRuntimesSource = "https://samandarin.krtkovo.eu/catalogs/extension-runtimes.json";
     private const string LegacyStablePluginSource = "https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-stable.json";
     private const string LegacyUnofficialExternalSource = "https://krtkovo-eu-ai.github.io/salamander/catalogs/plugins-unofficial.json";
+    private const string RetiredStablePluginSource = "https://samandarin.net/catalogs/plugins-stable.json";
+    private const string RetiredStableExtensionSource = "https://samandarin.net/catalogs/extensions-stable.json";
+    private const string RetiredUnofficialExternalSource = "https://samandarin.net/catalogs/plugins-unofficial.json";
+    private const string RetiredExtensionRuntimesSource = "https://samandarin.net/catalogs/extension-runtimes.json";
 
     public static IReadOnlyList<PluginCatalogSource> Load()
     {
@@ -3011,6 +3198,10 @@ internal static class PluginCatalogSources
         var changed = false;
         changed |= ReplaceSourceUrl(sources, LegacyStablePluginSource, StablePluginSource);
         changed |= ReplaceSourceUrl(sources, LegacyUnofficialExternalSource, UnofficialExternalSource);
+        changed |= ReplaceSourceUrl(sources, RetiredStablePluginSource, StablePluginSource);
+        changed |= ReplaceSourceUrl(sources, RetiredStableExtensionSource, StableExtensionSource);
+        changed |= ReplaceSourceUrl(sources, RetiredUnofficialExternalSource, UnofficialExternalSource);
+        changed |= ReplaceSourceUrl(sources, RetiredExtensionRuntimesSource, ExtensionRuntimesSource);
         changed |= AddMissingDefaultSource(sources, StablePluginSource);
         changed |= AddMissingDefaultSource(sources, StableExtensionSource);
         changed |= AddMissingDefaultSource(sources, UnofficialExternalSource);
@@ -3348,6 +3539,28 @@ internal static class PluginMetadata
 }
 
 internal sealed class PluginCatalogManifest { public int schemaVersion { get; set; } public string? catalogName { get; set; } public PluginCatalogEntry[]? plugins { get; set; } }
+internal sealed class PluginCatalogSecurity
+{
+    public string? networkAccess { get; set; }
+    public string? externalProcesses { get; set; }
+    public string? scriptExecution { get; set; }
+    public string? activeWebContent { get; set; }
+    public string? elevation { get; set; }
+
+    public bool IsHigherRisk()
+    {
+        return IsYesOrPossible(networkAccess) ||
+               IsYes(scriptExecution) ||
+               IsYes(activeWebContent) ||
+               IsYes(externalProcesses);
+    }
+
+    private static bool IsYes(string? value) =>
+        string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsYesOrPossible(string? value) =>
+        IsYes(value) || string.Equals(value, "possible", StringComparison.OrdinalIgnoreCase);
+}
 internal sealed class PluginCatalogEntry
 {
     public string? id { get; set; }
@@ -3360,6 +3573,8 @@ internal sealed class PluginCatalogEntry
     public string? versionScheme { get; set; }
     public string? homepageUrl { get; set; }
     public string? downloadPageUrl { get; set; }
+    public string? packageSha256 { get; set; }
+    public PluginCatalogSecurity? security { get; set; }
     public string[]? dependencies { get; set; }
     public string? source { get; set; }
     public string? sourceUrl { get; set; }
@@ -3580,6 +3795,8 @@ internal sealed class PluginUpdateRow
     public InstalledPackageKind CatalogKind { get; }
     public string InstallDirectory { get; }
     public IReadOnlyList<string> Dependencies { get; }
+    public string PackageSha256 { get; set; } = string.Empty;
+    public PluginCatalogSecurity? Security { get; set; }
 
     public static PluginUpdateRow SourceError(string source, string error) => new PluginUpdateRow(source, string.Empty, string.Empty, $"{NativeStrings.Get(NativeStringId.PluginStatusCatalogError)}: {error}", string.Empty, string.Empty, PluginUpdateStatus.CatalogError, source, null, string.Empty, null, string.Empty, string.Empty);
 }

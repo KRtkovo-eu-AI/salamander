@@ -431,7 +431,8 @@ Salamander.FileOperations.delete/create_directory/refresh/properties
 <p>The reader is a strict UTF-8 JSON parser rather than a scalar text scanner. It rejects malformed JSON, duplicate members, invalid UTF-8 and Unicode surrogate pairs, unsafe absolute or traversing entry points, unsupported schema versions, invalid field types, duplicate command ids, and unsupported placement/context values. Manifests are limited to 1 MiB and nesting depth 64.</p>
 <p>Schema version 1 supports:</p>
 <ul>
-<li>package <code>id</code>, <code>name</code>/<code>title</code>, <code>version</code>, <code>description</code>, and <code>entryPoint</code>;</li>
+<li>package <code>id</code>, <code>name</code>/<code>title</code>, <code>version</code>, <code>description</code>, <code>web</code>, optional</li>
+<p><code>security</code> disclosure (<code>networkAccess</code>, <code>externalProcesses</code>, <code>scriptExecution</code>, <code>activeWebContent</code>, <code>elevation</code>), and <code>entryPoint</code>;</p>
 <li>a runtime string or <code>{ "id", "minimumVersion" }</code> object;</li>
 <li>a validated string array of declared <code>capabilities</code>;</li>
 <li>up to 64 command records with <code>id</code>, <code>title</code>, <code>handler</code>, <code>menu</code>/<code>placement</code>,</li>

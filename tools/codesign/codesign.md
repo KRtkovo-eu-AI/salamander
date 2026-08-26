@@ -97,3 +97,14 @@ External DLLs are skipped. The exclusion list includes:
 6. Verify the final installer with `signtool verify /pa /all /v`.
 
 Do not modify a signed file after signing it. Any post-signing modification invalidates the Authenticode signature.
+
+## Plugin catalog hashes
+
+Official Plugin Updates auto-install is fail-closed. After packaging `.7z` archives:
+
+1. Compute SHA-256 of the archive bytes (`tools/package_salamander_plugins.ps1` writes `package-sha256.txt` and calls `tools/catalogs/fill_package_hashes.py`).
+2. Confirm `packageSha256` is present on the matching entry in `doc/catalogs-base/*.json`.
+3. Publish the updated catalogs to `https://samandarin.net/catalogs/` **before** shipping a client that requires the hash. Older clients ignore the extra JSON field.
+4. Do not take the digest from GitHub release notes. GitHub is the same host as the package.
+
+Authenticode signing of `.spl` / first-party PE remains a separate release step. The installer verifies both the catalog hash of the `.7z` and WinVerifyTrust of extracted first-party binaries.

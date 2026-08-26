@@ -6,6 +6,14 @@
   "description": "Demonstrates commands, Viewer and a simple panel file system in a Node.js Salamatrix extension package.",
   "runtime": "JavaScript.Node",
   "entryPoint": "main.mjs",
+  "web": "https://samandarin.net/",
+  "security": {
+    "networkAccess": "no",
+    "externalProcesses": "no",
+    "scriptExecution": "yes",
+    "activeWebContent": "no",
+    "elevation": "never"
+  },
   "icon": "icon.svg",
   "capabilities": ["ui.dialogs", "storage", "file-system"],
   "events": [],

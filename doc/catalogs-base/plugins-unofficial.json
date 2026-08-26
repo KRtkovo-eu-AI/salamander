@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "catalogName": "Unofficial 3rd party",
   "generatedAt": "2026-07-23T02:00:00Z",
   "plugins": [
@@ -37,7 +37,14 @@
       "homepageUrl": "https://github.com/OpenSalamander/salamander/pull/5#issuecomment-3289439303",
       "downloadPageUrl": "https://github.com/user-attachments/files/22319444/tar-plugin-x64.zip",
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "certview",
@@ -73,7 +80,14 @@
       "homepageUrl": "https://github.com/lejcik/certviewer",
       "downloadPageUrl": "https://github.com/lejcik/certviewer/releases/latest",
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "x-tc-proxy",
@@ -109,7 +123,14 @@
       "homepageUrl": "https://forum.altap.cz/viewtopic.php?t=2166",
       "downloadPageUrl": "https://www.manison.cz/products/tcproxy.php?Lang=en",
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "syntax-viewer",
@@ -145,7 +166,14 @@
       "homepageUrl": "https://github.com/umpalump7/SyntaxView/",
       "downloadPageUrl": "https://github.com/umpalump7/SyntaxView/",
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     }
   ]
 }

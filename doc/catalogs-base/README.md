@@ -23,9 +23,34 @@ for native `.spl` packages or `extension` for manifest-based packages installed
 under the `extensions` directory. Samandarin uses this field for matching and
 for selecting the installation root; archive names do not determine the type.
 
+Schema version 6 adds independent package verification metadata:
+
+- `packageSha256` — lowercase hex SHA-256 of the official `.7z` bytes. The
+  digest must be computed from the archive file, never copied from GitHub
+  release notes (GitHub also hosts the package). Official Plugin Updates
+  auto-install is **fail-closed**: a missing, empty, or mismatched hash
+  cancels installation. Unofficial entries may omit the field; they only open
+  a browser and are shown as not cryptographically verified.
+- `security` — optional curated disclosure (`networkAccess`,
+  `externalProcesses`, `scriptExecution`, `activeWebContent`, `elevation`).
+  Native `.spl` modules still run in-process; these flags are not a sandbox.
+
+Older clients ignore unknown JSON fields. Publish live catalogs on
+`samandarin.net` with `packageSha256` **before** shipping a client that
+requires the hash. Use `tools/catalogs/fill_package_hashes.py` against local
+`.7z` archives after `tools/package_salamander_plugins.ps1`.
+
 ```json
 {
   "id": "salamatrixailocalllama",
+  "packageSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "security": {
+    "networkAccess": "possible",
+    "externalProcesses": "yes",
+    "scriptExecution": "yes",
+    "activeWebContent": "no",
+    "elevation": "never"
+  },
   "dependencies": [
     "salamatrixai"
   ]

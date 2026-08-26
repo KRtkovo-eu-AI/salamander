@@ -6,6 +6,14 @@
   "description": "Find processes that prevent selected files from being changed, moved, or deleted.",
   "runtime": "PowerShell",
   "entryPoint": "main.ps1",
+  "web": "https://samandarin.net/",
+  "security": {
+    "networkAccess": "no",
+    "externalProcesses": "no",
+    "scriptExecution": "yes",
+    "activeWebContent": "no",
+    "elevation": "never"
+  },
   "icon": "icon.svg",
   "iconDark": "icon-dark.svg",
   "capabilities": [

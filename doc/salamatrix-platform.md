@@ -972,7 +972,9 @@ values. Manifests are limited to 1 MiB and nesting depth 64.
 
 Schema version 1 supports:
 
-- package `id`, `name`/`title`, `version`, `description`, and `entryPoint`;
+- package `id`, `name`/`title`, `version`, `description`, `web`, optional
+  `security` disclosure (`networkAccess`, `externalProcesses`,
+  `scriptExecution`, `activeWebContent`, `elevation`), and `entryPoint`;
 - a runtime string or `{ "id", "minimumVersion" }` object;
 - a validated string array of declared `capabilities`;
 - up to 64 command records with `id`, `title`, `handler`, `menu`/`placement`,

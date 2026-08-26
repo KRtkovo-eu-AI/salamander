@@ -1080,6 +1080,10 @@ def main() -> int:
         "manifest contribution flags are not derived during package discovery")
     require(
         packages,
+        r'SecurityDeclared.*?descriptor\.NetworkAccess.*?descriptor\.Elevation',
+        "package discovery does not copy manifest security disclosure")
+    require(
+        packages,
         r'void PackageManager::RefreshContributionFlags\(Package\* package\).*?'
         r'ExtensionFlagMenuExtension.*?RegisterExtension.*?'
         r'commands\.register.*?RefreshContributionFlags\(package\).*?'
@@ -1097,6 +1101,21 @@ def main() -> int:
         r'ExtensionFlagFileSystem.*?IDS_PLUGINFUNCFILESYSTEM.*?'
         r'IDC_PLUGINFUNCTIONS.*?extensionFunctions',
         "Plugin Manager does not render extension contributions in Functions")
+    require(
+        dialogs,
+        r"else if \(extension != NULL\).*?"
+        r"IDS_PLUGIN_PACKAGE_ID_LABEL.*?"
+        r"ShowPluginOnlyDetailRows\(FALSE\).*?"
+        r"HomePageUrl.*?"
+        r"PluginSecurityFormatForExtension.*?"
+        r"Descriptor\.NetworkAccess",
+        "Plugin Manager does not show Package ID, Web, and declared security for extensions")
+    require(
+        dialogs,
+        r"void CPluginsDlg::ShowPluginOnlyDetailRows\(BOOL show\).*?"
+        r"IDC_PLUGINFSNAME.*?IDC_PLUGINTHUMBNAILS.*?"
+        r"SW_SHOW : SW_HIDE",
+        "Plugin Manager does not hide FS Name and Thumbnails for extensions")
     viewer_registration = re.search(
         r'void PackageManager::RegisterViewerMasks\(.*?'
         r'(?=\nvoid PackageManager::SetRefreshDeferred)',
@@ -1233,6 +1252,22 @@ def main() -> int:
                     "plugin", "context", "both", "none"}:
                 raise AssertionError(
                     f"extension demo uses an invalid menu placement: "
+                    f"{manifest_path}")
+        relative = manifest_path.as_posix()
+        if "/src/extensions/" in relative or relative.endswith("/src/extensions/" + manifest_path.name):
+            if package_manifest.get("web") != "https://samandarin.net/":
+                raise AssertionError(
+                    f"first-party extension is missing Plugin Manager web URL: "
+                    f"{manifest_path}")
+            security = package_manifest.get("security")
+            if not isinstance(security, dict) or \
+                    security.get("networkAccess") not in {"yes", "no", "possible"} or \
+                    security.get("externalProcesses") not in {"yes", "no", "possible"} or \
+                    security.get("scriptExecution") not in {"yes", "no", "possible"} or \
+                    security.get("activeWebContent") not in {"yes", "no", "possible"} or \
+                    security.get("elevation") not in {"never", "install"}:
+                raise AssertionError(
+                    f"first-party extension is missing Plugin Manager security disclosure: "
                     f"{manifest_path}")
     demo_roles = {
         "Node": (javascript_demo_manifest, javascript_demo),

@@ -38,6 +38,9 @@ static void TestCompleteManifest()
         "\"runtime\":{\"id\":\"Python.CPython\",\"minimumVersion\":\"3.12\"},"
         "\"entryPoint\":\"scripts/main.py\","
         "\"icon\":\"assets/icon.svg\",\"iconDark\":\"assets/icon-dark.svg\","
+        "\"web\":\"https://samandarin.net/\","
+        "\"security\":{\"networkAccess\":\"possible\",\"externalProcesses\":\"yes\","
+        "\"scriptExecution\":\"yes\",\"activeWebContent\":\"no\",\"elevation\":\"never\"},"
         "\"capabilities\":[\"panels.read\",\"ui.dialogs\"],"
         "\"dependencies\":[\"org.opensalamander.Core\",\"org.opensalamander.Shared\"],"
         "\"locales\":{\"en\":\"locales/en.json\",\"cs-CZ\":\"locales/cs-CZ.json\"},"
@@ -89,6 +92,13 @@ static void TestCompleteManifest()
     CHECK(manifest.EntryPoint == "scripts/main.py");
     CHECK(manifest.Icon == "assets/icon.svg");
     CHECK(manifest.IconDark == "assets/icon-dark.svg");
+    CHECK(manifest.HomePageUrl == "https://samandarin.net/");
+    CHECK(manifest.SecurityDeclared);
+    CHECK(manifest.NetworkAccess == "possible");
+    CHECK(manifest.ExternalProcesses == "yes");
+    CHECK(manifest.ScriptExecution == "yes");
+    CHECK(manifest.ActiveWebContent == "no");
+    CHECK(manifest.Elevation == "never");
     CHECK(manifest.Viewers.size() == 1);
     CHECK(manifest.Viewers[0].Name == "Markdown preview");
     CHECK(manifest.CapabilitiesDeclared);
@@ -387,6 +397,14 @@ static void TestInvalidDocuments()
         "\"locales\":{\"cs\":\"locales/cs.txt\"}}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
         "\"locales\":{\"cs_CZ\":\"locales/cs.json\"}}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
+        "\"security\":\"yes\"}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
+        "\"security\":{\"networkAccess\":\"maybe\",\"externalProcesses\":\"no\","
+        "\"scriptExecution\":\"no\",\"activeWebContent\":\"no\",\"elevation\":\"never\"}}",
+        "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
+        "\"security\":{\"networkAccess\":\"no\",\"externalProcesses\":\"no\","
+        "\"scriptExecution\":\"no\",\"activeWebContent\":\"no\",\"elevation\":\"always\"}}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","
         "\"name\":\"unterminated}",
         "{\"id\":\"Bad\",\"runtime\":\"JS\",\"entryPoint\":\"main.js\","

@@ -1,10 +1,11 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 6,
   "catalogName": "Sample Plugin Catalog",
-  "generatedAt": "2026-06-29T03:07:00Z",
+  "generatedAt": "2026-08-26T21:00:00Z",
   "plugins": [
     {
       "id": "plugin-folder-name",
+      "packageType": "plugin",
       "name": {
         "english": "Plugin Name",
         "czech": "Jméno zásuvného modulu",
@@ -30,13 +31,21 @@
         "romanian": "Descrierea pluginului în limba română.",
         "russian": "Описание плагина на русском языке.",
         "slovak": "Popis pluginu v slovenčine.",
-        "spanish": "Descripción del plugin en español."
+        "spanish": "Descripción del plugin en español"
       },
       "latestVersion": "plugin-version",
       "versionScheme": "fileversion | opaque",
       "homepageUrl": "Your plugin homepage URL or repository URL etc.",
       "downloadPageUrl": "Your plugin download page URL",
-      "icon": "plugin | relative/path/to/icon.png | https://example.com/icon.ico"
+      "packageSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "icon": "plugin | relative/path/to/icon.png | https://example.com/icon.ico",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     }
   ]
 }

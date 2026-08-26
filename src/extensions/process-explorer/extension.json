@@ -6,6 +6,14 @@
   "description": "Lists running Windows processes in a Salamander file-system panel.",
   "runtime": "PowerShell",
   "entryPoint": "main.ps1",
+  "web": "https://samandarin.net/",
+  "security": {
+    "networkAccess": "no",
+    "externalProcesses": "yes",
+    "scriptExecution": "yes",
+    "activeWebContent": "no",
+    "elevation": "never"
+  },
   "icon": "icon.svg",
   "iconDark": "icon-dark.svg",
   "capabilities": ["file-system", "process.read", "process.write", "panels.write", "ui.dialogs"],

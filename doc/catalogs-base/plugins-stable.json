@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "catalogName": "Plugins Stable",
   "generatedAt": "2026-08-02T00:20:57Z",
   "plugins": [
@@ -27,7 +27,14 @@
       "homepageUrl": "https://samandarin.net",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_7zip_1.34_x64/plugin_5.0_7zip_1.34_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/7zip.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "automation",
@@ -63,7 +70,14 @@
       "homepageUrl": "https://samandarin.net",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_automation_2.0_x64/plugin_5.0_automation_2.0_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/automation.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "dbviewer",
@@ -99,7 +113,14 @@
       "homepageUrl": "https://samandarin.net",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_dbviewer_1.25_x64/plugin_5.0_dbviewer_1.25_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/dbviewer.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "diskdir",
@@ -115,7 +136,14 @@
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_diskdir_1.0_x64/plugin_5.0_diskdir_1.0_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "diskmap",
@@ -151,7 +179,14 @@
       "homepageUrl": "https://samandarin.net",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_diskmap_1.13_x64/plugin_5.0_diskmap_1.13_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/diskmap.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "filecomp",
@@ -187,7 +222,14 @@
       "homepageUrl": "https://samandarin.net",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_filecomp_1.20_x64/plugin_5.0_filecomp_1.20_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/filecomp.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "folders",
@@ -223,7 +265,14 @@
       "homepageUrl": "https://samandarin.net",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_folders_0.2_x64/plugin_5.0_folders_0.2_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/folders.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "ftp",
@@ -259,7 +308,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_ftp_1.36_x64/plugin_5.0_ftp_1.36_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/ftp.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "yes",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "hypervm",
@@ -295,7 +351,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_hypervm_1.07_x64/plugin_5.0_hypervm_1.07_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/hyperv.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "yes",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "checksum",
@@ -331,7 +394,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_checksum_2.3_x64/plugin_5.0_checksum_2.3_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/checksum.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "ieviewer",
@@ -367,7 +437,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_ieviewer_1.12_x64/plugin_5.0_ieviewer_1.12_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/ieviewer.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "yes",
+        "elevation": "never"
+      }
     },
     {
       "id": "jsonviewer",
@@ -403,7 +480,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_jsonviewer_1.02_x64/plugin_5.0_jsonviewer_1.02_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/jsonviewer.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "mmviewer",
@@ -439,7 +523,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_mmviewer_1.16_x64/plugin_5.0_mmviewer_1.16_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/mmviewer.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "nethood",
@@ -475,7 +566,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_nethood_1.09_x64/plugin_5.0_nethood_1.09_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/nethood.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "yes",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "pak",
@@ -511,7 +609,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_pak_1.72_x64/plugin_5.0_pak_1.72_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/pak.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "peviewer",
@@ -547,7 +652,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_peviewer_3.0_x64/plugin_5.0_peviewer_3.0_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "pictview",
@@ -583,7 +695,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_pictview_2.24_x64/plugin_5.0_pictview_2.24_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/pictview.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "portables",
@@ -619,7 +738,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_portables_0.4_x64/plugin_5.0_portables_0.4_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/portables.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "regedt",
@@ -655,7 +781,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_regedt_1.15_x64/plugin_5.0_regedt_1.15_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/regedit.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "renamer",
@@ -691,7 +824,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_renamer_1.15_x64/plugin_5.0_renamer_1.15_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/renamer.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "samandarin",
@@ -727,7 +867,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_samandarin_0.7_x64/plugin_5.0_samandarin_0.7_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/samandarin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "yes",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "serviceexplorer",
@@ -763,7 +910,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_serviceexplorer_0.013_x64/plugin_5.0_serviceexplorer_0.013_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/serviceexplorer.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "yes",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "sftp",
@@ -799,7 +953,14 @@
       "homepageUrl": "https://github.com/Dupl3xx/salamander-sftp-plugin",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_sftp_1.01_beta_x64/plugin_5.0_sftp_1.01_beta_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "yes",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "splitcbn",
@@ -835,7 +996,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_splitcbn_1.11_x64/plugin_5.0_splitcbn_1.11_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/split.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "tar",
@@ -871,7 +1039,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_tar_3.34_x64/plugin_5.0_tar_3.34_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "textviewer",
@@ -907,7 +1082,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_textviewer_1.02_x64/plugin_5.0_textviewer_1.02_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/textviewer.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "yes",
+        "elevation": "never"
+      }
     },
     {
       "id": "unarj",
@@ -923,7 +1105,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unarj_1.22_x64/plugin_5.0_unarj_1.22_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "uncab",
@@ -939,7 +1128,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_uncab_1.28_x64/plugin_5.0_uncab_1.28_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "undelete",
@@ -975,7 +1171,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_undelete_1.12_x64/plugin_5.0_undelete_1.12_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/undelete.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "unfat",
@@ -991,7 +1194,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unfat_1.2_x64/plugin_5.0_unfat_1.2_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "unchm",
@@ -1007,7 +1217,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unchm_1.05_x64/plugin_5.0_unchm_1.05_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "uniso",
@@ -1023,7 +1240,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_uniso_1.38_x64/plugin_5.0_uniso_1.38_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "unlha",
@@ -1059,7 +1283,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unlha_1.14_x64/plugin_5.0_unlha_1.14_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "unmime",
@@ -1095,7 +1326,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unmime_1.15_x64/plugin_5.0_unmime_1.15_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "unole",
@@ -1111,7 +1349,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unole_1.02_x64/plugin_5.0_unole_1.02_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "unrar",
@@ -1127,7 +1372,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unrar_3.03_x64/plugin_5.0_unrar_3.03_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "webview2renderviewer",
@@ -1163,7 +1415,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_webview2renderviewer_1.03_x64/plugin_5.0_webview2renderviewer_1.03_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/webview2.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "yes",
+        "elevation": "never"
+      }
     },
     {
       "id": "wmobile",
@@ -1199,7 +1458,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_wmobile_1.09_x64/plugin_5.0_wmobile_1.09_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/wmobile.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "yes",
+        "externalProcesses": "yes",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "zip",
@@ -1235,7 +1501,14 @@
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_zip_1.7_x64/plugin_5.0_zip_1.7_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/zip.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     }
   ]
 }

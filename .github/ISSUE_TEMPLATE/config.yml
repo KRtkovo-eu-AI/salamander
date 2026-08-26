@@ -1,1 +1,5 @@
 blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/KRtkovo-eu-AI/salamander/security/advisories/new
+    about: Use private vulnerability reporting instead of a public issue.

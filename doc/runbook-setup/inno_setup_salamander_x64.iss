@@ -1200,6 +1200,8 @@ Source: "{#PayloadDir}\plugins\extension-runtimes\pythonruntime\runtime\salamatr
 Source: "{#PayloadDir}\salamand.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PayloadDir}\salamand.exe.config"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PayloadDir}\configstorage.ini"; DestDir: "{app}"; Flags: ignoreversion; Permissions: users-modify; Check: ShouldInstallConfigStorage
+Source: "{#SourcePath}plugin-receipts.json"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist uninsneveruninstall; Permissions: users-modify
+Source: "{#SourcePath}plugin-capabilities.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\Back.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\AzureCloudShell.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\CommandPrompt.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
@@ -2335,11 +2337,13 @@ begin
     begin
       DeleteFile(DeleteUserConfigurationFilePath);
       DeleteFile(ExpandConstant('{app}\configstorage.ini'));
+      DeleteFile(ExpandConstant('{app}\plugin-receipts.json'));
     end
     else
     begin
       RegDeleteKeyIncludingSubkeys(HKCU, {#AppToInstallRegPath});
       DeleteFile(ExpandConstant('{app}\configstorage.ini'));
+      DeleteFile(ExpandConstant('{app}\plugin-receipts.json'));
     end;
   end;
 end;

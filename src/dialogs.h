@@ -1000,6 +1000,8 @@ protected:
     int MinDlgH;
     int LastClientW;
     int LastClientH;
+    BOOL ExtensionDetailRowsCompacted;
+    int ExtensionDetailCompactDelta;
 
 public:
     CPluginsDlg(HWND hParent);
@@ -1028,6 +1030,7 @@ protected:
     void EnableHeader();
     void ApplyTheme();
     void LayoutControls();
+    void ShowPluginOnlyDetailRows(BOOL show);
 };
 
 //

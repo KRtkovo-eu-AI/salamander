@@ -263,6 +263,19 @@ if ($Prerelease) {
 $queryString = ($query.GetEnumerator() | ForEach-Object { '{0}={1}' -f $_.Key, (ConvertTo-GitHubQueryValue -Value ([string]$_.Value)) }) -join '&'
 $url = 'https://github.com/{0}/releases/new?{1}' -f $Repository, $queryString
 
+$sha256 = (Get-FileHash -LiteralPath $archive.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+$fillScript = Join-Path $PSScriptRoot 'catalogs\fill_package_hashes.py'
+$python = Get-Command python -ErrorAction SilentlyContinue
+if ($python -and (Test-Path -LiteralPath $fillScript)) {
+    & $python.Source $fillScript --archive $archive.FullName
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Catalog packageSha256 updated to $sha256 for $($archive.Name) when a matching downloadPageUrl exists."
+    }
+    else {
+        Write-Warning "Catalog hash update failed with exit code $LASTEXITCODE. The SHA-256 must still be copied into the live catalog on samandarin.net."
+    }
+}
+
 Write-Output $url
 
 if ($CopyToClipboard) {

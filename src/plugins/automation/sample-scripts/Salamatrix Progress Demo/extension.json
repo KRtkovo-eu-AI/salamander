@@ -6,6 +6,14 @@
   "description": "Demonstrates an extension package for Automation plugin (legacy JScript/VBScript).",
   "runtime": "Automation.JScript",
   "entryPoint": "main.js",
+  "web": "https://samandarin.net/",
+  "security": {
+    "networkAccess": "no",
+    "externalProcesses": "no",
+    "scriptExecution": "yes",
+    "activeWebContent": "no",
+    "elevation": "never"
+  },
   "icon": "icon.svg",
   "iconDark": "icon-dark.svg",
   "capabilities": ["ui.dialogs", "storage"],

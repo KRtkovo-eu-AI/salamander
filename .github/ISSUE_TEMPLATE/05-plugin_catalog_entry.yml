@@ -66,6 +66,62 @@ body:
     validations:
       required: true
   - type: input
+    id: package-sha256
+    attributes:
+      label: Package SHA-256
+      description: Lowercase hex SHA-256 of the official `.7z` payload. Required for official auto-install. Do not copy the digest from GitHub release notes; compute it from the archive bytes. Leave empty for unofficial browser-only entries.
+      placeholder: 64 lowercase hex characters
+    validations:
+      required: false
+  - type: dropdown
+    id: network-access
+    attributes:
+      label: Network access
+      description: Curated capability disclosure. Native plugins still run in-process; this is not a sandbox.
+      options:
+        - no
+        - possible
+        - yes
+    validations:
+      required: true
+  - type: dropdown
+    id: external-processes
+    attributes:
+      label: External processes
+      options:
+        - no
+        - yes
+    validations:
+      required: true
+  - type: dropdown
+    id: script-execution
+    attributes:
+      label: Script execution
+      options:
+        - no
+        - yes
+    validations:
+      required: true
+  - type: dropdown
+    id: active-web-content
+    attributes:
+      label: Active web content
+      options:
+        - no
+        - yes
+    validations:
+      required: true
+  - type: dropdown
+    id: elevation
+    attributes:
+      label: Elevation
+      description: Use `install` when the package is typically copied into Program Files and may prompt for elevation. Use `never` when install and runtime stay unelevated.
+      options:
+        - never
+        - install
+    validations:
+      required: true
+  - type: input
     id: icon
     attributes:
       label: Icon

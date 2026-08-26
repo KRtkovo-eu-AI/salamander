@@ -3039,6 +3039,22 @@
 #define IDS_EXCOL_PLUGINS                          14424
 #define IDS_FONTDESCRIPTION_UI                      14425
 #define IDS_FILEISNOTARCHIVE                        14426
+#define IDS_PLUGINSEC_NETWORK                       14427
+#define IDS_PLUGINSEC_PROCESSES                     14428
+#define IDS_PLUGINSEC_SCRIPT                        14429
+#define IDS_PLUGINSEC_WEB                           14430
+#define IDS_PLUGINSEC_ELEVATION                     14431
+#define IDS_PLUGINSEC_SIGNER                        14432
+#define IDS_PLUGINSEC_HASH                          14433
+#define IDS_PLUGINSEC_SOURCE                        14434
+#define IDS_PLUGINSEC_YES                           14435
+#define IDS_PLUGINSEC_NO                            14436
+#define IDS_PLUGINSEC_POSSIBLE                      14437
+#define IDS_PLUGINSEC_UNKNOWN                       14438
+#define IDS_PLUGINSEC_ELEVATION_INSTALL             14439
+#define IDS_PLUGINSEC_BUNDLED                       14440
+#define IDS_PLUGIN_COPYRIGHT_LABEL                  14441
+#define IDS_PLUGIN_PACKAGE_ID_LABEL                 14442
 
 #define IDS_MENU_OPT_MANAGECONFIG        13169
 

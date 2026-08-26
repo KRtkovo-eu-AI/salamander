@@ -25,9 +25,151 @@ DEFAULT_EXTENSIONS_ROOT = ROOT / "src" / "extensions"
 DEFAULT_RELEASE_URL = "https://github.com/KRtkovo-eu-AI/salamander/releases"
 DEFAULT_PACKAGE_RELEASE_URL = "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases"
 DEFAULT_PLUGIN_ICON_URL = "https://samandarin.net/catalogs/img/plugin.png"
-CATALOG_SCHEMA_VERSION = 5
+CATALOG_SCHEMA_VERSION = 6
 PACKAGE_TYPE_PLUGIN = "plugin"
 PACKAGE_TYPE_EXTENSION = "extension"
+SECURITY_LOCAL = {
+    "networkAccess": "no",
+    "externalProcesses": "no",
+    "scriptExecution": "no",
+    "activeWebContent": "no",
+    "elevation": "never",
+}
+SECURITY_NETWORK = {
+    "networkAccess": "yes",
+    "externalProcesses": "no",
+    "scriptExecution": "no",
+    "activeWebContent": "no",
+    "elevation": "never",
+}
+SECURITY_NETWORK_PROCESSES = {
+    "networkAccess": "yes",
+    "externalProcesses": "yes",
+    "scriptExecution": "no",
+    "activeWebContent": "no",
+    "elevation": "never",
+}
+SECURITY_WEB = {
+    "networkAccess": "possible",
+    "externalProcesses": "no",
+    "scriptExecution": "no",
+    "activeWebContent": "yes",
+    "elevation": "never",
+}
+SECURITY_SCRIPT = {
+    "networkAccess": "possible",
+    "externalProcesses": "yes",
+    "scriptExecution": "yes",
+    "activeWebContent": "no",
+    "elevation": "never",
+}
+SECURITY_SCRIPT_LOCAL = {
+    "networkAccess": "no",
+    "externalProcesses": "no",
+    "scriptExecution": "yes",
+    "activeWebContent": "no",
+    "elevation": "never",
+}
+SECURITY_SCRIPT_PROCESSES = {
+    "networkAccess": "no",
+    "externalProcesses": "yes",
+    "scriptExecution": "yes",
+    "activeWebContent": "no",
+    "elevation": "never",
+}
+SECURITY_AI = {
+    "networkAccess": "possible",
+    "externalProcesses": "yes",
+    "scriptExecution": "yes",
+    "activeWebContent": "no",
+    "elevation": "never",
+}
+SECURITY_PROCESSES = {
+    "networkAccess": "no",
+    "externalProcesses": "yes",
+    "scriptExecution": "no",
+    "activeWebContent": "no",
+    "elevation": "never",
+}
+PACKAGE_SECURITY: dict[str, dict[str, str]] = {
+    "7zip": SECURITY_LOCAL,
+    "automation": SECURITY_SCRIPT,
+    "checksum": SECURITY_LOCAL,
+    "dbviewer": SECURITY_LOCAL,
+    "demoplug": SECURITY_LOCAL,
+    "diskdir": SECURITY_LOCAL,
+    "diskmap": SECURITY_LOCAL,
+    "filecomp": SECURITY_LOCAL,
+    "folders": SECURITY_LOCAL,
+    "ftp": SECURITY_NETWORK,
+    "hypervm": SECURITY_PROCESSES,
+    "ieviewer": SECURITY_WEB,
+    "jsonviewer": SECURITY_LOCAL,
+    "mmviewer": SECURITY_LOCAL,
+    "nethood": SECURITY_NETWORK,
+    "pak": SECURITY_LOCAL,
+    "peviewer": SECURITY_LOCAL,
+    "pictview": SECURITY_LOCAL,
+    "portables": {
+        "networkAccess": "possible",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never",
+    },
+    "regedt": SECURITY_LOCAL,
+    "renamer": SECURITY_LOCAL,
+    "samandarin": SECURITY_NETWORK,
+    "serviceexplorer": SECURITY_PROCESSES,
+    "sftp": SECURITY_NETWORK,
+    "splitcbn": SECURITY_LOCAL,
+    "tar": SECURITY_LOCAL,
+    "textviewer": SECURITY_WEB,
+    "unarj": SECURITY_LOCAL,
+    "uncab": SECURITY_LOCAL,
+    "undelete": SECURITY_LOCAL,
+    "unfat": SECURITY_LOCAL,
+    "unchm": SECURITY_LOCAL,
+    "uniso": SECURITY_LOCAL,
+    "unlha": SECURITY_LOCAL,
+    "unmime": SECURITY_LOCAL,
+    "unole": SECURITY_LOCAL,
+    "unrar": SECURITY_LOCAL,
+    "webview2renderviewer": SECURITY_WEB,
+    "wmobile": SECURITY_NETWORK_PROCESSES,
+    "zip": SECURITY_LOCAL,
+    "salamatrix": SECURITY_SCRIPT,
+    "salamatrixai": SECURITY_AI,
+    "salamatrixailocalllama": SECURITY_AI,
+    "pythonruntime": SECURITY_SCRIPT,
+    "powershellruntime": SECURITY_SCRIPT,
+    "luaruntime": SECURITY_SCRIPT,
+    "phpruntime": SECURITY_SCRIPT,
+    "javascriptruntime": SECURITY_SCRIPT,
+    "file-lock-inspector": SECURITY_SCRIPT_LOCAL,
+    "git-worktree-navigator": SECURITY_SCRIPT,
+    "extension-menu-builder": SECURITY_SCRIPT_LOCAL,
+    "hardware-monitor": SECURITY_SCRIPT,
+    "process-explorer": SECURITY_SCRIPT_PROCESSES,
+    "event-viewer": SECURITY_SCRIPT_LOCAL,
+    "salamatrixdemos": SECURITY_SCRIPT_LOCAL,
+    "certview": SECURITY_LOCAL,
+    "x-tc-proxy": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never",
+    },
+    "syntax-viewer": SECURITY_LOCAL,
+}
+DEFAULT_PACKAGE_SECURITY = {
+    "networkAccess": "possible",
+    "externalProcesses": "no",
+    "scriptExecution": "no",
+    "activeWebContent": "no",
+    "elevation": "never",
+}
 EXTENSION_BUNDLES = {
     "salamatrixdemos": {
         "directory": "demos",
@@ -234,6 +376,77 @@ def now_utc() -> str:
     return instant.replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
+def security_for_package(package_id: str) -> dict[str, str]:
+    return dict(PACKAGE_SECURITY.get(package_id, DEFAULT_PACKAGE_SECURITY))
+
+
+def apply_package_trust_fields(entry: dict[str, Any], previous: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Preserve hashes across catalog refreshes and keep curated security metadata."""
+    previous = previous or {}
+    previous_url = previous.get("downloadPageUrl")
+    previous_version = previous.get("latestVersion")
+    current_url = entry.get("downloadPageUrl")
+    current_version = entry.get("latestVersion")
+    same_package = previous_url == current_url and previous_version == current_version
+    previous_hash = previous.get("packageSha256")
+    current_hash = entry.get("packageSha256")
+    if same_package and isinstance(previous_hash, str) and previous_hash.strip():
+        entry["packageSha256"] = previous_hash.strip().lower()
+    elif isinstance(current_hash, str) and current_hash.strip():
+        entry["packageSha256"] = current_hash.strip().lower()
+    else:
+        entry.pop("packageSha256", None)
+
+    package_id = str(entry.get("id") or "")
+    curated = security_for_package(package_id)
+    existing_security = entry.get("security")
+    if isinstance(existing_security, dict):
+        merged = dict(curated)
+        for key in ("networkAccess", "externalProcesses", "scriptExecution", "activeWebContent", "elevation"):
+            value = existing_security.get(key)
+            if isinstance(value, str) and value.strip():
+                merged[key] = value.strip()
+        entry["security"] = merged
+    else:
+        entry["security"] = curated
+    return entry
+
+
+def build_capabilities_snapshot(
+    catalogs: dict[Path, dict[str, Any]], generated_at: str | None = None
+) -> dict[str, Any]:
+    packages: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for catalog in catalogs.values():
+        for entry in catalog.get("plugins", []):
+            package_id = str(entry.get("id") or "")
+            if not package_id or package_id in seen:
+                continue
+            seen.add(package_id)
+            security = entry.get("security")
+            if not isinstance(security, dict):
+                security = security_for_package(package_id)
+            packages.append(
+                {
+                    "id": package_id,
+                    "packageType": entry.get("packageType") or PACKAGE_TYPE_PLUGIN,
+                    "security": {
+                        "networkAccess": security.get("networkAccess", "possible"),
+                        "externalProcesses": security.get("externalProcesses", "no"),
+                        "scriptExecution": security.get("scriptExecution", "no"),
+                        "activeWebContent": security.get("activeWebContent", "no"),
+                        "elevation": security.get("elevation", "never"),
+                    },
+                }
+            )
+    packages.sort(key=lambda item: str(item["id"]))
+    return {
+        "schemaVersion": 1,
+        "generatedAt": generated_at or now_utc(),
+        "packages": packages,
+    }
+
+
 def new_plugin_entry(plugin_id: str, version: str | None, description: str | None) -> dict[str, Any]:
     display_name = plugin_id.replace("-", " ").replace("_", " ").title()
     return {
@@ -346,6 +559,7 @@ def update_catalog(
             entry["latestVersion"] = version
         elif "latestVersion" not in entry:
             entry["latestVersion"] = "unknown (x64)"
+        apply_package_trust_fields(entry, existing.get(package_id))
         updated_plugins.append(entry)
 
     updated = dict(catalog)
@@ -369,6 +583,7 @@ def update_catalog_schema(
             if extension_catalog or entry.get("id") in extension_ids
             else PACKAGE_TYPE_PLUGIN
         )
+        apply_package_trust_fields(entry, package)
         updated_entries.append(entry)
     updated["plugins"] = updated_entries
     return updated
@@ -413,6 +628,12 @@ def main() -> int:
     parser.add_argument("--plugins-root", type=Path, default=DEFAULT_PLUGINS_ROOT)
     parser.add_argument("--extensions-root", type=Path, default=DEFAULT_EXTENSIONS_ROOT)
     parser.add_argument("--check", action="store_true", help="fail if a catalog or installer would change")
+    parser.add_argument(
+        "--capabilities-snapshot",
+        type=Path,
+        default=ROOT / "doc" / "runbook-setup" / "plugin-capabilities.json",
+        help="flattened security snapshot copied next to salamand.exe by Setup",
+    )
     args = parser.parse_args()
 
     catalogs = load_catalogs(args.catalog)
@@ -452,6 +673,23 @@ def main() -> int:
         )
         rendered_catalogs[path] = json.dumps(updated, ensure_ascii=False, indent=2) + "\n"
 
+    snapshot_catalogs = {
+        path: json.loads(rendered) for path, rendered in rendered_catalogs.items()
+    }
+    snapshot_timestamp = generated_at
+    if args.check and args.capabilities_snapshot.is_file():
+        try:
+            snapshot_timestamp = json.loads(
+                args.capabilities_snapshot.read_text(encoding="utf-8")
+            ).get("generatedAt")
+        except json.JSONDecodeError:
+            snapshot_timestamp = None
+    snapshot_rendered = json.dumps(
+        build_capabilities_snapshot(snapshot_catalogs, snapshot_timestamp),
+        ensure_ascii=False,
+        indent=2,
+    ) + "\n"
+
     installer_current = args.installer.read_text(encoding="utf-8-sig")
     installer_rendered = update_installer_plugin_versions(
         installer_current,
@@ -477,11 +715,24 @@ def main() -> int:
                 f"{args.installer} plugin versions are not up to date; "
                 f"run {Path(__file__).as_posix()}"
             )
+        if args.capabilities_snapshot.is_file():
+            if snapshot_rendered != args.capabilities_snapshot.read_text(encoding="utf-8"):
+                raise SystemExit(
+                    f"{args.capabilities_snapshot} is not up to date; "
+                    f"run {Path(__file__).as_posix()}"
+                )
+        elif snapshot_rendered.strip():
+            raise SystemExit(
+                f"{args.capabilities_snapshot} is missing; "
+                f"run {Path(__file__).as_posix()}"
+            )
         return 0
 
     for path, rendered in rendered_catalogs.items():
         path.write_text(rendered, encoding="utf-8")
     args.installer.write_text(installer_rendered, encoding="utf-8")
+    args.capabilities_snapshot.parent.mkdir(parents=True, exist_ok=True)
+    args.capabilities_snapshot.write_text(snapshot_rendered, encoding="utf-8")
     counts = ", ".join(
         f"{path.name}: {len(assignments.get(path, []))}" for path in sorted(catalogs)
     )
