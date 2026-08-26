@@ -167,6 +167,8 @@ public:
 
     BOOL IsCanceled(void) { return Canceled; };
 
+    BOOL HasInteractivePreview() const;
+
     void CancelCapture();
 
     BOOL PageAvailable(BOOL next);

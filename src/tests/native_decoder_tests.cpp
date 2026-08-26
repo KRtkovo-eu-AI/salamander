@@ -733,7 +733,7 @@ int main()
     std::vector<std::string> masks;
     PictView::Native::GetDecoderMasks(masks);
     const char* required[] = {"*.tga", "*.pcx", "*.pnm", "*.svg", "*.psd", "*.iff", "*.eps", "*.mov",
-                              "*.dds", "*.xcf", "*.pdn", "*.3dm", "*.ai", "*.dwg", "*.wmf"};
+                              "*.dds", "*.xcf", "*.pdn", "*.3dm", "*.ai", "*.dwg", "*.wmf", "*.stl"};
     for (const char* mask : required)
     {
         if (std::find(masks.begin(), masks.end(), mask) == masks.end())

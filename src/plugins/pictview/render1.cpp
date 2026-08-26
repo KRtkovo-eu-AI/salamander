@@ -119,6 +119,18 @@ void CRendererWindow::SetTitle()
 {
     TCHAR buff[SAL_MAX_PATH + 100];
 
+    if (PVHandle != NULL && HasInteractivePreview())
+    {
+        LPTSTR fname = FileName;
+        if (!G.bShowPathInTitle && _tcsrchr(FileName, '\\'))
+        {
+            fname = (LPTSTR)_tcsrchr(FileName, '\\') + 1;
+        }
+        _sntprintf_s(buff, SizeOf(buff), _TRUNCATE, LoadStr(IDS_TITLE_3D), fname, LoadStr(IDS_PLUGINNAME));
+        SetWindowText(Viewer->HWindow, buff);
+        return;
+    }
+
     if (PVHandle != NULL)
     {
         TCHAR colors[30];
@@ -182,6 +194,12 @@ void CRendererWindow::SetTitle()
     else
         _tcscpy(buff, LoadStr(IDS_PLUGINNAME));
     SetWindowText(Viewer->HWindow, buff);
+}
+
+BOOL CRendererWindow::HasInteractivePreview() const
+{
+    return PVHandle != NULL && PVW32DLL.HasInteractivePreview != nullptr &&
+           PVW32DLL.HasInteractivePreview(PVHandle);
 }
 
 BOOL CRendererWindow::OnFileOpen(LPCTSTR defaultDirectory)
@@ -427,6 +445,34 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp)
         PVW32DLL.PVSetBkHandle(PVHandle, PictViewGetRendererTransparentColor(Viewer->IsFullScreen()));
     }
     WMSize();
+    if (code == PVC_OK && HasInteractivePreview())
+    {
+        ImageLoaded = TRUE;
+        const LONG style = GetWindowLong(HWindow, GWL_STYLE);
+        if ((style & WS_CLIPCHILDREN) == 0)
+        {
+            SetWindowLong(HWindow, GWL_STYLE, style | WS_CLIPCHILDREN);
+        }
+        RECT previewRect{};
+        GetClientRect(HWindow, &previewRect);
+        if (PVW32DLL.ShowInteractivePreview != nullptr)
+        {
+            if (GetCapture() == HWindow)
+            {
+                ReleaseCapture();
+            }
+            PVW32DLL.ShowInteractivePreview(PVHandle, HWindow, &previewRect,
+                                            PictViewGetRendererBackgroundColor(Viewer->IsFullScreen()));
+        }
+    }
+    else if (HWindow != NULL)
+    {
+        const LONG style = GetWindowLong(HWindow, GWL_STYLE);
+        if ((style & WS_CLIPCHILDREN) != 0)
+        {
+            SetWindowLong(HWindow, GWL_STYLE, style & ~WS_CLIPCHILDREN);
+        }
+    }
     UpdateInfos();
     InvalidateRect(HWindow, NULL, FALSE);
 
@@ -595,6 +641,18 @@ void CRendererWindow::WMSize(void)
 
     if (IsIconic(Viewer->HWindow) || !rect.right || !rect.bottom)
         return; //we are minimized -> no point of changing size; crash otherwise
+
+    if (HasInteractivePreview())
+    {
+        PageWidth = rect.right;
+        PageHeight = rect.bottom;
+        ShowScrollBar(HWindow, SB_BOTH, FALSE);
+        if (PVW32DLL.ResizeInteractivePreview != nullptr)
+        {
+            PVW32DLL.ResizeInteractivePreview(PVHandle, &rect);
+        }
+        return;
+    }
 
     pw = PageWidth = rect.right;
     PageHeight = rect.bottom;
@@ -1043,6 +1101,12 @@ BOOL CRendererWindow::OnSetCursor(DWORD lParam)
     {
         SetCursor(LoadCursor(NULL, IDC_ARROW));
         return TRUE;
+    }
+
+    if (HasInteractivePreview())
+    {
+        SetCursor(LoadCursor(NULL, IDC_ARROW));
+        return FALSE;
     }
 
     WORD nHittest = LOWORD(lParam);
@@ -1494,6 +1558,17 @@ LRESULT CRendererWindow::OnPaint()
         HAreaBrush = CreateSolidBrush(PictViewGetRendererBackgroundColor(Viewer->IsFullScreen()));
     }
 
+    if (HasInteractivePreview())
+    {
+        FillRect(dc, &ps.rcPaint, HAreaBrush);
+        if (hRgn)
+        {
+            DeleteObject(hRgn);
+        }
+        EndPaint(HWindow, &ps);
+        return 0;
+    }
+
     if (ImageLoaded || Loading)
     {
         if (PVSequence)
@@ -1816,6 +1891,31 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             return CWindow::WindowProc(uMsg, wParam, lParam);
     }
 #endif // ENABLE_TWAIN32
+
+    if (HasInteractivePreview())
+    {
+        if (uMsg == WM_MOUSEWHEEL || uMsg == WM_MOUSEHWHEEL)
+        {
+            HWND child = GetWindow(HWindow, GW_CHILD);
+            if (child != NULL)
+            {
+                return SendMessage(child, uMsg, wParam, lParam);
+            }
+            return 0;
+        }
+        if (uMsg == WM_SETFOCUS && PVHandle != NULL && PVW32DLL.ShowInteractivePreview != nullptr)
+        {
+            RECT previewRect{};
+            GetClientRect(HWindow, &previewRect);
+            PVW32DLL.ShowInteractivePreview(PVHandle, HWindow, &previewRect,
+                                            PictViewGetRendererBackgroundColor(Viewer->IsFullScreen()));
+        }
+        if (uMsg == WM_LBUTTONDOWN || uMsg == WM_LBUTTONDBLCLK || uMsg == WM_LBUTTONUP ||
+            uMsg == WM_MBUTTONDOWN)
+        {
+            return CWindow::WindowProc(uMsg, wParam, lParam);
+        }
+    }
 
     if (uMsg == WM_MOUSEWHEEL)
     {

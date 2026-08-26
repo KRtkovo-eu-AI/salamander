@@ -337,6 +337,10 @@ PVCODE CRendererWindow::InitiatePageLoad(void)
 
 void CRendererWindow::TryEnterHandToolMode(void)
 {
+    if (HasInteractivePreview())
+    {
+        return;
+    }
     if ((XStretchedRange > PageWidth) || (YStretchedRange > PageHeight))
     {
         ShutdownTool();

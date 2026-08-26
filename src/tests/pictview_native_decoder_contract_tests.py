@@ -10,6 +10,7 @@ SVG = (ROOT / "src/plugins/pictview/native/NativeSvg.cpp").read_text(encoding="u
 CONTAINER = (ROOT / "src/plugins/pictview/native/NativeContainer.cpp").read_text(encoding="utf-8")
 INTERNAL = (ROOT / "src/plugins/pictview/native/NativeInternal.h").read_text(encoding="utf-8")
 HEADER = (ROOT / "src/plugins/pictview/native/NativeDecoder.h").read_text(encoding="utf-8")
+SHELL = (ROOT / "src/plugins/pictview/wic/ShellPreviewHost.cpp").read_text(encoding="utf-8")
 GAPS = (ROOT / "doc/pictview-wic-support-gaps.md").read_text(encoding="utf-8")
 HELP = (ROOT / "src/plugins/pictview/help/hh/pictview/appendix_fileformats.htm").read_text(encoding="utf-8")
 
@@ -50,7 +51,7 @@ def main() -> None:
         '"*.tga"', '"*.pcx"', '"*.pnm"', '"*.svg"', '"*.psd"',
         '"*.iff"', '"*.ani"', '"*.eps"', '"*.mov"', '"*.hpi"',
         '"*.dds"', '"*.xcf"', '"*.pdn"', '"*.3dm"', '"*.ai"',
-        '"*.dwg"', '"*.wmf"', '"*.emf"',
+        '"*.dwg"', '"*.wmf"', '"*.emf"', '"*.stl"',
     ]
     for mask in required_masks:
         require(NATIVE, mask, f"native mask list must include {mask}")
@@ -105,6 +106,18 @@ def main() -> None:
             "OpenNURBS zlib preview is wrapped in TCODE_ANONYMOUS_CHUNK")
     require(WIC, "!anyOpaqueAlpha",
             "WIC/shell 32-bpp frames with an unused alpha plane must stay visible")
+    require(SHELL, "IPreviewHandler",
+            "STL viewing must host Explorer IPreviewHandler, not a bundled mesh renderer")
+    require(SHELL, "4834AC27-23F1-420A-888D-85DC70B903C5",
+            "STL preview must use the Microsoft 3D Viewer DesktopPreviewHandler CLSID")
+    require(SHELL, "IsStlExtension",
+            "interactive IPreviewHandler hosting is STL-only; do not attach Office/PDF previewers")
+    require(SHELL, "PVFF_FAST",
+            "interactive 3D preview must not run on the thumbnail/fast-open path")
+    require(HELP, "IPreviewHandler",
+            "help must document Explorer IPreviewHandler hosting for STL")
+    require(GAPS, "IPreviewHandler",
+            "support gaps must document Explorer IPreviewHandler hosting for STL")
 
     print("pictview_native_decoder_contract_tests: ok")
 

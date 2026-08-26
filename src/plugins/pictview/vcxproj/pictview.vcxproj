@@ -251,6 +251,8 @@
     </ClCompile>
     <ClCompile Include="..\wic\WicBackend.cpp">
     </ClCompile>
+    <ClCompile Include="..\wic\ShellPreviewHost.cpp">
+    </ClCompile>
     <ClCompile Include="..\native\NativeDecoder.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <DisableSpecificWarnings>4121</DisableSpecificWarnings>
@@ -346,6 +348,8 @@
     <ClInclude Include="..\precomp.h">
     </ClInclude>
     <ClInclude Include="..\wic\WicBackend.h">
+    </ClInclude>
+    <ClInclude Include="..\wic\ShellPreviewHost.h">
     </ClInclude>
     <ClInclude Include="..\native\NativeDecoder.h">
     </ClInclude>

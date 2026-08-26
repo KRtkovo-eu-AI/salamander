@@ -30,6 +30,7 @@
 
 #include "../Thumbnailer.h"
 #include "../native/NativeDecoder.h"
+#include "ShellPreviewHost.h"
 
 #pragma comment(lib, "windowscodecs.lib")
 #pragma comment(lib, "shlwapi.lib")
@@ -4499,6 +4500,7 @@ PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, DWORD bufferSi
         {PVF_BLEND, "BLEND"},
         {PVF_WMF, "WMF"},
         {PVF_EMF, "EMF"},
+        {PVF_STL, "STL"},
     };
 
     const char* info1 = "WIC";
@@ -4536,8 +4538,18 @@ PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, DWORD bufferSi
     info->Colors = frame.reportedColors;
     info->ColorModel = frame.colorModel;
     info->TotalBitDepth = frame.reportedBitDepth;
-    info->Width = frame.width;
-    info->Height = frame.height;
+    if (HandleHasInteractivePreview(handle))
+    {
+        // 1x1 dummy frame is only a COM host placeholder; size the first-open
+        // viewer like a typical Explorer preview pane, not a single pixel.
+        info->Width = 800;
+        info->Height = 600;
+    }
+    else
+    {
+        info->Width = frame.width;
+        info->Height = frame.height;
+    }
     info->BytesPerLine = frame.displayStride != 0 ? frame.displayStride : frame.stride;
 
     double dpiX = 0.0;
@@ -4569,9 +4581,9 @@ PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, DWORD bufferSi
     }
 
     const LONGLONG stretchWidthSigned = handle.stretchWidth ? static_cast<LONGLONG>(handle.stretchWidth)
-                                                            : static_cast<LONGLONG>(frame.width);
+                                                            : static_cast<LONGLONG>(info->Width);
     const LONGLONG stretchHeightSigned = handle.stretchHeight ? static_cast<LONGLONG>(handle.stretchHeight)
-                                                              : static_cast<LONGLONG>(frame.height);
+                                                              : static_cast<LONGLONG>(info->Height);
     const ULONGLONG stretchWidthAbs = AbsoluteDimension(stretchWidthSigned);
     const ULONGLONG stretchHeightAbs = AbsoluteDimension(stretchHeightSigned);
     info->StretchedWidth = stretchWidthAbs > std::numeric_limits<DWORD>::max()
@@ -6403,6 +6415,9 @@ bool Backend::Populate(CPVW32DLL& table)
     table.CalculateHistogram = &Backend::sCalculateHistogram;
     table.CreateThumbnail = &Backend::sCreateThumbnail;
     table.SimplifyImageSequence = &Backend::sSimplifyImageSequence;
+    table.HasInteractivePreview = &Backend::sHasInteractivePreview;
+    table.ShowInteractivePreview = &Backend::sShowInteractivePreview;
+    table.ResizeInteractivePreview = &Backend::sResizeInteractivePreview;
     table.Handle = nullptr;
     StringCchCopyA(table.Version, SizeOf(table.Version), "WIC 1.0");
     return true;
@@ -6518,6 +6533,12 @@ PVCODE WINAPI Backend::sPVOpenImageEx(LPPVHandle* Img, LPPVOpenImageExInfo pOpen
         if (!opened)
         {
             ReleaseImageFrames(*image);
+            hr = TryOpenInteractivePreview(*image);
+            opened = SUCCEEDED(hr) && HandleHasInteractivePreview(*image);
+        }
+        if (!opened)
+        {
+            ReleaseImageFrames(*image);
             hr = TryOpenShellThumbnail(backend, *image);
             opened = SUCCEEDED(hr) && !image->frames.empty();
         }
@@ -6534,10 +6555,14 @@ PVCODE WINAPI Backend::sPVOpenImageEx(LPPVHandle* Img, LPPVOpenImageExInfo pOpen
 
     image->baseInfo.NumOfImages = static_cast<DWORD>(image->frames.size());
 
-    HRESULT hr = DecodeFrame(*image, 0);
-    if (FAILED(hr))
+    HRESULT hr = S_OK;
+    if (!HandleHasInteractivePreview(*image))
     {
-        return HResultToPvCode(hr);
+        hr = DecodeFrame(*image, 0);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
     }
 
     if (pImgInfo)
@@ -6557,6 +6582,7 @@ PVCODE WINAPI Backend::sPVCloseImage(LPPVHandle Img)
     {
         return PVC_INVALID_HANDLE;
     }
+    ReleaseInteractivePreview(*handle);
     for (auto& frame : handle->frames)
     {
         frame.converter.Reset();
@@ -6599,6 +6625,10 @@ PVCODE WINAPI Backend::sPVReadImage2(LPPVHandle Img, HDC paintDC, RECT* dRect, T
     {
         return PVC_EXCEPTION;
     }
+    if (HandleHasInteractivePreview(*handle))
+    {
+        return PVC_OK;
+    }
     if (handle->frames.empty())
     {
         return PVC_INVALID_HANDLE;
@@ -6624,6 +6654,10 @@ PVCODE WINAPI Backend::sPVDrawImage(LPPVHandle Img, HDC paintDC, int x, int y, L
     if (!init.Succeeded())
     {
         return PVC_EXCEPTION;
+    }
+    if (HandleHasInteractivePreview(*handle))
+    {
+        return PVC_OK;
     }
     HRESULT hr = DecodeFrame(*handle, 0);
     if (FAILED(hr))
@@ -6682,6 +6716,34 @@ PVCODE WINAPI Backend::sPVSetStretchParameters(LPPVHandle Img, DWORD width, DWOR
     handle->stretchHeight = convert(height);
     handle->stretchMode = mode;
     return PVC_OK;
+}
+
+bool Backend::sHasInteractivePreview(LPPVHandle Img)
+{
+    auto handle = FromHandle(Img);
+    return handle != nullptr && HandleHasInteractivePreview(*handle);
+}
+
+PVCODE Backend::sShowInteractivePreview(LPPVHandle Img, HWND hwnd, const RECT* rect, COLORREF background)
+{
+    auto handle = FromHandle(Img);
+    if (!handle || hwnd == nullptr || rect == nullptr)
+    {
+        return PVC_INVALID_HANDLE;
+    }
+    const HRESULT hr = ShowInteractivePreview(*handle, hwnd, *rect, background);
+    return SUCCEEDED(hr) ? PVC_OK : HResultToPvCode(hr);
+}
+
+PVCODE Backend::sResizeInteractivePreview(LPPVHandle Img, const RECT* rect)
+{
+    auto handle = FromHandle(Img);
+    if (!handle || rect == nullptr)
+    {
+        return PVC_INVALID_HANDLE;
+    }
+    const HRESULT hr = ResizeInteractivePreview(*handle, *rect);
+    return SUCCEEDED(hr) ? PVC_OK : HResultToPvCode(hr);
 }
 
 PVCODE WINAPI Backend::sPVLoadFromClipboard(LPPVHandle* /*Img*/, LPPVImageInfo /*pImgInfo*/, int /*size*/)

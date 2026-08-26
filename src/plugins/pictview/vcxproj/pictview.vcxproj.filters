@@ -36,6 +36,9 @@
     <ClCompile Include="..\wic\WicBackend.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
+    <ClCompile Include="..\wic\ShellPreviewHost.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
     <ClCompile Include="..\native\NativeDecoder.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
@@ -150,6 +153,9 @@
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\wic\WicBackend.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\wic\ShellPreviewHost.h">
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\native\NativeDecoder.h">

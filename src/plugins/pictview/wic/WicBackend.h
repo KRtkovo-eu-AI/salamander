@@ -98,6 +98,9 @@ struct ImageHandle
     std::vector<BYTE> gifComposeCanvas;
     std::vector<BYTE> gifSavedCanvas;
     bool gifCanvasInitialized = false;
+    ComPtr<IUnknown> previewHandler;
+    ComPtr<IUnknown> previewSite;
+    bool previewVisible = false;
 };
 
 /**
@@ -166,6 +169,9 @@ private:
                                    DWORD thumbFlags, TProgressProc progressProc, void* progressProcArg);
     static PVCODE sSimplifyImageSequence(LPPVHandle Img, HDC dc, int screenWidth, int screenHeight, LPPVImageSequence& seq,
                                          const COLORREF& bgColor);
+    static bool sHasInteractivePreview(LPPVHandle Img);
+    static PVCODE sShowInteractivePreview(LPPVHandle Img, HWND hwnd, const RECT* rect, COLORREF background);
+    static PVCODE sResizeInteractivePreview(LPPVHandle Img, const RECT* rect);
 
     static ImageHandle* FromHandle(LPPVHandle handle);
 

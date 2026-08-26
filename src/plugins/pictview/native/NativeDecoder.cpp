@@ -116,6 +116,7 @@ void GetDecoderMasks(std::vector<std::string>& masks)
     AddMask(masks, "*.blend");
     AddMask(masks, "*.wmf");
     AddMask(masks, "*.emf");
+    AddMask(masks, "*.stl");
 }
 
 Status DecodeMemory(const BYTE* data, size_t size, DecodedImage& image)

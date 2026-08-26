@@ -15,8 +15,10 @@ A mask is advertised only when one of those sources actually provides a
 decoder.  Opening a file tries WIC by filename, then WIC by stream sniff
 (needed for JPEG aliases such as `.jff` / `.thm`), then the native registry,
 then an embedded preview slice (JPEG/PNG/TIFF/BMP/WMF inside EPS, PDF/AI,
-MOV, HPI, Corel, Paint Shop Pro, or Zoner containers), then an Explorer
-thumbnail (`IShellItemImageFactory` with `SIIGBF_THUMBNAILONLY`).
+MOV, HPI, Corel, Paint Shop Pro, or Zoner containers), then Explorer
+`IPreviewHandler` hosting for `.stl` (Microsoft 3D Viewer, skipped on the
+thumbnail/`PVFF_FAST` path), then an Explorer thumbnail
+(`IShellItemImageFactory` with `SIIGBF_THUMBNAILONLY`).
 
 If WIC creates a decoder but cannot actually decode the first frame (typical
 for DXGI/DX10 DDS), PictView continues with native, embedded, and shell
@@ -32,7 +34,8 @@ aliases JFF/JIF/THM/THUMB, EPS/EPT/AI (preview), MOV (preview), HPI
 (preview), DDS (uncompressed, DXT1/3/5, ATI1/ATI2, DX10 BC1/BC2/BC3/BC4/BC5 and common 32-bit
 UNORM; cubemaps and BC7 are not native), XCF (8-bit RGB/gray flatten),
 PDN (PDN3 PNG thumbnail), 3DM (embedded preview), DWG (embedded BMP/PNG/WMF/EMF preview),
-SKP (ZIP thumbnail), BLEND (embedded JPEG/PNG/BMP), WMF/EMF (GDI rasterization).
+SKP (ZIP thumbnail), BLEND (embedded JPEG/PNG/BMP), WMF/EMF (GDI rasterization),
+STL (Explorer `IPreviewHandler` / Microsoft 3D Viewer, with thumbnail fallback).
 
 ## Optional Microsoft WIC codecs
 

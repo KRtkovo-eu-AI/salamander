@@ -162,6 +162,9 @@ static CPVW32DLL OpenImageBackend = {
     CalculateHistogram,
     CreateThumbnail,
     SimplifyImageSequence,
+    nullptr,
+    nullptr,
+    nullptr,
 };
 
 BOOL InitOpenImageBackend()
