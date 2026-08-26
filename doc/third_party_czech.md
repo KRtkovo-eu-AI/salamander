@@ -12,7 +12,8 @@ jejich práce.
 | REGEXP | Regulární výrazy | Copyright (C) 1986 Henry Spencer, University of Toronto. |
 | AES kód | Kryptografické rutiny | Napsal Dr Brian Gladman. Copyright (C) 2001 Dr Brian Gladman. |
 | PNGLite | Podpora obrázků PNG | Založeno na PNGLite od Daniel Karling. Copyright (C) 2007 Daniel Karling. |
-| Nano SVG | Podpora parsování/vykreslování SVG | Copyright (c) 2013-2014 Mikko Mononen. |
+| Nano SVG | Podpora parsování/vykreslování SVG | Copyright (c) 2013-2014 Mikko Mononen. Používá se pro ikony nástrojových lišt a nabídek hlavní aplikace a v pluginu PictView pro prohlížení SVG (platí limity NanoSVG: bez CSS, omezený text a filtry). |
+| PictView deflate inflater | Plugin PictView | Inflater deflate/zlib pro dlaždice XCF, PNG IDAT, ZIP SKP a komprimované náhledy 3DM. Čtení bitů a sestavení Huffmanových tabulek vychází z puff od Marka Adlera. Copyright (C) 2002-2013 Mark Adler. Licence zlib. |
 | SQLite | Podpora vložené databáze | SQLite je ve veřejné doméně. |
 | LibTomCrypt | Kryptografické prvky pluginu_checksum | LibTomCrypt je ve veřejné doméně. Jak napsal Tom St Denis: „Jak by měl být každý kvalitní software." |
 | LGPL knihovny | Sdílené knihovny třetích stran | Licencovány pod GNU Library General Public License. Kopie licence je součástí tohoto softwaru. |

@@ -1275,8 +1275,8 @@ void CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamand
 {
     CALL_STACK_MESSAGE1("CPluginInterface::Connect(,)");
 
-    // Both the viewer associations and thumbnail masks follow the WIC decoder
-    // inventory from the local Windows installation.
+    // Viewer associations and thumbnail masks follow the WIC decoder inventory
+    // plus the native PictView decoder registry.
     ConfigureWicMasks(salamander);
 
     /* used by the export_mnu.py script that generates salmenu.mnu for Translator

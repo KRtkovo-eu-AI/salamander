@@ -9,7 +9,8 @@
 | REGEXP | 正则表达式匹配 | Copyright (C) 1986 Henry Spencer, University of Toronto. |
 | AES 代码 | 加密例程 | 由 Dr Brian Gladman 编写。Copyright (C) 2001 Dr Brian Gladman. |
 | PNGLite | PNG 图像支持 | 基于 Daniel Karling 的 PNGLite。Copyright (C) 2007 Daniel Karling. |
-| Nano SVG | SVG 解析/渲染支持 | Copyright (c) 2013-2014 Mikko Mononen. |
+| Nano SVG | SVG 解析/渲染支持 | Copyright (c) 2013-2014 Mikko Mononen. 用于主程序工具栏/菜单图标以及 PictView 插件中的 SVG 查看（适用 NanoSVG 限制：无 CSS、文本和滤镜支持有限）。 |
+| PictView deflate inflater | PictView 插件 | 用于 XCF 图块、PNG IDAT、SKP ZIP 以及压缩 3DM 预览的 deflate/zlib 解压器。位读取与 Huffman 表遵循 Mark Adler 的 puff。Copyright (C) 2002-2013 Mark Adler。zlib 许可。 |
 | SQLite | 嵌入式数据库支持 | SQLite 处于公共领域。 |
 | LibTomCrypt | 校验和插件加密原语 | LibTomCrypt 处于公共领域。正如 Tom St Denis 所写："就像所有优质软件应该的那样。" |
 | LGPL 库 | 共享第三方库 | 根据 GNU Library General Public License 授权。本软件附带许可证副本。 |

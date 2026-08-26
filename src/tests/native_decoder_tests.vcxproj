@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{B3E7A91C-6D44-4F1A-9C2E-8A1D0C4B7E22}</ProjectGuid>
+    <RootNamespace>nativedecodertests</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType><UseDebugLibraries>true</UseDebugLibraries><PlatformToolset>v145</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Release'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v145</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <OutDir>$(OPENSAL_BUILD_DIR)tests\$(Configuration)_$(Platform)\</OutDir>
+    <IntDir>$(OPENSAL_BUILD_DIR)tests\$(Configuration)_$(Platform)\NativeDecoderIntermediate\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <WarningLevel>Level4</WarningLevel>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <DisableSpecificWarnings>4121;4244;4505;4702</DisableSpecificWarnings>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\plugins\pictview;$(ProjectDir)..\plugins\pictview\native;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="native_decoder_tests.cpp" />
+    <ClCompile Include="native_svg_impl.cpp" />
+    <ClCompile Include="..\plugins\pictview\native\NativeDecoder.cpp" />
+    <ClCompile Include="..\plugins\pictview\native\NativeRaster.cpp" />
+    <ClCompile Include="..\plugins\pictview\native\NativeAnim.cpp" />
+    <ClCompile Include="..\plugins\pictview\native\NativeSvg.cpp" />
+    <ClCompile Include="..\plugins\pictview\native\NativePreview.cpp" />
+    <ClCompile Include="..\plugins\pictview\native\NativeInflate.cpp" />
+    <ClCompile Include="..\plugins\pictview\native\NativeContainer.cpp" />
+    <ClCompile Include="..\plugins\pictview\native\NativeWmf.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\plugins\pictview\native\NativeDecoder.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

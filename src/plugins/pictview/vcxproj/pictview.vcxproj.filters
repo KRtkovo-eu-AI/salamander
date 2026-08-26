@@ -36,6 +36,30 @@
     <ClCompile Include="..\wic\WicBackend.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
+    <ClCompile Include="..\native\NativeDecoder.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\native\NativeRaster.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\native\NativeAnim.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\native\NativeSvg.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\native\NativePreview.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\native\NativeInflate.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\native\NativeContainer.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\native\NativeWmf.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
     <ClCompile Include="..\pvtwain.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
@@ -126,6 +150,9 @@
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\wic\WicBackend.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\native\NativeDecoder.h">
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\pvtwain.h">

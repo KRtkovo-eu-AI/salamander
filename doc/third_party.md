@@ -12,7 +12,9 @@ making their work available.
 | REGEXP | Regular expression matching | Copyright (C) 1986 Henry Spencer, University of Toronto. |
 | AES code | Cryptographic routines | Written by Dr Brian Gladman. Copyright (C) 2001 Dr Brian Gladman. |
 | PNGLite | PNG image support | Based on PNGLite by Daniel Karling. Copyright (C) 2007 Daniel Karling. |
-| Nano SVG | SVG parsing/rendering support | Copyright (c) 2013-2014 Mikko Mononen. |
+| Nano SVG | SVG parsing/rendering support | Copyright (c) 2013-2014 Mikko Mononen. Used by the main application toolbar/menu icons and by the PictView plugin for SVG viewing (NanoSVG limits apply: no CSS, limited text and filters). |
+| PictView deflate inflater | PictView plugin | Deflate/zlib inflater used for XCF tiles, PNG IDAT, SKP ZIP, and compressed 3DM previews. The bit-reader and Huffman construction follow Mark Adler's puff. Copyright (C) 2002-2013 Mark Adler. zlib license. |
+| openNURBS 3DM preview layout | PictView plugin | Rhinoceros `.3dm` properties-table preview chunks and `ON_WindowsBitmap::ReadCompressed` layout follow [McNeel openNURBS](https://github.com/mcneel/opennurbs). Copyright (c) Robert McNeel & Associates. Used as a format reference only; openNURBS itself is not bundled. |
 | SQLite | Embedded database support | SQLite is in the Public Domain. |
 | LibTomCrypt | Checksum plugin cryptographic primitives | LibTomCrypt is public domain. As Tom St Denis wrote: "As should all quality software be." |
 | LGPL libraries | Shared third-party libraries | Licensed under the GNU Library General Public License. A copy of the license is included with this software. |

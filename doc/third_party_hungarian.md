@@ -12,7 +12,8 @@ szerepel, hogy hozzáférhetővé tették munkájukat.
 | REGEXP | Reguláris kifejezések illesztése | Copyright (C) 1986 Henry Spencer, University of Toronto. |
 | AES kód | Kriptográfiai rutinok | Írta Dr Brian Gladman. Copyright (C) 2001 Dr Brian Gladman. |
 | PNGLite | PNG kép támogatás | A PNGLite alapján, szerző: Daniel Karling. Copyright (C) 2007 Daniel Karling. |
-| Nano SVG | SVG megjelenítési támogatás | Copyright (c) 2013-2014 Mikko Mononen. |
+| Nano SVG | SVG megjelenítési támogatás | Copyright (c) 2013-2014 Mikko Mononen. A főalkalmazás eszköztár- és menüikonjaihoz, valamint a PictView bővítmény SVG-megjelenítéséhez használatos (NanoSVG korlátok: nincs CSS, korlátozott szöveg és szűrők). |
+| PictView deflate inflater | PictView bővítmény | Deflate/zlib inflater XCF csempékhez, PNG IDAT-hoz, SKP ZIP-hez és tömörített 3DM előnézetekhez. A bitolvasó és a Huffman puff alapján készült (Mark Adler). Copyright (C) 2002-2013 Mark Adler. zlib licenc. |
 | SQLite | Beágyazott adatbázis támogatás | SQLite közszférában van. |
 | LibTomCrypt | Ellenőrző összeg bővítmény kriptográfiai alapelemei | LibTomCrypt közszférában van. Ahogy Tom St Denis írta: „Ahogy minden minőségi szoftvernek kellene lennie." |
 | LGPL könyvtárak | Megosztott harmadik fél könyvtárak | A GNU Library General Public License alatt licencelve. A licence másolata mellékelve van ezzel a szoftverrel. |

@@ -2,73 +2,62 @@
 
 ## Current behaviour
 
-PictView no longer uses the historical `PVW32DLL` decoder set.  On every
-plug-in connection it enumerates the local WIC decoder inventory through
-`IWICBitmapDecoderInfo::GetFileExtensions` and uses those masks for both the
-viewer and thumbnail loader.
+PictView enumerates supported extensions from three sources on every plug-in
+connection:
 
-Consequences:
+1. The local Windows Imaging Component inventory through
+   `IWICBitmapDecoderInfo::GetFileExtensions`.
+2. The native PictView decoder registry (`PictView::Native::GetDecoderMasks`).
+3. Explorer `IThumbnailProvider` / `IExtractImage` handlers, minus a denylist
+   of documents, archives, executables, and media.
 
-- A codec installed by the user or Windows (for example WebP, HEIF/HEIC, DNG
-  or a camera RAW codec) is picked up automatically at the next Salamander
-  start.  It is not necessary to add its extension to a static list.
-- If that codec is uninstalled, the corresponding PictView association is
-  removed on the next start.
-- The built-in WIC baseline is BMP (`.bmp`, `.dib`, `.rle`), GIF, ICO, JPEG (`.jpg`, `.jpe`, `.jpeg`,
-  `.jfif`), PNG, TIFF (`.tif`, `.tiff`), JPEG XR / HD Photo (`.jxr`, `.wdp`)
-  and WIC-compatible DDS.  The runtime inventory remains the source
-  of truth for the exact extensions on an individual computer.
+A mask is advertised only when one of those sources actually provides a
+decoder.  Opening a file tries WIC by filename, then WIC by stream sniff
+(needed for JPEG aliases such as `.jff` / `.thm`), then the native registry,
+then an embedded preview slice (JPEG/PNG/TIFF/BMP/WMF inside EPS, PDF/AI,
+MOV, HPI, Corel, Paint Shop Pro, or Zoner containers), then an Explorer
+thumbnail (`IShellItemImageFactory` with `SIIGBF_THUMBNAILONLY`).
 
-## Legacy formats requiring an implementation or a WIC codec
+If WIC creates a decoder but cannot actually decode the first frame (typical
+for DXGI/DX10 DDS), PictView continues with native, embedded, and shell
+fallbacks instead of failing immediately.
 
-The old static registration advertised 114 masks.  The masks below are not
-part of the guaranteed native WIC baseline, so the current backend must not
-claim them unless a locally installed WIC decoder advertises the mask.  To
-restore platform-independent PictView support, implement a decoder/rasterizer
-in PictView (or bundle and maintain an appropriate codec), add test files, and
-then add the capability to the comparison page.
+## Guaranteed native formats
 
-```text
-2BP, 82I, 83I, 85I, 86I, 89I, 92I,
-AI, ANI, ARW, AWD,
-BLP, BMI, BW,
-CAL, CALS, CDR, CDT, CEL, CIT, CLK, CLP, CMX, COT, CPT, CR2, CRW, CUR, CUT,
-DCX, DNG, DTX,
-EPS, EPT,
-FLC, FLI,
-GEM,
-HAM, HMR, HPI, HRZ,
-ICN, IFF, IMG, ITIFF,
-JFF, JIF, JMX,
-LBM,
-MAC, MACP, MBM, MIL, MNG, MOV, MPNT, MSP,
-NEF,
-OFX, ORF,
-PAINT, PAN, PAT, PBM, PC2, PCD, PCT, PCX, PEF, PGM, PIC, PICT, PNM, PNTG,
-PPM, PSP*, PSD, PYX,
-QFX,
-RAF, RAS, RGB,
-SAM, SCX, SEP, SGI, SKA, ST, STW, SUN,
-TGA, THM, THUMB,
-UDI,
-WBMP, WEB, WPG,
-XAR,
-ZBR, ZMF, ZNO.
-```
+The following masks are always registered, independent of optional Store
+codecs: TGA, PCX, DCX, PBM/PGM/PPM/PNM, RAS/SUN, SGI/BW/RGB, WBMP, SVG,
+IFF/LBM, ANI, CUR, PSD (flattened 8-bit composite), FLI/FLC, DTX, JPEG
+aliases JFF/JIF/THM/THUMB, EPS/EPT/AI (preview), MOV (preview), HPI
+(preview), CDR/CDT/CMX/WEB/XAR (preview), PSP* (preview), ZBR/ZMF/ZNO
+(preview), DDS (uncompressed, DXT1/3/5, ATI1/ATI2, DX10 BC1/BC2/BC3/BC4/BC5 and common 32-bit
+UNORM; cubemaps and BC7 are not native), XCF (8-bit RGB/gray flatten),
+PDN (PDN3 PNG thumbnail), 3DM (embedded preview), DWG (embedded BMP/PNG/WMF/EMF preview),
+SKP (ZIP thumbnail), BLEND (embedded JPEG/PNG/BMP), WMF/EMF (GDI rasterization).
 
-## Formats that need special treatment
+## Optional Microsoft WIC codecs
 
-| Format family | Status and required work |
-| --- | --- |
-| WebP | Supported automatically only when the Windows WebP WIC codec is installed. Do not advertise it as universal support. A bundled decoder would make it guaranteed. |
-| HEIF/HEIC, AVIF | Not historically registered. They become available automatically if their WIC extension codec exposes a mask. Add test files before describing them as a product guarantee. |
-| DNG and camera RAW | May be exposed by a WIC Raw Image Extension or vendor codec. Native decoding is required for a consistent guarantee across machines. |
-| SVG | Not a WIC bitmap decoder. Restore thumbnails/viewing only through an SVG rasterizer or a dedicated thumbnail implementation. |
-| DDS | The WIC decoder supports only WIC-compatible DDS variants. Test each required DXGI compression format before promising full DDS support. |
-| EPS/EPT/AI, MOV | The previous implementation relied on embedded previews. Proper rendering needs a PostScript/PDF/vector rasterizer and a video-frame decoder, respectively. |
+Do not advertise these as a PictView guarantee.  When the codec is
+installed, WIC enumeration adds the masks automatically.
+
+- **WebP:** [WebP Image Extension](https://apps.microsoft.com/detail/9pg2dk419drg).
+- **Camera RAW / DNG:** [Raw Image Extension](https://apps.microsoft.com/detail/9nctdw2w1bh8).
+- **HEIF/HEIC / AVIF:** HEIF Image Extensions / AV1 Video Extension.
+
+`libwebp`, LibRaw, and libheif are not bundled.
+
+## Formats still without a native decoder
+
+The historical registration listed many more suffixes (TI calculator images,
+AWD, BLP, PhotoCD, PICT, WPG, GEM IMG, MacPaint, CALS, and others).  Those
+masks are not advertised until a tested decoder exists.
+
+## Save As
+
+Save As is still WIC-only: BMP, GIF, JPEG, PNG, and TIFF.  Native formats are
+decode/view/thumbnail only until a matching encoder is added.
 
 ## Maintenance rule
 
-Do not add a new PictView suffix by hand merely because an old table listed it.
-Either let WIC enumerate it from an installed decoder, or add a tested native
-implementation and document its exact feature limits.
+Do not add a new PictView suffix by hand merely because an old table listed
+it.  Either let WIC enumerate it from an installed decoder, or add a tested
+native implementation and document its exact feature limits.

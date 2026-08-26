@@ -12,7 +12,8 @@
 | REGEXP | Сопоставление регулярных выражений | Copyright (C) 1986 Henry Spencer, University of Toronto. |
 | Код AES | Криптографическиеoutines | Написано доктором Brian Gladman. Copyright (C) 2001 Dr Brian Gladman. |
 | PNGLite | Поддержка изображений PNG | Основано на PNGLite от Daniel Karling. Copyright (C) 2007 Daniel Karling. |
-| Nano SVG | Поддержка парсинга/рендеринга SVG | Copyright (c) 2013-2014 Mikko Mononen. |
+| Nano SVG | Поддержка парсинга/рендеринга SVG | Copyright (c) 2013-2014 Mikko Mononen. Используется для значков панели инструментов и меню основного приложения и плагином PictView для просмотра SVG (ограничения NanoSVG: без CSS, ограниченный текст и фильтры). |
+| PictView deflate inflater | Плагин PictView | Inflater deflate/zlib для тайлов XCF, PNG IDAT, ZIP SKP и сжатых превью 3DM. Чтение битов и таблицы Хаффмана по puff Марка Адлера. Copyright (C) 2002-2013 Mark Adler. Лицензия zlib. |
 | SQLite | Поддержка встроенной базы данных | SQLite находится в общественном достоянии. |
 | LibTomCrypt | Криптографические примитивы плагина контрольных сумм | LibTomCrypt находится в общественном достоянии. Как написал Tom St Denis: «Как и всё качественное программное обеспечение должно быть.» |
 | LGPL библиотеки | Общие сторонние библиотеки | Лицензированы под GNU Library General Public License. Копия лицензии прилагается к данному программному обеспечению. |
@@ -44,7 +45,7 @@
 | --- | --- | --- |
 | Tomas Jelinek | Плагин Multimedia Viewer | Включает программное обеспечение, написанное Tomas Jelinek. Copyright (C) 2003-2026 Tomas Jelinek. |
 | Внутренний просмотрщик | Части просмотрщика Unicode | Samandarin содержит код и реализации, производные от форка [Sally](https://github.com/0xeb/sally) авторства [Elias Bachaalany (0xeb)](https://github.com/0xeb), или существенно вдохновлённые им. Лицензировано под GNU Library General Public License. |
-| Jan Patera | Плагин PictView | Части плагина PictView лицензированы от Jan Patera. Copyright (C) 1994-2016 Jan Patera. |
+| Jan Patera | Плагин PictView | Части плагина PictView лицензированы от Jan Patera. Copyright (C) 1994-2026 Jan Patera. |
 | libexif | Плагин PictView | Части плагина PictView используют libexif. Copyright (C) 2001-2019 Curtis Galloway и Lutz Muller. |
 | Newtonsoft.Json 13.0.3 | Плагин JSON Viewer | Автор: James Newton-King, выпущено под лицензией MIT. |
 | Microsoft .NET Framework 4.8 | Плагин JSON Viewer | Предоставлено Microsoft Corporation по условиям лицензии Microsoft .NET Framework. |

@@ -13,12 +13,14 @@
 <div class="page">
 <h1>Getting Started with PictView Plugin</h1>
 
-<p>The PictView plugin is an image viewer, converter, and thumbnailer. It supports more than
-<a href="appendix_fileformats.htm">60 file formats</a> and relies on the
-Windows Imaging Component (WIC) built into Microsoft Windows for decoding and encoding
-image data. The original freeware <a href="https://samandarin.net/" target="_blank">PictView</a>
-application inspired this plugin, but the closed-source PVW32Cnv.dll backend has been replaced
-with the WIC imaging services that ship with the operating system.</p>
+<p>The PictView plugin is an image viewer, converter, and thumbnailer. It supports the
+<a href="appendix_fileformats.htm">formats listed in the appendix</a> through the
+Windows Imaging Component (WIC) built into Microsoft Windows, native PictView
+decoders (including GIMP XCF, Paint.NET PDN previews, and Rhinoceros 3DM previews),
+and Explorer thumbnail handlers already registered on this computer. Optional Microsoft Store codecs (WebP, camera RAW, HEIF/AVIF)
+are picked up automatically when they are installed. The original freeware
+<a href="https://samandarin.net/" target="_blank">PictView</a>
+application inspired this plugin; the closed-source PVW32Cnv.dll backend has been replaced.</p>
 
 <p>See File Viewer, Menu Extension and Thumbnail Loader sections in
 <a href="ms-its:salamand.chm::/hh/salamand/plugins_using.htm">Using Plugins</a>
