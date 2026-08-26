@@ -30,8 +30,10 @@ public:
     void UpdateText();
 
     // set the base to which Set appends additional text
+    // callers on a non-UI thread must pass updateInIdle = TRUE
     void SetBase(LPCWSTR text, BOOL updateInIdle = FALSE);
     // append to the base set via SetBase
+    // callers on a non-UI thread must pass updateInIdle = TRUE
     void Set(LPCWSTR text, BOOL updateInIdle = FALSE);
     // returns the complete string
     //void Get(char *buf, int bufSize);
