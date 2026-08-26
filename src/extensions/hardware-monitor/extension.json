@@ -6,6 +6,14 @@
   "description": "Displays detailed hardware information, sensor readings, and system utilization in a Salamander file-system panel, similar to AIDA64.",
   "runtime": "PowerShell",
   "entryPoint": "main.ps1",
+  "web": "https://samandarin.net/",
+  "security": {
+    "networkAccess": "possible",
+    "externalProcesses": "yes",
+    "scriptExecution": "yes",
+    "activeWebContent": "no",
+    "elevation": "never"
+  },
   "icon": "icon.svg",
   "iconDark": "icon-dark.svg",
   "capabilities": ["file-system", "panels.write", "ui.dialogs", "process.write"],

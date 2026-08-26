@@ -327,6 +327,22 @@ try {
             )
         },
         @{
+            Name = 'plugin_trust_contract_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\plugin_trust_contract_tests.py')
+            )
+        },
+        @{
+            Name = 'update_stable_plugin_catalog_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'tools\catalogs\tests\test_update_stable_plugin_catalog.py')
+            )
+        },
+        @{
             Name = 'codepage_and_clipboard_contract_tests'
             Arguments = @(
                 '-B',

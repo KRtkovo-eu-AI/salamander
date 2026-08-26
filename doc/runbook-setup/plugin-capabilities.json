@@ -1,0 +1,611 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-02T00:20:57Z",
+  "packages": [
+    {
+      "id": "7zip",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "automation",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "certview",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "checksum",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "dbviewer",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "demoplug",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "diskdir",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "diskmap",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "extension-menu-builder",
+      "packageType": "extension",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "file-lock-inspector",
+      "packageType": "extension",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "filecomp",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "folders",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "ftp",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "yes",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "git-worktree-navigator",
+      "packageType": "extension",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "hypervm",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "yes",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "ieviewer",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "yes",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "javascriptruntime",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "jsonviewer",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "luaruntime",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "mmviewer",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "nethood",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "yes",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "pak",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "peviewer",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "phpruntime",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "pictview",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "portables",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "powershellruntime",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "pythonruntime",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "regedt",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "renamer",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "salamatrix",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "salamatrixai",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "salamatrixailocalllama",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "salamatrixdemos",
+      "packageType": "extension",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "samandarin",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "yes",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "serviceexplorer",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "yes",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "sftp",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "yes",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "splitcbn",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "syntax-viewer",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "tar",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "textviewer",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "yes",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "unarj",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "uncab",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "unchm",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "undelete",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "unfat",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "uniso",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "unlha",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "unmime",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "unole",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "unrar",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "webview2renderviewer",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "yes",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "wmobile",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "yes",
+        "externalProcesses": "yes",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "x-tc-proxy",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "zip",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    }
+  ]
+}

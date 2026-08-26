@@ -6,6 +6,14 @@
   "description": "Browses Windows event logs in a Salamander file-system panel.",
   "runtime": "PowerShell",
   "entryPoint": "main.ps1",
+  "web": "https://samandarin.net/",
+  "security": {
+    "networkAccess": "no",
+    "externalProcesses": "no",
+    "scriptExecution": "yes",
+    "activeWebContent": "no",
+    "elevation": "never"
+  },
   "icon": "icon.svg",
   "iconDark": "icon-dark.svg",
   "capabilities": ["file-system", "panels.write", "ui.dialogs"],

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "catalogName": "Extension Runtimes",
   "generatedAt": "2026-08-02T00:20:57Z",
   "plugins": [
@@ -37,7 +37,14 @@
       "homepageUrl": "https://salamatrix.samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrix_0.2_x64/plugin_5.0_salamatrix_0.2_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/salamatrix.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "salamatrixai",
@@ -56,7 +63,14 @@
         "salamatrix"
       ],
       "icon": "https://samandarin.net/catalogs/img/salamatrix.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "salamatrixailocalllama",
@@ -75,7 +89,14 @@
         "salamatrixai"
       ],
       "icon": "https://samandarin.net/catalogs/img/salamatrix.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "pythonruntime",
@@ -94,7 +115,14 @@
         "salamatrix"
       ],
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "powershellruntime",
@@ -113,7 +141,14 @@
         "salamatrix"
       ],
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "luaruntime",
@@ -132,7 +167,14 @@
         "salamatrix"
       ],
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "phpruntime",
@@ -151,7 +193,14 @@
         "salamatrix"
       ],
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "javascriptruntime",
@@ -170,7 +219,14 @@
         "salamatrix"
       ],
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "demoplug",
@@ -206,7 +262,14 @@
       "homepageUrl": "https://salamatrix.samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_demoplug_1.96_x64/plugin_5.0_demoplug_1.96_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/demoplug.png",
-      "packageType": "plugin"
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     }
   ]
 }

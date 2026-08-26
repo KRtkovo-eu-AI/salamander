@@ -275,6 +275,16 @@ public:
     // manifest directory and must stay inside the extension package.
     std::string Icon;
     std::string IconDark;
+    // Optional Plugin Manager homepage shown on the Web row.
+    std::string HomePageUrl;
+    // Optional Plugin Manager Security disclosure. Same keys/values as catalog
+    // `security` (`yes`/`no`/`possible`, elevation `never`/`install`).
+    bool SecurityDeclared;
+    std::string NetworkAccess;
+    std::string ExternalProcesses;
+    std::string ScriptExecution;
+    std::string ActiveWebContent;
+    std::string Elevation;
     // Distinguishes a legacy manifest with no permission declaration from an
     // explicitly empty (deny-all) capability list.
     bool CapabilitiesDeclared;
@@ -308,8 +318,8 @@ public:
     /// Parses and validates one complete UTF-8 JSON document.
     bool Parse(const char* json, size_t length, CExtensionManifestError& error);
 
-    /// Entry points must stay inside the extension directory.
     static bool IsSafeRelativeEntryPoint(const std::string& entryPoint);
+    static bool IsSafeHomePageUrl(const std::string& url);
 
     /// Parses one UTF-8 locale resource declared by `locales`. Locale files
     /// are deliberately data-only; they cannot add capabilities or commands.

@@ -138,7 +138,7 @@ class CatalogUpdaterTests(unittest.TestCase):
             )
 
             self.assertEqual(updated["generatedAt"], "fixed")
-            self.assertEqual(updated["schemaVersion"], 5)
+            self.assertEqual(updated["schemaVersion"], 6)
             self.assertEqual(updated["plugins"][0]["packageType"], "extension")
             self.assertEqual(updated["plugins"][0]["latestVersion"], "1.0.0 (x64)")
             self.assertEqual(updated["plugins"][0]["name"]["english"], "Extension Menu Builder")
@@ -195,13 +195,109 @@ class CatalogUpdaterTests(unittest.TestCase):
 
         updated = UPDATER.update_catalog_schema(catalog, {"salamatrixdemos"})
 
-        self.assertEqual(updated["schemaVersion"], 5)
+        self.assertEqual(updated["schemaVersion"], 6)
         self.assertEqual(
             [entry["id"] for entry in updated["plugins"]],
             ["pythonruntime", "salamatrixdemos"],
         )
         self.assertEqual(updated["plugins"][0]["packageType"], "plugin")
         self.assertEqual(updated["plugins"][1]["packageType"], "extension")
+
+    def test_trust_fields_preserve_hash_when_url_and_version_match(self) -> None:
+        previous = {
+            "id": "7zip",
+            "downloadPageUrl": "https://example.invalid/7zip.7z",
+            "latestVersion": "1.34 (x64)",
+            "packageSha256": "ABCD" * 16,
+        }
+        entry = dict(previous)
+        entry.pop("packageSha256")
+        UPDATER.apply_package_trust_fields(entry, previous)
+        self.assertEqual(entry["packageSha256"], ("abcd" * 16))
+        self.assertEqual(entry["security"]["networkAccess"], "no")
+
+    def test_trust_fields_drop_hash_when_version_changes(self) -> None:
+        previous = {
+            "id": "7zip",
+            "downloadPageUrl": "https://example.invalid/7zip.7z",
+            "latestVersion": "1.34 (x64)",
+            "packageSha256": "abcd" * 16,
+        }
+        entry = {
+            "id": "7zip",
+            "downloadPageUrl": "https://example.invalid/7zip.7z",
+            "latestVersion": "1.35 (x64)",
+        }
+        UPDATER.apply_package_trust_fields(entry, previous)
+        self.assertNotIn("packageSha256", entry)
+
+    def test_trust_fields_drop_hash_when_url_changes(self) -> None:
+        previous = {
+            "id": "7zip",
+            "downloadPageUrl": "https://example.invalid/old.7z",
+            "latestVersion": "1.34 (x64)",
+            "packageSha256": "abcd" * 16,
+        }
+        entry = {
+            "id": "7zip",
+            "downloadPageUrl": "https://example.invalid/new.7z",
+            "latestVersion": "1.34 (x64)",
+        }
+        UPDATER.apply_package_trust_fields(entry, previous)
+        self.assertNotIn("packageSha256", entry)
+
+    def test_capabilities_snapshot_keeps_curated_security(self) -> None:
+        catalogs = {
+            Path("plugins-stable.json"): {
+                "plugins": [
+                    {
+                        "id": "7zip",
+                        "packageType": "plugin",
+                        "security": {
+                            "networkAccess": "no",
+                            "externalProcesses": "no",
+                            "scriptExecution": "no",
+                            "activeWebContent": "no",
+                            "elevation": "never",
+                        },
+                    }
+                ]
+            }
+        }
+        snapshot = UPDATER.build_capabilities_snapshot(catalogs, "2026-08-26T00:00:00Z")
+        self.assertEqual(snapshot["schemaVersion"], 1)
+        self.assertEqual(snapshot["packages"][0]["id"], "7zip")
+        self.assertEqual(snapshot["packages"][0]["security"]["networkAccess"], "no")
+
+
+FILL_SCRIPT = Path(__file__).resolve().parents[1] / "fill_package_hashes.py"
+FILL_SPEC = importlib.util.spec_from_file_location("fill_package_hashes", FILL_SCRIPT)
+assert FILL_SPEC and FILL_SPEC.loader
+FILLER = importlib.util.module_from_spec(FILL_SPEC)
+FILL_SPEC.loader.exec_module(FILLER)
+
+
+class FillPackageHashesTests(unittest.TestCase):
+    def test_fill_writes_sha256_for_matching_download_name(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            archive = root / "plugin_5.0_demo_1.0_x64.7z"
+            archive.write_bytes(b"official-package-bytes")
+            catalog = {
+                "schemaVersion": 6,
+                "plugins": [
+                    {
+                        "id": "demo",
+                        "downloadPageUrl": (
+                            "https://github.com/KRtkovo-eu-AI/salamander-plugins/"
+                            "releases/download/plugin_5.0_demo_1.0_x64/"
+                            "plugin_5.0_demo_1.0_x64.7z"
+                        ),
+                    }
+                ],
+            }
+            self.assertEqual(FILLER.fill_catalog(catalog, FILLER.index_archives(root)), 1)
+            self.assertEqual(catalog["plugins"][0]["packageSha256"], FILLER.sha256_file(archive))
 
 
 if __name__ == "__main__":

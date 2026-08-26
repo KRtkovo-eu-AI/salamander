@@ -380,7 +380,24 @@ foreach ($package in $packages) {
         Pop-Location
     }
 
+    $sha256 = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    Write-Host "SHA256 $($package.PackageId) = $sha256"
+    Add-Content -LiteralPath (Join-Path $outputRoot.FullName 'package-sha256.txt') -Value ("{0}  {1}" -f $sha256, $archiveName)
+
     $archiveCount++
 }
 
 Write-Host "Created $archiveCount archive(s) in $($outputRoot.FullName)."
+
+$fillScript = Join-Path $PSScriptRoot 'catalogs\fill_package_hashes.py'
+$python = Get-Command python -ErrorAction SilentlyContinue
+if ($python -and (Test-Path -LiteralPath $fillScript) -and $archiveCount -gt 0) {
+    Write-Host "Updating catalog packageSha256 values from $($outputRoot.FullName)..."
+    & $python.Source $fillScript --archives $outputRoot.FullName
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Catalog hash backfill failed with exit code $LASTEXITCODE. Run tools/catalogs/fill_package_hashes.py manually."
+    }
+}
+elseif ($archiveCount -gt 0) {
+    Write-Warning "Python was not found. Copy SHA-256 values from package-sha256.txt into doc/catalogs-base with tools/catalogs/fill_package_hashes.py before publishing catalogs."
+}

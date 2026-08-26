@@ -88,6 +88,13 @@ struct ExtensionDescriptor
     char IconPath[32768];
     char IconDarkPath[32768];
     DWORD Flags;
+    char HomePageUrl[1024];
+    // Optional Plugin Manager Security disclosure copied from extension.json.
+    char NetworkAccess[32];
+    char ExternalProcesses[32];
+    char ScriptExecution[32];
+    char ActiveWebContent[32];
+    char Elevation[32];
 
     ExtensionDescriptor()
         : StructSize(sizeof(ExtensionDescriptor)),
@@ -100,6 +107,12 @@ struct ExtensionDescriptor
         EntryPoint[0] = 0;
         IconPath[0] = 0;
         IconDarkPath[0] = 0;
+        HomePageUrl[0] = 0;
+        NetworkAccess[0] = 0;
+        ExternalProcesses[0] = 0;
+        ScriptExecution[0] = 0;
+        ActiveWebContent[0] = 0;
+        Elevation[0] = 0;
     }
 };
 

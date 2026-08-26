@@ -2994,6 +2994,15 @@ void PackageManager::DiscoverDirectory(
                     StringCchCopyA(descriptor.EntryPoint, _countof(descriptor.EntryPoint), displayEntryPoint.c_str());
                     StringCchCopyA(descriptor.IconPath, _countof(descriptor.IconPath), package->IconPath.c_str());
                     StringCchCopyA(descriptor.IconDarkPath, _countof(descriptor.IconDarkPath), package->IconDarkPath.c_str());
+                    StringCchCopyA(descriptor.HomePageUrl, _countof(descriptor.HomePageUrl), manifest.HomePageUrl.c_str());
+                    if (manifest.SecurityDeclared)
+                    {
+                        StringCchCopyA(descriptor.NetworkAccess, _countof(descriptor.NetworkAccess), manifest.NetworkAccess.c_str());
+                        StringCchCopyA(descriptor.ExternalProcesses, _countof(descriptor.ExternalProcesses), manifest.ExternalProcesses.c_str());
+                        StringCchCopyA(descriptor.ScriptExecution, _countof(descriptor.ScriptExecution), manifest.ScriptExecution.c_str());
+                        StringCchCopyA(descriptor.ActiveWebContent, _countof(descriptor.ActiveWebContent), manifest.ActiveWebContent.c_str());
+                        StringCchCopyA(descriptor.Elevation, _countof(descriptor.Elevation), manifest.Elevation.c_str());
+                    }
                     descriptor.Flags = Extensions::ExtensionFlagManifest |
                                        Extensions::ExtensionFlagPackage |
                                        Extensions::ExtensionFlagPersistent;

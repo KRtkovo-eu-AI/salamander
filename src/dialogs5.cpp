@@ -16,6 +16,7 @@
 #include "edtlbwnd.h"
 #include "cfgdlg.h"
 #include "dialogs.h"
+#include "pluginsecurity.h"
 #include "usermenu.h"
 #include "execute.h"
 #include "plugins.h"
@@ -426,6 +427,8 @@ CPluginsDlg::CPluginsDlg(HWND hParent) : CCommonDialog(HLanguage, IDD_PLUGINS, I
     MinDlgH = 0;
     LastClientW = 0;
     LastClientH = 0;
+    ExtensionDetailRowsCompacted = FALSE;
+    ExtensionDetailCompactDelta = 0;
 }
 
 void CPluginsDlg::RefreshExtensionRows()
@@ -579,11 +582,11 @@ void CPluginsDlg::LayoutControls()
     const int rightBottom[] = {IDB_PLUGINUPDATES, IDHELP, IDOK};
     const int detailLabels[] = {
         IDC_STATIC_5, IDC_STATIC_6, IDC_STATIC_10, IDC_STATIC_7,
-        IDC_STATIC_8, IDC_STATIC_11, IDC_STATIC_9};
+        IDC_STATIC_8, IDC_STATIC_11, IDC_STATIC_9, IDC_STATIC_PLUGINSECURITY};
     const int detailValues[] = {
         IDC_PLUGINDESCRIPTION, IDC_PLUGINCOPYRIGHT, IDC_PLUGINWWW,
         IDC_PLUGINEXTENSIONS, IDC_PLUGINFSNAME, IDC_PLUGINTHUMBNAILS,
-        IDC_PLUGINFUNCTIONS};
+        IDC_PLUGINFUNCTIONS, IDC_PLUGINSECURITY};
 
     auto adjust = [this](HWND control, int moveX, int moveY,
                          int growX, int growY) {
@@ -638,6 +641,59 @@ void CPluginsDlg::LayoutControls()
             HWindow, NULL, NULL,
             RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
     }
+}
+
+void CPluginsDlg::ShowPluginOnlyDetailRows(BOOL show)
+{
+    const int pluginOnly[] = {
+        IDC_STATIC_8, IDC_PLUGINFSNAME, IDC_STATIC_11, IDC_PLUGINTHUMBNAILS};
+    for (int i = 0; i < ARRAYSIZE(pluginOnly); i++)
+    {
+        HWND control = GetDlgItem(HWindow, pluginOnly[i]);
+        if (control != NULL)
+            ShowWindow(control, show ? SW_SHOW : SW_HIDE);
+    }
+
+    const BOOL compact = !show;
+    if (compact == ExtensionDetailRowsCompacted)
+        return;
+
+    if (ExtensionDetailCompactDelta <= 0)
+    {
+        HWND fsLabel = GetDlgItem(HWindow, IDC_STATIC_8);
+        HWND functionsLabel = GetDlgItem(HWindow, IDC_STATIC_9);
+        RECT fs = {0};
+        RECT functions = {0};
+        if (fsLabel != NULL && functionsLabel != NULL)
+        {
+            GetWindowRect(fsLabel, &fs);
+            GetWindowRect(functionsLabel, &functions);
+            ExtensionDetailCompactDelta = functions.top - fs.top;
+        }
+    }
+    if (ExtensionDetailCompactDelta <= 0)
+    {
+        ExtensionDetailRowsCompacted = compact;
+        return;
+    }
+
+    const int delta = compact ? -ExtensionDetailCompactDelta : ExtensionDetailCompactDelta;
+    const int moved[] = {
+        IDC_STATIC_9, IDC_PLUGINFUNCTIONS,
+        IDC_STATIC_PLUGINSECURITY, IDC_PLUGINSECURITY};
+    for (int i = 0; i < ARRAYSIZE(moved); i++)
+    {
+        HWND control = GetDlgItem(HWindow, moved[i]);
+        if (control == NULL)
+            continue;
+        RECT rect;
+        GetWindowRect(control, &rect);
+        MapWindowPoints(HWND_DESKTOP, HWindow, reinterpret_cast<POINT*>(&rect), 2);
+        SetWindowPos(
+            control, NULL, rect.left, rect.top + delta, 0, 0,
+            SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE);
+    }
+    ExtensionDetailRowsCompacted = compact;
 }
 
 void CPluginsDlg::InitColumns()
@@ -883,6 +939,9 @@ void CPluginsDlg::OnSelChanged()
     {
         SetWindowText(GetDlgItem(HWindow, IDC_STATIC_7),
                       LoadStr(IDS_PLUGIN_ARCHIVES_LABEL));
+        SetWindowText(GetDlgItem(HWindow, IDC_STATIC_6),
+                      LoadStr(IDS_PLUGIN_COPYRIGHT_LABEL));
+        ShowPluginOnlyDetailRows(TRUE);
         if (p->DLLName != NULL)
             lstrcpyn(LastSelectedPluginDLLName, p->DLLName, MAX_PATH);
         else
@@ -1036,6 +1095,9 @@ void CPluginsDlg::OnSelChanged()
             SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINTHUMBNAILS), LoadStr(IDS_PLUGINTHUMBNONE));
 
         SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINFUNCTIONS), buf);
+        char securityText[2048];
+        PluginSecurityFormatForPlugin(NULL, p->DLLName, securityText, _countof(securityText));
+        SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINSECURITY), securityText);
 
         char buff[MAX_PATH + 200];
         char pluginName[300];
@@ -1094,6 +1156,9 @@ void CPluginsDlg::OnSelChanged()
     {
         SetWindowText(GetDlgItem(HWindow, IDC_STATIC_7),
                       LoadStr(IDS_PLUGIN_RUNTIME_LABEL));
+        SetWindowText(GetDlgItem(HWindow, IDC_STATIC_6),
+                      LoadStr(IDS_PLUGIN_PACKAGE_ID_LABEL));
+        ShowPluginOnlyDetailRows(FALSE);
         // Manifest extensions are service-backed rows rather than fake .SPL
         // records. Their package manager owns activation, configuration,
         // ordering and removal.
@@ -1106,8 +1171,18 @@ void CPluginsDlg::OnSelChanged()
         SetPluginManagerText(
             GetDlgItem(HWindow, IDC_PLUGINCOPYRIGHT),
             extension->Descriptor.Id);
-        SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINWWW), "");
-        Url->SetActionOpen("");
+        const char* homePage = extension->Descriptor.HomePageUrl;
+        if (homePage != NULL && homePage[0] != 0)
+        {
+            SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINWWW), homePage);
+            Url->SetActionOpen(homePage);
+        }
+        else
+        {
+            SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINWWW),
+                                 LoadStr(IDS_PLUGINURLNONE));
+            Url->SetActionOpen("");
+        }
         const BOOL dependencyUnavailable =
             (extension->Descriptor.Flags &
              Salamatrix::Extensions::ExtensionFlagDependencyUnavailable) != 0;
@@ -1169,6 +1244,16 @@ void CPluginsDlg::OnSelChanged()
         SetPluginManagerText(
             GetDlgItem(HWindow, IDC_PLUGINFUNCTIONS),
             extensionFunctions);
+        char extensionSecurity[2048];
+        PluginSecurityFormatForExtension(
+            extension->Descriptor.Id,
+            extension->Descriptor.NetworkAccess,
+            extension->Descriptor.ExternalProcesses,
+            extension->Descriptor.ScriptExecution,
+            extension->Descriptor.ActiveWebContent,
+            extension->Descriptor.Elevation,
+            extensionSecurity, _countof(extensionSecurity));
+        SetPluginManagerText(GetDlgItem(HWindow, IDC_PLUGINSECURITY), extensionSecurity);
 
         char extensionName[300];
         char extensionBarText[500];
@@ -1211,6 +1296,9 @@ void CPluginsDlg::OnSelChanged()
     {
         SetWindowText(GetDlgItem(HWindow, IDC_STATIC_7),
                       LoadStr(IDS_PLUGIN_ARCHIVES_LABEL));
+        SetWindowText(GetDlgItem(HWindow, IDC_STATIC_6),
+                      LoadStr(IDS_PLUGIN_COPYRIGHT_LABEL));
+        ShowPluginOnlyDetailRows(TRUE);
         SetWindowText(GetDlgItem(HWindow, IDC_PLUGINDESCRIPTION), "");
         SetWindowText(GetDlgItem(HWindow, IDC_PLUGINCOPYRIGHT), "");
         SetWindowText(GetDlgItem(HWindow, IDC_PLUGINWWW), "");
@@ -1219,6 +1307,7 @@ void CPluginsDlg::OnSelChanged()
         SetWindowText(GetDlgItem(HWindow, IDC_PLUGINFSNAME), "");
         SetWindowText(GetDlgItem(HWindow, IDC_PLUGINTHUMBNAILS), "");
         SetWindowText(GetDlgItem(HWindow, IDC_PLUGINFUNCTIONS), "");
+        SetWindowText(GetDlgItem(HWindow, IDC_PLUGINSECURITY), "");
         /*if (IsWindowVisible(showInBar))*/ ShowWindow(showInBar, SW_HIDE);     // condition commented out because it misbehaves during WM_INITDIALOG (the dialog is not visible as a whole -> the check fails)
         /*if (IsWindowVisible(showInChDrv))*/ ShowWindow(showInChDrv, SW_HIDE); // condition commented out because it misbehaves during WM_INITDIALOG (the dialog is not visible as a whole -> the check fails)
         EnableButtons(NULL);
@@ -2087,6 +2176,7 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 case IDC_PLUGINEXTENSIONS:
                 case IDC_PLUGINFSNAME:
                 case IDC_PLUGINFUNCTIONS:
+                case IDC_PLUGINSECURITY:
                 case IDC_PLUGINHEADER:
                 case IDC_PLUGINSHOWINBAR:
                 case IDC_PLUGINSHOWINCHDRV:

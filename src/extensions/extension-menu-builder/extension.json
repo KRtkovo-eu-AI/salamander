@@ -6,6 +6,14 @@
   "description": "Create and edit simple menu-driven Salamatrix extensions interactively.",
   "runtime": "PowerShell",
   "entryPoint": "main.ps1",
+  "web": "https://samandarin.net/",
+  "security": {
+    "networkAccess": "no",
+    "externalProcesses": "no",
+    "scriptExecution": "yes",
+    "activeWebContent": "no",
+    "elevation": "never"
+  },
   "icon": "icon.svg",
   "iconDark": "icon-dark.svg",
   "capabilities": [

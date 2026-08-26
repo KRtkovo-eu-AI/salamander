@@ -48,7 +48,15 @@ export function createExtensionScaffold(spec: ExtensionScaffoldSpec): ScaffoldFi
   };
   const manifest: ExtensionManifest = {
     schema: 2, id: spec.id, name: spec.name, version: '1.0.0', description: spec.description,
-    runtime: spec.runtime, entryPoint: template.entryPoint, icon: 'icon.svg', iconDark: 'icon-dark.svg',
+    runtime: spec.runtime, entryPoint: template.entryPoint, web: 'https://samandarin.net/',
+    security: {
+      networkAccess: 'no',
+      externalProcesses: 'no',
+      scriptExecution: 'yes',
+      activeWebContent: 'no',
+      elevation: 'never',
+    },
+    icon: 'icon.svg', iconDark: 'icon-dark.svg',
     capabilities: ['ui.dialogs'], commands: [command],
   };
   const menu: MenuDocument = {

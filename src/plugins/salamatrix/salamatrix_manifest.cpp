@@ -15,6 +15,7 @@
 #include <errno.h>
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 #include <utility>
 
 namespace
@@ -762,6 +763,19 @@ namespace
         return false;
     }
 
+    static bool IsSecurityFlag(const std::string& value)
+    {
+        return _stricmp(value.c_str(), "yes") == 0 ||
+               _stricmp(value.c_str(), "no") == 0 ||
+               _stricmp(value.c_str(), "possible") == 0;
+    }
+
+    static bool IsElevationFlag(const std::string& value)
+    {
+        return _stricmp(value.c_str(), "never") == 0 ||
+               _stricmp(value.c_str(), "install") == 0;
+    }
+
     static bool ContainsMigrationVersion(
         const std::vector<CExtensionManifestSettingMigration>& migrations,
         unsigned int version,
@@ -793,6 +807,13 @@ void CExtensionManifest::Clear()
     EntryPoint.clear();
     Icon.clear();
     IconDark.clear();
+    HomePageUrl.clear();
+    SecurityDeclared = false;
+    NetworkAccess.clear();
+    ExternalProcesses.clear();
+    ScriptExecution.clear();
+    ActiveWebContent.clear();
+    Elevation.clear();
     CapabilitiesDeclared = false;
     Capabilities.clear();
     Dependencies.clear();
@@ -828,6 +849,40 @@ bool CExtensionManifest::IsSafeRelativeEntryPoint(const std::string& entryPoint)
         if (segmentEnd == entryPoint.size())
             break;
         segmentStart = segmentEnd + 1;
+    }
+    return true;
+}
+
+bool CExtensionManifest::IsSafeHomePageUrl(const std::string& url)
+{
+    if (url.empty())
+        return true;
+    if (url.size() >= 1024)
+        return false;
+
+    auto startsWithIgnoreCase = [](const std::string& value, const char* prefix) -> bool
+    {
+        const size_t prefixLength = strlen(prefix);
+        if (value.size() < prefixLength)
+            return false;
+        for (size_t i = 0; i < prefixLength; i++)
+        {
+            char ch = value[i];
+            if (ch >= 'A' && ch <= 'Z')
+                ch = (char)(ch - 'A' + 'a');
+            if (ch != prefix[i])
+                return false;
+        }
+        return true;
+    };
+
+    if (!startsWithIgnoreCase(url, "https://") && !startsWithIgnoreCase(url, "http://"))
+        return false;
+    for (size_t i = 0; i < url.size(); i++)
+    {
+        unsigned char ch = (unsigned char)url[i];
+        if (ch <= 32 || ch == 127)
+            return false;
     }
     return true;
 }
@@ -908,6 +963,36 @@ bool CExtensionManifest::Parse(
         (!IconDark.empty() && !IsSvgAssetPath(IconDark)))
     {
         return SetValidationError(error, "icon and iconDark must point to SVG files");
+    }
+    if (!ReadString(root, "web", false, HomePageUrl, error))
+        return false;
+    if (!IsSafeHomePageUrl(HomePageUrl))
+        return SetValidationError(error, "web must be an http or https URL");
+
+    const JsonValue* security = root.Find("security");
+    if (security != NULL)
+    {
+        if (security->Type != JsonObject)
+            return SetValidationError(error, "security must be an object");
+        SecurityDeclared = true;
+        if (!ReadString(*security, "networkAccess", true, NetworkAccess, error) ||
+            !ReadString(*security, "externalProcesses", true, ExternalProcesses, error) ||
+            !ReadString(*security, "scriptExecution", true, ScriptExecution, error) ||
+            !ReadString(*security, "activeWebContent", true, ActiveWebContent, error) ||
+            !ReadString(*security, "elevation", true, Elevation, error))
+        {
+            return false;
+        }
+        if (!IsSecurityFlag(NetworkAccess) ||
+            !IsSecurityFlag(ExternalProcesses) ||
+            !IsSecurityFlag(ScriptExecution) ||
+            !IsSecurityFlag(ActiveWebContent))
+        {
+            return SetValidationError(
+                error, "security flags must be yes, no, or possible");
+        }
+        if (!IsElevationFlag(Elevation))
+            return SetValidationError(error, "security.elevation must be never or install");
     }
 
     const JsonValue* runtime = root.Find("runtime");

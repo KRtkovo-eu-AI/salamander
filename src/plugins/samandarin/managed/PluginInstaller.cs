@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using SharpCompress.Archives;
@@ -110,25 +111,13 @@ internal static class PluginPackageInstaller
     {
         return row is not null &&
                OfficialPackageDescriptor.TryParse(row.WebUrl, out var package) &&
+               IsHexSha256(row.PackageSha256) &&
                IsCompatibleWithInstalledPackage(row, ResolvePackageKind(row, package!));
     }
 
     public static bool TryTakeLastError(out string error)
     {
-        error = string.Empty;
-        var path = Path.Combine(GetUpdateRoot(), "last-update-error.txt");
-        try
-        {
-            if (!File.Exists(path)) return false;
-            error = File.ReadAllText(path, Encoding.UTF8);
-            if (error.Length > 4096) error = error.Substring(0, 4096);
-            File.Delete(path);
-            return !string.IsNullOrWhiteSpace(error);
-        }
-        catch
-        {
-            return false;
-        }
+        return PluginReceiptStore.TryTakeLastError(out error);
     }
 
     public static async Task<string> StageAsync(PluginUpdateRow row)
@@ -136,7 +125,12 @@ internal static class PluginPackageInstaller
         if (!OfficialPackageDescriptor.TryParse(row.WebUrl, out var package) ||
             !IsCompatibleWithInstalledPackage(row, ResolvePackageKind(row, package!)))
         {
-            throw new InvalidOperationException("Only official plugin and extension .7z packages can be installed automatically.");
+            throw new InvalidOperationException(NativeStrings.Get(NativeStringId.PluginInstallUnavailable));
+        }
+
+        if (!IsHexSha256(row.PackageSha256))
+        {
+            throw new InvalidDataException(NativeStrings.Get(NativeStringId.PluginInstallMissingHash));
         }
 
         var executableDirectory = PluginMetadata.GetExecutableDirectory()
@@ -155,7 +149,15 @@ internal static class PluginPackageInstaller
         {
             var archivePath = Path.Combine(stagingDirectory, "package.7z");
             await DownloadAsync(package!.Uri, archivePath).ConfigureAwait(true);
+            var actualHash = ComputeSha256(archivePath);
+            if (!string.Equals(actualHash, row.PackageSha256, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(NativeStrings.Get(NativeStringId.PluginInstallHashMismatch));
+            }
+
             var extractedRoot = ExtractAndValidate(archivePath, payloadDirectory, packageKind);
+            AuthenticodeVerifier.VerifyExtractedPackage(extractedRoot, packageKind);
+            var signer = FindFirstPartyPublisher(extractedRoot);
             var installed = !string.IsNullOrWhiteSpace(row.InstallDirectory);
             var targetDirectory = installed
                 ? Path.GetFullPath(row.InstallDirectory)
@@ -164,13 +166,25 @@ internal static class PluginPackageInstaller
             var pluginRelativePath = packageKind == OfficialPackageKind.Plugin
                 ? FindPluginRelativePath(extractedRoot, row.Id)
                 : null;
+            PluginReceiptStore.Upsert(new PluginReceiptRecord
+            {
+                id = row.Id,
+                packageType = packageKind == OfficialPackageKind.Extension ? "extension" : "plugin",
+                sourceUrl = row.WebUrl,
+                packageSha256 = actualHash,
+                signer = signer,
+                version = row.LatestVersion,
+                verifiedAt = DateTimeOffset.UtcNow.ToString("o", CultureInfo.InvariantCulture),
+            });
+            PluginReceiptStore.ClearLastError();
             var helperPath = WriteInstallHelper(
                 stagingDirectory,
                 extractedRoot,
                 targetDirectory,
                 packageRoot,
                 pluginRelativePath,
-                appendPluginRecord: packageKind == OfficialPackageKind.Plugin && !installed);
+                appendPluginRecord: packageKind == OfficialPackageKind.Plugin && !installed,
+                PluginReceiptStore.GetStorePath());
             StartInstallHelper(
                 helperPath,
                 RequiresElevation(targetDirectory) || RequiresElevation(packageRoot));
@@ -348,25 +362,88 @@ internal static class PluginPackageInstaller
         return selected.Substring(extractedRoot.Length).TrimStart(Path.DirectorySeparatorChar);
     }
 
+    private static string FindFirstPartyPublisher(string extractedRoot)
+    {
+        var firstParty = Directory.EnumerateFiles(extractedRoot, "*.spl", SearchOption.AllDirectories)
+            .Concat(Directory.EnumerateFiles(extractedRoot, "*.slg", SearchOption.AllDirectories));
+        foreach (var file in firstParty)
+        {
+            if (AuthenticodeVerifier.TryGetPublisher(file, out var publisher) &&
+                AuthenticodeVerifier.IsExpectedPublisher(publisher))
+            {
+                return publisher;
+            }
+        }
+        return string.Empty;
+    }
+
+    private static bool IsHexSha256(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value!.Length != 64)
+        {
+            return false;
+        }
+
+        foreach (var ch in value)
+        {
+            var isHex = (ch >= '0' && ch <= '9') ||
+                        (ch >= 'a' && ch <= 'f') ||
+                        (ch >= 'A' && ch <= 'F');
+            if (!isHex)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static string ComputeSha256(string path)
+    {
+        using var stream = File.OpenRead(path);
+        using var sha = SHA256.Create();
+        var hash = sha.ComputeHash(stream);
+        var builder = new StringBuilder(hash.Length * 2);
+        foreach (var value in hash)
+        {
+            builder.Append(value.ToString("x2", CultureInfo.InvariantCulture));
+        }
+        return builder.ToString();
+    }
+
     private static string WriteInstallHelper(
         string stagingDirectory,
         string extractedRoot,
         string targetDirectory,
         string pluginsRoot,
         string? pluginRelativePath,
-        bool appendPluginRecord)
+        bool appendPluginRecord,
+        string? receiptsPath)
     {
         var helperPath = Path.Combine(stagingDirectory, "install.ps1");
-        var errorLog = Path.Combine(Path.GetDirectoryName(stagingDirectory)!, "last-update-error.txt");
+        var receipts = receiptsPath ?? string.Empty;
         var script = $@"$ErrorActionPreference = 'Stop'
 function Decode([string]$value) {{ [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($value)) }}
+function Set-ReceiptError([string]$text) {{
+    $path = Decode('{Encode(receipts)}')
+    if ([string]::IsNullOrWhiteSpace($path)) {{ return }}
+    $dir = [IO.Path]::GetDirectoryName($path)
+    if ($dir) {{ New-Item -ItemType Directory -Path $dir -Force | Out-Null }}
+    $file = @{{ schemaVersion = 1; lastInstallError = $text; receipts = @() }}
+    if (Test-Path -LiteralPath $path) {{
+        try {{ $file = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json }} catch {{ }}
+    }}
+    $file.lastInstallError = $text
+    $json = $file | ConvertTo-Json -Depth 6
+    $tmp = $path + '.' + [guid]::NewGuid().ToString('N') + '.tmp'
+    [IO.File]::WriteAllText($tmp, $json, [Text.UTF8Encoding]::new($false))
+    Move-Item -LiteralPath $tmp -Destination $path -Force
+}}
 $sourceProcessId = {Process.GetCurrentProcess().Id}
 $source = Decode('{Encode(extractedRoot)}')
 $target = Decode('{Encode(targetDirectory)}')
 $pluginsRoot = Decode('{Encode(pluginsRoot)}')
 $staging = Decode('{Encode(stagingDirectory)}')
 $pluginRelative = Decode('{Encode(pluginRelativePath ?? string.Empty)}')
-$errorLog = Decode('{Encode(errorLog)}')
 $backup = $target + '.samandarin-backup-{Guid.NewGuid():N}'
 try {{
     Wait-Process -Id $sourceProcessId -ErrorAction SilentlyContinue
@@ -399,10 +476,10 @@ try {{
         }}
         [IO.File]::WriteAllLines($versionFile, [string[]]$lines, [Text.Encoding]::Default)
     }}
-    if (Test-Path -LiteralPath $errorLog) {{ Remove-Item -LiteralPath $errorLog -Force -ErrorAction SilentlyContinue }}
+    Set-ReceiptError $null
     Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
 }} catch {{
-    [IO.File]::WriteAllText($errorLog, ($_ | Out-String), [Text.Encoding]::UTF8)
+    Set-ReceiptError ($_ | Out-String)
 }}";
         File.WriteAllText(helperPath, script, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
         return helperPath;
@@ -439,11 +516,7 @@ try {{
         Convert.ToBase64String(Encoding.UTF8.GetBytes(value));
 
     private static string GetUpdateRoot() =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "OpenSalamander",
-            "Samandarin",
-            "Updates");
+        Path.Combine(Path.GetTempPath(), "OpenSalamander", "Samandarin", "Updates");
 
     private static string QuoteArgument(string value) =>
         "\"" + value.Replace("\"", "\\\"") + "\"";

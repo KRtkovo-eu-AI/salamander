@@ -146,6 +146,9 @@ The Samandarin fork continues this story by blending the original Salamander DNA
 
 ## Resources
 
+- [Security policy](SECURITY.md)
+- [Network use and privacy](doc/network-and-privacy.md)
+- [Plugin catalogs](doc/catalogs-base/README.md)
 - [Open Salamander 5.0](https://github.com/OpenSalamander/salamander) original project
 - [Open Salamander SDK 5.0 Unofficial](https://github.com/lejcik/as-sdk4-unofficial)
 - [Altap Salamander Website](https://www.altap.cz/)
