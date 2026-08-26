@@ -90,6 +90,9 @@ public:
     // jeho ziskani od pluginu)
     BOOL ThumbnailReady();
 
+    // raw BGRA of a finished thumbnail (valid until Clear())
+    BOOL GetRGBBits(const DWORD** bits, int* width, int* height) const;
+
     // provede transformaci thumbnailu podle PictureFlags (SSTHUMB_MIRROR_VERT uz je hotova,
     // zbyva provest SSTHUMB_MIRROR_HOR a SSTHUMB_ROTATE_90CW)
     void TransformThumbnail();

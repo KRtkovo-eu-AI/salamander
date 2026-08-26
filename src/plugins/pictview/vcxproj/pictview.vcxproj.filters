@@ -63,6 +63,9 @@
     <ClCompile Include="..\native\NativeWmf.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
+    <ClCompile Include="..\native\NativeStl.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
     <ClCompile Include="..\pvtwain.cpp">
       <Filter>cpp</Filter>
     </ClCompile>

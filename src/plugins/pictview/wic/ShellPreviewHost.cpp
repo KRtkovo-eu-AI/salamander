@@ -37,6 +37,8 @@ public:
     PreviewHandlerFrame(const PreviewHandlerFrame&) = delete;
     PreviewHandlerFrame& operator=(const PreviewHandlerFrame&) = delete;
 
+    void SetHostWindow(HWND hwnd) { m_host = hwnd; }
+
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override
     {
         if (ppv == nullptr)
@@ -81,13 +83,27 @@ public:
         {
             return E_POINTER;
         }
-        info->haccel = nullptr;
-        info->cAccelEntries = 0;
+        info->haccel = G.HAccel;
+        info->cAccelEntries = G.HAccel != nullptr ? CopyAcceleratorTable(G.HAccel, nullptr, 0) : 0;
         return S_OK;
     }
 
-    HRESULT STDMETHODCALLTYPE TranslateAccelerator(MSG* /*pmsg*/) override
+    HRESULT STDMETHODCALLTYPE TranslateAccelerator(MSG* pmsg) override
     {
+        if (pmsg == nullptr)
+        {
+            return E_POINTER;
+        }
+        if (m_host != nullptr && G.HAccel != nullptr && ::TranslateAccelerator(m_host, G.HAccel, pmsg))
+        {
+            return S_OK;
+        }
+        if ((pmsg->message == WM_KEYDOWN || pmsg->message == WM_SYSKEYDOWN) && pmsg->wParam == VK_ESCAPE &&
+            m_host != nullptr)
+        {
+            PostMessage(m_host, WM_COMMAND, MAKEWPARAM(CMD_CLOSE, 0), 0);
+            return S_OK;
+        }
         return S_FALSE;
     }
 
@@ -107,7 +123,22 @@ public:
 private:
     ~PreviewHandlerFrame() = default;
     LONG m_ref = 1;
+    HWND m_host = nullptr;
 };
+
+void BindPreviewFrameHost(IUnknown* site, HWND hwnd)
+{
+    if (site == nullptr || hwnd == nullptr)
+    {
+        return;
+    }
+    ComPtr<IPreviewHandlerFrame> frame;
+    if (FAILED(site->QueryInterface(IID_PPV_ARGS(&frame))) || !frame)
+    {
+        return;
+    }
+    static_cast<PreviewHandlerFrame*>(frame.Get())->SetHostWindow(hwnd);
+}
 
 std::wstring ExtensionLower(const std::wstring& path)
 {
@@ -231,6 +262,83 @@ HRESULT AdoptDummyFrame(ImageHandle& handle)
     return S_OK;
 }
 
+PreviewHandlerFrame* NewPreviewHandlerFrame()
+{
+#if defined(_DEBUG)
+#undef new
+#define PICTVIEW_PREVIEW_NEW
+#endif
+    PreviewHandlerFrame* frame = new (std::nothrow) PreviewHandlerFrame();
+#if defined(PICTVIEW_PREVIEW_NEW)
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef PICTVIEW_PREVIEW_NEW
+#endif
+    return frame;
+}
+
+HRESULT CreateInitializedStlPreviewHandler(const wchar_t* path, IPreviewHandler** handler, IUnknown** siteOut)
+{
+    if (path == nullptr || handler == nullptr || siteOut == nullptr)
+    {
+        return E_POINTER;
+    }
+    *handler = nullptr;
+    *siteOut = nullptr;
+
+    CLSID clsid{};
+    const bool haveAssoc = LookupRegisteredPreviewClsid(L".stl", clsid);
+    ComPtr<IPreviewHandler> preview;
+    HRESULT hr = E_FAIL;
+    if (haveAssoc)
+    {
+        hr = CoCreatePreviewHandler(clsid, preview.GetAddressOf());
+    }
+    if (FAILED(hr))
+    {
+        preview.Reset();
+        hr = CoCreatePreviewHandler(kClsid3DViewerPreview, preview.GetAddressOf());
+    }
+    if (FAILED(hr) || !preview)
+    {
+        return FAILED(hr) ? hr : WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
+    }
+
+    PreviewHandlerFrame* frame = NewPreviewHandlerFrame();
+    if (frame == nullptr)
+    {
+        preview->Unload();
+        return E_OUTOFMEMORY;
+    }
+    ComPtr<IUnknown> site;
+    const HRESULT qiHr = static_cast<IPreviewHandlerFrame*>(frame)->QueryInterface(IID_PPV_ARGS(&site));
+    frame->Release();
+    if (FAILED(qiHr) || !site)
+    {
+        preview->Unload();
+        return FAILED(qiHr) ? qiHr : E_NOINTERFACE;
+    }
+    ComPtr<IObjectWithSite> objectWithSite;
+    if (SUCCEEDED(preview.As(&objectWithSite)) && objectWithSite)
+    {
+        objectWithSite->SetSite(site.Get());
+    }
+
+    hr = InitializePreviewHandler(preview.Get(), path);
+    if (FAILED(hr))
+    {
+        if (objectWithSite)
+        {
+            objectWithSite->SetSite(nullptr);
+        }
+        preview->Unload();
+        return hr;
+    }
+
+    *handler = preview.Detach();
+    *siteOut = site.Detach();
+    return S_OK;
+}
+
 } // namespace
 
 bool HandleHasInteractivePreview(const ImageHandle& handle)
@@ -269,69 +377,21 @@ HRESULT TryOpenInteractivePreview(ImageHandle& handle)
         return WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
     }
 
-    CLSID clsid{};
-    const bool haveAssoc = LookupRegisteredPreviewClsid(L".stl", clsid);
-
     ComPtr<IPreviewHandler> preview;
-    HRESULT hr = E_FAIL;
-    if (haveAssoc)
-    {
-        hr = CoCreatePreviewHandler(clsid, preview.GetAddressOf());
-    }
-    if (FAILED(hr))
-    {
-        preview.Reset();
-        hr = CoCreatePreviewHandler(kClsid3DViewerPreview, preview.GetAddressOf());
-    }
+    ComPtr<IUnknown> site;
+    HRESULT hr = CreateInitializedStlPreviewHandler(handle.fileName.c_str(), preview.GetAddressOf(),
+                                                    site.GetAddressOf());
     if (FAILED(hr) || !preview)
     {
         return FAILED(hr) ? hr : WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
-    }
-
-#if defined(_DEBUG)
-#undef new
-#define PICTVIEW_PREVIEW_NEW
-#endif
-    PreviewHandlerFrame* frame = new (std::nothrow) PreviewHandlerFrame();
-#if defined(PICTVIEW_PREVIEW_NEW)
-#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
-#undef PICTVIEW_PREVIEW_NEW
-#endif
-    if (frame == nullptr)
-    {
-        preview->Unload();
-        return E_OUTOFMEMORY;
-    }
-    ComPtr<IUnknown> site;
-    const HRESULT qiHr = static_cast<IPreviewHandlerFrame*>(frame)->QueryInterface(IID_PPV_ARGS(&site));
-    frame->Release();
-    if (FAILED(qiHr) || !site)
-    {
-        preview->Unload();
-        return FAILED(qiHr) ? qiHr : E_NOINTERFACE;
-    }
-    ComPtr<IObjectWithSite> objectWithSite;
-    if (SUCCEEDED(preview.As(&objectWithSite)) && objectWithSite)
-    {
-        objectWithSite->SetSite(site.Get());
-    }
-
-    hr = InitializePreviewHandler(preview.Get(), handle.fileName.c_str());
-    if (FAILED(hr))
-    {
-        if (objectWithSite)
-        {
-            objectWithSite->SetSite(nullptr);
-        }
-        preview->Unload();
-        return hr;
     }
 
     handle.frames.clear();
     hr = AdoptDummyFrame(handle);
     if (FAILED(hr))
     {
-        if (objectWithSite)
+        ComPtr<IObjectWithSite> objectWithSite;
+        if (SUCCEEDED(preview.As(&objectWithSite)) && objectWithSite)
         {
             objectWithSite->SetSite(nullptr);
         }
@@ -348,9 +408,10 @@ HRESULT TryOpenInteractivePreview(ImageHandle& handle)
 HRESULT ShowInteractivePreview(ImageHandle& handle, HWND hwnd, const RECT& rect, COLORREF background)
 {
     if (hwnd == nullptr || handle.previewHandler == nullptr)
-    {
         return E_INVALIDARG;
-    }
+
+    HWND host = GetParent(hwnd);
+    BindPreviewFrameHost(handle.previewSite.Get(), host != nullptr ? host : hwnd);
     ComPtr<IPreviewHandler> preview;
     HRESULT hr = handle.previewHandler.As(&preview);
     if (FAILED(hr) || !preview)

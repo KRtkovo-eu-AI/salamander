@@ -1300,7 +1300,7 @@ void CFilesWindow::DrawIconThumbnailItem(HDC hTgtDC, int itemIndex, RECT* itemRe
         if (GetViewMode() == vmThumbnails)
         {
             // thumbnails are supported only on disk
-            if (Is(ptDisk) && !isDir)
+            if (Is(ptDisk))
             {
                 int icon;
                 char fileName[MAX_PATH + 4];

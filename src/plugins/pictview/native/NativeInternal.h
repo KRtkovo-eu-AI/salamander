@@ -345,6 +345,7 @@ Status DecodeXcf(Reader& reader, DecodedImage& image);
 Status Decode3dm(Reader& reader, DecodedImage& image);
 Status DecodeDwg(Reader& reader, DecodedImage& image);
 Status DecodeSkp(Reader& reader, DecodedImage& image);
+Status DecodeRiffPreview(Reader& reader, DecodedImage& image);
 Status DecodeBlend(Reader& reader, DecodedImage& image);
 
 } // namespace Detail

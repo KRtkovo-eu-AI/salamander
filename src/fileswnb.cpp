@@ -514,6 +514,16 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
+    case WM_USER_ICONREADING_BEGIN:
+    {
+        if (UseThumbnails && DirectoryLine != NULL)
+        {
+            IconReadingThrobberID = DirectoryLine->ChangeThrobberID();
+            DirectoryLine->SetThrobber(TRUE, 150);
+        }
+        return 0;
+    }
+
     case WM_USER_SM_END_NOTIFY:
     {
         if (!SmEndNotifyTimerSet)
@@ -593,6 +603,10 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         probablyUselessRefresh = FALSE;
         if (uMsg == WM_USER_ICONREADING_END)
         {
+            if (DirectoryLine != NULL && IconReadingThrobberID != -1 &&
+                DirectoryLine->IsThrobberVisible(IconReadingThrobberID))
+                DirectoryLine->SetThrobber(FALSE);
+            IconReadingThrobberID = -1;
             IconCacheValid = TRUE;
             EndOfIconReadingTime = GetTickCount();
             if (NeedRefreshAfterIconsReading) // ma dojit k refreshi?

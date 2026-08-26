@@ -3549,8 +3549,11 @@ bool PathPrefersNativeDecoder(const std::wstring& path)
             ch = static_cast<wchar_t>(ch - L'A' + L'a');
         }
     }
-    static const wchar_t* const kExts[] = {L"dds", L"dtx", L"dwg", L"wmf", L"emf", L"ai", L"eps",
-                                           L"ept", L"svg", L"xcf", L"pdn", L"skp", L"blend", L"3dm"};
+    static const wchar_t* const kExts[] = {
+        L"tga", L"pcx", L"pbm", L"pgm", L"ppm", L"pnm", L"ras", L"sun", L"sgi", L"bw", L"rgb",
+        L"wbmp", L"iff", L"lbm", L"ani", L"cur", L"dcx", L"psd", L"fli", L"flc", L"dds", L"dtx",
+        L"dwg", L"wmf", L"emf", L"ai", L"eps", L"ept", L"svg", L"xcf", L"pdn", L"skp", L"blend",
+        L"3dm", L"3mf", L"mov", L"hpi", L"cdr", L"cdt", L"cmx", L"xar", L"web", L"zbr", L"zmf", L"zno"};
     for (const wchar_t* known : kExts)
     {
         if (ext == known)
@@ -3701,33 +3704,52 @@ HRESULT TryOpenEmbeddedPreview(Backend& backend, ImageHandle& handle, IWICBitmap
     }
     CloseHandle(file);
 
+    auto adoptSlice = [&](const BYTE* slice, size_t sliceSize, DWORD format) -> HRESULT {
+        HRESULT hr = CreateDecoderFromMemory(backend, slice, sliceSize, decoder);
+        if (SUCCEEDED(hr) && decoder && *decoder)
+        {
+            if (format != 0)
+            {
+                handle.baseInfo.Format = format;
+            }
+            return hr;
+        }
+        PictView::Native::DecodedImage decoded;
+        const PictView::Native::Status status = PictView::Native::DecodeMemory(slice, sliceSize, decoded);
+        if (status == PictView::Native::Status::Ok)
+        {
+            if (decoder)
+            {
+                *decoder = nullptr;
+            }
+            return AdoptNativeImage(backend, handle, std::move(decoded));
+        }
+        return FAILED(hr) ? hr : NativeStatusToHr(status);
+    };
+
+    if (bytes.size() >= 4 && bytes[0] == 'P' && bytes[1] == 'K')
+    {
+        std::vector<BYTE> zipPreview;
+        DWORD zipFormat = 0;
+        const char* zipLabel = nullptr;
+        if (PictView::Native::ExtractZipEmbeddedPreview(bytes.data(), bytes.size(), zipPreview, zipFormat, zipLabel) &&
+            zipPreview.size() >= 8)
+        {
+            const HRESULT hr = adoptSlice(zipPreview.data(), zipPreview.size(), zipFormat);
+            if (SUCCEEDED(hr))
+            {
+                return hr;
+            }
+        }
+    }
+
     PictView::Native::EmbeddedPreview preview;
     if (!PictView::Native::FindEmbeddedPreview(bytes.data(), bytes.size(), preview) ||
         preview.offset + preview.size > bytes.size())
     {
         return WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
     }
-    HRESULT hr = CreateDecoderFromMemory(backend, bytes.data() + preview.offset, preview.size, decoder);
-    if (SUCCEEDED(hr) && decoder && *decoder)
-    {
-        if (preview.format != 0)
-        {
-            handle.baseInfo.Format = preview.format;
-        }
-        return hr;
-    }
-    PictView::Native::DecodedImage decoded;
-    const PictView::Native::Status status =
-        PictView::Native::DecodeMemory(bytes.data() + preview.offset, preview.size, decoded);
-    if (status == PictView::Native::Status::Ok)
-    {
-        if (decoder)
-        {
-            *decoder = nullptr;
-        }
-        return AdoptNativeImage(backend, handle, std::move(decoded));
-    }
-    return FAILED(hr) ? hr : NativeStatusToHr(status);
+    return adoptSlice(bytes.data() + preview.offset, preview.size, preview.format);
 }
 
 void ReleaseImageFrames(ImageHandle& handle)
@@ -3796,7 +3818,15 @@ HRESULT TryOpenShellThumbnail(Backend& backend, ImageHandle& handle)
     {
         return WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
     }
-    if (IsDeniedShellExtension(AsciiExtensionFromPath(handle.fileName)))
+    // The icon reader holds ICSleepSection across LoadThumbnail. Explorer
+    // IThumbnailProvider / IShellItemImageFactory / 3D Viewer can block there
+    // forever, so directory changes and "Unloading plugins" freeze.
+    if ((handle.openFlags & PVFF_FAST) != 0 || (handle.openFlags & PVOF_THUMBNAIL) != 0)
+    {
+        return WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
+    }
+    const std::string extension = AsciiExtensionFromPath(handle.fileName);
+    if (extension == "stl" || IsDeniedShellExtension(extension))
     {
         return WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
     }
@@ -3833,20 +3863,6 @@ HRESULT TryOpenShellThumbnail(Backend& backend, ImageHandle& handle)
     const SIZE size{2048, 2048};
     HBITMAP bitmap = nullptr;
     hr = factory->GetImage(size, SIIGBF_THUMBNAILONLY | SIIGBF_BIGGERSIZEOK | SIIGBF_RESIZETOFIT, &bitmap);
-    if ((FAILED(hr) || !bitmap) && SUCCEEDED(bindHr) && provider)
-    {
-        bitmap = nullptr;
-        hr = factory->GetImage(size, SIIGBF_BIGGERSIZEOK | SIIGBF_RESIZETOFIT, &bitmap);
-        if (SUCCEEDED(hr) && bitmap)
-        {
-            BITMAP info{};
-            if (GetObject(bitmap, sizeof(info), &info) == 0 || info.bmWidth < 64 || info.bmHeight < 64)
-            {
-                DeleteObject(bitmap);
-                return WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
-            }
-        }
-    }
     if (FAILED(hr) || !bitmap)
     {
         return FAILED(hr) ? hr : WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
@@ -4501,6 +4517,7 @@ PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, DWORD bufferSi
         {PVF_WMF, "WMF"},
         {PVF_EMF, "EMF"},
         {PVF_STL, "STL"},
+        {PVF_3MF, "3MF"},
     };
 
     const char* info1 = "WIC";
@@ -7108,6 +7125,10 @@ PVCODE Backend::sCreateThumbnail(LPPVHandle Img, LPPVSaveImageInfo /*sii*/, int 
     if (handle->frames.empty())
     {
         return PVC_INVALID_HANDLE;
+    }
+    if (HandleHasInteractivePreview(*handle))
+    {
+        return PVC_UNSUP_FILE_TYPE;
     }
     const size_t normalizedIndex = NormalizeFrameIndex(*handle, imageIndex, 0);
     HRESULT hr = DecodeFrame(*handle, normalizedIndex);

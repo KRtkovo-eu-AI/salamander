@@ -9,6 +9,7 @@
 #include "pictview.rh"
 #include "pictview.rh2"
 #include "lang/lang.rh"
+#include "native/NativeDecoder.h"
 
 // Salamander-proprietary flag for super-fast low-quality JPEG-decompression
 
@@ -35,6 +36,12 @@ static BOOL IsSVGThumbnailFile(LPCTSTR filename)
 {
     const TCHAR* ext = _tcsrchr(filename, _T('.'));
     return ext != NULL && _tcsicmp(ext, _T(".svg")) == 0;
+}
+
+static BOOL IsSTLThumbnailFile(LPCTSTR filename)
+{
+    const TCHAR* ext = _tcsrchr(filename, _T('.'));
+    return ext != NULL && _tcsicmp(ext, _T(".stl")) == 0;
 }
 
 static char* ReadWholeFileForSVG(LPCTSTR filename)
@@ -96,6 +103,7 @@ static BOOL LoadSVGThumbnail(LPCTSTR filename, int thumbWidth, int thumbHeight,
                 memset(pixels, 0, (size_t)targetWidth * targetHeight * 4);
                 nsvgRasterize(rast, image, 0.0f, 0.0f, scale, pixels, targetWidth, targetHeight, targetWidth * 4);
 
+                // nsvgRasterize emits BGRA (see the GDI conversion at the end of nanosvgrast.h).
                 const BYTE bgR = GetRValue(G.rgbPanelBackground);
                 const BYTE bgG = GetGValue(G.rgbPanelBackground);
                 const BYTE bgB = GetBValue(G.rgbPanelBackground);
@@ -103,9 +111,9 @@ static BOOL LoadSVGThumbnail(LPCTSTR filename, int thumbWidth, int thumbHeight,
                 {
                     BYTE* p = pixels + (size_t)i * 4;
                     const BYTE alpha = p[3];
-                    p[0] = (BYTE)((p[0] * alpha + bgR * (255 - alpha) + 127) / 255);
+                    p[0] = (BYTE)((p[0] * alpha + bgB * (255 - alpha) + 127) / 255);
                     p[1] = (BYTE)((p[1] * alpha + bgG * (255 - alpha) + 127) / 255);
-                    p[2] = (BYTE)((p[2] * alpha + bgB * (255 - alpha) + 127) / 255);
+                    p[2] = (BYTE)((p[2] * alpha + bgR * (255 - alpha) + 127) / 255);
                     p[3] = 0;
                 }
 
@@ -133,6 +141,75 @@ static BOOL LoadSVGThumbnail(LPCTSTR filename, int thumbWidth, int thumbHeight,
     if (image != NULL)
         nsvgDelete(image);
     free(svg);
+    return ret;
+}
+
+static bool StlThumbCancel(void* ctx)
+{
+    CSalamanderThumbnailMakerAbstract* maker = static_cast<CSalamanderThumbnailMakerAbstract*>(ctx);
+    return maker != NULL && maker->GetCancelProcessing();
+}
+
+static BOOL LoadSTLThumbnail(LPCTSTR filename, int thumbWidth, int thumbHeight,
+                             CSalamanderThumbnailMakerAbstract* thumbMaker)
+{
+    if (thumbMaker == NULL || thumbWidth <= 0 || thumbHeight <= 0)
+        return FALSE;
+
+#ifdef _UNICODE
+    std::wstring path = PluginPathAddExtendedPrefixW(filename);
+#else
+    std::wstring wide = PluginMultiByteToWidePath(filename, CP_UTF8);
+    if (wide.empty())
+        wide = PluginMultiByteToWidePath(filename, CP_ACP);
+    if (wide.empty())
+        return FALSE;
+    std::wstring path = PluginPathAddExtendedPrefixW(wide.c_str());
+#endif
+
+    PictView::Native::Frame frame;
+    const PictView::Native::Status st = PictView::Native::RasterizeStlFile(
+        path.c_str(), static_cast<UINT>(thumbWidth), static_cast<UINT>(thumbHeight), RGB(0xFF, 0xC9, 0x24), frame,
+        StlThumbCancel, thumbMaker);
+    if (st != PictView::Native::Status::Ok || frame.width == 0 || frame.height == 0 || frame.bgra.empty())
+        return FALSE;
+    if (thumbMaker->GetCancelProcessing())
+        return FALSE;
+    if (!thumbMaker->SetParameters((int)frame.width, (int)frame.height, 0))
+        return FALSE;
+
+    const BYTE bgR = GetRValue(G.rgbPanelBackground);
+    const BYTE bgG = GetGValue(G.rgbPanelBackground);
+    const BYTE bgB = GetBValue(G.rgbPanelBackground);
+    BYTE* pixels = frame.bgra.data();
+    const int count = (int)frame.width * (int)frame.height;
+    for (int i = 0; i < count; i++)
+    {
+        BYTE* p = pixels + (size_t)i * 4;
+        const BYTE alpha = p[3];
+        p[0] = (BYTE)((p[0] * alpha + bgB * (255 - alpha) + 127) / 255);
+        p[1] = (BYTE)((p[1] * alpha + bgG * (255 - alpha) + 127) / 255);
+        p[2] = (BYTE)((p[2] * alpha + bgR * (255 - alpha) + 127) / 255);
+        p[3] = 0;
+    }
+
+    int processedRows = 0;
+    const int targetHeight = (int)frame.height;
+    const int targetWidth = (int)frame.width;
+    BOOL ret = TRUE;
+    while (processedRows < targetHeight)
+    {
+        if (thumbMaker->GetCancelProcessing())
+        {
+            ret = FALSE;
+            break;
+        }
+        const int rows = min(32, targetHeight - processedRows);
+        // ProcessBuffer returns FALSE when the image is complete (or cancelled).
+        if (!thumbMaker->ProcessBuffer(pixels + (size_t)processedRows * targetWidth * 4, rows))
+            break;
+        processedRows += rows;
+    }
     return ret;
 }
 
@@ -925,6 +1002,9 @@ BOOL CPluginInterfaceForThumbLoader::LoadThumbnail(LPCTSTR filename, int thumbWi
 {
     CALL_STACK_MESSAGE5(_T("CPluginInterfaceForThumbLoader::LoadThumbnail(%s, %d, %d, , %d)"),
                         filename, thumbWidth, thumbHeight, fastThumbnail);
+
+    if (IsSTLThumbnailFile(filename))
+        return LoadSTLThumbnail(filename, thumbWidth, thumbHeight, thumbMaker);
 
     if (IsSVGThumbnailFile(filename))
         return LoadSVGThumbnail(filename, thumbWidth, thumbHeight, thumbMaker);

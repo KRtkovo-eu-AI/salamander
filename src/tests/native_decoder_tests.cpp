@@ -184,7 +184,7 @@ std::vector<BYTE> MakeSvg2x2()
 {
     const char* svg =
         "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"2\" height=\"2\">"
-        "<rect width=\"2\" height=\"2\" fill=\"#00ff00\"/>"
+        "<rect width=\"2\" height=\"2\" fill=\"#ff0000\"/>"
         "</svg>";
     return std::vector<BYTE>(svg, svg + strlen(svg));
 }
@@ -645,6 +645,154 @@ std::vector<BYTE> MakePlaceableWmf()
     return data;
 }
 
+void PutF32LE(std::vector<BYTE>& data, float value)
+{
+    UINT32 bits = 0;
+    memcpy(&bits, &value, sizeof(bits));
+    PutLE32(data, bits);
+}
+
+void AppendBinaryStlTri(std::vector<BYTE>& data, float ax, float ay, float az, float bx, float by, float bz, float cx,
+                        float cy, float cz)
+{
+    PutF32LE(data, 0);
+    PutF32LE(data, 0);
+    PutF32LE(data, 0);
+    PutF32LE(data, ax);
+    PutF32LE(data, ay);
+    PutF32LE(data, az);
+    PutF32LE(data, bx);
+    PutF32LE(data, by);
+    PutF32LE(data, bz);
+    PutF32LE(data, cx);
+    PutF32LE(data, cy);
+    PutF32LE(data, cz);
+    PutLE16(data, 0);
+}
+
+std::vector<BYTE> MakeBinaryStlTetrahedron()
+{
+    std::vector<BYTE> data(80, 0);
+    PutLE32(data, 4);
+    AppendBinaryStlTri(data, 1, 1, 1, 1, -1, -1, -1, 1, -1);
+    AppendBinaryStlTri(data, 1, 1, 1, -1, -1, 1, 1, -1, -1);
+    AppendBinaryStlTri(data, 1, 1, 1, -1, 1, -1, -1, -1, 1);
+    AppendBinaryStlTri(data, 1, -1, -1, -1, -1, 1, -1, 1, -1);
+    return data;
+}
+
+std::vector<BYTE> MakeAsciiStlTetrahedron()
+{
+    const char* ascii =
+        "solid test\n"
+        "facet normal 0 0 0\n outer loop\n"
+        "  vertex 1 1 1\n  vertex 1 -1 -1\n  vertex -1 1 -1\n"
+        " endloop\nendfacet\n"
+        "facet normal 0 0 0\n outer loop\n"
+        "  vertex 1 1 1\n  vertex -1 -1 1\n  vertex 1 -1 -1\n"
+        " endloop\nendfacet\n"
+        "facet normal 0 0 0\n outer loop\n"
+        "  vertex 1 1 1\n  vertex -1 1 -1\n  vertex -1 -1 1\n"
+        " endloop\nendfacet\n"
+        "facet normal 0 0 0\n outer loop\n"
+        "  vertex 1 -1 -1\n  vertex -1 -1 1\n  vertex -1 1 -1\n"
+        " endloop\nendfacet\n"
+        "endsolid test\n";
+    return std::vector<BYTE>(ascii, ascii + strlen(ascii));
+}
+
+std::vector<BYTE> MakeStoredZip(const char* name, const std::vector<BYTE>& payload)
+{
+    std::vector<BYTE> data;
+    const UINT16 nameLen = static_cast<UINT16>(strlen(name));
+    PutLE32(data, 0x04034b50);
+    PutLE16(data, 20);
+    PutLE16(data, 0);
+    PutLE16(data, 0);
+    PutLE16(data, 0);
+    PutLE16(data, 0);
+    PutLE32(data, 0);
+    PutLE32(data, static_cast<UINT32>(payload.size()));
+    PutLE32(data, static_cast<UINT32>(payload.size()));
+    PutLE16(data, nameLen);
+    PutLE16(data, 0);
+    data.insert(data.end(), name, name + nameLen);
+    data.insert(data.end(), payload.begin(), payload.end());
+    return data;
+}
+
+std::vector<BYTE> MakeBmp1x1Red()
+{
+    std::vector<BYTE> bmp(14 + 40 + 4, 0);
+    bmp[0] = 'B';
+    bmp[1] = 'M';
+    bmp[2] = 58;
+    bmp[10] = 54;
+    bmp[14] = 40;
+    bmp[18] = 1;
+    bmp[22] = 1;
+    bmp[26] = 1;
+    bmp[28] = 32;
+    bmp[54] = 0;
+    bmp[55] = 0;
+    bmp[56] = 255;
+    bmp[57] = 255;
+    return bmp;
+}
+
+std::vector<BYTE> MakeRiffCdrWithBmp()
+{
+    const auto bmp = MakeBmp1x1Red();
+    const UINT32 chunkSize = static_cast<UINT32>(bmp.size());
+    const UINT32 riffSize = 4u + 8u + chunkSize + (chunkSize & 1u);
+    std::vector<BYTE> data(8 + riffSize, 0);
+    memcpy(data.data(), "RIFF", 4);
+    data[4] = static_cast<BYTE>(riffSize);
+    data[5] = static_cast<BYTE>(riffSize >> 8);
+    memcpy(data.data() + 8, "CDR8", 4);
+    memcpy(data.data() + 12, "disp", 4);
+    data[16] = static_cast<BYTE>(chunkSize);
+    data[17] = static_cast<BYTE>(chunkSize >> 8);
+    memcpy(data.data() + 20, bmp.data(), bmp.size());
+    return data;
+}
+
+void PutU32At(std::vector<BYTE>& data, size_t at, UINT32 value)
+{
+    data[at] = static_cast<BYTE>(value);
+    data[at + 1] = static_cast<BYTE>(value >> 8);
+    data[at + 2] = static_cast<BYTE>(value >> 16);
+    data[at + 3] = static_cast<BYTE>(value >> 24);
+}
+
+std::vector<BYTE> MakeDosEpsWmf()
+{
+    const auto wmf = MakePlaceableWmf();
+    std::vector<BYTE> data(30 + wmf.size(), 0);
+    data[0] = 0xC5;
+    data[1] = 0xD0;
+    data[2] = 0xD3;
+    data[3] = 0xC6;
+    PutU32At(data, 12, 30);
+    PutU32At(data, 16, static_cast<UINT32>(wmf.size()));
+    memcpy(data.data() + 30, wmf.data(), wmf.size());
+    return data;
+}
+
+std::vector<BYTE> MakeDosEpsTiff()
+{
+    const BYTE tiff[] = {'I', 'I', 42, 0, 8, 0, 0, 0};
+    std::vector<BYTE> data(30 + sizeof(tiff), 0);
+    data[0] = 0xC5;
+    data[1] = 0xD0;
+    data[2] = 0xD3;
+    data[3] = 0xC6;
+    PutU32At(data, 20, 30);
+    PutU32At(data, 24, static_cast<UINT32>(sizeof(tiff)));
+    memcpy(data.data() + 30, tiff, sizeof(tiff));
+    return data;
+}
+
 std::vector<BYTE> MakeDdsDx10Bc5()
 {
     std::vector<BYTE> data(148 + 16, 0);
@@ -733,7 +881,7 @@ int main()
     std::vector<std::string> masks;
     PictView::Native::GetDecoderMasks(masks);
     const char* required[] = {"*.tga", "*.pcx", "*.pnm", "*.svg", "*.psd", "*.iff", "*.eps", "*.mov",
-                              "*.dds", "*.xcf", "*.pdn", "*.3dm", "*.ai", "*.dwg", "*.wmf", "*.stl"};
+                              "*.dds", "*.xcf", "*.pdn", "*.3dm", "*.ai", "*.dwg", "*.wmf", "*.stl", "*.3mf"};
     for (const char* mask : required)
     {
         if (std::find(masks.begin(), masks.end(), mask) == masks.end())
@@ -750,10 +898,101 @@ int main()
     failures += ExpectImage("sgi", MakeSgi2x1(), PVF_SGI, 2, 1);
     failures += ExpectImage("pcx", MakePcx2x1(), PVF_PCX, 2, 1);
     failures += ExpectImage("svg", MakeSvg2x2(), PVF_SVG, 2, 2);
+    {
+        PictView::Native::DecodedImage svgRed;
+        const auto svgBytes = MakeSvg2x2();
+        if (PictView::Native::DecodeMemory(svgBytes.data(), svgBytes.size(), svgRed) !=
+                PictView::Native::Status::Ok ||
+            svgRed.frames.empty() || svgRed.frames[0].bgra.size() < 4)
+        {
+            return Fail("SVG fill #ff0000 must decode");
+        }
+        const auto& px = svgRed.frames[0].bgra;
+        bool foundRedBgra = false;
+        for (size_t i = 0; i + 3 < px.size(); i += 4)
+        {
+            if (px[i] == 0 && px[i + 1] == 0 && px[i + 2] == 255 && px[i + 3] == 255)
+            {
+                foundRedBgra = true;
+                break;
+            }
+        }
+        if (!foundRedBgra)
+        {
+            return Fail("SVG fill #ff0000 must be stored as BGRA, not NanoSVG RGBA");
+        }
+    }
     failures += ExpectImage("psd", MakePsd2x1(), PVF_PSD, 2, 1);
     failures += ExpectImage("dds", MakeDds2x1(), PVF_DDS, 2, 1);
     failures += ExpectImage("dds-dx10", MakeDdsDx10Bc1(), PVF_DDS, 4, 4);
     failures += ExpectImage("eps", MakeEpsPreview(), PVF_EPS, 2, 2);
+    failures += ExpectDecoded("eps-dos-wmf", MakeDosEpsWmf(), PVF_EPS);
+    {
+        PictView::Native::EmbeddedPreview dosTiff;
+        const auto epsTiff = MakeDosEpsTiff();
+        if (!PictView::Native::FindEmbeddedPreview(epsTiff.data(), epsTiff.size(), dosTiff) ||
+            dosTiff.offset != 30 || dosTiff.size < 8)
+        {
+            return Fail("DOS EPS header must expose the TIFF preview at offset 20/24");
+        }
+    }
+    failures += ExpectImage("3mf", MakeStoredZip("Metadata/thumbnail.png", MakePng1x1Red()), PVF_3MF, 1, 1);
+    failures += ExpectImage("skp", MakeStoredZip("preview.png", MakePng1x1Red()), PVF_SKP, 1, 1);
+    failures += ExpectImage("cdr-zip-bmp", MakeStoredZip("metadata/thumbnails/thumbnail.bmp", MakeBmp1x1Red()), PVF_CDR, 1, 1);
+    failures += ExpectImage("cdr-riff-bmp", MakeRiffCdrWithBmp(), PVF_CDR, 1, 1);
+    {
+        const auto stlBin = MakeBinaryStlTetrahedron();
+        PictView::Native::DecodedImage stolen;
+        if (PictView::Native::DecodeMemory(stlBin.data(), stlBin.size(), stolen) == PictView::Native::Status::Ok)
+        {
+            return Fail("STL must not be decoded by DecodeMemory (viewer stays on IPreviewHandler)");
+        }
+        auto checkStl = [](const char* name, const std::vector<BYTE>& bytes) -> int {
+            PictView::Native::Frame frame;
+            const PictView::Native::Status st = PictView::Native::RasterizeStlMemory(
+                bytes.data(), bytes.size(), 64, 64, RGB(200, 200, 200), frame);
+            if (st != PictView::Native::Status::Ok || frame.width != 64 || frame.height != 64 ||
+                frame.bgra.size() < 64u * 64u * 4u)
+            {
+                std::cerr << name << ": STL rasterize failed\n";
+                return 1;
+            }
+            const size_t center = (32u * 64u + 32u) * 4u;
+            if (frame.bgra[center + 3] != 255)
+            {
+                std::cerr << name << ": mesh center must be opaque\n";
+                return 1;
+            }
+            if (frame.bgra[3] != 0)
+            {
+                std::cerr << name << ": corner must stay transparent\n";
+                return 1;
+            }
+            std::cout << name << ": 64x64 checksum=" << Checksum(frame) << "\n";
+            return 0;
+        };
+        failures += checkStl("stl-binary", stlBin);
+        failures += checkStl("stl-ascii", MakeAsciiStlTetrahedron());
+        auto stlPadded = stlBin;
+        stlPadded.insert(stlPadded.end(), 64, 0);
+        failures += checkStl("stl-binary-padded", stlPadded);
+        PictView::Native::Frame huge;
+        BYTE dummy = 0;
+        if (PictView::Native::RasterizeStlMemory(&dummy, 33ull * 1024ull * 1024ull, 8, 8, RGB(255, 255, 255), huge) !=
+            PictView::Native::Status::Unsupported)
+        {
+            return Fail("STL larger than 32 MB must be rejected");
+        }
+        std::vector<BYTE> tooMany(84, 0);
+        tooMany[80] = 0xA9;
+        tooMany[81] = 0xD0;
+        tooMany[82] = 0x03; // 250001 little-endian, size does not match
+        if (PictView::Native::RasterizeStlMemory(tooMany.data(), tooMany.size(), 8, 8, RGB(255, 255, 255), huge) !=
+            PictView::Native::Status::Unsupported)
+        {
+            return Fail("STL with a huge triangle count must be rejected");
+        }
+    }
     failures += ExpectImage("pdn", MakePdnThumb(), PVF_PDN, 1, 1);
     failures += ExpectImage("xcf", MakeXcf2x1(), PVF_XCF, 2, 1);
     failures += ExpectImage("3dm", Make3dmWithBmp(), PVF_3DM, 2, 1);

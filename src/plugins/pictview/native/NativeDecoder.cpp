@@ -117,6 +117,7 @@ void GetDecoderMasks(std::vector<std::string>& masks)
     AddMask(masks, "*.wmf");
     AddMask(masks, "*.emf");
     AddMask(masks, "*.stl");
+    AddMask(masks, "*.3mf");
 }
 
 Status DecodeMemory(const BYTE* data, size_t size, DecodedImage& image)
@@ -155,6 +156,7 @@ Status DecodeMemory(const BYTE* data, size_t size, DecodedImage& image)
         Detail::Decode3dm,
         Detail::DecodeDwg,
         Detail::DecodeSkp,
+        Detail::DecodeRiffPreview,
         Detail::DecodeBlend,
         Detail::DecodePreview,
     };

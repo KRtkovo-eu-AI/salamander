@@ -674,7 +674,7 @@ public:
 
 #define SALCMD_DISCONNECT 90 // disconnect (network drive or plugin-fs) (klavesa F12 v panelu)
 
-#define MAX_GROUPMASK 1001 // max. pocet znaku (vcetne nuly na konci) ve skupinove masce
+#define MAX_GROUPMASK 8192 // max. characters (including the terminating null) in a group mask
 
 // identifikatory sdilenych historii (posledne pouzitych hodnot v comboboxech) pro
 // CSalamanderGeneral::GetStdHistoryValues()

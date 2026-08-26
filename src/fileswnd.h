@@ -811,6 +811,7 @@ public:
     volatile CExplorerSortAsyncData* ExplorerSortData;
     CExplorerPropertyCache* ExplorerPropertyCache;
     int ExplorerSortThrobberID;
+    int IconReadingThrobberID;
 
     BOOL AutomaticRefresh;      // is the panel refreshed automatically (or manually)?
     BOOL NeedsRefreshOnActivation; // TRUE when the panel should reload its listing when it becomes visible again

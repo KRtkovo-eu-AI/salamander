@@ -4,6 +4,14 @@
 
 #include "precomp.h"
 #include "common/winlibdpi.h"
+#include "commoncontrols.h"
+
+#ifndef SHIL_EXTRALARGE
+#define SHIL_EXTRALARGE 2
+#endif
+#ifndef SHIL_JUMBO
+#define SHIL_JUMBO 4
+#endif
 
 #include "cfgdlg.h"
 #include "dialogs.h"
@@ -206,6 +214,233 @@ BOOL LoadIcoThumbnail(const char* path, int thumbnailSize, COLORREF bkgndColor, 
     return ret;
 }
 
+static bool FolderThumbLooksLikeImage(const wchar_t* name)
+{
+    const wchar_t* ext = wcsrchr(name, L'.');
+    if (ext == NULL || ext == name)
+        return false;
+    static const wchar_t* const kExts[] = {
+        L".jpg", L".jpeg", L".jpe", L".jfif", L".png", L".gif", L".bmp", L".dib", L".tif", L".tiff",
+        L".webp", L".tga", L".svg", L".ico", L".psd", L".dds", L".pcx", L".stl", L".cdr", L".cmx",
+        L".3mf", L".heic", L".heif", L".avif", L".jxl", L".wmf", L".emf", L".skp", L".xcf", L".pdn"};
+    for (const wchar_t* known : kExts)
+    {
+        if (_wcsicmp(ext, known) == 0)
+            return true;
+    }
+    return false;
+}
+
+static void BlitScaledPhoto(DWORD* dest, int destSize, const DWORD* src, int srcW, int srcH,
+                            int dx, int dy, int dw, int dh)
+{
+    if (dest == NULL || src == NULL || srcW <= 0 || srcH <= 0 || dw <= 2 || dh <= 2)
+        return;
+    const DWORD border = 0x00FFFFFFu;
+    for (int y = 0; y < dh; ++y)
+    {
+        const int py = dy + y;
+        if (py < 0 || py >= destSize)
+            continue;
+        for (int x = 0; x < dw; ++x)
+        {
+            const int px = dx + x;
+            if (px < 0 || px >= destSize)
+                continue;
+            DWORD* out = dest + py * destSize + px;
+            if (x < 2 || y < 2 || x >= dw - 2 || y >= dh - 2)
+            {
+                *out = border;
+                continue;
+            }
+            const int sx = (x - 2) * srcW / (dw - 4);
+            const int sy = (y - 2) * srcH / (dh - 4);
+            if (sx >= 0 && sx < srcW && sy >= 0 && sy < srcH)
+                *out = src[sy * srcW + sx] | 0xFF000000u;
+        }
+    }
+}
+
+static HICON GetFolderThumbIcon(const char* /*path*/)
+{
+    SHFILEINFOA info{};
+    if (SHGetFileInfoA("folder", FILE_ATTRIBUTE_DIRECTORY, &info, sizeof(info),
+                       SHGFI_SYSICONINDEX | SHGFI_USEFILEATTRIBUTES) == 0)
+        return NULL;
+    HICON icon = NULL;
+    IImageList* imageList = NULL;
+    if (SUCCEEDED(SHGetImageList(SHIL_JUMBO, IID_PPV_ARGS(&imageList))) && imageList != NULL)
+    {
+        imageList->GetIcon(info.iIcon, ILD_TRANSPARENT, &icon);
+        imageList->Release();
+    }
+    if (icon == NULL && SUCCEEDED(SHGetImageList(SHIL_EXTRALARGE, IID_PPV_ARGS(&imageList))) && imageList != NULL)
+    {
+        imageList->GetIcon(info.iIcon, ILD_TRANSPARENT, &icon);
+        imageList->Release();
+    }
+    if (icon == NULL)
+    {
+        SHFILEINFOA fallback{};
+        SHGetFileInfoA("folder", FILE_ATTRIBUTE_DIRECTORY, &fallback, sizeof(fallback),
+                       SHGFI_ICON | SHGFI_LARGEICON | SHGFI_USEFILEATTRIBUTES);
+        icon = fallback.hIcon;
+    }
+    return icon;
+}
+
+static BOOL LoadFolderCompositeThumbnail(const char* folderPath, int thumbnailSize, COLORREF bkgndColor,
+                                         CSalamanderThumbnailMaker* thumbMaker, CFilesWindow* window,
+                                         CPluginInterfaceForThumbLoaderEncapsulation** loaders)
+{
+    if (folderPath == NULL || folderPath[0] == 0 || thumbnailSize <= 0 || thumbMaker == NULL || window == NULL)
+        return FALSE;
+
+    HICON folderIcon = GetFolderThumbIcon(folderPath);
+    BITMAPINFO bi{};
+    bi.bmiHeader.biSize = sizeof(bi.bmiHeader);
+    bi.bmiHeader.biWidth = thumbnailSize;
+    bi.bmiHeader.biHeight = -thumbnailSize;
+    bi.bmiHeader.biPlanes = 1;
+    bi.bmiHeader.biBitCount = 32;
+    bi.bmiHeader.biCompression = BI_RGB;
+
+    void* bits = NULL;
+    HDC screenDC = HANDLES(GetDC(NULL));
+    HDC memDC = screenDC != NULL ? HANDLES(CreateCompatibleDC(screenDC)) : NULL;
+    HBITMAP bitmap = memDC != NULL ? HANDLES(CreateDIBSection(memDC, &bi, DIB_RGB_COLORS, &bits, NULL, 0)) : NULL;
+    HBITMAP oldBitmap = NULL;
+    BOOL ret = FALSE;
+    if (bitmap != NULL && bits != NULL)
+    {
+        oldBitmap = (HBITMAP)SelectObject(memDC, bitmap);
+        DWORD* pixels = (DWORD*)bits;
+        const DWORD bkgndPixel = bkgndColor & 0x00ffffff;
+        for (int i = 0; i < thumbnailSize * thumbnailSize; i++)
+            pixels[i] = bkgndPixel;
+        if (folderIcon != NULL)
+            DrawIconEx(memDC, 0, 0, folderIcon, thumbnailSize, thumbnailSize, 0, NULL, DI_NORMAL);
+
+        std::wstring folderW = SalMultiByteToWidePath(folderPath, CP_UTF8);
+        if (folderW.empty())
+            folderW = SalMultiByteToWidePath(folderPath, CP_ACP);
+        if (!folderW.empty())
+        {
+            std::wstring search = folderW;
+            if (search.back() != L'\\')
+                search += L'\\';
+            search += L'*';
+            search = SalPathAddExtendedPrefixW(search.c_str());
+            WIN32_FIND_DATAW fd{};
+            HANDLE find = FindFirstFileW(search.c_str(), &fd);
+            int photos = 0;
+            const DWORD* photoBits[2] = {};
+            int photoW[2] = {};
+            int photoH[2] = {};
+            std::vector<DWORD> photoStore[2];
+            int scanned = 0;
+            if (find != INVALID_HANDLE_VALUE)
+            {
+                do
+                {
+                    if (window->ICStopWork)
+                        break;
+                    if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+                        continue;
+                    if (fd.cFileName[0] == L'.' && (fd.cFileName[1] == 0 || (fd.cFileName[1] == L'.' && fd.cFileName[2] == 0)))
+                        continue;
+                    if (!FolderThumbLooksLikeImage(fd.cFileName))
+                        continue;
+                    if (++scanned > 64)
+                        break;
+
+                    std::wstring innerW = folderW;
+                    if (innerW.back() != L'\\')
+                        innerW += L'\\';
+                    innerW += fd.cFileName;
+                    std::string innerUtf8 = SalWideToMultiBytePath(innerW.c_str(), CP_UTF8);
+                    if (innerUtf8.empty() || loaders == NULL)
+                        continue;
+
+                    CSalamanderThumbnailMaker inner(window);
+                    const int photoSize = max(16, thumbnailSize * 55 / 100);
+                    BOOL loaded = FALSE;
+                    inner.Clear(photoSize);
+                    CPluginInterfaceForThumbLoaderEncapsulation** loader = loaders;
+                    while (*loader != NULL)
+                    {
+                        if ((*loader)->LoadThumbnail(innerUtf8.c_str(), photoSize, photoSize, &inner, TRUE))
+                        {
+                            inner.HandleIncompleteImages();
+                            if (inner.ThumbnailReady())
+                            {
+                                inner.TransformThumbnail();
+                                const DWORD* rgb = NULL;
+                                int w = 0;
+                                int h = 0;
+                                if (inner.GetRGBBits(&rgb, &w, &h) && rgb != NULL && w > 0 && h > 0)
+                                {
+                                    photoStore[photos].assign(rgb, rgb + (size_t)w * h);
+                                    photoBits[photos] = photoStore[photos].data();
+                                    photoW[photos] = w;
+                                    photoH[photos] = h;
+                                    loaded = TRUE;
+                                }
+                            }
+                            break;
+                        }
+                        loader++;
+                    }
+                    inner.Clear();
+                    if (loaded && ++photos >= 2)
+                        break;
+                } while (FindNextFileW(find, &fd));
+                FindClose(find);
+            }
+
+            if (photos >= 1 && !window->ICStopWork)
+            {
+                if (photos >= 2)
+                {
+                    BlitScaledPhoto(pixels, thumbnailSize, photoBits[0], photoW[0], photoH[0],
+                                    thumbnailSize * 38 / 100, thumbnailSize * 16 / 100,
+                                    thumbnailSize * 50 / 100, thumbnailSize * 50 / 100);
+                    BlitScaledPhoto(pixels, thumbnailSize, photoBits[1], photoW[1], photoH[1],
+                                    thumbnailSize * 16 / 100, thumbnailSize * 28 / 100,
+                                    thumbnailSize * 54 / 100, thumbnailSize * 54 / 100);
+                }
+                else
+                {
+                    BlitScaledPhoto(pixels, thumbnailSize, photoBits[0], photoW[0], photoH[0],
+                                    thumbnailSize * 22 / 100, thumbnailSize * 22 / 100,
+                                    thumbnailSize * 52 / 100, thumbnailSize * 52 / 100);
+                }
+            }
+        }
+
+        thumbMaker->Clear(thumbnailSize);
+        if (!window->ICStopWork && thumbMaker->SetParameters(thumbnailSize, thumbnailSize, 0))
+        {
+            thumbMaker->ProcessBuffer(bits, thumbnailSize);
+            ret = thumbMaker->ThumbnailReady();
+        }
+        if (oldBitmap != NULL)
+            SelectObject(memDC, oldBitmap);
+    }
+
+    if (!ret)
+        thumbMaker->Clear();
+    if (bitmap != NULL)
+        HANDLES(DeleteObject(bitmap));
+    if (memDC != NULL)
+        HANDLES(DeleteDC(memDC));
+    if (screenDC != NULL)
+        HANDLES(ReleaseDC(NULL, screenDC));
+    if (folderIcon != NULL)
+        NOHANDLES(DestroyIcon(folderIcon));
+    return ret;
+}
+
 std::string BuildDiskThumbnailPathUtf8(CFilesWindow* window, const char* fileName)
 {
     if (window == NULL || fileName == NULL || fileName[0] == 0 || !window->Is(ptDisk))
@@ -232,6 +467,17 @@ std::string BuildDiskThumbnailPathUtf8(CFilesWindow* window, const char* fileNam
         {
             file = &window->Files->At(i);
             break;
+        }
+    }
+    if (file == NULL)
+    {
+        for (int i = 0; i < window->Dirs->Count; ++i)
+        {
+            if (strcmp(window->Dirs->At(i).Name, fileName) == 0)
+            {
+                file = &window->Dirs->At(i);
+                break;
+            }
         }
     }
 
@@ -1587,6 +1833,9 @@ unsigned IconThreadThreadFBody(void* parameter)
                 if (window->StopThumbnailLoading)
                     readThumbnails = FALSE; // unwanted wake-up - at least suppress thumbnail loading
 
+                if (readThumbnails && window->HWindow != NULL)
+                    PostMessage(window->HWindow, WM_USER_ICONREADING_BEGIN, 0, 0);
+
                 BOOL pluginFSIconsFromPlugin = window->Is(ptPluginFS) &&
                                                window->GetPluginIconsType() == pitFromPlugin;
                 BOOL pluginFSIconsFromRegistry = window->Is(ptPluginFS) &&
@@ -1996,21 +2245,45 @@ unsigned IconThreadThreadFBody(void* parameter)
                                                     //                          TRACE_I("Load thumbnail for: " << name << "...");
                                                     CPluginInterfaceForThumbLoaderEncapsulation** loader;
                                                     loader = (CPluginInterfaceForThumbLoaderEncapsulation**)(s + size + sizeof(CQuadWord) + sizeof(FILETIME));
-                                                    while (*loader != NULL)
+                                                    BOOL isFolder = FALSE;
+                                                    std::wstring pathW = SalMultiByteToWidePath(thumbnailPath, CP_UTF8);
+                                                    if (pathW.empty())
+                                                        pathW = SalMultiByteToWidePath(thumbnailPath, CP_ACP);
+                                                    if (!pathW.empty())
                                                     {
-                                                        thumbMaker.Clear(thumbnailSize);
-                                                        CALL_STACK_MESSAGE3("IconThreadThreadFBody::LoadThumbnail(%s, %d)", thumbnailPath, wanted == 4);
-                                                        if ((*loader)->LoadThumbnail(thumbnailPath, thumbnailSize, thumbnailSize, &thumbMaker, wanted == 4))
-                                                        {
-                                                            thumbnailFlag = wanted == 4 /* first thumbnail loading round */ ? (thumbMaker.IsOnlyPreview() ? 6 /* low-quality/smaller */ : 5 /* quality */) : 5 /* in the second round all obtained thumbnails are quality */;
-                                                            thumbMaker.HandleIncompleteImages();
-                                                            break; // the thumbnail may be loaded; do not try another plug-in
-                                                        }
-                                                        loader++; // try the next plug-in in line, it might load the thumbnail
+                                                        const DWORD attr = GetFileAttributesW(SalPathAddExtendedPrefixW(pathW.c_str()).c_str());
+                                                        isFolder = attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY) != 0;
                                                     }
-                                                    if (*loader == NULL)
-                                                        thumbMaker.Clear(); // failed thumbnail -> clean it up
-                                                                            //                          TRACE_I("Load thumbnail is done.");
+                                                    if (isFolder)
+                                                    {
+                                                        CALL_STACK_MESSAGE2("IconThreadThreadFBody::LoadFolderCompositeThumbnail(%s)", thumbnailPath);
+                                                        if (LoadFolderCompositeThumbnail(thumbnailPath, thumbnailSize,
+                                                                                         GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]),
+                                                                                         &thumbMaker, window, loader))
+                                                        {
+                                                            thumbnailFlag = 5; // folder composites are treated as quality
+                                                        }
+                                                        else
+                                                            thumbMaker.Clear();
+                                                    }
+                                                    else
+                                                    {
+                                                        while (*loader != NULL)
+                                                        {
+                                                            thumbMaker.Clear(thumbnailSize);
+                                                            CALL_STACK_MESSAGE3("IconThreadThreadFBody::LoadThumbnail(%s, %d)", thumbnailPath, wanted == 4);
+                                                            if ((*loader)->LoadThumbnail(thumbnailPath, thumbnailSize, thumbnailSize, &thumbMaker, wanted == 4))
+                                                            {
+                                                                thumbnailFlag = wanted == 4 /* first thumbnail loading round */ ? (thumbMaker.IsOnlyPreview() ? 6 /* low-quality/smaller */ : 5 /* quality */) : 5 /* in the second round all obtained thumbnails are quality */;
+                                                                thumbMaker.HandleIncompleteImages();
+                                                                break; // the thumbnail may be loaded; do not try another plug-in
+                                                            }
+                                                            loader++; // try the next plug-in in line, it might load the thumbnail
+                                                        }
+                                                        if (*loader == NULL)
+                                                            thumbMaker.Clear(); // failed thumbnail -> clean it up
+                                                                                //                          TRACE_I("Load thumbnail is done.");
+                                                    }
                                                 }
                                             }
                                         }
@@ -2146,16 +2419,27 @@ unsigned IconThreadThreadFBody(void* parameter)
 
                                                 if (thumbnailCreated)
                                                 {
-                                                    // find the index of the file (directories have no thumbnails) for which we loaded the thumbnail
+                                                    // find the index of the directory or file for which we loaded the thumbnail
                                                     char* name2 = iconData->NameAndData;
                                                     int z;
-                                                    for (z = 0; z < window->Files->Count; z++)
+                                                    for (z = 0; z < window->Dirs->Count; z++)
                                                     {
-                                                        if (strcmp(name2, window->Files->At(z).Name) == 0)
+                                                        if (strcmp(name2, window->Dirs->At(z).Name) == 0)
                                                         {
-                                                            PostMessage(window->HWindow, WM_USER_REFRESHINDEX,
-                                                                        window->Dirs->Count + z, 0);
+                                                            PostMessage(window->HWindow, WM_USER_REFRESHINDEX, z, 0);
                                                             break;
+                                                        }
+                                                    }
+                                                    if (z == window->Dirs->Count)
+                                                    {
+                                                        for (z = 0; z < window->Files->Count; z++)
+                                                        {
+                                                            if (strcmp(name2, window->Files->At(z).Name) == 0)
+                                                            {
+                                                                PostMessage(window->HWindow, WM_USER_REFRESHINDEX,
+                                                                            window->Dirs->Count + z, 0);
+                                                                break;
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -2516,6 +2800,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     ExplorerSortData = NULL;
     ExplorerPropertyCache = NULL;
     ExplorerSortThrobberID = -1;
+    IconReadingThrobberID = -1;
     StatusLineVisible = TRUE;
     DirectoryLineVisible = TRUE;
     HeaderLineVisible = TRUE;
@@ -2945,6 +3230,13 @@ void CFilesWindow::SleepIconCacheThread()
     ICSleep = TRUE;          // to interrupt the icon-reading loop (ICSleepSection may not be left at all)
     ICStopWork = TRUE;       // to interrupt the icon-reading loop if ICStopWork has already been processed
     ResetEvent(ICEventWork); // to interrupt the icon-reading loop if ICStopWork has not been processed yet
+    if (DirectoryLine != NULL && IconReadingThrobberID != -1 &&
+        DirectoryLine->IsThrobberVisible(IconReadingThrobberID))
+        DirectoryLine->SetThrobber(FALSE);
+    IconReadingThrobberID = -1;
+    MSG beginMsg;
+    while (PeekMessage(&beginMsg, HWindow, WM_USER_ICONREADING_BEGIN, WM_USER_ICONREADING_BEGIN, PM_REMOVE))
+        ;
     // wait until the icon reader enters a part where sleep mode is possible
     HANDLES(EnterCriticalSection(&ICSleepSection));
     ICSleep = ICWorking; // TRUE only if the icon reader is stuck in SHGetFileInfo

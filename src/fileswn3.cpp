@@ -1393,17 +1393,20 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                     }
                 }
 
-                // at the file, we will check if it's necessary to load its thumbnail
-                if (readThumbnails &&                              // thumbnail should be loaded
-                    (file.Attr & FILE_ATTRIBUTE_DIRECTORY) == 0 && // (it is ptDisk, so using FILE_ATTRIBUTE_DIRECTORY is o.k.)
-                    file.Archive == 0)                             // archive icon is preferred before thumbnail
+                // at the file or directory, we will check if it's necessary to load its thumbnail
+                const BOOL isDirectory = (file.Attr & FILE_ATTRIBUTE_DIRECTORY) != 0;
+                const BOOL isDotDot = isDirectory && file.NameLen == 2 && file.Name[0] == '.' && file.Name[1] == '.';
+                if (readThumbnails &&    // thumbnail should be loaded
+                    file.Archive == 0 && // archive icon is preferred before thumbnail
+                    file.Name != NULL && // ".." at a drive root is discarded above
+                    !isDotDot)
                 {
                     foundThumbLoaderPlugins.DestroyMembers();
                     int i;
                     for (i = 0; i < thumbLoaderPlugins.Count; i++)
                     {
                         CPluginData* p = thumbLoaderPlugins[i];
-                        if (p->ThumbnailMasks.AgreeMasks(file.Name, file.Ext) &&
+                        if ((isDirectory || p->ThumbnailMasks.AgreeMasks(file.Name, file.Ext)) &&
                             !p->ThumbnailMasksDisabled) // its unload/remove is not in progress
                         {
                             if (!p->GetLoaded()) // plugin needs to be loaded (possible change of mask for "thumbnail loader")
@@ -1423,7 +1426,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                                 if (p->InitDLL(HWindow, FALSE, TRUE, FALSE) &&  // plugin loaded successfully
                                     p->ThumbnailMasks.GetMasksString()[0] != 0) // plugin is still "thumbnail loader"
                                 {
-                                    if (!p->ThumbnailMasks.AgreeMasks(file.Name, file.Ext) || // it can't do thumbnail for this file anymore
+                                    if ((!isDirectory && !p->ThumbnailMasks.AgreeMasks(file.Name, file.Ext)) || // it can't do thumbnail for this file anymore
                                         p->ThumbnailMasksDisabled)                            // its unload/remove is in progress
                                     {
                                         cont = TRUE;

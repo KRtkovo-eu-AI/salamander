@@ -39,13 +39,14 @@ are not implemented again are not listed here.</p>
  <li>CUR - Windows cursor</li>
  <li>DCX - multi-page PCX</li>
  <li>DTX - DirectDraw texture (DDS layout)</li>
- <li>EPS, EPT - Encapsulated PostScript ASCII preview, or an embedded TIFF/JPEG/BMP/PNG/WMF preview</li>
+ <li>EPS, EPT - Encapsulated PostScript: a DOS binary header TIFF/WMF preview, an ASCII %%BeginPreview bitmap, or an embedded TIFF/JPEG/BMP/PNG/WMF. PostScript without a raster preview is not rasterized (no Ghostscript).</li>
  <li>AI - Adobe Illustrator: embedded raster preview, a PDF DCTDecode JPEG, or a FlateDecode RGB/gray image XObject, not the vector artwork</li>
  <li>XCF - GIMP 8-bit RGB/grayscale flattened composite (uncompressed, RLE, or zlib tiles). Indexed, high-bit-depth, text, and filter layers are skipped.</li>
  <li>PDN - Paint.NET PDN3 embedded PNG thumbnail only, not full-resolution layers</li>
  <li>3DM - Rhinoceros embedded preview bitmap, not the 3D model</li>
- <li>DWG - AutoCAD embedded BMP/PNG/WMF/EMF preview, or an Explorer thumbnail handler when no preview is stored, not the drawing geometry</li>
- <li>SKP - SketchUp ZIP thumbnail.png / preview.png when present</li>
+ <li>DWG - AutoCAD embedded BMP/PNG/WMF/EMF preview, or an Explorer thumbnail handler in the viewer when no preview is stored, not the drawing geometry</li>
+ <li>SKP - SketchUp ZIP thumbnail/preview PNG or JPEG when present</li>
+ <li>3MF - 3D Manufacturing Format ZIP <code>Metadata/thumbnail.png</code> (or JPEG), not the 3D model</li>
  <li>BLEND - Blender: embedded JPEG/PNG/BMP preview only</li>
  <li>FLI, FLC - Autodesk Animator</li>
  <li>IFF, LBM - Amiga Interchange / Interleaved Bitmap</li>
@@ -58,7 +59,7 @@ are not implemented again are not listed here.</p>
  <li>SVG - rasterized with NanoSVG (no CSS, limited text and filters)</li>
  <li>TGA - Truevision Targa</li>
  <li>WMF, EMF - Windows Metafile / Enhanced Metafile, rasterized with GDI</li>
- <li>STL - Explorer IPreviewHandler (Microsoft 3D Viewer): rotate and zoom in the viewer, matching the Explorer preview pane. If that handler is not installed, PictView uses an Explorer thumbnail when one is registered.</li>
+ <li>STL - Panel thumbnails: isometric mesh shaded with the panel item color (Configuration – Colors). Viewer (F3): Explorer IPreviewHandler (Microsoft 3D Viewer) for rotate/zoom. The thumbnail thread never hosts that handler.</li>
  <li>HPI - Hemera Photo Images: embedded JPEG/PNG preview</li>
  <li>CDR, CDT, CMX, WEB, XAR - Corel/Xara: embedded raster preview only</li>
  <li>PSP* - Paint Shop Pro: embedded raster preview only</li>

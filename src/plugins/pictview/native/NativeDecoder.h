@@ -57,5 +57,12 @@ struct EmbeddedPreview
 };
 
 bool FindEmbeddedPreview(const BYTE* data, size_t size, EmbeddedPreview& preview);
+bool ExtractZipEmbeddedPreview(const BYTE* data, size_t size, std::vector<BYTE>& bytes, DWORD& format,
+                               const char*& formatLabel);
+
+Status RasterizeStlMemory(const BYTE* data, size_t size, UINT width, UINT height, COLORREF albedo, Frame& frame,
+                          bool (*cancel)(void*) = nullptr, void* cancelCtx = nullptr);
+Status RasterizeStlFile(const wchar_t* path, UINT width, UINT height, COLORREF albedo, Frame& frame,
+                        bool (*cancel)(void*) = nullptr, void* cancelCtx = nullptr);
 
 } // namespace PictView::Native

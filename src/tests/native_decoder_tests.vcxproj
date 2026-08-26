@@ -44,6 +44,7 @@
     <ClCompile Include="..\plugins\pictview\native\NativeInflate.cpp" />
     <ClCompile Include="..\plugins\pictview\native\NativeContainer.cpp" />
     <ClCompile Include="..\plugins\pictview\native\NativeWmf.cpp" />
+    <ClCompile Include="..\plugins\pictview\native\NativeStl.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\plugins\pictview\native\NativeDecoder.h" />

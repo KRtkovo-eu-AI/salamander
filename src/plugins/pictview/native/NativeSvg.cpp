@@ -108,16 +108,7 @@ Status DecodeSvg(Reader& reader, DecodedImage& image)
     nsvgDeleteRasterizer(rasterizer);
     nsvgDelete(svg);
 
-    // NanoSVG writes RGBA; PictView stores BGRA.
-    for (UINT y = 0; y < height; ++y)
-    {
-        BYTE* row = Row(frame, y);
-        for (UINT x = 0; x < width; ++x)
-        {
-            BYTE* pixel = row + static_cast<size_t>(x) * 4;
-            std::swap(pixel[0], pixel[2]);
-        }
-    }
+    // nsvgRasterize already converts NanoSVG's RGBA buffer to BGRA (GDI / AlphaBlend).
     NoteAlpha(frame);
     image.format = PVF_SVG;
     image.formatLabel = "SVG";

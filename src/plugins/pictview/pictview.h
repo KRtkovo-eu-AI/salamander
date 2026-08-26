@@ -133,6 +133,7 @@ typedef struct tagGlobals
     int LastSaveAsFilterIndexMono;           // OPENFILENAME.nFilterIndex for bilevel save
     int LastSaveAsFilterIndexColor;          // OPENFILENAME.nFilterIndex for color save
     COLORREF rgbPanelBackground;             // background color for transparent thumbnails
+    COLORREF rgbPanelForeground;             // mesh/item color for generated thumbnails (SALCOL_ITEM_FG_NORMAL)
     SALCOLOR Colors[vceCount];
     int ExifDlgWidth;
     int ExifDlgHeight;

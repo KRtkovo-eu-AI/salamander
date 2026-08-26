@@ -1494,17 +1494,26 @@ Status DecodeDwg(Reader& reader, DecodedImage& image)
     return st;
 }
 
-Status DecodeSkp(Reader& reader, DecodedImage& image)
+bool ExtractZipPreviewBytes(const BYTE* data, size_t size, std::vector<BYTE>& bytes, DWORD& format,
+                            const char*& formatLabel)
 {
-    const BYTE* data = reader.Data();
-    const size_t size = reader.Size();
+    bytes.clear();
+    format = PVF_SKP;
+    formatLabel = "SKP";
     if (data == nullptr || size < 30 || data[0] != 'P' || data[1] != 'K' || data[2] != 3 || data[3] != 4)
     {
-        return Status::Unsupported;
+        return false;
     }
+    auto endsWith = [](const std::string& name, const char* ext) -> bool {
+        const size_t extLen = strlen(ext);
+        return name.size() >= extLen && name.compare(name.size() - extLen, extLen, ext) == 0;
+    };
     size_t pos = 0;
-    Frame best;
-    bool found = false;
+    std::vector<BYTE> best;
+    size_t bestScore = 0;
+    bool bestPng = false;
+    bool saw3mf = false;
+    bool sawCdr = false;
     while (pos + 30 <= size && data[pos] == 'P' && data[pos + 1] == 'K' && data[pos + 2] == 3 && data[pos + 3] == 4)
     {
         const UINT16 method = static_cast<UINT16>(data[pos + 8] | (data[pos + 9] << 8));
@@ -1530,28 +1539,44 @@ Status DecodeSkp(Reader& reader, DecodedImage& image)
             }
         }
         const size_t dataAt = nameAt + nameLen + extraLen;
-        const size_t dataSize = comp != 0 ? comp : uncomp;
+        const size_t dataSize = comp != 0 ? static_cast<size_t>(comp) : static_cast<size_t>(uncomp);
         if (dataAt + dataSize > size)
         {
             break;
         }
-        const bool thumb = name.size() >= 4 &&
-                           (name.rfind(".png") == name.size() - 4) &&
-                           (name.find("thumb") != std::string::npos || name.find("preview") != std::string::npos ||
-                            name.find("thumbnail") != std::string::npos);
+        if (name == "metadata/thumbnail.png" || name.find("3d/3dmodel") != std::string::npos ||
+            name == "[content_types].xml")
+        {
+            saw3mf = true;
+        }
+        if (name.find("metadata/thumbnails") != std::string::npos || endsWith(name, ".cdr"))
+        {
+            sawCdr = true;
+        }
+        const bool isPng = endsWith(name, ".png");
+        const bool isJpeg = endsWith(name, ".jpg") || endsWith(name, ".jpeg");
+        const bool isBmp = endsWith(name, ".bmp") || endsWith(name, ".dib");
+        const bool isTiff = endsWith(name, ".tif") || endsWith(name, ".tiff");
+        const bool isWmf = endsWith(name, ".wmf") || endsWith(name, ".emf");
+        const bool isImage = isPng || isJpeg || isBmp || isTiff || isWmf;
+        const bool nameHint = name.find("thumb") != std::string::npos || name.find("preview") != std::string::npos ||
+                              name.find("thumbnail") != std::string::npos;
+        const bool inPreviewDir = name.find("metadata/thumbnail") != std::string::npos ||
+                                  name.find("/previews/") != std::string::npos || name.find("previews/") == 0;
+        const bool thumb = isImage && (nameHint || inPreviewDir);
         pos = dataAt + dataSize;
         if (!thumb)
         {
             continue;
         }
-        std::vector<BYTE> png;
+        std::vector<BYTE> extracted;
         if (method == 0)
         {
-            png.assign(data + dataAt, data + dataAt + dataSize);
+            extracted.assign(data + dataAt, data + dataAt + dataSize);
         }
         else if (method == 8)
         {
-            if (!InflateRaw(data + dataAt, dataSize, png, uncomp != 0 ? uncomp : kMaxFileBytes))
+            if (!InflateRaw(data + dataAt, dataSize, extracted, uncomp != 0 ? uncomp : kMaxFileBytes))
             {
                 continue;
             }
@@ -1560,19 +1585,133 @@ Status DecodeSkp(Reader& reader, DecodedImage& image)
         {
             continue;
         }
+        if (extracted.size() < 8)
+        {
+            continue;
+        }
+        const size_t score = extracted.size();
+        if (score > bestScore || (score == bestScore && isPng && !bestPng))
+        {
+            best = std::move(extracted);
+            bestScore = score;
+            bestPng = isPng;
+        }
+    }
+    if (best.empty())
+    {
+        return false;
+    }
+    if (saw3mf)
+    {
+        format = PVF_3MF;
+        formatLabel = "3MF";
+    }
+    else if (sawCdr)
+    {
+        format = PVF_CDR;
+        formatLabel = "CDR";
+    }
+    bytes = std::move(best);
+    return true;
+}
+
+Status DecodeRasterPreviewBytes(const BYTE* data, size_t size, Frame& frame)
+{
+    if (DecodePng8(data, size, frame) == Status::Ok)
+    {
+        return Status::Ok;
+    }
+    if (DecodePackedDib(data, size, frame) == Status::Ok)
+    {
+        return Status::Ok;
+    }
+    return RasterizeMetafile(data, size, frame);
+}
+
+Status DecodeSkp(Reader& reader, DecodedImage& image)
+{
+    std::vector<BYTE> preview;
+    DWORD format = PVF_SKP;
+    const char* label = "SKP";
+    if (!ExtractZipPreviewBytes(reader.Data(), reader.Size(), preview, format, label))
+    {
+        return Status::Unsupported;
+    }
+    Frame frame;
+    if (DecodeRasterPreviewBytes(preview.data(), preview.size(), frame) != Status::Ok)
+    {
+        return Status::Unsupported;
+    }
+    return FinishSingle(image, std::move(frame), format, label);
+}
+
+Status DecodeRiffPreview(Reader& reader, DecodedImage& image)
+{
+    const BYTE* data = reader.Data();
+    const size_t size = reader.Size();
+    if (data == nullptr || size < 12 || memcmp(data, "RIFF", 4) != 0)
+    {
+        return Status::Unsupported;
+    }
+    if (!(memcmp(data + 8, "CDR", 3) == 0 || memcmp(data + 8, "cdr", 3) == 0 || memcmp(data + 8, "CMX", 3) == 0))
+    {
+        return Status::Unsupported;
+    }
+    Frame best;
+    bool found = false;
+    size_t pos = 12;
+    while (pos + 8 <= size)
+    {
+        const UINT32 chunkSize = data[pos + 4] | (data[pos + 5] << 8) | (data[pos + 6] << 16) | (data[pos + 7] << 24);
+        const size_t payloadAt = pos + 8;
+        if (payloadAt > size)
+        {
+            break;
+        }
+        const size_t payloadSize = (std::min)(static_cast<size_t>(chunkSize), size - payloadAt);
         Frame frame;
-        if (DecodePng8(png.data(), png.size(), frame) == Status::Ok &&
+        if (payloadSize >= 8 && DecodeRasterPreviewBytes(data + payloadAt, payloadSize, frame) == Status::Ok &&
             (!found || frame.width * frame.height > best.width * best.height))
         {
             best = std::move(frame);
             found = true;
         }
+        else
+        {
+            EmbeddedPreview preview;
+            if (FindEmbeddedPreview(data + payloadAt, payloadSize, preview) &&
+                preview.offset + preview.size <= payloadSize)
+            {
+                if (DecodeRasterPreviewBytes(data + payloadAt + preview.offset, preview.size, frame) == Status::Ok &&
+                    (!found || frame.width * frame.height > best.width * best.height))
+                {
+                    best = std::move(frame);
+                    found = true;
+                }
+            }
+        }
+        const size_t step = 8ull + static_cast<size_t>(chunkSize) + (chunkSize & 1u);
+        if (step < 8 || pos + step <= pos)
+        {
+            break;
+        }
+        pos += step;
     }
     if (!found)
     {
-        return Status::Unsupported;
+        EmbeddedPreview preview;
+        if (!FindEmbeddedPreview(data, size, preview) || preview.offset + preview.size > size)
+        {
+            return Status::Unsupported;
+        }
+        Frame frame;
+        if (DecodeRasterPreviewBytes(data + preview.offset, preview.size, frame) != Status::Ok)
+        {
+            return Status::Unsupported;
+        }
+        return FinishSingle(image, std::move(frame), PVF_CDR, "CDR");
     }
-    return FinishSingle(image, std::move(best), PVF_SKP, "SKP");
+    return FinishSingle(image, std::move(best), PVF_CDR, "CDR");
 }
 
 Status DecodeBlend(Reader& reader, DecodedImage& image)
@@ -1605,4 +1744,11 @@ Status DecodeBlend(Reader& reader, DecodedImage& image)
 }
 
 } // namespace Detail
+
+bool ExtractZipEmbeddedPreview(const BYTE* data, size_t size, std::vector<BYTE>& bytes, DWORD& format,
+                               const char*& formatLabel)
+{
+    return Detail::ExtractZipPreviewBytes(data, size, bytes, format, formatLabel);
+}
+
 } // namespace PictView::Native

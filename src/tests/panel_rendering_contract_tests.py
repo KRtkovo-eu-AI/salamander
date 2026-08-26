@@ -16,6 +16,7 @@ def main() -> int:
     fileswnd = (ROOT / "fileswn1.cpp").read_text(encoding="utf-8")
     fileswnd2 = (ROOT / "fileswn2.cpp").read_text(encoding="utf-8")
     fileswnd3 = (ROOT / "fileswn3.cpp").read_text(encoding="utf-8")
+    fileswnd4 = (ROOT / "fileswn4.cpp").read_text(encoding="utf-8")
     fileswndb = (ROOT / "fileswnb.cpp").read_text(encoding="utf-8")
     dialogs5 = (ROOT / "dialogs5.cpp").read_text(encoding="utf-8")
     darkmodelib_controls = (ROOT / "third_party/darkmodelib/src/DmlibSubclassControl.cpp").read_text(encoding="utf-8")
@@ -239,6 +240,28 @@ def main() -> int:
         or "TransferPanelWindow->GetCachedExplorerColumnText" not in salamdr4
     ):
         print("Explorer properties must load off the UI thread with an owned Directory Line throbber")
+        return 1
+    if (
+        "LoadFolderCompositeThumbnail" not in fileswnd
+        or "WM_USER_ICONREADING_BEGIN" not in fileswndb
+        or "IconReadingThrobberID = DirectoryLine->ChangeThrobberID();" not in fileswndb
+        or "isDirectory || p->ThumbnailMasks.AgreeMasks" not in fileswnd3
+        or "directories have no thumbnails" in fileswnd
+    ):
+        print("thumbnail view must composite folder previews and show a Directory Line throbber")
+        return 1
+    draw_thumb = re.search(
+        r"void CFilesWindow::DrawIconThumbnailItem\(.*?\n\}",
+        fileswnd4,
+        re.DOTALL,
+    )
+    if (
+        draw_thumb is None
+        or "Is(ptDisk) && !isDir" in draw_thumb.group(0)
+        or "if (Is(ptDisk))" not in draw_thumb.group(0)
+        or "flag == 5 || flag == 6" not in draw_thumb.group(0)
+    ):
+        print("thumbnail view must paint folder composites, not skip directories")
         return 1
     additional_items = re.search(
         r'GROUPBOX\s+" Additional items ".*?(?=\nEND)',

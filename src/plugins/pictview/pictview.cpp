@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cwchar>
 #include <iterator>
+#include <set>
 #include <vector>
 
 #include "lib/pvw32dll.h"
@@ -29,6 +30,7 @@
 #include "lang/lang.rh"
 #include "histwnd.h"
 #include "wic/WicBackend.h"
+#include "native/NativeDecoder.h"
 #include "PixelAccess.h"
 
 // plugin interface object; its methods are called from Salamander
@@ -561,6 +563,7 @@ void InitGlobalGUIParameters(void)
 {
     ConfigurePictViewDarkModeFromHost();
     G.rgbPanelBackground = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+    G.rgbPanelForeground = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
 
     RebuildColors(G.Colors);
 
@@ -1204,6 +1207,48 @@ std::string JoinViewerMasks(const std::vector<std::string>& masks)
     return result;
 }
 
+// SetThumbnailLoader copies into CMaskGroup::MasksString[MAX_GROUPMASK]. Viewer
+// masks can be split across AddViewer calls, but thumbnail masks are a single
+// string — keep native PictView formats first so they are never truncated.
+std::string JoinThumbnailMasks(const std::vector<std::string>& priority,
+                               const std::vector<std::string>& all)
+{
+    std::string result;
+    std::set<std::string> used;
+    const auto append = [&](const std::string& mask) -> bool {
+        if (mask.empty() || !used.insert(mask).second)
+        {
+            return true;
+        }
+        const size_t extra = result.empty() ? mask.size() : mask.size() + 1;
+        if (result.size() + extra >= static_cast<size_t>(MAX_GROUPMASK - 1))
+        {
+            return false;
+        }
+        if (!result.empty())
+        {
+            result += ';';
+        }
+        result += mask;
+        return true;
+    };
+    for (const std::string& mask : priority)
+    {
+        if (!append(mask))
+        {
+            return result;
+        }
+    }
+    for (const std::string& mask : all)
+    {
+        if (!append(mask))
+        {
+            return result;
+        }
+    }
+    return result;
+}
+
 std::vector<std::string> Difference(const std::vector<std::string>& left, const std::vector<std::string>& right)
 {
     std::vector<std::string> result;
@@ -1267,7 +1312,9 @@ void ConfigureWicMasks(CSalamanderConnectAbstract* salamander)
     }
 
     WicDecoderMasks = JoinViewerMasks(currentMasks);
-    salamander->SetThumbnailLoader(WicDecoderMasks.c_str());
+    std::vector<std::string> nativeMasks;
+    PictView::Native::GetDecoderMasks(nativeMasks);
+    salamander->SetThumbnailLoader(JoinThumbnailMasks(nativeMasks, currentMasks).c_str());
 }
 } // namespace
 

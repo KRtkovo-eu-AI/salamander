@@ -201,6 +201,7 @@
 #define PVF_WMF 71
 #define PVF_EMF 72
 #define PVF_STL 73
+#define PVF_3MF 74
 
 /* Bit flags used in PVImageInfo.Flags */
 #define PVFF_BOTTOMTOTOP 1 /* Informational only */

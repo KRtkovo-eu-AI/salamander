@@ -605,16 +605,77 @@ Status DecodePreview(Reader& reader, DecodedImage& image)
     {
         return Status::Unsupported;
     }
-    const Status flate = DecodePdfFlateImages(data, size, image);
-    if (flate == Status::Ok)
+
+    size_t psOffset = 0;
+    size_t psSize = size;
+    const bool dosEps = size >= 30 && data[0] == 0xC5 && data[1] == 0xD0 && data[2] == 0xD3 && data[3] == 0xC6;
+    if (dosEps)
     {
-        return flate;
+        const UINT32 headerPsOffset = data[4] | (data[5] << 8) | (data[6] << 16) | (data[7] << 24);
+        const UINT32 headerPsLength = data[8] | (data[9] << 8) | (data[10] << 16) | (data[11] << 24);
+        const UINT32 wmfOffset = data[12] | (data[13] << 8) | (data[14] << 16) | (data[15] << 24);
+        const UINT32 wmfLength = data[16] | (data[17] << 8) | (data[18] << 16) | (data[19] << 24);
+        const UINT32 tiffOffset = data[20] | (data[21] << 8) | (data[22] << 16) | (data[23] << 24);
+        const UINT32 tiffLength = data[24] | (data[25] << 8) | (data[26] << 16) | (data[27] << 24);
+
+        if (wmfOffset != 0 && wmfLength >= 8 && static_cast<size_t>(wmfOffset) + wmfLength <= size)
+        {
+            Frame frame;
+            const Status st = RasterizeMetafile(data + wmfOffset, wmfLength, frame);
+            if (st == Status::Ok)
+            {
+                return FinishSingle(image, std::move(frame), PVF_EPS, "EPS");
+            }
+            if (st == Status::OutOfMemory)
+            {
+                return st;
+            }
+        }
+
+        if (tiffOffset != 0 && tiffLength >= 8 && static_cast<size_t>(tiffOffset) + tiffLength <= size)
+        {
+            const BYTE* slice = data + tiffOffset;
+            if (LooksLikePlaceableWmf(slice, tiffLength) || LooksLikeEmf(slice, tiffLength) ||
+                LooksLikeStandardWmf(slice, tiffLength))
+            {
+                Frame frame;
+                const Status st = RasterizeMetafile(slice, tiffLength, frame);
+                if (st == Status::Ok)
+                {
+                    return FinishSingle(image, std::move(frame), PVF_EPS, "EPS");
+                }
+                if (st == Status::OutOfMemory)
+                {
+                    return st;
+                }
+            }
+        }
+
+        if (headerPsOffset != 0 && static_cast<size_t>(headerPsOffset) < size)
+        {
+            psOffset = headerPsOffset;
+            psSize = headerPsLength != 0 ? static_cast<size_t>(headerPsLength) : (size - psOffset);
+            if (psOffset + psSize > size)
+            {
+                psSize = size - psOffset;
+            }
+        }
+        else if (size > 30)
+        {
+            psOffset = 30;
+            psSize = size - 30;
+        }
     }
-    if (flate == Status::OutOfMemory)
+
+    const Status ascii = DecodeEpsAsciiPreview(data + psOffset, psSize, image);
+    if (ascii == Status::Ok || ascii == Status::OutOfMemory)
     {
-        return flate;
+        return ascii;
     }
-    return DecodeEpsAsciiPreview(data, size, image);
+
+    const BYTE* flateData = dosEps ? (data + psOffset) : data;
+    const size_t flateSize = dosEps ? psSize : size;
+    return DecodePdfFlateImages(flateData, flateSize, image);
 }
 
 } // namespace Detail
