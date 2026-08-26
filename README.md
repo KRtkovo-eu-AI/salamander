@@ -40,7 +40,7 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 <img width="782" height="316" alt="image" src="https://github.com/user-attachments/assets/bf3a6b9d-4897-4a85-989e-b2cf43840372" />
 
 ### Translations
-- Automatic translate with OpenAI API (model `gpt-5.4-nano`) with our own custom localization logic.
+- Automatic translate with OpenRouter API (model `openai/gpt-5.4-nano`) with our own custom localization logic.
 - Few scripts partially derived from [Sally](https://github.com/0xeb/sally) fork source code (author [0xeb](https://github.com/0xeb)).
 <img width="416" height="232" alt="image" src="https://github.com/user-attachments/assets/2d8012d8-d07a-43ed-8140-5b1a0e48fdbb" />
 

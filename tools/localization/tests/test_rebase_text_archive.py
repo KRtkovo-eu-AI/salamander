@@ -25,6 +25,13 @@ class RebaseTextArchiveTests(unittest.TestCase):
         self.assertNotIn("$args+='--dry-run'", script)
         self.assertIn("if(-not $DryRun)", script)
 
+    def test_batch_script_defaults_to_openrouter_gpt(self):
+        script = (Path(__file__).parents[1] / "localize_all_openai.ps1").read_text(encoding="utf-8")
+        self.assertIn('else{"openrouter"}', script)
+        self.assertIn('"openai/gpt-5.4-nano"', script)
+        self.assertIn("OPENROUTER_API_KEY", script)
+        self.assertIn("'--provider',$Provider", script)
+
     def test_localize_all_passes_source_archive_and_trim_switch(self):
         script = (Path(__file__).parents[1] / "localize_all_openai.ps1").read_text(encoding="utf-8")
         self.assertIn("[switch]$AutoTrimTranslations", script)

@@ -1,4 +1,4 @@
-import importlib.util, os, sys, tempfile, unittest, urllib.error
+import importlib.util, io, json, os, shutil, sys, tempfile, unittest, urllib.error
 from pathlib import Path
 P=Path(__file__).parents[1]/"translate_slt_with_openai.py"; spec=importlib.util.spec_from_file_location("slt",P); slt=importlib.util.module_from_spec(spec); sys.modules["slt"]=slt; spec.loader.exec_module(slt)
 FIX=Path(__file__).parent/"fixtures/sample.slt"
@@ -34,7 +34,7 @@ class Tests(unittest.TestCase):
   with self.assertRaises(ValueError): slt.validate(items,{"translations":[{"id":"id","text":"??"}]})
 
  def test_payload_uses_language_metadata(self):
-  os.environ["OPENAI_API_KEY"]="test"
+  os.environ["CURSOR_API_KEY"]="test"
   seen=[]
   def requester(payload,key,model):
    seen.append(payload)
@@ -54,7 +54,7 @@ class Tests(unittest.TestCase):
   self.assertEqual(info["script"],"Italian Latin with accents")
 
  def test_translation_updates_langid_even_without_untranslated_items(self):
-  os.environ["OPENAI_API_KEY"]="test"
+  os.environ["CURSOR_API_KEY"]="test"
   content = """[EXPORTINFO]
 PROJECTNAME,\"x\"
 TEXTVERSION,\"1\"
@@ -77,13 +77,13 @@ COMMENT,\"\"
    self.assertEqual(report["found"],0)
    self.assertIn("LANGID,2052",out.read_text(encoding="utf-8-sig"))
  def test_translation_preserves_format_and_escaping(self):
-  os.environ["OPENAI_API_KEY"]="test"
+  os.environ["CURSOR_API_KEY"]="test"
   def requester(payload,key,model): return {"translations":[{"id":x["id"],"text":x["text"].replace("Open","Otevřít").replace("Use","Použít")} for x in payload["items"]]}
   with tempfile.TemporaryDirectory() as d:
    out=Path(d)/"out.slt"; slt.translate(FIX,out,"czech","mock",40,False,False,requester); text=out.read_text(encoding="utf-8-sig"); self.assertIn('100,1,"Already translated"',text); self.assertIn('101,1,"Otevřít %s\\n"',text)
 
  def test_invalid_translation_is_skipped_without_aborting_batch(self):
-  os.environ["OPENAI_API_KEY"]="test"
+  os.environ["CURSOR_API_KEY"]="test"
   def requester(payload,key,model):
    rows=[]
    for x in payload["items"]:
@@ -97,7 +97,7 @@ COMMENT,\"\"
    self.assertIn('101,0,"Open %s\\n"',text); self.assertIn('102,1,"Použít výchozí &písmo"',text)
 
  def test_single_item_retry_can_recover_rejected_translation(self):
-  os.environ["OPENAI_API_KEY"]="test"
+  os.environ["CURSOR_API_KEY"]="test"
   calls=[]
   def requester(payload,key,model):
    calls.append(payload)
@@ -115,7 +115,7 @@ COMMENT,\"\"
    self.assertIn('"event": "request"', trace.read_text(encoding="utf-8"))
 
  def test_translation_payload_includes_existing_context(self):
-  os.environ["OPENAI_API_KEY"]="test"
+  os.environ["CURSOR_API_KEY"]="test"
   current="""[STRINGTABLE 1]
 1,1,"Panely se záložkami"
 2,0,"Tabbed panels"
@@ -136,7 +136,7 @@ COMMENT,\"\"
   self.assertEqual(seen[0]["items"][0]["source_text"],"Tabbed panels")
 
  def test_trim_translations_shortens_only_long_translated_items(self):
-  os.environ["OPENAI_API_KEY"]="test"
+  os.environ["CURSOR_API_KEY"]="test"
   current="""[STRINGTABLE 1]
 1,1,"Velmi dlouhý přeložený text"
 2,0,"Untranslated"
@@ -160,14 +160,76 @@ COMMENT,\"\"
   self.assertIn('1,1,"Krát."',text)
   self.assertIn('2,0,"Untranslated"',text)
 
- def test_requires_key_when_not_dry_run(self):
+ def test_windows_os_blocking_compat_shims_missing_functions(self):
+  slt._patch_windows_os_blocking()
+  self.assertTrue(callable(os.get_blocking))
+  self.assertTrue(callable(os.set_blocking))
+ def test_cursor_session_falls_back_to_cli_after_get_blocking(self):
+  class BrokenAgent:
+   def send(self, prompt): raise AttributeError("module 'os' has no attribute 'get_blocking'")
+  calls=[]
+  def fake_run(*a,**k):
+   calls.append(a[0]); return type("R",(),{"returncode":0,"stdout":json.dumps({"translations":[]}),"stderr":""})()
+  session=slt.CursorSession.__new__(slt.CursorSession)
+  session.api_key="k"; session.model="grok-4.5"; session._workdir=tempfile.mkdtemp(); session._agent=BrokenAgent(); session._created=None; session._cli=None
+  old_find, old_run = slt.find_cursor_cli, slt.subprocess.run
+  slt.find_cursor_cli=lambda: "agent.exe"; slt.subprocess.run=fake_run
+  try:
+   text=session._complete("hello")
+   self.assertEqual(json.loads(text),{"translations":[]}); self.assertIsNone(session._agent); self.assertTrue(calls)
+  finally:
+   slt.find_cursor_cli=old_find; slt.subprocess.run=old_run; shutil.rmtree(session._workdir, ignore_errors=True)
+  os.environ.pop("CURSOR_API_KEY",None)
   os.environ.pop("OPENAI_API_KEY",None)
   with self.assertRaises(RuntimeError): slt.translate(FIX,Path("unused"),"czech","mock",40,False,False)
  def test_dry_run_does_not_require_key_or_call_requester(self):
+  os.environ.pop("CURSOR_API_KEY",None)
   os.environ.pop("OPENAI_API_KEY",None)
   def requester(payload,key,model): raise AssertionError("requester should not be called during direct dry-run")
   report=slt.translate(FIX,Path("unused"),"czech","mock",40,True,False,requester)
   self.assertEqual(report["found"],2); self.assertEqual(report["translated"],0)
+ def test_parse_json_object_accepts_fences_and_cli_wrappers(self):
+  payload={"translations":[{"id":"a","text":"Ahoj"}]}
+  self.assertEqual(slt.parse_json_object("```json\n"+json.dumps(payload)+"\n```"),payload)
+  self.assertEqual(slt.parse_json_object(json.dumps([{"id":"a","text":"Ahoj"}])),payload)
+  self.assertEqual(slt.parse_json_object(json.dumps({"type":"result","result":json.dumps(payload)})),payload)
+ def test_default_cursor_model(self):
+  old_cursor=os.environ.pop("CURSOR_MODEL",None); old_openai=os.environ.pop("OPENAI_MODEL",None); old_openrouter=os.environ.pop("OPENROUTER_MODEL",None)
+  try:
+   self.assertEqual(slt.DEFAULT_CURSOR_MODEL,"grok-4.5")
+   self.assertEqual(slt.default_model("cursor"),"grok-4.5")
+   self.assertEqual(slt.DEFAULT_OPENROUTER_MODEL,"openai/gpt-5.4-nano")
+   self.assertEqual(slt.default_model("openrouter"),"openai/gpt-5.4-nano")
+  finally:
+   if old_cursor is not None: os.environ["CURSOR_MODEL"]=old_cursor
+   if old_openai is not None: os.environ["OPENAI_MODEL"]=old_openai
+   if old_openrouter is not None: os.environ["OPENROUTER_MODEL"]=old_openrouter
+
+ def test_openrouter_request_uses_chat_completions_and_schema(self):
+  payload={"target_language":"Czech","items":[]}
+  response_body=json.dumps({"choices":[{"message":{"content":json.dumps({"translations":[]})}}]}).encode()
+  seen=[]
+  class Response(io.BytesIO):
+   def __enter__(self): return self
+   def __exit__(self,*_): pass
+  def fake(request, timeout):
+   seen.append((request, timeout))
+   return Response(response_body)
+  old=slt.urllib.request.urlopen; slt.urllib.request.urlopen=fake
+  try:
+   result=slt.request_openrouter(payload,"secret","openai/gpt-5.4-nano",attempts=1)
+  finally:
+   slt.urllib.request.urlopen=old
+  self.assertEqual(result,{"translations":[]})
+  request,timeout=seen[0]
+  self.assertEqual(request.full_url,"https://openrouter.ai/api/v1/chat/completions")
+  self.assertEqual(request.headers["Authorization"],"Bearer secret")
+  body=json.loads(request.data.decode("utf-8"))
+  self.assertEqual(body["model"],"openai/gpt-5.4-nano")
+  self.assertEqual(body["response_format"]["type"],"json_schema")
+  self.assertEqual(body["response_format"]["json_schema"]["name"],"translations")
+  self.assertTrue(body["provider"]["require_parameters"])
+  self.assertEqual(timeout,300)
  def test_retry(self):
   calls=[]
   old=slt.urllib.request.urlopen

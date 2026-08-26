@@ -26,6 +26,8 @@ making their work available.
 | Qwen2.5-Coder 0.5B Instruct GGUF | Lightweight, English-prompt-only local SalamatrixAI model | [Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF), pinned `q4_k_m` file. Apache License 2.0; the configuration downloader retrieves the model and license notice directly for the user. |
 | Test Reporter | Pull-request test result reports | [dorny/test-reporter](https://github.com/dorny/test-reporter), used by GitHub Actions to publish JUnit and Python xUnit results as Checks and workflow summaries. MIT License. |
 | pytest | Python test execution and xUnit report generation in pull-request CI | [pytest-dev/pytest](https://github.com/pytest-dev/pytest). MIT License. |
+| cursor-sdk | Optional Python SDK for batch SLT translation through the Cursor API | Used only by `tools/localization/translate_slt_with_openai.py` when `-Provider cursor` is selected. Install with `pip install cursor-sdk`. |
+| OpenRouter API | Optional remote provider for batch SLT translation | Used by `tools/localization/translate_slt_with_openai.py` by default with the `openai/gpt-5.4-nano` model. Requires a user-supplied `OPENROUTER_API_KEY`; no key is stored in the repository. |
 
 ## Archiving, Compression, and Disk Image Plugins
 

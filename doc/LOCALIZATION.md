@@ -85,7 +85,7 @@ round-trip, and then copies the produced `.slg` files back into the populated
 runtime tree.
 
 If the committed files under `translations/` already contain the correct text, do
-not re-encode them and do not send them through OpenAI again. Build Salamander,
+not re-encode them and do not send them through the translation API again. Build Salamander,
 build the current `utils\translator.exe`, and run only the `localize.ps1 build`
 command above. When a fatal validation error occurs, the script does not copy new
 `.slg` files into the runtime tree; fix the reported problem and run the build
@@ -96,7 +96,7 @@ correct before the application starts. If round-trip validation fails, it is not
 a warning to ignore — that language pack must not be smoke-tested or shipped.
 
 Every `.slt` archive must also carry the correct `LANGID` in its `[TRANSLATION]`
-section for the language folder. The OpenAI script normalizes this when writing
+section for the language folder. The batch translation script normalizes this when writing
 candidates and `build_language_packs.ps1` checks it during round-trip validation;
 for example, `LANGID,1033` in a Chinese or Czech archive is a broken source SLT.
 
@@ -107,7 +107,7 @@ pwsh -File .\tools\localization\build_language_packs.ps1 `
   -BuildRoot .\build\out\salamand\Release_x64
 ```
 
-Use the `-Languages` or `-Modules` filters on the preparation/OpenAI scripts to
+Use the `-Languages` or `-Modules` filters on the preparation/batch-translation scripts to
 narrow down translation work. `build_language_packs.ps1` intentionally rebuilds
 from committed `.slt` files and a fresh workspace; do not edit files in the temp
 workspace and do not commit generated `.slg` files.
@@ -149,22 +149,24 @@ Do not commit the `out/localization` or `out/localization-openai` directories, `
 - **`Workspace does not exist` in ImportOnly mode**: the `out/localization-openai` directory does not exist or was deleted. Run a DryRun first to create the workspace and generate candidates.
 - **`Error updating resource file ... (1359) An internal error occurred` during language-pack build**: rebuild `utils/translator.exe` from current sources. The language-pack round-trip verifier uses `-quiet-export-slt-for-diff`, which exports text without marking the project dirty or saving the `.slg`; older Translator builds used the normal export path and could try to rewrite every generated `.slg` during verification.
 
-## Batch Translation with OpenAI
+## Batch Translation with OpenRouter
 
-`localize_all_openai.ps1` can prepare and translate every available language and module without opening Translator. It discovers languages under `translations/` and discovers `salamand` plus plugins with `lang/english.slg` in the populated build.
+`localize_all_openai.ps1` can prepare and translate every available language and module without opening Translator. It discovers languages under `translations/` and discovers `salamand` plus plugins with `lang/english.slg` in the populated build. The default provider is OpenRouter with model `openai/gpt-5.4-nano`. Cursor remains available with `-Provider cursor`, and OpenAI with `-Provider openai`.
 
-Set the API key only in the process environment; never save it in the repository or a script:
+Create a user API key at [OpenRouter → Keys](https://openrouter.ai/keys). Set the key only in the process environment; never save it in the repository or a script:
 
 ```powershell
-$env:OPENAI_API_KEY = "..."
-$env:OPENAI_MODEL = "gpt-5-mini" # optional
+$env:OPENROUTER_API_KEY = "..."
+$env:OPENROUTER_MODEL = "openai/gpt-5.4-nano" # optional
 pwsh -File .\tools\localization\localize_all_openai.ps1 `
   -BuildRoot .\build\out\salamand\Release_x64 -DryRun
 ```
 
-Remove `-DryRun` after reviewing the per-language/module report and the generated candidates. In the batch script, `-DryRun` still calls OpenAI and writes translated files under `out/localization-openai/candidate/`; it only skips copying to `translations/`, Translator import/export validation, and language-pack building. Limit a run with `-Languages czech,slovak` or `-Modules salamand,automation`; use `-BuildLanguagePacks` to build packs only after every translation and validation succeeds. `-ForceRetranslate` also replaces entries already marked as translated and should be used with particular care.
+To use the optional Cursor provider, install `cursor-sdk` (`pip install cursor-sdk`) or the [Cursor CLI](https://cursor.com/docs/cli/overview), set `CURSOR_API_KEY`, and pass `-Provider cursor`.
 
-The OpenAI translator sends examples of existing translations from the same module with each batch as translation memory so the model keeps terminology consistent. `-AutoTrimTranslations` does not retranslate everything; it selects already translated entries that are longer than the current English source and asks the model for a shorter variant with the same technical tokens. The safest first pass is with `-DryRun`, for example:
+Remove `-DryRun` after reviewing the per-language/module report and the generated candidates. In the batch script, `-DryRun` still calls the translation API and writes translated files under `out/localization-openai/candidate/`; it only skips copying to `translations/`, Translator import/export validation, and language-pack building. Limit a run with `-Languages czech,slovak` or `-Modules salamand,automation`; use `-BuildLanguagePacks` to build packs only after every translation and validation succeeds. `-ForceRetranslate` also replaces entries already marked as translated and should be used with particular care.
+
+The translator sends examples of existing translations from the same module with each batch as translation memory so the model keeps terminology consistent. `-AutoTrimTranslations` does not retranslate everything; it selects already translated entries that are longer than the current English source and asks the model for a shorter variant with the same technical tokens. The safest first pass is with `-DryRun`, for example:
 
 ```powershell
 pwsh -File .\tools\localization\localize_all_openai.ps1 `
@@ -174,7 +176,7 @@ pwsh -File .\tools\localization\localize_all_openai.ps1 `
 
 #### ImportOnly Mode
 
-`-ImportOnly` skips skeleton export, rebase, OpenAI translation, and workspace preparation (which would delete existing candidates). It imports existing candidate files from `out/localization-openai/candidate/` into the `.slg` projects and optionally exports the final `.slt` files to `translations/`. No `OPENAI_API_KEY` is required.
+`-ImportOnly` skips skeleton export, rebase, API translation, and workspace preparation (which would delete existing candidates). It imports existing candidate files from `out/localization-openai/candidate/` into the `.slg` projects and optionally exports the final `.slt` files to `translations/`. No API key is required.
 
 The workspace must already exist from a previous DryRun or full run. Use this when you want to manually edit candidates before finalizing them, or when you need to re-import previously translated candidates without re-running the entire pipeline:
 
@@ -190,38 +192,38 @@ pwsh -File .\tools\localization\localize_all_openai.ps1 `
 
 The `-ImportOnly` mode can be combined with `-BuildLanguagePacks` to build language packs after importing.
 
-### What the OpenAI Workflow Produces
+### What the Batch Translation Workflow Produces
 
-The OpenAI workflow writes its temporary and diagnostic files under `out/localization-openai/`:
+The workflow writes its temporary and diagnostic files under `out/localization-openai/`:
 
 - `skeleton/<language>/<module>/<module>.slt` is the current English skeleton exported from the populated build.
-- `candidate/<language>/<module>/<module>.slt` is the rebased archive after legacy translations have been merged onto that skeleton and OpenAI has translated `state=0` entries.
+- `candidate/<language>/<module>/<module>.slt` is the rebased archive after legacy translations have been merged onto that skeleton and the API has translated `state=0` entries.
 - `localize.log` contains Translator quiet-mode command diagnostics.
-- `openai-requests.jsonl` contains one JSON object per OpenAI request/response with language, item count, and item IDs. It never contains the API key.
+- `openai-requests.jsonl` contains one JSON object per API request/response with language, item count, and item IDs. It never contains the API key.
 
 When not running with `-DryRun`, each successfully translated candidate is also copied to `translations/<language>/<module>.slt` before the final Translator import/export validation. This is intentional: if a later module fails, already produced translations are not lost. Review these repository files before committing.
 
-### Rebase Rules Before OpenAI Translation
+### Rebase Rules Before API Translation
 
-Before any API call, `rebase_text_archive.ps1` merges the existing translation archive onto the current skeleton. The result determines which strings are sent to OpenAI:
+Before any API call, `rebase_text_archive.ps1` merges the existing translation archive onto the current skeleton. The result determines which strings are sent to the model:
 
 - Existing translated strings are preserved by resource ID when possible.
 - `STRINGTABLE` entries are matched globally by the numeric string ID in the first column, regardless of the `[STRINGTABLE n]` block that currently contains them. Section number and row order are never used as the identity for stringtable text.
-- When reusing an existing stringtable translation, the rebase verifies technical tokens such as placeholders, escapes, tags, and accelerator count. If they do not match, the current English text is left as `state=0` for OpenAI/review instead of blindly reusing a risky translation.
+- When reusing an existing stringtable translation, the rebase verifies technical tokens such as placeholders, escapes, tags, and accelerator count. If they do not match, the current English text is left as `state=0` for translation/review instead of blindly reusing a risky translation.
 - Dialog and menu section IDs can still use a guarded fallback: if a dialog/menu section ID changed but the number of sections of that type did not change, the rebase can fall back to matching sections by type and order.
 - If dialog/menu item IDs changed inside a matched section and the item count is unchanged, the rebase can fall back to matching items by order. This fallback is not used for `STRINGTABLE`.
-- New sections or items that cannot be matched safely keep the English text but are explicitly marked `state=0`; the OpenAI step must translate them.
+- New sections or items that cannot be matched safely keep the English text but are explicitly marked `state=0`; the translation step must translate them.
 - If an entire module has no legacy archive yet, the script forces translation of the current skeleton instead of treating the English skeleton as already translated.
 
 This means candidate files should not silently keep newly added English strings as `state=1`. If you see English text in a candidate, check its state: `state=0` means it is queued for translation or was rejected by validation; `state=1` means it was accepted as translated and needs investigation if it is still English.
 
-### OpenAI Validation and Retries
+### Validation and Retries
 
-The script sends only untranslated resource texts and their IDs to OpenAI, so API usage has a cost. Returned translations are accepted only if the response contains the expected IDs and preserves technical tokens such as placeholders, escapes, tags, paths, and accelerator count. If a batch fails validation, it is split into smaller batches; a single failing item is retried once with stricter preservation instructions. If the retry still changes technical tokens, only that item remains untranslated and the run continues.
+The script sends only untranslated resource texts and their IDs to the model, so API usage has a cost. Returned translations are accepted only if the response contains the expected IDs and preserves technical tokens such as placeholders, escapes, tags, paths, and accelerator count. If a batch fails validation, it is split into smaller batches; a single failing item is retried once with stricter preservation instructions. If the retry still changes technical tokens, only that item remains untranslated and the run continues.
 
 Automated translation does **not** replace human review: check terminology, accelerators, placeholders, and whether text fits in dialogs before committing the generated `.slt` files.
 
-### Troubleshooting OpenAI Runs
+### Troubleshooting Batch Translation Runs
 
 - **Candidate files still contain English text marked `state=1`**: this indicates a bad rebase match or a model response that returned English as if it were translated. Check `out/localization-openai/openai-requests.jsonl`, rerun the affected module with `-ForceRetranslate`, and review the diff.
 - **Candidate files contain English text marked `state=0`**: the text is still untranslated. Check the script report for `Failed`, and search stderr/logs for `translation skipped` or `technical tokens changed`.

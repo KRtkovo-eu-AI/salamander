@@ -1,9 +1,30 @@
 #!/usr/bin/env python3
-"""Translate untranslated SLT resource lines with the OpenAI Responses API."""
+"""Translate untranslated SLT resource lines through a supported LLM provider."""
 from __future__ import annotations
-import argparse, json, os, re, socket, sys, time, urllib.error, urllib.request
+import argparse, json, os, re, shutil, socket, subprocess, sys, tempfile, time, urllib.error, urllib.request
 from dataclasses import dataclass
 from pathlib import Path
+
+DEFAULT_CURSOR_MODEL = "grok-4.5"
+DEFAULT_OPENAI_MODEL = "gpt-5-mini"
+DEFAULT_OPENROUTER_MODEL = "openai/gpt-5.4-nano"
+
+TRANSLATIONS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "translations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"id": {"type": "string"}, "text": {"type": "string"}},
+                "required": ["id", "text"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["translations"],
+    "additionalProperties": False,
+}
 
 LINE_RE = re.compile(r'^(?P<prefix>.*?,)(?P<state>[01]),"(?P<text>.*)"(?P<ending>\r?\n)?$')
 SECTION_RE = re.compile(r'^\[(?P<kind>DIALOG|MENU|STRINGTABLE)(?:\s+[^]]+)?\]$')
@@ -49,6 +70,11 @@ def normalize_translation_header(lines: list[str], language: str) -> int:
             lines[index] = desired + ending
             return 1
     return 0
+
+def write_slt(path: Path, text: str) -> None:
+    """Write an SLT as UTF-8 with BOM without normalizing its line endings."""
+    with path.open("w", encoding="utf-8-sig", newline="") as handle:
+        handle.write(text)
 
 @dataclass
 class Item:
@@ -136,11 +162,12 @@ def tokens(text: str) -> tuple[list[str], int]:
     # changes in translation (for example "&File" becomes "&Soubor").
     return sorted(TOKEN_RE.findall(text)), accelerator_count(text)
 
-def request_openai(payload: dict, api_key: str, model: str, attempts: int = 5, sleep=time.sleep) -> dict:
+def translation_instructions(payload: dict) -> str:
     language_name = payload.get("target_language", "the target language")
     language_script = payload.get("target_script", "the native script for the language")
     instructions = (
         "Translate Windows UI resources. Return only valid JSON with a translations array containing id and text. "
+        "Do not use tools, edit files, or add markdown fences or commentary. "
         "Preserve placeholders, escapes, accelerators (&), markup, paths, and technical tokens exactly. "
         "Use the supplied existing_translations as translation memory for consistent terminology. "
         f"Use natural {language_name} in {language_script}; do not transliterate, strip accents/diacritics, "
@@ -149,7 +176,37 @@ def request_openai(payload: dict, api_key: str, model: str, attempts: int = 5, s
     )
     if payload.get("retry_instructions"):
         instructions += " " + payload["retry_instructions"]
-    body = json.dumps({"model": model, "input": [{"role":"system","content":[{"type":"input_text","text":instructions}]},{"role":"user","content":[{"type":"input_text","text":json.dumps(payload, ensure_ascii=False)}]}], "text":{"format":{"type":"json_schema","name":"translations","strict":True,"schema":{"type":"object","properties":{"translations":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"text":{"type":"string"}},"required":["id","text"],"additionalProperties":False}}},"required":["translations"],"additionalProperties":False}}}}).encode()
+    return instructions
+
+def parse_json_object(text: str) -> dict:
+    cleaned = (text or "").strip()
+    if cleaned.startswith("```"):
+        lines = cleaned.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        cleaned = "\n".join(lines).strip()
+    decoder = json.JSONDecoder()
+    data = None
+    for index, ch in enumerate(cleaned):
+        if ch in "{[":
+            data, _ = decoder.raw_decode(cleaned[index:])
+            break
+    if data is None:
+        raise ValueError("response is not JSON")
+    if isinstance(data, list):
+        return {"translations": data}
+    if not isinstance(data, dict):
+        raise ValueError("response is not a JSON object")
+    nested = data.get("result")
+    if isinstance(nested, str) and "translations" not in data:
+        return parse_json_object(nested)
+    return data
+
+def request_openai(payload: dict, api_key: str, model: str, attempts: int = 5, sleep=time.sleep) -> dict:
+    instructions = translation_instructions(payload)
+    body = json.dumps({"model": model, "input": [{"role":"system","content":[{"type":"input_text","text":instructions}]},{"role":"user","content":[{"type":"input_text","text":json.dumps(payload, ensure_ascii=False)}]}], "text":{"format":{"type":"json_schema","name":"translations","strict":True,"schema":TRANSLATIONS_SCHEMA}}}).encode()
     req = urllib.request.Request("https://api.openai.com/v1/responses", body, {"Authorization": f"Bearer {api_key}", "Content-Type":"application/json"})
     for attempt in range(attempts):
         try:
@@ -157,7 +214,7 @@ def request_openai(payload: dict, api_key: str, model: str, attempts: int = 5, s
             text = result.get("output_text")
             if text is None:
                 text = next(c["text"] for o in result["output"] for c in o.get("content", []) if c.get("type") == "output_text")
-            return json.loads(text)
+            return parse_json_object(text)
         except (urllib.error.URLError, socket.timeout, TimeoutError) as exc:
             if attempt + 1 == attempts: raise
             sleep(2 ** attempt)
@@ -165,6 +222,225 @@ def request_openai(payload: dict, api_key: str, model: str, attempts: int = 5, s
             if exc.code not in (408, 409, 429, 500, 502, 503, 504) or attempt + 1 == attempts: raise
             sleep(2 ** attempt)
     raise RuntimeError("OpenAI request failed")
+
+def request_openrouter(payload: dict, api_key: str, model: str, attempts: int = 5, sleep=time.sleep) -> dict:
+    """Call OpenRouter's OpenAI-compatible Chat Completions endpoint."""
+    instructions = translation_instructions(payload)
+    body = json.dumps({
+        "model": model,
+        "messages": [
+            {"role": "system", "content": instructions},
+            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+        ],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {"name": "translations", "strict": True, "schema": TRANSLATIONS_SCHEMA},
+        },
+        "provider": {"require_parameters": True},
+    }, ensure_ascii=False).encode("utf-8")
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    if os.environ.get("OPENROUTER_HTTP_REFERER"):
+        headers["HTTP-Referer"] = os.environ["OPENROUTER_HTTP_REFERER"]
+    if os.environ.get("OPENROUTER_APP_TITLE"):
+        headers["X-Title"] = os.environ["OPENROUTER_APP_TITLE"]
+    req = urllib.request.Request("https://openrouter.ai/api/v1/chat/completions", body, headers)
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(req, timeout=300) as response:
+                result = json.load(response)
+            choices = result.get("choices")
+            if not choices or not isinstance(choices[0], dict):
+                raise ValueError("OpenRouter response has no choices")
+            message = choices[0].get("message") or {}
+            text = message.get("content")
+            if isinstance(text, list):
+                text = "".join(part.get("text", "") for part in text if isinstance(part, dict))
+            if not isinstance(text, str) or not text:
+                raise ValueError("OpenRouter response has no message content")
+            return parse_json_object(text)
+        except (urllib.error.URLError, socket.timeout, TimeoutError) as exc:
+            if attempt + 1 == attempts: raise
+            sleep(2 ** attempt)
+        except urllib.error.HTTPError as exc:
+            if exc.code not in (408, 409, 429, 500, 502, 503, 504) or attempt + 1 == attempts: raise
+            sleep(2 ** attempt)
+    raise RuntimeError("OpenRouter request failed")
+
+def _patch_windows_os_blocking() -> None:
+    # cursor-sdk calls these POSIX helpers; they are missing on Windows until Python 3.12.
+    if not hasattr(os, "get_blocking"):
+        os.get_blocking = lambda fd: True  # type: ignore[attr-defined]
+    if not hasattr(os, "set_blocking"):
+        os.set_blocking = lambda fd, blocking: None  # type: ignore[attr-defined]
+
+_patch_windows_os_blocking()
+
+def find_cursor_cli() -> str | None:
+    for name in ("agent", "cursor-agent"):
+        path = shutil.which(name)
+        if path:
+            return path
+    local_app = os.environ.get("LOCALAPPDATA")
+    home = os.path.expanduser("~")
+    candidates = []
+    if local_app:
+        candidates.append(os.path.join(local_app, "cursor-agent", "agent.exe"))
+    candidates.extend([
+        os.path.join(home, ".local", "bin", "agent.exe"),
+        os.path.join(home, ".local", "bin", "agent"),
+    ])
+    for path in candidates:
+        if os.path.isfile(path):
+            return path
+    return None
+
+class CursorSession:
+    """Reusable Cursor translator: SDK local agent with no tools, or Cursor CLI fallback."""
+    def __init__(self, api_key: str, model: str):
+        self.api_key = api_key
+        self.model = model
+        self._workdir = tempfile.mkdtemp(prefix="slt-cursor-")
+        self._agent = None
+        self._created = None
+        self._cli = None
+        _patch_windows_os_blocking()
+        try:
+            from cursor_sdk import Agent, AgentOptions, LocalAgentOptions
+        except ImportError:
+            self._require_cli()
+            return
+        options = AgentOptions(api_key=api_key, model=model, tools=[], local=LocalAgentOptions(cwd=self._workdir))
+        try:
+            created = Agent.create(options)
+            self._created = created
+            self._agent = created.__enter__() if hasattr(created, "__enter__") else created
+        except Exception as exc:
+            print(f"cursor-sdk local agent failed ({exc}); falling back to Cursor CLI.", file=sys.stderr)
+            self._close_agent()
+            self._require_cli(exc)
+
+    def _require_cli(self, cause: BaseException | None = None) -> None:
+        self._cli = find_cursor_cli()
+        if self._cli:
+            return
+        shutil.rmtree(self._workdir, ignore_errors=True)
+        hint = " Install with `pip install cursor-sdk` or the Cursor CLI, then set CURSOR_API_KEY."
+        if cause is None:
+            raise RuntimeError("cursor-sdk is not installed and the Cursor CLI (`agent`) was not found." + hint)
+        raise RuntimeError(f"cursor-sdk failed ({cause}) and the Cursor CLI (`agent`) was not found." + hint) from cause
+
+    def _close_agent(self) -> None:
+        try:
+            if self._created is not None and hasattr(self._created, "__exit__"):
+                self._created.__exit__(None, None, None)
+            elif self._agent is not None and hasattr(self._agent, "close"):
+                self._agent.close()
+        except Exception:
+            pass
+        self._created = None
+        self._agent = None
+
+    def close(self) -> None:
+        try:
+            self._close_agent()
+        finally:
+            shutil.rmtree(self._workdir, ignore_errors=True)
+
+    def __enter__(self): return self
+    def __exit__(self, exc_type, exc, tb): self.close(); return False
+
+    def __call__(self, payload: dict, api_key: str, model: str, attempts: int = 5, sleep=time.sleep) -> dict:
+        return self.request(payload, attempts=attempts, sleep=sleep)
+
+    def request(self, payload: dict, attempts: int = 5, sleep=time.sleep) -> dict:
+        prompt = translation_instructions(payload) + "\n\n" + json.dumps(payload, ensure_ascii=False)
+        last_error: Exception | None = None
+        for attempt in range(attempts):
+            try:
+                text = self._complete(prompt)
+                return parse_json_object(text)
+            except Exception as exc:
+                last_error = exc
+                if not _is_retryable_cursor_error(exc) or attempt + 1 == attempts:
+                    raise
+                wait = getattr(exc, "retry_after", None)
+                sleep(wait if isinstance(wait, (int, float)) else 2 ** attempt)
+        raise last_error or RuntimeError("Cursor request failed")
+
+    def _complete_sdk(self, prompt: str) -> str:
+        run = self._agent.send(prompt)
+        result = run.wait()
+        if getattr(result, "status", None) == "error":
+            raise RuntimeError(f"Cursor run failed: {getattr(result, 'id', '')}".strip())
+        text = getattr(result, "result", None)
+        if not text and hasattr(run, "text"):
+            text = run.text()
+        if text is None:
+            raise ValueError("Cursor run returned no text")
+        return text if isinstance(text, str) else str(text)
+
+    def _complete(self, prompt: str) -> str:
+        if self._agent is not None:
+            try:
+                return self._complete_sdk(prompt)
+            except AttributeError as exc:
+                if "get_blocking" not in str(exc) and "set_blocking" not in str(exc):
+                    raise
+                print(f"cursor-sdk hit a Windows Python gap ({exc}); falling back to Cursor CLI.", file=sys.stderr)
+                self._close_agent()
+                self._require_cli(exc)
+        env = os.environ.copy()
+        env["CURSOR_API_KEY"] = self.api_key
+        args = [self._cli, "-p", "--mode", "ask", "--model", self.model, "--output-format", "text", "--trust", "--workspace", self._workdir]
+        # Windows command lines cap around 8k characters; keep long JSON payloads on stdin.
+        input_text = None if len(prompt) < 4000 else prompt
+        if input_text is None:
+            args.append(prompt)
+        completed = subprocess.run(
+            args, input=input_text, capture_output=True, text=True, encoding="utf-8", timeout=300, env=env, check=False,
+        )
+        if completed.returncode != 0:
+            detail = (completed.stderr or completed.stdout or "").strip() or f"exit {completed.returncode}"
+            error = RuntimeError(f"Cursor CLI failed: {detail}")
+            if _looks_like_rate_limit(detail):
+                error.is_retryable = True  # type: ignore[attr-defined]
+            raise error
+        return completed.stdout
+
+def _looks_like_rate_limit(text: str) -> bool:
+    lowered = text.lower()
+    return any(token in lowered for token in ("429", "rate limit", "too many requests", "overloaded", "temporar"))
+
+def _is_retryable_cursor_error(exc: BaseException) -> bool:
+    if getattr(exc, "is_retryable", False):
+        return True
+    if isinstance(exc, (socket.timeout, TimeoutError, subprocess.TimeoutExpired)):
+        return True
+    name = type(exc).__name__
+    if name == "CursorAgentError":
+        return bool(getattr(exc, "is_retryable", False))
+    return False
+
+def request_cursor(payload: dict, api_key: str, model: str, attempts: int = 5, sleep=time.sleep) -> dict:
+    with CursorSession(api_key, model) as session:
+        return session.request(payload, attempts=attempts, sleep=sleep)
+
+def resolve_api_key(provider: str) -> str | None:
+    if provider == "openai":
+        return os.environ.get("OPENAI_API_KEY")
+    if provider == "openrouter":
+        return os.environ.get("OPENROUTER_API_KEY")
+    return os.environ.get("CURSOR_API_KEY")
+
+def default_model(provider: str) -> str:
+    if provider == "openai":
+        return os.environ.get("OPENAI_MODEL") or DEFAULT_OPENAI_MODEL
+    if provider == "openrouter":
+        return os.environ.get("OPENROUTER_MODEL") or DEFAULT_OPENROUTER_MODEL
+    return os.environ.get("CURSOR_MODEL") or os.environ.get("OPENAI_MODEL") or DEFAULT_CURSOR_MODEL
 
 def validate(items: list[Item], result: dict, language: str | None = None, enforce_max_length: bool = False) -> dict[str,str]:
     rows=result.get("translations")
@@ -185,7 +461,7 @@ def validate(items: list[Item], result: dict, language: str | None = None, enfor
     if set(output) != set(expected): raise ValueError("response is incomplete")
     return output
 
-def translate(path: Path, output: Path, language: str, model: str, batch_size: int, dry_run: bool, force: bool, requester=request_openai, trace_file: Path | None = None, source_archive: Path | None = None, trim_translations: bool = False) -> dict:
+def translate(path: Path, output: Path, language: str, model: str, batch_size: int, dry_run: bool, force: bool, requester=None, trace_file: Path | None = None, source_archive: Path | None = None, trim_translations: bool = False, provider: str | None = None) -> dict:
     lang = language_info(language)
     lines=path.read_text(encoding="utf-8-sig").splitlines(keepends=True)
     source_lines=source_archive.read_text(encoding="utf-8-sig").splitlines(keepends=True) if source_archive else None
@@ -202,10 +478,23 @@ def translate(path: Path, output: Path, language: str, model: str, batch_size: i
     if dry_run: return report
     if not items:
         if header_updates:
-            output.write_text("".join(lines),encoding="utf-8-sig",newline="")
+            write_slt(output, "".join(lines))
         return report
-    key=os.environ.get("OPENAI_API_KEY")
-    if not key: raise RuntimeError("OPENAI_API_KEY is not set")
+    provider = (provider or os.environ.get("TRANSLATION_PROVIDER") or "openrouter").lower()
+    owns_requester = requester is None
+    if owns_requester:
+        key=resolve_api_key(provider)
+        if provider == "openai":
+            if not key: raise RuntimeError("OPENAI_API_KEY is not set")
+            requester = request_openai
+        elif provider == "openrouter":
+            if not key: raise RuntimeError("OPENROUTER_API_KEY is not set")
+            requester = request_openrouter
+        else:
+            if not key: raise RuntimeError("CURSOR_API_KEY is not set")
+            requester = CursorSession(key, model)
+    else:
+        key=resolve_api_key(provider) or os.environ.get("OPENAI_API_KEY") or os.environ.get("CURSOR_API_KEY") or ""
     changed=list(lines)
     trace_handle = trace_file.open("a", encoding="utf-8") if trace_file else None
 
@@ -261,9 +550,11 @@ def translate(path: Path, output: Path, language: str, model: str, batch_size: i
             translate_batch(items[start:start+batch_size])
     finally:
         if trace_handle: trace_handle.close()
+        if owns_requester and hasattr(requester, "close"):
+            requester.close()
     expanded = expand_widths(changed, items)
     if expanded: report["widths_expanded"] = expanded
-    output.write_text("".join(changed),encoding="utf-8-sig",newline="")
+    write_slt(output, "".join(changed))
     return report
 
 def expand_widths(changed: list[str], items: list[Item]) -> int:
@@ -344,8 +635,8 @@ def expand_widths(changed: list[str], items: list[Item]) -> int:
     return modified
 
 def main() -> int:
-    p=argparse.ArgumentParser(); p.add_argument("input",type=Path); p.add_argument("output",type=Path); p.add_argument("--language",required=True); p.add_argument("--model",default=os.environ.get("OPENAI_MODEL","gpt-5-mini")); p.add_argument("--batch-size",type=int,default=40); p.add_argument("--dry-run",action="store_true"); p.add_argument("--force-retranslate",action="store_true"); p.add_argument("--trace-file",type=Path); p.add_argument("--source-archive",type=Path); p.add_argument("--trim-translations",action="store_true")
-    a=p.parse_args()
-    try: print(json.dumps(translate(a.input,a.output,a.language,a.model,a.batch_size,a.dry_run,a.force_retranslate,trace_file=a.trace_file,source_archive=a.source_archive,trim_translations=a.trim_translations),ensure_ascii=False)); return 0
+    p=argparse.ArgumentParser(); p.add_argument("input",type=Path); p.add_argument("output",type=Path); p.add_argument("--language",required=True); p.add_argument("--provider",choices=("cursor","openai","openrouter"),default=os.environ.get("TRANSLATION_PROVIDER","openrouter")); p.add_argument("--model",default=None); p.add_argument("--batch-size",type=int,default=40); p.add_argument("--dry-run",action="store_true"); p.add_argument("--force-retranslate",action="store_true"); p.add_argument("--trace-file",type=Path); p.add_argument("--source-archive",type=Path); p.add_argument("--trim-translations",action="store_true")
+    a=p.parse_args(); model=a.model or default_model(a.provider)
+    try: print(json.dumps(translate(a.input,a.output,a.language,model,a.batch_size,a.dry_run,a.force_retranslate,trace_file=a.trace_file,source_archive=a.source_archive,trim_translations=a.trim_translations,provider=a.provider),ensure_ascii=False)); return 0
     except Exception as exc: print(f"translation failed: {exc}",file=sys.stderr); return 1
 if __name__ == "__main__": raise SystemExit(main())

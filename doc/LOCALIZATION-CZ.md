@@ -84,7 +84,7 @@ do kopií aktuálních anglických `.slg`, ověří layout, zkontroluje SLT roun
 potom hotové `.slg` zkopíruje zpět do populovaného runtime stromu.
 
 Pokud jsou texty v `translations/` správně, už je nepřekódovávejte a znovu je
-nespouštějte přes OpenAI. Udělejte jen čerstvý build Salamandera, čerstvý build
+nespouštějte přes překladové API. Udělejte jen čerstvý build Salamandera, čerstvý build
 `utils\translator.exe` a spusťte výše uvedený `localize.ps1 build`. Skript při
 jakékoliv fatální chybě nezapíše nové `.slg` do runtime stromu; nejdřív opravte
 vypsaný problém a potom build spusťte znovu.
@@ -94,7 +94,7 @@ vygenerované už před spuštěním aplikace. Pokud round-trip validace selže,
 o varování k ignorování — výsledný language pack se nesmí testovat ani shipovat.
 
 Každý `.slt` archiv musí mít v sekci `[TRANSLATION]` správné `LANGID` podle
-adresáře jazyka. OpenAI skript ho při zápisu kandidátů normalizuje a
+adresáře jazyka. Dávkový překladový skript ho při zápisu kandidátů normalizuje a
 `build_language_packs.ps1` ho při round-trip kontrole ověřuje; chyba typu
 `LANGID,1033` v čínském nebo českém archivu znamená vadný zdrojový `.slt`.
 
@@ -106,7 +106,7 @@ pwsh -File .\tools\localization\build_language_packs.ps1 `
 ```
 
 Pro zúžení práce použijte filtry `-Languages` nebo `-Modules` na přípravných a
-OpenAI skriptech. `build_language_packs.ps1` záměrně staví z commitnutých `.slt`
+dávkových překladových skriptech. `build_language_packs.ps1` záměrně staví z commitnutých `.slt`
 a čerstvého workspace; soubory v dočasném workspace neupravujte a vygenerovaná
 `.slg` necommitujte.
 
@@ -147,22 +147,24 @@ Necommitujte adresáře `out/localization` ani `out/localization-openai`, `.atp`
 - **`Workspace does not exist` v ImportOnly režimu**: adresář `out/localization-openai` neexistuje nebo byl smazán. Nejprve spusťte DryRun pro vytvoření workspace a vygenerování kandidátů.
 - **`Error updating resource file ... (1359) An internal error occurred` při buildu language packů**: znovu sestavte `utils/translator.exe` z aktuálních zdrojů. Round-trip verifier v language-pack buildu používá `-quiet-export-slt-for-diff`, který exportuje text bez označení projektu jako změněného a bez ukládání `.slg`; starší buildy Translatoru používaly běžný export a během verifikace se mohly pokoušet přepsat každé vygenerované `.slg`.
 
-## Dávkový překlad pomocí OpenAI
+## Dávkový překlad pomocí OpenRouter
 
-`localize_all_openai.ps1` umí bez otevření Translatoru připravit a přeložit všechny dostupné jazyky a moduly. Jazyky zjistí z adresáře `translations/`; z populovaného buildu zjistí hlavní modul `salamand` a pluginy obsahující `lang/english.slg`.
+`localize_all_openai.ps1` umí bez otevření Translatoru připravit a přeložit všechny dostupné jazyky a moduly. Jazyky zjistí z adresáře `translations/`; z populovaného buildu zjistí hlavní modul `salamand` a pluginy obsahující `lang/english.slg`. Výchozí poskytovatel je OpenRouter s modelem `openai/gpt-5.4-nano`. Cursor zůstává dostupný přes `-Provider cursor` a OpenAI přes `-Provider openai`.
 
-API klíč nastavujte pouze v prostředí procesu; nikdy jej neukládejte do repozitáře ani skriptu:
+Uživatelský API klíč vytvořte na [OpenRouter → Keys](https://openrouter.ai/keys). API klíč nastavujte pouze v prostředí procesu; nikdy jej neukládejte do repozitáře ani skriptu:
 
 ```powershell
-$env:OPENAI_API_KEY = "..."
-$env:OPENAI_MODEL = "gpt-5-mini" # volitelné
+$env:OPENROUTER_API_KEY = "..."
+$env:OPENROUTER_MODEL = "openai/gpt-5.4-nano" # volitelné
 pwsh -File .\tools\localization\localize_all_openai.ps1 `
   -BuildRoot .\build\out\salamand\Release_x64 -DryRun
 ```
 
-Po kontrole reportu pro jednotlivé jazyky/moduly a vygenerovaných kandidátů odstraňte `-DryRun`. V dávkovém skriptu `-DryRun` stále volá OpenAI a zapisuje přeložené soubory do `out/localization-openai/candidate/`; pouze přeskočí kopírování do `translations/`, import/export validaci v Translatoru a sestavení language packů. Běh lze omezit pomocí `-Languages czech,slovak` nebo `-Modules salamand,automation`; `-BuildLanguagePacks` sestaví balíčky pouze tehdy, když všechny překlady a validace uspějí. `-ForceRetranslate` nahradí také položky již označené jako přeložené, proto jej používejte obzvlášť opatrně.
+Pro volitelný provider Cursor nainstalujte `cursor-sdk` (`pip install cursor-sdk`) nebo [Cursor CLI](https://cursor.com/docs/cli/overview), nastavte `CURSOR_API_KEY` a použijte `-Provider cursor`.
 
-OpenAI překladač posílá s každou dávkou také ukázky již existujících překladů stejného modulu jako překladovou paměť, aby model držel terminologii konzistentně (například aby pro jeden pojem nestřídal „záložky“ a „karty“). Přepínač `-AutoTrimTranslations` nepřekládá všechno znovu; vybere pouze již přeložené položky delší než aktuální anglický originál a požádá model o kratší variantu se stejnými technickými tokeny. Typické bezpečné použití je společně s `-DryRun`, například:
+Po kontrole reportu pro jednotlivé jazyky/moduly a vygenerovaných kandidátů odstraňte `-DryRun`. V dávkovém skriptu `-DryRun` stále volá překladové API a zapisuje přeložené soubory do `out/localization-openai/candidate/`; pouze přeskočí kopírování do `translations/`, import/export validaci v Translatoru a sestavení language packů. Běh lze omezit pomocí `-Languages czech,slovak` nebo `-Modules salamand,automation`; `-BuildLanguagePacks` sestaví balíčky pouze tehdy, když všechny překlady a validace uspějí. `-ForceRetranslate` nahradí také položky již označené jako přeložené, proto jej používejte obzvlášť opatrně.
+
+Překladač posílá s každou dávkou také ukázky již existujících překladů stejného modulu jako překladovou paměť, aby model držel terminologii konzistentně (například aby pro jeden pojem nestřídal „záložky“ a „karty“). Přepínač `-AutoTrimTranslations` nepřekládá všechno znovu; vybere pouze již přeložené položky delší než aktuální anglický originál a požádá model o kratší variantu se stejnými technickými tokeny. Typické bezpečné použití je společně s `-DryRun`, například:
 
 ```powershell
 pwsh -File .\tools\localization\localize_all_openai.ps1 `
@@ -172,7 +174,7 @@ pwsh -File .\tools\localization\localize_all_openai.ps1 `
 
 #### ImportOnly režim
 
-`-ImportOnly` přeskočí export kostry, rebase, OpenAI překlad a přípravu workspace (která by smazala existující kandidáty). Importuje existující soubory kandidátů z `out/localization-openai/candidate/` do `.slg` projektů a volitelně exportuje finální `.slt` soubory do `translations/`. API klíč `OPENAI_API_KEY` není potřeba.
+`-ImportOnly` přeskočí export kostry, rebase, API překlad a přípravu workspace (která by smazala existující kandidáty). Importuje existující soubory kandidátů z `out/localization-openai/candidate/` do `.slg` projektů a volitelně exportuje finální `.slt` soubory do `translations/`. API klíč není potřeba.
 
 Workspace musí existovat z předchozího DryRun nebo plného běhu. Tento režim se používá, když chcete kandidáty ručně upravit před finálním uložením, nebo když potřebujete znovu importovat dříve přeložené kandidáty bez opětovného spuštění celého pipeline:
 
@@ -188,38 +190,38 @@ pwsh -File .\tools\localization\localize_all_openai.ps1 `
 
 Režim `-ImportOnly` lze kombinovat s `-BuildLanguagePacks` pro sestavení jazykových balíčků po importu.
 
-### Co OpenAI workflow vytváří
+### Co dávkový překlad vytváří
 
-OpenAI workflow zapisuje dočasné a diagnostické soubory do `out/localization-openai/`:
+Workflow zapisuje dočasné a diagnostické soubory do `out/localization-openai/`:
 
 - `skeleton/<language>/<module>/<module>.slt` je aktuální anglická kostra exportovaná z populovaného buildu.
-- `candidate/<language>/<module>/<module>.slt` je rebased archiv po sloučení starého překladu na aktuální kostru a po překladu položek se `state=0` přes OpenAI.
+- `candidate/<language>/<module>/<module>.slt` je rebased archiv po sloučení starého překladu na aktuální kostru a po překladu položek se `state=0` přes API.
 - `localize.log` obsahuje diagnostiku quiet příkazů Translatoru.
-- `openai-requests.jsonl` obsahuje jeden JSON objekt pro každý OpenAI request/response s jazykem, počtem položek a ID položek. API klíč se do něj nikdy nezapisuje.
+- `openai-requests.jsonl` obsahuje jeden JSON objekt pro každý API request/response s jazykem, počtem položek a ID položek. API klíč se do něj nikdy nezapisuje.
 
 Pokud neběžíte s `-DryRun`, každý úspěšně přeložený kandidát se před finální import/export validací v Translatoru zkopíruje také do `translations/<language>/<module>.slt`. Je to záměr: když později selže jiný modul, už hotové překlady se neztratí. Tyto soubory v repozitáři před commitem vždy zkontrolujte.
 
-### Pravidla rebase před OpenAI překladem
+### Pravidla rebase před API překladem
 
-Před jakýmkoliv API voláním `rebase_text_archive.ps1` sloučí existující překladový archiv na aktuální skeleton. Výsledek určuje, které stringy se pošlou do OpenAI:
+Před jakýmkoliv API voláním `rebase_text_archive.ps1` sloučí existující překladový archiv na aktuální skeleton. Výsledek určuje, které stringy se pošlou do modelu:
 
 - Existující překlady se zachovávají podle resource ID, pokud je to možné.
 - Položky `STRINGTABLE` se párují globálně podle numerického string ID v prvním sloupci bez ohledu na to, ve kterém bloku `[STRINGTABLE n]` se právě nacházejí. Číslo sekce ani pořadí řádku se u stringtable nikdy nepoužívá jako identita textu.
-- Při převzetí existujícího stringtable překladu rebase kontroluje technické tokeny jako placeholdery, escape sekvence, tagy a počet akcelerátorů. Pokud nesedí, ponechá aktuální anglický text jako `state=0` pro OpenAI/review místo slepého převzetí rizikového překladu.
+- Při převzetí existujícího stringtable překladu rebase kontroluje technické tokeny jako placeholdery, escape sekvence, tagy a počet akcelerátorů. Pokud nesedí, ponechá aktuální anglický text jako `state=0` pro překlad/review místo slepého převzetí rizikového překladu.
 - Dialogy a menu mohou dál použít hlídaný fallback: pokud se změnilo ID sekce dialogu/menu, ale počet sekcí daného typu se nezměnil, rebase umí fallback podle typu a pořadí sekce.
 - Pokud se v nalezené dialog/menu sekci změnila ID položek a počet položek je stejný, rebase umí fallback podle pořadí položek. Tento fallback se nepoužívá pro `STRINGTABLE`.
-- Nové sekce nebo položky, které nejde bezpečně spárovat, ponechají anglický text, ale explicitně dostanou `state=0`; OpenAI krok je tedy musí přeložit.
+- Nové sekce nebo položky, které nejde bezpečně spárovat, ponechají anglický text, ale explicitně dostanou `state=0`; překladový krok je tedy musí přeložit.
 - Pokud pro celý modul zatím neexistuje legacy archiv, skript vynutí překlad aktuální kostry místo toho, aby anglickou kostru považoval za přeloženou.
 
 Candidate soubory by tedy neměly tiše obsahovat nově přidané anglické stringy se `state=1`. Pokud v kandidátovi vidíte angličtinu, zkontrolujte její stav: `state=0` znamená, že text je připravený k překladu nebo byl odmítnut validací; `state=1` znamená, že byl přijat jako překlad a pokud je pořád anglicky, je potřeba to vyšetřit.
 
-### Validace a retry OpenAI odpovědí
+### Validace a retry API odpovědí
 
-Skript posílá OpenAI pouze nepřeložené resource texty a jejich ID, takže použití API něco stojí. Vrácené překlady se přijmou jen tehdy, když odpověď obsahuje očekávaná ID a zachová technické tokeny jako placeholdery, escape sekvence, tagy, cesty a počet akcelerátorů. Když dávka neprojde validací, rozdělí se na menší dávky; samostatná problematická položka se jednou zkusí přeložit znovu s přísnější instrukcí pro zachování technických tokenů. Pokud retry pořád mění technické tokeny, zůstane nepřeložená jen tato položka a běh pokračuje dál.
+Skript posílá modelu pouze nepřeložené resource texty a jejich ID, takže použití API něco stojí. Vrácené překlady se přijmou jen tehdy, když odpověď obsahuje očekávaná ID a zachová technické tokeny jako placeholdery, escape sekvence, tagy, cesty a počet akcelerátorů. Když dávka neprojde validací, rozdělí se na menší dávky; samostatná problematická položka se jednou zkusí přeložit znovu s přísnější instrukcí pro zachování technických tokenů. Pokud retry pořád mění technické tokeny, zůstane nepřeložená jen tato položka a běh pokračuje dál.
 
 Automatický překlad **nenahrazuje lidskou kontrolu**: před commitem vygenerovaných `.slt` zkontrolujte terminologii, akcelerátory, placeholdery a zda se text vejde do dialogů.
 
-### Řešení problémů při OpenAI běhu
+### Řešení problémů při dávkovém překladu
 
 - **Candidate soubory pořád obsahují anglický text se `state=1`**: jde o špatný rebase match nebo model vrátil angličtinu jako překlad. Zkontrolujte `out/localization-openai/openai-requests.jsonl`, spusťte dotčený modul znovu s `-ForceRetranslate` a projděte diff.
 - **Candidate soubory obsahují anglický text se `state=0`**: text je stále nepřeložený. Zkontrolujte ve výstupním reportu sloupec `Failed` a ve stderr/logu hledejte `translation skipped` nebo `technical tokens changed`.
