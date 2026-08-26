@@ -13,6 +13,7 @@
 
 #include "unfat.h"
 #include "fat.h"
+#include "arcprobe.h"
 
 #include "unfat.rh"
 #include "unfat.rh2"
@@ -248,6 +249,18 @@ CPluginInterface::GetInterfaceForArchiver()
 //
 // CPluginInterfaceForArchiver
 //
+
+BOOL CPluginInterfaceForArchiver::CanOpenArchive(const char* fileName)
+{
+    CALL_STACK_MESSAGE2("CPluginInterfaceForArchiver::CanOpenArchive(%s)", fileName);
+    static const unsigned char kFat[] = {0x55, 0xAA};
+    HANDLE file = ArchiveProbeOpenRead(fileName);
+    if (file == INVALID_HANDLE_VALUE)
+        return FALSE;
+    BOOL found = ArchiveProbeMatchAt(file, 510, kFat, sizeof(kFat));
+    CloseHandle(file);
+    return found;
+}
 
 BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* salamander,
                                               const char* fileName,

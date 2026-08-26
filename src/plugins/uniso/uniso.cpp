@@ -11,6 +11,7 @@
 #include "uniso.rh"
 #include "uniso.rh2"
 #include "lang\lang.rh"
+#include "arcprobe.h"
 
 // ****************************************************************************
 
@@ -420,6 +421,19 @@ BOOL CPluginInterfaceForArchiver::Init()
     CALL_STACK_MESSAGE1("CPluginInterfaceForArchiver::Init()");
 
     return TRUE;
+}
+
+BOOL CPluginInterfaceForArchiver::CanOpenArchive(const char* fileName)
+{
+    CALL_STACK_MESSAGE2("CPluginInterfaceForArchiver::CanOpenArchive(%s)", fileName);
+    static const unsigned char kCd001[] = {'C', 'D', '0', '0', '1'};
+    HANDLE file = ArchiveProbeOpenRead(fileName);
+    if (file == INVALID_HANDLE_VALUE)
+        return FALSE;
+    BOOL found = ArchiveProbeMatchAt(file, 0x8001, kCd001, sizeof(kCd001)) ||
+                 ArchiveProbeMatchAt(file, 0x8801, kCd001, sizeof(kCd001));
+    CloseHandle(file);
+    return found;
 }
 
 BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* salamander,

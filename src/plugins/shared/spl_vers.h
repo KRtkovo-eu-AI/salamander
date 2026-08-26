@@ -222,8 +222,10 @@
 //   103 - 5.0
 //   104 - 5.0 per-monitor DPI window graphics
 //   105 - 5.0 Salamatrix service registry and panel-tab snapshot API
+//   106 - 5.0 CanOpenArchive on CPluginInterfaceForArchiverAbstract
 
-#define LAST_VERSION_OF_SALAMANDER 105
+#define LAST_VERSION_OF_SALAMANDER 106
+#define SAL_SDK_VER_CANOPENARCHIVE 106
 #define REQUIRE_LAST_VERSION_OF_SALAMANDER "This plugin requires Open Salamander 5.0 (" SAL_VER_PLATFORM ") or later."
 
 #endif // __SPL_VERS_H

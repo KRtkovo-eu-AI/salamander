@@ -3,6 +3,7 @@
 
 #include "precomp.h"
 #include <string>
+#include "arcprobe.h"
 
 // ****************************************************************************
 
@@ -287,6 +288,13 @@ CPluginInterface::GetInterfaceForArchiver()
 //
 // CPluginInterfaceForArchiver
 //
+
+BOOL CPluginInterfaceForArchiver::CanOpenArchive(const char* fileName)
+{
+    CALL_STACK_MESSAGE2("CPluginInterfaceForArchiver::CanOpenArchive(%s)", fileName);
+    static const unsigned char kRar[] = {0x52, 0x61, 0x72, 0x21, 0x1A, 0x07}; // "Rar!\x1a\x07"
+    return ArchiveProbeScan(fileName, kRar, sizeof(kRar), 2 * 1024 * 1024, 0);
+}
 
 BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* salamander, const char* fileName,
                                               CSalamanderDirectoryAbstract* dir,

@@ -140,6 +140,14 @@ public:
         return r;
     }
 
+    BOOL CanOpenArchive(const char* fileName)
+    {
+        EnterPlugin();
+        BOOL r = Interface->CanOpenArchive(fileName);
+        LeavePlugin();
+        return r;
+    }
+
     // ********************************************************************************
     // WARNING: lower thread priority before executing plug-in operations!
     // ********************************************************************************
@@ -2702,6 +2710,9 @@ public:
 
     // plugin call: CanCloseArchive
     BOOL CanCloseArchive(CFilesWindow* panel, const char* archiveFileName, BOOL force);
+
+    // plugin call: CanOpenArchive (quiet content probe; FALSE for plugins older than SAL_SDK_VER_CANOPENARCHIVE)
+    BOOL CanOpenArchive(const char* name);
 
     // plugin call: CanViewFile
     BOOL CanViewFile(const char* name);

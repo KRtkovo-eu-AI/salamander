@@ -108,6 +108,7 @@ public:
     ~C7zClient();
 
     BOOL ListArchive(const char* fileName, CSalamanderDirectoryAbstract* dir, CPluginDataInterface*& pluginData, UString& password);
+    BOOL CanOpenByContent(const char* fileName);
 
     int Decompress(CSalamanderForOperationsAbstract* salamander, const char* archiveName, const char* outDir,
                    TIndirectArray<CArchiveItemInfo>* itemList, UString& password, BOOL silentDelete = FALSE);
@@ -123,6 +124,7 @@ public:
 protected:
     BOOL OpenArchive(const char* fileName, IInArchive** archive, UString& password, BOOL quiet = FALSE);
     BOOL OpenArchiveWithFormat(const char* fileName, const GUID* classID, IInArchive** archive, UString& password, BOOL quiet = FALSE);
+    BOOL Find7zFamilySignature(const char* fileName, GUID* classID);
 
     BOOL FillItemData(IInArchive* archive, UINT32 index, C7zClient::CItemData* itemData);
     BOOL AddFileDir(IInArchive* archive, UINT32 idx,

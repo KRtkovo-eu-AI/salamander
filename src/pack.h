@@ -720,7 +720,14 @@ void PackSetErrorHandler(BOOL (*handler)(HWND parent, const WORD errNum, ...));
 
 // determine the contents of the archive
 BOOL PackList(CFilesWindow* panel, const char* archiveFileName, CSalamanderDirectory& dir,
-              CPluginDataInterfaceAbstract*& pluginData, CPluginData*& plugin);
+              CPluginDataInterfaceAbstract*& pluginData, CPluginData*& plugin,
+              CPluginData* forcedPlugin = NULL);
+
+// Quiet content probe: ask panel-archiver plugins whether they can open this file.
+CPluginData* PackProbeArchivePlugin(const char* archiveFileName, CFilesWindow* panel);
+
+// Plugin assigned by extension, or the plugin already listing this archive in the panel.
+CPluginData* PackGetPluginForArchiveFile(const char* archiveFileName, CFilesWindow* panel);
 
 // extract the selected files from the archive (calls UniversalUncompress)
 BOOL PackUncompress(HWND parent, CFilesWindow* panel, const char* archiveFileName,

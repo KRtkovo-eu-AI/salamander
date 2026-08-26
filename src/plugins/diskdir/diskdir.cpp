@@ -444,6 +444,12 @@ CPluginInterfaceForArchiverAbstract* WINAPI CDiskDirPlugin::GetInterfaceForArchi
     return &ArchiverInterface;
 }
 
+BOOL WINAPI CDiskDirArchiver::CanOpenArchive(const char* fileName)
+{
+    // Listing catalogs are too generic to claim from a content probe.
+    return FALSE;
+}
+
 BOOL WINAPI CDiskDirArchiver::ListArchive(CSalamanderForOperationsAbstract*,
                                           const char* fileName,
                                           CSalamanderDirectoryAbstract* dir,

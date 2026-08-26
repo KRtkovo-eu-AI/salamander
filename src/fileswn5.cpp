@@ -1814,20 +1814,24 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
                     BOOL arcCacheOwnDelete = FALSE;
                     CPluginInterfaceAbstract* plugin = NULL; // != NULL if the plugin handles its own deletion
                     int format = PackerFormatConfig.PackIsArchive(GetZIPArchive());
+                    CPluginData* archivePlugin = NULL;
                     if (format != 0) // a supported archive was found
                     {
                         format--;
                         int index = PackerFormatConfig.GetUnpackerIndex(format);
                         if (index < 0) // view: is the processing internal (plugin)?
                         {
-                            CPluginData* data = Plugins.Get(-index - 1);
-                            if (data != NULL)
-                            {
-                                data->GetCacheInfo(arcCacheTmpPath, &arcCacheOwnDelete, &arcCacheCacheCopies);
-                                if (arcCacheOwnDelete)
-                                    plugin = data->GetPluginInterface()->GetInterface();
-                            }
+                            archivePlugin = Plugins.Get(-index - 1);
                         }
+                    }
+                    else
+                        archivePlugin = PackGetPluginForArchiveFile(GetZIPArchive(), this);
+
+                    if (archivePlugin != NULL)
+                    {
+                        archivePlugin->GetCacheInfo(arcCacheTmpPath, &arcCacheOwnDelete, &arcCacheCacheCopies);
+                        if (arcCacheOwnDelete)
+                            plugin = archivePlugin->GetPluginInterface()->GetInterface();
                     }
 
                     // besides itself, compare the file with all the others and look for a case-sensitive identical name;

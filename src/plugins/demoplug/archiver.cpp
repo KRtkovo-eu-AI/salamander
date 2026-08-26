@@ -91,6 +91,12 @@ CArcPluginDataInterface::ColumnWidthWasChanged(BOOL leftPanel, const CColumn* co
 }
 
 BOOL WINAPI
+CPluginInterfaceForArchiver::CanOpenArchive(const char* fileName)
+{
+    return FALSE;
+}
+
+BOOL WINAPI
 CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* salamander, const char* fileName,
                                          CSalamanderDirectoryAbstract* dir,
                                          CPluginDataInterfaceAbstract*& pluginData)

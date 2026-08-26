@@ -192,6 +192,7 @@ public:
     virtual BOOL WINAPI GetCacheInfo(char* tempPath, BOOL* ownDelete, BOOL* cacheCopies);
     virtual void WINAPI DeleteTmpCopy(const char* fileName, BOOL firstFile);
     virtual BOOL WINAPI PrematureDeleteTmpCopy(HWND parent, int copiesCount);
+    virtual BOOL WINAPI CanOpenArchive(const char* fileName);
 };
 
 class CPluginInterfaceForViewer : public CPluginInterfaceForViewerAbstract

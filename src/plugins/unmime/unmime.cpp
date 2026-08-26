@@ -9,6 +9,7 @@
 #include "parser.h"
 #include "decoder.h"
 #include "unmime.h"
+#include "arcprobe.h"
 
 // ****************************************************************************
 
@@ -245,6 +246,17 @@ static void ShowBadBlockMessage(CStartMarker* m, BOOL bDontShow[][2])
         SalamanderGeneral->ShowMessageBox(text, LoadStr(IDS_PLUGINNAME), MSGBOX_INFO);
         bDontShow[e][m->iBadBlock - 1] = TRUE;
     }
+}
+
+BOOL CPluginInterfaceForArchiver::CanOpenArchive(const char* fileName)
+{
+    CALL_STACK_MESSAGE2("CPluginInterfaceForArchiver::CanOpenArchive(%s)", fileName);
+    static const unsigned char kMime[] = {'M', 'I', 'M', 'E', '-', 'V', 'e', 'r', 's', 'i', 'o', 'n', ':'};
+    static const unsigned char kBegin[] = {'b', 'e', 'g', 'i', 'n', ' '};
+    static const unsigned char kContent[] = {'C', 'o', 'n', 't', 'e', 'n', 't', '-', 'T', 'y', 'p', 'e', ':'};
+    return ArchiveProbeScan(fileName, kMime, sizeof(kMime), 4096, 0) ||
+           ArchiveProbeScan(fileName, kBegin, sizeof(kBegin), 256, 0) ||
+           ArchiveProbeScan(fileName, kContent, sizeof(kContent), 4096, 0);
 }
 
 BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* salamander, const char* fileName,

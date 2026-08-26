@@ -565,6 +565,71 @@ BOOL PackScanLine(char* buffer, CSalamanderDirectory& dir, const int index,
 
 //
 // ****************************************************************************
+static BOOL IsSevenZipArchiverPlugin(const CPluginData* plugin)
+{
+    if (plugin == NULL || plugin->DLLName == NULL)
+        return FALSE;
+    const char* name = plugin->DLLName;
+    const char* slash = strrchr(name, '\\');
+    if (slash != NULL)
+        name = slash + 1;
+    const char* slash2 = strrchr(name, '/');
+    if (slash2 != NULL)
+        name = slash2 + 1;
+    return StrICmp(name, "7zip.spl") == 0;
+}
+
+CPluginData* PackGetPluginForArchiveFile(const char* archiveFileName, CFilesWindow* panel)
+{
+    int format = PackerFormatConfig.PackIsArchive(archiveFileName);
+    if (format != 0)
+    {
+        format--;
+        int index = PackerFormatConfig.GetUnpackerIndex(format);
+        if (index < 0)
+        {
+            CPluginData* plugin = Plugins.Get(-index - 1);
+            if (plugin != NULL && plugin->SupportPanelView)
+                return plugin;
+        }
+        return NULL;
+    }
+    if (panel != NULL && panel->Is(ptZIPArchive) &&
+        StrICmp(panel->GetZIPArchive(), archiveFileName) == 0)
+    {
+        CPluginData* plugin = panel->GetPluginDataForPluginIface();
+        if (plugin != NULL && plugin->SupportPanelView)
+            return plugin;
+    }
+    return NULL;
+}
+
+CPluginData* PackProbeArchivePlugin(const char* archiveFileName, CFilesWindow* panel)
+{
+    CPluginData* preferred = PackGetPluginForArchiveFile(archiveFileName, panel);
+    if (preferred != NULL && preferred->CanOpenArchive(archiveFileName))
+        return preferred;
+
+    CPluginData* sevenZip = NULL;
+    int i;
+    for (i = 0; i < Plugins.GetCount(); i++)
+    {
+        CPluginData* plugin = Plugins.Get(i);
+        if (plugin == NULL || !plugin->SupportPanelView || plugin == preferred)
+            continue;
+        if (IsSevenZipArchiverPlugin(plugin))
+        {
+            sevenZip = plugin;
+            continue;
+        }
+        if (plugin->CanOpenArchive(archiveFileName))
+            return plugin;
+    }
+    if (sevenZip != NULL && sevenZip->CanOpenArchive(archiveFileName))
+        return sevenZip;
+    return NULL;
+}
+
 // BOOL PackList(CFilesWindow *panel, const char *archiveFileName, CSalamanderDirectory &dir,
 //               CPluginDataInterfaceAbstract *&pluginData, CPluginData *&plugin)
 //
@@ -579,7 +644,8 @@ BOOL PackScanLine(char* buffer, CSalamanderDirectory& dir, const int index,
 //        plugin is the plug-in record that performed ListArchive
 
 BOOL PackList(CFilesWindow* panel, const char* archiveFileName, CSalamanderDirectory& dir,
-              CPluginDataInterfaceAbstract*& pluginData, CPluginData*& plugin)
+              CPluginDataInterfaceAbstract*& pluginData, CPluginData*& plugin,
+              CPluginData* forcedPlugin)
 {
     CALL_STACK_MESSAGE2("PackList(, %s, , ,)", archiveFileName);
     // clean up just in case
@@ -589,11 +655,26 @@ BOOL PackList(CFilesWindow* panel, const char* archiveFileName, CSalamanderDirec
 
     FirstError = TRUE;
 
+    if (forcedPlugin != NULL)
+    {
+        if (!forcedPlugin->SupportPanelView)
+            return (*PackErrorHandlerPtr)(NULL, IDS_PACKERR_ARCNAME_UNSUP);
+        plugin = forcedPlugin;
+        return plugin->ListArchive(panel, archiveFileName, dir, pluginData);
+    }
+
     // find the correct one according to the table
     int format = PackerFormatConfig.PackIsArchive(archiveFileName);
-    // Supported archive not found - error
     if (format == 0)
+    {
+        CPluginData* stored = PackGetPluginForArchiveFile(archiveFileName, panel);
+        if (stored != NULL)
+        {
+            plugin = stored;
+            return plugin->ListArchive(panel, archiveFileName, dir, pluginData);
+        }
         return (*PackErrorHandlerPtr)(NULL, IDS_PACKERR_ARCNAME_UNSUP);
+    }
 
     format--;
     int index = PackerFormatConfig.GetUnpackerIndex(format);
@@ -1361,9 +1442,13 @@ BOOL PackUncompress(HWND parent, CFilesWindow* panel, const char* archiveFileNam
     CALL_STACK_MESSAGE4("PackUncompress(, , %s, , %s, %s, ,)", archiveFileName, targetDir, archiveRoot);
     // find the correct one according to the table
     int format = PackerFormatConfig.PackIsArchive(archiveFileName);
-    // Supported archive not found - error
     if (format == 0)
-        return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_ARCNAME_UNSUP);
+    {
+        CPluginData* stored = PackGetPluginForArchiveFile(archiveFileName, panel);
+        if (stored == NULL || !stored->SupportPanelView)
+            return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_ARCNAME_UNSUP);
+        return stored->UnpackArchive(panel, archiveFileName, pluginData, targetDir, archiveRoot, nextName, param);
+    }
 
     format--;
     int index = PackerFormatConfig.GetUnpackerIndex(format);
@@ -1778,9 +1863,14 @@ BOOL PackUnpackOneFile(CFilesWindow* panel, const char* archiveFileName,
 
     // find the correct one according to the table
     int format = PackerFormatConfig.PackIsArchive(archiveFileName);
-    // No supported archive found - error
     if (format == 0)
-        return (*PackErrorHandlerPtr)(NULL, IDS_PACKERR_ARCNAME_UNSUP);
+    {
+        CPluginData* stored = PackGetPluginForArchiveFile(archiveFileName, panel);
+        if (stored == NULL || !stored->SupportPanelView)
+            return (*PackErrorHandlerPtr)(NULL, IDS_PACKERR_ARCNAME_UNSUP);
+        return stored->UnpackOneFile(panel, archiveFileName, pluginData, nameInArchive,
+                                     fileData, targetDir, newFileName, renamingNotSupported);
+    }
 
     format--;
     int index = PackerFormatConfig.GetUnpackerIndex(format);

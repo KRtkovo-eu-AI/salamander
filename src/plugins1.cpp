@@ -3836,6 +3836,19 @@ BOOL CPluginData::CanCloseArchive(CFilesWindow* panel, const char* archiveFileNa
     return ret;
 }
 
+BOOL CPluginData::CanOpenArchive(const char* name)
+{
+    CALL_STACK_MESSAGE4("CPluginData::CanOpenArchive(%s) (%s v. %s)", name, DLLName, Version);
+    if (!SupportPanelView)
+        return FALSE;
+    // BuiltForVersion is valid only after the plugin is loaded.
+    if (!InitDLL(MainWindow->HWindow, TRUE, FALSE) || !PluginIfaceForArchiver.NotEmpty())
+        return FALSE;
+    if (BuiltForVersion < SAL_SDK_VER_CANOPENARCHIVE)
+        return FALSE;
+    return PluginIfaceForArchiver.CanOpenArchive(name);
+}
+
 BOOL CPluginData::CanViewFile(const char* name)
 {
     CALL_STACK_MESSAGE4("CPluginData::CanViewFile(%s) (%s v. %s)", name, DLLName, Version);

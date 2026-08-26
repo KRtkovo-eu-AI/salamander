@@ -12,6 +12,7 @@
 #include "uncab.rh"
 #include "uncab.rh2"
 #include "lang\lang.rh"
+#include "arcprobe.h"
 
 // The only sizes seen so far are 0x10660 & 0x17c7c
 #define SFX_BUFF_SIZE 0x18000
@@ -248,6 +249,13 @@ CPluginInterface::GetInterfaceForArchiver()
 //
 // CPluginInterfaceForArchiver
 //
+
+BOOL CPluginInterfaceForArchiver::CanOpenArchive(const char* fileName)
+{
+    CALL_STACK_MESSAGE2("CPluginInterfaceForArchiver::CanOpenArchive(%s)", fileName);
+    static const unsigned char kMscf[] = {'M', 'S', 'C', 'F'};
+    return ArchiveProbeScan(fileName, kMscf, sizeof(kMscf), 1024 * 1024, 0);
+}
 
 BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* salamander, const char* fileName,
                                               CSalamanderDirectoryAbstract* dir,

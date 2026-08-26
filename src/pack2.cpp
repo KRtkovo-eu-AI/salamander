@@ -135,9 +135,15 @@ BOOL PackCompress(HWND parent, CFilesWindow* panel, const char* archiveFileName,
                         archiveRoot, move, sourceDir);
     // find the correct one according to the table
     int format = PackerFormatConfig.PackIsArchive(archiveFileName);
-    // Did not find a supported archive - error
+    // Did not find a supported archive - fall back to the plugin already listing this file
     if (format == 0)
-        return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_ARCNAME_UNSUP);
+    {
+        CPluginData* stored = PackGetPluginForArchiveFile(archiveFileName, panel);
+        if (stored == NULL || !stored->SupportPanelEdit)
+            return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_ARCNAME_UNSUP);
+        return stored->PackToArchive(panel, archiveFileName, archiveRoot, move,
+                                     sourceDir, nextName, param);
+    }
 
     format--;
     if (!PackerFormatConfig.GetUsePacker(format))
@@ -650,9 +656,15 @@ BOOL PackDelFromArc(HWND parent, CFilesWindow* panel, const char* archiveFileNam
 
     // find the correct one according to the table
     int format = PackerFormatConfig.PackIsArchive(archiveFileName);
-    // Did not find a supported archive - error
+    // Did not find a supported archive - fall back to the plugin already listing this file
     if (format == 0)
-        return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_ARCNAME_UNSUP);
+    {
+        CPluginData* stored = PackGetPluginForArchiveFile(archiveFileName, panel);
+        if (stored == NULL || !stored->SupportPanelEdit)
+            return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_ARCNAME_UNSUP);
+        return stored->DeleteFromArchive(panel, archiveFileName, pluginData, archiveRoot,
+                                         nextName, param);
+    }
 
     format--;
     if (!PackerFormatConfig.GetUsePacker(format))

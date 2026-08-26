@@ -11,6 +11,7 @@
 #include "pak.rh2"
 #include "lang\lang.rh"
 #include "pak.h"
+#include "arcprobe.h"
 
 // ****************************************************************************
 
@@ -247,6 +248,13 @@ CPluginInterface::GetInterfaceForMenuExt()
 //
 // CPluginInterfaceForArchiver
 //
+
+BOOL CPluginInterfaceForArchiver::CanOpenArchive(const char* fileName)
+{
+    CALL_STACK_MESSAGE2("CPluginInterfaceForArchiver::CanOpenArchive(%s)", fileName);
+    static const unsigned char kPack[] = {'P', 'A', 'C', 'K'};
+    return ArchiveProbeScan(fileName, kPack, sizeof(kPack), 8, 0);
+}
 
 BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* salamander, const char* fileName,
                                               CSalamanderDirectoryAbstract* dir,

@@ -311,6 +311,14 @@ try {
             )
         },
         @{
+            Name = 'archive_ctrl_pgdn_contract_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\archive_ctrl_pgdn_contract_tests.py')
+            )
+        },
+        @{
             Name = 'codepage_and_clipboard_contract_tests'
             Arguments = @(
                 '-B',
