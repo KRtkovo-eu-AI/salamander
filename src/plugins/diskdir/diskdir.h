@@ -34,6 +34,7 @@ public:
     BOOL WINAPI GetCacheInfo(char*, BOOL*, BOOL*) override { return FALSE; }
     void WINAPI DeleteTmpCopy(const char*, BOOL) override {}
     BOOL WINAPI PrematureDeleteTmpCopy(HWND, int) override { return FALSE; }
+    BOOL WINAPI CanOpenArchive(const char* fileName) override;
 };
 
 class CDiskDirPlugin : public CPluginInterfaceAbstract

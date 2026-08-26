@@ -9,6 +9,7 @@
 #include "unOLE2.rh"
 #include "unOLE2.rh2"
 #include "lang\lang.rh"
+#include "arcprobe.h"
 
 #define BUF_SIZE 65536
 
@@ -330,6 +331,13 @@ BOOL OpenStorage(const char* fileName, LPSTORAGE* ppStorage, LPMALLOC* ppIMalloc
     }
     return TRUE;
 } /* OpenStorage */
+
+BOOL CPluginInterfaceForArchiver::CanOpenArchive(const char* fileName)
+{
+    CALL_STACK_MESSAGE2("CPluginInterfaceForArchiver::CanOpenArchive(%s)", fileName);
+    static const unsigned char kOle[] = {0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1};
+    return ArchiveProbeScan(fileName, kOle, sizeof(kOle), 8, 0);
+}
 
 BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* salamander, const char* fileName,
                                               CSalamanderDirectoryAbstract* dir,

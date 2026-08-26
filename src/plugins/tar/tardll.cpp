@@ -12,6 +12,7 @@
 #include "tar.rh"
 #include "tar.rh2"
 #include "lang\lang.rh"
+#include "arcprobe.h"
 
 // TODO: resolve case sensitivity
 // TODO: handle multiple files with the same name in one archive
@@ -267,6 +268,35 @@ CPluginInterface::GetInterfaceForViewer()
 //
 // ****************************************************************************
 //
+
+BOOL CPluginInterfaceForArchiver::CanOpenArchive(const char* fileName)
+{
+    CALL_STACK_MESSAGE2("CPluginInterfaceForArchiver::CanOpenArchive(%s)", fileName);
+    static const unsigned char kGzip[] = {0x1F, 0x8B};
+    static const unsigned char kBzip[] = {0x42, 0x5A, 0x68}; // BZh
+    static const unsigned char kCompress[] = {0x1F, 0x9D};
+    static const unsigned char kRpm[] = {0xED, 0xAB, 0xEE, 0xDB};
+    static const unsigned char kAr[] = {'!', '<', 'a', 'r', 'c', 'h', '>'};
+    static const unsigned char kUstar[] = {'u', 's', 't', 'a', 'r'};
+    static const unsigned char kCpioBin[] = {0xC7, 0x71};
+    static const unsigned char kCpioAsc[] = {'0', '7', '0', '7', '0'};
+    if (ArchiveProbeScan(fileName, kGzip, sizeof(kGzip), 4, 0) ||
+        ArchiveProbeScan(fileName, kBzip, sizeof(kBzip), 4, 0) ||
+        ArchiveProbeScan(fileName, kCompress, sizeof(kCompress), 4, 0) ||
+        ArchiveProbeScan(fileName, kRpm, sizeof(kRpm), 8, 0) ||
+        ArchiveProbeScan(fileName, kAr, sizeof(kAr), 8, 0) ||
+        ArchiveProbeScan(fileName, kCpioBin, sizeof(kCpioBin), 8, 0) ||
+        ArchiveProbeScan(fileName, kCpioAsc, sizeof(kCpioAsc), 8, 0))
+    {
+        return TRUE;
+    }
+    HANDLE file = ArchiveProbeOpenRead(fileName);
+    if (file == INVALID_HANDLE_VALUE)
+        return FALSE;
+    BOOL isTar = ArchiveProbeMatchAt(file, 257, kUstar, sizeof(kUstar));
+    CloseHandle(file);
+    return isTar;
+}
 
 BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* salamander,
                                               const char* fileName,

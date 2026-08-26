@@ -11,6 +11,7 @@
 #include "unchm.rh"
 #include "unchm.rh2"
 #include "lang\lang.rh"
+#include "arcprobe.h"
 
 // ****************************************************************************
 
@@ -244,6 +245,13 @@ BOOL CPluginInterfaceForArchiver::Init()
     CALL_STACK_MESSAGE1("CPluginInterfaceForArchiver::Init()");
 
     return TRUE;
+}
+
+BOOL CPluginInterfaceForArchiver::CanOpenArchive(const char* fileName)
+{
+    CALL_STACK_MESSAGE2("CPluginInterfaceForArchiver::CanOpenArchive(%s)", fileName);
+    static const unsigned char kItsf[] = {'I', 'T', 'S', 'F'};
+    return ArchiveProbeScan(fileName, kItsf, sizeof(kItsf), 8, 0);
 }
 
 BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* salamander,

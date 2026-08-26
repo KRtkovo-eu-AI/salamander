@@ -209,7 +209,9 @@ int ConfigVersion = 0;
 // 4: added registration for all formats handled by the bundled 7-Zip engine.
 // 5: split panel archiver registration per extension so associations are not grouped under another plugin.
 // 6: force registration of formats added after the original .7z-only plugin.
-#define CURRENT_CONFIG_VERSION 6
+// 7: remove document-like Office/OpenDocument/EPUB/XPI types from panel
+//    archiver and custom unpacker lists so Enter opens the associated app.
+#define CURRENT_CONFIG_VERSION 7
 const char* CONFIG_VERSION = "Version";
 
 CConfig Config;
@@ -694,18 +696,25 @@ void CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamand
     //  salamander->AddViewer("*.7z", FALSE); // default (plugin install), otherwise Salamander ignores it
 
     static const char* const panelArchiverExtensionGroups[] = {
-        "7z;xz;txz;bz2;bzip2;tbz2;tbz;gz;gzip;tgz;tpz;tar;ova;zip;z01;zipx;jar;xpi;odt;ods;docx;xlsx;epub;wim;swm;esd",
+        "7z;xz;txz;bz2;bzip2;tbz2;tbz;gz;gzip;tgz;tpz;tar;ova;zip;z01;zipx;jar;wim;swm;esd",
         "apm;apfs;ar;a;deb;udeb;lib;arj;cab;chm;chi;chq;chw;hxs;hxi;hxr;hxq;hxw;lit;cpio;cramfs;dmg;img;ext;ext2;ext3;ext4;fat;gpt;hfs;hfsx;ihex;iso;lzh;lha;lzma;mbr",
-        "msi;msp;doc;xls;ppt;nsis;ntfs;qcow;qcow2;qcow2c;rar;r00;rpm;squashfs;udf;scap;uefi;uefif;vdi;vhd;vhdx;vmdk;xar;z;taz"};
+        "msi;msp;nsis;ntfs;qcow;qcow2;qcow2c;rar;r00;rpm;squashfs;udf;scap;uefi;uefif;vdi;vhd;vhdx;vmdk;xar;z;taz"};
     for (unsigned i = 0; i < sizeof(panelArchiverExtensionGroups) / sizeof(panelArchiverExtensionGroups[0]); i++)
         salamander->AddPanelArchiver(panelArchiverExtensionGroups[i], TRUE, FALSE);
 
     salamander->AddCustomPacker("7-Zip (Plugin)", "7z", ConfigVersion < 1);
-    salamander->AddCustomUnpacker("7-Zip (Plugin)", "*.7z;*.xz;*.txz;*.bz2;*.bzip2;*.tbz2;*.tbz;*.gz;*.gzip;*.tgz;*.tpz;*.tar;*.ova;*.zip;*.z01;*.zipx;*.jar;*.xpi;*.odt;*.ods;*.docx;*.xlsx;*.epub;*.wim;*.swm;*.esd;*.apm;*.apfs;*.ar;*.a;*.deb;*.udeb;*.lib;*.arj;*.cab;*.chm;*.chi;*.chq;*.chw;*.hxs;*.hxi;*.hxr;*.hxq;*.hxw;*.lit;*.cpio;*.cramfs;*.dmg;*.img;*.ext;*.ext2;*.ext3;*.ext4;*.fat;*.gpt;*.hfs;*.hfsx;*.ihex;*.iso;*.lzh;*.lha;*.lzma;*.mbr;*.msi;*.msp;*.doc;*.xls;*.ppt;*.nsis;*.ntfs;*.qcow;*.qcow2;*.qcow2c;*.rar;*.r00;*.rpm;*.squashfs;*.udf;*.scap;*.uefi;*.uefif;*.vdi;*.vhd;*.vhdx;*.vmdk;*.xar;*.z;*.taz", ConfigVersion < 6);
+    salamander->AddCustomUnpacker("7-Zip (Plugin)", "*.7z;*.xz;*.txz;*.bz2;*.bzip2;*.tbz2;*.tbz;*.gz;*.gzip;*.tgz;*.tpz;*.tar;*.ova;*.zip;*.z01;*.zipx;*.jar;*.wim;*.swm;*.esd;*.apm;*.apfs;*.ar;*.a;*.deb;*.udeb;*.lib;*.arj;*.cab;*.chm;*.chi;*.chq;*.chw;*.hxs;*.hxi;*.hxr;*.hxq;*.hxw;*.lit;*.cpio;*.cramfs;*.dmg;*.img;*.ext;*.ext2;*.ext3;*.ext4;*.fat;*.gpt;*.hfs;*.hfsx;*.ihex;*.iso;*.lzh;*.lha;*.lzma;*.mbr;*.msi;*.msp;*.nsis;*.ntfs;*.qcow;*.qcow2;*.qcow2c;*.rar;*.r00;*.rpm;*.squashfs;*.udf;*.scap;*.uefi;*.uefif;*.vdi;*.vhd;*.vhdx;*.vmdk;*.xar;*.z;*.taz", ConfigVersion < 7);
 
     // UPGRADE SECTION
     // Panel archiver extensions are registered above in bounded groups.  This also upgrades
     // older configurations without creating one overlong registry value or one row per extension.
+    if (ConfigVersion < 7) // remove document-like types from panel archiver associations
+    {
+        static const char* const removedDocumentExts[] = {
+            "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp", "odg", "epub", "xpi"};
+        for (unsigned i = 0; i < sizeof(removedDocumentExts) / sizeof(removedDocumentExts[0]); i++)
+            salamander->ForceRemovePanelArchiver(removedDocumentExts[i]);
+    }
 
     /* used by the export_mnu.py script, which generates salmenu.mnu for the Translator
    keep it synchronized with the calls to salamander->AddMenuItem() below...
@@ -800,6 +809,13 @@ BOOL CPluginInterfaceForArchiver::Init()
     CALL_STACK_MESSAGE1("CPluginInterfaceForArchiver::Init()");
 
     return TRUE;
+}
+
+BOOL CPluginInterfaceForArchiver::CanOpenArchive(const char* fileName)
+{
+    CALL_STACK_MESSAGE2("CPluginInterfaceForArchiver::CanOpenArchive(%s)", fileName);
+    C7zClient client;
+    return client.CanOpenByContent(fileName);
 }
 
 BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* salamander,

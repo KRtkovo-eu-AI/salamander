@@ -922,6 +922,7 @@ void CPlugins::CalculateStateCache()
         if (MainWindow->GetActivePanel()->Is(ptZIPArchive))
         {
             int format = PackerFormatConfig.PackIsArchive(MainWindow->GetActivePanel()->GetZIPArchive());
+            CPluginData* archivePlugin = NULL;
             if (format != 0) // not an error
             {
                 format--;
@@ -933,6 +934,17 @@ void CPlugins::CalculateStateCache()
                     index = PackerFormatConfig.GetPackerIndex(format);
                     if (index < 0)
                         StateCache.ActivePackerIndex = -index - 1; // it's a plugin
+                }
+            }
+            else
+            {
+                archivePlugin = PackGetPluginForArchiveFile(MainWindow->GetActivePanel()->GetZIPArchive(),
+                                                           MainWindow->GetActivePanel());
+                if (archivePlugin != NULL)
+                {
+                    StateCache.ActiveUnpackerIndex = Plugins.GetIndex(archivePlugin->GetPluginInterface()->GetInterface());
+                    if (archivePlugin->SupportPanelEdit)
+                        StateCache.ActivePackerIndex = StateCache.ActiveUnpackerIndex;
                 }
             }
         }
@@ -957,6 +969,7 @@ void CPlugins::CalculateStateCache()
         if (MainWindow->GetNonActivePanel()->Is(ptZIPArchive))
         {
             int format = PackerFormatConfig.PackIsArchive(MainWindow->GetNonActivePanel()->GetZIPArchive());
+            CPluginData* archivePlugin = NULL;
             if (format != 0) // not an error
             {
                 format--;
@@ -968,6 +981,17 @@ void CPlugins::CalculateStateCache()
                     index = PackerFormatConfig.GetPackerIndex(format);
                     if (index < 0)
                         StateCache.NonactivePackerIndex = -index - 1; // it's a plugin
+                }
+            }
+            else
+            {
+                archivePlugin = PackGetPluginForArchiveFile(MainWindow->GetNonActivePanel()->GetZIPArchive(),
+                                                           MainWindow->GetNonActivePanel());
+                if (archivePlugin != NULL)
+                {
+                    StateCache.NonactiveUnpackerIndex = Plugins.GetIndex(archivePlugin->GetPluginInterface()->GetInterface());
+                    if (archivePlugin->SupportPanelEdit)
+                        StateCache.NonactivePackerIndex = StateCache.NonactiveUnpackerIndex;
                 }
             }
         }

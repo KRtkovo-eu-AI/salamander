@@ -12,6 +12,7 @@
 #include "unarj.rh"
 #include "unarj.rh2"
 #include "lang\lang.rh"
+#include "arcprobe.h"
 
 // ****************************************************************************
 
@@ -200,6 +201,13 @@ ARJErrorProc(int error, BOOL flags)
 {
     CALL_STACK_MESSAGE_NONE
     return InterfaceForArchiver.ErrorProc(error, flags);
+}
+
+BOOL CPluginInterfaceForArchiver::CanOpenArchive(const char* fileName)
+{
+    CALL_STACK_MESSAGE2("CPluginInterfaceForArchiver::CanOpenArchive(%s)", fileName);
+    static const unsigned char kArj[] = {0x60, 0xEA};
+    return ArchiveProbeScan(fileName, kArj, sizeof(kArj), 1024 * 1024, 0);
 }
 
 BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* salamander, const char* fileName,

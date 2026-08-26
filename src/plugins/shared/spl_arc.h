@@ -182,6 +182,13 @@ public:
     // POZNAMKA: behem provadeni PrematureDeleteTmpCopy je zajisteno, ze nedojde
     // k volani DeleteTmpCopy
     virtual BOOL WINAPI PrematureDeleteTmpCopy(HWND parent, int copiesCount) = 0;
+
+    // Quiet, extension-agnostic probe used by Ctrl+PageDown to enter a file as an archive.
+    // Must not show UI (no error boxes, no password dialogs) and should only read a header
+    // or footer. Return TRUE if this plugin can later ListArchive the file (including
+    // encrypted archives of this format). Appended after PrematureDeleteTmpCopy for
+    // binary compatibility with older plugins.
+    virtual BOOL WINAPI CanOpenArchive(const char* fileName) = 0;
 };
 
 #ifdef _MSC_VER

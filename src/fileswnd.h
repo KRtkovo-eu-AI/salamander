@@ -1246,7 +1246,8 @@ public:
     BOOL ChangePathToArchive(const char* archive, const char* archivePath, int suggestedTopIndex = -1,
                              const char* suggestedFocusName = NULL, BOOL forceUpdate = FALSE,
                              BOOL* noChange = NULL, BOOL refreshListBox = TRUE, int* failReason = NULL,
-                             BOOL isRefresh = FALSE, BOOL canFocusFileName = FALSE, BOOL isHistory = FALSE);
+                             BOOL isRefresh = FALSE, BOOL canFocusFileName = FALSE, BOOL isHistory = FALSE,
+                             CPluginData* forcedPlugin = NULL);
     // change path to the plug-in FS;
     // if suggestedTopIndex != -1 the top index will be set;
     // if suggestedFocusName != NULL and present in the new list, it will be focused;
@@ -1678,6 +1679,7 @@ public:
 
     void CtrlPageDnOrEnter(WPARAM key);
     void CtrlPageUpOrBackspace();
+    void TryEnterFileAsArchive(int index);
 
     // attempts to open the focused file as a shortcut, extract its target
     // and focus that target in the panel 'panel'

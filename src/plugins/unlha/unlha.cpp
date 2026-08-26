@@ -8,6 +8,7 @@
 #include "unlha.rh"
 #include "unlha.rh2"
 #include "lang\lang.rh"
+#include "arcprobe.h"
 
 // ****************************************************************************
 
@@ -135,6 +136,37 @@ CPluginInterface::GetInterfaceForArchiver()
 //
 // CPluginInterfaceForArchiver
 //
+
+BOOL CPluginInterfaceForArchiver::CanOpenArchive(const char* fileName)
+{
+    CALL_STACK_MESSAGE2("CPluginInterfaceForArchiver::CanOpenArchive(%s)", fileName);
+    HANDLE file = ArchiveProbeOpenRead(fileName);
+    if (file == INVALID_HANDLE_VALUE)
+        return FALSE;
+    const DWORD toRead = 65536;
+    unsigned char* buf = (unsigned char*)malloc(toRead);
+    BOOL found = FALSE;
+    if (buf != NULL)
+    {
+        DWORD read = 0;
+        if (ReadFile(file, buf, toRead, &read, NULL) && read >= 7)
+        {
+            DWORD last = read - 5;
+            DWORD i;
+            for (i = 2; i < last; i++)
+            {
+                if (buf[i] == '-' && buf[i + 1] == 'l' && buf[i + 4] == '-')
+                {
+                    found = TRUE;
+                    break;
+                }
+            }
+        }
+        free(buf);
+    }
+    CloseHandle(file);
+    return found;
+}
 
 BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* salamander, const char* fileName,
                                               CSalamanderDirectoryAbstract* dir,

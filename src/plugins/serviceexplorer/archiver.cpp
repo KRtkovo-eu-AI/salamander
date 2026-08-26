@@ -1,6 +1,6 @@
 #include "precomp.h"
 
-// spolecny interface pro pluginova data archivatoru
+// shared interface for archiver plugin data
 CArcPluginDataInterface ArcPluginDataInterface;
 
 // ****************************************************************************
@@ -18,6 +18,11 @@ void WINAPI CArcPluginDataInterface::ColumnFixedWidthShouldChange(BOOL leftPanel
 void WINAPI CArcPluginDataInterface::ColumnWidthWasChanged(BOOL leftPanel, const CColumn *column, int newWidth)
 {
 
+}
+
+BOOL WINAPI CPluginInterfaceForArchiver::CanOpenArchive(const char* fileName)
+{
+    return FALSE;
 }
 
 BOOL WINAPI CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract *salamander, const char *fileName,

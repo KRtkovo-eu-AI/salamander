@@ -12,6 +12,7 @@
 #include "stswnd.h"
 #include "filesbox.h"
 #include "zip.h"
+#include "pack.h"
 #include "shellib.h"
 #include "toolbar.h"
 #include "common/widepath.h"
@@ -309,14 +310,65 @@ void CFilesWindow::CtrlPageDnOrEnter(WPARAM key)
         else
         {
             int index = GetCaretIndex();
-            if (key != VK_NEXT || index >= 0 && index < Dirs->Count || // Enter or directory or
+            if (key == VK_NEXT && Is(ptDisk) &&
                 index >= Dirs->Count && index < Files->Count + Dirs->Count &&
-                    (Files->At(index - Dirs->Count).Archive || IsNethoodFS())) // an archive file or a file in the Nethood FS (it has servers listed as files and Entire Network as a directory, so the panel is sorted correctly -> Ctrl+PageDown must also open servers and their shares, because they are "directories")
+                !Files->At(index - Dirs->Count).Archive && !IsNethoodFS())
+            {
+                TryEnterFileAsArchive(index);
+            }
+            else if (key != VK_NEXT || index >= 0 && index < Dirs->Count || // Enter or directory or
+                     index >= Dirs->Count && index < Files->Count + Dirs->Count &&
+                         (Files->At(index - Dirs->Count).Archive || IsNethoodFS())) // an archive file or a file in the Nethood FS (it has servers listed as files and Entire Network as a directory, so the panel is sorted correctly -> Ctrl+PageDown must also open servers and their shares, because they are "directories")
             {
                 Execute(index);
             }
         }
     }
+}
+
+void CFilesWindow::TryEnterFileAsArchive(int index)
+{
+    CALL_STACK_MESSAGE2("CFilesWindow::TryEnterFileAsArchive(%d)", index);
+    if (!Is(ptDisk) || index < Dirs->Count || index >= Files->Count + Dirs->Count)
+        return;
+
+    BeginStopRefresh();
+    if (CheckPath(FALSE) != ERROR_SUCCESS)
+    {
+        RefreshDirectory();
+        EndStopRefresh();
+        return;
+    }
+
+    CFileData* file = &Files->At(index - Dirs->Count);
+    char fullName[SAL_MAX_PATH];
+    lstrcpyn(fullName, GetPath(), SAL_MAX_PATH);
+    if (!SalPathAppend(fullName, file->Name, SAL_MAX_PATH))
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORCHANGINGDIR),
+                      MB_OK | MB_ICONEXCLAMATION);
+        EndStopRefresh();
+        return;
+    }
+
+    CPluginData* plugin = PackProbeArchivePlugin(fullName, this);
+    if (plugin == NULL)
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_FILEISNOTARCHIVE), LoadStr(IDS_ERRORCHANGINGDIR),
+                      MB_OK | MB_ICONEXCLAMATION);
+        EndStopRefresh();
+        return;
+    }
+
+    std::string savedPath(GetPath());
+    int topIndex = ListBox->GetTopIndex();
+    BOOL noChange;
+    if (ChangePathToArchive(fullName, "", -1, NULL, FALSE, &noChange, TRUE, NULL, FALSE, FALSE, FALSE, plugin))
+        TopIndexMem.Push(savedPath.c_str(), topIndex);
+    else if (!noChange)
+        TopIndexMem.Clear();
+    UpdateWindow(HWindow);
+    EndStopRefresh();
 }
 
 void CFilesWindow::CtrlPageUpOrBackspace()

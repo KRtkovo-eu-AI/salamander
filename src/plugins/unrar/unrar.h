@@ -180,6 +180,7 @@ public:
     virtual BOOL WINAPI GetCacheInfo(char* tempPath, BOOL* ownDelete, BOOL* cacheCopies) { return FALSE; }
     virtual void WINAPI DeleteTmpCopy(const char* fileName, BOOL firstFile) {}
     virtual BOOL WINAPI PrematureDeleteTmpCopy(HWND parent, int copiesCount) { return FALSE; }
+    virtual BOOL WINAPI CanOpenArchive(const char* fileName);
 
     BOOL Error(int error, ...);
 

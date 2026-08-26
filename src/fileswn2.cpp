@@ -3164,7 +3164,7 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
                                        int suggestedTopIndex, const char* suggestedFocusName,
                                        BOOL forceUpdate, BOOL* noChange, BOOL refreshListBox,
                                        int* failReason, BOOL isRefresh, BOOL canFocusFileName,
-                                       BOOL isHistory)
+                                       BOOL isHistory, CPluginData* forcedPlugin)
 {
     if (!isRefresh && !ConfirmUnlockTabForPathChange())
         return FALSE;
@@ -3288,7 +3288,14 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
                 goto ERROR_1;
             }
 
-            if (PackerFormatConfig.PackIsArchive(archive)) // is it an archive?
+            CPluginData* pluginForOpen = forcedPlugin;
+            if (pluginForOpen == NULL && PackerFormatConfig.PackIsArchive(archive) == 0 &&
+                Is(ptZIPArchive) && StrICmp(GetZIPArchive(), archive) == 0)
+            {
+                pluginForOpen = GetPluginDataForPluginIface();
+            }
+
+            if (PackerFormatConfig.PackIsArchive(archive) || pluginForOpen != NULL) // is it an archive?
             {
                 // retrieve file info (does it exist?, size, date & time)
                 DWORD err2 = NO_ERROR;
@@ -3323,7 +3330,7 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
                 CPluginData* plugin = NULL;
                 if (!nullFile)
                     CreateSafeWaitWindow(LoadStr(IDS_LISTINGARCHIVE), NULL, 2000, FALSE, MainWindow->HWindow);
-                if (nullFile || PackList(this, archive, *newArchiveDir, pluginData, plugin))
+                if (nullFile || PackList(this, archive, *newArchiveDir, pluginData, plugin, pluginForOpen))
                 {
                     // free the cache so it does not linger in the object
                     newArchiveDir->FreeAddCache();

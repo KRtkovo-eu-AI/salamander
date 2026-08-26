@@ -14,6 +14,7 @@
 #include "spl_base.h"
 #include "spl_gen.h"
 #include "spl_arc.h"
+#include "arcprobe.h"
 #include "spl_menu.h"
 #include "spl_vers.h"
 #include "dbg.h"
@@ -1040,6 +1041,20 @@ BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* 
     }
     pluginData = new CPluginDataInterface();
     return TRUE;
+}
+
+BOOL CPluginInterfaceForArchiver::CanOpenArchive(const char* fileName)
+{
+    CALL_STACK_MESSAGE2("CPluginInterfaceForArchiver::CanOpenArchive(%s)", fileName);
+    static const unsigned char kLocal[] = {0x50, 0x4B, 0x03, 0x04};
+    static const unsigned char kEocd[] = {0x50, 0x4B, 0x05, 0x06};
+    static const unsigned char kZip64[] = {0x50, 0x4B, 0x06, 0x06};
+    if (ArchiveProbeScan(fileName, kLocal, sizeof(kLocal), 8, 0))
+        return TRUE;
+    // EOCD lives in the last 64 KB + 22 bytes; also covers ZIP SFX stubs.
+    if (ArchiveProbeScan(fileName, kEocd, sizeof(kEocd), 0, 65557))
+        return TRUE;
+    return ArchiveProbeScan(fileName, kZip64, sizeof(kZip64), 0, 65557);
 }
 
 BOOL CPluginInterfaceForArchiver::UnpackArchive(CSalamanderForOperationsAbstract* salamander, const char* fileName,

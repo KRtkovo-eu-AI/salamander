@@ -11,6 +11,7 @@
 #include "open.h"
 #include "7zthreads.h"
 #include "FStreams.h"
+#include "arcprobe.h"
 
 #include "7zip.rh"
 #include "7zip.rh2"
@@ -158,8 +159,8 @@ BOOL C7zClient::GetArchiveFormat(const char* fileName, GUID* classID)
     *classID = CLSID_CFormat7z;
 
     const char* ext = strrchr(fileName, '.');
-    if (ext == NULL || *++ext == 0)
-        return TRUE;
+    if (ext == NULL || *++ext == 0 || _stricmp(ext, "exe") == 0)
+        return FALSE;
 
     TCHAR dllPath[SAL_MAX_PATH];
     if (!GetModuleFileName(DLLInstance, dllPath, SAL_MAX_PATH))
@@ -197,7 +198,7 @@ BOOL C7zClient::GetArchiveFormat(const char* fileName, GUID* classID)
         }
     }
 
-    return TRUE;
+    return FALSE;
 }
 
 BOOL C7zClient::OpenArchiveWithFormat(const char* fileName, const GUID* classID, IInArchive** archive, UString& password, BOOL quiet /* = FALSE*/)
@@ -229,12 +230,41 @@ BOOL C7zClient::OpenArchiveWithFormat(const char* fileName, const GUID* classID,
     return TRUE;
 }
 
+BOOL C7zClient::Find7zFamilySignature(const char* fileName, GUID* classID)
+{
+    static const unsigned char k7z[] = {0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C};
+    static const unsigned char kXz[] = {0xFD, 0x37, 0x7A, 0x58, 0x5A, 0x00};
+    if (ArchiveProbeScan(fileName, k7z, sizeof(k7z), 8 * 1024 * 1024, 0))
+    {
+        *classID = CLSID_CFormat7z;
+        return TRUE;
+    }
+    if (ArchiveProbeScan(fileName, kXz, sizeof(kXz), 8, 0))
+    {
+        static const CLSID CLSID_CFormatXz = {0x23170F69, 0x40C1, 0x278A, {0x10, 0x00, 0x00, 0x01, 0x10, 0x0C, 0x00, 0x00}};
+        *classID = CLSID_CFormatXz;
+        return TRUE;
+    }
+    return FALSE;
+}
+
+BOOL C7zClient::CanOpenByContent(const char* fileName)
+{
+    GUID dummy;
+    return Find7zFamilySignature(fileName, &dummy);
+}
+
 BOOL C7zClient::OpenArchive(const char* fileName, IInArchive** archive, UString& password, BOOL quiet /* = FALSE*/)
 {
     GUID classID;
-    if (!GetArchiveFormat(fileName, &classID))
-        return FALSE;
-    return OpenArchiveWithFormat(fileName, &classID, archive, password, quiet);
+    BOOL haveExtFormat = GetArchiveFormat(fileName, &classID);
+    if (haveExtFormat && OpenArchiveWithFormat(fileName, &classID, archive, password, quiet))
+        return TRUE;
+    if (Find7zFamilySignature(fileName, &classID))
+        return OpenArchiveWithFormat(fileName, &classID, archive, password, quiet);
+    if (!haveExtFormat)
+        return Error(IDS_UNSUPPORTED_ARCHIVE, quiet, fileName);
+    return FALSE;
 }
 
 BOOL C7zClient::ListArchive(const char* fileName, CSalamanderDirectoryAbstract* dir, CPluginDataInterface*& pluginData, UString& password)
