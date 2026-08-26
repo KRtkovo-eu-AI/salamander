@@ -39,41 +39,36 @@ void CStatusBar::SetBase(LPCWSTR text, BOOL updateInIdle)
 {
     CALL_STACK_MESSAGE_NONE
     //  CALL_STACK_MESSAGE2("CStatusBar::SetBase(, %d)", updateInIdle);
+    // Never SendMessage while holding Section: the dialog thread takes the same
+    // lock from OnEnterIdle, so a cross-thread SB_SETTEXT would deadlock and
+    // freeze Stop / WM_CLOSE for the whole search.
+    BOOL paintNow = FALSE;
     Section.Enter();
     lstrcpynW(Text, text, MAX_FULL_KEYNAME + 50);
     BaseLen = (int)wcslen(Text);
-    // do not wait for a repaint
-    if (!Dirty)
-    {
-        if (updateInIdle)
-            UpdateInIdle = TRUE;
-        else
-        {
-            Dirty = TRUE;
-            UpdateText();
-        }
-    }
+    if (updateInIdle)
+        UpdateInIdle = TRUE;
+    else
+        paintNow = TRUE;
     Section.Leave();
+    if (paintNow)
+        UpdateText();
 }
 
 void CStatusBar::Set(LPCWSTR text, BOOL updateInIdle)
 {
     CALL_STACK_MESSAGE_NONE
     //  CALL_STACK_MESSAGE2("CStatusBar::Set(, %d)", updateInIdle);
+    BOOL paintNow = FALSE;
     Section.Enter();
     lstrcpynW(Text + BaseLen, text, MAX_FULL_KEYNAME + 49 - BaseLen);
-    // do not wait for a repaint
-    if (!Dirty)
-    {
-        if (updateInIdle)
-            UpdateInIdle = TRUE;
-        else
-        {
-            Dirty = TRUE;
-            UpdateText();
-        }
-    }
+    if (updateInIdle)
+        UpdateInIdle = TRUE;
+    else
+        paintNow = TRUE;
     Section.Leave();
+    if (paintNow)
+        UpdateText();
 }
 
 void CStatusBar::UpdateParts()
@@ -94,28 +89,29 @@ void CStatusBar::UpdateParts()
 void CStatusBar::UpdateText()
 {
     CALL_STACK_MESSAGE1("CStatusBar::UpdateText()");
-    if (HWindow != NULL)
-        SendMessageW(HWindow, SB_SETTEXTW, 0, (LPARAM)Text);
+    WCHAR text[MAX_FULL_KEYNAME + 50];
+    Section.Enter();
+    lstrcpynW(text, Text, _countof(text));
     Dirty = FALSE;
+    Section.Leave();
+    if (HWindow != NULL)
+        SendMessageW(HWindow, SB_SETTEXTW, 0, (LPARAM)text);
 }
 
 void CStatusBar::OnEnterIdle()
 {
     CALL_STACK_MESSAGE_NONE
     //  CALL_STACK_MESSAGE1("CStatusBar::OnEnterIdle()");
+    BOOL paintNow = FALSE;
     Section.Enter();
-    // should we perform the update while idle?
     if (UpdateInIdle)
     {
         UpdateInIdle = FALSE;
-        // do not wait for a repaint
-        if (!Dirty)
-        {
-            Dirty = TRUE;
-            UpdateText();
-        }
+        paintNow = TRUE;
     }
     Section.Leave();
+    if (paintNow)
+        UpdateText();
 }
 
 LRESULT
@@ -1265,11 +1261,11 @@ BOOL CFindThread::ScanKeyAux(int root, LPWSTR key, BOOL& skip, BOOL& skipAllErro
     CALL_STACK_MESSAGE_NONE
     //  CALL_STACK_MESSAGE4("CFindThread::ScanKeyAux(%d, , %d, %d, , )", root, skip,
     //                           skipAllErrors);
-    // status text
+    // status text: never SendMessage from this thread; the dialog paints on idle/timer
     if ((int)(GetTickCount() - NextStatusUpdate) > 0)
     {
-        FindDialog->StatusBar->Set(key);
-        NextStatusUpdate = GetTickCount() + 1;
+        FindDialog->StatusBar->Set(key, TRUE);
+        NextStatusUpdate = GetTickCount() + 100;
     }
 
     // check for cancellation by the user
@@ -1348,9 +1344,6 @@ BOOL CFindThread::ScanKeyAux(int root, LPWSTR key, BOOL& skip, BOOL& skipAllErro
                         RegCloseKey(hKey);
                         return Error(IDS_LOWMEM);
                     }
-                    // every 100 added items ask the list view to repaint
-                    if (FindDialog->FoundVisibleCount + 100 < FindDialog->List->GetCount())
-                        PostMessage(FindDialog->HWindow, WM_USER_ADDFILE, 0, 0);
                 }
             }
             else
@@ -1430,9 +1423,6 @@ BOOL CFindThread::ScanKeyAux(int root, LPWSTR key, BOOL& skip, BOOL& skipAllErro
                     RegCloseKey(hKey);
                     return Error(IDS_LOWMEM);
                 }
-                // every 100 added items ask the list view to repaint
-                if (FindDialog->FoundVisibleCount + 100 < FindDialog->List->GetCount())
-                    PostMessage(FindDialog->HWindow, WM_USER_ADDFILE, 0, 0);
             }
 
             if (IncludeSubkeys)
@@ -1503,7 +1493,7 @@ BOOL CFindThread::ScanKey(int root, LPWSTR key, BOOL& skip, BOOL& skipAllErrors,
     //                      skipAllErrors);
     WCHAR base[50 + MAX_PREDEF_KEYNAME];
     SalPrintfW(base, 50, LoadStrW(IDS_SEARCHING), PredefinedHKeys[root].KeyName);
-    FindDialog->StatusBar->SetBase(base);
+    FindDialog->StatusBar->SetBase(base, TRUE);
     return ScanKeyAux(root, key, skip, skipAllErrors, nameBuffer, stack);
 }
 

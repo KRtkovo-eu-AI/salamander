@@ -262,11 +262,12 @@ void CFindDialog::UpdateListViewItems()
         // tell the list view the new item count
         ListView_SetItemCountEx(List->HWindow, count, LVSICF_NOINVALIDATEALL | LVSICF_NOSCROLL);
         // if this is the first added data, select the first item in the selection
-        // and set the focus to the list view
+        // and set the focus to the list view (but not while searching: keep Stop focused)
         if (FoundVisibleCount == 0 && count > 0)
         {
             ListView_SetItemState(List->HWindow, 0,
-                                  LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED) if (GetFocus() != List->HWindow)
+                                  LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
+            if (!SearchInProgress && GetFocus() != List->HWindow)
                 SendMessage(HWindow, WM_NEXTDLGCTL, (WPARAM)List->HWindow, TRUE);
         }
 
@@ -410,7 +411,7 @@ void CFindDialog::StartSearch()
         SearchInProgress = TRUE;
         Stopped = FALSE;
         SetWindowText(GetDlgItem(HWindow, IDOK), LoadStr(IDS_STOP));
-        SetTimer(HWindow, IDT_REFRESH_LISTVIEW, 500, NULL);
+        SetTimer(HWindow, IDT_REFRESH_LISTVIEW, 100, NULL);
         //UpdateStatusText();
         EnableControls(FALSE);
     }
@@ -991,6 +992,7 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         }
         }
+        break; // do not fall through: WM_COMMAND lParam is a control HWND, not NMHDR
     }
 
     case WM_NOTIFY:
@@ -1146,9 +1148,12 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_TIMER:
     {
-        if ((int)(GetTickCount() - NextUpdate) > 0 && List->GetCount() > FoundVisibleCount)
+        if (wParam == IDT_REFRESH_LISTVIEW)
         {
-            UpdateListViewItems();
+            if ((int)(GetTickCount() - NextUpdate) > 0 && List->GetCount() > FoundVisibleCount)
+                UpdateListViewItems();
+            if (SearchInProgress && StatusBar != NULL)
+                StatusBar->OnEnterIdle();
         }
         return TRUE;
     }
