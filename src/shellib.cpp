@@ -408,7 +408,7 @@ BOOL IsSimpleSelection(IDataObject* pDataObject, CDragDropOperData* namesList)
     if (pDataObject != NULL && !IsFakeDataObject(pDataObject, NULL, NULL, 0)) // data from an archive or plug-in filesystem are not accepted here
     {
         IEnumFORMATETC* enumFormat;
-        if (pDataObject->EnumFormatEtc(DATADIR_GET, &enumFormat) == S_OK)
+        if (SafeIDataObjectEnumFormatEtc(pDataObject, DATADIR_GET, &enumFormat) == S_OK)
         {
             BOOL cfHDrop = FALSE;
             BOOL cfFileMapA = FALSE;
@@ -470,7 +470,7 @@ BOOL IsSimpleSelection(IDataObject* pDataObject, CDragDropOperData* namesList)
                 stgMedium.hGlobal = NULL;
                 stgMedium.pUnkForRelease = NULL;
 
-                if (pDataObject->GetData(&formatEtc2, &stgMedium) == S_OK)
+                if (SafeIDataObjectGetData(pDataObject, &formatEtc2, &stgMedium) == S_OK)
                 {
                     if (stgMedium.tymed == TYMED_HGLOBAL && stgMedium.hGlobal != NULL)
                     {
@@ -1261,7 +1261,7 @@ STDMETHODIMP CImpDropTarget::Drop(IDataObject* pDataObject, DWORD grfKeyState,
             pDataObject != NULL && DoCopyMove != NULL)
         { // are we unable to perform the operation ourselves?
             IEnumFORMATETC* enumFormat;
-            if (pDataObject->EnumFormatEtc(DATADIR_GET, &enumFormat) == S_OK)
+            if (SafeIDataObjectEnumFormatEtc(pDataObject, DATADIR_GET, &enumFormat) == S_OK)
             {
                 BOOL cfHDrop = FALSE;
                 BOOL cfFileMapA = FALSE;

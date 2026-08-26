@@ -680,10 +680,16 @@ void CRendererWindow::CreateGraphics()
 {
     LOGFONT lf;
     if (CfgUseCustomFont)
+    {
         lf = CfgLogFont;
-    else
+        // Configuration fonts are stored at the primary/system DPI.
+        WinLibDPIScaleSystemLogFont(HWindow, &lf);
+    }
+    else if (!WinLibDPIGetIconTitleLogFont(HWindow, &lf))
+    {
         GetDefaultLogFont(&lf);
-    WinLibDPIScaleLogFont(HWindow, &lf);
+        WinLibDPIScaleSystemLogFont(HWindow, &lf);
+    }
     HFont = CreateFontIndirect(&lf);
 
     HDC hDC = GetDC(NULL);

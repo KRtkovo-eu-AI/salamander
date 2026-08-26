@@ -237,6 +237,48 @@ def main() -> None:
         raise AssertionError("File Comparator must leave native menu measurement to Windows")
     require(filecomp_main, 'SetProp(HWindow, _T("OpenSalamander.UIFont"), EnvFont)',
             "dark native menu-bar UI font handoff in File Comparator")
+    filecomp_view = (ROOT / "src/plugins/filecomp/viewwnd.cpp").read_text(encoding="utf-8")
+    require(filecomp_view, "WinLibDPIScaleSystemLogFont(HWindow, &CurrentLogFont)",
+            "File Compare view fonts scale from system DPI, not 96 DPI")
+    filecomp_general = (ROOT / "src/plugins/filecomp/dialogs4.cpp").read_text(encoding="utf-8")
+    require(filecomp_general, "SendMessageW(whiteSpace, CB_ADDSTRING",
+            "File Compare whitespace combo uses Unicode items")
+    require_absent(filecomp_general, '"%-3d - %c", i, (char)i',
+                   "File Compare whitespace combo still inserts raw 8-bit code points")
+    filecomp_xunicode = (ROOT / "src/plugins/filecomp/xunicode.cpp").read_text(encoding="utf-8")
+    filecomp_xunicode_h = (ROOT / "src/plugins/filecomp/xunicode.h").read_text(encoding="utf-8")
+    filecomp_textio = (ROOT / "src/plugins/filecomp/textio.cpp").read_text(encoding="utf-8")
+    require(filecomp_xunicode, "UINT FileCompLegacyAnsiCodePage()",
+            "File Compare keeps a legacy ANSI page when the process ACP is UTF-8")
+    require(filecomp_xunicode, "LOCALE_IDEFAULTANSICODEPAGE",
+            "File Compare legacy ANSI page comes from the system locale, not CP_ACP")
+    convert_ansi8 = function_slice(
+        filecomp_xunicode,
+        "TCharSpecific<wchar_t>::ConvertANSI8Char(char c)",
+        "BOOL ExtTextOutX(")
+    require(convert_ansi8, "FileCompLegacyAnsiCodePage()",
+            "whitespace glyph conversion uses the legacy ANSI page")
+    require_absent(convert_ansi8, "CP_ACP",
+                   "whitespace glyph conversion still decodes 0xB7 through UTF-8 CP_ACP")
+    require(convert_ansi8, "(wchar_t)(unsigned char)c",
+            "whitespace glyph conversion falls back to Latin-1 so 0xB7 stays U+00B7")
+    require_absent(filecomp_xunicode_h, "ExtTextOutA",
+                   "8-bit File Compare painting still calls ExtTextOutA from the header")
+    require(filecomp_xunicode, "return ExtTextOutW(hdc, X, Y, fuOptions, lprc, wide.c_str()",
+            "8-bit File Compare text is drawn as UTF-16 when the process ACP is UTF-8")
+    require(filecomp_xunicode, "return PolyTextOutW(hdc, &wide[0], cStrings)",
+            "8-bit File Compare polytext is drawn as UTF-16 when the process ACP is UTF-8")
+    require(filecomp_textio, "FileCompLegacyAnsiCodePage()",
+            "ASCII8-to-Unicode File Compare conversion uses the legacy ANSI page")
+    require_absent(filecomp_textio, "MultiByteToWideChar(CP_ACP",
+                   "ASCII8-to-Unicode File Compare conversion still uses UTF-8 CP_ACP")
+    dbviewer_renderer = (ROOT / "src/plugins/dbviewer/renmain.cpp").read_text(encoding="utf-8")
+    require(dbviewer_renderer, "WinLibDPIScaleSystemLogFont(HWindow, &lf)",
+            "Database Viewer custom fonts scale from system DPI, not 96 DPI")
+    require_absent(dbviewer_renderer, "WinLibDPIScaleLogFont(HWindow, &lf)",
+                   "Database Viewer still scales configuration fonts from 96 DPI")
+    require(dbviewer_renderer, "WinLibDPIGetIconTitleLogFont(HWindow, &lf)",
+            "Database Viewer default font is requested at the window DPI")
     native_viewer = (ROOT / "src/plugins/shared/webviewviewer/native_viewer.cpp").read_text(encoding="utf-8")
     virtual_html = (ROOT / "src/plugins/shared/webviewviewer/prism/viewer/virtual-viewer.html").read_text(encoding="utf-8")
     virtual_viewer = (ROOT / "src/plugins/shared/webviewviewer/prism/viewer/virtual-viewer.js").read_text(encoding="utf-8")

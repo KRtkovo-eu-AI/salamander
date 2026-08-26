@@ -740,7 +740,7 @@ void CTextFileReader::ReadASCII8(wchar_t*& buffer, size_t& size, const int& canc
     if (Size > 0)
     {
         // estimage length
-        ret = MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, Buffer, int(Size), NULL, 0);
+        ret = MultiByteToWideChar(FileCompLegacyAnsiCodePage(), MB_PRECOMPOSED, Buffer, int(Size), NULL, 0);
         if (ret == 0)
             CFilecompWorker::CException::Raise(IDS_ERRORUNICODE, GetLastError(), Name);
     }
@@ -758,7 +758,7 @@ void CTextFileReader::ReadASCII8(wchar_t*& buffer, size_t& size, const int& canc
     if (size > 0)
     {
         // do the conversion
-        ret = MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, Buffer, int(Size), buffer, int(size));
+        ret = MultiByteToWideChar(FileCompLegacyAnsiCodePage(), MB_PRECOMPOSED, Buffer, int(Size), buffer, int(size));
         if (ret == 0)
             CFilecompWorker::CException::Raise(IDS_ERRORUNICODE, GetLastError(), Name);
     }

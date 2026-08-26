@@ -44,6 +44,10 @@ public:
     static bool IsValidChar(wchar_t c) { return c != 0xFFFE && c != 0xFFFF && (c < 0xD800 || c > 0xDFFF); }
 };
 
+// salamand.exe declares UTF-8 activeCodePage, so GetACP()/CP_ACP are 65001.
+// 8-bit File Compare text and the whitespace glyph (0xB7) still use a legacy ANSI page.
+UINT FileCompLegacyAnsiCodePage();
+
 inline const char*
 MemChr(const char* buf, char c, size_t count)
 {
@@ -78,11 +82,7 @@ inline int IsWordX(CChar c)
     return (TCharSpecific<CChar>::CType[TCharSpecific<CChar>::Unsigned(c)] & (C1_ALPHA | C1_DIGIT)) || c == '_';
 }
 
-inline BOOL
-ExtTextOutX(HDC hdc, int X, int Y, UINT fuOptions, CONST RECT* lprc, LPCSTR lpString, UINT cbCount, CONST INT* lpDx)
-{
-    return ExtTextOutA(hdc, X, Y, fuOptions, lprc, lpString, cbCount, lpDx);
-}
+BOOL ExtTextOutX(HDC hdc, int X, int Y, UINT fuOptions, CONST RECT* lprc, LPCSTR lpString, UINT cbCount, CONST INT* lpDx);
 
 inline BOOL
 ExtTextOutX(HDC hdc, int X, int Y, UINT fuOptions, CONST RECT* lprc, LPCWSTR lpString, UINT cbCount, CONST INT* lpDx)
@@ -90,12 +90,8 @@ ExtTextOutX(HDC hdc, int X, int Y, UINT fuOptions, CONST RECT* lprc, LPCWSTR lpS
     return ExtTextOutW(hdc, X, Y, fuOptions, lprc, lpString, cbCount, lpDx);
 }
 
-inline int
-DrawTextExX(HDC hdc, LPSTR lpchText, int cchText, LPRECT lprc, UINT dwDTFormat,
-            LPDRAWTEXTPARAMS lpDTParams)
-{
-    return DrawTextExA(hdc, lpchText, cchText, lprc, dwDTFormat, lpDTParams);
-}
+int DrawTextExX(HDC hdc, LPSTR lpchText, int cchText, LPRECT lprc, UINT dwDTFormat,
+                LPDRAWTEXTPARAMS lpDTParams);
 
 inline int
 DrawTextExX(HDC hdc, LPWSTR lpchText, int cchText, LPRECT lprc, UINT dwDTFormat,
@@ -104,11 +100,7 @@ DrawTextExX(HDC hdc, LPWSTR lpchText, int cchText, LPRECT lprc, UINT dwDTFormat,
     return DrawTextExW(hdc, lpchText, cchText, lprc, dwDTFormat, lpDTParams);
 }
 
-inline BOOL
-PolyTextOutX(HDC hdc, CONST POLYTEXTA* pptxt, int cStrings)
-{
-    return PolyTextOutA(hdc, pptxt, cStrings);
-}
+BOOL PolyTextOutX(HDC hdc, CONST POLYTEXTA* pptxt, int cStrings);
 
 inline BOOL
 PolyTextOutX(HDC hdc, CONST POLYTEXTW* pptxt, int cStrings)

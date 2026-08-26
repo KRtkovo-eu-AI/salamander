@@ -227,7 +227,7 @@ BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pas
         IEnumFORMATETC* enumFormat;
         UINT cfIdList = RegisterClipboardFormat(CFSTR_SHELLIDLIST);
         UINT cfFileContent = RegisterClipboardFormat(CFSTR_FILECONTENTS);
-        if (dataObj->EnumFormatEtc(DATADIR_GET, &enumFormat) == S_OK)
+        if (SafeIDataObjectEnumFormatEtc(dataObj, DATADIR_GET, &enumFormat) == S_OK)
         {
             FORMATETC formatEtc;
             enumFormat->Reset();

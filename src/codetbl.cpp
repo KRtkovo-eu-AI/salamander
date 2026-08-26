@@ -1163,6 +1163,17 @@ void CCodeTables::RecognizeFileType(const char* pattern, int patternLen, BOOL fo
     }
     else
         TRACE_E(LOW_MEMORY);
+
+    // ISO-8859 tables reserve 0x80..0x9F as C1 controls. Those same bytes are letters
+    // in CP1250/CP1251/CP1252, so a Central-European file is often scored as ISO-8859-1.
+    // Prefer the Windows code page in that case so File Comparator / Viewer do not
+    // invent an ISO-8859-1 to CP1250 conversion.
+    if (codePage != NULL && codePage[0] != 0 &&
+        ShouldPreferWindowsCodePageText(pattern, patternLen,
+                                        Table->WinCodePageIdentifier, codePage))
+    {
+        strcpy(codePage, Table->WinCodePage);
+    }
 }
 
 int CCodeTables::GetConversionToWinCodePage(const char* codePage)

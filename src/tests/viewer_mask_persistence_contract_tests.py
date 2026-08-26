@@ -86,6 +86,66 @@ def main() -> None:
         raise AssertionError(
             "an invalid viewer record must be closed and skipped without truncating later rows"
         )
+    if "char masks[MAX_GROUPMASK]" not in load_source:
+        raise AssertionError("LoadViewers must load Masks into a MAX_GROUPMASK buffer")
+    if "GetValue(subKey, VIEWERS_MASKS_REG, REG_SZ, masks, MAX_PATH)" in load_source:
+        raise AssertionError("LoadViewers must not cap Masks at MAX_PATH")
+    if "command.data()" not in load_source or "SAL_MAX_PATH" not in load_source:
+        raise AssertionError(
+            "LoadViewers must load viewer command/arguments/init-dir with SAL_MAX_PATH capacity"
+        )
+    if "new (std::nothrow) CViewerMasksItem(" not in load_source:
+        raise AssertionError(
+            "LoadViewers must use nothrow allocation so a NULL check remains valid"
+        )
+
+    load_editors = re.search(
+        r"BOOL LoadEditors\(.*?(?=^BOOL SaveEditors\()",
+        persistence,
+        re.DOTALL | re.MULTILINE,
+    )
+    if load_editors is None:
+        raise AssertionError("LoadEditors was not found")
+    editors_source = load_editors.group(0)
+    if "char masks[MAX_GROUPMASK]" not in editors_source:
+        raise AssertionError("LoadEditors must load Masks into a MAX_GROUPMASK buffer")
+    if "GetValue(subKey, EDITORS_MASKS_REG, REG_SZ, masks, MAX_PATH)" in editors_source:
+        raise AssertionError("LoadEditors must not cap Masks at MAX_PATH")
+    if "new (std::nothrow) CEditorMasksItem(" not in editors_source:
+        raise AssertionError(
+            "LoadEditors must use nothrow allocation so a NULL check remains valid"
+        )
+
+    if "GetValue(hSubKey, SALAMANDER_HLT_ITEM_MASKS, REG_SZ, masks, MAX_GROUPMASK)" not in configuration:
+        raise AssertionError("highlight Masks must load into a MAX_GROUPMASK buffer")
+    if "GetValue(hSubKey, SALAMANDER_HLT_ITEM_MASKS, REG_SZ, masks, MAX_PATH)" in configuration:
+        raise AssertionError("highlight Masks must not cap the registry value at MAX_PATH")
+    if "GetValue(key, PANEL_FILTER, REG_SZ, filter, MAX_GROUPMASK)" not in configuration:
+        raise AssertionError("panel filter masks must load into a MAX_GROUPMASK buffer")
+    for needle, description in (
+        (
+            "GetValue(actKey, CONFIG_RECYCLEMASKS_REG, REG_SZ,\n"
+            "                     Configuration.RecycleMasks.GetWritableMasksString(), MAX_GROUPMASK)",
+            "recycle masks",
+        ),
+        (
+            "GetValue(actKey, CONFIG_CONFIGTIGNOREFILESMASKS_REG, REG_SZ,\n"
+            "                     Configuration.CompareIgnoreFilesMasks.GetWritableMasksString(), MAX_GROUPMASK)",
+            "compare ignore-files masks",
+        ),
+        (
+            "GetValue(actKey, VIEWER_CONFIGTEXTMASK_REG, REG_SZ,\n"
+            "                     Configuration.TextModeMasks.GetWritableMasksString(), MAX_GROUPMASK)",
+            "viewer text-mode masks",
+        ),
+        (
+            "GetValue(actKey, VIEWER_CONFIGHEXMASK_REG, REG_SZ,\n"
+            "                     Configuration.HexModeMasks.GetWritableMasksString(), MAX_GROUPMASK)",
+            "viewer hex-mode masks",
+        ),
+    ):
+        if needle not in configuration:
+            raise AssertionError(f"{description} must load into MAX_GROUPMASK, not MAX_PATH")
 
     print("Viewer mask persistence source-contract tests passed.")
 

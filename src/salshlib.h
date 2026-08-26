@@ -41,6 +41,11 @@ void ReleaseSalShLib();
 // it returns the source filesystem path ('srcFSPathBufSize' is the size of the 'srcFSPathBuf' buffer)
 BOOL IsFakeDataObject(IDataObject* pDataObject, int* fakeType, char* srcFSPathBuf, int srcFSPathBufSize);
 
+// IDataObject calls that must not terminate Salamander when a clipboard proxy AVs.
+HRESULT SafeIDataObjectQueryGetData(IDataObject* pDataObject, FORMATETC* formatEtc);
+HRESULT SafeIDataObjectGetData(IDataObject* pDataObject, FORMATETC* formatEtc, STGMEDIUM* medium);
+HRESULT SafeIDataObjectEnumFormatEtc(IDataObject* pDataObject, DWORD direction, IEnumFORMATETC** ppEnum);
+
 //
 //*****************************************************************************
 // CFakeDragDropDataObject
