@@ -712,6 +712,8 @@ STRINGTABLE
   IDS_SB_CAGE, "Draw rectangular selection outline. Shift and Space for additional options."
   IDS_SB_ZOOM, "Click image to zoom in; click and drag to marquee zoom. Space for marquee drag."
   IDS_SB_HAND, "Click and drag to scroll image in desired direction."
+  IDS_TITLE_3D, "%s (3D) - %s"
+  IDS_SB_3D_PREVIEW, "Drag to rotate the model. Use the mouse wheel to zoom."
 
   IDS_SB_AUTOROTATING, "Rotating..."
 

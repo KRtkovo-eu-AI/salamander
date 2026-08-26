@@ -190,6 +190,18 @@
 #define PVF_CRW 60
 #define PVF_HPI 61
 #define PVF_Sapphire 62
+#define PVF_SVG 63
+#define PVF_PSP 64
+#define PVF_XCF 65
+#define PVF_PDN 66
+#define PVF_3DM 67
+#define PVF_DWG 68
+#define PVF_SKP 69
+#define PVF_BLEND 70
+#define PVF_WMF 71
+#define PVF_EMF 72
+#define PVF_STL 73
+#define PVF_3MF 74
 
 /* Bit flags used in PVImageInfo.Flags */
 #define PVFF_BOTTOMTOTOP 1 /* Informational only */

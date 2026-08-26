@@ -369,6 +369,8 @@
 #define IDS_SB_HAND             1132
 
 #define IDS_SB_AUTOROTATING     1133
+#define IDS_TITLE_3D            1134
+#define IDS_SB_3D_PREVIEW       1135
 
 // for Copy To dialog box
 #define IDS_SELECTTARGETDIR     1140

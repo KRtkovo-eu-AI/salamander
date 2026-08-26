@@ -144,11 +144,13 @@ void CViewerWindow::SetStatusBarTexts(int ID)
     }
     else
     {
-        if (Renderer.CurrTool == RT_SELECT)
+        if (Renderer.HasInteractivePreview())
+            _tcscpy(buff, LoadStr(IDS_SB_3D_PREVIEW));
+        else if (Renderer.CurrTool == RT_SELECT)
             _tcscpy(buff, LoadStr(IDS_SB_CAGE));
-        if (Renderer.CurrTool == RT_ZOOM)
+        else if (Renderer.CurrTool == RT_ZOOM)
             _tcscpy(buff, LoadStr(IDS_SB_ZOOM));
-        if (Renderer.CurrTool == RT_HAND)
+        else if (Renderer.CurrTool == RT_HAND)
             _tcscpy(buff, LoadStr(IDS_SB_HAND));
     }
     SafeSetStatusBarText(hStatusBar, 0 | SBT_NOBORDERS, buff);
@@ -163,7 +165,7 @@ void CViewerWindow::SetStatusBarTexts(int ID)
     POINT clientPt = pt;
     BOOL validCursor = FALSE;
 
-    if (Renderer.ImageLoaded)
+    if (Renderer.ImageLoaded && !Renderer.HasInteractivePreview())
     {
         Renderer.ClientToPicture(&pt); // convert pt into image coordinates
         if (pt.x >= 0 && pt.x < imageWidth && pt.y >= 0 && pt.y < imageHeight)
@@ -173,6 +175,15 @@ void CViewerWindow::SetStatusBarTexts(int ID)
         else
             buff[0] = 0;
         SafeSetStatusBarText(hStatusBar, 1, buff);
+    }
+
+    if (Renderer.HasInteractivePreview())
+    {
+        SafeSetStatusBarIcon(hStatusBar, 2, StatusBar->HSize);
+        SafeSetStatusBarText(hStatusBar, 2, _T(""));
+        SafeSetStatusBarIcon(hStatusBar, 3, StatusBar->HPipette);
+        SafeSetStatusBarText(hStatusBar, 3, _T(""));
+        return;
     }
 
     // size

@@ -251,6 +251,44 @@
     </ClCompile>
     <ClCompile Include="..\wic\WicBackend.cpp">
     </ClCompile>
+    <ClCompile Include="..\wic\ShellPreviewHost.cpp">
+    </ClCompile>
+    <ClCompile Include="..\native\NativeDecoder.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <DisableSpecificWarnings>4121</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\native\NativeRaster.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <DisableSpecificWarnings>4121</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\native\NativeAnim.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <DisableSpecificWarnings>4121</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\native\NativeSvg.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <DisableSpecificWarnings>4121;4244;4505;4702</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\native\NativePreview.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <DisableSpecificWarnings>4121</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\native\NativeInflate.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <DisableSpecificWarnings>4121</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\native\NativeContainer.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <DisableSpecificWarnings>4121</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\native\NativeWmf.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <DisableSpecificWarnings>4121</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\native\NativeStl.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <DisableSpecificWarnings>4121</DisableSpecificWarnings>
+    </ClCompile>
     <ClCompile Include="..\pvtwain.cpp">
     </ClCompile>
     <ClCompile Include="..\render1.cpp">
@@ -314,6 +352,10 @@
     <ClInclude Include="..\precomp.h">
     </ClInclude>
     <ClInclude Include="..\wic\WicBackend.h">
+    </ClInclude>
+    <ClInclude Include="..\wic\ShellPreviewHost.h">
+    </ClInclude>
+    <ClInclude Include="..\native\NativeDecoder.h">
     </ClInclude>
     <ClInclude Include="..\pvtwain.h">
     </ClInclude>

@@ -1092,7 +1092,8 @@ struct COpenViewerData
 
 #define WM_USER_CANCELPROGRDLG WM_APP + 136  // [0, 0] - CProgressDlgArray: po doruceni teto zpravy do CProgressDialog dojde k cancelu operace (bez dotazu; zavre se dialog operace)
 #define WM_USER_FOCUSPROGRDLG WM_APP + 137   // [0, 0] - CProgressDlgArray: po doruceni teto zpravy do CProgressDialog dojde aktivaci dialogu (nebo jeho popupu)
-#define WM_USER_ICONREADING_END WM_APP + 138 // [0, 0] - notifikace o ukonceni nacitani ikonek v panelu
+#define WM_USER_ICONREADING_END WM_APP + 138   // [0, 0] - notifikace o ukonceni nacitani ikonek v panelu
+#define WM_USER_ICONREADING_BEGIN WM_APP + 157 // [0, 0] - icon reader starts loading thumbnails (dir-line throbber)
 
 //presunuto do shexreg.h (konstanta se nesmi zmenit): #define WM_USER_SALSHEXT_PASTE  WM_APP + 139 // [postMsgIndex, 0] - SalamExt zada o provedeni prikazu Paste
 

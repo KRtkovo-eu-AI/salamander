@@ -12,7 +12,8 @@ sont listés ici d'avoir rendu leur travail disponible.
 | REGEXP | Correspondance d'expressions régulières | Copyright (C) 1986 Henry Spencer, University of Toronto. |
 | Code AES | Routines cryptographiques | Écrit par Dr Brian Gladman. Copyright (C) 2001 Dr Brian Gladman. |
 | PNGLite | Support d'images PNG | Basé sur PNGLite par Daniel Karling. Copyright (C) 2007 Daniel Karling. |
-| Nano SVG | Support de parsing/rendering SVG | Copyright (c) 2013-2014 Mikko Mononen. |
+| Nano SVG | Support de parsing/rendering SVG | Copyright (c) 2013-2014 Mikko Mononen. Utilisé pour les icônes de barre d'outils et de menus de l'application principale et par le plugin PictView pour l'affichage SVG (limites NanoSVG : pas de CSS, texte et filtres limités). |
+| Inflateur deflate PictView | Plugin PictView | Inflateur deflate/zlib pour les tuiles XCF, IDAT PNG, ZIP SKP et aperçus 3DM compressés. Le lecteur de bits et les tables de Huffman suivent puff de Mark Adler. Copyright (C) 2002-2013 Mark Adler. Licence zlib. |
 | SQLite | Support de base de données intégrée | SQLite est dans le domaine public. |
 | LibTomCrypt | Primitives cryptographiques du plugin de contrôle d'intégrité | LibTomCrypt est dans le domaine public. Comme l'a écrit Tom St Denis : « Comme tout logiciel de qualité devrait l'être. » |
 | Bibliothèques LGPL | Bibliothèques tierces partagées | Sous licence GNU Library General Public License. Une copie de la licence est incluse avec ce logiciel. |

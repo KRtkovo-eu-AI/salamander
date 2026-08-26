@@ -12,7 +12,8 @@ alle hier Genannten für die Bereitstellung ihrer Arbeit.
 | REGEXP | Reguläre Ausdrücke | Copyright (C) 1986 Henry Spencer, University of Toronto. |
 | AES-Code | Kryptografische Routinen | Geschrieben von Dr. Brian Gladman. Copyright (C) 2001 Dr. Brian Gladman. |
 | PNGLite | PNG-Bildunterstützung | Basierend auf PNGLite von Daniel Karling. Copyright (C) 2007 Daniel Karling. |
-| Nano SVG | SVG-Parser-/Rendering-Unterstützung | Copyright (c) 2013-2014 Mikko Mononen. |
+| Nano SVG | SVG-Parser-/Rendering-Unterstützung | Copyright (c) 2013-2014 Mikko Mononen. Wird für die Symbolleisten- und Menüsymbole der Hauptanwendung und im PictView-Plugin zur SVG-Anzeige verwendet (NanoSVG-Einschränkungen: kein CSS, eingeschränkter Text und Filter). |
+| PictView-Deflate-Inflater | PictView-Plugin | Deflate/zlib-Inflater für XCF-Kacheln, PNG-IDAT, SKP-ZIP und komprimierte 3DM-Vorschauen. Bit-Reader und Huffman-Aufbau folgen Mark Adlers puff. Copyright (C) 2002-2013 Mark Adler. zlib-Lizenz. |
 | SQLite | Eingebettete Datenbankunterstützung | SQLite ist Gemeinfrei. |
 | LibTomCrypt | Kryptografische Primitive des Checksum-Plugins | LibTomCrypt ist gemeinfrei. Wie Tom St Denis schrieb: „Wie es jede qualitativ hochwertige Software sein sollte." |
 | LGPL-Bibliotheken | Gemeinsame Bibliotheken Dritter | Lizentiert unter der GNU Library General Public License. Eine Kopie der Lizenz ist dieser Software beigefügt. |

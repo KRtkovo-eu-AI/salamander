@@ -430,6 +430,18 @@ BOOL CSalamanderThumbnailMaker::ThumbnailReady()
     return OriginalHeight != 0 && NextLine >= OriginalHeight && !Error;
 }
 
+BOOL CSalamanderThumbnailMaker::GetRGBBits(const DWORD** bits, int* width, int* height) const
+{
+    if (bits == NULL || width == NULL || height == NULL)
+        return FALSE;
+    if (OriginalHeight == 0 || NextLine < OriginalHeight || Error || ThumbnailBuffer == NULL)
+        return FALSE;
+    *bits = ThumbnailBuffer;
+    *width = ThumbnailRealWidth;
+    *height = ThumbnailRealHeight;
+    return TRUE;
+}
+
 void CSalamanderThumbnailMaker::TransformThumbnail()
 {
     // SSTHUMB_MIRROR_VERT uz je hotova, zbyva provest SSTHUMB_MIRROR_HOR a SSTHUMB_ROTATE_90CW

@@ -31,6 +31,9 @@ typedef PVCODE (*TPVCalculateHistogram)(LPPVHandle PVHandle, const LPPVImageInfo
 typedef PVCODE (*TPVCreateThumbnail)(LPPVHandle hPVImage, LPPVSaveImageInfo pSii, int imageIndex, DWORD imgWidth, DWORD imgHeight,
                                      int thumbWidth, int thumbHeight, CSalamanderThumbnailMakerAbstract* thumbMaker, DWORD thumbFlags, TProgressProc progressProc, void* progressProcArg);
 typedef PVCODE (*TPVSimplifyImageSequence)(LPPVHandle hPVImage, HDC dc, int ScreenWidth, int ScreenHeight, LPPVImageSequence& pSeq, const COLORREF& bgColor);
+typedef bool (*TPVHasInteractivePreview)(LPPVHandle Img);
+typedef PVCODE (*TPVShowInteractivePreview)(LPPVHandle Img, HWND hwnd, const RECT* rect, COLORREF background);
+typedef PVCODE (*TPVResizeInteractivePreview)(LPPVHandle Img, const RECT* rect);
 
 PVCODE CreateThumbnail(LPPVHandle hPVImage, LPPVSaveImageInfo pSii, int imageIndex, DWORD imgWidth, DWORD imgHeight,
                        int thumbWidth, int thumbHeight, CSalamanderThumbnailMakerAbstract* thumbMaker, DWORD thumbFlags, TProgressProc progressProc, void* progressProcArg);
@@ -60,6 +63,9 @@ struct CPVW32DLL
     TPVCalculateHistogram CalculateHistogram;
     TPVCreateThumbnail CreateThumbnail;
     TPVSimplifyImageSequence SimplifyImageSequence;
+    TPVHasInteractivePreview HasInteractivePreview;
+    TPVShowInteractivePreview ShowInteractivePreview;
+    TPVResizeInteractivePreview ResizeInteractivePreview;
     HMODULE Handle;   // handle of the active imaging backend module
     char Version[28]; // initialized together with Handle in DllMain on DLL_PROCESS_ATTACH
 };
@@ -127,6 +133,7 @@ typedef struct tagGlobals
     int LastSaveAsFilterIndexMono;           // OPENFILENAME.nFilterIndex for bilevel save
     int LastSaveAsFilterIndexColor;          // OPENFILENAME.nFilterIndex for color save
     COLORREF rgbPanelBackground;             // background color for transparent thumbnails
+    COLORREF rgbPanelForeground;             // mesh/item color for generated thumbnails (SALCOL_ITEM_FG_NORMAL)
     SALCOLOR Colors[vceCount];
     int ExifDlgWidth;
     int ExifDlgHeight;

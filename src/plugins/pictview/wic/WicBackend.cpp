@@ -22,15 +22,20 @@
 
 #include <objbase.h>
 #include <shlwapi.h>
+#include <shlobj.h>
+#include <thumbcache.h>
 #include <strsafe.h>
 #include <propvarutil.h>
 #include <wincodecsdk.h>
 
 #include "../Thumbnailer.h"
+#include "../native/NativeDecoder.h"
+#include "ShellPreviewHost.h"
 
 #pragma comment(lib, "windowscodecs.lib")
 #pragma comment(lib, "shlwapi.lib")
 #pragma comment(lib, "propsys.lib")
+#pragma comment(lib, "shell32.lib")
 
 using namespace std::string_literals;
 
@@ -1381,7 +1386,51 @@ HRESULT CreateDecoder(Backend& backend, const std::wstring& path, IWICBitmapDeco
     {
         return E_POINTER;
     }
-    return factory->CreateDecoderFromFilename(path.c_str(), nullptr, GENERIC_READ, WICDecodeMetadataCacheOnDemand, decoder);
+    HRESULT hr = factory->CreateDecoderFromFilename(path.c_str(), nullptr, GENERIC_READ,
+                                                    WICDecodeMetadataCacheOnDemand, decoder);
+    if (SUCCEEDED(hr) && decoder && *decoder)
+    {
+        return hr;
+    }
+
+    ComPtr<IStream> stream;
+    hr = SHCreateStreamOnFileEx(path.c_str(), STGM_READ | STGM_SHARE_DENY_WRITE, FILE_ATTRIBUTE_NORMAL, FALSE, nullptr,
+                                &stream);
+    if (FAILED(hr) || !stream)
+    {
+        return hr;
+    }
+    return factory->CreateDecoderFromStream(stream.Get(), nullptr, WICDecodeMetadataCacheOnDemand, decoder);
+}
+
+HRESULT CreateDecoderFromMemory(Backend& backend, const BYTE* data, size_t size, IWICBitmapDecoder** decoder)
+{
+    auto factory = backend.Factory();
+    if (!factory || !data || size == 0)
+    {
+        return E_INVALIDARG;
+    }
+    HGLOBAL memory = GlobalAlloc(GMEM_MOVEABLE, size);
+    if (!memory)
+    {
+        return E_OUTOFMEMORY;
+    }
+    void* locked = GlobalLock(memory);
+    if (!locked)
+    {
+        GlobalFree(memory);
+        return E_OUTOFMEMORY;
+    }
+    memcpy(locked, data, size);
+    GlobalUnlock(memory);
+    ComPtr<IStream> stream;
+    HRESULT hr = CreateStreamOnHGlobal(memory, TRUE, &stream);
+    if (FAILED(hr))
+    {
+        GlobalFree(memory);
+        return hr;
+    }
+    return factory->CreateDecoderFromStream(stream.Get(), nullptr, WICDecodeMetadataCacheOnDemand, decoder);
 }
 
 bool IsIgnorableColorProfileError(HRESULT hr)
@@ -2069,6 +2118,32 @@ HRESULT EnsureTransparencyMask(FrameData& frame)
 
     if (frame.pixels.empty() || frame.width == 0 || frame.height == 0)
     {
+        return S_OK;
+    }
+
+    bool anyOpaqueAlpha = false;
+    for (UINT y = 0; y < frame.height && !anyOpaqueAlpha; ++y)
+    {
+        const BYTE* row = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
+        for (UINT x = 0; x < frame.width; ++x)
+        {
+            if (row[static_cast<size_t>(x) * 4 + 3] == 255)
+            {
+                anyOpaqueAlpha = true;
+                break;
+            }
+        }
+    }
+    if (!anyOpaqueAlpha)
+    {
+        for (UINT y = 0; y < frame.height; ++y)
+        {
+            BYTE* row = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
+            for (UINT x = 0; x < frame.width; ++x)
+            {
+                row[static_cast<size_t>(x) * 4 + 3] = 255;
+            }
+        }
         return S_OK;
     }
 
@@ -3440,6 +3515,497 @@ HRESULT FinalizeDecodedFrame(Backend* backend, FrameData& frame)
     return S_OK;
 }
 
+HRESULT NativeStatusToHr(PictView::Native::Status status)
+{
+    switch (status)
+    {
+    case PictView::Native::Status::Ok:
+        return S_OK;
+    case PictView::Native::Status::OutOfMemory:
+        return E_OUTOFMEMORY;
+    case PictView::Native::Status::CannotOpen:
+        return HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);
+    case PictView::Native::Status::Invalid:
+        return WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
+    default:
+        return WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
+    }
+}
+
+bool PathPrefersNativeDecoder(const std::wstring& path)
+{
+    const size_t slash = path.find_last_of(L"\\/");
+    const size_t name = slash == std::wstring::npos ? 0 : slash + 1;
+    const size_t dot = path.find_last_of(L'.');
+    if (dot == std::wstring::npos || dot < name)
+    {
+        return false;
+    }
+    std::wstring ext = path.substr(dot + 1);
+    for (wchar_t& ch : ext)
+    {
+        if (ch >= L'A' && ch <= L'Z')
+        {
+            ch = static_cast<wchar_t>(ch - L'A' + L'a');
+        }
+    }
+    static const wchar_t* const kExts[] = {
+        L"tga", L"pcx", L"pbm", L"pgm", L"ppm", L"pnm", L"ras", L"sun", L"sgi", L"bw", L"rgb",
+        L"wbmp", L"iff", L"lbm", L"ani", L"cur", L"dcx", L"psd", L"fli", L"flc", L"dds", L"dtx",
+        L"dwg", L"wmf", L"emf", L"ai", L"eps", L"ept", L"svg", L"xcf", L"pdn", L"skp", L"blend",
+        L"3dm", L"3mf", L"mov", L"hpi", L"cdr", L"cdt", L"cmx", L"xar", L"web", L"zbr", L"zmf", L"zno"};
+    for (const wchar_t* known : kExts)
+    {
+        if (ext == known)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::string AsciiExtensionFromPath(const std::wstring& path)
+{
+    const size_t slash = path.find_last_of(L"\\/");
+    const size_t name = slash == std::wstring::npos ? 0 : slash + 1;
+    const size_t dot = path.find_last_of(L'.');
+    if (dot == std::wstring::npos || dot < name)
+    {
+        return std::string();
+    }
+    std::string ext;
+    ext.reserve(path.size() - dot);
+    for (size_t i = dot + 1; i < path.size(); ++i)
+    {
+        wchar_t ch = path[i];
+        if (ch >= L'A' && ch <= L'Z')
+        {
+            ch = static_cast<wchar_t>(ch - L'A' + L'a');
+        }
+        if (ch < 32 || ch > 127)
+        {
+            return std::string();
+        }
+        ext.push_back(static_cast<char>(ch));
+    }
+    return ext;
+}
+
+bool IsDeniedShellExtension(const std::string& extension);
+
+HRESULT AdoptNativeImage(Backend& backend, ImageHandle& handle, PictView::Native::DecodedImage&& decoded)
+{
+    if (decoded.frames.empty())
+    {
+        return WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
+    }
+    handle.baseInfo.Format = decoded.format;
+    handle.baseInfo.Flags = decoded.frames.size() > 1 ? PVFF_IMAGESEQUENCE : 0;
+    handle.hasFormatSpecificInfo = false;
+    handle.formatInfo = {};
+    handle.formatInfo.cbSize = sizeof(PVFormatSpecificInfo);
+    handle.baseInfo.FSI = nullptr;
+    try
+    {
+        handle.frames.resize(decoded.frames.size());
+    }
+    catch (const std::bad_alloc&)
+    {
+        return E_OUTOFMEMORY;
+    }
+
+    for (size_t i = 0; i < decoded.frames.size(); ++i)
+    {
+        PictView::Native::Frame& source = decoded.frames[i];
+        FrameData& frame = handle.frames[i];
+        HRESULT hr = AllocatePixelStorage(frame, source.width, source.height);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+        if (frame.pixels.size() != source.bgra.size())
+        {
+            return WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
+        }
+        memcpy(frame.pixels.data(), source.bgra.data(), source.bgra.size());
+        frame.sourcePixelFormat = GUID_WICPixelFormat32bppBGRA;
+        frame.bitsPerPixel = source.bitDepth;
+        frame.reportedBitDepth = source.bitDepth;
+        frame.reportedColors = source.colors;
+        frame.colorModel = PVCM_RGB;
+        frame.paletteColorCount = 0;
+        frame.realizePalette = false;
+        frame.allowIndexedDisplay = false;
+        frame.pixelsArePremultiplied = false;
+        frame.hasTransparency = source.hasTransparency;
+        frame.delayMs = source.delayMs;
+        frame.rect.left = 0;
+        frame.rect.top = 0;
+        frame.rect.right = ClampUnsignedToLong(source.width);
+        frame.rect.bottom = ClampUnsignedToLong(source.height);
+        frame.gifFrameRect = frame.rect;
+        hr = FinalizeDecodedFrame(&backend, frame);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+    }
+    handle.baseInfo.NumOfImages = static_cast<DWORD>(handle.frames.size());
+    return S_OK;
+}
+
+HRESULT TryOpenNative(Backend& backend, ImageHandle& handle)
+{
+    PictView::Native::DecodedImage decoded;
+    const PictView::Native::Status status = PictView::Native::DecodeFile(handle.fileName.c_str(), decoded);
+    if (status != PictView::Native::Status::Ok)
+    {
+        return NativeStatusToHr(status);
+    }
+    return AdoptNativeImage(backend, handle, std::move(decoded));
+}
+
+HRESULT TryOpenEmbeddedPreview(Backend& backend, ImageHandle& handle, IWICBitmapDecoder** decoder)
+{
+    HANDLE file = CreateFileW(handle.fileName.c_str(), GENERIC_READ,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                              FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
+    if (file == INVALID_HANDLE_VALUE)
+    {
+        return HRESULT_FROM_WIN32(GetLastError());
+    }
+    LARGE_INTEGER size{};
+    if (!GetFileSizeEx(file, &size) || size.QuadPart <= 0 || size.QuadPart > 256ll * 1024 * 1024)
+    {
+        CloseHandle(file);
+        return WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
+    }
+    std::vector<BYTE> bytes;
+    try
+    {
+        bytes.resize(static_cast<size_t>(size.QuadPart));
+    }
+    catch (const std::bad_alloc&)
+    {
+        CloseHandle(file);
+        return E_OUTOFMEMORY;
+    }
+    DWORD read = 0;
+    size_t offset = 0;
+    while (offset < bytes.size())
+    {
+        const DWORD chunk = static_cast<DWORD>(std::min(bytes.size() - offset, static_cast<size_t>(1024 * 1024)));
+        if (!ReadFile(file, bytes.data() + offset, chunk, &read, nullptr) || read == 0)
+        {
+            CloseHandle(file);
+            return HRESULT_FROM_WIN32(ERROR_READ_FAULT);
+        }
+        offset += read;
+    }
+    CloseHandle(file);
+
+    auto adoptSlice = [&](const BYTE* slice, size_t sliceSize, DWORD format) -> HRESULT {
+        HRESULT hr = CreateDecoderFromMemory(backend, slice, sliceSize, decoder);
+        if (SUCCEEDED(hr) && decoder && *decoder)
+        {
+            if (format != 0)
+            {
+                handle.baseInfo.Format = format;
+            }
+            return hr;
+        }
+        PictView::Native::DecodedImage decoded;
+        const PictView::Native::Status status = PictView::Native::DecodeMemory(slice, sliceSize, decoded);
+        if (status == PictView::Native::Status::Ok)
+        {
+            if (decoder)
+            {
+                *decoder = nullptr;
+            }
+            return AdoptNativeImage(backend, handle, std::move(decoded));
+        }
+        return FAILED(hr) ? hr : NativeStatusToHr(status);
+    };
+
+    if (bytes.size() >= 4 && bytes[0] == 'P' && bytes[1] == 'K')
+    {
+        std::vector<BYTE> zipPreview;
+        DWORD zipFormat = 0;
+        const char* zipLabel = nullptr;
+        if (PictView::Native::ExtractZipEmbeddedPreview(bytes.data(), bytes.size(), zipPreview, zipFormat, zipLabel) &&
+            zipPreview.size() >= 8)
+        {
+            const HRESULT hr = adoptSlice(zipPreview.data(), zipPreview.size(), zipFormat);
+            if (SUCCEEDED(hr))
+            {
+                return hr;
+            }
+        }
+    }
+
+    PictView::Native::EmbeddedPreview preview;
+    if (!PictView::Native::FindEmbeddedPreview(bytes.data(), bytes.size(), preview) ||
+        preview.offset + preview.size > bytes.size())
+    {
+        return WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
+    }
+    return adoptSlice(bytes.data() + preview.offset, preview.size, preview.format);
+}
+
+void ReleaseImageFrames(ImageHandle& handle)
+{
+    for (auto& frame : handle.frames)
+    {
+        frame.converter.Reset();
+        frame.colorConvertedSource.Reset();
+        frame.frame.Reset();
+        if (frame.hbitmap)
+        {
+            DeleteObject(frame.hbitmap);
+            frame.hbitmap = nullptr;
+        }
+        if (frame.scaledBitmap)
+        {
+            DeleteObject(frame.scaledBitmap);
+            frame.scaledBitmap = nullptr;
+        }
+        if (frame.transparencyMask)
+        {
+            DeleteObject(frame.transparencyMask);
+            frame.transparencyMask = nullptr;
+        }
+        if (frame.paletteHandle)
+        {
+            DeleteObject(frame.paletteHandle);
+            frame.paletteHandle = nullptr;
+        }
+    }
+    handle.frames.clear();
+}
+
+HRESULT AdoptShellBitmap(Backend& backend, ImageHandle& handle, HBITMAP bitmap)
+{
+    if (bitmap == nullptr)
+    {
+        return WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
+    }
+    FrameData frame;
+    HRESULT hr = PopulateFrameFromBitmapHandle(backend, frame, bitmap);
+    DeleteObject(bitmap);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    try
+    {
+        handle.frames.push_back(std::move(frame));
+    }
+    catch (const std::bad_alloc&)
+    {
+        return E_OUTOFMEMORY;
+    }
+    if (handle.baseInfo.Format == 0)
+    {
+        handle.baseInfo.Format = PVF_BMP;
+    }
+    handle.baseInfo.NumOfImages = 1;
+    return S_OK;
+}
+
+HRESULT TryOpenShellThumbnail(Backend& backend, ImageHandle& handle)
+{
+    if (handle.fileName.empty())
+    {
+        return WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
+    }
+    // The icon reader holds ICSleepSection across LoadThumbnail. Explorer
+    // IThumbnailProvider / IShellItemImageFactory / 3D Viewer can block there
+    // forever, so directory changes and "Unloading plugins" freeze.
+    if ((handle.openFlags & PVFF_FAST) != 0 || (handle.openFlags & PVOF_THUMBNAIL) != 0)
+    {
+        return WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
+    }
+    const std::string extension = AsciiExtensionFromPath(handle.fileName);
+    if (extension == "stl" || IsDeniedShellExtension(extension))
+    {
+        return WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
+    }
+    ComPtr<IShellItem> item;
+    HRESULT hr = SHCreateItemFromParsingName(handle.fileName.c_str(), nullptr, IID_PPV_ARGS(&item));
+    if (FAILED(hr) || !item)
+    {
+        return hr;
+    }
+
+    ComPtr<IThumbnailProvider> provider;
+    const HRESULT bindHr = item->BindToHandler(nullptr, BHID_ThumbnailHandler, IID_PPV_ARGS(&provider));
+    if (SUCCEEDED(bindHr) && provider)
+    {
+        HBITMAP bitmap = nullptr;
+        WTS_ALPHATYPE alpha = WTSAT_UNKNOWN;
+        hr = provider->GetThumbnail(2048, &bitmap, &alpha);
+        if (SUCCEEDED(hr) && bitmap)
+        {
+            return AdoptShellBitmap(backend, handle, bitmap);
+        }
+        if (bitmap)
+        {
+            DeleteObject(bitmap);
+        }
+    }
+
+    ComPtr<IShellItemImageFactory> factory;
+    hr = item.As(&factory);
+    if (FAILED(hr) || !factory)
+    {
+        return hr;
+    }
+    const SIZE size{2048, 2048};
+    HBITMAP bitmap = nullptr;
+    hr = factory->GetImage(size, SIIGBF_THUMBNAILONLY | SIIGBF_BIGGERSIZEOK | SIIGBF_RESIZETOFIT, &bitmap);
+    if (FAILED(hr) || !bitmap)
+    {
+        return FAILED(hr) ? hr : WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
+    }
+    return AdoptShellBitmap(backend, handle, bitmap);
+}
+
+bool IsDeniedShellExtension(const std::string& extension)
+{
+    static const char* const kDenied[] = {
+        "pdf", "ai", "eps", "ept", "doc", "docx", "docm", "dot", "dotx", "xls", "xlsx", "xlsm", "ppt", "pptx", "pptm",
+        "odt", "ods", "odp", "rtf", "txt", "csv", "pages", "numbers", "key",
+        "html", "htm", "xhtml", "xml", "mhtml", "url", "msg", "eml",
+        "zip", "rar", "7z", "tar", "gz", "bz2", "xz", "cab", "iso", "img",
+        "exe", "dll", "sys", "com", "bat", "cmd", "ps1", "msi", "scr", "js", "vbs", "py", "cs",
+        "cpp", "h", "hpp", "c", "java", "json",
+        "mp3", "mp4", "wav", "avi", "mkv", "wmv", "flac", "aac", "wma", "webm", "m4a", "m4v",
+        "mpg", "mpeg", "ogg", "opus",
+        "lnk", "ttf", "otf", "ttc", "fon", "woff", "woff2"};
+    for (const char* denied : kDenied)
+    {
+        if (extension == denied)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool RegistryKeyHasThumbnailHandler(HKEY key)
+{
+    static const char* const kGuids[] = {
+        "shellex\\{e357fccd-a995-4576-b01f-234630154e96}",
+        "shellex\\{BB2E617C-0920-11d1-9A0B-00C04FC2D6C2}"};
+    for (const char* path : kGuids)
+    {
+        HKEY nested = nullptr;
+        if (RegOpenKeyExA(key, path, 0, KEY_READ, &nested) == ERROR_SUCCESS)
+        {
+            RegCloseKey(nested);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool OpenHkcrKey(const std::string& path, HKEY* result)
+{
+    return RegOpenKeyExA(HKEY_CLASSES_ROOT, path.c_str(), 0, KEY_READ, result) == ERROR_SUCCESS;
+}
+
+void MaybeAddShellMask(std::vector<std::string>& masks, const std::string& extension)
+{
+    if (extension.empty() || IsDeniedShellExtension(extension))
+    {
+        return;
+    }
+    for (char c : extension)
+    {
+        if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' || c == '_' || c == '-'))
+        {
+            return;
+        }
+    }
+    HKEY extKey = nullptr;
+    const std::string extPath = "." + extension;
+    bool hasHandler = false;
+    if (OpenHkcrKey(extPath, &extKey))
+    {
+        hasHandler = RegistryKeyHasThumbnailHandler(extKey);
+        if (!hasHandler)
+        {
+            char progId[256]{};
+            DWORD type = 0;
+            DWORD size = sizeof(progId);
+            if (RegQueryValueExA(extKey, nullptr, nullptr, &type, reinterpret_cast<LPBYTE>(progId), &size) == ERROR_SUCCESS &&
+                type == REG_SZ && progId[0] != 0)
+            {
+                HKEY progKey = nullptr;
+                if (OpenHkcrKey(progId, &progKey))
+                {
+                    hasHandler = RegistryKeyHasThumbnailHandler(progKey);
+                    RegCloseKey(progKey);
+                }
+            }
+        }
+        RegCloseKey(extKey);
+    }
+    if (!hasHandler)
+    {
+        HKEY assoc = nullptr;
+        if (OpenHkcrKey("SystemFileAssociations\\" + extPath, &assoc))
+        {
+            hasHandler = RegistryKeyHasThumbnailHandler(assoc);
+            RegCloseKey(assoc);
+        }
+    }
+    if (hasHandler)
+    {
+        masks.emplace_back("*." + extension);
+    }
+}
+
+void EnumerateShellThumbnailMasks(std::vector<std::string>& masks)
+{
+    HKEY classes = nullptr;
+    if (RegOpenKeyExA(HKEY_CLASSES_ROOT, nullptr, 0, KEY_READ, &classes) != ERROR_SUCCESS)
+    {
+        return;
+    }
+    DWORD index = 0;
+    char name[256];
+    for (;;)
+    {
+        DWORD nameSize = static_cast<DWORD>(sizeof(name));
+        const LSTATUS status = RegEnumKeyExA(classes, index++, name, &nameSize, nullptr, nullptr, nullptr, nullptr);
+        if (status == ERROR_NO_MORE_ITEMS)
+        {
+            break;
+        }
+        if (status != ERROR_SUCCESS)
+        {
+            continue;
+        }
+        if (name[0] != '.' || name[1] == 0)
+        {
+            continue;
+        }
+        std::string extension;
+        for (DWORD i = 1; i < nameSize && name[i]; ++i)
+        {
+            char c = name[i];
+            if (c >= 'A' && c <= 'Z')
+            {
+                c = static_cast<char>(c - 'A' + 'a');
+            }
+            extension.push_back(c);
+        }
+        MaybeAddShellMask(masks, extension);
+    }
+    RegCloseKey(classes);
+}
+
 inline BYTE CombineCmykChannel(BYTE component, BYTE black)
 {
     const int c = 255 - component;
@@ -3826,7 +4392,21 @@ PVCODE HResultToPvCode(HRESULT hr)
     {
         return PVC_UNSUP_FILE_TYPE;
     }
-    return PVC_EXCEPTION;
+    if (hr == E_NOTIMPL || hr == HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED) ||
+        hr == HRESULT_FROM_WIN32(ERROR_INVALID_DATA) || hr == HRESULT_FROM_WIN32(ERROR_BAD_FORMAT))
+    {
+        return PVC_UNSUP_FILE_TYPE;
+    }
+    const DWORD code = static_cast<DWORD>(hr);
+    if ((code & 0xFFFF0000u) == 0x88980000u)
+    {
+        return PVC_UNSUP_FILE_TYPE;
+    }
+    if (code >= 0x8004B000u && code <= 0x8004B2FFu)
+    {
+        return PVC_UNSUP_FILE_TYPE;
+    }
+    return PVC_UNSUP_FILE_TYPE;
 }
 
 std::wstring Utf8ToWide(const char* path)
@@ -3905,6 +4485,39 @@ PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, DWORD bufferSi
         {PVF_TIFF, "TIFF"},
         {PVF_GIF, "GIF"},
         {PVF_ICO, "ICO"},
+        {PVF_TGA, "TGA"},
+        {PVF_PCX, "PCX"},
+        {PVF_PNM, "PNM"},
+        {PVF_RAS, "RAS"},
+        {PVF_SGI, "SGI"},
+        {PVF_WBMP, "WBMP"},
+        {PVF_SVG, "SVG"},
+        {PVF_LBM, "IFF"},
+        {PVF_ANI, "ANI"},
+        {PVF_CUR, "CUR"},
+        {PVF_DCX, "DCX"},
+        {PVF_PSD, "PSD"},
+        {PVF_FLI, "FLI"},
+        {PVF_DDS, "DDS"},
+        {PVF_DTX, "DTX"},
+        {PVF_EPS, "EPS"},
+        {PVF_HPI, "HPI"},
+        {PVF_CDR, "CDR"},
+        {PVF_PSP, "PSP"},
+        {PVF_XAR, "XAR"},
+        {PVF_ZBR, "ZBR"},
+        {PVF_ZMF, "ZMF"},
+        {PVF_ZNO, "ZNO"},
+        {PVF_XCF, "XCF"},
+        {PVF_PDN, "PDN"},
+        {PVF_3DM, "3DM"},
+        {PVF_DWG, "DWG"},
+        {PVF_SKP, "SKP"},
+        {PVF_BLEND, "BLEND"},
+        {PVF_WMF, "WMF"},
+        {PVF_EMF, "EMF"},
+        {PVF_STL, "STL"},
+        {PVF_3MF, "3MF"},
     };
 
     const char* info1 = "WIC";
@@ -3942,8 +4555,18 @@ PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, DWORD bufferSi
     info->Colors = frame.reportedColors;
     info->ColorModel = frame.colorModel;
     info->TotalBitDepth = frame.reportedBitDepth;
-    info->Width = frame.width;
-    info->Height = frame.height;
+    if (HandleHasInteractivePreview(handle))
+    {
+        // 1x1 dummy frame is only a COM host placeholder; size the first-open
+        // viewer like a typical Explorer preview pane, not a single pixel.
+        info->Width = 800;
+        info->Height = 600;
+    }
+    else
+    {
+        info->Width = frame.width;
+        info->Height = frame.height;
+    }
     info->BytesPerLine = frame.displayStride != 0 ? frame.displayStride : frame.stride;
 
     double dpiX = 0.0;
@@ -3975,9 +4598,9 @@ PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, DWORD bufferSi
     }
 
     const LONGLONG stretchWidthSigned = handle.stretchWidth ? static_cast<LONGLONG>(handle.stretchWidth)
-                                                            : static_cast<LONGLONG>(frame.width);
+                                                            : static_cast<LONGLONG>(info->Width);
     const LONGLONG stretchHeightSigned = handle.stretchHeight ? static_cast<LONGLONG>(handle.stretchHeight)
-                                                              : static_cast<LONGLONG>(frame.height);
+                                                              : static_cast<LONGLONG>(info->Height);
     const ULONGLONG stretchWidthAbs = AbsoluteDimension(stretchWidthSigned);
     const ULONGLONG stretchHeightAbs = AbsoluteDimension(stretchHeightSigned);
     info->StretchedWidth = stretchWidthAbs > std::numeric_limits<DWORD>::max()
@@ -5681,100 +6304,100 @@ Backend& Backend::Instance()
 bool Backend::GetDecoderMasks(std::vector<std::string>& masks) const
 {
     masks.clear();
-    if (!m_factory)
+    PictView::Native::GetDecoderMasks(masks);
+
+    if (m_factory)
     {
-        return false;
-    }
-
-    ComPtr<IEnumUnknown> enumerator;
-    HRESULT hr = m_factory->CreateComponentEnumerator(WICDecoder, WICComponentEnumerateDefault,
-                                                       enumerator.GetAddressOf());
-    if (FAILED(hr) || !enumerator)
-    {
-        return false;
-    }
-
-    for (;;)
-    {
-        ComPtr<IUnknown> component;
-        ULONG fetched = 0;
-        hr = enumerator->Next(1, component.GetAddressOf(), &fetched);
-        if (hr != S_OK || fetched != 1)
+        ComPtr<IEnumUnknown> enumerator;
+        HRESULT hr = m_factory->CreateComponentEnumerator(WICDecoder, WICComponentEnumerateDefault,
+                                                           enumerator.GetAddressOf());
+        if (SUCCEEDED(hr) && enumerator)
         {
-            break;
-        }
-
-        ComPtr<IWICBitmapDecoderInfo> decoder;
-        if (FAILED(component.As(&decoder)) || !decoder)
-        {
-            continue;
-        }
-
-        UINT characters = 0;
-        if (FAILED(decoder->GetFileExtensions(0, nullptr, &characters)) || characters == 0)
-        {
-            continue;
-        }
-
-        std::vector<WCHAR> extensions(characters);
-        if (FAILED(decoder->GetFileExtensions(characters, extensions.data(), &characters)))
-        {
-            continue;
-        }
-
-        const std::wstring list(extensions.data());
-        size_t begin = 0;
-        while (begin < list.size())
-        {
-            size_t end = list.find_first_of(L";,", begin);
-            if (end == std::wstring::npos)
+            for (;;)
             {
-                end = list.size();
-            }
-
-            size_t first = begin;
-            while (first < end && (list[first] == L' ' || list[first] == L'\t'))
-            {
-                ++first;
-            }
-            size_t last = end;
-            while (last > first && (list[last - 1] == L' ' || list[last - 1] == L'\t'))
-            {
-                --last;
-            }
-
-            const size_t dot = list.find(L'.', first);
-            if (dot != std::wstring::npos && dot + 1 < last)
-            {
-                std::string extension;
-                bool valid = true;
-                for (size_t i = dot + 1; i < last; ++i)
+                ComPtr<IUnknown> component;
+                ULONG fetched = 0;
+                hr = enumerator->Next(1, component.GetAddressOf(), &fetched);
+                if (hr != S_OK || fetched != 1)
                 {
-                    const WCHAR character = list[i];
-                    if ((character >= L'a' && character <= L'z') ||
-                        (character >= L'A' && character <= L'Z') ||
-                        (character >= L'0' && character <= L'9') ||
-                        character == L'.' || character == L'_' || character == L'-')
-                    {
-                        extension.push_back(static_cast<char>(character >= L'A' && character <= L'Z'
-                                                                  ? character - L'A' + L'a'
-                                                                  : character));
-                    }
-                    else
-                    {
-                        valid = false;
-                        break;
-                    }
+                    break;
                 }
-                if (valid && !extension.empty())
+
+                ComPtr<IWICBitmapDecoderInfo> decoder;
+                if (FAILED(component.As(&decoder)) || !decoder)
                 {
-                    masks.emplace_back("*." + extension);
+                    continue;
+                }
+
+                UINT characters = 0;
+                if (FAILED(decoder->GetFileExtensions(0, nullptr, &characters)) || characters == 0)
+                {
+                    continue;
+                }
+
+                std::vector<WCHAR> extensions(characters);
+                if (FAILED(decoder->GetFileExtensions(characters, extensions.data(), &characters)))
+                {
+                    continue;
+                }
+
+                const std::wstring list(extensions.data());
+                size_t begin = 0;
+                while (begin < list.size())
+                {
+                    size_t end = list.find_first_of(L";,", begin);
+                    if (end == std::wstring::npos)
+                    {
+                        end = list.size();
+                    }
+
+                    size_t first = begin;
+                    while (first < end && (list[first] == L' ' || list[first] == L'\t'))
+                    {
+                        ++first;
+                    }
+                    size_t last = end;
+                    while (last > first && (list[last - 1] == L' ' || list[last - 1] == L'\t'))
+                    {
+                        --last;
+                    }
+
+                    const size_t dot = list.find(L'.', first);
+                    if (dot != std::wstring::npos && dot + 1 < last)
+                    {
+                        std::string extension;
+                        bool valid = true;
+                        for (size_t i = dot + 1; i < last; ++i)
+                        {
+                            const WCHAR character = list[i];
+                            if ((character >= L'a' && character <= L'z') ||
+                                (character >= L'A' && character <= L'Z') ||
+                                (character >= L'0' && character <= L'9') ||
+                                character == L'.' || character == L'_' || character == L'-')
+                            {
+                                extension.push_back(static_cast<char>(character >= L'A' && character <= L'Z'
+                                                                          ? character - L'A' + L'a'
+                                                                          : character));
+                            }
+                            else
+                            {
+                                valid = false;
+                                break;
+                            }
+                        }
+                        if (valid && !extension.empty())
+                        {
+                            masks.emplace_back("*." + extension);
+                        }
+                    }
+
+                    begin = end + 1;
                 }
             }
-
-            begin = end + 1;
         }
     }
+
+    EnumerateShellThumbnailMasks(masks);
 
     std::sort(masks.begin(), masks.end());
     masks.erase(std::unique(masks.begin(), masks.end()), masks.end());
@@ -5809,6 +6432,9 @@ bool Backend::Populate(CPVW32DLL& table)
     table.CalculateHistogram = &Backend::sCalculateHistogram;
     table.CreateThumbnail = &Backend::sCreateThumbnail;
     table.SimplifyImageSequence = &Backend::sSimplifyImageSequence;
+    table.HasInteractivePreview = &Backend::sHasInteractivePreview;
+    table.ShowInteractivePreview = &Backend::sShowInteractivePreview;
+    table.ResizeInteractivePreview = &Backend::sResizeInteractivePreview;
     table.Handle = nullptr;
     StringCchCopyA(table.Version, SizeOf(table.Version), "WIC 1.0");
     return true;
@@ -5873,15 +6499,69 @@ PVCODE WINAPI Backend::sPVOpenImageEx(LPPVHandle* Img, LPPVOpenImageExInfo pOpen
         image->baseInfo.FileSize = QueryFileSize(image->fileName);
 
         Microsoft::WRL::ComPtr<IWICBitmapDecoder> decoder;
-        HRESULT hr = CreateDecoder(backend, image->fileName, &decoder);
-        if (FAILED(hr))
+        HRESULT hr = E_FAIL;
+        bool opened = false;
+        bool triedNative = false;
+        if (PathPrefersNativeDecoder(image->fileName))
         {
-            return HResultToPvCode(hr);
+            hr = TryOpenNative(backend, *image);
+            opened = SUCCEEDED(hr) && !image->frames.empty();
+            triedNative = true;
         }
-        hr = CollectFrames(backend, decoder.Get(), *image);
-        if (FAILED(hr))
+        if (!opened)
         {
-            return HResultToPvCode(hr);
+            ReleaseImageFrames(*image);
+            hr = CreateDecoder(backend, image->fileName, &decoder);
+            if (SUCCEEDED(hr) && decoder)
+            {
+                hr = CollectFrames(backend, decoder.Get(), *image);
+                if (SUCCEEDED(hr) && !image->frames.empty())
+                {
+                    hr = DecodeFrame(*image, 0);
+                    opened = SUCCEEDED(hr);
+                }
+            }
+        }
+        if (!opened && !triedNative)
+        {
+            ReleaseImageFrames(*image);
+            hr = TryOpenNative(backend, *image);
+            opened = SUCCEEDED(hr) && !image->frames.empty();
+        }
+        if (!opened)
+        {
+            ReleaseImageFrames(*image);
+            decoder.Reset();
+            hr = TryOpenEmbeddedPreview(backend, *image, &decoder);
+            if (!image->frames.empty())
+            {
+                opened = true;
+            }
+            else if (SUCCEEDED(hr) && decoder)
+            {
+                hr = CollectFrames(backend, decoder.Get(), *image);
+                if (SUCCEEDED(hr) && !image->frames.empty())
+                {
+                    hr = DecodeFrame(*image, 0);
+                    opened = SUCCEEDED(hr);
+                }
+            }
+        }
+        if (!opened)
+        {
+            ReleaseImageFrames(*image);
+            hr = TryOpenInteractivePreview(*image);
+            opened = SUCCEEDED(hr) && HandleHasInteractivePreview(*image);
+        }
+        if (!opened)
+        {
+            ReleaseImageFrames(*image);
+            hr = TryOpenShellThumbnail(backend, *image);
+            opened = SUCCEEDED(hr) && !image->frames.empty();
+        }
+        if (!opened)
+        {
+            return HResultToPvCode(FAILED(hr) ? hr : WINCODEC_ERR_UNKNOWNIMAGEFORMAT);
         }
     }
 
@@ -5892,10 +6572,14 @@ PVCODE WINAPI Backend::sPVOpenImageEx(LPPVHandle* Img, LPPVOpenImageExInfo pOpen
 
     image->baseInfo.NumOfImages = static_cast<DWORD>(image->frames.size());
 
-    HRESULT hr = DecodeFrame(*image, 0);
-    if (FAILED(hr))
+    HRESULT hr = S_OK;
+    if (!HandleHasInteractivePreview(*image))
     {
-        return HResultToPvCode(hr);
+        hr = DecodeFrame(*image, 0);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
     }
 
     if (pImgInfo)
@@ -5915,6 +6599,7 @@ PVCODE WINAPI Backend::sPVCloseImage(LPPVHandle Img)
     {
         return PVC_INVALID_HANDLE;
     }
+    ReleaseInteractivePreview(*handle);
     for (auto& frame : handle->frames)
     {
         frame.converter.Reset();
@@ -5957,6 +6642,10 @@ PVCODE WINAPI Backend::sPVReadImage2(LPPVHandle Img, HDC paintDC, RECT* dRect, T
     {
         return PVC_EXCEPTION;
     }
+    if (HandleHasInteractivePreview(*handle))
+    {
+        return PVC_OK;
+    }
     if (handle->frames.empty())
     {
         return PVC_INVALID_HANDLE;
@@ -5982,6 +6671,10 @@ PVCODE WINAPI Backend::sPVDrawImage(LPPVHandle Img, HDC paintDC, int x, int y, L
     if (!init.Succeeded())
     {
         return PVC_EXCEPTION;
+    }
+    if (HandleHasInteractivePreview(*handle))
+    {
+        return PVC_OK;
     }
     HRESULT hr = DecodeFrame(*handle, 0);
     if (FAILED(hr))
@@ -6040,6 +6733,34 @@ PVCODE WINAPI Backend::sPVSetStretchParameters(LPPVHandle Img, DWORD width, DWOR
     handle->stretchHeight = convert(height);
     handle->stretchMode = mode;
     return PVC_OK;
+}
+
+bool Backend::sHasInteractivePreview(LPPVHandle Img)
+{
+    auto handle = FromHandle(Img);
+    return handle != nullptr && HandleHasInteractivePreview(*handle);
+}
+
+PVCODE Backend::sShowInteractivePreview(LPPVHandle Img, HWND hwnd, const RECT* rect, COLORREF background)
+{
+    auto handle = FromHandle(Img);
+    if (!handle || hwnd == nullptr || rect == nullptr)
+    {
+        return PVC_INVALID_HANDLE;
+    }
+    const HRESULT hr = ShowInteractivePreview(*handle, hwnd, *rect, background);
+    return SUCCEEDED(hr) ? PVC_OK : HResultToPvCode(hr);
+}
+
+PVCODE Backend::sResizeInteractivePreview(LPPVHandle Img, const RECT* rect)
+{
+    auto handle = FromHandle(Img);
+    if (!handle || rect == nullptr)
+    {
+        return PVC_INVALID_HANDLE;
+    }
+    const HRESULT hr = ResizeInteractivePreview(*handle, *rect);
+    return SUCCEEDED(hr) ? PVC_OK : HResultToPvCode(hr);
 }
 
 PVCODE WINAPI Backend::sPVLoadFromClipboard(LPPVHandle* /*Img*/, LPPVImageInfo /*pImgInfo*/, int /*size*/)
@@ -6404,6 +7125,10 @@ PVCODE Backend::sCreateThumbnail(LPPVHandle Img, LPPVSaveImageInfo /*sii*/, int 
     if (handle->frames.empty())
     {
         return PVC_INVALID_HANDLE;
+    }
+    if (HandleHasInteractivePreview(*handle))
+    {
+        return PVC_UNSUP_FILE_TYPE;
     }
     const size_t normalizedIndex = NormalizeFrameIndex(*handle, imageIndex, 0);
     HRESULT hr = DecodeFrame(*handle, normalizedIndex);

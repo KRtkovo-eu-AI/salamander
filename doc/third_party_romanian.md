@@ -12,7 +12,8 @@ pentru punerea la dispoziție a muncii lor.
 | REGEXP | Potrivirea expresiilor regulate | Copyright (C) 1986 Henry Spencer, University of Toronto. |
 | Cod AES | Rutine criptografice | Scris de Dr Brian Gladman. Copyright (C) 2001 Dr Brian Gladman. |
 | PNGLite | Suport pentru imagini PNG | Bazat pe PNGLite de Daniel Karling. Copyright (C) 2007 Daniel Karling. |
-| Nano SVG | Suport pentru parsarea/redarea SVG | Copyright (c) 2013-2014 Mikko Mononen. |
+| Nano SVG | Suport pentru parsarea/redarea SVG | Copyright (c) 2013-2014 Mikko Mononen. Folosit pentru pictogramele barei de instrumente și meniurilor aplicației principale și de pluginul PictView pentru vizualizarea SVG (limite NanoSVG: fără CSS, text și filtre limitate). |
+| Inflater deflate PictView | Plugin PictView | Inflater deflate/zlib pentru dale XCF, IDAT PNG, ZIP SKP și previzualizări 3DM comprimate. Cititorul de biți și Huffman urmează puff de Mark Adler. Copyright (C) 2002-2013 Mark Adler. Licență zlib. |
 | SQLite | Suport pentru baza de date încorporată | SQLite este în domeniul public. |
 | LibTomCrypt | Primitive criptografice ale pluginului de verificare | LibTomCrypt este în domeniul public. După cum a scris Tom St Denis: „Așa cum ar trebui să fie orice software de calitate." |
 | Biblioteci LGPL | Biblioteci terțe partajate | Licențiate sub GNU Library General Public License. O copie a licenței este inclusă cu acest software. |
