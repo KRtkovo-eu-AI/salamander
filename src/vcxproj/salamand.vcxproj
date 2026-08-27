@@ -1229,6 +1229,40 @@
           SkipUnchangedFiles="true" />
   </Target>
 
+  <ItemGroup Condition="'$(Configuration)' == 'Release' Or '$(Configuration)' == 'Release clean'">
+    <SalamanderAutomationSampleScripts Include="$(ProjectDir)..\plugins\automation\sample-scripts\**\*.*" />
+    <SalamanderIEViewerCss Include="$(ProjectDir)..\plugins\ieviewer\cmark-gfm\css\githubmd.css" />
+    <SalamanderTextViewerDependencies Include="$(ProjectDir)..\plugins\textviewer\DEPENDENCIES.md" />
+    <SalamanderTextViewerSupportedTypes Include="$(ProjectDir)..\plugins\textviewer\SUPPORTED_FILE_TYPES.md" />
+    <SalamanderWebView2ViewerDependencies Include="$(ProjectDir)..\plugins\webview2renderviewer\DEPENDENCIES.md" />
+    <SalamanderWebView2ViewerSupportedTypes Include="$(ProjectDir)..\plugins\webview2renderviewer\SUPPORTED_FILE_TYPES.md" />
+  </ItemGroup>
+  <Target Name="StageReleaseConfigurationFiles" AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release' Or '$(Configuration)' == 'Release clean'">
+    <WriteLinesToFile File="$(OutDir)configstorage.ini" Lines="" Overwrite="false" />
+    <MakeDir Directories="$(OutDir)plugins" />
+    <WriteLinesToFile File="$(OutDir)plugins\plugins.ver" Lines="" Overwrite="false" />
+    <Copy SourceFiles="$(ProjectDir)..\..\doc\runbook-setup\plugin-capabilities.json;$(ProjectDir)..\..\doc\runbook-setup\plugin-receipts.json"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true" />
+    <MakeDir Directories="$(OutDir)plugins\automation\scripts" />
+    <MakeDir Directories="$(OutDir)plugins\ieviewer\css" />
+    <MakeDir Directories="$(OutDir)plugins\textviewer" />
+    <Copy SourceFiles="@(SalamanderTextViewerDependencies);@(SalamanderTextViewerSupportedTypes)"
+          DestinationFiles="@(SalamanderTextViewerDependencies->'$(OutDir)plugins\textviewer\%(Filename)%(Extension)');@(SalamanderTextViewerSupportedTypes->'$(OutDir)plugins\textviewer\%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <MakeDir Directories="$(OutDir)plugins\webview2renderviewer" />
+    <Copy SourceFiles="@(SalamanderWebView2ViewerDependencies);@(SalamanderWebView2ViewerSupportedTypes)"
+          DestinationFiles="@(SalamanderWebView2ViewerDependencies->'$(OutDir)plugins\webview2renderviewer\%(Filename)%(Extension)');@(SalamanderWebView2ViewerSupportedTypes->'$(OutDir)plugins\webview2renderviewer\%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(SalamanderIEViewerCss)"
+          DestinationFiles="@(SalamanderIEViewerCss->'$(OutDir)plugins\ieviewer\css\%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(SalamanderAutomationSampleScripts)"
+          DestinationFiles="@(SalamanderAutomationSampleScripts->'$(OutDir)plugins\automation\scripts\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
   <Target Name="StageSalamanderRuntimeFiles" AfterTargets="Build">
     <PropertyGroup>
       <OpenSalamanderStagingOutDir>$([System.String]::Copy('$(OutDir)').TrimEnd('\'))</OpenSalamanderStagingOutDir>
