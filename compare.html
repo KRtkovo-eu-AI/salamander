@@ -153,6 +153,10 @@
         <tr><td>Optimizations for slow VPN networks</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Copy and move between plug-in file systems and archives</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Bulk copy to all selected target folders (Shift+F5)</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Storage-aware concurrent Copy and Move scheduling for independent physical storage devices</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Sequential or storage-aware transfer mode selectable globally and per operation</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Rolling parallel file copying with configurable SSD/NVMe parallel-file limits</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>File Operation Progress window with multiple concurrent transfer rows</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
 
         <tr class="section"><th colspan="6"><b>Integrated Viewers</b></th></tr>
         <tr><td>Internal viewer: Text / HEX (binary)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
@@ -161,12 +165,17 @@
         <tr class="addition"><td>Internal viewer: zoom and optional line numbers</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Prism text viewer with syntax highlighting for text, configuration and source formats<br><small><i>Visually stays consistent with the Internal viewer.</i></small></td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr><td>PictView (PVW32.DLL): GIF, JPG, over 40 bitmap formats</td><td class="yes">–</td><td>–</td><td>⬤</td><td>⬤</td><td>–</td></tr>
-        <tr class="addition"><td>PictView (WIC): <a href="https://learn.microsoft.com/en-us/windows/win32/wic/native-wic-codecs">Windows Imaging Component (WIC) compatible</a> file formats support<br><small><i>Gaps in Current PictView formats support due to unavailable PVW32.DLL and WIC codecs are described in <a href="pictview-wic-support-gaps.html">this document</a>.</i></small></td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>PictView (WIC): <a href="https://learn.microsoft.com/en-us/windows/win32/wic/native-wic-codecs">Windows Imaging Component (WIC) compatible</a> file formats support</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>PictView native decoders for formats not covered by installed WIC codecs<br><small><i>TGA, PCX, Netpbm, SVG, DDS/DX10, XCF, PDN, 3DM, DWG, WMF/EMF and embedded previews in EPS/AI/PDF/MOV.</i></small></td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Interactive STL preview through an installed Windows Explorer 3D preview handler</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>STL, CDR and folder thumbnails with loading indication in the Directory Line</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr><td>Multimedia: MP3, 5 audio formats</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Database viewer: DBF, CSV, 8 database formats<br><small><i>Samandarin provides additional support for <b>JSONL</b> format.</i></small></td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr class="addition"><td>JSON viewer<br><small><i>Written in C# .NET, provides tree view on JSON file with search functionality.</i></small></td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr><td>Internet Explorer viewer: HTML, XML</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr class="addition"><td>WebView2 Render viewer: HTML, Markdown, SVG, WebP/AVIF/APNG, raster images and PDF</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>File Comparator Unicode whitespace glyphs and 8-bit text under the UTF-8 process code page</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Database Viewer fonts scaled for high-DPI displays</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr><td>Portable executable viewer: EXE, DLL</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
 
         <tr class="section"><th colspan="6"><b>Archives Support:</b> <b>U</b>npack / <b>P</b>ack, <b>I</b>nternal / <b>E</b>xternal (requires third party software)</th></tr>
@@ -181,7 +190,7 @@
         <tr><td>UC2</td><td class="yes">UE / PE</td><td>UE / PE</td><td>UE / PE</td><td>UE / PE</td><td>–</td></tr>
         <tr><td>TAR, TGZ, GZ</td><td class="yes">UI</td><td>UI</td><td>UI</td><td>UI</td><td>–</td></tr>
         <tr><td>TAZ, TBZ, BZ, BZ2, Z, RPM, DEB, CPIO</td><td class="yes">UI</td><td>UI</td><td>UI</td><td>UI</td><td>–</td></tr>
-        <tr><td>EML, B64, UUE, XXE, HQX, NTX</td><td class="yes" class="yes">UI</td><td>UI</td><td>UI</td><td>UI</td><td>–</td></tr>
+        <tr><td>EML, B64, UUE, XXE, HQX, NTX</td><td class="yes">UI</td><td>UI</td><td>UI</td><td>UI</td><td>–</td></tr>
         <tr><td>ISO, NRG, BIN, IMG, PDI, CDI, CIF, NCD, C2D (CD/DVD images)</td><td class="yes">UI</td><td>UI</td><td>UI</td><td>UI</td><td>–</td></tr>
         <tr><td>7Z (7-Zip archives)</td><td class="yes">UI / PI</td><td>UI / PI</td><td>UI / PI</td><td>UI / PI</td><td>–</td></tr>
         <tr><td>7Z (7-Zip archives) 9.22 Beta</td><td class="yes">–</td><td>UI / PI</td><td>UI / PI</td><td>–</td><td>–</td></tr>
@@ -190,6 +199,7 @@
         <tr><td>Create Self-Extract archives</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Automatic search for external archivers</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>View / Edit files in archives</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr class="addition"><td>ZIP file names with diacritics when Windows uses UTF-8 as the active system code page</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
 
         <tr class="section"><th colspan="6"><b>Basic Commands</b></th></tr>
         <tr><td>Rename, View, Edit, Copy, Move, Delete</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
@@ -227,6 +237,8 @@
         <tr class="section"><th colspan="6"><b>Plugins</b></th></tr>
         <tr><td>Automatic check for updates</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr class="addition"><td>Automatic plugin/extension installation and update (including dependencies)</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Fail-closed official package verification using catalog SHA-256 values and Authenticode publisher checks</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Plugin Manager disclosure of curated network, external-process and web-access capabilities</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr><td>FTP Client</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>FTP Client: contains OpenSSL library</td><td class="yes">⬤</td><td>–</td><td>⬤</td><td>–</td><td>–</td></tr>
         <tr><td>FTP Client: SSL session reuse supported</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
@@ -350,6 +362,9 @@
         <tr><td>Ignore Directory List for skipping directories</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Regular expressions</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Save Find criteria for future</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr class="addition"><td>Sortable Find, Registry Search and Batch Renamer results with ascending/descending column sorting</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Optional mixed sorting of files with directories and Registry keys with values</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr class="addition"><td>Abortable Registry Search using Stop, Esc or window close while preserving collected results</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         
         <tr class="section"><th colspan="6"><b>Sorting Options</b></th></tr>
         <tr><td>Sort by name, extension, time, size</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
@@ -565,7 +580,7 @@
     </section>
   </main>
   <a class="back-to-top" href="#content" aria-label="Back to top" title="Back to top" data-back-to-top>↑</a>
-  <script src="js/i18n.js" defer></script>
+  <script src="js/i18n.js?v=0.15.1" defer></script>
   <script src="js/back-to-top.js" defer></script>
   <script src="js/consent.js" defer></script>
 </body>
