@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\slovak\pictview\pictview.atp"
-TEXTVERSION,"2.25 (x64)"
-VERSION,"2,25,0,196"
+TEXTVERSION,"2.26 (x64)"
+VERSION,"2,26,0,196"
 
 [TRANSLATION]
 LANGID,1051
@@ -484,6 +484,8 @@ COMMENT,"Slovenská verzia"
 1131,1,"Kliknite na miesto, ktoré chcete zväčšiť, alebo označte celú oblasť, medzerníkom je možné ju posúvať."
 1132,1,"Stlačením tlačidla myši a jej ťahaním posuňte obrázok."
 1133,1,"Otáčam..."
+1134,1,"%s (3D) - %s"
+1135,1,"Potiahnutím otočíte model. Na zväčšenie použite koliesko myši."
 
 [STRINGTABLE 17]
 1140,1,"Zvoľte cieľovú zložku."

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\textviewer\textviewer.atp"
-TEXTVERSION,"1.0.4 (x64)"
-VERSION,"1,0,4,196"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,196"
 
 [TRANSLATION]
 LANGID,1048
@@ -39,8 +39,6 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 69,1,"&Visual Studio"
 70,1,"&Prism implicit"
 71,1,"&Personalizat"
-
-[STRINGTABLE 3]
 72,1,"Editare &personalizat"
 73,1,"Editare personalizat"
 74,1,"&Salvare"
@@ -49,6 +47,8 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 77,1,"Întunecat"
 78,1,"Comentariu"
 79,1,"Punctuație"
+
+[STRINGTABLE 3]
 80,1,"Cuvânt cheie"
 81,1,"Cuvânt cheie de control"
 82,1,"Nume clasă"
@@ -61,5 +61,4 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 89,1,"Expresie regulată"
 90,1,"Paleta de culori personalizată nu a putut fi salvată."
 91,1,"Salamatrix.UI nu este disponibil."
-
 

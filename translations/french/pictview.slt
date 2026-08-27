@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\french\pictview\pictview.atp"
-TEXTVERSION,"2.25 (x64)"
-VERSION,"2,25,0,196"
+TEXTVERSION,"2.26 (x64)"
+VERSION,"2,26,0,196"
 
 [TRANSLATION]
 LANGID,1036
@@ -484,6 +484,8 @@ COMMENT,"Version française"
 1131,1,"Cliquer sur l'image pour zoomer; cliquer et glisser pour sélection du zoom. Espace pour sélection du glisser."
 1132,1,"Cliquer et glisser pour faire défiler l'image dans la direction désirée."
 1133,1,"Rotation en cours..."
+1134,1,"%s (3D) - %s"
+1135,1,"Faites glisser pour faire pivoter le modèle. Utilisez la roulette de la souris pour zoomer."
 
 [STRINGTABLE 17]
 1140,1,"Sélectionner le répertoire de destination."

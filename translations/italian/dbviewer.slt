@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\dbviewer\dbviewer.atp"
-TEXTVERSION,"1.26 (x64)"
-VERSION,"1,26,0,196"
+TEXTVERSION,"1.27 (x64)"
+VERSION,"1,27,0,196"
 
 [TRANSLATION]
 LANGID,1040
@@ -49,7 +49,7 @@ COMMENT,"English version"
 12256,49,88,16,12,1,""
 13001,106,6,90,101,1,"Testo &Qualificatore"
 12262,115,18,84,12,1,"Selezione automatica"
-12255,115,32,74,12,0,"Double Quotes (")"
+12255,115,32,105,12,1,"Virgolette doppie (")"
 12254,115,46,60,12,1,"Virgolette (' )"
 12253,115,60,60,12,1,"Nessuno"
 13002,206,6,90,101,1,"&Prima riga"

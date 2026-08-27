@@ -535,8 +535,8 @@ COMMENT,"Deutsche Version"
 1227,1,"\r\n;Bestimmt, ob das Zielverzeichnis ohne den Benutzer zu fragen automatisch\r\n;angelegt werden soll\r\n;Setzen Sie den Wert auf 1 wenn das Zielverzeichnis automatisch\r\n;angelegt werden soll\r\n\r\n"
 1228,1,"\r\n;Programm, HTTP-Link oder Dokument, das nach dem erfolgreichen Entpacken\r\n;gestartet/aufgerufen werden soll.Der Pfad ist relativ zum Zielverzeichnis\r\n;des Entpackens.\r\n;Wenn Sie ein Programm angeben, können Sie auch Parameter verwenden\r\n\r\n"
 1229,1,"\r\n;SFX-Paket das beim Erstellen eines selbstentpackenden Archivs verwendet wird\r\n;relativer Pfad ist relativ zu dem Verzeichnis mit zip2sfx.exe\r\n\r\n"
-1230,0,"\r\n;buttons in the optional message box\r\n;could be one of the following: "ok", "ok_cancel", "yes_no",\r\n;"agree_disagree"\r\n\r\n"
-1231,0,"\r\n;type of the optional message box\r\n;could be one of the following: "simple", "exclamation", "information",\r\n;"question", "long_message"\r\n\r\n"
+1230,1,"\r\n;Schaltflächen im optionalen Meldungsfeld\r\n;könnten die folgenden sein: "ok", "ok_cancel", "yes_no",\r\n;"agree_disagree"\r\n\r\n"
+1231,1,"\r\n;Typ des optionalen Meldungsfelds\r\n;könnten die folgenden sein: "simple", "exclamation", "information",\r\n;"question", "long_message"\r\n\r\n"
 
 [STRINGTABLE 16]
 1232,1,"\r\n;Text und Titel im optionalen Hinweisfenster, das vor dem Entpacken\r\n;angezeigt werdens soll\r\n;Wenn kein Hinweisfenster anzeigt werden soll, lassen Sie beide Felder\r\n;leer. ("")\r\n\r\n"

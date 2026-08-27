@@ -43,7 +43,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 4]
 10240,1,"Ошибка при смене каталога"
-10241,0,"Path: "%s"\r\nError: %s"
+10241,1,"Путь: "%s"\r\nОшибка: %s"
 
 [STRINGTABLE 5]
 19457,1,"Указанный путь содержит путь к файлу."

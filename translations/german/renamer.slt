@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\renamer\renamer.atp"
-TEXTVERSION,"1.15 (x64)"
-VERSION,"1,15,0,196"
+TEXTVERSION,"1.16 (x64)"
+VERSION,"1,16,0,196"
 
 [TRANSLATION]
 LANGID,1031
@@ -280,7 +280,7 @@ COMMENT,"Deutsche Version"
 1127,1,"Pufferüberlauf"
 1128,1,"Kompilierter Ausdruck erforderlich."
 1129,1,"Starten eines neuen Threads nicht möglich."
-1130,1,"<Fehler im Ersetzungsmuster: %s>"
+1130,1,"<Fehler beim Ersetzen: %s>"
 1131,1,"Erwarte eine schließende Klammer oder Angabe zur Schreibweise ('klein', 'groß' oder 'gemischt')."
 1132,1,"Erwarte eine schließende Klammer."
 1133,1,"Erwarte eine schließende Klammer oder das Zeichen ':' gefolgt von einer Groß/Klein-Angabe ('klein', 'groß' oder 'gemischt')."

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\renamer\renamer.atp"
-TEXTVERSION,"1.15 (x64)"
-VERSION,"1,15,0,196"
+TEXTVERSION,"1.16 (x64)"
+VERSION,"1,16,0,196"
 
 [TRANSLATION]
 LANGID,1040
@@ -258,7 +258,7 @@ COMMENT,"English version"
 1106,1,"In attesa della specifica del riempimento (una lettera)"
 1107,1,"Errore nome nuovo: %s"
 1108,0,"<Invalid value in some input field>"
-1109,1,"Errore espressione regolare: %s"
+1109,1,"<Errore espressione regolare: %s>"
 1110,1,"<Errore Boyer-Moore: %s>"
 1111,1,"<Errore: %s>"
 1112,1,"Nessun errore."
@@ -280,7 +280,7 @@ COMMENT,"English version"
 1127,1,"Overflow dello stack"
 1128,1,"È richiesta un espressione compilata."
 1129,1,"Impossibile avviare un nuovo thread."
-1130,1,"Errore nel modello di sostituzione: %s"
+1130,1,"<Errore modello sostituzione: %s>"
 1131,1,"Attesa di parentesi chiusa o specifica di maiuscole ('lower', 'upper', 'mixed' o 'stripdia')."
 1132,1,"Attesa di parentesi chiusa."
 1133,1,"Attesa di parentesi chiusa o carattere ':' seguito da specifica di maiuscole ('lower', 'upper', 'mixed' o 'stripdia')."

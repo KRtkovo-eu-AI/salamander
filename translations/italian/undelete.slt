@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\undelete\undelete.atp"
-TEXTVERSION,"1.12 (x64)"
-VERSION,"1,12,0,196"
+TEXTVERSION,"1.13 (x64)"
+VERSION,"1,13,0,196"
 
 [TRANSLATION]
 LANGID,1040
@@ -55,7 +55,7 @@ COMMENT,"English version"
 
 [DIALOG 1400]
 257,100,1,"Ripristina configurazione"
-3000,7,7,163,8,0,"Alternative &temporary directory for viewing files:"
+3000,7,7,211,8,1,"Directory &temporanea alternativa per la visualizzazione dei file:"
 1401,7,17,222,14,1,""
 1402,235,17,16,14,1,"..."
 1403,7,39,196,10,1,"Usa sempre &riutilizza i dati di scansione FAT precedenti"
@@ -129,7 +129,7 @@ COMMENT,"English version"
 49,1,"Errore durante l'enumerazione dei volumi di sistema."
 50,1,"Impossibile trovare il file specificato."
 59,1,"Annullamento eliminazione in corso in una cartella temporanea, attendere"
-60,0,"The target volume does not support Encrypting File System (EFS).\n\nEncrypted files will be undeleted in backup format, which can be used to restore the files later to an NTFS partition using the command "Plugins/Undelete/Restore Encrypted Files from Backup"."
+60,1,"Il volume di destinazione non supporta la Crittografia file system (EFS).\n\nI file crittati verranno ripristinati in formato di backup, che può essere usato per ripristinare i file successivamente in una partizione NTFS tramite il comando "Plugins/Undelete/Restore Encrypted Files from Backup"."
 61,1,"Non mostrare più"
 62,1,"Scegli una cartella temporanea alternativa:"
 63,1,"Sembra che tu stia ripristinando su lo stesso disco logico in cui si trovano i file eliminati. Dovresti ripristinare sempre su una partizione diversa, altrimenti i file che stai ripristinando possono sovrascriversi da soli o potresti perdere altri file eliminati.\n\nSuggerimento: se non hai più partizioni, puoi anche ripristinare su un dischetto o su un disco USB."

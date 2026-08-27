@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\pictview\pictview.atp"
-TEXTVERSION,"2.25 (x64)"
-VERSION,"2,25,0,196"
+TEXTVERSION,"2.26 (x64)"
+VERSION,"2,26,0,196"
 
 [TRANSLATION]
 LANGID,1040
@@ -398,7 +398,7 @@ COMMENT,"English version"
 1043,1,"&Colore personalizzato..."
 1044,1,"&Colore automatico"
 1045,1,"Open Salamander è occupato. Il comando richiesto non può essere eseguito, riprova più tardi."
-1046,0,"Rename file "%s" to"
+1046,1,"Rinomina il file "%s" in"
 1047,1,"Errore rinomina file"
 1048,1,"Impossibile completare l’operazione: nome troppo lungo."
 1049,1,"<Deleted>"
@@ -467,7 +467,7 @@ COMMENT,"English version"
 1110,1,"Versione di Windows Imaging Component (WIC) incompatibile rilevata."
 1111,1,"Seleziona prima una regione."
 1112,1,"Predefinito"
-1113,0,"File "%s" already exists.\nDo you want to replace it?"
+1113,1,"Il file "%s" esiste gia.\nVuoi sostituirlo?"
 1114,1,"Visualizzatore e convertitore rapido di immagini."
 1115,1,"Il salvataggio dell’immagine è stato annullato dall’utente. File di output non creato."
 1116,1,"Non ci sono altre immagini disponibili"
@@ -484,6 +484,8 @@ COMMENT,"English version"
 1131,1,"Fai clic sull'immagine per ingrandire; fai clic e trascina per ingrandire in stile riquadro. Spazio per il trascinamento del riquadro."
 1132,1,"Fai clic e trascina per scorrere l'immagine nella direzione desiderata."
 1133,1,"Rotazione..."
+1134,1,"%s (3D) - %s"
+1135,1,"Trascina per ruotare il modello. Usa la rotellina del mouse per zoomare."
 
 [STRINGTABLE 17]
 1140,1,"Seleziona la directory di destinazione."

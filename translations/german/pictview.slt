@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\pictview\pictview.atp"
-TEXTVERSION,"2.25 (x64)"
-VERSION,"2,25,0,196"
+TEXTVERSION,"2.26 (x64)"
+VERSION,"2,26,0,196"
 
 [TRANSLATION]
 LANGID,1031
@@ -484,6 +484,8 @@ COMMENT,"Deutsche Version"
 1131,1,"Klicken im Bild zoomt ein; Klicken und Ziehen zoomt per Auswahlrechteck / Leertaste für Vergrößerungsrechteck."
 1132,1,"Klicken und Ziehen bewegt das Bild in die gewünschte Richtung."
 1133,1,"Drehe..."
+1134,1,"%s (3D) - %s"
+1135,1,"Zum Drehen des Modells ziehen. Mit dem Mausrad zoomen."
 
 [STRINGTABLE 17]
 1140,1,"Bitte wählen Sie das Zielverzeichnis aus."

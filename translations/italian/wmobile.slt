@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\wmobile\wmobile.atp"
-TEXTVERSION,"1.0.10 (x64)"
-VERSION,"1,0,10,196"
+TEXTVERSION,"1.11 (x64)"
+VERSION,"1,11,0,196"
 
 [TRANSLATION]
 LANGID,1040
@@ -74,9 +74,9 @@ COMMENT,"English version"
 
 [STRINGTABLE 2]
 3008,1,"Impossibile completare l'operazione: percorso troppo lungo."
-3009,0,"Unable to create the directory "%s"."
-3010,0,"The directory "%s" doesn't exist.\n\nDo you want to create it?"
-3011,0,"The name "%s" has already been used for a file."
+3009,1,"Impossibile creare la directory "%s"."
+3010,1,"La directory "%s" non esiste.\n\nVuoi crearla?"
+3011,1,"Il nome "%s" è già stato usato per un file."
 3012,1,"Data formato non valido."
 3013,1,"Impossibile completare l'operazione: nome troppo lungo."
 3014,1,"Il percorso specificato include un percorso a un file. Impossibile aprire il file."
@@ -92,7 +92,7 @@ COMMENT,"English version"
 
 [STRINGTABLE 3]
 3024,1,"Eliminazione"
-3025,0,"The directory "%s" is not empty\nDo you want to delete it?"
+3025,1,"La directory "%s" non è vuota\nVuoi eliminarla?"
 3026,1,"Vuoi eliminare il file con l'attributo SISTEMA o NASCOSTO?"
 3027,1,"Vuoi eliminare la directory con l'attributo SISTEMA o NASCOSTO?"
 3028,1,"Il percorso di destinazione non esiste. Il plugin per Windows Mobile non supporta la creazione del percorso di destinazione."

@@ -43,7 +43,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 4]
 10240,1,"Chyba při změně adresáře"
-10241,0,"Path: "%s"\r\nError: %s"
+10241,1,"Cesta: "%s"\r\nChyba: %s"
 
 [STRINGTABLE 5]
 19457,1,"Určená cesta obsahuje cestu k souboru."

@@ -535,7 +535,7 @@ COMMENT,"Magyar változat"
 1227,1,"\r\n;adja meg, hogy a célkönyvtárat kérdezés nélkül automatikusan létre kell-e hozni\r\n;felhasználó\r\n;állítsa az értékét 1-re, ha azt szeretné, hogy a célkönyvtár automatikusan\r\n;létrejöjjön\r\n\r\n"
 1228,1,"\r\n;program, http-hivatkozás vagy dokumentum, amely futtatandó/megnyitandó, ha a fájlok\r\n;kicsomagolása sikeresen befejeződött. A\r\n;útvonal a kicsomagolási célmappához viszonyított. Ha megad egy programot, akkor\r\n;annak argumentumait is beírhatja\r\n\r\n"
 1229,1,"\r\n;önkicsomagoló archívum létrehozásakor használandó sfx-csomag\r\n;a relatív útvonal a zip2sfx.exe-t tartalmazó mappához viszonyított\r\n\r\n"
-1230,0,"\r\n;buttons in the optional message box\r\n;could be one of the following: "ok", "ok_cancel", "yes_no",\r\n;"agree_disagree"\r\n\r\n"
+1230,1,"\r\n;buttons in the optional message box\r\n;could be one of the following: "ok", "ok_cancel", "yes_no",\r\n;"agree_disagree"\r\n\r\n"
 1231,1,"\r\n;az opcionális üzenetmező típusa\r\n;az alábbiak valamelyike lehet: „simple”, „exclamation”, „information”,\r\n;„question”, „long_message”\r\n\r\n"
 
 [STRINGTABLE 16]

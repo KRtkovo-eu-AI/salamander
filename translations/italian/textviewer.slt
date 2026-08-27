@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\textviewer\textviewer.atp"
-TEXTVERSION,"1.0.4 (x64)"
-VERSION,"1,0,4,196"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,196"
 
 [TRANSLATION]
 LANGID,1040
@@ -39,8 +39,6 @@ COMMENT,"English version"
 69,1,"&Visual Studio"
 70,1,"&Prism predefinito"
 71,1,"&Personalizzato"
-
-[STRINGTABLE 3]
 72,1,"Modifica &personalizzato"
 73,1,"Modifica personalizzato"
 74,1,"&Salva"
@@ -49,6 +47,8 @@ COMMENT,"English version"
 77,1,"Scuro"
 78,1,"Commento"
 79,1,"Punteggiatura"
+
+[STRINGTABLE 3]
 80,1,"Parola chiave"
 81,1,"Parola chiave di controllo"
 82,1,"Nome classe"
@@ -61,5 +61,4 @@ COMMENT,"English version"
 89,1,"Espressione regolare"
 90,1,"Impossibile salvare la tavolozza colori personalizzata."
 91,1,"Salamatrix.UI non è disponibile."
-
 

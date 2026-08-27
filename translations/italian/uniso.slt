@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\uniso\uniso.atp"
-TEXTVERSION,"1.38 (x64)"
-VERSION,"1,38,0,196"
+TEXTVERSION,"1.39 (x64)"
+VERSION,"1,39,0,196"
 
 [TRANSLATION]
 LANGID,1040
@@ -55,7 +55,7 @@ COMMENT,"English version"
 1033,1,"Errore nella lettura della tabella di allocazione virtuale al settore #%08X."
 1034,1,"Tabella di allocazione virtuale mancante."
 1035,1,"ICB radice non valido.\n\nImpossibile leggere la struttura di directory."
-1036,0,"File "%s" cannot be extracted.\n\nMismatch between file size and ICB blocks."
+1036,1,"Impossibile estrarre il file "%s".\n\nDisallineamento tra la dimensione del file e i blocchi ICB."
 1037,1,"Impossibile aprire la traccia n.%d."
 1038,1,"Questo file sembra un’immagine di un floppy disk o di un disco rigido o di una partizione di disco rigido.\nProva a rinominare il file in .ima per attivare il plug-in UnFAT."
 1039,1,"Questa immagine del disco contiene il file system APFS.\nQuesto file system non è ancora supportato."
@@ -100,12 +100,12 @@ COMMENT,"English version"
 
 [STRINGTABLE 7]
 1150,1,"Info immagine\n\n"
-1151,0,"Information on image "%s"\n\n"
+1151,1,"Info immagine "%s"\n\n"
 
 [STRINGTABLE 8]
 1152,1,"Numero sessioni: %d"
 1153,1,"\nSessione %d\n"
 1154,1,"Numero di tracce: %d\n"
 1155,1,"  Traccia: %d, %s, Dimensione: %d KByte\n"
-1156,0,"  Track: %d, %s, Size: %d KBytes - "%s"\n"
+1156,1,"  Traccia: %d, %s, Dimensione: %d KByte - "%s"\n"
 

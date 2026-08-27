@@ -43,7 +43,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 4]
 10240,1,"Fout bij het wijzigen van de map"
-10241,0,"Path: "%s"\r\nError: %s"
+10241,1,"Pad: "%s"\r\nFout: %s"
 
 [STRINGTABLE 5]
 19457,1,"Het opgegeven pad bevat een pad naar een bestand."

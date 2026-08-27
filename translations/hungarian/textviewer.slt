@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\hungarian\textviewer\textviewer.atp"
-TEXTVERSION,"1.0.4 (x64)"
-VERSION,"1,0,4,196"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,196"
 
 [TRANSLATION]
 LANGID,1038
@@ -39,8 +39,6 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 69,1,"&Visual Studio"
 70,1,"Alapértelmezett &Prism"
 71,1,"&Egyéni"
-
-[STRINGTABLE 3]
 72,1,"Egyéni &szerkesztése"
 73,1,"Egyéni szerkesztése"
 74,1,"&Mentés"
@@ -49,6 +47,8 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 77,1,"Sötét"
 78,1,"Megjegyzés"
 79,1,"Írásjel"
+
+[STRINGTABLE 3]
 80,1,"Kulcsszó"
 81,1,"Vezérlő kulcsszó"
 82,1,"Osztálynév"
@@ -61,5 +61,4 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 89,1,"Reguláris kifejezés"
 90,1,"Az egyéni színpaletta mentése nem sikerült."
 91,1,"A Salamatrix.UI nem érhető el."
-
 

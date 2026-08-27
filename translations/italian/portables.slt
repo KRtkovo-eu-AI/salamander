@@ -43,7 +43,7 @@ COMMENT,"English version"
 
 [STRINGTABLE 4]
 10240,1,"Errore modifica cartella"
-10241,0,"Path: "%s"\r\nError: %s"
+10241,1,"Percorso: "%s"\r\nErrore: %s"
 
 [STRINGTABLE 5]
 19457,1,"Il percorso specificato contiene un percorso file."

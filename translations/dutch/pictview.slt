@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\dutch\pictview\pictview.atp"
-TEXTVERSION,"2.25 (x64)"
-VERSION,"2,25,0,196"
+TEXTVERSION,"2.26 (x64)"
+VERSION,"2,26,0,196"
 
 [TRANSLATION]
 LANGID,1043
@@ -484,6 +484,8 @@ COMMENT,"Nederlandse versie"
 1131,1,"Klik op afbeeldingen voor inzoomen; klik en sleep voor selectiekader zoom. Spatie om selectiekader te slepen."
 1132,1,"Klik en sleep om de afbeelding in gewenste richting te schuiven."
 1133,1,"Draaien..."
+1134,1,"%s (3D) - %s"
+1135,1,"Sleep om het model te roteren. Gebruik het muiswiel om in/out te zoomen."
 
 [STRINGTABLE 17]
 1140,1,"Selecteer de doelmap."

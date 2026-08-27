@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\pictview\pictview.atp"
-TEXTVERSION,"2.25 (x64)"
-VERSION,"2,25,0,196"
+TEXTVERSION,"2.26 (x64)"
+VERSION,"2,26,0,196"
 
 [TRANSLATION]
 LANGID,1048
@@ -484,6 +484,8 @@ COMMENT,"Versiunea romana"
 1131,1,"Click pe imagine pentru scalare plus; click si trage pentru a marca scalarea. Space pentru a marca tragerea."
 1132,1,"Click si trage pentru a deplasa imaginea in directia dorita."
 1133,1,"Rotire..."
+1134,1,"%s (3D) - %s"
+1135,1,"Trage pentru a roti modelul. Folosește roata mouse-ului pentru zoom."
 
 [STRINGTABLE 17]
 1140,1,"Selecteaza directorul destinatie."

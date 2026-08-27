@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\czech\renamer\renamer.atp"
-TEXTVERSION,"1.15 (x64)"
-VERSION,"1,15,0,196"
+TEXTVERSION,"1.16 (x64)"
+VERSION,"1,16,0,196"
 
 [TRANSLATION]
 LANGID,1029
@@ -259,7 +259,7 @@ COMMENT,"Česká verze"
 1107,1,"Chyba nového názvu: %s"
 1108,0,"<Invalid value in some input field>"
 1109,1,"Chyba regulárního výrazu: %s"
-1110,1,"<Boyer-Moore chyba: %s>"
+1110,1,"<Chyba Boyer-Moore: %s>"
 1111,1,"<Chyba: %s>"
 1112,1,"Žádná chyba."
 1113,1,"Nedostatek paměti."

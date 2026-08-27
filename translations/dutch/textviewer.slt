@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\dutch\textviewer\textviewer.atp"
-TEXTVERSION,"1.0.4 (x64)"
-VERSION,"1,0,4,196"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,196"
 
 [TRANSLATION]
 LANGID,1043
@@ -31,7 +31,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 63,1,"Regel&nummers weergeven"
 
 [STRINGTABLE 2]
-64,0,"&Wrap Lines\tF2"
+64,1,"&Regelomloop\tF2"
 65,1,"Toon &spaties"
 66,1,"Syntaxis-&accentuering"
 67,1,"&Automatisch"
@@ -39,8 +39,6 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 69,1,"&Visual Studio"
 70,1,"Standaard &Prism"
 71,1,"&Aangepast"
-
-[STRINGTABLE 3]
 72,1,"&Aangepast bewerken"
 73,1,"Aangepast bewerken"
 74,1,"&Opslaan"
@@ -49,6 +47,8 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 77,1,"Donker"
 78,1,"Opmerking"
 79,1,"Interpunctie"
+
+[STRINGTABLE 3]
 80,1,"Trefwoord"
 81,1,"Besturingswoord"
 82,1,"Klassenaam"
@@ -61,5 +61,4 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 89,1,"Reguliere expressie"
 90,1,"Het aangepaste kleurenpalet kon niet worden opgeslagen."
 91,1,"Salamatrix.UI is niet beschikbaar."
-
 

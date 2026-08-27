@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\textviewer\textviewer.atp"
-TEXTVERSION,"1.0.4 (x64)"
-VERSION,"1,0,4,196"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,196"
 
 [TRANSLATION]
 LANGID,1031
@@ -39,8 +39,6 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 69,1,"&Visual Studio"
 70,1,"Standard-&Prism"
 71,1,"&Benutzerdefiniert"
-
-[STRINGTABLE 3]
 72,1,"&Benutzerdefiniert bearbeiten"
 73,1,"Benutzerdefinierte Palette"
 74,1,"&Speichern"
@@ -49,6 +47,8 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 77,1,"Dunkel"
 78,1,"Kommentar"
 79,1,"Interpunktion"
+
+[STRINGTABLE 3]
 80,1,"Schlüsselwort"
 81,1,"Steuerwort"
 82,1,"Klassenname"
@@ -61,5 +61,4 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 89,1,"Regulärer Ausdruck"
 90,1,"Die benutzerdefinierte Farbpalette konnte nicht gespeichert werden."
 91,1,"Salamatrix.UI ist nicht verfügbar."
-
 

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\spanish\renamer\renamer.atp"
-TEXTVERSION,"1.15 (x64)"
-VERSION,"1,15,0,196"
+TEXTVERSION,"1.16 (x64)"
+VERSION,"1,16,0,196"
 
 [TRANSLATION]
 LANGID,3082
@@ -256,7 +256,7 @@ COMMENT,"Versión en español"
 1104,1,"Se espera especificación de alineación ('l') o anchura (número entero positivo)."
 1105,1,"Se espera especificación de anchura (número entero positivo)"
 1106,1,"Se espera especificación de filtro (una letra)"
-1107,1,"Error de nombre: %s"
+1107,1,"Error de nombre nuevo: %s"
 1108,0,"<Invalid value in some input field>"
 1109,1,"<Error de expresión regular: %s>"
 1110,1,"<Error de Boyer-Moore: %s>"
@@ -280,7 +280,7 @@ COMMENT,"Versión en español"
 1127,1,"Rebosamiento de pila"
 1128,1,"Se requiere una expresión compilada."
 1129,1,"Imposible iniciar nuevo hilo."
-1130,1,"<Error del patrón de sustitución: %s>"
+1130,1,"<Error de patrón de sustitución: %s>"
 1131,1,"Se esperan paréntesis cerrados o especificación de tipografía ('lower', 'upper', 'mixed', o 'stripdia')."
 1132,1,"Se esperan paréntesis cerrados."
 1133,1,"Se esperan paréntesis cerrados o caracter ':' seguido de especificación de tipografía ('lower', 'upper', 'mixed', o 'stripdia')."

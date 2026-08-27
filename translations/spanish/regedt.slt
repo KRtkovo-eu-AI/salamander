@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\spanish\regedt\regedt.atp"
-TEXTVERSION,"1.15 (x64)"
-VERSION,"1,15,0,196"
+TEXTVERSION,"1.16 (x64)"
+VERSION,"1,16,0,196"
 
 [TRANSLATION]
 LANGID,3082
@@ -74,7 +74,7 @@ COMMENT,"Versión en español"
 156,61,121,76,8,1,"Más a&ntiguo o igual a:"
 153,139,119,80,12,1,""
 158,225,121,81,8,1,"hh:mm:ss dd.mm.aaaa"
-148,6,132,109,8,1,"&Elementos encontrados:"
+148,6,132,83,8,1,"&Elementos encontrados:"
 178,80,131,160,12,1,"Ordenar claves y valores juntos"
 149,6,142,309,57,1,""
 

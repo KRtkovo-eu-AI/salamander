@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\chinesesimplified\pictview\pictview.atp"
-TEXTVERSION,"2.25 (x64)"
-VERSION,"2,25,0,196"
+TEXTVERSION,"2.26 (x64)"
+VERSION,"2,26,0,196"
 
 [TRANSLATION]
 LANGID,2052
@@ -484,6 +484,8 @@ COMMENT,"简体中文版"
 1131,1,"点击图像以放大；点击并拖动来缩放选取框。空格用于选取框拖动。"
 1132,1,"点击并拖动向需要的方向滚动图像。"
 1133,1,"旋转..."
+1134,1,"%s（3D）- %s"
+1135,1,"拖动以旋转模型。使用鼠标滚轮缩放。"
 
 [STRINGTABLE 17]
 1140,1,"选择目标目录。"

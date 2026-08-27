@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\hungarian\pictview\pictview.atp"
-TEXTVERSION,"2.25 (x64)"
-VERSION,"2,25,0,196"
+TEXTVERSION,"2.26 (x64)"
+VERSION,"2,26,0,196"
 
 [TRANSLATION]
 LANGID,1038
@@ -484,6 +484,8 @@ COMMENT,"Magyar változat"
 1131,1,"Kattintson a képen a nagyításhoz; kattintson és rajzoljon nagyítási mezőt. Space a mező mozgatásához."
 1132,1,"Kattintson és vigye a kilógó képet a kívánt irányba."
 1133,1,"Forgatás..."
+1134,1,"%s (3D) - %s"
+1135,1,"A modell forgatásához húzza. A nagyításhoz használja az egérgörgőt."
 
 [STRINGTABLE 17]
 1140,1,"Válassza ki a cél mappát."

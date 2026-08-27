@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\splitcbn\splitcbn.atp"
-TEXTVERSION,"1.11 (x64)"
-VERSION,"1,11,0,196"
+TEXTVERSION,"1.12 (x64)"
+VERSION,"1,12,0,196"
 
 [TRANSLATION]
 LANGID,1040
@@ -101,15 +101,15 @@ COMMENT,"English version"
 27,1,"%X (hex)"
 28,1,"NON TROVATO"
 29,1,"Calcola CRC"
-30,0,"Split "%%s" (%s bytes) to:"
-31,0,"1.44 MB (3.5" Floppy)"
+30,1,"Dividi "%%s" (%s byte) in:"
+31,1,"1,44 MB (floppy 3,5")"
 
 [STRINGTABLE 2]
-32,0,"720 KB (3.5" Floppy)"
-33,0,"1.2 MB (5.25" Floppy)"
-34,0,"360 KB (5.25" Floppy)"
+32,1,"720 KB (floppy 3,5")"
+33,1,"1,2 MB (floppy 5,25")"
+34,1,"360 KB (floppy 5,25")"
 35,1,"Auto-rileva"
-36,0,"CRC32 of the file "%s" is:"
+36,1,"CRC32 del file "%s" è:"
 37,1,"Errore creazione file batch."
 38,1,"byte"
 39,1,"byte"
