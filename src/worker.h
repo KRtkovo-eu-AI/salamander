@@ -5,6 +5,7 @@
 #pragma once
 
 #include <string>
+#include "storagesched.h"
 
 #define CREATE_DIR_SIZE CQuadWord(4096, 0) // operation cost estimates (uncached measurements based on worker thread runtimes)
 #define MOVE_DIR_SIZE CQuadWord(5050, 0)
@@ -79,6 +80,25 @@ struct CProgressData
         *Source,
         *Preposition,
         *Target;
+};
+
+#define COPYMOVE_MAX_PARALLEL_STREAMS 8
+#define COPYMOVE_MIN_PARALLEL_BATCH_SIZE (8 * 1024 * 1024)
+
+struct CParallelProgressStreamData
+{
+    const char *Operation, *Source, *Preposition, *Target;
+    int Progress;
+};
+
+// Passed synchronously to the progress dialog. All text pointers remain valid
+// for the duration of SendMessage.
+struct CParallelProgressData
+{
+    int ActiveCount;
+    int DisplayCount;
+    BOOL ResetSlots;
+    CParallelProgressStreamData Streams[COPYMOVE_MAX_PARALLEL_STREAMS];
 };
 
 //
@@ -215,6 +235,8 @@ enum COperationCode
 #define OPFL_TGTPATH_IS_FAST 0x00000040      // the target path is a disk, USB disk, flash drive, flash-card reader, CD, DVD, or RAM disk (not a network or floppy)
 #define OPFL_IGNORE_INVALID_NAME 0x00000080  // skip the name validity test (for directories: unchanged name = do not flag as invalid)
 #define OPFL_ALLOW_CASE_ONLY_RENAME 0x00000100 // allow renames where source and target differ only by letter case
+#define OPFL_PARALLEL_DONE 0x00000200 // copy file already completed by rolling lookahead
+#define OPFL_PARALLEL_DIR_PREPARED 0x00000400 // directory created/resolved by rolling lookahead
 
 struct COperation
 {
@@ -273,7 +295,9 @@ public:
     BOOL CopyAttrs;             // preserve the Archive, Encrypt, and Compress attributes; FALSE = don't care = perform no extra handling and accept any result
     BOOL PreserveDirTime;       // preserve directory timestamps (during Move we detect unintended changes and fix them manually; works e.g. on Samba)
     BOOL StartOnIdle;           // should start only when nothing else is running
+    int CopyMoveTransferMode;   // CMS_SEQUENTIAL / CMS_STORAGE_AWARE; controls streams within this operation
     BOOL SourcePathIsNetwork;   // TRUE = the source path is a network path (UNC or mapped drive)
+    COperationStorageUse StorageUse; // physical source/destination devices used by the scheduler
 
     // for the status line in the progress dialog (Copy and Move only)
     BOOL ShowStatus;       // should the operation status (copy speed, etc.) appear below the second progress bar?
@@ -302,6 +326,7 @@ private:
 
     // data for the speed limit, used only inside StatusCS
     BOOL UseSpeedLimit;             // TRUE = the speed limit is in use
+    BOOL ParallelCopyDisabled;      // a speed limit was used during this operation
     DWORD SpeedLimit;               // speed limit value (in bytes per second), WARNING: must never be zero!
     DWORD SleepAfterWrite;          // how many ms to wait after a packet of size LastBufferLimit; -1 = the value must be computed (after the first packet)
     int LastBufferLimit;            // packet size, WARNING: must never be zero!
@@ -337,6 +362,7 @@ public:
     void AddBytesToSpeedMetersAndTFSandPS(DWORD bytesCount, BOOL onlyToProgressSpeedMeter,
                                           int bufferSize, int* limitBufferSize = NULL,
                                           DWORD maxPacketSize = 0);
+    void AddParallelCopyBytes(DWORD bytesCount, DWORD maxPacketSize);
     void GetNewBufSize(int* limitBufferSize, int bufferSize);
     void AddBytesToTFSandSetProgressSize(const CQuadWord& bytesCount, const CQuadWord& pSize);
     void AddBytesToTFS(const CQuadWord& bytesCount);
@@ -356,19 +382,28 @@ public:
 
     void SetSpeedLimit(BOOL useSpeedLimit, DWORD speedLimit);
     void GetSpeedLimit(BOOL* useSpeedLimit, DWORD* speedLimit);
+    BOOL IsParallelCopyDisabled();
+
+    void AddStoragePath(const char* path, int access);
 };
+
+int GetCopyOperationStreamDemand(COperations* script, int ssdLimit, int nvmeLimit);
 
 class COperationsQueue // queue of disk Copy/Move operations
 {
 protected:
     CRITICAL_SECTION QueueCritSect; // object's critical section
 
-    // OperDlgs and OperPaused arrays have the same number of elements and share indices (each operation uses the same index in both arrays)
+    // OperDlgs, OperPaused, OperStorage and OperForceSequential share indices
     TDirectArray<HWND> OperDlgs;    // array of HWND handles: dialogs of operations in the queue
     TDirectArray<DWORD> OperPaused; // int array describing queue operation state: 2/1/0 = "manually-paused"/"auto-paused"/"running"
+    TDirectArray<COperationStorageUse> OperStorage;
+    TDirectArray<DWORD> OperForceSequential; // 1 = wait for all other operations (Sequential or StartOnIdle)
+
+    void TryResumeCompatible(HWND* foregroundWnd); // call with QueueCritSect held
 
 public:
-    COperationsQueue() : OperDlgs(5, 10), OperPaused(5, 10)
+    COperationsQueue() : OperDlgs(5, 10), OperPaused(5, 10), OperStorage(5, 10), OperForceSequential(5, 10)
     {
         HANDLES(InitializeCriticalSection(&QueueCritSect));
     }
@@ -382,13 +417,13 @@ public:
     // adds an operation to the queue; returns TRUE on success, otherwise the addition failed (not enough memory);
     // 'dlg' is the handle of the operation dialog window; 'startOnIdle' is TRUE if the operation should start
     // only when nothing else is running; in 'startPaused' (must not be NULL) it returns TRUE when
-    // the added operation should start "paused", otherwise it starts "running"
-    BOOL AddOperation(HWND dlg, BOOL startOnIdle, BOOL* startPaused);
+    // the added operation should start "paused", otherwise it starts "running";
+    // 'storageUse' may be NULL (treated as an unresolved/global-unknown resource)
+    BOOL AddOperation(HWND dlg, BOOL startOnIdle, BOOL* startPaused, const COperationStorageUse* storageUse);
 
     // removes the operation from the queue (the operation finished); if 'doNotResume' is FALSE, it posts
-    // a "resume" of the first operation in the queue when every operation in the queue is "paused";
-    // if 'foregroundWnd' is not NULL, it stores the handle of the dialog that should be activated
-    // (if no activation is needed, the value remains unchanged)
+    // a "resume" of compatible waiting operations; if 'foregroundWnd' is not NULL, it stores the handle
+    // of the dialog that should be activated (if no activation is needed, the value remains unchanged)
     void OperationEnded(HWND dlg, BOOL doNotResume, HWND* foregroundWnd);
 
     // sets the state of operation 'dlg' to 'paused' (2/1/0 = "manually-paused"/"auto-paused"/"running")

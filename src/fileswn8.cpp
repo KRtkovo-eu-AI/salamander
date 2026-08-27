@@ -570,6 +570,11 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
         DWORD clusterSize = 0;
         CChangeCaseData changeCaseData;
         CCriteriaData criteria;
+        int transferMode = Configuration.CopyMoveScheduling == CMS_MANUAL
+                               ? Configuration.CopyMoveLastTransferMode
+                               : Configuration.CopyMoveScheduling;
+        if (transferMode != CMS_SEQUENTIAL && transferMode != CMS_STORAGE_AWARE)
+            transferMode = CMS_STORAGE_AWARE;
         if (CopyMoveOptions.Get() != NULL) // if they exist, pull the defaults
             criteria = *CopyMoveOptions.Get();
         CCriteriaData* criteriaPtr = NULL; // pointer to 'criteria'; if NULL, they are ignored
@@ -596,7 +601,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                                                (type == atCopy) ? LoadStr(IDS_COPY) : LoadStr(IDS_MOVE), &str,
                                                (type == atCopy) ? IDD_COPYDIALOG : IDD_MOVEDIALOG,
                                                Configuration.CopyHistory, COPY_HISTORY_SIZE,
-                                               &criteria, havePermissions, supportsADS,
+                                               &criteria, havePermissions, supportsADS, &transferMode,
                                                copyToSelectedDirs ? &selectedTargetPaths : NULL,
                                                changeTargetRequested != NULL && !copyToSelectedDirs)
                           .Execute();
@@ -609,6 +614,8 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     criteria.CopySecurity = FALSE;
                 if (res != IDOK)
                     break;
+                if (Configuration.CopyMoveScheduling == CMS_MANUAL)
+                    Configuration.CopyMoveLastTransferMode = transferMode;
                 criteriaPtr = criteria.IsDirty() ? &criteria : NULL;
                 UpdateWindow(MainWindow->HWindow);
 
@@ -1106,6 +1113,8 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     TRACE_E(LOW_MEMORY);
                 else
                 {
+                    if (type == atCopy || type == atMove)
+                        script->CopyMoveTransferMode = transferMode;
                     const char* caption;
                     switch (type)
                     {
@@ -1140,6 +1149,18 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     }
                     if (criteriaPtr != NULL && criteriaPtr->UseSpeedLimit)
                         script->SetSpeedLimit(TRUE, criteriaPtr->SpeedLimit);
+                    if (type == atCopy || type == atMove)
+                    {
+                        script->AddStoragePath(GetPath(), type == atMove ? SACCESS_READWRITE : SACCESS_READ);
+                        if (copyToSelectedDirs)
+                        {
+                            for (std::vector<std::string>::const_iterator selectedTarget = selectedTargetPaths.begin();
+                                 selectedTarget != selectedTargetPaths.end(); ++selectedTarget)
+                                script->AddStoragePath(selectedTarget->c_str(), SACCESS_WRITE);
+                        }
+                        else
+                            script->AddStoragePath(path, SACCESS_WRITE);
+                    }
                     char captionBuf[50];
                     lstrcpyn(captionBuf, caption, 50); // otherwise the LoadStr buffer gets overwritten before being copied to the dialog's local buffer
                     caption = captionBuf;

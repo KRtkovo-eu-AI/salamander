@@ -705,6 +705,9 @@
     </ClCompile>
     <ClCompile Include="..\salamdr7.cpp">
     </ClCompile>
+    <ClCompile Include="..\storagesched.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="..\salbzip2.cpp">
     </ClCompile>
     <ClCompile Include="..\salinflt.cpp">
@@ -1116,6 +1119,8 @@
     <ClInclude Include="..\panel_quick_search.h">
     </ClInclude>
     <ClInclude Include="..\worker.h">
+    </ClInclude>
+    <ClInclude Include="..\storagesched.h">
     </ClInclude>
     <ClInclude Include="..\zip.h">
     </ClInclude>

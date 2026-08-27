@@ -1390,6 +1390,14 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
         PrintLine(param, buf, TRUE);
         sprintf(buf, "UseAsyncCopyAlg = %d", Configuration.UseAsyncCopyAlg);
         PrintLine(param, buf, TRUE);
+        sprintf(buf, "CopyMoveScheduling = %d", Configuration.CopyMoveScheduling);
+        PrintLine(param, buf, TRUE);
+        sprintf(buf, "CopyMoveLastTransferMode = %d", Configuration.CopyMoveLastTransferMode);
+        PrintLine(param, buf, TRUE);
+        sprintf(buf, "CopyMoveSsdParallelFiles = %d", Configuration.CopyMoveSsdParallelFiles);
+        PrintLine(param, buf, TRUE);
+        sprintf(buf, "CopyMoveNvmeParallelFiles = %d", Configuration.CopyMoveNvmeParallelFiles);
+        PrintLine(param, buf, TRUE);
         sprintf(buf, "ReloadEnvVariables = %d", Configuration.ReloadEnvVariables);
         PrintLine(param, buf, TRUE);
         sprintf(buf, "AutoSave = %d", Configuration.AutoSave);

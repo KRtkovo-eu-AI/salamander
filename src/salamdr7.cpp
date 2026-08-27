@@ -10,6 +10,8 @@
 #include "fileswnd.h"
 #include "mainwnd.h"
 #include "salinflt.h"
+#include "storagesched.h"
+#include "common/widepath.h"
 
 // ************************************************************************************************************************
 //
@@ -549,4 +551,429 @@ BOOL GetResolvedPathMountPointAndGUID(const char* path, char* mountPoint, char* 
         }
     }
     return FALSE;
+}
+
+//************************************************************************************************************************
+//
+// Storage-aware Copy/Move resource resolution
+//
+
+struct CStorageResCacheItem
+{
+    char GuidKey[64];
+    DWORD DiskCount;
+    DWORD Disks[STORAGE_MAX_DISKS];
+    BOOL SeekPenalty;
+    int Media;
+    int Bus;
+};
+
+static CRITICAL_SECTION StorageResCacheCS;
+static BOOL StorageResCacheReady = FALSE;
+static TDirectArray<CStorageResCacheItem> StorageResCache(8, 8);
+
+void InitStorageResourceCache()
+{
+    if (!StorageResCacheReady)
+    {
+        HANDLES(InitializeCriticalSection(&StorageResCacheCS));
+        StorageResCacheReady = TRUE;
+    }
+}
+
+void ReleaseStorageResourceCache()
+{
+    if (StorageResCacheReady)
+    {
+        HANDLES(EnterCriticalSection(&StorageResCacheCS));
+        StorageResCache.DestroyMembers();
+        HANDLES(LeaveCriticalSection(&StorageResCacheCS));
+        HANDLES(DeleteCriticalSection(&StorageResCacheCS));
+        StorageResCacheReady = FALSE;
+    }
+}
+
+static void NormalizeStorageKey(char* key)
+{
+    char* s;
+    if (key == NULL)
+        return;
+    for (s = key; *s != 0; s++)
+    {
+        if (*s >= 'A' && *s <= 'Z')
+            *s = (char)(*s - 'A' + 'a');
+        if (*s == '/')
+            *s = '\\';
+    }
+}
+
+static void AddGlobalUnknownClaim(COperationStorageUse* use, int access)
+{
+    CStorageClaim claim;
+    memset(&claim, 0, sizeof(claim));
+    claim.Kind = SRES_GLOBAL_UNKNOWN;
+    claim.Access = access;
+    StorageUse_AddClaim(use, &claim);
+}
+
+static BOOL LookupStorageResCache(const char* guidKey, CStorageResCacheItem* item)
+{
+    int i;
+    if (!StorageResCacheReady)
+        return FALSE;
+    HANDLES(EnterCriticalSection(&StorageResCacheCS));
+    for (i = 0; i < StorageResCache.Count; i++)
+    {
+        if (_stricmp(StorageResCache[i].GuidKey, guidKey) == 0)
+        {
+            *item = StorageResCache[i];
+            HANDLES(LeaveCriticalSection(&StorageResCacheCS));
+            return TRUE;
+        }
+    }
+    HANDLES(LeaveCriticalSection(&StorageResCacheCS));
+    return FALSE;
+}
+
+static void StoreStorageResCache(const CStorageResCacheItem* item)
+{
+    if (!StorageResCacheReady || item == NULL)
+        return;
+    HANDLES(EnterCriticalSection(&StorageResCacheCS));
+    StorageResCache.Add(*item);
+    if (!StorageResCache.IsGood())
+        StorageResCache.ResetState();
+    HANDLES(LeaveCriticalSection(&StorageResCacheCS));
+}
+
+static int StorageBusFromWin32(STORAGE_BUS_TYPE bus)
+{
+    // Numeric values are fixed by STORAGE_BUS_TYPE. Keeping them numeric makes
+    // this code build with older SDKs that predate the newest enum aliases.
+    switch ((int)bus)
+    {
+    case 2: // BusTypeAtapi
+    case 3: // BusTypeAta
+        return SBUS_IDE_ATA;
+    case 4: // BusType1394
+        return SBUS_FIREWIRE;
+    case 5: // BusTypeSsa
+        return SBUS_SSA;
+    case 6: // BusTypeFibre
+        return SBUS_FIBRE_CHANNEL;
+    case 11: // BusTypeSata
+        return SBUS_SATA;
+    case 7: // BusTypeUsb
+        return SBUS_USB;
+    case 17: // BusTypeNvme
+        return SBUS_NVME;
+    case 1: // BusTypeScsi
+        return SBUS_SCSI;
+    case 10: // BusTypeSas
+        return SBUS_SAS;
+    case 8: // BusTypeRAID
+        return SBUS_RAID;
+    case 9: // BusTypeiScsi
+        return SBUS_ISCSI;
+    case 12: // BusTypeSd
+    case 13: // BusTypeMmc
+        return SBUS_SD_MMC;
+    case 14: // BusTypeVirtual
+    case 15: // BusTypeFileBackedVirtual
+        return SBUS_VIRTUAL;
+    case 16: // BusTypeSpaces
+        return SBUS_SPACES;
+    case 18: // BusTypeScm
+        return SBUS_SCM;
+    case 19: // BusTypeUfs
+        return SBUS_UFS;
+    default:
+        return SBUS_UNKNOWN;
+    }
+}
+
+static BOOL QueryVolumeDisksAndSeekPenalty(const wchar_t* volumePathNoSlash, CStorageResCacheItem* item)
+{
+    HANDLE hVolume;
+    BOOL haveDisks = FALSE;
+    BOOL haveSeek = FALSE;
+    BOOL haveDescriptor = FALSE;
+
+    if (volumePathNoSlash == NULL || volumePathNoSlash[0] == 0 || item == NULL)
+        return FALSE;
+
+    memset(item->Disks, 0, sizeof(item->Disks));
+    item->DiskCount = 0;
+    item->SeekPenalty = TRUE;
+    item->Media = SMEDIA_UNKNOWN;
+    item->Bus = SBUS_UNKNOWN;
+
+    hVolume = HANDLES(CreateFileW(volumePathNoSlash, FILE_READ_ATTRIBUTES,
+                                 FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                 NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
+    if (hVolume == INVALID_HANDLE_VALUE)
+        return FALSE;
+
+    BYTE extentBuf[sizeof(VOLUME_DISK_EXTENTS) + (STORAGE_MAX_DISKS - 1) * sizeof(DISK_EXTENT)];
+    VOLUME_DISK_EXTENTS* extents = (VOLUME_DISK_EXTENTS*)extentBuf;
+    DWORD bytesReturned = 0;
+    memset(extentBuf, 0, sizeof(extentBuf));
+    if (DeviceIoControl(hVolume, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS,
+                        NULL, 0, extents, sizeof(extentBuf), &bytesReturned, NULL) &&
+        extents->NumberOfDiskExtents > 0)
+    {
+        DWORD n = extents->NumberOfDiskExtents;
+        DWORD i;
+        if (n > STORAGE_MAX_DISKS)
+            n = STORAGE_MAX_DISKS;
+        for (i = 0; i < n; i++)
+            item->Disks[i] = extents->Extents[i].DiskNumber;
+        item->DiskCount = n;
+        haveDisks = TRUE;
+    }
+    else
+    {
+        STORAGE_DEVICE_NUMBER sdn;
+        memset(&sdn, 0, sizeof(sdn));
+        bytesReturned = 0;
+        if (DeviceIoControl(hVolume, IOCTL_STORAGE_GET_DEVICE_NUMBER,
+                            NULL, 0, &sdn, sizeof(sdn), &bytesReturned, NULL))
+        {
+            item->Disks[0] = sdn.DeviceNumber;
+            item->DiskCount = 1;
+            haveDisks = TRUE;
+        }
+    }
+
+    STORAGE_PROPERTY_QUERY spqSeekP;
+    DEVICE_SEEK_PENALTY_DESCRIPTOR dspd;
+    memset(&spqSeekP, 0, sizeof(spqSeekP));
+    memset(&dspd, 0, sizeof(dspd));
+    spqSeekP.PropertyId = (STORAGE_PROPERTY_ID)StorageDeviceSeekPenaltyProperty;
+    spqSeekP.QueryType = PropertyStandardQuery;
+    bytesReturned = 0;
+    if (DeviceIoControl(hVolume, IOCTL_STORAGE_QUERY_PROPERTY,
+                        &spqSeekP, sizeof(spqSeekP), &dspd, sizeof(dspd), &bytesReturned, NULL) &&
+        bytesReturned >= sizeof(dspd))
+    {
+        item->SeekPenalty = (dspd.IncursSeekPenalty != 0);
+        haveSeek = TRUE;
+    }
+
+    BYTE descriptorBuffer[1024];
+    STORAGE_PROPERTY_QUERY spqDescriptor;
+    memset(&descriptorBuffer, 0, sizeof(descriptorBuffer));
+    memset(&spqDescriptor, 0, sizeof(spqDescriptor));
+    spqDescriptor.PropertyId = StorageDeviceProperty;
+    spqDescriptor.QueryType = PropertyStandardQuery;
+    bytesReturned = 0;
+    if (DeviceIoControl(hVolume, IOCTL_STORAGE_QUERY_PROPERTY,
+                        &spqDescriptor, sizeof(spqDescriptor), descriptorBuffer,
+                        sizeof(descriptorBuffer), &bytesReturned, NULL) &&
+        bytesReturned >= sizeof(STORAGE_DEVICE_DESCRIPTOR))
+    {
+        const STORAGE_DEVICE_DESCRIPTOR* descriptor = (const STORAGE_DEVICE_DESCRIPTOR*)descriptorBuffer;
+        item->Bus = StorageBusFromWin32(descriptor->BusType);
+        haveDescriptor = TRUE;
+    }
+
+    if (item->Bus == SBUS_NVME)
+        item->Media = SMEDIA_NVME;
+    else if (haveSeek)
+        item->Media = item->SeekPenalty ? SMEDIA_HDD : SMEDIA_SSD;
+
+    HANDLES(CloseHandle(hVolume));
+    return haveDisks || haveSeek || haveDescriptor;
+}
+
+static std::wstring StoragePathUtf8OrAcpToWide(const char* path)
+{
+    if (path == NULL || path[0] == 0)
+        return std::wstring();
+
+    int length = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, NULL, 0);
+    UINT codePage = CP_UTF8;
+    if (length <= 0)
+    {
+        codePage = CP_ACP;
+        length = MultiByteToWideChar(codePage, 0, path, -1, NULL, 0);
+    }
+    if (length <= 0)
+        return std::wstring();
+    std::wstring result(length, L'\0');
+    if (MultiByteToWideChar(codePage, codePage == CP_UTF8 ? MB_ERR_INVALID_CHARS : 0,
+                            path, -1, &result[0], length) <= 0)
+        return std::wstring();
+    result.resize(length - 1);
+    return result;
+}
+
+static void GetWideStorageKey(const wchar_t* value, char* key, int keySize)
+{
+    unsigned __int64 hash = 1469598103934665603ULL;
+    if (key == NULL || keySize <= 0)
+        return;
+    key[0] = 0;
+    if (value == NULL || value[0] == 0)
+        return;
+    for (const wchar_t* p = value; *p != 0; p++)
+    {
+        wchar_t c = *p == L'/' ? L'\\' : *p;
+        CharLowerBuffW(&c, 1);
+        hash ^= (unsigned short)c;
+        hash *= 1099511628211ULL;
+    }
+    sprintf_s(key, keySize, "w%016llx", hash);
+}
+
+static BOOL IsUNCPathW(const wchar_t* path)
+{
+    return path != NULL && path[0] == L'\\' && path[1] == L'\\';
+}
+
+static std::wstring GetNetworkShareRootW(const wchar_t* path)
+{
+    if (!IsUNCPathW(path))
+        return std::wstring();
+    const wchar_t* serverEnd = wcschr(path + 2, L'\\');
+    if (serverEnd == NULL || serverEnd[1] == 0)
+        return std::wstring(path);
+    const wchar_t* shareEnd = wcschr(serverEnd + 1, L'\\');
+    if (shareEnd == NULL)
+        return std::wstring(path);
+    return std::wstring(path, shareEnd - path + 1);
+}
+
+static void AddNetworkShareClaim(COperationStorageUse* use, const wchar_t* shareOrRoot, int access)
+{
+    CStorageClaim claim;
+    memset(&claim, 0, sizeof(claim));
+    claim.Kind = SRES_NETWORK;
+    claim.Access = access;
+    std::wstring shareRoot = GetNetworkShareRootW(shareOrRoot);
+    GetWideStorageKey(shareRoot.empty() ? shareOrRoot : shareRoot.c_str(), claim.SoftKey, _countof(claim.SoftKey));
+    if (claim.SoftKey[0] == 0)
+        AddGlobalUnknownClaim(use, access);
+    else
+        StorageUse_AddClaim(use, &claim);
+}
+
+void AddPathToStorageUse(COperationStorageUse* use, const char* path, int access)
+{
+    CWidePathBuffer root(SAL_MAX_PATH);
+    CWidePathBuffer guidPath(SAL_MAX_PATH);
+    std::wstring work;
+    UINT driveType;
+    CStorageResCacheItem cached;
+    CStorageResCacheItem queried;
+    DWORD i;
+
+    if (use == NULL)
+        return;
+    InitStorageResourceCache();
+    if (path == NULL || path[0] == 0)
+    {
+        AddGlobalUnknownClaim(use, access);
+        return;
+    }
+
+    work = StoragePathUtf8OrAcpToWide(path);
+    std::wstring workForApi = work.length() >= MAX_PATH && !SalIsExtendedLengthPathW(work.c_str())
+                                  ? SalPathAddExtendedPrefixW(work.c_str())
+                                  : work;
+    if (workForApi.empty() || !GetVolumePathNameW(workForApi.c_str(), root.Data(), root.Capacity()))
+    {
+        if (IsUNCPathW(work.c_str()))
+            AddNetworkShareClaim(use, work.c_str(), access);
+        else
+            AddGlobalUnknownClaim(use, access);
+        return;
+    }
+
+    if (IsUNCPathW(root.Data()) || IsUNCPathW(work.c_str()))
+    {
+        AddNetworkShareClaim(use, root.Data()[0] != 0 ? root.Data() : work.c_str(), access);
+        return;
+    }
+
+    driveType = GetDriveTypeW(root.Data());
+    if (driveType == DRIVE_REMOTE)
+    {
+        wchar_t localRoot[3];
+        CWidePathBuffer unc(SAL_MAX_PATH);
+        DWORD uncSize;
+        localRoot[0] = root.Data()[0];
+        localRoot[1] = ':';
+        localRoot[2] = 0;
+        uncSize = (DWORD)unc.Capacity();
+        if (WNetGetConnectionW(localRoot, unc.Data(), &uncSize) == NO_ERROR && unc.Data()[0] != 0)
+        {
+            AddNetworkShareClaim(use, unc.Data(), access);
+        }
+        else
+            AddNetworkShareClaim(use, root.Data(), access);
+        return;
+    }
+
+    if (GetVolumeNameForVolumeMountPointW(root.Data(), guidPath.Data(), guidPath.Capacity()) && guidPath.Data()[0] != 0)
+    {
+        char guidKey[64];
+        std::string guidKeyText = SalWideToMultiBytePath(guidPath.Data(), CP_UTF8);
+        lstrcpyn(guidKey, guidKeyText.c_str(), _countof(guidKey));
+        NormalizeStorageKey(guidKey);
+
+        memset(&cached, 0, sizeof(cached));
+        if (!LookupStorageResCache(guidKey, &cached))
+        {
+            std::wstring volumeNoSlash(guidPath.Data());
+            while (!volumeNoSlash.empty() && (volumeNoSlash[volumeNoSlash.length() - 1] == L'\\' || volumeNoSlash[volumeNoSlash.length() - 1] == L'/'))
+                volumeNoSlash.resize(volumeNoSlash.length() - 1);
+            memset(&queried, 0, sizeof(queried));
+            lstrcpyn(queried.GuidKey, guidKey, _countof(queried.GuidKey));
+            if (QueryVolumeDisksAndSeekPenalty(volumeNoSlash.c_str(), &queried))
+            {
+                cached = queried;
+                StoreStorageResCache(&queried);
+            }
+            else
+            {
+                CStorageClaim claim;
+                memset(&claim, 0, sizeof(claim));
+                claim.Kind = SRES_UNKNOWN;
+                claim.Access = access;
+                lstrcpyn(claim.SoftKey, guidKey, STORAGE_SOFTKEY_MAX);
+                StorageUse_AddClaim(use, &claim);
+                return;
+            }
+        }
+
+        if (cached.DiskCount > 0)
+        {
+            for (i = 0; i < cached.DiskCount; i++)
+            {
+                CStorageClaim claim;
+                memset(&claim, 0, sizeof(claim));
+                claim.Kind = SRES_LOCAL;
+                claim.DeviceNumber = cached.Disks[i];
+                claim.SeekPenalty = cached.SeekPenalty ? 1 : 0;
+                claim.Access = access;
+                claim.Media = cached.Media;
+                claim.Bus = cached.Bus;
+                StorageUse_AddClaim(use, &claim);
+            }
+            return;
+        }
+
+        {
+            CStorageClaim claim;
+            memset(&claim, 0, sizeof(claim));
+            claim.Kind = SRES_UNKNOWN;
+            claim.Access = access;
+            lstrcpyn(claim.SoftKey, guidKey, STORAGE_SOFTKEY_MAX);
+            StorageUse_AddClaim(use, &claim);
+            return;
+        }
+    }
+
+    AddGlobalUnknownClaim(use, access);
 }

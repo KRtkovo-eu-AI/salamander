@@ -1126,6 +1126,7 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 case IDC_CM_EMPTY:
                 case IDC_CM_NAMED:
                 case IDC_CM_ADVANCED:
+                case IDC_CM_TRANSFERMODE_LABEL:
                 case IDC_FILEMASK_HINT:
                 case IDC_MORE:
                     return ApplyCopyMoveDialogColors(wParam, true);
@@ -1133,6 +1134,7 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 case IDE_CM_SPEEDLIMIT:
                 case IDC_CM_NAMED_MASK:
                 case IDC_CM_ADVANCED_INFO:
+                case IDC_CM_TRANSFERMODE:
                     if (uMsg == WM_CTLCOLOREDIT)
                         return ApplyCopyMoveDialogColors(wParam, false);
                     break;
@@ -1244,6 +1246,7 @@ CCopyMoveMoreDialog::CCopyMoveMoreDialog(HWND parent, char* path, int pathBufSiz
                                          CTruncatedString* subject, DWORD helpID,
                                          char* history[], int historyCount, CCriteriaData* criteriaInOut,
                                          BOOL havePermissions, BOOL supportsADS,
+                                         int* transferModeInOut,
                                          const std::vector<std::string>* targetPaths,
                                          BOOL allowChangeTarget)
     : CCommonDialog(HLanguage,
@@ -1265,6 +1268,7 @@ CCopyMoveMoreDialog::CCopyMoveMoreDialog(HWND parent, char* path, int pathBufSiz
     Expanded = TRUE;
     HavePermissions = havePermissions;
     SupportsADS = supportsADS;
+    TransferModeInOut = transferModeInOut;
     TargetPaths = targetPaths;
     AllowChangeTarget = allowChangeTarget;
     MoreButton = NULL;
@@ -1318,6 +1322,25 @@ void CCopyMoveMoreDialog::Transfer(CTransferInfo& ti)
         ti.EditLine(IDE_PATH, Path, PathBufSize);
     }
     TransferCriteriaControls(ti);
+    if (TransferModeInOut != NULL)
+    {
+        HWND transferMode = GetDlgItem(HWindow, IDC_CM_TRANSFERMODE);
+        if (ti.Type == ttDataToWindow)
+        {
+            SendMessage(transferMode, CB_RESETCONTENT, 0, 0);
+            SendMessage(transferMode, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_PREFERRED_SEQUENTIAL));
+            SendMessage(transferMode, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_PREFERRED_STORAGEAWARE));
+            int mode = *TransferModeInOut;
+            if (mode != CMS_SEQUENTIAL && mode != CMS_STORAGE_AWARE)
+                mode = CMS_STORAGE_AWARE;
+            SendMessage(transferMode, CB_SETCURSEL, mode, 0);
+        }
+        else
+        {
+            int mode = (int)SendMessage(transferMode, CB_GETCURSEL, 0, 0);
+            *TransferModeInOut = mode == CMS_SEQUENTIAL ? CMS_SEQUENTIAL : CMS_STORAGE_AWARE;
+        }
+    }
 }
 
 BOOL GetSpeedLimit(int sel, char* speedLimitText, DWORD* returnSpeedLimit)
@@ -1529,7 +1552,7 @@ void CCopyMoveMoreDialog::SetOptionsButtonState(BOOL more)
 void CCopyMoveMoreDialog::DisplayMore(BOOL more, BOOL fast)
 {
     // hide the concealed controls so they are removed from the tab order
-    int controls[] = {IDC_CM_NEWER, IDC_CM_STARTONIDLE, IDC_CM_SPEEDLIMIT, IDE_CM_SPEEDLIMIT,
+    int controls[] = {IDC_CM_NEWER, IDC_CM_STARTONIDLE, IDC_CM_TRANSFERMODE_LABEL, IDC_CM_TRANSFERMODE, IDC_CM_SPEEDLIMIT, IDE_CM_SPEEDLIMIT,
                       IDC_CM_SPEEDLIMITUNITS, IDC_CM_SECURITY, IDC_CM_COPYATTRS,
                       IDC_CM_DIRTIME, IDC_CM_IGNADS, IDC_CM_EMPTY, IDC_CM_NAMED_MASK, IDC_CM_NAMED,
                       IDC_FILEMASK_HINT, IDC_CM_ADVANCED, IDC_CM_ADVANCED_INFO,
@@ -1638,6 +1661,7 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         // since 2.53 we can save options, so IDC_CM_STARTONIDLE must always be enabled so the user can preset it
         // EnableWindow(GetDlgItem(HWindow, IDC_CM_STARTONIDLE), !OperationsQueue.IsEmpty());
+        EnableWindow(GetDlgItem(HWindow, IDC_CM_STARTONIDLE), TRUE);
         EnableWindow(GetDlgItem(HWindow, IDC_CM_SECURITY), HavePermissions);
         EnableWindow(GetDlgItem(HWindow, IDC_CM_IGNADS), SupportsADS);
 
@@ -1677,7 +1701,7 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         GetWindowRect(GetDlgItem(HWindow, IDC_CM_SPACER), &r);
         SpacerHeight = r.bottom - r.top;
 
-        if (!Criteria->IsDirty()) // collapse the dialog if Criteria do not contain any data
+        if (!Criteria->IsDirty())
             DisplayMore(FALSE, TRUE);
         break;
     }
@@ -1746,6 +1770,7 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 case IDC_CM_EMPTY:
                 case IDC_CM_NAMED:
                 case IDC_CM_ADVANCED:
+                case IDC_CM_TRANSFERMODE_LABEL:
                 case IDC_FILEMASK_HINT:
                 case IDC_MORE:
                     return ApplyCopyMoveDialogColors(wParam, true);
@@ -1753,6 +1778,7 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 case IDE_CM_SPEEDLIMIT:
                 case IDC_CM_NAMED_MASK:
                 case IDC_CM_ADVANCED_INFO:
+                case IDC_CM_TRANSFERMODE:
                     if (uMsg == WM_CTLCOLOREDIT)
                         return ApplyCopyMoveDialogColors(wParam, false);
                     break;

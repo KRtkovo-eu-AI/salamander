@@ -1279,3 +1279,7 @@ void RegenEnvironmentVariables();
 
 // attempt to detect SSD; see CSalamanderGeneralAbstract::IsPathOnSSD() for details
 BOOL IsPathOnSSD(const char* path);
+
+void InitStorageResourceCache();
+void ReleaseStorageResourceCache();
+void AddPathToStorageUse(struct COperationStorageUse* use, const char* path, int access);

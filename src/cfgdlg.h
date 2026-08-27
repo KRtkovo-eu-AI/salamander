@@ -236,6 +236,10 @@ struct CConfiguration
         UseSalOpen,             // should salopen.exe be used (otherwise association runs directly)
         NetwareFastDirMove,     // should fast-dir-move (rename directories) be used on the Novell Netware? (otherwise rename files only, directories are created + old empty ones deleted) (REASON: for some users, fast-dir-move works on Novell and they don’t want to wait)
         UseAsyncCopyAlg,        // Win7+ only (older OS: always FALSE): should asynchronous file copy algorithm be used on network drives?
+        CopyMoveScheduling,     // CMS_SEQUENTIAL / CMS_STORAGE_AWARE / CMS_MANUAL (Keep last)
+        CopyMoveLastTransferMode, // CMS_SEQUENTIAL / CMS_STORAGE_AWARE
+        CopyMoveSsdParallelFiles, // 1..4
+        CopyMoveNvmeParallelFiles, // 1..8
         ReloadEnvVariables,     // should we perform regeneration when environment variables change??
         PathAutoComplete,       // enable file-system path auto completion in path input dialogs
         CreateDirAutoComplete,  // enable current-directory name suggestions in the Create Directory and Quick Rename dialogs
@@ -578,6 +582,7 @@ class CCfgPageGeneral : public CCommonPropSheetPage
 {
 public:
     CCfgPageGeneral();
+    ~CCfgPageGeneral();
 
     virtual void Validate(CTransferInfo& ti);
     virtual void Transfer(CTransferInfo& ti);
@@ -586,7 +591,14 @@ protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
     void EnableControls();
+    void UpdateCopyMoveParallelWarning();
+    void LayoutCopyMoveControls();
     BOOL IsDefaultCommandShellApplication();
+
+    int CopyMoveSsdEditWidth;
+    int CopyMoveNvmeEditWidth;
+    HICON CopyMoveWarningIcon;
+    HWND CopyMoveWarningToolTip;
 };
 
 //

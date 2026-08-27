@@ -407,7 +407,7 @@ CProgressDialog::CProgressDialog(HWND parent, COperations* script, const char* c
     CancelWorker = FALSE;
     OperationProgress = 0;
     SummaryProgress = 0;
-    strcpy(Caption, caption);
+    Caption = caption != NULL ? caption : "";
     Script = script;
     AttrsData = attrsData;
     AcceptCommands = TRUE;
@@ -425,6 +425,19 @@ CProgressDialog::CProgressDialog(HWND parent, COperations* script, const char* c
     OperationProgressCache = 0;
     SummaryProgressCacheIsDirty = FALSE;
     SummaryProgressCache = 0;
+    ActiveParallelProgressStreams = 1;
+    ParallelProgressActive = FALSE;
+    DelayParallelProgressShow = FALSE;
+    ParallelLayoutBaseCaptured = FALSE;
+    ParallelLayoutBaseDialogWidth = 0;
+    ParallelLayoutBaseDialogHeight = 0;
+    memset(ParallelLayoutBaseRects, 0, sizeof(ParallelLayoutBaseRects));
+    for (int parallelIndex = 0; parallelIndex < 7; parallelIndex++)
+    {
+        ParallelOperations[parallelIndex] = NULL;
+        ParallelSources[parallelIndex] = NULL;
+        ParallelTargets[parallelIndex] = NULL;
+    }
     ShowPause = TRUE;
     DoNotBeepOnClose = FALSE;
     IsInQueue = FALSE;
@@ -432,6 +445,20 @@ CProgressDialog::CProgressDialog(HWND parent, COperations* script, const char* c
     StatusPaused = FALSE;
     NextTimeLeftUpdateTime = GetTickCount();
     TimeLeftLastValue.SetUI64(0);
+
+    if (Script != NULL && Script->IsCopyOrMoveOperation)
+    {
+        const char* mode = LoadStr(IDS_COPYMOVE_SCHED_TITLE_STORAGEAWARE);
+        if (Script->CopyMoveTransferMode == CMS_SEQUENTIAL)
+            mode = LoadStr(IDS_COPYMOVE_SCHED_TITLE_SEQUENTIAL);
+        SchedulingTitleSuffix = " - ";
+        SchedulingTitleSuffix += mode;
+        SchedulingTitleSuffix += " [";
+        SchedulingTitleSuffix += StorageUse_GetEndpointLabel(&Script->StorageUse, SACCESS_READ);
+        SchedulingTitleSuffix += " -> ";
+        SchedulingTitleSuffix += StorageUse_GetEndpointLabel(&Script->StorageUse, SACCESS_WRITE);
+        SchedulingTitleSuffix += ']';
+    }
 }
 
 CProgressDialog::~CProgressDialog()
@@ -490,7 +517,7 @@ BOOL CProgressDialog::FlushCachedData()
     // progress bar
     if (OperationProgressCacheIsDirty)
     {
-        if (Operation != NULL)
+        if (Operation != NULL && !ParallelProgressActive)
             Operation->SetProgress(OperationProgressCache);
         OperationProgressCacheIsDirty = FALSE;
     }
@@ -508,33 +535,260 @@ BOOL CProgressDialog::FlushCachedData()
     return changed;
 }
 
+std::string CProgressDialog::GetProgressCaption() const
+{
+    return Caption + SchedulingTitleSuffix;
+}
+
+void CProgressDialog::LayoutActiveProgressStreams(int count, BOOL repaint)
+{
+    if (count < 1)
+        count = 1;
+    if (count > COPYMOVE_MAX_PARALLEL_STREAMS)
+        count = COPYMOVE_MAX_PARALLEL_STREAMS;
+    if (!ParallelLayoutBaseCaptured || count == ActiveParallelProgressStreams)
+        return;
+
+    static const int controlIds[7][6] = {
+        {IDC_PROGRESS_STREAM2_OPERATION, IDC_PROGRESS_STREAM2_SOURCE, IDC_PROGRESS_STREAM2_PREPOSITION, IDC_PROGRESS_STREAM2_TARGET, IDC_PROGRESS_STREAM2_FILELABEL, IDC_PROGRESS_STREAM2_BAR},
+        {IDC_PROGRESS_STREAM3_OPERATION, IDC_PROGRESS_STREAM3_SOURCE, IDC_PROGRESS_STREAM3_PREPOSITION, IDC_PROGRESS_STREAM3_TARGET, IDC_PROGRESS_STREAM3_FILELABEL, IDC_PROGRESS_STREAM3_BAR},
+        {IDC_PROGRESS_STREAM4_OPERATION, IDC_PROGRESS_STREAM4_SOURCE, IDC_PROGRESS_STREAM4_PREPOSITION, IDC_PROGRESS_STREAM4_TARGET, IDC_PROGRESS_STREAM4_FILELABEL, IDC_PROGRESS_STREAM4_BAR},
+        {IDC_PROGRESS_STREAM5_OPERATION, IDC_PROGRESS_STREAM5_SOURCE, IDC_PROGRESS_STREAM5_PREPOSITION, IDC_PROGRESS_STREAM5_TARGET, IDC_PROGRESS_STREAM5_FILELABEL, IDC_PROGRESS_STREAM5_BAR},
+        {IDC_PROGRESS_STREAM6_OPERATION, IDC_PROGRESS_STREAM6_SOURCE, IDC_PROGRESS_STREAM6_PREPOSITION, IDC_PROGRESS_STREAM6_TARGET, IDC_PROGRESS_STREAM6_FILELABEL, IDC_PROGRESS_STREAM6_BAR},
+        {IDC_PROGRESS_STREAM7_OPERATION, IDC_PROGRESS_STREAM7_SOURCE, IDC_PROGRESS_STREAM7_PREPOSITION, IDC_PROGRESS_STREAM7_TARGET, IDC_PROGRESS_STREAM7_FILELABEL, IDC_PROGRESS_STREAM7_BAR},
+        {IDC_PROGRESS_STREAM8_OPERATION, IDC_PROGRESS_STREAM8_SOURCE, IDC_PROGRESS_STREAM8_PREPOSITION, IDC_PROGRESS_STREAM8_TARGET, IDC_PROGRESS_STREAM8_FILELABEL, IDC_PROGRESS_STREAM8_BAR}};
+
+    const int moveIds[] = {IDC_STATIC_2, IDF_SUMMARY, IDT_STATUS,
+                           IDB_MINIMIZE, IDB_PAUSERESUME, IDCANCEL};
+    const int deferCount = 7 * 6 + _countof(moveIds);
+    HDWP hdwp = HANDLES(BeginDeferWindowPos(deferCount));
+    if (hdwp == NULL)
+        return;
+
+    // Freeze the whole dialog while all stream and footer controls are
+    // repositioned.  The previous per-control SetWindowPos/ShowWindow calls
+    // allowed a capture between two child updates, exposing the old Total
+    // block underneath the newly shown stream rows.
+    BOOL windowUpdateLocked = FALSE;
+    if (repaint)
+    {
+        SendMessage(HWindow, WM_SETREDRAW, FALSE, 0);
+        windowUpdateLocked = LockWindowUpdate(HWindow);
+    }
+    for (int index = 0; index < 7 && hdwp != NULL; index++)
+    {
+        const int stream = index + 1;
+        const BOOL visible = stream < count;
+        const int y = 11 + 50 * stream;
+        const int rects[6][4] = {{3, y, 39, 8}, {45, y, 305, 8}, {3, y + 12, 39, 8},
+                                 {45, y + 12, 305, 8}, {18, y + 30, 24, 8}, {45, y + 29, 297, 12}};
+        for (int control = 0; control < 6; control++)
+        {
+            HWND window = GetDlgItem(HWindow, controlIds[index][control]);
+            if (window == NULL)
+                continue;
+            RECT rect = {rects[control][0], rects[control][1], rects[control][0] + rects[control][2], rects[control][1] + rects[control][3]};
+            MapDialogRect(HWindow, &rect);
+            UINT flags = SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW |
+                         (visible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW);
+            hdwp = HANDLES(DeferWindowPos(hdwp, window, NULL, rect.left, rect.top,
+                                          rect.right - rect.left, rect.bottom - rect.top,
+                                          flags));
+        }
+    }
+
+    const int delta = count - 1;
+    RECT offsetRect = {0, 0, 0, 50 * delta};
+    MapDialogRect(HWindow, &offsetRect);
+    for (int moveIndex = 0; moveIndex < _countof(moveIds) && hdwp != NULL; moveIndex++)
+    {
+        HWND window = GetDlgItem(HWindow, moveIds[moveIndex]);
+        if (window == NULL)
+            continue;
+        const RECT& baseRect = ParallelLayoutBaseRects[moveIndex];
+        hdwp = HANDLES(DeferWindowPos(hdwp, window, NULL, baseRect.left,
+                                      baseRect.top + offsetRect.bottom, 0, 0,
+                                      SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE |
+                                          SWP_NOREDRAW));
+    }
+    if (hdwp == NULL)
+    {
+        if (repaint)
+        {
+            if (windowUpdateLocked)
+                LockWindowUpdate(NULL);
+            SendMessage(HWindow, WM_SETREDRAW, TRUE, 0);
+        }
+        return;
+    }
+    HANDLES(EndDeferWindowPos(hdwp));
+    const int dialogHeight = ParallelLayoutBaseDialogHeight + offsetRect.bottom;
+    RECT dialogRect;
+    GetWindowRect(HWindow, &dialogRect);
+    // Preserve the dialog center while changing the stream count so the
+    // window grows evenly upward and downward. The monitor check may shift
+    // it only when needed to keep the expanded dialog in the work area.
+    const int centerY = dialogRect.top + (dialogRect.bottom - dialogRect.top) / 2;
+    dialogRect.top = centerY - dialogHeight / 2;
+    dialogRect.right = dialogRect.left + ParallelLayoutBaseDialogWidth;
+    dialogRect.bottom = dialogRect.top + dialogHeight;
+    MultiMonEnsureRectVisible(&dialogRect, FALSE);
+    if (dialogRect.bottom - dialogRect.top < dialogHeight)
+        dialogRect.top = dialogRect.bottom - dialogHeight;
+    SetWindowPos(HWindow, NULL, dialogRect.left, dialogRect.top,
+                 ParallelLayoutBaseDialogWidth, dialogHeight,
+                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
+    if (repaint)
+    {
+        if (windowUpdateLocked)
+            LockWindowUpdate(NULL);
+        SendMessage(HWindow, WM_SETREDRAW, TRUE, 0);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+    }
+    ActiveParallelProgressStreams = count;
+}
+
+static void SetProgressStaticTextIfChanged(HWND window, const char* text)
+{
+    if (window == NULL)
+        return;
+    char current[100];
+    current[0] = 0;
+    GetWindowText(window, current, _countof(current));
+    if (strcmp(current, text != NULL ? text : "") != 0)
+        SetWindowText(window, text != NULL ? text : "");
+}
+
+void CProgressDialog::SetParallelProgress(const CParallelProgressData* data)
+{
+    if (data == NULL)
+        return;
+    int activeCount = data->ActiveCount;
+    if (activeCount < 1)
+        activeCount = 1;
+    if (activeCount > COPYMOVE_MAX_PARALLEL_STREAMS)
+        activeCount = COPYMOVE_MAX_PARALLEL_STREAMS;
+    int displayCount = data->DisplayCount;
+    if (displayCount < activeCount)
+        displayCount = activeCount;
+    if (displayCount > COPYMOVE_MAX_PARALLEL_STREAMS)
+        displayCount = COPYMOVE_MAX_PARALLEL_STREAMS;
+    const BOOL layoutChanged = displayCount != ActiveParallelProgressStreams;
+    const BOOL atomicUpdate = layoutChanged || data->ResetSlots;
+    BOOL windowUpdateLocked = FALSE;
+    if (atomicUpdate)
+    {
+        // Keep geometry and content changes in one visual transaction.  The
+        // custom controls otherwise paint synchronously while rows are moving.
+        SendMessage(HWindow, WM_SETREDRAW, FALSE, 0);
+        windowUpdateLocked = LockWindowUpdate(HWindow);
+        if (layoutChanged)
+            LayoutActiveProgressStreams(displayCount, FALSE);
+    }
+
+    for (int index = 0; index < activeCount; index++)
+    {
+        const CParallelProgressStreamData& stream = data->Streams[index];
+        if (index == 0)
+        {
+            if (OperationText != NULL) OperationText->SetText(stream.Operation);
+            if (Source != NULL) Source->SetTextToDblQuotesIfNeeded(stream.Source);
+            SetProgressStaticTextIfChanged(HPreposition, stream.Preposition);
+            if (Target != NULL) Target->SetTextToDblQuotesIfNeeded(stream.Target);
+            if (Operation != NULL) Operation->SetProgress(stream.Progress);
+        }
+        else
+        {
+            const int extra = index - 1;
+            SetProgressStaticTextIfChanged(GetDlgItem(HWindow, IDC_PROGRESS_STREAM2_OPERATION + extra * 6), stream.Operation);
+            if (ParallelSources[extra] != NULL) ParallelSources[extra]->SetTextToDblQuotesIfNeeded(stream.Source);
+            SetProgressStaticTextIfChanged(GetDlgItem(HWindow, IDC_PROGRESS_STREAM2_PREPOSITION + extra * 6), stream.Preposition);
+            if (ParallelTargets[extra] != NULL) ParallelTargets[extra]->SetTextToDblQuotesIfNeeded(stream.Target);
+            if (ParallelOperations[extra] != NULL) ParallelOperations[extra]->SetProgress(stream.Progress);
+        }
+    }
+    if (data->ResetSlots)
+    {
+        for (int index = activeCount; index < displayCount; index++)
+        {
+            const int extra = index - 1;
+            SetProgressStaticTextIfChanged(GetDlgItem(HWindow, IDC_PROGRESS_STREAM2_OPERATION + extra * 6), "");
+            if (ParallelSources[extra] != NULL) ParallelSources[extra]->SetText("");
+            SetProgressStaticTextIfChanged(GetDlgItem(HWindow, IDC_PROGRESS_STREAM2_PREPOSITION + extra * 6), "");
+            if (ParallelTargets[extra] != NULL) ParallelTargets[extra]->SetText("");
+            if (ParallelOperations[extra] != NULL) ParallelOperations[extra]->SetProgress(0);
+        }
+    }
+    if (atomicUpdate)
+    {
+        if (windowUpdateLocked)
+            LockWindowUpdate(NULL);
+        SendMessage(HWindow, WM_SETREDRAW, TRUE, 0);
+        UINT redrawFlags = RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW;
+        if (layoutChanged)
+            redrawFlags |= RDW_ERASE;
+        RedrawWindow(HWindow, NULL, NULL, redrawFlags);
+    }
+}
+
 void CProgressDialog::SetDlgTitle(BOOL minimized)
 {
-    char buf[200];
+    const std::string progressCaption = GetProgressCaption();
     TaskBarList3.SetProgressState(ShowPause ? TBPF_NORMAL : TBPF_PAUSED);
     if (RunningInOwnThread)
     {
+        std::string title;
         if (ShowPause)
-            sprintf(buf, "(%d %%) %s", (int)((min(1000, SummaryProgress) /*+ 5*/) / 10), Caption); // no rounding (100% must appear only at 100% and not at 99.5%)
+        {
+            char percent[16];
+            sprintf_s(percent, "(%d %%) ", (int)((min(1000, SummaryProgress) /*+ 5*/) / 10)); // no rounding (100% must appear only at 100% and not at 99.5%)
+            title = percent;
+            title += progressCaption;
+        }
         else
-            sprintf(buf, "(%s) %s", LoadStr(AutoPaused ? IDS_PROGDLGQUEUEPAUSED : IDS_PROGDLGPAUSED),
-                    AutoPaused && Script != NULL && Script->WaitInQueueSubject != NULL ? Script->WaitInQueueSubject : Caption);
-        char oldCaption[200];
-        ::GetWindowText(HWindow, oldCaption, 200);
-        oldCaption[199] = 0;
-        if (strcmp(oldCaption, buf) != 0)
-            SetWindowText(HWindow, buf);
+        {
+            title = "(";
+            title += LoadStr(AutoPaused ? IDS_PROGDLGQUEUEPAUSED : IDS_PROGDLGPAUSED);
+            title += ") ";
+            title += AutoPaused && Script != NULL && Script->WaitInQueueSubject != NULL ? Script->WaitInQueueSubject : progressCaption;
+            if (AutoPaused && Script != NULL && Script->WaitInQueueSubject != NULL)
+                title += SchedulingTitleSuffix;
+        }
+        if (GetWindowTextLength(HWindow) != (int)title.length())
+            SetWindowText(HWindow, title.c_str());
+        else
+        {
+            std::vector<char> oldCaption(title.length() + 1);
+            GetWindowText(HWindow, oldCaption.data(), (int)oldCaption.size());
+            if (title != oldCaption.data())
+                SetWindowText(HWindow, title.c_str());
+        }
     }
     else
     {
         if (minimized)
         {
+            std::string title;
             if (ShowPause)
-                sprintf(buf, "(%d %%) %s: %s", (int)((min(1000, SummaryProgress) /*+ 5*/) / 10), MAINWINDOW_NAME, Caption); // no rounding (100% must appear only at 100% and not at 99.5%)
+            {
+                char percent[16];
+                sprintf_s(percent, "(%d %%) ", (int)((min(1000, SummaryProgress) /*+ 5*/) / 10)); // no rounding (100% must appear only at 100% and not at 99.5%)
+                title = percent;
+                title += MAINWINDOW_NAME;
+                title += ": ";
+                title += progressCaption;
+            }
             else
-                sprintf(buf, "(%s) %s: %s", LoadStr(IDS_PROGDLGPAUSED), MAINWINDOW_NAME, Caption);
+            {
+                title = "(";
+                title += LoadStr(IDS_PROGDLGPAUSED);
+                title += ") ";
+                title += MAINWINDOW_NAME;
+                title += ": ";
+                title += progressCaption;
+            }
 
-            MainWindow->SetWindowTitle(buf);
+            MainWindow->SetWindowTitle(title.c_str());
         }
         else
             MainWindow->SetWindowTitle();
@@ -573,7 +827,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         SetDlgItemText(HWindow, IDB_PAUSERESUME, LoadStr(IDS_PROGDLGPAUSE));
 
         if (!RunningInOwnThread)
-            SetWindowText(HWindow, Caption); // in the modal version of the dialog this is the only title setup
+            SetWindowText(HWindow, GetProgressCaption().c_str()); // in the modal version of the dialog this is the only title setup
 
         SetWindowIcon();
 
@@ -588,6 +842,19 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             TRACE_E(LOW_MEMORY);
         if ((Target = new CStaticText(HWindow, IDS_TARGET, STF_PATH_ELLIPSIS | STF_CACHED_PAINT)) == NULL)
             TRACE_E(LOW_MEMORY);
+        static const int extraSourceIds[7] = {IDC_PROGRESS_STREAM2_SOURCE, IDC_PROGRESS_STREAM3_SOURCE, IDC_PROGRESS_STREAM4_SOURCE, IDC_PROGRESS_STREAM5_SOURCE, IDC_PROGRESS_STREAM6_SOURCE, IDC_PROGRESS_STREAM7_SOURCE, IDC_PROGRESS_STREAM8_SOURCE};
+        static const int extraTargetIds[7] = {IDC_PROGRESS_STREAM2_TARGET, IDC_PROGRESS_STREAM3_TARGET, IDC_PROGRESS_STREAM4_TARGET, IDC_PROGRESS_STREAM5_TARGET, IDC_PROGRESS_STREAM6_TARGET, IDC_PROGRESS_STREAM7_TARGET, IDC_PROGRESS_STREAM8_TARGET};
+        static const int extraProgressIds[7] = {IDC_PROGRESS_STREAM2_BAR, IDC_PROGRESS_STREAM3_BAR, IDC_PROGRESS_STREAM4_BAR, IDC_PROGRESS_STREAM5_BAR, IDC_PROGRESS_STREAM6_BAR, IDC_PROGRESS_STREAM7_BAR, IDC_PROGRESS_STREAM8_BAR};
+        static const int extraFileLabelIds[7] = {IDC_PROGRESS_STREAM2_FILELABEL, IDC_PROGRESS_STREAM3_FILELABEL, IDC_PROGRESS_STREAM4_FILELABEL, IDC_PROGRESS_STREAM5_FILELABEL, IDC_PROGRESS_STREAM6_FILELABEL, IDC_PROGRESS_STREAM7_FILELABEL, IDC_PROGRESS_STREAM8_FILELABEL};
+        char fileLabel[32];
+        GetDlgItemText(HWindow, IDC_STATIC_1, fileLabel, _countof(fileLabel));
+        for (int parallelIndex = 0; parallelIndex < 7; parallelIndex++)
+        {
+            ParallelSources[parallelIndex] = new CStaticText(HWindow, extraSourceIds[parallelIndex], STF_PATH_ELLIPSIS | STF_CACHED_PAINT);
+            ParallelTargets[parallelIndex] = new CStaticText(HWindow, extraTargetIds[parallelIndex], STF_PATH_ELLIPSIS | STF_CACHED_PAINT);
+            ParallelOperations[parallelIndex] = new CProgressBar(HWindow, extraProgressIds[parallelIndex]);
+            SetDlgItemText(HWindow, extraFileLabelIds[parallelIndex], fileLabel);
+        }
 
         if (!Script->ShowStatus)
         {
@@ -620,6 +887,46 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if ((Status = new CStaticText(HWindow, IDT_STATUS, STF_CACHED_PAINT)) == NULL)
                 TRACE_E(LOW_MEMORY);
             new CButton(HWindow, IDB_PAUSERESUME, BTF_DROPDOWN);
+        }
+
+        // Keep one immutable layout baseline.  Every later stream-count change
+        // is derived from this baseline; moving controls from their current
+        // positions would accumulate the delta and make Total/buttons drift.
+        const int baseLayoutIds[] = {IDC_STATIC_2, IDF_SUMMARY, IDT_STATUS,
+                                     IDB_MINIMIZE, IDB_PAUSERESUME, IDCANCEL};
+        for (int baseIndex = 0; baseIndex < _countof(baseLayoutIds); baseIndex++)
+        {
+            HWND window = GetDlgItem(HWindow, baseLayoutIds[baseIndex]);
+            if (window != NULL)
+            {
+                RECT rect;
+                GetWindowRect(window, &rect);
+                POINT topLeft = {rect.left, rect.top};
+                ScreenToClient(HWindow, &topLeft);
+                ParallelLayoutBaseRects[baseIndex].left = topLeft.x;
+                ParallelLayoutBaseRects[baseIndex].top = topLeft.y;
+                ParallelLayoutBaseRects[baseIndex].right = topLeft.x + rect.right - rect.left;
+                ParallelLayoutBaseRects[baseIndex].bottom = topLeft.y + rect.bottom - rect.top;
+            }
+        }
+        RECT dialogRect;
+        GetWindowRect(HWindow, &dialogRect);
+        ParallelLayoutBaseDialogWidth = dialogRect.right - dialogRect.left;
+        ParallelLayoutBaseDialogHeight = dialogRect.bottom - dialogRect.top;
+        ParallelLayoutBaseCaptured = TRUE;
+
+        // A storage-aware copy can publish its first parallel payload only
+        // after the worker has preflighted the batch.  Do not paint the
+        // one-stream template in the meantime, otherwise the dialog visibly
+        // jumps from one block to the configured parallel count.
+        if (Script != NULL && Script->IsCopyOperation &&
+            Script->CopyMoveTransferMode == CMS_STORAGE_AWARE &&
+            !Script->StartOnIdle && Script->Count > 1 &&
+            max(Configuration.CopyMoveSsdParallelFiles,
+                Configuration.CopyMoveNvmeParallelFiles) > 1)
+        {
+            DelayParallelProgressShow = TRUE;
+            ShowWindow(HWindow, SW_HIDE);
         }
 
         HPreposition = GetDlgItem(HWindow, IDS_PREPOSITION);
@@ -655,7 +962,17 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         }
         BOOL startPaused = FALSE;
-        if (Script->IsCopyOrMoveOperation && OperationsQueue.AddOperation(HWindow, Script->StartOnIdle, &startPaused))
+        BOOL useSpeedLimit = FALSE;
+        DWORD speedLimit;
+        Script->GetSpeedLimit(&useSpeedLimit, &speedLimit);
+        Script->StorageUse.StreamDemand =
+            Script->IsCopyOperation && !useSpeedLimit &&
+                    Script->CopyMoveTransferMode == CMS_STORAGE_AWARE
+                ? GetCopyOperationStreamDemand(Script,
+                                               Configuration.CopyMoveSsdParallelFiles,
+                                               Configuration.CopyMoveNvmeParallelFiles)
+                : 1;
+        if (Script->IsCopyOrMoveOperation && OperationsQueue.AddOperation(HWindow, Script->StartOnIdle, &startPaused, &Script->StorageUse))
         {
             IsInQueue = TRUE;
             if (startPaused)
@@ -707,7 +1024,14 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 if (Configuration.AlwaysOnTop) // handle always-on-top at least "statically" (not in the system menu)
                     SetWindowPos(HWindow, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
                 if (startPaused)
+                {
+                    if (DelayParallelProgressShow)
+                    {
+                        DelayParallelProgressShow = FALSE;
+                        ShowWindow(HWindow, SW_SHOWNOACTIVATE);
+                    }
                     PostMessage(HWindow, WM_COMMAND, IDB_MINIMIZE, 0); // minimize the "waiting" operation immediately (nothing to watch, saves one step for the user)
+                }
                 else
                     SetForegroundWindow(HWindow);
             }
@@ -723,15 +1047,53 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         //--- setting controls and caption
     case WM_USER_SETDIALOG:
     {
-        CProgressData* data = (CProgressData*)wParam;
-        if (data != NULL)
+        if (lParam == 1)
         {
-            // do not draw data immediately, only on the timer
+            ParallelProgressActive = TRUE;
+            SetParallelProgress((const CParallelProgressData*)wParam);
+        }
+        CProgressData* data = (CProgressData*)wParam;
+        if (data != NULL && lParam != 1)
+        {
+            // A regular operation description marks the end of a parallel
+            // batch (or means that this operation could not use the parallel
+            // fast path).  Collapse the extra stream slots only here; the
+            // ordinary progress updates sent while a batch is running carry
+            // no CProgressData payload and must not reset the layout.
+            const BOOL parallelBatchEnded = ParallelProgressActive;
+            ParallelProgressActive = FALSE;
+            // Once parallel rows have been shown, keep the footer and buttons
+            // fixed for the rest of this operation. Short sequential metadata
+            // boundaries must not collapse and immediately regrow the dialog.
             lstrcpyn(OperationCache, data->Operation, 100);
             lstrcpyn(PrepositionCache, data->Preposition, 100);
             lstrcpyn(SourceCache, data->Source, 2 * MAX_PATH);
             lstrcpyn(TargetCache, data->Target, 2 * MAX_PATH);
             CacheIsDirty = TRUE;
+            if (ActiveParallelProgressStreams == 1)
+                LayoutActiveProgressStreams(1);
+            else if (parallelBatchEnded)
+            {
+                // Keep the dialog size, but do not present completed files as
+                // active during a sequential metadata boundary.
+                SendMessage(HWindow, WM_SETREDRAW, FALSE, 0);
+                BOOL windowUpdateLocked = LockWindowUpdate(HWindow);
+                for (int index = 1; index < ActiveParallelProgressStreams; index++)
+                {
+                    const int extra = index - 1;
+                    SetProgressStaticTextIfChanged(GetDlgItem(HWindow, IDC_PROGRESS_STREAM2_OPERATION + extra * 6), "");
+                    if (ParallelSources[extra] != NULL) ParallelSources[extra]->SetText("");
+                    SetProgressStaticTextIfChanged(GetDlgItem(HWindow, IDC_PROGRESS_STREAM2_PREPOSITION + extra * 6), "");
+                    if (ParallelTargets[extra] != NULL) ParallelTargets[extra]->SetText("");
+                    if (ParallelOperations[extra] != NULL) ParallelOperations[extra]->SetProgress(0);
+                }
+                FlushCachedData();
+                if (windowUpdateLocked)
+                    LockWindowUpdate(NULL);
+                SendMessage(HWindow, WM_SETREDRAW, TRUE, 0);
+                RedrawWindow(HWindow, NULL, NULL,
+                             RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+            }
         }
 
         if (OperationProgress != OperationProgressCache)
@@ -760,6 +1122,18 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             FlushCachedData();
         }
 
+        // A parallel payload is the first reliable indication that the
+        // storage-aware batch has been preflighted.  Keep the dialog hidden
+        // until that payload arrives, instead of revealing the one-stream
+        // template on an ordinary progress update.
+        if (DelayParallelProgressShow &&
+            (lParam == 1 || (lParam != 1 && data != NULL)))
+        {
+            DelayParallelProgressShow = FALSE;
+            ShowWindow(HWindow, SW_SHOWNOACTIVATE);
+            UpdateWindow(HWindow);
+        }
+
         return TRUE;
     }
         //--- worker request to show a dialog
@@ -767,6 +1141,16 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (CancelWorker)
             return TRUE; // should terminate, it should not request anything
+
+        if (DelayParallelProgressShow)
+        {
+            // A prompt/error dialog can be requested before the first
+            // parallel progress payload (for example when an existing target
+            // needs overwrite confirmation).  Do not leave the progress
+            // dialog hidden in that case.
+            DelayParallelProgressShow = FALSE;
+            ShowWindow(HWindow, SW_SHOWNOACTIVATE);
+        }
 
         BOOL canFlash = RunningInOwnThread;
         if (IsIconic(RunningInOwnThread ? HWindow : MainWindow->HWindow))

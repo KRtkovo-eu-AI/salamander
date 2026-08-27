@@ -10,6 +10,7 @@
 
 #include <Aclapi.h>
 #include <Ntsecapi.h>
+#include <deque>
 
 // these functions have no header, we must load them dynamically
 NTQUERYINFORMATIONFILE DynNtQueryInformationFile = NULL;
@@ -490,6 +491,7 @@ COperations::COperations(int base, int delta, char* waitInQueueSubject, char* wa
     SourcePathIsNetwork = FALSE;
     CopyAttrs = FALSE;
     StartOnIdle = FALSE;
+    CopyMoveTransferMode = CMS_STORAGE_AWARE;
     ShowStatus = FALSE;
     IsCopyOperation = FALSE;
     FastMoveUsed = FALSE;
@@ -510,10 +512,12 @@ COperations::COperations(int base, int delta, char* waitInQueueSubject, char* wa
     WaitInQueueSubject = waitInQueueSubject; // released in FreeScript()
     WaitInQueueFrom = waitInQueueFrom;       // released in FreeScript()
     WaitInQueueTo = waitInQueueTo;           // released in FreeScript()
+    StorageUse_Reset(&StorageUse);
     HANDLES(InitializeCriticalSection(&StatusCS));
     TransferredFileSize = CQuadWord(0, 0);
     ProgressSize = CQuadWord(0, 0);
     UseSpeedLimit = FALSE;
+    ParallelCopyDisabled = FALSE;
     SpeedLimit = 1;
     SleepAfterWrite = -1;
     LastBufferLimit = 1;
@@ -524,6 +528,11 @@ COperations::COperations(int base, int delta, char* waitInQueueSubject, char* wa
     LastProgBufLimTestTime = GetTickCount() - 1000;
     LastFileBlockCount = 0;
     LastFileStartTime = GetTickCount();
+}
+
+void COperations::AddStoragePath(const char* path, int access)
+{
+    AddPathToStorageUse(&StorageUse, path, access);
 }
 
 void COperations::SetTFS(const CQuadWord& TFS)
@@ -706,6 +715,20 @@ void COperations::AddBytesToSpeedMetersAndTFSandPS(DWORD bytesCount, BOOL onlyTo
     }
 }
 
+void COperations::AddParallelCopyBytes(DWORD bytesCount, DWORD maxPacketSize)
+{
+    if (ShowStatus && bytesCount > 0)
+    {
+        HANDLES(EnterCriticalSection(&StatusCS));
+        DWORD ti = GetTickCount();
+        TransferSpeedMeter.BytesReceived(bytesCount, ti, maxPacketSize);
+        ProgressSpeedMeter.BytesReceived(bytesCount, ti, maxPacketSize);
+        TransferredFileSize.Value += bytesCount;
+        ProgressSize.Value += bytesCount;
+        HANDLES(LeaveCriticalSection(&StatusCS));
+    }
+}
+
 void COperations::AddBytesToTFSandSetProgressSize(const CQuadWord& bytesCount, const CQuadWord& pSize)
 {
     if (ShowStatus)
@@ -821,6 +844,8 @@ void COperations::SetSpeedLimit(BOOL useSpeedLimit, DWORD speedLimit)
 {
     HANDLES(EnterCriticalSection(&StatusCS));
     UseSpeedLimit = useSpeedLimit;
+    if (useSpeedLimit)
+        ParallelCopyDisabled = TRUE;
     SpeedLimit = speedLimit;
     HANDLES(LeaveCriticalSection(&StatusCS));
 }
@@ -949,12 +974,14 @@ void InitWorker()
         DynNtQueryInformationFile = (NTQUERYINFORMATIONFILE)GetProcAddress(NtDLL, "NtQueryInformationFile"); // has no header
         DynNtFsControlFile = (NTFSCONTROLFILE)GetProcAddress(NtDLL, "NtFsControlFile");                      // has no header
     }
+    InitStorageResourceCache();
 }
 
 void ReleaseWorker()
 {
     DynNtQueryInformationFile = NULL;
     DynNtFsControlFile = NULL;
+    ReleaseStorageResourceCache();
 }
 
 struct CWorkerData
@@ -7858,6 +7885,998 @@ BOOL DoChangeAttrs(HWND hProgressDlg, char* name, const CQuadWord& size, DWORD a
     }
 }
 
+// Parallel streams deliberately use direct wide-handle I/O only for the narrow, safe fast path:
+// regular default data streams whose targets are new or whose replacement was authorized before
+// the batch starts. Operations that can prompt, preserve security, copy ADS, or move data retain
+// the established sequential DoCopyFile/DoMoveFile path below.
+struct CParallelCopyBatch;
+
+struct CParallelCopyTask
+{
+    CParallelCopyBatch* Batch;
+    int ScriptIndex;
+    COperation* Operation;
+    std::wstring Source;
+    std::wstring Target;
+    HANDLE Input;
+    HANDLE Thread;
+    volatile LONG Cancel;
+    BOOL Success;
+    BOOL Finished;
+    BOOL ReplaceTarget;
+    BOOL DeleteOnFailure;
+    BOOL SourceIdentityValid;
+    DWORD SourceVolumeSerial;
+    ULONGLONG SourceFileIndex;
+    DWORD TargetVolumeSerial;
+    ULONGLONG TargetFileIndex;
+    BOOL OutputIdentityValid;
+    DWORD OutputVolumeSerial;
+    ULONGLONG OutputFileIndex;
+    DWORD FinalAttributes;
+    int Progress;
+
+    CParallelCopyTask() : Batch(NULL), ScriptIndex(-1), Operation(NULL), Input(INVALID_HANDLE_VALUE), Thread(NULL), Cancel(0), Success(FALSE), Finished(FALSE), ReplaceTarget(FALSE), DeleteOnFailure(FALSE), SourceIdentityValid(FALSE), SourceVolumeSerial(0), SourceFileIndex(0), TargetVolumeSerial(0), TargetFileIndex(0), OutputIdentityValid(FALSE), OutputVolumeSerial(0), OutputFileIndex(0), FinalAttributes(0), Progress(0) {}
+};
+
+struct CParallelCopyBatch
+{
+    HWND ProgressDialog;
+    CProgressDlgData* DialogData;
+    int SlotCount;
+    CParallelCopyTask* ActiveTasks[COPYMOVE_MAX_PARALLEL_STREAMS];
+    int DisplayCount;
+    BOOL ResetSlots;
+    COperations* Script;
+    CQuadWord BaseDone;
+    CQuadWord CompletedDone;
+    CRITICAL_SECTION CS;
+    char OperationText[50];
+    char PrepositionText[50];
+};
+
+static BOOL ParallelHandleHasNamedStreams(HANDLE file, BOOL& hasNamedStreams);
+
+static void UpdateParallelCopyProgress(CParallelCopyBatch* batch)
+{
+    CParallelProgressData progress;
+    memset(&progress, 0, sizeof(progress));
+    CQuadWord progressDone = batch->BaseDone;
+    HANDLES(EnterCriticalSection(&batch->CS));
+    progress.DisplayCount = batch->DisplayCount;
+    progress.ResetSlots = batch->ResetSlots;
+    batch->ResetSlots = FALSE;
+    for (int i = 0; i < batch->SlotCount; i++)
+    {
+        CParallelCopyTask& task = *batch->ActiveTasks[i];
+        // Keep the slot visible while it is finalized; the coordinator
+        // replaces it atomically as soon as the next task is launched.
+        CParallelProgressStreamData& stream = progress.Streams[progress.ActiveCount++];
+        stream.Operation = batch->OperationText;
+        stream.Source = task.Operation->SourceName;
+        stream.Preposition = batch->PrepositionText;
+        stream.Target = task.Operation->TargetName;
+        stream.Progress = task.Finished && task.Success ? 1000 : task.Progress;
+        if (task.Finished && task.Success)
+            progressDone += task.Operation->Size;
+        else
+            progressDone += (task.Operation->Size * CQuadWord((DWORD)task.Progress, 0)) / CQuadWord(1000, 0);
+    }
+    progressDone += batch->CompletedDone;
+    HANDLES(LeaveCriticalSection(&batch->CS));
+
+    // Publish one self-consistent snapshot.  Copy threads only update memory;
+    // the coordinator throttles cross-thread UI traffic to keep input usable.
+    *batch->DialogData->OperationProgress = 0;
+    *batch->DialogData->SummaryProgress = CaclProg(progressDone, batch->Script->TotalSize);
+    SendMessage(batch->ProgressDialog, WM_USER_SETDIALOG, (WPARAM)&progress, 1);
+}
+
+static BOOL ParallelCopyFileW(CParallelCopyTask* task)
+{
+    if (task == NULL || task->Batch == NULL)
+        return FALSE;
+    CParallelCopyBatch* batch = task->Batch;
+    HANDLE input = task->Input;
+    task->Input = INVALID_HANDLE_VALUE;
+    if (input == INVALID_HANDLE_VALUE)
+        return FALSE;
+    BY_HANDLE_FILE_INFORMATION inputInfo;
+    if (task->SourceIdentityValid &&
+        (!GetFileInformationByHandle(input, &inputInfo) ||
+         inputInfo.dwVolumeSerialNumber != task->SourceVolumeSerial ||
+         (((ULONGLONG)inputInfo.nFileIndexHigh << 32) | inputInfo.nFileIndexLow) !=
+             task->SourceFileIndex))
+    {
+        HANDLES(CloseHandle(input));
+        return FALSE;
+    }
+    while (WaitForSingleObject(batch->DialogData->WorkerNotSuspended, 100) == WAIT_TIMEOUT)
+    {
+        if (*batch->DialogData->CancelWorker ||
+            InterlockedCompareExchange(&task->Cancel, 0, 0) != 0 ||
+            batch->Script->IsParallelCopyDisabled())
+        {
+            HANDLES(CloseHandle(input));
+            return FALSE;
+        }
+    }
+    if (*batch->DialogData->CancelWorker ||
+        InterlockedCompareExchange(&task->Cancel, 0, 0) != 0 ||
+        batch->Script->IsParallelCopyDisabled())
+    {
+        HANDLES(CloseHandle(input));
+        return FALSE;
+    }
+    HANDLE output = HANDLES_Q(CreateFileW(task->Target.c_str(), GENERIC_WRITE | FILE_READ_ATTRIBUTES,
+                                          0, NULL,
+                                          task->ReplaceTarget ? OPEN_EXISTING : CREATE_NEW,
+                                          FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+    if (output == INVALID_HANDLE_VALUE)
+    {
+        HANDLES(CloseHandle(input));
+        return FALSE;
+    }
+    BY_HANDLE_FILE_INFORMATION outputInfo;
+    if (!GetFileInformationByHandle(output, &outputInfo) ||
+        task->ReplaceTarget &&
+            (outputInfo.dwVolumeSerialNumber != task->TargetVolumeSerial ||
+             (((ULONGLONG)outputInfo.nFileIndexHigh << 32) | outputInfo.nFileIndexLow) !=
+                 task->TargetFileIndex))
+    {
+        HANDLES(CloseHandle(output));
+        HANDLES(CloseHandle(input));
+        return FALSE;
+    }
+    if (!task->ReplaceTarget)
+    {
+        task->DeleteOnFailure = TRUE;
+        task->OutputIdentityValid = TRUE;
+        task->OutputVolumeSerial = outputInfo.dwVolumeSerialNumber;
+        task->OutputFileIndex = ((ULONGLONG)outputInfo.nFileIndexHigh << 32) |
+                                outputInfo.nFileIndexLow;
+    }
+    else
+    {
+        BOOL hasNamedStreams = TRUE;
+        if ((outputInfo.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_READONLY |
+                                             FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)) != 0 ||
+            !ParallelHandleHasNamedStreams(output, hasNamedStreams) || hasNamedStreams)
+        {
+            HANDLES(CloseHandle(output));
+            HANDLES(CloseHandle(input));
+            return FALSE;
+        }
+        LARGE_INTEGER zero;
+        zero.QuadPart = 0;
+        if (!SetFilePointerEx(output, zero, NULL, FILE_BEGIN) || !SetEndOfFile(output))
+        {
+            HANDLES(CloseHandle(output));
+            HANDLES(CloseHandle(input));
+            return FALSE;
+        }
+        task->DeleteOnFailure = TRUE;
+        task->OutputIdentityValid = TRUE;
+        task->OutputVolumeSerial = outputInfo.dwVolumeSerialNumber;
+        task->OutputFileIndex = ((ULONGLONG)outputInfo.nFileIndexHigh << 32) |
+                                outputInfo.nFileIndexLow;
+    }
+
+    // Reserve extents before several streams start growing files together.
+    // Failure is non-fatal; the filesystem can still allocate during writes.
+    if (task->Operation->FileSize.Value > 0)
+    {
+        FILE_ALLOCATION_INFO allocation;
+        allocation.AllocationSize.QuadPart = task->Operation->FileSize.Value;
+        SetFileInformationByHandle(output, FileAllocationInfo, &allocation, sizeof(allocation));
+    }
+
+    BYTE* buffer = (BYTE*)malloc(1024 * 1024);
+    BOOL success = buffer != NULL;
+    CQuadWord copied(0, 0);
+    while (success)
+    {
+        while (WaitForSingleObject(batch->DialogData->WorkerNotSuspended, 100) == WAIT_TIMEOUT)
+        {
+            if (*batch->DialogData->CancelWorker ||
+                InterlockedCompareExchange(&task->Cancel, 0, 0) != 0 ||
+                batch->Script->IsParallelCopyDisabled())
+            {
+                success = FALSE;
+                break;
+            }
+        }
+        if (!success)
+            break;
+        if (*batch->DialogData->CancelWorker ||
+            InterlockedCompareExchange(&task->Cancel, 0, 0) != 0)
+        {
+            success = FALSE;
+            break;
+        }
+        BOOL useSpeedLimit;
+        DWORD speedLimit;
+        batch->Script->GetSpeedLimit(&useSpeedLimit, &speedLimit);
+        if (useSpeedLimit)
+        {
+            success = FALSE; // retry through the aggregate legacy limiter
+            break;
+        }
+        DWORD read = 0;
+        if (!ReadFile(input, buffer, 1024 * 1024, &read, NULL))
+        {
+            success = FALSE;
+            break;
+        }
+        if (read == 0)
+            break;
+        DWORD writtenTotal = 0;
+        while (writtenTotal < read)
+        {
+            DWORD written = 0;
+            if (!WriteFile(output, buffer + writtenTotal, read - writtenTotal, &written, NULL) || written == 0)
+            {
+                success = FALSE;
+                break;
+            }
+            writtenTotal += written;
+        }
+        copied += CQuadWord(writtenTotal, 0);
+        batch->Script->AddParallelCopyBytes(writtenTotal, 1024 * 1024);
+        int progress = task->Operation->FileSize.Value != 0
+                           ? (int)((copied * CQuadWord(1000, 0) / task->Operation->FileSize).Value)
+                           : 0;
+        HANDLES(EnterCriticalSection(&batch->CS));
+        task->Progress = progress >= 1000 ? 999 : progress;
+        HANDLES(LeaveCriticalSection(&batch->CS));
+    }
+    if (buffer != NULL)
+        free(buffer);
+    if (success && copied != task->Operation->FileSize)
+        success = FALSE;
+    FILETIME lastWrite;
+    if (success && (!GetFileTime(input, NULL, NULL, &lastWrite) ||
+                    !SetFileTime(output, NULL, NULL, &lastWrite)))
+        success = FALSE;
+    if (success)
+    {
+        FILE_BASIC_INFO basicInfo;
+        if (!GetFileInformationByHandleEx(output, FileBasicInfo, &basicInfo, sizeof(basicInfo)))
+            success = FALSE;
+        else
+        {
+            basicInfo.FileAttributes = task->FinalAttributes;
+            if (!SetFileInformationByHandle(output, FileBasicInfo, &basicInfo, sizeof(basicInfo)))
+                success = FALSE;
+        }
+    }
+    if (!HANDLES(CloseHandle(output)))
+        success = FALSE;
+    HANDLES(CloseHandle(input));
+    return success;
+}
+
+static void DeleteParallelCopyOutput(CParallelCopyTask& task)
+{
+    if (!task.DeleteOnFailure || !task.OutputIdentityValid ||
+        task.ReplaceTarget && task.Success)
+        return;
+    HANDLE file = HANDLES_Q(CreateFileW(task.Target.c_str(), DELETE | FILE_READ_ATTRIBUTES,
+                                        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                        NULL, OPEN_EXISTING, 0, NULL));
+    if (file == INVALID_HANDLE_VALUE)
+        return;
+    BY_HANDLE_FILE_INFORMATION info;
+    if (GetFileInformationByHandle(file, &info))
+    {
+        ULONGLONG fileIndex = ((ULONGLONG)info.nFileIndexHigh << 32) | info.nFileIndexLow;
+        if (info.dwVolumeSerialNumber == task.OutputVolumeSerial &&
+            fileIndex == task.OutputFileIndex)
+        {
+            FILE_BASIC_INFO basicInfo;
+            if (GetFileInformationByHandleEx(file, FileBasicInfo, &basicInfo, sizeof(basicInfo)) &&
+                (basicInfo.FileAttributes & FILE_ATTRIBUTE_READONLY) != 0)
+            {
+                basicInfo.FileAttributes &= ~FILE_ATTRIBUTE_READONLY;
+                SetFileInformationByHandle(file, FileBasicInfo, &basicInfo, sizeof(basicInfo));
+            }
+            FILE_DISPOSITION_INFO disposition;
+            disposition.DeleteFile = TRUE;
+            SetFileInformationByHandle(file, FileDispositionInfo, &disposition, sizeof(disposition));
+        }
+    }
+    HANDLES(CloseHandle(file));
+}
+
+static BOOL OpenParallelCopyInput(CParallelCopyTask& task)
+{
+    HANDLE input = HANDLES_Q(CreateFileW(task.Source.c_str(), GENERIC_READ,
+                                         FILE_SHARE_READ,
+                                         NULL, OPEN_EXISTING,
+                                         FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+    if (input == INVALID_HANDLE_VALUE)
+        return FALSE;
+    BY_HANDLE_FILE_INFORMATION info;
+    if (!GetFileInformationByHandle(input, &info) ||
+        !task.SourceIdentityValid ||
+        info.dwVolumeSerialNumber != task.SourceVolumeSerial ||
+        (((ULONGLONG)info.nFileIndexHigh << 32) | info.nFileIndexLow) !=
+            task.SourceFileIndex)
+    {
+        HANDLES(CloseHandle(input));
+        return FALSE;
+    }
+    task.Input = input;
+    return TRUE;
+}
+
+static void CloseUnusedParallelCopyInputs(std::deque<CParallelCopyTask>& tasks)
+{
+    for (std::deque<CParallelCopyTask>::iterator task = tasks.begin();
+         task != tasks.end(); ++task)
+        if (task->Input != INVALID_HANDLE_VALUE)
+        {
+            HANDLES(CloseHandle(task->Input));
+            task->Input = INVALID_HANDLE_VALUE;
+        }
+}
+
+BOOL COperations::IsParallelCopyDisabled()
+{
+    HANDLES(EnterCriticalSection(&StatusCS));
+    BOOL disabled = ParallelCopyDisabled;
+    HANDLES(LeaveCriticalSection(&StatusCS));
+    return disabled;
+}
+
+static DWORD WINAPI ParallelCopyThreadProc(LPVOID parameter)
+{
+    CParallelCopyTask* task = (CParallelCopyTask*)parameter;
+    const BOOL success = ParallelCopyFileW(task);
+    HANDLES(EnterCriticalSection(&task->Batch->CS));
+    task->Success = success;
+    task->Progress = success ? 1000 : task->Progress;
+    task->Finished = TRUE;
+    HANDLES(LeaveCriticalSection(&task->Batch->CS));
+    return 0;
+}
+
+static BOOL CanUseParallelCopy(const COperations* script, const COperation* operation)
+{
+    return script->IsCopyOperation && script->CopyMoveTransferMode == CMS_STORAGE_AWARE &&
+           !script->CopySecurity && !script->CopyAttrs && !script->OverwriteOlder &&
+           operation->Opcode == ocCopyFile &&
+           (operation->OpFlags & (OPFL_COPY_ADS | OPFL_AS_ENCRYPTED)) == 0 &&
+           !FileNameIsInvalid(operation->SourceName, TRUE) && !FileNameIsInvalid(operation->TargetName, TRUE);
+}
+
+static BOOL CanPrepareParallelDirectory(const COperations* script, const COperation* operation);
+
+static int GetParallelCopyLimit(const COperations* script)
+{
+    int limit = StorageUse_GetParallelFileLimit(&script->StorageUse,
+                                                Configuration.CopyMoveSsdParallelFiles,
+                                                Configuration.CopyMoveNvmeParallelFiles);
+    return limit > COPYMOVE_MAX_PARALLEL_STREAMS ? COPYMOVE_MAX_PARALLEL_STREAMS : limit;
+}
+
+int GetCopyOperationStreamDemand(COperations* script, int ssdLimit, int nvmeLimit)
+{
+    if (script == NULL || script->IsParallelCopyDisabled())
+        return 1;
+    int limit = StorageUse_GetParallelFileLimit(&script->StorageUse, ssdLimit, nvmeLimit);
+    if (limit < 2)
+        return 1;
+    if (limit > COPYMOVE_MAX_PARALLEL_STREAMS)
+        limit = COPYMOVE_MAX_PARALLEL_STREAMS;
+
+    int demand = 1;
+    for (int first = 0; first < script->Count; first++)
+    {
+        if (script->At(first).Opcode != ocCopyFile)
+            continue;
+        int count = 0;
+        CQuadWord size(0, 0);
+        for (int index = first; index < script->Count && count < limit; index++)
+        {
+            COperation* operation = &script->At(index);
+            if (operation->Opcode == ocCopyFile)
+            {
+                if (!CanUseParallelCopy(script, operation))
+                    break;
+                size += operation->FileSize;
+                count++;
+            }
+            else if (operation->Opcode == ocCreateDir)
+            {
+                if (!CanPrepareParallelDirectory(script, operation))
+                    break;
+            }
+            else if (operation->Opcode != ocCopyDirTime &&
+                     operation->Opcode != ocLabelForSkipOfCreateDir)
+                break;
+        }
+        if (count >= 2 && size >= CQuadWord(COPYMOVE_MIN_PARALLEL_BATCH_SIZE, 0) &&
+            count > demand)
+            demand = count;
+    }
+    return demand;
+}
+
+static std::wstring GetParallelCopyPathW(const COperation* operation, BOOL source)
+{
+    const std::wstring& widePath = source ? operation->SourceNameW : operation->TargetNameW;
+    if (source ? operation->SourceNameWValid : operation->TargetNameWValid)
+        return widePath;
+    const char* narrowPath = source ? operation->SourceName : operation->TargetName;
+    if (narrowPath == NULL || narrowPath[0] == 0)
+        return std::wstring();
+    int chars = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, narrowPath, -1, NULL, 0);
+    UINT codePage = CP_UTF8;
+    if (chars == 0 && GetACP() != CP_UTF8)
+    {
+        codePage = CP_ACP;
+        chars = MultiByteToWideChar(codePage, 0, narrowPath, -1, NULL, 0);
+    }
+    if (chars == 0)
+        return std::wstring();
+    std::wstring converted(chars, L'\0');
+    if (MultiByteToWideChar(codePage, codePage == CP_UTF8 ? MB_ERR_INVALID_CHARS : 0,
+                            narrowPath, -1, &converted[0], chars) == 0)
+        return std::wstring();
+    converted.resize(chars - 1);
+    return converted;
+}
+
+static BOOL CanReplaceInParallel(DWORD attributes, const CProgressDlgData& dialogData)
+{
+    if (!dialogData.OverwriteAll && dialogData.CnfrmFileOver)
+        return FALSE;
+    // Keep special targets on DoCopyFile, which owns their confirmations and
+    // read-only/hidden/system attribute handling.
+    return (attributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_READONLY |
+                          FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)) == 0;
+}
+
+static BOOL ParallelHandleHasNamedStreams(HANDLE file, BOOL& hasNamedStreams)
+{
+    hasNamedStreams = TRUE;
+    if (DynNtQueryInformationFile == NULL)
+        return FALSE;
+    const ULONG bufferSize = 65535;
+    BYTE* buffer = (BYTE*)malloc(bufferSize);
+    if (buffer == NULL)
+        return FALSE;
+    IO_STATUS_BLOCK ioStatus;
+    NTSTATUS status = DynNtQueryInformationFile(file, &ioStatus, buffer,
+                                                bufferSize, FileStreamInformation);
+    if (status == 0)
+    {
+        hasNamedStreams = FALSE;
+        PFILE_STREAM_INFORMATION stream = (PFILE_STREAM_INFORMATION)buffer;
+        if (ioStatus.Information > 0)
+        {
+            while (1)
+            {
+                if (stream->NameLength != 7 * sizeof(wchar_t) ||
+                    _memicmp(stream->Name, L"::$DATA", 7 * sizeof(wchar_t)) != 0)
+                {
+                    hasNamedStreams = TRUE;
+                    break;
+                }
+                if (stream->NextEntry == 0)
+                    break;
+                stream = (PFILE_STREAM_INFORMATION)((BYTE*)stream + stream->NextEntry);
+            }
+        }
+    }
+    free(buffer);
+    return status == 0;
+}
+
+static BOOL GetParallelFileIdentity(const std::wstring& path, DWORD& volumeSerial,
+                                    ULONGLONG& fileIndex)
+{
+    HANDLE file = HANDLES_Q(CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+                                        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                        NULL, OPEN_EXISTING, 0, NULL));
+    if (file == INVALID_HANDLE_VALUE)
+        return FALSE;
+    BY_HANDLE_FILE_INFORMATION info;
+    BOOL success = GetFileInformationByHandle(file, &info);
+    HANDLES(CloseHandle(file));
+    if (success)
+    {
+        volumeSerial = info.dwVolumeSerialNumber;
+        fileIndex = ((ULONGLONG)info.nFileIndexHigh << 32) | info.nFileIndexLow;
+    }
+    return success;
+}
+
+static BOOL CanPrepareParallelDirectory(const COperations* script, const COperation* operation)
+{
+    return script != NULL && operation != NULL && operation->Opcode == ocCreateDir &&
+           !script->CopyAttrs && !script->CopySecurity &&
+           (operation->OpFlags & (OPFL_COPY_ADS | OPFL_AS_ENCRYPTED)) == 0 &&
+           !FileNameIsInvalid(operation->TargetName, TRUE,
+                              (operation->OpFlags & OPFL_IGNORE_INVALID_NAME) != 0);
+}
+
+struct CPreparedParallelDirectory
+{
+    COperation* Operation;
+    DWORD OriginalAttr;
+    BOOL Created;
+    DWORD VolumeSerial;
+    ULONGLONG FileIndex;
+    std::wstring Target;
+
+    CPreparedParallelDirectory() : Operation(NULL), OriginalAttr(0), Created(FALSE), VolumeSerial(0), FileIndex(0) {}
+};
+
+static BOOL TryPrepareParallelDirectory(COperations* script, COperation* operation,
+                                        DWORD clearReadonlyMask,
+                                        const CProgressDlgData& dialogData,
+                                        BOOL& created, std::wstring& preparedTarget,
+                                        DWORD& volumeSerial, ULONGLONG& fileIndex)
+{
+    created = FALSE;
+    if (!CanPrepareParallelDirectory(script, operation))
+        return FALSE;
+    std::wstring target = GetParallelCopyPathW(operation, FALSE);
+    if (target.empty())
+        return FALSE;
+    target = SalPathAddExtendedPrefixW(target.c_str());
+    DWORD attributes = GetFileAttributesW(target.c_str());
+    if (attributes != INVALID_FILE_ATTRIBUTES)
+    {
+        if ((attributes & FILE_ATTRIBUTE_DIRECTORY) == 0 ||
+            dialogData.CnfrmDirOver && !dialogData.DirOverwriteAll)
+            return FALSE;
+        if (!GetParallelFileIdentity(target, volumeSerial, fileIndex))
+            return FALSE;
+        operation->Attr = 0x10000000; // directory already existed
+        operation->OpFlags |= OPFL_PARALLEL_DIR_PREPARED;
+        preparedTarget.swap(target);
+        return TRUE;
+    }
+    if (!CreateDirectoryW(target.c_str(), NULL))
+        return FALSE;
+    HANDLE directory = HANDLES_Q(CreateFileW(target.c_str(),
+                                              FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES,
+                                              FILE_SHARE_READ, NULL, OPEN_EXISTING,
+                                              FILE_FLAG_BACKUP_SEMANTICS, NULL));
+    BY_HANDLE_FILE_INFORMATION info;
+    if (directory == INVALID_HANDLE_VALUE ||
+        !GetFileInformationByHandle(directory, &info))
+    {
+        if (directory != INVALID_HANDLE_VALUE)
+            HANDLES(CloseHandle(directory));
+        RemoveDirectoryW(target.c_str());
+        return FALSE;
+    }
+    FILE_BASIC_INFO basicInfo;
+    if (GetFileInformationByHandleEx(directory, FileBasicInfo, &basicInfo, sizeof(basicInfo)))
+    {
+        basicInfo.FileAttributes = operation->Attr & clearReadonlyMask;
+        SetFileInformationByHandle(directory, FileBasicInfo, &basicInfo, sizeof(basicInfo));
+    }
+    volumeSerial = info.dwVolumeSerialNumber;
+    fileIndex = ((ULONGLONG)info.nFileIndexHigh << 32) | info.nFileIndexLow;
+    HANDLES(CloseHandle(directory));
+    operation->Attr = 0x01000000; // directory was created
+    operation->OpFlags |= OPFL_PARALLEL_DIR_PREPARED;
+    created = TRUE;
+    preparedTarget.swap(target);
+    return TRUE;
+}
+
+static void RollbackPreparedParallelDirectories(std::deque<CPreparedParallelDirectory>& prepared)
+{
+    for (std::deque<CPreparedParallelDirectory>::reverse_iterator directory = prepared.rbegin();
+         directory != prepared.rend(); ++directory)
+    {
+        if (directory->Created)
+        {
+            HANDLE handle = HANDLES_Q(CreateFileW(directory->Target.c_str(),
+                                                   DELETE | FILE_READ_ATTRIBUTES,
+                                                   FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                                   NULL, OPEN_EXISTING,
+                                                   FILE_FLAG_BACKUP_SEMANTICS, NULL));
+            if (handle != INVALID_HANDLE_VALUE)
+            {
+                BY_HANDLE_FILE_INFORMATION info;
+                if (GetFileInformationByHandle(handle, &info) &&
+                    info.dwVolumeSerialNumber == directory->VolumeSerial &&
+                    (((ULONGLONG)info.nFileIndexHigh << 32) | info.nFileIndexLow) ==
+                        directory->FileIndex)
+                {
+                    FILE_DISPOSITION_INFO disposition;
+                    disposition.DeleteFile = TRUE;
+                    SetFileInformationByHandle(handle, FileDispositionInfo,
+                                               &disposition, sizeof(disposition));
+                }
+                HANDLES(CloseHandle(handle));
+            }
+        }
+        directory->Operation->Attr = directory->OriginalAttr;
+        directory->Operation->OpFlags &= ~OPFL_PARALLEL_DIR_PREPARED;
+    }
+    prepared.clear();
+}
+
+// Advances over metadata that is safe to prepare while copies are active and
+// pins exactly one source. FALSE leaves the current script item to the legacy path.
+static BOOL PlanNextParallelCopy(COperations* script, int& scriptIndex,
+                                 DWORD clearReadonlyMask,
+                                 const CProgressDlgData& dialogData,
+                                 std::deque<CParallelCopyTask>& tasks,
+                                 std::deque<CPreparedParallelDirectory>& preparedDirectories,
+                                 CParallelCopyTask* const* dependencies, int dependencyCount,
+                                 CParallelCopyTask*& plannedTask, BOOL& retryLater)
+{
+    plannedTask = NULL;
+    retryLater = FALSE;
+    while (scriptIndex < script->Count)
+    {
+        if (*dialogData.CancelWorker || script->IsParallelCopyDisabled())
+            return FALSE;
+        COperation* operation = &script->At(scriptIndex);
+        if (operation->Opcode != ocCopyFile)
+        {
+            if (operation->Opcode == ocCreateDir)
+            {
+                // Allocate the rollback record before CreateDirectoryW can have a side effect.
+                preparedDirectories.push_back(CPreparedParallelDirectory());
+                CPreparedParallelDirectory& prepared = preparedDirectories.back();
+                prepared.Operation = operation;
+                prepared.OriginalAttr = operation->Attr;
+                    BOOL created;
+                    std::wstring preparedTarget;
+                    DWORD volumeSerial;
+                    ULONGLONG fileIndex;
+                    if (!TryPrepareParallelDirectory(script, operation, clearReadonlyMask,
+                                                     dialogData, created, preparedTarget,
+                                                     volumeSerial, fileIndex))
+                {
+                    preparedDirectories.pop_back();
+                    return FALSE;
+                }
+                    prepared.Created = created;
+                    prepared.Target.swap(preparedTarget);
+                    prepared.VolumeSerial = volumeSerial;
+                    prepared.FileIndex = fileIndex;
+                scriptIndex++;
+                continue;
+            }
+            if (operation->Opcode == ocCopyDirTime ||
+                operation->Opcode == ocLabelForSkipOfCreateDir)
+            {
+                scriptIndex++;
+                continue;
+            }
+            return FALSE;
+        }
+        if (!CanUseParallelCopy(script, operation))
+            return FALSE;
+
+        std::wstring target = GetParallelCopyPathW(operation, FALSE);
+        std::wstring source = GetParallelCopyPathW(operation, TRUE);
+        if (target.empty() || source.empty())
+            return FALSE;
+        target = SalPathAddExtendedPrefixW(target.c_str());
+        source = SalPathAddExtendedPrefixW(source.c_str());
+        DWORD sourceVolumeSerial = 0;
+        ULONGLONG sourceFileIndex = 0;
+        if (!GetParallelFileIdentity(source, sourceVolumeSerial, sourceFileIndex))
+            return FALSE;
+        const DWORD targetAttributes = GetFileAttributesW(target.c_str());
+        const BOOL replaceTarget = targetAttributes != INVALID_FILE_ATTRIBUTES;
+        if (replaceTarget && !CanReplaceInParallel(targetAttributes, dialogData))
+            return FALSE;
+        DWORD targetVolumeSerial = 0;
+        ULONGLONG targetFileIndex = 0;
+        if (replaceTarget &&
+            (!GetParallelFileIdentity(target, targetVolumeSerial, targetFileIndex) ||
+             targetVolumeSerial == sourceVolumeSerial && targetFileIndex == sourceFileIndex))
+            return FALSE;
+
+        for (int dependency = 0; dependency < dependencyCount; dependency++)
+        {
+            const CParallelCopyTask* previous = dependencies[dependency];
+            if (_wcsicmp(target.c_str(), previous->Target.c_str()) == 0 ||
+                _wcsicmp(source.c_str(), previous->Target.c_str()) == 0 ||
+                _wcsicmp(target.c_str(), previous->Source.c_str()) == 0 ||
+                replaceTarget && previous->ReplaceTarget &&
+                    targetVolumeSerial == previous->TargetVolumeSerial &&
+                    targetFileIndex == previous->TargetFileIndex ||
+                replaceTarget && previous->SourceIdentityValid &&
+                    targetVolumeSerial == previous->SourceVolumeSerial &&
+                    targetFileIndex == previous->SourceFileIndex ||
+                previous->ReplaceTarget &&
+                    sourceVolumeSerial == previous->TargetVolumeSerial &&
+                    sourceFileIndex == previous->TargetFileIndex)
+            {
+                retryLater = TRUE;
+                return FALSE;
+            }
+        }
+
+        tasks.push_back(CParallelCopyTask());
+        CParallelCopyTask& task = tasks.back();
+        task.ScriptIndex = scriptIndex;
+        task.Operation = operation;
+        task.Source.swap(source);
+        task.Target.swap(target);
+        task.ReplaceTarget = replaceTarget;
+        task.SourceIdentityValid = TRUE;
+        task.SourceVolumeSerial = sourceVolumeSerial;
+        task.SourceFileIndex = sourceFileIndex;
+        task.TargetVolumeSerial = targetVolumeSerial;
+        task.TargetFileIndex = targetFileIndex;
+        task.FinalAttributes = (operation->Attr & clearReadonlyMask) | FILE_ATTRIBUTE_ARCHIVE;
+        if (!OpenParallelCopyInput(task))
+        {
+            tasks.pop_back();
+            return FALSE;
+        }
+        plannedTask = &task;
+        scriptIndex++;
+        return TRUE;
+    }
+    return FALSE;
+}
+
+// Returns a positive completed count, zero when the rolling path is not
+// applicable, and -1 after an attempted run failed and needs legacy retry.
+static int RunRollingParallelCopy(COperations* script, int first, int limit,
+                                  HWND progressDialog, CProgressDlgData& dialogData,
+                                  CQuadWord& totalDone, DWORD clearReadonlyMask)
+{
+    std::deque<CParallelCopyTask> tasks;
+    std::deque<CPreparedParallelDirectory> preparedDirectories;
+    CQuadWord firstWindowSize(0, 0);
+    int scriptIndex = first;
+    CParallelCopyTask* initialDependencies[COPYMOVE_MAX_PARALLEL_STREAMS];
+    int initialDependencyCount = 0;
+    try
+    {
+        while ((int)tasks.size() < limit)
+        {
+            if (*dialogData.CancelWorker)
+            {
+                CloseUnusedParallelCopyInputs(tasks);
+                RollbackPreparedParallelDirectories(preparedDirectories);
+                return -2;
+            }
+            CParallelCopyTask* task = NULL;
+            BOOL retryLater;
+            if (!PlanNextParallelCopy(script, scriptIndex, clearReadonlyMask, dialogData,
+                                       tasks, preparedDirectories, initialDependencies,
+                                       initialDependencyCount, task, retryLater))
+            {
+                if (*dialogData.CancelWorker)
+                {
+                    CloseUnusedParallelCopyInputs(tasks);
+                    RollbackPreparedParallelDirectories(preparedDirectories);
+                    return -2;
+                }
+                break;
+            }
+            initialDependencies[initialDependencyCount++] = task;
+            firstWindowSize += task->Operation->FileSize;
+            if ((int)tasks.size() == limit &&
+                firstWindowSize < CQuadWord(COPYMOVE_MIN_PARALLEL_BATCH_SIZE, 0))
+            {
+                CloseUnusedParallelCopyInputs(tasks);
+                RollbackPreparedParallelDirectories(preparedDirectories);
+                return -1;
+            }
+        }
+    }
+    catch (const std::bad_alloc&)
+    {
+        CloseUnusedParallelCopyInputs(tasks);
+        RollbackPreparedParallelDirectories(preparedDirectories);
+        return -1;
+    }
+
+    const int initialCount = (int)tasks.size();
+    if (initialCount < 2 || firstWindowSize < CQuadWord(COPYMOVE_MIN_PARALLEL_BATCH_SIZE, 0))
+    {
+        CloseUnusedParallelCopyInputs(tasks);
+        RollbackPreparedParallelDirectories(preparedDirectories);
+        return -1;
+    }
+
+    CParallelCopyBatch batch;
+    batch.ProgressDialog = progressDialog;
+    batch.DialogData = &dialogData;
+    batch.SlotCount = initialCount;
+    batch.DisplayCount = initialCount;
+    batch.ResetSlots = TRUE;
+    batch.Script = script;
+    batch.BaseDone = totalDone;
+    batch.CompletedDone = CQuadWord(0, 0);
+    lstrcpyn(batch.OperationText, LoadStr(IDS_COPYING), _countof(batch.OperationText));
+    lstrcpyn(batch.PrepositionText, LoadStr(IDS_COPYINGPREP), _countof(batch.PrepositionText));
+    HANDLES(InitializeCriticalSection(&batch.CS));
+
+    CQuadWord statusTFS(0, 0);
+    CQuadWord statusProgress(0, 0);
+    const BOOL haveStatus = script->GetTFSandProgressSize(&statusTFS, &statusProgress);
+    BOOL failed = FALSE;
+    BOOL plannerFinished = FALSE;
+    for (int slot = 0; slot < initialCount; slot++)
+    {
+        CParallelCopyTask& task = tasks[slot];
+        batch.ActiveTasks[slot] = &task;
+        task.Batch = &batch;
+        task.Thread = HANDLES(CreateThread(NULL, 0, ParallelCopyThreadProc, &task, 0, NULL));
+        if (task.Thread == NULL)
+            failed = TRUE;
+    }
+    if (failed)
+        for (int slot = 0; slot < initialCount; slot++)
+            InterlockedExchange(&batch.ActiveTasks[slot]->Cancel, 1);
+
+    UpdateParallelCopyProgress(&batch);
+    while (1)
+    {
+        HANDLE handles[COPYMOVE_MAX_PARALLEL_STREAMS];
+        int handleSlots[COPYMOVE_MAX_PARALLEL_STREAMS];
+        int handleCount = 0;
+        for (int slot = 0; slot < batch.SlotCount; slot++)
+        {
+            CParallelCopyTask& task = *batch.ActiveTasks[slot];
+            if (task.Thread != NULL)
+            {
+                handles[handleCount] = task.Thread;
+                handleSlots[handleCount++] = slot;
+            }
+        }
+        if (handleCount == 0)
+            break;
+
+        DWORD waitResult = WaitForMultipleObjects(handleCount, handles, FALSE, 100);
+        if (waitResult == WAIT_TIMEOUT)
+        {
+            UpdateParallelCopyProgress(&batch);
+            continue;
+        }
+        if (waitResult == WAIT_FAILED)
+        {
+            failed = TRUE;
+            for (int slot = 0; slot < batch.SlotCount; slot++)
+                InterlockedExchange(&batch.ActiveTasks[slot]->Cancel, 1);
+            for (int handle = 0; handle < handleCount; handle++)
+                WaitForSingleObject(handles[handle], INFINITE);
+        }
+
+        for (int handle = 0; handle < handleCount; handle++)
+        {
+            if (WaitForSingleObject(handles[handle], 0) != WAIT_OBJECT_0)
+                continue;
+            const int slot = handleSlots[handle];
+            CParallelCopyTask& task = *batch.ActiveTasks[slot];
+            HANDLES(CloseHandle(task.Thread));
+            task.Thread = NULL;
+            if (!task.Success)
+                failed = TRUE;
+        }
+        if (failed)
+        {
+            for (int slot = 0; slot < batch.SlotCount; slot++)
+                InterlockedExchange(&batch.ActiveTasks[slot]->Cancel, 1);
+            continue;
+        }
+
+        for (int slot = 0; slot < batch.SlotCount; slot++)
+        {
+            if (batch.ActiveTasks[slot]->Thread != NULL ||
+                !batch.ActiveTasks[slot]->Finished)
+                continue;
+            if (*dialogData.CancelWorker || script->IsParallelCopyDisabled())
+            {
+                failed = TRUE;
+                break;
+            }
+            if (plannerFinished)
+                continue;
+            CParallelCopyTask& completed = *batch.ActiveTasks[slot];
+            CParallelCopyTask* next = NULL;
+            CParallelCopyTask* dependencies[COPYMOVE_MAX_PARALLEL_STREAMS];
+            int dependencyCount = 0;
+            for (int activeSlot = 0; activeSlot < batch.SlotCount; activeSlot++)
+                if (batch.ActiveTasks[activeSlot]->Thread != NULL)
+                    dependencies[dependencyCount++] = batch.ActiveTasks[activeSlot];
+            try
+            {
+                BOOL retryLater;
+                if (!PlanNextParallelCopy(script, scriptIndex, clearReadonlyMask, dialogData,
+                                           tasks, preparedDirectories, dependencies,
+                                           dependencyCount, next, retryLater))
+                {
+                    if (*dialogData.CancelWorker || script->IsParallelCopyDisabled())
+                    {
+                        failed = TRUE;
+                        break;
+                    }
+                    if (!retryLater)
+                        plannerFinished = TRUE;
+                    continue;
+                }
+            }
+            catch (const std::bad_alloc&)
+            {
+                failed = TRUE;
+                break;
+            }
+            batch.CompletedDone += completed.Operation->Size;
+            batch.ActiveTasks[slot] = next;
+            next->Batch = &batch;
+            next->Thread = HANDLES(CreateThread(NULL, 0, ParallelCopyThreadProc, next, 0, NULL));
+            dependencies[dependencyCount++] = next;
+            batch.ResetSlots = TRUE;
+            if (next->Thread == NULL)
+            {
+                failed = TRUE;
+                break;
+            }
+        }
+        if (failed)
+            for (int slot = 0; slot < batch.SlotCount; slot++)
+                InterlockedExchange(&batch.ActiveTasks[slot]->Cancel, 1);
+        UpdateParallelCopyProgress(&batch);
+    }
+    UpdateParallelCopyProgress(&batch);
+    CloseUnusedParallelCopyInputs(tasks);
+    HANDLES(DeleteCriticalSection(&batch.CS));
+
+    if (failed)
+    {
+        if (haveStatus)
+        {
+            script->SetTFSandProgressSize(statusTFS, statusProgress);
+            script->InitSpeedMeters(TRUE);
+        }
+        for (std::deque<CParallelCopyTask>::iterator task = tasks.begin();
+             task != tasks.end(); ++task)
+            DeleteParallelCopyOutput(*task);
+        RollbackPreparedParallelDirectories(preparedDirectories);
+        return *dialogData.CancelWorker ? -2 : -1;
+    }
+
+    for (std::deque<CParallelCopyTask>::iterator task = tasks.begin();
+         task != tasks.end(); ++task)
+    {
+        totalDone += task->Operation->Size;
+        task->Operation->OpFlags |= OPFL_PARALLEL_DONE;
+    }
+    script->SetProgressSize(totalDone);
+    SetProgress(progressDialog, 0, CaclProg(totalDone, script->TotalSize), dialogData);
+    return 1; // future non-contiguous file operations are marked as completed
+}
+
+static int RunParallelCopyBatch(COperations* script, int first, HWND progressDialog,
+                                CProgressDlgData& dialogData, CQuadWord& totalDone,
+                                DWORD clearReadonlyMask)
+{
+    const int limit = GetParallelCopyLimit(script);
+    if (limit < 2 || script->IsParallelCopyDisabled() ||
+        !CanUseParallelCopy(script, &script->At(first)))
+        return 0;
+    BOOL useSpeedLimit;
+    DWORD speedLimit;
+    script->GetSpeedLimit(&useSpeedLimit, &speedLimit);
+    if (useSpeedLimit)
+        return 0; // the legacy path owns the aggregate operation speed limiter
+
+    const int rollingResult = RunRollingParallelCopy(script, first, limit, progressDialog,
+                                                     dialogData, totalDone, clearReadonlyMask);
+    return rollingResult > 0 ? rollingResult : rollingResult == -2 ? -1 : 0;
+}
+
 unsigned ThreadWorkerBody(void* parameter)
 {
     CALL_STACK_MESSAGE1("ThreadWorkerBody()");
@@ -7969,6 +8988,20 @@ unsigned ThreadWorkerBody(void* parameter)
             {
             case ocCopyFile:
             {
+                if ((op->OpFlags & OPFL_PARALLEL_DONE) != 0)
+                    break;
+                int parallelCount = RunParallelCopyBatch(script, i, hProgressDlg, dlgData,
+                                                         totalDone, clearReadonlyMask);
+                if (parallelCount < 0)
+                {
+                    Error = TRUE;
+                    break;
+                }
+                if (parallelCount > 0)
+                {
+                    i += parallelCount - 1;
+                    break;
+                }
                 pd.Operation = opStrCopying;
                 pd.Source = op->SourceName;
                 pd.Preposition = opStrCopyingPrep;
@@ -8024,6 +9057,16 @@ unsigned ThreadWorkerBody(void* parameter)
                 SetProgressDialog(hProgressDlg, &pd, dlgData);
 
                 SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
+
+                if ((op->OpFlags & OPFL_PARALLEL_DIR_PREPARED) != 0)
+                {
+                    script->AddBytesToSpeedMetersAndTFSandPS((DWORD)op->Size.Value, TRUE,
+                                                             0, NULL, MAX_OP_FILESIZE);
+                    totalDone += op->Size;
+                    script->SetProgressSize(totalDone);
+                    SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
+                    break;
+                }
 
                 BOOL skip, alreadyExisted;
                 Error = !DoCreateDir(hProgressDlg, op->TargetName, op->Attr, clearReadonlyMask, dlgData,
@@ -8354,7 +9397,8 @@ void FreeScript(COperations* script)
     delete script;
 }
 
-BOOL COperationsQueue::AddOperation(HWND dlg, BOOL startOnIdle, BOOL* startPaused)
+BOOL COperationsQueue::AddOperation(HWND dlg, BOOL startOnIdle, BOOL* startPaused,
+                                    const COperationStorageUse* storageUse)
 {
     CALL_STACK_MESSAGE1("COperationsQueue::AddOperation()");
 
@@ -8368,28 +9412,98 @@ BOOL COperationsQueue::AddOperation(HWND dlg, BOOL startOnIdle, BOOL* startPause
     BOOL ret = FALSE;
     if (i == OperDlgs.Count) // the operation can be added
     {
+        COperationStorageUse use;
+        StorageUse_Reset(&use);
+        if (storageUse != NULL && storageUse->ClaimCount > 0)
+            use = *storageUse;
+        else
+        {
+            CStorageClaim unknown;
+            memset(&unknown, 0, sizeof(unknown));
+            unknown.Kind = SRES_GLOBAL_UNKNOWN;
+            unknown.Access = SACCESS_READWRITE;
+            StorageUse_AddClaim(&use, &unknown);
+        }
+
+        // The selected transfer mode applies inside one operation. The operation
+        // queue stays storage-aware; only the explicit wait checkbox serializes it.
+        int mode = CMS_STORAGE_AWARE;
+        DWORD forceSequential = startOnIdle ? 1 : 0;
+
+        CStorageOpView runningViews[64];
+        int runningCount = 0;
+        int anyNonAutoPaused = 0;
+        BOOL runningViewsOverflow = FALSE;
+        int j;
+        for (j = 0; j < OperPaused.Count; j++)
+        {
+            if (OperPaused[j] == 0 && runningCount < 64)
+            {
+                runningViews[runningCount].Claims = OperStorage[j].Claims;
+                runningViews[runningCount].Count = OperStorage[j].ClaimCount;
+                runningViews[runningCount].StreamDemand = OperStorage[j].StreamDemand;
+                runningCount++;
+            }
+            else if (OperPaused[j] == 0)
+                runningViewsOverflow = TRUE;
+            if (OperPaused[j] != 1)
+                anyNonAutoPaused = 1;
+        }
+
+        CStorageOpView candidate;
+        candidate.Claims = use.Claims;
+        candidate.Count = use.ClaimCount;
+        candidate.StreamDemand = use.StreamDemand;
+        *startPaused = runningViewsOverflow || CopyMoveShouldStartPausedWithLimits(
+                                                  mode, startOnIdle, anyNonAutoPaused, &candidate,
+                                                  runningViews, runningCount,
+                                                  Configuration.CopyMoveSsdParallelFiles,
+                                                  Configuration.CopyMoveNvmeParallelFiles) != 0;
+
         OperDlgs.Add(dlg);
         if (OperDlgs.IsGood())
         {
-            if (startOnIdle)
+            OperPaused.Add(*startPaused ? 1 /* auto-paused */ : 0 /* running */);
+            if (OperPaused.IsGood())
             {
-                int j;
-                for (j = 0; j < OperPaused.Count && OperPaused[j] == 1 /* auto-paused */; j++)
-                    ; // if another operation is already running or was paused manually, start this one as "auto-paused"
-                *startPaused = j < OperPaused.Count;
+                OperStorage.Add(use);
+                if (OperStorage.IsGood())
+                {
+                    OperForceSequential.Add(forceSequential);
+                    if (OperForceSequential.IsGood())
+                        ret = TRUE;
+                    else
+                    {
+                        OperForceSequential.ResetState();
+                        OperStorage.Delete(OperStorage.Count - 1);
+                        if (!OperStorage.IsGood())
+                            OperStorage.ResetState();
+                        OperPaused.Delete(OperPaused.Count - 1);
+                        if (!OperPaused.IsGood())
+                            OperPaused.ResetState();
+                        OperDlgs.Delete(OperDlgs.Count - 1);
+                        if (!OperDlgs.IsGood())
+                            OperDlgs.ResetState();
+                    }
+                }
+                else
+                {
+                    OperStorage.ResetState();
+                    OperPaused.Delete(OperPaused.Count - 1);
+                    if (!OperPaused.IsGood())
+                        OperPaused.ResetState();
+                    OperDlgs.Delete(OperDlgs.Count - 1);
+                    if (!OperDlgs.IsGood())
+                        OperDlgs.ResetState();
+                }
             }
             else
-                *startPaused = FALSE;
-            OperPaused.Add(*startPaused ? 1 /* auto-paused */ : 0 /* running */);
-            if (!OperPaused.IsGood())
             {
                 OperPaused.ResetState();
                 OperDlgs.Delete(OperDlgs.Count - 1);
                 if (!OperDlgs.IsGood())
                     OperDlgs.ResetState();
             }
-            else
-                ret = TRUE;
         }
         else
             OperDlgs.ResetState();
@@ -8400,6 +9514,63 @@ BOOL COperationsQueue::AddOperation(HWND dlg, BOOL startOnIdle, BOOL* startPause
     HANDLES(LeaveCriticalSection(&QueueCritSect));
 
     return ret;
+}
+
+void COperationsQueue::TryResumeCompatible(HWND* foregroundWnd)
+{
+    // QueueCritSect must be held
+    int i;
+    for (i = 0; i < OperDlgs.Count; i++)
+    {
+        if (OperPaused[i] != 1) // only auto-paused waiters
+            continue;
+
+        CStorageOpView runningViews[64];
+        int runningCount = 0;
+        int anyNonAutoPaused = 0;
+        BOOL runningViewsOverflow = FALSE;
+        int j;
+        for (j = 0; j < OperDlgs.Count; j++)
+        {
+            if (j == i)
+                continue;
+            if (OperPaused[j] == 0 && runningCount < 64)
+            {
+                runningViews[runningCount].Claims = OperStorage[j].Claims;
+                runningViews[runningCount].Count = OperStorage[j].ClaimCount;
+                runningViews[runningCount].StreamDemand = OperStorage[j].StreamDemand;
+                runningCount++;
+            }
+            else if (OperPaused[j] == 0)
+                runningViewsOverflow = TRUE;
+            if (OperPaused[j] != 1)
+                anyNonAutoPaused = 1;
+        }
+
+        CStorageOpView candidate;
+        candidate.Claims = OperStorage[i].Claims;
+        candidate.Count = OperStorage[i].ClaimCount;
+        candidate.StreamDemand = OperStorage[i].StreamDemand;
+
+        int shouldWait;
+        if (runningViewsOverflow)
+            shouldWait = TRUE;
+        else if (OperForceSequential[i])
+            shouldWait = anyNonAutoPaused;
+        else
+            shouldWait = StorageOperationConflictsWithRunningWithLimits(
+                &candidate, runningViews, runningCount,
+                Configuration.CopyMoveSsdParallelFiles,
+                Configuration.CopyMoveNvmeParallelFiles);
+
+        if (!shouldWait)
+        {
+            OperPaused[i] = 0; // mark running so later waiters see this lock
+            PostMessage(OperDlgs[i], WM_COMMAND, CM_RESUMEOPER, 0);
+            if (foregroundWnd != NULL && *foregroundWnd == NULL)
+                *foregroundWnd = OperDlgs[i];
+        }
+    }
 }
 
 void COperationsQueue::OperationEnded(HWND dlg, BOOL doNotResume, HWND* foregroundWnd)
@@ -8421,25 +9592,23 @@ void COperationsQueue::OperationEnded(HWND dlg, BOOL doNotResume, HWND* foregrou
             OperPaused.Delete(i);
             if (!OperPaused.IsGood())
                 OperPaused.ResetState();
+            OperStorage.Delete(i);
+            if (!OperStorage.IsGood())
+                OperStorage.ResetState();
+            OperForceSequential.Delete(i);
+            if (!OperForceSequential.IsGood())
+                OperForceSequential.ResetState();
             break;
         }
     }
     if (!found)
         TRACE_E("COperationsQueue::OperationEnded(): unexpected situation: operation was not found!");
-    else
+    else if (!doNotResume)
     {
-        if (!doNotResume)
-        {
-            int j;
-            for (j = 0; j < OperPaused.Count && OperPaused[j] == 1 /* auto-paused */; j++)
-                ; // if no operation is running and none was paused manually, resume the first one in the queue
-            if (j == OperPaused.Count && OperDlgs.Count > 0)
-            {
-                PostMessage(OperDlgs[0], WM_COMMAND, CM_RESUMEOPER, 0);
-                if (foregroundWnd != NULL && GetForegroundWindow() == dlg)
-                    *foregroundWnd = OperDlgs[0];
-            }
-        }
+        HWND firstResumed = NULL;
+        TryResumeCompatible(&firstResumed);
+        if (foregroundWnd != NULL && firstResumed != NULL && GetForegroundWindow() == dlg)
+            *foregroundWnd = firstResumed;
     }
 
     HANDLES(LeaveCriticalSection(&QueueCritSect));
@@ -8488,28 +9657,31 @@ void COperationsQueue::AutoPauseOperation(HWND dlg, HWND* foregroundWnd)
         if (OperDlgs[i] == dlg)
         {
             int j;
+            HWND movedDlg = dlg;
+            DWORD movedPaused = 1; /* auto-paused */
+            COperationStorageUse movedStorage = OperStorage[i];
+            DWORD movedForce = 1; // AutoPause means wait until all other operations finish
             for (j = i; j + 1 < OperDlgs.Count; j++)
+            {
                 OperDlgs[j] = OperDlgs[j + 1];
-            for (j = i; j + 1 < OperPaused.Count; j++)
                 OperPaused[j] = OperPaused[j + 1];
-            OperDlgs[j] = dlg;
-            OperPaused[j] = 1 /* auto-paused */;
+                OperStorage[j] = OperStorage[j + 1];
+                OperForceSequential[j] = OperForceSequential[j + 1];
+            }
+            OperDlgs[j] = movedDlg;
+            OperPaused[j] = movedPaused;
+            OperStorage[j] = movedStorage;
+            OperForceSequential[j] = movedForce;
             break;
         }
     }
     if (i == OperDlgs.Count)
         TRACE_E("COperationsQueue::AutoPauseOperation(): operation was not found!");
 
-    // if no operation is running and none was paused manually, resume the first one in the queue
-    int j;
-    for (j = 0; j < OperPaused.Count && OperPaused[j] == 1 /* auto-paused */; j++)
-        ;
-    if (j == OperPaused.Count && OperDlgs.Count > 0)
-    {
-        PostMessage(OperDlgs[0], WM_COMMAND, CM_RESUMEOPER, 0);
-        if (foregroundWnd != NULL && GetForegroundWindow() == dlg)
-            *foregroundWnd = OperDlgs[0];
-    }
+    HWND firstResumed = NULL;
+    TryResumeCompatible(&firstResumed);
+    if (foregroundWnd != NULL && firstResumed != NULL && GetForegroundWindow() == dlg)
+        *foregroundWnd = firstResumed;
 
     HANDLES(LeaveCriticalSection(&QueueCritSect));
 }
