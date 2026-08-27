@@ -1,7 +1,7 @@
 {
   "schemaVersion": 6,
   "catalogName": "Extensions Stable",
-  "generatedAt": "2026-08-02T00:20:57Z",
+  "generatedAt": "2026-08-27T23:46:44Z",
   "plugins": [
     {
       "id": "file-lock-inspector",
@@ -12,7 +12,7 @@
       "description": {
         "english": "Find processes that prevent selected files from being changed, moved, or deleted."
       },
-      "latestVersion": "1.0.0 (x64)",
+      "latestVersion": "1.0.2 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_file-lock-inspector_1.0.0_x64/plugin_5.0_file-lock-inspector_1.0.0_x64.7z",
@@ -38,7 +38,7 @@
       "description": {
         "english": ""
       },
-      "latestVersion": "1.0.0 (x64)",
+      "latestVersion": "1.0.2 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_git-worktree-navigator_1.0.0_x64/plugin_5.0_git-worktree-navigator_1.0.0_x64.7z",
@@ -64,7 +64,7 @@
       "description": {
         "english": "Create and edit simple menu-driven Salamatrix extensions interactively."
       },
-      "latestVersion": "1.0.0 (x64)",
+      "latestVersion": "1.1.2 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_extension-menu-builder_1.0.0_x64/plugin_5.0_extension-menu-builder_1.0.0_x64.7z",
@@ -91,12 +91,90 @@
       "description": {
         "english": "Demo sample scripts for the Salamatrix framework."
       },
-      "latestVersion": "1.0.0 (x64)",
+      "latestVersion": "1.4.2 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrixdemos_1.0.0_x64/plugin_5.0_salamatrixdemos_1.0.0_x64.7z",
       "dependencies": [
         "salamatrix"
+      ],
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "process-explorer",
+      "packageType": "extension",
+      "name": {
+        "english": "Process Explorer"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Lists running Windows processes in a Salamander file-system panel."
+      },
+      "latestVersion": "1.3.0 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_process-explorer_1.3.0_x64/plugin_5.0_process-explorer_1.3.0_x64.7z",
+      "dependencies": [
+        "powershellruntime"
+      ],
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "hardware-monitor",
+      "packageType": "extension",
+      "name": {
+        "english": "Hardware Monitor"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Displays detailed hardware information, sensor readings, and system utilization in a Salamander file-system panel, similar to AIDA64."
+      },
+      "latestVersion": "1.0.0 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_hardware-monitor_1.0.0_x64/plugin_5.0_hardware-monitor_1.0.0_x64.7z",
+      "dependencies": [
+        "powershellruntime"
+      ],
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "event-viewer",
+      "packageType": "extension",
+      "name": {
+        "english": "Event Viewer"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Browses Windows event logs in a Salamander file-system panel."
+      },
+      "latestVersion": "1.0.0 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_event-viewer_1.0.0_x64/plugin_5.0_event-viewer_1.0.0_x64.7z",
+      "dependencies": [
+        "powershellruntime"
       ],
       "icon": "https://samandarin.net/catalogs/img/plugin.png",
       "security": {

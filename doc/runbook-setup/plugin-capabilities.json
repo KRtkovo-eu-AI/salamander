@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-02T00:20:57Z",
+  "generatedAt": "2026-08-27T23:46:44Z",
   "packages": [
     {
       "id": "7zip",
@@ -91,6 +91,17 @@
       }
     },
     {
+      "id": "event-viewer",
+      "packageType": "extension",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
       "id": "extension-menu-builder",
       "packageType": "extension",
       "security": {
@@ -147,6 +158,17 @@
     },
     {
       "id": "git-worktree-navigator",
+      "packageType": "extension",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "hardware-monitor",
       "packageType": "extension",
       "security": {
         "networkAccess": "possible",
@@ -293,6 +315,17 @@
       "packageType": "plugin",
       "security": {
         "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
+    },
+    {
+      "id": "process-explorer",
+      "packageType": "extension",
+      "security": {
+        "networkAccess": "no",
         "externalProcesses": "yes",
         "scriptExecution": "yes",
         "activeWebContent": "no",
