@@ -21,6 +21,8 @@
 #include "gui.h"
 #include "darkmode.h"
 #include "svg.h"
+#include "common/winlibdpi.h"
+#include "storagesched.h"
 #include "plugins/salamatrix/salamatrix_extensions.h"
 #include <uxtheme.h>
 
@@ -604,6 +606,10 @@ CConfiguration::CConfiguration()
     UseSalOpen = FALSE;
     NetwareFastDirMove = FALSE; // choose the slower but 100% working mode; power users can switch it
     UseAsyncCopyAlg = TRUE;
+    CopyMoveScheduling = CMS_STORAGE_AWARE;
+    CopyMoveLastTransferMode = CMS_STORAGE_AWARE;
+    CopyMoveSsdParallelFiles = 2;
+    CopyMoveNvmeParallelFiles = 4;
     ReloadEnvVariables = TRUE;
     PathAutoComplete = TRUE;
     CreateDirAutoComplete = FALSE;
@@ -1234,6 +1240,83 @@ static BOOL BrowseConfigurationStorageFile(HWND hParent, char* path, int pathSiz
 CCfgPageGeneral::CCfgPageGeneral()
     : CCommonPropSheetPage(NULL, HLanguage, IDD_CFGPAGE_GENERAL, IDD_CFGPAGE_GENERAL, PSP_USETITLE, NULL)
 {
+    CopyMoveSsdEditWidth = 0;
+    CopyMoveNvmeEditWidth = 0;
+    CopyMoveWarningIcon = NULL;
+    CopyMoveWarningToolTip = NULL;
+}
+
+CCfgPageGeneral::~CCfgPageGeneral()
+{
+    if (CopyMoveWarningToolTip != NULL)
+        DestroyWindow(CopyMoveWarningToolTip);
+    if (CopyMoveWarningIcon != NULL)
+        DestroyIcon(CopyMoveWarningIcon);
+}
+
+void CCfgPageGeneral::UpdateCopyMoveParallelWarning()
+{
+    BOOL translated;
+    int ssd = GetDlgItemInt(HWindow, IDC_COPYMOVE_SSD_PARALLEL, &translated, FALSE);
+    if (!translated)
+        ssd = 0;
+    int nvme = GetDlgItemInt(HWindow, IDC_COPYMOVE_NVME_PARALLEL, &translated, FALSE);
+    if (!translated)
+        nvme = 0;
+
+    HWND ssdWarningIcon = GetDlgItem(HWindow, IDC_COPYMOVE_SSD_WARNING_ICON);
+    HWND nvmeWarningIcon = GetDlgItem(HWindow, IDC_COPYMOVE_NVME_WARNING_ICON);
+    if (ssdWarningIcon != NULL)
+        ShowWindow(ssdWarningIcon, ssd > 2 ? SW_SHOW : SW_HIDE);
+    if (nvmeWarningIcon != NULL)
+        ShowWindow(nvmeWarningIcon, nvme > 4 ? SW_SHOW : SW_HIDE);
+}
+
+void CCfgPageGeneral::LayoutCopyMoveControls()
+{
+    if (HWindow == NULL)
+        return;
+
+    RECT clientRect;
+    GetClientRect(HWindow, &clientRect);
+    RECT comboRect;
+    HWND combo = GetDlgItem(HWindow, IDC_COPYMOVE_SCHEDULING);
+    HWND ssdEdit = GetDlgItem(HWindow, IDC_COPYMOVE_SSD_PARALLEL);
+    HWND nvmeEdit = GetDlgItem(HWindow, IDC_COPYMOVE_NVME_PARALLEL);
+    if (combo == NULL || ssdEdit == NULL || nvmeEdit == NULL)
+        return;
+
+    GetWindowRect(combo, &comboRect);
+    POINT comboTopLeft = {comboRect.left, comboRect.top};
+    ScreenToClient(HWindow, &comboTopLeft);
+    RECT margin = {0, 0, 5, 0};
+    MapDialogRect(HWindow, &margin);
+    int comboWidth = clientRect.right - margin.right - comboTopLeft.x;
+    if (comboWidth < 1)
+        comboWidth = 1;
+
+    HDWP hdwp = HANDLES(BeginDeferWindowPos(3));
+    if (hdwp == NULL)
+        return;
+    hdwp = HANDLES(DeferWindowPos(hdwp, combo, NULL, comboTopLeft.x, comboTopLeft.y,
+                                  comboWidth, comboRect.bottom - comboRect.top,
+                                  SWP_NOZORDER | SWP_NOACTIVATE));
+
+    HWND edits[2] = {ssdEdit, nvmeEdit};
+    const int editWidths[2] = {CopyMoveSsdEditWidth, CopyMoveNvmeEditWidth};
+    for (int i = 0; i < 2 && hdwp != NULL; i++)
+    {
+        RECT editRect;
+        GetWindowRect(edits[i], &editRect);
+        POINT topLeft = {editRect.left, editRect.top};
+        ScreenToClient(HWindow, &topLeft);
+        int width = editWidths[i] > 0 ? WinLibDPIFromLogical(HWindow, editWidths[i]) : editRect.right - editRect.left;
+        hdwp = HANDLES(DeferWindowPos(hdwp, edits[i], NULL, topLeft.x, topLeft.y, width,
+                                      editRect.bottom - editRect.top,
+                                      SWP_NOZORDER | SWP_NOACTIVATE));
+    }
+    if (hdwp != NULL)
+        HANDLES(EndDeferWindowPos(hdwp));
 }
 
 void CCfgPageGeneral::Validate(CTransferInfo& ti)
@@ -1274,6 +1357,25 @@ void CCfgPageGeneral::Validate(CTransferInfo& ti)
             ti.ErrorOn(IDC_SAVE_TO_FILE);
             return;
         }
+    }
+
+    int ssdParallelFiles;
+    ti.EditLine(IDC_COPYMOVE_SSD_PARALLEL, ssdParallelFiles);
+    if (ssdParallelFiles < 1 || ssdParallelFiles > 4)
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_COPYMOVE_PARALLEL_SSD_RANGE),
+                      LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        ti.ErrorOn(IDC_COPYMOVE_SSD_PARALLEL);
+        return;
+    }
+    int nvmeParallelFiles;
+    ti.EditLine(IDC_COPYMOVE_NVME_PARALLEL, nvmeParallelFiles);
+    if (nvmeParallelFiles < 1 || nvmeParallelFiles > 8)
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_COPYMOVE_PARALLEL_NVME_RANGE),
+                      LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        ti.ErrorOn(IDC_COPYMOVE_NVME_PARALLEL);
+        return;
     }
 }
 
@@ -1338,6 +1440,31 @@ void CCfgPageGeneral::Transfer(CTransferInfo& ti)
     ti.CheckBox(IDC_RELOADENVVARS, Configuration.ReloadEnvVariables);
     ti.CheckBox(IDC_PATHAUTOCOMPLETE, Configuration.PathAutoComplete);
     ti.CheckBox(IDC_CREATEDIR_AUTOCOMPLETE, Configuration.CreateDirAutoComplete);
+    ti.EditLine(IDC_COPYMOVE_SSD_PARALLEL, Configuration.CopyMoveSsdParallelFiles);
+    ti.EditLine(IDC_COPYMOVE_NVME_PARALLEL, Configuration.CopyMoveNvmeParallelFiles);
+    HWND hSched = GetDlgItem(HWindow, IDC_COPYMOVE_SCHEDULING);
+    if (hSched != NULL)
+    {
+        if (ti.Type == ttDataToWindow)
+        {
+            SendMessage(hSched, CB_RESETCONTENT, 0, 0);
+            SendMessage(hSched, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_PREFERRED_SEQUENTIAL));
+            SendMessage(hSched, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_PREFERRED_STORAGEAWARE));
+            SendMessage(hSched, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_PREFERRED_KEEP_LAST));
+            int sel = Configuration.CopyMoveScheduling;
+            if (sel < CMS_SEQUENTIAL || sel > CMS_MANUAL)
+                sel = CMS_STORAGE_AWARE;
+            SendMessage(hSched, CB_SETCURSEL, sel, 0);
+        }
+        else
+        {
+            int sel = (int)SendMessage(hSched, CB_GETCURSEL, 0, 0);
+            if (sel >= CMS_SEQUENTIAL && sel <= CMS_MANUAL)
+                Configuration.CopyMoveScheduling = sel;
+        }
+    }
+    if (ti.Type == ttDataToWindow)
+        UpdateCopyMoveParallelWarning();
     if (ti.Type == ttDataFromWindow && Configuration.ReloadEnvVariables && oldReloadEnvVariables != Configuration.ReloadEnvVariables)
     {
         InitEnvironmentVariablesDifferences();
@@ -1406,8 +1533,73 @@ CCfgPageGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             DarkModeApplyStaticTextColors(HWindow, NULL);
             WinLib_DarkMode_PostDeferredRedraw(HWindow);
         }
+        HWND ssdEdit = GetDlgItem(HWindow, IDC_COPYMOVE_SSD_PARALLEL);
+        HWND nvmeEdit = GetDlgItem(HWindow, IDC_COPYMOVE_NVME_PARALLEL);
+        RECT rect;
+        if (ssdEdit != NULL && GetWindowRect(ssdEdit, &rect))
+            CopyMoveSsdEditWidth = WinLibDPIToLogical(HWindow, rect.right - rect.left);
+        if (nvmeEdit != NULL && GetWindowRect(nvmeEdit, &rect))
+            CopyMoveNvmeEditWidth = WinLibDPIToLogical(HWindow, rect.right - rect.left);
+        int iconSize = max(12, WinLibDPIFromLogical(HWindow, 12));
+        if (CopyMoveWarningIcon == NULL)
+            LoadIconWithScaleDown(NULL, (PCWSTR)IDI_EXCLAMATION, iconSize, iconSize,
+                                  &CopyMoveWarningIcon);
+        if (CopyMoveWarningIcon != NULL)
+        {
+            SendDlgItemMessage(HWindow, IDC_COPYMOVE_SSD_WARNING_ICON, STM_SETICON,
+                               (WPARAM)CopyMoveWarningIcon, 0);
+            SendDlgItemMessage(HWindow, IDC_COPYMOVE_NVME_WARNING_ICON, STM_SETICON,
+                               (WPARAM)CopyMoveWarningIcon, 0);
+        }
+        CopyMoveWarningToolTip = CreateWindowEx(0, TOOLTIPS_CLASS, NULL,
+                                                TTS_NOPREFIX | TTS_ALWAYSTIP,
+                                                CW_USEDEFAULT, CW_USEDEFAULT,
+                                                CW_USEDEFAULT, CW_USEDEFAULT,
+                                                HWindow, NULL, HInstance, NULL);
+        if (CopyMoveWarningToolTip != NULL)
+        {
+            HWND warningIcons[2] = {GetDlgItem(HWindow, IDC_COPYMOVE_SSD_WARNING_ICON),
+                                    GetDlgItem(HWindow, IDC_COPYMOVE_NVME_WARNING_ICON)};
+            for (int iconIndex = 0; iconIndex < 2; iconIndex++)
+            {
+                if (warningIcons[iconIndex] == NULL)
+                    continue;
+                TOOLINFO toolInfo;
+                memset(&toolInfo, 0, sizeof(toolInfo));
+                toolInfo.cbSize = sizeof(toolInfo);
+                toolInfo.uFlags = TTF_SUBCLASS | TTF_IDISHWND;
+                toolInfo.hwnd = HWindow;
+                toolInfo.uId = (UINT_PTR)warningIcons[iconIndex];
+                toolInfo.hinst = HInstance;
+                toolInfo.lpszText = (char*)LoadStr(iconIndex == 0
+                                                        ? IDS_COPYMOVE_PARALLEL_SSD_WARNING
+                                                        : IDS_COPYMOVE_PARALLEL_NVME_WARNING);
+                SendMessage(CopyMoveWarningToolTip, TTM_ADDTOOL, 0, (LPARAM)&toolInfo);
+            }
+            SendMessage(CopyMoveWarningToolTip, TTM_SETDELAYTIME, TTDT_INITIAL, 400);
+            SendMessage(CopyMoveWarningToolTip, TTM_SETDELAYTIME, TTDT_AUTOPOP, 10000);
+            SendMessage(CopyMoveWarningToolTip, TTM_SETMAXTIPWIDTH, 0,
+                        WinLibDPIFromLogical(HWindow, 360));
+            SetWindowPos(CopyMoveWarningToolTip, HWND_TOPMOST, 0, 0, 0, 0,
+                         SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            DarkModeApplyWindow(CopyMoveWarningToolTip);
+        }
+        HWND ssdWarningIcon = GetDlgItem(HWindow, IDC_COPYMOVE_SSD_WARNING_ICON);
+        HWND nvmeWarningIcon = GetDlgItem(HWindow, IDC_COPYMOVE_NVME_WARNING_ICON);
+        if (ssdWarningIcon != NULL)
+            ShowWindow(ssdWarningIcon, SW_HIDE);
+        if (nvmeWarningIcon != NULL)
+            ShowWindow(nvmeWarningIcon, SW_HIDE);
         break;
     }
+
+    case WM_DESTROY:
+        if (CopyMoveWarningToolTip != NULL)
+        {
+            DestroyWindow(CopyMoveWarningToolTip);
+            CopyMoveWarningToolTip = NULL;
+        }
+        break;
 
     case WM_COMMAND:
     {
@@ -1424,6 +1616,11 @@ CCfgPageGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                   MB_OK | MB_ICONEXCLAMATION);
             }
         }
+        else if (HIWORD(wParam) == EN_CHANGE &&
+                 (LOWORD(wParam) == IDC_COPYMOVE_SSD_PARALLEL || LOWORD(wParam) == IDC_COPYMOVE_NVME_PARALLEL))
+        {
+            UpdateCopyMoveParallelWarning();
+        }
         else if (HIWORD(wParam) == BN_CLICKED)
             EnableControls();
         break;
@@ -1431,12 +1628,16 @@ CCfgPageGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_NOTIFY:
     {
-        if (((NMHDR*)lParam)->code == PSN_SETACTIVE)
+        NMHDR* nmhdr = (NMHDR*)lParam;
+        if (nmhdr->code == PSN_SETACTIVE)
             EnableControls();
         break;
     }
     }
-    return CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
+    INT_PTR result = CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
+    if (uMsg == WM_SIZE)
+        LayoutCopyMoveControls();
+    return result;
 }
 
 //

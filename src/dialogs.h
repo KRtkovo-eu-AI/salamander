@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <string>
 #include <vector>
 
 #include "plugins/salamatrix/salamatrix_extensions.h"
@@ -94,6 +95,7 @@ protected:
     BOOL SupportsADS;
     const std::vector<std::string>* TargetPaths;
     BOOL AllowChangeTarget;
+    int* TransferModeInOut; // CMS_SEQUENTIAL / CMS_STORAGE_AWARE for this operation
 
     int OriginalWidth;    // full dialog width
     int OriginalHeight;   // full dialog height
@@ -109,7 +111,7 @@ public:
     CCopyMoveMoreDialog(HWND parent, char* path, int pathBufSize, char* title,
                         CTruncatedString* subject, DWORD helpID,
                         char* history[], int historyCount, CCriteriaData* criteriaInOut,
-                        BOOL havePermissions, BOOL supportsADS,
+                        BOOL havePermissions, BOOL supportsADS, int* transferModeInOut,
                         const std::vector<std::string>* targetPaths = NULL,
                         BOOL allowChangeTarget = FALSE);
     ~CCopyMoveMoreDialog();
@@ -311,6 +313,7 @@ class COperations;
 class CStaticText;
 class CProgressBar;
 struct CStartProgressDialogData;
+struct CParallelProgressData;
 
 // returns FALSE if the progress dialog could not be opened in the new thread or 
 // if starting an operation in the worker thread failed in this dialog; when FALSE 
@@ -334,6 +337,9 @@ protected:
 
     void SetDlgTitle(BOOL minimized);
     void SetWindowIcon();
+    std::string GetProgressCaption() const;
+    void SetParallelProgress(const CParallelProgressData* data);
+    void LayoutActiveProgressStreams(int count, BOOL repaint = TRUE);
 
 protected:
     BOOL RunningInOwnThread;                // TRUE/FALSE = dialog runs in its own thread ("background") / dialog runs in the main thread and is modal to its parent (usually one of the panels)
@@ -355,12 +361,16 @@ protected:
 
     CProgressBar *Operation,
         *Summary;
+    CProgressBar* ParallelOperations[7];
     CStaticText *OperationText,
         *Source,
         *Target,
         *Status;
+    CStaticText* ParallelSources[7];
+    CStaticText* ParallelTargets[7];
     COperations* Script;
-    char Caption[50];
+    std::string Caption;
+    std::string SchedulingTitleSuffix;
     CChangeAttrsData* AttrsData;
     CConvertData* ConvertData;
     BOOL AcceptCommands;
@@ -389,6 +399,13 @@ protected:
     int OperationProgressCache;
     BOOL SummaryProgressCacheIsDirty;
     int SummaryProgressCache;
+    int ActiveParallelProgressStreams;
+    BOOL ParallelProgressActive;
+    BOOL DelayParallelProgressShow;
+    BOOL ParallelLayoutBaseCaptured;
+    int ParallelLayoutBaseDialogWidth;
+    int ParallelLayoutBaseDialogHeight;
+    RECT ParallelLayoutBaseRects[6];
 };
 
 //

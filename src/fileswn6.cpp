@@ -1076,7 +1076,16 @@ void CFilesWindow::DropCopyMove(BOOL copy, char* targetPath, CCopyMoveData* data
         FilesActionInProgress = TRUE;
         SetForegroundWindow(MainWindow->HWindow); // must activate immediately after the drop
         BeginStopRefresh();                       // otherwise WM_ACTIVATEAPP arrives but won't activate...
-        COperations* script = new COperations(100, 50, NULL, NULL, NULL);
+        char sourceDir[SAL_MAX_PATH];
+        sourceDir[0] = 0;
+        if (data->Count > 0 && data->At(0)->FileName != NULL)
+        {
+            lstrcpyn(sourceDir, data->At(0)->FileName, SAL_MAX_PATH);
+            CutDirectory(sourceDir);
+        }
+        char waitSubject[50];
+        lstrcpyn(waitSubject, copy ? LoadStr(IDS_COPY) : LoadStr(IDS_MOVE), 50);
+        COperations* script = new COperations(100, 50, DupStr(waitSubject), DupStr(sourceDir), DupStr(targetPath));
         if (script == NULL)
             TRACE_E(LOW_MEMORY);
         else
@@ -1094,6 +1103,15 @@ void CFilesWindow::DropCopyMove(BOOL copy, char* targetPath, CCopyMoveData* data
                 script->ShowStatus = TRUE;
             script->IsCopyOperation = copy;
             script->IsCopyOrMoveOperation = TRUE;
+            script->CopyMoveTransferMode = Configuration.CopyMoveScheduling == CMS_MANUAL
+                                               ? Configuration.CopyMoveLastTransferMode
+                                               : Configuration.CopyMoveScheduling;
+            if (script->CopyMoveTransferMode != CMS_SEQUENTIAL &&
+                script->CopyMoveTransferMode != CMS_STORAGE_AWARE)
+                script->CopyMoveTransferMode = CMS_STORAGE_AWARE;
+            if (sourceDir[0] != 0)
+                script->AddStoragePath(sourceDir, copy ? SACCESS_READ : SACCESS_READWRITE);
+            script->AddStoragePath(targetPath, SACCESS_WRITE);
 
             char caption[50]; // otherwise the LoadStr buffer gets overwritten before being copied to the dialog's local buffer
             if (copy)
