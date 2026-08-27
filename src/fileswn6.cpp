@@ -1085,9 +1085,26 @@ void CFilesWindow::DropCopyMove(BOOL copy, char* targetPath, CCopyMoveData* data
         }
         char waitSubject[50];
         lstrcpyn(waitSubject, copy ? LoadStr(IDS_COPY) : LoadStr(IDS_MOVE), 50);
-        COperations* script = new COperations(100, 50, DupStr(waitSubject), DupStr(sourceDir), DupStr(targetPath));
+        char* waitSubjectCopy = DupStr(waitSubject);
+        char* sourceDirCopy = DupStr(sourceDir);
+        char* targetPathCopy = DupStr(targetPath);
+#ifdef new
+#undef new
+#define RESTORE_DROP_OPERATION_DEBUG_NEW_MACRO
+#endif
+        COperations* script = new (std::nothrow) COperations(
+            100, 50, waitSubjectCopy, sourceDirCopy, targetPathCopy);
+#ifdef RESTORE_DROP_OPERATION_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_DROP_OPERATION_DEBUG_NEW_MACRO
+#endif
         if (script == NULL)
+        {
+            free(waitSubjectCopy);
+            free(sourceDirCopy);
+            free(targetPathCopy);
             TRACE_E(LOW_MEMORY);
+        }
         else
         {
             if (!copy && data->Count > 0)

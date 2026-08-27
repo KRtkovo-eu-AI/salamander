@@ -176,6 +176,14 @@ def main() -> None:
     require(dialogs_h, "SchedulingTitleSuffix", "progress dialog keeps a storage-aware title suffix")
     require(dialogs_h, "LayoutActiveProgressStreams", "dynamic parallel progress dialog layout")
     require(dialogs, "ParallelLayoutBaseDialogHeight", "non-cumulative progress dialog layout baseline")
+    require(dialogs, "const int centerY = dialogRect.top +",
+            "progress dialog captures its current vertical center")
+    require(dialogs, "dialogRect.top = centerY - dialogHeight / 2",
+            "progress dialog grows evenly upward and downward")
+    require(dialogs, "MultiMonEnsureRectVisible(&dialogRect, FALSE)",
+            "expanded progress dialog remains inside the monitor work area")
+    require(dialogs, "dialogRect.top = dialogRect.bottom - dialogHeight",
+            "oversized progress dialog keeps its footer visible")
     require(dialogs, "WM_SETREDRAW", "flicker-free progress dialog stream layout")
     require(dialogs, "SWP_NOREDRAW", "atomic progress stream window repositioning")
     require(dialogs, "LockWindowUpdate(HWindow)", "progress layout update lock")
@@ -227,6 +235,20 @@ def main() -> None:
             "each selected destination is a write resource")
     require(fileswn6, "copy ? SACCESS_READ : SACCESS_READWRITE",
             "drop Move source includes delete writes")
+    require(fileswn6, "new (std::nothrow) COperations(",
+            "drop operation allocation has nonthrowing low-memory behavior")
+    require(fileswn6, "free(waitSubjectCopy);",
+            "drop operation allocation failure releases constructor arguments")
+    require(fileswn6, "free(sourceDirCopy);",
+            "drop operation allocation failure releases source argument")
+    require(fileswn6, "free(targetPathCopy);",
+            "drop operation allocation failure releases target argument")
+    require(fileswn6, "RESTORE_DROP_OPERATION_DEBUG_NEW_MACRO",
+            "drop operation restores the CRT debug new macro")
+    require(dialogs4, "MAKEINTRESOURCEW((ULONG_PTR)IDI_EXCLAMATION)",
+            "warning icon uses a wide resource identifier")
+    forbid(dialogs4, "(PCWSTR)IDI_EXCLAMATION",
+           "byte resource pointer cast to wide string")
     require(fileswn6, "script->AddStoragePath(targetPath, SACCESS_WRITE)",
             "drop destination")
 

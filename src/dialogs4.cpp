@@ -1542,7 +1542,7 @@ CCfgPageGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             CopyMoveNvmeEditWidth = WinLibDPIToLogical(HWindow, rect.right - rect.left);
         int iconSize = max(12, WinLibDPIFromLogical(HWindow, 12));
         if (CopyMoveWarningIcon == NULL)
-            LoadIconWithScaleDown(NULL, (PCWSTR)IDI_EXCLAMATION, iconSize, iconSize,
+            LoadIconWithScaleDown(NULL, MAKEINTRESOURCEW((ULONG_PTR)IDI_EXCLAMATION), iconSize, iconSize,
                                   &CopyMoveWarningIcon);
         if (CopyMoveWarningIcon != NULL)
         {

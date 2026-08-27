@@ -622,9 +622,22 @@ void CProgressDialog::LayoutActiveProgressStreams(int count, BOOL repaint)
         return;
     }
     HANDLES(EndDeferWindowPos(hdwp));
-    SetWindowPos(HWindow, NULL, 0, 0, ParallelLayoutBaseDialogWidth,
-                 ParallelLayoutBaseDialogHeight + offsetRect.bottom,
-                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
+    const int dialogHeight = ParallelLayoutBaseDialogHeight + offsetRect.bottom;
+    RECT dialogRect;
+    GetWindowRect(HWindow, &dialogRect);
+    // Preserve the dialog center while changing the stream count so the
+    // window grows evenly upward and downward. The monitor check may shift
+    // it only when needed to keep the expanded dialog in the work area.
+    const int centerY = dialogRect.top + (dialogRect.bottom - dialogRect.top) / 2;
+    dialogRect.top = centerY - dialogHeight / 2;
+    dialogRect.right = dialogRect.left + ParallelLayoutBaseDialogWidth;
+    dialogRect.bottom = dialogRect.top + dialogHeight;
+    MultiMonEnsureRectVisible(&dialogRect, FALSE);
+    if (dialogRect.bottom - dialogRect.top < dialogHeight)
+        dialogRect.top = dialogRect.bottom - dialogHeight;
+    SetWindowPos(HWindow, NULL, dialogRect.left, dialogRect.top,
+                 ParallelLayoutBaseDialogWidth, dialogHeight,
+                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
     if (repaint)
     {
         if (windowUpdateLocked)
