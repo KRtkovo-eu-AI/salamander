@@ -373,7 +373,7 @@ SLGINCOMPLETE,""
 622,1,173,209,12,1,"Usa lo &spostamento rapido delle cartelle su Novell NetWare"
 624,1,186,298,12,1,"Copia file: usa un algoritmo più veloce asin&crono in rete (Windows 7 e versioni successive)"
 625,1,199,218,12,1,"&Mantieni le variabili d'ambiente aggiornate ai valori di sistema"
-626,1,212,298,12,1,"Abilita auto&completamento percorso nelle finestre di dialogo operazioni"
+626,1,212,249,12,1,"Abilita auto&completamento percorso nelle finestre di dialogo operazioni"
 627,1,225,298,12,1,"Abilita completamento automatico in &Crea directory e Rinominazione rapida nelle finestre di dialogo"
 1810,1,241,132,8,1,"Pianificazione operazioni Copia/Sposta:"
 1811,125,239,169,80,1,""
@@ -3746,7 +3746,7 @@ SLGINCOMPLETE,""
 [STRINGTABLE 161]
 14150,1,"Traduzione incompleta di Open Salamander"
 14151,1,"La traduzione di Open Salamander nella tua lingua non è ancora finita. Ti invitiamo a visitare il nostro forum di discussione e a unirti allo sforzo di traduzione:"
-14155,0,"Unable to send file or directory to the Recycle Bin because it has invalid name.\n\nInvalid part of name: "%s"\n\nHint: Try to rename it before sending to the Recycle Bin or delete it permanently (try Shift+Delete key)."
+14155,1,"Impossibile inviare il file o la directory nel Cestino perché ha un nome non valido.\n\nParte non valida del nome: "%s"\n\nSuggerimento: prova a rinominarlo prima di inviarlo al Cestino oppure eliminalo definitivamente (prova il tasto Shift+Canc)."
 
 [STRINGTABLE 162]
 14160,1,"Impossibile caricare il plugin %s. Questo plugin è disponibile solo nella versione x86 (32-bit) di Open Salamander. Avvia la versione x86 di Open Salamander per usare questo plugin. Ci scusiamo per l'inconveniente."
