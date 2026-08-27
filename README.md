@@ -3,116 +3,46 @@ Open Salamander: Samandarin is a fast and reliable dual-pane file manager for Wi
 
 It evolves the [original project](https://github.com/OpenSalamander/salamander) with enhancements and new features while staying compatible with the upstream code and plugin ecosystem.
 
-<img width="1247" height="845" alt="image" src="https://github.com/user-attachments/assets/8cfedd13-c875-4400-b51c-6b9395a16c8e" />
-
+<img width="1247" height="845" alt="Samandarin application preview" src="https://github.com/user-attachments/assets/8cfedd13-c875-4400-b51c-6b9395a16c8e" />
 
 ## Included Features Overview
-### Unicode and Long paths support
-- Work with files and folders whose names use characters from different languages, emojis, and other Unicode symbols.
-- When Windows long paths are enabled, local and UNC paths can go beyond the traditional `MAX_PATH` limit and use the Windows extended-length limit of about `32,767` characters.
-- Browse, Copy, Move, Rename, Delete, and Create deeply nested folders and very long file names directly from the panels.
-- The core file handling paths use Unicode-aware Windows APIs, so names no longer have to fit the active system code page.
-- Code based on our prototype and partially derived from [Sally](https://github.com/0xeb/sally) fork source code (author [0xeb](https://github.com/0xeb)) which is being refined for Samandarin.
-<img width="687" height="492" alt="image" src="https://github.com/user-attachments/assets/5b6e9d73-7cac-4b1b-a40f-7c3c03c1adb4" />
-<img width="687" height="119" alt="image" src="https://github.com/user-attachments/assets/ab04f8a6-fe73-4f0f-8726-12755afdbde7" />
 
-### Internal Viewer
-- Support for Unicode encoding in text files (based on [Sally](https://github.com/0xeb/sally) fork source code (author [0xeb](https://github.com/0xeb)) and refined for Samandarin).
-- Optional status bar with Line/Column number, counting selected characters and lines, zoom settings.
-- Zoom text with Ctrl + mouse wheel or Ctrl + Num +/Num -. Zoom reset with Ctrl + Num 0.
-- Optional line numbers for easier navigation in text files.
-<img width="800" height="637" alt="image" src="https://github.com/user-attachments/assets/66a19715-e1c4-47bc-9613-b050575fa5e6" />
+### File management
+- Unicode file names and Windows extended-length local and UNC paths across core file operations and supported plug-ins.
+- Storage-aware Copy and Move scheduling can run independent transfers concurrently and serialize conflicting operations.
+- Copy and Move directly between plug-in file systems and archives; copy to multiple selected target folders with `Shift+F5`.
+- Probe and open archive content with `Ctrl+PgDown` even when a file has a missing or incorrect extension.
+- Mounted-folder volumes, optional Windows Sandbox volumes, recursive file lists, DiskDir-compatible catalogs, path autocomplete, and extended delete confirmation.
 
+### Interface and panels
+- Tabbed panels, detachable individual tabs, independently detached panel windows, locked tabs, persistent navigation history, and a docked or floating Tree View.
+- Windows dark-mode scheme, Per-Monitor V2 DPI awareness, and configurable fonts across menus, dialogs, viewers, plug-ins, and panels.
+- Explorer properties can be selected by category, reordered, persisted, searched, edited where supported, and used for panel sorting; tags are searchable and editable.
+- Explorer-compatible file icons and ICO thumbnails, rich item tooltips, additional user folders, and configurable Windows Terminal or command-shell profiles.
+- Sortable Find, Registry Search, and Batch Renamer result lists.
 
-### Portability
-- Save the Configuration into file storage instead of Registry
-<img width="687" height="172" alt="image" src="https://github.com/user-attachments/assets/5aab6d4d-cc86-42a5-a769-95af091ecab5" />
+### Viewers and extensions
+- Internal Viewer with Unicode, status and selection information, zoom, line numbers, and live Log View Mode.
+- Prism Text Viewer with syntax highlighting, plus WebView2 rendering for HTML, Markdown, SVG, modern images, and PDF.
+- PictView combines WIC with native decoders, embedded previews, interactive STL preview, and expanded STL/CDR/folder/image thumbnails.
+- Salamatrix Framework v1 provides commands, viewers, panel file systems, native UI, localization, and shared capabilities across JavaScript, Python, PowerShell, PHP, and Lua.
+- Process Explorer, Hardware Monitor, and Event Viewer extensions provide integrated Windows diagnostics panels.
+- [Salamatrix Studio](https://samandarin.krtkovo.eu/salamatrix/studio.html) adds VS Code project tooling, a native dialog/menu designer, preview, and code generation.
 
-### Manage configurations
-- Reworked welcome dialog with configuration management options.
-- Configuration import and export support.
-- Simple wizard for restoring configurations.
-- Choose between locations for target configuration.
-<img width="782" height="552" alt="image" src="https://github.com/user-attachments/assets/d8c0d5a0-232a-49cf-ae20-6ce5670b8a32" />
+### Configuration and security
+- Portable file-based configuration, import/export, configuration management, and a guided restore workflow.
+- AI-assisted localization tooling for application and plug-in translations.
+- Official catalog installations verify the package SHA-256 and first-party Authenticode publisher, then disclose curated network, external-process, and web capabilities.
+- Distributed binaries and the installer are digitally signed.
 
-### Split panels into detached window
-- You can have each side in separate window.
-<img width="782" height="316" alt="image" src="https://github.com/user-attachments/assets/bf3a6b9d-4897-4a85-989e-b2cf43840372" />
+Explore the [complete feature guide](https://samandarin.krtkovo.eu/#features), [version comparison](https://samandarin.krtkovo.eu/compare.html), and [0.15 changelist](doc/changelog-0.15.md).
 
-### Translations
-- Automatic translate with OpenRouter API (model `openai/gpt-5.4-nano`) with our own custom localization logic.
-- Few scripts partially derived from [Sally](https://github.com/0xeb/sally) fork source code (author [0xeb](https://github.com/0xeb)).
-<img width="416" height="232" alt="image" src="https://github.com/user-attachments/assets/2d8012d8-d07a-43ed-8140-5b1a0e48fdbb" />
+## Plugin Catalog
+- Stable: https://samandarin.krtkovo.eu/catalogs/plugins-stable.json
+- Unofficial third party: https://samandarin.krtkovo.eu/catalogs/plugins-unofficial.json
+- Extension runtimes: https://samandarin.krtkovo.eu/catalogs/extension-runtimes.json
 
-### Tabbed Panels
-- One of the most wanted features over last 15 years.
-- When tabs overflow the tab bar, you can scroll the tab bar with the mouse wheel.
-- You can switch between tabs on one side when holding right mouse button and scrolling with the mouse wheel.
-<img width="687" height="147" alt="image" src="https://github.com/user-attachments/assets/cd8919c4-2640-4c99-b83d-94f814100d9f" />
-<img width="687" height="244" alt="image" src="https://github.com/user-attachments/assets/d446320b-ee21-49bb-b3cd-f249186f2d41" />
-<img width="687" height="479" alt="image" src="https://github.com/user-attachments/assets/30765cbf-a26b-4a2e-8e76-720908342467" />
-
-### Shared/separate History
-<img width="687" height="155" alt="image" src="https://github.com/user-attachments/assets/569b023f-9f69-4c19-a830-57e2542b0de5" />
-
-### Dark Mode
-- Complete dark mode support for all components, windows, plugins etc.
-<img width="687" height="513" alt="image" src="https://github.com/user-attachments/assets/3d124bed-a670-414d-9f21-ea453561bce3" />
-
-### DPI Awareness
-- Sharper interface rendering on high-DPI and mixed-DPI Windows displays.
-- The application scales dialogs, controls, icons, and panel content more consistently when moving between monitors with different scaling settings.
-<img width="1024" height="708" alt="image" src="https://github.com/user-attachments/assets/d4117eba-bebd-46ba-8b4e-0621e7668977" />
-
-### Columns from Windows Explorer
-- For detailed view, you can choose to show any Windows Explorer column.
-<img width="685" height="717" alt="image" src="https://github.com/user-attachments/assets/dacf844c-8b4e-48e0-a8de-fd407ea68449" />
-<img width="675" height="316" alt="image" src="https://github.com/user-attachments/assets/c7a4adc9-5105-4696-81a6-6f779775b837" />
-
-### Configurable Command Shell Application
-<img width="687" height="513" alt="image" src="https://github.com/user-attachments/assets/d5109ceb-ec72-43ce-9731-749f3cb13fec" />
-<img width="1055" height="397" alt="image" src="https://github.com/user-attachments/assets/26b86292-327e-4d39-bbff-ff96a649bb0f" />
-
-### Tree View panel
-- Docked or floating panel with tree view structure of the active disk panel.
-- based on [fgodoy](https://github.com/OpenSalamander/salamander/issues?q=is%3Apr+is%3Aopen+author%3Afgodoy) changes.
-<img width="689" height="377" alt="image" src="https://github.com/user-attachments/assets/0717d01f-5f59-454c-a821-288b9f74b1fe" />
-
-### User Folders
-- Added missing user folders for easier access.
-<img width="687" height="513" alt="image" src="https://github.com/user-attachments/assets/515790ee-46e4-40c8-ae5e-407b294afdd1" />
-
-### Copy/Move between plugin-FS and archives
-- Support for file operations between plugin-FS and archives (for example between FTP and archives, between different FTP servers, different archives, etc).
-<img width="687" height="427" alt="salam_plug_arch" src="https://github.com/user-attachments/assets/4e4fc13c-e6f7-485c-b0d6-623378e1719b" />
-
-### Autocomplete path in Copy/Move/Quick Rename/Create Folder/Change Directory dialog
-- Paths are suggested when typing in the path field.
-<img width="687" height="89" alt="image" src="https://github.com/user-attachments/assets/59a7cff2-0db2-4866-8d6a-74ccd2f4376f" />
-<img width="397" height="185" alt="image" src="https://github.com/user-attachments/assets/3af3f1df-8628-43e9-ad94-7d8bcc52340a" />
-
-### Extended Confirm Delete
-- Show the table with filenames of selected files to delete.
-<img width="606" height="293" alt="image" src="https://github.com/user-attachments/assets/cf2ee640-c3a8-4a8f-8b6f-db0bd0f6edf2" />
-<img width="721" height="513" alt="image" src="https://github.com/user-attachments/assets/30be4ad5-5876-4d5b-919a-d50e0a1275e0" />
-
-### Panel item info tooltip
-- Shows the tooltip with summary info about directory or file.
-- For known file types, information that might interest users is displayed (for images, this is the size or color depth, for music files, this is the length or author, etc).
-<img width="456" height="552" alt="image" src="https://github.com/user-attachments/assets/0aefd5f8-fd8c-4c6f-b770-bbb0dfc14803" />
-<img width="456" height="552" alt="image" src="https://github.com/user-attachments/assets/5a94121c-af71-4d9f-a8c8-564eb6e6da92" />
-
-### Plugin Updates in Samandarin plugin
-> [!NOTE]
-> Plugin catalog sources:
-> - Stable: https://samandarin.net/catalogs/plugins-stable.json
-> - Unofficial 3rd party: https://samandarin.net/catalogs/plugins-unofficial.json
-> - Extension Runtimes: https://samandarin.net/catalogs/extension-runtimes.json
-<img width="966" height="643" alt="image" src="https://github.com/user-attachments/assets/54f2a2fe-f5e0-4de3-b5d4-e3a96c71c4d4" />
-
-### Digitally signed
-- All binary files including installer are digitally signed
-<img width="405" height="485" alt="image" src="https://github.com/user-attachments/assets/a210db84-eee7-4b49-987a-09dd35ca56c1" />
+Catalog entries can carry icons, dependencies, integrity information, and curated capability declarations. Plugin Updates can install or update plug-ins, runtimes, and extensions together with required dependencies.
 
 ## Samandarin Fork Overview
 
@@ -161,4 +91,4 @@ The Samandarin fork continues this story by blending the original Salamander DNA
 ## License
 
 Open Salamander is open-source software licensed under [GPLv2](LICENSE) or later.
-Some individual [files and libraries](doc/third_party.txt) use different but compatible licenses.
+Some individual [files and libraries](doc/third_party.md) use different but compatible licenses.
