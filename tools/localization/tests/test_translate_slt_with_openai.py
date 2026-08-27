@@ -27,6 +27,27 @@ class Tests(unittest.TestCase):
   items=[slt.Item(0,"id","[STRINGTABLE 8]","<b>Error: %s</b>","1107,","")]
   with self.assertRaises(ValueError): slt.validate(items,{"translations":[{"id":"id","text":"Chyba: %s"}]})
 
+ def test_literal_quotes_are_valid_slt_text(self):
+  items=[slt.Item(0,"id","[STRINGTABLE 8]",'Show "%s"',"1107,","")]
+  result={"translations":[{"id":"id", "text":'Zobraz "%s"'}]}
+  self.assertEqual(slt.validate(items,result)["id"],'Zobraz "%s"')
+
+ def test_ftp_confirmation_dialog_quotes_are_valid_slt_text(self):
+  lines=[
+   "[DIALOG 535]\n",
+   '339,218,1,"Conferme"\n',
+   '536,5,5,317,12,0,"&Show message "You are leaving server. Do you wish to disconnect or to keep connection?""\n',
+   '537,5,18,164,12,0,"S&how message "Do you want to disconnect?""\n',
+   '538,5,31,234,12,0,"Sh&ow message "Connection is closed. Do you want to reconnect?""\n',
+   '539,5,44,325,12,0,"Sho&w message "Target name is already used. Do you want to overwrite it?" in Quick Rename"\n',
+   '540,5,57,202,12,0,"Show &message "Connection to FTP server has been lost""\n',
+   '541,5,70,321,12,0,"Show m&essage "If you always want to list hidden files and directories on this FTP server, ...""\n',
+  ]
+  items=slt.parse_items(lines,force=True)
+  self.assertEqual(len(items),7)
+  result={"translations":[{"id":item.key,"text":item.text} for item in items]}
+  self.assertEqual(len(slt.validate(items,result)),7)
+
  def test_validate_rejects_replacement_glyphs_and_mojibake(self):
   items=[slt.Item(0,"id","[STRINGTABLE 8]","Open","1107,","")]
   with self.assertRaises(ValueError): slt.validate(items,{"translations":[{"id":"id","text":"Otev\ufffdít"}]})

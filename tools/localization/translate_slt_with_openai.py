@@ -451,7 +451,8 @@ def validate(items: list[Item], result: dict, language: str | None = None, enfor
         if not isinstance(row,dict) or set(row) != {"id","text"} or row["id"] in output or row["id"] not in expected: raise ValueError("response contains invalid, duplicate, or unknown item")
         if "\n" in row["text"] or "\r" in row["text"]: raise ValueError(f"translated text contains newline for {row['id']}")
         if "\x00" in row["text"]: raise ValueError(f"translated text contains NUL byte for {row['id']}")
-        if '"' in row["text"]: raise ValueError(f"translated text contains unescaped quote for {row['id']}")
+        # SLT text fields are delimited by the final quote on the line; literal
+        # quotes inside the field are valid and are present in the English resources.
         if any(ch in row["text"] for ch in REPLACEMENT_CHARS): raise ValueError(f"translated text contains replacement glyph for {row['id']}")
         if MOJIBAKE_RE.search(row["text"]): raise ValueError(f"translated text looks mojibaked for {row['id']}")
         if "??" in row["text"]: raise ValueError(f"translated text contains repeated question marks for {row['id']}")
