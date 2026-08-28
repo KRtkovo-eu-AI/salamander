@@ -13,7 +13,7 @@ static BOOL CALLBACK ConfigureChildFont(HWND window, LPARAM data)
     {
         SendMessageW(window, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
         wchar_t className[32];
-        if (GetClassNameW(window, className, ARRAYSIZE(className)) != 0 && wcscmp(className, WC_BUTTON) == 0)
+        if (GetClassNameW(window, className, ARRAYSIZE(className)) != 0 && wcscmp(className, L"Button") == 0)
             SetPropW(window, L"Darkmodelib.Button.UseConfiguredFont", reinterpret_cast<HANDLE>(1));
     }
     return TRUE;

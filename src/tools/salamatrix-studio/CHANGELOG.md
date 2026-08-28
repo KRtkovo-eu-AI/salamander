@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.1.11
+
+- Preserve bold and underline static-text styles in the native preview host.
+- Fix the native preview host Win32 class-name comparison for Unicode builds.
+
 ## 0.1.10
 
 - Match the dialog designer preview font to the native 8 pt MS Shell Dlg dialog template.
