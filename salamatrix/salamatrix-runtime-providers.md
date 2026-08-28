@@ -10,7 +10,7 @@ with the already loaded `Salamatrix.Runtime` broker.
 The runtime providers and the standalone `SalamatrixAI.SPL` use the conventional
 plugin metadata structure: their resource script includes `versinfo.rh2` and
 `versinfo.rc2`, their entry point uses the `VERSINFO_*` metadata constants, and
-their Plugin Manager homepage is `https://samandarin.krtkovo.eu/`. SalamatrixAI
+their Plugin Manager homepage is `https://samandarin.net/`. SalamatrixAI
 uses the shared Framework icon at `src/res/sal_r.ico`; it remains a separate
 Menu Extension plugin and does not move AI ownership back into Automation.
 
@@ -108,12 +108,22 @@ Debug and Release x64 builds produce the standalone `.SPL` binaries; provider
 registration is deferred safely when Salamatrix is loaded later.
 No provider should be made a dependency of Automation.
 
+## Runtime-backed file-system providers
+
+The same worker boundary can back a manifest `fileSystems[]` provider. Node.js, Python, PowerShell, PHP, and Lua packages can publish virtual-panel rows, custom columns, icons, refresh snapshots, and selection actions through their language facades; the host keeps the panel integration native and runtime-independent. The bundled Event Viewer, Process Explorer, and Hardware Monitor packages demonstrate this shared capability alongside command and Viewer contributions.
+
+
+
 ## Current worker UI surface
 
 The five modern workers expose the same Salamatrix dialog surface. Their
 language facades differ only in naming and async syntax; they send the same
 `salamander.ui.dialog.*` methods and option fields to the package dispatcher
 owned by Salamatrix Framework. Automation is not a dependency of this path.
+All five facades expose the same optional `resizable` dialog flag. Resizable
+dialogs retain compact native controls while the framework stretches content
+and keeps lower/right controls anchored; font, DPI, and selected color scheme
+remain framework-owned.
 
 The common control set contains labels, host static text, text boxes,
 check/radio buttons, combo boxes, ordinary buttons, ListView/TreeView/TabControl,

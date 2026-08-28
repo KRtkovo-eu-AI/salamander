@@ -1,0 +1,867 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Salamatrix GAP analysis</title>
+<style>
+:root { color-scheme:light dark; --bg:#fff; --fg:#202124; --surface:#f6f8fa;
+ --border:#d0d7de; --accent:#c9252d; --code:#f0f2f4; }
+@media (prefers-color-scheme:dark) { :root { --bg:#1e1f20; --fg:#e8eaed;
+ --surface:#27292c; --border:#45484d; --code:#2d3034; } }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg);
+ font:15px/1.55 "Segoe UI",Arial,sans-serif; }
+main { max-width:1120px; margin:0 auto; padding:32px 28px 64px; }
+.doc-nav { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:1.5rem;
+ padding:.75rem; background:var(--surface); border:1px solid var(--border);
+ border-radius:6px; }
+.doc-nav a { padding:.35rem .6rem; border-radius:4px; text-decoration:none; }
+.doc-nav a:hover { background:var(--code); }
+h1 { font-size:2rem; border-bottom:3px solid var(--accent); padding-bottom:.3em; }
+h2 { font-size:1.45rem; margin-top:2em; border-bottom:1px solid var(--border);
+ padding-bottom:.25em; }
+h3 { font-size:1.15rem; margin-top:1.6em; }
+p,ul { max-width:92ch; } a { color:#2f81f7; }
+code { font-family:Consolas,"Cascadia Mono",monospace; background:var(--code);
+ border-radius:3px; padding:.08em .3em; }
+pre { overflow:auto; padding:14px 16px; background:var(--surface);
+ border:1px solid var(--border); border-radius:6px; }
+pre code { padding:0; background:transparent; }
+.table-wrap { overflow:auto; margin:1em 0; }
+table { border-collapse:collapse; min-width:620px; width:100%; }
+th,td { border:1px solid var(--border); padding:7px 10px; text-align:left;
+ vertical-align:top; }
+th { background:var(--surface); } li { margin:.2em 0; }
+</style>
+</head>
+<body><main>
+<nav class="doc-nav" aria-label="Salamatrix documentation">
+<a href="salamatrix-automation-api.html">Salamatrix Automation API reference</a> <a href="salamatrix-ui.html">Salamatrix.UI framework and custom dialog guide</a> <a href="salamatrix-platform.html">Salamatrix Platform Foundation</a> <a href="salamatrix-runtime-providers.html">Standalone Salamatrix runtime providers</a> <a href="salamatrix-runtime-provider-development.html">Developing a Salamatrix language runtime provider</a> <a href="salamatrix-gap-analysis.html" aria-current="page">Salamatrix GAP analysis</a>
+</nav>
+<h1 id="salamatrix-framework-gap-analysis">Salamatrix framework gap analysis</h1>
+<p>Status date: 2026-08-08</p>
+<p>Source vision: &lt;https://krtkovo.eu/salamander/framework.html&gt;</p>
+<p>This audit compares the framework vision with the implementation in this repository. It distinguishes working code from API placeholders, samples, and catalog metadata. The target is not to reproduce the complete native Plugin SDK in scripting languages. It is the middle extensibility layer described by the vision: persistent lightweight extensions with commands, UI, events, storage, and a shared Salamander object model.</p>
+<p>Status labels in the matrix are deliberately requirement-level, rather than commit-level: <code>Implemented</code> means the scoped vision item is covered by working code and a focused test; <code>MVP</code> means the public slice works end-to-end but the vision still calls for a broader surface; <code>Partial</code> means substantial pieces exist but the current slice is not yet a coherent user-facing feature; <code>Missing</code> means there is no implementation of the requested surface yet.</p>
+<h2 id="executive-summary">Executive summary</h2>
+<p>The repository already contains a real Salamatrix foundation, not only a design:</p>
+<ul>
+<li><code>SALAMATRIX.SPL</code> is a load-on-start Automation Framework provider.</li>
+<li>The core has a process-local, versioned service registry with provider</li>
+<p>ownership and short consumer leases.</p>
+<li>Native and Automation callers share the first <code>Salamatrix.UI</code>,</li>
+<p><code>Salamatrix.Commands</code>, <code>Salamatrix.FileOperations</code>, and <code>Salamatrix.Sides</code> services.</p>
+<li><code>Salamatrix.Runtime</code> is a registered broker with versioned adapter</li>
+<p>descriptors, registration, enumeration, and lookup.</p>
+<li><code>Salamander.UI.progress(...)</code>, <code>Salamander.Commands.execute(...)</code>, and the</li>
+<p>three interactive file-operation wrappers work through the Salamatrix bridge.</p>
+<li>Salamatrix owns the schema-1 extension-package manifest parser and package</li>
+<p>root contract; Automation supplies only the compatibility/runtime bridge that discovers entry points and starts workers.</p>
+<li><code>Salamander.Sides</code> exposes Left, Right, Source, and Target plus safe tab</li>
+<p>snapshots, paths, and activation to Automation scripts.</p>
+<li><code>Salamatrix.Storage</code> and <code>Salamander.Storage</code> provide typed, synchronized,</li>
+<p>persistent namespaces isolated by manifest extension id.</p>
+<li><code>Salamatrix.Extensions</code> now provides an owner-aware lifecycle registry, and</li>
+<p>the Salamatrix package manager owns extension roots, recursive manifest discovery, publication and worker lifecycle. Automation no longer publishes manifest packages.</p>
+<li>The Plugin Manager has an enabled Extension Runtimes catalog source and</li>
+<p>Salamatrix has a distinct Automation Framework capability flag.</p>
+<li>Manifest extensions carry their package SVG identity icon (plus an optional</li>
+<p>dark-mode variant) into the existing Plugin Manager list and toolbar image lists. Every manifest command may override those two SVG assets for its own toolbar button; no separate Extension Manager is introduced.</p>
+</ul>
+<p>The repository now covers the scoped first-version middle layer, including the lightweight Viewer and flat FS roles. It is no longer only an MVP/PoC for this scope. The remaining work below is hardening, richer variants, or intentionally out of the v1 boundary rather than a missing basic extension role. In particular:</p>
+<ul>
+<li>Automation keeps the legacy ActiveScript compatibility path, while the</li>
+<p>standalone JavaScript/Node, CPython, PowerShell, PHP CLI, and Lua <code>.spl</code> providers use the shared SMX1 worker bootstrap and host-call/UI bindings. Dependency environments, richer values, and long-lived event queues remain.</p>
+<li>JavaScript has both the legacy Windows JScript fallback and an independent</li>
+<p>modern Node adapter. Python, PowerShell, and PHP have independent process adapters; bundled interpreters and managed dependency environments remain optional future work.</p>
+<li>The first modern side/tab model is exposed through the native SDK,</li>
+<p>Salamatrix, and Automation without raw core pointers. Item snapshots, selection/focus mutation, view settings, tab creation/closing, and change events remain broader follow-up work.</p>
+<li>Modern manifest-backed scripts run through the shared worker bootstrap;</li>
+<p>discovery registers the complete batch first, resolves declared extension dependencies in bounded passes, and retries activation after a later runtime/plugin configuration change. One-shot scripts still cannot remain alive after their execution ends. If a required separately installed runtime or manifest dependency is missing, discovery keeps the extension in a visible waiting state and reactivates it after the requirement appears.</p>
+<li>The strict schema-1/schema-2 manifest parser validates package/runtime identity,</li>
+<p>minimum runtime version, safe entry points, package-owned and per-command <code>icon</code>/optional <code>iconDark</code> SVG paths, capabilities, an optional event allow-list, typed settings/defaults, dependencies, and multiple command records. Dependency declarations are resolved against the owner-aware extension registry and unresolved packages stay visible as waiting-for-dependency. Package-owned BCP-47 locale resources may localize the extension name, declared command titles, and setting presentation text; settings migrations/files and richer handler lifecycle metadata are still missing.</p>
+<li>Schema 2 adds bounded <code>viewers[]</code> and <code>fileSystems[]</code> contributions. Viewer</li>
+<p>masks and optional names are registered through the native Viewer role, so configuration identifies the concrete extension Viewer. The flat <code>salamatrix:</code> FS accepts runtime-provided items and package SVG icons, performs periodic refresh, executes a default item action, builds native context menus, exposes Directory Line breadcrumbs and <code>..</code>, and honors the configured title path mode. Complex transfers and hierarchical FS semantics are outside the deliberately Hyper-V-Machines-level v1 role.</p>
+<li>Persistent workers may register multiple commands. The selected command ID</li>
+<p>now follows menu activation through the native host and external runtime bootstrap into <code>Salamander.command_id</code>, so one entry point can dispatch distinct handlers without relying on the first command as a fallback. The selected manifest handler is also exposed as <code>Salamander.command_handler</code>.</p>
+<li>Manifest packages with multiple command records now publish every declared</li>
+<p>command into the existing Plugin Manager/menu/toolbar path when their persistent worker activates; handler dispatch remains explicit in the worker via the command context.</p>
+<li>Runtime and manifest commands now carry append-only <code>enabled</code>/<code>visible</code></li>
+<p>state metadata. All five modern workers can update that state through the shared <code>setState</code> host call, and the existing Plugin Manager/menu/toolbar path refreshes without adding a public vtable method.</p>
+<li>Persistent process sessions now publish richer lifecycle diagnostics without</li>
+<p>changing the session ABI: cached process id/exit code, explicit host stop, failed nonzero exits, and bounded diagnostic messages are available in the Automation bridge and all five standalone providers.</p>
+<li>The shared native UI service exposes progress, input-box, and a reusable</li>
+<p><code>IDialog</code>/<code>IControl</code> contract for modern workers and native plugins. The native implementation now covers the complete DemoPlug gallery: labels, text boxes, check/radio buttons, combo boxes, ordinary buttons, ListView, TreeView, TabControl, folder/file pickers, group boxes, host static text and hyperlinks, progress bars, arrow/text-arrow/color-arrow buttons, and toolbar headers. Node, Python, PowerShell, PHP, Lua, Automation JScript, and DemoPlug each construct the same <code>463 x 236</code> capabilities dialog themselves through Salamatrix.UI and identify their runtime/extension in a <code>Created by</code> group. The package-owned dialog dispatcher is implemented in Salamatrix rather than Automation, including cleanup and change-event delivery. DPI/accessibility polish and migration of legacy Forms wrappers remain.</p>
+<li><code>Salamatrix.AI</code> has a provider-neutral contract. The standalone</li>
+<p><code>SalamatrixAI.SPL</code> registers the optional bounded local command provider, owns the interactive chat window, and publishes the localized <code>Ask Salamatrix AI...</code> menu command with a stable fallback caption; Automation remains a shared-service/API consumer and keeps its legacy scripting/runtime role without owning an AI menu or chat flow. The provider exchanges one bounded JSON request/response and enforces the two-minute ceiling; the optional <code>Salamatrix AI Local LLaMA.SPL</code> companion registers a server-free <code>local.bundled</code> provider and launches its separately installed llama.cpp CLI/model assets. The main <code>SalamatrixAI.SPL</code> remains model-free, so users can install only another provider. The Local LLaMA Configuration page launches a pinned downloader for the official CPU x64 llama.cpp release and a selectable Qwen2.5-Coder GGUF model: recommended 1.5B or lightweight English-prompt-only 0.5B. Both downloads retain SHA-256 checks and third-party license files; the binary and models are no longer staged into the plugin package. Its response contract now also permits an explicit <code>canImplement:false</code> plus a validated <code>missingCapabilities</code> list, so unsupported requests can be explained instead of being forced into invented API calls.</p>
+</ul>
+<h2 id="requirement-matrix">Requirement matrix</h2>
+<div class="table-wrap"><table><thead><tr>
+<th>Vision area</th>
+<th>Status</th>
+<th>Current implementation</th>
+<th>Missing work</th>
+</tr></thead><tbody>
+<tr>
+<td>Three extensibility levels</td>
+<td>MVP</td>
+<td>Native plugins, one-shot Automation scripts, and persistent manifest-backed workers now share an owner-aware lifecycle catalog; registration activates persistent workers and the host-call dispatcher binds commands, sides, storage, event subscriptions, and UI calls. Extension host callbacks now hold owner-aware unload leases. Persistent teardown in both Salamatrix and the Automation compatibility bridge closes new callback admission, stops the worker, and joins its pump while the UI thread services only synchronous sent host calls; neither path releases a live session after a timeout. The append-only <code>IRuntimeSession::GetDiagnostic</code> contract reports bounded running/stopped/exited/failed lifecycle state, cached process id/exit code, and diagnostic text without exposing process handles. After the splash screen closes, the visible main window is covered by one localized startup progress window while load-on-start plugins and extensions initialize; Salamatrix reports the current package and distinct discovery, extension, FS, menu, activation, toolbar, and Viewer registration phases through a temporary host-owned service. The matching shutdown service keeps one localized dialog visible across the complete close sequence, identifies each native plug-in, and reports each Salamatrix package while toolbar contributions and extension registrations are removed, runtime sessions and extension windows are stopped, services are released, panels are closed, configuration is saved, and shutdown is finalized.</td>
+<td>Structured per-extension startup failure details, timed unload diagnostics, and richer lifecycle diagnostics; no separate Extension Manager is planned.</td>
+</tr>
+<tr>
+<td>Shared cross-runtime API</td>
+<td>MVP</td>
+<td>The Salamatrix service layer, versioned ABI, SMX1 transport, and Python/PowerShell/PHP/JavaScript worker facades use the same host method vocabulary, including commands, sides, file operations, storage, events, clipboard, UI, and AI. Storage now preserves string, boolean, and signed 64-bit integer values across the host boundary and exposes typed <code>storage.keys()</code> enumeration with deterministic JSON ordering.</td>
+<td>Broader runtime-neutral value model, complete object model, and formal error/threading rules.</td>
+</tr>
+<tr>
+<td>Left/Right/Source/Target sides</td>
+<td>MVP</td>
+<td><code>Salamatrix.Sides</code> and all modern workers resolve all four references and expose active tabs, bounded path/type, selected-item snapshots, focused-item metadata, item name/path/extension/size/attributes/UTC write time and hidden/link/offline/size-valid flags, and active/source/target/locked/detached flags without raw core pointers. Modern workers now also enumerate tabs, activate a tab, change the active-side path, request a side refresh, select individual/all items, and move focus by stable panel index.</td>
+<td>View mode/tree state and item change events.</td>
+</tr>
+<tr>
+<td>Tabs and detached windows</td>
+<td>MVP</td>
+<td>SDK snapshots and opaque process-local ids expose tab count, index, path/type, active/source/target/locked/detached flags, activation, path changes, refresh, selection/focus, and snapshot-derived lifecycle events. Sides schema 1.3 now publishes append-only create/close/reorder/move/detach methods, the host bridge validates decimal tab ids and side/index inputs, and all five worker facades expose the same contract. Isolated process-runtime coverage uses an explicit SALAMATRIX_WORKER_ROOT built from provider workers.</td>
+<td>Direct core load/version negotiation, colors, richer detached-window operations, and persistence semantics.</td>
+</tr>
+<tr>
+<td>Existing Salamander commands</td>
+<td>MVP</td>
+<td>The stable catalog now covers view/edit/open, rename, copy/move, email/delete/properties, case/attribute/space operations, refresh, directory creation, drive info, directory sizes, and disconnect; execution still uses Salamander's normal enablement and dialogs.</td>
+<td>Parameterized command calls, richer synchronous/modal results, state/change notifications, and non-modal operation handles.</td>
+</tr>
+<tr>
+<td>Programmatic file operations</td>
+<td>MVP</td>
+<td><code>IFileOperationsService</code> and all modern worker bindings expose interactive rename/copy/move/delete/create-directory/refresh/properties workflows.</td>
+<td>Typed source/target values, progress/cancellation handles, and final structured results without requiring the native dialog.</td>
+</tr>
+<tr>
+<td>Lightweight Viewer role</td>
+<td>Implemented</td>
+<td>Manifest schema 2 accepts bounded <code>viewers[]</code> contributions with optional display names. Salamatrix registers each enabled contribution separately through the native Viewer association path during <code>Connect</code>, independently of runtime-provider startup order; Configuration lists every extension/Viewer identity as its own <strong>Associated viewer</strong> choice and persists that identity with the association. The host passes the chosen identity through versioned Viewer invocation data, so a concrete extension Viewer manually associated with <code>*.*</code> or selected as an alternate Viewer by Alt+F3 dispatches that exact handler instead of re-matching the file against its original manifest mask. The shared dispatcher supplies path, window geometry/show state, always-on-top state, and enumeration context through the cross-runtime <code>Salamander.invocation</code> object. Newly discovered masks are forced exactly once and later user removals remain respected.</td>
+<td>Optional signature/content sniffing and framework-owned modeless rendering controls; new associations still require a Salamander restart because viewer masks are a connect-time host contract.</td>
+</tr>
+<tr>
+<td>Flat file-system role</td>
+<td>Implemented</td>
+<td>Manifest schema 2 accepts bounded <code>fileSystems[]</code> providers, actions, and up to 16 localized detailed-view columns. The framework-owned <code>salamatrix:</code> native FS lists providers and atomically collects up to 4096 flat runtime items through the capability-gated <code>salamander.fileSystem.addItem</code> or batch <code>addItems</code> call. Batch publication uses one worker/host round-trip for the complete snapshot. The native FS renders and sorts text/numeric custom column values, resolves validated light/dark SVG item icons inside the package, refreshes on a bounded timer, and builds a native Unicode action context menu with localized titles, separators, and per-action refresh control; only an explicitly default action runs on Enter. Runtime listing runs asynchronously behind a per-open-FS snapshot cache; the UI listing path returns immediately, displays the panel throbber while the initial empty cache is loading, and posts the completed snapshot without creating a refresh loop. Provider executions are serialized where they share package dispatch state, and close joins the worker while dispatching sent UI-thread calls. Provider contents begin with <code>..</code>; Directory Line exposes clickable root/provider segments; full, shortened, and directory-only title modes are honored. All five workers expose equivalent single-item and batch publication semantics and all five bundled demos implement equivalent Viewer/FS handlers.</td>
+<td>Complex hierarchy, copy/move/delete/upload, free-space/search/security integration, and multi-selection batch actions are intentionally outside the Hyper-V-Machines-level v1 role.</td>
+</tr>
+<tr>
+<td>Extension command registration</td>
+<td>MVP</td>
+<td>Discovery-time metadata gives a script stable identity/caption/placement hints, and a persistent worker can register/unregister multiple owner-scoped commands with synthetic native menu ids, context masks, native menu hotkeys, toolbar contributions, optional handler names, and append-only enabled/visible state. Manifest command records are now published automatically with their initial state, while worker <code>setState</code> updates the existing Plugin Manager/menu/toolbar path and removal triggers a menu/toolbar rebuild. A manifest command may alternatively declare a fixed <code>path</code>; the host then changes the active panel directly without starting a runtime worker and enforces <code>panels.write</code>. Each selected runtime command propagates its ID and handler into the worker as <code>Salamander.command_id</code>/<code>Salamander.command_handler</code>, so one entry point can dispatch distinct handlers.</td>
+<td>Enable/visible callbacks, command palette integration, richer handler lifecycle metadata, and richer ownership/unload leases.</td>
+</tr>
+<tr>
+<td>Plugin and context menu placement</td>
+<td>MVP</td>
+<td>Metadata booleans and context masks are applied to Automation menu items and persistent registrations.</td>
+<td>Independent placement contributions, icons, and dynamic menu APIs beyond the current MVP surface.</td>
+</tr>
+<tr>
+<td>Toolbar and shortcuts</td>
+<td>Partial</td>
+<td>Dynamically registered extension commands now pass Salamander hotkeys through the normal menu-extension path, contribute toolbar buttons, and honor per-command enabled/visible state. Native/runtime registrations use core-owned DPI-aware image lists; manifests may provide package-wide SVG <code>icon</code> and optional dark-mode <code>iconDark</code>, or override them on each <code>commands[]</code> item. If the selected <code>iconDark</code> is missing or invalid, the core generates a dark-friendly raster variant from the normal icon and also creates the disabled/gray image. Dynamic placement is now serialized with stable extension/plugin keys instead of transient runtime ids.</td>
+<td>Explicit placement/conflict UX, command palette integration, richer state callbacks/change notifications, and richer toolbar metadata.</td>
+</tr>
+<tr>
+<td>Events</td>
+<td>MVP</td>
+<td>Salamatrix.Events maps host lifecycle/settings/configuration/color/panel events, successful shared-Sides path/selection/tab/refresh operations, core path/selection/tab notifications, and core filesystem-change notifications (fileChanged, including the affected path and recursive-scope flag) to unsubscribe-safe native callbacks; successive tab snapshots add tabCreated, tabClosed, tabReordered, windowDetached, and windowAttached with changedTabId, tabIndex, and previousTabIndex, delivered before legacy tabChanged. Automation exposes subscribe/unsubscribe with copied payloads and preserves the V1 payload prefix. Manifest-backed extensions may declare an event allow-list, which the host enforces before creating a subscription. Persistent worker sessions now enqueue bounded event frames instead of writing from the core callback directly into a potentially back-pressured pipe.</td>
+<td>Typed create/rename/delete classification, UI-thread marshalling for richer event payloads, coalescing, event replay, richer direct window lifecycle hooks, and unload-safe leases across modern runtimes.</td>
+</tr>
+<tr>
+<td>Per-extension storage</td>
+<td>Implemented</td>
+<td><code>Salamatrix.Storage</code> persists isolated manifest-id namespaces with UTF-8 strings, signed 64-bit integers, booleans, delete/clear, validation, and synchronized access. Manifest packages may declare typed settings with optional defaults; the host materializes missing defaults without overwriting user values and exposes <code>storage.schema()</code> to every modern worker. The SMX1 host dispatcher and Python/PowerShell/PHP/JavaScript/Lua workers preserve all three value types instead of coercing settings to strings. The Plugin Manager can now edit the declared scalar settings through the shared UI service. Versioned manifest migrations apply typed rename/remove operations before defaults and persist their bounded migration version. Legacy global persistence remains for compatibility.</td>
+<td>Settings files/enumeration, quotas, transactional batches, and uninstall retention/deletion policy.</td>
+</tr>
+<tr>
+<td>Shared UI framework</td>
+<td>MVP</td>
+<td><code>Salamatrix.UI</code> provides a reusable native <code>IDialog</code>/<code>IControl</code> model and <code>NativeDialog</code> implementation for labels, text boxes, check/radio buttons, combo boxes, ordinary buttons, native ListView/TreeView/TabControl controls, editable folder/file pickers, group boxes, <code>CGUIStaticTextAbstract</code>, <code>CGUIHyperLinkAbstract</code>, <code>CGUIProgressBarAbstract</code>, arrow/text-arrow/color-arrow buttons, and <code>CGUIToolbarHeaderAbstract</code>. Explicit layouts, item/column/selection binding, validation, change events, hyperlink actions, tooltips, static-text style/path flags, known and indeterminate progress, color values, and toolbar-header masks cross the same SMX1 package-host dispatcher. JavaScript, Python, PowerShell, PHP, and Lua facades forward an equivalent option set; Automation exposes a thin COM dialog adapter and native plugins use <code>IUIService</code> directly. Each bundled demo and DemoPlug independently constructs the same capabilities dialog and its runtime/extension identity group; none depends on a prebuilt Automation-owned gallery. The native implementation applies the selected Salamander dark scheme, keyboard traversal, initial focus, per-monitor <code>WM_DPICHANGED</code> scaling, and bounded accessibility metadata/tooltip fallback. Progress-dialog, immediate UI, clipboard, and picker services remain on the same framework-owned surface. See <code>doc/salamatrix-ui.md</code>.</td>
+<td>Richer notification actions/stacking, virtualized data, full accessible roles/UI Automation and screen-reader audit, interactive per-monitor GUI testing, reentrancy policy, and migration of legacy Forms wrappers.</td>
+</tr>
+<tr>
+<td>Manifest/package</td>
+<td>Implemented</td>
+<td>Strict UTF-8 JSON parsing accepts compatible schema 1 and final schema 2 through the canonical <code>schema</code> key and the supported <code>schemaVersion</code> compatibility alias; it rejects conflicting values when both are present. It validates package/runtime identity and minimum version, safe entry points, package-owned SVG assets, capabilities, typed settings/defaults and migration chains, dependencies, locale resources, up to 64 command records, up to 16 Viewer contributions, and up to 16 flat FS providers with bounded actions, custom columns, and refresh intervals. Discovery materializes settings migrations/defaults, resolves package dependencies, restores persisted enabled state, activates eligible workers, and publishes the result through the owner-aware Extensions registry. Salamatrix Studio scaffolds <code>schema: 2</code>, accepts both compatible keys, and preserves Viewer/FS records.</td>
+<td>Signed packages, transactional install/update/rollback, dependency acquisition prompts, and uninstall retention policy remain distribution hardening rather than missing runtime capability.</td>
+</tr>
+<tr>
+<td>Runtime adapters</td>
+<td>MVP</td>
+<td><code>Salamatrix.Runtime</code> registers/enumerates versioned adapters and executes manifest entry points through structured requests/results. Automation registers only legacy ActiveScript adapters; modern CPython, PowerShell, PHP CLI, Node, and Lua runtimes are supplied through independent <code>.spl</code> providers using the same broker. All five standalone providers have Debug and Release x64 projects, with deferred registration when Salamatrix loads later; Lua additionally passes an isolated SMX1 demo call sequence without starting Salamander. The isolated process-runtime contract test runs with an explicit <code>SALAMATRIX_WORKER_ROOT</code>, exercises Python/PowerShell/PHP host-worker lifecycle and UI calls, and verifies <code>GetDiagnostic</code> running/stopped/exited/failed state, cached process id/exit code, and diagnostic message. A native regression reproduces the shutdown deadlock topology with a pump thread blocked in synchronous <code>SendMessage</code> and verifies that the UI-thread join dispatches that callback before releasing the session. Manifest publication checks the requested adapter and minimum version, marks unavailable extensions as waiting, and retries them after a broker refresh.</td>
+<td>Direct standalone <code>.spl</code> load test through Salamander, startup failure capture before a session exists, cancellation beyond process termination, debugging, dependency environments, and richer dependency policy.</td>
+</tr>
+<tr>
+<td>JavaScript runtime</td>
+<td>Process MVP</td>
+<td>Windows JScript remains the compatibility fallback for legacy <code>.js</code>; <code>JavaScriptRuntime.SPL</code> now discovers Node via <code>SALAMATRIX_NODE</code>, <code>node.exe</code>, or <code>node</code>, owns the dependency-free SMX1 <code>.mjs</code> worker, and registers <code>JavaScript.Node</code> independently of Automation. The worker now exposes the same host API surface as Python/PowerShell/PHP, including convenience dialog controls, native dialogs, and event subscriptions. Debug and Release x64 builds are verified.</td>
+<td>Explicit <code>.js</code>/<code>.mjs</code> precedence with the legacy fallback, package deployment policy, and richer value bindings.</td>
+</tr>
+<tr>
+<td>Python runtime</td>
+<td>Process MVP</td>
+<td>ActivePython COM compatibility remains; <code>Python.CPython</code> discovers <code>python.exe</code>/<code>python3.exe</code> or <code>SALAMATRIX_PYTHON</code>, runs <code>.py</code> entries out of process, and the optional worker bootstrap exposes the shared SMX1 <code>Salamander</code> API including multiple command registration. A standalone <code>PythonRuntime.SPL</code> project owns the same adapter/worker, unregisters it through the broker, and now passes a Debug x64 build.</td>
+<td>Richer UI/value bindings, environment/dependency policy, and bundled runtime.</td>
+</tr>
+<tr>
+<td>PowerShell runtime</td>
+<td>Process MVP</td>
+<td><code>PowerShell</code> discovers <code>pwsh.exe</code>/<code>powershell.exe</code> or <code>SALAMATRIX_POWERSHELL</code>, runs <code>.ps1</code> entries out of process, and ships the same SMX1 worker bootstrap/API shape including multiple command registration. A standalone <code>PowerShellRuntime.SPL</code> project owns the adapter/worker and broker registration path and now passes a Debug x64 build.</td>
+<td>Richer UI/value bindings, environment policy, cancellation/error mapping, and bundled runtime.</td>
+</tr>
+<tr>
+<td>PHP runtime</td>
+<td>Process MVP</td>
+<td>Legacy PHPScript remains; <code>PHP.CLI</code> discovers <code>php.exe</code> or <code>SALAMATRIX_PHP</code>, runs <code>.php</code> entries out of process, and ships the same SMX1 worker bootstrap/API shape including multiple command registration. A standalone <code>PHPRuntime.SPL</code> project owns the adapter/worker and broker registration path and now passes a Debug x64 build.</td>
+<td>Richer UI/value bindings, dependency policy, and support decision/bundled runtime.</td>
+</tr>
+<tr>
+<td>Lua runtime</td>
+<td>Process MVP</td>
+<td><code>Lua</code> prefers an explicit <code>SALAMATRIX_LUA</code> override, otherwise uses the bundled vcpkg-built Lua 5.5.0 interpreter, with <code>PATH</code> discovery as a compatibility fallback. It runs <code>.lua</code> entries out of process and ships a dependency-free Lua SMX1 worker with the common Salamander facade. The runtime package contains <code>lua.exe</code>, <code>lua.dll</code>, the full MIT notice, and the worker; Release x64 build, PE/package verification, syntax loading, and an isolated storage/notification SMX1 call sequence pass.</td>
+<td>Direct provider load through Salamander, debugger integration, and dependency environment policy.</td>
+</tr>
+<tr>
+<td>Extension management</td>
+<td>Partial</td>
+<td>The existing Plugin Manager remains the single management surface: it shows ordinary <code>.SPL</code> plugins and now appends discovered manifest-extension rows from <code>Salamatrix.Extensions</code> with name, state, version, runtime, entry point, and manifest ID details. Extension rows use the package SVG icon, prefer <code>iconDark</code> in dark mode, and derive a dark-friendly bitmap from the normal icon when the dark asset is absent or invalid. Their Functions detail is driven by Extensions 1.4 contribution flags and identifies manifest <code>commands[]</code> as Menu Extension, <code>viewers[]</code> as File Viewer, and <code>fileSystems[]</code> as File System (FS). Missing runtime adapters are shown as <code>runtime unavailable</code>; unresolved manifest dependencies are shown as <code>dependency unavailable</code>; a user-deactivated extension is explicitly shown as <code>disabled</code>. Its existing Activate/Deactivate action persists the enabled state in the extension's isolated Storage namespace, stops the worker before disabling, and reactivates it after re-enabling. Configure opens a <code>Salamatrix.UI</code> native dialog for up to 24 declared string/integer/boolean settings, uses localized labels and visible groups, applies bounded width/multiline layout metadata, and writes typed values into the extension's isolated Storage namespace. Rows are still not treated as loadable <code>.SPL</code> files. No separate Extension Manager is planned.</td>
+<td>Remove, package install/uninstall, settings help/tooltips and richer layout semantics, more than 24 settings, and richer runtime/status details in the existing Plugin Manager.</td>
+</tr>
+<tr>
+<td>Permissions/capabilities</td>
+<td>MVP</td>
+<td>Manifest capabilities are enforced by the framework-owned package dispatcher for commands, interactive file operations, flat FS item publication, sides read/write, storage, events, UI, clipboard, and runtime discovery. The <code>file-system</code> capability gates <code>addItem</code> and <code>addItems</code>; panel mutations require <code>panels.write</code>; legacy manifests without a capabilities list remain compatible.</td>
+<td>Explicit user grant/revocation UI, filesystem/network/process sandbox policy, effect audit trail, and richer package UX.</td>
+</tr>
+<tr>
+<td>AI automation assistant</td>
+<td>MVP</td>
+<td><code>Salamatrix.AI</code> provides provider registration, structured generation validation, parsed effect flags, runtime/existing-script/feedback hints, explicit unsupported-capability responses, a safe <code>generate</code>/<code>preview</code> seam, and focused <code>Salamander.ai.api(topic)</code> retrieval. The separately installable <code>SalamatrixAI.SPL</code> owns the bounded local command provider, the optional native WinHTTP local model provider, and an interactive multiline chat with Ask/Preview/Run/Save actions; follow-up prompts carry the previous script as repair context. The optional <code>Salamatrix AI Local LLaMA.SPL</code> companion owns the server-free <code>local.bundled</code> llama.cpp CLI provider and its separately installed CPU/model assets. The chat enumerates providers, shows ready/unavailable status, and supports explicit selection or automatic fallback. Its dynamic Menu Extension publishes the sole localized command for opening the chat, and its shutdown path validates the borrowed AI service identity before unregistering providers so framework-first unload cannot dereference a stale pointer. A shared static validator checks response shape, capabilities, effects, runtime identity, undeclared external/network operations, and the optional <code>canImplement</code>/<code>missingCapabilities</code> fields; bounded <code>GenerateWithRepair</code> is used by the standalone chat and shared Automation AI host/API consumers. When Automation is loaded, <code>Salamatrix.ScriptRunner</code> routes Run through the same capability-aware SMX1 host dispatcher as regular extensions; Automation does not publish an Ask-AI menu or own the chat flow. The full API description now also carries live native service contract versions, the currently registered runtime adapter inventory, and schema fragments supplied by the native command, file-operation, UI, sides, events, storage, extensions, and runtime contracts.</td>
+<td>Complete method/field schema coverage without hand-maintained fragments, model variants, and remote providers.</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td>Initial</td>
+<td>Standalone <code>/W4 /WX</code> tests cover the strict manifest parser (including localized setting metadata, layout validation, and initial command state), Storage persistence, Events subscribe/publish/self-unsubscribe/capacity/payload validation, Extensions registration/lifecycle/ownership and legacy setting-schema prefixes, the local owned-service registry, runtime raw-JSON context and AI service contracts (including focused API slices), the synchronous-host-callback runtime-pump join regression, and integration tests for Python/PowerShell/PHP process execution, output capture, timeout, editable file-picker protocol calls with flat <code>filter</code>/<code>save</code> options, command enabled/visible state changes, persistent-session lifecycle diagnostics for running/stopped/exited/failed workers, native dialog host calls, and deterministic UI layout/DPI metrics. The explicit <code>SALAMATRIX_WORKER_ROOT</code> run uses isolated copies of provider worker assets and passes without starting Salamander. Worker syntax checks cover Python, PowerShell, PHP, Node, and Lua; all five demos expose the same explicit gallery geometry. Release x64 builds of Salamatrix, Automation (including its COM type library), and DemoPlug cover the native API additions. A fast source-contract regression test locks key Plugin Manager, AI, service-lifetime, runtime-shutdown, and dynamic-menu paths.</td>
+<td>Direct core-registry runtime tests, automated pixel/accessibility testing of the capabilities gallery, interactive per-monitor GUI tests, extension fixtures, lifecycle/unload integration tests, startup-failure fixtures, and end-to-end Salamander API adapter tests.</td>
+</tr>
+</tbody></table></div>
+<h3 id="persistent-runtime-shutdown-crash-regression-2026-08-09">Persistent runtime shutdown crash regression (2026-08-09)</h3>
+<p>Two x64 crash reports identified one teardown race, not a manifest schema compatibility failure. One fault returned from a PowerShell worker pump into a freed <code>IRuntimeSession</code>; the other executed a queued main-thread host callback after <code>salamatrix.spl</code> had already been unloaded. Both were enabled by a five-second pump-thread wait followed by session release (and, in Automation, forced thread termination) while the pump could be synchronously blocked in <code>InvokeOnMainThread</code>/<code>SendMessage</code>.</p>
+<p>Salamatrix Framework 0.6 and Automation 2.4 now mark the session as stopping before removing its bindings, reject newly arriving host/event/dialog calls, stop the worker, and retain the session and module until the pump has actually returned. When teardown runs on Salamander's UI thread, the shared join helper dispatches only nonqueued synchronous sent messages, avoiding the circular UI-thread/pump-thread wait without consuming posted application work.</p>
+<p>A follow-up close-time report from the same build exposed a separate native UI lifetime bug: a long-lived notification popup survived framework release, and USER32 later dispatched <code>WM_WINDOWPOSCHANGING</code> to <code>Salamatrix::UI::NotificationWindowProc</code> at RVA <code>0x5D5B0</code> after <code>salamatrix.spl</code> had been unloaded. Salamatrix Framework 0.7 tracks every notification HWND alongside modeless native dialogs, destroys those windows synchronously during <code>CPluginInterface::Release</code>, and unregisters their window class before the module can unload. The PR-running native UI test creates a long-timeout notification and verifies that the shutdown hook leaves no window of that class alive.</p>
+<h2 id="current-verification-snapshot">Current verification snapshot</h2>
+<p>The newest implementation commits include <code>d5f7e56d9</code> (runtime-built Salamatrix.UI capabilities dialogs), <code>4a380ef3c</code> (editable native <code>FilePicker</code> and standalone worker parity), <code>89a1d4fbf</code> (isolated process runtime verification), <code>a6a8cedc8</code> (Plugin Manager settings configuration), <code>9aa3cbf84</code> (per-command SVG toolbar artwork), and <code>6e1711cd8</code> (dialog <code>FolderPicker</code>). They were compiled into isolated Debug x64 output directories; the user's locally running Salamander process was never started, stopped, or otherwise controlled by this work.</p>
+<ul>
+<li><code>d5f7e56d9</code>: Node, Python, PowerShell, PHP, Lua, Automation JScript, and</li>
+<p>DemoPlug now build the complete capabilities dialog themselves. Salamatrix, Automation, and DemoPlug Release x64 builds passed; all five worker/demo syntax checks passed; and the isolated Python/PowerShell/PHP <code>processruntime_tests.exe</code> run completed with <code>All process runtime tests passed.</code> using only copied standalone provider worker assets. No Salamander process was started or controlled, so live pixel, DPI, dark-mode, and interaction verification remains manual.</p>
+</ul>
+<p>The current implementation separates the optional <code>Salamatrix AI Local LLaMA.SPL</code> companion from the model-free <code>SalamatrixAI.SPL</code>. Its configuration downloader is syntax-checked and pins the official llama.cpp CPU x64 archive and both selectable Qwen GGUF models by SHA-256; the plugin build contains only the downloader script, not the binary or model. A live model download was intentionally stopped at the 120-second command limit in this environment; no Salamander process was started or controlled.</p>
+<ul>
+<li><code>a6a8cedc8</code>: Automation, Salamatrix, the core Salamander executable, and</li>
+<p>Extensions native tests passed.</p>
+<li><code>9aa3cbf84</code>: strict manifest parser tests and Automation Debug x64 build</li>
+<p>passed.</p>
+<li><code>6e1711cd8</code>: Salamatrix, Automation, and all four standalone runtime</li>
+<p>provider Debug x64 projects passed; runtime-protocol tests passed; Python, PowerShell, PHP, and Node worker syntax checks passed.</p>
+<li>The Python/PowerShell/PHP process-runtime integration executable built, but</li>
+<p>its invocation was previously skipped because this environment did not set <code>SALAMATRIX_WORKER_ROOT</code>. That gap is now closed: on 2026-07-26 the <code>build\verification\folder-picker\process-tests\processruntime_tests.exe</code> executable passed with exit code 0 when <code>SALAMATRIX_WORKER_ROOT</code> pointed to the isolated <code>build\verification\process-runtime-worker-root</code> containing only copied Python, PowerShell, and PHP bootstrap files. The run exercised interpreter discovery, one-shot and persistent SMX1 sessions, host calls, typed storage, commands, events, clipboard, file/folder pickers, native dialog controls, shutdown, output capture, and timeout coverage without starting or controlling Salamander.</p>
+</ul>
+<p>At the previous pause point all Salamatrix source and documentation changes were committed. The pre-existing worktree-only <code>.gitignore</code> change keeps the two syntax-check artifacts out of source control: <code>src/plugins/automation/runtime/__pycache__/</code> and <code>src/plugins/pythonruntime/runtime/__pycache__/</code>. They are not source changes and are not staged.</p>
+<p>On 2026-07-26, the append-only lifecycle diagnostic contract was verified by an isolated Debug x64 rebuild of the process test, protocol test, and all four standalone provider projects. With <code>SALAMATRIX_WORKER_ROOT</code> set to <code>build\verification\runtime-diagnostics\worker-root</code>, the process-runtime executable passed with exit code 0; its one-shot worker reported <code>running</code>, then <code>exited</code> with exit code 0. The run also exposed stale typed-storage/schema methods in the standalone Python worker, which were brought back to parity before the passing rerun.</p>
+<p>The UI slice was verified on 2026-07-26 with an isolated Debug x64 <code>Salamatrix.SPL</code> rebuild and the standalone <code>ui_layout_tests.exe</code>. The test passed picker geometry checks plus 96-to-144 DPI and 144-to-96 DPI scaling checks. No GUI Salamander process was started or controlled.</p>
+<p>The current runtime baseline was rebuilt from the current source into <code>build\verification\current-runtime-baseline</code>. Its process-runtime executable passed with <code>SALAMATRIX_WORKER_ROOT</code> explicitly set to an isolated root containing only the Python, PowerShell, and PHP workers copied from their standalone runtime-provider projects. The run returned exit code 0 and no Salamander process was started or controlled.</p>
+<p>The current worktree was audited again after the SalamatrixAI workflow changes: <code>build\verification\worker-root-current</code> was created as an isolated root from the Python, PowerShell, and PHP worker files in this checkout. The existing Debug x64 process-runtime executable from the parent-revision baseline was run with that root in <code>SALAMATRIX_WORKER_ROOT</code> and returned exit code 0. It covered the same host-call, persistent-session, UI, storage, event, picker, AI preview, shutdown, output-capture, and timeout paths; Node was additionally syntax checked with <code>node --check</code>. This validates the current worker assets and SMX1 contract, while a fresh current-source Debug x64 rebuild remains dependent on the unavailable Visual C++/MSBuild toolchain in this environment.</p>
+<h2 id="existing-implementation-evidence">Existing implementation evidence</h2>
+<h3 id="core-service-and-plugin-integration">Core service and plugin integration</h3>
+<ul>
+<li><code>src/plugins/shared/spl_gen.h</code> declares <code>RegisterService</code>,</li>
+<p><code>UnregisterService</code>, <code>QueryService</code>, and the appended owner-aware register/unregister/acquire/release methods. Its appended toolbar contract accepts package-owned SVG paths (normal plus optional dark-mode variant), while the core renders those files through NanoSVG into the shared toolbar image lists. When the optional dark asset is absent, the core derives a dark-friendly bitmap from the normal SVG while preserving alpha and color information.</p>
+<li><code>src/zip.cpp</code> contains the fixed-size process registry, its critical-section</li>
+<p>guard, lease table, unload gate, and condition-variable wait for active consumers.</p>
+<li><code>src/plugins/shared/spl_base.h</code> defines</li>
+<p><code>FUNCTION_AUTOMATIONFRAMEWORK</code>.</p>
+<li><code>src/plugins/salamatrix/salamatrix.cpp</code> creates persistent</li>
+<p><code>RuntimeServices</code>, registers the provider, and requests load on startup.</p>
+<li><code>src/plugins/salamatrixai/</code> is a separately buildable/installable provider</li>
+<p>plugin. It registers <code>local.command</code> plus the optional <code>local.ollama</code> WinHTTP provider under <code>Salamatrix.AI</code> and exposes the shared native chat dialog; it is not a dependency of Automation.</p>
+<li>Automation additionally publishes the optional <code>Salamatrix.ScriptRunner</code></li>
+<p>service. This is the non-privileged bridge used by the AI plugin to execute a saved script through the ordinary extension host dispatcher.</p>
+<li><code>src/vcxproj/salamand.sln</code> builds Salamatrix as part of the main solution.</li>
+</ul>
+<h3 id="runtime-provider-packaging-boundary">Runtime provider packaging boundary</h3>
+<p>The runtime broker is already a host service rather than an Automation-private API: <code>IRuntimeService::RegisterAdapter</code> and <code>UnregisterAdapter</code> accept adapter objects from any loaded plugin, and runtime descriptors are enumerated through the same service by native callers and workers. The standalone <code>PythonRuntime.SPL</code>, <code>PowerShellRuntime.SPL</code>, <code>PHPRuntime.SPL</code>, and <code>JavaScriptRuntime.SPL</code> projects now own their provider adapters, interpreter discovery, and worker bootstrap. Their standalone Windows projects pass isolated Debug x64 builds, and the worker package gate verifies their bootstrap/export boundary without launching Salamander. Final loading and GUI behavior still require the target machine; Automation retains only its legacy ActiveScript engines and consumes the broker like every other plugin.</p>
+<h3 id="shared-services-already-working">Shared services already working</h3>
+<ul>
+<li><code>src/plugins/salamatrix/salamatrix_ui.h</code> adapts the existing Salamander</li>
+<p>progress implementation.</p>
+<li><code>src/plugins/salamatrix/salamatrix_commands.h</code> exposes the small stable</li>
+<p>command catalog and interactive rename/copy/move routing.</p>
+<li><code>src/plugins/salamatrix/salamatrix_sides.h</code> exposes runtime-neutral sides and</li>
+<p>panel-tab snapshots over the new core SDK methods.</p>
+<li><code>src/plugins/salamatrix/salamatrix_storage.h</code> owns validated, synchronized,</li>
+<p>typed per-extension storage and its versioned configuration blob.</p>
+<li><code>src/plugins/salamatrix/salamatrix_events.h</code> owns host event mapping and</li>
+<p>unsubscribe-safe callback dispatch.</p>
+<li>The standalone runtime provider projects own bounded out-of-process</li>
+<p>CPython, PowerShell, PHP CLI, and Node adapters; Automation retains only transitional source/test implementations while consuming the broker.</p>
+<li><code>src/plugins/salamatrix/salamatrix_runtime_protocol.h</code> defines the bounded</li>
+<p>incremental <code>SMX1</code> worker framing and its message vocabulary; the Automation bridge now supplies the first host-call dispatcher over that boundary.</p>
+<li><code>src/plugins/automation/scriptlist.cpp</code> owns the lifecycle callback and the</li>
+<p>initial <code>runtime.ready</code>, commands, sides, and string-storage dispatch.</p>
+<li><code>src/plugins/automation/salamatrixbridge.cpp</code> is a consumer-only bridge.</li>
+<li><code>src/plugins/automation/salamatrixaut.cpp</code> implements the COM/Automation</li>
+<p>wrappers.</p>
+<li><code>src/plugins/automation/salamander.idl</code> publishes the <code>UI</code>, <code>Commands</code>,</li>
+<p><code>FileOperations</code>, <code>Sides</code>, <code>Events</code>, and isolated <code>Storage</code> namespaces.</p>
+</ul>
+<h3 id="script-discovery-and-manifest-parsing">Script discovery and manifest parsing</h3>
+<ul>
+<li><code>src/plugins/salamatrix/salamatrix_manifest.cpp</code> contains the strict,</li>
+<p>independently tested schema-1 JSON parser and validated package model; Automation consumes its framework header without owning the parser.</p>
+<li><code>src/plugins/automation/scriptlist.cpp</code> recursively discovers legacy</li>
+<p>ActiveScript files, registered runtime-adapter entry points, and valid manifest entry points even when their extension has no COM association.</p>
+<li>The same file resolves manifest runtime id/minimum version through the broker</li>
+<p>before execution. Inline <code>Salamatrix.Command*</code> metadata remains supported.</p>
+<li><code>src/plugins/automation/sample-scripts/Salamatrix Progress Demo/</code> is the</li>
+<p>first manifest-based sample.</p>
+</ul>
+<h3 id="existing-legacy-automation-value">Existing legacy Automation value</h3>
+<p>The new platform should preserve these working capabilities:</p>
+<ul>
+<li>active left/right/source/target panel path, focused item, all items, selected</li>
+<p>items, selection manipulation, and panel path changes;</p>
+<li>message/input/error/question/overwrite dialogs, progress and wait windows;</li>
+<li>modal Forms with Label, TextBox, CheckBox, and Button;</li>
+<li>file viewing, path normalization, mask matching, tracing, sleep/cancel;</li>
+<li>basic global persistent values;</li>
+<li>JScript and VBScript, plus third-party <code>IActiveScript</code> engines where</li>
+<p>available.</p>
+</ul>
+<h2 id="important-implementation-risks-found-by-the-audit">Important implementation risks found by the audit</h2>
+<p>1. The core service registry still exposes borrowed interface pointers to callers, but provider ownership and short consumer leases now prevent new acquisitions during unload and wait for active calls before removal. The extension lifecycle registry has the same owner-aware callback behavior; unload diagnostics are still minimal. 2. Runtime provider registration is still an explicit plugin-lifetime contract; unload diagnostics and a user-facing dependency view remain. 3. Posted Commands/FileOperations report <code>ok</code> when a command was accepted, not when the modal operation completed successfully. <code>cancel</code> is not observable. 4. The command catalog currently maps both <code>Move</code> and <code>MoveRename</code> to the same native command and contains only three unique operations. 5. The manifest parser retains every validated command and the Automation menu surface iterates all registered runtime command contributions; remaining work is richer independent placement/toolbar metadata rather than dropping additional commands. 6. Discovery and execution now go through runtime adapters. The v1 compatibility callback still keeps old ActiveScript hosting inside Automation; modern process cancellation is currently stop/termination based. 7. Long-lived script callbacks still require richer UI-thread, reentrancy, cancellation, and exception rules; host callbacks now reject new calls during extension deactivation and hold an unload lease while active. 8. A language process must never receive raw C++/COM implementation pointers. Out-of-process adapters need a versioned RPC/value protocol, while in-process adapters need ABI-stable interfaces.</p>
+<h2 id="recommended-implementation-order">Recommended implementation order</h2>
+<h3 id="phase-0-make-the-foundation-safe">Phase 0: make the foundation safe</h3>
+<p>1. Route extension discovery and execution through the existing <code>Salamatrix.Runtime</code> broker. <strong>Implemented.</strong> 2. Add provider ownership/leases, diagnostics, and lifecycle rules to runtime and core services. <strong>Provider ownership and short leases are implemented; richer diagnostics remain.</strong> 3. Replace the manifest text scanner with a real parser and validate a versioned schema.</p>
+<h3 id="phase-1-complete-the-useful-common-object-model">Phase 1: complete the useful common object model</h3>
+<p>1. Publish <code>Salamatrix.Sides</code> with Left, Right, Source, and Target. <strong>Implemented.</strong> 2. Add side and tab snapshots/handles: path, active tab, tabs, focused/selected items, view mode, tree visibility, detached state. <strong>Implemented for tab identity, enumeration, path, activation, active/source/target/locked/ detached state, side path changes, refresh, selection mutation, and focus; item/view details remain.</strong> 3. Add clipboard and panel refresh. 4. Expand stable Commands and implement synchronous, programmatic file operations. 5. Add isolated per-extension storage. <strong>Implemented for typed key/value persistence; settings schemas, quotas, migrations, and uninstall policy remain.</strong></p>
+<h3 id="phase-2-make-extensions-persistent">Phase 2: make extensions persistent</h3>
+<p>1. Extension instances and lifecycle: discover, load, activate, deactivate, unload. <strong>The owner-aware <code>Salamatrix.Extensions</code> registry and persistent <code>IRuntimeSession</code> activation seam are implemented; host dispatch and worker bindings remain.</strong> 2. Command contribution service independent of menu/toolbar/hotkey placement. 3. Event service with a small first set: startup/shutdown, active side/tab, path, selection, tab create/close. <strong>Implemented for host lifecycle, settings/configuration/colors, panel swap, active-panel events, successful shared-Sides path/selection/tab/refresh operations, and core path/selection/tab notifications; persistent instance queues now use bounded worker-session frames. File-operation and window lifecycle hooks remain.</strong> 4. Package state in the existing Plugin Manager.</p>
+<h3 id="phase-3-runtimes">Phase 3: runtimes</h3>
+<p>1. Keep current Automation as the <code>legacy-wsh</code> compatibility adapter. 2. Add a modern bundled JavaScript adapter as the default lightweight runtime. 3. Add PowerShell and CPython adapters as separate runtime components. 4. Add PHP only after the common out-of-process protocol is proven; it should reuse the same protocol rather than introduce a fourth binding architecture. 5. Run the same runtime contract suite against every adapter.</p>
+<p>An out-of-process JSON-RPC-style transport is the safest common denominator for CPython, PowerShell, and PHP. The host owns all Salamander objects and returns serializable handles/snapshots; runtimes send typed API requests. A bundled JavaScript engine may be in-process for size and speed but should implement the same logical contract.</p>
+<h3 id="phase-4-shared-ui">Phase 4: shared UI</h3>
+<p>The native dialog/control surface, explicit layout, collection binding, pickers, validation/events, and the complete DemoPlug control gallery are now implemented through one framework-owned service. The five worker runtimes, Automation JScript, and native DemoPlug independently exercise that surface; the old Automation Forms classes remain compatibility wrappers rather than the owner of modern dialogs. Continue with automated dark-mode/DPI interaction, full UI Automation roles and screen-reader testing, virtualized collections, richer notifications, reentrancy rules, and localization guidance for extension-authored text. See <code>doc/salamatrix-ui.md</code> for the current contract and examples.</p>
+<h3 id="phase-5-ai-assistant">Phase 5: AI assistant</h3>
+<p>Start only after the common API is useful without AI:</p>
+<p>1. Generate a machine-readable API schema from the real contracts. 2. Define a provider-neutral model interface and structured result containing title, description, required capabilities, estimated effects, and script. 3. Implement Ask -&gt; Preview -&gt; Validate -&gt; Run -&gt; Save. 4. Add static validation and a repair loop against the exact installed API version. 5. Add an external local provider first, then an optional bundled local backend. 6. Treat the AI as a script author with no privileged control path.</p>
+<h2 id="first-implementation-slice">First implementation slice</h2>
+<p>The first code slice following this audit is implemented:</p>
+<ul>
+<li>publish <code>Salamatrix.Runtime</code> as a real service;</li>
+<li>allow runtime adapters to register versioned runtime ids and file/language</li>
+<p>metadata;</p>
+<li>make Automation advertise its legacy Active Scripting adapter through that</li>
+<p>broker;</p>
+<li>expose runtime availability in diagnostics;</li>
+<li>make registration failure transactional.</li>
+</ul>
+<p>The second code slice is also implemented:</p>
+<ul>
+<li>replace raw scalar scanning with a strict schema-1 UTF-8 JSON parser;</li>
+<li>validate runtime/minimum version, safe entry points, capabilities, and the</li>
+<p>complete commands array;</p>
+<li>discover manifest entry points independently of ActiveScript associations;</li>
+<li>route manifest execution through a structured runtime-adapter request/result;</li>
+<li>execute existing JScript/VBScript compatibility engines through the broker;</li>
+<li>add a standalone manifest parser test target and invalid-manifest fixtures.</li>
+</ul>
+<p>The third code slice is also implemented:</p>
+<ul>
+<li>append versioned tab snapshot and activation methods to the native plugin SDK</li>
+<p>and raise the SDK requirement to 105;</p>
+<li>assign every live panel tab an opaque 64-bit lifetime id;</li>
+<li>publish <code>Salamatrix.Sides</code> with Left/Right/Source/Target resolution, tab</li>
+<p>snapshots, paths, activation, and active-tab path changes;</p>
+<li>expose the service to scripts as <code>Salamander.Sides</code>, <code>Side</code>, and <code>Tab</code></li>
+<p>Automation objects;</p>
+<li>represent ids as decimal strings and revalidate each operation by id so stale</li>
+<p>script objects fail safely;</p>
+<li>compile the main executable, Salamatrix, and Automation in Debug x64, Debug</li>
+<p>Win32, and Release x64.</p>
+</ul>
+<p>The fourth code slice is also implemented:</p>
+<ul>
+<li>publish <code>Salamatrix.Storage</code> as a transactionally registered service;</li>
+<li>isolate namespaces by the validated manifest extension id instead of asking</li>
+<p>scripts to invent collision-resistant prefixes;</p>
+<li>support UTF-8 strings, signed 64-bit integers, booleans, delete, and clear</li>
+<p>through a synchronized runtime-neutral contract;</p>
+<li>persist one bounded, versioned, fully validated configuration blob through</li>
+<p>the plugin registry abstraction;</p>
+<li>expose <code>Salamander.Storage.has/get/set/remove/clear</code> only to manifest</li>
+<p>extensions and preserve the old global API for loose-script compatibility;</p>
+<li>add <code>/W4 /WX</code> tests for isolation, validation, types, mutation, save/load</li>
+<p>round-trip, unchanged saves, and corrupt data.</p>
+</ul>
+<p>The fifth code slice is also implemented:</p>
+<ul>
+<li>publish <code>Salamatrix.Events</code> with lifecycle, settings/configuration, colors,</li>
+<p>panel-swap, and active-panel event kinds;</p>
+<li>map the existing Salamander plugin <code>Event</code> callback into copied,</li>
+<p>runtime-neutral payloads containing panel/tab/path context;</p>
+<li>dispatch matching callbacks outside the registry lock so self-unsubscribe and</li>
+<p>reentrant subscription are safe;</p>
+<li>expose <code>Salamander.Events.subscribe/unsubscribe</code> with decimal opaque ids and</li>
+<p>automatic cleanup when the one-shot Automation root is released;</p>
+<li>add <code>/W4 /WX</code> tests for event delivery, self-unsubscribe, capacity, and invalid</li>
+<p>payload/kind handling.</p>
+</ul>
+<p>The sixth code slice is also implemented:</p>
+<ul>
+<li>publish <code>Salamatrix.Extensions</code> as a bounded, owner-aware lifecycle registry;</li>
+<li>track explicit discovered/activating/active/deactivating/inactive/failed</li>
+<p>states and invoke lifecycle callbacks outside the registry lock;</p>
+<li>register valid manifest-backed Automation scripts at load/refresh and remove</li>
+<p>them before their <code>CScriptInfo</code> owners are deleted;</p>
+<li>retain and stop a persistent <code>IRuntimeSession</code> from the owning script during</li>
+<p>activate/deactivate and destruction;</p>
+<li>add <code>/W4 /WX</code> tests for registration, duplicate-owner rules, lifecycle state</li>
+<p>transitions, validation, and owner cleanup.</p>
+</ul>
+<p>This slice intentionally stops before host API dispatch. The registry and session are the stable seam for the next runtime-host work.</p>
+<p>The seventh code slice is now implemented:</p>
+<ul>
+<li>extend the runtime request/result contract with working-directory, timeout,</li>
+<p>process/exit, and bounded output fields;</p>
+<li>register optional out-of-process <code>Python.CPython</code>, <code>PowerShell</code>, and <code>PHP.CLI</code></li>
+<p>adapters from Automation using explicit environment overrides or <code>PATH</code>;</p>
+<li>execute entries through non-shell <code>CreateProcessW</code>, drain stdout/stderr,</li>
+<p>terminate timed-out children, and surface structured failure/exit results;</p>
+<li>document the remaining persistent worker/RPC boundary instead of treating a</li>
+<p>one-shot CLI process as a full Salamander-aware runtime.</p>
+</ul>
+<p>The transport foundation is covered by a standalone <code>/W4 /WX</code> test for partial frames, round trips, malformed ids, newline rejection, and the 1 MiB limit.</p>
+<p>The eighth code slice is now implemented:</p>
+<ul>
+<li>add <code>IRuntimeSession</code> and optional <code>IRuntimeAdapter::StartPersistent()</code>;</li>
+<li>implement bidirectional persistent process sessions with bounded frame reads,</li>
+<p>CRLF-tolerant worker output, safe stop/Release cleanup, and timeout-aware liveness checks;</p>
+<li>connect manifest lifecycle activation/deactivation to session ownership;</li>
+<li>start and join a bounded host pump thread so worker frames are processed in</li>
+<p>normal plugin operation;</p>
+<li>verify a Python echo worker end to end through <code>SMX1</code> frames.</li>
+</ul>
+<p>This does not pretend that modern Python or PowerShell support is complete. It creates the contract those adapters need and removes the current architectural assumption that every script file must map directly to an <code>IActiveScript</code> COM CLSID.</p>
+<p>The ninth code slice is now implemented:</p>
+<ul>
+<li>add a host-dispatch callback to the persistent runtime request;</li>
+<li>bind <code>runtime.ready</code>, <code>salamander.commands.execute</code>,</li>
+<p><code>salamander.sides.activeTab</code>, and string <code>salamander.storage.get/set</code> calls;</p>
+<li>bind event subscribe/unsubscribe and push matching <code>event</code> frames, plus a</li>
+<p>parented message-box call;</p>
+<li>ship language-specific bootstrap scripts that expose the same <code>Salamander</code></li>
+<p>object model and route calls/events over SMX1;</p>
+<li>add bounded JSON string-member extraction tests and verify the Automation</li>
+<p>plugin plus the Python worker round trip.</p>
+</ul>
+<p>The tenth code slice is now implemented:</p>
+<ul>
+<li>add stable toolbar contribution keys to the appended native toolbar ABI;</li>
+<li>persist extension toolbar placement in the existing toolbar configuration,</li>
+<p>while retaining automatic defaults for older configurations;</p>
+<li>resolve persisted entries by manifest/plugin identity rather than transient</li>
+<p>process-local command ids;</p>
+<li>derive a dark-mode bitmap from the normal extension SVG when an extension</li>
+<p>does not ship a separate <code>iconDark</code> asset.</p>
+<li>keep icon rendering and placement shared between native plugins and all</li>
+<p>runtime-backed extensions.</p>
+</ul>
+<p>The eleventh code slice is now implemented:</p>
+<ul>
+<li>connect the AI service to the live runtime broker;</li>
+<li>publish versions of all native Salamatrix service contracts in the machine-</li>
+<p>readable API description;</p>
+<li>publish the current runtime adapter inventory (id, language, extensions,</li>
+<p>version, and availability) for prompt construction;</p>
+<li>cover the generated metadata with the runtime protocol test target.</li>
+</ul>
+<p>The twelfth code slice is now implemented:</p>
+<ul>
+<li>let the native command, file-operation, UI, sides, events, storage,</li>
+<p>extensions, and runtime services publish compact schema fragments next to their actual contracts;</p>
+<li>aggregate those fragments into the AI service's machine-readable schema;</li>
+<li>validate the resulting <code>nativeContracts</code> JSON object in the runtime protocol</li>
+<p>tests.</p>
+</ul>
+<p>The thirteenth code slice is now implemented:</p>
+<ul>
+<li>add a common AI response validator for capabilities, estimated effects,</li>
+<p>runtime identity, and undeclared external/network operations;</p>
+<li>expose the validator and a bounded <code>GenerateWithRepair</code> loop through the</li>
+<p>provider-neutral AI ABI, preserving compatibility defaults for older services;</p>
+<li>use the same repair-aware generation path in the standalone Salamatrix AI</li>
+<p>chat and both Automation AI consumers;</p>
+<li>cover valid, unsupported-capability, and unsafe-script responses in the</li>
+<p>runtime protocol tests.</p>
+</ul>
+<p>The fourteenth code slice is now implemented:</p>
+<ul>
+<li>extend schema-1 manifests with an optional <code>events</code> declaration;</li>
+<li>validate event names and reject duplicates during strict manifest parsing;</li>
+<li>enforce the declared allow-list at the persistent worker host boundary while</li>
+<p>preserving unrestricted event subscriptions for legacy manifests and generated one-shot AI scripts;</p>
+<li>cover declared, absent, unknown, and duplicate event declarations in the</li>
+<p>manifest parser tests.</p>
+</ul>
+<p>The fifteenth code slice is now implemented:</p>
+<ul>
+<li>represent an unavailable requested runtime with the ABI-safe</li>
+<p><code>ExtensionFlagRuntimeUnavailable</code> flag and <code>ExtensionStateWaitingForRuntime</code>;</p>
+<li>have Automation check the shared runtime broker for the adapter and minimum</li>
+<p>version while publishing manifest extensions;</p>
+<li>keep waiting extensions visible in the existing Plugin Manager and annotate</li>
+<p>their runtime/function status without offering an install flow;</p>
+<li>make activation a safe no-op while the dependency is absent, then clear the</li>
+<p>waiting state and activate through the existing same-owner refresh when the standalone runtime plugin registers;</p>
+<li>cover registration, blocked activation, and reactivation in the extension</li>
+<p>lifecycle test.</p>
+</ul>
+<p>The sixteenth code slice is now implemented:</p>
+<ul>
+<li>retain the selected runtime command ID in the Automation execution context;</li>
+<li>pass that ID through the Python, PowerShell, PHP, and Node worker bootstrap</li>
+<p>command lines for both the Automation compatibility broker and standalone runtime providers;</p>
+<li>expose it consistently as <code>Salamander.command_id</code> (with JavaScript's</li>
+<p>camel-case alias <code>commandId</code> as well);</p>
+<li>publish the field in the AI/API description so generated extensions can</li>
+<p>dispatch manifest or dynamically registered handlers explicitly;</p>
+<li>cover the end-to-end Python one-shot path and re-run all worker syntax and</li>
+<p>provider Debug builds.</p>
+</ul>
+<p>The seventeenth code slice is now implemented:</p>
+<ul>
+<li>retain all validated manifest command records (up to the native runtime</li>
+<p>command limit) instead of applying only the first record;</p>
+<li>publish each declared command with its own plugin/context/toolbar placement</li>
+<p>and <code>requires</code> event masks when the persistent extension activates;</p>
+<li>keep the manifest command surface stable across worker teardown and restore</li>
+<p>its default command metadata on the next activation;</p>
+<li>allow the worker to add or remove dynamic commands alongside manifest-owned</li>
+<p>commands without losing the package identity;</p>
+<li>preserve the selected command context for all of these entries through the</li>
+<p>existing <code>Salamander.command_id</code> worker field.</p>
+</ul>
+<p>The eighteenth code slice is now implemented:</p>
+<ul>
+<li>extend the versioned runtime request with an optional <code>CommandHandler</code> field;</li>
+<li>resolve the selected manifest command's declared <code>handler</code> by command ID;</li>
+<li>pass that handler through the Automation broker and all four standalone</li>
+<p>worker providers using the bounded <code>--command-handler</code>/<code>-CommandHandler</code> bootstrap argument;</p>
+<li>expose the value consistently as <code>Salamander.command_handler</code> (plus</li>
+<p>JavaScript's camel-case alias) and cover the Python one-shot path in the process-runtime integration test.</p>
+</ul>
+<p>The nineteenth code slice is now implemented:</p>
+<ul>
+<li>retain an optional handler name on every native runtime command record;</li>
+<li>extend <code>Salamander.commands.register(...)</code> in Python, PowerShell, PHP, and</li>
+<p>JavaScript with the common optional handler argument;</p>
+<li>persist dynamic handler names through native command activation and expose</li>
+<p>the selected value through the same <code>Salamander.command_handler</code> field;</p>
+<li>publish the handler field in the live AI/API command schema and verify the</li>
+<p>worker-to-host registration payload in the Python bootstrap integration test.</p>
+</ul>
+<p>The twentieth code slice is now implemented:</p>
+<ul>
+<li>add the ABI-safe <code>fileChanged</code> event kind without extending the events vtable;</li>
+<li>forward Salamander core <code>AcceptChangeOnPathNotification</code> callbacks through</li>
+<p>Salamatrix with the UTF-8 affected path and recursive-scope flag;</p>
+<li>expose the event consistently to modern workers, Automation, manifest event</li>
+<p>allow-lists, and the live AI/API schema;</p>
+<li>cover subscription acceptance and path/scope delivery in the native Events</li>
+<p>test suite.</p>
+</ul>
+<p>The twenty-first code slice is now implemented:</p>
+<ul>
+<li>add the append-only UI 1.1 notification contract and native timed popup;</li>
+<li>expose <code>Salamander.ui.notify(message, title, timeout)</code> consistently to</li>
+<p>Python, PowerShell, PHP, JavaScript, native Automation adapters, and the live AI/API schema;</p>
+<li>keep notification calls non-modal and bounded (default five seconds,</li>
+<p>maximum ten minutes) while allowing click-to-dismiss;</p>
+<li>cover the worker-to-host notification call in the Python bootstrap test.</li>
+</ul>
+<p>The twenty-second code slice is now implemented:</p>
+<ul>
+<li>validate an optional manifest <code>dependencies</code> array (bounded, identifier-only,</li>
+<p>case-insensitive unique ids) and retain it with the discovered script;</p>
+<li>register the complete manifest batch before activation, resolve dependency</li>
+<p>chains in bounded passes, and represent unresolved dependencies with the ABI-safe <code>waitingForDependency</code> state/flag;</p>
+<li>make activation a safe no-op while a dependency is absent and surface the</li>
+<p>reason in the existing Plugin Manager alongside runtime-unavailable status;</p>
+<li>cover dependency parsing, blocked activation, and same-owner reactivation in</li>
+<p>the manifest and Extensions test suites.</p>
+</ul>
+<p>The twenty-third code slice is now implemented:</p>
+<ul>
+<li>append the Extensions 1.1 <code>disabled</code> state and <code>SetExtensionDisabled</code> API</li>
+<p>without changing the existing descriptor layout;</p>
+<li>persist the manifest extension's enabled choice in its isolated</li>
+<p><code>salamatrix.enabled</code> Storage key, where no key remains backwards-compatible as enabled;</p>
+<li>make Plugin Manager Deactivate stop the worker first, then persist and show</li>
+<p><code>disabled</code>; Activate clears that state and starts the ordinary lifecycle;</p>
+<li>cover disabled registration, safe no-op activation, re-enable, and</li>
+<p>re-disable transitions in the Extensions lifecycle test.</p>
+</ul>
+<p>The twenty-fourth code slice is now implemented:</p>
+<ul>
+<li>append the ABI-safe Extensions 1.2 settings-schema contract with bounded</li>
+<p>string/integer/boolean setting records, without changing the descriptor layout;</p>
+<li>publish manifest setting declarations from Automation after each successful</li>
+<p>extension registration;</p>
+<li>use the shared <code>Salamatrix.UI</code> dialog/control API from Plugin Manager's</li>
+<p>Configure action to edit typed per-extension values (with a deliberate 24-setting fixed-layout limit);</p>
+<li>cover schema registration, retrieval, duplicate rejection, and the</li>
+<p>Extensions 1.2 service build alongside Automation, Salamatrix, and core Salamander Debug x64 builds.</p>
+</ul>
+<p>The twenty-fifth code slice is now implemented:</p>
+<ul>
+<li>allow every manifest <code>commands[]</code> record to declare a package-contained SVG</li>
+<p><code>icon</code> and optional dark-mode <code>iconDark</code> asset;</p>
+<li>validate the command artwork with the same safe-relative-path and SVG-only</li>
+<p>rules as package artwork, resolve it during discovery, and prefer it for its specific toolbar button;</p>
+<li>preserve package artwork as the compatibility fallback and retain core dark</li>
+<p>icon generation when no valid dark asset is supplied;</p>
+<li>cover valid and invalid command artwork through the strict manifest parser</li>
+<p>test and build Automation Debug x64.</p>
+</ul>
+<p>The twenty-sixth code slice is now implemented:</p>
+<ul>
+<li>add a native <code>FolderPicker</code> control to <code>Salamatrix.UI</code> dialogs; it opens the</li>
+<p>standard folder browser, returns its selected UTF-8 path through <code>IControl</code>, and raises the standard control-change event;</p>
+<li>expose it to every modern worker facade as Python <code>add_folder_picker</code>,</li>
+<p>PowerShell <code>AddFolderPicker</code>, PHP <code>addFolderPicker</code>, and Node <code>addFolderPicker</code>, with the raw runtime protocol kind <code>folderpicker</code> also accepted;</p>
+<li>include the control in the runtime and AI API schemas so the local script</li>
+<p>helper can generate it;</p>
+<li>build Salamatrix and Automation Debug x64, run the API protocol test, and</li>
+<p>syntax-check all four runtime worker implementations. The process-runtime integration run was completed later with an explicit isolated <code>SALAMATRIX_WORKER_ROOT</code>; its result is recorded in the twenty-seventh slice below.</p>
+</ul>
+<p>The twenty-seventh code slice is now implemented:</p>
+<ul>
+<li>add the append-only <code>filepicker</code> control kind to the shared native dialog;</li>
+<p>its edit control keeps a UTF-8 path value while the adjacent browse button opens the wide Win32 file dialog with heap-backed path storage rather than a new <code>MAX_PATH</code> dependency;</p>
+<li>expose <code>add_file_picker</code>/<code>AddFilePicker</code>/<code>addFilePicker</code> in the Python,</li>
+<p>PowerShell, PHP, and Node workers and publish the control in the runtime and AI API schemas;</p>
+<li>extend the host mapping and the cross-runtime process test to cover the new</li>
+<p>control for Python, PowerShell, and PHP;</p>
+<li>fix typed-storage/schema drift in the standalone PowerShell and PHP worker</li>
+<p>assets, which the isolated provider-root test exposed after the first attempt;</p>
+<li>rebuild Salamatrix, Automation, all four standalone provider projects, the</li>
+<p>runtime protocol test, and the process-runtime test into <code>build\verification\editable-file-picker</code>; the protocol test and the process-runtime test both passed, with the latter returning exit code 0 under an explicit isolated <code>SALAMATRIX_WORKER_ROOT</code>.</p>
+</ul>
+<p>The twenty-eighth code slice is now implemented:</p>
+<ul>
+<li>extend manifest setting declarations with validated label, description,</li>
+<p>group, order, width, and multiline metadata while keeping the storage key stable;</p>
+<li>allow selected package locale resources to translate setting presentation</li>
+<p>text in addition to extension names and command titles;</p>
+<li>append presentation fields to <code>ExtensionSettingInfo</code>, but accept and return</li>
+<p>the legacy 1.2 prefix by honoring caller <code>StructSize</code>, preserving the existing ABI and service vtable;</p>
+<li>publish the metadata through <code>storage.schema()</code> and the existing Plugin</li>
+<p>Manager's Configure dialog, including localized labels/groups and bounded multiline/width layout;</p>
+<li>cover parser validation, localized settings, the new registry fields, and</li>
+<p>legacy setting-schema callers. The isolated parser/registry tests and Automation plus Salamatrix Debug x64 builds passed under <code>build\verification\manifest-settings</code>; no Salamander process was started or controlled.</p>
+</ul>
+<p>The twenty-ninth code slice is now implemented:</p>
+<ul>
+<li>add initial <code>enabled</code>/<code>visible</code> state to manifest and runtime command</li>
+<p>metadata while keeping the public service/vtable prefixes unchanged;</p>
+<li>expose <code>setState</code>/<code>set_state</code>/<code>SetState</code>/<code>setState</code> through the common worker</li>
+<p>facades, apply the state in Automation's existing menu and toolbar path, and trigger the normal Plugin Manager/menu refresh;</p>
+<li>cover manifest state parsing, the runtime API schema, and state changes from</li>
+<p>Python, PowerShell, and PHP in the isolated process-runtime test;</p>
+<li>build Automation, Salamatrix, all four standalone provider projects, and the</li>
+<p>focused tests into <code>build\verification\command-state</code>. The explicit <code>SALAMATRIX_WORKER_ROOT</code> process run, all worker syntax checks, and the parser/protocol tests passed; no Salamander process was started or controlled.</p>
+</ul>
+<p>The thirtieth code slice is now implemented:</p>
+<ul>
+<li>complete the append-only <code>IRuntimeSession::GetDiagnostic</code> implementation in</li>
+<p>the Automation process bridge and all four standalone runtime providers;</p>
+<li>preserve cached process id and exit code after handle teardown, distinguish</li>
+<p>running, explicit host stop, clean exit, and nonzero failed exit, and expose bounded diagnostic text without changing any public vtable prefix;</p>
+<li>extend the process-runtime test with running/stopped/process-id assertions</li>
+<p>and a deterministic nonzero-exit failure fixture;</p>
+<li>build Automation, the process-runtime test, and all four standalone</li>
+<p>providers into <code>build\verification\runtime-lifecycle</code>. The explicit <code>SALAMATRIX_WORKER_ROOT</code> run passed with exit code 0; no Salamander process was started or controlled.</p>
+</ul>
+<p>The thirty-first code slice is now implemented:</p>
+<ul>
+<li>append <code>filter</code> and <code>save</code> file-picker options to the shared native control</li>
+<p>contract without changing existing enum values, vtable prefixes, or control layout prefixes; <code>save</code> selects the native <code>GetSaveFileNameW</code> path and <code>filter</code> uses the UTF-8 pipe-separated Win32 filter format;</p>
+<li>keep the SMX1 wire contract flat (<code>kind</code>, <code>text</code>, <code>filter</code>, and <code>save</code>) and</li>
+<p>preserve positional compatibility in the Python and Node helpers by placing the new optional values after the existing layout argument;</p>
+<li>update the Automation host mapping, all four standalone worker assets, the</li>
+<p>runtime/AI schema fragments, and the Python/PowerShell/PHP process bootstrap assertions for both option values;</p>
+<li>rebuild Salamatrix, Automation, all four standalone providers, and the</li>
+<p>focused tests into <code>build\verification\file-picker-options</code>; UI layout, runtime protocol, worker syntax, and explicit <code>SALAMATRIX_WORKER_ROOT</code> process-runtime tests passed with exit code 0. No Salamander process was started or controlled.</p>
+</ul>
+<p>The thirty-second code slice is now implemented:</p>
+<ul>
+<li>append tabCreated, tabClosed, tabReordered, windowDetached, and</li>
+<p>windowAttached as event kinds 16–20 without changing the existing event enum prefix, service vtable, or V1 EventPayload prefix;</p>
+<li>infer lifecycle transitions from per-side heap-backed tab snapshots on</li>
+<p>PLUGINEVENT_TABCHANGED, establish an explicit baseline for empty sides, and publish inferred lifecycle events before the legacy tabChanged;</p>
+<li>bridge changedTabId, tabIndex, and previousTabIndex into Automation's SMX1</li>
+<p>JSON event frame while retaining safe defaults for older V1 payloads;</p>
+<li>extend the existing Plugin Manager manifest event allow-list and the</li>
+<p>Salamatrix/AI event schemas, with deterministic native, manifest, and schema tests;</p>
+<li>build the focused tests, Automation, Salamatrix, and all four standalone</li>
+<p>providers into build\verification\tab-lifecycle; all passed, as did the explicit worker-root process-runtime run and all four worker syntax checks. No Salamander process was started or controlled.</p>
+</ul>
+<p>The thirty-third code slice is implemented and verified:</p>
+<ul>
+<li>a deterministic Python bootstrap scenario verifies the fixed host/worker tab</li>
+<p>mutation contract: createTab returns a decimal string tab id and closeTab, reorderTab, moveTab, and setDetached return their exact response shapes; each dispatcher path is counted once;</p>
+<li>the published Sides schema advertises version 1.3 and all five append-only</li>
+<p>mutation methods;</p>
+<li>core, Automation host, Salamatrix, events, runtime protocol, process-runtime,</li>
+<p>extension-manifest, and all four standalone provider projects pass isolated Debug x64 verification under <code>build\verification\tab-object-model</code>;</p>
+<li>all four worker syntax checks pass. The process-runtime test passed with an</li>
+<p>explicit provider worker root in <code>SALAMATRIX_WORKER_ROOT</code>; no Salamander process was started or controlled.</p>
+</ul>
+<p>The thirty-fourth code slice is implemented and verified:</p>
+<ul>
+<li>classify Salamatrix Framework, JavaScript/Python/PowerShell/PHP runtime</li>
+<p>providers, and SalamatrixAI by stable registry-key prefixes with display-name fallbacks, preserving the ordinary Automation Framework label for unrelated plugins;</p>
+<li>expose SalamatrixAI's Menu Extension capability in the existing Plugin</li>
+<p>Manager and publish a localized command that opens the local-model chat;</p>
+<li>make SalamatrixAI shutdown unload-safe when Salamatrix Framework unloads</li>
+<p>first by querying the current <code>SALAMATRIX_SERVICE_AI</code> record and checking pointer identity before provider unregistration, then clearing all borrowed service pointers;</p>
+<li>add a deterministic source-contract regression script and rebuild both the</li>
+<p>Salamatrix core and SalamatrixAI into <code>build\verification\regressions</code>;</p>
+<li>the regression script, core Debug x64 build, and SalamatrixAI Debug x64 build</li>
+<p>passed. No Salamander process was started or controlled.</p>
+</ul>
+<p>The thirty-fifth code slice is implemented and verified:</p>
+<ul>
+<li>extend schema-1 manifests with bounded <code>settingsVersion</code> and</li>
+<p><code>settingsMigrations</code> metadata for typed string/integer/boolean rename and remove operations, with strict conflict, bounds, reserved-key, and complete chain validation;</p>
+<li>apply migrations through an internal host helper before settings defaults,</li>
+<p>persist the reserved <code>salamatrix.settings.version</code>, preserve existing destinations, support retries after partial failures, and never downgrade a higher stored version; no public SDK vtable or struct layout changes;</p>
+<li>wire the helper into Automation's manifest discovery and add a standalone</li>
+<p>migration test executable covering typed values, chains, no-op removals, destination preservation, retry behavior, and version stamping;</p>
+<li>rebuild the manifest parser tests, migration tests, and Automation Debug x64</li>
+<p>plugin into isolated <code>build\verification\manifest-migrations-current</code>, <code>build\verification\settings-migrations-current</code>, and <code>build\verification\automation-migrations-current</code> outputs; all passed.</p>
+</ul>
+<p>The thirty-sixth code slice is implemented and verified:</p>
+<ul>
+<li>add standalone, non-GUI assertions for Salamatrix.UI accessibility metadata:</li>
+<p>default <code>ControlOptions</code> values remain null, explicit UTF-8 values are retained, and the append-only <code>IControl</code> default accessors return empty strings for older control implementations;</p>
+<li>rebuild and run the UI layout/DPI test executable in isolated</li>
+<p><code>build\verification\ui-accessibility-final2</code> output; all assertions passed;</p>
+<li>rebuild <code>Salamatrix.SPL</code> itself in isolated</li>
+<p><code>build\verification\salamatrix-accessibility-final2</code> output after fixing the helper's private-implementation scope; the Debug x64 build passed.</p>
+</ul>
+<p>The thirty-seventh code slice is implemented and verified:</p>
+<ul>
+<li>add ABI-safe <code>GetKeyCount</code>/<code>GetKeyAt</code> storage enumeration with typed UTF-8</li>
+<p>key metadata and the <code>salamander.storage.keys</code> host method;</p>
+<li>add <code>storage.keys()</code>/<code>Storage.Keys()</code>/<code>storage-&gt;keys()</code>/<code>Storage.keys()</code> to</li>
+<p>the Python, PowerShell, PHP, and Node worker facades;</p>
+<li>add direct storage unit coverage and persistent Python/PowerShell/PHP</li>
+<p>bootstrap assertions for string, boolean, and integer key types;</p>
+<li>rebuild storage, Automation, and process-runtime tests in isolated</li>
+<p><code>build\verification\storage-enumeration-final</code>, <code>build\verification\storage-enumeration-automation-final</code>, and <code>build\verification\storage-keys-process-teststests</code> outputs; all passed;</p>
+<li>rerun the process-runtime executable with explicit</li>
+<p><code>SALAMATRIX_WORKER_ROOT=build\verification\storage-keys-worker-root</code>; all process runtime tests passed without starting Salamander.</p>
+</ul>
+<p>The previous storage-table note that listed key enumeration as missing is superseded by this thirty-seventh slice. Remaining storage gaps are settings files, quotas, transactional batches, and uninstall retention/deletion policy.</p>
+<p>The thirty-eighth code slice is implemented and verified:</p>
+<ul>
+<li>remove Automation's <code>CmdAskAssistant</code> menu command, enablement path, and</li>
+<p>interactive generation/preview/run/save/package flow, so Automation remains the independent legacy JS/VBScript and shared runtime-client plugin;</p>
+<li>remove the Automation-only AI menu localization and helper implementation</li>
+<p>while preserving the <code>Salamatrix.AI</code> bridge/API used by runtime scripts and the <code>Salamatrix.ScriptRunner</code> compatibility service;</p>
+<li>keep the standalone <code>SalamatrixAI.SPL</code> menu extension as the sole native</li>
+<p>owner of the localized chat-opening command;</p>
+<li>extend the source-contract regression test to assert that Automation no</li>
+<p>longer publishes or dispatches an AI menu command while the standalone AI command still calls <code>ShowChat</code>;</p>
+<li>rebuild the affected Debug x64 projects and run the regression test in an</li>
+<p>isolated verification output; no Salamander process was started or controlled.</p>
+</ul>
+<p>The thirty-ninth code slice is implemented and verified:</p>
+<ul>
+<li>make the standalone <code>SalamatrixAI.SPL</code> menu caption explicitly</li>
+<p><code>Ask Salamatrix AI...</code> in its own resource and use the same text as a bounded fallback when localized resource lookup returns NULL or empty;</p>
+<li>strengthen the source-contract regression test to validate the standalone</li>
+<p>resource text, fallback, <code>BuildMenu</code> command insertion, and the existing <code>ExecuteMenuItem</code> to <code>ShowChat</code> path;</p>
+<li>rebuild <code>SalamatrixAI.SPL</code> Debug x64 into</li>
+<p><code>build\verification\ask-ai-menu-ai-final2</code> and rerun the regression test; no Salamander process was started or controlled.</p>
+</ul>
+<p>The fortieth code slice is implemented and verified:</p>
+<ul>
+<li>synchronize the shared Salamatrix native UI with Salamander's explicit</li>
+<p><code>Windows Dark Mode (experimental)</code> configuration and current scheme colors at provider startup and when <code>WM_SETTINGCHANGE</code>/<code>WM_THEMECHANGED</code> arrives;</p>
+<li>apply the existing <code>win32-darkmodelib</code> path to Salamatrix dialog trees,</li>
+<p>controls, title bars, and Unicode message boxes without changing any public SDK/vtable prefix;</p>
+<li>give SalamatrixAI the shared <code>src/res/sal_r.ico</code> artwork, conventional</li>
+<p><code>versinfo.rh2</code>/<code>versinfo.rc2</code> metadata, and the common project homepage; apply the same homepage to all four independent runtime <code>.SPL</code> providers;</p>
+<li>add source-contract coverage and third-party attribution, then build the</li>
+<p>Salamatrix Framework, SalamatrixAI, and all four runtime providers into isolated <code>build\verification\ai-darkmode-*</code> and <code>build\verification\metadata-*</code> outputs. The source regression test and all six Debug x64 builds passed; no Salamander process was started or controlled.</p>
+</ul>
+<p>The forty-first code slice is implemented and verified:</p>
+<ul>
+<li>audit commit <code>4a2bca820dcd238abc3855f900d4a92ab37acc9f</code> and restore the</li>
+<p>removed AI assistant workflow in the standalone <code>SalamatrixAI.SPL</code> plugin: panel context, localized prompts/status text, temporary script creation, bounded repair/refinement, clipboard preview, save/run actions, and runtime extension-package export;</p>
+<li>keep Automation independent as the legacy JavaScript/VBScript plugin and</li>
+<p>shared runtime client: its removed AI command, resources, helpers, and dispatch path remain absent while its <code>Salamatrix.AI</code> and <code>Salamatrix.ScriptRunner</code> compatibility services remain available;</p>
+<li>add the append-only <code>IScriptRunner::RefreshExtensions</code> method so the AI</li>
+<p>package export requests a refresh through the shared service and the existing Plugin Manager can discover the package without a new Extension Manager or runtime installer;</p>
+<li>add source-contract coverage for the complete migration and rebuild both</li>
+<p>affected Debug x64 projects into isolated <code>build\verification\ai-restored-logic-final</code> and <code>build\verification\automation-restored-logic-final</code> outputs. The source regression test and both builds passed; no Salamander process was started or controlled.</p>
+</ul>
+<p>The forty-second code slice is implemented and verified:</p>
+<ul>
+<li>diagnose the shutdown crash from <code>ACE187E9236B11B2-AS50SAM0.13X64-260726-101224.TXT</code>:</li>
+<p>a runtime provider called <code>UnregisterAdapter</code> through a stale borrowed <code>Salamatrix.Runtime</code> broker after the Framework provider had already been unloaded;</p>
+<li>add an unload guard to all four standalone runtime providers. Each provider</li>
+<p>queries the current <code>SALAMATRIX_SERVICE_RUNTIME</code>, compares it with the registration's original service pointer, and only then calls <code>Unregister()</code>. If the service is gone or replaced, it clears local registration state without dereferencing the stale broker;</p>
+<li>extend the source-contract regression test for JavaScript, Python,</li>
+<p>PowerShell, and PHP and rebuild all four Debug x64 <code>.SPL</code> providers into isolated <code>build\verification\shutdown-guard-*</code> outputs. The regression test and all four builds passed; no Salamander process was started or controlled.</p>
+</ul>
+<p>The forty-third code slice is implemented and verified:</p>
+<ul>
+<li>make <code>salamatrix_runtime.h</code> self-contained for its dark-mode API calls by</li>
+<p>including the shared <code>darkmode.h</code> declarations directly;</p>
+<li>preserve projects that define <code>USE_DARKMODELIB=1</code> and provide a fallback of</li>
+<p><code>0</code> for consumers that only use the header and do not inherit Salamatrix's precompiled header;</p>
+<li>rebuild the <code>demoplug</code> Debug x64 plugin into isolated</li>
+<p><code>build\verification\demoplug-darkmode-header</code>; compilation and linking passed. No Salamander process was started or controlled.</p>
+</ul>
+<p>The forty-fourth code slice is implemented and verified:</p>
+<ul>
+<li>wire SalamatrixAI's existing <code>IDI_PLUGINICON</code> resource to numeric ID 1030,</li>
+<p>load it during <code>CPluginInterface::Connect</code>, and publish it through the normal Plugin Manager icon-list callbacks;</p>
+<li>keep the shared <code>src/res/sal_r.ico</code> icon for Salamatrix Framework and</li>
+<p>SalamatrixAI only; remove it from the JavaScript, Python, PowerShell, and PHP runtime resource scripts so those providers retain the default Plugin Manager icon;</p>
+<li>extend the source-contract test for numeric icon identity, AI icon-list</li>
+<p>registration, and default runtime icon scope; rebuild SalamatrixAI and all four runtimes into isolated <code>build\verification\icon-scope-*</code> outputs. The test and all five builds passed; no Salamander process was started or controlled.</p>
+</ul>
+<p>The forty-fifth code slice is implemented and verified:</p>
+<ul>
+<li>initialize <code>SalamanderGUI</code> from <code>CSalamanderPluginEntryAbstract</code> in</li>
+<p><code>SalamatrixAI.SPL</code> before the normal Plugin Manager connect lifecycle; the existing <code>Connect()</code> icon-list registration can therefore publish <code>src/res/sal_r.ico</code> instead of silently taking the null-GUI path;</p>
+<li>make the standalone AI dynamic menu command use the public</li>
+<p><code>MENU_SKILLLEVEL_ALL</code> contract and report <code>CmdOpenAssistant</code> as enabled even while the optional Salamatrix Framework services are still being resolved; execution retains lazy service lookup and the existing user-facing fallback when the Framework is unavailable, so Plugin Manager keyboard shortcuts dispatch the same command as the menu item;</p>
+<li>extend the source-contract regression test for entry GUI initialization,</li>
+<p>all-skill-level menu insertion, and enabled command state; rebuild the <code>SalamatrixAI.SPL</code> Debug x64 artifact in isolated <code>build\verification\ai-menu-icon-fix</code> output. The regression test and build passed; no Salamander process was started or controlled.</p>
+</ul>
+</main></body>
+</html>

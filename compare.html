@@ -174,14 +174,14 @@
         <tr class="addition"><td>JSON viewer<br><small><i>Written in C# .NET, provides tree view on JSON file with search functionality.</i></small></td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr><td>Internet Explorer viewer: HTML, XML</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr class="addition"><td>WebView2 Render viewer: HTML, Markdown, SVG, WebP/AVIF/APNG, raster images and PDF</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
-        <tr class="addition"><td>File Comparator Unicode whitespace glyphs and 8-bit text under the UTF-8 process code page</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
-        <tr class="addition"><td>Database Viewer fonts scaled for high-DPI displays</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr><td>Portable executable viewer: EXE, DLL</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
 
         <tr class="section"><th colspan="6"><b>Archives Support:</b> <b>U</b>npack / <b>P</b>ack, <b>I</b>nternal / <b>E</b>xternal (requires third party software)</th></tr>
         <tr><td>ZIP</td><td class="yes">UI / PI</td><td>UI / PI</td><td>UI / PI</td><td>UI / PI</td><td>–</td></tr>
-        <tr><td>RAR</td><td class="yes">UI / PE</td><td>–</td><td>UI / PE</td><td>UI / PE</td><td>–</td></tr>
-        <tr><td>RAR (WinRAR) 5.0</td><td class="yes">UI / PE</td><td>–</td><td>UI / PE</td><td>–</td><td>–</td></tr>
+        <tr><td>RAR<br>
+          <small><b>⭘</b> <i>Plugin source code available, not compiled as unrar library is missing.</i></small></td><td class="yes">UI / PE</td><td>⭘</td><td>UI / PE</td><td>UI / PE</td><td>–</td></tr>
+        <tr><td>RAR (WinRAR) 5.0<br>
+          <small><b>⭘</b> <i>Plugin source code available, not compiled as unrar library is missing.</i></small></td><td class="yes">UI / PE</td><td>⭘</td><td>UI / PE</td><td>–</td><td>–</td></tr>
         <tr><td>ARJ</td><td class="yes">UI / PE</td><td>UI / PE</td><td>UI / PE</td><td>UI / PE</td><td>–</td></tr>
         <tr><td>CAB</td><td class="yes">UI</td><td>UI</td><td>UI</td><td>UI</td><td>–</td></tr>
         <tr><td>PAK (Quake PAK)</td><td class="yes">UI</td><td>UI</td><td>UI</td><td>UI</td><td>–</td></tr>
@@ -199,7 +199,6 @@
         <tr><td>Create Self-Extract archives</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Automatic search for external archivers</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>View / Edit files in archives</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
-        <tr class="addition"><td>ZIP file names with diacritics when Windows uses UTF-8 as the active system code page</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
 
         <tr class="section"><th colspan="6"><b>Basic Commands</b></th></tr>
         <tr><td>Rename, View, Edit, Copy, Move, Delete</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
@@ -521,6 +520,39 @@
     <tr class="addition"><td>WebP, HEIF/HEIC, DNG/RAW and other optional image formats</td><td>Available when their <a href="https://learn.microsoft.com/en-us/windows/win32/wic/native-wic-codecs">WIC codec</a> is installed on the local Windows system; their extensions are discovered automatically and are not treated as universal support.</td></tr>
   </tbody></table></div>
 
+  <h3>PictView Viewer: guaranteed native and preview formats</h3>
+  <p class="intro">These formats are registered independently of optional Microsoft Store codecs. Some container formats expose an embedded preview rather than the complete document; Save As remains limited to WIC encoders.</p>
+  <div class="scroll"><table><thead><tr><th><b>Extension</b></th><th><b>Format description</b></th></tr></thead><tbody>
+    <tr class="addition"><td>TGA</td><td>Truevision Targa bitmap.</td></tr>
+    <tr class="addition"><td>PCX, DCX</td><td>ZSoft Paintbrush bitmap and multi-page DCX container.</td></tr>
+    <tr class="addition"><td>PBM, PGM, PPM, PNM</td><td>Netpbm monochrome, grayscale and portable pixmap formats.</td></tr>
+    <tr class="addition"><td>RAS, SUN</td><td>Sun Raster bitmap.</td></tr>
+    <tr class="addition"><td>SGI, BW, RGB</td><td>Silicon Graphics image formats.</td></tr>
+    <tr class="addition"><td>WBMP</td><td>Wireless Bitmap.</td></tr>
+    <tr class="addition"><td>JFF, JIF, THM, THUMB</td><td>JPEG aliases decoded by content sniffing.</td></tr>
+    <tr class="addition"><td>SVG</td><td>Scalable Vector Graphics rendered by the native PictView backend.</td></tr>
+    <tr class="addition"><td>IFF, LBM</td><td>Amiga Interchange File Format / Deluxe Paint bitmap.</td></tr>
+    <tr class="addition"><td>ANI, CUR</td><td>Windows animated cursor and cursor formats.</td></tr>
+    <tr class="addition"><td>PSD</td><td>Adobe Photoshop flattened 8-bit composite image.</td></tr>
+    <tr class="addition"><td>FLI, FLC</td><td>Autodesk Animator animation formats.</td></tr>
+    <tr class="addition"><td>DTX</td><td>LithTech texture format.</td></tr>
+    <tr class="addition"><td>DDS</td><td>Uncompressed, DXT1/3/5, ATI1/ATI2 and common DX10 BC1–BC5 / 32-bit UNORM variants; cubemaps and BC7 are not decoded natively.</td></tr>
+    <tr class="addition"><td>EPS, EPT, AI</td><td>Embedded JPEG, PNG, TIFF, BMP or WMF preview from PostScript and Adobe Illustrator containers.</td></tr>
+    <tr class="addition"><td>MOV</td><td>Embedded preview image from QuickTime containers.</td></tr>
+    <tr class="addition"><td>HPI</td><td>Embedded preview image.</td></tr>
+    <tr class="addition"><td>CDR, CDT, CMX, WEB, XAR</td><td>Embedded or ZIP-stored preview from Corel and related containers.</td></tr>
+    <tr class="addition"><td>PSP</td><td>Embedded preview from Paint Shop Pro files.</td></tr>
+    <tr class="addition"><td>ZBR, ZMF, ZNO</td><td>Embedded preview from Zoner containers.</td></tr>
+    <tr class="addition"><td>XCF</td><td>GIMP 8-bit RGB or grayscale image flattened for viewing.</td></tr>
+    <tr class="addition"><td>PDN</td><td>Paint.NET PDN3 PNG thumbnail.</td></tr>
+    <tr class="addition"><td>3DM</td><td>Embedded preview from Rhino 3D models.</td></tr>
+    <tr class="addition"><td>DWG</td><td>Embedded BMP, PNG, WMF or EMF preview from AutoCAD drawings.</td></tr>
+    <tr class="addition"><td>SKP</td><td>ZIP-stored thumbnail from SketchUp models.</td></tr>
+    <tr class="addition"><td>3MF</td><td>ZIP-stored <code>Metadata/thumbnail.png</code> preview.</td></tr>
+    <tr class="addition"><td>BLEND</td><td>Embedded JPEG, PNG or BMP preview from Blender files.</td></tr>
+    <tr class="addition"><td>WMF, EMF</td><td>Windows metafiles rasterized through GDI.</td></tr>
+    <tr class="addition"><td>STL</td><td>Native isometric panel thumbnail and interactive viewer through the installed Windows Explorer 3D preview handler.</td></tr>
+  </tbody></table></div>
   <h3>Multimedia Viewer: supported audio formats</h3>
   <div class="scroll"><table><thead><tr><th><b>Extension</b></th><th><b>Format description</b></th></tr></thead><tbody>
     <tr><td>MP3, MP2</td><td>MPEG 1 or MPEG 2 audio files, layer I, II and III; ID3 tag versions 1 and 2</td></tr>

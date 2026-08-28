@@ -54,6 +54,7 @@
         <div class="section-nav__submenu">
           <a href="index.html">Salamatrix Framework Overview</a>
           <a href="salamatrix-ui.html">Salamatrix.UI Framework</a>
+          <a href="salamatrix-filesystems.html">File-system panels</a>
           <a href="index.html#ai">Salamatrix.AI Companion</a>
           <a href="studio.html">Salamatrix Studio for Visual Studio Code</a>
         </div>
@@ -83,7 +84,7 @@
     <div class="studio-facts" aria-label="Salamatrix Studio facts">
       <div class="studio-fact"><strong>Standalone VSIX</strong><span>No running or installed Open Salamander is needed to use the editor.</span></div>
       <div class="studio-fact"><strong>Source-first workflow</strong><span>Design metadata is project-local and generated code remains readable.</span></div>
-      <div class="studio-fact"><strong>Native preview</strong><span>A bundled x64 Win32 host previews the same Salamatrix dialog model.</span></div>
+      <div class="studio-fact"><strong>Native preview</strong><span>A bundled, Authenticode-signed x64 Win32 host previews the same Salamatrix dialog model.</span></div>
     </div>
 
     <section id="workflow" aria-labelledby="workflow-title">
@@ -98,7 +99,7 @@
       <div class="studio-feature-grid">
         <article class="studio-feature"><h3>Extension and manifest designer</h3><p>Create functional projects for PowerShell, Python, Node.js, PHP, Lua, and Automation JScript. Inspect and edit manifest fields without losing fields outside the visual surface.</p></article>
         <article class="studio-feature"><h3>Menu Builder</h3><p>Store menu metadata in <code>.salamatrix/menu.json</code>, choose plugin, context-menu, and toolbar placements, and preview light or dark SVG icons.</p></article>
-        <article class="studio-feature"><h3>Dialogs designer</h3><p>Build <code>*.salamatrix-dialog.json</code> documents with drag-and-drop controls, geometry, options, items, columns, validation, templates, and standalone dialog projects.</p></article>
+        <article class="studio-feature"><h3>Dialogs designer</h3><p>Build <code>*.salamatrix-dialog.json</code> documents with drag-and-drop controls, geometry, options, items, columns, validation, templates, and standalone dialog projects. The editor preview follows the native 8 pt MS Shell Dlg metrics and mirrors static-text bold, underline, end-ellipsis, and path-ellipsis styles.</p></article>
         <article class="studio-feature"><h3>Generate for your runtime</h3><p>Generate readable PowerShell, Python, Node.js, PHP, Lua, Automation JScript, or native C++ dialog modules from the same design document.</p></article>
       </div>
     </section>
@@ -119,7 +120,7 @@
         <div><h3>Visual Studio Code or VSCodium</h3><ol><li>Download the <code>salamatrix-studio-win32-x64-*.vsix</code> package.</li><li>Open Extensions and choose <strong>...</strong> → <strong>Install from VSIX...</strong>.</li><li>Open the Salamatrix Studio icon in the Activity Bar and create or add a project.</li></ol></div>
         <div class="studio-install__facts"><span><b>Platform:</b> Windows x64</span><span><b>Host:</b> bundled static-runtime Win32 preview</span><span><b>Requirements:</b> VS Code 1.100+; Salamander is optional</span></div>
       </div>-->
-      <p class="note">The Visual Studio Marketplace is the primary place where you can find and install the Salamatrix Studio extension for Visual Studio Code.</p>
+      <p class="note"><strong>Current release: 0.1.10.</strong> The Windows x64 VSIX includes the signed native preview host. The Visual Studio Marketplace is the primary place where you can find and install the Salamatrix Studio extension for Visual Studio Code.</p>
       <p class="hero-actions"><a aria="button" href="https://marketplace.visualstudio.com/items?itemName=KRtekTM.salamatrix-studio">Open Salamatrix Studio in the Marketplace</a></p>
     </section>
   </main>

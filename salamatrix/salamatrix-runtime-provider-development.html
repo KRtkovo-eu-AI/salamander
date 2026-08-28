@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Developing a Salamatrix language runtime provider</title>
+<style>
+:root { color-scheme:light dark; --bg:#fff; --fg:#202124; --surface:#f6f8fa;
+ --border:#d0d7de; --accent:#c9252d; --code:#f0f2f4; }
+@media (prefers-color-scheme:dark) { :root { --bg:#1e1f20; --fg:#e8eaed;
+ --surface:#27292c; --border:#45484d; --code:#2d3034; } }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg);
+ font:15px/1.55 "Segoe UI",Arial,sans-serif; }
+main { max-width:1120px; margin:0 auto; padding:32px 28px 64px; }
+.doc-nav { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:1.5rem;
+ padding:.75rem; background:var(--surface); border:1px solid var(--border);
+ border-radius:6px; }
+.doc-nav a { padding:.35rem .6rem; border-radius:4px; text-decoration:none; }
+.doc-nav a:hover { background:var(--code); }
+h1 { font-size:2rem; border-bottom:3px solid var(--accent); padding-bottom:.3em; }
+h2 { font-size:1.45rem; margin-top:2em; border-bottom:1px solid var(--border);
+ padding-bottom:.25em; }
+h3 { font-size:1.15rem; margin-top:1.6em; }
+p,ul { max-width:92ch; } a { color:#2f81f7; }
+code { font-family:Consolas,"Cascadia Mono",monospace; background:var(--code);
+ border-radius:3px; padding:.08em .3em; }
+pre { overflow:auto; padding:14px 16px; background:var(--surface);
+ border:1px solid var(--border); border-radius:6px; }
+pre code { padding:0; background:transparent; }
+.table-wrap { overflow:auto; margin:1em 0; }
+table { border-collapse:collapse; min-width:620px; width:100%; }
+th,td { border:1px solid var(--border); padding:7px 10px; text-align:left;
+ vertical-align:top; }
+th { background:var(--surface); } li { margin:.2em 0; }
+</style>
+</head>
+<body><main>
+<nav class="doc-nav" aria-label="Salamatrix documentation">
+<a href="salamatrix-automation-api.html">Salamatrix Automation API reference</a> <a href="salamatrix-ui.html">Salamatrix.UI framework and custom dialog guide</a> <a href="salamatrix-platform.html">Salamatrix Platform Foundation</a> <a href="salamatrix-runtime-providers.html">Standalone Salamatrix runtime providers</a> <a href="salamatrix-runtime-provider-development.html" aria-current="page">Developing a Salamatrix language runtime provider</a> <a href="salamatrix-gap-analysis.html">Salamatrix GAP analysis</a>
+</nav>
+<h1 id="developing-a-salamatrix-language-runtime-provider">Developing a Salamatrix language runtime provider</h1>
+<p>Salamatrix language runtimes are optional Open Salamander plugins. A runtime provider registers one language adapter with <code>Salamatrix.Runtime</code>, starts the language interpreter out of process, and translates between the interpreter and Salamander through the language-neutral SMX1 protocol.</p>
+<p>This design keeps language engines out of <code>SALAMATRIX.SPL</code> and the Automation plugin. It also means that a provider can support a system-installed interpreter without linking its SDK or redistributing it. The built-in PowerShell, CPython, PHP CLI, Node, and Lua providers are working reference implementations.</p>
+<h2 id="choose-the-process-model">Choose the process model</h2>
+<p>An out-of-process CLI adapter is the recommended starting point for a new language:</p>
+<ul>
+<li>crashes and global interpreter state stay outside Salamander;</li>
+<li>the provider only depends on Win32, the Salamander plugin SDK, and the</li>
+<p>Salamatrix runtime headers;</p>
+<li>users can update or replace the interpreter independently;</li>
+<li>every language receives the same capability-checked host API over SMX1.</li>
+</ul>
+<p>An in-process adapter is possible through <code>IRuntimeAdapter</code>, but it owns the additional ABI, allocator, threading, shutdown, and interpreter-lifetime risks. Do not expose Salamander C++ objects or COM pointers directly to scripts.</p>
+<h2 id="components">Components</h2>
+<p>A complete provider contains four parts:</p>
+<p>1. A normal <code>.SPL</code> plugin that owns an <code>IRuntimeAdapter</code>. 2. Interpreter discovery and process/session management. 3. A language-specific worker bootstrap that exposes the <code>Salamander</code> facade. 4. Build, packaging, catalog, documentation, and test integration.</p>
+<p>Use these files as references:</p>
+<ul>
+<li><code>src/plugins/powershellruntime/powershellruntime.cpp</code> for plugin lifecycle,</li>
+<p>interpreter discovery, one-shot execution, and persistent pipes;</p>
+<li><code>src/plugins/powershellruntime/runtime/salamatrix_worker.ps1</code> for a worker</li>
+<p>facade in a dynamic language;</p>
+<li><code>src/plugins/salamatrix/salamatrix_runtime_api.h</code> for the native ABI;</li>
+<li><code>src/plugins/salamatrix/salamatrix_runtime_protocol.h</code> for SMX1 framing;</li>
+<li><code>doc/salamatrix-automation-api.md</code> for the script-facing API;</li>
+<li><code>doc/salamatrix-ui.md</code> for the complete native control contract and</li>
+<p>cross-language dialog examples.</p>
+</ul>
+<h2 id="1-describe-the-adapter">1. Describe the adapter</h2>
+<p>Implement <code>Salamatrix::Runtime::IRuntimeAdapter</code> and return a stable <code>RuntimeAdapterDescriptor</code>:</p>
+<pre><code class="language-cpp">m_descriptor.RuntimeId = &quot;Example.CLI&quot;;
+m_descriptor.DisplayName = &quot;Example CLI runtime provider&quot;;
+m_descriptor.LanguageId = &quot;example&quot;;
+m_descriptor.FileExtensions = &quot;.example&quot;;
+m_descriptor.RuntimeVersion = 0x00010000;
+m_descriptor.Flags =
+    Salamatrix::Runtime::RuntimeAdapterFlagOutOfProcess |
+    Salamatrix::Runtime::RuntimeAdapterFlagPersistentExtensions;</code></pre>
+<p><code>RuntimeId</code> is part of extension manifests and AI output, so changing it breaks existing packages. Use a language-neutral dotted identifier when several engines could implement the same language. <code>FileExtensions</code> is a semicolon-separated list if the adapter accepts more than one suffix.</p>
+<p><code>IsAvailable()</code> must be cheap after its first call. The existing providers resolve an explicit <code>SALAMATRIX_&lt;LANGUAGE&gt;</code> environment variable first and then search a short list of executable names with <code>SearchPathW</code>. An environment variable may contain either a full path or a command name.</p>
+<p><code>SupportsEntryPoint()</code> should reject unavailable runtimes and compare the entry-point suffix case-insensitively.</p>
+<h2 id="2-register-without-taking-ownership-of-the-framework">2. Register without taking ownership of the framework</h2>
+<p>The provider and <code>SALAMATRIX.SPL</code> have independent plugin lifetimes. Query <code>SALAMATRIX_SERVICE_RUNTIME</code> with minimum version <code>SALAMATRIX_RUNTIME_VERSION_1_0</code>, then register the adapter through <code>RuntimeProviderRegistration</code>.</p>
+<p>Registration may not be possible during <code>SalamanderPluginEntry</code> when the framework has not loaded yet. Retry from <code>Connect</code> and <code>Event</code>. Before registering, use <code>FindAdapter(runtimeId, 0)</code> to avoid a duplicate.</p>
+<p>On <code>Release</code>, unregister only when the currently published runtime service is the exact service stored by the registration helper. If the framework has already unloaded, discard the borrowed registration state without calling through the stale interface. The standalone providers demonstrate this unload guard in <code>UnregisterRuntimeProvider</code>.</p>
+<p>The provider must set <code>SetFlagLoadOnSalamanderStart(TRUE)</code>. Its adapter object and descriptor strings must remain alive for the whole registration.</p>
+<h2 id="3-implement-one-shot-execution">3. Implement one-shot execution</h2>
+<p><code>Execute()</code> is the direct CLI path:</p>
+<p>1. Validate <code>StructSize</code>, pointers, availability, and entry-point suffix. 2. Build a correctly quoted Unicode command line. 3. Set the working directory to <code>WorkingDirectory</code>, or to the entry-point directory when it is absent. 4. redirect stdin to <code>NUL</code> and capture stdout/stderr through a pipe; 5. start the interpreter with <code>CREATE_NO_WINDOW</code>; 6. enforce the request timeout with an absolute upper bound; 7. drain bounded output, preserve the process ID and exit code, and fill every field in <code>RuntimeExecutionResult</code>.</p>
+<p>Never pass an untrusted command line through <code>cmd.exe</code>. Reject embedded quotes unless the provider has a complete Windows argument quoting implementation. Keep output bounded; the reference providers capture at most 1 MiB and copy a bounded summary into the ABI result.</p>
+<h2 id="4-implement-persistent-sessions">4. Implement persistent sessions</h2>
+<p>Manifest extensions normally use <code>StartPersistent()</code>. Create two anonymous pipes:</p>
+<ul>
+<li>host writes to worker stdin;</li>
+<li>host reads from worker stdout;</li>
+<li>worker stderr goes somewhere other than the protocol stream.</li>
+</ul>
+<p>When <code>RuntimeExecutionFlagUseWorkerBootstrap</code> is set, start the provider's worker file and pass the entry point plus optional command ID and handler. When <code>RuntimeExecutionFlagOneShotWorker</code> is also set, ask the worker to exit after the entry point returns.</p>
+<p>The returned <code>IRuntimeSession</code> owns the process, thread, and pipe handles. It must:</p>
+<ul>
+<li>send complete UTF-8 SMX1 lines;</li>
+<li>receive one bounded line at a time while preserving unread bytes;</li>
+<li>pump worker calls through <code>RuntimeHostDispatchProc</code>;</li>
+<li>translate dispatch success to <code>result</code> and failure to <code>error</code> frames;</li>
+<li>stop and close handles synchronously;</li>
+<li>report stable running, exited, stopped, and failed diagnostics;</li>
+<li>never leave a worker capable of calling unloaded provider code.</li>
+</ul>
+<p><code>Release()</code> deletes the session. <code>Stop()</code> must be idempotent. A provider may terminate an unresponsive worker, but it must first close the input channel and use bounded waits.</p>
+<h2 id="5-write-the-worker-bootstrap">5. Write the worker bootstrap</h2>
+<p>SMX1 is a line protocol:</p>
+<pre><code class="language-text">SMX1&lt;TAB&gt;kind&lt;TAB&gt;decimal-id&lt;TAB&gt;compact-json&lt;LF&gt;</code></pre>
+<p>Each encoded frame, including the newline, is limited to 1 MiB. Worker stdout is reserved exclusively for these frames. Redirect or replace the language's normal <code>print</code> facility so extension output cannot corrupt the transport.</p>
+<p>The worker starts with:</p>
+<pre><code class="language-text">SMX1	hello	0	{&quot;protocol&quot;:1,&quot;runtime&quot;:&quot;example&quot;}</code></pre>
+<p>It waits for <code>result</code> ID <code>0</code>, builds the language-native <code>Salamander</code> object, and executes the entry point. Host calls use monotonically increasing IDs and a payload containing <code>method</code> plus its arguments. While waiting for a result, the worker must dispatch interleaved <code>event</code> frames. A <code>shutdown</code> frame ends the persistent loop.</p>
+<p>Implement JSON inside the worker without requiring an optional language package, or ship and license a dependency beside the provider. Preserve JSON strings, booleans, signed integers, arrays, objects, and null. Reject malformed, oversized, or non-SMX1 input instead of attempting to recover silently.</p>
+<p>The facade should cover the same method vocabulary as the other modern workers: commands, storage, file operations, sides/tabs, UI and dialogs, clipboard, AI, events, runtime enumeration, and host appearance/language. Keep language naming idiomatic, but do not change host method names or payload fields.</p>
+<p>For dialogs, implement the full generic <code>addControl</code> equivalent rather than only convenience helpers. It must forward explicit <code>x</code>/<code>y</code>/<code>width</code>/<code>height</code> and the common extended properties: style flags, path separator, tooltip, hyperlink open/command/hint actions, known and 64-bit progress values, indeterminate timing, text/background colors, and toolbar-header alignment and button mask. Support the complete control-kind set documented in <code>doc/salamatrix-ui.md</code>. Dialog creation, ownership, native rendering, event delivery, dark mode, and DPI belong to Salamatrix Framework; a runtime provider must not implement a parallel UI toolkit or depend on Automation.</p>
+<h2 id="6-add-the-project-and-package">6. Add the project and package</h2>
+<p>Follow the standalone provider layout:</p>
+<pre><code class="language-text">src/plugins/&lt;language&gt;runtime/
+  &lt;language&gt;runtime.cpp
+  &lt;language&gt;runtime.h
+  &lt;language&gt;runtime.def
+  &lt;language&gt;runtime.rc
+  runtime/salamatrix_worker.&lt;suffix&gt;
+  vcxproj/&lt;language&gt;runtime.props
+  vcxproj/&lt;language&gt;runtime.vcxproj</code></pre>
+<p>The project output belongs under:</p>
+<pre><code class="language-text">plugins/extension-runtimes/&lt;project-name&gt;/</code></pre>
+<p>Copy the worker to the provider's <code>runtime</code> subdirectory after the build. Add the project to <code>src/vcxproj/salamand.sln</code>, include both the <code>.spl</code> and worker in the installer, declare a dependency on <code>salamatrix</code>, and add a catalog entry. Do not make the runtime an Automation dependency and do not bundle an interpreter unless its redistribution, updates, architecture, and licenses are an explicit product decision.</p>
+<p>An extension selects the adapter by its stable runtime ID:</p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;example.demo&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;runtime&quot;: &quot;Example.CLI&quot;,
+  &quot;entryPoint&quot;: &quot;main.example&quot;,
+  &quot;capabilities&quot;: [&quot;panels.read&quot;, &quot;ui.dialogs&quot;]
+}</code></pre>
+<h2 id="7-verify-the-provider">7. Verify the provider</h2>
+<p>Verification should include:</p>
+<ul>
+<li>Debug and Release x64 project builds;</li>
+<li>project XML and package path checks;</li>
+<li>worker syntax checks with a real interpreter;</li>
+<li>interpreter discovery through both the environment override and <code>PATH</code>;</li>
+<li>one-shot output, nonzero exit, and timeout cases;</li>
+<li>SMX1 hello/result/call/error/event/shutdown framing;</li>
+<li>persistent session diagnostics and unload ordering;</li>
+<li>the isolated process-runtime integration test with</li>
+<p><code>SALAMATRIX_WORKER_ROOT</code>;</p>
+<li>a visible demo extension that exercises representative host APIs;</li>
+<li>a capabilities-dialog example that constructs its controls in the provider</li>
+<p>language and identifies the runtime and extension in the common <code>Created by</code> group. Do not replace this source-level example with a call to a prebuilt gallery window.</p>
+</ul>
+<p>Use a disposable worker root containing only the bootstrap files under test. The process-runtime tests do not require starting Salamander. Use the same <code>463 x 236</code> gallery geometry and options as the five bundled demos when adding a provider so parity can be reviewed source-to-source. The current layout and examples are described in <a href="salamatrix-ui.html">Salamatrix.UI framework and custom dialog guide</a>. After building or staging the package, verify its PE exports and colocated worker without loading the plugin:</p>
+<pre><code class="language-powershell">.\tools\verify_runtime_packages.ps1 `
+  -SalamanderPath .\build\salamander\Release_x64 `
+  -Architecture x64 -Plugin &lt;language&gt;runtime</code></pre>
+<h2 id="lua-reference-provider">Lua reference provider</h2>
+<p><code>LuaRuntime.SPL</code> follows this model with runtime ID <code>Lua</code>, language ID <code>lua</code>, and <code>.lua</code> entry points. It resolves <code>SALAMATRIX_LUA</code>, then its bundled <code>runtime\lua.exe</code>, then <code>lua.exe</code>, <code>lua55.exe</code>, or <code>lua54.exe</code> on <code>PATH</code>. The bundled Lua 5.5.0 interpreter and DLL come from the pinned vcpkg <code>lua[tools]</code> port. Its complete MIT notice is copied into the package as <code>runtime\LICENSE-LUA.txt</code> and Lua is listed in every localized <code>third_party.md</code> variant.</p>
+<p>The worker supports stock Lua without external modules. It supplies its own bounded JSON codec, reserves stdout for SMX1, exposes the global <code>Salamander</code> table, and executes the entry point with <code>dofile</code>. A package can therefore use:</p>
+<pre><code class="language-lua">local path = Salamander.sides.context(&quot;source&quot;).path
+Salamander.ui.notify(&quot;Current path: &quot; .. path, &quot;Lua extension&quot;)</code></pre>
+<p>Users who need another Lua build can set <code>SALAMATRIX_LUA</code> to its executable path before starting Salamander; this explicit override takes precedence over the bundled interpreter.</p>
+</main></body>
+</html>

@@ -1,645 +1,564 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Salamatrix.UI — Native dialogs from every runtime</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="../consent.css">
-  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
-  <meta name="description" content="Build native Open Salamander dialogs from Node, Python, PowerShell, PHP, Lua, Automation JScript, or C++ with Salamatrix.UI.">
-  <meta name="keywords" content="Salamatrix.UI, Open Salamander, native dialogs, Python, PowerShell, PHP, Node, Lua, C++, dark mode, DPI">
-  <meta name="robots" content="index, follow">
-  <meta property="og:title" content="Salamatrix.UI — Native dialogs for Open Salamander extensions">
-  <meta property="og:description" content="Build native Open Salamander dialogs from Node, Python, PowerShell, PHP, Lua, Automation JScript, or C++ with Salamatrix.UI.">
-  <meta property="og:image" content="https://samandarin.krtkovo.eu/images/salamatrix_preview.png">
-  <meta property="og:image:alt" content="Salamatrix.UI capabilities preview">
-  <meta property="og:url" content="https://samandarin.krtkovo.eu/salamatrix/salamatrix-ui.html">
-  <meta property="og:type" content="article">
-  <meta property="og:site_name" content="Open Salamander: Samandarin">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Salamatrix.UI — Native dialogs for Open Salamander extensions">
-  <meta name="twitter:description" content="Build native Open Salamander dialogs from seven supported extension surfaces.">
-  <meta name="twitter:image" content="https://samandarin.krtkovo.eu/images/salamatrix_preview.png">
-  <link rel="canonical" href="https://samandarin.krtkovo.eu/salamatrix/salamatrix-ui.html">
-  
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Salamatrix.UI framework and custom dialog guide</title>
+<style>
+:root { color-scheme:light dark; --bg:#fff; --fg:#202124; --surface:#f6f8fa;
+ --border:#d0d7de; --accent:#c9252d; --code:#f0f2f4; }
+@media (prefers-color-scheme:dark) { :root { --bg:#1e1f20; --fg:#e8eaed;
+ --surface:#27292c; --border:#45484d; --code:#2d3034; } }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg);
+ font:15px/1.55 "Segoe UI",Arial,sans-serif; }
+main { max-width:1120px; margin:0 auto; padding:32px 28px 64px; }
+.doc-nav { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:1.5rem;
+ padding:.75rem; background:var(--surface); border:1px solid var(--border);
+ border-radius:6px; }
+.doc-nav a { padding:.35rem .6rem; border-radius:4px; text-decoration:none; }
+.doc-nav a:hover { background:var(--code); }
+h1 { font-size:2rem; border-bottom:3px solid var(--accent); padding-bottom:.3em; }
+h2 { font-size:1.45rem; margin-top:2em; border-bottom:1px solid var(--border);
+ padding-bottom:.25em; }
+h3 { font-size:1.15rem; margin-top:1.6em; }
+p,ul { max-width:92ch; } a { color:#2f81f7; }
+code { font-family:Consolas,"Cascadia Mono",monospace; background:var(--code);
+ border-radius:3px; padding:.08em .3em; }
+pre { overflow:auto; padding:14px 16px; background:var(--surface);
+ border:1px solid var(--border); border-radius:6px; }
+pre code { padding:0; background:transparent; }
+.table-wrap { overflow:auto; margin:1em 0; }
+table { border-collapse:collapse; min-width:620px; width:100%; }
+th,td { border:1px solid var(--border); padding:7px 10px; text-align:left;
+ vertical-align:top; }
+th { background:var(--surface); } li { margin:.2em 0; }
+</style>
 </head>
-<body class="ui-reference-page">
-  <header class="site-header">
-    <a class="skip-link" href="#content">Skip to content</a>
-    <div class="site-header__row">
-      <div class="site-branding">
-        <h1><a href="index.html"><img id="header-logo" src="salamatrix_logo_64px.png" alt="Salamatrix logo"></a>Salamatrix<span class="site-branding__accent">.UI</span></h1>
-        <p id="description-text">Native dialogs from every supported extension runtime</p>
-      </div>
-    </div>
-    <nav class="section-nav" aria-label="Page sections">
-      <a href="index.html" id="site-branding__small_logo"><img src="salamatrix_logo_64px.png" alt="Salamatrix logo"></a>
-      <div class="section-nav__item section-nav__item--has-submenu">
-        <a href="index.html" aria-haspopup="true">Salamatrix Framework</a>
-        <div class="section-nav__submenu">
-          <a href="index.html">Salamatrix Framework Overview</a>
-          <a href="salamatrix-ui.html">Salamatrix.UI Framework</a>
-          <a href="index.html#ai">Salamatrix.AI Companion</a>
-          <a href="studio.html">Salamatrix Studio for Visual Studio Code</a>
-        </div>
-      </div>
-      <a href="#model">UX Model</a>
-      <a href="#controls">UI Controls</a>
-      <div class="section-nav__item section-nav__item--has-submenu">
-        <a href="#gallery" aria-haspopup="true">Languages</a>
-        <div class="section-nav__submenu">
-          <a href="#javascript">JavaScript (Node.js)</a>
-          <a href="#python">Python</a>
-          <a href="#powershell">PowerShell</a>
-          <a href="#php">PHP</a>
-          <a href="#lua">Lua</a>
-          <a href="#automation">JavaScript (Automation plugin)</a>
-          <a href="#native">Native C++</a>
-        </div>
-      </div>
-      <a href="#appearance">Dark mode &amp; DPI</a>
-      <a href="#reference">Reference</a>
-      <a href="https://samandarin.krtkovo.eu/" aria="samandarin">Samandarin</a>
-    </nav>
-  </header>
+<body><main>
+<nav class="doc-nav" aria-label="Salamatrix documentation">
+<a href="salamatrix-automation-api.html">Salamatrix Automation API reference</a> <a href="salamatrix-ui.html" aria-current="page">Salamatrix.UI framework and custom dialog guide</a> <a href="salamatrix-platform.html">Salamatrix Platform Foundation</a> <a href="salamatrix-runtime-providers.html">Standalone Salamatrix runtime providers</a> <a href="salamatrix-runtime-provider-development.html">Developing a Salamatrix language runtime provider</a> <a href="salamatrix-gap-analysis.html">Salamatrix GAP analysis</a>
+</nav>
+<h1 id="salamatrix-ui-framework-and-custom-dialog-guide">Salamatrix.UI framework and custom dialog guide</h1>
+<p>Salamatrix.UI is the framework-owned native user-interface service for Open Salamander extensions. It lets a native plugin, an Automation script, or an out-of-process JavaScript, Python, PowerShell, PHP, or Lua extension construct the same dialog from the same control model.</p>
+<p>This is both the user-facing UI authoring guide and the normative source for AI providers generating Salamatrix dialogs. The installed HTML edition is linked from the Automation API reference. Local AI providers receive a bounded, machine-readable projection of the same lifecycle, control kinds, option names, result fields, and runtime conventions; they must not infer methods from the examples that are absent from that projection.</p>
+<p>The window is not rendered by the language runtime and it is not owned by the Automation plugin. Callers describe a dialog and its controls; Salamatrix creates the native window, attaches Open Salamander controls, applies the selected Salamander color scheme, scales the layout for the current monitor, and returns values and events through the caller's native facade.</p>
+<p>The bundled <strong>Salamatrix UI capabilities</strong> demos are executable examples of this contract. Every demo builds the complete window itself. The only visible difference is the <code>Created by</code> group, which identifies the runtime and the extension or plugin that constructed the dialog.</p>
+<h2 id="ownership-and-execution-model">Ownership and execution model</h2>
+<pre><code class="language-text">Node / Python / PowerShell / PHP / Lua extension
+                   |
+                   | salamander.ui.dialog.* (SMX1 JSON calls)
+                   v
+        Salamatrix package host dispatcher
+                   |
+                   v
+       Salamatrix.UI IDialog / IControl
+                   |
+                   v
+ Open Salamander native controls, DPI and dark mode</code></pre>
+<p>Native plugins query <code>SALAMATRIX_SERVICE_UI</code> and call the C++ interfaces directly. Automation JScript uses a COM facade over the same service. Neither path introduces a second dialog implementation.</p>
+<p>Runtime providers remain independent <code>.SPL</code> plugins. In particular, Python, PowerShell, PHP, Node, and Lua dialogs do not require the Automation plugin to be installed or loaded.</p>
+<p>When hosted inside Open Salamander, <code>Salamatrix.UI</code> delegates static text, hyperlink, progress, arrow, text-arrow, color-arrow, and toolbar-header controls to the corresponding <code>CSalamanderGUI</code> implementations. This preserves the native button imagery, command behavior, color interaction, dark-mode styling, and control lifetime rules. The portable Win32 control implementation is only the fallback for standalone hosts such as Salamatrix Studio preview.</p>
+<p>Modal dialogs, message boxes, file/folder pickers, and the controls showcase do not inherit the ordinary 120-second host-call timeout. They remain synchronously owned by the UI thread until the user closes them, so a dialog may safely stay open for an arbitrary amount of time. A button with <code>dialogResult: 0</code> is an action button and stays open; buttons with a nonzero result close the dialog. This rule also keeps the legacy Automation COM dialog facade compatible even though its original <code>add()</code> signature predates the explicit <code>keepOpen</code> option.</p>
+<h2 id="dialog-lifecycle">Dialog lifecycle</h2>
+<p>All facades follow the same lifecycle:</p>
+<p>1. Create a dialog with a title and native layout size. 2. Add controls in the desired order. 3. Populate list, tree, combo, or tab items where required. 4. Configure validation or change-event delivery where required. 5. Show the dialog modally. 6. Read values and checked/selection state. 7. Destroy or close the dialog in a <code>finally</code>/cleanup block.</p>
+<p>Worker calls use these host methods:</p>
+<div class="table-wrap"><table><thead><tr>
+<th>Method</th>
+<th>Purpose</th>
+</tr></thead><tbody>
+<tr>
+<td><code>salamander.ui.dialog.create</code></td>
+<td>Create a framework-owned dialog; <code>resizable</code> enables its native sizing frame and adaptive layout.</td>
+</tr>
+<tr>
+<td><code>salamander.ui.dialog.add</code></td>
+<td>Add a control and optional explicit bounds.</td>
+</tr>
+<tr>
+<td><code>salamander.ui.dialog.item</code></td>
+<td>Add a combo/list/tree/tab item.</td>
+</tr>
+<tr>
+<td><code>salamander.ui.dialog.column</code></td>
+<td>Add a ListView column.</td>
+</tr>
+<tr>
+<td><code>salamander.ui.dialog.selection</code></td>
+<td>Change the selected item.</td>
+</tr>
+<tr>
+<td><code>salamander.ui.dialog.clearItems</code></td>
+<td>Remove all bound items.</td>
+</tr>
+<tr>
+<td><code>salamander.ui.dialog.validation</code></td>
+<td>Configure required validation.</td>
+</tr>
+<tr>
+<td><code>salamander.ui.dialog.events</code></td>
+<td>Enable or disable change events.</td>
+</tr>
+<tr>
+<td><code>salamander.ui.dialog.show</code></td>
+<td>Run the native modal dialog.</td>
+</tr>
+<tr>
+<td><code>salamander.ui.dialog.get</code></td>
+<td>Read text, checked state, item count, and selection.</td>
+</tr>
+<tr>
+<td><code>salamander.ui.dialog.set</code></td>
+<td>Change control text.</td>
+</tr>
+<tr>
+<td><code>salamander.ui.dialog.destroy</code></td>
+<td>Release the native dialog and callbacks.</td>
+</tr>
+</tbody></table></div>
+<p>The package host stores dialog ownership on the manifest extension. Deactivation or package removal destroys any remaining dialogs and unregisters their event callbacks before the worker session is released.</p>
+<h2 id="supported-controls">Supported controls</h2>
+<p>The <code>kind</code> passed to <code>addControl</code>/<code>add_control</code>/<code>AddControl</code> maps to a native Salamatrix control kind:</p>
+<div class="table-wrap"><table><thead><tr>
+<th>Runtime kind</th>
+<th>Native control</th>
+<th>Typical use</th>
+</tr></thead><tbody>
+<tr>
+<td><code>label</code></td>
+<td>Label</td>
+<td>Ordinary caption text.</td>
+</tr>
+<tr>
+<td><code>statictext</code></td>
+<td><code>CGUIStaticTextAbstract</code></td>
+<td>Styled, ellipsized, notify-enabled host text.</td>
+</tr>
+<tr>
+<td><code>textbox</code></td>
+<td>Edit</td>
+<td>Single-line or multiline editable/read-only text.</td>
+</tr>
+<tr>
+<td><code>checkbox</code></td>
+<td>Check box</td>
+<td>Boolean value.</td>
+</tr>
+<tr>
+<td><code>radio</code></td>
+<td>Radio button</td>
+<td>Mutually exclusive choice.</td>
+</tr>
+<tr>
+<td><code>combobox</code></td>
+<td>Combo box</td>
+<td>Drop-down item selection.</td>
+</tr>
+<tr>
+<td><code>button</code></td>
+<td>Button</td>
+<td>Command, default button, or dialog result.</td>
+</tr>
+<tr>
+<td><code>listview</code></td>
+<td>Native ListView</td>
+<td>Columns, rows, selection, and host list styles.</td>
+</tr>
+<tr>
+<td><code>treeview</code></td>
+<td>Native TreeView</td>
+<td>Hierarchical items using parent indexes.</td>
+</tr>
+<tr>
+<td><code>tabcontrol</code></td>
+<td>Native TabControl</td>
+<td>Tab headers and selection.</td>
+</tr>
+<tr>
+<td><code>folderpicker</code></td>
+<td>Edit plus browse button</td>
+<td>Editable UTF-8 folder path.</td>
+</tr>
+<tr>
+<td><code>filepicker</code></td>
+<td>Edit plus browse button</td>
+<td>Open/save file selection with a filter.</td>
+</tr>
+<tr>
+<td><code>groupbox</code></td>
+<td>Group box</td>
+<td>Visual grouping and caption.</td>
+</tr>
+<tr>
+<td><code>hyperlink</code></td>
+<td><code>CGUIHyperLinkAbstract</code></td>
+<td>Open URL, post command, or show a hint.</td>
+</tr>
+<tr>
+<td><code>progressbar</code></td>
+<td><code>CGUIProgressBarAbstract</code></td>
+<td>Known or indeterminate progress.</td>
+</tr>
+<tr>
+<td><code>arrowbutton</code></td>
+<td>Host arrow button</td>
+<td>Compact arrow action.</td>
+</tr>
+<tr>
+<td><code>textarrowbutton</code></td>
+<td><code>CGUITextArrowButtonAbstract</code></td>
+<td>Text plus right/drop-down/more arrow.</td>
+</tr>
+<tr>
+<td><code>colorarrowbutton</code></td>
+<td><code>CGUIColorArrowButtonAbstract</code></td>
+<td>Color sample, optional text, and arrow.</td>
+</tr>
+<tr>
+<td><code>toolbarheader</code></td>
+<td><code>CGUIToolbarHeaderAbstract</code></td>
+<td>List header with modify/up/down/etc. buttons.</td>
+</tr>
+</tbody></table></div>
+<h2 id="common-layout-and-options">Common layout and options</h2>
+<p>Explicit bounds use <code>x</code>, <code>y</code>, <code>width</code>, and <code>height</code>. They are expressed in the same native dialog-layout units used by the Salamatrix dialog definition. The framework scales the dialog and every child consistently for the current DPI.</p>
+<p>Common options are:</p>
+<div class="table-wrap"><table><thead><tr>
+<th>Option</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>readOnly</code></td>
+<td>Prevent editing of an edit-based control.</td>
+</tr>
+<tr>
+<td><code>checked</code></td>
+<td>Initial checkbox or radio state.</td>
+</tr>
+<tr>
+<td><code>dialogResult</code></td>
+<td>Result returned when a button closes the dialog.</td>
+</tr>
+<tr>
+<td><code>keepOpen</code></td>
+<td>Keep the dialog open after the button is clicked.</td>
+</tr>
+<tr>
+<td><code>multiline</code></td>
+<td>Create a multiline text box.</td>
+</tr>
+<tr>
+<td><code>filter</code>, <code>save</code></td>
+<td>File-picker filter and save mode.</td>
+</tr>
+<tr>
+<td><code>styleFlags</code></td>
+<td>Native Salamatrix/Open Salamander control flags.</td>
+</tr>
+<tr>
+<td><code>pathSeparator</code></td>
+<td>Separator used by path ellipsis.</td>
+</tr>
+<tr>
+<td><code>toolTip</code></td>
+<td>Tooltip text owned by the native control.</td>
+</tr>
+<tr>
+<td><code>actionOpen</code></td>
+<td>URL or shell target opened by a hyperlink.</td>
+</tr>
+<tr>
+<td><code>actionCommand</code></td>
+<td>Command posted by a hyperlink.</td>
+</tr>
+<tr>
+<td><code>actionHint</code></td>
+<td>Hint displayed by a hyperlink.</td>
+</tr>
+<tr>
+<td><code>progress</code>, <code>progressText</code></td>
+<td>Direct progress value and optional text.</td>
+</tr>
+<tr>
+<td><code>progressCurrent</code>, <code>progressTotal</code></td>
+<td>64-bit progress values.</td>
+</tr>
+<tr>
+<td><code>indeterminateDuration</code>, <code>indeterminateInterval</code></td>
+<td>Self-moving progress timing.</td>
+</tr>
+<tr>
+<td><code>textColor</code>, <code>backgroundColor</code></td>
+<td><code>COLORREF</code> values for a color-arrow button.</td>
+</tr>
+<tr>
+<td><code>alignControlId</code>, <code>buttonMask</code></td>
+<td>List control and buttons for a toolbar header.</td>
+</tr>
+</tbody></table></div>
+<p>The five worker facades deliberately forward the same option set. Language syntax is idiomatic, but payload fields, defaults, and native behavior are the same.</p>
+<h2 id="the-capabilities-gallery-layout">The capabilities gallery layout</h2>
+<p>The common demo dialog is <code>463 x 236</code>. It mirrors the Open Salamander DemoPlug control gallery:</p>
+<pre><code class="language-text">+--------------------------------+-----------------------+
+| CGUIStaticTextAbstract         | CGUIHyperLinkAbstract |
+|                                +-----------------------+
+|                                | SetCurrentToolTip     |
++--------------------------------+-----------------------+
+| CGUIProgressBarAbstract        | CGUIToolbarHeader...  |
+| known + indeterminate progress |                       |
++--------------------------------+-----------------------+
+| Buttons and color arrows       | Created by            |
+|                                | Runtime / Extension   |
++--------------------------------+-----------------+-----+
+                                                    Close</code></pre>
+<p>The exact bounds live in every demo source so the source itself demonstrates dialog construction rather than calling a prebuilt gallery shortcut. The identity group uses these values:</p>
+<div class="table-wrap"><table><thead><tr>
+<th>Demo</th>
+<th>Runtime</th>
+<th>Extension/plugin</th>
+</tr></thead><tbody>
+<tr>
+<td>Node</td>
+<td><code>JavaScript.Node</code></td>
+<td><code>Salamatrix Node Demo</code></td>
+</tr>
+<tr>
+<td>Python</td>
+<td><code>Python.CPython</code></td>
+<td><code>Salamatrix Python Demo</code></td>
+</tr>
+<tr>
+<td>PowerShell</td>
+<td><code>PowerShell</code></td>
+<td><code>Salamatrix PowerShell Demo</code></td>
+</tr>
+<tr>
+<td>PHP</td>
+<td><code>PHP.CLI</code></td>
+<td><code>Salamatrix PHP Demo</code></td>
+</tr>
+<tr>
+<td>Lua</td>
+<td><code>Lua</code></td>
+<td><code>Salamatrix Lua Demo</code></td>
+</tr>
+<tr>
+<td>Automation</td>
+<td><code>Automation.JScript</code></td>
+<td><code>Salamatrix Progress Demo</code></td>
+</tr>
+<tr>
+<td>Native</td>
+<td><code>Native</code></td>
+<td><code>DemoPlug</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="javascript-node">JavaScript / Node</h2>
+<p>Node uses an asynchronous dialog facade. Call <code>create()</code> before adding controls and await every host operation:</p>
+<pre><code class="language-javascript">const dialog = await Salamander.ui.dialog(
+  &quot;Salamatrix UI capabilities&quot;,
+  { width: 463, height: 236, resizable: true },
+).create();
 
-  <main id="content">
-    <section class="hero-panel ui-hero" id="overview">
-      <div class="hero-panel__copy">
-        <h2>Build the window in your language. Let Salamander make it native.</h2>
-        <p>Salamatrix.UI is the framework-owned dialog and control layer for Open Salamander extensions. Node, Python, PowerShell, PHP, Lua, Automation JScript, and native C++ all describe the same controls and receive the same native window.</p>
-        <p>Dark mode, current Salamander colors, DPI scaling, keyboard traversal, host controls, accessibility metadata, validation, and cleanup stay inside Salamatrix. A runtime provider never needs its own GUI toolkit.</p>
-        <p class="hero-actions"><a aria="button" href="#gallery">See every language</a><!-- <a class="button-secondary" aria="button" href="salamatrix-ui.md">Read the complete Markdown guide</a>--></p>
-      </div>
-      <div class="hero-panel__visual ui-window-demo" aria-label="Schematic Salamatrix UI capabilities dialog">
-        <img class="preview" width="1247" height="845" alt="Salamatrix UI Capabilities preview" src="../images/salamatrix_preview.png">
-      </div>
-    </section>
+const add = (kind, id, text, x, y, width, height, options = {}) =&gt;
+  dialog.addControl(kind, id, text, { x, y, width, height }, options);
 
-    <section class="content-grid">
-      <h2 id="model">Framework ownership, not a prebuilt gallery</h2>
-      <p>The capabilities window is both a gallery and real extension source. Every bundled demo creates the dialog, adds every control, sets every native property, shows it, and destroys it.</p>
-      <div class="ownership-flow" aria-label="Salamatrix UI ownership flow">
-        <div><strong>Extension source</strong><span>Node · Python · PowerShell · PHP · Lua</span></div><i>SMX1</i><div><strong>Salamatrix package host</strong><span>Dialog IDs · ownership · events · cleanup</span></div><i>ABI</i><div><strong>NativeDialog</strong><span>Open Salamander controls · DPI · dark mode</span></div>
-      </div>
-      <p>Automation JScript uses a thin COM facade over the same service. DemoPlug queries <code>SALAMATRIX_SERVICE_UI</code> and uses <code>IDialog</code>/<code>IControl</code> directly. The concrete window still lives in Salamatrix in both cases.</p>
+await add(&quot;groupbox&quot;, &quot;origin-group&quot;, &quot;Created by&quot;, 269, 169, 185, 38);
+await add(&quot;label&quot;, &quot;runtime-label&quot;, &quot;Runtime:&quot;, 277, 181, 42, 8);
+await add(&quot;statictext&quot;, &quot;runtime-value&quot;, &quot;JavaScript.Node&quot;,
+          323, 181, 122, 8, { styleFlags: 2 });
+await add(&quot;button&quot;, &quot;close&quot;, &quot;Close&quot;, 403, 213, 50, 14,
+          { dialogResult: 1, styleFlags: 0x100000 });
 
-      <h2 id="controls">The native control catalog</h2>
-      <div class="control-catalog">
-        <article><code>label</code><span>Caption text</span></article>
-        <article><code>statictext</code><span>Host styled text, ellipsis, notify</span></article>
-        <article><code>textbox</code><span>Editable, read-only, multiline</span></article>
-        <article><code>checkbox</code><span>Boolean choice</span></article>
-        <article><code>radio</code><span>Exclusive choice</span></article>
-        <article><code>combobox</code><span>Drop-down item selection</span></article>
-        <article><code>button</code><span>Action and dialog result</span></article>
-        <article><code>listview</code><span>Columns, rows, native list styles</span></article>
-        <article><code>treeview</code><span>Hierarchical items</span></article>
-        <article><code>tabcontrol</code><span>Tabs and selected index</span></article>
-        <article><code>folderpicker</code><span>Editable path and folder browser</span></article>
-        <article><code>filepicker</code><span>Open/save dialog and filter</span></article>
-        <article><code>groupbox</code><span>Captioned visual grouping</span></article>
-        <article><code>hyperlink</code><span>Open, post command, show hint</span></article>
-        <article><code>progressbar</code><span>Known, 64-bit, indeterminate</span></article>
-        <article><code>arrowbutton</code><span>Compact arrow action</span></article>
-        <article><code>textarrowbutton</code><span>Text with arrow/drop-down</span></article>
-        <article><code>colorarrowbutton</code><span>Color sample and text</span></article>
-        <article><code>toolbarheader</code><span>Modify/up/down list header</span></article>
-      </div>
+try {
+  await dialog.show();
+} finally {
+  await dialog.close();
+}</code></pre>
+<p>Complete demo: <code>src/extensions/demos/javascript-node/main.mjs</code>.</p>
+<h2 id="python">Python</h2>
+<p>Python creates the native dialog synchronously and accepts the extended option map through <code>options</code>:</p>
+<pre><code class="language-python">dialog = Salamander.ui.dialog(&quot;Salamatrix UI capabilities&quot;, 463, 236, True)
 
-      <h3>One option vocabulary</h3>
-      <p>All five workers forward the same fields: <code>readOnly</code>, <code>checked</code>, <code>dialogResult</code>, <code>keepOpen</code>, <code>multiline</code>, <code>filter</code>, <code>save</code>, <code>styleFlags</code>, <code>pathSeparator</code>, <code>toolTip</code>, <code>actionOpen</code>, <code>actionCommand</code>, <code>actionHint</code>, progress values/timing/text, colors, and toolbar-header alignment/masks.</p>
-
-      <h2 id="gallery">One layout, independently constructed</h2>
-      <p>The common dialog is <code>463 × 236</code>. Its lower-right <strong>Created by</strong> group proves which caller assembled it:</p>
-      <div class="identity-grid">
-        <article><b>JavaScript.Node</b><span>Salamatrix Node Demo</span></article>
-        <article><b>Python.CPython</b><span>Salamatrix Python Demo</span></article>
-        <article><b>PowerShell</b><span>Salamatrix PowerShell Demo</span></article>
-        <article><b>PHP.CLI</b><span>Salamatrix PHP Demo</span></article>
-        <article><b>Lua</b><span>Salamatrix Lua Demo</span></article>
-        <article><b>Automation.JScript</b><span>Salamatrix Progress Demo</span></article>
-        <article><b>Native</b><span>DemoPlug</span></article>
-      </div>
-      <details class="language-example" id="javascript">
-        <summary><span class="language-badge">JS</span><div><h3>JavaScript / Node</h3><p>Async facade; create first, then await every host operation.</p></div></summary>
-        <div class="language-example__visual">
-          <img src="../images/salamatrix_preview_jsnode.png" alt="JavaScript/Node preview">
-        </div>
-        <h4>Node.js script source code example:</h4>
-        <pre><code>// Build the complete gallery here, through the public runtime-neutral API.
-  const dialog = await Salamander.ui.dialog(
-    "Salamatrix UI capabilities", { width: 463, height: 236 }).create();
-  const add = (kind, id, text, x, y, width, height, options = {}) =>
-    dialog.addControl(kind, id, text, { x, y, width, height }, options);
-  const uptime = `System was started ${await Salamander.ui.uptime()} ms ago.`;
-  await add("groupbox", "static-group", "CGUIStaticTextAbstract", 6, 4, 254, 108);
-  await add("label", "not-attached-label", "Not attached static text", 14, 17, 80, 8);
-  await add("label", "uptime-plain", uptime, 102, 17, 152, 8);
-  const rows = [
-    ["static-none", "0 (no flags)", uptime, 27, 0],
-    ["static-cache", "STF_CACHED_PAINT", uptime, 37, 1],
-    ["static-bold", "STF_BOLD", "Bold &text", 47, 0x10082],
-    ["static-underline", "STF_UNDERLINE", "Underlined text", 56, 0x20004],
-    ["static-end", "STF_END_ELLIPSIS", "Long long long long long long long long long string.", 66, 0x20],
-    ["static-path", "STF_PATH_ELLIPSIS", "C:\\Program Files\\Some Application With Long Path\\example.exe", 76, 0x40],
-    ["static-path-url", "STF_PATH_ELLIPSIS", "ftp://ftp.altap.cz/pub/salamander/example.exe", 87, 0x40],
-  ];
-  for (const [id, caption, value, y, styleFlags] of rows) {
-    await add("label", `${id}-label`, caption, 14, y, 75, 8);
-    await add("statictext", id, value, 102, y, 152, 8,
-      { styleFlags, ...(id === "static-path-url" ? { pathSeparator: "/" } : {}) });
-  }
-  await add("label", "drag-hint", "Drag texts to change their size.", 151, 97, 103, 8);
-  await add("groupbox", "progress-group", "CGUIProgressBarAbstract", 6, 118, 254, 66);
-  await add("label", "progress-label", "Progress label", 15, 129, 60, 8);
-  await add("progressbar", "progress", "", 15, 138, 235, 12, { progress: 120 });
-  await add("label", "unknown-label", "Unknown progress", 15, 154, 67, 8);
-  await add("progressbar", "unknown-progress", "", 15, 163, 235, 12,
-    { progress: -1, indeterminateDuration: -1, indeterminateInterval: 100 });
-  await add("groupbox", "buttons-group", "Button, CGUITextArrowButtonAbstract, CGUIColorArrowButtonAbstract", 6, 188, 254, 40);
-  await add("button", "more", "...", 15, 204, 15, 14, { keepOpen: true });
-  await add("arrowbutton", "arrow", "", 37, 204, 15, 14);
-  await add("textarrowbutton", "choose", "&Choose", 60, 204, 50, 14, { styleFlags: 8 });
-  await add("textarrowbutton", "drop", "&Drop", 117, 204, 50, 14, { styleFlags: 2 });
-  await add("colorarrowbutton", "color", "", 174, 204, 33, 14, { textColor: 0xff8000, backgroundColor: 0xff8000 });
-  await add("colorarrowbutton", "color-text", "ABC", 215, 204, 33, 14, { textColor: 0, backgroundColor: 0xffff });
-  await add("groupbox", "hyperlink-group", "CGUIHyperLinkAbstract", 269, 4, 185, 48);
-  await add("label", "open-label", "SetActionOpen", 277, 17, 75, 8);
-  await add("hyperlink", "open-link", "www.altap.cz", 365, 17, 47, 8, { styleFlags: 0x14, actionOpen: "https://www.altap.cz" });
-  await add("label", "command-label", "SetActionPostCommand", 277, 27, 81, 8);
-  await add("hyperlink", "command-link", "Say something!", 365, 27, 55, 8, { styleFlags: 0x14, actionCommand: 0x7f01 });
-  await add("label", "hint-label", "SetActionShowHint", 277, 37, 81, 8);
-  await add("hyperlink", "hint-link", "mask hints", 365, 37, 40, 8, { styleFlags: 8, actionHint: "text 1 text 1 text 1 text 1\ntext 2 text 2 text 2" });
-  await add("groupbox", "tooltip-group", "SetCurrentToolTip", 269, 59, 185, 31);
-  await add("statictext", "tooltip", "Pause the mouse pointer over this text.", 278, 73, 130, 8, { styleFlags: 0x40000, toolTip: "ToolTip" });
-  await add("listview", "header-list", "", 269, 113, 185, 50, { styleFlags: 0x01e00000 });
-  await add("toolbarheader", "toolbar-header", "CGUIToolbarHeaderAbstract", 269, 102, 96, 8, { alignControlId: "header-list", buttonMask: 0x31 });
-  await add("groupbox", "origin-group", "Created by", 269, 169, 185, 38);
-  await add("label", "runtime-label", "Runtime:", 277, 181, 42, 8);
-  await add("statictext", "runtime-value", "JavaScript.Node", 323, 181, 122, 8, { styleFlags: 2 });
-  await add("label", "extension-label", "Extension:", 277, 192, 42, 8);
-  await add("statictext", "extension-value", "Salamatrix Node Demo", 323, 192, 122, 8, { styleFlags: 2 });
-  await add("button", "close", "Close", 403, 213, 50, 14, { dialogResult: 1, styleFlags: 0x100000 });
-  try { await dialog.show(); } finally { await dialog.close(); }
-}
-</code></pre>
-      </details>
-
-      <details class="language-example" id="python">
-        <summary><span class="language-badge">PY</span><div><h3>Python</h3><p>Synchronous facade with a Python options dictionary.</p></div></summary>
-        <div class="language-example__visual">
-          <img src="../images/salamatrix_preview_python.png" alt="Python preview">
-        </div>
-        <h4>Python script source code example:</h4>
-        <pre><code># Build the complete gallery here, through the public runtime-neutral API.
-dialog = Salamander.ui.dialog("Salamatrix UI capabilities", 463, 236)
 def add(kind, control_id, text, x, y, width, height, **options):
-    dialog.add_control(kind, control_id, text,
-                       layout={"x": x, "y": y, "width": width, "height": height},
-                       options=options)
+    dialog.add_control(
+        kind, control_id, text,
+        layout={&quot;x&quot;: x, &quot;y&quot;: y, &quot;width&quot;: width, &quot;height&quot;: height},
+        options=options,
+    )
 
-uptime = f"System was started {Salamander.ui.uptime()} ms ago."
-add("groupbox", "static-group", "CGUIStaticTextAbstract", 6, 4, 254, 108)
-add("label", "not-attached-label", "Not attached static text", 14, 17, 80, 8)
-add("label", "uptime-plain", uptime, 102, 17, 152, 8)
-rows = [
-    ("static-none", "0 (no flags)", uptime, 27, 0),
-    ("static-cache", "STF_CACHED_PAINT", uptime, 37, 1),
-    ("static-bold", "STF_BOLD", "Bold &text", 47, 0x10082),
-    ("static-underline", "STF_UNDERLINE", "Underlined text", 56, 0x20004),
-    ("static-end", "STF_END_ELLIPSIS", "Long long long long long long long long long string.", 66, 0x20),
-    ("static-path", "STF_PATH_ELLIPSIS", r"C:\Program Files\Some Application With Long Path\example.exe", 76, 0x40),
-    ("static-path-url", "STF_PATH_ELLIPSIS", "ftp://ftp.altap.cz/pub/salamander/example.exe", 87, 0x40),
-]
-for control_id, caption, value, y, flags in rows:
-    add("label", control_id + "-label", caption, 14, y, 75, 8)
-    extra = {"styleFlags": flags}
-    if control_id == "static-path-url": extra["pathSeparator"] = "/"
-    add("statictext", control_id, value, 102, y, 152, 8, **extra)
-add("label", "drag-hint", "Drag texts to change their size.", 151, 97, 103, 8)
-add("groupbox", "progress-group", "CGUIProgressBarAbstract", 6, 118, 254, 66)
-add("label", "progress-label", "Progress label", 15, 129, 60, 8)
-add("progressbar", "progress", "", 15, 138, 235, 12, progress=120)
-add("label", "unknown-label", "Unknown progress", 15, 154, 67, 8)
-add("progressbar", "unknown-progress", "", 15, 163, 235, 12, progress=-1, indeterminateDuration=-1, indeterminateInterval=100)
-add("groupbox", "buttons-group", "Button, CGUITextArrowButtonAbstract, CGUIColorArrowButtonAbstract", 6, 188, 254, 40)
-add("button", "more", "...", 15, 204, 15, 14, keepOpen=True)
-add("arrowbutton", "arrow", "", 37, 204, 15, 14)
-add("textarrowbutton", "choose", "&Choose", 60, 204, 50, 14, styleFlags=8)
-add("textarrowbutton", "drop", "&Drop", 117, 204, 50, 14, styleFlags=2)
-add("colorarrowbutton", "color", "", 174, 204, 33, 14, textColor=0xff8000, backgroundColor=0xff8000)
-add("colorarrowbutton", "color-text", "ABC", 215, 204, 33, 14, textColor=0, backgroundColor=0xffff)
-add("groupbox", "hyperlink-group", "CGUIHyperLinkAbstract", 269, 4, 185, 48)
-add("label", "open-label", "SetActionOpen", 277, 17, 75, 8)
-add("hyperlink", "open-link", "www.altap.cz", 365, 17, 47, 8, styleFlags=0x14, actionOpen="https://www.altap.cz")
-add("label", "command-label", "SetActionPostCommand", 277, 27, 81, 8)
-add("hyperlink", "command-link", "Say something!", 365, 27, 55, 8, styleFlags=0x14, actionCommand=0x7f01)
-add("label", "hint-label", "SetActionShowHint", 277, 37, 81, 8)
-add("hyperlink", "hint-link", "mask hints", 365, 37, 40, 8, styleFlags=8, actionHint="text 1 text 1 text 1 text 1\ntext 2 text 2 text 2")
-add("groupbox", "tooltip-group", "SetCurrentToolTip", 269, 59, 185, 31)
-add("statictext", "tooltip", "Pause the mouse pointer over this text.", 278, 73, 130, 8, styleFlags=0x40000, toolTip="ToolTip")
-add("listview", "header-list", "", 269, 113, 185, 50, styleFlags=0x01e00000)
-add("toolbarheader", "toolbar-header", "CGUIToolbarHeaderAbstract", 269, 102, 96, 8, alignControlId="header-list", buttonMask=0x31)
-add("groupbox", "origin-group", "Created by", 269, 169, 185, 38)
-add("label", "runtime-label", "Runtime:", 277, 181, 42, 8)
-add("statictext", "runtime-value", "Python.CPython", 323, 181, 122, 8, styleFlags=2)
-add("label", "extension-label", "Extension:", 277, 192, 42, 8)
-add("statictext", "extension-value", "Salamatrix Python Demo", 323, 192, 122, 8, styleFlags=2)
-add("button", "close", "Close", 403, 213, 50, 14, dialogResult=1, styleFlags=0x100000)
+add(&quot;progressbar&quot;, &quot;progress&quot;, &quot;&quot;, 15, 138, 235, 12,
+    progress=120)
+add(&quot;groupbox&quot;, &quot;origin-group&quot;, &quot;Created by&quot;, 269, 169, 185, 38)
+add(&quot;statictext&quot;, &quot;runtime-value&quot;, &quot;Python.CPython&quot;,
+    323, 181, 122, 8, styleFlags=2)
+add(&quot;button&quot;, &quot;close&quot;, &quot;Close&quot;, 403, 213, 50, 14,
+    dialogResult=1, styleFlags=0x100000)
+
 try:
     dialog.show()
 finally:
     dialog.close()</code></pre>
-      </details>
+<p>Complete demo: <code>src/extensions/demos/python/main.py</code>.</p>
+<h2 id="powershell">PowerShell</h2>
+<p>PowerShell passes a layout hashtable and an extended options hashtable:</p>
+<pre><code class="language-powershell">$dialog = $Salamander.ui.Dialog(&#x27;Salamatrix UI capabilities&#x27;, 463, 236)
 
-      <details class="language-example" id="powershell">
-        <summary><span class="language-badge">PS</span><div><h3>PowerShell</h3><p>Layout and extended properties are ordinary hashtables.</p></div></summary>
-        <div class="language-example__visual">
-          <img src="../images/salamatrix_preview_powershell.png" alt="PowerShell preview">
-        </div>
-        <h4>PowerShell script source code example:</h4>
-        <pre><code># Build the complete gallery here, through the public runtime-neutral API.
-    $dialog = $Salamander.ui.Dialog('Salamatrix UI capabilities', 463, 236)
-    function Add-CapabilityControl($kind, $id, $text, $x, $y, $width, $height, $options = @{}) {
-        $dialog.AddControl($kind, $id, $text, $false, $false, 0,
-            @{x=$x; y=$y; width=$width; height=$height}, $false, $false, $options)
-    }
-    $uptime = "System was started $($Salamander.ui.Uptime()) ms ago."
-    Add-CapabilityControl groupbox static-group 'CGUIStaticTextAbstract' 6 4 254 108
-    Add-CapabilityControl label not-attached-label 'Not attached static text' 14 17 80 8
-    Add-CapabilityControl label uptime-plain $uptime 102 17 152 8
-    $rows = @(
-        @('static-none','0 (no flags)',$uptime,27,0),
-        @('static-cache','STF_CACHED_PAINT',$uptime,37,1),
-        @('static-bold','STF_BOLD','Bold &text',47,0x10082),
-        @('static-underline','STF_UNDERLINE','Underlined text',56,0x20004),
-        @('static-end','STF_END_ELLIPSIS','Long long long long long long long long long string.',66,0x20),
-        @('static-path','STF_PATH_ELLIPSIS','C:\Program Files\Some Application With Long Path\example.exe',76,0x40),
-        @('static-path-url','STF_PATH_ELLIPSIS','ftp://ftp.altap.cz/pub/salamander/example.exe',87,0x40))
-    foreach ($row in $rows) {
-        Add-CapabilityControl label "$($row[0])-label" $row[1] 14 $row[3] 75 8
-        $extra = @{styleFlags=$row[4]}; if ($row[0] -eq 'static-path-url') { $extra.pathSeparator='/' }
-        Add-CapabilityControl statictext $row[0] $row[2] 102 $row[3] 152 8 $extra
-    }
-    Add-CapabilityControl label drag-hint 'Drag texts to change their size.' 151 97 103 8
-    Add-CapabilityControl groupbox progress-group 'CGUIProgressBarAbstract' 6 118 254 66
-    Add-CapabilityControl label progress-label 'Progress label' 15 129 60 8
-    Add-CapabilityControl progressbar progress '' 15 138 235 12 @{progress=120}
-    Add-CapabilityControl label unknown-label 'Unknown progress' 15 154 67 8
-    Add-CapabilityControl progressbar unknown-progress '' 15 163 235 12 @{progress=-1;indeterminateDuration=-1;indeterminateInterval=100}
-    Add-CapabilityControl groupbox buttons-group 'Button, CGUITextArrowButtonAbstract, CGUIColorArrowButtonAbstract' 6 188 254 40
-    Add-CapabilityControl button more '...' 15 204 15 14 @{keepOpen=$true}
-    Add-CapabilityControl arrowbutton arrow '' 37 204 15 14
-    Add-CapabilityControl textarrowbutton choose '&Choose' 60 204 50 14 @{styleFlags=8}
-    Add-CapabilityControl textarrowbutton drop '&Drop' 117 204 50 14 @{styleFlags=2}
-    Add-CapabilityControl colorarrowbutton color '' 174 204 33 14 @{textColor=0xff8000;backgroundColor=0xff8000}
-    Add-CapabilityControl colorarrowbutton color-text ABC 215 204 33 14 @{textColor=0;backgroundColor=0xffff}
-    Add-CapabilityControl groupbox hyperlink-group CGUIHyperLinkAbstract 269 4 185 48
-    Add-CapabilityControl label open-label SetActionOpen 277 17 75 8
-    Add-CapabilityControl hyperlink open-link www.altap.cz 365 17 47 8 @{styleFlags=0x14;actionOpen='https://www.altap.cz'}
-    Add-CapabilityControl label command-label SetActionPostCommand 277 27 81 8
-    Add-CapabilityControl hyperlink command-link 'Say something!' 365 27 55 8 @{styleFlags=0x14;actionCommand=0x7f01}
-    Add-CapabilityControl label hint-label SetActionShowHint 277 37 81 8
-    Add-CapabilityControl hyperlink hint-link 'mask hints' 365 37 40 8 @{styleFlags=8;actionHint="text 1 text 1 text 1 text 1`ntext 2 text 2 text 2"}
-    Add-CapabilityControl groupbox tooltip-group SetCurrentToolTip 269 59 185 31
-    Add-CapabilityControl statictext tooltip 'Pause the mouse pointer over this text.' 278 73 130 8 @{styleFlags=0x40000;toolTip='ToolTip'}
-    Add-CapabilityControl listview header-list '' 269 113 185 50 @{styleFlags=0x01e00000}
-    Add-CapabilityControl toolbarheader toolbar-header CGUIToolbarHeaderAbstract 269 102 96 8 @{alignControlId='header-list';buttonMask=0x31}
-    Add-CapabilityControl groupbox origin-group 'Created by' 269 169 185 38
-    Add-CapabilityControl label runtime-label 'Runtime:' 277 181 42 8
-    Add-CapabilityControl statictext runtime-value PowerShell 323 181 122 8 @{styleFlags=2}
-    Add-CapabilityControl label extension-label 'Extension:' 277 192 42 8
-    Add-CapabilityControl statictext extension-value 'Salamatrix PowerShell Demo' 323 192 122 8 @{styleFlags=2}
-    Add-CapabilityControl button close Close 403 213 50 14 @{dialogResult=1;styleFlags=0x100000}
-    try { [void]$dialog.Show() } finally { $dialog.Close() }
-}</code></pre>
-      </details>
-
-      <details class="language-example" id="php">
-        <summary><span class="language-badge">PHP</span><div><h3>PHP</h3><p>The last argument is the common extended option map.</p></div></summary>
-        <div class="language-example__visual">
-          <img src="../images/salamatrix_preview_php.png" alt="PHP preview">
-        </div>
-        <h4>PHP script source code example:</h4>
-        <pre><code>&lt;?php
-    // Build the complete gallery here, through the public runtime-neutral API.
-    $dialog = $Salamander->ui->dialog('Salamatrix UI capabilities', 463, 236);
-    $add = function ($kind, $id, $text, $x, $y, $width, $height, $options = array()) use ($dialog) {
-        $dialog->addControl($kind, $id, $text, false, false, 0,
-            array('x'=>$x, 'y'=>$y, 'width'=>$width, 'height'=>$height), false, false, $options);
-    };
-    $uptime = 'System was started ' . $Salamander->ui->uptime() . ' ms ago.';
-    $add('groupbox','static-group','CGUIStaticTextAbstract',6,4,254,108);
-    $add('label','not-attached-label','Not attached static text',14,17,80,8);
-    $add('label','uptime-plain',$uptime,102,17,152,8);
-    $rows = array(
-        array('static-none','0 (no flags)',$uptime,27,0),
-        array('static-cache','STF_CACHED_PAINT',$uptime,37,1),
-        array('static-bold','STF_BOLD','Bold &text',47,0x10082),
-        array('static-underline','STF_UNDERLINE','Underlined text',56,0x20004),
-        array('static-end','STF_END_ELLIPSIS','Long long long long long long long long long string.',66,0x20),
-        array('static-path','STF_PATH_ELLIPSIS','C:\\Program Files\\Some Application With Long Path\\example.exe',76,0x40),
-        array('static-path-url','STF_PATH_ELLIPSIS','ftp://ftp.altap.cz/pub/salamander/example.exe',87,0x40));
-    foreach ($rows as $row) {
-        $add('label',$row[0].'-label',$row[1],14,$row[3],75,8);
-        $extra = array('styleFlags'=>$row[4]);
-        if ($row[0] === 'static-path-url') $extra['pathSeparator'] = '/';
-        $add('statictext',$row[0],$row[2],102,$row[3],152,8,$extra);
-    }
-    $add('label','drag-hint','Drag texts to change their size.',151,97,103,8);
-    $add('groupbox','progress-group','CGUIProgressBarAbstract',6,118,254,66);
-    $add('label','progress-label','Progress label',15,129,60,8);
-    $add('progressbar','progress','',15,138,235,12,array('progress'=>120));
-    $add('label','unknown-label','Unknown progress',15,154,67,8);
-    $add('progressbar','unknown-progress','',15,163,235,12,array('progress'=>-1,'indeterminateDuration'=>-1,'indeterminateInterval'=>100));
-    $add('groupbox','buttons-group','Button, CGUITextArrowButtonAbstract, CGUIColorArrowButtonAbstract',6,188,254,40);
-    $add('button','more','...',15,204,15,14,array('keepOpen'=>true));
-    $add('arrowbutton','arrow','',37,204,15,14);
-    $add('textarrowbutton','choose','&Choose',60,204,50,14,array('styleFlags'=>8));
-    $add('textarrowbutton','drop','&Drop',117,204,50,14,array('styleFlags'=>2));
-    $add('colorarrowbutton','color','',174,204,33,14,array('textColor'=>0xff8000,'backgroundColor'=>0xff8000));
-    $add('colorarrowbutton','color-text','ABC',215,204,33,14,array('textColor'=>0,'backgroundColor'=>0xffff));
-    $add('groupbox','hyperlink-group','CGUIHyperLinkAbstract',269,4,185,48);
-    $add('label','open-label','SetActionOpen',277,17,75,8);
-    $add('hyperlink','open-link','www.altap.cz',365,17,47,8,array('styleFlags'=>0x14,'actionOpen'=>'https://www.altap.cz'));
-    $add('label','command-label','SetActionPostCommand',277,27,81,8);
-    $add('hyperlink','command-link','Say something!',365,27,55,8,array('styleFlags'=>0x14,'actionCommand'=>0x7f01));
-    $add('label','hint-label','SetActionShowHint',277,37,81,8);
-    $add('hyperlink','hint-link','mask hints',365,37,40,8,array('styleFlags'=>8,'actionHint'=>"text 1 text 1 text 1 text 1\ntext 2 text 2 text 2"));
-    $add('groupbox','tooltip-group','SetCurrentToolTip',269,59,185,31);
-    $add('statictext','tooltip','Pause the mouse pointer over this text.',278,73,130,8,array('styleFlags'=>0x40000,'toolTip'=>'ToolTip'));
-    $add('listview','header-list','',269,113,185,50,array('styleFlags'=>0x01e00000));
-    $add('toolbarheader','toolbar-header','CGUIToolbarHeaderAbstract',269,102,96,8,array('alignControlId'=>'header-list','buttonMask'=>0x31));
-    $add('groupbox','origin-group','Created by',269,169,185,38);
-    $add('label','runtime-label','Runtime:',277,181,42,8);
-    $add('statictext','runtime-value','PHP.CLI',323,181,122,8,array('styleFlags'=>2));
-    $add('label','extension-label','Extension:',277,192,42,8);
-    $add('statictext','extension-value','Salamatrix PHP Demo',323,192,122,8,array('styleFlags'=>2));
-    $add('button','close','Close',403,213,50,14,array('dialogResult'=>1,'styleFlags'=>0x100000));
-    try { $dialog->show(); } finally { $dialog->close(); }
-}</code></pre>
-      </details>
-
-      <details class="language-example" id="lua">
-        <summary><span class="language-badge">LUA</span><div><h3>Lua</h3><p>Snake-case options map to the same SMX1 payload.</p></div></summary>
-        <div class="language-example__visual">
-          <img src="../images/salamatrix_preview_lua.png" alt="Lua preview">
-        </div>
-        <h4>LUA script source code example:</h4>
-        <pre><code>-- Build the complete gallery here, through the public runtime-neutral API.
-    local dialog = Salamander.ui.dialog("Salamatrix UI capabilities", 463, 236)
-    local function add(kind, id, text, x, y, width, height, options)
-        options = options or {}; options.x=x; options.y=y
-        options.width=width; options.height=height
-        dialog.add_control(kind, id, text, options)
-    end
-    local uptime = "System was started " .. Salamander.ui.uptime() .. " ms ago."
-    add("groupbox","static-group","CGUIStaticTextAbstract",6,4,254,108)
-    add("label","not-attached-label","Not attached static text",14,17,80,8)
-    add("label","uptime-plain",uptime,102,17,152,8)
-    local rows = {
-        {"static-none","0 (no flags)",uptime,27,0},
-        {"static-cache","STF_CACHED_PAINT",uptime,37,1},
-        {"static-bold","STF_BOLD","Bold &text",47,0x10082},
-        {"static-underline","STF_UNDERLINE","Underlined text",56,0x20004},
-        {"static-end","STF_END_ELLIPSIS","Long long long long long long long long long string.",66,0x20},
-        {"static-path","STF_PATH_ELLIPSIS","C:\\Program Files\\Some Application With Long Path\\example.exe",76,0x40},
-        {"static-path-url","STF_PATH_ELLIPSIS","ftp://ftp.altap.cz/pub/salamander/example.exe",87,0x40}}
-    for _, row in ipairs(rows) do
-        add("label",row[1].."-label",row[2],14,row[4],75,8)
-        local extra={style_flags=row[5]}; if row[1]=="static-path-url" then extra.path_separator="/" end
-        add("statictext",row[1],row[3],102,row[4],152,8,extra)
-    end
-    add("label","drag-hint","Drag texts to change their size.",151,97,103,8)
-    add("groupbox","progress-group","CGUIProgressBarAbstract",6,118,254,66)
-    add("label","progress-label","Progress label",15,129,60,8)
-    add("progressbar","progress","",15,138,235,12,{progress=120})
-    add("label","unknown-label","Unknown progress",15,154,67,8)
-    add("progressbar","unknown-progress","",15,163,235,12,{progress=-1,indeterminate_duration=-1,indeterminate_interval=100})
-    add("groupbox","buttons-group","Button, CGUITextArrowButtonAbstract, CGUIColorArrowButtonAbstract",6,188,254,40)
-    add("button","more","...",15,204,15,14,{keep_open=true})
-    add("arrowbutton","arrow","",37,204,15,14)
-    add("textarrowbutton","choose","&Choose",60,204,50,14,{style_flags=8})
-    add("textarrowbutton","drop","&Drop",117,204,50,14,{style_flags=2})
-    add("colorarrowbutton","color","",174,204,33,14,{text_color=0xff8000,background_color=0xff8000})
-    add("colorarrowbutton","color-text","ABC",215,204,33,14,{text_color=0,background_color=0xffff})
-    add("groupbox","hyperlink-group","CGUIHyperLinkAbstract",269,4,185,48)
-    add("label","open-label","SetActionOpen",277,17,75,8)
-    add("hyperlink","open-link","www.altap.cz",365,17,47,8,{style_flags=0x14,action_open="https://www.altap.cz"})
-    add("label","command-label","SetActionPostCommand",277,27,81,8)
-    add("hyperlink","command-link","Say something!",365,27,55,8,{style_flags=0x14,action_command=0x7f01})
-    add("label","hint-label","SetActionShowHint",277,37,81,8)
-    add("hyperlink","hint-link","mask hints",365,37,40,8,{style_flags=8,action_hint="text 1 text 1 text 1 text 1\ntext 2 text 2 text 2"})
-    add("groupbox","tooltip-group","SetCurrentToolTip",269,59,185,31)
-    add("statictext","tooltip","Pause the mouse pointer over this text.",278,73,130,8,{style_flags=0x40000,tool_tip="ToolTip"})
-    add("listview","header-list","",269,113,185,50,{style_flags=0x01e00000})
-    add("toolbarheader","toolbar-header","CGUIToolbarHeaderAbstract",269,102,96,8,{align_control_id="header-list",button_mask=0x31})
-    add("groupbox","origin-group","Created by",269,169,185,38)
-    add("label","runtime-label","Runtime:",277,181,42,8)
-    add("statictext","runtime-value","Lua",323,181,122,8,{style_flags=2})
-    add("label","extension-label","Extension:",277,192,42,8)
-    add("statictext","extension-value","Salamatrix Lua Demo",323,192,122,8,{style_flags=2})
-    add("button","close","Close",403,213,50,14,{dialog_result=1,style_flags=0x100000})
-    local shown, show_error = pcall(dialog.show)
-    dialog.close()
-    if not shown then error(show_error) end
-end
-</code></pre>
-      </details>
-
-      <details class="language-example" id="automation">
-        <summary><span class="language-badge">COM</span><div><h3>Automation JScript</h3><p>A thin COM adapter over the same native service.</p></div></summary>
-        <div class="language-example__visual">
-          <img src="../images/salamatrix_preview_automation.png" alt="Automation JScript preview">
-        </div>
-        <h4>JavaScript source code example:</h4>
-        <pre><code>// Demonstrates the Salamatrix-backed Automation API.
-// Requires the Salamatrix Framework plugin to be installed and loaded.
-// Build the complete gallery here through Salamatrix.UI, just like every
-// external runtime demo does through its worker facade.
-var dialog = Salamander.UI.dialog("Salamatrix UI capabilities", 463, 236);
-function add(kind,id,text,x,y,w,h,style,result) {
-    dialog.add(kind,id,text,x,y,w,h,style,result);
+function Add-CapabilityControl(
+    $kind, $id, $text, $x, $y, $width, $height, $options = @{}
+) {
+    $dialog.AddControl(
+        $kind, $id, $text, $false, $false, 0,
+        @{x=$x; y=$y; width=$width; height=$height},
+        $false, $false, $options)
 }
-var uptime = "System was started " + Salamander.UI.uptime + " ms ago.";
-add("groupbox","static-group","CGUIStaticTextAbstract",6,4,254,108);
-add("label","not-attached-label","Not attached static text",14,17,80,8);
-add("label","uptime-plain",uptime,102,17,152,8);
-var rows = [
-    ["static-none","0 (no flags)",uptime,27,0],
-    ["static-cache","STF_CACHED_PAINT",uptime,37,1],
-    ["static-bold","STF_BOLD","Bold &text",47,0x10082],
-    ["static-underline","STF_UNDERLINE","Underlined text",56,0x20004],
-    ["static-end","STF_END_ELLIPSIS","Long long long long long long long long long string.",66,0x20],
-    ["static-path","STF_PATH_ELLIPSIS","C:\\Program Files\\Some Application With Long Path\\example.exe",76,0x40],
-    ["static-path-url","STF_PATH_ELLIPSIS","ftp://ftp.altap.cz/pub/salamander/example.exe",87,0x40]];
-for (var row=0; row&lt;rows.length; ++row) {
-    add("label",rows[row][0]+"-label",rows[row][1],14,rows[row][3],75,8);
-    add("statictext",rows[row][0],rows[row][2],102,rows[row][3],152,8,rows[row][4]);
-}
-dialog.set("static-path-url","pathSeparator","/");
-add("label","drag-hint","Drag texts to change their size.",151,97,103,8);
-add("groupbox","progress-group","CGUIProgressBarAbstract",6,118,254,66);
-add("label","progress-label","Progress label",15,129,60,8);
-add("progressbar","progress","",15,138,235,12); dialog.set("progress","progress",120);
-add("label","unknown-label","Unknown progress",15,154,67,8);
-add("progressbar","unknown-progress","",15,163,235,12); dialog.set("unknown-progress","indeterminate",-1,100); dialog.set("unknown-progress","progress",-1);
-add("groupbox","buttons-group","Button, CGUITextArrowButtonAbstract, CGUIColorArrowButtonAbstract",6,188,254,40);
-add("button","more","...",15,204,15,14); add("arrowbutton","arrow","",37,204,15,14);
-add("textarrowbutton","choose","&Choose",60,204,50,14,8); add("textarrowbutton","drop","&Drop",117,204,50,14,2);
-add("colorarrowbutton","color","",174,204,33,14); dialog.set("color","color",0xff8000,0xff8000);
-add("colorarrowbutton","color-text","ABC",215,204,33,14); dialog.set("color-text","color",0,0xffff);
-add("groupbox","hyperlink-group","CGUIHyperLinkAbstract",269,4,185,48);
-add("label","open-label","SetActionOpen",277,17,75,8); add("hyperlink","open-link","www.altap.cz",365,17,47,8,0x14); dialog.set("open-link","actionOpen","https://www.altap.cz");
-add("label","command-label","SetActionPostCommand",277,27,81,8); add("hyperlink","command-link","Say something!",365,27,55,8,0x14); dialog.set("command-link","actionCommand",0x7f01);
-add("label","hint-label","SetActionShowHint",277,37,81,8); add("hyperlink","hint-link","mask hints",365,37,40,8,8); dialog.set("hint-link","actionHint","text 1 text 1 text 1 text 1\ntext 2 text 2 text 2");
-add("groupbox","tooltip-group","SetCurrentToolTip",269,59,185,31);
-add("statictext","tooltip","Pause the mouse pointer over this text.",278,73,130,8,0x40000); dialog.set("tooltip","toolTip","ToolTip");
-add("listview","header-list","",269,113,185,50,0x01e00000);
-add("toolbarheader","toolbar-header","CGUIToolbarHeaderAbstract",269,102,96,8); dialog.set("toolbar-header","toolbarHeader","header-list",0x31);
-add("groupbox","origin-group","Created by",269,169,185,38);
-add("label","runtime-label","Runtime:",277,181,42,8); add("statictext","runtime-value","Automation.JScript",323,181,122,8,2);
-add("label","extension-label","Extension:",277,192,42,8); add("statictext","extension-value","Salamatrix Progress Demo",323,192,122,8,2);
-add("button","close","Close",403,213,50,14,0x100000,1);
+
+Add-CapabilityControl groupbox origin-group &#x27;Created by&#x27; 269 169 185 38
+Add-CapabilityControl statictext runtime-value PowerShell 323 181 122 8 `
+    @{styleFlags=2}
+Add-CapabilityControl button close Close 403 213 50 14 `
+    @{dialogResult=1; styleFlags=0x100000}
+
+try { [void]$dialog.Show() } finally { $dialog.Close() }</code></pre>
+<p>Complete demo: <code>src/extensions/demos/powershell/main.ps1</code>.</p>
+<h2 id="php">PHP</h2>
+<p>PHP exposes the same extra option map as the last <code>addControl</code> argument:</p>
+<pre><code class="language-php">$dialog = $Salamander-&gt;ui-&gt;dialog(
+    &#x27;Salamatrix UI capabilities&#x27;, 463, 236);
+
+$layout = array(&#x27;x&#x27;=&gt;269, &#x27;y&#x27;=&gt;169, &#x27;width&#x27;=&gt;185, &#x27;height&#x27;=&gt;38);
+$dialog-&gt;addControl(&#x27;groupbox&#x27;, &#x27;origin-group&#x27;, &#x27;Created by&#x27;,
+    false, false, 0, $layout);
+
+$layout = array(&#x27;x&#x27;=&gt;323, &#x27;y&#x27;=&gt;181, &#x27;width&#x27;=&gt;122, &#x27;height&#x27;=&gt;8);
+$dialog-&gt;addControl(&#x27;statictext&#x27;, &#x27;runtime-value&#x27;, &#x27;PHP.CLI&#x27;,
+    false, false, 0, $layout, false, false,
+    array(&#x27;styleFlags&#x27;=&gt;2));
+
+$layout = array(&#x27;x&#x27;=&gt;403, &#x27;y&#x27;=&gt;213, &#x27;width&#x27;=&gt;50, &#x27;height&#x27;=&gt;14);
+$dialog-&gt;addControl(&#x27;button&#x27;, &#x27;close&#x27;, &#x27;Close&#x27;,
+    false, false, 0, $layout, false, false,
+    array(&#x27;dialogResult&#x27;=&gt;1, &#x27;styleFlags&#x27;=&gt;0x100000));
+
+try { $dialog-&gt;show(); } finally { $dialog-&gt;close(); }</code></pre>
+<p>Complete demo: <code>src/extensions/demos/php/main.php</code>.</p>
+<h2 id="lua">Lua</h2>
+<p>Lua uses snake-case option names in its language facade and translates them to the same SMX1 payload fields:</p>
+<pre><code class="language-lua">local dialog = Salamander.ui.dialog(
+    &quot;Salamatrix UI capabilities&quot;, 463, 236)
+
+dialog.add_control(&quot;groupbox&quot;, &quot;origin-group&quot;, &quot;Created by&quot;, {
+    x=269, y=169, width=185, height=38
+})
+dialog.add_control(&quot;statictext&quot;, &quot;runtime-value&quot;, &quot;Lua&quot;, {
+    x=323, y=181, width=122, height=8, style_flags=2
+})
+dialog.add_control(&quot;button&quot;, &quot;close&quot;, &quot;Close&quot;, {
+    x=403, y=213, width=50, height=14,
+    dialog_result=1, style_flags=0x100000
+})
+
+local shown, failure = pcall(dialog.show)
+dialog.close()
+if not shown then error(failure) end</code></pre>
+<p>Complete demo: <code>src/extensions/demos/lua/main.lua</code>.</p>
+<h2 id="automation-jscript">Automation JScript</h2>
+<p>Automation exposes a thin COM dialog object. <code>add</code> creates a control and <code>set</code> configures properties that need an additional value:</p>
+<pre><code class="language-javascript">var dialog = Salamander.UI.dialog(
+    &quot;Salamatrix UI capabilities&quot;, 463, 236);
+
+dialog.add(&quot;groupbox&quot;, &quot;origin-group&quot;, &quot;Created by&quot;,
+           269, 169, 185, 38);
+dialog.add(&quot;statictext&quot;, &quot;runtime-value&quot;, &quot;Automation.JScript&quot;,
+           323, 181, 122, 8, 2);
+dialog.add(&quot;progressbar&quot;, &quot;progress&quot;, &quot;&quot;, 15, 138, 235, 12);
+dialog.set(&quot;progress&quot;, &quot;progress&quot;, 120);
+dialog.add(&quot;button&quot;, &quot;close&quot;, &quot;Close&quot;,
+           403, 213, 50, 14, 0x100000, 1);
+
 try { dialog.show(); } finally { dialog.close(); }</code></pre>
-      </details>
+<p>Complete demo: <code>src/plugins/automation/sample-scripts/Salamatrix Progress Demo/main.js</code>.</p>
+<h2 id="native-c-plugins">Native C++ plugins</h2>
+<p>A native plugin obtains the versioned UI service and builds the same controls directly. The plugin owns only the <code>IDialog</code> handle; the concrete window and host control adapters remain in Salamatrix:</p>
+<pre><code class="language-cpp">CSalamanderServiceQuery query;
+CSalamanderServiceResult result;
+query.ServiceId = SALAMATRIX_SERVICE_UI;
+query.MinimumVersion = SALAMATRIX_UI_VERSION_1_4;
+query.Flags = 0;
 
-      <details class="language-example" id="native">
-        <summary><span class="language-badge">C++</span><div><h3>Native plugin</h3><p>Version negotiation and direct <code>IDialog</code>/<code>IControl</code> use.</p></div></summary>
-        <div class="language-example__visual">
-          <img src="../images/salamatrix_preview_native.png" alt="Native plugin preview">
-        </div>
-        <h4>Native C++ source code example:</h4>
-        <pre><code>static Salamatrix::UI::IControl* AddSalamatrixDemoControl(
-    Salamatrix::UI::IDialog* dialog, Salamatrix::UI::ControlKind kind,
-    const char* id, const char* text, int x, int y, int width, int height)
+if (SalamanderGeneral-&gt;QueryService(&amp;query, &amp;result))
 {
-    Salamatrix::UI::ControlOptions options;
-    options.Id = id;
-    options.Text = text;
+    Salamatrix::UI::IUIService* ui =
+        static_cast&lt;Salamatrix::UI::IUIService*&gt;(result.Interface);
+
+    Salamatrix::UI::DialogOptions dialogOptions;
+    dialogOptions.Title = &quot;Salamatrix UI capabilities&quot;;
+    dialogOptions.Parent = parent;
+    dialogOptions.Width = 463;
+    dialogOptions.Height = 236;
+    Salamatrix::UI::IDialog* dialog =
+        ui-&gt;CreateSalamatrixDialog(dialogOptions);
+
+    Salamatrix::UI::ControlOptions controlOptions;
+    controlOptions.Id = &quot;origin-group&quot;;
+    controlOptions.Text = &quot;Created by&quot;;
     Salamatrix::UI::ControlLayout layout;
     layout.HasBounds = TRUE;
-    layout.X = x; layout.Y = y; layout.Width = width; layout.Height = height;
-    return dialog->AddControlEx(kind, options, layout);
-}
+    layout.X = 269; layout.Y = 169;
+    layout.Width = 185; layout.Height = 38;
+    dialog-&gt;AddControlEx(
+        Salamatrix::UI::ControlKindGroupBox,
+        controlOptions, layout);
 
-static BOOL ShowDemoPlugSalamatrixControls(
-    Salamatrix::UI::IUIService* ui, HWND parent)
-{
-    using namespace Salamatrix::UI;
-    DialogOptions options;
-    options.Title = "Salamatrix UI capabilities";
-    options.Parent = parent;
-    options.Width = 463;
-    options.Height = 236;
-    IDialog* dialog = ui->CreateSalamatrixDialog(options);
-    if (dialog == NULL)
-        return FALSE;
-    BOOL complete = TRUE;
-#define ADD_CONTROL(kind, id, text, x, y, w, h) \
-    (complete = AddSalamatrixDemoControl(dialog, kind, id, text, x, y, w, h) != NULL && complete)
-    char uptime[96];
-    _snprintf_s(uptime, _countof(uptime), _TRUNCATE,
-                "System was started %llu ms ago.",
-                static_cast<unsigned long long>(GetTickCount64()));
-    ADD_CONTROL(ControlKindGroupBox,"static-group","CGUIStaticTextAbstract",6,4,254,108);
-    ADD_CONTROL(ControlKindLabel,"not-attached-label","Not attached static text",14,17,80,8);
-    ADD_CONTROL(ControlKindLabel,"uptime-plain",uptime,102,17,152,8);
-    struct StaticRow { const char* Id; const char* Caption; const char* Text; int Y; DWORD Flags; };
-    const StaticRow rows[] = {
-        {"static-none","0 (no flags)",uptime,27,0},
-        {"static-cache","STF_CACHED_PAINT",uptime,37,StaticTextCachedPaint},
-        {"static-bold","STF_BOLD","Bold &text",47,StaticTextBold|StaticTextHandlePrefix|StaticTextAlignCenter},
-        {"static-underline","STF_UNDERLINE","Underlined text",56,StaticTextUnderline|StaticTextAlignRight},
-        {"static-end","STF_END_ELLIPSIS","Long long long long long long long long long string.",66,StaticTextEndEllipsis},
-        {"static-path","STF_PATH_ELLIPSIS","C:\\Program Files\\Some Application With Long Path\\example.exe",76,StaticTextPathEllipsis},
-        {"static-path-url","STF_PATH_ELLIPSIS","ftp://ftp.altap.cz/pub/salamander/example.exe",87,StaticTextPathEllipsis}};
-    for (int index = 0; index &lt; (int)_countof(rows); ++index)
-    {
-        ADD_CONTROL(ControlKindLabel,NULL,rows[index].Caption,14,rows[index].Y,75,8);
-        IControl* control = AddSalamatrixDemoControl(dialog,ControlKindStaticText,rows[index].Id,rows[index].Text,102,rows[index].Y,152,8);
-        complete = control != NULL && control->SetStyleFlags(rows[index].Flags) && complete;
-        if (control != NULL && index == (int)_countof(rows)-1) complete = control->SetPathSeparator('/') && complete;
-    }
-    ADD_CONTROL(ControlKindLabel,"drag-hint","Drag texts to change their size.",151,97,103,8);
-    ADD_CONTROL(ControlKindGroupBox,"progress-group","CGUIProgressBarAbstract",6,118,254,66);
-    ADD_CONTROL(ControlKindLabel,NULL,"Progress label",15,129,60,8);
-    IControl* control = AddSalamatrixDemoControl(dialog,ControlKindProgressBar,"progress","",15,138,235,12);
-    complete = control != NULL && control->SetProgress(120) && complete;
-    ADD_CONTROL(ControlKindLabel,NULL,"Unknown progress",15,154,67,8);
-    control = AddSalamatrixDemoControl(dialog,ControlKindProgressBar,"unknown-progress","",15,163,235,12);
-    complete = control != NULL && control->SetIndeterminateTiming(0xffffffff,100) && control->SetProgress(-1) && complete;
-    ADD_CONTROL(ControlKindGroupBox,"buttons-group","Button, CGUITextArrowButtonAbstract, CGUIColorArrowButtonAbstract",6,188,254,40);
-    ADD_CONTROL(ControlKindButton,"more","...",15,204,15,14);
-    ADD_CONTROL(ControlKindArrowButton,"arrow","",37,204,15,14);
-    control=AddSalamatrixDemoControl(dialog,ControlKindTextArrowButton,"choose","&Choose",60,204,50,14); complete=control!=NULL&&control->SetStyleFlags(TextArrowButtonRightArrow)&&complete;
-    control=AddSalamatrixDemoControl(dialog,ControlKindTextArrowButton,"drop","&Drop",117,204,50,14); complete=control!=NULL&&control->SetStyleFlags(TextArrowButtonDropDown)&&complete;
-    control=AddSalamatrixDemoControl(dialog,ControlKindColorArrowButton,"color","",174,204,33,14); complete=control!=NULL&&control->SetColor(RGB(0,128,255),RGB(0,128,255))&&complete;
-    control=AddSalamatrixDemoControl(dialog,ControlKindColorArrowButton,"color-text","ABC",215,204,33,14); complete=control!=NULL&&control->SetColor(RGB(0,0,0),RGB(255,255,0))&&complete;
-    ADD_CONTROL(ControlKindGroupBox,"hyperlink-group","CGUIHyperLinkAbstract",269,4,185,48);
-    ADD_CONTROL(ControlKindLabel,NULL,"SetActionOpen",277,17,75,8);
-    control=AddSalamatrixDemoControl(dialog,ControlKindHyperLink,"open-link","www.altap.cz",365,17,47,8); complete=control!=NULL&&control->SetStyleFlags(StaticTextUnderline|StaticTextHyperLinkColor)&&control->SetActionOpen("https://www.altap.cz")&&complete;
-    ADD_CONTROL(ControlKindLabel,NULL,"SetActionPostCommand",277,27,81,8);
-    control=AddSalamatrixDemoControl(dialog,ControlKindHyperLink,"command-link","Say something!",365,27,55,8); complete=control!=NULL&&control->SetStyleFlags(StaticTextUnderline|StaticTextHyperLinkColor)&&control->SetActionPostCommand(0x7f01)&&complete;
-    ADD_CONTROL(ControlKindLabel,NULL,"SetActionShowHint",277,37,81,8);
-    control=AddSalamatrixDemoControl(dialog,ControlKindHyperLink,"hint-link","mask hints",365,37,40,8); complete=control!=NULL&&control->SetStyleFlags(StaticTextDotUnderline)&&control->SetActionShowHint("text 1 text 1 text 1 text 1\ntext 2 text 2 text 2")&&complete;
-    ADD_CONTROL(ControlKindGroupBox,"tooltip-group","SetCurrentToolTip",269,59,185,31);
-    control=AddSalamatrixDemoControl(dialog,ControlKindStaticText,"tooltip","Pause the mouse pointer over this text.",278,73,130,8); complete=control!=NULL&&control->SetStyleFlags(StaticTextNotify)&&control->SetToolTipText("ToolTip")&&complete;
-    control=AddSalamatrixDemoControl(dialog,ControlKindListView,"header-list","",269,113,185,50); complete=control!=NULL&&control->SetStyleFlags(ListViewNoDefaultColumn|ListViewShowSelectionAlways|ListViewEditLabels|ListViewNoSortHeader)&&complete;
-    control=AddSalamatrixDemoControl(dialog,ControlKindToolbarHeader,"toolbar-header","CGUIToolbarHeaderAbstract",269,102,96,8); complete=control!=NULL&&control->SetToolbarHeader("header-list",ToolbarHeaderModify|ToolbarHeaderUp|ToolbarHeaderDown)&&complete;
-    ADD_CONTROL(ControlKindGroupBox,"origin-group","Created by",269,169,185,38);
-    ADD_CONTROL(ControlKindLabel,"runtime-label","Runtime:",277,181,42,8);
-    control=AddSalamatrixDemoControl(dialog,ControlKindStaticText,"runtime-value","Native",323,181,122,8); complete=control!=NULL&&control->SetStyleFlags(StaticTextBold)&&complete;
-    ADD_CONTROL(ControlKindLabel,"extension-label","Extension:",277,192,42,8);
-    control=AddSalamatrixDemoControl(dialog,ControlKindStaticText,"extension-value","DemoPlug",323,192,122,8); complete=control!=NULL&&control->SetStyleFlags(StaticTextBold)&&complete;
-    ControlOptions closeOptions; closeOptions.Id="close"; closeOptions.Text="Close"; closeOptions.DialogResult=1;
-    ControlLayout closeLayout; closeLayout.HasBounds=TRUE; closeLayout.X=403; closeLayout.Y=213; closeLayout.Width=50; closeLayout.Height=14;
-    control=dialog->AddControlEx(ControlKindButton,closeOptions,closeLayout); complete=control!=NULL&&control->SetStyleFlags(ButtonDefault)&&complete;
-#undef ADD_CONTROL
-    if (complete) dialog->ShowModal();
-    ui->DestroyDialog(dialog);
-    return complete;
+    dialog-&gt;ShowModal();
+    ui-&gt;DestroyDialog(dialog);
 }</code></pre>
-      </details>
-
-      <h2 id="appearance">Dark mode, DPI, keyboard, accessibility</h2>
-      <div class="card-grid">
-        <article class="info-card"><h3>Salamander dark scheme</h3><p>Dark mode means Configuration → Colors → Scheme → Windows Dark Mode (experimental), not the Windows app-mode setting. NativeDialog applies the shared host policy to title bar and controls.</p></article>
-        <article class="info-card"><h3>Per-monitor DPI</h3><p>The dialog and every explicit child bound scale together on WM_DPICHANGED. Runtime code keeps one logical layout and does not perform its own monitor calculations.</p></article>
-        <article class="info-card"><h3>Native interaction</h3><p>Host font, initial focus, tab traversal, validation, tooltips, and bounded accessibility metadata are owned by the framework.</p></article>
-      </div>
-
-      <h2 id="reference">Lifecycle and protocol reference</h2>
-      <div class="protocol-grid">
-        <code>dialog.create</code><span>Create title and bounds</span>
-        <code>dialog.add</code><span>Add native control and options</span>
-        <code>dialog.item / column</code><span>Populate collection controls</span>
-        <code>dialog.validation</code><span>Required-field checks</span>
-        <code>dialog.events</code><span>Change events over SMX1</span>
-        <code>dialog.show</code><span>Run the modal native window</span>
-        <code>dialog.get / set</code><span>Read or change state</span>
-        <code>dialog.destroy</code><span>Release window and callbacks</span>
-      </div>
-      <blockquote><p><strong>Always close in cleanup.</strong> The package host also destroys remaining dialogs when an extension deactivates, but explicit <code>finally</code> cleanup keeps ownership obvious and deterministic.</p></blockquote>
-
-      <p class="note"><strong>Current boundary:</strong> native C++ additionally has <code>ControlKindSplitter</code>, which is not yet published as a generic SMX1 worker kind. The Automation JScript COM adapter currently covers the capabilities-gallery controls; legacy Forms remain available for older JScript/VBScript forms while that adapter is broadened.</p>
-
-      <h3>Source and deeper references</h3>
-      <ul class="resource-list">
-        <li><a href="salamatrix-ui.md">Complete Salamatrix.UI guide</a><span>Control table, every option, full examples, events, capabilities, limits, and verification.</span></li>
-        <li><a href="salamatrix-automation-api.html">Automation API reference</a><span>The complete script-facing Salamander API, including dialogs.</span></li>
-        <li><a href="salamatrix-platform.md">Platform foundation</a><span>Service registry, native ABI, ownership, and runtime broker architecture.</span></li>
-        <li><a href="salamatrix-runtime-providers.md">Runtime providers</a><span>Independent provider lifecycle and common worker surface.</span></li>
-        <li><a href="salamatrix-gap-analysis.md">GAP analysis</a><span>Implemented UI surface, verification, and remaining work.</span></li>
-      </ul>
-    </section>
-  </main>
-
-  <a class="back-to-top" href="#content" aria-label="Back to top" title="Back to top" data-back-to-top>↑</a>
-  <script src="../js/back-to-top.js" defer></script>
-  <script src="../js/language-examples.js" defer></script>
-  <script src="../js/consent.js" defer></script>
-</body>
+<p>Complete demo: <code>src/plugins/demoplug/menu.cpp</code>.</p>
+<h2 id="lists-trees-tabs-validation-and-events">Lists, trees, tabs, validation, and events</h2>
+<p>Collection controls use stable control IDs:</p>
+<pre><code class="language-python">dialog.add_control(&quot;listview&quot;, &quot;files&quot;, &quot;&quot;,
+                   layout={&quot;x&quot;: 10, &quot;y&quot;: 10, &quot;width&quot;: 240, &quot;height&quot;: 100})
+dialog.add_column(&quot;files&quot;, &quot;Name&quot;, 150)
+dialog.add_column(&quot;files&quot;, &quot;Size&quot;, 70)
+dialog.add_item(&quot;files&quot;, &quot;report.txt&quot;)
+dialog.set_selected_index(&quot;files&quot;, 0)</code></pre>
+<p>Required-field validation is configured after adding the control. Change events are delivered as SMX1 event frames with dialog ID, control ID, control kind, text, checked state, and selected index. The worker facades expose <code>onChange</code>/<code>on_change</code> and matching unsubscribe helpers.</p>
+<h2 id="dark-mode-dpi-and-accessibility">Dark mode, DPI, and accessibility</h2>
+<p>Dark mode means the <strong>Windows Dark Mode (experimental)</strong> scheme selected in Open Salamander under <strong>Configuration &gt; Colors &gt; Scheme</strong>. It does not mean the operating-system app-mode setting.</p>
+<p><code>NativeDialog</code> applies the shared Salamander dark-mode policy to the title bar, dialog background, standard controls, Open Salamander GUI controls, pickers, lists, and progress components. Callers should not choose dark colors or query Windows app mode themselves.</p>
+<p>The framework also:</p>
+<ul>
+<li>scales dialog and child bounds on <code>WM_DPICHANGED</code>;</li>
+<li>uses the host dialog font and keyboard tab order;</li>
+<li>assigns an initial focus to the first interactive control;</li>
+<li>retains bounded accessibility name and description metadata;</li>
+<li>provides native tooltip fallback for accessibility descriptions;</li>
+<li>keeps file-picker edit and browse HWNDs under the same metadata/lifecycle.</li>
+</ul>
+<h2 id="manifest-capability">Manifest capability</h2>
+<p>Scripted extensions that create dialogs declare <code>ui.dialogs</code>:</p>
+<pre><code class="language-json">{
+  &quot;schema&quot;: 1,
+  &quot;id&quot;: &quot;example.ui-demo&quot;,
+  &quot;name&quot;: &quot;UI demo&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;runtime&quot;: &quot;Python.CPython&quot;,
+  &quot;entryPoint&quot;: &quot;main.py&quot;,
+  &quot;capabilities&quot;: [&quot;ui.dialogs&quot;]
+}</code></pre>
+<p>The host enforces declared capabilities at the SMX1 boundary. Native plugins use service-version negotiation instead of manifest capability checks.</p>
+<h2 id="verification-and-current-limits">Verification and current limits</h2>
+<p>The dialog dispatcher and facades are covered by worker syntax checks, framework/Automation/DemoPlug Release x64 builds, deterministic native layout tests, and isolated Python/PowerShell/PHP process-runtime tests using a worker root that contains only the provider bootstraps under test. The capabilities gallery sources also make the complete geometry independently reviewable in all supported languages.</p>
+<p>The remaining UI work includes richer notification actions and stacking, virtualized data sources, complete UI Automation roles and a screen-reader audit, interactive per-monitor/DPI test automation, a documented reentrancy policy, and migration of the remaining legacy Forms wrappers. The framework is for native modal extension dialogs; it does not yet expose arbitrary dockable panes or custom panel columns to scripts.</p>
+<p>The native C++ control enum also contains <code>ControlKindSplitter</code>; the generic SMX1 <code>kind</code> mapping does not publish a <code>splitter</code> worker control yet. The new Automation JScript COM adapter intentionally covers the controls and properties needed by the capabilities gallery; its older Forms objects remain the compatibility surface for other legacy JScript/VBScript forms until the COM adapter is broadened.</p>
+<h2 id="related-documentation">Related documentation</h2>
+<ul>
+<li><a href="salamatrix-platform.html">Salamatrix Platform Foundation</a></li>
+<li><a href="salamatrix-automation-api.html">Salamatrix Automation API reference</a></li>
+<li><a href="salamatrix-runtime-providers.html">Standalone Salamatrix runtime providers</a></li>
+<li><a href="salamatrix-runtime-provider-development.html">Developing a Salamatrix language runtime provider</a></li>
+<li><a href="salamatrix-gap-analysis.html">Salamatrix framework gap analysis</a></li>
+</ul>
+</main></body>
 </html>

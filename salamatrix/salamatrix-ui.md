@@ -5,6 +5,13 @@ Salamander extensions. It lets a native plugin, an Automation script, or an
 out-of-process JavaScript, Python, PowerShell, PHP, or Lua extension construct
 the same dialog from the same control model.
 
+This is both the user-facing UI authoring guide and the normative source for AI
+providers generating Salamatrix dialogs. The installed HTML edition is linked
+from the Automation API reference. Local AI providers receive a bounded,
+machine-readable projection of the same lifecycle, control kinds, option names,
+result fields, and runtime conventions; they must not infer methods from the
+examples that are absent from that projection.
+
 The window is not rendered by the language runtime and it is not owned by the
 Automation plugin. Callers describe a dialog and its controls; Salamatrix
 creates the native window, attaches Open Salamander controls, applies the
@@ -40,6 +47,21 @@ Runtime providers remain independent `.SPL` plugins. In particular, Python,
 PowerShell, PHP, Node, and Lua dialogs do not require the Automation plugin to
 be installed or loaded.
 
+When hosted inside Open Salamander, `Salamatrix.UI` delegates static text,
+hyperlink, progress, arrow, text-arrow, color-arrow, and toolbar-header controls
+to the corresponding `CSalamanderGUI` implementations. This preserves the
+native button imagery, command behavior, color interaction, dark-mode styling,
+and control lifetime rules. The portable Win32 control implementation is only
+the fallback for standalone hosts such as Salamatrix Studio preview.
+
+Modal dialogs, message boxes, file/folder pickers, and the controls showcase do
+not inherit the ordinary 120-second host-call timeout. They remain synchronously
+owned by the UI thread until the user closes them, so a dialog may safely stay
+open for an arbitrary amount of time. A button with `dialogResult: 0` is an
+action button and stays open; buttons with a nonzero result close the dialog.
+This rule also keeps the legacy Automation COM dialog facade compatible even
+though its original `add()` signature predates the explicit `keepOpen` option.
+
 ## Dialog lifecycle
 
 All facades follow the same lifecycle:
@@ -56,7 +78,7 @@ Worker calls use these host methods:
 
 | Method | Purpose |
 | --- | --- |
-| `salamander.ui.dialog.create` | Create a framework-owned dialog. |
+| `salamander.ui.dialog.create` | Create a framework-owned dialog; `resizable` enables its native sizing frame and adaptive layout. |
 | `salamander.ui.dialog.add` | Add a control and optional explicit bounds. |
 | `salamander.ui.dialog.item` | Add a combo/list/tree/tab item. |
 | `salamander.ui.dialog.column` | Add a ListView column. |
@@ -117,6 +139,10 @@ Common options are:
 | `multiline` | Create a multiline text box. |
 | `filter`, `save` | File-picker filter and save mode. |
 | `styleFlags` | Native Salamatrix/Open Salamander control flags. |
+
+Static-text controls use the native flag values for emphasis and overflow behavior: `STF_BOLD` and `STF_UNDERLINE` preserve bold and underline in the native host, while `STF_END_ELLIPSIS` keeps text on one line and shortens its end and `STF_PATH_ELLIPSIS` shortens the middle of a path with `...`. Salamatrix Studio mirrors these rules in its editor preview, using the same 8 pt `MS Shell Dlg` metrics so layout and overflow remain predictable before generation.
+
+
 | `pathSeparator` | Separator used by path ellipsis. |
 | `toolTip` | Tooltip text owned by the native control. |
 | `actionOpen` | URL or shell target opened by a hyperlink. |
@@ -174,7 +200,7 @@ controls and await every host operation:
 ```javascript
 const dialog = await Salamander.ui.dialog(
   "Salamatrix UI capabilities",
-  { width: 463, height: 236 },
+  { width: 463, height: 236, resizable: true },
 ).create();
 
 const add = (kind, id, text, x, y, width, height, options = {}) =>
@@ -202,7 +228,7 @@ Python creates the native dialog synchronously and accepts the extended option
 map through `options`:
 
 ```python
-dialog = Salamander.ui.dialog("Salamatrix UI capabilities", 463, 236)
+dialog = Salamander.ui.dialog("Salamatrix UI capabilities", 463, 236, True)
 
 def add(kind, control_id, text, x, y, width, height, **options):
     dialog.add_control(
