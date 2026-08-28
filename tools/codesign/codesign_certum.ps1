@@ -99,7 +99,22 @@ function Get-InnoSourcePaths([string] $innoScript, [string] $payloadDir) {
             $source = $Matches[1]
             if ($source.StartsWith('{#PayloadDir}\', [StringComparison]::OrdinalIgnoreCase)) {
                 $relative = $source.Substring('{#PayloadDir}\'.Length)
-                $paths.Add((Join-Path $payloadRoot $relative))
+                $sourcePath = Join-Path $payloadRoot $relative
+                $isRecursive = $line -match '(?i)\brecursesubdirs\b'
+
+                # Inno Setup expands wildcard Source entries before packaging. Do
+                # the same here so every matching language file is signed.
+                if ($sourcePath -match '[*?]') {
+                    $expandedPaths = @(Get-ChildItem -Path $sourcePath -File -Recurse:$isRecursive -ErrorAction SilentlyContinue)
+                    if ($expandedPaths.Count -gt 0) {
+                        foreach ($expandedPath in $expandedPaths) {
+                            $paths.Add($expandedPath.FullName)
+                        }
+                    }
+                }
+                else {
+                    $paths.Add($sourcePath)
+                }
             }
         }
     }
