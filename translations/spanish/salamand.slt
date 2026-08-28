@@ -3041,7 +3041,7 @@ SLGINCOMPLETE,""
 
 [STRINGTABLE 96]
 12400,1,"La ruta origen no puede ser trasladada desde Unicode a multibyte, por lo que Open Salamander no puede trabajar con ella."
-12401,0,"Some files or directories specified in drag&drop or clipboard operation were not found.\n\nDo you want to continue?"
+12401,1,"No se encontraron algunos archivos o directorios especificados en la operación de arrastrar&soltar o en el portapapeles.\n\n¿Desea continuar?"
 12405,1,"Imposible hallar compresor para el plugin %s (ver Compresores en página de cuadro de diálogo Compresión en Configuración)."
 12406,1,"Imposible hallar descompresor para el plugin %s (ver Descompresores en página de cuadro de diálogo Descompresión en Configuración)."
 12410,1,"Fichero:"

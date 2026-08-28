@@ -762,7 +762,7 @@ SLGINCOMPLETE,""
 
 [DIALOG 595]
 299,267,1,"Aspetto"
-605,1,3,169,12,0,"Full &row select (Detailed and Brief modes only)"
+605,1,3,242,12,1,"Selezione riga &completa (solo modalità Dettagliata e Breve)"
 601,1,15,170,12,1,"&Evidenzia riga attiva (solo modalità dettagliate)"
 608,1,27,176,12,1,"Fai &clic singolo per aprire (punta per selezionare)"
 613,1,39,298,12,1,"&Mostra colorazione icona nel pannello (elementi di sistema/nascosti/selezionati/senza focus)"
