@@ -1,5 +1,9 @@
 # Change Log
 
+## 0.1.10
+
+- Match the dialog designer preview font to the native 8 pt MS Shell Dlg dialog template.
+
 ## 0.1.9
 
 - Replace the generic dialog-builder artwork with the recognizable Salamander

@@ -137,6 +137,25 @@ protected:
         StaticTextControl* self = reinterpret_cast<StaticTextControl*>(data);
         if (message == WM_SETTEXT && self != NULL && lParam != 0)
             self->Text = Utf8(reinterpret_cast<const wchar_t*>(lParam));
+        if (message == WM_SETFONT && self != NULL && wParam != 0 &&
+            (self->Flags & (STF_BOLD | STF_UNDERLINE)) != 0 &&
+            reinterpret_cast<HFONT>(wParam) != self->DerivedFont)
+        {
+            LOGFONTW font;
+            HFONT source = reinterpret_cast<HFONT>(wParam);
+            if (GetObjectW(source, sizeof(font), &font) == sizeof(font))
+            {
+                if ((self->Flags & STF_BOLD) != 0) font.lfWeight = FW_BOLD;
+                if ((self->Flags & STF_UNDERLINE) != 0) font.lfUnderline = TRUE;
+                HFONT derived = CreateFontIndirectW(&font);
+                if (derived != NULL)
+                {
+                    if (self->DerivedFont != NULL) DeleteObject(self->DerivedFont);
+                    self->DerivedFont = derived;
+                    return DefSubclassProc(window, WM_SETFONT, reinterpret_cast<WPARAM>(derived), lParam);
+                }
+            }
+        }
         if (message == WM_NCDESTROY)
         {
             RemoveWindowSubclass(window, Proc, id);

@@ -26,13 +26,25 @@ input, select, textarea { background: var(--vscode-input-background); border: 1p
 h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; margin: 4px 0 10px; color: var(--vscode-sideBarSectionHeader-foreground); }
 .palette button { display: block; width: 100%; margin: 0 0 5px; text-align: left; cursor: grab; }
 .designer-scroll { overflow: auto; padding: 32px; background-color: var(--vscode-editor-background); background-image: radial-gradient(var(--vscode-editorIndentGuide-background1) 1px, transparent 1px); background-size: 12px 12px; }
-.dialog-frame { position: relative; margin: 0 auto; min-width: 240px; min-height: 150px; border: 1px solid var(--vscode-contrastBorder, #777); border-radius: 6px 6px 0 0; background: var(--vscode-editorWidget-background); box-shadow: 0 8px 24px #0005; }
+.dialog-frame { position: relative; margin: 0 auto; min-width: 240px; min-height: 150px; border: 1px solid var(--vscode-contrastBorder, #777); border-radius: 6px 6px 0 0; background: var(--vscode-editorWidget-background); box-shadow: 0 8px 24px #0005; font-family: "MS Shell Dlg", "Microsoft Sans Serif", sans-serif; font-size: 8pt; line-height: normal; color: #202020; }
+.preview-dark .dialog-frame { background: #252526; color: #f0f0f0; border-color: #666; }
+.preview-light .dialog-frame { background: #f4f4f4; color: #202020; border-color: #888; }
 .dialog-title { position: absolute; inset: 0 0 auto; height: 29px; padding: 6px 10px; background: var(--vscode-titleBar-activeBackground); color: var(--vscode-titleBar-activeForeground); border-radius: 5px 5px 0 0; white-space: nowrap; overflow: hidden; }
+.preview-dark .dialog-title { background: #3f3f46; color: #f0f0f0; }
+.preview-light .dialog-title { background: #d6d6d6; color: #202020; }
+.preview-dark .dialog-frame button, .preview-dark .dialog-frame input, .preview-dark .dialog-frame select, .preview-dark .dialog-frame textarea { background: #2d2d30; color: #f0f0f0; border-color: #666; }
+.preview-light .dialog-frame button, .preview-light .dialog-frame input, .preview-light .dialog-frame select, .preview-light .dialog-frame textarea { background: #ffffff; color: #202020; border-color: #888; }
 .dialog-client { position: absolute; inset: 29px 0 0; }
-.design-control { position: absolute; display: flex; align-items: center; cursor: move; user-select: none; outline: 1px solid transparent; }
+.design-control { position: absolute; display: flex; align-items: center; cursor: move; user-select: none; outline: 1px solid transparent; overflow: hidden; line-height: 1; }
 .design-control.selected { outline: 2px solid var(--vscode-focusBorder); z-index: 10; }
-.design-control > input, .design-control > button, .design-control > select, .design-control > progress, .design-control > fieldset, .design-control > .collection-preview { width: 100%; height: 100%; pointer-events: none; }
-.design-control label { white-space: nowrap; overflow: hidden; pointer-events: none; }
+.design-control > input, .design-control > button, .design-control > select, .design-control > progress, .design-control > fieldset, .design-control > .collection-preview { width: 100%; height: 100%; min-width: 0; min-height: 0; pointer-events: none; font: inherit; line-height: 1; }
+.design-control label { display: flex; align-items: center; min-width: 0; white-space: nowrap; overflow: hidden; pointer-events: none; line-height: 1; }
+.design-control label input { flex: 0 0 auto; width: auto; height: auto; margin: 0 4px 0 0; }
+.static-text-preview { display: block; width: 100%; min-width: 0; max-width: 100%; }
+.static-text-bold { font-weight: 700; }
+.static-text-underline { text-decoration: underline; }
+.static-text-end-ellipsis, .static-text-path-ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 .design-control fieldset { border: 1px solid var(--vscode-contrastBorder, #777); padding: 0; }
 .collection-preview { border: 1px solid var(--vscode-input-border, #777); background: var(--vscode-input-background); padding: 3px; }
 .resize-handle { position: absolute; width: 8px; height: 8px; right: -5px; bottom: -5px; background: var(--vscode-focusBorder); cursor: nwse-resize; }

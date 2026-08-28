@@ -6,6 +6,19 @@
 #include <string>
 
 namespace Salamatrix { namespace UI { namespace {
+static BOOL CALLBACK ConfigureChildFont(HWND window, LPARAM data)
+{
+    HFONT font = reinterpret_cast<HFONT>(data);
+    if (window != NULL && font != NULL)
+    {
+        SendMessageW(window, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+        wchar_t className[32];
+        if (GetClassNameW(window, className, ARRAYSIZE(className)) != 0 && wcscmp(className, WC_BUTTON) == 0)
+            SetPropW(window, L"Darkmodelib.Button.UseConfiguredFont", reinterpret_cast<HANDLE>(1));
+    }
+    return TRUE;
+}
+
 static std::wstring Wide(const char* text)
 {
     if (text == NULL) return std::wstring();
@@ -61,6 +74,9 @@ public:
         }
         else
             dmlib::setChildCtrlsTheme(window);
+        HFONT dialogFont = reinterpret_cast<HFONT>(SendMessageW(window, WM_GETFONT, 0, 0));
+        if (dialogFont != NULL)
+            EnumChildWindows(window, ConfigureChildFont, reinterpret_cast<LPARAM>(dialogFont));
         dmlib::setDarkTitleBar(window);
         RedrawWindow(window, NULL, NULL, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_FRAME);
     }

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type {
   ControlCatalog,
@@ -156,7 +156,7 @@ function App(): React.JSX.Element {
   };
 
   return (
-    <main className="studio">
+    <main className={`studio preview-${previewTheme}`}>
       <header className="toolbar">
         <label>{tr('Title')} <input value={dialog.title} onChange={(e) => updateDialog({ title: e.target.value })} /></label>
         <label>{tr('Width')} <NumberInput value={dialog.width} onCommit={(width) => updateDialog({ width })} /></label>
@@ -310,7 +310,26 @@ function DesignControl(props: {
   );
 }
 
+const staticTextBold = 0x2;
+const staticTextUnderline = 0x4;
+const staticTextEndEllipsis = 0x20;
+const staticTextPathEllipsis = 0x40;
+
 function ControlPreview({ control }: { control: DialogControl }): React.JSX.Element {
+  if (control.kind === 'statictext') {
+    const flags = typeof control.options?.styleFlags === 'number' ? control.options.styleFlags : 0;
+    const classes = [
+      'static-text-preview',
+      (flags & staticTextBold) !== 0 ? 'static-text-bold' : '',
+      (flags & staticTextUnderline) !== 0 ? 'static-text-underline' : '',
+      (flags & staticTextEndEllipsis) !== 0 ? 'static-text-end-ellipsis' : '',
+      (flags & staticTextPathEllipsis) !== 0 ? 'static-text-path-ellipsis' : '',
+    ].filter(Boolean).join(' ');
+    const pathEllipsis = (flags & staticTextPathEllipsis) !== 0;
+    return pathEllipsis
+      ? <PathEllipsisText text={control.text} className={classes} />
+      : <span className={classes}>{control.text}</span>;
+  }
   switch (control.kind) {
     case 'textbox': return <input tabIndex={-1} value={control.text} readOnly />;
     case 'checkbox': return <label><input tabIndex={-1} type="checkbox" checked={Boolean(control.options?.checked)} readOnly />{control.text}</label>;
@@ -325,6 +344,45 @@ function ControlPreview({ control }: { control: DialogControl }): React.JSX.Elem
   }
 }
 
+function PathEllipsisText({ text, className }: { text: string; className: string }): React.JSX.Element {
+  const container = useRef<HTMLSpanElement>(null);
+  const [displayText, setDisplayText] = useState(text);
+
+  useLayoutEffect(() => {
+    const element = container.current;
+    if (!element) return;
+    const update = (): void => {
+      const width = element.clientWidth;
+      if (width <= 0) return;
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      if (!context) return;
+      context.font = getComputedStyle(element).font;
+      if (context.measureText(text).width <= width) {
+        setDisplayText(text);
+        return;
+      }
+      const separator = Math.max(text.lastIndexOf('\\'), text.lastIndexOf('/') );
+      const suffix = separator >= 0 ? text.slice(separator) : '';
+      const prefix = separator >= 0 ? text.slice(0, separator) : text;
+      const ellipsis = '...';
+      let low = 0;
+      let high = prefix.length;
+      while (low < high) {
+        const middle = Math.ceil((low + high) / 2);
+        if (context.measureText(prefix.slice(0, middle) + ellipsis + suffix).width <= width) low = middle;
+        else high = middle - 1;
+      }
+      setDisplayText(prefix.slice(0, low) + ellipsis + suffix);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [text]);
+
+  return <span ref={container} className={className}>{displayText}</span>;
+}
 function Property({ label, children }: { label: string; children: React.ReactNode }): React.JSX.Element {
   return <label className="property"><span>{label}</span>{children}</label>;
 }
