@@ -50,6 +50,8 @@ for %%t in (Debug_x86 Debug_x64 Release_x86 Release_x64 Release_arm64 "Release c
   echo Target directory: %%t
   call :copy_thirdparty "%OPENSAL_BUILD_DIR%salamander\%%t"
   call :copy_csharp_plugins "%%t" "%OPENSAL_BUILD_DIR%salamander\%%t"
+  call :copy_extensions "%OPENSAL_BUILD_DIR%salamander\%%t"
+  if errorlevel 8 exit /b 1
 )
 
 call :sfx_make_all
@@ -144,6 +146,20 @@ call :mycopy_with_mkdir_bat readme.cz      ..\plugins\zip\zip2sfx %1\plugins\zip
 exit /b
 
 
+:copy_extensions
+setlocal
+echo Synchronizing Salamatrix extensions...
+set "EXTENSIONS_SOURCE=%SAL_POPULATE_ROOT%..\extensions"
+set "EXTENSIONS_TARGET=%~1\extensions"
+if not exist "%EXTENSIONS_SOURCE%\*" goto copy_extensions_end
+if not exist "%EXTENSIONS_TARGET%" mkdir "%EXTENSIONS_TARGET%"
+robocopy "%EXTENSIONS_SOURCE%" "%EXTENSIONS_TARGET%" /E /COPY:DAT /DCOPY:DAT /R:2 /W:1 /XD hardview-lib /XF copy-sensor-dlls.bat
+set "COPY_EXTENSIONS_RC=%ERRORLEVEL%"
+:copy_extensions_end
+if not defined COPY_EXTENSIONS_RC set "COPY_EXTENSIONS_RC=0"
+endlocal & exit /b %COPY_EXTENSIONS_RC%
+
+
 :copy_csharp_plugins
 setlocal
 set "CONFIGURATION=%~1"
@@ -218,8 +234,8 @@ exit /b
 
 :mycopy_dir
 
-robocopy %1 %2 >nul
-if not errorlevel 1 (
+robocopy %1 %2 /E /COPY:DAT /DCOPY:DAT /R:2 /W:1 >nul
+if errorlevel 8 (
   echo.
   echo !!!!!!!!!!!!!!!!!!!   ERROR   !!!!!!!!!!!!!!!!!!!
   echo !!!!!!!!!!!!!!!!!!!   ERROR   !!!!!!!!!!!!!!!!!!!
