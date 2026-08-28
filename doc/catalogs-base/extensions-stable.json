@@ -15,7 +15,7 @@
       "latestVersion": "1.0.2 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_file-lock-inspector_1.0.0_x64/plugin_5.0_file-lock-inspector_1.0.0_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_file-lock-inspector_1.0.2_x64/plugin_5.0_file-lock-inspector_1.0.2_x64.7z",
       "dependencies": [
         "powershellruntime"
       ],
@@ -41,7 +41,7 @@
       "latestVersion": "1.0.2 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_git-worktree-navigator_1.0.0_x64/plugin_5.0_git-worktree-navigator_1.0.0_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_git-worktree-navigator_1.0.2_x64/plugin_5.0_git-worktree-navigator_1.0.2_x64.7z",
       "dependencies": [
         "powershellruntime"
       ],
@@ -67,7 +67,7 @@
       "latestVersion": "1.1.2 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_extension-menu-builder_1.0.0_x64/plugin_5.0_extension-menu-builder_1.0.0_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_extension-menu-builder_1.1.2_x64/plugin_5.0_extension-menu-builder_1.1.2_x64.7z",
       "dependencies": [
         "powershellruntime"
       ],
@@ -94,7 +94,7 @@
       "latestVersion": "1.4.2 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrixdemos_1.0.0_x64/plugin_5.0_salamatrixdemos_1.0.0_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrixdemos_1.4.2_x64/plugin_5.0_salamatrixdemos_1.4.2_x64.7z",
       "dependencies": [
         "salamatrix"
       ],

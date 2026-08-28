@@ -35,7 +35,7 @@
       "latestVersion": "0.7.10 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://salamatrix.samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrix_0.2_x64/plugin_5.0_salamatrix_0.2_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrix_0.7.10_x64/plugin_5.0_salamatrix_0.7.10_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/salamatrix.png",
       "packageType": "plugin",
       "security": {
@@ -58,7 +58,7 @@
       "latestVersion": "0.2 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://salamatrix.samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrixai_0.1_x64/plugin_5.0_salamatrixai_0.1_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrixai_0.2_x64/plugin_5.0_salamatrixai_0.2_x64.7z",
       "dependencies": [
         "salamatrix"
       ],
@@ -84,7 +84,7 @@
       "latestVersion": "0.2 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://salamatrix.samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrixailocalllama_0.1_x64/plugin_5.0_salamatrixailocalllama_0.1_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrixailocalllama_0.2_x64/plugin_5.0_salamatrixailocalllama_0.2_x64.7z",
       "dependencies": [
         "salamatrixai"
       ],
@@ -110,7 +110,7 @@
       "latestVersion": "0.3.1 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://salamatrix.samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_pythonruntime_0.1_x64/plugin_5.0_pythonruntime_0.1_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_pythonruntime_0.3.1_x64/plugin_5.0_pythonruntime_0.3.1_x64.7z",
       "dependencies": [
         "salamatrix"
       ],
@@ -136,7 +136,7 @@
       "latestVersion": "0.3 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://salamatrix.samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_powershellruntime_0.1_x64/plugin_5.0_powershellruntime_0.1_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_powershellruntime_0.3_x64/plugin_5.0_powershellruntime_0.3_x64.7z",
       "dependencies": [
         "salamatrix"
       ],
@@ -162,7 +162,7 @@
       "latestVersion": "0.3.1 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://salamatrix.samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_luaruntime_0.1_x64/plugin_5.0_luaruntime_0.1_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_luaruntime_0.3.1_x64/plugin_5.0_luaruntime_0.3.1_x64.7z",
       "dependencies": [
         "salamatrix"
       ],
@@ -188,7 +188,7 @@
       "latestVersion": "0.3 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://salamatrix.samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_phpruntime_0.1_x64/plugin_5.0_phpruntime_0.1_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_phpruntime_0.3_x64/plugin_5.0_phpruntime_0.3_x64.7z",
       "dependencies": [
         "salamatrix"
       ],
@@ -214,7 +214,7 @@
       "latestVersion": "0.3 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://salamatrix.samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_javascriptruntime_0.1_x64/plugin_5.0_javascriptruntime_0.1_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_javascriptruntime_0.3_x64/plugin_5.0_javascriptruntime_0.3_x64.7z",
       "dependencies": [
         "salamatrix"
       ],
@@ -260,7 +260,7 @@
       "latestVersion": "2.0 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://salamatrix.samandarin.net/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_demoplug_1.96_x64/plugin_5.0_demoplug_1.96_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_demoplug_2.0_x64/plugin_5.0_demoplug_2.0_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/demoplug.png",
       "packageType": "plugin",
       "security": {
