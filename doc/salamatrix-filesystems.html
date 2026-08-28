@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Salamatrix file-system panels</title>
+<meta name="description" content="Build virtual Open Salamander file-system panels with Salamatrix manifest fileSystems providers, typed columns, refresh policies, icons, actions, and localization.">
+<meta name="keywords" content="Salamatrix, Open Salamander, file-system panel, virtual file system, Event Viewer, Process Explorer, Hardware Monitor">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="../consent.css">
+<link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+</head>
+<body>
+<header class="site-header">
+  <a class="skip-link" href="#content">Skip to content</a>
+  <div class="site-header__row"><div class="site-branding"><h1><a href="index.html"><img id="header-logo" src="salamatrix_logo_64px.png" alt="Salamatrix logo"></a>Salamatrix <span class="site-branding__accent">File-system panels</span></h1><p id="description-text">Virtual panels that feel native in Open Salamander</p></div></div>
+  <nav class="section-nav" aria-label="Page sections">
+    <a href="index.html" id="site-branding__small_logo"><img src="salamatrix_logo_64px.png" alt="Salamatrix logo"></a>
+      <div class="section-nav__item section-nav__item--has-submenu">
+        <a href="index.html" aria-haspopup="true">Salamatrix Framework</a>
+        <div class="section-nav__submenu">
+          <a href="index.html">Salamatrix Framework Overview</a>
+          <a href="salamatrix-ui.html">Salamatrix.UI Framework</a>
+          <a href="salamatrix-filesystems.html">File-system panels</a>
+          <a href="index.html#ai">Salamatrix.AI Companion</a>
+          <a href="studio.html">Salamatrix Studio for Visual Studio Code</a>
+        </div>
+      </div>
+        <a href="salamatrix-ui.html">UI framework</a><a href="studio.html">Studio</a><a href="#manifest">Manifest</a><a href="#bundled">Bundled panels</a><a href="https://samandarin.krtkovo.eu/" aria="samandarin">Samandarin</a>
+  </nav>
+</header>
+<main id="content">
+<section class="hero-panel" id="overview" aria-labelledby="hero-title"><div class="hero-panel__copy"><h2 id="hero-title">Bring a real virtual file system into the panels.</h2><p>A Salamatrix extension can provide a browsable <code>salamatrix:</code> namespace instead of only adding commands or dialogs. Salamander opens it in the normal file panels, with native navigation, columns, icons, context actions, refresh, and dark-mode behavior.</p><p>Providers are declared by a schema-2 <code>fileSystems</code> manifest role and backed by the selected runtime. The framework owns panel integration; the extension supplies the item data and actions.</p></div><div class="hero-panel__visual architecture-visual"><div class="architecture-stack"><div class="stack-box stack-box--top"><strong>salamatrix: provider</strong><span>roots · paths · items · actions</span></div><div class="stack-connector">↕</div><div class="stack-box stack-box--middle"><strong>Salamatrix host</strong><span>listing · refresh · icons · localization</span></div><div class="stack-connector">↕</div><div class="stack-box stack-box--bottom"><strong>Open Salamander panels</strong><span>native navigation and interaction</span></div></div><span class="compatibility-badge">FS<br><small>panel API</small></span></div></section>
+<section class="content-grid" id="capabilities"><h2>What a file-system provider can do</h2><div class="card-grid"><article class="info-card"><h3>Browse and navigate</h3><p>Expose root items and hierarchical paths. A command can open a provider such as <code>salamatrix:OpenSalamander.ProcessExplorer!processes</code> directly in a panel.</p></article><article class="info-card"><h3>Describe every item</h3><p>Return names, folders, paths, icons, dark-mode icon variants and custom fields. Columns can be numeric, size-aware, or date/time formatted.</p></article><article class="info-card"><h3>Refresh intelligently</h3><p>Use periodic refresh, bounded refresh depth, and selected refresh paths so live data updates without rebuilding unrelated branches.</p></article><article class="info-card"><h3>Act on selection</h3><p>Declare default actions, separators, item prefixes and refresh behavior. Handlers can open properties, terminate a process, or perform device-management operations.</p></article><article class="info-card"><h3>Localize the surface</h3><p>Package locales can translate the provider name, roots, columns, item labels and action titles while the host keeps the same manifest contract.</p></article><article class="info-card"><h3>Stay inside the host policy</h3><p>Capabilities and security metadata make file-system, process, script, network and elevation requirements visible and enforceable at the package boundary.</p></article></div></section>
+<section class="content-grid" id="manifest"><h2>Manifest shape</h2><p>The provider is a normal manifest-backed extension. The <code>fileSystems</code> entry declares the public panel contract; the runtime entry point implements its list and action handlers.</p><pre><code>{
+  "schema": 2,
+  "id": "OpenSalamander.ProcessExplorer",
+  "runtime": "PowerShell",
+  "entryPoint": "main.ps1",
+  "capabilities": ["file-system", "process.read", "process.write"],
+  "commands": [{
+    "id": "OpenSalamander.ProcessExplorer.open",
+    "path": "salamatrix:OpenSalamander.ProcessExplorer!processes",
+    "menu": "none", "toolbar": true
+  }],
+  "fileSystems": [{
+    "id": "processes", "name": "Running Processes",
+    "listHandler": "listProcesses", "refreshIntervalMs": 5000,
+    "columns": [{"id":"pid", "name":"PID", "numeric":true}],
+    "actions": [{"id":"endTask", "title":"End task", "handler":"endTask"}]
+  }]
+}</code></pre><p>The part before <code>!</code> identifies the extension provider and the part after it identifies the declared file system. Navigation does not need to start a second copy of the framework; Salamatrix resolves the provider and dispatches listing or action requests through the worker boundary.</p></section>
+<section class="content-grid" id="bundled"><h2>Bundled file-system extensions</h2><div class="card-grid"><article class="info-card"><h3>Event Viewer</h3><p>Browse Custom Views, Windows Logs, and Applications and Services Logs. The panel displays level, date/time, source, event ID, and task category, with Event Properties as the default action.</p><p><code>salamatrix:OpenSalamander.EventViewer!events</code></p></article><article class="info-card"><h3>Process Explorer</h3><p>Inspect running processes with PID, status, CPU, memory, and user columns. The five-second refresh keeps the view current; actions include End task, End process tree, Open file location, and Properties.</p><p><code>salamatrix:OpenSalamander.ProcessExplorer!processes</code></p></article><article class="info-card"><h3>Hardware Monitor</h3><p>Explore CPU, GPU, memory, motherboard, network, sensors, storage, and Device Manager data. It includes live sensor refresh and device actions such as update, disable, uninstall, scan, and properties.</p><p><code>salamatrix:OpenSalamander.HardwareMonitor!hardware-info</code></p></article></div></section>
+<section class="content-grid" id="relationship"><h2>How this relates to other Salamatrix services</h2><div class="lifecycle-panel"><div class="lifecycle-step"><b>01</b><strong>Panel entry</strong><span>The user opens a <code>salamatrix:</code> path from a command or toolbar.</span></div><div class="lifecycle-step"><b>02</b><strong>List</strong><span>The provider returns bounded items, folders, fields, icons, and navigation metadata.</span></div><div class="lifecycle-step"><b>03</b><strong>Interact</strong><span>Salamander handles selection and context menus; the worker receives declared actions.</span></div><div class="lifecycle-step"><b>04</b><strong>Refresh</strong><span>The host applies the provider refresh policy and keeps the panel state native.</span></div></div><p>File-system panels complement, rather than replace, <code>Salamatrix.Sides</code> context access and <code>Salamatrix.FileOperations</code>. A script may inspect ordinary selected files through the Sides API, invoke interactive Salamander operations, or provide a dedicated virtual panel through <code>fileSystems</code>.</p><p class="note"><strong>Implementation status:</strong> schema-2 file-system manifests, panel listing, hierarchical roots, typed columns, icons, localization, refresh policies, action dispatch, and the three bundled panel extensions are implemented in the current Salamatrix framework.</p></section>
+</main>
+<a class="back-to-top" href="#content" aria-label="Back to top" title="Back to top" data-back-to-top>↑</a><script src="../js/back-to-top.js" defer></script><script src="../js/consent.js" defer></script>
+</body></html>

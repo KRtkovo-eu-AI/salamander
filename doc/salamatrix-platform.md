@@ -7,7 +7,15 @@ Open Salamander. It is intended to connect the Salamander core, native plugins,
 scripted extensions, future language runtime adapters, shared UI services, and future SDK
 surface area without creating separate APIs for each runtime.
 
-This document captures the initial platform foundation for the first MVP. It is a
+This document captures the initial platform foundation for the first MVP.
+
+## Current Salamatrix surface
+
+The implemented platform includes schema-2 manifest-backed `fileSystems[]` providers in addition to commands, Viewers, dialogs, events, storage, runtime workers, and panel-side context. A provider exposes a `salamatrix:` namespace with bounded rows, typed columns, icons, refresh behavior, and selection actions in the native file panels. Event Viewer, Process Explorer, and Hardware Monitor are bundled examples; Git Worktree Navigator, File Lock Inspector, and Extension Menu Builder complete the current six-package extension set.
+
+Salamatrix Studio for Visual Studio Code is the source-first authoring surface for these manifests and dialogs. Its current Windows x64 release includes the native preview host, with editor and native dialog previews sharing the documented font metrics and static-text styling behavior.
+
+ It is a
 design and integration guide, not a commitment that all subsystems must be built
 at once.
 

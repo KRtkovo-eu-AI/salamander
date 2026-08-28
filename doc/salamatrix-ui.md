@@ -139,6 +139,10 @@ Common options are:
 | `multiline` | Create a multiline text box. |
 | `filter`, `save` | File-picker filter and save mode. |
 | `styleFlags` | Native Salamatrix/Open Salamander control flags. |
+
+Static-text controls use the native flag values for emphasis and overflow behavior: `STF_BOLD` and `STF_UNDERLINE` preserve bold and underline in the native host, while `STF_END_ELLIPSIS` keeps text on one line and shortens its end and `STF_PATH_ELLIPSIS` shortens the middle of a path with `...`. Salamatrix Studio mirrors these rules in its editor preview, using the same 8 pt `MS Shell Dlg` metrics so layout and overflow remain predictable before generation.
+
+
 | `pathSeparator` | Separator used by path ellipsis. |
 | `toolTip` | Tooltip text owned by the native control. |
 | `actionOpen` | URL or shell target opened by a hyperlink. |

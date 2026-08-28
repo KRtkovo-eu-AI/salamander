@@ -152,6 +152,14 @@ Schema 2 adds two optional native roles while schema 1 remains accepted:
   Rename/copy/move/delete/upload and complex hierarchical navigation are
   intentionally unsupported in the flat v1 role.
 
+## Virtual file-system panels
+
+Schema-2 extensions can contribute a flat virtual file system through `fileSystems[]`. Salamander exposes these providers under `salamatrix:<extension-id>!<file-system-id>` paths and opens them in the ordinary file panels; the provider supplies roots, rows, typed detailed-view columns, package icons, refresh policy, and selection actions while the host owns navigation, rendering, sorting, context menus, and dark-mode behavior.
+
+The distributed Event Viewer, Process Explorer, and Hardware Monitor extensions use this role for native-feeling diagnostic panels. This surface is distinct from `Salamatrix.Sides`, which reads the ordinary panel selection, and from `Salamatrix.FileOperations`, which operates on regular files.
+
+
+
 The distributed Salamatrix extension demos (`src/extensions/demos/README.md`)
 include equivalent schema-2 Viewer and FS handlers for Node.js, Python,
 PowerShell, PHP, and Lua, each with a distinct sample file mask and provider.

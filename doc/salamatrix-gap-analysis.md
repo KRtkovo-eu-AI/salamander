@@ -42,6 +42,10 @@ The repository already contains a real Salamatrix foundation, not only a design:
 - `Salamatrix.Extensions` now provides an owner-aware lifecycle registry, and
   the Salamatrix package manager owns extension roots, recursive manifest
   discovery, publication and worker lifecycle. Automation no longer publishes
+
+  manifest packages.
+
+
   manifest packages.
 - The Plugin Manager has an enabled Extension Runtimes catalog source and
   Salamatrix has a distinct Automation Framework capability flag.
