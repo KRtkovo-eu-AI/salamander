@@ -14,6 +14,7 @@ making their work available.
 | PNGLite | PNG image support | Based on PNGLite by Daniel Karling. Copyright (C) 2007 Daniel Karling. |
 | Nano SVG | SVG parsing/rendering support | Copyright (c) 2013-2014 Mikko Mononen. Utilizzato per le icone della barra degli strumenti e dei menu dell'applicazione principale e dal plugin PictView per la visualizzazione SVG (limiti NanoSVG: nessun CSS, testo e filtri limitati). |
 | Inflater deflate di PictView | Plugin PictView | Inflater deflate/zlib per tile XCF, IDAT PNG, ZIP SKP e anteprime 3DM compressi. Lettore di bit e Huffman seguono puff di Mark Adler. Copyright (C) 2002-2013 Mark Adler. Licenza zlib. |
+| openNURBS 3DM preview layout | PictView plugin | Rhinoceros `.3dm` properties-table preview chunks and `ON_WindowsBitmap::ReadCompressed` layout follow [McNeel openNURBS](https://github.com/mcneel/opennurbs). Copyright (c) Robert McNeel & Associates. Used as a format reference only; openNURBS itself is not bundled. |
 | SQLite | Embedded database support | SQLite is in the Public Domain. |
 | LibTomCrypt | Checksum plugin cryptographic primitives | LibTomCrypt is public domain. As Tom St Denis wrote: "As should all quality software be." |
 | LGPL libraries | Shared third-party libraries | Licensed under the GNU Library General Public License. A copy of the license is included with this software. |
@@ -25,6 +26,8 @@ making their work available.
 | Qwen2.5-Coder 0.5B Instruct GGUF | Lightweight, English-prompt-only local SalamatrixAI model | [Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF), pinned `q4_k_m` file. Apache License 2.0; the configuration downloader retrieves the model and license notice directly for the user. |
 | Test Reporter | Pull-request test result reports | [dorny/test-reporter](https://github.com/dorny/test-reporter), used by GitHub Actions to publish JUnit and Python xUnit results as Checks and workflow summaries. MIT License. |
 | pytest | Python test execution and xUnit report generation in pull-request CI | [pytest-dev/pytest](https://github.com/pytest-dev/pytest). MIT License. |
+| cursor-sdk | Optional Python SDK for batch SLT translation through the Cursor API | Used only by `tools/localization/translate_slt_with_openai.py` when `-Provider cursor` is selected. Install with `pip install cursor-sdk`. |
+| OpenRouter API | Optional remote provider for batch SLT translation | Used by `tools/localization/translate_slt_with_openai.py` by default with the `openai/gpt-5.4-nano` model. Requires a user-supplied `OPENROUTER_API_KEY`; no key is stored in the repository. |
 
 ## Plugin di archiviazione, compressione e immagini disco
 

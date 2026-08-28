@@ -11,17 +11,20 @@
 | PNGLite | PNG 图像支持 | 基于 Daniel Karling 的 PNGLite。Copyright (C) 2007 Daniel Karling. |
 | Nano SVG | SVG 解析/渲染支持 | Copyright (c) 2013-2014 Mikko Mononen. 用于主程序工具栏/菜单图标以及 PictView 插件中的 SVG 查看（适用 NanoSVG 限制：无 CSS、文本和滤镜支持有限）。 |
 | PictView deflate inflater | PictView 插件 | 用于 XCF 图块、PNG IDAT、SKP ZIP 以及压缩 3DM 预览的 deflate/zlib 解压器。位读取与 Huffman 表遵循 Mark Adler 的 puff。Copyright (C) 2002-2013 Mark Adler。zlib 许可。 |
+| openNURBS 3DM preview layout | PictView plugin | Rhinoceros `.3dm` properties-table preview chunks and `ON_WindowsBitmap::ReadCompressed` layout follow [McNeel openNURBS](https://github.com/mcneel/opennurbs). Copyright (c) Robert McNeel & Associates. Used as a format reference only; openNURBS itself is not bundled. |
 | SQLite | 嵌入式数据库支持 | SQLite 处于公共领域。 |
 | LibTomCrypt | 校验和插件加密原语 | LibTomCrypt 处于公共领域。正如 Tom St Denis 所写："就像所有优质软件应该的那样。" |
 | LGPL 库 | 共享第三方库 | 根据 GNU Library General Public License 授权。本软件附带许可证副本。 |
 | Unicode 和 Win32 长路径 | 文件名处理部分 | Samandarin 包含源自 [Sally](https://github.com/0xeb/sally) 的 fork [Elias Bachaalany (0xeb)](https://github.com/0xeb) 的代码和实现工作，或大量受其启发。根据 GNU Library General Public License 授权。 |
 | Lua 5.5.0 | Salamatrix Lua Runtime 随附的解释器 | [Lua.org, PUC-Rio](https://www.lua.org/)，由固定的 vcpkg `lua[tools]` 包安装。Copyright (c) 1994-2025 Lua.org, PUC-Rio。MIT 许可证；完整声明以 `plugins/extension-runtimes/luaruntime/runtime/LICENSE-LUA.txt` 分发。 |
-| win32-darkmodelib | 共享对话框和 Salamatrix 对话框的原生 Windows 深色模式支持 | 来自 [ozone10/win32-darkmodelib](https://github.com/ozone10/win32-darkmodelib)，commit `b58eb027c4a114c1b1c8fd09870ead982f1b1e72`。Mozilla Public License 2.0，部分代码采用 MIT 许可证。 |
-| llama.cpp | SalamatrixAI 按需本地 CPU 推理可执行文件 | [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp)，固定版本 `b10107`。MIT 许可证。 |
-| Qwen2.5-Coder 1.5B Instruct GGUF | 推荐的 SalamatrixAI 本地模型 | [Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF)，固定的 `q4_k_m` 文件。Apache License 2.0。 |
-| Qwen2.5-Coder 0.5B Instruct GGUF | 仅支持英文提示的轻量 SalamatrixAI 本地模型 | [Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF)，固定的 `q4_k_m` 文件。Apache License 2.0。 |
-| Test Reporter | 拉取请求测试结果报告 | [dorny/test-reporter](https://github.com/dorny/test-reporter)，用于 GitHub Actions。MIT 许可证。 |
+| win32-darkmodelib | 共享对话框和 Salamatrix 对话框的原生 Windows 深色模式支持 | 来自 [ozone10/win32-darkmodelib](https://github.com/ozone10/win32-darkmodelib)，commit `b58eb027c4a114c1b1c8fd09870ead982f1b1e72`。Mozilla Public License 2.0，部分代码采用 MIT 许可证。; see `src/third_party/darkmodelib/LICENSE.md` and `LICENSE-MIT.md`. |
+| llama.cpp | SalamatrixAI 按需本地 CPU 推理可执行文件 | [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp)，固定版本 `b10107`。MIT 许可证。 The configuration downloader retrieves the runtime and its license notice directly for the user. |
+| Qwen2.5-Coder 1.5B Instruct GGUF | 推荐的 SalamatrixAI 本地模型 | [Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF)，固定的 `q4_k_m` 文件。Apache License 2.0。 The configuration downloader retrieves the model and license notice directly for the user. |
+| Qwen2.5-Coder 0.5B Instruct GGUF | 仅支持英文提示的轻量 SalamatrixAI 本地模型 | [Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF)，固定的 `q4_k_m` 文件。Apache License 2.0。 The configuration downloader retrieves the model and license notice directly for the user. |
+| Test Reporter | 拉取请求测试结果报告 | [dorny/test-reporter](https://github.com/dorny/test-reporter)，用于 GitHub Actions。MIT 许可证。 It publishes JUnit and Python xUnit results as Checks and workflow summaries. |
 | pytest | CI 中的 Python 测试执行和 xUnit 报告生成 | [pytest-dev/pytest](https://github.com/pytest-dev/pytest)。MIT 许可证。 |
+| cursor-sdk | Optional Python SDK for batch SLT translation through the Cursor API | Used only by `tools/localization/translate_slt_with_openai.py` when `-Provider cursor` is selected. Install with `pip install cursor-sdk`. |
+| OpenRouter API | Optional remote provider for batch SLT translation | Used by `tools/localization/translate_slt_with_openai.py` by default with the `openai/gpt-5.4-nano` model. Requires a user-supplied `OPENROUTER_API_KEY`; no key is stored in the repository. |
 
 ## 归档、压缩和磁盘映像插件
 
