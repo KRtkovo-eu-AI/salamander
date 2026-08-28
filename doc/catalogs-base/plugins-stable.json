@@ -1083,6 +1083,7 @@
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_textviewer_1.03_x64/plugin_5.0_textviewer_1.03_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/textviewer.png",
       "packageType": "plugin",
+      "dependencies": ["salamatrix"],
       "security": {
         "networkAccess": "possible",
         "externalProcesses": "no",
@@ -1416,6 +1417,7 @@
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_webview2renderviewer_1.04_x64/plugin_5.0_webview2renderviewer_1.04_x64.7z",
       "icon": "https://samandarin.net/catalogs/img/webview2.png",
       "packageType": "plugin",
+      "dependencies": ["salamatrix"],
       "security": {
         "networkAccess": "possible",
         "externalProcesses": "no",
