@@ -1895,7 +1895,7 @@ begin
   AddPlugin('textviewer', 'Prism Text Viewer', '1.5 (x64)', 'base,standard,advanced,expert');
   AddPlugin('regedt', 'Registry Editor', '1.16 (x64)', 'base,standard,advanced,expert');
   AddPlugin('renamer', 'Renamer', '1.16 (x64)', 'base,standard,advanced,expert');
-  AddPlugin('salamatrix', 'Salamatrix Framework', '0.7.10 (x64)', 'advanced,expert');
+  AddPlugin('salamatrix', 'Salamatrix Framework', '0.7.13 (x64)', 'advanced,expert');
   AddPlugin('salamatrixai', 'Salamatrix AI', '0.2 (x64)', 'expert');
   AddPlugin('salamatrixailocalllama', 'Salamatrix AI Local LLaMA', '0.2 (x64)', 'expert');
   AddPlugin('salamatrixdemos', 'Salamatrix Demo Sample Scripts', '1.4.2 (x64)', 'expert');

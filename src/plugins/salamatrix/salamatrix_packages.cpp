@@ -1542,9 +1542,7 @@ private:
     enum RefreshThreadState
     {
         RefreshThreadIdle = 0,
-        RefreshThreadStarting = 1,
-        RefreshThreadRunningState = 2,
-        RefreshThreadStopping = 3
+        RefreshThreadRunningState = 1
     };
 
     PackageManager* Owner;
@@ -1553,11 +1551,14 @@ private:
     volatile LONG RefreshRequested;
     volatile LONG RefreshThreadRunning;
     volatile LONG ShuttingDown;
+    volatile LONG CloseState;
+    HANDLE CloseCompleteEvent;
     volatile LONG PathGeneration;
     volatile LONG RefreshIntervalMs;
     volatile LONG RefreshDepth;
     std::vector<std::string> PeriodicRefreshPaths;
     HANDLE RefreshThread;
+    CRITICAL_SECTION RefreshThreadLock;
     CRITICAL_SECTION CacheLock;
     std::vector<FileSystemItem> CachedItems;
     BOOL CacheReady;
@@ -1641,9 +1642,8 @@ private:
                 InterlockedExchange(&RefreshIntervalMs, static_cast<LONG>(interval));
         }
         LeaveCriticalSection(&CacheLock);
-        // Keep the object in the running state until the final access to it
-        // (including PostPanelRefresh) has completed. CloseFS uses this state
-        // to decide whether it must join the worker before destroying object.
+        // Keep the activity state running through the final object access.
+        // RefreshThread itself remains the authoritative lifetime handle.
         if (InterlockedCompareExchange(&ShuttingDown, 0, 0) == 0)
             PostPanelRefresh();
         InterlockedCompareExchange(
@@ -1654,71 +1654,48 @@ private:
     BOOL StartBackgroundRefresh(
         const std::string& packageId, const std::string& fileSystemId)
     {
-        if (InterlockedCompareExchange(&ShuttingDown, 0, 0) != 0 ||
-            InterlockedCompareExchange(
-                &RefreshThreadRunning,
-                RefreshThreadStarting, RefreshThreadIdle) != RefreshThreadIdle)
+        if (InterlockedCompareExchange(&ShuttingDown, 0, 0) != 0)
             return FALSE;
 
-        // A previous worker changes the state immediately before returning.
-        // Join that short epilogue before replacing its published handle.
-        HANDLE refreshThread = reinterpret_cast<HANDLE>(
-            InterlockedExchangePointer(
-                reinterpret_cast<PVOID volatile*>(&RefreshThread), NULL));
-        if (refreshThread != NULL)
-        {
-            if (!Runtime::WaitForThreadWithSentMessageDispatch(
-                    refreshThread,
-                    SalamanderGeneral != NULL
-                        ? SalamanderGeneral->GetMainWindowHWND() : NULL))
-            {
-                InterlockedExchangePointer(
-                    reinterpret_cast<PVOID volatile*>(&RefreshThread),
-                    refreshThread);
-                InterlockedExchange(
-                    &RefreshThreadRunning, RefreshThreadIdle);
-                return FALSE;
-            }
-            CloseHandle(refreshThread);
-        }
-
-        // CloseFS can run concurrently with a detached panel refresh.  The
-        // Starting state keeps the object alive until this second check has
-        // either rejected the start or published a joinable worker handle.
+        EnterCriticalSection(&RefreshThreadLock);
         if (InterlockedCompareExchange(&ShuttingDown, 0, 0) != 0)
         {
-            InterlockedExchange(&RefreshThreadRunning, RefreshThreadIdle);
+            LeaveCriticalSection(&RefreshThreadLock);
             return FALSE;
         }
+
+        if (RefreshThread != NULL)
+        {
+            if (WaitForSingleObject(RefreshThread, 0) != WAIT_OBJECT_0)
+            {
+                LeaveCriticalSection(&RefreshThreadLock);
+                return FALSE;
+            }
+            CloseHandle(RefreshThread);
+            RefreshThread = NULL;
+        }
+
         RefreshPackageId = packageId;
         RefreshFileSystemId = fileSystemId;
         RefreshPath = Path;
         RefreshGeneration = InterlockedCompareExchange(&PathGeneration, 0, 0);
-        refreshThread = CreateThread(
+        RefreshThread = CreateThread(
             NULL, 0, RefreshThreadProc, this, CREATE_SUSPENDED, NULL);
-        if (refreshThread == NULL)
+        if (RefreshThread == NULL)
         {
+            LeaveCriticalSection(&RefreshThreadLock);
+            return FALSE;
+        }
+        InterlockedExchange(&RefreshThreadRunning, RefreshThreadRunningState);
+        if (ResumeThread(RefreshThread) == static_cast<DWORD>(-1))
+        {
+            CloseHandle(RefreshThread);
+            RefreshThread = NULL;
             InterlockedExchange(&RefreshThreadRunning, RefreshThreadIdle);
+            LeaveCriticalSection(&RefreshThreadLock);
             return FALSE;
         }
-        // Publish the handle before the worker can touch the object, then
-        // expose Running.  CloseFS waits out Starting and can only observe
-        // Running after there is a handle it can join.
-        InterlockedExchangePointer(
-            reinterpret_cast<PVOID volatile*>(&RefreshThread), refreshThread);
-        InterlockedExchange(
-            &RefreshThreadRunning, RefreshThreadRunningState);
-        if (ResumeThread(refreshThread) == static_cast<DWORD>(-1))
-        {
-            if (InterlockedCompareExchangePointer(
-                    reinterpret_cast<PVOID volatile*>(&RefreshThread),
-                    NULL, refreshThread) == refreshThread)
-                CloseHandle(refreshThread);
-            InterlockedCompareExchange(
-                &RefreshThreadRunning,
-                RefreshThreadIdle, RefreshThreadRunningState);
-            return FALSE;
-        }
+        LeaveCriticalSection(&RefreshThreadLock);
         return TRUE;
     }
 
@@ -1906,41 +1883,43 @@ private:
 public:
     explicit OpenFileSystem(PackageManager* owner)
         : Owner(owner), RefreshPosted(0), RefreshRequested(1),
-          RefreshThreadRunning(0), ShuttingDown(0), PathGeneration(0),
-          RefreshIntervalMs(3000), RefreshDepth(0), RefreshThread(NULL), CacheReady(FALSE),
-          RefreshGeneration(0)
+          RefreshThreadRunning(0), ShuttingDown(0), CloseState(0),
+          CloseCompleteEvent(CreateEvent(NULL, TRUE, FALSE, NULL)),
+          PathGeneration(0), RefreshIntervalMs(3000), RefreshDepth(0),
+          RefreshThread(NULL), CacheReady(FALSE), RefreshGeneration(0)
     {
+        InitializeCriticalSection(&RefreshThreadLock);
         InitializeCriticalSection(&CacheLock);
     }
 
     virtual ~OpenFileSystem()
     {
+        Close();
+        if (CloseCompleteEvent != NULL)
+            CloseHandle(CloseCompleteEvent);
+        DeleteCriticalSection(&CacheLock);
+        DeleteCriticalSection(&RefreshThreadLock);
+    }
+
+    void Close()
+    {
         InterlockedExchange(&ShuttingDown, 1);
-        for (;;)
+        if (InterlockedCompareExchange(&CloseState, 1, 0) != 0)
         {
-            const LONG state = InterlockedCompareExchange(
-                &RefreshThreadRunning, RefreshThreadIdle, RefreshThreadIdle);
-            if (state == RefreshThreadStarting)
-            {
-                SwitchToThread();
-                continue;
-            }
-            if (state == RefreshThreadIdle &&
-                InterlockedCompareExchange(
-                    &RefreshThreadRunning,
-                    RefreshThreadStopping, RefreshThreadIdle) != RefreshThreadIdle)
-                continue;
-            if (state == RefreshThreadRunningState &&
-                InterlockedCompareExchange(
-                    &RefreshThreadRunning,
-                    RefreshThreadStopping,
-                    RefreshThreadRunningState) != RefreshThreadRunningState)
-                continue;
-            break;
+            if (CloseCompleteEvent != NULL)
+                Runtime::WaitForThreadWithSentMessageDispatch(
+                    CloseCompleteEvent,
+                    SalamanderGeneral != NULL
+                        ? SalamanderGeneral->GetMainWindowHWND() : NULL);
+            return;
         }
-        HANDLE refreshThread = reinterpret_cast<HANDLE>(
-            InterlockedExchangePointer(
-                reinterpret_cast<PVOID volatile*>(&RefreshThread), NULL));
+        // Serialize with worker creation/publication. Once this lock is held,
+        // RefreshThread is either NULL or an authoritative join handle for the
+        // only worker that can still access this object.
+        EnterCriticalSection(&RefreshThreadLock);
+        HANDLE refreshThread = RefreshThread;
+        RefreshThread = NULL;
+        LeaveCriticalSection(&RefreshThreadLock);
         if (refreshThread != NULL)
         {
             Runtime::WaitForThreadWithSentMessageDispatch(
@@ -1949,16 +1928,25 @@ public:
                     ? SalamanderGeneral->GetMainWindowHWND() : NULL);
             CloseHandle(refreshThread);
         }
-        DeleteCriticalSection(&CacheLock);
+        InterlockedExchange(&CloseState, 2);
+        if (CloseCompleteEvent != NULL)
+            SetEvent(CloseCompleteEvent);
     }
 
+    BOOL IsInitialized() const { return CloseCompleteEvent != NULL; }
+
+    BOOL IsShuttingDown() const
+    {
+        return InterlockedCompareExchange(
+            const_cast<volatile LONG*>(&ShuttingDown), 0, 0) != 0;
+    }
     void RequestDataRefresh()
     {
         InterlockedExchange(&RefreshRequested, 1);
         PostPanelRefresh();
     }
 
-    BOOL IsRoot() const { return Path.empty() ? TRUE : FALSE; }
+    BOOL IsRoot() const { return !IsShuttingDown() && Path.empty() ? TRUE : FALSE; }
     const std::string& GetPath() const { return Path; }
     std::string GetParentPath() const
     {
@@ -2009,15 +1997,18 @@ public:
     }
 
     virtual BOOL WINAPI GetCurrentPath(char* userPart)
-    { StringCchCopyA(userPart, MAX_PATH, Path.c_str()); return TRUE; }
+    {
+        if (IsShuttingDown()) return FALSE; StringCchCopyA(userPart, MAX_PATH, Path.c_str()); return TRUE; }
     virtual BOOL WINAPI GetFullName(CFileData& file, int isDir, char* buf, int bufSize)
     {
+        if (IsShuttingDown()) return FALSE;
         UNREFERENCED_PARAMETER(isDir);
         const std::string full = Path.empty() ? file.Name : Path + "\\" + file.Name;
         return SUCCEEDED(StringCchCopyA(buf, bufSize, full.c_str()));
     }
     virtual BOOL WINAPI GetFullFSPath(HWND parent, const char* fsName, char* path, int pathSize, BOOL& success)
     {
+        if (IsShuttingDown()) { success = FALSE; return FALSE; }
         UNREFERENCED_PARAMETER(parent);
         const std::string full = std::string(fsName) + ":" + Path;
         success = SUCCEEDED(StringCchCopyA(path, pathSize, full.c_str()));
@@ -2025,11 +2016,12 @@ public:
     }
     virtual BOOL WINAPI GetRootPath(char* userPart) { userPart[0] = '\0'; return TRUE; }
     virtual BOOL WINAPI IsCurrentPath(int currentFSNameIndex, int fsNameIndex, const char* userPart)
-    { UNREFERENCED_PARAMETER(currentFSNameIndex); UNREFERENCED_PARAMETER(fsNameIndex); return _stricmp(Path.c_str(), userPart ? userPart : "") == 0; }
+    { if (IsShuttingDown()) return FALSE; UNREFERENCED_PARAMETER(currentFSNameIndex); UNREFERENCED_PARAMETER(fsNameIndex); return _stricmp(Path.c_str(), userPart ? userPart : "") == 0; }
     virtual BOOL WINAPI IsOurPath(int currentFSNameIndex, int fsNameIndex, const char* userPart)
     { UNREFERENCED_PARAMETER(currentFSNameIndex); UNREFERENCED_PARAMETER(fsNameIndex); UNREFERENCED_PARAMETER(userPart); return TRUE; }
     virtual BOOL WINAPI ChangePath(int currentFSNameIndex, char* fsName, int fsNameIndex, const char* userPart, char* cutFileName, BOOL* pathWasCut, BOOL forceRefresh, int mode)
     {
+        if (IsShuttingDown()) return FALSE;
         UNREFERENCED_PARAMETER(currentFSNameIndex); UNREFERENCED_PARAMETER(fsName);
         UNREFERENCED_PARAMETER(fsNameIndex); UNREFERENCED_PARAMETER(forceRefresh);
         UNREFERENCED_PARAMETER(mode);
@@ -2064,6 +2056,7 @@ public:
     }
     virtual BOOL WINAPI ListCurrentPath(CSalamanderDirectoryAbstract* dir, CPluginDataInterfaceAbstract*& pluginData, int& iconsType, BOOL forceRefresh)
     {
+        if (IsShuttingDown()) return FALSE;
         if (forceRefresh)
             InterlockedExchange(&RefreshRequested, 1);
         InterlockedExchange(&RefreshPosted, 0);
@@ -2193,6 +2186,7 @@ public:
     { UNREFERENCED_PARAMETER(forceClose); UNREFERENCED_PARAMETER(canDetach); UNREFERENCED_PARAMETER(reason); detach = FALSE; return TRUE; }
     virtual void WINAPI Event(int event, DWORD param)
     {
+        if (IsShuttingDown()) return;
         if (event == FSE_PATHCHANGED && !Path.empty())
         {
             EnterCriticalSection(&CacheLock);
@@ -2223,6 +2217,7 @@ public:
     }
     virtual BOOL WINAPI GetChangeDriveOrDisconnectItem(const char* fsName, char*& title, HICON& icon, BOOL& destroyIcon)
     {
+        if (IsShuttingDown()) return FALSE;
         std::string text = std::string("\t") + fsName + ":" + Path;
         title = SalamanderGeneral->DupStr(text.c_str());
         icon = GetFSIcon(destroyIcon); return title != NULL;
@@ -2262,6 +2257,7 @@ public:
     { UNREFERENCED_PARAMETER(path); UNREFERENCED_PARAMETER(pathBufSize); }
     virtual BOOL WINAPI GetPathForMainWindowTitle(const char* fsName, int mode, char* buf, int bufSize)
     {
+        if (IsShuttingDown()) return FALSE;
         std::string title;
         if (mode == 1)
         {
@@ -2294,11 +2290,11 @@ public:
     virtual BOOL WINAPI QuickRename(const char* fsName, int mode, HWND parent, CFileData& file, BOOL isDir, char* newName, BOOL& cancel)
     { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(mode); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(file); UNREFERENCED_PARAMETER(isDir); UNREFERENCED_PARAMETER(newName); cancel = FALSE; return FALSE; }
     virtual void WINAPI AcceptChangeOnPathNotification(const char* fsName, const char* path, BOOL includingSubdirs)
-    { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(path); UNREFERENCED_PARAMETER(includingSubdirs); RequestDataRefresh(); }
+    { if (IsShuttingDown()) return; UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(path); UNREFERENCED_PARAMETER(includingSubdirs); RequestDataRefresh(); }
     virtual BOOL WINAPI CreateDir(const char* fsName, int mode, HWND parent, char* newName, BOOL& cancel)
     { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(mode); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(newName); cancel = FALSE; return FALSE; }
     virtual void WINAPI ViewFile(const char* fsName, HWND parent, CSalamanderForViewFileOnFSAbstract* salamander, CFileData& file)
-    { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(salamander); ExecuteDefault(file, SalamanderGeneral->GetSourcePanel()); }
+    { if (IsShuttingDown()) return; UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(salamander); ExecuteDefault(file, SalamanderGeneral->GetSourcePanel()); }
     virtual BOOL WINAPI Delete(const char* fsName, int mode, HWND parent, int panel, int selectedFiles, int selectedDirs, BOOL& cancelOrError)
     { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(mode); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(panel); UNREFERENCED_PARAMETER(selectedFiles); UNREFERENCED_PARAMETER(selectedDirs); cancelOrError = FALSE; return FALSE; }
     virtual BOOL WINAPI CopyOrMoveFromFS(BOOL copy, int mode, const char* fsName, HWND parent, int panel, int selectedFiles, int selectedDirs, char* targetPath, BOOL& operationMask, BOOL& cancelOrHandlePath, HWND dropTarget)
@@ -2311,6 +2307,7 @@ public:
     { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(parent); UNREFERENCED_PARAMETER(panel); UNREFERENCED_PARAMETER(selectedFiles); UNREFERENCED_PARAMETER(selectedDirs); }
     virtual void WINAPI ContextMenu(const char* fsName, HWND parent, int menuX, int menuY, int type, int panel, int selectedFiles, int selectedDirs)
     {
+        if (IsShuttingDown()) return;
         UNREFERENCED_PARAMETER(fsName);
         if (type != fscmItemsInPanel || Path.empty()) return;
         int isDir = 0; const CFileData* file = NULL;
@@ -2386,11 +2383,77 @@ class PackageManager::FileSystemExtension : public CPluginInterfaceForFSAbstract
 {
 private:
     PackageManager* Owner;
+    CRITICAL_SECTION FileSystemsLock;
+    std::vector<OpenFileSystem*> LiveFileSystems;
+    std::vector<OpenFileSystem*> RetiredFileSystems;
 public:
-    explicit FileSystemExtension(PackageManager* owner) : Owner(owner) {}
+    explicit FileSystemExtension(PackageManager* owner) : Owner(owner)
+    {
+        InitializeCriticalSection(&FileSystemsLock);
+    }
+    virtual ~FileSystemExtension()
+    {
+        std::vector<OpenFileSystem*> fileSystems;
+        EnterCriticalSection(&FileSystemsLock);
+        fileSystems.swap(LiveFileSystems);
+        fileSystems.insert(fileSystems.end(),
+                           RetiredFileSystems.begin(), RetiredFileSystems.end());
+        RetiredFileSystems.clear();
+        LeaveCriticalSection(&FileSystemsLock);
+        for (size_t index = 0; index < fileSystems.size(); ++index)
+        {
+            fileSystems[index]->Close();
+            delete fileSystems[index];
+        }
+        DeleteCriticalSection(&FileSystemsLock);
+    }
     virtual CPluginFSInterfaceAbstract* WINAPI OpenFS(const char* fsName, int fsNameIndex)
-    { UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(fsNameIndex); return new OpenFileSystem(Owner); }
-    virtual void WINAPI CloseFS(CPluginFSInterfaceAbstract* fs) { delete fs; }
+    {
+        UNREFERENCED_PARAMETER(fsName); UNREFERENCED_PARAMETER(fsNameIndex);
+        OpenFileSystem* opened = new OpenFileSystem(Owner);
+        if (opened != NULL && !opened->IsInitialized())
+        {
+            delete opened;
+            opened = NULL;
+        }
+        if (opened != NULL)
+        {
+            EnterCriticalSection(&FileSystemsLock);
+            LiveFileSystems.push_back(opened);
+            LeaveCriticalSection(&FileSystemsLock);
+        }
+        return opened;
+    }
+    virtual void WINAPI CloseFS(CPluginFSInterfaceAbstract* fs)
+    {
+        OpenFileSystem* opened = static_cast<OpenFileSystem*>(fs);
+        if (opened == NULL)
+            return;
+
+        BOOL retire = FALSE;
+        EnterCriticalSection(&FileSystemsLock);
+        for (std::vector<OpenFileSystem*>::iterator current =
+                 LiveFileSystems.begin(); current != LiveFileSystems.end(); ++current)
+        {
+            if (*current != opened)
+                continue;
+            LiveFileSystems.erase(current);
+            retire = TRUE;
+            break;
+        }
+        LeaveCriticalSection(&FileSystemsLock);
+
+        if (!retire)
+            return;
+        // Close synchronously before publishing retirement. After Close
+        // returns, no refresh worker can access the object. The allocation,
+        // vtable, and embedded locks stay alive until extension teardown, so a
+        // host callback dispatched before CloseFS remains safe to enter/return.
+        opened->Close();
+        EnterCriticalSection(&FileSystemsLock);
+        RetiredFileSystems.push_back(opened);
+        LeaveCriticalSection(&FileSystemsLock);
+    }
     virtual void WINAPI ExecuteChangeDriveMenuItem(int panel)
     { int failReason = 0; SalamanderGeneral->ChangePanelPathToPluginFS(panel, SalamatrixFSName, "", &failReason); }
     virtual BOOL WINAPI ChangeDriveMenuItemContextMenu(HWND parent, int panel, int x, int y, CPluginFSInterfaceAbstract* pluginFS, const char* pluginFSName, int pluginFSNameIndex, BOOL isDetachedFS, BOOL& refreshMenu, BOOL& closeMenu, int& postCmd, void*& postCmdParam)
@@ -2401,7 +2464,7 @@ public:
     {
         UNREFERENCED_PARAMETER(pluginFSNameIndex);
         OpenFileSystem* opened = static_cast<OpenFileSystem*>(pluginFS);
-        if (opened == NULL) return;
+        if (opened == NULL || opened->IsShuttingDown()) return;
         if (isDir == 2)
         {
             const std::string parentPath = opened->GetParentPath();
