@@ -7,7 +7,15 @@ Open Salamander. It is intended to connect the Salamander core, native plugins,
 scripted extensions, future language runtime adapters, shared UI services, and future SDK
 surface area without creating separate APIs for each runtime.
 
-This document captures the initial platform foundation for the first MVP. It is a
+This document captures the initial platform foundation for the first MVP.
+
+## Current Salamatrix surface
+
+The implemented platform includes schema-2 manifest-backed `fileSystems[]` providers in addition to commands, Viewers, dialogs, events, storage, runtime workers, and panel-side context. A provider exposes a `salamatrix:` namespace with bounded rows, typed columns, icons, refresh behavior, and selection actions in the native file panels. Event Viewer, Process Explorer, and Hardware Monitor are bundled examples; Git Worktree Navigator, File Lock Inspector, and Extension Menu Builder complete the current six-package extension set.
+
+Salamatrix Studio for Visual Studio Code is the source-first authoring surface for these manifests and dialogs. Its current Windows x64 release includes the native preview host, with editor and native dialog previews sharing the documented font metrics and static-text styling behavior.
+
+ It is a
 design and integration guide, not a commitment that all subsystems must be built
 at once.
 
@@ -387,6 +395,10 @@ deactivated through a callback that runs outside the registry lock. Automation
 registers valid manifest-backed scripts during initial load and refresh, using
 the `CScriptInfo` address as the owner; removed scripts are unregistered before
 their objects are deleted. Duplicate ids from another owner are rejected.
+Version 1.4 adds descriptor flag metadata for declarative menu-command, Viewer,
+and File System contributions. The flags do not change the descriptor layout;
+generic management UI can therefore describe package functions without parsing
+`extension.json` or depending on a particular runtime provider.
 
 Automation registrations carry a lifecycle callback. Activating a manifest
 looks up its selected runtime adapter and starts an `IRuntimeSession`; the
@@ -968,7 +980,9 @@ values. Manifests are limited to 1 MiB and nesting depth 64.
 
 Schema version 1 supports:
 
-- package `id`, `name`/`title`, `version`, `description`, and `entryPoint`;
+- package `id`, `name`/`title`, `version`, `description`, `web`, optional
+  `security` disclosure (`networkAccess`, `externalProcesses`,
+  `scriptExecution`, `activeWebContent`, `elevation`), and `entryPoint`;
 - a runtime string or `{ "id", "minimumVersion" }` object;
 - a validated string array of declared `capabilities`;
 - up to 64 command records with `id`, `title`, `handler`, `menu`/`placement`,
@@ -1162,7 +1176,9 @@ The platform skeleton is ready when:
     it. The command wrapper remains available for custom model adapters.
 46. The existing core Plugin Manager queries `Salamatrix.Extensions` and
     displays manifest-backed extensions alongside `.SPL` plugins. These rows
-    expose the manifest name, state, version, runtime, entry point, and ID;
+    expose the manifest name, state, version, runtime, entry point, and ID. The
+    Functions detail lists manifest commands as Menu Extension, `viewers[]` as
+    File Viewer, and `fileSystems[]` as File System (FS);
     the existing Test action becomes localized Activate/Deactivate for the
     selected manifest row. Script packages are still not treated as loadable
     native plugins; a separate Extension Manager is intentionally not

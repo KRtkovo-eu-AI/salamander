@@ -4,20 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Salamatrix Automation API reference</title>
-<meta name="description" content="Reference for the implemented Salamatrix Automation API exposed to scripted Open Salamander extensions, including commands, UI, storage, events, runtimes, and AI contracts.">
-<meta name="robots" content="index, follow">
-<meta property="og:title" content="Salamatrix Automation API reference">
-<meta property="og:description" content="Reference for the implemented Salamatrix Automation API exposed to scripted Open Salamander extensions.">
-<meta property="og:image" content="https://samandarin.krtkovo.eu/og_image.png">
-<meta property="og:image:alt" content="Salamatrix Automation API reference">
-<meta property="og:url" content="https://samandarin.krtkovo.eu/salamatrix/salamatrix-automation-api.html">
-<meta property="og:type" content="article">
-<meta property="og:site_name" content="Open Salamander: Samandarin">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Salamatrix Automation API reference">
-<meta name="twitter:description" content="Reference for the implemented Salamatrix Automation API exposed to scripted Open Salamander extensions.">
-<meta name="twitter:image" content="https://samandarin.krtkovo.eu/og_image.png">
-<link rel="canonical" href="https://samandarin.krtkovo.eu/salamatrix/salamatrix-automation-api.html">
 <style>
 :root { color-scheme:light dark; --bg:#fff; --fg:#202124; --surface:#f6f8fa;
  --border:#d0d7de; --accent:#c9252d; --code:#f0f2f4; }
@@ -51,10 +37,7 @@ th { background:var(--surface); } li { margin:.2em 0; }
 </head>
 <body><main>
 <nav class="doc-nav" aria-label="Salamatrix documentation">
-<a href="salamatrix-ui.md">Salamatrix.UI guide</a>
-<a href="salamatrix-platform.md">Platform foundation</a>
-<a href="salamatrix-runtime-providers.md">Runtime providers</a>
-<a href="salamatrix-gap-analysis.md">GAP analysis</a>
+<a href="salamatrix-automation-api.html" aria-current="page">Salamatrix Automation API reference</a> <a href="salamatrix-ui.html">Salamatrix.UI framework and custom dialog guide</a> <a href="salamatrix-platform.html">Salamatrix Platform Foundation</a> <a href="salamatrix-runtime-providers.html">Standalone Salamatrix runtime providers</a> <a href="salamatrix-runtime-provider-development.html">Developing a Salamatrix language runtime provider</a> <a href="salamatrix-gap-analysis.html">Salamatrix GAP analysis</a>
 </nav>
 <h1 id="salamatrix-automation-api-reference">Salamatrix Automation API reference</h1>
 <p>This document describes the API that is implemented by the current Salamatrix Framework and exposed to scripted extensions. It is intended for both people writing scripts and AI providers generating scripts. Examples use public worker facades, not the private <code>SMX1</code> transport.</p>
@@ -118,8 +101,43 @@ th { background:var(--surface); } li { margin:.2em 0; }
 </tr>
 </tbody></table></div>
 <p>JavaScript scripts run as modules and may use top-level <code>await</code>. They must not use an invented <code>this.selectedItems</code> property. The current selection is obtained through <code>await Salamander.sides.context("source")</code>.</p>
+<h3 id="one-shot-scripts-and-extension-packages">One-shot scripts and extension packages</h3>
+<p>The generated source contract is the same for a one-shot preview and for a saved extension. A one-shot script is executed immediately with the selected runtime. <strong>Save as extension</strong> creates a directory containing <code>extension.json</code> and the generated <code>main</code> entry point, then asks Salamatrix to refresh extension discovery. The assistant returns source code, not a JSON manifest embedded in the source.</p>
+<p>The generated manifest uses schema version 2 and binds one plugin-menu command to handler <code>main</code>:</p>
+<pre><code class="language-json">{
+  &quot;schema&quot;: 2,
+  &quot;id&quot;: &quot;generated.example&quot;,
+  &quot;name&quot;: &quot;Generated example&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;description&quot;: &quot;What the extension does&quot;,
+  &quot;runtime&quot;: &quot;Python.CPython&quot;,
+  &quot;entryPoint&quot;: &quot;main.py&quot;,
+  &quot;capabilities&quot;: [&quot;panels.read&quot;, &quot;ui.dialogs&quot;],
+  &quot;commands&quot;: [
+    {
+      &quot;id&quot;: &quot;generated.example&quot;,
+      &quot;title&quot;: &quot;Generated example&quot;,
+      &quot;handler&quot;: &quot;main&quot;,
+      &quot;menu&quot;: &quot;plugin&quot;,
+      &quot;requires&quot;: &quot;any&quot;
+    }
+  ]
+}</code></pre>
+<p>Hand-authored packages may define up to 64 commands. Command fields are <code>id</code>, <code>title</code>, <code>handler</code> or <code>path</code>, <code>menu</code>/<code>placement</code>, <code>contextMenu</code>, <code>toolbar</code>, <code>toolbarMenu</code>, and <code>requires</code>. Supported <code>requires</code> values are <code>any</code>, <code>disk</code>, <code>focused</code>, <code>file</code>, and <code>selection</code>. Entry points must be safe relative paths; absolute paths and parent traversal are rejected. Manifests are strict UTF-8 JSON and reject duplicate members, invalid types, duplicate command ids, and unsupported schema versions.</p>
+<p>A command with <code>path</code> and no <code>handler</code> changes the active/source panel directly on the host UI thread and does not start a runtime worker. This is intended for toolbar shortcuts to fixed disk, archive, or plug-in FS paths, requires the <code>panels.write</code> capability, and is mutually exclusive with <code>handler</code>.</p>
+<p>Schema 2 adds two optional native roles while schema 1 remains accepted:</p>
+<ul>
+<li><code>viewers[]</code> registers one or more file masks, an optional user-visible</li>
+<p><code>name</code>, and a one-shot <code>handler</code>. Viewer configuration lists every registered package/Viewer identity as a separate <strong>Associated viewer</strong> choice instead of showing only the shared Salamatrix Framework plugin. The selected identity is preserved with the association across configuration saves and restarts and is carried to the framework when that association is invoked. Therefore a concrete extension Viewer selected manually for <code>*.*</code> (including as an alternate Viewer opened with Alt+F3) runs that exact handler even when the opened file does not match the Viewer's original manifest mask. Declarative Viewer identities and masks are registered independently of runtime-provider startup order; dispatch still requires the runtime to be available when the Viewer is opened. The handler receives <code>Salamander.invocation</code> with <code>role="viewer"</code>, the local <code>path</code>, suggested window geometry, show state, always-on-top state, and the optional enumeration source/index. Viewer associations are registered during Salamatrix startup; installing or changing a viewer package requires a host restart before new masks enter the global viewer association list.</p>
+<li><code>fileSystems[]</code> contributes a provider under <code>salamatrix:</code>. Each provider</li>
+<p>declares <code>id</code>, <code>name</code>, <code>listHandler</code>, optional <code>openHandler</code>, SVG icons, optional package-relative ICO <code>defaultFileIcon</code>, <code>refreshIntervalMs</code> (<code>0</code> disables periodic refresh), optional <code>refreshDepth</code> (minimum virtual-path depth for timer refreshes), optional <code>refreshPaths[]</code> (provider-relative paths eligible for timer refreshes), optional declarative directory-only <code>rootItems[]</code>, detailed-view <code>columns[]</code>, and item <code>actions[]</code>. A non-empty <code>rootItems[]</code> is rendered synchronously at the provider root without starting its runtime worker; locale resources can translate names through <code>fileSystems.&lt;fileSystemId&gt;.rootItems.&lt;itemId&gt;</code>. <code>refreshDepth</code> defaults to <code>0</code>, preserving periodic refresh at every level. When <code>refreshPaths[]</code> is non-empty, timer refresh is further limited to exact matching paths; manual refresh always reloads the current path. A column declares <code>id</code>, <code>name</code>, optional <code>description</code>, <code>width</code>, <code>numeric</code>, <code>size</code>, and <code>dateTime</code>. A <code>size</code> column carries an unsigned byte count and is formatted using the user's Configuration &gt; Panels &gt; Show sizes choice (bytes, KB, or short mixed units); it is implicitly numeric. A <code>dateTime</code> column carries Unix milliseconds in each item's <code>columns</code> value. It sorts by that numeric UTC instant and displays date and time using the user's Windows regional format and time zone. The list handler calls <code>Salamander.fileSystem.addItems</code> / <code>file_system.add_items</code> once for a snapshot (or <code>addItem</code> / <code>add_item</code> for a small incremental list). The batch call returns the number of accepted items and avoids one synchronous worker/host round-trip per row. Item records contain <code>id</code>, <code>name</code>, optional <code>compactName</code> used outside Detailed view, optional package-relative SVG <code>icon</code>/<code>iconDark</code>, optional <code>fileIcon</code> containing the fully qualified Unicode path of a file whose embedded icon resource should be displayed, <code>directory</code>, and <code>enabled</code>, and an optional <code>columns</code> object mapping declared column ids to display strings. File icons are extracted lazily and directly from the file, without consulting file-extension associations; an unavailable path or a file without an icon resource first falls back to the provider's <code>defaultFileIcon</code>, then to the Salamatrix icon. Columns are rendered and sorted by the native detailed panel; numeric columns use numeric ordering. An executable action declares <code>id</code>, <code>title</code>, <code>handler</code>, optional <code>default</code>, and optional <code>refresh</code> (true by default). Optional <code>itemIdPrefix</code> limits an action (or separator) to matching item ids; a standalone <code>{ "separator": true }</code> inserts a native menu separator. Only an explicitly default action executes on Enter. The native Unicode context menu exposes the declared actions in order, and locale resources may translate their captions through <code>fileSystems.&lt;fileSystemId&gt;.actions.&lt;actionId&gt;</code>. Provider contents include a native <code>..</code> item, Directory Line exposes clickable breadcrumb segments, and the main window honors full, shortened, and directory-only path display modes. Runtime list handlers execute on a background worker. The panel immediately returns cached rows and refreshes itself when a new snapshot is ready, so a slow runtime or a large provider cannot block Salamander's UI thread. While an initially empty snapshot is being prepared, Salamander displays the panel throbber and stops it automatically when the completed listing is installed. Rename/copy/move/delete/upload and complex hierarchical navigation are intentionally unsupported in the flat v1 role.</p>
+</ul>
+<p>The distributed Salamatrix extension demos (<code>src/extensions/demos/README.md</code>) include equivalent schema-2 Viewer and FS handlers for Node.js, Python, PowerShell, PHP, and Lua, each with a distinct sample file mask and provider. The existing Plugin Manager derives each package's <strong>Functions</strong> summary from these manifest contributions: <code>commands[]</code> is shown as <strong>Menu Extension</strong>, <code>viewers[]</code> as <strong>File Viewer</strong>, and <code>fileSystems[]</code> as <strong>File System (FS)</strong>.</p>
+<p>An extension must declare every applicable gated framework surface it calls. Public capability names are <code>panels.read</code>, <code>panels.write</code>, <code>ui.dialogs</code>, <code>commands</code>, <code>file-operations</code>, <code>file-system</code>, <code>storage</code>, <code>events</code>, <code>ai</code>, <code>clipboard</code>, and <code>runtimes</code>. For backward compatibility, omitting <code>capabilities</code> keeps the legacy unrestricted behavior. An explicitly empty <code>capabilities: []</code> is deny-all, and any non-empty list grants only the named surfaces (or <code>*</code>). Application language/appearance and other host metadata have no separate capability name. Direct use of language/runtime libraries does not add a Salamatrix capability, but its real effects must still be reported by AI preview metadata.</p>
+<p>The entry point executes at top level. Its invocation identity is available as <code>commandId</code>/<code>commandHandler</code> in JavaScript, <code>command_id</code>/<code>command_handler</code> in Python, PHP, and Lua, and <code>CommandId</code>/<code>CommandHandler</code> in PowerShell. Persistent event subscriptions are useful only for an activated extension whose runtime supports persistent sessions; a one-shot script normally exits before a future event can arrive.</p>
+<p>Modern workers also expose the same parsed <code>Salamander.invocation</code> object. It is empty for ordinary commands and carries role-specific data for Viewer and FS list/action invocations. The runtime providers pass this append-only context as strict JSON and preserve Unicode and embedded quotes through Windows command-line escaping.</p>
 <h3 id="how-the-ai-consumes-this-contract">How the AI consumes this contract</h3>
-<p>The live <code>Salamatrix.AI</code> service publishes versioned machine-readable slices for <code>sides</code>, <code>fileOperations</code>, <code>commands</code>, <code>ui</code>, <code>storage</code>, <code>events</code>, <code>runtimes</code>, and <code>ai</code>. The assistant selects slices from the user's task instead of sending an unbounded copy of the whole manual.</p>
+<p>The live <code>Salamatrix.AI</code> service publishes versioned machine-readable slices for invocation context, extension manifests, sides, file operations, commands, UI, storage, clipboard, application state, events, runtime discovery, and AI. The assistant selects slices from the user's task instead of sending an unbounded copy of the whole manual. A request explicitly asking for the whole framework receives every public slice.</p>
 <p>The bundled local model receives these slices through a <strong>Strict Interface Contract</strong>, split into five explicit sections:</p>
 <p>1. <code>INPUT CONTRACT</code>: typed task, selected runtime id, current Salamander context, existing source, and optional repair feedback, including their actual values; 2. <code>INSTALLED SALAMANDER API CONTRACT</code>: only the relevant implemented API slices; 3. <code>SELECTED RUNTIME CONTRACT</code>: the real worker facade conventions for the selected JavaScript, Python, PowerShell, PHP, or Lua runtime; 4. <code>OUTPUT CONTRACT</code>: the exact closed JSON Schema for the response; 5. <code>GENERATION RULES</code>: precedence, grounding, capability, effect, and honest framework-GAP rules.</p>
 <p>The exact same output schema instance is included in the prompt and supplied to <code>llama.cpp</code> through <code>--json-schema-file</code>. It therefore acts both as instructions for the model and as a constrained-generation grammar. The runtime contracts document the injected root object, synchronous or asynchronous call model, naming convention, selected-item access, and use of language libraries. Full general-purpose language manuals are deliberately not inserted into every request because they would consume context without describing the Salamatrix binding.</p>
@@ -407,6 +425,8 @@ for (const item of context.selectedItems) {
 <p><code>copyText(text, showEcho=false)</code> copies UTF-8 text and returns a boolean. Python names it <code>copy_text</code>.</p>
 <h2 id="runtime-discovery">Runtime discovery</h2>
 <p><code>runtimes.list()</code> returns records with <code>id</code>, <code>name</code>, <code>language</code>, <code>extensions</code>, <code>version</code>, and <code>available</code>. The runtime id placed in generated assistant output must exactly equal the selected runtime id.</p>
+<h2 id="application-language-and-appearance">Application language and appearance</h2>
+<p><code>application.language()</code> returns the selected Salamander language record. <code>application.appearance()</code> returns the current appearance record, including whether Salamander is using its <strong>Windows Dark Mode (experimental)</strong> color scheme. Extensions must use these host values for localized behavior and appearance decisions; operating-system app mode is not the Salamander dark-mode contract. Python and Lua use <code>application.language()</code> / <code>appearance()</code>, PowerShell uses <code>$Salamander.Application.Language()</code> / <code>Appearance()</code>, PHP uses <code>$Salamander-&gt;application-&gt;language()</code> / <code>appearance()</code>, and JavaScript awaits the corresponding calls.</p>
 <h2 id="events">Events</h2>
 <p><code>events.subscribe(name, handler)</code> returns a subscription id. <code>events.unsubscribe(subscriptionId)</code> removes it.</p>
 <p>Implemented event names:</p>
@@ -435,6 +455,11 @@ windowDetached, windowAttached, fileChanged</code></pre>
 <td>boolean</td>
 </tr>
 <tr>
+<td><code>fileProperties</code></td>
+<td>fully qualified file path</td>
+<td><code>{shown, error}</code></td>
+</tr>
+<tr>
 <td><code>inputBox</code></td>
 <td>prompt, title, initial value</td>
 <td><code>{accepted, value}</code></td>
@@ -454,17 +479,8 @@ windowDetached, windowAttached, fileChanged</code></pre>
 <td>title, total, style flags, optional second total</td>
 <td>progress object</td>
 </tr>
-<tr>
-<td><code>dialog</code></td>
-<td>title, width, height</td>
-<td>dialog object</td>
-</tr>
-<tr>
-<td><code>uptime</code></td>
-<td>none</td>
-<td>host uptime in milliseconds as a decimal string</td>
-</tr>
 </tbody></table></div>
+<p><code>fileProperties</code> invokes the native Windows File Properties sheet from the long-lived Salamander host process through <code>SHObjectProperties</code> with <code>SHOP_FILEPATH</code>. The path stays Unicode end-to-end; Python and Lua expose the method as <code>file_properties</code>. | <code>dialog</code> | title, width, height | dialog object | | <code>uptime</code> | none | host uptime in milliseconds as a decimal string |</p>
 <p>Python uses <code>message_box</code>, <code>input_box</code>, <code>pick_file</code>, and <code>pick_folder</code>.</p>
 <p>File filters are pipe-separated description/pattern pairs, for example <code>"Text files|*.txt|All files|*.*"</code>. Save mode enables overwrite prompting.</p>
 <h3 id="progress-object">Progress object</h3>
@@ -524,7 +540,7 @@ get/getValue, set/setValue, close/destroy</code></pre>
 <li><code>src/plugins/phpruntime/runtime/salamatrix_worker.php</code></li>
 <li><code>src/plugins/luaruntime/runtime/salamatrix_worker.lua</code></li>
 </ul>
-<p>The complete control catalog, layout/property reference, dark-mode/DPI model, and side-by-side JavaScript, Python, PowerShell, PHP, Lua, Automation JScript, and native C++ examples are documented in <a href="salamatrix-ui.md">Salamatrix.UI framework and custom dialog guide</a>. The bundled demo sources deliberately build the complete capabilities gallery themselves instead of calling a prebuilt showcase window.</p>
+<p>The complete control catalog, layout/property reference, dark-mode/DPI model, and side-by-side JavaScript, Python, PowerShell, PHP, Lua, Automation JScript, and native C++ examples are documented in <a href="salamatrix-ui.html">Salamatrix.UI framework and custom dialog guide</a>. The bundled demo sources deliberately build the complete capabilities gallery themselves instead of calling a prebuilt showcase window.</p>
 <h2 id="ai-service">AI service</h2>
 <p>Scripts may call the provider-neutral AI service through <code>ai.generate</code>, <code>ai.preview</code>, and <code>ai.api</code>/<code>apiDescription</code>. Generation accepts:</p>
 <pre><code class="language-text">prompt, context, provider, runtime, existingScript, feedback</code></pre>
@@ -556,7 +572,6 @@ storage, events, ai, clipboard, runtimes</code></pre>
 <pre><code class="language-json">{
   &quot;canImplement&quot;: false,
   &quot;missingCapabilities&quot;: [
-    &quot;Register a custom panel column&quot;,
     &quot;Provide a thumbnail for a panel item&quot;
   ]
 }</code></pre>
@@ -620,7 +635,7 @@ storage, events, ai, clipboard, runtimes</code></pre>
 </tbody></table></div>
 <p>Conservative declaration is required, but setting every effect and every capability to true is incorrect. The preview is useful only when it describes the generated source accurately.</p>
 <h2 id="known-limits-and-honest-gap-reporting">Known limits and honest GAP reporting</h2>
-<p>The current context returns at most 64 selected item records. The framework does not currently expose arbitrary custom panel columns, panel thumbnail providers, overlay icons, archive internals, or dockable panes to scripts. Those are legitimate <code>missingCapabilities</code>.</p>
+<p>The current context returns at most 64 selected item records. The framework exposes custom columns only for manifest-backed flat <code>fileSystems[]</code> providers; it does not expose arbitrary columns for disk/archive panels, panel thumbnail providers, overlay icons, archive internals, or dockable panes to scripts. Those are legitimate <code>missingCapabilities</code>.</p>
 <p>By contrast, hashing files, parsing formats, creating sidecars, calling an installed command-line tool, or using a language package is not automatically a framework GAP once the script can obtain the required paths.</p>
 </main></body>
 </html>

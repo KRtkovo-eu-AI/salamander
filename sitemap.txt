@@ -1,4 +1,9 @@
 https://samandarin.krtkovo.eu/
+https://samandarin.krtkovo.eu/features-file-management.html
+https://samandarin.krtkovo.eu/features-interface.html
+https://samandarin.krtkovo.eu/features-viewers-extensions.html
+https://samandarin.krtkovo.eu/features-configuration-security.html
+https://samandarin.krtkovo.eu/compare.html
 https://samandarin.krtkovo.eu/salamatrix/
 https://samandarin.krtkovo.eu/salamatrix/studio.html
 https://samandarin.krtkovo.eu/salamatrix/salamatrix-ui.html

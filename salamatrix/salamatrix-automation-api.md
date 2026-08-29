@@ -36,12 +36,169 @@ JavaScript scripts run as modules and may use top-level `await`. They must not
 use an invented `this.selectedItems` property. The current selection is obtained
 through `await Salamander.sides.context("source")`.
 
+### One-shot scripts and extension packages
+
+The generated source contract is the same for a one-shot preview and for a
+saved extension. A one-shot script is executed immediately with the selected
+runtime. **Save as extension** creates a directory containing `extension.json`
+and the generated `main` entry point, then asks Salamatrix to refresh extension
+discovery. The assistant returns source code, not a JSON manifest embedded in
+the source.
+
+The generated manifest uses schema version 2 and binds one plugin-menu command
+to handler `main`:
+
+```json
+{
+  "schema": 2,
+  "id": "generated.example",
+  "name": "Generated example",
+  "version": "1.0.0",
+  "description": "What the extension does",
+  "runtime": "Python.CPython",
+  "entryPoint": "main.py",
+  "capabilities": ["panels.read", "ui.dialogs"],
+  "commands": [
+    {
+      "id": "generated.example",
+      "title": "Generated example",
+      "handler": "main",
+      "menu": "plugin",
+      "requires": "any"
+    }
+  ]
+}
+```
+
+Hand-authored packages may define up to 64 commands. Command fields are `id`,
+`title`, `handler` or `path`, `menu`/`placement`, `contextMenu`, `toolbar`,
+`toolbarMenu`, and `requires`. Supported `requires` values are `any`, `disk`,
+`focused`, `file`, and `selection`. Entry points must be safe relative paths;
+absolute paths and parent traversal are rejected. Manifests are strict UTF-8
+JSON and reject duplicate members, invalid types, duplicate command ids, and
+unsupported schema versions.
+
+A command with `path` and no `handler` changes the active/source panel directly
+on the host UI thread and does not start a runtime worker. This is intended for
+toolbar shortcuts to fixed disk, archive, or plug-in FS paths, requires the
+`panels.write` capability, and is mutually exclusive with `handler`.
+
+Schema 2 adds two optional native roles while schema 1 remains accepted:
+
+- `viewers[]` registers one or more file masks, an optional user-visible
+  `name`, and a one-shot `handler`. Viewer configuration lists every registered
+  package/Viewer identity as a separate **Associated viewer** choice instead of
+  showing only the shared Salamatrix Framework plugin. The selected identity is
+  preserved with the association across configuration saves and restarts and
+  is carried to the framework when that association is invoked. Therefore a
+  concrete extension Viewer selected manually for `*.*` (including as an
+  alternate Viewer opened with Alt+F3) runs that exact handler even when the
+  opened file does not match the Viewer's original manifest mask.
+  Declarative Viewer identities and masks are registered independently of
+  runtime-provider startup order; dispatch still requires the runtime to be
+  available when the Viewer is opened.
+  The handler receives `Salamander.invocation` with `role="viewer"`, the local
+  `path`, suggested window geometry, show state, always-on-top state, and the
+  optional enumeration source/index. Viewer associations are registered during
+  Salamatrix startup; installing or changing a viewer package requires a host
+  restart before new masks enter the global viewer association list.
+- `fileSystems[]` contributes a provider under `salamatrix:`. Each provider
+  declares `id`, `name`, `listHandler`, optional `openHandler`, SVG icons,
+  optional package-relative ICO `defaultFileIcon`, `refreshIntervalMs` (`0`
+  disables periodic refresh), optional
+  `refreshDepth` (minimum virtual-path depth for timer refreshes), optional
+  `refreshPaths[]` (provider-relative paths eligible for timer refreshes), optional
+  declarative directory-only `rootItems[]`, detailed-view `columns[]`, and item
+  `actions[]`. A non-empty `rootItems[]` is rendered synchronously at the provider
+  root without starting its runtime worker; locale resources can translate names
+  through `fileSystems.<fileSystemId>.rootItems.<itemId>`. `refreshDepth` defaults
+  to `0`, preserving periodic refresh at every level. When `refreshPaths[]` is
+  non-empty, timer refresh is further limited to exact matching paths; manual
+  refresh always reloads the current path.
+  A column declares `id`, `name`, optional `description`, `width`, `numeric`,
+  `size`, and `dateTime`. A `size` column carries an unsigned byte count and is formatted
+  using the user's Configuration > Panels > Show sizes choice (bytes, KB, or
+  short mixed units); it is implicitly numeric. A `dateTime` column carries
+  Unix milliseconds in each item's `columns` value. It sorts by that numeric
+  UTC instant and displays date and time using the user's Windows regional
+  format and time zone.
+  The list handler calls `Salamander.fileSystem.addItems` /
+  `file_system.add_items` once for a snapshot (or `addItem` / `add_item` for a
+  small incremental list). The batch call returns the number of accepted items
+  and avoids one synchronous worker/host round-trip per row. Item records contain
+  `id`, `name`, optional `compactName` used outside Detailed view, optional package-relative SVG `icon`/`iconDark`, optional
+  `fileIcon` containing the fully qualified Unicode path of a file whose embedded
+  icon resource should be displayed, `directory`, and `enabled`, and an optional
+  `columns` object mapping declared column ids to display strings. File icons are
+  extracted lazily and directly from the file, without consulting file-extension
+  associations; an unavailable path or a file without an icon resource first
+  falls back to the provider's `defaultFileIcon`, then to the Salamatrix icon.
+  Columns are rendered and sorted by the native detailed panel;
+  numeric columns use numeric ordering. An executable action declares `id`,
+  `title`, `handler`, optional `default`, and optional `refresh` (true by
+  default). Optional `itemIdPrefix` limits an action (or separator) to matching
+  item ids; a standalone `{ "separator": true }` inserts a native menu separator.
+  Only an explicitly default action executes on Enter. The native Unicode context
+  menu exposes the declared actions in order, and locale resources may translate
+  their captions through `fileSystems.<fileSystemId>.actions.<actionId>`.
+  Provider contents include a native `..`
+  item, Directory Line exposes clickable breadcrumb segments, and the main
+  window honors full, shortened, and directory-only path display modes.
+  Runtime list handlers execute on a background worker. The panel immediately
+  returns cached rows and refreshes itself when a new snapshot is ready, so a
+  slow runtime or a large provider cannot block Salamander's UI thread. While an
+  initially empty snapshot is being prepared, Salamander displays the panel
+  throbber and stops it automatically when the completed listing is installed.
+  Rename/copy/move/delete/upload and complex hierarchical navigation are
+  intentionally unsupported in the flat v1 role.
+
+## Virtual file-system panels
+
+Schema-2 extensions can contribute a flat virtual file system through `fileSystems[]`. Salamander exposes these providers under `salamatrix:<extension-id>!<file-system-id>` paths and opens them in the ordinary file panels; the provider supplies roots, rows, typed detailed-view columns, package icons, refresh policy, and selection actions while the host owns navigation, rendering, sorting, context menus, and dark-mode behavior.
+
+The distributed Event Viewer, Process Explorer, and Hardware Monitor extensions use this role for native-feeling diagnostic panels. This surface is distinct from `Salamatrix.Sides`, which reads the ordinary panel selection, and from `Salamatrix.FileOperations`, which operates on regular files.
+
+
+
+The distributed Salamatrix extension demos (`src/extensions/demos/README.md`)
+include equivalent schema-2 Viewer and FS handlers for Node.js, Python,
+PowerShell, PHP, and Lua, each with a distinct sample file mask and provider.
+The existing Plugin Manager derives each package's **Functions** summary from
+these manifest contributions: `commands[]` is shown as **Menu Extension**,
+`viewers[]` as **File Viewer**, and `fileSystems[]` as **File System (FS)**.
+
+An extension must declare every applicable gated framework surface it calls.
+Public capability names are `panels.read`, `panels.write`, `ui.dialogs`, `commands`,
+`file-operations`, `file-system`, `storage`, `events`, `ai`, `clipboard`, and `runtimes`.
+For backward compatibility, omitting `capabilities` keeps the legacy unrestricted
+behavior. An explicitly empty `capabilities: []` is deny-all, and any non-empty
+list grants only the named surfaces (or `*`).
+Application language/appearance and other host metadata have no separate
+capability name.
+Direct use of language/runtime libraries does not add a Salamatrix capability,
+but its real effects must still be reported by AI preview metadata.
+
+The entry point executes at top level. Its invocation identity is available as
+`commandId`/`commandHandler` in JavaScript, `command_id`/`command_handler` in
+Python, PHP, and Lua, and `CommandId`/`CommandHandler` in PowerShell. Persistent
+event subscriptions are useful only for an activated extension whose runtime
+supports persistent sessions; a one-shot script normally exits before a future
+event can arrive.
+
+Modern workers also expose the same parsed `Salamander.invocation` object. It is
+empty for ordinary commands and carries role-specific data for Viewer and FS
+list/action invocations. The runtime providers pass this append-only context as
+strict JSON and preserve Unicode and embedded quotes through Windows command-line
+escaping.
+
 ### How the AI consumes this contract
 
 The live `Salamatrix.AI` service publishes versioned machine-readable slices
-for `sides`, `fileOperations`, `commands`, `ui`, `storage`, `events`,
-`runtimes`, and `ai`. The assistant selects slices from the user's task instead
-of sending an unbounded copy of the whole manual.
+for invocation context, extension manifests, sides, file operations, commands,
+UI, storage, clipboard, application state, events, runtime discovery, and AI.
+The assistant selects slices from the user's task instead of sending an
+unbounded copy of the whole manual. A request explicitly asking for the whole
+framework receives every public slice.
 
 The bundled local model receives these slices through a **Strict Interface
 Contract**, split into five explicit sections:
@@ -266,6 +423,18 @@ Python names it `copy_text`.
 `version`, and `available`. The runtime id placed in generated assistant output
 must exactly equal the selected runtime id.
 
+## Application language and appearance
+
+`application.language()` returns the selected Salamander language record.
+`application.appearance()` returns the current appearance record, including
+whether Salamander is using its **Windows Dark Mode (experimental)** color
+scheme. Extensions must use these host values for localized behavior and
+appearance decisions; operating-system app mode is not the Salamander dark-mode
+contract. Python and Lua use `application.language()` / `appearance()`,
+PowerShell uses `$Salamander.Application.Language()` / `Appearance()`, PHP uses
+`$Salamander->application->language()` / `appearance()`, and JavaScript awaits
+the corresponding calls.
+
 ## Events
 
 `events.subscribe(name, handler)` returns a subscription id.
@@ -296,10 +465,16 @@ the required control exists.
 | --- | --- | --- |
 | `messageBox` | message, title | integer dialog result |
 | `notify` | message, title, timeout | boolean |
+| `fileProperties` | fully qualified file path | `{shown, error}` |
 | `inputBox` | prompt, title, initial value | `{accepted, value}` |
 | `pickFile` | save, title, filter, initial | `{selected, path}` |
 | `pickFolder` | title, initial | `{selected, path}` |
 | `progress` | title, total, style flags, optional second total | progress object |
+
+`fileProperties` invokes the native Windows File Properties sheet from the
+long-lived Salamander host process through `SHObjectProperties` with
+`SHOP_FILEPATH`. The path stays Unicode end-to-end; Python and Lua expose the
+method as `file_properties`.
 | `dialog` | title, width, height | dialog object |
 | `uptime` | none | host uptime in milliseconds as a decimal string |
 
@@ -424,7 +599,6 @@ If and only if required Salamander host integration is absent:
 {
   "canImplement": false,
   "missingCapabilities": [
-    "Register a custom panel column",
     "Provide a thumbnail for a panel item"
   ]
 }
@@ -456,7 +630,8 @@ the generated source accurately.
 ## Known limits and honest GAP reporting
 
 The current context returns at most 64 selected item records. The framework
-does not currently expose arbitrary custom panel columns, panel thumbnail
+exposes custom columns only for manifest-backed flat `fileSystems[]` providers;
+it does not expose arbitrary columns for disk/archive panels, panel thumbnail
 providers, overlay icons, archive internals, or dockable panes to scripts.
 Those are legitimate `missingCapabilities`.
 
