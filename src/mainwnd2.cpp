@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -1169,7 +1169,8 @@ const char* CONFIG_BACKSPACEACTION_REG = "Backspace Action";
 const char* CONFIG_USESALOPEN_REG = "Use salopen.exe";
 const char* CONFIG_NETWAREFASTDIRMOVE_REG = "Netware Fast Dir Move";
 const char* CONFIG_ASYNCCOPYALG_REG = "Async Copy Alg On Network";
-const char* CONFIG_COPYMOVESCHEDULING_REG = "Copy Move Scheduling";
+const char* CONFIG_COPYMOVESCHEDULING_REG = "Copy Move Scheduling"; // legacy transfer-preference value
+const char* CONFIG_COPYMOVEOPERATIONPOLICY_REG = "Copy Move Operation Policy";
 const char* CONFIG_COPYMOVELASTTRANSFERMODE_REG = "Copy Move Last Transfer Mode";
 const char* CONFIG_COPYMOVESSDPARALLELFILES_REG = "Copy Move SSD Parallel Files";
 const char* CONFIG_COPYMOVENVMEPARALLELFILES_REG = "Copy Move NVMe Parallel Files";
@@ -3379,6 +3380,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                 if (Windows7AndLater)
                     SetValue(actKey, CONFIG_ASYNCCOPYALG_REG, REG_DWORD,
                              &Configuration.UseAsyncCopyAlg, sizeof(DWORD));
+                SetValue(actKey, CONFIG_COPYMOVEOPERATIONPOLICY_REG, REG_DWORD,
+                         &Configuration.CopyMoveOperationPolicy, sizeof(DWORD));
                 SetValue(actKey, CONFIG_COPYMOVESCHEDULING_REG, REG_DWORD,
                          &Configuration.CopyMoveScheduling, sizeof(DWORD));
                 SetValue(actKey, CONFIG_COPYMOVELASTTRANSFERMODE_REG, REG_DWORD,
@@ -5528,12 +5531,16 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             if (Windows7AndLater)
                 GetValue(actKey, CONFIG_ASYNCCOPYALG_REG, REG_DWORD,
                          &Configuration.UseAsyncCopyAlg, sizeof(DWORD));
-            GetValue(actKey, CONFIG_COPYMOVESCHEDULING_REG, REG_DWORD,
-                     &Configuration.CopyMoveScheduling, sizeof(DWORD));
-            if (Configuration.CopyMoveScheduling != CMS_SEQUENTIAL &&
-                Configuration.CopyMoveScheduling != CMS_STORAGE_AWARE &&
-                Configuration.CopyMoveScheduling != CMS_MANUAL)
-                Configuration.CopyMoveScheduling = CMS_STORAGE_AWARE;
+            if (!GetValue(actKey, CONFIG_COPYMOVEOPERATIONPOLICY_REG, REG_DWORD,
+                          &Configuration.CopyMoveOperationPolicy, sizeof(DWORD)) ||
+                Configuration.CopyMoveOperationPolicy < COSP_STORAGE_AWARE ||
+                Configuration.CopyMoveOperationPolicy > COSP_ASK)
+                Configuration.CopyMoveOperationPolicy = COSP_STORAGE_AWARE;
+            if (!GetValue(actKey, CONFIG_COPYMOVESCHEDULING_REG, REG_DWORD,
+                          &Configuration.CopyMoveScheduling, sizeof(DWORD)) ||
+                Configuration.CopyMoveScheduling < CMTP_SEQUENTIAL ||
+                Configuration.CopyMoveScheduling > CMTP_KEEP_LAST)
+                Configuration.CopyMoveScheduling = CMTP_STORAGE_AWARE;
             GetValue(actKey, CONFIG_COPYMOVELASTTRANSFERMODE_REG, REG_DWORD,
                      &Configuration.CopyMoveLastTransferMode, sizeof(DWORD));
             if (Configuration.CopyMoveLastTransferMode != CMS_SEQUENTIAL &&

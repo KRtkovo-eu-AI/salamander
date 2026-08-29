@@ -1390,6 +1390,8 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
         PrintLine(param, buf, TRUE);
         sprintf(buf, "UseAsyncCopyAlg = %d", Configuration.UseAsyncCopyAlg);
         PrintLine(param, buf, TRUE);
+        sprintf(buf, "CopyMoveOperationPolicy = %d", Configuration.CopyMoveOperationPolicy);
+        PrintLine(param, buf, TRUE);
         sprintf(buf, "CopyMoveScheduling = %d", Configuration.CopyMoveScheduling);
         PrintLine(param, buf, TRUE);
         sprintf(buf, "CopyMoveLastTransferMode = %d", Configuration.CopyMoveLastTransferMode);

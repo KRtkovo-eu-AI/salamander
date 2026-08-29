@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -1247,6 +1247,7 @@ CCopyMoveMoreDialog::CCopyMoveMoreDialog(HWND parent, char* path, int pathBufSiz
                                          char* history[], int historyCount, CCriteriaData* criteriaInOut,
                                          BOOL havePermissions, BOOL supportsADS,
                                          int* transferModeInOut,
+                                         int* operationSchedulingOverrideInOut,
                                          const std::vector<std::string>* targetPaths,
                                          BOOL allowChangeTarget)
     : CCommonDialog(HLanguage,
@@ -1269,6 +1270,7 @@ CCopyMoveMoreDialog::CCopyMoveMoreDialog(HWND parent, char* path, int pathBufSiz
     HavePermissions = havePermissions;
     SupportsADS = supportsADS;
     TransferModeInOut = transferModeInOut;
+    OperationSchedulingOverrideInOut = operationSchedulingOverrideInOut;
     TargetPaths = targetPaths;
     AllowChangeTarget = allowChangeTarget;
     MoreButton = NULL;
@@ -1322,6 +1324,23 @@ void CCopyMoveMoreDialog::Transfer(CTransferInfo& ti)
         ti.EditLine(IDE_PATH, Path, PathBufSize);
     }
     TransferCriteriaControls(ti);
+    if (OperationSchedulingOverrideInOut != NULL)
+    {
+        if (ti.Type == ttDataToWindow)
+        {
+            BOOL waitAll = Configuration.CopyMoveOperationPolicy == COSP_ASK ||
+                           *OperationSchedulingOverrideInOut == COSO_WAIT_ALL;
+            CheckDlgButton(HWindow, IDC_CM_STARTONIDLE, waitAll ? BST_CHECKED : BST_UNCHECKED);
+            // Resource text is selected by the resource integration; the checked state means
+            // Wait and the clear state means Start now only while policy is Ask.
+        }
+        else
+        {
+            BOOL waitAll = IsDlgButtonChecked(HWindow, IDC_CM_STARTONIDLE) == BST_CHECKED;
+            *OperationSchedulingOverrideInOut = waitAll ? COSO_WAIT_ALL :
+                (Configuration.CopyMoveOperationPolicy == COSP_ASK ? COSO_START_NOW : COSO_DEFAULT);
+        }
+    }
     if (TransferModeInOut != NULL)
     {
         HWND transferMode = GetDlgItem(HWindow, IDC_CM_TRANSFERMODE);
@@ -1390,7 +1409,6 @@ BOOL GetSpeedLimit(int sel, char* speedLimitText, DWORD* returnSpeedLimit)
 void CCopyMoveMoreDialog::TransferCriteriaControls(CTransferInfo& ti)
 {
     ti.CheckBox(IDC_CM_NEWER, Criteria->OverwriteOlder);
-    ti.CheckBox(IDC_CM_STARTONIDLE, Criteria->StartOnIdle);
     ti.CheckBox(IDC_CM_SECURITY, Criteria->CopySecurity);
     ti.CheckBox(IDC_CM_COPYATTRS, Criteria->CopyAttrs);
     ti.CheckBox(IDC_CM_DIRTIME, Criteria->PreserveDirTime);
@@ -1659,9 +1677,7 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);
         }
 
-        // since 2.53 we can save options, so IDC_CM_STARTONIDLE must always be enabled so the user can preset it
-        // EnableWindow(GetDlgItem(HWindow, IDC_CM_STARTONIDLE), !OperationsQueue.IsEmpty());
-        EnableWindow(GetDlgItem(HWindow, IDC_CM_STARTONIDLE), TRUE);
+        EnableWindow(GetDlgItem(HWindow, IDC_CM_STARTONIDLE), OperationSchedulingOverrideInOut != NULL);
         EnableWindow(GetDlgItem(HWindow, IDC_CM_SECURITY), HavePermissions);
         EnableWindow(GetDlgItem(HWindow, IDC_CM_IGNADS), SupportsADS);
 

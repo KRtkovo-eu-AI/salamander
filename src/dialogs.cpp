@@ -442,6 +442,7 @@ CProgressDialog::CProgressDialog(HWND parent, COperations* script, const char* c
     DoNotBeepOnClose = FALSE;
     IsInQueue = FALSE;
     AutoPaused = FALSE;
+    QueueWaitReason = CSWR_NONE;
     StatusPaused = FALSE;
     NextTimeLeftUpdateTime = GetTickCount();
     TimeLeftLastValue.SetUI64(0);
@@ -659,13 +660,50 @@ static void SetProgressStaticTextIfChanged(HWND window, const char* text)
         SetWindowText(window, text != NULL ? text : "");
 }
 
+static void SetParallelProgressRowVisible(HWND dialog, int index, BOOL visible)
+{
+    const int firstRowIds[] = {IDS_OPERATION, IDS_SOURCE, IDS_PREPOSITION, IDS_TARGET, IDC_STATIC_1, IDF_OPERATION};
+    for (int control = 0; control < _countof(firstRowIds); control++)
+    {
+        const int id = index == 0 ? firstRowIds[control] :
+                                   IDC_PROGRESS_STREAM2_OPERATION + (index - 1) * 6 + control;
+        HWND window = GetDlgItem(dialog, id);
+        if (window != NULL)
+            ShowWindow(window, visible ? SW_SHOWNA : SW_HIDE);
+    }
+}
+
+static void SetParallelProgressSlotActive(HWND dialog, int index, BOOL active)
+{
+    const int textIds[] = {IDS_OPERATION, IDS_SOURCE, IDS_PREPOSITION, IDS_TARGET};
+    for (int control = 0; control < _countof(textIds); control++)
+    {
+        const int id = index == 0 ? textIds[control] :
+                                   IDC_PROGRESS_STREAM2_OPERATION + (index - 1) * 6 + control;
+        HWND window = GetDlgItem(dialog, id);
+        if (window != NULL)
+            ShowWindow(window, active ? SW_SHOWNA : SW_HIDE);
+    }
+    const int fileLabelId = index == 0 ? IDC_STATIC_1 :
+                                           IDC_PROGRESS_STREAM2_FILELABEL + (index - 1) * 6;
+    const int progressId = index == 0 ? IDF_OPERATION :
+                                          IDC_PROGRESS_STREAM2_BAR + (index - 1) * 6;
+    ShowWindow(GetDlgItem(dialog, fileLabelId), SW_SHOWNA);
+    ShowWindow(GetDlgItem(dialog, progressId), SW_SHOWNA);
+}
+
 void CProgressDialog::SetParallelProgress(const CParallelProgressData* data)
 {
     if (data == NULL)
         return;
+    // This synchronous snapshot is newer than any regular operation text
+    // queued before parallel planning completed. Do not let the dialog timer
+    // replay that stale cache over the first parallel stream.
+    CacheIsDirty = FALSE;
+    OperationProgressCacheIsDirty = FALSE;
     int activeCount = data->ActiveCount;
-    if (activeCount < 1)
-        activeCount = 1;
+    if (activeCount < 0)
+        activeCount = 0;
     if (activeCount > COPYMOVE_MAX_PARALLEL_STREAMS)
         activeCount = COPYMOVE_MAX_PARALLEL_STREAMS;
     int displayCount = data->DisplayCount;
@@ -689,6 +727,9 @@ void CProgressDialog::SetParallelProgress(const CParallelProgressData* data)
     for (int index = 0; index < activeCount; index++)
     {
         const CParallelProgressStreamData& stream = data->Streams[index];
+        SetParallelProgressSlotActive(HWindow, index, stream.Active);
+        if (!stream.Active)
+            continue;
         if (index == 0)
         {
             if (OperationText != NULL) OperationText->SetText(stream.Operation);
@@ -709,14 +750,28 @@ void CProgressDialog::SetParallelProgress(const CParallelProgressData* data)
     }
     if (data->ResetSlots)
     {
-        for (int index = activeCount; index < displayCount; index++)
+        for (int index = 0; index < displayCount; index++)
         {
-            const int extra = index - 1;
-            SetProgressStaticTextIfChanged(GetDlgItem(HWindow, IDC_PROGRESS_STREAM2_OPERATION + extra * 6), "");
-            if (ParallelSources[extra] != NULL) ParallelSources[extra]->SetText("");
-            SetProgressStaticTextIfChanged(GetDlgItem(HWindow, IDC_PROGRESS_STREAM2_PREPOSITION + extra * 6), "");
-            if (ParallelTargets[extra] != NULL) ParallelTargets[extra]->SetText("");
-            if (ParallelOperations[extra] != NULL) ParallelOperations[extra]->SetProgress(0);
+            if (index < activeCount && data->Streams[index].Active)
+                continue;
+            SetParallelProgressSlotActive(HWindow, index, FALSE);
+            if (index == 0)
+            {
+                if (OperationText != NULL) OperationText->SetText("");
+                if (Source != NULL) Source->SetText("");
+                SetProgressStaticTextIfChanged(HPreposition, "");
+                if (Target != NULL) Target->SetText("");
+                if (Operation != NULL) Operation->SetProgress(0);
+            }
+            else
+            {
+                const int extra = index - 1;
+                SetProgressStaticTextIfChanged(GetDlgItem(HWindow, IDC_PROGRESS_STREAM2_OPERATION + extra * 6), "");
+                if (ParallelSources[extra] != NULL) ParallelSources[extra]->SetText("");
+                SetProgressStaticTextIfChanged(GetDlgItem(HWindow, IDC_PROGRESS_STREAM2_PREPOSITION + extra * 6), "");
+                if (ParallelTargets[extra] != NULL) ParallelTargets[extra]->SetText("");
+                if (ParallelOperations[extra] != NULL) ParallelOperations[extra]->SetProgress(0);
+            }
         }
     }
     if (atomicUpdate)
@@ -748,7 +803,26 @@ void CProgressDialog::SetDlgTitle(BOOL minimized)
         else
         {
             title = "(";
-            title += LoadStr(AutoPaused ? IDS_PROGDLGQUEUEPAUSED : IDS_PROGDLGPAUSED);
+            int pausedTextID = IDS_PROGDLGPAUSED;
+            if (AutoPaused)
+            {
+                switch (QueueWaitReason)
+                {
+                case CSWR_PHYSICAL_DEVICE_CONFLICT:
+                    pausedTextID = IDS_PROGDLGQUEUE_DEVICE;
+                    break;
+                case CSWR_SSD_NVME_STREAM_LIMIT:
+                    pausedTextID = IDS_PROGDLGQUEUE_STREAMLIMIT;
+                    break;
+                case CSWR_UNKNOWN_FALLBACK:
+                    pausedTextID = IDS_PROGDLGQUEUE_UNKNOWN;
+                    break;
+                default:
+                    pausedTextID = IDS_PROGDLGQUEUE_EXPLICIT;
+                    break;
+                }
+            }
+            title += LoadStr(pausedTextID);
             title += ") ";
             title += AutoPaused && Script != NULL && Script->WaitInQueueSubject != NULL ? Script->WaitInQueueSubject : progressCaption;
             if (AutoPaused && Script != NULL && Script->WaitInQueueSubject != NULL)
@@ -921,7 +995,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // jumps from one block to the configured parallel count.
         if (Script != NULL && Script->IsCopyOperation &&
             Script->CopyMoveTransferMode == CMS_STORAGE_AWARE &&
-            !Script->StartOnIdle && Script->Count > 1 &&
+            Script->OperationSchedulingOverride != COSO_WAIT_ALL && Script->Count > 1 &&
             max(Configuration.CopyMoveSsdParallelFiles,
                 Configuration.CopyMoveNvmeParallelFiles) > 1)
         {
@@ -972,7 +1046,10 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                                Configuration.CopyMoveSsdParallelFiles,
                                                Configuration.CopyMoveNvmeParallelFiles)
                 : 1;
-        if (Script->IsCopyOrMoveOperation && OperationsQueue.AddOperation(HWindow, Script->StartOnIdle, &startPaused, &Script->StorageUse))
+        QueueWaitReason = CSWR_NONE;
+        if (Script->IsCopyOrMoveOperation && OperationsQueue.AddOperation(
+                HWindow, Script->OperationSchedulingPolicy, Script->OperationSchedulingOverride,
+                &startPaused, &QueueWaitReason, &Script->StorageUse))
         {
             IsInQueue = TRUE;
             if (startPaused)
@@ -1062,6 +1139,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             // no CProgressData payload and must not reset the layout.
             const BOOL parallelBatchEnded = ParallelProgressActive;
             ParallelProgressActive = FALSE;
+            SetParallelProgressRowVisible(HWindow, 0, TRUE);
             // Once parallel rows have been shown, keep the footer and buttons
             // fixed for the rest of this operation. Short sequential metadata
             // boundaries must not collapse and immediately regrow the dialog.
@@ -1080,6 +1158,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 BOOL windowUpdateLocked = LockWindowUpdate(HWindow);
                 for (int index = 1; index < ActiveParallelProgressStreams; index++)
                 {
+                    SetParallelProgressSlotActive(HWindow, index, FALSE);
                     const int extra = index - 1;
                     SetProgressStaticTextIfChanged(GetDlgItem(HWindow, IDC_PROGRESS_STREAM2_OPERATION + extra * 6), "");
                     if (ParallelSources[extra] != NULL) ParallelSources[extra]->SetText("");
@@ -1540,6 +1619,7 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
                 HWND activateOperDlg = NULL;
                 OperationsQueue.AutoPauseOperation(HWindow, &activateOperDlg);
                 AutoPaused = TRUE;
+                QueueWaitReason = CSWR_EXPLICIT_OR_GLOBAL_WAIT;
                 ShowPause = FALSE;
                 SetDlgItemText(HWindow, IDB_PAUSERESUME, LoadStr(IDS_PROGDLGRESUME));
                 PostMessage(HWindow, WM_NEXTDLGCTL, (WPARAM)GetDlgItem(HWindow, IDB_MINIMIZE), TRUE);
@@ -1607,6 +1687,14 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
         }
         return TRUE; // message processed
     }
+
+    case WM_USER_PROGRDLG_QUEUE_REASON:
+        if (AutoPaused)
+        {
+            QueueWaitReason = (int)wParam;
+            SetDlgTitle(IsIconic(RunningInOwnThread ? HWindow : MainWindow->HWindow));
+        }
+        return TRUE;
 
     case WM_USER_PROGRDLG_UPDATEICON:
     {
@@ -1783,6 +1871,7 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
             if ((LOWORD(wParam) == CM_RESUMEOPER || AcceptCommands) && CanClose && !CancelWorker)
             {
                 AutoPaused = FALSE; // this may be a manual pause/resume or an automatic resume
+                QueueWaitReason = CSWR_NONE;
                 BOOL speedMetersInitCalled = FALSE;
                 if (LOWORD(wParam) != CM_RESUMEOPER || IsWindowEnabled(HWindow)) // nothing open above the dialog (a Cancel question may pop up)
                 {

@@ -592,6 +592,8 @@ void CFilesWindow::PluginFSFilesAction(CPluginFSActionType type, CFilesWindow* t
             {
                 if (!cancelOrHandlePath) // standard dialog
                 {
+                    // Plug-in-owned standard dialogs do not create COperations here; their scheduling
+                    // policy must be handled by the plug-in operation implementation.
                     int dialogResult = (int)CCopyMoveDialog(
                         HWindow, targetPath, SAL_MAX_PATH,
                         LoadStr(copy ? IDS_COPY : IDS_MOVE), &str,
@@ -1490,7 +1492,6 @@ CCriteriaData::CCriteriaData()
 void CCriteriaData::Reset()
 {
     OverwriteOlder = FALSE;
-    StartOnIdle = FALSE;
     CopySecurity = FALSE;
     CopyAttrs = FALSE;
     PreserveDirTime = FALSE;
@@ -1508,7 +1509,6 @@ CCriteriaData&
 CCriteriaData::operator=(const CCriteriaData& s)
 {
     OverwriteOlder = s.OverwriteOlder;
-    StartOnIdle = s.StartOnIdle;
     CopySecurity = s.CopySecurity;
     CopyAttrs = s.CopyAttrs;
     PreserveDirTime = s.PreserveDirTime;
@@ -1526,7 +1526,7 @@ CCriteriaData::operator=(const CCriteriaData& s)
 
 BOOL CCriteriaData::IsDirty()
 {
-    return OverwriteOlder || StartOnIdle || CopySecurity || CopyAttrs ||
+    return OverwriteOlder || CopySecurity || CopyAttrs ||
            PreserveDirTime || IgnoreADS || SkipEmptyDirs || UseMasks ||
            UseAdvanced || UseSpeedLimit;
 }
@@ -1561,7 +1561,6 @@ BOOL CCriteriaData::AgreeMasksAndAdvanced(const WIN32_FIND_DATA* file)
 }
 
 const char* CRITERIADATA_OVERWRITEOLDER_REG = "Overwrite Older";
-const char* CRITERIADATA_STARTONIDLE_REG = "Start On Idle";
 const char* CRITERIADATA_COPYSECURITY_REG = "Copy Security";
 const char* CRITERIADATA_COPYATTRIBUTES_REG = "Copy Attributes";
 const char* CRITERIADATA_PRESERVEDIRTIME_REG = "Preserve Dir Time";
@@ -1581,8 +1580,6 @@ BOOL CCriteriaData::Save(HKEY hKey)
 
     if (OverwriteOlder != def.OverwriteOlder)
         SetValue(hKey, CRITERIADATA_OVERWRITEOLDER_REG, REG_DWORD, &OverwriteOlder, sizeof(DWORD));
-    if (StartOnIdle != def.StartOnIdle)
-        SetValue(hKey, CRITERIADATA_STARTONIDLE_REG, REG_DWORD, &StartOnIdle, sizeof(DWORD));
     if (CopySecurity != def.CopySecurity)
         SetValue(hKey, CRITERIADATA_COPYSECURITY_REG, REG_DWORD, &CopySecurity, sizeof(DWORD));
     if (CopyAttrs != def.CopyAttrs)
@@ -1612,7 +1609,6 @@ BOOL CCriteriaData::Save(HKEY hKey)
 BOOL CCriteriaData::Load(HKEY hKey)
 {
     GetValue(hKey, CRITERIADATA_OVERWRITEOLDER_REG, REG_DWORD, &OverwriteOlder, sizeof(DWORD));
-    GetValue(hKey, CRITERIADATA_STARTONIDLE_REG, REG_DWORD, &StartOnIdle, sizeof(DWORD));
     GetValue(hKey, CRITERIADATA_COPYSECURITY_REG, REG_DWORD, &CopySecurity, sizeof(DWORD));
     GetValue(hKey, CRITERIADATA_COPYATTRIBUTES_REG, REG_DWORD, &CopyAttrs, sizeof(DWORD));
     GetValue(hKey, CRITERIADATA_PRESERVEDIRTIME_REG, REG_DWORD, &PreserveDirTime, sizeof(DWORD));

@@ -12,12 +12,38 @@ extern "C"
 {
 #endif
 
-    // Copy/Move operation scheduling (Configuration.CopyMoveScheduling)
+    // File-transfer mode within one Copy/Move operation.
     enum
     {
         CMS_SEQUENTIAL = 0,
         CMS_STORAGE_AWARE = 1,
-        CMS_MANUAL = 2
+        CMS_MANUAL = 2 // legacy configuration value: ask for transfer mode
+    };
+
+    // Admission policy between separate Copy/Move operations.
+    enum
+    {
+        COSP_STORAGE_AWARE = 0,
+        COSP_GLOBAL_SEQUENTIAL = 1,
+        COSP_ASK = 2
+    };
+
+    // Per-operation admission override.
+    enum
+    {
+        COSO_DEFAULT = 0,
+        COSO_START_NOW = 1,
+        COSO_WAIT_ALL = 2
+    };
+
+    // Structured reason why an operation is waiting in the queue.
+    enum
+    {
+        CSWR_NONE = 0,
+        CSWR_EXPLICIT_OR_GLOBAL_WAIT = 1,
+        CSWR_PHYSICAL_DEVICE_CONFLICT = 2,
+        CSWR_SSD_NVME_STREAM_LIMIT = 3,
+        CSWR_UNKNOWN_FALLBACK = 4
     };
 
     enum
@@ -110,6 +136,17 @@ extern "C"
                                                        const struct CStorageOpView* running,
                                                        int runningCount, int ssdWriteLimit,
                                                        int nvmeWriteLimit);
+
+    // Returns nonzero if this policy/override is a FIFO barrier for later operations.
+    int StorageOperationIsFifoBarrier(int policy, int operationOverride);
+
+    // Returns CSWR_* for the first reason preventing admission, or CSWR_NONE.
+    // hasFifoBarrier means an earlier global/wait-all operation is still queued.
+    int StorageOperationGetWaitReason(int policy, int operationOverride,
+                                      int anyOtherActive, int hasFifoBarrier,
+                                      const struct CStorageOpView* candidate,
+                                      const struct CStorageOpView* running, int runningCount,
+                                      int ssdWriteLimit, int nvmeWriteLimit);
 
     // 1 if the new operation should start auto-paused.
     // anyNonAutoPaused: at least one queued operation is running or manually paused.

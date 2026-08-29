@@ -606,7 +606,8 @@ CConfiguration::CConfiguration()
     UseSalOpen = FALSE;
     NetwareFastDirMove = FALSE; // choose the slower but 100% working mode; power users can switch it
     UseAsyncCopyAlg = TRUE;
-    CopyMoveScheduling = CMS_STORAGE_AWARE;
+    CopyMoveOperationPolicy = COSP_STORAGE_AWARE;
+    CopyMoveScheduling = CMTP_STORAGE_AWARE;
     CopyMoveLastTransferMode = CMS_STORAGE_AWARE;
     CopyMoveSsdParallelFiles = 2;
     CopyMoveNvmeParallelFiles = 4;
@@ -1280,7 +1281,7 @@ void CCfgPageGeneral::LayoutCopyMoveControls()
     RECT clientRect;
     GetClientRect(HWindow, &clientRect);
     RECT comboRect;
-    HWND combo = GetDlgItem(HWindow, IDC_COPYMOVE_SCHEDULING);
+    HWND combo = GetDlgItem(HWindow, IDC_COPYMOVE_TRANSFER_PREFERENCE);
     HWND ssdEdit = GetDlgItem(HWindow, IDC_COPYMOVE_SSD_PARALLEL);
     HWND nvmeEdit = GetDlgItem(HWindow, IDC_COPYMOVE_NVME_PARALLEL);
     if (combo == NULL || ssdEdit == NULL || nvmeEdit == NULL)
@@ -1442,24 +1443,45 @@ void CCfgPageGeneral::Transfer(CTransferInfo& ti)
     ti.CheckBox(IDC_CREATEDIR_AUTOCOMPLETE, Configuration.CreateDirAutoComplete);
     ti.EditLine(IDC_COPYMOVE_SSD_PARALLEL, Configuration.CopyMoveSsdParallelFiles);
     ti.EditLine(IDC_COPYMOVE_NVME_PARALLEL, Configuration.CopyMoveNvmeParallelFiles);
-    HWND hSched = GetDlgItem(HWindow, IDC_COPYMOVE_SCHEDULING);
-    if (hSched != NULL)
+    HWND hPolicy = GetDlgItem(HWindow, IDC_COPYMOVE_OPERATION_POLICY);
+    if (hPolicy != NULL)
     {
         if (ti.Type == ttDataToWindow)
         {
-            SendMessage(hSched, CB_RESETCONTENT, 0, 0);
-            SendMessage(hSched, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_PREFERRED_SEQUENTIAL));
-            SendMessage(hSched, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_PREFERRED_STORAGEAWARE));
-            SendMessage(hSched, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_PREFERRED_KEEP_LAST));
-            int sel = Configuration.CopyMoveScheduling;
-            if (sel < CMS_SEQUENTIAL || sel > CMS_MANUAL)
-                sel = CMS_STORAGE_AWARE;
-            SendMessage(hSched, CB_SETCURSEL, sel, 0);
+            SendMessage(hPolicy, CB_RESETCONTENT, 0, 0);
+            SendMessage(hPolicy, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_POLICY_STORAGEAWARE));
+            SendMessage(hPolicy, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_POLICY_SEQUENTIAL));
+            SendMessage(hPolicy, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_POLICY_ASK));
+            int sel = Configuration.CopyMoveOperationPolicy;
+            if (sel < COSP_STORAGE_AWARE || sel > COSP_ASK)
+                sel = COSP_STORAGE_AWARE;
+            SendMessage(hPolicy, CB_SETCURSEL, sel, 0);
         }
         else
         {
-            int sel = (int)SendMessage(hSched, CB_GETCURSEL, 0, 0);
-            if (sel >= CMS_SEQUENTIAL && sel <= CMS_MANUAL)
+            int sel = (int)SendMessage(hPolicy, CB_GETCURSEL, 0, 0);
+            if (sel >= COSP_STORAGE_AWARE && sel <= COSP_ASK)
+                Configuration.CopyMoveOperationPolicy = sel;
+        }
+    }
+    HWND hTransfer = GetDlgItem(HWindow, IDC_COPYMOVE_TRANSFER_PREFERENCE);
+    if (hTransfer != NULL)
+    {
+        if (ti.Type == ttDataToWindow)
+        {
+            SendMessage(hTransfer, CB_RESETCONTENT, 0, 0);
+            SendMessage(hTransfer, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_PREFERRED_SEQUENTIAL));
+            SendMessage(hTransfer, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_PREFERRED_STORAGEAWARE));
+            SendMessage(hTransfer, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_PREFERRED_KEEP_LAST));
+            int sel = Configuration.CopyMoveScheduling;
+            if (sel < CMTP_SEQUENTIAL || sel > CMTP_KEEP_LAST)
+                sel = CMTP_STORAGE_AWARE;
+            SendMessage(hTransfer, CB_SETCURSEL, sel, 0);
+        }
+        else
+        {
+            int sel = (int)SendMessage(hTransfer, CB_GETCURSEL, 0, 0);
+            if (sel >= CMTP_SEQUENTIAL && sel <= CMTP_KEEP_LAST)
                 Configuration.CopyMoveScheduling = sel;
         }
     }

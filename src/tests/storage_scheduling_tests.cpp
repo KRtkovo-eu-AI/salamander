@@ -293,6 +293,71 @@ void TestSchedulingModes()
           "Storage-aware must queue a second operation on the same HDD");
 }
 
+int WaitReason(int policy, int operationOverride, int anyOtherActive, int hasBarrier,
+               const COperationStorageUse& candidate,
+               const COperationStorageUse* running = NULL, int runningCount = 0,
+               int ssdLimit = 2, int nvmeLimit = 4)
+{
+    CStorageOpView candidateView = ViewOf(candidate);
+    CStorageOpView runningViews[8];
+    for (int i = 0; i < runningCount; i++)
+        runningViews[i] = ViewOf(running[i]);
+    return StorageOperationGetWaitReason(policy, operationOverride, anyOtherActive, hasBarrier,
+                                         &candidateView, runningViews, runningCount,
+                                         ssdLimit, nvmeLimit);
+}
+
+void TestOperationPoliciesAndOverrides()
+{
+    COperationStorageUse running = UseFrom(LocalDisk(1, 1, SACCESS_READ));
+    COperationStorageUse independent = UseFrom(LocalDisk(2, 1, SACCESS_READ));
+    COperationStorageUse conflict = UseFrom(LocalDisk(1, 1, SACCESS_WRITE));
+
+    Check(WaitReason(COSP_STORAGE_AWARE, COSO_DEFAULT, 1, 0, independent, &running, 1) == CSWR_NONE,
+          "storage-aware policy must admit independent devices");
+    Check(WaitReason(COSP_GLOBAL_SEQUENTIAL, COSO_DEFAULT, 1, 0, independent, &running, 1) ==
+              CSWR_EXPLICIT_OR_GLOBAL_WAIT,
+          "global sequential policy must wait while another operation is active");
+    Check(WaitReason(COSP_ASK, COSO_DEFAULT, 1, 0, independent, &running, 1) ==
+              CSWR_EXPLICIT_OR_GLOBAL_WAIT,
+          "unresolved ask policy must wait safely");
+    Check(WaitReason(COSP_GLOBAL_SEQUENTIAL, COSO_START_NOW, 1, 0, conflict, &running, 1) == CSWR_NONE,
+          "start-now override must bypass policy and storage conflicts");
+    Check(WaitReason(COSP_STORAGE_AWARE, COSO_WAIT_ALL, 1, 0, independent, &running, 1) ==
+              CSWR_EXPLICIT_OR_GLOBAL_WAIT,
+          "wait-all override must wait for every active operation");
+}
+
+void TestFifoBarrierSemantics()
+{
+    COperationStorageUse independent = UseFrom(LocalDisk(2, 1, SACCESS_READ));
+    Check(WaitReason(COSP_STORAGE_AWARE, COSO_DEFAULT, 0, 1, independent) ==
+              CSWR_EXPLICIT_OR_GLOBAL_WAIT,
+          "an earlier queued barrier must prevent default operations from overtaking it");
+    Check(WaitReason(COSP_STORAGE_AWARE, COSO_START_NOW, 1, 1, independent) == CSWR_NONE,
+          "explicit start-now must be able to bypass a FIFO barrier");
+}
+
+void TestStructuredWaitReasons()
+{
+    COperationStorageUse hdd = UseFrom(LocalDisk(1, 1, SACCESS_READ));
+    COperationStorageUse hddConflict = UseFrom(LocalDisk(1, 1, SACCESS_WRITE));
+    Check(WaitReason(COSP_STORAGE_AWARE, COSO_DEFAULT, 1, 0, hddConflict, &hdd, 1) ==
+              CSWR_PHYSICAL_DEVICE_CONFLICT,
+          "same physical HDD must report a physical-device conflict");
+
+    COperationStorageUse nvme = UseFrom(LocalMedia(10, SMEDIA_NVME, SACCESS_WRITE));
+    COperationStorageUse nvmeRunning[2] = {nvme, nvme};
+    Check(WaitReason(COSP_STORAGE_AWARE, COSO_DEFAULT, 1, 0, nvme,
+                     nvmeRunning, 2, 2, 2) == CSWR_SSD_NVME_STREAM_LIMIT,
+          "exhausted solid-state stream budget must have its own reason");
+
+    COperationStorageUse unknown = UseFrom(GlobalUnknown(SACCESS_WRITE));
+    Check(WaitReason(COSP_STORAGE_AWARE, COSO_DEFAULT, 1, 0, unknown, &hdd, 1) ==
+              CSWR_UNKNOWN_FALLBACK,
+          "unresolved storage must report the conservative fallback reason");
+}
+
 void TestClaimMerge()
 {
     COperationStorageUse use;
@@ -350,6 +415,9 @@ int main()
     TestGlobalUnknownWaitsForAnyRunning();
     TestSameVolumeMoveIsReadWrite();
     TestSchedulingModes();
+    TestOperationPoliciesAndOverrides();
+    TestFifoBarrierSemantics();
+    TestStructuredWaitReasons();
     TestClaimMerge();
     TestClaimLimitFallsBackToGlobalUnknown();
     TestStorageEndpointLabel();

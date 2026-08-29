@@ -570,9 +570,12 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
         DWORD clusterSize = 0;
         CChangeCaseData changeCaseData;
         CCriteriaData criteria;
-        int transferMode = Configuration.CopyMoveScheduling == CMS_MANUAL
+        int transferMode = Configuration.CopyMoveScheduling == CMTP_KEEP_LAST
                                ? Configuration.CopyMoveLastTransferMode
                                : Configuration.CopyMoveScheduling;
+        int operationSchedulingOverride = Configuration.CopyMoveOperationPolicy == COSP_ASK
+                                              ? COSO_WAIT_ALL
+                                              : COSO_DEFAULT;
         if (transferMode != CMS_SEQUENTIAL && transferMode != CMS_STORAGE_AWARE)
             transferMode = CMS_STORAGE_AWARE;
         if (CopyMoveOptions.Get() != NULL) // if they exist, pull the defaults
@@ -602,7 +605,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                                                (type == atCopy) ? IDD_COPYDIALOG : IDD_MOVEDIALOG,
                                                Configuration.CopyHistory, COPY_HISTORY_SIZE,
                                                &criteria, havePermissions, supportsADS, &transferMode,
-                                               copyToSelectedDirs ? &selectedTargetPaths : NULL,
+                                               &operationSchedulingOverride, copyToSelectedDirs ? &selectedTargetPaths : NULL,
                                                changeTargetRequested != NULL && !copyToSelectedDirs)
                           .Execute();
                 if (res == ID_CHANGE_SELECTED_TARGET_TAB)
@@ -614,7 +617,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     criteria.CopySecurity = FALSE;
                 if (res != IDOK)
                     break;
-                if (Configuration.CopyMoveScheduling == CMS_MANUAL)
+                if (Configuration.CopyMoveScheduling == CMTP_KEEP_LAST)
                     Configuration.CopyMoveLastTransferMode = transferMode;
                 criteriaPtr = criteria.IsDirty() ? &criteria : NULL;
                 UpdateWindow(MainWindow->HWindow);
@@ -1114,7 +1117,11 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                 else
                 {
                     if (type == atCopy || type == atMove)
+                    {
                         script->CopyMoveTransferMode = transferMode;
+                        script->OperationSchedulingPolicy = Configuration.CopyMoveOperationPolicy;
+                        script->OperationSchedulingOverride = operationSchedulingOverride;
+                    }
                     const char* caption;
                     switch (type)
                     {

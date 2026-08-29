@@ -1120,9 +1120,13 @@ void CFilesWindow::DropCopyMove(BOOL copy, char* targetPath, CCopyMoveData* data
                 script->ShowStatus = TRUE;
             script->IsCopyOperation = copy;
             script->IsCopyOrMoveOperation = TRUE;
-            script->CopyMoveTransferMode = Configuration.CopyMoveScheduling == CMS_MANUAL
+            script->CopyMoveTransferMode = Configuration.CopyMoveScheduling == CMTP_KEEP_LAST
                                                ? Configuration.CopyMoveLastTransferMode
                                                : Configuration.CopyMoveScheduling;
+            script->OperationSchedulingPolicy = Configuration.CopyMoveOperationPolicy == COSP_ASK
+                                                    ? COSP_STORAGE_AWARE
+                                                    : Configuration.CopyMoveOperationPolicy;
+            script->OperationSchedulingOverride = COSO_DEFAULT;
             if (script->CopyMoveTransferMode != CMS_SEQUENTIAL &&
                 script->CopyMoveTransferMode != CMS_STORAGE_AWARE)
                 script->CopyMoveTransferMode = CMS_STORAGE_AWARE;
@@ -1364,7 +1368,6 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
             script->CopySecurity = filterCriteria->CopySecurity;
             script->PreserveDirTime = filterCriteria->PreserveDirTime;
             script->CopyAttrs = filterCriteria->CopyAttrs;
-            script->StartOnIdle = filterCriteria->StartOnIdle;
 
             if (script->CopySecurity)
             {

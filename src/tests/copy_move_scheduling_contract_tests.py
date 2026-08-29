@@ -43,9 +43,14 @@ def main() -> None:
     lang_rc = (src / "lang/lang.rc").read_text(encoding="utf-8")
     texts_rc2 = (src / "lang/texts.rc2").read_text(encoding="utf-8")
 
-    require(sched_h, "CMS_STORAGE_AWARE", "storage-aware scheduling mode")
-    require(sched_h, "CMS_SEQUENTIAL", "sequential scheduling mode")
-    require(sched_h, "CMS_MANUAL", "manual scheduling mode")
+    require(sched_h, "CMS_STORAGE_AWARE", "parallel file-transfer mode")
+    require(sched_h, "CMS_SEQUENTIAL", "single-file transfer mode")
+    require(sched_h, "COSP_STORAGE_AWARE", "storage-aware operation policy")
+    require(sched_h, "COSP_GLOBAL_SEQUENTIAL", "global sequential operation policy")
+    require(sched_h, "COSP_ASK", "ask-per-operation policy")
+    require(sched_h, "COSO_START_NOW", "per-operation start-now override")
+    require(sched_h, "COSO_WAIT_ALL", "per-operation wait-all override")
+    require(sched_h, "CSWR_SSD_NVME_STREAM_LIMIT", "structured queue wait reasons")
     require(sched_h, "COPYMOVE_SSD_MAX_WRITES 2", "SSD write concurrency limit")
     require(sched_cpp, "StorageOperationConflictsWithRunning", "pure conflict function")
     require(sched_cpp, "StorageOperationConflictsWithRunningWithLimits", "configurable storage write limits")
@@ -63,15 +68,16 @@ def main() -> None:
         worker_cpp,
         "BOOL COperationsQueue::AddOperation(",
         "void COperationsQueue::TryResumeCompatible(")
-    require(add_op, "CopyMoveShouldStartPaused", "AddOperation uses the scheduler policy")
+    require(add_op, "StorageOperationGetWaitReason", "AddOperation uses operation scheduling policy")
+    require(add_op, "StorageOperationIsFifoBarrier", "AddOperation respects FIFO barriers")
     require(add_op, "runningViewsOverflow", "operations beyond the view limit are safely queued")
     resume = function_slice(
         worker_cpp,
         "void COperationsQueue::TryResumeCompatible(",
         "void COperationsQueue::OperationEnded(")
-    require(resume, "OperPaused[j] == 0", "resume considers currently running operations")
-    require(resume, "StorageOperationConflictsWithRunning", "storage-aware resume uses conflict checks")
-    require(resume, "runningViewsOverflow", "resume does not ignore operations beyond the view limit")
+    require(worker_cpp, "OperPaused[j] == 0", "wait-reason calculation considers running operations")
+    require(resume, "GetWaitReasonForIndex", "resume recomputes structured wait reasons")
+    require(worker_cpp, "runningViewsOverflow", "scheduler does not ignore operations beyond the view limit")
     require(resume, "PostMessage(OperDlgs[i], WM_COMMAND, CM_RESUMEOPER, 0)",
             "compatible waiters are resumed while others may still run")
 
@@ -83,28 +89,47 @@ def main() -> None:
     require(salamdr7, "AddNetworkShareClaim", "UNC/mapped-drive network identity")
     require(salamdr7, "void AddPathToStorageUse(", "path-to-resource helper")
 
-    require(cfgdlg, "CopyMoveScheduling", "configuration field")
-    require(dialogs4, "CopyMoveScheduling = CMS_STORAGE_AWARE", "storage-aware default")
-    require(mainwnd2, "CONFIG_COPYMOVESCHEDULING_REG", "registry persistence")
-    require(lang_rc, "IDC_COPYMOVE_SCHEDULING", "General page combo")
+    require(cfgdlg, "CopyMoveOperationPolicy", "separate operation scheduling field")
+    require(cfgdlg, "CopyMoveScheduling", "separate file-transfer preference field")
+    require(dialogs4, "CopyMoveOperationPolicy = COSP_STORAGE_AWARE", "storage-aware operation default")
+    require(dialogs4, "CopyMoveScheduling = CMTP_STORAGE_AWARE", "parallel transfer default")
+    require(mainwnd2, "CONFIG_COPYMOVEOPERATIONPOLICY_REG", "operation policy persistence")
+    require(mainwnd2, "CONFIG_COPYMOVESCHEDULING_REG", "transfer preference compatibility persistence")
+    require(lang_rc, "IDC_COPYMOVE_OPERATION_POLICY", "General operation policy combo")
+    require(lang_rc, "IDC_COPYMOVE_TRANSFER_PREFERENCE", "General transfer preference combo")
     forbid(lang_rc, "IDC_COPYMOVE_PARALLEL_WARNING", "inline parallel-files warning label")
-    require(texts_rc2, "IDS_COPYMOVE_SCHED_STORAGEAWARE", "localized mode names")
+    require(texts_rc2, "IDS_COPYMOVE_POLICY_STORAGEAWARE", "localized operation policy names")
     require(dialogs3, "IDC_CM_TRANSFERMODE",
             "per-operation transfer-mode selector")
-    require(dialogs3, "IDC_CM_STARTONIDLE), TRUE",
-            "StartOnIdle remains independent of the transfer mode")
+    require(dialogs3, "OperationSchedulingOverrideInOut",
+            "per-operation Start now or Wait choice")
     require(fileswn8, "CopyMoveLastTransferMode",
             "Keep-last preference is applied to the Copy/Move dialog")
     require(worker_h, "CopyMoveTransferMode",
             "transfer mode is captured in the operation script")
+    require(worker_h, "OperationSchedulingPolicy", "operation policy is captured separately")
+    require(worker_h, "OperationSchedulingOverride", "operation override is captured separately")
     require(worker_h, "CParallelProgressData", "parallel file progress payload")
     require(worker_h, "int DisplayCount", "operation-stable parallel row count")
+    require(worker_h, "BOOL Active", "stable parallel slot active state")
+    require(worker_cpp, "progress.ActiveCount = batch->SlotCount",
+            "parallel snapshots preserve physical slot positions")
+    require(worker_cpp, "CParallelProgressStreamData& stream = progress.Streams[slot]",
+            "parallel task progress remains bound to its slot")
+    require(dialogs, "SetParallelProgressSlotActive(HWindow, index, stream.Active)",
+            "inactive slots clear without compacting later rows")
+    require(dialogs, "ShowWindow(GetDlgItem(dialog, progressId), SW_SHOWNA)",
+            "inactive slots preserve visible empty progress bars")
+    require(worker_cpp, "progress.ResetSlots = TRUE;",
+            "completed non-refilled slots are cleared promptly")
     require(worker_h, "BOOL ResetSlots", "atomic parallel batch row replacement")
     require(worker_cpp, "RunParallelCopyBatch", "parallel copy dispatcher")
-    require(worker_cpp, "replaces it atomically as soon as the next task is launched",
+    require(worker_cpp, "batch.ActiveTasks[slot] = next",
             "rolling parallel progress slot reuse")
     forbid(worker_cpp, "ShrinkFinishedSlots", "per-file progress dialog resizing")
     require(worker_cpp, "CreateFileW", "wide API for parallel copy streams")
+    forbid(worker_cpp, "FileAllocationInfo",
+           "serialized eager extent allocation in parallel copy workers")
     require(worker_cpp, "GetParallelCopyPathW", "UTF-8-first/fallback-ACP stream paths")
     require(worker_cpp, "CanReplaceInParallel", "authorized replacement parallelization")
     require(worker_cpp, "task->ReplaceTarget ? OPEN_EXISTING : CREATE_NEW",
@@ -117,6 +142,26 @@ def main() -> None:
             "replacement and source file identity preflight")
     forbid(worker_cpp, "taskThreadCount", "fixed wait-all parallel batches")
     require(worker_cpp, "RunRollingParallelCopy", "rolling parallel copy window")
+    require(worker_cpp, "if (task.Thread != NULL && !task.Finished)",
+            "parallel progress publishes only genuinely active workers")
+    require(dialogs, "if (activeCount < 0)",
+            "parallel progress accepts a fully drained zero-active snapshot")
+    forbid(worker_cpp, "HasUsefulParallelRefillWindow",
+           "payload threshold that prematurely drains rolling copy")
+    forbid(worker_cpp, "COPYMOVE_MIN_PARALLEL_BATCH_SIZE",
+           "size-based fallback from storage-aware to sequential copy")
+    require(worker_cpp, "if (initialCount < 2)",
+            "parallel copy requires only two eligible files")
+    require(worker_cpp, "ProgressCompensated",
+            "parallel completion records synthetic progress compensation")
+    require(worker_cpp, "completed.Operation->Size - completed.Operation->FileSize",
+            "parallel ETA receives minimum-file work units")
+    require(worker_cpp, "TRUE, 0, NULL, MAX_OP_FILESIZE",
+            "synthetic parallel work updates only the progress meter")
+    require(dialogs, "CacheIsDirty = FALSE;",
+            "parallel snapshots invalidate stale regular operation text")
+    require(dialogs, "OperationProgressCacheIsDirty = FALSE;",
+            "parallel snapshots invalidate stale regular file progress")
     require(worker_cpp, "task.ReplaceTarget = replaceTarget",
             "authorized replacements participate in the rolling window")
     require(worker_cpp, "task->ReplaceTarget ? OPEN_EXISTING : CREATE_NEW",
@@ -168,12 +213,17 @@ def main() -> None:
     require(worker_cpp, "if (!task.DeleteOnFailure || !task.OutputIdentityValid ||",
             "only identity-verified batch outputs are removed after failure")
     forbid(worker_cpp, "ReplaceFileW", "file-identity-changing replacement")
-    require(worker_cpp, "int mode = CMS_STORAGE_AWARE",
-            "queue remains storage-aware irrespective of per-operation mode")
+    require(worker_cpp, "OperPolicies", "queue stores per-operation scheduling policy")
+    require(worker_cpp, "OperOverrides", "queue stores per-operation override")
+    require(worker_cpp, "OperWaitReasons", "queue stores structured wait reasons")
+    require(dialogs, "Script->OperationSchedulingPolicy", "progress dialog registers operation policy")
+    require(dialogs, "Script->OperationSchedulingOverride", "progress dialog registers operation override")
     require(dialogs, "&Script->StorageUse", "progress dialog registers storage use")
     require(dialogs, "Script->StorageUse.StreamDemand", "progress dialog reserves file stream budget")
     require(dialogs, "StorageUse_GetEndpointLabel", "progress title contains source/destination storage")
-    require(dialogs_h, "SchedulingTitleSuffix", "progress dialog keeps a storage-aware title suffix")
+    require(dialogs_h, "SchedulingTitleSuffix", "progress dialog keeps a file-transfer title suffix")
+    require(dialogs_h, "QueueWaitReason", "progress dialog stores queue wait reason")
+    require(dialogs, "IDS_PROGDLGQUEUE_STREAMLIMIT", "progress dialog distinguishes stream-limit waits")
     require(dialogs_h, "LayoutActiveProgressStreams", "dynamic parallel progress dialog layout")
     require(dialogs, "ParallelLayoutBaseDialogHeight", "non-cumulative progress dialog layout baseline")
     require(dialogs, "const int centerY = dialogRect.top +",
@@ -210,9 +260,9 @@ def main() -> None:
     require(dialogs4, "TTF_IDISHWND", "warning tooltip is attached to each icon")
     require(dialogs4, "IDS_COPYMOVE_PARALLEL_SSD_WARNING", "localized SSD tooltip text")
     require(dialogs4, "IDS_COPYMOVE_PARALLEL_NVME_WARNING", "localized NVMe tooltip text")
-    require(lang_rc, "IDC_COPYMOVE_SSD_WARNING_ICON,114,257,9,14,WS_GROUP | SS_NOTIFY",
+    require(lang_rc, "IDC_COPYMOVE_SSD_WARNING_ICON,114,273,9,14,WS_GROUP | SS_NOTIFY",
             "hover-enabled SSD warning icon")
-    require(lang_rc, "IDC_COPYMOVE_NVME_WARNING_ICON,264,257,10,14,WS_GROUP | SS_NOTIFY",
+    require(lang_rc, "IDC_COPYMOVE_NVME_WARNING_ICON,264,273,10,14,WS_GROUP | SS_NOTIFY",
             "hover-enabled NVMe warning icon")
     require(mainwnd2, "CONFIG_COPYMOVESSDPARALLELFILES_REG", "SSD stream limit persistence")
     require(mainwnd2, "CONFIG_COPYMOVENVMEPARALLELFILES_REG", "NVMe stream limit persistence")
@@ -224,9 +274,8 @@ def main() -> None:
     require(worker_cpp, "limit < 2 || script->IsParallelCopyDisabled()",
             "persistent dynamic speed-limit fallback")
     require(worker_cpp, "AddParallelCopyBytes", "parallel transfer speed accounting")
-    require(worker_cpp, "FileAllocationInfo", "parallel target extent preallocation")
-    require(worker_cpp, "firstWindowSize < CQuadWord(COPYMOVE_MIN_PARALLEL_BATCH_SIZE, 0)",
-            "small batches avoid parallel thread overhead")
+    require(worker_cpp, "if (count >= 2 && count > demand)",
+            "stream reservation is independent of aggregate file size")
 
     require(fileswn8, "type == atMove ? SACCESS_READWRITE : SACCESS_READ",
             "F5/F6 Move source includes delete writes")

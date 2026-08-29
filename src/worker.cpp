@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -490,8 +490,9 @@ COperations::COperations(int base, int delta, char* waitInQueueSubject, char* wa
     PreserveDirTime = FALSE;
     SourcePathIsNetwork = FALSE;
     CopyAttrs = FALSE;
-    StartOnIdle = FALSE;
     CopyMoveTransferMode = CMS_STORAGE_AWARE;
+    OperationSchedulingPolicy = COSP_STORAGE_AWARE;
+    OperationSchedulingOverride = COSO_DEFAULT;
     ShowStatus = FALSE;
     IsCopyOperation = FALSE;
     FastMoveUsed = FALSE;
@@ -7915,8 +7916,9 @@ struct CParallelCopyTask
     ULONGLONG OutputFileIndex;
     DWORD FinalAttributes;
     int Progress;
+    BOOL ProgressCompensated;
 
-    CParallelCopyTask() : Batch(NULL), ScriptIndex(-1), Operation(NULL), Input(INVALID_HANDLE_VALUE), Thread(NULL), Cancel(0), Success(FALSE), Finished(FALSE), ReplaceTarget(FALSE), DeleteOnFailure(FALSE), SourceIdentityValid(FALSE), SourceVolumeSerial(0), SourceFileIndex(0), TargetVolumeSerial(0), TargetFileIndex(0), OutputIdentityValid(FALSE), OutputVolumeSerial(0), OutputFileIndex(0), FinalAttributes(0), Progress(0) {}
+    CParallelCopyTask() : Batch(NULL), ScriptIndex(-1), Operation(NULL), Input(INVALID_HANDLE_VALUE), Thread(NULL), Cancel(0), Success(FALSE), Finished(FALSE), ReplaceTarget(FALSE), DeleteOnFailure(FALSE), SourceIdentityValid(FALSE), SourceVolumeSerial(0), SourceFileIndex(0), TargetVolumeSerial(0), TargetFileIndex(0), OutputIdentityValid(FALSE), OutputVolumeSerial(0), OutputFileIndex(0), FinalAttributes(0), Progress(0), ProgressCompensated(FALSE) {}
 };
 
 struct CParallelCopyBatch
@@ -7946,21 +7948,26 @@ static void UpdateParallelCopyProgress(CParallelCopyBatch* batch)
     progress.DisplayCount = batch->DisplayCount;
     progress.ResetSlots = batch->ResetSlots;
     batch->ResetSlots = FALSE;
-    for (int i = 0; i < batch->SlotCount; i++)
+    progress.ActiveCount = batch->SlotCount;
+    for (int slot = 0; slot < batch->SlotCount; slot++)
     {
-        CParallelCopyTask& task = *batch->ActiveTasks[i];
-        // Keep the slot visible while it is finalized; the coordinator
-        // replaces it atomically as soon as the next task is launched.
-        CParallelProgressStreamData& stream = progress.Streams[progress.ActiveCount++];
-        stream.Operation = batch->OperationText;
-        stream.Source = task.Operation->SourceName;
-        stream.Preposition = batch->PrepositionText;
-        stream.Target = task.Operation->TargetName;
-        stream.Progress = task.Finished && task.Success ? 1000 : task.Progress;
-        if (task.Finished && task.Success)
-            progressDone += task.Operation->Size;
-        else
+        CParallelCopyTask& task = *batch->ActiveTasks[slot];
+        CParallelProgressStreamData& stream = progress.Streams[slot];
+        if (task.Thread != NULL && !task.Finished)
+        {
+            stream.Active = TRUE;
+            stream.Operation = batch->OperationText;
+            stream.Source = task.Operation->SourceName;
+            stream.Preposition = batch->PrepositionText;
+            stream.Target = task.Operation->TargetName;
+            stream.Progress = task.Progress;
             progressDone += (task.Operation->Size * CQuadWord((DWORD)task.Progress, 0)) / CQuadWord(1000, 0);
+        }
+        else if (task.Finished && task.Success)
+        {
+            progressDone += task.Operation->Size;
+            progress.ResetSlots = TRUE;
+        }
     }
     progressDone += batch->CompletedDone;
     HANDLES(LeaveCriticalSection(&batch->CS));
@@ -8062,16 +8069,8 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
                                 outputInfo.nFileIndexLow;
     }
 
-    // Reserve extents before several streams start growing files together.
-    // Failure is non-fatal; the filesystem can still allocate during writes.
-    if (task->Operation->FileSize.Value > 0)
-    {
-        FILE_ALLOCATION_INFO allocation;
-        allocation.AllocationSize.QuadPart = task->Operation->FileSize.Value;
-        SetFileInformationByHandle(output, FileAllocationInfo, &allocation, sizeof(allocation));
-    }
-
-    BYTE* buffer = (BYTE*)malloc(1024 * 1024);
+    const DWORD bufferSize = 1024 * 1024;
+    BYTE* buffer = (BYTE*)malloc(bufferSize);
     BOOL success = buffer != NULL;
     CQuadWord copied(0, 0);
     while (success)
@@ -8103,7 +8102,7 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
             break;
         }
         DWORD read = 0;
-        if (!ReadFile(input, buffer, 1024 * 1024, &read, NULL))
+        if (!ReadFile(input, buffer, bufferSize, &read, NULL))
         {
             success = FALSE;
             break;
@@ -8120,15 +8119,15 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
                 break;
             }
             writtenTotal += written;
+            copied += CQuadWord(written, 0);
+            batch->Script->AddParallelCopyBytes(written, bufferSize);
+            int progress = task->Operation->FileSize.Value != 0
+                               ? (int)((copied * CQuadWord(1000, 0) / task->Operation->FileSize).Value)
+                               : 0;
+            HANDLES(EnterCriticalSection(&batch->CS));
+            task->Progress = progress >= 1000 ? 999 : progress;
+            HANDLES(LeaveCriticalSection(&batch->CS));
         }
-        copied += CQuadWord(writtenTotal, 0);
-        batch->Script->AddParallelCopyBytes(writtenTotal, 1024 * 1024);
-        int progress = task->Operation->FileSize.Value != 0
-                           ? (int)((copied * CQuadWord(1000, 0) / task->Operation->FileSize).Value)
-                           : 0;
-        HANDLES(EnterCriticalSection(&batch->CS));
-        task->Progress = progress >= 1000 ? 999 : progress;
-        HANDLES(LeaveCriticalSection(&batch->CS));
     }
     if (buffer != NULL)
         free(buffer);
@@ -8276,7 +8275,6 @@ int GetCopyOperationStreamDemand(COperations* script, int ssdLimit, int nvmeLimi
         if (script->At(first).Opcode != ocCopyFile)
             continue;
         int count = 0;
-        CQuadWord size(0, 0);
         for (int index = first; index < script->Count && count < limit; index++)
         {
             COperation* operation = &script->At(index);
@@ -8284,7 +8282,6 @@ int GetCopyOperationStreamDemand(COperations* script, int ssdLimit, int nvmeLimi
             {
                 if (!CanUseParallelCopy(script, operation))
                     break;
-                size += operation->FileSize;
                 count++;
             }
             else if (operation->Opcode == ocCreateDir)
@@ -8296,8 +8293,7 @@ int GetCopyOperationStreamDemand(COperations* script, int ssdLimit, int nvmeLimi
                      operation->Opcode != ocLabelForSkipOfCreateDir)
                 break;
         }
-        if (count >= 2 && size >= CQuadWord(COPYMOVE_MIN_PARALLEL_BATCH_SIZE, 0) &&
-            count > demand)
+        if (count >= 2 && count > demand)
             demand = count;
     }
     return demand;
@@ -8635,7 +8631,6 @@ static int RunRollingParallelCopy(COperations* script, int first, int limit,
 {
     std::deque<CParallelCopyTask> tasks;
     std::deque<CPreparedParallelDirectory> preparedDirectories;
-    CQuadWord firstWindowSize(0, 0);
     int scriptIndex = first;
     CParallelCopyTask* initialDependencies[COPYMOVE_MAX_PARALLEL_STREAMS];
     int initialDependencyCount = 0;
@@ -8664,14 +8659,6 @@ static int RunRollingParallelCopy(COperations* script, int first, int limit,
                 break;
             }
             initialDependencies[initialDependencyCount++] = task;
-            firstWindowSize += task->Operation->FileSize;
-            if ((int)tasks.size() == limit &&
-                firstWindowSize < CQuadWord(COPYMOVE_MIN_PARALLEL_BATCH_SIZE, 0))
-            {
-                CloseUnusedParallelCopyInputs(tasks);
-                RollbackPreparedParallelDirectories(preparedDirectories);
-                return -1;
-            }
         }
     }
     catch (const std::bad_alloc&)
@@ -8682,7 +8669,7 @@ static int RunRollingParallelCopy(COperations* script, int first, int limit,
     }
 
     const int initialCount = (int)tasks.size();
-    if (initialCount < 2 || firstWindowSize < CQuadWord(COPYMOVE_MIN_PARALLEL_BATCH_SIZE, 0))
+    if (initialCount < 2)
     {
         CloseUnusedParallelCopyInputs(tasks);
         RollbackPreparedParallelDirectories(preparedDirectories);
@@ -8812,6 +8799,13 @@ static int RunRollingParallelCopy(COperations* script, int first, int limit,
                 failed = TRUE;
                 break;
             }
+            if (completed.Operation->Size > completed.Operation->FileSize)
+            {
+                script->AddBytesToSpeedMetersAndTFSandPS(
+                    (DWORD)(completed.Operation->Size - completed.Operation->FileSize).Value,
+                    TRUE, 0, NULL, MAX_OP_FILESIZE);
+                completed.ProgressCompensated = TRUE;
+            }
             batch.CompletedDone += completed.Operation->Size;
             batch.ActiveTasks[slot] = next;
             next->Batch = &batch;
@@ -8850,6 +8844,14 @@ static int RunRollingParallelCopy(COperations* script, int first, int limit,
     for (std::deque<CParallelCopyTask>::iterator task = tasks.begin();
          task != tasks.end(); ++task)
     {
+        if (!task->ProgressCompensated && task->Finished && task->Success &&
+            task->Operation->Size > task->Operation->FileSize)
+        {
+            script->AddBytesToSpeedMetersAndTFSandPS(
+                (DWORD)(task->Operation->Size - task->Operation->FileSize).Value,
+                TRUE, 0, NULL, MAX_OP_FILESIZE);
+            task->ProgressCompensated = TRUE;
+        }
         totalDone += task->Operation->Size;
         task->Operation->OpFlags |= OPFL_PARALLEL_DONE;
     }
@@ -9397,7 +9399,8 @@ void FreeScript(COperations* script)
     delete script;
 }
 
-BOOL COperationsQueue::AddOperation(HWND dlg, BOOL startOnIdle, BOOL* startPaused,
+BOOL COperationsQueue::AddOperation(HWND dlg, int schedulingPolicy, int operationOverride,
+                                    BOOL* startPaused, int* waitReason,
                                     const COperationStorageUse* storageUse)
 {
     CALL_STACK_MESSAGE1("COperationsQueue::AddOperation()");
@@ -9425,14 +9428,16 @@ BOOL COperationsQueue::AddOperation(HWND dlg, BOOL startOnIdle, BOOL* startPause
             StorageUse_AddClaim(&use, &unknown);
         }
 
-        // The selected transfer mode applies inside one operation. The operation
-        // queue stays storage-aware; only the explicit wait checkbox serializes it.
-        int mode = CMS_STORAGE_AWARE;
-        DWORD forceSequential = startOnIdle ? 1 : 0;
+        if (schedulingPolicy != COSP_STORAGE_AWARE && schedulingPolicy != COSP_GLOBAL_SEQUENTIAL &&
+            schedulingPolicy != COSP_ASK)
+            schedulingPolicy = COSP_STORAGE_AWARE;
+        if (operationOverride != COSO_DEFAULT && operationOverride != COSO_START_NOW &&
+            operationOverride != COSO_WAIT_ALL)
+            operationOverride = COSO_DEFAULT;
 
         CStorageOpView runningViews[64];
         int runningCount = 0;
-        int anyNonAutoPaused = 0;
+        int anyOtherActive = OperDlgs.Count > 0;
         BOOL runningViewsOverflow = FALSE;
         int j;
         for (j = 0; j < OperPaused.Count; j++)
@@ -9446,19 +9451,28 @@ BOOL COperationsQueue::AddOperation(HWND dlg, BOOL startOnIdle, BOOL* startPause
             }
             else if (OperPaused[j] == 0)
                 runningViewsOverflow = TRUE;
-            if (OperPaused[j] != 1)
-                anyNonAutoPaused = 1;
         }
 
         CStorageOpView candidate;
         candidate.Claims = use.Claims;
         candidate.Count = use.ClaimCount;
         candidate.StreamDemand = use.StreamDemand;
-        *startPaused = runningViewsOverflow || CopyMoveShouldStartPausedWithLimits(
-                                                  mode, startOnIdle, anyNonAutoPaused, &candidate,
-                                                  runningViews, runningCount,
-                                                  Configuration.CopyMoveSsdParallelFiles,
-                                                  Configuration.CopyMoveNvmeParallelFiles) != 0;
+        BOOL hasFifoBarrier = FALSE;
+        for (j = 0; j < OperDlgs.Count; j++)
+            if (StorageOperationIsFifoBarrier(OperPolicies[j], OperOverrides[j]))
+            {
+                hasFifoBarrier = TRUE;
+                break;
+            }
+        int reason = runningViewsOverflow && operationOverride != COSO_START_NOW ? CSWR_UNKNOWN_FALLBACK :
+                     StorageOperationGetWaitReason(schedulingPolicy, operationOverride,
+                                                   anyOtherActive, hasFifoBarrier, &candidate,
+                                                   runningViews, runningCount,
+                                                   Configuration.CopyMoveSsdParallelFiles,
+                                                   Configuration.CopyMoveNvmeParallelFiles);
+        *startPaused = reason != CSWR_NONE;
+        if (waitReason != NULL)
+            *waitReason = reason;
 
         OperDlgs.Add(dlg);
         if (OperDlgs.IsGood())
@@ -9469,21 +9483,30 @@ BOOL COperationsQueue::AddOperation(HWND dlg, BOOL startOnIdle, BOOL* startPause
                 OperStorage.Add(use);
                 if (OperStorage.IsGood())
                 {
-                    OperForceSequential.Add(forceSequential);
-                    if (OperForceSequential.IsGood())
+                    const int policyCount = OperPolicies.Count;
+                    const int overrideCount = OperOverrides.Count;
+                    const int reasonCount = OperWaitReasons.Count;
+                    OperPolicies.Add(schedulingPolicy);
+                    if (OperPolicies.IsGood())
+                        OperOverrides.Add(operationOverride);
+                    if (OperPolicies.IsGood() && OperOverrides.IsGood())
+                        OperWaitReasons.Add(reason);
+                    if (OperPolicies.IsGood() && OperOverrides.IsGood() && OperWaitReasons.IsGood())
                         ret = TRUE;
                     else
                     {
-                        OperForceSequential.ResetState();
+                        if (OperWaitReasons.Count > reasonCount) OperWaitReasons.Delete(reasonCount);
+                        if (OperOverrides.Count > overrideCount) OperOverrides.Delete(overrideCount);
+                        if (OperPolicies.Count > policyCount) OperPolicies.Delete(policyCount);
+                        OperWaitReasons.ResetState();
+                        OperOverrides.ResetState();
+                        OperPolicies.ResetState();
                         OperStorage.Delete(OperStorage.Count - 1);
-                        if (!OperStorage.IsGood())
-                            OperStorage.ResetState();
+                        if (!OperStorage.IsGood()) OperStorage.ResetState();
                         OperPaused.Delete(OperPaused.Count - 1);
-                        if (!OperPaused.IsGood())
-                            OperPaused.ResetState();
+                        if (!OperPaused.IsGood()) OperPaused.ResetState();
                         OperDlgs.Delete(OperDlgs.Count - 1);
-                        if (!OperDlgs.IsGood())
-                            OperDlgs.ResetState();
+                        if (!OperDlgs.IsGood()) OperDlgs.ResetState();
                     }
                 }
                 else
@@ -9516,56 +9539,69 @@ BOOL COperationsQueue::AddOperation(HWND dlg, BOOL startOnIdle, BOOL* startPause
     return ret;
 }
 
+BOOL COperationsQueue::AddOperation(HWND dlg, BOOL startOnIdle, BOOL* startPaused,
+                                    const COperationStorageUse* storageUse)
+{
+    return AddOperation(dlg, COSP_STORAGE_AWARE,
+                        startOnIdle ? COSO_WAIT_ALL : COSO_DEFAULT,
+                        startPaused, NULL, storageUse);
+}
+
+int COperationsQueue::GetWaitReasonForIndex(int index)
+{
+    CStorageOpView runningViews[64];
+    int runningCount = 0;
+    int anyOtherActive = 0;
+    BOOL runningViewsOverflow = FALSE;
+    BOOL hasFifoBarrier = FALSE;
+    const BOOL candidateIsBarrier = StorageOperationIsFifoBarrier(OperPolicies[index], OperOverrides[index]);
+    for (int j = 0; j < OperDlgs.Count; j++)
+    {
+        if (j == index)
+            continue;
+        if (j < index && StorageOperationIsFifoBarrier(OperPolicies[j], OperOverrides[j]))
+            hasFifoBarrier = TRUE;
+        if (OperPaused[j] == 0 && runningCount < 64)
+        {
+            runningViews[runningCount].Claims = OperStorage[j].Claims;
+            runningViews[runningCount].Count = OperStorage[j].ClaimCount;
+            runningViews[runningCount].StreamDemand = OperStorage[j].StreamDemand;
+            runningCount++;
+        }
+        else if (OperPaused[j] == 0)
+            runningViewsOverflow = TRUE;
+        if (OperPaused[j] != 1 || (candidateIsBarrier && j < index))
+            anyOtherActive = 1;
+    }
+    if (runningViewsOverflow)
+        return CSWR_UNKNOWN_FALLBACK;
+
+    CStorageOpView candidate;
+    candidate.Claims = OperStorage[index].Claims;
+    candidate.Count = OperStorage[index].ClaimCount;
+    candidate.StreamDemand = OperStorage[index].StreamDemand;
+    return StorageOperationGetWaitReason(OperPolicies[index], OperOverrides[index],
+                                         anyOtherActive, hasFifoBarrier, &candidate,
+                                         runningViews, runningCount,
+                                         Configuration.CopyMoveSsdParallelFiles,
+                                         Configuration.CopyMoveNvmeParallelFiles);
+}
+
 void COperationsQueue::TryResumeCompatible(HWND* foregroundWnd)
 {
-    // QueueCritSect must be held
-    int i;
-    for (i = 0; i < OperDlgs.Count; i++)
+    for (int i = 0; i < OperDlgs.Count; i++)
     {
-        if (OperPaused[i] != 1) // only auto-paused waiters
+        if (OperPaused[i] != 1)
             continue;
-
-        CStorageOpView runningViews[64];
-        int runningCount = 0;
-        int anyNonAutoPaused = 0;
-        BOOL runningViewsOverflow = FALSE;
-        int j;
-        for (j = 0; j < OperDlgs.Count; j++)
+        int reason = GetWaitReasonForIndex(i);
+        if (OperWaitReasons[i] != (DWORD)reason)
         {
-            if (j == i)
-                continue;
-            if (OperPaused[j] == 0 && runningCount < 64)
-            {
-                runningViews[runningCount].Claims = OperStorage[j].Claims;
-                runningViews[runningCount].Count = OperStorage[j].ClaimCount;
-                runningViews[runningCount].StreamDemand = OperStorage[j].StreamDemand;
-                runningCount++;
-            }
-            else if (OperPaused[j] == 0)
-                runningViewsOverflow = TRUE;
-            if (OperPaused[j] != 1)
-                anyNonAutoPaused = 1;
+            OperWaitReasons[i] = reason;
+            PostMessage(OperDlgs[i], WM_USER_PROGRDLG_QUEUE_REASON, reason, 0);
         }
-
-        CStorageOpView candidate;
-        candidate.Claims = OperStorage[i].Claims;
-        candidate.Count = OperStorage[i].ClaimCount;
-        candidate.StreamDemand = OperStorage[i].StreamDemand;
-
-        int shouldWait;
-        if (runningViewsOverflow)
-            shouldWait = TRUE;
-        else if (OperForceSequential[i])
-            shouldWait = anyNonAutoPaused;
-        else
-            shouldWait = StorageOperationConflictsWithRunningWithLimits(
-                &candidate, runningViews, runningCount,
-                Configuration.CopyMoveSsdParallelFiles,
-                Configuration.CopyMoveNvmeParallelFiles);
-
-        if (!shouldWait)
+        if (reason == CSWR_NONE)
         {
-            OperPaused[i] = 0; // mark running so later waiters see this lock
+            OperPaused[i] = 0;
             PostMessage(OperDlgs[i], WM_COMMAND, CM_RESUMEOPER, 0);
             if (foregroundWnd != NULL && *foregroundWnd == NULL)
                 *foregroundWnd = OperDlgs[i];
@@ -9576,69 +9612,54 @@ void COperationsQueue::TryResumeCompatible(HWND* foregroundWnd)
 void COperationsQueue::OperationEnded(HWND dlg, BOOL doNotResume, HWND* foregroundWnd)
 {
     CALL_STACK_MESSAGE1("COperationsQueue::OperationEnded()");
-
     HANDLES(EnterCriticalSection(&QueueCritSect));
-
-    BOOL found = FALSE;
     int i;
     for (i = 0; i < OperDlgs.Count; i++)
-    {
         if (OperDlgs[i] == dlg)
-        {
-            found = TRUE;
-            OperDlgs.Delete(i);
-            if (!OperDlgs.IsGood())
-                OperDlgs.ResetState();
-            OperPaused.Delete(i);
-            if (!OperPaused.IsGood())
-                OperPaused.ResetState();
-            OperStorage.Delete(i);
-            if (!OperStorage.IsGood())
-                OperStorage.ResetState();
-            OperForceSequential.Delete(i);
-            if (!OperForceSequential.IsGood())
-                OperForceSequential.ResetState();
             break;
+    if (i == OperDlgs.Count)
+        TRACE_E("COperationsQueue::OperationEnded(): unexpected situation: operation was not found!");
+    else
+    {
+        OperDlgs.Delete(i); OperPaused.Delete(i); OperStorage.Delete(i);
+        OperPolicies.Delete(i); OperOverrides.Delete(i); OperWaitReasons.Delete(i);
+        if (!OperDlgs.IsGood()) OperDlgs.ResetState();
+        if (!OperPaused.IsGood()) OperPaused.ResetState();
+        if (!OperStorage.IsGood()) OperStorage.ResetState();
+        if (!OperPolicies.IsGood()) OperPolicies.ResetState();
+        if (!OperOverrides.IsGood()) OperOverrides.ResetState();
+        if (!OperWaitReasons.IsGood()) OperWaitReasons.ResetState();
+        if (!doNotResume)
+        {
+            HWND firstResumed = NULL;
+            TryResumeCompatible(&firstResumed);
+            if (foregroundWnd != NULL && firstResumed != NULL && GetForegroundWindow() == dlg)
+                *foregroundWnd = firstResumed;
         }
     }
-    if (!found)
-        TRACE_E("COperationsQueue::OperationEnded(): unexpected situation: operation was not found!");
-    else if (!doNotResume)
-    {
-        HWND firstResumed = NULL;
-        TryResumeCompatible(&firstResumed);
-        if (foregroundWnd != NULL && firstResumed != NULL && GetForegroundWindow() == dlg)
-            *foregroundWnd = firstResumed;
-    }
-
     HANDLES(LeaveCriticalSection(&QueueCritSect));
 }
 
 void COperationsQueue::SetPaused(HWND dlg, int paused)
 {
     CALL_STACK_MESSAGE1("COperationsQueue::SetPaused()");
-
     HANDLES(EnterCriticalSection(&QueueCritSect));
-
     int i;
     for (i = 0; i < OperDlgs.Count; i++)
-    {
         if (OperDlgs[i] == dlg)
         {
             OperPaused[i] = paused;
+            OperWaitReasons[i] = CSWR_NONE;
             break;
         }
-    }
     if (i == OperDlgs.Count)
         TRACE_E("COperationsQueue::SetPaused(): operation was not found!");
-
     HANDLES(LeaveCriticalSection(&QueueCritSect));
 }
 
 BOOL COperationsQueue::IsEmpty()
 {
     CALL_STACK_MESSAGE1("COperationsQueue::IsEmpty()");
-
     HANDLES(EnterCriticalSection(&QueueCritSect));
     BOOL ret = OperDlgs.Count == 0;
     HANDLES(LeaveCriticalSection(&QueueCritSect));
@@ -9648,42 +9669,48 @@ BOOL COperationsQueue::IsEmpty()
 void COperationsQueue::AutoPauseOperation(HWND dlg, HWND* foregroundWnd)
 {
     CALL_STACK_MESSAGE1("COperationsQueue::AutoPauseOperation()");
-
     HANDLES(EnterCriticalSection(&QueueCritSect));
-
     int i;
     for (i = 0; i < OperDlgs.Count; i++)
-    {
         if (OperDlgs[i] == dlg)
         {
-            int j;
             HWND movedDlg = dlg;
-            DWORD movedPaused = 1; /* auto-paused */
             COperationStorageUse movedStorage = OperStorage[i];
-            DWORD movedForce = 1; // AutoPause means wait until all other operations finish
-            for (j = i; j + 1 < OperDlgs.Count; j++)
+            DWORD movedPolicy = OperPolicies[i];
+            for (int j = i; j + 1 < OperDlgs.Count; j++)
             {
-                OperDlgs[j] = OperDlgs[j + 1];
-                OperPaused[j] = OperPaused[j + 1];
-                OperStorage[j] = OperStorage[j + 1];
-                OperForceSequential[j] = OperForceSequential[j + 1];
+                OperDlgs[j] = OperDlgs[j + 1]; OperPaused[j] = OperPaused[j + 1];
+                OperStorage[j] = OperStorage[j + 1]; OperPolicies[j] = OperPolicies[j + 1];
+                OperOverrides[j] = OperOverrides[j + 1]; OperWaitReasons[j] = OperWaitReasons[j + 1];
             }
-            OperDlgs[j] = movedDlg;
-            OperPaused[j] = movedPaused;
-            OperStorage[j] = movedStorage;
-            OperForceSequential[j] = movedForce;
+            int last = OperDlgs.Count - 1;
+            OperDlgs[last] = movedDlg; OperPaused[last] = 1; OperStorage[last] = movedStorage;
+            OperPolicies[last] = movedPolicy; OperOverrides[last] = COSO_WAIT_ALL;
+            OperWaitReasons[last] = CSWR_EXPLICIT_OR_GLOBAL_WAIT;
             break;
         }
-    }
     if (i == OperDlgs.Count)
         TRACE_E("COperationsQueue::AutoPauseOperation(): operation was not found!");
-
     HWND firstResumed = NULL;
     TryResumeCompatible(&firstResumed);
     if (foregroundWnd != NULL && firstResumed != NULL && GetForegroundWindow() == dlg)
         *foregroundWnd = firstResumed;
-
     HANDLES(LeaveCriticalSection(&QueueCritSect));
+}
+
+int COperationsQueue::GetWaitReason(HWND dlg)
+{
+    HANDLES(EnterCriticalSection(&QueueCritSect));
+    int reason = CSWR_NONE;
+    for (int i = 0; i < OperDlgs.Count; i++)
+        if (OperDlgs[i] == dlg)
+        {
+            if (OperPaused[i] == 1)
+                reason = OperWaitReasons[i];
+            break;
+        }
+    HANDLES(LeaveCriticalSection(&QueueCritSect));
+    return reason;
 }
 
 int COperationsQueue::GetNumOfOperations()
