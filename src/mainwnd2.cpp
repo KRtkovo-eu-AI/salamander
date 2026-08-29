@@ -28,10 +28,13 @@
 #include "logo.h"
 #include "tasklist.h"
 #include "pwdmngr.h"
+#include "plugins/salamatrix/salamatrix_extensions.h"
 
 extern void ShowFileError(HWND hParent, int errTextID, const char* fileName, DWORD err);
 
 extern const char* SalamanderConfigurationVersions[SALCFG_ROOTS_COUNT];
+
+Salamatrix::Extensions::IExtensionsService* QueryExtensionService();
 
 static const char* DetectProductName(const char* root);
 static BOOL MCDIsGeneratedConfigDisplayName(const char* root, const char* version, const char* displayName);
@@ -49,6 +52,41 @@ static void SaveInstalledPluginVersionsToBootstrap()
     char key[32];
     char count[32];
     int savedCount = 0;
+
+    Salamatrix::Extensions::IExtensionsService* extensionService = QueryExtensionService();
+    if (extensionService != NULL)
+    {
+        const int extensionCount = extensionService->GetExtensionCount();
+        for (int i = 0; i < extensionCount; ++i)
+        {
+            Salamatrix::Extensions::ExtensionInfo info;
+            if (!extensionService->GetExtensionInfo(i, &info) ||
+                info.Descriptor.EntryPoint[0] == 0 || info.Descriptor.Version[0] == 0)
+                continue;
+
+            std::string extensionPath = info.Descriptor.EntryPoint;
+            for (size_t pathIndex = 0; pathIndex < extensionPath.size(); ++pathIndex)
+                if (extensionPath[pathIndex] == '\\')
+                    extensionPath[pathIndex] = '/';
+            size_t relativeRoot = extensionPath.find("/extensions/");
+            if (relativeRoot != std::string::npos)
+                extensionPath.erase(0, relativeRoot + 1);
+            else
+            {
+                relativeRoot = extensionPath.find("/plugins/");
+                if (relativeRoot != std::string::npos)
+                    extensionPath.erase(0, relativeRoot + 1);
+            }
+            if (extensionPath.empty())
+                continue;
+
+            ++savedCount;
+            _snprintf_s(key, _TRUNCATE, "Plugin%dPath", savedCount);
+            WritePrivateProfileString(section, key, extensionPath.c_str(), fileName);
+            _snprintf_s(key, _TRUNCATE, "Plugin%dVersion", savedCount);
+            WritePrivateProfileString(section, key, info.Descriptor.Version, fileName);
+        }
+    }
 
     Plugins.EnterDataCS();
     int pluginCount = Plugins.GetCount();

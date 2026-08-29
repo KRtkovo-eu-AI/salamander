@@ -1158,6 +1158,7 @@ var
   PluginConfigurationLabel: TLabel;
   PluginConfigurationList: TNewComboBox;
   ApplyingPluginConfiguration: Boolean;
+  UpgradeInstall: Boolean;
   PluginIds: array of String;
   PluginConfigurations: array of String;
   PluginDependencies: array of TPluginDependency;
@@ -1399,6 +1400,35 @@ begin
     Result := Result + ' ';
 end;
 
+function GetInstalledExtensionVersion(const PluginId: String): String;
+var
+  I: Integer;
+  Count: Integer;
+  PluginPath: String;
+  ExpectedPath: String;
+begin
+  Result := '';
+  if CompareText(PluginId, 'extensionmenubuilder') = 0 then ExpectedPath := 'extensions/extension-menu-builder/'
+  else if CompareText(PluginId, 'gitworktreenavigator') = 0 then ExpectedPath := 'extensions/git-worktree-navigator/'
+  else if CompareText(PluginId, 'filelockinspector') = 0 then ExpectedPath := 'extensions/file-lock-inspector/'
+  else if CompareText(PluginId, 'processexplorer') = 0 then ExpectedPath := 'extensions/process-explorer/'
+  else if CompareText(PluginId, 'hardwaremonitor') = 0 then ExpectedPath := 'extensions/hardware-monitor/'
+  else if CompareText(PluginId, 'eventviewer') = 0 then ExpectedPath := 'extensions/event-viewer/'
+  else if CompareText(PluginId, 'salamatrixdemos') = 0 then ExpectedPath := 'plugins/automation/scripts/Salamatrix Progress Demo/'
+  else Exit;
+  Count := StrToIntDef(GetIniString('InstalledPlugins', 'Count', '0', ExpandConstant('{app}\configstorage.ini')), 0);
+  for I := 1 to Count do
+  begin
+    PluginPath := GetIniString('InstalledPlugins', 'Plugin' + IntToStr(I) + 'Path', '', ExpandConstant('{app}\configstorage.ini'));
+    StringChangeEx(PluginPath, '\', '/', True);
+    if Pos(ExpectedPath, PluginPath) > 0 then
+    begin
+      Result := GetIniString('InstalledPlugins', 'Plugin' + IntToStr(I) + 'Version', '', ExpandConstant('{app}\configstorage.ini'));
+      Exit;
+    end;
+  end;
+end;
+
 function GetInstalledPluginVersion(const PluginId: String): String;
 var
   I: Integer;
@@ -1407,53 +1437,12 @@ var
   ExpectedPath: String;
 begin
   Result := '';
-  if CompareText(PluginId, 'extensionmenubuilder') = 0 then
+  if (CompareText(PluginId, 'extensionmenubuilder') = 0) or (CompareText(PluginId, 'gitworktreenavigator') = 0) or
+     (CompareText(PluginId, 'filelockinspector') = 0) or (CompareText(PluginId, 'processexplorer') = 0) or
+     (CompareText(PluginId, 'hardwaremonitor') = 0) or (CompareText(PluginId, 'eventviewer') = 0) or
+     (CompareText(PluginId, 'salamatrixdemos') = 0) then
   begin
-    if FileExists(ExpandConstant('{app}\extensions\extension-menu-builder\extension.json')) then
-      Result := '1.0.0';
-    Exit;
-  end;
-
-  if CompareText(PluginId, 'gitworktreenavigator') = 0 then
-  begin
-    if FileExists(ExpandConstant('{app}\extensions\git-worktree-navigator\extension.json')) then
-      Result := '1.0.0';
-    Exit;
-  end;
-
-  if CompareText(PluginId, 'filelockinspector') = 0 then
-  begin
-    if FileExists(ExpandConstant('{app}\extensions\file-lock-inspector\extension.json')) then
-      Result := '1.0.0';
-    Exit;
-  end;
-
-  if CompareText(PluginId, 'processexplorer') = 0 then
-  begin
-    if FileExists(ExpandConstant('{app}\extensions\process-explorer\extension.json')) then
-      Result := '1.0.0';
-    Exit;
-  end;
-
-  if CompareText(PluginId, 'hardwaremonitor') = 0 then
-  begin
-    if FileExists(ExpandConstant('{app}\extensions\hardware-monitor\extension.json')) then
-      Result := '1.0.0';
-    Exit;
-  end;
-
-  if CompareText(PluginId, 'eventviewer') = 0 then
-  begin
-    if FileExists(ExpandConstant('{app}\extensions\event-viewer\extension.json')) then
-      Result := '1.0.0';
-    Exit;
-  end;
-
-  if CompareText(PluginId, 'salamatrixdemos') = 0 then
-  begin
-    if FileExists(ExpandConstant('{app}\extensions\demos\README.md')) and
-       FileExists(ExpandConstant('{app}\plugins\automation\scripts\Salamatrix Progress Demo\extension.json')) then
-      Result := '1.4.1';
+    Result := GetInstalledExtensionVersion(PluginId);
     Exit;
   end;
 
@@ -1556,6 +1545,8 @@ var
   Checked: Boolean;
 begin
   InstalledVersion := GetInstalledPluginVersion(PluginId);
+  if InstalledVersion <> '' then
+    UpgradeInstall := True;
   { Keep installed plugins selected during upgrades; new plugins follow Standard. }
   Checked := ListContainsToken(Configurations, 'standard') or (InstalledVersion <> '');
   PluginList.AddCheckBox(
@@ -1869,6 +1860,7 @@ begin
   PluginList.Items.Clear;
   SetArrayLength(PluginIds, 0);
   SetArrayLength(PluginConfigurations, 0);
+  UpgradeInstall := False;
 
   AddPlugin('7zip', '7-Zip', '1.35 (x64)', 'base,standard,advanced,expert');
   AddPlugin('automation', 'Automation', '2.8 (x64)', 'advanced,expert');
@@ -1928,6 +1920,9 @@ begin
   SelectAllPluginDependencies;
   if (SilentPluginSelection = '') and (SilentPluginConfiguration <> '') then
     SetPluginConfiguration(SilentPluginConfiguration);
+  if (SilentPluginConfiguration = '') and UpgradeInstall and
+     Assigned(PluginConfigurationList) then
+    PluginConfigurationList.ItemIndex := 4;
 end;
 
 function InitializeSetup(): Boolean;

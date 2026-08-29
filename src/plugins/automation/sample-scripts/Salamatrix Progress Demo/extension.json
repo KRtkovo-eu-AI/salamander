@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "Salamatrix.JScript.ProgressDemo",
   "name": "Salamatrix Progress Demo",
-  "version": "1.2.2",
+  "version": "1.4.2",
   "description": "Demonstrates an extension package for Automation plugin (legacy JScript/VBScript).",
   "runtime": "Automation.JScript",
   "entryPoint": "main.js",
