@@ -1277,11 +1277,11 @@ def main() -> int:
         "Lua": (lua_demo_manifest, lua_demo),
     }
     demo_versions = {
-        "Node": "1.4.1",
+        "Node": "1.4.2",
         "Python": "1.4.2",
-        "PowerShell": "1.4.1",
-        "PHP": "1.4.1",
-        "Lua": "1.4.1",
+        "PowerShell": "1.4.2",
+        "PHP": "1.4.2",
+        "Lua": "1.4.2",
     }
     viewer_patterns = set()
     for runtime_name, (demo_manifest, demo_source) in demo_roles.items():
