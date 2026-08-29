@@ -7916,8 +7916,9 @@ struct CParallelCopyTask
     ULONGLONG OutputFileIndex;
     DWORD FinalAttributes;
     int Progress;
+    BOOL ProgressCompensated;
 
-    CParallelCopyTask() : Batch(NULL), ScriptIndex(-1), Operation(NULL), Input(INVALID_HANDLE_VALUE), Thread(NULL), Cancel(0), Success(FALSE), Finished(FALSE), ReplaceTarget(FALSE), DeleteOnFailure(FALSE), SourceIdentityValid(FALSE), SourceVolumeSerial(0), SourceFileIndex(0), TargetVolumeSerial(0), TargetFileIndex(0), OutputIdentityValid(FALSE), OutputVolumeSerial(0), OutputFileIndex(0), FinalAttributes(0), Progress(0) {}
+    CParallelCopyTask() : Batch(NULL), ScriptIndex(-1), Operation(NULL), Input(INVALID_HANDLE_VALUE), Thread(NULL), Cancel(0), Success(FALSE), Finished(FALSE), ReplaceTarget(FALSE), DeleteOnFailure(FALSE), SourceIdentityValid(FALSE), SourceVolumeSerial(0), SourceFileIndex(0), TargetVolumeSerial(0), TargetFileIndex(0), OutputIdentityValid(FALSE), OutputVolumeSerial(0), OutputFileIndex(0), FinalAttributes(0), Progress(0), ProgressCompensated(FALSE) {}
 };
 
 struct CParallelCopyBatch
@@ -7950,19 +7951,23 @@ static void UpdateParallelCopyProgress(CParallelCopyBatch* batch)
     for (int i = 0; i < batch->SlotCount; i++)
     {
         CParallelCopyTask& task = *batch->ActiveTasks[i];
-        // Keep the slot visible while it is finalized; the coordinator
-        // replaces it atomically as soon as the next task is launched.
-        CParallelProgressStreamData& stream = progress.Streams[progress.ActiveCount++];
-        stream.Operation = batch->OperationText;
-        stream.Source = task.Operation->SourceName;
-        stream.Preposition = batch->PrepositionText;
-        stream.Target = task.Operation->TargetName;
-        stream.Progress = task.Finished && task.Success ? 1000 : task.Progress;
-        if (task.Finished && task.Success)
-            progressDone += task.Operation->Size;
-        else
+        if (task.Thread != NULL && !task.Finished)
+        {
+            CParallelProgressStreamData& stream = progress.Streams[progress.ActiveCount++];
+            stream.Operation = batch->OperationText;
+            stream.Source = task.Operation->SourceName;
+            stream.Preposition = batch->PrepositionText;
+            stream.Target = task.Operation->TargetName;
+            stream.Progress = task.Progress;
             progressDone += (task.Operation->Size * CQuadWord((DWORD)task.Progress, 0)) / CQuadWord(1000, 0);
+        }
+        else if (task.Finished && task.Success)
+            progressDone += task.Operation->Size;
     }
+    // Keep the dialog geometry stable, but clear rows whose workers have
+    // finished and have not been replaced yet.
+    if (progress.ActiveCount < progress.DisplayCount)
+        progress.ResetSlots = TRUE;
     progressDone += batch->CompletedDone;
     HANDLES(LeaveCriticalSection(&batch->CS));
 
@@ -8072,7 +8077,11 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
         SetFileInformationByHandle(output, FileAllocationInfo, &allocation, sizeof(allocation));
     }
 
-    BYTE* buffer = (BYTE*)malloc(1024 * 1024);
+    // Smaller synchronous I/O blocks prevent one stream from monopolizing the
+    // coordinator interval and make all visible file bars advance smoothly.
+    const DWORD bufferSize = 256 * 1024;
+    const DWORD progressChunkSize = bufferSize;
+    BYTE* buffer = (BYTE*)malloc(bufferSize);
     BOOL success = buffer != NULL;
     CQuadWord copied(0, 0);
     while (success)
@@ -8104,7 +8113,7 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
             break;
         }
         DWORD read = 0;
-        if (!ReadFile(input, buffer, 1024 * 1024, &read, NULL))
+        if (!ReadFile(input, buffer, bufferSize, &read, NULL))
         {
             success = FALSE;
             break;
@@ -8115,21 +8124,22 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
         while (writtenTotal < read)
         {
             DWORD written = 0;
-            if (!WriteFile(output, buffer + writtenTotal, read - writtenTotal, &written, NULL) || written == 0)
+            const DWORD toWrite = min(progressChunkSize, read - writtenTotal);
+            if (!WriteFile(output, buffer + writtenTotal, toWrite, &written, NULL) || written == 0)
             {
                 success = FALSE;
                 break;
             }
             writtenTotal += written;
+            copied += CQuadWord(written, 0);
+            batch->Script->AddParallelCopyBytes(written, progressChunkSize);
+            int progress = task->Operation->FileSize.Value != 0
+                               ? (int)((copied * CQuadWord(1000, 0) / task->Operation->FileSize).Value)
+                               : 0;
+            HANDLES(EnterCriticalSection(&batch->CS));
+            task->Progress = progress >= 1000 ? 999 : progress;
+            HANDLES(LeaveCriticalSection(&batch->CS));
         }
-        copied += CQuadWord(writtenTotal, 0);
-        batch->Script->AddParallelCopyBytes(writtenTotal, 1024 * 1024);
-        int progress = task->Operation->FileSize.Value != 0
-                           ? (int)((copied * CQuadWord(1000, 0) / task->Operation->FileSize).Value)
-                           : 0;
-        HANDLES(EnterCriticalSection(&batch->CS));
-        task->Progress = progress >= 1000 ? 999 : progress;
-        HANDLES(LeaveCriticalSection(&batch->CS));
     }
     if (buffer != NULL)
         free(buffer);
@@ -8506,6 +8516,35 @@ static void RollbackPreparedParallelDirectories(std::deque<CPreparedParallelDire
     prepared.clear();
 }
 
+// Returns TRUE when the next refill window contains enough payload to justify
+// parallel thread-per-file overhead. This is deliberately conservative and
+// performs no file-system mutations; the real planner revalidates everything.
+static BOOL HasUsefulParallelRefillWindow(COperations* script, int scriptIndex, int limit)
+{
+    int count = 0;
+    CQuadWord size(0, 0);
+    for (int index = scriptIndex; index < script->Count && count < limit; index++)
+    {
+        COperation* operation = &script->At(index);
+        if (operation->Opcode == ocCopyFile)
+        {
+            if (!CanUseParallelCopy(script, operation))
+                break;
+            size += operation->FileSize;
+            count++;
+        }
+        else if (operation->Opcode == ocCreateDir)
+        {
+            if (!CanPrepareParallelDirectory(script, operation))
+                break;
+        }
+        else if (operation->Opcode != ocCopyDirTime &&
+                 operation->Opcode != ocLabelForSkipOfCreateDir)
+            break;
+    }
+    return count >= 1 && size >= CQuadWord(COPYMOVE_MIN_PARALLEL_BATCH_SIZE, 0);
+}
+
 // Advances over metadata that is safe to prepare while copies are active and
 // pins exactly one source. FALSE leaves the current script item to the legacy path.
 static BOOL PlanNextParallelCopy(COperations* script, int& scriptIndex,
@@ -8785,6 +8824,11 @@ static int RunRollingParallelCopy(COperations* script, int first, int limit,
             if (plannerFinished)
                 continue;
             CParallelCopyTask& completed = *batch.ActiveTasks[slot];
+            if (!HasUsefulParallelRefillWindow(script, scriptIndex, limit))
+            {
+                plannerFinished = TRUE;
+                continue;
+            }
             CParallelCopyTask* next = NULL;
             CParallelCopyTask* dependencies[COPYMOVE_MAX_PARALLEL_STREAMS];
             int dependencyCount = 0;
@@ -8812,6 +8856,13 @@ static int RunRollingParallelCopy(COperations* script, int first, int limit,
             {
                 failed = TRUE;
                 break;
+            }
+            if (completed.Operation->Size > completed.Operation->FileSize)
+            {
+                script->AddBytesToSpeedMetersAndTFSandPS(
+                    (DWORD)(completed.Operation->Size - completed.Operation->FileSize).Value,
+                    TRUE, 0, NULL, MAX_OP_FILESIZE);
+                completed.ProgressCompensated = TRUE;
             }
             batch.CompletedDone += completed.Operation->Size;
             batch.ActiveTasks[slot] = next;
@@ -8851,6 +8902,14 @@ static int RunRollingParallelCopy(COperations* script, int first, int limit,
     for (std::deque<CParallelCopyTask>::iterator task = tasks.begin();
          task != tasks.end(); ++task)
     {
+        if (!task->ProgressCompensated && task->Finished && task->Success &&
+            task->Operation->Size > task->Operation->FileSize)
+        {
+            script->AddBytesToSpeedMetersAndTFSandPS(
+                (DWORD)(task->Operation->Size - task->Operation->FileSize).Value,
+                TRUE, 0, NULL, MAX_OP_FILESIZE);
+            task->ProgressCompensated = TRUE;
+        }
         totalDone += task->Operation->Size;
         task->Operation->OpFlags |= OPFL_PARALLEL_DONE;
     }

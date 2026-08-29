@@ -660,13 +660,26 @@ static void SetProgressStaticTextIfChanged(HWND window, const char* text)
         SetWindowText(window, text != NULL ? text : "");
 }
 
+static void SetParallelProgressRowVisible(HWND dialog, int index, BOOL visible)
+{
+    const int firstRowIds[] = {IDS_OPERATION, IDS_SOURCE, IDS_PREPOSITION, IDS_TARGET, IDC_STATIC_1, IDF_OPERATION};
+    for (int control = 0; control < _countof(firstRowIds); control++)
+    {
+        const int id = index == 0 ? firstRowIds[control] :
+                                   IDC_PROGRESS_STREAM2_OPERATION + (index - 1) * 6 + control;
+        HWND window = GetDlgItem(dialog, id);
+        if (window != NULL)
+            ShowWindow(window, visible ? SW_SHOWNA : SW_HIDE);
+    }
+}
+
 void CProgressDialog::SetParallelProgress(const CParallelProgressData* data)
 {
     if (data == NULL)
         return;
     int activeCount = data->ActiveCount;
-    if (activeCount < 1)
-        activeCount = 1;
+    if (activeCount < 0)
+        activeCount = 0;
     if (activeCount > COPYMOVE_MAX_PARALLEL_STREAMS)
         activeCount = COPYMOVE_MAX_PARALLEL_STREAMS;
     int displayCount = data->DisplayCount;
@@ -689,6 +702,7 @@ void CProgressDialog::SetParallelProgress(const CParallelProgressData* data)
 
     for (int index = 0; index < activeCount; index++)
     {
+        SetParallelProgressRowVisible(HWindow, index, TRUE);
         const CParallelProgressStreamData& stream = data->Streams[index];
         if (index == 0)
         {
@@ -712,12 +726,24 @@ void CProgressDialog::SetParallelProgress(const CParallelProgressData* data)
     {
         for (int index = activeCount; index < displayCount; index++)
         {
-            const int extra = index - 1;
-            SetProgressStaticTextIfChanged(GetDlgItem(HWindow, IDC_PROGRESS_STREAM2_OPERATION + extra * 6), "");
-            if (ParallelSources[extra] != NULL) ParallelSources[extra]->SetText("");
-            SetProgressStaticTextIfChanged(GetDlgItem(HWindow, IDC_PROGRESS_STREAM2_PREPOSITION + extra * 6), "");
-            if (ParallelTargets[extra] != NULL) ParallelTargets[extra]->SetText("");
-            if (ParallelOperations[extra] != NULL) ParallelOperations[extra]->SetProgress(0);
+            SetParallelProgressRowVisible(HWindow, index, FALSE);
+            if (index == 0)
+            {
+                if (OperationText != NULL) OperationText->SetText("");
+                if (Source != NULL) Source->SetText("");
+                SetProgressStaticTextIfChanged(HPreposition, "");
+                if (Target != NULL) Target->SetText("");
+                if (Operation != NULL) Operation->SetProgress(0);
+            }
+            else
+            {
+                const int extra = index - 1;
+                SetProgressStaticTextIfChanged(GetDlgItem(HWindow, IDC_PROGRESS_STREAM2_OPERATION + extra * 6), "");
+                if (ParallelSources[extra] != NULL) ParallelSources[extra]->SetText("");
+                SetProgressStaticTextIfChanged(GetDlgItem(HWindow, IDC_PROGRESS_STREAM2_PREPOSITION + extra * 6), "");
+                if (ParallelTargets[extra] != NULL) ParallelTargets[extra]->SetText("");
+                if (ParallelOperations[extra] != NULL) ParallelOperations[extra]->SetProgress(0);
+            }
         }
     }
     if (atomicUpdate)
@@ -1085,6 +1111,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             // no CProgressData payload and must not reset the layout.
             const BOOL parallelBatchEnded = ParallelProgressActive;
             ParallelProgressActive = FALSE;
+            SetParallelProgressRowVisible(HWindow, 0, TRUE);
             // Once parallel rows have been shown, keep the footer and buttons
             // fixed for the rest of this operation. Short sequential metadata
             // boundaries must not collapse and immediately regrow the dialog.
@@ -1103,6 +1130,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 BOOL windowUpdateLocked = LockWindowUpdate(HWindow);
                 for (int index = 1; index < ActiveParallelProgressStreams; index++)
                 {
+                    SetParallelProgressRowVisible(HWindow, index, FALSE);
                     const int extra = index - 1;
                     SetProgressStaticTextIfChanged(GetDlgItem(HWindow, IDC_PROGRESS_STREAM2_OPERATION + extra * 6), "");
                     if (ParallelSources[extra] != NULL) ParallelSources[extra]->SetText("");
