@@ -176,7 +176,8 @@
     "or later.": "nebo později.",
     "Some individual": "Nějaký jednotlivec",
     "files and libraries": "soubory a knihovny",
-    "use different but compatible licenses.": "používat různé, ale kompatibilní licence."
+    "use different but compatible licenses.": "používat různé, ale kompatibilní licence.",
+    "Samandarin combines modern file operations, flexible panels, integrated viewers, extensibility, and a stronger configuration and package trust model.": "Samandarin kombinuje moderní souborové operace, flexibilní panely, integrované prohlížeče, rozšiřitelnost a silnější model konfigurace a důvěry k balíčkům."
   },
   "nl": {
     "Original Salamander DNA with modern energy": "Origineel Salamander-DNA met moderne energie",
@@ -317,7 +318,8 @@
     "or later.": "of later.",
     "Some individual": "Sommige individuen",
     "files and libraries": "bestanden en bibliotheken",
-    "use different but compatible licenses.": "gebruik verschillende maar compatibele licenties."
+    "use different but compatible licenses.": "gebruik verschillende maar compatibele licenties.",
+    "Samandarin combines modern file operations, flexible panels, integrated viewers, extensibility, and a stronger configuration and package trust model.": "Samandarin combineert moderne bestandsbewerkingen, flexibele panelen, geïntegreerde viewers, uitbreidbaarheid en een sterker configuratie- en pakketvertrouwensmodel."
   },
   "fr": {
     "Original Salamander DNA with modern energy": "ADN Salamander original avec une énergie moderne",
@@ -458,7 +460,8 @@
     "or later.": "ou plus tard.",
     "Some individual": "Un individu",
     "files and libraries": "fichiers et bibliothèques",
-    "use different but compatible licenses.": "utilisez des licences différentes mais compatibles."
+    "use different but compatible licenses.": "utilisez des licences différentes mais compatibles.",
+    "Samandarin combines modern file operations, flexible panels, integrated viewers, extensibility, and a stronger configuration and package trust model.": "Samandarin combine des opérations de fichiers modernes, des panneaux flexibles, des visionneuses intégrées, une extensibilité et un modèle de confiance de configuration et de package plus solide."
   },
   "de": {
     "Original Salamander DNA with modern energy": "Originale Salamander-DNA mit moderner Energie",
@@ -599,7 +602,8 @@
     "or later.": "oder später.",
     "Some individual": "Irgendein Individuum",
     "files and libraries": "Dateien und Bibliotheken",
-    "use different but compatible licenses.": "Verwenden Sie unterschiedliche, aber kompatible Lizenzen."
+    "use different but compatible licenses.": "Verwenden Sie unterschiedliche, aber kompatible Lizenzen.",
+    "Samandarin combines modern file operations, flexible panels, integrated viewers, extensibility, and a stronger configuration and package trust model.": "Samandarin kombiniert moderne Dateioperationen, flexible Panels, integrierte Viewer, Erweiterbarkeit und ein stärkeres Konfigurations- und Paketvertrauensmodell."
   },
   "hu": {
     "Original Salamander DNA with modern energy": "Eredeti Salamander DNS modern energiával",
@@ -740,7 +744,8 @@
     "or later.": "vagy később.",
     "Some individual": "Valami egyén",
     "files and libraries": "fájlok és könyvtárak",
-    "use different but compatible licenses.": "különböző, de kompatibilis licenceket használjon."
+    "use different but compatible licenses.": "különböző, de kompatibilis licenceket használjon.",
+    "Samandarin combines modern file operations, flexible panels, integrated viewers, extensibility, and a stronger configuration and package trust model.": "A Samandarin ötvözi a modern fájlműveleteket, a rugalmas paneleket, az integrált nézőket, a bővíthetőséget és az erősebb konfigurációs és csomagbizalmi modellt."
   },
   "zhHans": {
     "Original Salamander DNA with modern energy": "原始 Salamander DNA，注入现代活力",
@@ -881,7 +886,8 @@
     "or later.": "或稍后。",
     "Some individual": "一些个人",
     "files and libraries": "文件和库",
-    "use different but compatible licenses.": "使用不同但兼容的许可证。"
+    "use different but compatible licenses.": "使用不同但兼容的许可证。",
+    "Samandarin combines modern file operations, flexible panels, integrated viewers, extensibility, and a stronger configuration and package trust model.": "Samandarin 结合了现代文件操作、灵活的面板、集成查看器、可扩展性以及更强大的配置和包信任模型。"
   },
   "ro": {
     "Original Salamander DNA with modern energy": "ADN-ul original Salamander cu energie modernă",
@@ -1022,7 +1028,8 @@
     "or later.": "sau mai târziu.",
     "Some individual": "Un individ",
     "files and libraries": "fișiere și biblioteci",
-    "use different but compatible licenses.": "utilizați licențe diferite, dar compatibile."
+    "use different but compatible licenses.": "utilizați licențe diferite, dar compatibile.",
+    "Samandarin combines modern file operations, flexible panels, integrated viewers, extensibility, and a stronger configuration and package trust model.": "Samandarin combină operațiuni moderne cu fișiere, panouri flexibile, vizualizatoare integrate, extensibilitate și un model mai puternic de încredere în configurație și pachete."
   },
   "ru": {
     "Original Salamander DNA with modern energy": "Оригинальная ДНК Salamander с современной энергией",
@@ -1163,7 +1170,8 @@
     "or later.": "или позже.",
     "Some individual": "Некоторые отдельные",
     "files and libraries": "файлы и библиотеки",
-    "use different but compatible licenses.": "используйте разные, но совместимые лицензии."
+    "use different but compatible licenses.": "используйте разные, но совместимые лицензии.",
+    "Samandarin combines modern file operations, flexible panels, integrated viewers, extensibility, and a stronger configuration and package trust model.": "Samandarin сочетает в себе современные операции с файлами, гибкие панели, интегрированные средства просмотра, расширяемость и более надежную модель доверия к конфигурации и пакетам."
   },
   "sk": {
     "Original Salamander DNA with modern energy": "Pôvodná DNA Salamandera s modernou energiou",
@@ -1304,7 +1312,8 @@
     "or later.": "alebo neskôr.",
     "Some individual": "Niektorí jednotlivci",
     "files and libraries": "súbory a knižnice",
-    "use different but compatible licenses.": "používať rôzne, ale kompatibilné licencie."
+    "use different but compatible licenses.": "používať rôzne, ale kompatibilné licencie.",
+    "Samandarin combines modern file operations, flexible panels, integrated viewers, extensibility, and a stronger configuration and package trust model.": "Samandarin kombinuje moderné operácie so súbormi, flexibilné panely, integrované prehliadače, rozšíriteľnosť a silnejší model dôvery v konfiguráciu a balíky."
   },
   "es": {
     "Original Salamander DNA with modern energy": "ADN original de Salamander con energía moderna",
@@ -1445,7 +1454,8 @@
     "or later.": "o más tarde.",
     "Some individual": "algún individuo",
     "files and libraries": "archivos y bibliotecas",
-    "use different but compatible licenses.": "Utilice licencias diferentes pero compatibles."
+    "use different but compatible licenses.": "Utilice licencias diferentes pero compatibles.",
+    "Samandarin combines modern file operations, flexible panels, integrated viewers, extensibility, and a stronger configuration and package trust model.": "Samandarin combina operaciones de archivos modernas, paneles flexibles, visores integrados, extensibilidad y un modelo de confianza de configuración y paquete más sólido."
   }
 };
   Object.entries(fullPageTranslations).forEach(([locale, values]) => {
