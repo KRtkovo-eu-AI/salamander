@@ -673,10 +673,34 @@ static void SetParallelProgressRowVisible(HWND dialog, int index, BOOL visible)
     }
 }
 
+static void SetParallelProgressSlotActive(HWND dialog, int index, BOOL active)
+{
+    const int textIds[] = {IDS_OPERATION, IDS_SOURCE, IDS_PREPOSITION, IDS_TARGET};
+    for (int control = 0; control < _countof(textIds); control++)
+    {
+        const int id = index == 0 ? textIds[control] :
+                                   IDC_PROGRESS_STREAM2_OPERATION + (index - 1) * 6 + control;
+        HWND window = GetDlgItem(dialog, id);
+        if (window != NULL)
+            ShowWindow(window, active ? SW_SHOWNA : SW_HIDE);
+    }
+    const int fileLabelId = index == 0 ? IDC_STATIC_1 :
+                                           IDC_PROGRESS_STREAM2_FILELABEL + (index - 1) * 6;
+    const int progressId = index == 0 ? IDF_OPERATION :
+                                          IDC_PROGRESS_STREAM2_BAR + (index - 1) * 6;
+    ShowWindow(GetDlgItem(dialog, fileLabelId), SW_SHOWNA);
+    ShowWindow(GetDlgItem(dialog, progressId), SW_SHOWNA);
+}
+
 void CProgressDialog::SetParallelProgress(const CParallelProgressData* data)
 {
     if (data == NULL)
         return;
+    // This synchronous snapshot is newer than any regular operation text
+    // queued before parallel planning completed. Do not let the dialog timer
+    // replay that stale cache over the first parallel stream.
+    CacheIsDirty = FALSE;
+    OperationProgressCacheIsDirty = FALSE;
     int activeCount = data->ActiveCount;
     if (activeCount < 0)
         activeCount = 0;
@@ -702,8 +726,10 @@ void CProgressDialog::SetParallelProgress(const CParallelProgressData* data)
 
     for (int index = 0; index < activeCount; index++)
     {
-        SetParallelProgressRowVisible(HWindow, index, TRUE);
         const CParallelProgressStreamData& stream = data->Streams[index];
+        SetParallelProgressSlotActive(HWindow, index, stream.Active);
+        if (!stream.Active)
+            continue;
         if (index == 0)
         {
             if (OperationText != NULL) OperationText->SetText(stream.Operation);
@@ -724,9 +750,11 @@ void CProgressDialog::SetParallelProgress(const CParallelProgressData* data)
     }
     if (data->ResetSlots)
     {
-        for (int index = activeCount; index < displayCount; index++)
+        for (int index = 0; index < displayCount; index++)
         {
-            SetParallelProgressRowVisible(HWindow, index, FALSE);
+            if (index < activeCount && data->Streams[index].Active)
+                continue;
+            SetParallelProgressSlotActive(HWindow, index, FALSE);
             if (index == 0)
             {
                 if (OperationText != NULL) OperationText->SetText("");
@@ -1130,7 +1158,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 BOOL windowUpdateLocked = LockWindowUpdate(HWindow);
                 for (int index = 1; index < ActiveParallelProgressStreams; index++)
                 {
-                    SetParallelProgressRowVisible(HWindow, index, FALSE);
+                    SetParallelProgressSlotActive(HWindow, index, FALSE);
                     const int extra = index - 1;
                     SetProgressStaticTextIfChanged(GetDlgItem(HWindow, IDC_PROGRESS_STREAM2_OPERATION + extra * 6), "");
                     if (ParallelSources[extra] != NULL) ParallelSources[extra]->SetText("");

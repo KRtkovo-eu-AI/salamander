@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -83,10 +83,10 @@ struct CProgressData
 };
 
 #define COPYMOVE_MAX_PARALLEL_STREAMS 8
-#define COPYMOVE_MIN_PARALLEL_BATCH_SIZE (8 * 1024 * 1024)
 
 struct CParallelProgressStreamData
 {
+    BOOL Active;
     const char *Operation, *Source, *Preposition, *Target;
     int Progress;
 };

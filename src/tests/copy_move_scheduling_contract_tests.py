@@ -111,12 +111,25 @@ def main() -> None:
     require(worker_h, "OperationSchedulingOverride", "operation override is captured separately")
     require(worker_h, "CParallelProgressData", "parallel file progress payload")
     require(worker_h, "int DisplayCount", "operation-stable parallel row count")
+    require(worker_h, "BOOL Active", "stable parallel slot active state")
+    require(worker_cpp, "progress.ActiveCount = batch->SlotCount",
+            "parallel snapshots preserve physical slot positions")
+    require(worker_cpp, "CParallelProgressStreamData& stream = progress.Streams[slot]",
+            "parallel task progress remains bound to its slot")
+    require(dialogs, "SetParallelProgressSlotActive(HWindow, index, stream.Active)",
+            "inactive slots clear without compacting later rows")
+    require(dialogs, "ShowWindow(GetDlgItem(dialog, progressId), SW_SHOWNA)",
+            "inactive slots preserve visible empty progress bars")
+    require(worker_cpp, "progress.ResetSlots = TRUE;",
+            "completed non-refilled slots are cleared promptly")
     require(worker_h, "BOOL ResetSlots", "atomic parallel batch row replacement")
     require(worker_cpp, "RunParallelCopyBatch", "parallel copy dispatcher")
     require(worker_cpp, "batch.ActiveTasks[slot] = next",
             "rolling parallel progress slot reuse")
     forbid(worker_cpp, "ShrinkFinishedSlots", "per-file progress dialog resizing")
     require(worker_cpp, "CreateFileW", "wide API for parallel copy streams")
+    forbid(worker_cpp, "FileAllocationInfo",
+           "serialized eager extent allocation in parallel copy workers")
     require(worker_cpp, "GetParallelCopyPathW", "UTF-8-first/fallback-ACP stream paths")
     require(worker_cpp, "CanReplaceInParallel", "authorized replacement parallelization")
     require(worker_cpp, "task->ReplaceTarget ? OPEN_EXISTING : CREATE_NEW",
@@ -131,28 +144,24 @@ def main() -> None:
     require(worker_cpp, "RunRollingParallelCopy", "rolling parallel copy window")
     require(worker_cpp, "if (task.Thread != NULL && !task.Finished)",
             "parallel progress publishes only genuinely active workers")
-    require(dialogs, "SetParallelProgressRowVisible(HWindow, index, FALSE)",
-            "inactive parallel rows hide labels and progress controls")
-    require(worker_cpp, "if (progress.ActiveCount < progress.DisplayCount)",
-            "finished parallel progress rows are cleared without resizing")
     require(dialogs, "if (activeCount < 0)",
             "parallel progress accepts a fully drained zero-active snapshot")
-    require(worker_cpp, "HasUsefulParallelRefillWindow",
-            "rolling refill rechecks aggregate useful payload")
-    require(worker_cpp, "size >= CQuadWord(COPYMOVE_MIN_PARALLEL_BATCH_SIZE, 0)",
-            "rolling refill retains the aggregate 8 MiB threshold")
-    require(worker_cpp, "plannerFinished = TRUE;\n                continue;",
-            "tiny-file transitions drain the rolling batch")
+    forbid(worker_cpp, "HasUsefulParallelRefillWindow",
+           "payload threshold that prematurely drains rolling copy")
+    forbid(worker_cpp, "COPYMOVE_MIN_PARALLEL_BATCH_SIZE",
+           "size-based fallback from storage-aware to sequential copy")
+    require(worker_cpp, "if (initialCount < 2)",
+            "parallel copy requires only two eligible files")
     require(worker_cpp, "ProgressCompensated",
             "parallel completion records synthetic progress compensation")
     require(worker_cpp, "completed.Operation->Size - completed.Operation->FileSize",
             "parallel ETA receives minimum-file work units")
     require(worker_cpp, "TRUE, 0, NULL, MAX_OP_FILESIZE",
             "synthetic parallel work updates only the progress meter")
-    require(worker_cpp, "const DWORD bufferSize = 256 * 1024",
-            "parallel streams use responsive synchronous I/O blocks")
-    require(worker_cpp, "AddParallelCopyBytes(written, progressChunkSize)",
-            "parallel progress is accounted after each completed I/O block")
+    require(dialogs, "CacheIsDirty = FALSE;",
+            "parallel snapshots invalidate stale regular operation text")
+    require(dialogs, "OperationProgressCacheIsDirty = FALSE;",
+            "parallel snapshots invalidate stale regular file progress")
     require(worker_cpp, "task.ReplaceTarget = replaceTarget",
             "authorized replacements participate in the rolling window")
     require(worker_cpp, "task->ReplaceTarget ? OPEN_EXISTING : CREATE_NEW",
@@ -265,9 +274,8 @@ def main() -> None:
     require(worker_cpp, "limit < 2 || script->IsParallelCopyDisabled()",
             "persistent dynamic speed-limit fallback")
     require(worker_cpp, "AddParallelCopyBytes", "parallel transfer speed accounting")
-    require(worker_cpp, "FileAllocationInfo", "parallel target extent preallocation")
-    require(worker_cpp, "firstWindowSize < CQuadWord(COPYMOVE_MIN_PARALLEL_BATCH_SIZE, 0)",
-            "small batches avoid parallel thread overhead")
+    require(worker_cpp, "if (count >= 2 && count > demand)",
+            "stream reservation is independent of aggregate file size")
 
     require(fileswn8, "type == atMove ? SACCESS_READWRITE : SACCESS_READ",
             "F5/F6 Move source includes delete writes")

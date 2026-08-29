@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -7948,12 +7948,14 @@ static void UpdateParallelCopyProgress(CParallelCopyBatch* batch)
     progress.DisplayCount = batch->DisplayCount;
     progress.ResetSlots = batch->ResetSlots;
     batch->ResetSlots = FALSE;
-    for (int i = 0; i < batch->SlotCount; i++)
+    progress.ActiveCount = batch->SlotCount;
+    for (int slot = 0; slot < batch->SlotCount; slot++)
     {
-        CParallelCopyTask& task = *batch->ActiveTasks[i];
+        CParallelCopyTask& task = *batch->ActiveTasks[slot];
+        CParallelProgressStreamData& stream = progress.Streams[slot];
         if (task.Thread != NULL && !task.Finished)
         {
-            CParallelProgressStreamData& stream = progress.Streams[progress.ActiveCount++];
+            stream.Active = TRUE;
             stream.Operation = batch->OperationText;
             stream.Source = task.Operation->SourceName;
             stream.Preposition = batch->PrepositionText;
@@ -7962,12 +7964,11 @@ static void UpdateParallelCopyProgress(CParallelCopyBatch* batch)
             progressDone += (task.Operation->Size * CQuadWord((DWORD)task.Progress, 0)) / CQuadWord(1000, 0);
         }
         else if (task.Finished && task.Success)
+        {
             progressDone += task.Operation->Size;
+            progress.ResetSlots = TRUE;
+        }
     }
-    // Keep the dialog geometry stable, but clear rows whose workers have
-    // finished and have not been replaced yet.
-    if (progress.ActiveCount < progress.DisplayCount)
-        progress.ResetSlots = TRUE;
     progressDone += batch->CompletedDone;
     HANDLES(LeaveCriticalSection(&batch->CS));
 
@@ -8068,19 +8069,7 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
                                 outputInfo.nFileIndexLow;
     }
 
-    // Reserve extents before several streams start growing files together.
-    // Failure is non-fatal; the filesystem can still allocate during writes.
-    if (task->Operation->FileSize.Value > 0)
-    {
-        FILE_ALLOCATION_INFO allocation;
-        allocation.AllocationSize.QuadPart = task->Operation->FileSize.Value;
-        SetFileInformationByHandle(output, FileAllocationInfo, &allocation, sizeof(allocation));
-    }
-
-    // Smaller synchronous I/O blocks prevent one stream from monopolizing the
-    // coordinator interval and make all visible file bars advance smoothly.
-    const DWORD bufferSize = 256 * 1024;
-    const DWORD progressChunkSize = bufferSize;
+    const DWORD bufferSize = 1024 * 1024;
     BYTE* buffer = (BYTE*)malloc(bufferSize);
     BOOL success = buffer != NULL;
     CQuadWord copied(0, 0);
@@ -8124,15 +8113,14 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
         while (writtenTotal < read)
         {
             DWORD written = 0;
-            const DWORD toWrite = min(progressChunkSize, read - writtenTotal);
-            if (!WriteFile(output, buffer + writtenTotal, toWrite, &written, NULL) || written == 0)
+            if (!WriteFile(output, buffer + writtenTotal, read - writtenTotal, &written, NULL) || written == 0)
             {
                 success = FALSE;
                 break;
             }
             writtenTotal += written;
             copied += CQuadWord(written, 0);
-            batch->Script->AddParallelCopyBytes(written, progressChunkSize);
+            batch->Script->AddParallelCopyBytes(written, bufferSize);
             int progress = task->Operation->FileSize.Value != 0
                                ? (int)((copied * CQuadWord(1000, 0) / task->Operation->FileSize).Value)
                                : 0;
@@ -8287,7 +8275,6 @@ int GetCopyOperationStreamDemand(COperations* script, int ssdLimit, int nvmeLimi
         if (script->At(first).Opcode != ocCopyFile)
             continue;
         int count = 0;
-        CQuadWord size(0, 0);
         for (int index = first; index < script->Count && count < limit; index++)
         {
             COperation* operation = &script->At(index);
@@ -8295,7 +8282,6 @@ int GetCopyOperationStreamDemand(COperations* script, int ssdLimit, int nvmeLimi
             {
                 if (!CanUseParallelCopy(script, operation))
                     break;
-                size += operation->FileSize;
                 count++;
             }
             else if (operation->Opcode == ocCreateDir)
@@ -8307,8 +8293,7 @@ int GetCopyOperationStreamDemand(COperations* script, int ssdLimit, int nvmeLimi
                      operation->Opcode != ocLabelForSkipOfCreateDir)
                 break;
         }
-        if (count >= 2 && size >= CQuadWord(COPYMOVE_MIN_PARALLEL_BATCH_SIZE, 0) &&
-            count > demand)
+        if (count >= 2 && count > demand)
             demand = count;
     }
     return demand;
@@ -8516,35 +8501,6 @@ static void RollbackPreparedParallelDirectories(std::deque<CPreparedParallelDire
     prepared.clear();
 }
 
-// Returns TRUE when the next refill window contains enough payload to justify
-// parallel thread-per-file overhead. This is deliberately conservative and
-// performs no file-system mutations; the real planner revalidates everything.
-static BOOL HasUsefulParallelRefillWindow(COperations* script, int scriptIndex, int limit)
-{
-    int count = 0;
-    CQuadWord size(0, 0);
-    for (int index = scriptIndex; index < script->Count && count < limit; index++)
-    {
-        COperation* operation = &script->At(index);
-        if (operation->Opcode == ocCopyFile)
-        {
-            if (!CanUseParallelCopy(script, operation))
-                break;
-            size += operation->FileSize;
-            count++;
-        }
-        else if (operation->Opcode == ocCreateDir)
-        {
-            if (!CanPrepareParallelDirectory(script, operation))
-                break;
-        }
-        else if (operation->Opcode != ocCopyDirTime &&
-                 operation->Opcode != ocLabelForSkipOfCreateDir)
-            break;
-    }
-    return count >= 1 && size >= CQuadWord(COPYMOVE_MIN_PARALLEL_BATCH_SIZE, 0);
-}
-
 // Advances over metadata that is safe to prepare while copies are active and
 // pins exactly one source. FALSE leaves the current script item to the legacy path.
 static BOOL PlanNextParallelCopy(COperations* script, int& scriptIndex,
@@ -8675,7 +8631,6 @@ static int RunRollingParallelCopy(COperations* script, int first, int limit,
 {
     std::deque<CParallelCopyTask> tasks;
     std::deque<CPreparedParallelDirectory> preparedDirectories;
-    CQuadWord firstWindowSize(0, 0);
     int scriptIndex = first;
     CParallelCopyTask* initialDependencies[COPYMOVE_MAX_PARALLEL_STREAMS];
     int initialDependencyCount = 0;
@@ -8704,14 +8659,6 @@ static int RunRollingParallelCopy(COperations* script, int first, int limit,
                 break;
             }
             initialDependencies[initialDependencyCount++] = task;
-            firstWindowSize += task->Operation->FileSize;
-            if ((int)tasks.size() == limit &&
-                firstWindowSize < CQuadWord(COPYMOVE_MIN_PARALLEL_BATCH_SIZE, 0))
-            {
-                CloseUnusedParallelCopyInputs(tasks);
-                RollbackPreparedParallelDirectories(preparedDirectories);
-                return -1;
-            }
         }
     }
     catch (const std::bad_alloc&)
@@ -8722,7 +8669,7 @@ static int RunRollingParallelCopy(COperations* script, int first, int limit,
     }
 
     const int initialCount = (int)tasks.size();
-    if (initialCount < 2 || firstWindowSize < CQuadWord(COPYMOVE_MIN_PARALLEL_BATCH_SIZE, 0))
+    if (initialCount < 2)
     {
         CloseUnusedParallelCopyInputs(tasks);
         RollbackPreparedParallelDirectories(preparedDirectories);
@@ -8824,11 +8771,6 @@ static int RunRollingParallelCopy(COperations* script, int first, int limit,
             if (plannerFinished)
                 continue;
             CParallelCopyTask& completed = *batch.ActiveTasks[slot];
-            if (!HasUsefulParallelRefillWindow(script, scriptIndex, limit))
-            {
-                plannerFinished = TRUE;
-                continue;
-            }
             CParallelCopyTask* next = NULL;
             CParallelCopyTask* dependencies[COPYMOVE_MAX_PARALLEL_STREAMS];
             int dependencyCount = 0;
