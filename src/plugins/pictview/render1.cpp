@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -1905,6 +1905,12 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     if (HasInteractivePreview())
     {
+        if (uMsg == WM_MOVE && PVHandle != NULL && PVW32DLL.ResizeInteractivePreview != nullptr)
+        {
+            RECT previewRect{};
+            GetClientRect(HWindow, &previewRect);
+            PVW32DLL.ResizeInteractivePreview(PVHandle, &previewRect);
+        }
         if (uMsg == WM_MOUSEWHEEL || uMsg == WM_MOUSEHWHEEL)
         {
             HWND child = GetWindow(HWindow, GW_CHILD);

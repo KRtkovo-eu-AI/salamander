@@ -84,7 +84,7 @@ BOOL SalamanderRegistered = FALSE;
 //               23 - Viewer and thumbnail masks are discovered from WIC decoders installed in Windows
 
 int ConfigVersion = 0;
-#define CURRENT_CONFIG_VERSION 23
+#define CURRENT_CONFIG_VERSION 24
 std::string WicDecoderMasks;
 
 SGlobals G; // initialized in InitViewer
@@ -1258,25 +1258,13 @@ std::vector<std::string> Difference(const std::vector<std::string>& left, const 
 
 void AddViewerMasks(CSalamanderConnectAbstract* salamander, const std::vector<std::string>& masks, BOOL force)
 {
-    constexpr size_t kMaxMasksLength = 280; // AddViewer internally copies at most 299 bytes.
-    std::string group;
+    // Keep one extension per persisted viewer item.  AddViewer historically
+    // uses small parsing buffers, and one-mask rows also make the configuration
+    // immune to truncation when old rows are migrated.
     for (const std::string& mask : masks)
     {
-        const size_t additionalLength = group.empty() ? mask.size() : mask.size() + 1;
-        if (!group.empty() && group.size() + additionalLength > kMaxMasksLength)
-        {
-            salamander->AddViewer(group.c_str(), force);
-            group.clear();
-        }
-        if (!group.empty())
-        {
-            group += ';';
-        }
-        group += mask;
-    }
-    if (!group.empty())
-    {
-        salamander->AddViewer(group.c_str(), force);
+        if (!mask.empty())
+            salamander->AddViewer(mask.c_str(), force);
     }
 }
 
@@ -1292,12 +1280,19 @@ void ConfigureWicMasks(CSalamanderConnectAbstract* salamander)
 {
     std::vector<std::string> previousMasks = SplitViewerMasks(WicDecoderMasks);
     std::vector<std::string> currentMasks;
-    if (!PictView::Wic::Backend::Instance().GetDecoderMasks(currentMasks))
+    if (!PictView::Wic::Backend::Instance().GetWicDecoderMasks(currentMasks))
     {
         // The viewer itself cannot be initialized without WIC. Keep the last known
-        // associations if decoder enumeration is temporarily unavailable.
-        currentMasks = previousMasks.empty() ? SplitViewerMasks(FallbackWicDecoderMasks) : previousMasks;
+        // WIC associations if codec enumeration is temporarily unavailable.
+        // Do not reuse the persisted list here: older PictView versions stored
+        // native and shell-handler masks together with WIC masks. If WIC
+        // enumeration is unavailable, only use the conservative built-in WIC
+        // codec list rather than re-registering non-WIC formats.
+        currentMasks = SplitViewerMasks(FallbackWicDecoderMasks);
     }
+
+    std::vector<std::string> nativeMasks;
+    PictView::Native::GetDecoderMasks(nativeMasks);
 
     const bool migrateHistoricMasks = ConfigVersion < CURRENT_CONFIG_VERSION || previousMasks.empty();
     if (migrateHistoricMasks)
@@ -1311,9 +1306,30 @@ void ConfigureWicMasks(CSalamanderConnectAbstract* salamander)
         AddViewerMasks(salamander, Difference(currentMasks, previousMasks), TRUE);
     }
 
+    // Version 24 repairs legacy PictView viewer records that were stored as
+    // one oversized row. Remove every known PictView mask, including native
+    // masks, before adding the canonical length-bounded rows. This also runs
+    // for an older configuration imported during an upgrade.
+    if (ConfigVersion < 24)
+    {
+        std::vector<std::string> repairMasks = HistoricPictViewViewerMasks();
+        repairMasks.insert(repairMasks.end(), previousMasks.begin(), previousMasks.end());
+        repairMasks.insert(repairMasks.end(), currentMasks.begin(), currentMasks.end());
+        repairMasks.insert(repairMasks.end(), nativeMasks.begin(), nativeMasks.end());
+        std::sort(repairMasks.begin(), repairMasks.end());
+        repairMasks.erase(std::unique(repairMasks.begin(), repairMasks.end()), repairMasks.end());
+        RemoveViewerMasks(salamander, repairMasks);
+        AddViewerMasks(salamander, currentMasks, TRUE);
+        AddViewerMasks(salamander, nativeMasks, FALSE);
+    }
+
     WicDecoderMasks = JoinViewerMasks(currentMasks);
-    std::vector<std::string> nativeMasks;
-    PictView::Native::GetDecoderMasks(nativeMasks);
+
+    // Native PictView decoders are viewer implementations, not WIC codecs.
+    // Register them as viewer masks separately so formats such as STL, SVG,
+    // 3DM and DWG are not left to another plug-in merely because Windows has
+    // no WIC codec for them.
+    AddViewerMasks(salamander, nativeMasks, TRUE);
     salamander->SetThumbnailLoader(JoinThumbnailMasks(nativeMasks, currentMasks).c_str());
 }
 } // namespace
@@ -2527,7 +2543,15 @@ CViewerThread::Body()
     SetThreadNameInVCAndTrace(PLUGIN_NAME_EN);
     TRACE_I("Begin");
 
-    CViewerWindow* window = new CViewerWindow(EnumFilesSourceUID, EnumFilesCurrentIndex, AlwaysOnTop);
+    // IPreviewHandler instances are apartment-bound and remain alive for the
+    // complete viewer window lifetime. Keep this UI thread in one STA until
+    // every image handle and preview COM interface has been released.
+    const HRESULT oleHr = OleInitialize(nullptr);
+    const bool oleInitialized = oleHr == S_OK || oleHr == S_FALSE;
+    if (!oleInitialized)
+        TRACE_E("Viewer UI thread could not initialize OLE STA: 0x" << std::hex << static_cast<DWORD>(oleHr) << std::dec);
+
+    CViewerWindow* window = oleInitialized ? new CViewerWindow(EnumFilesSourceUID, EnumFilesCurrentIndex, AlwaysOnTop) : NULL;
     if (window != NULL)
     {
         if (ReturnLock)
@@ -2662,7 +2686,9 @@ CViewerThread::Body()
             DeleteObject(scanExtraImg);
     }
     if (window != NULL)
-        delete window;
+        delete window; // releases all preview handlers while the STA is alive
+    if (oleInitialized)
+        OleUninitialize();
 
     TRACE_I("End");
     return 0;

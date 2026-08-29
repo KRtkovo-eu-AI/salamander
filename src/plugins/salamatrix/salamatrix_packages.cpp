@@ -1641,11 +1641,14 @@ private:
                 InterlockedExchange(&RefreshIntervalMs, static_cast<LONG>(interval));
         }
         LeaveCriticalSection(&CacheLock);
+        // Keep the object in the running state until the final access to it
+        // (including PostPanelRefresh) has completed. CloseFS uses this state
+        // to decide whether it must join the worker before destroying object.
+        if (InterlockedCompareExchange(&ShuttingDown, 0, 0) == 0)
+            PostPanelRefresh();
         InterlockedCompareExchange(
             &RefreshThreadRunning,
             RefreshThreadIdle, RefreshThreadRunningState);
-        if (InterlockedCompareExchange(&ShuttingDown, 0, 0) == 0)
-            PostPanelRefresh();
     }
 
     BOOL StartBackgroundRefresh(
@@ -1940,13 +1943,6 @@ public:
                 reinterpret_cast<PVOID volatile*>(&RefreshThread), NULL));
         if (refreshThread != NULL)
         {
-            // During application shutdown the panel is closed before the
-            // Salamatrix plug-in reaches Release().  A listing worker can be
-            // blocked in a persistent runtime call at that point.  Requesting
-            // the session stop here makes that call return; otherwise every
-            // open extension-FS panel can delay the later SaveConfig() by the
-            // full runtime timeout.
-            Owner->CancelFileSystemListingForShutdown(RefreshPackageId);
             Runtime::WaitForThreadWithSentMessageDispatch(
                 refreshThread,
                 SalamanderGeneral != NULL
@@ -2515,6 +2511,12 @@ void PackageManager::Shutdown()
     InterlockedExchange(&ShuttingDown, TRUE);
     for (size_t index = 0; index < Packages.size(); ++index)
         InterlockedExchange(&Packages[index]->Stopping, TRUE);
+    // Stop persistent runtimes before waiting for active executions. An
+    // extension-FS listing may currently be blocked in that runtime, and the
+    // execution cannot become idle until the runtime call has been cancelled.
+    for (size_t index = 0; index < Packages.size(); ++index)
+        if (Packages[index] != NULL)
+            CancelFileSystemListingForShutdown(Packages[index]->Id);
     if (ExecutionsIdleEvent != NULL)
     {
         Runtime::WaitForThreadWithSentMessageDispatch(

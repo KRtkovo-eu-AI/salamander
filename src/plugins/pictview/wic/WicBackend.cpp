@@ -576,8 +576,18 @@ void RecordDetailedError(DWORD code, HRESULT hr, const char* stage)
 {
     std::lock_guard<std::mutex> lock(g_errorMutex);
     std::string baseText = "Unknown WIC error.";
+    if (stage != nullptr && strncmp(stage, "STL IPreviewHandler", 19) == 0)
+    {
+        baseText = "The STL IPreviewHandler could not open the file.";
+    }
+    else if (stage != nullptr && strncmp(stage, "Native decoder", 14) == 0)
+    {
+        baseText = "The native PictView decoder could not open the file.";
+    }
     const auto baseIt = g_errorTexts.find(code);
-    if (baseIt != g_errorTexts.end())
+    if (baseIt != g_errorTexts.end() &&
+        (stage == nullptr || (strncmp(stage, "STL IPreviewHandler", 19) != 0 &&
+                              strncmp(stage, "Native decoder", 14) != 0)))
     {
         baseText = baseIt->second;
     }
@@ -592,8 +602,8 @@ void RecordDetailedError(DWORD code, HRESULT hr, const char* stage)
     {
         stream << " (stage: unknown";
     }
-    stream << ", hr=0x" << std::uppercase << std::setfill('0') << std::setw(8)
-           << static_cast<unsigned long>(static_cast<DWORD>(hr)) << ')';
+    stream << ", hr=0x" << std::uppercase << std::hex << std::setfill('0') << std::setw(8)
+           << static_cast<unsigned long>(static_cast<DWORD>(hr)) << std::dec << ')';
     g_customErrorTexts[code] = stream.str();
 }
 
@@ -6301,10 +6311,9 @@ Backend& Backend::Instance()
     return instance;
 }
 
-bool Backend::GetDecoderMasks(std::vector<std::string>& masks) const
+bool Backend::GetWicDecoderMasks(std::vector<std::string>& masks) const
 {
     masks.clear();
-    PictView::Native::GetDecoderMasks(masks);
 
     if (m_factory)
     {
@@ -6397,11 +6406,80 @@ bool Backend::GetDecoderMasks(std::vector<std::string>& masks) const
         }
     }
 
-    EnumerateShellThumbnailMasks(masks);
-
     std::sort(masks.begin(), masks.end());
     masks.erase(std::unique(masks.begin(), masks.end()), masks.end());
     return !masks.empty();
+}
+
+bool Backend::GetDecoderMasks(std::vector<std::string>& masks) const
+{
+    masks.clear();
+    PictView::Native::GetDecoderMasks(masks);
+    std::vector<std::string> wicMasks;
+    GetWicDecoderMasks(wicMasks);
+    masks.insert(masks.end(), wicMasks.begin(), wicMasks.end());
+    EnumerateShellThumbnailMasks(masks);
+    std::sort(masks.begin(), masks.end());
+    masks.erase(std::unique(masks.begin(), masks.end()), masks.end());
+    return !masks.empty();
+}
+
+bool HasExtensionMask(const std::wstring& path, const std::vector<std::string>& masks)
+{
+    const size_t slash = path.find_last_of(L"\\/");
+    const size_t dot = path.find_last_of(L'.');
+    if (dot == std::wstring::npos || (slash != std::wstring::npos && dot < slash))
+        return false;
+    std::string ext;
+    for (size_t i = dot + 1; i < path.size(); ++i)
+    {
+        wchar_t ch = path[i];
+        if (ch >= L'A' && ch <= L'Z') ch = static_cast<wchar_t>(ch - L'A' + L'a');
+        if (ch > 127) return false;
+        ext.push_back(static_cast<char>(ch));
+    }
+
+    // Native decoder masks use the same extension wildcard syntax as viewer
+    // masks (for example *.psp*). Match the extension portion instead of
+    // requiring an exact literal, otherwise registered native formats can
+    // incorrectly fall through to WIC.
+    const auto matches = [&ext](const std::string& mask) {
+        if (mask.size() < 2 || mask[0] != '*' || mask[1] != '.')
+            return false;
+        const std::string pattern = mask.substr(2);
+        size_t value = 0;
+        size_t patternPos = 0;
+        size_t starPos = std::string::npos;
+        size_t starValue = 0;
+        while (value < ext.size())
+        {
+            if (patternPos < pattern.size() &&
+                (pattern[patternPos] == '?' ||
+                 static_cast<char>(tolower(static_cast<unsigned char>(pattern[patternPos]))) == ext[value]))
+            {
+                ++patternPos;
+                ++value;
+            }
+            else if (patternPos < pattern.size() && pattern[patternPos] == '*')
+            {
+                starPos = patternPos++;
+                starValue = value;
+            }
+            else if (starPos != std::string::npos)
+            {
+                patternPos = starPos + 1;
+                value = ++starValue;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        while (patternPos < pattern.size() && pattern[patternPos] == '*')
+            ++patternPos;
+        return patternPos == pattern.size();
+    };
+    return std::any_of(masks.begin(), masks.end(), matches);
 }
 
 bool Backend::Populate(CPVW32DLL& table)
@@ -6502,13 +6580,47 @@ PVCODE WINAPI Backend::sPVOpenImageEx(LPPVHandle* Img, LPPVOpenImageExInfo pOpen
         HRESULT hr = E_FAIL;
         bool opened = false;
         bool triedNative = false;
-        if (PathPrefersNativeDecoder(image->fileName))
+        std::vector<std::string> wicMasks;
+        const bool haveWicMasks = backend.GetWicDecoderMasks(wicMasks);
+        const bool wicCodecAvailable = haveWicMasks && HasExtensionMask(image->fileName, wicMasks);
+        std::vector<std::string> nativeMasks;
+        PictView::Native::GetDecoderMasks(nativeMasks);
+        const bool nativeDecoderRegistered = HasExtensionMask(image->fileName, nativeMasks);
+        const bool isStl = IsStlExtension(image->fileName);
+        if (isStl)
+        {
+            // STL interactive preview belongs exclusively to the Explorer
+            // IPreviewHandler. Never continue into native/WIC decoding: a
+            // failed handler must report its own error, not a misleading WIC
+            // unsupported-format result.
+            hr = TryOpenInteractivePreview(*image);
+            opened = SUCCEEDED(hr) && HandleHasInteractivePreview(*image);
+            if (!opened)
+            {
+                const HRESULT failureHr = FAILED(hr) ? hr : E_FAIL;
+                const PVCODE failureCode = HResultToPvCode(failureHr);
+                RecordDetailedError(failureCode, failureHr, "STL IPreviewHandler");
+                return failureCode;
+            }
+        }
+        if (!opened && nativeDecoderRegistered)
         {
             hr = TryOpenNative(backend, *image);
             opened = SUCCEEDED(hr) && !image->frames.empty();
             triedNative = true;
+            if (!opened)
+            {
+                const HRESULT failureHr = FAILED(hr) ? hr : E_FAIL;
+                const PVCODE failureCode = HResultToPvCode(failureHr);
+                RecordDetailedError(failureCode, failureHr, "Native decoder");
+                // This extension is explicitly owned by a native PictView
+                // implementation. Do not continue through embedded/WIC/shell
+                // fallbacks, which would hide the real failure and report it
+                // as a misleading WIC unsupported-format error.
+                return failureCode;
+            }
         }
-        if (!opened)
+        if (!opened && wicCodecAvailable && !nativeDecoderRegistered)
         {
             ReleaseImageFrames(*image);
             hr = CreateDecoder(backend, image->fileName, &decoder);
@@ -6547,7 +6659,7 @@ PVCODE WINAPI Backend::sPVOpenImageEx(LPPVHandle* Img, LPPVOpenImageExInfo pOpen
                 }
             }
         }
-        if (!opened)
+        if (!opened && !isStl)
         {
             ReleaseImageFrames(*image);
             hr = TryOpenInteractivePreview(*image);

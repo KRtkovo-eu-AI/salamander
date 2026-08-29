@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <OutDir>$(OPENSAL_BUILD_DIR)salamander\$(Configuration)_$(ShortPlatform)\plugins\pictview\</OutDir>
+    <IntDir>$(OutDir)Intermediate\previewhost\</IntDir>
+    <TargetName>pictview-previewhost</TargetName>
+    <GenerateManifest>false</GenerateManifest><EmbedManifest>false</EmbedManifest>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>..\..\previewhost;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;UNICODE;_UNICODE;WINVER=0x0601;_WIN32_WINNT=0x0601;_WIN32_IE=0x0800;_CRT_SECURE_NO_WARNINGS;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <WarningLevel>Level4</WarningLevel><ExceptionHandling>Sync</ExceptionHandling>
+    </ClCompile>
+    <Link><SubSystem>Windows</SubSystem><GenerateDebugInformation>true</GenerateDebugInformation><AdditionalDependencies>ole32.lib;shell32.lib;shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies></Link>
+    <ResourceCompile><Culture>0x0409</Culture><AdditionalIncludeDirectories>..\..\..\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories></ResourceCompile>
+  </ItemDefinitionGroup>
+</Project>

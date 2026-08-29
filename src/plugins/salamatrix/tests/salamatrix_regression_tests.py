@@ -2290,12 +2290,18 @@ def main() -> int:
         "Salamatrix FS refresh worker can start before its join handle is published")
     require(
         packages,
-        r"virtual ~OpenFileSystem\(\).*?"
-        r"CancelFileSystemListingForShutdown\(RefreshPackageId\).*?"
-        r"WaitForThreadWithSentMessageDispatch.*?"
-        r"SALAMANDER_SERVICE_SHUTDOWN_PROGRESS.*?"
-        r"package->Session->Stop\(\)",
-        "shutdown can wait for an extension-FS listing before cancelling its runtime call")
+        r"RefreshInBackground.*?if \(InterlockedCompareExchange\(&ShuttingDown, 0, 0\) == 0\).*?PostPanelRefresh\(\).*?InterlockedCompareExchange\(\s*&RefreshThreadRunning",
+        "Salamatrix FS refresh worker publishes Idle only after its final object access")
+    require(
+        packages,
+        r"void PackageManager::Shutdown\(\).*?"
+        r"CancelFileSystemListingForShutdown\(Packages\[index\]->Id\).*?"
+        r"ExecutionsIdleEvent",
+        "shutdown must cancel extension-FS listings before waiting for executions")
+    require_absent(
+        packages,
+        r"virtual ~OpenFileSystem\(\).*?CancelFileSystemListingForShutdown\(RefreshPackageId\)",
+        "normal extension-FS close must not stop the persistent runtime")
     listing_body = re.search(
         r"virtual BOOL WINAPI ListCurrentPath\(.*?"
         r"(?=\n    virtual BOOL WINAPI TryCloseOrDetach)",

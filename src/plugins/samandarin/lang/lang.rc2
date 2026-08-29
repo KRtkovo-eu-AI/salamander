@@ -125,4 +125,6 @@ STRINGTABLE
  IDS_PLUGIN_SECURITY_ELEVATION_NEVER, "No"
  IDS_PLUGIN_SECURITY_CAPABILITIES_CONFIRM, "This package has higher-risk capabilities:\n\n{0}\n\nInstall or update it anyway?"
  IDS_PLUGIN_SECURITY_BUNDLED, "Bundled with installer"
+ IDS_PLUGIN_UPDATES_AVAILABLE, "Updates are available for the following plugins or extensions:\n\n{0}"
+ IDS_PLUGIN_UPDATES_OPEN, "Open Plugin Updates"
 }

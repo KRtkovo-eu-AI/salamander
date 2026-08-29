@@ -586,6 +586,111 @@ BOOL CPackerFormatConfig::SetFormat(int index, const char* ext, BOOL usePacker,
     }
 }
 
+void CPackerFormatConfig::RemoveExtensionsForPlugin(int pluginIndex, const char* const* extensions, int extensionCount)
+{
+    if (pluginIndex < 0 || extensions == NULL || extensionCount <= 0)
+        return;
+
+    for (int i = Formats.Count - 1; i >= 0; --i)
+    {
+        CPackerFormatConfigData* data = Formats[i];
+        if (data->UnpackerIndex != -pluginIndex - 1 &&
+            (!data->UsePacker || data->PackerIndex != -pluginIndex - 1))
+            continue;
+
+        std::string kept;
+        const char* begin = data->Ext;
+        while (begin != NULL && *begin != 0)
+        {
+            const char* end = strchr(begin, ';');
+            const size_t length = end != NULL ? static_cast<size_t>(end - begin) : strlen(begin);
+            bool remove = false;
+            for (int j = 0; j < extensionCount; ++j)
+            {
+                if (strlen(extensions[j]) == length && _strnicmp(begin, extensions[j], length) == 0)
+                {
+                    remove = true;
+                    break;
+                }
+            }
+            if (!remove)
+            {
+                if (!kept.empty()) kept += ';';
+                kept.append(begin, length);
+            }
+            if (end == NULL) break;
+            begin = end + 1;
+        }
+        if (kept.empty())
+            Formats.Delete(i);
+        else if (strcmp(kept.c_str(), data->Ext) != 0)
+            SetFormat(i, kept.c_str(), data->UsePacker, data->PackerIndex, data->UnpackerIndex, data->OldType);
+    }
+    BuildArray();
+}
+
+void CPackerFormatConfig::RemoveExtensionsFromLegacyRows(const char* const* extensions, int extensionCount,
+                                                            const char* const* legacyMarkers, int markerCount)
+{
+    if (extensions == NULL || extensionCount <= 0 || legacyMarkers == NULL || markerCount <= 0)
+        return;
+
+    for (int i = Formats.Count - 1; i >= 0; --i)
+    {
+        CPackerFormatConfigData* data = Formats[i];
+        int markerHits = 0;
+        const char* begin = data->Ext;
+        while (begin != NULL && *begin != 0)
+        {
+            const char* end = strchr(begin, ';');
+            const size_t length = end != NULL ? static_cast<size_t>(end - begin) : strlen(begin);
+            for (int j = 0; j < markerCount; ++j)
+            {
+                if (strlen(legacyMarkers[j]) == length && _strnicmp(begin, legacyMarkers[j], length) == 0)
+                {
+                    ++markerHits;
+                    break;
+                }
+            }
+            if (end == NULL) break;
+            begin = end + 1;
+        }
+        // A row containing several bundled-archiver extensions is a historical
+        // automatic row. Do not touch a standalone user association such as docx.
+        if (markerHits < 3)
+            continue;
+
+        std::string kept;
+        begin = data->Ext;
+        while (begin != NULL && *begin != 0)
+        {
+            const char* end = strchr(begin, ';');
+            const size_t length = end != NULL ? static_cast<size_t>(end - begin) : strlen(begin);
+            bool remove = false;
+            for (int j = 0; j < extensionCount; ++j)
+            {
+                if (strlen(extensions[j]) == length && _strnicmp(begin, extensions[j], length) == 0)
+                {
+                    remove = true;
+                    break;
+                }
+            }
+            if (!remove)
+            {
+                if (!kept.empty()) kept += ';';
+                kept.append(begin, length);
+            }
+            if (end == NULL) break;
+            begin = end + 1;
+        }
+        if (kept.empty())
+            Formats.Delete(i);
+        else if (strcmp(kept.c_str(), data->Ext) != 0)
+            SetFormat(i, kept.c_str(), data->UsePacker, data->PackerIndex, data->UnpackerIndex, data->OldType);
+    }
+    BuildArray();
+}
+
 // returns the format table index + 1 or FALSE (0) when it's not an archive
 int CPackerFormatConfig::PackIsArchive(const char* archiveName, int archiveNameLen)
 {

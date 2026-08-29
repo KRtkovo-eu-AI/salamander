@@ -100,6 +100,11 @@ struct ImageHandle
     bool gifCanvasInitialized = false;
     ComPtr<IUnknown> previewHandler;
     ComPtr<IUnknown> previewSite;
+    HANDLE previewPipe = INVALID_HANDLE_VALUE;
+    HANDLE previewProcess = nullptr;
+    DWORD previewRequestId = 0;
+    HWND previewWindow = nullptr;
+    bool previewHelper = false;
     bool previewVisible = false;
 };
 
@@ -138,6 +143,7 @@ public:
 
     bool Populate(CPVW32DLL& table);
     bool GetDecoderMasks(std::vector<std::string>& masks) const;
+    bool GetWicDecoderMasks(std::vector<std::string>& masks) const;
 
     IWICImagingFactory* Factory() const { return m_factory.Get(); }
 

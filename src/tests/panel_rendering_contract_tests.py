@@ -334,11 +334,32 @@ def main() -> int:
     ):
         print("the main window must stay cloaked through post-config plug-in startup")
         return 1
+    error_safe_start = salamdr1.find("Startup recovery, command-line handling")
+    error_safe_end = salamdr1.find("// Apply dark mode color scheme", error_safe_start)
+    error_safe = salamdr1[error_safe_start:error_safe_end]
+    error_hide = error_safe.find("ShowWindow(MainWindow->HWindow, SW_HIDE);")
+    error_uncloak = error_safe.find("DarkModeSetWindowCloaked(MainWindow->HWindow, false);")
+    if (
+        error_safe_start < 0
+        or error_hide < 0
+        or error_uncloak < error_hide
+        or "ShowWindow(MainWindow->HWindow, cmdShow)" in error_safe
+    ):
+        print("error-safe startup must hide the main owner before uncloaking it")
+        return 1
     plugin_startup = salamdr1.find("Plugins.HandleLoadOnStartFlag(MainWindow->HWindow);")
+    temp_cleanup = salamdr1.find("DiskCache.ClearTEMPIfNeeded(MainWindow->HWindow")
     final_reveal = salamdr1.find("MainWindow->RevealStartupWindow();")
     message_loop = salamdr1.find('CALL_STACK_MESSAGE1("WinMainBody::message_loop")')
-    if plugin_startup < 0 or final_reveal < plugin_startup or message_loop < final_reveal:
-        print("the first main-window frame must be revealed after plug-ins and before the message loop")
+    if (
+        plugin_startup < error_safe_start + error_uncloak
+        or temp_cleanup < plugin_startup
+        or final_reveal < temp_cleanup
+        or message_loop < final_reveal
+        or "DarkModeSetWindowCloaked(MainWindow->HWindow, true)"
+        in salamdr1[error_safe_start:final_reveal]
+    ):
+        print("plug-in dialogs and temporary cleanup must finish while the owner is hidden and uncloaked before final reveal")
         return 1
     reveal_body = re.search(
         r"void CMainWindow::RevealStartupWindow\(\).*?\n\}",
@@ -370,28 +391,42 @@ def main() -> int:
         mainwnd2,
         re.DOTALL,
     )
+    reveal_cloak = reveal_body.group(0).find(
+        "DarkModeSetWindowCloaked(HWindow, true)"
+    )
+    reveal_show = reveal_body.group(0).find("ShowWindow(HWindow, CmdShow)")
     if (
         "DarkModeSetWindowCloaked(HWindow, false)" in reveal_body.group(0)
         or "CompletePendingStartupRefreshes();" in reveal_body.group(0)
+        or reveal_cloak < 0
+        or reveal_show < reveal_cloak
+        or "if (CmdShow != SW_HIDE)" not in reveal_body.group(0)
         or finish_body is None
         or finish_body.group(0).count("CompletePendingStartupRefreshes();") != 2
     ):
-        print("startup window must remain cloaked through the first message-loop turn")
+        print("final startup reveal must cloak before ShowWindow and remain cloaked through the first message-loop turn")
         return 1
     final_refresh = finish_body.group(0).find("LeftPanel->CompletePendingStartupRefreshes();")
     final_layout = finish_body.group(0).find("LayoutWindows();")
     final_redraw = finish_body.group(0).find("RedrawWindow(HWindow")
     final_uncloak = finish_body.group(0).find("DarkModeSetWindowCloaked(HWindow, false)")
     splash_close = finish_body.group(0).find("SplashScreenCloseIfExist();")
+    post_uncloak = finish_body.group(0)[final_uncloak:]
     if (
         final_refresh < 0
         or final_layout < final_refresh
         or final_redraw < final_layout
         or final_uncloak < final_redraw
         or splash_close < final_uncloak
+        or "ShowWindow(LeftPanel->HWindow" in post_uncloak
+        or "ShowWindow(RightPanel->HWindow" in post_uncloak
+        or "RedrawWindow(LeftPanel->HWindow" in post_uncloak
+        or "RedrawWindow(RightPanel->HWindow" in post_uncloak
+        or "UpdateWindow(LeftPanel->HWindow)" in post_uncloak
+        or "UpdateWindow(RightPanel->HWindow)" in post_uncloak
         or "case IDT_FINISHSTARTUPREVEAL:" not in mainwnd3
     ):
-        print("final refresh, two-panel layout, and redraw must complete before uncloak and splash close")
+        print("final all-child redraw and uncloak must publish one frame without post-uncloak child repaint")
         return 1
     cancel_refresh = re.search(
         r"void CFilesWindow::CompletePendingStartupRefreshes\(\).*?\n\}",

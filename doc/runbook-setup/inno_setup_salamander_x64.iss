@@ -1,4 +1,4 @@
-; Inno Setup script for Open Salamander Samandarin x64.
+﻿; Inno Setup script for Open Salamander Samandarin x64.
 ;
 ; This file is intentionally kept in the runbook folder next to setup_x64.inf.
 ; It mirrors the file list, shortcut locations, registry keys and private setup
@@ -26,7 +26,7 @@
 ; the fallback path below is relative to this .iss file.
 
 #define AppToInstallName "Open Salamander Samandarin"
-#define SamandarinVersion "0.15"
+#define SamandarinVersion "0.15.1"
 #define AppToInstallDisplayName "Open Salamander 5.0 Samandarin " + SamandarinVersion + " (x64)"
 #define AppToInstallVersion "5.0-samandarin-" + SamandarinVersion
 #define AppToInstallPublisher "Ondřej Kotas (KRtekTM)"
@@ -727,6 +727,7 @@ Source: "{#PayloadDir}\plugins\peviewer\lang\*.slg"; DestDir: "{app}\plugins\pev
 Source: "{#PayloadDir}\plugins\peviewer\peviewer.spl"; DestDir: "{app}\plugins\peviewer"; Flags: ignoreversion; Check: IsPluginSelected('peviewer')
 Source: "{#PayloadDir}\plugins\pictview\exif.dll"; DestDir: "{app}\plugins\pictview"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
 Source: "{#PayloadDir}\plugins\pictview\lang\*.slg"; DestDir: "{app}\plugins\pictview\lang"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
+Source: "{#PayloadDir}\plugins\pictview\pictview-previewhost.exe"; DestDir: "{app}\plugins\pictview"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
 Source: "{#PayloadDir}\plugins\pictview\pictview.spl"; DestDir: "{app}\plugins\pictview"; Flags: ignoreversion; Check: IsPluginSelected('pictview')
 Source: "{#PayloadDir}\plugins\plugins.ver"; DestDir: "{app}\plugins"; Flags: ignoreversion
 Source: "{#PayloadDir}\plugins\portables\lang\*.slg"; DestDir: "{app}\plugins\portables\lang"; Flags: ignoreversion; Check: IsPluginSelected('portables')

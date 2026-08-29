@@ -308,6 +308,8 @@ internal enum NativeStringId
     PluginSecurityElevationNever = 146,
     PluginSecurityCapabilitiesConfirm = 147,
     PluginSecurityBundled = 148,
+    PluginUpdatesAvailable = 149,
+    PluginUpdatesOpen = 150,
 }
 
 internal static class NativeStrings
@@ -450,6 +452,8 @@ internal static class UpdateCoordinator
             string? latestVersion = null;
             bool noPublishedReleases = false;
             string? errorMessage = null;
+            IReadOnlyList<PluginUpdateRow> pluginRows = Array.Empty<PluginUpdateRow>();
+            string? pluginErrorMessage = null;
 
             try
             {
@@ -464,6 +468,19 @@ internal static class UpdateCoordinator
                 errorMessage = BuildErrorMessage(ex);
             }
 
+            try
+            {
+                pluginRows = await PluginCatalogService.CheckAsync().ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (shutdownToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                pluginErrorMessage = BuildErrorMessage(ex);
+            }
+
             bool notify = false;
             bool showCurrentMessage = false;
             string? latestVersionForMessage = null;
@@ -476,7 +493,7 @@ internal static class UpdateCoordinator
                 {
                     Settings.LastKnownRemoteVersion = latestVersion;
                     int comparison = VersionComparer.Compare(latestVersion, CurrentVersion);
-                    if (comparison > 0 && !string.Equals(Settings.LastPromptedVersion, latestVersion, StringComparison.OrdinalIgnoreCase))
+                    if (comparison > 0 && (userInitiated || !string.Equals(Settings.LastPromptedVersion, latestVersion, StringComparison.OrdinalIgnoreCase)))
                     {
                         Settings.LastPromptedVersion = latestVersion;
                         notify = true;
@@ -525,6 +542,16 @@ internal static class UpdateCoordinator
             else if (showCurrentMessage && userInitiated)
             {
                 await ShowUpToDateAsync(parent, latestVersionForMessage).ConfigureAwait(false);
+            }
+
+            var updates = pluginRows.Where(row => row.Status == PluginUpdateStatus.UpdateAvailable).OrderBy(row => row.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+            if (updates.Count > 0)
+            {
+                await ShowPluginUpdatesAvailableAsync(parent, updates).ConfigureAwait(false);
+            }
+            else if (pluginErrorMessage is not null && userInitiated && errorMessage is null)
+            {
+                await ShowErrorAsync(parent, pluginErrorMessage).ConfigureAwait(false);
             }
         }
         finally
@@ -803,6 +830,30 @@ internal static class UpdateCoordinator
                     var errorMessage = $"{NativeStrings.Get(NativeStringId.OpenBrowserError)}{Environment.NewLine}{ex.Message}";
                     ThemeHelper.ShowMessageBox(owner, errorMessage, NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
+            }).ConfigureAwait(false);
+        }
+    }
+
+    private static async Task ShowPluginUpdatesAvailableAsync(IntPtr parent, IReadOnlyList<PluginUpdateRow> updates)
+    {
+        var lines = updates.Select(row => $"{row.Name}: {row.LatestVersion}");
+        var message = NativeStrings.Format(NativeStringId.PluginUpdatesAvailable, string.Join(Environment.NewLine, lines));
+        var result = await ShowMessageAsync(parent, owner =>
+        {
+            using var dialog = new PluginUpdatesNotificationDialog(message);
+            ThemeHelper.ApplyTheme(dialog);
+            dialog.CaptureDpiBaseline();
+            return owner is null ? dialog.ShowDialog() : dialog.ShowDialog(owner);
+        }).ConfigureAwait(false);
+        if (result == DialogResult.Yes)
+        {
+            await RunOnUiThreadAsync(parent, _ =>
+            {
+                using var dialog = new PluginUpdatesDialog();
+                ThemeHelper.ApplyTheme(dialog);
+                dialog.CaptureDpiBaseline();
+                var owner = parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null;
+                if (owner is null) dialog.ShowDialog(); else dialog.ShowDialog(owner);
             }).ConfigureAwait(false);
         }
     }
@@ -1220,6 +1271,55 @@ internal sealed class ThemedGroupBox : GroupBox
         e.Graphics.DrawLine(pen, 0, borderTop, 0, Height - 1);
         e.Graphics.DrawLine(pen, Width - 1, borderTop, Width - 1, Height - 1);
         e.Graphics.DrawLine(pen, 0, Height - 1, Width - 1, Height - 1);
+    }
+}
+
+internal sealed class PluginUpdatesNotificationDialog : DeterministicDpiForm
+{
+    public PluginUpdatesNotificationDialog(string message)
+    {
+        Text = NativeStrings.Get(NativeStringId.PluginUpdatesTitle);
+        MinimizeBox = false;
+        MaximizeBox = false;
+        ShowInTaskbar = false;
+        Width = 620;
+        AutoSize = true;
+        AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        Padding = new Padding(12);
+
+        var layout = new TableLayoutPanel { AutoSize = true, ColumnCount = 1, Dock = DockStyle.Fill };
+        layout.Controls.Add(new Label
+        {
+            Text = message,
+            AutoSize = true,
+            MaximumSize = new System.Drawing.Size(580, 0),
+        }, 0, 0);
+
+        var buttons = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            FlowDirection = FlowDirection.RightToLeft,
+            Dock = DockStyle.Fill,
+            Padding = new Padding(0, 12, 0, 0),
+        };
+        var closeButton = new Button
+        {
+            Text = NativeStrings.Get(NativeStringId.PluginUpdatesClose),
+            DialogResult = DialogResult.Cancel,
+            AutoSize = true,
+        };
+        var openButton = new Button
+        {
+            Text = NativeStrings.Get(NativeStringId.PluginUpdatesOpen),
+            DialogResult = DialogResult.Yes,
+            AutoSize = true,
+        };
+        buttons.Controls.Add(closeButton);
+        buttons.Controls.Add(openButton);
+        layout.Controls.Add(buttons, 0, 1);
+        Controls.Add(layout);
+        AcceptButton = openButton;
+        CancelButton = closeButton;
     }
 }
 
@@ -3425,6 +3525,7 @@ internal static class NativeInstalledExtensionProvider
             if (parts.Length < 4 || string.IsNullOrWhiteSpace(parts[0])) continue;
             var entryPoint = PluginMetadata.ResolveApplicationRelativePath(parts[3]);
             var packageDirectory = PluginMetadata.FindExtensionPackageDirectory(entryPoint);
+            var version = PluginMetadata.ReadInstalledExtensionVersion(packageDirectory, parts[2]);
             var catalogId = PluginMetadata.BuildExtensionCatalogId(parts[0], packageDirectory);
             var installDirectory = PluginMetadata.ResolveExtensionInstallDirectory(catalogId, packageDirectory);
             var iconPath = parts.Length > 4
@@ -3433,7 +3534,7 @@ internal static class NativeInstalledExtensionProvider
             yield return new InstalledPlugin(
                 catalogId,
                 string.IsNullOrWhiteSpace(parts[1]) ? parts[0] : parts[1],
-                parts[2],
+                version,
                 iconPath,
                 InstalledPackageKind.Extension,
                 installDirectory);
@@ -3468,6 +3569,33 @@ internal static class PluginMetadata
         return string.IsNullOrWhiteSpace(fileName) ? normalized : fileName!;
     }
 
+    public static string ReadInstalledExtensionVersion(string? packageDirectory, string fallbackVersion)
+    {
+        if (!string.IsNullOrWhiteSpace(packageDirectory))
+        {
+            try
+            {
+                var manifestPath = Path.Combine(packageDirectory!, "extension.json");
+                if (File.Exists(manifestPath))
+                {
+                    var manifest = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(
+                        File.ReadAllText(manifestPath, Encoding.UTF8));
+                    if (manifest is not null &&
+                        manifest.TryGetValue("version", out var value) &&
+                        value is string version && !string.IsNullOrWhiteSpace(version))
+                    {
+                        return version.Trim();
+                    }
+                }
+            }
+            catch
+            {
+                // Keep the native export as a compatibility fallback for malformed or unavailable manifests.
+            }
+        }
+
+        return fallbackVersion;
+    }
     public static string BuildExtensionCatalogId(string manifestId, string? packageDirectory)
     {
         if (IsSalamatrixDemoId(manifestId))

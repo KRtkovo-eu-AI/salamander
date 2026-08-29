@@ -237,6 +237,25 @@ async function main() {
     );
   }
 
+  const whitespaceResult = await highlight({
+    type: "highlight",
+    generation: 1,
+    requestId: 9,
+    startLine: 0,
+    lineCount: 2,
+    language: "plaintext",
+    showWhitespace: true,
+    text: "  \ttext\r\n"
+  });
+  if (
+    !whitespaceResult.ok ||
+    !whitespaceResult.html.includes('class="token space"') ||
+    !whitespaceResult.html.includes('class="token tab"') ||
+    !whitespaceResult.html.includes('<span class="token crlf">\r\n</span>')
+  ) {
+    throw new Error(`Whitespace highlighting failed: ${whitespaceResult.error || whitespaceResult.html}`);
+  }
+
   console.log("Prism worker runtime tests passed.");
 }
 

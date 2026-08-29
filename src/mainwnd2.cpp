@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -823,6 +823,7 @@ BOOL MCDApplyConfigurationSelection(HWND parent, const CManageConfigsDialog& dlg
 // 115 = 5.0-samandarin-0.12
 // 116 = 5.0-samandarin-0.14 // (Version number 0.13 was skipped for entirely rational and scientifically defensible reasons.)
 // 117 = 5.0-samandarin-0.15
+// 118 = 5.0-samandarin-0.15.1
 //
 // When increasing configuration version, add one to THIS_CONFIG_VERSION
 //
@@ -830,7 +831,7 @@ BOOL MCDApplyConfigurationSelection(HWND parent, const CManageConfigsDialog& dlg
 // so that new plug-ins are auto-installed and the plugins.ver counter resets.
 //
 
-const DWORD THIS_CONFIG_VERSION = 117;
+const DWORD THIS_CONFIG_VERSION = 118;
 
 // Configuration roots for individual Open Salamander versions.
 // The root of the current (youngest) configuration is at index 0.
@@ -842,6 +843,7 @@ const DWORD THIS_CONFIG_VERSION = 117;
 // !!! Keep the corresponding lines in SalamanderConfigurationVersions up to date
 const char* SalamanderConfigurationRoots[SALCFG_ROOTS_COUNT + 1] =
     {
+        "Software\\Open Salamander Samandarin\\5.0-samandarin-0.15.1",
         "Software\\Open Salamander Samandarin\\5.0-samandarin-0.15",
         "Software\\Open Salamander Samandarin\\5.0-samandarin-0.14",
         "Software\\Open Salamander Samandarin\\5.0-samandarin-0.12",
@@ -941,6 +943,7 @@ const char* SalamanderConfigurationRoots[SALCFG_ROOTS_COUNT + 1] =
 };
 const char* SalamanderConfigurationVersions[SALCFG_ROOTS_COUNT] =
     {
+        "5.0 Samandarin 0.15.1",
         "5.0 Samandarin 0.15",
         "5.0 Samandarin 0.14",
         "5.0 Samandarin 0.12",
@@ -4448,14 +4451,6 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.ConfigVersion, sizeof(DWORD));
             CloseKey(actKey);
         }
-
-        //---  viewers
-
-        EnterViewerMasksCS();
-        LoadViewers(salamander, SALAMANDER_VIEWERS_REG, ViewerMasks);
-        LeaveViewerMasksCS();
-        LoadViewers(salamander, SALAMANDER_ALTVIEWERS_REG, AltViewerMasks);
-
         //---  editors
 
         LoadEditors(salamander, SALAMANDER_EDITORS_REG, EditorMasks);
@@ -4924,6 +4919,15 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                 Plugins.Clear(); // does not even want default archivers ...
         }
 
+        //---  viewers
+        // ViewerType values are negative indices into Plugins::Data. Load the
+        // plugin list first so these references are resolved against the same
+        // configuration that stored them, rather than the constructor defaults.
+        EnterViewerMasksCS();
+        LoadViewers(salamander, SALAMANDER_VIEWERS_REG, ViewerMasks);
+        LeaveViewerMasksCS();
+        LoadViewers(salamander, SALAMANDER_ALTVIEWERS_REG, AltViewerMasks);
+
         //---  Packers & Unpackers
         if (OpenKey(salamander, SALAMANDER_PACKANDUNPACK, actKey))
         {
@@ -5028,6 +5032,46 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                 // add new items introduced since the previous version
                 PackerFormatConfig.AddDefault(Configuration.ConfigVersion);
                 PackerFormatConfig.BuildArray();
+
+                // Plugin Connect() runs before Archive Association is loaded.
+                // Repeat only 7-Zip's historical document cleanup now that the
+                // imported rows actually exist; user rows owned by other plugins
+                // remain untouched.
+                static const char* const removedDocumentExts[] = {
+                    "doc", "docx", "docm", "dot", "dotx", "dotm",
+                    "xls", "xlsx", "xlsm", "xlt", "xltx", "xltm",
+                    "ppt", "pptx", "pptm", "pot", "potx", "potm", "pps", "ppsx", "ppsm",
+                    "odt", "ods", "odp", "odg", "odf", "odm", "ott", "ots", "otp", "otg",
+                    "epub", "xpi"};
+                CPluginData* sevenZip = Plugins.GetPluginDataFromSuffix("7zip.spl");
+                if (sevenZip != NULL)
+                {
+                    PackerFormatConfig.RemoveExtensionsForPlugin(
+                        Plugins.GetIndexJustForConnect(sevenZip), removedDocumentExts,
+                        static_cast<int>(_countof(removedDocumentExts)));
+                }
+
+                // The ZIP plugin also historically owned imported rows that
+                // contain these document extensions. Keep this as a separate
+                // plugin-scoped cleanup so the working 7-Zip migration is not
+                // changed and unrelated user rows remain untouched.
+                CPluginData* zip = Plugins.GetPluginDataFromSuffix("zip.spl");
+                if (zip != NULL)
+                {
+                    PackerFormatConfig.RemoveExtensionsForPlugin(
+                        Plugins.GetIndexJustForConnect(zip), removedDocumentExts,
+                        static_cast<int>(_countof(removedDocumentExts)));
+                }
+
+                // Imported configurations can contain the old 7-Zip row with
+                // ZIP/UnRAR plugin indices after the plugin list was rebuilt.
+                // Identify that row by its bundled archive extensions, not by
+                // its now-invalid owner index.
+                static const char* const legacyArchiveMarkers[] = {
+                    "7z", "xz", "txz", "bz2", "bzip2", "tar", "zip", "rar", "cab", "iso", "arj"};
+                PackerFormatConfig.RemoveExtensionsFromLegacyRows(
+                    removedDocumentExts, static_cast<int>(_countof(removedDocumentExts)),
+                    legacyArchiveMarkers, static_cast<int>(_countof(legacyArchiveMarkers)));
             }
             CloseKey(actKey);
         }
@@ -6417,6 +6461,14 @@ void CMainWindow::RevealStartupWindow()
     // Plugin load-on-start and command-line processing still run after
     // LoadConfig. Keep their owned wait windows and all resulting panel
     // layouts behind the splash, then publish exactly one final frame.
+    // Show the hidden main window while it is cloaked so ShowWindow can apply
+    // the requested normal, minimized, or maximized startup state without DWM
+    // publishing the incomplete surface. SW_HIDE remains genuinely hidden.
+    if (CmdShow != SW_HIDE)
+    {
+        StartupWindowCloaked = DarkModeSetWindowCloaked(HWindow, true);
+        ShowWindow(HWindow, CmdShow);
+    }
     // Closing the splash/startup wait owner causes one synthetic activation
     // transition. The panels were read only moments ago, so letting that
     // transition enter CFilesWindow::Activate queues a second complete
@@ -6473,5 +6525,6 @@ void CMainWindow::FinishStartupWindowReveal()
         DarkModeSetWindowCloaked(HWindow, false);
         StartupWindowCloaked = FALSE;
     }
+
     SplashScreenCloseIfExist();
 }

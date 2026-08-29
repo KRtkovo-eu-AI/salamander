@@ -99,6 +99,8 @@
       text-shadow: none;
       tab-size: 4;
       hyphens: none;
+      user-select: text;
+      -webkit-user-select: text;
     }
 
     pre.viewer-chunk > code {
@@ -118,6 +120,8 @@
       word-wrap: normal;
       tab-size: inherit;
       hyphens: none;
+      user-select: text;
+      -webkit-user-select: text;
     }
 
     body.wrap-lines pre.viewer-chunk > code {
@@ -310,6 +314,7 @@
 
     .show-whitespace .token.tab:not(:empty),
     .show-whitespace .token.cr,
+    .show-whitespace .token.crlf,
     .show-whitespace .token.lf,
     .show-whitespace .token.space {
       position: relative;
@@ -317,9 +322,11 @@
 
     .show-whitespace .token.tab:not(:empty)::before,
     .show-whitespace .token.cr::before,
+    .show-whitespace .token.crlf::before,
     .show-whitespace .token.lf::before,
     .show-whitespace .token.space::before {
       position: absolute;
+      pointer-events: none;
       color: var(--viewer-gutter-foreground);
       opacity: 0.65;
     }
@@ -333,7 +340,9 @@
     }
 
     .show-whitespace .token.crlf::before {
-      content: "\240D\240A";
+      content: "\240D\2060\240A";
+      display: inline-block;
+      white-space: nowrap;
     }
 
     .show-whitespace .token.lf::before {
@@ -347,8 +356,9 @@
   <script>window.Prism = { manual: true };</script>
   <script src="../prism.js"></script>
   <script src="../plugins/autoloader/prism-autoloader.min.js"></script>
-  <script src="prism-patches.js?v=vs-tokens-12"></script>
-  <script src="virtual-viewer.js?v=vs-tokens-12" defer></script>
+  <script src="../plugins/show-invisibles/prism-show-invisibles.min.js"></script>
+  <script src="prism-patches.js?v=vs-tokens-18"></script>
+  <script src="virtual-viewer.js?v=vs-tokens-18" defer></script>
 </head>
 <body>
   <div id="viewer-status" class="visually-hidden" role="status" aria-live="polite"></div>
