@@ -52,7 +52,7 @@ body.site-header--scrolled .site-header { top: 0; padding-top: 0; min-height: au
 body.site-header--scrolled .site-header__row { display: none; }
 body.site-header--scrolled .section-nav { margin-top: 0; }
 #site-branding__small_logo { display: none; }
-body.site-header--scrolled #site-branding__small_logo { display: inline-block; padding: 0 16px; }
+body.site-header--scrolled #site-branding__small_logo { display: inline-block; padding: 0 16px; background: none !important; }
 body.site-header--scrolled #site-branding__small_logo img { width: 24px; height: 24px; margin: 5px 0 0 0 !important; background: none !important; display: inline-block; border: none; padding: 0 !important; }
 .site-header__row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
 .site-branding__accent { color: var(--sam-link); }

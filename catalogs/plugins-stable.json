@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 6,
   "catalogName": "Plugins Stable",
-  "generatedAt": "2026-07-30T21:51:22Z",
+  "generatedAt": "2026-08-27T23:46:44Z",
   "plugins": [
     {
       "id": "7zip",
@@ -22,11 +22,20 @@
         "romanian": "Creaza, rasfoieste si extrage arhivele 7-Zip.",
         "spanish": "Crear, hojear y extraer archivos 7-Zip."
       },
-      "latestVersion": "1.34 (x64)",
+      "latestVersion": "1.35 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_7zip_1.34_x64/plugin_5.0_7zip_1.34_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/7zip.png"
+      "homepageUrl": "https://samandarin.net",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_7zip_1.35_x64/plugin_5.0_7zip_1.35_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/7zip.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "ab0d302d261551366de36fb38cb8590474fb5ceef5d11e50890a9167a8d4f5c5"
     },
     {
       "id": "automation",
@@ -57,11 +66,20 @@
         "romanian": "Face in mod automat tasks folosind scripturi.",
         "spanish": "Automatiza tareas comunes por medio de scripts."
       },
-      "latestVersion": "2.1 (x64)",
+      "latestVersion": "2.8 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_automation_2.0_x64/plugin_5.0_automation_2.0_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/automation.png"
+      "homepageUrl": "https://samandarin.net",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_automation_2.8_x64/plugin_5.0_automation_2.8_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/automation.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "57612333ab99a68403b87ab863fd78131519c158795be6e732c2d363a1c87a76"
     },
     {
       "id": "dbviewer",
@@ -92,11 +110,20 @@
         "romanian": "Afiseaza fisiere baza de date tip dBase, FoxPro si CSV.",
         "spanish": "Ficheros de bases de datos Display dBase, FoxPro y CSV."
       },
-      "latestVersion": "1.26 (x64)",
+      "latestVersion": "1.27 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_dbviewer_1.25_x64/plugin_5.0_dbviewer_1.25_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/dbviewer.png"
+      "homepageUrl": "https://samandarin.net",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_dbviewer_1.27_x64/plugin_5.0_dbviewer_1.27_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/dbviewer.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "aa827a4e2e410072249ac86d6e83e053b3dd5730ec9a72cca52b0d55c2cf858e"
     },
     {
       "id": "diskdir",
@@ -107,11 +134,20 @@
       "description": {
         "english": "DiskDir catalog support for Open Salamander"
       },
-      "latestVersion": "1.0 (x64)",
+      "latestVersion": "1.1 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_diskdir_1.0_x64/plugin_5.0_diskdir_1.0_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_diskdir_1.1_x64/plugin_5.0_diskdir_1.1_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "c795d3fa35bacbf1cedced12b3a885081c280578a5096835e0a8b26cbff52c56"
     },
     {
       "id": "diskmap",
@@ -142,11 +178,20 @@
         "romanian": "Afiseaza o harta arborescenta a fisierelor de pe disk-ul dumneavoastra.",
         "spanish": "Muestra un mapa con los ficheros del disco."
       },
-      "latestVersion": "1.13 (x64)",
+      "latestVersion": "1.14 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_diskmap_1.13_x64/plugin_5.0_diskmap_1.13_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/diskmap.png"
+      "homepageUrl": "https://samandarin.net",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_diskmap_1.14_x64/plugin_5.0_diskmap_1.14_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/diskmap.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "75c46d06e07da62c94408931ef9be7e9f6a9ce00ebaf1d7f78ce08c970928f08"
     },
     {
       "id": "filecomp",
@@ -177,11 +222,20 @@
         "romanian": "Comparator de fișiere pentru Open Salamander",
         "spanish": "Comparador de archivos para Open Salamander"
       },
-      "latestVersion": "1.21 (x64)",
+      "latestVersion": "1.22 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_filecomp_1.20_x64/plugin_5.0_filecomp_1.20_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/filecomp.png"
+      "homepageUrl": "https://samandarin.net",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_filecomp_1.22_x64/plugin_5.0_filecomp_1.22_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/filecomp.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "2f5cb4fbc1f60cc67ea293505c57581ccb28089f10406412a5c3ba27036255f8"
     },
     {
       "id": "folders",
@@ -212,11 +266,20 @@
         "spanish": "Navega por carpetas como Escritorio, Panel de control, Papelera, etc.",
         "chinesesimplified": "浏览文件夹，如桌面、控制面板、回收站等。"
       },
-      "latestVersion": "0.2 (x64)",
+      "latestVersion": "0.3 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_folders_0.2_x64/plugin_5.0_folders_0.2_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/folders.png"
+      "homepageUrl": "https://samandarin.net",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_folders_0.3_x64/plugin_5.0_folders_0.3_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/folders.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "68b5756a2a784754b9135b932e5f544302773be43134c887728b30bd2c9a90b0"
     },
     {
       "id": "ftp",
@@ -247,11 +310,20 @@
         "romanian": "Transferul fisierelor si directoarelor prin FTP.",
         "spanish": "Transferencia de ficheros y directorios por FTP."
       },
-      "latestVersion": "1.36 (x64)",
+      "latestVersion": "1.37 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_ftp_1.36_x64/plugin_5.0_ftp_1.36_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/ftp.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_ftp_1.37_x64/plugin_5.0_ftp_1.37_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/ftp.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "yes",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "b4c6dc6fa333b31bc85577197406124cfef1fb332742411b00c54dca07edf1b9"
     },
     {
       "id": "hypervm",
@@ -282,11 +354,20 @@
         "romanian": "Afișează mașinile virtuale Hyper-V locale în panou.",
         "spanish": "Mostrar las máquinas virtuales locales de Hyper-V en el panel."
       },
-      "latestVersion": "1.08 (x64)",
+      "latestVersion": "1.10 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_hypervm_1.07_x64/plugin_5.0_hypervm_1.07_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/hyperv.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_hypervm_1.10_x64/plugin_5.0_hypervm_1.10_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/hyperv.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "yes",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "00891aad001d4a2631731bcc41e7b362f6656e2f77b8771f23d88acdb89137f2"
     },
     {
       "id": "checksum",
@@ -317,11 +398,20 @@
         "romanian": "SFV, MD5, SHA-1, SHA-256, si SHA-512 checksum verificator si calculator.",
         "spanish": "Verificador y calculador de sumas SFV, MD5, SHA-1, SHA-256 y SHA-512."
       },
-      "latestVersion": "2.3 (x64)",
+      "latestVersion": "2.4 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_checksum_2.3_x64/plugin_5.0_checksum_2.3_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/checksum.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_checksum_2.4_x64/plugin_5.0_checksum_2.4_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/checksum.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "9e69a8c960edc3b8106afe0dcfd6801608c1f79131c014966c252c86b0c5bbc5"
     },
     {
       "id": "ieviewer",
@@ -352,11 +442,20 @@
         "romanian": "Lightweight HTML si XML vizualizator bazate pe Internet Explorer.",
         "spanish": "Visor ligero para HTML y XML basado en Internet Explorer."
       },
-      "latestVersion": "1.12 (x64)",
+      "latestVersion": "1.13 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_ieviewer_1.12_x64/plugin_5.0_ieviewer_1.12_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/ieviewer.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_ieviewer_1.13_x64/plugin_5.0_ieviewer_1.13_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/ieviewer.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "yes",
+        "elevation": "never"
+      },
+      "packageSha256": "8bedc6c16f6e74c9bc76ac9766fb222598994bdbe411625a743ae9482a4b6d31"
     },
     {
       "id": "jsonviewer",
@@ -387,11 +486,20 @@
         "romanian": "Vizualizator intern care afișează documente JSON utilizând o interfață WinForms gestionată.",
         "spanish": "Visor interno que muestra documentos JSON mediante una interfaz de usuario de WinForms administrada."
       },
-      "latestVersion": "1.03 (x64)",
+      "latestVersion": "1.5 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_jsonviewer_1.02_x64/plugin_5.0_jsonviewer_1.02_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/jsonviewer.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_jsonviewer_1.5_x64/plugin_5.0_jsonviewer_1.5_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/jsonviewer.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "f083de785b34401d67d210fc0b2d5f3d4f2bf72434a89f5d6720210b20c27a71"
     },
     {
       "id": "mmviewer",
@@ -422,11 +530,20 @@
         "romanian": "Arata informatii despre fisierele multimedia cum ar fi MP3, OGG, WAV, etc.",
         "spanish": "Presenta información sobre ficheros multimedia como MP3, OGG, WAV, etc."
       },
-      "latestVersion": "1.16 (x64)",
+      "latestVersion": "1.17 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_mmviewer_1.16_x64/plugin_5.0_mmviewer_1.16_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/mmviewer.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_mmviewer_1.17_x64/plugin_5.0_mmviewer_1.17_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/mmviewer.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "058632d6a123c7806a92017cbdae95cbc923b9b44e9e2218f439ff30bf488928"
     },
     {
       "id": "nethood",
@@ -457,11 +574,20 @@
         "romanian": "Da acces computerelor la retea.",
         "spanish": "Proporciona acceso a los ordenadores de la red."
       },
-      "latestVersion": "1.09 (x64)",
+      "latestVersion": "1.10 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_nethood_1.09_x64/plugin_5.0_nethood_1.09_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/nethood.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_nethood_1.10_x64/plugin_5.0_nethood_1.10_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/nethood.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "yes",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "f4b63de71a9b3c58406b932461cfc44a88570fea51bbc660dccf8675c1088c8b"
     },
     {
       "id": "pak",
@@ -492,11 +618,20 @@
         "romanian": "Rasfoieste si extrage arhive Quake Pak.",
         "spanish": "Hojear y extraer archivos PAK de Quake."
       },
-      "latestVersion": "1.72 (x64)",
+      "latestVersion": "1.73 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_pak_1.72_x64/plugin_5.0_pak_1.72_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/pak.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_pak_1.73_x64/plugin_5.0_pak_1.73_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/pak.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "faee2b1370494da84a6e8d81956e5707edeef69352f7edf235d76d6d2e46b623"
     },
     {
       "id": "peviewer",
@@ -527,11 +662,20 @@
         "romanian": "Afiseaza informatii despre fisiere Executabile Portabile cum ar fi EXE, DLL, etc.",
         "spanish": "Presenta información sobre ficheros ejecutables portátiles como EXE, DLL, etc."
       },
-      "latestVersion": "3.0 (x64)",
+      "latestVersion": "3.1 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_peviewer_3.0_x64/plugin_5.0_peviewer_3.0_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_peviewer_3.1_x64/plugin_5.0_peviewer_3.1_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "7ecd5971a3deb138d3653a69ab029599409fc64c3e27fb2afe2d88c84b09dff4"
     },
     {
       "id": "pictview",
@@ -562,11 +706,20 @@
         "romanian": "Vizualizator rapid de imagini si convertor.",
         "spanish": "Visor y consersor rápido de imágenes."
       },
-      "latestVersion": "2.25 (x64)",
+      "latestVersion": "2.26 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_pictview_2.24_x64/plugin_5.0_pictview_2.24_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/pictview.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_pictview_2.26_x64/plugin_5.0_pictview_2.26_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/pictview.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "8e7293924bb919e1fdb158a90161e929446a4e9fecd7ed5f1a5ecfde3f50ee31"
     },
     {
       "id": "portables",
@@ -597,11 +750,20 @@
         "romanian": "Gestionați dispozitivele portabile.",
         "spanish": "Administrar dispositivos portátiles."
       },
-      "latestVersion": "0.4 (x64)",
+      "latestVersion": "0.5 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_portables_0.4_x64/plugin_5.0_portables_0.4_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/portables.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_portables_0.5_x64/plugin_5.0_portables_0.5_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/portables.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "c13b045e40f1c51db25d519af54c04832f4e643bdb664984a137ab43f30a3f22"
     },
     {
       "id": "regedt",
@@ -632,11 +794,20 @@
         "romanian": "Rasfoieste, vizualizeaza si modifica Registri Windows.",
         "spanish": "Hojear, ver y modificar el registro de Windows."
       },
-      "latestVersion": "1.15 (x64)",
+      "latestVersion": "1.16 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_regedt_1.15_x64/plugin_5.0_regedt_1.15_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/regedit.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_regedt_1.16_x64/plugin_5.0_regedt_1.16_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/regedit.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "0bebbc6d44dbe051d6b4769031dd897c1bff40feaa4def1f22113a9239e14d02"
     },
     {
       "id": "renamer",
@@ -667,11 +838,20 @@
         "romanian": "Pentru redenumire in grup complexa, cu verificare in timp real.",
         "spanish": "Potente utilidad de cambio de nombre con previsualización real."
       },
-      "latestVersion": "1.15 (x64)",
+      "latestVersion": "1.16 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_renamer_1.15_x64/plugin_5.0_renamer_1.15_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/renamer.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_renamer_1.16_x64/plugin_5.0_renamer_1.16_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/renamer.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "1c043676e828d427780dd037297fa10e5e7859fb0b769bb960f152793a2f34fc"
     },
     {
       "id": "samandarin",
@@ -702,11 +882,20 @@
         "romanian": "Verifică lansările GitHub și oferă să deschidă cea mai recentă versiune Samandarin.",
         "spanish": "Comprueba las versiones de GitHub y ofrece abrir la última compilación de Samandarin."
       },
-      "latestVersion": "0.8 (x64)",
+      "latestVersion": "0.9 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_samandarin_0.7_x64/plugin_5.0_samandarin_0.7_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/samandarin.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_samandarin_0.9_x64/plugin_5.0_samandarin_0.9_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/samandarin.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "yes",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "136e0768b9c754a6661e8af6d1263288b7e6845345d8e7dcb1816af614e23dec"
     },
     {
       "id": "serviceexplorer",
@@ -737,11 +926,19 @@
         "romanian": "Răsfoiește și configurează servicii.",
         "spanish": "Examinar y configurar servicios."
       },
-      "latestVersion": "0.013 (x64)",
+      "latestVersion": "0.14 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_serviceexplorer_0.013_x64/plugin_5.0_serviceexplorer_0.013_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/serviceexplorer.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_serviceexplorer_0.014_x64/plugin_5.0_serviceexplorer_0.014_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/serviceexplorer.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "yes",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "sftp",
@@ -772,11 +969,20 @@
         "slovak": "Plnohodnotný SFTP a SCP klient ako file-system doplnok pre Open Salamander 5.0 (x64). Postavený nad libssh2 + OpenSSL, takže zvláda aj modernú kryptografiu, ktorú pôvodné riešenie nepodporovalo.",
         "spanish": "Un cliente SFTP y SCP completo como complemento de sistema de archivos para Open Salamander 5.0 (x64). Basado en libssh2 + OpenSSL, puede manejar criptografía moderna que la solución original no podía soportar."
       },
-      "latestVersion": "1.01 beta (x64)",
+      "latestVersion": "1.3 beta (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/Dupl3xx/salamander-sftp-plugin",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_sftp_1.01_beta_x64/plugin_5.0_sftp_1.01_beta_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_sftp_1.3_beta_x64/plugin_5.0_sftp_1.3_beta_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "yes",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "95e6ca82f36e7c33742d1833eb86d43af253cef3fb563863ae1a4a19f21b5d18"
     },
     {
       "id": "splitcbn",
@@ -807,11 +1013,20 @@
         "romanian": "Imparte si combina fisiere.",
         "spanish": "Dividir y combinar ficheros."
       },
-      "latestVersion": "1.11 (x64)",
+      "latestVersion": "1.12 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_splitcbn_1.11_x64/plugin_5.0_splitcbn_1.11_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/split.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_splitcbn_1.12_x64/plugin_5.0_splitcbn_1.12_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/split.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "ffa9db3d99d00a9e266fd9c0a8cc1d6311d02bb7ac2284af69b500dce3e27a02"
     },
     {
       "id": "tar",
@@ -842,46 +1057,66 @@
         "romanian": "Rasfoieste si extrage arhive Unix.",
         "spanish": "Hojear y extraer archivos Unix."
       },
-      "latestVersion": "3.34 (x64)",
+      "latestVersion": "3.35 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_tar_3.34_x64/plugin_5.0_tar_3.34_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_tar_3.35_x64/plugin_5.0_tar_3.35_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "f81a7b903942d4865d7cd0f12754c555a1d62603b62cbb123f24988f6328ef2f"
     },
     {
       "id": "textviewer",
       "name": {
-        "english": "PrismSharp Text Viewer .NET",
-        "chinesesimplified": "PrismSharp 文本查看器 .NET",
-        "czech": "PrismSharp Text Viewer .NET",
-        "german": "PrismSharp Text Viewer .NET",
-        "dutch": "PrismSharp Tekstviewer .NET",
-        "hungarian": "PrismSharp szövegmegtekintő .NET",
-        "russian": "PrismSharp Text Viewer .NET",
-        "french": "PrismSharp Text Viewer .NET",
-        "slovak": "PrismSharp Text Viewer .NET",
-        "romanian": "PrismSharp Text Viewer .NET",
-        "spanish": "Visor de texto PrismSharp .NET"
+        "english": "Prism Text Viewer",
+        "chinesesimplified": "Prism 文本查看器",
+        "czech": "Textový prohlížeč Prism",
+        "german": "Prism-Textbetrachter",
+        "dutch": "Prism-tekstviewer",
+        "hungarian": "Prism szövegmegtekintő",
+        "russian": "Средство просмотра текста Prism",
+        "french": "Visionneuse de texte Prism",
+        "slovak": "Textový prehliadač Prism",
+        "romanian": "Vizualizator de text Prism",
+        "spanish": "Visor de texto Prism"
       },
       "author": "Ondřej Kotas (KRtekTM)",
       "description": {
-        "english": "PrismSharp Text Viewer .NET plugin for Open Salamander",
-        "chinesesimplified": "内部查看器，可使用托管语法高亮渲染文本文件。",
-        "czech": "Interní prohlížeč, který zobrazuje textové soubory se spravovaným zvýrazňováním syntaxe.",
-        "german": "Interner Viewer, der Textdateien mit verwalteter Syntaxhervorhebung rendert.",
-        "dutch": "Interne viewer die tekstbestanden rendert met beheerde syntaxisaccentuering.",
-        "hungarian": "Belső megtekintő, amely kezelt szintaktikai kiemeléssel jeleníti meg a szövegfájlokat.",
-        "russian": "Внутренний просмотрщик, который отображает текстовые файлы с управляемой подсветкой синтаксиса.",
-        "french": "Visionneuse interne qui affiche les fichiers texte avec une mise en forme (surlignage) syntaxique gérée.",
-        "slovak": "Interný prehliadač, ktorý vykresľuje textové súbory so spravovaným zvýrazňovaním syntaxe.",
-        "romanian": "Vizualizator intern care redă fișiere text cu evidențiere sintactică gestionată.",
-        "spanish": "Visor interno que muestra archivos de texto con resaltado de sintaxis administrado."
+        "english": "Native viewer that renders text files with Prism.js syntax highlighting.",
+        "chinesesimplified": "原生查看器，使用 Prism.js 语法高亮呈现文本文件。",
+        "czech": "Nativní prohlížeč, který zobrazuje textové soubory se zvýrazňováním syntaxe pomocí Prism.js.",
+        "german": "Nativer Betrachter, der Textdateien mit Prism.js-Syntaxhervorhebung darstellt.",
+        "dutch": "Native viewer die tekstbestanden rendert met Prism.js-syntaxisaccentuering.",
+        "hungarian": "Natív megtekintő, amely Prism.js szintaxiskiemeléssel jeleníti meg a szövegfájlokat.",
+        "russian": "Нативное средство просмотра, отображающее текстовые файлы с подсветкой синтаксиса Prism.js.",
+        "french": "Visionneuse native qui affiche les fichiers texte avec la coloration syntaxique Prism.js.",
+        "slovak": "Natívny prehliadač, ktorý zobrazuje textové súbory so zvýrazňovaním syntaxe pomocou Prism.js.",
+        "romanian": "Vizualizator nativ care redă fișiere text cu evidențiere sintactică Prism.js.",
+        "spanish": "Visor nativo que muestra archivos de texto con resaltado de sintaxis de Prism.js."
       },
-      "latestVersion": "1.03 (x64)",
+      "latestVersion": "1.5 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_textviewer_1.02_x64/plugin_5.0_textviewer_1.02_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/textviewer.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_textviewer_1.03_x64/plugin_5.0_textviewer_1.03_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/textviewer.png",
+      "packageType": "plugin",
+      "dependencies": [
+        "salamatrix"
+      ],
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "yes",
+        "elevation": "never"
+      }
     },
     {
       "id": "unarj",
@@ -892,11 +1127,20 @@
       "description": {
         "english": "UnARJ plugin for Open Salamander"
       },
-      "latestVersion": "1.22 (x64)",
+      "latestVersion": "1.23 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unarj_1.22_x64/plugin_5.0_unarj_1.22_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unarj_1.23_x64/plugin_5.0_unarj_1.23_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "1e93be14af8ee5862bacfbbcbae40edd8a73aa5fa76e507430d33b7b03322adf"
     },
     {
       "id": "uncab",
@@ -907,11 +1151,20 @@
       "description": {
         "english": "UnCAB plugin for Open Salamander"
       },
-      "latestVersion": "1.28 (x64)",
+      "latestVersion": "1.29 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_uncab_1.28_x64/plugin_5.0_uncab_1.28_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_uncab_1.29_x64/plugin_5.0_uncab_1.29_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "ba62addbeef6b206c2f61e4348506c4ac8d29ef5b80691cbc299cf76d9977d3a"
     },
     {
       "id": "undelete",
@@ -942,11 +1195,20 @@
         "romanian": "Recupereaza fisiere sterse de pe partitii FAT sau NTFS.",
         "spanish": "Recupera ficheros borrados desde particiones FAT o NTFS."
       },
-      "latestVersion": "1.12 (x64)",
+      "latestVersion": "1.13 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_undelete_1.12_x64/plugin_5.0_undelete_1.12_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/undelete.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_undelete_1.13_x64/plugin_5.0_undelete_1.13_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/undelete.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "d828fcf07581707410f7e0efa87e1998ea7cad56959980adb85a78319bd25c2e"
     },
     {
       "id": "unfat",
@@ -957,11 +1219,20 @@
       "description": {
         "english": "UnFAT plugin for Open Salamander"
       },
-      "latestVersion": "1.2 (x64)",
+      "latestVersion": "1.3 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unfat_1.2_x64/plugin_5.0_unfat_1.2_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unfat_1.3_x64/plugin_5.0_unfat_1.3_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "e9b9aedd19895e46264a9b548af9e8c289aeef89f835f01212d56b7c235f05d8"
     },
     {
       "id": "unchm",
@@ -972,11 +1243,19 @@
       "description": {
         "english": "UnCHM plugin for Open Salamander"
       },
-      "latestVersion": "1.05 (x64)",
+      "latestVersion": "1.6 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unchm_1.05_x64/plugin_5.0_unchm_1.05_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unchm_1.06_x64/plugin_5.0_unchm_1.06_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "uniso",
@@ -987,11 +1266,20 @@
       "description": {
         "english": "UnISO plugin for Open Salamander"
       },
-      "latestVersion": "1.38 (x64)",
+      "latestVersion": "1.39 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_uniso_1.38_x64/plugin_5.0_uniso_1.38_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_uniso_1.39_x64/plugin_5.0_uniso_1.39_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "5999125dc1fe0487b7cf2bf8fa399392233aa6cf6d0564aac406d9fbc940343e"
     },
     {
       "id": "unlha",
@@ -1022,11 +1310,20 @@
         "romanian": "Rasfoieste si extrage arhivele LHA.",
         "spanish": "Hojear y extraer archivos LHA."
       },
-      "latestVersion": "1.14 (x64)",
+      "latestVersion": "1.15 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unlha_1.14_x64/plugin_5.0_unlha_1.14_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unlha_1.15_x64/plugin_5.0_unlha_1.15_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "1b2e58d112749146e1d5577ec8c7e6ca884a0feef33055bc6a2cd249fe14b417"
     },
     {
       "id": "unmime",
@@ -1057,11 +1354,20 @@
         "romanian": "Rasfoieste si extrage fisierele MIME/Base64, UU/XXEncode, yEncode si BinHex.",
         "spanish": "Hojear y extraer ficheros MIME/Base64, UU/XXEncode, yEncode y BinHex."
       },
-      "latestVersion": "1.15 (x64)",
+      "latestVersion": "1.16 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unmime_1.15_x64/plugin_5.0_unmime_1.15_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unmime_1.16_x64/plugin_5.0_unmime_1.16_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "1a2473d5e598e89464ed27ea432ce9f00caa6044561eb820df9512f4456bec7d"
     },
     {
       "id": "unole",
@@ -1072,11 +1378,19 @@
       "description": {
         "english": "UnOLE plugin for Open Salamander"
       },
-      "latestVersion": "1.02 (x64)",
+      "latestVersion": "1.3 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unole_1.02_x64/plugin_5.0_unole_1.02_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unole_1.03_x64/plugin_5.0_unole_1.03_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "unrar",
@@ -1087,11 +1401,19 @@
       "description": {
         "english": "UnRAR plugin for Open Salamander"
       },
-      "latestVersion": "3.03 (x64)",
+      "latestVersion": "3.4 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unrar_3.03_x64/plugin_5.0_unrar_3.03_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/plugin.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_unrar_3.04_x64/plugin_5.0_unrar_3.04_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      }
     },
     {
       "id": "webview2renderviewer",
@@ -1122,11 +1444,22 @@
         "romanian": "Vizualizator care afișează HTML redat, Markdown și documente web utilizând WebView2.",
         "spanish": "Visor que muestra HTML, Markdown y documentos web renderizados mediante WebView2."
       },
-      "latestVersion": "1.04 (x64)",
+      "latestVersion": "1.5 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_webview2renderviewer_1.03_x64/plugin_5.0_webview2renderviewer_1.03_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/webview2.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_webview2renderviewer_1.04_x64/plugin_5.0_webview2renderviewer_1.04_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/webview2.png",
+      "packageType": "plugin",
+      "dependencies": [
+        "salamatrix"
+      ],
+      "security": {
+        "networkAccess": "possible",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "yes",
+        "elevation": "never"
+      }
     },
     {
       "id": "wmobile",
@@ -1157,11 +1490,20 @@
         "romanian": "Acceseaza fisierele pe dispozitivul dvs Windows Mobile.",
         "spanish": "Acceder a ficheros en dispositivo Windows Mobile."
       },
-      "latestVersion": "1.09 (x64)",
+      "latestVersion": "1.11 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_wmobile_1.09_x64/plugin_5.0_wmobile_1.09_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/wmobile.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_wmobile_1.11_x64/plugin_5.0_wmobile_1.11_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/wmobile.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "yes",
+        "externalProcesses": "yes",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "775d116f162c4eefaf445777a0fdc157d27222f69070cd786314311d8234a76c"
     },
     {
       "id": "zip",
@@ -1192,11 +1534,20 @@
         "romanian": "Creaza, rasfoieste, si extrage arhivele ZIP.",
         "spanish": "Crear, hojear y extraer archivos ZIP."
       },
-      "latestVersion": "1.7 (x64)",
+      "latestVersion": "1.8 (x64)",
       "versionScheme": "fileversion",
-      "homepageUrl": "https://samandarin.krtkovo.eu/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_zip_1.7_x64/plugin_5.0_zip_1.7_x64.7z",
-      "icon": "https://samandarin.krtkovo.eu/catalogs/img/zip.png"
+      "homepageUrl": "https://samandarin.net/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_zip_1.8_x64/plugin_5.0_zip_1.8_x64.7z",
+      "icon": "https://samandarin.net/catalogs/img/zip.png",
+      "packageType": "plugin",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "no",
+        "activeWebContent": "no",
+        "elevation": "never"
+      },
+      "packageSha256": "c7fe84dd9da2640c61656aa4beb8ca24d4481dd41a3b0fdc28061fef0ca36a81"
     }
   ]
 }
