@@ -772,6 +772,7 @@ Source: "{#PayloadDir}\salamand.exe.config"; DestDir: "{app}"; Flags: ignorevers
 Source: "{#PayloadDir}\configstorage.ini"; DestDir: "{app}"; Flags: ignoreversion; Permissions: users-modify; Check: ShouldInstallConfigStorage
 Source: "{#SourcePath}plugin-receipts.json"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist uninsneveruninstall; Permissions: users-modify
 Source: "{#SourcePath}plugin-capabilities.json"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#PayloadDir}\bundled-plugin-metadata.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\Back.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\AzureCloudShell.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\CommandPrompt.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion

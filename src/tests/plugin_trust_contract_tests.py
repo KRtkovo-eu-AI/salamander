@@ -97,6 +97,11 @@ def main() -> int:
         "Inno Setup does not ship plugin-capabilities.json",
     )
     require(
+        "bundled-plugin-metadata.json" in inno
+        and "{#PayloadDir}\\bundled-plugin-metadata.json" in inno,
+        "Inno Setup does not ship bundled plugin metadata from the payload",
+    )
+    require(
         "DeleteFile(ExpandConstant('{app}\\plugin-receipts.json'))" in inno,
         "Uninstall does not delete plugin-receipts.json with user configuration",
     )
@@ -150,7 +155,13 @@ def main() -> int:
         "Plugin Manager does not fill the Security block",
     )
     require(
-        "WinVerifyTrust" in pluginsecurity and "plugin-receipts.json" in pluginsecurity,
+        'IDC_PLUGINSECURITY,"Static",SS_LEFT | SS_NOPREFIX | WS_GROUP,51,223,273,72' in lang_rc,
+        "Plugin Manager Security block is too short for wrapped SHA-256 values",
+    )
+    require(
+        "WinVerifyTrust" in pluginsecurity
+        and "plugin-receipts.json" in pluginsecurity
+        and "bundled-plugin-metadata.json" in pluginsecurity,
         "Native Plugin Manager does not read receipts or verify the on-disk signer",
     )
     require(

@@ -44,7 +44,8 @@
         "scriptExecution": "yes",
         "activeWebContent": "no",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "447fbcfc758794e1f916da73910eae3ebc6410f5a4d58ea21fb16ced860743f6"
     },
     {
       "id": "salamatrixai",
@@ -70,7 +71,8 @@
         "scriptExecution": "yes",
         "activeWebContent": "no",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "828d63f1a0854cb12f36a12a75ea1edd2b416166dd74472730b49af77d7ec70b"
     },
     {
       "id": "salamatrixailocalllama",
@@ -96,7 +98,8 @@
         "scriptExecution": "yes",
         "activeWebContent": "no",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "38090b1f6c974d8c94e8a3a7fccfcb1c99a67feed39c839ae85d93df2b9414c7"
     },
     {
       "id": "pythonruntime",
@@ -122,7 +125,8 @@
         "scriptExecution": "yes",
         "activeWebContent": "no",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "fc812895ba9b03e93bf74aa7048bec0a045bcf04317ffd3e179a0b9fae162f69"
     },
     {
       "id": "powershellruntime",
@@ -148,7 +152,8 @@
         "scriptExecution": "yes",
         "activeWebContent": "no",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "d89fc3b8a2c9f057c56c3b965a66f59657aae315f9b84c2136bc4f6e6a44ead1"
     },
     {
       "id": "luaruntime",
@@ -174,7 +179,8 @@
         "scriptExecution": "yes",
         "activeWebContent": "no",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "5069218f8212a530dcc48e36843396cbf17b47138f05818b4eeab4fae0df9443"
     },
     {
       "id": "phpruntime",
@@ -200,7 +206,8 @@
         "scriptExecution": "yes",
         "activeWebContent": "no",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "09b08c4950580265962b2ab3183e2669bc7f57604bddb581fb775a830357ca6b"
     },
     {
       "id": "javascriptruntime",
@@ -226,7 +233,8 @@
         "scriptExecution": "yes",
         "activeWebContent": "no",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "435b01dc3ea836ff80064e29eb77371af228f25de75bcdac06313666d0016f48"
     },
     {
       "id": "demoplug",
@@ -269,7 +277,8 @@
         "scriptExecution": "no",
         "activeWebContent": "no",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "887d44b31b616f73e5356b7d865aa583dd5f0a4bdda8ff079b0915003cee3350"
     }
   ]
 }

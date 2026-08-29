@@ -72,7 +72,7 @@ plugins such as TextViewer and WebView2RenderViewer.
      ```
    - Keep the matching `remove.exe` so the uninstaller remains branded for your
      fork.
-   - Stage `plugin-receipts.json` and `plugin-capabilities.json` from
+   - Stage `bundled-plugin-metadata.json`, `plugin-receipts.json`, and `plugin-capabilities.json` from
      `doc/runbook-setup/` next to `salamand.exe`. The Inno script installs
      receipts with `Permissions: users-modify` and `onlyifdoesntexist` so
      upgrades do not overwrite install receipts. Publish catalog `packageSha256`
@@ -81,3 +81,5 @@ plugins such as TextViewer and WebView2RenderViewer.
 Re-run the sequence whenever plugin outputs or `setup.inf` change. Keeping the
 INF templates in `tools/` ensures they can be version-controlled alongside the
 source tree.
+
+The plugin packaging script writes `bundled-plugin-metadata.json` beside `salamand.exe` by default. Keep that file in both the ZIP root and the Inno payload; it contains package hashes from the generated archives and does not depend on the online catalog. If the payload is staged separately, pass `-MetadataPath <payload>\bundled-plugin-metadata.json`.

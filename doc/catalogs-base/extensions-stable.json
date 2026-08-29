@@ -27,7 +27,8 @@
         "scriptExecution": "yes",
         "activeWebContent": "no",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "1e4da3ad060ebc275755a4ee61de43ddbba13b21d8bcbf2ceb4726dfe4768c87"
     },
     {
       "id": "git-worktree-navigator",
@@ -53,7 +54,8 @@
         "scriptExecution": "yes",
         "activeWebContent": "no",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "de3a9974b357860cfe3334271a5f63ed96a8e85508e9b9f1055e4cf63ad6f416"
     },
     {
       "id": "extension-menu-builder",
@@ -79,7 +81,8 @@
         "scriptExecution": "yes",
         "activeWebContent": "no",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "0c755df05f723b30de6fd57a1e77ab92a55592b0acf5b0d02eea61e5255c02bc"
     },
     {
       "id": "salamatrixdemos",
@@ -105,7 +108,8 @@
         "scriptExecution": "yes",
         "activeWebContent": "no",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "52a9cf289decd97ec4bac40451c6eeb190bb0a0d755e6aae3dba4a54b2d01917"
     },
     {
       "id": "process-explorer",
@@ -131,7 +135,8 @@
         "scriptExecution": "yes",
         "activeWebContent": "no",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "0d70404baec8aa2c77bee5fe1f4e6c18f661df88f5d18dfc49d4b6665983ea7d"
     },
     {
       "id": "hardware-monitor",
@@ -157,7 +162,8 @@
         "scriptExecution": "yes",
         "activeWebContent": "no",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "baca2dd7697c4923c4d6579f3d040b4a7a49e3d53c1b1ee7e0b72ae7ffdc4f7c"
     },
     {
       "id": "event-viewer",
@@ -183,7 +189,8 @@
         "scriptExecution": "yes",
         "activeWebContent": "no",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "e675b02cf8d4d68826b85d5669d60a6927e2205fd6fb446c56762f414f8a2519"
     }
   ]
 }

@@ -34,8 +34,10 @@ struct CPackageReceipt
 
 static std::vector<CPackageSecurity> Capabilities;
 static std::vector<CPackageReceipt> Receipts;
+static std::vector<CPackageReceipt> BundledMetadata;
 static BOOL CapabilitiesLoaded = FALSE;
 static BOOL ReceiptsLoaded = FALSE;
+static BOOL BundledMetadataLoaded = FALSE;
 
 static void CopyField(char* dest, int destSize, const char* source)
 {
@@ -223,6 +225,57 @@ static void LoadReceipts()
     free(json);
 }
 
+static void LoadBundledMetadata()
+{
+    if (BundledMetadataLoaded)
+        return;
+    BundledMetadataLoaded = TRUE;
+    char path[SAL_MAX_PATH];
+    GetInstallFilePath("bundled-plugin-metadata.json", path, _countof(path));
+    char* json = ReadTextFile(path);
+    if (json == NULL)
+        return;
+    const char* cursor = json;
+    while ((cursor = strstr(cursor, "\"id\"")) != NULL)
+    {
+        const char* objectStart = cursor;
+        while (objectStart > json && *objectStart != '{')
+            objectStart--;
+        const char* objectEnd = strchr(cursor, '}');
+        if (objectEnd == NULL)
+            break;
+        int windowLen = (int)(objectEnd - objectStart) + 1;
+        if (windowLen > 1 && windowLen < 2048)
+        {
+            char window[2049];
+            memcpy(window, objectStart, windowLen);
+            window[windowLen] = 0;
+            CPackageReceipt item;
+            memset(&item, 0, sizeof(item));
+            ExtractJsonString(window, "id", item.Id, _countof(item.Id));
+            ExtractJsonString(window, "packageSha256", item.Sha256, _countof(item.Sha256));
+            ExtractJsonString(window, "signer", item.Signer, _countof(item.Signer));
+            if (item.Id[0] != 0 && strlen(item.Sha256) == 64)
+                BundledMetadata.push_back(item);
+        }
+        cursor = objectEnd + 1;
+    }
+    free(json);
+}
+
+static const CPackageReceipt* FindBundledMetadata(const char* id)
+{
+    LoadBundledMetadata();
+    if (id == NULL || id[0] == 0)
+        return NULL;
+    for (size_t i = 0; i < BundledMetadata.size(); i++)
+    {
+        if (stricmp(BundledMetadata[i].Id, id) == 0)
+            return &BundledMetadata[i];
+    }
+    return NULL;
+}
+
 static const CPackageSecurity* FindCapability(const char* id)
 {
     LoadCapabilities();
@@ -341,6 +394,7 @@ static void FormatSecurityText(const char* id, const char* binaryPath,
         security = FindCapability(id);
     }
     const CPackageReceipt* receipt = FindReceipt(id);
+    const CPackageReceipt* bundledMetadata = receipt == NULL ? FindBundledMetadata(id) : NULL;
     char publisher[256];
     publisher[0] = 0;
     if (binaryPath != NULL && binaryPath[0] != 0)
@@ -348,11 +402,17 @@ static void FormatSecurityText(const char* id, const char* binaryPath,
 
     const char* signer = publisher[0] != 0
                              ? publisher
-                             : (receipt != NULL && receipt->Signer[0] != 0 ? receipt->Signer : LoadStr(IDS_PLUGINSEC_UNKNOWN));
+                             : (receipt != NULL && receipt->Signer[0] != 0
+                                    ? receipt->Signer
+                                    : (bundledMetadata != NULL && bundledMetadata->Signer[0] != 0
+                                           ? bundledMetadata->Signer
+                                           : LoadStr(IDS_PLUGINSEC_UNKNOWN)));
     const BOOL bundled = receipt == NULL && security != NULL;
     const char* hash = receipt != NULL && receipt->Sha256[0] != 0
                            ? receipt->Sha256
-                           : (bundled ? LoadStr(IDS_PLUGINSEC_BUNDLED) : LoadStr(IDS_PLUGINSEC_UNKNOWN));
+                           : (bundledMetadata != NULL && bundledMetadata->Sha256[0] != 0
+                                  ? bundledMetadata->Sha256
+                                  : (bundled ? LoadStr(IDS_PLUGINSEC_BUNDLED) : LoadStr(IDS_PLUGINSEC_UNKNOWN)));
     const char* source = receipt != NULL && receipt->SourceUrl[0] != 0
                              ? receipt->SourceUrl
                              : (bundled ? LoadStr(IDS_PLUGINSEC_BUNDLED) : LoadStr(IDS_PLUGINSEC_UNKNOWN));

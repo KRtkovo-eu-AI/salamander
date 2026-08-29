@@ -32,6 +32,10 @@ Path to 7z.exe/7zz/7za. When omitted, the script searches PATH for 7z, 7zz, and 
 .PARAMETER Force
 Overwrite existing archives.
 
+.PARAMETER MetadataPath
+Path of the bundled-plugin-metadata.json file. Defaults to the Salamander root,
+so the same generated file is included by ZIP distribution and Inno payload builds.
+
 .EXAMPLE
 .\tools\package_salamander_plugins.ps1 -SalamanderPath C:\temp\salamander\Release_x64
 
@@ -51,7 +55,9 @@ param(
     [ValidateNotNullOrEmpty()]
     [string]$SevenZipPath,
 
-    [switch]$Force
+    [switch]$Force,
+
+    [string]$MetadataPath
 )
 
 Set-StrictMode -Version Latest
@@ -328,6 +334,10 @@ function Get-PackageDefinitions {
 $salamanderRoot = Resolve-ExistingDirectory -Path $SalamanderPath -Description 'Salamander path'
 $sevenZip = Resolve-SevenZip -RequestedPath $SevenZipPath
 $outputRoot = New-Item -ItemType Directory -Path $OutputPath -Force
+if ([string]::IsNullOrWhiteSpace($MetadataPath)) {
+    $MetadataPath = Join-Path $salamanderRoot 'bundled-plugin-metadata.json'
+}
+$metadataEntries = @()
 
 $packages = @(Get-PackageDefinitions -SalamanderRoot $salamanderRoot)
 if ($packages.Count -eq 0) {
@@ -384,10 +394,42 @@ foreach ($package in $packages) {
     Write-Host "SHA256 $($package.PackageId) = $sha256"
     Add-Content -LiteralPath (Join-Path $outputRoot.FullName 'package-sha256.txt') -Value ("{0}  {1}" -f $sha256, $archiveName)
 
+    $signer = ''
+    $signedBinary = Get-ChildItem -LiteralPath $packageDirectory.FullName -File |
+        Where-Object { $_.Extension -iin @('.spl', '.dll', '.exe') } |
+        Sort-Object @{ Expression = { if ($_.Extension -ieq '.spl') { 0 } else { 1 } } }, Name |
+        Select-Object -First 1
+    if ($signedBinary) {
+        $signature = Get-AuthenticodeSignature -LiteralPath $signedBinary.FullName
+        if ($signature.Status -eq 'Valid' -and $signature.SignerCertificate) {
+            $signer = $signature.SignerCertificate.GetNameInfo(
+                [System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
+        }
+    }
+    $metadataEntries += [ordered]@{
+        id = $package.PackageId
+        packageType = $package.PackageType
+        packageSha256 = $sha256
+        signer = $signer
+    }
+
     $archiveCount++
 }
 
 Write-Host "Created $archiveCount archive(s) in $($outputRoot.FullName)."
+
+$metadata = [ordered]@{
+    schemaVersion = 1
+    generatedAt = [DateTime]::UtcNow.ToString('o')
+    packages = $metadataEntries
+}
+$metadataJson = $metadata | ConvertTo-Json -Depth 4
+$metadataPathFull = [System.IO.Path]::GetFullPath($MetadataPath)
+$metadataDirectory = Split-Path -Parent $metadataPathFull
+New-Item -ItemType Directory -Path $metadataDirectory -Force | Out-Null
+[System.IO.File]::WriteAllText($metadataPathFull, $metadataJson + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
+Write-Host "Wrote bundled plugin metadata to $MetadataPath"
+
 
 $fillScript = Join-Path $PSScriptRoot 'catalogs\fill_package_hashes.py'
 $python = Get-Command python -ErrorAction SilentlyContinue
