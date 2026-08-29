@@ -66,10 +66,21 @@ def main() -> int:
         finddlg,
         "BOOL CFindThread::ScanKey(int root, LPWSTR key, BOOL& skip, BOOL& skipAllErrors,",
     )
+    constructor = function_body(finddlg2, "CFindDialog::CFindDialog(LPWSTR lookInInit)")
     update_list = function_body(finddlg2, "void CFindDialog::UpdateListViewItems()")
     start_search = function_body(finddlg2, "void CFindDialog::StartSearch()")
     stop_search = function_body(finddlg2, "void CFindDialog::StopSearch()")
     dialog_proc = function_body(finddlg2, "CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)")
+
+    require(
+        "List = NULL;" in constructor,
+        "CFindDialog must initialize List before WM_INITDIALOG can dispatch notifications",
+    )
+    init_dialog = dialog_proc[dialog_proc.find("case WM_INITDIALOG:") : dialog_proc.find("case WM_SIZE:")]
+    require(
+        "List = new CFoundFilesListView(this);" in init_dialog,
+        "WM_INITDIALOG must construct the results list after constructor initialization",
+    )
 
     assert_no_paint_under_lock(set_base, "CStatusBar::SetBase")
     assert_no_paint_under_lock(set_text, "CStatusBar::Set")
@@ -123,6 +134,22 @@ def main() -> int:
         command_to_notify.endswith("break; // do not fall through: WM_COMMAND lParam is a control HWND, not NMHDR\n    }")
         or "break; // do not fall through" in command_to_notify[-200:],
         "WM_COMMAND must not fall through into WM_NOTIFY (Search for combo SETFOCUS would crash)",
+    )
+
+    notify_body = dialog_proc[dialog_proc.find("case WM_NOTIFY:") : dialog_proc.find("case WM_TIMER:")]
+    require(
+        "if (wParam == IDC_RESULTS && List != NULL && List->HWindow != NULL)" in notify_body,
+        "early results notifications must not dereference an unconstructed List",
+    )
+    destroy_body = dialog_proc[dialog_proc.find("case WM_DESTROY:") :]
+    list_destroy_guard = "if (List != NULL && List->HWindow != NULL)"
+    require(list_destroy_guard in destroy_body, "WM_DESTROY must guard a partially constructed List")
+    guarded_destroy = destroy_body[destroy_body.find(list_destroy_guard) :]
+    require(
+        guarded_destroy.find("ListView_SetImageList(List->HWindow")
+        < guarded_destroy.find("List->DestroyMembers();")
+        < guarded_destroy.find("ListView_SetItemCountEx(List->HWindow"),
+        "WM_DESTROY list cleanup must remain inside the partial-construction guard",
     )
 
     require("callers on a non-UI thread must pass updateInIdle = TRUE" in finddlg_h,

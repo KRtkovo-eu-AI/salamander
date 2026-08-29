@@ -51,6 +51,7 @@ CFindDialog::CFindDialog(LPWSTR lookInInit)
     AddY = 0;
     FoundItemsH = 0;
     StatusBar = NULL;
+    List = NULL;
 
     ZeroOnDestroy = NULL;
 
@@ -1022,7 +1023,7 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
         }
 
-        if (wParam == IDC_RESULTS)
+        if (wParam == IDC_RESULTS && List != NULL && List->HWindow != NULL)
         {
             switch (((LPNMHDR)lParam)->code)
             {
@@ -1258,13 +1259,16 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             Maximized = wndpl.showCmd == SW_SHOWMAXIMIZED;
         }
 
-        // release the handle; otherwise the ListView would take it to hell with it
-        ListView_SetImageList(List->HWindow, NULL, LVSIL_SMALL);
+        if (List != NULL && List->HWindow != NULL)
+        {
+            // release the handle; otherwise the ListView would take it to hell with it
+            ListView_SetImageList(List->HWindow, NULL, LVSIL_SMALL);
 
-        // free the data before the window closes, otherwise the Salamander thread
-        // could take us down before it finishes
-        List->DestroyMembers();
-        ListView_SetItemCountEx(List->HWindow, 0, 0);
+            // free the data before the window closes, otherwise the Salamander thread
+            // could take us down before it finishes
+            List->DestroyMembers();
+            ListView_SetItemCountEx(List->HWindow, 0, 0);
+        }
 
         // DialogStackPop();
 
