@@ -553,14 +553,7 @@ BOOL CPluginFSInterface::ChangePath(int currentFSNameIndex, char* fsName, int fs
             if (Config.UseConnectionDataFromConfig)
                 TRACE_E("Unexpected situation in CPluginFSInterface::ChangePath() - UseConnectionDataFromConfig + nonempty userpart.");
 
-            int encControlAndDataConn = currentFSNameIndex == AssignedFSNameIndexFTPS;
-
-            // Verify that any password for the default proxy can be decrypted (we may call SetConnectionParameters() only if it can)
-            if (!Config.FTPProxyServerList.EnsurePasswordCanBeDecrypted(SalamanderGeneral->GetMsgBoxParent(), Config.DefaultProxySrvUID))
-            {
-                TargetPanelPath[0] = 0; // the connection failed, no path change in the target panel
-                return FALSE;           // fatal error
-            }
+            int encryptedControlConnection = currentFSNameIndex == AssignedFSNameIndexFTPS;
 
             AutodetectSrvType = TRUE; // we are using automatic server type detection
             LastServerType[0] = 0;
@@ -606,53 +599,112 @@ BOOL CPluginFSInterface::ChangePath(int currentFSNameIndex, char* fsName, int fs
             lstrcpyn(Host, host, HOST_MAX_SIZE);
             Port = port;
             lstrcpyn(User, user, USER_MAX_SIZE);
+
+            CFTPServer* server = NULL;
+            for (int i = 0; i < Config.FTPServerList.Count; i++)
+            {
+                CFTPServer* bookmark = Config.FTPServerList[i];
+                if (bookmark != NULL &&
+                    (bookmark->EncryptControlConnection == 1) == encryptedControlConnection &&
+                    SalamanderGeneral->StrNICmp(HandleNULLStr(bookmark->Address), host, HOST_MAX_SIZE) == 0 &&
+                    (bookmark->AnonymousConnection ? strcmp(user, FTP_ANONYMOUS) == 0 :
+                                                     strcmp(user, FTP_ANONYMOUS) != 0 &&
+                                                         SalamanderGeneral->StrNICmp(HandleNULLStr(bookmark->UserName), user, USER_MAX_SIZE) == 0) &&
+                    bookmark->Port == port)
+                {
+                    server = bookmark;
+                    break;
+                }
+            }
+
             if (path != NULL)
             {
                 Path[0] = firstCharOfPath;
                 lstrcpyn(Path + 1, path, FTP_MAX_PATH - 1);
+            }
+            else if (server != NULL)
+            {
+                lstrcpyn(Path, HandleNULLStr(server->InitialPath), FTP_MAX_PATH);
+                parsedPath = FALSE; // profile paths must preserve their leading slash exactly
             }
             else
                 Path[0] = 0;
 
             ClearHostFromListingCacheIfFirstCon(Host, Port, User);
 
-            // If no password in the URL and not anonymous, try to find one from saved bookmarks
-            if (password == NULL && strcmp(user, FTP_ANONYMOUS) != 0)
+            if (password == NULL && strcmp(user, FTP_ANONYMOUS) != 0 && server != NULL &&
+                server->SavePassword && server->EncryptedPassword != NULL && server->EncryptedPasswordSize > 0)
             {
-                for (int i = 0; i < Config.FTPServerList.Count; i++)
+                char* plainPassword;
+                CSalamanderPasswordManagerAbstract* passwordManager = SalamanderGeneral->GetSalamanderPasswordManager();
+                if (server->EnsurePasswordCanBeDecrypted(SalamanderGeneral->GetMsgBoxParent()) &&
+                    passwordManager->DecryptPassword(server->EncryptedPassword, server->EncryptedPasswordSize, &plainPassword))
                 {
-                    CFTPServer* bookmark = Config.FTPServerList[i];
-                    if (bookmark != NULL && bookmark->SavePassword &&
-                        bookmark->EncryptedPassword != NULL && bookmark->EncryptedPasswordSize > 0 &&
-                        SalamanderGeneral->StrNICmp(HandleNULLStr(bookmark->Address), host, HOST_MAX_SIZE) == 0 &&
-                        SalamanderGeneral->StrNICmp(HandleNULLStr(bookmark->UserName), user, USER_MAX_SIZE) == 0 &&
-                        bookmark->Port == port)
-                    {
-                        char* plainPassword;
-                        CSalamanderPasswordManagerAbstract* passwordManager = SalamanderGeneral->GetSalamanderPasswordManager();
-                        if (bookmark->EnsurePasswordCanBeDecrypted(SalamanderGeneral->GetMsgBoxParent()) &&
-                            passwordManager->DecryptPassword(bookmark->EncryptedPassword, bookmark->EncryptedPasswordSize, &plainPassword))
-                        {
-                            lstrcpyn(passwordBuf, plainPassword, PASSWORD_MAX_SIZE);
-                            memset(plainPassword, 0, lstrlen(plainPassword));
-                            SalamanderGeneral->Free(plainPassword);
-                            password = passwordBuf;
-                            break;
-                        }
-                    }
+                    lstrcpyn(passwordBuf, plainPassword, PASSWORD_MAX_SIZE);
+                    memset(plainPassword, 0, lstrlen(plainPassword));
+                    SalamanderGeneral->Free(plainPassword);
+                    password = passwordBuf;
                 }
             }
 
             if (strcmp(user, FTP_ANONYMOUS) == 0 && password == NULL)
                 password = anonymousPasswd;
-            ControlConnection->SetConnectionParameters(Host, Port, User, HandleNULLStr(password),
-                                                       Config.UseListingsCache, NULL, Config.PassiveMode,
-                                                       NULL, Config.KeepAlive, Config.KeepAliveSendEvery,
-                                                       Config.KeepAliveStopAfter, Config.KeepAliveCommand,
-                                                       -2 /* default proxy server */,
-                                                       encControlAndDataConn, encControlAndDataConn, Config.CompressData);
-            TransferMode = Config.TransferMode;
 
+            BOOL useListingsCache = Config.UseListingsCache;
+            BOOL usePassiveMode = Config.PassiveMode;
+            BOOL keepConnectionAlive = Config.KeepAlive;
+            int keepAliveSendEvery = Config.KeepAliveSendEvery;
+            int keepAliveStopAfter = Config.KeepAliveStopAfter;
+            int keepAliveCommand = Config.KeepAliveCommand;
+            int proxyServerUID = -2;
+            int encryptedDataConnection = encryptedControlConnection;
+            int compressData = Config.CompressData;
+            const char* initFTPCommands = NULL;
+            const char* listCommand = NULL;
+            TransferMode = Config.TransferMode;
+            if (server != NULL)
+            {
+                AutodetectSrvType = server->ServerType == NULL;
+                lstrcpyn(LastServerType,
+                         HandleNULLStr(server->ServerType != NULL ? server->ServerType + (server->ServerType[0] == '*' ? 1 : 0) : NULL),
+                         SERVERTYPE_MAX_SIZE);
+                if (server->UseListingsCache != 2)
+                    useListingsCache = server->UseListingsCache;
+                if (server->UsePassiveMode != 2)
+                    usePassiveMode = server->UsePassiveMode;
+                if (server->KeepConnectionAlive != 2)
+                {
+                    keepConnectionAlive = server->KeepConnectionAlive;
+                    if (server->KeepConnectionAlive == 1)
+                    {
+                        keepAliveSendEvery = server->KeepAliveSendEvery;
+                        keepAliveStopAfter = server->KeepAliveStopAfter;
+                        keepAliveCommand = server->KeepAliveCommand;
+                    }
+                }
+                if (server->TransferMode != 0)
+                    TransferMode = server->TransferMode == 1 ? trmBinary : (server->TransferMode == 2 ? trmASCII : trmAutodetect);
+                proxyServerUID = server->ProxyServerUID;
+                encryptedDataConnection = encryptedControlConnection && server->EncryptDataConnection == 1;
+                compressData = server->CompressData >= 0 ? server->CompressData : Config.CompressData;
+                initFTPCommands = server->InitFTPCommands;
+                listCommand = server->ListCommand;
+            }
+
+            int proxyUIDToCheck = proxyServerUID == -2 ? Config.DefaultProxySrvUID : proxyServerUID;
+            if (!Config.FTPProxyServerList.EnsurePasswordCanBeDecrypted(SalamanderGeneral->GetMsgBoxParent(), proxyUIDToCheck))
+            {
+                memset(newUserPart, 0, FTP_USERPART_SIZE + 1);
+                memset(passwordBuf, 0, PASSWORD_MAX_SIZE);
+                TargetPanelPath[0] = 0;
+                return FALSE;
+            }
+
+            ControlConnection->SetConnectionParameters(Host, Port, User, HandleNULLStr(password),
+                                                       useListingsCache, initFTPCommands, usePassiveMode,
+                                                       listCommand, keepConnectionAlive, keepAliveSendEvery,
+                                                       keepAliveStopAfter, keepAliveCommand, proxyServerUID,
+                                                       encryptedControlConnection, encryptedDataConnection, compressData);
             // password - if not NULL, contains the password for the connection
             memset(newUserPart, 0, FTP_USERPART_SIZE + 1); // erase the memory that contained the password
             memset(passwordBuf, 0, PASSWORD_MAX_SIZE);      // erase the bookmark password (if any)
