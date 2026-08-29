@@ -4,49 +4,6 @@
   "generatedAt": "2026-07-23T02:00:00Z",
   "plugins": [
     {
-      "id": "tar",
-      "name": {
-        "english": "TAR",
-        "chinesesimplified": "TAR",
-        "czech": "TAR",
-        "german": "TAR",
-        "dutch": "TAR",
-        "hungarian": "TAR",
-        "russian": "TAR",
-        "french": "TAR",
-        "slovak": "TAR",
-        "romanian": "TAR",
-        "spanish": "TAR"
-      },
-      "author": "Viliam Lejčík",
-      "description": {
-        "english": "TAR plugin for Open Salamander",
-        "chinesesimplified": "浏览并解压 Unix 压缩包。",
-        "czech": "Prohlíží a extrahuje Unix archivy.",
-        "german": "Durchsucht und entpackt Unix Archive.",
-        "dutch": "Blader en extraheer Unix archiefbestanden.",
-        "hungarian": "Unix archívumok böngészése és kibontása.",
-        "russian": "Просмотр и извлечение из архивов Unix.",
-        "french": "Feuilleter et extraire les archives Unix.",
-        "slovak": "Prehliada a extrahuje Unix archívy.",
-        "romanian": "Rasfoieste si extrage arhive Unix.",
-        "spanish": "Hojear y extraer archivos Unix."
-      },
-      "latestVersion": "3.5 (x64)",
-      "versionScheme": "fileversion",
-      "homepageUrl": "https://github.com/OpenSalamander/salamander/pull/5#issuecomment-3289439303",
-      "downloadPageUrl": "https://github.com/user-attachments/files/22319444/tar-plugin-x64.zip",
-      "icon": "https://samandarin.net/catalogs/img/plugin.png",
-      "packageType": "plugin",
-      "security": {
-        "networkAccess": "no",
-        "externalProcesses": "no",
-        "scriptExecution": "no",
-        "activeWebContent": "no",
-        "elevation": "never"
-      }
-    },
-    {
       "id": "certview",
       "name": {
         "english": "Certificate Viewer",
