@@ -128,3 +128,5 @@ a[aria="button"]:hover { color: #000; background: linear-gradient(#ffc773, #eda3
 .feature-detail h2 { margin-top: 1.2rem; }
 .feature-detail h2::before { content: none; }
 @media (max-width: 860px) { .category-grid { grid-template-columns: 1fr; } .legacy-feature-links { grid-template-columns: 1fr; } .page-intro { padding: 18px; } .feature-detail { padding-inline: 14px; } }
+
+.latest-release-links { margin: -1rem 0 0 0; font-size: .65rem; text-align: right; }
