@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+ <PropertyGroup><LinkIncremental>false</LinkIncremental></PropertyGroup>
+ <ItemDefinitionGroup>
+  <ClCompile><Optimization>MaxSpeed</Optimization><IntrinsicFunctions>true</IntrinsicFunctions><PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions><RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary><FunctionLevelLinking>true</FunctionLevelLinking><WholeProgramOptimization>true</WholeProgramOptimization></ClCompile>
+  <Link><EnableCOMDATFolding>true</EnableCOMDATFolding><OptimizeReferences>true</OptimizeReferences><LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration></Link>
+  <PostBuildEvent><Command>if not "$(OpenSalamanderReleaseClean)"=="true" call ..\..\..\..\..\tools\codesign\sign_with_retry.cmd "$(TargetPath)"</Command></PostBuildEvent>
+ </ItemDefinitionGroup>
+</Project>

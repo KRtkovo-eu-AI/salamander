@@ -256,47 +256,9 @@ th { background:var(--surface); } li { margin:.2em 0; }
 <td><code>styleFlags</code></td>
 <td>Native Salamatrix/Open Salamander control flags.</td>
 </tr>
-<tr>
-<td><code>pathSeparator</code></td>
-<td>Separator used by path ellipsis.</td>
-</tr>
-<tr>
-<td><code>toolTip</code></td>
-<td>Tooltip text owned by the native control.</td>
-</tr>
-<tr>
-<td><code>actionOpen</code></td>
-<td>URL or shell target opened by a hyperlink.</td>
-</tr>
-<tr>
-<td><code>actionCommand</code></td>
-<td>Command posted by a hyperlink.</td>
-</tr>
-<tr>
-<td><code>actionHint</code></td>
-<td>Hint displayed by a hyperlink.</td>
-</tr>
-<tr>
-<td><code>progress</code>, <code>progressText</code></td>
-<td>Direct progress value and optional text.</td>
-</tr>
-<tr>
-<td><code>progressCurrent</code>, <code>progressTotal</code></td>
-<td>64-bit progress values.</td>
-</tr>
-<tr>
-<td><code>indeterminateDuration</code>, <code>indeterminateInterval</code></td>
-<td>Self-moving progress timing.</td>
-</tr>
-<tr>
-<td><code>textColor</code>, <code>backgroundColor</code></td>
-<td><code>COLORREF</code> values for a color-arrow button.</td>
-</tr>
-<tr>
-<td><code>alignControlId</code>, <code>buttonMask</code></td>
-<td>List control and buttons for a toolbar header.</td>
-</tr>
 </tbody></table></div>
+<p>Static-text controls use the native flag values for emphasis and overflow behavior: <code>STF_BOLD</code> and <code>STF_UNDERLINE</code> preserve bold and underline in the native host, while <code>STF_END_ELLIPSIS</code> keeps text on one line and shortens its end and <code>STF_PATH_ELLIPSIS</code> shortens the middle of a path with <code>...</code>. Salamatrix Studio mirrors these rules in its editor preview, using the same 8 pt <code>MS Shell Dlg</code> metrics so layout and overflow remain predictable before generation.</p>
+<p>| <code>pathSeparator</code> | Separator used by path ellipsis. | | <code>toolTip</code> | Tooltip text owned by the native control. | | <code>actionOpen</code> | URL or shell target opened by a hyperlink. | | <code>actionCommand</code> | Command posted by a hyperlink. | | <code>actionHint</code> | Hint displayed by a hyperlink. | | <code>progress</code>, <code>progressText</code> | Direct progress value and optional text. | | <code>progressCurrent</code>, <code>progressTotal</code> | 64-bit progress values. | | <code>indeterminateDuration</code>, <code>indeterminateInterval</code> | Self-moving progress timing. | | <code>textColor</code>, <code>backgroundColor</code> | <code>COLORREF</code> values for a color-arrow button. | | <code>alignControlId</code>, <code>buttonMask</code> | List control and buttons for a toolbar header. |</p>
 <p>The five worker facades deliberately forward the same option set. Language syntax is idiomatic, but payload fields, defaults, and native behavior are the same.</p>
 <h2 id="the-capabilities-gallery-layout">The capabilities gallery layout</h2>
 <p>The common demo dialog is <code>463 x 236</code>. It mirrors the Open Salamander DemoPlug control gallery:</p>

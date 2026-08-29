@@ -664,6 +664,12 @@ public:
     // creates search data; if anything goes wrong, it returns false and may also provide the error line and column
     BOOL BuildArray(int* line = NULL, int* column = NULL);
 
+    // Removes only the specified extensions from rows owned by the given plugin.
+    // This is used for plugin migrations after archive associations are loaded.
+    void RemoveExtensionsForPlugin(int pluginIndex, const char* const* extensions, int extensionCount);
+    void RemoveExtensionsFromLegacyRows(const char* const* extensions, int extensionCount,
+                                        const char* const* legacyMarkers, int markerCount);
+
     // archiveNameLen serves only as an optimization; if it is -1, the function measures the string itself
     int PackIsArchive(const char* archiveName, int archiveNameLen = -1);
 

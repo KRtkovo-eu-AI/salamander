@@ -1,4 +1,4 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.9.12112.369
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -109,6 +109,8 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lang_zip", "..\plugins\zip\vcxproj\lang_zip.vcxproj", "{BDD8F231-0C97-46D1-8DFC-7649741B7028}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "pictview", "..\plugins\pictview\vcxproj\pictview.vcxproj", "{17CF5E04-F29C-4E5D-BA41-83254E342E0B}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "pictview-previewhost", "..\plugins\pictview\vcxproj\previewhost\previewhost.vcxproj", "{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "exif", "..\plugins\pictview\vcxproj\exif\exif.vcxproj", "{C3D5458E-BF71-4C7D-AF45-F502A14EB528}"
 EndProject
@@ -1805,6 +1807,28 @@ Global
 		{BDD8F231-0C97-46D1-8DFC-7649741B7028}.Utils (Release)|ARM64.ActiveCfg = Release|ARM64
 		{BDD8F231-0C97-46D1-8DFC-7649741B7028}.Utils (Release)|Win32.ActiveCfg = Release|Win32
 		{BDD8F231-0C97-46D1-8DFC-7649741B7028}.Utils (Release)|x64.ActiveCfg = Release|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Debug|Any CPU.Build.0 = Debug|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Debug|ARM64.ActiveCfg = Debug|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Debug|Win32.ActiveCfg = Debug|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Debug|x64.ActiveCfg = Debug|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Debug|x64.Build.0 = Debug|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Release clean|Any CPU.ActiveCfg = Release clean|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Release clean|Any CPU.Build.0 = Release clean|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Release clean|ARM64.ActiveCfg = Release clean|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Release clean|Win32.ActiveCfg = Release clean|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Release clean|x64.ActiveCfg = Release clean|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Release clean|x64.Build.0 = Release clean|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Release|Any CPU.ActiveCfg = Release|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Release|Any CPU.Build.0 = Release|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Release|ARM64.ActiveCfg = Release|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Release|Win32.ActiveCfg = Release|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Release|x64.ActiveCfg = Release|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Release|x64.Build.0 = Release|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Utils (Release)|Any CPU.ActiveCfg = Release|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Utils (Release)|ARM64.ActiveCfg = Release|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Utils (Release)|Win32.ActiveCfg = Release|x64
+		{D84E4828-C4C6-4B95-953B-93C8D2C62D7E}.Utils (Release)|x64.ActiveCfg = Release|x64
 		{17CF5E04-F29C-4E5D-BA41-83254E342E0B}.Debug|Any CPU.ActiveCfg = Debug|x64
 		{17CF5E04-F29C-4E5D-BA41-83254E342E0B}.Debug|Any CPU.Build.0 = Debug|x64
 		{17CF5E04-F29C-4E5D-BA41-83254E342E0B}.Debug|ARM64.ActiveCfg = Debug|ARM64

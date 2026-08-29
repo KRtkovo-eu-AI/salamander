@@ -1277,11 +1277,11 @@ def main() -> int:
         "Lua": (lua_demo_manifest, lua_demo),
     }
     demo_versions = {
-        "Node": "1.4.1",
+        "Node": "1.4.2",
         "Python": "1.4.2",
-        "PowerShell": "1.4.1",
-        "PHP": "1.4.1",
-        "Lua": "1.4.1",
+        "PowerShell": "1.4.2",
+        "PHP": "1.4.2",
+        "Lua": "1.4.2",
     }
     viewer_patterns = set()
     for runtime_name, (demo_manifest, demo_source) in demo_roles.items():
@@ -1803,8 +1803,8 @@ def main() -> int:
         salamatrix_version,
         r'#define VERSINFO_MAJOR\s+0.*?'
         r'#define VERSINFO_MINORA\s+7.*?'
-        r'#define VERSINFO_MINORB\s+10',
-        "Salamatrix version was not bumped for modal dialog lifetime safety")
+        r'#define VERSINFO_MINORB\s+13',
+        "Salamatrix version was not bumped for file-system refresh lifetime safety")
     require(
         automation_salamatrix,
         r'ApplyPositions\(BOOL delayedPaint\).*?'
@@ -2277,25 +2277,61 @@ def main() -> int:
         "Salamatrix FS listing is not cached and executed asynchronously")
     require(
         packages,
-        r"virtual ~OpenFileSystem\(\).*?ShuttingDown.*?"
-        r"RefreshThreadStarting.*?SwitchToThread.*?"
-        r"RefreshThreadStopping.*?"
-        r"WaitForThreadWithSentMessageDispatch.*?DeleteCriticalSection",
-        "Salamatrix FS close can free the cache while a refresh thread handle is being published")
+        r"void Close\(\).*?InterlockedExchange\(&ShuttingDown, 1\).*?"
+        r"InterlockedCompareExchange\(&CloseState, 1, 0\).*?"
+        r"EnterCriticalSection\(&RefreshThreadLock\).*?"
+        r"refreshThread = RefreshThread.*?RefreshThread = NULL.*?"
+        r"WaitForThreadWithSentMessageDispatch.*?CloseHandle\(refreshThread\).*?"
+        r"InterlockedExchange\(&CloseState, 2\).*?SetEvent\(CloseCompleteEvent\)",
+        "Salamatrix FS Close is not idempotent or does not synchronously join refresh")
     require(
         packages,
-        r"StartBackgroundRefresh.*?RefreshThreadStarting.*?"
-        r"InterlockedExchangePointer.*?ShuttingDown.*?CREATE_SUSPENDED.*?"
-        r"InterlockedExchangePointer.*?RefreshThreadRunningState.*?ResumeThread",
-        "Salamatrix FS refresh worker can start before its join handle is published")
+        r"virtual ~OpenFileSystem\(\).*?Close\(\).*?"
+        r"DeleteCriticalSection\(&CacheLock\).*?"
+        r"DeleteCriticalSection\(&RefreshThreadLock\)",
+        "Salamatrix FS destructor does not close before destroying embedded locks")
     require(
         packages,
-        r"virtual ~OpenFileSystem\(\).*?"
-        r"CancelFileSystemListingForShutdown\(RefreshPackageId\).*?"
-        r"WaitForThreadWithSentMessageDispatch.*?"
-        r"SALAMANDER_SERVICE_SHUTDOWN_PROGRESS.*?"
-        r"package->Session->Stop\(\)",
-        "shutdown can wait for an extension-FS listing before cancelling its runtime call")
+        r"class PackageManager::FileSystemExtension.*?"
+        r"LiveFileSystems.*?RetiredFileSystems.*?"
+        r"virtual void WINAPI CloseFS.*?LiveFileSystems\.erase.*?"
+        r"if \(!retire\).*?opened->Close\(\).*?"
+        r"RetiredFileSystems\.push_back\(opened\)",
+        "Salamatrix CloseFS deletes instead of synchronously closing and retiring the object")
+    require_absent(
+        packages,
+        r"virtual void WINAPI CloseFS\(.*?delete fs",
+        "Salamatrix CloseFS still frees the FS allocation")
+    require(
+        packages,
+        r"virtual ~FileSystemExtension\(\).*?"
+        r"fileSystems\.swap\(LiveFileSystems\).*?RetiredFileSystems.*?"
+        r"fileSystems\[index\]->Close\(\).*?delete fileSystems\[index\].*?"
+        r"DeleteCriticalSection\(&FileSystemsLock\)",
+        "Salamatrix FS quarantine is not finally destroyed at extension teardown")
+    for guarded_callback in ("ChangePath", "ListCurrentPath", "Event"):
+        require(
+            packages,
+            rf"virtual .*?{guarded_callback}\(.*?IsShuttingDown\(\)",
+            f"Salamatrix retired FS {guarded_callback} callback does not reject shutdown")
+    require_absent(
+        packages,
+        r"LifetimeState|LifetimeRegistry|CallbackGuard|RefreshWorkerContext",
+        "Salamatrix FS still uses unsafe callback-entry registry/refcount lifetime guards")
+    require(
+        packages,
+        r"RefreshInBackground.*?if \(InterlockedCompareExchange\(&ShuttingDown, 0, 0\) == 0\).*?PostPanelRefresh\(\).*?InterlockedCompareExchange\(\s*&RefreshThreadRunning",
+        "Salamatrix FS refresh worker publishes Idle only after its final object access")
+    require(
+        packages,
+        r"void PackageManager::Shutdown\(\).*?"
+        r"CancelFileSystemListingForShutdown\(Packages\[index\]->Id\).*?"
+        r"ExecutionsIdleEvent",
+        "shutdown must cancel extension-FS listings before waiting for executions")
+    require_absent(
+        packages,
+        r"virtual ~OpenFileSystem\(\).*?CancelFileSystemListingForShutdown\(RefreshPackageId\)",
+        "normal extension-FS close must not stop the persistent runtime")
     listing_body = re.search(
         r"virtual BOOL WINAPI ListCurrentPath\(.*?"
         r"(?=\n    virtual BOOL WINAPI TryCloseOrDetach)",

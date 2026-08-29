@@ -18,6 +18,8 @@ def main() -> None:
     configuration = CONFIGURATION.read_text(encoding="utf-8")
     persistence = PERSISTENCE.read_text(encoding="utf-8")
 
+    load_config = configuration[configuration.index("BOOL CMainWindow::LoadConfig"):]
+
     check_viewers = re.search(
         r"void CPlugins::CheckViewerData\(\).*?(?=^BOOL CPlugins::)",
         plugins,
@@ -38,6 +40,14 @@ def main() -> None:
 
     if "Plugins.CheckViewerData()" in configuration:
         raise AssertionError("viewer validation must not run during early LoadConfig")
+
+    plugins_load = load_config.index("Plugins.Load(HWindow, actKey)")
+    viewers_load = load_config.index("LoadViewers(salamander, SALAMANDER_VIEWERS_REG, ViewerMasks)")
+    packers_load = load_config.index("//---  Packers & Unpackers")
+    if not plugins_load < viewers_load < packers_load:
+        raise AssertionError("plugin-indexed viewer associations must load after Plugins and before archive references")
+    if load_config[:viewers_load].count("LoadViewers(") != 0:
+        raise AssertionError("viewer associations must not load before the plugin list")
     read_plugins = startup.index("Plugins.ReadPluginsVer(")
     validate_viewers = startup.index("Plugins.CheckViewerData()", read_plugins)
     load_plugins = startup.index("Plugins.HandleLoadOnStartFlag(", read_plugins)
@@ -146,6 +156,74 @@ def main() -> None:
     ):
         if needle not in configuration:
             raise AssertionError(f"{description} must load into MAX_GROUPMASK, not MAX_PATH")
+
+    startup_fallback = startup[startup.index("if (!MainWindow->LoadConfig"):startup.index("// Apply dark mode color scheme")]
+    fallback_hide = startup_fallback.find("ShowWindow(MainWindow->HWindow, SW_HIDE);")
+    fallback_uncloak = startup_fallback.find("DarkModeSetWindowCloaked(MainWindow->HWindow, false);")
+    if (
+        fallback_hide < 0
+        or fallback_uncloak < fallback_hide
+        or "ShowWindow(MainWindow->HWindow, cmdShow);" in startup_fallback
+    ):
+        raise AssertionError(
+            "startup fallback must hide the incomplete main window before uncloaking its dialog owner"
+        )
+
+    require_text = CONFIGURATION.read_text(encoding="utf-8")
+    if "RemoveExtensionsForPlugin" not in require_text or 'GetPluginDataFromSuffix(\"7zip.spl\")' not in require_text:
+        raise AssertionError("7-Zip document cleanup must run after archive associations are loaded")
+    if "RemoveExtensionsFromLegacyRows" not in require_text or "legacyArchiveMarkers" not in require_text:
+        raise AssertionError("imported legacy archive rows must be cleaned by their contents, not unstable plugin indices")
+    if 'GetPluginDataFromSuffix("zip.spl")' not in require_text:
+        raise AssertionError("ZIP-owned imported archive rows must receive the same targeted document cleanup")
+
+    dialog_phase_start = startup.index("Startup recovery, command-line handling")
+    final_reveal = startup.index("MainWindow->RevealStartupWindow();", dialog_phase_start)
+    dialog_phase = startup[dialog_phase_start:final_reveal]
+    guard_hide = dialog_phase.find("ShowWindow(MainWindow->HWindow, SW_HIDE);")
+    guard_uncloak = dialog_phase.find("DarkModeSetWindowCloaked(MainWindow->HWindow, false);")
+    dialog_calls = (
+        "MainWindow->ApplyCommandLineParams",
+        "Plugins.AutoInstallStdPluginsDir",
+        "Plugins.ReadPluginsVer",
+        "Plugins.HandleLoadOnStartFlag",
+        "Plugins.LoadAll",
+        "DiskCache.ClearTEMPIfNeeded",
+        "SalMessageBoxEx(&params)",
+    )
+    if guard_hide < 0 or guard_uncloak < guard_hide:
+        raise AssertionError(
+            "startup must hide the main owner while cloaked and then uncloak it for modal dialogs"
+        )
+    for call in dialog_calls:
+        first_call = dialog_phase.find(call)
+        last_call = dialog_phase.rfind(call)
+        if first_call < guard_uncloak or last_call < guard_uncloak:
+            raise AssertionError(
+                f"all {call} calls must run after the main owner becomes hidden and uncloaked"
+            )
+    if (
+        "DarkModeSetWindowCloaked(MainWindow->HWindow, true)" in dialog_phase
+        or "ShowWindow(MainWindow->HWindow, cmdShow);" in dialog_phase
+    ):
+        raise AssertionError(
+            "the main owner must remain hidden and uncloaked throughout synchronous startup UI"
+        )
+
+    reveal_body = re.search(
+        r"void CMainWindow::RevealStartupWindow\(\).*?^}\n",
+        configuration,
+        re.DOTALL | re.MULTILINE,
+    )
+    if (
+        reveal_body is None
+        or reveal_body.group(0).find("DarkModeSetWindowCloaked(HWindow, true)") < 0
+        or reveal_body.group(0).find("ShowWindow(HWindow, CmdShow)")
+        < reveal_body.group(0).find("DarkModeSetWindowCloaked(HWindow, true)")
+    ):
+        raise AssertionError(
+            "final RevealStartupWindow must re-cloak before showing the completed main window"
+        )
 
     print("Viewer mask persistence source-contract tests passed.")
 

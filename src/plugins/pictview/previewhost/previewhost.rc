@@ -1,0 +1,37 @@
+// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#include "../versinfo.rh2"
+
+#define CREATEPROCESS_MANIFEST_RESOURCE_ID 1
+#define RT_MANIFEST 24
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "manifest.xml"
+
+1 VERSIONINFO
+ FILEVERSION 1,0,0,VERSINFO_BUILDNUMBER
+ PRODUCTVERSION VERSINFO_SALAMANDER_MAJOR,VERSINFO_SALAMANDER_MINORA,VERSINFO_SALAMANDER_MINORB,VERSINFO_BUILDNUMBER
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x40004L
+ FILETYPE 0x1L
+{
+ BLOCK "StringFileInfo"
+ {
+  BLOCK "040904b0"
+  {
+   VALUE "CompanyName", "Open Salamander\0"
+   VALUE "FileDescription", "PictView Preview Handler Host\0"
+   VALUE "FileVersion", "1.0\0"
+   VALUE "InternalName", "pictview-previewhost\0"
+   VALUE "OriginalFilename", "pictview-previewhost.exe\0"
+   VALUE "LegalCopyright", VERSINFO_COPYRIGHT "\0"
+   VALUE "ProductVersion", VERSINFO_SALAMANDER_VERSION "\0"
+   VALUE "ProductName", "Open Salamander\0"
+  }
+ }
+ BLOCK "VarFileInfo" { VALUE "Translation", 0x0409, 0x04b0 }
+}

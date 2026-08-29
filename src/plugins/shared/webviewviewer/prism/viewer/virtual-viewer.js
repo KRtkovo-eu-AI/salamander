@@ -335,7 +335,9 @@
       lineTexts: [],
       lineColumns: [],
       layoutWidth: 0,
-      measuredHeight: lineCount * settings.lineHeight
+      measuredHeight: lineCount * settings.lineHeight,
+      renderRevision: 0,
+      deferredHtml: null
     };
 
     slot.className = "chunk-slot";
@@ -351,7 +353,13 @@
 
   function initialize(message) {
     applyIncomingCustomPalette(message);
+    const previousShowWhitespace = settings && settings.showWhitespace;
     settings = normalizeSettings(message);
+    if (previousShowWhitespace && !settings.showWhitespace && worker) {
+      worker.terminate();
+      worker = null;
+      startWorker();
+    }
     if (pendingPalette) {
       settings.palette = pendingPalette;
       pendingPalette = null;
@@ -458,17 +466,16 @@
 
   function highlightOnMainThread(text, insideMarkupComment) {
     const language = canonicalLanguage();
-    if (
-      !window.Prism ||
-      !Prism.highlight ||
-      !Prism.languages ||
-      language === "none" ||
-      language === "plain" ||
-      language === "plaintext" ||
-      language === "text" ||
-      text.length > MAIN_HIGHLIGHT_LIMIT
-    ) {
+    if (!window.Prism || !Prism.highlight || !Prism.languages || text.length > MAIN_HIGHLIGHT_LIMIT) {
       return escapeHtml(text);
+    }
+    if (language === "none" || language === "plain" || language === "plaintext" || language === "text") {
+      if (!settings.showWhitespace || !Prism.hooks || !Prism.hooks.run) {
+        return escapeHtml(text);
+      }
+      const environment = { code: text, grammar: {}, language: "plain" };
+      Prism.hooks.run("before-highlight", environment);
+      return Prism.highlight(environment.code, environment.grammar, environment.language);
     }
     try {
       if (window.SalamanderPrism) {
@@ -478,16 +485,20 @@
       if (!grammar) {
         return escapeHtml(text);
       }
+      const environment = { code: text, grammar: grammar, language: language };
+      if (settings.showWhitespace && Prism.hooks && Prism.hooks.run) {
+        Prism.hooks.run("before-highlight", environment);
+      }
       if (language === "markup" && window.SalamanderPrism && SalamanderPrism.highlightMarkupChunk) {
         return SalamanderPrism.highlightMarkupChunk(
           Prism,
-          text,
-          grammar,
-          language,
+          environment.code,
+          environment.grammar,
+          environment.language,
           Boolean(insideMarkupComment)
         );
       }
-      return Prism.highlight(text, grammar, language);
+      return Prism.highlight(environment.code, environment.grammar, environment.language);
     } catch (error) {
       console.warn("Main-thread Prism highlighting failed.", error);
       return escapeHtml(text);
@@ -551,24 +562,18 @@
       paintChunk(state, escapeHtml(message.text));
     }
 
-    const requestId = state.requestId;
-    ensureLanguage(canonicalLanguage()).then(function () {
-      if (!settings || settings.generation !== message.generation || state.requestId !== requestId) {
-        return;
-      }
-      if (state.cachedHtml && state.cachedHtml.indexOf('class="token') !== -1) {
-        state.highlightPending = false;
-        window.clearTimeout(state.highlightTimer);
-        return;
-      }
-      state.highlightPending = false;
-      window.clearTimeout(state.highlightTimer);
-      paintChunk(state, highlightOnMainThread(state.pendingText, state.insideMarkupComment));
-    });
-
     if (!worker) {
+      const requestId = state.requestId;
+      ensureLanguage(canonicalLanguage()).then(function () {
+        if (!settings || settings.generation !== message.generation || state.requestId !== requestId) {
+          return;
+        }
+        state.highlightPending = false;
+        paintChunk(state, highlightOnMainThread(state.pendingText, state.insideMarkupComment));
+      });
       return;
     }
+
     worker.postMessage({
       type: "highlight",
       generation: settings.generation,
@@ -585,10 +590,8 @@
       if (!state.highlightPending) {
         return;
       }
-      console.warn("Prism highlighting is still running; showing available text.");
+      console.warn("Prism highlighting is still running; showing available text until it completes.");
       state.highlightTimer = 0;
-      state.highlightPending = false;
-      paintChunk(state, highlightOnMainThread(state.pendingText, state.insideMarkupComment));
     }, HIGHLIGHT_TIMEOUT_MS);
   }
 
@@ -647,7 +650,34 @@
     }
   }
 
+  function normalizeInvisibleLineEndings(highlightedHtml) {
+    return highlightedHtml
+      .replace(/<span class="token crlf">\r\n<\/span>/g, '<span class="token crlf"></span>\r\n')
+      .replace(/<span class="token lf">\n<\/span>/g, '<span class="token lf"></span>\n')
+      .replace(/<span class="token cr">\r<\/span>/g, '<span class="token cr"></span>\r');
+  }
+
+  function selectionTouchesSlot(slot) {
+    const selection = document.getSelection();
+    if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+      return false;
+    }
+    try {
+      return selection.getRangeAt(0).intersectsNode(slot);
+    } catch (error) {
+      return false;
+    }
+  }
+
   function paintChunk(state, highlightedHtml) {
+    highlightedHtml = normalizeInvisibleLineEndings(highlightedHtml);
+    state.cachedHtml = highlightedHtml;
+    if (state.mounted && selectionActive && selectionTouchesSlot(state.slot)) {
+      state.deferredHtml = highlightedHtml;
+      return;
+    }
+    state.deferredHtml = null;
+    const renderRevision = ++state.renderRevision;
     const pre = document.createElement("pre");
     const code = document.createElement("code");
     const languageClass = "language-" + canonicalLanguage().replace(/[^a-z0-9_-]/g, "");
@@ -672,7 +702,13 @@
     state.cachedHtml = highlightedHtml;
 
     requestAnimationFrame(function () {
-      if (!settings || !state.mounted || !state.slot.isConnected) {
+      if (
+        !settings ||
+        !state.mounted ||
+        !state.slot.isConnected ||
+        state.renderRevision !== renderRevision ||
+        pre.parentNode !== state.slot
+      ) {
         return;
       }
       layoutLineNumbers(pre, state, true);
@@ -882,6 +918,11 @@
     const wasActive = selectionActive;
     selectionActive = selectionTouchesViewer();
     if (wasActive && !selectionActive) {
+      chunksByStart.forEach(function (state) {
+        if (state.deferredHtml !== null) {
+          paintChunk(state, state.deferredHtml);
+        }
+      });
       scheduleVisibleSync();
     }
   }
@@ -902,27 +943,32 @@
 
   function relayoutMountedChunks() {
     const contentWidth = Math.max(1, spacer.clientWidth - (settings.showLineNumbers ? settings.gutterWidth : 0));
+    const measure = [];
+
     chunksByStart.forEach(function (state) {
-      state.slot.style.height = "auto";
-      if (!state.mounted) {
-        if (state.lineColumns.length) {
-          state.measuredHeight = estimateChunkHeight(state, contentWidth);
-          state.slot.style.height = state.measuredHeight + "px";
-        }
-        return;
-      }
-      const pre = state.slot.querySelector("pre");
-      const code = pre && pre.querySelector("code");
       state.layoutWidth = 0;
-      layoutLineNumbers(pre, state, true);
-      const target = code || pre;
-      if (target) {
-        state.measuredHeight = Math.max(
-          settings.lineHeight,
-          Math.ceil(target.getBoundingClientRect().height)
-        );
-        state.slot.style.height = state.measuredHeight + "px";
+      if (state.lineColumns.length) {
+        state.measuredHeight = estimateChunkHeight(state, contentWidth);
       }
+      state.slot.style.height = state.measuredHeight + "px";
+      if (state.mounted && slotNearViewport(state.slot, OVERSCAN_VIEWPORTS)) {
+        const pre = state.slot.querySelector("pre");
+        if (pre) {
+          state.slot.style.height = "auto";
+          layoutLineNumbers(pre, state, true);
+          measure.push({ state: state, target: pre.querySelector("code") || pre });
+        }
+      }
+    });
+
+    measure.forEach(function (entry) {
+      entry.state.measuredHeight = Math.max(
+        settings.lineHeight,
+        Math.ceil(entry.target.getBoundingClientRect().height)
+      );
+    });
+    measure.forEach(function (entry) {
+      entry.state.slot.style.height = entry.state.measuredHeight + "px";
     });
   }
 
@@ -940,7 +986,6 @@
       syncVisibleChunks();
     });
   }
-
   function startWorker() {
     try {
       const candidate = new Worker(new URL("prism-worker.js", document.baseURI).href);

@@ -20,12 +20,35 @@ SEVEN_ZIP = SRC / "plugins" / "7zip" / "7zip.cpp"
 REMOVED_DOC_EXTS = (
     "doc",
     "docx",
+    "docm",
+    "dot",
+    "dotx",
+    "dotm",
     "xls",
     "xlsx",
+    "xlsm",
+    "xlt",
+    "xltx",
+    "xltm",
     "ppt",
     "pptx",
+    "pptm",
+    "pot",
+    "potx",
+    "potm",
+    "pps",
+    "ppsx",
+    "ppsm",
     "odt",
     "ods",
+    "odp",
+    "odg",
+    "odf",
+    "odm",
+    "ott",
+    "ots",
+    "otp",
+    "otg",
     "epub",
     "xpi",
 )
@@ -163,15 +186,19 @@ def main() -> int:
 
     seven_zip = SEVEN_ZIP.read_text(encoding="utf-8")
     require(
-        re.search(r"#define\s+CURRENT_CONFIG_VERSION\s+7\b", seven_zip) is not None,
+        re.search(r"#define\s+CURRENT_CONFIG_VERSION\s+8\b", seven_zip) is not None,
         "7-Zip CURRENT_CONFIG_VERSION must be 7",
     )
     connect_start = seven_zip.index("void CPluginInterface::Connect")
     connect_end = seven_zip.index("void CPluginInterface::Event", connect_start)
     connect = seven_zip[connect_start:connect_end]
     require(
-        "ConfigVersion < 7" in connect and "ForceRemovePanelArchiver" in connect,
+        "ConfigVersion < 8" in connect and "ForceRemovePanelArchiver" in connect,
         "Connect must ForceRemovePanelArchiver on ConfigVersion < 7",
+    )
+    require(
+        'GetPluginDataFromSuffix("zip.spl")' in (SRC / "mainwnd2.cpp").read_text(encoding="utf-8"),
+        "post-load migration must also clean imported ZIP-owned document rows",
     )
 
     association_masks = []

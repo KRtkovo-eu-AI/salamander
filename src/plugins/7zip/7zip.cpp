@@ -211,7 +211,9 @@ int ConfigVersion = 0;
 // 6: force registration of formats added after the original .7z-only plugin.
 // 7: remove document-like Office/OpenDocument/EPUB/XPI types from panel
 //    archiver and custom unpacker lists so Enter opens the associated app.
-#define CURRENT_CONFIG_VERSION 7
+// 8: repeat the cleanup with the complete document extension set, including
+//    combined packer/unpacker rows left by older configurations.
+#define CURRENT_CONFIG_VERSION 8
 const char* CONFIG_VERSION = "Version";
 
 CConfig Config;
@@ -708,10 +710,16 @@ void CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamand
     // UPGRADE SECTION
     // Panel archiver extensions are registered above in bounded groups.  This also upgrades
     // older configurations without creating one overlong registry value or one row per extension.
-    if (ConfigVersion < 7) // remove document-like types from panel archiver associations
+    if (ConfigVersion < 8) // remove document-like types from panel archiver associations
     {
         static const char* const removedDocumentExts[] = {
-            "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp", "odg", "epub", "xpi"};
+            // These were historical automatic registrations, not user-defined
+            // archive associations. Keep the cleanup scoped to 7-Zip's rows.
+            "doc", "docx", "docm", "dot", "dotx", "dotm",
+            "xls", "xlsx", "xlsm", "xlt", "xltx", "xltm",
+            "ppt", "pptx", "pptm", "pot", "potx", "potm", "pps", "ppsx", "ppsm",
+            "odt", "ods", "odp", "odg", "odf", "odm", "ott", "ots", "otp", "otg",
+            "epub", "xpi"};
         for (unsigned i = 0; i < sizeof(removedDocumentExts) / sizeof(removedDocumentExts[0]); i++)
             salamander->ForceRemovePanelArchiver(removedDocumentExts[i]);
     }

@@ -688,32 +688,32 @@ void CSalamanderConnect::AddViewerWithLabel(const char* masks, BOOL force,
     }
     if (Viewer || force)
     {
-        char ext[300];        // copy of masks (replace ';' with '\0')
-        char ext2[300];       // used to split found masks (replace ';' with '\0'); also stores the "force" result
+        std::vector<char> ext(MAX_GROUPMASK); // copy of masks (replace ';' with '\0')
+        std::vector<char> ext2(MAX_GROUPMASK); // used to split found masks (replace ';' with '\0'); also stores the "force" result
         if (!Viewer && force) // this is an update, not an installation, so check whether it is already on the list
         {
             int len = (int)strlen(masks);
-            if (len > 299)
-                len = 299;
-            memcpy(ext, masks, len);
-            ext[len] = 0;
+            if (len >= MAX_GROUPMASK)
+                len = MAX_GROUPMASK - 1;
+            memcpy(ext.data(), masks, len);
+            ext.data()[len] = 0;
             TDirectArray<char*> extArray(10, 5); // array of extensions from masks
-            char* s = ext + len;
-            while (s > ext)
+            char* s = ext.data() + len;
+            while (s > ext.data())
             {
-                while (--s >= ext)
+                while (--s >= ext.data())
                 {
                     if (*s == ';')
                     {
                         char* p = s;
-                        while (--p >= ext && *p == ';')
+                        while (--p >= ext.data() && *p == ';')
                             ;
                         if (((s - p) & 1) == 1)
                             break;
                         s = p + 1;
                     }
                 }
-                if (s >= ext)
+                if (s >= ext.data())
                     *s = 0;
                 char* ss = s + 1 + strlen(s + 1);
                 while (--ss >= s + 1 && *ss <= ' ')
@@ -738,26 +738,26 @@ void CSalamanderConnect::AddViewerWithLabel(const char* masks, BOOL force,
                 {
                     const char* m = MainWindow->ViewerMasks->At(i)->Masks->GetMasksString();
                     len = (int)strlen(m);
-                    if (len > 299)
-                        len = 299;
-                    memcpy(ext2, m, len);
-                    ext2[len] = 0;
-                    s = ext2 + len;
-                    while (s > ext2)
+                    if (len >= MAX_GROUPMASK)
+                        len = MAX_GROUPMASK - 1;
+                    memcpy(ext2.data(), m, len);
+                    ext2.data()[len] = 0;
+                    s = ext2.data() + len;
+                    while (s > ext2.data())
                     {
-                        while (--s >= ext2)
+                        while (--s >= ext2.data())
                         {
                             if (*s == ';')
                             {
                                 char* p = s;
-                                while (--p >= ext2 && *p == ';')
+                                while (--p >= ext2.data() && *p == ';')
                                     ;
                                 if (((s - p) & 1) == 1)
                                     break;
                                 s = p + 1;
                             }
                         }
-                        if (s >= ext2)
+                        if (s >= ext2.data())
                             *s = 0;
                         char* ss = s + 1 + strlen(s + 1);
                         while (--ss >= s + 1 && *ss <= ' ')
@@ -783,18 +783,18 @@ void CSalamanderConnect::AddViewerWithLabel(const char* masks, BOOL force,
             if (extArray.Count == 0)
                 return; // empty mask -> nothing to do
             // rejoin the mask 'masks' (the useful remainder)
-            s = ext2;
+            s = ext2.data();
             int k;
             for (k = 0; k < extArray.Count; k++)
             {
-                if (extArray[k][0] == ';' && s != ext2)
+                if (extArray[k][0] == ';' && s != ext2.data())
                     *s++ = ' '; // space is necessary (otherwise the previous ';' wouldn't act as a separator but will merge with this ';')
                 strcpy(s, extArray[k]);
                 if (k + 1 < extArray.Count)
                     strcat(s, ";");
                 s += strlen(s);
             }
-            masks = ext2;
+            masks = ext2.data();
         }
 
         if (Viewer && !force || // plug-in installation
@@ -854,7 +854,7 @@ int StrICmpIgnoreSpacesOnStartAndEnd(const char* s1, const char* s2)
 void CSalamanderConnect::ForceRemoveViewer(const char* mask)
 {
     CALL_STACK_MESSAGE2("CSalamanderConnect::ForceRemoveViewer(%s)", mask);
-    char ext2[300]; // used to split found masks (replace ';' with '\0')
+    std::vector<char> ext2(MAX_GROUPMASK); // used to split found masks (replace ';' with '\0')
     int i;
     for (i = 0; i < MainWindow->ViewerMasks->Count; i++)
     {
@@ -862,50 +862,50 @@ void CSalamanderConnect::ForceRemoveViewer(const char* mask)
         {
             const char* m = MainWindow->ViewerMasks->At(i)->Masks->GetMasksString();
             int len = (int)strlen(m);
-            if (len > 299)
-                len = 299;
-            memcpy(ext2, m, len);
-            ext2[len] = 0;
-            char* s = ext2 + len;
+            if (len >= MAX_GROUPMASK)
+                len = MAX_GROUPMASK - 1;
+            memcpy(ext2.data(), m, len);
+            ext2.data()[len] = 0;
+            char* s = ext2.data() + len;
             // find and eliminate the extension 'mask', side effect of removing the ';' (replacing it with 0)
-            while (s > ext2)
+            while (s > ext2.data())
             {
-                while (--s >= ext2)
+                while (--s >= ext2.data())
                 {
                     if (*s == ';')
                     {
                         char* p = s;
-                        while (--p >= ext2 && *p == ';')
+                        while (--p >= ext2.data() && *p == ';')
                             ;
                         if (((s - p) & 1) == 1)
                             break;
                         s = p + 1;
                     }
                 }
-                if (s >= ext2)
+                if (s >= ext2.data())
                     *s = 0;
                 if (StrICmpIgnoreSpacesOnStartAndEnd(s + 1, mask) == 0) // we are looking for this mask, we will delete it
                 {
                     int sLen = (int)strlen(s + 1);
-                    memmove(s + 1, s + 1 + sLen + 1, len - ((s + 1) - ext2) - sLen);
+                    memmove(s + 1, s + 1 + sLen + 1, len - ((s + 1) - ext2.data()) - sLen);
                     if (len > sLen + 1)
                         len -= sLen + 1;
                     else
-                        ext2[(len = 0)] = 0;
+                        ext2.data()[(len = 0)] = 0;
                 }
             }
             // restore ';'
-            s = ext2;
-            while (s - ext2 < len)
+            s = ext2.data();
+            while (s - ext2.data() < len)
             {
                 if (*s == 0)
                     *s = ';';
                 s++;
             }
-            if (ext2[0] != 0) // mask changed
+            if (ext2.data()[0] != 0) // mask changed
             {
-                if (strcmp(ext2, m) != 0)
-                    MainWindow->ViewerMasks->At(i)->Set(ext2, "", "", "");
+                if (strcmp(ext2.data(), m) != 0)
+                    MainWindow->ViewerMasks->At(i)->Set(ext2.data(), "", "", "");
             }
             else // entry removed (last mask deleted)
             {
@@ -1135,7 +1135,8 @@ NEXT_ROUND:
 
     for (int i = 0; i < PackerFormatConfig.GetFormatsCount(); i++)
     {
-        if (PackerFormatConfig.GetUnpackerIndex(i) == -Index - 1) // if the plug-in is configured at least for "view"
+        if (PackerFormatConfig.GetUnpackerIndex(i) == -Index - 1 ||
+            PackerFormatConfig.GetUsePacker(i) && PackerFormatConfig.GetPackerIndex(i) == -Index - 1)
         {
             char ext[300];
             lstrcpyn(ext, PackerFormatConfig.GetExt(i), _countof(ext));

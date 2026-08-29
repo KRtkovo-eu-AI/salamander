@@ -86,6 +86,32 @@ def main() -> None:
             "support gaps must document native DX10 DDS decoding")
     require(WIC, "PathPrefersNativeDecoder",
             "WIC open must prefer native decode for DDS/DWG/WMF/AI")
+    require(WIC, "const bool isStl = IsStlExtension(image->fileName);",
+            "STL opening must be identified before any WIC decoder attempt")
+    require(WIC, "if (isStl)",
+            "STL opening must try the external IPreviewHandler first")
+    require(WIC, 'RecordDetailedError(failureCode, failureHr, "STL IPreviewHandler")',
+            "STL handler failures must not be reported as a generic WIC error")
+    require(WIC, 'RecordDetailedError(failureCode, failureHr, "Native decoder")',
+            "native decoder failures must retain their actual diagnostic stage")
+    require(WIC, "return failureCode;",
+            "native decoder failures must not fall through to WIC or shell diagnostics")
+    require(WIC, "GetWicDecoderMasks(wicMasks)",
+            "opening must query the actual WIC codec inventory separately from native and shell masks")
+    require(WIC, "PictView::Native::GetDecoderMasks(nativeMasks)",
+            "opening must identify native implementations before considering WIC")
+    require(WIC, "wicCodecAvailable && !nativeDecoderRegistered",
+            "WIC must not be attempted for formats handled by a native decoder")
+    require(WIC, "starPos = std::string::npos",
+            "native extension matching must honor wildcard masks such as *.psp*")
+    require(PLUGIN, "GetWicDecoderMasks(currentMasks)",
+            "PictView viewer associations must be synchronized from WIC codecs only")
+    require(PLUGIN, "currentMasks = SplitViewerMasks(FallbackWicDecoderMasks)",
+            "WIC enumeration failure must not restore legacy native or shell masks as WIC associations")
+    if "GetDecoderMasks(currentMasks)" in PLUGIN:
+        raise AssertionError("PictView WIC associations must not use the native/shell union")
+    require(WIC, "if (!opened && wicCodecAvailable && !nativeDecoderRegistered)",
+            "WIC decoding must be skipped when no WIC codec is registered for the extension")
     require(WIC, "return PVC_UNSUP_FILE_TYPE",
             "unmapped WIC/shell HRESULT must not surface as Unknown WIC error")
     require(NATIVE, "return preview.size >= 8;",
@@ -122,18 +148,91 @@ def main() -> None:
             "WIC/shell 32-bpp frames with an unused alpha plane must stay visible")
     require(SHELL, "IPreviewHandler",
             "STL viewing must host Explorer IPreviewHandler, not a bundled mesh renderer")
+    require(PLUGIN, "OleInitialize(nullptr)",
+            "the viewer UI thread must keep a persistent STA for preview-handler lifetime")
+    require(PLUGIN, "OleUninitialize()",
+            "the viewer STA must be released only after its window and preview handles")
+    require(SHELL, "CoGetApartmentType",
+            "interactive preview activation must verify the persistent viewer STA")
+    require(SHELL, "APTTYPE_STA",
+            "interactive preview handlers must never activate on an MTA thread")
     require(SHELL, "4834AC27-23F1-420A-888D-85DC70B903C5",
             "STL preview must use the Microsoft 3D Viewer DesktopPreviewHandler CLSID")
+    require(SHELL, "stale or broken .stl association must not suppress",
+            "STL preview must retry Microsoft 3D Viewer when the registered handler fails")
+    require(SHELL, "SystemFileAssociations",
+            "STL preview must search the standard SystemFileAssociations fallback")
+    require(SHELL, "ReadDefaultRegistryString",
+            "STL preview must read direct HKCR preview-handler registrations")
+    require(SHELL, "shellex",
+            "STL preview must inspect the registered preview-handler shell extension key")
+    require(SHELL, "CLSCTX_LOCAL_SERVER",
+            "preview handlers must activate out of process through the PreviewHost surrogate")
+    if "CLSCTX_ALL" in SHELL or "CLSCTX_INPROC_SERVER" in SHELL:
+        raise AssertionError("preview handlers must never be activated in the PictView process")
+    require(SHELL, "PictView STL preview candidate",
+            "STL handler selection must expose the selected association for diagnosis")
+    # The current Windows SDK does not expose ASSOCSTR_PROGID here; handler
+    # lookup intentionally covers the extension and SystemFileAssociations scopes.
+
     require(SHELL, "IsStlExtension",
             "interactive IPreviewHandler hosting is STL-only; do not attach Office/PDF previewers")
     require(SHELL, "PVFF_FAST",
             "interactive 3D preview must not run on the thumbnail/fast-open path")
+    require(SHELL, "PreviewHostProtocol.h",
+            "elevated STL preview must reuse the shared versioned helper protocol")
+    require(SHELL, 'directory + L"\\\\pictview-previewhost.exe"',
+            "helper executable must be resolved directly beside pictview.spl")
+    if 'L"\\\\pictview\\\\pictview-previewhost.exe"' in SHELL:
+        raise AssertionError("helper path must not duplicate the installed pictview directory")
+    require(SHELL, "CLSID_ShellWindows",
+            "elevated preview helper must launch through Explorer automation")
+    require(SHELL, "IShellDispatch2",
+            "helper launch must use the medium-integrity Explorer shell")
+    require(SHELL, "CreateNamedPipeW",
+            "helper transport must use a parent-owned named pipe")
+    require(SHELL, "ConvertStringSecurityDescriptorToSecurityDescriptorW",
+            "helper pipe must have an explicit user/system/admin DACL and mandatory label")
+    require(SHELL, "GetNamedPipeClientProcessId",
+            "helper connection must validate the client process")
+    require(SHELL, "ProcessIdToSessionId",
+            "helper connection must remain in the parent logon session")
+    require(SHELL, "kHelperConnectTimeoutMs",
+            "missing helper must not block PictView indefinitely")
+    require(SHELL, "GetOverlappedResult(pipe, &operation, &ignored, TRUE)",
+            "timed-out pipe transfers must drain cancellation before releasing OVERLAPPED storage")
+    require(SHELL, "GetOverlappedResult(pipe, &connect, &ignored, TRUE)",
+            "timed-out pipe connection must drain cancellation before closing its event or pipe")
+    require(SHELL, "ERROR_OPERATION_ABORTED",
+            "drained cancellation must accept the expected aborted completion")
+    require(SHELL, "Command::Attach",
+            "helper preview must implement protocol attach")
+    require(SHELL, "Command::Resize",
+            "helper preview must implement protocol resize")
+    require(SHELL, "Command::Focus",
+            "helper preview must implement protocol focus")
+    require(SHELL, "Command::Close",
+            "helper session release must send protocol close")
+    require(SHELL, "MapWindowPoints",
+            "helper popup geometry must be converted to screen coordinates")
     if "TryOpenPreviewThumbnail" in WIC or "PumpPreviewMessages" in SHELL:
         raise AssertionError("thumbnail path must not host IPreviewHandler or extract Explorer cache")
     if "CLSID_LocalThumbnailCache" in WIC or "WTS_EXTRACT" in WIC:
         raise AssertionError("IThumbnailCache extraction deadlocks the icon thread")
     require(PLUGIN, "JoinThumbnailMasks",
             "thumbnail loader masks must pack native PictView formats before MAX_GROUPMASK truncation")
+    require(PLUGIN, "one extension per persisted viewer item",
+            "PictView viewer registrations must not pack multiple extensions into truncatable rows")
+    require(PLUGIN, "AddViewer(mask.c_str(), force)",
+            "PictView viewer registration must add each mask independently")
+    require((ROOT / "src/plugins1.cpp").read_text(encoding="utf-8"), "vector<char> ext2(MAX_GROUPMASK)",
+            "viewer migration must inspect full persisted mask rows when removing legacy entries")
+    require(PLUGIN, "repairMasks = HistoricPictViewViewerMasks()",
+            "older PictView configurations must remove all known masks before rebuilding split viewer rows")
+    require(PLUGIN, "repairMasks.insert(repairMasks.end(), previousMasks.begin(), previousMasks.end())",
+            "legacy PictView repair must include masks persisted by the old WIC inventory")
+    require(PLUGIN, "repairMasks.insert(repairMasks.end(), nativeMasks.begin(), nativeMasks.end())",
+            "legacy PictView repair must include native masks, not only WIC masks")
     require(SDK, "#define MAX_GROUPMASK 8192",
             "group masks must be large enough for native+WIC+shell thumbnail extensions")
     require(HELP, "IPreviewHandler",

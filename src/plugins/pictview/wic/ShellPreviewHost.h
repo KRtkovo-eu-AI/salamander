@@ -7,6 +7,7 @@
 
 namespace PictView::Wic
 {
+bool IsStlExtension(const std::wstring& path);
 
 bool HandleHasInteractivePreview(const ImageHandle& handle);
 HRESULT TryOpenInteractivePreview(ImageHandle& handle);

@@ -389,6 +389,11 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="previewhost\previewhost.vcxproj" Condition="'$(Platform)'=='x64'">
+      <Project>{d84e4828-c4c6-4b95-953b-93c8d2c62d7e}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
     <ProjectReference Include="exif\exif.vcxproj">
       <Project>{c3d5458e-bf71-4c7d-af45-f502a14eb528}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>

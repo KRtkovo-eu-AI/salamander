@@ -5480,12 +5480,19 @@ FIND_NEW_SLG_FILE:
                         SendMessage(MainWindow->HWindow, WM_COMMAND, CM_TOGGLEEDITLINE, TRUE);
                     MainWindow->SetWindowIcon();
                     MainWindow->SetWindowTitle();
-                    MainWindow->StartupWindowCloaked = DarkModeSetWindowCloaked(MainWindow->HWindow, true);
-                    ShowWindow(MainWindow->HWindow, cmdShow);
-                    UpdateWindow(MainWindow->HWindow);
+                    // LoadConfig() failed, so startup continues through the recovery path.
                     MainWindow->RefreshDirs();
                     MainWindow->FocusLeftPanel();
                 }
+
+                // Startup recovery, command-line handling, plug-in loading, language
+                // checks, and temporary-file cleanup can synchronously show owned modal
+                // dialogs. Hide the main owner while it is still cloaked, then uncloak
+                // it before entering any of those operations. This preserves issue #712:
+                // dialogs are foreground and interactive without publishing incomplete UI.
+                ShowWindow(MainWindow->HWindow, SW_HIDE);
+                DarkModeSetWindowCloaked(MainWindow->HWindow, false);
+                MainWindow->StartupWindowCloaked = FALSE;
 
                 // Apply dark mode color scheme when user chose "Start with default settings"
                 // from the Welcome dialog with system dark mode active.
