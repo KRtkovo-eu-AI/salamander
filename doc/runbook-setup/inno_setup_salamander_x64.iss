@@ -14,7 +14,8 @@
 ;   /LANG=<language>                 Inno Setup built-in language selector (for example czech or english).
 ;   /INSTALLMODE=<install|portable>  Mirrors the UI installation mode radio buttons.
 ;   /OVERWRITEDIR=<yes|no>           Silent answer for an already existing destination directory; no aborts before copying.
-;   /PLUGINS=<default|all|none|id,..> Mirrors the plugin selection page.
+;   /PLUGINS=<default|all|none|id,..> Mirrors the plugin selection page (takes precedence over /PLUGINCONFIG).
+;   /PLUGINCONFIG=<base|standard|advanced|expert|custom> Selects a plugin preset when /PLUGINS is not supplied.
 ;   /SHORTCUTS=<none|startmenu|desktop|startmenu,desktop> Mirrors the shortcuts tasks; ignored for portable mode.
 ;   /RUNAPP=<yes|no>                 Controls launching the app after install; defaults to no during silent setup.
 ;
@@ -287,28 +288,100 @@ slovak.KeepConfigQuestion=Bol nájdený existujúci konfiguračný súbor (confi
 spanish.KeepConfigQuestion=Se encontró un archivo de configuración existente (configstorage.ini).\n\nSerá renombrado a configstorage.ini.BAK y se instalará la nueva configuración predeterminada.
 english.PluginSelectionTitle=Select plugins
 english.PluginSelectionDescription=Choose which bundled plugins will be installed or extracted.
+english.PluginConfigurationLabel=Plugin configuration:
+english.PluginConfigurationBase=Base (local only, no Internet access)
+english.PluginConfigurationStandard=Standard (for most users)
+english.PluginConfigurationAdvanced=Advanced (for advanced users)
+english.PluginConfigurationExpert=Expert (for experts and developers)
+english.PluginConfigurationCustom=Custom
 chinesesimplified.PluginSelectionTitle=选择插件
 chinesesimplified.PluginSelectionDescription=选择要安装或解压的随附插件。
+chinesesimplified.PluginConfigurationLabel=插件配置：
+chinesesimplified.PluginConfigurationBase=基础（仅本地，无 Internet 访问）
+chinesesimplified.PluginConfigurationStandard=标准（适合大多数用户）
+chinesesimplified.PluginConfigurationAdvanced=高级（适合高级用户）
+chinesesimplified.PluginConfigurationExpert=专家（适合专家和开发者）
+chinesesimplified.PluginConfigurationCustom=自定义
 dutch.PluginSelectionTitle=Plug-ins selecteren
 dutch.PluginSelectionDescription=Kies welke meegeleverde plug-ins worden geïnstalleerd of uitgepakt.
+dutch.PluginConfigurationLabel=Pluginconfiguratie:
+dutch.PluginConfigurationBase=Basis (alleen lokaal, geen internettoegang)
+dutch.PluginConfigurationStandard=Standaard (voor de meeste gebruikers)
+dutch.PluginConfigurationAdvanced=Geavanceerd (voor gevorderde gebruikers)
+dutch.PluginConfigurationExpert=Expert (voor experts en ontwikkelaars)
+dutch.PluginConfigurationCustom=Aangepast
 french.PluginSelectionTitle=Sélection des modules
 french.PluginSelectionDescription=Choisissez les modules inclus à installer ou extraire.
+french.PluginConfigurationLabel=Configuration des modules :
+french.PluginConfigurationBase=Base (local uniquement, sans accès Internet)
+french.PluginConfigurationStandard=Standard (pour la plupart des utilisateurs)
+french.PluginConfigurationAdvanced=Avancée (pour les utilisateurs avancés)
+french.PluginConfigurationExpert=Expert (pour les experts et développeurs)
+french.PluginConfigurationCustom=Personnalisée
 german.PluginSelectionTitle=Plugins auswählen
 german.PluginSelectionDescription=Wählen Sie aus, welche mitgelieferten Plugins installiert oder entpackt werden.
+german.PluginConfigurationLabel=Plugin-Konfiguration:
+german.PluginConfigurationBase=Basis (nur lokal, kein Internetzugriff)
+german.PluginConfigurationStandard=Standard (für die meisten Benutzer)
+german.PluginConfigurationAdvanced=Erweitert (für fortgeschrittene Benutzer)
+german.PluginConfigurationExpert=Experte (für Experten und Entwickler)
+german.PluginConfigurationCustom=Benutzerdefiniert
 hungarian.PluginSelectionTitle=Bővítmények kiválasztása
 hungarian.PluginSelectionDescription=Válassza ki a telepítendő vagy kicsomagolandó mellékelt bővítményeket.
+hungarian.PluginConfigurationLabel=Bővítménykonfiguráció:
+hungarian.PluginConfigurationBase=Alap (csak helyi, internet-hozzáférés nélkül)
+hungarian.PluginConfigurationStandard=Normál (a legtöbb felhasználónak)
+hungarian.PluginConfigurationAdvanced=Haladó (haladó felhasználóknak)
+hungarian.PluginConfigurationExpert=Szakértő (szakértőknek és fejlesztőknek)
+hungarian.PluginConfigurationCustom=Egyéni
 italian.PluginSelectionTitle=Seleziona plugin
 italian.PluginSelectionDescription=Scegli quali plugin inclusi installare o estrarre.
+italian.PluginConfigurationLabel=Configurazione dei plugin:
+italian.PluginConfigurationBase=Base (solo locale, senza accesso a Internet)
+italian.PluginConfigurationStandard=Standard (per la maggior parte degli utenti)
+italian.PluginConfigurationAdvanced=Avanzata (per utenti avanzati)
+italian.PluginConfigurationExpert=Esperto (per esperti e sviluppatori)
+italian.PluginConfigurationCustom=Personalizzata
 romanian.PluginSelectionTitle=Selectare pluginuri
 romanian.PluginSelectionDescription=Alegeți pluginurile incluse care vor fi instalate sau extrase.
+romanian.PluginConfigurationLabel=Configurația pluginurilor:
+romanian.PluginConfigurationBase=De bază (doar local, fără acces la Internet)
+romanian.PluginConfigurationStandard=Standard (pentru majoritatea utilizatorilor)
+romanian.PluginConfigurationAdvanced=Avansat (pentru utilizatori avansați)
+romanian.PluginConfigurationExpert=Expert (pentru experți și dezvoltatori)
+romanian.PluginConfigurationCustom=Personalizat
 russian.PluginSelectionTitle=Выбор плагинов
 russian.PluginSelectionDescription=Выберите, какие включенные плагины будут установлены или извлечены.
+russian.PluginConfigurationLabel=Конфигурация плагинов:
+russian.PluginConfigurationBase=Базовая (только локальные, без доступа к Интернету)
+russian.PluginConfigurationStandard=Стандартная (для большинства пользователей)
+russian.PluginConfigurationAdvanced=Расширенная (для опытных пользователей)
+russian.PluginConfigurationExpert=Экспертная (для экспертов и разработчиков)
+russian.PluginConfigurationCustom=Пользовательская
 slovak.PluginSelectionTitle=Výber pluginov
 slovak.PluginSelectionDescription=Zvoľte, ktoré pribalené pluginy sa nainštalujú alebo rozbalia.
+slovak.PluginConfigurationLabel=Konfigurácia pluginov:
+slovak.PluginConfigurationBase=Základná (iba lokálne, bez prístupu na Internet)
+slovak.PluginConfigurationStandard=Štandardná (pre väčšinu používateľov)
+slovak.PluginConfigurationAdvanced=Pokročilá (pre pokročilých používateľov)
+slovak.PluginConfigurationExpert=Expertná (pre expertov a vývojárov)
+slovak.PluginConfigurationCustom=Vlastná
 spanish.PluginSelectionTitle=Seleccionar complementos
 spanish.PluginSelectionDescription=Elija qué complementos incluidos se instalarán o extraerán.
+spanish.PluginConfigurationLabel=Configuración de complementos:
+spanish.PluginConfigurationBase=Base (solo local, sin acceso a Internet)
+spanish.PluginConfigurationStandard=Estándar (para la mayoría de los usuarios)
+spanish.PluginConfigurationAdvanced=Avanzada (para usuarios avanzados)
+spanish.PluginConfigurationExpert=Experta (para expertos y desarrolladores)
+spanish.PluginConfigurationCustom=Personalizada
 czech.PluginSelectionTitle=Výběr pluginů
 czech.PluginSelectionDescription=Zvolte, které přibalené pluginy se nainstalují nebo rozbalí.
+czech.PluginConfigurationLabel=Konfigurace pluginů:
+czech.PluginConfigurationBase=Base (pouze lokální, bez přístupu k Internetu)
+czech.PluginConfigurationStandard=Standard (pro většinu uživatelů)
+czech.PluginConfigurationAdvanced=Advanced (pro pokročilé uživatele)
+czech.PluginConfigurationExpert=Expert (pro experty a vývojáře)
+czech.PluginConfigurationCustom=Vlastní
 english.InstalledVersionLabel=installed
 chinesesimplified.InstalledVersionLabel=已安装
 dutch.InstalledVersionLabel=geïnstalleerd
@@ -1082,7 +1155,11 @@ var
   InstallModePage: TInputOptionWizardPage;
   PluginSelectionPage: TWizardPage;
   PluginList: TNewCheckListBox;
+  PluginConfigurationLabel: TLabel;
+  PluginConfigurationList: TNewComboBox;
+  ApplyingPluginConfiguration: Boolean;
   PluginIds: array of String;
+  PluginConfigurations: array of String;
   PluginDependencies: array of TPluginDependency;
   DeleteUserConfiguration: Boolean;
   DeleteUserConfigurationFromFile: Boolean;
@@ -1090,6 +1167,7 @@ var
   PreviousVersionUninstallKeys: array of String;
   SilentInstallMode: String;
   SilentPluginSelection: String;
+  SilentPluginConfiguration: String;
   SilentShortcuts: String;
   SilentOverwriteDir: String;
   SilentRunApp: String;
@@ -1098,6 +1176,7 @@ var
 
 
 function IsPortableInstall(): Boolean; forward;
+procedure SelectAllPluginDependencies; forward;
 
 function GetLowerParam(const Name, Default: String): String;
 begin
@@ -1208,6 +1287,77 @@ begin
     (CompareText(PluginId, 'salamatrixailocalllama') = 0) or
     (CompareText(PluginId, 'salamatrixdemos') = 0) or
     (CompareText(PluginId, 'wmobile') = 0));
+end;
+
+function IsExpertPlugin(const PluginId: String): Boolean;
+begin
+  Result := IsExtensionRuntimePlugin(PluginId) or
+    (CompareText(PluginId, 'demoplug') = 0) or
+    (CompareText(PluginId, 'salamatrixai') = 0) or
+    (CompareText(PluginId, 'salamatrixailocalllama') = 0) or
+    (CompareText(PluginId, 'salamatrixdemos') = 0) or
+    (CompareText(PluginId, 'wmobile') = 0);
+end;
+
+function IsPluginInConfiguration(const PluginId, Configuration: String): Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  for I := 0 to GetArrayLength(PluginIds) - 1 do
+  begin
+    if CompareText(PluginIds[I], PluginId) = 0 then
+    begin
+      Result := ListContainsToken(PluginConfigurations[I], Configuration);
+      Exit;
+    end;
+  end;
+end;
+
+function IsValidPluginConfiguration(const Configuration: String): Boolean;
+begin
+  Result := (Configuration = 'base') or (Configuration = 'standard') or
+    (Configuration = 'advanced') or (Configuration = 'expert') or
+    (Configuration = 'custom');
+end;
+
+function GetSelectedPluginConfiguration(): String;
+begin
+  if SilentPluginConfiguration <> '' then
+    Result := SilentPluginConfiguration
+  else if Assigned(PluginConfigurationList) and (PluginConfigurationList.ItemIndex >= 0) then
+    case PluginConfigurationList.ItemIndex of
+      0: Result := 'base';
+      1: Result := 'standard';
+      2: Result := 'advanced';
+      3: Result := 'expert';
+    else
+      Result := 'custom';
+    end
+  else
+    Result := 'standard';
+end;
+
+procedure SetPluginConfiguration(const Configuration: String);
+var
+  I: Integer;
+begin
+  if Configuration = 'custom' then
+    Exit;
+  ApplyingPluginConfiguration := True;
+  try
+    for I := 0 to GetArrayLength(PluginIds) - 1 do
+      PluginList.Checked[I] := IsPluginInConfiguration(PluginIds[I], Configuration);
+    SelectAllPluginDependencies;
+  finally
+    ApplyingPluginConfiguration := False;
+  end;
+end;
+
+procedure PluginConfigurationChange(Sender: TObject);
+begin
+  if Assigned(PluginConfigurationList) and (PluginConfigurationList.ItemIndex >= 0) then
+    SetPluginConfiguration(GetSelectedPluginConfiguration());
 end;
 
 function ShouldCreateShortcut(const ShortcutId: String): Boolean;
@@ -1400,13 +1550,14 @@ begin
   Result := Result + '🗜︎ ' + EnsureX64Suffix(InstallerVersion);
 end;
 
-procedure AddPlugin(const PluginId, DisplayName, Version: String; const CheckedByDefault: Boolean);
+procedure AddPlugin(const PluginId, DisplayName, Version: String; const Configurations: String);
 var
   InstalledVersion: String;
   Checked: Boolean;
 begin
   InstalledVersion := GetInstalledPluginVersion(PluginId);
-  Checked := CheckedByDefault or (InstalledVersion <> '');
+  { Keep installed plugins selected during upgrades; new plugins follow Standard. }
+  Checked := ListContainsToken(Configurations, 'standard') or (InstalledVersion <> '');
   PluginList.AddCheckBox(
     DisplayName,
     FormatPluginVersionText(Version, InstalledVersion),
@@ -1420,6 +1571,8 @@ begin
     PluginList.SubItemFontStyle[PluginList.Items.Count - 1] := [fsBold];
   SetArrayLength(PluginIds, GetArrayLength(PluginIds) + 1);
   PluginIds[GetArrayLength(PluginIds) - 1] := PluginId;
+  SetArrayLength(PluginConfigurations, GetArrayLength(PluginConfigurations) + 1);
+  PluginConfigurations[GetArrayLength(PluginConfigurations) - 1] := Configurations;
 end;
 
 function IsPluginExplicitlySelected(const PluginId: String): Boolean;
@@ -1436,6 +1589,12 @@ begin
       Result := IsDefaultPlugin(PluginId)
     else
       Result := ListContainsToken(SilentPluginSelection, PluginId);
+    Exit;
+  end;
+
+  if (SilentPluginSelection = '') and (SilentPluginConfiguration <> '') and (SilentPluginConfiguration <> 'custom') then
+  begin
+    Result := IsPluginInConfiguration(PluginId, SilentPluginConfiguration);
     Exit;
   end;
 
@@ -1522,6 +1681,8 @@ procedure PluginListClickCheck(Sender: TObject);
 begin
   { Re-select required dependencies even if the user tries to uncheck one. }
   SelectAllPluginDependencies;
+  if not ApplyingPluginConfiguration and Assigned(PluginConfigurationList) then
+    PluginConfigurationList.ItemIndex := 4;
 end;
 
 function IsPortableInstall(): Boolean;
@@ -1707,63 +1868,66 @@ procedure PopulatePluginList();
 begin
   PluginList.Items.Clear;
   SetArrayLength(PluginIds, 0);
+  SetArrayLength(PluginConfigurations, 0);
 
-  AddPlugin('7zip', '7-Zip', '1.35 (x64)', True);
-  AddPlugin('automation', 'Automation', '2.8 (x64)', True);
-  AddPlugin('checksum', 'Checksum', '2.4 (x64)', True);
-  AddPlugin('dbviewer', 'Database Viewer', '1.27 (x64)', True);
-  AddPlugin('demoplug', 'Demo Plugin', '2.0 (x64)', False);
-  AddPlugin('diskdir', 'DiskDir', '1.1 (x64)', True);
-  AddPlugin('diskmap', 'DiskMap', '1.14 (x64)', True);
-  AddPlugin('extensionmenubuilder', 'Extension Menu Builder', '1.1.2 (x64)', True);
-  AddPlugin('filecomp', 'File Comparator', '1.22 (x64)', True);
-  AddPlugin('filelockinspector', 'File Lock Inspector', '1.0.2 (x64)', True);
-  AddPlugin('processexplorer', 'Process Explorer', '1.3.0 (x64)', False);
-  AddPlugin('hardwaremonitor', 'Hardware Monitor', '1.0.0 (x64)', False);
-  AddPlugin('eventviewer', 'Event Viewer', '1.0.0 (x64)', False);
-  AddPlugin('folders', 'Folders', '0.3 (x64)', False);
-  AddPlugin('ftp', 'FTP Client', '1.37 (x64)', True);
-  AddPlugin('gitworktreenavigator', 'Git Worktree Navigator', '1.0.2 (x64)', False);
-  AddPlugin('hypervm', 'Hyper-V Machines', '1.10 (x64)', True);
-  AddPlugin('ieviewer', 'Internet Explorer Viewer', '1.13 (x64)', False);
-  AddPlugin('javascriptruntime', 'JavaScript Runtime', '0.3 (x64)', False);
-  AddPlugin('jsonviewer', 'JSON Viewer .NET', '1.5 (x64)', True);
-  AddPlugin('luaruntime', 'Lua Runtime', '0.3.1 (x64)', False);
-  AddPlugin('mmviewer', 'Multimedia Viewer', '1.17 (x64)', True);
-  AddPlugin('nethood', 'Network', '1.10 (x64)', True);
-  AddPlugin('pak', 'PAK', '1.73 (x64)', True);
-  AddPlugin('phpruntime', 'PHP Runtime', '0.3 (x64)', False);
-  AddPlugin('pictview', 'PictView', '2.26 (x64)', True);
-  AddPlugin('portables', 'Portable Devices', '0.5 (x64)', True);
-  AddPlugin('peviewer', 'Portable Executable Viewer', '3.1 (x64)', True);
-  AddPlugin('pythonruntime', 'Python Runtime', '0.3.1 (x64)', False);
-  AddPlugin('textviewer', 'Prism Text Viewer', '1.5 (x64)', True);
-  AddPlugin('regedt', 'Registry Editor', '1.16 (x64)', True);
-  AddPlugin('renamer', 'Renamer', '1.16 (x64)', True);
-  AddPlugin('salamatrix', 'Salamatrix Framework', '0.7.10 (x64)', True);
-  AddPlugin('salamatrixai', 'Salamatrix AI', '0.2 (x64)', False);
-  AddPlugin('salamatrixailocalllama', 'Salamatrix AI Local LLaMA', '0.2 (x64)', False);
-  AddPlugin('salamatrixdemos', 'Salamatrix Demo Sample Scripts', '1.4.2 (x64)', False);
-  AddPlugin('sftp', 'SFTP/SCP Client', '1.3 beta (x64)', True);
-  AddPlugin('powershellruntime', 'PowerShell Runtime', '0.3 (x64)', True);
-  AddPlugin('samandarin', 'Samandarin Update Notifier', '0.9 (x64)', True);
-  AddPlugin('serviceexplorer', 'Service Explorer', '0.14 (x64)', False);
-  AddPlugin('splitcbn', 'Split & Combine', '1.12 (x64)', True);
-  AddPlugin('tar', 'TAR', '3.35 (x64)', True);
-  AddPlugin('unarj', 'UnARJ', '1.23 (x64)', True);
-  AddPlugin('uncab', 'UnCAB', '1.29 (x64)', True);
-  AddPlugin('unchm', 'UnCHM', '1.6 (x64)', True);
-  AddPlugin('unfat', 'UnFAT', '1.3 (x64)', True);
-  AddPlugin('uniso', 'UnISO', '1.39 (x64)', True);
-  AddPlugin('unlha', 'UnLHA', '1.15 (x64)', True);
-  AddPlugin('unmime', 'UnMIME', '1.16 (x64)', True);
-  AddPlugin('unole', 'UnOLE', '1.3 (x64)', True);
-  AddPlugin('unrar', 'UnRAR', '3.4 (x64)', True);
-  AddPlugin('undelete', 'Undelete', '1.13 (x64)', True);
-  AddPlugin('webview2renderviewer', 'WebView2 Render Viewer', '1.5 (x64)', True);
-  AddPlugin('wmobile', 'Windows Mobile', '1.11 (x64)', False);
-  AddPlugin('zip', 'ZIP', '1.8 (x64)', True);
+  AddPlugin('7zip', '7-Zip', '1.35 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('automation', 'Automation', '2.8 (x64)', 'advanced,expert');
+  AddPlugin('checksum', 'Checksum', '2.4 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('dbviewer', 'Database Viewer', '1.27 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('demoplug', 'Demo Plugin', '2.0 (x64)', 'expert');
+  AddPlugin('diskdir', 'DiskDir', '1.1 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('diskmap', 'DiskMap', '1.14 (x64)', 'advanced,expert');
+  AddPlugin('extensionmenubuilder', 'Extension Menu Builder', '1.1.2 (x64)', 'advanced,expert');
+  AddPlugin('filecomp', 'File Comparator', '1.22 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('filelockinspector', 'File Lock Inspector', '1.0.2 (x64)', 'advanced,expert');
+  AddPlugin('processexplorer', 'Process Explorer', '1.3.0 (x64)', 'advanced,expert');
+  AddPlugin('hardwaremonitor', 'Hardware Monitor', '1.0.0 (x64)', 'advanced,expert');
+  AddPlugin('eventviewer', 'Event Viewer', '1.0.0 (x64)', 'advanced,expert');
+  AddPlugin('folders', 'Folders', '0.3 (x64)', 'advanced,expert');
+  AddPlugin('ftp', 'FTP Client', '1.37 (x64)', 'standard,advanced,expert');
+  AddPlugin('gitworktreenavigator', 'Git Worktree Navigator', '1.0.2 (x64)', 'advanced,expert');
+  AddPlugin('hypervm', 'Hyper-V Machines', '1.10 (x64)', 'advanced,expert');
+  AddPlugin('ieviewer', 'Internet Explorer Viewer', '1.13 (x64)', 'expert');
+  AddPlugin('javascriptruntime', 'JavaScript Runtime', '0.3 (x64)', 'expert');
+  AddPlugin('jsonviewer', 'JSON Viewer .NET', '1.5 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('luaruntime', 'Lua Runtime', '0.3.1 (x64)', 'expert');
+  AddPlugin('mmviewer', 'Multimedia Viewer', '1.17 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('nethood', 'Network', '1.10 (x64)', 'standard,advanced,expert');
+  AddPlugin('pak', 'PAK', '1.73 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('phpruntime', 'PHP Runtime', '0.3 (x64)', 'expert');
+  AddPlugin('pictview', 'PictView', '2.26 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('portables', 'Portable Devices', '0.5 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('peviewer', 'Portable Executable Viewer', '3.1 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('pythonruntime', 'Python Runtime', '0.3.1 (x64)', 'expert');
+  AddPlugin('textviewer', 'Prism Text Viewer', '1.5 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('regedt', 'Registry Editor', '1.16 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('renamer', 'Renamer', '1.16 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('salamatrix', 'Salamatrix Framework', '0.7.10 (x64)', 'advanced,expert');
+  AddPlugin('salamatrixai', 'Salamatrix AI', '0.2 (x64)', 'expert');
+  AddPlugin('salamatrixailocalllama', 'Salamatrix AI Local LLaMA', '0.2 (x64)', 'expert');
+  AddPlugin('salamatrixdemos', 'Salamatrix Demo Sample Scripts', '1.4.2 (x64)', 'expert');
+  AddPlugin('sftp', 'SFTP/SCP Client', '1.3 beta (x64)', 'advanced,expert');
+  AddPlugin('powershellruntime', 'PowerShell Runtime', '0.3 (x64)', 'expert');
+  AddPlugin('samandarin', 'Samandarin Update Notifier', '0.9 (x64)', 'standard,advanced,expert');
+  AddPlugin('serviceexplorer', 'Service Explorer', '0.14 (x64)', 'advanced,expert');
+  AddPlugin('splitcbn', 'Split & Combine', '1.12 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('tar', 'TAR', '3.35 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('unarj', 'UnARJ', '1.23 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('uncab', 'UnCAB', '1.29 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('unchm', 'UnCHM', '1.6 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('unfat', 'UnFAT', '1.3 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('uniso', 'UnISO', '1.39 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('unlha', 'UnLHA', '1.15 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('unmime', 'UnMIME', '1.16 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('unole', 'UnOLE', '1.3 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('unrar', 'UnRAR', '3.4 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('undelete', 'Undelete', '1.13 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('webview2renderviewer', 'WebView2 Render Viewer', '1.5 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('wmobile', 'Windows Mobile', '1.11 (x64)', 'expert');
+  AddPlugin('zip', 'ZIP', '1.8 (x64)', 'base,standard,advanced,expert');
   SelectAllPluginDependencies;
+  if (SilentPluginSelection = '') and (SilentPluginConfiguration <> '') then
+    SetPluginConfiguration(SilentPluginConfiguration);
 end;
 
 function InitializeSetup(): Boolean;
@@ -1771,6 +1935,9 @@ begin
   Result := True;
   SilentInstallMode := GetLowerParam('INSTALLMODE', '');
   SilentPluginSelection := GetLowerParam('PLUGINS', '');
+  SilentPluginConfiguration := GetLowerParam('PLUGINCONFIG', '');
+  if not IsValidPluginConfiguration(SilentPluginConfiguration) then
+    SilentPluginConfiguration := '';
   SilentShortcuts := GetLowerParam('SHORTCUTS', '');
   SilentOverwriteDir := GetLowerParam('OVERWRITEDIR', 'yes');
   SilentRunApp := GetLowerParam('RUNAPP', 'no');
@@ -1809,10 +1976,37 @@ begin
     CustomMessage('PluginSelectionTitle'),
     CustomMessage('PluginSelectionDescription'));
 
+  PluginConfigurationLabel := TLabel.Create(PluginSelectionPage);
+  PluginConfigurationLabel.Parent := PluginSelectionPage.Surface;
+  PluginConfigurationLabel.Caption := CustomMessage('PluginConfigurationLabel');
+  PluginConfigurationLabel.Left := 0;
+  PluginConfigurationLabel.Top := 0;
+  PluginConfigurationList := TNewComboBox.Create(PluginSelectionPage);
+  PluginConfigurationList.Parent := PluginSelectionPage.Surface;
+  PluginConfigurationList.Left := 0;
+  PluginConfigurationList.Top := PluginConfigurationLabel.Top + PluginConfigurationLabel.Height + ScaleY(4);
+  PluginConfigurationList.Width := PluginSelectionPage.SurfaceWidth;
+  PluginConfigurationList.Style := csDropDownList;
+  PluginConfigurationList.Items.Add(CustomMessage('PluginConfigurationBase'));
+  PluginConfigurationList.Items.Add(CustomMessage('PluginConfigurationStandard'));
+  PluginConfigurationList.Items.Add(CustomMessage('PluginConfigurationAdvanced'));
+  PluginConfigurationList.Items.Add(CustomMessage('PluginConfigurationExpert'));
+  PluginConfigurationList.Items.Add(CustomMessage('PluginConfigurationCustom'));
+  if SilentPluginConfiguration = 'base' then
+    PluginConfigurationList.ItemIndex := 0
+  else if SilentPluginConfiguration = 'advanced' then
+    PluginConfigurationList.ItemIndex := 2
+  else if SilentPluginConfiguration = 'expert' then
+    PluginConfigurationList.ItemIndex := 3
+  else if SilentPluginConfiguration = 'custom' then
+    PluginConfigurationList.ItemIndex := 4
+  else
+    PluginConfigurationList.ItemIndex := 1;
+  PluginConfigurationList.OnChange := @PluginConfigurationChange;
   PluginList := TNewCheckListBox.Create(PluginSelectionPage);
   PluginList.Parent := PluginSelectionPage.Surface;
   PluginList.Left := 0;
-  PluginList.Top := 0;
+  PluginList.Top := PluginConfigurationList.Top + PluginConfigurationList.Height + ScaleY(8);
   PluginList.Width := PluginSelectionPage.SurfaceWidth;
   PluginList.Height := PluginSelectionPage.SurfaceHeight - PluginList.Top - ScaleY(8);
   PluginList.OnClickCheck := @PluginListClickCheck;
