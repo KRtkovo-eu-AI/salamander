@@ -442,6 +442,7 @@ CProgressDialog::CProgressDialog(HWND parent, COperations* script, const char* c
     DoNotBeepOnClose = FALSE;
     IsInQueue = FALSE;
     AutoPaused = FALSE;
+    QueueWaitReason = CSWR_NONE;
     StatusPaused = FALSE;
     NextTimeLeftUpdateTime = GetTickCount();
     TimeLeftLastValue.SetUI64(0);
@@ -748,7 +749,26 @@ void CProgressDialog::SetDlgTitle(BOOL minimized)
         else
         {
             title = "(";
-            title += LoadStr(AutoPaused ? IDS_PROGDLGQUEUEPAUSED : IDS_PROGDLGPAUSED);
+            int pausedTextID = IDS_PROGDLGPAUSED;
+            if (AutoPaused)
+            {
+                switch (QueueWaitReason)
+                {
+                case CSWR_PHYSICAL_DEVICE_CONFLICT:
+                    pausedTextID = IDS_PROGDLGQUEUE_DEVICE;
+                    break;
+                case CSWR_SSD_NVME_STREAM_LIMIT:
+                    pausedTextID = IDS_PROGDLGQUEUE_STREAMLIMIT;
+                    break;
+                case CSWR_UNKNOWN_FALLBACK:
+                    pausedTextID = IDS_PROGDLGQUEUE_UNKNOWN;
+                    break;
+                default:
+                    pausedTextID = IDS_PROGDLGQUEUE_EXPLICIT;
+                    break;
+                }
+            }
+            title += LoadStr(pausedTextID);
             title += ") ";
             title += AutoPaused && Script != NULL && Script->WaitInQueueSubject != NULL ? Script->WaitInQueueSubject : progressCaption;
             if (AutoPaused && Script != NULL && Script->WaitInQueueSubject != NULL)
@@ -921,7 +941,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // jumps from one block to the configured parallel count.
         if (Script != NULL && Script->IsCopyOperation &&
             Script->CopyMoveTransferMode == CMS_STORAGE_AWARE &&
-            !Script->StartOnIdle && Script->Count > 1 &&
+            Script->OperationSchedulingOverride != COSO_WAIT_ALL && Script->Count > 1 &&
             max(Configuration.CopyMoveSsdParallelFiles,
                 Configuration.CopyMoveNvmeParallelFiles) > 1)
         {
@@ -972,7 +992,10 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                                Configuration.CopyMoveSsdParallelFiles,
                                                Configuration.CopyMoveNvmeParallelFiles)
                 : 1;
-        if (Script->IsCopyOrMoveOperation && OperationsQueue.AddOperation(HWindow, Script->StartOnIdle, &startPaused, &Script->StorageUse))
+        QueueWaitReason = CSWR_NONE;
+        if (Script->IsCopyOrMoveOperation && OperationsQueue.AddOperation(
+                HWindow, Script->OperationSchedulingPolicy, Script->OperationSchedulingOverride,
+                &startPaused, &QueueWaitReason, &Script->StorageUse))
         {
             IsInQueue = TRUE;
             if (startPaused)
@@ -1540,6 +1563,7 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
                 HWND activateOperDlg = NULL;
                 OperationsQueue.AutoPauseOperation(HWindow, &activateOperDlg);
                 AutoPaused = TRUE;
+                QueueWaitReason = CSWR_EXPLICIT_OR_GLOBAL_WAIT;
                 ShowPause = FALSE;
                 SetDlgItemText(HWindow, IDB_PAUSERESUME, LoadStr(IDS_PROGDLGRESUME));
                 PostMessage(HWindow, WM_NEXTDLGCTL, (WPARAM)GetDlgItem(HWindow, IDB_MINIMIZE), TRUE);
@@ -1607,6 +1631,14 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
         }
         return TRUE; // message processed
     }
+
+    case WM_USER_PROGRDLG_QUEUE_REASON:
+        if (AutoPaused)
+        {
+            QueueWaitReason = (int)wParam;
+            SetDlgTitle(IsIconic(RunningInOwnThread ? HWindow : MainWindow->HWindow));
+        }
+        return TRUE;
 
     case WM_USER_PROGRDLG_UPDATEICON:
     {
@@ -1783,6 +1815,7 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
             if ((LOWORD(wParam) == CM_RESUMEOPER || AcceptCommands) && CanClose && !CancelWorker)
             {
                 AutoPaused = FALSE; // this may be a manual pause/resume or an automatic resume
+                QueueWaitReason = CSWR_NONE;
                 BOOL speedMetersInitCalled = FALSE;
                 if (LOWORD(wParam) != CM_RESUMEOPER || IsWindowEnabled(HWindow)) // nothing open above the dialog (a Cancel question may pop up)
                 {

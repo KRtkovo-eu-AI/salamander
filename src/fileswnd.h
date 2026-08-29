@@ -92,7 +92,6 @@ class CCriteriaData // data pro atCopy/atMove
 {
 public:
     BOOL OverwriteOlder;      // overwrite older, skip newer ones
-    BOOL StartOnIdle;         // start only when nothing else is running
     BOOL CopySecurity;        // preserve NTFS permissions, FALSE = don't care = no special handling, result doesn't matter
     BOOL CopyAttrs;           // preserve Archive, Encrypt and Compress attributes; FALSE = don't care = no special handling, result doesn't matter to us
     BOOL PreserveDirTime;     // preserve date and time of directories

@@ -1724,6 +1724,10 @@ STRINGTABLE
  IDS_PROGDLGRESUME, "&Resume"
  IDS_PROGDLGPAUSED, "paused"
  IDS_PROGDLGQUEUEPAUSED, "waiting"
+ IDS_PROGDLGQUEUE_EXPLICIT, "waiting for active Copy/Move operations"
+ IDS_PROGDLGQUEUE_DEVICE, "waiting for a storage device"
+ IDS_PROGDLGQUEUE_STREAMLIMIT, "waiting for an SSD/NVMe stream slot"
+ IDS_PROGDLGQUEUE_UNKNOWN, "waiting because storage could not be identified"
 
  IDS_EDITNEWALREADYEX, "The file already exists. Do you want to edit this existing file?"
 
@@ -2278,6 +2282,9 @@ STRINGTABLE
  IDS_COPYMOVE_PREFERRED_SEQUENTIAL, "Sequential (one file at a time)"
  IDS_COPYMOVE_PREFERRED_STORAGEAWARE, "Storage-aware (parallel on suitable local storage)"
  IDS_COPYMOVE_PREFERRED_KEEP_LAST, "Keep last selected in the Copy/Move dialog"
+ IDS_COPYMOVE_POLICY_STORAGEAWARE, "Storage-aware"
+ IDS_COPYMOVE_POLICY_SEQUENTIAL, "Sequential global queue"
+ IDS_COPYMOVE_POLICY_ASK, "Ask each operation"
  IDS_COPYMOVE_PARALLEL_SSD_WARNING, "Warning: more than 2 parallel files on an SSD can reduce performance."
  IDS_COPYMOVE_PARALLEL_NVME_WARNING, "Warning: more than 4 parallel files on an NVMe device can reduce performance."
  IDS_COPYMOVE_PARALLEL_SSD_RANGE, "The maximum number of parallel files on an SSD must be between 1 and 4."

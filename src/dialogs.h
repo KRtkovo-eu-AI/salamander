@@ -96,6 +96,7 @@ protected:
     const std::vector<std::string>* TargetPaths;
     BOOL AllowChangeTarget;
     int* TransferModeInOut; // CMS_SEQUENTIAL / CMS_STORAGE_AWARE for this operation
+    int* OperationSchedulingOverrideInOut; // COSO_* for this operation; NULL outside Copy/Move
 
     int OriginalWidth;    // full dialog width
     int OriginalHeight;   // full dialog height
@@ -112,6 +113,7 @@ public:
                         CTruncatedString* subject, DWORD helpID,
                         char* history[], int historyCount, CCriteriaData* criteriaInOut,
                         BOOL havePermissions, BOOL supportsADS, int* transferModeInOut,
+                        int* operationSchedulingOverrideInOut,
                         const std::vector<std::string>* targetPaths = NULL,
                         BOOL allowChangeTarget = FALSE);
     ~CCopyMoveMoreDialog();
@@ -354,6 +356,7 @@ protected:
     BOOL ShowPause;               // the "pause" button text: TRUE = pause, FALSE = resume
     BOOL IsInQueue;               // TRUE = the operation is queued (requested by the user and successfully added)
     BOOL AutoPaused;              // TRUE if the operation is queued and therefore paused
+    int QueueWaitReason;           // CSWR_* reason for the automatic queue pause
     BOOL StatusPaused;            // TRUE = the operation is stopped, e.g. when querying Cancel (+ other dialogs)
     DWORD NextTimeLeftUpdateTime; // time of the next allowed time-left update (frequent updates hurt for long times)
     CQuadWord TimeLeftLastValue;  // last displayed time-left value

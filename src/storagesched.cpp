@@ -200,6 +200,71 @@ static int DeviceStreamLimitExceeded(const CStorageOpView* candidate,
     return 0;
 }
 
+static int OperationHasUnknownFallback(const CStorageOpView* operation)
+{
+    return OpHasKind(operation, SRES_GLOBAL_UNKNOWN) ||
+           OpHasKind(operation, SRES_NETWORK) || OpHasKind(operation, SRES_UNKNOWN);
+}
+
+static int StorageOperationGetConflictReason(const CStorageOpView* candidate,
+                                             const CStorageOpView* running, int runningCount,
+                                             int ssdWriteLimit, int nvmeWriteLimit)
+{
+    if (candidate == NULL)
+        return CSWR_NONE;
+    if (OperationHasUnknownFallback(candidate) && runningCount > 0)
+        return CSWR_UNKNOWN_FALLBACK;
+    for (int r = 0; r < runningCount; r++)
+    {
+        if (PairConflicts(candidate, &running[r]))
+            return OperationHasUnknownFallback(&running[r]) ? CSWR_UNKNOWN_FALLBACK :
+                                                             CSWR_PHYSICAL_DEVICE_CONFLICT;
+    }
+    return DeviceStreamLimitExceeded(candidate, running, runningCount,
+                                     ssdWriteLimit, nvmeWriteLimit) ?
+               CSWR_SSD_NVME_STREAM_LIMIT : CSWR_NONE;
+}
+
+int StorageOperationIsFifoBarrier(int policy, int operationOverride)
+{
+    if (policy != COSP_STORAGE_AWARE && policy != COSP_GLOBAL_SEQUENTIAL && policy != COSP_ASK)
+        policy = COSP_STORAGE_AWARE;
+    if (operationOverride != COSO_DEFAULT && operationOverride != COSO_START_NOW &&
+        operationOverride != COSO_WAIT_ALL)
+        operationOverride = COSO_DEFAULT;
+    if (operationOverride == COSO_START_NOW)
+        return 0;
+    return operationOverride == COSO_WAIT_ALL || policy == COSP_GLOBAL_SEQUENTIAL ||
+           (policy == COSP_ASK && operationOverride == COSO_DEFAULT);
+}
+
+int StorageOperationGetWaitReason(int policy, int operationOverride,
+                                  int anyOtherActive, int hasFifoBarrier,
+                                  const CStorageOpView* candidate,
+                                  const CStorageOpView* running, int runningCount,
+                                  int ssdWriteLimit, int nvmeWriteLimit)
+{
+    if (policy != COSP_STORAGE_AWARE && policy != COSP_GLOBAL_SEQUENTIAL && policy != COSP_ASK)
+        policy = COSP_STORAGE_AWARE;
+    if (operationOverride != COSO_DEFAULT && operationOverride != COSO_START_NOW &&
+        operationOverride != COSO_WAIT_ALL)
+        operationOverride = COSO_DEFAULT;
+
+    // An explicit start-now decision bypasses policy, compatibility, and FIFO barriers.
+    if (operationOverride == COSO_START_NOW)
+        return CSWR_NONE;
+    if (hasFifoBarrier)
+        return CSWR_EXPLICIT_OR_GLOBAL_WAIT;
+    if (operationOverride == COSO_WAIT_ALL || policy == COSP_GLOBAL_SEQUENTIAL)
+        return anyOtherActive ? CSWR_EXPLICIT_OR_GLOBAL_WAIT : CSWR_NONE;
+
+    // Ask without an explicit answer has the safe wait-all behavior.
+    if (policy == COSP_ASK && operationOverride == COSO_DEFAULT)
+        return anyOtherActive ? CSWR_EXPLICIT_OR_GLOBAL_WAIT : CSWR_NONE;
+    return StorageOperationGetConflictReason(candidate, running, runningCount,
+                                             ssdWriteLimit, nvmeWriteLimit);
+}
+
 int StorageOperationConflictsWithRunning(const CStorageOpView* candidate,
                                          const CStorageOpView* running,
                                          int runningCount)
@@ -212,18 +277,8 @@ int StorageOperationConflictsWithRunningWithLimits(const CStorageOpView* candida
                                                    const CStorageOpView* running, int runningCount,
                                                    int ssdWriteLimit, int nvmeWriteLimit)
 {
-    int r;
-    if (candidate == NULL)
-        return 0;
-    if ((OpHasKind(candidate, SRES_GLOBAL_UNKNOWN) || OpHasKind(candidate, SRES_NETWORK) ||
-         OpHasKind(candidate, SRES_UNKNOWN)) && runningCount > 0)
-        return 1;
-    for (r = 0; r < runningCount; r++)
-    {
-        if (PairConflicts(candidate, &running[r]))
-            return 1;
-    }
-    return DeviceStreamLimitExceeded(candidate, running, runningCount, ssdWriteLimit, nvmeWriteLimit);
+    return StorageOperationGetConflictReason(candidate, running, runningCount,
+                                             ssdWriteLimit, nvmeWriteLimit) != CSWR_NONE;
 }
 
 int CopyMoveShouldStartPaused(int mode, int startOnIdle, int anyNonAutoPaused,

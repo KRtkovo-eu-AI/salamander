@@ -294,8 +294,9 @@ public:
     BOOL CopySecurity;          // preserve NTFS permissions; FALSE = don't care = perform no extra handling and accept any result
     BOOL CopyAttrs;             // preserve the Archive, Encrypt, and Compress attributes; FALSE = don't care = perform no extra handling and accept any result
     BOOL PreserveDirTime;       // preserve directory timestamps (during Move we detect unintended changes and fix them manually; works e.g. on Samba)
-    BOOL StartOnIdle;           // should start only when nothing else is running
     int CopyMoveTransferMode;   // CMS_SEQUENTIAL / CMS_STORAGE_AWARE; controls streams within this operation
+    int OperationSchedulingPolicy;   // COSP_*; admission policy between operations
+    int OperationSchedulingOverride; // COSO_*; per-operation admission override
     BOOL SourcePathIsNetwork;   // TRUE = the source path is a network path (UNC or mapped drive)
     COperationStorageUse StorageUse; // physical source/destination devices used by the scheduler
 
@@ -394,16 +395,19 @@ class COperationsQueue // queue of disk Copy/Move operations
 protected:
     CRITICAL_SECTION QueueCritSect; // object's critical section
 
-    // OperDlgs, OperPaused, OperStorage and OperForceSequential share indices
+    // All arrays share indices; list order is operation arrival order.
     TDirectArray<HWND> OperDlgs;    // array of HWND handles: dialogs of operations in the queue
     TDirectArray<DWORD> OperPaused; // int array describing queue operation state: 2/1/0 = "manually-paused"/"auto-paused"/"running"
     TDirectArray<COperationStorageUse> OperStorage;
-    TDirectArray<DWORD> OperForceSequential; // 1 = wait for all other operations (Sequential or StartOnIdle)
+    TDirectArray<DWORD> OperPolicies;
+    TDirectArray<DWORD> OperOverrides;
+    TDirectArray<DWORD> OperWaitReasons; // CSWR_*; meaningful for auto-paused operations
 
+    int GetWaitReasonForIndex(int index); // call with QueueCritSect held
     void TryResumeCompatible(HWND* foregroundWnd); // call with QueueCritSect held
 
 public:
-    COperationsQueue() : OperDlgs(5, 10), OperPaused(5, 10), OperStorage(5, 10), OperForceSequential(5, 10)
+    COperationsQueue() : OperDlgs(5, 10), OperPaused(5, 10), OperStorage(5, 10), OperPolicies(5, 10), OperOverrides(5, 10), OperWaitReasons(5, 10)
     {
         HANDLES(InitializeCriticalSection(&QueueCritSect));
     }
@@ -414,11 +418,12 @@ public:
         HANDLES(DeleteCriticalSection(&QueueCritSect));
     }
 
-    // adds an operation to the queue; returns TRUE on success, otherwise the addition failed (not enough memory);
-    // 'dlg' is the handle of the operation dialog window; 'startOnIdle' is TRUE if the operation should start
-    // only when nothing else is running; in 'startPaused' (must not be NULL) it returns TRUE when
-    // the added operation should start "paused", otherwise it starts "running";
-    // 'storageUse' may be NULL (treated as an unresolved/global-unknown resource)
+    // Adds an operation and returns its initial paused state and CSWR_* reason.
+    // storageUse may be NULL (treated as an unresolved/global-unknown resource).
+    BOOL AddOperation(HWND dlg, int schedulingPolicy, int operationOverride, BOOL* startPaused,
+                      int* waitReason, const COperationStorageUse* storageUse);
+
+    // Compatibility API: startOnIdle maps to COSO_WAIT_ALL.
     BOOL AddOperation(HWND dlg, BOOL startOnIdle, BOOL* startPaused, const COperationStorageUse* storageUse);
 
     // removes the operation from the queue (the operation finished); if 'doNotResume' is FALSE, it posts
@@ -427,10 +432,13 @@ public:
     void OperationEnded(HWND dlg, BOOL doNotResume, HWND* foregroundWnd);
 
     // sets the state of operation 'dlg' to 'paused' (2/1/0 = "manually-paused"/"auto-paused"/"running")
-    void SetPaused(HWND dlg, BOOL paused);
+    void SetPaused(HWND dlg, int paused);
 
     // moves operation 'dlg' to the end of the list + sets its state to "auto-paused"
     void AutoPauseOperation(HWND dlg, HWND* foregroundWnd);
+
+    // Returns CSWR_NONE for running, manually paused, or unknown operations.
+    int GetWaitReason(HWND dlg);
 
     // returns TRUE if there is no operation in the queue
     BOOL IsEmpty();

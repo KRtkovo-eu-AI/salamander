@@ -9,7 +9,7 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 
 ### File management
 - Unicode file names and Windows extended-length local and UNC paths across core file operations and supported plug-ins.
-- Storage-aware Copy and Move scheduling can run independent transfers concurrently and serialize conflicting operations.
+- Copy and Move operations can run globally in sequence, concurrently when storage paths do not conflict, or ask for each operation; separate SSD/NVMe limits control parallel file transfers within one operation.
 - Copy and Move directly between plug-in file systems and archives; copy to multiple selected target folders with `Shift+F5`.
 - Probe and open archive content with `Ctrl+PgDown` even when a file has a missing or incorrect extension.
 - Mounted-folder volumes, optional Windows Sandbox volumes, recursive file lists, DiskDir-compatible catalogs, path autocomplete, and extended delete confirmation.

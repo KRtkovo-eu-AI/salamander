@@ -3,8 +3,8 @@
 This document summarizes user-visible changes since 5.0-samandarin-0.14. It intentionally omits internal refactoring unless it changed compatibility, reliability, security, or observable behavior.
 
 ## File management and operations
-- Added storage-aware Copy and Move scheduling: independent storage devices can transfer concurrently while conflicting operations remain serialized.
-- Added sequential/storage-aware scheduling controls and configurable SSD/NVMe parallel-file limits.
+- Added storage-aware Copy and Move operation scheduling: run operations globally in sequence, concurrently when storage paths do not conflict, or ask for each operation.
+- Added separate configurable SSD/NVMe limits for parallel file transfers within a single Copy or Move operation.
 - Updated the File Operation Progress window to present multiple active transfers while retaining queue, pause, resume, and error controls.
 - Added `Ctrl+PgDown` content probing to open supported archives with missing or incorrect extensions, self-extracting archives, and package-based Office/OpenDocument files without changing normal Enter behavior.
 - Added `Shift+F5` multi-target copy to all selected folders in the opposite panel.

@@ -1174,6 +1174,10 @@
 #define IDS_PROGDLGPAUSED             10922
 // disk operations progress dialog: substitution for number of percents in window caption when operation is waiting in queue (it will be resumed when running operation in queue ends)
 #define IDS_PROGDLGQUEUEPAUSED        10923
+#define IDS_PROGDLGQUEUE_EXPLICIT      14461
+#define IDS_PROGDLGQUEUE_DEVICE        14462
+#define IDS_PROGDLGQUEUE_STREAMLIMIT   14463
+#define IDS_PROGDLGQUEUE_UNKNOWN       14464
 
 // Subst x:
 #define IDS_INFODLGTYPE7              10925
@@ -3066,6 +3070,9 @@
 #define IDS_COPYMOVE_PREFERRED_SEQUENTIAL            14451
 #define IDS_COPYMOVE_PREFERRED_STORAGEAWARE          14452
 #define IDS_COPYMOVE_PREFERRED_KEEP_LAST             14453
+#define IDS_COPYMOVE_POLICY_STORAGEAWARE             14458
+#define IDS_COPYMOVE_POLICY_SEQUENTIAL               14459
+#define IDS_COPYMOVE_POLICY_ASK                      14460
 #define IDS_COPYMOVE_PARALLEL_SSD_WARNING            14454
 #define IDS_COPYMOVE_PARALLEL_NVME_WARNING           14455
 #define IDS_COPYMOVE_PARALLEL_SSD_RANGE              14456
