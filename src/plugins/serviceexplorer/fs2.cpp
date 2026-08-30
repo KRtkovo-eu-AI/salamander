@@ -1,6 +1,7 @@
 #include "precomp.h"
 
 #include <climits>
+#include <string>
 
 namespace
 {
@@ -13,6 +14,22 @@ char *DupStringOrEmpty(const char *text)
     dup = SalamanderGeneral->DupStr("");
   }
   return dup;
+}
+
+std::string WideToUtf8(const wchar_t *text)
+{
+  if (text == NULL || text[0] == L'\0')
+    return std::string();
+
+  int length = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, text, -1, NULL, 0, NULL, NULL);
+  if (length <= 0)
+    return std::string();
+
+  std::string result(static_cast<size_t>(length), '\0');
+  if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, text, -1, &result[0], length, NULL, NULL) <= 0)
+    return std::string();
+  result.resize(static_cast<size_t>(length - 1));
+  return result;
 }
 
 void PopulateServiceConfiguration(const char *serviceName, int &startupType, char *&logOnAs, char *&executablePath)
@@ -131,7 +148,6 @@ BOOL WINAPI CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract *di
 	dir->SetValidData(VALID_DATA_NONE);
 	CFileData file = {0};
 	pluginData = new CPluginFSDataInterface(Path);
-	char *name; 
 	DWORD err; 
 	PathError = false;
 	
@@ -142,8 +158,8 @@ BOOL WINAPI CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract *di
 	if (sc != NULL)
 	{
 		//Successfully opened SCM
-		ENUM_SERVICE_STATUS service_data;
-		ENUM_SERVICE_STATUS *lpservice = &service_data;
+        ENUM_SERVICE_STATUSW service_data;
+        ENUM_SERVICE_STATUSW *lpservice = &service_data;
 		BOOL retVal;
 		DWORD bytesNeeded,resumeHandle = 0,srvType, srvState;
 		DWORD srvCount=0;
@@ -152,24 +168,25 @@ BOOL WINAPI CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract *di
 		srvState = SERVICE_STATE_ALL;
 
 		//Call EnumServicesStatus using the handle returned by OpenSCManager
-		retVal = ::EnumServicesStatus (sc,srvType,srvState,&service_data,sizeof(service_data), &bytesNeeded,&srvCount,&resumeHandle);
+        retVal = ::EnumServicesStatusW(sc, srvType, srvState, &service_data, sizeof(service_data),
+                                       &bytesNeeded, &srvCount, &resumeHandle);
 
 		err = GetLastError();
 
 		//Check if EnumServicesStatus needs more memory space
 		if ((retVal == FALSE) || err == ERROR_MORE_DATA)
 		{
-			 DWORD dwBytes = bytesNeeded + sizeof(ENUM_SERVICE_STATUS);
-			 lpservice = new ENUM_SERVICE_STATUS [dwBytes];
-			 EnumServicesStatus (sc,srvType,srvState,lpservice,dwBytes,
-                                                        &bytesNeeded,&srvCount,&resumeHandle);
+            DWORD dwBytes = bytesNeeded + sizeof(ENUM_SERVICE_STATUSW);
+            lpservice = reinterpret_cast<ENUM_SERVICE_STATUSW *>(new BYTE[dwBytes]);
+            EnumServicesStatusW(sc, srvType, srvState, lpservice, dwBytes,
+                                &bytesNeeded, &srvCount, &resumeHandle);
 		}
 		for(int i=0;i<(int)srvCount;i++)
 		{
-				name = lpservice[i].lpDisplayName;
-				//lpservice[i].ServiceStatus
+                const std::string displayName = WideToUtf8(lpservice[i].lpDisplayName);
+                const std::string serviceName = WideToUtf8(lpservice[i].lpServiceName);
 
-				file.Name = SalamanderGeneral->DupStr(name);
+                file.Name = SalamanderGeneral->DupStr(displayName.c_str());
 				file.NameLen = strlen(file.Name);
 				file.Ext = file.Name + file.NameLen;
 				//file.Size = CQuadWord(data.nFileSizeLow, data.nFileSizeHigh);
@@ -181,11 +198,11 @@ BOOL WINAPI CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract *di
 				file.IsOffline = 0;
 				file.Hidden =0;
 				file.Attr = 0;
-                                DWORD ServiceStatus = GetServiceStatus(lpservice[i].lpServiceName);
+                                DWORD ServiceStatus = GetServiceStatus(const_cast<char *>(serviceName.c_str()));
                                 int ServiceStartupType = 99;
                                 char *LogOnAs = NULL;
                                 char *ExecuteablePath = NULL;
-                                PopulateServiceConfiguration(lpservice[i].lpServiceName, ServiceStartupType, LogOnAs, ExecuteablePath);
+                                PopulateServiceConfiguration(const_cast<char *>(serviceName.c_str()), ServiceStartupType, LogOnAs, ExecuteablePath);
                                 if (LogOnAs == NULL)
                                 {
                                         LogOnAs = DupStringOrEmpty("");
@@ -201,7 +218,7 @@ BOOL WINAPI CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract *di
                                 extData->Description = DupStringOrEmpty("WeDon'tUseThisCurrently");
                                 extData->Status = static_cast<int>(ServiceStatus);
                                 extData->StartupType = ServiceStartupType;
-                                extData->ServiceName = DupStringOrEmpty(lpservice[i].lpServiceName);
+                                extData->ServiceName = DupStringOrEmpty(serviceName.c_str());
                                 extData->LogOnAs = LogOnAs;
                                 extData->ExecuteablePath = ExecuteablePath;
                                 extData->DisplayName = DupStringOrEmpty(file.Name);
@@ -216,7 +233,7 @@ BOOL WINAPI CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract *di
     }
 		if (lpservice != &service_data)
 		{
-			delete [] lpservice;
+            delete [] reinterpret_cast<BYTE *>(lpservice);
 		}
         }
 	CloseServiceHandle(sc);
