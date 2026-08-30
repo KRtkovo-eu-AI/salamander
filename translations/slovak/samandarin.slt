@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\slovak\samandarin\samandarin.atp"
-TEXTVERSION,"0.9 (x64)"
-VERSION,"0,9,0,196"
+TEXTVERSION,"0.10 (x64)"
+VERSION,"0,10,0,196"
 
 [TRANSLATION]
 LANGID,1051
@@ -127,4 +127,6 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 146,1,"Nie"
 147,0,"This package has higher-risk capabilities:\n\n{0}\n\nInstall or update it anyway?"
 148,1,"Dodané s inštalátorom"
+149,0,"Updates are available for the following plugins or extensions:\n\n{0}"
+150,1,"Otvoriť aktualizácie doplnkov"
 

@@ -19,7 +19,7 @@
 #endif // defined(APSTUDIO_INVOKED) && !defined(APSTUDIO_READONLY_SYMBOLS)
 
 #define VERSINFO_MAJOR       0
-#define VERSINFO_MINORA      14
+#define VERSINFO_MINORA      15
 #define VERSINFO_MINORB      0
 
 #include "spl_vers.h" // vytahneme cisla verzi + buildu

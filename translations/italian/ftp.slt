@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\ftp\ftp.atp"
-TEXTVERSION,"1.37 (x64)"
-VERSION,"1,37,0,196"
+TEXTVERSION,"1.38 (x64)"
+VERSION,"1,38,0,196"
 
 [TRANSLATION]
 LANGID,1040
@@ -15,7 +15,7 @@ COMMENT,"English version"
 502,361,130,-22,12,1,"&Dare priorita alle connessioni usate nei pannelli (navigazione piu veloce)"
 503,361,143,-22,12,1,"&Limite totale di velocita per il client FTP:"
 504,480,143,-141,12,1,""
-506,5,18,334,12,1,"A&ccetta sequenze di escape esadecimali nei percorsi (note dai browser web, es. "%20" in " ")"
+506,5,18,326,12,1,"A&ccetta sequenze di escape esadecimali nei percorsi (note dai browser web, es. "%20" in " ")"
 507,5,31,334,12,1,"Chi&udi la finestra di dialogo dell'operazione automaticamente quando l'operazione è completata con successo nel dialogo non modificato"
 508,5,44,328,12,1,"&Apri i dialoghi di Soluzione errori per errori automaticamente se il dialogo operazione è inattivo"
 3000,512,145,-173,8,1,"KB/s"
@@ -58,11 +58,11 @@ COMMENT,"English version"
 
 [DIALOG 535]
 339,218,1,"Conferme"
-536,5,5,334,12,1,"&Mostra messaggio "Stai per lasciare il server. Vuoi disconnetterti o mantenere la connessione?""
+536,5,5,330,12,1,"&Mostra messaggio "Stai per lasciare il server. Vuoi disconnetterti o mantenere la connessione?""
 537,5,18,164,12,1,"S&mostra messaggio "Vuoi disconnetterti?""
-538,5,31,290,12,1,"Sh&ow messaggio "La connessione è stata chiusa. Vuoi riconnetterti?""
-539,5,44,334,12,1,"Sho&w messaggio "Il nome di destinazione è già in uso. Vuoi sovrascriverlo?" in Rinomina rapida"
-540,5,57,266,12,1,"Mostra &messaggio "La connessione al server FTP è stata persa""
+538,5,31,242,12,1,"Sh&ow messaggio "La connessione è stata chiusa. Vuoi riconnetterti?""
+539,5,44,332,12,1,"Sho&w messaggio "Il nome di destinazione è già in uso. Vuoi sovrascriverlo?" in Rinomina rapida"
+540,5,57,223,12,1,"Mostra &messaggio "La connessione al server FTP è stata persa""
 541,5,70,321,12,1,"Mostra m&essaggio "Se vuoi sempre elencare file e cartelle nascosti su questo server FTP, ...""
 
 [DIALOG 545]
