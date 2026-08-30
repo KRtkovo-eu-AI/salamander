@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -1142,6 +1142,8 @@ const char* CONFIG_CONVERTHISTORY_REG = "Convert History";
 const char* CONFIG_FILTERHISTORY_REG = "Filter History";
 const char* CONFIG_TAGHISTORY_REG = "Tag History";
 const char* CONFIG_WORKDIRSHISTORY_REG = "Working Directories";
+const char* CONFIG_NAVIGATEDDIRSHISTORY_REG = "Navigated Directories";
+const char* CONFIG_SAVENAVIGATEDDIRS_REG = "Save Navigated Dirs";
 const char* CONFIG_FILELISTNAME_REG = "Make File List Name";
 const char* CONFIG_FILELISTAPPEND_REG = "Make File List Append";
 const char* CONFIG_FILELISTRECURSIVE_REG = "Make File List Recursive";
@@ -2727,6 +2729,7 @@ void CMainWindow::SavePanelConfig(CPanelSide side, HKEY hSalamander, const char*
         if (CreateKey(actKey, tabKeyName, tabKey))
         {
             SavePanelSettingsToKey(tabs[i], tabKey, TRUE);
+            tabs[i]->PathHistory->SaveToRegistry(tabKey, CONFIG_NAVIGATEDDIRSHISTORY_REG, !(Configuration.SaveHistory && Configuration.SaveNavigatedDirs), TRUE);
             CPathHistory* history = tabs[i]->GetWorkDirHistory();
             BOOL onlyClear = !Configuration.SaveWorkDirs;
             if (history != NULL)
@@ -2773,6 +2776,7 @@ void CMainWindow::SaveDetachedTabConfig(HKEY hSalamander)
             continue;
         }
         SavePanelSettingsToKey(panel, tabKey, TRUE);
+        panel->PathHistory->SaveToRegistry(tabKey, CONFIG_NAVIGATEDDIRSHISTORY_REG, !(Configuration.SaveHistory && Configuration.SaveNavigatedDirs), TRUE);
         DWORD side = info->OriginalSide == cpsRight ? 1 : 0;
         DWORD index = info->OriginalIndex > 0 ? (DWORD)info->OriginalIndex : 1;
         SetValue(tabKey, DETACHED_TAB_SIDE_REG, REG_DWORD, &side, sizeof(side));
@@ -3293,6 +3297,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                          &Configuration.SaveHistory, sizeof(DWORD));
                 SetValue(actKey, CONFIG_SAVEWORKDIRS_REG, REG_DWORD,
                          &Configuration.SaveWorkDirs, sizeof(DWORD));
+            GetValue(actKey, CONFIG_SAVENAVIGATEDDIRS_REG, REG_DWORD, &Configuration.SaveNavigatedDirs, sizeof(DWORD));
+                SetValue(actKey, CONFIG_SAVENAVIGATEDDIRS_REG, REG_DWORD, &Configuration.SaveNavigatedDirs, sizeof(DWORD));
                 SetValue(actKey, CONFIG_WORKDIRS_HISTORY_SCOPE_REG, REG_DWORD,
                          &Configuration.WorkDirsHistoryScope, sizeof(DWORD));
                 SetValue(actKey, CONFIG_ENABLECMDLINEHISTORY_REG, REG_DWORD,
@@ -4179,6 +4185,8 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         if (OpenKey(actKey, tabKeyName, tabKey))
         {
             LoadPanelSettingsFromKey(panel, tabKey, path, _countof(path));
+            if (Configuration.SaveHistory && Configuration.SaveNavigatedDirs)
+                panel->PathHistory->LoadFromRegistry(tabKey, CONFIG_NAVIGATEDDIRSHISTORY_REG, TRUE);
             if (Configuration.SaveWorkDirs)
             {
                 CPathHistory* history = panel->EnsureWorkDirHistory();
@@ -4192,6 +4200,8 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         else if (i == 0)
         {
             LoadPanelSettingsFromKey(panel, actKey, path, _countof(path));
+            if (Configuration.SaveHistory && Configuration.SaveNavigatedDirs)
+                panel->PathHistory->LoadFromRegistry(actKey, CONFIG_NAVIGATEDDIRSHISTORY_REG, TRUE);
             if (Configuration.SaveWorkDirs)
             {
                 CPathHistory* history = panel->EnsureWorkDirHistory();
@@ -4327,6 +4337,8 @@ void CMainWindow::LoadDetachedTabConfig(HKEY hSalamander)
 
         std::vector<char> path(2 * SAL_MAX_PATH);
         LoadPanelSettingsFromKey(panel, tabKey, path.data(), (int)path.size());
+        if (Configuration.SaveHistory && Configuration.SaveNavigatedDirs)
+            panel->PathHistory->LoadFromRegistry(tabKey, CONFIG_NAVIGATEDDIRSHISTORY_REG, TRUE);
         panel->SetTabLocked(false);
         if (Configuration.SaveWorkDirs)
         {
@@ -5395,6 +5407,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.SaveHistory, sizeof(DWORD));
             GetValue(actKey, CONFIG_SAVEWORKDIRS_REG, REG_DWORD,
                      &Configuration.SaveWorkDirs, sizeof(DWORD));
+            GetValue(actKey, CONFIG_SAVENAVIGATEDDIRS_REG, REG_DWORD, &Configuration.SaveNavigatedDirs, sizeof(DWORD));
             if (GetValue(actKey, CONFIG_WORKDIRS_HISTORY_SCOPE_REG, REG_DWORD,
                          &Configuration.WorkDirsHistoryScope, sizeof(DWORD)))
             {

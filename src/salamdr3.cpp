@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -1817,6 +1817,7 @@ CPathHistory::~CPathHistory()
 void CPathHistory::ClearHistory()
 {
     Paths.DestroyMembers();
+    ForwardIndex = -1;
 
     if (NewItem != NULL)
     {
@@ -2216,7 +2217,7 @@ void CPathHistory::AddPathUnique(int type, const char* pathOrArchiveOrFSName, co
     }
 }
 
-void CPathHistory::SaveToRegistry(HKEY hKey, const char* name, BOOL onlyClear)
+void CPathHistory::SaveToRegistry(HKEY hKey, const char* name, BOOL onlyClear, BOOL saveNavigationState)
 {
     HKEY historyKey;
     if (CreateKey(hKey, name, historyKey))
@@ -2227,7 +2228,7 @@ void CPathHistory::SaveToRegistry(HKEY hKey, const char* name, BOOL onlyClear)
         {
             int index = 0;
             char buf[10];
-            char path[2 * MAX_PATH];
+            std::string path;
             int i;
             for (i = 0; i < Paths.Count; i++)
             {
@@ -2236,7 +2237,7 @@ void CPathHistory::SaveToRegistry(HKEY hKey, const char* name, BOOL onlyClear)
                 {
                 case 0: // drive
                 {
-                    strcpy(path, item->PathOrArchiveOrFSName);
+                    path = item->PathOrArchiveOrFSName;
                     break;
                 }
 
@@ -2245,10 +2246,10 @@ void CPathHistory::SaveToRegistry(HKEY hKey, const char* name, BOOL onlyClear)
                 case 1: // archive
                 case 2: // FS
                 {
-                    strcpy(path, item->PathOrArchiveOrFSName);
-                    StrNCat(path, ":", 2 * MAX_PATH);
+                    path = item->PathOrArchiveOrFSName;
+                    path += ":";
                     if (item->ArchivePathOrFSUserPart != NULL)
-                        StrNCat(path, item->ArchivePathOrFSUserPart, 2 * MAX_PATH);
+                        path += item->ArchivePathOrFSUserPart;
                     break;
                 }
                 default:
@@ -2258,15 +2259,20 @@ void CPathHistory::SaveToRegistry(HKEY hKey, const char* name, BOOL onlyClear)
                 }
                 }
                 itoa(index + 1, buf, 10);
-                SetValue(historyKey, buf, REG_SZ, path, (DWORD)strlen(path) + 1);
+                SetValue(historyKey, buf, REG_SZ, path.c_str(), (DWORD)path.size() + 1);
                 index++;
+            }
+            if (saveNavigationState)
+            {
+                DWORD forwardIndex = (DWORD)(ForwardIndex < 0 ? Paths.Count : ForwardIndex);
+                SetValue(historyKey, "Forward Index", REG_DWORD, &forwardIndex, sizeof(forwardIndex));
             }
         }
         CloseKey(historyKey);
     }
 }
 
-void CPathHistory::LoadFromRegistry(HKEY hKey, const char* name)
+void CPathHistory::LoadFromRegistry(HKEY hKey, const char* name, BOOL loadNavigationState)
 {
     ClearHistory();
     HKEY historyKey;
@@ -2325,6 +2331,12 @@ void CPathHistory::LoadFromRegistry(HKEY hKey, const char* name)
             }
             else
                 break;
+        }
+        if (loadNavigationState)
+        {
+            DWORD forwardIndex = 0;
+            if (GetValue(historyKey, "Forward Index", REG_DWORD, &forwardIndex, sizeof(forwardIndex)))
+                ForwardIndex = forwardIndex < (DWORD)Paths.Count ? (int)forwardIndex : -1;
         }
         CloseKey(historyKey);
     }

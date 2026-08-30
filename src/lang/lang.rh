@@ -1,4 +1,4 @@
-﻿//{{NO_DEPENDENCIES}}
+//{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
 // Used by lang.rc
 //
@@ -671,6 +671,7 @@
 #define IDC_HISTORY_WORKDIRS            2650
 #define IDC_HISTORY_WORKDIRS_SHARED     2651
 #define IDC_HISTORY_WORKDIRS_PER_TAB    2652
+#define IDC_HISTORY_NAVIGATEDDIRS       2653
 #define IDD_LOADSELECTION               2660
 #define IDC_LOADSEL_COPY                2661
 #define IDC_LOADSEL_OR                  2662

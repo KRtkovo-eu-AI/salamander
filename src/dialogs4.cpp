@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -599,6 +599,7 @@ CConfiguration::CConfiguration()
     SortDirsByExt = FALSE;  // directories have no extensions, an option kept for companies/users relying on the old directory ordering
     SaveHistory = TRUE;
     SaveWorkDirs = FALSE; // by default save space in the registry, the list is large
+    SaveNavigatedDirs = FALSE;
     WorkDirsHistoryScope = wdhsShared;
     EnableCmdLineHistory = TRUE;
     SaveCmdLineHistory = TRUE;
@@ -7811,6 +7812,7 @@ void CCfgPageHistory::Transfer(CTransferInfo& ti)
 {
     ti.CheckBox(IDC_HISTORY_SAVEHISTORY, Configuration.SaveHistory);
     ti.CheckBox(IDC_HISTORY_WORKDIRS, Configuration.SaveWorkDirs);
+    ti.CheckBox(IDC_HISTORY_NAVIGATEDDIRS, Configuration.SaveNavigatedDirs);
     ti.CheckBox(IDC_HISTORY_ENABLECMDLINE, Configuration.EnableCmdLineHistory);
     ti.CheckBox(IDC_HISTORY_SAVECMDLINE, Configuration.SaveCmdLineHistory);
 
@@ -7834,8 +7836,10 @@ void CCfgPageHistory::EnableControls()
     if (!saveHistory)
     {
         CheckDlgButton(HWindow, IDC_HISTORY_WORKDIRS, BST_UNCHECKED);
+        CheckDlgButton(HWindow, IDC_HISTORY_NAVIGATEDDIRS, BST_UNCHECKED);
     }
     EnableWindow(GetDlgItem(HWindow, IDC_HISTORY_WORKDIRS), saveHistory);
+    EnableWindow(GetDlgItem(HWindow, IDC_HISTORY_NAVIGATEDDIRS), saveHistory);
 
     BOOL enableCmdLineHistory = IsDlgButtonChecked(HWindow, IDC_HISTORY_ENABLECMDLINE) == BST_CHECKED;
     if (!saveHistory || !enableCmdLineHistory)
@@ -7905,6 +7909,7 @@ CCfgPageHistory::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case IDC_HISTORY_SAVEHISTORY:
         case IDC_HISTORY_ENABLECMDLINE:
+        case IDC_HISTORY_NAVIGATEDDIRS:
         {
             EnableControls();
             break;

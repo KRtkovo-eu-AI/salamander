@@ -235,8 +235,8 @@ public:
     }
     BOOL HasPaths() { return Paths.Count > 0; }
 
-    void SaveToRegistry(HKEY hKey, const char* name, BOOL onlyClear);
-    void LoadFromRegistry(HKEY hKey, const char* name);
+    void SaveToRegistry(HKEY hKey, const char* name, BOOL onlyClear, BOOL saveNavigationState = FALSE);
+    void LoadFromRegistry(HKEY hKey, const char* name, BOOL loadNavigationState = FALSE);
 };
 
 //*****************************************************************************

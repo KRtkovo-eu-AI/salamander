@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -221,6 +221,7 @@ struct CConfiguration
         SortDirsByExt,          // emulate extensions for directories (sort by extension + show in separated Ext column)
         SaveHistory,            // store histories into the configuration?
         SaveWorkDirs,           // store the List of Working Directories?
+        SaveNavigatedDirs,      // store panel Back/Forward navigation history?
         WorkDirsHistoryScope,   // working directories history mode (shared / per-tab)
         EnableCmdLineHistory,   // keep history of the command line?
         SaveCmdLineHistory,     // store the command line history?
