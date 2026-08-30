@@ -3297,7 +3297,6 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                          &Configuration.SaveHistory, sizeof(DWORD));
                 SetValue(actKey, CONFIG_SAVEWORKDIRS_REG, REG_DWORD,
                          &Configuration.SaveWorkDirs, sizeof(DWORD));
-            GetValue(actKey, CONFIG_SAVENAVIGATEDDIRS_REG, REG_DWORD, &Configuration.SaveNavigatedDirs, sizeof(DWORD));
                 SetValue(actKey, CONFIG_SAVENAVIGATEDDIRS_REG, REG_DWORD, &Configuration.SaveNavigatedDirs, sizeof(DWORD));
                 SetValue(actKey, CONFIG_WORKDIRS_HISTORY_SCOPE_REG, REG_DWORD,
                          &Configuration.WorkDirsHistoryScope, sizeof(DWORD));
@@ -5407,7 +5406,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.SaveHistory, sizeof(DWORD));
             GetValue(actKey, CONFIG_SAVEWORKDIRS_REG, REG_DWORD,
                      &Configuration.SaveWorkDirs, sizeof(DWORD));
-            GetValue(actKey, CONFIG_SAVENAVIGATEDDIRS_REG, REG_DWORD, &Configuration.SaveNavigatedDirs, sizeof(DWORD));
+            GetValue(actKey, CONFIG_SAVENAVIGATEDDIRS_REG, REG_DWORD,
+                     &Configuration.SaveNavigatedDirs, sizeof(DWORD));
             if (GetValue(actKey, CONFIG_WORKDIRS_HISTORY_SCOPE_REG, REG_DWORD,
                          &Configuration.WorkDirsHistoryScope, sizeof(DWORD)))
             {

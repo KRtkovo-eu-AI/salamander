@@ -1255,7 +1255,7 @@ int CPropertyDialog::GetCurSel()
 #define _TPD_BUTTON_W 50   // button width
 #define _TPD_BUTTON_H 14   // button height
 #define _TPD_BUTTON_MARG 4 // button spacing
-#define _TPD_MIN_PAGE_H 270 // tallest Configuration page before the DPI-awareness changes
+#define _TPD_MIN_PAGE_H 285 // height of the General Configuration page
 
 CTPHCaptionWindow::CTPHCaptionWindow(HWND hDlg, int ctrlID)
     : CWindow(hDlg, ctrlID, ooAllocated)
