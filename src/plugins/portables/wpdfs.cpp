@@ -905,8 +905,18 @@ private:
     void PumpMessages()
     {
         MSG msg;
-        while (m_window != nullptr && ::PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
+        // Dispatch only messages for the progress window and its children. Pumping
+        // the whole thread here can re-enter Salamander while it is inside this
+        // plug-in call and invalidate panel items used by the active operation.
+        while (m_window != nullptr && ::PeekMessage(&msg, m_window, 0, 0, PM_REMOVE))
         {
+            // WM_QUIT is returned regardless of the window filter. Preserve it for
+            // Salamander's outer message loop instead of silently consuming it here.
+            if (msg.message == WM_QUIT)
+            {
+                ::PostQuitMessage(static_cast<int>(msg.wParam));
+                break;
+            }
             ::TranslateMessage(&msg);
             ::DispatchMessage(&msg);
         }
