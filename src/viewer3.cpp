@@ -641,9 +641,10 @@ void CViewerWindow::InvalidateRows(int minRow, int maxRow, BOOL update)
 {
     RECT r;
     r.left = 0;
-    r.top = minRow * CharHeight;
+    const int documentTop = GetDocumentTop();
+    r.top = documentTop + minRow * CharHeight;
     r.right = Width;
-    r.bottom = maxRow * CharHeight + CharHeight;
+    r.bottom = documentTop + maxRow * CharHeight + CharHeight;
     InvalidateRect(HWindow, &r, FALSE);
     if (update)
         UpdateWindow(HWindow);
@@ -3271,7 +3272,10 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 }
 
                 if (oldEndSel != EndSelection)
+                {
                     ChangingSelWithShiftKey = TRUE;
+                    UpdateStatusBar(EndSelection);
+                }
                 extSelCh = TRUE;
                 break;
             }
@@ -3337,6 +3341,26 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         BOOL fatalErr = FALSE;
         if (GetOffset((short)LOWORD(lParam), (short)HIWORD(lParam), off, fatalErr) && !fatalErr)
         {
+            if (HasDecodedTextMode())
+            {
+                __int64 decodedStart;
+                __int64 decodedEnd;
+                if (!GetDecodedDoubleClickSelection(off, wholeLine, decodedStart, decodedEnd, fatalErr))
+                {
+                    if (fatalErr)
+                        FatalFileErrorOccured();
+                    return 0;
+                }
+                StartSelection = decodedStart;
+                EndSelection = decodedEnd;
+                SelectionIsFindResult = FALSE;
+                InvalidateRect(HWindow, NULL, FALSE);
+                UpdateStatusBar(off);
+                if (Configuration.AutoCopySelection && StartSelection != EndSelection)
+                    PostMessage(HWindow, WM_COMMAND, CM_COPYTOCLIP, 0);
+                return 0;
+            }
+
             __int64 selStart = 0;
             __int64 seek = off;
             BOOL breakOnCR = FALSE; // to locate the '\r' in a '\r\n' line ending
@@ -3598,7 +3622,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     {
                         StartSelection = off;
                         EndSelection = off;
-                        EndSelectionRow = (short)HIWORD(lParam) / CharHeight;
+                        EndSelectionRow = ((short)HIWORD(lParam) - GetDocumentTop()) / CharHeight;
                         InvalidateRect(HWindow, NULL, FALSE);
                     }
                 }
@@ -3698,7 +3722,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             __int64 off;
             __int64 x = (short)LOWORD(lParam);
-            __int64 y = (short)HIWORD(lParam);
+            __int64 y = (short)HIWORD(lParam) - GetDocumentTop();
             BOOL wait = FALSE;
             if (y < 0)
             {
@@ -3706,9 +3730,9 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 wait = TRUE;
                 SendMessage(HWindow, WM_COMMAND, CM_LINEUP, 0);
             }
-            if (y > (Height / CharHeight) * CharHeight)
+            if (y >= Height)
             {
-                y = (Height / CharHeight) * CharHeight - 1;
+                y = Height - 1;
                 if (y < 0)
                     y = 0;
                 wait = TRUE;
@@ -3742,7 +3766,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 SendMessage(HWindow, WM_COMMAND, CM_RIGHT, 0);
             }
             BOOL fatalErr = FALSE;
-            if (GetOffset(x, y, off, fatalErr) && !fatalErr)
+            if (GetOffset(x, y + GetDocumentTop(), off, fatalErr) && !fatalErr)
             {
                 UpdateStatusBar(off);
                 if (EndSelection != off)
@@ -3771,9 +3795,10 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     }
                     // compute the rectangle that needs to be repainted
                     r.left = 0;
-                    r.top = minRow * CharHeight;
+                    const int documentTop = GetDocumentTop();
+                    r.top = documentTop + minRow * CharHeight;
                     r.right = Width;
-                    r.bottom = maxRow * CharHeight + CharHeight;
+                    r.bottom = documentTop + maxRow * CharHeight + CharHeight;
                     if (EndSelectionRow == -1)
                         optimalize = FALSE;
                     EndSelectionRow = endSelectionRow;

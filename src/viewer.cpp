@@ -2715,6 +2715,11 @@ int CViewerWindow::GetTextLeft() const
     return BORDER_WIDTH + (LineNumberDigits + 1) * CharWidth;
 }
 
+int CViewerWindow::GetDocumentTop() const
+{
+    return ViewerMenuBar != NULL ? ViewerMenuBar->GetNeededHeight() : 0;
+}
+
 __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
 {
     if (offset <= TextStartOffset())
