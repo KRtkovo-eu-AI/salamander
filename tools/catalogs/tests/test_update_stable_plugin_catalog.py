@@ -26,6 +26,38 @@ class CatalogUpdaterTests(unittest.TestCase):
 
             self.assertEqual(UPDATER.parse_installer_plugins(installer), ["pythonruntime"])
 
+    def test_installer_versions_update_with_configuration_string(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            plugins_root = Path(directory)
+            plugin_root = plugins_root / "zip"
+            plugin_root.mkdir()
+            (plugin_root / "versinfo.rh2").write_text(
+                "\n".join(
+                    (
+                        "#define VERSINFO_MAJOR 1",
+                        "#define VERSINFO_MINORA 9",
+                        "#define VERSINFO_MINORB 0",
+                        '#define VERSINFO_BETAVERSION_TXT_NO_PLATFORM ""',
+                        '#define VERSINFO_DESCRIPTION "ZIP archiver"',
+                    )
+                ),
+                encoding="utf-8",
+            )
+            installer = (
+                "  AddPlugin('zip', 'ZIP', '1.8 (x64)', "
+                "'base,standard,advanced,expert');\n"
+            )
+
+            updated = UPDATER.update_installer_plugin_versions(
+                installer, ["zip"], plugins_root
+            )
+
+            self.assertEqual(
+                updated,
+                "  AddPlugin('zip', 'ZIP', '1.9 (x64)', "
+                "'base,standard,advanced,expert');\n",
+            )
+
     def test_existing_stable_membership_wins_and_new_package_defaults_to_stable(self) -> None:
         stable = Path("plugins-stable.json")
         runtimes = Path("extension-runtimes.json")

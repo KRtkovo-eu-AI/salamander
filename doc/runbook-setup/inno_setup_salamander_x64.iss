@@ -1,4 +1,4 @@
-﻿; Inno Setup script for Open Salamander Samandarin x64.
+; Inno Setup script for Open Salamander Samandarin x64.
 ;
 ; This file is intentionally kept in the runbook folder next to setup_x64.inf.
 ; It mirrors the file list, shortcut locations, registry keys and private setup
@@ -1863,7 +1863,7 @@ begin
   SetArrayLength(PluginConfigurations, 0);
   UpgradeInstall := False;
 
-  AddPlugin('7zip', '7-Zip', '1.35 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('7zip', '7-Zip', '1.36 (x64)', 'base,standard,advanced,expert');
   AddPlugin('automation', 'Automation', '2.8 (x64)', 'advanced,expert');
   AddPlugin('checksum', 'Checksum', '2.4 (x64)', 'base,standard,advanced,expert');
   AddPlugin('dbviewer', 'Database Viewer', '1.27 (x64)', 'base,standard,advanced,expert');
@@ -1877,23 +1877,23 @@ begin
   AddPlugin('hardwaremonitor', 'Hardware Monitor', '1.0.0 (x64)', 'advanced,expert');
   AddPlugin('eventviewer', 'Event Viewer', '1.0.0 (x64)', 'advanced,expert');
   AddPlugin('folders', 'Folders', '0.3 (x64)', 'advanced,expert');
-  AddPlugin('ftp', 'FTP Client', '1.37 (x64)', 'standard,advanced,expert');
+  AddPlugin('ftp', 'FTP Client', '1.38 (x64)', 'standard,advanced,expert');
   AddPlugin('gitworktreenavigator', 'Git Worktree Navigator', '1.0.2 (x64)', 'advanced,expert');
   AddPlugin('hypervm', 'Hyper-V Machines', '1.10 (x64)', 'advanced,expert');
   AddPlugin('ieviewer', 'Internet Explorer Viewer', '1.13 (x64)', 'expert');
   AddPlugin('javascriptruntime', 'JavaScript Runtime', '0.3 (x64)', 'expert');
   AddPlugin('jsonviewer', 'JSON Viewer .NET', '1.5 (x64)', 'base,standard,advanced,expert');
   AddPlugin('luaruntime', 'Lua Runtime', '0.3.1 (x64)', 'expert');
-  AddPlugin('mmviewer', 'Multimedia Viewer', '1.17 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('mmviewer', 'Multimedia Viewer', '1.18 (x64)', 'base,standard,advanced,expert');
   AddPlugin('nethood', 'Network', '1.10 (x64)', 'standard,advanced,expert');
   AddPlugin('pak', 'PAK', '1.73 (x64)', 'base,standard,advanced,expert');
   AddPlugin('phpruntime', 'PHP Runtime', '0.3 (x64)', 'expert');
-  AddPlugin('pictview', 'PictView', '2.26 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('pictview', 'PictView', '2.27 (x64)', 'base,standard,advanced,expert');
   AddPlugin('portables', 'Portable Devices', '0.5 (x64)', 'base,standard,advanced,expert');
   AddPlugin('peviewer', 'Portable Executable Viewer', '3.1 (x64)', 'base,standard,advanced,expert');
   AddPlugin('pythonruntime', 'Python Runtime', '0.3.1 (x64)', 'expert');
   AddPlugin('textviewer', 'Prism Text Viewer', '1.5 (x64)', 'base,standard,advanced,expert');
-  AddPlugin('regedt', 'Registry Editor', '1.16 (x64)', 'base,standard,advanced,expert');
+  AddPlugin('regedt', 'Registry Editor', '1.17 (x64)', 'base,standard,advanced,expert');
   AddPlugin('renamer', 'Renamer', '1.16 (x64)', 'base,standard,advanced,expert');
   AddPlugin('salamatrix', 'Salamatrix Framework', '0.7.13 (x64)', 'advanced,expert');
   AddPlugin('salamatrixai', 'Salamatrix AI', '0.2 (x64)', 'expert');
@@ -1901,8 +1901,8 @@ begin
   AddPlugin('salamatrixdemos', 'Salamatrix Demo Sample Scripts', '1.4.2 (x64)', 'expert');
   AddPlugin('sftp', 'SFTP/SCP Client', '1.3 beta (x64)', 'advanced,expert');
   AddPlugin('powershellruntime', 'PowerShell Runtime', '0.3 (x64)', 'expert');
-  AddPlugin('samandarin', 'Samandarin Update Notifier', '0.9 (x64)', 'standard,advanced,expert');
-  AddPlugin('serviceexplorer', 'Service Explorer', '0.14 (x64)', 'advanced,expert');
+  AddPlugin('samandarin', 'Samandarin Update Notifier', '0.10 (x64)', 'standard,advanced,expert');
+  AddPlugin('serviceexplorer', 'Service Explorer', '0.15 (x64)', 'advanced,expert');
   AddPlugin('splitcbn', 'Split & Combine', '1.12 (x64)', 'base,standard,advanced,expert');
   AddPlugin('tar', 'TAR', '3.35 (x64)', 'base,standard,advanced,expert');
   AddPlugin('unarj', 'UnARJ', '1.23 (x64)', 'base,standard,advanced,expert');

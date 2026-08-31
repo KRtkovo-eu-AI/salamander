@@ -1,7 +1,7 @@
 {
   "schemaVersion": 6,
   "catalogName": "Extension Runtimes",
-  "generatedAt": "2026-08-27T23:46:44Z",
+  "generatedAt": "2026-08-31T02:56:50Z",
   "plugins": [
     {
       "id": "salamatrix",
@@ -32,7 +32,7 @@
         "romanian": "Salamatrix este un furnizor de framework de automatizare pentru pluginuri native și extensii de script.",
         "spanish": "Salamatrix es un proveedor de framework de automatización para plugins nativos y extensiones de script."
       },
-      "latestVersion": "0.7.10 (x64)",
+      "latestVersion": "0.7.13 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://salamatrix.samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_salamatrix_0.7.10_x64/plugin_5.0_salamatrix_0.7.10_x64.7z",

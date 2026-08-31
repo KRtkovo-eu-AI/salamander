@@ -196,7 +196,7 @@ DEFINE_RE = re.compile(
 )
 INSTALLER_ADD_PLUGIN_RE = re.compile(
     r"^(?P<prefix>\s*AddPlugin\('(?P<id>[^']+)',\s*'(?P<name>(?:''|[^'])*)',\s*)"
-    r"'(?P<version>[^']*)'(?P<suffix>,\s*(?:True|False)\);\s*)$",
+    r"'(?P<version>[^']*)'(?P<suffix>,\s*(?:True|False|'(?:''|[^'])*')\);\s*)$",
     re.MULTILINE,
 )
 SET_BASIC_PLUGIN_DATA_VERSION_RE = re.compile(

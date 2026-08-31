@@ -1,7 +1,7 @@
 {
   "schemaVersion": 6,
   "catalogName": "Plugins Stable",
-  "generatedAt": "2026-08-27T23:46:44Z",
+  "generatedAt": "2026-08-31T02:56:50Z",
   "plugins": [
     {
       "id": "7zip",
@@ -22,7 +22,7 @@
         "romanian": "Creaza, rasfoieste si extrage arhivele 7-Zip.",
         "spanish": "Crear, hojear y extraer archivos 7-Zip."
       },
-      "latestVersion": "1.35 (x64)",
+      "latestVersion": "1.36 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.net",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_7zip_1.35_x64/plugin_5.0_7zip_1.35_x64.7z",
@@ -310,7 +310,7 @@
         "romanian": "Transferul fisierelor si directoarelor prin FTP.",
         "spanish": "Transferencia de ficheros y directorios por FTP."
       },
-      "latestVersion": "1.37 (x64)",
+      "latestVersion": "1.38 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_ftp_1.37_x64/plugin_5.0_ftp_1.37_x64.7z",
@@ -530,7 +530,7 @@
         "romanian": "Arata informatii despre fisierele multimedia cum ar fi MP3, OGG, WAV, etc.",
         "spanish": "Presenta información sobre ficheros multimedia como MP3, OGG, WAV, etc."
       },
-      "latestVersion": "1.17 (x64)",
+      "latestVersion": "1.18 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_mmviewer_1.17_x64/plugin_5.0_mmviewer_1.17_x64.7z",
@@ -706,7 +706,7 @@
         "romanian": "Vizualizator rapid de imagini si convertor.",
         "spanish": "Visor y consersor rápido de imágenes."
       },
-      "latestVersion": "2.26 (x64)",
+      "latestVersion": "2.27 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_pictview_2.26_x64/plugin_5.0_pictview_2.26_x64.7z",
@@ -794,7 +794,7 @@
         "romanian": "Rasfoieste, vizualizeaza si modifica Registri Windows.",
         "spanish": "Hojear, ver y modificar el registro de Windows."
       },
-      "latestVersion": "1.16 (x64)",
+      "latestVersion": "1.17 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_regedt_1.16_x64/plugin_5.0_regedt_1.16_x64.7z",
@@ -882,7 +882,7 @@
         "romanian": "Verifică lansările GitHub și oferă să deschidă cea mai recentă versiune Samandarin.",
         "spanish": "Comprueba las versiones de GitHub y ofrece abrir la última compilación de Samandarin."
       },
-      "latestVersion": "0.9 (x64)",
+      "latestVersion": "0.10 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_samandarin_0.9_x64/plugin_5.0_samandarin_0.9_x64.7z",
@@ -926,7 +926,7 @@
         "romanian": "Răsfoiește și configurează servicii.",
         "spanish": "Examinar y configurar servicios."
       },
-      "latestVersion": "0.14 (x64)",
+      "latestVersion": "0.15 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://samandarin.net/",
       "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_serviceexplorer_0.014_x64/plugin_5.0_serviceexplorer_0.014_x64.7z",
