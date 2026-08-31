@@ -3,6 +3,9 @@
 
 #pragma once
 
+// Converts legacy 8-bit metadata to the UTF-8 representation used by the viewer.
+char* AnsiToUTF8(const char* chars, int len);
+
 #pragma pack(1)
 typedef struct
 {

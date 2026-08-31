@@ -44,6 +44,7 @@
 | 组件或作者 | 使用于 | 归属和许可证说明 |
 | --- | --- | --- |
 | Tomas Jelinek | Multimedia Viewer 插件 | 包含由 Tomas Jelinek 编写的软件。Copyright (C) 2003-2026 Tomas Jelinek. |
+| TagLib 2.3 | Multimedia Viewer 插件 | 由 Scott Wheeler 和 TagLib 贡献者开发的音频元数据程序库。用于 Ogg Vorbis、Opus、FLAC、MP4、APE、WavPack、TrueAudio、AIFF、DSD、Matroska/WebM 及相关格式的 Unicode 元数据和音频属性。根据 GNU LGPL 2.1 或 Mozilla Public License 1.1 分发。源代码：https://github.com/taglib/taglib |
 | 内置查看器 | Unicode 查看器部分 | Samandarin 包含源自 [Sally](https://github.com/0xeb/sally) 的 fork [Elias Bachaalany (0xeb)](https://github.com/0xeb) 的代码和实现工作，或大量受其启发。根据 GNU Library General Public License 授权。 |
 | Jan Patera | PictView 插件 | PictView 插件的部分内容由 Jan Patera 授权。Copyright (C) 1994-2026 Jan Patera. |
 | libexif | PictView 插件 | PictView 插件的部分内容使用 libexif。Copyright (C) 2001-2019 Curtis Galloway 和 Lutz Muller. |

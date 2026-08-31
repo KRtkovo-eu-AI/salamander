@@ -28,7 +28,7 @@ The script never starts Salamander and never deletes files from the payload.
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('unrar', 'ftp-openssl', 'lua', 'sftp', 'dbghelp')]
+    [ValidateSet('unrar', 'ftp-openssl', 'lua', 'mmviewer-taglib', 'sftp', 'dbghelp')]
     [string[]]$Dependency = @(),
 
     [switch]$All,
@@ -55,11 +55,12 @@ $platformByTriplet = @{
     'arm64-windows' = 'arm64'
 }
 $shortPlatform = $platformByTriplet[$Triplet]
-$knownDependencies = @('unrar', 'ftp-openssl', 'lua', 'sftp', 'dbghelp')
+$knownDependencies = @('unrar', 'ftp-openssl', 'lua', 'mmviewer-taglib', 'sftp', 'dbghelp')
 $displayNames = @{
     'unrar' = 'UnRAR plug-in (unrar.dll)'
     'ftp-openssl' = 'FTP legacy OpenSSL (libeay32.dll, ssleay32.dll)'
     'lua' = 'Salamatrix Lua Runtime (lua.exe, lua.dll, MIT notice)'
+    'mmviewer-taglib' = 'Multimedia Viewer metadata backend (TagLib static library)'
     'sftp' = 'SFTP plug-in (libssh2, OpenSSL 3, zlib runtime)'
     'dbghelp' = 'Windows Debug Help (dbghelp.dll; staging only, not vcpkg)'
 }
@@ -177,6 +178,7 @@ $mainFeatures = [Collections.Generic.List[string]]::new()
 if ('unrar' -in $Dependency) { $mainFeatures.Add('unrar-runtime') }
 if ('ftp-openssl' -in $Dependency) { $mainFeatures.Add('ftp-openssl') }
 if ('lua' -in $Dependency) { $mainFeatures.Add('lua-runtime') }
+$buildTagLib = 'mmviewer-taglib' -in $Dependency
 $buildSftp = 'sftp' -in $Dependency
 
 # Manifest mode reconciles an install root with the selected feature set. Keep
@@ -224,6 +226,21 @@ if ($mainFeatures.Count -gt 0 -or $buildSftp) {
     if (!$?) {
         throw 'Dependency build failed.'
     }
+}
+
+if ($buildTagLib) {
+    $tagLibArguments = @{
+        Triplet = $Triplet
+        ManifestFeature = @('mmviewer-taglib')
+        NoDefaultFeatures = $true
+        SkipLegacyCopy = $true
+        OnlyMmviewerTagLib = $true
+    }
+    if (![string]::IsNullOrWhiteSpace($VcpkgRoot)) { $tagLibArguments.VcpkgRoot = $VcpkgRoot }
+    if ($NoBootstrap) { $tagLibArguments.NoBootstrap = $true }
+    if ($SkipInstall) { $tagLibArguments.SkipInstall = $true }
+    & (Join-Path $PSScriptRoot 'build-third-party-libs.ps1') @tagLibArguments
+    if (!$?) { throw 'TagLib dependency build failed.' }
 }
 
 $mainInstall = Join-Path $repoRoot "build\vcpkg_installed_third_party\$Triplet"

@@ -50,7 +50,13 @@ int CRendererWindow::ComputeExtents(HDC hDC, SIZE& s, BOOL value, BOOL computeHe
         {
             const char* str = value ? item->Value : item->Name;
             SelectObject(hDC, value ? HBoldFont : HNormalFont);
-            DrawText(hDC, str, (int)strlen(str), &r, DT_CALCRECT | DT_SINGLELINE | DT_WORDBREAK | DT_LEFT);
+            if ((value && (item->Flags & OIF_UTF8)) || (!value && (item->Flags & OIF_NAME_UTF8)))
+            {
+                wchar_t* wide = UTF8ToWide(str, (int)strlen(str));
+                DrawTextW(hDC, wide != NULL ? wide : L"", -1, &r, DT_CALCRECT | DT_SINGLELINE | DT_WORDBREAK | DT_LEFT);
+            }
+            else
+                DrawTextA(hDC, str, (int)strlen(str), &r, DT_CALCRECT | DT_SINGLELINE | DT_WORDBREAK | DT_LEFT);
 
             if (s.cx < r.right)
                 s.cx = r.right;
@@ -62,7 +68,13 @@ int CRendererWindow::ComputeExtents(HDC hDC, SIZE& s, BOOL value, BOOL computeHe
         else if (item->Name && computeHeaderWidth) // compute the required header width (sometimes it can be wider than name+value together)
         {
             SelectObject(hDC, HBoldFont);
-            DrawText(hDC, item->Name, (int)strlen(item->Name), &r, DT_CALCRECT | DT_SINGLELINE | DT_LEFT);
+            if (item->Flags & OIF_NAME_UTF8)
+            {
+                wchar_t* wide = UTF8ToWide(item->Name, (int)strlen(item->Name));
+                DrawTextW(hDC, wide != NULL ? wide : L"", -1, &r, DT_CALCRECT | DT_SINGLELINE | DT_LEFT);
+            }
+            else
+                DrawTextA(hDC, item->Name, (int)strlen(item->Name), &r, DT_CALCRECT | DT_SINGLELINE | DT_LEFT);
 
             if (headerWidth < r.right)
                 headerWidth = r.right;
@@ -144,7 +156,14 @@ void CRendererWindow::Paint(HDC hDC, BOOL moveEditBoxes, DWORD deferFlg)
                 SetTextColor(hDC, ((item->Flags & OIF_HEADER) == 0) ? rgbTC : rgbHeaderTC);
                 SetBkColor(hDC, ((item->Flags & OIF_HEADER) == 0) ? rgbBC : rgbHeaderBC);
                 SelectObject(hDC, ((item->Flags & OIF_HEADER) == 0) ? HNormalFont : HBoldFont);
-                ExtTextOut(hDC, startH + 5, y + 1, ETO_CLIPPED | ETO_OPAQUE, &rct, item->Name, lstrlen(item->Name), NULL);
+                if (item->Flags & OIF_NAME_UTF8)
+                {
+                    wchar_t* wide = UTF8ToWide(item->Name, (int)strlen(item->Name));
+                    ExtTextOutW(hDC, startH + 5, y + 1, ETO_CLIPPED | ETO_OPAQUE, &rct,
+                                wide != NULL ? wide : L"", wide != NULL ? (int)wcslen(wide) : 0, NULL);
+                }
+                else
+                    ExtTextOutA(hDC, startH + 5, y + 1, ETO_CLIPPED | ETO_OPAQUE, &rct, item->Name, lstrlenA(item->Name), NULL);
 
                 ExcludeClipRect(hDC, rct.left, rct.top, rct.right, rct.bottom);
             }

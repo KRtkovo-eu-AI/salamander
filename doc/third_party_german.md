@@ -47,6 +47,7 @@ alle hier Genannten für die Bereitstellung ihrer Arbeit.
 | Komponente oder Autor | Verwendung in | Hinweise zu Autorrecht und Lizenz |
 | --- | --- | --- |
 | Tomas Jelinek | Multimedia Viewer Plugin | Enthält Software geschrieben von Tomas Jelinek. Copyright (C) 2003-2026 Tomas Jelinek. |
+| TagLib 2.3 | Multimedia Viewer Plugin | Audio-Metadatenbibliothek von Scott Wheeler und den TagLib-Mitwirkenden. Verwendet für Unicode-Metadaten und Audioeigenschaften in Ogg Vorbis, Opus, FLAC, MP4, APE, WavPack, TrueAudio, AIFF, DSD, Matroska/WebM und verwandten Formaten. Veröffentlicht unter der GNU LGPL 2.1 oder Mozilla Public License 1.1. Quelle: https://github.com/taglib/taglib |
 | Interner Viewer | Unicode-Viewer-Teile | Samandarin enthält Code und Implementierungsarbeiten, die von Fork [Sally](https://github.com/0xeb/sally) von [Elias Bachaalany (0xeb)](https://github.com/0xeb) abgeleitet oder wesentlich davon inspiriert sind. Lizentiert unter der GNU Library General Public License. |
 | Jan Patera | PictView-Plugin | Teile des PictView-Plugins sind von Jan Patera lizenziert. Copyright (C) 1994-2026 Jan Patera. |
 | libexif | PictView-Plugin | Teile des PictView-Plugins verwenden libexif. Copyright (C) 2001-2019 Curtis Galloway und Lutz Muller. |

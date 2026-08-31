@@ -149,13 +149,20 @@ void CRendererWindow::SetupScrollBars()
 
 void CRendererWindow::SetViewerTitle()
 {
-    char title[MAX_PATH + 300];
+    const wchar_t* convertedPluginName = AnsiToWide(LoadStr(IDS_PLUGIN_NAME), -1);
+    const std::wstring pluginName(convertedPluginName != NULL ? convertedPluginName : L"");
     if (FileName[0] != 0)
-        sprintf(title, "%s - %s", FileName, LoadStr(IDS_PLUGIN_NAME));
+    {
+        const wchar_t* convertedFileName = IsUTF8Text(FileName)
+                                               ? UTF8ToWide(FileName, (int)strlen(FileName))
+                                               : AnsiToWide(FileName, (int)strlen(FileName));
+        std::wstring title(convertedFileName != NULL ? convertedFileName : L"");
+        title += L" - ";
+        title += pluginName;
+        SetWindowTextW(GetParent(HWindow), title.c_str());
+    }
     else
-        sprintf(title, "%s", LoadStr(IDS_PLUGIN_NAME));
-
-    SetWindowText(GetParent(HWindow), title);
+        SetWindowTextW(GetParent(HWindow), pluginName.c_str());
 }
 
 LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam)
@@ -174,7 +181,9 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam)
 
             if (item->Name)
             {
-                wchar_t* str = AnsiToWide(item->Name, (int)strlen(item->Name));
+                wchar_t* str = (item->Flags & OIF_NAME_UTF8)
+                                  ? UTF8ToWide(item->Name, (int)strlen(item->Name))
+                                  : AnsiToWide(item->Name, (int)strlen(item->Name));
                 text.Add(str, (int)wcslen(str));
 
                 if (item->Value)

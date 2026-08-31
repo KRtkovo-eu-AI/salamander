@@ -1,4 +1,4 @@
-﻿//
+//
 // lang.rc2 - resources Microsoft Visual C++ does not edit directly
 //
 
@@ -82,7 +82,7 @@ END
 
 STRINGTABLE DISCARDABLE
 BEGIN
-    IDS_VIEWERFILTER        "Multimedia files (*.mp3;*.mp2;*.ogg;*.vqf;*.wma;*.wav;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm)|*.mp3;*.mp2;*.ogg;*.wma;*.wav;*.wave;*.vqf;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm|All Files (*.*)|*.*||"
+    IDS_VIEWERFILTER        "Multimedia files (*.mp3;*.ogg;*.opus;*.flac;*.m4a;*.aac;*.ape;*.wv;*.wav;*.wma;...)|*.mp3;*.mp2;*.ogg;*.oga;*.opus;*.flac;*.m4a;*.mp4;*.m4b;*.aac;*.aif;*.aiff;*.ape;*.mpc;*.wv;*.tta;*.dsf;*.dff;*.mka;*.webm;*.spx;*.wma;*.wav;*.wave;*.vqf;*.669;*.it;*.mod;*.mtm;*.s3m;*.stm;*.xm|All Files (*.*)|*.*||"
     IDS_HTMLEXPFILTER   "HTML files (*.htm;*.html)|*.htm;*.html|All Files (*.*)|*.*||"
     IDS_EXPORTOPEN          "Do you wish to open exported data?"
     IDS_EXPORTHTML          "Export Info into &HTML..."
@@ -179,7 +179,7 @@ END
 
 STRINGTABLE DISCARDABLE
 BEGIN
-    IDS_OGG_INFO            "OGG Vorbis Information"
+    IDS_OGG_INFO            "Audio Information"
     IDS_OGG_VERSION         "Version"
     IDS_OGG_BITRATE         "Nominal bitrate (kbps)"
     IDS_OGG_FREQUENCY       "Frequency (Hz)"

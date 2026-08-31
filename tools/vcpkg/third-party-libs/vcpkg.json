@@ -30,6 +30,12 @@
       "dependencies": [
         "unrar"
       ]
+    },
+    "mmviewer-taglib": {
+      "description": "TagLib metadata backend used by the Multimedia Viewer plugin",
+      "dependencies": [
+        "taglib"
+      ]
     }
   },
   "builtin-baseline": "a0b1c8d3a477c1cb4813d8e127a56961707ca42b",

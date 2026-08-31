@@ -19,6 +19,15 @@ if not exist "%OPENSAL_BUILD_DIR%salamander" (
   exit /b
 )
 
+set "sfx_build_lock=%TEMP%\OpenSalamander-SFX-build.lock"
+:acquire_sfx_build_lock
+2>nul mkdir "%sfx_build_lock%"
+if not exist "%sfx_build_lock%" (
+  echo Another SFX build is using the shared self-extractor outputs. Waiting...
+  CHOICE /T 1 /C yn /D y >nul
+  goto acquire_sfx_build_lock
+)
+
 setlocal
 pushd "%~dp0"
 set making_all_versions=dummy
@@ -64,6 +73,7 @@ if exist sfx rmdir /Q /S sfx
 
 popd
 endlocal
+rmdir /Q /S "%sfx_build_lock%" >nul 2>nul
 if "%makeall_should_pause%"=="" (
   echo.
   pause

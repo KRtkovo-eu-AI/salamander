@@ -10,7 +10,7 @@
 // look at shared\versinfo.rc
 
 #define VERSINFO_MAJOR       1
-#define VERSINFO_MINORA      17
+#define VERSINFO_MINORA      18
 #define VERSINFO_MINORB      0
 
 #include "spl_vers.h" // pull in the version and build numbers

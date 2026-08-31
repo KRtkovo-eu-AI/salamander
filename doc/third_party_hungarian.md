@@ -47,6 +47,7 @@ szerepel, hogy hozzáférhetővé tették munkájukat.
 | Összetevő vagy szerző | Felhasználás itt | Szerzői jog és licenc megjegyzések |
 | --- | --- | --- |
 | Tomas Jelinek | Multimedia Viewer bővítmény | Tartalmaz Tomas Jelinek által írt szoftvert. Copyright (C) 2003-2026 Tomas Jelinek. |
+| TagLib 2.3 | Multimedia Viewer bővítmény | Scott Wheeler és a TagLib közreműködőinek hangmetaadat-könyvtára. Unicode metaadatokhoz és hangtulajdonságokhoz használjuk Ogg Vorbis, Opus, FLAC, MP4, APE, WavPack, TrueAudio, AIFF, DSD, Matroska/WebM és kapcsolódó formátumokban. A GNU LGPL 2.1 vagy a Mozilla Public License 1.1 feltételei szerint terjesztve. Forrás: https://github.com/taglib/taglib |
 | Belső nézegető | Unicode nézegető részek | Samandarin tartalmaz kódot és megvalósítási munkákat, amelyek a fork [Sally](https://github.com/0xeb/sally) [Elias Bachaalany (0xeb)](https://github.com/0xeb) származékai, vagy jelentősen abból inspiráltak. A GNU Library General Public License alatt licencelve. |
 | Jan Patera | PictView bővítmény | A PictView bővítmény egyes részei Jan Patera licencéből származnak. Copyright (C) 1994-2026 Jan Patera. |
 | libexif | PictView bővítmény | A PictView bővítmény egyes részei libexif-et használnak. Copyright (C) 2001-2019 Curtis Galloway és Lutz Muller. |

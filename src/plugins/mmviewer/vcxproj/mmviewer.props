@@ -1,17 +1,30 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ImportGroup Label="PropertySheets">
   </ImportGroup>
-  <PropertyGroup Label="UserMacros"></PropertyGroup>
+  <PropertyGroup Label="UserMacros">
+    <VcpkgArchitecture Condition="'$(Platform)'=='Win32'">x86</VcpkgArchitecture>
+    <VcpkgArchitecture Condition="'$(Platform)'=='x64'">x64</VcpkgArchitecture>
+    <VcpkgArchitecture Condition="'$(Platform)'=='ARM64'">arm64</VcpkgArchitecture>
+    <TagLibRoot>$(MSBuildThisFileDirectory)..\..\..\..\build\vcpkg_installed_mmviewer_taglib\$(VcpkgArchitecture)-windows</TagLibRoot>
+  </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <PreprocessorDefinitions>WINVER=0x0601;_WIN32_WINNT=0x0601;_WIN32_IE=0x0800;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES;_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES_COUNT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(TagLibRoot)\include\taglib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>TAGLIB_STATIC;WINVER=0x0601;_WIN32_WINNT=0x0601;_WIN32_IE=0x0800;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES;_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES_COUNT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>MSACM32.LIB;WINMM.LIB;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories Condition="'$(Configuration)'=='Debug'">$(TagLibRoot)\debug\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories Condition="'$(Configuration)'!='Debug'">$(TagLibRoot)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies Condition="'$(Configuration)'=='Debug'">tag.lib;zsd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(Configuration)'!='Debug'">tag.lib;zs.lib;MSACM32.LIB;WINMM.LIB;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ResourceCompile>
-      <PreprocessorDefinitions>WINVER=0x0601;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(TagLibRoot)\include\taglib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>TAGLIB_STATIC;WINVER=0x0601;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
   </ItemDefinitionGroup>
+  <Target Name="ValidateTagLibDependency" BeforeTargets="ClCompile">
+    <Error Condition="!Exists('$(TagLibRoot)\include\taglib\fileref.h') Or ('$(Configuration)'=='Debug' And !Exists('$(TagLibRoot)\debug\lib\tag.lib')) Or ('$(Configuration)'!='Debug' And !Exists('$(TagLibRoot)\lib\tag.lib'))" Text="TagLib is missing for $(Platform). Run tools\vcpkg\build-and-deploy-dependencies.ps1 -Dependency mmviewer-taglib -Triplet $(VcpkgArchitecture)-windows." />
+  </Target>
 </Project>
