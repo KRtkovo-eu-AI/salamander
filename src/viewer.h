@@ -308,6 +308,8 @@ protected:
     BOOL ReadDecodedScalar(HANDLE* hFile, __int64 offset, Salamander::Unicode::DecodedRun& scalar, BOOL& fatalErr);
     BOOL GetDecodedOffsetFromPixel(__int64 pixelX, __int64 originCell, __int64* offset, __int64 lineBegOff,
                                    __int64 lineEndOff, BOOL& fatalErr);
+    BOOL GetDecodedDoubleClickSelection(__int64 offset, BOOL wholeLine, __int64& selectionStart,
+                                        __int64& selectionEnd, BOOL& fatalErr);
     __int64 PreviousTextOffset(__int64 offset, BOOL& fatalErr);
     __int64 NextTextOffset(__int64 offset, BOOL& fatalErr);
     BOOL ReadDecodedTextLine(HANDLE* hFile, __int64 lineOffset, __int64 maxCells,
@@ -336,6 +338,7 @@ protected:
     void SetLogViewMode(BOOL enable);
     void RefreshLogView();
     int GetTextLeft() const;
+    int GetDocumentTop() const;
     __int64 GetDocumentLineNumber(__int64 offset, __int64* lineStart = NULL);
 
     void ResetMouseWheelAccumulator()

@@ -891,6 +891,7 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
             FileSize = 0;
             FindOffset = 0;
             StartSelection = EndSelection = -1;
+            CachedSelectionStart = CachedSelectionEnd = -1;
             ReleaseMouseDrag();
             FirstLineSize = LastLineSize = ViewSize = 0;
             LastFindSeekY = -1;
@@ -921,6 +922,7 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
                 Loaded = 0;
                 FindOffset = 0;
                 StartSelection = EndSelection = -1;
+                CachedSelectionStart = CachedSelectionEnd = -1;
                 ResetFindOffsetOnNextPaint = TRUE;
                 ReleaseMouseDrag();
                 FirstLineSize = LastLineSize = ViewSize = 0;
@@ -1082,6 +1084,7 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
         FileSize = 0;
         FindOffset = 0;
         StartSelection = EndSelection = -1;
+        CachedSelectionStart = CachedSelectionEnd = -1;
         ReleaseMouseDrag();
         FirstLineSize = LastLineSize = ViewSize = 0;
         LastFindSeekY = -1;
@@ -2078,6 +2081,76 @@ BOOL CViewerWindow::GetOffsetOrXAbs(__int64 x, __int64* offset, __int64* offsetX
     return FALSE;
 }
 
+BOOL CViewerWindow::GetDecodedDoubleClickSelection(__int64 offset, BOOL wholeLine,
+                                                    __int64& selectionStart, __int64& selectionEnd,
+                                                    BOOL& fatalErr)
+{
+    fatalErr = FALSE;
+    selectionStart = selectionEnd = offset;
+
+    __int64 lineStart = TextStartOffset();
+    GetDocumentLineNumber(offset, &lineStart);
+    Salamander::Unicode::DecodedRun line;
+    __int64 lineEnd = lineStart;
+    __int64 nextLineBegin = lineStart;
+    BOOL eol = FALSE;
+    BOOL wrapped = FALSE;
+    int eolBytes = 0;
+    BOOL savedWrapText = WrapText;
+    WrapText = FALSE;
+    BOOL read = ReadDecodedTextLine(NULL, lineStart, TEXT_MAX_LINE_LEN + 1, line, lineEnd,
+                                    nextLineBegin, eol, wrapped, eolBytes, fatalErr);
+    WrapText = savedWrapText;
+    if (!read || fatalErr)
+        return FALSE;
+
+    if (wholeLine)
+    {
+        selectionStart = lineStart;
+        selectionEnd = nextLineBegin;
+        return TRUE;
+    }
+
+    Salamander::Unicode::TextElementMap elements = Salamander::Unicode::BuildTextElementMap(line);
+    std::size_t clicked = elements.Count();
+    for (std::size_t element = 0; element < elements.Count(); ++element)
+    {
+        std::size_t first = elements.CellStart(element);
+        std::size_t last = elements.CellEnd(element) - 1;
+        if (offset >= line.RawStart[first] && offset < line.RawEnd[last] ||
+            offset == line.RawStart[first])
+        {
+            clicked = element;
+            break;
+        }
+    }
+    if (clicked == elements.Count())
+        return TRUE;
+
+    auto isWordElement = [&](std::size_t element)
+    {
+        for (std::size_t cell = elements.CellStart(element); cell < elements.CellEnd(element); ++cell)
+        {
+            std::uint32_t scalar = line.Scalars[cell];
+            if (scalar == L'_' || scalar > 0xFFFF || iswalnum((wchar_t)scalar) != 0)
+                return true;
+        }
+        return false;
+    };
+    if (!isWordElement(clicked))
+        return TRUE;
+
+    std::size_t firstElement = clicked;
+    while (firstElement > 0 && isWordElement(firstElement - 1))
+        --firstElement;
+    std::size_t endElement = clicked + 1;
+    while (endElement < elements.Count() && isWordElement(endElement))
+        ++endElement;
+
+    selectionStart = line.RawStart[elements.CellStart(firstElement)];
+    selectionEnd = line.RawEnd[elements.CellEnd(endElement - 1) - 1];
+    return TRUE;
+}
 BOOL CViewerWindow::GetDecodedOffsetFromPixel(__int64 pixelX, __int64 originCell, __int64* offset, __int64 lineBegOff,
                                               __int64 lineEndOff, BOOL& fatalErr)
 {
@@ -2213,6 +2286,7 @@ BOOL CViewerWindow::GetOffset(__int64 x, __int64 y, __int64& offset, BOOL& fatal
     fatalErr = FALSE;
     if (onHexNum != NULL)
         *onHexNum = FALSE;
+    y -= GetDocumentTop();
     if (x >= 0 && y >= 0 && x < Width && y < Height)
     {
         // The line-number gutter is chrome, not document text.  Coordinates
