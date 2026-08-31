@@ -58,8 +58,9 @@ const char* PLUGIN_NAME = "MMVIEWER"; // plugin name required for WinLib
 // Configuration variables
 
 // CURRENT_CONFIG_VERSION: 0 - default,
-//                         1 - po 2.5b6 major upgrade
-#define CURRENT_CONFIG_VERSION 1
+//                         1 - after the 2.5b6 major upgrade,
+//                         2 - TagLib audio formats added
+#define CURRENT_CONFIG_VERSION 2
 int ConfigVersion = 0;
 
 LOGFONT CfgLogFont;
@@ -520,9 +521,7 @@ void CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamand
                           ";*.vqf"
 #endif
 
-#ifdef _OGG_SUPPORT_
-                          ";*.ogg"
-#endif
+                          ";*.ogg;*.oga;*.opus;*.flac;*.m4a;*.mp4;*.m4b;*.aac;*.aif;*.aiff;*.ape;*.mpc;*.wv;*.tta;*.dsf;*.dff;*.mka;*.webm;*.spx"
 
 #ifdef _MOD_SUPPORT_
                           ";*.it;*.s3m;*.stm;*.xm;*.mod;*.mtm;*.669"
@@ -532,9 +531,9 @@ void CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamand
                           FALSE); // default (plugin installation), otherwise Salamander ignores it
 
     if (ConfigVersion < 1) // extensions added after 2.5b6
-    {
-        salamander->AddViewer("*.wav;*.wave;*.wma;*.ogg", TRUE);
-    }
+        salamander->AddViewer("*.wav;*.wave;*.wma", TRUE);
+    if (ConfigVersion < 2) // formats supported by the TagLib backend
+        salamander->AddViewer("*.ogg;*.oga;*.opus;*.flac;*.m4a;*.mp4;*.m4b;*.aac;*.aif;*.aiff;*.ape;*.mpc;*.wv;*.tta;*.dsf;*.dff;*.mka;*.webm;*.spx", TRUE);
 
     /* used by the export_mnu.py script, which generates salmenu.mnu for the Translator
    keep it synchronized with the salamander->AddMenuItem() calls below...
@@ -1428,28 +1427,33 @@ bool IsUTF8Text(const char* s)
 // intelligent dynamic converter - prevents unnecessary reallocation
 char* AnsiToUTF8(const char* chars, int len)
 {
-    static TBuffer<char> tmpbuf;
-    static TBuffer<wchar_t> tmpbufw;
+    static thread_local TBuffer<char> tmpbuf;
+    static thread_local TBuffer<wchar_t> tmpbufw;
+    static thread_local char emptyBuff[] = "";
 
     if (len == 0)
     {
-        static char emptyBuff[] = "";
         return emptyBuff;
     }
 
-    tmpbufw.Reserve(len + 1);
+    if (!tmpbufw.Reserve(len + 1))
+        return emptyBuff;
 
     wchar_t* wc = tmpbufw.Get();
-    wc[MultiByteToWideChar(CP_ACP, 0, chars, len, wc, len)] = 0;
+    // Legacy ID3 text uses the Central European Windows code page. Do not use
+    // CP_ACP here: on systems configured for UTF-8 it cannot decode these bytes.
+    wc[MultiByteToWideChar(1250, 0, chars, len, wc, len)] = 0;
     int wcl = (int)wcslen(wc);
 
-    tmpbuf.Reserve((wcl + 1) * 4);
+    if (!tmpbuf.Reserve((wcl + 1) * 4))
+        return emptyBuff;
 
     char* c = tmpbuf.Get();
 
     if (((wcl = WideCharToMultiByte(CP_UTF8, 0, wc, wcl, c, wcl * 3, 0, NULL)) == 0))
     {
-        tmpbuf.Reserve(len + 1);
+        if (!tmpbuf.Reserve(len + 1))
+            return emptyBuff;
         strcpy(tmpbuf.Get(), chars);
     }
     else
@@ -1461,28 +1465,31 @@ char* AnsiToUTF8(const char* chars, int len)
 // intelligent dynamic converter - prevents unnecessary reallocation
 char* UTF8ToAnsi(const char* chars, int len)
 {
-    static TBuffer<char> tmpbuf;
-    static TBuffer<wchar_t> tmpbufw;
+    static thread_local TBuffer<char> tmpbuf;
+    static thread_local TBuffer<wchar_t> tmpbufw;
+    static thread_local char emptyBuff[] = "";
 
     if (len == 0)
     {
-        static char emptyBuff[] = "";
         return emptyBuff;
     }
 
-    tmpbufw.Reserve(len + 1);
+    if (!tmpbufw.Reserve(len + 1))
+        return emptyBuff;
 
     wchar_t* wc = tmpbufw.Get();
     wc[MultiByteToWideChar(CP_UTF8, 0, chars, len, wc, len)] = 0;
     int wcl = (int)wcslen(wc);
 
-    tmpbuf.Reserve((wcl + 1) * 4);
+    if (!tmpbuf.Reserve((wcl + 1) * 4))
+        return emptyBuff;
 
     char* c = tmpbuf.Get();
 
     if (((wcl = WideCharToMultiByte(CP_ACP, 0, wc, wcl, c, wcl * 3, 0, NULL)) == 0))
     {
-        tmpbuf.Reserve(len + 1);
+        if (!tmpbuf.Reserve(len + 1))
+            return emptyBuff;
         strcpy(tmpbuf.Get(), chars);
     }
     else
@@ -1495,16 +1502,17 @@ char* UTF8ToAnsi(const char* chars, int len)
 // Actually called only from 1 place in wmaparser.cpp
 char* WideToAnsi(const wchar_t* chars, int len)
 {
-    static TBuffer<char> tmpbuf;
+    static thread_local TBuffer<char> tmpbuf;
+    static thread_local char emptyBuff[] = "";
 
     if (len == 0)
     {
-        static char emptyBuff[] = "";
         return emptyBuff;
     }
 
     int outlen = WideCharToMultiByte(CP_UTF8, 0, chars, len, NULL, 0, 0, NULL);
-    tmpbuf.Reserve(outlen + 1);
+    if (!tmpbuf.Reserve(outlen + 1))
+        return emptyBuff;
 
     char* c = tmpbuf.Get();
 
@@ -1514,44 +1522,43 @@ char* WideToAnsi(const wchar_t* chars, int len)
 }
 
 // intelligent dynamic converter - prevents unnecessary reallocation
+wchar_t* ConvertToWide(UINT codePage, const char* chars, int len)
+{
+    static thread_local TBuffer<wchar_t> tmpbufw;
+    static thread_local wchar_t emptyBuff[] = L"";
+
+    if (chars == NULL || len == 0)
+        return emptyBuff;
+
+    const int required = MultiByteToWideChar(codePage, 0, chars, len, NULL, 0);
+    if (required <= 0)
+        return emptyBuff;
+
+    // For len == -1, required already includes the terminating null.
+    const int capacity = required + (len == -1 ? 0 : 1);
+    if (!tmpbufw.Reserve(capacity))
+        return emptyBuff;
+
+    wchar_t* wide = tmpbufw.Get();
+    const int converted = MultiByteToWideChar(codePage, 0, chars, len, wide, required);
+    if (converted <= 0)
+        return emptyBuff;
+    if (len != -1)
+        wide[converted] = L'\0';
+
+    return wide;
+}
+
 wchar_t* AnsiToWide(const char* chars, int len)
 {
-    static TBuffer<wchar_t> tmpbufw;
-
-    if (len == 0)
-    {
-        static wchar_t emptyBuff[] = L"";
-        return emptyBuff;
-    }
-
-    tmpbufw.Reserve(len + 1);
-
-    wchar_t* wc = tmpbufw.Get();
-
-    // NOTE: Must stay CP_ACP, used for file name conversion
-    wc[MultiByteToWideChar(CP_ACP, 0, chars, len, wc, len)] = 0;
-
-    return wc;
+    // NOTE: Must stay CP_ACP, used for file name and localized resource conversion.
+    return ConvertToWide(CP_ACP, chars, len);
 }
 
 // intelligent dynamic converter - prevents unnecessary reallocation
 wchar_t* UTF8ToWide(const char* chars, int len)
 {
-    static TBuffer<wchar_t> tmpbufw;
-
-    if (len == 0)
-    {
-        static wchar_t emptyBuff[] = L"";
-        return emptyBuff;
-    }
-
-    tmpbufw.Reserve(len + 1);
-
-    wchar_t* wc = tmpbufw.Get();
-
-    wc[MultiByteToWideChar(CP_UTF8, 0, chars, len, wc, len)] = 0;
-
-    return wc;
+    return ConvertToWide(CP_UTF8, chars, len);
 }
 
 void ExecuteFile(LPCTSTR fname)

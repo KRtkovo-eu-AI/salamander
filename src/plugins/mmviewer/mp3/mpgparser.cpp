@@ -180,12 +180,14 @@ CParserMPG::GetFileInfo(COutputInterface* output)
 
             output->AddHeader(FStr(LoadStr(IDS_MP3_ID3TAGV), HIBYTE(id3v1dec.version), LOBYTE(id3v1dec.version)));
 
+            // ID3v1 stores text in the recording's legacy 8-bit code page.
+            // Convert it to UTF-8 before passing it to the common output renderer.
             if (TAGITEM_AVAIL(id3v1dec.title))
-                output->AddItem(LoadStr(IDS_MP3_TITLE), id3v1dec.title);
+                output->AddItem(LoadStr(IDS_MP3_TITLE), AnsiToUTF8(id3v1dec.title, (int)strlen(id3v1dec.title)));
             if (TAGITEM_AVAIL(id3v1dec.artist))
-                output->AddItem(LoadStr(IDS_MP3_AUTHOR), id3v1dec.artist);
+                output->AddItem(LoadStr(IDS_MP3_AUTHOR), AnsiToUTF8(id3v1dec.artist, (int)strlen(id3v1dec.artist)));
             if (TAGITEM_AVAIL(id3v1dec.album))
-                output->AddItem(LoadStr(IDS_MP3_ALBUM), id3v1dec.album);
+                output->AddItem(LoadStr(IDS_MP3_ALBUM), AnsiToUTF8(id3v1dec.album, (int)strlen(id3v1dec.album)));
             if (TAGITEM_AVAIL(id3v1dec.year))
                 output->AddItem(LoadStr(IDS_MP3_YEAR), id3v1dec.year);
             if (TAGITEM_AVAIL(id3v1dec.genre))
@@ -193,7 +195,7 @@ CParserMPG::GetFileInfo(COutputInterface* output)
             if (LOBYTE(id3v1dec.version) == 1)
                 output->AddItem(LoadStr(IDS_MP3_TRACK), FStr("%u", id3v1dec.track));
             if (TAGITEM_AVAIL(id3v1dec.comments))
-                output->AddItem(LoadStr(IDS_MP3_COMMENTS), id3v1dec.comments);
+                output->AddItem(LoadStr(IDS_MP3_COMMENTS), AnsiToUTF8(id3v1dec.comments, (int)strlen(id3v1dec.comments)));
         }
 
         if (id3tagv2found)

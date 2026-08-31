@@ -60,6 +60,8 @@ BOOL COutput::AddItem(const char* name, const char* value)
     {
         if (IsUTF8Text(item.Value))
             item.Flags |= OIF_UTF8;
+        if (IsUTF8Text(item.Name))
+            item.Flags |= OIF_NAME_UTF8;
         Items.Add(item);
         if (Items.IsGood())
             return TRUE;
@@ -93,6 +95,8 @@ BOOL COutput::AddHeader(const char* name, BOOL superHeader)
     item.Name = SalGeneral->DupStr(name);
     item.Value = NULL;
     item.hwnd = NULL;
+    if (item.Name != NULL && IsUTF8Text(item.Name))
+        item.Flags |= OIF_NAME_UTF8;
     Items.Add(item);
     if (Items.IsGood())
         return TRUE;
@@ -162,7 +166,7 @@ BOOL COutput::PrepareForRender(HWND parentWnd)
     {
         COutputItem& oi = Items[i];
 
-        if ((oi.Flags & ~OIF_UTF8) == 0)
+        if ((oi.Flags & ~(OIF_UTF8 | OIF_NAME_UTF8)) == 0)
         { // Ignore non-text items
             if (oi.Flags & OIF_UTF8)
             { // NOTE: OIF_UTF8 is set only on NT-class OS's -> CreateWindowW is safe

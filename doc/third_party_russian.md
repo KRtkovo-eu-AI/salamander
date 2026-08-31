@@ -47,6 +47,7 @@
 | Компонент или автор | Используется в | Примечания об авторских правах и лицензии |
 | --- | --- | --- |
 | Tomas Jelinek | Плагин Multimedia Viewer | Включает программное обеспечение, написанное Tomas Jelinek. Copyright (C) 2003-2026 Tomas Jelinek. |
+| TagLib 2.3 | Плагин Multimedia Viewer | Библиотека аудиометаданных Скотта Уилера и участников проекта TagLib. Используется для метаданных Unicode и свойств аудио в форматах Ogg Vorbis, Opus, FLAC, MP4, APE, WavPack, TrueAudio, AIFF, DSD, Matroska/WebM и родственных форматах. Распространяется на условиях GNU LGPL 2.1 или Mozilla Public License 1.1. Исходный код: https://github.com/taglib/taglib |
 | Внутренний просмотрщик | Части просмотрщика Unicode | Samandarin содержит код и реализации, производные от форка [Sally](https://github.com/0xeb/sally) авторства [Elias Bachaalany (0xeb)](https://github.com/0xeb), или существенно вдохновлённые им. Лицензировано под GNU Library General Public License. |
 | Jan Patera | Плагин PictView | Части плагина PictView лицензированы от Jan Patera. Copyright (C) 1994-2026 Jan Patera. |
 | libexif | Плагин PictView | Части плагина PictView используют libexif. Copyright (C) 2001-2019 Curtis Galloway и Lutz Muller. |

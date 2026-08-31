@@ -8,6 +8,7 @@ param(
     [switch]$SkipInstall,
     [switch]$SftpPlugin,
     [switch]$OnlySftpPlugin,
+    [switch]$OnlyMmviewerTagLib,
     [string[]]$ManifestFeature = @(),
     [switch]$NoDefaultFeatures,
     [switch]$SkipLegacyCopy
@@ -83,7 +84,7 @@ if (![string]::IsNullOrWhiteSpace($PrebuiltDllsDir))
     Write-Host "Prebuilt DLLs: $PrebuiltDllsDir"
 }
 
-$installRoot = Join-Path $repoRoot 'build\vcpkg_installed_third_party'
+$installRoot = Join-Path $repoRoot ($OnlyMmviewerTagLib ? 'build\vcpkg_installed_mmviewer_taglib' : 'build\vcpkg_installed_third_party')
 $tripletBinDir = Join-Path (Join-Path $installRoot $Triplet) 'bin'
 $vcpkgExe = Join-Path $VcpkgRoot 'vcpkg.exe'
 
@@ -143,6 +144,10 @@ if (!$OnlySftpPlugin)
             '--triplet', $Triplet,
             '--x-install-root', $installRoot
         )
+        if ($OnlyMmviewerTagLib)
+        {
+            $installArguments += @('--overlay-triplets', (Join-Path $PSScriptRoot 'triplets'))
+        }
         if ($NoDefaultFeatures)
         {
             $installArguments += '--x-no-default-features'
@@ -151,7 +156,35 @@ if (!$OnlySftpPlugin)
         {
             $installArguments += "--x-feature=$feature"
         }
-        Invoke-LoggedCommand -FilePath $vcpkgExe -Arguments $installArguments -WorkingDirectory $manifestRoot
+        $legacyOpenSslRequested = !$OnlyMmviewerTagLib -and
+            (($NoDefaultFeatures -and ('ftp-openssl' -in $ManifestFeature)) -or !$NoDefaultFeatures)
+        try
+        {
+            Invoke-LoggedCommand -FilePath $vcpkgExe -Arguments $installArguments -WorkingDirectory $manifestRoot
+        }
+        catch
+        {
+            if (!$legacyOpenSslRequested)
+            {
+                throw
+            }
+
+            # The pinned OpenSSL 1.0.2 port applies patches to its extracted source.
+            # A failed/interrupted patch can leave that source tree already modified.
+            # Remove only that port's buildtree and retry; vcpkg still supplies the
+            # pinned legacy OpenSSL package and downloaded archives are preserved.
+            $legacyOpenSslBuildTree = Join-Path $VcpkgRoot 'buildtrees\openssl'
+            if (Test-Path -LiteralPath $legacyOpenSslBuildTree)
+            {
+                Write-Warning "Legacy OpenSSL install failed; removing stale buildtree and retrying: $legacyOpenSslBuildTree"
+                Remove-Item -LiteralPath $legacyOpenSslBuildTree -Recurse -Force
+                Invoke-LoggedCommand -FilePath $vcpkgExe -Arguments $installArguments -WorkingDirectory $manifestRoot
+            }
+            else
+            {
+                throw
+            }
+        }
     }
 
     if (!$SkipLegacyCopy -and !(Test-Path -LiteralPath $tripletBinDir))

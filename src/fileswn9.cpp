@@ -1,8 +1,9 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "audio_metadata_legacy.h"
 
 #include <shlwapi.h>
 #include <propsys.h>
@@ -1233,20 +1234,16 @@ static void AppendTipText(char* text, int textSize, const char* line)
         text[len++] = '\n';
         text[len] = 0;
     }
-    lstrcpyn(text + len, line, textSize - len);
+    CopyStringTruncateUtf8(text + len, textSize - len, line);
 }
 
 static void AppendTipLine(char* text, int textSize, int resID, const char* value)
 {
     if (value == NULL || value[0] == 0 || text == NULL || textSize <= 0)
         return;
-    int len = (int)strlen(text);
-    if (len > 0 && len < textSize - 1)
-    {
-        text[len++] = '\n';
-        text[len] = 0;
-    }
-    _snprintf_s(text + len, textSize - len, _TRUNCATE, "%s%s", LoadStr(resID), value);
+    std::string line(LoadStr(resID));
+    line.append(value);
+    AppendTipText(text, textSize, line.c_str());
 }
 
 static void FormatTipFileTime(const FILETIME* ft, char* buf, int bufSize)
@@ -1332,7 +1329,7 @@ static BOOL FormatPanelTipName(const CFileData* f, char* name, int nameSize)
             nameW.resize(cut);
             nameW.append(L"...");
         }
-        if (WideCharToMultiByte(CP_ACP, 0, nameW.c_str(), -1, name, nameSize, NULL, NULL) > 0)
+        if (WideCharToMultiByte(CP_UTF8, 0, nameW.c_str(), -1, name, nameSize, NULL, NULL) > 0)
             return TRUE;
     }
 
@@ -1360,6 +1357,29 @@ static BOOL BuildPanelFilePathW(const wchar_t* panelPathW, const char* panelPath
     return TRUE;
 }
 
+static BOOL WideTextToUtf8(const wchar_t* text, std::string& utf8)
+{
+    utf8.clear();
+    if (text == NULL || text[0] == L'\0')
+        return FALSE;
+    const int required = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, text, -1, NULL, 0, NULL, NULL);
+    if (required <= 1)
+        return FALSE;
+    utf8.resize(required);
+    if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, text, -1, &utf8[0], required, NULL, NULL) <= 0)
+    {
+        utf8.clear();
+        return FALSE;
+    }
+    utf8.resize(required - 1);
+    return TRUE;
+}
+
+static BOOL WideTextContainsReplacementCharacter(const wchar_t* text)
+{
+    return text != NULL && wcschr(text, 0xfffd) != NULL;
+}
+
 static BOOL AppendShellPropertyLine(char* text, int textSize, IPropertyStore* store, REFPROPERTYKEY key)
 {
     if (store == NULL)
@@ -1370,29 +1390,30 @@ static BOOL AppendShellPropertyLine(char* text, int textSize, IPropertyStore* st
     if (SUCCEEDED(store->GetValue(key, &value)) && value.vt != VT_EMPTY && value.vt != VT_NULL)
     {
         PWSTR display = NULL;
-        if (SUCCEEDED(PSFormatForDisplayAlloc(key, value, PDFF_DEFAULT, &display)) && display != NULL && display[0] != 0)
+        if (SUCCEEDED(PSFormatForDisplayAlloc(key, value, PDFF_DEFAULT, &display)) && display != NULL && display[0] != 0 &&
+            !WideTextContainsReplacementCharacter(display))
         {
-            char valueText[512];
-            if (WideCharToMultiByte(CP_ACP, 0, display, -1, valueText, _countof(valueText), NULL, NULL) > 0 && valueText[0] != 0)
+            std::string valueText;
+            if (WideTextToUtf8(display, valueText))
             {
-                char nameText[128];
-                nameText[0] = 0;
+                std::string nameText;
                 IPropertyDescription* desc = NULL;
                 if (SUCCEEDED(PSGetPropertyDescription(key, IID_IPropertyDescription, (void**)&desc)) && desc != NULL)
                 {
                     LPWSTR name = NULL;
                     if (SUCCEEDED(desc->GetDisplayName(&name)) && name != NULL)
                     {
-                        WideCharToMultiByte(CP_ACP, 0, name, -1, nameText, _countof(nameText), NULL, NULL);
+                        WideTextToUtf8(name, nameText);
                         CoTaskMemFree(name);
                     }
                     desc->Release();
                 }
-                if (nameText[0] != 0)
+                if (!nameText.empty())
                 {
-                    char line[700];
-                    _snprintf_s(line, _countof(line), _TRUNCATE, "%s: %s", nameText, valueText);
-                    AppendTipText(text, textSize, line);
+                    std::string line(nameText);
+                    line.append(": ");
+                    line.append(valueText);
+                    AppendTipText(text, textSize, line.c_str());
                     ret = TRUE;
                 }
             }
@@ -1427,19 +1448,78 @@ static CPanelTipCategory GetPanelTipCategory(const CFileData* f)
     return ptcUnknown;
 }
 
-static BOOL AppendCategoryProperties(char* text, int textSize, const wchar_t* pathW, CPanelTipCategory category)
+static BOOL AppendLegacyOggProperties(char* text, int textSize, const wchar_t* pathW)
 {
+    SalLegacyAudioMetadata::CTextProperties properties;
+    if (!SalLegacyAudioMetadata::ReadOggTextProperties(pathW, properties))
+        return FALSE;
+
+    BOOL appended = FALSE;
+    struct CProperty
+    {
+        const char* Key;
+        const PROPERTYKEY* PropertyKey;
+    };
+    static const CProperty knownProperties[] = {
+        {"TITLE", &PKEY_Title},
+        {"ARTIST", &PKEY_Music_Artist},
+        {"ALBUM", &PKEY_Music_AlbumTitle},
+    };
+    for (size_t i = 0; i < _countof(knownProperties); ++i)
+    {
+        const std::string* value = SalLegacyAudioMetadata::FindProperty(properties, knownProperties[i].Key);
+        if (value == NULL)
+            continue;
+
+        IPropertyDescription* description = NULL;
+        if (SUCCEEDED(PSGetPropertyDescription(*knownProperties[i].PropertyKey, IID_IPropertyDescription,
+                                               reinterpret_cast<void**>(&description))) && description != NULL)
+        {
+            LPWSTR displayName = NULL;
+            if (SUCCEEDED(description->GetDisplayName(&displayName)) && displayName != NULL)
+            {
+                std::string name;
+                if (WideTextToUtf8(displayName, name))
+                {
+                    std::string line(name);
+                    line.append(": ");
+                    line.append(*value);
+                    AppendTipText(text, textSize, line.c_str());
+                    appended = TRUE;
+                }
+                CoTaskMemFree(displayName);
+            }
+            description->Release();
+        }
+    }
+    return appended;
+}
+
+static BOOL IsLegacyOggFile(const CFileData* file)
+{
+    static const char* const extensions[] = {".ogg", ".oga", ".opus"};
+    return IsKnownExt(file, extensions, _countof(extensions));
+}
+
+static BOOL AppendCategoryProperties(char* text, int textSize, const wchar_t* pathW, CPanelTipCategory category, BOOL legacyOgg)
+{
+    BOOL appended = legacyOgg ? AppendLegacyOggProperties(text, textSize, pathW) : FALSE;
     PROPERTYKEY keys[10];
     int count = GetPanelTipPropertyKeys(category, keys, _countof(keys));
     if (count == 0)
-        return FALSE;
+        return appended;
 
     IPropertyStore* store = NULL;
     if (FAILED(SHGetPropertyStoreFromParsingName(pathW, NULL, GPS_DEFAULT, IID_IPropertyStore, (void**)&store)) || store == NULL)
-        return FALSE;
-    BOOL appended = FALSE;
+        return appended;
     for (int i = 0; i < count; i++)
+    {
+        if (legacyOgg && (IsEqualPropertyKey(keys[i], PKEY_Title) ||
+                          IsEqualPropertyKey(keys[i], PKEY_Music_Artist) ||
+                          IsEqualPropertyKey(keys[i], PKEY_Music_AlbumTitle)))
+            continue;
         appended |= AppendShellPropertyLine(text, textSize, store, keys[i]);
+    }
     store->Release();
     return appended;
 }
@@ -1489,7 +1569,8 @@ void CFilesWindow::GetPanelItemToolTip(DWORD id, char* text, int textSize)
     {
         std::wstring pathW;
         if (BuildPanelFilePathW(GetPathW(), GetPath(), f, pathW))
-            categoryAppended = AppendCategoryProperties(text, textSize, pathW.c_str(), category);
+            categoryAppended = AppendCategoryProperties(text, textSize, pathW.c_str(), category,
+                                                       IsLegacyOggFile(f));
     }
 
     if (!categoryAppended)

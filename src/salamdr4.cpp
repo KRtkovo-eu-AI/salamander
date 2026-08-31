@@ -2269,6 +2269,10 @@ int GetPanelTipPropertyKeys(CPanelTipCategory category, PROPERTYKEY* keys, int m
         AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Title);
         AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Music_Artist);
         AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Music_AlbumTitle);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Music_TrackNumber);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Music_Genre);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Media_Year);
+        AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Comment);
         AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Media_Duration);
         AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Audio_EncodingBitrate);
         AddPanelTipPropertyKey(keys, maxKeys, &count, PKEY_Size);

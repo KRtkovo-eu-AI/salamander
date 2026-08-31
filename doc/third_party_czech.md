@@ -47,6 +47,7 @@ jejich práce.
 | Komponenta nebo autor | Použití v | Informace o autorství a licenci |
 | --- | --- | --- |
 | Tomas Jelinek | Plugin Multimedia Viewer | Obsahuje software napsaný Tomášem Jelínkem. Copyright (C) 2003-2026 Tomas Jelinek. |
+| TagLib 2.3 | Plugin Multimedia Viewer | Knihovna zvukových metadat od Scotta Wheelera a přispěvatelů projektu TagLib. Používá se pro Unicode metadata a zvukové vlastnosti formátů Ogg Vorbis, Opus, FLAC, MP4, APE, WavPack, TrueAudio, AIFF, DSD, Matroska/WebM a souvisejících formátů. Distribuováno pod licencí GNU LGPL 2.1 nebo Mozilla Public License 1.1. Zdroj: https://github.com/taglib/taglib |
 | Interní prohlížeč | Části prohlížeče Unicode | Samandarin obsahuje kód a implementační práce odvozené z, nebo podstatně inspirované, forkem [Sally](https://github.com/0xeb/sally) od [Elias Bachaalany (0xeb)](https://github.com/0xeb). Licencováno pod GNU Library General Public License. |
 | Jan Patera | Plugin PictView | Části pluginu PictView jsou licencovány od Jana Patery. Copyright (C) 1994-2026 Jan Patera. |
 | libexif | Plugin PictView | Části pluginu PictView používají libexif. Copyright (C) 2001-2019 Curtis Galloway a Lutz Muller. |

@@ -47,6 +47,7 @@ los aquí mencionados por hacer disponible su trabajo.
 | Componente o autor | Uso en | Notas de atribución y licencia |
 | --- | --- | --- |
 | Tomas Jelinek | Complemento Multimedia Viewer | Incluye software escrito por Tomas Jelinek. Copyright (C) 2003-2026 Tomas Jelinek. |
+| TagLib 2.3 | Complemento Multimedia Viewer | Biblioteca de metadatos de audio de Scott Wheeler y los colaboradores de TagLib. Se utiliza para metadatos Unicode y propiedades de audio en Ogg Vorbis, Opus, FLAC, MP4, APE, WavPack, TrueAudio, AIFF, DSD, Matroska/WebM y formatos relacionados. Distribuida bajo GNU LGPL 2.1 o Mozilla Public License 1.1. Fuente: https://github.com/taglib/taglib |
 | Visor interno | Partes del visor Unicode | Samandarin incluye código y trabajo de implementación derivado del fork [Sally](https://github.com/0xeb/sally) de [Elias Bachaalany (0xeb)](https://github.com/0xeb), o sustancialmente inspirado por él. Licenciado bajo la GNU Library General Public License. |
 | Jan Patera | Complemento PictView | Partes del complemento PictView están licenciadas de Jan Patera. Copyright (C) 1994-2026 Jan Patera. |
 | libexif | Complemento PictView | Partes del complemento PictView usan libexif. Copyright (C) 2001-2019 Curtis Galloway y Lutz Muller. |

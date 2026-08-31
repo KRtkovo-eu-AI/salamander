@@ -231,6 +231,7 @@ jobs:
           Add-Content -Path $env:GITHUB_OUTPUT -Value "project_paths_json=$json"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "has_changed_projects=$(if ($selected.Count -gt 0) { 'true' } else { 'false' })"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "needs_lua=$(if (@($selected | Where-Object Name -eq 'luaruntime').Count -gt 0) { 'true' } else { 'false' })"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "needs_mmviewer_taglib=$(if (@($selected | Where-Object Name -eq 'mmviewer').Count -gt 0) { 'true' } else { 'false' })"
           # The UnRAR plug-in loads unrar.dll dynamically and therefore compiles
           # without the runtime DLL. The vcpkg unrar port supports Win32/x64 only
           # (windows & !arm), so do not ask vcpkg to build it for ARM64.
@@ -247,10 +248,12 @@ jobs:
       - name: Install selected project dependencies
         if: >-
           steps.changed_projects.outputs.needs_lua == 'true' ||
+          steps.changed_projects.outputs.needs_mmviewer_taglib == 'true' ||
           steps.changed_projects.outputs.needs_unrar == 'true' ||
           steps.changed_projects.outputs.needs_ftp_openssl == 'true'
         env:
           NEEDS_LUA: ${{ steps.changed_projects.outputs.needs_lua }}
+          NEEDS_MMVIEWER_TAGLIB: ${{ steps.changed_projects.outputs.needs_mmviewer_taglib }}
           NEEDS_UNRAR: ${{ steps.changed_projects.outputs.needs_unrar }}
           NEEDS_FTP_OPENSSL: ${{ steps.changed_projects.outputs.needs_ftp_openssl }}
         run: |
@@ -258,11 +261,21 @@ jobs:
           if ($env:NEEDS_LUA -eq 'true') { $features += 'lua-runtime' }
           if ($env:NEEDS_UNRAR -eq 'true') { $features += 'unrar-runtime' }
           if ($env:NEEDS_FTP_OPENSSL -eq 'true') { $features += 'ftp-openssl' }
-          .\tools\vcpkg\build-third-party-libs.ps1 `
-            -Triplet '${{ matrix.sftp_triplet }}' `
-            -NoDefaultFeatures `
-            -ManifestFeature $features `
-            -SkipLegacyCopy
+          if ($features.Count -gt 0) {
+            .\tools\vcpkg\build-third-party-libs.ps1 `
+              -Triplet '${{ matrix.sftp_triplet }}' `
+              -NoDefaultFeatures `
+              -ManifestFeature $features `
+              -SkipLegacyCopy
+          }
+          if ($env:NEEDS_MMVIEWER_TAGLIB -eq 'true') {
+            .\tools\vcpkg\build-third-party-libs.ps1 `
+              -Triplet '${{ matrix.sftp_triplet }}' `
+              -OnlyMmviewerTagLib `
+              -NoDefaultFeatures `
+              -ManifestFeature mmviewer-taglib `
+              -SkipLegacyCopy
+          }
 
       - name: Build changed projects via MSBuild (Debug | ${{ matrix.platform }})
         if: github.event_name == 'pull_request' && steps.changed_projects.outputs.has_changed_projects == 'true'

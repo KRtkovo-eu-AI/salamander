@@ -123,12 +123,13 @@ jobs:
         if: needs.decide.outputs.should_analyze == 'true'
         uses: ammaraskar/msvc-problem-matcher@master
 
-      # The manual full-solution build includes luaruntime. Install only its
-      # manifest feature; do not build the unshipped SFTP plug-in in CodeQL.
+      # The manual full-solution build includes luaruntime and mmviewer. Keep
+      # TagLib in its isolated static install root and do not build SFTP here.
       - name: Install Lua runtime dependency
         if: needs.decide.outputs.should_analyze == 'true'
         run: |
           .\tools\vcpkg\build-third-party-libs.ps1 -Triplet x64-windows -NoDefaultFeatures -ManifestFeature lua-runtime -SkipLegacyCopy
+          .\tools\vcpkg\build-third-party-libs.ps1 -Triplet x64-windows -OnlyMmviewerTagLib -NoDefaultFeatures -ManifestFeature mmviewer-taglib -SkipLegacyCopy
       - name: Initialize CodeQL
         if: needs.decide.outputs.should_analyze == 'true'
         uses: github/codeql-action/init@v3

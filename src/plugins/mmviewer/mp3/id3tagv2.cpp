@@ -328,8 +328,21 @@ BOOL ConvertStr(char** out_str, long& size, int encoding = 0)
 
     if (*out_str)
     {
-        if (encoding == 0) //ISO-8859-1
+        if (encoding == 0) // legacy 8-bit text used by older tags
         {
+            char* converted = AnsiToUTF8(*out_str, static_cast<int>(size - 1));
+            const int convertedSize = static_cast<int>(strlen(converted)) + 1;
+            char* new_out_str = static_cast<char*>(malloc(convertedSize));
+            if (new_out_str == NULL)
+            {
+                free(*out_str);
+                *out_str = NULL;
+                return FALSE;
+            }
+            memcpy(new_out_str, converted, convertedSize);
+            free(*out_str);
+            *out_str = new_out_str;
+            size = convertedSize;
         }
         else if ((encoding == 1 /*UTF16LE*/) || (encoding == 2 /*UTF16BE*/))
         {
@@ -361,7 +374,7 @@ BOOL ConvertStr(char** out_str, long& size, int encoding = 0)
             Unicode16ToAnsi(new_out_str, ((WCHAR*)(*out_str)) + 1, size, new_size); // convert (skip the BOM)
             size = new_size;
 
-            //free(*out_str);
+            free(*out_str);
             *out_str = new_out_str;
         }
         else if (encoding == 3 /*UTF8 w/o BOM*/)
@@ -383,76 +396,70 @@ BOOL ConvertStr(char** out_str, long& size, int encoding = 0)
 // splits the string into two at the point where the NULL terminator is
 BOOL BreakStr(char** out_str, int size, int encoding, char** pp1, int& sizep1, char** pp2, int& sizep2, BOOL second_is_ansi = FALSE)
 {
-    char* part1;
-    char* part2;
-
-    long size1;
-    long size2;
-
     *pp1 = NULL;
     *pp2 = NULL;
     sizep1 = 0;
     sizep2 = 0;
 
-    part1 = *out_str;
-    part2 = *out_str;
+    if (out_str == NULL || *out_str == NULL || size <= 0)
+        return FALSE;
+
+    char* original = *out_str;
+    long size1 = 0;
+    long size2 = 0;
 
     if (encoding == 0)
     {
-        while (*part2 != '\0')
-            part2++;
-
-        part2++; // now skip the null terminator as well
-
-        size1 = (long)(part2 - part1);
-        size2 = size - size1;
-
-        char* tmp = (char*)malloc(size2);
-        if (tmp)
-        {
-            memcpy(tmp, part2, size2);
-            part2 = tmp;
-        }
-        else
+        char* separator = static_cast<char*>(memchr(original, '\0', size));
+        if (separator == NULL)
             return FALSE;
+        size1 = static_cast<long>(separator - original) + 1;
+        size2 = size - size1;
     }
     else if (encoding == 1)
     {
-        LPWSTR ws = (WCHAR*)part2;
-
-        while (*ws != 0x0000)
-            ws++;
-
-        ws++; // now skip the null terminator as well
-
-        size1 = (long)(((char*)(ws)) - part1);
-        size2 = size - size1;
-
-        // NOTE: tmp is likely to leak :-(
-        char* tmp = (char*)malloc(size2);
-        if (tmp)
-        {
-            memcpy(tmp, ws, size2);
-            part2 = tmp;
-        }
-        else
+        if ((size & 1) != 0)
             return FALSE;
+        const WCHAR* text = reinterpret_cast<const WCHAR*>(original);
+        const int wcharCount = size / sizeof(WCHAR);
+        int separator = 0;
+        while (separator < wcharCount && text[separator] != L'\0')
+            separator++;
+        if (separator >= wcharCount)
+            return FALSE;
+        size1 = static_cast<long>((separator + 1) * sizeof(WCHAR));
+        size2 = size - size1;
     }
     else
         return FALSE;
 
-    if (size1 && ConvertStr((char**)&part1, size1, encoding) &&
-        size2 && ConvertStr((char**)&part2, size2, second_is_ansi ? 0 : encoding))
-    {
-        *pp1 = part1;
-        *pp2 = part2;
-        sizep1 = size1;
-        sizep2 = size2;
+    if (size1 <= 0 || size2 <= 0)
+        return FALSE;
 
-        return TRUE;
+    char* part1 = static_cast<char*>(malloc(size1));
+    char* part2 = static_cast<char*>(malloc(size2));
+    if (part1 == NULL || part2 == NULL)
+    {
+        free(part1);
+        free(part2);
+        return FALSE;
+    }
+    memcpy(part1, original, size1);
+    memcpy(part2, original + size1, size2);
+
+    if (!ConvertStr(&part1, size1, encoding) ||
+        !ConvertStr(&part2, size2, second_is_ansi ? 0 : encoding))
+    {
+        free(part1);
+        free(part2);
+        return FALSE;
     }
 
-    return FALSE;
+    *pp1 = part1;
+    *pp2 = part2;
+    sizep1 = static_cast<int>(size1);
+    sizep2 = static_cast<int>(size2);
+    return TRUE;
 }
 
 BOOL ReadTextInfoFrm(FILE* f, const ID3TagV2FrameHeaderAbstract* pfh, char** out_str)
@@ -548,9 +555,7 @@ void ReadBreakStr(FILE* f, char** out_str, long size, int encoding)
             if (p2)
                 free(p2);
 
-            if (*out_str && (p1 != *out_str /*sometimes!*/))
-                free(*out_str);
-
+            free(*out_str);
             *out_str = new_out_str; // returns null if allocation fails
         }
     }

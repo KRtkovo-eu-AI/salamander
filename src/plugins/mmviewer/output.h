@@ -31,6 +31,7 @@ public:
 #define OIF_HEADER 0x00000002    // header
 #define OIF_EMPHASIZE 0x00000004 // emphasize the property (for now only for OIF_HEADER)
 #define OIF_UTF8 0x00000008      // The Value is encoded in UTF-8
+#define OIF_NAME_UTF8 0x00000010 // The Name is encoded in UTF-8
 
 struct COutputItem
 {

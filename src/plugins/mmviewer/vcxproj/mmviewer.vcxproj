@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -220,6 +220,8 @@
     </ClCompile>
     <ClCompile Include="..\output.cpp">
     </ClCompile>
+    <ClCompile Include="..\taglibparser.cpp">
+    </ClCompile>
     <ClCompile Include="..\parser.cpp">
     </ClCompile>
     <ClCompile Include="..\precomp.cpp">
@@ -291,6 +293,8 @@
     <ClInclude Include="..\ogg\oggparser.h">
     </ClInclude>
     <ClInclude Include="..\output.h">
+    </ClInclude>
+    <ClInclude Include="..\taglibparser.h">
     </ClInclude>
     <ClInclude Include="..\parser.h">
     </ClInclude>
