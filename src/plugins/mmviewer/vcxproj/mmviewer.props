@@ -16,7 +16,7 @@
     <Link>
       <AdditionalLibraryDirectories Condition="'$(Configuration)'=='Debug'">$(TagLibRoot)\debug\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalLibraryDirectories Condition="'$(Configuration)'!='Debug'">$(TagLibRoot)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies Condition="'$(Configuration)'=='Debug'">tag.lib;zsd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(Configuration)'=='Debug'">tag.lib;zsd.lib;MSACM32.LIB;WINMM.LIB;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalDependencies Condition="'$(Configuration)'!='Debug'">tag.lib;zs.lib;MSACM32.LIB;WINMM.LIB;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ResourceCompile>
