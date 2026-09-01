@@ -773,12 +773,42 @@ COperationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             LPNMHDR nmh = (LPNMHDR)lParam;
             switch (nmh->code)
             {
-            case LVN_GETDISPINFO:
+            case LVN_GETDISPINFOA:
             {
-                int index = ((NMLVDISPINFO*)lParam)->item.iItem;
+                NMLVDISPINFOA* info = (NMLVDISPINFOA*)lParam;
+                int index = info->item.iItem;
                 if (ShowOnlyErrors && index >= 0 && index < ErrorsIndexes.Count)
                     index = ErrorsIndexes[index];
-                Queue->GetListViewDataFor(index, (NMLVDISPINFO*)lParam, ItemsTextBuf[ItemsActTextBuf], OPERDLG_ITEMSTEXTBUFSIZE);
+                Queue->GetListViewDataFor(index, (NMLVDISPINFO*)info, ItemsTextBuf[ItemsActTextBuf], OPERDLG_ITEMSTEXTBUFSIZE);
+                if (++ItemsActTextBuf > 2)
+                    ItemsActTextBuf = 0;
+                return FALSE; // continue processing
+            }
+
+            case LVN_GETDISPINFOW:
+            {
+                NMLVDISPINFOW* infoW = (NMLVDISPINFOW*)lParam;
+                int index = infoW->item.iItem;
+                if (ShowOnlyErrors && index >= 0 && index < ErrorsIndexes.Count)
+                    index = ErrorsIndexes[index];
+
+                NMLVDISPINFOA infoA = {};
+                infoA.item.mask = infoW->item.mask;
+                infoA.item.iItem = infoW->item.iItem;
+                infoA.item.iSubItem = infoW->item.iSubItem;
+                infoA.item.state = infoW->item.state;
+                infoA.item.stateMask = infoW->item.stateMask;
+                Queue->GetListViewDataFor(index, (NMLVDISPINFO*)&infoA,
+                                          ItemsTextBuf[ItemsActTextBuf], OPERDLG_ITEMSTEXTBUFSIZE);
+                infoW->item.iImage = infoA.item.iImage;
+                infoW->item.state = infoA.item.state;
+                if ((infoW->item.mask & LVIF_TEXT) && infoW->item.pszText != NULL && infoW->item.cchTextMax > 0)
+                {
+                    infoW->item.pszText[0] = 0;
+                    if (infoA.item.pszText != NULL)
+                        MultiByteToWideChar(CP_ACP, 0, infoA.item.pszText, -1,
+                                            infoW->item.pszText, infoW->item.cchTextMax);
+                }
                 if (++ItemsActTextBuf > 2)
                     ItemsActTextBuf = 0;
                 return FALSE; // continue processing
@@ -825,10 +855,36 @@ COperationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 LPNMHDR nmh = (LPNMHDR)lParam;
                 switch (nmh->code)
                 {
-                case LVN_GETDISPINFO:
+                case LVN_GETDISPINFOA:
                 {
-                    WorkersList->GetListViewDataFor(((NMLVDISPINFO*)lParam)->item.iItem, (NMLVDISPINFO*)lParam,
+                    NMLVDISPINFOA* info = (NMLVDISPINFOA*)lParam;
+                    WorkersList->GetListViewDataFor(info->item.iItem, (NMLVDISPINFO*)info,
                                                     ConsTextBuf[ConsActTextBuf], OPERDLG_CONSTEXTBUFSIZE);
+                    if (++ConsActTextBuf > 2)
+                        ConsActTextBuf = 0;
+                    return FALSE; // continue processing
+                }
+
+                case LVN_GETDISPINFOW:
+                {
+                    NMLVDISPINFOW* infoW = (NMLVDISPINFOW*)lParam;
+                    NMLVDISPINFOA infoA = {};
+                    infoA.item.mask = infoW->item.mask;
+                    infoA.item.iItem = infoW->item.iItem;
+                    infoA.item.iSubItem = infoW->item.iSubItem;
+                    infoA.item.state = infoW->item.state;
+                    infoA.item.stateMask = infoW->item.stateMask;
+                    WorkersList->GetListViewDataFor(infoW->item.iItem, (NMLVDISPINFO*)&infoA,
+                                                    ConsTextBuf[ConsActTextBuf], OPERDLG_CONSTEXTBUFSIZE);
+                    infoW->item.iImage = infoA.item.iImage;
+                    infoW->item.state = infoA.item.state;
+                    if ((infoW->item.mask & LVIF_TEXT) && infoW->item.pszText != NULL && infoW->item.cchTextMax > 0)
+                    {
+                        infoW->item.pszText[0] = 0;
+                        if (infoA.item.pszText != NULL)
+                            MultiByteToWideChar(CP_ACP, 0, infoA.item.pszText, -1,
+                                                infoW->item.pszText, infoW->item.cchTextMax);
+                    }
                     if (++ConsActTextBuf > 2)
                         ConsActTextBuf = 0;
                     return FALSE; // continue processing
