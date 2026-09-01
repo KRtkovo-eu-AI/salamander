@@ -732,6 +732,8 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     ShowLineNumbers = Configuration.ViewerShowLineNumbers;
     ShowStatusBar = Configuration.ViewerShowStatusBar;
     LogViewMode = FALSE;
+    LogViewStopEvent = NULL;
+    LogViewWatcherThread = NULL;
     LineNumberDigits = 1;
     CodePageAutoSelect = Configuration.CodePageAutoSelect;
     lstrcpyn(DefaultConvert, Configuration.DefaultConvert, _countof(DefaultConvert));
@@ -757,6 +759,7 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
 
 CViewerWindow::~CViewerWindow()
 {
+    StopLogViewWatcher();
     DestroyViewerMenuControls();
     if (MenuFont != NULL)
         HANDLES(DeleteObject(MenuFont));

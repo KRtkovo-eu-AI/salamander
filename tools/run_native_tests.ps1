@@ -351,6 +351,14 @@ try {
             )
         },
         @{
+            Name = 'viewer_live_log_contract_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\viewer_live_log_contract_tests.py')
+            )
+        },
+        @{
             Name = 'copy_move_scheduling_contract_tests'
             Arguments = @(
                 '-B',

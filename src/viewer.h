@@ -34,6 +34,7 @@ class CMenuBar;
 #define WM_USER_VIEWERREFRESH WM_APP + 201 // [0, 0] - perform a refresh
 #define WM_USER_GETZOOM WM_APP + 202      // [0, 0] -> current ZoomPercent
 #define WM_USER_VIEWERZOOMCHANGED WM_APP + 203 // [0, 0] - apply shared viewer zoom
+#define WM_USER_VIEWERLOGCHANGE WM_APP + 204 // [0, 0] - the watched file changed
 
 #ifndef INSIDE_SALAMANDER
 char* LoadStr(int resID);
@@ -337,6 +338,9 @@ protected:
     void UpdateStatusBar(__int64 offset = -1);
     void SetLogViewMode(BOOL enable);
     void RefreshLogView();
+    void StartLogViewWatcher();
+    void StopLogViewWatcher();
+    static DWORD WINAPI LogViewWatcherThreadProc(LPVOID param);
     int GetTextLeft() const;
     int GetDocumentTop() const;
     __int64 GetDocumentLineNumber(__int64 offset, __int64* lineStart = NULL);
@@ -412,6 +416,10 @@ protected:
     BOOL ShowLineNumbers;
     BOOL ShowStatusBar;
     BOOL LogViewMode;
+    HANDLE LogViewStopEvent;
+    HANDLE LogViewWatcherThread;
+    std::wstring LogViewDirectoryW;
+    std::wstring LogViewFileNameW;
     int LineNumberDigits;
 
     BOOL CodePageAutoSelect;  // local copy of Configuration.CodePageAutoSelect

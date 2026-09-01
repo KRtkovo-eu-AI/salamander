@@ -34,6 +34,10 @@ def main() -> None:
             "file-type recognition must reject false ISO-8859-1 scores for CP1250 text")
     require(recognize, "strcpy(codePage, Table->WinCodePage)",
             "false ISO-8859 detections must fall back to the Windows code page")
+    require(recognize, "GetStringTypeW(CT_CTYPE1, &character, 1, &type)",
+            "recognition must classify converted bytes in the target code page")
+    require(recognize, "Table->WinCodePageIdentifier",
+            "recognition must use the declared target code page")
 
     salshlib = (ROOT / "src/salshlib.cpp").read_text(encoding="utf-8")
     query = function_slice(
