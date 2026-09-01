@@ -15,6 +15,7 @@
 #include "gui.h"
 #include "menu.h"
 #include "consts.h"
+#include "common/widepath.h"
 
 CConfiguration Configuration;
 
@@ -397,13 +398,14 @@ BOOL StartProgressDialog(COperations* script, const char* caption,
 CProgressDialog::CProgressDialog(HWND parent, COperations* script, const char* caption,
                                  CChangeAttrsData* attrsData, CConvertData* convertData,
                                  BOOL runningInOwnThread, CStartProgressDialogData* progrDlgData)
-    : CCommonDialog(HLanguage, IDD_PROGRESSDLG, parent)
+    : CCommonDialog(HLanguage, script != NULL && script->CopyMoveConflictMode == CMCM_SCAN_AHEAD ? IDD_PROGRESSDLG_SCANAHEAD : IDD_PROGRESSDLG, parent)
 {
     RunningInOwnThread = runningInOwnThread;
     ProgrDlgData = progrDlgData;
     Worker = NULL;
     WContinue = NULL;
     WorkerNotSuspended = NULL;
+    CancelWorkerEvent = NULL;
     CancelWorker = FALSE;
     OperationProgress = 0;
     SummaryProgress = 0;
@@ -428,10 +430,21 @@ CProgressDialog::CProgressDialog(HWND parent, COperations* script, const char* c
     ActiveParallelProgressStreams = 1;
     ParallelProgressActive = FALSE;
     DelayParallelProgressShow = FALSE;
-    ParallelLayoutBaseCaptured = FALSE;
-    ParallelLayoutBaseDialogWidth = 0;
-    ParallelLayoutBaseDialogHeight = 0;
-    memset(ParallelLayoutBaseRects, 0, sizeof(ParallelLayoutBaseRects));
+    HConflictOperations = NULL;
+    ConflictListVersion = -1;
+    ConflictVisibleCount = 0;
+    ConflictPanelExpanded = FALSE;
+    LayoutConflictPanelExpanded = FALSE;
+    ConflictScanLink = NULL;
+    ConflictPromptIndex = -1;
+    ConflictSelectionRowAfterRemoval = -1;
+    ConflictPromptActive = FALSE;
+    DeferredParallelProgress = NULL;
+    DeferredProgressKind = dpkNone;
+    ConflictRefreshDeferred = FALSE;
+    ConflictLayoutExtension = 0;
+    ConflictAutomaticPromptConsumed = FALSE;
+    memset(&TemplateLayout, 0, sizeof(TemplateLayout));
     for (int parallelIndex = 0; parallelIndex < 7; parallelIndex++)
     {
         ParallelOperations[parallelIndex] = NULL;
@@ -543,11 +556,10 @@ std::string CProgressDialog::GetProgressCaption() const
 
 void CProgressDialog::LayoutActiveProgressStreams(int count, BOOL repaint)
 {
-    if (count < 1)
-        count = 1;
-    if (count > COPYMOVE_MAX_PARALLEL_STREAMS)
-        count = COPYMOVE_MAX_PARALLEL_STREAMS;
-    if (!ParallelLayoutBaseCaptured || count == ActiveParallelProgressStreams)
+    if (count < 1) count = 1;
+    if (count > COPYMOVE_MAX_PARALLEL_STREAMS) count = COPYMOVE_MAX_PARALLEL_STREAMS;
+    if (!TemplateLayout.Captured ||
+        count == ActiveParallelProgressStreams && LayoutConflictPanelExpanded == ConflictPanelExpanded)
         return;
 
     static const int controlIds[7][6] = {
@@ -558,95 +570,85 @@ void CProgressDialog::LayoutActiveProgressStreams(int count, BOOL repaint)
         {IDC_PROGRESS_STREAM6_OPERATION, IDC_PROGRESS_STREAM6_SOURCE, IDC_PROGRESS_STREAM6_PREPOSITION, IDC_PROGRESS_STREAM6_TARGET, IDC_PROGRESS_STREAM6_FILELABEL, IDC_PROGRESS_STREAM6_BAR},
         {IDC_PROGRESS_STREAM7_OPERATION, IDC_PROGRESS_STREAM7_SOURCE, IDC_PROGRESS_STREAM7_PREPOSITION, IDC_PROGRESS_STREAM7_TARGET, IDC_PROGRESS_STREAM7_FILELABEL, IDC_PROGRESS_STREAM7_BAR},
         {IDC_PROGRESS_STREAM8_OPERATION, IDC_PROGRESS_STREAM8_SOURCE, IDC_PROGRESS_STREAM8_PREPOSITION, IDC_PROGRESS_STREAM8_TARGET, IDC_PROGRESS_STREAM8_FILELABEL, IDC_PROGRESS_STREAM8_BAR}};
+    static const int streamRects[6][4] = {{3, 0, 39, 8}, {45, 0, 305, 8}, {3, 12, 39, 8},
+                                            {45, 12, 305, 8}, {18, 30, 24, 8}, {45, 29, 297, 12}};
 
-    const int moveIds[] = {IDC_STATIC_2, IDF_SUMMARY, IDT_STATUS,
-                           IDB_MINIMIZE, IDB_PAUSERESUME, IDCANCEL};
-    const int deferCount = 7 * 6 + _countof(moveIds);
-    HDWP hdwp = HANDLES(BeginDeferWindowPos(deferCount));
-    if (hdwp == NULL)
-        return;
-
-    // Freeze the whole dialog while all stream and footer controls are
-    // repositioned.  The previous per-control SetWindowPos/ShowWindow calls
-    // allowed a capture between two child updates, exposing the old Total
-    // block underneath the newly shown stream rows.
-    BOOL windowUpdateLocked = FALSE;
-    if (repaint)
+    HDWP hdwp = HANDLES(BeginDeferWindowPos(64));
+    for (int index = 0; index < 7 && hdwp != NULL; ++index)
     {
-        SendMessage(HWindow, WM_SETREDRAW, FALSE, 0);
-        windowUpdateLocked = LockWindowUpdate(HWindow);
-    }
-    for (int index = 0; index < 7 && hdwp != NULL; index++)
-    {
-        const int stream = index + 1;
-        const BOOL visible = stream < count;
-        const int y = 11 + 50 * stream;
-        const int rects[6][4] = {{3, y, 39, 8}, {45, y, 305, 8}, {3, y + 12, 39, 8},
-                                 {45, y + 12, 305, 8}, {18, y + 30, 24, 8}, {45, y + 29, 297, 12}};
-        for (int control = 0; control < 6; control++)
+        const BOOL visible = index + 2 <= count;
+        const int rowTop = 11 + 50 * (index + 1);
+        for (int control = 0; control < 6; ++control)
         {
             HWND window = GetDlgItem(HWindow, controlIds[index][control]);
-            if (window == NULL)
-                continue;
-            RECT rect = {rects[control][0], rects[control][1], rects[control][0] + rects[control][2], rects[control][1] + rects[control][3]};
+            if (window == NULL) continue;
+            RECT rect = {streamRects[control][0], rowTop + streamRects[control][1],
+                         streamRects[control][0] + streamRects[control][2],
+                         rowTop + streamRects[control][1] + streamRects[control][3]};
             MapDialogRect(HWindow, &rect);
-            UINT flags = SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW |
-                         (visible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW);
             hdwp = HANDLES(DeferWindowPos(hdwp, window, NULL, rect.left, rect.top,
                                           rect.right - rect.left, rect.bottom - rect.top,
-                                          flags));
+                                          SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW |
+                                              (visible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
         }
     }
 
-    const int delta = count - 1;
-    RECT offsetRect = {0, 0, 0, 50 * delta};
-    MapDialogRect(HWindow, &offsetRect);
-    for (int moveIndex = 0; moveIndex < _countof(moveIds) && hdwp != NULL; moveIndex++)
+    RECT transfer = {0, 0, 0, 50 * (count - 1)};
+    MapDialogRect(HWindow, &transfer);
+    const int transferY = transfer.bottom;
+    // ConflictLayoutExtension was converted to client pixels when captured.
+    // Keep the independently mapped transfer offset in pixels and subtract the
+    // captured extension directly so each quantity is converted exactly once.
+    const int conflictY = Script != NULL && Script->CopyMoveConflictMode == CMCM_SCAN_AHEAD &&
+                                  !ConflictPanelExpanded ? -ConflictLayoutExtension : 0;
+    const int footerY = transferY + conflictY;
+    const int sectionIds[] = {IDC_STATIC_2, IDF_SUMMARY, IDT_STATUS,
+                              IDC_PROGRESS_CONFLICT_SCAN_LINK, IDC_PROGRESS_CONFLICT_STATUS,
+                              IDC_PROGRESS_OPERATIONS, IDC_PROGRESS_SOLVE, IDC_PROGRESS_SKIP,
+                              IDC_PROGRESS_OVERWRITE_ALL, IDC_PROGRESS_SKIP_ALL};
+    const RECT* sectionRects[] = {&TemplateLayout.TotalLabel, &TemplateLayout.TotalBar,
+                                  &TemplateLayout.Status, &TemplateLayout.ConflictLink,
+                                  &TemplateLayout.ConflictStatus, &TemplateLayout.ConflictTable,
+                                  &TemplateLayout.ConflictActions[0], &TemplateLayout.ConflictActions[1],
+                                  &TemplateLayout.ConflictActions[2], &TemplateLayout.ConflictActions[3]};
+    for (int index = 0; index < _countof(sectionIds) && hdwp != NULL; ++index)
     {
-        HWND window = GetDlgItem(HWindow, moveIds[moveIndex]);
-        if (window == NULL)
-            continue;
-        const RECT& baseRect = ParallelLayoutBaseRects[moveIndex];
-        hdwp = HANDLES(DeferWindowPos(hdwp, window, NULL, baseRect.left,
-                                      baseRect.top + offsetRect.bottom, 0, 0,
-                                      SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE |
-                                          SWP_NOREDRAW));
+        HWND window = GetDlgItem(HWindow, sectionIds[index]);
+        if (window == NULL) continue;
+        hdwp = HANDLES(DeferWindowPos(hdwp, window, NULL, sectionRects[index]->left,
+                                      sectionRects[index]->top + transferY, 0, 0,
+                                      SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW));
+    }
+    const int footerIds[] = {IDB_MINIMIZE, IDB_PAUSERESUME, IDCANCEL};
+    for (int index = 0; index < _countof(footerIds) && hdwp != NULL; ++index)
+    {
+        HWND window = GetDlgItem(HWindow, footerIds[index]);
+        hdwp = HANDLES(DeferWindowPos(hdwp, window, NULL, TemplateLayout.Footer[index].left,
+                                      TemplateLayout.Footer[index].top + footerY, 0, 0,
+                                      SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW));
     }
     if (hdwp == NULL)
-    {
-        if (repaint)
-        {
-            if (windowUpdateLocked)
-                LockWindowUpdate(NULL);
-            SendMessage(HWindow, WM_SETREDRAW, TRUE, 0);
-        }
         return;
-    }
     HANDLES(EndDeferWindowPos(hdwp));
-    const int dialogHeight = ParallelLayoutBaseDialogHeight + offsetRect.bottom;
+
+    const int requiredHeight = TemplateLayout.DialogHeight + footerY;
     RECT dialogRect;
     GetWindowRect(HWindow, &dialogRect);
-    // Preserve the dialog center while changing the stream count so the
-    // window grows evenly upward and downward. The monitor check may shift
-    // it only when needed to keep the expanded dialog in the work area.
     const int centerY = dialogRect.top + (dialogRect.bottom - dialogRect.top) / 2;
-    dialogRect.top = centerY - dialogHeight / 2;
-    dialogRect.right = dialogRect.left + ParallelLayoutBaseDialogWidth;
-    dialogRect.bottom = dialogRect.top + dialogHeight;
+    dialogRect.top = centerY - requiredHeight / 2;
+    dialogRect.right = dialogRect.left + TemplateLayout.DialogWidth;
+    dialogRect.bottom = dialogRect.top + requiredHeight;
     MultiMonEnsureRectVisible(&dialogRect, FALSE);
-    if (dialogRect.bottom - dialogRect.top < dialogHeight)
-        dialogRect.top = dialogRect.bottom - dialogHeight;
+    // Visibility adjustment may move the rectangle, but must never reduce the
+    // resource-derived height needed for Total, status/link and the footer.
+    dialogRect.bottom = dialogRect.top + requiredHeight;
     SetWindowPos(HWindow, NULL, dialogRect.left, dialogRect.top,
-                 ParallelLayoutBaseDialogWidth, dialogHeight,
+                 TemplateLayout.DialogWidth, requiredHeight,
                  SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
     if (repaint)
-    {
-        if (windowUpdateLocked)
-            LockWindowUpdate(NULL);
-        SendMessage(HWindow, WM_SETREDRAW, TRUE, 0);
-        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
-    }
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
     ActiveParallelProgressStreams = count;
+    LayoutConflictPanelExpanded = ConflictPanelExpanded;
 }
 
 static void SetProgressStaticTextIfChanged(HWND window, const char* text)
@@ -692,7 +694,7 @@ static void SetParallelProgressSlotActive(HWND dialog, int index, BOOL active)
     ShowWindow(GetDlgItem(dialog, progressId), SW_SHOWNA);
 }
 
-void CProgressDialog::SetParallelProgress(const CParallelProgressData* data)
+void CProgressDialog::SetParallelProgress(const CParallelProgressData* data, BOOL repaint, BOOL layout)
 {
     if (data == NULL)
         return;
@@ -713,16 +715,8 @@ void CProgressDialog::SetParallelProgress(const CParallelProgressData* data)
         displayCount = COPYMOVE_MAX_PARALLEL_STREAMS;
     const BOOL layoutChanged = displayCount != ActiveParallelProgressStreams;
     const BOOL atomicUpdate = layoutChanged || data->ResetSlots;
-    BOOL windowUpdateLocked = FALSE;
-    if (atomicUpdate)
-    {
-        // Keep geometry and content changes in one visual transaction.  The
-        // custom controls otherwise paint synchronously while rows are moving.
-        SendMessage(HWindow, WM_SETREDRAW, FALSE, 0);
-        windowUpdateLocked = LockWindowUpdate(HWindow);
-        if (layoutChanged)
-            LayoutActiveProgressStreams(displayCount, FALSE);
-    }
+    if (layoutChanged && layout)
+        LayoutActiveProgressStreams(displayCount, FALSE);
 
     for (int index = 0; index < activeCount; index++)
     {
@@ -774,13 +768,10 @@ void CProgressDialog::SetParallelProgress(const CParallelProgressData* data)
             }
         }
     }
-    if (atomicUpdate)
+    if (atomicUpdate && repaint)
     {
-        if (windowUpdateLocked)
-            LockWindowUpdate(NULL);
-        SendMessage(HWindow, WM_SETREDRAW, TRUE, 0);
-        UINT redrawFlags = RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW;
-        if (layoutChanged)
+        UINT redrawFlags = RDW_INVALIDATE | RDW_ALLCHILDREN;
+        if (layoutChanged && layout)
             redrawFlags |= RDW_ERASE;
         RedrawWindow(HWindow, NULL, NULL, redrawFlags);
     }
@@ -882,6 +873,257 @@ void CProgressDialog::SetWindowIcon()
     }
 }
 
+int CProgressDialog::GetSelectedConflictIndex() const
+{
+    if (HConflictOperations == NULL || Script == NULL)
+        return -1;
+    int row = ListView_GetNextItem(HConflictOperations, -1, LVNI_SELECTED);
+    if (row < 0)
+        return -1;
+    LVITEM item = {};
+    item.mask = LVIF_PARAM;
+    item.iItem = row;
+    if (!ListView_GetItem(HConflictOperations, &item) || item.lParam < 0 || item.lParam >= Script->Count)
+        return -1;
+    return (int)item.lParam;
+}
+
+int CProgressDialog::GetConflictActionIndex() const
+{
+    const int selectedIndex = GetSelectedConflictIndex();
+    return selectedIndex >= 0 ? selectedIndex : ConflictPromptIndex;
+}
+
+class CConflictPromptPresentationGuard
+{
+public:
+    explicit CConflictPromptPresentationGuard(CProgressDialog* dialog) : Dialog(dialog)
+    {
+        Dialog->BeginConflictPromptPresentation();
+    }
+
+    ~CConflictPromptPresentationGuard()
+    {
+        Dialog->EndConflictPromptPresentation();
+    }
+
+private:
+    CProgressDialog* Dialog;
+};
+void CProgressDialog::BeginConflictPromptPresentation()
+{
+    if (ConflictPromptActive)
+        return;
+    ConflictPromptActive = TRUE;
+    ConflictRefreshDeferred = TRUE;
+}
+
+void CProgressDialog::EndConflictPromptPresentation()
+{
+    if (!ConflictPromptActive)
+        return;
+
+    // The modal loop is over before any child, list, layout or visibility state
+    // is changed. Apply only the newest payload kind, then derive conflict state
+    // and geometry once from the immutable template and latched stream count.
+    ConflictPromptActive = FALSE;
+    const CDeferredProgressKind progressKind = DeferredProgressKind;
+    CParallelProgressData* parallel = DeferredParallelProgress;
+    int displayCount = ActiveParallelProgressStreams;
+    if (progressKind == dpkParallel && parallel != NULL)
+    {
+        displayCount = max(parallel->DisplayCount, parallel->ActiveCount);
+        if (displayCount < 1) displayCount = 1;
+        if (displayCount > COPYMOVE_MAX_PARALLEL_STREAMS)
+            displayCount = COPYMOVE_MAX_PARALLEL_STREAMS;
+    }
+    DeferredParallelProgress = NULL;
+    DeferredProgressKind = dpkNone;
+
+    if (progressKind == dpkParallel && parallel != NULL)
+    {
+        ParallelProgressActive = TRUE;
+        SetParallelProgress(parallel, FALSE, FALSE);
+    }
+    else if (progressKind == dpkRegular)
+    {
+        ParallelProgressActive = FALSE;
+        SetParallelProgressRowVisible(HWindow, 0, TRUE);
+        FlushCachedData();
+    }
+    if (parallel != NULL)
+        FreeParallelProgressMessage(parallel);
+
+    if (ConflictRefreshDeferred)
+        RefreshConflictOperations(FALSE, FALSE);
+    ConflictRefreshDeferred = FALSE;
+    SetConflictPanelExpanded(ConflictPanelExpanded, FALSE, FALSE);
+    ShowWindow(HConflictOperations, ConflictPanelExpanded ? SW_SHOWNA : SW_HIDE);
+    ShowWindow(GetDlgItem(HWindow, IDC_PROGRESS_SOLVE), ConflictPanelExpanded ? SW_SHOWNA : SW_HIDE);
+    ShowWindow(GetDlgItem(HWindow, IDC_PROGRESS_SKIP), ConflictPanelExpanded ? SW_SHOWNA : SW_HIDE);
+    ShowWindow(GetDlgItem(HWindow, IDC_PROGRESS_OVERWRITE_ALL), ConflictPanelExpanded ? SW_SHOWNA : SW_HIDE);
+    ShowWindow(GetDlgItem(HWindow, IDC_PROGRESS_SKIP_ALL), ConflictPanelExpanded ? SW_SHOWNA : SW_HIDE);
+    LayoutActiveProgressStreams(displayCount, FALSE);
+    RedrawWindow(HWindow, NULL, NULL,
+                 RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+}
+void CProgressDialog::PromptNextConflict()
+{
+    if (ConflictPromptActive || ConflictAutomaticPromptConsumed || Script == NULL ||
+        Script->CopyMoveConflictMode != CMCM_SCAN_AHEAD)
+        return;
+
+    int index = -1;
+    if (!Script->GetNextConflictPromptItem(index, ConflictPromptIndex))
+        return;
+
+    ConflictPromptIndex = index;
+    CConflictPromptPresentationGuard presentation(this);
+    // Operation/dialog lifetime policy: opening the first automatic prompt consumes
+    // the only automatic admission, regardless of its eventual result.
+    ConflictAutomaticPromptConsumed = TRUE;
+    CCopyMoveConflictSnapshot conflict;
+    BOOL decided = FALSE;
+    if (Script->GetConflictSnapshot(index, conflict))
+    {
+        COperation& operation = Script->At(index);
+        char targetInfo[101], sourceInfo[101];
+        std::wstring targetPath = operation.TargetNameWValid ? operation.TargetNameW :
+            SalMultiByteToWidePath(operation.TargetName, IsValidPathUtf8Text(operation.TargetName) ? CP_UTF8 : CP_ACP);
+        std::wstring sourcePath = operation.SourceNameWValid ? operation.SourceNameW :
+            SalMultiByteToWidePath(operation.SourceName, IsValidPathUtf8Text(operation.SourceName) ? CP_UTF8 : CP_ACP);
+        if (!targetPath.empty() && !sourcePath.empty())
+        {
+            targetPath = SalPathAddExtendedPrefixW(targetPath.c_str());
+            sourcePath = SalPathAddExtendedPrefixW(sourcePath.c_str());
+            BOOL failed = FALSE;
+            HANDLE target = HANDLES_Q(CreateFileW(targetPath.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL));
+            HANDLE source = HANDLES_Q(CreateFileW(sourcePath.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL));
+            GetFileOverwriteInfo(targetInfo, _countof(targetInfo), target, operation.TargetName, NULL, &failed);
+            GetFileOverwriteInfo(sourceInfo, _countof(sourceInfo), source, operation.SourceName, NULL, &failed);
+            if (target != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(target));
+            if (source != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(source));
+            COverwriteDlg dlg(HWindow, operation.TargetName, targetInfo, operation.SourceName,
+                              sourceInfo, FALSE, conflict.Type == cmctDirectoryExists);
+            int ret = (int)dlg.Execute();
+            if (ret == IDYES || ret == IDB_ALL)
+                Script->SetDeferredConflictDecision(index, cmcdOverwrite, ret == IDB_ALL);
+            else if (ret == IDB_SKIP || ret == IDB_SKIPALL)
+                Script->SetDeferredConflictDecision(index, cmcdSkip, ret == IDB_SKIPALL);
+            else
+                ConflictPromptIndex = index;
+            decided = ret == IDYES || ret == IDB_ALL || ret == IDB_SKIP || ret == IDB_SKIPALL;
+        }
+    }
+    if (decided)
+    {
+        ConflictPromptIndex = -1;
+        PostMessage(HWindow, WM_TIMER, IDT_UPDATESTATUS, 0);
+    }
+}
+
+void CProgressDialog::SetConflictPanelExpanded(BOOL expanded, BOOL repaint, BOOL layout)
+{
+    if (HConflictOperations == NULL || ConflictPanelExpanded == expanded)
+        return;
+    ConflictPanelExpanded = expanded;
+    if (ConflictPromptActive)
+    {
+        ConflictRefreshDeferred = TRUE;
+        return;
+    }
+    ShowWindow(HConflictOperations, expanded ? SW_SHOWNA : SW_HIDE);
+    ShowWindow(GetDlgItem(HWindow, IDC_PROGRESS_SOLVE), expanded ? SW_SHOWNA : SW_HIDE);
+    ShowWindow(GetDlgItem(HWindow, IDC_PROGRESS_SKIP), expanded ? SW_SHOWNA : SW_HIDE);
+    ShowWindow(GetDlgItem(HWindow, IDC_PROGRESS_OVERWRITE_ALL), expanded ? SW_SHOWNA : SW_HIDE);
+    ShowWindow(GetDlgItem(HWindow, IDC_PROGRESS_SKIP_ALL), expanded ? SW_SHOWNA : SW_HIDE);
+    if (layout)
+        LayoutActiveProgressStreams(ActiveParallelProgressStreams, FALSE);
+    if (repaint)
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+}
+void CProgressDialog::RefreshConflictOperations(BOOL repaint, BOOL layout)
+{
+    if (ConflictPromptActive)
+    {
+        ConflictRefreshDeferred = TRUE;
+        return;
+    }
+    if (Script == NULL || HConflictOperations == NULL || Script->CopyMoveConflictMode != CMCM_SCAN_AHEAD)
+        return;
+    int pending = Script->GetDeferredConflictCount();
+    int scanned = Script->GetConflictScannedCount();
+    int version = Script->GetConflictListVersion();
+    char status[160];
+    DWORD_PTR statusArgs[4];
+    statusArgs[0] = reinterpret_cast<DWORD_PTR>(LoadStr(Script->IsConflictScanActive() ? IDS_COPYMOVE_CONFLICT_ACTIVE : IDS_COPYMOVE_CONFLICT_FINISHED));
+    statusArgs[1] = static_cast<DWORD_PTR>(pending);
+    statusArgs[2] = static_cast<DWORD_PTR>(scanned);
+    statusArgs[3] = static_cast<DWORD_PTR>(Script->Count);
+    FormatMessageA(FORMAT_MESSAGE_FROM_STRING | FORMAT_MESSAGE_ARGUMENT_ARRAY,
+                   LoadStr(IDS_COPYMOVE_CONFLICT_SCAN_STATUS), 0, 0, status,
+                   static_cast<DWORD>(_countof(status)), reinterpret_cast<va_list*>(statusArgs));
+    SetDlgItemText(HWindow, IDC_PROGRESS_CONFLICT_STATUS, status);
+    if (version != ConflictListVersion)
+    {
+        int selectedIndex = GetSelectedConflictIndex();
+        const int selectionRowAfterRemoval = ConflictSelectionRowAfterRemoval;
+        ConflictSelectionRowAfterRemoval = -1;
+        std::vector<CCopyMoveConflictSnapshot> conflicts;
+        Script->GetDeferredConflicts(conflicts);
+        SendMessage(HConflictOperations, WM_SETREDRAW, FALSE, 0);
+        ListView_DeleteAllItems(HConflictOperations);
+        for (size_t itemIndex = 0; itemIndex < conflicts.size(); itemIndex++)
+        {
+            int scriptIndex = conflicts[itemIndex].ScriptIndex;
+            COperation* op = &Script->At(scriptIndex);
+            LVITEM item = {};
+            item.mask = LVIF_TEXT | LVIF_PARAM;
+            item.iItem = ListView_GetItemCount(HConflictOperations);
+            item.pszText = const_cast<char*>(op->TargetName != NULL ? op->TargetName : "");
+            item.lParam = scriptIndex;
+            int row = ListView_InsertItem(HConflictOperations, &item);
+            const char* conflictType = conflicts[itemIndex].Type == cmctDirectoryExists
+                ? LoadStr(IDS_COPYMOVE_CONFLICT_DIRECTORY)
+                : conflicts[itemIndex].Type == cmctTypeMismatch
+                    ? LoadStr(IDS_COPYMOVE_CONFLICT_TYPE_MISMATCH)
+                    : LoadStr(IDS_COPYMOVE_CONFLICT_FILE);
+            ListView_SetItemText(HConflictOperations, row, 1, const_cast<char*>(conflictType));
+            const char* conflictStatus = LoadStr(IDS_COPYMOVE_CONFLICT_WAITING);
+            if (conflicts[itemIndex].State == cmisSkip) conflictStatus = LoadStr(IDS_COPYMOVE_CONFLICT_SKIPPED);
+            else if (conflicts[itemIndex].State == cmisReady || conflicts[itemIndex].State == cmisOverwrite) conflictStatus = LoadStr(IDS_COPYMOVE_CONFLICT_READY);
+            else if (conflicts[itemIndex].State == cmisRunning) conflictStatus = LoadStr(IDS_COPYMOVE_CONFLICT_RUNNING);
+            else if (conflicts[itemIndex].State == cmisDone) conflictStatus = LoadStr(IDS_COPYMOVE_CONFLICT_DONE);
+            else if (conflicts[itemIndex].State == cmisSuppressed) conflictStatus = LoadStr(IDS_COPYMOVE_CONFLICT_SUPPRESSED);
+            ListView_SetItemText(HConflictOperations, row, 2, const_cast<char*>(conflictStatus));
+            if (selectionRowAfterRemoval < 0 && scriptIndex == selectedIndex)
+                ListView_SetItemState(HConflictOperations, row, LVIS_SELECTED | LVIS_FOCUSED,
+                                      LVIS_SELECTED | LVIS_FOCUSED);
+        }
+        if (selectionRowAfterRemoval >= 0 && !conflicts.empty())
+        {
+            const int row = min(selectionRowAfterRemoval, (int)conflicts.size() - 1);
+            ListView_SetItemState(HConflictOperations, row, LVIS_SELECTED | LVIS_FOCUSED,
+                                  LVIS_SELECTED | LVIS_FOCUSED);
+            ListView_EnsureVisible(HConflictOperations, row, FALSE);
+        }
+        SendMessage(HConflictOperations, WM_SETREDRAW, TRUE, 0);
+        InvalidateRect(HConflictOperations, NULL, TRUE);
+        ConflictListVersion = version;
+    }
+    const int previousVisibleCount = ConflictVisibleCount;
+    ConflictVisibleCount = pending;
+    if (pending == 0)
+        SetConflictPanelExpanded(FALSE, repaint, layout);
+    else if (previousVisibleCount == 0 && pending > 0)
+        SetConflictPanelExpanded(TRUE, repaint, layout);
+    BOOL selected = GetConflictActionIndex() >= 0;
+    EnableWindow(GetDlgItem(HWindow, IDC_PROGRESS_SOLVE), selected);
+    EnableWindow(GetDlgItem(HWindow, IDC_PROGRESS_SKIP), selected);
+    EnableWindow(GetDlgItem(HWindow, IDC_PROGRESS_OVERWRITE_ALL), pending > 0);
+    EnableWindow(GetDlgItem(HWindow, IDC_PROGRESS_SKIP_ALL), pending > 0);
+}
+
 INT_PTR
 CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -934,27 +1176,6 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             ShowWindow(GetDlgItem(HWindow, IDT_STATUS), SW_HIDE);
             Status = NULL;
-
-            HDWP hdwp = HANDLES(BeginDeferWindowPos(3)); // shrink the dialog (remove the status line)
-            if (hdwp != NULL)
-            {
-                RECT r;
-                GetWindowRect(GetDlgItem(HWindow, IDT_STATUS), &r);
-                int yOffset = r.bottom - r.top;
-                int i;
-                for (i = 0; i < 3; i++)
-                {
-                    HWND hCtrl = GetDlgItem(HWindow, i == 0 ? IDB_MINIMIZE : i == 1 ? IDB_PAUSERESUME
-                                                                                    : IDCANCEL);
-                    GetWindowRect(hCtrl, &r);
-                    ScreenToClient(HWindow, (LPPOINT)&r);
-                    hdwp = HANDLES(DeferWindowPos(hdwp, hCtrl, NULL, r.left, r.top - yOffset, 0, 0, SWP_NOSIZE | SWP_NOZORDER));
-                }
-                HANDLES(EndDeferWindowPos(hdwp));
-                GetWindowRect(HWindow, &r);
-                SetWindowPos(HWindow, NULL, 0, 0, r.right - r.left, r.bottom - r.top - yOffset,
-                             SWP_NOZORDER | SWP_NOMOVE);
-            }
         }
         else
         {
@@ -963,38 +1184,12 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             new CButton(HWindow, IDB_PAUSERESUME, BTF_DROPDOWN);
         }
 
-        // Keep one immutable layout baseline.  Every later stream-count change
-        // is derived from this baseline; moving controls from their current
-        // positions would accumulate the delta and make Total/buttons drift.
-        const int baseLayoutIds[] = {IDC_STATIC_2, IDF_SUMMARY, IDT_STATUS,
-                                     IDB_MINIMIZE, IDB_PAUSERESUME, IDCANCEL};
-        for (int baseIndex = 0; baseIndex < _countof(baseLayoutIds); baseIndex++)
-        {
-            HWND window = GetDlgItem(HWindow, baseLayoutIds[baseIndex]);
-            if (window != NULL)
-            {
-                RECT rect;
-                GetWindowRect(window, &rect);
-                POINT topLeft = {rect.left, rect.top};
-                ScreenToClient(HWindow, &topLeft);
-                ParallelLayoutBaseRects[baseIndex].left = topLeft.x;
-                ParallelLayoutBaseRects[baseIndex].top = topLeft.y;
-                ParallelLayoutBaseRects[baseIndex].right = topLeft.x + rect.right - rect.left;
-                ParallelLayoutBaseRects[baseIndex].bottom = topLeft.y + rect.bottom - rect.top;
-            }
-        }
-        RECT dialogRect;
-        GetWindowRect(HWindow, &dialogRect);
-        ParallelLayoutBaseDialogWidth = dialogRect.right - dialogRect.left;
-        ParallelLayoutBaseDialogHeight = dialogRect.bottom - dialogRect.top;
-        ParallelLayoutBaseCaptured = TRUE;
-
         // A storage-aware copy can publish its first parallel payload only
         // after the worker has preflighted the batch.  Do not paint the
         // one-stream template in the meantime, otherwise the dialog visibly
         // jumps from one block to the configured parallel count.
-        if (Script != NULL && Script->IsCopyOperation &&
-            Script->CopyMoveTransferMode == CMS_STORAGE_AWARE &&
+        if (Script != NULL && Script->CopyMoveConflictMode != CMCM_SCAN_AHEAD &&
+            Script->IsCopyOperation && Script->CopyMoveTransferMode == CMS_STORAGE_AWARE &&
             Script->OperationSchedulingOverride != COSO_WAIT_ALL && Script->Count > 1 &&
             max(Configuration.CopyMoveSsdParallelFiles,
                 Configuration.CopyMoveNvmeParallelFiles) > 1)
@@ -1004,6 +1199,101 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
 
         HPreposition = GetDlgItem(HWindow, IDS_PREPOSITION);
+        if (Script->CopyMoveConflictMode == CMCM_SCAN_AHEAD)
+        {
+            HConflictOperations = GetDlgItem(HWindow, IDC_PROGRESS_OPERATIONS);
+#ifdef new
+#undef new
+#define RESTORE_CONFLICT_LINK_DEBUG_NEW_MACRO
+#endif
+            ConflictScanLink = new (std::nothrow) CHyperLink(HWindow, IDC_PROGRESS_CONFLICT_SCAN_LINK, STF_DOTUNDERLINE | STF_HYPERLINK_COLOR);
+#ifdef RESTORE_CONFLICT_LINK_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_CONFLICT_LINK_DEBUG_NEW_MACRO
+#endif
+            if (ConflictScanLink != NULL)
+            {
+                ConflictScanLink->SetText(LoadStr(IDS_COPYMOVE_CONFLICT_SCAN_LINK));
+                ConflictScanLink->SetActionShowHint(LoadStr(IDS_COPYMOVE_CONFLICT_SCAN_LINK));
+                ConflictScanLink->SetActionPostCommand(IDC_PROGRESS_CONFLICT_SCAN_LINK);
+            }
+            ShowWindow(GetDlgItem(HWindow, IDC_PROGRESS_CONFLICT_STATUS), SW_SHOW);
+            ShowWindow(HConflictOperations, SW_HIDE);
+            ShowWindow(GetDlgItem(HWindow, IDC_PROGRESS_SOLVE), SW_HIDE);
+            ShowWindow(GetDlgItem(HWindow, IDC_PROGRESS_SKIP), SW_HIDE);
+            ShowWindow(GetDlgItem(HWindow, IDC_PROGRESS_OVERWRITE_ALL), SW_HIDE);
+            ShowWindow(GetDlgItem(HWindow, IDC_PROGRESS_SKIP_ALL), SW_HIDE);
+            ShowWindow(GetDlgItem(HWindow, IDC_PROGRESS_CONFLICT_SCAN_LINK), SW_SHOW);
+            LVCOLUMN column = {};
+            column.mask = LVCF_TEXT | LVCF_WIDTH;
+            column.cx = 245;
+            column.pszText = LoadStr(IDS_COPYMOVE_CONFLICT_COLUMN_OPERATION);
+            ListView_InsertColumn(HConflictOperations, 0, &column);
+            column.cx = 95;
+            column.pszText = LoadStr(IDS_COPYMOVE_CONFLICT_COLUMN_TYPE);
+            ListView_InsertColumn(HConflictOperations, 1, &column);
+            column.pszText = LoadStr(IDS_COPYMOVE_CONFLICT_COLUMN_STATUS);
+            ListView_InsertColumn(HConflictOperations, 2, &column);
+            ListView_SetExtendedListViewStyle(HConflictOperations, LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
+            RECT conflictPanel = {0, 0, 0, 102};
+            MapDialogRect(HWindow, &conflictPanel);
+            ConflictLayoutExtension = conflictPanel.bottom;
+            RefreshConflictOperations();
+        }
+
+        // Capture named sections directly from the selected resource template.
+        // These coordinates are immutable for the lifetime of the operation.
+        const int sectionIds[] = {IDC_STATIC_2, IDF_SUMMARY, IDT_STATUS,
+                                  IDC_PROGRESS_CONFLICT_SCAN_LINK, IDC_PROGRESS_CONFLICT_STATUS,
+                                  IDC_PROGRESS_OPERATIONS, IDC_PROGRESS_SOLVE, IDC_PROGRESS_SKIP,
+                                  IDC_PROGRESS_OVERWRITE_ALL, IDC_PROGRESS_SKIP_ALL,
+                                  IDB_MINIMIZE, IDB_PAUSERESUME, IDCANCEL};
+        RECT* sectionRects[] = {&TemplateLayout.TotalLabel, &TemplateLayout.TotalBar,
+                                &TemplateLayout.Status, &TemplateLayout.ConflictLink,
+                                &TemplateLayout.ConflictStatus, &TemplateLayout.ConflictTable,
+                                &TemplateLayout.ConflictActions[0], &TemplateLayout.ConflictActions[1],
+                                &TemplateLayout.ConflictActions[2], &TemplateLayout.ConflictActions[3],
+                                &TemplateLayout.Footer[0], &TemplateLayout.Footer[1],
+                                &TemplateLayout.Footer[2]};
+        for (int index = 0; index < _countof(sectionIds); ++index)
+        {
+            HWND window = GetDlgItem(HWindow, sectionIds[index]);
+            if (window == NULL) continue;
+            GetWindowRect(window, sectionRects[index]);
+            POINT topLeft = {sectionRects[index]->left, sectionRects[index]->top};
+            ScreenToClient(HWindow, &topLeft);
+            const int width = sectionRects[index]->right - sectionRects[index]->left;
+            const int height = sectionRects[index]->bottom - sectionRects[index]->top;
+            sectionRects[index]->left = topLeft.x;
+            sectionRects[index]->top = topLeft.y;
+            sectionRects[index]->right = topLeft.x + width;
+            sectionRects[index]->bottom = topLeft.y + height;
+        }
+        RECT dialogRect;
+        GetWindowRect(HWindow, &dialogRect);
+        TemplateLayout.DialogWidth = dialogRect.right - dialogRect.left;
+        TemplateLayout.DialogHeight = dialogRect.bottom - dialogRect.top;
+        TemplateLayout.Captured = TRUE;
+        if (Script != NULL && Script->CopyMoveConflictMode == CMCM_SCAN_AHEAD)
+        {
+            ConflictPanelExpanded = TRUE;
+            LayoutConflictPanelExpanded = TRUE;
+            SetConflictPanelExpanded(FALSE);
+        }
+
+        BOOL useSpeedLimit = FALSE;
+        DWORD speedLimit;
+        Script->GetSpeedLimit(&useSpeedLimit, &speedLimit);
+        Script->StorageUse.StreamDemand =
+            Script->IsCopyOperation && !useSpeedLimit &&
+                    Script->CopyMoveTransferMode == CMS_STORAGE_AWARE
+                ? GetCopyOperationStreamDemand(Script,
+                                               Configuration.CopyMoveSsdParallelFiles,
+                                               Configuration.CopyMoveNvmeParallelFiles)
+                : 1;
+        // Latch the operation geometry before starting any worker. Scan-ahead
+        // may initially admit fewer leases, but activity never changes row count.
+        LayoutActiveProgressStreams(Script->StorageUse.StreamDemand);
 
         PostMessage(HWindow, WM_USER_PROGRDLGSTART, 0, 0); // probably needless on W2K+: delay the start of the worker thread
 
@@ -1027,25 +1317,20 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         }
         WorkerNotSuspended = HANDLES(CreateEvent(NULL, TRUE, TRUE, NULL));
-        if (WorkerNotSuspended == NULL)
+        CancelWorkerEvent = HANDLES(CreateEvent(NULL, TRUE, FALSE, NULL));
+        if (WorkerNotSuspended == NULL || CancelWorkerEvent == NULL)
         {
             TRACE_E("Unable to create WorkerNotSuspended event.");
+            if (WorkerNotSuspended != NULL) HANDLES(CloseHandle(WorkerNotSuspended));
+            WorkerNotSuspended = NULL;
+            if (CancelWorkerEvent != NULL) HANDLES(CloseHandle(CancelWorkerEvent));
+            CancelWorkerEvent = NULL;
             HANDLES(CloseHandle(WContinue));
             WContinue = NULL;
             EndDialog(HWindow, IDABORT); // fatal error
             break;
         }
         BOOL startPaused = FALSE;
-        BOOL useSpeedLimit = FALSE;
-        DWORD speedLimit;
-        Script->GetSpeedLimit(&useSpeedLimit, &speedLimit);
-        Script->StorageUse.StreamDemand =
-            Script->IsCopyOperation && !useSpeedLimit &&
-                    Script->CopyMoveTransferMode == CMS_STORAGE_AWARE
-                ? GetCopyOperationStreamDemand(Script,
-                                               Configuration.CopyMoveSsdParallelFiles,
-                                               Configuration.CopyMoveNvmeParallelFiles)
-                : 1;
         QueueWaitReason = CSWR_NONE;
         if (Script->IsCopyOrMoveOperation && OperationsQueue.AddOperation(
                 HWindow, Script->OperationSchedulingPolicy, Script->OperationSchedulingOverride,
@@ -1074,7 +1359,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
 
         Worker = StartWorker(Script, HWindow, AttrsData, ConvertData, WContinue,
-                             WorkerNotSuspended, &CancelWorker, &OperationProgress,
+                             WorkerNotSuspended, CancelWorkerEvent, &CancelWorker, &OperationProgress,
                              &SummaryProgress);
         if (Worker == NULL)
         {
@@ -1083,6 +1368,8 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             IsInQueue = FALSE;
             HANDLES(CloseHandle(WorkerNotSuspended));
             WorkerNotSuspended = NULL;
+            HANDLES(CloseHandle(CancelWorkerEvent));
+            CancelWorkerEvent = NULL;
             HANDLES(CloseHandle(WContinue));
             WContinue = NULL;
             EndDialog(HWindow, IDABORT); // fatal error
@@ -1112,7 +1399,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 else
                     SetForegroundWindow(HWindow);
             }
-            if (!startPaused && Status != NULL)
+            if (!startPaused && (Status != NULL || Script->CopyMoveConflictMode == CMCM_SCAN_AHEAD))
             {
                 NextTimeLeftUpdateTime = GetTickCount();
                 SetTimer(HWindow, IDT_UPDATESTATUS, IDT_UPDATESTATUS_PERIOD, NULL);
@@ -1122,15 +1409,101 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
 
         //--- setting controls and caption
+    case WM_USER_PROGRDLG_CONFLICT_CHANGED:
+    {
+        if (Script != NULL)
+        {
+            Script->AcknowledgeConflictProgressNotification();
+            if (ConflictPromptActive)
+                ConflictRefreshDeferred = TRUE;
+            else
+            {
+                RefreshConflictOperations();
+                PromptNextConflict();
+            }
+        }
+        return TRUE;
+    }
     case WM_USER_SETDIALOG:
     {
-        if (lParam == 1)
+        WPARAM progressWParam = wParam;
+        LPARAM progressLParam = lParam;
+        if (Script != NULL && Script->CopyMoveConflictMode == CMCM_SCAN_AHEAD)
+        {
+            MSG queuedProgress;
+            while (PeekMessage(&queuedProgress, HWindow, WM_USER_SETDIALOG,
+                               WM_USER_SETDIALOG, PM_REMOVE))
+            {
+                if (queuedProgress.lParam == 2 || queuedProgress.lParam == 3)
+                {
+                    if (progressLParam == 2)
+                        FreeParallelProgressMessage((CParallelProgressData*)progressWParam);
+                    else if (progressLParam == 3)
+                        FreeProgressMessage((CProgressData*)progressWParam);
+                    progressWParam = queuedProgress.wParam;
+                    progressLParam = queuedProgress.lParam;
+                }
+                // Numeric-only updates carry no payload; the shared progress
+                // fields already contain their newest values.
+            }
+        }
+        if (ConflictPromptActive)
+        {
+            if (progressLParam == 1 || progressLParam == 2)
+            {
+                CParallelProgressData* deferred =
+                    AllocateParallelProgressMessage(*(const CParallelProgressData*)progressWParam);
+                if (deferred != NULL)
+                {
+                    if (DeferredParallelProgress != NULL)
+                        FreeParallelProgressMessage(DeferredParallelProgress);
+                    DeferredParallelProgress = deferred;
+                    DeferredProgressKind = dpkParallel;
+                }
+                if (progressLParam == 2)
+                    FreeParallelProgressMessage((CParallelProgressData*)progressWParam);
+            }
+            else if (progressWParam != 0)
+            {
+                CProgressData* data = (CProgressData*)progressWParam;
+                lstrcpyn(OperationCache, data->Operation, 100);
+                lstrcpyn(PrepositionCache, data->Preposition, 100);
+                lstrcpyn(SourceCache, data->Source, 2 * MAX_PATH);
+                lstrcpyn(TargetCache, data->Target, 2 * MAX_PATH);
+                CacheIsDirty = TRUE;
+                DeferredProgressKind = dpkRegular;
+                if (DeferredParallelProgress != NULL)
+                {
+                    FreeParallelProgressMessage(DeferredParallelProgress);
+                    DeferredParallelProgress = NULL;
+                }
+                if (progressLParam == 3)
+                    FreeProgressMessage(data);
+            }
+            if (OperationProgress != OperationProgressCache)
+            {
+                OperationProgressCache = OperationProgress;
+                OperationProgressCacheIsDirty = TRUE;
+            }
+            if (SummaryProgress != SummaryProgressCache)
+            {
+                SummaryProgressCache = SummaryProgress;
+                SummaryProgressCacheIsDirty = TRUE;
+            }
+            ConflictRefreshDeferred = TRUE;
+            return TRUE;
+        }
+        if (progressLParam == 1 || progressLParam == 2)
         {
             ParallelProgressActive = TRUE;
-            SetParallelProgress((const CParallelProgressData*)wParam);
+            SetParallelProgress((const CParallelProgressData*)progressWParam);
+            if (progressLParam == 2)
+                FreeParallelProgressMessage((CParallelProgressData*)progressWParam);
         }
-        CProgressData* data = (CProgressData*)wParam;
-        if (data != NULL && lParam != 1)
+        CProgressData* data = (CProgressData*)progressWParam;
+        const BOOL ownedRegularProgress = progressLParam == 3;
+        const BOOL hasRegularProgress = data != NULL && progressLParam != 1 && progressLParam != 2;
+        if (hasRegularProgress)
         {
             // A regular operation description marks the end of a parallel
             // batch (or means that this operation could not use the parallel
@@ -1147,6 +1520,11 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             lstrcpyn(PrepositionCache, data->Preposition, 100);
             lstrcpyn(SourceCache, data->Source, 2 * MAX_PATH);
             lstrcpyn(TargetCache, data->Target, 2 * MAX_PATH);
+            if (ownedRegularProgress)
+            {
+                FreeProgressMessage(data);
+                data = NULL;
+            }
             CacheIsDirty = TRUE;
             if (ActiveParallelProgressStreams == 1)
                 LayoutActiveProgressStreams(1);
@@ -1154,8 +1532,6 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 // Keep the dialog size, but do not present completed files as
                 // active during a sequential metadata boundary.
-                SendMessage(HWindow, WM_SETREDRAW, FALSE, 0);
-                BOOL windowUpdateLocked = LockWindowUpdate(HWindow);
                 for (int index = 1; index < ActiveParallelProgressStreams; index++)
                 {
                     SetParallelProgressSlotActive(HWindow, index, FALSE);
@@ -1167,11 +1543,8 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     if (ParallelOperations[extra] != NULL) ParallelOperations[extra]->SetProgress(0);
                 }
                 FlushCachedData();
-                if (windowUpdateLocked)
-                    LockWindowUpdate(NULL);
-                SendMessage(HWindow, WM_SETREDRAW, TRUE, 0);
                 RedrawWindow(HWindow, NULL, NULL,
-                             RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                             RDW_INVALIDATE | RDW_ALLCHILDREN);
             }
         }
 
@@ -1206,7 +1579,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // until that payload arrives, instead of revealing the one-stream
         // template on an ordinary progress update.
         if (DelayParallelProgressShow &&
-            (lParam == 1 || (lParam != 1 && data != NULL)))
+            (progressLParam == 1 || progressLParam == 2 || hasRegularProgress))
         {
             DelayParallelProgressShow = FALSE;
             ShowWindow(HWindow, SW_SHOWNOACTIVATE);
@@ -1387,6 +1760,9 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_TIMER:
     {
+        if (ConflictPromptActive &&
+            (wParam == IDT_REPAINT || wParam == IDT_UPDATESTATUS))
+            return 0;
         if (wParam == IDT_REPAINT)
         {
             if (!FlushCachedData()) // WM_USER_SETDIALOG did not arrive, we can safely cancel the timer
@@ -1398,6 +1774,8 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         if (wParam == IDT_UPDATESTATUS)
         {
+            RefreshConflictOperations();
+            PromptNextConflict();
             // text operation status (transfer speed, etc.)
             if (Status != NULL)
             {
@@ -1680,6 +2058,7 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
             if (!IsWindowEnabled(HWindow)) // there is a modal dialog above this dialog (a message box asking about operation canceling or reporting an error)
                 CloseAllOwnedEnabledDialogs(HWindow);
             CancelWorker = TRUE; // set worker cancel
+            if (CancelWorkerEvent != NULL) SetEvent(CancelWorkerEvent);
             EnableWindow(GetDlgItem(HWindow, IDB_PAUSERESUME), FALSE);
             if (WorkerNotSuspended != NULL)
                 SetEvent(WorkerNotSuspended); // so that Cancel proceeds even after Pause is pressed
@@ -1780,6 +2159,84 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
 
     case WM_COMMAND:
     {
+        int command = LOWORD(wParam);
+        if (command == IDC_PROGRESS_CONFLICT_SCAN_LINK)
+        {
+            SetConflictPanelExpanded(!ConflictPanelExpanded);
+            return TRUE;
+        }
+        if (command == IDC_PROGRESS_SOLVE || command == IDC_PROGRESS_SKIP)
+        {
+            int index = GetConflictActionIndex();
+            const int selectedRow = ListView_GetNextItem(HConflictOperations, -1, LVNI_SELECTED);
+            const BOOL selectedAction = selectedRow >= 0 && index == GetSelectedConflictIndex();
+            BOOL retainedPrompt = index >= 0 && index == ConflictPromptIndex;
+            if (index >= 0)
+            {
+                CCopyMoveConflictSnapshot conflict;
+                if (Script->GetConflictSnapshot(index, conflict))
+                {
+                    CCopyMoveConflictDecision decision = cmcdSkip;
+                    if (command == IDC_PROGRESS_SOLVE)
+                    {
+                        int ret = IDCANCEL;
+                        char targetInfo[101], sourceInfo[101];
+                        COperation& operation = Script->At(index);
+                        std::wstring targetPath = operation.TargetNameWValid ? operation.TargetNameW :
+                            SalMultiByteToWidePath(operation.TargetName, IsValidPathUtf8Text(operation.TargetName) ? CP_UTF8 : CP_ACP);
+                        std::wstring sourcePath = operation.SourceNameWValid ? operation.SourceNameW :
+                            SalMultiByteToWidePath(operation.SourceName, IsValidPathUtf8Text(operation.SourceName) ? CP_UTF8 : CP_ACP);
+                        if (targetPath.empty() || sourcePath.empty())
+                            return TRUE;
+                        targetPath = SalPathAddExtendedPrefixW(targetPath.c_str());
+                        sourcePath = SalPathAddExtendedPrefixW(sourcePath.c_str());
+                        BOOL failed = FALSE;
+                        HANDLE target = HANDLES_Q(CreateFileW(targetPath.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL));
+                        HANDLE source = HANDLES_Q(CreateFileW(sourcePath.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL));
+                        GetFileOverwriteInfo(targetInfo, _countof(targetInfo), target, operation.TargetName, NULL, &failed);
+                        GetFileOverwriteInfo(sourceInfo, _countof(sourceInfo), source, operation.SourceName, NULL, &failed);
+                        if (target != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(target));
+                        if (source != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(source));
+                        COverwriteDlg dlg(HWindow, operation.TargetName, targetInfo, operation.SourceName,
+                                          sourceInfo, FALSE, conflict.Type == cmctDirectoryExists);
+                        CConflictPromptPresentationGuard presentation(this);
+                        ret = (int)dlg.Execute();
+                        if (ret == IDYES || ret == IDB_ALL) decision = cmcdOverwrite;
+                        else if (ret != IDB_SKIP && ret != IDB_SKIPALL)
+                        {
+                            return TRUE;
+                        }
+                        if (selectedAction)
+                            ConflictSelectionRowAfterRemoval = selectedRow;
+                        Script->SetDeferredConflictDecision(index,
+                            decision, ret == IDB_ALL || ret == IDB_SKIPALL);
+                        ConflictPromptIndex = -1;
+                        return TRUE;
+                    }
+                    if (selectedAction)
+                        ConflictSelectionRowAfterRemoval = selectedRow;
+                    Script->SetDeferredConflictDecision(index, decision, FALSE);
+                    if (retainedPrompt)
+                        ConflictPromptIndex = -1;
+                }
+            }
+            RefreshConflictOperations();
+            return TRUE;
+        }
+        if (command == IDC_PROGRESS_OVERWRITE_ALL || command == IDC_PROGRESS_SKIP_ALL)
+        {
+            Script->SetOperationWideConflictDecision(
+                command == IDC_PROGRESS_SKIP_ALL ? cmcdSkip : cmcdOverwrite);
+            CCopyMoveConflictSnapshot retained;
+            if (ConflictPromptIndex >= 0 &&
+                (!Script->GetConflictSnapshot(ConflictPromptIndex, retained) ||
+                 retained.State != cmisConflict))
+                ConflictPromptIndex = -1;
+            RefreshConflictOperations();
+            return TRUE;
+        }
+
+
         if (WorkerNotSuspended == NULL || Worker == NULL)
             return TRUE; // the dialog has not fully started yet, ignore the command
 
@@ -1798,6 +2255,8 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
             Worker = NULL;
             HANDLES(CloseHandle(WorkerNotSuspended));
             WorkerNotSuspended = NULL;
+            HANDLES(CloseHandle(CancelWorkerEvent));
+            CancelWorkerEvent = NULL;
             HANDLES(CloseHandle(WContinue));
             WContinue = NULL;
             if (RunningInOwnThread)
@@ -1844,6 +2303,7 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
                 if (ret == IDYES)
                 {
                     CancelWorker = TRUE; // set cancel of the worker
+                    if (CancelWorkerEvent != NULL) SetEvent(CancelWorkerEvent);
                     EnableWindow(GetDlgItem(HWindow, IDB_PAUSERESUME), FALSE);
                 }
                 else
@@ -1997,6 +2457,20 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
 
     case WM_DESTROY:
     {
+        // Posted scan-ahead snapshots own their payload. Drain any that will no
+        // longer be dispatched after this HWND is torn down.
+        MSG pendingProgress;
+        while (PeekMessage(&pendingProgress, HWindow, WM_USER_SETDIALOG,
+                           WM_USER_SETDIALOG, PM_REMOVE))
+            if (pendingProgress.lParam == 2)
+                FreeParallelProgressMessage((CParallelProgressData*)pendingProgress.wParam);
+            else if (pendingProgress.lParam == 3)
+                FreeProgressMessage((CProgressData*)pendingProgress.wParam);
+        if (DeferredParallelProgress != NULL)
+        {
+            FreeParallelProgressMessage(DeferredParallelProgress);
+            DeferredParallelProgress = NULL;
+        }
         if (TimerIsRunning)
         {
             KillTimer(HWindow, IDT_REPAINT);

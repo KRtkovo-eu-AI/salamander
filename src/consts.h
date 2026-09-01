@@ -1202,6 +1202,7 @@ struct COpenViewerData
 #define WM_USER_USERMENUICONS_READY WM_APP + 415 // [bkgndReaderData, threadID] - notifikace pro hl. okno, ze se dokoncilo cteni ikon pro User Menu v threadu s ID 'threadID'
 #define WM_USER_APPLY_DPI_CHANGE WM_APP + 416 // [dpi, 0] - deferred main-window DPI refresh
 #define WM_USER_PROGRDLG_QUEUE_REASON WM_APP + 417 // [CSWR_*, 0] - queued Copy/Move wait reason changed
+#define WM_USER_PROGRDLG_CONFLICT_CHANGED WM_APP + 418 // [0, 0] - coalesced scan-ahead coordinator snapshot changed
 
 #define WM_USER_TREEVIEW_ASYNC_DONE WM_APP + 420 // [0, CTreeViewAsyncLoadData*] - asynchronni nacteni obsahu slozky dokonceno
 #define WM_USER_EXPLORER_SORT_DONE WM_APP + 421  // [0, CExplorerSortAsyncData*] - Explorer property values for startup sorting are ready

@@ -1123,6 +1123,7 @@ void CFilesWindow::DropCopyMove(BOOL copy, char* targetPath, CCopyMoveData* data
             script->CopyMoveTransferMode = Configuration.CopyMoveScheduling == CMTP_KEEP_LAST
                                                ? Configuration.CopyMoveLastTransferMode
                                                : Configuration.CopyMoveScheduling;
+            script->CopyMoveConflictMode = CMCM_CURRENT; // internal/archive moves keep legacy conflict handling
             script->OperationSchedulingPolicy = Configuration.CopyMoveOperationPolicy == COSP_ASK
                                                     ? COSP_STORAGE_AWARE
                                                     : Configuration.CopyMoveOperationPolicy;
@@ -1265,6 +1266,10 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
     //---  when copying/moving from CD, clear the read-only attribute
     //     and set CurrentDirectory to the slower medium
     BOOL fastDirectoryMove = TRUE; // Configuration.FastDirectoryMove;
+    // A whole-directory MoveFile cannot merge an existing destination. Scan-ahead
+    // therefore expands moves into directory/file operations with real merge semantics.
+    if (type == atMove && script->CopyMoveConflictMode == CMCM_SCAN_AHEAD)
+        fastDirectoryMove = FALSE;
     if (type == atCopy || type == atMove)
     {
         UINT sourceType = DRIVE_REMOTE;

@@ -610,6 +610,8 @@ CConfiguration::CConfiguration()
     CopyMoveOperationPolicy = COSP_STORAGE_AWARE;
     CopyMoveScheduling = CMTP_STORAGE_AWARE;
     CopyMoveLastTransferMode = CMS_STORAGE_AWARE;
+    CopyMoveConflictPreference = CMCP_CURRENT;
+    CopyMoveLastConflictMode = CMCM_CURRENT;
     CopyMoveSsdParallelFiles = 2;
     CopyMoveNvmeParallelFiles = 4;
     ReloadEnvVariables = TRUE;
@@ -1054,12 +1056,12 @@ const int ConfigurationViewsDefaultAvailableColumnsWidthExtra = 50;
 CConfigurationDlg::CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems,
                                      int mode, int param)
     : CTreePropDialog(parent, HLanguage, LoadStr(IDS_CONFIGURATION),
-                      mode == 0 ? Configuration.LastFocusedPage : mode == 1 ? 15
-                                                              : mode == 2   ? 14
-                                                              : mode == 3   ? 22
-                                                              : mode == 4   ? 13
+                      mode == 0 ? Configuration.LastFocusedPage : mode == 1 ? 16
+                                                              : mode == 2   ? 15
+                                                              : mode == 3   ? 23
+                                                              : mode == 4   ? 14
                                                               : mode == 5   ? 1
-                                                                            : 12 /* mode == 6 */,
+                                                                            : 13 /* mode == 6 */,
                       PSH_NOAPPLYNOW | PSH_HASHELP,
                       &Configuration.LastFocusedPage,
                       &Configuration.ConfigurationHeight,
@@ -1083,31 +1085,32 @@ CConfigurationDlg::CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems,
     /*01*/ Add(&PagePanels);        // Panels
     /*02*/ Add(&PageTabs);          // Tabs
     /*03*/ Add(&PageHistory);       // History
-    /*04*/ Add(&PageSystem);        // System
-    /*05*/ Add(&PageRegional);      // Regional
-    /*06*/ Add(&PageMainWindow);    // MainWindow
-    /*07*/ Add(&PageAppear);        // Appearance
-    /*08*/ Add(&PageColors);        // Colors
-    /*09*/ Add(&PageKeyboard);      // Keyboard
-    /*10*/ Add(&PageConfirmations); // Confirmations
-    /*11*/ Add(&PageChangeDrive);   // Change Drive Menu
-    /*12*/ Add(&PageDrives);        // Drives
-    /*13*/ Add(&PageView);          // Views
-    /*14*/ Add(&PageUserMenu);      // User Menu
-    /*15*/ Add(&PageHotPath);       // Hot Paths
-    /*16*/ Add(&PageSecurity);      // Security
-    /*17*/ Add(&PageIconOvrls);     // Icon Overlays
-    /*18*/ Add(&PageViewEdit, NULL, &Configuration.ViewersAndEditorsExpanded);
-    /*19*/ Add(&Page13, &PageViewEdit);
-    /*20*/ Add(&Page14, &PageViewEdit);
-    /*21*/ Add(&Page15, &PageViewEdit);
-    /*22*/ Add(&PageViewer, &PageViewEdit);
-    /*23*/ Add(&PagePP, NULL, &Configuration.PackersAndUnpackersExpanded);
-    /*24*/ Add(&PageP4, &PagePP);
-    /*25*/ Add(&PageP3, &PagePP);
-    /*26*/ Add(&PageP1, &PagePP);
-    /*27*/ Add(&PageP2, &PagePP);
-    /*27*/ //  Add(&PageShellExtensions);
+    /*04*/ Add(&PageFileOperations); // File Operations
+    /*05*/ Add(&PageSystem);        // System
+    /*06*/ Add(&PageRegional);      // Regional
+    /*07*/ Add(&PageMainWindow);    // MainWindow
+    /*08*/ Add(&PageAppear);        // Appearance
+    /*09*/ Add(&PageColors);        // Colors
+    /*10*/ Add(&PageKeyboard);      // Keyboard
+    /*11*/ Add(&PageConfirmations); // Confirmations
+    /*12*/ Add(&PageChangeDrive);   // Change Drive Menu
+    /*13*/ Add(&PageDrives);        // Drives
+    /*14*/ Add(&PageView);          // Views
+    /*15*/ Add(&PageUserMenu);      // User Menu
+    /*16*/ Add(&PageHotPath);       // Hot Paths
+    /*17*/ Add(&PageSecurity);      // Security
+    /*18*/ Add(&PageIconOvrls);     // Icon Overlays
+    /*19*/ Add(&PageViewEdit, NULL, &Configuration.ViewersAndEditorsExpanded);
+    /*20*/ Add(&Page13, &PageViewEdit);
+    /*21*/ Add(&Page14, &PageViewEdit);
+    /*22*/ Add(&Page15, &PageViewEdit);
+    /*23*/ Add(&PageViewer, &PageViewEdit);
+    /*24*/ Add(&PagePP, NULL, &Configuration.PackersAndUnpackersExpanded);
+    /*25*/ Add(&PageP4, &PagePP);
+    /*26*/ Add(&PageP3, &PagePP);
+    /*27*/ Add(&PageP1, &PagePP);
+    /*28*/ Add(&PageP2, &PagePP);
+    /*29*/ //  Add(&PageShellExtensions);
            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
            // when the page order changes, update the constructor
            // mode == 0 ? Configuration.LastFocusedPage : 4
@@ -1242,13 +1245,23 @@ static BOOL BrowseConfigurationStorageFile(HWND hParent, char* path, int pathSiz
 CCfgPageGeneral::CCfgPageGeneral()
     : CCommonPropSheetPage(NULL, HLanguage, IDD_CFGPAGE_GENERAL, IDD_CFGPAGE_GENERAL, PSP_USETITLE, NULL)
 {
+}
+
+//
+// ****************************************************************************
+// CCfgPageFileOperations
+//
+
+CCfgPageFileOperations::CCfgPageFileOperations()
+    : CCommonPropSheetPage(NULL, HLanguage, IDD_CFGPAGE_FILEOPERATIONS, IDD_CFGPAGE_FILEOPERATIONS, PSP_USETITLE, NULL)
+{
     CopyMoveSsdEditWidth = 0;
     CopyMoveNvmeEditWidth = 0;
     CopyMoveWarningIcon = NULL;
     CopyMoveWarningToolTip = NULL;
 }
 
-CCfgPageGeneral::~CCfgPageGeneral()
+CCfgPageFileOperations::~CCfgPageFileOperations()
 {
     if (CopyMoveWarningToolTip != NULL)
         DestroyWindow(CopyMoveWarningToolTip);
@@ -1256,7 +1269,7 @@ CCfgPageGeneral::~CCfgPageGeneral()
         DestroyIcon(CopyMoveWarningIcon);
 }
 
-void CCfgPageGeneral::UpdateCopyMoveParallelWarning()
+void CCfgPageFileOperations::UpdateCopyMoveParallelWarning()
 {
     BOOL translated;
     int ssd = GetDlgItemInt(HWindow, IDC_COPYMOVE_SSD_PARALLEL, &translated, FALSE);
@@ -1274,7 +1287,7 @@ void CCfgPageGeneral::UpdateCopyMoveParallelWarning()
         ShowWindow(nvmeWarningIcon, nvme > 4 ? SW_SHOW : SW_HIDE);
 }
 
-void CCfgPageGeneral::LayoutCopyMoveControls()
+void CCfgPageFileOperations::LayoutCopyMoveControls()
 {
     if (HWindow == NULL)
         return;
@@ -1283,9 +1296,10 @@ void CCfgPageGeneral::LayoutCopyMoveControls()
     GetClientRect(HWindow, &clientRect);
     RECT comboRect;
     HWND combo = GetDlgItem(HWindow, IDC_COPYMOVE_TRANSFER_PREFERENCE);
+    HWND conflictCombo = GetDlgItem(HWindow, IDC_COPYMOVE_CONFLICT_PREFERENCE);
     HWND ssdEdit = GetDlgItem(HWindow, IDC_COPYMOVE_SSD_PARALLEL);
     HWND nvmeEdit = GetDlgItem(HWindow, IDC_COPYMOVE_NVME_PARALLEL);
-    if (combo == NULL || ssdEdit == NULL || nvmeEdit == NULL)
+    if (combo == NULL || conflictCombo == NULL || ssdEdit == NULL || nvmeEdit == NULL)
         return;
 
     GetWindowRect(combo, &comboRect);
@@ -1297,11 +1311,18 @@ void CCfgPageGeneral::LayoutCopyMoveControls()
     if (comboWidth < 1)
         comboWidth = 1;
 
-    HDWP hdwp = HANDLES(BeginDeferWindowPos(3));
+    HDWP hdwp = HANDLES(BeginDeferWindowPos(4));
     if (hdwp == NULL)
         return;
     hdwp = HANDLES(DeferWindowPos(hdwp, combo, NULL, comboTopLeft.x, comboTopLeft.y,
                                   comboWidth, comboRect.bottom - comboRect.top,
+                                  SWP_NOZORDER | SWP_NOACTIVATE));
+    RECT conflictRect;
+    GetWindowRect(conflictCombo, &conflictRect);
+    POINT conflictTopLeft = {conflictRect.left, conflictRect.top};
+    ScreenToClient(HWindow, &conflictTopLeft);
+    hdwp = HANDLES(DeferWindowPos(hdwp, conflictCombo, NULL, conflictTopLeft.x, conflictTopLeft.y,
+                                  comboWidth, conflictRect.bottom - conflictRect.top,
                                   SWP_NOZORDER | SWP_NOACTIVATE));
 
     HWND edits[2] = {ssdEdit, nvmeEdit};
@@ -1359,25 +1380,6 @@ void CCfgPageGeneral::Validate(CTransferInfo& ti)
             ti.ErrorOn(IDC_SAVE_TO_FILE);
             return;
         }
-    }
-
-    int ssdParallelFiles;
-    ti.EditLine(IDC_COPYMOVE_SSD_PARALLEL, ssdParallelFiles);
-    if (ssdParallelFiles < 1 || ssdParallelFiles > 4)
-    {
-        SalMessageBox(HWindow, LoadStr(IDS_COPYMOVE_PARALLEL_SSD_RANGE),
-                      LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
-        ti.ErrorOn(IDC_COPYMOVE_SSD_PARALLEL);
-        return;
-    }
-    int nvmeParallelFiles;
-    ti.EditLine(IDC_COPYMOVE_NVME_PARALLEL, nvmeParallelFiles);
-    if (nvmeParallelFiles < 1 || nvmeParallelFiles > 8)
-    {
-        SalMessageBox(HWindow, LoadStr(IDS_COPYMOVE_PARALLEL_NVME_RANGE),
-                      LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
-        ti.ErrorOn(IDC_COPYMOVE_NVME_PARALLEL);
-        return;
     }
 }
 
@@ -1442,6 +1444,39 @@ void CCfgPageGeneral::Transfer(CTransferInfo& ti)
     ti.CheckBox(IDC_RELOADENVVARS, Configuration.ReloadEnvVariables);
     ti.CheckBox(IDC_PATHAUTOCOMPLETE, Configuration.PathAutoComplete);
     ti.CheckBox(IDC_CREATEDIR_AUTOCOMPLETE, Configuration.CreateDirAutoComplete);
+    if (ti.Type == ttDataFromWindow && Configuration.ReloadEnvVariables && oldReloadEnvVariables != Configuration.ReloadEnvVariables)
+    {
+        InitEnvironmentVariablesDifferences();
+    }
+
+    if (ti.Type == ttDataToWindow)
+        EnableControls();
+}
+
+void CCfgPageFileOperations::Validate(CTransferInfo& ti)
+{
+    int ssdParallelFiles;
+    ti.EditLine(IDC_COPYMOVE_SSD_PARALLEL, ssdParallelFiles);
+    if (ssdParallelFiles < 1 || ssdParallelFiles > 4)
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_COPYMOVE_PARALLEL_SSD_RANGE),
+                      LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        ti.ErrorOn(IDC_COPYMOVE_SSD_PARALLEL);
+        return;
+    }
+    int nvmeParallelFiles;
+    ti.EditLine(IDC_COPYMOVE_NVME_PARALLEL, nvmeParallelFiles);
+    if (nvmeParallelFiles < 1 || nvmeParallelFiles > 8)
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_COPYMOVE_PARALLEL_NVME_RANGE),
+                      LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        ti.ErrorOn(IDC_COPYMOVE_NVME_PARALLEL);
+        return;
+    }
+}
+
+void CCfgPageFileOperations::Transfer(CTransferInfo& ti)
+{
     ti.EditLine(IDC_COPYMOVE_SSD_PARALLEL, Configuration.CopyMoveSsdParallelFiles);
     ti.EditLine(IDC_COPYMOVE_NVME_PARALLEL, Configuration.CopyMoveNvmeParallelFiles);
     HWND hPolicy = GetDlgItem(HWindow, IDC_COPYMOVE_OPERATION_POLICY);
@@ -1463,6 +1498,27 @@ void CCfgPageGeneral::Transfer(CTransferInfo& ti)
             int sel = (int)SendMessage(hPolicy, CB_GETCURSEL, 0, 0);
             if (sel >= COSP_STORAGE_AWARE && sel <= COSP_ASK)
                 Configuration.CopyMoveOperationPolicy = sel;
+        }
+    }
+    HWND hConflict = GetDlgItem(HWindow, IDC_COPYMOVE_CONFLICT_PREFERENCE);
+    if (hConflict != NULL)
+    {
+        if (ti.Type == ttDataToWindow)
+        {
+            SendMessage(hConflict, CB_RESETCONTENT, 0, 0);
+            SendMessage(hConflict, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_CONFLICT_CURRENT));
+            SendMessage(hConflict, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_CONFLICT_SCAN_AHEAD));
+            SendMessage(hConflict, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_CONFLICT_KEEP_LAST));
+            int sel = Configuration.CopyMoveConflictPreference;
+            if (sel < CMCP_CURRENT || sel > CMCP_KEEP_LAST)
+                sel = CMCP_CURRENT;
+            SendMessage(hConflict, CB_SETCURSEL, sel, 0);
+        }
+        else
+        {
+            int sel = (int)SendMessage(hConflict, CB_GETCURSEL, 0, 0);
+            if (sel >= CMCP_CURRENT && sel <= CMCP_KEEP_LAST)
+                Configuration.CopyMoveConflictPreference = sel;
         }
     }
     HWND hTransfer = GetDlgItem(HWindow, IDC_COPYMOVE_TRANSFER_PREFERENCE);
@@ -1488,13 +1544,6 @@ void CCfgPageGeneral::Transfer(CTransferInfo& ti)
     }
     if (ti.Type == ttDataToWindow)
         UpdateCopyMoveParallelWarning();
-    if (ti.Type == ttDataFromWindow && Configuration.ReloadEnvVariables && oldReloadEnvVariables != Configuration.ReloadEnvVariables)
-    {
-        InitEnvironmentVariablesDifferences();
-    }
-
-    if (ti.Type == ttDataToWindow)
-        EnableControls();
 }
 
 BOOL CCfgPageGeneral::IsDefaultCommandShellApplication()
@@ -1545,6 +1594,49 @@ void CCfgPageGeneral::EnableControls()
 
 INT_PTR
 CCfgPageGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    switch (uMsg)
+    {
+    case WM_INITDIALOG:
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
+        break;
+
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDC_SAVE_TO_FILE_BROWSE)
+        {
+            char path[SAL_MAX_PATH];
+            GetDlgItemText(HWindow, IDC_SAVE_TO_FILE_PATH, path, SizeOf(path));
+            if (BrowseConfigurationStorageFile(HWindow, path, SizeOf(path)))
+            {
+                if (CanWriteRegStorageFilePath(path))
+                    SetDlgItemText(HWindow, IDC_SAVE_TO_FILE_PATH, path);
+                else
+                    SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEWRITEERR), LoadStr(IDS_ERRORTITLE),
+                                  MB_OK | MB_ICONEXCLAMATION);
+            }
+        }
+        else if (HIWORD(wParam) == BN_CLICKED)
+            EnableControls();
+        break;
+
+    case WM_NOTIFY:
+    {
+        NMHDR* nmhdr = (NMHDR*)lParam;
+        if (nmhdr->code == PSN_SETACTIVE)
+            EnableControls();
+        break;
+    }
+    }
+    return CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
+}
+
+INT_PTR
+CCfgPageFileOperations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
@@ -1625,37 +1717,13 @@ CCfgPageGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
 
     case WM_COMMAND:
-    {
-        if (LOWORD(wParam) == IDC_SAVE_TO_FILE_BROWSE)
-        {
-            char path[SAL_MAX_PATH];
-            GetDlgItemText(HWindow, IDC_SAVE_TO_FILE_PATH, path, SizeOf(path));
-            if (BrowseConfigurationStorageFile(HWindow, path, SizeOf(path)))
-            {
-                if (CanWriteRegStorageFilePath(path))
-                    SetDlgItemText(HWindow, IDC_SAVE_TO_FILE_PATH, path);
-                else
-                    SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEWRITEERR), LoadStr(IDS_ERRORTITLE),
-                                  MB_OK | MB_ICONEXCLAMATION);
-            }
-        }
-        else if (HIWORD(wParam) == EN_CHANGE &&
-                 (LOWORD(wParam) == IDC_COPYMOVE_SSD_PARALLEL || LOWORD(wParam) == IDC_COPYMOVE_NVME_PARALLEL))
+        if (HIWORD(wParam) == EN_CHANGE &&
+            (LOWORD(wParam) == IDC_COPYMOVE_SSD_PARALLEL || LOWORD(wParam) == IDC_COPYMOVE_NVME_PARALLEL))
         {
             UpdateCopyMoveParallelWarning();
         }
-        else if (HIWORD(wParam) == BN_CLICKED)
-            EnableControls();
         break;
-    }
 
-    case WM_NOTIFY:
-    {
-        NMHDR* nmhdr = (NMHDR*)lParam;
-        if (nmhdr->code == PSN_SETACTIVE)
-            EnableControls();
-        break;
-    }
     }
     INT_PTR result = CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
     if (uMsg == WM_SIZE)

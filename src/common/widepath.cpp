@@ -61,6 +61,12 @@ std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* path)
     return std::wstring(path);
 }
 
+BOOL IsValidPathUtf8Text(const char* text)
+{
+    if (text == NULL) return FALSE;
+    return MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, -1, NULL, 0) != 0;
+}
+
 std::wstring SalMultiByteToWidePath(const char* path, UINT codePage)
 {
     if (path == NULL || *path == 0)

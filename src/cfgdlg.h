@@ -21,6 +21,19 @@ enum CCopyMoveTransferPreference
     CMTP_KEEP_LAST = 2,
 };
 
+enum CCopyMoveConflictPreference
+{
+    CMCP_CURRENT = 0,
+    CMCP_SCAN_AHEAD = 1,
+    CMCP_KEEP_LAST = 2,
+};
+
+enum CCopyMoveConflictMode
+{
+    CMCM_CURRENT = 0,
+    CMCM_SCAN_AHEAD = 1,
+};
+
 //****************************************************************************
 //
 // CHighlightMasksItem
@@ -247,6 +260,8 @@ struct CConfiguration
         CopyMoveOperationPolicy, // COSP_STORAGE_AWARE / COSP_GLOBAL_SEQUENTIAL / COSP_ASK
         CopyMoveScheduling,     // legacy field name; CMTP_SEQUENTIAL / CMTP_STORAGE_AWARE / CMTP_KEEP_LAST
         CopyMoveLastTransferMode, // CMS_SEQUENTIAL / CMS_STORAGE_AWARE
+        CopyMoveConflictPreference, // CMCP_CURRENT / CMCP_SCAN_AHEAD / CMCP_KEEP_LAST
+        CopyMoveLastConflictMode, // CMCM_CURRENT / CMCM_SCAN_AHEAD
         CopyMoveSsdParallelFiles, // 1..4
         CopyMoveNvmeParallelFiles, // 1..8
         ReloadEnvVariables,     // should we perform regeneration when environment variables change??
@@ -591,7 +606,6 @@ class CCfgPageGeneral : public CCommonPropSheetPage
 {
 public:
     CCfgPageGeneral();
-    ~CCfgPageGeneral();
 
     virtual void Validate(CTransferInfo& ti);
     virtual void Transfer(CTransferInfo& ti);
@@ -600,9 +614,26 @@ protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
     void EnableControls();
+    BOOL IsDefaultCommandShellApplication();
+};
+
+//
+// ****************************************************************************
+
+class CCfgPageFileOperations : public CCommonPropSheetPage
+{
+public:
+    CCfgPageFileOperations();
+    ~CCfgPageFileOperations();
+
+    virtual void Validate(CTransferInfo& ti);
+    virtual void Transfer(CTransferInfo& ti);
+
+protected:
+    virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
+
     void UpdateCopyMoveParallelWarning();
     void LayoutCopyMoveControls();
-    BOOL IsDefaultCommandShellApplication();
 
     int CopyMoveSsdEditWidth;
     int CopyMoveNvmeEditWidth;
@@ -1376,6 +1407,7 @@ public:
 
 public:
     CCfgPageGeneral PageGeneral;
+    CCfgPageFileOperations PageFileOperations;
     CCfgPageView PageView;
     CCfgPageViewer PageViewer;
     CCfgPageUserMenu PageUserMenu;

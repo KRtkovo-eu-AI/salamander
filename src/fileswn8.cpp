@@ -576,6 +576,11 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
         int operationSchedulingOverride = Configuration.CopyMoveOperationPolicy == COSP_ASK
                                               ? COSO_WAIT_ALL
                                               : COSO_DEFAULT;
+        int conflictMode = Configuration.CopyMoveConflictPreference == CMCP_KEEP_LAST
+                               ? Configuration.CopyMoveLastConflictMode
+                               : Configuration.CopyMoveConflictPreference;
+        if (conflictMode != CMCM_CURRENT && conflictMode != CMCM_SCAN_AHEAD)
+            conflictMode = CMCM_CURRENT;
         if (transferMode != CMS_SEQUENTIAL && transferMode != CMS_STORAGE_AWARE)
             transferMode = CMS_STORAGE_AWARE;
         if (CopyMoveOptions.Get() != NULL) // if they exist, pull the defaults
@@ -605,7 +610,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                                                (type == atCopy) ? IDD_COPYDIALOG : IDD_MOVEDIALOG,
                                                Configuration.CopyHistory, COPY_HISTORY_SIZE,
                                                &criteria, havePermissions, supportsADS, &transferMode,
-                                               &operationSchedulingOverride, copyToSelectedDirs ? &selectedTargetPaths : NULL,
+                                               &conflictMode, &operationSchedulingOverride, copyToSelectedDirs ? &selectedTargetPaths : NULL,
                                                changeTargetRequested != NULL && !copyToSelectedDirs)
                           .Execute();
                 if (res == ID_CHANGE_SELECTED_TARGET_TAB)
@@ -619,6 +624,13 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     break;
                 if (Configuration.CopyMoveScheduling == CMTP_KEEP_LAST)
                     Configuration.CopyMoveLastTransferMode = transferMode;
+                if (type == atMove && conflictMode == CMCM_SCAN_AHEAD &&
+                    SalMessageBox(HWindow, LoadStr(IDS_COPYMOVE_CONFLICT_MOVE_WARNING),
+                                  LoadStr(IDS_COPYMOVE_CONFLICT_MOVE_WARNING_TITLE),
+                                  MB_YESNO | MB_ICONWARNING) != IDYES)
+                    continue;
+                if (Configuration.CopyMoveConflictPreference == CMCP_KEEP_LAST)
+                    Configuration.CopyMoveLastConflictMode = conflictMode;
                 criteriaPtr = criteria.IsDirty() ? &criteria : NULL;
                 UpdateWindow(MainWindow->HWindow);
 
@@ -669,6 +681,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     {
                         if (pathType == PATH_TYPE_ARCHIVE) // path into an archive
                         {
+                            conflictMode = CMCM_CURRENT;
                             if (strlen(secondPart) >= SAL_MAX_PATH) // isn't the path inside the archive too long?
                             {
                                 SalMessageBox(HWindow, LoadStr(IDS_TOOLONGPATH),
@@ -838,6 +851,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                         {
                             if (pathType == PATH_TYPE_FS) // file-system path
                             {
+                                conflictMode = CMCM_CURRENT;
                                 if (strlen(secondPart) >= SAL_MAX_PATH) // is the user's part of the FS path too long?
                                 {
                                     SalMessageBox(HWindow, LoadStr(IDS_TOOLONGPATH),
@@ -1119,6 +1133,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     if (type == atCopy || type == atMove)
                     {
                         script->CopyMoveTransferMode = transferMode;
+                        script->CopyMoveConflictMode = conflictMode;
                         script->OperationSchedulingPolicy = Configuration.CopyMoveOperationPolicy;
                         script->OperationSchedulingOverride = operationSchedulingOverride;
                     }

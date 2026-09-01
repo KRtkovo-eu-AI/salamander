@@ -1396,6 +1396,10 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
         PrintLine(param, buf, TRUE);
         sprintf(buf, "CopyMoveLastTransferMode = %d", Configuration.CopyMoveLastTransferMode);
         PrintLine(param, buf, TRUE);
+        sprintf(buf, "CopyMoveConflictPreference = %d", Configuration.CopyMoveConflictPreference);
+        PrintLine(param, buf, TRUE);
+        sprintf(buf, "CopyMoveLastConflictMode = %d", Configuration.CopyMoveLastConflictMode);
+        PrintLine(param, buf, TRUE);
         sprintf(buf, "CopyMoveSsdParallelFiles = %d", Configuration.CopyMoveSsdParallelFiles);
         PrintLine(param, buf, TRUE);
         sprintf(buf, "CopyMoveNvmeParallelFiles = %d", Configuration.CopyMoveNvmeParallelFiles);

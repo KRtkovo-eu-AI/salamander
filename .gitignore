@@ -270,3 +270,5 @@ src/plugins/shared/webviewviewer/bin/Debug/
 src/vcxproj/x64/Release/
 
 src/plugins/zip/vcxproj/selfextr/Intermediate/
+
+src/plugins/zip/vcxproj/sfxmake/Release/
