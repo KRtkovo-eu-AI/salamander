@@ -16,6 +16,7 @@
 #include "menu.h"
 #include "consts.h"
 #include "common/widepath.h"
+#include "messages.h"
 
 CConfiguration Configuration;
 
