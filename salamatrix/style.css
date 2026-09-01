@@ -53,7 +53,7 @@ body.site-header--scrolled .site-header__row { display: none; }
 body.site-header--scrolled .section-nav { margin-top: 0; }
 #site-branding__small_logo { display: none; }
 body.site-header--scrolled #site-branding__small_logo { display: inline-block; padding: 0 16px; }
-body.site-header--scrolled #site-branding__small_logo img { width: 24px; height: 24px; margin: 5px 0 0 0 !important; background: none !important; display: inline-block; border: none; padding: 0 !important; }
+body.site-header--scrolled #site-branding__small_logo img { width: 24px; height: 24px; margin: 5px 0 0 0 !important; background: none !important; display: inline-block; border: none; padding: 0 !important; box-shadow: none !important; }
 .site-header__row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
 .site-branding__accent { color: #f03c3c; }
 .framework-mark { display: inline-grid; place-items: center; width: 56px; height: 56px; margin-right: 10px; color: #2a1700; background: linear-gradient(145deg, #f35353, #e02e2e); border: 1px solid #e02e2e; border-radius: 12px; box-shadow: inset 0 1px rgba(255,255,255,.55), 0 5px 14px rgba(0,0,0,.32); font-size: 2rem; font-weight: 800; vertical-align: middle; }
