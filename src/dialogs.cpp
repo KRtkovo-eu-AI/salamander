@@ -1055,9 +1055,9 @@ void CProgressDialog::RefreshConflictOperations(BOOL repaint, BOOL layout)
     int scanned = Script->GetConflictScannedCount();
     int version = Script->GetConflictListVersion();
     char status[160];
-    sprintf_s(status, LoadStr(IDS_COPYMOVE_CONFLICT_SCAN_STATUS),
-              LoadStr(Script->IsConflictScanActive() ? IDS_COPYMOVE_CONFLICT_ACTIVE : IDS_COPYMOVE_CONFLICT_FINISHED),
-              pending, scanned, Script->Count);
+    lstrcpyn(status, spf(IDS_COPYMOVE_CONFLICT_SCAN_STATUS,
+                                  LoadStr(Script->IsConflictScanActive() ? IDS_COPYMOVE_CONFLICT_ACTIVE : IDS_COPYMOVE_CONFLICT_FINISHED),
+                                  pending, scanned, Script->Count), _countof(status));
     SetDlgItemText(HWindow, IDC_PROGRESS_CONFLICT_STATUS, status);
     if (version != ConflictListVersion)
     {
@@ -1197,7 +1197,15 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (Script->CopyMoveConflictMode == CMCM_SCAN_AHEAD)
         {
             HConflictOperations = GetDlgItem(HWindow, IDC_PROGRESS_OPERATIONS);
-            ConflictScanLink = new CHyperLink(HWindow, IDC_PROGRESS_CONFLICT_SCAN_LINK, STF_DOTUNDERLINE | STF_HYPERLINK_COLOR);
+#ifdef new
+#undef new
+#define RESTORE_CONFLICT_LINK_DEBUG_NEW_MACRO
+#endif
+            ConflictScanLink = new (std::nothrow) CHyperLink(HWindow, IDC_PROGRESS_CONFLICT_SCAN_LINK, STF_DOTUNDERLINE | STF_HYPERLINK_COLOR);
+#ifdef RESTORE_CONFLICT_LINK_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_CONFLICT_LINK_DEBUG_NEW_MACRO
+#endif
             if (ConflictScanLink != NULL)
             {
                 ConflictScanLink->SetText(LoadStr(IDS_COPYMOVE_CONFLICT_SCAN_LINK));
