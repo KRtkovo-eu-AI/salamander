@@ -16,7 +16,6 @@
 #include "menu.h"
 #include "consts.h"
 #include "common/widepath.h"
-#include "messages.h"
 
 CConfiguration Configuration;
 
@@ -1056,9 +1055,14 @@ void CProgressDialog::RefreshConflictOperations(BOOL repaint, BOOL layout)
     int scanned = Script->GetConflictScannedCount();
     int version = Script->GetConflictListVersion();
     char status[160];
-    lstrcpyn(status, spf(IDS_COPYMOVE_CONFLICT_SCAN_STATUS,
-                                  LoadStr(Script->IsConflictScanActive() ? IDS_COPYMOVE_CONFLICT_ACTIVE : IDS_COPYMOVE_CONFLICT_FINISHED),
-                                  pending, scanned, Script->Count), _countof(status));
+    DWORD_PTR statusArgs[4];
+    statusArgs[0] = reinterpret_cast<DWORD_PTR>(LoadStr(Script->IsConflictScanActive() ? IDS_COPYMOVE_CONFLICT_ACTIVE : IDS_COPYMOVE_CONFLICT_FINISHED));
+    statusArgs[1] = static_cast<DWORD_PTR>(pending);
+    statusArgs[2] = static_cast<DWORD_PTR>(scanned);
+    statusArgs[3] = static_cast<DWORD_PTR>(Script->Count);
+    FormatMessageA(FORMAT_MESSAGE_FROM_STRING | FORMAT_MESSAGE_ARGUMENT_ARRAY,
+                   LoadStr(IDS_COPYMOVE_CONFLICT_SCAN_STATUS), 0, 0, status,
+                   static_cast<DWORD>(_countof(status)), reinterpret_cast<va_list*>(statusArgs));
     SetDlgItemText(HWindow, IDC_PROGRESS_CONFLICT_STATUS, status);
     if (version != ConflictListVersion)
     {

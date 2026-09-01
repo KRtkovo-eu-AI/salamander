@@ -1,4 +1,4 @@
-#include "..\texts.rh2"
+﻿#include "..\texts.rh2"
 
 STRINGTABLE
 {
@@ -2290,7 +2290,7 @@ STRINGTABLE
  IDS_COPYMOVE_CONFLICT_KEEP_LAST, "Keep last selected in the Copy/Move dialog"
  IDS_COPYMOVE_CONFLICT_MOVE_WARNING_TITLE, "Move with deferred conflicts"
  IDS_COPYMOVE_CONFLICT_MOVE_WARNING, "Independent items may be moved while conflicts are waiting for your decision. Cancelling later does not restore items that were already moved. Continue?"
- IDS_COPYMOVE_CONFLICT_SCAN_STATUS, "Conflict scan: %s, %d pending, %d/%d inspected"
+ IDS_COPYMOVE_CONFLICT_SCAN_STATUS, "Conflict scan: %1!s!, %2!d! pending, %3!d!/%4!d! inspected"
  IDS_COPYMOVE_CONFLICT_SCAN_LINK, "Conflict scan"
  IDS_COPYMOVE_CONFLICT_READY, "Ready"
  IDS_COPYMOVE_CONFLICT_RUNNING, "Running"
