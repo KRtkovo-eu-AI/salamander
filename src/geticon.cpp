@@ -250,7 +250,7 @@ static std::wstring PanelPathToWide(const char* path)
     return std::wstring(wide.data());
 }
 
-static HICON GetExplorerFileIcon(const char* path, int pixelSize)
+static HICON GetExplorerFileIcon(const char* path, int pixelSize, BOOL smallIcon)
 {
     if (path == NULL || pixelSize <= 0)
         return NULL;
@@ -261,8 +261,8 @@ static HICON GetExplorerFileIcon(const char* path, int pixelSize)
 
     SHFILEINFOW fileInfo;
     ZeroMemory(&fileInfo, sizeof(fileInfo));
-    if (SHGetFileInfoW(widePath.c_str(), 0, &fileInfo, sizeof(fileInfo),
-                       SHGFI_ICON | SHGFI_SMALLICON) == 0 ||
+    UINT iconFlags = SHGFI_ICON | (smallIcon ? SHGFI_SMALLICON : SHGFI_LARGEICON);
+    if (SHGetFileInfoW(widePath.c_str(), 0, &fileInfo, sizeof(fileInfo), iconFlags) == 0 ||
         fileInfo.hIcon == NULL)
         return NULL;
 
@@ -341,6 +341,18 @@ static HICON GetDefaultAssociationIcon(const char* path, int pixelSize)
         HANDLES(DestroyIcon(largeIcon));
     if (smallIcon != NULL && smallIcon != icon)
         HANDLES(DestroyIcon(smallIcon));
+    if (icon != NULL && GetIconPixelWidth(icon) != pixelSize)
+    {
+        HICON resized = (HICON)CopyImage(icon, IMAGE_ICON, pixelSize, pixelSize, 0);
+        if (resized == NULL)
+        {
+            HANDLES(DestroyIcon(icon));
+            return NULL;
+        }
+        HANDLES(DestroyIcon(icon));
+        icon = resized;
+    }
+    DiscardSolidBlackIcon(&icon, pixelSize);
     return icon;
 }
 
@@ -570,16 +582,17 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
         }
 
     }
-    if (iconSize == ICONSIZE_16 && hIconSmall != NULL &&
-        GetIconPixelWidth(hIconSmall) != IconSizes[ICONSIZE_16] && pxi != NULL)
+    HICON* requestedIcon = iconSize == ICONSIZE_16 ? &hIconSmall : &hIconLarge;
+    HICON* otherIcon = iconSize == ICONSIZE_16 ? &hIconLarge : &hIconSmall;
+    int requestedIconSize = IconSizes[iconSize];
+    if (*requestedIcon != NULL && GetIconPixelWidth(*requestedIcon) != requestedIconSize && pxi != NULL)
     {
-        // If the process first touched the shell image lists while running on a
-        // high-DPI monitor, even SHIL_SMALL can still hand back that larger
-        // process-global bitmap.  Ask the item's extractor directly for the
-        // requested 16px small icon before falling back to scaling it down.
+        // If the process first touched a shell image list on another DPI, the
+        // process-global bitmap can have the wrong size. Ask the item's
+        // extractor directly for the requested icon before falling back to a
+        // resize. This applies to small, large, and extra-large panel icons.
         HICON hExtractedLarge = NULL;
         HICON hExtractedSmall = NULL;
-        BOOL extractedSmallAdopted = FALSE;
         HRESULT extractResult;
         if (isIExtractIconW)
             extractResult = ((IExtractIconW*)pxi)->Extract(iconFileW, iconIndex, &hExtractedLarge, &hExtractedSmall,
@@ -588,19 +601,22 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
             extractResult = pxi->Extract(iconFile, iconIndex, &hExtractedLarge, &hExtractedSmall,
                                          MAKELONG(IconSizes[largeIconSize], IconSizes[ICONSIZE_16]));
 
-        if (SUCCEEDED(extractResult) && hExtractedSmall != NULL &&
-            GetIconPixelWidth(hExtractedSmall) == IconSizes[ICONSIZE_16])
+        HICON hExtracted = iconSize == ICONSIZE_16 ? hExtractedSmall : hExtractedLarge;
+        if (SUCCEEDED(extractResult) && hExtracted != NULL &&
+            GetIconPixelWidth(hExtracted) == requestedIconSize)
         {
-            if (hIconSmall != NULL && hIconSmall != hIconLarge)
-                HANDLES(DestroyIcon(hIconSmall));
-            hIconSmall = hExtractedSmall;
-            hExtractedSmall = NULL;
-            extractedSmallAdopted = TRUE;
+            if (*requestedIcon != NULL && *requestedIcon != *otherIcon)
+                HANDLES(DestroyIcon(*requestedIcon));
+            *requestedIcon = hExtracted;
+            if (iconSize == ICONSIZE_16)
+                hExtractedSmall = NULL;
+            else
+                hExtractedLarge = NULL;
         }
 
-        if (hExtractedSmall != NULL)
+        if (hExtractedSmall != NULL && hExtractedSmall != hIconSmall && hExtractedSmall != hIconLarge)
             HANDLES(DestroyIcon(hExtractedSmall));
-        if (hExtractedLarge != NULL && (!extractedSmallAdopted || hExtractedLarge != hIconSmall))
+        if (hExtractedLarge != NULL && hExtractedLarge != hIconSmall && hExtractedLarge != hIconLarge)
             HANDLES(DestroyIcon(hExtractedLarge));
     }
 
@@ -645,12 +661,10 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
     if (hIconLarge != NULL || hIconSmall != NULL)
     {
         ret = TRUE;
-        // Use a real icon for the current DPI.  IExtractIcon::Extract() and
-        // SHGFI_SMALLICON often return the historical 16x16 small icon even
-        // when IconSizes[ICONSIZE_16] is 20/24/... in a higher-DPI monitor.
-        // In that case prefer the DPI-sized shell image from SHIL_SYSSMALL, or
-        // derive the requested size from the larger icon instead of upscaling
-        // the 16x16 design.
+        // Use a real icon for the current DPI. IExtractIcon::Extract() and
+        // shell image lists can return a bitmap for a different DPI than the
+        // panel currently uses. Normalize every supported icon size here
+        // instead of allowing a stale size to enter the icon cache.
         if (iconSize == ICONSIZE_16)
         {
             int targetIconSize = IconSizes[ICONSIZE_16];
@@ -682,9 +696,19 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
         else // ICONSIZE_32 || ICONSIZE_48
         {
             // if the large icon is missing or we were given the handle of the small one, create it
-            if (hIconLarge == NULL || hIconSmall == hIconLarge)
+            if (hIconLarge == NULL || hIconSmall == hIconLarge ||
+                GetIconPixelWidth(hIconLarge) != requestedIconSize)
             {
-                hIconLarge = (HICON)CopyImage(hIconSmall, IMAGE_ICON, IconSizes[largeIconSize], IconSizes[largeIconSize], LR_COPYFROMRESOURCE);
+                HICON hIconSource = hIconLarge != NULL ? hIconLarge : hIconSmall;
+                HICON hIconDPI = hIconSource != NULL ?
+                                     (HICON)CopyImage(hIconSource, IMAGE_ICON, requestedIconSize, requestedIconSize, 0) :
+                                     NULL;
+                if (hIconDPI != NULL)
+                {
+                    if (hIconLarge != NULL && hIconLarge != hIconSmall)
+                        HANDLES(DestroyIcon(hIconLarge));
+                    hIconLarge = hIconDPI;
+                }
                 //TRACE_I("  SalGetIconFromPIDL() CopyImage 2 hIconSmall="<<hIconSmall<<" hIconLarge="<<hIconLarge);
             }
             *hIcon = hIconLarge;
@@ -699,18 +723,14 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
     // Do not let a stale/corrupt shell image-list entry poison Salamander's
     // icon caches. Try the system list once more, otherwise keep the caller's
     // existing association/default icon by reporting extraction failure.
-    if (ret && iconSize == ICONSIZE_16 && path != NULL &&
-        IsSolidBlackIcon(*hIcon, IconSizes[ICONSIZE_16]))
+    if (ret && path != NULL && *hIcon != NULL &&
+        IsSolidBlackIcon(*hIcon, requestedIconSize))
     {
-        SHFILEINFO sfi;
-        ZeroMemory(&sfi, sizeof(sfi));
-        HIMAGELIST systemIcons = (HIMAGELIST)SHGetFileInfo(path, 0, &sfi, sizeof(sfi),
-                                                          SHGFI_SYSICONINDEX | SHGFI_SMALLICON);
-        HICON fallbackIcon = systemIcons != NULL ?
-                                 ImageList_GetIcon(systemIcons, sfi.iIcon, ILD_NORMAL) :
-                                 NULL;
+        HICON fallbackIcon = GetExplorerFileIcon(path, requestedIconSize, iconSize == ICONSIZE_16);
+        if (fallbackIcon == NULL)
+            fallbackIcon = GetDefaultAssociationIcon(path, requestedIconSize);
         if (fallbackIcon != NULL &&
-            !IsSolidBlackIcon(fallbackIcon, IconSizes[ICONSIZE_16]))
+            !IsSolidBlackIcon(fallbackIcon, requestedIconSize))
         {
             HANDLES(DestroyIcon(*hIcon));
             *hIcon = fallbackIcon;
@@ -810,7 +830,7 @@ BOOL GetFileIcon(const char* path, BOOL pathIsPIDL, HICON* hIcon, CIconSizeEnum 
     // DefaultIcon values can both be valid yet select different artwork.
     if (!pathIsPIDL && iconSize == ICONSIZE_16)
     {
-        *hIcon = GetExplorerFileIcon(path, IconSizes[ICONSIZE_16]);
+        *hIcon = GetExplorerFileIcon(path, IconSizes[ICONSIZE_16], TRUE);
         if (*hIcon != NULL)
             return TRUE;
     }

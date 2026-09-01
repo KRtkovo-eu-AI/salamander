@@ -103,6 +103,27 @@ def main() -> int:
     if "SHDefExtractIconW(iconPath.c_str(), iconIndex" not in geticon:
         print("registered DefaultIcon must be extracted at the panel pixel size")
         return 1
+    requested_icon = re.search(
+        r"HICON\* requestedIcon = .*?if \(\*requestedIcon != NULL.*?\n    \}",
+        geticon,
+        re.DOTALL,
+    )
+    if (
+        requested_icon is None
+        or "IconSizes[iconSize]" not in requested_icon.group(0)
+        or "hExtractedLarge" not in requested_icon.group(0)
+        or "hExtractedSmall" not in requested_icon.group(0)
+    ):
+        print("all supported panel icon sizes must normalize stale shell icons through the extractor")
+        return 1
+    if (
+        "GetIconPixelWidth(hIconLarge) != requestedIconSize" not in geticon
+        or "CopyImage(hIconSource, IMAGE_ICON, requestedIconSize, requestedIconSize, 0)" not in geticon
+        or "IsSolidBlackIcon(*hIcon, requestedIconSize)" not in geticon
+        or "iconSize == ICONSIZE_16)" not in geticon
+    ):
+        print("small, large, and extra-large panel icons must use the same DPI-size and corruption checks")
+        return 1
     explorer_icon = re.search(
         r"static HICON GetExplorerFileIcon\(.*?\n\}", geticon, re.DOTALL
     )
@@ -113,7 +134,7 @@ def main() -> int:
         explorer_icon is None
         or "PanelPathToWide(path)" not in explorer_icon.group(0)
         or "SHGetFileInfoW" not in explorer_icon.group(0)
-        or "SHGFI_ICON | SHGFI_SMALLICON" not in explorer_icon.group(0)
+        or "smallIcon ? SHGFI_SMALLICON : SHGFI_LARGEICON" not in explorer_icon.group(0)
         or get_file_icon is None
         or get_file_icon.group(0).find("GetExplorerFileIcon(")
         > get_file_icon.group(0).find("SHILCreateFromPath(")
