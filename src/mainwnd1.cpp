@@ -412,6 +412,7 @@ CMainWindow::CMainWindow()
     CaptionIsActive = FALSE;
     SHChangeNotifyRegisterID = 0;
     IgnoreWM_SETTINGCHANGE = FALSE;
+    SettingChangeInProgress = FALSE;
     LockedUI = FALSE;
     LockedUIToolWnd = NULL;
     LockedUIReason = NULL;

@@ -4881,6 +4881,19 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
     case WM_SETTINGCHANGE:
     {
         TraceDPIState("WM_SETTINGCHANGE", HWindow);
+        if (SettingChangeInProgress)
+            return 0;
+
+        class CSettingChangeGuard
+        {
+        public:
+            explicit CSettingChangeGuard(BOOL& flag) : Flag(flag) { Flag = TRUE; }
+            ~CSettingChangeGuard() { Flag = FALSE; }
+
+        private:
+            BOOL& Flag;
+        } settingChangeGuard(SettingChangeInProgress);
+
         BOOL darkChanged = DarkModeHandleSettingChange(uMsg, lParam) ? TRUE : FALSE;
         if (darkChanged)
         {

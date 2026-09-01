@@ -530,6 +530,7 @@ public:
 
     DWORD SHChangeNotifyRegisterID; // returned by SHChangeNotifyRegister
     BOOL IgnoreWM_SETTINGCHANGE;
+    BOOL SettingChangeInProgress;
 
     BOOL LockedUI;
     HWND LockedUIToolWnd;
