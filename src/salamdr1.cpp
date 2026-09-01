@@ -2727,9 +2727,8 @@ int ScaleForDPI(int value, int dpi)
     return MulDiv(value, dpi > 0 ? dpi : 96, 96);
 }
 
-int GetScaleForSystemDPI()
+int GetScaleForDPI(int dpi)
 {
-    int dpi = GetSystemDPI();
     int scale;
     if (dpi <= 96)
         scale = 100;
@@ -2751,6 +2750,11 @@ int GetScaleForSystemDPI()
     return scale;
 }
 
+int GetScaleForSystemDPI()
+{
+    return GetScaleForDPI(GetSystemDPI());
+}
+
 int DipToPixels(int dips)
 {
     if (dips <= 0)
@@ -2759,17 +2763,17 @@ int DipToPixels(int dips)
     return MulDiv(dips, GetSystemDPI(), 96);
 }
 
-int GetIconSizeForSystemDPI(CIconSizeEnum iconSize)
+int GetIconSizeForDPI(CIconSizeEnum iconSize, int dpi)
 {
-    if (SystemDPI == 0)
+    if (dpi <= 0)
     {
-        TRACE_E("GetIconSizeForSystemDPI() SystemDPI == 0!");
+        TRACE_E("GetIconSizeForDPI() invalid DPI!");
         return 16;
     }
 
     if (iconSize < ICONSIZE_16 || iconSize >= ICONSIZE_COUNT)
     {
-        TRACE_E("GetIconSizeForSystemDPI() unknown iconSize!");
+        TRACE_E("GetIconSizeForDPI() unknown iconSize!");
         return 16;
     }
 
@@ -2784,11 +2788,21 @@ int GetIconSizeForSystemDPI(CIconSizeEnum iconSize)
     // Custom        384   4.00 (400%)
     // Custom        480   5.00 (500%)
 
-    int scale = GetScaleForSystemDPI();
+    int scale = GetScaleForDPI(dpi);
 
-    int baseIconSize[ICONSIZE_COUNT] = {16, 32, 48}; // musi odpovidat CIconSizeEnum
+    static const int baseIconSize[ICONSIZE_COUNT] = {16, 32, 48}; // must match CIconSizeEnum
 
     return (baseIconSize[iconSize] * scale) / 100;
+}
+
+int GetIconSizeForSystemDPI(CIconSizeEnum iconSize)
+{
+    if (SystemDPI == 0)
+    {
+        TRACE_E("GetIconSizeForSystemDPI() SystemDPI == 0!");
+        return 16;
+    }
+    return GetIconSizeForDPI(iconSize, GetSystemDPI());
 }
 
 void GetSystemDPI(HDC hDC)

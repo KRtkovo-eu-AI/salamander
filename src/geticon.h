@@ -40,3 +40,7 @@ UINT WINAPI ExtractIcons(LPCTSTR szFileName, int nIconIndex, int cxIcon, int cyI
 // see comment spl_gen.h/GetFileIcon
 BOOL GetFileIcon(const char* path, BOOL pathIsPIDL, HICON* hIcon, CIconSizeEnum iconSize,
                  BOOL fallbackToDefIcon, BOOL defIconIsDir);
+
+// Internal panel path: captures the exact display target and selects a supported shell source bucket from the panel DPI.
+BOOL GetFileIconForPanel(const char* path, HICON* hIcon, CIconSizeEnum iconSize,
+                         int targetPixelSize, int targetDPI, BOOL fallbackToDefIcon, BOOL defIconIsDir);

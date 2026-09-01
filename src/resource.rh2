@@ -714,6 +714,7 @@
 // timers
 #define IDT_AUTOSCROLL        6200
 #define IDT_THUMBSCROLL       6201
+#define IDT_LOGVIEWRETRY      6202
 
 //#define CM_TEXTS_MIN               10000    // interval vyhrazeny pro texty
 //#define CM_TEXTS_MAX               18000

@@ -21,6 +21,7 @@ def main() -> int:
     dialogs5 = (ROOT / "dialogs5.cpp").read_text(encoding="utf-8")
     darkmodelib_controls = (ROOT / "third_party/darkmodelib/src/DmlibSubclassControl.cpp").read_text(encoding="utf-8")
     icon_cache = (ROOT / "icncache.cpp").read_text(encoding="utf-8")
+    icon_list = (ROOT / "iconlist.cpp").read_text(encoding="utf-8")
     mainwnd1 = (ROOT / "mainwnd1.cpp").read_text(encoding="utf-8")
     mainwnd2 = (ROOT / "mainwnd2.cpp").read_text(encoding="utf-8")
     mainwnd3 = (ROOT / "mainwnd3.cpp").read_text(encoding="utf-8")
@@ -103,27 +104,134 @@ def main() -> int:
     if "SHDefExtractIconW(iconPath.c_str(), iconIndex" not in geticon:
         print("registered DefaultIcon must be extracted at the panel pixel size")
         return 1
-    requested_icon = re.search(
-        r"HICON\* requestedIcon = .*?if \(\*requestedIcon != NULL.*?\n    \}",
-        geticon,
+    panel_icon_call = re.search(
+        r"IconThreadThreadFBodyAux\(path, shi, iconSize,.*?\);",
+        fileswnd,
         re.DOTALL,
     )
     if (
-        requested_icon is None
-        or "IconSizes[iconSize]" not in requested_icon.group(0)
-        or "hExtractedLarge" not in requested_icon.group(0)
-        or "hExtractedSmall" not in requested_icon.group(0)
+        "BOOL GetFileIconForPanel(" not in geticon
+        or panel_icon_call is None
+        or "iconPixelSize" not in panel_icon_call.group(0)
+        or "iconDPI" not in panel_icon_call.group(0)
+        or fileswnd.find("int iconPixelSize = window->GetIconSize(iconSize);")
+        > fileswnd.find("IconThreadThreadFBodyAux(path, shi, iconSize, iconPixelSize, iconDPI);")
+        or fileswnd.find("int iconDPI = window->GetWindowDPI();")
+        > fileswnd.find("IconThreadThreadFBodyAux(path, shi, iconSize, iconPixelSize, iconDPI);")
     ):
-        print("all supported panel icon sizes must normalize stale shell icons through the extractor")
+        print("panel icon loading must pass its captured display size and DPI")
         return 1
+
+    panel_path = re.search(
+        r"BOOL GetFileIconForPanel\(.*?\n\}", geticon, re.DOTALL
+    )
     if (
-        "GetIconPixelWidth(hIconLarge) != requestedIconSize" not in geticon
-        or "CopyImage(hIconSource, IMAGE_ICON, requestedIconSize, requestedIconSize, 0)" not in geticon
-        or "IsSolidBlackIcon(*hIcon, requestedIconSize)" not in geticon
-        or "iconSize == ICONSIZE_16)" not in geticon
+        panel_path is None
+        or "GetFileIconInternal(path, FALSE, hIcon, iconSize, targetPixelSize" not in panel_path.group(0)
+        or "GetPanelShellSourcePixelSize" in geticon
     ):
-        print("small, large, and extra-large panel icons must use the same DPI-size and corruption checks")
+        print("panel shell extraction must use the captured bucketed target size directly")
         return 1
+
+    expected_icon_sizes = {
+        96: (16, 32, 48),
+        120: (20, 40, 60),
+        144: (24, 48, 72),
+        168: (32, 64, 96),
+        192: (32, 64, 96),
+        240: (40, 80, 120),
+    }
+    for dpi, expected in expected_icon_sizes.items():
+        if dpi <= 96:
+            scale = 100
+        elif dpi <= 120:
+            scale = 125
+        elif dpi <= 144:
+            scale = 150
+        elif dpi <= 192:
+            scale = 200
+        elif dpi <= 240:
+            scale = 250
+        else:
+            raise AssertionError("test table needs another icon bucket")
+        actual = tuple(semantic * scale // 100 for semantic in (16, 32, 48))
+        if actual != expected:
+            print(f"panel icon bucket mismatch at {dpi}: {actual} != {expected}")
+            return 1
+    if expected_icon_sizes[168] != expected_icon_sizes[192]:
+        print("175% and 200% panel icons must use the same 32/64/96 bucket")
+        return 1
+    if expected_icon_sizes[144][0] != 24 or expected_icon_sizes[168][0] != 32:
+        print("moving from 150% to 175% must change the small panel icon bucket from 24 to 32")
+        return 1
+
+    refresh_dpi = re.search(
+        r"BOOL CFilesWindow::RefreshDPIResources\(.*?\n\}", fileswnd, re.DOTALL
+    )
+    state_draw = re.search(
+        r"BOOL StateImageList_Draw\(.*?\n\}", fileswnd4, re.DOTALL
+    )
+    if (
+        "int GetScaleForDPI(int dpi)" not in salamdr1
+        or "return GetScaleForDPI(GetSystemDPI());" not in salamdr1
+        or "int GetIconSizeForDPI(CIconSizeEnum iconSize, int dpi)" not in salamdr1
+        or "return GetIconSizeForDPI(iconSize, GetSystemDPI());" not in salamdr1
+        or refresh_dpi is None
+        or refresh_dpi.group(0).count("GetIconSizeForDPI(") != 3
+        or re.search(r"WindowIconSizes\[.*?\]\s*=\s*MulDiv", refresh_dpi.group(0))
+        or state_draw is None
+        or "int iconW = GetIconSizeForDPI(iconSize, dpi);" not in state_draw.group(0)
+        or "GetIconSizeForDPI(ICONSIZE_48, dpi) - GetIconSizeForDPI(ICONSIZE_32, dpi)" not in state_draw.group(0)
+        or re.search(r"MulDiv\([^;]*icon", state_draw.group(0), re.IGNORECASE)
+    ):
+        print("panel resources and overlays must share the explicit-DPI icon bucket helper")
+        return 1
+
+    sal_get_icon = re.search(
+        r"BOOL SalGetIconFromPIDL\(.*?\n\}", geticon, re.DOTALL
+    )
+    if (
+        sal_get_icon is None
+        or "shellSourcePixelSize" not in sal_get_icon.group(0)
+        or "targetPixelSize" in sal_get_icon.group(0)
+        or "requestedIconSize = shellSourcePixelSize" not in sal_get_icon.group(0)
+        or "IsSolidBlackIcon(*hIcon, requestedIconSize)" not in sal_get_icon.group(0)
+    ):
+        print("shell extraction, normalization, and validation must use the source size")
+        return 1
+    if re.search(r"(ExtractIcons|GetExplorerFileIcon|GetDefaultAssociationIcon)[^\n]*\b28\b", geticon):
+        print("shell extraction must never request the 28px display/cache size")
+        return 1
+
+    replace_icon = re.search(
+        r"BOOL CIconList::ReplaceIcon\(.*?\n\}", icon_list, re.DOTALL
+    )
+    if (
+        replace_icon is None
+        or "CopyImage(hIconOrig, IMAGE_ICON, ImageWidth, ImageHeight, 0)" not in replace_icon.group(0)
+        or "convertedBitmap.bmWidth != ImageWidth" not in replace_icon.group(0)
+        or "DrawIconEx(colorDC, 0, 0, hIconOrig, ImageWidth, ImageHeight" not in replace_icon.group(0)
+        or "CreateIconIndirect(&rasterInfo)" not in replace_icon.group(0)
+        or "return FALSE" not in replace_icon.group(0)
+    ):
+        print("icon-list replacement must verify or rasterize to the exact cache size")
+        return 1
+
+    cache_update = re.search(
+        r"if \(window->IconCache->GetIcon\(.*?LeaveCriticalSection\(&window->ICSectionUsingIcon\)\);",
+        fileswnd,
+        re.DOTALL,
+    )
+    if (
+        cache_update is None
+        or "if (iconList->ReplaceIcon(iconListIndex, shi.hIcon))" not in cache_update.group(0)
+        or cache_update.group(0).find("iconData->SetFlag(1)")
+        < cache_update.group(0).find("if (iconList->ReplaceIcon")
+        or "else\n                                                    failed = TRUE;" not in cache_update.group(0)
+    ):
+        print("an icon cache slot may be marked loaded only after successful replacement")
+        return 1
+
     explorer_icon = re.search(
         r"static HICON GetExplorerFileIcon\(.*?\n\}", geticon, re.DOTALL
     )

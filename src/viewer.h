@@ -338,6 +338,8 @@ protected:
     void UpdateStatusBar(__int64 offset = -1);
     void SetLogViewMode(BOOL enable);
     void RefreshLogView();
+    void ScheduleLogViewRetry();
+    void CancelLogViewRetry();
     void StartLogViewWatcher();
     void StopLogViewWatcher();
     static DWORD WINAPI LogViewWatcherThreadProc(LPVOID param);
@@ -418,6 +420,7 @@ protected:
     BOOL LogViewMode;
     HANDLE LogViewStopEvent;
     HANDLE LogViewWatcherThread;
+    BOOL LogViewRetryScheduled;
     std::wstring LogViewDirectoryW;
     std::wstring LogViewFileNameW;
     int LineNumberDigits;

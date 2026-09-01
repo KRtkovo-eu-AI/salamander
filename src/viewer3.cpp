@@ -3707,6 +3707,15 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_TIMER:
     {
+        if (wParam == IDT_LOGVIEWRETRY)
+        {
+            KillTimer(HWindow, IDT_LOGVIEWRETRY);
+            LogViewRetryScheduled = FALSE;
+            if (LogViewMode)
+                RefreshLogView();
+            return 0;
+        }
+
         if (wParam == IDT_THUMBSCROLL)
         {
             OnVScroll();
@@ -4375,6 +4384,7 @@ MENU_TEMPLATE_ITEM ViewerCodingMenu[] =
     {
         // WM_DESTROY can also be reached through a direct DestroyWindow call.
         DestroyViewerMenuControls();
+        CancelLogViewRetry();
         StopLogViewWatcher();
         // The scrollbar hook stores HWNDs.  Remove this entry before Windows
         // can recycle the handle for an unrelated top-level dialog.

@@ -447,35 +447,102 @@ BOOL CIconList::ReplaceIcon(int index, HICON hIcon)
 {
     CALL_STACK_MESSAGE2("CIconList::ReplaceIcon(%d, )", index);
 
-    HICON hIconOrig = hIcon;
-    BOOL ret = TRUE;
-    ICONINFO ii;
-    ZeroMemory(&ii, sizeof(ii));
-    HDC hSrcDC;
-    HBITMAP hOldSrcBmp;
-
-    HANDLES(EnterCriticalSection(&CriticalSection));
-
-    int iX = ImageWidth * (index % IL_ITEMS_IN_ROW);
-    int iY = ImageHeight * (index / IL_ITEMS_IN_ROW);
-
-    // kontrola parametru
-    if (index < 0 || index >= ImageCount)
+    if (index < 0 || index >= ImageCount || hIcon == NULL)
     {
-        TRACE_E("CIconList::ReplaceIcon(): Index is out of range! index=" << index);
-        goto BAIL;
+        TRACE_E("CIconList::ReplaceIcon(): Invalid parameter! index=" << index);
+        return FALSE;
     }
 
-    // pokud je treba, provedeme resize ikonky
-    // Honza: pod W10 mi zacalo volani CopyImage padat v debug x64 verzi, pokud byl povolen LR_COPYFROMRESOURCE flag
-    // FIXME: provest audit, zda je tento downscale jeste potreba, kdyz SalLoadIcon() nove vola LoadIconWithScaleDown()
-    hIcon = (HICON)CopyImage(hIconOrig, IMAGE_ICON, ImageWidth, ImageHeight, /*LR_COPYFROMRESOURCE | */ LR_COPYRETURNORG);
+    HICON hIconOrig = hIcon;
+    HICON hConvertedIcon = NULL;
+    ICONINFO ii;
+    ZeroMemory(&ii, sizeof(ii));
+    BOOL ret = FALSE;
+    HDC hSrcDC = NULL;
+    HBITMAP hOldSrcBmp = NULL;
 
-    // vytahneme z handlu ikony jeji MASK a COLOR bitmapy
+    // CopyImage usually performs the conversion, but some shell icon handles
+    // ignore the requested dimensions or fail to resize.
+    hConvertedIcon = (HICON)CopyImage(hIconOrig, IMAGE_ICON, ImageWidth, ImageHeight, 0);
+    if (hConvertedIcon != NULL)
+    {
+        ICONINFO convertedInfo;
+        ZeroMemory(&convertedInfo, sizeof(convertedInfo));
+        BITMAP convertedBitmap;
+        ZeroMemory(&convertedBitmap, sizeof(convertedBitmap));
+        if (!GetIconInfo(hConvertedIcon, &convertedInfo) ||
+            convertedInfo.hbmMask == NULL ||
+            GetObject(convertedInfo.hbmMask, sizeof(convertedBitmap), &convertedBitmap) != sizeof(convertedBitmap) ||
+            convertedBitmap.bmWidth != ImageWidth ||
+            (convertedInfo.hbmColor == NULL ? convertedBitmap.bmHeight != ImageHeight * 2 : convertedBitmap.bmHeight != ImageHeight))
+        {
+            HANDLES(DestroyIcon(hConvertedIcon));
+            hConvertedIcon = NULL;
+        }
+        if (convertedInfo.hbmMask != NULL)
+            HANDLES(DeleteObject(convertedInfo.hbmMask));
+        if (convertedInfo.hbmColor != NULL)
+            HANDLES(DeleteObject(convertedInfo.hbmColor));
+    }
+
+    if (hConvertedIcon == NULL)
+    {
+        BITMAPINFOHEADER header;
+        ZeroMemory(&header, sizeof(header));
+        header.biSize = sizeof(header);
+        header.biWidth = ImageWidth;
+        header.biHeight = -ImageHeight;
+        header.biPlanes = 1;
+        header.biBitCount = 32;
+        header.biCompression = BI_RGB;
+
+        DWORD* colorBits = NULL;
+        HBITMAP color = HANDLES(CreateDIBSection(NULL, (BITMAPINFO*)&header, DIB_RGB_COLORS,
+                                                 (void**)&colorBits, NULL, 0));
+        HBITMAP mask = color != NULL ? HANDLES(CreateBitmap(ImageWidth, ImageHeight, 1, 1, NULL)) : NULL;
+        HDC colorDC = color != NULL ? HANDLES(CreateCompatibleDC(NULL)) : NULL;
+        HDC maskDC = mask != NULL ? HANDLES(CreateCompatibleDC(NULL)) : NULL;
+        HBITMAP oldColor = colorDC != NULL ? (HBITMAP)SelectObject(colorDC, color) : NULL;
+        HBITMAP oldMask = maskDC != NULL ? (HBITMAP)SelectObject(maskDC, mask) : NULL;
+        BOOL colorDrawn = FALSE;
+        BOOL maskDrawn = FALSE;
+        if (colorDC != NULL && maskDC != NULL)
+        {
+            ZeroMemory(colorBits, ImageWidth * ImageHeight * sizeof(DWORD));
+            colorDrawn = DrawIconEx(colorDC, 0, 0, hIconOrig, ImageWidth, ImageHeight, 0, NULL, DI_NORMAL);
+            PatBlt(maskDC, 0, 0, ImageWidth, ImageHeight, WHITENESS);
+            maskDrawn = DrawIconEx(maskDC, 0, 0, hIconOrig, ImageWidth, ImageHeight, 0, NULL, DI_MASK);
+        }
+        if (oldColor != NULL)
+            SelectObject(colorDC, oldColor);
+        if (oldMask != NULL)
+            SelectObject(maskDC, oldMask);
+        if (colorDC != NULL)
+            HANDLES(DeleteDC(colorDC));
+        if (maskDC != NULL)
+            HANDLES(DeleteDC(maskDC));
+
+        if (colorDrawn && maskDrawn)
+        {
+            ICONINFO rasterInfo;
+            ZeroMemory(&rasterInfo, sizeof(rasterInfo));
+            rasterInfo.fIcon = TRUE;
+            rasterInfo.hbmColor = color;
+            rasterInfo.hbmMask = mask;
+            hConvertedIcon = HANDLES(CreateIconIndirect(&rasterInfo));
+        }
+        if (color != NULL)
+            HANDLES(DeleteObject(color));
+        if (mask != NULL)
+            HANDLES(DeleteObject(mask));
+        if (hConvertedIcon == NULL)
+            return FALSE;
+    }
+    hIcon = hConvertedIcon;
+
     if (!GetIconInfo(hIcon, &ii))
     {
         TRACE_E("GetIconInfo() failed!");
-        DWORD err = GetLastError();
         goto BAIL;
     }
 
@@ -485,67 +552,69 @@ BOOL CIconList::ReplaceIcon(int index, HICON hIcon)
         TRACE_E("GetObject() failed!");
         goto BAIL;
     }
-
-    // pokud se jedna o b&w ikonu, mela by mit sudou vysku
     if (ii.hbmColor == NULL && (bm.bmHeight & 1) == 1)
     {
         TRACE_E("CIconList::ReplaceIcon() Icon has wrong MASK height");
         goto BAIL;
     }
-    // ikonka by mela mit stejne rozmery, jako ma nase polozka
     if (bm.bmWidth != ImageWidth ||
         (ii.hbmColor == NULL && bm.bmHeight != ImageHeight * 2) ||
         (ii.hbmColor != NULL && bm.bmHeight != ImageHeight))
+    {
         TRACE_E("CIconList::ReplaceIcon() Icon has wrong size: bmWidth=" << bm.bmWidth << " bmHeight=" << bm.bmHeight);
-
-    // potrebujeme dostatecny prostor pro masku
-    if (!CreateOrEnlargeTmpImage(bm.bmWidth, bm.bmHeight))
+        goto BAIL;
+    }
+    hSrcDC = HANDLES(CreateCompatibleDC(NULL));
+    if (hSrcDC == NULL)
+        goto BAIL;
+    hOldSrcBmp = (HBITMAP)SelectObject(hSrcDC, ii.hbmMask);
+    if (hOldSrcBmp == NULL)
         goto BAIL;
 
-    hSrcDC = HANDLES(CreateCompatibleDC(NULL)); // pomocne dc pro bitblt
-    hOldSrcBmp = (HBITMAP)SelectObject(hSrcDC, ii.hbmMask);
-
-    // ii.hbmMask -> HTmpImage
-    SelectObject(HMemDC, HTmpImage);
-    BitBlt(HMemDC, 0, 0, ImageWidth, ImageHeight, hSrcDC, 0, 0, SRCCOPY);
-
-    // ii.hbmColor -> HImage (pokud je hbmColor==NULL, lezi XOR cast ve spodni polovine hbmMask
-    if (ii.hbmColor != NULL)
-        SelectObject(hSrcDC, ii.hbmColor);
-    SelectObject(HMemDC, HImage);
-    BitBlt(HMemDC, iX, iY, ImageWidth, ImageHeight, hSrcDC, 0, (ii.hbmColor != NULL) ? 0 : ImageHeight, SRCCOPY);
-
-    GdiFlush(); // podle MSDN je treba zavolat nez zacneme pristupovat na raw data
-
-    //  TRACE_I("counter: "<<counter);
-    //  if (++counter == 19)
-    //    DumpToTrace(index);
-
-    ImageFlags[index] = ApplyMaskToImage(index, ii.hbmColor == NULL);
-    InterlockedIncrement(&ContentVersion);
-
-    SelectObject(hSrcDC, hOldSrcBmp);
-    HANDLES(DeleteDC(hSrcDC));
-
-BAIL:
+    HANDLES(EnterCriticalSection(&CriticalSection));
+    {
+        if (!CreateOrEnlargeTmpImage(ImageWidth, ImageHeight * (ii.hbmColor == NULL ? 2 : 1)))
+        {
+            HANDLES(LeaveCriticalSection(&CriticalSection));
+            goto BAIL;
+        }
+        int iX = ImageWidth * (index % IL_ITEMS_IN_ROW);
+        int iY = ImageHeight * (index / IL_ITEMS_IN_ROW);
+        SelectObject(HMemDC, HTmpImage);
+        if (!BitBlt(HMemDC, 0, 0, ImageWidth, ImageHeight, hSrcDC, 0, 0, SRCCOPY))
+        {
+            HANDLES(LeaveCriticalSection(&CriticalSection));
+            goto BAIL;
+        }
+        if (ii.hbmColor != NULL)
+            SelectObject(hSrcDC, ii.hbmColor);
+        SelectObject(HMemDC, HImage);
+        if (!BitBlt(HMemDC, iX, iY, ImageWidth, ImageHeight, hSrcDC, 0,
+                    ii.hbmColor != NULL ? 0 : ImageHeight, SRCCOPY))
+        {
+            HANDLES(LeaveCriticalSection(&CriticalSection));
+            goto BAIL;
+        }
+        GdiFlush();
+        ImageFlags[index] = ApplyMaskToImage(index, ii.hbmColor == NULL);
+        InterlockedIncrement(&ContentVersion);
+        ret = TRUE;
+    }
     HANDLES(LeaveCriticalSection(&CriticalSection));
 
+BAIL:
+    if (hSrcDC != NULL)
+    {
+        if (hOldSrcBmp != NULL)
+            SelectObject(hSrcDC, hOldSrcBmp);
+        HANDLES(DeleteDC(hSrcDC));
+    }
     if (ii.hbmMask != NULL)
-        DeleteObject(ii.hbmMask);
-
+        HANDLES(DeleteObject(ii.hbmMask));
     if (ii.hbmColor != NULL)
-        DeleteObject(ii.hbmColor);
-
-    // pokud jsme menili velikost, musime sestrelit docasnou ikonku
-    if (hIcon != hIconOrig)
-        DestroyIcon(hIcon);
-
-    //  if (Dump)
-    //  {
-    //    TRACE_E("ReplaceIcon()");
-    //    DumpToTrace(index, FALSE);
-    //  }
-
+        HANDLES(DeleteObject(ii.hbmColor));
+    if (hConvertedIcon != NULL)
+        HANDLES(DestroyIcon(hConvertedIcon));
     return ret;
 }
 

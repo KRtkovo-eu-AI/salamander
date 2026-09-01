@@ -1695,13 +1695,14 @@ BOOL CFilesWindowAncestor::SamePath(CFilesWindowAncestor* other)
 // CFilesWindow
 //
 
-void IconThreadThreadFBodyAux(const char* path, SHFILEINFO& shi, CIconSizeEnum iconSize)
+void IconThreadThreadFBodyAux(const char* path, SHFILEINFO& shi, CIconSizeEnum iconSize,
+                               int targetPixelSize, int targetDPI)
 {
     CALL_STACK_MESSAGE_NONE
     __try
     {
         // do not let a default icon be returned; if it fails, simple icons are used
-        if (!GetFileIcon(path, FALSE, &shi.hIcon, iconSize, FALSE, FALSE))
+        if (!GetFileIconForPanel(path, &shi.hIcon, iconSize, targetPixelSize, targetDPI, FALSE, FALSE))
             shi.hIcon = NULL;
 
         // We switched to our own implementation (lower memory usage, working XOR icons)
@@ -2076,7 +2077,7 @@ unsigned IconThreadThreadFBody(void* parameter)
                                                 if (!pathIsInvalid)
                                                 {
                                                     //                            TRACE_I("Getting icon for: " << name << "...");
-                                                    IconThreadThreadFBodyAux(path, shi, iconSize);
+                                                    IconThreadThreadFBodyAux(path, shi, iconSize, iconPixelSize, iconDPI);
                                                     if (shi.hIcon == NULL)
                                                         TRACE_I("Unable to get icon from: " << path);
                                                     //                            else
@@ -2170,8 +2171,8 @@ unsigned IconThreadThreadFBody(void* parameter)
                                             {
                                                 // load the icon from the file (ExtractIcons retrieves it by index);
                                                 // the icon reader may go to sleep mode while loading
-                                                CALL_STACK_MESSAGE4("IconThreadThreadFBody::ExtractIcons(%s, %d, %d, ...)", path, index, window->GetIconSize(iconSize));
-                                                if (ExtractIcons(path, index, window->GetIconSize(iconSize), window->GetIconSize(iconSize), &shi.hIcon, NULL, 1, IconLRFlags) != 1)
+                                                CALL_STACK_MESSAGE4("IconThreadThreadFBody::ExtractIcons(%s, %d, %d, ...)", path, index, iconPixelSize);
+                                                if (ExtractIcons(path, index, iconPixelSize, iconPixelSize, &shi.hIcon, NULL, 1, IconLRFlags) != 1)
                                                 {
                                                     TRACE_I("Unable to get icon from: " << path << ", " << index);
                                                     shi.hIcon = NULL;
@@ -2185,15 +2186,15 @@ unsigned IconThreadThreadFBody(void* parameter)
                                                 {
                                                     // load the icon from a file (likely .ico); the icon reader can switch to sleep mode during loading
                                                     CALL_STACK_MESSAGE2("IconThreadThreadFBody::LoadImage(%s)", path);
-                                                    shi.hIcon = (HICON)NOHANDLES(LoadImage(NULL, path, IMAGE_ICON, window->GetIconSize(iconSize), window->GetIconSize(iconSize),
+                                                    shi.hIcon = (HICON)NOHANDLES(LoadImage(NULL, path, IMAGE_ICON, iconPixelSize, iconPixelSize,
                                                                                            LR_LOADFROMFILE | IconLRFlags));
                                                     //                            TRACE_I("LoadImage " << (shi.hIcon == NULL ? "has failed, now trying ExtractIcons..." : "is done."));
                                                 }
                                                 if (shi.hIcon == NULL) // LoadImage failed; trying ExtractIcons as well (e.g., an icon without index from zipfldr.dll on XP: a .zip archive packed in a .7z archive)
                                                 {
                                                     // let the first icon load from the file; the icon reader may enter sleep mode while loading
-                                                    CALL_STACK_MESSAGE3("IconThreadThreadFBody::ExtractIcons(%s, (0), %d, ...)", path, window->GetIconSize(iconSize));
-                                                    if (ExtractIcons(path, 0, window->GetIconSize(iconSize), window->GetIconSize(iconSize), &shi.hIcon, NULL, 1, IconLRFlags) != 1)
+                                                    CALL_STACK_MESSAGE3("IconThreadThreadFBody::ExtractIcons(%s, (0), %d, ...)", path, iconPixelSize);
+                                                    if (ExtractIcons(path, 0, iconPixelSize, iconPixelSize, &shi.hIcon, NULL, 1, IconLRFlags) != 1)
                                                     {
                                                         TRACE_I("Unable to get first icon from: " << path);
                                                         shi.hIcon = NULL;
@@ -2321,8 +2322,10 @@ unsigned IconThreadThreadFBody(void* parameter)
                                             {
                                                 HANDLES(EnterCriticalSection(&window->ICSectionUsingIcon));
 
-                                                iconList->ReplaceIcon(iconListIndex, shi.hIcon);
-                                                iconData->SetFlag(1); // already loaded
+                                                if (iconList->ReplaceIcon(iconListIndex, shi.hIcon))
+                                                    iconData->SetFlag(1); // already loaded
+                                                else
+                                                    failed = TRUE;
 
                                                 HANDLES(LeaveCriticalSection(&window->ICSectionUsingIcon));
 
@@ -3101,9 +3104,9 @@ BOOL CFilesWindow::RefreshDPIResources(BOOL force)
     WindowTextEllipsisWidth = panelEllipsis;
     WindowTextEllipsisWidthEnv = envEllipsis;
     WindowDPI = dpi;
-    WindowIconSizes[ICONSIZE_16] = MulDiv(16, dpi, USER_DEFAULT_SCREEN_DPI);
-    WindowIconSizes[ICONSIZE_32] = MulDiv(32, dpi, USER_DEFAULT_SCREEN_DPI);
-    WindowIconSizes[ICONSIZE_48] = MulDiv(48, dpi, USER_DEFAULT_SCREEN_DPI);
+    WindowIconSizes[ICONSIZE_16] = GetIconSizeForDPI(ICONSIZE_16, dpi);
+    WindowIconSizes[ICONSIZE_32] = GetIconSizeForDPI(ICONSIZE_32, dpi);
+    WindowIconSizes[ICONSIZE_48] = GetIconSizeForDPI(ICONSIZE_48, dpi);
     return TRUE;
 }
 

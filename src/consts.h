@@ -2559,8 +2559,8 @@ extern "C"
 // nastavuje se pri startu Salamandera, testovat zda je nenulova
 extern UINT TaskbarBtnCreatedMsg;
 
-// vrati rozmer ikony s ohledem na promennou SystemDPI
-// pokud je 'large' TRUE, vraci rozmer pro velkou ikonu, jinak pro malou
+// returns the icon dimension for the specified or current system DPI
+int GetIconSizeForDPI(CIconSizeEnum iconSize, int dpi);
 int GetIconSizeForSystemDPI(CIconSizeEnum iconSize);
 
 // vraci aktualni systemove DPI (96, 120, 144, ...)
@@ -2580,7 +2580,8 @@ void TraceDPIState(const char* reason, HWND hWindow);
 // prevod hodnoty navrzene pro 96 DPI do zadaneho DPI
 int ScaleForDPI(int value, int dpi);
 
-// vraci scale odpovidajici aktualnimu DPI; misto 1.0 vraci 100, pro 1.25 vraci 125, atd
+// returns the scale for the specified or current DPI; 100 represents 1.0, 125 represents 1.25, etc.
+int GetScaleForDPI(int dpi);
 int GetScaleForSystemDPI();
 
 // prevod mezi device-independent pixels (DIP) a fyzickymi pixely

@@ -342,7 +342,28 @@ void CViewerWindow::SetLogViewMode(BOOL enable)
         RefreshLogView();
     }
     else
+    {
+        CancelLogViewRetry();
         StopLogViewWatcher();
+    }
+}
+
+void CViewerWindow::ScheduleLogViewRetry()
+{
+    if (!LogViewRetryScheduled && LogViewMode)
+    {
+        if (SetTimer(HWindow, IDT_LOGVIEWRETRY, 200, NULL) != 0)
+            LogViewRetryScheduled = TRUE;
+    }
+}
+
+void CViewerWindow::CancelLogViewRetry()
+{
+    if (LogViewRetryScheduled)
+    {
+        KillTimer(HWindow, IDT_LOGVIEWRETRY);
+        LogViewRetryScheduled = FALSE;
+    }
 }
 
 void CViewerWindow::StartLogViewWatcher()
@@ -499,11 +520,30 @@ void CViewerWindow::RefreshLogView()
     if (MouseDrag || FileName == NULL)
         return;
 
+    HANDLE file = OpenViewerFileForRead(FileNameW, FileName);
+    if (file == INVALID_HANDLE_VALUE)
+    {
+        DWORD err = GetLastError();
+        if (err == ERROR_SHARING_VIOLATION || err == ERROR_LOCK_VIOLATION)
+        {
+            ScheduleLogViewRetry();
+            return;
+        }
+
+        BOOL fatalErr = FALSE;
+        SetLastError(err);
+        FileChanged(file, FALSE, fatalErr, FALSE);
+        if (fatalErr)
+            FatalFileErrorOccured();
+        return;
+    }
+
     ExitTextMode = FALSE;
     ForceTextMode = FALSE;
 
     BOOL fatalErr = FALSE;
-    FileChanged(NULL, FALSE, fatalErr, FALSE);
+    FileChanged(file, FALSE, fatalErr, FALSE);
+    HANDLES(CloseHandle(file));
     if (fatalErr)
         FatalFileErrorOccured();
     if (fatalErr || ExitTextMode)
@@ -522,6 +562,7 @@ void CViewerWindow::RefreshLogView()
     ResetFindOffsetOnNextPaint = TRUE;
     InvalidateRect(HWindow, NULL, FALSE);
     UpdateWindow(HWindow);
+    CancelLogViewRetry();
 }
 
 __int64
@@ -909,6 +950,7 @@ void CViewerWindow::HeightChanged(BOOL& fatalErr)
 void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCaption)
 {
     CALL_STACK_MESSAGE3("CViewerWindow::OpenFile(%s, %s)", file, caption);
+    CancelLogViewRetry();
     StopLogViewWatcher();
     char fileName[SAL_MAX_PATH];
     lstrcpyn(fileName, file, SAL_MAX_PATH);

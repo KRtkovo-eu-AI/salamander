@@ -2045,17 +2045,17 @@ BOOL StateImageList_Draw(CIconList* iconList, int imageIndex, HDC hDC, int xDst,
     int xOverlayDst = xDst;
     int yOverlayDst = yDst;
 
+    if (dpi <= 0)
+        dpi = GetSystemDPI();
+
     // on Vista a 48x48 icon uses overlay ICONSIZE_32 and thumbnails use overlay ICONSIZE_48
     if (iconSize == ICONSIZE_48 && overlayRect == NULL)
     {
         iconSize = ICONSIZE_32;
-        yOverlayDst += 48 - 32;
+        yOverlayDst += GetIconSizeForDPI(ICONSIZE_48, dpi) - GetIconSizeForDPI(ICONSIZE_32, dpi);
     }
 
-    if (dpi <= 0)
-        dpi = GetSystemDPI();
-    static const int logicalIconSizes[ICONSIZE_COUNT] = {16, 32, 48};
-    int iconW = MulDiv(logicalIconSizes[iconSize], dpi, 96);
+    int iconW = GetIconSizeForDPI(iconSize, dpi);
     int iconH = iconW;
 
     // for a thumbnail overlayRect != NULL and we move the overlay to its lower left corner

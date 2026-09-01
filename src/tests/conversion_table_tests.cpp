@@ -135,7 +135,34 @@ void TestLegacyAutoDetectionPreference()
           "ASCII alone must not override automatic legacy-code-page recognition");
     Check(!ShouldPreferWindowsCodePageText(
               cp1250, (int)sizeof(cp1250Bytes), 1250, "CP852"),
-          "The preference is specific to ISO code pages whose C1 range contains controls");
+          "Ordinary CP1250 letters must not override a CP852 recognition result");
+
+    const unsigned char structuredCp1250[] = {
+        0x93, 'F', 'i', 'r', 's', 't', 0x92, 's', ' ', 'q', 'u', 'o', 't', 'e', 0x94, ' ',
+        0x9B, ' ', 0x93, 'S', 'e', 'c', 'o', 'n', 'd', ' ', 'q', 'u', 'o', 't', 'e', 0x94, ' ',
+        0x9B, ' ', 0x97, ' ', 0x9B, ' ',
+        0x93, 'T', 'h', 'i', 'r', 'd', 0x92, 's', ' ', 'q', 'u', 'o', 't', 'e', 0x94, ' ',
+        0x9B, ' ', 0x93, 'F', 'o', 'u', 'r', 't', 'h', ' ', 'q', 'u', 'o', 't', 'e', 0x94, ' ',
+        0x9B, ' ', 0x97, ' ', 0x9B, ' ', 'w', 'o', 'r', 'd', 0x92, 's'};
+    Check(ShouldPreferWindowsCodePageText(
+              reinterpret_cast<const char*>(structuredCp1250),
+              (int)sizeof(structuredCp1250), 1250, "CP852"),
+          "Repeated balanced CP1250 smart quotes must override false CP852 recognition");
+
+    const unsigned char genuineCp852[] = {
+        'p', 0x92, 's', 'm', 'o', ' ', 's', 0x93, 'l', 'o', 'v', 'o', ' ',
+        'd', 0x94, 'l', 's', 'i', ' ', 't', 0x92, 'e', 'x', 't'};
+    Check(!ShouldPreferWindowsCodePageText(
+              reinterpret_cast<const char*>(genuineCp852),
+              (int)sizeof(genuineCp852), 1250, "CP852"),
+          "CP852 letters in word positions must not look like CP1250 typography");
+
+    const unsigned char apostropheOnly[] = {
+        'w', 'o', 'r', 'd', 0x92, 's', ' ', 'w', 'o', 'r', 'd', 0x92, 's'};
+    Check(!ShouldPreferWindowsCodePageText(
+              reinterpret_cast<const char*>(apostropheOnly),
+              (int)sizeof(apostropheOnly), 1250, "CP852"),
+          "Word-internal CP1250 apostrophes alone must not override CP852");
 }
 
 bool ReadIdentifier(const std::filesystem::path& cfgPath, DWORD& identifier)
