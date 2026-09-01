@@ -1174,6 +1174,8 @@ const char* CONFIG_ASYNCCOPYALG_REG = "Async Copy Alg On Network";
 const char* CONFIG_COPYMOVESCHEDULING_REG = "Copy Move Scheduling"; // legacy transfer-preference value
 const char* CONFIG_COPYMOVEOPERATIONPOLICY_REG = "Copy Move Operation Policy";
 const char* CONFIG_COPYMOVELASTTRANSFERMODE_REG = "Copy Move Last Transfer Mode";
+const char* CONFIG_COPYMOVECONFLICTPREFERENCE_REG = "Copy Move Conflict Preference";
+const char* CONFIG_COPYMOVELASTCONFLICTMODE_REG = "Copy Move Last Conflict Mode";
 const char* CONFIG_COPYMOVESSDPARALLELFILES_REG = "Copy Move SSD Parallel Files";
 const char* CONFIG_COPYMOVENVMEPARALLELFILES_REG = "Copy Move NVMe Parallel Files";
 const char* CONFIG_RELOAD_ENV_VARS_REG = "Reload Environment Variables";
@@ -3391,6 +3393,10 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                          &Configuration.CopyMoveScheduling, sizeof(DWORD));
                 SetValue(actKey, CONFIG_COPYMOVELASTTRANSFERMODE_REG, REG_DWORD,
                          &Configuration.CopyMoveLastTransferMode, sizeof(DWORD));
+                SetValue(actKey, CONFIG_COPYMOVECONFLICTPREFERENCE_REG, REG_DWORD,
+                         &Configuration.CopyMoveConflictPreference, sizeof(DWORD));
+                SetValue(actKey, CONFIG_COPYMOVELASTCONFLICTMODE_REG, REG_DWORD,
+                         &Configuration.CopyMoveLastConflictMode, sizeof(DWORD));
                 SetValue(actKey, CONFIG_COPYMOVESSDPARALLELFILES_REG, REG_DWORD,
                          &Configuration.CopyMoveSsdParallelFiles, sizeof(DWORD));
                 SetValue(actKey, CONFIG_COPYMOVENVMEPARALLELFILES_REG, REG_DWORD,
@@ -5559,6 +5565,17 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             if (Configuration.CopyMoveLastTransferMode != CMS_SEQUENTIAL &&
                 Configuration.CopyMoveLastTransferMode != CMS_STORAGE_AWARE)
                 Configuration.CopyMoveLastTransferMode = CMS_STORAGE_AWARE;
+            BOOL hasCopyMoveConflictPreference = GetValue(actKey, CONFIG_COPYMOVECONFLICTPREFERENCE_REG, REG_DWORD,
+                                                          &Configuration.CopyMoveConflictPreference, sizeof(DWORD));
+            if (!hasCopyMoveConflictPreference ||
+                Configuration.CopyMoveConflictPreference < CMCP_CURRENT ||
+                Configuration.CopyMoveConflictPreference > CMCP_KEEP_LAST)
+                Configuration.CopyMoveConflictPreference = CMCP_CURRENT;
+            if (!GetValue(actKey, CONFIG_COPYMOVELASTCONFLICTMODE_REG, REG_DWORD,
+                          &Configuration.CopyMoveLastConflictMode, sizeof(DWORD)) ||
+                Configuration.CopyMoveLastConflictMode < CMCM_CURRENT ||
+                Configuration.CopyMoveLastConflictMode > CMCM_SCAN_AHEAD)
+                Configuration.CopyMoveLastConflictMode = CMCM_CURRENT;
             GetValue(actKey, CONFIG_COPYMOVESSDPARALLELFILES_REG, REG_DWORD,
                      &Configuration.CopyMoveSsdParallelFiles, sizeof(DWORD));
             if (Configuration.CopyMoveSsdParallelFiles < 1 || Configuration.CopyMoveSsdParallelFiles > 4)
@@ -5993,6 +6010,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             GetValue(actKey, CONFIG_LASTFOCUSEDPAGE, REG_DWORD,
                      &Configuration.LastFocusedPage, sizeof(DWORD));
             if (!hasTabCaptionMode && Configuration.LastFocusedPage >= 2)
+                Configuration.LastFocusedPage++;
+            if (!hasCopyMoveConflictPreference && Configuration.LastFocusedPage >= 4)
                 Configuration.LastFocusedPage++;
             GetValue(actKey, CONFIG_CONFIGURATION_HEIGHT, REG_DWORD,
                      &Configuration.ConfigurationHeight, sizeof(DWORD));

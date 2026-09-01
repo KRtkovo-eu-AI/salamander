@@ -37,6 +37,8 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 
 Explore the [complete feature guide](https://samandarin.krtkovo.eu/#features), [version comparison](https://samandarin.krtkovo.eu/compare.html), and [0.15 changelist](doc/changelog-0.15.md).
 
+Samandarin includes code and implementation work derived from or substantially informed by Sally by [0xeb](https://github.com/0xeb/sally) - in particular, parts of the Unicode viewer/filename handling and localization tooling were adapted from Sally or were used as a reference point. Copyright and license notices are preserved in the relevant source files.
+
 ## Plugin Catalog
 - Stable: https://samandarin.krtkovo.eu/catalogs/plugins-stable.json
 - Unofficial third party: https://samandarin.krtkovo.eu/catalogs/plugins-unofficial.json

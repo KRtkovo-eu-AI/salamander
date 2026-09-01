@@ -101,6 +101,11 @@ public:
 #endif
     }
 
+    const DATA_TYPE& At(int index) const
+    {
+        return Data[index];
+    }
+
     DATA_TYPE& operator[](int index) // returns pointer to item at 'index' possition
     {
 #if defined(_DEBUG) || defined(__ARRAY_DEBUG)

@@ -491,6 +491,25 @@ COperations::COperations(int base, int delta, char* waitInQueueSubject, char* wa
     SourcePathIsNetwork = FALSE;
     CopyAttrs = FALSE;
     CopyMoveTransferMode = CMS_STORAGE_AWARE;
+    CopyMoveConflictMode = CMCM_CURRENT;
+    ConflictScanActive = FALSE;
+    ConflictScanFinished = FALSE;
+    ConflictScannedCount = 0;
+    DeferredConflictCount = 0;
+    ConflictApplyAll[cmctNone] = cmcdNone;
+    ConflictApplyAll[cmctFileExists] = cmcdNone;
+    ConflictApplyAll[cmctDirectoryExists] = cmcdNone;
+    ConflictApplyAll[cmctTypeMismatch] = cmcdNone;
+    ConflictListVersion = 0;
+    NextConflictLeaseGeneration = 0;
+    NextConflictLeaseToken = 0;
+    NextConflictOperationId = 0;
+    ConflictScannerState = ccspNotStarted;
+    ConflictWorkerState = ccwpIdle;
+    ConflictCoordinatorGeneration = 0;
+    ConflictChangedEvent = NULL;
+    ConflictProgressWindow = NULL;
+    ConflictProgressNotificationPosted = FALSE;
     OperationSchedulingPolicy = COSP_STORAGE_AWARE;
     OperationSchedulingOverride = COSO_DEFAULT;
     ShowStatus = FALSE;
@@ -515,6 +534,7 @@ COperations::COperations(int base, int delta, char* waitInQueueSubject, char* wa
     WaitInQueueTo = waitInQueueTo;           // released in FreeScript()
     StorageUse_Reset(&StorageUse);
     HANDLES(InitializeCriticalSection(&StatusCS));
+    HANDLES(InitializeCriticalSection(&ConflictCS));
     TransferredFileSize = CQuadWord(0, 0);
     ProgressSize = CQuadWord(0, 0);
     UseSpeedLimit = FALSE;
@@ -781,6 +801,1066 @@ void COperations::GetTFSandResetTrSpeedIfNeeded(CQuadWord* TFS)
     }
 }
 
+static std::wstring GetParallelCopyPathW(const COperation* operation, BOOL source);
+static BOOL GetParallelFileIdentity(const std::wstring& path, DWORD& volumeSerial,
+                                    ULONGLONG& fileIndex);
+static BOOL CanUseParallelCopy(const COperations* script, const COperation* operation);
+
+int COperations::GetDeferredConflictCount()
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    int value = DeferredConflictCount;
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    return value;
+}
+
+int COperations::GetConflictScannedCount()
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    int value = ConflictScannedCount;
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    return value;
+}
+
+BOOL COperations::IsConflictScanActive()
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    BOOL value = ConflictScanActive;
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    return value;
+}
+
+BOOL COperations::IsConflictScanFinished()
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    BOOL value = ConflictScanFinished;
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    return value;
+}
+
+int COperations::GetConflictListVersion()
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    int value = ConflictListVersion;
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    return value;
+}
+
+void COperations::GetDeferredConflicts(std::vector<CCopyMoveConflictSnapshot>& conflicts)
+{
+    conflicts.clear();
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    try
+    {
+        for (int index = 0; index < Count; index++)
+            if (At(index).ConflictState == cmisConflict)
+            {
+                CCopyMoveConflictSnapshot item = {index, At(index).ConflictType, cmisConflict, At(index).ConflictOperationId, At(index).ConflictGeneration, 0, At(index).ConflictGeneration, At(index).ConflictDecision};
+                conflicts.push_back(item);
+            }
+    }
+    catch (const std::bad_alloc&)
+    {
+        conflicts.clear();
+    }
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+}
+
+BOOL COperations::GetConflictSnapshot(int index, CCopyMoveConflictSnapshot& conflict)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    BOOL found = index >= 0 && index < Count && At(index).ConflictState == cmisConflict;
+    if (found)
+    {
+        conflict.ScriptIndex = index;
+        conflict.Type = At(index).ConflictType;
+        conflict.State = At(index).ConflictState;
+        conflict.OperationId = At(index).ConflictOperationId;
+        conflict.Generation = At(index).ConflictGeneration;
+        conflict.LeaseToken = At(index).ConflictLeaseToken;
+        conflict.DependencyEpoch = At(index).ConflictLeaseDependencyEpoch;
+        conflict.AuthorizedDecision = At(index).ConflictLeaseDecision;
+    }
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    return found;
+}
+
+BOOL COperations::GetNextConflictPromptItem(int& index, int excludedIndex)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    BOOL found = FALSE;
+    for (int item = 0; item < Count && !found; item++)
+    {
+        COperation& op = At(item);
+        if (item == excludedIndex || op.ConflictState != cmisConflict)
+            continue;
+        BOOL blocked = !AreConflictAncestorsPreparedLocked(item);
+        if (!blocked && op.ConflictIsFinalizer)
+            for (int dependency = op.ConflictFinalizeStart; dependency <= op.ConflictSubtreeEnd; dependency++)
+                if (dependency != item && At(dependency).ConflictState != cmisDone &&
+                    At(dependency).ConflictState != cmisSuppressed) { blocked = TRUE; break; }
+        if (!blocked)
+        {
+            index = item;
+            found = TRUE;
+        }
+    }
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    return found;
+}
+
+void COperations::SetConflictChangedEvent(HANDLE event)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    ConflictChangedEvent = event;
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+}
+
+void COperations::SetConflictProgressWindow(HWND window)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    ConflictProgressWindow = window;
+    if (window == NULL)
+        ConflictProgressNotificationPosted = FALSE;
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+}
+
+void COperations::AcknowledgeConflictProgressNotification()
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    ConflictProgressNotificationPosted = FALSE;
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+}
+
+void COperations::SignalConflictChanged()
+{
+    HANDLE event;
+    HWND progressWindow = NULL;
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    event = ConflictChangedEvent;
+    if (ConflictProgressWindow != NULL && !ConflictProgressNotificationPosted)
+    {
+        ConflictProgressNotificationPosted = TRUE;
+        progressWindow = ConflictProgressWindow;
+    }
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    if (event != NULL)
+        SetEvent(event);
+    if (progressWindow != NULL &&
+        !PostMessage(progressWindow, WM_USER_PROGRDLG_CONFLICT_CHANGED, 0, 0))
+    {
+        HANDLES(EnterCriticalSection(&ConflictCS));
+        if (ConflictProgressWindow == progressWindow)
+            ConflictProgressNotificationPosted = FALSE;
+        HANDLES(LeaveCriticalSection(&ConflictCS));
+    }
+}
+
+void COperations::WaitForConflictChange(DWORD timeout)
+{
+    HANDLE event;
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    event = ConflictChangedEvent;
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    if (event != NULL) WaitForSingleObject(event, timeout);
+}
+
+BOOL COperations::IsPreparedParentDirectoryLocked(int index) const
+{
+    if (index < 0 || index >= Count) return FALSE;
+    const COperation& parent = At(index);
+    if (parent.ConflictState == cmisDone) return TRUE;
+    if (parent.Opcode == ocCreateDir && parent.ConflictDirectoryPrepared &&
+        parent.ScannedTargetIdentityValid) return TRUE;
+    return parent.Opcode == ocCreateDir &&
+           parent.ConflictState == cmisOverwrite &&
+           parent.ConflictDecision == cmcdOverwrite &&
+           parent.ConflictType == cmctDirectoryExists &&
+           parent.ScannedTargetExisted && parent.ScannedTargetIdentityValid &&
+           (parent.ScannedTargetAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+}
+
+BOOL COperations::AreConflictAncestorsPreparedLocked(int index) const
+{
+    if (index < 0 || index >= Count || index >= (int)ConflictDependencies.size()) return FALSE;
+    for (int parent = ConflictDependencies[index].Parent; parent >= 0;
+         parent = ConflictDependencies[parent].Parent)
+        if (!IsPreparedParentDirectoryLocked(parent)) return FALSE;
+    return TRUE;
+}
+
+BOOL COperations::IsConflictItemReadyLocked(int index) const
+{
+    if (index < 0 || index >= Count || index >= (int)ConflictDependencies.size()) return FALSE;
+    const COperation& op = At(index);
+    if (op.ConflictState != cmisReady && op.ConflictState != cmisOverwrite && op.ConflictState != cmisSkip) return FALSE;
+    const CConflictDependencyNode& node = ConflictDependencies[index];
+    if (!AreConflictAncestorsPreparedLocked(index)) return FALSE;
+    if (node.Finalizer >= 0)
+        for (int dependency = node.FinalizeStart; dependency <= node.SubtreeEnd; ++dependency)
+            if (dependency != index && At(dependency).ConflictState != cmisDone && At(dependency).ConflictState != cmisSuppressed) return FALSE;
+    return TRUE;
+}
+
+void COperations::RebuildConflictQueuesLocked()
+{
+    ConflictReadyQueue.clear();
+    ConflictPendingQueue.clear();
+    for (int index = 0; index < Count; ++index)
+    {
+        COperation& op = At(index);
+        if (IsConflictItemReadyLocked(index)) ConflictReadyQueue.push_back(index);
+        else if (op.ConflictState == cmisUnscanned || op.ConflictState == cmisConflict || op.ConflictState == cmisBlocked)
+            ConflictPendingQueue.push_back(index);
+    }
+}
+
+void COperations::SuppressConflictSubtreeLocked(int index)
+{
+    if (index < 0 || index >= Count || index >= (int)ConflictDependencies.size()) return;
+    const int last = ConflictDependencies[index].SubtreeEnd;
+    for (int item = index; item <= last && item < Count; ++item)
+    {
+        COperation& op = At(item);
+        if (At(item).ConflictState == cmisConflict && DeferredConflictCount > 0) --DeferredConflictCount;
+        if (op.ConflictState != cmisDone)
+        {
+            op.ConflictDecision = cmcdSkip;
+            op.ConflictOperationSkipped = TRUE;
+            op.ConflictState = cmisSuppressed;
+            op.ConflictItemState = ccipSuppressed;
+        }
+    }
+}
+
+void COperations::AdmitConflictSubtreeLocked(int index)
+{
+    if (index < 0 || index >= Count || index >= (int)ConflictDependencies.size()) return;
+    const int last = ConflictDependencies[index].SubtreeEnd;
+    for (int item = index + 1; item <= last && item < Count; ++item)
+    {
+        COperation& op = At(item);
+        if (op.ConflictState != cmisBlocked || !AreConflictAncestorsPreparedLocked(item)) continue;
+        if (op.ScannedTargetExisted && op.ConflictType != cmctNone)
+        {
+            // A compatible directory merge is normally authorized by the admitted
+            // ancestor, but an operation-wide/type-wide Skip All policy still wins.
+            CCopyMoveConflictDecision automatic = ConflictApplyAll[op.ConflictType];
+            if (op.Opcode == ocCreateDir && op.ConflictType == cmctDirectoryExists &&
+                automatic != cmcdSkip)
+            {
+                op.ConflictDecision = cmcdOverwrite;
+                op.ConflictState = cmisOverwrite;
+                op.ConflictItemState = ccipReady;
+            }
+            else
+            {
+                if (automatic == cmcdSkip)
+                {
+                    op.ConflictDecision = cmcdSkip;
+                    op.ConflictState = cmisSkip;
+                    op.ConflictItemState = ccipReady;
+                }
+                else if (automatic == cmcdOverwrite)
+                {
+                    op.ConflictDecision = cmcdOverwrite;
+                    op.ConflictState = cmisOverwrite;
+                    op.ConflictItemState = ccipReady;
+                }
+                else
+                {
+                    op.ConflictState = cmisConflict;
+                    op.ConflictItemState = ccipAwaitingDecision;
+                    DeferredConflictCount++;
+                }
+            }
+        }
+        else
+        {
+            op.ConflictState = cmisReady;
+            op.ConflictItemState = ccipReady;
+        }
+    }
+}
+
+void COperations::RetractConflictSubtreeLocked(int index)
+{
+    if (index < 0 || index >= Count || index >= (int)ConflictDependencies.size()) return;
+    const int last = ConflictDependencies[index].SubtreeEnd;
+    for (int item = index + 1; item <= last && item < Count; ++item)
+    {
+        COperation& op = At(item);
+        if (op.ConflictState == cmisDone || op.ConflictState == cmisSuppressed) continue;
+        op.ConflictGeneration = ++ConflictCoordinatorGeneration;
+        if (op.ConflictState == cmisRunning)
+            continue; // The stale lease is rejected by the final pre-side-effect validation.
+        if (op.ConflictState == cmisConflict && DeferredConflictCount > 0)
+            --DeferredConflictCount;
+        op.ConflictState = cmisBlocked;
+        op.ConflictItemState = ccipProbed;
+        op.ConflictDecision = cmcdNone;
+    }
+}
+
+
+BOOL COperations::BeginConflictScan()
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    if (ConflictScannerState != ccspNotStarted) { HANDLES(LeaveCriticalSection(&ConflictCS)); return FALSE; }
+    ConflictScannerState = ccspScanning;
+    ConflictScanActive = TRUE;
+    ConflictScanFinished = FALSE;
+    ConflictWorkerState = ccwpWaitingForScan;
+    ++ConflictCoordinatorGeneration;
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    SignalConflictChanged();
+    return TRUE;
+}
+
+void COperations::FailConflictScan()
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    ConflictScannerState = ccspFailed;
+    ConflictScanActive = FALSE;
+    ConflictScanFinished = TRUE;
+    ++ConflictCoordinatorGeneration;
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    SignalConflictChanged();
+}
+
+void COperations::SetConflictScanState(BOOL active, BOOL finished)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    ConflictScanActive = active;
+    ConflictScanFinished = finished;
+    ConflictScannerState = active ? ccspScanning : (finished ? ccspFinished : ccspCancelled);
+    if (!active && finished) ConflictWorkerState = ccwpExecuting;
+    ++ConflictCoordinatorGeneration;
+    ConflictListVersion++;
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    SignalConflictChanged();
+}
+
+void COperations::InitializeConflictDependencies()
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    std::vector<int> stack;
+    try
+    {
+        for (int index = 0; index < Count; index++)
+        {
+            COperation& op = At(index);
+            op.ConflictState = cmisUnscanned;
+            op.ConflictOperationId = ++NextConflictOperationId;
+            op.ConflictGeneration = ConflictCoordinatorGeneration;
+            op.ConflictItemState = ccipUnscanned;
+            op.ConflictType = cmctNone;
+            op.ConflictDecision = cmcdNone;
+            op.ConflictParent = stack.empty() ? -1 : stack.back();
+            op.ConflictSubtreeEnd = index;
+            op.ConflictFinalizeStart = -1;
+            op.ConflictIsFinalizer = FALSE;
+            op.ConflictHasSkippedDescendant = FALSE;
+            op.ConflictOperationSkipped = FALSE;
+            if (op.Opcode == ocCreateDir)
+                stack.push_back(index);
+            else if (op.Opcode == ocLabelForSkipOfCreateDir && op.Attr < (DWORD)Count)
+            {
+                int createIndex = (int)op.Attr;
+                At(createIndex).ConflictSubtreeEnd = index;
+                op.ConflictParent = At(createIndex).ConflictParent;
+                int finalizer = index - 1;
+                while (finalizer > createIndex &&
+                       (At(finalizer).Opcode == ocCopyDirTime ||
+                        At(finalizer).Opcode == ocDeleteDir ||
+                        At(finalizer).Opcode == ocDeleteDirLink))
+                {
+                    At(finalizer).ConflictIsFinalizer = TRUE;
+                    At(finalizer).ConflictFinalizeStart = createIndex + 1;
+                    At(finalizer).ConflictSubtreeEnd = finalizer - 1;
+                    finalizer--;
+                }
+                while (!stack.empty())
+                {
+                    int top = stack.back();
+                    stack.pop_back();
+                    if (top == createIndex)
+                        break;
+                }
+            }
+        }
+    }
+    catch (const std::bad_alloc&)
+    {
+        for (int index = 0; index < Count; index++)
+        {
+            At(index).ConflictParent = -1;
+            At(index).ConflictIsFinalizer = TRUE; // conservative sequential barrier
+            At(index).ConflictFinalizeStart = 0;
+            At(index).ConflictSubtreeEnd = index - 1;
+        }
+    }
+    ConflictDependencies.clear();
+    ConflictDependencies.resize(Count);
+    for (int index = 0; index < Count; ++index)
+    {
+        ConflictDependencies[index].Parent = At(index).ConflictParent;
+        ConflictDependencies[index].SubtreeEnd = At(index).ConflictSubtreeEnd;
+        ConflictDependencies[index].FinalizeStart = At(index).ConflictFinalizeStart;
+        ConflictDependencies[index].Finalizer = At(index).ConflictIsFinalizer ? index : -1;
+    }
+    RebuildConflictQueuesLocked();
+    ConflictListVersion++;
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+
+}
+
+BOOL COperations::TransitionConflictItem(int index, CCopyMoveItemState from, CCopyMoveItemState to, DWORD generation)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    BOOL valid = index >= 0 && index < Count && At(index).ConflictState == from &&
+                 (generation == 0 || At(index).ConflictGeneration == generation);
+    if (valid)
+    {
+        At(index).ConflictState = to;
+        At(index).ConflictGeneration = ++ConflictCoordinatorGeneration;
+        At(index).ConflictItemState = to == cmisRunning ? ccipLeased :
+                                   to == cmisDone ? ccipCompleted :
+                                   to == cmisSuppressed ? ccipSuppressed :
+                                   to == cmisConflict ? ccipAwaitingDecision : ccipReady;
+        ++ConflictListVersion;
+    }
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    if (valid) SignalConflictChanged();
+    return valid;
+}
+
+void COperations::PublishConflictScanResult(int index, CCopyMoveConflictType type, DWORD attributes,
+                                            ULONGLONG size, const FILETIME& writeTime, DWORD volumeSerial,
+                                            ULONGLONG fileIndex, BOOL identityValid, BOOL existed)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    if (index >= 0 && index < Count)
+    {
+        COperation& op = At(index);
+        if (op.ConflictState == cmisDone || op.ConflictState == cmisSuppressed ||
+            op.ConflictState == cmisRunning || op.ConflictParent >= 0 &&
+            At(op.ConflictParent).ConflictState == cmisSuppressed)
+        {
+            HANDLES(LeaveCriticalSection(&ConflictCS));
+            return;
+        }
+        op.ScannedTargetAttributes = attributes;
+        op.ScannedTargetSize = size;
+        op.ScannedTargetWriteTime = writeTime;
+        op.ScannedTargetVolumeSerial = volumeSerial;
+        op.ScannedTargetFileIndex = fileIndex;
+        op.ScannedTargetIdentityValid = identityValid;
+        op.ScannedTargetExisted = existed;
+        op.ConflictProbe.Type = type;
+        op.ConflictProbe.Attributes = attributes;
+        op.ConflictProbe.Size = size;
+        op.ConflictProbe.WriteTime = writeTime;
+        op.ConflictProbe.VolumeSerial = volumeSerial;
+        op.ConflictProbe.FileIndex = fileIndex;
+        op.ConflictProbe.IdentityValid = identityValid;
+        op.ConflictProbe.Existed = existed;
+        op.ConflictItemState = existed && type != cmctNone ? ccipAwaitingDecision : ccipReady;
+        op.ConflictType = type;
+        BOOL blockedByParent = !AreConflictAncestorsPreparedLocked(index);
+        CCopyMoveConflictDecision automatic = type <= cmctTypeMismatch ? ConflictApplyAll[type] : cmcdNone;
+        if (blockedByParent)
+        {
+            // Keep the metadata probe, but do not publish/admit this subtree yet.
+            op.ConflictState = cmisBlocked;
+            op.ConflictItemState = ccipProbed;
+        }
+        else if (existed && op.Opcode == ocCreateDir && type == cmctDirectoryExists &&
+                 automatic != cmcdSkip)
+        {
+            // Scan-ahead directory-to-directory is preparation, not an item conflict.
+            // CMCM_CURRENT never uses this coordinator and keeps its prompt semantics.
+            op.ConflictDecision = cmcdOverwrite;
+            op.ConflictState = cmisOverwrite;
+            op.ConflictItemState = ccipReady;
+        }
+        else if (existed && type != cmctNone && automatic == cmcdNone)
+        {
+            op.ConflictState = cmisConflict;
+            op.ConflictItemState = ccipAwaitingDecision;
+            CCopyMoveConflictRequest request = {op.ConflictOperationId, op.ConflictGeneration, index, type, 0, op.ConflictGeneration, op.ScannedTargetVolumeSerial, op.ScannedTargetFileIndex, op.ScannedTargetIdentityValid, op.ConflictDecision};
+            ConflictRequestQueue.push_back(request);
+            DeferredConflictCount++;
+        }
+        else if (existed && automatic == cmcdSkip)
+        {
+            op.ConflictDecision = cmcdSkip;
+            op.ConflictState = cmisSkip;
+        }
+        else if (existed && automatic == cmcdOverwrite)
+        {
+            op.ConflictDecision = cmcdOverwrite;
+            op.ConflictState = cmisOverwrite;
+        }
+        else op.ConflictState = cmisReady;
+        ConflictScannedCount++;
+        RebuildConflictQueuesLocked();
+        ConflictListVersion++;
+    }
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+}
+
+BOOL COperations::GetNextConflictRequest(CCopyMoveConflictRequest& request)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    if (ConflictRequestQueue.empty())
+    {
+        HANDLES(LeaveCriticalSection(&ConflictCS));
+        return FALSE;
+    }
+    request = ConflictRequestQueue.front();
+    ConflictRequestQueue.pop_front();
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    return TRUE;
+}
+
+BOOL COperations::ResolveConflictRequest(const CCopyMoveConflictRequest& request,
+                                          CCopyMoveConflictDecision decision, BOOL applyAll)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    const BOOL valid = request.ScriptIndex >= 0 && request.ScriptIndex < Count &&
+                       At(request.ScriptIndex).ConflictOperationId == request.OperationId &&
+                       At(request.ScriptIndex).ConflictGeneration == request.Generation &&
+                       At(request.ScriptIndex).ConflictState == cmisConflict &&
+                       At(request.ScriptIndex).ScannedTargetVolumeSerial == request.ExpectedTargetVolumeSerial &&
+                       At(request.ScriptIndex).ScannedTargetFileIndex == request.ExpectedTargetFileIndex &&
+                       At(request.ScriptIndex).ScannedTargetIdentityValid == request.ExpectedTargetIdentityValid &&
+                       At(request.ScriptIndex).ConflictDecision == request.AuthorizedDecision;
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    if (!valid)
+        return FALSE;
+    SetDeferredConflictDecision(request.ScriptIndex, decision, applyAll);
+    return TRUE;
+}
+void COperations::SetDeferredConflictDecision(int index, CCopyMoveConflictDecision decision, BOOL applyAll)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    if (index >= 0 && index < Count && At(index).ConflictType != cmctNone)
+    {
+        CCopyMoveConflictType type = At(index).ConflictType;
+        if (applyAll) ConflictApplyAll[type] = decision;
+        for (int item = 0; item < Count; item++)
+        {
+            COperation& op = At(item);
+            if ((item == index || applyAll && op.ConflictType == type) && op.ConflictState == cmisConflict)
+            {
+                op.ConflictDecision = decision;
+                op.ConflictState = decision == cmcdSkip ? cmisSkip : cmisOverwrite;
+                op.ConflictItemState = ccipReady;
+                DeferredConflictCount--;
+                if (item == index && decision == cmcdOverwrite && op.Opcode == ocCreateDir &&
+                    op.ConflictType == cmctDirectoryExists)
+                    AdmitConflictSubtreeLocked(item);
+            }
+        }
+        RebuildConflictQueuesLocked();
+        ConflictListVersion++;
+    }
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    SignalConflictChanged();
+}
+
+void COperations::SetOperationWideConflictDecision(CCopyMoveConflictDecision decision)
+{
+    if (decision != cmcdSkip && decision != cmcdOverwrite)
+        return;
+
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    for (int type = cmctFileExists; type <= cmctTypeMismatch; ++type)
+        ConflictApplyAll[type] = decision;
+
+    for (int item = 0; item < Count; ++item)
+    {
+        COperation& op = At(item);
+        if (op.ConflictState != cmisConflict || op.ConflictType == cmctNone)
+            continue;
+
+        op.ConflictDecision = decision;
+        op.ConflictState = decision == cmcdSkip ? cmisSkip : cmisOverwrite;
+        op.ConflictItemState = ccipReady;
+        if (DeferredConflictCount > 0)
+            --DeferredConflictCount;
+        if (decision == cmcdOverwrite && op.Opcode == ocCreateDir &&
+            op.ConflictType == cmctDirectoryExists)
+            AdmitConflictSubtreeLocked(item);
+    }
+    RebuildConflictQueuesLocked();
+    ++ConflictListVersion;
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    SignalConflictChanged();
+}
+
+BOOL COperations::GetNextConflictReadyItem(int& index, ULONGLONG& leaseToken)
+{
+    leaseToken = 0;
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    RebuildConflictQueuesLocked();
+    BOOL found = FALSE;
+    while (!ConflictReadyQueue.empty())
+    {
+        const int item = ConflictReadyQueue.front();
+        ConflictReadyQueue.pop_front();
+        if (!IsConflictItemReadyLocked(item)) continue;
+        COperation& op = At(item);
+        op.ConflictState = cmisRunning;
+        op.ConflictItemState = ccipLeased;
+        op.ConflictLeaseGeneration = ++NextConflictLeaseGeneration;
+        op.ConflictLeaseToken = ++NextConflictLeaseToken;
+        if (op.ConflictLeaseToken == 0) op.ConflictLeaseToken = ++NextConflictLeaseToken;
+        op.ConflictLeaseDependencyEpoch = op.ConflictGeneration;
+        op.ConflictLeaseDecision = op.ConflictDecision;
+        leaseToken = op.ConflictLeaseToken;
+        index = item;
+        found = TRUE;
+        ConflictWorkerState = ccwpExecuting;
+        break;
+    }
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    return found;
+}
+
+BOOL COperations::LeaseNextParallelCopy(int& index, ULONGLONG& leaseToken, int startIndex)
+{
+    leaseToken = 0;
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    RebuildConflictQueuesLocked();
+    BOOL found = FALSE;
+    for (std::deque<int>::iterator item = ConflictReadyQueue.begin(); item != ConflictReadyQueue.end(); ++item)
+    {
+        // startIndex is only a fairness hint; it must never exclude an older ready item.
+        if (*item < 0 || *item >= Count) continue;
+        COperation& op = At(*item);
+        if (op.Opcode != ocCopyFile || op.ConflictIsFinalizer ||
+            (op.ConflictState != cmisReady && op.ConflictState != cmisOverwrite)) continue;
+        op.ConflictState = cmisRunning;
+        op.ConflictItemState = ccipLeased;
+        op.ConflictLeaseGeneration = ++NextConflictLeaseGeneration;
+        op.ConflictLeaseToken = ++NextConflictLeaseToken;
+        if (op.ConflictLeaseToken == 0) op.ConflictLeaseToken = ++NextConflictLeaseToken;
+        op.ConflictLeaseDependencyEpoch = op.ConflictGeneration;
+        op.ConflictLeaseDecision = op.ConflictDecision;
+        index = *item; leaseToken = op.ConflictLeaseToken; found = TRUE; break;
+    }
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    return found;
+}
+
+CConflictLeaseOutcome COperations::FinishParallelCopyLeaseLocked(int index, ULONGLONG leaseToken,
+                                                                    CConflictLeaseOutcome outcome)
+{
+    if (index < 0 || index >= Count || leaseToken == 0) return ccloInvalid;
+    COperation& op = At(index);
+    if (op.ConflictState != cmisRunning || op.ConflictLeaseToken != leaseToken)
+        return ccloInvalid;
+    if (outcome == ccloCommitted &&
+        (op.ConflictLeaseDependencyEpoch != op.ConflictGeneration ||
+         op.ConflictLeaseDecision != op.ConflictDecision))
+        outcome = ccloReblocked; // invalidate safely instead of leaving a running lease behind
+    op.ConflictLeaseGeneration = 0;
+    op.ConflictLeaseToken = 0;
+    op.ConflictLeaseDependencyEpoch = 0;
+    op.ConflictLeaseDecision = cmcdNone;
+    if (outcome == ccloCommitted)
+    {
+        op.ConflictState = cmisDone;
+        op.ConflictItemState = ccipCompleted;
+    }
+    else if (outcome == ccloReblocked)
+    {
+        op.ConflictState = cmisBlocked;
+        op.ConflictItemState = ccipProbed;
+        op.ConflictDecision = cmcdNone;
+    }
+    else
+    {
+        op.ConflictState = op.ConflictDecision == cmcdOverwrite ? cmisOverwrite : cmisReady;
+        op.ConflictItemState = ccipReady;
+        outcome = ccloReleased;
+    }
+    op.ConflictGeneration = ++ConflictCoordinatorGeneration;
+    RebuildConflictQueuesLocked();
+    ++ConflictListVersion;
+    return outcome;
+}
+
+BOOL COperations::CompleteParallelCopyLease(int index, ULONGLONG leaseToken, BOOL success)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    CConflictLeaseOutcome outcome = FinishParallelCopyLeaseLocked(
+        index, leaseToken, success ? ccloCommitted : ccloReleased);
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    if (outcome != ccloInvalid) SignalConflictChanged();
+    return outcome == (success ? ccloCommitted : ccloReleased);
+}
+
+CConflictLeaseOutcome COperations::ReleaseParallelCopyLease(int index, ULONGLONG leaseToken)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    CConflictLeaseOutcome outcome = FinishParallelCopyLeaseLocked(index, leaseToken, ccloReleased);
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    if (outcome != ccloInvalid) SignalConflictChanged();
+    return outcome;
+}
+
+CConflictLeaseOutcome COperations::ReblockParallelCopyLease(int index, ULONGLONG leaseToken)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    CConflictLeaseOutcome outcome = FinishParallelCopyLeaseLocked(index, leaseToken, ccloReblocked);
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    if (outcome != ccloInvalid) SignalConflictChanged();
+    return outcome;
+}
+
+void COperations::MarkConflictItemSkipped(int index)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    if (index >= 0 && index < Count)
+    {
+        At(index).ConflictOperationSkipped = TRUE;
+        for (int parent = index; parent >= 0; parent = At(parent).ConflictParent)
+            At(parent).ConflictHasSkippedDescendant = TRUE;
+        ConflictListVersion++;
+    }
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+}
+
+void COperations::GetConflictExecutionInfo(int index, CCopyMoveConflictDecision& decision,
+                                           int& subtreeEnd, BOOL& skipCleanup)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    decision = cmcdNone;
+    subtreeEnd = index;
+    skipCleanup = FALSE;
+    if (index >= 0 && index < Count)
+    {
+        const COperation& op = At(index);
+        decision = op.ConflictDecision;
+        subtreeEnd = op.ConflictSubtreeEnd;
+        skipCleanup = op.ConflictHasSkippedDescendant;
+        for (int parent = op.ConflictParent; parent >= 0; parent = At(parent).ConflictParent)
+            if (At(parent).ConflictHasSkippedDescendant) skipCleanup = TRUE;
+    }
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+}
+
+void COperations::CompleteConflictItem(int index, BOOL skipped, int throughIndex)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    if (index >= 0 && index < Count)
+    {
+        At(index).ConflictState = cmisDone;
+        At(index).ConflictItemState = ccipCompleted;
+        At(index).ConflictLeaseGeneration = 0;
+        At(index).ConflictLeaseToken = 0;
+        At(index).ConflictLeaseDependencyEpoch = 0;
+        At(index).ConflictLeaseDecision = cmcdNone;
+        At(index).ConflictGeneration = ++ConflictCoordinatorGeneration;
+        if (!skipped && At(index).Opcode == ocCreateDir)
+            AdmitConflictSubtreeLocked(index);
+        if (skipped)
+        {
+            At(index).ConflictOperationSkipped = TRUE;
+            for (int parent = index; parent >= 0; parent = At(parent).ConflictParent)
+                At(parent).ConflictHasSkippedDescendant = TRUE;
+            if (index < (int)ConflictDependencies.size())
+                SuppressConflictSubtreeLocked(index);
+            else if (throughIndex > index)
+            {
+                for (int item = index + 1; item <= throughIndex && item < Count; ++item)
+                {
+                    At(item).ConflictState = cmisSuppressed;
+                    At(item).ConflictItemState = ccipSuppressed;
+                }
+            }
+        }
+        RebuildConflictQueuesLocked();
+        ConflictListVersion++;
+    }
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+}
+
+BOOL COperations::RevalidateConflictItem(int index, CCopyMoveConflictType& conflictType)
+{
+    conflictType = cmctNone;
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    BOOL valid = FALSE;
+    if (index >= 0 && index < Count)
+    {
+        COperation& op = At(index);
+        conflictType = op.ConflictType;
+        std::wstring target = GetParallelCopyPathW(&op, FALSE);
+        if (!target.empty())
+        {
+            target = SalPathAddExtendedPrefixW(target.c_str());
+            HANDLE file = HANDLES_Q(CreateFileW(target.c_str(), FILE_READ_ATTRIBUTES,
+                                                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                                NULL, OPEN_EXISTING,
+                                                op.ConflictType == cmctDirectoryExists ? FILE_FLAG_BACKUP_SEMANTICS : 0, NULL));
+            if (file != INVALID_HANDLE_VALUE)
+            {
+                BY_HANDLE_FILE_INFORMATION info;
+                valid = GetFileInformationByHandle(file, &info) && op.ScannedTargetExisted &&
+                        (!op.ScannedTargetIdentityValid ||
+                         info.dwVolumeSerialNumber == op.ScannedTargetVolumeSerial &&
+                         (((ULONGLONG)info.nFileIndexHigh << 32) | info.nFileIndexLow) == op.ScannedTargetFileIndex) &&
+                        info.dwFileAttributes == op.ScannedTargetAttributes &&
+                        (((ULONGLONG)info.nFileSizeHigh << 32) | info.nFileSizeLow) == op.ScannedTargetSize &&
+                        CompareFileTime(&info.ftLastWriteTime, &op.ScannedTargetWriteTime) == 0;
+                HANDLES(CloseHandle(file));
+            }
+            else if (GetLastError() == ERROR_FILE_NOT_FOUND || GetLastError() == ERROR_PATH_NOT_FOUND)
+            {
+                op.ConflictDecision = cmcdNone;
+                op.ConflictType = cmctNone;
+                op.ConflictState = cmisRunning;
+                valid = TRUE;
+            }
+        }
+        if (!valid)
+        {
+            op.ConflictDecision = cmcdNone;
+            op.ConflictState = cmisConflict;
+            op.ConflictItemState = ccipAwaitingDecision;
+            DeferredConflictCount++;
+        }
+        RebuildConflictQueuesLocked();
+        ConflictListVersion++;
+    }
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    return valid;
+}
+
+BOOL COperations::RevalidatePreparedConflictAncestors(int index)
+{
+    std::vector<int> ancestors;
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    if (index >= 0 && index < Count && index < (int)ConflictDependencies.size())
+        for (int parent = ConflictDependencies[index].Parent; parent >= 0;
+             parent = ConflictDependencies[parent].Parent)
+            if (At(parent).Opcode == ocCreateDir &&
+                (At(parent).ConflictDirectoryPrepared || At(parent).ConflictState != cmisDone))
+                ancestors.push_back(parent);
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+
+    for (std::vector<int>::reverse_iterator item = ancestors.rbegin(); item != ancestors.rend(); ++item)
+    {
+        DWORD expectedVolume;
+        ULONGLONG expectedIndex;
+        BOOL expectedIdentity;
+        std::wstring target;
+        HANDLES(EnterCriticalSection(&ConflictCS));
+        const BOOL prepared = IsPreparedParentDirectoryLocked(*item);
+        expectedVolume = At(*item).ScannedTargetVolumeSerial;
+        expectedIndex = At(*item).ScannedTargetFileIndex;
+        expectedIdentity = At(*item).ScannedTargetIdentityValid;
+        target = GetParallelCopyPathW(&At(*item), FALSE);
+        HANDLES(LeaveCriticalSection(&ConflictCS));
+        if (!target.empty()) target = SalPathAddExtendedPrefixW(target.c_str());
+        HANDLE directory = prepared && expectedIdentity && !target.empty() ?
+            HANDLES_Q(CreateFileW(target.c_str(), FILE_READ_ATTRIBUTES,
+                                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                  NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL)) :
+            INVALID_HANDLE_VALUE;
+        BY_HANDLE_FILE_INFORMATION info;
+        const BOOL unchanged = directory != INVALID_HANDLE_VALUE &&
+            GetFileInformationByHandle(directory, &info) &&
+            (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0 &&
+            info.dwVolumeSerialNumber == expectedVolume &&
+            (((ULONGLONG)info.nFileIndexHigh << 32) | info.nFileIndexLow) == expectedIndex;
+        if (directory != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(directory));
+        if (!unchanged)
+        {
+            ULONGLONG leaseToken = 0;
+            HANDLES(EnterCriticalSection(&ConflictCS));
+            if (index >= 0 && index < Count) leaseToken = At(index).ConflictLeaseToken;
+            HANDLES(LeaveCriticalSection(&ConflictCS));
+            RequeueChangedConflictItem(*item);
+            if (leaseToken != 0) ReblockParallelCopyLease(index, leaseToken);
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+void COperations::RequeueChangedConflictItem(int index)
+{
+    if (index < 0 || index >= Count) return;
+    COperation& operation = At(index);
+    std::wstring target = GetParallelCopyPathW(&operation, FALSE);
+    if (!target.empty()) target = SalPathAddExtendedPrefixW(target.c_str());
+    DWORD attributes = INVALID_FILE_ATTRIBUTES;
+    ULONGLONG size = 0;
+    FILETIME writeTime = {};
+    DWORD volumeSerial = 0;
+    ULONGLONG fileIndex = 0;
+    BOOL identityValid = FALSE;
+    HANDLE targetHandle = target.empty() ? INVALID_HANDLE_VALUE :
+        HANDLES_Q(CreateFileW(target.c_str(), FILE_READ_ATTRIBUTES,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                              NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL));
+    if (targetHandle != INVALID_HANDLE_VALUE)
+    {
+        BY_HANDLE_FILE_INFORMATION info;
+        if (GetFileInformationByHandle(targetHandle, &info))
+        {
+            attributes = info.dwFileAttributes;
+            size = ((ULONGLONG)info.nFileSizeHigh << 32) | info.nFileSizeLow;
+            writeTime = info.ftLastWriteTime;
+            volumeSerial = info.dwVolumeSerialNumber;
+            fileIndex = ((ULONGLONG)info.nFileIndexHigh << 32) | info.nFileIndexLow;
+            identityValid = TRUE;
+        }
+        HANDLES(CloseHandle(targetHandle));
+    }
+
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    COperation& op = At(index);
+    RetractConflictSubtreeLocked(index);
+    op.ConflictGeneration = ++ConflictCoordinatorGeneration;
+    op.ConflictDecision = cmcdNone;
+    op.ScannedTargetAttributes = attributes;
+    op.ScannedTargetSize = size;
+    op.ScannedTargetWriteTime = writeTime;
+    op.ScannedTargetVolumeSerial = volumeSerial;
+    op.ScannedTargetFileIndex = fileIndex;
+    op.ScannedTargetIdentityValid = identityValid;
+    op.ScannedTargetExisted = identityValid;
+    if (!identityValid)
+    {
+        op.ConflictType = cmctNone;
+        op.ConflictState = cmisReady;
+    }
+    else
+    {
+        op.ConflictType = op.Opcode == ocCreateDir ?
+            ((attributes & FILE_ATTRIBUTE_DIRECTORY) != 0 ? cmctDirectoryExists : cmctTypeMismatch) :
+            ((attributes & FILE_ATTRIBUTE_DIRECTORY) != 0 ? cmctTypeMismatch : cmctFileExists);
+        op.ConflictState = cmisConflict;
+        op.ConflictItemState = ccipAwaitingDecision;
+        DeferredConflictCount++;
+    }
+    RebuildConflictQueuesLocked();
+    ConflictListVersion++;
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+}
+
+void COperations::MarkConflictDirectoryPrepared(int index, BOOL created, DWORD volumeSerial,
+                                                 ULONGLONG fileIndex)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    if (index >= 0 && index < Count && At(index).Opcode == ocCreateDir)
+    {
+        COperation& op = At(index);
+        op.ConflictDirectoryPrepared = TRUE;
+        op.ConflictPreparedCreated = created;
+        op.ScannedTargetExisted = TRUE;
+        op.ScannedTargetIdentityValid = TRUE;
+        op.ScannedTargetVolumeSerial = volumeSerial;
+        op.ScannedTargetFileIndex = fileIndex;
+        op.ScannedTargetAttributes = FILE_ATTRIBUTE_DIRECTORY;
+        op.ConflictGeneration = ++ConflictCoordinatorGeneration;
+        AdmitConflictSubtreeLocked(index);
+        RebuildConflictQueuesLocked();
+        ++ConflictListVersion;
+    }
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    SignalConflictChanged();
+}
+
+void COperations::RollbackConflictDirectoryPrepared(int index, BOOL removed)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    if (index >= 0 && index < Count && At(index).Opcode == ocCreateDir)
+    {
+        COperation& op = At(index);
+        if (removed)
+        {
+            op.ConflictDirectoryPrepared = FALSE;
+            op.ConflictPreparedCreated = FALSE;
+            op.ScannedTargetExisted = FALSE;
+            op.ScannedTargetIdentityValid = FALSE;
+            RetractConflictSubtreeLocked(index);
+        }
+        // If identity-safe removal failed, committed children may own the directory.
+        // Keep/adopt it as prepared so coordinator state remains physically truthful.
+        op.ConflictGeneration = ++ConflictCoordinatorGeneration;
+        RebuildConflictQueuesLocked();
+        ++ConflictListVersion;
+    }
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    SignalConflictChanged();
+}
+
+BOOL COperations::ValidateParallelCopyLeaseForSideEffect(int index, ULONGLONG leaseToken)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    BOOL valid = index >= 0 && index < Count && leaseToken != 0 &&
+                 At(index).ConflictState == cmisRunning &&
+                 At(index).ConflictLeaseToken == leaseToken &&
+                 At(index).ConflictLeaseDependencyEpoch == At(index).ConflictGeneration &&
+                 At(index).ConflictLeaseDecision == At(index).ConflictDecision &&
+                 AreConflictAncestorsPreparedLocked(index);
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    if (!valid) ReblockParallelCopyLease(index, leaseToken);
+    return valid && RevalidatePreparedConflictAncestors(index);
+}
+
+void COperations::GetConflictCoordinatorSnapshot(CConflictCoordinatorSnapshot& snapshot)
+{
+    memset(&snapshot, 0, sizeof(snapshot));
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    snapshot.ScannerPhase = ConflictScannerState;
+    snapshot.WorkerPhase = ConflictWorkerState;
+    snapshot.Generation = ConflictCoordinatorGeneration;
+    for (int index = 0; index < Count; ++index)
+    {
+        switch (At(index).ConflictState)
+        {
+        case cmisUnscanned: ++snapshot.Unscanned; break;
+        case cmisBlocked: ++snapshot.Blocked; break;
+        case cmisConflict: ++snapshot.Pending; break;
+        case cmisReady: case cmisOverwrite: case cmisSkip: ++snapshot.Ready; break;
+        case cmisRunning: ++snapshot.Running; break;
+        case cmisDone: case cmisSuppressed: ++snapshot.Terminal; break;
+        }
+    }
+    snapshot.Complete = ConflictScannerState == ccspFinished &&
+                        snapshot.Unscanned == 0 && snapshot.Blocked == 0 &&
+                        snapshot.Pending == 0 && snapshot.Ready == 0 &&
+                        snapshot.Running == 0 && snapshot.Terminal == Count;
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+}
+
+BOOL COperations::IsConflictCoordinatorComplete()
+{
+    CConflictCoordinatorSnapshot snapshot;
+    GetConflictCoordinatorSnapshot(snapshot);
+    return snapshot.Complete;
+}
+
+BOOL COperations::HasReadySerialConflictWork()
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    BOOL found = FALSE;
+    for (int index = 0; index < Count && !found; ++index)
+        if (IsConflictItemReadyLocked(index) &&
+            (At(index).Opcode != ocCopyFile || At(index).ConflictState == cmisSkip ||
+             At(index).ConflictIsFinalizer || !CanUseParallelCopy(this, &At(index))))
+            found = TRUE;
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    return found;
+}
+
 void COperations::SetProgressSize(const CQuadWord& pSize)
 {
     if (ShowStatus)
@@ -996,6 +2076,7 @@ struct CWorkerData
     HANDLE WContinue;
 
     HANDLE WorkerNotSuspended;
+    HANDLE CancelWorkerEvent;
     BOOL* CancelWorker;
     int* OperationProgress;
     int* SummaryProgress;
@@ -1007,6 +2088,7 @@ struct CProgressDlgData
     BOOL* CancelWorker;
     int* OperationProgress;
     int* SummaryProgress;
+    BOOL AsyncProgressPublication;
 
     BOOL OverwriteAll; // keeps the state of automatic overwriting of the target with the source
     BOOL OverwriteHiddenAll;
@@ -1015,6 +2097,12 @@ struct CProgressDlgData
     BOOL DirOverwriteAll;
     BOOL FileOutLossEncrAll;
     BOOL DirCrLossEncrAll;
+    BOOL ConflictDecisionInjected;
+    CCopyMoveConflictType InjectedConflictType;
+    DWORD InjectedTargetVolumeSerial;
+    ULONGLONG InjectedTargetFileIndex;
+    BOOL InjectedTargetIdentityValid;
+    BOOL ConflictTargetChanged;
 
     BOOL SkipAllFileWrite; // has the Skip All button already been used?
     BOOL SkipAllFileRead;
@@ -1065,11 +2153,76 @@ struct CProgressDlgData
     }
 };
 
+static BOOL ValidateInjectedTargetIdentity(COperation* operation, CProgressDlgData& dialogData);
+
+struct CProgressOwnedData
+{
+    CProgressData Data;
+    char Text[1];
+};
+
+CProgressData* AllocateProgressMessage(const CProgressData& source)
+{
+    const char* text[4] = {source.Operation != NULL ? source.Operation : "",
+                           source.Source != NULL ? source.Source : "",
+                           source.Preposition != NULL ? source.Preposition : "",
+                           source.Target != NULL ? source.Target : ""};
+    size_t lengths[4];
+    size_t textSize = 0;
+    for (int index = 0; index < 4; ++index)
+    {
+        lengths[index] = strlen(text[index]) + 1;
+        if (lengths[index] > (size_t)-1 - textSize)
+            return NULL;
+        textSize += lengths[index];
+    }
+    const size_t headerSize = sizeof(CProgressOwnedData) - sizeof(char);
+    if (textSize > (size_t)-1 - headerSize)
+        return NULL;
+#ifdef new
+#undef new
+#define RESTORE_REGULAR_PROGRESS_DEBUG_NEW_MACRO
+#endif
+    BYTE* storage = new (std::nothrow) BYTE[headerSize + textSize];
+#ifdef RESTORE_REGULAR_PROGRESS_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_REGULAR_PROGRESS_DEBUG_NEW_MACRO
+#endif
+    if (storage == NULL)
+        return NULL;
+    CProgressOwnedData* owned = reinterpret_cast<CProgressOwnedData*>(storage);
+    char* next = owned->Text;
+    const char** fields[4] = {&owned->Data.Operation, &owned->Data.Source,
+                              &owned->Data.Preposition, &owned->Data.Target};
+    for (int index = 0; index < 4; ++index)
+    {
+        memcpy(next, text[index], lengths[index]);
+        *fields[index] = next;
+        next += lengths[index];
+    }
+    return &owned->Data;
+}
+
+void FreeProgressMessage(CProgressData* data)
+{
+    delete[] reinterpret_cast<BYTE*>(data);
+}
+
 void SetProgressDialog(HWND hProgressDlg, CProgressData* data, CProgressDlgData& dlgData)
 {                                                              // wait for the response; the dialog must be updated
     WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
     if (!*dlgData.CancelWorker)                                // we need to stop the main thread
-        SendMessage(hProgressDlg, WM_USER_SETDIALOG, (WPARAM)data, 0);
+    {
+        if (dlgData.AsyncProgressPublication)
+        {
+            CProgressData* posted = AllocateProgressMessage(*data);
+            if (posted != NULL && !PostMessage(hProgressDlg, WM_USER_SETDIALOG,
+                                               (WPARAM)posted, 3))
+                FreeProgressMessage(posted);
+        }
+        else
+            SendMessage(hProgressDlg, WM_USER_SETDIALOG, (WPARAM)data, 0);
+    }
 }
 
 int CaclProg(const CQuadWord& progressCurrent, const CQuadWord& progressTotal)
@@ -1085,7 +2238,10 @@ void SetProgress(HWND hProgressDlg, int operation, int summary, CProgressDlgData
     {
         *dlgData.OperationProgress = operation;
         *dlgData.SummaryProgress = summary;
-        SendMessage(hProgressDlg, WM_USER_SETDIALOG, 0, 0);
+        if (dlgData.AsyncProgressPublication)
+            PostMessage(hProgressDlg, WM_USER_SETDIALOG, 0, 0);
+        else
+            SendMessage(hProgressDlg, WM_USER_SETDIALOG, 0, 0);
     }
 }
 
@@ -1096,7 +2252,10 @@ void SetProgressWithoutSuspend(HWND hProgressDlg, int operation, int summary, CP
     {
         *dlgData.OperationProgress = operation;
         *dlgData.SummaryProgress = summary;
-        SendMessage(hProgressDlg, WM_USER_SETDIALOG, 0, 0);
+        if (dlgData.AsyncProgressPublication)
+            PostMessage(hProgressDlg, WM_USER_SETDIALOG, 0, 0);
+        else
+            SendMessage(hProgressDlg, WM_USER_SETDIALOG, 0, 0);
     }
 }
 
@@ -1109,7 +2268,8 @@ void GetFileOverwriteInfo(char* buff, int buffLen, HANDLE file, const char* file
     SYSTEMTIME st;
     FILETIME ft;
     char date[50], time[50];
-    if (!GetFileTime(file, NULL, NULL, &lastWrite) ||
+    if (file == NULL || file == INVALID_HANDLE_VALUE ||
+        !GetFileTime(file, NULL, NULL, &lastWrite) ||
         !FileTimeToLocalFileTime(&lastWrite, &ft) ||
         !FileTimeToSystemTime(&ft, &st))
     {
@@ -1130,7 +2290,9 @@ void GetFileOverwriteInfo(char* buff, int buffLen, HANDLE file, const char* file
 
     char attr[30];
     lstrcpy(attr, ", ");
-    DWORD attrs = SalGetFileAttributes(fileName);
+    BY_HANDLE_FILE_INFORMATION handleInfo;
+    DWORD attrs = file != NULL && file != INVALID_HANDLE_VALUE && GetFileInformationByHandle(file, &handleInfo) ? handleInfo.dwFileAttributes :
+                                                               SalGetFileAttributes(fileName);
     if (attrs != 0xFFFFFFFF)
         GetAttrsString(attr + 2, attrs);
     if (strlen(attr) == 2)
@@ -1139,7 +2301,7 @@ void GetFileOverwriteInfo(char* buff, int buffLen, HANDLE file, const char* file
     char number[50];
     CQuadWord size;
     DWORD err;
-    if (SalGetFileSize(file, size, err))
+    if (file != NULL && file != INVALID_HANDLE_VALUE && SalGetFileSize(file, size, err))
         NumberToStr(number, size);
     else
         number[0] = 0; // error - size unknown
@@ -5275,6 +6437,22 @@ COPY_AGAIN:
                             }
 
                             DWORD attr = SalGetFileAttributes(op->TargetName);
+                            if (dlgData.ConflictDecisionInjected && dlgData.InjectedConflictType == cmctFileExists &&
+                                dlgData.InjectedTargetIdentityValid)
+                            {
+                                DWORD openedVolumeSerial;
+                                ULONGLONG openedFileIndex;
+                                std::wstring openedTarget = SalPathAddExtendedPrefixW(GetParallelCopyPathW(op, FALSE).c_str());
+                                if (!GetParallelFileIdentity(openedTarget, openedVolumeSerial, openedFileIndex) ||
+                                    openedVolumeSerial != dlgData.InjectedTargetVolumeSerial ||
+                                    openedFileIndex != dlgData.InjectedTargetFileIndex)
+                                {
+                                    HANDLES(CloseHandle(in));
+                                    in = NULL;
+                                    dlgData.ConflictTargetChanged = TRUE;
+                                    return TRUE;
+                                }
+                            }
                             if (attr != INVALID_FILE_ATTRIBUTES && (attr & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)))
                             {
                                 if (!dlgData.OverwriteHiddenAll && dlgData.CnfrmSHFileOver) // ignore script->OverwriteOlder here; user wants to see that this is a SYSTEM or HIDDEN file even with the option enabled
@@ -5328,6 +6506,11 @@ COPY_AGAIN:
                             {
                                 if (targetCannotOpenForWrite || mustDeleteFileBeforeOverwrite == 1 /* yes */)
                                 { // the file must be deleted first
+                                    if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                    {
+                                        dlgData.ConflictTargetChanged = TRUE;
+                                        return TRUE;
+                                    }
                                     BOOL chAttr = ClearReadOnlyAttr(op->TargetName, attr);
 
                                     if (!tgtNameCaseCorrected)
@@ -5369,6 +6552,11 @@ COPY_AGAIN:
                                     if (attr != INVALID_FILE_ATTRIBUTES &&
                                         (attr & (FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)))
                                     { // CREATE_ALWAYS does not play well with read-only, hidden, or system attributes, so drop them if needed
+                                        if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                        {
+                                            dlgData.ConflictTargetChanged = TRUE;
+                                            return TRUE;
+                                        }
                                         chAttr = TRUE;
                                         SetFileAttributes(op->TargetName, 0);
                                     }
@@ -5377,15 +6565,41 @@ COPY_AGAIN:
                                     fileAttrs = asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN |
                                                 (!lossEncryptionAttr && copyAsEncrypted ? FILE_ATTRIBUTE_ENCRYPTED : 0) | // setting attributes during CREATE_ALWAYS works since XP and is the only way to apply Encrypted attribute when the file denies read access
                                                 (script->CopyAttrs ? (op->Attr & (FILE_ATTRIBUTE_COMPRESSED | (lossEncryptionAttr ? 0 : FILE_ATTRIBUTE_ENCRYPTED))) : 0);
+                                    if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                    {
+                                        dlgData.ConflictTargetChanged = TRUE;
+                                        return TRUE;
+                                    }
                                     out = HANDLES_Q(CreateFile(op->TargetName, access, 0, NULL, CREATE_ALWAYS, fileAttrs, NULL));
-                                    if (out == INVALID_HANDLE_VALUE && fileAttrs != (asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN)) // when the target disk cannot create an Encrypted file (observed on NTFS network disk (tested on share from XP) while logged in under a different username than we have in the system (on the current console) - the remote machine has a same-named user without a password, so it cannot be used over the network)
+                                    if (out == INVALID_HANDLE_VALUE && fileAttrs != (asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN))
+                                    {
+                                        if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                        {
+                                            dlgData.ConflictTargetChanged = TRUE;
+                                            return TRUE;
+                                        }
+                                        // The target disk may reject creation with the requested encryption attributes.
                                         out = HANDLES_Q(CreateFile(op->TargetName, access, 0, NULL, CREATE_ALWAYS, asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+                                    }
                                     if (script->CopyAttrs && out == INVALID_HANDLE_VALUE)
                                     { // if read access to the directory is denied (we added it only for setting the Compressed attribute), try opening the file for write only
                                         access = GENERIC_WRITE;
+                                        if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                        {
+                                            dlgData.ConflictTargetChanged = TRUE;
+                                            return TRUE;
+                                        }
                                         out = HANDLES_Q(CreateFile(op->TargetName, access, 0, NULL, CREATE_ALWAYS, fileAttrs, NULL));
-                                        if (out == INVALID_HANDLE_VALUE && fileAttrs != (asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN)) // when the target disk cannot create an Encrypted file (observed on NTFS network disk (tested on share from XP) while logged in under a different username than we have in the system (on the current console) - the remote machine has a same-named user without a password, so it cannot be used over the network)
+                                        if (out == INVALID_HANDLE_VALUE && fileAttrs != (asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN))
+                                        {
+                                            if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                            {
+                                                dlgData.ConflictTargetChanged = TRUE;
+                                                return TRUE;
+                                            }
+                                            // Retry without optional creation attributes, still against the authorized identity.
                                             out = HANDLES_Q(CreateFile(op->TargetName, access, 0, NULL, CREATE_ALWAYS, asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+                                        }
                                     }
                                     if (out == INVALID_HANDLE_VALUE) // target file cannot be opened for writing, so delete it and create it again
                                     {
@@ -5397,7 +6611,14 @@ COPY_AGAIN:
                                         //  otherwise Windows cannot delete a read-only file and we cannot drop 
                                         //  the "read-only" attribute because the current user is not the owner)
                                         if (chAttr)
+                                        {
+                                            if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                            {
+                                                dlgData.ConflictTargetChanged = TRUE;
+                                                return TRUE;
+                                            }
                                             SetFileAttributes(op->TargetName, attr);
+                                        }
                                         targetCannotOpenForWrite = TRUE;
                                         continue;
                                     }
@@ -5408,7 +6629,14 @@ COPY_AGAIN:
                                         HANDLES(CloseHandle(out));
                                         out = INVALID_HANDLE_VALUE;
                                         if (chAttr)
+                                        {
+                                            if (!ValidateInjectedTargetIdentity(op, dlgData))
+                                            {
+                                                dlgData.ConflictTargetChanged = TRUE;
+                                                return TRUE;
+                                            }
                                             SetFileAttributes(op->TargetName, attr);
+                                        }
                                         targetCannotOpenForWrite = TRUE;
                                         continue;
                                     }
@@ -5674,11 +6902,24 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                             sourceNameMvDirW = SalPathAddExtendedPrefixW(sourceNameMvDirW.c_str());
                         if (targetNameMvDirW.length() >= MAX_PATH)
                             targetNameMvDirW = SalPathAddExtendedPrefixW(targetNameMvDirW.c_str());
+                        if (dir && dlgData.ConflictDecisionInjected &&
+                            !ValidateInjectedTargetIdentity(op, dlgData))
+                        {
+                            dlgData.ConflictTargetChanged = TRUE;
+                            return TRUE;
+                        }
                         moveSucceeded = MoveFileW(sourceNameMvDirW.c_str(), targetNameMvDirW.c_str());
                     }
                 }
                 else
+                {
+                    if (dir && dlgData.ConflictDecisionInjected && !ValidateInjectedTargetIdentity(op, dlgData))
+                    {
+                        dlgData.ConflictTargetChanged = TRUE;
+                        return TRUE;
+                    }
                     moveSucceeded = MoveFile(sourceNameMvDir, targetNameMvDir);
+                }
             }
             if (moveSucceeded)
             {
@@ -5979,6 +7220,19 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                     else
                     {
                         HANDLES(CloseHandle(in));
+                        if (dlgData.ConflictDecisionInjected && dlgData.InjectedConflictType == cmctFileExists &&
+                            dlgData.InjectedTargetIdentityValid)
+                        {
+                            BY_HANDLE_FILE_INFORMATION openedInfo;
+                            if (!GetFileInformationByHandle(out, &openedInfo) ||
+                                openedInfo.dwVolumeSerialNumber != dlgData.InjectedTargetVolumeSerial ||
+                                (((ULONGLONG)openedInfo.nFileIndexHigh << 32) | openedInfo.nFileIndexLow) != dlgData.InjectedTargetFileIndex)
+                            {
+                                HANDLES(CloseHandle(out));
+                                dlgData.ConflictTargetChanged = TRUE;
+                                return TRUE;
+                            }
+                        }
                         HANDLES(CloseHandle(out));
                     }
 
@@ -6023,9 +7277,19 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                         }
                     }
 
+                    if (!ValidateInjectedTargetIdentity(op, dlgData))
+                    {
+                        dlgData.ConflictTargetChanged = TRUE;
+                        return TRUE;
+                    }
                     ClearReadOnlyAttr(op->TargetName, attr); // make sure it can be deleted ...
                     while (1)
                     {
+                        if (!ValidateInjectedTargetIdentity(op, dlgData))
+                        {
+                            dlgData.ConflictTargetChanged = TRUE;
+                            return TRUE;
+                        }
                         if (DeleteFile(op->TargetName))
                             break;
                         else
@@ -7917,8 +9181,9 @@ struct CParallelCopyTask
     DWORD FinalAttributes;
     int Progress;
     BOOL ProgressCompensated;
+    ULONGLONG LeaseGeneration;
 
-    CParallelCopyTask() : Batch(NULL), ScriptIndex(-1), Operation(NULL), Input(INVALID_HANDLE_VALUE), Thread(NULL), Cancel(0), Success(FALSE), Finished(FALSE), ReplaceTarget(FALSE), DeleteOnFailure(FALSE), SourceIdentityValid(FALSE), SourceVolumeSerial(0), SourceFileIndex(0), TargetVolumeSerial(0), TargetFileIndex(0), OutputIdentityValid(FALSE), OutputVolumeSerial(0), OutputFileIndex(0), FinalAttributes(0), Progress(0), ProgressCompensated(FALSE) {}
+    CParallelCopyTask() : Batch(NULL), ScriptIndex(-1), Operation(NULL), Input(INVALID_HANDLE_VALUE), Thread(NULL), Cancel(0), Success(FALSE), Finished(FALSE), ReplaceTarget(FALSE), DeleteOnFailure(FALSE), SourceIdentityValid(FALSE), SourceVolumeSerial(0), SourceFileIndex(0), TargetVolumeSerial(0), TargetFileIndex(0), OutputIdentityValid(FALSE), OutputVolumeSerial(0), OutputFileIndex(0), FinalAttributes(0), Progress(0), ProgressCompensated(FALSE), LeaseGeneration(0) {}
 };
 
 struct CParallelCopyBatch
@@ -7938,6 +9203,48 @@ struct CParallelCopyBatch
 };
 
 static BOOL ParallelHandleHasNamedStreams(HANDLE file, BOOL& hasNamedStreams);
+
+
+struct CParallelProgressOwnedData
+{
+    CParallelProgressData Data; // first: FreeParallelProgressMessage recovers this owner
+    std::string Text[COPYMOVE_MAX_PARALLEL_STREAMS][4];
+};
+
+CParallelProgressData* AllocateParallelProgressMessage(const CParallelProgressData& source)
+{
+#ifdef new
+#undef new
+#define RESTORE_PARALLEL_PROGRESS_DEBUG_NEW_MACRO
+#endif
+    CParallelProgressOwnedData* owned = new (std::nothrow) CParallelProgressOwnedData;
+#ifdef RESTORE_PARALLEL_PROGRESS_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_PARALLEL_PROGRESS_DEBUG_NEW_MACRO
+#endif
+    if (owned == NULL)
+        return NULL;
+    owned->Data = source;
+    owned->Data.Owner = owned;
+    for (int slot = 0; slot < COPYMOVE_MAX_PARALLEL_STREAMS; ++slot)
+    {
+        owned->Text[slot][0] = source.Streams[slot].Operation != NULL ? source.Streams[slot].Operation : "";
+        owned->Text[slot][1] = source.Streams[slot].Source != NULL ? source.Streams[slot].Source : "";
+        owned->Text[slot][2] = source.Streams[slot].Preposition != NULL ? source.Streams[slot].Preposition : "";
+        owned->Text[slot][3] = source.Streams[slot].Target != NULL ? source.Streams[slot].Target : "";
+        owned->Data.Streams[slot].Operation = owned->Text[slot][0].c_str();
+        owned->Data.Streams[slot].Source = owned->Text[slot][1].c_str();
+        owned->Data.Streams[slot].Preposition = owned->Text[slot][2].c_str();
+        owned->Data.Streams[slot].Target = owned->Text[slot][3].c_str();
+    }
+    return &owned->Data;
+}
+
+void FreeParallelProgressMessage(CParallelProgressData* data)
+{
+    if (data != NULL)
+        delete static_cast<CParallelProgressOwnedData*>(data->Owner);
+}
 
 static void UpdateParallelCopyProgress(CParallelCopyBatch* batch)
 {
@@ -7972,11 +9279,19 @@ static void UpdateParallelCopyProgress(CParallelCopyBatch* batch)
     progressDone += batch->CompletedDone;
     HANDLES(LeaveCriticalSection(&batch->CS));
 
-    // Publish one self-consistent snapshot.  Copy threads only update memory;
-    // the coordinator throttles cross-thread UI traffic to keep input usable.
+    // Scan-ahead must never wait for a modal progress-thread dialog. Publish an
+    // owned immutable snapshot; the dialog releases it on delivery or teardown.
     *batch->DialogData->OperationProgress = 0;
     *batch->DialogData->SummaryProgress = CaclProg(progressDone, batch->Script->TotalSize);
-    SendMessage(batch->ProgressDialog, WM_USER_SETDIALOG, (WPARAM)&progress, 1);
+    if (batch->Script->CopyMoveConflictMode == CMCM_SCAN_AHEAD)
+    {
+        CParallelProgressData* posted = AllocateParallelProgressMessage(progress);
+        if (posted != NULL && !PostMessage(batch->ProgressDialog, WM_USER_SETDIALOG,
+                                           (WPARAM)posted, 2))
+            FreeParallelProgressMessage(posted);
+    }
+    else
+        SendMessage(batch->ProgressDialog, WM_USER_SETDIALOG, (WPARAM)&progress, 1);
 }
 
 static BOOL ParallelCopyFileW(CParallelCopyTask* task)
@@ -8011,6 +9326,13 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
     if (*batch->DialogData->CancelWorker ||
         InterlockedCompareExchange(&task->Cancel, 0, 0) != 0 ||
         batch->Script->IsParallelCopyDisabled())
+    {
+        HANDLES(CloseHandle(input));
+        return FALSE;
+    }
+    if (batch->Script->CopyMoveConflictMode == CMCM_SCAN_AHEAD &&
+        !batch->Script->ValidateParallelCopyLeaseForSideEffect(task->ScriptIndex,
+                                                                task->LeaseGeneration))
     {
         HANDLES(CloseHandle(input));
         return FALSE;
@@ -8242,11 +9564,25 @@ static DWORD WINAPI ParallelCopyThreadProc(LPVOID parameter)
 
 static BOOL CanUseParallelCopy(const COperations* script, const COperation* operation)
 {
-    return script->IsCopyOperation && script->CopyMoveTransferMode == CMS_STORAGE_AWARE &&
+    return script->IsCopyOperation &&
+           script->CopyMoveTransferMode == CMS_STORAGE_AWARE &&
            !script->CopySecurity && !script->CopyAttrs && !script->OverwriteOlder &&
            operation->Opcode == ocCopyFile &&
            (operation->OpFlags & (OPFL_COPY_ADS | OPFL_AS_ENCRYPTED)) == 0 &&
            !FileNameIsInvalid(operation->SourceName, TRUE) && !FileNameIsInvalid(operation->TargetName, TRUE);
+}
+
+static BOOL ValidateInjectedTargetIdentity(COperation* operation, CProgressDlgData& dialogData)
+{
+    if (!dialogData.ConflictDecisionInjected || !dialogData.InjectedTargetIdentityValid) return TRUE;
+    std::wstring target = GetParallelCopyPathW(operation, FALSE);
+    if (target.empty()) return FALSE;
+    target = SalPathAddExtendedPrefixW(target.c_str());
+    DWORD volumeSerial;
+    ULONGLONG fileIndex;
+    return GetParallelFileIdentity(target, volumeSerial, fileIndex) &&
+           volumeSerial == dialogData.InjectedTargetVolumeSerial &&
+           fileIndex == dialogData.InjectedTargetFileIndex;
 }
 
 static BOOL CanPrepareParallelDirectory(const COperations* script, const COperation* operation);
@@ -8268,6 +9604,18 @@ int GetCopyOperationStreamDemand(COperations* script, int ssdLimit, int nvmeLimi
         return 1;
     if (limit > COPYMOVE_MAX_PARALLEL_STREAMS)
         limit = COPYMOVE_MAX_PARALLEL_STREAMS;
+
+    // Scan-ahead reserves operation capability, not the currently contiguous
+    // admission window. Directory preparation and unresolved conflicts affect
+    // ready leases, but do not reduce the operation-latched stream geometry.
+    if (script->CopyMoveConflictMode == CMCM_SCAN_AHEAD)
+    {
+        int eligible = 0;
+        for (int index = 0; index < script->Count && eligible < limit; ++index)
+            if (CanUseParallelCopy(script, &script->At(index)))
+                ++eligible;
+        return eligible >= 2 ? eligible : 1;
+    }
 
     int demand = 1;
     for (int first = 0; first < script->Count; first++)
@@ -8389,6 +9737,25 @@ static BOOL GetParallelFileIdentity(const std::wstring& path, DWORD& volumeSeria
     return success;
 }
 
+static BOOL GetParallelDirectoryIdentity(const std::wstring& path, DWORD& volumeSerial,
+                                         ULONGLONG& fileIndex)
+{
+    HANDLE directory = HANDLES_Q(CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+                                             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                             NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL));
+    if (directory == INVALID_HANDLE_VALUE) return FALSE;
+    BY_HANDLE_FILE_INFORMATION info;
+    BOOL success = GetFileInformationByHandle(directory, &info) &&
+                   (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+    HANDLES(CloseHandle(directory));
+    if (success)
+    {
+        volumeSerial = info.dwVolumeSerialNumber;
+        fileIndex = ((ULONGLONG)info.nFileIndexHigh << 32) | info.nFileIndexLow;
+    }
+    return success;
+}
+
 static BOOL CanPrepareParallelDirectory(const COperations* script, const COperation* operation)
 {
     return script != NULL && operation != NULL && operation->Opcode == ocCreateDir &&
@@ -8403,11 +9770,12 @@ struct CPreparedParallelDirectory
     COperation* Operation;
     DWORD OriginalAttr;
     BOOL Created;
+    int ScriptIndex;
     DWORD VolumeSerial;
     ULONGLONG FileIndex;
     std::wstring Target;
 
-    CPreparedParallelDirectory() : Operation(NULL), OriginalAttr(0), Created(FALSE), VolumeSerial(0), FileIndex(0) {}
+    CPreparedParallelDirectory() : Operation(NULL), OriginalAttr(0), Created(FALSE), ScriptIndex(-1), VolumeSerial(0), FileIndex(0) {}
 };
 
 static BOOL TryPrepareParallelDirectory(COperations* script, COperation* operation,
@@ -8429,7 +9797,7 @@ static BOOL TryPrepareParallelDirectory(COperations* script, COperation* operati
         if ((attributes & FILE_ATTRIBUTE_DIRECTORY) == 0 ||
             dialogData.CnfrmDirOver && !dialogData.DirOverwriteAll)
             return FALSE;
-        if (!GetParallelFileIdentity(target, volumeSerial, fileIndex))
+        if (!GetParallelDirectoryIdentity(target, volumeSerial, fileIndex))
             return FALSE;
         operation->Attr = 0x10000000; // directory already existed
         operation->OpFlags |= OPFL_PARALLEL_DIR_PREPARED;
@@ -8467,11 +9835,15 @@ static BOOL TryPrepareParallelDirectory(COperations* script, COperation* operati
     return TRUE;
 }
 
-static void RollbackPreparedParallelDirectories(std::deque<CPreparedParallelDirectory>& prepared)
+static BOOL RollbackPreparedParallelDirectories(COperations* script,
+                                                std::deque<CPreparedParallelDirectory>& prepared)
 {
+    BOOL invalidatedLeases = FALSE;
     for (std::deque<CPreparedParallelDirectory>::reverse_iterator directory = prepared.rbegin();
          directory != prepared.rend(); ++directory)
     {
+        BOOL removed = !directory->Created &&
+                       (script == NULL || script->CopyMoveConflictMode != CMCM_SCAN_AHEAD);
         if (directory->Created)
         {
             HANDLE handle = HANDLES_Q(CreateFileW(directory->Target.c_str(),
@@ -8489,16 +9861,25 @@ static void RollbackPreparedParallelDirectories(std::deque<CPreparedParallelDire
                 {
                     FILE_DISPOSITION_INFO disposition;
                     disposition.DeleteFile = TRUE;
-                    SetFileInformationByHandle(handle, FileDispositionInfo,
-                                               &disposition, sizeof(disposition));
+                    removed = SetFileInformationByHandle(handle, FileDispositionInfo,
+                                                         &disposition, sizeof(disposition));
                 }
                 HANDLES(CloseHandle(handle));
             }
         }
-        directory->Operation->Attr = directory->OriginalAttr;
-        directory->Operation->OpFlags &= ~OPFL_PARALLEL_DIR_PREPARED;
+        if (script != NULL && script->CopyMoveConflictMode == CMCM_SCAN_AHEAD)
+        {
+            script->RollbackConflictDirectoryPrepared(directory->ScriptIndex, removed);
+            if (removed) invalidatedLeases = TRUE;
+        }
+        if (removed)
+        {
+            directory->Operation->Attr = directory->OriginalAttr;
+            directory->Operation->OpFlags &= ~OPFL_PARALLEL_DIR_PREPARED;
+        }
     }
     prepared.clear();
+    return invalidatedLeases;
 }
 
 // Advances over metadata that is safe to prepare while copies are active and
@@ -8509,14 +9890,19 @@ static BOOL PlanNextParallelCopy(COperations* script, int& scriptIndex,
                                  std::deque<CParallelCopyTask>& tasks,
                                  std::deque<CPreparedParallelDirectory>& preparedDirectories,
                                  CParallelCopyTask* const* dependencies, int dependencyCount,
-                                 CParallelCopyTask*& plannedTask, BOOL& retryLater)
+                                 CParallelCopyTask*& plannedTask, BOOL& retryLater,
+                                 BOOL& initialLeaseInvalidated, BOOL coordinatorLease,
+                                 int initialLeaseIndex, ULONGLONG initialLeaseGeneration)
 {
     plannedTask = NULL;
     retryLater = FALSE;
+    initialLeaseInvalidated = FALSE;
     while (scriptIndex < script->Count)
     {
         if (*dialogData.CancelWorker || script->IsParallelCopyDisabled())
             return FALSE;
+        int leaseIndex = scriptIndex;
+        ULONGLONG leaseGeneration = 0;
         COperation* operation = &script->At(scriptIndex);
         if (operation->Opcode != ocCopyFile)
         {
@@ -8539,9 +9925,12 @@ static BOOL PlanNextParallelCopy(COperations* script, int& scriptIndex,
                     return FALSE;
                 }
                     prepared.Created = created;
+                    prepared.ScriptIndex = scriptIndex;
                     prepared.Target.swap(preparedTarget);
                     prepared.VolumeSerial = volumeSerial;
                     prepared.FileIndex = fileIndex;
+                if (coordinatorLease)
+                    script->MarkConflictDirectoryPrepared(scriptIndex, created, volumeSerial, fileIndex);
                 scriptIndex++;
                 continue;
             }
@@ -8553,29 +9942,72 @@ static BOOL PlanNextParallelCopy(COperations* script, int& scriptIndex,
             }
             return FALSE;
         }
-        if (!CanUseParallelCopy(script, operation))
+        if (coordinatorLease && !(scriptIndex == initialLeaseIndex && initialLeaseGeneration != 0 &&
+                                  (leaseGeneration = initialLeaseGeneration, TRUE)) &&
+            !script->LeaseNextParallelCopy(leaseIndex, leaseGeneration, scriptIndex))
+        {
+            retryLater = !script->HasReadySerialConflictWork() &&
+                         (script->IsConflictScanActive() || !script->IsConflictScanFinished());
             return FALSE;
+        }
+        if (coordinatorLease && leaseIndex != scriptIndex)
+        {
+            scriptIndex = leaseIndex;
+            operation = &script->At(scriptIndex);
+        }
+        if (coordinatorLease && !script->RevalidatePreparedConflictAncestors(leaseIndex))
+        {
+            initialLeaseInvalidated = leaseIndex == initialLeaseIndex && initialLeaseGeneration != 0;
+            return FALSE;
+        }
+        if (!CanUseParallelCopy(script, operation))
+        {
+            if (coordinatorLease &&
+                !(leaseIndex == initialLeaseIndex && initialLeaseGeneration != 0))
+                script->ReleaseParallelCopyLease(leaseIndex, leaseGeneration);
+            return FALSE;
+        }
 
         std::wstring target = GetParallelCopyPathW(operation, FALSE);
         std::wstring source = GetParallelCopyPathW(operation, TRUE);
         if (target.empty() || source.empty())
+        {
+            if (coordinatorLease &&
+                !(leaseIndex == initialLeaseIndex && initialLeaseGeneration != 0))
+                script->ReleaseParallelCopyLease(leaseIndex, leaseGeneration);
             return FALSE;
+        }
         target = SalPathAddExtendedPrefixW(target.c_str());
         source = SalPathAddExtendedPrefixW(source.c_str());
         DWORD sourceVolumeSerial = 0;
         ULONGLONG sourceFileIndex = 0;
         if (!GetParallelFileIdentity(source, sourceVolumeSerial, sourceFileIndex))
+        {
+            if (coordinatorLease &&
+                !(leaseIndex == initialLeaseIndex && initialLeaseGeneration != 0))
+                script->ReleaseParallelCopyLease(leaseIndex, leaseGeneration);
             return FALSE;
+        }
         const DWORD targetAttributes = GetFileAttributesW(target.c_str());
         const BOOL replaceTarget = targetAttributes != INVALID_FILE_ATTRIBUTES;
         if (replaceTarget && !CanReplaceInParallel(targetAttributes, dialogData))
+        {
+            if (coordinatorLease &&
+                !(leaseIndex == initialLeaseIndex && initialLeaseGeneration != 0))
+                script->ReleaseParallelCopyLease(leaseIndex, leaseGeneration);
             return FALSE;
+        }
         DWORD targetVolumeSerial = 0;
         ULONGLONG targetFileIndex = 0;
         if (replaceTarget &&
             (!GetParallelFileIdentity(target, targetVolumeSerial, targetFileIndex) ||
              targetVolumeSerial == sourceVolumeSerial && targetFileIndex == sourceFileIndex))
+        {
+            if (coordinatorLease &&
+                !(leaseIndex == initialLeaseIndex && initialLeaseGeneration != 0))
+                script->ReleaseParallelCopyLease(leaseIndex, leaseGeneration);
             return FALSE;
+        }
 
         for (int dependency = 0; dependency < dependencyCount; dependency++)
         {
@@ -8593,7 +10025,10 @@ static BOOL PlanNextParallelCopy(COperations* script, int& scriptIndex,
                     sourceVolumeSerial == previous->TargetVolumeSerial &&
                     sourceFileIndex == previous->TargetFileIndex)
             {
-                retryLater = TRUE;
+                retryLater = previous->Thread != NULL && !previous->Finished;
+                if (coordinatorLease &&
+                !(leaseIndex == initialLeaseIndex && initialLeaseGeneration != 0))
+                script->ReleaseParallelCopyLease(leaseIndex, leaseGeneration);
                 return FALSE;
             }
         }
@@ -8601,6 +10036,7 @@ static BOOL PlanNextParallelCopy(COperations* script, int& scriptIndex,
         tasks.push_back(CParallelCopyTask());
         CParallelCopyTask& task = tasks.back();
         task.ScriptIndex = scriptIndex;
+        task.LeaseGeneration = leaseGeneration;
         task.Operation = operation;
         task.Source.swap(source);
         task.Target.swap(target);
@@ -8614,6 +10050,9 @@ static BOOL PlanNextParallelCopy(COperations* script, int& scriptIndex,
         if (!OpenParallelCopyInput(task))
         {
             tasks.pop_back();
+            if (coordinatorLease &&
+                !(leaseIndex == initialLeaseIndex && initialLeaseGeneration != 0))
+                script->ReleaseParallelCopyLease(leaseIndex, leaseGeneration);
             return FALSE;
         }
         plannedTask = &task;
@@ -8627,7 +10066,7 @@ static BOOL PlanNextParallelCopy(COperations* script, int& scriptIndex,
 // applicable, and -1 after an attempted run failed and needs legacy retry.
 static int RunRollingParallelCopy(COperations* script, int first, int limit,
                                   HWND progressDialog, CProgressDlgData& dialogData,
-                                  CQuadWord& totalDone, DWORD clearReadonlyMask)
+                                  ULONGLONG initialLeaseGeneration, CQuadWord& totalDone, DWORD clearReadonlyMask)
 {
     std::deque<CParallelCopyTask> tasks;
     std::deque<CPreparedParallelDirectory> preparedDirectories;
@@ -8641,20 +10080,30 @@ static int RunRollingParallelCopy(COperations* script, int first, int limit,
             if (*dialogData.CancelWorker)
             {
                 CloseUnusedParallelCopyInputs(tasks);
-                RollbackPreparedParallelDirectories(preparedDirectories);
+                RollbackPreparedParallelDirectories(script, preparedDirectories);
                 return -2;
             }
             CParallelCopyTask* task = NULL;
             BOOL retryLater;
+            BOOL initialLeaseInvalidated;
             if (!PlanNextParallelCopy(script, scriptIndex, clearReadonlyMask, dialogData,
                                        tasks, preparedDirectories, initialDependencies,
-                                       initialDependencyCount, task, retryLater))
+                                       initialDependencyCount, task, retryLater,
+                                       initialLeaseInvalidated,
+                                       script->CopyMoveConflictMode == CMCM_SCAN_AHEAD,
+                                       first, initialLeaseGeneration))
             {
                 if (*dialogData.CancelWorker)
                 {
                     CloseUnusedParallelCopyInputs(tasks);
-                    RollbackPreparedParallelDirectories(preparedDirectories);
+                    RollbackPreparedParallelDirectories(script, preparedDirectories);
                     return -2;
+                }
+                if (initialLeaseInvalidated)
+                {
+                    CloseUnusedParallelCopyInputs(tasks);
+                    RollbackPreparedParallelDirectories(script, preparedDirectories);
+                    return -3; // return to coordinator selection; never legacy-dispatch this lease
                 }
                 break;
             }
@@ -8664,23 +10113,61 @@ static int RunRollingParallelCopy(COperations* script, int first, int limit,
     catch (const std::bad_alloc&)
     {
         CloseUnusedParallelCopyInputs(tasks);
-        RollbackPreparedParallelDirectories(preparedDirectories);
+        RollbackPreparedParallelDirectories(script, preparedDirectories);
         return -1;
     }
 
-    const int initialCount = (int)tasks.size();
+    int initialCount = (int)tasks.size();
+    while (initialCount < 2 && script->CopyMoveConflictMode == CMCM_SCAN_AHEAD &&
+           (script->IsConflictScanActive() || !script->IsConflictScanFinished()) &&
+           !*dialogData.CancelWorker)
+    {
+        script->WaitForConflictChange(100);
+        try
+        {
+            CParallelCopyTask* task = NULL;
+            BOOL retryLater = FALSE;
+            BOOL initialLeaseInvalidated = FALSE;
+            if (PlanNextParallelCopy(script, scriptIndex, clearReadonlyMask, dialogData,
+                                     tasks, preparedDirectories, initialDependencies,
+                                     initialDependencyCount, task, retryLater,
+                                     initialLeaseInvalidated, TRUE,
+                                     first, initialLeaseGeneration))
+                initialDependencies[initialDependencyCount++] = task;
+            else if (initialLeaseInvalidated)
+            {
+                CloseUnusedParallelCopyInputs(tasks);
+                RollbackPreparedParallelDirectories(script, preparedDirectories);
+                return -3;
+            }
+            else if (!retryLater)
+                break;
+        }
+        catch (const std::bad_alloc&)
+        {
+            CloseUnusedParallelCopyInputs(tasks);
+            RollbackPreparedParallelDirectories(script, preparedDirectories);
+            return -1;
+        }
+        initialCount = (int)tasks.size();
+    }
     if (initialCount < 2)
     {
         CloseUnusedParallelCopyInputs(tasks);
-        RollbackPreparedParallelDirectories(preparedDirectories);
-        return -1;
+        const BOOL leaseInvalidated =
+            RollbackPreparedParallelDirectories(script, preparedDirectories);
+        return leaseInvalidated ? -3 : -1;
     }
 
     CParallelCopyBatch batch;
     batch.ProgressDialog = progressDialog;
     batch.DialogData = &dialogData;
     batch.SlotCount = initialCount;
-    batch.DisplayCount = initialCount;
+    // The dialog row geometry is operation-latched before worker execution.
+    // A temporarily blocked scan-ahead lease must not shrink the visible rows.
+    batch.DisplayCount = script->StorageUse.StreamDemand;
+    if (batch.DisplayCount < 1) batch.DisplayCount = 1;
+    if (batch.DisplayCount > limit) batch.DisplayCount = limit;
     batch.ResetSlots = TRUE;
     batch.Script = script;
     batch.BaseDone = totalDone;
@@ -8693,7 +10180,6 @@ static int RunRollingParallelCopy(COperations* script, int first, int limit,
     CQuadWord statusProgress(0, 0);
     const BOOL haveStatus = script->GetTFSandProgressSize(&statusTFS, &statusProgress);
     BOOL failed = FALSE;
-    BOOL plannerFinished = FALSE;
     for (int slot = 0; slot < initialCount; slot++)
     {
         CParallelCopyTask& task = tasks[slot];
@@ -8723,7 +10209,55 @@ static int RunRollingParallelCopy(COperations* script, int first, int limit,
             }
         }
         if (handleCount == 0)
+        {
+            if (script->CopyMoveConflictMode == CMCM_SCAN_AHEAD &&
+                !*dialogData.CancelWorker)
+            {
+                BOOL refilled = FALSE;
+                for (int slot = 0; slot < batch.SlotCount && !refilled; ++slot)
+                {
+                    CParallelCopyTask& completed = *batch.ActiveTasks[slot];
+                    if (!completed.Finished) continue;
+                    CParallelCopyTask* next = NULL;
+                    CParallelCopyTask* dependencies[COPYMOVE_MAX_PARALLEL_STREAMS];
+                    int dependencyCount = 0;
+                    try
+                    {
+                        BOOL retryLater = FALSE;
+                        BOOL initialLeaseInvalidated = FALSE;
+                        if (PlanNextParallelCopy(script, scriptIndex, clearReadonlyMask, dialogData,
+                                                 tasks, preparedDirectories, dependencies,
+                                                 dependencyCount, next, retryLater,
+                                                 initialLeaseInvalidated, TRUE, -1, 0))
+                        {
+                            if (completed.Operation->Size > completed.Operation->FileSize)
+                            {
+                                script->AddBytesToSpeedMetersAndTFSandPS(
+                                    (DWORD)(completed.Operation->Size - completed.Operation->FileSize).Value,
+                                    TRUE, 0, NULL, MAX_OP_FILESIZE);
+                                completed.ProgressCompensated = TRUE;
+                            }
+                            batch.CompletedDone += completed.Operation->Size;
+                            batch.ActiveTasks[slot] = next;
+                            next->Batch = &batch;
+                            next->Thread = HANDLES(CreateThread(NULL, 0, ParallelCopyThreadProc, next, 0, NULL));
+                            refilled = next->Thread != NULL;
+                            if (!refilled) failed = TRUE;
+                            batch.ResetSlots = TRUE;
+                        }
+                        else if (!retryLater && script->HasReadySerialConflictWork())
+                            break;
+                    }
+                    catch (const std::bad_alloc&)
+                    {
+                        failed = TRUE;
+                    }
+                }
+                if (failed) continue;
+                if (refilled) continue;
+            }
             break;
+        }
 
         DWORD waitResult = WaitForMultipleObjects(handleCount, handles, FALSE, 100);
         if (waitResult == WAIT_TIMEOUT)
@@ -8768,8 +10302,6 @@ static int RunRollingParallelCopy(COperations* script, int first, int limit,
                 failed = TRUE;
                 break;
             }
-            if (plannerFinished)
-                continue;
             CParallelCopyTask& completed = *batch.ActiveTasks[slot];
             CParallelCopyTask* next = NULL;
             CParallelCopyTask* dependencies[COPYMOVE_MAX_PARALLEL_STREAMS];
@@ -8780,17 +10312,19 @@ static int RunRollingParallelCopy(COperations* script, int first, int limit,
             try
             {
                 BOOL retryLater;
+                BOOL initialLeaseInvalidated = FALSE;
                 if (!PlanNextParallelCopy(script, scriptIndex, clearReadonlyMask, dialogData,
                                            tasks, preparedDirectories, dependencies,
-                                           dependencyCount, next, retryLater))
+                                           dependencyCount, next, retryLater,
+                                           initialLeaseInvalidated,
+                                           script->CopyMoveConflictMode == CMCM_SCAN_AHEAD,
+                                           -1, 0))
                 {
                     if (*dialogData.CancelWorker || script->IsParallelCopyDisabled())
                     {
                         failed = TRUE;
                         break;
                     }
-                    if (!retryLater)
-                        plannerFinished = TRUE;
                     continue;
                 }
             }
@@ -8836,8 +10370,26 @@ static int RunRollingParallelCopy(COperations* script, int first, int limit,
         }
         for (std::deque<CParallelCopyTask>::iterator task = tasks.begin();
              task != tasks.end(); ++task)
-            DeleteParallelCopyOutput(*task);
-        RollbackPreparedParallelDirectories(preparedDirectories);
+        {
+            if (task->Finished && task->Success)
+            {
+                BOOL committed = script->CopyMoveConflictMode != CMCM_SCAN_AHEAD ||
+                    script->CompleteParallelCopyLease(task->ScriptIndex, task->LeaseGeneration, TRUE);
+                if (!committed)
+                {
+                    failed = TRUE;
+                    DeleteParallelCopyOutput(*task);
+                    continue;
+                }
+                task->Operation->OpFlags |= OPFL_PARALLEL_DONE;
+                continue;
+            }
+            if (script->CopyMoveConflictMode == CMCM_SCAN_AHEAD)
+                script->ReleaseParallelCopyLease(task->ScriptIndex, task->LeaseGeneration);
+            if (!task->Finished || !task->Success)
+                DeleteParallelCopyOutput(*task);
+        }
+        RollbackPreparedParallelDirectories(script, preparedDirectories);
         return *dialogData.CancelWorker ? -2 : -1;
     }
 
@@ -8853,6 +10405,14 @@ static int RunRollingParallelCopy(COperations* script, int first, int limit,
             task->ProgressCompensated = TRUE;
         }
         totalDone += task->Operation->Size;
+        BOOL committed = script->CopyMoveConflictMode != CMCM_SCAN_AHEAD ||
+            script->CompleteParallelCopyLease(task->ScriptIndex, task->LeaseGeneration, TRUE);
+        if (!committed)
+        {
+            TRACE_E("RunRollingParallelCopy(): rejected successful lease completion");
+            DeleteParallelCopyOutput(*task);
+            return -1;
+        }
         task->Operation->OpFlags |= OPFL_PARALLEL_DONE;
     }
     script->SetProgressSize(totalDone);
@@ -8862,21 +10422,99 @@ static int RunRollingParallelCopy(COperations* script, int first, int limit,
 
 static int RunParallelCopyBatch(COperations* script, int first, HWND progressDialog,
                                 CProgressDlgData& dialogData, CQuadWord& totalDone,
-                                DWORD clearReadonlyMask)
+                                ULONGLONG initialLeaseGeneration, DWORD clearReadonlyMask)
 {
     const int limit = GetParallelCopyLimit(script);
+    if (initialLeaseGeneration != 0 && script->CopyMoveConflictMode != CMCM_SCAN_AHEAD)
+        return 0;
     if (limit < 2 || script->IsParallelCopyDisabled() ||
         !CanUseParallelCopy(script, &script->At(first)))
+    {
+        if (initialLeaseGeneration != 0)
+            script->ReleaseParallelCopyLease(first, initialLeaseGeneration);
         return 0;
+    }
     BOOL useSpeedLimit;
     DWORD speedLimit;
     script->GetSpeedLimit(&useSpeedLimit, &speedLimit);
     if (useSpeedLimit)
+    {
+        if (initialLeaseGeneration != 0)
+            script->ReleaseParallelCopyLease(first, initialLeaseGeneration);
         return 0; // the legacy path owns the aggregate operation speed limiter
+    }
 
     const int rollingResult = RunRollingParallelCopy(script, first, limit, progressDialog,
-                                                     dialogData, totalDone, clearReadonlyMask);
-    return rollingResult > 0 ? rollingResult : rollingResult == -2 ? -1 : 0;
+                                                     dialogData, initialLeaseGeneration, totalDone, clearReadonlyMask);
+    return rollingResult > 0 ? rollingResult :
+           rollingResult == -2 ? -1 : rollingResult == -3 ? -3 : 0;
+}
+
+struct CConflictScannerData
+{
+    COperations* Script;
+    HANDLE ChangedEvent;
+    HANDLE WorkerNotSuspended;
+    HANDLE CancelWorkerEvent;
+    BOOL* CancelWorker;
+};
+
+static DWORD WINAPI ConflictScannerBody(void* parameter)
+{
+    CConflictScannerData* data = (CConflictScannerData*)parameter;
+    for (int index = 0; index < data->Script->Count; index++)
+    {
+        HANDLE waits[2] = {data->CancelWorkerEvent, data->WorkerNotSuspended};
+        if (WaitForMultipleObjects(2, waits, FALSE, INFINITE) == WAIT_OBJECT_0) break;
+        if (WaitForSingleObject(data->CancelWorkerEvent, 0) == WAIT_OBJECT_0 ||
+            InterlockedCompareExchange((volatile LONG*)data->CancelWorker, FALSE, FALSE) != FALSE) break;
+        COperation* op = &data->Script->At(index);
+        CCopyMoveConflictType type = cmctNone;
+        BOOL existed = FALSE, identityValid = FALSE;
+        DWORD attributes = INVALID_FILE_ATTRIBUTES, volumeSerial = 0;
+        ULONGLONG size = 0, fileIndex = 0;
+        FILETIME writeTime = {};
+        BOOL inspect = op->Opcode == ocCopyFile || op->Opcode == ocMoveFile ||
+                       op->Opcode == ocCreateDir;
+        if (inspect)
+        {
+            std::wstring target = GetParallelCopyPathW(op, FALSE);
+            if (!target.empty())
+            {
+                target = SalPathAddExtendedPrefixW(target.c_str());
+                HANDLE handle = HANDLES_Q(CreateFileW(target.c_str(), FILE_READ_ATTRIBUTES,
+                                                      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                                      NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL));
+                if (handle != INVALID_HANDLE_VALUE)
+                {
+                    BY_HANDLE_FILE_INFORMATION info;
+                    if (GetFileInformationByHandle(handle, &info))
+                    {
+                        attributes = info.dwFileAttributes;
+                        size = ((ULONGLONG)info.nFileSizeHigh << 32) | info.nFileSizeLow;
+                        writeTime = info.ftLastWriteTime;
+                        volumeSerial = info.dwVolumeSerialNumber;
+                        fileIndex = ((ULONGLONG)info.nFileIndexHigh << 32) | info.nFileIndexLow;
+                        identityValid = existed = TRUE;
+                        const BOOL targetIsDirectory = (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+                        if (op->Opcode == ocCopyFile || op->Opcode == ocMoveFile)
+                            type = targetIsDirectory ? cmctTypeMismatch : cmctFileExists;
+                        else if (op->Opcode == ocCreateDir)
+                            type = targetIsDirectory ? cmctDirectoryExists : cmctTypeMismatch;
+                    }
+                    HANDLES(CloseHandle(handle));
+                }
+            }
+        }
+        data->Script->PublishConflictScanResult(index, type, attributes, size, writeTime,
+                                                volumeSerial, fileIndex, identityValid, existed);
+        data->Script->SignalConflictChanged();
+    }
+    data->Script->SetConflictScanState(FALSE,
+        WaitForSingleObject(data->CancelWorkerEvent, 0) != WAIT_OBJECT_0 &&
+        InterlockedCompareExchange((volatile LONG*)data->CancelWorker, FALSE, FALSE) == FALSE);
+    SetEvent(data->ChangedEvent);
+    return 0;
 }
 
 unsigned ThreadWorkerBody(void* parameter)
@@ -8911,6 +10549,12 @@ unsigned ThreadWorkerBody(void* parameter)
                                                                 dlgData.DirCrLossEncrAll = dlgData.IgnoreAllGetFileTimeErr =
                                                                     dlgData.IgnoreAllSetFileTimeErr = dlgData.SkipAllGetFileTime =
                                                                         dlgData.SkipAllSetFileTime = FALSE;
+    dlgData.ConflictDecisionInjected = FALSE;
+    dlgData.InjectedConflictType = cmctNone;
+    dlgData.InjectedTargetVolumeSerial = 0;
+    dlgData.InjectedTargetFileIndex = 0;
+    dlgData.InjectedTargetIdentityValid = FALSE;
+    dlgData.ConflictTargetChanged = FALSE;
     dlgData.CnfrmFileOver = Configuration.CnfrmFileOver;
     dlgData.CnfrmDirOver = Configuration.CnfrmDirOver;
     dlgData.CnfrmSHFileOver = Configuration.CnfrmSHFileOver;
@@ -8923,6 +10567,33 @@ unsigned ThreadWorkerBody(void* parameter)
         !dlgData.PrepareRecycleMasks(errorPos))
         TRACE_E("Error in recycle-bin group mask.");
     COperations* script = data->Script;
+    dlgData.AsyncProgressPublication =
+        script->CopyMoveConflictMode == CMCM_SCAN_AHEAD;
+    HANDLE conflictScanner = NULL;
+    HANDLE conflictChanged = NULL;
+    CConflictScannerData conflictScannerData;
+    if (script->CopyMoveConflictMode == CMCM_SCAN_AHEAD && script->IsCopyOrMoveOperation)
+    {
+        script->InitializeConflictDependencies();
+        conflictChanged = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
+        script->SetConflictChangedEvent(conflictChanged);
+        if (conflictChanged != NULL)
+        {
+            conflictScannerData.Script = script;
+            conflictScannerData.ChangedEvent = conflictChanged;
+            conflictScannerData.WorkerNotSuspended = data->WorkerNotSuspended;
+            conflictScannerData.CancelWorkerEvent = data->CancelWorkerEvent;
+            conflictScannerData.CancelWorker = data->CancelWorker;
+            script->SetConflictProgressWindow(data->HProgressDlg);
+            if (!script->BeginConflictScan())
+                script->FailConflictScan();
+            DWORD scannerID;
+            conflictScanner = HANDLES(CreateThread(NULL, 0, ConflictScannerBody,
+                                                   &conflictScannerData, 0, &scannerID));
+            if (conflictScanner == NULL)
+                script->FailConflictScan();
+        }
+    }
     if (script->TotalSize == CQuadWord(0, 0))
     {
         script->TotalSize = CQuadWord(1, 0); // guard against division by zero
@@ -8981,10 +10652,78 @@ unsigned ThreadWorkerBody(void* parameter)
         char opChangAttrs[50];
         lstrcpyn(opChangAttrs, LoadStr(IDS_CHANGINGATTRS), 50);
 
-        int i;
-        for (i = 0; !*dlgData.CancelWorker && i < script->Count; i++)
+        int i = 0;
+        while (!Error && !*dlgData.CancelWorker)
         {
+            CCopyMoveConflictDecision conflictDecision = cmcdNone;
+            int conflictSubtreeEnd = -1;
+            ULONGLONG conflictLeaseGeneration = 0;
+            BOOL skipCleanup = FALSE;
+            CCopyMoveConflictType executionConflictType = cmctNone;
+            if (conflictScanner != NULL)
+            {
+                if (!script->GetNextConflictReadyItem(i, conflictLeaseGeneration))
+                {
+                    if (script->IsConflictCoordinatorComplete())
+                        break;
+                    WaitForSingleObject(conflictChanged, 100);
+                    continue;
+                }
+                script->GetConflictExecutionInfo(i, conflictDecision, conflictSubtreeEnd, skipCleanup);
+                if (!script->RevalidatePreparedConflictAncestors(i))
+                {
+                    SetEvent(conflictChanged);
+                    continue;
+                }
+                // This is the last coordinator check before legacy dispatch. The legacy routines
+                // reopen by pathname and re-run CREATE_NEW/MoveFile conflict handling, so a target
+                // replacement is not silently accepted. Windows still permits a narrow pathname
+                // race between this identity check and that open; eliminating it requires carrying
+                // the verified handle through the legacy copy/move implementation.
+                if (conflictDecision == cmcdOverwrite && !script->RevalidateConflictItem(i, executionConflictType))
+                {
+                    SetEvent(conflictChanged);
+                    continue;
+                }
+                if (conflictDecision == cmcdSkip)
+                {
+                    int through = script->At(i).Opcode == ocCreateDir ? conflictSubtreeEnd : i;
+                    for (int skipped = i; skipped <= through; skipped++) totalDone += script->At(skipped).Size;
+                    script->SetProgressSize(totalDone);
+                    script->CompleteConflictItem(i, TRUE, through);
+                    SetEvent(conflictChanged);
+                    continue;
+                }
+                if (!script->IsCopyOperation && skipCleanup &&
+                    (script->At(i).Opcode == ocDeleteFile || script->At(i).Opcode == ocDeleteDir ||
+                     script->At(i).Opcode == ocDeleteDirLink))
+                {
+                    totalDone += script->At(i).Size;
+                    script->SetProgressSize(totalDone);
+                    script->CompleteConflictItem(i, TRUE);
+                    SetEvent(conflictChanged);
+                    continue;
+                }
+            }
+            else if (i >= script->Count)
+                break;
+
             COperation* op = &script->At(i);
+            BOOL injectConflictDecision = conflictScanner != NULL && conflictDecision == cmcdOverwrite;
+            BOOL savedOverwriteAll = FALSE;
+            BOOL savedDirOverwriteAll = FALSE;
+            if (injectConflictDecision)
+            {
+                savedOverwriteAll = dlgData.OverwriteAll;
+                savedDirOverwriteAll = dlgData.DirOverwriteAll;
+                dlgData.ConflictDecisionInjected = TRUE;
+                dlgData.InjectedConflictType = executionConflictType;
+                dlgData.InjectedTargetVolumeSerial = op->ScannedTargetVolumeSerial;
+                dlgData.InjectedTargetFileIndex = op->ScannedTargetFileIndex;
+                dlgData.InjectedTargetIdentityValid = op->ScannedTargetIdentityValid;
+                if (executionConflictType == cmctFileExists) dlgData.OverwriteAll = TRUE;
+                if (executionConflictType == cmctDirectoryExists) dlgData.DirOverwriteAll = TRUE;
+            }
 
             switch (op->Opcode)
             {
@@ -8993,7 +10732,9 @@ unsigned ThreadWorkerBody(void* parameter)
                 if ((op->OpFlags & OPFL_PARALLEL_DONE) != 0)
                     break;
                 int parallelCount = RunParallelCopyBatch(script, i, hProgressDlg, dlgData,
-                                                         totalDone, clearReadonlyMask);
+                                                         totalDone, conflictLeaseGeneration, clearReadonlyMask);
+                if (parallelCount == -3)
+                    continue; // initial lease was reblocked; select coordinator work again
                 if (parallelCount < 0)
                 {
                     Error = TRUE;
@@ -9037,6 +10778,7 @@ unsigned ThreadWorkerBody(void* parameter)
                 BOOL lantasticCheck = IsLantasticDrive(op->TargetName, lastLantasticCheckRoot, lastIsLantasticPath);
                 BOOL ignInvalidName = op->Opcode == ocMoveDir && (op->OpFlags & OPFL_IGNORE_INVALID_NAME) != 0;
 
+                std::wstring sourceBeforeMove = GetParallelCopyPathW(op, TRUE);
                 Error = !DoMoveFile(op, hProgressDlg, buffer, script, totalDone,
                                     op->Opcode == ocMoveDir, clearReadonlyMask, &novellRenamePatch,
                                     lantasticCheck, mustDeleteFileBeforeOverwrite,
@@ -9044,6 +10786,12 @@ unsigned ThreadWorkerBody(void* parameter)
                                     (op->OpFlags & OPFL_COPY_ADS) != 0,
                                     (op->OpFlags & OPFL_AS_ENCRYPTED) != 0,
                                     &setDirTimeAfterMove, asyncPar, ignInvalidName);
+                if (!Error && conflictScanner != NULL && !sourceBeforeMove.empty())
+                {
+                    sourceBeforeMove = SalPathAddExtendedPrefixW(sourceBeforeMove.c_str());
+                    if (GetFileAttributesW(sourceBeforeMove.c_str()) != INVALID_FILE_ATTRIBUTES)
+                        script->MarkConflictItemSkipped(i);
+                }
                 break;
             }
 
@@ -9097,7 +10845,11 @@ unsigned ThreadWorkerBody(void* parameter)
                             TRACE_E("ThreadWorkerBody(): unable to find end-label for dir-create operation: opcode=" << op->Opcode << ", index=" << i);
                         }
                         else
+                        {
                             totalDone += skipTotal;
+                            if (conflictScanner != NULL)
+                                script->CompleteConflictItem(createDirIndex, TRUE, i);
+                        }
                     }
                     else
                     {
@@ -9262,9 +11014,43 @@ unsigned ThreadWorkerBody(void* parameter)
             case ocLabelForSkipOfCreateDir:
                 break; // no action
             }
-            if (Error)
-                break;
-            WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+            if (injectConflictDecision)
+            {
+                dlgData.OverwriteAll = savedOverwriteAll;
+                dlgData.DirOverwriteAll = savedDirOverwriteAll;
+                dlgData.ConflictDecisionInjected = FALSE;
+                dlgData.InjectedConflictType = cmctNone;
+                dlgData.InjectedTargetIdentityValid = FALSE;
+            }
+            if (!Error && conflictScanner != NULL && dlgData.ConflictTargetChanged)
+            {
+                dlgData.ConflictTargetChanged = FALSE;
+                script->RequeueChangedConflictItem(i);
+                SetEvent(conflictChanged);
+                continue;
+            }
+            if (!Error && conflictScanner != NULL)
+            {
+                if (op->Opcode == ocCreateDir)
+                {
+                    std::wstring preparedTarget = GetParallelCopyPathW(op, FALSE);
+                    DWORD preparedVolume = 0;
+                    ULONGLONG preparedIndex = 0;
+                    if (!preparedTarget.empty())
+                    {
+                        preparedTarget = SalPathAddExtendedPrefixW(preparedTarget.c_str());
+                        if (GetParallelDirectoryIdentity(preparedTarget, preparedVolume, preparedIndex))
+                            script->MarkConflictDirectoryPrepared(i,
+                                op->Attr == 0x01000000, preparedVolume, preparedIndex);
+                    }
+                }
+                script->CompleteConflictItem(i, FALSE);
+                SetEvent(conflictChanged);
+            }
+            else if (conflictScanner == NULL)
+                i++;
+            if (Error) break;
+            WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
         }
         if (!Error && !*dlgData.CancelWorker && i == script->Count && totalDone != script->TotalSize &&
             (totalDone != CQuadWord(0, 0) || script->TotalSize != CQuadWord(1, 0))) // intentional change of script->TotalSize to one (prevents division by zero)
@@ -9288,6 +11074,19 @@ unsigned ThreadWorkerBody(void* parameter)
                 TRACE_E("ThreadWorkerBody(): operation done: progressSize != script->TotalSize (" << progressSize.Value << " != " << script->TotalSize.Value << ")");
             }
         }
+    }
+    if (conflictScanner != NULL)
+    {
+        if (*dlgData.CancelWorker)
+            SetEvent(dlgData.WorkerNotSuspended);
+        WaitForSingleObject(conflictScanner, INFINITE);
+        HANDLES(CloseHandle(conflictScanner));
+    }
+    if (conflictChanged != NULL)
+    {
+        script->SetConflictProgressWindow(NULL);
+        script->SetConflictChangedEvent(NULL);
+        HANDLES(CloseHandle(conflictChanged));
     }
     if (asyncPar != NULL)
         delete asyncPar;
@@ -9332,10 +11131,12 @@ DWORD WINAPI ThreadWorker(void* param)
 
 HANDLE StartWorker(COperations* script, HWND hDlg, CChangeAttrsData* attrsData,
                    CConvertData* convertData, HANDLE wContinue, HANDLE workerNotSuspended,
-                   BOOL* cancelWorker, int* operationProgress, int* summaryProgress)
+                   HANDLE cancelWorkerEvent, BOOL* cancelWorker, int* operationProgress,
+                   int* summaryProgress)
 {
     CWorkerData data;
     data.WorkerNotSuspended = workerNotSuspended;
+    data.CancelWorkerEvent = cancelWorkerEvent;
     data.CancelWorker = cancelWorker;
     data.OperationProgress = operationProgress;
     data.SummaryProgress = summaryProgress;

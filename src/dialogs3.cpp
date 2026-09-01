@@ -1127,6 +1127,7 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 case IDC_CM_NAMED:
                 case IDC_CM_ADVANCED:
                 case IDC_CM_TRANSFERMODE_LABEL:
+                case IDC_CM_CONFLICTMODE_LABEL:
                 case IDC_FILEMASK_HINT:
                 case IDC_MORE:
                     return ApplyCopyMoveDialogColors(wParam, true);
@@ -1135,6 +1136,7 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 case IDC_CM_NAMED_MASK:
                 case IDC_CM_ADVANCED_INFO:
                 case IDC_CM_TRANSFERMODE:
+                case IDC_CM_CONFLICTMODE:
                     if (uMsg == WM_CTLCOLOREDIT)
                         return ApplyCopyMoveDialogColors(wParam, false);
                     break;
@@ -1247,6 +1249,7 @@ CCopyMoveMoreDialog::CCopyMoveMoreDialog(HWND parent, char* path, int pathBufSiz
                                          char* history[], int historyCount, CCriteriaData* criteriaInOut,
                                          BOOL havePermissions, BOOL supportsADS,
                                          int* transferModeInOut,
+                                         int* conflictModeInOut,
                                          int* operationSchedulingOverrideInOut,
                                          const std::vector<std::string>* targetPaths,
                                          BOOL allowChangeTarget)
@@ -1270,6 +1273,7 @@ CCopyMoveMoreDialog::CCopyMoveMoreDialog(HWND parent, char* path, int pathBufSiz
     HavePermissions = havePermissions;
     SupportsADS = supportsADS;
     TransferModeInOut = transferModeInOut;
+    ConflictModeInOut = conflictModeInOut;
     OperationSchedulingOverrideInOut = operationSchedulingOverrideInOut;
     TargetPaths = targetPaths;
     AllowChangeTarget = allowChangeTarget;
@@ -1358,6 +1362,25 @@ void CCopyMoveMoreDialog::Transfer(CTransferInfo& ti)
         {
             int mode = (int)SendMessage(transferMode, CB_GETCURSEL, 0, 0);
             *TransferModeInOut = mode == CMS_SEQUENTIAL ? CMS_SEQUENTIAL : CMS_STORAGE_AWARE;
+        }
+    }
+    if (ConflictModeInOut != NULL)
+    {
+        HWND conflictMode = GetDlgItem(HWindow, IDC_CM_CONFLICTMODE);
+        if (ti.Type == ttDataToWindow)
+        {
+            SendMessage(conflictMode, CB_RESETCONTENT, 0, 0);
+            SendMessage(conflictMode, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_CONFLICT_CURRENT));
+            SendMessage(conflictMode, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_CONFLICT_SCAN_AHEAD));
+            int mode = *ConflictModeInOut;
+            if (mode != CMCM_CURRENT && mode != CMCM_SCAN_AHEAD)
+                mode = CMCM_CURRENT;
+            SendMessage(conflictMode, CB_SETCURSEL, mode, 0);
+        }
+        else
+        {
+            int mode = (int)SendMessage(conflictMode, CB_GETCURSEL, 0, 0);
+            *ConflictModeInOut = mode == CMCM_SCAN_AHEAD ? CMCM_SCAN_AHEAD : CMCM_CURRENT;
         }
     }
 }
@@ -1570,7 +1593,7 @@ void CCopyMoveMoreDialog::SetOptionsButtonState(BOOL more)
 void CCopyMoveMoreDialog::DisplayMore(BOOL more, BOOL fast)
 {
     // hide the concealed controls so they are removed from the tab order
-    int controls[] = {IDC_CM_NEWER, IDC_CM_STARTONIDLE, IDC_CM_TRANSFERMODE_LABEL, IDC_CM_TRANSFERMODE, IDC_CM_SPEEDLIMIT, IDE_CM_SPEEDLIMIT,
+    int controls[] = {IDC_CM_NEWER, IDC_CM_STARTONIDLE, IDC_CM_TRANSFERMODE_LABEL, IDC_CM_TRANSFERMODE, IDC_CM_CONFLICTMODE_LABEL, IDC_CM_CONFLICTMODE, IDC_CM_SPEEDLIMIT, IDE_CM_SPEEDLIMIT,
                       IDC_CM_SPEEDLIMITUNITS, IDC_CM_SECURITY, IDC_CM_COPYATTRS,
                       IDC_CM_DIRTIME, IDC_CM_IGNADS, IDC_CM_EMPTY, IDC_CM_NAMED_MASK, IDC_CM_NAMED,
                       IDC_FILEMASK_HINT, IDC_CM_ADVANCED, IDC_CM_ADVANCED_INFO,
@@ -1787,6 +1810,7 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 case IDC_CM_NAMED:
                 case IDC_CM_ADVANCED:
                 case IDC_CM_TRANSFERMODE_LABEL:
+                case IDC_CM_CONFLICTMODE_LABEL:
                 case IDC_FILEMASK_HINT:
                 case IDC_MORE:
                     return ApplyCopyMoveDialogColors(wParam, true);
@@ -1795,6 +1819,7 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 case IDC_CM_NAMED_MASK:
                 case IDC_CM_ADVANCED_INFO:
                 case IDC_CM_TRANSFERMODE:
+                case IDC_CM_CONFLICTMODE:
                     if (uMsg == WM_CTLCOLOREDIT)
                         return ApplyCopyMoveDialogColors(wParam, false);
                     break;

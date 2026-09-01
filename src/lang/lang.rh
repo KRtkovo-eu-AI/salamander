@@ -6,6 +6,7 @@
 #define IDE_FILEMASK                    101
 #define IDC_FILEMASK_HINT               102
 #define IDD_DESELECTMASK                104
+#define IDD_PROGRESSDLG_SCANAHEAD       147
 #define IDD_CMPDIR_PROGRESS             148
 #define IDD_CMPDIR_PROGRESS2            149
 #define IDD_PROGRESSDLG                 150
@@ -111,6 +112,7 @@
 #define IDC_ABOUT_OPENSAL               289
 #define IDC_ABOUT_LOGO                  290
 #define IDD_CFGPAGE_GENERAL             300
+#define IDD_CFGPAGE_FILEOPERATIONS      2975
 #define IDC_AUTOSAVE                    301
 #define IDC_INCLUDEDIRS                 302
 #define IDC_MINBEEPWHENDONE             303
@@ -340,6 +342,17 @@
 #define IDC_COPYMOVE_NVME_WARNING_ICON  1863
 #define IDC_CM_TRANSFERMODE_LABEL        1817
 #define IDC_CM_TRANSFERMODE              1818
+#define IDC_COPYMOVE_CONFLICT_PREFERENCE_LABEL 1866
+#define IDC_COPYMOVE_CONFLICT_PREFERENCE 1867
+#define IDC_CM_CONFLICTMODE_LABEL         1868
+#define IDC_CM_CONFLICTMODE               1869
+#define IDC_PROGRESS_OPERATIONS            1870
+#define IDC_PROGRESS_CONFLICT_STATUS       1871
+#define IDC_PROGRESS_CONFLICT_SCAN_LINK    1876
+#define IDC_PROGRESS_SOLVE                  1872
+#define IDC_PROGRESS_SKIP                   1873
+#define IDC_PROGRESS_OVERWRITE_ALL          1874
+#define IDC_PROGRESS_SKIP_ALL               1875
 #define IDC_PROGRESS_STREAM2_OPERATION    1820
 #define IDC_PROGRESS_STREAM2_SOURCE       1821
 #define IDC_PROGRESS_STREAM2_PREPOSITION  1822

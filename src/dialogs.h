@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -79,6 +79,7 @@ protected:
 
 class CCriteriaData;
 class CButton;
+class CHyperLink;
 
 class CCopyMoveMoreDialog : public CCommonDialog
 {
@@ -96,6 +97,7 @@ protected:
     const std::vector<std::string>* TargetPaths;
     BOOL AllowChangeTarget;
     int* TransferModeInOut; // CMS_SEQUENTIAL / CMS_STORAGE_AWARE for this operation
+    int* ConflictModeInOut; // CMCM_CURRENT / CMCM_SCAN_AHEAD for this operation
     int* OperationSchedulingOverrideInOut; // COSO_* for this operation; NULL outside Copy/Move
 
     int OriginalWidth;    // full dialog width
@@ -113,7 +115,7 @@ public:
                         CTruncatedString* subject, DWORD helpID,
                         char* history[], int historyCount, CCriteriaData* criteriaInOut,
                         BOOL havePermissions, BOOL supportsADS, int* transferModeInOut,
-                        int* operationSchedulingOverrideInOut,
+                        int* conflictModeInOut, int* operationSchedulingOverrideInOut,
                         const std::vector<std::string>* targetPaths = NULL,
                         BOOL allowChangeTarget = FALSE);
     ~CCopyMoveMoreDialog();
@@ -314,6 +316,7 @@ struct CConvertData;
 class COperations;
 class CStaticText;
 class CProgressBar;
+class CConflictPromptPresentationGuard;
 struct CStartProgressDialogData;
 struct CParallelProgressData;
 
@@ -326,6 +329,8 @@ BOOL StartProgressDialog(COperations* script, const char* caption,
 
 class CProgressDialog : public CCommonDialog
 {
+    friend class CConflictPromptPresentationGuard;
+
 public:
     CProgressDialog(HWND parent, COperations* script, const char* caption,
                     CChangeAttrsData* attrsData, CConvertData* convertData,
@@ -340,8 +345,15 @@ protected:
     void SetDlgTitle(BOOL minimized);
     void SetWindowIcon();
     std::string GetProgressCaption() const;
-    void SetParallelProgress(const CParallelProgressData* data);
+    void SetParallelProgress(const CParallelProgressData* data, BOOL repaint = TRUE, BOOL layout = TRUE);
     void LayoutActiveProgressStreams(int count, BOOL repaint = TRUE);
+    void RefreshConflictOperations(BOOL repaint = TRUE, BOOL layout = TRUE);
+    int GetSelectedConflictIndex() const;
+    int GetConflictActionIndex() const;
+    void PromptNextConflict();
+    void BeginConflictPromptPresentation();
+    void EndConflictPromptPresentation();
+    void SetConflictPanelExpanded(BOOL expanded, BOOL repaint = TRUE, BOOL layout = TRUE);
 
 protected:
     BOOL RunningInOwnThread;                // TRUE/FALSE = dialog runs in its own thread ("background") / dialog runs in the main thread and is modal to its parent (usually one of the panels)
@@ -350,6 +362,7 @@ protected:
     HANDLE Worker;                // worker thread associated with this dialog (NULL if it doesn't exist yet/any more)
     HANDLE WContinue;             // multi-purpose event
     HANDLE WorkerNotSuspended;    // non-signaled == the worker should enter suspend mode
+    HANDLE CancelWorkerEvent;     // signaled when the worker and scanner must terminate
     BOOL CancelWorker;            // if TRUE, the worker thread will terminate
     int OperationProgress;        // progress value shared with the worker thread
     int SummaryProgress;          // progress value shared with the worker thread
@@ -405,10 +418,39 @@ protected:
     int ActiveParallelProgressStreams;
     BOOL ParallelProgressActive;
     BOOL DelayParallelProgressShow;
-    BOOL ParallelLayoutBaseCaptured;
-    int ParallelLayoutBaseDialogWidth;
-    int ParallelLayoutBaseDialogHeight;
-    RECT ParallelLayoutBaseRects[6];
+    HWND HConflictOperations;
+    CHyperLink* ConflictScanLink;
+    int ConflictListVersion;
+    int ConflictVisibleCount;
+    BOOL ConflictPanelExpanded;
+    BOOL LayoutConflictPanelExpanded;
+    struct CProgressTemplateLayout
+    {
+        RECT TotalLabel;
+        RECT TotalBar;
+        RECT Status;
+        RECT ConflictLink;
+        RECT ConflictStatus;
+        RECT ConflictTable;
+        RECT ConflictActions[4];
+        RECT Footer[3];
+        int DialogWidth;
+        int DialogHeight;
+        BOOL Captured;
+    } TemplateLayout;
+    int ConflictLayoutExtension;
+    int ConflictPromptIndex;
+    int ConflictSelectionRowAfterRemoval;
+    BOOL ConflictPromptActive;
+    CParallelProgressData* DeferredParallelProgress;
+    enum CDeferredProgressKind
+    {
+        dpkNone,
+        dpkRegular,
+        dpkParallel
+    } DeferredProgressKind;
+    BOOL ConflictRefreshDeferred;
+    BOOL ConflictAutomaticPromptConsumed;
 };
 
 //

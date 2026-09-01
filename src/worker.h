@@ -5,6 +5,8 @@
 #pragma once
 
 #include <string>
+#include <vector>
+#include <deque>
 #include "storagesched.h"
 
 #define CREATE_DIR_SIZE CQuadWord(4096, 0) // operation cost estimates (uncached measurements based on worker thread runtimes)
@@ -38,6 +40,7 @@
 
 void InitWorker();
 void ReleaseWorker();
+
 
 struct CChangeAttrsData
 {
@@ -82,6 +85,9 @@ struct CProgressData
         *Target;
 };
 
+CProgressData* AllocateProgressMessage(const CProgressData& source);
+void FreeProgressMessage(CProgressData* data);
+
 #define COPYMOVE_MAX_PARALLEL_STREAMS 8
 
 struct CParallelProgressStreamData
@@ -91,15 +97,19 @@ struct CParallelProgressStreamData
     int Progress;
 };
 
-// Passed synchronously to the progress dialog. All text pointers remain valid
-// for the duration of SendMessage.
+// A scan-ahead payload is heap-owned and posted asynchronously. Text is copied
+// into the payload so no worker stack or operation storage crosses PostMessage.
 struct CParallelProgressData
 {
     int ActiveCount;
     int DisplayCount;
     BOOL ResetSlots;
+    void* Owner; // non-NULL only for asynchronously posted scan-ahead snapshots
     CParallelProgressStreamData Streams[COPYMOVE_MAX_PARALLEL_STREAMS];
 };
+
+CParallelProgressData* AllocateParallelProgressMessage(const CParallelProgressData& source);
+void FreeParallelProgressMessage(CParallelProgressData* data);
 
 //
 // ****************************************************************************
@@ -237,10 +247,86 @@ enum COperationCode
 #define OPFL_ALLOW_CASE_ONLY_RENAME 0x00000100 // allow renames where source and target differ only by letter case
 #define OPFL_PARALLEL_DONE 0x00000200 // copy file already completed by rolling lookahead
 #define OPFL_PARALLEL_DIR_PREPARED 0x00000400 // directory created/resolved by rolling lookahead
+enum CCopyMoveItemState
+{
+    cmisUnscanned,
+    cmisReady,
+    cmisBlocked,
+    cmisConflict,
+    cmisOverwrite,
+    cmisSkip,
+    cmisRunning,
+    cmisDone,
+    cmisSuppressed
+};
+
+enum CCopyMoveConflictType
+{
+    cmctNone,
+    cmctFileExists,
+    cmctDirectoryExists,
+    cmctTypeMismatch
+};
+
+enum CConflictScannerPhase { ccspNotStarted, ccspScanning, ccspFinished, ccspFailed, ccspCancelled };
+enum CConflictWorkerPhase { ccwpIdle, ccwpWaitingForScan, ccwpExecuting, ccwpFinished };
+enum CConflictItemPhase { ccipUnscanned, ccipProbed, ccipAwaitingDecision, ccipReady, ccipLeased, ccipCompleted, ccipSuppressed };
+enum CConflictLeaseOutcome { ccloInvalid, ccloCommitted, ccloReleased, ccloReblocked };
+struct CConflictCoordinatorSnapshot
+{
+    CConflictScannerPhase ScannerPhase;
+    CConflictWorkerPhase WorkerPhase;
+    DWORD Generation;
+    int Unscanned, Blocked, Pending, Ready, Running, Terminal;
+    BOOL Complete;
+};
+struct CConflictProbeResult { CCopyMoveConflictType Type; DWORD Attributes; ULONGLONG Size; FILETIME WriteTime; DWORD VolumeSerial; ULONGLONG FileIndex; BOOL IdentityValid; BOOL Existed; CConflictProbeResult() : Type(cmctNone), Attributes(INVALID_FILE_ATTRIBUTES), Size(0), WriteTime(), VolumeSerial(0), FileIndex(0), IdentityValid(FALSE), Existed(FALSE) {} };
+
+struct CConflictDependencyNode
+{
+    int Parent;
+    int SubtreeEnd;
+    int FinalizeStart;
+    int Finalizer;
+    CConflictDependencyNode() : Parent(-1), SubtreeEnd(-1), FinalizeStart(-1), Finalizer(-1) {}
+};
+
+enum CCopyMoveConflictDecision
+{
+    cmcdNone,
+    cmcdOverwrite,
+    cmcdSkip
+};
+
+struct CCopyMoveConflictSnapshot
+{
+    int ScriptIndex;
+    CCopyMoveConflictType Type;
+    CCopyMoveItemState State;
+    ULONGLONG OperationId;
+    DWORD Generation;
+    ULONGLONG LeaseToken;
+    DWORD DependencyEpoch;
+    CCopyMoveConflictDecision AuthorizedDecision;
+};
+
+struct CCopyMoveConflictRequest
+{
+    ULONGLONG OperationId;
+    DWORD Generation;
+    int ScriptIndex;
+    CCopyMoveConflictType Type;
+    ULONGLONG LeaseToken;
+    DWORD DependencyEpoch;
+    DWORD ExpectedTargetVolumeSerial;
+    ULONGLONG ExpectedTargetFileIndex;
+    BOOL ExpectedTargetIdentityValid;
+    CCopyMoveConflictDecision AuthorizedDecision;
+};
 
 struct COperation
 {
-    COperation() : Opcode((COperationCode)0), Size(0, 0), FileSize(0, 0), SourceName(NULL), TargetName(NULL), SourceNameWValid(FALSE), TargetNameWValid(FALSE), Attr(0), OpFlags(0) {}
+    COperation() : Opcode((COperationCode)0), Size(0, 0), FileSize(0, 0), SourceName(NULL), TargetName(NULL), SourceNameWValid(FALSE), TargetNameWValid(FALSE), Attr(0), OpFlags(0), ConflictState(cmisUnscanned), ConflictType(cmctNone), ConflictDecision(cmcdNone), ConflictParent(-1), ConflictSubtreeEnd(-1), ConflictFinalizeStart(-1), ConflictIsFinalizer(FALSE), ConflictHasSkippedDescendant(FALSE), ConflictOperationSkipped(FALSE), ConflictDirectoryPrepared(FALSE), ConflictPreparedCreated(FALSE), ConflictLeaseGeneration(0), ConflictLeaseToken(0), ConflictLeaseDependencyEpoch(0), ConflictLeaseDecision(cmcdNone), ScannedTargetAttributes(INVALID_FILE_ATTRIBUTES), ScannedTargetSize(0), ScannedTargetWriteTime(), ScannedTargetVolumeSerial(0), ScannedTargetFileIndex(0), ScannedTargetIdentityValid(FALSE), ScannedTargetExisted(FALSE), ConflictOperationId(0), ConflictGeneration(0), ConflictScannerState(ccspNotStarted), ConflictWorkerState(ccwpIdle), ConflictItemState(ccipUnscanned), ConflictProbe() {}
 
     COperationCode Opcode;
     CQuadWord Size;
@@ -255,6 +341,34 @@ struct COperation
     void SetTargetNameW(const wchar_t* name) { TargetNameW = name != NULL ? name : L""; TargetNameWValid = name != NULL; }
     DWORD Attr;
     DWORD OpFlags; // combination of OPFL_xxx, see above
+    CCopyMoveItemState ConflictState;
+    CCopyMoveConflictType ConflictType;
+    CCopyMoveConflictDecision ConflictDecision;
+    int ConflictParent;
+    int ConflictSubtreeEnd;
+    int ConflictFinalizeStart;
+    BOOL ConflictIsFinalizer;
+    BOOL ConflictHasSkippedDescendant;
+    BOOL ConflictOperationSkipped;
+    BOOL ConflictDirectoryPrepared;
+    BOOL ConflictPreparedCreated;
+    DWORD ConflictLeaseGeneration;
+    ULONGLONG ConflictLeaseToken;
+    DWORD ConflictLeaseDependencyEpoch;
+    CCopyMoveConflictDecision ConflictLeaseDecision;
+    DWORD ScannedTargetAttributes;
+    ULONGLONG ScannedTargetSize;
+    FILETIME ScannedTargetWriteTime;
+    DWORD ScannedTargetVolumeSerial;
+    ULONGLONG ScannedTargetFileIndex;
+    BOOL ScannedTargetIdentityValid;
+    BOOL ScannedTargetExisted;
+    ULONGLONG ConflictOperationId;
+    DWORD ConflictGeneration;
+    CConflictScannerPhase ConflictScannerState;
+    CConflictWorkerPhase ConflictWorkerState;
+    CConflictItemPhase ConflictItemState;
+    CConflictProbeResult ConflictProbe;
 };
 
 class COperations : public TDirectArray<COperation>
@@ -295,10 +409,68 @@ public:
     BOOL CopyAttrs;             // preserve the Archive, Encrypt, and Compress attributes; FALSE = don't care = perform no extra handling and accept any result
     BOOL PreserveDirTime;       // preserve directory timestamps (during Move we detect unintended changes and fix them manually; works e.g. on Samba)
     int CopyMoveTransferMode;   // CMS_SEQUENTIAL / CMS_STORAGE_AWARE; controls streams within this operation
+    int CopyMoveConflictMode;   // CMCM_CURRENT / CMCM_SCAN_AHEAD; snapshotted for this operation
     int OperationSchedulingPolicy;   // COSP_*; admission policy between operations
     int OperationSchedulingOverride; // COSO_*; per-operation admission override
     BOOL SourcePathIsNetwork;   // TRUE = the source path is a network path (UNC or mapped drive)
     COperationStorageUse StorageUse; // physical source/destination devices used by the scheduler
+    BOOL ConflictScanActive;
+    BOOL ConflictScanFinished;
+    int ConflictScannedCount;
+    int DeferredConflictCount;
+    CCopyMoveConflictDecision ConflictApplyAll[4];
+
+    int GetDeferredConflictCount();
+    int GetConflictScannedCount();
+    BOOL IsConflictScanActive();
+    BOOL IsConflictScanFinished();
+    int GetConflictListVersion();
+    void GetDeferredConflicts(std::vector<CCopyMoveConflictSnapshot>& conflicts);
+    BOOL GetConflictSnapshot(int index, CCopyMoveConflictSnapshot& conflict);
+    BOOL GetNextConflictPromptItem(int& index, int excludedIndex = -1);
+    void SetDeferredConflictDecision(int index, CCopyMoveConflictDecision decision, BOOL applyAll);
+    void SetOperationWideConflictDecision(CCopyMoveConflictDecision decision);
+    BOOL GetNextConflictRequest(CCopyMoveConflictRequest& request);
+    BOOL ResolveConflictRequest(const CCopyMoveConflictRequest& request, CCopyMoveConflictDecision decision, BOOL applyAll);
+    BOOL GetNextConflictReadyItem(int& index, ULONGLONG& leaseToken);
+    void MarkConflictItemSkipped(int index);
+    void GetConflictExecutionInfo(int index, CCopyMoveConflictDecision& decision,
+                                  int& subtreeEnd, BOOL& skipCleanup);
+    void CompleteConflictItem(int index, BOOL skipped, int throughIndex = -1);
+    BOOL RevalidateConflictItem(int index, CCopyMoveConflictType& conflictType);
+    BOOL RevalidatePreparedConflictAncestors(int index);
+    BOOL ValidateParallelCopyLeaseForSideEffect(int index, ULONGLONG leaseToken);
+    void RequeueChangedConflictItem(int index);
+    void MarkConflictDirectoryPrepared(int index, BOOL created, DWORD volumeSerial, ULONGLONG fileIndex);
+    void RollbackConflictDirectoryPrepared(int index, BOOL removed);
+    BOOL HasReadySerialConflictWork();
+    BOOL IsConflictCoordinatorComplete();
+    void GetConflictCoordinatorSnapshot(CConflictCoordinatorSnapshot& snapshot);
+    void WaitForConflictChange(DWORD timeout);
+    BOOL LeaseNextParallelCopy(int& index, ULONGLONG& leaseToken, int startIndex = 0);
+    void SetConflictChangedEvent(HANDLE event);
+    void SetConflictProgressWindow(HWND window);
+    void AcknowledgeConflictProgressNotification();
+    void SignalConflictChanged();
+    BOOL CompleteParallelCopyLease(int index, ULONGLONG leaseToken, BOOL success);
+    CConflictLeaseOutcome ReleaseParallelCopyLease(int index, ULONGLONG leaseToken);
+    CConflictLeaseOutcome ReblockParallelCopyLease(int index, ULONGLONG leaseToken);
+    void InitializeConflictDependencies();
+    void SetConflictScanState(BOOL active, BOOL finished);
+    BOOL BeginConflictScan();
+    void FailConflictScan();
+    BOOL TransitionConflictItem(int index, CCopyMoveItemState from, CCopyMoveItemState to, DWORD generation = 0);
+    BOOL IsPreparedParentDirectoryLocked(int index) const;
+    BOOL AreConflictAncestorsPreparedLocked(int index) const;
+    BOOL IsConflictItemReadyLocked(int index) const;
+    void RebuildConflictQueuesLocked();
+    void SuppressConflictSubtreeLocked(int index);
+    void AdmitConflictSubtreeLocked(int index);
+    void RetractConflictSubtreeLocked(int index);
+    CConflictLeaseOutcome FinishParallelCopyLeaseLocked(int index, ULONGLONG leaseToken, CConflictLeaseOutcome outcome);
+    void PublishConflictScanResult(int index, CCopyMoveConflictType type, DWORD attributes,
+                                   ULONGLONG size, const FILETIME& writeTime, DWORD volumeSerial,
+                                   ULONGLONG fileIndex, BOOL identityValid, BOOL existed);
 
     // for the status line in the progress dialog (Copy and Move only)
     BOOL ShowStatus;       // should the operation status (copy speed, etc.) appear below the second progress bar?
@@ -320,6 +492,21 @@ public:
 private:
     // for the status line in the progress dialog (Copy and Move only)
     CRITICAL_SECTION StatusCS;              // critical section protecting TransferSpeedMeter, ProgressSpeedMeter, and
+    CRITICAL_SECTION ConflictCS;            // protects scan-ahead item states and snapshots
+    int ConflictListVersion;
+    DWORD NextConflictLeaseGeneration;
+    ULONGLONG NextConflictLeaseToken;
+    ULONGLONG NextConflictOperationId;
+    CConflictScannerPhase ConflictScannerState;
+    CConflictWorkerPhase ConflictWorkerState;
+    DWORD ConflictCoordinatorGeneration;
+    HANDLE ConflictChangedEvent;
+    HWND ConflictProgressWindow;
+    BOOL ConflictProgressNotificationPosted;
+    std::vector<CConflictDependencyNode> ConflictDependencies;
+    std::deque<int> ConflictReadyQueue;
+    std::deque<int> ConflictPendingQueue;
+    std::deque<CCopyMoveConflictRequest> ConflictRequestQueue;
     CTransferSpeedMeter TransferSpeedMeter; // meter for data transfers (Read/WriteFile)
     CProgressSpeedMeter ProgressSpeedMeter; // meter for calculating "time left" (also tracks directory creation speed, empty copies, etc.; uses the same operation sizes as the progress meter)
     CQuadWord TransferredFileSize;          // bytes already copied/transferred (the final sum should match TotalFileSize unless on-disk data change)
@@ -343,7 +530,7 @@ private:
 
 public:
     COperations(int base, int delta, char* waitInQueueSubject, char* waitInQueueFrom, char* waitInQueueTo);
-    ~COperations() { HANDLES(DeleteCriticalSection(&StatusCS)); }
+    ~COperations() { HANDLES(DeleteCriticalSection(&ConflictCS)); HANDLES(DeleteCriticalSection(&StatusCS)); }
 
     void SetWorkPath1(const char* path, BOOL inclSubDirs)
     {
@@ -451,7 +638,8 @@ extern COperationsQueue OperationsQueue; // queue of disk Copy/Move operations
 
 HANDLE StartWorker(COperations* script, HWND hDlg, CChangeAttrsData* attrsData,
                    CConvertData* convertData, HANDLE wContinue, HANDLE workerNotSuspended,
-                   BOOL* cancelWorker, int* operationProgress, int* summaryProgress);
+                   HANDLE cancelWorkerEvent, BOOL* cancelWorker, int* operationProgress,
+                   int* summaryProgress);
 
 void FreeScript(COperations* script);
 

@@ -37,6 +37,7 @@ private:
 BOOL SalIsExtendedLengthPathW(const wchar_t* path);
 std::wstring SalPathAddExtendedPrefixW(const wchar_t* path);
 std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* path);
+BOOL IsValidPathUtf8Text(const char* text);
 std::wstring SalMultiByteToWidePath(const char* path, UINT codePage = CP_ACP);
 std::string SalWideToMultiBytePath(const wchar_t* path, UINT codePage = CP_ACP);
 BOOL SalPathAppendW(std::wstring& path, const wchar_t* name);
