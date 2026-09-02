@@ -777,7 +777,7 @@ BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, 
     hGrayBitmap = NULL;
     hColorBitmap = NULL;
 
-    int iconSize = dpi > 0 ? MulDiv(16, dpi, 96)
+    int iconSize = dpi > 0 ? GetIconSizeForDPI(ICONSIZE_16, dpi)
                            : GetIconSizeForSystemDPI(ICONSIZE_16); // small icon size
     int iconCount = 0;
     int baseIconCount = 0;

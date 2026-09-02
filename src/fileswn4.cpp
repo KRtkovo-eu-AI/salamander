@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -196,6 +196,14 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
         }
     }
 
+    HICON panelOverlays[3 * ICONSIZE_COUNT];
+    for (int overlaySize = 0; overlaySize < ICONSIZE_COUNT; ++overlaySize)
+    {
+        panelOverlays[overlaySize] = GetPanelOverlay(HSharedOverlays[overlaySize], GetIconSize(overlaySize));
+        panelOverlays[ICONSIZE_COUNT + overlaySize] = GetPanelOverlay(HShortcutOverlays[overlaySize], GetIconSize(overlaySize));
+        panelOverlays[2 * ICONSIZE_COUNT + overlaySize] = GetPanelOverlay(HSlowFileOverlays[overlaySize], GetIconSize(overlaySize));
+    }
+
     BOOL iconOverlayFromPlugin = Is(ptZIPArchive) || Is(ptPluginFS);
     int pluginIconOverlaysCount = 0;
     HICON* pluginIconOverlays = NULL;
@@ -232,7 +240,7 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
                         IconCache->At(icon).GetFlag() != 1 && IconCache->At(icon).GetFlag() != 2 ||     // neither new nor old icon is loaded
                         !IconCache->GetIcon(IconCache->At(icon).GetIndex(), &iconList, &iconListIndex)) // failed to obtain its icon
                     {                                                                                   // we will display a simple symbol
-                        if (!Associations.GetIcon(ASSOC_ICON_SOME_DIR, &iconList, &iconListIndex, iconSize))
+                        if (!Associations.GetIcon(ASSOC_ICON_SOME_DIR, &iconList, &iconListIndex, GetIconSize(iconSize)))
                         {
                             iconList = NULL;
                             drawSimpleSymbol = TRUE;
@@ -253,7 +261,8 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
                     {
                         if (!exceptions)
                             TransferAssocIndex = index;                               // remember the valid index in Associations
-                        if (exceptions || Associations[index].GetIndex(iconSize) < 0) // dynamic icon (from the file) or a loaded static icon
+                        if (exceptions || Associations[index].GetIndex(iconSize) < 0 ||
+                            Associations.GetPixelIconIndex(index, GetIconSize(iconSize)) < 0) // dynamic icon or missing pixel-sized copy
                         {                                                             // icon in the file
                             int icon;
                             memmove(fileName, f->Name, f->NameLen);
@@ -273,7 +282,7 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
                                     icon = ASSOC_ICON_SOME_EXE;
                                 else
                                     icon = (exceptions || Associations[index].GetFlag() != 0) ? ASSOC_ICON_SOME_FILE : ASSOC_ICON_NO_ASSOC;
-                                if (!Associations.GetIcon(icon, &iconList, &iconListIndex, iconSize))
+                                if (!Associations.GetIcon(icon, &iconList, &iconListIndex, GetIconSize(iconSize)))
                                 {
                                     iconList = NULL;
                                     drawSimpleSymbol = TRUE;
@@ -294,7 +303,7 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
                     {                    // try to draw the icon,
                         if (index != -1) // index==-1 -> simple-symbol
                         {
-                            int i = Associations.At(index).GetIndex(iconSize);
+                            int i = Associations.GetPixelIconIndex(index, GetIconSize(iconSize));
                             if (i >= 0)
                                 index = i;
                             else
@@ -305,7 +314,7 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
                         }
                         else
                             index = ASSOC_ICON_NO_ASSOC;
-                        if (!drawSimpleSymbol && !Associations.GetIcon(index, &iconList, &iconListIndex, iconSize))
+                        if (!drawSimpleSymbol && !Associations.GetIcon(index, &iconList, &iconListIndex, GetIconSize(iconSize)))
                         {
                             iconList = NULL;
                             drawSimpleSymbol = TRUE;
@@ -352,7 +361,7 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
                 StateImageList_Draw(iconList, iconListIndex, hDC, x, y, iconState, iconSize,
                                     f->IconOverlayIndex, overlayRect, (drawFlags & DRAWFLAG_OVERLAY_ONLY) != 0,
                                     iconOverlayFromPlugin, pluginIconOverlaysCount, pluginIconOverlays,
-                                    GetWindowDPI());
+                                    panelOverlays, GetWindowDPI());
 
                 if (leaveSection)
                 {
@@ -370,12 +379,12 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
     { // simple symbols
         int independentIndex = symbolIndex;
         CIconList* independentIcons =
-            GetIndependentIconList(SimpleIconLists[iconSize], symbolIndex,
+            GetIndependentIconList(GetPanelSimpleIconList(iconSize), symbolIndex,
                                    iconSize, &independentIndex);
         StateImageList_Draw(independentIcons, independentIndex, hDC, x, y, iconState, iconSize,
                             f->IconOverlayIndex, overlayRect, (drawFlags & DRAWFLAG_OVERLAY_ONLY) != 0,
                             iconOverlayFromPlugin, pluginIconOverlaysCount, pluginIconOverlays,
-                            GetWindowDPI());
+                            panelOverlays, GetWindowDPI());
     }
 
     // I don't understand why, but the current bitmap drawing doesn't flicker.
@@ -2012,7 +2021,8 @@ void CFilesWindow::DrawTileItem(HDC hTgtDC, int itemIndex, RECT* itemRect, DWORD
 BOOL StateImageList_Draw(CIconList* iconList, int imageIndex, HDC hDC, int xDst, int yDst,
                          DWORD state, CIconSizeEnum iconSize, DWORD iconOverlayIndex,
                          const RECT* overlayRect, BOOL overlayOnly, BOOL iconOverlayFromPlugin,
-                         int pluginIconOverlaysCount, HICON* pluginIconOverlays, int dpi)
+                         int pluginIconOverlaysCount, HICON* pluginIconOverlays,
+                         HICON* panelOverlays, int dpi)
 {
     COLORREF rgbFg = CLR_DEFAULT;
     BOOL blend = FALSE;
@@ -2045,18 +2055,27 @@ BOOL StateImageList_Draw(CIconList* iconList, int imageIndex, HDC hDC, int xDst,
     int xOverlayDst = xDst;
     int yOverlayDst = yDst;
 
+    if (dpi <= 0)
+        dpi = GetSystemDPI();
+
     // on Vista a 48x48 icon uses overlay ICONSIZE_32 and thumbnails use overlay ICONSIZE_48
     if (iconSize == ICONSIZE_48 && overlayRect == NULL)
     {
         iconSize = ICONSIZE_32;
-        yOverlayDst += 48 - 32;
+        yOverlayDst += GetIconSizeForDPI(ICONSIZE_48, dpi) - GetIconSizeForDPI(ICONSIZE_32, dpi);
     }
 
-    if (dpi <= 0)
-        dpi = GetSystemDPI();
-    static const int logicalIconSizes[ICONSIZE_COUNT] = {16, 32, 48};
-    int iconW = MulDiv(logicalIconSizes[iconSize], dpi, 96);
+    int iconW = GetIconSizeForDPI(iconSize, dpi);
     int iconH = iconW;
+    int overlaySlot = 0;
+    for (int i = 0; i < ICONSIZE_COUNT; ++i)
+    {
+        if (GetIconSizeForDPI((CIconSizeEnum)i, dpi) == iconW)
+        {
+            overlaySlot = i;
+            break;
+        }
+    }
 
     // for a thumbnail overlayRect != NULL and we move the overlay to its lower left corner
     if (overlayRect != NULL)
@@ -2082,24 +2101,24 @@ BOOL StateImageList_Draw(CIconList* iconList, int imageIndex, HDC hDC, int xDst,
             }
             else
             {
-                DrawIconEx(hDC, xOverlayDst, yOverlayDst, ShellIconOverlays.GetIconOverlay(iconOverlayIndex, iconSize),
+                DrawIconEx(hDC, xOverlayDst, yOverlayDst, ShellIconOverlays.GetIconOverlayForPixels(iconOverlayIndex, iconW),
                            iconW, iconH, 0, NULL, DI_MASK);
             }
         }
         else
         {
             if (state & IMAGE_STATE_SHARED)
-                DrawIconEx(hDC, xOverlayDst, yOverlayDst, HSharedOverlays[iconSize],
+                DrawIconEx(hDC, xOverlayDst, yOverlayDst, panelOverlays[overlaySlot],
                            iconW, iconH, 0, NULL, DI_MASK);
             else
             {
                 if (state & IMAGE_STATE_SHORTCUT)
-                    DrawIconEx(hDC, xOverlayDst, yOverlayDst, HShortcutOverlays[iconSize],
+                    DrawIconEx(hDC, xOverlayDst, yOverlayDst, panelOverlays[ICONSIZE_COUNT + overlaySlot],
                                iconW, iconH, 0, NULL, DI_MASK);
                 else
                 {
                     if (state & IMAGE_STATE_OFFLINE)
-                        DrawIconEx(hDC, xOverlayDst, yOverlayDst, HSlowFileOverlays[iconSize],
+                        DrawIconEx(hDC, xOverlayDst, yOverlayDst, panelOverlays[2 * ICONSIZE_COUNT + overlaySlot],
                                    iconW, iconH, 0, NULL, DI_MASK);
                 }
             }
@@ -2125,24 +2144,24 @@ BOOL StateImageList_Draw(CIconList* iconList, int imageIndex, HDC hDC, int xDst,
             }
             else
             {
-                DrawIconEx(hDC, xOverlayDst, yOverlayDst, ShellIconOverlays.GetIconOverlay(iconOverlayIndex, iconSize),
+                DrawIconEx(hDC, xOverlayDst, yOverlayDst, ShellIconOverlays.GetIconOverlayForPixels(iconOverlayIndex, iconW),
                            iconW, iconH, 0, NULL, DI_NORMAL);
             }
         }
         else
         {
             if (state & IMAGE_STATE_SHARED)
-                DrawIconEx(hDC, xOverlayDst, yOverlayDst, HSharedOverlays[iconSize],
+                DrawIconEx(hDC, xOverlayDst, yOverlayDst, panelOverlays[overlaySlot],
                            iconW, iconH, 0, NULL, DI_NORMAL);
             else
             {
                 if (state & IMAGE_STATE_SHORTCUT)
-                    DrawIconEx(hDC, xOverlayDst, yOverlayDst, HShortcutOverlays[iconSize],
+                    DrawIconEx(hDC, xOverlayDst, yOverlayDst, panelOverlays[ICONSIZE_COUNT + overlaySlot],
                                iconW, iconH, 0, NULL, DI_NORMAL);
                 else
                 {
                     if (state & IMAGE_STATE_OFFLINE)
-                        DrawIconEx(hDC, xOverlayDst, yOverlayDst, HSlowFileOverlays[iconSize],
+                        DrawIconEx(hDC, xOverlayDst, yOverlayDst, panelOverlays[2 * ICONSIZE_COUNT + overlaySlot],
                                    iconW, iconH, 0, NULL, DI_NORMAL);
                 }
             }

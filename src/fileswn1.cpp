@@ -1695,13 +1695,14 @@ BOOL CFilesWindowAncestor::SamePath(CFilesWindowAncestor* other)
 // CFilesWindow
 //
 
-void IconThreadThreadFBodyAux(const char* path, SHFILEINFO& shi, CIconSizeEnum iconSize)
+void IconThreadThreadFBodyAux(const char* path, SHFILEINFO& shi, CIconSizeEnum iconSize,
+                               int targetPixelSize, int targetDPI)
 {
     CALL_STACK_MESSAGE_NONE
     __try
     {
         // do not let a default icon be returned; if it fails, simple icons are used
-        if (!GetFileIcon(path, FALSE, &shi.hIcon, iconSize, FALSE, FALSE))
+        if (!GetFileIconForPanel(path, &shi.hIcon, iconSize, targetPixelSize, targetDPI, FALSE, FALSE))
             shi.hIcon = NULL;
 
         // We switched to our own implementation (lower memory usage, working XOR icons)
@@ -2076,7 +2077,7 @@ unsigned IconThreadThreadFBody(void* parameter)
                                                 if (!pathIsInvalid)
                                                 {
                                                     //                            TRACE_I("Getting icon for: " << name << "...");
-                                                    IconThreadThreadFBodyAux(path, shi, iconSize);
+                                                    IconThreadThreadFBodyAux(path, shi, iconSize, iconPixelSize, iconDPI);
                                                     if (shi.hIcon == NULL)
                                                         TRACE_I("Unable to get icon from: " << path);
                                                     //                            else
@@ -2170,8 +2171,8 @@ unsigned IconThreadThreadFBody(void* parameter)
                                             {
                                                 // load the icon from the file (ExtractIcons retrieves it by index);
                                                 // the icon reader may go to sleep mode while loading
-                                                CALL_STACK_MESSAGE4("IconThreadThreadFBody::ExtractIcons(%s, %d, %d, ...)", path, index, window->GetIconSize(iconSize));
-                                                if (ExtractIcons(path, index, window->GetIconSize(iconSize), window->GetIconSize(iconSize), &shi.hIcon, NULL, 1, IconLRFlags) != 1)
+                                                CALL_STACK_MESSAGE4("IconThreadThreadFBody::ExtractIcons(%s, %d, %d, ...)", path, index, iconPixelSize);
+                                                if (ExtractIcons(path, index, iconPixelSize, iconPixelSize, &shi.hIcon, NULL, 1, IconLRFlags) != 1)
                                                 {
                                                     TRACE_I("Unable to get icon from: " << path << ", " << index);
                                                     shi.hIcon = NULL;
@@ -2185,15 +2186,15 @@ unsigned IconThreadThreadFBody(void* parameter)
                                                 {
                                                     // load the icon from a file (likely .ico); the icon reader can switch to sleep mode during loading
                                                     CALL_STACK_MESSAGE2("IconThreadThreadFBody::LoadImage(%s)", path);
-                                                    shi.hIcon = (HICON)NOHANDLES(LoadImage(NULL, path, IMAGE_ICON, window->GetIconSize(iconSize), window->GetIconSize(iconSize),
+                                                    shi.hIcon = (HICON)NOHANDLES(LoadImage(NULL, path, IMAGE_ICON, iconPixelSize, iconPixelSize,
                                                                                            LR_LOADFROMFILE | IconLRFlags));
                                                     //                            TRACE_I("LoadImage " << (shi.hIcon == NULL ? "has failed, now trying ExtractIcons..." : "is done."));
                                                 }
                                                 if (shi.hIcon == NULL) // LoadImage failed; trying ExtractIcons as well (e.g., an icon without index from zipfldr.dll on XP: a .zip archive packed in a .7z archive)
                                                 {
                                                     // let the first icon load from the file; the icon reader may enter sleep mode while loading
-                                                    CALL_STACK_MESSAGE3("IconThreadThreadFBody::ExtractIcons(%s, (0), %d, ...)", path, window->GetIconSize(iconSize));
-                                                    if (ExtractIcons(path, 0, window->GetIconSize(iconSize), window->GetIconSize(iconSize), &shi.hIcon, NULL, 1, IconLRFlags) != 1)
+                                                    CALL_STACK_MESSAGE3("IconThreadThreadFBody::ExtractIcons(%s, (0), %d, ...)", path, iconPixelSize);
+                                                    if (ExtractIcons(path, 0, iconPixelSize, iconPixelSize, &shi.hIcon, NULL, 1, IconLRFlags) != 1)
                                                     {
                                                         TRACE_I("Unable to get first icon from: " << path);
                                                         shi.hIcon = NULL;
@@ -2321,8 +2322,10 @@ unsigned IconThreadThreadFBody(void* parameter)
                                             {
                                                 HANDLES(EnterCriticalSection(&window->ICSectionUsingIcon));
 
-                                                iconList->ReplaceIcon(iconListIndex, shi.hIcon);
-                                                iconData->SetFlag(1); // already loaded
+                                                if (iconList->ReplaceIcon(iconListIndex, shi.hIcon))
+                                                    iconData->SetFlag(1); // already loaded
+                                                else
+                                                    failed = TRUE;
 
                                                 HANDLES(LeaveCriticalSection(&window->ICSectionUsingIcon));
 
@@ -2991,10 +2994,10 @@ CFilesWindow::~CFilesWindow()
         HANDLES(CloseHandle(ExecuteAssocEvent));
 }
 
-BOOL CFilesWindow::RefreshDPIResources(BOOL force)
+BOOL CFilesWindow::RefreshDPIResources(BOOL force, int dpiOverride)
 {
     HWND dpiWindow = HWindow != NULL ? HWindow : (Parent != NULL ? Parent->HWindow : NULL);
-    int dpi = (int)WinLibDPIGetWindowDPI(dpiWindow);
+    int dpi = dpiOverride > 0 ? dpiOverride : (int)WinLibDPIGetWindowDPI(dpiWindow);
     if (dpi <= 0)
         dpi = USER_DEFAULT_SCREEN_DPI;
     if (!force && WindowDPI == dpi && WindowPanelFont != NULL && WindowEnvFont != NULL)
@@ -3101,10 +3104,49 @@ BOOL CFilesWindow::RefreshDPIResources(BOOL force)
     WindowTextEllipsisWidth = panelEllipsis;
     WindowTextEllipsisWidthEnv = envEllipsis;
     WindowDPI = dpi;
-    WindowIconSizes[ICONSIZE_16] = MulDiv(16, dpi, USER_DEFAULT_SCREEN_DPI);
-    WindowIconSizes[ICONSIZE_32] = MulDiv(32, dpi, USER_DEFAULT_SCREEN_DPI);
-    WindowIconSizes[ICONSIZE_48] = MulDiv(48, dpi, USER_DEFAULT_SCREEN_DPI);
+    WindowIconSizes[ICONSIZE_16] = GetIconSizeForDPI(ICONSIZE_16, dpi);
+    WindowIconSizes[ICONSIZE_32] = GetIconSizeForDPI(ICONSIZE_32, dpi);
+    WindowIconSizes[ICONSIZE_48] = GetIconSizeForDPI(ICONSIZE_48, dpi);
     return TRUE;
+}
+
+BOOL CFilesWindow::RefreshIconCacheForCurrentSize(BOOL postDirectoryRefresh)
+{
+    if (IconCache == NULL)
+        return FALSE;
+
+    CIconSizeEnum iconSize = GetIconSizeForCurrentViewMode();
+    int iconPixelSize = GetIconSize(iconSize);
+    if (IconCache->GetIconSize() == iconSize &&
+        IconCache->GetIconPixelSize() == iconPixelSize)
+    {
+        return FALSE;
+    }
+
+    SleepIconCacheThread();
+    IconCache->Destroy();
+    IconCache->SetIconSize(iconSize, iconPixelSize);
+    IconCacheValid = FALSE;
+    EndOfIconReadingTime = GetTickCount() - 10000;
+    UseThumbnails = FALSE;
+
+    HWND listBox = GetListBoxHWND();
+    if (listBox != NULL)
+        InvalidateRect(listBox, NULL, FALSE);
+
+    if (postDirectoryRefresh)
+    {
+        HANDLES(EnterCriticalSection(&TimeCounterSection));
+        int refreshTime = MyTimeCounter++;
+        HANDLES(LeaveCriticalSection(&TimeCounterSection));
+        PostMessage(HWindow, WM_USER_REFRESH_DIR, 0, refreshTime);
+    }
+    return TRUE;
+}
+
+CIconList* CFilesWindow::GetPanelSimpleIconList(CIconSizeEnum iconSize)
+{
+    return GetSimpleIconList(GetIconSize(iconSize));
 }
 
 CIconList* CFilesWindow::GetIndependentIconList(CIconList* source, int sourceIndex,
@@ -3178,11 +3220,60 @@ CIconList* CFilesWindow::GetIndependentIconList(CIconList* source, int sourceInd
     return copy;
 }
 
+HICON CFilesWindow::GetPanelOverlay(HICON source, int pixelSize)
+{
+    if (source == NULL || pixelSize <= 0)
+        return source;
+    for (size_t i = 0; i < WindowDPIOverlays.size(); ++i)
+        if (WindowDPIOverlays[i].Source == source && WindowDPIOverlays[i].PixelSize == pixelSize)
+            return WindowDPIOverlays[i].Copy;
+    // Built-in overlays have real resources for each requested size. Load those
+    // resources directly; CopyImage remains for customized shortcut overlays.
+    int resourceId = 0;
+    for (int i = 0; i < ICONSIZE_COUNT; ++i)
+    {
+        if (source == HSharedOverlays[i])
+        {
+            resourceId = 164;
+            break;
+        }
+        if (source == HSlowFileOverlays[i])
+        {
+            resourceId = 97;
+            break;
+        }
+    }
+    HICON copy = resourceId != 0
+                     ? (HICON)HANDLES(LoadImage(ImageResDLL, MAKEINTRESOURCE(resourceId), IMAGE_ICON,
+                                                  pixelSize, pixelSize, IconLRFlags))
+                     : (HICON)HANDLES(CopyImage(source, IMAGE_ICON, pixelSize, pixelSize, 0));
+    if (copy == NULL)
+        return source;
+    CDPIOverlayEntry entry;
+    entry.Source = source;
+    entry.PixelSize = pixelSize;
+    entry.Copy = copy;
+    try
+    {
+        WindowDPIOverlays.push_back(entry);
+    }
+    catch (...)
+    {
+        HANDLES(DestroyIcon(copy));
+        return source;
+    }
+    return copy;
+}
+
 void CFilesWindow::ClearIndependentIconLists()
 {
     for (size_t i = 0; i < WindowDPIIconLists.size(); ++i)
         delete WindowDPIIconLists[i].Copy;
     WindowDPIIconLists.clear();
+    for (size_t i = 0; i < WindowDPIOverlays.size(); ++i)
+        if (WindowDPIOverlays[i].Copy != NULL)
+            HANDLES(DestroyIcon(WindowDPIOverlays[i].Copy));
+    WindowDPIOverlays.clear();
 }
 
 CPathHistory* CFilesWindow::EnsureWorkDirHistory()

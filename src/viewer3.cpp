@@ -779,6 +779,11 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             return 0;
         }
 
+        case WM_USER_VIEWERLOGCHANGE:
+            if (LogViewMode)
+                RefreshLogView();
+            return 0;
+
         case WM_COMMAND:
         {
             switch (LOWORD(wParam))
@@ -931,6 +936,11 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     switch (uMsg)
     {
+    case WM_USER_VIEWERLOGCHANGE:
+        if (LogViewMode)
+            RefreshLogView();
+        return 0;
+
     case WM_UAHDRAWMENU:
     {
         if ((DarkModeShouldUseDarkColors() || DialogFontMode != DIALOG_FONT_DEFAULT ||
@@ -3697,15 +3707,18 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_TIMER:
     {
-        if (wParam == IDT_THUMBSCROLL)
+        if (wParam == IDT_LOGVIEWRETRY)
         {
-            OnVScroll();
+            KillTimer(HWindow, IDT_LOGVIEWRETRY);
+            LogViewRetryScheduled = FALSE;
+            if (LogViewMode)
+                RefreshLogView();
             return 0;
         }
 
-        if (wParam == IDT_LOGVIEWREFRESH)
+        if (wParam == IDT_THUMBSCROLL)
         {
-            RefreshLogView();
+            OnVScroll();
             return 0;
         }
 
@@ -4371,7 +4384,8 @@ MENU_TEMPLATE_ITEM ViewerCodingMenu[] =
     {
         // WM_DESTROY can also be reached through a direct DestroyWindow call.
         DestroyViewerMenuControls();
-        KillTimer(HWindow, IDT_LOGVIEWREFRESH);
+        CancelLogViewRetry();
+        StopLogViewWatcher();
         // The scrollbar hook stores HWNDs.  Remove this entry before Windows
         // can recycle the handle for an unrelated top-level dialog.
         DarkModeDisallowDarkScrollbars(HWindow);

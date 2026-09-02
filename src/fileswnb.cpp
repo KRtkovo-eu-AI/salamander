@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -169,16 +169,7 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (RefreshDPIResources())
         {
-            if (IconCache != NULL)
-            {
-                SleepIconCacheThread();
-                IconCache->Destroy();
-                CIconSizeEnum iconSize = GetIconSizeForCurrentViewMode();
-                IconCache->SetIconSize(iconSize, GetIconSize(iconSize));
-                IconCacheValid = FALSE;
-                EndOfIconReadingTime = GetTickCount() - 10000;
-                UseThumbnails = FALSE;
-            }
+            RefreshIconCacheForCurrentSize(FALSE);
             SetFont();
             RefreshTreeViewDPI();
             if (ListBox != NULL && ListBox->HWindow != NULL)
@@ -824,7 +815,8 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 if (!icoFileIcon &&
                     Associations.GetIndex(extension, index) &&       // pripona ma ikonku (asociaci)
                     (Associations[index].GetIndex(iconSize) == -1 || // jde o ikonku, ktera se nacita
-                     Associations[index].GetIndex(iconSize) == -3))
+                     Associations[index].GetIndex(iconSize) == -3 ||
+                     Associations.GetPixelIconIndex(index, GetIconSize(iconSize)) < 0))
                 {
                     int icon;
                     CIconList* srcIconList;
@@ -839,10 +831,12 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     {                                                        // ikonka pro priponu -> icon-thread uz ji nacetl
                         CIconList* dstIconList;
                         int dstIconListIndex;
-                        int i = Associations.AllocIcon(&dstIconList, &dstIconListIndex, iconSize);
+                        int i = Associations.AllocIcon(&dstIconList, &dstIconListIndex, GetIconSize(iconSize));
                         if (i != -1) // ziskali jsme misto pro novou ikonku
                         {            // nakopirujeme si ji z IconCache do Associations
-                            Associations[index].SetIndex(i, iconSize);
+                            if (Associations[index].GetIndex(iconSize) < 0)
+                                Associations[index].SetIndex(i, iconSize);
+                            Associations.SetPixelIconIndex(index, GetIconSize(iconSize), i);
 
                             BOOL leaveSection;
                             if (!IconCacheValid)

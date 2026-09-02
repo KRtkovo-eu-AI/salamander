@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -860,7 +860,8 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
             {
                 if (Associations[i].GetIndex(iconSize) == -3)
                     Associations[i].SetIndex(-1, iconSize); // removing the flag "loaded icon"
-            }
+            }            Associations.ResetLoadingPixelIconIndexes(GetIconSize(iconSize));
+
         }
         else
         {
@@ -1330,7 +1331,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         }
                         else
                         {
-                            file.Association = Associations.IsAssociated(st, addtoIconCache, iconSize);
+                            file.Association = Associations.IsAssociated(st, addtoIconCache, iconSize, GetIconSize(iconSize));
                             file.Archive = 0;
                             if (iconSize == ICONSIZE_16 && *(DWORD*)st == *(DWORD*)"ico")
                             {
@@ -1811,7 +1812,8 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 {
                     if (Associations[i].GetIndex(iconSize) == -3)
                         Associations[i].SetIndex(-1, iconSize);
-                }
+                }                Associations.ResetLoadingPixelIconIndexes(GetIconSize(iconSize));
+
 
                 // getting of necessary static icons (we won't unpack them)
                 for (i = 0; i < Files->Count; i++)
@@ -1837,7 +1839,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         *(DWORD*)st = 0; // zeroes to the end
                         st = fileName;   // lowercase extension
 
-                        f->Association = Associations.IsAssociatedStatic(st, iconLocation, iconSize);
+                        f->Association = Associations.IsAssociatedStatic(st, iconLocation, iconSize, GetIconSize(iconSize));
                         f->Archive = FALSE;
                         /*
             }
@@ -2080,7 +2082,8 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                     {
                         if (Associations[i].GetIndex(iconSize) == -3)
                             Associations[i].SetIndex(-1, iconSize);
-                    }
+                    }                    Associations.ResetLoadingPixelIconIndexes(GetIconSize(iconSize));
+
 
                     // getting of necessary static icons (we won't unpack anything)
                     for (i = 0; i < Files->Count; i++)
@@ -2106,7 +2109,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                             *(DWORD*)st = 0; // zeroes to the end
                             st = fileName;   // lowercase extension
 
-                            f->Association = Associations.IsAssociatedStatic(st, iconLocation, iconSize);
+                            f->Association = Associations.IsAssociatedStatic(st, iconLocation, iconSize, GetIconSize(iconSize));
                             f->Archive = FALSE;
                             /*
               }

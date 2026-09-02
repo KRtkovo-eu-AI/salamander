@@ -960,6 +960,36 @@ void CCodeTables::RecognizeFileType(const char* pattern, int patternLen, BOOL fo
     char lastCodePage[101];
     lastCodePage[0] = 0;
     int winCodePageLen = (int)strlen(Table->WinCodePage);
+    BOOL recognitionIsNotAlphaNorNum[256];
+    BOOL recognitionIsAlpha[256];
+    BOOL recognitionIsUpper[256];
+    memcpy(recognitionIsNotAlphaNorNum, IsNotAlphaNorNum, sizeof(recognitionIsNotAlphaNorNum));
+    memcpy(recognitionIsAlpha, IsAlpha, sizeof(recognitionIsAlpha));
+    for (int i = 0; i < 256; i++)
+        recognitionIsUpper[i] = UpperCase[i] == i;
+
+    // The global byte classifications follow the process locale. With a UTF-8
+    // ACP, CP1250 bytes are therefore often treated as punctuation. Recognition
+    // candidates are all converted into WinCodePage, so classify those bytes by
+    // that actual code page instead of by the process ACP.
+    if (IsValidCodePage(Table->WinCodePageIdentifier))
+    {
+        for (int i = 0; i < 256; i++)
+        {
+            char encoded = (char)i;
+            WCHAR character = 0;
+            WORD type = 0;
+            if (MultiByteToWideChar(Table->WinCodePageIdentifier, MB_ERR_INVALID_CHARS,
+                                    &encoded, 1, &character, 1) == 1 &&
+                GetStringTypeW(CT_CTYPE1, &character, 1, &type))
+            {
+                recognitionIsAlpha[i] = (type & C1_ALPHA) != 0;
+                recognitionIsNotAlphaNorNum[i] =
+                    (type & (C1_ALPHA | C1_DIGIT)) == 0;
+                recognitionIsUpper[i] = (type & C1_UPPER) != 0;
+            }
+        }
+    }
     DWORD bestPenalty = 0xFFFFFFFF;
     if (buf != NULL)
     {
@@ -1047,7 +1077,7 @@ void CCodeTables::RecognizeFileType(const char* pattern, int patternLen, BOOL fo
                     }
                     if (*s >= 128)
                         nonAscii++;
-                    if (IsNotAlphaNorNum[*s]) // character is neither alpha nor numeric
+                    if (recognitionIsNotAlphaNorNum[*s]) // character is neither alpha nor numeric
                     {
                         if (*s == '?')
                         {
@@ -1076,7 +1106,7 @@ void CCodeTables::RecognizeFileType(const char* pattern, int patternLen, BOOL fo
                             }
                             if (!skipChar)
                             {
-                                if (s > (const unsigned char*)testBuf && !IsNotAlphaNorNum[*(s - 1)])
+                                if (s > (const unsigned char*)testBuf && !recognitionIsNotAlphaNorNum[*(s - 1)])
                                 {
                                     penalty += PENALTY_NOT_ALPHA_NOR_NUM_PENALTY_ADD1;
                                     // at least three identical characters preceded by alpha or num (frame corner is a letter - e.g. CP437 text and tested page in CP852)
@@ -1086,7 +1116,7 @@ void CCodeTables::RecognizeFileType(const char* pattern, int patternLen, BOOL fo
                                     }
                                 }
                                 penalty += PENALTY_NOT_ALPHA_NOR_NUM_PENALTY;
-                                if (s + 1 < end && !IsNotAlphaNorNum[*(s + 1)])
+                                if (s + 1 < end && !recognitionIsNotAlphaNorNum[*(s + 1)])
                                 {
                                     penalty += PENALTY_NOT_ALPHA_NOR_NUM_PENALTY_ADD2;
                                     // at least three identical characters followed by alpha or num (frame corner is a letter - e.g. CP437 text and tested page in CP852)
@@ -1100,22 +1130,22 @@ void CCodeTables::RecognizeFileType(const char* pattern, int patternLen, BOOL fo
                     }
                     else // character is alpha or numeric
                     {
-                        if (s + 1 < end && !IsNotAlphaNorNum[*(s + 1)]) // next character is also alpha or numeric
+                        if (s + 1 < end && !recognitionIsNotAlphaNorNum[*(s + 1)]) // next character is also alpha or numeric
                         {
                             int c1; // current character: 1 - lower, 2 - upper, 3 - digit
-                            if (!IsAlpha[*s])
+                            if (!recognitionIsAlpha[*s])
                                 c1 = 3;
                             else
-                                c1 = UpperCase[*s] == *s ? 2 : 1;
+                                c1 = recognitionIsUpper[*s] ? 2 : 1;
                             int c2; // next character: 1 - lower, 2 - upper, 3 - digit
-                            if (!IsAlpha[*(s + 1)])
+                            if (!recognitionIsAlpha[*(s + 1)])
                                 c2 = 3;
                             else
-                                c2 = UpperCase[*(s + 1)] == *(s + 1) ? 2 : 1;
+                                c2 = recognitionIsUpper[*(s + 1)] ? 2 : 1;
 
                             if (c1 == 2 && c2 == 1)
                             {
-                                if (s > (const unsigned char*)testBuf && IsAlpha[*(s - 1)])
+                                if (s > (const unsigned char*)testBuf && recognitionIsAlpha[*(s - 1)])
                                     penalty += PENALTY_UPPER_TO_LOWER; // the word "Úrok" would otherwise be re-encoded as MACCE (uppercase 'U' changes to lowercase 'r' in MACCE)
                             }
                             else

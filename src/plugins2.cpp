@@ -899,8 +899,9 @@ BOOL CPlugins::InitPluginMenuItemsForBar(HWND parent, int index, CMenuPopup* men
     if (menu->GetPopupID() != CML_PLUGINS_SUBMENU)
         TRACE_E("CPlugins::InitPluginMenuItemsForBar() internal warning: wrong menu ID in, imagelists will not be destroyed!");
     plugin->InitMenuItems(parent, index, menu);
-    menu->SetImageList(plugin->CreateImageList(TRUE), TRUE); // the imagelist is destroyed in CMainWindow::WindowProc / WM_USER_UNINITMENUPOPUP (menu must have ID CML_PLUGINS_SUBMENU)
-    menu->SetHotImageList(plugin->CreateImageList(FALSE), TRUE);
+    int pixelSize = GetIconSizeForDPI(ICONSIZE_16, (int)WinLibDPIGetWindowDPI(parent));
+    menu->SetImageList(plugin->CreateImageList(TRUE, pixelSize), TRUE); // the imagelist is destroyed in CMainWindow::WindowProc / WM_USER_UNINITMENUPOPUP (menu must have ID CML_PLUGINS_SUBMENU)
+    menu->SetHotImageList(plugin->CreateImageList(FALSE, pixelSize), TRUE);
     plugin->ReleasePluginDynMenuIcons(); // icons are in the menu image lists and this object is no longer needed (everything is obtained again when the menu shows next time)
     return TRUE;
 }
@@ -1094,8 +1095,9 @@ void CPlugins::InitSubMenuItems(HWND parent, CMenuPopup* submenu)
             if (submenu->GetPopupID() != CML_PLUGINS_SUBMENU)
                 TRACE_E("CPlugins::InitSubMenuItems() internal warning: wrong menu ID in, imagelists will not be destroyed!");
             p->InitMenuItems(parent, i, p->SubMenu);
-            submenu->SetImageList(p->CreateImageList(TRUE), TRUE); // the imagelist is destroyed in CMainWindow::WindowProc / WM_USER_UNINITMENUPOPUP (menu must have ID CML_PLUGINS_SUBMENU)
-            submenu->SetHotImageList(p->CreateImageList(FALSE), TRUE);
+            int pixelSize = GetIconSizeForDPI(ICONSIZE_16, (int)WinLibDPIGetWindowDPI(parent));
+            submenu->SetImageList(p->CreateImageList(TRUE, pixelSize), TRUE); // the imagelist is destroyed in CMainWindow::WindowProc / WM_USER_UNINITMENUPOPUP (menu must have ID CML_PLUGINS_SUBMENU)
+            submenu->SetHotImageList(p->CreateImageList(FALSE, pixelSize), TRUE);
             break;
         }
     }
@@ -1130,9 +1132,8 @@ BOOL CPlugins::HelpForMenuItem(HWND parent, int suid)
 HIMAGELIST
 CPlugins::CreateIconsList(BOOL gray, HWND dpiWindow)
 {
-    int iconSize = dpiWindow != NULL
-                       ? MulDiv(16, (int)WinLibDPIGetWindowDPI(dpiWindow), USER_DEFAULT_SCREEN_DPI)
-                       : GetIconSizeForSystemDPI(ICONSIZE_16);
+    int iconDPI = dpiWindow != NULL ? (int)WinLibDPIGetWindowDPI(dpiWindow) : GetSystemDPI();
+    int iconSize = GetIconSizeForDPI(ICONSIZE_16, iconDPI);
     HIMAGELIST hIL = ImageList_Create(iconSize, iconSize, GetImageListColorFlags() | ILC_MASK, 0, 1);
     if (hIL != NULL)
     {
@@ -1147,7 +1148,12 @@ CPlugins::CreateIconsList(BOOL gray, HWND dpiWindow)
                 if (p->PluginIconsGray == NULL)
                     iconList = p->PluginIcons;
                 HICON hIcon = iconList->GetIcon(p->PluginIconIndex, TRUE);
-                ImageList_AddIcon(hIL, hIcon);
+                HICON sizedIcon = hIcon != NULL ?
+                                      (HICON)CopyImage(hIcon, IMAGE_ICON, iconSize, iconSize, 0) :
+                                      NULL;
+                ImageList_AddIcon(hIL, sizedIcon != NULL ? sizedIcon : hIcon);
+                if (sizedIcon != NULL)
+                    HANDLES(DestroyIcon(sizedIcon));
                 HANDLES(DestroyIcon(hIcon));
             }
             else

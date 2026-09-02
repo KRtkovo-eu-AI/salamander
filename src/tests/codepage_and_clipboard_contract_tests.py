@@ -34,6 +34,20 @@ def main() -> None:
             "file-type recognition must reject false ISO-8859-1 scores for CP1250 text")
     require(recognize, "strcpy(codePage, Table->WinCodePage)",
             "false ISO-8859 detections must fall back to the Windows code page")
+    require(recognize, "GetStringTypeW(CT_CTYPE1, &character, 1, &type)",
+            "recognition must classify converted bytes in the target code page")
+    require(recognize, "Table->WinCodePageIdentifier",
+            "recognition must use the declared target code page")
+
+    preference = (ROOT / "src/codetbl_utils.cpp").read_text(encoding="utf-8")
+    require(preference, 'windowsCodePage != 1250 || _stricmp(recognizedCodePage, "CP852") != 0',
+            "CP852 typography override must remain restricted to CP1250")
+    require(preference, "quotePairs >= 2",
+            "CP852 override must require repeated balanced smart quotes")
+    require(preference, "quotePairs >= 1 && separators >= 2",
+            "CP852 override must accept combined quote and separator evidence")
+    require(preference, "separators >= 4",
+            "CP852 override must require repeated standalone separators")
 
     salshlib = (ROOT / "src/salshlib.cpp").read_text(encoding="utf-8")
     query = function_slice(

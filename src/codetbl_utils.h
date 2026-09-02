@@ -30,10 +30,10 @@ BOOL ConvertConversionTableText(const char* source, UINT sourceCodePage,
 BOOL ConvertLegacyViewerTextToWide(const char* source, int sourceLength,
                                    UINT sourceCodePage, std::wstring* destination);
 
-// ISO-8859 code pages reserve bytes 0x80..0x9F for C1 controls.  When those
-// bytes are letters in the configured Windows code page, the input is strong
-// evidence that it is already in that Windows code page and must not be
-// converted from ISO-8859.
+// ISO-8859 code pages reserve bytes 0x80..0x9F for C1 controls. When those
+// bytes are letters in the configured Windows code page, prefer that page. A
+// narrow CP1250-versus-CP852 rule also recognizes repeated structured Windows
+// typography without treating word-internal CP852 letters as punctuation.
 BOOL ShouldPreferWindowsCodePageText(const char* source, int sourceLength,
                                      UINT windowsCodePage,
                                      const char* recognizedCodePage);

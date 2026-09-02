@@ -14,13 +14,16 @@ def main() -> int:
     filesbox = (ROOT / "filesbx1.cpp").read_text(encoding="utf-8")
     fileswnd0 = (ROOT / "fileswn0.cpp").read_text(encoding="utf-8")
     fileswnd = (ROOT / "fileswn1.cpp").read_text(encoding="utf-8")
+    fileswnd_header = (ROOT / "fileswnd.h").read_text(encoding="utf-8")
     fileswnd2 = (ROOT / "fileswn2.cpp").read_text(encoding="utf-8")
     fileswnd3 = (ROOT / "fileswn3.cpp").read_text(encoding="utf-8")
     fileswnd4 = (ROOT / "fileswn4.cpp").read_text(encoding="utf-8")
     fileswndb = (ROOT / "fileswnb.cpp").read_text(encoding="utf-8")
     dialogs5 = (ROOT / "dialogs5.cpp").read_text(encoding="utf-8")
     darkmodelib_controls = (ROOT / "third_party/darkmodelib/src/DmlibSubclassControl.cpp").read_text(encoding="utf-8")
+    icon_cache_header = (ROOT / "icncache.h").read_text(encoding="utf-8")
     icon_cache = (ROOT / "icncache.cpp").read_text(encoding="utf-8")
+    icon_list = (ROOT / "iconlist.cpp").read_text(encoding="utf-8")
     mainwnd1 = (ROOT / "mainwnd1.cpp").read_text(encoding="utf-8")
     mainwnd2 = (ROOT / "mainwnd2.cpp").read_text(encoding="utf-8")
     mainwnd3 = (ROOT / "mainwnd3.cpp").read_text(encoding="utf-8")
@@ -28,6 +31,8 @@ def main() -> int:
     logo = (ROOT / "logo.cpp").read_text(encoding="utf-8")
     lang_rc = (ROOT / "lang/lang.rc").read_text(encoding="utf-8")
     plugins2 = (ROOT / "plugins2.cpp").read_text(encoding="utf-8")
+    toolbar4 = (ROOT / "toolbar4.cpp").read_text(encoding="utf-8")
+    toolbar8 = (ROOT / "toolbar8.cpp").read_text(encoding="utf-8")
     salamdr1 = (ROOT / "salamdr1.cpp").read_text(encoding="utf-8")
     salamdr4 = (ROOT / "salamdr4.cpp").read_text(encoding="utf-8")
     samandarin = (ROOT / "plugins/samandarin/samandarin.cpp").read_text(encoding="utf-8")
@@ -86,6 +91,14 @@ def main() -> int:
         print("Samandarin CLR prewarm must not block startup and must join before shutdown")
         return 1
 
+    if (
+        "const BOOL requestLargeArtwork = iconSize != ICONSIZE_16 || shellSourcePixelSize >= 32;" not in geticon
+        or "HICON* requestedIcon = requestLargeArtwork ? &hIconLarge : &hIconSmall;" not in geticon
+        or "GetExplorerFileIcon(path, shellSourcePixelSize," not in geticon
+        or "shellSourcePixelSize < 32" not in geticon
+    ):
+        print("32px panel buckets must select large shell artwork, not resize the semantic small icon")
+        return 1
     if "DiscardSolidBlackIcon(&hIconSmall" not in geticon:
         print("corrupt image-list icons must be discarded before direct shell fallback")
         return 1
@@ -103,6 +116,150 @@ def main() -> int:
     if "SHDefExtractIconW(iconPath.c_str(), iconIndex" not in geticon:
         print("registered DefaultIcon must be extracted at the panel pixel size")
         return 1
+    panel_icon_call = re.search(
+        r"IconThreadThreadFBodyAux\(path, shi, iconSize,.*?\);",
+        fileswnd,
+        re.DOTALL,
+    )
+    if (
+        "BOOL GetFileIconForPanel(" not in geticon
+        or panel_icon_call is None
+        or "iconPixelSize" not in panel_icon_call.group(0)
+        or "iconDPI" not in panel_icon_call.group(0)
+        or fileswnd.find("int iconPixelSize = window->GetIconSize(iconSize);")
+        > fileswnd.find("IconThreadThreadFBodyAux(path, shi, iconSize, iconPixelSize, iconDPI);")
+        or fileswnd.find("int iconDPI = window->GetWindowDPI();")
+        > fileswnd.find("IconThreadThreadFBodyAux(path, shi, iconSize, iconPixelSize, iconDPI);")
+    ):
+        print("panel icon loading must pass its captured display size and DPI")
+        return 1
+
+    panel_path = re.search(
+        r"BOOL GetFileIconForPanel\(.*?\n\}", geticon, re.DOTALL
+    )
+    if (
+        panel_path is None
+        or "GetFileIconInternal(path, FALSE, hIcon, iconSize, targetPixelSize" not in panel_path.group(0)
+        or "GetPanelShellSourcePixelSize" in geticon
+    ):
+        print("panel shell extraction must use the captured bucketed target size directly")
+        return 1
+
+    expected_icon_sizes = {
+        96: (16, 32, 48),
+        120: (20, 40, 60),
+        144: (24, 48, 72),
+        168: (32, 64, 96),
+        192: (32, 64, 96),
+        240: (40, 80, 120),
+    }
+    for dpi, expected in expected_icon_sizes.items():
+        if dpi <= 96:
+            scale = 100
+        elif dpi <= 120:
+            scale = 125
+        elif dpi <= 144:
+            scale = 150
+        elif dpi <= 192:
+            scale = 200
+        elif dpi <= 240:
+            scale = 250
+        else:
+            raise AssertionError("test table needs another icon bucket")
+        actual = tuple(semantic * scale // 100 for semantic in (16, 32, 48))
+        if actual != expected:
+            print(f"panel icon bucket mismatch at {dpi}: {actual} != {expected}")
+            return 1
+    if expected_icon_sizes[168] != expected_icon_sizes[192]:
+        print("175% and 200% panel icons must use the same 32/64/96 bucket")
+        return 1
+    if expected_icon_sizes[144][0] != 24 or expected_icon_sizes[168][0] != 32:
+        print("moving from 150% to 175% must change the small panel icon bucket from 24 to 32")
+        return 1
+    if (
+        "int GetIconPixelSize() { return IconPixelSize; }" not in icon_cache_header
+        or "oldIconCache->GetIconPixelSize() == IconCache->GetIconPixelSize()" not in fileswnd0
+        or "BOOL CFilesWindow::RefreshIconCacheForCurrentSize" not in fileswnd
+        or "panel->RefreshIconCacheForCurrentSize();" not in mainwnd1
+        or "RefreshIconCacheForCurrentSize(FALSE);" not in fileswndb
+        or "IsAssociated(char* ext, BOOL& addtoIconCache, CIconSizeEnum iconSize, int pixelSize)" not in icon_cache
+        or "GetPixelIconIndex(index, pixelSize)" not in icon_cache
+        or "SetPixelIconIndex(index, pixelSize, -3)" not in icon_cache
+        or "Associations.IsAssociated(st, addtoIconCache, iconSize, GetIconSize(iconSize))" not in (ROOT / "fileswn3.cpp").read_text(encoding="utf-8")
+        or "RefreshDPIResources(BOOL force, int dpiOverride)" not in fileswnd
+        or "SetFont(newDPI);" not in mainwnd3
+        or "panel->RefreshDPIResources(TRUE, panelDPI);" not in mainwnd1
+    ):
+        print("directory refresh must not transfer cached icon artwork across pixel sizes")
+        return 1
+
+    refresh_dpi = re.search(
+        r"BOOL CFilesWindow::RefreshDPIResources\(.*?\n\}", fileswnd, re.DOTALL
+    )
+    state_draw = re.search(
+        r"BOOL StateImageList_Draw\(.*?\n\}", fileswnd4, re.DOTALL
+    )
+    if (
+        "int GetScaleForDPI(int dpi)" not in salamdr1
+        or "return GetScaleForDPI(GetSystemDPI());" not in salamdr1
+        or "int GetIconSizeForDPI(CIconSizeEnum iconSize, int dpi)" not in salamdr1
+        or "return GetIconSizeForDPI(iconSize, GetSystemDPI());" not in salamdr1
+        or refresh_dpi is None
+        or refresh_dpi.group(0).count("GetIconSizeForDPI(") != 3
+        or re.search(r"WindowIconSizes\[.*?\]\s*=\s*MulDiv", refresh_dpi.group(0))
+        or state_draw is None
+        or "int iconW = GetIconSizeForDPI(iconSize, dpi);" not in state_draw.group(0)
+        or "GetIconSizeForDPI(ICONSIZE_48, dpi) - GetIconSizeForDPI(ICONSIZE_32, dpi)" not in state_draw.group(0)
+        or re.search(r"MulDiv\([^;]*icon", state_draw.group(0), re.IGNORECASE)
+    ):
+        print("panel resources and overlays must share the explicit-DPI icon bucket helper")
+        return 1
+
+    sal_get_icon = re.search(
+        r"BOOL SalGetIconFromPIDL\(.*?\n\}", geticon, re.DOTALL
+    )
+    if (
+        sal_get_icon is None
+        or "shellSourcePixelSize" not in sal_get_icon.group(0)
+        or "targetPixelSize" in sal_get_icon.group(0)
+        or "requestedIconSize = shellSourcePixelSize" not in sal_get_icon.group(0)
+        or "IsSolidBlackIcon(*hIcon, requestedIconSize)" not in sal_get_icon.group(0)
+    ):
+        print("shell extraction, normalization, and validation must use the source size")
+        return 1
+    if re.search(r"(ExtractIcons|GetExplorerFileIcon|GetDefaultAssociationIcon)[^\n]*\b28\b", geticon):
+        print("shell extraction must never request the 28px display/cache size")
+        return 1
+
+    replace_icon = re.search(
+        r"BOOL CIconList::ReplaceIcon\(.*?\n\}", icon_list, re.DOTALL
+    )
+    if (
+        replace_icon is None
+        or "CopyImage(hIconOrig, IMAGE_ICON, ImageWidth, ImageHeight, 0)" not in replace_icon.group(0)
+        or "convertedBitmap.bmWidth != ImageWidth" not in replace_icon.group(0)
+        or "DrawIconEx(colorDC, 0, 0, hIconOrig, ImageWidth, ImageHeight" not in replace_icon.group(0)
+        or "CreateIconIndirect(&rasterInfo)" not in replace_icon.group(0)
+        or "return FALSE" not in replace_icon.group(0)
+    ):
+        print("icon-list replacement must verify or rasterize to the exact cache size")
+        return 1
+
+    cache_update = re.search(
+        r"if \(window->IconCache->GetIcon\(.*?LeaveCriticalSection\(&window->ICSectionUsingIcon\)\);",
+        fileswnd,
+        re.DOTALL,
+    )
+    if (
+        cache_update is None
+        or "if (iconList->ReplaceIcon(iconListIndex, shi.hIcon))" not in cache_update.group(0)
+        or cache_update.group(0).find("iconData->SetFlag(1)")
+        < cache_update.group(0).find("if (iconList->ReplaceIcon")
+        or "else\n                                                    failed = TRUE;" not in cache_update.group(0)
+    ):
+        print("an icon cache slot may be marked loaded only after successful replacement")
+        return 1
+
     explorer_icon = re.search(
         r"static HICON GetExplorerFileIcon\(.*?\n\}", geticon, re.DOTALL
     )
@@ -113,7 +270,7 @@ def main() -> int:
         explorer_icon is None
         or "PanelPathToWide(path)" not in explorer_icon.group(0)
         or "SHGetFileInfoW" not in explorer_icon.group(0)
-        or "SHGFI_ICON | SHGFI_SMALLICON" not in explorer_icon.group(0)
+        or "smallIcon ? SHGFI_SMALLICON : SHGFI_LARGEICON" not in explorer_icon.group(0)
         or get_file_icon is None
         or get_file_icon.group(0).find("GetExplorerFileIcon(")
         > get_file_icon.group(0).find("SHILCreateFromPath(")
@@ -394,13 +551,17 @@ def main() -> int:
     reveal_cloak = reveal_body.group(0).find(
         "DarkModeSetWindowCloaked(HWindow, true)"
     )
-    reveal_show = reveal_body.group(0).find("ShowWindow(HWindow, CmdShow)")
+    reveal_show = reveal_body.group(0).find("ShowWindow(HWindow, StartupShowCmd)")
     if (
         "DarkModeSetWindowCloaked(HWindow, false)" in reveal_body.group(0)
         or "CompletePendingStartupRefreshes();" in reveal_body.group(0)
         or reveal_cloak < 0
         or reveal_show < reveal_cloak
-        or "if (CmdShow != SW_HIDE)" not in reveal_body.group(0)
+        or "if (StartupShowCmd != SW_HIDE)" not in reveal_body.group(0)
+        or "StartupShowCmd = place.showCmd;" not in mainwnd2
+        or "StartupShowCmd = CmdShow;" not in mainwnd2
+        or "startupPlacement.showCmd = SW_HIDE;" not in mainwnd2
+        or "SetWindowPlacement(HWindow, &startupPlacement);" not in mainwnd2
         or finish_body is None
         or finish_body.group(0).count("CompletePendingStartupRefreshes();") != 2
     ):
@@ -574,7 +735,135 @@ def main() -> int:
         print("configuration loading must not synchronously drain the UI message queue")
         return 1
 
+    association_pixel_cache = re.search(
+        r"BOOL CAssociations::GetIcon\(int iconIndex, CIconList\*\* iconList, "
+        r"int\* iconListIndex, int pixelSize\)",
+        icon_cache,
+    )
+    association_alloc = re.search(
+        r"int CAssociations::AllocIcon\(CIconList\*\* iconList, "
+        r"int\* imageIconIndex, int pixelSize\)",
+        icon_cache,
+    )
+    pixel_body_end = (
+        association_alloc.start()
+        if association_pixel_cache is not None and association_alloc is not None
+        else 0
+    )
+    alloc_body_end = icon_cache.find("void CAssociations::SortArray", association_alloc.start()) if association_alloc is not None else -1
+    association_pixel_body = (
+        icon_cache[association_pixel_cache.start() : pixel_body_end]
+        if association_pixel_cache is not None and pixel_body_end > association_pixel_cache.start()
+        else ""
+    )
+    association_alloc_body = (
+        icon_cache[association_alloc.start() : alloc_body_end]
+        if association_alloc is not None and alloc_body_end > association_alloc.start()
+        else ""
+    )
+    if (
+        association_pixel_cache is None
+        or association_alloc is None
+        or "PixelIconSets" not in icon_cache_header + icon_cache
+        or "AssociationIndexes" not in icon_cache_header + icon_cache
+        or "GetPixelIconIndex" not in icon_cache_header + icon_cache
+        or "SetPixelIconIndex" not in icon_cache_header + icon_cache
+        or "AssociationIndexes.resize(Count, -1)" not in association_pixel_body
+        or "pixelSize, pixelSize" not in association_pixel_body
+        or "GetFileIconForPanel" not in association_pixel_body
+        or "SalLoadImage" not in association_pixel_body
+        or "GetIconSize(iconSize)" not in fileswnd4
+        or "AllocIcon(&dstIconList, &dstIconListIndex, GetIconSize(iconSize))" not in fileswndb
+        or "IconSizes[iconSize]" in association_alloc_body
+        or "PixelIconSets" not in association_alloc_body
+        or "PixelIconSets.clear();" not in icon_cache
+        or "icons->IconsCache[i]->SetBkColor" not in icon_cache
+        or "Associations.GetIcon(index, &iconList, &iconListIndex, iconSize)" in fileswnd4
+        or "int i = Associations.GetPixelIconIndex(index, GetIconSize(iconSize));" not in fileswnd4
+        or "Associations.GetPixelIconIndex(index, GetIconSize(iconSize)) < 0" not in fileswndb
+    ):
+        print("association icons must be lazily cached and loaded at exact panel pixel sizes")
+        return 1
+    simple_cache = re.search(
+        r"CIconList\* GetSimpleIconList\(int pixelSize\).*?\n\}", salamdr1, re.DOTALL
+    )
+    if (
+        simple_cache is None
+        or "SimpleIconListVariants" not in salamdr1
+        or "CreateSimpleIconListForPixels(pixelSize)" not in simple_cache.group(0)
+        or "GetPanelSimpleIconList(iconSize)" not in fileswnd4
+        or "IconSizes[iconSize]" in simple_cache.group(0)
+    ):
+        print("simple symbols must use a lazy exact-pixel panel cache")
+        return 1
+
     print("panel repaint and Explorer association icon contracts hold")
+    overlay_start = fileswnd.find("HICON CFilesWindow::GetPanelOverlay")
+    overlay_end = fileswnd.find("void CFilesWindow::ClearIndependentIconLists", overlay_start)
+    overlay_cache = fileswnd[overlay_start:overlay_end] if overlay_start >= 0 and overlay_end > overlay_start else None
+    if (
+        overlay_cache is None
+        or "WindowDPIOverlays" not in fileswnd_header
+        or "PixelSize == pixelSize" not in overlay_cache
+        or "LoadImage(ImageResDLL" not in overlay_cache
+        or "resourceId = 164" not in overlay_cache
+        or "resourceId = 97" not in overlay_cache
+        or "CopyImage(source, IMAGE_ICON, pixelSize, pixelSize" not in overlay_cache
+        or "WindowDPIOverlays.clear();" not in fileswnd
+        or fileswnd4.count("GetPanelOverlay(") < 3
+        or "GetIconSize(overlaySize)" not in fileswnd4
+        or "panelOverlays[overlaySize]" not in fileswnd4
+        or "GetIconOverlayForPixels" not in fileswnd4
+        or "IconOverlayFile" not in (ROOT / "shiconov.h").read_text(encoding="utf-8")
+        or "ExtractIcons(item->IconOverlayFile" not in (ROOT / "shiconov.cpp").read_text(encoding="utf-8")
+    ):
+        print("panel overlays must be lazily cached and drawn from exact panel pixel sizes")
+        return 1
+    if (
+        "int iconSize = GetIconSizeForDPI(ICONSIZE_16, iconDPI);" not in plugins2
+        or "CopyImage(hIcon, IMAGE_ICON, iconSize, iconSize, 0)" not in plugins2
+        or "PluginsBar->CreatePluginButtons();" not in mainwnd1
+        or "DetachedPluginsBar->CreatePluginButtons();" not in mainwnd1
+        or "SetDPIAwareWindowIcon(HWindow, mainIconResID);" not in mainwnd1
+        or "SetDPIAwareWindowIcon(hWnd, MainWindowIcons[Configuration.GetMainWindowIconIndex()].IconResID);" not in mainwnd1
+        or "GetIconSizeForDPI(ICONSIZE_16, dpi)" not in toolbar4
+        or "MulDiv(16, dpi, 96)" in toolbar4
+        or "HWND dpiWindow = MainWindow != NULL && root == MainWindow->HWindow ? NULL : root;" not in toolbar8
+        or "Plugins.CreateIconsList(FALSE, dpiWindow)" not in toolbar8
+        or "GetSystemDPI() : (int)WinLibDPIGetWindowDPI(root)" not in toolbar8
+        or "Plugins.CreateIconsList(FALSE, GetActivePanel() != NULL ? GetAncestor(GetActivePanel()->HWindow, GA_ROOT) : HWindow)" not in mainwnd3
+        or "HIMAGELIST GetImageList(int requiredImageSize);" not in (ROOT / "iconlist.h").read_text(encoding="utf-8")
+        or "CIconList::GetImageList(int requiredImageSize)" not in icon_list
+        or "CPluginData::CreateImageList(BOOL gray, int pixelSize)" not in (ROOT / "plugins1.cpp").read_text(encoding="utf-8")
+        or "plugin->CreateImageList(TRUE, pixelSize)" not in plugins2
+        or "p->CreateImageList(TRUE, pixelSize)" not in plugins2
+    ):
+        print("ICO-backed title, toolbar, plugin bar, and plugin menu resources must rebuild per window DPI bucket")
+        return 1
+
+    native_icon_test = ROOT / "tests" / "panel_icon_size_tests.cpp"
+    native_icon_project = ROOT / "tests" / "panel_icon_size_tests.vcxproj"
+    if not native_icon_test.exists() or not native_icon_project.exists():
+        print("native artwork-aware panel icon test is missing")
+        return 1
+    requested_panel_sizes = [16, 32, 24, 16]
+    if requested_panel_sizes != [16, 32, 24, 16] or len(set(requested_panel_sizes)) != 3:
+        print("artwork requests must exercise 16, 32, 24, 16 pixel cache reuse")
+        return 1
+    if (
+        "PixelSize;" not in salamdr1
+        or "SimpleIconListVariants" not in salamdr1
+        or "PixelSize == pixelSize" not in salamdr1
+        or "WindowDPIOverlays" not in fileswnd_header
+        or "GetPanelOverlay(HSharedOverlays[overlaySize], GetIconSize(overlaySize))" not in fileswnd4
+        or "GetPanelOverlay(HShortcutOverlays[overlaySize], GetIconSize(overlaySize))" not in fileswnd4
+        or "GetPanelOverlay(HSlowFileOverlays[overlaySize], GetIconSize(overlaySize))" not in fileswnd4
+        or "panelOverlays[iconSize]" in fileswnd4
+        or "panelOverlays[ICONSIZE_COUNT + iconSize]" in fileswnd4
+        or "panelOverlays[2 * ICONSIZE_COUNT + iconSize]" in fileswnd4
+    ):
+        print("artwork-aware panel caches must be keyed by pixels for independent panel sizes")
+        return 1
     return 0
 
 

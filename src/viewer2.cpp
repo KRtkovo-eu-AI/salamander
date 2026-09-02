@@ -40,16 +40,19 @@ static std::wstring ViewerPathToWide(const char* path)
 
 static HANDLE OpenViewerFileForRead(const std::wstring& fileNameW, const char* fileName)
 {
-    if (!fileNameW.empty())
+    std::wstring ioName = fileNameW;
+    if (ioName.empty() && fileName != NULL)
+        ioName = ViewerPathToWide(fileName);
+    if (ioName.empty())
     {
-        std::wstring ioName = fileNameW;
-        if (ioName.length() >= MAX_PATH && !SalIsExtendedLengthPathW(ioName.c_str()))
-            ioName = SalPathAddExtendedPrefixW(ioName.c_str());
-        return HANDLES_Q(CreateFileW(ioName.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                                     OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+        SetLastError(ERROR_INVALID_NAME);
+        return INVALID_HANDLE_VALUE;
     }
-    return HANDLES_Q(CreateFile(fileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                                OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+    if (ioName.length() >= MAX_PATH && !SalIsExtendedLengthPathW(ioName.c_str()))
+        ioName = SalPathAddExtendedPrefixW(ioName.c_str());
+    return HANDLES_Q(CreateFileW(ioName.c_str(), GENERIC_READ,
+                                 FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                                 OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
 }
 
 void ThreadViewerMessageLoopBodyAux()
@@ -338,11 +341,181 @@ void CViewerWindow::SetLogViewMode(BOOL enable)
     LogViewMode = enable;
     if (LogViewMode)
     {
-        SetTimer(HWindow, IDT_LOGVIEWREFRESH, 1000, NULL);
+        StartLogViewWatcher();
         RefreshLogView();
     }
     else
-        KillTimer(HWindow, IDT_LOGVIEWREFRESH);
+    {
+        CancelLogViewRetry();
+        StopLogViewWatcher();
+    }
+}
+
+void CViewerWindow::ScheduleLogViewRetry()
+{
+    if (!LogViewRetryScheduled && LogViewMode)
+    {
+        if (SetTimer(HWindow, IDT_LOGVIEWRETRY, 200, NULL) != 0)
+            LogViewRetryScheduled = TRUE;
+    }
+}
+
+void CViewerWindow::CancelLogViewRetry()
+{
+    if (LogViewRetryScheduled)
+    {
+        KillTimer(HWindow, IDT_LOGVIEWRETRY);
+        LogViewRetryScheduled = FALSE;
+    }
+}
+
+void CViewerWindow::StartLogViewWatcher()
+{
+    StopLogViewWatcher();
+    if (!LogViewMode || FileName == NULL || FileNameW.empty())
+        return;
+
+    size_t separator = FileNameW.find_last_of(L"\\/");
+    if (separator == std::wstring::npos)
+        return;
+
+    LogViewDirectoryW = FileNameW.substr(0, separator);
+    if (LogViewDirectoryW.size() == 2 && LogViewDirectoryW[1] == L':')
+        LogViewDirectoryW += L'\\';
+    LogViewFileNameW = FileNameW.substr(separator + 1);
+    if (LogViewDirectoryW.empty() || LogViewFileNameW.empty())
+        return;
+
+    LogViewStopEvent = HANDLES(CreateEvent(NULL, TRUE, FALSE, NULL));
+    if (LogViewStopEvent == NULL)
+        return;
+
+    DWORD threadID = 0;
+    LogViewWatcherThread = HANDLES(CreateThread(NULL, 0, LogViewWatcherThreadProc,
+                                                this, 0, &threadID));
+    if (LogViewWatcherThread == NULL)
+    {
+        HANDLES(CloseHandle(LogViewStopEvent));
+        LogViewStopEvent = NULL;
+    }
+}
+
+void CViewerWindow::StopLogViewWatcher()
+{
+    if (LogViewStopEvent != NULL)
+        SetEvent(LogViewStopEvent);
+    if (LogViewWatcherThread != NULL)
+    {
+        WaitForSingleObject(LogViewWatcherThread, INFINITE);
+        HANDLES(CloseHandle(LogViewWatcherThread));
+        LogViewWatcherThread = NULL;
+    }
+    if (LogViewStopEvent != NULL)
+    {
+        HANDLES(CloseHandle(LogViewStopEvent));
+        LogViewStopEvent = NULL;
+    }
+    LogViewDirectoryW.clear();
+    LogViewFileNameW.clear();
+}
+
+DWORD WINAPI CViewerWindow::LogViewWatcherThreadProc(LPVOID param)
+{
+    CViewerWindow* view = static_cast<CViewerWindow*>(param);
+    const std::wstring directory = view->LogViewDirectoryW;
+    const std::wstring fileName = view->LogViewFileNameW;
+    HANDLE stopEvent = view->LogViewStopEvent;
+
+    std::wstring ioDirectory = directory;
+    if (ioDirectory.length() >= MAX_PATH && !SalIsExtendedLengthPathW(ioDirectory.c_str()))
+        ioDirectory = SalPathAddExtendedPrefixW(ioDirectory.c_str());
+
+    HANDLE directoryHandle = HANDLES_Q(CreateFileW(
+        ioDirectory.c_str(), FILE_LIST_DIRECTORY,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
+        OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, NULL));
+    if (directoryHandle == INVALID_HANDLE_VALUE)
+        return 0;
+
+    HANDLE notificationEvent = HANDLES_Q(CreateEvent(NULL, TRUE, FALSE, NULL));
+    if (notificationEvent == NULL)
+    {
+        HANDLES(CloseHandle(directoryHandle));
+        return 0;
+    }
+
+    const DWORD watcherBufferSize = 64 * 1024;
+    BYTE* buffer = (BYTE*)malloc(watcherBufferSize);
+    if (buffer == NULL)
+    {
+        HANDLES(CloseHandle(notificationEvent));
+        HANDLES(CloseHandle(directoryHandle));
+        return 0;
+    }
+    OVERLAPPED overlapped = {};
+    overlapped.hEvent = notificationEvent;
+    const DWORD notifyFilter = FILE_NOTIFY_CHANGE_FILE_NAME |
+                                FILE_NOTIFY_CHANGE_SIZE |
+                                FILE_NOTIFY_CHANGE_LAST_WRITE |
+                                FILE_NOTIFY_CHANGE_ATTRIBUTES;
+
+    while (WaitForSingleObject(stopEvent, 0) != WAIT_OBJECT_0)
+    {
+        ResetEvent(notificationEvent);
+        DWORD bytesReturned = 0;
+        BOOL readStarted = ReadDirectoryChangesW(
+            directoryHandle, buffer, watcherBufferSize, FALSE,
+            notifyFilter, &bytesReturned, &overlapped, NULL);
+        if (!readStarted && GetLastError() != ERROR_IO_PENDING)
+            break;
+
+        HANDLE waitHandles[2] = {stopEvent, notificationEvent};
+        DWORD waitResult = WaitForMultipleObjects(2, waitHandles, FALSE, INFINITE);
+        if (waitResult == WAIT_OBJECT_0)
+        {
+            CancelIoEx(directoryHandle, &overlapped);
+            WaitForSingleObject(notificationEvent, INFINITE);
+            break;
+        }
+        if (waitResult != WAIT_OBJECT_0 + 1)
+            break;
+
+        DWORD transferred = 0;
+        if (!GetOverlappedResult(directoryHandle, &overlapped, &transferred, FALSE))
+            break;
+
+        BOOL fileChanged = transferred == 0; // the buffer overflowed; refresh conservatively
+        BYTE* cursor = buffer;
+        BYTE* end = cursor + transferred;
+        while (!fileChanged && cursor + sizeof(FILE_NOTIFY_INFORMATION) <= end)
+        {
+            FILE_NOTIFY_INFORMATION* info =
+                reinterpret_cast<FILE_NOTIFY_INFORMATION*>(cursor);
+            const size_t nameLength = info->FileNameLength / sizeof(WCHAR);
+            const size_t remaining = static_cast<size_t>(end - cursor);
+            if (info->FileNameLength <= remaining - FIELD_OFFSET(FILE_NOTIFY_INFORMATION, FileName) &&
+                nameLength == fileName.length() &&
+                _wcsnicmp(info->FileName, fileName.c_str(), nameLength) == 0)
+            {
+                fileChanged = TRUE;
+            }
+            if (info->NextEntryOffset == 0)
+                break;
+            if (info->NextEntryOffset > static_cast<DWORD>(remaining) ||
+                info->NextEntryOffset < FIELD_OFFSET(FILE_NOTIFY_INFORMATION, FileName))
+                break;
+            cursor += info->NextEntryOffset;
+        }
+
+        if (fileChanged)
+            PostMessage(view->HWindow, WM_USER_VIEWERLOGCHANGE, 0, 0);
+    }
+
+    CancelIoEx(directoryHandle, &overlapped);
+    free(buffer);
+    HANDLES(CloseHandle(notificationEvent));
+    HANDLES(CloseHandle(directoryHandle));
+    return 0;
 }
 
 void CViewerWindow::RefreshLogView()
@@ -350,11 +523,30 @@ void CViewerWindow::RefreshLogView()
     if (MouseDrag || FileName == NULL)
         return;
 
+    HANDLE file = OpenViewerFileForRead(FileNameW, FileName);
+    if (file == INVALID_HANDLE_VALUE)
+    {
+        DWORD err = GetLastError();
+        if (err == ERROR_SHARING_VIOLATION || err == ERROR_LOCK_VIOLATION)
+        {
+            ScheduleLogViewRetry();
+            return;
+        }
+
+        BOOL fatalErr = FALSE;
+        SetLastError(err);
+        FileChanged(file, FALSE, fatalErr, FALSE);
+        if (fatalErr)
+            FatalFileErrorOccured();
+        return;
+    }
+
     ExitTextMode = FALSE;
     ForceTextMode = FALSE;
 
     BOOL fatalErr = FALSE;
-    FileChanged(NULL, FALSE, fatalErr, FALSE);
+    FileChanged(file, FALSE, fatalErr, FALSE);
+    HANDLES(CloseHandle(file));
     if (fatalErr)
         FatalFileErrorOccured();
     if (fatalErr || ExitTextMode)
@@ -373,6 +565,7 @@ void CViewerWindow::RefreshLogView()
     ResetFindOffsetOnNextPaint = TRUE;
     InvalidateRect(HWindow, NULL, FALSE);
     UpdateWindow(HWindow);
+    CancelLogViewRetry();
 }
 
 __int64
@@ -760,6 +953,8 @@ void CViewerWindow::HeightChanged(BOOL& fatalErr)
 void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCaption)
 {
     CALL_STACK_MESSAGE3("CViewerWindow::OpenFile(%s, %s)", file, caption);
+    CancelLogViewRetry();
+    StopLogViewWatcher();
     char fileName[SAL_MAX_PATH];
     lstrcpyn(fileName, file, SAL_MAX_PATH);
 
@@ -808,6 +1003,8 @@ void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCa
         SetViewerCaption();
     InvalidateRect(HWindow, NULL, FALSE);
     UpdateWindow(HWindow);
+    if (LogViewMode)
+        StartLogViewWatcher();
     CanSwitchQuietlyToHex = FALSE;
 }
 
@@ -816,6 +1013,11 @@ void CViewerWindow::OpenFileW(const wchar_t* file, const char* caption, BOOL who
     std::string fileA = SalWideToMultiBytePath(file, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
     OpenFile(fileA.c_str(), caption, wholeCaption);
     FileNameW = file != NULL ? file : L"";
+    if (LogViewMode)
+    {
+        StopLogViewWatcher();
+        StartLogViewWatcher();
+    }
 }
 
 void CViewerWindow::ReleaseMouseDrag()

@@ -1,7 +1,9 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
+
+#include <vector>
 
 //
 // ****************************************************************************
@@ -156,6 +158,7 @@ public:
 
     void SetIconSize(CIconSizeEnum iconSize, int iconPixelSize = 0);
     CIconSizeEnum GetIconSize() { return IconSize; }
+    int GetIconPixelSize() { return IconPixelSize; }
 
 protected:
     // jen pro interni pouziti
@@ -246,10 +249,18 @@ public:
     }
 };
 
+struct CAssociationsPixelIconSet
+{
+    int PixelSize;
+    CAssociationsIcons* Icons;
+    std::vector<int> AssociationIndexes; // association record index -> pixel-cache icon index
+};
+
 class CAssociations : public TDirectArray<CAssociationData>
 {
 protected:
     CAssociationsIcons Icons[ICONSIZE_COUNT];
+    std::vector<CAssociationsPixelIconSet> PixelIconSets;
 
 public:
     CAssociations();
@@ -273,10 +284,15 @@ public:
     // jinak 'iconList' vraci ukazatel na CIconList, ktery nese ikonu a 'iconListIndex'
     // je index v ramci tohoto imagelistu.
     int AllocIcon(CIconList** iconList, int* imageIconIndex, CIconSizeEnum iconSize);
+    int AllocIcon(CIconList** iconList, int* imageIconIndex, int pixelSize);
 
     // vrati v 'iconList' ukazatel na IconList a v 'iconListIndex' pozici ikonky
     // 'iconIndex' (vracene z AllocIcon);
     BOOL GetIcon(int iconIndex, CIconList** iconList, int* iconListIndex, CIconSizeEnum iconSize);
+    BOOL GetIcon(int iconIndex, CIconList** iconList, int* iconListIndex, int pixelSize);
+    int GetPixelIconIndex(int associationIndex, int pixelSize);
+    BOOL SetPixelIconIndex(int associationIndex, int pixelSize, int iconIndex);
+    void ResetLoadingPixelIconIndexes(int pixelSize);
 
     // musi prekreslit zakladni sadu ikon s novym pozadim
     void ColorsChanged();
@@ -284,8 +300,8 @@ public:
     void ReadAssociations(BOOL showWaitWnd);
 
     // ext musi byt zarovnan po DWORDech
-    BOOL IsAssociated(char* ext, BOOL& addtoIconCache, CIconSizeEnum iconSize);
-    BOOL IsAssociatedStatic(char* ext, const char*& iconLocation, CIconSizeEnum iconSize);
+    BOOL IsAssociated(char* ext, BOOL& addtoIconCache, CIconSizeEnum iconSize, int pixelSize);
+    BOOL IsAssociatedStatic(char* ext, const char*& iconLocation, CIconSizeEnum iconSize, int pixelSize);
     BOOL IsAssociated(char* ext);
 
 protected:

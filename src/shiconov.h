@@ -1,8 +1,10 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
+
+#include <vector>
 
 void InitShellIconOverlays();
 void ReleaseShellIconOverlays();
@@ -30,7 +32,15 @@ struct CShellIconOverlayItem
     IShellIconOverlayIdentifier* Identifier; // IShellIconOverlayIdentifier object, NOTE: can only be used in the main thread
     CLSID IconOverlayIdCLSID;                // CLSID of the respective IShellIconOverlayIdentifier object
     int Priority;                            // priority of this icon overlay (0-100, the highest priority is zero)
-    HICON IconOverlay[ICONSIZE_COUNT];       // icon overlay in all sizes
+    HICON IconOverlay[ICONSIZE_COUNT];       // compatibility icons in semantic sizes
+    char IconOverlayFile[SAL_MAX_PATH];      // source file used for exact-size extraction
+    int IconOverlayFileIndex;
+    struct CPixelIcon
+    {
+        int PixelSize;
+        HICON Icon;
+    };
+    std::vector<CPixelIcon> PixelIcons;
     BOOL GoogleDriveOverlay;                 // TRUE = Google Drive handler (their handler crashes, so we handle it with extra synchronization)
 
     void Cleanup();
@@ -83,6 +93,7 @@ public:
     {
         return Overlays[iconOverlayIndex]->IconOverlay[iconSize];
     }
+    HICON GetIconOverlayForPixels(int iconOverlayIndex, int pixelSize);
 
     // called when the display color depth changes, all overlay icons have to be reloaded
     // NOTE: can only be called from the main thread

@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -897,6 +897,15 @@ void CAssociations::Release()
     DestroyMembers();
     for (i = 0; i < ICONSIZE_COUNT; i++)
         Icons[i].IconsCount = 0;
+    for (size_t j = 0; j < PixelIconSets.size(); ++j)
+    {
+        if (PixelIconSets[j].Icons != NULL)
+        {
+            PixelIconSets[j].Icons->IconsCache.DestroyMembers();
+            delete PixelIconSets[j].Icons;
+        }
+    }
+    PixelIconSets.clear();
 }
 
 void CAssociations::Destroy()
@@ -931,7 +940,17 @@ void CAssociations::ColorsChanged()
     // FIXME: stacilo by nastavovat pozadi pouze pro patricny iconlist
     int i;
     for (i = 0; i < ICONSIZE_COUNT; i++)
-        SimpleIconLists[i]->SetBkColor(bkColor);
+        if (SimpleIconLists[i] != NULL)
+            SimpleIconLists[i]->SetBkColor(bkColor);
+    for (size_t j = 0; j < PixelIconSets.size(); ++j)
+    {
+        CAssociationsIcons* icons = PixelIconSets[j].Icons;
+        if (icons == NULL)
+            continue;
+        for (i = 0; i < icons->IconsCache.Count; ++i)
+            if (icons->IconsCache[i] != NULL)
+                icons->IconsCache[i]->SetBkColor(bkColor);
+    }
 }
 
 BOOL CAssociations::GetIndex(const char* name, int& index)
@@ -1048,6 +1067,179 @@ BOOL CAssociations::GetIcon(int iconIndex, CIconList** iconList, int* iconListIn
         TRACE_E("Incorrect call to CAssociations::GetIcon.");
         return FALSE;
     }
+}
+
+static CAssociationsPixelIconSet* FindAssociationPixelSet(std::vector<CAssociationsPixelIconSet>& sets, int pixelSize)
+{
+    for (size_t i = 0; i < sets.size(); ++i)
+        if (sets[i].PixelSize == pixelSize)
+            return &sets[i];
+    return NULL;
+}
+
+int CAssociations::GetPixelIconIndex(int associationIndex, int pixelSize)
+{
+    if (associationIndex < 0 || pixelSize <= 0)
+        return -1;
+    CAssociationsPixelIconSet* set = FindAssociationPixelSet(PixelIconSets, pixelSize);
+    if (set == NULL || associationIndex >= (int)set->AssociationIndexes.size())
+        return -1;
+    return set->AssociationIndexes[associationIndex];
+}
+
+BOOL CAssociations::SetPixelIconIndex(int associationIndex, int pixelSize, int iconIndex)
+{
+    if (associationIndex < 0 || pixelSize <= 0 || iconIndex < -3)
+        return FALSE;
+    CAssociationsPixelIconSet* set = FindAssociationPixelSet(PixelIconSets, pixelSize);
+    if (set == NULL)
+    {
+        CIconList* iconList;
+        int iconListIndex;
+        if (!GetIcon(ASSOC_ICON_NO_ASSOC, &iconList, &iconListIndex, pixelSize))
+            return FALSE;
+        set = FindAssociationPixelSet(PixelIconSets, pixelSize);
+    }
+    if (set == NULL)
+        return FALSE;
+    if (associationIndex >= (int)set->AssociationIndexes.size())
+    {
+        try { set->AssociationIndexes.resize(associationIndex + 1, -1); }
+        catch (...) { return FALSE; }
+    }
+    set->AssociationIndexes[associationIndex] = iconIndex;
+    return TRUE;
+}
+
+void CAssociations::ResetLoadingPixelIconIndexes(int pixelSize)
+{
+    CAssociationsPixelIconSet* set = FindAssociationPixelSet(PixelIconSets, pixelSize);
+    if (set == NULL)
+        return;
+    for (size_t i = 0; i < set->AssociationIndexes.size(); ++i)
+        if (set->AssociationIndexes[i] == -3)
+            set->AssociationIndexes[i] = -1;
+}
+
+BOOL CAssociations::GetIcon(int iconIndex, CIconList** iconList, int* iconListIndex, int pixelSize)
+{
+    CALL_STACK_MESSAGE2("CAssociations::GetIcon(%d, , pixels)", iconIndex);
+    if (pixelSize <= 0 || iconIndex < 0)
+        return FALSE;
+    CAssociationsPixelIconSet* set = FindAssociationPixelSet(PixelIconSets, pixelSize);
+    if (set == NULL)
+    {
+#ifdef new
+#undef new
+#define RESTORE_PIXEL_ASSOCIATION_NEW_MACRO
+#endif
+        CAssociationsIcons* icons = new (std::nothrow) CAssociationsIcons();
+#ifdef RESTORE_PIXEL_ASSOCIATION_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_PIXEL_ASSOCIATION_NEW_MACRO
+#endif
+        if (icons == NULL)
+            return FALSE;
+#ifdef new
+#undef new
+#define RESTORE_PIXEL_ASSOCIATION_LIST_NEW_MACRO
+#endif
+        CIconList* list = new (std::nothrow) CIconList();
+#ifdef RESTORE_PIXEL_ASSOCIATION_LIST_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_PIXEL_ASSOCIATION_LIST_NEW_MACRO
+#endif
+        if (list == NULL || !list->Create(pixelSize, pixelSize, ICONS_IN_LIST))
+        {
+            delete list;
+            delete icons;
+            return FALSE;
+        }
+        list->SetBkColor(GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]));
+        icons->IconsCache.Add(list);
+        if (!icons->IconsCache.IsGood())
+        {
+            delete list;
+            icons->IconsCache.ResetState();
+            delete icons;
+            return FALSE;
+        }
+        for (int i = 0; i < ASSOC_ICON_COUNT; ++i)
+        {
+            HICON icon = NULL;
+            if (i == ASSOC_ICON_SOME_DIR)
+            {
+                char systemDir[SAL_MAX_PATH];
+                GetSystemDirectory(systemDir, SAL_MAX_PATH);
+                GetFileIconForPanel(systemDir, &icon, ICONSIZE_16, pixelSize, GetSystemDPI(), TRUE, TRUE);
+            }
+            else
+                icon = SalLoadImage(i == ASSOC_ICON_SOME_FILE ? 90 : i == ASSOC_ICON_SOME_EXE ? 15 : 2,
+                                    i == ASSOC_ICON_SOME_FILE ? 2 : i == ASSOC_ICON_SOME_EXE ? 3 : 1,
+                                    pixelSize, pixelSize, IconLRFlags);
+            if (icon != NULL)
+            {
+                list->ReplaceIcon(i, icon);
+                HANDLES(DestroyIcon(icon));
+            }
+        }
+        icons->IconsCount = ASSOC_ICON_COUNT;
+        CAssociationsPixelIconSet newSet = {pixelSize, icons, std::vector<int>()};
+        try { newSet.AssociationIndexes.resize(Count, -1); }
+        catch (...) { icons->IconsCache.DestroyMembers(); delete icons; return FALSE; }
+        try { PixelIconSets.push_back(newSet); }
+        catch (...) { icons->IconsCache.DestroyMembers(); delete icons; return FALSE; }
+        set = &PixelIconSets.back();
+    }
+    if (iconIndex >= set->Icons->IconsCount)
+        return FALSE;
+    int cache = iconIndex / ICONS_IN_LIST;
+    if (cache >= set->Icons->IconsCache.Count)
+        return FALSE;
+    *iconList = set->Icons->IconsCache[cache];
+    *iconListIndex = iconIndex % ICONS_IN_LIST;
+    return TRUE;
+}
+
+int CAssociations::AllocIcon(CIconList** iconList, int* imageIconIndex, int pixelSize)
+{
+    CIconList* ignoredList;
+    int ignoredIndex;
+    if (!GetIcon(0, &ignoredList, &ignoredIndex, pixelSize))
+        return -1;
+    CAssociationsPixelIconSet* set = FindAssociationPixelSet(PixelIconSets, pixelSize);
+    int cache = set->Icons->IconsCount / ICONS_IN_LIST;
+    int index = set->Icons->IconsCount % ICONS_IN_LIST;
+    if (cache >= set->Icons->IconsCache.Count)
+    {
+#ifdef new
+#undef new
+#define RESTORE_PIXEL_ASSOCIATION_ALLOC_NEW_MACRO
+#endif
+        CIconList* list = new (std::nothrow) CIconList();
+#ifdef RESTORE_PIXEL_ASSOCIATION_ALLOC_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_PIXEL_ASSOCIATION_ALLOC_NEW_MACRO
+#endif
+        if (list == NULL || !list->Create(pixelSize, pixelSize, ICONS_IN_LIST))
+        {
+            delete list;
+            return -1;
+        }
+        list->SetBkColor(GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]));
+        set->Icons->IconsCache.Add(list);
+        if (!set->Icons->IconsCache.IsGood())
+        {
+            delete list;
+            set->Icons->IconsCache.ResetState();
+            return -1;
+        }
+        if (iconList != NULL) *iconList = list;
+    }
+    else if (iconList != NULL)
+        *iconList = set->Icons->IconsCache[cache];
+    if (imageIconIndex != NULL) *imageIconIndex = index;
+    return set->Icons->IconsCount++;
 }
 
 void CAssociations::SortArray(int left, int right)
@@ -1521,7 +1713,7 @@ static BOOL QueryShellAssociation(const char* ext, BOOL& canOpen)
     return canOpen || associatedInfo.iIcon != genericInfo.iIcon;
 }
 
-BOOL CAssociations::IsAssociated(char* ext, BOOL& addtoIconCache, CIconSizeEnum iconSize)
+BOOL CAssociations::IsAssociated(char* ext, BOOL& addtoIconCache, CIconSizeEnum iconSize, int pixelSize)
 {
     int index;
     BOOL found = GetIndex(ext, index);
@@ -1547,10 +1739,20 @@ BOOL CAssociations::IsAssociated(char* ext, BOOL& addtoIconCache, CIconSizeEnum 
     }
     if (found)
     {
-        int i = At(index).GetIndex(iconSize);
-        if (i == -1)
-            At(index).SetIndex(-3, iconSize);  // nenactena -> nacitana
-        addtoIconCache = (i == -1 || i == -2); // dynamicka nebo nenactena/nenacitana staticka
+        int semanticIndex = At(index).GetIndex(iconSize);
+        if (semanticIndex == -2)
+            addtoIconCache = TRUE; // dynamic icon: each file is its own source
+        else
+        {
+            int pixelIndex = GetPixelIconIndex(index, pixelSize);
+            addtoIconCache = pixelIndex == -1;
+            if (addtoIconCache)
+            {
+                SetPixelIconIndex(index, pixelSize, -3); // exactly one file loads this pixel-sized association
+                if (semanticIndex == -1)
+                    At(index).SetIndex(-3, iconSize);
+            }
+        }
         return At(index).GetFlag() != 0;
     }
     else
@@ -1560,16 +1762,19 @@ BOOL CAssociations::IsAssociated(char* ext, BOOL& addtoIconCache, CIconSizeEnum 
     }
 }
 
-BOOL CAssociations::IsAssociatedStatic(char* ext, const char*& iconLocation, CIconSizeEnum iconSize)
+BOOL CAssociations::IsAssociatedStatic(char* ext, const char*& iconLocation, CIconSizeEnum iconSize, int pixelSize)
 {
     int index;
     if (GetIndex(ext, index))
     {
-        int i = At(index).GetIndex(iconSize);
-        if (i == -1)
+        int semanticIndex = At(index).GetIndex(iconSize);
+        int pixelIndex = GetPixelIconIndex(index, pixelSize);
+        if (semanticIndex != -2 && pixelIndex == -1)
         {
-            At(index).SetIndex(-3, iconSize);          // nenactena -> nacitana
-            iconLocation = At(index).ExtensionAndData; // nenactena/nenacitana staticka
+            SetPixelIconIndex(index, pixelSize, -3);
+            if (semanticIndex == -1)
+                At(index).SetIndex(-3, iconSize);
+            iconLocation = At(index).ExtensionAndData;
         }
         else
             iconLocation = NULL;

@@ -2958,7 +2958,8 @@ void CFilesWindow::RefreshDirectory(BOOL probablyUselessRefresh, BOOL forceReloa
     if (iconCacheBackuped)
     {
         // we can only use the old cache if the icon geometry hasn't changed
-        if (oldIconCache->GetIconSize() == IconCache->GetIconSize())
+        if (oldIconCache->GetIconSize() == IconCache->GetIconSize() &&
+            oldIconCache->GetIconPixelSize() == IconCache->GetIconPixelSize())
         {
             if (UseSystemIcons || UseThumbnails) // if the new listing doesn't have icons, it doesn't make sense to transfer them from the old cache
             {

@@ -4715,6 +4715,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         WINDOWPLACEMENT place;
         BOOL useWinPlacement = FALSE;
         BOOL deferMainWindowReveal = FALSE;
+        StartupShowCmd = CmdShow;
         if (OpenKey(salamander, SALAMANDER_WINDOW_REG, actKey))
         {
             place.length = sizeof(WINDOWPLACEMENT);
@@ -4779,20 +4780,15 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
 
         if (useWinPlacement)
         {
-            RECT startupRect = place.rcNormalPosition;
-            if (startupRect.right > startupRect.left && startupRect.bottom > startupRect.top &&
-                MonitorFromRect(&startupRect, MONITOR_DEFAULTTONULL) != NULL)
-            {
-                // Move the hidden main window to its saved monitor before panels
-                // and icon caches are loaded.  Otherwise a process started on a
-                // high-DPI primary monitor can initialize 24px shell icons and
-                // only later move to the remembered 100% monitor.
-                SetWindowPos(HWindow, NULL, startupRect.left, startupRect.top,
-                             startupRect.right - startupRect.left, startupRect.bottom - startupRect.top,
-                             SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOREDRAW);
-                UpdateSystemDPIForWindow(HWindow);
-                ColorsChanged(FALSE, FALSE, TRUE);
-            }
+            // WINDOWPLACEMENT stores rcNormalPosition in workspace coordinates.
+            // Let Windows interpret it while the window is hidden instead of
+            // passing it to screen-coordinate SetWindowPos/MonitorFromRect.
+            WINDOWPLACEMENT startupPlacement = place;
+            startupPlacement.length = sizeof(WINDOWPLACEMENT);
+            startupPlacement.showCmd = SW_HIDE;
+            SetWindowPlacement(HWindow, &startupPlacement);
+            UpdateSystemDPIForWindow(HWindow);
+            ColorsChanged(FALSE, FALSE, TRUE);
         }
 
         if (OpenKey(salamander, FINDDIALOG_WINDOW_REG, actKey))
@@ -6354,6 +6350,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                 }
                 }
             }
+            StartupShowCmd = place.showCmd;
             // Keep the ordinary two-panel window hidden until both panel paths
             // and their list boxes are fully initialized.  Showing it here
             // exposes the saved panel contents first and the final directory
@@ -6503,10 +6500,10 @@ void CMainWindow::RevealStartupWindow()
     // Show the hidden main window while it is cloaked so ShowWindow can apply
     // the requested normal, minimized, or maximized startup state without DWM
     // publishing the incomplete surface. SW_HIDE remains genuinely hidden.
-    if (CmdShow != SW_HIDE)
+    if (StartupShowCmd != SW_HIDE)
     {
         StartupWindowCloaked = DarkModeSetWindowCloaked(HWindow, true);
-        ShowWindow(HWindow, CmdShow);
+        ShowWindow(HWindow, StartupShowCmd);
     }
     // Closing the splash/startup wait owner causes one synthetic activation
     // transition. The panels were read only moments ago, so letting that

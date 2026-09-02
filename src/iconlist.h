@@ -150,6 +150,7 @@ public:
     // vytvori imagelist (jeden radek, pocet sloupcu dle poctu polozek); vraci jeho handle nebo NULL v pripade neuspechu
     // vraceny imagelist je po pouziti treba destruovat pomoci API ImageList_Destroy()
     virtual HIMAGELIST WINAPI GetImageList();
+    HIMAGELIST GetImageList(int requiredImageSize);
 
     // kopiruje jednu polozku ze 'srcIL' a pozice 'srcIndex' na pozici 'dstIndex'
     virtual BOOL WINAPI Copy(int dstIndex, CIconList* srcIL, int srcIndex);

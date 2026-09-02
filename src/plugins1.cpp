@@ -4029,7 +4029,7 @@ BOOL CPluginData::PrematureDeleteTmpCopy(HWND parent, int copiesCount)
 }
 
 HIMAGELIST
-CPluginData::CreateImageList(BOOL gray)
+CPluginData::CreateImageList(BOOL gray, int pixelSize)
 {
     CIconList* srcList = NULL;
     BOOL deleteSrcList = FALSE;
@@ -4053,7 +4053,8 @@ CPluginData::CreateImageList(BOOL gray)
     if (srcList == NULL)
         return NULL; // the plugin has no bitmap assigned
 
-    HIMAGELIST ret = srcList->GetImageList();
+    HIMAGELIST ret = pixelSize > 0 ? srcList->GetImageList(pixelSize) :
+                                      srcList->GetImageList();
     if (deleteSrcList)
         delete srcList;
     return ret;
