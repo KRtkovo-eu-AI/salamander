@@ -508,7 +508,9 @@ BOOL CIconList::ReplaceIcon(int index, HICON hIcon)
         BOOL maskDrawn = FALSE;
         if (colorDC != NULL && maskDC != NULL)
         {
-            ZeroMemory(colorBits, ImageWidth * ImageHeight * sizeof(DWORD));
+            const size_t colorBytes = static_cast<size_t>(ImageWidth) *
+                                      static_cast<size_t>(ImageHeight) * sizeof(DWORD);
+            ZeroMemory(colorBits, colorBytes);
             colorDrawn = DrawIconEx(colorDC, 0, 0, hIconOrig, ImageWidth, ImageHeight, 0, NULL, DI_NORMAL);
             PatBlt(maskDC, 0, 0, ImageWidth, ImageHeight, WHITENESS);
             maskDrawn = DrawIconEx(maskDC, 0, 0, hIconOrig, ImageWidth, ImageHeight, 0, NULL, DI_MASK);

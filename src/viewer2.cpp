@@ -40,16 +40,19 @@ static std::wstring ViewerPathToWide(const char* path)
 
 static HANDLE OpenViewerFileForRead(const std::wstring& fileNameW, const char* fileName)
 {
-    if (!fileNameW.empty())
+    std::wstring ioName = fileNameW;
+    if (ioName.empty() && fileName != NULL)
+        ioName = ViewerPathToWide(fileName);
+    if (ioName.empty())
     {
-        std::wstring ioName = fileNameW;
-        if (ioName.length() >= MAX_PATH && !SalIsExtendedLengthPathW(ioName.c_str()))
-            ioName = SalPathAddExtendedPrefixW(ioName.c_str());
-        return HANDLES_Q(CreateFileW(ioName.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                                     OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+        SetLastError(ERROR_INVALID_NAME);
+        return INVALID_HANDLE_VALUE;
     }
-    return HANDLES_Q(CreateFile(fileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                                OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+    if (ioName.length() >= MAX_PATH && !SalIsExtendedLengthPathW(ioName.c_str()))
+        ioName = SalPathAddExtendedPrefixW(ioName.c_str());
+    return HANDLES_Q(CreateFileW(ioName.c_str(), GENERIC_READ,
+                                 FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                                 OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
 }
 
 void ThreadViewerMessageLoopBodyAux()
