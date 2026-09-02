@@ -286,6 +286,8 @@ void InitShellIconOverlaysAuxAux(CLSID* clsid, const char* name)
                             item->Identifier = iconOverlayIdentifier;
                             item->IconOverlayIdCLSID = *clsid;
                             lstrcpyn(item->IconOverlayName, name, MAX_PATH);
+                            lstrcpyn(item->IconOverlayFile, iconFileMB, SAL_MAX_PATH);
+                            item->IconOverlayFileIndex = iconIndex;
                             item->GoogleDriveOverlay = isGoogleDrive;
                             iconOverlayIdentifier = NULL;
                             for (x = 0; x < ICONSIZE_COUNT; x++)
@@ -595,6 +597,8 @@ CShellIconOverlayItem::CShellIconOverlayItem()
     Identifier = NULL;
     memset(&IconOverlayIdCLSID, 0, sizeof(IconOverlayIdCLSID));
     Priority = 0;
+    IconOverlayFile[0] = 0;
+    IconOverlayFileIndex = 0;
     int i;
     for (i = 0; i < ICONSIZE_COUNT; i++)
         IconOverlay[i] = NULL;
@@ -620,6 +624,10 @@ void CShellIconOverlayItem::Cleanup()
     for (i = 0; i < ICONSIZE_COUNT; i++)
         if (IconOverlay[i] != NULL)
             HANDLES(DestroyIcon(IconOverlay[i]));
+    for (size_t j = 0; j < PixelIcons.size(); ++j)
+        if (PixelIcons[j].Icon != NULL)
+            HANDLES(DestroyIcon(PixelIcons[j].Icon));
+    PixelIcons.clear();
 }
 
 CShellIconOverlayItem::~CShellIconOverlayItem()
@@ -850,6 +858,34 @@ CShellIconOverlays::GetIconOverlayIndex(WCHAR* wPath, WCHAR* wName, char* aPath,
     return ICONOVERLAYINDEX_NOTUSED; // not found
 }
 
+HICON CShellIconOverlays::GetIconOverlayForPixels(int iconOverlayIndex, int pixelSize)
+{
+    if (iconOverlayIndex < 0 || iconOverlayIndex >= Overlays.Count || pixelSize <= 0)
+        return NULL;
+    CShellIconOverlayItem* item = Overlays[iconOverlayIndex];
+    for (size_t i = 0; i < item->PixelIcons.size(); ++i)
+        if (item->PixelIcons[i].PixelSize == pixelSize)
+            return item->PixelIcons[i].Icon;
+    if (item->IconOverlayFile[0] == 0)
+        return item->IconOverlay[ICONSIZE_16];
+    HICON icon = NULL;
+    ExtractIcons(item->IconOverlayFile, item->IconOverlayFileIndex, pixelSize, pixelSize,
+                 &icon, NULL, 1, IconLRFlags);
+    if (icon == NULL)
+        return item->IconOverlay[ICONSIZE_16];
+    CShellIconOverlayItem::CPixelIcon entry = {pixelSize, icon};
+    try
+    {
+        item->PixelIcons.push_back(entry);
+    }
+    catch (...)
+    {
+        HANDLES(DestroyIcon(icon));
+        return item->IconOverlay[ICONSIZE_16];
+    }
+    return icon;
+}
+
 void ColorsChangedAuxAux(CShellIconOverlayItem* item)
 {
     OLECHAR iconFile[MAX_PATH];
@@ -896,6 +932,10 @@ void ColorsChangedAuxAux(CShellIconOverlayItem* item)
                     HANDLES(DestroyIcon(item->IconOverlay[x]));
                     item->IconOverlay[x] = iconOverlay[x];
                 }
+                for (size_t j = 0; j < item->PixelIcons.size(); ++j)
+                    if (item->PixelIcons[j].Icon != NULL)
+                        HANDLES(DestroyIcon(item->PixelIcons[j].Icon));
+                item->PixelIcons.clear();
             }
             else
             {

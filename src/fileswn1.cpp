@@ -2994,10 +2994,10 @@ CFilesWindow::~CFilesWindow()
         HANDLES(CloseHandle(ExecuteAssocEvent));
 }
 
-BOOL CFilesWindow::RefreshDPIResources(BOOL force)
+BOOL CFilesWindow::RefreshDPIResources(BOOL force, int dpiOverride)
 {
     HWND dpiWindow = HWindow != NULL ? HWindow : (Parent != NULL ? Parent->HWindow : NULL);
-    int dpi = (int)WinLibDPIGetWindowDPI(dpiWindow);
+    int dpi = dpiOverride > 0 ? dpiOverride : (int)WinLibDPIGetWindowDPI(dpiWindow);
     if (dpi <= 0)
         dpi = USER_DEFAULT_SCREEN_DPI;
     if (!force && WindowDPI == dpi && WindowPanelFont != NULL && WindowEnvFont != NULL)
@@ -3110,6 +3110,45 @@ BOOL CFilesWindow::RefreshDPIResources(BOOL force)
     return TRUE;
 }
 
+BOOL CFilesWindow::RefreshIconCacheForCurrentSize(BOOL postDirectoryRefresh)
+{
+    if (IconCache == NULL)
+        return FALSE;
+
+    CIconSizeEnum iconSize = GetIconSizeForCurrentViewMode();
+    int iconPixelSize = GetIconSize(iconSize);
+    if (IconCache->GetIconSize() == iconSize &&
+        IconCache->GetIconPixelSize() == iconPixelSize)
+    {
+        return FALSE;
+    }
+
+    SleepIconCacheThread();
+    IconCache->Destroy();
+    IconCache->SetIconSize(iconSize, iconPixelSize);
+    IconCacheValid = FALSE;
+    EndOfIconReadingTime = GetTickCount() - 10000;
+    UseThumbnails = FALSE;
+
+    HWND listBox = GetListBoxHWND();
+    if (listBox != NULL)
+        InvalidateRect(listBox, NULL, FALSE);
+
+    if (postDirectoryRefresh)
+    {
+        HANDLES(EnterCriticalSection(&TimeCounterSection));
+        int refreshTime = MyTimeCounter++;
+        HANDLES(LeaveCriticalSection(&TimeCounterSection));
+        PostMessage(HWindow, WM_USER_REFRESH_DIR, 0, refreshTime);
+    }
+    return TRUE;
+}
+
+CIconList* CFilesWindow::GetPanelSimpleIconList(CIconSizeEnum iconSize)
+{
+    return GetSimpleIconList(GetIconSize(iconSize));
+}
+
 CIconList* CFilesWindow::GetIndependentIconList(CIconList* source, int sourceIndex,
                                                  CIconSizeEnum iconSize, int* copyIndex)
 {
@@ -3181,11 +3220,60 @@ CIconList* CFilesWindow::GetIndependentIconList(CIconList* source, int sourceInd
     return copy;
 }
 
+HICON CFilesWindow::GetPanelOverlay(HICON source, int pixelSize)
+{
+    if (source == NULL || pixelSize <= 0)
+        return source;
+    for (size_t i = 0; i < WindowDPIOverlays.size(); ++i)
+        if (WindowDPIOverlays[i].Source == source && WindowDPIOverlays[i].PixelSize == pixelSize)
+            return WindowDPIOverlays[i].Copy;
+    // Built-in overlays have real resources for each requested size. Load those
+    // resources directly; CopyImage remains for customized shortcut overlays.
+    int resourceId = 0;
+    for (int i = 0; i < ICONSIZE_COUNT; ++i)
+    {
+        if (source == HSharedOverlays[i])
+        {
+            resourceId = 164;
+            break;
+        }
+        if (source == HSlowFileOverlays[i])
+        {
+            resourceId = 97;
+            break;
+        }
+    }
+    HICON copy = resourceId != 0
+                     ? (HICON)HANDLES(LoadImage(ImageResDLL, MAKEINTRESOURCE(resourceId), IMAGE_ICON,
+                                                  pixelSize, pixelSize, IconLRFlags))
+                     : (HICON)HANDLES(CopyImage(source, IMAGE_ICON, pixelSize, pixelSize, 0));
+    if (copy == NULL)
+        return source;
+    CDPIOverlayEntry entry;
+    entry.Source = source;
+    entry.PixelSize = pixelSize;
+    entry.Copy = copy;
+    try
+    {
+        WindowDPIOverlays.push_back(entry);
+    }
+    catch (...)
+    {
+        HANDLES(DestroyIcon(copy));
+        return source;
+    }
+    return copy;
+}
+
 void CFilesWindow::ClearIndependentIconLists()
 {
     for (size_t i = 0; i < WindowDPIIconLists.size(); ++i)
         delete WindowDPIIconLists[i].Copy;
     WindowDPIIconLists.clear();
+    for (size_t i = 0; i < WindowDPIOverlays.size(); ++i)
+        if (WindowDPIOverlays[i].Copy != NULL)
+            HANDLES(DestroyIcon(WindowDPIOverlays[i].Copy));
+    WindowDPIOverlays.clear();
 }
 
 CPathHistory* CFilesWindow::EnsureWorkDirHistory()

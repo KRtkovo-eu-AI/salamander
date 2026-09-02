@@ -1500,6 +1500,35 @@ CIconList::GetImageList()
         }
     }
     return hIL;
+}
+
+HIMAGELIST CIconList::GetImageList(int requiredImageSize)
+{
+    if (requiredImageSize <= 0 ||
+        requiredImageSize == ImageWidth && requiredImageSize == ImageHeight)
+    {
+        return GetImageList();
+    }
+
+    HIMAGELIST hIL = ImageList_Create(requiredImageSize, requiredImageSize,
+                                      GetImageListColorFlags() | ILC_MASK, 0, 1);
+    if (hIL != NULL)
+    {
+        for (int i = 0; i < ImageCount; ++i)
+        {
+            HICON icon = GetIcon(i, TRUE);
+            HICON sizedIcon = icon != NULL ?
+                                  (HICON)CopyImage(icon, IMAGE_ICON,
+                                                   requiredImageSize, requiredImageSize, 0) :
+                                  NULL;
+            ImageList_AddIcon(hIL, sizedIcon != NULL ? sizedIcon : icon);
+            if (sizedIcon != NULL)
+                HANDLES(DestroyIcon(sizedIcon));
+            if (icon != NULL)
+                HANDLES(DestroyIcon(icon));
+        }
+    }
+    return hIL;
 
     /*
   // vytahnu rozmery bitmapy

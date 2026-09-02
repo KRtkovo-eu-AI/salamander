@@ -459,6 +459,7 @@ public:
     BOOL Created;
     BOOL RestoringPanelPaths; // suppress repeated Tree View rebuilds while LoadConfig restores panels
     BOOL StartupWindowCloaked; // TRUE while the fully initialized startup UI is hidden behind the splash
+    int StartupShowCmd;       // persisted startup state after command-line override processing
     BOOL DetachedPanels;      // TRUE = left and right sides are hosted in separate top-level windows
     BOOL CreatingDetachedChrome; // suppress detached-window activation while its child chrome is being built
     BOOL DetachedPanelsSwapFixNeeded; // TRUE after Swap Sides while detached; reattach replays a double swap to refresh layout state
@@ -778,7 +779,7 @@ public:
     // returns the index of an unassigned hot path or -1 if all are assigned
     int GetUnassignedHotPathIndex();
 
-    void SetFont();
+    void SetFont(int attachedPanelDPI = 0);
     void SetEnvFont();
     void RefreshDPI(BOOL force, int dpi = 0, const RECT* suggestedRect = NULL);
 

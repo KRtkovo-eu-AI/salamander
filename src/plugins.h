@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -2765,7 +2765,7 @@ public:
     // must work even after unloading the plugin (until it is loaded again)
     BOOL IsArchiverAndHaveOwnDelete() { return ArcCacheOwnDelete; }
 
-    HIMAGELIST CreateImageList(BOOL gray);
+    HIMAGELIST CreateImageList(BOOL gray, int pixelSize = 0);
 
     // fills 'mii::State' and 'mii::Type' structuresaccording to the command for 'pluginIndex' and 'menuItemIndex'
     // returns TRUE if the item is enabled and FALSE if it is grayed

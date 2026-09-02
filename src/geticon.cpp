@@ -359,9 +359,16 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
     if (shellSourcePixelSize <= 0)
         shellSourcePixelSize = IconSizes[iconSize];
 
-    const int companionSmallPixelSize = iconSize == ICONSIZE_16 ? shellSourcePixelSize :
-                                                                     max(1, shellSourcePixelSize / (iconSize == ICONSIZE_32 ? 2 : 3));
-    const int companionLargePixelSize = iconSize == ICONSIZE_16 ? shellSourcePixelSize * 2 : shellSourcePixelSize;
+    // The panel view can remain semantically ICONSIZE_16 while its DPI bucket
+    // requires the real 32px artwork. In that case IExtractIcon's large output
+    // is the requested image; selecting its small output and resizing it would
+    // preserve the 16px artwork and make it blurred after a live DPI switch.
+    const BOOL requestLargeArtwork = iconSize != ICONSIZE_16 || shellSourcePixelSize >= 32;
+    const int companionSmallPixelSize = requestLargeArtwork ?
+                                             max(16, shellSourcePixelSize / (iconSize == ICONSIZE_48 ? 3 : 2)) :
+                                             shellSourcePixelSize;
+    const int companionLargePixelSize = requestLargeArtwork ? shellSourcePixelSize :
+                                                               max(32, shellSourcePixelSize * 2);
     BOOL ret = FALSE;
 
     IExtractIconA* pxi = NULL; // if 'isIExtractIconW' is TRUE, this pointer is actually IExtractIconW
@@ -582,8 +589,8 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
         }
 
     }
-    HICON* requestedIcon = iconSize == ICONSIZE_16 ? &hIconSmall : &hIconLarge;
-    HICON* otherIcon = iconSize == ICONSIZE_16 ? &hIconLarge : &hIconSmall;
+    HICON* requestedIcon = requestLargeArtwork ? &hIconLarge : &hIconSmall;
+    HICON* otherIcon = requestLargeArtwork ? &hIconSmall : &hIconLarge;
     int requestedIconSize = shellSourcePixelSize;
     if (*requestedIcon != NULL && GetIconPixelWidth(*requestedIcon) != requestedIconSize && pxi != NULL)
     {
@@ -601,17 +608,17 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
             extractResult = pxi->Extract(iconFile, iconIndex, &hExtractedLarge, &hExtractedSmall,
                                          MAKELONG(companionLargePixelSize, companionSmallPixelSize));
 
-        HICON hExtracted = iconSize == ICONSIZE_16 ? hExtractedSmall : hExtractedLarge;
+        HICON hExtracted = requestLargeArtwork ? hExtractedLarge : hExtractedSmall;
         if (SUCCEEDED(extractResult) && hExtracted != NULL &&
             GetIconPixelWidth(hExtracted) == requestedIconSize)
         {
             if (*requestedIcon != NULL && *requestedIcon != *otherIcon)
                 HANDLES(DestroyIcon(*requestedIcon));
             *requestedIcon = hExtracted;
-            if (iconSize == ICONSIZE_16)
-                hExtractedSmall = NULL;
-            else
+            if (requestLargeArtwork)
                 hExtractedLarge = NULL;
+            else
+                hExtractedSmall = NULL;
         }
 
         if (hExtractedSmall != NULL && hExtractedSmall != hIconSmall && hExtractedSmall != hIconLarge)
@@ -665,7 +672,7 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
         // shell image lists can return a bitmap for a different DPI than the
         // panel currently uses. Normalize every supported icon size here
         // instead of allowing a stale size to enter the icon cache.
-        if (iconSize == ICONSIZE_16)
+        if (!requestLargeArtwork)
         {
             int targetIconSize = shellSourcePixelSize;
             int smallIconSize = GetIconPixelWidth(hIconSmall);
@@ -825,12 +832,14 @@ static BOOL GetFileIconInternal(const char* path, BOOL pathIsPIDL, HICON* hIcon,
         LoadIcoFileIcon(path, hIcon, shellSourcePixelSize))
         return TRUE;
 
-    // For ordinary small file icons use the same path-based shell result that
-    // Explorer displays. IExtractIcon resource locations and registered
-    // DefaultIcon values can both be valid yet select different artwork.
+    // Follow Explorer's path-based icon choice, but select the shell artwork
+    // family from the physical DPI bucket. A semantically small panel icon is
+    // 32px at 175%, where SHGFI_SMALLICON would return 16px artwork that then
+    // gets enlarged and blurred.
     if (!pathIsPIDL && iconSize == ICONSIZE_16)
     {
-        *hIcon = GetExplorerFileIcon(path, shellSourcePixelSize, TRUE);
+        *hIcon = GetExplorerFileIcon(path, shellSourcePixelSize,
+                                     shellSourcePixelSize < 32);
         if (*hIcon != NULL)
             return TRUE;
     }

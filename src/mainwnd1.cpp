@@ -4,6 +4,9 @@
 
 #include "precomp.h"
 
+static void SetDPIAwareWindowIcon(HWND hWindow, int resID);
+static void ReleaseDPIAwareWindowIcons(HWND hWindow);
+
 #include <string>
 #include <shlwapi.h>
 #undef PathIsPrefix
@@ -391,6 +394,7 @@ CMainWindow::CMainWindow()
     Created = FALSE;
     RestoringPanelPaths = FALSE;
     StartupWindowCloaked = FALSE;
+    StartupShowCmd = SW_SHOWNORMAL;
     DetachedPanels = FALSE;
     CreatingDetachedChrome = FALSE;
     DetachedPanelsSwapFixNeeded = FALSE;
@@ -1901,7 +1905,7 @@ BOOL CreateEnvFonts()
     return TRUE;
 }
 
-void CMainWindow::SetFont()
+void CMainWindow::SetFont(int attachedPanelDPI)
 {
     CALL_STACK_MESSAGE1("CMainWindow::SetFont()");
 
@@ -1930,7 +1934,9 @@ void CMainWindow::SetFont()
         CFilesWindow* panel = LeftPanelTabs[i];
         if (panel != NULL)
         {
-            panel->RefreshDPIResources(TRUE);
+            int panelDPI = GetAncestor(panel->HWindow, GA_ROOT) == HWindow ? attachedPanelDPI : 0;
+            panel->RefreshDPIResources(TRUE, panelDPI);
+            panel->RefreshIconCacheForCurrentSize();
             panel->SetFont();
             panel->RefreshTreeViewDPI();
         }
@@ -1940,7 +1946,9 @@ void CMainWindow::SetFont()
         CFilesWindow* panel = RightPanelTabs[i];
         if (panel != NULL)
         {
-            panel->RefreshDPIResources(TRUE);
+            int panelDPI = GetAncestor(panel->HWindow, GA_ROOT) == HWindow ? attachedPanelDPI : 0;
+            panel->RefreshDPIResources(TRUE, panelDPI);
+            panel->RefreshIconCacheForCurrentSize();
             panel->SetFont();
             panel->RefreshTreeViewDPI();
         }
@@ -1950,7 +1958,9 @@ void CMainWindow::SetFont()
         CFilesWindow* panel = DetachedTabs[i].Panel;
         if (panel != NULL)
         {
-            panel->RefreshDPIResources(TRUE);
+            int panelDPI = GetAncestor(panel->HWindow, GA_ROOT) == HWindow ? attachedPanelDPI : 0;
+            panel->RefreshDPIResources(TRUE, panelDPI);
+            panel->RefreshIconCacheForCurrentSize();
             panel->SetFont();
             panel->RefreshTreeViewDPI();
         }
@@ -2268,7 +2278,7 @@ BOOL CMainWindow::RebuildDetachedToolbarImageLists(int dpi)
         return FALSE;
     }
 
-    int iconSize = MulDiv(16, dpi, USER_DEFAULT_SCREEN_DPI);
+    int iconSize = GetIconSizeForDPI(ICONSIZE_16, dpi);
     HIMAGELIST newHot = ImageList_Create(iconSize, iconSize, ILC_MASK | ILC_COLORDDB,
                                          IDX_TB_COUNT + 1, 1);
     HIMAGELIST newGray = ImageList_Create(iconSize, iconSize, ILC_MASK | ILC_COLORDDB,
@@ -2365,7 +2375,7 @@ BOOL CMainWindow::RebuildDetachedTabToolbarImageLists(int dpi, HWND hWnd)
         return FALSE;
     }
 
-    int iconSize = MulDiv(16, dpi, USER_DEFAULT_SCREEN_DPI);
+    int iconSize = GetIconSizeForDPI(ICONSIZE_16, dpi);
     HIMAGELIST newHot = ImageList_Create(iconSize, iconSize, ILC_MASK | ILC_COLORDDB,
                                          IDX_TB_COUNT + 1, 1);
     HIMAGELIST newGray = ImageList_Create(iconSize, iconSize, ILC_MASK | ILC_COLORDDB,
@@ -3197,6 +3207,8 @@ static HWND CreateDetachedPanelWindow(CMainWindow* mainWindow, CPanelSide side)
         DarkModeApplyWindow(hWnd);
         DarkModeRefreshTitleBar(hWnd);
         DarkModeAllowDarkScrollbars(hWnd);
+        int resID = MainWindowIcons[Configuration.GetMainWindowIconIndex()].IconResID;
+        SetDPIAwareWindowIcon(hWnd, resID);
     }
     return hWnd;
 }
@@ -3393,6 +3405,8 @@ static HWND CreateDetachedTabWindow(CMainWindow* mainWindow, CFilesWindow* sourc
         DarkModeApplyWindow(hWnd);
         DarkModeRefreshTitleBar(hWnd);
         DarkModeAllowDarkScrollbars(hWnd);
+        int resID = MainWindowIcons[Configuration.GetMainWindowIconIndex()].IconResID;
+        SetDPIAwareWindowIcon(hWnd, resID);
     }
     return hWnd;
 }
@@ -4460,6 +4474,7 @@ LRESULT CALLBACK CMainWindow::DetachedTabWindowProc(HWND hWnd, UINT uMsg, WPARAM
             return 0;
 
         case WM_USER_REFRESH_DETACHED_TAB_DPI:
+            SetDPIAwareWindowIcon(hWnd, MainWindowIcons[Configuration.GetMainWindowIconIndex()].IconResID);
             if (info != NULL)
             {
                 info->DPIRefreshPosted = FALSE;
@@ -4474,6 +4489,10 @@ LRESULT CALLBACK CMainWindow::DetachedTabWindowProc(HWND hWnd, UINT uMsg, WPARAM
             RedrawWindow(hWnd, NULL, NULL,
                          RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
             return 0;
+
+        case WM_NCDESTROY:
+            ReleaseDPIAwareWindowIcons(hWnd);
+            break;
 
         case WM_SIZE:
             mainWindow->LayoutDetachedTabWindow(hWnd);
@@ -4659,6 +4678,10 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
             return 0;
         }
 
+        case WM_NCDESTROY:
+            ReleaseDPIAwareWindowIcons(hWnd);
+            break;
+
         case WM_USER_REFRESH_DETACHED_DPI:
         {
             mainWindow->DetachedDPIRefreshPosted = FALSE;
@@ -4667,6 +4690,7 @@ LRESULT CALLBACK CMainWindow::DetachedPanelWindowProc(HWND hWnd, UINT uMsg, WPAR
 
             mainWindow->DetachedDPIRefreshInProgress = TRUE;
             int dpi = (int)WinLibDPIGetWindowDPI(hWnd);
+            SetDPIAwareWindowIcon(hWnd, MainWindowIcons[Configuration.GetMainWindowIconIndex()].IconResID);
 
             // Chrome owns native pixel resources (toolbar strips, fonts and
             // rebar band heights). Recreate only this top-level's copies.
@@ -5510,12 +5534,53 @@ void CMainWindow::UpdateDetachedMenuLabels()
     }
 }
 
+static const char* OWNED_BIG_WINDOW_ICON = "SalamanderOwnedBigWindowIcon";
+static const char* OWNED_SMALL_WINDOW_ICON = "SalamanderOwnedSmallWindowIcon";
+
+static void ReleaseDPIAwareWindowIcons(HWND hWindow)
+{
+    HICON bigIcon = (HICON)RemoveProp(hWindow, OWNED_BIG_WINDOW_ICON);
+    HICON smallIcon = (HICON)RemoveProp(hWindow, OWNED_SMALL_WINDOW_ICON);
+    if (bigIcon != NULL)
+        HANDLES(DestroyIcon(bigIcon));
+    if (smallIcon != NULL && smallIcon != bigIcon)
+        HANDLES(DestroyIcon(smallIcon));
+}
+
+static void SetDPIAwareWindowIcon(HWND hWindow, int resID)
+{
+    if (hWindow == NULL)
+        return;
+
+    int dpi = GetDPIForWindow(hWindow);
+    int bigSize = GetIconSizeForDPI(ICONSIZE_32, dpi);
+    int smallSize = GetIconSizeForDPI(ICONSIZE_16, dpi);
+    HICON bigIcon = (HICON)HANDLES(LoadImage(HInstance, MAKEINTRESOURCE(resID), IMAGE_ICON,
+                                             bigSize, bigSize, IconLRFlags));
+    HICON smallIcon = (HICON)HANDLES(LoadImage(HInstance, MAKEINTRESOURCE(resID), IMAGE_ICON,
+                                               smallSize, smallSize, IconLRFlags));
+    if (bigIcon != NULL)
+    {
+        SendMessage(hWindow, WM_SETICON, ICON_BIG, (LPARAM)bigIcon);
+        HICON oldBig = (HICON)GetProp(hWindow, OWNED_BIG_WINDOW_ICON);
+        SetProp(hWindow, OWNED_BIG_WINDOW_ICON, bigIcon);
+        if (oldBig != NULL)
+            HANDLES(DestroyIcon(oldBig));
+    }
+    if (smallIcon != NULL)
+    {
+        SendMessage(hWindow, WM_SETICON, ICON_SMALL, (LPARAM)smallIcon);
+        HICON oldSmall = (HICON)GetProp(hWindow, OWNED_SMALL_WINDOW_ICON);
+        SetProp(hWindow, OWNED_SMALL_WINDOW_ICON, smallIcon);
+        if (oldSmall != NULL)
+            HANDLES(DestroyIcon(oldSmall));
+    }
+}
+
 void CMainWindow::SetWindowIcon()
 {
     int resID = MainWindowIcons[Configuration.GetMainWindowIconIndex()].IconResID;
-    // assign the icon to the window
-    SendMessage(HWindow, WM_SETICON, ICON_BIG,
-                (LPARAM)HANDLES(LoadIcon(HInstance, MAKEINTRESOURCE(resID))));
+    SetDPIAwareWindowIcon(HWindow, resID);
 
     if (Configuration.StatusArea)
         AddTrayIcon(TRUE);
@@ -7058,6 +7123,8 @@ void CMainWindow::OnColorsChanged(BOOL reloadUMIcons)
 {
     DarkModeApplyTree(HWindow);
     DarkModeRefreshTitleBar(HWindow);
+    int mainIconResID = MainWindowIcons[Configuration.GetMainWindowIconIndex()].IconResID;
+    SetDPIAwareWindowIcon(HWindow, mainIconResID);
 
     // screen colors or color depth changed; new imagelists have been created
     // for the toolbars and must be attached to the controls that use them
@@ -7078,10 +7145,18 @@ void CMainWindow::OnColorsChanged(BOOL reloadUMIcons)
         MiddleToolBar->OnColorsChanged();
     }
 
-    // plugin bar
+    // Plugin bars own DPI-sized copies of plug-in artwork. The attached bar is
+    // rebuilt now from the authoritative main-window DPI. Detached chrome is
+    // recreated below from its own top-level DPI.
     if (PluginsBar != NULL)
     {
+        PluginsBar->CreatePluginButtons();
         PluginsBar->OnColorsChanged();
+    }
+    if (!DetachedPanels && DetachedPluginsBar != NULL)
+    {
+        DetachedPluginsBar->CreatePluginButtons();
+        DetachedPluginsBar->OnColorsChanged();
     }
     if (ExtensionBar != NULL)
     {

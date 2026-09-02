@@ -3881,6 +3881,19 @@ static WINDOWPLACEMENT PreSuspendWindowPlacement = {sizeof(WINDOWPLACEMENT)};
 static BOOL PreSuspendWindowPlacementValid = FALSE;
 static BOOL ResumeWindowPlacementPending = FALSE;
 
+static void ScheduleDPIReconciliation(HWND hWindow)
+{
+    if (DPIRefreshPosted || hWindow == NULL)
+        return;
+
+    // Query only after the broadcast handler unwinds. During WM_SETTINGCHANGE
+    // GetDpiForWindow can still report the old value.
+    PendingDPI = 0;
+    PendingDPIWindowRectApplied = FALSE;
+    DPIRefreshPosted = TRUE;
+    PostMessage(hWindow, WM_USER_APPLY_DPI_CHANGE, 0, 0);
+}
+
 static void ScheduleResumeWindowPlacementRestore(HWND hWindow)
 {
     if (!PreSuspendWindowPlacementValid)
@@ -3974,7 +3987,7 @@ void CMainWindow::RefreshDPI(BOOL force, int dpi, const RECT* suggestedRect)
     }
 
     ColorsChanged(TRUE, FALSE, TRUE);
-    SetFont();
+    SetFont(newDPI);
     SetEnvFont();
 
     // SetFont()/SetEnvFont() normally post WM_SIZE and panel refresh messages.
@@ -4827,13 +4840,16 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         DPIWindowRectAlreadyApplied = windowRectAlreadyApplied;
         PendingDPI = 0;
         PendingDPIWindowRectApplied = FALSE;
-        RefreshDPI(TRUE, dpi, NULL);
+        int contentDPI = MainWindowContentDPI > 0 ? MainWindowContentDPI : GetSystemDPI();
+        if (dpi > 0 && dpi != contentDPI)
+            RefreshDPI(TRUE, dpi, NULL);
         return 0;
     }
 
     case WM_DISPLAYCHANGE:
     {
         TraceDPIState("WM_DISPLAYCHANGE", HWindow);
+        ScheduleDPIReconciliation(HWindow);
         if (ResumeWindowPlacementPending)
             ScheduleResumeWindowPlacementRestore(HWindow);
         break;
@@ -4875,6 +4891,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         if (IgnoreWM_SETTINGCHANGE || LeftPanel == NULL || RightPanel == NULL) // a bug report showed that WM_SETTINGCHANGE can be delivered during WM_CREATE of the main window (the panels did not exist yet, so it crashed on NULL access)
             return 0;
+
+        ScheduleDPIReconciliation(HWindow);
 
         if (darkChanged)
             ColorsChanged(TRUE, FALSE, TRUE);
@@ -9429,8 +9447,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             if (activePanel == NULL)
                 break;
 
-            HIMAGELIST hIcons = Plugins.CreateIconsList(FALSE); // the image list will be destroyed in WM_USER_UNINITMENUPOPUP
-            HIMAGELIST hIconsGray = Plugins.CreateIconsList(TRUE);
+            HIMAGELIST hIcons = Plugins.CreateIconsList(FALSE, GetActivePanel() != NULL ? GetAncestor(GetActivePanel()->HWindow, GA_ROOT) : HWindow); // the image list will be destroyed in WM_USER_UNINITMENUPOPUP
+            HIMAGELIST hIconsGray = Plugins.CreateIconsList(TRUE, GetActivePanel() != NULL ? GetAncestor(GetActivePanel()->HWindow, GA_ROOT) : HWindow);
             popup->SetImageList(hIconsGray);
             popup->SetHotImageList(hIcons);
 
@@ -9457,8 +9475,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CML_PLUGINS:
         {
             // initialize the Plugins menu
-            HIMAGELIST hIcons = Plugins.CreateIconsList(FALSE); // the image list will be destroyed in WM_USER_UNINITMENUPOPUP
-            HIMAGELIST hIconsGray = Plugins.CreateIconsList(TRUE);
+            HIMAGELIST hIcons = Plugins.CreateIconsList(FALSE, GetActivePanel() != NULL ? GetAncestor(GetActivePanel()->HWindow, GA_ROOT) : HWindow); // the image list will be destroyed in WM_USER_UNINITMENUPOPUP
+            HIMAGELIST hIconsGray = Plugins.CreateIconsList(TRUE, GetActivePanel() != NULL ? GetAncestor(GetActivePanel()->HWindow, GA_ROOT) : HWindow);
             popup->SetImageList(hIconsGray);
             popup->SetHotImageList(hIcons);
 
@@ -9485,8 +9503,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         {
             popup->RemoveAllItems();
 
-            HIMAGELIST hIcons = Plugins.CreateIconsList(FALSE); // the image list will be destroyed in WM_USER_UNINITMENUPOPUP
-            HIMAGELIST hIconsGray = Plugins.CreateIconsList(TRUE);
+            HIMAGELIST hIcons = Plugins.CreateIconsList(FALSE, GetActivePanel() != NULL ? GetAncestor(GetActivePanel()->HWindow, GA_ROOT) : HWindow); // the image list will be destroyed in WM_USER_UNINITMENUPOPUP
+            HIMAGELIST hIconsGray = Plugins.CreateIconsList(TRUE, GetActivePanel() != NULL ? GetAncestor(GetActivePanel()->HWindow, GA_ROOT) : HWindow);
             popup->SetImageList(hIconsGray);
             popup->SetHotImageList(hIcons);
             // we want only plugins with configuration options
@@ -9518,8 +9536,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         {
             popup->RemoveAllItems();
 
-            HIMAGELIST hIcons = Plugins.CreateIconsList(FALSE); // the image list will be destroyed in WM_USER_UNINITMENUPOPUP
-            HIMAGELIST hIconsGray = Plugins.CreateIconsList(TRUE);
+            HIMAGELIST hIcons = Plugins.CreateIconsList(FALSE, GetActivePanel() != NULL ? GetAncestor(GetActivePanel()->HWindow, GA_ROOT) : HWindow); // the image list will be destroyed in WM_USER_UNINITMENUPOPUP
+            HIMAGELIST hIconsGray = Plugins.CreateIconsList(TRUE, GetActivePanel() != NULL ? GetAncestor(GetActivePanel()->HWindow, GA_ROOT) : HWindow);
             popup->SetImageList(hIconsGray);
             popup->SetHotImageList(hIcons);
             // we want all plugins
@@ -10931,6 +10949,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (wParam == TRUE) // activating the app
         {
             TraceDPIState("WM_ACTIVATEAPP", HWindow);
+            ScheduleDPIReconciliation(HWindow);
             if (!LeftPanel->DontClearNextFocusName)
                 LeftPanel->NextFocusName[0] = 0;
             else

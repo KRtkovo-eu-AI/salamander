@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+
+#include <new>
+
+#include <vector>
 #include <time.h>
 #include <stdlib.h>
 //#ifdef MSVC_RUNTIME_CHECKS
@@ -761,6 +765,13 @@ HICON HSharedOverlays[] = {0};
 HICON HShortcutOverlays[] = {0};
 HICON HSlowFileOverlays[] = {0};
 CIconList* SimpleIconLists[] = {0};
+
+struct CSimpleIconListVariant
+{
+    int PixelSize;
+    CIconList* List;
+};
+static std::vector<CSimpleIconListVariant> SimpleIconListVariants;
 CIconList* ThrobberFrames = NULL;
 CIconList* LockFrames = NULL; // pro jednoduchost deklaruji a nacitam jako throbber
 
@@ -2445,6 +2456,81 @@ static HICON SafeLoadDirectoryIcon(const char* systemDir, CIconSizeEnum sizeInde
     return hIcon;
 }
 
+static CIconList* CreateSimpleIconListForPixels(int pixelSize)
+{
+    if (pixelSize <= 0)
+        return NULL;
+#ifdef new
+#undef new
+#define SALAMANDER_RESTORE_NEW_FOR_SIMPLE_ICON_LIST
+#endif
+    CIconList* list = new (std::nothrow) CIconList();
+#ifdef SALAMANDER_RESTORE_NEW_FOR_SIMPLE_ICON_LIST
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef SALAMANDER_RESTORE_NEW_FOR_SIMPLE_ICON_LIST
+#endif
+    if (list == NULL || !list->Create(pixelSize, pixelSize, symbolsCount))
+    {
+        delete list;
+        return NULL;
+    }
+    list->SetBkColor(GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]));
+    const int indexes[] = {symbolsExecutable, symbolsDirectory, symbolsNonAssociated, symbolsAssociated};
+    const int resIDs[] = {3, 4, 1, 2};
+    const int vistaResIDs[] = {15, 4, 2, 90};
+    for (int i = 0; i < 4; ++i)
+    {
+        HICON icon = SalLoadImage(vistaResIDs[i], resIDs[i], pixelSize, pixelSize, IconLRFlags);
+        if (icon != NULL)
+        {
+            list->ReplaceIcon(indexes[i], icon);
+            HANDLES(DestroyIcon(icon));
+        }
+    }
+    char systemDir[SAL_MAX_PATH];
+    GetSystemDirectory(systemDir, SAL_MAX_PATH);
+    HICON icon = NULL;
+    if (GetFileIconForPanel(systemDir, &icon, ICONSIZE_16, pixelSize, GetSystemDPI(), TRUE, TRUE))
+    {
+        list->ReplaceIcon(symbolsDirectory, icon);
+        HANDLES(DestroyIcon(icon));
+    }
+    icon = (HICON)HANDLES(LoadImage(HInstance, MAKEINTRESOURCE(IDI_UPPERDIR), IMAGE_ICON, pixelSize, pixelSize, IconLRFlags));
+    if (icon != NULL)
+    {
+        list->ReplaceIcon(symbolsUpDir, icon);
+        HANDLES(DestroyIcon(icon));
+    }
+    icon = LoadArchiveIcon(pixelSize, pixelSize, IconLRFlags);
+    if (icon != NULL)
+    {
+        list->ReplaceIcon(symbolsArchive, icon);
+        HANDLES(DestroyIcon(icon));
+    }
+    return list;
+}
+
+CIconList* GetSimpleIconList(int pixelSize)
+{
+    for (size_t i = 0; i < SimpleIconListVariants.size(); ++i)
+        if (SimpleIconListVariants[i].PixelSize == pixelSize)
+            return SimpleIconListVariants[i].List;
+    CIconList* list = CreateSimpleIconListForPixels(pixelSize);
+    if (list == NULL)
+        return NULL;
+    CSimpleIconListVariant variant = {pixelSize, list};
+    try
+    {
+        SimpleIconListVariants.push_back(variant);
+    }
+    catch (...)
+    {
+        delete list;
+        return NULL;
+    }
+    return list;
+}
+
 BOOL AuxAllocateImageLists()
 {
     int i;
@@ -3563,6 +3649,9 @@ void ReleaseGraphics(BOOL colorsOnly)
             HMenuMarkImageList = NULL;
         }
         int i;
+        for (i = 0; i < (int)SimpleIconListVariants.size(); ++i)
+            delete SimpleIconListVariants[i].List;
+        SimpleIconListVariants.clear();
         for (i = 0; i < ICONSIZE_COUNT; i++)
         {
             if (SimpleIconLists[i] != NULL)

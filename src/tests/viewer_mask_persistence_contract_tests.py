@@ -218,7 +218,7 @@ def main() -> None:
     if (
         reveal_body is None
         or reveal_body.group(0).find("DarkModeSetWindowCloaked(HWindow, true)") < 0
-        or reveal_body.group(0).find("ShowWindow(HWindow, CmdShow)")
+        or reveal_body.group(0).find("ShowWindow(HWindow, StartupShowCmd)")
         < reveal_body.group(0).find("DarkModeSetWindowCloaked(HWindow, true)")
     ):
         raise AssertionError(

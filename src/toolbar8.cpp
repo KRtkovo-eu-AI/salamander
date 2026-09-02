@@ -52,8 +52,13 @@ BOOL CPluginsBar::CreatePluginButtons()
 
     DestroyImageLists();
 
-    HPluginsIcons = Plugins.CreateIconsList(FALSE, HWindow);
-    HPluginsIconsGray = Plugins.CreateIconsList(TRUE, HWindow);
+    // During the main top-level WM_DPICHANGED, child HWNDs can still report
+    // the old DPI. InitializeGraphics has already installed the authoritative
+    // main-window DPI in SystemDPI, so use that value for attached chrome.
+    HWND root = GetAncestor(HWindow, GA_ROOT);
+    HWND dpiWindow = MainWindow != NULL && root == MainWindow->HWindow ? NULL : root;
+    HPluginsIcons = Plugins.CreateIconsList(FALSE, dpiWindow);
+    HPluginsIconsGray = Plugins.CreateIconsList(TRUE, dpiWindow);
 
     SetImageList(HPluginsIconsGray);
     SetHotImageList(HPluginsIcons);
@@ -84,8 +89,10 @@ int CPluginsBar::GetNeededHeight()
     CALL_STACK_MESSAGE_NONE
     // i v pripade, ze nedrzime zadnou ikonu budeem vracet spravnou vysku
     int height = CToolBar::GetNeededHeight();
-    int iconSize = MulDiv(16, (int)WinLibDPIGetWindowDPI(HWindow),
-                          USER_DEFAULT_SCREEN_DPI);
+    HWND root = GetAncestor(HWindow, GA_ROOT);
+    int dpi = MainWindow != NULL && root == MainWindow->HWindow ?
+                  GetSystemDPI() : (int)WinLibDPIGetWindowDPI(root);
+    int iconSize = GetIconSizeForDPI(ICONSIZE_16, dpi);
     int minH = 3 + iconSize + 3;
     if (height < minH)
         height = minH;
@@ -173,8 +180,7 @@ BOOL CExtensionBar::CreateExtensionButtons(HIMAGELIST imageList,
 int CExtensionBar::GetNeededHeight()
 {
     int height = CToolBar::GetNeededHeight();
-    int iconSize = MulDiv(16, (int)WinLibDPIGetWindowDPI(HWindow),
-                          USER_DEFAULT_SCREEN_DPI);
+    int iconSize = GetIconSizeForDPI(ICONSIZE_16, (int)WinLibDPIGetWindowDPI(HWindow));
     return max(height, 3 + iconSize + 3);
 }
 

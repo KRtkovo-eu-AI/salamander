@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -848,6 +848,13 @@ public:
         CIconList* Copy;
     };
     std::vector<CDPIIconListEntry> WindowDPIIconLists;
+    struct CDPIOverlayEntry
+    {
+        HICON Source;
+        int PixelSize;
+        HICON Copy;
+    };
+    std::vector<CDPIOverlayEntry> WindowDPIOverlays;
     BOOL TreeViewAutoHideExpanded;
     DWORD TreeViewAutoHideCollapseStart;
     int TreeViewWidth;
@@ -1015,10 +1022,13 @@ public:
     CFilesWindow(CMainWindow* parent, CPanelSide side);
     ~CFilesWindow();
 
-    BOOL RefreshDPIResources(BOOL force = FALSE);
+    BOOL RefreshDPIResources(BOOL force = FALSE, int dpiOverride = 0);
+    BOOL RefreshIconCacheForCurrentSize(BOOL postDirectoryRefresh = TRUE);
     CIconList* GetIndependentIconList(CIconList* source, int sourceIndex,
                                       CIconSizeEnum iconSize, int* copyIndex);
+    CIconList* GetPanelSimpleIconList(CIconSizeEnum iconSize);
     void ClearIndependentIconLists();
+    HICON GetPanelOverlay(HICON source, int pixelSize);
     int GetWindowDPI() const { return WindowDPI > 0 ? WindowDPI : GetSystemDPI(); }
     HFONT GetPanelFont() const { return WindowPanelFont != NULL ? WindowPanelFont : Font; }
     HFONT GetPanelFontUL() const { return WindowPanelFontUL != NULL ? WindowPanelFontUL : FontUL; }
@@ -1031,9 +1041,9 @@ public:
     int GetTextEllipsisWidthEnv() const { return WindowTextEllipsisWidthEnv > 0 ? WindowTextEllipsisWidthEnv : TextEllipsisWidthEnv; }
     int GetIconSize(int size) const
     {
-        return size >= 0 && size < ICONSIZE_COUNT && WindowIconSizes[size] > 0
-                   ? WindowIconSizes[size]
-                   : IconSizes[size];
+        if (size < 0 || size >= ICONSIZE_COUNT)
+            return 0;
+        return WindowIconSizes[size] > 0 ? WindowIconSizes[size] : IconSizes[size];
     }
 
     CPanelSide GetPanelSide() const { return PanelSide; }

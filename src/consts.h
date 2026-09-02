@@ -1485,7 +1485,8 @@ extern HICON HSharedOverlays[ICONSIZE_COUNT];   // shared (ruka) ve vsech veliko
 extern HICON HShortcutOverlays[ICONSIZE_COUNT]; // shortcut (levy dolni roh) ve vsech velikostech
 extern HICON HSlowFileOverlays[ICONSIZE_COUNT]; // slow files
 
-extern CIconList* SimpleIconLists[ICONSIZE_COUNT]; // simple icons ve vsech velikostech
+extern CIconList* SimpleIconLists[ICONSIZE_COUNT]; // compatibility cache for semantic sizes
+CIconList* GetSimpleIconList(int pixelSize); // lazy panel cache keyed by exact pixels
 
 #define THROBBER_WIDTH 12 // rozmery jednoho policka
 #define THROBBER_HEIGHT 12
@@ -1706,7 +1707,8 @@ int SalMessageBoxEx(const MSGBOXEX_PARAMS* params);
 BOOL StateImageList_Draw(CIconList* iconList, int imageIndex, HDC hDC, int xDst, int yDst,
                          DWORD state, CIconSizeEnum iconSize, DWORD iconOverlayIndex,
                          const RECT* overlayRect, BOOL overlayOnly, BOOL iconOverlayFromPlugin,
-                         int pluginIconOverlaysCount, HICON* pluginIconOverlays, int dpi = 0);
+                         int pluginIconOverlaysCount, HICON* pluginIconOverlays,
+                         HICON* panelOverlays, int dpi = 0);
 DWORD GetImageListColorFlags(); // vrati ILC_COLOR??? podle verzi Windows - odladene pro pouziti imagelistu v listviewech
 
 // API GetOpenFileName/GetSaveFileName v pripade ze cesta k souboru (OPENFILENAME::lpstrFile)
