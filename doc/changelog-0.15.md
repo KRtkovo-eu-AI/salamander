@@ -2,6 +2,19 @@
 
 This document summarizes user-visible changes since 5.0-samandarin-0.14. It intentionally omits internal refactoring unless it changed compatibility, reliability, security, or observable behavior.
 
+## 0.15.1 hotfix
+- Fixed startup behavior so synchronous startup dialogs remain visible and interactive without revealing incomplete main-window frames or causing startup flicker.
+- Fixed recovery and migration issues involving missing plug-in language files, temporary files, imported settings, and upgraded installations; extension versions are now preserved during upgrades.
+- Improved PictView associations and viewer-mask migration, added native decoding support for additional image formats, and routed interactive STL previews through the Windows preview handler, including elevated Salamander support.
+- Removed obsolete Office, OpenDocument, EPUB, and XPI extensions from imported archive rows while preserving normal `Ctrl+PgDown` content probing and standalone associations.
+- Fixed crashes in Salamatrix, Registry Search, and the Portable Devices plug-in, and improved Salamatrix shutdown/refresh lifetime handling.
+- Improved the Internal Viewer text-selection behavior, log mode under transient file locks, and detection of CP1250 text/conversion files.
+- Added Unicode and additional file-type support to Multimedia Viewer, including audio metadata support, and restored its Debug-build dependencies.
+- Improved FTP client operation dialogs and reconnect behavior, including correct handling of empty rows and saved-password prefill.
+- Improved Copy/Move scheduling with scan-ahead conflict processing, dependency-aware parallel operation handling, responsive conflict controls, and configurable operation-wide actions.
+- Improved ServiceExplorer support for Unicode paths and preserved panel/tab directory history across navigation and upgrades.
+- Fixed live Per-Monitor DPI icon switching across panels, plug-ins, menus, toolbars, associations, overlays, and detached windows; icon artwork is rebuilt for the target monitor scale without restarting Salamander.
+- Updated translations, plug-in packages, release metadata, and catalog SHA-256 values; packaging now keeps existing archives when run without `-Force`.
 ## File management and operations
 - Added storage-aware Copy and Move operation scheduling: run operations globally in sequence, concurrently when storage paths do not conflict, or ask for each operation.
 - Added separate configurable SSD/NVMe limits for parallel file transfers within a single Copy or Move operation.
