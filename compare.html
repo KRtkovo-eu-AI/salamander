@@ -26,8 +26,13 @@
     td:first-of-type { padding-left: .8em; }
     .section th { text-align: left; }
     .table-legend { font-family: Tahoma, sans-serif; font-size: 10px !important; margin: 0; }
-    blockquote { display: inline-flexbox; flex-direction: row; line-height: 1.8em; }
-    blockquote div { display: inline-flex; padding: 0 .5em; width: max-content; align-items: center; gap: 0.5em; border: 1px solid #4d4d4d; border-radius: .75em; }
+    blockquote { display: flex; flex-wrap: wrap; gap: .4em; line-height: 1.8em; margin: .5em 0 0; }
+    .version-current { width: max-content; }
+    .version-row-break { flex-basis: 100%; height: 0; }
+    blockquote div, .version-toggle { display: inline-flex; padding: 0 .5em; width: max-content; align-items: center; gap: 0.5em; border: 1px solid #4d4d4d; border-radius: .75em; background: transparent; }
+    .version-toggle { color: inherit; font: inherit; cursor: pointer; transition: opacity .15s ease, filter .15s ease; }
+    .version-toggle[aria-pressed="true"] { opacity: .5; filter: grayscale(1); }
+    .comparison-table [hidden] { display: none; }
     blockquote img { display: inline-block !important; vertical-align: middle; width: 16px; height: 16px; border: none !important; background: none !important; margin: 0 !important; padding: 0 !important; }
     .hero-panel__copy > p:not(.eyebrow) { max-width: 100%; }
 
@@ -104,11 +109,12 @@
       <div class="hero-panel__copy">
         <p class="eyebrow">Comparison between Salamander versions:<br>
           <blockquote>
-            <div><img src="images/samandarin.png">&nbsp;Open Salamander 5.0 Samandarin 0.15</div><br>
-            <div><img src="images/altap_salamander.png">&nbsp;Open Salamander 5.0</div>
-            <div><img src="images/altap_salamander.png">&nbsp;Altap Salamander 4.0</div>
-            <div><img src="images/altap_salamander.png">&nbsp;Altap Salamander 2.54</div>
-            <div><img src="images/servant_salamander.png">&nbsp;Servant Salamander 1.52</div>
+            <div class="version-current"><img src="images/samandarin.png">&nbsp;Open Salamander 5.0 Samandarin 0.15.1</div>
+            <span class="version-row-break" aria-hidden="true"></span>
+            <button class="version-toggle" type="button" data-column="2" aria-controls="comparison-table" aria-pressed="false"><img src="images/altap_salamander.png">&nbsp;Open Salamander 5.0</button>
+            <button class="version-toggle" type="button" data-column="3" aria-controls="comparison-table" aria-pressed="false"><img src="images/altap_salamander.png">&nbsp;Altap Salamander 4.0</button>
+            <button class="version-toggle" type="button" data-column="4" aria-controls="comparison-table" aria-pressed="false"><img src="images/altap_salamander.png">&nbsp;Altap Salamander 2.54</button>
+            <button class="version-toggle" type="button" data-column="5" aria-controls="comparison-table" aria-pressed="false"><img src="images/servant_salamander.png">&nbsp;Servant Salamander 1.52</button>
           </blockquote>
         </p>
         <p class="table-legend">
@@ -121,7 +127,7 @@
     </section>
     <section class="content-grid">
     <div class="scroll">
-    <table>
+    <table id="comparison-table" class="comparison-table">
       <thead><tr><th><b>Features</b></th><th><b>Version 5.0-Samandarin-0.15.1</b></th><th width="125px"><b>Version 5.0</b></th><th width="125px"><b>Version 4.0</b></th><th width="125px"><b>Version 2.54</b></th><th width="125px"><b>Version 1.52</b></th></tr></thead>
       <tbody>
         <tr><td>Released</td><td class="yes">September 2026</td><td>Unreleased</td><td>June 2019</td><td>September 2010</td><td>May 1998</td></tr>
@@ -282,6 +288,7 @@
         <tr><td>Reading visible icons &amp; thumbnails first</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Support for XP alpha blended icons</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Support for overlay icons (Tortoise)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
+        <tr class="addition"><td>Folder thumbnails with first and last image content preview</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr><td>Simple icons option for higher speed</td><td class="yes">Selective</td><td>Selective</td><td>Selective</td><td>Selective</td><td>⬤</td></tr>
         <tr><td>Supported icon size (in pixels)</td><td class="yes">16x16, 32x32, 48x48</td><td>16x16, 32x32, 48x48</td><td>16x16, 32x32, 48x48</td><td>16x16, 32x32, 48x48</td><td>16x16</td></tr>
         
@@ -297,6 +304,7 @@
         <tr><td>Option to filter files by name mask</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Option to filter files by attributes, size, time</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Two progress bars: Total and File</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
+        <tr class="addition"><td>Additional progress bars: Concurrent file transfers</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr><td>Options: Skip [All], Overwrite [All]</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Robust error states handling, Retry option</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         
@@ -617,5 +625,22 @@
   <script src="js/i18n.js?v=0.15.1" defer></script>
   <script src="js/back-to-top.js" defer></script>
   <script src="js/consent.js" defer></script>
+  <script>
+    document.querySelectorAll(".version-toggle").forEach(function (toggle) {
+      toggle.addEventListener("click", function () {
+        var column = Number(toggle.dataset.column);
+        var hidden = toggle.getAttribute("aria-pressed") === "true";
+        toggle.setAttribute("aria-pressed", String(!hidden));
+        document.querySelectorAll("#comparison-table tr").forEach(function (row) {
+          var cell = row.children[column];
+          if (cell) cell.hidden = !hidden;
+        });
+        document.querySelectorAll("#comparison-table .section th").forEach(function (section) {
+          section.colSpan = 2 + document.querySelectorAll(".version-toggle[aria-pressed=\"false\"]").length;
+        });
+      });
+    });
+  </script>
+
 </body>
 </html>
