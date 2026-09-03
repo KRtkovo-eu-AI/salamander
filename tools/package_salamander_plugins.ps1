@@ -355,6 +355,8 @@ if ($duplicatePackageNames.Count -gt 0) {
 }
 
 $archiveCount = 0
+$hashFilePath = Join-Path $outputRoot.FullName 'package-sha256.txt'
+[System.IO.File]::WriteAllText($hashFilePath, '', [System.Text.UTF8Encoding]::new($false))
 foreach ($package in $packages) {
     $packageDirectory = $package.Directory
     if ($package.ExtensionBundle) {
@@ -370,29 +372,31 @@ foreach ($package in $packages) {
     $archiveName = 'plugin_5.0_{0}_{1}_x64.7z' -f $package.PackageId, $version
     $archivePath = Join-Path $outputRoot.FullName $archiveName
 
-    if ((Test-Path -LiteralPath $archivePath) -and -not $Force) {
-        throw "Archive already exists: $archivePath. Use -Force to overwrite it."
+    $archiveExists = Test-Path -LiteralPath $archivePath
+    if ($archiveExists -and -not $Force) {
+        Write-Host "Skipping existing archive $archiveName (use -Force to rebuild it)."
     }
-
-    if (Test-Path -LiteralPath $archivePath) {
-        Remove-Item -LiteralPath $archivePath -Force
-    }
-
-    Write-Host "Packing $($package.PackageType) $($package.PackageId) -> $archiveName"
-    Push-Location -LiteralPath $package.Root
-    try {
-        & $sevenZip a -t7z -mx=9 $archivePath $packageDirectory.Name | Write-Host
-        if ($LASTEXITCODE -ne 0) {
-            throw "7-Zip failed for $($package.PackageType) '$($package.PackageId)' with exit code $LASTEXITCODE."
+    else {
+        if ($archiveExists) {
+            Remove-Item -LiteralPath $archivePath -Force
         }
-    }
-    finally {
-        Pop-Location
+
+        Write-Host "Packing $($package.PackageType) $($package.PackageId) -> $archiveName"
+        Push-Location -LiteralPath $package.Root
+        try {
+            & $sevenZip a -t7z -mx=9 $archivePath $packageDirectory.Name | Write-Host
+            if ($LASTEXITCODE -ne 0) {
+                throw "7-Zip failed for $($package.PackageType) '$($package.PackageId)' with exit code $LASTEXITCODE."
+            }
+        }
+        finally {
+            Pop-Location
+        }
     }
 
     $sha256 = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
     Write-Host "SHA256 $($package.PackageId) = $sha256"
-    Add-Content -LiteralPath (Join-Path $outputRoot.FullName 'package-sha256.txt') -Value ("{0}  {1}" -f $sha256, $archiveName)
+    Add-Content -LiteralPath $hashFilePath -Value ("{0}  {1}" -f $sha256, $archiveName)
 
     $signer = ''
     $signedBinary = Get-ChildItem -LiteralPath $packageDirectory.FullName -File |
@@ -416,7 +420,7 @@ foreach ($package in $packages) {
     $archiveCount++
 }
 
-Write-Host "Created $archiveCount archive(s) in $($outputRoot.FullName)."
+Write-Host "Processed $archiveCount archive(s) in $($outputRoot.FullName)."
 
 $metadata = [ordered]@{
     schemaVersion = 1
