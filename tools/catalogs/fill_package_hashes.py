@@ -39,13 +39,51 @@ def index_archives(directory: Path) -> dict[str, Path]:
     return {path.name.casefold(): path for path in directory.glob("*.7z")}
 
 
+def archive_name_candidates(package_id: str, archives: dict[str, Path]) -> list[str]:
+    prefix = f"plugin_5.0_{package_id}_"
+    suffix = "_x64.7z"
+    return [
+        name
+        for name in archives
+        if name.startswith(prefix) and name.endswith(suffix)
+    ]
+
+
+def archive_version(name: str, package_id: str) -> str | None:
+    prefix = f"plugin_5.0_{package_id}_"
+    suffix = "_x64.7z"
+    if not name.startswith(prefix) or not name.endswith(suffix):
+        return None
+    return name[len(prefix) : -len(suffix)]
+
+
 def fill_catalog(catalog: dict[str, Any], archives: dict[str, Path]) -> int:
     updated = 0
     for entry in catalog.get("plugins", []):
         name = archive_name_from_url(entry.get("downloadPageUrl"))
-        if not name or name not in archives:
+        package_id = entry.get("id")
+        if not isinstance(package_id, str) or not package_id:
             continue
-        entry["packageSha256"] = sha256_file(archives[name])
+
+        candidates = archive_name_candidates(package_id, archives)
+        latest_version = entry.get("latestVersion")
+        if isinstance(latest_version, str):
+            latest_version = latest_version.split(" (", 1)[0].casefold()
+            latest_version = latest_version.replace(" ", "_")
+            version_matches = [
+                candidate
+                for candidate in candidates
+                if archive_version(candidate, package_id) == latest_version
+            ]
+            if len(version_matches) == 1:
+                candidates = version_matches
+
+        archive = archives.get(name) if name else None
+        if len(candidates) == 1:
+            archive = archives[candidates[0]]
+        if archive is None:
+            continue
+        entry["packageSha256"] = sha256_file(archive)
         updated += 1
     return updated
 

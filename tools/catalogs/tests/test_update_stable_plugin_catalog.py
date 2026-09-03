@@ -331,6 +331,47 @@ class FillPackageHashesTests(unittest.TestCase):
             self.assertEqual(FILLER.fill_catalog(catalog, FILLER.index_archives(root)), 1)
             self.assertEqual(catalog["plugins"][0]["packageSha256"], FILLER.sha256_file(archive))
 
+    def test_fill_prefers_catalog_latest_version_when_old_archive_remains(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            old_archive = root / "plugin_5.0_demo_1.0_x64.7z"
+            new_archive = root / "plugin_5.0_demo_2.0_x64.7z"
+            old_archive.write_bytes(b"old-package-bytes")
+            new_archive.write_bytes(b"updated-package-bytes")
+            catalog = {
+                "schemaVersion": 6,
+                "plugins": [
+                    {
+                        "id": "demo",
+                        "latestVersion": "2.0 (x64)",
+                        "downloadPageUrl": "https://example.invalid/plugin_5.0_demo_1.0_x64.7z",
+                    }
+                ],
+            }
+            self.assertEqual(FILLER.fill_catalog(catalog, FILLER.index_archives(root)), 1)
+            self.assertEqual(catalog["plugins"][0]["packageSha256"], FILLER.sha256_file(new_archive))
+
+    def test_fill_uses_unique_package_id_match_when_catalog_url_is_old(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            archive = root / "plugin_5.0_demo_2.0_x64.7z"
+            archive.write_bytes(b"updated-package-bytes")
+            catalog = {
+                "schemaVersion": 6,
+                "plugins": [
+                    {
+                        "id": "demo",
+                        "downloadPageUrl": (
+                            "https://github.com/KRtkovo-eu-AI/salamander-plugins/"
+                            "releases/download/plugin_5.0_demo_1.0_x64/"
+                            "plugin_5.0_demo_1.0_x64.7z"
+                        ),
+                    }
+                ],
+            }
+            self.assertEqual(FILLER.fill_catalog(catalog, FILLER.index_archives(root)), 1)
+            self.assertEqual(catalog["plugins"][0]["packageSha256"], FILLER.sha256_file(archive))
+
 
 if __name__ == "__main__":
     unittest.main()

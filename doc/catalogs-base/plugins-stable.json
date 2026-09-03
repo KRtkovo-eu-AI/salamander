@@ -35,7 +35,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "ab0d302d261551366de36fb38cb8590474fb5ceef5d11e50890a9167a8d4f5c5"
+      "packageSha256": "69ca214ca4545a41cde50e1b0f520c6db64d7c1c4605417697644a527744431a"
     },
     {
       "id": "automation",
@@ -323,7 +323,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "b4c6dc6fa333b31bc85577197406124cfef1fb332742411b00c54dca07edf1b9"
+      "packageSha256": "3040b18f9e84311c3fb7fcb884ff9225ac832f5130b8c090490dd83cb1274c85"
     },
     {
       "id": "hypervm",
@@ -543,7 +543,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "058632d6a123c7806a92017cbdae95cbc923b9b44e9e2218f439ff30bf488928"
+      "packageSha256": "d8e5cf18b946c9eb889317b77d1c4e54d9e405f885c9907335785a767cfcb7d6"
     },
     {
       "id": "nethood",
@@ -719,7 +719,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "8e7293924bb919e1fdb158a90161e929446a4e9fecd7ed5f1a5ecfde3f50ee31"
+      "packageSha256": "0986936f2b056c169c43c497d3016eab847f270ed964e2cf35920398bf9c168e"
     },
     {
       "id": "portables",
@@ -807,7 +807,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "0bebbc6d44dbe051d6b4769031dd897c1bff40feaa4def1f22113a9239e14d02"
+      "packageSha256": "2b07a70a5a9a19374bd051e446115dae5722c0673279ac3aed8cbd94e2e4b1f9"
     },
     {
       "id": "renamer",
@@ -895,7 +895,7 @@
         "activeWebContent": "no",
         "elevation": "never"
       },
-      "packageSha256": "136e0768b9c754a6661e8af6d1263288b7e6845345d8e7dcb1816af614e23dec"
+      "packageSha256": "de8a860503e013b66d8d895593b631bfaea69453e1bdec4d35ba5158ae63c0b4"
     },
     {
       "id": "serviceexplorer",
@@ -938,7 +938,8 @@
         "scriptExecution": "no",
         "activeWebContent": "no",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "c18c0cd6ab6170ef7b4501242eee8697ab860723db734c9d66b6bfefd82e0e86"
     },
     {
       "id": "sftp",
@@ -1116,7 +1117,8 @@
         "scriptExecution": "no",
         "activeWebContent": "yes",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "d8f80f61f83e6afa610e29c2ddaeaea60352ad80620f81ce666b0bc63dd9b8b6"
     },
     {
       "id": "unarj",
@@ -1255,7 +1257,8 @@
         "scriptExecution": "no",
         "activeWebContent": "no",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "81cce76b3fbcb8bf45b8a643a42802266964b6f996cc5495ede19465e65707a9"
     },
     {
       "id": "uniso",
@@ -1390,7 +1393,8 @@
         "scriptExecution": "no",
         "activeWebContent": "no",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "897046b56c44071fecc5df8437dae724709186455ca33d03b50188aab95e6e18"
     },
     {
       "id": "unrar",
@@ -1413,7 +1417,8 @@
         "scriptExecution": "no",
         "activeWebContent": "no",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "28d2ab5c16d08eced0707452686e5604fc48f9ed1d00a1f934058710b66efb19"
     },
     {
       "id": "webview2renderviewer",
@@ -1459,7 +1464,8 @@
         "scriptExecution": "no",
         "activeWebContent": "yes",
         "elevation": "never"
-      }
+      },
+      "packageSha256": "8cf519d6d5798263bc507c327259053926be72ca8991ef932ed657265464a7cb"
     },
     {
       "id": "wmobile",
