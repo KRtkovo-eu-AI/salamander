@@ -1,83 +1,95 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark" style="color-scheme: dark;">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="color-scheme" content="dark light">
-<title>Open Salamander: Samandarin 0.15 changelog</title>
-<style>html,body{margin:0;padding:16px;font-family:'Segoe UI',SegoeUI,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;background-color:#202020;color:#DCDCDC;}h1,h2,h3{color:#DCDCDC;margin-top:1.2em;}a{color:#0078D7;text-decoration:none;}a:hover{text-decoration:underline;}code{font-family:'Consolas','Courier New',monospace;background-color:#313131;padding:2px 4px;border-radius:4px;}ul{margin:0 0 1em 1.5em;}</style>
-</head>
-<body>
-<h1 id="open-salamander-samandarin-0.15-changelist">Open Salamander: Samandarin 0.15 changelist</h1>
-<p>This document lists the user-visible changes made between 5.0-samandarin-0.14 and 5.0-samandarin-0.15. It does not repeat features introduced in earlier releases.</p>
-
-<h2 id="file-management-and-storage">File management and storage</h2>
+<!-- saved from url=(0050)https://markdown.local/document.html?generation=11 -->
+<html style="color-scheme: dark;"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!--<base href="https://document.local/">--><base href="."><style>html,body{margin:0;padding:16px;font:14px/1.6 Arial,sans-serif;background:#202020;color:#DCDCDC}h1,h2,h3,h4,h5,h6{color:#DCDCDC;margin-top:1.2em}a{color:#0078D7;text-decoration:none}a:hover{text-decoration:underline}code{font-family:Consolas,'Courier New',monospace;background:#323232;padding:2px 4px;border-radius:4px}pre{padding:12px;overflow:auto;border-radius:6px;background:#323232;border:1px solid #494949}pre code{padding:0;background:transparent}table{border-collapse:collapse;margin:1em 0;width:100%}th,td{border:1px solid #494949;padding:8px;text-align:left}blockquote{border-left:4px solid #0078D7;margin:1em 0;padding:.5em 1em;background:#323232}img,video,iframe{max-width:100%;height:auto}hr{border:0;border-top:1px solid #494949;margin:2em 0}ul,ol{margin:0 0 1em 1.5em}</style><style id="salamander-viewer-dark">:where(html,body){background-color:#202020;color:#DCDCDC}:where(a:link){color:#0078D7}</style></head><body><h1 id="open-salamander-samandarin-0.15-changelist">Open Salamander: Samandarin 0.15 changelist</h1>
+<p>This document summarizes user-visible changes since 5.0-samandarin-0.14. It intentionally omits internal refactoring unless it changed compatibility, reliability, security, or observable behavior.</p>
+<h2 id="hotfix">0.15.1 hotfix</h2>
 <ul>
-<li>Added mounted-volume display controls and optional path/label presentation.</li>
-<li>Added storage-aware scheduling for concurrent Copy and Move operations, allowing independent storage devices to transfer concurrently while conflicting operations remain serialized.</li>
-<li>Fixed UTF-8 USB directory enumeration.</li>
-<li>Fixed ZIP filename diacritics when Windows uses UTF-8 as the active system code page.</li>
-<li>Fixed file icons to better match Windows Explorer associations.</li>
-<li>Made file tooltips more compact.</li>
-<li>Fixed detached-tab transitions and enabled file operations in detached tab windows.</li>
-<li>Fixed a regression in tabs and Tree View.</li>
-<li>Improved sorting in search results.</li>
-<li>Allowed <code>Ctrl+PgDown</code> to open archives by content regardless of their file extension.</li>
-<li>Made Registry Search abortable and prevented Find from crashing when opened.</li>
+<li>Fixed startup behavior so synchronous startup dialogs remain visible and interactive without revealing incomplete main-window frames or causing startup flicker.</li>
+<li>Fixed recovery and migration issues involving missing plug-in language files, temporary files, imported settings, and upgraded installations; extension versions are now preserved during upgrades.</li>
+<li>Improved PictView associations and viewer-mask migration, added native decoding support for additional image formats, and routed interactive STL previews through the Windows preview handler, including elevated Salamander support.</li>
+<li>Removed obsolete Office, OpenDocument, EPUB, and XPI extensions from imported archive rows while preserving normal <code>Ctrl+PgDown</code> content probing and standalone associations.</li>
+<li>Fixed crashes in Salamatrix, Registry Search, and the Portable Devices plug-in, and improved Salamatrix shutdown/refresh lifetime handling.</li>
+<li>Improved the Internal Viewer text-selection behavior, log mode under transient file locks, and detection of CP1250 text/conversion files.</li>
+<li>Added Unicode and additional file-type support to Multimedia Viewer, including audio metadata support, and restored its Debug-build dependencies.</li>
+<li>Improved FTP client operation dialogs and reconnect behavior, including correct handling of empty rows and saved-password prefill.</li>
+<li>Improved Copy/Move scheduling with scan-ahead conflict processing, dependency-aware parallel operation handling, responsive conflict controls, and configurable operation-wide actions.</li>
+<li>Improved ServiceExplorer support for Unicode paths and preserved panel/tab directory history across navigation and upgrades.</li>
+<li>Fixed live Per-Monitor DPI icon switching across panels, plug-ins, menus, toolbars, associations, overlays, and detached windows; icon artwork is rebuilt for the target monitor scale without restarting Salamander.</li>
+<li>Updated translations, plug-in packages, release metadata, and catalog SHA-256 values; packaging now keeps existing archives when run without <code>-Force</code>.</li>
 </ul>
-
-<h2 id="interface-and-shutdown">Interface, panels, and shutdown</h2>
+<h2 id="file-management-and-operations">File management and operations</h2>
 <ul>
-<li>Added detachable panel tab windows.</li>
-<li>Fixed main-window dragging and the initial tab-tooltip DPI font.</li>
-<li>Fixed shell icons and startup-panel rendering.</li>
-<li>Improved Explorer property columns and shared WebView viewers.</li>
-<li>Added plug-in and extension columns to the Sort By menu.</li>
-<li>Polished configurable UI fonts and viewer rendering.</li>
-<li>Preserved curly-braced placeholders in the Markdown viewer.</li>
-<li>Fixed viewer encoding, UI font scaling, and panel quick search.</li>
-<li>Preserved the main-window size after the computer wakes from sleep.</li>
-<li>Showed progress throughout application shutdown.</li>
+<li>Added storage-aware Copy and Move operation scheduling: run operations globally in sequence, concurrently when storage paths do not conflict, or ask for each operation.</li>
+<li>Added separate configurable SSD/NVMe limits for parallel file transfers within a single Copy or Move operation.</li>
+<li>Updated the File Operation Progress window to present multiple active transfers while retaining queue, pause, resume, and error controls.</li>
+<li>Added <code>Ctrl+PgDown</code> content probing to open supported archives with missing or incorrect extensions, self-extracting archives, and package-based Office/OpenDocument files without changing normal Enter behavior.</li>
+<li>Added <code>Shift+F5</code> multi-target copy to all selected folders in the opposite panel.</li>
+<li>Added Copy and Move between plug-in file systems and archives, including FTP-to-archive, remote-to-remote, and archive-to-archive workflows.</li>
+<li>Added Total Commander DiskDir-compatible disk catalogs and recursive Make File List output for disk and archive panels.</li>
+<li>Added path autocomplete to Copy, Move, Quick Rename, Create Folder, and Change Directory dialogs.</li>
+<li>Added extended Delete confirmation with a reviewable table of selected names.</li>
+<li>Added mounted NTFS-folder volumes to Change Drive and optionally to the Drive Bar, including configurable labels/path display and optional Windows Sandbox volumes.</li>
+<li>Added an occupied-space option that remains on the current file system instead of following directory links or mounted folders.</li>
+<li>Updated bundled 7-Zip to 26.02 with additional archive, package, file-system, and disk-image formats.</li>
+<li>Improved Unicode and long-path handling in ZIP, 7-Zip, RAR, Checksum, File Comparator, viewers, editors, and external file-action workflows.</li>
+<li>Fixed ZIP names containing diacritics when Windows uses UTF-8 as the active system code page.</li>
 </ul>
-
-<h2 id="viewers-and-rendering">Viewers, previews, and rendering</h2>
+<h2 id="interface-panels-and-search">Interface, panels, and search</h2>
 <ul>
-<li>Added native WebView viewers and extended system diagnostics.</li>
-<li>Fixed Prism text-view CSS and Internal Viewer flickering.</li>
-<li>Fixed File Compare whitespace glyphs and Database Viewer DPI fonts.</li>
-<li>Restored PictView native decoders and the STL Explorer preview.</li>
+<li>Added detachable individual tabs via context menu or drag-out, with independent windows, persistence, and reattachment to either panel side.</li>
+<li>Added independently detached full left/right panel windows with file-operation support.</li>
+<li>Added tab locking, protected path changes, tab-width options, bold active-tab styling, overflow wheel scrolling, and right-button wheel switching.</li>
+<li>Added shared or separate history for panels and tabs and persistence of forward/back history across restarts, including plug-in and extension locations.</li>
+<li>Added configurable UI and menu fonts across dialogs, viewers, plug-in windows, and panels.</li>
+<li>Expanded Windows Explorer properties: choose by category, reorder and persist detailed-view columns, search/edit supported values and tags, and sort by plug-in or extension columns.</li>
+<li>Updated panel icons to match modern Windows Explorer associations more closely and added ICO image thumbnails.</li>
+<li>Added WebP, SVG, STL, CDR, folder, and other supported thumbnails.</li>
+<li>Added sortable Find, Registry Search, and Batch Renamer results with ascending/descending order and optional mixed files/directories or keys/values.</li>
+<li>Added compact rich panel tooltips with file-type metadata.</li>
+<li>Added optional Windows Dark Mode color-scheme support across the application and participating plug-ins.</li>
+<li>Improved Per-Monitor V2 DPI behavior for windows, dialogs, controls, icons, panels, and detached views.</li>
+<li>Added a docked or floating Tree View synchronized with the active disk panel.</li>
+<li>Added configurable command-shell templates, discovered Windows Terminal profiles, and an elevated-shell shortcut (<code>Shift+Num /</code>).</li>
+<li>Added additional Windows user-folder shortcuts.</li>
+<li>Added visible shutdown progress for slow shutdown operations.</li>
+<li>Improved main-window size preservation after sleep and display changes.</li>
 </ul>
-
-<h2 id="salamatrix-and-extensions">Salamatrix, plug-ins, and extensions</h2>
+<h2 id="viewers-thumbnails-and-formats">Viewers, thumbnails, and formats</h2>
 <ul>
-<li>Added Salamatrix Studio.</li>
-<li>Completed and stabilized Salamatrix Framework v1.</li>
-<li>Added Process Explorer and extended Salamatrix file systems.</li>
-<li>Added a hierarchical Hardware Monitor file-system extension.</li>
-<li>Fixed the plug-in manager and extension behavior.</li>
-<li>Fixed plug-in and extension name casing.</li>
-<li>Fixed ambiguous plug-in version formatting and related plug-in version display issues.</li>
-<li>Fixed the Python demo file-system listing.</li>
-<li>Prevented the Python demo UI from appearing during lifecycle activation.</li>
-<li>Fixed the SFTP plug-in dialog when the password is empty.</li>
-<li>Made the Local Llama configuration dialog's Close button dismiss the dialog.</li>
-<li>Updated Samandarin domains.</li>
+<li>Added the native Prism Text Viewer with syntax highlighting for source, configuration, markup, logs, and many other text formats.</li>
+<li>Added the native WebView2 Render Viewer for HTML, Markdown, SVG, WebP, AVIF, APNG, raster images, and PDF.</li>
+<li>Added shared native viewer behavior including zoom, encoding selection, line numbers, wrapping, whitespace display, persistent settings, DPI support, and Salamander dark mode.</li>
+<li>Expanded Internal Viewer with Unicode text, line/column and selection status, zoom, optional line numbers, and auto-refreshing Log View Mode.</li>
+<li>Restored PictView support beyond installed WIC codecs through native decoders for TGA, PCX, Netpbm, SVG, DDS/DX10, XCF, PDN, 3DM, DWG, WMF/EMF, and embedded previews in EPS, AI, PDF, and MOV.</li>
+<li>Added interactive STL viewing through an installed Explorer 3D preview handler.</li>
+<li>Added dynamic discovery of installed WIC codecs rather than treating optional formats as universally available.</li>
+<li>Added JSONL handling in Database Viewer and expanded modern viewer file associations.</li>
 </ul>
-
-<h2 id="startup-and-extension-lifecycle">Startup, lifecycle, and build automation</h2>
+<h2 id="salamatrix-and-system-extensions">Salamatrix and system extensions</h2>
 <ul>
-<li>Deferred menu-preview disposal until after the <code>Closed</code> event.</li>
-<li>Showed extension startup progress.</li>
-<li>Fixed PR test reporting after reruns.</li>
-<li>Unblocked the skipped PR Test Report and queued CodeQL skips.</li>
-<li>Applied additional bulk improvements across the application.</li>
+<li>Stabilized Salamatrix Framework v1 with versioned host services and manifest-declared capabilities.</li>
+<li>Added extension commands, context menus, toolbars, viewers, panel file systems, typed columns, actions, icons, settings, localization, and a dedicated Extension Bar.</li>
+<li>Added native dialog, picker, progress, notification, storage, clipboard, and event APIs for extensions.</li>
+<li>Kept public runtime capabilities equivalent across JavaScript, Python, PowerShell, PHP, and Lua providers.</li>
+<li>Added Salamatrix Studio for Visual Studio Code with project tooling, manifest editing, visual native dialog/menu design, preview, and generated runtime code.</li>
+<li>Added Process Explorer with process details, end task/tree, executable location, and properties actions.</li>
+<li>Added Hardware Monitor with hardware hierarchy, sensors, utilization, SMART/NVMe data, and Device Manager actions.</li>
+<li>Added Windows Event Viewer with Custom Views, Windows Logs, Applications and Services Logs, event properties, and XML details.</li>
+<li>Added File Lock Inspector, Git Worktree Navigator, Interactive Extension Menu Builder, local AI provider support, Hyper-V tools, Windows Service Explorer, and Windows Portable Devices integrations.</li>
 </ul>
-
-<h2 id="security-and-trust">Security and package trust</h2>
+<h2 id="plug-ins-configuration-and-security">Plug-ins, configuration, and security</h2>
 <ul>
-<li>Hardened plug-in installation trust and added the Plugin Manager security disclosure.</li>
+<li>Added automatic catalog installation and updating for native plug-ins, runtimes, and extensions with dependency resolution.</li>
+<li>Added catalog icons and capability declarations to Plugin Manager.</li>
+<li>Added fail-closed verification of official packages using catalog SHA-256 values and Authenticode publisher validation for extracted first-party binaries.</li>
+<li>Added disclosure of curated network, external-process, and web-access capabilities.</li>
+<li>Added portable file-based configuration storage and a portable installation mode without Registry entries.</li>
+<li>Added configuration management, import/export, target-location selection, and a guided restore workflow.</li>
+<li>Improved configuration autosave and recovery.</li>
+<li>Added AI-assisted localization workflows and an Italian localization.</li>
+<li>Added a modern SFTP/SCP plug-in with password, private-key/PPK, keyboard-interactive authentication, known-host verification, resume, remote edit, chmod, and automatic SCP fallback.</li>
+<li>Improved SFTP reconnect, saved-password prefill, and responsive drag/layout behavior.</li>
+<li>Added a compatibility layer for existing Altap Salamander 4.0 plug-ins.</li>
+<li>Digitally signed distributed executables, libraries, plug-ins, and the installer.</li>
 </ul>
-
-<p>For the complete list of pull requests, see the <a href="https://github.com/KRtkovo-eu-AI/salamander/compare/5.0-samandarin-0.14...5.0-samandarin-0.15">GitHub comparison between 0.14 and 0.15</a>.</p>
-</body>
-</html>
+</body></html>
