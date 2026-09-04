@@ -1887,7 +1887,7 @@ BEGIN
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,11,110,150,12
     LTEXT           "For Command line history (it can contain passwords) you can choose special options.",IDC_STATIC_3,1,141,228,16
     CONTROL         "&Enable Command line history",IDC_HISTORY_ENABLECMDLINE,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,174,247,12
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,161,247,12
     CONTROL         "S&ave Command line history",IDC_HISTORY_SAVECMDLINE,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,174,247,12
     LTEXT           "You can clear all history related data now.",IDC_STATIC_4,1,197,144,8

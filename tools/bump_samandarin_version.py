@@ -45,15 +45,32 @@ def main() -> None:
     inno = root / "doc/runbook-setup/inno_setup_salamander_x64.iss"
 
     spl_text = read(spl_vers)
-    match = re.search(r"^#define VERSINFO_SAMANDARIN_MAJOR (\d+)\n#define VERSINFO_SAMANDARIN_MINORA (\d+)$", spl_text, re.MULTILINE)
+    match = re.search(
+        r"^#define VERSINFO_SAMANDARIN_MAJOR (\d+)\n"
+        r"#define VERSINFO_SAMANDARIN_MINORA (\d+)\n"
+        r"#define VERSINFO_SAMANDARIN_MINORB (\d+)$",
+        spl_text,
+        re.MULTILINE,
+    )
     if not match:
         raise RuntimeError(f"Could not find Samandarin version defines in {spl_vers}.")
 
     major = int(match.group(1))
     old_minor = int(match.group(2))
+    old_patch = int(match.group(3))
     new_minor = old_minor + 1
-    old_version = f"{major}.{old_minor}"
+    old_version = f"{major}.{old_minor}" if old_patch == 0 else f"{major}.{old_minor}.{old_patch}"
     new_version = f"{major}.{new_minor}"
+
+    # A hotfix does not add a separate minor release entry to this history.
+    # Use the base release entry when the current version has a patch part.
+    history_version = old_version
+    if old_patch != 0 and not re.search(
+        rf"^// \d+ = 5\.0-samandarin-{re.escape(history_version)}$",
+        spl_text,
+        re.MULTILINE,
+    ):
+        history_version = f"{major}.{old_minor}"
 
     build_match = re.search(r"^#define VERSINFO_BUILDNUMBER (\d+)$", spl_text, re.MULTILINE)
     if not build_match:
@@ -69,7 +86,13 @@ def main() -> None:
     )
     spl_text = replace_one(
         spl_text,
-        rf"^(// {old_build_number} = 5\.0-samandarin-{re.escape(old_version)}\n)",
+        r"^(#define VERSINFO_SAMANDARIN_MINORB )\d+$",
+        r"\g<1>0",
+        file_name=str(spl_vers),
+    )
+    spl_text = replace_one(
+        spl_text,
+        rf"^(// {old_build_number} = 5\.0-samandarin-{re.escape(history_version)}\n)",
         rf"\g<1>// {new_build_number} = 5.0-samandarin-{new_version}\n",
         file_name=str(spl_vers),
     )
@@ -139,7 +162,7 @@ def main() -> None:
     inno_text = read(inno)
     inno_text = replace_one(
         inno_text,
-        r'^(#define SamandarinVersion ")\d+\.\d+("$)',
+        r'^(#define SamandarinVersion ")\d+\.\d+(?:\.\d+)?("$)',
         rf"\g<1>{new_version}\2",
         file_name=str(inno),
     )

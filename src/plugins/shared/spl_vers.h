@@ -26,8 +26,8 @@
 #define VERSINFO_SALAMANDER_MINORB 0
 
 #define VERSINFO_SAMANDARIN_MAJOR 0
-#define VERSINFO_SAMANDARIN_MINORA 15
-#define VERSINFO_SAMANDARIN_MINORB 1
+#define VERSINFO_SAMANDARIN_MINORA 16
+#define VERSINFO_SAMANDARIN_MINORB 0
 
 #if (VERSINFO_SAMANDARIN_MINORB == 0) // omit the trailing zero in the hundredths place: 2.50 -> 2.5
 #define VERSINFO_SAMANDARIN_VERSION VERSINFO_xstr(VERSINFO_SAMANDARIN_MAJOR) "." VERSINFO_xstr(VERSINFO_SAMANDARIN_MINORA)
@@ -123,10 +123,11 @@
 // 194 = 5.0-samandarin-0.12
 // 195 = 5.0-samandarin-0.14
 // 196 = 5.0-samandarin-0.15
+// 197 = 5.0-samandarin-0.16
 
 // ! DULEZITE: nova cisla buildu je nutne zapsat do vetve "default", a pak
 //             teprve do vedlejsi vetve (kompletni seznam je jen v "default" vetvi)
-#define VERSINFO_BUILDNUMBER 196
+#define VERSINFO_BUILDNUMBER 197
 
 // VERSINFO_BETAVERSION_TXT:
 //
