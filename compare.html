@@ -25,6 +25,9 @@
     th:first-of-type { padding-left: .4em; }
     td:first-of-type { padding-left: .8em; }
     .section th { text-align: left; }
+    .section-toggle { display: flex; align-items: center; gap: .45em; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-weight: inherit; text-align: left; cursor: pointer; }
+    .section-toggle:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+    .section-toggle__icon { display: inline-grid; place-items: center; width: 1.15em; height: 1.15em; border: 1px solid currentColor; border-radius: .15em; font-size: .9em; line-height: 1; flex: 0 0 auto; }
     .table-legend { font-family: Tahoma, sans-serif; font-size: 10px !important; margin: 0; }
     blockquote { display: flex; flex-wrap: wrap; gap: .4em; line-height: 1.8em; margin: .5em 0 0; }
     .version-current { width: max-content; }
@@ -126,9 +129,10 @@
       </div>
     </section>
     <section class="content-grid">
+      <p class="note"><a href="#" id="toggle-all-sections" class="section-toggle" data-target="comparison-table">Collapse all sections</a></p>
     <div class="scroll">
     <table id="comparison-table" class="comparison-table">
-      <thead><tr><th><b>Features</b></th><th><b>Version 5.0-Samandarin-0.15.1</b></th><th width="125px"><b>Version 5.0</b></th><th width="125px"><b>Version 4.0</b></th><th width="125px"><b>Version 2.54</b></th><th width="125px"><b>Version 1.52</b></th></tr></thead>
+      <thead><tr><th><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Features</b></button></th><th><b>Version 5.0-Samandarin-0.15.1</b></th><th width="125px"><b>Version 5.0</b></th><th width="125px"><b>Version 4.0</b></th><th width="125px"><b>Version 2.54</b></th><th width="125px"><b>Version 1.52</b></th></tr></thead>
       <tbody>
         <tr><td>Released</td><td class="yes">September 2026</td><td>Unreleased</td><td>June 2019</td><td>September 2010</td><td>May 1998</td></tr>
         <tr><td>License</td><td class="yes">Open source<br>(GNU GPL v2.0)</td><td>Open source<br>(GNU GPL v2.0)</td><td>Freeware</td><td>Commercial</td><td>Freeware</td></tr>
@@ -150,12 +154,12 @@
         <tr class="addition"><td>Windows Dark Mode across the application and participating plug-ins</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr><td>Digitally signed binaries (.exe, .dll, plugins, etc.) and installer</td><td class="yes">⬤</td><td>Unreleased</td><td>⬤</td><td>⬤</td><td>–</td></tr>
 
-        <tr class="section"><th colspan="6"><b>Cloud Storage Services support</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Cloud Storage Services support</b></button></th></tr>
         <tr><td>Dropbox</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
         <tr><td>Google Drive</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
         <tr><td>Microsoft OneDrive</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
 
-        <tr class="section"><th colspan="6"><b>Improved files copy routine</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Improved files copy routine</b></button></th></tr>
         <tr><td>Fast asynchronous algorithm for copying from/to network</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
         <tr><td>Verifying of copied part of file during resume</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
         <tr><td>Option to copy link target or just create empty directory</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>–</td></tr>
@@ -166,7 +170,7 @@
         <tr class="addition"><td>Sequential or storage-aware transfer mode for Copy/Move operations</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Rolling parallel file copying with configurable SSD/NVMe parallel-file limits</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
 
-        <tr class="section"><th colspan="6"><b>Integrated Viewers</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Integrated Viewers</b></button></th></tr>
         <tr><td>Internal viewer: Text / HEX (binary)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr class="addition"><td>Internal viewer: Unicode encodings</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Internal viewer: line/column and selected characters/lines status</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
@@ -184,7 +188,7 @@
         <tr class="addition"><td>WebView2 Render viewer: HTML, Markdown, SVG, WebP/AVIF/APNG, raster images and PDF</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr><td>Portable executable viewer: EXE, DLL</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
 
-        <tr class="section"><th colspan="6"><b>Archives Support:</b> <b>U</b>npack / <b>P</b>ack, <b>I</b>nternal / <b>E</b>xternal (requires third party software)</th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Archives Support:</b> <b>U</b>npack / <b>P</b>ack, <b>I</b>nternal / <b>E</b>xternal (requires third party software)</button></th></tr>
         <tr><td>ZIP</td><td class="yes">UI / PI</td><td>UI / PI</td><td>UI / PI</td><td>UI / PI</td><td>–</td></tr>
         <tr><td>RAR<br>
           <small><b>⭘</b> <i>Plugin source code available, not compiled as unrar library is missing.</i></small></td><td class="yes">UI / PE</td><td>⭘</td><td>UI / PE</td><td>UI / PE</td><td>–</td></tr>
@@ -208,7 +212,7 @@
         <tr><td>Automatic search for external archivers</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>View / Edit files in archives</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
 
-        <tr class="section"><th colspan="6"><b>Basic Commands</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Basic Commands</b></button></th></tr>
         <tr><td>Rename, View, Edit, Copy, Move, Delete</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Create Directory</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Hot paths count</td><td class="yes">30</td><td>30</td><td>30</td><td>10</td><td>10</td></tr>
@@ -220,7 +224,7 @@
         <tr class="addition"><td>Path autocomplete in Copy, Move, Quick Rename, Create Directory and Change Directory dialogs</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Extended Delete confirmation with a table of selected file names</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         
-        <tr class="section"><th colspan="6"><b>Advanced Commands</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Advanced Commands</b></button></th></tr>
         <tr><td>Change case</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Change attributes, date, and time</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Drive information</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
@@ -241,7 +245,7 @@
         <tr class="addition"><td>Configurable command-shell application and command line</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Direct access to additional Windows user folders</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         
-        <tr class="section"><th colspan="6"><b>Plugins</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Plugins</b></button></th></tr>
         <tr><td>Automatic check for updates</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr class="addition"><td>Automatic plugin/extension installation and update (including dependencies)</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Fail-closed official package verification using catalog SHA-256 values and Authenticode publisher checks</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
@@ -282,7 +286,7 @@
         <tr class="addition"><td>Hardware Monitor panel: hardware, sensors, utilization and Device Manager actions</td><td class="yes"><b>⬤</b></td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Windows Event Viewer panel with event properties and XML details</td><td class="yes"><b>⬤</b></td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         
-        <tr class="section"><th colspan="6"><b>Icons &amp; Thumbnails</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Icons &amp; Thumbnails</b></button></th></tr>
         <tr><td>Reading icons in separate thread</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Reading thumbnails in separate thread</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Reading visible icons &amp; thumbnails first</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
@@ -292,7 +296,7 @@
         <tr><td>Simple icons option for higher speed</td><td class="yes">Selective</td><td>Selective</td><td>Selective</td><td>Selective</td><td>⬤</td></tr>
         <tr><td>Supported icon size (in pixels)</td><td class="yes">16x16, 32x32, 48x48</td><td>16x16, 32x32, 48x48</td><td>16x16, 32x32, 48x48</td><td>16x16, 32x32, 48x48</td><td>16x16</td></tr>
         
-        <tr class="section"><th colspan="6"><b>Operations</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Operations</b></button></th></tr>
         <tr><td>Background operations</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr class="addition"><td>Bulk copy to all selected target folders (Shift+F5)</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr><td>Display transfer speed, time estimation</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
@@ -308,7 +312,7 @@
         <tr><td>Options: Skip [All], Overwrite [All]</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Robust error states handling, Retry option</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         
-        <tr class="section"><th colspan="6"><b>User Interface</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>User Interface</b></button></th></tr>
         <tr><td>Drag-and-drop from / to disks</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Drag-and-drop from / to archives</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Keyboard shortcuts for most of commands</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
@@ -327,7 +331,7 @@
         <tr><td>Support Terminal Services (Remote Desktop)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr class="addition"><td>Detached left and right sides in independent windows (full window with toolbars)</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         
-        <tr class="section"><th colspan="6"><b>Toolbars</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Toolbars</b></button></th></tr>
         <tr><td>Top toolbar</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Bottom toolbar</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>User menu bar</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
@@ -338,7 +342,7 @@
         <tr><td>Option to lock toolbars</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr class="addition"><td>Different icons for dark mode scheme</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         
-        <tr class="section"><th colspan="6"><b>Panels</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Panels</b></button></th></tr>
         <tr><td>Display modes Thumbnails, Icons, Tiles</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Display modes Brief, Detailed (count of customizable Detailed mode presets)</td><td class="yes">⬤ (6+)</td><td>⬤ (6)</td><td>⬤ (6)</td><td>⬤ (6)</td><td>⬤ (1)</td></tr>
         <tr><td>Quick Search through displayed items</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
@@ -362,7 +366,7 @@
         <tr class="addition"><td>Panel item information tooltips with file-type metadata</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Lock/Unlock tab and its panel (keep the tab and panel location unchanged)</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         
-        <tr class="section"><th colspan="6"><b>Find</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Find</b></button></th></tr>
         <tr><td>Find files and directories</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Find by time, size, attributes, content</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Find operations in background</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
@@ -375,14 +379,14 @@
         <tr class="addition"><td>Optional mixed sorting of files with directories and Registry keys with values</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Abortable Registry Search using Stop, Esc or window close while preserving collected results</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         
-        <tr class="section"><th colspan="6"><b>Sorting Options</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Sorting Options</b></button></th></tr>
         <tr><td>Sort by name, extension, time, size</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Sort in both directions</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Respect regional settings</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Use numerical sort for numbers in names</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr class="addition"><td>Sorting with respect to Unicode characters</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         
-        <tr class="section"><th colspan="6"><b>Clipboard Commands</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Clipboard Commands</b></button></th></tr>
         <tr><td>Clipboard Copy, Cut, Paste, Paste Shortcut</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Paste: go to directory</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Paste: go to directory and focus file</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
@@ -391,7 +395,7 @@
         <tr><td>Copy path as text</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Copy UNC path + name as text</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         
-        <tr class="section"><th colspan="6"><b>Selection Commands</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Selection Commands</b></button></th></tr>
         <tr><td>Select / Unselect using wildcards</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Select / Unselect all</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Invert selection</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
@@ -399,7 +403,7 @@
         <tr><td>Restore selection</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Advanced selection operations</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         
-        <tr class="section"><th colspan="6"><b>Integration With Windows Shell And File System</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Integration With Windows Shell And File System</b></button></th></tr>
         <tr><td>Support for deleting to Recycle Bin</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Support for UNC paths (\\server\share)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr class="addition"><td>Volumes mounted in NTFS folders</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
@@ -415,7 +419,7 @@
         <tr><td>Support for Windows Policies (restrictions)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Support for files over 4GB</td><td class="yes">Full</td><td>Full</td><td>Full</td><td>Full</td><td>Basic</td></tr>
         
-        <tr class="section"><th colspan="6"><b>History</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>History</b></button></th></tr>
         <tr><td>Command line history</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Find options history</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Select / Unselect history</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
@@ -429,14 +433,14 @@
         <tr class="addition"><td>Persistent folder history (list forward and backward after restart)</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Keep panel location after restart even for plugins and extensions</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         
-        <tr class="section"><th colspan="6"><b>Security</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Security</b></button></th></tr>
         <tr><td>Password Manager with strong AES-256 cypher</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>FTP and WinSCP* clients can store password safely<br>
             <b>*</b> <small><i>WinSCP is not available in version 5.0</i></small>
           </td><td class="yes"><b>⬤ *</b></td><td><b>⬤ *</b></td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Support for TLS FTP (FTPS or FTPES with AUTH TLS)</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         
-        <tr class="section"><th colspan="6"><b>Extensibility</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Extensibility</b></button></th></tr>
         <tr><td>Automation plugin<br><small><i>L1: Simple scripts in JScript, VBScript</i></small></td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr class="addition"><td><a href="salamatrix/index.html">Salamatrix SDK</a> and <a href="salamatrix/salamatrix-ui.html">host-independent dialog contract</a><br>
           <small><i>L2: Advanced scripts and extensions in different languages</i></small></td><td class="yes">⬤<br><small>(Lua, PowerShell, Python, Node.js, PHP)</small></td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
@@ -446,7 +450,7 @@
           <b>*</b> <i>for full compatibility and capabilities, it's recommended to use application source code instead of SDK</i></small></td><td class="yes"><b>⭘ *</b></td><td><b>⭘</b></td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr class="addition"><td><a href="salamatrix/studio.html">Salamatrix Studio</a><br><small><i>Visual Studio Code add-on: dialog builder with native preview host, menu builder and manifest editor</i></small></td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         
-        <tr class="section"><th colspan="6"><b>Configuration</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Configuration</b></button></th></tr>
         <tr><td>Configurability</td><td class="yes">Advanced</td><td>High</td><td>High</td><td>High</td><td>Moderate</td></tr>
         <tr><td>Configuration stored in Registry</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr class="addition"><td>Portable file-based configuration storage</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
@@ -454,7 +458,7 @@
         <tr><td>Import / export configuration</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr class="addition"><td>Configuration manager and restore wizard</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         
-        <tr class="section"><th colspan="6"><b>Language Translations</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Language Translations</b></button></th></tr>
         <tr><td>English</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Czech</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Dutch</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>–</td><td>⬤</td></tr>
@@ -471,7 +475,7 @@
             <b>⭘</b> <small><i>Only corrections are made manually for Samandarin.</i></small></td><td class="yes"><b>⭘</b></td><td>Unreleased</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr class="addition"><td>AI-assisted translation workflow</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         
-        <tr class="section"><th colspan="6"><b>Setup</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Setup</b></button></th></tr>
         <tr><td>Installable beside other versions</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>⬤</td></tr>
         <tr><td>Install / Uninstall</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
         <tr><td>Transfer (import) old configuration</td><td class="yes">⬤</td><td>⬤</td><td>⬤</td><td>⬤</td><td>–</td></tr>
@@ -500,7 +504,7 @@
         <tr class="addition"><td>SFTP usability improvements, including saved-password reconnect prefill and responsive drag/layout handling</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
         <tr class="addition"><td>Compatibility layer for existing Altap Salamander 4.0 plug-ins</td><td class="yes">⬤</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>-->
         
-        <tr class="section"><th colspan="6"><b>Internals</b></th></tr>
+        <tr class="section"><th colspan="6"><button class="section-toggle" type="button" aria-expanded="true"><span class="section-toggle__icon" aria-hidden="true">−</span><b>Internals</b></button></th></tr>
         <tr><td>Development environment</td><td class="yes">MS Visual C++ 2026<br><small>&amp; C# 14.0 .NET 4.8.2</small></td><td>MS Visual C++ 2022</td><td>MS Visual C++ 2019</td><td>MS Visual C++ 6.0</td><td>Watcom C++ 11</td></tr>
         <tr><td>Essential utilities</td><td class="yes">Git, Cursor</td><td>Git</td><td>Mercurial SCM</td><td>CVS</td><td>–</td></tr>
         <tr><td>Source code lines<br><small><b>*</b> <i>According to our source-code growth report script</i><br><b>**</b> <i>According to the website <a href="https://www.altap.cz/salamander/features/compare/">altap.cz</a></i></small></td><td class="yes"><a href="https://github.com/KRtkovo-eu-AI/salamander/issues/646">See source-code growth report</a></td><td>~970,000 NLOC *</td><td>~674,000 **</td><td>~656,000 **</td><td>~42,000 **</td></tr>
@@ -626,6 +630,94 @@
   <script src="js/back-to-top.js" defer></script>
   <script src="js/consent.js" defer></script>
   <script>
+    document.querySelectorAll("#comparison-table .section th").forEach(function (header) {
+      var toggle = header.querySelector(".section-toggle");
+      if (!toggle) {
+        toggle = document.createElement("button");
+        toggle.className = "section-toggle";
+        toggle.type = "button";
+        toggle.setAttribute("aria-expanded", "true");
+        var icon = document.createElement("span");
+        icon.className = "section-toggle__icon";
+        icon.setAttribute("aria-hidden", "true");
+        icon.textContent = "−";
+        toggle.appendChild(icon);
+        while (header.firstChild) toggle.appendChild(header.firstChild);
+        header.appendChild(toggle);
+      }
+      toggle.addEventListener("click", function () {
+        var section = toggle.closest(".section");
+        var expanded = toggle.getAttribute("aria-expanded") === "true";
+        toggle.setAttribute("aria-expanded", String(!expanded));
+        toggle.querySelector(".section-toggle__icon").textContent = expanded ? "+" : "−";
+        var row = section.nextElementSibling;
+        while (row && !row.classList.contains("section")) {
+          row.hidden = expanded;
+          row = row.nextElementSibling;
+        }
+      });
+    });
+    var featuresToggle = document.querySelector("#comparison-table thead .section-toggle");
+    if (featuresToggle) {
+      featuresToggle.addEventListener("click", function () {
+        var expanded = featuresToggle.getAttribute("aria-expanded") === "true";
+        featuresToggle.setAttribute("aria-expanded", String(!expanded));
+        featuresToggle.querySelector(".section-toggle__icon").textContent = expanded ? "+" : "−";
+        var row = document.querySelector("#comparison-table tbody").firstElementChild;
+        while (row && !row.classList.contains("section")) {
+          row.hidden = expanded;
+          row = row.nextElementSibling;
+        }
+      });
+    }
+
+    var allSectionsToggle = document.querySelector("#toggle-all-sections");
+    var sectionToggles = Array.from(document.querySelectorAll("#comparison-table tbody .section-toggle"));
+    if (featuresToggle) sectionToggles.unshift(featuresToggle);
+
+    function setSectionExpanded(toggle, expanded) {
+      toggle.setAttribute("aria-expanded", String(expanded));
+      toggle.querySelector(".section-toggle__icon").textContent = expanded ? "−" : "+";
+      var section = toggle.closest(".section");
+      if (section) {
+        var row = section.nextElementSibling;
+        while (row && !row.classList.contains("section")) {
+          row.hidden = !expanded;
+          row = row.nextElementSibling;
+        }
+        return;
+      }
+      var row = document.querySelector("#comparison-table tbody").firstElementChild;
+      while (row && !row.classList.contains("section")) {
+        row.hidden = !expanded;
+        row = row.nextElementSibling;
+      }
+    }
+
+    function updateAllSectionsLabel() {
+      var allExpanded = sectionToggles.every(function (toggle) {
+        return toggle.getAttribute("aria-expanded") === "true";
+      });
+      if (allSectionsToggle) allSectionsToggle.textContent = allExpanded ? "Collapse all sections" : "Expand all sections";
+    }
+
+    document.querySelectorAll("#comparison-table .section-toggle, #comparison-table thead .section-toggle").forEach(function (toggle) {
+      toggle.addEventListener("click", updateAllSectionsLabel);
+    });
+    if (allSectionsToggle) {
+      allSectionsToggle.addEventListener("click", function (event) {
+        event.preventDefault();
+        var allExpanded = sectionToggles.every(function (toggle) {
+          return toggle.getAttribute("aria-expanded") === "true";
+        });
+        sectionToggles.forEach(function (toggle) {
+          setSectionExpanded(toggle, !allExpanded);
+        });
+        updateAllSectionsLabel();
+      });
+      updateAllSectionsLabel();
+    }
+
     document.querySelectorAll(".version-toggle").forEach(function (toggle) {
       toggle.addEventListener("click", function () {
         var column = Number(toggle.dataset.column);
