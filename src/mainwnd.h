@@ -1053,6 +1053,7 @@ public:
 
     CFilesWindow* GetPanel(int panel);
     void PostFocusNameInPanel(int panel, const char* path, const char* name);
+    BOOL FindPluginFSPanel(CPluginFSInterfaceAbstract* pluginFS, int& panel);
 
 private:
     friend class CStatusWindow;

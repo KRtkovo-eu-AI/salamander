@@ -2532,3 +2532,52 @@ void CMainWindow::PostFocusNameInPanel(int panel, const char* path, const char* 
         PostMessage(p->HWindow, WM_USER_FOCUSFILE, (WPARAM)nameBackup, (LPARAM)pathBackup);
     }
 }
+
+BOOL CMainWindow::FindPluginFSPanel(CPluginFSInterfaceAbstract* pluginFS, int& panel)
+{
+    if (pluginFS == NULL)
+        return FALSE;
+    if (LeftPanel != NULL && LeftPanel->Is(ptPluginFS) &&
+        LeftPanel->GetPluginFS()->GetInterface() == pluginFS)
+    {
+        panel = PANEL_LEFT;
+        return TRUE;
+    }
+    if (RightPanel != NULL && RightPanel->Is(ptPluginFS) &&
+        RightPanel->GetPluginFS()->GetInterface() == pluginFS)
+    {
+        panel = PANEL_RIGHT;
+        return TRUE;
+    }
+    for (size_t i = 0; i < DetachedTabs.size(); ++i)
+    {
+        CFilesWindow* detPanel = DetachedTabs[i].Panel;
+        if (detPanel != NULL && detPanel->Is(ptPluginFS) &&
+            detPanel->GetPluginFS()->GetInterface() == pluginFS)
+        {
+            panel = (DetachedTabs[i].OriginalSide == cpsLeft) ? PANEL_LEFT : PANEL_RIGHT;
+            return TRUE;
+        }
+    }
+    TIndirectArray<CFilesWindow>& leftTabs = GetPanelTabs(cpsLeft);
+    for (int i = 0; i < leftTabs.Count; ++i)
+    {
+        if (leftTabs[i] != NULL && leftTabs[i]->Is(ptPluginFS) &&
+            leftTabs[i]->GetPluginFS()->GetInterface() == pluginFS)
+        {
+            panel = PANEL_LEFT;
+            return TRUE;
+        }
+    }
+    TIndirectArray<CFilesWindow>& rightTabs = GetPanelTabs(cpsRight);
+    for (int i = 0; i < rightTabs.Count; ++i)
+    {
+        if (rightTabs[i] != NULL && rightTabs[i]->Is(ptPluginFS) &&
+            rightTabs[i]->GetPluginFS()->GetInterface() == pluginFS)
+        {
+            panel = PANEL_RIGHT;
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
