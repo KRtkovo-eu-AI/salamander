@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -3410,19 +3410,49 @@ BOOL CSalamanderGeneral::GetPanelWithPluginFS(CPluginFSInterfaceAbstract* plugin
         TRACE_E("You can call CSalamanderGeneral::GetPanelWithPluginFS() only from main thread!");
         return FALSE;
     }
-    if (pluginFS == NULL)
+    if (pluginFS == NULL || MainWindow == NULL)
         return FALSE;
-    if (MainWindow->LeftPanel->Is(ptPluginFS) &&
+    if (MainWindow->LeftPanel != NULL && MainWindow->LeftPanel->Is(ptPluginFS) &&
         MainWindow->LeftPanel->GetPluginFS()->GetInterface() == pluginFS)
     {
         panel = PANEL_LEFT;
         return TRUE;
     }
-    if (MainWindow->RightPanel->Is(ptPluginFS) &&
+    if (MainWindow->RightPanel != NULL && MainWindow->RightPanel->Is(ptPluginFS) &&
         MainWindow->RightPanel->GetPluginFS()->GetInterface() == pluginFS)
     {
         panel = PANEL_RIGHT;
         return TRUE;
+    }
+    for (size_t i = 0; i < MainWindow->DetachedTabs.size(); ++i)
+    {
+        CFilesWindow* detPanel = MainWindow->DetachedTabs[i].Panel;
+        if (detPanel != NULL && detPanel->Is(ptPluginFS) &&
+            detPanel->GetPluginFS()->GetInterface() == pluginFS)
+        {
+            panel = (MainWindow->DetachedTabs[i].OriginalSide == cpsLeft) ? PANEL_LEFT : PANEL_RIGHT;
+            return TRUE;
+        }
+    }
+    TIndirectArray<CFilesWindow>& leftTabs = MainWindow->GetPanelTabs(cpsLeft);
+    for (int i = 0; i < leftTabs.Count; ++i)
+    {
+        if (leftTabs[i] != NULL && leftTabs[i]->Is(ptPluginFS) &&
+            leftTabs[i]->GetPluginFS()->GetInterface() == pluginFS)
+        {
+            panel = PANEL_LEFT;
+            return TRUE;
+        }
+    }
+    TIndirectArray<CFilesWindow>& rightTabs = MainWindow->GetPanelTabs(cpsRight);
+    for (int i = 0; i < rightTabs.Count; ++i)
+    {
+        if (rightTabs[i] != NULL && rightTabs[i]->Is(ptPluginFS) &&
+            rightTabs[i]->GetPluginFS()->GetInterface() == pluginFS)
+        {
+            panel = PANEL_RIGHT;
+            return TRUE;
+        }
     }
     return FALSE;
 }

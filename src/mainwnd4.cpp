@@ -2496,10 +2496,22 @@ CMainWindow::GetPanel(int panel)
     case PANEL_LEFT:
         if (GetActivePanel() == DetachedTabPanel && DetachedTabOriginalSide == cpsLeft)
             return DetachedTabPanel;
+        if (GetActivePanel() != NULL && IsDetachedTabPanel(GetActivePanel()))
+        {
+            CDetachedTabInfo* info = FindDetachedTab(GetActivePanel());
+            if (info != NULL && info->OriginalSide == cpsLeft)
+                return GetActivePanel();
+        }
         return LeftPanel;
     case PANEL_RIGHT:
         if (GetActivePanel() == DetachedTabPanel && DetachedTabOriginalSide == cpsRight)
             return DetachedTabPanel;
+        if (GetActivePanel() != NULL && IsDetachedTabPanel(GetActivePanel()))
+        {
+            CDetachedTabInfo* info = FindDetachedTab(GetActivePanel());
+            if (info != NULL && info->OriginalSide == cpsRight)
+                return GetActivePanel();
+        }
         return RightPanel;
     default:
         TRACE_E("Invalid panel (PANEL_XXX) constant: " << panel);

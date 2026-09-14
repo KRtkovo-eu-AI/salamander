@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -839,6 +839,9 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
         int sourceDirs = data.IndexesCount - sourceFiles;
 
         //---  obtain the target directory
+        if (!deleteOp && target == NULL && tgtPath == NULL)
+            target = MainWindow->GetOtherPanel(this);
+
         if (target != NULL && target->Is(ptDisk))
         {
             strcpy(path, target->GetPath());
@@ -868,18 +871,35 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                 if (target != NULL && target->Is(ptPluginFS) && target->GetPluginFS()->NotEmpty() &&
                     target->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMDISKTOFS))
                 {
+                    char fallbackPath[MAX_PATH];
                     target->GetGeneralPath(path, MAX_PATH);
+                    lstrcpyn(fallbackPath, path, MAX_PATH);
                     if (!target->GetPluginFS()->CopyOrMoveFromDiskToFS(TRUE, 1,
                                                                        target->GetPluginFS()->GetPluginFSName(),
                                                                        HWindow, NULL, NULL, NULL,
                                                                        sourceFiles, sourceDirs, path, NULL))
                     {
-                        path[0] = 0;
+                        if (path[0] == 0)
+                            lstrcpyn(path, fallbackPath, MAX_PATH);
                     }
                     else
                     {
                         // convert the path to external format (before showing it in the dialog)
                         PluginFSConvertPathToExternal(path);
+                        
+                        // Unpacking from an archive does not support operation masks.
+                        // Strip the mask appended by the plugin's CopyOrMoveFromDiskToFS(Mode=1)
+                        // and ensure the path ends with a backslash/slash.
+                        int pathLen = (int)strlen(path);
+                        if (pathLen >= 3 && strcmp(path + pathLen - 3, "*.*") == 0)
+                        {
+                            path[pathLen - 3] = 0;
+                        }
+                        else if (pathLen >= 1 && path[pathLen - 1] == '*')
+                        {
+                            path[pathLen - 1] = 0;
+                        }
+
                         target->UserWorkedOnThisPath = TRUE; // default action = operate with the path in the target panel
                     }
                 }
