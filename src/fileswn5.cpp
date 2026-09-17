@@ -915,22 +915,53 @@ static DWORD UpdateArchiveCacheHash(DWORD hash, const char* text, BOOL ignoreCas
     return hash;
 }
 
-static void BuildArchiveCacheKey(char* key, int keySize, const char* archiveName, const char* nameInArchive, const char* itemName)
-{
-    DWORD hash = 2166136261U;
-    hash = UpdateArchiveCacheHash(hash, archiveName, TRUE);
-    hash = UpdateArchiveCacheHash(hash, "\\", FALSE);
-    hash = UpdateArchiveCacheHash(hash, nameInArchive, FALSE);
-    _snprintf_s(key, keySize, _TRUNCATE, "ArchiveView:%08X:%s", hash, itemName != NULL ? itemName : "");
-}
-
-
 static std::wstring FileActionTextToWide(const char* text)
 {
     std::wstring wide = SalMultiByteToWidePath(text, CP_UTF8);
     if (wide.empty() && GetACP() != CP_UTF8)
         wide = SalMultiByteToWidePath(text, CP_ACP);
     return wide;
+}
+
+static void BuildArchiveCacheKey(char* key, int keySize, const char* archiveName, const char* nameInArchive, const CFileData* f)
+{
+    DWORD hash = 2166136261U;
+    hash = UpdateArchiveCacheHash(hash, archiveName, TRUE);
+    hash = UpdateArchiveCacheHash(hash, "\\", FALSE);
+    hash = UpdateArchiveCacheHash(hash, nameInArchive, FALSE);
+
+    DWORD archiveSizeHigh = 0;
+    DWORD archiveSizeLow = 0;
+    DWORD archiveWriteHigh = 0;
+    DWORD archiveWriteLow = 0;
+    if (archiveName != NULL && archiveName[0] != 0)
+    {
+        std::wstring wideArchive = FileActionTextToWide(archiveName);
+        WIN32_FILE_ATTRIBUTE_DATA attr;
+        if (!wideArchive.empty() && GetFileAttributesExW(wideArchive.c_str(), GetFileExInfoStandard, &attr))
+        {
+            archiveSizeHigh = attr.nFileSizeHigh;
+            archiveSizeLow = attr.nFileSizeLow;
+            archiveWriteHigh = attr.ftLastWriteTime.dwHighDateTime;
+            archiveWriteLow = attr.ftLastWriteTime.dwLowDateTime;
+        }
+    }
+
+    if (f != NULL)
+    {
+        _snprintf_s(key, keySize, _TRUNCATE, "ArchiveView:%08X:%08X%08X:%08X%08X:%08X%08X:%08X%08X:%s", hash,
+                    archiveSizeHigh, archiveSizeLow,
+                    archiveWriteHigh, archiveWriteLow,
+                    f->Size.HiDWord, f->Size.LoDWord,
+                    f->LastWrite.dwHighDateTime, f->LastWrite.dwLowDateTime,
+                    f->Name != NULL ? f->Name : "");
+    }
+    else
+    {
+        _snprintf_s(key, keySize, _TRUNCATE, "ArchiveView:%08X:%08X%08X:%08X%08X:", hash,
+                    archiveSizeHigh, archiveSizeLow,
+                    archiveWriteHigh, archiveWriteLow);
+    }
 }
 
 static BOOL CreateProcessForFileAction(const char* cmdLine, const char* currentDir, STARTUPINFO* si, PROCESS_INFORMATION* pi)
@@ -1806,7 +1837,7 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
                     if (GetZIPPath()[0] != 0)
                         lstrcpyn(nameInArchive, GetZIPPath(), 2 * SAL_MAX_PATH);
                     SalPathAppend(nameInArchive, f->Name, 2 * SAL_MAX_PATH);
-                    BuildArchiveCacheKey(dcFileName, 3 * SAL_MAX_PATH + 50, GetZIPArchive(), nameInArchive, f->Name);
+                    BuildArchiveCacheKey(dcFileName, 3 * SAL_MAX_PATH + 50, GetZIPArchive(), nameInArchive, f);
 
                     // setting disk-cache for the plugin (standard values change only for the plugin)
                     char arcCacheTmpPath[MAX_PATH];
