@@ -48,6 +48,7 @@ protected:
     BOOL NameAutoCompleteMode;
     int SelectionEnd;
     int SelectionEndChars;
+    BOOL InitialFocus;
 
 public:
     // 'history' determines whether the dialog will contain a combobox (TRUE) or an editline (FALSE)
@@ -107,6 +108,7 @@ protected:
     BOOL Expanded;        // is the dialog currently expanded?
 
     CButton* MoreButton;
+    BOOL InitialFocus;
 
 public:
     // 'history' determines whether the dialog will contain a combobox (TRUE) or an editline (FALSE)

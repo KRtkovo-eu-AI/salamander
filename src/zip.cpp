@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -3410,21 +3410,9 @@ BOOL CSalamanderGeneral::GetPanelWithPluginFS(CPluginFSInterfaceAbstract* plugin
         TRACE_E("You can call CSalamanderGeneral::GetPanelWithPluginFS() only from main thread!");
         return FALSE;
     }
-    if (pluginFS == NULL)
+    if (pluginFS == NULL || MainWindow == NULL)
         return FALSE;
-    if (MainWindow->LeftPanel->Is(ptPluginFS) &&
-        MainWindow->LeftPanel->GetPluginFS()->GetInterface() == pluginFS)
-    {
-        panel = PANEL_LEFT;
-        return TRUE;
-    }
-    if (MainWindow->RightPanel->Is(ptPluginFS) &&
-        MainWindow->RightPanel->GetPluginFS()->GetInterface() == pluginFS)
-    {
-        panel = PANEL_RIGHT;
-        return TRUE;
-    }
-    return FALSE;
+    return MainWindow->FindPluginFSPanel(pluginFS, panel);
 }
 
 void CSalamanderGeneral::PostChangeOnPathNotification(const char* path, BOOL includingSubdirs)
