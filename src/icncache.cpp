@@ -1316,6 +1316,12 @@ void CAssociations::InsertData(const char* /*origin*/, int index, BOOL overwrite
     size -= (size & 0x3); // size % 4  (zarovnani po ctyrech bytech)
     int iLen = (int)strlen(iconLocation) + 1;
     data.ExtensionAndData = (char*)malloc(size + iLen);
+    if (data.ExtensionAndData == NULL)
+    {
+        TRACE_E(LOW_MEMORY);
+        Error(etLowMemory);
+        return;
+    }
     memcpy(data.ExtensionAndData, e, size);                   // pripona + zarovnani nul +
     memcpy(data.ExtensionAndData + size, iconLocation, iLen); // icon-location
     if (type[0] != 0)
@@ -1331,7 +1337,42 @@ void CAssociations::InsertData(const char* /*origin*/, int index, BOOL overwrite
         At(index) = data;
     }
     else
+    {
         Insert(index, data);
+        if (!IsGood())
+        {
+            free(data.ExtensionAndData);
+            free(data.Type);
+            data.ExtensionAndData = NULL;
+            data.Type = NULL;
+            return;
+        }
+    }
+
+    // Pixel caches use positions in this sorted association array. Keep those
+    // positions aligned when a shell association is discovered during listing.
+    for (size_t i = 0; i < PixelIconSets.size(); ++i)
+    {
+        std::vector<int>& indexes = PixelIconSets[i].AssociationIndexes;
+        if (index >= (int)indexes.size())
+            continue; // Missing entries are already treated as not loaded.
+        if (overwriteItem)
+            indexes[index] = -1;
+        else
+        {
+            try
+            {
+                indexes.insert(indexes.begin() + index, -1);
+            }
+            catch (...)
+            {
+                // The association was inserted successfully. Discard its stale
+                // positional map if growing the map fails; icons can reload.
+                indexes.clear();
+                TRACE_E(LOW_MEMORY);
+            }
+        }
+    }
 }
 
 void CAssociations::ReadAssociations(BOOL showWaitWnd)
