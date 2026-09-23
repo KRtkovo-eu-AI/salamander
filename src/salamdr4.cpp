@@ -1853,13 +1853,13 @@ BOOL CViewTemplates::Load(HKEY hKey)
 
 // ****************************************************************************
 
-DWORD AddUnicodeToClipboard(const char* str, int textLen)
+DWORD AddUnicodeToClipboard(const char* str, int textLen, UINT sourceCodePage)
 {
     DWORD err = ERROR_SUCCESS;
     int unicodeLen = 0;
     if (textLen > 0)
     {
-        unicodeLen = MultiByteToWideChar(CP_ACP, 0, str, textLen, NULL, 0);
+        unicodeLen = MultiByteToWideChar(sourceCodePage, 0, str, textLen, NULL, 0);
         if (unicodeLen == 0)
             err = GetLastError();
     }
@@ -1871,7 +1871,7 @@ DWORD AddUnicodeToClipboard(const char* str, int textLen)
             WCHAR* unicodeStr = (WCHAR*)HANDLES(GlobalLock(unicode));
             if (unicodeStr != NULL)
             {
-                if (textLen > 0 && MultiByteToWideChar(CP_ACP, 0, str, textLen, unicodeStr, unicodeLen + 1) == 0)
+                if (textLen > 0 && MultiByteToWideChar(sourceCodePage, 0, str, textLen, unicodeStr, unicodeLen + 1) == 0)
                     err = GetLastError();
                 unicodeStr[unicodeLen] = 0; // terminating zero
                 HANDLES(GlobalUnlock(unicode));
@@ -2067,7 +2067,7 @@ BOOL CopyTextToClipboard(const char* text, int textLen, BOOL showEcho, HWND hEch
 
 // ****************************************************************************
 
-BOOL CopyHTextToClipboard(HGLOBAL hGlobalText, int textLen, BOOL showEcho, HWND hEchoParent)
+BOOL CopyHTextToClipboard(HGLOBAL hGlobalText, int textLen, BOOL showEcho, HWND hEchoParent, UINT sourceCodePage)
 {
     if (hGlobalText == NULL)
     {
@@ -2086,7 +2086,7 @@ BOOL CopyHTextToClipboard(HGLOBAL hGlobalText, int textLen, BOOL showEcho, HWND 
             {
                 if (textLen == -1)
                     textLen = lstrlen(text);
-                err = AddUnicodeToClipboard(text, textLen); // store the text in Unicode first
+                err = AddUnicodeToClipboard(text, textLen, sourceCodePage); // store the text in Unicode first
                 HANDLES(GlobalUnlock(hGlobalText));
             }
             else

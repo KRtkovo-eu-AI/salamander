@@ -721,13 +721,14 @@ BOOL ExpandVarString(HWND msgParent, const char* varText, char* buffer, int buff
 
 // ulozi na clipboard Unicode verzi textu str o delce len znaku
 // vraci ERROR_SUCCESS nebo GetLastError
-DWORD AddUnicodeToClipboard(const char* str, int len);
+DWORD AddUnicodeToClipboard(const char* str, int len, UINT sourceCodePage = CP_ACP);
 
 // vrzne text na clipboard; pokud showEcho, zobrazi message box, ze jako OK
 // pokud je textLen==-1, napocita si delku sam
 BOOL CopyTextToClipboard(const char* text, int textLen = -1, BOOL showEcho = FALSE, HWND hEchoParent = NULL);
 BOOL CopyTextToClipboardW(const wchar_t* text, int textLen = -1, BOOL showEcho = FALSE, HWND hEchoParent = NULL);
-BOOL CopyHTextToClipboard(HGLOBAL hGlobalText, int textLen = -1, BOOL showEcho = FALSE, HWND hEchoParent = NULL);
+BOOL CopyHTextToClipboard(HGLOBAL hGlobalText, int textLen = -1, BOOL showEcho = FALSE, HWND hEchoParent = NULL,
+                          UINT sourceCodePage = CP_ACP);
 BOOL CopyHTextToClipboardW(HGLOBAL hGlobalText, int textLen = -1);
 
 // zjisti z bufferu 'pattern' o delce 'patternLen' jestli jde o text (existuje kodova stranka,

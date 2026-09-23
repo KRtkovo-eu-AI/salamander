@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals"><ProjectGuid>{CF376BA7-C0FA-45A2-A7BE-0B90091931DC}</ProjectGuid><RootNamespace>viewerclipboardtests</RootNamespace><WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion></PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>true</UseDebugLibraries><PlatformToolset>v145</PlatformToolset></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Release'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v145</PlatformToolset></PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup><OutDir>$(OPENSAL_BUILD_DIR)tests\$(Configuration)_$(Platform)\</OutDir><IntDir>$(OPENSAL_BUILD_DIR)tests\$(Configuration)_$(Platform)\ViewerClipboardIntermediate\</IntDir></PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile><PrecompiledHeader>NotUsing</PrecompiledHeader><LanguageStandard>stdcpp17</LanguageStandard><AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions><AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories><WarningLevel>Level4</WarningLevel><TreatWarningAsError>true</TreatWarningAsError></ClCompile>
+    <Link><AdditionalDependencies>user32.lib;%(AdditionalDependencies)</AdditionalDependencies></Link>
+    <Manifest><AdditionalManifestFiles>$(ProjectDir)..\..\tools\utfnames\utfnames.manifest;%(AdditionalManifestFiles)</AdditionalManifestFiles></Manifest>
+    <PreBuildEvent><Command>python -B &quot;$(ProjectDir)viewer_clipboard_tests.py&quot; --generate &quot;$(IntDir)viewer_clipboard_generated.h&quot;</Command></PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup><ClCompile Include="viewer_clipboard_tests.cpp" /><ClCompile Include="..\common\unicode\ViewerBomText.cpp" /></ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>
