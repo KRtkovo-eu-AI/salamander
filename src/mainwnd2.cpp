@@ -1175,7 +1175,6 @@ const char* CONFIG_USESALOPEN_REG = "Use salopen.exe";
 const char* CONFIG_NETWAREFASTDIRMOVE_REG = "Netware Fast Dir Move";
 const char* CONFIG_ASYNCCOPYALG_REG = "Async Copy Alg On Network";
 const char* CONFIG_COPYMOVESCHEDULING_REG = "Copy Move Scheduling"; // legacy transfer-preference value
-const char* CONFIG_COPYMOVEOPERATIONPOLICY_REG = "Copy Move Operation Policy";
 const char* CONFIG_COPYMOVELASTTRANSFERMODE_REG = "Copy Move Last Transfer Mode";
 const char* CONFIG_COPYMOVECONFLICTPREFERENCE_REG = "Copy Move Conflict Preference";
 const char* CONFIG_COPYMOVELASTCONFLICTMODE_REG = "Copy Move Last Conflict Mode";
@@ -3390,8 +3389,6 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                 if (Windows7AndLater)
                     SetValue(actKey, CONFIG_ASYNCCOPYALG_REG, REG_DWORD,
                              &Configuration.UseAsyncCopyAlg, sizeof(DWORD));
-                SetValue(actKey, CONFIG_COPYMOVEOPERATIONPOLICY_REG, REG_DWORD,
-                         &Configuration.CopyMoveOperationPolicy, sizeof(DWORD));
                 SetValue(actKey, CONFIG_COPYMOVESCHEDULING_REG, REG_DWORD,
                          &Configuration.CopyMoveScheduling, sizeof(DWORD));
                 SetValue(actKey, CONFIG_COPYMOVELASTTRANSFERMODE_REG, REG_DWORD,
@@ -5549,11 +5546,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             if (Windows7AndLater)
                 GetValue(actKey, CONFIG_ASYNCCOPYALG_REG, REG_DWORD,
                          &Configuration.UseAsyncCopyAlg, sizeof(DWORD));
-            if (!GetValue(actKey, CONFIG_COPYMOVEOPERATIONPOLICY_REG, REG_DWORD,
-                          &Configuration.CopyMoveOperationPolicy, sizeof(DWORD)) ||
-                Configuration.CopyMoveOperationPolicy < COSP_STORAGE_AWARE ||
-                Configuration.CopyMoveOperationPolicy > COSP_ASK)
-                Configuration.CopyMoveOperationPolicy = COSP_STORAGE_AWARE;
+            // Transfer mode selects admission per operation; obsolete operation-policy
+            // settings must not override the user-controlled or storage-aware choice.
             if (!GetValue(actKey, CONFIG_COPYMOVESCHEDULING_REG, REG_DWORD,
                           &Configuration.CopyMoveScheduling, sizeof(DWORD)) ||
                 Configuration.CopyMoveScheduling < CMTP_SEQUENTIAL ||

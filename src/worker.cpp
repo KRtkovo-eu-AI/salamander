@@ -11265,12 +11265,14 @@ BOOL COperationsQueue::AddOperation(HWND dlg, int schedulingPolicy, int operatio
                 hasFifoBarrier = TRUE;
                 break;
             }
-        int reason = runningViewsOverflow && operationOverride != COSO_START_NOW ? CSWR_UNKNOWN_FALLBACK :
-                     StorageOperationGetWaitReason(schedulingPolicy, operationOverride,
+        int reason = StorageOperationGetWaitReason(schedulingPolicy, operationOverride,
                                                    anyOtherActive, hasFifoBarrier, &candidate,
                                                    runningViews, runningCount,
                                                    Configuration.CopyMoveSsdParallelFiles,
                                                    Configuration.CopyMoveNvmeParallelFiles);
+        if (reason == CSWR_NONE && runningViewsOverflow &&
+            schedulingPolicy == COSP_STORAGE_AWARE && operationOverride == COSO_DEFAULT)
+            reason = CSWR_UNKNOWN_FALLBACK;
         *startPaused = reason != CSWR_NONE;
         if (waitReason != NULL)
             *waitReason = reason;
@@ -11344,7 +11346,7 @@ BOOL COperationsQueue::AddOperation(HWND dlg, BOOL startOnIdle, BOOL* startPause
                                     const COperationStorageUse* storageUse)
 {
     return AddOperation(dlg, COSP_STORAGE_AWARE,
-                        startOnIdle ? COSO_WAIT_ALL : COSO_DEFAULT,
+                        CopyMoveGetSchedulingOverride(CMS_SEQUENTIAL, startOnIdle),
                         startPaused, NULL, storageUse);
 }
 
@@ -11352,10 +11354,11 @@ int COperationsQueue::GetWaitReasonForIndex(int index)
 {
     CStorageOpView runningViews[64];
     int runningCount = 0;
-    int anyOtherActive = 0;
+    // Explicit waiting depends only on unfinished predecessors, not operations
+    // started later. Resource scheduling still sees every running operation.
+    int anyEarlierActive = index > 0;
     BOOL runningViewsOverflow = FALSE;
     BOOL hasFifoBarrier = FALSE;
-    const BOOL candidateIsBarrier = StorageOperationIsFifoBarrier(OperPolicies[index], OperOverrides[index]);
     for (int j = 0; j < OperDlgs.Count; j++)
     {
         if (j == index)
@@ -11371,21 +11374,21 @@ int COperationsQueue::GetWaitReasonForIndex(int index)
         }
         else if (OperPaused[j] == 0)
             runningViewsOverflow = TRUE;
-        if (OperPaused[j] != 1 || (candidateIsBarrier && j < index))
-            anyOtherActive = 1;
     }
-    if (runningViewsOverflow)
-        return CSWR_UNKNOWN_FALLBACK;
 
     CStorageOpView candidate;
     candidate.Claims = OperStorage[index].Claims;
     candidate.Count = OperStorage[index].ClaimCount;
     candidate.StreamDemand = OperStorage[index].StreamDemand;
-    return StorageOperationGetWaitReason(OperPolicies[index], OperOverrides[index],
-                                         anyOtherActive, hasFifoBarrier, &candidate,
-                                         runningViews, runningCount,
-                                         Configuration.CopyMoveSsdParallelFiles,
-                                         Configuration.CopyMoveNvmeParallelFiles);
+    int reason = StorageOperationGetWaitReason(OperPolicies[index], OperOverrides[index],
+                                               anyEarlierActive, hasFifoBarrier, &candidate,
+                                               runningViews, runningCount,
+                                               Configuration.CopyMoveSsdParallelFiles,
+                                               Configuration.CopyMoveNvmeParallelFiles);
+    if (reason == CSWR_NONE && runningViewsOverflow &&
+        OperPolicies[index] == COSP_STORAGE_AWARE && OperOverrides[index] == COSO_DEFAULT)
+        reason = CSWR_UNKNOWN_FALLBACK;
+    return reason;
 }
 
 void COperationsQueue::TryResumeCompatible(HWND* foregroundWnd)

@@ -1275,6 +1275,8 @@ CCopyMoveMoreDialog::CCopyMoveMoreDialog(HWND parent, char* path, int pathBufSiz
     TransferModeInOut = transferModeInOut;
     ConflictModeInOut = conflictModeInOut;
     OperationSchedulingOverrideInOut = operationSchedulingOverrideInOut;
+    LegacyWait = OperationSchedulingOverrideInOut != NULL &&
+                 *OperationSchedulingOverrideInOut == COSO_WAIT_ALL;
     TargetPaths = targetPaths;
     AllowChangeTarget = allowChangeTarget;
     MoreButton = NULL;
@@ -1328,23 +1330,6 @@ void CCopyMoveMoreDialog::Transfer(CTransferInfo& ti)
         ti.EditLine(IDE_PATH, Path, PathBufSize);
     }
     TransferCriteriaControls(ti);
-    if (OperationSchedulingOverrideInOut != NULL)
-    {
-        if (ti.Type == ttDataToWindow)
-        {
-            BOOL waitAll = Configuration.CopyMoveOperationPolicy == COSP_ASK ||
-                           *OperationSchedulingOverrideInOut == COSO_WAIT_ALL;
-            CheckDlgButton(HWindow, IDC_CM_STARTONIDLE, waitAll ? BST_CHECKED : BST_UNCHECKED);
-            // Resource text is selected by the resource integration; the checked state means
-            // Wait and the clear state means Start now only while policy is Ask.
-        }
-        else
-        {
-            BOOL waitAll = IsDlgButtonChecked(HWindow, IDC_CM_STARTONIDLE) == BST_CHECKED;
-            *OperationSchedulingOverrideInOut = waitAll ? COSO_WAIT_ALL :
-                (Configuration.CopyMoveOperationPolicy == COSP_ASK ? COSO_START_NOW : COSO_DEFAULT);
-        }
-    }
     if (TransferModeInOut != NULL)
     {
         HWND transferMode = GetDlgItem(HWindow, IDC_CM_TRANSFERMODE);
@@ -1362,6 +1347,18 @@ void CCopyMoveMoreDialog::Transfer(CTransferInfo& ti)
         {
             int mode = (int)SendMessage(transferMode, CB_GETCURSEL, 0, 0);
             *TransferModeInOut = mode == CMS_SEQUENTIAL ? CMS_SEQUENTIAL : CMS_STORAGE_AWARE;
+        }
+    }
+    if (OperationSchedulingOverrideInOut != NULL)
+    {
+        if (ti.Type == ttDataToWindow)
+            UpdateTransferModeControls();
+        else
+        {
+            int mode = TransferModeInOut != NULL ? *TransferModeInOut : CMS_SEQUENTIAL;
+            if (mode == CMS_SEQUENTIAL)
+                LegacyWait = IsDlgButtonChecked(HWindow, IDC_CM_STARTONIDLE) == BST_CHECKED;
+            *OperationSchedulingOverrideInOut = CopyMoveGetSchedulingOverride(mode, LegacyWait);
         }
     }
     if (ConflictModeInOut != NULL)
@@ -1641,6 +1638,22 @@ void CCopyMoveMoreDialog::DisplayMore(BOOL more, BOOL fast)
     Expanded = more;
 }
 
+void CCopyMoveMoreDialog::UpdateTransferModeControls()
+{
+    int mode = TransferModeInOut != NULL ?
+                   (int)SendDlgItemMessage(HWindow, IDC_CM_TRANSFERMODE, CB_GETCURSEL, 0, 0) :
+                   CMS_SEQUENTIAL;
+    if (mode == CB_ERR)
+        mode = *TransferModeInOut;
+    BOOL userControlled = mode == CMS_SEQUENTIAL;
+    EnableWindow(GetDlgItem(HWindow, IDC_CM_STARTONIDLE),
+                 OperationSchedulingOverrideInOut != NULL && userControlled);
+    // Storage-aware scheduling is shown as checked, but must not overwrite
+    // the user's independent wait choice or become a wait-all override.
+    CheckDlgButton(HWindow, IDC_CM_STARTONIDLE,
+                   !userControlled || LegacyWait ? BST_CHECKED : BST_UNCHECKED);
+}
+
 void CCopyMoveMoreDialog::EnableControls()
 {
     BOOL named = IsDlgButtonChecked(HWindow, IDC_CM_NAMED);
@@ -1700,7 +1713,7 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);
         }
 
-        EnableWindow(GetDlgItem(HWindow, IDC_CM_STARTONIDLE), OperationSchedulingOverrideInOut != NULL);
+        UpdateTransferModeControls();
         EnableWindow(GetDlgItem(HWindow, IDC_CM_SECURITY), HavePermissions);
         EnableWindow(GetDlgItem(HWindow, IDC_CM_IGNADS), SupportsADS);
 
@@ -1913,8 +1926,16 @@ MENU_TEMPLATE_ITEM CopyMoveMoreDialogMenu[] =
 
     case WM_COMMAND:
     {
+        if (LOWORD(wParam) == IDC_CM_TRANSFERMODE && HIWORD(wParam) == CBN_SELCHANGE)
+        {
+            UpdateTransferModeControls();
+            return 0;
+        }
         if (HIWORD(wParam) == BN_CLICKED)
         {
+            if (LOWORD(wParam) == IDC_CM_STARTONIDLE &&
+                IsWindowEnabled(GetDlgItem(HWindow, IDC_CM_STARTONIDLE)))
+                LegacyWait = IsDlgButtonChecked(HWindow, IDC_CM_STARTONIDLE) == BST_CHECKED;
             switch (LOWORD(wParam))
             {
             case IDC_CM_STARTONIDLE:

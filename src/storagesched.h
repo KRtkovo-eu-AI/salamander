@@ -12,7 +12,7 @@ extern "C"
 {
 #endif
 
-    // File-transfer mode within one Copy/Move operation.
+    // Per-operation transfer mode selects admission and eligible file streams.
     enum
     {
         CMS_SEQUENTIAL = 0,
@@ -137,11 +137,18 @@ extern "C"
                                                        int runningCount, int ssdWriteLimit,
                                                        int nvmeWriteLimit);
 
-    // Returns nonzero if this policy/override is a FIFO barrier for later operations.
+    // Identifies an explicit/global wait-all operation for legacy FIFO ordering.
+    // This marker does not block automatic operations on independent storage.
     int StorageOperationIsFifoBarrier(int policy, int operationOverride);
 
+    // Maps the selected transfer mode and the legacy checkbox to COSO_*.
+    // Automatic mode always uses resource scheduling, even with a checked box.
+    int CopyMoveGetSchedulingOverride(int transferMode, int legacyWait);
+
     // Returns CSWR_* for the first reason preventing admission, or CSWR_NONE.
-    // hasFifoBarrier means an earlier global/wait-all operation is still queued.
+    // anyOtherActive counts unfinished earlier operations, including paused ones.
+    // hasFifoBarrier identifies an earlier global/wait-all operation; automatic
+    // resource scheduling ignores it and considers every running operation.
     int StorageOperationGetWaitReason(int policy, int operationOverride,
                                       int anyOtherActive, int hasFifoBarrier,
                                       const struct CStorageOpView* candidate,
@@ -149,11 +156,11 @@ extern "C"
                                       int ssdWriteLimit, int nvmeWriteLimit);
 
     // 1 if the new operation should start auto-paused.
-    // anyNonAutoPaused: at least one queued operation is running or manually paused.
-    int CopyMoveShouldStartPaused(int mode, int startOnIdle, int anyNonAutoPaused,
+    // anyEarlierActive: at least one earlier operation remains unfinished.
+    int CopyMoveShouldStartPaused(int mode, int startOnIdle, int anyEarlierActive,
                                   const struct CStorageOpView* candidate,
                                   const struct CStorageOpView* running, int runningCount);
-    int CopyMoveShouldStartPausedWithLimits(int mode, int startOnIdle, int anyNonAutoPaused,
+    int CopyMoveShouldStartPausedWithLimits(int mode, int startOnIdle, int anyEarlierActive,
                                             const struct CStorageOpView* candidate,
                                             const struct CStorageOpView* running, int runningCount,
                                             int ssdWriteLimit, int nvmeWriteLimit);

@@ -607,7 +607,6 @@ CConfiguration::CConfiguration()
     UseSalOpen = FALSE;
     NetwareFastDirMove = FALSE; // choose the slower but 100% working mode; power users can switch it
     UseAsyncCopyAlg = TRUE;
-    CopyMoveOperationPolicy = COSP_STORAGE_AWARE;
     CopyMoveScheduling = CMTP_STORAGE_AWARE;
     CopyMoveLastTransferMode = CMS_STORAGE_AWARE;
     CopyMoveConflictPreference = CMCP_CURRENT;
@@ -1479,27 +1478,6 @@ void CCfgPageFileOperations::Transfer(CTransferInfo& ti)
 {
     ti.EditLine(IDC_COPYMOVE_SSD_PARALLEL, Configuration.CopyMoveSsdParallelFiles);
     ti.EditLine(IDC_COPYMOVE_NVME_PARALLEL, Configuration.CopyMoveNvmeParallelFiles);
-    HWND hPolicy = GetDlgItem(HWindow, IDC_COPYMOVE_OPERATION_POLICY);
-    if (hPolicy != NULL)
-    {
-        if (ti.Type == ttDataToWindow)
-        {
-            SendMessage(hPolicy, CB_RESETCONTENT, 0, 0);
-            SendMessage(hPolicy, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_POLICY_STORAGEAWARE));
-            SendMessage(hPolicy, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_POLICY_SEQUENTIAL));
-            SendMessage(hPolicy, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_COPYMOVE_POLICY_ASK));
-            int sel = Configuration.CopyMoveOperationPolicy;
-            if (sel < COSP_STORAGE_AWARE || sel > COSP_ASK)
-                sel = COSP_STORAGE_AWARE;
-            SendMessage(hPolicy, CB_SETCURSEL, sel, 0);
-        }
-        else
-        {
-            int sel = (int)SendMessage(hPolicy, CB_GETCURSEL, 0, 0);
-            if (sel >= COSP_STORAGE_AWARE && sel <= COSP_ASK)
-                Configuration.CopyMoveOperationPolicy = sel;
-        }
-    }
     HWND hConflict = GetDlgItem(HWindow, IDC_COPYMOVE_CONFLICT_PREFERENCE);
     if (hConflict != NULL)
     {

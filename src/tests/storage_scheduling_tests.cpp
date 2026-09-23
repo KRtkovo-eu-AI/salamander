@@ -275,22 +275,26 @@ void TestSchedulingModes()
     CStorageOpView run = ViewOf(a);
 
     Check(CopyMoveShouldStartPaused(CMS_SEQUENTIAL, 0, 1, &cand, &run, 1) == 0,
-          "Sequential applies to file streams inside one operation, not the operation queue");
+          "User-controlled unchecked starts alongside an independent operation");
     Check(CopyMoveShouldStartPaused(CMS_SEQUENTIAL, 0, 0, &cand, NULL, 0) == 0,
-          "Sequential may start when the operation queue is idle");
+          "User-controlled may start when the operation queue is idle");
     Check(CopyMoveShouldStartPaused(CMS_MANUAL, 0, 1, &cand, &run, 1) == 0,
-          "Keep-last preference must not serialize independent operations");
-    Check(CopyMoveShouldStartPaused(CMS_MANUAL, 1, 1, &cand, &run, 1) != 0,
-          "StartOnIdle must wait for running operations regardless of transfer mode");
+          "an unresolved preference uses automatic scheduling for independent operations");
+    Check(CopyMoveShouldStartPaused(CMS_MANUAL, 1, 1, &cand, &run, 1) == 0,
+          "an unresolved legacy transfer preference defaults to automatic storage scheduling");
     Check(CopyMoveShouldStartPaused(CMS_STORAGE_AWARE, 0, 1, &cand, &run, 1) == 0,
           "Storage-aware must start independent disks immediately");
-    Check(CopyMoveShouldStartPaused(CMS_STORAGE_AWARE, 1, 1, &cand, &run, 1) != 0,
-          "Storage-aware with StartOnIdle must wait for all other operations");
+    Check(CopyMoveShouldStartPaused(CMS_STORAGE_AWARE, 1, 1, &cand, &run, 1) == 0,
+          "Storage-aware's checked wait indicator must not serialize independent disks");
 
     COperationStorageUse sameHdd = UseFrom2(LocalDisk(1, 1, SACCESS_READ), LocalDisk(5, 0, SACCESS_WRITE));
     CStorageOpView sameView = ViewOf(sameHdd);
     Check(CopyMoveShouldStartPaused(CMS_STORAGE_AWARE, 0, 1, &sameView, &run, 1) != 0,
           "Storage-aware must queue a second operation on the same HDD");
+    Check(CopyMoveShouldStartPaused(CMS_SEQUENTIAL, 0, 1, &sameView, &run, 1) == 0,
+          "User-controlled unchecked must start immediately even on the same HDD");
+    Check(CopyMoveShouldStartPaused(CMS_SEQUENTIAL, 1, 1, &cand, &run, 1) != 0,
+          "User-controlled checked must wait even for an independent earlier operation");
 }
 
 int WaitReason(int policy, int operationOverride, int anyOtherActive, int hasBarrier,
@@ -331,11 +335,59 @@ void TestOperationPoliciesAndOverrides()
 void TestFifoBarrierSemantics()
 {
     COperationStorageUse independent = UseFrom(LocalDisk(2, 1, SACCESS_READ));
-    Check(WaitReason(COSP_STORAGE_AWARE, COSO_DEFAULT, 0, 1, independent) ==
-              CSWR_EXPLICIT_OR_GLOBAL_WAIT,
-          "an earlier queued barrier must prevent default operations from overtaking it");
+    Check(WaitReason(COSP_STORAGE_AWARE, COSO_DEFAULT, 0, 1, independent) == CSWR_NONE,
+          "automatic storage scheduling must ignore an unrelated queued wait-all operation");
     Check(WaitReason(COSP_STORAGE_AWARE, COSO_START_NOW, 1, 1, independent) == CSWR_NONE,
           "explicit start-now must be able to bypass a FIFO barrier");
+    Check(WaitReason(COSP_STORAGE_AWARE, COSO_WAIT_ALL, 0, 1, independent) ==
+              CSWR_EXPLICIT_OR_GLOBAL_WAIT,
+          "explicit wait-all must preserve order with an earlier queued wait-all operation");
+    Check(WaitReason(COSP_GLOBAL_SEQUENTIAL, COSO_DEFAULT, 0, 1, independent) ==
+              CSWR_EXPLICIT_OR_GLOBAL_WAIT,
+          "legacy global policy must retain its earlier-operation barrier");
+}
+
+void TestTransferModeAdmissionContract()
+{
+    COperationStorageUse hdd = UseFrom(LocalDisk(1, 1, SACCESS_READ));
+    COperationStorageUse overlap = UseFrom(LocalDisk(1, 1, SACCESS_WRITE));
+    COperationStorageUse independent = UseFrom(LocalDisk(2, 1, SACCESS_WRITE));
+    COperationStorageUse unknown = UseFrom(GlobalUnknown(SACCESS_READWRITE));
+    const int immediate = CopyMoveGetSchedulingOverride(CMS_SEQUENTIAL, 0);
+    const int waitAll = CopyMoveGetSchedulingOverride(CMS_SEQUENTIAL, 1);
+    Check(immediate == COSO_START_NOW, "User-controlled unchecked means explicit start-now");
+    Check(waitAll == COSO_WAIT_ALL, "User-controlled checked means explicit wait-all");
+    Check(WaitReason(COSP_STORAGE_AWARE, immediate, 1, 1, overlap, &hdd, 1) == CSWR_NONE,
+          "User-controlled unchecked bypasses physical conflicts and queued waiters");
+    Check(WaitReason(COSP_STORAGE_AWARE, immediate, 1, 0, unknown, &hdd, 1) == CSWR_NONE,
+          "User-controlled unchecked bypasses unknown-storage fallback");
+    Check(WaitReason(COSP_STORAGE_AWARE, waitAll, 1, 0, independent, &hdd, 1) == CSWR_EXPLICIT_OR_GLOBAL_WAIT,
+          "User-controlled wait includes earlier independent operations");
+    Check(WaitReason(COSP_STORAGE_AWARE, waitAll, 0, 0, independent) == CSWR_NONE,
+          "User-controlled wait is satisfied when no predecessor remains");
+
+    COperationStorageUse nvme = UseFrom(LocalMedia(10, SMEDIA_NVME, SACCESS_WRITE));
+    COperationStorageUse writers[2] = {nvme, nvme};
+    Check(WaitReason(COSP_STORAGE_AWARE, immediate, 1, 0, nvme, writers, 2, 2, 2) == CSWR_NONE,
+          "explicit start-now also bypasses an exhausted stream budget");
+    for (int checkbox : {0, 1})
+    {
+        const int automatic = CopyMoveGetSchedulingOverride(CMS_STORAGE_AWARE, checkbox);
+        Check(automatic == COSO_DEFAULT, "Storage-aware never converts its checkbox into wait-all");
+        Check(WaitReason(COSP_STORAGE_AWARE, automatic, 1, 1, independent, &hdd, 1) == CSWR_NONE,
+              "Storage-aware allows independent disks despite a legacy wait-all barrier");
+        Check(WaitReason(COSP_STORAGE_AWARE, automatic, 1, 1, overlap, &hdd, 1) == CSWR_PHYSICAL_DEVICE_CONFLICT,
+              "Storage-aware waits on the physical HDD rather than the checkbox/barrier");
+        Check(WaitReason(COSP_STORAGE_AWARE, automatic, 1, 0, nvme, writers, 1, 2, 2) == CSWR_NONE,
+              "Storage-aware shares free solid-state write slots");
+        Check(WaitReason(COSP_STORAGE_AWARE, automatic, 1, 0, nvme, writers, 2, 2, 2) == CSWR_SSD_NVME_STREAM_LIMIT,
+              "Storage-aware queues only after the stream budget is exhausted");
+        Check(WaitReason(COSP_STORAGE_AWARE, automatic, 1, 0, unknown, &hdd, 1) == CSWR_UNKNOWN_FALLBACK,
+              "Storage-aware retains the conservative unknown-storage fallback");
+    }
+    Check(CopyMoveGetSchedulingOverride(-1, 1) == COSO_DEFAULT &&
+              CopyMoveGetSchedulingOverride(CMS_MANUAL, 1) == COSO_DEFAULT,
+          "invalid or unresolved mode values default to storage-aware admission");
 }
 
 void TestStructuredWaitReasons()
@@ -417,6 +469,7 @@ int main()
     TestSchedulingModes();
     TestOperationPoliciesAndOverrides();
     TestFifoBarrierSemantics();
+    TestTransferModeAdmissionContract();
     TestStructuredWaitReasons();
     TestClaimMerge();
     TestClaimLimitFallsBackToGlobalUnknown();

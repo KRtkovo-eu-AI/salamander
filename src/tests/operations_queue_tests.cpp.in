@@ -1,0 +1,145 @@
+// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Only Win32 messages, locks and the legacy array container are replaced.
+// The runner inserts the actual queue class and methods at the markers below.
+#include "storagesched.h"
+#include <cstdint>
+#include <cstring>
+#include <iostream>
+#include <vector>
+
+using BOOL = int;
+using DWORD = uint32_t;
+using HWND = uintptr_t;
+using CRITICAL_SECTION = int;
+constexpr BOOL TRUE = 1, FALSE = 0;
+enum { WM_COMMAND = 1, CM_RESUMEOPER, WM_USER_PROGRDLG_QUEUE_REASON };
+#define HANDLES(expression) expression
+#define CALL_STACK_MESSAGE1(...) ((void)0)
+#define TRACE_E(...) ((void)0)
+void InitializeCriticalSection(int*) {}
+void DeleteCriticalSection(int*) {}
+void EnterCriticalSection(int*) {}
+void LeaveCriticalSection(int*) {}
+HWND GetForegroundWindow() { return 0; }
+struct Message { HWND Window; int Type; int Value; };
+std::vector<Message> Messages;
+void PostMessage(HWND window, int type, int value, int) { Messages.push_back({window, type, value}); }
+struct { int CopyMoveSsdParallelFiles = 2; int CopyMoveNvmeParallelFiles = 4; } Configuration;
+template <class T> struct TDirectArray
+{
+    std::vector<T> Data;
+    int Count = 0;
+    TDirectArray(int, int) {}
+    T& operator[](int index) { return Data.at(index); }
+    void Add(const T& value) { Data.push_back(value); ++Count; }
+    void Delete(int index) { Data.erase(Data.begin() + index); --Count; }
+    BOOL IsGood() const { return TRUE; }
+    void ResetState() {}
+};
+@QUEUE_DECLARATION@
+@QUEUE_METHODS@
+
+struct TestQueue : COperationsQueue
+{
+    int State(HWND window)
+    {
+        for (int i = 0; i < OperDlgs.Count; ++i) if (OperDlgs[i] == window) return OperPaused[i];
+        return -1;
+    }
+    void Finish(HWND window) { OperationEnded(window, FALSE, nullptr); }
+    ~TestQueue() { while (OperDlgs.Count) OperationEnded(OperDlgs[0], TRUE, nullptr); }
+};
+int Checks = 0, Failures = 0;
+#define CHECK(condition, message) do { ++Checks; if (!(condition)) { ++Failures; std::cerr << "FAIL: " << message << "\n"; } } while (0)
+COperationStorageUse Disk(unsigned id, bool hdd = true, int demand = 1)
+{
+    COperationStorageUse use; StorageUse_Reset(&use);
+    CStorageClaim claim = {}; claim.Kind = SRES_LOCAL; claim.DeviceNumber = id;
+    claim.SeekPenalty = hdd; claim.Media = hdd ? SMEDIA_HDD : SMEDIA_SSD; claim.Access = SACCESS_WRITE;
+    StorageUse_AddClaim(&use, &claim); use.StreamDemand = demand; return use;
+}
+int Add(TestQueue& queue, HWND window, const COperationStorageUse& use, int overrideMode = COSO_DEFAULT)
+{
+    BOOL paused = FALSE; int reason = -1;
+    CHECK(queue.AddOperation(window, COSP_STORAGE_AWARE, overrideMode, &paused, &reason, &use), "operation registers in the production queue");
+    CHECK(paused == (reason != CSWR_NONE), "admission state and structured wait reason agree");
+    return reason;
+}
+bool WasResumed(HWND window)
+{
+    for (const auto& message : Messages)
+        if (message.Window == window && message.Type == WM_COMMAND && message.Value == CM_RESUMEOPER) return true;
+    return false;
+}
+
+void TestWaitOnlyForPredecessors()
+{
+    TestQueue queue;
+    Add(queue, 1, Disk(1), COSO_START_NOW);
+    CHECK(Add(queue, 2, Disk(2), COSO_WAIT_ALL) == CSWR_EXPLICIT_OR_GLOBAL_WAIT, "B waits for earlier A even on an independent disk");
+    CHECK(Add(queue, 3, Disk(3), COSO_START_NOW) == CSWR_NONE, "later unchecked Legacy C starts immediately");
+    Messages.clear(); queue.Finish(1);
+    CHECK(queue.State(2) == 0 && queue.State(3) == 0, "B starts after A ends while later C keeps running");
+    CHECK(WasResumed(2), "queue publishes the actual resume message for B");
+}
+void TestAutomaticBypassesWaiterButHonorsResources()
+{
+    TestQueue queue;
+    Add(queue, 1, Disk(1)); Add(queue, 2, Disk(2), COSO_WAIT_ALL);
+    CHECK(Add(queue, 3, Disk(3)) == CSWR_NONE, "automatic C can overtake an unrelated explicit waiter");
+    CHECK(Add(queue, 4, Disk(1)) == CSWR_PHYSICAL_DEVICE_CONFLICT, "automatic D still waits for its physical HDD");
+    queue.Finish(1);
+    CHECK(queue.State(2) == 0 && queue.State(3) == 0 && queue.State(4) == 0, "compatible waiters resume while unrelated operations remain active");
+}
+void TestLaterRunningOperationStillOccupiesDisk()
+{
+    TestQueue queue;
+    Add(queue, 1, Disk(1)); Add(queue, 2, Disk(1)); Add(queue, 3, Disk(1), COSO_START_NOW);
+    Messages.clear(); queue.Finish(1);
+    CHECK(queue.State(2) == 1 && !WasResumed(2), "resource checks include later running C, not only predecessors");
+    CHECK(queue.GetWaitReason(2) == CSWR_PHYSICAL_DEVICE_CONFLICT, "B retains its actual physical conflict reason");
+    queue.Finish(3);
+    CHECK(queue.State(2) == 0 && WasResumed(2), "B resumes when the later conflicting operation ends");
+}
+void TestSharedSlotsAndUnknownFallback()
+{
+    TestQueue queue;
+    CHECK(Add(queue, 1, Disk(10, false)) == CSWR_NONE, "first SSD stream starts");
+    CHECK(Add(queue, 2, Disk(10, false)) == CSWR_NONE, "second SSD stream shares the device");
+    CHECK(Add(queue, 3, Disk(10, false)) == CSWR_SSD_NVME_STREAM_LIMIT, "third SSD stream waits for a slot");
+    queue.Finish(1);
+    CHECK(queue.State(2) == 0 && queue.State(3) == 0, "waiting SSD writer resumes when one slot becomes free");
+    COperationStorageUse unknown; StorageUse_Reset(&unknown);
+    CStorageClaim claim = {}; claim.Kind = SRES_GLOBAL_UNKNOWN; claim.Access = SACCESS_READWRITE;
+    StorageUse_AddClaim(&unknown, &claim);
+    CHECK(Add(queue, 4, unknown) == CSWR_UNKNOWN_FALLBACK, "automatic unknown storage uses the conservative wait");
+    queue.Finish(2); CHECK(queue.State(4) == 1, "unknown storage waits while the last running writer remains");
+    queue.Finish(3); CHECK(queue.State(4) == 0, "unknown storage starts when running storage is idle");
+}
+void TestLegacyCompatibilityAndPausedPredecessor()
+{
+    TestQueue queue; auto disk = Disk(1);
+    Add(queue, 1, disk); BOOL paused = TRUE;
+    CHECK(queue.AddOperation(2, FALSE, &paused, &disk) && !paused, "legacy BOOL unchecked starts despite disk overlap");
+    queue.SetPaused(1, 2);
+    CHECK(Add(queue, 3, Disk(3), COSO_WAIT_ALL) == CSWR_EXPLICIT_OR_GLOBAL_WAIT, "checked Legacy waits for unfinished manually paused predecessors");
+    queue.Finish(2); CHECK(queue.State(3) == 1, "manually paused predecessor continues to hold explicit wait");
+    queue.Finish(1); CHECK(queue.State(3) == 0, "explicit wait releases after the paused predecessor finishes");
+}
+void TestQueueViewOverflowDoesNotChangeExplicitChoices()
+{
+    TestQueue queue; Add(queue, 1, Disk(1)); Add(queue, 2, Disk(2), COSO_WAIT_ALL);
+    for (HWND id = 3; id < 68; ++id) Add(queue, id, Disk(static_cast<unsigned>(id)), COSO_START_NOW);
+    CHECK(Add(queue, 100, Disk(100)) == CSWR_UNKNOWN_FALLBACK, "automatic admission remains conservative beyond the fixed resource view capacity");
+    queue.Finish(1);
+    CHECK(queue.State(2) == 0, "wait-all with no remaining predecessor ignores later resource-view overflow");
+}
+int main()
+{
+    TestWaitOnlyForPredecessors(); TestAutomaticBypassesWaiterButHonorsResources();
+    TestLaterRunningOperationStillOccupiesDisk(); TestSharedSlotsAndUnknownFallback();
+    TestLegacyCompatibilityAndPausedPredecessor(); TestQueueViewOverflowDoesNotChangeExplicitChoices();
+    std::cout << "operations_queue_tests: " << Checks << " checks, " << Failures << " failures\n";
+    return Failures ? 1 : 0;
+}

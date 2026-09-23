@@ -408,7 +408,7 @@ public:
     BOOL CopySecurity;          // preserve NTFS permissions; FALSE = don't care = perform no extra handling and accept any result
     BOOL CopyAttrs;             // preserve the Archive, Encrypt, and Compress attributes; FALSE = don't care = perform no extra handling and accept any result
     BOOL PreserveDirTime;       // preserve directory timestamps (during Move we detect unintended changes and fix them manually; works e.g. on Samba)
-    int CopyMoveTransferMode;   // CMS_SEQUENTIAL / CMS_STORAGE_AWARE; controls streams within this operation
+    int CopyMoveTransferMode;   // CMS_SEQUENTIAL / CMS_STORAGE_AWARE; selects scheduling and file streams
     int CopyMoveConflictMode;   // CMCM_CURRENT / CMCM_SCAN_AHEAD; snapshotted for this operation
     int OperationSchedulingPolicy;   // COSP_*; admission policy between operations
     int OperationSchedulingOverride; // COSO_*; per-operation admission override
@@ -610,7 +610,7 @@ public:
     BOOL AddOperation(HWND dlg, int schedulingPolicy, int operationOverride, BOOL* startPaused,
                       int* waitReason, const COperationStorageUse* storageUse);
 
-    // Compatibility API: startOnIdle maps to COSO_WAIT_ALL.
+    // Compatibility API: checked means wait-all; unchecked explicitly starts now.
     BOOL AddOperation(HWND dlg, BOOL startOnIdle, BOOL* startPaused, const COperationStorageUse* storageUse);
 
     // removes the operation from the queue (the operation finished); if 'doNotResume' is FALSE, it posts
