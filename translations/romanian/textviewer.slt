@@ -9,6 +9,14 @@ AUTHOR,"KRtekTM"
 WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
+[DIALOG 8500]
+310,129,1,"Configurarea vizualizatorului de text Prism"
+8701,7,7,296,86,1,"Performanță"
+8700,17,21,276,18,1,"&Păstrează Prism pregătit pentru redeschidere mai rapidă"
+8702,17,44,276,40,1,"Menține un vizualizator pregătit timp de până la 60 de secunde după închiderea unui fișier. Utilizează memorie suplimentară (aproximativ 100 MB sau mai mult). Primul fișier se deschide în continuare normal."
+1,197,108,50,14,1,"OK"
+2,253,108,50,14,1,"Anulare"
+
 [STRINGTABLE 0]
 46,1,"Vizualizator de text Prism"
 47,1,"Despre plugin"
@@ -61,4 +69,5 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 89,1,"Expresie regulată"
 90,1,"Paleta de culori personalizată nu a putut fi salvată."
 91,1,"Salamatrix.UI nu este disponibil."
+92,1,"Nu se poate deschide fereastra de configurare a modulului."
 

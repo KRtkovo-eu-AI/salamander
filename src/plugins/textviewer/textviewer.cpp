@@ -10,6 +10,8 @@
 //****************************************************************************
 
 #include "precomp.h"
+#include "../shared/webviewviewer/native_viewer.h"
+#include "../../darkmode.h"
 
 #include <algorithm>
 #include <cctype>
@@ -39,6 +41,10 @@ CSalamanderDebugAbstract* SalamanderDebug = NULL;
 
 // maximum file size (in bytes) allowed for the native viewer
 static const ULONGLONG kMaxTextFileSize = 16ULL * 1024ULL * 1024ULL; // 16 MB
+
+// Opt-in setting, owned by the host thread; the viewer host receives its own policy.
+static bool PrismKeepReady = false;
+static const char* const kKeepPrismReadyValue = "KeepPrismReady";
 
 // definice promenne pro "spl_com.h"
 int SalamanderVersion = 0;
@@ -183,7 +189,8 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     SalamanderGeneral = salamander->GetSalamanderGeneral();
     SalamanderGUI = salamander->GetSalamanderGUI();
 
-    salamander->SetBasicPluginData(LoadStr(IDS_PLUGINNAME), FUNCTION_VIEWER,
+    salamander->SetBasicPluginData(LoadStr(IDS_PLUGINNAME), FUNCTION_VIEWER |
+                                   FUNCTION_CONFIGURATION | FUNCTION_LOADSAVECONFIGURATION,
                                    VERSINFO_VERSION_NO_PLATFORM, VERSINFO_COPYRIGHT,
                                    LoadStr(IDS_PLUGIN_DESCRIPTION), PluginNameShort,
                                    NULL, NULL);
@@ -197,6 +204,123 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 // ****************************************************************************
 // CPluginInterface
 //
+
+namespace
+{
+struct PrismConfigurationData
+{
+    bool keepReady;
+    bool applyingTheme = false;
+    HBRUSH brush = nullptr;
+    COLORREF brushColor = CLR_INVALID;
+};
+
+void ApplyConfigurationTheme(HWND window, PrismConfigurationData& data)
+{
+    if (data.applyingTheme)
+        return;
+    data.applyingTheme = true;
+    BOOL dark = FALSE;
+    SalamanderGeneral->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE, &dark, sizeof(dark), nullptr);
+    // Configuration runs on the main thread. Do not reset PluginDarkMode's
+    // brushes, which belong to the separate native viewer STA.
+    DarkModeSetEnabled(dark != FALSE);
+    const COLORREF text = dark ? SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_FG_NORMAL)
+                               : GetSysColor(COLOR_BTNTEXT);
+    const COLORREF background = dark ? SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL)
+                                     : GetSysColor(COLOR_BTNFACE);
+    if (data.brush == nullptr || data.brushColor != background)
+    {
+        DarkModeConfigureDialogColors(text, background, nullptr);
+        if (data.brush != nullptr)
+            DeleteObject(data.brush);
+        data.brush = CreateSolidBrush(background);
+        data.brushColor = background;
+    }
+    DarkModeSetConfiguredColors(text, background, GetSysColor(COLOR_BTNTEXT), GetSysColor(COLOR_BTNFACE));
+    DarkModeConfigureDialogColors(text, background, data.brush);
+    DarkModeApplyTree(window);
+    DarkModeRefreshTitleBar(window);
+    InvalidateRect(window, nullptr, TRUE);
+    data.applyingTheme = false;
+}
+
+INT_PTR CALLBACK PrismConfigurationProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    PrismConfigurationData* data = reinterpret_cast<PrismConfigurationData*>(GetWindowLongPtrW(window, DWLP_USER));
+    LRESULT colorResult = 0;
+    if (data != nullptr && DarkModeHandleCtlColor(message, wParam, lParam, colorResult))
+        return static_cast<INT_PTR>(colorResult);
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        data = reinterpret_cast<PrismConfigurationData*>(lParam);
+        SetWindowLongPtrW(window, DWLP_USER, lParam);
+        CheckDlgButton(window, IDC_PRISM_KEEP_READY, data->keepReady ? BST_CHECKED : BST_UNCHECKED);
+        ApplyConfigurationTheme(window, *data);
+        SalamanderGeneral->MultiMonCenterWindow(window, GetParent(window), TRUE);
+        return TRUE;
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDOK && data != nullptr)
+        {
+            data->keepReady = IsDlgButtonChecked(window, IDC_PRISM_KEEP_READY) == BST_CHECKED;
+            EndDialog(window, IDOK);
+            return TRUE;
+        }
+        if (LOWORD(wParam) == IDCANCEL)
+        {
+            EndDialog(window, IDCANCEL);
+            return TRUE;
+        }
+        break;
+    case WM_CLOSE:
+        EndDialog(window, IDCANCEL);
+        return TRUE;
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+        if (data != nullptr)
+            ApplyConfigurationTheme(window, *data);
+        return TRUE;
+    }
+    return FALSE;
+}
+}
+
+void WINAPI CPluginInterface::LoadConfiguration(HWND, HKEY regKey, CSalamanderRegistryAbstract* registry)
+{
+    DWORD value = 0;
+    PrismKeepReady = regKey != nullptr && registry != nullptr &&
+        registry->GetValue(regKey, kKeepPrismReadyValue, REG_DWORD, &value, sizeof(value)) && value == 1;
+    NativeViewer_SetPrismKeepReady(PrismKeepReady);
+}
+
+void WINAPI CPluginInterface::SaveConfiguration(HWND, HKEY regKey, CSalamanderRegistryAbstract* registry)
+{
+    if (regKey != nullptr && registry != nullptr)
+    {
+        const DWORD value = PrismKeepReady ? 1 : 0;
+        registry->SetValue(regKey, kKeepPrismReadyValue, REG_DWORD, &value, sizeof(value));
+    }
+}
+
+void WINAPI CPluginInterface::Configuration(HWND parent)
+{
+    PrismConfigurationData data = {PrismKeepReady};
+    const INT_PTR result = DialogBoxParamW(HLanguage, MAKEINTRESOURCEW(IDD_PRISM_CONFIGURATION),
+                                          parent, PrismConfigurationProc,
+                                          reinterpret_cast<LPARAM>(&data));
+    DarkModeConfigureDialogColors(GetSysColor(COLOR_BTNTEXT), GetSysColor(COLOR_BTNFACE), nullptr);
+    if (data.brush != nullptr)
+        DeleteObject(data.brush);
+    if (result == IDOK)
+    {
+        PrismKeepReady = data.keepReady;
+        NativeViewer_SetPrismKeepReady(PrismKeepReady);
+    }
+    else if (result == -1)
+        SalamanderGeneral->SalMessageBox(parent, LoadStr(IDS_CONFIGURATION_FAILED),
+                                         LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONERROR);
+}
 
 void WINAPI CPluginInterface::About(HWND parent)
 {

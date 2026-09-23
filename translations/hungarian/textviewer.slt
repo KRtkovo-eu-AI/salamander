@@ -9,6 +9,14 @@ AUTHOR,"KRtekTM"
 WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
+[DIALOG 8500]
+310,129,1,"A Prism szövegmegtekintő beállításai"
+8701,7,7,296,86,1,"Teljesítmény"
+8700,17,21,276,18,1,"A Prism megtekintő &készenlétben tartása a gyorsabb újranyitáshoz"
+8702,17,44,276,40,1,"A fájl bezárása után legfeljebb 60 másodpercig készenlétben tart egy megtekintőt. Ez több memóriát használ (körülbelül 100 MB-ot vagy többet). Az első fájl a szokásos módon nyílik meg."
+1,197,108,50,14,1,"OK"
+2,253,108,50,14,1,"Mégse"
+
 [STRINGTABLE 0]
 46,1,"Prism szövegmegtekintő"
 47,1,"Bővítmény névjegye"
@@ -61,4 +69,5 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 89,1,"Reguláris kifejezés"
 90,1,"Az egyéni színpaletta mentése nem sikerült."
 91,1,"A Salamatrix.UI nem érhető el."
+92,1,"Nem sikerült megnyitni a bővítmény beállítási párbeszédablakát."
 

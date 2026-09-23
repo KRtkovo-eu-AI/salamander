@@ -9,6 +9,14 @@ AUTHOR,"KRtekTM"
 WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
+[DIALOG 8500]
+310,129,1,"Configuración del visor de texto Prism"
+8701,7,7,296,86,1,"Rendimiento"
+8700,17,21,276,18,1,"&Mantener Prism preparado para reabrir más rápido"
+8702,17,44,276,40,1,"Mantiene un visor preparado hasta 60 segundos después de cerrar un archivo. Utiliza memoria adicional (unos 100 MB o más). El primer archivo se sigue abriendo de la forma habitual."
+1,197,108,50,14,1,"OK"
+2,253,108,50,14,1,"Cancelar"
+
 [STRINGTABLE 0]
 46,1,"Visor de texto Prism"
 47,1,"Acerca del complemento"
@@ -61,4 +69,5 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 89,1,"Expresión regular"
 90,1,"No se pudo guardar la paleta de colores personalizada."
 91,1,"Salamatrix.UI no está disponible."
+92,1,"No se puede abrir el cuadro de configuración del complemento."
 

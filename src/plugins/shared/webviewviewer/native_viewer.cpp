@@ -49,6 +49,10 @@ constexpr UINT WM_NV_CREATE_VIEWER = WM_APP + 0x633;
 constexpr UINT WM_NV_STOP_HOST = WM_APP + 0x634;
 constexpr UINT WM_NV_PREWARM_ENVIRONMENT = WM_APP + 0x635;
 constexpr UINT WM_NV_PREPARATION_COMPLETE = WM_APP + 0x636;
+constexpr UINT WM_NV_CLOSE_FAILED = WM_APP + 0x637;
+constexpr UINT WM_NV_PRISM_POLICY_CHANGED = WM_APP + 0x638;
+constexpr UINT_PTR NV_IDLE_PRISM_TIMER = 1;
+constexpr ULONGLONG NV_IDLE_PRISM_TIMEOUT_MS = 60 * 1000;
 constexpr size_t NV_PRISM_VIRTUAL_THRESHOLD = 512U * 1024U;
 constexpr size_t NV_PRISM_FILE_LIMIT = 16U * 1024U * 1024U;
 constexpr size_t NV_MARKDOWN_FILE_LIMIT = 32U * 1024U * 1024U;
@@ -103,9 +107,17 @@ HANDLE gViewerHostThread = nullptr;
 DWORD gViewerHostThreadId = 0;
 HANDLE gViewerHostReady = nullptr;
 ComPtr<ICoreWebView2Environment> gSharedEnvironment;
-std::vector<HWND> gPendingEnvironmentWindows;
+struct ViewerTarget { HWND window; uint64_t generation; };
+std::vector<ViewerTarget> gPendingEnvironmentWindows;
 bool gCreatingSharedEnvironment = false;
 std::atomic<uint64_t> gNextPreparationGeneration(1);
+std::atomic<uint64_t> gNextViewerGeneration(1);
+std::atomic<bool> gPrismKeepReady(false);
+// Accessed only by ViewerHostThread. Active viewers remain in gWindows.
+class ViewerWindow;
+ViewerWindow* gIdlePrismViewer = nullptr;
+// Published for policy notifications; only the owning STA dereferences the viewer.
+std::atomic<HWND> gIdlePrismWindow(nullptr);
 
 template <typename T, typename... Args>
 T* NewNoThrow(Args&&... args)
@@ -1291,6 +1303,12 @@ public:
     explicit ViewerWindow(std::unique_ptr<ViewerParameters> parameters)
         : parameters_(std::move(parameters)), preparationTarget_(NewNoThrow<PreparationTarget>())
     {
+        ReadSettings();
+    }
+
+    void ReadSettings()
+    {
+        selectedLanguage_.clear();
         zoomPercent_ = static_cast<int>(ReadViewerSetting(L"ZoomPercent", 100));
         zoomPercent_ = (std::max)(25, (std::min)(zoomPercent_, 500));
         if (parameters_->kind == NativeViewerKind::PrismText)
@@ -1310,14 +1328,23 @@ public:
     {
         ClosePreparationTarget();
         CloseBrowser();
-        if (parameters_->gui != nullptr && menuBar_ != nullptr)
-            parameters_->gui->DestroyMenuBar(menuBar_);
-        if (parameters_->gui != nullptr && mainMenu_ != nullptr)
-            parameters_->gui->DestroyMenuPopup(mainMenu_);
+        DestroyMenus();
         if (menuFont_ != nullptr && menuFont_ != GetStockObject(DEFAULT_GUI_FONT))
             DeleteObject(menuFont_);
-        if (parameters_->closeEvent != nullptr)
-            SetEvent(parameters_->closeEvent);
+        SignalClosed();
+    }
+
+    static ViewerWindow* Resolve(const ViewerTarget& target)
+    {
+        // A queued COM callback can outlive its window and HWNDs are recycled.
+        // Only inspect user data after verifying that this is still our class.
+        if (gShuttingDown.load() || GetClassLongPtrW(target.window, GCLP_WNDPROC) !=
+            reinterpret_cast<LONG_PTR>(WindowProc))
+            return nullptr;
+        ViewerWindow* self = reinterpret_cast<ViewerWindow*>(
+            GetWindowLongPtrW(target.window, GWLP_USERDATA));
+        return self && !self->closing_ && self->viewerGeneration_ == target.generation
+            ? self : nullptr;
     }
 
     static LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
@@ -1337,7 +1364,8 @@ public:
         {
             SetWindowLongPtrW(window, GWLP_USERDATA, 0);
             self->ClosePreparationTarget();
-            delete self;
+            if (!self->creating_)
+                delete self;
         }
         return result;
     }
@@ -1368,10 +1396,58 @@ public:
                                   WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
                                   parameters_->placement.left, parameters_->placement.top, width, height,
                                   nullptr, nullptr, parameters_->module, this);
+        creating_ = false;
         return window_ != nullptr;
     }
 
     HWND Window() const { return window_; }
+
+    bool CanReuse(const ViewerParameters& parameters) const
+    {
+        return gPrismKeepReady.load() && idle_ && prismPageReady_ && browserHealthy_ && controller_ && webView_ &&
+               GetTickCount64() < idleExpires_ &&
+               parameters.kind == NativeViewerKind::PrismText &&
+               parameters.module == parameters_->module && parameters.gui == parameters_->gui;
+    }
+
+    bool Reopen(std::unique_ptr<ViewerParameters>& parameters)
+    {
+        if (!gPrismKeepReady.load())
+            return false;
+        KillTimer(window_, NV_IDLE_PRISM_TIMER);
+        gIdlePrismViewer = nullptr;
+        gIdlePrismWindow.store(nullptr);
+        idle_ = false;
+        // Menus and labels must follow the new request, including font/locale.
+        DestroyMenus();
+        parameters_.swap(parameters);
+        ReadSettings();
+        if (!CreateCustomMenuBar())
+        {
+            DestroyMenus();
+            parameters_.swap(parameters);
+            return false;
+        }
+        parameters.reset();
+        ApplyChromeFont();
+        ApplyMenuFont();
+        SetWindowTextW(zoomReset_, ControlLabel(parameters_->zoomReset).c_str());
+        UpdateZoomDisplay(zoomPercent_);
+        UpdateViewMenuChecks();
+        ApplyTheme();
+        ApplyBrowserAppearance();
+        UpdateWindowTitle();
+        WINDOWPLACEMENT placement = {sizeof(placement)};
+        placement.showCmd = SW_HIDE;
+        placement.rcNormalPosition = parameters_->placement;
+        SetWindowPlacement(window_, &placement);
+        SetWindowPos(window_, parameters_->alwaysOnTop ? HWND_TOPMOST : HWND_NOTOPMOST,
+                     0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        ResizeChildren();
+        LoadDocument();
+        return true;
+    }
+
     void Show()
     {
         ShowWindow(window_, parameters_->showCommand);
@@ -1394,6 +1470,88 @@ private:
     CGUIMenuBarAbstract* menuBar_ = nullptr;
     CGUIMenuPopupAbstract* colorsMenu_ = nullptr;
     CGUIMenuPopupAbstract* syntaxMenu_ = nullptr;
+
+    void DestroyMenus()
+    {
+        syntaxMenuItems_.clear();
+        CGUIMenuBarAbstract* menuBar = menuBar_;
+        CGUIMenuPopupAbstract* mainMenu = mainMenu_;
+        menuBar_ = nullptr;
+        mainMenu_ = colorsMenu_ = syntaxMenu_ = nullptr;
+        if (parameters_->gui != nullptr && menuBar != nullptr)
+            parameters_->gui->DestroyMenuBar(menuBar);
+        if (parameters_->gui != nullptr && mainMenu != nullptr)
+            parameters_->gui->DestroyMenuPopup(mainMenu);
+    }
+
+    void SignalClosed()
+    {
+        // The host may close/recycle this handle as soon as it is signalled.
+        HANDLE closed = parameters_->closeEvent;
+        parameters_->closeEvent = nullptr;
+        if (closed != nullptr)
+            SetEvent(closed);
+    }
+
+    void PostFailedClose()
+    {
+        // Carry both halves on x86 as well: a queued failure must not close a
+        // later viewer if Windows has recycled the failed viewer's HWND.
+        PostMessageW(window_, WM_NV_CLOSE_FAILED,
+                     static_cast<WPARAM>(static_cast<DWORD>(viewerGeneration_)),
+                     static_cast<LPARAM>(static_cast<DWORD>(viewerGeneration_ >> 32)));
+    }
+
+    void UnregisterActiveWindow()
+    {
+        std::lock_guard<std::mutex> guard(gWindowsLock);
+        auto found = std::find(gWindows.begin(), gWindows.end(), window_);
+        if (found != gWindows.end())
+            gWindows.erase(found);
+    }
+
+    void CloseOrKeepReady()
+    {
+        if (idle_)
+            return;
+        if (!gPrismKeepReady.load() || gShuttingDown.load() || gIdlePrismViewer != nullptr ||
+            parameters_->kind != NativeViewerKind::PrismText ||
+            !prismPageReady_ || !browserHealthy_ || loadProgress_ != 100 || !webView_ || !controller_)
+        {
+            DestroyWindow(window_);
+            return;
+        }
+        // Retain only the renderer and bundled page, never the closed document.
+        idle_ = true;
+        ShowWindow(window_, SW_HIDE);
+        if (FAILED(controller_->put_IsVisible(FALSE)))
+        {
+            DestroyWindow(window_);
+            return;
+        }
+        browserVisible_ = false;
+        preparationGeneration_ = gNextPreparationGeneration.fetch_add(1);
+        virtualGeneration_ = 0;
+        virtualInitSent_ = false;
+        std::wstring().swap(virtualText_);
+        std::vector<size_t>().swap(virtualLineStarts_);
+        std::wstring().swap(parameters_->filePath);
+        SetWindowTextW(window_, parameters_->pluginName.c_str());
+        UnregisterActiveWindow();
+        SignalClosed();
+        if (FAILED(webView_->PostWebMessageAsJson(L"{\"type\":\"reset\"}")))
+        {
+            DestroyWindow(window_);
+            return;
+        }
+        idleExpires_ = GetTickCount64() + NV_IDLE_PRISM_TIMEOUT_MS;
+        gIdlePrismViewer = this;
+        gIdlePrismWindow.store(window_);
+        // Disabling may have raced with the initial gate before publishing HWND.
+        if (!gPrismKeepReady.load() ||
+            SetTimer(window_, NV_IDLE_PRISM_TIMER, static_cast<UINT>(NV_IDLE_PRISM_TIMEOUT_MS), nullptr) == 0)
+            DestroyWindow(window_);
+    }
 
     std::wstring WindowTitle() const
     {
@@ -1673,11 +1831,13 @@ private:
             ResizeChildren();
             return 0;
         case WM_COMMAND:
+            if (idle_)
+                return 0;
             HandleCommand(LOWORD(wParam), HIWORD(wParam));
             return 0;
         case WM_KEYDOWN:
             if (wParam == VK_ESCAPE)
-                DestroyWindow(window_);
+                CloseOrKeepReady();
             return 0;
         case WM_SETTINGCHANGE:
         case WM_THEMECHANGED:
@@ -1685,6 +1845,17 @@ private:
             return 0;
         case WM_NV_CLOSE_ALL:
             DestroyWindow(window_);
+            return 0;
+        case WM_NV_CLOSE_FAILED:
+            if (static_cast<DWORD>(wParam) == static_cast<DWORD>(viewerGeneration_) &&
+                static_cast<DWORD>(lParam) == static_cast<DWORD>(viewerGeneration_ >> 32))
+                DestroyWindow(window_);
+            return 0;
+        case WM_NV_PRISM_POLICY_CHANGED:
+            // Read the latest value so an older queued off/on change cannot
+            // close an active window or apply a stale preference.
+            if (!gPrismKeepReady.load() && idle_)
+                DestroyWindow(window_);
             return 0;
         case WM_NV_APPLY_ZOOM:
             ApplyZoomEdit();
@@ -1694,7 +1865,11 @@ private:
                                     static_cast<uint64_t>(wParam));
             return 0;
         case WM_CLOSE:
-            DestroyWindow(window_);
+            CloseOrKeepReady();
+            return 0;
+        case WM_TIMER:
+            if (wParam == NV_IDLE_PRISM_TIMER && idle_ && GetTickCount64() >= idleExpires_)
+                DestroyWindow(window_);
             return 0;
         case WM_DESTROY:
             RemoveWindow();
@@ -1725,6 +1900,9 @@ private:
 
     void CompletePrismDisplay()
     {
+        if (idle_)
+            return;
+        waitingForReusedDocument_ = false;
         SetWindowTextW(status_, parameters_->ready.c_str());
         ShowPrismBrowser();
         loadProgress_ = 100;
@@ -1732,6 +1910,8 @@ private:
 
     void ShowPrismBrowser()
     {
+        if (idle_ || waitingForReusedDocument_)
+            return;
         ApplyControllerZoom();
         if (!browserVisible_ && controller_)
         {
@@ -1801,7 +1981,7 @@ private:
             return;
         }
 
-        gPendingEnvironmentWindows.push_back(window_);
+        gPendingEnvironmentWindows.push_back({window_, viewerGeneration_});
         if (gCreatingSharedEnvironment)
             return;
 
@@ -1815,10 +1995,9 @@ private:
                 {
                     if (FAILED(result) || environment == nullptr)
                     {
-                        for (HWND target : gPendingEnvironmentWindows)
+                        for (const ViewerTarget& target : gPendingEnvironmentWindows)
                         {
-                            ViewerWindow* self = IsWindow(target)
-                                ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(target, GWLP_USERDATA)) : nullptr;
+                            ViewerWindow* self = ViewerWindow::Resolve(target);
                             if (self != nullptr)
                                 self->ShowError(self->parameters_->initializationFailed, result);
                         }
@@ -1827,13 +2006,12 @@ private:
                         return S_OK;
                     }
                     gSharedEnvironment = environment;
-                    std::vector<HWND> pending;
+                    std::vector<ViewerTarget> pending;
                     pending.swap(gPendingEnvironmentWindows);
                     gCreatingSharedEnvironment = false;
-                    for (HWND target : pending)
+                    for (const ViewerTarget& target : pending)
                     {
-                        ViewerWindow* self = IsWindow(target)
-                            ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(target, GWLP_USERDATA)) : nullptr;
+                        ViewerWindow* self = ViewerWindow::Resolve(target);
                         if (self != nullptr)
                             self->CreateBrowserController(gSharedEnvironment.Get());
                     }
@@ -1843,12 +2021,11 @@ private:
         if (FAILED(hr))
         {
             gCreatingSharedEnvironment = false;
-            std::vector<HWND> pending;
+            std::vector<ViewerTarget> pending;
             pending.swap(gPendingEnvironmentWindows);
-            for (HWND target : pending)
+            for (const ViewerTarget& target : pending)
             {
-                ViewerWindow* self = IsWindow(target)
-                    ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(target, GWLP_USERDATA)) : nullptr;
+                ViewerWindow* self = ViewerWindow::Resolve(target);
                 if (self != nullptr)
                     self->ShowError(self->parameters_->initializationFailed, hr);
             }
@@ -1861,36 +2038,54 @@ public:
         if (environment == nullptr)
             return;
         SetLoadProgress(35);
-        const HWND target = window_;
-        environment->CreateCoreWebView2Controller(target,
+        const ViewerTarget target = {window_, viewerGeneration_};
+        HRESULT hr = environment->CreateCoreWebView2Controller(target.window,
             Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
                 [target](HRESULT controllerResult, ICoreWebView2Controller* controller) -> HRESULT
                 {
-                    ViewerWindow* self = IsWindow(target)
-                        ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(target, GWLP_USERDATA)) : nullptr;
+                    ViewerWindow* self = ViewerWindow::Resolve(target);
                     if (self == nullptr)
-                        return S_OK;
-                    if (FAILED(controllerResult) || controller == nullptr)
                     {
-                        self->ShowError(self->parameters_->initializationFailed, controllerResult);
+                        if (controller != nullptr)
+                            controller->Close();
                         return S_OK;
                     }
-                    self->controller_ = controller;
+                    if (FAILED(controllerResult) || controller == nullptr)
+                    {
+                        if (controller != nullptr)
+                            controller->Close();
+                        self->ShowError(self->parameters_->initializationFailed,
+                                        FAILED(controllerResult) ? controllerResult : E_UNEXPECTED);
+                        return S_OK;
+                    }
                     // The WebView default is white.  Keep the controller hidden
                     // while assigning its background and loading the first page,
                     // otherwise a dark viewer visibly flashes white on opening.
-                    self->controller_->put_IsVisible(FALSE);
-                    self->controller_->get_CoreWebView2(&self->webView_);
+                    ComPtr<ICoreWebView2> webView;
+                    HRESULT hr = controller->put_IsVisible(FALSE);
+                    if (SUCCEEDED(hr))
+                        hr = controller->get_CoreWebView2(&webView);
+                    if (FAILED(hr) || !webView)
+                    {
+                        controller->Close();
+                        self->ShowError(self->parameters_->initializationFailed,
+                                        FAILED(hr) ? hr : E_UNEXPECTED);
+                        return S_OK;
+                    }
+                    self->controller_ = controller;
+                    self->webView_ = std::move(webView);
                     self->SetLoadProgress(55);
                     self->ConfigureBrowser();
                     self->ResizeChildren();
                     self->LoadDocument();
                     return S_OK;
                 }).Get());
+        if (FAILED(hr))
+            ShowError(parameters_->initializationFailed, hr);
     }
 
 private:
-    void ConfigureBrowser()
+    void ApplyBrowserAppearance()
     {
         ComPtr<ICoreWebView2Controller2> controller2;
         if (SUCCEEDED(controller_.As(&controller2)) && controller2)
@@ -1902,14 +2097,6 @@ private:
                 GetBValue(parameters_->theme.background)};
             controller2->put_DefaultBackgroundColor(background);
         }
-        ComPtr<ICoreWebView2Settings> settings;
-        if (SUCCEEDED(webView_->get_Settings(&settings)) && settings)
-        {
-            settings->put_IsStatusBarEnabled(FALSE);
-            settings->put_AreDefaultContextMenusEnabled(TRUE);
-            settings->put_AreDevToolsEnabled(TRUE);
-            settings->put_IsZoomControlEnabled(TRUE);
-        }
         ComPtr<ICoreWebView2_13> webView13;
         if (SUCCEEDED(webView_.As(&webView13)))
         {
@@ -1919,14 +2106,65 @@ private:
                     ? COREWEBVIEW2_PREFERRED_COLOR_SCHEME_DARK
                     : COREWEBVIEW2_PREFERRED_COLOR_SCHEME_LIGHT);
         }
+    }
+
+    void ConfigureBrowser()
+    {
+        ApplyBrowserAppearance();
+        ComPtr<ICoreWebView2Settings> settings;
+        if (SUCCEEDED(webView_->get_Settings(&settings)) && settings)
+        {
+            settings->put_IsStatusBarEnabled(FALSE);
+            settings->put_AreDefaultContextMenusEnabled(TRUE);
+            settings->put_AreDevToolsEnabled(TRUE);
+            settings->put_IsZoomControlEnabled(TRUE);
+        }
         const HWND viewerWindow = window_;
+        const uint64_t viewerGeneration = viewerGeneration_;
+        HRESULT processHandlerResult = webView_->add_ProcessFailed(
+            Callback<ICoreWebView2ProcessFailedEventHandler>(
+                [viewerWindow, viewerGeneration](ICoreWebView2*, ICoreWebView2ProcessFailedEventArgs* args) -> HRESULT
+                {
+                    COREWEBVIEW2_PROCESS_FAILED_KIND kind = COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED;
+                    if (args && SUCCEEDED(args->get_ProcessFailedKind(&kind)) &&
+                        kind != COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED &&
+                        kind != COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_EXITED &&
+                        kind != COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_UNRESPONSIVE)
+                        return S_OK; // Chromium can recover its auxiliary processes.
+                    ViewerWindow* self = Resolve({viewerWindow, viewerGeneration});
+                    if (self != nullptr)
+                    {
+                        self->browserHealthy_ = false;
+                        self->prismPageReady_ = false;
+                        self->preparationGeneration_ = gNextPreparationGeneration.fetch_add(1);
+                        self->virtualGeneration_ = 0;
+                        self->virtualInitSent_ = false;
+                        if (self->idle_)
+                            self->PostFailedClose();
+                        else
+                        {
+                            // A failure queued while the viewer was idle may
+                            // arrive just after reuse. Do not leave it loading
+                            // indefinitely or display the previous document.
+                            self->waitingForReusedDocument_ = false;
+                            self->loadProgress_ = 100;
+                            SetWindowTextW(self->status_, self->parameters_->openFailed.c_str());
+                            self->controller_->put_IsVisible(FALSE);
+                            self->browserVisible_ = false;
+                        }
+                    }
+                    return S_OK;
+                }).Get(), &processFailedToken_);
+        // Without failure notifications it is still usable for this request,
+        // but must not become a cached candidate after its window is closed.
+        if (FAILED(processHandlerResult))
+            browserHealthy_ = false;
         webView_->add_NavigationStarting(
             Callback<ICoreWebView2NavigationStartingEventHandler>(
-                [viewerWindow](ICoreWebView2*, ICoreWebView2NavigationStartingEventArgs*) -> HRESULT
+                [viewerWindow, viewerGeneration](ICoreWebView2*, ICoreWebView2NavigationStartingEventArgs*) -> HRESULT
                 {
-                    ViewerWindow* self = IsWindow(viewerWindow)
-                        ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(viewerWindow, GWLP_USERDATA)) : nullptr;
-                    if (self != nullptr)
+                    ViewerWindow* self = Resolve({viewerWindow, viewerGeneration});
+                    if (self != nullptr && !self->idle_)
                         self->SetLoadProgress(90);
                     return S_OK;
                 }).Get(), &navigationStartingToken_);
@@ -1935,10 +2173,9 @@ private:
         {
             webView2->add_DOMContentLoaded(
                 Callback<ICoreWebView2DOMContentLoadedEventHandler>(
-                    [viewerWindow](ICoreWebView2*, ICoreWebView2DOMContentLoadedEventArgs*) -> HRESULT
+                    [viewerWindow, viewerGeneration](ICoreWebView2*, ICoreWebView2DOMContentLoadedEventArgs*) -> HRESULT
                     {
-                        ViewerWindow* self = IsWindow(viewerWindow)
-                            ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(viewerWindow, GWLP_USERDATA)) : nullptr;
+                        ViewerWindow* self = Resolve({viewerWindow, viewerGeneration});
                         if (self == nullptr || self->parameters_->kind != NativeViewerKind::RenderDocument)
                             return S_OK;
                         if (self->parameters_->theme.dark)
@@ -1965,11 +2202,10 @@ private:
         }
         controller_->add_ZoomFactorChanged(
             Callback<ICoreWebView2ZoomFactorChangedEventHandler>(
-                [viewerWindow](ICoreWebView2Controller* controller, IUnknown*) -> HRESULT
+                [viewerWindow, viewerGeneration](ICoreWebView2Controller* controller, IUnknown*) -> HRESULT
                 {
-                    ViewerWindow* self = IsWindow(viewerWindow)
-                        ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(viewerWindow, GWLP_USERDATA)) : nullptr;
-                    if (self != nullptr)
+                    ViewerWindow* self = Resolve({viewerWindow, viewerGeneration});
+                    if (self != nullptr && !self->idle_ && !self->waitingForReusedDocument_)
                     {
                         double zoom = 1.0;
                         if (SUCCEEDED(controller->get_ZoomFactor(&zoom)))
@@ -1984,8 +2220,11 @@ private:
                 }).Get(), &zoomChangedToken_);
         controller_->add_AcceleratorKeyPressed(
             Callback<ICoreWebView2AcceleratorKeyPressedEventHandler>(
-                [viewerWindow](ICoreWebView2Controller*, ICoreWebView2AcceleratorKeyPressedEventArgs* args) -> HRESULT
+                [viewerWindow, viewerGeneration](ICoreWebView2Controller*, ICoreWebView2AcceleratorKeyPressedEventArgs* args) -> HRESULT
                 {
+                    ViewerWindow* self = Resolve({viewerWindow, viewerGeneration});
+                    if (self == nullptr || self->idle_)
+                        return S_OK;
                     UINT virtualKey = 0;
                     COREWEBVIEW2_KEY_EVENT_KIND kind = COREWEBVIEW2_KEY_EVENT_KIND_KEY_DOWN;
                     args->get_VirtualKey(&virtualKey);
@@ -2020,10 +2259,9 @@ private:
                 }).Get(), &acceleratorToken_);
         webView_->add_WebMessageReceived(
                 Callback<ICoreWebView2WebMessageReceivedEventHandler>(
-                    [viewerWindow](ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs* args) -> HRESULT
+                    [viewerWindow, viewerGeneration](ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs* args) -> HRESULT
                     {
-                        ViewerWindow* self = IsWindow(viewerWindow)
-                            ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(viewerWindow, GWLP_USERDATA)) : nullptr;
+                        ViewerWindow* self = Resolve({viewerWindow, viewerGeneration});
                         if (self == nullptr)
                             return S_OK;
                         LPWSTR message = nullptr;
@@ -2032,18 +2270,25 @@ private:
 
                         const std::wstring value(message);
                         CoTaskMemFree(message);
-                        if (value == L"salamander-prism-ready")
+                        if (self->idle_)
+                            return S_OK;
+                        if (self->virtualGeneration_ != 0 && self->virtualInitSent_ &&
+                            value == L"salamander-prism-ready:" + std::to_wstring(self->virtualGeneration_))
                         {
                             self->CompletePrismDisplay();
                             return S_OK;
                         }
-                        if (value == L"salamander-prism-theme-ready")
+                        if (self->virtualGeneration_ != 0 && self->virtualInitSent_ &&
+                            value == L"salamander-prism-theme-ready:" + std::to_wstring(self->virtualGeneration_))
                         {
+                            // This generation has cleared the old DOM and applied its theme.
+                            self->waitingForReusedDocument_ = false;
                             self->ShowPrismBrowser();
                             return S_OK;
                         }
                         if (value == L"salamander-virtual-ready")
                         {
+                            self->prismPageReady_ = true;
                             self->virtualInitSent_ = false;
                             self->PostVirtualInit();
                             return S_OK;
@@ -2067,10 +2312,9 @@ private:
             L"https://markdown.local/*", COREWEBVIEW2_WEB_RESOURCE_CONTEXT_DOCUMENT);
         webView_->add_WebResourceRequested(
             Callback<ICoreWebView2WebResourceRequestedEventHandler>(
-                [viewerWindow](ICoreWebView2*, ICoreWebView2WebResourceRequestedEventArgs* args) -> HRESULT
+                [viewerWindow, viewerGeneration](ICoreWebView2*, ICoreWebView2WebResourceRequestedEventArgs* args) -> HRESULT
                 {
-                    ViewerWindow* self = IsWindow(viewerWindow)
-                        ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(viewerWindow, GWLP_USERDATA)) : nullptr;
+                    ViewerWindow* self = Resolve({viewerWindow, viewerGeneration});
                     if (self == nullptr || args == nullptr || self->markdownDocumentUri_.empty())
                         return S_OK;
                     ComPtr<ICoreWebView2WebResourceRequest> request;
@@ -2109,18 +2353,24 @@ private:
         }
         webView_->add_NavigationCompleted(
             Callback<ICoreWebView2NavigationCompletedEventHandler>(
-                [viewerWindow](ICoreWebView2*, ICoreWebView2NavigationCompletedEventArgs* args) -> HRESULT
+                [viewerWindow, viewerGeneration](ICoreWebView2*, ICoreWebView2NavigationCompletedEventArgs* args) -> HRESULT
                 {
-                    ViewerWindow* self = IsWindow(viewerWindow)
-                        ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(viewerWindow, GWLP_USERDATA)) : nullptr;
+                    ViewerWindow* self = Resolve({viewerWindow, viewerGeneration});
                     if (self == nullptr)
                         return S_OK;
                     BOOL success = FALSE;
                     args->get_IsSuccess(&success);
-                    if (success)
+                    if (success && !self->idle_)
                         self->ApplyControllerZoom();
                     if (!success)
                     {
+                        self->browserHealthy_ = false;
+                        self->prismPageReady_ = false;
+                        if (self->idle_)
+                        {
+                            self->PostFailedClose();
+                            return S_OK;
+                        }
                         SetWindowTextW(self->status_, self->parameters_->openFailed.c_str());
                         if (!self->browserVisible_ && self->controller_)
                         {
@@ -2237,6 +2487,14 @@ private:
         preparationGeneration_ = gNextPreparationGeneration.fetch_add(1);
         virtualGeneration_ = 0;
         virtualInitSent_ = false;
+        if (!markdown && prismPageReady_ && controller_)
+        {
+            waitingForReusedDocument_ = true;
+            controller_->put_IsVisible(FALSE);
+            browserVisible_ = false;
+            if (FAILED(webView_->PostWebMessageAsJson(L"{\"type\":\"reset\"}")))
+                prismPageReady_ = false;
+        }
         virtualText_.clear();
         virtualLineStarts_.clear();
         PreparationContext* context = NewNoThrow<PreparationContext>();
@@ -2301,7 +2559,7 @@ private:
                 ShowError(parameters_->openFailed, E_OUTOFMEMORY);
             return;
         }
-        if (result->generation != preparationGeneration_ || !webView_)
+        if (idle_ || result->generation != preparationGeneration_ || !webView_)
             return;
         if (result->error != ERROR_SUCCESS)
         {
@@ -2325,6 +2583,14 @@ private:
         virtualText_ = std::move(result->text);
         virtualLineStarts_ = std::move(result->lineStarts);
         virtualGeneration_ = result->generation;
+        if (prismPageReady_ && browserHealthy_)
+        {
+            PostVirtualInit();
+            if (virtualInitSent_)
+                return;
+        }
+        prismPageReady_ = false;
+        waitingForReusedDocument_ = false;
         ComPtr<ICoreWebView2_3> webView3;
         if (FAILED(webView_.As(&webView3)) || !webView3)
         {
@@ -2332,21 +2598,25 @@ private:
             return;
         }
         const std::wstring folder = PrismAssetsDirectory();
+        // WebView2 can delay virtual-host navigation with a .local domain.
+        // Use the reserved .example domain for the bundled Prism assets.
         if (FAILED(webView3->SetVirtualHostNameToFolderMapping(
-                L"prism.local", folder.c_str(), COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW)))
+                L"prism.example", folder.c_str(), COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW)))
         {
             ShowError(parameters_->openFailed, E_FAIL);
             return;
         }
         SetLoadProgress(80);
-        const std::wstring uri = L"https://prism.local/viewer/virtual-viewer.html?g=" +
+        const std::wstring uri = L"https://prism.example/viewer/virtual-viewer.html?g=" +
                                  std::to_wstring(virtualGeneration_);
-        webView_->Navigate(uri.c_str());
+        HRESULT hr = webView_->Navigate(uri.c_str());
+        if (FAILED(hr))
+            ShowError(parameters_->openFailed, hr);
     }
 
     void PostVirtualInit()
     {
-        if (!webView_ || virtualGeneration_ == 0 || virtualInitSent_)
+        if (idle_ || !webView_ || virtualGeneration_ == 0 || virtualInitSent_)
             return;
         const size_t lineCount = virtualLineStarts_.size();
         const PrismStyleMetrics style = GetPrismStyleMetrics(lineCount);
@@ -2722,7 +2992,7 @@ private:
     void HandleCommand(int command, int notification)
     {
         if (command == IDM_NV_CLOSE)
-            DestroyWindow(window_);
+            CloseOrKeepReady();
         else if (command == IDM_NV_REFRESH && webView_)
             LoadDocument();
         else if (command == IDM_NV_ZOOM_IN || command == IDC_NV_ZOOM_IN)
@@ -2842,6 +3112,7 @@ private:
 
     void ShowError(const std::wstring& message, HRESULT error)
     {
+        browserHealthy_ = false;
         wchar_t detail[32];
         swprintf_s(detail, L"\n\n0x%08X", static_cast<unsigned int>(error));
         std::wstring full = message + detail;
@@ -2851,6 +3122,8 @@ private:
 
     void CloseBrowser()
     {
+        if (webView_ && processFailedToken_.value != 0)
+            webView_->remove_ProcessFailed(processFailedToken_);
         if (webView_ && navigationStartingToken_.value != 0)
             webView_->remove_NavigationStarting(navigationStartingToken_);
         if (webView_ && domContentLoadedToken_.value != 0)
@@ -2879,13 +3152,20 @@ private:
 
     void RemoveWindow()
     {
+        closing_ = true;
+        KillTimer(window_, NV_IDLE_PRISM_TIMER);
+        if (gIdlePrismViewer == this)
+        {
+            gIdlePrismViewer = nullptr;
+            gIdlePrismWindow.store(nullptr);
+        }
         CloseBrowser();
-        std::lock_guard<std::mutex> guard(gWindowsLock);
-        auto found = std::find(gWindows.begin(), gWindows.end(), window_);
-        if (found != gWindows.end())
-            gWindows.erase(found);
+        UnregisterActiveWindow();
     }
 
+    const uint64_t viewerGeneration_ = gNextViewerGeneration.fetch_add(1);
+    bool creating_ = true;
+    bool closing_ = false;
     std::unique_ptr<ViewerParameters> parameters_;
     HWND window_ = nullptr;
     HFONT menuFont_ = nullptr;
@@ -2896,6 +3176,7 @@ private:
     HWND zoomIn_ = nullptr;
     ComPtr<ICoreWebView2Controller> controller_;
     ComPtr<ICoreWebView2> webView_;
+    EventRegistrationToken processFailedToken_ = {};
     EventRegistrationToken navigationToken_ = {};
     EventRegistrationToken navigationStartingToken_ = {};
     EventRegistrationToken domContentLoadedToken_ = {};
@@ -2914,6 +3195,11 @@ private:
     std::vector<std::wstring> installedLanguages_;
     std::vector<SyntaxMenuItem> syntaxMenuItems_;
     bool browserVisible_ = false;
+    bool browserHealthy_ = true;
+    bool prismPageReady_ = false;
+    bool waitingForReusedDocument_ = false;
+    bool idle_ = false;
+    ULONGLONG idleExpires_ = 0;
     int loadProgress_ = 0;
     PreparationTarget* preparationTarget_ = nullptr;
     uint64_t preparationGeneration_ = 0;
@@ -2946,12 +3232,11 @@ void PrewarmSharedEnvironment()
                 if (FAILED(result) || environment == nullptr)
                     return S_OK;
                 gSharedEnvironment = environment;
-                std::vector<HWND> pending;
+                std::vector<ViewerTarget> pending;
                 pending.swap(gPendingEnvironmentWindows);
-                for (HWND target : pending)
+                for (const ViewerTarget& target : pending)
                 {
-                    ViewerWindow* viewer = IsWindow(target)
-                        ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(target, GWLP_USERDATA)) : nullptr;
+                    ViewerWindow* viewer = ViewerWindow::Resolve(target);
                     if (viewer != nullptr)
                         viewer->CreateBrowserController(gSharedEnvironment.Get());
                 }
@@ -2964,9 +3249,36 @@ void PrewarmSharedEnvironment()
 static void CreateViewerWindow(ViewerParameters* raw)
 {
     std::unique_ptr<ViewerParameters> parameters(static_cast<ViewerParameters*>(raw));
+    if (gShuttingDown.load())
+    {
+        if (parameters->closeEvent != nullptr)
+            SetEvent(parameters->closeEvent);
+        return;
+    }
+    if (parameters->kind == NativeViewerKind::PrismText && gIdlePrismViewer != nullptr)
+    {
+        ViewerWindow* cached = gIdlePrismViewer;
+        if (cached->CanReuse(*parameters))
+        {
+            if (cached->Reopen(parameters))
+            {
+                {
+                    std::lock_guard<std::mutex> guard(gWindowsLock);
+                    gWindows.push_back(cached->Window());
+                }
+                cached->Show();
+                return;
+            }
+        }
+        DestroyWindow(cached->Window());
+    }
     ViewerWindow* viewer = NewNoThrow<ViewerWindow>(std::move(parameters));
     if (viewer == nullptr)
+    {
+        if (parameters && parameters->closeEvent != nullptr)
+            SetEvent(parameters->closeEvent);
         return;
+    }
     if (!viewer->Create())
     {
         delete viewer;
@@ -3053,6 +3365,17 @@ DWORD WINAPI ViewerHostThread(void* readyEvent)
         TranslateMessage(&message);
         DispatchMessageW(&message);
     }
+    if (gIdlePrismViewer != nullptr)
+        DestroyWindow(gIdlePrismViewer->Window());
+    // A request already queued when shutdown started must not leave a live
+    // viewer behind after its STA and COM apartment stop processing messages.
+    std::vector<HWND> remainingWindows;
+    {
+        std::lock_guard<std::mutex> guard(gWindowsLock);
+        remainingWindows = gWindows;
+    }
+    for (HWND window : remainingWindows)
+        DestroyWindow(window);
     gPendingEnvironmentWindows.clear();
     gSharedEnvironment.Reset();
     gCreatingSharedEnvironment = false;
@@ -3089,6 +3412,18 @@ bool EnsureViewerHost(DWORD* hostThreadId)
         *hostThreadId = gViewerHostThreadId;
     return true;
 }
+}
+
+void NativeViewer_SetPrismKeepReady(bool enabled)
+{
+    gPrismKeepReady.store(enabled);
+    if (enabled)
+        return;
+    // A window message also reaches the existing STA inside a modal loop.
+    // Before initialization there is no HWND and this starts no thread.
+    HWND idleWindow = gIdlePrismWindow.load();
+    if (idleWindow != nullptr)
+        PostMessageW(idleWindow, WM_NV_PRISM_POLICY_CHANGED, 0, 0);
 }
 
 bool NativeViewer_EnsureInitialized()

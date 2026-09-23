@@ -29,6 +29,7 @@
   const spacer = document.getElementById("virtual-spacer");
   const status = document.getElementById("viewer-status");
   let worker = null;
+  const workerRequests = new Set();
   const chunksByStart = new Map();
 
   let settings = null;
@@ -41,6 +42,10 @@
   let syncFrame = 0;
   let handshakeTimer = 0;
   let readyFallbackTimer = 0;
+  let readyNotifyTimer = 0;
+  let readyFrame = 0;
+  let documentEpoch = 0;
+  let workerHasInvisibles = false;
 
   function host() {
     return window.chrome && window.chrome.webview ? window.chrome.webview : null;
@@ -330,6 +335,7 @@
       highlightPending: false,
       highlightTimer: 0,
       requestTimer: 0,
+      paintFrame: 0,
       pendingText: "",
       cachedHtml: "",
       lineTexts: [],
@@ -351,35 +357,81 @@
     }
   }
 
-  function initialize(message) {
-    applyIncomingCustomPalette(message);
-    const previousShowWhitespace = settings && settings.showWhitespace;
-    settings = normalizeSettings(message);
-    if (previousShowWhitespace && !settings.showWhitespace && worker) {
+  function resetDocument() {
+    // A running lexer cannot be cancelled by a message on its own busy thread.
+    // Keep a completed worker warm, but release queued text/work on close.
+    if (worker && workerRequests.size) {
       worker.terminate();
       worker = null;
-      startWorker();
+      workerRequests.clear();
+      workerHasInvisibles = false;
     }
-    if (pendingPalette) {
-      settings.palette = pendingPalette;
-      pendingPalette = null;
-    }
+    settings = null;
+    documentEpoch += 1;
     readySent = false;
     selectionActive = false;
+    pendingPalette = null;
     requestSequence += 1;
+    window.clearTimeout(handshakeTimer);
     window.clearTimeout(readyFallbackTimer);
+    window.clearTimeout(readyNotifyTimer);
+    window.cancelAnimationFrame(readyFrame);
+    window.cancelAnimationFrame(resizeFrame);
+    window.cancelAnimationFrame(syncFrame);
+    handshakeTimer = readyFallbackTimer = readyNotifyTimer = 0;
+    readyFrame = resizeFrame = syncFrame = 0;
+    if (observer) {
+      observer.disconnect();
+      observer = null;
+    }
     chunksByStart.forEach(function (state) {
       window.clearTimeout(state.highlightTimer);
       window.clearTimeout(state.requestTimer);
+      window.cancelAnimationFrame(state.paintFrame);
+      state.requestId = 0;
+      state.mounted = false;
+      state.pendingText = state.cachedHtml = "";
+      state.lineTexts = state.lineColumns = [];
+      state.deferredHtml = null;
     });
     chunksByStart.clear();
+    languageLoaders = Object.create(null);
     spacer.replaceChildren();
-    spacer.setAttribute("aria-busy", "true");
+    spacer.setAttribute("aria-busy", "false");
     status.textContent = "";
+    const selection = document.getSelection();
+    if (selection) {
+      selection.removeAllRanges();
+    }
+    window.scrollTo(0, 0);
+  }
+
+  function isCurrentChunk(state) {
+    return settings && chunksByStart.get(state.startLine) === state;
+  }
+
+  function initialize(message) {
+    const palette = pendingPalette;
+    resetDocument();
+    applyIncomingCustomPalette(message);
+    settings = normalizeSettings(message);
+    if (workerHasInvisibles && !settings.showWhitespace && worker) {
+      worker.terminate();
+      worker = null;
+    }
+    if (!worker) {
+      startWorker();
+    }
+    if (palette) {
+      settings.palette = palette;
+    }
+    const generation = settings.generation;
+    const epoch = documentEpoch;
+    spacer.setAttribute("aria-busy", "true");
 
     applyTheme();
     configureAutoloader();
-    postHost(THEME_READY_MESSAGE);
+    postHost(THEME_READY_MESSAGE + ":" + generation);
     recreateObserver();
     for (let startLine = 0; startLine < settings.lineCount; startLine += settings.chunkLines) {
       createChunk(startLine, Math.min(settings.chunkLines, settings.lineCount - startLine));
@@ -394,11 +446,13 @@
     } else if (first) {
       materialize(first);
     } else {
-      requestAnimationFrame(function () {
-        markPrismReady();
+      readyFrame = requestAnimationFrame(function () {
+        markPrismReady(generation, epoch);
       });
     }
-    readyFallbackTimer = window.setTimeout(markPrismReady, READY_FALLBACK_MS);
+    readyFallbackTimer = window.setTimeout(function () {
+      markPrismReady(generation, epoch);
+    }, READY_FALLBACK_MS);
     scheduleVisibleSync();
   }
 
@@ -406,7 +460,7 @@
     entries.forEach(function (entry) {
       const startLine = Number(entry.target.dataset.startLine);
       const state = chunksByStart.get(startLine);
-      if (!state) {
+      if (!state || state.slot !== entry.target) {
         return;
       }
       state.near = entry.isIntersecting;
@@ -425,8 +479,8 @@
     if (!window.Prism || !Prism.plugins || !Prism.plugins.autoloader) {
       return;
     }
-    // salamatrix/prism is mapped to https://prism.local; every lexer lives in components/.
-    Prism.plugins.autoloader.languages_path = "https://prism.local/components/";
+    // Resolve lexers beside this viewer on the same mapped asset origin.
+    Prism.plugins.autoloader.languages_path = new URL("../components/", document.baseURI).href;
   }
 
   function ensureLanguage(language) {
@@ -506,7 +560,7 @@
   }
 
   function materialize(state) {
-    if (!settings || state.mounted) {
+    if (!isCurrentChunk(state) || state.mounted) {
       return;
     }
     if (state.cachedHtml) {
@@ -521,7 +575,7 @@
     state.slot.setAttribute("aria-busy", "true");
     window.clearTimeout(state.requestTimer);
     state.requestTimer = window.setTimeout(function () {
-      if (!state.requesting) {
+      if (!isCurrentChunk(state) || !state.requesting) {
         return;
       }
       state.requesting = false;
@@ -565,7 +619,7 @@
     if (!worker) {
       const requestId = state.requestId;
       ensureLanguage(canonicalLanguage()).then(function () {
-        if (!settings || settings.generation !== message.generation || state.requestId !== requestId) {
+        if (!isCurrentChunk(state) || settings.generation !== message.generation || state.requestId !== requestId) {
           return;
         }
         state.highlightPending = false;
@@ -574,6 +628,8 @@
       return;
     }
 
+    workerHasInvisibles = workerHasInvisibles || settings.showWhitespace;
+    workerRequests.add(state.requestId);
     worker.postMessage({
       type: "highlight",
       generation: settings.generation,
@@ -587,7 +643,7 @@
     });
     window.clearTimeout(state.highlightTimer);
     state.highlightTimer = window.setTimeout(function () {
-      if (!state.highlightPending) {
+      if (!isCurrentChunk(state) || !state.highlightPending) {
         return;
       }
       console.warn("Prism highlighting is still running; showing available text until it completes.");
@@ -670,6 +726,11 @@
   }
 
   function paintChunk(state, highlightedHtml) {
+    if (!isCurrentChunk(state)) {
+      return;
+    }
+    const generation = settings.generation;
+    const epoch = documentEpoch;
     highlightedHtml = normalizeInvisibleLineEndings(highlightedHtml);
     state.cachedHtml = highlightedHtml;
     if (state.mounted && selectionActive && selectionTouchesSlot(state.slot)) {
@@ -701,9 +762,10 @@
     state.mounted = true;
     state.cachedHtml = highlightedHtml;
 
-    requestAnimationFrame(function () {
+    window.cancelAnimationFrame(state.paintFrame);
+    state.paintFrame = requestAnimationFrame(function () {
       if (
-        !settings ||
+        !isCurrentChunk(state) || documentEpoch !== epoch ||
         !state.mounted ||
         !state.slot.isConnected ||
         state.renderRevision !== renderRevision ||
@@ -711,6 +773,7 @@
       ) {
         return;
       }
+      state.paintFrame = 0;
       layoutLineNumbers(pre, state, true);
       const codeBox = pre.querySelector("code") || pre;
       state.measuredHeight = Math.max(
@@ -718,7 +781,7 @@
         Math.ceil(codeBox.getBoundingClientRect().height)
       );
       state.slot.style.height = state.measuredHeight + "px";
-      markPrismReady();
+      markPrismReady(generation, epoch);
       scheduleVisibleSync();
     });
   }
@@ -837,8 +900,8 @@
     return Math.max(settings.lineHeight, visualRows * settings.lineHeight);
   }
 
-  function markPrismReady() {
-    if (readySent) {
+  function markPrismReady(generation, epoch) {
+    if (!settings || settings.generation !== generation || documentEpoch !== epoch || readySent) {
       return;
     }
     readySent = true;
@@ -846,16 +909,18 @@
     spacer.setAttribute("aria-busy", "false");
     let posted = false;
     const notify = function () {
-      if (posted) {
+      if (posted || !settings || settings.generation !== generation || documentEpoch !== epoch) {
         return;
       }
       posted = true;
-      postHost(PRISM_READY_MESSAGE);
+      postHost(PRISM_READY_MESSAGE + ":" + generation);
     };
-    requestAnimationFrame(function () {
-      requestAnimationFrame(notify);
+    readyFrame = requestAnimationFrame(function () {
+      if (documentEpoch === epoch) {
+        readyFrame = requestAnimationFrame(notify);
+      }
     });
-    window.setTimeout(notify, 100);
+    readyNotifyTimer = window.setTimeout(notify, 100);
   }
 
   function unmount(state) {
@@ -896,10 +961,14 @@
   }
 
   function scheduleVisibleSync() {
-    if (syncFrame) {
+    if (!settings || syncFrame) {
       return;
     }
+    const epoch = documentEpoch;
     syncFrame = requestAnimationFrame(function () {
+      if (documentEpoch !== epoch) {
+        return;
+      }
       syncFrame = 0;
       syncVisibleChunks();
     });
@@ -973,10 +1042,14 @@
   }
 
   function scheduleResize() {
-    if (resizeFrame) {
+    if (!settings || resizeFrame) {
       return;
     }
+    const epoch = documentEpoch;
     resizeFrame = requestAnimationFrame(function () {
+      if (documentEpoch !== epoch) {
+        return;
+      }
       resizeFrame = 0;
       if (!settings) {
         return;
@@ -995,6 +1068,7 @@
         }
         const message = event.data;
         if (message && message.type === "highlighted") {
+          workerRequests.delete(message.requestId);
           receiveHighlight(message);
         }
       });
@@ -1006,15 +1080,19 @@
         failWorker();
       });
       worker = candidate;
+      workerRequests.clear();
+      workerHasInvisibles = false;
     } catch (error) {
       console.error("Unable to start Prism worker.", error);
       worker = null;
+      workerRequests.clear();
     }
   }
 
   function failWorker() {
     const failedWorker = worker;
     worker = null;
+    workerRequests.clear();
     if (failedWorker) {
       failedWorker.terminate();
     }
@@ -1024,8 +1102,10 @@
         state.highlightTimer = 0;
         const pending = state.pendingText;
         const requestId = state.requestId;
+        const generation = settings.generation;
+        const epoch = documentEpoch;
         ensureLanguage(canonicalLanguage()).then(function () {
-          if (state.requestId !== requestId) {
+          if (!isCurrentChunk(state) || settings.generation !== generation || documentEpoch !== epoch || state.requestId !== requestId) {
             return;
           }
           state.highlightPending = false;
@@ -1054,7 +1134,9 @@
     if (!message || typeof message !== "object") {
       return;
     }
-    if (message.type === "init") {
+    if (message.type === "reset") {
+      resetDocument();
+    } else if (message.type === "init") {
       initialize(message);
     } else if (message.type === "palette") {
       applyIncomingCustomPalette(message);
@@ -1084,8 +1166,9 @@
     }
     postHost(READY_MESSAGE);
     window.clearTimeout(handshakeTimer);
+    const epoch = documentEpoch;
     handshakeTimer = window.setTimeout(function () {
-      if (!settings) {
+      if (documentEpoch === epoch && !settings) {
         postHost(READY_MESSAGE);
       }
     }, 250);
