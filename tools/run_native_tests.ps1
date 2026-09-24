@@ -206,6 +206,14 @@ try {
     $python = Resolve-ApplicationPath -Name 'python.exe'
     foreach ($contractTest in @(
         @{
+            Name = 'viewer_hex_contract_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\viewer_hex_contract_tests.py')
+            )
+        },
+        @{
             Name = 'salamatrix_regression_tests'
             Arguments = @(
                 '-B',
