@@ -53,6 +53,7 @@ extern "C"
 #include "usermenu.h"
 #include "execute.h"
 #include "drivelst.h"
+#include "drivefreespace.h"
 
 #pragma comment(linker, "/ENTRY:MyEntryPoint") // chceme vlastni vstupni bod do aplikace
 
@@ -6131,6 +6132,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
     TRACE_I("WindowsManager: " << WindowsManager.maxWndCount << " windows, " << WindowsManager.search << " searches, " << WindowsManager.cache << " cached searches.");
 #endif
     //---
+    DriveFreeSpaceShutdown(); // cancel bounded probes before releasing host resources
     DestroySafeWaitWindow(TRUE); // povel "terminate" safe-wait-message threadu
     Sleep(1000);                 // nechame vsem threadum viewru cas, aby se ukoncili
     NBWNetAC3Thread.Close(TRUE); // bezici thread nechame zabit (presun do AuxThreads), dalsi akce zablokujeme
@@ -6204,6 +6206,10 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR cmdLine, int cmdShow
     __try
     {
 #endif // CALLSTK_DISABLE
+
+        int probeExitCode = 0;
+        if (DriveFreeSpaceHelperDispatch(probeExitCode))
+            return probeExitCode;
 
         InitializeProcessDPIAwareness();
 

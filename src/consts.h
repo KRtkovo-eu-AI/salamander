@@ -1020,6 +1020,7 @@ BOOL DirExists(const char* dirName);
 
 // tool tip
 void SetCurrentToolTip(HWND hNotifyWindow, DWORD id, int showDelay = 0); // popis v tooltip.h
+void RearmCurrentToolTip(HWND hNotifyWindow, DWORD id, int showDelay = 0);
 void SetCurrentPanelToolTip(HWND hNotifyWindow, DWORD id, int showDelay = 0);
 void SuppressToolTipOnCurrentMousePos();                                 // popis v tooltip.h
 
@@ -1057,6 +1058,7 @@ struct COpenViewerData
 #define WM_USER_REFRESHINDEX WM_APP + 105 // [int index, 0]
 
 #define WM_USER_END_SUSPMODE WM_APP + 106  // [0, 0] - rychlejsi aktivace okna
+#define WM_USER_DRIVE_FREESPACE_READY (WM_APP + 425) // cache result ready; no drive enumeration
 #define WM_USER_DRIVES_CHANGE WM_APP + 107 // [0, 0]
 #define WM_USER_ICON_NOTIFY WM_APP + 108   // [0, 0] - mysak je nad ikonkou v taskbare
 #define WM_USER_EDIT WM_APP + 110          // [begin, end] oznac tento interval

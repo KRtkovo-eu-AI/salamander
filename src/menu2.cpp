@@ -68,12 +68,84 @@ CMenuPopup::CMenuPopup(DWORD id)
     UpDownTimerRunnig = FALSE;
     SkillLevel = MENU_LEVEL_ADVANCED;
     UsePanelContextMenuFont = FALSE;
+    RightTextToolTipCallback = NULL;
+    RightTextToolTipContext = NULL;
+    RightTextToolTipIndex = -1;
     Cleanup();
+}
+
+CMenuPopup::~CMenuPopup()
+{
+    ClearRightTextToolTip();
+}
+
+void CMenuPopup::SetRightTextToolTip(void (*callback)(void*, DWORD, char*), void* context)
+{
+    ClearRightTextToolTip();
+    RightTextToolTipCallback = callback;
+    RightTextToolTipContext = context;
+}
+
+void CMenuPopup::ClearRightTextToolTip()
+{
+    if (RightTextToolTipIndex != -1)
+    {
+        RightTextToolTipIndex = -1;
+        SetCurrentToolTip(NULL, 0);
+    }
+}
+
+void CMenuPopup::ClearRightTextToolTips()
+{
+    CMenuPopup* popup = FirstPopup != NULL ? FirstPopup : this;
+    while (popup != NULL)
+    {
+        popup->ClearRightTextToolTip();
+        popup = popup->OpenedSubMenu;
+    }
+}
+
+int CMenuPopup::HitRightTextToolTip(const POINT& screenPoint)
+{
+    if (RightTextToolTipCallback == NULL || HWindow == NULL || SharedRes == NULL ||
+        ModifyMode || Closing || WindowFromPoint(screenPoint) != HWindow)
+        return -1;
+    POINT point = screenPoint;
+    ScreenToClient(HWindow, &point);
+    int index = -1;
+    if (HitTest(&point, &index) != mphItem || index < 0 || index >= Items.Count)
+        return -1;
+    const CMenuItem* item = Items[index];
+    if (!(item->Type & MENU_TYPE_STRING) || (item->Type & (MENU_TYPE_SEPARATOR | MENU_TYPE_OWNERDRAW)) ||
+        (item->State & MENU_STATE_GRAYED) || item->ColumnR == NULL ||
+        item->ColumnRLen <= 0 || item->ColumnRWidth <= 0)
+        return -1;
+    // Keep this rectangle identical to the right-column placement in DrawItem.
+    int left = SharedRes->TextItemHeight + 1 + item->ColumnRX;
+    return point.x >= left && point.x < left + item->ColumnRWidth ? index : -1;
+}
+
+void CMenuPopup::UpdateRightTextToolTip(const POINT& screenPoint, BOOL rearm)
+{
+    int index = HitRightTextToolTip(screenPoint);
+    if (index == -1)
+    {
+        ClearRightTextToolTip();
+        return;
+    }
+    if (rearm || RightTextToolTipIndex != index)
+    {
+        RightTextToolTipIndex = index;
+        RearmCurrentToolTip(HWindow, Items[index]->ID);
+    }
+    TRACKMOUSEEVENT track = {sizeof(track), TME_LEAVE, HWindow, 0};
+    TrackMouseEvent(&track);
 }
 
 void CMenuPopup::Cleanup()
 {
     CALL_STACK_MESSAGE1("CMenuPopup::Cleanup()");
+    ClearRightTextToolTip();
     ZeroMemory(&WindowRect, sizeof(WindowRect));
     TotalHeight = 0;
     Width = 0;
@@ -252,6 +324,7 @@ BOOL CMenuPopup::BeginModifyMode()
         TRACE_E("MenuPopup is already in ModifyMode");
         return FALSE;
     }
+    ClearRightTextToolTips();
     // if a submenu is open, close it
     if (OpenedSubMenu != NULL)
         CloseOpenedSubmenu();
@@ -325,6 +398,12 @@ BOOL CMenuPopup::EndModifyMode()
 */
     }
     ModifyMode = FALSE;
+    if (HWindow != NULL)
+    {
+        POINT cursor;
+        GetCursorPos(&cursor);
+        UpdateRightTextToolTip(cursor, TRUE);
+    }
     return TRUE;
 }
 
@@ -1962,6 +2041,7 @@ void CMenuPopup::EnsureItemVisible(int index)
 
 void CMenuPopup::OnMouseWheel(WPARAM wParam, LPARAM lParam)
 {
+    ClearRightTextToolTips();
     if (Items.Count < 1)
         return;
 
@@ -2057,6 +2137,7 @@ void CMenuPopup::OnMouseWheel(WPARAM wParam, LPARAM lParam)
             DoDispatchMessage(&myMsg, &dummy1, &dummy2, &dummy3);
         }
     }
+    ClearRightTextToolTips(); // wheel-generated mouse move only updates selection
     return;
 }
 
@@ -2087,6 +2168,9 @@ void CMenuPopup::DoDispatchMessage(MSG* msg, BOOL* leaveMenu, DWORD* retValue, B
 {
     CALL_STACK_MESSAGE1("CMenuPopup::DoDispatchMessage(, , , )");
     *dispatchLater = FALSE;
+    if (msg->message == WM_MOUSEWHEEL || msg->message == WM_MOUSEHWHEEL ||
+        msg->message == WM_XBUTTONDOWN || msg->message == WM_XBUTTONUP || msg->message == WM_XBUTTONDBLCLK)
+        ClearRightTextToolTips();
     switch (msg->message)
     {
     case WM_USER_CLOSEMENU:
@@ -2098,6 +2182,7 @@ void CMenuPopup::DoDispatchMessage(MSG* msg, BOOL* leaveMenu, DWORD* retValue, B
     case WM_CHAR:
     case WM_SYSCHAR: // j.r.: so that Alt+LETTER works inside the menu as well
     {
+        ClearRightTextToolTips();
         CMenuPopup* popup = FindActivePopup();
         popup->OnChar((char)msg->wParam, leaveMenu, retValue);
         return;
@@ -2117,6 +2202,7 @@ void CMenuPopup::DoDispatchMessage(MSG* msg, BOOL* leaveMenu, DWORD* retValue, B
     case WM_SYSKEYDOWN:
     case WM_KEYDOWN:
     {
+        ClearRightTextToolTips();
         //      TRACE_I("WM_SYSKEYDOWN wParam="<<msg->wParam);
         BOOL shiftPressed = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
         if (shiftPressed && msg->wParam == VK_F10)
@@ -2287,6 +2373,7 @@ void CMenuPopup::DoDispatchMessage(MSG* msg, BOOL* leaveMenu, DWORD* retValue, B
     case WM_NCMBUTTONDOWN:
     case WM_NCMBUTTONUP:
     {
+        ClearRightTextToolTips();
         HWND hWndUnderCursor = PopupWindowFromPoint(msg->pt);
         CMenuPopup* popup = FindPopup(hWndUnderCursor);
 
@@ -2302,6 +2389,10 @@ void CMenuPopup::DoDispatchMessage(MSG* msg, BOOL* leaveMenu, DWORD* retValue, B
             SharedRes->LastMouseMove.x = myMsg.pt.x - 1; // so we pass the initial test
             DoDispatchMessage(&myMsg, leaveMenu, retValue, dispatchLater);
         }
+
+        // The synthetic selection mouse move above must not rearm a tooltip
+        // while a mouse button is being used to activate a menu command.
+        ClearRightTextToolTips();
 
         if (popup != NULL && popup->SelectedItemIndex != -1 &&
             ((msg->message == WM_LBUTTONDOWN ||
@@ -2419,6 +2510,11 @@ void CMenuPopup::DoDispatchMessage(MSG* msg, BOOL* leaveMenu, DWORD* retValue, B
         }
         CMenuPopup* popup = FindPopup(hWindowUnderCursor);
         CMenuPopup* activePopup = FindActivePopup();
+        for (CMenuPopup* iterator = FirstPopup; iterator != NULL; iterator = iterator->OpenedSubMenu)
+            if (iterator != popup)
+                iterator->ClearRightTextToolTip();
+        if (popup != NULL)
+            popup->UpdateRightTextToolTip(msg->pt);
         int newItemIndex = -1;
         if (popup != NULL)
         {
@@ -2480,7 +2576,7 @@ void CMenuPopup::DoDispatchMessage(MSG* msg, BOOL* leaveMenu, DWORD* retValue, B
 
     case WM_TIMER:
     {
-        if (msg->wParam == UPDOWN_TIMER_ID)
+        if (msg->hwnd == HWindow && msg->wParam == UPDOWN_TIMER_ID)
         {
             CMenuPopup* popup = NULL;
             POINT p = msg->pt;
@@ -2496,6 +2592,7 @@ void CMenuPopup::DoDispatchMessage(MSG* msg, BOOL* leaveMenu, DWORD* retValue, B
                 CMenuPopupHittestEnum hittest = popup->HitTest(&p, &itemIndex);
                 if (hittest == mphUpArrow || hittest == mphDownArrow)
                 {
+                    ClearRightTextToolTips();
                     int newIndex = -1;
                     if (hittest == mphDownArrow)
                     {
@@ -2776,6 +2873,7 @@ void CMenuPopup::CloseOpenedSubmenu()
 void CMenuPopup::HideAll()
 {
     CALL_STACK_MESSAGE1("CMenuPopup::HideAll()");
+    ClearRightTextToolTips();
     Closing = TRUE;
     if (OpenedSubMenu != NULL)
     {
@@ -2921,11 +3019,32 @@ CMenuPopup::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_DESTROY:
     {
+        ClearRightTextToolTip();
+        RightTextToolTipCallback = NULL;
+        RightTextToolTipContext = NULL;
         // send a notification that pairs with WM_USER_INITMENUPOPUP
         if (!(TrackFlags & MENU_TRACK_NONOTIFY))
             SendMessage(SharedRes->HParent, WM_USER_UNINITMENUPOPUP,
                         (WPARAM)(CGUIMenuPopupAbstract*)this, MAKELPARAM(0, (WORD)ID));
         break;
+    }
+
+    case WM_MOUSELEAVE:
+        ClearRightTextToolTip();
+        return 0;
+
+    case WM_USER_TTGETTEXT:
+    {
+        char* buffer = (char*)lParam;
+        if (buffer == NULL)
+            return 0;
+        buffer[0] = 0;
+        POINT cursor;
+        GetCursorPos(&cursor);
+        int index = HitRightTextToolTip(cursor);
+        if (index != -1 && index == RightTextToolTipIndex && Items[index]->ID == (DWORD)wParam)
+            RightTextToolTipCallback(RightTextToolTipContext, Items[index]->ID, buffer);
+        return 0;
     }
 
     case WM_ERASEBKGND:
@@ -3028,6 +3147,7 @@ CMenuPopup::Track(DWORD trackFlags, int x, int y, HWND hwnd, const RECT* exclude
                              // if this behaviour is not suitable for CMenuPopup::Track(),
                              // it might be time to introduce a control flag in trackFlags
     DWORD retValue = TrackInternal(trackFlags, x, y, hwnd, exclude, NULL, msg, dispatchMsg);
+    SetRightTextToolTip(NULL, NULL); // owner data is valid only for this Track
 
     if (!(trackFlags & MENU_TRACK_NONOTIFY))
         SendMessage(hwnd, WM_USER_LEAVEMENULOOP, 0, 0);

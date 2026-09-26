@@ -13,7 +13,8 @@
 <div class="page">
 <h1>Drives</h1>
     
-<p>Specifies how Open Salamander reads icons and catches refresh events.</p>
+<p>Specifies how Open Salamander reads icons, catches refresh events, and obtains
+free-space information for removable and network drives.</p>
 
 <h4>Dialog Box Options</h4>
 <dl>
@@ -43,6 +44,37 @@ were not updated properly.
 (when you return from other application). On some network drives (e.g. Samba
 on Linux) you will have to refresh panel content manually if you turn on this
 option.</dd>
+
+<dt><i>Free-space information: Removable drives / Network drives</i></dt>
+<dd>Choose independently whether to show free space for removable drives and mapped
+network drives in the Change Drive menu (Alt+F1 / Alt+F2) and Drive Bar tooltips.
+The information reports the space available to the current user, including disk quotas.
+Here, removable means drives that Windows classifies as removable media; USB disks
+classified as fixed drives retain their existing behavior.
+<ul>
+<li><b>Do not query</b> (default): no additional free-space probes are made for this
+kind of drive.</li>
+<li><b>Query once per session</b>: when the information is first needed, query the
+drive in the background and keep the result for the session. The free-space column
+is subdued, and the tooltip identifies the value as cached and shows the date and
+time of the last successful query.</li>
+<li><b>Keep updated</b>: display a cached result immediately and refresh it in the
+background when it is no longer current. Opening the Change Drive menu or requesting
+a Drive Bar tooltip can trigger a refresh; requests are rate-limited. During a refresh,
+the last known value remains visible but is subdued and identified as stale.</li>
+</ul>
+<p>Enabling these options can wake removable media and generate disk or network I/O.
+Probes run in the background with limited concurrency, so they do not delay startup,
+opening the menu, or displaying a tooltip. A disconnected network mapping is not
+restored just to obtain free space. A failed or unavailable probe shows no error
+dialog; the value stays empty, or a previous result remains marked as stale.</p>
+<p>Hover over the free-space value in the Change Drive menu (Alt+F1 / Alt+F2)
+to see the same cached/stale status and date and time of the last successful query
+as in the Drive Bar tooltip. The tooltip applies only to the free-space column;
+clicking the drive continues to select it normally. Media
+and mapping changes invalidate the previous result so that a different device or
+share does not inherit another drive's free-space value. These settings do not change
+the existing fixed-drive, RAM-disk, or Directory Line free-space behavior.</p></dd>
 
 <dt><i>If path in panel is inaccessible, go to</i></dt>
 <dd>Specify the path where to go if path in panel becomes inaccessible (you

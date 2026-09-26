@@ -1087,8 +1087,25 @@ void CMenuPopup::DrawItem(HDC hDC, CMenuItem* item, int yOffset, BOOL selected)
                              &textR, DT_NOCLIP | DT_LEFT | DT_SINGLELINE | DT_VCENTER);
                 }
                 else
+                {
+                    if (item->State & MENU_STATE_RIGHTTEXT_GRAY)
+                    {
+                        COLORREF rightTextColor = SharedRes->GrayTextColor;
+                        if (selected)
+                        {
+                            // Keep the secondary text close to the selection foreground so
+                            // it remains readable on the user's highlight color.
+                            COLORREF fg = SharedRes->SelectedTextColor;
+                            COLORREF bg = SharedRes->SelectedBkColor;
+                            rightTextColor = RGB((7 * GetRValue(fg) + GetRValue(bg)) / 8,
+                                                 (7 * GetGValue(fg) + GetGValue(bg)) / 8,
+                                                 (7 * GetBValue(fg) + GetBValue(bg)) / 8);
+                        }
+                        SetTextColor(hDC, rightTextColor);
+                    }
                     DrawText(hDC, item->ColumnR, item->ColumnRLen,
                              &textR, DT_NOCLIP | DT_LEFT | DT_SINGLELINE | DT_VCENTER);
+                }
             }
             // restore the original values
             if (item->State & MENU_STATE_DEFAULT)

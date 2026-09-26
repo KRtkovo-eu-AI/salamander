@@ -1066,31 +1066,36 @@ BEGIN
     CONTROL         "",IDC_STATIC_1,"Static",SS_ETCHEDHORZ | WS_GROUP,49,5,244,1
     CONTROL         "Use automatic refresh",IDC_DRVSPEC_FLOPPYMON,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,13,11,104,12
     CONTROL         "Use simple icons",IDC_DRVSPEC_FLOPPYSIMPLE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,145,11,69,12
-    LTEXT           "Other &removable drives (e.q. USB flash drives, ZIP and JAZ drives)",IDC_STATIC_2,1,31,225,8
-    CONTROL         "",IDC_STATIC_3,"Static",SS_ETCHEDHORZ | WS_GROUP,228,35,65,1
-    CONTROL         "Use automatic refresh",IDC_DRVSPEC_REMOVABLEMON,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,13,41,104,12
-    CONTROL         "Use simple icons",IDC_DRVSPEC_REMOVABLESIMPLE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,145,41,69,12
-    LTEXT           "Fi&xed drives (e.g. local harddisks)",IDC_STATIC_4,1,61,114,8
-    CONTROL         "",IDC_STATIC_11,"Static",SS_ETCHEDHORZ | WS_GROUP,117,65,176,1
-    CONTROL         "Use automatic refresh",IDC_DRVSPEC_FIXEDMON,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,13,71,104,12
-    CONTROL         "Use simple icons",IDC_DRVSPEC_FIXEDSIMPLE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,145,71,69,12
-    LTEXT           "&CD-ROM or DVD-ROM drives",IDC_STATIC_6,1,91,98,8
-    CONTROL         "",IDC_STATIC_5,"Static",SS_ETCHEDHORZ | WS_GROUP,101,95,192,1
-    CONTROL         "Use automatic refresh",IDC_DRVSPEC_CDROMMON,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,13,101,104,12
-    CONTROL         "Use simple icons",IDC_DRVSPEC_CDROMSIMPLE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,145,101,69,12
-    LTEXT           "Network drives",IDC_STATIC_8,1,121,52,8
-    CONTROL         "",IDC_STATIC_7,"Static",SS_ETCHEDHORZ | WS_GROUP,55,125,238,1
-    CONTROL         "Use au&tomatic refresh",IDC_DRVSPEC_REMOTEMON,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,13,131,104,12
-    CONTROL         "Use simp&le icons",IDC_DRVSPEC_REMOTESIMPLE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,13,143,69,12
+    LTEXT           "Other &removable drives (e.q. USB flash drives, ZIP and JAZ drives)",IDC_STATIC_2,1,25,225,8
+    CONTROL         "",IDC_STATIC_3,"Static",SS_ETCHEDHORZ | WS_GROUP,228,29,65,1
+    CONTROL         "Use automatic refresh",IDC_DRVSPEC_REMOVABLEMON,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,13,35,104,12
+    CONTROL         "Use simple icons",IDC_DRVSPEC_REMOVABLESIMPLE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,145,35,69,12
+    LTEXT           "Fi&xed drives (e.g. local harddisks)",IDC_STATIC_4,1,49,114,8
+    CONTROL         "",IDC_STATIC_11,"Static",SS_ETCHEDHORZ | WS_GROUP,117,53,176,1
+    CONTROL         "Use automatic refresh",IDC_DRVSPEC_FIXEDMON,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,13,59,104,12
+    CONTROL         "Use simple icons",IDC_DRVSPEC_FIXEDSIMPLE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,145,59,69,12
+    LTEXT           "&CD-ROM or DVD-ROM drives",IDC_STATIC_6,1,73,98,8
+    CONTROL         "",IDC_STATIC_5,"Static",SS_ETCHEDHORZ | WS_GROUP,101,77,192,1
+    CONTROL         "Use automatic refresh",IDC_DRVSPEC_CDROMMON,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,13,83,104,12
+    CONTROL         "Use simple icons",IDC_DRVSPEC_CDROMSIMPLE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,145,83,69,12
+    LTEXT           "Network drives",IDC_STATIC_8,1,97,52,8
+    CONTROL         "",IDC_STATIC_7,"Static",SS_ETCHEDHORZ | WS_GROUP,55,101,238,1
+    CONTROL         "Use au&tomatic refresh",IDC_DRVSPEC_REMOTEMON,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,13,107,104,12
+    CONTROL         "Use simp&le icons",IDC_DRVSPEC_REMOTESIMPLE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,145,107,69,12
     CONTROL         "D&o not refresh on activation of Salamander (manual refresh can be necessary)",IDC_DRVSPEC_REMOTEACT,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,13,155,276,12
-    LTEXT           "Long paths",IDC_STATIC_12,1,180,39,8
-    CONTROL         "",IDC_STATIC_13,"Static",SS_ETCHEDHORZ | WS_GROUP,42,184,251,1
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,13,119,276,12
+    GROUPBOX        "Free-space information",IDC_DRVSPEC_SPACE_GROUP,1,136,292,51
+    LTEXT           "Removable dri&ves:",IDC_DRVSPEC_REMOVABLESPACE_LABEL,10,150,92,8
+    COMBOBOX        IDC_DRVSPEC_REMOVABLESPACE,105,148,178,62,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Net&work drives:",IDC_DRVSPEC_REMOTESPACE_LABEL,10,168,92,8
+    COMBOBOX        IDC_DRVSPEC_REMOTESPACE,105,166,178,62,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Long paths",IDC_STATIC_12,1,191,39,8
+    CONTROL         "",IDC_STATIC_13,"Static",SS_ETCHEDHORZ | WS_GROUP,42,195,251,1
     CONTROL         "Enable Win32 long paths (Windows 10 1607+ / Windows 11)",IDC_DRVSPEC_LONGPATHS,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,13,190,276,12
-    LTEXT           "If path in panel is inaccessi&ble, go to:",IDC_STATIC_9,1,212,128,8
-    EDITTEXT        IDE_DRVSPEC_ONERRGOTO,130,210,146,12,ES_AUTOHSCROLL | WS_GROUP
-    PUSHBUTTON      "...",IDB_BROWSECOMMAND,280,210,13,12,WS_GROUP
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,13,201,276,12
+    LTEXT           "If path in panel is inaccessi&ble, go to:",IDC_STATIC_9,1,219,128,8
+    EDITTEXT        IDE_DRVSPEC_ONERRGOTO,130,217,146,12,ES_AUTOHSCROLL | WS_GROUP
+    PUSHBUTTON      "...",IDB_BROWSECOMMAND,280,217,13,12,WS_GROUP
 END
 
 IDD_CFGPAGE_VIEWEDIT DIALOGEX 50, 10, 299, 231

@@ -323,6 +323,10 @@ struct CConfiguration
         DrvSpecCDROMMon,
         DrvSpecCDROMSimple;
 
+    // Free-space probes for optional drive types: 0 = off, 1 = once per session, 2 = keep updated.
+    int RemovableFreeSpacePolicy;
+    int RemoteFreeSpacePolicy;
+
     char CommandLineApplication[SAL_MAX_PATH];
     char CommandLineArguments[CONFIG_COMMANDLINEARGS_MAXLEN];
 

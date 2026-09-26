@@ -719,6 +719,8 @@ CConfiguration::CConfiguration()
     DrvSpecRemoteDoNotRefreshOnAct = FALSE;
     DrvSpecCDROMMon = TRUE;
     DrvSpecCDROMSimple = FALSE;
+    RemovableFreeSpacePolicy = 0;
+    RemoteFreeSpacePolicy = 0;
 
     IfPathIsInaccessibleGoToIsMyDocs = TRUE;
     IfPathIsInaccessibleGoTo[0] = 0;

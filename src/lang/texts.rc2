@@ -2316,4 +2316,10 @@ STRINGTABLE
  IDS_PANELTIP_SIZE, "Size: "
  IDS_PANELTIP_KIND_FILE, "File"
  IDS_PANELTIP_KIND_DIRECTORY, "Directory"
+ IDS_DRIVE_SPACE_NO_QUERY, "Do not query"
+ IDS_DRIVE_SPACE_QUERY_ONCE, "Query once per session"
+ IDS_DRIVE_SPACE_KEEP_UPDATED, "Keep updated"
+ IDS_DRIVE_SPACE_FREE, "%s free (updated %s)"
+ IDS_DRIVE_SPACE_CACHED, "%s free (cached, updated %s)"
+ IDS_DRIVE_SPACE_STALE, "%s free (stale, updated %s)"
 }
