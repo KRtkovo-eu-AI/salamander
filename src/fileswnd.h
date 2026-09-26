@@ -951,10 +951,9 @@ public:
 
     BOOL QuickSearchMode;           // Quick Search mode?
     short CaretHeight;              // it is set when measuring the font in CFilesWindow
-    char QuickSearch[MAX_PATH];     // name of the file that was sought via Quick Search
-    char QuickSearchMask[MAX_PATH]; // quick search mask (may contain '/' after any number of characters)
-    std::wstring QuickSearchW;      // Unicode mirror of QuickSearch for UTF-8/local filesystem names
-    std::wstring QuickSearchMaskW;  // Unicode mirror of QuickSearchMask
+    std::wstring QuickSearchW;      // matched prefix, in original filename UTF-16 units
+    std::wstring QuickSearchMaskW;  // Unicode search mask (may contain wildcards)
+    wchar_t QuickSearchHighSurrogate; // pending UTF-16 input, local to this panel
     int SearchIndex;                // position of the cursor during Quick Search
 
     int FocusedIndex;  // current caret position
@@ -1675,10 +1674,10 @@ public:
     void CancelUI();
 
     // Searches for the next/previous item. If skip = TRUE, the current item is skipped
-    // if newText != NULL, it is appended to QuickSearchMask (UTF-8 when the active code page is UTF-8)
+    // if newText != NULL, its complete Unicode text is appended to QuickSearchMaskW
     // if wholeString == TRUE, the entire item must match, not just its start
     // returns TRUE when a directory/file is found and also sets the index
-    BOOL QSFindNext(int currentIndex, BOOL next, BOOL skip, BOOL wholeString, const char* newText, int& index);
+    BOOL QSFindNext(int currentIndex, BOOL next, BOOL skip, BOOL wholeString, const wchar_t* newText, int& index);
 
     // Searches for the next/previous selected item. If skip = TRUE, the current item is skipped
     BOOL SelectFindNext(int currentIndex, BOOL next, BOOL skip, int& index);
@@ -1742,7 +1741,7 @@ public:
 
     // functions called by the list box
     BOOL OnSysChar(WPARAM wParam, LPARAM lParam, LRESULT* lResult);
-    BOOL OnChar(WPARAM wParam, LPARAM lParam, LRESULT* lResult);
+    BOOL OnChar(WPARAM wParam, LPARAM lParam, LRESULT* lResult, BOOL fromSystemChar = FALSE);
     BOOL OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT* lResult);
     BOOL OnSysKeyUp(WPARAM wParam, LPARAM lParam, LRESULT* lResult);
 

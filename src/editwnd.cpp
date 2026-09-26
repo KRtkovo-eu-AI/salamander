@@ -655,7 +655,7 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (SkipCharacter)
             return 0;
-        switch ((TCHAR)wParam)
+        switch (wParam)
         {
         case '\t': // change panel
         {
