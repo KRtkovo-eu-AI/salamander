@@ -1,6 +1,8 @@
 # Plán postupného portu PR #769
 
-Stav k 2026-10-12: provedena pouze příprava S00. Rozhodující zdroje jsou
+Stav k 2026-10-12: S00 a obnova prostředí S00a dokončeny jako dokumentační
+checkpointy; runtime baseline zůstává BLOCKED kvůli Debug GUI diagnostice.
+Nejbližší předkrok je [S00b](steps/S00b.md), nikoli S01. Rozhodující zdroje jsou
 [CONTRACT.md](CONTRACT.md), [SOURCE.json](SOURCE.json), [PROGRESS.md](PROGRESS.md)
 a [VALIDATION.md](VALIDATION.md). Výsledky původního PR nejsou výsledky portu.
 Před každým krokem ověřit větev, aktuální diff, skutečné závislosti a baseline.
@@ -33,6 +35,8 @@ reviewovatelný PR, pokud níže není uvedena pevně svázaná dvojice.
 
 | Etapa | Rozsah a PR hranice | Minimální předpoklady |
 | --- | --- | --- |
+| S00a | Obnova v145, pinned submodules, izolované testové prostředí a baseline evidence; DONE — bez změny runtime | S00; uživatelem autorizovaná instalace |
+| [S00b](steps/S00b.md) | Minimální oprava baseline Debug sledování ikonových handleů; PLANNED | S00a; znovu reprodukovat `CIconList::ReplaceIcon`, startup a private config |
 | [S01](steps/S01.md) | Izolované SafeFile Retry/Skip opravy | Ověřená baseline; rozdělit donorové testy podle skutečných závislostí |
 | [S02](steps/S02.md) | Wide utility a Debug sledování handleů | S01; pouze potřebné společné pomocné funkce |
 | [S03](steps/S03.md) | SafeFile Unicode a dlouhé cesty | S01, S02 |
@@ -75,6 +79,19 @@ neznamená asynchronní sloupce Explorer properties ze S28. S29 pouze doplní
 obnovu historie/focus k příkazu Open Containing Folder zavedenému v S27a.
 
 ## Pravidla pro zjištěné předkroky
+
+S00a odblokovala buildy a automatické testy. Debug host však při startu
+hlásí `C__Handles::CheckClose` (`src/common/handles.cpp:864`), volaný z
+`CIconList::ReplaceIcon` (`src/iconlist.cpp:483/485`): `DeleteObject` handle
+nenalezen. `GetIconInfo` vytváří bitmapy mimo tracker, jejich uvolnění jde
+přes `HANDLES`; ověřit také vlastnictví výsledku `CopyImage` a cleanup BAIL.
+`iconlist.cpp` je mezi targetem a připnutým donorem totožný, donor opravu
+neobsahuje. S00b proto představuje doloženou opravu výchozího produktu,
+žádný port wide infrastruktury ze S02. Sledování handleů se nesmí vypnout.
+Samostatně zopakovat pozorování prázdných panelů při prvním spuštění s novým
+prázdným souborovým configem; po materializaci a restartu Release fungoval.
+Příčina tohoto pozorování není určena. Další etapu zahájit až po ověření
+Debug/Release běžných panelů a zápisu přesného config/runtime původu.
 
 Základní transport `CSalamanderGeneralAbstract::QueryService` je již v targetu
 (`src/plugins/shared/spl_gen.h`); nevkládat jej znovu do veřejného vtable.

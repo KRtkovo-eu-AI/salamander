@@ -1,9 +1,11 @@
 # Stav portu PR #769
 
-2026-10-12, etapa **S00**. Dokumentační bootstrap dokončen jako jediný lokální
-commit; **runtime baseline BLOCKED**. Žádná implementace Branch View nebyla
-převzata a nebyla zahájena S01. Commit S00 identifikovat v historii podle
-traileru `Port-Step: S00`; dokument nemůže obsahovat vlastní výsledné SHA.
+2026-10-12, předkrok **S00a**. Obnova prostředí a záznam baseline dokončeny;
+**runtime baseline BLOCKED — Debug GUI startup**, nikoli chybějící v145.
+S00 je commit `75950e887e34ec4bdbe1eb71aa6c04b0c3bfaa8d`. Žádná implementace
+Branch View nebyla převzata a nebyla zahájena S01. Dokumentační follow-up
+identifikovat podle traileru `Port-Step: S00a`; vlastní výsledné SHA se zde
+neuvádí. Nejbližší krok je [S00b](steps/S00b.md).
 
 ## Checkpoint
 
@@ -26,44 +28,63 @@ traileru `Port-Step: S00`; dokument nemůže obsahovat vlastní výsledné SHA.
 | --- | --- | --- |
 | S00 zdroje, smlouva a plán | DONE — dokumentace | CONTRACT, SOURCE, PLAN, 32 stage dokumentů, BOUNDARIES, FIXTURES |
 | S00 mapa převzetí | DONE — mapování | REUSE: všech 231 donorových souborů; 393 řádků hranic, všechny DEFERRED |
-| S00 baseline build/native/GUI | BLOCKED | Chybí v145, některé testové dependencies/submodules, target runtime a GUI ověření |
-| S01 | PENDING, vstupní brána BLOCKED | Nejprve doplnit baseline; potom pouze izolované SafeFile opravy |
+| S00a prostředí a evidence | DONE — dokumentace | v145 nainstalováno; pinned submodules; izolovaný pytest/lizard; logy a runtime manifesty |
+| Baseline build/native/Python | PASS v provedeném rozsahu | Debug/Release x64 host + helpers; 37/37 native skupin každá konfigurace; pytest 49/49; PHP subcase SKIPPED |
+| Baseline Release GUI | PASS s inicializovaným vlastním configem | ASCII i Unicode viewer; F5 kopie, hash a 7 nezměněných zdrojů; první prázdný config měl nevykreslené panely |
+| Baseline Debug GUI | FAIL, baseline brána BLOCKED | DeleteObject handle not found, iconlist.cpp:483/485, handles.cpp:864; výchozí kód shodný s donorem |
+| S00b | PLANNED | Nejmenší oprava baseline ikonových handleů a nové GUI ověření |
+| S01 | PENDING, vstupní brána BLOCKED | Po S00b a přijetí baseline pouze izolované SafeFile opravy |
 | S02–S26 | PENDING | Postupné předpoklady v PLAN a jednotlivých steps dokumentech |
 | S27a–e, S27f.01–11 | PENDING | Aktivace jednotlivých ověřených příkazů/plug-inů; ne jeden monolitický krok |
 | S28–S30 | PENDING | Experimentální gate zůstává; correctness neodkládat |
 | S31 | PENDING | Budoucí úplný hunk/ABI/resource/test audit; COVERAGE zatím nevzniklo |
 | S32 | PENDING | Veřejné zapnutí až po úplné validaci; samo neautorizuje push |
-| Push / interní či upstream PR | NOT REQUESTED / NOT RUN | Tento běh je lokální bootstrap |
+| Push / interní či upstream PR | NOT REQUESTED / NOT RUN | Lokální dokumentační checkpoint |
 
 ## Skutečné výsledky baseline
 
-Testované runtime zdroje jsou přesně TARGET_SHA; změny S00 jsou jen docs.
+Testovaný checkout je S00 `75950e887e34ec4bdbe1eb71aa6c04b0c3bfaa8d`;
+runtime zdroje jsou přesně TARGET_SHA, rozdíl je pouze dokumentace.
 
-- Debug a Release x64 `build.ps1`: BLOCKED chybějícím v145. Zavádějící exit 0
-  neznamená úspěch; nevznikla binárka ani staging.
-- Native runner Debug: 37 skupin, 20 PASS zdrojových/PowerShell kontrol,
-  16 blokovaných native buildů (MSB8020), 1 FAIL kvůli chybějícímu SFTP souboru.
-- CI pytest výběr: BLOCKED, pytest chybí; lizard také nedostupný.
-- Existující unittest subset: 41 testů PASS; nepokrývá celou CI sadu.
-- Release native, Win32/ARM64, čistá publikovaná matice, CodeQL, native
-  conversion-table, donorové I/O a GUI smoke: neprovedeno.
+- VS 2026 Community 18.10.3, MSBuild 18.10.1.42706, MSVC 14.51.36231 (v145),
+  SDK 10.0.26100.0. SFTP/HardView inicializovány na připnutých revizích.
+- MSBuild Debug/Release x64 host, english.slg a salmon/salopen/salspawn PASS
+  (exit 0). Oddělený runtime `work/build/pr769-baseline-v145/salamander/`.
+- Native runner Debug i Release: 37 skupin, 0 selhání v každé konfiguraci.
+  PHP process-runtime subcase SKIPPED kvůli chybějícímu php.exe, přestože JUnit
+  skupinové skipped=0. Native conversion-table prošel oběma konfiguracemi.
+- CI pytest výběr: 49 PASS, vlastní venv s pytest 9.1.1 a lizard 1.23.0.
+- Release GUI: F3 ASCII i česká/CJK cesta správného obsahu, F5 copy; hash kopie
+  shodný, 7 originálů včetně sentinelu beze změny. První prázdný file-backed
+  config měl bílé panelové plochy i po refresh/resize; uložení a restart je
+  odblokoval. Příčina pozorování není určena.
+- Debug GUI: startup diagnostiky `DeleteObject: Handle ... not found` v
+  `iconlist.cpp:483/485`; běžné panely/operace nebyly přijaty. Pouze vlastní
+  zablokovaný testovací proces ukončen, uživatelské instance zachovány.
+- Runtime SHA256 manifesty: 469 Debug / 485 Release souborů bez Intermediate;
+  convert data bajtově odpovídají targetu, .tab mají 256 bajtů.
+- Plná čistá publikační matice Win32/x64/ARM64, všechny plug-iny/dependency DLL,
+  vzdálené CI a CodeQL: NOT RUN. Toolchain probes nejsou tato matice.
+  Donorové I/O testy a ruční dlouhé cesty: DEFERRED/NOT RUN.
 - Přesné příkazy, rozlišení evidence a runtime staging: [VALIDATION.md](VALIDATION.md).
-  Logy a výsledky: `C:/Samandarin/codex_pr769_prompts/evidence/baseline`.
+  Nové logy, JUnit, GUI report, fixture a runtime manifesty:
+  `C:/Samandarin/codex_pr769_prompts/evidence/baseline-v145`.
+  Historická S00 evidence zůstává v `evidence/baseline`: wrapper exit 0 bez
+  buildu, native 20 PASS/17 FAIL, pytest BLOCKED, unittest subset 41 PASS.
 
 ## Další nejmenší krok
 
 1. Obnovit kontext pouze z těchto dokumentů a ověřit HEAD/dirty stav. Piny
    nepřepočítávat podle živého PR; hotové S00 znovu neaplikovat.
-2. Zajistit autorizované v145 prostředí, pinned submodules a chybějící testové
-   závislosti, bez samovolné instalace či globálních změn. Opakovat blokované
-   baseline kontroly a provést skutečný smoke runtime sestaveného z targetu.
-   Pokud to prostředí neumožní, zachovat BLOCKED; žádné tvrzení „funguje“.
-3. Po přijetí baseline vykonat právě [S01](steps/S01.md): Read/Write silent Skip
+2. Provést právě [S00b](steps/S00b.md), opravit baseline Debug ikonové tracking
+   hranice a zopakovat Debug/Release GUI. Nevypínat tracker a nepřevzít S02.
+   Prověřit také první start s prázdným vlastním configem. Zastavit po S00b.
+3. V pozdějším běhu po přijetí baseline vykonat právě [S01](steps/S01.md): Read/Write silent Skip
    assignment, Retry `OPEN_EXISTING`, failure vracející `INVALID_HANDLE_VALUE`.
    Zachovat dnešní path boundary. Adaptovat pouze ASCII část skutečného donor
    SafeFile harnessu; `SafeFileRootLength` a wide scénáře výslovně odložit S03.
    Chybějící Write Skip/Skip All assertion doplnit v S01, ne vydávat za donor PASS.
-4. Před commitem této etapy provést její Debug/Release/native/GUI bránu,
+4. Před kódovým commitem provést jeho Debug/Release/native/GUI bránu,
    aktualizovat REUSE/PROGRESS a přidat provenance trailery. Zastavit po S01.
 
 ## Rozsah dokumentačního commitu
@@ -77,9 +98,9 @@ diff, `git diff --cached --check`, úplnost mapy i vlastní Python cache.
 Commit message:
 
 ```text
-docs: bootstrap incremental port of PR 769
+docs: record v145 baseline recovery and GUI blocker
 
 Source-PR: KRtkovo-eu-AI/salamander#769
 Source-Commit: 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413
-Port-Step: S00
+Port-Step: S00a
 ```

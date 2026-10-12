@@ -1,6 +1,121 @@
 # Validace portu a baseline S00
 
-**Baseline: BLOCKED.** Testovaná revize runtime zdrojů je
+## Aktuální S00a — obnova prostředí, 2026-10-12
+
+**Baseline: BLOCKED kvůli Debug GUI startup diagnostikám.** v145 a testové
+dependencies již nejsou blokací. S00a je pouze dokumentační checkpoint;
+žádný runtime kód ani donorový test nebyl přenesen. Testovaný checkout
+`75950e887e34ec4bdbe1eb71aa6c04b0c3bfaa8d` obsahuje S00 docs; runtime zdroje
+jsou beze změny proti TARGET_SHA `a84dbed6db632a9e63b5ed9f4bc6691e4cc5f449`.
+Piny SOURCE a všech 393 DEFERRED řádků REUSE (231 donorových souborů) nezměněny.
+
+### Prostředí a reprodukce
+
+- Uživatelem autorizovaná instalace: VS 2026 Community 18.10.3,
+  installationVersion 18.10.12224.181, MSBuild 18.10.1.42706,
+  MSVC 14.51.36231 / v145, SDK 10.0.26100.0; bez požadavku na restart.
+  Instalační/probe evidence je v `evidence/toolchain-install`.
+- `git submodule update --init --recursive -- src/plugins/sftp 3rd-party/HardView`
+  PASS; SFTP `a293b5beaecef97b56974d4d119a7adc26adb2d4`, HardView
+  `b7e68cf032ad2a7dd556775da67ac8424896372f`. Žádný update jejich refs.
+- Izolovaný `evidence/baseline-v145/venv`: pytest 9.1.1, lizard 1.23.0,
+  přesné dependencies v `python-freeze.txt`. Globální Python/Git beze změny.
+- CWD příkazů níže: `C:/Samandarin/codex_pr769_prompts/work`.
+  PATH child procesů obsahovala venv Scripts a VS18 MSBuild před inherited PATH.
+  `PYTHONDONTWRITEBYTECODE=1`, Python `-B`, MSBuild `/nr:false` a
+  `MSBUILDDISABLENODEREUSE=1`. Žádná cache v pracovním stromu nalezena.
+- Externí `evidence/baseline-v145/Invoke-Bounded.ps1` zaznamenává executable,
+  argumenty, CWD, environment, SHA, exit, čas a logy. Celý procesní strom má
+  limit 95 s (native runner 100 s), při timeoutu Kill(true); timeout nenastal.
+  Vnitřní native subprocess limit 60 s. Všechny příkazy skončily pod 120 s.
+
+```powershell
+& 'C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe' src\vcxproj\salamand.vcxproj /m /t:Build /p:Configuration=Debug /p:Platform=x64 /p:OPENSAL_BUILD_DIR=C:\Samandarin\codex_pr769_prompts\work\build\pr769-baseline-v145\ /p:PreferredToolArchitecture=x64 /nr:false /v:minimal
+# Stejný příkaz s Configuration=Release.
+& ..\evidence\baseline-v145\venv\Scripts\python.exe -B -m pytest src/plugins/automation/tests/salamatrix_ai_local_tests.py tools/code_metrics/tests tools/codeql/tests tools/localization/tests --junitxml=../evidence/baseline-v145/python.xml -p no:cacheprovider
+& .\tools\run_native_tests.ps1 -Configuration Debug -Platform x64 -ResultsPath ..\evidence\baseline-v145\native-debug.xml -CommandTimeoutSeconds 60
+& .\tools\run_native_tests.ps1 -Configuration Release -Platform x64 -ResultsPath ..\evidence\baseline-v145\native-release.xml -CommandTimeoutSeconds 60
+```
+
+| Kontrola | Výsledek a skutečný čas celého procesu |
+| --- | --- |
+| Host + ProjectReference `src/vcxproj/lang.vcxproj`, Debug x64 | PASS exit 0, 26,60 s |
+| Host + language resources, Release x64 | PASS exit 0, 55,63 s |
+| CI pytest výběr | PASS 49 testů, exit 0, 6,63 s |
+| Native Debug x64 | PASS 37 skupin, 0 failures, exit 0, 94,12 s |
+| Native Release x64 | PASS 37 skupin, 0 failures, exit 0, 75,50 s |
+| Native conversion-table | PASS obě konfigurace, skutečná shipped data |
+| PHP process-runtime subcase | SKIPPED: php.exe nenalezen; skupinový JUnit skipped=0 toto nesděluje |
+| Release GUI, inicializovaný private config | PASS běžné panely, ASCII/Unicode F3, ASCII F5 copy |
+| Release GUI, první prázdný private config | FAIL pozorování vykreslení panelů; příčina neurčena |
+| Debug GUI | FAIL při startupu, baseline nepřijata |
+
+Native sada obsahuje 16 native a 21 source-contract/PowerShell skupin v každé
+konfiguraci. Čas v JUnit (Debug 20,783 / Release 13,283 s) zahrnuje pouze testy,
+nikoli úspěšné kompilace; nepoužívat jej jako dobu celého runneru.
+
+### Runtime a GUI evidence
+
+Host staging skutečně zkopíroval 357 Inno payload souborů (toolbars/doc/convert)
+a našel 0 vcpkg DLL payloadů. Není to sestavení všech plug-inů. Release signing
+zůstal přeskočen původním hookem. Source-growth hook úspěšně zaznamenal výchozí
++37/-10 (net +27) proti tagu 0.15.1; jde o původní target, nikoli portový růst.
+
+Samostatně byly stejnými MSBuild flags sestaveny projekty
+`src/vcxproj/salmon/salmon.vcxproj`, `salopen/salopen.vcxproj` a
+`salspawn/salspawn.vcxproj`, Debug i Release x64, vše PASS. `MyEntryPoint`
+potřebuje vlastní `utils/salmon.exe`. Release salopen/salspawn postbuild kopíruje
+helpers i do Debug runtime; po Release buildech byly Debug salopen/salspawn
+obnoveny `/t:Rebuild` (PASS). Nepoužívat souběžné helper buildy jako důkaz
+konfigurační izolace. Žádná binárka z donoru ani instalované aplikace nepřimíchána.
+
+Runtime kořen `work/build/pr769-baseline-v145/salamander/{Debug,Release}_x64`.
+Manifesty `runtime-Debug-manifest.json` (469 souborů) a
+`runtime-Release-manifest.json` (485) obsahují relativní cesty, SHA256 a délky,
+vynechávají Intermediate a označují vlastní config jako mutable smoke stav.
+Veškeré staged convert soubory se hashově rovnají target datům, všechny .tab
+mají 256 bajtů. GUI běželo v novém procesu po stagingu.
+
+Externí `smoke-fixture.json` popisuje vlastní GUID adresář pod izolovaným build
+rootem: ASCII, české/CJK názvy a parent, duplicitní basename, UTF-8 376 bajtů
+při UTF-16 206 jednotkách, UTF-16 393 jednotek a sentinel. Dlouhé cesty byly
+vytvořeny, ručně však neověřeny; donorové scénáře zůstávají DEFERRED.
+
+Každý runtime má vlastní `configstorage.ini` s `StorageType=RegFile` a vlastní
+absolutní `RegFilePath`; skutečná uživatelská konfigurace se neimportovala.
+Release byl nejprve spuštěn s platným prázdným config.reg: panely zůstaly bílé
+i po refresh, změně view a resize. Po normálním zavření, uložení vlastní
+konfigurace a novém startu byly panely viditelné. Příčina není prokázána.
+
+Spuštění přes CLI přesné exe (nikoli instalovaného Salamanderu) použilo
+zdrojově ověřené argumenty `-l "<own-fixture-root>" -r "<own-fixture-root>\copy"
+-t "PR769 BASELINE Release" -language english`. `english.slg` byl chybný
+přípravný pokus a není započten do PASS. `sky.launch_app` nezajistil požadovaný
+staged proces; jeho případné instalované okno se také nezapočítává.
+Skutečný Release PID 7208 a úplná exe cesta byly ověřeny v Computer Use.
+F3 `ascii.txt` zobrazil `PR769 baseline ASCII content`; F5 kopie do prázdného
+copy adresáře byla potvrzena se správným cílem. F3
+`žluťoučký-東京/český-東京.txt` zobrazil `PR769 baseline CJK file content`.
+Kontrola SHA256 potvrdila kopii a všech 7 nezměněných původních souborů včetně
+sentinelu. Report `gui-smoke.json`, reprodukce `Prepare-Smoke.ps1` a
+`Record-Smoke.ps1`; testovací okna Release byla normálně zavřena.
+
+Debug PID 4496, vlastní Debug exe, dostal kopii pouze tohoto vlastního
+materializovaného configu. Startup hlásil `DeleteObject: Handle ... not found`
+z `src/iconlist.cpp:483`, poté po potvrzení z `:485`, oba
+`src/common/handles.cpp:864`. Druhá diagnostika ukončila smoke; jen tento vlastní
+proces byl terminován. Debug normální panel, viewer ani copy nejsou PASS.
+Úzký diff potvrdil, že `iconlist.cpp` je shodný v targetu a donoru. Oprava není
+součástí S00a; další předkrok [S00b](steps/S00b.md). SDK ani tracker se nevypínaly.
+
+Plná publikační build matice, všechny plug-iny/dependencies a CodeQL NOT RUN;
+toolchain probes Win32/ARM64 nejsou plná matice. Žádné vzdálené CI, push či PR.
+Nová úplná evidence je mimo Git v
+`C:/Samandarin/codex_pr769_prompts/evidence/baseline-v145`.
+
+## Historický S00 před instalací — následující původní záznam
+
+**Tehdejší baseline: BLOCKED.** Testovaná revize runtime zdrojů je
 `a84dbed6db632a9e63b5ed9f4bc6691e4cc5f449` (TARGET_SHA), 2026-10-12.
 S00 přidává pouze dokumentaci. Žádný `salamand.exe` ani úplný staging z targetu
 nevznikl; funkčnost aplikace ani GUI smoke se neprohlašují za ověřené.
