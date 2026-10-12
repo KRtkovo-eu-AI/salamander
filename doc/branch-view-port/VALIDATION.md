@@ -1,6 +1,70 @@
 # Validace portu a baseline S00
 
-## Aktuální S00c — první panely, 2026-10-12
+## Aktuální S01 — SafeFile Retry/Skip, 2026-10-12
+
+**S01 DONE, lokální Debug/Release x64 brána PASS.** S02 nezačala. Piny SOURCE
+beze změny. Parent `87b8afae7a8c2a934527468130bb7e7a2bac7e5c` plus runtime patch
+`470A2BB28DC7E587D99D0CE9804F5AF978A0DA7A1233DCA5F20DE79E550BE815`; code/test/runner patch
+`092530462D9C3CA59CCC27CE3361A3BDECA5CDE51FA06FE25C5C23D41529D150`.
+Přesné raw source hashe v `evidence/S01/validation-inputs.json`, výsledné SHA
+po commitu v `evidence/S01/checkpoint.json`. Souhrn, kopie, původní fixtures a
+runtime manifesty v `evidence/S01/validation-summary.json` a sousedních JSON.
+
+| Kontrola | Skutečný výsledek |
+| --- | --- |
+| Host/resources Debug x64 v145 | PASS exit 0, 8,46 s |
+| Host/resources Release x64 v145 | PASS exit 0, 35,62 s |
+| Native Debug x64 | PASS 38 skupin / 0 failures, 39,72 s |
+| Native Release x64 | PASS 38 skupin / 0 failures, 40,66 s |
+| SafeFile compiled-production harness | PASS 99 kontrol / 0 failures v každé konfiguraci |
+| CI pytest výběr | PASS 49 testů, 4,82 s |
+| Negative control proti parentu | Úmyslně FAIL 7/99; stejný harness, skutečné I/O; write prefix/read content/silent read/OOM regresní detekce |
+| GUI Debug PID 7524 | PASS fresh panely, F3 ASCII, F5 copy/hash, normální shutdown |
+| GUI Release PID 15768 | PASS stejný scénář a normální shutdown |
+| PHP process-runtime subcase | SKIPPED, PHP interpreter nedostupný |
+| S01 čistá plná platformní/plugin matice, CodeQL | NOT RUN; lokální nepublikovaný checkpoint |
+| Unicode/long/recursive/root SafeFile scénáře | DEFERRED do S03, nikoli PASS |
+
+Skutečné host příkazy (spuštěny v `work/`, obě konfigurace zvlášť):
+
+```powershell
+MSBuild.exe src\vcxproj\salamand.vcxproj /m /t:Build /p:Configuration=Debug /p:Platform=x64 /p:OPENSAL_BUILD_DIR=C:\Samandarin\codex_pr769_prompts\work\build\pr769-baseline-v145\ /p:PreferredToolArchitecture=x64 /nr:false /v:minimal
+MSBuild.exe src\vcxproj\salamand.vcxproj /m /t:Build /p:Configuration=Release /p:Platform=x64 /p:OPENSAL_BUILD_DIR=C:\Samandarin\codex_pr769_prompts\work\build\pr769-baseline-v145\ /p:PreferredToolArchitecture=x64 /nr:false /v:minimal
+pwsh.exe -NoProfile -File tools\run_native_tests.ps1 -Configuration Debug -Platform x64 -ResultsPath ..\evidence\S01\native-debug.xml -CommandTimeoutSeconds 60
+pwsh.exe -NoProfile -File tools\run_native_tests.ps1 -Configuration Release -Platform x64 -ResultsPath ..\evidence\S01\native-release.xml -CommandTimeoutSeconds 60
+python.exe -B -m pytest src/plugins/automation/tests/salamatrix_ai_local_tests.py tools/code_metrics/tests tools/codeql/tests tools/localization/tests --junitxml=../evidence/S01/python.xml -p no:cacheprovider
+python.exe -B src\tests\safe_file_paths_tests.py --configuration Debug --source-ref 87b8afae7a8c2a934527468130bb7e7a2bac7e5c
+```
+
+MSBuild z VS18 Community, Python z izolovaného baseline-v145 venv. Zachován
+child PATH/WindowsPowerShell PSModulePath, `PYTHONDONTWRITEBYTECODE=1` a
+`MSBUILDDISABLENODEREUSE=1`. Každý celý process tree bounded na 95 s (native
+100 s), žádný timeout. Přesná exe/args/env/čas/exit v per-run JSON; poslední
+příkaz je záměrná negativní kontrola, exit 1 / 7 failures, ne chyba fixu.
+
+Test je generovaný nativní C++ harness proti aktuálním SafeFile metodám,
+existujícím SDK typům a target size/wide helperům. Dialogy a jednorázové chyby
+ReadFile/WriteFile/DupStr jsou řízené testem; ostatní I/O je skutečné Win32.
+A helper adaptéry a lokální warning 4701/4703 scope kolem staré file/directory
+větve SafeFileCreate jsou testovací adaptace. Produkt nemá vypnutý tracker
+ani warningy a žádná donorová assertion nebyla oslabena; S03 případy odloženy.
+První dvě přípravné kompilace harnessu selhaly na escape v adaptéru a staré
+Create control-flow diagnostice; opraveno před finální bránou, logy zachovány.
+
+Obě GUI spouštění použila nový nulový file-backed config v našem build rootu,
+obě vlastní kopie jsou hashově shodné s `ascii.txt`, všech 7 původních fixture
+souborů včetně Unicode/long fixtures a sentinelu beze změny. Private bootstrapy
+obnoveny; skutečné uživatelské konfigurace nedotčeny. Runtime manifesty mají
+launch exe hash a stage patch; convert payload bajtově shodný s targetem.
+Vynucené Retry/Skip nebyly prováděny v živém GUI — ověřeny v nativním harnessu.
+
+Baseline opravy S00b/S00c byly mezitím publikované samostatně v upstream
+[#774](https://github.com/KRtkovo-eu-AI/salamander/pull/774) a
+[#775](https://github.com/KRtkovo-eu-AI/salamander/pull/775). Jejich vlastní fork
+CI #18/#19 má pro stejné head SHA 14/14 SUCCESS včetně CodeQL. To jsou výsledky
+baseline oprav, nikoli CodeQL ani platformní matice nového S01 checkpointu.
+
+## Historická S00c — první panely, 2026-10-12
 
 **S00c DONE; lokální x64 baseline PASS v deklarovaném rozsahu.** S01 nezačala.
 Ověřený parent `216e79d1e4f6f56ba1da7a8297906b1da9796df0` plus runtime patch

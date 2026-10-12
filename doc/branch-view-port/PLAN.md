@@ -1,9 +1,11 @@
 # Plán postupného portu PR #769
 
-Stav k 2026-10-12: S00/S00a/S00b a oprava prvního startu S00c dokončeny.
-Lokální x64 baseline PASS: Debug/Release host, native sady a první start i
-restart s vlastní file-backed konfigurací. Nejbližší je [S01](steps/S01.md);
-v tomto běhu nezačala. Plná publikační matice/CodeQL nebyly provedeny.
+Stav k 2026-10-12: S00/S00a/S00b/S00c a **S01 dokončeny**.
+S01 lokální Debug/Release x64 host/native/GUI brána PASS; SafeFile harness
+99 kontrol v každé konfiguraci, native 38 skupin a pytest 49/49. Nejbližší je
+[S02](steps/S02.md), v tomto běhu nezačala. Nový S01 není publikovaný; jeho
+plná platformní/plugin matice a CodeQL NOT RUN. Samostatné baseline PR #774/#775
+mají úspěšnou fork CI pro vlastní head SHA a neposouvají piny SOURCE.
 Rozhodující zdroje jsou
 [CONTRACT.md](CONTRACT.md), [SOURCE.json](SOURCE.json), [PROGRESS.md](PROGRESS.md)
 a [VALIDATION.md](VALIDATION.md). Výsledky původního PR nejsou výsledky portu.

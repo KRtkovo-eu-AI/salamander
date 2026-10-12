@@ -1,5 +1,27 @@
 # Stav portu PR #769
 
+## Aktuální checkpoint S01
+
+2026-10-12, **S01 DONE — SafeFile Retry/Skip**. Pět donorových oprav,
+adaptovaný nativní ASCII harness a jeho registrace. Debug/Release x64 host
+PASS; native 38 skupin v každé konfiguraci (SafeFile 99/99), pytest 49/49,
+GUI fresh panels/viewer/copy/shutdown oběma PASS. Negativní kontrola parentu
+7/99 FAIL potvrzuje detekci původních chyb. S02 nezačala a je další nejmenší
+etapou. S01 plná publish matice/pluginy/CodeQL NOT RUN; PHP subcase SKIPPED.
+
+Parent `87b8afae7a8c2a934527468130bb7e7a2bac7e5c`; runtime patch SHA256
+`470A2BB28DC7E587D99D0CE9804F5AF978A0DA7A1233DCA5F20DE79E550BE815`. Code/test/runner patch
+`092530462D9C3CA59CCC27CE3361A3BDECA5CDE51FA06FE25C5C23D41529D150`; evidence `evidence/S01`.
+Výsledné SHA najít podle traileru `Port-Step: S01`; externí checkpoint váže
+finální commit na hashe právě ověřených souborů. Piny SOURCE zůstávají původní.
+
+Samostatné baseline opravy jsou upstream PR #774/#775 a fork CI #18/#19
+(14/14 SUCCESS včetně CodeQL na stejných SHA). Portová větev S01 zůstává
+lokální; další push/PR není v tomto zadání. Její baseline fixy už jsou přítomné
+v historii, neaplikovat je znovu ani automaticky měnit release/donor piny.
+
+## Historický checkpoint S00c
+
 2026-10-12, **S00c DONE — viditelné panely při prvním startu**. Lokální
 Debug/Release x64 baseline PASS v deklarovaném rozsahu; první empty file-backed
 config, restart, běžné panely, viewer, copy a shutdown ověřeny. S01 nezačala a je
@@ -35,9 +57,9 @@ vlastní výsledné SHA se zde neuvádí. Žádný donorový runtime hunk nepře
 | Normal-panel GUI Debug/Release | PASS s initialized private config | F3 ASCII, F5 copy/hash, 7 originálů beze změny, normální shutdown bez Debug handle diagnostiky |
 | První empty private config | PASS Debug/Release | Po S00c oba panely viditelné ihned bez zásahu; F3/F5 a hash kontrola |
 | S00c | DONE | WM_CREATE visibility až po přiřazení obou aktuálních panelů; první start i restart ověřeny |
-| S01 | PENDING, baseline brána připravena | Izolované SafeFile Retry/Skip; donor testy převzít pouze v jejím rozsahu |
+| S01 | DONE | Pět úzkých SafeFile oprav, compiled harness 99/99 v obou konfiguracích, native/host/GUI brána PASS |
 | S02–S32 | PENDING | Pořadí a podetapy v PLAN; Branch View nadále nedostupné |
-| Push / interní či upstream PR | NOT REQUESTED / NOT RUN | Lokální commit, bez publikace |
+| Publikace | S01 lokální, bez push/PR | Baseline opravy oddělené v upstream #774/#775; jejich fork CI zelená, bez změny portové větve |
 
 ## Rozsah S00b
 
@@ -97,11 +119,9 @@ baseline REPLACED řádek S00c. Podrobnosti [VALIDATION.md](VALIDATION.md).
 
 ## Další nejmenší krok
 
-V samostatném běhu provést právě [S01](steps/S01.md): izolované SafeFile
-Read/Write silent Skip assignment, Retry OPEN_EXISTING a failure vracející
-INVALID_HANDLE_VALUE. Zachovat dnešní path boundary; pouze ASCII část donor
-harnessu, wide scénáře/SafeFileRootLength nadále DEFERRED do S03. Doplnit
-chybějící Write Skip/Skip All assertion. Ověřit její Debug/Release/native/GUI
-bránu, aktualizovat REUSE/PROGRESS, jeden commit a zastavit po S01.
-S00c ani PASS baseline neautorizují push/PR. Piny nepřepočítávat, S00b/S00c
-neaplikovat znovu, žádný automatický posun do S02.
+V samostatném běhu provést právě [S02](steps/S02.md): minimální wide Win32
+hranice a Debug A/W handle wrappery podle připnutého donoru. Znovu použít
+stávající path helpery; zachovat SDK ABI, tracking a new makra. Žádný scanner
+nebo plošná pluginová migrace. Před převzetím ověřit konkrétní konzumenty,
+provést příslušnou Debug/Release/native/GUI bránu a zastavit po S02.
+S01 neautorizuje publikaci portové větve ani automatický posun do S02.
