@@ -16,6 +16,8 @@ void ReleaseDPIAwareWindowIcons(HWND hWindow);
 
 void ReleaseDPIAwareWindowIcons(HWND hWindow);
 
+void ReleaseDPIAwareWindowIcons(HWND hWindow);
+
 #include <algorithm>
 #include <new>
 #include <string>

@@ -1,6 +1,70 @@
 # Validace portu a baseline S00
 
-## Aktuální S00a — obnova prostředí, 2026-10-12
+## Aktuální S00b — evidence/cleanup, 2026-10-12
+
+**S00b oprava PASS v provedeném rozsahu; baseline BLOCKED kvůli prvnímu startu
+s prázdným private configem.** S01 nezačala. Testovaný parent
+`0772e7d228a6fc5d587c8def3418f744a9ebb9a1` plus finální runtime patch SHA256
+`EB4E10DC6D1448AB23D66252E2DF9C6F23C807B111D7246EA33BAD53F5A35017`;
+patch, přesné příkazy, logy, JUnit a manifesty jsou v
+`C:/Samandarin/codex_pr769_prompts/evidence/S00b`. Dokumentační dokončení nemění
+testovaný runtime diff. Tento fix je nový doložený baseline adaptační kód,
+nikoli převzetí donoru. Devět REPLACED řádků S00b v REUSE je odlišných od
+původních 393 DEFERRED donorových řádků.
+
+Finální příkazy jsou stejné MSBuild host a native/pytest příkazy jako S00a,
+se stejným OPENSAL_BUILD_DIR a s výsledky v `evidence/S00b` (`*-final.xml`).
+Použitý `Invoke-Bounded.ps1` navíc zaznamenává runtime patch hash. V PATH je
+venv/MSBuild; pro postbuild Windows PowerShell je child `PSModulePath` omezen
+na WindowsPowerShell Modules, aby se neimportovaly nekompatibilní PS7 moduly.
+První Debug kompilace/link prošly, staging selhal na chybějícím Get-FileHash
+kvůli module environment; záznam není PASS. Scoped child environment a nový
+úspěšný staging problém odstranily, bez změny produkčních skriptů či globálního
+prostředí. Žádný timeout; procesní limit 95/100 s, native subprocess limit 60 s.
+
+| Finální kontrola | Výsledek |
+| --- | --- |
+| MSBuild Debug x64 host/resources | PASS exit 0, 10,45 s; `host-Debug-x64-accepted.*` |
+| MSBuild Release x64 host/resources | PASS exit 0, 67,59 s; `host-Release-x64-accepted.*` |
+| Native Debug x64 | PASS 37 skupin, 0 failures, 52,53 s |
+| Native Release x64 | PASS 37 skupin, 0 failures, 60,78 s |
+| CI pytest výběr | PASS 49 testů, 6,48 s |
+| PHP process-runtime subcase | SKIPPED, php.exe nedostupné |
+| Native conversion table a panel icon size | PASS v obou native sadách |
+| Debug/Release GUI, initialized config | PASS panely, F3 ASCII, F5 copy, kontrola hashů a shutdown |
+| Debug exit tracking | PASS finální proces ukončen normálně bez „not found“ či leak dialogu |
+| První empty private config | Omezení trvá v opakování před finálními shutdown opravami; S00c znovu ověří finální revizi |
+
+Runtime zůstává výhradně v tomto worktree a konfiguraci. Nezměněné
+salmon/salopen/salspawn helpers jsou vlastní S00a buildy stejných target zdrojů,
+včetně obnovených Debug utils po Release restagingu; žádná donor/installed DLL.
+Host znovu ověřil 357 Inno payload souborů (0 změn), 0 vcpkg DLL payloadů.
+Finální manifesty 469 Debug / 485 Release souborů obsahují hash a source+patch
+vazbu; conversion data bajtově shodná s targetem. Code-growth hook zaznamenal
+proti tagu 0.15.1 +92/-36 net +56, z toho samotný runtime fix +55/-26 net +29.
+Signing přeskočen původním hookem; plná publikační matice/CodeQL NOT RUN.
+
+Computer Use ověřilo úplné exe cesty a obsah vieweru. Finální Debug PID 7072,
+Release PID 5880; nové prázdné copy cíle v původním vlastním GUID fixture rootu,
+oba výsledky shodné s ASCII zdrojem. Všech 7 originálů včetně Unicode/long
+fixtures a sentinelu beze změny. Ruční long/Unicode viewer scénáře v tomto
+fixu NOT RUN (Unicode viewer na targetu byl ověřen S00a); path behavior se nemění.
+`validation-summary.json`, `gui-*-accepted-launch.json`, runtime manifesty.
+
+Meziverze Debug po první opravě odhalila další startup DestroyIcon diagnostiku
+`icncache.cpp:1183`. Po initialized panel/viewer/copy meziverze hlásila 9
+zbylých tracker položek. Read-only diagnostika vlastního procesu podle vlastního
+PDB identifikovala dvě owned window ikony, šest štětců z gui.cpp a duplicitní
+copy file handle (`debug-shutdown-handles.json`). Tyto konkrétní páry jsou
+opraveny; tracker nebyl vypnut. Trace Server byl sestaven Win32 (x64 kombinace
+nepodporována), neexponoval UI, vlastní pomocný proces ukončen; nebyl náhradou
+diagnostiky. Finální shutdown bez dialogu ověřuje odstranění všech devíti.
+
+Piny SOURCE a smlouva nezměněny. Donorové hunks stále DEFERRED, samostatné
+baseline opravy nevydávat za S01 či S02. Bez push/PR. Další nejmenší krok je
+[S00c](steps/S00c.md), diagnostika prvního private config startu.
+
+## Historická S00a — obnova prostředí, 2026-10-12
 
 **Baseline: BLOCKED kvůli Debug GUI startup diagnostikám.** v145 a testové
 dependencies již nejsou blokací. S00a je pouze dokumentační checkpoint;

@@ -1,8 +1,10 @@
 # Plán postupného portu PR #769
 
-Stav k 2026-10-12: S00 a obnova prostředí S00a dokončeny jako dokumentační
-checkpointy; runtime baseline zůstává BLOCKED kvůli Debug GUI diagnostice.
-Nejbližší předkrok je [S00b](steps/S00b.md), nikoli S01. Rozhodující zdroje jsou
+Stav k 2026-10-12: S00/S00a a oprava evidence S00b dokončeny. Debug i Release
+normal-panel smoke s vlastní inicializovanou konfigurací prošel, včetně Debug
+ukončení bez handle diagnostiky. Baseline zůstává BLOCKED kvůli prvnímu startu
+s prázdným file-backed configem. Nejbližší je [S00c](steps/S00c.md), nikoli S01.
+Rozhodující zdroje jsou
 [CONTRACT.md](CONTRACT.md), [SOURCE.json](SOURCE.json), [PROGRESS.md](PROGRESS.md)
 a [VALIDATION.md](VALIDATION.md). Výsledky původního PR nejsou výsledky portu.
 Před každým krokem ověřit větev, aktuální diff, skutečné závislosti a baseline.
@@ -36,7 +38,8 @@ reviewovatelný PR, pokud níže není uvedena pevně svázaná dvojice.
 | Etapa | Rozsah a PR hranice | Minimální předpoklady |
 | --- | --- | --- |
 | S00a | Obnova v145, pinned submodules, izolované testové prostředí a baseline evidence; DONE — bez změny runtime | S00; uživatelem autorizovaná instalace |
-| [S00b](steps/S00b.md) | Minimální oprava baseline Debug sledování ikonových handleů; PLANNED | S00a; znovu reprodukovat `CIconList::ReplaceIcon`, startup a private config |
+| [S00b](steps/S00b.md) | Baseline tracking a cleanup ikon; DONE, včetně souvisejících evidence chyb ze smoke | S00a; vlastní reprodukce Debug startup/shutdown |
+| [S00c](steps/S00c.md) | Diagnostika prvního startu s prázdným private configem; PLANNED | S00b; nevykreslené panely oddělit od dokončené handle opravy |
 | [S01](steps/S01.md) | Izolované SafeFile Retry/Skip opravy | Ověřená baseline; rozdělit donorové testy podle skutečných závislostí |
 | [S02](steps/S02.md) | Wide utility a Debug sledování handleů | S01; pouze potřebné společné pomocné funkce |
 | [S03](steps/S03.md) | SafeFile Unicode a dlouhé cesty | S01, S02 |
@@ -80,7 +83,8 @@ obnovu historie/focus k příkazu Open Containing Folder zavedenému v S27a.
 
 ## Pravidla pro zjištěné předkroky
 
-S00a odblokovala buildy a automatické testy. Debug host však při startu
+Historický důvod dokončené S00b: S00a odblokovala buildy a automatické testy,
+Debug host však před opravou při startu
 hlásí `C__Handles::CheckClose` (`src/common/handles.cpp:864`), volaný z
 `CIconList::ReplaceIcon` (`src/iconlist.cpp:483/485`): `DeleteObject` handle
 nenalezen. `GetIconInfo` vytváří bitmapy mimo tracker, jejich uvolnění jde
