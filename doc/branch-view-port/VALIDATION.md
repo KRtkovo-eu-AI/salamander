@@ -1,6 +1,64 @@
 # Validace portu a baseline S00
 
-## Aktuální S00b — evidence/cleanup, 2026-10-12
+## Aktuální S00c — první panely, 2026-10-12
+
+**S00c DONE; lokální x64 baseline PASS v deklarovaném rozsahu.** S01 nezačala.
+Ověřený parent `216e79d1e4f6f56ba1da7a8297906b1da9796df0` plus runtime patch
+SHA256 `18AC1A9A8078543763711991D4FF637DED17365EB00A900BED04C543D0FED47F`.
+Dokumentační dokončení neovlivňuje tento runtime diff. Jediná kódová změna je
+WM_CREATE v `src/mainwnd3.cpp`: dvě visibility aktualizace až po přiřazení
+aktuálních panelů. Příčina je produktová, na přesném S00b skutečně reprodukována
+s novým nulovým file-backed configem (PID 10412), tělo bez viditelných panelů.
+LoadConfig při následném restartu dosud maskoval chybu aktivací uložených tabů.
+
+Příkazy a child environment stejné jako S00b: skutečný MSBuild host Debug a
+Release x64 s OPENSAL_BUILD_DIR `work/build/pr769-baseline-v145/`, `/m`, `/t:Build`,
+PreferredToolArchitecture=x64 a `/nr:false`; venv/MSBuild PATH, WindowsPowerShell
+child PSModulePath, PYTHONDONTWRITEBYTECODE=1. `tools/run_native_tests.ps1`
+Debug/Release x64, CommandTimeoutSeconds=60, ResultsPath do `evidence/S00c`.
+CI pytest výběr beze změny, Python `-B`, `-p no:cacheprovider`, vlastní JUnit.
+Přesné executable/args/SHA/patch hash/čas/exit ve stejnojmenných JSON. Bounded
+whole-tree limit 95 s, native 100 s; žádný timeout, všechny procesy pod 120 s.
+
+| Kontrola | Výsledek |
+| --- | --- |
+| Host/resources Debug x64 | PASS exit 0, 15,46 s |
+| Host/resources Release x64 | PASS exit 0, 60,84 s |
+| Native Debug x64 | PASS 37 skupin, 0 failures, 59,80 s |
+| Native Release x64 | PASS 37 skupin, 0 failures, 53,10 s |
+| CI pytest výběr | PASS 49 testů, 7,55 s |
+| PHP process-runtime subcase | SKIPPED, php.exe nenalezen |
+| Native panel icon/conversion-table a tab/source-contract sady | PASS v obou runnerech |
+| První Debug start | PASS oba panely, F3 ASCII, F5 copy, shutdown; PID 15376 |
+| Debug restart | PASS oba panely a shutdown, PID 9352; viewer/copy neopakovány |
+| První Release start | PASS oba panely, F3 ASCII, F5 copy, shutdown; PID 9296 |
+| Release restart | PASS oba panely a shutdown, PID 16136; viewer/copy neopakovány |
+
+Oba post-fix první starty měly vlastní nový config.reg přesně 0 bajtů a stejný
+empty SHA256, vlastní absolutní RegFilePath v configstorage.ini. Oba panely byly
+viditelné při prvním pozorování bez aktivace tabu, refresh, resize či restartu.
+Po normálním uložení/restartech funguje dosavadní config restore. Není měněna
+volba/theme palette ani Welcome/registry import; tyto scénáře nebyly testovány.
+Computer Use vidělo přesné vlastní exe cesty, viewer skutečně zobrazil
+`PR769 baseline ASCII content`, F5 správný nový vlastní cíl. Obě kopie mají
+zdrojový hash; všech 7 původních fixture souborů beze změny. Debug oba běhy
+normálně skončil bez handle/leak diagnostik, zachovává opravu S00b.
+
+`Launch-Smoke.ps1` a `Record-Validation.ps1` jsou mimo Git v `evidence/S00c`.
+Poslední obnovuje pouze vlastní předchozí runtime bootstrapy. Runtime manifesty
+obsahují relativní cesty/hash/délku a označené mutable testovací .reg/INI; exe
+hash odpovídá launch reportům. Convert payload bajtově odpovídá targetu, .tab
+256 bajtů; 357 Inno staging souborů ověřeno, 0 vcpkg DLL payloadů. Nezměněné
+helpers/resources jsou vlastní target/S00b runtime, žádné donor/installed DLL.
+Code-growth proti tagu 0.15.1 net +58, samotné S00c +4/-2 net +2. Signing
+původním hookem přeskočen. Plná publish matice/CodeQL, všechny plug-iny a donorové
+scénáře NOT RUN; ruční long/Unicode viewer mimo scope této visibility opravy.
+
+REUSE obsahuje nový samostatný baseline REPLACED řádek S00c, žádná donorová
+implementace převzata; původních 393 DEFERRED řádků nezměněno. SOURCE piny a
+CONTRACT beze změny, bez push/PR. Další nejmenší etapa je [S01](steps/S01.md).
+
+## Historická S00b — evidence/cleanup, 2026-10-12
 
 **S00b oprava PASS v provedeném rozsahu; baseline BLOCKED kvůli prvnímu startu
 s prázdným private configem.** S01 nezačala. Testovaný parent

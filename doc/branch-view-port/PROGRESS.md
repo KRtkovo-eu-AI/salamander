@@ -1,11 +1,12 @@
 # Stav portu PR #769
 
-2026-10-12, **S00b DONE — evidence a cleanup ikon/handleů**. Debug i Release
-běžné panely, viewer, kopie a normální shutdown prošly; Debug již nehlásí
-neznámé či neuzavřené handly. Baseline nadále **BLOCKED — první empty private
-config start**, samostatný předkrok [S00c](steps/S00c.md). S01 nezačala.
-S00 commit `75950e887e34ec4bdbe1eb71aa6c04b0c3bfaa8d`, S00a commit
-`0772e7d228a6fc5d587c8def3418f744a9ebb9a1`. S00b najít podle traileru;
+2026-10-12, **S00c DONE — viditelné panely při prvním startu**. Lokální
+Debug/Release x64 baseline PASS v deklarovaném rozsahu; první empty file-backed
+config, restart, běžné panely, viewer, copy a shutdown ověřeny. S01 nezačala a je
+další nejmenší etapou. Plná publikační matice/CodeQL zůstávají NOT RUN.
+S00 commit `75950e887e34ec4bdbe1eb71aa6c04b0c3bfaa8d`, S00a
+`0772e7d228a6fc5d587c8def3418f744a9ebb9a1`, S00b
+`216e79d1e4f6f56ba1da7a8297906b1da9796df0`. S00c najít podle traileru;
 vlastní výsledné SHA se zde neuvádí. Žádný donorový runtime hunk nepřevzat.
 
 ## Checkpoint
@@ -32,9 +33,9 @@ vlastní výsledné SHA se zde neuvádí. Žádný donorový runtime hunk nepře
 | S00b tracking/cleanup | DONE | 9 úzkých source změn; nové baseline REPLACED řádky, žádný import PR #769 |
 | Build/native/Python | PASS provedeného rozsahu | Debug/Release x64 host/resources, 37/37 native skupin každá konfigurace, pytest 49/49; PHP subcase SKIPPED |
 | Normal-panel GUI Debug/Release | PASS s initialized private config | F3 ASCII, F5 copy/hash, 7 originálů beze změny, normální shutdown bez Debug handle diagnostiky |
-| První empty private config | BLOCKED | Meziverze S00b znovu zobrazila bílé plochy bez panelů; po uložení a restartu fungují |
-| S00c | PLANNED | Znovu ověřit finální revizi, určit příčinu prvního startu a vyřešit baseline bránu |
-| S01 | PENDING, vstupní brána BLOCKED | Až po přijetí celé baseline; izolované SafeFile Retry/Skip |
+| První empty private config | PASS Debug/Release | Po S00c oba panely viditelné ihned bez zásahu; F3/F5 a hash kontrola |
+| S00c | DONE | WM_CREATE visibility až po přiřazení obou aktuálních panelů; první start i restart ověřeny |
+| S01 | PENDING, baseline brána připravena | Izolované SafeFile Retry/Skip; donor testy převzít pouze v jejím rozsahu |
 | S02–S32 | PENDING | Pořadí a podetapy v PLAN; Branch View nadále nedostupné |
 | Push / interní či upstream PR | NOT REQUESTED / NOT RUN | Lokální commit, bez publikace |
 
@@ -51,7 +52,7 @@ registrace wide copy handle. Nezměněny path/DPI/cache/fallback chování,
 SDK/hlavičky, workflow, legacy data a resources. Nový kód je doložená oprava
 baseline, nikoli donorový port; podrobnosti v [S00b](steps/S00b.md).
 
-## Skutečné výsledky a revize
+## Historické výsledky S00b a revize
 
 Testovaný parent `0772e7d228a6fc5d587c8def3418f744a9ebb9a1` plus runtime patch
 SHA256 `EB4E10DC6D1448AB23D66252E2DF9C6F23C807B111D7246EA33BAD53F5A35017`.
@@ -70,10 +71,37 @@ Evidence: `C:/Samandarin/codex_pr769_prompts/evidence/S00b`, přesné příkazy 
 historie neúspěšných přípravných pokusů v [VALIDATION.md](VALIDATION.md).
 S00/S00a historické výsledky zachovány v původních evidence adresářích.
 
+## Skutečné výsledky S00c
+
+Testovaný parent `216e79d1e4f6f56ba1da7a8297906b1da9796df0` plus runtime patch
+SHA256 `18AC1A9A8078543763711991D4FF637DED17365EB00A900BED04C543D0FED47F`.
+Pouze WM_CREATE v mainwnd3.cpp: dva visibility calls za přiřazením panelů,
++4/-2 řádky. AddPanelTab neaktivuje nový tab; staré pořadí oba skrylo a restart
+je znovu aktivoval při LoadConfig. Konkrétní původní chyba na finálním S00b
+zopakována; žádný donorový import ani změna config/path/theme smluv.
+
+Debug/Release host build PASS (15,46 / 60,84 s), native 37/37 každá konfigurace
+(59,80 / 53,10 s), pytest 49/49 (7,55 s), PHP subcase SKIPPED. Čtyři skutečné
+GUI procesy: Debug Fresh 15376 / Restart 9352, Release Fresh 9296 / Restart
+16136. Oba první configy nové a nulové délky; panely viditelné při prvním
+pozorování, F3 správný ASCII obsah, F5 shodné kopie. Restart oběma ověřil panely
+a shutdown; viewer/copy na restartu neopakovány. Vše normálně zavřeno bez Debug
+handle/leak dialogu, sedm originálů včetně sentinelu beze změny. Obnoveny pouze
+vlastní předchozí runtime bootstrapy, skutečné uživatelské nastavení nedotčeno.
+
+Evidence `C:/Samandarin/codex_pr769_prompts/evidence/S00c`, nové runtime manifesty
+471 Debug / 486 Release souborů včetně vlastních mutable config fixtures.
+Binárky odpovídají launch hashům, convert payload shodný s targetem. Piny SOURCE
+beze změny, původních 393 donorových DEFERRED řádků zachováno, přibyl samostatný
+baseline REPLACED řádek S00c. Podrobnosti [VALIDATION.md](VALIDATION.md).
+
 ## Další nejmenší krok
 
-Provést právě [S00c](steps/S00c.md). Neznovu aplikovat S00b, neměnit SOURCE
-piny, nepřevzít S01/S02. Ověřit finální první start s novým vlastním configem,
-rozlišit příčinu bílých panelů a teprve po doloženém vyřešení přijmout baseline.
-S00b sama neautorizuje push/PR. Před každým commitem kontrolovat scope, diff,
-cache, evidence a přidat Source-PR/Source-Commit/Port-Step trailery.
+V samostatném běhu provést právě [S01](steps/S01.md): izolované SafeFile
+Read/Write silent Skip assignment, Retry OPEN_EXISTING a failure vracející
+INVALID_HANDLE_VALUE. Zachovat dnešní path boundary; pouze ASCII část donor
+harnessu, wide scénáře/SafeFileRootLength nadále DEFERRED do S03. Doplnit
+chybějící Write Skip/Skip All assertion. Ověřit její Debug/Release/native/GUI
+bránu, aktualizovat REUSE/PROGRESS, jeden commit a zastavit po S01.
+S00c ani PASS baseline neautorizují push/PR. Piny nepřepočítávat, S00b/S00c
+neaplikovat znovu, žádný automatický posun do S02.

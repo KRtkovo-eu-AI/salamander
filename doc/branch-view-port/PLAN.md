@@ -1,9 +1,9 @@
 # Plán postupného portu PR #769
 
-Stav k 2026-10-12: S00/S00a a oprava evidence S00b dokončeny. Debug i Release
-normal-panel smoke s vlastní inicializovanou konfigurací prošel, včetně Debug
-ukončení bez handle diagnostiky. Baseline zůstává BLOCKED kvůli prvnímu startu
-s prázdným file-backed configem. Nejbližší je [S00c](steps/S00c.md), nikoli S01.
+Stav k 2026-10-12: S00/S00a/S00b a oprava prvního startu S00c dokončeny.
+Lokální x64 baseline PASS: Debug/Release host, native sady a první start i
+restart s vlastní file-backed konfigurací. Nejbližší je [S01](steps/S01.md);
+v tomto běhu nezačala. Plná publikační matice/CodeQL nebyly provedeny.
 Rozhodující zdroje jsou
 [CONTRACT.md](CONTRACT.md), [SOURCE.json](SOURCE.json), [PROGRESS.md](PROGRESS.md)
 a [VALIDATION.md](VALIDATION.md). Výsledky původního PR nejsou výsledky portu.
@@ -39,7 +39,7 @@ reviewovatelný PR, pokud níže není uvedena pevně svázaná dvojice.
 | --- | --- | --- |
 | S00a | Obnova v145, pinned submodules, izolované testové prostředí a baseline evidence; DONE — bez změny runtime | S00; uživatelem autorizovaná instalace |
 | [S00b](steps/S00b.md) | Baseline tracking a cleanup ikon; DONE, včetně souvisejících evidence chyb ze smoke | S00a; vlastní reprodukce Debug startup/shutdown |
-| [S00c](steps/S00c.md) | Diagnostika prvního startu s prázdným private configem; PLANNED | S00b; nevykreslené panely oddělit od dokončené handle opravy |
+| [S00c](steps/S00c.md) | Viditelnost obou prvních panelů po přiřazení aktuálních panelů; DONE | S00b; první start a restart Debug/Release ověřeny |
 | [S01](steps/S01.md) | Izolované SafeFile Retry/Skip opravy | Ověřená baseline; rozdělit donorové testy podle skutečných závislostí |
 | [S02](steps/S02.md) | Wide utility a Debug sledování handleů | S01; pouze potřebné společné pomocné funkce |
 | [S03](steps/S03.md) | SafeFile Unicode a dlouhé cesty | S01, S02 |
@@ -82,6 +82,17 @@ neznamená asynchronní sloupce Explorer properties ze S28. S29 pouze doplní
 obnovu historie/focus k příkazu Open Containing Folder zavedenému v S27a.
 
 ## Pravidla pro zjištěné předkroky
+
+Rozsah S00c po reprodukci na finálním S00b: `CMainWindow::WindowProc`, WM_CREATE
+v `src/mainwnd3.cpp`, volá `UpdatePanelTabVisibility(cpsLeft/cpsRight)` ještě
+před přiřazením `LeftPanel`/`RightPanel`. `AddPanelTab` nyní záměrně pouze vytváří
+tab a neaktivuje jej; visibility porovnává s dosud NULL aktuálním panelem a
+obě okna skryje. Běžný WM_SIZE mění jejich geometrii bez SWP_SHOWWINDOW.
+Uložení/restart chybu maskuje následným restore/activation tabů v LoadConfig.
+Nejmenší oprava: přesunout obě visibility aktualizace až za obě přiřazení,
+zachovat AddPanelTab smlouvu a config/theme/path chování. Žádný donorový import.
+Ověřit nový empty file-backed config i restart v Debug/Release, viewer/copy,
+neporušené ostatní soubory, native panel/tab regresní sadu a oba host buildy.
 
 Historický důvod dokončené S00b: S00a odblokovala buildy a automatické testy,
 Debug host však před opravou při startu
