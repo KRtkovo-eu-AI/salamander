@@ -1,6 +1,96 @@
 # Validace portu a baseline S00
 
-## Aktuální S01 — SafeFile Retry/Skip, 2026-10-12
+## Aktuální S02a — core A/W handle wrappery, 2026-10-13
+
+**S02a DONE; lokální brána PASS. S02 celkem PARTIAL; S02b je další krok.**
+Parent `2c1480e064d5fd8cca0174b02ae5503411701b7b`, runtime patch `6154561f61dc71387b5582b03ab0825752409a5b2bb8903637f5e5f77e661e61`,
+code/test patch `e36fe9d1859e04a81faaa5a4615ba856c307ad7e170bcbdd6ef259679760827c`. Raw source hashe a přesné příkazy/args/env/časy/exit
+v `evidence/S02a/validation-inputs.json`, per-run JSON a validation-summary.json.
+Externí checkpoint váže finální commit na tento patch; logy ani binárky nejsou
+v Gitu. SOURCE/CONTRACT beze změny; donor čistý a připnutý. Žádný push/PR.
+
+| Kontrola | Skutečný výsledek |
+| --- | --- |
+| Host/resources Debug / Release x64 v145 | PASS exit 0, 19,53 / 43,98 s |
+| Salmon Debug / Release x64 | PASS exit 0, 4,24 / 5,30 s |
+| Translator Debug / Release Win32 | PASS exit 0, 7,41 / 8,18 s |
+| Trace Server Debug / Release Win32 | PASS exit 0, 6,03 / 7,90 s |
+| Native Debug / Release x64 | PASS 39 skupin/config, 0 failures, 39,87 / 46,14 s |
+| Nový core handles native projekt | PASS Debug 132, Release 109 checks / 0 failures |
+| Stávající S01 SafeFile harness | PASS 99 checks/config / 0 failures |
+| CI pytest výběr | PASS 49, 4,26 s |
+| Negative control proti parent core | EXPECTED FAIL exit 1, 3,10 s; chybějící explicitní A/W členy odmítne compiler/probe |
+| GUI Debug PID 10296 / Release PID 15628 | PASS fresh panely, F3 ASCII obsah, F5 copy/hash, normální shutdown |
+| PHP process-runtime interpreter | SKIPPED; PHP chybí |
+| LoadImageW bitmap UTF-16-long cesta | 1 backend subcase/config SKIPPED; raw Win32 error 2; wrapper parity a nulový registry záznam při failure PASS |
+| FindFirstChangeNotificationW UTF-16-long adresář | PASS skutečný signál správného vlastního adresáře a cleanup |
+| S02a CodeQL / čistá publikační platformní-plugin matice | NOT RUN; lokální nepublikovaný checkpoint |
+
+Skutečné MSBuild příkazy: každý z následujících projektů zvlášť pro Debug a
+Release, `/m /t:Build /p:Configuration=<Debug|Release> /p:Platform=<platform>`
+`/p:OPENSAL_BUILD_DIR=C:\Samandarin\codex_pr769_prompts\work\build\pr769-baseline-v145\`
+`/p:PreferredToolArchitecture=x64 /nr:false /v:minimal`:
+
+- `src\vcxproj\salamand.vcxproj`, x64;
+- `src\vcxproj\salmon\salmon.vcxproj`, x64;
+- `src\vcxproj\translator\translator.vcxproj`, Win32;
+- `src\vcxproj\tserver\tserver.vcxproj`, Win32.
+
+Toto jsou všichni produkční konzumenti common/handles.cpp z auditované sady
+vcxproj. Pluginy používají oddělené mhandles — S02b. Win32/ARM64 varianty
+host/salmon a Release clean nejsou touto lokální bránou ani čistou publikační
+maticí prohlášeny za ověřené. Translator/tserver mají pouze Win32 konfigurace.
+
+```powershell
+pwsh.exe -NoProfile -File tools\run_native_tests.ps1 -Configuration Debug -Platform x64 -ResultsPath ..\evidence\S02a\native-debug.xml -CommandTimeoutSeconds 60
+pwsh.exe -NoProfile -File tools\run_native_tests.ps1 -Configuration Release -Platform x64 -ResultsPath ..\evidence\S02a\native-release.xml -CommandTimeoutSeconds 60
+python.exe -B -m pytest src/plugins/automation/tests/salamatrix_ai_local_tests.py tools/code_metrics/tests tools/codeql/tests tools/localization/tests --junitxml=../evidence/S02a/python.xml -p no:cacheprovider
+MSBuild.exe src\tests\handles_wide_tests.vcxproj /m /t:Build /p:Configuration=Debug /p:Platform=x64 /p:OPENSAL_BUILD_DIR=C:\Samandarin\codex_pr769_prompts\work\build\S02a-negative\ /p:CoreHandlesDir=C:\Samandarin\codex_pr769_prompts\evidence\S02a\negative-core /p:PreferredToolArchitecture=x64 /nr:false /v:minimal
+```
+
+Poslední příkaz je úmyslná negativní kontrola se starým handles.h/.cpp z parentu
+v odděleném outputu. Pozitivní nový projekt automaticky objeví stávající runner;
+není nutná změna registrace. MSBuild VS18 Community v145, izolovaný baseline
+venv a pwsh; child WindowsPowerShell PSModulePath/PATH, PYTHONDONTWRITEBYTECODE=1,
+MSBUILDDISABLENODEREUSE=1. Whole-tree bound 95 s, native 100 s, subprocess60 s;
+žádný timeout. Signing hook přeskočil podpis podle stávajícího nastavení.
+
+Produktové dva soubory jsou EXACT vůči donorovým Git blobům po normalizaci
+newline. Nový native test linkuje skutečné core handles/trace/messages/widepath
+s aktivním Debug trackerem; Release přirozeně používá Win32 bez trackeru, proto
+nižší počet kontrol. Nepoužívá fake registry. Ověřuje bitmap pixel bytes,
+registry type/origin/count/cleanup, own resource icon/cursor, missing-file/
+directory sentinel a legacy makra. Samostatná UNICODE translation unit
+kompiluje W generic aliasy; hlavní ANSI TU ověřuje A generic aliasy.
+
+Vlastní fixtures zahrnují ASCII, Unicode filename, Unicode parents včetně CJK/
+emoji, UTF-8 byte délku nad 260 při kratší UTF-16 cestě a skutečnou UTF-16 long
+cestu s extended prefixem. Raw LoadImageW na poslední bitmapě selže i mimo
+wrapper; stejné selhání se neoznačuje jako úspěšné načtení. Není přidán nový
+bitmapový loader ani workaround mimo donor. Sentinel a reversní owned cleanup
+PASS. Je to přímá chybějící testovací mezera donoru, nikoli import širších
+Branch View testů. Fixture ledger adaptovaný z donorového SafeFile testu;
+minimální test precomp a vcxproj jsou integrační adaptéry. Nové testy W4/WX,
+stávající produkční common sources W3/WX jako host, tracking/new nezměněny.
+
+Přípravné neúspěšné kompilace test adaptéru (missing precomp/max/tracing,
+legacy W4 warnings) a první fixture run (system-resource ownership a málo
+hluboká cesta) jsou uchované mimo Git a nejsou PASS. Opraveny před finální
+regresní bránou; produktové hunks se kvůli nim neměnily.
+
+GUI přes Computer Use použilo pouze vlastní právě sestavená exe s novými
+nulovými file-backed configy. Obě kopie shodné SHA256 se zdrojem; všech 7
+originálů včetně dlouhého souboru beze změny. Vlastní bootstrapy obnoveny,
+exe hashe odpovídají launchům a runtime manifestům, staged convert bytes
+odpovídají targetu a .tab délky 256. Uživatelská instalace/nastavení nedotčeny.
+External viewer/editor launch a úplná Unicode internal viewer navigace nejsou
+součástí této změny ani GUI PASS; příslušné migrace až pozdější etapy.
+
+REUSE: 408 řádků, 2 EXACT, 5 ADAPTED, 14 REPLACED, 387 DEFERRED. Dva core
+hunks mají opravené původní nepřesné názvy; pluginové řádky S02b DEFERRED.
+Všechna příští rozhraní a testy zůstávají v původních odložených etapách.
+
+## Historická S01 — SafeFile Retry/Skip, 2026-10-12
 
 **S01 DONE, lokální Debug/Release x64 brána PASS.** S02 nezačala. Piny SOURCE
 beze změny. Parent `87b8afae7a8c2a934527468130bb7e7a2bac7e5c` plus runtime patch

@@ -1,6 +1,36 @@
 # Stav portu PR #769
 
-## Aktuální checkpoint S01
+## Aktuální checkpoint S02a
+
+2026-10-13, **S02a DONE — core LoadImage/FindFirstChangeNotification A/W**.
+Deklarace a implementace převzaté EXACT z připnutého donoru. Core CreateFileA/W,
+FindFirstFileA/W a widepath už baseline měla; znovu se nepřidávají. Nový cílený
+nativní test vyplňuje chybějící přímé ověření donoru; fixture ownership/cleanup
+adaptovaný z donorového SafeFile harnessu. SDK a pluginový kód beze změny.
+
+Lokální brána PASS: host/Salmon Debug/Release x64, Translator/Trace Server
+Debug/Release Win32; native 39 skupin/config, core handles Debug 132 a Release
+109 kontrol bez selhání, stávající SafeFile 99/config, pytest 49/49. GUI oba
+fresh starty: okamžitě oba panely, F3 správný ASCII obsah, F5 shodný hash kopie,
+normální shutdown bez handle diagnostiky; všech 7 originálů nezměněno.
+Negative control proti parent core úmyslně nekompiluje chybějící A/W členy.
+
+Parent `2c1480e064d5fd8cca0174b02ae5503411701b7b`; runtime patch `6154561f61dc71387b5582b03ab0825752409a5b2bb8903637f5e5f77e661e61`;
+code/test patch `e36fe9d1859e04a81faaa5a4615ba856c307ad7e170bcbdd6ef259679760827c`. Evidence `evidence/S02a` obsahuje raw source hashe,
+11 úspěšných finálních příkazů, GUI/runtime manifesty a vazbu finálního commitu.
+Commit najít trailerem `Port-Step: S02a`; SOURCE a CONTRACT piny beze změny.
+
+PHP process-runtime subcase SKIPPED. Jedna bitmapová long-path backend subcase
+v každé konfiguraci SKIPPED: samotné LoadImageW vrací Win32 error 2, ačkoli
+přesný soubor existuje. Wrapper parity/no-registration při selhání PASS;
+notifikace stejného UTF-16-long adresáře PASS. S02a CodeQL a plná čistá
+publikační platformní/plugin matice NOT RUN. Žádný push/PR tohoto portu.
+
+S02 celkem **PARTIAL**; nejbližší [S02b](steps/S02b.md). S03–S32 PENDING.
+Branch View zůstává nedostupné. Samostatné baseline PR #774/#775 a jejich
+fork-CI výsledky nejsou validací S02a a nemění donor/release piny.
+
+## Historický checkpoint S01
 
 2026-10-12, **S01 DONE — SafeFile Retry/Skip**. Pět donorových oprav,
 adaptovaný nativní ASCII harness a jeho registrace. Debug/Release x64 host
@@ -58,8 +88,9 @@ vlastní výsledné SHA se zde neuvádí. Žádný donorový runtime hunk nepře
 | První empty private config | PASS Debug/Release | Po S00c oba panely viditelné ihned bez zásahu; F3/F5 a hash kontrola |
 | S00c | DONE | WM_CREATE visibility až po přiřazení obou aktuálních panelů; první start i restart ověřeny |
 | S01 | DONE | Pět úzkých SafeFile oprav, compiled harness 99/99 v obou konfiguracích, native/host/GUI brána PASS |
-| S02–S32 | PENDING | Pořadí a podetapy v PLAN; Branch View nadále nedostupné |
-| Publikace | S01 lokální, bez push/PR | Baseline opravy oddělené v upstream #774/#775; jejich fork CI zelená, bez změny portové větve |
+| S02a | DONE | Core A/W EXACT; host/core consumers/native/Python/GUI brána PASS |
+| S02b–S32 | PENDING | S02 PARTIAL; nejbližší pluginové wrappery, Branch View nadále nedostupné |
+| Publikace | S02a lokální, bez push/PR | Baseline opravy oddělené v upstream #774/#775; jejich fork CI zelená, bez změny portové větve |
 
 ## Rozsah S00b
 
@@ -119,9 +150,9 @@ baseline REPLACED řádek S00c. Podrobnosti [VALIDATION.md](VALIDATION.md).
 
 ## Další nejmenší krok
 
-V samostatném běhu provést právě [S02](steps/S02.md): minimální wide Win32
-hranice a Debug A/W handle wrappery podle připnutého donoru. Znovu použít
-stávající path helpery; zachovat SDK ABI, tracking a new makra. Žádný scanner
-nebo plošná pluginová migrace. Před převzetím ověřit konkrétní konzumenty,
-provést příslušnou Debug/Release/native/GUI bránu a zastavit po S02.
-S01 neautorizuje publikaci portové větve ani automatický posun do S02.
+V samostatném běhu provést právě [S02b](steps/S02b.md): explicitní pluginové
+CreateFileA/W a FindFirstFileA/W z mhandles.h/.cpp, best-effort wide diagnostiku
+se zachováním GetLastError a všechny podporované konzumenty. Bez migrace
+pluginového I/O nebo S03. Před editací znovu ověřit konkrétní závislosti,
+provést smluvní Debug/Release/native/GUI bránu a zastavit po S02b.
+Dokončení S02a neautorizuje publikaci portové větve ani další implementaci.

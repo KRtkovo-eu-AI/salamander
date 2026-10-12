@@ -4,6 +4,16 @@ Pinned donor: `47661e92d4b3cbe5bb593ae3d75a3f1f698ef413`.
 Diff base and target: `a84dbed6db632a9e63b5ed9f4bc6691e4cc5f449`.
 Scope: changed-file list, selected critical function hunks and S01-S32 prompts. No implementation, donor build, fixture execution, mutation of donor or target, or assertion that a test passed. REUSE.tsv maps all 231 distinct donor paths; every row remains DEFERRED. Shared files have multiple stage rows; these are planning boundaries, not an assertion that all hunks already received independent parity review. S31 must resolve every actual hunk, including BOM-only differences and project registrations.
 
+## S02 audit correction, 2026-10-13
+
+The opening scope/status describes the historical S00 audit. Current progress
+is in PROGRESS/REUSE/VALIDATION; not all rows are still DEFERRED. A narrow actual
+core diff disproved the original generic CreateFile/CreateEvent hunk labels:
+core A/W CreateFile and FindFirstFile are already in the target. S02a reuses
+only the exact donor LoadImage and FindFirstChangeNotification A/W additions;
+all four core projects and direct live-tracker/native/GUI coverage passed.
+Plugin mhandles changes remain S02b DEFERRED. This adds no scanner dependency.
+
 ## Existing baseline facilities (reuse)
 
 - `src/common/widepath.h/.cpp` already define `CPathBuffer`, `CWidePathBuffer`, `SalIsExtendedLengthPathW`, `SalPathAddExtendedPrefixW`, `IsValidPathUtf8Text`, `SalMultiByteToWidePath` and wide-to-byte conversion helpers. They are not changed donor files. S02 adds A/W handle wrapper coverage, not another conversion library.
@@ -16,7 +26,7 @@ Scope: changed-file list, selected critical function hunks and S01-S32 prompts. 
 
 1. S01 has no new SDK/scanner/wide prerequisite. SafeFileRead and SafeFileWrite change silent `dlgRet |= DIALOG_SKIP` to assignment; both Retry reopen paths change only the disposition to OPEN_EXISTING while retaining the target's existing CreateFile boundary, desired access, sharing and flags. SafeFileCreate's failed owned filename duplication returns INVALID_HANDLE_VALUE and ERROR_NOT_ENOUGH_MEMORY after closing its handle. Do not import the wide-path helpers/catches merely because donor placed these changes nearby.
 2. The full donor SafeFile harness cannot be copied unchanged for S01: cpp.in main unconditionally tests `SafeFileRootLength`, added only in S03, and runs Unicode/long-path scenarios whose implementation is deferred. Reuse `RoundTrip`, `InjectRead`, `InjectWrite`, `FailDuplicate`, `Fixtures` and the generator that compiles actual production SafeFile methods. Keep ASCII retry/offset/content/error tests in S01; explicitly stage the wide/root tests in S03. Add required Write Skip, Read/Write Skip All assertions without weakening existing donor coverage. Donor directly covers silent READ Skip, not all these promised cases.
-3. S03 already has wide conversion/directory primitives in target; no Branch scanner dependency. Preserve S01 and the original UTF-8-first/ACP fallback byte-path contract. S02 must supply the wide Debug handle wrappers consumed by production CreateFileW calls.
+3. S03 already has wide conversion/directory primitives in target; no Branch scanner dependency. Preserve S01 and the original UTF-8-first/ACP fallback byte-path contract. Core CreateFileA/W already exist in the baseline; S02a adds only LoadImageA/W and FindFirstChangeNotificationA/W. S02b supplies missing plugin CreateFileA/W and FindFirstFileA/W plus wide diagnostic text. S03 must reuse the existing core CreateFileW wrapper instead of duplicating it.
 4. S04 ordinary getters are donor `CFilesWindow::GetItemDirectoryW`, `GetItemFullPathW`, `GetItemIdentityW`, `GetItemRelativePathW` in branch_view.cpp:269-309. `GetItemFullPathW` calls `Salamander::BranchView::Join`; the ordinary branch needs NameW/UseWideName plus existing widepath conversion. Extract only these ordinary parts into a compiled host translation unit and a single shared join implementation before scanner stage. The exact target path must be recorded when choosing that minimal extraction; REUSE.tsv retains donor destination as provisional while DEFERRED. Do not add CBranchViewState or stub state to satisfy these symbols. Getters' declarations belong to fileswnd.h.
 5. `CPanelItemPathsService::FindCurrentItem/GetItemFullPath` is donor zip.cpp:720; address membership is proven before dereference, capacity and UI thread errors are explicit. `CDiskSelectionService::Capture` is zip.cpp:801 and uses all three getters. S05 therefore requires completed S04. CaptureFallback/OwnedSnapshot in spl_diskselection.h must preserve allocation-module Release and failure atomicity.
 6. S17 partly overlaps S04: ordinary panel getters should already be done. Transfer remaining `SalGetFileSize2` wide size boundary in salamdr5.cpp, run getter/disk-size tests, defer real Branch metadata assertions to S26. There are no separate S17 getter modifications in zip.cpp in this pinned diff. Do not invent another host API.

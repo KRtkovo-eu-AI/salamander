@@ -1,11 +1,12 @@
 # Plán postupného portu PR #769
 
-Stav k 2026-10-12: S00/S00a/S00b/S00c a **S01 dokončeny**.
-S01 lokální Debug/Release x64 host/native/GUI brána PASS; SafeFile harness
-99 kontrol v každé konfiguraci, native 38 skupin a pytest 49/49. Nejbližší je
-[S02](steps/S02.md), v tomto běhu nezačala. Nový S01 není publikovaný; jeho
-plná platformní/plugin matice a CodeQL NOT RUN. Samostatné baseline PR #774/#775
-mají úspěšnou fork CI pro vlastní head SHA a neposouvají piny SOURCE.
+Stav k 2026-10-13: S00/S00a/S00b/S00c, S01 a **S02a dokončeny**.
+S02a lokální brána PASS: host/Salmon Debug/Release x64, Translator/Trace Server
+Debug/Release Win32; native 39 skupin v každé konfiguraci, pytest 49/49 a GUI.
+S02 je **PARTIAL**; další samostatný běh je [S02b](steps/S02b.md) pro pluginové
+wrappery. S03 nezačala. Portová větev zůstává lokální; plná čistá publikační
+platformní/plugin matice a CodeQL nového checkpointu NOT RUN. Samostatné
+baseline PR #774/#775 mají úspěšnou fork CI pro vlastní head SHA.
 Rozhodující zdroje jsou
 [CONTRACT.md](CONTRACT.md), [SOURCE.json](SOURCE.json), [PROGRESS.md](PROGRESS.md)
 a [VALIDATION.md](VALIDATION.md). Výsledky původního PR nejsou výsledky portu.
@@ -43,7 +44,7 @@ reviewovatelný PR, pokud níže není uvedena pevně svázaná dvojice.
 | [S00b](steps/S00b.md) | Baseline tracking a cleanup ikon; DONE, včetně souvisejících evidence chyb ze smoke | S00a; vlastní reprodukce Debug startup/shutdown |
 | [S00c](steps/S00c.md) | Viditelnost obou prvních panelů po přiřazení aktuálních panelů; DONE | S00b; první start a restart Debug/Release ověřeny |
 | [S01](steps/S01.md) | Izolované SafeFile Retry/Skip opravy | Ověřená baseline; rozdělit donorové testy podle skutečných závislostí |
-| [S02](steps/S02.md) | Wide utility a Debug sledování handleů | S01; pouze potřebné společné pomocné funkce |
+| [S02](steps/S02.md) | Wide utility a Debug sledování handleů; S02a DONE, S02b PENDING | S01; pouze potřebné společné pomocné funkce |
 | [S03](steps/S03.md) | SafeFile Unicode a dlouhé cesty | S01, S02 |
 | [S04](steps/S04.md) | Cesty položek běžného diskového panelu | S02; existující QueryService |
 | [S05](steps/S05.md) | Owned SDK, host service a DemoPlug společně | S04; neměnné vydané ABI |
@@ -82,6 +83,29 @@ S27 se provádí po jedné podetapě: **a** viewer/edit/Enter/Open Containing Fo
 před editací podle jednotlivých ověřitelných příkazů. S27d Shell Properties
 neznamená asynchronní sloupce Explorer properties ze S28. S29 pouze doplní
 obnovu historie/focus k příkazu Open Containing Folder zavedenému v S27a.
+
+## Podetapy S02 (audit před editací, 2026-10-12)
+
+S02a dokončena 2026-10-13; S02b zůstává další samostatnou podetapou.
+S02 má dvě nezávislé skupiny Debug wrapperů se značně odlišnou množinou
+konzumentů. V jednom běhu provést pouze první podetapu:
+
+1. **S02a — core LoadImage/FindFirstChangeNotification A/W.** Převzít páry
+   deklarací a implementací z common/handles.h/.cpp. Core CreateFileA/W a
+   FindFirstFileA/W i společné widepath helpery už baseline má; nepřidávat
+   druhé implementace. Ověřit host a všechny core consumers: salamand,
+   salmon, translator a tserver, Debug/Release na jejich podporované lokální
+   platformě (x64 host/salmon, Win32-only translator/tserver), nativní test
+   skutečného trackeru, A/W+legacy macro aliasů a vlastních Unicode/long fixtures,
+   existující native/Python sady a běžné GUI. Chybějící přímý donorový wrapper
+   test je doložená testovací mezera, doplnit cílené nativní ověření.
+2. **S02b — plugin CreateFile/FindFirstFile A/W.** Až v dalším běhu převzít
+   mhandles.h/.cpp včetně best-effort UTF-8 diagnostiky a zachování GetLastError;
+   ověřit všechny podporované konzumenty této sdílené pluginové hlavičky i
+   chybovou/low-memory diagnostickou větev. Bez pluginových I/O migrací.
+
+Teprve po obou bránách je S02 DONE a lze zahájit S03. Donor, release base,
+SDK virtual layout, obecná path knihovna a aktivace Branch View se nemění.
 
 ## Pravidla pro zjištěné předkroky
 
