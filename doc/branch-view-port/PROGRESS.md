@@ -1,6 +1,47 @@
 # Stav portu PR #769
 
-## S03 — IMPLEMENTED / PENDING runtime gate (2026-10-13)
+## S03-preflight — lokální runtime brána PASS (2026-10-14)
+
+Opraven potvrzený baseline únik `DupZipUtf8NameW`: hostův legacy SDK copy
+nepřebírá `NameW`, takže wide kopii nyní vlastní interní `CZIPFileData` a jeho
+stávající release callback. Reject/reset i metadata OOM mají jediný cleanup;
+nízkopaměťová větev zachována přes úzké `std::nothrow`/debug-new obnovení.
+Při cold archive smoke navíc prokázán AV při předání ZIP listing interface
+nově nakonfigurovanému 7-Zip unpackeru. `PackUncompress` používá uloženého
+vlastníka stejného panel/archive/interface; ostatní dispatch se nemění.
+SDK layout/vtable, 7-Zip vendor kód a původní heap MENU predicate beze změny.
+
+Host i ZIP plugin Debug/Release x64 v145 /warnaserror PASS. Finální native
+runner 42 groups/config PASS, SafeFile 268 checks/config, nový skutečný ZIP
+listing/dispatch harness 151 Debug / 138 Release checks; pytest 49 PASS.
+Parent `919e804d` s totožným harness má expected FAIL (25 failed assertions,
+včetně navazujících counter assertions), takže test odhaluje původní chyby.
+PHP a long-bitmap LoadImageW subcases zůstávají explicitně SKIPPED.
+
+Skutečné GUI cold ZIP rozbalení v Debug i Release ověřilo čtyři soubory
+včetně Unicode názvu, Unicode adresáře a stejných leaf names v různých
+adresářích; obsah/velikosti/SHA256 shodné. Restart panely a normální ukončení
+PASS oběma konfiguracemi. Finální Debug po odstranění diagnostiky znovu
+přestavěn a zavřen bez heap/handle dialogu. Doplňující restart capture ukazuje
+pouze známých 16 normal / 512 bytes MENU, predicate known=1, exit 0.
+Historický další restart warning nebyl v těchto finálních bězích zopakován;
+je zachován jako pozorování, nikoli připsán nové neprokázané příčině.
+
+Evidence `C:/Samandarin/codex_pr769_prompts/evidence/S03-preflight`: přesné
+bounded commands, source/runtime/fixture hash manifesty, negativní controls,
+PDB crash stack a GUI ledger. Own crash report zachován, žádný report odeslán.
+Dva diagnostické 90s deadline běhy nejsou PASS; startup interference po
+vlastním crash reporteru je odlišená od produktového AV. Bootstrapy obnoveny,
+vlastní procesy ukončeny, sedm původních fixtures a vlastní ZIP beze změny.
+
+S03 kandidát zůstává na `integration/pr769-s03-candidate`, interní draft
+[PR #21](https://github.com/majklvi/salamander/pull/21). Předchozí `919e804d`
+měl všech 12 checks SUCCESS včetně skutečné CodeQL analýzy; tyto výsledky
+nedokazují nové opravné SHA. Po pushi opravy je nutná nová current-head CI.
+S03 **není přijatá**, accepted reference zůstává `17678e7c`. SOURCE/CONTRACT
+piny se nemění. Žádný upstream PR, merge release base ani S04.
+
+## Historický S03 kandidát — otevřená runtime brána (2026-10-13)
 
 Na výslovné zadání uživatele připraven kandidátní commit a push do forku na
 samostatné `integration/pr769-s03-candidate` nad přijatým `17678e7c`, pro

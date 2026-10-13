@@ -453,6 +453,15 @@ try {
             )
         },
         @{
+            Name = 'zip_listing_lifetime_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\zip_listing_lifetime_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
             Name = 'copy_move_scheduling_contract_tests'
             Arguments = @(
                 '-B',
