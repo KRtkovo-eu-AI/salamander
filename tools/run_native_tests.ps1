@@ -453,6 +453,15 @@ try {
             )
         },
         @{
+            Name = 'panel_item_paths_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\panel_item_paths_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
             Name = 'zip_listing_lifetime_tests'
             ClassName = 'native-generated'
             Arguments = @(

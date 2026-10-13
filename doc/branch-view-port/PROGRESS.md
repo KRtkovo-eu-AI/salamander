@@ -1,5 +1,51 @@
 # Stav portu PR #769
 
+## S04 — IMPLEMENTED / lokální brána PASS (2026-10-14)
+
+Kandidát na `integration/pr769-s04-candidate` nad přijatým `ea1dd462`.
+Čtyři ordinary disk-row gettery z donorového `branch_view.cpp` přeneseny do
+již kompilovaného `fileswn1.cpp`, deklarace a const GetPath z fileswnd.h.
+Žádný Branch state/scanner. Donor Join nahrazen existujícím SalPathAppendW;
+wide root/name zůstávají přesné, byte fallback volí validní UTF-8 před ACP.
+Původní donorový ACP default reprodukoval čtyři neúspěšné assertions u UTF8
+root/name bez wide dat; finální adaptace projde při zachování ACP testu.
+
+CPanelItemPathsService/FindCurrentItem/GetItemFullPath a factory převzaty ze
+zip.cpp, built-in route přes stávající QueryService. Nová optional SDK třída
+CSalamanderPanelItemPathsAbstract, žádná změna vydaných vtables nebo CFileData.
+Current array membership se ověří před dereference; explicitní UI-thread,
+unsupported archive/FS, capacity/OOM/invalid errors. Výstup nikdy částečný.
+Borrowed pointer nesmí přežít refresh/message pumping; kontrola adresy není
+záruka proti ABA reuse. Synthetic '..' vrací navigation path root\.. stejně
+jako ordinary donor gettery, nejde o rozšíření selection/file-operation API.
+
+Host a všech 30 aktuálně podporovaných SDK konzumentů MSVC v145 Debug/Release
+x64 /warnaserror PASS (60 consumer builds). Historical portables variant a
+canonical BUILD_SFTP_PLUGIN=false zůstávají excluded, nejsou označeny PASS.
+Native runner 43 groups/config PASS; nový whole-production resolver/service/
+QueryService harness 193 checks/config /W4 /WX. Existujících 5 SDK Abstract
+class bodies spl_gen.h a celý spl_com.h shodné s release a84dbed6.
+Parent QueryService control s aktuálními resolvery expected FAIL 5 assertions;
+není to build celého parent hostu. Pytest 49 PASS. PHP missing a long-bitmap
+LoadImageW backend Win32 2 subcases zůstávají explicitně SKIPPED.
+
+Actual GUI D/R fresh/restart panels, fresh F3 ASCII obsah, fresh F5 kopie a
+všechny shutdowny PASS. Kopie SHA256/30 bytes shodné, vlastní nové empty configy,
+sedm původních fixtures beze změny a bootstrapy obnovené. V SDK ještě není
+migrovaný GUI consumer této služby; konkrétní service dispatch je testovaný
+nativním whole-production harness s panel/UI/registry facades. GUI smoke je
+běžná panelová regresní kontrola, není vydáván za GUI invocation nové služby.
+Real SMB I/O, external/viewer long-path operation migration a Branch metadata
+nejsou součástí S04. S05/consumer migration ani S26 scanner nejsou importovány.
+
+Evidence `C:/Samandarin/codex_pr769_prompts/evidence/S04`: bounded commands,
+source/runtime/fixture manifests, 60-row consumer matrix, JUnit a GUI ledger.
+Původní UTF8 BOM zip.cpp zachován; API source/extracted semantics se nemění.
+Stav **PENDING publication CI/acceptance**. Žádný nový push/PR ani upstream
+submission; poslední accepted reference zůstává ea1dd462. SOURCE/CONTRACT/
+release/donor piny nezměněné. Další nejmenší krok: publikace kandidáta do forku
+s interním draftem a current-head build/test/CodeQL ověření před S05.
+
 ## Přijetí S03 — DONE (2026-10-14)
 
 Uživatel po ověření CI schválil pokračování a přijetí kódového checkpointu
@@ -365,8 +411,7 @@ baseline REPLACED řádek S00c. Podrobnosti [VALIDATION.md](VALIDATION.md).
 
 ## Další nejmenší krok
 
-Provést [S04](steps/S04.md): ordinary disk-panel path getters a stávající
-QueryService službu PanelItemPaths z připnutého donoru. Přenést pouze běžný
-panelový subset a nezbytný join helper, bez Branch View scanner/state.
-S03 přijata na 770f48e0; nové API musí zachovat SDK ABI, basename a životnost
-borrowed CFileData. S04 v tomto dokumentačním přijetí nezačala.
+Publikovat S04 kandidáta z `integration/pr769-s04-candidate` do forku pouze
+v rámci publikačního zadání, po pushi založit/reuse interní CI draft přes
+Ensure-ForkCI.ps1. Ověřit nové SHA a teprve poté přijmout S04 a začít S05.
+Lokální S04 brána PASS; poslední accepted checkpoint zůstává ea1dd462.

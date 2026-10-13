@@ -899,35 +899,6 @@ struct CSalamanderServiceResult
     const char* ProviderName;
 };
 
-// Optional host-owned viewer navigation service. QueryService returns this
-// interface only on hosts supporting complete UTF-16 paths; older hosts return
-// FALSE and viewers may keep using the original MAX_PATH methods. This service
-// remains valid for the host lifetime and does not require a provider lease.
-#define SALAMANDER_SERVICE_VIEWER_ENUMERATION "Salamander.ViewerEnumeration"
-#define SALAMANDER_VIEWER_ENUMERATION_VERSION_1_0 0x00010000
-
-class CSalamanderViewerEnumerationAbstract
-{
-public:
-    // Same source/index/filter semantics as the legacy viewer methods. Capacities
-    // are in wchar_t units, including the terminator. A short output buffer returns
-    // FALSE and ERROR_INSUFFICIENT_BUFFER without advancing lastFileIndex or
-    // returning a partial path. Calls must be made outside the host UI thread.
-    // viewerPlugin is the caller's CPluginInterfaceAbstract (NULL for host viewers).
-    virtual BOOL WINAPI GetNextFileName(int srcUID, int* lastFileIndex,
-        const wchar_t* lastFileName, BOOL preferSelected, BOOL onlyAssociatedExtensions,
-        CPluginInterfaceAbstract* viewerPlugin, wchar_t* fileName, int fileNameCapacity,
-        BOOL* noMoreFiles, BOOL* srcBusy) = 0;
-    virtual BOOL WINAPI GetPreviousFileName(int srcUID, int* lastFileIndex,
-        const wchar_t* lastFileName, BOOL preferSelected, BOOL onlyAssociatedExtensions,
-        CPluginInterfaceAbstract* viewerPlugin, wchar_t* fileName, int fileNameCapacity,
-        BOOL* noMoreFiles, BOOL* srcBusy) = 0;
-    virtual BOOL WINAPI IsFileSelected(int srcUID, int lastFileIndex,
-        const wchar_t* lastFileName, BOOL* isFileSelected, BOOL* srcBusy) = 0;
-    virtual BOOL WINAPI SetFileSelection(int srcUID, int lastFileIndex,
-        const wchar_t* lastFileName, BOOL select, BOOL* srcBusy) = 0;
-};
-
 // Optional host-owned resolver for complete disk-panel item paths, including
 // recursive listings whose rows have different parent directories. QueryService
 // returns FALSE on older hosts. The interface is valid for the host lifetime and
@@ -950,60 +921,6 @@ public:
     // path APIs and add an extended-length prefix where their file API needs it.
     virtual BOOL WINAPI GetItemFullPath(int panel, const CFileData* item,
         wchar_t* path, int capacity) = 0;
-};
-
-// Immutable, owned disk selection. No existing interface or CFileData layout is
-// changed. QueryService-capable Samandarin hosts expose this optional service.
-#define SALAMANDER_SERVICE_DISK_SELECTION "Salamander.DiskSelection"
-#define SALAMANDER_DISK_SELECTION_VERSION_1_0 0x00010000
-#define SALDISKSELECTION_SELECTED_OR_FOCUSED 0
-#define SALDISKSELECTION_SELECTED_ONLY 1
-#define SALDISKSELECTION_FOCUSED_ONLY 2
-#define SALDISKSELECTION_ALL_ITEMS 3
-
-struct CSalamanderDiskSelectionItem
-{
-    const wchar_t* NameW;
-    const wchar_t* FullPathW;
-    const wchar_t* DirectoryW;
-    const wchar_t* RelativePathW;
-    BOOL IsDir;
-    BOOL Selected;
-    BOOL Focused;
-    DWORD Attr;
-    CQuadWord Size;
-    FILETIME LastWrite;
-    int PanelIndex; // Original dirs-then-files index, for information only.
-    const wchar_t* ExtensionW;
-    BOOL SizeValid;
-    BOOL Hidden;
-    BOOL IsLink;
-    BOOL IsOffline;
-};
-
-class CSalamanderDiskSelectionSnapshotAbstract
-{
-public:
-    // All strings/items are immutable and owned until Release. Read methods can
-    // run on worker threads and remain valid after panel refresh/destruction.
-    // Release exactly once, after all readers finish; never delete this interface.
-    virtual int WINAPI GetCount() const = 0;
-    virtual const CSalamanderDiskSelectionItem* WINAPI GetItem(int index) const = 0;
-    virtual const wchar_t* WINAPI GetRootPathW() const = 0;
-    virtual void WINAPI Release() = 0;
-};
-
-class CSalamanderDiskSelectionAbstract
-{
-public:
-    // Main UI thread only, ordinary local/UNC disk panels.
-    // Captures all metadata/paths before returning without changing selection.
-    // Skips synthetic '..'. Empty selection/focus succeeds with an empty snapshot.
-    // On failure *result is NULL: invalid parameter/mode, wrong thread,
-    // unsupported panel, missing identity or allocation failure via GetLastError.
-    // Capture is all-or-nothing; no partial paths/items are returned.
-    virtual BOOL WINAPI Capture(int panel, DWORD mode,
-        CSalamanderDiskSelectionSnapshotAbstract** result) = 0;
 };
 
 // Temporary host-owned service available while load-on-start plug-ins and

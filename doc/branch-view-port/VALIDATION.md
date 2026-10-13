@@ -1,5 +1,86 @@
 # Validace portu a baseline S00
 
+## S04 — IMPLEMENTED / lokální brána PASS (2026-10-14)
+
+Kandidát na `integration/pr769-s04-candidate` nad přijatým `ea1dd462`.
+Čtyři ordinary disk-row gettery z donorového `branch_view.cpp` přeneseny do
+již kompilovaného `fileswn1.cpp`, deklarace a const GetPath z fileswnd.h.
+Žádný Branch state/scanner. Donor Join nahrazen existujícím SalPathAppendW;
+wide root/name zůstávají přesné, byte fallback volí validní UTF-8 před ACP.
+Původní donorový ACP default reprodukoval čtyři neúspěšné assertions u UTF8
+root/name bez wide dat; finální adaptace projde při zachování ACP testu.
+
+CPanelItemPathsService/FindCurrentItem/GetItemFullPath a factory převzaty ze
+zip.cpp, built-in route přes stávající QueryService. Nová optional SDK třída
+CSalamanderPanelItemPathsAbstract, žádná změna vydaných vtables nebo CFileData.
+Current array membership se ověří před dereference; explicitní UI-thread,
+unsupported archive/FS, capacity/OOM/invalid errors. Výstup nikdy částečný.
+Borrowed pointer nesmí přežít refresh/message pumping; kontrola adresy není
+záruka proti ABA reuse. Synthetic '..' vrací navigation path root\.. stejně
+jako ordinary donor gettery, nejde o rozšíření selection/file-operation API.
+
+Host a všech 30 aktuálně podporovaných SDK konzumentů MSVC v145 Debug/Release
+x64 /warnaserror PASS (60 consumer builds). Historical portables variant a
+canonical BUILD_SFTP_PLUGIN=false zůstávají excluded, nejsou označeny PASS.
+Native runner 43 groups/config PASS; nový whole-production resolver/service/
+QueryService harness 193 checks/config /W4 /WX. Existujících 5 SDK Abstract
+class bodies spl_gen.h a celý spl_com.h shodné s release a84dbed6.
+Parent QueryService control s aktuálními resolvery expected FAIL 5 assertions;
+není to build celého parent hostu. Pytest 49 PASS. PHP missing a long-bitmap
+LoadImageW backend Win32 2 subcases zůstávají explicitně SKIPPED.
+
+Actual GUI D/R fresh/restart panels, fresh F3 ASCII obsah, fresh F5 kopie a
+všechny shutdowny PASS. Kopie SHA256/30 bytes shodné, vlastní nové empty configy,
+sedm původních fixtures beze změny a bootstrapy obnovené. V SDK ještě není
+migrovaný GUI consumer této služby; konkrétní service dispatch je testovaný
+nativním whole-production harness s panel/UI/registry facades. GUI smoke je
+běžná panelová regresní kontrola, není vydáván za GUI invocation nové služby.
+Real SMB I/O, external/viewer long-path operation migration a Branch metadata
+nejsou součástí S04. S05/consumer migration ani S26 scanner nejsou importovány.
+
+Evidence `C:/Samandarin/codex_pr769_prompts/evidence/S04`: bounded commands,
+source/runtime/fixture manifests, 60-row consumer matrix, JUnit a GUI ledger.
+Původní UTF8 BOM zip.cpp zachován; API source/extracted semantics se nemění.
+Stav **PENDING publication CI/acceptance**. Žádný nový push/PR ani upstream
+submission; poslední accepted reference zůstává ea1dd462. SOURCE/CONTRACT/
+release/donor piny nezměněné. Další nejmenší krok: publikace kandidáta do forku
+s interním draftem a current-head build/test/CodeQL ověření před S05.
+
+### Přesné S04 příkazy a limity
+
+- MSBuild salamand.vcxproj /m:1 /t:Build /p:Configuration=Debug|Release
+  /p:Platform=x64 /p:OPENSAL_BUILD_DIR=<own pr769-baseline-v145>
+  /p:PreferredToolArchitecture=x64 /warnaserror /nr:false: PASS, Debug 18,64 s
+  po SDK změně + 5,33 s po encoding adaptaci; Release 41,81 s.
+- Build-Consumer.ps1 -Name <supported consumer> -Configuration Debug|Release
+  -Suffix -s04: PASS 60/60, přesné projects/environment/deadlines v JSON.
+  Jde o přírůstkové rebuildy změněné hlavičky, není tvrzen nový čistý build.
+- python -B src/tests/panel_item_paths_tests.py --configuration Both:
+  193/config PASS. Actual SDK, conversion, SalPathAppendW, celé gettery,
+  service/factory a QueryService; panel array/window/registry jsou adaptéry.
+  Invalid/foreign/unaligned/one-past/old non-reused storage, actual worker
+  thread, exact capacity/sentinel, real wstring allocation failure a registry
+  fallback. Unicode parent/name, UTF8-byte-long/UTF16-long, ACP, UNC/extended
+  a synthetic parent path. UNC je stringová hranice, nikoli síťové I/O.
+- python -B src/tests/panel_item_paths_tests.py --configuration Debug
+  --query-source-ref ea1dd462...: expected FAIL 5 discovery assertions.
+  Před encoding adaptací tentýž harness expected FAIL 4 UTF8 assertions;
+  předchozí source/patch zachovány v before-encoding-adaptation.*.
+- tools/run_native_tests.ps1 -Configuration Debug|Release -Platform x64
+  -ResultsPath <own S04 XML> -CommandTimeoutSeconds 60: 43/config PASS,
+  40,40 / 42,46 s. JUnit group skipped=0 nepřeklasifikuje PHP/LoadImageW skips.
+- python -B -m pytest src/plugins/automation/tests/salamatrix_ai_local_tests.py
+  tools/code_metrics/tests tools/codeql/tests tools/localization/tests
+  --junitxml=<own S04 python.xml> -p no:cacheprovider: 49 PASS (3,28 s pytest).
+- Computer Use vlastní runtime a configy: Debug Fresh PID 7116 / Restart 4208,
+  Release Fresh 14124 / Restart 9792. Fresh panely/F3/F5, restart panely,
+  všechny normal Alt+F4/shutdown bez warningu. Bez řízení osobního Salamanderu.
+  Build helpers/compiler subprocesses ukončené; žádný report odeslán.
+
+Win32/ARM64 a nová CodeQL pro S04 NOT RUN. CI dokončené pro S03 není důkaz S04.
+API/SDK bytes po testech chrání source manifest. Nové assertions jsou vlastní
+rozšíření ordinary donor fixture; Branch assertions jsou nadále DEFERRED.
+
 ## Přijetí S03 — DONE (2026-10-14)
 
 Uživatel po ověření CI schválil pokračování a přijetí kódového checkpointu
