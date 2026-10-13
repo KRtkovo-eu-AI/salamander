@@ -11,6 +11,7 @@ int SalamanderVersion = 0;
 struct InspectableHandles : C__Handles
 {
     int Count() const { return Handles.Count; }
+    bool IsFinalized() const { return Finalized && !Handles.HasStorage(); }
     bool Contains(HANDLE h, C__HandlesType type, C__HandlesOrigin origin)
     {
         for (int i=0;i<Handles.Count;++i)
@@ -29,6 +30,47 @@ static void Check(bool success, const char* description)
     ++Checks;
     if (!success) { ++Failures; std::printf("FAIL: %s (Win32 %lu)\n", description, GetLastError()); }
 }
+#ifdef MHANDLES_ENABLE
+static void IdleRegistryCases()
+{
+    _CrtMemState before, idle, after;
+    _CrtMemCheckpoint(&before);
+    {
+        C_HandlesDataArray records;
+        _CrtMemCheckpoint(&idle);
+        Check(idle.lCounts[_NORMAL_BLOCK] == before.lCounts[_NORMAL_BLOCK] &&
+              idle.lSizes[_NORMAL_BLOCK] == before.lSizes[_NORMAL_BLOCK],
+              "unused registry retains no CRT allocation");
+        for (int index = 0; index < 205; ++index)
+        {
+            C__HandlesData entry = {};
+            entry.Handle.Handle = reinterpret_cast<HANDLE>(static_cast<UINT_PTR>(index + 1));
+            Check(records.Add(entry) == index && records[index].Handle.Handle == entry.Handle.Handle,
+                  "first registration and subsequent registry growth preserve handle identity");
+        }
+        for (int index = 204; index >= 0; --index)
+            records.Delete(index);
+        Check(records.Count == 0, "all records removed after multiple growth steps");
+    }
+    _CrtMemCheckpoint(&after);
+    Check(after.lCounts[_NORMAL_BLOCK] == before.lCounts[_NORMAL_BLOCK] &&
+          after.lSizes[_NORMAL_BLOCK] == before.lSizes[_NORMAL_BLOCK],
+          "used registry releases its CRT storage at destruction");
+}
+static void EarlyFinalizationCases()
+{
+    InspectableHandles tracker;
+    HANDLE event = TRACKED(tracker,CreateEvent(nullptr,TRUE,FALSE,nullptr));
+    Check(event != nullptr && tracker.Count() == 1,"early-finalization real handle registered");
+    if (event != nullptr)
+        Check(TRACKED(tracker,CloseHandle(event)) != FALSE,"early-finalization real handle closed");
+    tracker.SetCanUseTrace();
+    tracker.FinalizeForProcessExit();
+    Check(tracker.IsFinalized() && tracker.Count() == 0,"early finalization releases registry after diagnostics");
+    tracker.FinalizeForProcessExit();
+    Check(tracker.IsFinalized(),"finalization and later destructor are idempotent");
+}
+#endif
 static std::string Utf8(const std::wstring& value)
 {
     const int count = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, value.c_str(), -1, nullptr, 0, nullptr, nullptr);
@@ -200,6 +242,10 @@ static void DiagnosticCases(Fixtures& fixtures)
 #endif
 int main()
 {
+#ifdef MHANDLES_ENABLE
+    IdleRegistryCases();
+    EarlyFinalizationCases();
+#endif
     SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX);
     {
         Fixtures fixtures;

@@ -107,36 +107,6 @@ void ShowLoadError(HWND parent, const wchar_t* text)
     MessageBoxW(ResolveOwnerWindow(parent), text, kPluginCaption, MB_ICONERROR | MB_OK);
 }
 
-// HOST_E_INVALIDOPERATION: ICLRRuntimeHost::Stop already ran in this process.
-constexpr HRESULT kClrHostAlreadyStopped = static_cast<HRESULT>(0x80131022L);
-
-void ShowClrLoadError(HWND parent, HRESULT hr)
-{
-    wchar_t message[320];
-    StringCchPrintfW(message, _countof(message),
-                     L"Failed to load the CLR runtime. This process requires .NET Framework 4.8 (0x%08X).",
-                     static_cast<unsigned int>(hr));
-    ShowLoadError(parent, message);
-}
-
-void ShowClrStartError(HWND parent, HRESULT hr)
-{
-    wchar_t message[320];
-    if (hr == kClrHostAlreadyStopped)
-    {
-        StringCchPrintfW(message, _countof(message),
-                         L"Failed to start CLR runtime (0x%08X). The CLR was already stopped in this process. Restart Salamander.",
-                         static_cast<unsigned int>(hr));
-    }
-    else
-    {
-        StringCchPrintfW(message, _countof(message),
-                         L"Failed to start CLR runtime (0x%08X).",
-                         static_cast<unsigned int>(hr));
-    }
-    ShowLoadError(parent, message);
-}
-
 std::wstring BuildAssemblyPath(HWND parent)
 {
     std::wstring path = GetSamandarinManagedAssemblyPath(DLLInstance);
@@ -186,6 +156,7 @@ void ResetRuntimeLocked()
         gRuntimeHost->Release();
         gRuntimeHost = nullptr;
     }
+
 }
 
 bool InitializeRuntimeLocked(HWND parent)
@@ -241,6 +212,8 @@ bool InitializeRuntimeLocked(HWND parent)
         gRuntimeHost = nullptr;
         return false;
     }
+
+
 
     if (!gIsInitialized)
     {

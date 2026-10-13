@@ -1,6 +1,31 @@
 # Stav portu PR #769
 
-## Aktuální S02b-preflighta — kandidát, plná runtime brána BLOCKED
+## Aktuální S02b-preflightb — lokální oprava, current-head CI PENDING
+
+Parent 20d6018c. Samandarin již nedrží globální native path/version storage;
+prázdný SDK tracker nealokuje. Volitelná dvoufázová native exit příprava nejprve
+ověří init před odpojením ostatních CLR pluginů, pak při skutečném Unload zavře
+callback bránu a uvolní nativní reference. Původní tracker leak diagnostika
+proběhne včas, než hostovo rozhraní zanikne; pozdější destructor ji neopakuje.
+Příčina AV doložena stackem C__Trace -> C__Handles -> LdrShutdownProcess.
+
+Host a 30 podporovaných pluginů Debug/Release x64 PASS; native 41 groups/config,
+plugin wide 426 Debug/89 Release, shutdown 26/config, pytest 49. PHP a nativní
+LoadImageW long-bitmap subcase SKIPPED. Metadata Unicode/UTF8-byte-long/UTF16-long
+fixture běhy PASS oběma konfiguracemi. Plný GUI cold/restart/F3/F5/hash/shutdown
+oddělen od debugger controls. Skutečný init worker pozdržen jen ve vlastních
+Debug/Release procesech: odmítnutý close zachoval pluginy, následný init result 1,
+retry exit 0 bez AV. Timeout diagnostického helperu není počítán jako PASS.
+
+První pozdní hook dovolil unload jiných CLR pluginů před odmítnutím close;
+prokázaná chyba opravena readiness fází před UnloadAll loop. Historické logy
+zůstávají v evidence/S02b-preflightb. Žádné odeslané crash reporty nebo změny
+uživatelského nastavení. Nové SHA musí projít fork draft #20; jeho parent
+20d6018c měl všech 12 viditelných checks SUCCESS včetně CodeQL. To není CI
+nového commitu. S02b není DONE, S03 nezačala; accepted reference stále ef19d788.
+Podrobnosti [S02b-preflightb](steps/S02b-preflightb.md) a VALIDATION.md.
+
+## Historické S02b-preflighta — kandidát, plná runtime brána BLOCKED
 
 2026-10-13. Nad zveřejněným `207a8a57` opravena tři lokální icon ownership
 místa Service Exploreru: EnsureServiceImageList, CreateServiceBitmap a

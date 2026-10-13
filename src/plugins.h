@@ -2636,14 +2636,8 @@ public:
 
     // unloads the DLL; if 'ask' is TRUE, it prompts to Save when "save on exit" is enabled,
     // 'parent' is the parent window for message boxes; if 'ask' is FALSE it saves without asking,
-    // returns TRUE if the DLL was unloaded. When 'freeLibrary' is FALSE, Release runs
-    // but the module stays mapped until FreeDeferredModule. Exit uses that so every
-    // plug-in Release finishes before any plug-in DLL is unmapped: Salamatrix pump
-    // threads execute inside the runtime plug-ins.
-    BOOL Unload(HWND parent, BOOL ask, BOOL freeLibrary = TRUE);
-
-    // unmaps all references left loaded by Unload(..., FALSE), in reverse order
-    void FreeDeferredModule();
+    // returns TRUE if the DLL was unloaded
+    BOOL Unload(HWND parent, BOOL ask);
     // Optional Samandarin native exit hook; readiness does not release resources.
     BOOL PrepareNativeProcessExit(BOOL finalize);
 

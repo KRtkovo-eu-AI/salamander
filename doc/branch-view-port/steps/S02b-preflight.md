@@ -1,5 +1,9 @@
 # S02b-preflight — Debug startup/shutdown acceptance
 
+Aktualizace: [S02b-preflightb](S02b-preflightb.md) opravuje nativní storage,
+stale diagnostic pointer i pořadí init readiness. Lokální runtime brána ověřena;
+nový kandidát čeká na exact-head fork CI. Níže historie preflighta.
+
 Stav: **PARTIAL/BLOCKED**, 2026-10-13. S02b ani S03 nejsou přijaté/pokročilé.
 
 První samostatný kandidát S02b-preflighta opravuje tři lokálně vlastněné ikony

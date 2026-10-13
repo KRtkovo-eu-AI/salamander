@@ -3168,7 +3168,7 @@ BOOL CPluginData::PrepareNativeProcessExit(BOOL finalize)
     return prepare == NULL || prepare(2000, finalize);
 }
 
-BOOL CPluginData::Unload(HWND parent, BOOL ask, BOOL freeLibrary)
+BOOL CPluginData::Unload(HWND parent, BOOL ask)
 {
     CALL_STACK_MESSAGE5("CPluginData::Unload(0x%p, %d) (%s v. %s)", parent, ask, DLLName, Version);
     BOOL ret = FALSE;

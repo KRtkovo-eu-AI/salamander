@@ -1,6 +1,68 @@
 # S02b-preflightb — Samandarin Update Notifier shutdown lifetime
 
-Stav: **PENDING**, samostatný nejmenší baseline předkrok po icon fixu.
+Stav: **lokální kandidát, CI pro nové SHA PENDING**, 2026-10-13.
+Samostatná baseline oprava po icon fixu; S02b se tím ještě formálně nepřijímá.
+
+## Implementace a důvod
+
+Nejde o nový donor import. Prázdný SDK tracker alokuje až při první registraci;
+neúspěšné zvětšení nepokračuje zápisem do NULL. Assembly path/version jsou
+operation-owned; dynamická wide cesta zachovává dlouhé a Unicode adresáře.
+
+Volitelný soukromý export `Samandarin_PrepareForProcessExit(timeoutMs, finalize)`
+má dvě fáze. `CPlugins::UnloadAll` nejprve ověří dokončení inicializace před
+odpojením kteréhokoliv pluginu. Čekání je omezené na 2000 ms a dispatchuje pouze
+sent messages, nikoli posted UI práci. Timeout ponechá všechny pluginy načtené.
+Starší SPL bez exportu zachovává dosavadní fallback. Nejde o virtual SDK změnu.
+
+Finalizace až při skutečném Unload Samandarinu uzavře přístup nativních callbacků,
+po jejich doběhnutí uvolní init thread HANDLE a vlastní CLR hosting reference.
+Managed Shutdown/CLR Stop zůstávají na process-close cestě vynechané. Nativní
+P/Invoke vstupy po uzavření brány vracejí neutrální výsledek bez host pointers.
+Normální plugin Release mimo ukončení procesu zachovává původní chování.
+
+Tracker provede původní leak diagnostiku ještě za života hostitele, poté uvolní
+storage. Finalizace je idempotentní; pozdější destruktor CLR-přidržovaného DLL
+už neopakuje diagnostiku přes zaniklé hostovo rozhraní. Žádná heap/handle kontrola
+ani low-memory hlášení nebyly odstraněny. Přibyly metody/privátní stav nativního
+trackeru kompilovaného do každého SPL; žádné veřejné Abstract vtable se nemění.
+
+## Důkazy a omezení
+
+Vlastní native debugger zachytil AV v C__Trace::SendMessageToServer (dbg.cpp:285)
+z C__Handles destructor během LdrShutdownProcess. Po časné finalizaci exit 0 bez
+AV. Zpoždění skutečného InitializeRuntimeThread v plné Debug/Release sestavě
+ověřilo timeout se zachovanými pluginy, následný initialization result 1 a
+opakované zavření s exit 0. Pomocník pozdržuje pouze vlastní testovací proces;
+GUI vstupy přes Computer Use. Žádný crash report nebyl odeslán.
+
+Pozdní první verze hooku nestačila: jiné pluginy již zastavily CLR, takže
+obnovená inicializace selhala. Opraveno readiness fází před UnloadAll loop;
+neúspěšné pokusy zůstávají v externí evidenci, nepočítají se jako PASS.
+
+Host + 30 podporovaných consumers Debug/Release x64 PASS (60 consumer builds).
+Native runner: 41 skupin/config PASS; reálný SDK test 426 Debug/89 Release,
+shutdown test 26/config. Pytest 49 PASS. PHP subcase SKIPPED a long-bitmap
+LoadImageW backend subcase SKIPPED; celé JUnit groups je nezapočítávají jako skip.
+SFTP a legacy Portables 2015 EXCLUDED z podporované sestavy, nikoli PASS.
+
+Metadata fixture executable běhy pokrývají Unicode parents/name, UTF8-byte-long
+a skutečnou UTF16-long cestu v obou konfiguracích. Pro poslední případ .NET
+launcher selhal error 206; bounded native CreateProcessW launcher uspěl.
+Parent 20d6018c se starou eager alokací očekávaně neprošel unused-registry CRT
+assertion (422 checks/1 failure v tehdejší verzi testu); nejde o finální 426 test.
+
+Plný runtime zachovává notifier i ostatní plugins/resources. GUI cold start,
+restart, F3/F5/hash a čistý shutdown jsou vedené zvlášť od diagnostických běhů.
+Piny SOURCE/CONTRACT zůstávají beze změny; accepted reference stále S02a ef19d788.
+Win32/ARM64 matice a CodeQL nového commitu čekají na fork draft #20. Další krok
+je zkontrolovat přesné nové SHA a přijmout S02b; S03 zatím nezačíná.
+
+Evidence: `C:/Samandarin/codex_pr769_prompts/evidence/S02b-preflightb`.
+Finální command JSON, zdrojové/fixture/runtime manifesty a historie selhání
+oddělují postupné patche nad parent 20d6018c. Podrobnosti v VALIDATION.md.
+
+## Původní zadání předkroku
 
 Konkrétní oblast: CPluginData::Unload/Remove přeskočí Samandarin Release během
 UnloadingPluginsForMainWindowClose. ManagedBridge_Shutdown čeká na background

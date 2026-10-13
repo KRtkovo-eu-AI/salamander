@@ -1,5 +1,13 @@
 # Plán postupného portu PR #769
 
+Aktualizace S02b-preflightb (2026-10-13): nativní životnost notifieru, readiness
+před UnloadAll a časná původní tracker diagnostika opravené. Lokální Debug/Release
+buildy, native/pytest a plný runtime včetně pozdržené skutečné inicializace
+ověřeny; nové SHA zůstává kandidát pro fork CI #20. S02b čeká na current-head
+platformní matici/CodeQL a přijetí; reference S02a a SOURCE piny beze změny.
+Další krok: ověřit nové CI a uzavřít S02b acceptance, teprve potom S03.
+Následující stav S02b-preflighta je historický parent tohoto předkroku.
+
 Aktuální stav 2026-10-13: S02b-preflighta opravuje lokální tracker páry ikon
 Service Exploreru; Debug/Release build a GUI view/copy PASS. Plný Debug shutdown
 stále BLOCKED kvůli Samandarin Update Notifieru, izolováno A/B kontrolou.

@@ -1,5 +1,72 @@
 # Validace portu a baseline S00
 
+## S02b-preflightb — Samandarin native exit lifetime (2026-10-13)
+
+Kandidát nad parent `20d6018c4815c90a3b359e2bb45ded452cfbd5f7` na
+`integration/pr769-s02b-candidate`. Finální code patch SHA256
+`CCC496FAEEEADE60A54FF1EBA5ED8D66EEEE33A7BCBE35F15F8CB933AE06A4E2`.
+Externí evidence `C:/Samandarin/codex_pr769_prompts/evidence/S02b-preflightb`;
+logs/binárky necommitované. SOURCE piny a accepted ef19d788 beze změny.
+
+Skutečné příkazy jsou v jednotlivých bounded command JSON. Vše escalation,
+MSVC v145, /warnaserror, /nr:false, own build root pr769-baseline-v145,
+95/100 s procesní deadline. Použité příkazy:
+
+- MSBuild src/vcxproj/salamand.vcxproj /m:1 /t:Build /p:Configuration=Debug
+  (a Release) /p:Platform=x64 /p:OPENSAL_BUILD_DIR=<own root>;
+  poslední `host-*-preflight-final` PASS (25,71 / 86,33 s).
+- `Build-Consumer.ps1 -Name <supported consumer> -Configuration Debug|Release`:
+  30 skutečných projects, 60 final PASS v consumer-final-matrix.json. Poslední
+  Samandarin native export změna ověřena `samandarin-*-preflight-final`;
+  shared tracker po celé 60 matici nezměněn. SFTP/legacy Portables EXCLUDED.
+- `tools/run_native_tests.ps1 -Configuration Debug|Release -Platform x64
+  -ResultsPath <own evidence XML> -CommandTimeoutSeconds 60`: 41 groups/config,
+  real SDK tracker 426 Debug/89 Release, shutdown helpers 26/config. PHP není
+  dostupné; nativní long-bitmap LoadImageW backend odmítl fixture (Win32 2).
+  Tyto dvě subcases jsou SKIPPED, ne PASS navzdory group JUnit skipped=0.
+- Own venv `python -B -m pytest src/plugins/automation/tests/salamatrix_ai_local_tests.py
+  tools/code_metrics/tests tools/codeql/tests tools/localization/tests
+  --junitxml=<own evidence>/python.xml -p no:cacheprovider`: 49 PASS (6,19 s),
+  bez Python cache. Pozdější host ordering fix tyto Python oblasti nemění.
+- Actual parent tracker raw snapshot + then-current 422-check test: expected
+  exit 1, unused-registry CRT allocation assertion failed. Parent negative
+  evidence předchází přidání čtyř early-finalization checks; není 426 PASS.
+- Actual private helper exe ve třech own Unicode/byte-long/UTF16-long paths,
+  Debug/Release: 6 PASS. .NET launcher na UTF16-long cestě error 206; native
+  CreateProcessW explicit application launcher PASS. Helper zdroj beze změny.
+
+Full staged runtime obsahuje notifier, CLR, ostatní 30 supported plugins a
+resources. Fresh configy nulové před startem, nové copy cíle. GUI první panely,
+F3 ASCII obsah, F5 shodný SHA256 817596C4EC1AFF063B300263168678FF15FAAB50B37974F68B73422FE30EC606,
+restart/shutdown ověřované v obou konfiguracích; 7 původních fixture hashů
+včetně sentinelu kontrolovaných zvlášť. Pouze own runtime bootstrap obnoven.
+
+Native debugger zachytil first/second chance C0000005 na dbg.cpp:285:
+C__Handles destructor -> C__Trace::SendMessageToServer -> LdrShutdownProcess.
+Host exit 0 s Bug Reporterem byl nesprávná prvotní indikace čistého ukončení;
+není započten jako PASS. Časná idempotentní diagnostika opravila stale pointer,
+`final-capture.stdout.log` exit 0 bez AV. Žádný report odeslán.
+
+Zátěžový pomocník přes PDB identifikuje skutečný InitializeRuntimeThread,
+pozdrží pouze vlastní worker a obnoví ho vlastním named eventem. GUI Alt+F4
+probíhá přes Computer Use. Pozdní první hook umožnil jiným plugins zastavit
+CLR před odmítnutím close; obnovení init pak -1. Proto readiness nově předchází
+prvnímu Unload. Finální Debug `busy-debug-preflight`, Release `busy-release-stack`:
+close timeout zachoval loaded plugins; resume -> initialization result 1;
+retry exit 00000000, bez AV. Release stack dokládá main v GetMessage, nejde
+o deadlock; některé starší debugger runs vyčerpaly vlastní 90 s deadline a
+jsou NOT PASS. Jejich cíle byly ukončeny jen vlastním diagnostickým pomocníkem.
+
+Historie přípravných selhání je zachovaná: PATH/MSBuild setup, původně prázdný
+parent snapshot, managed shared-output collision, zamčené language modules
+otevřeným vlastním GUI, wrong runner argument index a CreateEventW test compile
+error (SDK má generic CreateEvent). Finální výsledky je nahrazují konkrétním
+novým command záznamem; timeout se nikdy nepřejmenovává na PASS.
+
+Nové current-head fork CI/CodeQL a povinná platformní matice PENDING. Parent
+20d6018c měl 12 viditelných checks SUCCESS včetně CodeQL, nikoli nové SHA.
+S02b formálně nepřijatá; S03 nezačala. Další krok: current-head CI a acceptance.
+
 ## S02b-preflighta — icon fix ověřena, úplná Debug brána BLOCKED
 
 2026-10-13. Testovaný base `207a8a572e3908feadc3093055dbd34958f07772` + přesný
