@@ -1,6 +1,53 @@
 # Validace portu a baseline S00
 
-## Aktuální S02b — PENDING/BLOCKED, 2026-10-13
+## S02b-preflighta — icon fix ověřena, úplná Debug brána BLOCKED
+
+2026-10-13. Testovaný base `207a8a572e3908feadc3093055dbd34958f07772` + přesný
+2-file icon patch v externí evidence/S02b-preflight/runtime.patch. Finální
+kandidátní SHA/evidence vazba je v checkpoint.json. S02b SDK/test inputs jsou
+bajtově shodné s předchozí validation-inputs.json; nic z portu není přepracováno.
+
+| Kontrola | Výsledek |
+| --- | --- |
+| Service Explorer Debug/Release x64 v145 /warnaserror | PASS, 3.54 / 4.92 s |
+| Host Debug/Release x64 /warnaserror | PASS, finální běhy 8.17 / 74.66 s |
+| Debug první start, panely/F3/F5/hash | PASS, žádný icon tracker modal |
+| Debug úplný shutdown | FAIL heap dialog; není clean gate |
+| Release panely/F3/F5/hash/shutdown | PASS; finální relink dále ověřen restartem |
+| Diagnostický host TRACE_TO_FILE | Build PASS 45.72 s; 4126 B / 21 normal blocks |
+| Izolující control bez notifier SPL | Bez heap dialogu, Closing log file; NENÍ full runtime PASS |
+| Native/Python SDK regression suite | Neopakována: SDK/test inputs beze změny; předchozí S02b 40 skupin/config a 49 pytest i CI 207a8a57 PASS |
+| Fork CI / CodeQL 207a8a57 | 12 viditelných check runs SUCCESS; nový icon kandidát musí dostat vlastní current-head CI |
+| Všech 7 původních GUI fixtures | Hash unchanged; Debug/Release ASCII kopie MATCH |
+
+Všechny čtyři product buildy používají normální repo projekty a původní flags,
+OPENSAL_BUILD_DIR work/build/pr769-baseline-v145. Dva přípravné host pokusy
+selhaly: Debug staging kvůli PSModulePath (Get-FileHash v child Windows PS
+nenalezen; napraveno scoped Windows PS module path), Release language DLL
+byla zamčená spuštěným vlastním GUI (po jeho normálním ukončení build PASS).
+Tyto FAIL nejsou zaměněny s finálními PASS.
+
+Vlastní Trace Server nebyl pro CU targetable (custom toolbar caption/hidden
+window); sky launch nenašel targetable window. Vlastní instance ukončeny.
+Diagnostická alternativa: samostatný build root S02b-preflight-trace a
+compiler env _CL_=/DTRACE_TO_FILE, stejné zdroje a matching plugin/resources.
+TEMP/TMP omezené na vlastní trace-temp. Normální build flags ani zdroje se
+nemění; diagnostický build není vydávanou binárkou. Žádné reporty odeslány.
+
+Před heap sentinel došlo ke skipu Samandarin shutdown v plugins1.cpp:3245;
+SPL a CLR stále načtené. Dump obsahuje SDK tracker allocation z mhandles.cpp:601,
+3200 B; path/version-sized blocks 334/48 B a dva 16 B debug proxy bloky jsou
+konzistentní s globálními std::wstring v managed_bridge.cpp. Dalších 16 bloků
+(512 B) má MENU marker a odpovídá již existující baseline výjimce. V kontrolním
+běhu stejný vlastní runtime a čerstvá konfigurace bez samandarin.spl došly až
+k Closing log file, bez heap dump/dialogu. SPL následně obnoven. Zbytek sestavy
+ani heap checker nebyly oslabeny. Control není náhradou úplné acceptance.
+
+Host skip shutdown a celý Samandarin plugin beze změny proti TARGET_SHA;
+SDK malloc/free pole trackeru beze změny proti S02a. Parent runtime není znovu
+spuštěn. Oddělená baseline blokace identifikována; nejmenší další předkrok je
+[S02b-preflightb](steps/S02b-preflightb.md). Piny a accepted checkpoint zachovány.
+## Historický kandidát S02b 207a8a57 — PENDING/BLOCKED, 2026-10-13
 
 **Build/native/Python PASS; čistá Debug runtime brána FAIL. Kandidátní commit není accepted checkpoint.**
 Testovaný parent `ef19d788c1a2807e134a2ea9ba3aa9f1e1ac253d`; runtime patch `962125d93e6f7f4f27c715da91c962d513cf8101d8ea1069261e496874b506e4`;

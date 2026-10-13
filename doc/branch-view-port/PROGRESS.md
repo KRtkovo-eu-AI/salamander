@@ -1,6 +1,41 @@
 # Stav portu PR #769
 
-## Aktuální práce S02b — PENDING/BLOCKED
+## Aktuální S02b-preflighta — kandidát, plná runtime brána BLOCKED
+
+2026-10-13. Nad zveřejněným `207a8a57` opravena tři lokální icon ownership
+místa Service Exploreru: EnsureServiceImageList, CreateServiceBitmap a
+SetServiceExplorerIconList nyní párují HANDLES(LoadImage) s HANDLES(DestroyIcon).
+Ikony předávané hostiteli přes GetFSIcon/GetPluginIcon mají dál původní externí
+vlastnictví. Nejde o další donorový import ani změnu společného SDK.
+
+Service Explorer Debug/Release x64 /warnaserror PASS; host Debug/Release PASS.
+Běžné GUI oběma: první panely, F3 správný ASCII obsah a F5 hash PASS.
+Release normální shutdown PASS. Debug icon diagnostics odstraněné, ale při
+shutdown stále heap dialog; celý S02b-preflight ani S02b nejsou DONE.
+
+Oddělený diagnostický host používá existující TRACE_TO_FILE přes compiler env,
+bez změny produktu či vypnutí heap/tracker kontrol. Dump: 4126 B / 21 normal
+blocks, z toho 3200 B SDK tracker allocation a zbývající nativní storage
+konzistentní s managed bridge Update Notifieru + známých 512 B MENU noise.
+Samandarin SPL a CLR zůstaly při heap bráně načtené; log doložil přeskočení
+shutdown callbacku v plugins1.cpp. Stejný běh bez jediné vlastní kopie tohoto
+SPL skončil bez heap dialogu a s Closing log file. Tento izolující control
+není PASS plné sestavy; plugin byl poté obnoven.
+
+Samandarin bridge/shutdown host source jsou beze změny proti TARGET_SHA;
+SDK tracker constructor/destructor jsou beze změny proti parentu S02a.
+Přesný parent runtime znovu nesestaven; tvrzení o baseline vychází z této
+source parity, načteného modulu a A/B izolace, nikoli z vymyšleného parent PASS.
+Nejmenší další krok [S02b-preflightb](steps/S02b-preflightb.md).
+
+Fork PR #20 pro `207a8a57`: všechny 12 viditelné check runs SUCCESS včetně
+CodeQL (dva běhy squash guard po editaci popisu); není to CI nového patch/SHA.
+Oprava ikon je samostatný PENDING kandidát na integrační větvi. Referenční
+accepted větev zůstává `ef19d788`; SOURCE/CONTRACT piny nezměněny, S03 nezačala.
+Evidence `evidence/S02b-preflight`: bounded build JSON/logs, GUI launches,
+TRACE_TO_FILE logy, A/B výsledek a source/fixture hash vazba. Původních 7 fixtures
+nedotčeno, bootstrapy obnoveny, vlastní diagnostické pomocníky ukončeny.
+## Historický kandidát S02b 207a8a57 — PENDING/BLOCKED
 
 2026-10-13. Poslední přijatý parent `ef19d788c1a2807e134a2ea9ba3aa9f1e1ac253d` zůstává na
 `refactor/pr-769-incremental`. Uživatelem autorizovaný PENDING kandidátní commit

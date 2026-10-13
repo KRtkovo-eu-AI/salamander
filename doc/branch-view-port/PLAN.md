@@ -1,6 +1,13 @@
 # Plán postupného portu PR #769
 
-Stav k 2026-10-13: poslední přijatý checkpoint **S02a** (`ef19d788`).
+Aktuální stav 2026-10-13: S02b-preflighta opravuje lokální tracker páry ikon
+Service Exploreru; Debug/Release build a GUI view/copy PASS. Plný Debug shutdown
+stále BLOCKED kvůli Samandarin Update Notifieru, izolováno A/B kontrolou.
+S02b není přijatá. Nejbližší [S02b-preflightb](steps/S02b-preflightb.md): nativní
+shutdown a životnost resources CLR-přidržovaného pluginu, bez potlačení kontrol.
+Publikovaný integrační kandidát může vyvolat CI; S03 ani upstream PR nezačínají.
+
+Historický stav kandidáta 207a8a57: poslední přijatý checkpoint **S02a** (`ef19d788`).
 **S02b PENDING/BLOCKED**: donorové pluginové wrappery a přímé native testy
 připravené, host + 30 podporovaných konzumentů Debug/Release x64 a regresní
 sady PASS. Debug GUI odhalilo nezměněný Service Explorer icon ownership
