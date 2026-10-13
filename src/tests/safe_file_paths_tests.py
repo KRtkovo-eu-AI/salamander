@@ -1,9 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Compile actual SafeFile code and test ASCII Retry/Skip/OOM behavior (S01).
-
-Adapted from PR #769, donor 47661e92; Unicode/root/long-path cases wait for S03.
-"""
+"""Exercise actual disk SafeFile functions with owned Unicode and long-path fixtures."""
 import argparse
 import os
 from pathlib import Path
@@ -77,13 +74,6 @@ def main():
                           if re.match(r"#define (DIALOG_|BUTTONS_)", line))
     ids = sorted(set(re.findall(r"\bIDS_\w+", production)))
     production = re.sub(r'^#include.*$', '', production, flags=re.M)
-    # Legacy SafeFileCreate conditionally initializes hFile for file operations.
-    # Its directory/allocation branches trigger MSVC W4 flow warnings; the S01
-    # fixture only calls it for files. Keep this suppression local to that method
-    # and keep all assertions and uninitialized dlgRet diagnostics enabled.
-    create = block(production, "HANDLE\nCSalamanderSafeFile::SafeFileCreate(")
-    production = production.replace(create, "#pragma warning(push)\n"
-        "#pragma warning(disable: 4701 4703)\n" + create + "\n#pragma warning(pop)")
     pieces = {
         "SDK": block(common, "struct CQuadWord", ";") + "\n" +
                sdk[sdk.index("struct SAFE_FILE"):sdk.index("class CSalamanderSafeFileAbstract\n{")] +
@@ -114,7 +104,7 @@ def main():
             flags = ["/MDd", "/D_DEBUG", "/Od"] if configuration == "Debug" else ["/MD", "/DNDEBUG", "/O2"]
             print("Actual SafeFile paths:", configuration, flush=True)
             for command in ([compiler, "/nologo", "/std:c++17", "/EHsc", "/utf-8", "/W4", "/WX", "/D_CRT_SECURE_NO_WARNINGS",
-                             *flags, str(source), "/Fe:" + str(executable), "shlwapi.lib"], [str(executable)]):
+                             *flags, str(source), "/Fe:" + str(executable)], [str(executable)]):
                 result = run(command, cwd=directory, env=environment, timeout=45)
                 if result.returncode:
                     return result.returncode

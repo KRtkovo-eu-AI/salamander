@@ -1,13 +1,18 @@
 # Plán postupného portu PR #769
 
-Aktuální stav 2026-10-13: **S02b DONE, S02 DONE**. Uživatel schválil přijetí
-kódu `23d5406d49eeee40cda9ef19288ff66b6618fd57` po lokální runtime bráně a
-všech 12 SUCCESS checks fork PR #20 pro přesné SHA, včetně Win32/x64/ARM64,
-native/Python, source growth a dokončeného CodeQL. Preflighta/b jsou uzavřené.
-Referenční větev `refactor/pr-769-incremental` se posouvá pouze fast-forward
-na tento kód a jeho dokumentační záznam přijetí. SOURCE/CONTRACT piny beze změny.
-Další nejmenší etapa je [S03](steps/S03.md), SafeFile Unicode a dlouhé cesty;
-v tomto běhu nezačala. Fork draft zůstává otevřený, nemerguje se do release base.
+Aktuální stav 2026-10-13: **S03 IMPLEMENTED / PENDING runtime gate**.
+Wide SafeFile a rozšířené skutečné diskové testy připravené nad accepted
+`17678e7c`. Debug/Release host, SafeFile 268 checks/config, native 41 groups/config
+a pytest 49 PASS. Běžné F3/F5 a Debug extrakce ZIPu PASS; Debug shutdown
+však hlásí heap leak. Kontrolní parent host jej reprodukuje bez změněného
+SafeFile při pouhém otevření stejného ZIPu. Původ ještě není identifikovaný.
+Nejmenší další krok [S03-preflight](steps/S03-preflight.md), nikoli S04.
+Uživatel následně autorizoval kandidátní commit/push do vlastního forku na
+samostatné `integration/pr769-s03-candidate` s interním fork-CI draftem.
+S03 zůstává PENDING a není přijatá; published SHA/PR evidence externě v S03.
+Accepted S02a/S02b DONE; `refactor/pr-769-incremental` a původní S02b integration
+branch zůstávají na `17678e7c`. SOURCE/CONTRACT piny beze změny.
+Fork draft #20 zůstává otevřený; nové CI není předem označené za PASS.
 
 ## Historie kandidátů před přijetím S02b
 

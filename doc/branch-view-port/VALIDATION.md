@@ -1,5 +1,66 @@
 # Validace portu a baseline S00
 
+## S03 — implementace a otevřená runtime brána (2026-10-13)
+
+Parent `17678e7cac710f176683403b8cae382aee087dbf`, kód ověřen jako pracovní diff
+na `refactor/pr-769-incremental`. Následně uživatel autorizoval kandidátní
+commit/push na samostatné `integration/pr769-s03-candidate` a interní fork-CI
+draft. Tím se nepřijímá S03 ani neodstraňuje runtime blokace. Identické code/test
+bytes před commitem porovnány s validačním manifestem; dokumentace doplňuje
+publikační stav. Code patch SHA256
+`F6269765AFE375887DC14272EAD5523701BE62A152362C0805E3DE82BBF4BCBA`.
+Evidence `C:/Samandarin/codex_pr769_prompts/evidence/S03`: bounded command JSON,
+stdout/stderr, JUnit XML, source/runtime/fixture hash manifesty a GUI ledger.
+Vše escalation, whole-process deadline 95/100 s, no node reuse/Python cache.
+
+- `MSBuild src/vcxproj/salamand.vcxproj /m:1 /t:Build /p:Configuration=Debug|Release
+  /p:Platform=x64 /p:OPENSAL_BUILD_DIR=<own pr769-baseline-v145> /warnaserror
+  /nr:false`: PASS, 9,42 / 32,08 s. Po parent control finální Debug přestavěn
+  (`host-debug-restored`, 5,88 s). SDK, shared headers ani pluginové zdroje se
+  nemění; staging používá podporované konzumenty již ověřené v S02b a matching
+  dependencies/resources. Nová 60-plugin matice zde není nutná ani tvrzená.
+- Own venv `python -B src/tests/safe_file_paths_tests.py --configuration Both`:
+  PASS, 268 checks Debug a 268 Release, /W4 /WX. Production SafeFile/SDK/wide
+  helpery se extrahují celé, UI dialogy a jednorázové device/path allocation
+  failure jsou testové adaptéry; Win32 file I/O a identity/content/cleanup jsou
+  skutečné. Ověřen skutečný DOS alias i legacy ACP fallback, žádný jejich skip.
+  Harness nenahrazuje Debug tracker ani produktový GUI test.
+- Tentýž harness `--configuration Debug --source-ref 47661e92...`: expected
+  runtime FAIL pouze relative long create (Win32 3, 254 checks/1 failure).
+  Toto je negativní donor control konkrétní adaptační opravy, nikoli PASS.
+- `tools/run_native_tests.ps1 -Configuration Debug|Release -Platform x64
+  -ResultsPath <own XML> -CommandTimeoutSeconds 60`: 41 groups/config PASS
+  (28,43 / 25,83 s). PHP missing a LoadImageW long-bitmap backend Win32 2
+  subcases explicitně SKIPPED; group JUnit skipped=0 je nepřeklasifikuje.
+- Own venv `python -B -m pytest src/plugins/automation/tests/salamatrix_ai_local_tests.py
+  tools/code_metrics/tests tools/codeql/tests tools/localization/tests
+  --junitxml=<own python.xml> -p no:cacheprovider`: 49 PASS (3,15 s pytest).
+- Computer Use, vlastní matching runtime a configy: první/restart panely D/R,
+  F3 ASCII obsah a F5 kopie D/R PASS; obě kopie SHA256 odpovídají původnímu
+  fixture. Debug rozbalení vlastního ZIPu přes `src/plugins/zip/extract.cpp`
+  SafeFileCreate PASS, přesných 36 bytes výsledku ověřeno zvlášť. Nejprve byl
+  cíl odmítnut jako nepodporovaná maska `*.*`; po zadání adresáře extrakce PASS.
+  To není path resolver chyba. Release ZIP extraction nebyla provedena.
+
+Debug Alt+F4 po extrakci vyvolal `Heap Message: Detected memory leaks!`.
+Parent kontrola: jediný host runtime zdroj dočasně nahrazen přesnými bytes
+`git show 17678e7c:src/safefile.cpp`, host Debug přestavěn a nové empty config
+otevřelo stejné ZIP přímo v panelu. Bez extrakce reprodukován tentýž heap
+dialog. JSON parent build/launch nese obecný digest S03 patch souboru;
+control ledger a parent source hash výslovně odlišují skutečný parent runtime.
+Finální source bytes obnoveny z vlastního snapshotu a ověřeny shodným SHA256,
+host znovu přestavěn. Debug restart s configem z archive smoke hlásí heap znovu.
+Release fresh/restart bez hlášení. Původ CRT bloků dosud neurčen; S03 celková
+runtime brána **PENDING/BLOCKED**, navazuje [S03-preflight](steps/S03-preflight.md).
+Autorizovaný kandidátní commit/push slouží pro fork CI; není accepted checkpoint.
+Žádný upstream PR ani S04. Žádná heap/tracker kontrola nevypnuta. Žádný crash report odeslán. Own bootstrap obnoven; osobní instalace
+a původní fixtures beze změny.
+
+UNC root checks jsou pouze stringové hranice, nikoli skutečné SMB I/O.
+Win32/ARM64, čistá publikační sestava a nové CodeQL nebyly spuštěny; předchozí
+zelená CI S02b nedokazuje S03. SOURCE/CONTRACT/donor piny, SDK ABI, workflows
+a budoucí etapy beze změny. Native/disk PASS není přijetí celé etapy.
+
 ## Přijetí S02b (2026-10-13)
 
 Uživatel schválil přijetí kódu `23d5406d49eeee40cda9ef19288ff66b6618fd57`

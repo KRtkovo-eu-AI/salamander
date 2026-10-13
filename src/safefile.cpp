@@ -1028,7 +1028,7 @@ try
                     HANDLES(CloseHandle(file->HFile)); // close the invalid handle because we could not read from it anyway
                 }
 
-                file->HFile = HANDLES_Q(CreateFile(file->FileName, file->dwDesiredAccess, file->dwShareMode, NULL,
+                file->HFile = HANDLES_Q(CreateFileW(fileNameW.c_str(), file->dwDesiredAccess, file->dwShareMode, NULL,
                                                    OPEN_EXISTING, file->dwFlagsAndAttributes, NULL));
                 if (file->HFile != INVALID_HANDLE_VALUE) // opened; now set the offset
                 {
@@ -1122,7 +1122,7 @@ try
                     HANDLES(CloseHandle(file->HFile)); // close the invalid handle because we could not read from it anyway
                 }
 
-                file->HFile = HANDLES_Q(CreateFile(file->FileName, file->dwDesiredAccess, file->dwShareMode, NULL,
+                file->HFile = HANDLES_Q(CreateFileW(fileNameW.c_str(), file->dwDesiredAccess, file->dwShareMode, NULL,
                                                    OPEN_EXISTING, file->dwFlagsAndAttributes, NULL));
                 if (file->HFile != INVALID_HANDLE_VALUE) // opened; now set the offset
                 {

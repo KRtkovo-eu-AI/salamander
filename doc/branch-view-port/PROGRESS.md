@@ -1,5 +1,39 @@
 # Stav portu PR #769
 
+## S03 — IMPLEMENTED / PENDING runtime gate (2026-10-13)
+
+Na výslovné zadání uživatele připraven kandidátní commit a push do forku na
+samostatné `integration/pr769-s03-candidate` nad přijatým `17678e7c`, pro
+interní fork-CI draft proti `samandarin-0.16`. Commit neznamená přijetí S03;
+stav PENDING a baseline runtime blokace níže trvají. Accepted reference a
+původní S02b integration branch zůstávají na `17678e7c`, bez merge release base.
+Přesné published SHA/PR a zahájené CI ukládá externí `evidence/S03/publish-*`;
+výsledek CI se nepředjímá. Žádný upstream PR ani S04.
+Nejmenší další krok [S03-preflight](steps/S03-preflight.md).
+
+SafeFile wide create/open/overwrite, recursive directories, Retry/cleanup a
+bad_alloc hranice převzaty z připnutého donoru; všechny S01 opravy zachované.
+Adaptace resolveru opravuje skutečně reprodukovaný donorový problém krátké
+relativní cesty, jejíž absolutní UTF-16 délka překročí MAX_PATH. Donor control
+se stejným rozšířeným harness selže právě zde; finální kód projde.
+
+Host Debug/Release x64 v145 /warnaserror PASS. Actual SafeFile driver /W4 /WX:
+268 checks/config PASS, včetně Unicode parent/name, UTF8-byte-long parent,
+UTF16-long/extended/relative paths, recursive creation, Retry/Skip, overwrite,
+read-only, reálného DOS aliasu, ACP fallback a OOM. Vše v owned temp root,
+cleanup a sentinel ověřeny. Native runner 41 groups/config a pytest 49 PASS;
+PHP a long-bitmap LoadImageW backend subcases nadále explicitně SKIPPED.
+
+GUI panely a F3/F5 ASCII Debug/Release PASS, Debug ZIP extrakce a obsah PASS.
+Debug shutdown po archive hlásí heap leak; kontrolní host s parent SafeFile
+reprodukuje hlášení již po pouhém otevření stejného ZIPu. Finální Debug restart
+s jeho vlastním configem hlásí totéž. Původ alokace dosud neurčen; nejde o
+PASS celé runtime brány. Zdroj následně obnoven, finální host přestavěn.
+Release fresh/restart shutdown bez této diagnostiky. Externí evidence S03,
+code patch SHA256 `F6269765AFE375887DC14272EAD5523701BE62A152362C0805E3DE82BBF4BCBA`.
+CODEQL/publikační platformní matice neprovedeny. SOURCE/CONTRACT/SDK/workflows
+beze změny; původní accepted S02 checkpointy nejsou změněné.
+
 ## Přijatý checkpoint S02b — DONE (2026-10-13)
 
 Uživatel schválil přijetí kódu `23d5406d49eeee40cda9ef19288ff66b6618fd57`.
