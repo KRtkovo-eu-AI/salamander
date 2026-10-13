@@ -1,7 +1,7 @@
 # S03-preflight — ZIP listing ownership a rozbalování
 
-Stav: lokální brána PASS (2026-10-14); čeká nová CI opravného commitu a přijetí S03.
-Nepokračovat do S04 před uzavřením této brány.
+Stav: **DONE (2026-10-14)**. Opravný kód 770f48e0 přijat po úplné lokální bráně
+a 12 SUCCESS current-head checks PR #21 včetně provedené CodeQL analýzy.
 
 ## Potvrzená příčina a oprava
 
@@ -61,12 +61,13 @@ způsobil neukončený vlastní reporter; jeho report zachován hashově shodně
 evidence, bez smazání nebo odeslání. Osobní instalace nedotčena, own bootstrapy
 obnoveny, owned procesy/cache odstraněné, sedm původních fixtures beze změny.
 
-## Publikační stav
+## Přijetí a publikační stav
 
-Uživatel autorizoval opravu a předtím push kandidáta do forku. Opravný commit
-navazuje na stejnou `integration/pr769-s03-candidate` a interní draft
-[PR #21](https://github.com/majklvi/salamander/pull/21), bez duplicitního PR.
-Předchozí SHA 919e804d mělo všech 12 checks SUCCESS včetně skutečné CodeQL
-analýzy; po novém pushi je nutné ověřit novou CI. S03 zůstává nepřijatá,
-reference `refactor/pr-769-incremental` na 17678e7c, release base beze změny.
-SOURCE/CONTRACT/donor piny nezměněné. Žádný upstream PR ani S04.
+Uživatel schválil přijetí ověřeného checkpointu
+`770f48e096260a596c4827341cf57490a0e2a37e`. Před přijetím znovu ověřeny
+head/base a 12 COMPLETED/SUCCESS checks interního
+[PR #21](https://github.com/majklvi/salamander/pull/21), včetně CodeQL Release
+x64 build/analysis/SARIF. S03 a preflight DONE, reference navazuje fast-forward
+na kód a dokumentační acceptance commit. Jeho CI je nový běh, nepřipisuje se
+mu dřívější zelené CI. Fork draft zůstává otevřený, release base nemergovaná.
+SOURCE/CONTRACT/donor piny nezměněné. Další S04 plánovaná, zatím nezačala.

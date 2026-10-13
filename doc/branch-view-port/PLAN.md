@@ -1,14 +1,15 @@
 # Plán postupného portu PR #769
 
-Aktuální stav 2026-10-14: **S03 lokální brána PASS / čeká nová fork CI a přijetí**.
-Wide SafeFile a opravy archive ownership ověřeny Debug/Release x64: host + ZIP,
-42 native groups/config, SafeFile 268/config, ZIP lifetime/dispatch 151/138,
-pytest 49. Cold Unicode ZIP extrakce/obsah a restart/shutdown PASS oběma.
-Heap diagnostika ani SDK se nemění. Podrobnosti [S03-preflight](steps/S03-preflight.md).
-Kandidát `integration/pr769-s03-candidate`, interní draft #21. Předchozí
-919e804d měl 12 SUCCESS včetně CodeQL; oprava musí projít CI pro nové SHA.
-S03 zatím není přijatá; accepted reference `17678e7c`, SOURCE/CONTRACT beze změny.
-Nejmenší další krok je ověření CI opravy a přijetí S03, nikoli zahájení S04.
+Aktuální stav 2026-10-14: **S03 DONE, přijatý kód 770f48e0**.
+Lokální Debug/Release brána a všech 12 current-head checks PR #21 včetně
+skutečné CodeQL analýzy PASS. Baseline ZIP ownership/dispatch preflight uzavřen.
+Podrobnosti a historické limity v [PROGRESS.md](PROGRESS.md),
+[VALIDATION.md](VALIDATION.md) a [S03-preflight](steps/S03-preflight.md).
+Referenční `refactor/pr-769-incremental` navazuje fast-forward na přijatý kód
+a dokumentační acceptance commit. Nové CI dokumentace je samostatný běh.
+SOURCE/CONTRACT a release/donor piny se nemění; fork draft #21 zůstává otevřený.
+Další nejmenší etapa [S04](steps/S04.md), zatím PLANNED. V tomto přijetí se
+neimplementuje; ordinary panel getters/PanelItemPaths bez scanner/Branch state.
 
 ## Historie kandidátů před přijetím S02b
 
@@ -68,7 +69,7 @@ reviewovatelný PR, pokud níže není uvedena pevně svázaná dvojice.
 | [S00c](steps/S00c.md) | Viditelnost obou prvních panelů po přiřazení aktuálních panelů; DONE | S00b; první start a restart Debug/Release ověřeny |
 | [S01](steps/S01.md) | Izolované SafeFile Retry/Skip opravy | Ověřená baseline; rozdělit donorové testy podle skutečných závislostí |
 | [S02](steps/S02.md) | Wide utility a Debug sledování handleů; S02a/S02b DONE | S01; pouze potřebné společné pomocné funkce |
-| [S03](steps/S03.md) | SafeFile Unicode a dlouhé cesty | S01, S02 |
+| [S03](steps/S03.md) | SafeFile Unicode a dlouhé cesty; DONE včetně baseline preflight | S01, S02 |
 | [S04](steps/S04.md) | Cesty položek běžného diskového panelu | S02; existující QueryService |
 | [S05](steps/S05.md) | Owned SDK, host service a DemoPlug společně | S04; neměnné vydané ABI |
 | [S06](steps/S06.md) | File Comparator | S05 |

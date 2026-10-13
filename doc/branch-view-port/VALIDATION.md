@@ -1,6 +1,31 @@
 # Validace portu a baseline S00
 
-## S03-preflight — lokální runtime brána PASS (2026-10-14)
+## Přijetí S03 — DONE (2026-10-14)
+
+Uživatel po ověření CI schválil pokračování a přijetí kódového checkpointu
+`770f48e096260a596c4827341cf57490a0e2a37e`. Před přijetím znovu ověřeny přesné
+head/base interního [PR #21](https://github.com/majklvi/salamander/pull/21):
+12 COMPLETED/SUCCESS checks. Build Win32/x64/ARM64, native/Python, source growth
+a squash guard prošly. CodeQL provedlo Release x64 build, vlastní analýzu,
+filtr změněných řádků a upload SARIF; nebylo přeskočeno.
+
+Lokální host/ZIP Debug/Release, SafeFile 268/config, ZIP lifetime/dispatch
+151 Debug / 138 Release, native 42 groups/config, pytest 49 a skutečné cold
+Unicode ZIP extraction/hash/restart/shutdown ověřují totožný kód. Historické
+PHP/LoadImageW skips, negativní controls a diagnostické timeouty zůstávají
+popsané níže; nejsou překlasifikované na PASS.
+
+S03 a její baseline preflight DONE. Referenční `refactor/pr-769-incremental`
+se posouvá fast-forward přes přijatý kód a tento dokumentační záznam. S02b
+integration branch, SOURCE/CONTRACT/donor piny a release base se nemění.
+Acceptance commit je pouze dokumentace; jeho automatické CI po pushi je
+nový běh, oddělený od zelených výsledků přijatého kódu 770f48e0. Build/GUI se
+bez změny kódu neopakují. Fork draft #21 zůstává otevřený pro validaci.
+Další etapa [S04](steps/S04.md) je plánovaná, v tomto přijetí se neimplementuje.
+Evidence: `C:/Samandarin/codex_pr769_prompts/evidence/S03-preflight/acceptance-*`
+a `ci-current-codeql-job.stdout.log`, `ci-current-build-run.stdout.log`.
+
+## Historický S03-preflight — lokální runtime brána PASS (2026-10-14)
 
 Opraven potvrzený baseline únik `DupZipUtf8NameW`: hostův legacy SDK copy
 nepřebírá `NameW`, takže wide kopii nyní vlastní interní `CZIPFileData` a jeho
