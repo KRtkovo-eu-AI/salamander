@@ -7,8 +7,10 @@ QueryService, bez Branch state/scanner. Host + 30 SDK konzumentů D/R x64,
 43 native groups/config, resolver/service 193/config, pytest 49 a běžný
 fresh/restart/F3/F5/hash/shutdown smoke PASS. ABI předchozích rozhraní zachované.
 [PROGRESS.md](PROGRESS.md), [VALIDATION.md](VALIDATION.md), [S04](steps/S04.md).
-Kandidát zatím nepublikován; current-head platform build/CodeQL ještě NOT RUN.
-Další krok: autorizovaná publikace a fork CI, přijetí S04 před S05.
+Kód dd344546 publikován na zadání uživatele, interní fork draft #22 otevřený.
+Current-head platform/test CI běží; CodeQL čeká na build matici. Publikační
+záznam je pouze dokumentace, testovaný kód se nemění. Další krok: ověřit
+nové head CI a přijmout S04 před S05.
 SOURCE/CONTRACT a release/donor piny beze změny, reference zůstává ea1dd462.
 
 ## Historie kandidátů před přijetím S02b

@@ -41,10 +41,13 @@ nejsou součástí S04. S05/consumer migration ani S26 scanner nejsou importová
 Evidence `C:/Samandarin/codex_pr769_prompts/evidence/S04`: bounded commands,
 source/runtime/fixture manifests, 60-row consumer matrix, JUnit a GUI ledger.
 Původní UTF8 BOM zip.cpp zachován; API source/extracted semantics se nemění.
-Stav **PENDING publication CI/acceptance**. Žádný nový push/PR ani upstream
-submission; poslední accepted reference zůstává ea1dd462. SOURCE/CONTRACT/
-release/donor piny nezměněné. Další nejmenší krok: publikace kandidáta do forku
-s interním draftem a current-head build/test/CodeQL ověření před S05.
+Kód dd344546 na zadání uživatele publikován do forku na stejné
+`integration/pr769-s04-candidate`, interní [draft PR #22](https://github.com/majklvi/salamander/pull/22)
+proti samandarin-0.16/a84dbed6. Stav **PENDING current-head CI/acceptance**.
+Publikační záznam je dokumentační commit, kód/test bytes beze změny. Jeho nové
+CI se váže k aktuálnímu head SHA, nikoli pouze k lokálně ověřenému dd344546.
+Poslední accepted reference zůstává ea1dd462; SOURCE/CONTRACT/release/donor
+piny nezměněné. Další krok: ověření CI a přijetí S04 před S05.
 
 ## Přijetí S03 — DONE (2026-10-14)
 
@@ -411,7 +414,7 @@ baseline REPLACED řádek S00c. Podrobnosti [VALIDATION.md](VALIDATION.md).
 
 ## Další nejmenší krok
 
-Publikovat S04 kandidáta z `integration/pr769-s04-candidate` do forku pouze
-v rámci publikačního zadání, po pushi založit/reuse interní CI draft přes
-Ensure-ForkCI.ps1. Ověřit nové SHA a teprve poté přijmout S04 a začít S05.
-Lokální S04 brána PASS; poslední accepted checkpoint zůstává ea1dd462.
+Ověřit aktuální head interního fork draftu #22: platformní buildy, native/Python
+a skutečnou CodeQL analýzu; vyřešit případné change-caused failures. Teprve
+poté přijmout S04 a začít S05. Lokální brána PASS, accepted reference ea1dd462.
+Draft nemergovat do referenční release base.

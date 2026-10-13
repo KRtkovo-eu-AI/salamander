@@ -41,10 +41,13 @@ nejsou součástí S04. S05/consumer migration ani S26 scanner nejsou importová
 Evidence `C:/Samandarin/codex_pr769_prompts/evidence/S04`: bounded commands,
 source/runtime/fixture manifests, 60-row consumer matrix, JUnit a GUI ledger.
 Původní UTF8 BOM zip.cpp zachován; API source/extracted semantics se nemění.
-Stav **PENDING publication CI/acceptance**. Žádný nový push/PR ani upstream
-submission; poslední accepted reference zůstává ea1dd462. SOURCE/CONTRACT/
-release/donor piny nezměněné. Další nejmenší krok: publikace kandidáta do forku
-s interním draftem a current-head build/test/CodeQL ověření před S05.
+Kód dd344546 na zadání uživatele publikován do forku na stejné
+`integration/pr769-s04-candidate`, interní [draft PR #22](https://github.com/majklvi/salamander/pull/22)
+proti samandarin-0.16/a84dbed6. Stav **PENDING current-head CI/acceptance**.
+Publikační záznam je dokumentační commit, kód/test bytes beze změny. Jeho nové
+CI se váže k aktuálnímu head SHA, nikoli pouze k lokálně ověřenému dd344546.
+Poslední accepted reference zůstává ea1dd462; SOURCE/CONTRACT/release/donor
+piny nezměněné. Další krok: ověření CI a přijetí S04 před S05.
 
 ### Přesné S04 příkazy a limity
 
@@ -77,7 +80,8 @@ s interním draftem a current-head build/test/CodeQL ověření před S05.
   všechny normal Alt+F4/shutdown bez warningu. Bez řízení osobního Salamanderu.
   Build helpers/compiler subprocesses ukončené; žádný report odeslán.
 
-Win32/ARM64 a nová CodeQL pro S04 NOT RUN. CI dokončené pro S03 není důkaz S04.
+Publikační Win32/x64/ARM64 buildy a testy jsou v nové CI PR #22 rozběhnuté;
+CodeQL čeká na úspěšnou build matici. CI dokončené pro S03 není důkaz S04.
 API/SDK bytes po testech chrání source manifest. Nové assertions jsou vlastní
 rozšíření ordinary donor fixture; Branch assertions jsou nadále DEFERRED.
 
