@@ -1,5 +1,27 @@
 # Validace portu a baseline S00
 
+## Přijetí S02b (2026-10-13)
+
+Uživatel schválil přijetí kódu `23d5406d49eeee40cda9ef19288ff66b6618fd57`
+po ověření dokončení CI. Fresh `gh pr view 20 --repo majklvi/salamander
+--json headRefOid,baseRefOid,headRefName,baseRefName,isDraft,statusCheckRollup,url`
+potvrdil přesné head SHA, base `a84dbed6db632a9e63b5ed9f4bc6691e4cc5f449`
+a všech 12 COMPLETED/SUCCESS checks. Evidence: externí
+`S02b-preflightb/acceptance-current-head-ci.{json,stdout.log}`.
+
+Build Win32/x64/ARM64 Debug (warnings as errors), native/Python, source growth,
+squash guard a CodeQL včetně skutečného Analyze C++ jobu SUCCESS. CodeQL zde
+nebylo skipped. Lokální runtime a native důkazy pro totožný kód níže; PHP a
+LoadImageW backend subcase zůstávají explicitně SKIPPED. Optional širší plugin
+operation smoke není povinná wrapper brána a zůstává neprovedený.
+
+S02b a baseline preflighta/b DONE; spolu se S02a je S02 DONE. Referenční
+`refactor/pr-769-incremental` se posouvá fast-forward, bez merge release base,
+změny donor/source pinů nebo zahájení S03. Acceptance commit obsahuje pouze
+dokumentaci, takže build/GUI nebyly zbytečně opakovány. Jeho automatické fork
+CI po pushi je nový běh; výsledky 23d5406d jsou vázané na kódový checkpoint.
+Dokumentační přijetí nemění historické commit trailery PENDING ani staré logy.
+
 ## S02b-preflightb — Samandarin native exit lifetime (2026-10-13)
 
 Kandidát nad parent `20d6018c4815c90a3b359e2bb45ded452cfbd5f7` na

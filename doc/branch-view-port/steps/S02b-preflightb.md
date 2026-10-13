@@ -1,7 +1,8 @@
 # S02b-preflightb — Samandarin Update Notifier shutdown lifetime
 
-Stav: **lokální kandidát, CI pro nové SHA PENDING**, 2026-10-13.
-Samostatná baseline oprava po icon fixu; S02b se tím ještě formálně nepřijímá.
+Stav: **DONE**, 2026-10-13. Kód `23d5406d49eeee40cda9ef19288ff66b6618fd57`
+prošel lokální runtime i všech 12 exact-head fork CI checks včetně CodeQL;
+uživatel následně schválil přijetí S02b. Samostatná baseline oprava po icon fixu.
 
 ## Implementace a důvod
 
@@ -54,9 +55,9 @@ assertion (422 checks/1 failure v tehdejší verzi testu); nejde o finální 426
 
 Plný runtime zachovává notifier i ostatní plugins/resources. GUI cold start,
 restart, F3/F5/hash a čistý shutdown jsou vedené zvlášť od diagnostických běhů.
-Piny SOURCE/CONTRACT zůstávají beze změny; accepted reference stále S02a ef19d788.
-Win32/ARM64 matice a CodeQL nového commitu čekají na fork draft #20. Další krok
-je zkontrolovat přesné nové SHA a přijmout S02b; S03 zatím nezačíná.
+Piny SOURCE/CONTRACT zůstávají beze změny. Referenční větev navazuje fast-forward
+na přijatý kód a dokumentační acceptance záznam. Win32/x64/ARM64 matice a CodeQL
+pro kód 23d5406d SUCCESS; S02b přijatá. Další etapa S03 zde nezačíná.
 
 Evidence: `C:/Samandarin/codex_pr769_prompts/evidence/S02b-preflightb`.
 Finální command JSON, zdrojové/fixture/runtime manifesty a historie selhání

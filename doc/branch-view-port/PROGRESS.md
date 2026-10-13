@@ -1,6 +1,25 @@
 # Stav portu PR #769
 
-## Aktuální S02b-preflightb — lokální oprava, current-head CI PENDING
+## Přijatý checkpoint S02b — DONE (2026-10-13)
+
+Uživatel schválil přijetí kódu `23d5406d49eeee40cda9ef19288ff66b6618fd57`.
+Při přijetí znovu ověřeno přesné head/base PR #20: 12 COMPLETED/SUCCESS checks,
+včetně Debug Win32/x64/ARM64, native/Python, source growth a skutečně dokončené
+CodeQL analýzy. Lokální brána: host + 30 supported consumers Debug/Release x64,
+41 native groups/config, pytest 49, plné fresh/restart/F3/F5/hash/shutdown
+a actual delayed-init recovery v obou konfiguracích. Historické explicitní
+PHP/LoadImageW skips a excluded consumers nejsou překlasifikované na PASS.
+
+**S02a i S02b DONE; S02 DONE.** Uzavřené i baseline preflighta/b.
+Referenční `refactor/pr-769-incremental` navazuje fast-forward na přijatý kód
+a tento dokumentační záznam. SOURCE/CONTRACT a release/donor piny nezměněny.
+Dokumentační acceptance commit nemění žádný src/test/build/workflow soubor;
+jeho další CI po pushi se vede odděleně od zeleného testovaného kódu 23d5406d.
+Evidence `evidence/S02b-preflightb/acceptance-current-head-ci.*` a checkpoint.
+Fork draft #20 zůstává otevřený; žádný merge release base ani upstream PR.
+Další nejmenší etapa [S03](steps/S03.md); v tomto běhu se neimplementuje.
+
+## Historické S02b-preflightb — lokální oprava před dokončením CI
 
 Parent 20d6018c. Samandarin již nedrží globální native path/version storage;
 prázdný SDK tracker nealokuje. Volitelná dvoufázová native exit příprava nejprve
@@ -93,7 +112,7 @@ výsledků + zvlášť neúspěšné přípravné pokusy. Piny SOURCE/CONTRACT n
 PHP a S02a LoadImageW-long backend subcase SKIPPED; CodeQL/plná publish matice
 dosud bez výsledku pro kandidáta. S02 nadále PARTIAL.
 
-## Poslední přijatý checkpoint S02a
+## Historický přijatý checkpoint S02a
 
 2026-10-13, **S02a DONE — core LoadImage/FindFirstChangeNotification A/W**.
 Deklarace a implementace převzaté EXACT z připnutého donoru. Core CreateFileA/W,
@@ -176,16 +195,17 @@ vlastní výsledné SHA se zde neuvádí. Žádný donorový runtime hunk nepře
 | S00 zdroje/smlouva/plán/mapa | DONE | Piny SOURCE, CONTRACT a původních 393 donorových řádků beze změny |
 | S00a prostředí/evidence | DONE | v145, pinned submodules, isolated pytest/lizard; historie v VALIDATION |
 | S00b tracking/cleanup | DONE | 9 úzkých source změn; nové baseline REPLACED řádky, žádný import PR #769 |
-| Build/native/Python | PASS provedeného rozsahu | Debug/Release x64 host/resources, 37/37 native skupin každá konfigurace, pytest 49/49; PHP subcase SKIPPED |
+| Build/native/Python | PASS provedeného rozsahu S02b | Host/30 consumers Debug/Release x64, 41 native groups/config, pytest 49; PHP/LoadImageW subcases SKIPPED |
 | Normal-panel GUI Debug/Release | PASS s initialized private config | F3 ASCII, F5 copy/hash, 7 originálů beze změny, normální shutdown bez Debug handle diagnostiky |
 | První empty private config | PASS Debug/Release | Po S00c oba panely viditelné ihned bez zásahu; F3/F5 a hash kontrola |
 | S00c | DONE | WM_CREATE visibility až po přiřazení obou aktuálních panelů; první start i restart ověřeny |
 | S01 | DONE | Pět úzkých SafeFile oprav, compiled harness 99/99 v obou konfiguracích, native/host/GUI brána PASS |
 | S02a | DONE | Core A/W EXACT; host/core consumers/native/Python/GUI brána PASS |
-| S02b | PREPARED/BLOCKED | Build/native PASS; čisté Debug GUI startup/shutdown FAIL |
-| S02b-preflight | PENDING | Service Explorer ownership + identifikace Debug heap leak |
-| S03–S32 | PENDING | S02 PARTIAL; Branch View nadále nedostupné |
-| Publikace | S02a lokální, bez push/PR | Baseline opravy oddělené v upstream #774/#775; jejich fork CI zelená, bez změny portové větve |
+| S02b | DONE | Kód 23d5406d, full local runtime PASS, přesných 12 fork CI checks SUCCESS |
+| S02b-preflighta/b | DONE | Icon ownership, native storage/diagnostic lifetime a init readiness ověřeny |
+| S02 celkem | DONE | Obě podetapy přijaté; další předpoklad S03 splněn |
+| S03–S32 | PENDING | Nezahájené; Branch View nadále nedostupné |
+| Publikace | Fork integration draft #20 | Kód S02b ověřen; upstream funkční PR dosud nepodané, draft se nemerguje do reference base |
 
 ## Rozsah S00b
 
@@ -245,7 +265,7 @@ baseline REPLACED řádek S00c. Podrobnosti [VALIDATION.md](VALIDATION.md).
 
 ## Další nejmenší krok
 
-Provést [S02b-preflight](steps/S02b-preflight.md) pro zjištěné Debug startup/
-shutdown překážky. Zachovat necommitovaný S02b patch; žádný reset, stash nebo
-přepis pinu. Po reprodukci/izolaci a opravě opakovat jen dotčené testy, sestavení
-a Debug/Release GUI; S02b přijmout až po úspěšné runtime bráně. S03 nezačínat.
+Provést [S03](steps/S03.md): připnuté SafeFile wide I/O a jeho úplný donorový
+Unicode/long-path test. Zachovat přijaté S01 Retry/Skip opravy a S02 wrappery.
+Nezahajovat další pluginové migrace nebo Branch View. Toto přijetí S02b pouze
+uzavírá předchozí runtime/CI bránu; S03 kód v tomto běhu nevzniká.

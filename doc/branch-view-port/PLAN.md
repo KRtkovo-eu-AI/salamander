@@ -1,12 +1,15 @@
 # Plán postupného portu PR #769
 
-Aktualizace S02b-preflightb (2026-10-13): nativní životnost notifieru, readiness
-před UnloadAll a časná původní tracker diagnostika opravené. Lokální Debug/Release
-buildy, native/pytest a plný runtime včetně pozdržené skutečné inicializace
-ověřeny; nové SHA zůstává kandidát pro fork CI #20. S02b čeká na current-head
-platformní matici/CodeQL a přijetí; reference S02a a SOURCE piny beze změny.
-Další krok: ověřit nové CI a uzavřít S02b acceptance, teprve potom S03.
-Následující stav S02b-preflighta je historický parent tohoto předkroku.
+Aktuální stav 2026-10-13: **S02b DONE, S02 DONE**. Uživatel schválil přijetí
+kódu `23d5406d49eeee40cda9ef19288ff66b6618fd57` po lokální runtime bráně a
+všech 12 SUCCESS checks fork PR #20 pro přesné SHA, včetně Win32/x64/ARM64,
+native/Python, source growth a dokončeného CodeQL. Preflighta/b jsou uzavřené.
+Referenční větev `refactor/pr-769-incremental` se posouvá pouze fast-forward
+na tento kód a jeho dokumentační záznam přijetí. SOURCE/CONTRACT piny beze změny.
+Další nejmenší etapa je [S03](steps/S03.md), SafeFile Unicode a dlouhé cesty;
+v tomto běhu nezačala. Fork draft zůstává otevřený, nemerguje se do release base.
+
+## Historie kandidátů před přijetím S02b
 
 Aktuální stav 2026-10-13: S02b-preflighta opravuje lokální tracker páry ikon
 Service Exploreru; Debug/Release build a GUI view/copy PASS. Plný Debug shutdown
@@ -63,7 +66,7 @@ reviewovatelný PR, pokud níže není uvedena pevně svázaná dvojice.
 | [S00b](steps/S00b.md) | Baseline tracking a cleanup ikon; DONE, včetně souvisejících evidence chyb ze smoke | S00a; vlastní reprodukce Debug startup/shutdown |
 | [S00c](steps/S00c.md) | Viditelnost obou prvních panelů po přiřazení aktuálních panelů; DONE | S00b; první start a restart Debug/Release ověřeny |
 | [S01](steps/S01.md) | Izolované SafeFile Retry/Skip opravy | Ověřená baseline; rozdělit donorové testy podle skutečných závislostí |
-| [S02](steps/S02.md) | Wide utility a Debug sledování handleů; S02a DONE, S02b BLOCKED | S01; pouze potřebné společné pomocné funkce |
+| [S02](steps/S02.md) | Wide utility a Debug sledování handleů; S02a/S02b DONE | S01; pouze potřebné společné pomocné funkce |
 | [S03](steps/S03.md) | SafeFile Unicode a dlouhé cesty | S01, S02 |
 | [S04](steps/S04.md) | Cesty položek běžného diskového panelu | S02; existující QueryService |
 | [S05](steps/S05.md) | Owned SDK, host service a DemoPlug společně | S04; neměnné vydané ABI |
@@ -105,7 +108,7 @@ obnovu historie/focus k příkazu Open Containing Folder zavedenému v S27a.
 
 ## Podetapy S02 (audit před editací, 2026-10-12)
 
-S02a dokončena 2026-10-13; S02b zůstává další samostatnou podetapou.
+S02a i S02b dokončeny 2026-10-13. Následující rozdělení zachovává původní audit.
 S02 má dvě nezávislé skupiny Debug wrapperů se značně odlišnou množinou
 konzumentů. V jednom běhu provést pouze první podetapu:
 
