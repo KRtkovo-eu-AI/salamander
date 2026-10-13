@@ -1,6 +1,100 @@
 # Validace portu a baseline S00
 
-## Aktuální S02a — core A/W handle wrappery, 2026-10-13
+## Aktuální S02b — PENDING/BLOCKED, 2026-10-13
+
+**Build/native/Python PASS; čistá Debug runtime brána FAIL. Kandidátní commit není accepted checkpoint.**
+Testovaný parent `ef19d788c1a2807e134a2ea9ba3aa9f1e1ac253d`; runtime patch `962125d93e6f7f4f27c715da91c962d513cf8101d8ea1069261e496874b506e4`;
+code/test patch `772b2b635af915e68202cf6289defaf01faf24337d082f68023c4afe8a91f85d`. Raw source hashe, exact args/env/time/exit v
+`evidence/S02b/validation-inputs.json` a per-run JSON; matrix, 67 finálních
+úspěšných příkazů, GUI/files/runtime manifesty v consumer-matrix.json a
+validation-summary.json. Prepared checkpoint neznamená accepted SHA.
+Piny SOURCE/CONTRACT a čistý donor nezměněny; S03 nezačala. Kandidátní commit
+na `integration/pr769-s02b-candidate` zveřejněn na výslovné zadání pro fork CI;
+upstream PR nevytvořen. Kód/testy mají stejné raw source hashe jako tato validace.
+Kandidátní SHA, fork draft a počáteční stav CI eviduje externí publication.json;
+CI není PASS, dokud není doložen výsledek pro jeho přesné SHA.
+
+| Kontrola | Skutečný výsledek |
+| --- | --- |
+| Host Debug/Release x64 v145 | PASS /warnaserror, 18,79 / 42,56 s |
+| 30 podporovaných plugin consumers | PASS 60 Debug/Release x64 buildů s /warnaserror, matching dependencies/resources |
+| Portables language peer Debug/Release | PASS explicitní lang_portables.vcxproj, 1,75 / 1,69 s |
+| Native Debug/Release x64 | PASS 40 skupin/config, 0 failures, 54,89 / 60,11 s |
+| Plugin live tracker native | PASS 214 Debug / 89 Release checks, file identity/content/name, faults, long/Unicode |
+| S01/S02a regressions | PASS S01 99/config, core 132 Debug/109 Release; 1 raw LoadImageW-long backend subcase/config SKIPPED |
+| CI pytest výběr | PASS 49, 5,80 s |
+| Negative control parent plugin sources | EXPECTED FAIL compiler: explicit A/W members absent, 2,83 s |
+| Debug GUI PID 7260 | Panely/F3/F5 matching copy PASS; startup 2 Service Explorer tracker messages; shutdown heap leak + Bug Reporter — FAIL clean runtime gate |
+| Release GUI PID 7216 | PASS panels/F3/F5 matching copy, normal Alt+F4, no diagnostic |
+| Fixture safety | PASS 2 copies exact SHA256, 7 originals unchanged, own bootstraps restored |
+| SFTP + historical Portables 2015 project | EXCLUDED per current CI/non-shipping and main solution; not PASS |
+| PHP process-runtime | SKIPPED php unavailable |
+| S02b CodeQL, full clean publication platform matrix | NOT RUN |
+
+Core wrapper source includes unchanged whole production SDK in native test;
+registry/CheckCreate/CheckClose/dbg/widepath and Win32 files are actual. Only
+malloc/free and WideCharToMultiByte diagnostic faults are test-injected;
+GetLastError is deliberately disturbed to verify restoration. Release matches
+real disabled-tracker behavior, so fewer checks. Legacy dbg.h unused parameter
+warning suppression scoped to that header in test precomp; new tests W4/WX,
+legacy production sources W3/WX. No product warning or tracking suppression.
+
+Commands actually run in work/:
+
+- MSBuild each of 30 project paths from consumer-inventory.json, Debug and
+  Release x64, `/m:1 /t:Build /p:Configuration=<config> /p:Platform=x64`
+  `/p:OPENSAL_BUILD_DIR=C:\Samandarin\codex_pr769_prompts\work\build\pr769-baseline-v145\`
+  `/p:PreferredToolArchitecture=x64 /warnaserror /nr:false /v:minimal`.
+- Same flags for src/vcxproj/salamand.vcxproj and explicitly
+  src/plugins/portables/vcxproj/lang_portables.vcxproj in both configurations.
+- `pwsh -NoProfile -File tools/run_native_tests.ps1 -Configuration Debug` and
+  Release, `-Platform x64 -ResultsPath ../evidence/S02b/native-<config>.xml`
+  `-CommandTimeoutSeconds 60`.
+- `python -B -m pytest src/plugins/automation/tests/salamatrix_ai_local_tests.py`
+  `tools/code_metrics/tests tools/codeql/tests tools/localization/tests`
+  `--junitxml=../evidence/S02b/python.xml -p no:cacheprovider`.
+- Negative native Debug build overrides PluginHandlesDir to exported parent
+  mhandles pair in evidence/S02b/negative-plugin, output work/build/S02b-negative.
+
+MSBuild VS18 Community/v145; isolated Python venv, child WindowsPowerShell
+PSModulePath/PATH, PYTHONDONTWRITEBYTECODE=1/MSBUILDDISABLENODEREUSE=1. Native
+whole-tree bound100 s, other build/checks95 s. None of 67 accepted final
+commands timed out. /m:1 serializes project refs; independent owned project
+roots sometimes built concurrently. Signing skipped by original hook.
+
+Environment preparation (not product fixes): pinned vcpkg baseline
+`a0b1c8d3a477c1cb4813d8e127a56961707ca42b`, TagLib2.3 + zlib/utfcpp from original
+manifest/overlay triplet. Two95-s preparation timeouts (clone/setup then cache
+submission) killed entire process trees; final vcpkg install succeeds, cache
+submission disabled only for final local no-op confirmation. SDK10.0.401 and
+SDK8.0.425 installed under own build roots using official dotnet-install;
+net48 reference packages restored, SDK8 used for WebView2/net8 compatibility.
+Scoped MSBuildSDKsPath/DOTNET_ROOT/CLI_HOME/PATH, RoslynCompilerType=Core and
+MSBuildEnableWorkloadResolver=false (no optional .NET workloads here). Explicit
+WebView2PackagesRoot points to restored own NuGet cache. npm from official
+registry + bundled Node, existing npm ci lockfile installs Prism1.29.0;
+Markdig AOT published by original targets. Details/hashes in external evidence.
+Initial SDK resolver/ref-assembly/Roslyn/workload/native header/npm failures
+are recorded separately, not counted PASS. No repo build rules changed.
+
+First GUI PIDs15620/3500 waited inside missing Portables language dialog;
+read-only own process stack showed LoadLanguageModule -> SalMessageBoxEx.
+Own processes stopped; built missing peer resource DLL, then fresh GUI rerun.
+Debug metadata startup then exposed two icon diagnostics at unchanged
+serviceexplorer/fs1.cpp:48 and plugin.cpp:226. Raw LoadImage + HANDLES DestroyIcon
+mismatch confirmed in parent source, including analogous plugin.cpp:190 path.
+After ordinary operations Alt+F4 showed `Detected memory leaks!`; reporter then
+visible. Heap cause not yet attributed to baseline or port. Bug Reporter CU
+read had app approval timeout; no report sent. Only own helper processes with
+matching parent PID/path stopped, user-installed helpers preserved.
+
+Next minimal step [S02b-preflight](steps/S02b-preflight.md): resolve ownership
+and attribute/fix heap, then repeat relevant runtime acceptance. Do not waive
+heap checks, claim clean Debug shutdown, create accepted code commit or start
+S03. No full plugin operation matrix, external viewer/editor Unicode launch
+or all internal-viewer navigation claims. Prepared code/tests remain in work.
+
+## Historická S02a — core A/W handle wrappery, 2026-10-13
 
 **S02a DONE; lokální brána PASS. S02 celkem PARTIAL; S02b je další krok.**
 Parent `2c1480e064d5fd8cca0174b02ae5503411701b7b`, runtime patch `6154561f61dc71387b5582b03ab0825752409a5b2bb8903637f5e5f77e661e61`,

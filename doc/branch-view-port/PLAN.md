@@ -1,12 +1,16 @@
 # Plán postupného portu PR #769
 
-Stav k 2026-10-13: S00/S00a/S00b/S00c, S01 a **S02a dokončeny**.
-S02a lokální brána PASS: host/Salmon Debug/Release x64, Translator/Trace Server
-Debug/Release Win32; native 39 skupin v každé konfiguraci, pytest 49/49 a GUI.
-S02 je **PARTIAL**; další samostatný běh je [S02b](steps/S02b.md) pro pluginové
-wrappery. S03 nezačala. Portová větev zůstává lokální; plná čistá publikační
-platformní/plugin matice a CodeQL nového checkpointu NOT RUN. Samostatné
-baseline PR #774/#775 mají úspěšnou fork CI pro vlastní head SHA.
+Stav k 2026-10-13: poslední přijatý checkpoint **S02a** (`ef19d788`).
+**S02b PENDING/BLOCKED**: donorové pluginové wrappery a přímé native testy
+připravené, host + 30 podporovaných konzumentů Debug/Release x64 a regresní
+sady PASS. Debug GUI odhalilo nezměněný Service Explorer icon ownership
+mismatch a heap leak při ukončení; runtime brána není PASS; kandidátní commit slouží pouze k autorizovanému CI.
+Další nejmenší krok [S02b-preflight](steps/S02b-preflight.md); nejprve vyřešit
+nebo doloženě izolovat tato zjištění, teprve pak přijmout S02b. S02 PARTIAL,
+S03 nezačala. Publikační větev `integration/pr769-s02b-candidate` uchovává dosavadní
+integrační historii a PENDING kandidáta; interní fork-CI draft není upstream PR.
+CodeQL a publikační platformní matice čekají na výsledky pro přesné SHA.
+Referenční pracovní větev `refactor/pr-769-incremental` zůstává na přijatém S02a.
 Rozhodující zdroje jsou
 [CONTRACT.md](CONTRACT.md), [SOURCE.json](SOURCE.json), [PROGRESS.md](PROGRESS.md)
 a [VALIDATION.md](VALIDATION.md). Výsledky původního PR nejsou výsledky portu.
@@ -44,7 +48,7 @@ reviewovatelný PR, pokud níže není uvedena pevně svázaná dvojice.
 | [S00b](steps/S00b.md) | Baseline tracking a cleanup ikon; DONE, včetně souvisejících evidence chyb ze smoke | S00a; vlastní reprodukce Debug startup/shutdown |
 | [S00c](steps/S00c.md) | Viditelnost obou prvních panelů po přiřazení aktuálních panelů; DONE | S00b; první start a restart Debug/Release ověřeny |
 | [S01](steps/S01.md) | Izolované SafeFile Retry/Skip opravy | Ověřená baseline; rozdělit donorové testy podle skutečných závislostí |
-| [S02](steps/S02.md) | Wide utility a Debug sledování handleů; S02a DONE, S02b PENDING | S01; pouze potřebné společné pomocné funkce |
+| [S02](steps/S02.md) | Wide utility a Debug sledování handleů; S02a DONE, S02b BLOCKED | S01; pouze potřebné společné pomocné funkce |
 | [S03](steps/S03.md) | SafeFile Unicode a dlouhé cesty | S01, S02 |
 | [S04](steps/S04.md) | Cesty položek běžného diskového panelu | S02; existující QueryService |
 | [S05](steps/S05.md) | Owned SDK, host service a DemoPlug společně | S04; neměnné vydané ABI |
@@ -106,6 +110,16 @@ konzumentů. V jednom běhu provést pouze první podetapu:
 
 Teprve po obou bránách je S02 DONE a lze zahájit S03. Donor, release base,
 SDK virtual layout, obecná path knihovna a aktivace Branch View se nemění.
+
+## Předkrok S02b-preflight (zjištěn při GUI, 2026-10-13)
+
+Rozšířená vlastní sestava pluginů odhalila dvě Debug chyby `DestroyIcon: Handle
+not found` v Service Exploreru (fs1.cpp:48 a plugin.cpp:226). Tyto soubory se
+v S02b nemění: raw LoadImage a tracked DestroyIcon jsou už v parentu. Po Alt+F4
+se objeví `Heap Message: Detected memory leaks!` a vlastní Bug Reporter;
+původ heap leak dosud neurčen. Nelze jej označit za baseline ani regresi bez
+reprodukce/izolace. Rozsah a acceptance [S02b-preflight](steps/S02b-preflight.md).
+Do něj nevtahovat I/O migrace, SDK či Branch View; S03 nezačínat.
 
 ## Pravidla pro zjištěné předkroky
 

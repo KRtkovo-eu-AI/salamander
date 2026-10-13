@@ -1,6 +1,39 @@
 # Stav portu PR #769
 
-## Aktuální checkpoint S02a
+## Aktuální práce S02b — PENDING/BLOCKED
+
+2026-10-13. Poslední přijatý parent `ef19d788c1a2807e134a2ea9ba3aa9f1e1ac253d` zůstává na
+`refactor/pr-769-incremental`. Uživatelem autorizovaný PENDING kandidátní commit
+je na nové publikační větvi `integration/pr769-s02b-candidate`; není přijetím S02b.
+Interní fork-CI draft slouží k ověření dosavadního integračního obsahu.
+Přesné kandidátní SHA a URL jsou svázané s testovanými hashi v externí evidenci.
+Převzaty EXACT mhandles.h/.cpp: CreateFileA/W, FindFirstFileA/W a best-effort
+UTF-8 diagnostika se zachováním GetLastError. Nový full-production tracker test,
+řízené diagnostic allocation/conversion faults, ANSI/UNICODE probe a fixtures
+vyplňují donorovou testovací mezeru; fixture ledger adaptovaný ze S02a/donoru.
+
+PASS 60 plugin buildů (30 podporovaných konzumentů, Debug/Release x64), host
+Debug/Release, Portables language peers, native 40 skupin/config (plugin
+214 Debug / 89 Release; S01 99/config), pytest 49. Negativní parent compile
+úmyslně FAIL. Release GUI panely/F3/F5/hash/shutdown PASS; Debug panely/F3/F5
+PASS, ale startup Service Explorer tracker diagnostics a shutdown heap leaks
+**FAIL čisté runtime brány**. Bug Reporter byl viditelný; jeho čtení CU mělo
+approval timeout, žádný report odeslán. Žádné varování ani heap check vypnuté.
+
+Dvě GUI kopie shodné hashe, všech 7 originálů nedotčeno, own configstorage
+bootstrapy obnoveny. První GUI pokusy skončily v chybějícím language modulu
+Portables: samostatný CPP projekt nemá language ProjectReference; opraveno
+explicitním buildem existujícího lang_portables, bez změny produktu. Debug
+icon mismatch je doložen v nezměněném Service Explorer kódu; heap původ zatím
+neurčen. Další krok [S02b-preflight](steps/S02b-preflight.md), nikoli S03.
+
+Evidence `evidence/S02b`; runtime patch `962125d93e6f7f4f27c715da91c962d513cf8101d8ea1069261e496874b506e4`,
+code/test patch `772b2b635af915e68202cf6289defaf01faf24337d082f68023c4afe8a91f85d`, raw source hashe a 67 finálních úspěšných command
+výsledků + zvlášť neúspěšné přípravné pokusy. Piny SOURCE/CONTRACT nezměněny.
+PHP a S02a LoadImageW-long backend subcase SKIPPED; CodeQL/plná publish matice
+dosud bez výsledku pro kandidáta. S02 nadále PARTIAL.
+
+## Poslední přijatý checkpoint S02a
 
 2026-10-13, **S02a DONE — core LoadImage/FindFirstChangeNotification A/W**.
 Deklarace a implementace převzaté EXACT z připnutého donoru. Core CreateFileA/W,
@@ -89,7 +122,9 @@ vlastní výsledné SHA se zde neuvádí. Žádný donorový runtime hunk nepře
 | S00c | DONE | WM_CREATE visibility až po přiřazení obou aktuálních panelů; první start i restart ověřeny |
 | S01 | DONE | Pět úzkých SafeFile oprav, compiled harness 99/99 v obou konfiguracích, native/host/GUI brána PASS |
 | S02a | DONE | Core A/W EXACT; host/core consumers/native/Python/GUI brána PASS |
-| S02b–S32 | PENDING | S02 PARTIAL; nejbližší pluginové wrappery, Branch View nadále nedostupné |
+| S02b | PREPARED/BLOCKED | Build/native PASS; čisté Debug GUI startup/shutdown FAIL |
+| S02b-preflight | PENDING | Service Explorer ownership + identifikace Debug heap leak |
+| S03–S32 | PENDING | S02 PARTIAL; Branch View nadále nedostupné |
 | Publikace | S02a lokální, bez push/PR | Baseline opravy oddělené v upstream #774/#775; jejich fork CI zelená, bez změny portové větve |
 
 ## Rozsah S00b
@@ -150,9 +185,7 @@ baseline REPLACED řádek S00c. Podrobnosti [VALIDATION.md](VALIDATION.md).
 
 ## Další nejmenší krok
 
-V samostatném běhu provést právě [S02b](steps/S02b.md): explicitní pluginové
-CreateFileA/W a FindFirstFileA/W z mhandles.h/.cpp, best-effort wide diagnostiku
-se zachováním GetLastError a všechny podporované konzumenty. Bez migrace
-pluginového I/O nebo S03. Před editací znovu ověřit konkrétní závislosti,
-provést smluvní Debug/Release/native/GUI bránu a zastavit po S02b.
-Dokončení S02a neautorizuje publikaci portové větve ani další implementaci.
+Provést [S02b-preflight](steps/S02b-preflight.md) pro zjištěné Debug startup/
+shutdown překážky. Zachovat necommitovaný S02b patch; žádný reset, stash nebo
+přepis pinu. Po reprodukci/izolaci a opravě opakovat jen dotčené testy, sestavení
+a Debug/Release GUI; S02b přijmout až po úspěšné runtime bráně. S03 nezačínat.
