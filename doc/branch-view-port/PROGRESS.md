@@ -477,9 +477,10 @@ vlastní výsledné SHA se zde neuvádí. Žádný donorový runtime hunk nepře
 | S02 celkem | DONE | Obě podetapy přijaté; další předpoklad S03 splněn |
 | S03 | DONE | Přijatý checkpoint ea1dd462 |
 | S04 | DONE | Ověřený 359a6b4f + přijetí aef114a2 |
-| S05 | IMPLEMENTED / local PASS | Host/30 consumers D/R, 44 native groups/config, owned/DemoPlug 55/config, GUI DemoPlug |
-| S06–S32 | PENDING | Nezahájené; Branch View nadále nedostupné |
-| Publikace | S04 fork draft #22 otevřený; S05 lokální | Nová S05 CI/CodeQL NOT RUN; validační drafty se nemergují do reference base |
+| S05 | DONE | 89698944, interní draft #23, všech 13 current-head checks SUCCESS včetně skutečného CodeQL |
+| S06 | AUDIT | Původní Compare dialog vyvolá Debug heap hlášení; před migrací izolovat příčinu |
+| S07–S32 | PENDING | Nezahájené; Branch View nadále nedostupné |
+| Publikace | S05 fork draft #23 otevřený | Přesný head 89698944: 13/13 SUCCESS; validační drafty se nemergují do reference base |
 
 ## Rozsah S00b
 
@@ -537,9 +538,23 @@ Binárky odpovídají launch hashům, convert payload shodný s targetem. Piny S
 beze změny, původních 393 donorových DEFERRED řádků zachováno, přibyl samostatný
 baseline REPLACED řádek S00c. Podrobnosti [VALIDATION.md](VALIDATION.md).
 
-## Další nejmenší krok
+## S05 — publikováno a přijato (2026-10-14)
 
-Po samostatném publikačním zadání pushnout integration/pr769-s05-candidate,
-ihned spustit Ensure-ForkCI.ps1 pro interní draft a vyhodnotit current-head
-build/test/CodeQL. Draft nemergovat do samandarin-0.16. S05 lokální brána PASS;
-accepted reference aef114a2 (S04), S06 nezačala.
+Kód `896989447ad410c4970d469d9f961c62e5b7a8dc` je pushnut na
+`origin/integration/pr769-s05-candidate`. Interní draft
+[majklvi/salamander#23](https://github.com/majklvi/salamander/pull/23) proti
+nezměněné release base `a84dbed6db632a9e63b5ed9f4bc6691e4cc5f449` zůstává otevřený;
+neslouží k merge do samandarin-0.16. Všech 13 kontrol přesného headu SUCCESS:
+čistá Win32/x64/ARM64 matice /warnaserror, VSIX build/test, native/Python,
+reporty, growth a guardy, CodeQL gate i skutečná analýza. CodeQL job
+115823621238 dokončen 2026-10-14 11:32:24 UTC, včetně Initialize, Release
+MSBuild, analýzy a SARIF uploadu. Žádný z těchto checks není pending/skipped.
+Detailní lokální výsledky a jejich PHP/LoadImageW subcase SKIPs níže zůstávají
+v platnosti; zelený CI job je nepřejmenovává na PASS.
+
+Evidence `evidence/S05/publish-final-ci.json`, `publish-final-codeql-job.json`
+a `publish-summary.json`. Dokumentační acceptance nemění testovaný runtime.
+Další nejmenší etapa S06: File Comparator; read-only baseline audit zatím
+odhalil Debug heap hlášení už při otevření/zrušení původního Compare dialogu.
+Před migrací izolovat příčinu, nevypínat diagnostiku a neskrývat ji změnou
+heap ignore predikátu. SOURCE.json, CONTRACT.md a release piny beze změny.

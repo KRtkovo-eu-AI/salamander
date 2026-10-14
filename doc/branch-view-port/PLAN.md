@@ -1,5 +1,27 @@
 # Plán postupného portu PR #769
 
+## S05 — publikováno a přijato (2026-10-14)
+
+Kód `896989447ad410c4970d469d9f961c62e5b7a8dc` je pushnut na
+`origin/integration/pr769-s05-candidate`. Interní draft
+[majklvi/salamander#23](https://github.com/majklvi/salamander/pull/23) proti
+nezměněné release base `a84dbed6db632a9e63b5ed9f4bc6691e4cc5f449` zůstává otevřený;
+neslouží k merge do samandarin-0.16. Všech 13 kontrol přesného headu SUCCESS:
+čistá Win32/x64/ARM64 matice /warnaserror, VSIX build/test, native/Python,
+reporty, growth a guardy, CodeQL gate i skutečná analýza. CodeQL job
+115823621238 dokončen 2026-10-14 11:32:24 UTC, včetně Initialize, Release
+MSBuild, analýzy a SARIF uploadu. Žádný z těchto checks není pending/skipped.
+Detailní lokální výsledky a jejich PHP/LoadImageW subcase SKIPs níže zůstávají
+v platnosti; zelený CI job je nepřejmenovává na PASS.
+
+Evidence `evidence/S05/publish-final-ci.json`, `publish-final-codeql-job.json`
+a `publish-summary.json`. Dokumentační acceptance nemění testovaný runtime.
+Další nejmenší etapa S06: File Comparator; read-only baseline audit zatím
+odhalil Debug heap hlášení už při otevření/zrušení původního Compare dialogu.
+Před migrací izolovat příčinu, nevypínat diagnostiku a neskrývat ji změnou
+heap ignore predikátu. SOURCE.json, CONTRACT.md a release piny beze změny.
+
+
 ## S05 — IMPLEMENTED / lokální brána PASS (2026-10-14)
 
 S04 přijat na kódu 359a6b4f po opětovném ověření všech 12 current-head CI
