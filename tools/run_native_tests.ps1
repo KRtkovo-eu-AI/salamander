@@ -471,6 +471,15 @@ try {
             )
         },
         @{
+            Name = 'filecomp_dialog_lifetime_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\filecomp_dialog_lifetime_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
             Name = 'zip_listing_lifetime_tests'
             ClassName = 'native-generated'
             Arguments = @(

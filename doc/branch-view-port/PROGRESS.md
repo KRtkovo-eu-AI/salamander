@@ -478,7 +478,8 @@ vlastní výsledné SHA se zde neuvádí. Žádný donorový runtime hunk nepře
 | S03 | DONE | Přijatý checkpoint ea1dd462 |
 | S04 | DONE | Ověřený 359a6b4f + přijetí aef114a2 |
 | S05 | DONE | 89698944, interní draft #23, všech 13 current-head checks SUCCESS včetně skutečného CodeQL |
-| S06 | AUDIT | Původní Compare dialog vyvolá Debug heap hlášení; před migrací izolovat příčinu |
+| S06-preflight | IMPLEMENTED / local PASS | Úklid drop subclass řetězce; D/R build, 964 native checks/config, 45 groups/config, pytest 49, skutečné GUI |
+| S06 | PENDING | Owned-selection migrace až po publikaci a current-head CI předkroku |
 | S07–S32 | PENDING | Nezahájené; Branch View nadále nedostupné |
 | Publikace | S05 fork draft #23 otevřený | Přesný head 89698944: 13/13 SUCCESS; validační drafty se nemergují do reference base |
 
@@ -558,3 +559,14 @@ Další nejmenší etapa S06: File Comparator; read-only baseline audit zatím
 odhalil Debug heap hlášení už při otevření/zrušení původního Compare dialogu.
 Před migrací izolovat příčinu, nevypínat diagnostiku a neskrývat ji změnou
 heap ignore predikátu. SOURCE.json, CONTRACT.md a release piny beze změny.
+
+## S06-preflight — lokální brána PASS (2026-10-14)
+
+Opraven pouze lifecycle drop callbacku dvou File Comparator vstupů.
+Podrobnosti, původ chyby, příkazy, omezení a další krok:
+[steps/S06-preflight.md](steps/S06-preflight.md).
+D/R host+plugin /warnaserror, 964 native lifecycle checks/config,
+45 regresních groups/config, pytest 49 a skutečný Compare/Cancel/shutdown
+PASS. Původní callback je v negativní kontrole prokazatelně vadný.
+Předkrok je lokální; S06 owned-selection migrace PENDING. Před ní publikovat
+předkrok a ověřit CI jeho přesného headu. Accepted reference ffa1519d (S05).

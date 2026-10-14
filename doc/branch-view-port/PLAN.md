@@ -1,5 +1,29 @@
 # Plán postupného portu PR #769
 
+## S06-preflight — lokální brána PASS (2026-10-14)
+
+Opraven pouze lifecycle drop callbacku dvou File Comparator vstupů.
+Podrobnosti, původ chyby, příkazy, omezení a další krok:
+[steps/S06-preflight.md](steps/S06-preflight.md).
+D/R host+plugin /warnaserror, 964 native lifecycle checks/config,
+45 regresních groups/config, pytest 49 a skutečný Compare/Cancel/shutdown
+PASS. Původní callback je v negativní kontrole prokazatelně vadný.
+Předkrok je lokální; S06 owned-selection migrace PENDING. Před ní publikovat
+předkrok a ověřit CI jeho přesného headu. Accepted reference ffa1519d (S05).
+
+## S06-preflight — izolace výchozího heap hlášení
+
+Před převzetím ExecuteCompare v src/plugins/filecomp/filecomp.cpp baseline
+89698944 skutečně zobrazí správné dva rozdíly, ale při shutdownu Debug
+hlásí heap leak. Samotné otevření a Cancel původního Compare dialogu stačí:
+CRT dump 26 normal blocks / 928 bytes, včetně dvou COMBOBOX skupin a MENU.
+To není donorová migrace ani důkaz OS-owned úniku. Nejmenší předkrok:
+zachytit alokační call stack konkrétních neuklizených bloků; případně opravit
+jen prokázaného vlastníka a ověřit D/R host, dotčený plugin, native/GUI.
+Dočasná diagnostika musí být před finálními buildy beze zbytku odstraněna.
+IsKnownSystemMenuLeakDiff se nesmí rozšířit a heap tracker se nevypíná.
+V tomto běhu nejprve tento předkrok; migrace S06 až po jeho uzavření.
+
 ## S05 — publikováno a přijato (2026-10-14)
 
 Kód `896989447ad410c4970d469d9f961c62e5b7a8dc` je pushnut na
@@ -331,3 +355,15 @@ pro přesné aktuální head SHA; pending/skipped/unavailable uvést pravdivě.
 Obecná doporučení RUNBOOK.md k main, globálnímu rerere, mergům nebo obnově
 historie nejsou pro tento port pokynem k jejich provedení. Zde platí konkrétní
 zadání nové větve z TARGET_SHA, lineární historie a zákaz globálních změn.
+
+S06-preflight zúžen po alokačním trace: konkrétní neuklizené ComboBoxData a
+ThemeData vznikají ve File Comparator darkmodelib. DragDropEditProc hledá
+již odpojený rodičovský CCompareFilesDialog a pro pozdní zprávy vrátí NULL
+místo předání dalším procedurám. Převést pouze tuto obsluhu dvou comboboxů
+na SetWindowSubclass/DefSubclassProc s odpojením při WM_NCDESTROY; odstranit
+OldEditProc1/2. Přidat native lifecycle test skutečného callbacku, D/R plugin
++ host a opakovaný skutečný Compare/Cancel/shutdown. Sdílená SDK, theme
+knihovna ani heap ignore predikát se nemění. Původních osm host MENU skupin
+je starší samostatná baseline záležitost; trace jejich alokace ukazuje také
+na app-owned ThemeData, dosavadní komentář o OS-owned původu proto není
+potvrzen. Tento předkrok opravuje pouze dvě File Comparator pole.

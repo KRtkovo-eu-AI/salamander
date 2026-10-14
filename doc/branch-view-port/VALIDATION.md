@@ -1,5 +1,16 @@
 # Validace portu a baseline S00
 
+## S06-preflight — lokální brána PASS (2026-10-14)
+
+Opraven pouze lifecycle drop callbacku dvou File Comparator vstupů.
+Podrobnosti, původ chyby, příkazy, omezení a další krok:
+[steps/S06-preflight.md](steps/S06-preflight.md).
+D/R host+plugin /warnaserror, 964 native lifecycle checks/config,
+45 regresních groups/config, pytest 49 a skutečný Compare/Cancel/shutdown
+PASS. Původní callback je v negativní kontrole prokazatelně vadný.
+Předkrok je lokální; S06 owned-selection migrace PENDING. Před ní publikovat
+předkrok a ověřit CI jeho přesného headu. Accepted reference ffa1519d (S05).
+
 ## S05 — publikováno a přijato (2026-10-14)
 
 Kód `896989447ad410c4970d469d9f961c62e5b7a8dc` je pushnut na
