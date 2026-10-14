@@ -85,6 +85,9 @@ static MainWindowFacade* MainWindow=&Window;
 static DWORD MainThreadID;
 @@SERVICE@@
 @@FACTORY@@
+// Discovery facade only; actual DiskSelection singleton/storage has its own
+// compiled production harness and DemoPlug runtime smoke.
+static void* GetDiskSelectionService() { return &Window; }
 struct CSalamanderGeneral
 {
     BOOL QueryService(const CSalamanderServiceQuery*, CSalamanderServiceResult*);
@@ -150,6 +153,10 @@ int main()
     CSalamanderServiceQuery noId={nullptr,0,0}; Check(!general.QueryService(&noId,&result),"null service id rejected");
     CSalamanderServiceQuery other={"test.other",1,0};
     Check(general.QueryService(&other,&result) && result.Interface==&Window,"existing registry path unchanged");
+    CSalamanderServiceQuery owned={SALAMANDER_SERVICE_DISK_SELECTION,SALAMANDER_DISK_SELECTION_VERSION_1_0,0};
+    Check(general.QueryService(&owned,&result) && result.Interface==GetDiskSelectionService() && result.Version==owned.MinimumVersion,"owned selection built-in dispatch");
+    Check(general.QueryService(&owned,nullptr),"owned selection availability-only query");
+    ++owned.MinimumVersion; Check(!general.QueryService(&owned,&result) && result.Interface==nullptr,"owned selection future version fails closed");
     CPanelItemPathsService* service=static_cast<CPanelItemPathsService*>(GetPanelItemPathsService());
     CFilesWindow& panel=Window.Left;
     CFileData ascii=File("same.png",L"same.png");

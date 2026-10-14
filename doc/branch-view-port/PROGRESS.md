@@ -1,5 +1,84 @@
 # Stav portu PR #769
 
+## S05 — IMPLEMENTED / lokální brána PASS (2026-10-14)
+
+S04 přijat na kódu 359a6b4f po opětovném ověření všech 12 current-head CI
+checks včetně skutečného CodeQL. Dokumentační přijetí/accepted reference
+`aef114a222f971efefb2029495784bb28b1488aa`; SOURCE a CONTRACT beze změny.
+S05 vzniká na lokální `integration/pr769-s05-candidate` nad touto referencí.
+
+Převzat celý spl_diskselection.h, CDiskSelectionService a jeho singleton,
+nové samostatné SDK interfaces/constants a built-in QueryService route.
+Žádná změna existujících virtual metod nebo CFileData. Owned snapshot kopíruje
+cesty i metadata, zachovává pořadí a režimy výběru, vynechává '..', selhává
+atomicky a po návratu nepoužívá živé řádky. Capture jen UI thread; immutable
+čtení i na workeru; Release v alokujícím modulu. Fallback jen v podporovaném
+QueryService-capable Samandarin ABI; starý Open Salamander není podporovaný.
+DemoPlug disková DOP ukázka používá snapshot před otevřením progress dialogu;
+původní archive example zůstává doslova zachovaný pod diskovým guardem.
+Ostatní pluginové operace a Branch state/scanner se nepřebírají.
+
+Donor ABI golden je byte-exact a nezměněný: 5.0-samandarin-0.15.1,
+c0cddbe7442fe49abcb859624e271ce687aee0d8. GitHub release listing potvrzuje,
+že je stále poslední vydaný tag; golden ověřen přímo proti jeho pěti interfaces
+a celému spl_com.h. S04 navíc zachovává celé bodies vydané target base a84dbed6.
+Testy SDK/storage/host/singleton a skutečného DemoPlug 55 checks/config PASS
+/W4 /WX: 43 zachovaných donor assertions + 12 doplněných DemoPlug kontrol. Pouze PictView
+CEnumFiles extrakce a přesně dvě consumer assertions jsou DEFERRED do S12;
+žádná jiná donorová assertion nevypuštěna. S04 celý QueryService harness nyní
+196/config (původních 193 + 3 nové discovery/version assertions); factory nové
+služby je v tomto resolver testu discovery facade, skutečná service/singleton
+jsou kompilované v owned harnessu a volané skutečným DemoPlug v GUI.
+
+Host + všech 30 podporovaných SDK konzumentů Debug/Release x64 /warnaserror
+PASS (60 consumer builds). Native runner 44 groups/config PASS, pytest 49 PASS.
+Historical portables projekt a canonical BUILD_SFTP_PLUGIN=false excluded;
+nejsou označené PASS. PHP chybí a LoadImageW long-bitmap backend Win32 2 je
+explicitní subcase SKIPPED. Po finálním DemoPlug ABI guardu native runner znovu 44/config PASS
+(58,02 / 61,45 s). Hosty po icon opravě přestavěny,
+core handle test znovu PASS 132 Debug / 109 Release se stejným bitmap skipem.
+
+GUI objevil baseline CPlugins::CreateIconsList chybu plugins2.cpp:1156:
+raw CopyImage, pak HANDLES(DestroyIcon). Funkce v parentu i a84dbed6 shodná.
+Nejmenší oprava HANDLES_Q(CopyImage) zachovává tracker i všechny větve.
+První vlastní Debug proces 3768 ukončen v diagnostice, není PASS. Finální
+Debug fresh 8776/restart 13300, Release fresh 2880/restart 7224: viditelné
+panely, fresh F3 obsah/F5 kopie/hash, oba fresh DemoPlug 23 selected DOP files
+včetně Unicode a dlouhého názvu, úspěšné deselect a všechny Alt+F4 shutdowny
+bez heap/handle dialogu PASS. Kopie 33 bytes, 25 nových a 7 původních fixtures
+beze změny. Vlastní bootstrapy obnovené, žádný vlastní GUI proces nezůstal.
+Po finálním ABI guardu přestavěn jen DemoPlug D/R a zopakován skutečný
+23-file GUI command/shutdown v procesech Debug 10760 / Release 256;
+host a ostatní DLL se nezměnily. GUI fixture maximum 250 UTF16 units,
+424 UTF8 bytes; skutečná delší UTF16 cesta je v compiled fixtures.
+GUI Cancel nebyl doložen: Escape přišel po dokončení a výběr již byl zrušen;
+nejde o Cancel PASS. Skutečné SMB I/O ani migrace long-path I/O konzumentů
+nejsou S05; DemoPlug stále jen simuluje práci, snapshot není filesystem transakce.
+
+Evidence `C:/Samandarin/codex_pr769_prompts/evidence/S05`: přesné bounded
+příkazy, source/donor/ABI manifests, consumer matrix, JUnit, GUI ledger,
+runtime payload manifests a originální fixtures. Každý příkaz má parent SHA
+a patch hash svého okamžiku; before-menu-fix.patch zachován. Menu fix přidává jen plugins2.cpp; pozdější ABI guard mění pouze DemoPlug
+menu a jeho dva testové soubory, zbytek SDK/consumer zdrojových hashů shodný. První host post-build
+FAIL kvůli chybějícímu PSModulePath/Get-FileHash vyřešen jen prostředím;
+žádná produktová/workflow změna kvůli tomu. Evidence collector opraven pro
+extended-length cesty; jeho přípravná selhání nejsou výsledky produktu.
+
+S05 commit je lokální checkpoint; push/PR, nové CodeQL a publikační čistá
+Win32/x64/ARM64 matice NOT RUN. Accepted reference zůstává na přijatém S04.
+DemoPlug stále deklaruje kompatibilitu se SDK 103: nový diskový case proto
+navíc vyžaduje SalamanderVersion >= 105 (QueryService zavedeno v spl_vers.h).
+SDK 103/104 použije přesný původní postup bez jediného QueryService volání;
+105/106 používá owned službu. Skutečný DOP case se kompiluje v testu proti
+progress facade; staré verze, archive, destroy-on-open, Cancel a capture
+failure dávají 12 nových assertions. Header zachovává svoji precondition:
+volající musí před vstupem zaručit QueryService-capable ABI. Nemění se
+verze SDK ani již existující nesouvisející PoC příkazy DemoPlug.
+
+S06 nezačala. Další krok je samostatně autorizovaná publikace této stejné větve,
+interní fork-CI draft přes Ensure-ForkCI.ps1 a ověření přesného head výsledku.
+
+
 ## Přijetí S04 — DONE (2026-10-14)
 
 Na pokyn uživatele zahájit S05 přijat S04 checkpoint
@@ -387,7 +466,7 @@ vlastní výsledné SHA se zde neuvádí. Žádný donorový runtime hunk nepře
 | S00 zdroje/smlouva/plán/mapa | DONE | Piny SOURCE, CONTRACT a původních 393 donorových řádků beze změny |
 | S00a prostředí/evidence | DONE | v145, pinned submodules, isolated pytest/lizard; historie v VALIDATION |
 | S00b tracking/cleanup | DONE | 9 úzkých source změn; nové baseline REPLACED řádky, žádný import PR #769 |
-| Build/native/Python | PASS provedeného rozsahu S02b | Host/30 consumers Debug/Release x64, 41 native groups/config, pytest 49; PHP/LoadImageW subcases SKIPPED |
+| Build/native/Python | PASS provedeného rozsahu S05 | Host/30 consumers Debug/Release x64, 44 native groups/config, pytest 49; PHP/LoadImageW subcases SKIPPED |
 | Normal-panel GUI Debug/Release | PASS s initialized private config | F3 ASCII, F5 copy/hash, 7 originálů beze změny, normální shutdown bez Debug handle diagnostiky |
 | První empty private config | PASS Debug/Release | Po S00c oba panely viditelné ihned bez zásahu; F3/F5 a hash kontrola |
 | S00c | DONE | WM_CREATE visibility až po přiřazení obou aktuálních panelů; první start i restart ověřeny |
@@ -396,8 +475,11 @@ vlastní výsledné SHA se zde neuvádí. Žádný donorový runtime hunk nepře
 | S02b | DONE | Kód 23d5406d, full local runtime PASS, přesných 12 fork CI checks SUCCESS |
 | S02b-preflighta/b | DONE | Icon ownership, native storage/diagnostic lifetime a init readiness ověřeny |
 | S02 celkem | DONE | Obě podetapy přijaté; další předpoklad S03 splněn |
-| S03–S32 | PENDING | Nezahájené; Branch View nadále nedostupné |
-| Publikace | Fork integration draft #20 | Kód S02b ověřen; upstream funkční PR dosud nepodané, draft se nemerguje do reference base |
+| S03 | DONE | Přijatý checkpoint ea1dd462 |
+| S04 | DONE | Ověřený 359a6b4f + přijetí aef114a2 |
+| S05 | IMPLEMENTED / local PASS | Host/30 consumers D/R, 44 native groups/config, owned/DemoPlug 55/config, GUI DemoPlug |
+| S06–S32 | PENDING | Nezahájené; Branch View nadále nedostupné |
+| Publikace | S04 fork draft #22 otevřený; S05 lokální | Nová S05 CI/CodeQL NOT RUN; validační drafty se nemergují do reference base |
 
 ## Rozsah S00b
 
@@ -457,7 +539,7 @@ baseline REPLACED řádek S00c. Podrobnosti [VALIDATION.md](VALIDATION.md).
 
 ## Další nejmenší krok
 
-Ověřit aktuální head interního fork draftu #22: platformní buildy, native/Python
-a skutečnou CodeQL analýzu; vyřešit případné change-caused failures. Teprve
-poté přijmout S04 a začít S05. Lokální brána PASS, accepted reference ea1dd462.
-Draft nemergovat do referenční release base.
+Po samostatném publikačním zadání pushnout integration/pr769-s05-candidate,
+ihned spustit Ensure-ForkCI.ps1 pro interní draft a vyhodnotit current-head
+build/test/CodeQL. Draft nemergovat do samandarin-0.16. S05 lokální brána PASS;
+accepted reference aef114a2 (S04), S06 nezačala.

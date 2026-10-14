@@ -43,7 +43,7 @@ def main():
     host = native.read('src/zip.cpp')
     pieces = {
         'SDK': native.block(common, 'struct CQuadWord', ';') + '\n' + native.block(common, 'struct CFileData //', ';') + '\n' + '\n'.join(native.block(sdk, marker, ';') for marker in ('struct CSalamanderServiceQuery', 'struct CSalamanderServiceResult', 'class CSalamanderPanelItemPathsAbstract')),
-        'CONSTANTS': '\n'.join(line for line in sdk.splitlines() if re.match(r'#define (PANEL_(SOURCE|TARGET|LEFT|RIGHT)|SALAMANDER_(SERVICE_PANEL_ITEM_PATHS|PANEL_ITEM_PATHS_VERSION_1_0))\b', line)),
+        'CONSTANTS': '\n'.join(line for line in sdk.splitlines() if re.match(r'#define (PANEL_(SOURCE|TARGET|LEFT|RIGHT)|SALAMANDER_(SERVICE_PANEL_ITEM_PATHS|PANEL_ITEM_PATHS_VERSION_1_0|SERVICE_DISK_SELECTION|DISK_SELECTION_VERSION_1_0))\b', line)),
         'CONVERSION': native.block(wide, 'BOOL IsValidPathUtf8Text(') + '\n' + native.block(wide, 'std::wstring SalMultiByteToWidePath('),
         'JOIN': native.block(wide, 'BOOL SalPathAppendW('),
         'GETTERS': '\n'.join(native.block(panel, 'std::wstring CFilesWindow::' + name + '(') for name in ('GetItemDirectoryW', 'GetItemFullPathW', 'GetItemIdentityW', 'GetItemRelativePathW')),

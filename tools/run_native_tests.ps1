@@ -462,6 +462,15 @@ try {
             )
         },
         @{
+            Name = 'disk_selection_snapshot_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\disk_selection_snapshot_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
             Name = 'zip_listing_lifetime_tests'
             ClassName = 'native-generated'
             Arguments = @(

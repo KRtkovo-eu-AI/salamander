@@ -923,6 +923,60 @@ public:
         wchar_t* path, int capacity) = 0;
 };
 
+// Immutable, owned disk selection. No existing interface or CFileData layout is
+// changed. QueryService-capable Samandarin hosts expose this optional service.
+#define SALAMANDER_SERVICE_DISK_SELECTION "Salamander.DiskSelection"
+#define SALAMANDER_DISK_SELECTION_VERSION_1_0 0x00010000
+#define SALDISKSELECTION_SELECTED_OR_FOCUSED 0
+#define SALDISKSELECTION_SELECTED_ONLY 1
+#define SALDISKSELECTION_FOCUSED_ONLY 2
+#define SALDISKSELECTION_ALL_ITEMS 3
+
+struct CSalamanderDiskSelectionItem
+{
+    const wchar_t* NameW;
+    const wchar_t* FullPathW;
+    const wchar_t* DirectoryW;
+    const wchar_t* RelativePathW;
+    BOOL IsDir;
+    BOOL Selected;
+    BOOL Focused;
+    DWORD Attr;
+    CQuadWord Size;
+    FILETIME LastWrite;
+    int PanelIndex; // Original dirs-then-files index, for information only.
+    const wchar_t* ExtensionW;
+    BOOL SizeValid;
+    BOOL Hidden;
+    BOOL IsLink;
+    BOOL IsOffline;
+};
+
+class CSalamanderDiskSelectionSnapshotAbstract
+{
+public:
+    // All strings/items are immutable and owned until Release. Read methods can
+    // run on worker threads and remain valid after panel refresh/destruction.
+    // Release exactly once, after all readers finish; never delete this interface.
+    virtual int WINAPI GetCount() const = 0;
+    virtual const CSalamanderDiskSelectionItem* WINAPI GetItem(int index) const = 0;
+    virtual const wchar_t* WINAPI GetRootPathW() const = 0;
+    virtual void WINAPI Release() = 0;
+};
+
+class CSalamanderDiskSelectionAbstract
+{
+public:
+    // Main UI thread only, ordinary local/UNC disk panels.
+    // Captures all metadata/paths before returning without changing selection.
+    // Skips synthetic '..'. Empty selection/focus succeeds with an empty snapshot.
+    // On failure *result is NULL: invalid parameter/mode, wrong thread,
+    // unsupported panel, missing identity or allocation failure via GetLastError.
+    // Capture is all-or-nothing; no partial paths/items are returned.
+    virtual BOOL WINAPI Capture(int panel, DWORD mode,
+        CSalamanderDiskSelectionSnapshotAbstract** result) = 0;
+};
+
 // Temporary host-owned service available while load-on-start plug-ins and
 // manifest extensions are initialized.  Consumers must query it for each
 // synchronous report and must not retain the returned pointer.
