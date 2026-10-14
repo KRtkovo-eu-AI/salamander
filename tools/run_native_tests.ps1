@@ -471,6 +471,14 @@ try {
             )
         },
         @{
+            Name = 'checksum_selection_paths_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\checksum_selection_paths_tests.py')
+            )
+        },
+        @{
             Name = 'renamer_panel_paths_tests'
             ClassName = 'native-generated'
             Arguments = @(

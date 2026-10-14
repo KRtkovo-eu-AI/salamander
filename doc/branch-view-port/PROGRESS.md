@@ -1,5 +1,44 @@
 # Stav portu PR #769
 
+## S08 — IMPLEMENTED / lokální brána PASS (2026-10-14)
+
+S07 včetně obecné CI opravy přijato na dec9c828 po čerstvém ověření všech
+10 checks PR #27, skutečné CodeQL analýzy/SARIF a čistého full buildu
+Win32/x64/ARM64. Nová lokální větev integration/pr769-s08-candidate přebírá
+Checksum jako jeden celek: owned capture před modeless UI/workerem, přesné
+FullPath oddělené od display/export jména, wide rekurze/I/O/export a Verify
+podle skutečného rodiče manifestu. Všech 9 produkčních a 2 testové soubory
+odpovídají donorovým Git blobům 47661e92 beze změny. Jediná adaptace je
+registrace testu do stávajícího runneru bez neexistujícího --configuration
+přepínače (driver sám vždy testuje D/R). SDK, algoritmy, resources/formát
+manifestu, disk-only guard, Branch gate a obecná CI oprava zůstávají zachovány.
+
+Host+Checksum Debug/Release x64 /warnaserror PASS; native actual-consumer
+harness 62 checks/config PASS, celé native sady 50 groups/config PASS,
+CI pytest výběr 49 PASS. Native digest facade je stub; reálné algoritmy
+ověřil skutečný plugin přes GUI: 80 nezávislých CRC/MD5/SHA1/SHA256/SHA512
+porovnání nad osmi zdroji v D/R, 32 úplných exportních identit a digestů
+(MD5 relativně, SHA256 v jiném Unicode adresáři), 32 pozitivních Verify
+řádků. Negativní manifest přesně 1 Corrupted + 7 OK, 0 missing/skipped.
+Zrušení aktivního výpočtu 512 MiB přešlo do Canceled bez exportu. Debug
+Calculate/export přežil změnu source panelu a refresh po capture; native
+queued worker přežil úplné zrušení panel rows včetně mixed-parent fixtures.
+Všech 11 vlastních + 55 předchozích originálů má přesné původní cesty/obsahy;
+jen 4 očekávané exporty navíc. Všechny 4 hosty/reportery normálně ukončeny
+bez nového reportu, oba configstorage.ini bajtově obnoveny.
+
+Vazba evidence: parent dec9c828 + runtime.patch SHA256
+728f8592e28333d8d5b3e89ab8f348d0bc1202954afc36a5e20f8571a63f71b1,
+donorové bloby/raw hashe a hashe skutečně spuštěného hostu/Checksum pluginu.
+Podrobné příkazy a limity: [steps/S08.md](steps/S08.md), evidence mimo Git
+v evidence/S08. Počáteční infrastruktura test runneru neměla msbuild v PATH;
+po opravě pouze prostředí celá sada PASS, původní neúspěšný protokol zachován.
+PHP a historický LoadImageW long-bitmap subcase SKIPs nejsou vydávány za
+provedené testy. Nová publikační platformní CI/CodeQL a čistý full build S08
+zatím NEPROVEDENY: větev je lokální. Accepted reference zůstává dec9c828.
+Další checkpoint je push/fork CI po zadání uživatele, potom přijetí S08;
+S09 Split & Combine nebylo zahájeno.
+
 ## S07 — publikováno a přijato (2026-10-14)
 
 Batch Rename 3f9a0134 a obecná oprava full-build CI 6c1b034e přijaty po
