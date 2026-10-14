@@ -1,5 +1,22 @@
 # Validace portu a baseline S00
 
+## S06 — publikováno a přijato (2026-10-14)
+
+Kód 9580b153434bde8942dd3b1604aa478fb5e276ea na
+origin/integration/pr769-s06-candidate ověřen interním
+[draftem PR #26](https://github.com/majklvi/salamander/pull/26).
+Všech 12 checks přesného headu SUCCESS: Win32/x64/ARM64 /warnaserror,
+native/Python/reporty, VSIX, growth a squash guard; CodeQL gate i skutečná
+analýza. CodeQL job 115981207148 skončil 17:04:14 UTC; Initialize,
+Release MSBuild, Perform Analysis a Upload SARIF SUCCESS. Žádný check
+není pending/skipped. Lokální PHP/LoadImageW subcase SKIPs a známé nezměněné
+Filecomp výstupní UI limity zůstávají pravdivě evidované níže.
+Při zahájení S07 znovu ověřeno: evidence/S06-final/acceptance-current-pr.stdout.log,
+ci-current-codeql-job.stdout.log a publish-summary.json.
+Přijímá se integrační checkpoint S06; draft zůstává otevřený a nemerguje se
+do samandarin-0.16. SOURCE/CONTRACT ani release base a84dbed6 beze změny.
+Navazuje pouze S07 Batch Rename podle jejího úzkého donorového diffu.
+
 ## S06 — IMPLEMENTED / lokální brána PASS (2026-10-14)
 
 S06-preflightb přijat na 2d836336 po čerstvém ověření všech 12 kontrol
