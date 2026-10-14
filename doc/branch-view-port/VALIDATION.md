@@ -1,5 +1,23 @@
 # Validace portu a baseline S00
 
+## Přijetí S04 — DONE (2026-10-14)
+
+Na pokyn uživatele zahájit S05 přijat S04 checkpoint
+`359a6b4f768c4a8769ba6dcb923f9ea663b91aad`. Přesný head interního
+[PR #22](https://github.com/majklvi/salamander/pull/22) znovu ověřen:
+12 COMPLETED/SUCCESS včetně Win32/x64/ARM64, native/Python, source growth,
+guardů a skutečné MSBuild CodeQL analýzy/uploadu. Lokální host + 30 SDK
+konzumentů Debug/Release, native 43/config, resolver 193/config, pytest 49
+a GUI fresh/restart/F3/F5/shutdown PASS; historické PHP/LoadImageW skips
+zachované. Chyba závislosti ABI testu na Git historii vyřešena v 359a6b4f.
+
+Referenční refactor/pr-769-incremental posunut fast-forward přes tento
+kód a dokumentační přijetí. Draft se nemerguje do samandarin-0.16;
+SOURCE/CONTRACT/release/donor piny beze změny. Další etapa S05, pouze lokální
+implementace a validace; nové zveřejnění není tímto zadáním autorizované.
+Historické pending záznamy níže popisují dřívější stav.
+
+
 ## S04 CI předkrok — ABI test bez historického checkoutu (2026-10-14)
 
 První current-head CI bfa74f8e: Win32/x64/ARM64 buildy, source growth a Python

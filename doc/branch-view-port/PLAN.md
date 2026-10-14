@@ -1,19 +1,21 @@
 # Plán postupného portu PR #769
 
-Aktuální stav 2026-10-14: **S04 IMPLEMENTED / lokální brána PASS / PENDING CI**.
-S03 DONE na accepted reference ea1dd462. S04 kandidát na samostatné
-`integration/pr769-s04-candidate`: ordinary panel gettery + PanelItemPaths
-QueryService, bez Branch state/scanner. Host + 30 SDK konzumentů D/R x64,
-43 native groups/config, resolver/service 193/config, pytest 49 a běžný
-fresh/restart/F3/F5/hash/shutdown smoke PASS. ABI předchozích rozhraní zachované.
-[PROGRESS.md](PROGRESS.md), [VALIDATION.md](VALIDATION.md), [S04](steps/S04.md).
-Kód dd344546 publikován na zadání uživatele, interní fork draft #22 otevřený.
-První head bfa74f8e měl platformní buildy/Python PASS, native FAIL kvůli
-chybějící Git historii v ABI testu. Test opraven frozen release hashes bez
-oslabení; nová current-head CI čeká na ověření. Publikační
-záznam je pouze dokumentace, testovaný kód se nemění. Další krok: ověřit
-nové head CI a přijmout S04 před S05.
-SOURCE/CONTRACT a release/donor piny beze změny, reference zůstává ea1dd462.
+## Přijetí S04 — DONE (2026-10-14)
+
+Na pokyn uživatele zahájit S05 přijat S04 checkpoint
+`359a6b4f768c4a8769ba6dcb923f9ea663b91aad`. Přesný head interního
+[PR #22](https://github.com/majklvi/salamander/pull/22) znovu ověřen:
+12 COMPLETED/SUCCESS včetně Win32/x64/ARM64, native/Python, source growth,
+guardů a skutečné MSBuild CodeQL analýzy/uploadu. Lokální host + 30 SDK
+konzumentů Debug/Release, native 43/config, resolver 193/config, pytest 49
+a GUI fresh/restart/F3/F5/shutdown PASS; historické PHP/LoadImageW skips
+zachované. Chyba závislosti ABI testu na Git historii vyřešena v 359a6b4f.
+
+Referenční refactor/pr-769-incremental posunut fast-forward přes tento
+kód a dokumentační přijetí. Draft se nemerguje do samandarin-0.16;
+SOURCE/CONTRACT/release/donor piny beze změny. Další etapa S05, pouze lokální
+implementace a validace; nové zveřejnění není tímto zadáním autorizované.
+Historické pending záznamy níže popisují dřívější stav.
 
 ## Historie kandidátů před přijetím S02b
 
@@ -74,7 +76,7 @@ reviewovatelný PR, pokud níže není uvedena pevně svázaná dvojice.
 | [S01](steps/S01.md) | Izolované SafeFile Retry/Skip opravy | Ověřená baseline; rozdělit donorové testy podle skutečných závislostí |
 | [S02](steps/S02.md) | Wide utility a Debug sledování handleů; S02a/S02b DONE | S01; pouze potřebné společné pomocné funkce |
 | [S03](steps/S03.md) | SafeFile Unicode a dlouhé cesty; DONE včetně baseline preflight | S01, S02 |
-| [S04](steps/S04.md) | Cesty položek běžného diskového panelu; lokální PASS, pending CI | S02; existující QueryService |
+| [S04](steps/S04.md) | Cesty položek běžného diskového panelu; DONE | S02; existující QueryService |
 | [S05](steps/S05.md) | Owned SDK, host service a DemoPlug společně | S04; neměnné vydané ABI |
 | [S06](steps/S06.md) | File Comparator | S05 |
 | [S07](steps/S07.md) | Batch Rename | S03, S05 |
