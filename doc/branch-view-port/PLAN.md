@@ -1,5 +1,60 @@
 # Plán postupného portu PR #769
 
+## S07 — IMPLEMENTED / lokální brána PASS (2026-10-14)
+
+S06 přijato na f43b9d86 po 12 úspěšných kontrolách PR #26 včetně skutečného
+CodeQL. Nová lokální větev integration/pr769-s07-candidate obsahuje Batch
+Rename jako jednu etapu: owned snapshot před workerem, přesné rodiče položek,
+relative/full mode, preview, wide I/O a Undo. Všech 14 produkčních a 4 testové
+soubory odpovídají blobům připnutého donoru 47661e92; vlastní adaptace je jen
+registrace dvou testů do stávajícího runneru se zachováním všech starších testů.
+SDK/CFileData, disk-only menu guard a Branch gate se nemění.
+
+Host+Renamer Debug/Release x64 /warnaserror PASS. Native panel harness
+67 checks/config a I/O harness 89 checks/config PASS; celé native sady
+49 groups/config PASS; CI pytest výběr 49 PASS. Přijatý předchozí consumer
+negativně: kompilace PASS, 31 očekávaných selhání ze 40 checks (Debug).
+Pět vlastních GUI hostů, 21 skutečných přejmenování souborů a jejich Undo
+ve čtyřech dávkách: celá devíti-souborová sada v D/R včetně ASCII, Unicode
+jména, více Unicode rodičů, UTF8>260 i UTF16>260 cest. Samostatný Debug
+duplicate test prokázal rozdílný obsah, třetí nevybranou položku a životnost
+po refresh/sort panelu; relative mode zkontrolován v preview. Cancel dlouhého
+jména beze změn. Všech 55 fixtures nakonec na původních cestách s původním
+obsahem, oba configstorage.ini obnoveny; všech 5 hostů/reporterů normálně
+ukončeno bez nového reportu. Uživatelská instalace nedotčena.
+
+Evidenci váže parent f43b9d86 + runtime patch SHA256
+c4ae16be26caf38ec5ea1f24520351ceb07a102b05de1236135998fabd06c653,
+zdrojové/blokové a binární hashe; podrobně [steps/S07.md](steps/S07.md).
+PHP není dostupné a dva historické Win32 LoadImageW long-bitmap subcases
+jsou SKIP, nikoli provedené PASS. Nová S07 platformní CI/CodeQL ani čistý
+build celé sestavy zatím neběžely: větev nebyla publikována. Accepted reference
+zůstává f43b9d86. Nejbližší checkpoint je push a fork CI po zadání uživatele;
+teprve po přijetí S07 navazuje S08 Checksum. S08 nebylo zahájeno.
+
+## S07 — plán úzké migrace Batch Rename (2026-10-14)
+
+S06 přijat na kódu 9580b153 po 12 checks včetně skutečného CodeQL; lokální
+accepted reference f43b9d86 (jen acceptance dokumentace). S07 provádí pouze
+14 souvisejících produkčních souborů renamer včetně dvou path/I/O headers a
+čtyři donorové testové soubory podle mapy. Existující disk-only menu guard
+MENU_EVENT_DISK zůstává; nová podpora archivů/FS ani Branch UI se nepřidává.
+
+Přenést společně snapshot intake před worker threadem, owned CSourceFile,
+per-item rodiče, relative/full mode, preview, wide rename/move I/O a Undo.
+Kapacita 4*SAL_MAX_PATH na haldě, Win32 extended cesty a ne-throwing source
+factory včetně všech donorových failure větví. Bez nového SDK/scanneru.
+Native panel harness zkompiluje skutečný intake/konstruktory/generování cíle,
+I/O harness skutečné wide wrappers nad disposable fixtures. Oba D/R.
+Povinná GUI brána: Cancel beze změny souborů, preview/sort/refresh životnost,
+skutečné přejmenování a Undo s různými obsahy stejných basename ve dvou
+rodičích, Unicode jméno/rodiče a obě délkové hranice. Native wrapper samotný
+není důkazem skutečného GUI Undo. Zdrojový donorový payload basename-derived
+u duplicate FileCase sám nedokazuje rozlišení obsahů; tuto mezeru pokryjí
+odlišné souběžné vlastní fixture markery. Běžný panel/shutdown D/R, host+
+renamer /warnaserror, regresní sady, přesné hashe a obnova bootstrapů.
+Do accepted reference S07 povýšit až po samostatném publikování a CI headu.
+
 ## S06 — publikováno a přijato (2026-10-14)
 
 Kód 9580b153434bde8942dd3b1604aa478fb5e276ea na

@@ -1,5 +1,37 @@
 # Stav portu PR #769
 
+## S07 — IMPLEMENTED / lokální brána PASS (2026-10-14)
+
+S06 přijato na f43b9d86 po 12 úspěšných kontrolách PR #26 včetně skutečného
+CodeQL. Nová lokální větev integration/pr769-s07-candidate obsahuje Batch
+Rename jako jednu etapu: owned snapshot před workerem, přesné rodiče položek,
+relative/full mode, preview, wide I/O a Undo. Všech 14 produkčních a 4 testové
+soubory odpovídají blobům připnutého donoru 47661e92; vlastní adaptace je jen
+registrace dvou testů do stávajícího runneru se zachováním všech starších testů.
+SDK/CFileData, disk-only menu guard a Branch gate se nemění.
+
+Host+Renamer Debug/Release x64 /warnaserror PASS. Native panel harness
+67 checks/config a I/O harness 89 checks/config PASS; celé native sady
+49 groups/config PASS; CI pytest výběr 49 PASS. Přijatý předchozí consumer
+negativně: kompilace PASS, 31 očekávaných selhání ze 40 checks (Debug).
+Pět vlastních GUI hostů, 21 skutečných přejmenování souborů a jejich Undo
+ve čtyřech dávkách: celá devíti-souborová sada v D/R včetně ASCII, Unicode
+jména, více Unicode rodičů, UTF8>260 i UTF16>260 cest. Samostatný Debug
+duplicate test prokázal rozdílný obsah, třetí nevybranou položku a životnost
+po refresh/sort panelu; relative mode zkontrolován v preview. Cancel dlouhého
+jména beze změn. Všech 55 fixtures nakonec na původních cestách s původním
+obsahem, oba configstorage.ini obnoveny; všech 5 hostů/reporterů normálně
+ukončeno bez nového reportu. Uživatelská instalace nedotčena.
+
+Evidenci váže parent f43b9d86 + runtime patch SHA256
+c4ae16be26caf38ec5ea1f24520351ceb07a102b05de1236135998fabd06c653,
+zdrojové/blokové a binární hashe; podrobně [steps/S07.md](steps/S07.md).
+PHP není dostupné a dva historické Win32 LoadImageW long-bitmap subcases
+jsou SKIP, nikoli provedené PASS. Nová S07 platformní CI/CodeQL ani čistý
+build celé sestavy zatím neběžely: větev nebyla publikována. Accepted reference
+zůstává f43b9d86. Nejbližší checkpoint je push a fork CI po zadání uživatele;
+teprve po přijetí S07 navazuje S08 Checksum. S08 nebylo zahájeno.
+
 ## S06 — publikováno a přijato (2026-10-14)
 
 Kód 9580b153434bde8942dd3b1604aa478fb5e276ea na

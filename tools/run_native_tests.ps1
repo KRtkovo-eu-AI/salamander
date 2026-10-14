@@ -471,6 +471,24 @@ try {
             )
         },
         @{
+            Name = 'renamer_panel_paths_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\renamer_panel_paths_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'renamer_io_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\renamer_io_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
             Name = 'filecomp_panel_paths_tests'
             ClassName = 'native-generated'
             Arguments = @(
