@@ -471,6 +471,15 @@ try {
             )
         },
         @{
+            Name = 'icon_reader_path_scratch_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\icon_reader_path_scratch_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
             Name = 'filecomp_dialog_lifetime_tests'
             ClassName = 'native-generated'
             Arguments = @(

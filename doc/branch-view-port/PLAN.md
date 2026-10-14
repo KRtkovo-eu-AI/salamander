@@ -1,5 +1,58 @@
 # Plán postupného portu PR #769
 
+## S06-preflightb — IMPLEMENTED / lokální brána PASS (2026-10-14)
+
+Vlastní S06 Compare migrace narazila při shutdownu dlouhých panelů na původní
+přepsání stacku v IconThreadThreadFBody. Podle CONTRACT se provádí jen tento
+nejmenší bezpečnostní předkrok: heap-backed narrow/wide scratch, skutečná
+kapacita konverze UTF8-first/ACP a wide offset v převedených znacích.
+Legacy MAX_PATH guardy pro shell/overlay zůstávají; plná migrace S26/S28
+se nepřebírá. SDK, CFileData, diagnostika a tmavé scrollbary beze změny.
+
+Host i obnovený Bug Reporter Debug/Release x64 /warnaserror PASS; Filecomp
+pro runtime znovu sestaven z přijatého parentu bez vlastní S06 migrace.
+Skutečný preparační blok nativně 93 checks/config PASS, celé sady 46 groups/
+config a pytest 49 PASS. PHP a LoadImageW subcase SKIPs zůstávají evidované.
+Skutečné běžné panely se zdroji 390/391 UTF8 bajtů (220/221 UTF16 jednotek)
+a 407/408 UTF16 jednotek: D/R listing, F3 s přesnou celou cestou/obsahem,
+normální shutdown hostu i jeho reporteru, žádný nový report — čtyři PASS.
+Všech 45 původních fixture souborů/sentinelů beze změny, bootstrapy obnovené.
+
+Podrobnosti a omezení: [steps/S06-preflightb.md](steps/S06-preflightb.md).
+Evidence mimo Git: evidence/S06-preflightb/{local-summary,source-manifest,
+gui-observations}.json, runtime.patch, build reporty a JUnit. Připravená S06
+migrace/testy jsou hashově uchovány v evidence/S06-owned/pending-S06-owned.patch;
+v tomto commitu nejsou a S06 se neoznačuje za dokončené.
+
+Větev integration/pr769-s06-preflightb-candidate je pouze lokální.
+Nové fork CI, CodeQL a publikační platformní matice NOT RUN; accepted
+reference zůstává bf78c81723abc983805a61acaeec6d92fd4b2316. Další krok:
+publikovat tento předkrok, vytvořit/reuse interní draft přes Ensure-ForkCI,
+ověřit přesný head a poté obnovit S06 patch včetně obou native registrací.
+
+## S06-preflightb — bezpečný scratch ikonočtečky běžného panelu
+
+S06 migrace je připravena a native 58 checks/config, celé sady 46/config
+prošly; ruční Compare načte Unicode i dlouhé cesty. GUI brána však při
+shutdownu selhala: RTC Stack memory corruption, reporty vlastních procesů
+2552/15196 a původní IconThreadThreadFBody v src/fileswn1.cpp:1824–1842.
+memmove kopíruje celý GetPath() do char path[MAX_PATH+10], poté zapisuje
+wPath přes wName=wPath+l, kde l je počet bajtů cesty. 390/391 UTF8 a
+407/408 UTF16 cesty prokazatelně překračují scratch. Donor (pozdější S26/S28) nahrazuje
+narrow scratch CPathBuffer(4*SAL_MAX_PATH+16), ale celý worker navíc závisí
+na BranchView cache keys a novém overlay API, které S06 nezavádí.
+
+Nejmenší bezpečnostní předkrok: převzít pouze donorový heap narrow scratch,
+heap wide scratch SAL_MAX_PATH+16 (panel Path má 32768 bajtů), skutečnou
+kapacitu konverze a wide offset podle počtu převedených znaků, UTF8-first/ACP. Zachovat stávající MAX_PATH guardy
+legacy shell/overlay operací; nepředstírat hotovou long-icon/Branch migraci.
+Ověřit skutečný preparační blok nativně v D/R, hranice a canary integrity,
+oba host buildy, regresní sady a skutečný dlouhý panel/shutdown v D/R.
+Původní stack/heap diagnostika se nevypíná. Až samostatně tento předkrok
+uzavřít; S06 migrace je kompletně uchována v evidence/S06-owned/
+pending-S06-owned.patch s manifestem a výsledky. Do accepted reference
+se nepřijímá, její kód ani testy v tomto předkroku nejsou přítomny.
+
 ## S06-preflight — publikováno a přijato (2026-10-14)
 
 Kód e0b69771bbaf683d7aa3debcf158d2efec65d93c na

@@ -1,5 +1,35 @@
 # Validace portu a baseline S00
 
+## S06-preflightb — IMPLEMENTED / lokální brána PASS (2026-10-14)
+
+Vlastní S06 Compare migrace narazila při shutdownu dlouhých panelů na původní
+přepsání stacku v IconThreadThreadFBody. Podle CONTRACT se provádí jen tento
+nejmenší bezpečnostní předkrok: heap-backed narrow/wide scratch, skutečná
+kapacita konverze UTF8-first/ACP a wide offset v převedených znacích.
+Legacy MAX_PATH guardy pro shell/overlay zůstávají; plná migrace S26/S28
+se nepřebírá. SDK, CFileData, diagnostika a tmavé scrollbary beze změny.
+
+Host i obnovený Bug Reporter Debug/Release x64 /warnaserror PASS; Filecomp
+pro runtime znovu sestaven z přijatého parentu bez vlastní S06 migrace.
+Skutečný preparační blok nativně 93 checks/config PASS, celé sady 46 groups/
+config a pytest 49 PASS. PHP a LoadImageW subcase SKIPs zůstávají evidované.
+Skutečné běžné panely se zdroji 390/391 UTF8 bajtů (220/221 UTF16 jednotek)
+a 407/408 UTF16 jednotek: D/R listing, F3 s přesnou celou cestou/obsahem,
+normální shutdown hostu i jeho reporteru, žádný nový report — čtyři PASS.
+Všech 45 původních fixture souborů/sentinelů beze změny, bootstrapy obnovené.
+
+Podrobnosti a omezení: [steps/S06-preflightb.md](steps/S06-preflightb.md).
+Evidence mimo Git: evidence/S06-preflightb/{local-summary,source-manifest,
+gui-observations}.json, runtime.patch, build reporty a JUnit. Připravená S06
+migrace/testy jsou hashově uchovány v evidence/S06-owned/pending-S06-owned.patch;
+v tomto commitu nejsou a S06 se neoznačuje za dokončené.
+
+Větev integration/pr769-s06-preflightb-candidate je pouze lokální.
+Nové fork CI, CodeQL a publikační platformní matice NOT RUN; accepted
+reference zůstává bf78c81723abc983805a61acaeec6d92fd4b2316. Další krok:
+publikovat tento předkrok, vytvořit/reuse interní draft přes Ensure-ForkCI,
+ověřit přesný head a poté obnovit S06 patch včetně obou native registrací.
+
 ## S06-preflight — publikováno a přijato (2026-10-14)
 
 Kód e0b69771bbaf683d7aa3debcf158d2efec65d93c na
