@@ -8,7 +8,9 @@ QueryService, bez Branch state/scanner. Host + 30 SDK konzumentů D/R x64,
 fresh/restart/F3/F5/hash/shutdown smoke PASS. ABI předchozích rozhraní zachované.
 [PROGRESS.md](PROGRESS.md), [VALIDATION.md](VALIDATION.md), [S04](steps/S04.md).
 Kód dd344546 publikován na zadání uživatele, interní fork draft #22 otevřený.
-Current-head platform/test CI běží; CodeQL čeká na build matici. Publikační
+První head bfa74f8e měl platformní buildy/Python PASS, native FAIL kvůli
+chybějící Git historii v ABI testu. Test opraven frozen release hashes bez
+oslabení; nová current-head CI čeká na ověření. Publikační
 záznam je pouze dokumentace, testovaný kód se nemění. Další krok: ověřit
 nové head CI a přijmout S04 před S05.
 SOURCE/CONTRACT a release/donor piny beze změny, reference zůstává ea1dd462.

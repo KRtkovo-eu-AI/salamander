@@ -1,5 +1,30 @@
 # Stav portu PR #769
 
+## S04 CI předkrok — ABI test bez historického checkoutu (2026-10-14)
+
+První current-head CI bfa74f8e: Win32/x64/ARM64 buildy, source growth a Python
+PASS, native FAIL pouze `panel_item_paths_tests`. Přesný JUnit traceback:
+Git show a84dbed6:src/plugins/shared/spl_gen.h chybí v omezeném CI checkoutu.
+Je to chyba nové testové infrastruktury, nikoli potvrzená produktová regrese.
+Workflow není měněné a žádná assertion nebyla vypuštěna.
+
+`panel_item_paths_abi.json` nyní drží SHA256 všech pěti vydaných Abstract class
+bodies ze spl_gen.h a celého spl_com.h, se source_commit a84dbed6. UTF8/BOM/EOL
+normalizace deklarovaná. Normal test porovnává stejné celé definice/layout proti
+zmrazené referenci bez Git historie. Explicitní `--verify-abi-source` zvlášť
+ověřuje fixture against připnutý release; lokálně PASS včetně seznamu tříd.
+Stejné production C++ assertions dál 193/config PASS. Samostatný adresář s
+přesnými kopiemi zdrojů a bez .git prošel Debug i Release 193/config; cleanup
+vlastního rootu ověřen. Původní parent-query negative control zůstává dostupný.
+
+Produktové/SDK/runner/C++ template bytes z dd344546 se nemění. Buildy všech
+konzumentů a GUI se bez runtime změny neopakují; nativní runner nového testu
+opakovaný Debug/Release. Nová CI musí ověřit nové SHA, ne Bfa ani dd344546.
+S04 nadále PENDING CI/acceptance, accepted reference ea1dd462, S05 nezačala.
+Evidence S04: failed-head-test-results/native.xml, publish-ci-03,
+ci-fix-focused, ci-fix-historyless/proof, ci-fix-native-*, ci-fix.patch.
+Původní testovaný patch zachován jako local-stage-runtime.patch.
+
 ## S04 — IMPLEMENTED / lokální brána PASS (2026-10-14)
 
 Kandidát na `integration/pr769-s04-candidate` nad přijatým `ea1dd462`.

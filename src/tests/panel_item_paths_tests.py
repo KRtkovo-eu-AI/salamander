@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Actual ordinary panel getters and host service; adapted from PR #769 tests."""
 import argparse
+import hashlib
+import json
 from pathlib import Path
 import re
 import shutil
@@ -12,14 +14,28 @@ import safe_file_paths_tests as native
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--configuration', choices=('Debug', 'Release', 'Both'), default='Both')
+    parser.add_argument('--verify-abi-source', action='store_true', help='Verify the frozen ABI hashes against the pinned release (requires history)')
     parser.add_argument('--query-source-ref', help='Negative control: earlier QueryService with current resolver')
     args = parser.parse_args()
     sdk = native.read('src/plugins/shared/spl_gen.h')
-    released = native.read('src/plugins/shared/spl_gen.h', 'a84dbed6db632a9e63b5ed9f4bc6691e4cc5f449')
-    classes = re.findall(r'class (\w+Abstract)\s*\n\{', released)
-    for name in classes:
-        assert native.block(sdk, 'class ' + name + '\n', ';') == native.block(released, 'class ' + name + '\n', ';'), name
-    assert native.read('src/plugins/shared/spl_com.h') == native.read('src/plugins/shared/spl_com.h', 'a84dbed6db632a9e63b5ed9f4bc6691e4cc5f449')
+    # Frozen from the released base, so normal CI needs no historical Git object.
+    # Full class bodies/layout remain protected, not just a count of virtuals.
+    abi = json.loads(native.read('src/tests/panel_item_paths_abi.json'))
+    assert abi['source_commit'] == 'a84dbed6db632a9e63b5ed9f4bc6691e4cc5f449'
+    def digest(text):
+        return hashlib.sha256(text.replace('\r\n', '\n').encode('utf-8')).hexdigest()
+    classes = abi['spl_gen_abstract_classes']
+    for name, expected in classes.items():
+        assert digest(native.block(sdk, 'class ' + name + '\n', ';')) == expected, name
+    assert digest(native.read('src/plugins/shared/spl_com.h')) == abi['spl_com_sha256']
+    if args.verify_abi_source:
+        released = native.read('src/plugins/shared/spl_gen.h', abi['source_commit'])
+        names = re.findall(r'class (\w+Abstract)\s*\n\{', released)
+        assert set(names) == set(classes)
+        for name, expected in classes.items():
+            assert digest(native.block(released, 'class ' + name + '\n', ';')) == expected, name
+        assert digest(native.read('src/plugins/shared/spl_com.h', abi['source_commit'])) == abi['spl_com_sha256']
+        print('ABI fixture verified against pinned release:', abi['source_commit'], flush=True)
     print('Released SDK classes/layout unchanged:', len(classes), flush=True)
     common = native.read('src/plugins/shared/spl_com.h')
     wide = native.read('src/common/widepath.cpp')
