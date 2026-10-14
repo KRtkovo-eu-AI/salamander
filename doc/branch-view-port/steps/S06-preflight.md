@@ -75,3 +75,16 @@ vlastní migrace S06 a její Unicode/long-path Compare matice, nová fork CI,
 CodeQL a publikační Win32/ARM64 matice. Tento předkrok zůstává lokální;
 accepted reference ffa1519d se nepovyšuje před publikací a current-head CI.
 Další nejmenší krok: publikovat a ověřit předkrok; poté původní S06.
+## S06-preflight — publikováno a přijato (2026-10-14)
+
+Kód e0b69771bbaf683d7aa3debcf158d2efec65d93c na
+origin/integration/pr769-s06-preflight-candidate je ověřen interním
+[draftem #24](https://github.com/majklvi/salamander/pull/24). Všech 13 kontrol
+přesného headu SUCCESS: Win32/x64/ARM64 /warnaserror, VSIX build/test,
+native/Python/reporty, growth, guardy a skutečné CodeQL. Job 115856740584
+dokončen 12:53:45 UTC; Initialize, Release MSBuild, analýza i SARIF upload
+SUCCESS. Lokální PHP/LoadImageW subcase SKIPs zůstávají pravdivě evidované.
+Draft zůstává otevřený a nemerguje se do reference base a84dbed6.
+Evidence: evidence/S06/publish-final-ci.json a publish-final-codeql-job.json.
+Předpoklad S06 splněn; pokračovat pouze vlastní owned-selection migrací.
+Dokumentační acceptance nemění testovaný runtime ani SOURCE/CONTRACT piny.

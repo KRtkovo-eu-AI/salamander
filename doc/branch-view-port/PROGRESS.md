@@ -478,8 +478,8 @@ vlastní výsledné SHA se zde neuvádí. Žádný donorový runtime hunk nepře
 | S03 | DONE | Přijatý checkpoint ea1dd462 |
 | S04 | DONE | Ověřený 359a6b4f + přijetí aef114a2 |
 | S05 | DONE | 89698944, interní draft #23, všech 13 current-head checks SUCCESS včetně skutečného CodeQL |
-| S06-preflight | IMPLEMENTED / local PASS | Úklid drop subclass řetězce; D/R build, 964 native checks/config, 45 groups/config, pytest 49, skutečné GUI |
-| S06 | PENDING | Owned-selection migrace až po publikaci a current-head CI předkroku |
+| S06-preflight | DONE | e0b69771, interní draft #24: 13 current-head checks SUCCESS včetně skutečného CodeQL |
+| S06 | READY | Vlastní File Comparator owned-selection migrace; předpoklady S05 a S06-preflight přijaty |
 | S07–S32 | PENDING | Nezahájené; Branch View nadále nedostupné |
 | Publikace | S05 fork draft #23 otevřený | Přesný head 89698944: 13/13 SUCCESS; validační drafty se nemergují do reference base |
 
@@ -570,3 +570,16 @@ D/R host+plugin /warnaserror, 964 native lifecycle checks/config,
 PASS. Původní callback je v negativní kontrole prokazatelně vadný.
 Předkrok je lokální; S06 owned-selection migrace PENDING. Před ní publikovat
 předkrok a ověřit CI jeho přesného headu. Accepted reference ffa1519d (S05).
+## S06-preflight — publikováno a přijato (2026-10-14)
+
+Kód e0b69771bbaf683d7aa3debcf158d2efec65d93c na
+origin/integration/pr769-s06-preflight-candidate je ověřen interním
+[draftem #24](https://github.com/majklvi/salamander/pull/24). Všech 13 kontrol
+přesného headu SUCCESS: Win32/x64/ARM64 /warnaserror, VSIX build/test,
+native/Python/reporty, growth, guardy a skutečné CodeQL. Job 115856740584
+dokončen 12:53:45 UTC; Initialize, Release MSBuild, analýza i SARIF upload
+SUCCESS. Lokální PHP/LoadImageW subcase SKIPs zůstávají pravdivě evidované.
+Draft zůstává otevřený a nemerguje se do reference base a84dbed6.
+Evidence: evidence/S06/publish-final-ci.json a publish-final-codeql-job.json.
+Předpoklad S06 splněn; pokračovat pouze vlastní owned-selection migrací.
+Dokumentační acceptance nemění testovaný runtime ani SOURCE/CONTRACT piny.
