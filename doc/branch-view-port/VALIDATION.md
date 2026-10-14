@@ -1,5 +1,19 @@
 # Validace portu a baseline S00
 
+## S07-CI — příprava závislostí čistého sestavení (2026-10-14)
+
+Oprava společného .github/workflows/pr-msbuild.yml: workflow_dispatch
+obchází Select changed projects, a proto nyní sám zapne instalaci Lua a
+mmviewer TagLib přes stávající instalační krok. PR výběr, triplet mapping,
+oddělený statický TagLib root a /warnaserror zachovány. Jde o obecnou opravu
+manuálního full buildu, nikoli fork-specific aktivaci CI. Bez změny aplikace
+či donorových 18 souborů S07. Předchozí run 38609591197 selhal na chybějících
+Lua/TagLib ve všech třech architekturách. Lokální pytest tools/code_metrics/tests
++ tools/codeql/tests: 8 PASS; diff --check PASS. Nový čistý full build a
+CodeQL přesného nového headu PR #27 jsou do ukončení CI PENDING; původní
+S07 lokální runtime testy se nad identickým kódem neopakovaly. Výsledky a
+konkrétní run/job ID budou uloženy v evidence/S07 mimo Git.
+
 ## S07 — IMPLEMENTED / lokální brána PASS (2026-10-14)
 
 S06 přijato na f43b9d86 po 12 úspěšných kontrolách PR #26 včetně skutečného

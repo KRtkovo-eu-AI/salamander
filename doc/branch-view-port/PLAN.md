@@ -1,5 +1,19 @@
 # Plán postupného portu PR #769
 
+## S07-CI — oprava závislostí ručního full buildu (2026-10-14)
+
+Samostatný workflow_dispatch run 38609591197 na S07 3f9a0134 selhal ve
+Win32/x64/ARM64: Lua runtime a mmviewer TagLib nebyly připraveny. Select
+changed projects se při dispatch nespouští, takže chyběly needs_lua a
+needs_mmviewer_taglib outputs a instalační krok byl přeskočen. Nejmenší
+oprava: při workflow_dispatch spustit tentýž instalační krok s oběma
+příznaky true; PR výběr i oddělený statický TagLib install root zachovat.
+Nejde o fork-specific aktivaci workflow; opravuje se společná ruční cesta.
+Aplikační kód, SDK, kontroly /warnaserror, SFTP a reference beze změny.
+Ověření: existující Python workflow testy, nový čistý build všech tří
+architektur a skutečné dokončení CodeQL na novém přesném headu PR #27.
+Do dokončení těchto běhů publikační brána zůstává PENDING.
+
 ## S07 — IMPLEMENTED / lokální brána PASS (2026-10-14)
 
 S06 přijato na f43b9d86 po 12 úspěšných kontrolách PR #26 včetně skutečného
