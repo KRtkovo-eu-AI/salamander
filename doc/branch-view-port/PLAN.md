@@ -1,5 +1,55 @@
 # Plán postupného portu PR #769
 
+## S06 — IMPLEMENTED / lokální brána PASS (2026-10-14)
+
+S06-preflightb přijat na 2d836336 po čerstvém ověření všech 12 kontrol
+PR #25 včetně skutečné CodeQL analýzy a SARIF uploadu, job 115946770877.
+Lokální accepted reference je 2d836336; draft se nemerguje do release base.
+
+File Comparator nyní přebírá owned disk selection snapshots místo živých
+řádků panelu. Přesné wide identity a názvy určují dvojici; nejednoznačný
+target basename zůstane prázdný, chyba služby nevede k odhadu root/name.
+Zachováno selected/focused chování, source/target a pořadí left/right.
+UTF8 vstupy jsou heap-backed a kapacitně kontrolované před spuštěním threadu.
+Produkční hunks a Python test driver odpovídají připnutému donoru;
+native template navíc ověřuje 3 mezní případy aktivní snapshot větve.
+SDK, CFileData, engine, dialog cleanup, ikonočtečka a Branch gate beze změny.
+
+Host+Filecomp Debug/Release x64 /warnaserror PASS; skutečný command/service
+native harness 58 checks/config PASS, celé sady 47 groups/config PASS,
+pytest 49 PASS. Původní přijatý consumer negativně 23 failures/51 checks.
+Ruční Compare: 11 úspěšných dvojic s přesnými vstupy/skutečnými obsahy,
+Unicode jménem/adresáři a oběma dlouhými cestami v D/R, včetně správného
+left/right pořadí při pravém zdroji. Všech 10 vlastních hostů i reporterů
+normálně ukončeno, žádný nový report, 45 původních fixtures beze změny.
+Známé nezměněné ANSI výstupní hlavičky a zkrácený Unicode caption suffix
+nejsou označeny jako opravené ani jako plný Unicode UI PASS.
+
+Podrobnosti, přesné příkazy a omezení: [steps/S06.md](steps/S06.md), evidence
+mimo Git v evidence/S06-final. PHP a LoadImageW subcase SKIPs zachovány.
+Větev integration/pr769-s06-candidate je lokální; nové S06 CI/CodeQL a čistá
+publikační platformní matice NOT RUN. Před přijetím/pokračováním S07 nejprve
+publikovat S06, Ensure-ForkCI a ověřit přesný head. Tento krok push neopravňuje.
+
+## S06 — obnovená migrace po přijetí S06-preflightb (2026-10-14)
+
+PR #25 head 2d836336 má čerstvě ověřeno všech 12 kontrol SUCCESS včetně
+skutečné CodeQL analýzy a SARIF uploadu (job 115946770877). Přijatá lokální
+reference je 2d836336; interní draft zůstává otevřený a release base se nemění.
+Uložený S06-owned patch byl ověřen hashem a obnoven nad touto opravou.
+Tři produkční Filecomp soubory a native Python driver odpovídají přesně
+připnutému donoru. Native template zachovává tři doplněné kontroly kapacity;
+runner nyní obsahuje oba testy, ikonočtečku i Filecomp owned consumer.
+
+V tomto běhu pouze S06: cílený skutečný command/service harness a negativní
+kontrola přijatého starého consumeru; host+Filecomp Debug/Release x64,
+celé regresní sady a skutečné Compare I/O se selected/focused/source/target,
+Unicode názvem, více Unicode komponentami a oběma dlouhými cestami.
+Ukončení musí zahrnout host i reporter a nepřítomnost nového reportu.
+Nepřebírat Branch UI, SDK ani pozdější icon/overlay migraci. Známé nezměněné
+výstupní ANSI hlavičky Filecomp a dark dialog starých reportů evidovat
+samostatně; netvrdit jejich opravu. Evidence: evidence/S06-final.
+
 ## S06-preflightb — IMPLEMENTED / lokální brána PASS (2026-10-14)
 
 Vlastní S06 Compare migrace narazila při shutdownu dlouhých panelů na původní

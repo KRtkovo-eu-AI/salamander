@@ -471,6 +471,15 @@ try {
             )
         },
         @{
+            Name = 'filecomp_panel_paths_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\filecomp_panel_paths_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
             Name = 'icon_reader_path_scratch_tests'
             ClassName = 'native-generated'
             Arguments = @(

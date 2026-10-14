@@ -1,5 +1,18 @@
 # S06-preflightb — bezpečná příprava cesty v ikonočtečce
 
+## S06-preflightb — publikováno a přijato (2026-10-14)
+
+[Interní draft PR #25](https://github.com/majklvi/salamander/pull/25), přesný
+head 2d83633687299c2545a117dfaf9e3e6f1399846a: všech 12 checks SUCCESS,
+Win32/x64/ARM64 /warnaserror, VSIX, native/Python/reporty, growth, squash guard,
+CodeQL gate i skutečná analýza. CodeQL job 115946770877 dokončen 15:53:03 UTC;
+Initialize, Release MSBuild, analýza a SARIF upload úspěšné. Žádný check není
+pending/skipped. Lokální PHP/LoadImageW subcase SKIPs tím nejsou přeznačeny.
+Při zahájení S06 znovu ověřeno a uloženo jako evidence/S06-final/
+accepted-preflight-ci.json; plné job kroky v S06-preflightb/ci-current-codeql-job.stdout.log.
+Accepted reference posunuta bez force z bf78c817 na 2d836336. Draft zůstává
+otevřený; samandarin-0.16 a SOURCE/CONTRACT piny se nemění.
+
 Stav: IMPLEMENTED / lokální brána PASS, publikace a current-head CI PENDING.
 Parent bf78c81723abc983805a61acaeec6d92fd4b2316; lokální větev
 integration/pr769-s06-preflightb-candidate. Donor
