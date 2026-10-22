@@ -462,6 +462,15 @@ try {
             )
         },
         @{
+            Name = 'pictview_wic_output_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\pictview_wic_output_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
             Name = 'disk_selection_snapshot_tests'
             ClassName = 'native-generated'
             Arguments = @(

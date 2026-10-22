@@ -1,5 +1,49 @@
 # Plán postupného portu PR #769
 
+## S12-preflight — doložená mezera existujícího WIC backendu (2026-10-22)
+
+S12 candidate runtime e22210d1 uložen mimo Git a reverzně odložen, aby se
+předkrok sestavil/otestoval samostatně proti S11 45d4a3e7. GUI Update Thumbnail
+nad vlastními validními deep Unicode JPEGy skončil jako non-JPEG, žádný soubor
+nezměněn. Skutečný Release backend přes přesné PDB function symbols vrací
+format=PVF_BMP; nezávislé WIC čtení téhož souboru s extended prefixem rozpozná
+JPEG a skutečné CollectFrames/DecodeFrame uspějí. Celý WicBackend.cpp blob
+je ef72188c53a6be5a713841475f654c96b102885d v HEAD, releasebase i donoru.
+
+Konkrétní příčina prefixu: AddExtendedPrefixIfNeeded čeká na SAL_MAX_PATH,
+ikoli Win32 MAX_PATH, takže validní 415-unit cesta nemá potřebný prefix a
+WIC se zbytečně nahrazuje Shell bitmapou. Druhá prokázaná mezera:
+sPVSaveImage vrací PVC_UNSUP_OUT_PARAMS pro NULL filename a ignoruje existující
+PVSF_USERDEFINED_OUTPUT callback. Regenerace tak nemůže fungovat ani s JPEG.
+
+Nejmenší předkrok: správný Win32 prefix threshold; stávající WIC SaveFrame
+zpřístupnit přes IStream z memory při callback output, zachovat původní file
+save a encoder/resize/metadata implementaci. Žádný nový image engine, žádná
+viewer enumeration/S18. Ověřit skutečný staged backend, validní JPEG output,
+callback error/short writes a normální save; host/PictView D/R /warnaserror,
+native regrese a skutečný GUI smoke obyčejné operace. Pak samostatný commit
+předkroku, obnovit přesně uložený S12 patch a znovu jeho lokální bránu.
+Dřívější S12 candidate testy nejsou důkazem hotového předkroku.
+
+## S12 — plán paired PictView thumbnail/EXIF (2026-10-22)
+
+Navazuje na lokálně ověřenou S11 45d4a3e7. Převzít celý donor thumbs.cpp
+(CEnumFiles owned snapshot, temporary/attributes RAII, safe replace a wide
+EXIF volání), exif.c/.h/.def jako jeden párovaný krok. Projekt přidá pouze
+spl_diskselection.h; unicodetitle.h a PictView navigation hunks zůstávají S18.
+Převzít oba pictview_thumbnail_paths_tests; obnovit skutečný CEnumFiles a dva
+S05 odložené HostTests assertions bez ztráty DemoPlug/ABI rozšíření targetu.
+Native harness musí načíst skutečnou právě sestavenou DLL s wide i legacy
+exportem, ověřit Unicode/long I/O, původní pixels/EXIF a bezpečnou náhradu.
+Driver přidá pouze configuration selector pro bounded runner, zachová default
+Both; runner zachová všech 52 starších skupin. Žádný nový image engine.
+
+Gate: host+PictView+EXIF D/R /warnaserror, skutečná DLL, native/pytest regrese,
+GUI Regenerate Thumbnail nad vlastními JPEG fixtures a kontrola obsahu,
+originálů, temp cleanup a právě načtené EXIF DLL. Pro dostupný open WIC backend
+oddělit skutečný runtime od proprietárního enginu; chybějící pokrytí nepočítat
+jako PASS. Žádná S18 viewer-enumeration integrace ani publikace této etapy.
+
 ## S11 — IMPLEMENTED / lokální brána PASS (2026-10-22)
 
 S10 přijato 60987d42 po zeleném PR #33 včetně skutečného CodeQL a celé

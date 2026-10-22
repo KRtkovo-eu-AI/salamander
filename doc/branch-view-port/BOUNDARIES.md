@@ -1,5 +1,15 @@
 # S00 read-only donor boundary audit
 
+## S12-preflight: WIC output boundary
+
+Evidence confirms a target/donor baseline defect, separate from owned selection
+and paired wide EXIF migration. SaveFrame is reused, not replaced by another
+image engine. The adapter buffers the whole encoded image; cancellation does
+not interrupt WIC encoding. Native adapter tests use a stub encoder dependency;
+17 real Release DLL checks and Debug/Release GUI provide separate integration
+evidence. S18 navigation and Unicode title remain deferred. S12 parked patch
+must be restored after this commit and all its current-source gates rerun.
+
 Pinned donor: `47661e92d4b3cbe5bb593ae3d75a3f1f698ef413`.
 Diff base and target: `a84dbed6db632a9e63b5ed9f4bc6691e4cc5f449`.
 Scope: changed-file list, selected critical function hunks and S01-S32 prompts. No implementation, donor build, fixture execution, mutation of donor or target, or assertion that a test passed. REUSE.tsv maps all 231 distinct donor paths; every row remains DEFERRED. Shared files have multiple stage rows; these are planning boundaries, not an assertion that all hunks already received independent parity review. S31 must resolve every actual hunk, including BOM-only differences and project registrations.
