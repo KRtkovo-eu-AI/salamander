@@ -1,5 +1,52 @@
 # Plán postupného portu PR #769
 
+## S18 — IMPLEMENTED / obě podetapy lokálně ověřeny (2026-10-22)
+
+S18a commit 1a8f5b77 zachovává úplné launch argumenty/cwd (samostatná evidence).
+S18b atomicky přenáší host-owned Salamander.ViewerEnumeration přes QueryService,
+owned std::wstring request/result, UI dispatcher v ordinary panelu i Find,
+wide internal viewer open/reload/title/navigation a PictView navigation/title.
+Legacy char API explicitně odmítá >MAX_PATH-byte result bez posunu cursoru;
+wide služba zachytí aliasovaný vstup před vyprázdněním výstupu a krátkou kapacitu
+odmítne bez posunu indexu. Žádné změny existujících virtual metod nebo CFileData.
+consts/fileswnb mají jen viewer hunks, bez Branch timer/state. SDK zachovává
+ordinary-panel komentáře S04/S05; zip ponechává provenance a přidává jen route.
+finddlg1, salamdr6, viewer.cpp/2/3, pět PictView souborů a native fixture EXACT.
+
+Host D/R x64 /warnaserror PASS; první Release95s timeout v LTCG zachován,
+opakování86.60s PASS. Všech 30 podporovaných SDK consumerů x2 konfigurace PASS,
+konkrétní project paths a 60 logů v consumer-matrix.json. Historický Portables
+vcproj2015_manison a nepublikovaný SFTP zůstávají excluded. Podporovaný Portables
+vcxproj byl samostatně ověřen. První souběžný Salamatrix Release selhal na
+sdíleném MarkdigRenderer native mezivýstupu; Debug PASS a samostatný Release
+repeat8.61s PASS, WebView2 oba buildy následně sériově PASS. Nejde o opravu SDK
+ani o zamaskování původního FAIL. ABI golden pět released interfaces + osm
+HEAD interfaces zachovány; release 5.0-samandarin-0.15.1 prefix PASS.
+
+Native viewer_enumeration_tests EXACT: 11 checks/config D/R PASS (identity,
+reorder/removal, case/canonical Unicode distinction, long decode/fullpath,
+capacity/canary a skutečné ANSI-window wide title). Toto nejsou testy celého
+UI dispatcher timeout stroje. Snapshot regression57 Debug PASS; všech22
+registrovaných source-contract/Windows PowerShell menu groups PASS; pytest49
+PASS; skutečné shipped conversion_table_tests D/R PASS po host staging/restartu.
+Celý native runner ani full solution CI/CodeQL znovu neběžely.
+
+Skutečný GUI internal viewer D/R: long Unicode open, obsah, úplný title včetně
+CJK/emoji, previous/next; CtrlR načetl nový marker z vlastního změněného souboru,
+poté byl source obnoven byte-exact. PictView D/R render64x48, next/prev přes
+službu mezi ASCII a Unicode basenames na stejné >MAX_PATH cestě, úplné titles.
+První Debug F3 otevřel podle původního private seed interní viewer; následně
+byla pouze vlastní testovací konfigurace nastavena na PictView JPEG slot16.
+Loaded pictview.spl hash match. Normal shutdown všech vlastních instancí bez
+reportů; 135 starších inputs + osm nových files + sentinel nezměněny,
+configstorage.ini obnoveny. Vše v evidence/S18b; žádný test uživatelských dat.
+
+Enter donor hunk ve fileswn2 je pouze pro IsBranchView a vyžaduje branch_view.h;
+zůstává DEFERRED S26, nikoli nový ordinary launch. Běžný Enter nemá S18 donor
+změnu. Branch View stále vypnuté. Parent1a8f5b77; runtime patch ce3854a5b4bd39fcf1ef1b8301503d4e7a91b0f098379885818b2d2e74dc2703.
+S18 lokální/nepushed; pokračovat S19 worker paths podle uživatelského goalu.
+
+
 ## S18a — IMPLEMENTED / lokální launch brána PASS (2026-10-22)
 
 Převzaty EXACT donor fileactionpath.h, viewerpath.h, execute.cpp/.h,
