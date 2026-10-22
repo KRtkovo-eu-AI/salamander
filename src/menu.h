@@ -9,6 +9,10 @@ extern const char* WC_POPUPMENU;
 #define UPDOWN_ARROW_HEIGHT 5
 #define UPDOWN_ITEM_HEIGHT 12
 
+// Internal presentation flag: dim only the right text column, keeping the command enabled.
+// This is not part of the plugin SDK menu state contract.
+#define MENU_STATE_RIGHTTEXT_GRAY 0x00000008
+
 class CMenuSharedResources;
 class CMenuPopup;
 class CMenuBar;
@@ -265,6 +269,9 @@ protected:
     DWORD SkillLevel;          // urcuje, ktere polozky budou v tomto popupu zobrazeny
     int MouseWheelAccumulator; // vertical
     BOOL UsePanelContextMenuFont;
+    void (*RightTextToolTipCallback)(void* context, DWORD itemID, char* buffer);
+    void* RightTextToolTipContext;
+    int RightTextToolTipIndex;
 
 public:
     //
@@ -272,6 +279,10 @@ public:
     //
 
     CMenuPopup(DWORD id = 0);
+    ~CMenuPopup();
+    // Internal opt-in only; no plug-in SDK/vtable change. The callback fills a
+    // TOOLTIP_TEXT_MAX UTF-8 buffer and is scoped to the next Track invocation.
+    void SetRightTextToolTip(void (*callback)(void*, DWORD, char*), void* context);
     BOOL LoadFromTemplate2(HINSTANCE hInstance, const MENU_TEMPLATE_ITEM* menuTemplate, DWORD* enablersOffset, HIMAGELIST hImageList, HIMAGELIST hHotImageList, int* addedRows);
 
     //
@@ -407,6 +418,10 @@ protected:
     void DrawItem(HDC hDC, CMenuItem* item, int yOffset, BOOL selected);             // vykresli jednu polozku
     void DrawUpDownItem(HDC hDC, BOOL up);                                           // vykresli polozku obsahujici sipku nahoru nebo dolu
     CMenuPopupHittestEnum HitTest(const POINT* point, int* userData);
+    int HitRightTextToolTip(const POINT& screenPoint);
+    void UpdateRightTextToolTip(const POINT& screenPoint, BOOL rearm = FALSE);
+    void ClearRightTextToolTip();
+    void ClearRightTextToolTips();
 
     BOOL FindNextItemIndex(int fromIndex, BOOL topToDown, int* index);
     inline CMenuPopup* FindActivePopup();       // najde posledni otevreny popup; vrati ukazatel na objekt

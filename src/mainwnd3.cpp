@@ -33,6 +33,7 @@
 #include "pack.h"
 #include "filesbox.h"
 #include "drivelst.h"
+#include "drivefreespace.h"
 #include "cache.h"
 #include "gui.h"
 #include <uxtheme.h>
@@ -5040,7 +5041,11 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             }
             else
             {
-                // change in media or drives
+                // A device/media/target change must discard cached space and any
+                // outstanding result for the former volume occupying this letter.
+                const wchar_t changedDrive = szPath[0] && szPath[1] == ':'
+                    ? static_cast<wchar_t>(szPath[0]) : 0;
+                DriveFreeSpaceInvalidate(changedDrive);
 
                 // after media insertion, automatically perform Retry in the "drive not ready" message box
                 // (if it is displayed for the drive with inserted media)
@@ -5146,6 +5151,39 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         // without this hack, it somehow did not catch up - the main window stayed inactive and the safe-wait window never appeared
         if (!SetTimer(HWindow, IDT_DELETEMNGR_PROCESS, 200, NULL))
             DeleteManager.ProcessData(); // if the timer fails, run immediately; forget about WinXP
+        return 0;
+    }
+
+    case WM_DEVICECHANGE:
+    {
+        if ((wParam == DBT_DEVICEARRIVAL || wParam == DBT_DEVICEREMOVECOMPLETE) && lParam != 0)
+        {
+            const DEV_BROADCAST_HDR* device = reinterpret_cast<const DEV_BROADCAST_HDR*>(lParam);
+            if (device->dbch_devicetype == DBT_DEVTYP_VOLUME &&
+                device->dbch_size >= sizeof(DEV_BROADCAST_VOLUME))
+            {
+                const DEV_BROADCAST_VOLUME* volume = reinterpret_cast<const DEV_BROADCAST_VOLUME*>(device);
+                for (unsigned i = 0; i < 26; ++i)
+                    if (volume->dbcv_unitmask & (1UL << i))
+                        DriveFreeSpaceInvalidate(static_cast<wchar_t>(L'A' + i));
+                PostMessage(HWindow, WM_USER_DRIVE_FREESPACE_READY, 0, 0);
+            }
+        }
+        break;
+    }
+
+    case WM_USER_DRIVE_FREESPACE_READY:
+    {
+        if (LeftPanel != NULL && LeftPanel->OpenedDrivesList != NULL)
+            LeftPanel->OpenedDrivesList->UpdateFreeSpace();
+        if (RightPanel != NULL && RightPanel->OpenedDrivesList != NULL)
+            RightPanel->OpenedDrivesList->UpdateFreeSpace();
+        for (int i = 0; i < GetDetachedTabCount(); ++i)
+        {
+            CFilesWindow* panel = GetDetachedTabAt(i);
+            if (panel != NULL && panel->OpenedDrivesList != NULL)
+                panel->OpenedDrivesList->UpdateFreeSpace();
+        }
         return 0;
     }
 
@@ -11890,6 +11928,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 Sleep(1000);
         }
 
+        DriveFreeSpaceShutdown(); // stop notifications and bounded probes before HWND destruction
         UnregisterSessionNotification(HWindow);
         KillTimer(HWindow, IDT_RESTOREWINDOWPLACEMENT);
 

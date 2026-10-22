@@ -85,6 +85,9 @@ public:
     // pokud je roven 0, pouzije se implicitni prodleva
     // pokud je -1, casovac se vubec nenastartuje
     void SetCurrentToolTip(HWND hNotifyWindow, DWORD id, int showDelay);
+    // Explicit refresh after an in-place control rebuild, without requiring
+    // mouse movement. Uses the same modeless timer and text callback path.
+    void RearmCurrentToolTip(HWND hNotifyWindow, DWORD id, int showDelay);
     void SetCurrentPanelToolTip(HWND hNotifyWindow, DWORD id, int showDelay);
 
     // potlaci zobrazeni tooltipu na aktualnich souradnicich mysi

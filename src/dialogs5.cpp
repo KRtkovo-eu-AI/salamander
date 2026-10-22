@@ -15,6 +15,7 @@
 #include "mainwnd.h"
 #include "edtlbwnd.h"
 #include "cfgdlg.h"
+#include "drivefreespace.h"
 #include "dialogs.h"
 #include "pluginsecurity.h"
 #include "usermenu.h"
@@ -3179,6 +3180,41 @@ void CCfgPageDrives::Transfer(CTransferInfo& ti)
     ti.CheckBox(IDC_DRVSPEC_REMOTEMON, Configuration.DrvSpecRemoteMon);
     ti.CheckBox(IDC_DRVSPEC_REMOTESIMPLE, Configuration.DrvSpecRemoteSimple);
     ti.CheckBox(IDC_DRVSPEC_REMOTEACT, Configuration.DrvSpecRemoteDoNotRefreshOnAct);
+
+    const int oldRemovableFreeSpacePolicy = Configuration.RemovableFreeSpacePolicy;
+    const int oldRemoteFreeSpacePolicy = Configuration.RemoteFreeSpacePolicy;
+    const int freeSpaceControls[] = {IDC_DRVSPEC_REMOVABLESPACE, IDC_DRVSPEC_REMOTESPACE};
+    int* freeSpacePolicies[] = {&Configuration.RemovableFreeSpacePolicy, &Configuration.RemoteFreeSpacePolicy};
+    const int freeSpaceModes[] = {IDS_DRIVE_SPACE_NO_QUERY, IDS_DRIVE_SPACE_QUERY_ONCE, IDS_DRIVE_SPACE_KEEP_UPDATED};
+    for (int i = 0; i < 2; ++i)
+    {
+        if (ti.Type == ttDataToWindow)
+        {
+            SendDlgItemMessage(HWindow, freeSpaceControls[i], CB_RESETCONTENT, 0, 0);
+            for (int mode = 0; mode < 3; ++mode)
+                SendDlgItemMessage(HWindow, freeSpaceControls[i], CB_ADDSTRING, 0, (LPARAM)LoadStr(freeSpaceModes[mode]));
+            int policy = *freeSpacePolicies[i];
+            SendDlgItemMessage(HWindow, freeSpaceControls[i], CB_SETCURSEL,
+                               (unsigned)policy <= 2 ? policy : 0, 0);
+        }
+        else
+        {
+            int policy = (int)SendDlgItemMessage(HWindow, freeSpaceControls[i], CB_GETCURSEL, 0, 0);
+            *freeSpacePolicies[i] = (unsigned)policy <= 2 ? policy : 0;
+        }
+    }
+
+    if (ti.Type != ttDataToWindow)
+    {
+        DriveFreeSpaceSetPolicies(static_cast<DriveFreeSpaceMode>(Configuration.RemovableFreeSpacePolicy),
+                                 static_cast<DriveFreeSpaceMode>(Configuration.RemoteFreeSpacePolicy));
+        if (oldRemovableFreeSpacePolicy != Configuration.RemovableFreeSpacePolicy ||
+            oldRemoteFreeSpacePolicy != Configuration.RemoteFreeSpacePolicy)
+        {
+            PostMessage(MainWindow->HWindow, WM_USER_DRIVES_CHANGE, 0, 0);
+        }
+    }
+
     char path[SAL_MAX_PATH];
     char newPath[SAL_MAX_PATH];
     if (ti.Type == ttDataToWindow)
