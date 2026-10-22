@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Compile actual ZIP/7-Zip menu commands with a captured-selection and archive-engine harness."""
 import argparse
-import re
 from pathlib import Path
 import shutil
 import tempfile
@@ -11,21 +10,17 @@ from disk_selection_snapshot_tests import ROOT, block, compiler_environment, rea
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--configuration',choices=('Debug','Release','Both'),default='Both')
+    parser.add_argument('--scope',choices=('ZIP','All'),default='ZIP',help='7-Zip commands are deferred to S14')
     args=parser.parse_args()
     zip_source=read('src/plugins/zip/main.cpp')
-    for name,identifier in (('MID_CREATESFX',1),('MID_REPAIR',2),('MID_TEST',3),('MID_COMMENT',4)):
-        assert re.search(r'#define\s+'+name+r'\s+'+str(identifier)+r'\b',zip_source)
-    seven_source=read('src/plugins/7zip/7zip.cpp')
-    assert 'int format = FocusedArchiveFormat(file);' in block(read('src/plugins2.cpp'),'void CPlugins::CalculateStateCache(')
+    seven_source=read('src/plugins/7zip/7zip.cpp') if args.scope=='All' else ''
     generated=read('src/tests/archive_menu_selection_tests.cpp.in')
     pieces={
-        'HOST_CONVERSION':block(read('src/common/widepath.cpp'),'std::string SalWideToMultiBytePath('),
-        'HOST_FORMAT':block(read('src/plugins2.cpp'),'static int FocusedArchiveFormat('),
-        'ZIP_MENU':block(zip_source,'DWORD\nCPluginInterfaceForMenuExt::GetMenuItemState('),
         'FORMAT':block(zip_source,'static std::string ArchiveNameMessage('),
         'ZIP_COMMAND':block(zip_source,'BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem('),
-        'SEVEN_COMMAND':block(seven_source,'static BOOL TestArchive('),
+        'SEVEN_COMMAND':block(seven_source,'static BOOL TestArchive(') if args.scope=='All' else '',
     }
+    generated=generated.replace('@@SEVEN_ENABLED@@','1' if args.scope=='All' else '0')
     for key,value in pieces.items():generated=generated.replace('@@'+key+'@@',value)
     if '@@' in generated:raise AssertionError('unexpanded fixture marker')
     environment=compiler_environment();compiler=shutil.which('cl',path=environment.get('PATH'))

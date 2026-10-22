@@ -770,6 +770,14 @@ static std::string ArchiveNameMessage(const char* pattern, const std::string& na
     return text;
 }
 
+static std::string ArchiveNameMessage(const char* pattern, const std::string& name)
+{
+    std::string text(pattern);
+    const size_t placeholder = text.find("%s");
+    if (placeholder != std::string::npos) text.replace(placeholder, 2, name);
+    return text;
+}
+
 BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* salamander, HWND parent,
                                                  int id, DWORD eventMask)
 {

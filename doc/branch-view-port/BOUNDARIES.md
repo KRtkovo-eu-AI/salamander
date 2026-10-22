@@ -1,5 +1,16 @@
 # S00 read-only donor boundary audit
 
+## S13 ZIP command boundary and menu limitation
+
+ZIP ExecuteMenuItem migration complete, three exact donor production files.
+PackToArchive/engine remain S22. 7-Zip assertions preserved but deferred in
+archive_menu_selection_tests ZIP scope until S14; no claim of their execution.
+Real Debug selected archives and Release focused archive passed Test Archive
+on long Unicode paths; isolated engine harness is separate evidence.
+Unchanged donor/target GetMenuItemState uses CFileData.Name for archive masks:
+100-CJK basename disables menu even with correct ZIP association. This GUI
+case is SKIP; fix before claiming full menu coverage for such basenames.
+
 ## S12 completed boundary
 
 Owned thumbnail CEnumFiles and paired EXIF v10 are integrated together.

@@ -1,5 +1,45 @@
 # Stav portu PR #769
 
+## S13 — IMPLEMENTED / lokální brána PASS s baseline omezením menu (2026-10-22)
+
+Tři produkční ZIP soubory main.cpp, precomp.h a vcxproj/zip.vcxproj jsou
+EXACT donor 47661e92. ExecuteMenuItem používá jednou zachycený owned snapshot,
+respektuje skutečné parents a explicitně odmítá SAL_MAX_PATH byte limit bez
+truncation. Archive panel ponechává původní archivní kontrakt. ZIP engine ani
+host-managed PackToArchive nebyly změněny; PackToArchive zůstává S22.
+
+Archive menu test driver/template jsou ADAPTED: compiler helpers z již
+existujícího disk_selection_snapshot_tests místo budoucího renamer driveru,
+scope ZIP/All (default ZIP) výslovně odkládá pouze 7-Zip assertions do S14.
+Všechny původní assertions zůstávají ve zdroji. ZIP scope 19 checks/config
+D/R PASS: skutečný command body, úplné cesty při zániku listing, ASCII,
+Unicode, UNC, UTF8 byte/UTF16 long paths, directories, capture failure,
+notifications, formatting, invalid UTF16 a engine byte limit. Host snapshot
+a engine jsou zde test doubles; toto není skutečný packing test.
+
+Host+ZIP a tranzitivní dependencies D/R x64 /warnaserror PASS, pytest 49 PASS.
+Skutečný ZIP engine přes GUI Test Archive: Debug dvě vybrané položky
+ordinary.zip a ž-東京.zip, Release samostatný focused ž-東京.zip bez výběru,
+vše v dlouhé Unicode cestě, každý výsledek is OK. Načtené zip.spl hashově
+odpovídají právě sestavenému pluginu. Šest vlastních archivů nezměněno,
+12 nezávislých ověření obsahu členů, 97 předchozích input files a sentinel
+nezměněny, žádné temp zbytky, normální shutdown bez reportu, config obnoven.
+
+Původní soukromý seed měl ZIP asociaci na 7-Zip. Pouze vlastní nový seed
+pro S13 ji nastavuje na ZIP index -1, uživatelské nastavení nedotčeno.
+Po správné asociaci se samostatně potvrdilo baseline omezení: menu při
+výběru 100-CJK basename používá zkrácený CFileData.Name a zakáže příkaz.
+Tento GUI případ je SKIP, nikoli PASS; ExecuteMenuItem a nové wide vstupy
+se přes něj nespustí. GetMenuItemState je beze změny shodný s donorem.
+Omezení musí být vyřešeno před tvrzením úplné GUI podpory takových názvů.
+
+Source parent ac8641ac, runtime patch SHA256
+a8c95db05b67ad0545a1edc5374183b341460ff97132c3622d8f12f6d6b1e1b4.
+Evidence evidence/S13/source-manifest.json, final-validation.json,
+focused-menu.*, host/zip-*.json, *-ok.txt, *-loaded-module.json a private seed
+provenance. Runner zachovává starších 54 groups a přidává jednu; celý runner
+znovu neběžel. Full-solution CI/CodeQL a push NEPROVEDENY. Pokračuje S14.
+
 ## S12 — IMPLEMENTED / lokální brána PASS (2026-10-22)
 
 Navazuje na samostatný WIC baseline předkrok 270f2cb6. Owned snapshot

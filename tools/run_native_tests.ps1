@@ -480,6 +480,16 @@ try {
             )
         },
         @{
+            Name = 'archive_menu_selection_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\archive_menu_selection_tests.py'),
+                '--configuration', $Configuration,
+                '--scope', 'ZIP'
+            )
+        },
+        @{
             Name = 'disk_selection_snapshot_tests'
             ClassName = 'native-generated'
             Arguments = @(
