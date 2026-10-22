@@ -1,5 +1,38 @@
 # Stav portu PR #769
 
+## S18a — IMPLEMENTED / lokální launch brána PASS (2026-10-22)
+
+Převzaty EXACT donor fileactionpath.h, viewerpath.h, execute.cpp/.h,
+dialogs2.cpp, mainwnd4.cpp a čtyři native launch fixture soubory plus source
+contract. Fileswn5 obsahuje pouze launch/ViewFile/EditFile hunks; user-menu
+mainwnd3 hunks doplňují přímý common/widepath.h include místo budoucího
+branch_view.h. Native projekt je automaticky objeven runnerem; všech 59
+starších groups zachováno a source contract přidán. SDK/ABI nezměněny.
+
+Host D/R x64 /warnaserror PASS. První Debug build selhal na chybějícím include,
+po opravě PASS. První Release build překročil 95s deadline po link/staging;
+zachován jako TIMEOUT, opakovaný incremental doběhl 8.17s PASS. Native launch
+D/R 12 checks/config PASS: skutečné CreateProcess/ShellExecute/UTF8 batch,
+ASCII, Unicode name/parent, byte-long a UTF16-long paths, cleanup. Helper
+test připouští explicitní neprovedení dlouhého cwd při chybějícím DOS aliasu;
+zde wide DOS alias test prošel a samostatné GUI D/R prokazuje skutečný launch.
+
+Skutečný GUI F4 a AltF3 D/R spustily fixture child z panelu s dlouhou cestou,
+češtinou/CJK/emoji. Čtyři UTF16 záznamy přesně odpovídají celému full-name
+argumentu a skutečnému cwd po rozvinutí DOS aliasu. 128 předchozích inputs,
+dva nové sources a sentinel nezměněny; normální shutdown bez reportů,
+konfigurace obnoveny. Shipped conversion_table_tests D/R PASS, sedm source
+contracts PASS, pytest 49 PASS. Full runner/full solution CI/CodeQL NEBĚŽELY.
+
+S18 není celá dokončená: následuje S18b enumeration service + PictView
+navigation a internal viewer open/refresh/title/previous-next. Enter donor
+hunk je pouze Branch-specific a patří S26. Branch View zůstává vypnuté.
+Parent 9c6f0643; runtime patch SHA256 186939ddb76fb52a8bf44288a1932bae920f8dcd501b965ed7d777d8602cfce2.
+Evidence evidence/S18a source-manifest.json, launch-*, host-*, conversion-*,
+source-contract.*, python.*, GUI text/launch/hash manifests a final-validation.
+S18a je lokální bez push/PR.
+
+
 ## S17 — IMPLEMENTED / lokální brána PASS s evidovanou S20 copy mezerou (2026-10-22)
 
 Jediný production diff je SalGetFileSize2 v salamdr5.cpp; celý soubor je nyní

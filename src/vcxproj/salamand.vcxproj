@@ -958,19 +958,8 @@
     <ClInclude Include="..\color.h">
     </ClInclude>
     <ClInclude Include="..\common\widepath.h" />
-    <ClInclude Include="..\common\localizedtext.h" />
     <ClInclude Include="..\fileactionpath.h" />
     <ClInclude Include="..\viewerpath.h" />
-    <ClInclude Include="..\workerpath.h" />
-    <ClInclude Include="..\panel_temporary_selection.h" />
-    <ClInclude Include="..\fileactiondisktarget.h" />
-    <ClInclude Include="..\operationrecycle.h" />
-    <ClInclude Include="..\branchshell.h" />
-    <ClInclude Include="..\branchclipboard.h" />
-    <ClInclude Include="..\branchdroptarget.h" />
-    <ClInclude Include="..\branch_view.h" />
-    <ClInclude Include="..\explorerpropertywork.h" />
-    <ClInclude Include="..\branch_view_text.h" />
     <ClInclude Include="..\common\allochan.h">
     </ClInclude>
     <ClInclude Include="..\common\array.h">

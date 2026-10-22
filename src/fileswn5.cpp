@@ -948,23 +948,6 @@ static void BuildArchiveCacheKey(char* key, int keySize, const char* archiveName
         }
     }
 
-    if (f != NULL)
-    {
-        _snprintf_s(key, keySize, _TRUNCATE, "ArchiveView:%08X:%08X%08X:%08X%08X:%08X%08X:%08X%08X:%s", hash,
-                    archiveSizeHigh, archiveSizeLow,
-                    archiveWriteHigh, archiveWriteLow,
-                    f->Size.HiDWord, f->Size.LoDWord,
-                    f->LastWrite.dwHighDateTime, f->LastWrite.dwLowDateTime,
-                    f->Name != NULL ? f->Name : "");
-    }
-    else
-    {
-        _snprintf_s(key, keySize, _TRUNCATE, "ArchiveView:%08X:%08X%08X:%08X%08X:", hash,
-                    archiveSizeHigh, archiveSizeLow,
-                    archiveWriteHigh, archiveWriteLow);
-    }
-}
-
 static BOOL CreateProcessForFileAction(const char* cmdLine, const char* currentDir, STARTUPINFO* si, PROCESS_INFORMATION* pi)
 {
     STARTUPINFOW siW;

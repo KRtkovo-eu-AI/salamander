@@ -525,6 +525,11 @@ try {
             )
         },
         @{
+            Name = 'branch_view_file_action_contract_tests'
+            ClassName = 'source-contract'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_view_file_action_contract_tests.py'))
+        },
+        @{
             Name = 'disk_selection_snapshot_tests'
             ClassName = 'native-generated'
             Arguments = @(

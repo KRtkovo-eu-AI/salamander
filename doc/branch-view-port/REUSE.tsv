@@ -446,3 +446,17 @@ src/plugins/automation/tests/selection_snapshot_tests.py	Five provider context f
 —	TestPayloadBoundaries and independent JSON parse	src/plugins/automation/tests/selection_snapshot_tests.cpp.in;src/plugins/automation/tests/selection_snapshot_tests.py	S11	REPLACED	Documented missing payload acceptance coverage; actual serialization/CopyResult/protocol implementations, 243 checks/config and actual Python GUI smoke
 src/plugins/pictview/wic/WicBackend.cpp	AddExtendedPrefixIfNeeded; SaveFrame; sPVSaveImage	src/plugins/pictview/wic/WicBackend.cpp	S12-preflight	REPLACED	Proven pre-existing target/donor WIC gaps: Win32 prefix threshold and legacy callback output, reuse existing encoder
 src/tests/disk_selection_snapshot_tests.py	Native compiler environment and source extraction driver pattern	src/tests/pictview_wic_output_tests.py;src/tests/pictview_wic_output_tests.cpp.in	S12-preflight	ADAPTED	39 focused checks/config; encoder dependency stub explicitly separated from 17 real DLL integration checks and two GUI runs
+src/fileactionpath.h	External launch and exact ordinary item paths	src/fileactionpath.h	S18a	EXACT	Pinned donor bytes; no Branch implementation dependency
+src/viewerpath.h	External launch and exact ordinary item paths	src/viewerpath.h	S18a	EXACT	Pinned donor bytes; no Branch implementation dependency
+src/execute.cpp	External launch and exact ordinary item paths	src/execute.cpp	S18a	EXACT	Pinned donor bytes; no Branch implementation dependency
+src/execute.h	External launch and exact ordinary item paths	src/execute.h	S18a	EXACT	Pinned donor bytes; no Branch implementation dependency
+src/dialogs2.cpp	External launch and exact ordinary item paths	src/dialogs2.cpp	S18a	EXACT	Pinned donor bytes; no Branch implementation dependency
+src/mainwnd4.cpp	External launch and exact ordinary item paths	src/mainwnd4.cpp	S18a	EXACT	Pinned donor bytes; no Branch implementation dependency
+src/tests/file_action_path_tests.cpp	External launch and exact ordinary item paths	src/tests/file_action_path_tests.cpp	S18a	EXACT	Pinned donor bytes; no Branch implementation dependency
+src/tests/file_action_path_tests.vcxproj	External launch and exact ordinary item paths	src/tests/file_action_path_tests.vcxproj	S18a	EXACT	Pinned donor bytes; no Branch implementation dependency
+src/tests/file_action_path_tests.manifest	External launch and exact ordinary item paths	src/tests/file_action_path_tests.manifest	S18a	EXACT	Pinned donor bytes; no Branch implementation dependency
+src/tests/native_path_test_support.h	External launch and exact ordinary item paths	src/tests/native_path_test_support.h	S18a	EXACT	Pinned donor bytes; no Branch implementation dependency
+src/tests/branch_view_file_action_contract_tests.py	External launch and exact ordinary item paths	src/tests/branch_view_file_action_contract_tests.py	S18a	EXACT	Pinned donor bytes; no Branch implementation dependency
+src/fileswn5.cpp	External launch and exact ordinary item paths	src/fileswn5.cpp	S18a	ADAPTED	Scoped launch hunks; direct widepath include; viewer service deferred S18b
+src/mainwnd3.cpp	External launch and exact ordinary item paths	src/mainwnd3.cpp	S18a	ADAPTED	Scoped launch hunks; direct widepath include; viewer service deferred S18b
+src/vcxproj/salamand.vcxproj	External launch and exact ordinary item paths	src/vcxproj/salamand.vcxproj	S18a	ADAPTED	Scoped launch hunks; direct widepath include; viewer service deferred S18b

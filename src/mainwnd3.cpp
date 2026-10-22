@@ -10,11 +10,6 @@
 
 #include "precomp.h"
 #include "common/widepath.h"
-#include "branch_view.h"
-
-void ReleaseDPIAwareWindowIcons(HWND hWindow);
-
-void ReleaseDPIAwareWindowIcons(HWND hWindow);
 
 void ReleaseDPIAwareWindowIcons(HWND hWindow);
 
