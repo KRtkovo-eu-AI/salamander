@@ -390,9 +390,9 @@ def main() -> None:
             "plugin-requested Unpack target selection")
     require(salamdr1, "MainWindow->FindDetachedTab(activeWindow) != NULL",
             "active detached top-level accelerator detection")
-    require(salamdr1, "TranslateAccelerator(acceleratorTarget, AccelTable1, &msg)",
+    require(salamdr1, "TranslateAcceleratorW(acceleratorTarget, AccelTable1, &msg)",
             "primary accelerator routing through the detached top-level")
-    require(salamdr1, "TranslateAccelerator(acceleratorTarget, AccelTable2, &msg)",
+    require(salamdr1, "TranslateAcceleratorW(acceleratorTarget, AccelTable2, &msg)",
             "file-operation accelerator routing through the detached top-level")
 
     require(dialogs_h, "ID_CHANGE_SELECTED_TARGET_TAB",

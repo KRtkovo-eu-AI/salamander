@@ -8,6 +8,7 @@
 #include "cfgdlg.h"
 #include "plugins.h"
 #include "fileswnd.h"
+#include "panel_quick_search.h"
 #include "editwnd.h"
 #include "mainwnd.h"
 #include "stswnd.h"
@@ -16,7 +17,7 @@
 #include "darkmode.h"
 #include "common/winlibdpi.h"
 
-const char* CFILESBOX_CLASSNAME = "SalamanderItemsBox";
+const wchar_t* CFILESBOX_CLASSNAMEW = L"SalamanderItemsBox";
 
 static const UINT_PTR DARK_PANEL_SCROLLBAR_SUBCLASS_ID = 0x53425344; // "DSBS"
 
@@ -174,7 +175,11 @@ static LRESULT CALLBACK DarkPanelScrollbarProc(HWND hWnd, UINT msg,
 //
 
 CFilesBox::CFilesBox(CFilesWindow* parent)
+#ifndef _UNICODE
+    : CWindow(ooStatic, TRUE)
+#else
     : CWindow(ooStatic)
+#endif
 {
     BottomBar.RelayWindow = this;
     Parent = parent;
@@ -1500,6 +1505,13 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_SYSDEADCHAR:
+    {
+        if (Configuration.QuickSearchEnterAlt && (lParam & (1L << 29)) != 0)
+            return 0; // TranslateMessage retains the accent for the next character.
+        break;
+    }
+
     case WM_SYSCHAR:
     {
         if (MainWindow->HasLockedUI())
@@ -1508,6 +1520,20 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (Parent->OnSysChar(wParam, lParam, &lResult))
             return lResult;
         break;
+    }
+
+    case WM_UNICHAR:
+    {
+        if (wParam == UNICODE_NOCHAR)
+            return TRUE;
+        Parent->QuickSearchHighSurrogate = 0;
+        if (wParam <= 0x10FFFF)
+        {
+            std::wstring text = Salamander::Panel::QuickSearchCodePointText((std::uint32_t)wParam);
+            for (size_t i = 0; i < text.length(); ++i)
+                SendMessageW(HWindow, WM_CHAR, text[i], lParam);
+        }
+        return 0;
     }
 
     case WM_CHAR:

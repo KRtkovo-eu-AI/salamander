@@ -5480,14 +5480,18 @@ FIND_NEW_SLG_FILE:
     }
 
     //--- vytvoreni hlavniho okna
+#ifndef _UNICODE
+    if (CMainWindow::RegisterUniversalClassW(CS_DBLCLKS | CS_OWNDC,
+#else
     if (CMainWindow::RegisterUniversalClass(CS_DBLCLKS | CS_OWNDC,
+#endif
                                             0,
                                             0,
                                             NULL, // HIcon
                                             LoadCursor(NULL, IDC_ARROW),
                                             NULL /*(HBRUSH)(COLOR_WINDOW + 1)*/, // HBrush
                                             NULL,
-                                            CFILESBOX_CLASSNAME,
+                                            CFILESBOX_CLASSNAMEW,
                                             NULL) &&
 #ifndef _UNICODE
         CMainWindow::RegisterUniversalClassW(CS_DBLCLKS,
@@ -5792,7 +5796,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                     BOOL skipMenuBar;
                     MSG msg;
                     BOOL haveMSG = FALSE; // FALSE pokud se ma volat GetMessage() v podmince cyklu
-                    while (haveMSG || GetMessage(&msg, NULL, 0, 0))
+                    while (haveMSG || GetMessageW(&msg, NULL, 0, 0))
                     {
                         haveMSG = FALSE;
                         if (msg.message != WM_USER_SHOWWINDOW && msg.message != WM_USER_WAKEUP_FROM_IDLE && /*msg.message != WM_USER_SETPATHS &&*/
@@ -5813,11 +5817,30 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                         if (Configuration.QuickSearchEnterAlt && msg.message == WM_SYSCHAR)
                             skipMenuBar = TRUE;
 
+                        // The queue stays Unicode. The legacy menu mnemonic lookup
+                        // consumes one ACP byte, so adapt only its private message.
+                        MSG menuMsg = msg;
+                        if (!skipMenuBar && msg.message == WM_SYSCHAR)
+                        {
+                            wchar_t character = (wchar_t)msg.wParam;
+                            char ansi[4];
+                            BOOL usedDefault = FALSE;
+                            const UINT codePage = GetACP();
+                            int length = msg.wParam <= 0xFFFF ?
+                                WideCharToMultiByte(codePage, codePage == CP_UTF8 ? WC_ERR_INVALID_CHARS : WC_NO_BEST_FIT_CHARS,
+                                                    &character, 1, ansi, _countof(ansi), NULL,
+                                                    codePage == CP_UTF8 ? NULL : &usedDefault) : 0;
+                            if (length == 1 && !usedDefault)
+                                menuMsg.wParam = (unsigned char)ansi[0];
+                            else
+                                skipMenuBar = TRUE;
+                        }
+
                         // zajistime zaslani zprav do naseho menu (obchazime tim potrebu hooku pro klavesnici)
                         if (MainWindow == NULL || MainWindow->MenuBar == NULL || !MainWindow->CaptionIsActive ||
                             MainWindow->QuickRenameWindowActive() ||
                             skipMenuBar || GetCapture() != NULL || // je-li captured mouse - mohli bychom zpusobit vizualni problemy
-                            !MainWindow->MenuBar->IsMenuBarMessage(&msg))
+                            !MainWindow->MenuBar->IsMenuBarMessage(&menuMsg))
                         {
                             CWindowsObject* wnd = WindowsManager.GetWindowPtr(GetActiveWindow());
 
@@ -5840,15 +5863,15 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                             }
 
                             if ((wnd == NULL || !wnd->Is(otDialog) ||
-                                 !IsDialogMessage(wnd->HWindow, &msg)) &&
+                                 !IsDialogMessageW(wnd->HWindow, &msg)) &&
                                 (MainWindow == NULL ||
                                  !MainWindow->CaptionIsActive && !detachedTabCaptionActive || // in non-modal plug-in windows, do not translate accelerators (F7 in "FTP Logs" is undesirable)
                                  MainWindow->QuickRenameWindowActive() ||
-                                 !TranslateAccelerator(acceleratorTarget, AccelTable1, &msg) &&
-                                     (MainWindow->EditMode || !TranslateAccelerator(acceleratorTarget, AccelTable2, &msg))))
+                                 !TranslateAcceleratorW(acceleratorTarget, AccelTable1, &msg) &&
+                                     (MainWindow->EditMode || !TranslateAcceleratorW(acceleratorTarget, AccelTable2, &msg))))
                             {
                                 TranslateMessage(&msg);
-                                DispatchMessage(&msg);
+                                DispatchMessageW(&msg);
                             }
                         }
 
@@ -5858,7 +5881,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                         }
 
                     TEST_IDLE:
-                        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+                        if (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE))
                         {
                             if (msg.message == WM_QUIT)
                                 break;      // ekvivalent situace, kdy GetMessage() vraci FALSE
