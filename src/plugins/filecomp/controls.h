@@ -15,7 +15,7 @@ extern HBRUSH HDitheredBrush;
 class CFileHeaderWindow : public CWindow
 {
 protected:
-    std::string Text;
+    std::wstring Text;
     COLORREF BkColor;
     HBRUSH BkgndBrush;
 
