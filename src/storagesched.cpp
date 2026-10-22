@@ -238,6 +238,15 @@ int StorageOperationIsFifoBarrier(int policy, int operationOverride)
            (policy == COSP_ASK && operationOverride == COSO_DEFAULT);
 }
 
+int CopyMoveGetSchedulingOverride(int transferMode, int legacyWait)
+{
+    if (transferMode == CMS_SEQUENTIAL)
+        return legacyWait ? COSO_WAIT_ALL : COSO_START_NOW;
+    // Automatic scheduling is independent of the disabled checkbox's appearance.
+    // Unresolved legacy mode values use the same conservative automatic policy.
+    return COSO_DEFAULT;
+}
+
 int StorageOperationGetWaitReason(int policy, int operationOverride,
                                   int anyOtherActive, int hasFifoBarrier,
                                   const CStorageOpView* candidate,
@@ -253,14 +262,14 @@ int StorageOperationGetWaitReason(int policy, int operationOverride,
     // An explicit start-now decision bypasses policy, compatibility, and FIFO barriers.
     if (operationOverride == COSO_START_NOW)
         return CSWR_NONE;
-    if (hasFifoBarrier)
-        return CSWR_EXPLICIT_OR_GLOBAL_WAIT;
     if (operationOverride == COSO_WAIT_ALL || policy == COSP_GLOBAL_SEQUENTIAL)
-        return anyOtherActive ? CSWR_EXPLICIT_OR_GLOBAL_WAIT : CSWR_NONE;
+        return anyOtherActive || hasFifoBarrier ? CSWR_EXPLICIT_OR_GLOBAL_WAIT : CSWR_NONE;
 
     // Ask without an explicit answer has the safe wait-all behavior.
     if (policy == COSP_ASK && operationOverride == COSO_DEFAULT)
-        return anyOtherActive ? CSWR_EXPLICIT_OR_GLOBAL_WAIT : CSWR_NONE;
+        return anyOtherActive || hasFifoBarrier ? CSWR_EXPLICIT_OR_GLOBAL_WAIT : CSWR_NONE;
+    // Automatic operations may pass a legacy wait-all operation when their
+    // storage resources are compatible with all currently running operations.
     return StorageOperationGetConflictReason(candidate, running, runningCount,
                                              ssdWriteLimit, nvmeWriteLimit);
 }
@@ -281,26 +290,24 @@ int StorageOperationConflictsWithRunningWithLimits(const CStorageOpView* candida
                                              ssdWriteLimit, nvmeWriteLimit) != CSWR_NONE;
 }
 
-int CopyMoveShouldStartPaused(int mode, int startOnIdle, int anyNonAutoPaused,
+int CopyMoveShouldStartPaused(int mode, int startOnIdle, int anyEarlierActive,
                               const CStorageOpView* candidate,
                               const CStorageOpView* running, int runningCount)
 {
-    return CopyMoveShouldStartPausedWithLimits(mode, startOnIdle, anyNonAutoPaused,
+    return CopyMoveShouldStartPausedWithLimits(mode, startOnIdle, anyEarlierActive,
                                                candidate, running, runningCount,
                                                COPYMOVE_SSD_MAX_WRITES, 4);
 }
 
-int CopyMoveShouldStartPausedWithLimits(int mode, int startOnIdle, int anyNonAutoPaused,
+int CopyMoveShouldStartPausedWithLimits(int mode, int startOnIdle, int anyEarlierActive,
                                         const CStorageOpView* candidate,
                                         const CStorageOpView* running, int runningCount,
                                         int ssdWriteLimit, int nvmeWriteLimit)
 {
-    if (mode != CMS_SEQUENTIAL && mode != CMS_STORAGE_AWARE && mode != CMS_MANUAL)
-        mode = CMS_STORAGE_AWARE;
-    if (startOnIdle)
-        return anyNonAutoPaused ? 1 : 0;
-    return StorageOperationConflictsWithRunningWithLimits(candidate, running, runningCount,
-                                                          ssdWriteLimit, nvmeWriteLimit);
+    return StorageOperationGetWaitReason(COSP_STORAGE_AWARE,
+                                          CopyMoveGetSchedulingOverride(mode, startOnIdle),
+                                          anyEarlierActive, 0, candidate, running, runningCount,
+                                          ssdWriteLimit, nvmeWriteLimit) != CSWR_NONE;
 }
 
 #ifdef __cplusplus

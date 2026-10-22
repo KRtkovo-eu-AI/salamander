@@ -45,10 +45,11 @@ def main() -> None:
     texts_rc2 = (src / "lang/texts.rc2").read_text(encoding="utf-8")
 
     require(sched_h, "CMS_STORAGE_AWARE", "parallel file-transfer mode")
-    require(sched_h, "CMS_SEQUENTIAL", "single-file transfer mode")
+    require(sched_h, "CMS_SEQUENTIAL", "User-controlled transfer mode compatibility value")
     require(sched_h, "COSP_STORAGE_AWARE", "storage-aware operation policy")
-    require(sched_h, "COSP_GLOBAL_SEQUENTIAL", "global sequential operation policy")
-    require(sched_h, "COSP_ASK", "ask-per-operation policy")
+    require(sched_h, "COSP_GLOBAL_SEQUENTIAL", "legacy global sequential API value")
+    require(sched_h, "COSP_ASK", "legacy ask API value")
+    require(sched_h, "CopyMoveGetSchedulingOverride", "shared transfer-mode admission mapping")
     require(sched_h, "COSO_START_NOW", "per-operation start-now override")
     require(sched_h, "COSO_WAIT_ALL", "per-operation wait-all override")
     require(sched_h, "CSWR_SSD_NVME_STREAM_LIMIT", "structured queue wait reasons")
@@ -70,7 +71,7 @@ def main() -> None:
         "BOOL COperationsQueue::AddOperation(",
         "void COperationsQueue::TryResumeCompatible(")
     require(add_op, "StorageOperationGetWaitReason", "AddOperation uses operation scheduling policy")
-    require(add_op, "StorageOperationIsFifoBarrier", "AddOperation respects FIFO barriers")
+    require(add_op, "StorageOperationIsFifoBarrier", "AddOperation identifies explicit earlier waiters")
     require(add_op, "runningViewsOverflow", "operations beyond the view limit are safely queued")
     resume = function_slice(
         worker_cpp,
@@ -90,11 +91,11 @@ def main() -> None:
     require(salamdr7, "AddNetworkShareClaim", "UNC/mapped-drive network identity")
     require(salamdr7, "void AddPathToStorageUse(", "path-to-resource helper")
 
-    require(cfgdlg, "CopyMoveOperationPolicy", "separate operation scheduling field")
+    forbid(cfgdlg, "CopyMoveOperationPolicy", "independent global operation policy field")
     require(cfgdlg, "CopyMoveScheduling", "separate file-transfer preference field")
-    require(dialogs4, "CopyMoveOperationPolicy = COSP_STORAGE_AWARE", "storage-aware operation default")
+    forbid(dialogs4, "Configuration.CopyMoveOperationPolicy", "obsolete global policy dialog binding")
     require(dialogs4, "CopyMoveScheduling = CMTP_STORAGE_AWARE", "parallel transfer default")
-    require(mainwnd2, "CONFIG_COPYMOVEOPERATIONPOLICY_REG", "operation policy persistence")
+    forbid(mainwnd2, "CONFIG_COPYMOVEOPERATIONPOLICY_REG", "obsolete global operation policy persistence")
     require(mainwnd2, "CONFIG_COPYMOVESCHEDULING_REG", "transfer preference compatibility persistence")
     require(mainwnd2,
             "BOOL hasCopyMoveConflictPreference = GetValue(actKey, CONFIG_COPYMOVECONFLICTPREFERENCE_REG",
@@ -122,8 +123,8 @@ def main() -> None:
     forbid(general_resource, "IDC_COPYMOVE_", "copy/move controls on General page")
     require(file_operations_resource, 'CAPTION "File Operations"',
             "localized File Operations page caption")
-    require(file_operations_resource, "IDC_COPYMOVE_OPERATION_POLICY",
-            "File Operations policy combo")
+    forbid(file_operations_resource, "IDC_COPYMOVE_OPERATION_POLICY",
+           "duplicate operation policy selector beside Transfer mode")
     require(file_operations_resource, "IDC_COPYMOVE_TRANSFER_PREFERENCE",
             "File Operations transfer preference combo")
     require(file_operations_resource, "IDC_COPYMOVE_CONFLICT_PREFERENCE",
@@ -140,11 +141,37 @@ def main() -> None:
     if not (0 <= history_add < file_operations_add < recycle_bin_add):
         raise AssertionError("File Operations page is not between History and Recycle Bin")
     forbid(lang_rc, "IDC_COPYMOVE_PARALLEL_WARNING", "inline parallel-files warning label")
-    require(texts_rc2, "IDS_COPYMOVE_POLICY_STORAGEAWARE", "localized operation policy names")
+    require(texts_rc2, 'IDS_COPYMOVE_PREFERRED_SEQUENTIAL, "User-controlled"',
+            "User-controlled name for the legacy transfer choice")
     require(dialogs3, "IDC_CM_TRANSFERMODE",
             "per-operation transfer-mode selector")
     require(dialogs3, "OperationSchedulingOverrideInOut",
             "per-operation Start now or Wait choice")
+    transfer = function_slice(dialogs3, "void CCopyMoveMoreDialog::Transfer(", "BOOL GetSpeedLimit(")
+    require(transfer, "CopyMoveGetSchedulingOverride(mode, LegacyWait)",
+            "mode-aware conversion of the saved Legacy wait choice")
+    if transfer.index("*TransferModeInOut = mode") > transfer.index("CopyMoveGetSchedulingOverride("):
+        raise AssertionError("Dialog must read the selected mode before translating the wait checkbox")
+    require(transfer, "if (mode == CMS_SEQUENTIAL)\n                LegacyWait = IsDlgButtonChecked",
+            "Storage-aware's forced checked indicator never becomes the saved Legacy choice")
+    transfer_controls = function_slice(
+        dialogs3, "void CCopyMoveMoreDialog::UpdateTransferModeControls()", "\n}\n")
+    require(transfer_controls, "OperationSchedulingOverrideInOut != NULL && userControlled",
+            "wait checkbox enabled only in User-controlled mode")
+    require(transfer_controls, "!userControlled || LegacyWait ? BST_CHECKED : BST_UNCHECKED",
+            "Storage-aware checked indicator and restored User-controlled choice")
+    require(dialogs3, "LOWORD(wParam) == IDC_CM_TRANSFERMODE && HIWORD(wParam) == CBN_SELCHANGE",
+            "transfer selector updates wait controls immediately")
+    require(dialogs3, "IsWindowEnabled(GetDlgItem(HWindow, IDC_CM_STARTONIDLE))",
+            "disabled checkbox cannot overwrite the saved Legacy choice")
+    require(fileswn8, "CopyMoveGetSchedulingOverride(transferMode, FALSE)",
+            "Copy/Move defaults use the same mode-aware admission mapping")
+    require(fileswn6, "CopyMoveGetSchedulingOverride(\n                script->CopyMoveTransferMode, FALSE)",
+            "silent Copy/Move uses the same admission contract")
+    for caller in (fileswn6, fileswn8):
+        require(caller, "script->OperationSchedulingPolicy = COSP_STORAGE_AWARE;",
+                "Copy/Move admission is controlled by transfer mode and explicit wait")
+        forbid(caller, "Configuration.CopyMoveOperationPolicy", "obsolete global policy affecting Copy/Move")
     require(fileswn8, "CopyMoveLastTransferMode",
             "Keep-last preference is applied to the Copy/Move dialog")
     require(worker_h, "CopyMoveTransferMode",
@@ -315,10 +342,9 @@ def main() -> None:
     require(dialogs4, "TTF_IDISHWND", "warning tooltip is attached to each icon")
     require(dialogs4, "IDS_COPYMOVE_PARALLEL_SSD_WARNING", "localized SSD tooltip text")
     require(dialogs4, "IDS_COPYMOVE_PARALLEL_NVME_WARNING", "localized NVMe tooltip text")
-    require(file_operations_resource, "IDC_COPYMOVE_SSD_WARNING_ICON,148,52,9,14,WS_GROUP | SS_NOTIFY",
-            "hover-enabled SSD warning icon")
-    require(file_operations_resource, "IDC_COPYMOVE_NVME_WARNING_ICON,148,67,9,14,WS_GROUP | SS_NOTIFY",
-            "hover-enabled NVMe warning icon")
+    for icon_id in ("IDC_COPYMOVE_SSD_WARNING_ICON", "IDC_COPYMOVE_NVME_WARNING_ICON"):
+        icon_line = next((line for line in file_operations_resource.splitlines() if icon_id in line), "")
+        require(icon_line, "SS_NOTIFY", "hover-enabled parallel-transfer warning icon")
     require(mainwnd2, "CONFIG_COPYMOVESSDPARALLELFILES_REG", "SSD stream limit persistence")
     require(mainwnd2, "CONFIG_COPYMOVENVMEPARALLELFILES_REG", "NVMe stream limit persistence")
     require(worker_cpp, "Configuration.CopyMoveSsdParallelFiles", "configured SSD limit is used by the scheduler")
