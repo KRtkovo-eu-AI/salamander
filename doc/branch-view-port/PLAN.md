@@ -1,5 +1,72 @@
 # Plán postupného portu PR #769
 
+## S09 — IMPLEMENTED / lokální brána PASS (2026-10-22)
+
+S08 přijato na 68b66c33 po 12 SUCCESS checks PR #28, skutečné CodeQL analýze
+včetně SARIF a čistém Win32/x64/ARM64 full buildu. Lokální větev
+integration/pr769-s09-candidate přebírá jen Split & Combine: owned selection
+před dialogem/I/O, skutečný parent pro default target/sibling discovery,
+full paths explicitních dílů, wide API/dialogy a UTF8 BAT. Všech 10 produkčních
+a 2 testové soubory jsou EXACT donor 47661e92. Jediný adaptační kód je
+registrace selection_paths_tests.py s podporovaným --configuration ve
+stávajícím runneru; všech 50 starších skupin zachováno. SDK/host/ostatní
+pluginy/CI/Branch gate ani SOURCE/CONTRACT se nemění. Input volume/file IDs
+se kontrolují před target creation; read handles bez write/delete sharing
+chrání i před target-alias race. RAII zachovává handle/progress cleanup.
+
+Host+plugin Debug/Release x64 /warnaserror PASS; native actual command/target/
+plan/engine/BAT harness 210 checks/config PASS; celé native sady 51 groups/config
+PASS; stávající CI pytest výběr 49 PASS. Host Debug prvně selhal až ve staging
+skriptu na chybějícím Get-FileHash kvůli PSModulePath; opravena pouze invocation
+environment, oba konečné buildy PASS. Neúspěšný protokol zachován. PHP runtime
+a historický LoadImageW long-bitmap backend subcase zůstávají SKIP, ne PASS.
+
+Skutečné GUI v produktovém Windows Dark Mode (experimental): Debug ASCII,
+Debug Unicode UTF8-long a Release Unicode UTF16-long Split/Combine. Devět
+vytvořených dílů porovnáno po bajtech a pořadí, tři výsledky přesně shodné
+se zdroji; tři UTF8 BAT/metadata/CRC32 ověřeny nezávisle. Focus-only discovery
+našlo správné tři sourozence a načetlo původní název (včetně % & ^ !).
+Relativní nový Combine target se vztahoval ke skutečnému parentu. Skutečný
+GUI pokus zapsat do input dílu i jeho hardlinku byl odmítnut bez změny dílů.
+Aktivní Split i Combine nad 4GiB souborem byly zrušeny přes Cancel/Yes;
+nedokončené outputy odstraněny, původní zdroj zachován. Všech 5 vlastních
++ 66 předchozích originálů má původní SHA256; přesný inventář 16 očekávaných
+outputů navíc. Čtyři vlastní hosty/reportery normálně ukončeny, žádný nový
+report, configstorage.ini obou konfigurací bajtově obnoveny.
+
+Evidence mimo Git evidence/S09; testovaný parent 68b66c33 + runtime.patch
+SHA256 18a3a0ac9ce186c114b295d266abeb5562dd6d0306fab394be4b92ff2ea267e2.
+Source manifest ověřuje přesné donorové bloby/raw SHA i runner; launch logy
+vazbu na skutečné host/plugin binárky. Finalize-S09.py znovu ověřil celý
+řetězec po GUI. [steps/S09.md](steps/S09.md) uvádí příkazy a meze pokrytí.
+Mixed-parent rows, alias race, resolver/read failure a odmítnutí adresáře
+jsou native fixture; skutečný UNC share/BAT execution/pickery nebyly GUI
+ověřeny. Publikační čistý full build/platformní CI/CodeQL S09 NEPROVEDENY,
+větev zatím lokální. Další krok push/fork CI po zadání uživatele; po přijetí
+S09 následuje S10 Automation. S10 v tomto běhu nezahájena.
+
+## S09 — plán Split & Combine (2026-10-22)
+
+Přijatý checkpoint S08 68b66c33; lokální integration/pr769-s09-candidate.
+Úzký donor diff má 12 souborů výhradně src/plugins/splitcbn: owned input
+selection/plan, skutečný parent pro výchozí cíle a sibling discovery,
+wide I/O/dialogs, UTF8 BAT, RAII/progress cleanup a input identity guards.
+Ponechat zdroje otevřené bez write/delete sharing a porovnat volume/file ID
+před vytvořením cíle; zachovat i ochranu proti target-alias race. Převzít
+celý nový splitcbn_paths.h a matching selection_paths_tests.py/.cpp.in.
+Driver podporuje --configuration; zaregistrovat jen nový test v existujícím
+runneru, ponechat všech 50 stávajících skupin. Bez host/SDK/Branch/CI změn.
+
+Ověřit native actual consumer Debug/Release, host+plugin /warnaserror v obou
+konfiguracích a celé regresní sady. Poté reálný GUI Split/Combine a nezávislé
+porovnání obsahu/pořadí dílů nad vlastními ASCII/Unicode/UTF8-long/UTF16-long
+fixtures; UTF8 BAT metadata, implicitní target a discovery, Cancel, stejné
+input/output a hardlink bezpečně odmítnuty. Native mixed-parent/race fixture
+není náhradou GUI. Zachovat všech 66 předchozích originálů a vlastní vstupy.
+Nepodporovanou podmínku vykázat jako SKIP, ne PASS; důkazy parent+patch+runtime.
+S09 bez publikace; čistý full build/platformní CI/CodeQL až při autorizovaném
+publikačním checkpointu. S10 v tomto běhu nezačínat.
+
 ## S08 — publikováno a přijato (2026-10-22)
 
 Checksum c76b52b5 přijato po ověření všech 12 checks přesného headu

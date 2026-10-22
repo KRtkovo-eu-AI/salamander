@@ -471,6 +471,15 @@ try {
             )
         },
         @{
+            Name = 'splitcbn_selection_paths_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\plugins\splitcbn\tests\selection_paths_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
             Name = 'checksum_selection_paths_tests'
             ClassName = 'native-generated'
             Arguments = @(
