@@ -88,6 +88,8 @@ static DWORD MainThreadID;
 // Discovery facade only; actual DiskSelection singleton/storage has its own
 // compiled production harness and DemoPlug runtime smoke.
 static void* GetDiskSelectionService() { return &Window; }
+// Discovery facade only; actual viewer enumeration is covered separately.
+static void* GetViewerEnumerationService() { return &Window; }
 struct CSalamanderGeneral
 {
     BOOL QueryService(const CSalamanderServiceQuery*, CSalamanderServiceResult*);

@@ -1,5 +1,61 @@
 # Plán postupného portu PR #769
 
+## S20a — IMPLEMENTED / rename + temporary selection PASS (2026-10-23)
+
+EXACT donor panel_temporary_selection.h and native fixture/project; scoped
+rename/caller/project registration hunks ADAPTED from donor47661e92.
+Disk snapshots use already-available GetItemIdentityW even before Branch View;
+virtual panels retain Name fallback. Explicit user selection creates no temporary
+snapshot. Wide rename takes actual item parent/path and invalidates all three
+visible arrays. Branch refresh/remap hooks remain S26, no dormant Branch state.
+
+Host Debug/Release x64 /warnaserror PASS (9.88/67.19s final builds). First Release
+95s LTCG timeout preserved. Native21 checks/config D/R PASS, simulated rows
+exercise production header identity matcher; not a whole-host cleanup harness.
+Real F2 Cancel D/R: no explicit selection leaves zero selected; three explicitly
+selected files remain selected (174/186 bytes). Actual rename of 100-CJK basename
+at UTF16 path488/490 to Czech+CJK+emoji succeeds with identical content hashes.
+Renamed focused row is unselected after success, the other two stay selected;
+selection preservation claim applies to Cancel. Normal shutdown D/R PASS.
+155 previous path/stream records and own six files/sentinel intact, two deliberate
+renames accounted for; private configs restored, installed user host untouched.
+
+Scoped operations source contract2 PASS; all24 registered source/menu groups
+and49 pytest PASS. Ordinary path/service196 and getters12 checks/config D/R PASS.
+Regression harness now declares ViewerEnumeration constants/discovery facade
+introduced S18b; initial compile FAIL and concurrent compiler-env timeout saved.
+Actual ViewerEnumeration implementation is covered by S18b, this is discovery
+facade only. Future Branch operation assertions retained in All scope, not run
+or reported PASS here. Copy/move and delete remain S20b/S20c; no new UI resources,
+SDK vtable changes, push, full-solution CI or CodeQL in this local substage.
+Evidence ../evidence/S20a/source-manifest.json, final-validation.json and logs.
+
+
+## S20 — plán tří operation podetap (2026-10-22)
+
+S20a: owned temporary selection header + ordinary capture/cleanup, všechny
+nezbytné callers a hlavičky v jednom buildable kroku; rename přes existující
+GetItemFullPathW/GetItemDirectoryW a notification skutečnému parentu. Donor
+IsBranchView capture adaptovat na Is(ptDisk): ordinary disk využije již hotovou
+S04 plnou identitu, virtuální panely uchovají legacy basename fallback.
+Neimportovat Branch state/cache lifecycle; metadata rename remap bude S26.
+Gate: native temporary-selection identity cases (simulované rows), host D/R,
+ordinary getter/membership regrese, skutečné F2 Cancel bez/with explicit selection
+a rename Unicode/long filename na vlastních fixtures, source contracts/pytest.
+
+S20b: zbývající ordinary copy/move planning buffers, wide names a source/target
+tok do hotových S19 workerů. Branch-only relative-path option/resources a
+recursive source scheduling počkají na aktivní S26/S27c panel, bez stubů.
+Gate F5/F6 Cancel zachová explicitní selection; skutečný copy/move Unicode/long,
+hashes a untouched sentinel, plus konkrétní S17 long-source symlink copy retest.
+
+S20c: ordinary delete wide path capture, confirmation a worker Delete/Recycling
+hranice, scoped operation contracts/native helpers. Gate ShiftDelete Cancel
+bez/with explicit selection a skutečné delete pouze vlastních jedinečných inputs,
+včetně Unicode/long, nezměněných siblings/sentinelů. Každá podetapa má vlastní
+commit, D/R build i konkrétní evidence; uživatelský goal dovoluje postupně všechny.
+
+
 ## S19 — IMPLEMENTED / lokální worker brána PASS (2026-10-22)
 
 Převzat izolovaný EXACT workerpath.h a copy/retry/ADS/directory-create/attribute

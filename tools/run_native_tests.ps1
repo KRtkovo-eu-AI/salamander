@@ -620,6 +620,11 @@ try {
             )
         },
         @{
+            Name = 'branch_operations_contract_tests'
+            ClassName = 'source-contract'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_operations_contract_tests.py'))
+        },
+        @{
             Name = 'build_operation_name_tests'
             ClassName = 'native-generated'
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\build_operation_name_tests.py'), '--configuration', $Configuration)

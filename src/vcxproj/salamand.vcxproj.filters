@@ -858,23 +858,6 @@
     <ClInclude Include="..\panel_temporary_selection.h">
       <Filter>h</Filter>
     </ClInclude>
-    <ClInclude Include="..\fileactiondisktarget.h" />
-    <ClInclude Include="..\operationrecycle.h">
-      <Filter>h</Filter>
-    </ClInclude>
-    <ClInclude Include="..\branchshell.h">
-      <Filter>h</Filter>
-    </ClInclude>
-    <ClInclude Include="..\branchclipboard.h">
-      <Filter>h</Filter>
-    </ClInclude>
-    <ClInclude Include="..\branchdroptarget.h">
-      <Filter>h</Filter>
-    </ClInclude>
-    <ClInclude Include="..\branch_view.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="..\branch_view_text.h">
-      <Filter>h</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\res\archive.ico">

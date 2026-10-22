@@ -1,5 +1,36 @@
 # Validace portu a baseline S00
 
+## S20a — IMPLEMENTED / rename + temporary selection PASS (2026-10-23)
+
+EXACT donor panel_temporary_selection.h and native fixture/project; scoped
+rename/caller/project registration hunks ADAPTED from donor47661e92.
+Disk snapshots use already-available GetItemIdentityW even before Branch View;
+virtual panels retain Name fallback. Explicit user selection creates no temporary
+snapshot. Wide rename takes actual item parent/path and invalidates all three
+visible arrays. Branch refresh/remap hooks remain S26, no dormant Branch state.
+
+Host Debug/Release x64 /warnaserror PASS (9.88/67.19s final builds). First Release
+95s LTCG timeout preserved. Native21 checks/config D/R PASS, simulated rows
+exercise production header identity matcher; not a whole-host cleanup harness.
+Real F2 Cancel D/R: no explicit selection leaves zero selected; three explicitly
+selected files remain selected (174/186 bytes). Actual rename of 100-CJK basename
+at UTF16 path488/490 to Czech+CJK+emoji succeeds with identical content hashes.
+Renamed focused row is unselected after success, the other two stay selected;
+selection preservation claim applies to Cancel. Normal shutdown D/R PASS.
+155 previous path/stream records and own six files/sentinel intact, two deliberate
+renames accounted for; private configs restored, installed user host untouched.
+
+Scoped operations source contract2 PASS; all24 registered source/menu groups
+and49 pytest PASS. Ordinary path/service196 and getters12 checks/config D/R PASS.
+Regression harness now declares ViewerEnumeration constants/discovery facade
+introduced S18b; initial compile FAIL and concurrent compiler-env timeout saved.
+Actual ViewerEnumeration implementation is covered by S18b, this is discovery
+facade only. Future Branch operation assertions retained in All scope, not run
+or reported PASS here. Copy/move and delete remain S20b/S20c; no new UI resources,
+SDK vtable changes, push, full-solution CI or CodeQL in this local substage.
+Evidence ../evidence/S20a/source-manifest.json, final-validation.json and logs.
+
+
 ## S19 — IMPLEMENTED / lokální worker brána PASS (2026-10-22)
 
 Převzat izolovaný EXACT workerpath.h a copy/retry/ADS/directory-create/attribute
