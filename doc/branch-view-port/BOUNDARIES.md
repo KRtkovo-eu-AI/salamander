@@ -1,5 +1,15 @@
 # S00 read-only donor boundary audit
 
+## S14 complete archive command boundary
+
+Three exact 7-Zip donor production files and exact shared C++ menu harness.
+All S13 deferred 7-Zip assertions restored; driver only adapts helper import.
+Actual D/R GUI tests prove focused Unicode archive while another is selected.
+Command harness engine doubles are distinct from this real archive testing;
+host-managed packing remains S22. Staged engine DLL hashes are not presented
+as observed loaded modules after the transient engine has already unloaded.
+The S13 ZIP GetMenuItemState long-basename limitation remains unresolved.
+
 ## S13 ZIP command boundary and menu limitation
 
 ZIP ExecuteMenuItem migration complete, three exact donor production files.

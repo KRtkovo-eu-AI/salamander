@@ -1,5 +1,39 @@
 # Stav portu PR #769
 
+## S14 — IMPLEMENTED / lokální brána PASS (2026-10-22)
+
+7zip.cpp, precomp.h a vcxproj/7zip.vcxproj jsou EXACT donor 47661e92.
+TestArchive zachycuje FOCUSED_ONLY snapshot; skutečná úplná cesta a texty
+jsou připravené před progress dialogem. Formátování používá heap string,
+capture/invalid UTF16 selhání neodhadují root + basename. Engine, virtual
+archive kontrakt, veřejné ABI a host-managed packing/S22 nejsou změněny.
+
+Celý archive_menu_selection_tests.cpp.in je nyní EXACT donor; všechny
+7-Zip assertions odložené v S13 obnoveny. Python driver má jedinou adaptaci:
+import existujících disk-selection compiler/extraction helpers místo budoucího
+renamer driveru. Runner už neomezuje scope na ZIP; počet groups zůstává 55.
+Archive harness 34 checks/config D/R PASS: ZIP + 7-Zip Unicode/UNC/long paths,
+capture failure, directories, invalid UTF16, corrupt/cancel a progress cleanup.
+Engine a snapshot v harnessu jsou test doubles, žádný packing test.
+
+Host+7-Zip a tranzitivní dependencies D/R x64 /warnaserror PASS, pytest 49 PASS.
+Skutečný GUI 7-Zip Test Archive D/R PASS na dlouhé Unicode cestě: vybraný
+ordinary.zip, focused ž-東京.zip; oba výsledky potvrzují právě ž-東京.zip is OK.
+Načtený 7zip.spl odpovídá launch hashům. Engine DLL jsou transient a při
+výsledkovém dialogu už unloaded; jejich staged hashes jsou zvlášť evidované,
+netvrdíme snapshot jejich načtení. Šest vlastních archivů nezměněno, 12
+nezávislých kontrol jejich členů, 104 předchozích input files a sentinel
+nezměněny, žádné temp zbytky; normální shutdown bez reportů, config obnoven.
+Runtime používal původní soukromý seed s 7-Zip asociací. GUI nekryl 100-CJK
+basename; zděděné omezení ZIP menu ze S13 zůstává evidované a neopravené.
+
+Parent baac372d; runtime patch SHA256
+504afa34fd152d0b753a293cbba170034241e128f762593a53073142f7d9ded2.
+Evidence evidence/S14: source-manifest.json, focused-menu.*, host/sevenzip-*,
+final-validation.json, *-unicode-ok.txt, *-loaded-modules.json a *-shutdown.json.
+Relevantní lokální brána PASS; celý runner ani full-solution CI/CodeQL znovu
+neběžely. S14 nepushed. Další lokální etapa S15 podle rozšířeného user goalu.
+
 ## S13 — IMPLEMENTED / lokální brána PASS s baseline omezením menu (2026-10-22)
 
 Tři produkční ZIP soubory main.cpp, precomp.h a vcxproj/zip.vcxproj jsou

@@ -10,17 +10,15 @@ from disk_selection_snapshot_tests import ROOT, block, compiler_environment, rea
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--configuration',choices=('Debug','Release','Both'),default='Both')
-    parser.add_argument('--scope',choices=('ZIP','All'),default='ZIP',help='7-Zip commands are deferred to S14')
     args=parser.parse_args()
     zip_source=read('src/plugins/zip/main.cpp')
-    seven_source=read('src/plugins/7zip/7zip.cpp') if args.scope=='All' else ''
+    seven_source=read('src/plugins/7zip/7zip.cpp')
     generated=read('src/tests/archive_menu_selection_tests.cpp.in')
     pieces={
         'FORMAT':block(zip_source,'static std::string ArchiveNameMessage('),
         'ZIP_COMMAND':block(zip_source,'BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem('),
-        'SEVEN_COMMAND':block(seven_source,'static BOOL TestArchive(') if args.scope=='All' else '',
+        'SEVEN_COMMAND':block(seven_source,'static BOOL TestArchive('),
     }
-    generated=generated.replace('@@SEVEN_ENABLED@@','1' if args.scope=='All' else '0')
     for key,value in pieces.items():generated=generated.replace('@@'+key+'@@',value)
     if '@@' in generated:raise AssertionError('unexpanded fixture marker')
     environment=compiler_environment();compiler=shutil.which('cl',path=environment.get('PATH'))

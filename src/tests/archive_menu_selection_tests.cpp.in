@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Commands and filename formatting are production source. Host snapshots and
 // archive engines are isolated test doubles; no archive or GUI is opened here.
-#define ARCHIVE_MENU_SEVEN @@SEVEN_ENABLED@@
-// 7-Zip assertions are preserved but deferred until S14.
 #define NOMINMAX
 #include <windows.h>
 #include <cstdio>
@@ -105,11 +103,9 @@ int main() {
         zip.ExecuteMenuItem(&operations,nullptr,MID_TEST,0);
         Check(Opened==std::vector<std::string>{SalamanderDiskSelection::Utf8FromWide(path.c_str()),"C:\\other\\same.zip"},"ZIP uses every captured full path after panel replacement");
         Check(General.Messages[0].find(Opened[0])!=std::string::npos,"ZIP result message retains exact UTF8 path");
-#if ARCHIVE_MENU_SEVEN
         Reset();Add(path);RefreshOnOpen=true;
         Check(TestArchive(&operations,nullptr)&&Opened.size()==1&&Opened[0]==SalamanderDiskSelection::Utf8FromWide(path.c_str()),"7-Zip focused command uses exact Unicode UNC or long path");
         Check(operations.OpenDialogs==0,"7-Zip closes progress after successful test");
-#endif
     }
     Reset();Add(L"C:\\first\\same.zip");Add(L"C:\\second\\same.zip");
     zip.ExecuteMenuItem(&operations,nullptr,MID_COMMENT,0);
@@ -118,31 +114,19 @@ int main() {
     zip.ExecuteMenuItem(&operations,nullptr,MID_TEST,0);
     Check(Opened==std::vector<std::string>{General.Archive},"archive panel retains its archive-file contract");
     Reset();Add(L"C:\\root\\directory",TRUE);zip.ExecuteMenuItem(&operations,nullptr,MID_TEST,0);
-#if ARCHIVE_MENU_SEVEN
     Check(Opened.empty()&&!TestArchive(&operations,nullptr),"archive commands do not open directories");
-#else
-    Check(Opened.empty(),"ZIP command does not open directories");
-#endif
     Reset();Add(L"C:\\root\\same.zip");CaptureFails=true;
-#if ARCHIVE_MENU_SEVEN
     Check(!zip.ExecuteMenuItem(&operations,nullptr,MID_TEST,0)&&!TestArchive(&operations,nullptr)&&Opened.empty(),"capture failure never guesses a path");
-#else
-    Check(!zip.ExecuteMenuItem(&operations,nullptr,MID_TEST,0)&&Opened.empty(),"ZIP capture failure never guesses a path");
-#endif
-#if ARCHIVE_MENU_SEVEN
     Reset();Add(L"C:\\root\\same.zip");EngineResult=OPER_CONTINUE;
     Check(!TestArchive(&operations,nullptr)&&operations.OpenDialogs==0,"corrupt result returns false and closes progress");
     EngineResult=OPER_CANCEL;
     Check(!TestArchive(&operations,nullptr)&&operations.OpenDialogs==0,"cancel returns false and closes progress");
-#endif
     const std::string longName(6000,'x');
     Check(ArchiveNameMessage("'%s' literal %n",longName)=="'"+longName+"' literal %n","heap-backed formatting does not interpret unknown directives or truncate names");
     Reset();Add(L"C:\\"+std::wstring(12000,L'漢')+L"\\same.zip");
     Check(!zip.ExecuteMenuItem(&operations,nullptr,MID_TEST,0)&&Opened.empty(),"ZIP engine byte limit rejects rather than truncates UTF8");
     Reset();Add(std::wstring(L"C:\\root\\")+wchar_t(0xd800)+L".zip");
     Check(!zip.ExecuteMenuItem(&operations,nullptr,MID_TEST,0)&&Opened.empty(),"ZIP invalid UTF16 never opens an empty or substituted path");
-#if ARCHIVE_MENU_SEVEN
     Check(!TestArchive(&operations,nullptr)&&Opened.empty(),"7-Zip invalid UTF16 never opens an empty or substituted path");
-#endif
     printf("Archive menu selection: %d checks, %d failures.\n",Checks,Failures);return Failures?1:0;
 }
