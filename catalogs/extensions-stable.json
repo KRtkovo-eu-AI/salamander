@@ -199,10 +199,10 @@
         "english": "Tabule SprŽel",
         "czech": "Tabule SprŽel"
       },
-      "author": "Open Salamander Authors",
+      "author": "Ondřej Kotas (KRtekTM)",
       "description": {
-        "english": "Browses railway departure board arrivals/departures in a Salamander file-system panel.",
-        "czech": "Prohlížení příjezdů a odjezdů železničních tabulí v panelu souborového systému."
+        "english": "Scrapes railway departures from Správa Železnic website and displays them in Samandarin file-system panel.",
+        "czech": "Získává údaje o odjezdech vlaků z webu Správy železnic a zobrazuje je v panelu souborového systému."
       },
       "latestVersion": "1.1.0 (x64)",
       "versionScheme": "fileversion",
