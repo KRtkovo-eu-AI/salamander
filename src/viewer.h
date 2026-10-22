@@ -175,7 +175,7 @@ public:
     // returns text for Find - the (null-terminated) selected block; 'buf' is at least
     // FIND_TEXT_LEN bytes; returns TRUE if the buffer is filled (a block exists, etc.); returns the number
     // of written characters without the null terminator into 'len'
-    BOOL GetFindText(char* buf, int& len);
+    BOOL GetFindText(char* buf, int& len, BOOL hexMode);
 
 protected:
     void FatalFileErrorOccured(DWORD repeatCmd = -1); // called when a file error occurs (viewer refresh/clear is required)
@@ -360,7 +360,11 @@ protected:
     // calls SalMessageBox internally and blocks Paint just for it (only clears the viewer background, does not touch the file)
     int SalMessageBoxViewerPaintBlocked(HWND hParent, LPCTSTR lpText, LPCTSTR lpCaption, UINT uType);
 
-    unsigned char* Buffer; // buffer with size VIEW_BUFFER_SIZE
+    // One allocation holds converted text followed by the original file bytes.
+    // Both views share Seek/Loaded and are moved/invalidated together.
+    unsigned char* Buffer; // converted text, with size VIEW_BUFFER_SIZE
+    unsigned char* RawBuffer; // original bytes, with size VIEW_BUFFER_SIZE
+    unsigned char* GetSearchBuffer() { return FindDialog.HexMode ? RawBuffer : Buffer; }
     char* FileName;        // currently viewed file
     std::wstring FileNameW; // Unicode filename for local file I/O when available
     __int64 Seek,          // offset of byte 0 in Buffer within the file
