@@ -15,6 +15,7 @@
 #include "mainwnd.h"
 #include "menu.h"
 #include "codetbl.h"
+#include "codetbl_utils.h"
 #include "consts.h"
 
 namespace
@@ -2209,7 +2210,9 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         // if (startSel == -1) startSel = 0; // cannot happen (-1 can only be both at once and we do not get here)
                         __int64 endSel = max(StartSelection, EndSelection);
                         // if (endSel == -1) endSel = 0; // cannot happen (-1 can only be both at once and we do not get here)
-                        if (fatalErr || !CopyHTextToClipboard(h, (int)(endSel - startSel)))
+                        // Legacy text uses the regional code page even when the process ACP is UTF-8.
+                        UINT sourceCodePage = Type == vtText ? GetEffectiveConversionCodePage() : CP_ACP;
+                        if (fatalErr || !CopyHTextToClipboard(h, (int)(endSel - startSel), FALSE, NULL, sourceCodePage))
                             NOHANDLES(GlobalFree(h));
                     }
                 }
