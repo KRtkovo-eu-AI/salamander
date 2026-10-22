@@ -507,6 +507,24 @@ try {
             )
         },
         @{
+            Name = 'branch_panel_getters_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\branch_panel_getters_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'disk_file_size_paths_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\disk_file_size_paths_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
             Name = 'disk_selection_snapshot_tests'
             ClassName = 'native-generated'
             Arguments = @(

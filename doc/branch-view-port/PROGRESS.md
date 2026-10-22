@@ -1,5 +1,46 @@
 # Stav portu PR #769
 
+## S17 — IMPLEMENTED / lokální brána PASS s evidovanou S20 copy mezerou (2026-10-22)
+
+Jediný production diff je SalGetFileSize2 v salamdr5.cpp; celý soubor je nyní
+EXACT donor 47661e92. Funkce validuje UTF8 před ACP fallbackem, používá wide
+open a heap absolutizaci dlouhých relativních cest, zachovává extended paths,
+vrací přesný error i nulovou velikost při selhání. S04 ordinary getters,
+membership služba, SDK/ABI a snapshot zůstávají beze změny. Žádný nový index
+nebo Branch metadata stub. Branch View je stále vypnuté.
+
+Oba disk_file_size_paths_tests soubory EXACT donor: skutečné source functions
+a file I/O D/R 79 checks/config PASS, včetně Unicode/UTF8-byte-long/UTF16-long,
+relativních a extended cest, symlink target size, ACP1250 fallback, null/missing
+paths, error output a cleanup. Symlink subcase zde proběhl, nebyl SKIP.
+Branch panel getters driver/template ADAPTED na tři skutečné ordinary gettery
+ve fileswn1.cpp a existující wide helpers: 12 checks/config PASS. Všechny
+donor Branch assertions zachovány pod S26 guardem, neprovedeny a nejsou PASS.
+Existující panel_item_paths_tests znovu 196 checks/config D/R PASS: source,
+target/focus, current membership/stale pointers, virtual rejection a frozen ABI.
+
+Host D/R x64 /warnaserror PASS, pytest 49 PASS. Běžný GUI file-link copy D/R
+PASS: krátká ASCII cesta link.bin ukazuje na vlastní >400-unit Unicode cíl.
+Listing symlinku 0 bytes, skutečný výstup regular file 2107 bytes s přesným
+SHA256 cíle. Host binary/source/runtime hash bound, normální shutdown bez
+reportů, konfigurace obnoveny. 119 starších input files, šest vlastních
+sources/links a sentinel nezměněny; dva nové výstupy ověřeny, žádné temp zbytky.
+
+Samostatný Debug GUI pokus kopírovat symlink přímo z dlouhé Unicode source
+cesty selhal Error Opening File / path not found a byl Cancel bez výstupu.
+Toto je FAIL zachovaný v evidence/S17/Debug-long-copy-open-error.txt, nikoli
+PASS nebo oprava celé file-operation vrstvy. Její migrace je S20; znovu
+ověřit tento konkrétní vlastní fixture v S20. Native nová size funkce dlouhou
+source cestu i link target podporuje; GUI ordinary smoke není tvrzení, že
+všechny host copy I/O větve už jsou migrované.
+
+Parent 60724bd9; runtime patch SHA256
+0c91e4246eadec647768d22502face1000cd5e6336f6444ecba5f92d787f9623.
+Evidence evidence/S17: source-manifest.json, focused-size.*, ordinary-getters.*,
+membership-regression.*, host-*, final-validation.json a GUI logs. Runner
+přidává dvě groups, všech 57 starších zachováno. Celý runner/full-solution CI/
+CodeQL znovu neběžely; S17 nepushed. Pokračuje lokální S18 podle user goalu.
+
 ## S16 — IMPLEMENTED / lokální brána PASS (2026-10-22)
 
 Osm Undelete production souborů a C++ fixture jsou EXACT donor 47661e92.

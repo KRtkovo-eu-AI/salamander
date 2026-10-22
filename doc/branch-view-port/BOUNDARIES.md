@@ -1,5 +1,16 @@
 # S00 read-only donor boundary audit
 
+## S17 size boundary complete; remaining copy regression belongs to S20
+
+Only SalGetFileSize2 production change, exact donor file; S04 getters/services
+unchanged. Ordinary donor getter assertions run, all future Branch metadata
+assertions preserved behind S26 guard and explicitly not run. Disk-size native
+79/config includes actual symlink and long paths, ordinary membership 196/config.
+Actual D/R GUI copies short ASCII link to long Unicode target as identical
+2107-byte regular files. A long Unicode SOURCE link copy fails later Error
+Opening File; retained in evidence/S17, mandatory concrete retest in S20.
+Do not present size helper support as complete file-operation migration.
+
 ## S16 Undelete legacy image boundary
 
 Eight production files and C++ fixture exact donor; Python only configuration
