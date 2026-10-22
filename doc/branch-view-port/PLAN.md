@@ -1,5 +1,55 @@
 # Plán postupného portu PR #769
 
+## S11 — IMPLEMENTED / lokální brána PASS (2026-10-22)
+
+S10 přijato 60987d42 po zeleném PR #33 včetně skutečného CodeQL a celé
+sestavy. Lokální S11 přebírá tři EXACT donor 47661e92 soubory Salamatrix:
+salamatrix_packages.cpp, salamatrix_sides.h, vcxproj/salamatrix.vcxproj.
+Shared context JSON vychází z owned wide snapshotů; native ItemInfo ABI,
+JSON schema, 64-item limit a pět providerů se nemění. Native ItemInfo
+překročení odmítá; JSON neprochází jeho fixed byte kapacitami.
+
+Adaptace jsou pouze v testech/runneru: All scope aktivuje S10 odložené
+TestSides/TestDynamicJsonContext a všech pět forwarding contracts. Nový
+TestPayloadBoundaries kompiluje skutečné CopyResult a protocol header;
+ověřuje exact/undersized/null buffer, reálný 65536-byte response limit,
+1MiB whole-frame hranici, escaping a nezávislé JSON parsování celé struktury.
+Žádné oslabení donor assertions; starší Automation-only scope stále 161
+checks/config. All má 243 checks/config. Host+Salamatrix+Python provider
+D/R x64 /warnaserror PASS, 52 native groups/config, Python 49 PASS.
+
+Skutečný Python worker -> PackageManager::HostDispatch v D/R PASS: dvě
+selected položky, focused 255 UTF16-unit / 763 UTF8-byte CJK basename,
+plná 652-unit cesta. Oba hosty/reporter normálně zavřeny, žádný nový report;
+3 nové a 84 předchozích input files hashově nezměněné. Soukromé konfigurace
+obnoveny, vlastní testovací extensions archivovány mimo runtime. GUI není
+běh všech pěti providerů; pět forwarding/capacity kontrol je source contract,
+existující process-runtime testy mají skutečný Python/PowerShell a PHP SKIP.
+PHP a LoadImageW subcase SKIPs zůstávají SKIP. Evidence evidence/S11,
+source-manifest.json a final-validation.json; [steps/S11.md](steps/S11.md).
+Runtime patch SHA256 970d582d38b9dbca897f7984a6ff15881117e1676d5c43236163d329fb766b28.
+
+S11 nepushed; publikace/full-solution CI/CodeQL pro S11 NEPROVEDENY.
+Podle rozšířeného user goalu po lokálním commitu pokračuje S12. Dřívější
+baseline S10 Debug handle a file-focus setter vady nejsou touto etapou opraveny.
+
+## S11 — plán shared sides/context (2026-10-22)
+
+S10 přijato na 60987d42. Převzít pouze tři donorové Salamatrix soubory:
+salamatrix_packages.cpp, salamatrix_sides.h a vcxproj/salamatrix.vcxproj.
+JSON serializace přímo z wide owned snapshots; native ItemInfo ABI zůstává
+pevné a překročení vrací explicitní chybu. Schema a 64-item context limit
+beze změny. Pět providerů zůstává forwarding stejného shared host method.
+Aktivovat celý odložený selection_snapshot_tests --scope All v runneru;
+doplnit mezeru escaping/úplného JSON a CopyResult kapacity/protocol limitu
+při kompilaci skutečných produkčních metod, bez jejich duplikování.
+
+Lokální gate: host+Salamatrix D/R x64 /warnaserror, všechny aktuální native
+regrese a Python; skutečný smoke změněné operace nad vlastní fixture.
+Pět forwarding source contracts není běh pěti runtime prostředí: doložit
+skutečně dostupné runtimes a jejich výsledky odděleně. SDK/IDL/CI se nemění.
+Žádný push/PR; po lokální bráně pokračovat dalším zadaným krokem do S20.
+
 ## S10 — publikováno a přijato (2026-10-22)
 
 Automation 8ef4ab24 přijato po všech 12 SUCCESS checks aktuálního headu

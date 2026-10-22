@@ -193,6 +193,8 @@ public:
 namespace Sides = Salamatrix::Sides;
 @@JSON_METHODS@@
 
+@@WIRE_METHODS@@
+
 static int Checks = 0, Failures = 0;
 static void Check(bool condition, const char* name)
 { ++Checks; if (!condition) { ++Failures; std::printf("FAIL: %s\n", name); } }
@@ -433,9 +435,50 @@ static void TestEnumeration()
     Check(LiveDispatchObjects == baseline, "no dispatch leaks");
 }
 
+// S11: actual JSON serializer, output-capacity boundary and line protocol.
+static void TestPayloadBoundaries()
+{
+    CSalamanderGeneralAbstract general;
+    general.Root = L"C:\\\u017elu\u0165ou\u010dk\u00fd-\u6771\u4eac";
+    Row row; row.Name = std::wstring(100, L'\u6771') + L".txt";
+    row.Extension = L"txt"; row.Full = general.Root + L"\\quoted\"\t\n\r\b\f\x01\\" + row.Name;
+    row.Item.Selected = row.Item.Focused = TRUE; row.Item.Size = CQuadWord(123, 4);
+    row.Item.LastWrite = FILETIME{789, 456}; row.Item.Attr = FILE_ATTRIBUTE_ARCHIVE;
+    row.Item.SizeValid = TRUE; general.Rows.push_back(row); general.Seal();
+    std::string context;
+    Check(DiskSideContextJson(&general, PANEL_LEFT, &context), "escaped context serialized");
+    std::vector<char> output(context.size() + 2, '#'); DWORD length = 777;
+    Check(!CopyResult(context, output.data(), static_cast<DWORD>(context.size()), &length) && length == 777 && output[0] == '#', "insufficient whole payload capacity has no partial output");
+    Check(CopyResult(context, output.data(), static_cast<DWORD>(context.size() + 1), &length) && length == context.size() && output[context.size()] == 0 && output.back() == '#', "exact payload capacity includes terminator and preserves canary");
+    Check(!CopyResult(context, NULL, 1, &length) && !CopyResult(context, output.data(), 0, &length) && !CopyResult(context, output.data(), 1, NULL), "invalid payload destinations rejected");
+    std::FILE* report = NULL; fopen_s(&report, "s11-escaped.json", "wb");
+    Check(report != NULL, "open owned escaped report");
+    if (report != NULL) { Check(std::fwrite(context.data(), 1, context.size(), report) == context.size(), "write complete escaped JSON"); std::fclose(report); }
+    std::string frame;
+    using namespace Salamatrix::Runtime::Protocol;
+    Check(LineCodec::Encode(MessageResult, 42, context, &frame), "escaped complete context fits wire protocol");
+    LineCodec codec; Frame decoded; BOOL complete = FALSE;
+    Check(codec.Append(frame.data(), frame.size(), &decoded, &complete) && complete && decoded.PayloadJson == context, "actual context wire roundtrip preserves every byte");
+    const std::string prefix = "SMX1\tresult\t42\t";
+    const size_t exactPayload = MaxFrameBytes - prefix.size() - 1;
+    std::string boundary = "{\"x\":\"" + std::string(exactPayload - 8, 'x') + "\"}";
+    Check(boundary.size() == exactPayload && LineCodec::Encode(MessageResult, 42, boundary, &frame) && frame.size() == MaxFrameBytes, "whole-frame exact boundary accepted");
+    boundary.insert(boundary.size() - 2, 1, 'x');
+    Check(!LineCodec::Encode(MessageResult, 42, boundary, &frame), "whole-frame boundary plus one rejected");
+    general.Root = L"C:";
+    for (int i = 0; i < 60; ++i) general.Root += L"\\" + std::wstring(200, L'\u6771');
+    row.Full = general.Root + L"\\" + row.Name; general.Rows.assign(70, row); general.Seal();
+    Check(DiskSideContextJson(&general, PANEL_LEFT, &context) && context.size() > MaxFrameBytes, "large valid context serialized before transport limit");
+    std::vector<char> runtimeResponse(65536, '#'); length = 777;
+    Check(!CopyResult(context, runtimeResponse.data(), static_cast<DWORD>(runtimeResponse.size()), &length) && length == 777 && runtimeResponse.front() == '#' && runtimeResponse.back() == '#', "real provider response capacity rejects oversized context without truncation");
+    Check(!LineCodec::Encode(MessageResult, 42, context, &frame), "oversized real JSON rejected by actual framing");
+    report = NULL; fopen_s(&report, "s11-large.json", "wb"); Check(report != NULL, "open owned large report");
+    if (report != NULL) { Check(std::fwrite(context.data(), 1, context.size(), report) == context.size(), "write complete large JSON"); std::fclose(report); }
+}
+
 int main()
 {
-    TestAutomation(); TestEnumeration(); TestSides(); TestDynamicJsonContext();
+    TestAutomation(); TestEnumeration(); TestSides(); TestDynamicJsonContext(); TestPayloadBoundaries();
     std::printf("Actual selection consumers: %d checks, %d failures\n", Checks, Failures);
     return Failures == 0 ? 0 : 1;
 }

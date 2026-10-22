@@ -87,3 +87,14 @@ the parent directory then reads actual Items; native tests cover row destruction
 reordering and final ownership release. Initial asserted Debug process was
 terminated and recorded separately, not relabeled normal shutdown. These remain
 explicit follow-up defects; no host/diagnostic suppression included in S10.
+
+## S11 closure of deferred consumer tests (2026-10-22)
+
+S10 TestSides/TestDynamicJsonContext and all five forwarding contracts now run
+in All scope. Native new coverage compiles actual PackageManager::CopyResult
+and salamatrix_runtime_protocol.h, then independently parses emitted JSON.
+All five providers retain response(65536); protocol whole-frame limit is 1MiB,
+including framing overhead. Dynamic context exceeding either capacity is an
+explicit failure, not a promise of unbounded transport. Native fixed ItemInfo
+ABI remains unchanged and retains insufficient-buffer error for valid CJK names.
+GUI is real Python only (D/R), never reported as five worker executions.

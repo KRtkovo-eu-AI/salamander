@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Exercise actual Automation/Salamatrix immutable selection consumers and all five worker forwarding contracts."""
 import argparse
+import json
 import os
 from pathlib import Path
 import re
@@ -74,13 +75,14 @@ def block(source, marker, trailing=""):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--configuration", choices=("Debug", "Release", "Both"), default="Both")
-    parser.add_argument("--scope", choices=("Automation", "All"), default="Automation", help="All requires deferred S11 Salamatrix consumers")
+    parser.add_argument("--scope", choices=("Automation", "All"), default="All", help="Automation selects COM-only tests; All also tests Salamatrix consumers")
     args = parser.parse_args()
     sdk = read("src/plugins/shared/spl_gen.h")
     facade = read("src/plugins/shared/spl_diskselection.h")
     item = read("src/plugins/automation/itemaut.cpp")
     collection = read("src/plugins/automation/itemcoll.cpp")
     pieces = {
+        "WIRE_METHODS": "",
         "SDK_ITEM": block(sdk, "struct CSalamanderDiskSelectionItem\n", ";"),
         "CONVERSIONS": "\n".join(block(facade, marker) for marker in (
             "inline std::wstring WideFromPath(", "inline std::string Utf8FromWide(")),
@@ -97,6 +99,7 @@ def main():
         sides = read("src/plugins/salamatrix/salamatrix_sides.h")
         packages = read("src/plugins/salamatrix/salamatrix_packages.cpp")
         pieces.update({
+        "WIRE_METHODS": '#include "' + (ROOT / "src/plugins/salamatrix/salamatrix_runtime_protocol.h").as_posix() + '"\n' + block(packages, "BOOL PackageManager::CopyResult(").replace("PackageManager::CopyResult", "CopyResult"),
         "SIDE_CONSTANTS": "\n".join(re.findall(r"^#define SALAMATRIX_SIDE_ITEM_[^\n]+", sides, re.M)),
         "SIDE_TYPES": block(sides, "enum SideReference\n", ";") + "\n" + block(sides, "struct ItemInfo\n", ";"),
         "SIDE_METHODS": "\n".join(block(sides[sides.index("class SidesService :"):], marker) for marker in (
@@ -116,6 +119,8 @@ def main():
         }
         for language, path in workers.items():
             worker = read("src/plugins/" + path)
+            provider = path.split("/")[0]
+            assert "std::vector<char> response(65536)" in read("src/plugins/" + provider + "/" + provider + ".cpp")
             assert "salamander.sides.context" in worker, language + " lacks shared context dispatch"
             assert re.search(r"(?:hostCall|host_call|Invoke-Host|client->call|_transport\.call)\([^\n]*[\"']salamander\.sides\.context[\"']|Invoke-Host\s+-Method\s+[\"']salamander\.sides\.context[\"']", worker), language + " no longer forwards context"
         print("Shared context forwarding: 5/5 provider contracts passed", flush=True)
@@ -133,9 +138,9 @@ def main():
         begin = generated.index("namespace Salamatrix { namespace Sides {")
         end = generated.index("static int Checks", begin)
         generated = generated[:begin] + generated[end:]
-        for marker in ("static void TestSides()", "static void TestDynamicJsonContext()"):
+        for marker in ("static void TestSides()", "static void TestDynamicJsonContext()", "static void TestPayloadBoundaries()"):
             generated = generated.replace(block(generated, marker), "")
-        generated = generated.replace("TestAutomation(); TestEnumeration(); TestSides(); TestDynamicJsonContext();", "TestAutomation(); TestEnumeration();")
+        generated = generated.replace("TestAutomation(); TestEnumeration(); TestSides(); TestDynamicJsonContext(); TestPayloadBoundaries();", "TestAutomation(); TestEnumeration();")
         print("S11 DEFERRED: TestSides, TestDynamicJsonContext and five provider forwarding contracts", flush=True)
     for name, value in pieces.items():
         generated = generated.replace("@@" + name + "@@", value)
@@ -157,6 +162,23 @@ def main():
                 result = run(command, cwd=directory, env=environment)
                 if result.returncode:
                     return result.returncode
+            if args.scope == "All":
+                escaped = json.loads((directory / "s11-escaped.json").read_text(encoding="utf-8"))
+                large = json.loads((directory / "s11-large.json").read_text(encoding="utf-8"))
+                assert escaped["selectedCount"] == 1 and not escaped["selectedItemsTruncated"]
+                item = escaped["selectedItems"][0]
+                expected_root = "C:" + chr(92) + "žluťoučký-東京"
+                expected_name = "東" * 100 + ".txt"
+                expected_path = expected_root + chr(92) + 'quoted"' + chr(9) + chr(10) + chr(13) + chr(8) + chr(12) + chr(1) + chr(92) + expected_name
+                assert escaped["path"] == expected_root and item["name"] == expected_name and item["path"] == expected_path
+                assert item == escaped["focusedItem"] and item["extension"] == "txt"
+                assert set(item) == {"name", "path", "extension", "size", "sizeValid", "attributes", "lastWriteUtc", "isDirectory", "hidden", "link", "offline"}
+                assert item["size"] == str((4 << 32) + 123) and item["lastWriteUtc"] == str((456 << 32) + 789)
+                assert item["attributes"] == 32 and item["sizeValid"] and not any(item[k] for k in ("isDirectory", "hidden", "link", "offline"))
+                assert large["selectedCount"] == 70 and large["selectedItemsTruncated"] and len(large["selectedItems"]) == 64
+                assert all(x["path"] == large["path"] + chr(92) + expected_name for x in large["selectedItems"])
+                assert large["focusedItem"] == large["selectedItems"][0]
+                print("Independent JSON parse: complete escaping, schema, metadata and 64-item context passed", flush=True)
     return 0
 
 
