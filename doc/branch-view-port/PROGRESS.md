@@ -1,5 +1,24 @@
 # Stav portu PR #769
 
+## S09 — publikováno a přijato (2026-10-22)
+
+Split & Combine 8b97128d přijato po 12 SUCCESS checks přesného headu
+v interním [draftu PR #32](https://github.com/majklvi/salamander/pull/32).
+PR buildy Win32/x64/ARM64 /warnaserror, native/Python/source-contract,
+VSIX, growth a squash guard prošly. Skutečný CodeQL job 119952659278
+v PR runu 39814889856 dokončen 2026-10-22 16:48:06 UTC: Initialize,
+Release x64 build, Perform Analysis a Upload SARIF SUCCESS. Samostatný
+čistý full build 39814915560 SUCCESS na všech třech platformách včetně
+přípravy závislostí. Jeho CodeQL záměrně SKIP pro workflow_dispatch;
+skutečná analýza je doložena samostatně. Evidence mimo Git evidence/S09:
+check-current-pr.stdout.log, check-full-build.stdout.log,
+check-codeql-job.stdout.log a publish-summary.json. Lokální GUI/obsahové
+důkazy a známé PHP/LoadImageW subcase SKIPs zůstávají evidované.
+
+Přijímá se lokální checkpoint, draft se nemerguje do samandarin-0.16.
+SOURCE/CONTRACT, donor/release piny, SDK a Branch gate beze změny.
+Navazuje pouze S10 Automation; Salamatrix patří do S11.
+
 ## S09 — IMPLEMENTED / lokální brána PASS (2026-10-22)
 
 S08 přijato na 68b66c33 po 12 SUCCESS checks PR #28, skutečné CodeQL analýze
