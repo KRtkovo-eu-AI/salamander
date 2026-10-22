@@ -433,6 +433,32 @@ function Get-LockingProcesses {
     return @($result | Sort-Object Name, ProcessId)
 }
 
+function Get-InspectorPaths {
+    param([object]$Context)
+
+    $items = @($Context.selectedItems | Where-Object { $null -ne $_ })
+    if ($items.Count -eq 0 -and $null -ne $Context.focusedItem) {
+        $items = @($Context.focusedItem)
+    }
+
+    $paths = New-Object System.Collections.Generic.List[string]
+    foreach ($item in $items) {
+        $path = [string]$item.path
+        if ([string]::IsNullOrWhiteSpace($path)) { continue }
+
+        if ([bool]$item.isDirectory) {
+            Get-ChildItem -LiteralPath $path -File -Recurse -Force `
+                -ErrorAction SilentlyContinue | ForEach-Object {
+                    $paths.Add([string]$_.FullName)
+                }
+        } else {
+            $paths.Add($path)
+        }
+    }
+
+    return @($paths | Select-Object -Unique)
+}
+
 function Get-SelectedProcess {
     param([System.Windows.Forms.DataGridView]$Grid)
     if ($Grid.SelectedRows.Count -eq 0) { return $null }
@@ -665,17 +691,14 @@ if ($Salamander.command_handler -eq 'inspect') {
         $script:Strings = Get-InspectorStrings -Locale $language.locale
 
         $context = $Salamander.source_side.Context()
-        $items = @($context.selectedItems | Where-Object {
-            $null -ne $_ -and -not [bool]$_.isDirectory
-        })
-        if ($items.Count -eq 0 -and $null -ne $context.focusedItem -and
-            -not [bool]$context.focusedItem.isDirectory) {
+        $items = @($context.selectedItems | Where-Object { $null -ne $_ })
+        if ($items.Count -eq 0 -and $null -ne $context.focusedItem) {
             $items = @($context.focusedItem)
         }
-        $paths = @($items | ForEach-Object { [string]$_.path } |
-            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
-            Select-Object -Unique)
-        if ($paths.Count -eq 0) {
+        $hasUsableSelection = @($items | Where-Object {
+            -not [string]::IsNullOrWhiteSpace([string]$_.path)
+        }).Count -gt 0
+        if (-not $hasUsableSelection) {
             [void]$Salamander.ui.MessageBox(
                 $script:Strings.selectFile,
                 $script:Strings.title,
@@ -683,6 +706,7 @@ if ($Salamander.command_handler -eq 'inspect') {
                 'Information')
             return
         }
+        $paths = @(Get-InspectorPaths -Context $context)
         Initialize-RestartManager
         Show-InspectorWindow -Paths $paths
     }

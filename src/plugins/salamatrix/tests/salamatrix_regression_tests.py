@@ -2085,8 +2085,21 @@ def main() -> int:
     require(
         lock_inspector,
         r"source_side\.Context\(\).*?selectedItems.*?focusedItem.*?"
-        r"isDirectory.*?Show-InspectorWindow",
+        r"Get-InspectorPaths -Context \$context.*?Show-InspectorWindow",
         "File Lock Inspector does not inspect the selected or focused files")
+    require(
+        lock_inspector,
+        r"function Get-InspectorPaths.*?if \(\[bool\]\$item\.isDirectory\).*?"
+        r"Get-ChildItem\s+-LiteralPath\s+\$path\s+"
+        r"-File\s+-Recurse\s+-Force.*?"
+        r"\$paths\.Add\(\$path\)",
+        "File Lock Inspector does not recursively inspect selected directories")
+    require(
+        lock_inspector,
+        r"\$items = @\(\$context\.selectedItems\s*\|\s*Where-Object.*?"
+        r"if \(\$items\.Count -eq 0 -and \$null -ne \$context\.focusedItem\).*?"
+        r"\$paths = @\(Get-InspectorPaths -Context \$context\)",
+        "File Lock Inspector does not preserve focused-item fallback for directory scans")
     if set(process_explorer_manifest.get("locales", {})) != expected_locales:
         raise AssertionError(
             "Process Explorer does not declare every supported locale")
@@ -2753,10 +2766,10 @@ def main() -> int:
         "File Lock Inspector still opens an unthemed WinForms message box")
     require(
         lock_inspector,
-        r"if \(\$paths\.Count -eq 0\).*?"
+        r"if \(-not \$hasUsableSelection\).*?"
         r"ui\.MessageBox\(.*?selectFile.*?"
         r"Initialize-RestartManager",
-        "File Lock Inspector does not explain unsupported panel selections")
+        "File Lock Inspector does not explain missing panel selections")
     require(
         salamatrix,
         r"SalamanderLanguageID\s*=\s*salamander->GetCurrentSalamanderLanguageID",
