@@ -1,5 +1,24 @@
 # Plán postupného portu PR #769
 
+## S10 — publikováno a přijato (2026-10-22)
+
+Automation 8ef4ab24 přijato po všech 12 SUCCESS checks aktuálního headu
+[PR #33](https://github.com/majklvi/salamander/pull/33). Skutečný CodeQL job
+119984548335 v runu 39824113333: Initialize, Release x64 MSBuild, Analysis
+a SARIF SUCCESS; dokončen 17:53:32 UTC. Čistý full build 39824142309
+SUCCESS Win32/x64/ARM64 včetně přípravy závislostí. Jeho CodeQL je záměrně
+SKIP pro dispatch, skutečná analýza doložena v PR. Evidence evidence/S10:
+accept-current-pr.stdout.log, check-full-build.stdout.log,
+check-pr-build.stdout.log a publish-summary.json. Lokální baseline výhrady
+(Debug handle tracking, starý dlouhý file-focus setter) i PHP/LoadImageW
+subcase SKIPs zůstávají platné, zelené CI je neopravuje.
+
+Přijímá se lokální checkpoint; interní draft se nemerguje do reference base.
+Uživatel rozšířil zadání na postupné lokální etapy S11 až S20: zachovat
+samostatné commity a každou lokální validační bránu; toto výslovné zadání
+nahrazuje dřívější omezení na jedinou etapu v běhu. Další publikace/PR
+nejsou tímto automaticky zadány. SOURCE/CONTRACT piny se nemění.
+
 ## S10 — IMPLEMENTED / lokálně ověřeno s baseline omezeními (2026-10-22)
 
 S09 přijato na f13b3ed1 po ověření PR #32 a čisté sestavy. Lokální větev
