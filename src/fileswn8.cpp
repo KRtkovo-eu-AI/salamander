@@ -18,8 +18,6 @@
 #include "pack.h"
 #include "mapi.h"
 #include "common/widepath.h"
-#include "fileactiondisktarget.h"
-#include "operationrecycle.h"
 
 
 static std::wstring ConfirmDeleteTextToWideWithCodePage(const char* text, UINT codePage, DWORD flags)
@@ -821,7 +819,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                         if (SalSplitWindowsPath(HWindow, LoadStr(type == atCopy ? IDS_COPY : IDS_MOVE),
                                                 LoadStr(type == atCopy ? IDS_ERRORCOPY : IDS_ERRORMOVE),
                                                 count, path, secondPart, pathIsDir, backslashAtEnd || mustBePath,
-                                                sourceBaseName.c_str(), sourceDirectory.c_str(), mask, SAL_MAX_PATH))
+                                                sourceBaseName.c_str(), sourceDirectory.c_str(), mask))
                         {
                             if (!validateDiskTarget())
                             {

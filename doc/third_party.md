@@ -137,3 +137,7 @@ making their work available.
 ### S20a ordinary rename and temporary selection
 
 Header/native fixtures EXACT and scoped host rename/selection hunks ADAPTED from [PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Samandarin Contributors, GPL-2.0-or-later. Original SPDX notices preserved. Branch integration deferred.
+
+### S20b ordinary copy/move planning
+
+Scoped donor planning buffers, Unicode Copy-of formatter and item-parent split-path hunks adapted from [PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, GPL-2.0-or-later; original notices preserved. Exact NameW capture extends ordinary-panel identity handling.

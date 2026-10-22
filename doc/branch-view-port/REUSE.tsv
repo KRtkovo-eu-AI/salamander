@@ -53,13 +53,13 @@ src/fileswn5.cpp	CreateProcessForFileAction; ViewFile/ViewFileInt/EditFile	src/f
 src/fileswn5.cpp	RenameFileInternalW/RenameFileInternal/RenameFile/QuickRenameBegin	src/fileswn5.cpp	S20a	ADAPTED	Rename/owned selection accepted; future Branch assertions/hooks S26; copy/move/delete S20b/S20c
 src/fileswn5.cpp	EditWindowsProperties/ChangeAttr exact Shell paths	src/fileswn5.cpp	S21	DEFERRED	Native helper then call sites; Branch dispatch only S27
 src/fileswn6.cpp	BuildScriptMain2/BuildScriptMain worker exact source/target path prerequisites	src/fileswn6.cpp	S19	ADAPTED	Scoped S19 worker I/O; preserve target NOHANDLES tracking; l2 initialized; planning UI and recycling remain S20
-src/fileswn6.cpp	BuildScriptMain/BuildScriptMain2 operation scheduling and relative destination	src/fileswn6.cpp	S20	DEFERRED	Copy/move stage separate from rename/delete
+src/fileswn6.cpp	BuildScriptMain/BuildScriptMain2 operation scheduling and relative destination	src/fileswn6.cpp	S20	ADAPTED	S20b ordinary copy/move accepted; S20c delete pending; Branch relative scheduling/resources deferred S26/S27c
 src/fileswn6.cpp	FormatCompressedSizeError actual call site	src/fileswn6.cpp	S24	DEFERRED	Transfer with typed helper and regression
 src/fileswn6.cpp	Activate branch refresh request	src/fileswn6.cpp	S30	DEFERRED	Requires gated panel and completed refresh path
 src/fileswn7.cpp	CPanelTmpEnumData; DiskDirBuildEnumeration; PanelEnumDiskSelection; Pack	src/fileswn7.cpp	S22	DEFERRED	Keep root+relative ABI and cached link sizes
 src/fileswn7.cpp	Branch-specific packing integration and UnpackZIPArchive guard	src/fileswn7.cpp	S27e	DEFERRED	Only after ordinary packing verified
 src/fileswn7.cpp	AcceptChangeOnPathNotification recursive refresh	src/fileswn7.cpp	S30	DEFERRED	Automatic refresh stage
-src/fileswn8.cpp	FilesAction; ConfirmDeleteTextToWide/AppendConfirmDeleteExtInfo	src/fileswn8.cpp	S20	DEFERRED	Split rename/copy-move/delete by coherent operation
+src/fileswn8.cpp	FilesAction; ConfirmDeleteTextToWide/AppendConfirmDeleteExtInfo	src/fileswn8.cpp	S20	ADAPTED	S20b ordinary copy/move accepted; S20c delete pending; Branch relative scheduling/resources deferred S26/S27c
 src/fileswn8.cpp	DeleteThroughRecycleBin/operationrecycle helpers	src/fileswn8.cpp	S21	DEFERRED	Exact shell deletion identities
 src/fileswn9.cpp	CopyFocusedNameToClipboard	src/fileswn9.cpp	S21	DEFERRED	Exact focused identity
 src/fileswn9.cpp	GetPanelItemToolTip/BuildColumnsTemplate/OnHeaderLineColWidthChanged	src/fileswn9.cpp	S26	DEFERRED	Path column and branch status

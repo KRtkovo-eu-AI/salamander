@@ -1,5 +1,34 @@
 # Validace portu a baseline S00
 
+## S20b — IMPLEMENTED / ordinary copy and move PASS (2026-10-23)
+
+Scoped donor fileswn6 BuildScriptMain/Main2/File heap buffers and Unicode Copy-of
+name generation; fileswn8 split-path dialog boundary uses exact item parent/base.
+ADAPTED ordinary copy/move captures complete NameW as owned UTF8 before BuildName;
+legacy display mirror may be truncated and must not identify the operation.
+No Branch relative-path option/scheduling, archive enumerator or new resources.
+These remain S26/S27c. Delete/attributes/count-size wide hunks remain S20c.
+
+Host x64 Debug/Release /warnaserror PASS10.10/9.23s final. Initial missing include
+compile failure fixed with donor widepath include; Release95s post-link timeout
+preserved, subsequent complete build PASS. Production patch/source hashes saved.
+Real F5/F6 Cancel D/R: temporary long-CJK selection removed; explicit3-file
+selection126/138 bytes preserved. Actual copy then move of ASCII, Czech+CJK+emoji
+and100-CJK names from long Unicode parent succeeds D/R. All12 final copy/move
+outputs hash-identical; original own sources intentionally moved and absent.
+Retested original S17 failing long-source Unicode symlink in BOTH configurations:
+new outputs regular2107-byte files with exact payload hash; old links unchanged.
+162 prior path/stream records and sentinel intact. Four normal shutdowns PASS,
+private runtime configs restored, installed user host untouched.
+
+All24 source/menu groups PASS, including4 scoped operation assertions. Actual
+BuildName18 checks/config D/R PASS. Initial unsupported Both CLI invocation saved;
+separate supported config runs pass. No full CI/CodeQL or push in this local step.
+Known legacy dialog subject truncates100-CJK display label; operation paths and
+output names are complete and verified. Future Branch assertions retained in All,
+not reported PASS. Evidence ../evidence/S20b/{source-manifest,final-validation}.json.
+
+
 ## S20a — IMPLEMENTED / rename + temporary selection PASS (2026-10-23)
 
 EXACT donor panel_temporary_selection.h and native fixture/project; scoped

@@ -21,7 +21,7 @@ class BranchOperationsContracts(unittest.TestCase):
         self.assertIn('GetItemDirectoryW(*f)', part)
         self.assertIn('GetItemFullPathW(*f)', part)
         self.assertEqual(part.count('UpdateFileDataNameAfterRename('), 3)
-        if SCOPE == 'OrdinaryRename':
+        if SCOPE != 'All':
             self.assertIn('PostChangeOnPathNotification(directory.c_str(), isDir)', part)
             return  # Real Branch metadata remap/sleep assertions retained for S26.
         self.assertEqual(part.count('BranchItemRenamed(oldNameKey, *f, oldFullPath)'), 3)
@@ -128,16 +128,34 @@ class BranchOperationsContracts(unittest.TestCase):
         self.assertIn('BranchClipboardUNCPath(fullPath, unc)', branch)
         self.assertEqual(branch.count('CopyTextToClipboardW('), 3)
         self.assertNotIn('CopyUNCPathToClipboard', branch)
+    def test_ordinary_copy_move_owns_unicode_basename(self):
+        text = source('fileswn6.cpp')
+        part = text[text.index('BOOL CFilesWindow::BuildScriptFile('):]
+        self.assertIn('const std::string ownedFileName = fileNameW', part)
+        self.assertLess(part.index('fileName = const_cast<char*>(ownedFileName.c_str())'), part.index('op.SourceName = BuildName('))
+        self.assertIn('CPathBuffer finalName(4 * SAL_MAX_PATH)', part)
+        self.assertIn('MaskName(finalName.Data(), finalName.Capacity()', part)
+    def test_ordinary_copy_move_uses_item_parent_at_dialog_boundary(self):
+        text = source('fileswn8.cpp')
+        self.assertIn('GetItemDirectoryW(*dir)', text)
+        self.assertIn('GetItemFullPathW(*dir)', text)
+        self.assertIn('sourceBaseName.c_str(), sourceDirectory.c_str(), mask', text)
+        builder = source('fileswn6.cpp')
+        self.assertEqual(builder.count('CPathBuffer sourcePathStorage(4 * SAL_MAX_PATH)'), 2)
+        self.assertIn('unicodeCopyName.empty()', builder)
+
 def load_tests(loader, tests, pattern):
     if SCOPE == 'All':
         return tests
     names = ('test_initial_view_and_edit_use_owned_wide_full_path',
              'test_rename_remaps_identity_after_every_success')
+    if SCOPE == 'OrdinaryCopyMove':
+        names += ('test_ordinary_copy_move_owns_unicode_basename', 'test_ordinary_copy_move_uses_item_parent_at_dialog_boundary')
     return unittest.TestSuite(BranchOperationsContracts(name) for name in names)
 
 if __name__ == '__main__':
     parser=argparse.ArgumentParser()
-    parser.add_argument('--scope', choices=('OrdinaryRename', 'All'), default='OrdinaryRename')
+    parser.add_argument('--scope', choices=('OrdinaryRename', 'OrdinaryCopyMove', 'All'), default='OrdinaryCopyMove')
     args, remaining=parser.parse_known_args()
     SCOPE=args.scope
     print('Operation contracts scope:', SCOPE, '; future Branch assertions require All/S26', flush=True)
