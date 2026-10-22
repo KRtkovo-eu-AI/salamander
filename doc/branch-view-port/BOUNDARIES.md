@@ -66,3 +66,24 @@ Run source contracts registered for the current stage with `python -B <script.py
 - branch_panel_getters_tests.py extracts `Entry`, `Entry::FullPath`, Join and whole getters from branch_view.cpp. For ordinary S04, adapt only the generator/source location and ordinary subset; keep Branch-state assertions DEFERRED until S26. Do not import scanner just to satisfy test extraction.
 - S11 donor diff changes only salamatrix_packages.cpp, salamatrix_sides.h and its project. No new dedicated long-CJK JSON payload test is among the 231 donor files. Existing salamatrix_regression_tests.py is unchanged and source-contract coverage; ordinary SDK long-CJK extension tests are not proof of context serialization/payload limits. S11 must inspect reusable existing tests and add the minimal missing actual serialization/runtime acceptance coverage, with all five provider forwarding contracts validated.
 - Host project registration includes `spl_diskselection.h` in S05. Its .filters diff only registers explorerpropertywork, panel_temporary_selection and branch_view_text; do not invent other donor filter hunks.
+## S10 current integration boundaries (2026-10-22)
+
+Automation production has no S11 dependency. Its donor selection_snapshot_tests
+has a test-only coupling: SidesService::CopyDiskItemInfo and selected/focused
+methods, wide SideItemJson and DiskSideContextJson, plus five provider forwarding
+contracts. Keep these assertions in the template/explicit All scope and run in
+S11; default Automation scope compiles actual item/collection/enumerator methods
+and CUnknownImpl. TestAutomation is unchanged. Do not silently import Salamatrix
+to satisfy extraction. S11 still needs its actual context serialization/payload
+acceptance beyond these tests.
+
+GUI discovered two unchanged releasebase defects outside the S10 diff:
+scriptlist.cpp raw CreateFileW versus HANDLES(CloseHandle) registration in Debug;
+and fileswn3.cpp CFilesWindow::ChangeDir file-focus branch char
+shortenedPath[MAX_PATH] followed by strcpy(shortenedPath, copy). The latter
+asserts for long full-file navigation through unchanged COM put_Path. Do not
+claim this setter is repaired by owned COM properties. Final S10 GUI navigates
+the parent directory then reads actual Items; native tests cover row destruction,
+reordering and final ownership release. Initial asserted Debug process was
+terminated and recorded separately, not relabeled normal shutdown. These remain
+explicit follow-up defects; no host/diagnostic suppression included in S10.

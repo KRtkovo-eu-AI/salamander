@@ -1,5 +1,43 @@
 # Stav portu PR #769
 
+## S10 — IMPLEMENTED / lokálně ověřeno s baseline omezeními (2026-10-22)
+
+S09 přijato na f13b3ed1 po ověření PR #32 a čisté sestavy. Lokální větev
+integration/pr769-s10-candidate přebírá pouze Automation: vlastněné wide
+COM položky, sdílený disk snapshot collections/enumerators, nezávislé cursory,
+Reset bez nového capture a samostatné focused položky. SDK/COM IDL/host,
+Salamatrix, CI a SOURCE/CONTRACT piny beze změny. Sedm produkčních souborů
+EXACT donor 47661e92; itemcoll.cpp ADAPTED pouze inicializací iKey=-1 po
+prokázaném MSVC C4701. Dva testy ADAPTED: explicitní Automation/All scope
+odkládá pouze budoucí S11 a přidává skutečné COM collection/enumerator metody.
+Všechny donorové Automation assertions zachovány, S11 assertions ponechány
+v template/All režimu. Runner zachovává všech 51 starších skupin.
+
+Host a Automation Debug/Release x64 /warnaserror PASS, 161 focused native
+checks/config, 52 regresních groups/config a Python 49 PASS. Skutečný plugin
+v D/R prošel 32 COM kontrolami/config nad devíti kategoriemi metadata/cest,
+včetně spuštění skriptu na 344 UTF8-byte a 416 UTF16-unit cestě. Retained
+items/collections/enumerators přežily deselection, refresh, změnu panel path
+a další focused getter. Sort/destrukce řádků a poslední snapshot/COM release
+ověřeny nativně nad skutečnými migrovanými metodami; GUI samo není důkazem
+všech refcountů. Všech 13 finálních vlastních a 71 předchozích vstupů hashově
+beze změny, konfigurace obnovena, oba finální hosty normálně ukončeny.
+
+Baseline výhrady: původní scriptlist.cpp v Debug při raw CreateFileW a
+tracked CloseHandle hlásí neevidovaný handle; před skriptem zaznamenáno a
+potvrzeno, diagnostika nevypnuta. Původní host ChangeDir při přímém zaměření
+souboru přes MAX_PATH vyvolal buffer assertion; první Debug host byl řízeně
+ukončen, nejde o normální shutdown. Finální dlouhé cesty proto ověřeny přes
+přechod do adresáře a skutečné COM Items. Tento starší setter limit zůstává
+NEOPRAVEN; S10 nelze prezentovat jako úplnou podporu dlouhého file-focus
+přechodu. Přesné místo a shoda s releasebase doloženy mimo Git.
+PHP/LoadImageW subcase SKIPs zůstávají SKIP. Evidence evidence/S10 včetně
+neúspěšných pokusů, source-manifest.json, runtime.patch, final-validation.json
+a [steps/S10.md](steps/S10.md). Lokální runtime patch SHA256
+cad448992989c7d69d9f6a90906765565eab8a6e1316f918979e447a0c13a7c7.
+Publikační full build/platformní CI/CodeQL S10 NEPROVEDENY. S10 nepushed,
+accepted reference zůstává f13b3ed1. S11 v tomto běhu nezahájena.
+
 ## S09 — publikováno a přijato (2026-10-22)
 
 Split & Combine 8b97128d přijato po 12 SUCCESS checks přesného headu

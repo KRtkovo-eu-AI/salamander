@@ -471,6 +471,16 @@ try {
             )
         },
         @{
+            Name = 'automation_selection_snapshot_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\plugins\automation\tests\selection_snapshot_tests.py'),
+                '--configuration', $Configuration,
+                '--scope', 'Automation'
+            )
+        },
+        @{
             Name = 'splitcbn_selection_paths_tests'
             ClassName = 'native-generated'
             Arguments = @(
