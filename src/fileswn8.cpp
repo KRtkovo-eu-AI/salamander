@@ -18,6 +18,7 @@
 #include "pack.h"
 #include "mapi.h"
 #include "common/widepath.h"
+#include "operationrecycle.h"
 
 
 static std::wstring ConfirmDeleteTextToWideWithCodePage(const char* text, UINT codePage, DWORD flags)
@@ -142,27 +143,14 @@ BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileDa
                                            IID_PPV_ARGS(&operation));
         if (FAILED(result))
             return FALSE;
-        result = operation->SetOwnerWindow(MainWindow->HWindow);
-        if (SUCCEEDED(result))
-            result = operation->SetOperationFlags(FOF_ALLOWUNDO | FOFX_RECYCLEONDELETE | FOFX_ADDUNDORECORD | FOFX_EARLYFAILURE);
+        operation->SetOwnerWindow(MainWindow->HWindow);
+        operation->SetOperationFlags(FOF_ALLOWUNDO | FOFX_RECYCLEONDELETE | FOFX_ADDUNDORECORD | FOFX_EARLYFAILURE);
         const int total = selCount > 0 ? selCount : 1;
         for (int item = 0; item < total && SUCCEEDED(result); ++item)
         {
             const CFileData* file = oneFile;
             if (selCount > 0)
-            {
-                if (selection == NULL || selection[item] < 0 || selection[item] >= Dirs->Count + Files->Count)
-                {
-                    result = E_INVALIDARG;
-                    break;
-                }
                 file = selection[item] < Dirs->Count ? &Dirs->At(selection[item]) : &Files->At(selection[item] - Dirs->Count);
-            }
-            if (file == NULL || (IsBranchView() && GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*file)) != file))
-            {
-                result = HRESULT_FROM_WIN32(ERROR_INVALID_DATA);
-                break;
-            }
             const std::wstring path = GetItemFullPathW(*file);
             std::wstring shellPath;
             if (FAILED(OperationRecyclePath(path, shellPath)))
@@ -183,8 +171,7 @@ BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileDa
         if (SUCCEEDED(result))
             result = operation->PerformOperations();
         BOOL aborted = TRUE;
-        if (SUCCEEDED(result))
-            result = operation->GetAnyOperationsAborted(&aborted);
+        operation->GetAnyOperationsAborted(&aborted);
         operation->Release();
         if (FAILED(result))
         {
@@ -540,10 +527,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
         BOOL canUseRecycleBin = TRUE;
         if (type == atDelete)
         {
-            // Branch rows can reside on different volumes. Let force-recycle
-            // Shell operations validate each exact source; never infer permanent
-            // deletion from the synthetic root's drive type.
-            if (!IsBranchView() && OperationRecycleDriveTypeW(SalPathAddExtendedPrefixW(GetPathW())) != DRIVE_FIXED)
+            if (OperationRecycleDriveTypeW(SalPathAddExtendedPrefixW(GetPathW())) != DRIVE_FIXED)
             {
                 recycle = 0;              // none
                 canUseRecycleBin = FALSE; // it will not work because Windows does not support it

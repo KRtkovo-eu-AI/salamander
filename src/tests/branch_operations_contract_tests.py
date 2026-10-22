@@ -144,18 +144,37 @@ class BranchOperationsContracts(unittest.TestCase):
         self.assertEqual(builder.count('CPathBuffer sourcePathStorage(4 * SAL_MAX_PATH)'), 2)
         self.assertIn('unicodeCopyName.empty()', builder)
 
+    def test_ordinary_recycle_uses_exact_queue(self):
+        text = source('fileswn8.cpp')
+        part = text[text.index('BOOL CFilesWindow::DeleteThroughRecycleBin('):text.index('void CFilesWindow::FilesAction(')]
+        self.assertIn('if (Is(ptDisk))', part)
+        self.assertIn('GetItemFullPathW(*file)', part)
+        self.assertIn('OperationRecyclePath(path, shellPath)', part)
+        self.assertIn('FOFX_RECYCLEONDELETE', part)
+        self.assertIn('OperationRecycleDriveTypeW(SalPathAddExtendedPrefixW(GetPathW()))', text)
+        self.assertLess(part.index('operation->DeleteItem'), part.index('operation->PerformOperations'))
+    def test_direct_delete_receives_owned_wide_name(self):
+        text = source('worker.cpp')
+        part = text[text.index('BOOL DoDeleteFile('):text.index('BOOL SalCreateDirectoryEx(')]
+        self.assertIn('WorkerOperationPathW(name, exactName)', part)
+        self.assertIn('DeleteFileW(nameW.c_str())', part)
+        self.assertNotIn('DeleteFile(name)', part)
+        self.assertIn('dlgData, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL', text)
+
 def load_tests(loader, tests, pattern):
     if SCOPE == 'All':
         return tests
     names = ('test_initial_view_and_edit_use_owned_wide_full_path',
              'test_rename_remaps_identity_after_every_success')
-    if SCOPE == 'OrdinaryCopyMove':
+    if SCOPE in ('OrdinaryCopyMove', 'OrdinaryOperations'):
         names += ('test_ordinary_copy_move_owns_unicode_basename', 'test_ordinary_copy_move_uses_item_parent_at_dialog_boundary')
+    if SCOPE == 'OrdinaryOperations':
+        names += ('test_ordinary_recycle_uses_exact_queue', 'test_direct_delete_receives_owned_wide_name', 'test_selected_extension_recycle_uses_exact_wide_shell_operation', 'test_delete_and_attributes_preserve_owned_wide_source')
     return unittest.TestSuite(BranchOperationsContracts(name) for name in names)
 
 if __name__ == '__main__':
     parser=argparse.ArgumentParser()
-    parser.add_argument('--scope', choices=('OrdinaryRename', 'OrdinaryCopyMove', 'All'), default='OrdinaryCopyMove')
+    parser.add_argument('--scope', choices=('OrdinaryRename', 'OrdinaryCopyMove', 'OrdinaryOperations', 'All'), default='OrdinaryOperations')
     args, remaining=parser.parse_known_args()
     SCOPE=args.scope
     print('Operation contracts scope:', SCOPE, '; future Branch assertions require All/S26', flush=True)

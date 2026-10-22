@@ -141,3 +141,7 @@ Header/native fixtures EXACT and scoped host rename/selection hunks ADAPTED from
 ### S20b ordinary copy/move planning
 
 Scoped donor planning buffers, Unicode Copy-of formatter and item-parent split-path hunks adapted from [PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, GPL-2.0-or-later; original notices preserved. Exact NameW capture extends ordinary-panel identity handling.
+
+### S20c exact delete/recycle and typed error formatting
+
+Scoped host/worker hunks, operationrecycle.h, recycle-only native fixture and typed text tests adapted from [PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, GPL-2.0-or-later. branch_view_text.h and its test project copied exactly; original notices preserved. Local adaptation resolves ordinary recycle eligibility through the exact wide volume root. Future Branch resource tests retained but deferred.

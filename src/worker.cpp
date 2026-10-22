@@ -7,6 +7,7 @@
 #include "cfgdlg.h"
 #include "worker.h"
 #include "workerpath.h"
+#include "operationrecycle.h"
 #include "common/widepath.h"
 
 #include <Aclapi.h>

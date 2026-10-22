@@ -17,6 +17,7 @@
 #include "dialogs.h"
 #include "worker.h"
 #include "workerpath.h"
+#include "branch_view_text.h"
 #include "cache.h"
 #include "pack.h"
 #include "shellib.h"
@@ -2851,9 +2852,6 @@ BOOL CFilesWindow::BuildScriptFile(COperations* script, CActionType type, char* 
             if (type == atMove && !script->ShowStatus)
                 script->ShowStatus = TRUE; // move with the encrypted attribute set is done via copy, so we need to show status
         }
-        const std::string ownedFileName = fileNameW != NULL && *fileNameW != 0 ?
-            SalWideToMultiBytePath(fileNameW, CP_UTF8) : std::string(fileName);
-        fileName = const_cast<char*>(ownedFileName.c_str());
         op.Attr = sourceFileAttr;
         BOOL skip;
         if ((op.SourceName = BuildName(sourcePath, fileName, fileDOSName, &skip,
