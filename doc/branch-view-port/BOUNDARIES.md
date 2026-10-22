@@ -1,5 +1,15 @@
 # S00 read-only donor boundary audit
 
+## S16 Undelete legacy image boundary
+
+Eight production files and C++ fixture exact donor; Python only configuration
+selector. Wide restore is separate from unchanged ACP/fixed-capacity image
+engine. Connect preserves full exact input and fails explicitly before backend
+on unsupported paths. Actual GUI verified full edit value and capacity refusal,
+no physical volume analysis. Native restore performs temporary disk I/O; EFS
+is a stub, real encrypted Windows import/export not exercised. Conditional
+ACP1250/1252 assertion remains unchanged; registry ACP is recorded separately.
+
 ## S15 PAK engine and hidden-command boundary
 
 Five production files and C++ fixture exact donor. OP_EXISTING_ONLY changes

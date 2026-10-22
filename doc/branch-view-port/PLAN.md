@@ -1,5 +1,60 @@
 # Plán postupného portu PR #769
 
+## S16 — IMPLEMENTED / lokální brána PASS (2026-10-22)
+
+Osm Undelete production souborů a C++ fixture jsou EXACT donor 47661e92.
+Owned disk snapshot se zachytí před destination dialogem, Restore používá
+skutečné wide identity, heap buffers a RAII source/destination/raw cleanup.
+Connect image předvyplní skutečný focused full path, zobrazí jej wide a
+před legacy image backendem explicitně kontroluje ACP roundtrip a kapacitu.
+Legacy image engine nebyl rozšířen; nepodporovaný vstup je chyba, ne truncation.
+Library precomp má potřebné STL/SDK/path includes, celý Undelete consumer
+se normálně kompiluje. Veřejný plugin SDK/ABI se nemění.
+
+Python driver má pouze configuration selector (default Both). Native fixture
+68 checks/config D/R PASS: skutečné entry/restore/SDK/host snapshot/path
+functions a dočasné disk I/O; listing zánik, duplicate basenames, kolize,
+focused source, UTF16-long target/source, UTF8-byte-long source, recursive
+restore, own-descendant refusal, cancel, missing/create failure a cleanup.
+EFS flow/callback/context error checks jsou STUB, real EFS calls=0; nejde
+o Windows encrypted EFS import/export. Legacy path tests kontrolují ASCII,
+oversize a terminator capacity; lossy ACP assertion je podmíněna 1250/1252.
+Registry ACP zde 1250 je evidováno samostatně, není to tvrzení o ACP každého
+konkrétního procesu. Donor conditional assertion nebyla oslabena ani odstraněna.
+
+Host+Undelete včetně vlastních library sources D/R x64 /warnaserror PASS,
+pytest 49 PASS. Skutečný GUI Connect image D/R PASS: vlastní focused
+ž-東京.img v >400-unit cestě je v edit control přesně celý (UIA porovnáno
+s manifestem). Po výslovné volbě Disk Image je vstup odmítnut hláškou
+The filename or extension is too long před backendem; následně Cancel.
+Fyzické disky nebyly analyzovány ani mountovány. Načtené undelete.spl hashově
+odpovídají nové sestavě. Oba vlastní vstupy, 116 starších input files a sentinel
+nezměněny, žádné temp zbytky, normální shutdown bez reportu, config obnoven.
+
+Parent 8419831e; runtime patch SHA256
+60407d0e492458a51c7b4683dfd5b124bf52766d111b759f45dc6cc4af5b4f4c.
+Evidence evidence/S16/source-manifest.json, focused-undelete.*, host/undelete-*,
+final-validation.json, *-connect-default/image-selected/image-limit-error.txt,
+*-loaded-module.json, system-acp.json a shutdown logs. Runner přidává jednu
+skupinu, všech 56 starších zachováno. Celý runner, full-solution CI/CodeQL
+znovu neběžely; S16 nepushed. Pokračuje lokální S17 podle rozšířeného goalu.
+
+## S16 — plán Undelete owned restore identities (2026-10-22)
+
+Úzký donor diff obsahuje dialogs.cpp/.h, library/precomp.h, restore.cpp/.h,
+undelete.cpp, nový undelete_paths.h a projekt: převzít jako paired consumer
+bez změny image engine. Restore používá owned snapshot před modal dialogem,
+wide I/O a RAII cleanup; Connect image předvyplní přesnou focused cestu a
+explicitně kontroluje existující ACP/MAX_PATH hranici bez ztrátové konverze.
+Donor native fixture zahrnuje skutečné restore functions, temporary disk I/O
+a EFS stub. C++ EXACT, Python pouze configuration selector default Both;
+žádné skutečné Windows EFS import/export tvrzení. Gate host+Undelete a všechny
+vlastní library consumers D/R /warnaserror, native fixture a chyby/cleanup,
+GUI Connect image exact input a refusal před legacy backendem nad vlastním
+Unicode image vstupem, běžný panel a zachování souborů. Bez mountování
+uživatelských disků a bez přepisu legacy image backendu.
+
+
 ## S15 — IMPLEMENTED / lokální brána PASS s testovacím menu adaptérem (2026-10-22)
 
 Pět PAK production souborů dll/pak_dll.cpp, dll/pakiface.h, spl/pak2.cpp,
