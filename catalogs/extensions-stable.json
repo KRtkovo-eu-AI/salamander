@@ -191,6 +191,35 @@
         "elevation": "never"
       },
       "packageSha256": "e675b02cf8d4d68826b85d5669d60a6927e2205fd6fb446c56762f414f8a2519"
+    },
+    {
+      "id": "TabuleSprZel",
+      "packageType": "extension",
+      "name": {
+        "english": "Tabule SprŽel",
+        "czech": "Tabule SprŽel"
+      },
+      "author": "Open Salamander Authors",
+      "description": {
+        "english": "Browses railway departure board arrivals/departures in a Salamander file-system panel.",
+        "czech": "Prohlížení příjezdů a odjezdů železničních tabulí v panelu souborového systému."
+      },
+      "latestVersion": "1.1.0 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://krtkovo.eu/sprzel/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_tabuleSprZel_1.1.0_x64/plugin_5.0_tabuleSprZel_1.1.0_x64.7z",
+      "dependencies": [
+        "javascriptruntime"
+      ],
+      "icon": "https://github.com/user-attachments/assets/276cfc35-8ef9-48a1-b233-8b04ddb0bd1a",
+      "security": {
+        "networkAccess": "yes",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "yes",
+        "elevation": "never"
+      },
+      "packageSha256": "10705CFF4EF7E2F9E33AAB8F72E089EE6E07A0C15397C42B01BB9D259F8B99B0"
     }
   ]
 }
