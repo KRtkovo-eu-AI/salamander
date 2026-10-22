@@ -489,6 +489,15 @@ try {
             )
         },
         @{
+            Name = 'pak_optimize_snapshot_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\pak_optimize_snapshot_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
             Name = 'disk_selection_snapshot_tests'
             ClassName = 'native-generated'
             Arguments = @(

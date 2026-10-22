@@ -1,5 +1,52 @@
 # Validace portu a baseline S00
 
+## S15 — IMPLEMENTED / lokální brána PASS s testovacím menu adaptérem (2026-10-22)
+
+Pět PAK production souborů dll/pak_dll.cpp, dll/pakiface.h, spl/pak2.cpp,
+spl/precomp.h a vcxproj/pak.vcxproj a C++ fixture jsou EXACT donor 47661e92.
+Owned paths a parents zachyceny před modal UI, per-parent notifikace a scope
+cleanup. Optimize otevírá OP_WRITE_MODE | OP_EXISTING_ONLY; OpenPak tento
+interní flag odstraní z desiredAccess a použije OPEN_EXISTING. Běžný pack
+caller ponechává OPEN_ALWAYS. pakiface.h mění jen define, žádnou signaturu
+nebo vtable/layout. Aktuální projekt kompiluje engine přímo do pak.spl;
+historický dynamický paklib.dll loader je komentář, žádný starý paired DLL
+nezůstává v runtime.
+
+Python driver ADAPTED na configuration selector, aktuální shared snapshot
+prefix (GetDiskSelectionService singleton, již existující worked-path stub,
+vynechání nepoužívaného DemoPlug command shimu); donor C++ assertions EXACT.
+15 checks/config D/R PASS: skutečný command body a SDK/host snapshot, listing
+zánik, duplicates, per-parent notifications, cancel, UNC, archive-panel contract;
+menu engine zde mock. Samostatně skutečné production OpenPak/ClosePak a wide
+I/O helper: missing long Unicode input nevytvoří soubor, běžný caller jej
+vytvoří, existing-only jej následně otevře; invalid path odmítnut.
+
+Host+PAK D/R /warnaserror PASS, pytest 49 PASS. Optimize příkaz je v targetu
+i donoru úmyslně odstraněn z Connect menu; samotný původní menu GUI je SKIP.
+Pro skutečný command/engine GUI test použit explicitní dočasný AddMenuItem
+adapter pouze v pak.cpp. Jeho combined runtime patch e2dc8bc50ff77a11bc694db
+0028dc99843cbae0d0a63a071ebe51c84074de7d9 a testované binárky zachovány v
+evidence/S15/gui-adapter; nemění ExecuteMenuItem ani engine. D/R GUI Optimize
+na dlouhé Unicode cestě zmenšil vlastní PAK 4475 -> 379 bytes. Nezávislý
+parser potvrzuje shodné jméno i bajty členu a odstranění 4096-byte mezery.
+111 starších input files, dva nesouvisející PAKy a sentinel nezměněny, missing
+inputs nevznikly, žádné temp zbytky, normální shutdown bez reportů, config
+obnoven. Soukromý seed přidal PAK slot31; neúspěšné seed pokusy a jejich
+příčina (povinný Copyright field) zachovány odděleně.
+
+GUI adapter poté byte-exact odstraněn; pak.cpp nemá žádný diff a finální
+production PAK D/R znovu /warnaserror PASS. Netvrdíme, že skrytý příkaz je
+dostupný v běžném finálním menu. Původní světle vykreslený Optimize dialog
+v Dark Mode je baseline, nebyl přidán nový dialog nebo změna resources.
+
+Parent 9c738940; production runtime patch SHA256
+639606ad29e584288b4518ff2360aac59ff84c060f4d13d527516480dff551a6.
+Evidence evidence/S15: source-manifest.json, focused-pak-v3.*, host/pak-*,
+final-validation.json, gui-adapter/* a private seed provenance. Initial harness
+compile chyby jsou zachovány jako FAIL, v3 na finálním zdroji PASS.
+Runner přidává PAK group, všech 55 starších zachováno. Celý runner, čistá celá
+sestava a CodeQL znovu neběžely. S15 nepushed; navazuje lokální S16.
+
 ## S14 — IMPLEMENTED / lokální brána PASS (2026-10-22)
 
 7zip.cpp, precomp.h a vcxproj/7zip.vcxproj jsou EXACT donor 47661e92.

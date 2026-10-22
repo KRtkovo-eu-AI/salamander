@@ -1,5 +1,17 @@
 # S00 read-only donor boundary audit
 
+## S15 PAK engine and hidden-command boundary
+
+Five production files and C++ fixture exact donor. OP_EXISTING_ONLY changes
+only an internal mode bit, signatures/layout/vtables unchanged. Engine is
+compiled into pak.spl by current project; old paklib.dll loader is commented.
+The donor/target Connect deliberately hides Optimize; ordinary menu case SKIP.
+Actual D/R GUI command/engine exercised with a temporary AddMenuItem adapter,
+source/binary hashes recorded separately, not equivalent to an unmodified
+menu runtime. Adapter removed byte-exact before final D/R production rebuild
+and commit. No public menu restoration in S15. Native production OpenPak
+missing-file/noncreation evidence separate from mocked menu engine harness.
+
 ## S14 complete archive command boundary
 
 Three exact 7-Zip donor production files and exact shared C++ menu harness.
