@@ -78,11 +78,11 @@ BOOL CSalamanderGeneralAbstract::QueryService(const CSalamanderServiceQuery* q,C
 static int Checks=0,Failures=0;
 static void Check(bool value,const char* message){++Checks;if(!value){++Failures;printf("FAIL %s\n",message);}}
 static CSalamanderGeneralAbstract General;
-// PictView CEnumFiles and its two consumer assertions are deferred to S12.
+static CSalamanderGeneralAbstract* SalamanderGeneral=&General;
+@@ENUM@@
 // Compile the actual DemoPlug case, with only progress/UI operations replaced.
 enum { MENU_EVENT_DISK=1, MENU_EVENT_FILES_SELECTED=2, MENU_EVENT_FILE_FOCUSED=4, MENUCMD_DOPFILES=7 };
 static int SalamanderVersion;
-static CSalamanderGeneralAbstract* SalamanderGeneral=&General;
 struct OperationsFacade {
  int Opens=0,Closes=0,Steps=0;bool Cancel=false,DestroyListing=false;std::vector<std::string> Paths;
  void OpenProgressDialog(const char*,BOOL,void*,BOOL){++Opens;if(DestroyListing){Window.Left.Clear();MainWindow=nullptr;}}
@@ -102,6 +102,7 @@ static void Reset(){Window.Left.Clear();Window.Right.Clear();Window.RightActive=
 static void Populate(){auto& p=Window.Left;p.Add(L"..",L"C:\\",L"..",false,true);p.Add(L"same.txt",L"C:\\root\\alpha\\same.txt",L"alpha\\same.txt",true);p.Add(L"same.txt",L"C:\\root\\žluťoučký東京\\same.txt",L"žluťoučký東京\\same.txt",true);p.Add(L"third.txt",L"C:\\root\\third.txt",L"third.txt");p.Focus=2;}
 static void HostTests(){
  Reset();Populate();
+ { CEnumFiles enumeration; Check(enumeration.IsValid()&&enumeration.GetFileCount()==2,"PictView captures selected file count"); Window.Left.Clear(); auto a=enumeration.GetFile(); auto b=enumeration.GetFile(); Check(a&&b&&wcscmp(a->FullPathW,L"C:\\root\\alpha\\same.txt")==0&&wcscmp(b->FullPathW,L"C:\\root\\žluťoučký東京\\same.txt")==0&&enumeration.GetFile()==nullptr,"PictView retains actual duplicate paths after panel disappears"); }
  Reset();Populate();CSalamanderDiskSelection selection;
  { Reset();auto& panel=Window.Left;std::wstring name(110,L'界');name+=L".png";auto file=panel.Add(name,L"C:\\root\\"+name,name,true);file->Name="truncated mirror";file->Ext="";
  Check(selection.Capture(&General,PANEL_SOURCE)&&wcscmp(selection.GetItem(0)->ExtensionW,L"png")==0,"wide complete extension survives truncated UTF8 mirror");

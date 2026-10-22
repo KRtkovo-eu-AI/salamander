@@ -100,7 +100,7 @@ def main():
     pieces={
         "CONSTANTS":"\n".join(x for x in sdk.splitlines() if x.startswith("#define SALAMANDER_SERVICE_DISK_SELECTION ") or x.startswith("#define SALAMANDER_DISK_SELECTION_VERSION_") or x.startswith("#define SALDISKSELECTION_")),
         "SDK":"\n".join(block(sdk,x,";") for x in ("struct CSalamanderServiceQuery", "struct CSalamanderServiceResult", "class CSalamanderPanelItemPathsAbstract", "struct CSalamanderDiskSelectionItem", "class CSalamanderDiskSelectionSnapshotAbstract", "class CSalamanderDiskSelectionAbstract")),
-        # PictView-specific extraction/assertions belong to S12.
+        "ENUM":block(read("src/plugins/pictview/thumbs.cpp"),"class CEnumFiles",";"),
         "HOST":"\n".join(block(host,x,";") for x in ("class CPanelItemPathsService", "class CDiskSelectionService")) + "\n" + block(host,"CSalamanderDiskSelectionAbstract* GetDiskSelectionService()"),
         "DEMO":block(read("src/plugins/demoplug/menu.cpp"), "    case MENUCMD_DOPFILES:"),
         "HEADER":str(ROOT/"src/plugins/shared/spl_diskselection.h").replace("\\","/"),

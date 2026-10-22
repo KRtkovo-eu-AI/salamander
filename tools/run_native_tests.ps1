@@ -471,6 +471,15 @@ try {
             )
         },
         @{
+            Name = 'pictview_thumbnail_paths_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\pictview_thumbnail_paths_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
             Name = 'disk_selection_snapshot_tests'
             ClassName = 'native-generated'
             Arguments = @(

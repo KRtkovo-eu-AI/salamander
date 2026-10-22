@@ -1,5 +1,15 @@
 # S00 read-only donor boundary audit
 
+## S12 completed boundary
+
+Owned thumbnail CEnumFiles and paired EXIF v10 are integrated together.
+Legacy EXIF export retained. Five exact donor files verified by Git blobs;
+project includes only disk selection SDK, Unicode title/navigation remain S18.
+S05 deferred CEnumFiles and both assertions now restored. Real EXIF native
+51 checks/config and six actual GUI outputs pass against current binaries.
+The separate baseline WIC repair is parent 270f2cb6; initial S12 evidence is
+preserved and does not count as current-source full-run/CI validation.
+
 ## S12-preflight: WIC output boundary
 
 Evidence confirms a target/donor baseline defect, separate from owned selection
