@@ -17,7 +17,6 @@
 #include "dialogs.h"
 #include "worker.h"
 #include "workerpath.h"
-#include "branch_view_text.h"
 #include "cache.h"
 #include "pack.h"
 #include "shellib.h"
