@@ -2492,6 +2492,8 @@ static CIconList* CreateSimpleIconListForPixels(int pixelSize)
     HICON icon = NULL;
     if (GetFileIconForPanel(systemDir, &icon, ICONSIZE_16, pixelSize, GetSystemDPI(), TRUE, TRUE))
     {
+        if (icon != NULL)
+            HANDLES_ADD(__htIcon, __hoUnknown, icon);
         list->ReplaceIcon(symbolsDirectory, icon);
         HANDLES(DestroyIcon(icon));
     }

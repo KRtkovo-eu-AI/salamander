@@ -9,6 +9,9 @@
 #include <string>
 #include <vector>
 
+// Shell/extractor icons remain untracked until their caller registers ownership.
+// Temporary icons therefore use NOHANDLES cleanup, as does the icon reader.
+
 static UINT PrivateExtractSingleIcon(LPCTSTR fileName, int iconIndex, int iconSize, HICON* hIcon, UINT* iconID, UINT flags)
 {
     typedef UINT(WINAPI * FPrivateExtractIcons)(LPCTSTR, int, int, int, HICON*, UINT*, UINT, UINT);
@@ -61,12 +64,12 @@ UINT WINAPI ExtractIcons(LPCTSTR szFileName, int nIconIndex, int cxIcon, int cyI
             return extracted;
         if (phicon[0] != NULL)
         {
-            HANDLES(DestroyIcon(phicon[0]));
+            NOHANDLES(DestroyIcon(phicon[0]));
             phicon[0] = NULL;
         }
         if (nIcons > 1 && phicon[1] != NULL)
         {
-            HANDLES(DestroyIcon(phicon[1]));
+            NOHANDLES(DestroyIcon(phicon[1]));
             phicon[1] = NULL;
         }
     }
@@ -134,6 +137,12 @@ static int GetIconPixelWidth(HICON hIcon)
     memset(&iconInfo, 0, sizeof(iconInfo));
     if (!GetIconInfo(hIcon, &iconInfo))
         return 0;
+
+    // GetIconInfo owns these copies; register them before tracked cleanup.
+    if (iconInfo.hbmColor != NULL)
+        HANDLES_ADD(__htBitmap, __hoUnknown, iconInfo.hbmColor);
+    if (iconInfo.hbmMask != NULL)
+        HANDLES_ADD(__htBitmap, __hoUnknown, iconInfo.hbmMask);
 
     BITMAP bitmap;
     memset(&bitmap, 0, sizeof(bitmap));
@@ -222,7 +231,7 @@ static void DiscardSolidBlackIcon(HICON* icon, int pixelSize)
 {
     if (icon != NULL && *icon != NULL && IsSolidBlackIcon(*icon, pixelSize))
     {
-        HANDLES(DestroyIcon(*icon));
+        NOHANDLES(DestroyIcon(*icon));
         *icon = NULL;
     }
 }
@@ -272,7 +281,7 @@ static HICON GetExplorerFileIcon(const char* path, int pixelSize, BOOL smallIcon
         HICON resized = (HICON)CopyImage(icon, IMAGE_ICON, pixelSize, pixelSize, 0);
         if (resized != NULL)
         {
-            HANDLES(DestroyIcon(icon));
+            NOHANDLES(DestroyIcon(icon));
             icon = resized;
         }
     }
@@ -336,15 +345,15 @@ static HICON GetDefaultAssociationIcon(const char* path, int pixelSize)
 
     HICON icon = smallIcon != NULL ? smallIcon : largeIcon;
     if (largeIcon != NULL && largeIcon != icon)
-        HANDLES(DestroyIcon(largeIcon));
+        NOHANDLES(DestroyIcon(largeIcon));
     if (smallIcon != NULL && smallIcon != icon)
-        HANDLES(DestroyIcon(smallIcon));
+        NOHANDLES(DestroyIcon(smallIcon));
     if (icon != NULL && GetIconPixelWidth(icon) != pixelSize)
     {
         HICON resized = (HICON)CopyImage(icon, IMAGE_ICON, pixelSize, pixelSize, 0);
         if (resized != NULL)
         {
-            HANDLES(DestroyIcon(icon));
+            NOHANDLES(DestroyIcon(icon));
             icon = resized;
         }
     }
@@ -474,11 +483,11 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
                             !IsSolidBlackIcon(associationIcon, companionSmallPixelSize))
                         {
                             if (hIconSmall != NULL)
-                                HANDLES(DestroyIcon(hIconSmall));
+                                NOHANDLES(DestroyIcon(hIconSmall));
                             hIconSmall = associationIcon;
                         }
                         else if (associationIcon != NULL)
-                            HANDLES(DestroyIcon(associationIcon));
+                            NOHANDLES(DestroyIcon(associationIcon));
                     }
                 }
                 //else TRACE_I("  SalGetIconFromPIDL() path == NULL");
@@ -613,7 +622,7 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
             GetIconPixelWidth(hExtracted) == requestedIconSize)
         {
             if (*requestedIcon != NULL && *requestedIcon != *otherIcon)
-                HANDLES(DestroyIcon(*requestedIcon));
+                NOHANDLES(DestroyIcon(*requestedIcon));
             *requestedIcon = hExtracted;
             if (requestLargeArtwork)
                 hExtractedLarge = NULL;
@@ -622,9 +631,9 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
         }
 
         if (hExtractedSmall != NULL && hExtractedSmall != hIconSmall && hExtractedSmall != hIconLarge)
-            HANDLES(DestroyIcon(hExtractedSmall));
+            NOHANDLES(DestroyIcon(hExtractedSmall));
         if (hExtractedLarge != NULL && hExtractedLarge != hIconSmall && hExtractedLarge != hIconLarge)
-            HANDLES(DestroyIcon(hExtractedLarge));
+            NOHANDLES(DestroyIcon(hExtractedLarge));
     }
 
     if (pxi != NULL)
@@ -688,7 +697,7 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
                 if (hIconDPI != NULL)
                 {
                     if (hIconSmall != NULL && hIconSmall != hIconLarge)
-                        HANDLES(DestroyIcon(hIconSmall));
+                        NOHANDLES(DestroyIcon(hIconSmall));
                     hIconSmall = hIconDPI;
                 }
                 //TRACE_I("  SalGetIconFromPIDL() CopyImage 1 hIconSmall="<<hIconSmall<<" hIconLarge="<<hIconLarge);
@@ -713,7 +722,7 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
                 if (hIconDPI != NULL)
                 {
                     if (hIconLarge != NULL && hIconLarge != hIconSmall)
-                        HANDLES(DestroyIcon(hIconLarge));
+                        NOHANDLES(DestroyIcon(hIconLarge));
                     hIconLarge = hIconDPI;
                 }
                 //TRACE_I("  SalGetIconFromPIDL() CopyImage 2 hIconSmall="<<hIconSmall<<" hIconLarge="<<hIconLarge);
@@ -738,14 +747,14 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
         if (fallbackIcon != NULL &&
             !IsSolidBlackIcon(fallbackIcon, requestedIconSize))
         {
-            HANDLES(DestroyIcon(*hIcon));
+            NOHANDLES(DestroyIcon(*hIcon));
             *hIcon = fallbackIcon;
         }
         else
         {
             if (fallbackIcon != NULL)
-                HANDLES(DestroyIcon(fallbackIcon));
-            HANDLES(DestroyIcon(*hIcon));
+                NOHANDLES(DestroyIcon(fallbackIcon));
+            NOHANDLES(DestroyIcon(*hIcon));
             *hIcon = NULL;
             ret = FALSE;
         }

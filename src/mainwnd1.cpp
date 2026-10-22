@@ -5,7 +5,7 @@
 #include "precomp.h"
 
 static void SetDPIAwareWindowIcon(HWND hWindow, int resID);
-static void ReleaseDPIAwareWindowIcons(HWND hWindow);
+void ReleaseDPIAwareWindowIcons(HWND hWindow);
 
 #include <string>
 #include <shlwapi.h>
@@ -5538,7 +5538,7 @@ void CMainWindow::UpdateDetachedMenuLabels()
 static const char* OWNED_BIG_WINDOW_ICON = "SalamanderOwnedBigWindowIcon";
 static const char* OWNED_SMALL_WINDOW_ICON = "SalamanderOwnedSmallWindowIcon";
 
-static void ReleaseDPIAwareWindowIcons(HWND hWindow)
+void ReleaseDPIAwareWindowIcons(HWND hWindow)
 {
     HICON bigIcon = (HICON)RemoveProp(hWindow, OWNED_BIG_WINDOW_ICON);
     HICON smallIcon = (HICON)RemoveProp(hWindow, OWNED_SMALL_WINDOW_ICON);
