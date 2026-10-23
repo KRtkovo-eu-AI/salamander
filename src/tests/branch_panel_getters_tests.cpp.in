@@ -21,6 +21,7 @@
 std::wstring SalMultiByteToWidePath(const char*, UINT codePage = CP_ACP);
 @@CONVERSION@@
 @@ORDINARY_JOIN@@
+@@FIND_BASENAME@@
 namespace Salamander { namespace BranchView {
 @@ENTRY@@
 @@JOIN@@
@@ -100,6 +101,29 @@ static DWORD RecordAttributes(const wchar_t* path) {
 }
 #define GetFileAttributesW RecordAttributes
 
+// Recorders for the actual BuildScriptMain per-item source block. Worker I/O
+// is validated separately and by the real host GUI; no test-only copy engine.
+const int atCopy=1, atMove=2, atDelete=3, SACCESS_READ=1;
+const DWORD OPFL_SRCPATH_IS_NET=1, OPFL_SRCPATH_IS_FAST=2, OPFL_TGTPATH_IS_NET=4;
+struct CopyCriteria {BOOL IgnoreADS=FALSE;};
+struct CopyScript {
+    BOOL SourcePathIsNetwork=FALSE;
+    std::vector<std::pair<std::string,int>> Storage;
+    void AddStoragePath(const char* path,int access){Storage.emplace_back(path,access);}
+};
+static int CopyCwdResets=0;
+static std::string ADSQueried;
+static void SetCurrentDirectoryToSystem(){++CopyCwdResets;}
+static BOOL IsPathOnVolumeSupADS(const char* path,void*){ADSQueried=path;return TRUE;}
+static DWORD GetPathFlagsForCopyOp(const char* path,DWORD net,DWORD fast){return path[0]=='\\'?net:fast;}
+struct CPathBuffer {
+    std::vector<char> Bytes=std::vector<char>(4);
+    static bool FailGrowth;
+    BOOL Ensure(int capacity){if(FailGrowth)return FALSE;Bytes.resize(capacity);return TRUE;}
+    char* Data(){return Bytes.data();}
+};
+bool CPathBuffer::FailGrowth=false;
+struct CopyCapture {std::string Parent,Name;BOOL HasDosName=TRUE,ADS=FALSE;DWORD Flags=OPFL_SRCPATH_IS_NET|OPFL_TGTPATH_IS_NET;};
 struct CFilesWindow
 {
     CBranchViewState* BranchView = nullptr;
@@ -147,12 +171,22 @@ struct CFilesWindow
     void BranchItemRenamed(const char*,const CFileData&,const std::wstring&);
     void CancelBranchViewScan() {++CancelCalls;if(BranchView->ItemsMutex.try_lock())BranchView->ItemsMutex.unlock();else CallbackLocked=true;}
     void RefreshBranchView() {++RefreshCalls;if(BranchView->ItemsMutex.try_lock())BranchView->ItemsMutex.unlock();else CallbackLocked=true;}
+    BOOL PrepareCopySource(CFileData*,int,CopyCapture&,CopyScript*,CopyCriteria*);
     void ExecuteBranch(CFileData* file);
     void ViewPolicy(const char* name, BOOL altView, DWORD handlerID);
 
 };
 @@GETTERS@@
 @@CACHE@@
+BOOL CFilesWindow::PrepareCopySource(CFileData* oneFile,int type,CopyCapture& result,CopyScript* script,CopyCriteria* filterCriteria)
+{
+    CPathBuffer sourcePathStorage;char* sourcePath=sourcePathStorage.Data();
+    char* useName=const_cast<char*>(oneFile->Name);const char* useDOSName="SAME~1.TXT";
+    BOOL sourceSupADS=FALSE;DWORD srcAndTgtPathsFlags=result.Flags;
+@@COPY_PREP@@
+    result.Parent=sourcePath;result.Name=useName;result.HasDosName=useDOSName!=NULL;
+    result.ADS=sourceSupADS;result.Flags=srcAndTgtPathsFlags;return TRUE;
+}
 @@RENAME_METADATA@@
 const int ptDisk=1, WM_USER_SELCHANGED=WM_APP+1, DRAWFLAG_DIRTY_ONLY=1, DRAWFLAG_SKIP_VISTEST=2;
 static int RegSetStrCmpEx(const char*a,unsigned al,const char*b,int bl,void*){return al==(unsigned)bl?strncmp(a,b,al):1;}
@@ -202,6 +236,43 @@ static int Utf8Length(const std::wstring& path)
     return WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, path.c_str(), -1,
                                nullptr, 0, nullptr, nullptr) - 1;
 }
+static void CopySourceTests()
+{
+    CBranchViewState state;CFilesWindow panel;panel.BranchView=&state;
+    std::string first="same.txt",second="same.txt",wideMirror="short mirror";
+    std::wstring name=L"same.txt",wideName=std::wstring(100,L'東')+L".txt";
+    std::wstring parent=L"C:\\žluťoučký-東京\\"+std::wstring(100,L'a')+L"\\"+std::wstring(100,L'b')+L"\\"+std::wstring(100,L'c');
+    panel.FileRows.Values={{first.c_str(),name.c_str()},{second.c_str(),name.c_str()},{wideMirror.c_str(),wideName.c_str()}};panel.FileRows.Count=3;
+    Add(state,panel.Files->At(0),L"C:\\ascii",name,L"ascii\\same.txt");
+    Add(state,panel.Files->At(1),parent,name,L"deep\\same.txt");
+    Add(state,panel.Files->At(2),L"C:\\ascii",wideName,wideName);
+    for(auto& row:panel.FileRows.Values)state.CacheFiles[state.Items.at(row.Name).CacheKey]=&row;
+    CopyScript script;CopyCapture one,two,wide;
+    Check(panel.PrepareCopySource(&panel.Files->At(0),atCopy,one,&script,nullptr),"copy prepares first duplicate");
+    Check(one.Parent=="C:\\ascii"&&one.Name==first&&!one.HasDosName,"copy owns exact parent/basename without DOS alias");
+    Check(one.ADS&&ADSQueried==one.Parent,"copy probes ADS on actual parent");
+    Check(one.Flags==(OPFL_SRCPATH_IS_FAST|OPFL_TGTPATH_IS_NET),"copy resets source flags and retains target flags");
+    Check(panel.PrepareCopySource(&panel.Files->At(1),atCopy,two,&script,nullptr),"copy prepares long Unicode duplicate");
+    Check(two.Parent==SalWideToMultiBytePath(parent.c_str(),CP_UTF8)&&two.Name==one.Name&&two.Parent!=one.Parent,"flat copy does not conflate duplicate parents");
+    Check(script.Storage.size()==2&&script.Storage[1].first==two.Parent&&script.Storage[1].second==SACCESS_READ,"scheduler records actual long source for read access");
+    Check(panel.PrepareCopySource(&panel.Files->At(2),atCopy,wide,&script,nullptr),"copy accepts wide basename exceeding UTF8 MAX_PATH");
+    Check(wide.Name==SalWideToMultiBytePath(wideName.c_str(),CP_UTF8)&&wide.Name.size()>260,"copy ignores shortened display mirror");
+    const auto old=state.Items.at(first.c_str());state.Items[first.c_str()].Directory=L"\\\\server\\share\\東京";
+    state.Items[first.c_str()].CacheKey=SalWideToMultiBytePath(state.Items[first.c_str()].FullPath().c_str(),CP_UTF8);
+    state.CacheFiles[state.Items[first.c_str()].CacheKey]=&panel.Files->At(0);
+    CopyCapture net;Check(panel.PrepareCopySource(&panel.Files->At(0),atCopy,net,&script,nullptr)&&script.SourcePathIsNetwork,"mixed-parent network scheduling is cumulative");
+    CopyCriteria ignore;ignore.IgnoreADS=TRUE;ADSQueried="not probed";
+    Check(panel.PrepareCopySource(&panel.Files->At(0),atCopy,net,&script,&ignore)&&!net.ADS&&ADSQueried=="not probed","ignore-ADS option remains effective");
+    int resets=CopyCwdResets;const auto queued=script.Storage.size();
+    Check(!panel.PrepareCopySource(&panel.Files->At(0),atMove,net,&script,nullptr)&&!panel.PrepareCopySource(&panel.Files->At(0),atDelete,net,&script,nullptr),"move and delete cannot use staged copy boundary");
+    Check(CopyCwdResets==resets+2&&script.Storage.size()==queued,"rejected action restores CWD without scheduling");
+    state.CacheFiles.clear();
+    Check(!panel.PrepareCopySource(&panel.Files->At(0),atCopy,net,&script,nullptr),"stale cache cannot fall back to root plus basename");
+    state.CacheFiles[state.Items[first.c_str()].CacheKey]=&panel.Files->At(0);CPathBuffer::FailGrowth=true;
+    Check(!panel.PrepareCopySource(&panel.Files->At(0),atCopy,net,&script,nullptr)&&script.Storage.size()==queued,"buffer failure stops before scheduling");
+    CPathBuffer::FailGrowth=false;state.Items[first.c_str()]=old;
+}
+
 static void RenameMetadataTests()
 {
     CBranchViewState state; CFilesWindow panel; panel.BranchView=&state;
@@ -505,7 +576,7 @@ int wmain(int argc, wchar_t** argv)
     Paths(panel, ordinary, L"", L"", L"", "new active Branch has no ordinary row fallback");
     Paths(panel, up, L"C:\\root", L"C:\\root\\..", L"..", "first-scan empty listing parent navigation");
 
-    try { RenameMetadataTests(); }
+    try { CopySourceTests(); RenameMetadataTests(); }
     catch (const std::exception& error) { Check(false,error.what()); }
     NavigationTests();
     ArchiveReadTests(argv[1]);

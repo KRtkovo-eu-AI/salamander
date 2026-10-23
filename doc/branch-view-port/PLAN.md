@@ -1,5 +1,42 @@
 # Plán postupného portu PR #769
 
+## S27c1a completed locally (2026-10-23)
+
+The flat-copy-only unit below has passed Debug/Release build, native and actual
+GUI validation. See [S27c1a](steps/S27c1a.md). The accepted local reference remains
+at S27b e63167f0; the next separate unit is S27c1b optional relative-path copy.
+Move/delete/recycle dispatch remains deferred. No publication in this step.
+
+## S27c operation split and S27c1a plan (2026-10-23)
+
+S27b accepted at e63167f01b4b7a84f9710275a86bcce0cf191e88 after all PR38
+checks, actual CodeQL and clean supported Win32/x64/ARM64 Rebuild passed.
+Accepted local ref advanced by compare-and-swap; validation draft remains open.
+
+S27c1a: default flat F5 copy from current Branch rows into an ordinary disk panel.
+Reuse S19/S20b worker and BuildName; import only donor BuildScriptMain per-item
+source directory/name, ADS/network flags and storage scheduling hunks. Keep
+ordinary full NameW adaptation. Reject stale metadata, non-copy source actions,
+Branch targets, archive/plugin destination routes and copy-to-selected-folders.
+No drag/drop or clipboard activation. Stop-refresh guards already protect modal
+listing lifetime; revalidate current metadata at actual builder boundary.
+No public SDK/interface or path-sized buffer changes. Windows policy unchanged.
+
+Later units: S27c1b optional relative-directory copy (donor keepBranchPaths,
+create/skip labels, dialog/resources/localization), S27c2 move (flat/relative,
+source disappearance and refresh), S27c3 permanent delete, S27c4 recycle (exact
+mixed-parent shell queue). Re-check dependencies and narrow boundaries before
+each unit. In this run perform S27c1a only; no push/PR authorized.
+
+Gate: compile extracted actual per-item builder preparation, preserve all200
+Branch checks, verify distinct same-name parents, long and Unicode identities,
+source network/ADS/storage flags and stale/missing metadata rejection. Existing
+BuildName/ordinary/worker native suites + source/menu contracts; Debug/Release
+x64 host/dependencies. Actual D/R GUI F5 Cancel temporary/explicit selection,
+copy from different parents to ordinary destination, duplicate collision Cancel/
+Skip, true long parent and 100-CJK filename; verify every source/output hash and
+protected inputs; own private configs restored and own host cleanly closed.
+
 ## S27b local implementation complete (2026-10-23)
 
 The planned Rename-only unit has passed its local Debug/Release build, native

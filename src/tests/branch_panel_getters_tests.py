@@ -65,7 +65,12 @@ def main():
     production = read("src/branch_view.cpp", args.source_ref)
     header = read("src/branch_view.h", args.source_ref)
     conversions = read("src/common/widepath.cpp", args.source_ref)
+    builder = read("src/fileswn6.cpp", args.source_ref)
+    first = builder.index("            std::string branchName;", builder.index("BOOL CFilesWindow::BuildScriptMain("))
+    last = builder.index("            i++;", first)
     pieces = {
+        "COPY_PREP": builder[first:last],
+        "FIND_BASENAME": block(conversions, "const wchar_t* SalPathFindFileNameW("),
         "PROGRAM_HEADER": str(ROOT / "src/branchprogram.h").replace(chr(92), "/"),
         "FILEACTION_HEADER": str(ROOT / "src/fileactionpath.h").replace(chr(92), "/"),
         "EXECUTE": block(block(read("src/fileswn2.cpp", args.source_ref), "void CFilesWindow::Execute(int index)"), "            if (IsBranchView())"),

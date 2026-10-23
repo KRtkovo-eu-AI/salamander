@@ -1,5 +1,40 @@
 # Validace portu a baseline S00
 
+## S27b accepted; S27c1a flat copy locally validated (2026-10-23)
+
+Accepted S27b e63167f01b4b7a84f9710275a86bcce0cf191e88 after all
+[PR38 checks including actual CodeQL](https://github.com/majklvi/salamander/actions/runs/40014097010)
+and the [clean supported Debug Win32/x64/ARM64 matrix](https://github.com/majklvi/salamander/actions/runs/40014126302)
+succeeded. The local accepted ref advances to that SHA; the validation draft
+remains open and is not merged into the reference base.
+
+S27c is divided into flat copy (S27c1a), optional relative-directory copy
+(S27c1b), move (S27c2), permanent delete (S27c3) and recycle (S27c4).
+Only S27c1a is implemented in this step. F5 resolves the actual parent/name
+and per-source ADS/network/storage scheduling metadata of each Branch row.
+The existing S19/S20b wide worker I/O is reused. Current metadata is required;
+non-copy source actions, Branch destinations, archive/plugin routes,
+copy-to-selected-folders, drag/drop and clipboard activation stay blocked.
+The experimental process gate remains off by default. LongPathsEnabled is still0.
+
+Local Debug/Release x64 host/dependency builds with /warnaserror PASS. Native
+Branch actual-block/getter fixture215 checks/configuration (all previous200
+retained), ordinary paths196/configuration + five released SDK-prefix checks,
+BuildName18/configuration and fresh worker-path fixture11/configuration PASS.
+All28 registered source/menu groups PASS after updating the old blanket-block
+expectation to the copy-only transition. Real D/R GUI passed F5 Cancel with
+no explicit selection and all6 selected, flat copy from mixed parents including
+long Unicode/CJK100 names, duplicate collision Skip, separately copying the
+second duplicate to second.txt, and ordinary-panel F5 Cancel. All12 output
+hashes match their exact sources; all12 sources and sentinel unchanged.
+Both own hosts/reporters exited cleanly; private config INIs restored.
+
+Details, actual commands, test-facade limits and deferred cases:
+[S27c1a](steps/S27c1a.md). Evidence: ../evidence/S27c1a. This stage is local only;
+no new push/PR, remote CodeQL or clean whole-solution matrix has run. S27b CI
+cannot validate this new patch. Next smallest unit: S27c1b relative-copy planning,
+create/Skip labels and localized dialog option, followed by actual nested outputs.
+
 ## S27a2 accepted; S27b locally validated (2026-10-23)
 
 S27a2 accepted at 1d29dcf97ea7cd01e5a920928c4ccefca86ce9f9 after all

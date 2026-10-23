@@ -260,7 +260,10 @@ void PluginFSConvertPathToExternal(char* path)
 void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int countSizeMode,
                                BOOL copyToSelectedDirs, BOOL* changeTargetRequested)
 {
-    if (IsBranchView() || target != NULL && target->IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
+    // S27c1a: only flat copy into an ordinary disk panel is verified.
+    if (target != NULL && target->IsBranchView()) return;
+    if (IsBranchView() && (type != atCopy || target == NULL || !target->Is(ptDisk) ||
+                           countSizeMode != 0 || copyToSelectedDirs)) return;
 
     if (changeTargetRequested != NULL)
         *changeTargetRequested = FALSE;
@@ -768,22 +771,9 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                               type == atCopy ? LoadStr(IDS_ERRORCOPY) : LoadStr(IDS_ERRORMOVE),
                               count <= 1 ? nextFocus : NULL, NULL, SAL_MAX_PATH))
                 {
-                    if (!validateDiskTarget())
-                    {
-                        res = IDCANCEL;
-                        break;
-                    }
-                    if (useDefaultDiskTarget &&
-                        !diskTarget.MatchesParsedDefault(path, SAL_MAX_PATH, secondPart, pathType, pathIsDir))
-                    {
-                        SalMessageBox(HWindow, GetErrorText(ERROR_RETRY), LoadStr(type == atCopy ? IDS_ERRORCOPY : IDS_ERRORMOVE),
-                                      MB_OK | MB_ICONEXCLAMATION);
-                        res = IDCANCEL;
-                        break; // Never recreate or redirect a stale implicit root in split/create.
-                    }
                     if (IsBranchView() && pathType != PATH_TYPE_WINDOWS)
                     {
-                        SalMessageBox(HWindow, GetErrorText(ERROR_NOT_SUPPORTED), LoadStr(type == atCopy ? IDS_ERRORCOPY : IDS_ERRORMOVE),
+                        SalMessageBox(HWindow, GetErrorText(ERROR_NOT_SUPPORTED), LoadStr(IDS_ERRORCOPY),
                                       MB_OK | MB_ICONEXCLAMATION);
                         continue; // Do not enter unverified archive/plugin copy callbacks.
                     }
