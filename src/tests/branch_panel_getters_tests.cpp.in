@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Samandarin Contributors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// S17 runs actual ordinary-panel getters from fileswn1.cpp.
-// All donor Branch metadata assertions remain guarded for S26, not executed.
+// The three production getters, Entry, Entry::FullPath, Join and conversion
+// function are extracted verbatim. Only unrelated panel state is replaced.
 #define NOMINMAX
 #include <windows.h>
 #include <cstdio>
@@ -15,32 +15,26 @@
 std::wstring SalMultiByteToWidePath(const char*, UINT codePage = CP_ACP);
 @@CONVERSION@@
 @@ORDINARY_JOIN@@
-#if defined(SAMANDARIN_BRANCH_METADATA_TESTS) // Deferred until real S26 metadata exists.
 namespace Salamander { namespace BranchView {
 @@ENTRY@@
 @@JOIN@@
 @@ENTRY_FULL_PATH@@
 } }
-#endif
 struct CFileData
 {
     const char* Name = nullptr;
     const wchar_t* NameW = nullptr;
     BOOL UseWideName() const { return NameW != nullptr; }
 };
-#if defined(SAMANDARIN_BRANCH_METADATA_TESTS)
 struct CBranchViewState
 {
     bool Enabled = true;
     std::mutex ItemsMutex;
     std::unordered_map<const char*, Salamander::BranchView::Entry> Items;
 };
-#endif
 struct CFilesWindow
 {
-#if defined(SAMANDARIN_BRANCH_METADATA_TESTS)
     CBranchViewState* BranchView = nullptr;
-#endif
     std::wstring WideRoot = L"C:\\root";
     std::string AnsiRoot = "C:\\root";
     bool NullWideRoot = false;
@@ -66,7 +60,6 @@ static void Paths(CFilesWindow& panel, const CFileData& file,
     Check(panel.GetItemFullPathW(file) == full, (std::string(description) + " full").c_str());
     Check(panel.GetItemRelativePathW(file) == relative, (std::string(description) + " relative").c_str());
 }
-#if defined(SAMANDARIN_BRANCH_METADATA_TESTS)
 static void Add(CBranchViewState& state, const CFileData& file,
                 const std::wstring& directory, const std::wstring& actualName,
                 const std::wstring& relative)
@@ -82,7 +75,6 @@ static int Utf8Length(const std::wstring& path)
     return WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, path.c_str(), -1,
                                nullptr, 0, nullptr, nullptr) - 1;
 }
-#endif
 int main()
 {
     CFilesWindow panel;
@@ -100,7 +92,6 @@ int main()
     Paths(panel, narrow, L"C:\\root", L"C:\\root\\plain.txt", L"plain.txt", "ordinary empty wide root");
     panel.WideRoot = L"C:\\root";
 
-#if defined(SAMANDARIN_BRANCH_METADATA_TESTS)
     CBranchViewState branch;
     panel.BranchView = &branch;
     // Identical display text at three distinct addresses is intentional.
@@ -172,7 +163,6 @@ int main()
     Paths(panel, ordinary, L"", L"", L"", "new active Branch has no ordinary row fallback");
     Paths(panel, up, L"C:\\root", L"C:\\root\\..", L"..", "first-scan empty listing parent navigation");
 
-#endif // S26 metadata assertions retained, not run in S17.
     std::printf("Branch panel getters: %d checks, %d failures\n", Checks, Failures);
     return Failures ? 1 : 0;
 }

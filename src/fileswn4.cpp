@@ -900,7 +900,7 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
                         ExtTextOutW(hDC, r.left, y, ETO_OPAQUE, &adjR, L"", 0, NULL);
                         if (!isItemUpDir && !(drawFlags & DRAWFLAG_MASK))
                         {
-                            const std::wstring parent = GetBranchViewDisplayDirectoryW(*f);
+                            const std::wstring parent = GetItemDirectoryW(*f);
                             RECT textRect = r;
                             textRect.left += SPACE_WIDTH / 2;
                             textRect.right -= SPACE_WIDTH / 2;

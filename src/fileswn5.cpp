@@ -1180,9 +1180,7 @@ struct CBranchAttributeSelection
 
 void CFilesWindow::EditWindowsProperties()
 {
-    const bool branchProperties = IsBranchView() != FALSE;
-    CBranchAttributeSelection selection;
-    if (branchProperties && !selection.Capture(this)) return;
+    if (IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
 
     CALL_STACK_MESSAGE1("CFilesWindow::EditWindowsProperties()");
     if (!Is(ptDisk) || CheckPath(TRUE) != ERROR_SUCCESS ||
@@ -1274,9 +1272,7 @@ static BOOL PrepareNtfsConfirmation(CFilesWindow* panel, int textID, int count, 
 
 void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncryption, BOOL encrypted)
 {
-    const bool branchAttributes = IsBranchView() != FALSE;
-    CBranchAttributeSelection branchSelection;
-    if (branchAttributes && !branchSelection.Capture(this)) return;
+    if (IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
 
     CALL_STACK_MESSAGE5("CFilesWindow::ChangeAttr(%d, %d, %d, %d)", setCompress, compressed, setEncryption, encrypted);
     if (Dirs->Count + Files->Count == 0)
@@ -1767,6 +1763,8 @@ void CFilesWindow::FindFile()
 void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumFileNamesSourceUID,
                             int enumFileNamesLastFileIndex)
 {
+    if (IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
+
     CALL_STACK_MESSAGE6("CFilesWindow::ViewFile(%s, %d, %u, %d, %d)", name, altView, handlerID,
                         enumFileNamesSourceUID, enumFileNamesLastFileIndex);
     // verify that the file is on an accessible path
@@ -2282,6 +2280,8 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
 
 void CFilesWindow::EditFile(char* name, DWORD handlerID)
 {
+    if (IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
+
     CALL_STACK_MESSAGE3("CFilesWindow::EditFile(%s, %u)", name, handlerID);
     if (!Is(ptDisk) && name == NULL)
     {
@@ -3808,6 +3808,8 @@ void CFilesWindow::RenameFileInternal(CFileData* f, const char* formatedFileName
 
 void CFilesWindow::RenameFile(int specialIndex)
 {
+    if (IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
+
     CALL_STACK_MESSAGE2("CFilesWindow::RenameFile(%d)", specialIndex);
 
     int i;
@@ -4137,6 +4139,8 @@ CFilesWindow::QuickRenameOnIndex(int index)
 
 void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
 {
+    if (IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
+
     CALL_STACK_MESSAGE2("CFilesWindow::QuickRenameBegin(%d, )", index);
 
     if (!(Is(ptDisk) || Is(ptPluginFS) && GetPluginFS()->NotEmpty() &&

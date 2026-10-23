@@ -1,5 +1,64 @@
 # Plán postupného portu PR #769
 
+## S26 — IMPLEMENTED / gated read-only panel, local acceptance complete (2026-10-23)
+
+S21–S26 are complete locally. S26a shared preparation prerequisite and S26b exact
+metadata/publication/icon/property lifetime are integrated behind an exact process
+opt-in, default off in Debug/Release. Read-only command and direct-operation guards,
+Detailed layout, Path sorting/focus, manual refresh/Stop/Escape and close are verified.
+Full provenance, actual test counts and limitations: [S26b](steps/S26b.md).
+
+Host D/R /warnaserror, native scanner/getters/property/resource checks and all28
+source/menu groups PASS; actual dark Debug/light Release GUI and8,209 fixture hashes
+verified. Debug can still show a menu-only heap warning: paired gate-disabled and
+Branch runs each448bytes/14 MENU blocks; no suppression change. Release close clean.
+S27 operations, S28 layouts, S29 persistence and S30 watchers remain deferred.
+No push/PR/new CI in this goal; publication still needs the supported clean matrix.
+
+
+## S26b concrete integration boundary (2026-10-23)
+
+Pre-edit plan (now implemented; see steps/S26b.md). S26a accepted8e3d0c92. Narrow donor diffs saved in
+../evidence/S26b/*.diff for review. Required closure:
+- Import donor panel state/publication metadata and path/cache helpers, using
+  existing S04 UTF8-first/ACP ordinary fallbacks (do not revert them). Preserve
+  S20 owned temporary selection capture on ALL disk panels, S20c wide recycle
+  drive gate, S19 NOHANDLES target copy tracking and S21b ordinary Shell/text routes.
+- Import mandatory icon-reader full identity snapshots, cache-key lookup,
+  row reindex after sort and metadata teardown AFTER reader shutdown; wide overlay
+  helper and explorerpropertywork.h ownership/target-disconnect/generation guards.
+  These are required before publishing any experimental row, not deferred S28.
+- Keep S27 launch/rename/copy/move/delete/Shell/archive/plugin integrations blocked.
+  Use a small WM_COMMAND read-only whitelist AND guards at direct panel execution,
+  quick rename, operation/Shell/clipboard/drop entry points. Block operations with
+  a Branch source OR destination. Selection, scrolling, focus, built-in sort,
+  Path/name as text, manual refresh/cancel, mode exit and closing may be verified.
+  Guard mouse/double-click/drag/drop/direct paths, not only grayed menus.
+- Process-only SAMANDARIN_EXPERIMENTAL_BRANCH_VIEW=1 is the proposed explicit
+  local-test gate; absent/other values are false. Toggle/restore and all actual
+  activation entry points must check it; normal Debug/Release compile all code.
+- Initially force core Detailed layout during experiment, restoring the original
+  layout on exit, to avoid exposing unverified arbitrary thumbnail/plugin layouts.
+  Document this S26 adaptation; optional verified thumbnail layouts can be S28.
+- No history/tab persistence integration yet (S29). Donor restore metadata may be
+  retained for publication selection/focus lifetime, but activation must be gated.
+- Port donor Path column/rendering, basic stable ordering, manual refresh/cancel,
+  timer/status; no recursive watcher needed until S30. Keep asynchronous provider
+  lifetime guards even with automatic refresh deferred.
+- Port paired resources/all16 donor Branch strings and all relevant translations
+  without retranslating; future option/open-parent texts may be retained unused.
+  Enable all96 formatter resource patterns once present; record actual execution.
+- Native scanner/preparation/property lifetime and real panel-getter tests must
+  exercise target code. Retain earlier S18b test-only ViewerEnumeration constants
+  when adapting generated fixtures. Existing donor contract assertions for future
+  S27/S29/S30 behavior remain explicit deferred, never mislabeled PASS.
+- Actual GUI D/R: absent gate cannot activate, explicit gate duplicate basenames
+  distinguish parents/full paths, Path sort keeps focus, refresh/cancel/Escape,
+  close while pending, normal panel regression, blocked unverified commands,
+  dark/light. All fixture content hashes/other inputs intact; private config only.
+- Host D/R /warnaserror and relevant native/source gates before commit/ref advance.
+  No push/PR. Do not mark the S21-S26 goal complete until this closure is real.
+
 ## S26a — IMPLEMENTED / association preparation lifetime prerequisite PASS (2026-10-23)
 
 Scoped donor AssociationPreparation/shared PreparationLifetime/PreparationSession

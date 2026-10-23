@@ -966,6 +966,7 @@
     <ClInclude Include="..\branchshell.h" />
     <ClInclude Include="..\branchclipboard.h" />
     <ClInclude Include="..\branch_view.h" />
+    <ClInclude Include="..\explorerpropertywork.h" />
     <ClInclude Include="..\branch_view_text.h" />
     <ClInclude Include="..\common\allochan.h">
     </ClInclude>

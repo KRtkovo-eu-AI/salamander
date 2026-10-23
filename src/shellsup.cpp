@@ -145,12 +145,8 @@ MENU_TEMPLATE_ITEM MouseDropMenu2[] =
 BOOL DoCopyMove(BOOL copy, char* targetDir, CCopyMoveData* data, void* param)
 {
     CFilesWindow* panel = (CFilesWindow*)param;
-    if (targetDir == NULL || strlen(targetDir) >= SAL_MAX_PATH || data == NULL || data->Count <= 0 ||
-        (panel->IsBranchView() && !Salamander::BranchView::IsRootDropTarget(panel->GetPathW(), targetDir)))
-    {
-        DestroyCopyMoveData(data);
-        return FALSE;
-    }
+    if (panel->IsBranchView()) { DestroyCopyMoveData(data); return FALSE; }
+
 
 
 #ifdef new
@@ -281,6 +277,7 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
     CFilesWindow* panel = (CFilesWindow*)param;
     isTgtFile = FALSE; // drop target is not a file yet -> we can still handle the operation ourselves
     tgtType = idtttWindows;
+    if (panel->IsBranchView()) { if (effect != NULL) *effect = DROPEFFECT_NONE; return NULL; } // S26 read-only drop target.
 
     RECT r;
     GetWindowRect(panel->GetListBoxHWND(), &r);
@@ -663,17 +660,7 @@ const char* GetCurrentDirClipboard(POINTL& pt, void* param, DWORD* effect, BOOL 
     CFilesWindow* panel = (CFilesWindow*)param;
     isTgtFile = FALSE;
     tgtType = idtttWindows;
-    if (panel->IsBranchView())
-    {
-        panel->SetDropTarget(-1);
-        if (effect != NULL) *effect &= DROPEFFECT_COPY | DROPEFFECT_MOVE;
-        if (effect == NULL || *effect == DROPEFFECT_NONE || !Salamander::BranchView::IsRootDropTarget(panel->GetPathW(), panel->DropPath))
-        {
-            if (effect != NULL) *effect = DROPEFFECT_NONE;
-            return NULL;
-        }
-        return panel->DropPath;
-    }
+    if (panel->IsBranchView()) { if (effect != NULL) *effect = DROPEFFECT_NONE; return NULL; } // S26 read-only drop target.
 
     if (panel->Is(ptZIPArchive) || panel->Is(ptPluginFS)) // not into archives or FS yet
     {
@@ -1689,8 +1676,7 @@ static DWORD TrackBranchHostContextMenu(CFilesWindow* panel, const POINT& pt)
 void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                  BOOL posByMouse, BOOL onlyPanelMenu)
 {
-    // S27d5a: selected Shell operations are verified; receiving into Branch remains separately gated.
-    if (panel->IsBranchView() && ((action != saProperties && action != saCopyToClipboard && action != saCutToClipboard && action != saContextMenu && action != saLeftDragFiles && action != saRightDragFiles) || !useSelection || onlyPanelMenu)) return;
+    if (panel->IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
 
     CALL_STACK_MESSAGE5("ShellAction(, %d, %d, %d, %d)", action, useSelection, posByMouse, onlyPanelMenu);
     if (panel->QuickSearchMode)

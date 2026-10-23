@@ -10,6 +10,7 @@
 
 #include "precomp.h"
 #include "common/widepath.h"
+#include "branch_view.h"
 
 void ReleaseDPIAwareWindowIcons(HWND hWindow);
 
@@ -4318,50 +4319,11 @@ void CMainWindow::OnConfiguration(int mode, int param)
 // S26 transition gate: commands not exercised for a collection remain unavailable.
 static bool BranchReadOnlyCommandAllowed(UINT command)
 {
-    // S28: existing display templates and property sorts use the same identity-safe workers.
-    if ((command >= CM_ACTIVEMODE_1 && command <= CM_ACTIVEMODE_10) ||
-        (command >= CM_LEFTMODE_1 && command <= CM_LEFTMODE_10) ||
-        (command >= CM_RIGHTMODE_1 && command <= CM_RIGHTMODE_10) ||
-        (command >= CM_ACTIVEEXTRAMODE_MIN && command <= CM_ACTIVEEXTRAMODE_MAX) ||
-        (command >= CM_LEFTEXTRAMODE_MIN && command <= CM_LEFTEXTRAMODE_MAX) ||
-        (command >= CM_RIGHTEXTRAMODE_MIN && command <= CM_RIGHTEXTRAMODE_MAX) ||
-        (command >= CM_LEFTSORTBY_MIN && command <= CM_LEFTSORTBY_MAX) ||
-        (command >= CM_RIGHTSORTBY_MIN && command <= CM_RIGHTSORTBY_MAX))
-        return true;
-    // S29: existing tab/history handlers restore owned full-identity snapshots.
-    if ((command >= CM_LEFTHISTORYPATH_MIN && command <= CM_LEFTHISTORYPATH_MAX) ||
-        (command >= CM_RIGHTHISTORYPATH_MIN && command <= CM_RIGHTHISTORYPATH_MAX))
-        return true;
     switch (command)
     {
     case CM_BRANCHVIEW:
     case CM_LEFT_BRANCHVIEW:
     case CM_RIGHT_BRANCHVIEW:
-    case CM_CONFIGURATION: // S28a: normal guarded Configuration dialog also owns Branch display preferences.
-    case CM_COPYFILES:
-    case CM_MOVEFILES:
-    case CM_DELETEFILES:
-    case CM_PROPERTIES:
-    case CM_CLIPCOPY:
-    case CM_CLIPCUT:
-    case CM_CLIPPASTE:
-    case CM_LAST_PLUGIN_CMD: // router; OnLastCommand validates the current plugin/ID
-    case CM_PACK:
-    case CM_UNPACK: // S31b6c5a: controller qualifies bundled ZIP and ordinary disk target.
-    case CM_CONTEXTMENU:
-    case CM_RENAMEFILE:
-    case CM_OPEN:
-    case CM_VIEW:
-    case CM_ALTVIEW:
-    case CM_EDIT:
-    case CM_COMPRESS: // S31b3a4b: NTFS confirmation and exact selection guards.
-    case CM_UNCOMPRESS:
-    case CM_ENCRYPT:
-    case CM_DECRYPT:
-    case CM_EDITPROPERTIES: // S31b3b2: owned paths and guarded metadata writes.
-    case CM_CHANGEATTR: // S31b3a3: exact selection guarded attribute dialog.
-    case CM_AFOCUSSHORTCUT: // S31b2: exact wide shortcut/link target navigation.
-    case CM_BRANCH_OPENPARENT:
     case CM_BRANCH_STOP:
     case CM_ACTIVEREFRESH:
     case CM_LEFTREFRESH:
@@ -4384,20 +4346,6 @@ static bool BranchReadOnlyCommandAllowed(UINT command)
     case CM_ACTIVEPARENTDIR:
     case CM_LPARENTDIR:
     case CM_RPARENTDIR:
-    case CM_DUPLICATETAB:
-    case CM_LEFT_DUPLICATETAB:
-    case CM_RIGHT_DUPLICATETAB:
-    case CM_LEFT_DUPLICATETABTORIGHT:
-    case CM_RIGHT_DUPLICATETABTOLEFT:
-    case CM_REOPENTAB:
-    case CM_LEFT_REOPENTAB:
-    case CM_RIGHT_REOPENTAB:
-    case CM_ACTIVEBACK:
-    case CM_ACTIVEFORWARD:
-    case CM_LBACK:
-    case CM_LFORWARD:
-    case CM_RBACK:
-    case CM_RFORWARD:
     case CM_CLOSETAB:
     case CM_LEFT_CLOSETAB:
     case CM_RIGHT_CLOSETAB:
@@ -4428,20 +4376,6 @@ static bool BranchReadOnlyCommandAllowed(UINT command)
     case CM_ACTIVETYPE:
         return true;
     default:
-        if (command >= CM_PLUGINCMD_MIN && command <= CM_PLUGINCMD_MAX)
-        {
-            for (int i = 0; i < Plugins.GetCount(); ++i)
-            {
-                CPluginData* plugin = Plugins.Get(i);
-                if (plugin == NULL) continue;
-                for (int j = 0; j < plugin->MenuItems.Count; ++j)
-                {
-                    const CPluginMenuItem* item = plugin->MenuItems[j];
-                    if (item != NULL && item->Type == pmitItemOrSeparator && item->Name != NULL && item->SUID == static_cast<int>(command))
-                        return plugin->IsBranchCommandAllowed(item->ID) != FALSE;
-                }
-            }
-        }
         return false;
     }
 }
@@ -7326,7 +7260,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         {
             CFilesWindow* panel = LOWORD(wParam) == CM_LEFT_BRANCHVIEW ? LeftPanel :
                                   LOWORD(wParam) == CM_RIGHT_BRANCHVIEW ? RightPanel : activePanel;
-            if (panel != NULL && panel->Is(ptDisk))
+            if (panel != NULL && panel->Is(ptDisk) &&
+                (panel->IsBranchView() || Salamander::BranchView::ExperimentEnabled()))
                 panel->ToggleBranchView();
             return 0;
         }
@@ -7334,11 +7269,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CM_BRANCH_STOP:
             if (activePanel != NULL)
                 activePanel->CancelBranchViewScan();
-            return 0;
-
-        case CM_BRANCH_OPENPARENT:
-            if (activePanel != NULL)
-                activePanel->OpenBranchItemDirectory();
             return 0;
 
         case CM_CHANGEFILTER:
@@ -9567,7 +9497,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             CFilesWindow* branchPanel = left ? LeftPanel : RightPanel;
             popup->CheckItem(left ? CM_LEFT_BRANCHVIEW : CM_RIGHT_BRANCHVIEW, FALSE, branchPanel->IsBranchView());
             popup->EnableItem(left ? CM_LEFT_BRANCHVIEW : CM_RIGHT_BRANCHVIEW, FALSE,
-                branchPanel->Is(ptDisk));
+                branchPanel->Is(ptDisk) && (branchPanel->IsBranchView() || Salamander::BranchView::ExperimentEnabled()));
 
 
             popup->CheckItem(left ? CM_LCHANGEFILTER : CM_RCHANGEFILTER, FALSE,
@@ -9667,7 +9597,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CML_FILES:
         {
             CFilesWindow* branchPanel = GetActivePanel();
-            popup->EnableItem(CM_BRANCH_OPENPARENT, FALSE, branchPanel != NULL && branchPanel->IsBranchView() && branchPanel->Files->Count > 0);
             popup->EnableItem(CM_BRANCH_STOP, FALSE, branchPanel != NULL && branchPanel->IsBranchViewScanning());
 
             break;

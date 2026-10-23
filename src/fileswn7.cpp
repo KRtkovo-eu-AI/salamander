@@ -817,45 +817,7 @@ static void RemoveEmptyUnpackDirectoriesW(const std::wstring& root)
 void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const char* tgtPath,
                                     BOOL* changeTargetRequested)
 {
-    // Resolve the implicit destination before any Branch capability or lifetime snapshot checks.
-    if (!deleteOp && target == NULL && tgtPath == NULL)
-        target = MainWindow->GetOtherPanel(this);
-
-    if (!deleteOp && target != NULL && CFilesActionDiskTarget::FindLive(MainWindow, target) == NULL)
-    {
-        SalMessageBox(HWindow, GetErrorText(ERROR_RETRY), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
-        return;
-    }
-    const HWND operationParent = MainWindow != NULL ? MainWindow->HWindow : NULL;
-    CFilesActionArchiveSource archiveSource;
-    if (!deleteOp && !archiveSource.Capture(MainWindow, this))
-    {
-        SalMessageBox(operationParent, GetErrorText(ERROR_RETRY), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
-        return;
-    }
-    // Keep the source tab alive through modal and plugin callbacks. Existing
-    // callers may already own the busy flag; restore their exact previous state.
-    struct CArchiveSourceBusyScope
-    {
-        CFilesActionArchiveSource* Source;
-        BOOL Previous;
-        CArchiveSourceBusyScope(CFilesActionArchiveSource* source) : Source(source), Previous(FALSE)
-        {
-            if (Source != NULL) { Previous = Source->Panel->FilesActionInProgress; Source->Panel->FilesActionInProgress = TRUE; }
-        }
-        ~CArchiveSourceBusyScope()
-        {
-            if (Source != NULL)
-            {
-                CFilesWindow* live = CFilesActionDiskTarget::FindLive(MainWindow, Source->Panel);
-                if (live != NULL && live->GetPanelTabId() == Source->Tab) live->FilesActionInProgress = Previous;
-            }
-        }
-    } sourceBusy(deleteOp ? NULL : &archiveSource);
-
-    if (IsBranchView() || target != NULL && target->IsBranchView() &&
-        (deleteOp || !target->Is(ptDisk) ||
-         PackGetVerifiedBranchUnpacker(this, GetZIPArchive(), PluginData.GetInterface()) == NULL)) return; // Only a qualified archive listing can copy to a Branch root.
+    if (IsBranchView() || target != NULL && target->IsBranchView()) return; // S26 read-only direct boundary.
 
     if (changeTargetRequested != NULL)
         *changeTargetRequested = FALSE;
@@ -2330,64 +2292,7 @@ static BOOL UnpackArchiveToArchiveViaTemp(CFilesWindow* source, CPanelTmpEnumDat
 static BOOL RemoveQualifiedPackArchive(const char* archiveFile)
 try
 {
-    std::wstring path = SalMultiByteToWidePath(archiveFile, IsValidPathUtf8Text(archiveFile) ? CP_UTF8 : CP_ACP);
-    if (path.empty()) { SetLastError(ERROR_INVALID_NAME); return FALSE; }
-    path = SalPathAddExtendedPrefixW(path.c_str());
-    const DWORD attributes = GetFileAttributesW(path.c_str());
-    if (attributes == INVALID_FILE_ATTRIBUTES) return FALSE;
-    if ((attributes & FILE_ATTRIBUTE_READONLY) != 0 &&
-        !SetFileAttributesW(path.c_str(), attributes & ~FILE_ATTRIBUTE_READONLY)) return FALSE;
-    return DeleteFileW(path.c_str());
-}
-catch (const std::bad_alloc&)
-{ SetLastError(ERROR_NOT_ENOUGH_MEMORY); return FALSE; }
-
-// S27e2 staged activation: only the bundled ZIP/7-Zip packers are verified.
-static BOOL IsVerifiedBranchPacker()
-{
-    const int index = PackerConfig.GetPreferedPacker();
-    if (index < 0 || index >= PackerConfig.GetPackersCount())
-        return FALSE;
-    const int type = PackerConfig.GetPackerType(index);
-    if (type >= 0)
-        return FALSE;
-    const CPluginData* plugin = Plugins.Get(-(type + 1));
-    return plugin != NULL && plugin->SupportCustomPack && plugin->DLLName != NULL &&
-        (_stricmp(plugin->DLLName, "zip\\zip.spl") == 0 ||
-         _stricmp(plugin->DLLName, "7zip\\7zip.spl") == 0);
-}
-
-void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* pluginName, int delFilesAfterPacking)
-try
-{
-    if (CFilesActionDiskTarget::FindLive(MainWindow, this) == NULL ||
-        CFilesActionDiskTarget::FindLive(MainWindow, target) == NULL) return;
-    const bool qualifiedPack = IsBranchView() || target->IsBranchView();
-    if (qualifiedPack && (!Is(ptDisk) || !target->Is(ptDisk) || FilesActionInProgress)) return;
-    const HWND operationParent = MainWindow->HWindow;
-    CFilesActionPackContext packContext;
-    if (qualifiedPack && !packContext.Capture(MainWindow, this, target))
-    {
-        SalMessageBox(operationParent, GetErrorText(ERROR_RETRY), LoadStr(IDS_PACKTITLE), MB_OK | MB_ICONEXCLAMATION);
-        return;
-    }
-    struct CPackSourceBusyScope
-    {
-        CFilesActionPackContext* Context;
-        BOOL Previous;
-        CPackSourceBusyScope(CFilesActionPackContext* context) : Context(context), Previous(FALSE)
-        { if (Context != NULL) { Previous = Context->Source.Panel->FilesActionInProgress; Context->Source.Panel->FilesActionInProgress = TRUE; } }
-        ~CPackSourceBusyScope()
-        {
-            if (Context != NULL && CFilesActionDiskTarget::FindLive(MainWindow, Context->Source.Panel) != NULL &&
-                Context->Source.Panel->GetPanelTabId() == Context->Source.Tab)
-                Context->Source.Panel->FilesActionInProgress = Previous;
-        }
-    } sourceBusy(qualifiedPack ? &packContext : NULL);
-    const auto contextCurrent = [&]() { return !qualifiedPack || packContext.IsCurrent(MainWindow); };
-    const auto reportChangedContext = [&]() {
-        SalMessageBox(operationParent, GetErrorText(ERROR_RETRY), LoadStr(IDS_PACKTITLE), MB_OK | MB_ICONEXCLAMATION);
-    };
+    if (IsBranchView() || target != NULL && target->IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
 
     CALL_STACK_MESSAGE4("CFilesWindow::Pack(, %d, %s, %d)", pluginIndex, pluginName, delFilesAfterPacking);
     if (Files->Count + Dirs->Count == 0)
@@ -2883,10 +2788,7 @@ static BOOL PrepareUnpackArchiveSource(CFilesWindow* panel, const CFileData& fil
 
 void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* pluginName, const char* unpackMask)
 {
-    if (CFilesActionDiskTarget::FindLive(MainWindow, this) == NULL ||
-        CFilesActionDiskTarget::FindLive(MainWindow, target) == NULL) return;
-    if (target == NULL || !Is(ptDisk) ||
-        ((IsBranchView() || target->IsBranchView()) && !target->Is(ptDisk))) return; // Branch operations require disk source and target.
+    if (IsBranchView() || target != NULL && target->IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
 
     CALL_STACK_MESSAGE4("CFilesWindow::Unpack(, %d, %s, %s)", pluginIndex, pluginName, unpackMask);
 

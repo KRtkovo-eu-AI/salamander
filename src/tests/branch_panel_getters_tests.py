@@ -62,13 +62,15 @@ def main():
     parser.add_argument("--source-ref", help="test production getters from an earlier git revision")
     parser.add_argument("--configuration", choices=("Debug", "Release", "Both"), default="Both")
     args = parser.parse_args()
-    # S04 already integrated ordinary getters; real Branch metadata is S26.
-    production = read("src/fileswn1.cpp", args.source_ref)
+    production = read("src/branch_view.cpp", args.source_ref)
+    header = read("src/branch_view.h", args.source_ref)
     conversions = read("src/common/widepath.cpp", args.source_ref)
     pieces = {
-        "ENTRY": "", "JOIN": "", "ENTRY_FULL_PATH": "",
+        "ENTRY": block(header, "struct Entry\n", ";"),
+        "JOIN": block(production, "std::wstring Join("),
+        "ENTRY_FULL_PATH": block(production, "std::wstring Entry::FullPath()"),
         "ORDINARY_JOIN": block(conversions, "BOOL SalPathAppendW("),
-        "CONVERSION": block(conversions, "BOOL IsValidPathUtf8Text(")+"\n"+block(conversions, "std::wstring SalMultiByteToWidePath("),
+        "CONVERSION": block(conversions, "BOOL IsValidPathUtf8Text(") + "\n" + block(conversions, "std::wstring SalMultiByteToWidePath("),
         "GETTERS": "\n".join(block(production, "std::wstring CFilesWindow::" + name + "(")
                             for name in ("GetItemDirectoryW", "GetItemFullPathW", "GetItemRelativePathW")),
     }
@@ -87,7 +89,7 @@ def main():
         executable = directory / "test.exe"
         for configuration in configurations:
             flags = ["/MDd", "/D_DEBUG", "/Od"] if configuration == "Debug" else ["/MD", "/DNDEBUG", "/O2"]
-            print("Actual ordinary panel getters (Branch metadata deferred S26):", configuration, flush=True)
+            print("Actual Branch panel getters:", configuration, flush=True)
             for command in ([compiler, "/nologo", "/std:c++17", "/EHsc", "/utf-8", "/W4", "/WX",
                              *flags, str(source), "/Fe:" + str(executable)], [str(executable)]):
                 result = run(command, cwd=directory, env=environment, timeout=45)

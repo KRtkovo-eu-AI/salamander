@@ -13,6 +13,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+@@BRANCH_HEADER@@
 #define CALL_STACK_MESSAGE1(...) ((void)0)
 static bool FailNextAllocation = false;
 void* operator new(size_t bytes)
@@ -32,6 +33,7 @@ void operator delete(void* value, size_t) noexcept { std::free(value); }
 std::wstring SalMultiByteToWidePath(const char*, UINT codePage=CP_ACP);
 @@CONVERSION@@
 @@JOIN@@
+@@BRANCH_HELPERS@@
 static int Checks=0, Failures=0, ArrayReads=0;
 static void Check(bool success, const char* description)
 {
@@ -49,6 +51,7 @@ struct CFilesArray
 enum {ptDisk=0, ptZIPArchive=1, ptPluginFS=2};
 struct CFilesWindow
 {
+    CBranchViewState* BranchView = nullptr;
     std::wstring WideRoot=L"C:\\root";
     std::string AnsiRoot="C:\\root";
     bool NullWideRoot=false;

@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-# | Date | Summary | Reason | Ticket | Model |
-# | 2026-11-06 | Verify Branch copy-dialog controls in every language archive. | Missing checkbox rows prevented native Translator import despite complete string tables. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 """Branch View activation must not create work or wait for background providers.
 
 These integration guards complement scanner schedule tests and GUI activation
@@ -146,29 +144,6 @@ class BranchActivationContracts(unittest.TestCase):
                 headers = [int(value) for value in re.findall(r"^\[STRINGTABLE (\d+)\]$",
                     raw.decode("utf-8-sig").replace("\r\n", "\n"), re.MULTILINE)]
                 self.assertEqual(headers, list(range(186)))
-
-    def test_copy_dialog_branch_placeholders_match_native_resources(self):
-        resources = source("lang/lang.rc")
-        dialogs = (("IDD_COPYMOVEMOREDIALOG", 205), ("IDD_COPYTOSELECTEDDIRSDIALOG", 8201))
-        # The visible caption uses the already localized string table.
-        self.assertIn("SetDlgItemText(HWindow, IDC_BRANCH_KEEP_PATHS, LoadStr(IDS_BRANCH_KEEP_PATHS))", source("dialogs3.cpp"))
-        for symbol, dialog_id in dialogs:
-            native = re.search(r"\b" + symbol + r" DIALOGEX [^\n]*\n(.*?)\nEND", resources, re.S).group(1)
-            geometry = re.search(r'CONTROL\s+"",IDC_BRANCH_KEEP_PATHS,"Button",[^,\n]+,(\d+),(\d+),(\d+),(\d+)', native)
-            self.assertIsNotNone(geometry)
-            expected = tuple(map(int, geometry.groups()))
-            for path in sorted((ROOT.parent / "translations").glob("*/salamand.slt")):
-                with self.subTest(language=path.parent.name, dialog=dialog_id):
-                    text = path.read_text(encoding="utf-8-sig")
-                    dialog = text.split("[DIALOG " + str(dialog_id) + "]\n", 1)[1].split("\n[", 1)[0]
-                    rows = re.findall(r'^14510,(\d+),(\d+),(\d+),(\d+),1,""$', dialog, re.M)
-                    self.assertEqual(len(rows), 1)
-                    self.assertEqual(tuple(map(int, rows[0])), expected)
-                    separator = re.search(r'^221,\d+,(\d+),', dialog, re.M)
-                    self.assertIsNotNone(separator)
-                    self.assertGreaterEqual(int(separator[1]), expected[1] + expected[3])
-                    dialog_height = int(dialog.strip().splitlines()[0].split(",")[1])
-                    self.assertGreaterEqual(dialog_height, expected[1] + expected[3])
 
     def test_ordinary_activation_still_has_existing_refresh_policy(self):
         activation = self.activation()

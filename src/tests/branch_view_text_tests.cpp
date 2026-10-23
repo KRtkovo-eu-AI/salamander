@@ -159,7 +159,6 @@ static void ResourceTests(const std::filesystem::path& root)
 {
     for (const auto& test : Resources)
     {
-        if (!test.Compression) continue; // S20c: future Branch resource patterns retained for S27c.
         std::ifstream input(root / test.File, std::ios::binary);
         std::string line, pattern;
         int matches = 0;
@@ -273,7 +272,7 @@ int wmain(int argc, wchar_t** argv)
     StatusTests();
     CompressionTests();
     ResourceTests(argc == 2 ? std::filesystem::path(argv[1]) : std::filesystem::current_path());
-    std::printf("Branch View text: %d checks, %d failures (compression resource patterns only; Branch resources deferred).\n",
+    std::printf("Branch View text: %d checks, %d failures (96 real localized patterns).\n",
                 Checks, Failures);
     return Failures == 0 ? 0 : 1;
 }

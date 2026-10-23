@@ -39,13 +39,16 @@ def main():
     print('Released SDK classes/layout unchanged:', len(classes), flush=True)
     common = native.read('src/plugins/shared/spl_com.h')
     wide = native.read('src/common/widepath.cpp')
-    panel = native.read('src/fileswn1.cpp')
+    panel = native.read('src/branch_view.cpp')
     host = native.read('src/zip.cpp')
     pieces = {
         'SDK': native.block(common, 'struct CQuadWord', ';') + '\n' + native.block(common, 'struct CFileData //', ';') + '\n' + '\n'.join(native.block(sdk, marker, ';') for marker in ('struct CSalamanderServiceQuery', 'struct CSalamanderServiceResult', 'class CSalamanderPanelItemPathsAbstract')),
         'CONSTANTS': '\n'.join(line for line in sdk.splitlines() if re.match(r'#define (PANEL_(SOURCE|TARGET|LEFT|RIGHT)|SALAMANDER_(SERVICE_PANEL_ITEM_PATHS|PANEL_ITEM_PATHS_VERSION_1_0|SERVICE_DISK_SELECTION|DISK_SELECTION_VERSION_1_0|SERVICE_VIEWER_ENUMERATION|VIEWER_ENUMERATION_VERSION_1_0))\b', line)),
         'CONVERSION': native.block(wide, 'BOOL IsValidPathUtf8Text(') + '\n' + native.block(wide, 'std::wstring SalMultiByteToWidePath('),
         'JOIN': native.block(wide, 'BOOL SalPathAppendW('),
+        'BRANCH_HEADER': '#include "' + (native.ROOT / 'src/branch_view.h').as_posix() + '"',
+        'BRANCH_HELPERS': 'namespace Salamander { namespace BranchView {\n' + native.block(panel, 'std::wstring Join(') + '\n' + native.block(panel, 'std::wstring Entry::FullPath()') + '\n} }',
+
         'GETTERS': '\n'.join(native.block(panel, 'std::wstring CFilesWindow::' + name + '(') for name in ('GetItemDirectoryW', 'GetItemFullPathW', 'GetItemIdentityW', 'GetItemRelativePathW')),
         'SERVICE': native.block(host, 'class CPanelItemPathsService', ';'),
         'FACTORY': native.block(host, 'CSalamanderPanelItemPathsAbstract* GetPanelItemPathsService()'),

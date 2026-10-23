@@ -2361,3 +2361,23 @@ STRINGTABLE
  IDS_FILELAUNCH_LONGPATH_GUIDE_TITLE, "Windows long-path support"
  IDS_FILELAUNCH_LONGPATH_GUIDE, "An administrator can enable the Windows policy:\nComputer Configuration > Administrative Templates > System > Filesystem > Enable Win32 long paths.\n\nIts registry equivalent is REG_DWORD LongPathsEnabled = 1 under:\nHKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\FileSystem\n\nRestart affected applications; restarting Windows may also be necessary. Applications must support long paths themselves. This is not a way to override a security denial, and Shell or the target program may still reject the path. Salamander does not change this setting."
 }
+
+STRINGTABLE
+{
+ IDS_BRANCH_VIEW, "Branch View"
+ IDS_MENU_BRANCH_VIEW, "&Branch View\tCtrl+B"
+ IDS_BRANCH_PATH, "Path"
+ IDS_BRANCH_PATH_DESC, "Actual parent folder"
+ IDS_BRANCH_OPENPARENT, "Open Containing &Folder"
+ IDS_BRANCH_STOP, "Stop Branch View Scan"
+ IDS_BRANCH_SCANNING, "Branch View - scanning... %I64u files"
+ IDS_BRANCH_READY, "Branch View - %I64u files"
+ IDS_BRANCH_STOPPED, "Branch View - stopped; %I64u files (incomplete)"
+ IDS_BRANCH_ERRORS, "Branch View - %I64u files; %I64u folders could not be read"
+ IDS_BRANCH_KEEP_PATHS, "Keep subfolder paths relative to the Branch View root"
+ IDS_BRANCH_PATH_LABEL, "Path: "
+ IDS_BRANCH_SCAN_FAILED, "The folder tree could not be read. Refresh to try again."
+ IDS_BRANCH_REFRESHING, "Branch View - refreshing... %I64u files retained"
+ IDS_BRANCH_REFRESH_STOPPED, "Branch View - refresh stopped; previous results retained (%I64u files)"
+ IDS_BRANCH_PREPARING, "Branch View - preparing %I64u files; %I64u previous results retained"
+}

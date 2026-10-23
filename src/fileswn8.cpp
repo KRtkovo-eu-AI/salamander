@@ -260,11 +260,7 @@ void PluginFSConvertPathToExternal(char* path)
 void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int countSizeMode,
                                BOOL copyToSelectedDirs, BOOL* changeTargetRequested)
 {
-    // S31b5b3d2: disk Copy/Move use the owned root/mask resolver; other Branch targets remain deferred.
-    if (target != NULL && target->IsBranchView() &&
-        !CFilesActionDiskTarget::AllowsBranchTransfer(type, countSizeMode, copyToSelectedDirs, Is(ptDisk), target->Is(ptDisk))) return;
-    if (IsBranchView() && (countSizeMode != 0 || copyToSelectedDirs ||
-        (type != atDelete && ((type != atCopy && type != atMove) || target == NULL || !target->Is(ptDisk))))) return;
+    if (IsBranchView() || target != NULL && target->IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
 
     if (changeTargetRequested != NULL)
         *changeTargetRequested = FALSE;

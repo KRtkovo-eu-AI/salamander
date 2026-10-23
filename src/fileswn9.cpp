@@ -7,6 +7,7 @@
 
 #include "precomp.h"
 #include "common/widepath.h"
+#include "branch_view.h"
 #include "branchclipboard.h"
 #include "audio_metadata_legacy.h"
 
@@ -184,10 +185,7 @@ BOOL SafeInvokeCommand(IContextMenu2* menu, CMINVOKECOMMANDINFO& ici)
 
 BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pastePath)
 {
-    const std::string branchRoot = IsBranchView() ? SalWideToMultiBytePath(GetPathW(), CP_UTF8) : std::string();
-    if (IsBranchView() && (branchRoot.empty() || branchRoot.size() >= sizeof(DropPath) ||
-        onlyLinks || (pastePath != NULL && !Salamander::BranchView::IsRootDropTarget(GetPathW(), pastePath))))
-        return FALSE; // S27d5b: only real-root copy/move, never focused row or arbitrary target.
+    if (IsBranchView()) return FALSE; // S26 experiment: unverified operation is blocked at direct dispatch.
 
     CALL_STACK_MESSAGE4("CFilesWindow::ClipboardPaste(%d, %d, %s)", onlyLinks, onlyTest, pastePath);
     IDataObject* dataObj;
@@ -2518,7 +2516,7 @@ static void WINAPI InternalGetBranchPath()
     if (TransferPanelWindow == NULL || TransferFileData == NULL || TransferIsDir == 2)
         return;
     const std::string path = SalWideToMultiBytePath(
-        TransferPanelWindow->GetBranchViewDisplayDirectoryW(*TransferFileData).c_str(), CP_UTF8);
+        TransferPanelWindow->GetItemDirectoryW(*TransferFileData).c_str(), CP_UTF8);
     size_t length = (std::min)(path.size(), (size_t)TRANSFER_BUFFER_MAX - 1);
     while (length < path.size() && length > 0 && ((unsigned char)path[length] & 0xc0) == 0x80)
         --length;

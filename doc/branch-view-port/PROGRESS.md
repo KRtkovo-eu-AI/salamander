@@ -1,5 +1,21 @@
 # Stav portu PR #769
 
+## S26 — IMPLEMENTED / gated read-only panel, local acceptance complete (2026-10-23)
+
+S21–S26 are complete locally. S26a shared preparation prerequisite and S26b exact
+metadata/publication/icon/property lifetime are integrated behind an exact process
+opt-in, default off in Debug/Release. Read-only command and direct-operation guards,
+Detailed layout, Path sorting/focus, manual refresh/Stop/Escape and close are verified.
+Full provenance, actual test counts and limitations: [S26b](steps/S26b.md).
+
+Host D/R /warnaserror, native scanner/getters/property/resource checks and all28
+source/menu groups PASS; actual dark Debug/light Release GUI and8,209 fixture hashes
+verified. Debug can still show a menu-only heap warning: paired gate-disabled and
+Branch runs each448bytes/14 MENU blocks; no suppression change. Release close clean.
+S27 operations, S28 layouts, S29 persistence and S30 watchers remain deferred.
+No push/PR/new CI in this goal; publication still needs the supported clean matrix.
+
+
 ## S26a — IMPLEMENTED / association preparation lifetime prerequisite PASS (2026-10-23)
 
 Scoped donor AssociationPreparation/shared PreparationLifetime/PreparationSession

@@ -4,10 +4,6 @@
 
 #include "precomp.h"
 #include "branch_view.h"
-#include "fileactionpath.h"
-#define SALAMANDER_BRANCHPROGRAM_CLIENT
-#include "branchprogram.h"
-#undef SALAMANDER_BRANCHPROGRAM_CLIENT
 
 #include <uxtheme.h>
 
@@ -932,6 +928,8 @@ static void ShowBranchLaunchFailure(HWND owner, const std::wstring& source, HRES
 
 void CFilesWindow::Execute(int index)
 {
+    if (IsBranchView() && index >= Dirs->Count) return; // S26 experiment: unverified operation is blocked at direct dispatch.
+
     CALL_STACK_MESSAGE2("CFilesWindow::Execute(%d)", index);
     MainWindow->CancelPanelsUI(); // cancel QuickSearch and QuickEdit
     if (index < 0 || index >= Dirs->Count + Files->Count)

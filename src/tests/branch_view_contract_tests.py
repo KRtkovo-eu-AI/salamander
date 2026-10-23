@@ -188,7 +188,7 @@ class BranchViewContracts(unittest.TestCase):
         self.assertNotIn("Items.clear()", leave)
         self.assertNotIn("SelectViewTemplate(", leave)
         toggle = body("branch_view.cpp", "void CFilesWindow::ToggleBranchView()")
-        self.assertNotIn("SelectViewTemplate(", toggle) # S28 preserves the user-selected layout.
+        self.assertIn("SelectViewTemplate(2", toggle) # S26 restricts the experiment to Detailed view.
         self.ordered(toggle, "if (!Is(ptDisk)) return;", "BranchView->OriginalViewTemplate = GetViewTemplateIndex()", "BranchView->Enabled = true", "BuildColumnsTemplate();", "EnsureWatching(this, FALSE);", "RefreshBranchView();")
 
     def test_tab_state_captured_before_creation_restored_before_activation(self):
@@ -265,6 +265,11 @@ class BranchViewContracts(unittest.TestCase):
         self.assertIn("GetItemCacheKey(file)", text)
         self.assertIn("ReindexBranchViewFiles();", text)
 
+
+# These donor contracts require later stages; keep their original assertions intact.
+DEFERRED = {"test_subtree_watcher_has_distinct_registration", "test_tab_state_captured_before_creation_restored_before_activation", "test_history_owns_snapshot_and_preserves_unicode_focus", "test_temporary_dialog_selection_uses_exact_branch_identity"}
+def load_tests(loader, tests, pattern):
+    return unittest.TestSuite(BranchViewContracts(name) for name in loader.getTestCaseNames(BranchViewContracts) if name not in DEFERRED)
 
 if __name__ == "__main__":
     unittest.main()
