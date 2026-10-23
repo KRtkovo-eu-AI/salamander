@@ -61,7 +61,7 @@ class BranchTransitionContracts(unittest.TestCase):
   self.assertNotIn('S27c3: recycle modes',source('fileswn8.cpp'))
  def test_properties_only_shell_gate_and_whole_selection_fallback(self):
   shell=source('shellsup.cpp');action=shell[shell.index('void ShellAction('):shell.index('const char* ReturnNameFromParam')]
-  self.assertIn('(action != saProperties && action != saCopyToClipboard && action != saCutToClipboard && action != saContextMenu) || !useSelection || onlyPanelMenu',action)
+  self.assertIn('(action != saProperties && action != saCopyToClipboard && action != saCutToClipboard && action != saContextMenu && action != saLeftDragFiles && action != saRightDragFiles) || !useSelection || onlyPanelMenu',action)
   self.assertLess(action.index('action != saProperties'),action.index('if (panel->QuickSearchMode)'))
   properties=action[action.index('    case saProperties:'):action.index('    case saCopyToClipboard:')]
   self.assertIn('EnumFileNames, &data, panel->IsBranchView()',properties)

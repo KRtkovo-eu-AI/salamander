@@ -1,5 +1,23 @@
 # Validace portu a baseline S00
 
+## S27d5a completed locally (2026-10-24)
+
+Selected left/right drag source now uses the existing complete wide IDataObject,
+Windows OLE negotiation and scoped DropSourcePanel/COM cleanup. Incoming Branch
+operations remain gated until S27d5b. Allocation preserves the existing low-memory
+path with scoped nothrow/debug-new handling; no security policy changed.
+
+Host/dependencies Debug/Release /warnaserror PASS13.42s/77.34s; actual-block native
+harness340/config, real Shell fixture33/config, all28 source/menu groups PASS.
+Actual mouse OLE MOVE D/R transfers4 mixed-parent ASCII/Unicode/long files into
+ordinary disk panel, exact hashes, source removal, duplicate sources/sentinel
+preserved and Branch auto-refresh to2. Default500ms rejects the instantaneous test
+input; owned private Debug delay1ms, Release delay disabled for automation only.
+Production defaults unchanged. Clean exits/private INIs restored, policy0.
+COPY/right-button/Escape/error/allocation negotiation covered by explicit native
+facades, not claimed as real GUI. See [S27d5a](steps/S27d5a.md).
+No publication/remote CI. Goal continues with S27d5b destination semantics.
+
 ## S27d4 completed locally (2026-10-24)
 
 Selected context menu enabled: one-parent selections use existing exact-wide Shell

@@ -222,6 +222,7 @@ struct CFilesWindow
     BOOL PrepareCopySource(CFileData*,int,CopyCapture&,CopyScript*,CopyCriteria*);
     BOOL PrepareRelativeTarget(CFileData*,BOOL,CopyScript*,std::string&);
     void PropertiesRoute(int,int,int*);
+    void DragRoute(int,int,int*);
     BOOL ClipboardRoute(int,int,int*,int action=3);
     BOOL CutToClipChanged=FALSE;
     void ClearCutToClipFlag(BOOL);
@@ -359,6 +360,35 @@ BOOL CFilesWindow::ClipboardRoute(int count,int index,int* indexes,int action){
 #undef SalMessageBox
 #undef GetErrorText
 #undef LoadStr
+static bool DropAllocationFail=false;
+static int DragCalls=0,DropReleases=0;
+static DWORD DragAllowed=0,DragChosen=DROPEFFECT_COPY;
+static HRESULT DragResult=DRAGDROP_S_DROP;
+static CFilesWindow* DropSourcePanel=nullptr;
+static bool DragHeldSource=false;
+struct CImpIDropSource {
+ DWORD MouseButton=(DWORD)-1;
+ explicit CImpIDropSource(BOOL) noexcept{}
+ static void* operator new(size_t size,const std::nothrow_t&) noexcept{return DropAllocationFail?nullptr:std::malloc(size);}
+ static void operator delete(void* p) noexcept{std::free(p);}
+ static void operator delete(void* p,const std::nothrow_t&) noexcept{std::free(p);}
+ void Release(){++DropReleases;delete this;}
+@@QUERY_CONTINUE_DRAG@@
+};
+static HRESULT TestDoDragDrop(TestPropertiesObject*,CImpIDropSource*,DWORD allowed,DWORD* chosen){++DragCalls;DragHeldSource=DropSourcePanel!=nullptr;DragAllowed=allowed;*chosen=DragChosen;return DragResult;}
+static void ShellActionAux7(TestPropertiesObject* object,CImpIDropSource* source){if(source)source->Release();if(object)object->Release();}
+#define IDataObject TestPropertiesObject
+#define CreatePanelShellData PropertiesCreateData
+#define MainWindow (&RecycleWindow)
+#define DoDragDrop TestDoDragDrop
+void CFilesWindow::DragRoute(int count,int index,int* indexes){
+ CFilesWindow* panel=this;const BOOL useSelection=TRUE;
+@@DRAG_SOURCE@@
+}
+#undef IDataObject
+#undef CreatePanelShellData
+#undef MainWindow
+#undef DoDragDrop
 static const int DRAWFLAG_DIRTY_ONLY=1,DRAWFLAG_SKIP_VISTEST=2;
 #define CALL_STACK_MESSAGE_NONE
 @@CUT_CLEAR@@
@@ -610,7 +640,7 @@ static void PropertiesTests()
     reset();MenuAvailable=false;PropertiesResult=E_FAIL;panel.PropertiesRoute(2,0,selected);Check(PropertiesCalls==1&&PropertiesObject.Releases==1&&RecycleErrors==1,"Properties failure releases object and reports error");
     reset();MenuAvailable=false;DataAvailable=false;panel.PropertiesRoute(2,0,selected);Check(PropertiesCalls==0&&PropertiesObject.Releases==0,"failed capture cannot invoke partial Properties");
     TestShellGate(&panel,saProperties,TRUE,FALSE);Check(ShellGatePassed,"selected Branch Properties passes direct gate");
-    for(int action:{saPermissions,saLeftDragFiles,saRightDragFiles,99}){TestShellGate(&panel,action,TRUE,FALSE);Check(!ShellGatePassed,"unverified Shell action remains blocked");}
+    for(int action:{saPermissions,99}){TestShellGate(&panel,action,TRUE,FALSE);Check(!ShellGatePassed,"unverified Shell action remains blocked");}
     TestShellGate(&panel,saProperties,FALSE,FALSE);Check(!ShellGatePassed,"panel-only Properties remains blocked");
     TestShellGate(&panel,saProperties,TRUE,TRUE);Check(!ShellGatePassed,"panel menu path remains blocked");
     TestShellGate(&panel,saCopyToClipboard,TRUE,FALSE);Check(ShellGatePassed,"selected Branch copy passes direct gate");
@@ -641,6 +671,20 @@ static void PropertiesTests()
     panel.ClearCutToClipFlag(FALSE);other.ClearCutToClipFlag(TRUE);
     Check(!panel.CutToClipChanged&&!other.CutToClipChanged&&!panel.Files->At(1).CutToClip&&!other.Files->At(0).CutToClip,"cut cleanup clears both panels");
     Check(panel.Files->At(1).Dirty&&other.Files->At(0).Dirty,"cut cleanup invalidates painted rows");
+    for(int action:{saLeftDragFiles,saRightDragFiles}){TestShellGate(&panel,action,TRUE,FALSE);Check(ShellGatePassed,"verified drag source passes direct gate");}
+    auto resetDrag=[&](){resetCopy();DropAllocationFail=false;DragCalls=0;DropReleases=0;DragHeldSource=false;DropSourcePanel=nullptr;};
+    for(HRESULT result:{DRAGDROP_S_DROP,DRAGDROP_S_CANCEL,E_FAIL}){
+     resetDrag();DragResult=result;panel.DragRoute(2,0,selected);
+     Check(DragCalls==1&&DragHeldSource&&DropSourcePanel==nullptr&&PropertiesPaths==paths,"drag retains entire exact selection and scopes source panel for drop/cancel/error");
+     Check(DragAllowed==(DROPEFFECT_COPY|DROPEFFECT_MOVE|DROPEFFECT_LINK)&&DropReleases==1&&PropertiesObject.Releases==1,"drag uses Windows effect negotiation and releases both objects");
+    }
+    resetDrag();DataAvailable=false;panel.DragRoute(2,0,selected);Check(!DragCalls&&DropReleases==1&&PropertiesObject.Releases==0,"failed drag capture never transfers partial input");
+    resetDrag();DropAllocationFail=true;panel.DragRoute(2,0,selected);Check(!DragCalls&&DropReleases==0&&PropertiesObject.Releases==1,"failed source allocation preserves existing cleanup");
+    resetDrag();panel.DragRoute(2,0,bad);Check(!DragCalls&&DropReleases==1,"invalid second drag row prevents partial transfer");
+    CImpIDropSource query(FALSE);Check(query.QueryContinueDrag(FALSE,MK_LBUTTON)==S_OK,"left drag begins with button held");
+    Check(query.QueryContinueDrag(TRUE,MK_LBUTTON)==DRAGDROP_S_CANCEL,"Escape cancels held drag");
+    Check(query.QueryContinueDrag(FALSE,0)==DRAGDROP_S_DROP,"button release completes drop");
+    CImpIDropSource right(FALSE);Check(right.QueryContinueDrag(FALSE,MK_RBUTTON)==S_OK&&right.QueryContinueDrag(FALSE,MK_LBUTTON)==DRAGDROP_S_CANCEL,"right drag supports initial button and cancels changed button");
     panel.BranchView=nullptr;panel.WideRoot=L"C:\\ordinary-東京";state.CacheFiles.clear();
     Check(GetPanelShellPaths(2,&data).size()==2&&GetPanelShellDirectoryW(data)==panel.WideRoot,"ordinary disk capture needs no Branch cache");
     TestShellGate(&panel,saContextMenu,TRUE,FALSE);Check(ShellGatePassed,"ordinary Shell action unaffected by staged Branch gate");
