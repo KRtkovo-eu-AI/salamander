@@ -1,5 +1,32 @@
 # Validace portu a baseline S00
 
+## S27a2 acceptance: default Windows configuration (2026-10-23)
+
+User decision: long Shell launch must work with default Windows settings.
+Do not require LongPathsEnabled=1 or any security/zone-policy changes for end
+users. Modified settings may be used only as explicitly identified diagnostic
+experiments; success there cannot satisfy the acceptance gate. The current
+machine retains LongPathsEnabled=0; no registry change was made.
+
+Follow-up normal-policy probes at candidate 9a870a02 failed with short aliases,
+explicit Unicode/InvokeIDList flags, absent CWD, ACP and legacy path manifests.
+Read-only zone diagnostics identified the original335-UTF16-character file and
+its111-character DOS alias as the same volume/file ID. Both map to zone4
+(Restricted), while the233-character ancestor and ordinary ASCII control map
+to zone0 (Local Machine). Neither fixture executable has a Zone.Identifier
+stream. This narrows the observed failure but does not prove all Windows
+versions or Shell handlers behave identically. A minimal AttachmentExecute
+CheckPolicy probe also rejects the working ASCII control, so that probe is not
+independent proof that short Shell execution is denied.
+
+Evidence ../evidence/S27a2-shell/SUMMARY.json and zone-matrix logs. No production
+change, new GUI smoke, full build or remote CI in this diagnostic continuation.
+S27a2 remains PARTIAL. Next gate: a demonstrated supported Shell dispatch under
+default settings, preserving exact file identity, normal security checks and
+physical working directory; then actual Debug/Release host verification.
+An explicit long-path error is graceful failure, not completion of this gate.
+
+
 ## S27a2 - PARTIAL / archive correction validated locally (2026-10-23)
 
 Parent 94c391a77282df03648aa47e20cb4410642764b0. Candidate enables gated
