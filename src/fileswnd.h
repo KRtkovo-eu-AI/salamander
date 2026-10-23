@@ -892,6 +892,7 @@ public:
     const CFileData* GetBranchViewFileByCacheKey(const char* key) const;
     CBranchViewRestoreState CaptureBranchViewState();
     void RestoreBranchViewState(const CBranchViewRestoreState& state);
+    BOOL OpenBranchItemDirectory();
     void ToggleBranchView();
     void RefreshBranchView(BOOL automatic = FALSE);
     void PollBranchView();

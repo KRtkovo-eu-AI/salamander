@@ -4324,6 +4324,10 @@ static bool BranchReadOnlyCommandAllowed(UINT command)
     case CM_BRANCHVIEW:
     case CM_LEFT_BRANCHVIEW:
     case CM_RIGHT_BRANCHVIEW:
+    case CM_VIEW:
+    case CM_ALTVIEW:
+    case CM_EDIT:
+    case CM_BRANCH_OPENPARENT:
     case CM_BRANCH_STOP:
     case CM_ACTIVEREFRESH:
     case CM_LEFTREFRESH:
@@ -7271,6 +7275,11 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 activePanel->CancelBranchViewScan();
             return 0;
 
+        case CM_BRANCH_OPENPARENT:
+            if (activePanel != NULL)
+                activePanel->OpenBranchItemDirectory();
+            return 0;
+
         case CM_CHANGEFILTER:
             activePanel->ChangeFilter();
             return 0;
@@ -9597,6 +9606,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CML_FILES:
         {
             CFilesWindow* branchPanel = GetActivePanel();
+            popup->EnableItem(CM_BRANCH_OPENPARENT, FALSE, branchPanel != NULL && branchPanel->IsBranchView() && branchPanel->Files->Count > 0);
             popup->EnableItem(CM_BRANCH_STOP, FALSE, branchPanel != NULL && branchPanel->IsBranchViewScanning());
 
             break;

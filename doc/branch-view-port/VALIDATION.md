@@ -1,5 +1,32 @@
 # Validace portu a baseline S00
 
+## S27a1 — IMPLEMENTED / local validation complete (2026-10-23)
+
+S21–S26 accepted at3dc52cb6 after current-head PR35 checks; acceptance commit
+6f32c1d3. Completed the first S27 unit: core/configured external View/AltView,
+Edit and exact Open Containing Folder. Process gate remains default off;
+Enter, plugin viewers, View/Edit With and all remaining operations stay blocked.
+Missing parent preflight preserves the Branch snapshot. Successful navigation
+uses an owned wide basename to focus the real ordinary row, including a name
+of100 CJK characters/304 UTF8 bytes. No generic navigator/SDK changes.
+
+Final host x64 Debug/Release /warnaserror PASS12.58/76.84s. Actual-method native
+fixture99 checks/config PASS, original71 retained; ordinary panel/service196
+checks/config and5 released SDK class prefixes PASS; all28 source/menu groups
+PASS. Existing file-action, viewer enumeration and Unicode native suites PASS.
+Actual D/R GUI confirmed duplicate identities, viewer previous/next/refresh,
+external argv+physical CWD, exact parent focus, missing-parent preservation,
+blocked Enter/copy, normal-panel viewer and shutdown/no new reports. All16 owned
+input hashes unchanged and both private configstorage INIs restored.
+
+S27a is PARTIAL: an initial Enter trial failed for a long executable (Windows
+Security) and a long ZIP (error3). No security barrier bypass/settings change.
+That import was removed; fileswn2.cpp matches the accepted source. S27a2 must
+resolve and validate Shell/archive boundaries before enabling Enter. Later
+S27b–f/S28–S32 remain deferred. No new push, PR, CI or multi-phase goal.
+Details [S27a1](steps/S27a1.md); evidence ../evidence/S27a. Existing S26b Debug
+menu-heap limitation remains documented; this step does not claim to fix it.
+
 ## S26a — IMPLEMENTED / association preparation lifetime prerequisite PASS (2026-10-23)
 
 Scoped donor AssociationPreparation/shared PreparationLifetime/PreparationSession

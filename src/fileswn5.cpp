@@ -1763,8 +1763,6 @@ void CFilesWindow::FindFile()
 void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumFileNamesSourceUID,
                             int enumFileNamesLastFileIndex)
 {
-    if (IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
-
     CALL_STACK_MESSAGE6("CFilesWindow::ViewFile(%s, %d, %u, %d, %d)", name, altView, handlerID,
                         enumFileNamesSourceUID, enumFileNamesLastFileIndex);
     // verify that the file is on an accessible path
@@ -2280,8 +2278,6 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
 
 void CFilesWindow::EditFile(char* name, DWORD handlerID)
 {
-    if (IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
-
     CALL_STACK_MESSAGE3("CFilesWindow::EditFile(%s, %u)", name, handlerID);
     if (!Is(ptDisk) && name == NULL)
     {

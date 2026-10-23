@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""S26 deliberately exposes only a process-gated, read-only collection."""
+"""Transition gates expose only accepted Branch integrations."""
 from pathlib import Path
 import unittest
 ROOT=Path(__file__).resolve().parents[1]
@@ -19,15 +19,38 @@ class BranchTransitionContracts(unittest.TestCase):
   text=source('mainwnd3.cpp');start=text.index('CFilesWindow* branchCommandPanel');part=text[start:]
   self.assertLess(part.index('!BranchReadOnlyCommandAllowed(LOWORD(wParam))'),part.index('if (HelpMode'))
   gate=function('mainwnd3.cpp','static bool BranchReadOnlyCommandAllowed(')
-  for forbidden in ('CM_COPYFILES','CM_MOVEFILES','CM_DELETEFILES','CM_BRANCH_OPENPARENT','CM_VIEW','CM_EDIT'):
+  for forbidden in ('CM_OPEN','CM_COPYFILES','CM_MOVEFILES','CM_DELETEFILES','CM_RENAMEFILE','CM_VIEW_WITH','CM_EDIT_WITH'):
    self.assertNotIn('case '+forbidden+':',gate)
+  for allowed in ('CM_VIEW','CM_ALTVIEW','CM_EDIT','CM_BRANCH_OPENPARENT'):
+   self.assertIn('case '+allowed+':',gate)
   self.assertIn('return false;',gate)
  def test_readonly_direct_paths_are_guarded(self):
-  cases={'fileswn5.cpp':['void CFilesWindow::ViewFile(', 'void CFilesWindow::EditFile(', 'void CFilesWindow::RenameFile(', 'void CFilesWindow::QuickRenameBegin('], 'fileswn6.cpp':['void CFilesWindow::DropCopyMove('], 'fileswn9.cpp':['BOOL CFilesWindow::ClipboardPaste(']}
+  cases={'fileswn2.cpp':['void CFilesWindow::Execute('], 'fileswn5.cpp':['void CFilesWindow::RenameFile(', 'void CFilesWindow::QuickRenameBegin('], 'fileswn6.cpp':['void CFilesWindow::DropCopyMove('], 'fileswn9.cpp':['BOOL CFilesWindow::ClipboardPaste(']}
   for file, markers in cases.items():
    for marker in markers:
     part=function(file,marker)
-    self.assertIn('if (IsBranchView()) return',part)
+    self.assertIn('if (IsBranchView()' if file == 'fileswn2.cpp' else 'if (IsBranchView()) return',part)
+ def test_view_and_edit_require_current_metadata_before_full_path(self):
+  for marker in ('void CFilesWindow::ViewFile(', 'void CFilesWindow::EditFile('):
+   part=function('fileswn5.cpp',marker)
+   self.assertLess(part.index('GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*f)) != f'),part.index('GetItemFullPathW(*f)'))
+ def test_plugin_viewer_policy_precedes_the_dispatch(self):
+  part=function('fileswn5.cpp','void CFilesWindow::ViewFile(')
+  self.assertLess(part.index('// S27a transition:'),part.index('ViewFileInt('))
+  self.assertIn('viewer->ViewerType == VIEWER_INTERNAL || viewer->ViewerType == VIEWER_EXTERNAL',part)
+  self.assertIn('if (!allowed) return;',part)
+  self.assertNotIn('CanViewFile(',part)
+ def test_parent_navigation_rejects_missing_identity(self):
+  part=function('branch_view.cpp','BOOL CFilesWindow::OpenBranchItemDirectory()')
+  self.assertLess(part.index('GetBranchViewFileByCacheKey('),part.index('ChangePathToDiskW('))
+  self.assertIn('if (path.empty() || name.empty()) return FALSE;',part)
+  self.assertLess(part.index('GetFileAttributesW('),part.index('if (!ChangePathToDiskW('))
+ def test_parent_focus_uses_owned_wide_basename(self):
+  part=function('branch_view.cpp','BOOL CFilesWindow::OpenBranchItemDirectory()')
+  self.assertLess(part.index('std::wstring name ='),part.index('ChangePathToDiskW('))
+  self.assertLess(part.index('ChangePathToDiskW('),part.index('SetCaretIndex('))
+  self.assertIn('currentName == name',part)
+  self.assertNotIn('focus.c_str()',part)
  def test_operations_guard_source_and_destination(self):
   for file in ('fileswn7.cpp','fileswn8.cpp'):
    text=source(file)

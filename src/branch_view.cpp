@@ -701,4 +701,37 @@ void CFilesWindow::PollBranchView()
         SetTimer(HWindow, IDT_BRANCHVIEW_POLL,
             preparation->Queue.HasPending() ? 15 : 200, NULL);
 }
+BOOL CFilesWindow::OpenBranchItemDirectory()
+{
+    if (!IsBranchView()) return FALSE;
+    int index = GetCaretIndex() - Dirs->Count;
+    if (index < 0 || index >= Files->Count) return FALSE;
+    const CFileData& file = Files->At(index);
+    if (GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(file)) != &file) return FALSE;
+    std::wstring path = GetItemDirectoryW(Files->At(index));
+    std::wstring name = Files->At(index).UseWideName() ? Files->At(index).NameW : SalMultiByteToWidePath(Files->At(index).Name);
+    if (path.empty() || name.empty()) return FALSE;
+    // A vanished source directory must not enter ChangePathToDisk's fallback,
+    // which closes Branch View before navigating to the nearest existing parent.
+    std::wstring checkedPath = path;
+    if (checkedPath.size() >= MAX_PATH && checkedPath.compare(0, 4, L"\\\\?\\") != 0)
+        checkedPath = checkedPath.compare(0, 2, L"\\\\") == 0 ? L"\\\\?\\UNC\\" + checkedPath.substr(2) : L"\\\\?\\" + checkedPath;
+    DWORD attributes = GetFileAttributesW(checkedPath.c_str());
+    if (attributes == INVALID_FILE_ATTRIBUTES || !(attributes & FILE_ATTRIBUTE_DIRECTORY)) return FALSE;
+    if (!ChangePathToDiskW(HWindow, path.c_str())) return FALSE;
+    // CommonRefresh matches legacy Name. Use the owned exact wide basename
+    // after the old Branch rows have been replaced by the real directory.
+    for (int i = 0; i < Files->Count; ++i)
+    {
+        const CFileData& current = Files->At(i);
+        const std::wstring currentName = current.UseWideName() ? current.NameW :
+            SalMultiByteToWidePath(current.Name, IsValidPathUtf8Text(current.Name) ? CP_UTF8 : CP_ACP);
+        if (currentName == name)
+        {
+            SetCaretIndex(Dirs->Count + i, TRUE);
+            break;
+        }
+    }
+    return TRUE;
+}
 #endif

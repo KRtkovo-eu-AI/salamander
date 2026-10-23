@@ -169,3 +169,7 @@ branch_view.h/.cpp scanner/path/snapshot subset and branch_view_tests derive fro
 ### S26a association preparation and reentrant lifetime
 
 AssociationPreparation/session/lifetime, internal Shell association epoch/cache guards and branch_preparation_tests derive from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin Contributors, GPL-2.0-or-later. Exact helper/test blocks, scoped host hunks preserving target icon accounting; all notices retained.
+
+### S27a1 Branch viewer/editor and exact parent navigation
+
+Scoped OpenBranchItemDirectory/declaration/menu/dispatch derive from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin Contributors, GPL-2.0-or-later. Local current-row/preflight/wide-focus and transition viewer-policy adapters preserve target navigation and the S18 launch implementation; original notices retained. Enter/archive dispatch remains deferred after actual GUI boundary failures.

@@ -11,6 +11,8 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
+#include <functional>
 
 std::wstring SalMultiByteToWidePath(const char*, UINT codePage = CP_ACP);
 @@CONVERSION@@
@@ -31,7 +33,38 @@ struct CBranchViewState
     bool Enabled = true;
     std::mutex ItemsMutex;
     std::unordered_map<const char*, Salamander::BranchView::Entry> Items;
+    std::unordered_map<std::string, const CFileData*> CacheFiles;
 };
+struct TestRows {
+    std::vector<CFileData> Values;
+    int Count = 0;
+    CFileData& At(int i) { return Values.at(i); }
+};
+struct TestMasks {
+    BOOL Ready = TRUE, Match = TRUE;
+    BOOL PrepareMasks(int& error) { error = 0; return Ready; }
+    BOOL AgreeMasks(const char*, const char*) { return Match; }
+};
+const int VIEWER_EXTERNAL = 0, VIEWER_INTERNAL = 1;
+struct CViewerMasksItem { TestMasks* Masks; int ViewerType; };
+struct CViewerMasks {
+    std::vector<CViewerMasksItem*> Values;
+    int Count = 0;
+    CViewerMasksItem* At(int i) { return Values.at(i); }
+};
+struct TestMainWindow {
+    CViewerMasks* ViewerMasks = nullptr;
+    CViewerMasks* AltViewerMasks = nullptr;
+} TestMain;
+static TestMainWindow* MainWindow = &TestMain;
+static DWORD ParentAttributes = FILE_ATTRIBUTE_DIRECTORY;
+static std::wstring CheckedParent;
+static DWORD RecordAttributes(const wchar_t* path) {
+    CheckedParent = path;
+    return ParentAttributes;
+}
+#define GetFileAttributesW RecordAttributes
+
 struct CFilesWindow
 {
     CBranchViewState* BranchView = nullptr;
@@ -43,8 +76,38 @@ struct CFilesWindow
     std::wstring GetItemDirectoryW(const CFileData&) const;
     std::wstring GetItemFullPathW(const CFileData&) const;
     std::wstring GetItemRelativePathW(const CFileData&) const;
+    TestRows DirRows, FileRows;
+    TestRows* Dirs = &DirRows;
+    TestRows* Files = &FileRows;
+    HWND HWindow = nullptr;
+    int Caret = 0, NavigationCalls = 0, FocusCalls = 0, FocusedIndex = -1;
+    BOOL NavigationSuccess = TRUE, ViewGatePassed = FALSE;
+    std::function<void()> OnNavigate;
+    std::wstring OpenedDirectory;
+    std::string FocusName;
+    BOOL IsBranchView() const { return BranchView != nullptr && BranchView->Enabled; }
+    int GetCaretIndex() const { return Caret; }
+    HWND GetListBoxHWND() const { return HWindow; }
+    const char* GetItemCacheKeyPtr(const CFileData&) const;
+    const CFileData* GetBranchViewFileByCacheKey(const char*) const;
+    BOOL OpenBranchItemDirectory();
+    void SetCaretIndex(int index, BOOL) { ++FocusCalls; FocusedIndex = index; Caret = index; }
+    BOOL ChangePathToDiskW(HWND, const wchar_t* path) {
+        ++NavigationCalls; OpenedDirectory = path;
+        if (NavigationSuccess) { BranchView->Enabled = false; if (OnNavigate) OnNavigate(); }
+        return NavigationSuccess;
+    }
+    void ViewPolicy(const char* name, BOOL altView, DWORD handlerID);
+
 };
 @@GETTERS@@
+@@CACHE@@
+@@NAVIGATION@@
+void CFilesWindow::ViewPolicy(const char* name, BOOL altView, DWORD handlerID) {
+    ViewGatePassed = FALSE;
+@@VIEW_POLICY@@
+    ViewGatePassed = TRUE;
+}
 
 static int Checks = 0, Failures = 0;
 static void Check(bool success, const char* description)
@@ -68,6 +131,7 @@ static void Add(CBranchViewState& state, const CFileData& file,
     entry.Directory = directory;
     entry.RelativePath = relative;
     if (wcscpy_s(entry.Data.cFileName, actualName.c_str()) != 0) std::abort();
+    entry.CacheKey = SalWideToMultiBytePath(entry.FullPath().c_str(), CP_UTF8);
     state.Items.emplace(file.Name, std::move(entry));
 }
 static int Utf8Length(const std::wstring& path)
@@ -75,6 +139,85 @@ static int Utf8Length(const std::wstring& path)
     return WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, path.c_str(), -1,
                                nullptr, 0, nullptr, nullptr) - 1;
 }
+static void NavigationTests()
+{
+    CBranchViewState state;
+    CFilesWindow panel; panel.BranchView = &state;
+    std::string name1 = "same.txt", name2 = "same.txt";
+    panel.FileRows.Values = {{name1.c_str(), L"same.txt"}, {name2.c_str(), L"same.txt"}};
+    panel.FileRows.Count = 2;
+    const std::wstring longParent = L"C:\\" + std::wstring(100, L'a') + L"\\" + std::wstring(100, L'b') + L"\\" + std::wstring(100, L'c') + L"\\東京";
+    Add(state, panel.Files->At(0), L"C:\\ascii", L"same.txt", L"ascii\\same.txt");
+    Add(state, panel.Files->At(1), longParent, L"same.txt", L"東京\\same.txt");
+    for (int i = 0; i < 2; ++i) {
+        const auto& file = panel.Files->At(i);
+        state.CacheFiles[panel.GetItemCacheKeyPtr(file)] = &file;
+    }
+    for (int i = 0; i < 2; ++i) {
+        state.Enabled = true; panel.Caret = i;
+        const auto& file = panel.Files->At(i);
+        const auto expectedDirectory = panel.GetItemDirectoryW(file);
+        Check(panel.OpenBranchItemDirectory() != FALSE, "actual Open Parent succeeds for exact duplicate identity");
+        Check(panel.OpenedDirectory == expectedDirectory && panel.FocusedIndex == 0 && panel.FocusCalls > 0, "parent and focus remain exact with long Unicode ancestor");
+        Check(!state.Enabled, "successful navigation reaches ordinary panel callback");
+        state.Enabled = true; panel.Caret = i; panel.NavigationSuccess = FALSE;
+        Check(panel.OpenBranchItemDirectory() == FALSE && state.Enabled, "non-destructive navigation callback failure is propagated");
+        panel.NavigationSuccess = TRUE;
+        const int navigationBefore = panel.NavigationCalls;
+        ParentAttributes = INVALID_FILE_ATTRIBUTES;
+        Check(!panel.OpenBranchItemDirectory() && state.Enabled && panel.NavigationCalls == navigationBefore, "vanished parent is rejected before destructive navigation callback");
+        ParentAttributes = FILE_ATTRIBUTE_NORMAL;
+        Check(!panel.OpenBranchItemDirectory() && state.Enabled && panel.NavigationCalls == navigationBefore, "a file cannot substitute for the source directory");
+        ParentAttributes = FILE_ATTRIBUTE_DIRECTORY;
+        const auto checked = expectedDirectory.size() >= MAX_PATH ? L"\\\\?\\" + expectedDirectory : expectedDirectory;
+        Check(CheckedParent == checked, "preflight uses exact wide directory with extended prefix for long paths");
+    }
+    state.Enabled = true; panel.Caret = 1;
+    state.CacheFiles.clear(); const int navigationBefore = panel.NavigationCalls;
+    Check(!panel.OpenBranchItemDirectory() && panel.NavigationCalls == navigationBefore, "missing current cache-row mapping cannot navigate to guessed parent");
+    for (int index : {-1, 2}) {panel.Caret = index; Check(!panel.OpenBranchItemDirectory(), "invalid focus cannot navigate");}
+    const std::wstring expectedWideFocus(100, L'東');
+    std::wstring replacedWideFocus = expectedWideFocus;
+    std::string oldLegacy = "old-lossy-name";
+    panel.FileRows.Values = {{oldLegacy.c_str(), replacedWideFocus.c_str()}};
+    panel.FileRows.Count = 1; panel.Caret = 0; state.Items.clear();
+    Add(state, panel.Files->At(0), longParent, replacedWideFocus, replacedWideFocus);
+    state.CacheFiles[panel.GetItemCacheKeyPtr(panel.Files->At(0))] = &panel.Files->At(0);
+    panel.OnNavigate = [&]() {
+        state.Items.clear(); state.CacheFiles.clear();
+        replacedWideFocus.assign(100, L'X');
+        panel.FileRows.Values = {{"ordinary-other.txt", nullptr}, {"new-lossy-name", expectedWideFocus.c_str()}};
+        panel.FileRows.Count = 2;
+    };
+    Check(panel.OpenBranchItemDirectory() != FALSE, "actual parent navigation tolerates replacement of all original rows and metadata");
+    Check(panel.FocusedIndex == 1 && !state.Enabled, "owned wide basename beyond MAX_PATH UTF8 bytes focuses the exact replacement row");
+    panel.OnNavigate = nullptr;
+    state.Enabled = true;
+    TestMasks match, noMatch; noMatch.Match = FALSE;
+    CViewerMasksItem internal = {&match, VIEWER_INTERNAL}, external = {&match, VIEWER_EXTERNAL}, plugin = {&match, -1}, skippedPlugin = {&noMatch, -1};
+    CViewerMasks normal, alternate; MainWindow->ViewerMasks = &normal; MainWindow->AltViewerMasks = &alternate;
+    normal.Count = 1; alternate.Count = 1; alternate.Values = {&external};
+    for (auto* viewer : {&internal, &external, &plugin}) {
+        normal.Values = {viewer}; panel.ViewPolicy("C:\\東京\\same.txt", FALSE, 0xFFFFFFFF);
+        Check((panel.ViewGatePassed != FALSE) == (viewer != &plugin), "first matching mask allows only core/configured external viewer");
+    }
+    normal.Values = {&plugin, &internal}; normal.Count = 2;
+    panel.ViewPolicy("C:\\same.txt", FALSE, 0xFFFFFFFF);
+    Check(!panel.ViewGatePassed, "unverified matching plugin cannot fall through to launch");
+    normal.Values = {&skippedPlugin, &internal};
+    panel.ViewPolicy("C:\\same.txt", FALSE, 0xFFFFFFFF);
+    Check(panel.ViewGatePassed != FALSE, "nonmatching plugin mask does not block the selected core viewer");
+    panel.ViewPolicy("C:\\same.txt", TRUE, 0xFFFFFFFF);
+    Check(panel.ViewGatePassed != FALSE, "alternate configured external viewer is allowed");
+    panel.ViewPolicy("C:\\same.txt", FALSE, 123);
+    Check(!panel.ViewGatePassed, "unvalidated explicit handler selection stays blocked");
+    panel.ViewPolicy("relative.txt", FALSE, 0xFFFFFFFF);
+    Check(!panel.ViewGatePassed, "non-full viewer path is rejected");
+    state.Enabled = false; normal.Values = {&plugin}; normal.Count = 1;
+    panel.ViewPolicy("C:\\same.txt", FALSE, 123);
+    Check(panel.ViewGatePassed != FALSE, "ordinary panel keeps its previous viewer dispatch policy");
+}
+
 int main()
 {
     CFilesWindow panel;
@@ -163,6 +306,7 @@ int main()
     Paths(panel, ordinary, L"", L"", L"", "new active Branch has no ordinary row fallback");
     Paths(panel, up, L"C:\\root", L"C:\\root\\..", L"..", "first-scan empty listing parent navigation");
 
-    std::printf("Branch panel getters: %d checks, %d failures\n", Checks, Failures);
+    NavigationTests();
+    std::printf("Branch panel getters/navigation: %d checks, %d failures\n", Checks, Failures);
     return Failures ? 1 : 0;
 }

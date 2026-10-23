@@ -1,5 +1,71 @@
 # Plán postupného portu PR #769
 
+## S27a1 — IMPLEMENTED / local validation complete (2026-10-23)
+
+S21–S26 accepted at3dc52cb6 after current-head PR35 checks; acceptance commit
+6f32c1d3. Completed the first S27 unit: core/configured external View/AltView,
+Edit and exact Open Containing Folder. Process gate remains default off;
+Enter, plugin viewers, View/Edit With and all remaining operations stay blocked.
+Missing parent preflight preserves the Branch snapshot. Successful navigation
+uses an owned wide basename to focus the real ordinary row, including a name
+of100 CJK characters/304 UTF8 bytes. No generic navigator/SDK changes.
+
+Final host x64 Debug/Release /warnaserror PASS12.58/76.84s. Actual-method native
+fixture99 checks/config PASS, original71 retained; ordinary panel/service196
+checks/config and5 released SDK class prefixes PASS; all28 source/menu groups
+PASS. Existing file-action, viewer enumeration and Unicode native suites PASS.
+Actual D/R GUI confirmed duplicate identities, viewer previous/next/refresh,
+external argv+physical CWD, exact parent focus, missing-parent preservation,
+blocked Enter/copy, normal-panel viewer and shutdown/no new reports. All16 owned
+input hashes unchanged and both private configstorage INIs restored.
+
+S27a is PARTIAL: an initial Enter trial failed for a long executable (Windows
+Security) and a long ZIP (error3). No security barrier bypass/settings change.
+That import was removed; fileswn2.cpp matches the accepted source. S27a2 must
+resolve and validate Shell/archive boundaries before enabling Enter. Later
+S27b–f/S28–S32 remain deferred. No new push, PR, CI or multi-phase goal.
+Details [S27a1](steps/S27a1.md); evidence ../evidence/S27a. Existing S26b Debug
+menu-heap limitation remains documented; this step does not claim to fix it.
+
+## S27a1 focus-name prerequisite (2026-10-23)
+
+Final caller audit found ChangePathToDisk copies UTF8 suggestedFocusName through
+backup2[MAX_PATH], and CommonRefresh compares only legacy ACP Name, missing
+NameW even with a complete UTF8 input. A real 100-CJK basename confirmed lost
+focus. Keep generic navigation unchanged: S27a1 navigates without narrow focus,
+then selects exact NameW in the resulting ordinary file list. Own the wide
+basename before navigation destroys old rows. Extract the actual method and
+test callback/owned identity; verify a real >260-byte basename in D/R GUI.
+Enter/archive launch remains a2 DEFERRED; full S27a is not DONE.
+
+## Initial S27a pre-edit boundary (superseded by S27a1/a2 split)
+
+Accepted S21–S26 at3dc52cb6; acceptance commit6f32c1d3. Import only pinned donor
+OpenBranchItemDirectory, Execute Branch full-path launch/archive branch and its
+menu/declaration/dispatch. Reuse existing S18 ViewFile/EditFile exact-path callers.
+Process opt-in remains default off. Enable only Open/standard+alternate View/Edit
+and Open Parent in the command gate. Keep all copy/move/delete/rename, file Shell/
+clipboard, drop, plugin command ranges and View/Edit With dialogs blocked.
+
+Viewer activation requires a small temporary first-matching-mask guard in the
+panel caller: permit core internal/configured external viewers only, before any
+plugin CanViewFile/ViewFile callback. Explicit handler-selection dialogs remain
+blocked; no version-based plugin capability inference. Donor launch/archive logic
+keeps exact full path and item directory; reject empty metadata before dispatch.
+Existing non-Branch behavior and S18 UTF8-first path/CWD launch helpers unchanged.
+Open Parent failure must retain Branch snapshot; success must focus exact wide
+basename in its real parent, including duplicate/long/Unicode paths.
+
+Required gates before accepting S27a: native original file-action/getter/viewer
+identity tests plus native actual parent/launch dispatch extraction with failure
+and owned argument lifetime; all current source/menu contracts; host D/R x64
+/warnaserror; actual GUI D/R internal viewer next/previous/refresh, external
+viewer/editor argv+cwd recording, Enter child, parent focus and missing parent,
+normal-panel regression, blocked unverified commands and default-off gate. Owned
+fixture hashes and private config restoration; document actual tests/limits.
+No history/tab integration, no new SDK/layout, no additional phase or push/PR.
+
+
 ## S21–S26 — ACCEPTED after PR35 CI (2026-10-23)
 
 User accepted head `3dc52cb6986f0acf0aa3de906243684e4d1b5d22` of internal draft
@@ -11,7 +77,7 @@ remains excluded by existing policy. PR35 stays open; mirror base is not merged.
 Evidence ../evidence/S27a/accepted-s21-s26-ci.json. Known Debug menu-heap diagnostic
 limitation documented in S26b remains; CI success is not an allocator-origin fix.
 
-Next independently validated unit: S27a (viewer/editor/Enter/exact parent navigation).
+Next originally selected unit: S27a; now split into completed a1 and deferred a2.
 S27b–f, S28–S32 remain deferred. Experimental activation stays process-gated/default
 off. No new push/PR is authorized by this continuation.
 

@@ -70,7 +70,10 @@ def main():
         "JOIN": block(production, "std::wstring Join("),
         "ENTRY_FULL_PATH": block(production, "std::wstring Entry::FullPath()"),
         "ORDINARY_JOIN": block(conversions, "BOOL SalPathAppendW("),
-        "CONVERSION": block(conversions, "BOOL IsValidPathUtf8Text(") + "\n" + block(conversions, "std::wstring SalMultiByteToWidePath("),
+        "CONVERSION": block(conversions, "std::string SalWideToMultiBytePath(") + "\n" + block(conversions, "BOOL IsValidPathUtf8Text(") + "\n" + block(conversions, "std::wstring SalMultiByteToWidePath("),
+        "NAVIGATION": block(production, "BOOL CFilesWindow::OpenBranchItemDirectory()"),
+        "CACHE": block(production, "const char* CFilesWindow::GetItemCacheKeyPtr(") + "\n" + block(production, "const CFileData* CFilesWindow::GetBranchViewFileByCacheKey("),
+        "VIEW_POLICY": block(read("src/fileswn5.cpp", args.source_ref).split("// S27a transition:", 1)[1], "    if (IsBranchView())"),
         "GETTERS": "\n".join(block(production, "std::wstring CFilesWindow::" + name + "(")
                             for name in ("GetItemDirectoryW", "GetItemFullPathW", "GetItemRelativePathW")),
     }
