@@ -1,5 +1,35 @@
 # Stav portu PR #769
 
+## S27a2 testovací cesty v CI (2026-10-23)
+
+Head 5806dc95 vyřešil oba původní nálezy CodeQL (instances #3/#4 fixed)
+a prošel čistým Rebuildem Win32/x64/ARM64. Selhala však nativní programová
+fixture: platné krátké cesty se odmítaly ve fázi2 s 0x8007007B.
+
+Stejné selhání bylo reprodukováno lokálně s vlastním dočasným adresářem,
+jehož vstupní cesta používá skutečný 8.3 alias. GetFinalPathNameByHandleW
+vrací dlouhý kanonický název; původní fixture proti němu porovnávala alias.
+Produkční kontrola shody v tomto případě záměrně odmítá přepis identity.
+
+Oprava je jen v branch_program_launch_tests.py: při dostupnosti se výslovně
+použije 8.3 zápis vlastního testovacího kořene, poté resolve(strict=True)
+a samefile ověří kanonickou cestu stejného vlastního adresáře. Až z ní vznikají
+pozitivní scénáře. Nový výpis zaznamenává původní, 8.3 i kanonický kořen.
+Není změněn žádný assertion, podporovaný případ, bezpečnostní kontrola,
+produkční zdroj, workflow, limit ani Windows nastavení.
+
+Před opravou vynucená 8.3 fixture selhávala; po opravě skutečný pomocník prošel
+102 kontrolami v Debug i Release (včetně PE spuštění, fyzického CWD, falešné
+identity/rodiče, traversal, MOTW integrity a odmítnutí dlouhé cesty). Všech28
+registrovaných zdrojových/menu skupin PASS. Nový lokální build hostitele ani
+GUI se pro změnu pouze testovacího Python kódu neopakovaly; fixture znovu
+kompilovala skutečný salopen a prováděla reálná spuštění v obou konfiguracích.
+
+Evidence ../evidence/S27a2-final/ci-alias-before* (očekávané selhání),
+ci-alias-after-debug*, ci-alias-after-release*, Repro-ShortTemp.py.
+Nové CI, CodeQL a čistá podporovaná sestava se spouštějí pro následující push;
+jejich dokončení nelze vyvozovat z výsledků předchozího headu.
+
 ## S27a2 oprava hranice pomocníka po CodeQL (2026-10-23)
 
 Dva nálezy cpp/path-injection v PR #37 (původní head 8f1dd145) vedly ke změně
