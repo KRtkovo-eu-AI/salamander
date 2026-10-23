@@ -476,6 +476,112 @@ static void RelativeCopyTests()
     OnAttributes=nullptr;
 }
 
+
+struct MENU_ITEM_INFO {UINT Mask=0,Type=0,ID=0,State=0;const char* String=nullptr;int ImageIndex=0;};
+static std::vector<MENU_ITEM_INFO> RecordedHostItems;
+static int MenuImages=0,MenuFonts=0;static DWORD HostMenuChoice=0;
+static int HGrayToolBarImageList=1,HHotToolBarImageList=2;
+static const char* HostLoadStr(UINT){return "localized label";}
+struct CMenuPopup {
+ void SetUsePanelContextMenuFont(BOOL enabled){MenuFonts+=enabled!=FALSE;}
+ void SetImageList(int){++MenuImages;}void SetHotImageList(int){++MenuImages;}
+ void InsertItem(int,BOOL,MENU_ITEM_INFO* item){RecordedHostItems.push_back(*item);}
+ void SetDefaultItem(UINT,BOOL){}
+ DWORD Track(UINT,int,int,HWND,void*){return HostMenuChoice;}
+};
+#define LoadStr HostLoadStr
+#define CM_BRANCH_OPENPARENT 100
+#define CM_CLIPCOPY 101
+#define CM_CLIPCUT 102
+#define CM_COPYFILES 103
+#define CM_DELETEFILES 104
+#define CM_EDIT 105
+#define CM_MOVEFILES 106
+#define CM_OPEN 107
+#define CM_PROPERTIES 108
+#define CM_VIEW 109
+#define IDS_ARCHIVEMENU_OPEN 110
+#define IDS_BRANCH_OPENPARENT 111
+#define IDS_MENU_EDIT_COPY 112
+#define IDS_MENU_EDIT_CUT 113
+#define IDS_MENU_FILES_COPY 114
+#define IDS_MENU_FILES_DELETE 115
+#define IDS_MENU_FILES_EDIT 116
+#define IDS_MENU_FILES_MOVE 117
+#define IDS_MENU_FILES_PROPERTIES 118
+#define IDS_MENU_FILES_VIEW 119
+#define IDX_TB_CLIPBOARDCOPY 120
+#define IDX_TB_CLIPBOARDCUT 121
+#define IDX_TB_COPY 122
+#define IDX_TB_DELETE 123
+#define IDX_TB_EDIT 124
+#define IDX_TB_MOVE 125
+#define IDX_TB_PARENTDIR 126
+#define IDX_TB_PROPERTIES 127
+#define IDX_TB_VIEW 128
+#define MENU_MASK_ID 2
+#define MENU_MASK_IMAGEINDEX 4
+#define MENU_MASK_STATE 8
+#define MENU_MASK_STRING 16
+#define MENU_MASK_TYPE 32
+#define MENU_STATE_GRAYED 64
+#define MENU_TRACK_RETURNCMD 128
+#define MENU_TRACK_RIGHTBUTTON 256
+#define MENU_TYPE_SEPARATOR 512
+#define MENU_TYPE_STRING 1024
+@@HOST_MENU_HELPER@@
+static void HostMenuTests(){
+ CFilesWindow panel;panel.FileRows.Count=1;panel.Caret=0;POINT pt={};
+ RecordedHostItems.clear();MenuImages=0;MenuFonts=0;HostMenuChoice=CM_CLIPCOPY;
+ Check(TrackBranchHostContextMenu(&panel,pt)==CM_CLIPCOPY,"host menu returns selected whole-selection copy command");
+ Check(RecordedHostItems.size()==12&&MenuImages==2&&MenuFonts==1,"host popup keeps10 commands,2 separators,shared images and panel font");
+ Check(RecordedHostItems[0].State==0&&RecordedHostItems[3].State==0,"focused file enables open/view/edit/parent commands");
+ panel.Caret=99;RecordedHostItems.clear();HostMenuChoice=0;
+ Check(TrackBranchHostContextMenu(&panel,pt)==0,"cancelled host menu returns no command");
+ Check(RecordedHostItems[0].State==MENU_STATE_GRAYED&&RecordedHostItems[3].State==MENU_STATE_GRAYED,"invalid focus disables focused-file commands");
+ Check(RecordedHostItems[5].State==0&&RecordedHostItems[10].State==0,"whole-selection commands remain separate from focus commands");
+}
+#undef CM_BRANCH_OPENPARENT
+#undef CM_CLIPCOPY
+#undef CM_CLIPCUT
+#undef CM_COPYFILES
+#undef CM_DELETEFILES
+#undef CM_EDIT
+#undef CM_MOVEFILES
+#undef CM_OPEN
+#undef CM_PROPERTIES
+#undef CM_VIEW
+#undef IDS_ARCHIVEMENU_OPEN
+#undef IDS_BRANCH_OPENPARENT
+#undef IDS_MENU_EDIT_COPY
+#undef IDS_MENU_EDIT_CUT
+#undef IDS_MENU_FILES_COPY
+#undef IDS_MENU_FILES_DELETE
+#undef IDS_MENU_FILES_EDIT
+#undef IDS_MENU_FILES_MOVE
+#undef IDS_MENU_FILES_PROPERTIES
+#undef IDS_MENU_FILES_VIEW
+#undef IDX_TB_CLIPBOARDCOPY
+#undef IDX_TB_CLIPBOARDCUT
+#undef IDX_TB_COPY
+#undef IDX_TB_DELETE
+#undef IDX_TB_EDIT
+#undef IDX_TB_MOVE
+#undef IDX_TB_PARENTDIR
+#undef IDX_TB_PROPERTIES
+#undef IDX_TB_VIEW
+#undef MENU_MASK_ID
+#undef MENU_MASK_IMAGEINDEX
+#undef MENU_MASK_STATE
+#undef MENU_MASK_STRING
+#undef MENU_MASK_TYPE
+#undef MENU_STATE_GRAYED
+#undef MENU_TRACK_RETURNCMD
+#undef MENU_TRACK_RIGHTBUTTON
+#undef MENU_TYPE_SEPARATOR
+#undef MENU_TYPE_STRING
+#undef LoadStr
+
 static void PropertiesTests()
 {
     CBranchViewState state;CFilesWindow panel;panel.BranchView=&state;
@@ -504,7 +610,7 @@ static void PropertiesTests()
     reset();MenuAvailable=false;PropertiesResult=E_FAIL;panel.PropertiesRoute(2,0,selected);Check(PropertiesCalls==1&&PropertiesObject.Releases==1&&RecycleErrors==1,"Properties failure releases object and reports error");
     reset();MenuAvailable=false;DataAvailable=false;panel.PropertiesRoute(2,0,selected);Check(PropertiesCalls==0&&PropertiesObject.Releases==0,"failed capture cannot invoke partial Properties");
     TestShellGate(&panel,saProperties,TRUE,FALSE);Check(ShellGatePassed,"selected Branch Properties passes direct gate");
-    for(int action:{saPermissions,saContextMenu,saLeftDragFiles,saRightDragFiles,99}){TestShellGate(&panel,action,TRUE,FALSE);Check(!ShellGatePassed,"unverified Shell action remains blocked");}
+    for(int action:{saPermissions,saLeftDragFiles,saRightDragFiles,99}){TestShellGate(&panel,action,TRUE,FALSE);Check(!ShellGatePassed,"unverified Shell action remains blocked");}
     TestShellGate(&panel,saProperties,FALSE,FALSE);Check(!ShellGatePassed,"panel-only Properties remains blocked");
     TestShellGate(&panel,saProperties,TRUE,TRUE);Check(!ShellGatePassed,"panel menu path remains blocked");
     TestShellGate(&panel,saCopyToClipboard,TRUE,FALSE);Check(ShellGatePassed,"selected Branch copy passes direct gate");
@@ -521,6 +627,8 @@ static void PropertiesTests()
     resetCopy();Check(!panel.ClipboardRoute(2,0,bad)&&ClipboardCalls==0,"invalid second row prevents partial clipboard publication");
     resetCopy();state.CacheFiles.erase(state.Items.at(b.c_str()).CacheKey);Check(!panel.ClipboardRoute(2,0,selected)&&ClipboardCalls==0,"stale second row prevents partial clipboard publication");
     state.CacheFiles[state.Items.at(b.c_str()).CacheKey]=&panel.Files->At(1);
+    TestShellGate(&panel,saContextMenu,TRUE,FALSE);Check(ShellGatePassed,"selected Branch context menu passes gate");
+    TestShellGate(&panel,saContextMenu,TRUE,TRUE);Check(!ShellGatePassed,"Branch background context menu remains blocked");
     TestShellGate(&panel,saCutToClipboard,TRUE,FALSE);Check(ShellGatePassed,"selected cut export passes gate");
     TestShellGate(&panel,saCutToClipboard,FALSE,FALSE);Check(!ShellGatePassed,"panel root cut stays blocked");
     resetCopy();Check(panel.ClipboardRoute(2,0,selected,saCutToClipboard)&&PropertiesPaths==paths&&ExportEffect==DROPEFFECT_MOVE,"cut exports entire exact selection with MOVE only");
@@ -938,7 +1046,7 @@ int wmain(int argc, wchar_t** argv)
     Paths(panel, ordinary, L"", L"", L"", "new active Branch has no ordinary row fallback");
     Paths(panel, up, L"C:\\root", L"C:\\root\\..", L"..", "first-scan empty listing parent navigation");
 
-    try { DropParentTests(); PropertiesTests(); RecycleQueueTests(); NotificationTests(); RelativeCopyTests(); CopySourceTests(); RenameMetadataTests(); }
+    try { HostMenuTests(); DropParentTests(); PropertiesTests(); RecycleQueueTests(); NotificationTests(); RelativeCopyTests(); CopySourceTests(); RenameMetadataTests(); }
     catch (const std::exception& error) { Check(false,error.what()); }
     NavigationTests();
     ArchiveReadTests(argv[1]);

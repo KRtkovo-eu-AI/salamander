@@ -74,9 +74,10 @@ def main():
     properties = shell[shell.index("    case saProperties:"):]
     properties_begin = properties.index("                IContextMenu2* menu = CreatePanelShellMenu")
     properties_end = properties.index("                if (menu != NULL)", properties_begin)
-    gate_begin = shell.index("    // S27d3a: selected Properties")
+    gate_begin = shell.index("    // S27d4: selected Properties")
     gate_end = shell.index("    CALL_STACK_MESSAGE5", gate_begin)
     pieces = {
+        "HOST_MENU_HELPER": block(shell,"static DWORD TrackBranchHostContextMenu("),
         "DROP_PARENT": block(builder,"static std::string GetDropSourceDirectory("),
         "CUT_DIRECTORY": block(read("src/salamdr1.cpp",args.source_ref),"BOOL CutDirectory("),
         "CUT_MARK": block(shell[shell.index("    case saCopyToClipboard:"):], "                    if (action != saCopyToClipboard)"),

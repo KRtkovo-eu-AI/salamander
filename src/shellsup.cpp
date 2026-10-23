@@ -1693,8 +1693,8 @@ static DWORD TrackBranchHostContextMenu(CFilesWindow* panel, const POINT& pt)
 void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                  BOOL posByMouse, BOOL onlyPanelMenu)
 {
-    // S27d3a: selected Properties and clipboard export are verified for Branch Shell dispatch.
-    if (panel->IsBranchView() && ((action != saProperties && action != saCopyToClipboard && action != saCutToClipboard) || !useSelection || onlyPanelMenu)) return;
+    // S27d4: selected Properties, clipboard export and context menu are verified for Branch Shell dispatch.
+    if (panel->IsBranchView() && ((action != saProperties && action != saCopyToClipboard && action != saCutToClipboard && action != saContextMenu) || !useSelection || onlyPanelMenu)) return;
 
     CALL_STACK_MESSAGE5("ShellAction(, %d, %d, %d, %d)", action, useSelection, posByMouse, onlyPanelMenu);
     if (panel->QuickSearchMode)
@@ -2541,7 +2541,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                         {
 #endif // _WIN64
                             panel->ContextMenu = CreatePanelShellMenu(MainWindow->HWindow, panel->GetPath(), (count == 0) ? 1 : count,
-                                                                     EnumFileNames, &selectionEnumData);
+                                                                     EnumFileNames, &selectionEnumData, TRUE);
 #ifndef _WIN64
                         }
 #endif // _WIN64

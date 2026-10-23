@@ -8,6 +8,43 @@ ROOT = Path(__file__).resolve().parents[1]
 def source(name):
     return (ROOT / name).read_text(encoding='utf-8-sig')
 class BranchOperationsContracts(unittest.TestCase):
+    def test_unsupported_shell_menu_falls_back_to_complete_host_selection(self):
+        text = source('shellsup.cpp')
+        helper = text[text.index('static DWORD TrackBranchHostContextMenu('):text.index('void ShellAction(CFilesWindow* panel,')]
+        for command in ('CM_OPEN', 'CM_VIEW', 'CM_EDIT', 'CM_BRANCH_OPENPARENT', 'CM_COPYFILES', 'CM_MOVEFILES', 'CM_DELETEFILES', 'CM_CLIPCUT', 'CM_CLIPCOPY', 'CM_PROPERTIES'):
+            self.assertIn('append(' + command + ',', helper)
+        self.assertIn('SetImageList(HGrayToolBarImageList)', helper)
+        self.assertIn('SetHotImageList(HHotToolBarImageList)', helper)
+        self.assertNotIn('SetSel(', helper)
+        self.assertNotIn('GetUIObjectOf', helper)
+        action = text[text.index('void ShellAction(CFilesWindow* panel,'):text.index('const char* ReturnNameFromParam')]
+        self.assertIn('EnumFileNames, &selectionEnumData, TRUE)', action)
+        self.assertIn('&selectionEnumData, TRUE)', action)
+        fallback = action.index('else if (panel->IsBranchView() && useSelection && !onlyPanelMenu)')
+        self.assertIn('deferredBranchCommand = TrackBranchHostContextMenu(panel, pt)', action[fallback:fallback + 250])
+        retry = action.index('incomplete shell context menu, retrying QueryContextMenu')
+        self.assertLess(action.index('if (panel->ContextMenu != NULL && h != NULL)', retry), fallback)
+        dispatch = action.index('if (deferredBranchCommand != 0)')
+        self.assertLess(action.index('ShellActionAux6(panel)'), dispatch)
+        self.assertLess(action.rindex('EndStopRefresh();'), dispatch)
+        self.assertLess(action.index('MainWindow->FocusPanel(panel)', dispatch), action.index('MainWindow->RefreshCommandStates()', dispatch))
+        self.assertLess(action.index('MainWindow->RefreshCommandStates()', dispatch), action.index('SendMessage(MainWindow->HWindow, WM_COMMAND, deferredBranchCommand', dispatch))
+
+    def test_branch_context_menu_routes_containing_folder_outside_shell(self):
+        text = source('shellsup.cpp')
+        part = text[text.index('    case saContextMenu:'):text.index('const char* ReturnNameFromParam')]
+        self.assertIn('branchOpenParentCommand = 10002', part)
+        insertion = part[part.index('if (useSelection && !onlyPanelMenu && panel->IsBranchView()'):part.index('if (GetMenuItemCount(h) > 0) // protection')]
+        self.assertIn('panel->GetCaretIndex() >= panel->Dirs->Count', insertion)
+        self.assertIn('LoadStr(IDS_BRANCH_OPENPARENT)', insertion)
+        self.assertIn('AppendMenuW(h, MF_STRING | MF_ENABLED, branchOpenParentCommand', insertion)
+        dispatch = part.index('if (cmd == branchOpenParentCommand)')
+        self.assertLess(dispatch, part.index('IsWindows11CompressedFolderCommand(h, cmd)'))
+        self.assertIn('openBranchParent = TRUE;', part[dispatch:dispatch + 240])
+        self.assertIn('cmd = 0;', part[dispatch:dispatch + 240])
+        self.assertLess(part.index('ShellActionAux6(panel)'), part.index('panel->OpenBranchItemDirectory()'))
+        self.assertLess(part.index('DestroyMenu(h);', part.index('ShellActionAux6(panel)')), part.index('panel->OpenBranchItemDirectory()'))
+
     def test_initial_view_and_edit_use_owned_wide_full_path(self):
         text = source('fileswn5.cpp')
         for first, last in [('void CFilesWindow::ViewFile(', 'void CFilesWindow::ViewFileInt('), ('void CFilesWindow::EditFile(', 'void CFilesWindow::FillEditWithMenu')]:

@@ -1,5 +1,32 @@
 # Plán postupného portu PR #769
 
+## S27d4 completed locally (2026-10-24)
+
+Selected context menu enabled: one-parent selections use existing exact-wide Shell
+menu; mixed parents retain the entire selection and use pinned donor host fallback.
+Containing-folder command never reaches a Shell handler. Deferred fallback command
+runs synchronously on source panel after Shell release and EndStopRefresh. Background/
+collection-root and arbitrary plugin command ranges remain gated, activation off.
+
+D/R host/dependencies /warnaserror PASS15.38s/74.01s; native actual-method/menu harness
+327/config PASS; real Shell fixture33/config and all28 source/menu groups PASS.
+Actual D/R mixed menu Properties reports6 files/Various Folders216/228 bytes. Single
+long Unicode Shell menu, Escape and Open Containing Folder into deep ordinary panel
+with correct long filename focus PASS.12 source hashes/sentinel unchanged, private
+INIs restored, clean exits, LongPathsEnabled=0. No system/security settings changed.
+See [S27d4](steps/S27d4.md), evidence ../evidence/S27d4. No publication/remote CI.
+Goal continues with S27d5, split drag source/destination by actual dependencies.
+
+## S27d4 scope before import (2026-10-24)
+
+Import donor TrackBranchHostContextMenu, scoped same-parent containing-folder item,
+quiet selected menu capture, mixed-parent fallback and synchronous deferred host
+command dispatch after Shell release/EndStopRefresh. Enable only selected context
+menu, not collection-root/background menu or arbitrary plugin command ranges.
+Native actual menu/gate tests, donor source contracts, D/R host build and actual
+GUI same-parent Shell/mixed-parent host menu, Cancel and whole-selection command.
+No publication authorized. S27d5 drag/drop remains the next separate unit.
+
 ## S27d3b completed locally (2026-10-24)
 
 Paste from Branch clipboard into an explicit ordinary disk destination is verified.
