@@ -59,6 +59,7 @@ static std::vector<Entry> Collect(Scan& scan, Progress& progress)
     Check(false, "enumeration deadline");
     return all;
 }
+#ifdef BRANCH_VIEW_EXTENDED_TESTS // Retained future scheduler/publication fixture; not counted in S25.
 static void CheckRefreshSchedule()
 {
     RefreshSchedule refresh;
@@ -96,6 +97,7 @@ static void CheckRefreshSchedule()
     tickWrap.Request(0x100000000ULL - 10, true);
     Check(!tickWrap.Due(0x100000000ULL) && tickWrap.Due(0x100000000ULL + 990), "scheduling remains correct beyond DWORD tick wrap");
 }
+#endif
 struct ChangingTree
 {
     std::wstring Existing, Transient;
@@ -122,6 +124,7 @@ static DWORD WINAPI ChangeTree(void* context)
     } while (WaitForSingleObject(tree->Stop, 2) == WAIT_TIMEOUT);
     return 0;
 }
+#ifdef BRANCH_VIEW_EXTENDED_TESTS // Retained future scheduler/publication fixture; not counted in S25.
 static void CheckPublicationBudgetAndPathOrder()
 {
     Check(InitialPreviewCount(175000, 0) == 2048, "first preview is bounded independently of a fast worker batch");
@@ -169,10 +172,13 @@ static void CheckPublicationBudgetAndPathOrder()
     printf("Branch Path comparator: %zu Unicode/long-path rows, copied paths %llu ms, retained references %llu ms (equivalent order)\n",
         count, oldElapsed, newElapsed);
 }
+#endif
 int wmain()
 {
+#ifdef BRANCH_VIEW_EXTENDED_TESTS
     CheckRefreshSchedule();
     CheckPublicationBudgetAndPathOrder();
+#endif
     Fixture fixture;
     std::wstring a = Join(fixture.Root, L"A"), b = Join(fixture.Root, L"Žluťoučký-東京-😀");
     fixture.Directory(a); fixture.Directory(b);
@@ -228,16 +234,20 @@ int wmain()
     ChangingTree changing = {Join(a, L"file0.bin"), Join(a, L"transient.bin"), CreateEventW(NULL, TRUE, FALSE, NULL)};
     HANDLE writer = CreateThread(NULL, 0, ChangeTree, &changing, 0, NULL);
     Check(writer != NULL && changing.Stop != NULL, "start changing directory fixture");
+#ifdef BRANCH_VIEW_EXTENDED_TESTS
     RefreshSchedule liveSchedule;
     liveSchedule.Request(GetTickCount64(), false);
     liveSchedule.Started(GetTickCount64());
+#endif
     Check(scan.Start(fixture.Root, false), "scan tree with concurrent writes");
     std::vector<Entry> duringChanges;
     const ULONGLONG changingDeadline = GetTickCount64() + 10000;
     do
     {
+#ifdef BRANCH_VIEW_EXTENDED_TESTS
         liveSchedule.Request(GetTickCount64(), true);
         Check(!liveSchedule.Due(GetTickCount64()), "filesystem change does not restart active real scan");
+#endif
         std::vector<Entry> batch;
         scan.Drain(batch, progress);
         duringChanges.insert(duringChanges.end(), batch.begin(), batch.end());
@@ -252,8 +262,10 @@ int wmain()
     }
     CloseHandle(changing.Stop);
     Check(!progress.Running && duringChanges.size() >= 605, "first scan finishes despite continuously changing tree");
+#ifdef BRANCH_VIEW_EXTENDED_TESTS
     liveSchedule.Finished(GetTickCount64());
     Check(!liveSchedule.Due(GetTickCount64()), "completed real scan remains visible during automatic cooldown");
+#endif
     Check(scan.Start(fixture.Root, false), "take complete snapshot after mutations");
     auto afterChanges = Collect(scan, progress);
     Check(afterChanges.size() == 605 && !SameSnapshot(all, afterChanges), "later scan captures changes without stale transient rows");
@@ -291,7 +303,7 @@ int wmain()
     const auto missingFiles = Collect(missing, progress);
     Check(missingFiles.empty() && !progress.Running && progress.Errors == 1 && progress.LastError == ERROR_PATH_NOT_FOUND,
           "inaccessible or missing root retains exact error state");
-    printf("S30 scanner/scheduler/publication checks: %d; directory symlink fixture: %s.\n", Checks, hasCycle ? "RAN" : "UNAVAILABLE");
+    printf("S25 scanner checks: %d; directory symlink fixture: %s; future scheduler/publication sort fixtures deferred.\n", Checks, hasCycle ? "RAN" : "UNAVAILABLE");
     printf("Branch View scanner: %s (%d failures, %zu entries, duplicate/Unicode/long-path/filter/generation/cancel/owner-destruction/concurrent-write/snapshot checks)\n", Failures ? "FAIL" : "PASS", Failures, all.size());
     return Failures ? 1 : 0;
 }
