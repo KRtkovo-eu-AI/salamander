@@ -43,7 +43,7 @@ def main():
                 [str(executable), str(broker), str(output)]]
             print("Actual program broker:", config, flush=True)
             for command in commands:
-                result = run(command, cwd=(ROOT / "src/salopen") if command[0] == resource_compiler else output, env=env, timeout=45)
+                result = run(command, cwd=(ROOT / "src/salopen") if command[0] == resource_compiler else output, env=env, timeout=75)
                 if result.returncode: return result.returncode
     return 0
 

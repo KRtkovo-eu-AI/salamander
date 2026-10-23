@@ -1,5 +1,36 @@
 # S27a2 — bezpečné oddělení programů a dokumentů
 
+## S27a2 oprava hranice pomocníka po CodeQL (2026-10-23)
+
+Dva nálezy cpp/path-injection v PR #37 (původní head 8f1dd145) vedly ke změně
+soukromého protokolu na v3. Host otevře přesný vybraný soubor se zachovaným
+read lockem a jeho adresář. Jen tyto dva handly zdědí pozastavený pomocník
+přes explicitní PROC_THREAD_ATTRIBUTE_HANDLE_LIST. Host před ResumeThread
+uvolní svoje kopie; pomocník drží zámek do stejné závěrečné hranice Windows Execute.
+
+Pomocník zkopíruje požadavek do vlastní paměti a ověřuje stabilní kopii. Cestu
+ze sdíleného paketu již nepředává do CreateFileW. Windows GetFinalPathNameByHandleW
+vrací skutečné cesty připnutých objektů; ověřujeme přesný název, komponentovou
+hranici rodiče a fyzický CWD pomocí file ID. Starý paket je odmítnut novým magic
+a kontrolou velikosti. Reparse/aliasové podoby, které se neshodují s výslednou
+kanonickou cestou, nejsou přepisovány: končí bezpečným odmítnutím.
+
+PE typ, saved-file-aware zóna, CheckPolicy i konečné IAttachmentExecute::Execute
+zůstávají povinné. Žádné potlačení CodeQL, přidání výjimky, filtrování pravidla,
+změna registru ani náhradní spuštění. LongPathsEnabled stále 0.
+
+Lokálně: host/salopen Debug i Release x64 s /warnaserror PASS; broker nyní
+102 kontrol/config včetně podvrženého souboru, špatného rodiče, úniku z adresáře,
+traversal/ADS/UNC a původních skutečných spouštění/MOTW testů. Branch getters
+186/config, běžné panely 196/config + 5 SDK prefixů, všech 28 zdrojových/menu
+skupin PASS. Nativní testy běžely odděleně D/R; timeout jednoho procesu je
+75 s a celková brána 95 s. Původní 45s limit při prvním běhu Release vypršel;
+tento běh není počítán jako PASS. Aktuální oddělené běhy prošly.
+
+Nové CodeQL a čistý Rebuild celé podporované sestavy budou ověřeny pro nový
+push; lokální testy nejsou důkazem uzavření vzdálených nálezů. Evidence
+../evidence/S27a2-final/codeql-fix-*. Starší výsledky níže patří původní revizi.
+
 ## Výsledek a změna akceptačního rozsahu
 
 Dokončeno lokálně podle výslovného zadání uživatele z 2026-10-23: zachovat
@@ -135,3 +166,7 @@ Windows broker a diagnostika jsou místní integrační oprava. Koncept oddělen
 programů/dokumentů vychází z dříve připnutého srovnání FAR/Files. Žádný jejich
 produkční zdroj ani fallback řetězec nebyl importován. Kredit je v third_party.md
 a mapa převzetí v REUSE.tsv. Zdrojové piny ani původní PR se nemění.
+
+CodeQL-fix GUI smoke: actual Release host Enter launched the pinned ASCII PE;
+child module and physical CWD identities verified. Normal shutdown, no owned
+host/reporter/new report; private INI restored and all14 input hashes unchanged.

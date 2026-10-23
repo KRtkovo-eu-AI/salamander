@@ -58,6 +58,22 @@ int wmain(int argc,wchar_t**argv){
    Check(source.size()>=MAX_PATH&&GetFileAttributesW(Native(result).c_str())==INVALID_FILE_ATTRIBUTES,"unsupported UTF16-long launch is explicitly rejected without a child");
   }
  }
+ // A packet cannot redirect its pinned program or escape its pinned directory.
+ auto rejectPinned=[&](const std::wstring& claimed,const std::wstring& actual,const std::wstring& folder,HRESULT expected){
+  HANDLE file=CreateFileW(Native(actual).c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);
+  HANDLE dir=CreateFileW(Native(folder).c_str(),0,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS,nullptr);
+  Check(file!=INVALID_HANDLE_VALUE&&dir!=INVALID_HANDLE_VALUE,"open owned pins for hostile request test");
+  DWORD stage=0;HRESULT hr=Execute(owner,claimed.c_str(),&stage,&file,dir);
+  Check(hr==expected&&stage==2,"mismatched pinned source/directory rejected before Windows execution");
+  if(file!=INVALID_HANDLE_VALUE)CloseHandle(file);if(dir!=INVALID_HANDLE_VALUE)CloseHandle(dir);
+ };
+ rejectPinned(root+L"\\other.exe",root+L"\\ascii.exe",root,HRESULT_FROM_WIN32(ERROR_INVALID_NAME));
+ rejectPinned(root+L"\\ascii.exe",root+L"\\ascii.exe",unicode,HRESULT_FROM_WIN32(ERROR_DIRECTORY));
+ rejectPinned(root+L"\\with spaces\\space name.exe",spaces+L"\\space name.exe",root,HRESULT_FROM_WIN32(ERROR_DIRECTORY));
+ const wchar_t* validated=nullptr;DWORD validatedLength=0;
+ Check(FAILED(ValidateSource(L"C:\\safe\\..\\outside.exe",validated,validatedLength)),"traversal component rejected before any host file open");
+ Check(FAILED(ValidateSource(L"C:\\safe\\program.exe:stream.exe",validated,validatedLength)),"alternate data stream rejected before any host file open");
+ Check(FAILED(ValidateSource(L"\\\\server\\share\\program.exe",validated,validatedLength)),"UNC source rejected before any host file open");
  // A saved Internet origin must never be relabeled as a local executable.
  std::wstring source=root+L"\\blocked.exe";bool blockedCopy=CopyFileW(module.data(),Native(source).c_str(),TRUE)!=FALSE;Check(blockedCopy,"create separate owned PE for saved-origin checks");if(!blockedCopy)return 4;created.push_back(source);std::wstring zone=source+L":Zone.Identifier",result=root+L"\\blocked";
  const char marker[]="[ZoneTransfer]\r\nZoneId=3\r\n";HANDLE z=CreateFileW(Native(zone).c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,0,nullptr);DWORD n=0;Check(z!=INVALID_HANDLE_VALUE,"create owned Internet-origin marker");if(z!=INVALID_HANDLE_VALUE){WriteFile(z,marker,sizeof(marker)-1,&n,nullptr);CloseHandle(z);SetEnvironmentVariableW(L"S27_PROGRAM_CAPTURE",result.c_str());HRESULT hr=Launch(owner,source,parents[0],broker);SetEnvironmentVariableW(L"S27_PROGRAM_CAPTURE",nullptr);Check(FAILED(hr)&&GetFileAttributesW(Native(result).c_str())==INVALID_FILE_ATTRIBUTES,"Internet-origin executable is not downgraded to local or started");char data[64];z=CreateFileW(Native(zone).c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);n=0;if(z!=INVALID_HANDLE_VALUE){ReadFile(z,data,sizeof(data),&n,nullptr);CloseHandle(z);}Check(n==sizeof(marker)-1&&std::string(data,n)==marker,"original Zone.Identifier remains byte-identical");DeleteFileW(Native(zone).c_str());}

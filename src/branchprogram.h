@@ -11,7 +11,7 @@
 // Private host/salopen protocol. The selected program is never passed to raw
 // CreateProcess: Attachment Services owns authorization AND actual execution.
 namespace Salamander { namespace BranchProgram {
-const DWORD Magic = 0x32504742;
+const DWORD Magic = 0x33504742;
 const DWORD MaxSourceChars = 32767;
 struct Request
 {
@@ -21,6 +21,8 @@ struct Request
     HRESULT Result;
     DWORD Stage;
     ULONG_PTR Owner;
+    ULONG_PTR File;
+    ULONG_PTR Directory;
     // SourceChars UTF16 characters and a terminating NUL follow this header.
 };
 inline bool IsProgram(const wchar_t* source)
@@ -46,22 +48,45 @@ inline bool SameObject(HANDLE first, HANDLE second)
            a.dwVolumeSerialNumber == b.dwVolumeSerialNumber &&
            a.nFileIndexHigh == b.nFileIndexHigh && a.nFileIndexLow == b.nFileIndexLow;
 }
-inline HRESULT Execute(HWND owner, const wchar_t* source, DWORD* stage = NULL)
+#ifdef SALAMANDER_BRANCHPROGRAM_CLIENT
+struct OwnedHandle
 {
-    if (stage != NULL) *stage = 1;
+    HANDLE Value;
+    explicit OwnedHandle(HANDLE value) : Value(value) {}
+    ~OwnedHandle() { Reset(); }
+    void Reset() { if (Value != NULL && Value != INVALID_HANDLE_VALUE) CloseHandle(Value); Value = INVALID_HANDLE_VALUE; }
+private:
+    OwnedHandle(const OwnedHandle&);
+    OwnedHandle& operator=(const OwnedHandle&);
+};
+#endif
+inline HRESULT ValidateSource(const wchar_t* source, const wchar_t*& plain, DWORD& length)
+{
     if (!IsProgram(source)) return HRESULT_FROM_WIN32(ERROR_BAD_EXE_FORMAT);
-    const wchar_t* plain = source;
+    plain = source;
     if (source[0] == L'\\' && source[1] == L'\\' && source[2] == L'?' && source[3] == L'\\') plain += 4;
     // No UNC, device, stream, relative or Shell-normalized alternative identity.
     if (!((plain[0] >= L'A' && plain[0] <= L'Z') || (plain[0] >= L'a' && plain[0] <= L'z')) ||
         plain[1] != L':' || plain[2] != L'\\') return HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED);
-    DWORD length = 0;
+    length = 0;
     while (plain[length] != 0 && length <= MaxSourceChars) ++length;
     if (length > MaxSourceChars) return HRESULT_FROM_WIN32(ERROR_FILENAME_EXCED_RANGE);
     for (DWORD i = 3; i < length; ++i)
         if (plain[i] < L' ' || plain[i] == L':' || plain[i] == L'/' || plain[i] == L'%' || plain[i] == L'#' ||
             ((plain[i] == L'.' || plain[i] == L' ') && (i + 1 == length || plain[i + 1] == L'\\')))
             return HRESULT_FROM_WIN32(ERROR_INVALID_NAME);
+    return S_OK;
+}
+inline HRESULT Execute(HWND owner, const wchar_t* source, DWORD* stage = NULL,
+                       HANDLE* selectedFile = NULL, HANDLE selectedDirectory = INVALID_HANDLE_VALUE)
+{
+    HANDLE file = selectedFile == NULL ? INVALID_HANDLE_VALUE : *selectedFile;
+    HANDLE expectedDirectory = selectedDirectory;
+    if (stage != NULL) *stage = 1;
+    const wchar_t* plain = NULL;
+    DWORD length = 0;
+    const HRESULT syntax = ValidateSource(source, plain, length);
+    if (FAILED(syntax)) return syntax;
     wchar_t* native = (wchar_t*)HeapAlloc(GetProcessHeap(), 0, (length + 5) * sizeof(wchar_t));
     wchar_t* parent = (wchar_t*)HeapAlloc(GetProcessHeap(), 0, (length + 5) * sizeof(wchar_t));
     wchar_t* current = (wchar_t*)HeapAlloc(GetProcessHeap(), 0, (MaxSourceChars + 1) * sizeof(wchar_t));
@@ -72,13 +97,7 @@ inline HRESULT Execute(HWND owner, const wchar_t* source, DWORD* stage = NULL)
         if (current != NULL) HeapFree(GetProcessHeap(), 0, current);
         return E_OUTOFMEMORY;
     }
-    native[0] = native[1] = L'\\'; native[2] = L'?'; native[3] = L'\\';
-    for (DWORD i = 0; i <= length; ++i) native[i + 4] = plain[i];
-    for (DWORD i = 0; i <= length + 4; ++i) parent[i] = native[i];
-    DWORD slash = length + 3;
-    while (slash > 6 && parent[slash] != L'\\') --slash;
-    parent[slash == 6 ? 7 : slash] = 0;
-    HANDLE file = INVALID_HANDLE_VALUE, expectedDirectory = INVALID_HANDLE_VALUE, actualDirectory = INVALID_HANDLE_VALUE;
+    HANDLE actualDirectory = INVALID_HANDLE_VALUE;
     IInternetSecurityManager* security = NULL;
     IAttachmentExecute* attachment = NULL;
     HANDLE child = NULL;
@@ -86,17 +105,41 @@ inline HRESULT Execute(HWND owner, const wchar_t* source, DWORD* stage = NULL)
     do
     {
         if (stage != NULL) *stage = 2;
-        file = CreateFileW(native, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
-        if (file == INVALID_HANDLE_VALUE) { result = LastErrorResult(); break; }
+        // The host pins the selected objects before starting this helper. Paths
+        // from the shared packet are comparisons only, never file-open inputs.
+        if (file == NULL || file == INVALID_HANDLE_VALUE ||
+            expectedDirectory == NULL || expectedDirectory == INVALID_HANDLE_VALUE ||
+            GetFileType(file) != FILE_TYPE_DISK || GetFileType(expectedDirectory) != FILE_TYPE_DISK)
+        { result = HRESULT_FROM_WIN32(ERROR_INVALID_HANDLE); break; }
+        BY_HANDLE_FILE_INFORMATION selectedInfo;
+        if (!GetFileInformationByHandle(file, &selectedInfo) ||
+            (selectedInfo.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+        { result = HRESULT_FROM_WIN32(ERROR_BAD_EXE_FORMAT); break; }
+        const DWORD finalLength = GetFinalPathNameByHandleW(file, native, length + 5, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+        const DWORD parentLength = GetFinalPathNameByHandleW(expectedDirectory, parent, length + 5, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+        if (parentLength == 0 || parentLength >= length + 5)
+        { result = HRESULT_FROM_WIN32(ERROR_DIRECTORY); break; }
+        if (finalLength == 0 || finalLength >= length + 5 ||
+            finalLength < 4 || native[0] != L'\\' || native[1] != L'\\' || native[2] != L'?' || native[3] != L'\\' ||
+            finalLength != length + 4 || CompareStringOrdinal(native + 4, (int)length, plain, (int)length, TRUE) != CSTR_EQUAL)
+        { result = HRESULT_FROM_WIN32(ERROR_INVALID_NAME); break; }
+        // Exact component boundary, not a textual directory-prefix allowance.
+        DWORD parentEnd = parentLength;
+        if (parentEnd != 0 && parent[parentEnd - 1] == L'\\') --parentEnd;
+        DWORD fileParentEnd = finalLength;
+        while (fileParentEnd != 0 && native[fileParentEnd - 1] != L'\\') --fileParentEnd;
+        if (fileParentEnd == 0 || fileParentEnd - 1 != parentEnd ||
+            CompareStringOrdinal(native, (int)parentEnd, parent, (int)parentEnd, TRUE) != CSTR_EQUAL)
+        { result = HRESULT_FROM_WIN32(ERROR_DIRECTORY); break; }
+        // Use only the kernel-resolved identity for binary and Windows trust APIs.
+        plain = native + 4;
         DWORD binaryType;
         if (!GetBinaryTypeW(native, &binaryType)) { result = LastErrorResult(); break; }
         if (binaryType != SCS_32BIT_BINARY && binaryType != SCS_64BIT_BINARY)
         { result = HRESULT_FROM_WIN32(ERROR_BAD_EXE_FORMAT); break; }
         if (stage != NULL) *stage = 3;
-        expectedDirectory = CreateFileW(parent, 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                                        NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
         const DWORD count = GetCurrentDirectoryW(MaxSourceChars + 1, current);
-        if (expectedDirectory == INVALID_HANDLE_VALUE || count == 0 || count > MaxSourceChars)
+        if (count == 0 || count > MaxSourceChars)
         { result = HRESULT_FROM_WIN32(ERROR_DIRECTORY); break; }
         actualDirectory = CreateFileW(current, 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                                       NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
@@ -140,7 +183,7 @@ inline HRESULT Execute(HWND owner, const wchar_t* source, DWORD* stage = NULL)
         // Windows trust services may annotate or quarantine the file. Release
         // our read lock for their final validation; this is not an atomic file
         // system transaction and no alternate execution follows a failure.
-        CloseHandle(file); file = INVALID_HANDLE_VALUE;
+        CloseHandle(file); file = INVALID_HANDLE_VALUE; *selectedFile = INVALID_HANDLE_VALUE;
         result = attachment->Execute(owner, L"open", &child);
         if (SUCCEEDED(result) && (result != S_OK || child == NULL)) result = E_FAIL;
     } while (false);
@@ -148,8 +191,6 @@ inline HRESULT Execute(HWND owner, const wchar_t* source, DWORD* stage = NULL)
     if (attachment != NULL) attachment->Release();
     if (security != NULL) security->Release();
     if (actualDirectory != INVALID_HANDLE_VALUE) CloseHandle(actualDirectory);
-    if (expectedDirectory != INVALID_HANDLE_VALUE) CloseHandle(expectedDirectory);
-    if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
     HeapFree(GetProcessHeap(), 0, current);
     HeapFree(GetProcessHeap(), 0, parent);
     HeapFree(GetProcessHeap(), 0, native);
@@ -168,17 +209,35 @@ inline DWORD Receive(DWORD processId, HANDLE remoteMapping, DWORD bytes)
     Request* request = (Request*)MapViewOfFile(mapping, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, bytes);
     if (request == NULL) { CloseHandle(mapping); return ERROR_INVALID_DATA; }
     DWORD result = ERROR_INVALID_DATA;
-    if (request->Signature == Magic && request->Bytes == bytes && request->SourceChars <= MaxSourceChars &&
-        bytes == sizeof(Request) + (request->SourceChars + 1) * sizeof(wchar_t))
+    // Snapshot once before interpreting the writable cross-process packet.
+    Request* packet = (Request*)HeapAlloc(GetProcessHeap(), 0, bytes);
+    if (packet != NULL)
     {
-        const wchar_t* source = (const wchar_t*)(request + 1);
-        DWORD length = 0;
-        while (length < request->SourceChars && source[length] != 0) ++length;
-        if (length == request->SourceChars && source[length] == 0)
+        const BYTE* input = (const BYTE*)request;
+        BYTE* output = (BYTE*)packet;
+        for (DWORD i = 0; i < bytes; ++i) output[i] = input[i];
+        if (packet->Signature == Magic && packet->Bytes == bytes && packet->SourceChars <= MaxSourceChars &&
+            bytes == sizeof(Request) + (packet->SourceChars + 1) * sizeof(wchar_t))
         {
-            request->Result = Execute((HWND)request->Owner, source, &request->Stage);
-            result = ERROR_SUCCESS;
+            const wchar_t* source = (const wchar_t*)(packet + 1);
+            DWORD length = 0;
+            while (length < packet->SourceChars && source[length] != 0) ++length;
+            if (length == packet->SourceChars && source[length] == 0 && packet->File != packet->Directory)
+            {
+                // Only these two handles were explicitly inherited. Do not let a
+                // target process inherit them. Receive closes every remaining pin.
+                HANDLE file = (HANDLE)packet->File, directory = (HANDLE)packet->Directory;
+                SetHandleInformation(file, HANDLE_FLAG_INHERIT, 0);
+                SetHandleInformation(directory, HANDLE_FLAG_INHERIT, 0);
+                packet->Result = Execute((HWND)packet->Owner, source, &packet->Stage, &file, directory);
+                if (file != NULL && file != INVALID_HANDLE_VALUE) CloseHandle(file);
+                if (directory != NULL && directory != INVALID_HANDLE_VALUE) CloseHandle(directory);
+                request->Stage = packet->Stage;
+                request->Result = packet->Result;
+                result = ERROR_SUCCESS;
+            }
         }
+        HeapFree(GetProcessHeap(), 0, packet);
     }
     UnmapViewOfFile(request);
     CloseHandle(mapping);
@@ -193,12 +252,28 @@ inline HRESULT Launch(HWND owner, const std::wstring& source, const std::wstring
 {
     if (!IsWindow(owner) || source.empty() || source.size() > MaxSourceChars || directory.empty() || helper.empty())
         return E_INVALIDARG;
+    const wchar_t* plain = NULL;
+    DWORD sourceLength = 0;
+    const HRESULT syntax = ValidateSource(source.c_str(), plain, sourceLength);
+    if (FAILED(syntax)) return syntax;
     const DWORD bytes = (DWORD)(sizeof(Request) + (source.size() + 1) * sizeof(wchar_t));
     HANDLE mapping = CreateFileMappingW(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, bytes, NULL);
     if (mapping == NULL) return LastErrorResult();
     Request* request = (Request*)MapViewOfFile(mapping, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, bytes);
     if (request == NULL) { const HRESULT error = LastErrorResult(); CloseHandle(mapping); return error; }
     request->Bytes = bytes; request->Signature = Magic; request->SourceChars = (DWORD)source.size();
+    SECURITY_ATTRIBUTES attributes = {sizeof(attributes), NULL, TRUE};
+    const std::wstring nativeSource = source.compare(0, 4, L"\\\\?\\") == 0 ? source : L"\\\\?\\" + source;
+    OwnedHandle file(CreateFileW(nativeSource.c_str(), GENERIC_READ, FILE_SHARE_READ,
+        &attributes, OPEN_EXISTING, 0, NULL));
+    if (file.Value == INVALID_HANDLE_VALUE)
+    { const HRESULT error = LastErrorResult(); UnmapViewOfFile(request); CloseHandle(mapping); return error; }
+    const std::wstring nativeDirectory = directory.compare(0, 4, L"\\\\?\\") == 0 ? directory : L"\\\\?\\" + directory;
+    OwnedHandle folder(CreateFileW(nativeDirectory.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        &attributes, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL));
+    if (file.Value == INVALID_HANDLE_VALUE || folder.Value == INVALID_HANDLE_VALUE)
+    { const HRESULT error = LastErrorResult(); UnmapViewOfFile(request); CloseHandle(mapping); return error; }
+    request->File = (ULONG_PTR)file.Value; request->Directory = (ULONG_PTR)folder.Value;
     request->Stage = 0;
     request->Result = E_PENDING; request->Owner = (ULONG_PTR)GetAncestor(owner, GA_ROOT);
     wchar_t* text = (wchar_t*)(request + 1);
@@ -206,12 +281,31 @@ inline HRESULT Launch(HWND owner, const std::wstring& source, const std::wstring
     std::wstring command = L"\"" + helper + L"\" --branch-program " +
         std::to_wstring(GetCurrentProcessId()) + L" " + std::to_wstring((ULONG_PTR)mapping) +
         L" " + std::to_wstring(bytes);
-    STARTUPINFOW startup = {}; startup.cb = sizeof(startup);
+    SIZE_T attributeBytes = 0;
+    InitializeProcThreadAttributeList(NULL, 1, 0, &attributeBytes);
+    LPPROC_THREAD_ATTRIBUTE_LIST list = (LPPROC_THREAD_ATTRIBUTE_LIST)HeapAlloc(GetProcessHeap(), 0, attributeBytes);
+    HANDLE inherited[] = {file.Value, folder.Value};
+    bool initialized = list != NULL && InitializeProcThreadAttributeList(list, 1, 0, &attributeBytes) != FALSE;
+    bool configured = initialized && UpdateProcThreadAttribute(list, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+        inherited, sizeof(inherited), NULL, NULL) != FALSE;
+    STARTUPINFOEXW startup = {}; startup.StartupInfo.cb = sizeof(startup); startup.lpAttributeList = list;
     PROCESS_INFORMATION process = {};
+    const BOOL created = configured && CreateProcessW(helper.c_str(), &command[0], NULL, NULL, TRUE,
+        CREATE_NO_WINDOW | CREATE_SUSPENDED | EXTENDED_STARTUPINFO_PRESENT,
+        NULL, directory.c_str(), &startup.StartupInfo, &process);
+    const HRESULT creationError = LastErrorResult();
+    if (initialized) DeleteProcThreadAttributeList(list);
+    if (list != NULL) HeapFree(GetProcessHeap(), 0, list);
+    // Child has its own pins. Release ours before it can ask Windows to execute,
+    // preserving the prior lock through validation without blocking trust services.
+    file.Reset(); folder.Reset();
     HRESULT result;
-    if (!CreateProcessW(helper.c_str(), &command[0], NULL, NULL, FALSE, CREATE_NO_WINDOW,
-                        NULL, directory.c_str(), &startup, &process))
-        result = LastErrorResult();
+    if (!created) result = creationError;
+    else if (ResumeThread(process.hThread) == (DWORD)-1)
+    {
+        result = LastErrorResult(); TerminateProcess(process.hProcess, ERROR_GEN_FAILURE);
+        WaitForSingleObject(process.hProcess, 5000); CloseHandle(process.hThread); CloseHandle(process.hProcess);
+    }
     else
     {
         CloseHandle(process.hThread);
