@@ -1,5 +1,18 @@
 # Stav portu PR #769
 
+## S27a2 file-manager comparison (2026-10-23)
+
+Pinned current FAR, Files, Double Commander and Explorer++ launch sources were
+inspected, with official Directory Opus developer guidance. No imported Shell
+route has demonstrated the required long-executable launch. FAR/Files direct
+process launch is a separate semantic path, not equivalent Shell behavior.
+New explicit .exe class Shell probe: ASCII child identity/CWD PASS; long source
+via its existing alias FALSE/error4294967294, no child. Default registry unchanged.
+All16 fixture inputs unchanged. No production changes or acceptance-ref advance.
+Details and pinned sources: [comparison](steps/S27a2-shell-comparison.md).
+S27a2 remains PARTIAL. Evidence ../evidence/S27a2-comparison.
+
+
 ## Desktop Shell probe: no long-path acceptance (2026-10-23)
 
 At bff23a5c, an evidence-only probe reused the existing target PictView

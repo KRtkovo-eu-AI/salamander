@@ -183,3 +183,13 @@ Contributors, GPL-2.0-or-later. Current-cache/owned-path guards, explicit long
 Shell rejection and wide archive metadata preflight are local adaptations.
 Original notices retained. Archive correction validated; long executable Shell
 launch remains unresolved and S27a2 is not fully accepted.
+
+### S27a2 comparative launch research (no production source import)
+
+Reference-only analysis credits Eugene Roshal/Far Group (FarManager, BSD-3-Clause),
+Alexander Koblov and Double Commander contributors (GPL-2.0-or-later), the Explorer++
+Project (GPL-3.0-only), Files Community (MIT), and Directory Opus/GPSoftware developer
+guidance. Pinned source links and findings are recorded in
+[the S27a2 comparison](branch-view-port/steps/S27a2-shell-comparison.md).
+No source from these projects was imported into production. The local independent
+Shell class-selection probe did not solve the long-path launch failure.
