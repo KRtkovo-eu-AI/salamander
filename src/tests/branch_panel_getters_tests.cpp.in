@@ -20,6 +20,7 @@
 
 std::wstring SalMultiByteToWidePath(const char*, UINT codePage = CP_ACP);
 @@CONVERSION@@
+@@CONVERSION_UTF8_ACP@@
 @@ORDINARY_JOIN@@
 @@FIND_BASENAME@@
 namespace Salamander { namespace BranchView {
@@ -95,9 +96,10 @@ struct TestMainWindow {
 static TestMainWindow* MainWindow = &TestMain;
 static DWORD ParentAttributes = FILE_ATTRIBUTE_DIRECTORY;
 static std::wstring CheckedParent;
+static std::function<DWORD(const wchar_t*)> OnAttributes;
 static DWORD RecordAttributes(const wchar_t* path) {
     CheckedParent = path;
-    return ParentAttributes;
+    return OnAttributes ? OnAttributes(path) : ParentAttributes;
 }
 #define GetFileAttributesW RecordAttributes
 
@@ -106,7 +108,28 @@ static DWORD RecordAttributes(const wchar_t* path) {
 const int atCopy=1, atMove=2, atDelete=3, SACCESS_READ=1;
 const DWORD OPFL_SRCPATH_IS_NET=1, OPFL_SRCPATH_IS_FAST=2, OPFL_TGTPATH_IS_NET=4;
 struct CopyCriteria {BOOL IgnoreADS=FALSE;};
+struct CQuadWord {
+    DWORD LoDWord=0,HiDWord=0;
+    CQuadWord(DWORD value=0):LoDWord(value){}
+    CQuadWord operator-(const CQuadWord& other) const {return CQuadWord(LoDWord-other.LoDWord);}
+};
+const int ocCreateDir=1,ocLabelForSkipOfCreateDir=2,ocTestCopy=3,CREATE_DIR_SIZE=1;
+static bool FailDup=false;
+static char* DupStr(const char* p){if(FailDup)return nullptr;size_t n=strlen(p)+1;char* r=(char*)malloc(n);if(r)memcpy(r,p,n);return r;}
+struct COperation {
+    int Opcode=0;CQuadWord Size;DWORD Attr=0;char* SourceName=nullptr;char* TargetName=nullptr;
+    std::wstring SourceW,TargetW;
+    void SetSourceNameW(const wchar_t* p){SourceW=p;}
+    void SetTargetNameW(const wchar_t* p){TargetW=p;}
+};
 struct CopyScript {
+    CQuadWord TotalFileSize;
+    std::vector<COperation> Records;
+    int FailAt=-1;BOOL Good=TRUE;
+    int Add(const COperation& op){if(FailAt==(int)Records.size()){Good=FALSE;return -1;}Records.push_back(op);return (int)Records.size()-1;}
+    BOOL IsGood(){return Good;}
+    void ResetState(){Good=TRUE;}
+    ~CopyScript(){for(auto& op:Records)if(op.Opcode==ocCreateDir){free(op.SourceName);free(op.TargetName);}}
     BOOL SourcePathIsNetwork=FALSE;
     std::vector<std::pair<std::string,int>> Storage;
     void AddStoragePath(const char* path,int access){Storage.emplace_back(path,access);}
@@ -172,6 +195,7 @@ struct CFilesWindow
     void CancelBranchViewScan() {++CancelCalls;if(BranchView->ItemsMutex.try_lock())BranchView->ItemsMutex.unlock();else CallbackLocked=true;}
     void RefreshBranchView() {++RefreshCalls;if(BranchView->ItemsMutex.try_lock())BranchView->ItemsMutex.unlock();else CallbackLocked=true;}
     BOOL PrepareCopySource(CFileData*,int,CopyCapture&,CopyScript*,CopyCriteria*);
+    BOOL PrepareRelativeTarget(CFileData*,BOOL,CopyScript*,std::string&);
     void ExecuteBranch(CFileData* file);
     void ViewPolicy(const char* name, BOOL altView, DWORD handlerID);
 
@@ -186,6 +210,16 @@ BOOL CFilesWindow::PrepareCopySource(CFileData* oneFile,int type,CopyCapture& re
 @@COPY_PREP@@
     result.Parent=sourcePath;result.Name=useName;result.HasDosName=useDOSName!=NULL;
     result.ADS=sourceSupADS;result.Flags=srcAndTgtPathsFlags;return TRUE;
+}
+BOOL CFilesWindow::PrepareRelativeTarget(CFileData* oneFile,BOOL keepBranchPaths,CopyScript* script,std::string& result)
+{
+    int type=atCopy;char target[]="D:\\target";char* targetPath=target;
+@@COPY_RELATIVE@@
+    result=itemTargetPath;
+    COperation file;file.Opcode=ocTestCopy;if(script->Add(file)<0)return FALSE;
+    script->TotalFileSize=CQuadWord(100);
+@@COPY_LABELS@@
+    return TRUE;
 }
 @@RENAME_METADATA@@
 const int ptDisk=1, WM_USER_SELCHANGED=WM_APP+1, DRAWFLAG_DIRTY_ONLY=1, DRAWFLAG_SKIP_VISTEST=2;
@@ -236,6 +270,38 @@ static int Utf8Length(const std::wstring& path)
     return WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, path.c_str(), -1,
                                nullptr, 0, nullptr, nullptr) - 1;
 }
+static void RelativeCopyTests()
+{
+    CBranchViewState state;CFilesWindow panel;panel.BranchView=&state;
+    std::string name="same.txt";panel.FileRows.Values={{name.c_str(),L"same.txt"}};panel.FileRows.Count=1;
+    Add(state,panel.Files->At(0),L"C:\\root\\a\\東京",L"same.txt",L"a\\東京\\same.txt");
+    OnAttributes=[](const wchar_t*){return INVALID_FILE_ATTRIBUTES;};
+    {
+        CopyScript script;std::string target;
+        Check(panel.PrepareRelativeTarget(&panel.Files->At(0),TRUE,&script,target),"relative copy prepares nested directory/file script");
+        Check(target==SalWideToMultiBytePath(L"D:\\target\\a\\東京",CP_UTF8),"relative copy preserves Unicode subfolders");
+        Check(script.Records.size()==5,"two creates enclose one file with two Skip labels");
+        Check(script.Records[0].Opcode==ocCreateDir&&script.Records[0].TargetW==SalPathAddExtendedPrefixW(L"D:\\target\\a")&&script.Records[1].TargetW==SalPathAddExtendedPrefixW(L"D:\\target\\a\\東京"),"directory operations carry exact wide targets");
+        Check(script.Records[1].SourceW==SalPathAddExtendedPrefixW(L"C:\\root\\a\\東京"),"directory attributes refer to the exact source ancestor");
+        Check(script.Records[3].Opcode==ocLabelForSkipOfCreateDir&&script.Records[3].Attr==1&&script.Records[4].Attr==0,"Skip labels close inner then outer ancestor");
+        Check((DWORD_PTR)script.Records[3].SourceName==100&&(DWORD_PTR)script.Records[4].SourceName==100,"each ancestor Skip label accounts for the file payload");
+    }
+    {CopyScript script;std::string target;Check(panel.PrepareRelativeTarget(&panel.Files->At(0),FALSE,&script,target)&&target=="D:\\target"&&script.Records.size()==1,"unchecked option keeps the existing flat-copy script");}
+    OnAttributes=[](const wchar_t*){return FILE_ATTRIBUTE_DIRECTORY;};
+    {CopyScript script;std::string target;Check(panel.PrepareRelativeTarget(&panel.Files->At(0),TRUE,&script,target)&&script.Records.size()==1,"existing ancestors need no create or Skip records");}
+    OnAttributes=[](const wchar_t*){return INVALID_FILE_ATTRIBUTES;};
+    {CopyScript script;script.FailAt=0;std::string target;Check(!panel.PrepareRelativeTarget(&panel.Files->At(0),TRUE,&script,target)&&script.Records.empty(),"create scheduling failure aborts before file operation");}
+    {CopyScript script;script.FailAt=3;std::string target;Check(!panel.PrepareRelativeTarget(&panel.Files->At(0),TRUE,&script,target),"Skip label scheduling failure rejects incomplete plan");}
+    FailDup=true;
+    {CopyScript script;std::string target;Check(!panel.PrepareRelativeTarget(&panel.Files->At(0),TRUE,&script,target)&&script.Records.empty(),"directory allocation failure cannot schedule a partial file");}
+    FailDup=false;
+    for(const auto& relative:{L"..\\same.txt",L".\\same.txt",L"\\same.txt"}){
+        state.Items.at(name.c_str()).RelativePath=relative;CopyScript script;std::string target;
+        Check(!panel.PrepareRelativeTarget(&panel.Files->At(0),TRUE,&script,target)&&script.Records.empty(),"invalid relative component cannot escape destination");
+    }
+    OnAttributes=nullptr;
+}
+
 static void CopySourceTests()
 {
     CBranchViewState state;CFilesWindow panel;panel.BranchView=&state;
@@ -576,7 +642,7 @@ int wmain(int argc, wchar_t** argv)
     Paths(panel, ordinary, L"", L"", L"", "new active Branch has no ordinary row fallback");
     Paths(panel, up, L"C:\\root", L"C:\\root\\..", L"..", "first-scan empty listing parent navigation");
 
-    try { CopySourceTests(); RenameMetadataTests(); }
+    try { RelativeCopyTests(); CopySourceTests(); RenameMetadataTests(); }
     catch (const std::exception& error) { Check(false,error.what()); }
     NavigationTests();
     ArchiveReadTests(argv[1]);

@@ -1,5 +1,31 @@
 # Plán postupného portu PR #769
 
+# S27c continuation (explicit user multi-stage instruction, no push)
+
+Run S27c1b, S27c2, S27c3 and S27c4 sequentially as separate coherent local
+commits; do not publish. This explicit multi-unit request supersedes the
+CONTRACT default of one unit per user request, without skipping any unit gate.
+Accepted reference remains S27b; S27c1a local parent is4fd4463e. Donor stays47661e92.
+
+S27c1b (locally validated; see steps/S27c1b.md): donor keepBranchPaths builder signature, per-file relative target/create
+operations and enclosing Skip labels; copy dialog option/member/transfer/toggle
+and both dialog templates/control ID. Existing14510 strings/translations reused.
+Preserve target S20b owned full basename and S27c1a current-row/destination guards.
+Do not activate move/delete/recycle or unrelated criteria-dialog code.
+Test actual extracted planning/Skip blocks, nested duplicate identities, invalid
+relative components, allocation/scheduling failures and default-flat behavior;
+D/R host/dependencies, existing native/source tests and real D/R nested F5 copies,
+Cancel and ordinary dialog. Verify sources/output hashes and private configs.
+
+S27c2: enable only move after own source/volume/storage flags and exact-parent
+refresh validation, retain copy/default/relative semantics. S27c3: enable direct
+delete with exact-parent build/confirmation and no stale/DOS identity fallback.
+S27c4: preserve target force-recycle policy and queue-all-before-perform adaptation,
+validate actual mixed-parent identities and no permanent fallback. Native fixtures
+perform destructive tests only on owned roots. GUI Delete tests stop at Cancel
+unless the skill's action-time confirmation is satisfied. Never change registry,
+security policy, SDK layout or global configuration.
+
 ## S27c1a completed locally (2026-10-23)
 
 The flat-copy-only unit below has passed Debug/Release build, native and actual

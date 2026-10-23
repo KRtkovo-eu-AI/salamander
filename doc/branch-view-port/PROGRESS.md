@@ -1,5 +1,29 @@
 # Stav portu PR #769
 
+## S27c1b locally validated (2026-10-23)
+
+Optional relative-directory copy is implemented from the pinned donor. The existing
+localized string is reused in the expanded Branch copy dialog; ordinary panels do
+not receive the option. Actual per-file planning creates missing Unicode ancestors
+and reverse Skip labels, with CWD cleanup on planning failure. Flat copy remains the
+default. Move/delete/recycle are still blocked at this commit.
+
+Debug/Release x64 host and dependencies /warnaserror PASS. Actual extracted native
+getter/planning harness: 230 checks/configuration, no failures; all 28 source/menu
+groups PASS. Real D/R F5 copied six mixed-parent files per configuration, including
+long Unicode paths and duplicate basenames, into exact relative destinations.
+All 12 output hashes and all 12 source hashes verified; sentinel unchanged.
+Debug Cancel/default-off/ordinary-dialog and default activation-off smoke PASS.
+Both own hosts/reporters exited with no new reports; private INIs restored.
+Known baseline Debug incremental lang linker failure was resolved by a bounded
+lang rebuild with LinkIncremental=false, without source/workflow changes.
+
+Evidence: ../evidence/S27c1b. Native scheduling/attribute/error facades test actual
+planning blocks, not the real filesystem worker; the GUI copies supply that I/O
+coverage. No push, PR, remote CodeQL or clean whole-solution matrix in this stage.
+Next: S27c2 move, as requested in the same explicit four-stage instruction.
+
+
 ## S27b accepted; S27c1a flat copy locally validated (2026-10-23)
 
 Accepted S27b e63167f01b4b7a84f9710275a86bcce0cf191e88 after all

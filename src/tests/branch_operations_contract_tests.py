@@ -186,7 +186,7 @@ def load_tests(loader, tests, pattern):
     if SCOPE == 'All':
         return tests
     names = ('test_initial_view_and_edit_use_owned_wide_full_path',
-             'test_rename_remaps_identity_after_every_success', 'test_builder_resolves_each_selected_item')
+             'test_rename_remaps_identity_after_every_success', 'test_builder_resolves_each_selected_item', 'test_relative_targets_have_cancel_skip_labels', 'test_option_is_localized_and_only_available_for_branch')
     if SCOPE in ('OrdinaryCopyMove', 'OrdinaryOperations'):
         names += ('test_ordinary_copy_move_owns_unicode_basename', 'test_ordinary_copy_move_uses_item_parent_at_dialog_boundary')
     if SCOPE == 'OrdinaryOperations':

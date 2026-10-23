@@ -39,7 +39,8 @@ class BranchTransitionContracts(unittest.TestCase):
   builder=function('fileswn6.cpp','BOOL CFilesWindow::BuildScriptMain(')
   self.assertIn('type != atCopy || GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*oneFile)) != oneFile',builder)
   self.assertIn('script->AddStoragePath(sourcePath, SACCESS_READ)',builder)
-  self.assertNotIn('keepBranchPaths',builder)
+  self.assertIn('keepBranchPaths',builder)
+  self.assertIn('BOOL keepBranchPaths = FALSE',action)
  def test_rename_requires_current_metadata_and_preserves_modal_identity(self):
   for marker in ('void CFilesWindow::RenameFile(', 'void CFilesWindow::QuickRenameBegin(', 'void CFilesWindow::RenameFileInternalW(', 'BOOL CFilesWindow::HandeQuickRenameWindowKey('):
    part=function('fileswn5.cpp',marker)

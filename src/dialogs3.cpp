@@ -1391,8 +1391,21 @@ void CCopyMoveMoreDialog::Transfer(CTransferInfo& ti)
     }
     else
     {
-        if (ti.Type == ttDataFromWindow)
-            memcpy(Path, target.c_str(), target.size() + 1);
+        ti.EditLine(IDE_PATH, Path, PathBufSize);
+    }
+    if (KeepBranchPathsInOut != NULL)
+        ti.CheckBox(IDC_BRANCH_KEEP_PATHS, *KeepBranchPathsInOut);
+    TransferCriteriaControls(ti);
+    if (OperationSchedulingOverrideInOut != NULL)
+    {
+        if (ti.Type == ttDataToWindow)
+        {
+            BOOL waitAll = Configuration.CopyMoveOperationPolicy == COSP_ASK ||
+                           *OperationSchedulingOverrideInOut == COSO_WAIT_ALL;
+            CheckDlgButton(HWindow, IDC_CM_STARTONIDLE, waitAll ? BST_CHECKED : BST_UNCHECKED);
+            // Resource text is selected by the resource integration; the checked state means
+            // Wait and the clear state means Start now only while policy is Ask.
+        }
         else
         {
             HWND control;
@@ -1799,7 +1812,7 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         SetDlgItemText(HWindow, IDC_BRANCH_KEEP_PATHS, LoadStr(IDS_BRANCH_KEEP_PATHS));
         ShowWindow(GetDlgItem(HWindow, IDC_BRANCH_KEEP_PATHS), KeepBranchPathsInOut != NULL ? SW_SHOW : SW_HIDE);
-        UpdateTransferModeControls();
+        EnableWindow(GetDlgItem(HWindow, IDC_CM_STARTONIDLE), OperationSchedulingOverrideInOut != NULL);
         EnableWindow(GetDlgItem(HWindow, IDC_CM_SECURITY), HavePermissions);
         EnableWindow(GetDlgItem(HWindow, IDC_CM_IGNADS), SupportsADS);
 

@@ -68,7 +68,12 @@ def main():
     builder = read("src/fileswn6.cpp", args.source_ref)
     first = builder.index("            std::string branchName;", builder.index("BOOL CFilesWindow::BuildScriptMain("))
     last = builder.index("            i++;", first)
+    relative = builder.index("                    std::string branchTarget;", first)
+    relative_end = builder.index("                    if (!BuildScriptFile(", relative)
     pieces = {
+        "COPY_RELATIVE": builder[relative:relative_end],
+        "COPY_LABELS": block(builder, "                    for (std::vector<int>::reverse_iterator directory = branchCreatedDirectories.rbegin();"),
+        "CONVERSION_UTF8_ACP": block(builder,"std::wstring SalMultiByteToWidePathUtf8OrAcp("),
         "COPY_PREP": builder[first:last],
         "FIND_BASENAME": block(conversions, "const wchar_t* SalPathFindFileNameW("),
         "PROGRAM_HEADER": str(ROOT / "src/branchprogram.h").replace(chr(92), "/"),

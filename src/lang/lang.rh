@@ -894,6 +894,8 @@
 #define IDC_BRANCH_KEEP_PATHS            14510
 #define IDC_BRANCH_RELATIVE_PATHS        14528
 
+#define IDC_BRANCH_KEEP_PATHS            14510
+
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
