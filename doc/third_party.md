@@ -165,3 +165,7 @@ common/array.h Reserve/empty cleanup and array_reserve_tests.cpp/vcxproj copied 
 ### S25 isolated Branch scanner
 
 branch_view.h/.cpp scanner/path/snapshot subset and branch_view_tests derive from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin Contributors, GPL-2.0-or-later. Exact shared worker lifetime implementation; fixture-only future scheduler/sort checks retained deferred. All original notices preserved.
+
+### S26a association preparation and reentrant lifetime
+
+AssociationPreparation/session/lifetime, internal Shell association epoch/cache guards and branch_preparation_tests derive from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin Contributors, GPL-2.0-or-later. Exact helper/test blocks, scoped host hunks preserving target icon accounting; all notices retained.

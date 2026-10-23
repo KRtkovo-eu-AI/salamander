@@ -472,3 +472,9 @@ src/shellsup.cpp	panel Shell paths/menu/data; copy/cut; Unicode verb directory	s
 src/fileswn5.cpp	EditWindowsProperties/ChangeAttr file-time query	src/fileswn5.cpp	S21b	EXACT	Scoped full item identity and FindFirstFileW hunks
 src/fileswn9.cpp	CopyFocusedNameToClipboard disk full/short/UNC	src/fileswn9.cpp	S21b	ADAPTED	Disk guard and explicit empty-path rejection; virtual panels unchanged
 src/tests/branch_operations_contract_tests.py	ordinary Shell/text contracts	src/tests/branch_operations_contract_tests.py	S21b	ADAPTED	Add2 ordinary regression methods, future All assertions retained
+src/branch_view.h	AssociationPreparation/PreparationLifetime/PreparationSession	src/branch_view.h	S26a	EXACT	Pinned helper block; scanner declarations retained; panel state S26b
+src/icncache.h	PreparedShellAssociations/ShellAssociationEpoch/PrepareShellAssociation	src/icncache.h	S26a	EXACT	Pinned internal declarations/cache; no SDK change
+src/icncache.cpp	Release epoch; QueryShellAssociationCached/PrepareShellAssociation/IsAssociated recheck	src/icncache.cpp	S26a	ADAPTED	Exact scoped hunks; existing target icon accounting preserved; unrelated donor tracking removal excluded
+src/tests/branch_preparation_tests.cpp	complete fixture	src/tests/branch_preparation_tests.cpp	S26a	EXACT	17 actual helper checks/config D/R; deterministic callback/clock
+src/tests/branch_preparation_tests.vcxproj	native project	src/tests/branch_preparation_tests.vcxproj	S26a	EXACT	Existing runner auto-discovers
+src/tests/panel_rendering_contract_tests.py	Shell-only associations through prepared cache	src/tests/panel_rendering_contract_tests.py	S26a	EXACT	Exact donor contract update preserves original assertions

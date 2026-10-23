@@ -1,5 +1,49 @@
 # Plán postupného portu PR #769
 
+## S26a — IMPLEMENTED / association preparation lifetime prerequisite PASS (2026-10-23)
+
+Scoped donor AssociationPreparation/shared PreparationLifetime/PreparationSession
+and Shell association epoch/cache/reentrancy guards imported ahead of first
+panel publication. Preparation caches answers without mutating live icon records;
+association release invalidates epoch and cached answers; reentrant insertion
+rechecks the index before inserting. Header/helper/native fixture content exact
+donor. Target GetFileIconForPanel HANDLES_ADD accounting kept; unrelated donor
+removal excluded pending independent accounting audit. No Branch panel metadata,
+activation, polling or user command added yet; S26 overall remains IN PROGRESS.
+
+Native branch_preparation_tests/project EXACT:17 checks/config Debug/Release PASS
+including deduplication, time/query limits, cancellation, argument ownership,
+clear/replace/restart during callback and stale revision. These use deterministic
+clock/resolver, not real third-party Shell reentrant callbacks. Actual Shell cache
+integration is compiled and audited; no simulated callback claimed GUI proof.
+Host x64 Debug/Release /warnaserror PASS46.92/81.10s final; initial Release95s link
+timeout retained. All24 source/menu groups PASS. Initial panel-rendering contract
+expected direct QueryShellAssociation call; imported exact donor update retaining
+original query/normal cache assertions and additionally tracing prepared lookup.
+Normal panel GUI D/R shows txt and unknown s26icons extension in long Unicode
+parent, correct known/fallback icons; normal exit/no new reports. All4 own hashes
+unchanged, private configstorage.ini restored; installed host untouched.
+
+Evidence ../evidence/S26a manifests/bounded logs. No SDK interface/layout, public
+gate or user preferences changed. No push/PR/CI. Next S26b must integrate full row
+identity + icon/property lifetime before any experiment activation, default-off
+runtime gate and read-only dispatch, paired resources and actual GUI acceptance.
+
+
+## S26 safety-first integration substages (2026-10-23)
+
+S26a imports donor AssociationPreparation + shared preparation lifetime/session
+and actual Shell association epoch/cache/reentrancy guards, with exact native
+preparation fixtures and ordinary icon smoke. Keep target icon handle tracking
+unless independently proven wrong; donor's unrelated accounting removal is not
+part of this prerequisite. No Branch activation/state rows in S26a.
+S26b connects scanner to read-only gated panel with full identity and mandatory
+icon/property-reader lifetime/generation protections, Path/sort/status/resources,
+manual refresh/cancel and all dispatch/activation gates. Import prerequisite
+helpers that are required by donor publication lifetime, retaining attribution.
+All relevant language strings and actual GUI acceptance required before S26 done.
+Do not enable unverified S27 operations or arbitrary plug-ins. No public release.
+
 ## S25 — IMPLEMENTED / isolated cancellable scanner PASS (2026-10-23)
 
 Pinned donor branch_view.h/.cpp scanner subset imported: Entry/Progress, owned

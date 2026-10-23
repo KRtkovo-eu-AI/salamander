@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <unordered_set>
 
 namespace Salamander { namespace BranchView {
 struct Entry
@@ -29,6 +30,53 @@ struct Progress
 };
 
 bool SameSnapshot(const std::vector<Entry>& first, const std::vector<Entry>& second);
+
+// Each call returns to the ordinary UI loop. The budget is checked between
+// shell queries; a single third-party shell handler cannot be preempted here.
+class AssociationPreparation
+{
+    std::vector<std::string> Extensions;
+    std::unordered_set<std::string> Seen;
+    size_t Next = 0;
+    ULONGLONG Revision = 0;
+public:
+    void Add(const std::string& extension)
+    {
+        if (!extension.empty() && Seen.insert(extension).second) Extensions.push_back(extension);
+    }
+    void Restart() { Next = 0; ++Revision; }
+    void Clear() { Extensions.clear(); Seen.clear(); Next = 0; ++Revision; }
+    bool HasPending() const { return Next < Extensions.size(); }
+    template<class Clock, class Resolve>
+    size_t RunSlice(Clock clock, Resolve resolve, ULONGLONG budgetMs = 8, size_t maxCount = 64)
+    {
+        const ULONGLONG started = clock();
+        const ULONGLONG revision = Revision;
+        size_t completed = 0;
+        while (HasPending() && completed < maxCount)
+        {
+            if (completed != 0 && clock() - started >= budgetMs) break;
+            // Resolve may enter a shell message loop: Clear/Restart must not
+            // invalidate the argument or advance a replaced work queue.
+            const std::string extension = Extensions[Next];
+            if (!resolve(extension) || revision != Revision) break;
+            ++Next;
+            ++completed;
+        }
+        return completed;
+    }
+};
+struct PreparationLifetime
+{
+    bool Alive = true;
+    bool Busy = false;
+};
+struct PreparationSession
+{
+    AssociationPreparation Queue;
+    ULONGLONG AssociationEpoch = 0;
+    bool Alive = true;
+};
 
 // The worker owns a shared state, never a window/panel. A disconnected SMB
 // request may return after the tab was closed; its last reference cleans up.
