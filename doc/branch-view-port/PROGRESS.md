@@ -1,5 +1,23 @@
 # Stav portu PR #769
 
+## S26 CI follow-up — icon-reader snapshot fixture (2026-10-23)
+
+PR35 head16bdb948: CodeQL and clean full supported-solution Debug Rebuild for
+Win32/x64/ARM64 passed. Python49/49 passed; native/generated groups81/82 passed.
+The sole failure was the S06 icon-reader scratch fixture locating a removed comment
+and expecting obsolete root concatenation/wide scratch variables after S26.
+
+The existing registered fixture now extracts the current worker snapshot block by
+code declarations inside IconThreadThreadFBody, plus actual path-buffer and wide-to-
+UTF8 conversion functions. Local Debug/Release /W4 /WX:205 checks/config PASS.
+Coverage retains ASCII, Unicode/ACP keys, UNC, byte-long and UTF16-long/maximal paths;
+adds directory/file snapshots, ownership after listing replacement, missing-key
+failure, Branch duplicate full-key passthrough and virtual/empty panels. Window/row
+getters are facades; this fixture performs no Shell or file I/O. Full actual getter
+coverage remains in the separately registered panel_item_paths/branch_panel_getters
+fixtures. Runtime/SDK/workflows unchanged. Updated-head CI and clean matrix pending.
+
+
 ## S26 — IMPLEMENTED / gated read-only panel, local acceptance complete (2026-10-23)
 
 S21–S26 are complete locally. S26a shared preparation prerequisite and S26b exact
