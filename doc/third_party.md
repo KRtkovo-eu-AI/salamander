@@ -157,3 +157,7 @@ Scoped shellib, shellsup, fileswn5 and fileswn9 hunks derive from [Samandarin PR
 ### S22 owned archive enumeration
 
 CPanelTmpEnumData, PanelEnumDiskSelection and the actual-function fixture derive from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin Contributors, GPL-2.0-or-later. Exact fixture driver; explicit file-only disk route adapter until Branch integration. Notices retained.
+
+### S23 array capacity reservation
+
+common/array.h Reserve/empty cleanup and array_reserve_tests.cpp/vcxproj copied exactly from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin Contributors, GPL-2.0-or-later. Original notices retained.
