@@ -892,6 +892,7 @@ public:
     const CFileData* GetBranchViewFileByCacheKey(const char* key) const;
     CBranchViewRestoreState CaptureBranchViewState();
     void RestoreBranchViewState(const CBranchViewRestoreState& state);
+    void BranchItemRenamed(const char* oldNameKey, const CFileData& file, const std::wstring& oldFullPath);
     BOOL OpenBranchItemDirectory();
     void ToggleBranchView();
     void RefreshBranchView(BOOL automatic = FALSE);

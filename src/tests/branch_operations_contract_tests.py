@@ -23,7 +23,7 @@ class BranchOperationsContracts(unittest.TestCase):
         self.assertEqual(part.count('UpdateFileDataNameAfterRename('), 3)
         if SCOPE != 'All':
             self.assertIn('PostChangeOnPathNotification(directory.c_str(), isDir)', part)
-            return  # Real Branch metadata remap/sleep assertions retained for S26.
+            # S27b activates these donor rename remap/sleep assertions.
         self.assertEqual(part.count('BranchItemRenamed(oldNameKey, *f, oldFullPath)'), 3)
         self.assertEqual(part.count('SleepIconCacheThread()'), 3)
     def test_builder_resolves_each_selected_item(self):

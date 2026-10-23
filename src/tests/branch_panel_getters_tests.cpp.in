@@ -7,6 +7,7 @@
 #include <shellapi.h>
 #include "@@FILEACTION_HEADER@@"
 #include "@@PROGRAM_HEADER@@"
+#include "@@TEMP_HEADER@@"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -29,10 +30,14 @@ struct CFileData
 {
     const char* Name = nullptr;
     const wchar_t* NameW = nullptr;
+    unsigned NameLen = 0;
+    BOOL Selected = FALSE;
     BOOL UseWideName() const { return NameW != nullptr; }
 };
 struct CBranchViewState
 {
+    std::vector<Salamander::BranchView::Entry> Entries;
+    std::wstring PendingFocus;
     bool Enabled = true;
     std::mutex ItemsMutex;
     std::unordered_map<const char*, Salamander::BranchView::Entry> Items;
@@ -105,6 +110,7 @@ struct CFilesWindow
     const char* GetPath() const { return AnsiRoot.c_str(); }
     std::wstring GetItemDirectoryW(const CFileData&) const;
     std::wstring GetItemFullPathW(const CFileData&) const;
+    std::wstring GetItemIdentityW(const CFileData&) const;
     std::wstring GetItemRelativePathW(const CFileData&) const;
     TestRows DirRows, FileRows;
     TestRows* Dirs = &DirRows;
@@ -130,12 +136,28 @@ struct CFilesWindow
     }
     void EndStopRefresh() {++EndRefreshCalls;}
     void ChangePathToArchive(const char* path,const char*,int,const char*,BOOL,BOOL*) {++ArchiveCalls;OpenedArchive=path;}
+    int CancelCalls=0, RefreshCalls=0;
+    bool CallbackLocked=false;
+    BOOL Is(int) const {return TRUE;}
+    int GetSelCount() {int n=0;for(auto& f:FileRows.Values)n+=f.Selected!=FALSE;for(auto& f:DirRows.Values)n+=f.Selected!=FALSE;return n;}
+    void SetSel(BOOL selected,int index) {if(index<Dirs->Count)Dirs->At(index).Selected=selected;else Files->At(index-Dirs->Count).Selected=selected;}
+    void RepaintListBox(int) {}
+    void SelectFocusedItemAndGetName(CPanelTemporarySelection& selection);
+    void UnselectItemWithName(const CPanelTemporarySelection& selection);
+    void BranchItemRenamed(const char*,const CFileData&,const std::wstring&);
+    void CancelBranchViewScan() {++CancelCalls;if(BranchView->ItemsMutex.try_lock())BranchView->ItemsMutex.unlock();else CallbackLocked=true;}
+    void RefreshBranchView() {++RefreshCalls;if(BranchView->ItemsMutex.try_lock())BranchView->ItemsMutex.unlock();else CallbackLocked=true;}
     void ExecuteBranch(CFileData* file);
     void ViewPolicy(const char* name, BOOL altView, DWORD handlerID);
 
 };
 @@GETTERS@@
 @@CACHE@@
+@@RENAME_METADATA@@
+const int ptDisk=1, WM_USER_SELCHANGED=WM_APP+1, DRAWFLAG_DIRTY_ONLY=1, DRAWFLAG_SKIP_VISTEST=2;
+static int RegSetStrCmpEx(const char*a,unsigned al,const char*b,int bl,void*){return al==(unsigned)bl?strncmp(a,b,al):1;}
+static int RegSetStrICmpEx(const char*a,unsigned al,const char*b,int bl,void*){return al==(unsigned)bl?_strnicmp(a,b,al):1;}
+@@TEMP_SELECTION@@
 @@NAVIGATION@@
 void CFilesWindow::ExecuteBranch(CFileData* file) {
 @@EXECUTE@@
@@ -180,6 +202,53 @@ static int Utf8Length(const std::wstring& path)
     return WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, path.c_str(), -1,
                                nullptr, 0, nullptr, nullptr) - 1;
 }
+static void RenameMetadataTests()
+{
+    CBranchViewState state; CFilesWindow panel; panel.BranchView=&state;
+    std::string a="same.txt",b="same.txt",newMirror="renamed.txt";
+    const std::wstring parent=L"C:\\東京\\"+std::wstring(100,L'a')+L"\\"+std::wstring(100,L'b')+L"\\"+std::wstring(100,L'c');
+    const std::wstring renamed=L"přejmenováno-東京-😀.txt";
+    panel.FileRows.Values={{a.c_str(),L"same.txt"},{b.c_str(),L"same.txt"}};panel.FileRows.Count=2;
+    Add(state,panel.Files->At(0),L"C:\\ascii",L"same.txt",L"ascii\\same.txt");
+    Add(state,panel.Files->At(1),parent,L"same.txt",L"東京\\same.txt");
+    const auto oldPath=panel.GetItemFullPathW(panel.Files->At(1));
+    const auto otherKey=state.Items.at(a.c_str()).CacheKey;
+    const auto oldKey=state.Items.at(b.c_str()).CacheKey;
+    state.CacheFiles[otherKey]=&panel.Files->At(0);state.CacheFiles[oldKey]=&panel.Files->At(1);
+    state.Entries={state.Items.at(a.c_str()),state.Items.at(b.c_str())};
+    panel.Files->At(1).Name=newMirror.c_str();panel.Files->At(1).NameW=renamed.c_str();
+    panel.BranchItemRenamed(b.c_str(),panel.Files->At(1),oldPath);
+    Check(state.Items.count(b.c_str())==0&&state.Items.count(newMirror.c_str())==1,"rename remaps the exact name allocation");
+    Check(state.CacheFiles.count(oldKey)==0,"old full-path cache key is removed");
+    const auto newPath=parent+L"\\"+renamed;
+    Check(panel.GetItemFullPathW(panel.Files->At(1))==newPath,"rename keeps the long Unicode real parent");
+    Check(panel.GetItemRelativePathW(panel.Files->At(1))==L"東京\\"+renamed,"rename changes only the relative basename");
+    Check(state.CacheFiles.at(state.Items.at(newMirror.c_str()).CacheKey)==&panel.Files->At(1),"new cache resolves the current renamed row");
+    Check(state.CacheFiles.at(otherKey)==&panel.Files->At(0)&&state.Entries[0].FullPath()==L"C:\\ascii\\same.txt","duplicate basename in another parent is unchanged");
+    Check(state.Entries[1].FullPath()==newPath&&state.PendingFocus==newPath,"snapshot and pending focus use the new full identity");
+    Check(panel.CancelCalls==1&&panel.RefreshCalls==1&&!panel.CallbackLocked,"cancel and refresh run after releasing the metadata lock");
+    panel.BranchItemRenamed(b.c_str(),panel.Files->At(1),oldPath);
+    Check(panel.RefreshCalls==1,"unknown old key cannot remap a different row");
+
+    // Exercise actual panel temporary-selection capture and cleanup after reorder.
+    panel.Caret=1;CPanelTemporarySelection selection;panel.SelectFocusedItemAndGetName(selection);
+    Check(selection.BranchIdentity==newPath&&panel.GetSelCount()==1,"temporary selection owns the focused row's exact Branch identity");
+    std::swap(panel.FileRows.Values[0],panel.FileRows.Values[1]);
+    panel.UnselectItemWithName(selection);
+    Check(panel.GetSelCount()==0,"Cancel cleanup finds the current row after sorting");
+    panel.Files->At(1).Selected=TRUE;panel.Caret=0;panel.SelectFocusedItemAndGetName(selection);
+    Check(selection.BranchIdentity.empty()&&selection.Name.empty(),"explicit selection creates no temporary cleanup ownership");
+    panel.UnselectItemWithName(selection);Check(panel.GetSelCount()==1,"Cancel retains explicit selection");
+    panel.Files->At(1).Selected=FALSE;panel.Caret=0;panel.SelectFocusedItemAndGetName(selection);
+    state.Items.erase(newMirror.c_str());state.Items.erase(a.c_str());
+    panel.FileRows.Values.erase(panel.FileRows.Values.begin());panel.FileRows.Count=1;
+    std::string replacementMirror=newMirror;
+    panel.Files->At(0).Name=replacementMirror.c_str();panel.Files->At(0).NameW=renamed.c_str();panel.Files->At(0).Selected=TRUE;
+    Add(state,panel.Files->At(0),L"C:\\different",renamed,L"different\\"+renamed);
+    panel.UnselectItemWithName(selection);
+    Check(panel.Files->At(0).Selected==TRUE,"missing temporary identity cannot deselect another same-named source");
+}
+
 static void NavigationTests()
 {
     CBranchViewState state;
@@ -436,6 +505,8 @@ int wmain(int argc, wchar_t** argv)
     Paths(panel, ordinary, L"", L"", L"", "new active Branch has no ordinary row fallback");
     Paths(panel, up, L"C:\\root", L"C:\\root\\..", L"..", "first-scan empty listing parent navigation");
 
+    try { RenameMetadataTests(); }
+    catch (const std::exception& error) { Check(false,error.what()); }
     NavigationTests();
     ArchiveReadTests(argv[1]);
     EnterTests();

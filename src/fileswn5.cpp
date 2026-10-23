@@ -3431,6 +3431,9 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
     if (f == NULL || newNameW.empty() || newNameW.find_first_of(L"\\/:<>|\"") != std::wstring::npos)
         return;
 
+    if (IsBranchView() && GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*f)) != f)
+    { *tryAgain = FALSE; return; }
+    const char* oldNameKey = f->Name;
     const std::wstring oldFullPath = GetItemFullPathW(*f);
     std::wstring basePath = GetItemDirectoryW(*f);
     if (basePath.empty())
@@ -3469,8 +3472,10 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
         lstrcpyn(NextFocusName, nextFocus.c_str(), MAX_PATH);
         if (IsBranchView()) SleepIconCacheThread();
         UpdateFileDataNameAfterRename(f, newNameW, isDir);
+        BranchItemRenamed(oldNameKey, *f, oldFullPath);
         VisibleItemsArray.InvalidateArr();
         VisibleItemsArraySurround.InvalidateArr();
+        if (IsBranchView()) WakeupIconCacheThread();
         *tryAgain = FALSE;
     }
     else
@@ -3484,9 +3489,12 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
             {
                 std::string nextFocus = SalWideToMultiBytePath(newNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
                 lstrcpyn(NextFocusName, nextFocus.c_str(), MAX_PATH);
+                        if (IsBranchView()) SleepIconCacheThread();
                         UpdateFileDataNameAfterRename(f, newNameW, isDir);
+                        BranchItemRenamed(oldNameKey, *f, oldFullPath);
                         VisibleItemsArray.InvalidateArr();
                 VisibleItemsArraySurround.InvalidateArr();
+                if (IsBranchView()) WakeupIconCacheThread();
                         *tryAgain = FALSE;
             }
 
@@ -3532,9 +3540,12 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
                             err = ERROR_SUCCESS;
                             std::string nextFocus = SalWideToMultiBytePath(newNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
                             lstrcpyn(NextFocusName, nextFocus.c_str(), MAX_PATH);
+                                                if (IsBranchView()) SleepIconCacheThread();
                                                 UpdateFileDataNameAfterRename(f, newNameW, isDir);
+                                                BranchItemRenamed(oldNameKey, *f, oldFullPath);
                                                 VisibleItemsArray.InvalidateArr();
                             VisibleItemsArraySurround.InvalidateArr();
+                            if (IsBranchView()) WakeupIconCacheThread();
                                                 *tryAgain = FALSE;
                         }
                         break;
@@ -3804,8 +3815,6 @@ void CFilesWindow::RenameFileInternal(CFileData* f, const char* formatedFileName
 
 void CFilesWindow::RenameFile(int specialIndex)
 {
-    if (IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
-
     CALL_STACK_MESSAGE2("CFilesWindow::RenameFile(%d)", specialIndex);
 
     int i;
@@ -4135,8 +4144,6 @@ CFilesWindow::QuickRenameOnIndex(int index)
 
 void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
 {
-    if (IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
-
     CALL_STACK_MESSAGE2("CFilesWindow::QuickRenameBegin(%d, )", index);
 
     if (!(Is(ptDisk) || Is(ptPluginFS) && GetPluginFS()->NotEmpty() &&

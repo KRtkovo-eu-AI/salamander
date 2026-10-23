@@ -1,5 +1,41 @@
 # Validace portu a baseline S00
 
+## S27a2 accepted; S27b locally validated (2026-10-23)
+
+S27a2 accepted at 1d29dcf97ea7cd01e5a920928c4ccefca86ce9f9 after all
+[PR37 checks including actual CodeQL](https://github.com/majklvi/salamander/actions/runs/40002644218)
+and [native/Python tests](https://github.com/majklvi/salamander/actions/runs/40002644221)
+succeeded. Both original CodeQL findings are fixed. The separate
+[clean supported Debug Win32/x64/ARM64 rebuild](https://github.com/majklvi/salamander/actions/runs/40002672861)
+also succeeded, with the recorded SFTP/lang_sftp and unsupported zip2sfx
+platform exclusions. The internal validation draft is not merged into the
+reference base. The accepted local ref now points to 1d29dcf9.
+
+S27b enables only F2 and inline Rename for current Branch rows. Donor metadata
+remapping and all three success hooks are integrated with the existing S20a
+wide I/O and owned temporary selection. Local adaptations release the metadata
+mutex before cancellation/refresh and revalidate an owned cache identity after
+the modal F2 dialog. Copy/move/delete, other unverified commands and plugin
+activation remain deferred. The process-wide experimental gate remains off
+by default; LongPathsEnabled stayed 0.
+
+Host and dependencies Debug/Release x64 /warnaserror PASS. Actual-method native
+Branch fixture: 200 checks/configuration (original186 retained); ordinary getter
+fixture: 196/configuration plus 5 released SDK prefixes; existing temporary
+selection fixture: 21/configuration; all28 registered source/menu groups PASS.
+Real Debug dark-scheme and Release light-scheme GUI passed F2 Cancel, long
+Unicode-parent rename and ordinary-panel F2 Cancel. Debug additionally passed
+explicit-selection Cancel, 100-CJK-basename rename, inline rename and collision
+Cancel. All12 file contents and the sentinel retain their hashes after exactly
+five intended renames. Both own instances exited cleanly; both private config
+INIs were restored byte-for-byte. See [S27b](steps/S27b.md) for commands and limits.
+
+S27b is local only on integration/pr769-s27b-candidate. No new push, PR, clean
+whole-solution matrix or remote CodeQL was requested/performed for this stage.
+Prior S27a2 CI does not validate the new S27b code. Next: plan the smallest S27c
+copy/move/delete operation unit before enabling it. Older entries below are
+historical results for their stated revisions.
+
 ## S27a2 testovací cesty v CI (2026-10-23)
 
 Head 5806dc95 vyřešil oba původní nálezy CodeQL (instances #3/#4 fixed)

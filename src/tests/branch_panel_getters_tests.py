@@ -75,11 +75,14 @@ def main():
         "ENTRY_FULL_PATH": block(production, "std::wstring Entry::FullPath()"),
         "ORDINARY_JOIN": block(conversions, "BOOL SalPathAppendW("),
         "CONVERSION": block(conversions, "BOOL SalIsExtendedLengthPathW(") + "\n" + block(conversions, "std::wstring SalPathRemoveExtendedPrefixW(") + "\n" + block(conversions, "std::wstring SalPathAddExtendedPrefixW(") + "\n" + block(conversions, "std::string SalWideToMultiBytePath(") + "\n" + block(conversions, "BOOL IsValidPathUtf8Text(") + "\n" + block(conversions, "std::wstring SalMultiByteToWidePath("),
+        "TEMP_HEADER": str(ROOT / "src/panel_temporary_selection.h").replace(chr(92), "/"),
+        "RENAME_METADATA": block(production, "void CFilesWindow::BranchItemRenamed("),
+        "TEMP_SELECTION": block(read("src/fileswn0.cpp", args.source_ref), "void CFilesWindow::SelectFocusedItemAndGetName(") + "\n" + block(read("src/fileswn0.cpp", args.source_ref), "void CFilesWindow::UnselectItemWithName("),
         "NAVIGATION": block(production, "BOOL CFilesWindow::OpenBranchItemDirectory()"),
         "CACHE": block(production, "const char* CFilesWindow::GetItemCacheKeyPtr(") + "\n" + block(production, "const CFileData* CFilesWindow::GetBranchViewFileByCacheKey("),
         "VIEW_POLICY": block(read("src/fileswn5.cpp", args.source_ref).split("// S27a transition:", 1)[1], "    if (IsBranchView())"),
         "GETTERS": "\n".join(block(production, "std::wstring CFilesWindow::" + name + "(")
-                            for name in ("GetItemDirectoryW", "GetItemFullPathW", "GetItemRelativePathW")),
+                            for name in ("GetItemDirectoryW", "GetItemFullPathW", "GetItemIdentityW", "GetItemRelativePathW")),
     }
     generated = read("src/tests/branch_panel_getters_tests.cpp.in")
     for name, value in pieces.items():
@@ -98,7 +101,7 @@ def main():
             flags = ["/MDd", "/D_DEBUG", "/Od"] if configuration == "Debug" else ["/MD", "/DNDEBUG", "/O2"]
             print("Actual Branch panel getters:", configuration, flush=True)
             for command in ([compiler, "/nologo", "/std:c++17", "/EHsc", "/utf-8", "/W4", "/WX",
-                             *flags, str(source), "/Fe:" + str(executable)], [str(executable), str(directory)]):
+                             *flags, str(source), "/Fe:" + str(executable), "user32.lib"], [str(executable), str(directory)]):
                 result = run(command, cwd=directory, env=environment, timeout=45)
                 if result.returncode:
                     return result.returncode

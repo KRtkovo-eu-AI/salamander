@@ -19,17 +19,27 @@ class BranchTransitionContracts(unittest.TestCase):
   text=source('mainwnd3.cpp');start=text.index('CFilesWindow* branchCommandPanel');part=text[start:]
   self.assertLess(part.index('!BranchReadOnlyCommandAllowed(LOWORD(wParam))'),part.index('if (HelpMode'))
   gate=function('mainwnd3.cpp','static bool BranchReadOnlyCommandAllowed(')
-  for forbidden in ('CM_COPYFILES','CM_MOVEFILES','CM_DELETEFILES','CM_RENAMEFILE','CM_VIEW_WITH','CM_EDIT_WITH'):
+  for forbidden in ('CM_COPYFILES','CM_MOVEFILES','CM_DELETEFILES','CM_VIEW_WITH','CM_EDIT_WITH'):
    self.assertNotIn('case '+forbidden+':',gate)
-  for allowed in ('CM_OPEN','CM_VIEW','CM_ALTVIEW','CM_EDIT','CM_BRANCH_OPENPARENT'):
+  for allowed in ('CM_OPEN','CM_VIEW','CM_ALTVIEW','CM_EDIT','CM_BRANCH_OPENPARENT','CM_RENAMEFILE'):
    self.assertIn('case '+allowed+':',gate)
   self.assertIn('return false;',gate)
  def test_readonly_direct_paths_are_guarded(self):
-  cases={'fileswn5.cpp':['void CFilesWindow::RenameFile(', 'void CFilesWindow::QuickRenameBegin('], 'fileswn6.cpp':['void CFilesWindow::DropCopyMove('], 'fileswn9.cpp':['BOOL CFilesWindow::ClipboardPaste(']}
+  cases={'fileswn6.cpp':['void CFilesWindow::DropCopyMove('], 'fileswn9.cpp':['BOOL CFilesWindow::ClipboardPaste(']}
   for file, markers in cases.items():
    for marker in markers:
     part=function(file,marker)
     self.assertIn('if (IsBranchView()' if file == 'fileswn2.cpp' else 'if (IsBranchView()) return',part)
+ def test_rename_requires_current_metadata_and_preserves_modal_identity(self):
+  for marker in ('void CFilesWindow::RenameFile(', 'void CFilesWindow::QuickRenameBegin(', 'void CFilesWindow::RenameFileInternalW(', 'BOOL CFilesWindow::HandeQuickRenameWindowKey('):
+   part=function('fileswn5.cpp',marker)
+   self.assertIn('GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*f)) != f',part)
+  part=function('fileswn5.cpp','void CFilesWindow::RenameFile(')
+  self.assertIn('GetBranchViewFileByCacheKey(renameIdentity.c_str()) != f',part)
+  rename=function('fileswn5.cpp','void CFilesWindow::RenameFileInternalW(')
+  self.assertEqual(rename.count('BranchItemRenamed(oldNameKey, *f, oldFullPath)'),3)
+  self.assertEqual(rename.count('SleepIconCacheThread()'),3)
+  self.assertEqual(rename.count('WakeupIconCacheThread()'),3)
  def test_view_and_edit_require_current_metadata_before_full_path(self):
   for marker in ('void CFilesWindow::ViewFile(', 'void CFilesWindow::EditFile('):
    part=function('fileswn5.cpp',marker)

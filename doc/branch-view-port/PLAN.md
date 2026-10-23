@@ -1,5 +1,28 @@
 # Plán postupného portu PR #769
 
+## S27b local implementation complete (2026-10-23)
+
+The planned Rename-only unit has passed its local Debug/Release build, native
+and GUI gates. Details and publication limits: [S27b](steps/S27b.md). The accepted
+S27a2 reference remains 1d29dcf9; S27b is a separate local candidate commit.
+No S27c command is enabled. S27c must be split into operation-sized units,
+starting with a separately planned copy unit if its dependencies are ready.
+
+## S27a2 přijato; zahájení S27b (2026-10-23)
+
+Přijata revize1d29dcf9: PR37 všechny kontroly SUCCESS, skutečné CodeQL SUCCESS,
+oba původní nálezy fixed, čistý Rebuild podporované sestavy Win32/x64/ARM64 PASS.
+Interní draft se nemerguje do zrcadlové base. Lokální přijatý ref je posunut
+na tuto revizi. S27b aktivuje pouze Rename a bezpečný úklid dočasného výběru.
+
+Přebírá se donorový BranchItemRenamed, deklarace a tři úspěšné větve přejmenování
+se zastavením icon readeru před změnou jména. Před otevřením operace musí souhlasit
+aktuální cache identita. Metadata lock se uvolní před callbacky/refresh. Již hotové
+S20a široké I/O a dočasný výběr se znovu neimplementují. Brána: extrahované skutečné
+metody + původní testy, Debug/Release host a skutečné GUI Rename/Cancel s duplikáty,
+Unicode/dlouhými rodiči, explicitním výběrem a kontrolou nedotčených hashů.
+Výchozí gate zůstává vypnutý, S27c–f odložené. Bez nového push/PR v této etapě.
+
 ## S27a2 dokončeno v dohodnutém rozsahu (2026-10-23)
 
 Aktuální zadání výslovně přijímá dokončení s bezpečným odmítnutím

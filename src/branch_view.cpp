@@ -701,6 +701,29 @@ void CFilesWindow::PollBranchView()
         SetTimer(HWindow, IDT_BRANCHVIEW_POLL,
             preparation->Queue.HasPending() ? 15 : 200, NULL);
 }
+void CFilesWindow::BranchItemRenamed(const char* oldNameKey, const CFileData& file, const std::wstring& oldFullPath)
+{
+    if (!IsBranchView()) return;
+    {
+        std::lock_guard<std::mutex> lock(BranchView->ItemsMutex);
+        auto item = BranchView->Items.find(oldNameKey);
+        if (item == BranchView->Items.end()) return;
+        Salamander::BranchView::Entry entry = item->second;
+        BranchView->Items.erase(item);
+        std::wstring name = file.UseWideName() ? file.NameW : SalMultiByteToWidePath(file.Name);
+        wcsncpy_s(entry.Data.cFileName, _countof(entry.Data.cFileName), name.c_str(), _TRUNCATE);
+        size_t slash = entry.RelativePath.find_last_of(L'\\');
+        entry.RelativePath = (slash == std::wstring::npos ? L"" : entry.RelativePath.substr(0, slash + 1)) + name;
+        entry.CacheKey = SalWideToMultiBytePath(entry.FullPath().c_str(), CP_UTF8);
+        BranchView->CacheFiles.erase(SalWideToMultiBytePath(oldFullPath.c_str(), CP_UTF8));
+        BranchView->CacheFiles[entry.CacheKey] = &file;
+        BranchView->Items[file.Name] = entry;
+        for (auto& old : BranchView->Entries) if (old.FullPath() == oldFullPath) old = entry;
+        BranchView->PendingFocus = entry.FullPath();
+    } // No callbacks or refresh while holding the metadata lock.
+    CancelBranchViewScan();
+    RefreshBranchView();
+}
 BOOL CFilesWindow::OpenBranchItemDirectory()
 {
     if (!IsBranchView()) return FALSE;
