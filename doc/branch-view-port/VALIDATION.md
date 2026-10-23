@@ -1,5 +1,26 @@
 # Validace portu a baseline S00
 
+## S27d3b completed locally (2026-10-24)
+
+Paste from Branch clipboard into an explicit ordinary disk destination is verified.
+Accepted S21 wide HDROP ingestion and S20 drop I/O are reused. Local dependency fix
+replaces three legacy first-source buffers in DropCopyMove with one owned wide-first
+UTF8 parent for source display, volume/scheduling metadata and notification input.
+No implicit paste/drop into the collection root is enabled. Default-off gate intact.
+
+D/R host/dependencies /warnaserror PASS (9.11s/77.11s), actual-method native harness
+320/configuration PASS (8 new metadata cases), real Shell fixture33/configuration
+PASS, all28 source/menu groups PASS. Actual D/R Ctrl+C/V copies4 mixed-parent files;
+Ctrl+X/V moves the same4 with exact hashes and disappearance of just those sources.
+Both duplicate same.txt inputs remain unchanged. Branch listings auto-refresh to2.
+Actual D/R overwrite conflict Cancel preserves source copy and existing target.
+Private INIs restored and hosts/reporters exit cleanly. LongPathsEnabled=0 unchanged.
+
+See [S27d3b](steps/S27d3b.md); evidence ../evidence/S27d3b. No publication/remote
+CI/CodeQL or clean full matrix. S30 notification transport still has its legacy
+single-first-parent/short-path limit; other source panels may need manual Refresh.
+Next goal units S27d4 context menu, then S27d5 drag/drop/destination semantics.
+
 ## S27d3a completed locally (2026-10-24)
 
 Cut export now enabled through CM_CLIPCUT and selected saCutToClipboard, reusing

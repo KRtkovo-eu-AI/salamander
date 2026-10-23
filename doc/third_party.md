@@ -217,3 +217,11 @@ from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin
 Contributors, GPL-2.0-or-later. Original notices retained. Staged activation and
 actual-block native regression harness are local incremental-port adaptations.
+
+### S27d3b Branch clipboard paste
+
+Wide clipboard ingestion and operation planner reused from
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin
+Contributors, GPL-2.0-or-later. Original notices retained. Owned wide-first drop
+metadata adapter and actual-function regression cases are local adaptations.

@@ -28,6 +28,28 @@ namespace Salamander { namespace BranchView {
 @@JOIN@@
 @@ENTRY_FULL_PATH@@
 } }
+struct CCopyMoveRecord {const char* FileName=nullptr;const wchar_t* FileNameW=nullptr;};
+struct CCopyMoveData {int Count=0;const CCopyMoveRecord* Row=nullptr;const CCopyMoveRecord* At(int) const{return Row;}};
+#define CALL_STACK_MESSAGE2(...)
+@@CUT_DIRECTORY@@
+#undef CALL_STACK_MESSAGE2
+BOOL CutDirectory(char*,char** cutDir=nullptr);
+@@DROP_PARENT@@
+static void Check(bool,const char*);
+static void DropParentTests(){
+ Check(GetDropSourceDirectory(nullptr).empty(),"drop parent rejects null data");
+ CCopyMoveRecord row;CCopyMoveData data{1,&row};
+ Check(GetDropSourceDirectory(&data).empty(),"drop parent rejects empty record");
+ const std::wstring parent=L"C:\\東京\\"+std::wstring(300,L'a');const std::wstring full=parent+L"\\ž-東京.txt";
+ row.FileName="wrong legacy mirror";row.FileNameW=full.c_str();
+ Check(GetDropSourceDirectory(&data)==SalWideToMultiBytePath(parent.c_str(),CP_UTF8),"drop metadata uses exact long Unicode wide source");
+ row.FileNameW=nullptr;const std::string utf8=SalWideToMultiBytePath(full.c_str(),CP_UTF8);row.FileName=utf8.c_str();
+ Check(GetDropSourceDirectory(&data)==SalWideToMultiBytePath(parent.c_str(),CP_UTF8),"legacy UTF8 fallback preserves long parent");
+ row.FileName="C:\\ordinary\\file.txt";Check(GetDropSourceDirectory(&data)=="C:\\ordinary","ordinary drop source parent unchanged");
+ row.FileName="C:\\file.txt";Check(GetDropSourceDirectory(&data)=="C:\\","drive root parent retains slash");
+ row.FileName="file.txt";Check(GetDropSourceDirectory(&data).empty(),"relative source cannot invent a parent");
+ data.Count=0;Check(GetDropSourceDirectory(&data).empty(),"empty drop selection has no parent");
+}
 struct CFileData
 {
     const char* Name = nullptr;
@@ -916,7 +938,7 @@ int wmain(int argc, wchar_t** argv)
     Paths(panel, ordinary, L"", L"", L"", "new active Branch has no ordinary row fallback");
     Paths(panel, up, L"C:\\root", L"C:\\root\\..", L"..", "first-scan empty listing parent navigation");
 
-    try { PropertiesTests(); RecycleQueueTests(); NotificationTests(); RelativeCopyTests(); CopySourceTests(); RenameMetadataTests(); }
+    try { DropParentTests(); PropertiesTests(); RecycleQueueTests(); NotificationTests(); RelativeCopyTests(); CopySourceTests(); RenameMetadataTests(); }
     catch (const std::exception& error) { Check(false,error.what()); }
     NavigationTests();
     ArchiveReadTests(argv[1]);

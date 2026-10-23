@@ -77,6 +77,8 @@ def main():
     gate_begin = shell.index("    // S27d3a: selected Properties")
     gate_end = shell.index("    CALL_STACK_MESSAGE5", gate_begin)
     pieces = {
+        "DROP_PARENT": block(builder,"static std::string GetDropSourceDirectory("),
+        "CUT_DIRECTORY": block(read("src/salamdr1.cpp",args.source_ref),"BOOL CutDirectory("),
         "CUT_MARK": block(shell[shell.index("    case saCopyToClipboard:"):], "                    if (action != saCopyToClipboard)"),
         "CUT_CLEAR": block(read("src/fileswnb.cpp",args.source_ref),"void CFilesWindow::ClearCutToClipFlag("),
         "CLIPBOARD_EXPORT": block(shell[shell.index("    case saCopyToClipboard:"):], "                if (panel->Is(ptDisk))"),
