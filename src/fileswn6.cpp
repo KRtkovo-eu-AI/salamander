@@ -1510,7 +1510,7 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
             std::string branchName;
             if (IsBranchView())
             {
-                if (type != atCopy || GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*oneFile)) != oneFile)
+                if ((type != atCopy && type != atMove) || GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*oneFile)) != oneFile)
                 {
                     SetCurrentDirectoryToSystem();
                     return FALSE;
@@ -1535,7 +1535,12 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                     srcAndTgtPathsFlags &= ~(OPFL_SRCPATH_IS_NET | OPFL_SRCPATH_IS_FAST);
                     srcAndTgtPathsFlags |= GetPathFlagsForCopyOp(sourcePath, OPFL_SRCPATH_IS_NET, OPFL_SRCPATH_IS_FAST);
                     script->SourcePathIsNetwork |= (srcAndTgtPathsFlags & OPFL_SRCPATH_IS_NET) != 0;
-                    script->AddStoragePath(sourcePath, SACCESS_READ);
+                    script->AddStoragePath(sourcePath, type == atMove ? SACCESS_READWRITE : SACCESS_READ);
+                    if (type == atMove && !HasTheSameRootPathAndVolume(sourcePath, targetPath))
+                    {
+                        script->SameRootButDiffVolume = TRUE;
+                        script->ShowStatus = TRUE;
+                    }
                 }
             }
             i++;

@@ -262,7 +262,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
 {
     // S27c1a: only flat copy into an ordinary disk panel is verified.
     if (target != NULL && target->IsBranchView()) return;
-    if (IsBranchView() && (type != atCopy || target == NULL || !target->Is(ptDisk) ||
+    if (IsBranchView() && ((type != atCopy && type != atMove) || target == NULL || !target->Is(ptDisk) ||
                            countSizeMode != 0 || copyToSelectedDirs)) return;
 
     if (changeTargetRequested != NULL)
@@ -773,7 +773,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                 {
                     if (IsBranchView() && pathType != PATH_TYPE_WINDOWS)
                     {
-                        SalMessageBox(HWindow, GetErrorText(ERROR_NOT_SUPPORTED), LoadStr(IDS_ERRORCOPY),
+                        SalMessageBox(HWindow, GetErrorText(ERROR_NOT_SUPPORTED), LoadStr(type == atCopy ? IDS_ERRORCOPY : IDS_ERRORMOVE),
                                       MB_OK | MB_ICONEXCLAMATION);
                         continue; // Do not enter unverified archive/plugin copy callbacks.
                     }

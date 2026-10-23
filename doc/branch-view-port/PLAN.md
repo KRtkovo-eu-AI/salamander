@@ -1,5 +1,30 @@
 # Plán postupného portu PR #769
 
+## S27c2 locally validated (2026-10-23)
+
+Branch F6 move now reuses the exact parent/name and optional relative-directory
+planning. Donor per-source read/write storage access and cross-volume status flags
+are restored. Current-row/cache gates remain; archive/plugin and Branch destinations,
+clipboard, drag/drop and delete stay blocked. Explicit completion notifications now
+use the scoped donor Branch AcceptChangeOnPathNotification block; this required
+dependency is documented in PLAN and leaves S26 automatic-watcher policy unchanged.
+
+Debug/Release x64 host/dependencies /warnaserror PASS; actual-block native harness
+243 checks/configuration PASS (230 retained, six move and seven notification checks).
+All28 source/menu groups PASS. Actual D/R F6 moved six files each with long Unicode
+names, mixed parents and duplicate basenames into distinct relative destinations.
+All12 destination hashes match; original source files are gone, sentinel unchanged;
+Branch refreshed to zero rows without a manual key. Debug Cancel left all sources
+and empty destination unchanged. Both own hosts/reporters exited cleanly and private
+INIs were restored. GUI exercised same-volume moves; cross-volume status selection
+is facade-tested, not a real second-volume transfer. Existing legacy MAX_PATH
+notification transport remains a limitation for refreshing very long panel roots;
+operation paths themselves are owned/wide. S30 notification work remains deferred.
+
+Evidence: ../evidence/S27c2. No push/PR, remote CodeQL or clean whole-solution CI.
+Next requested unit: S27c3 permanent deletion.
+
+
 # S27c continuation (explicit user multi-stage instruction, no push)
 
 Run S27c1b, S27c2, S27c3 and S27c4 sequentially as separate coherent local
@@ -2132,3 +2157,9 @@ knihovna ani heap ignore predikát se nemění. Původních osm host MENU skupin
 je starší samostatná baseline záležitost; trace jejich alokace ukazuje také
 na app-owned ThemeData, dosavadní komentář o OS-owned původu proto není
 potvrzen. Tento předkrok opravuje pouze dvě File Comparator pole.
+
+S27c2 dependency: explicit worker-completion notifications need the donor Branch
+AcceptChangeOnPathNotification block in fileswn7.cpp. Import only that block;
+it posts WM_USER_REFRESH_DIR with wParam0, so S26 watcher/manual policy stays
+unchanged. Existing WorkPath1 recursive root notification and WorkPath2 target
+are reused; legacy MAX_PATH notification producer limits remain documented.

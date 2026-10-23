@@ -19,9 +19,9 @@ class BranchTransitionContracts(unittest.TestCase):
   text=source('mainwnd3.cpp');start=text.index('CFilesWindow* branchCommandPanel');part=text[start:]
   self.assertLess(part.index('!BranchReadOnlyCommandAllowed(LOWORD(wParam))'),part.index('if (HelpMode'))
   gate=function('mainwnd3.cpp','static bool BranchReadOnlyCommandAllowed(')
-  for forbidden in ('CM_MOVEFILES','CM_DELETEFILES','CM_VIEW_WITH','CM_EDIT_WITH'):
+  for forbidden in ('CM_DELETEFILES','CM_VIEW_WITH','CM_EDIT_WITH'):
    self.assertNotIn('case '+forbidden+':',gate)
-  for allowed in ('CM_OPEN','CM_VIEW','CM_ALTVIEW','CM_EDIT','CM_BRANCH_OPENPARENT','CM_RENAMEFILE','CM_COPYFILES'):
+  for allowed in ('CM_OPEN','CM_VIEW','CM_ALTVIEW','CM_EDIT','CM_BRANCH_OPENPARENT','CM_RENAMEFILE','CM_COPYFILES','CM_MOVEFILES'):
    self.assertIn('case '+allowed+':',gate)
   self.assertIn('return false;',gate)
  def test_readonly_direct_paths_are_guarded(self):
@@ -32,13 +32,13 @@ class BranchTransitionContracts(unittest.TestCase):
     self.assertIn('if (IsBranchView()' if file == 'fileswn2.cpp' else 'if (IsBranchView()) return',part)
  def test_copy_is_flat_disk_only_and_requires_current_metadata(self):
   action=function('fileswn8.cpp','void CFilesWindow::FilesAction(')
-  self.assertIn('type != atCopy || target == NULL || !target->Is(ptDisk)',action)
+  self.assertIn('(type != atCopy && type != atMove) || target == NULL || !target->Is(ptDisk)',action)
   self.assertIn('countSizeMode != 0 || copyToSelectedDirs',action)
   self.assertIn('target != NULL && target->IsBranchView()',action)
   self.assertLess(action.index('pathType != PATH_TYPE_WINDOWS'),action.index('if (pathType == PATH_TYPE_ARCHIVE)'))
   builder=function('fileswn6.cpp','BOOL CFilesWindow::BuildScriptMain(')
-  self.assertIn('type != atCopy || GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*oneFile)) != oneFile',builder)
-  self.assertIn('script->AddStoragePath(sourcePath, SACCESS_READ)',builder)
+  self.assertIn('(type != atCopy && type != atMove) || GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*oneFile)) != oneFile',builder)
+  self.assertIn('script->AddStoragePath(sourcePath, type == atMove ? SACCESS_READWRITE : SACCESS_READ)',builder)
   self.assertIn('keepBranchPaths',builder)
   self.assertIn('BOOL keepBranchPaths = FALSE',action)
  def test_rename_requires_current_metadata_and_preserves_modal_identity(self):
@@ -89,7 +89,7 @@ class BranchTransitionContracts(unittest.TestCase):
   for file in ('fileswn7.cpp','fileswn8.cpp'):
    text=source(file)
    if file == 'fileswn7.cpp': self.assertIn('IsBranchView() ||',text)
-   else: self.assertIn('IsBranchView() && (type != atCopy',text)
+   else: self.assertIn('IsBranchView() && ((type != atCopy && type != atMove)',text)
    self.assertIn('target->IsBranchView()',text)
  def test_stop_is_present_in_the_actual_menu(self):
   self.assertIn("CM_BRANCH_STOP,",source("menu4.cpp"))

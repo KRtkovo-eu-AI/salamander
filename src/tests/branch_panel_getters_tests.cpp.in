@@ -105,7 +105,7 @@ static DWORD RecordAttributes(const wchar_t* path) {
 
 // Recorders for the actual BuildScriptMain per-item source block. Worker I/O
 // is validated separately and by the real host GUI; no test-only copy engine.
-const int atCopy=1, atMove=2, atDelete=3, SACCESS_READ=1;
+const int atCopy=1, atMove=2, atDelete=3, SACCESS_READ=1,SACCESS_READWRITE=3;
 const DWORD OPFL_SRCPATH_IS_NET=1, OPFL_SRCPATH_IS_FAST=2, OPFL_TGTPATH_IS_NET=4;
 struct CopyCriteria {BOOL IgnoreADS=FALSE;};
 struct CQuadWord {
@@ -130,7 +130,7 @@ struct CopyScript {
     BOOL IsGood(){return Good;}
     void ResetState(){Good=TRUE;}
     ~CopyScript(){for(auto& op:Records)if(op.Opcode==ocCreateDir){free(op.SourceName);free(op.TargetName);}}
-    BOOL SourcePathIsNetwork=FALSE;
+    BOOL SourcePathIsNetwork=FALSE,SameRootButDiffVolume=FALSE,ShowStatus=FALSE;
     std::vector<std::pair<std::string,int>> Storage;
     void AddStoragePath(const char* path,int access){Storage.emplace_back(path,access);}
 };
@@ -139,6 +139,8 @@ static std::string ADSQueried;
 static void SetCurrentDirectoryToSystem(){++CopyCwdResets;}
 static BOOL IsPathOnVolumeSupADS(const char* path,void*){ADSQueried=path;return TRUE;}
 static DWORD GetPathFlagsForCopyOp(const char* path,DWORD net,DWORD fast){return path[0]=='\\'?net:fast;}
+static BOOL SameVolume=TRUE;
+static BOOL HasTheSameRootPathAndVolume(const char*,const char*){return SameVolume;}
 struct CPathBuffer {
     std::vector<char> Bytes=std::vector<char>(4);
     static bool FailGrowth;
@@ -196,14 +198,31 @@ struct CFilesWindow
     void RefreshBranchView() {++RefreshCalls;if(BranchView->ItemsMutex.try_lock())BranchView->ItemsMutex.unlock();else CallbackLocked=true;}
     BOOL PrepareCopySource(CFileData*,int,CopyCapture&,CopyScript*,CopyCriteria*);
     BOOL PrepareRelativeTarget(CFileData*,BOOL,CopyScript*,std::string&);
+    void Notify(const char*,BOOL);
+    int FreeSpaceCalls=0;
+    void RefreshDiskFreeSpace(BOOL,BOOL){++FreeSpaceCalls;}
     void ExecuteBranch(CFileData* file);
     void ViewPolicy(const char* name, BOOL altView, DWORD handlerID);
 
 };
+static CRITICAL_SECTION TimeCounterSection;
+static int MyTimeCounter=1,PostedRefresh=0;
+static const UINT WM_USER_REFRESH_DIR=WM_APP+2;
+static BOOL RecordRefresh(HWND,UINT message,WPARAM w,LPARAM stamp){if(message==WM_USER_REFRESH_DIR&&w==0&&stamp>0)++PostedRefresh;return TRUE;}
+#define HANDLES(call) (call)
+#pragma push_macro("PostMessage")
+#undef PostMessage
+#define PostMessage RecordRefresh
+void CFilesWindow::Notify(const char* path,BOOL includingSubdirs){
+@@NOTIFY@@
+}
+#pragma pop_macro("PostMessage")
+#undef HANDLES
 @@GETTERS@@
 @@CACHE@@
 BOOL CFilesWindow::PrepareCopySource(CFileData* oneFile,int type,CopyCapture& result,CopyScript* script,CopyCriteria* filterCriteria)
 {
+    const char* targetPath="D:\\target";
     CPathBuffer sourcePathStorage;char* sourcePath=sourcePathStorage.Data();
     char* useName=const_cast<char*>(oneFile->Name);const char* useDOSName="SAME~1.TXT";
     BOOL sourceSupADS=FALSE;DWORD srcAndTgtPathsFlags=result.Flags;
@@ -302,6 +321,19 @@ static void RelativeCopyTests()
     OnAttributes=nullptr;
 }
 
+static void NotificationTests()
+{
+    CBranchViewState state;CFilesWindow panel;panel.BranchView=&state;panel.WideRoot=L"C:\\東京\\branch";
+    PostedRefresh=0;InitializeCriticalSection(&TimeCounterSection);
+    panel.Notify("C:\\東京\\branch",TRUE);Check(PostedRefresh==1,"completion root notification refreshes Branch");
+    panel.Notify("C:\\東京\\branch\\nested",FALSE);Check(PostedRefresh==2,"descendant notification refreshes Branch");
+    panel.Notify("C:\\東京",TRUE);Check(PostedRefresh==3,"recursive ancestor notification refreshes Branch");
+    panel.Notify("C:\\東京",FALSE);Check(PostedRefresh==3,"nonrecursive ancestor is ignored");
+    panel.Notify("C:\\東京\\branch-other",TRUE);Check(PostedRefresh==3,"prefix sibling is not Branch descendant");
+    panel.Notify("",TRUE);Check(PostedRefresh==3,"empty path cannot refresh unrelated Branch");
+    Check(panel.FreeSpaceCalls==6,"notification retains free-space refresh");DeleteCriticalSection(&TimeCounterSection);
+}
+
 static void CopySourceTests()
 {
     CBranchViewState state;CFilesWindow panel;panel.BranchView=&state;
@@ -330,8 +362,17 @@ static void CopySourceTests()
     CopyCriteria ignore;ignore.IgnoreADS=TRUE;ADSQueried="not probed";
     Check(panel.PrepareCopySource(&panel.Files->At(0),atCopy,net,&script,&ignore)&&!net.ADS&&ADSQueried=="not probed","ignore-ADS option remains effective");
     int resets=CopyCwdResets;const auto queued=script.Storage.size();
-    Check(!panel.PrepareCopySource(&panel.Files->At(0),atMove,net,&script,nullptr)&&!panel.PrepareCopySource(&panel.Files->At(0),atDelete,net,&script,nullptr),"move and delete cannot use staged copy boundary");
+    Check(!panel.PrepareCopySource(&panel.Files->At(0),99,net,&script,nullptr)&&!panel.PrepareCopySource(&panel.Files->At(0),atDelete,net,&script,nullptr),"unknown action and delete cannot use staged copy/move boundary");
     Check(CopyCwdResets==resets+2&&script.Storage.size()==queued,"rejected action restores CWD without scheduling");
+    CopyScript moving;CopyCapture moved;SameVolume=FALSE;
+    Check(panel.PrepareCopySource(&panel.Files->At(1),atMove,moved,&moving,nullptr),"move resolves long actual parent");
+    Check(moved.Parent==two.Parent&&moved.Name==two.Name&&!moved.HasDosName,"move does not use display/DOS aliases");
+    Check(moving.Storage.size()==1&&moving.Storage[0].first==two.Parent&&moving.Storage[0].second==SACCESS_READWRITE,"move storage access is read/write on actual source");
+    Check(moving.SameRootButDiffVolume&&moving.ShowStatus,"cross-volume move enables copy/delete status");
+    CopyScript local;SameVolume=TRUE;
+    Check(panel.PrepareCopySource(&panel.Files->At(2),atMove,moved,&local,nullptr)&&!local.SameRootButDiffVolume&&!local.ShowStatus,"same-volume move keeps rename optimization");
+    state.CacheFiles.clear();
+    Check(!panel.PrepareCopySource(&panel.Files->At(1),atMove,moved,&moving,nullptr)&&moving.Storage.size()==1,"stale move cannot schedule destructive I/O");
     state.CacheFiles.clear();
     Check(!panel.PrepareCopySource(&panel.Files->At(0),atCopy,net,&script,nullptr),"stale cache cannot fall back to root plus basename");
     state.CacheFiles[state.Items[first.c_str()].CacheKey]=&panel.Files->At(0);CPathBuffer::FailGrowth=true;
@@ -642,7 +683,7 @@ int wmain(int argc, wchar_t** argv)
     Paths(panel, ordinary, L"", L"", L"", "new active Branch has no ordinary row fallback");
     Paths(panel, up, L"C:\\root", L"C:\\root\\..", L"..", "first-scan empty listing parent navigation");
 
-    try { RelativeCopyTests(); CopySourceTests(); RenameMetadataTests(); }
+    try { NotificationTests(); RelativeCopyTests(); CopySourceTests(); RenameMetadataTests(); }
     catch (const std::exception& error) { Check(false,error.what()); }
     NavigationTests();
     ArchiveReadTests(argv[1]);

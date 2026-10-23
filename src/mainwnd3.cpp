@@ -4325,6 +4325,7 @@ static bool BranchReadOnlyCommandAllowed(UINT command)
     case CM_LEFT_BRANCHVIEW:
     case CM_RIGHT_BRANCHVIEW:
     case CM_COPYFILES:
+    case CM_MOVEFILES:
     case CM_RENAMEFILE:
     case CM_OPEN:
     case CM_VIEW:
