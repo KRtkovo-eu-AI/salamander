@@ -1,5 +1,21 @@
 # Stav portu PR #769
 
+## S21–S26 — ACCEPTED after PR35 CI (2026-10-23)
+
+User accepted head `3dc52cb6986f0acf0aa3de906243684e4d1b5d22` of internal draft
+[PR35](https://github.com/majklvi/salamander/pull/35). All13 current-head checks
+completed SUCCESS, including actual CodeQL initialize/Release-x64-build/analysis/
+SARIF and the corrected icon-reader regression. Separate clean full supported-
+solution Rebuild39949246785 passed Debug Win32/x64/ARM64 with dependencies; SFTP
+remains excluded by existing policy. PR35 stays open; mirror base is not merged.
+Evidence ../evidence/S27a/accepted-s21-s26-ci.json. Known Debug menu-heap diagnostic
+limitation documented in S26b remains; CI success is not an allocator-origin fix.
+
+Next independently validated unit: S27a (viewer/editor/Enter/exact parent navigation).
+S27b–f, S28–S32 remain deferred. Experimental activation stays process-gated/default
+off. No new push/PR is authorized by this continuation.
+
+
 ## S26 CI follow-up — icon-reader snapshot fixture (2026-10-23)
 
 PR35 head16bdb948: CodeQL and clean full supported-solution Debug Rebuild for
