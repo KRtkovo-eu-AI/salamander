@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Open Salamander Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Exercise the actual archive selection callback in Debug and Release, without UI; source cleanup uses owned temporary files."""
+"""Exercise the actual archive selection callback in Debug and Release, without UI or disk mutation."""
 import argparse
 import os
 from pathlib import Path
@@ -87,18 +87,11 @@ def main():
             "CPanelTmpEnumData::CPanelTmpEnumData()", "CPanelTmpEnumData::~CPanelTmpEnumData()",
             "void CPanelTmpEnumData::Reset()")),
         "CONVERTER": block(converter, "std::string SalWideToMultiBytePath("),
-        "PACKER_GATE": block(source, "static BOOL IsVerifiedBranchPacker("),
         "CALLBACK": block(source, "const char* WINAPI PanelEnumDiskSelection("),
     }
     generated = read("src/tests/branch_archive_selection_tests.cpp.in")
     for name, value in pieces.items():
         generated = generated.replace("@@" + name + "@@", value)
-    generated = generated.replace('@@CLEANUP@@',
-        'namespace SalamanderDiskSelection {\n' + block(read('src/plugins/shared/spl_diskselection.h'), 'inline std::wstring WideFromPath(') + '\n}\n' +
-        block(read('src/plugins/zip/add.cpp'), 'static BOOL DeletePackedSourceFile(') + '\n' +
-        block(read('src/plugins/zip/add.cpp'), 'static BOOL RemovePackedSourceDirectory(') + '\n' +
-        block(read('src/plugins/7zip/7zip.cpp'), 'BOOL SafeDeleteFileW(') + '\n' +
-        block(read('src/plugins/7zip/7zip.cpp'), 'BOOL SafeDeleteFile('))
     if "@@" in generated:
         raise AssertionError("unexpanded archive fixture marker")
     environment = compiler_environment()

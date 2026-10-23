@@ -32,8 +32,6 @@ CPanelTmpEnumData::CPanelTmpEnumData()
 {
     ExactFileSelection = FALSE;
     SourcePanel = NULL;
-    ContextIsCurrent = NULL;
-    Context = NULL;
     ErrGetFileSizeOfLnkTgtIgnAll = FALSE;
     Indexes = NULL;
     CurrentIndex = 0;
@@ -1997,13 +1995,6 @@ const char* WINAPI PanelEnumDiskSelection(HWND parent, int enumFiles, const char
         return NULL;
     }
 
-    if (!data->HasCurrentContext())
-    {
-        SetLastError(ERROR_RETRY);
-        if (errorOccured != NULL) *errorOccured = SALENUM_CANCEL;
-        return NULL;
-    }
-
     if (data->SourcePanel != NULL && data->ExactFileSelection)
     {
         if (data->CurrentIndex >= data->IndexesCount)
@@ -2053,12 +2044,6 @@ const char* WINAPI PanelEnumDiskSelection(HWND parent, int enumFiles, const char
                         fileSize = targetSize;
                     else if (cancel)
                     {
-                        if (errorOccured != NULL) *errorOccured = SALENUM_CANCEL;
-                        return NULL;
-                    }
-                    if (!data->HasCurrentContext())
-                    {
-                        SetLastError(ERROR_RETRY);
                         if (errorOccured != NULL) *errorOccured = SALENUM_CANCEL;
                         return NULL;
                     }
@@ -2534,14 +2519,6 @@ try
     data.ZIPPath = GetZIPPath();
     data.Dirs = Dirs;
     data.Files = Files;
-    if (qualifiedPack)
-    {
-        data.Context = &packContext;
-        data.WideDiskNames = TRUE;
-        data.ContextIsCurrent = [](void* context) -> BOOL {
-            return static_cast<CFilesActionPackContext*>(context)->IsCurrent(MainWindow);
-        };
-    }
     data.SourcePanel = this;
     data.ExactFileSelection = Is(ptDisk);
     for (int item = 0; item < data.IndexesCount && data.ExactFileSelection; ++item)

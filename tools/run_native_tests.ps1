@@ -480,6 +480,11 @@ try {
             )
         },
         @{
+            Name = 'branch_archive_selection_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_archive_selection_tests.py'), '--configuration', $Configuration)
+        },
+        @{
             Name = 'archive_menu_selection_tests'
             ClassName = 'native-generated'
             Arguments = @(

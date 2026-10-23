@@ -153,3 +153,7 @@ branchshell.h, branchclipboard.h and their full context-menu/operation native fi
 ### S21b ordinary disk Shell call sites
 
 Scoped shellib, shellsup, fileswn5 and fileswn9 hunks derive from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin Contributors, GPL-2.0-or-later. Disk guard adaptation reuses existing exact item getters; no Branch stubs or virtual-panel changes.
+
+### S22 owned archive enumeration
+
+CPanelTmpEnumData, PanelEnumDiskSelection and the actual-function fixture derive from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin Contributors, GPL-2.0-or-later. Exact fixture driver; explicit file-only disk route adapter until Branch integration. Notices retained.
