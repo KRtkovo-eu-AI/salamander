@@ -1206,10 +1206,7 @@ void CFilesWindow::EditWindowsProperties()
         if (index < Dirs->Count || index >= Dirs->Count + Files->Count)
             continue;
         CFileData* file = &Files->At(index - Dirs->Count);
-        if (branchProperties && GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*file)) != file) return;
-        const std::wstring path = GetItemFullPathW(*file);
-        if (path.empty()) return;
-        paths.push_back(path);
+        paths.push_back(GetItemFullPathW(*file));
     }
     if (paths.empty())
         return;

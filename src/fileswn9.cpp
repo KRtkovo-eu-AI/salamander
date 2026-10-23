@@ -6,9 +6,7 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
-#include "branchdroptarget.h"
 #include "common/widepath.h"
-#include "branch_view.h"
 #include "branchclipboard.h"
 #include "audio_metadata_legacy.h"
 

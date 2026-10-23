@@ -149,3 +149,7 @@ Scoped host/worker hunks, operationrecycle.h, recycle-only native fixture and ty
 ### S21a exact Shell and clipboard identities
 
 branchshell.h, branchclipboard.h and their full context-menu/operation native fixtures/projects are copied exactly from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin Contributors, GPL-2.0-or-later. Original notices preserved; the already adapted S20c recycle helper remains unchanged.
+
+### S21b ordinary disk Shell call sites
+
+Scoped shellib, shellsup, fileswn5 and fileswn9 hunks derive from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin Contributors, GPL-2.0-or-later. Disk guard adaptation reuses existing exact item getters; no Branch stubs or virtual-panel changes.

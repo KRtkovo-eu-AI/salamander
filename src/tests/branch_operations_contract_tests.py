@@ -161,6 +161,27 @@ class BranchOperationsContracts(unittest.TestCase):
         self.assertNotIn('DeleteFile(name)', part)
         self.assertIn('dlgData, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL', text)
 
+    def test_ordinary_shell_uses_exact_disk_identities(self):
+        text = source('shellsup.cpp')
+        part = text[text.index('static std::vector<std::wstring> GetPanelShellPaths'):text.index('const char* EnumOneFileName')]
+        self.assertIn('GetItemFullPathW(file)', part)
+        self.assertIn('if (!data->Panel->Is(ptDisk))', part)
+        self.assertIn('CreateIContextMenu2ForPaths(owner, GetPanelShellPaths(count, data))', part)
+        self.assertIn('CreateIDataObjectForPaths(owner, GetPanelShellPaths(count, data))', part)
+        clipboard = text[text.index('    case saCopyToClipboard:'):text.index('    case saLeftDragFiles:', text.index('    case saCopyToClipboard:'))]
+        self.assertLess(clipboard.index('SetShellDataDropEffect'), clipboard.index('OleSetClipboard(object)'))
+        self.assertIn('object->Release()', clipboard)
+        self.assertNotIn('IsBranchView()', part)
+    def test_disk_text_clipboard_preserves_exact_wide_name(self):
+        text = source('fileswn9.cpp')
+        part = text[text.index('BOOL CFilesWindow::CopyFocusedNameToClipboard'):text.index('BOOL CFilesWindow::CopyCurrentPathToClipboard')]
+        disk = part[part.index('    if (Is(ptDisk))'):part.index('    char buff[2 * MAX_PATH]')]
+        self.assertIn('GetItemFullPathW(file)', disk)
+        self.assertIn('if (fullPath.empty()) return FALSE', disk)
+        self.assertIn('CopyTextToClipboardW(fullPath.c_str())', disk)
+        self.assertIn('BranchClipboardUNCPath(fullPath, unc)', disk)
+        self.assertNotIn('AlterFileName', disk)
+
 def load_tests(loader, tests, pattern):
     if SCOPE == 'All':
         return tests
@@ -169,7 +190,7 @@ def load_tests(loader, tests, pattern):
     if SCOPE in ('OrdinaryCopyMove', 'OrdinaryOperations'):
         names += ('test_ordinary_copy_move_owns_unicode_basename', 'test_ordinary_copy_move_uses_item_parent_at_dialog_boundary')
     if SCOPE == 'OrdinaryOperations':
-        names += ('test_ordinary_recycle_uses_exact_queue', 'test_direct_delete_receives_owned_wide_name', 'test_selected_extension_recycle_uses_exact_wide_shell_operation', 'test_delete_and_attributes_preserve_owned_wide_source')
+        names += ('test_ordinary_shell_uses_exact_disk_identities', 'test_disk_text_clipboard_preserves_exact_wide_name', 'test_ordinary_recycle_uses_exact_queue', 'test_direct_delete_receives_owned_wide_name', 'test_selected_extension_recycle_uses_exact_wide_shell_operation', 'test_delete_and_attributes_preserve_owned_wide_source')
     return unittest.TestSuite(BranchOperationsContracts(name) for name in names)
 
 if __name__ == '__main__':

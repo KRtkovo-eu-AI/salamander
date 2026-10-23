@@ -466,3 +466,9 @@ src/salamdr1.cpp	BuildName acceptance coverage missing in donor	src/tests/build_
 src/salamdr1.cpp	BuildName acceptance coverage missing in donor	src/tests/build_operation_name_tests.cpp.in	S19	ADAPTED	New actual production extraction test; reused donor size-test compiler/extraction workflow, UI callbacks stub
 src/tests/branch_operations_tests.cpp	Recycle-only fixture subset plus wide-volume regression	src/tests/operation_recycle_tests.cpp	S20c	ADAPTED	15 checks/config D/R, actual IFileOperation helper; full panel queue separately GUI tested
 src/tests/branch_operations_tests.vcxproj	Standalone recycle-only native target	src/tests/operation_recycle_tests.vcxproj	S20c	ADAPTED	Existing strict native project settings and shell/COM link dependencies
+src/shellib.cpp	CreateIDataObjectForPaths/CreateIContextMenu2ForPaths	src/shellib.cpp	S21b	EXACT	Exact pinned wrappers; no unrelated hunk
+src/shellib.h	exact-path wrapper declarations	src/shellib.h	S21b	EXACT	Exact pinned declarations/includes
+src/shellsup.cpp	panel Shell paths/menu/data; copy/cut; Unicode verb directory	src/shellsup.cpp	S21b	ADAPTED	Disk guard instead of future Branch-only guard; mixed-parent fallback S27d
+src/fileswn5.cpp	EditWindowsProperties/ChangeAttr file-time query	src/fileswn5.cpp	S21b	EXACT	Scoped full item identity and FindFirstFileW hunks
+src/fileswn9.cpp	CopyFocusedNameToClipboard disk full/short/UNC	src/fileswn9.cpp	S21b	ADAPTED	Disk guard and explicit empty-path rejection; virtual panels unchanged
+src/tests/branch_operations_contract_tests.py	ordinary Shell/text contracts	src/tests/branch_operations_contract_tests.py	S21b	ADAPTED	Add2 ordinary regression methods, future All assertions retained

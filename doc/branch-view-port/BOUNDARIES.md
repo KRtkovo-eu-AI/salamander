@@ -1,5 +1,36 @@
 # S00 read-only donor boundary audit
 
+## S21b / S21 — IMPLEMENTED / ordinary Shell integration PASS (2026-10-23)
+
+Pinned donor Shell adapters/call sites ported into ordinary disk panels. Exact
+CreateIDataObjectForPaths/CreateIContextMenu2ForPaths wrappers and declarations;
+scoped Properties/attribute wide identity hunks; disk name/full/UNC clipboard
+route. ADAPTED donor Branch-only guard to Is(ptDisk), as with S20 ordinary
+operations: disk identities are already available; no Branch placeholder API.
+Archive/plugin virtual paths keep their original route. Selection menus bind the
+real parent; Unicode verb directory supplied. Disk copy/cut publishes the full
+exact data object and drop effect atomically. Cut matching uses full identity.
+No Branch dispatch/public activation; mixed-parent host fallback stays S27d.
+S20c exact-wide recycle-volume eligibility repair preserved.
+
+Host x64 Debug/Release /warnaserror PASS11.79/44.08s. Existing S21a native helpers
+unchanged (28+33 checks/config); not claimed rerun here. All24 registered source/
+menu groups PASS; operation scope extended8 to10 with exact disk Shell/text
+boundary regressions. Initial runner invocation lacked MSBuild PATH and failed;
+final bounded invocation supplies baseline environment and passes.
+
+Actual GUI Debug: Unicode file in >260 UTF16 path, correct real-parent context
+menu; single Shell Properties29 bytes, exact full Unicode text; Copy/Cut exact
+CF_HDROP and preferred effects5/2. Release: explicit2 files, Copy/Cut exact whole
+selection/effects, multi Properties2 files56 bytes. Initial separate clipboard
+reads observed Chromium text or a transient lock; final bounded reader runs
+before UI action to observe publication without inter-tool overwrite. No claims
+for failed reads or dedicated UNC/network GUI smoke. Native UNC cases in S21a.
+All4 own file hashes intact. Both hosts normal exit, no new reports; private
+configstorage.ini restored. User installed host untouched. Evidence ../evidence/
+S21b ties runtime patch and final source/test hashes. No push/PR/CI.
+
+
 ## S21a — IMPLEMENTED / exact Shell helpers PASS (2026-10-23)
 
 EXACT pinned-donor branchshell.h/branchclipboard.h and full native
