@@ -1104,6 +1104,8 @@ const char* EnumFileNames(int index, void* param)
 static std::vector<std::wstring> GetPanelShellPaths(int count, CTmpEnumData* data)
 {
     std::vector<std::wstring> paths;
+    if (count <= 0 || data == NULL || data->Panel == NULL || data->Indexes == NULL)
+        return paths;
     for (int i = 0; i < count; ++i)
     {
         const int index = data->Indexes[i];
@@ -1114,7 +1116,19 @@ static std::vector<std::wstring> GetPanelShellPaths(int count, CTmpEnumData* dat
         }
         const CFileData& file = index < data->Panel->Dirs->Count ? data->Panel->Dirs->At(index) :
                                data->Panel->Files->At(index - data->Panel->Dirs->Count);
-        paths.push_back(data->Panel->GetItemFullPathW(file));
+        if (data->Panel->IsBranchView() &&
+            data->Panel->GetBranchViewFileByCacheKey(data->Panel->GetItemCacheKeyPtr(file)) != &file)
+        {
+            paths.clear();
+            return paths;
+        }
+        const std::wstring path = data->Panel->GetItemFullPathW(file);
+        if (path.empty())
+        {
+            paths.clear();
+            return paths;
+        }
+        paths.push_back(path);
     }
     return paths;
 }
@@ -1133,11 +1147,14 @@ static IContextMenu2* CreatePanelShellMenu(HWND owner, const char* root, int cou
 
 static std::wstring GetPanelShellDirectoryW(const CTmpEnumData& data)
 {
-    if (!data.Panel->Is(ptDisk)) return std::wstring();
+    if (data.Panel == NULL || data.Indexes == NULL || !data.Panel->Is(ptDisk)) return std::wstring();
     const int index = data.Indexes[0];
     if (index < 0 || index >= data.Panel->Dirs->Count + data.Panel->Files->Count) return std::wstring();
     const CFileData& file = index < data.Panel->Dirs->Count ? data.Panel->Dirs->At(index) :
                            data.Panel->Files->At(index - data.Panel->Dirs->Count);
+    if (data.Panel->IsBranchView() &&
+        data.Panel->GetBranchViewFileByCacheKey(data.Panel->GetItemCacheKeyPtr(file)) != &file)
+        return std::wstring();
     return data.Panel->GetItemDirectoryW(file);
 }
 
@@ -1676,7 +1693,8 @@ static DWORD TrackBranchHostContextMenu(CFilesWindow* panel, const POINT& pt)
 void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                  BOOL posByMouse, BOOL onlyPanelMenu)
 {
-    if (panel->IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
+    // S27d1: only selected Properties is verified for Branch Shell dispatch.
+    if (panel->IsBranchView() && (action != saProperties || !useSelection || onlyPanelMenu)) return;
 
     CALL_STACK_MESSAGE5("ShellAction(, %d, %d, %d, %d)", action, useSelection, posByMouse, onlyPanelMenu);
     if (panel->QuickSearchMode)

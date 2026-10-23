@@ -191,3 +191,12 @@ program/document split; their source code and fallback chains were not imported.
 Microsoft Windows Attachment Services owns final authorization and execution.
 S27a2 is now locally completed with explicitly accepted unsupported-case limits;
 see [the completion record](branch-view-port/steps/S27a2-completion.md).
+
+### S27d1 Branch Properties
+
+Scoped quiet context-menu / complete IDataObject / SHMultiFileProperties fallback
+hunks copied from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and
+Samandarin Contributors, GPL-2.0-or-later. Original notices retained. Local current
+cache/whole-selection guards and staged command gate adapt these hunks to the
+incremental port. Accepted S21 Shell helpers and native tests reused unchanged.

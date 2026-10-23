@@ -198,6 +198,7 @@ struct CFilesWindow
     void RefreshBranchView() {++RefreshCalls;if(BranchView->ItemsMutex.try_lock())BranchView->ItemsMutex.unlock();else CallbackLocked=true;}
     BOOL PrepareCopySource(CFileData*,int,CopyCapture&,CopyScript*,CopyCriteria*);
     BOOL PrepareRelativeTarget(CFileData*,BOOL,CopyScript*,std::string&);
+    void PropertiesRoute(int,int,int*);
     BOOL Recycle(int*,int,CFileData*);
     void Notify(const char*,BOOL);
     int FreeSpaceCalls=0;
@@ -267,6 +268,51 @@ void CFilesWindow::Notify(const char* path,BOOL includingSubdirs){
 #undef HANDLES
 @@GETTERS@@
 @@CACHE@@
+struct CTmpEnumData {int* Indexes;CFilesWindow* Panel;};
+@@SHELL_PATHS@@
+@@SHELL_DIRECTORY@@
+static const char* EnumFileNames(int,void*){return nullptr;}
+struct TestPropertiesMenu {};
+struct TestPropertiesObject {int Releases=0;void Release(){++Releases;}};
+static TestPropertiesMenu PropertiesMenu;
+static TestPropertiesObject PropertiesObject;
+static bool MenuAvailable=true,DataAvailable=true,MenuWasQuiet=false;
+static int PropertiesCalls=0,DataCalls=0;
+static HRESULT PropertiesResult=S_OK;
+static std::vector<std::wstring> PropertiesPaths;
+static TestPropertiesMenu* PropertiesCreateMenu(HWND,const char*,int count,const char*(*)(int,void*),void* raw,BOOL quiet){MenuWasQuiet=quiet;PropertiesPaths=GetPanelShellPaths(count,(CTmpEnumData*)raw);return MenuAvailable&&!PropertiesPaths.empty()?&PropertiesMenu:nullptr;}
+static TestPropertiesObject* PropertiesCreateData(HWND,const char*,int count,const char*(*)(int,void*),void* raw){++DataCalls;PropertiesPaths=GetPanelShellPaths(count,(CTmpEnumData*)raw);return DataAvailable&&!PropertiesPaths.empty()?&PropertiesObject:nullptr;}
+static HRESULT PropertiesShow(TestPropertiesObject*,DWORD){++PropertiesCalls;return PropertiesResult;}
+#define IContextMenu2 TestPropertiesMenu
+#define IDataObject TestPropertiesObject
+#define CreatePanelShellMenu PropertiesCreateMenu
+#define CreatePanelShellData PropertiesCreateData
+#define SHMultiFileProperties PropertiesShow
+#define MainWindow (&RecycleWindow)
+#define SalMessageBox RecycleMessage
+#define GetErrorText RecycleErrorText
+#define LoadStr RecycleLoadStr
+void CFilesWindow::PropertiesRoute(int count,int index,int* indexes){
+    CFilesWindow* panel=this;CTmpEnumData data;data.Indexes=count==0?&index:indexes;data.Panel=panel;
+@@PROPERTIES_DISPATCH@@
+}
+#undef IContextMenu2
+#undef IDataObject
+#undef CreatePanelShellMenu
+#undef CreatePanelShellData
+#undef SHMultiFileProperties
+#undef MainWindow
+#undef SalMessageBox
+#undef GetErrorText
+#undef LoadStr
+static const int saProperties=1,saPermissions=2,saCopyToClipboard=3,saCutToClipboard=4,saContextMenu=5,saLeftDragFiles=6,saRightDragFiles=7;
+static bool ShellGatePassed=false;
+static void TestShellGate(CFilesWindow* panel,int action,BOOL useSelection,BOOL onlyPanelMenu){
+    ShellGatePassed=false;
+@@SHELL_GATE@@
+    ShellGatePassed=true;
+}
+
 BOOL CFilesWindow::PrepareCopySource(CFileData* oneFile,int type,CopyCapture& result,CopyScript* script,CopyCriteria* filterCriteria)
 {
     const char* targetPath="D:\\target";
@@ -366,6 +412,42 @@ static void RelativeCopyTests()
         Check(!panel.PrepareRelativeTarget(&panel.Files->At(0),TRUE,&script,target)&&script.Records.empty(),"invalid relative component cannot escape destination");
     }
     OnAttributes=nullptr;
+}
+
+static void PropertiesTests()
+{
+    CBranchViewState state;CFilesWindow panel;panel.BranchView=&state;
+    std::string a="first mirror",b="second mirror";std::wstring name=L"same-東京.txt";
+    panel.FileRows.Values={{a.c_str(),name.c_str()},{b.c_str(),name.c_str()}};panel.FileRows.Count=2;
+    const std::wstring parent=L"C:\\ž-東京\\"+std::wstring(130,L'a')+L"\\"+std::wstring(130,L'b');
+    Add(state,panel.Files->At(0),L"C:\\first",name,L"first\\same-東京.txt");
+    Add(state,panel.Files->At(1),parent,name,L"deep\\same-東京.txt");
+    for(auto& row:panel.FileRows.Values)state.CacheFiles[state.Items.at(row.Name).CacheKey]=&row;
+    int selected[]={0,1};CTmpEnumData data{selected,&panel};
+    auto paths=GetPanelShellPaths(2,&data);
+    Check(paths.size()==2&&paths[0]!=paths[1]&&paths[0]==panel.GetItemFullPathW(panel.Files->At(0))&&paths[1]==panel.GetItemFullPathW(panel.Files->At(1)),"Shell capture retains duplicate exact parents");
+    Check(paths[1].size()>260&&GetPanelShellDirectoryW(data)==L"C:\\first","Shell capture retains long Unicode identity and first actual parent");
+    Check(GetPanelShellPaths(1,nullptr).empty()&&GetPanelShellPaths(0,&data).empty(),"Shell capture rejects null/empty inputs");
+    CTmpEnumData noPanel{selected,nullptr},noIndexes{nullptr,&panel};
+    Check(GetPanelShellPaths(2,&noPanel).empty()&&GetPanelShellPaths(2,&noIndexes).empty(),"Shell capture rejects missing panel/selection");
+    Check(GetPanelShellDirectoryW(noPanel).empty()&&GetPanelShellDirectoryW(noIndexes).empty(),"Shell directory rejects missing panel/selection");
+    int bad[]={0,99};CTmpEnumData invalid{bad,&panel};Check(GetPanelShellPaths(2,&invalid).empty(),"invalid second index cannot publish first item only");
+    state.CacheFiles.erase(state.Items.at(b.c_str()).CacheKey);Check(GetPanelShellPaths(2,&data).empty(),"stale second identity prevents partial Shell selection");
+    int second[]={1};CTmpEnumData stale{second,&panel};Check(GetPanelShellDirectoryW(stale).empty(),"stale source cannot provide synthetic verb directory");
+    state.CacheFiles[state.Items.at(b.c_str()).CacheKey]=&panel.Files->At(1);
+    auto reset=[](){PropertiesCalls=0;DataCalls=0;RecycleErrors=0;PropertiesObject.Releases=0;MenuAvailable=true;DataAvailable=true;PropertiesResult=S_OK;PropertiesPaths.clear();};
+    reset();panel.PropertiesRoute(0,1,nullptr);Check(MenuWasQuiet&&DataCalls==0&&PropertiesCalls==0&&PropertiesPaths.size()==1&&PropertiesPaths[0]==paths[1],"single-item Properties reuses actual-parent Shell menu");
+    reset();MenuAvailable=false;panel.PropertiesRoute(2,0,selected);Check(MenuWasQuiet&&DataCalls==1&&PropertiesCalls==1&&PropertiesPaths==paths,"mixed-parent fallback receives whole exact data object");
+    Check(PropertiesObject.Releases==1&&RecycleErrors==0,"successful merged Properties releases object without error");
+    reset();MenuAvailable=false;PropertiesResult=E_FAIL;panel.PropertiesRoute(2,0,selected);Check(PropertiesCalls==1&&PropertiesObject.Releases==1&&RecycleErrors==1,"Properties failure releases object and reports error");
+    reset();MenuAvailable=false;DataAvailable=false;panel.PropertiesRoute(2,0,selected);Check(PropertiesCalls==0&&PropertiesObject.Releases==0,"failed capture cannot invoke partial Properties");
+    TestShellGate(&panel,saProperties,TRUE,FALSE);Check(ShellGatePassed,"selected Branch Properties passes direct gate");
+    for(int action:{saPermissions,saCopyToClipboard,saCutToClipboard,saContextMenu,saLeftDragFiles,saRightDragFiles,99}){TestShellGate(&panel,action,TRUE,FALSE);Check(!ShellGatePassed,"unverified Shell action remains blocked");}
+    TestShellGate(&panel,saProperties,FALSE,FALSE);Check(!ShellGatePassed,"panel-only Properties remains blocked");
+    TestShellGate(&panel,saProperties,TRUE,TRUE);Check(!ShellGatePassed,"panel menu path remains blocked");
+    panel.BranchView=nullptr;panel.WideRoot=L"C:\\ordinary-東京";state.CacheFiles.clear();
+    Check(GetPanelShellPaths(2,&data).size()==2&&GetPanelShellDirectoryW(data)==panel.WideRoot,"ordinary disk capture needs no Branch cache");
+    TestShellGate(&panel,saContextMenu,TRUE,FALSE);Check(ShellGatePassed,"ordinary Shell action unaffected by staged Branch gate");
 }
 
 static void RecycleQueueTests()
@@ -768,7 +850,7 @@ int wmain(int argc, wchar_t** argv)
     Paths(panel, ordinary, L"", L"", L"", "new active Branch has no ordinary row fallback");
     Paths(panel, up, L"C:\\root", L"C:\\root\\..", L"..", "first-scan empty listing parent navigation");
 
-    try { RecycleQueueTests(); NotificationTests(); RelativeCopyTests(); CopySourceTests(); RenameMetadataTests(); }
+    try { PropertiesTests(); RecycleQueueTests(); NotificationTests(); RelativeCopyTests(); CopySourceTests(); RenameMetadataTests(); }
     catch (const std::exception& error) { Check(false,error.what()); }
     NavigationTests();
     ArchiveReadTests(argv[1]);

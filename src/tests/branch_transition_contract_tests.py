@@ -21,7 +21,7 @@ class BranchTransitionContracts(unittest.TestCase):
   gate=function('mainwnd3.cpp','static bool BranchReadOnlyCommandAllowed(')
   for forbidden in ('CM_VIEW_WITH','CM_EDIT_WITH'):
    self.assertNotIn('case '+forbidden+':',gate)
-  for allowed in ('CM_OPEN','CM_VIEW','CM_ALTVIEW','CM_EDIT','CM_BRANCH_OPENPARENT','CM_RENAMEFILE','CM_COPYFILES','CM_MOVEFILES','CM_DELETEFILES'):
+  for allowed in ('CM_OPEN','CM_VIEW','CM_ALTVIEW','CM_EDIT','CM_BRANCH_OPENPARENT','CM_RENAMEFILE','CM_COPYFILES','CM_MOVEFILES','CM_DELETEFILES','CM_PROPERTIES'):
    self.assertIn('case '+allowed+':',gate)
   self.assertIn('return false;',gate)
  def test_readonly_direct_paths_are_guarded(self):
@@ -59,6 +59,17 @@ class BranchTransitionContracts(unittest.TestCase):
   self.assertLess(part.index('operation->DeleteItem'),part.index('operation->PerformOperations'))
   self.assertIn('!IsBranchView() && OperationRecycleDriveTypeW',source('fileswn8.cpp'))
   self.assertNotIn('S27c3: recycle modes',source('fileswn8.cpp'))
+ def test_properties_only_shell_gate_and_whole_selection_fallback(self):
+  shell=source('shellsup.cpp');action=shell[shell.index('void ShellAction('):shell.index('const char* ReturnNameFromParam')]
+  self.assertIn('action != saProperties || !useSelection || onlyPanelMenu',action)
+  self.assertLess(action.index('action != saProperties'),action.index('if (panel->QuickSearchMode)'))
+  properties=action[action.index('    case saProperties:'):action.index('    case saCopyToClipboard:')]
+  self.assertIn('EnumFileNames, &data, panel->IsBranchView()',properties)
+  self.assertIn('SHMultiFileProperties(object, 0)',properties)
+  self.assertLess(properties.index('SHMultiFileProperties(object, 0)'),properties.index('object->Release()'))
+  paths=function('shellsup.cpp','static std::vector<std::wstring> GetPanelShellPaths(')
+  self.assertIn('GetBranchViewFileByCacheKey(data->Panel->GetItemCacheKeyPtr(file)) != &file',paths)
+  self.assertIn('if (path.empty())',paths)
  def test_rename_requires_current_metadata_and_preserves_modal_identity(self):
   for marker in ('void CFilesWindow::RenameFile(', 'void CFilesWindow::QuickRenameBegin(', 'void CFilesWindow::RenameFileInternalW(', 'BOOL CFilesWindow::HandeQuickRenameWindowKey('):
    part=function('fileswn5.cpp',marker)

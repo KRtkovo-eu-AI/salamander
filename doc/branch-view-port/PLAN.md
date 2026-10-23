@@ -1,5 +1,59 @@
 # Plán postupného portu PR #769
 
+## S27d1 completed locally (2026-10-24)
+
+Properties is enabled for current Branch rows, including mixed-parent selections.
+Scoped donor quiet-menu and SHMultiFileProperties fallback hunks reuse accepted
+S21 full-path/PIDL/CIDA helpers; local null/index/current-cache/empty-path guards
+reject the entire invalid selection. No basename/root reconstruction is used.
+Only CM_PROPERTIES / selected saProperties is enabled. Clipboard, cut/paste,
+context menus, drag/drop, dedicated security-tab and arbitrary plugin commands
+remain gated; experiment activation remains off by default. No SDK/resources change.
+
+Debug and Release x64 host/dependencies /warnaserror PASS. Existing actual-method
+harness294/configuration PASS (269 retained +25 Properties/capture/gate checks,
+explicit Shell facades); actual branch_operations_tests33/configuration PASS;
+all28 source/menu groups PASS. Real D/R GUI single long Unicode file, mixed-parent
+6-file selection and ordinary-folder Properties PASS, all closed with Escape/Cancel.
+Twelve source hashes and sentinel unchanged, private INIs restored, hosts/reporters
+exited cleanly. LongPathsEnabled=0. Native Windows displayed DOS-alias Location for
+the long item; independent samefile checks confirmed the exact original parent.
+No system/security/global setting was changed. No file attributes/permissions edited.
+
+See [S27d1](steps/S27d1.md) for actual commands, donor mapping and limits.
+Evidence ../evidence/S27d1 binds parent328cffd5, tested patch, final inputs and commit.
+No push/new PR/remote CodeQL or clean whole-solution matrix for this new unit.
+Next: S27d2 clipboard copy export, then S27d3 cut/paste, S27d4 context menu,
+S27d5 drag/drop; split further by dependency/direction when needed.
+
+## S27c1a–S27c4 accepted; S27d split before implementation (2026-10-24)
+
+User accepted exact head328cffd557fe588b8eefe05873ac5acf8983bb0f after all PR39
+checks and actual CodeQL succeeded, including clean supported Debug Win32/x64/ARM64
+full-solution rebuild40029651148. Local accepted ref advances from e63167f0 to this
+head. The internal draft remains open and is not merged into the reference base.
+
+S27d is split by independently testable operation:
+- S27d1: Properties only. Permit CM_PROPERTIES and selected saProperties; import
+  donor quiet menu / complete IDataObject / SHMultiFileProperties fallback hunks.
+  Reuse accepted S21 adapters and Shell helpers. Add current-identity/null/index/
+  empty-path rejection at the panel capture boundary so no partial selection can
+  reach Shell. Archive/plugin routes retain their accepted behavior.
+- S27d2: clipboard copy export; exact whole selection and transfer effect.
+- S27d3: cut export/paste ingestion and source cut-state cleanup, split further
+  if the donor dependencies require it.
+- S27d4: selection context menu/host fallback; arbitrary plugin actions stay gated.
+- S27d5: drag/drop source and destination, split by direction if needed.
+Recycle is already accepted in S27c4 and is not ported again.
+
+This run implements only S27d1. Keep all other Shell actions, clipboard, drop,
+security-tab command and plugin ranges blocked for Branch; activation stays off
+by default. Native actual capture/fallback blocks plus existing Shell PIDL/CIDA
+fixtures; real D/R GUI single long/Unicode file, mixed-parent duplicates, Cancel,
+ordinary-panel Properties; owned source hashes unchanged; D/R host/dependency builds.
+No publication authorized for the new candidate. Source pins and SDK unchanged.
+
+
 ## S27c1b–S27c4 completed locally (2026-10-23)
 
 All four requested units are implemented sequentially on integration/pr769-s27c-candidate,

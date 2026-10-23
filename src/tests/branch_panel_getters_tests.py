@@ -70,7 +70,17 @@ def main():
     last = builder.index("            i++;", first)
     relative = builder.index("                    std::string branchTarget;", first)
     relative_end = builder.index("                    if (!BuildScriptFile(", relative)
+    shell = read("src/shellsup.cpp", args.source_ref)
+    properties = shell[shell.index("    case saProperties:"):]
+    properties_begin = properties.index("                IContextMenu2* menu = CreatePanelShellMenu")
+    properties_end = properties.index("                if (menu != NULL)", properties_begin)
+    gate_begin = shell.index("    // S27d1: only selected Properties")
+    gate_end = shell.index("    CALL_STACK_MESSAGE5", gate_begin)
     pieces = {
+        "SHELL_PATHS": block(shell,"static std::vector<std::wstring> GetPanelShellPaths("),
+        "SHELL_DIRECTORY": block(shell,"static std::wstring GetPanelShellDirectoryW("),
+        "PROPERTIES_DISPATCH": properties[properties_begin:properties_end],
+        "SHELL_GATE": shell[gate_begin:gate_end],
         "COPY_RELATIVE": builder[relative:relative_end],
         "COPY_LABELS": block(builder, "                    for (std::vector<int>::reverse_iterator directory = branchCreatedDirectories.rbegin();"),
         "CONVERSION_UTF8_ACP": block(builder,"std::wstring SalMultiByteToWidePathUtf8OrAcp("),

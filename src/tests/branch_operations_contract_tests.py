@@ -172,7 +172,7 @@ class BranchOperationsContracts(unittest.TestCase):
         clipboard = text[text.index('    case saCopyToClipboard:'):text.index('    case saLeftDragFiles:', text.index('    case saCopyToClipboard:'))]
         self.assertLess(clipboard.index('SetShellDataDropEffect'), clipboard.index('OleSetClipboard(object)'))
         self.assertIn('object->Release()', clipboard)
-        self.assertNotIn('IsBranchView()', part)
+        self.assertIn('GetBranchViewFileByCacheKey(data->Panel->GetItemCacheKeyPtr(file)) != &file', part)
     def test_disk_text_clipboard_preserves_exact_wide_name(self):
         text = source('fileswn9.cpp')
         part = text[text.index('BOOL CFilesWindow::CopyFocusedNameToClipboard'):text.index('BOOL CFilesWindow::CopyCurrentPathToClipboard')]
