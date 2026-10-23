@@ -1,5 +1,32 @@
 # Plán postupného portu PR #769
 
+## Active goal S21–S26 (authorized 2026-10-23)
+
+Complete the agreed multi-stage goal through the default-off experimental
+read-only Branch panel. The user's explicit goal authorizes sequential stages
+and substages in one sustained run, each with its own coherent validated commit;
+the earlier one-stage-per-run prompts do not limit this authorized scope.
+No additional push/PR is authorized for this goal.
+
+1. S21a: exact donor Shell/clipboard helpers and native fixtures, preserving
+   S20c recycle helper adaptation. S21b: scoped ordinary-panel call sites and
+   real context-menu/clipboard/Properties smoke; Branch dispatch remains S27d.
+2. S22: host archive selection boundary and actual normal-panel ZIP smoke;
+   no ZIP/7-Zip engine rewrite or premature Branch activation.
+3. S23: array reserve implementation/test parity and all supported consumers.
+4. S24: audit already imported typed formatter/general tests; close only real
+   gaps, preserve deferred Branch resources for S26, no empty implementation commit.
+5. S25: isolated cancellable scanner, full ownership/reparse/Unicode native tests.
+6. S26: minimal gated panel integration with full identity/lifetime/cache guards
+   from first published row, read-only dispatch, paired resources/translations,
+   dark/light UI and actual default-off/explicit-activation/Stop/close tests.
+
+If dependencies make a stage too large, document the smallest necessary substage
+before editing. Reuse pinned donor47661e92 and retain target fixes; preserve
+SOURCE/CONTRACT pins. Each code checkpoint builds Debug/Release x64 plus affected
+consumers and meaningful native/GUI regressions before acceptance.
+
+
 ## S20c / S20 — IMPLEMENTED / local operation gates PASS (2026-10-23)
 
 S20a rename/owned selection and S20b copy/move accepted separately; S20c completes
