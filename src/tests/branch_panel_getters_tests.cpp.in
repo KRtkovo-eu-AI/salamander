@@ -4,6 +4,8 @@
 // function are extracted verbatim. Only unrelated panel state is replaced.
 #define NOMINMAX
 #include <windows.h>
+#include <shellapi.h>
+#include "@@FILEACTION_HEADER@@"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -52,7 +54,28 @@ struct CViewerMasks {
     int Count = 0;
     CViewerMasksItem* At(int i) { return Values.at(i); }
 };
+struct TestHistory {
+    int Count = 0;
+    std::string Path;
+    void AddFile(int,int,const char* path) { ++Count; Path=path; }
+};
+struct TestPacker { BOOL Archive=FALSE; BOOL PackIsArchive(const char*) {return Archive;} } PackerFormatConfig;
+const int fhitOpen=1, BUTTONS_OK=1, IDS_TOOLONGNAME=1, IDS_ERROROPENINGFILE=2;
+static int DialogCalls=0, ShellCalls=0;
+static BOOL ShellSuccess=TRUE;
+static std::wstring ShellFile, ShellDirectory;
+static std::function<void()> OnShell;
+static const char* LoadStr(int) {return "test";}
+static void DialogError(HWND,int,const char*,const char*,const char*) {++DialogCalls;}
+static BOOL RecordShell(SHELLEXECUTEINFOW* info) {
+    ++ShellCalls; ShellFile=info->lpFile; ShellDirectory=info->lpDirectory;
+    if(OnShell)OnShell();
+    return ShellSuccess;
+}
+#define ShellExecuteExW RecordShell
 struct TestMainWindow {
+    TestHistory History;
+    TestHistory* FileHistory=&History;
     CViewerMasks* ViewerMasks = nullptr;
     CViewerMasks* AltViewerMasks = nullptr;
 } TestMain;
@@ -80,7 +103,8 @@ struct CFilesWindow
     TestRows* Dirs = &DirRows;
     TestRows* Files = &FileRows;
     HWND HWindow = nullptr;
-    int Caret = 0, NavigationCalls = 0, FocusCalls = 0, FocusedIndex = -1;
+    int Caret = 0, NavigationCalls = 0, FocusCalls = 0, FocusedIndex = -1, EndRefreshCalls=0, ArchiveCalls=0;
+    std::string OpenedArchive;
     BOOL NavigationSuccess = TRUE, ViewGatePassed = FALSE;
     std::function<void()> OnNavigate;
     std::wstring OpenedDirectory;
@@ -97,12 +121,22 @@ struct CFilesWindow
         if (NavigationSuccess) { BranchView->Enabled = false; if (OnNavigate) OnNavigate(); }
         return NavigationSuccess;
     }
+    void EndStopRefresh() {++EndRefreshCalls;}
+    void ChangePathToArchive(const char* path,const char*,int,const char*,BOOL,BOOL*) {++ArchiveCalls;OpenedArchive=path;}
+    void ExecuteBranch(CFileData* file);
     void ViewPolicy(const char* name, BOOL altView, DWORD handlerID);
 
 };
 @@GETTERS@@
 @@CACHE@@
 @@NAVIGATION@@
+void CFilesWindow::ExecuteBranch(CFileData* file) {
+@@EXECUTE@@
+}
+#undef GetFileAttributesW
+#define HANDLES_Q(call) (call)
+@@ARCHIVE_READ@@
+#undef HANDLES_Q
 void CFilesWindow::ViewPolicy(const char* name, BOOL altView, DWORD handlerID) {
     ViewGatePassed = FALSE;
 @@VIEW_POLICY@@
@@ -218,8 +252,80 @@ static void NavigationTests()
     Check(panel.ViewGatePassed != FALSE, "ordinary panel keeps its previous viewer dispatch policy");
 }
 
-int main()
+static void EnterTests()
 {
+    const std::vector<std::wstring> parents = {L"\\\\?\\C:\\ascii",L"C:\\"+std::wstring(100,L'東'),L"C:\\"+std::wstring(100,L'a')+L"\\"+std::wstring(100,L'b')+L"\\"+std::wstring(100,L'c')};
+    for(const auto& parent : parents) {
+        CBranchViewState state; CFilesWindow panel;panel.BranchView=&state;
+        std::string legacy="same.zip";panel.FileRows.Values={{legacy.c_str(),L"same.zip"}};panel.FileRows.Count=1;
+        auto* file=&panel.Files->At(0);Add(state,*file,parent,L"same.zip",L"same.zip");
+        state.CacheFiles[panel.GetItemCacheKeyPtr(*file)]=file;
+        const auto full=panel.GetItemFullPathW(*file);
+        PackerFormatConfig.Archive=TRUE;
+        panel.ExecuteBranch(file);
+        Check(panel.ArchiveCalls==1 && panel.OpenedArchive==SalWideToMultiBytePath(full.c_str(),CP_UTF8),"actual archive Enter dispatch keeps exact full identity");
+        Check(panel.EndRefreshCalls==1,"archive Enter balances refresh once");
+        PackerFormatConfig.Archive=FALSE;const int calls=ShellCalls, errors=DialogCalls, history=MainWindow->History.Count;
+        ShellSuccess=TRUE;panel.ExecuteBranch(file);
+        const auto plain=SalPathRemoveExtendedPrefixW(full.c_str());
+        if(plain.size()>=MAX_PATH) {
+            Check(ShellCalls==calls && DialogCalls==errors+1 && MainWindow->History.Count==history,"unsupported long Shell input reports failure without policy bypass or history");
+        } else {
+            Check(ShellCalls==calls+1 && ShellFile==plain,"Shell receives complete UTF16 identity without Win32 extended syntax");
+            Check(ShellDirectory==Salamander::FileActionPaths::InitialDirectory(SalWideToMultiBytePath(parent.c_str(),CP_UTF8).c_str()),"Shell gets the selected item's actual parent");
+            Check(MainWindow->History.Count==history+1 && MainWindow->History.Path==SalWideToMultiBytePath(full.c_str(),CP_UTF8),"successful Shell records original full UTF8 identity");
+            ShellSuccess=FALSE;const int previous=MainWindow->History.Count;panel.ExecuteBranch(file);
+            Check(MainWindow->History.Count==previous,"failed Shell does not record successful-open history");
+            ShellSuccess=TRUE;OnShell=[&](){state.Items.clear();state.CacheFiles.clear();};panel.ExecuteBranch(file);OnShell=nullptr;
+            Check(MainWindow->History.Path==SalWideToMultiBytePath(full.c_str(),CP_UTF8),"owned Shell/history arguments survive metadata destruction during launch");
+        }
+        const int shellBefore=ShellCalls, archiveBefore=panel.ArchiveCalls, endBefore=panel.EndRefreshCalls;
+        state.CacheFiles.clear();panel.ExecuteBranch(file);
+        Check(ShellCalls==shellBefore && panel.ArchiveCalls==archiveBefore && panel.EndRefreshCalls==endBefore+1,"missing cache identity fails closed and balances refresh");
+    }
+}
+static void ArchiveReadTests(const wchar_t* scratch)
+{
+    const std::wstring root = std::wstring(scratch) + L"\\archive-read";
+    std::vector<std::wstring> dirs, created;
+    auto make = [&](const std::wstring& path) {
+        Check(CreateDirectoryW(SalPathAddExtendedPrefixW(path.c_str()).c_str(), nullptr) != FALSE, "create owned archive test directory");
+        dirs.push_back(path);
+    };
+    make(root);
+    const std::wstring unicode = root + L"\\český-東京-😀";
+    const std::wstring bytes = root + L"\\" + std::wstring(100, L'東');
+    make(unicode); make(bytes);
+    std::wstring deep = unicode;
+    for (int i=0; i<4; ++i) { deep += L"\\" + std::wstring(65, L'a') + std::to_wstring(i); make(deep); }
+    const std::vector<std::wstring> paths = {root+L"\\same.zip",root+L"\\žluťoučký-東京.zip",unicode+L"\\same.zip",bytes+L"\\same.zip",deep+L"\\same.zip"};
+    for(size_t i=0; i<paths.size(); ++i) {
+        const auto extended = SalPathAddExtendedPrefixW(paths[i].c_str());
+        const std::string marker = "archive-identity-" + std::to_string(i);
+        HANDLE output = CreateFileW(extended.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
+        Check(output != INVALID_HANDLE_VALUE,"create distinct owned archive source");
+        if(output == INVALID_HANDLE_VALUE) continue;
+        DWORD written=0; Check(WriteFile(output,marker.data(),(DWORD)marker.size(),&written,nullptr) && written==marker.size(),"write exact owned archive marker"); CloseHandle(output); created.push_back(extended);
+        for(DWORD flags : {DWORD(FILE_ATTRIBUTE_NORMAL),DWORD(0)}) {
+            const std::string utf8 = SalWideToMultiBytePath(paths[i].c_str(),CP_UTF8);
+            HANDLE input = OpenArchiveFileForRead(utf8.c_str(),flags);
+            Check(input != INVALID_HANDLE_VALUE,"actual host metadata read opens complete UTF8 archive identity");
+            if(input == INVALID_HANDLE_VALUE)continue;
+            LARGE_INTEGER size={}; FILETIME date={}; char data[64]={}; DWORD read=0;
+            Check(GetFileSizeEx(input,&size) && size.QuadPart==(LONGLONG)marker.size() && GetFileTime(input,nullptr,nullptr,&date),"actual metadata size/time succeeds with original sharing and flags");
+            Check(ReadFile(input,data,sizeof(data),&read,nullptr) && std::string(data,read)==marker,"metadata handle belongs to the exact duplicate source");
+            CloseHandle(input);
+        }
+    }
+    Check(OpenArchiveFileForRead(SalWideToMultiBytePath((deep+L"\\missing.zip").c_str(),CP_UTF8).c_str(),0)==INVALID_HANDLE_VALUE,"missing long archive fails without root fallback");
+    Check(OpenArchiveFileForRead(nullptr,0)==INVALID_HANDLE_VALUE,"null archive does not fall back to panel root");
+    Check(OpenArchiveFileForRead("",0)==INVALID_HANDLE_VALUE,"empty archive does not fall back to panel root");
+    for(const auto& path:created)Check(DeleteFileW(path.c_str())!=FALSE,"remove only owned archive source");
+    for(auto i=dirs.rbegin();i!=dirs.rend();++i)Check(RemoveDirectoryW(SalPathAddExtendedPrefixW(i->c_str()).c_str())!=FALSE,"remove only owned archive fixture directories");
+}
+int wmain(int argc, wchar_t** argv)
+{
+    if(argc!=2)return 2;
     CFilesWindow panel;
     CFileData ordinary = {"same.png", L"same.png"};
     Paths(panel, ordinary, L"C:\\root", L"C:\\root\\same.png", L"same.png", "ordinary panel");
@@ -307,6 +413,8 @@ int main()
     Paths(panel, up, L"C:\\root", L"C:\\root\\..", L"..", "first-scan empty listing parent navigation");
 
     NavigationTests();
+    ArchiveReadTests(argv[1]);
+    EnterTests();
     std::printf("Branch panel getters/navigation: %d checks, %d failures\n", Checks, Failures);
     return Failures ? 1 : 0;
 }

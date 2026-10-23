@@ -1,5 +1,47 @@
 # Stav portu PR #769
 
+## S27a2 - PARTIAL / archive correction validated locally (2026-10-23)
+
+Parent 94c391a77282df03648aa47e20cb4410642764b0. Candidate enables gated
+Enter using the exact current Branch item, owned wide source/directory and
+UTF8 archive identity. Two archive metadata opens now use tracked CreateFileW
+with the extended prefix instead of passing UTF8 to CreateFileA. This target
+adaptation fixes the reproduced long Unicode ZIP failure, including refresh.
+No archive engine, plugin SDK, workflow or default activation change.
+
+Real Debug/Release host GUI passed long Unicode Branch ZIP Enter, listing,
+refresh, F3 extraction/content and return to its exact parent. Debug additionally
+passed a Unicode archive basename. Release ordinary ASCII duplicate ZIP showed
+its distinct marker; a missing Branch archive preserved all eight rows and
+opened correctly after the owned fixture was restored. Short ASCII Shell Enter
+started the exact owned executable with its physical working directory in D/R.
+
+Long executable Shell launch remains UNRESOLVED. Normal-policy plain/PIDL/alias
+probes failed on this host; an ordinary ASCII control succeeded. Context-menu
+probe timed out at 20s and its owned process tree was stopped. No security
+settings/zone bypass/elevation or direct-process fallback. Candidate rejects
+Shell source lengths >= MAX_PATH with the existing localized error, preserving
+the Branch snapshot; this is a safe failure boundary, not long-launch support.
+Accepted ref remains at S27a1; S27a2/S27a are not DONE and S27b onward is deferred.
+
+Host x64 Debug/Release /warnaserror PASS (6.62/35.60s). Actual-method native
+fixture 181 assertions/config PASS (original 99 retained; real archive metadata
+I/O plus recorded dispatch/lifetime). Ordinary path/service 196/config and five
+released SDK prefixes PASS; all 28 source/menu groups PASS. Existing unchanged
+file-action D/R executables reran successfully (12 reported checks/config).
+These are local incremental builds/tests, not full clean solution CI/CodeQL.
+
+Debug shutdown displayed a heap-leak warning; acknowledged, then no owned host,
+reporter or new report remained. Allocation profile was not captured, so prior
+S22/S26b diagnostics do not prove the cause of this occurrence. Release exited
+normally without a warning and left no host/reporter/new report. All 16 owned
+input hashes verified unchanged; both private configstorage INIs restored byte
+for byte. Installed user host and global settings untouched.
+
+Evidence: ../evidence/S27a2; details [S27a2](steps/S27a2.md).
+No publication or remote CI in this continuation.
+
+
 ## S27a1 — IMPLEMENTED / local validation complete (2026-10-23)
 
 S21–S26 accepted at3dc52cb6 after current-head PR35 checks; acceptance commit

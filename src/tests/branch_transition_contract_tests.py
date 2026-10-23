@@ -19,13 +19,13 @@ class BranchTransitionContracts(unittest.TestCase):
   text=source('mainwnd3.cpp');start=text.index('CFilesWindow* branchCommandPanel');part=text[start:]
   self.assertLess(part.index('!BranchReadOnlyCommandAllowed(LOWORD(wParam))'),part.index('if (HelpMode'))
   gate=function('mainwnd3.cpp','static bool BranchReadOnlyCommandAllowed(')
-  for forbidden in ('CM_OPEN','CM_COPYFILES','CM_MOVEFILES','CM_DELETEFILES','CM_RENAMEFILE','CM_VIEW_WITH','CM_EDIT_WITH'):
+  for forbidden in ('CM_COPYFILES','CM_MOVEFILES','CM_DELETEFILES','CM_RENAMEFILE','CM_VIEW_WITH','CM_EDIT_WITH'):
    self.assertNotIn('case '+forbidden+':',gate)
-  for allowed in ('CM_VIEW','CM_ALTVIEW','CM_EDIT','CM_BRANCH_OPENPARENT'):
+  for allowed in ('CM_OPEN','CM_VIEW','CM_ALTVIEW','CM_EDIT','CM_BRANCH_OPENPARENT'):
    self.assertIn('case '+allowed+':',gate)
   self.assertIn('return false;',gate)
  def test_readonly_direct_paths_are_guarded(self):
-  cases={'fileswn2.cpp':['void CFilesWindow::Execute('], 'fileswn5.cpp':['void CFilesWindow::RenameFile(', 'void CFilesWindow::QuickRenameBegin('], 'fileswn6.cpp':['void CFilesWindow::DropCopyMove('], 'fileswn9.cpp':['BOOL CFilesWindow::ClipboardPaste(']}
+  cases={'fileswn5.cpp':['void CFilesWindow::RenameFile(', 'void CFilesWindow::QuickRenameBegin('], 'fileswn6.cpp':['void CFilesWindow::DropCopyMove('], 'fileswn9.cpp':['BOOL CFilesWindow::ClipboardPaste(']}
   for file, markers in cases.items():
    for marker in markers:
     part=function(file,marker)
@@ -51,6 +51,19 @@ class BranchTransitionContracts(unittest.TestCase):
   self.assertLess(part.index('ChangePathToDiskW('),part.index('SetCaretIndex('))
   self.assertIn('currentName == name',part)
   self.assertNotIn('focus.c_str()',part)
+ def test_enter_uses_current_identity_and_preserves_shell_policy(self):
+  part=function('fileswn2.cpp','void CFilesWindow::Execute(')
+  self.assertIn('GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*file)) != file',part)
+  self.assertIn('SalPathRemoveExtendedPrefixW(source.c_str())',part)
+  self.assertIn('if (shellFile.size() >= MAX_PATH)',part)
+  self.assertNotIn('SEE_MASK_NOZONECHECKS',part)
+ def test_archive_preflight_is_wide_at_both_call_sites(self):
+  part=function('fileswn2.cpp','BOOL CFilesWindow::ChangePathToArchive(')
+  self.assertEqual(part.count('OpenArchiveFileForRead(archive,'),2)
+  self.assertNotIn('CreateFile(archive,',part)
+  read=function('fileswn2.cpp','static HANDLE OpenArchiveFileForRead(')
+  self.assertIn('SalPathAddExtendedPrefixW',read)
+  self.assertIn('HANDLES_Q(CreateFileW(',read)
  def test_operations_guard_source_and_destination(self):
   for file in ('fileswn7.cpp','fileswn8.cpp'):
    text=source(file)

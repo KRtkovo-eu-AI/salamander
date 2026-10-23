@@ -66,11 +66,14 @@ def main():
     header = read("src/branch_view.h", args.source_ref)
     conversions = read("src/common/widepath.cpp", args.source_ref)
     pieces = {
+        "FILEACTION_HEADER": str(ROOT / "src/fileactionpath.h").replace(chr(92), "/"),
+        "EXECUTE": block(block(read("src/fileswn2.cpp", args.source_ref), "void CFilesWindow::Execute(int index)"), "            if (IsBranchView())"),
+        "ARCHIVE_READ": block(read("src/fileswn2.cpp", args.source_ref), "static HANDLE OpenArchiveFileForRead("),
         "ENTRY": block(header, "struct Entry\n", ";"),
         "JOIN": block(production, "std::wstring Join("),
         "ENTRY_FULL_PATH": block(production, "std::wstring Entry::FullPath()"),
         "ORDINARY_JOIN": block(conversions, "BOOL SalPathAppendW("),
-        "CONVERSION": block(conversions, "std::string SalWideToMultiBytePath(") + "\n" + block(conversions, "BOOL IsValidPathUtf8Text(") + "\n" + block(conversions, "std::wstring SalMultiByteToWidePath("),
+        "CONVERSION": block(conversions, "BOOL SalIsExtendedLengthPathW(") + "\n" + block(conversions, "std::wstring SalPathRemoveExtendedPrefixW(") + "\n" + block(conversions, "std::wstring SalPathAddExtendedPrefixW(") + "\n" + block(conversions, "std::string SalWideToMultiBytePath(") + "\n" + block(conversions, "BOOL IsValidPathUtf8Text(") + "\n" + block(conversions, "std::wstring SalMultiByteToWidePath("),
         "NAVIGATION": block(production, "BOOL CFilesWindow::OpenBranchItemDirectory()"),
         "CACHE": block(production, "const char* CFilesWindow::GetItemCacheKeyPtr(") + "\n" + block(production, "const CFileData* CFilesWindow::GetBranchViewFileByCacheKey("),
         "VIEW_POLICY": block(read("src/fileswn5.cpp", args.source_ref).split("// S27a transition:", 1)[1], "    if (IsBranchView())"),
@@ -94,7 +97,7 @@ def main():
             flags = ["/MDd", "/D_DEBUG", "/Od"] if configuration == "Debug" else ["/MD", "/DNDEBUG", "/O2"]
             print("Actual Branch panel getters:", configuration, flush=True)
             for command in ([compiler, "/nologo", "/std:c++17", "/EHsc", "/utf-8", "/W4", "/WX",
-                             *flags, str(source), "/Fe:" + str(executable)], [str(executable)]):
+                             *flags, str(source), "/Fe:" + str(executable)], [str(executable), str(directory)]):
                 result = run(command, cwd=directory, env=environment, timeout=45)
                 if result.returncode:
                     return result.returncode

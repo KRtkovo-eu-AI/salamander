@@ -173,3 +173,13 @@ AssociationPreparation/session/lifetime, internal Shell association epoch/cache 
 ### S27a1 Branch viewer/editor and exact parent navigation
 
 Scoped OpenBranchItemDirectory/declaration/menu/dispatch derive from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin Contributors, GPL-2.0-or-later. Local current-row/preflight/wide-focus and transition viewer-policy adapters preserve target navigation and the S18 launch implementation; original notices retained. Enter/archive dispatch remains deferred after actual GUI boundary failures.
+
+### S27a2 Branch Enter and archive metadata preflight
+
+Scoped Execute Branch Shell/archive dispatch and CM_OPEN allowance derive from
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin
+Contributors, GPL-2.0-or-later. Current-cache/owned-path guards, explicit long
+Shell rejection and wide archive metadata preflight are local adaptations.
+Original notices retained. Archive correction validated; long executable Shell
+launch remains unresolved and S27a2 is not fully accepted.
