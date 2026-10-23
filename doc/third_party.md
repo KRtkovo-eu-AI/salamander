@@ -145,3 +145,7 @@ Scoped donor planning buffers, Unicode Copy-of formatter and item-parent split-p
 ### S20c exact delete/recycle and typed error formatting
 
 Scoped host/worker hunks, operationrecycle.h, recycle-only native fixture and typed text tests adapted from [PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, GPL-2.0-or-later. branch_view_text.h and its test project copied exactly; original notices preserved. Local adaptation resolves ordinary recycle eligibility through the exact wide volume root. Future Branch resource tests retained but deferred.
+
+### S21a exact Shell and clipboard identities
+
+branchshell.h, branchclipboard.h and their full context-menu/operation native fixtures/projects are copied exactly from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin Contributors, GPL-2.0-or-later. Original notices preserved; the already adapted S20c recycle helper remains unchanged.

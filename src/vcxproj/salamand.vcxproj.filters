@@ -861,6 +861,12 @@
     <ClInclude Include="..\operationrecycle.h">
       <Filter>h</Filter>
     </ClInclude>
+    <ClInclude Include="..\branchshell.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\branchclipboard.h">
+      <Filter>h</Filter>
+    </ClInclude>
     <ClInclude Include="..\branch_view_text.h">
       <Filter>h</Filter>
     </ClInclude>

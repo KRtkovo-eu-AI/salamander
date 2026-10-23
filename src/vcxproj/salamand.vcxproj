@@ -963,6 +963,8 @@
     <ClInclude Include="..\workerpath.h" />
     <ClInclude Include="..\panel_temporary_selection.h" />
     <ClInclude Include="..\operationrecycle.h" />
+    <ClInclude Include="..\branchshell.h" />
+    <ClInclude Include="..\branchclipboard.h" />
     <ClInclude Include="..\branch_view_text.h" />
     <ClInclude Include="..\common\allochan.h">
     </ClInclude>

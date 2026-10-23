@@ -1,5 +1,28 @@
 # Stav portu PR #769
 
+## S21a — IMPLEMENTED / exact Shell helpers PASS (2026-10-23)
+
+EXACT pinned-donor branchshell.h/branchclipboard.h and full native
+branch_context_menu_tests + branch_operations_tests/projects. Host IDE header
+registration scoped only; existing native runner discovers both targets without
+new runner code. S20c operationrecycle.h wide-volume correction preserved exactly.
+No host dispatch/call site changed; Branch View remains unavailable.
+
+Host x64 Debug/Release /warnaserror PASS5.04/5.79s. Native context menus28 checks
+per configuration PASS using actual Windows Shell canonical verbs versus independently
+bound real-parent reference, UTF8-byte-long and Win32-long identities; mixed-parent
+menu returns explicit unsupported rather than Desktop/first-parent menu.
+Native operations33 checks/config D/R PASS: whole-selection CF_HDROP/CIDA, copy/move
+drop effect, mixed-parent Properties data, Unicode/long paths, missing/unsafe
+identity failure and actual recycle including locked-item failure. Fixtures own
+unique temporary children and guarded cleanup. No real clipboard publication or
+Properties dialog claimed: native IDataObject is the object under test.
+All24 source/menu contract groups PASS. Source/patch hashes and bounded logs in
+../evidence/S21a. GUI host runtime is unchanged by header-only registration;
+actual ordinary-panel host integration smoke belongs to immediately following
+S21b. No SDK/layout, user config, public gate, new push/PR or CI changes.
+
+
 ## S11–S20 — ACCEPTED after current-head fork CI (2026-10-23)
 
 Accepted source commit adebcaa0bc48f7e937da92a0562b9e11ab3ca6fb.
