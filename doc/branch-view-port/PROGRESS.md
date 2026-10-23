@@ -1,5 +1,26 @@
 # Stav portu PR #769
 
+## S27d2 completed locally (2026-10-24)
+
+Selected clipboard copy export is enabled after S27d1 d8c28521; candidate
+integration/pr769-s27d2-candidate. Reuses accepted S21 complete wide Shell data
+object/publication and S27d1 whole-selection identity guards. Only CM_CLIPCOPY /
+selected saCopyToClipboard added; cut, paste, context menu, drag/drop remain gated.
+Default-off experiment unchanged, no SDK/resources/system/security setting changes.
+
+D/R x64 host/dependency builds /warnaserror PASS; actual-method native harness305
+checks/configuration PASS; existing real Shell fixture33/configuration PASS;
+all28 source/menu groups PASS. Actual D/R GUI Ctrl+C for six mixed-parent files,
+focused long Unicode filename and ordinary ASCII folder passed independent native
+OLE inspection (8 checks/case): exact CF_HDROP, complete CIDA identities and COPY|LINK,
+never MOVE. Source hashes12/12, sentinel and empty destinations unchanged; private
+INIs restored, hosts/reporters exited cleanly, LongPathsEnabled=0. No paste tested.
+
+See [S27d2](steps/S27d2.md) for commands, provenance and limits. External evidence
+../evidence/S27d2 binds tested parent/patch, binary hashes and committed inputs.
+No push/new PR/remote CI/CodeQL or clean entire supported matrix for this unit.
+Next smallest unit S27d3 cut/paste; split export/source-state and ingestion if needed.
+
 ## S27d1 completed locally (2026-10-24)
 
 Properties is enabled for current Branch rows, including mixed-parent selections.

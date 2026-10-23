@@ -199,6 +199,7 @@ struct CFilesWindow
     BOOL PrepareCopySource(CFileData*,int,CopyCapture&,CopyScript*,CopyCriteria*);
     BOOL PrepareRelativeTarget(CFileData*,BOOL,CopyScript*,std::string&);
     void PropertiesRoute(int,int,int*);
+    BOOL ClipboardRoute(int,int,int*);
     BOOL Recycle(int*,int,CFileData*);
     void Notify(const char*,BOOL);
     int FreeSpaceCalls=0;
@@ -306,6 +307,33 @@ void CFilesWindow::PropertiesRoute(int count,int index,int* indexes){
 #undef GetErrorText
 #undef LoadStr
 static const int saProperties=1,saPermissions=2,saCopyToClipboard=3,saCutToClipboard=4,saContextMenu=5,saLeftDragFiles=6,saRightDragFiles=7;
+static HRESULT DropEffectResult=S_OK,ClipboardResult=S_OK;
+static int DropEffectCalls=0,ClipboardCalls=0;
+static DWORD ExportEffect=0;
+static HRESULT TestSetEffect(TestPropertiesObject*,DWORD effect){++DropEffectCalls;ExportEffect=effect;return DropEffectResult;}
+static HRESULT TestPublish(TestPropertiesObject*){++ClipboardCalls;return ClipboardResult;}
+#define IDataObject TestPropertiesObject
+#define CreatePanelShellData PropertiesCreateData
+#define SetShellDataDropEffect TestSetEffect
+#define OleSetClipboard TestPublish
+#define MainWindow (&RecycleWindow)
+#define SalMessageBox RecycleMessage
+#define GetErrorText RecycleErrorText
+#define LoadStr RecycleLoadStr
+BOOL CFilesWindow::ClipboardRoute(int count,int index,int* indexes){
+    CFilesWindow* panel=this;CTmpEnumData data;data.Indexes=count==0?&index:indexes;data.Panel=panel;
+    BOOL clipboardReady=FALSE;const int action=saCopyToClipboard;
+@@CLIPBOARD_EXPORT@@
+    return clipboardReady;
+}
+#undef IDataObject
+#undef CreatePanelShellData
+#undef SetShellDataDropEffect
+#undef OleSetClipboard
+#undef MainWindow
+#undef SalMessageBox
+#undef GetErrorText
+#undef LoadStr
 static bool ShellGatePassed=false;
 static void TestShellGate(CFilesWindow* panel,int action,BOOL useSelection,BOOL onlyPanelMenu){
     ShellGatePassed=false;
@@ -442,9 +470,23 @@ static void PropertiesTests()
     reset();MenuAvailable=false;PropertiesResult=E_FAIL;panel.PropertiesRoute(2,0,selected);Check(PropertiesCalls==1&&PropertiesObject.Releases==1&&RecycleErrors==1,"Properties failure releases object and reports error");
     reset();MenuAvailable=false;DataAvailable=false;panel.PropertiesRoute(2,0,selected);Check(PropertiesCalls==0&&PropertiesObject.Releases==0,"failed capture cannot invoke partial Properties");
     TestShellGate(&panel,saProperties,TRUE,FALSE);Check(ShellGatePassed,"selected Branch Properties passes direct gate");
-    for(int action:{saPermissions,saCopyToClipboard,saCutToClipboard,saContextMenu,saLeftDragFiles,saRightDragFiles,99}){TestShellGate(&panel,action,TRUE,FALSE);Check(!ShellGatePassed,"unverified Shell action remains blocked");}
+    for(int action:{saPermissions,saCutToClipboard,saContextMenu,saLeftDragFiles,saRightDragFiles,99}){TestShellGate(&panel,action,TRUE,FALSE);Check(!ShellGatePassed,"unverified Shell action remains blocked");}
     TestShellGate(&panel,saProperties,FALSE,FALSE);Check(!ShellGatePassed,"panel-only Properties remains blocked");
     TestShellGate(&panel,saProperties,TRUE,TRUE);Check(!ShellGatePassed,"panel menu path remains blocked");
+    TestShellGate(&panel,saCopyToClipboard,TRUE,FALSE);Check(ShellGatePassed,"selected Branch copy passes direct gate");
+    TestShellGate(&panel,saCopyToClipboard,FALSE,FALSE);Check(!ShellGatePassed,"panel-root copy remains blocked");
+    TestShellGate(&panel,saCopyToClipboard,TRUE,TRUE);Check(!ShellGatePassed,"panel-menu copy remains blocked");
+    auto resetCopy=[&](){reset();DropEffectResult=S_OK;ClipboardResult=S_OK;DropEffectCalls=0;ClipboardCalls=0;ExportEffect=0;};
+    resetCopy();Check(panel.ClipboardRoute(2,0,selected)&&PropertiesPaths==paths,"copy exports all exact mixed-parent identities");
+    Check(DropEffectCalls==1&&ClipboardCalls==1&&ExportEffect==(DROPEFFECT_COPY|DROPEFFECT_LINK),"copy sets copy/link effect before one publication");
+    Check(PropertiesObject.Releases==1&&RecycleErrors==0,"copy releases its object after successful publication");
+    resetCopy();Check(panel.ClipboardRoute(0,1,nullptr)&&PropertiesPaths.size()==1&&PropertiesPaths[0]==paths[1],"focused copy retains long Unicode full identity");
+    resetCopy();DropEffectResult=E_FAIL;Check(!panel.ClipboardRoute(2,0,selected)&&ClipboardCalls==0&&PropertiesObject.Releases==1&&RecycleErrors==1,"failed effect prevents publication and releases object");
+    resetCopy();ClipboardResult=E_FAIL;Check(!panel.ClipboardRoute(2,0,selected)&&ClipboardCalls==1&&PropertiesObject.Releases==1&&RecycleErrors==1,"publication failure reports error without success");
+    resetCopy();DataAvailable=false;Check(!panel.ClipboardRoute(2,0,selected)&&DropEffectCalls==0&&ClipboardCalls==0&&PropertiesObject.Releases==0,"failed data capture leaves clipboard untouched");
+    resetCopy();Check(!panel.ClipboardRoute(2,0,bad)&&ClipboardCalls==0,"invalid second row prevents partial clipboard publication");
+    resetCopy();state.CacheFiles.erase(state.Items.at(b.c_str()).CacheKey);Check(!panel.ClipboardRoute(2,0,selected)&&ClipboardCalls==0,"stale second row prevents partial clipboard publication");
+    state.CacheFiles[state.Items.at(b.c_str()).CacheKey]=&panel.Files->At(1);
     panel.BranchView=nullptr;panel.WideRoot=L"C:\\ordinary-東京";state.CacheFiles.clear();
     Check(GetPanelShellPaths(2,&data).size()==2&&GetPanelShellDirectoryW(data)==panel.WideRoot,"ordinary disk capture needs no Branch cache");
     TestShellGate(&panel,saContextMenu,TRUE,FALSE);Check(ShellGatePassed,"ordinary Shell action unaffected by staged Branch gate");

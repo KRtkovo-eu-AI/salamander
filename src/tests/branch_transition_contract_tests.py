@@ -19,9 +19,9 @@ class BranchTransitionContracts(unittest.TestCase):
   text=source('mainwnd3.cpp');start=text.index('CFilesWindow* branchCommandPanel');part=text[start:]
   self.assertLess(part.index('!BranchReadOnlyCommandAllowed(LOWORD(wParam))'),part.index('if (HelpMode'))
   gate=function('mainwnd3.cpp','static bool BranchReadOnlyCommandAllowed(')
-  for forbidden in ('CM_VIEW_WITH','CM_EDIT_WITH'):
+  for forbidden in ('CM_VIEW_WITH','CM_EDIT_WITH','CM_CLIPCUT','CM_CLIPPASTE','CM_CLIPPASTELINKS'):
    self.assertNotIn('case '+forbidden+':',gate)
-  for allowed in ('CM_OPEN','CM_VIEW','CM_ALTVIEW','CM_EDIT','CM_BRANCH_OPENPARENT','CM_RENAMEFILE','CM_COPYFILES','CM_MOVEFILES','CM_DELETEFILES','CM_PROPERTIES'):
+  for allowed in ('CM_OPEN','CM_VIEW','CM_ALTVIEW','CM_EDIT','CM_BRANCH_OPENPARENT','CM_RENAMEFILE','CM_COPYFILES','CM_MOVEFILES','CM_DELETEFILES','CM_PROPERTIES','CM_CLIPCOPY'):
    self.assertIn('case '+allowed+':',gate)
   self.assertIn('return false;',gate)
  def test_readonly_direct_paths_are_guarded(self):
@@ -61,7 +61,7 @@ class BranchTransitionContracts(unittest.TestCase):
   self.assertNotIn('S27c3: recycle modes',source('fileswn8.cpp'))
  def test_properties_only_shell_gate_and_whole_selection_fallback(self):
   shell=source('shellsup.cpp');action=shell[shell.index('void ShellAction('):shell.index('const char* ReturnNameFromParam')]
-  self.assertIn('action != saProperties || !useSelection || onlyPanelMenu',action)
+  self.assertIn('(action != saProperties && action != saCopyToClipboard) || !useSelection || onlyPanelMenu',action)
   self.assertLess(action.index('action != saProperties'),action.index('if (panel->QuickSearchMode)'))
   properties=action[action.index('    case saProperties:'):action.index('    case saCopyToClipboard:')]
   self.assertIn('EnumFileNames, &data, panel->IsBranchView()',properties)
