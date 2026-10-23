@@ -1,5 +1,36 @@
 # Plán postupného portu PR #769
 
+## S27d3a completed locally (2026-10-24)
+
+Cut export now enabled through CM_CLIPCUT and selected saCutToClipboard, reusing
+accepted S21 donor publication/ghost-state/cleanup and S27d1 exact capture guards.
+Native actual-method harness312/configuration PASS; includes complete MOVE export,
+failed effect blocking publication, exact cross-panel duplicate identities and
+ClearCutToClipFlag. Existing real Shell tests33/configuration and all28 source/menu
+groups PASS. D/R x64 host/dependencies /warnaserror PASS (6.92s/75.51s). Real D/R
+Ctrl+X ghosted6 selected files and exported exact complete CF_HDROP/CIDA+MOVE;
+Ctrl+C restored icons and COPY|LINK, independently inspected8 checks per payload.
+Ordinary-panel smoke,12 unchanged source hashes/sentinel, clean exits and restored
+private INIs PASS. LongPathsEnabled=0; no system/security change, no paste yet.
+
+See [S27d3a](steps/S27d3a.md); external evidence ../evidence/S27d3a. No publication,
+remote CI/CodeQL or clean full matrix for this unit. Goal remains active: next
+S27d3b paste/shared-drop dependency, then S27d4 context menu and S27d5 drag/drop.
+
+## Remaining S27d goal: ordered units (2026-10-24)
+
+User explicitly authorized all remaining S27d units in one goal, overriding the
+single-unit-per-run convention while retaining a separately validated commit per
+coherent unit. S27d3a: cut export and exact cut-state cleanup; native MOVE payload,
+exact cross-panel identities, publication failure and real D/R Ctrl+X then Ctrl+C.
+S27d3b: paste ingestion to an explicit ordinary disk destination, copy/move hashes,
+source disappearance and failure/Cancel; audit shared drop planner before enabling.
+S27d4: selection context menu, same-parent Shell and mixed-parent host fallback;
+no arbitrary plugin activation, no synthetic-root action. S27d5: drag source and
+explicit disk destination, split by direction/dependency. Branch-root destination
+must be treated explicitly, never guessed from a row. Default-off process gate,
+Windows security and original reference branches stay intact. No push/PR authorized.
+
 ## S27d2 completed locally (2026-10-24)
 
 Selected clipboard copy export is enabled after S27d1 d8c28521; candidate

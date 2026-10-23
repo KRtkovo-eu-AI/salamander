@@ -1693,8 +1693,8 @@ static DWORD TrackBranchHostContextMenu(CFilesWindow* panel, const POINT& pt)
 void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                  BOOL posByMouse, BOOL onlyPanelMenu)
 {
-    // S27d2: only selected Properties and clipboard copy are verified for Branch Shell dispatch.
-    if (panel->IsBranchView() && ((action != saProperties && action != saCopyToClipboard) || !useSelection || onlyPanelMenu)) return;
+    // S27d3a: selected Properties and clipboard export are verified for Branch Shell dispatch.
+    if (panel->IsBranchView() && ((action != saProperties && action != saCopyToClipboard && action != saCutToClipboard) || !useSelection || onlyPanelMenu)) return;
 
     CALL_STACK_MESSAGE5("ShellAction(, %d, %d, %d, %d)", action, useSelection, posByMouse, onlyPanelMenu);
     if (panel->QuickSearchMode)

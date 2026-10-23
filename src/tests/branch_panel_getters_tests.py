@@ -74,9 +74,11 @@ def main():
     properties = shell[shell.index("    case saProperties:"):]
     properties_begin = properties.index("                IContextMenu2* menu = CreatePanelShellMenu")
     properties_end = properties.index("                if (menu != NULL)", properties_begin)
-    gate_begin = shell.index("    // S27d2: only selected Properties")
+    gate_begin = shell.index("    // S27d3a: selected Properties")
     gate_end = shell.index("    CALL_STACK_MESSAGE5", gate_begin)
     pieces = {
+        "CUT_MARK": block(shell[shell.index("    case saCopyToClipboard:"):], "                    if (action != saCopyToClipboard)"),
+        "CUT_CLEAR": block(read("src/fileswnb.cpp",args.source_ref),"void CFilesWindow::ClearCutToClipFlag("),
         "CLIPBOARD_EXPORT": block(shell[shell.index("    case saCopyToClipboard:"):], "                if (panel->Is(ptDisk))"),
         "SHELL_PATHS": block(shell,"static std::vector<std::wstring> GetPanelShellPaths("),
         "SHELL_DIRECTORY": block(shell,"static std::wstring GetPanelShellDirectoryW("),

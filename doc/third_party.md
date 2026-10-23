@@ -209,3 +209,11 @@ donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and
 Samandarin Contributors, GPL-2.0-or-later. Original notices retained. Local staged
 copy-only activation and actual-block regression harness adapt the accepted S21
 implementation to Branch selection. No duplicate Shell framework introduced.
+
+### S27d3a Branch cut export
+
+Cut publication, full-identity cross-panel marking and ClearCutToClipFlag reused
+from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin
+Contributors, GPL-2.0-or-later. Original notices retained. Staged activation and
+actual-block native regression harness are local incremental-port adaptations.

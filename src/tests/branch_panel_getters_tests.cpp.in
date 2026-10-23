@@ -34,6 +34,7 @@ struct CFileData
     const wchar_t* NameW = nullptr;
     unsigned NameLen = 0;
     BOOL Selected = FALSE;
+    unsigned CutToClip = 0, Dirty = 0;
     BOOL UseWideName() const { return NameW != nullptr; }
 };
 struct CBranchViewState
@@ -199,7 +200,9 @@ struct CFilesWindow
     BOOL PrepareCopySource(CFileData*,int,CopyCapture&,CopyScript*,CopyCriteria*);
     BOOL PrepareRelativeTarget(CFileData*,BOOL,CopyScript*,std::string&);
     void PropertiesRoute(int,int,int*);
-    BOOL ClipboardRoute(int,int,int*);
+    BOOL ClipboardRoute(int,int,int*,int action=3);
+    BOOL CutToClipChanged=FALSE;
+    void ClearCutToClipFlag(BOOL);
     BOOL Recycle(int*,int,CFileData*);
     void Notify(const char*,BOOL);
     int FreeSpaceCalls=0;
@@ -320,9 +323,9 @@ static HRESULT TestPublish(TestPropertiesObject*){++ClipboardCalls;return Clipbo
 #define SalMessageBox RecycleMessage
 #define GetErrorText RecycleErrorText
 #define LoadStr RecycleLoadStr
-BOOL CFilesWindow::ClipboardRoute(int count,int index,int* indexes){
+BOOL CFilesWindow::ClipboardRoute(int count,int index,int* indexes,int action){
     CFilesWindow* panel=this;CTmpEnumData data;data.Indexes=count==0?&index:indexes;data.Panel=panel;
-    BOOL clipboardReady=FALSE;const int action=saCopyToClipboard;
+    BOOL clipboardReady=FALSE;
 @@CLIPBOARD_EXPORT@@
     return clipboardReady;
 }
@@ -334,6 +337,15 @@ BOOL CFilesWindow::ClipboardRoute(int count,int index,int* indexes){
 #undef SalMessageBox
 #undef GetErrorText
 #undef LoadStr
+static const int DRAWFLAG_DIRTY_ONLY=1,DRAWFLAG_SKIP_VISTEST=2;
+#define CALL_STACK_MESSAGE_NONE
+@@CUT_CLEAR@@
+#undef CALL_STACK_MESSAGE_NONE
+static BOOL MarkCut(CFilesWindow* panel,CFilesWindow* anotherPanel,int count,int index,int* indexes,BOOL samePaths){
+    const int action=saCutToClipboard;BOOL repaint=FALSE;
+@@CUT_MARK@@
+    return repaint;
+}
 static bool ShellGatePassed=false;
 static void TestShellGate(CFilesWindow* panel,int action,BOOL useSelection,BOOL onlyPanelMenu){
     ShellGatePassed=false;
@@ -362,7 +374,7 @@ BOOL CFilesWindow::PrepareRelativeTarget(CFileData* oneFile,BOOL keepBranchPaths
     return TRUE;
 }
 @@RENAME_METADATA@@
-const int WM_USER_SELCHANGED=WM_APP+1, DRAWFLAG_DIRTY_ONLY=1, DRAWFLAG_SKIP_VISTEST=2;
+const int WM_USER_SELCHANGED=WM_APP+1;
 static int RegSetStrCmpEx(const char*a,unsigned al,const char*b,int bl,void*){return al==(unsigned)bl?strncmp(a,b,al):1;}
 static int RegSetStrICmpEx(const char*a,unsigned al,const char*b,int bl,void*){return al==(unsigned)bl?_strnicmp(a,b,al):1;}
 @@TEMP_SELECTION@@
@@ -470,7 +482,7 @@ static void PropertiesTests()
     reset();MenuAvailable=false;PropertiesResult=E_FAIL;panel.PropertiesRoute(2,0,selected);Check(PropertiesCalls==1&&PropertiesObject.Releases==1&&RecycleErrors==1,"Properties failure releases object and reports error");
     reset();MenuAvailable=false;DataAvailable=false;panel.PropertiesRoute(2,0,selected);Check(PropertiesCalls==0&&PropertiesObject.Releases==0,"failed capture cannot invoke partial Properties");
     TestShellGate(&panel,saProperties,TRUE,FALSE);Check(ShellGatePassed,"selected Branch Properties passes direct gate");
-    for(int action:{saPermissions,saCutToClipboard,saContextMenu,saLeftDragFiles,saRightDragFiles,99}){TestShellGate(&panel,action,TRUE,FALSE);Check(!ShellGatePassed,"unverified Shell action remains blocked");}
+    for(int action:{saPermissions,saContextMenu,saLeftDragFiles,saRightDragFiles,99}){TestShellGate(&panel,action,TRUE,FALSE);Check(!ShellGatePassed,"unverified Shell action remains blocked");}
     TestShellGate(&panel,saProperties,FALSE,FALSE);Check(!ShellGatePassed,"panel-only Properties remains blocked");
     TestShellGate(&panel,saProperties,TRUE,TRUE);Check(!ShellGatePassed,"panel menu path remains blocked");
     TestShellGate(&panel,saCopyToClipboard,TRUE,FALSE);Check(ShellGatePassed,"selected Branch copy passes direct gate");
@@ -487,6 +499,18 @@ static void PropertiesTests()
     resetCopy();Check(!panel.ClipboardRoute(2,0,bad)&&ClipboardCalls==0,"invalid second row prevents partial clipboard publication");
     resetCopy();state.CacheFiles.erase(state.Items.at(b.c_str()).CacheKey);Check(!panel.ClipboardRoute(2,0,selected)&&ClipboardCalls==0,"stale second row prevents partial clipboard publication");
     state.CacheFiles[state.Items.at(b.c_str()).CacheKey]=&panel.Files->At(1);
+    TestShellGate(&panel,saCutToClipboard,TRUE,FALSE);Check(ShellGatePassed,"selected cut export passes gate");
+    TestShellGate(&panel,saCutToClipboard,FALSE,FALSE);Check(!ShellGatePassed,"panel root cut stays blocked");
+    resetCopy();Check(panel.ClipboardRoute(2,0,selected,saCutToClipboard)&&PropertiesPaths==paths&&ExportEffect==DROPEFFECT_MOVE,"cut exports entire exact selection with MOVE only");
+    resetCopy();DropEffectResult=E_FAIL;Check(!panel.ClipboardRoute(2,0,selected,saCutToClipboard)&&ClipboardCalls==0,"failed cut effect never publishes");
+    CBranchViewState otherState;CFilesWindow other;other.BranchView=&otherState;other.FileRows.Values={{a.c_str(),name.c_str()},{b.c_str(),name.c_str()}};other.FileRows.Count=2;
+    Add(otherState,other.Files->At(0),parent,name,L"deep\\same-東京.txt");Add(otherState,other.Files->At(1),L"C:\\first",name,L"first\\same-東京.txt");
+    for(auto& row:other.FileRows.Values)otherState.CacheFiles[otherState.Items.at(row.Name).CacheKey]=&row;
+    Check(MarkCut(&panel,&other,0,1,nullptr,TRUE)&&panel.Files->At(1).CutToClip&&!panel.Files->At(0).CutToClip,"cut marks only exact selected source");
+    Check(other.Files->At(0).CutToClip&&!other.Files->At(1).CutToClip&&other.CutToClipChanged,"cross-panel cut marks full identity, not duplicate basename");
+    panel.ClearCutToClipFlag(FALSE);other.ClearCutToClipFlag(TRUE);
+    Check(!panel.CutToClipChanged&&!other.CutToClipChanged&&!panel.Files->At(1).CutToClip&&!other.Files->At(0).CutToClip,"cut cleanup clears both panels");
+    Check(panel.Files->At(1).Dirty&&other.Files->At(0).Dirty,"cut cleanup invalidates painted rows");
     panel.BranchView=nullptr;panel.WideRoot=L"C:\\ordinary-東京";state.CacheFiles.clear();
     Check(GetPanelShellPaths(2,&data).size()==2&&GetPanelShellDirectoryW(data)==panel.WideRoot,"ordinary disk capture needs no Branch cache");
     TestShellGate(&panel,saContextMenu,TRUE,FALSE);Check(ShellGatePassed,"ordinary Shell action unaffected by staged Branch gate");
