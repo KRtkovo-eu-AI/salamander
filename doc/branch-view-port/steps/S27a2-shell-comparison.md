@@ -1,5 +1,9 @@
 # S27a2 - File-manager launch comparison
 
+Pozdější výsledek: oddělení programů a dokumentů bylo implementováno s plným
+Windows ověřením a explicitně přijatými omezeními. Viz
+[závěrečný protokol](S27a2-completion.md); tento dokument zachovává původní výzkum.
+
 Date: 2026-10-23. Starting candidate: a2c81e00.
 Research complete; a successful general long-executable Shell route on the tested
 host has not been demonstrated. S27a2 remains PARTIAL. No production code or

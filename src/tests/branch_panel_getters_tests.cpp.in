@@ -6,6 +6,7 @@
 #include <windows.h>
 #include <shellapi.h>
 #include "@@FILEACTION_HEADER@@"
+#include "@@PROGRAM_HEADER@@"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -65,13 +66,19 @@ static int DialogCalls=0, ShellCalls=0;
 static BOOL ShellSuccess=TRUE;
 static std::wstring ShellFile, ShellDirectory;
 static std::function<void()> OnShell;
-static const char* LoadStr(int) {return "test";}
-static void DialogError(HWND,int,const char*,const char*,const char*) {++DialogCalls;}
 static BOOL RecordShell(SHELLEXECUTEINFOW* info) {
     ++ShellCalls; ShellFile=info->lpFile; ShellDirectory=info->lpDirectory;
     if(OnShell)OnShell();
     return ShellSuccess;
 }
+static int ProgramCalls=0;
+static HRESULT ProgramResult=S_OK;
+static std::wstring ProgramSource, ProgramDirectory;
+static HRESULT LaunchBranchProgram(HWND, const std::wstring& source, const std::wstring& directory) {
+    ++ProgramCalls;ProgramSource=source;ProgramDirectory=directory;
+    if(OnShell)OnShell();return ProgramResult;
+}
+static void ShowBranchLaunchFailure(HWND, const std::wstring&, HRESULT, bool) {++DialogCalls;}
 #define ShellExecuteExW RecordShell
 struct TestMainWindow {
     TestHistory History;
@@ -284,6 +291,23 @@ static void EnterTests()
         Check(ShellCalls==shellBefore && panel.ArchiveCalls==archiveBefore && panel.EndRefreshCalls==endBefore+1,"missing cache identity fails closed and balances refresh");
     }
 }
+static void ProgramDispatchTests()
+{
+    CBranchViewState state; CFilesWindow panel;panel.BranchView=&state;
+    std::string legacy="run.exe";panel.FileRows.Values={{legacy.c_str(),L"run.exe"}};panel.FileRows.Count=1;
+    auto* file=&panel.Files->At(0);const std::wstring parent=L"\\\\?\\C:\\"+std::wstring(280,L'a');
+    Add(state,*file,parent,L"run.exe",L"run.exe");state.CacheFiles[panel.GetItemCacheKeyPtr(*file)]=file;
+    const auto full=panel.GetItemFullPathW(*file);PackerFormatConfig.Archive=FALSE;
+    const int shell=ShellCalls, calls=ProgramCalls, history=MainWindow->History.Count;
+    ProgramResult=S_OK;panel.ExecuteBranch(file);
+    Check(ProgramCalls==calls+1 && ShellCalls==shell,"exe selects program broker before any Shell attempt");
+    Check(ProgramSource==full && ProgramDirectory==parent,"program broker receives complete owned wide source and parent");
+    Check(MainWindow->History.Count==history+1,"successful broker records successful-open history");
+    ProgramResult=E_ACCESSDENIED;const int errors=DialogCalls;panel.ExecuteBranch(file);
+    Check(DialogCalls==errors+1 && MainWindow->History.Count==history+1 && ShellCalls==shell,"denied broker reports failure with no Shell retry or history");
+    ProgramResult=S_OK;OnShell=[&](){state.Items.clear();state.CacheFiles.clear();};panel.ExecuteBranch(file);OnShell=nullptr;
+    Check(MainWindow->History.Path==SalWideToMultiBytePath(full.c_str(),CP_UTF8),"program source/history remains owned after reentrant metadata removal");
+}
 static void ArchiveReadTests(const wchar_t* scratch)
 {
     const std::wstring root = std::wstring(scratch) + L"\\archive-read";
@@ -415,6 +439,7 @@ int wmain(int argc, wchar_t** argv)
     NavigationTests();
     ArchiveReadTests(argv[1]);
     EnterTests();
+    ProgramDispatchTests();
     std::printf("Branch panel getters/navigation: %d checks, %d failures\n", Checks, Failures);
     return Failures ? 1 : 0;
 }

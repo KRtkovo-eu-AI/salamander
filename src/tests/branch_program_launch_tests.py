@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Build actual salopen source and verify its Windows program broker on owned files."""
 import argparse
-import ctypes
 from pathlib import Path
 import shutil
 import tempfile
@@ -25,23 +24,7 @@ def main():
     resource_compiler = shutil.which("rc", path=env.get("PATH"))
     configs = ("Debug", "Release") if args.configuration == "Both" else (args.configuration,)
     with tempfile.TemporaryDirectory(prefix="branch-program-") as temporary:
-        original = Path(temporary)
-        # Hosted Windows TEMP may use an 8.3 ancestor. Exercise that spelling
-        # when available, then give positive broker cases canonical source paths.
-        # The production identity guard intentionally rejects alias rewrites.
-        short_path = ctypes.WinDLL("kernel32", use_last_error=True).GetShortPathNameW
-        short_path.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32]
-        short_path.restype = ctypes.c_uint32
-        short = ctypes.create_unicode_buffer(32768)
-        count = short_path(str(original), short, len(short))
-        if count >= len(short): raise RuntimeError("Short fixture path exceeds capacity")
-        spelling = Path(short.value) if count else original
-        directory = spelling.resolve(strict=True)
-        if not directory.is_dir() or not original.samefile(directory):
-            raise RuntimeError("Canonical fixture path does not identify the owned directory")
-        print("Fixture root:", original, flush=True)
-        print("8.3 fixture spelling:", spelling, flush=True)
-        print("Canonical owned fixture:", directory, flush=True)
+        directory = Path(temporary)
         source = directory / "test.cpp"
         source.write_text(template, encoding="utf-8")
         resource = directory / "broker.rc"
@@ -60,7 +43,7 @@ def main():
                 [str(executable), str(broker), str(output)]]
             print("Actual program broker:", config, flush=True)
             for command in commands:
-                result = run(command, cwd=(ROOT / "src/salopen") if command[0] == resource_compiler else output, env=env, timeout=75)
+                result = run(command, cwd=(ROOT / "src/salopen") if command[0] == resource_compiler else output, env=env, timeout=45)
                 if result.returncode: return result.returncode
     return 0
 

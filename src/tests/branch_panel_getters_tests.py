@@ -66,6 +66,7 @@ def main():
     header = read("src/branch_view.h", args.source_ref)
     conversions = read("src/common/widepath.cpp", args.source_ref)
     pieces = {
+        "PROGRAM_HEADER": str(ROOT / "src/branchprogram.h").replace(chr(92), "/"),
         "FILEACTION_HEADER": str(ROOT / "src/fileactionpath.h").replace(chr(92), "/"),
         "EXECUTE": block(block(read("src/fileswn2.cpp", args.source_ref), "void CFilesWindow::Execute(int index)"), "            if (IsBranchView())"),
         "ARCHIVE_READ": block(read("src/fileswn2.cpp", args.source_ref), "static HANDLE OpenArchiveFileForRead("),

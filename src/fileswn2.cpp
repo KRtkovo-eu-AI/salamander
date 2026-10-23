@@ -5,6 +5,9 @@
 #include "precomp.h"
 #include "branch_view.h"
 #include "fileactionpath.h"
+#define SALAMANDER_BRANCHPROGRAM_CLIENT
+#include "branchprogram.h"
+#undef SALAMANDER_BRANCHPROGRAM_CLIENT
 
 #include <uxtheme.h>
 
@@ -975,24 +978,32 @@ void CFilesWindow::Execute(int index)
                 }
                 else
                 {
-                    // Win32 extended syntax is for file I/O, not Shell parsing.
-                    const std::wstring shellFile = SalPathRemoveExtendedPrefixW(source.c_str());
-                    if (shellFile.size() >= MAX_PATH)
+                    HRESULT result = E_FAIL;
+                    const bool program = Salamander::BranchProgram::IsProgram(source.c_str());
+                    if (program)
+                        result = LaunchBranchProgram(GetListBoxHWND(), source, directory);
+                    else
                     {
-                        DialogError(HWindow, BUTTONS_OK, sourceUtf8.c_str(), LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERROROPENINGFILE));
-                        EndStopRefresh();
-                        return;
+                        // Documents, links and scripts keep their Windows associations.
+                        // No native retry after a failed or denied Shell operation.
+                        const std::wstring shellFile = SalPathRemoveExtendedPrefixW(source.c_str());
+                        if (shellFile.size() >= MAX_PATH)
+                            result = HRESULT_FROM_WIN32(ERROR_FILENAME_EXCED_RANGE);
+                        else
+                        {
+                            const std::wstring launchDirectory = Salamander::FileActionPaths::InitialDirectory(
+                                SalWideToMultiBytePath(directory.c_str(), CP_UTF8).c_str());
+                            SHELLEXECUTEINFOW execute = {sizeof(execute)};
+                            execute.fMask = SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
+                            execute.hwnd = GetListBoxHWND();
+                            execute.lpFile = shellFile.c_str(); execute.lpDirectory = launchDirectory.c_str();
+                            execute.nShow = SW_SHOWNORMAL;
+                            if (ShellExecuteExW(&execute)) result = S_OK;
+                            else result = Salamander::BranchProgram::LastErrorResult();
+                        }
                     }
-                    const std::wstring launchDirectory = Salamander::FileActionPaths::InitialDirectory(
-                        SalWideToMultiBytePath(directory.c_str(), CP_UTF8).c_str());
-                    SHELLEXECUTEINFOW execute = {sizeof(execute)};
-                    execute.fMask = SEE_MASK_NOASYNC;
-                    execute.hwnd = GetListBoxHWND();
-                    execute.lpFile = shellFile.c_str();
-                    execute.lpDirectory = launchDirectory.c_str();
-                    execute.nShow = SW_SHOWNORMAL;
-                    if (ShellExecuteExW(&execute))
-                        MainWindow->FileHistory->AddFile(fhitOpen, 0, sourceUtf8.c_str());
+                    if (SUCCEEDED(result)) MainWindow->FileHistory->AddFile(fhitOpen, 0, sourceUtf8.c_str());
+                    else ShowBranchLaunchFailure(HWindow, source, result, program);
                 }
                 EndStopRefresh();
                 return;

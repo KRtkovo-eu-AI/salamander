@@ -1,5 +1,36 @@
 # Plán postupného portu PR #769
 
+## S27a2 dokončeno v dohodnutém rozsahu (2026-10-23)
+
+Aktuální zadání výslovně přijímá dokončení s bezpečným odmítnutím
+nepodporovaných případů. Tím nahrazuje starší podmínku, že dlouhé programové
+cesty musejí být úspěšně spuštěny přes Shell. Historické záznamy PARTIAL níže
+popisují tehdejší stav; nejsou aktuálním výsledkem etapy.
+
+Oddělené větve nyní obsluhují ověřené PE programy .exe a dokumenty, skripty
+či odkazy přes Shell. Program spouští Windows Attachment Services v existujícím
+salopen pomocníkovi; neprovádíme raw CreateProcess cílového programu po pouhém
+CheckPolicy. Windows zachovává závěrečné ověření a vlastní spuštění. Archivy
+ponechávají ověřenou opravu širokého metadata I/O. Odmítnutí nemá alternativní
+pokus, změnu bezpečnostního označení ani změnu registru.
+
+Chyba dlouhé cesty obsahuje pouze čtený stav LongPathsEnabled a místní návod.
+Výchozí tlačítko zavírá dialog; návod upozorňuje, že zapnutí není zárukou funkce
+Shellu nebo aplikace a není řešením bezpečnostního odmítnutí. Skutečný systém
+zůstal LongPathsEnabled=0. Podporované případy i omezení a přesné výsledky jsou
+v [závěrečném protokolu S27a2](steps/S27a2-completion.md).
+
+Lokální Debug/Release x64 build hostitele, salopen a jazykových resources prošel.
+Programový broker: 93 kontrol v každé konfiguraci; Branch dispatch: 186/config;
+běžné panely: 196/config a 5 SDK prefixů; 28 registrovaných zdrojových/menu skupin.
+Skutečné GUI ověřilo krátký program se správným zdrojem/CWD a odmítnutí dlouhého
+programu; tmavý i světlý dialog byly zkontrolovány. Debug shutdown opět ukázal
+Detected memory leaks; příčina není určena a čisté ukončení Debug netvrdíme.
+
+Bez publikace, čistého buildu celé sestavy a vzdáleného CodeQL v tomto kroku.
+S27b a další etapy zůstávají odložené. Výchozí aktivace Branch View zůstává vypnutá.
+Evidence: ../evidence/S27a2-final.
+
 ## S27a2 acceptance: default Windows configuration (2026-10-23)
 
 User decision: long Shell launch must work with default Windows settings.

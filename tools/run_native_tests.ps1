@@ -511,6 +511,15 @@ try {
             )
         },
         @{
+            Name = 'branch_program_launch_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\branch_program_launch_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
             Name = 'branch_panel_getters_tests'
             ClassName = 'native-generated'
             Arguments = @(

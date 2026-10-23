@@ -193,3 +193,12 @@ guidance. Pinned source links and findings are recorded in
 [the S27a2 comparison](branch-view-port/steps/S27a2-shell-comparison.md).
 No source from these projects was imported into production. The local independent
 Shell class-selection probe did not solve the long-path launch failure.
+
+### S27a2 program/document separation
+
+Independent local implementation, Samandarin Contributors, GPL-2.0-or-later.
+FAR Manager (Eugene Roshal/Far Group) and Files Community informed the conceptual
+program/document split; their source code and fallback chains were not imported.
+Microsoft Windows Attachment Services owns final authorization and execution.
+S27a2 is now locally completed with explicitly accepted unsupported-case limits;
+see [the completion record](branch-view-port/steps/S27a2-completion.md).
