@@ -262,8 +262,12 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
 {
     // S27c1a: only flat copy into an ordinary disk panel is verified.
     if (target != NULL && target->IsBranchView()) return;
-    if (IsBranchView() && ((type != atCopy && type != atMove) || target == NULL || !target->Is(ptDisk) ||
-                           countSizeMode != 0 || copyToSelectedDirs)) return;
+    if (IsBranchView() && (countSizeMode != 0 || copyToSelectedDirs ||
+        (type != atDelete && ((type != atCopy && type != atMove) || target == NULL || !target->Is(ptDisk))))) return;
+    // S27c3: recycle modes are enabled separately in S27c4. Never turn a
+    // requested recycle operation into permanent deletion during transition.
+    if (IsBranchView() && type == atDelete &&
+        ((GetKeyState(VK_SHIFT) & 0x8000) ? Configuration.UseRecycleBin == 0 : Configuration.UseRecycleBin != 0)) return;
 
     if (changeTargetRequested != NULL)
         *changeTargetRequested = FALSE;

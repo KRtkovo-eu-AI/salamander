@@ -362,8 +362,13 @@ static void CopySourceTests()
     CopyCriteria ignore;ignore.IgnoreADS=TRUE;ADSQueried="not probed";
     Check(panel.PrepareCopySource(&panel.Files->At(0),atCopy,net,&script,&ignore)&&!net.ADS&&ADSQueried=="not probed","ignore-ADS option remains effective");
     int resets=CopyCwdResets;const auto queued=script.Storage.size();
-    Check(!panel.PrepareCopySource(&panel.Files->At(0),99,net,&script,nullptr)&&!panel.PrepareCopySource(&panel.Files->At(0),atDelete,net,&script,nullptr),"unknown action and delete cannot use staged copy/move boundary");
-    Check(CopyCwdResets==resets+2&&script.Storage.size()==queued,"rejected action restores CWD without scheduling");
+    Check(!panel.PrepareCopySource(&panel.Files->At(0),99,net,&script,nullptr),"unknown action cannot use staged operation boundary");
+    Check(CopyCwdResets==resets+1&&script.Storage.size()==queued,"rejected action restores CWD without scheduling");
+    CopyScript deleting;CopyCapture removed;
+    Check(panel.PrepareCopySource(&panel.Files->At(1),atDelete,removed,&deleting,nullptr),"delete resolves long duplicate parent");
+    Check(removed.Parent==two.Parent&&removed.Name==two.Name&&!removed.HasDosName,"delete exact identity has no DOS fallback");
+    Check(deleting.Storage.empty(),"delete does not inherit copy scheduling probes");
+    Check(panel.PrepareCopySource(&panel.Files->At(2),atDelete,removed,&deleting,nullptr)&&removed.Name==wide.Name,"delete retains full wide basename");
     CopyScript moving;CopyCapture moved;SameVolume=FALSE;
     Check(panel.PrepareCopySource(&panel.Files->At(1),atMove,moved,&moving,nullptr),"move resolves long actual parent");
     Check(moved.Parent==two.Parent&&moved.Name==two.Name&&!moved.HasDosName,"move does not use display/DOS aliases");
@@ -372,6 +377,7 @@ static void CopySourceTests()
     CopyScript local;SameVolume=TRUE;
     Check(panel.PrepareCopySource(&panel.Files->At(2),atMove,moved,&local,nullptr)&&!local.SameRootButDiffVolume&&!local.ShowStatus,"same-volume move keeps rename optimization");
     state.CacheFiles.clear();
+    Check(!panel.PrepareCopySource(&panel.Files->At(1),atDelete,removed,&deleting,nullptr),"stale delete cannot schedule destructive I/O");
     Check(!panel.PrepareCopySource(&panel.Files->At(1),atMove,moved,&moving,nullptr)&&moving.Storage.size()==1,"stale move cannot schedule destructive I/O");
     state.CacheFiles.clear();
     Check(!panel.PrepareCopySource(&panel.Files->At(0),atCopy,net,&script,nullptr),"stale cache cannot fall back to root plus basename");

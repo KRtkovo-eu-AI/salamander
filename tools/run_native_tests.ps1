@@ -529,6 +529,15 @@ try {
             )
         },
         @{
+            Name = 'branch_delete_worker_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\branch_delete_worker_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
             Name = 'disk_file_size_paths_tests'
             ClassName = 'native-generated'
             Arguments = @(

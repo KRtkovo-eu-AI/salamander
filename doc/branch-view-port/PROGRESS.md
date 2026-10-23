@@ -1,5 +1,35 @@
 # Stav portu PR #769
 
+## S27c3 locally validated (2026-10-23)
+
+Permanent deletion is enabled for Branch rows using their current exact parent/name.
+The ordinary DOS-alias fallback is excluded for Branch sources. Donor extended
+confirmation lists show relative paths; a local single-item adaptation uses the
+owned wide relative identity instead of a shortened display mirror. Normal disk,
+archive/plugin and later clipboard/drag policies remain unchanged. Recycle modes
+are conservatively blocked only during this intermediate commit, never converted
+to permanent deletion; S27c4 removes this transition guard after recycle validation.
+
+Debug/Release x64 host/dependencies /warnaserror PASS. Actual getter/source/planning
+harness248/configuration PASS. New registered native-generated test compiles the
+actual DoDeleteFile and FileNameIsInvalid functions, includes the actual workerpath
+helper and executes owned filesystem I/O:31 checks/configuration PASS. Cases include
+ASCII, Unicode leaf/parents, UTF8-over-260 and Win32-long paths, duplicate basenames,
+readonly removal, hidden Cancel/Skip, missing-source Cancel, invalid trailing-dot
+alias and preservation of a sibling payload. UI/progress and recycle are explicit
+facades; no GUI deletion is claimed. /W4 /WX exposed an existing potentially
+uninitialized useRecycleBin in the worker. Safe initialization to TRUE preserves
+all known modes and prevents unknown configuration from implying permanent deletion;
+the new native test verifies that case preserves its source.
+
+All28 source/menu groups PASS. Actual Debug GUI basic multi/single relative-identity
+confirmation Cancel and Release extended relative list Cancel PASS. All12 GUI source
+hashes and sentinel unchanged; own hosts/reporters cleanly exited, private INIs
+restored. No actual destructive GUI action was performed; skill action-time approval
+was therefore unnecessary. No registry/security changes. LongPathsEnabled remains0.
+Evidence ../evidence/S27c3. No push/PR, CodeQL or clean whole-solution CI. Next S27c4.
+
+
 ## S27c2 locally validated (2026-10-23)
 
 Branch F6 move now reuses the exact parent/name and optional relative-directory

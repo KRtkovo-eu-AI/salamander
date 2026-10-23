@@ -1510,7 +1510,7 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
             std::string branchName;
             if (IsBranchView())
             {
-                if ((type != atCopy && type != atMove) || GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*oneFile)) != oneFile)
+                if ((type != atCopy && type != atMove && type != atDelete) || GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*oneFile)) != oneFile)
                 {
                     SetCurrentDirectoryToSystem();
                     return FALSE;
