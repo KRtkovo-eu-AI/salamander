@@ -75,6 +75,8 @@ def main():
         "COPY_LABELS": block(builder, "                    for (std::vector<int>::reverse_iterator directory = branchCreatedDirectories.rbegin();"),
         "CONVERSION_UTF8_ACP": block(builder,"std::wstring SalMultiByteToWidePathUtf8OrAcp("),
         "COPY_PREP": builder[first:last],
+        "RECYCLE_HEADER": str(ROOT / "src/operationrecycle.h").replace(chr(92), "/"),
+        "RECYCLE_QUEUE": block(block(read("src/fileswn8.cpp", args.source_ref),"BOOL CFilesWindow::DeleteThroughRecycleBin("), "    if (Is(ptDisk))"),
         "NOTIFY": block(block(read("src/fileswn7.cpp", args.source_ref), "void CFilesWindow::AcceptChangeOnPathNotification("),"    if (IsBranchView())"),
         "FIND_BASENAME": block(conversions, "const wchar_t* SalPathFindFileNameW("),
         "PROGRAM_HEADER": str(ROOT / "src/branchprogram.h").replace(chr(92), "/"),

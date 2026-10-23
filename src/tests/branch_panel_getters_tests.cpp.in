@@ -198,6 +198,7 @@ struct CFilesWindow
     void RefreshBranchView() {++RefreshCalls;if(BranchView->ItemsMutex.try_lock())BranchView->ItemsMutex.unlock();else CallbackLocked=true;}
     BOOL PrepareCopySource(CFileData*,int,CopyCapture&,CopyScript*,CopyCriteria*);
     BOOL PrepareRelativeTarget(CFileData*,BOOL,CopyScript*,std::string&);
+    BOOL Recycle(int*,int,CFileData*);
     void Notify(const char*,BOOL);
     int FreeSpaceCalls=0;
     void RefreshDiskFreeSpace(BOOL,BOOL){++FreeSpaceCalls;}
@@ -205,6 +206,52 @@ struct CFilesWindow
     void ViewPolicy(const char* name, BOOL altView, DWORD handlerID);
 
 };
+#include "@@RECYCLE_HEADER@@"
+static const int ptDisk=1;
+struct TestShellItem {std::wstring Path;void Release(){delete this;}};
+struct TestFileOperation {
+    std::vector<std::wstring> Paths;DWORD Flags=0;int PerformCalls=0,Released=0,AbortCalls=0;
+    int FailStage=0,FailItem=-1;BOOL Aborted=FALSE;
+    HRESULT SetOwnerWindow(HWND){return FailStage==1?E_FAIL:S_OK;}
+    HRESULT SetOperationFlags(DWORD flags){Flags=flags;return FailStage==2?E_FAIL:S_OK;}
+    HRESULT DeleteItem(TestShellItem* item,void*){if(FailItem==(int)Paths.size())return E_FAIL;Paths.push_back(item->Path);return S_OK;}
+    HRESULT PerformOperations(){++PerformCalls;return FailStage==3?E_FAIL:S_OK;}
+    HRESULT GetAnyOperationsAborted(BOOL* b){++AbortCalls;*b=Aborted;return FailStage==4?E_FAIL:S_OK;}
+    void Release(){++Released;}
+};
+static TestFileOperation RecycleMock;
+static int ParseCalls=0,ParseFail=-1,RecycleErrors=0;
+static HRESULT MakeOperation(REFCLSID,void*,DWORD,REFIID,void** out){if(RecycleMock.FailStage==5)return E_FAIL;*out=&RecycleMock;return S_OK;}
+static HRESULT MakeShellItem(const wchar_t* path,void*,REFIID,void** out){int i=ParseCalls++;if(i==ParseFail)return HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);auto* item=new TestShellItem;item->Path=path;*out=item;return S_OK;}
+struct RecycleOwner {HWND HWindow=nullptr;};static RecycleOwner RecycleWindow;
+static const char* RecycleLoadStr(int){return "fixture";}
+static const char* RecycleErrorText(DWORD){return "fixture";}
+static int RecycleMessage(HWND,const char*,const char*,UINT){++RecycleErrors;return IDOK;}
+static const int IDS_ERRORTITLE=1;
+#define IFileOperation TestFileOperation
+#define IShellItem TestShellItem
+#pragma push_macro("IID_PPV_ARGS")
+#undef IID_PPV_ARGS
+#define IID_PPV_ARGS(pp) IID_NULL,reinterpret_cast<void**>(pp)
+#define CoCreateInstance MakeOperation
+#define SHCreateItemFromParsingName MakeShellItem
+#define MainWindow (&RecycleWindow)
+#define LoadStr RecycleLoadStr
+#define GetErrorText RecycleErrorText
+#define SalMessageBox RecycleMessage
+BOOL CFilesWindow::Recycle(int* selection,int selCount,CFileData* oneFile){
+@@RECYCLE_QUEUE@@
+    return FALSE;
+}
+#undef IFileOperation
+#undef IShellItem
+#pragma pop_macro("IID_PPV_ARGS")
+#undef CoCreateInstance
+#undef SHCreateItemFromParsingName
+#undef MainWindow
+#undef LoadStr
+#undef GetErrorText
+#undef SalMessageBox
 static CRITICAL_SECTION TimeCounterSection;
 static int MyTimeCounter=1,PostedRefresh=0;
 static const UINT WM_USER_REFRESH_DIR=WM_APP+2;
@@ -241,7 +288,7 @@ BOOL CFilesWindow::PrepareRelativeTarget(CFileData* oneFile,BOOL keepBranchPaths
     return TRUE;
 }
 @@RENAME_METADATA@@
-const int ptDisk=1, WM_USER_SELCHANGED=WM_APP+1, DRAWFLAG_DIRTY_ONLY=1, DRAWFLAG_SKIP_VISTEST=2;
+const int WM_USER_SELCHANGED=WM_APP+1, DRAWFLAG_DIRTY_ONLY=1, DRAWFLAG_SKIP_VISTEST=2;
 static int RegSetStrCmpEx(const char*a,unsigned al,const char*b,int bl,void*){return al==(unsigned)bl?strncmp(a,b,al):1;}
 static int RegSetStrICmpEx(const char*a,unsigned al,const char*b,int bl,void*){return al==(unsigned)bl?_strnicmp(a,b,al):1;}
 @@TEMP_SELECTION@@
@@ -319,6 +366,38 @@ static void RelativeCopyTests()
         Check(!panel.PrepareRelativeTarget(&panel.Files->At(0),TRUE,&script,target)&&script.Records.empty(),"invalid relative component cannot escape destination");
     }
     OnAttributes=nullptr;
+}
+
+static void RecycleQueueTests()
+{
+    CBranchViewState state;CFilesWindow panel;panel.BranchView=&state;
+    std::string a="first mirror",b="second mirror",c="long mirror";
+    std::wstring name=L"same-東京.txt",longName=std::wstring(100,L'東')+L".txt";
+    panel.FileRows.Values={{a.c_str(),name.c_str()},{b.c_str(),name.c_str()},{c.c_str(),longName.c_str()}};panel.FileRows.Count=3;
+    Add(state,panel.Files->At(0),L"C:\\first-ž",name,L"first\\same-東京.txt");
+    Add(state,panel.Files->At(1),L"D:\\second-東京",name,L"second\\same-東京.txt");
+    Add(state,panel.Files->At(2),L"C:\\"+std::wstring(110,L'a')+L"\\"+std::wstring(110,L'b')+L"\\東京",longName,L"deep\\"+longName);
+    for(auto& row:panel.FileRows.Values)state.CacheFiles[state.Items.at(row.Name).CacheKey]=&row;
+    int selected[]={0,1,2};
+    auto reset=[](){RecycleMock=TestFileOperation();ParseCalls=0;ParseFail=-1;RecycleErrors=0;};
+    reset();Check(panel.Recycle(selected,3,nullptr),"recycle queues entire mixed-volume selection");
+    Check(RecycleMock.Paths.size()==3&&RecycleMock.Paths[0]==panel.GetItemFullPathW(panel.Files->At(0))&&RecycleMock.Paths[1]==panel.GetItemFullPathW(panel.Files->At(1)),"recycle preserves duplicate exact parent identities");
+    Check(RecycleMock.Paths[2]==panel.GetItemFullPathW(panel.Files->At(2))&&RecycleMock.Paths[2].size()>260,"recycle preserves long Unicode name and parent");
+    Check(RecycleMock.Flags==(FOF_ALLOWUNDO|FOFX_RECYCLEONDELETE|FOFX_ADDUNDORECORD|FOFX_EARLYFAILURE),"recycle-only flags cannot permit permanent fallback");
+    Check(RecycleMock.PerformCalls==1&&RecycleMock.AbortCalls==1&&RecycleMock.Released==1,"one perform after complete queue and checked abort status");
+    for(int stage=1;stage<=4;++stage){reset();RecycleMock.FailStage=stage;Check(!panel.Recycle(selected,3,nullptr)&&RecycleErrors==1&&RecycleMock.Released==1,"COM setup/perform/abort failure is reported");if(stage<=2)Check(ParseCalls==0&&RecycleMock.PerformCalls==0,"failed owner/flags cannot queue or perform");}
+    reset();RecycleMock.FailStage=5;Check(!panel.Recycle(selected,3,nullptr)&&ParseCalls==0&&RecycleMock.PerformCalls==0,"COM creation failure cannot queue or perform");
+    reset();RecycleMock.FailItem=1;Check(!panel.Recycle(selected,3,nullptr)&&RecycleMock.PerformCalls==0&&RecycleMock.Paths.size()==1,"queue failure prevents partial selection perform");
+    reset();ParseFail=1;Check(!panel.Recycle(selected,3,nullptr)&&RecycleMock.PerformCalls==0,"unparsable second source prevents partial selection perform");
+    reset();RecycleMock.Aborted=TRUE;Check(!panel.Recycle(selected,3,nullptr),"user abort is not success");
+    reset();Check(panel.Recycle(nullptr,0,&panel.Files->At(1))&&RecycleMock.Paths.size()==1&&RecycleMock.Paths[0]==panel.GetItemFullPathW(panel.Files->At(1)),"focused one-file recycle resolves exact parent");
+    reset();Check(!panel.Recycle(nullptr,0,nullptr)&&RecycleMock.PerformCalls==0,"null focused source cannot recycle");
+    reset();int bad[]={-1};Check(!panel.Recycle(bad,1,nullptr)&&RecycleMock.PerformCalls==0,"out-of-range selection cannot recycle");
+    reset();Check(!panel.Recycle(nullptr,1,nullptr)&&RecycleMock.PerformCalls==0,"missing selection array cannot recycle");
+    reset();state.CacheFiles.clear();Check(!panel.Recycle(selected,3,nullptr)&&RecycleMock.PerformCalls==0,"stale Branch selection cannot recycle");
+    for(auto& row:panel.FileRows.Values)state.CacheFiles[state.Items.at(row.Name).CacheKey]=&row;
+    reset();state.Items[a.c_str()].Directory=L"C:\\ambiguous.\\parent";state.Items[a.c_str()].CacheKey=SalWideToMultiBytePath(state.Items[a.c_str()].FullPath().c_str(),CP_UTF8);state.CacheFiles[state.Items[a.c_str()].CacheKey]=&panel.Files->At(0);
+    Check(!panel.Recycle(selected,3,nullptr)&&ParseCalls==0&&RecycleMock.PerformCalls==0,"ambiguous ancestor rejected before Shell parser");
 }
 
 static void NotificationTests()
@@ -689,7 +768,7 @@ int wmain(int argc, wchar_t** argv)
     Paths(panel, ordinary, L"", L"", L"", "new active Branch has no ordinary row fallback");
     Paths(panel, up, L"C:\\root", L"C:\\root\\..", L"..", "first-scan empty listing parent navigation");
 
-    try { NotificationTests(); RelativeCopyTests(); CopySourceTests(); RenameMetadataTests(); }
+    try { RecycleQueueTests(); NotificationTests(); RelativeCopyTests(); CopySourceTests(); RenameMetadataTests(); }
     catch (const std::exception& error) { Check(false,error.what()); }
     NavigationTests();
     ArchiveReadTests(argv[1]);

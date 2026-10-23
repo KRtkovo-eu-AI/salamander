@@ -1,5 +1,51 @@
 # Plán postupného portu PR #769
 
+## S27c1b–S27c4 completed locally (2026-10-23)
+
+All four requested units are implemented sequentially on integration/pr769-s27c-candidate,
+with no publication. S27c1b634d3403 adds optional relative-directory copy;
+S27c2 0c657b31 adds move and explicit completion refresh; S27c3 af8bc2b1 adds
+permanent deletion and unambiguous wide confirmation identities. This S27c4 unit
+activates recycle modes and retains the stronger accepted S20c target policy:
+FOF_ALLOWUNDO, FOFX_RECYCLEONDELETE, FOFX_ADDUNDORECORD and FOFX_EARLYFAILURE.
+No application fallback from failed recycle to permanent deletion is introduced.
+
+S27c4 checks owner/flags/abort HRESULTs, rejects null, invalid-index or stale Branch
+sources, and performs the queue only after every exact source has been accepted.
+Branch volume support is determined by Shell for each exact source rather than
+turning a requested recycle into permanent deletion based on the synthetic root.
+Ordinary disk volume policy stays unchanged. The temporary S27c3 recycle guard is
+removed. Clipboard/drag/drop, archive/plugin destinations and later operations
+remain outside these units; the process activation gate stays off by default.
+
+Debug/Release x64 host/dependencies /warnaserror PASS. Actual getter/planning/queue
+harness269/configuration PASS:248 prior checks plus21 actual queue-block checks with
+explicit COM facades (mixed-volume path capture, duplicate/long identities, creation,
+owner/flags/queue/parse/perform/abort failures, stale/null/index/normalization guards).
+The queue facade does not prove actual Shell behavior. Separately, the actual
+DoDeleteFile extraction now passes48/configuration with real filesystem deletion
+and real force-recycle helper calls over five owned path variants; failed locked
+recycle preserves the file, with no direct-delete fallback. UI/progress and selected
+extension mask matching are facades. All31 prior permanent-worker checks remain.
+The existing real operation_recycle_tests project built and ran D/R,15 checks each,
+including real Shell recycling, long Unicode paths, ambiguous components and errors.
+All28 registered source/menu groups PASS. The donor parser assertion was adapted
+to the target's checked shellPath, adding an explicit OperationRecyclePath assertion.
+
+D/R GUI Branch/ordinary panel smoke, Debug Files menu Delete availability and Release
+Shift-F8 confirmation Cancel PASS. No GUI recycle/destructive confirmation was invoked;
+actual destructive I/O is native-test-only. All12 GUI source hashes and sentinel remain
+unchanged; hosts/reporters exited cleanly, private INIs restored. LongPathsEnabled=0
+was read back; no system, security or global settings changed. Cross-volume/network
+Shell behavior is not an actual runtime test on this single-volume fixture. The
+legacy notification transport limit for very long panel roots remains S30 work:
+manual Refresh may be needed there, while operation I/O retains exact wide paths.
+
+Evidence ../evidence/S27c4 and earlier stage directories. No push/PR, remote CodeQL
+or clean whole-solution matrix has run for these local commits. Accepted reference
+remains S27b e63167f0. Publication/CI is the next review gate when authorized.
+
+
 ## S27c3 locally validated (2026-10-23)
 
 Permanent deletion is enabled for Branch rows using their current exact parent/name.
@@ -2193,3 +2239,10 @@ AcceptChangeOnPathNotification block in fileswn7.cpp. Import only that block;
 it posts WM_USER_REFRESH_DIR with wParam0, so S26 watcher/manual policy stays
 unchanged. Existing WorkPath1 recursive root notification and WorkPath2 target
 are reused; legacy MAX_PATH notification producer limits remain documented.
+
+S27c4 preflight: existing target S20c IFileOperation queue is already stronger
+than donor flags. Retain force-recycle/undo/early failure. Check owner/flags/abort
+HRESULTs before queue/perform, reject stale/null/out-of-range source identities,
+and use Shell per-item volume validation instead of the synthetic Branch root
+drive fallback. Test actual queue block with failure COM facades and actual
+recycle helper on owned temporary paths, GUI menu smoke without destructive input.

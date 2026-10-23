@@ -8,7 +8,7 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('--configuration',choices=('Debug','Release','Both'),default='Both');args=p.parse_args()
     worker=read('src/worker.cpp');validation=read('src/salamdr5.cpp')
     code=read('src/tests/branch_delete_worker_tests.cpp.in')
-    pieces={'DELETE':block(worker,'BOOL DoDeleteFile('),'INVALID':block(validation,'BOOL FileNameIsInvalid('),'WORKER_HEADER':str(ROOT/'src/workerpath.h').replace(chr(92),'/')}
+    pieces={'DELETE':block(worker,'BOOL DoDeleteFile('),'INVALID':block(validation,'BOOL FileNameIsInvalid('),'WORKER_HEADER':str(ROOT/'src/workerpath.h').replace(chr(92),'/'),'RECYCLE_HEADER':str(ROOT/'src/operationrecycle.h').replace(chr(92),'/')}
     for k,v in pieces.items():code=code.replace('@@'+k+'@@',v)
     assert '@@' not in code
     env=compiler_environment();compiler=shutil.which('cl',path=env.get('PATH'))
@@ -17,7 +17,7 @@ def main():
         for config,flags in [('Debug',['/MDd','/D_DEBUG','/Od']),('Release',['/MD','/DNDEBUG','/O2'])]:
             if args.configuration not in ('Both',config):continue
             print('Actual DoDeleteFile:',config,flush=True)
-            for cmd in ([compiler,'/nologo','/std:c++17','/EHsc','/utf-8','/W4','/WX',*flags,str(source),'/Fe:'+str(exe),'user32.lib'],[str(exe),str(directory)]):
+            for cmd in ([compiler,'/nologo','/std:c++17','/EHsc','/utf-8','/W4','/WX',*flags,str(source),'/Fe:'+str(exe),'user32.lib','shell32.lib','ole32.lib','uuid.lib'],[str(exe),str(directory)]):
                 result=run(cmd,cwd=directory,env=env,timeout=30)
                 if result.returncode:return result.returncode
     return 0

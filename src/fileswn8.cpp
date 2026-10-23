@@ -143,14 +143,27 @@ BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileDa
                                            IID_PPV_ARGS(&operation));
         if (FAILED(result))
             return FALSE;
-        operation->SetOwnerWindow(MainWindow->HWindow);
-        operation->SetOperationFlags(FOF_ALLOWUNDO | FOFX_RECYCLEONDELETE | FOFX_ADDUNDORECORD | FOFX_EARLYFAILURE);
+        result = operation->SetOwnerWindow(MainWindow->HWindow);
+        if (SUCCEEDED(result))
+            result = operation->SetOperationFlags(FOF_ALLOWUNDO | FOFX_RECYCLEONDELETE | FOFX_ADDUNDORECORD | FOFX_EARLYFAILURE);
         const int total = selCount > 0 ? selCount : 1;
         for (int item = 0; item < total && SUCCEEDED(result); ++item)
         {
             const CFileData* file = oneFile;
             if (selCount > 0)
+            {
+                if (selection == NULL || selection[item] < 0 || selection[item] >= Dirs->Count + Files->Count)
+                {
+                    result = E_INVALIDARG;
+                    break;
+                }
                 file = selection[item] < Dirs->Count ? &Dirs->At(selection[item]) : &Files->At(selection[item] - Dirs->Count);
+            }
+            if (file == NULL || (IsBranchView() && GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*file)) != file))
+            {
+                result = HRESULT_FROM_WIN32(ERROR_INVALID_DATA);
+                break;
+            }
             const std::wstring path = GetItemFullPathW(*file);
             std::wstring shellPath;
             if (FAILED(OperationRecyclePath(path, shellPath)))
@@ -171,7 +184,8 @@ BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileDa
         if (SUCCEEDED(result))
             result = operation->PerformOperations();
         BOOL aborted = TRUE;
-        operation->GetAnyOperationsAborted(&aborted);
+        if (SUCCEEDED(result))
+            result = operation->GetAnyOperationsAborted(&aborted);
         operation->Release();
         if (FAILED(result))
         {
@@ -264,10 +278,6 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
     if (target != NULL && target->IsBranchView()) return;
     if (IsBranchView() && (countSizeMode != 0 || copyToSelectedDirs ||
         (type != atDelete && ((type != atCopy && type != atMove) || target == NULL || !target->Is(ptDisk))))) return;
-    // S27c3: recycle modes are enabled separately in S27c4. Never turn a
-    // requested recycle operation into permanent deletion during transition.
-    if (IsBranchView() && type == atDelete &&
-        ((GetKeyState(VK_SHIFT) & 0x8000) ? Configuration.UseRecycleBin == 0 : Configuration.UseRecycleBin != 0)) return;
 
     if (changeTargetRequested != NULL)
         *changeTargetRequested = FALSE;
@@ -530,7 +540,10 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
         BOOL canUseRecycleBin = TRUE;
         if (type == atDelete)
         {
-            if (OperationRecycleDriveTypeW(SalPathAddExtendedPrefixW(GetPathW())) != DRIVE_FIXED)
+            // Branch rows can reside on different volumes. Let force-recycle
+            // Shell operations validate each exact source; never infer permanent
+            // deletion from the synthetic root's drive type.
+            if (!IsBranchView() && OperationRecycleDriveTypeW(SalPathAddExtendedPrefixW(GetPathW())) != DRIVE_FIXED)
             {
                 recycle = 0;              // none
                 canUseRecycleBin = FALSE; // it will not work because Windows does not support it

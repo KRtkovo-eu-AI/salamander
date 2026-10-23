@@ -48,7 +48,8 @@ class BranchOperationsContracts(unittest.TestCase):
     def test_recycle_queues_whole_wide_selection(self):
         text = source('fileswn8.cpp')
         self.assertIn('GetItemFullPathW(*file)', text)
-        self.assertIn('SHCreateItemFromParsingName(path.c_str()', text)
+        self.assertIn('OperationRecyclePath(path, shellPath)', text)
+        self.assertIn('SHCreateItemFromParsingName(shellPath.c_str()', text)
         self.assertIn('operation->DeleteItem(shellItem, NULL)', text)
         self.assertIn('operation->PerformOperations()', text)
     def test_selected_extension_recycle_uses_exact_wide_shell_operation(self):
@@ -186,7 +187,7 @@ def load_tests(loader, tests, pattern):
     if SCOPE == 'All':
         return tests
     names = ('test_initial_view_and_edit_use_owned_wide_full_path',
-             'test_rename_remaps_identity_after_every_success', 'test_builder_resolves_each_selected_item', 'test_relative_targets_have_cancel_skip_labels', 'test_option_is_localized_and_only_available_for_branch')
+             'test_rename_remaps_identity_after_every_success', 'test_builder_resolves_each_selected_item', 'test_relative_targets_have_cancel_skip_labels', 'test_option_is_localized_and_only_available_for_branch', 'test_recycle_queues_whole_wide_selection')
     if SCOPE in ('OrdinaryCopyMove', 'OrdinaryOperations'):
         names += ('test_ordinary_copy_move_owns_unicode_basename', 'test_ordinary_copy_move_uses_item_parent_at_dialog_boundary')
     if SCOPE == 'OrdinaryOperations':

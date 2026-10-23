@@ -50,6 +50,15 @@ class BranchTransitionContracts(unittest.TestCase):
   self.assertIn('panel->GetItemRelativePathW(*file)',confirm)
   builder=function('fileswn6.cpp','BOOL CFilesWindow::BuildScriptMain(')
   self.assertIn('!IsBranchView() && type == atDelete && selCount <= 1',builder)
+ def test_branch_recycle_keeps_force_policy_and_checks_setup_failures(self):
+  part=function('fileswn8.cpp','BOOL CFilesWindow::DeleteThroughRecycleBin(')
+  self.assertIn('result = operation->SetOperationFlags(FOF_ALLOWUNDO | FOFX_RECYCLEONDELETE | FOFX_ADDUNDORECORD | FOFX_EARLYFAILURE)',part)
+  self.assertIn('result = operation->SetOwnerWindow',part)
+  self.assertIn('result = operation->GetAnyOperationsAborted',part)
+  self.assertIn('GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*file)) != file',part)
+  self.assertLess(part.index('operation->DeleteItem'),part.index('operation->PerformOperations'))
+  self.assertIn('!IsBranchView() && OperationRecycleDriveTypeW',source('fileswn8.cpp'))
+  self.assertNotIn('S27c3: recycle modes',source('fileswn8.cpp'))
  def test_rename_requires_current_metadata_and_preserves_modal_identity(self):
   for marker in ('void CFilesWindow::RenameFile(', 'void CFilesWindow::QuickRenameBegin(', 'void CFilesWindow::RenameFileInternalW(', 'BOOL CFilesWindow::HandeQuickRenameWindowKey('):
    part=function('fileswn5.cpp',marker)
