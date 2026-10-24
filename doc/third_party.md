@@ -287,3 +287,11 @@ Batch Rename owned selection and wide I/O reuse
 Contributors, GPL-2.0-or-later. Original notices and plugin blobs retained.
 The narrow private host command permission and recording tests are adaptations;
 plugin engine and SDK ABI are unchanged.
+
+### S27f.03 Branch Checksum Calculate/Verify integration
+
+Checksum owned selection, manifest handling and engines reuse
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin
+Contributors, GPL-2.0-or-later. Original notices and all plugin blobs retained.
+Private host command permission and recording dispatch tests are local adaptations.

@@ -1,5 +1,20 @@
 # Stav portu PR #769
 
+## S27f.03 Checksum Calculate/Verify locally validated (2026-10-24)
+
+Only bundled checksum\checksum.spl Calculate ID1 and Verify ID2 pass the private
+Branch dispatch policy. Auxiliary Focus ID99 stays blocked and is a remaining
+S27 integration item; no blanket DLL permission. All58 tracked Checksum files
+remain equal to pinned donor47661e92. Host/plugin D/R /warnaserror PASS;
+command dispatch50/config, owned-path62/config and all28 contracts PASS.
+Actual mixed-parent Branch GUI D/R:40 real digests independently match CRC32/MD5/
+SHA1/SHA256/SHA512; two MD5 exports retain all8 full relative paths/digests;
+16 positive Verify entries including >260 Unicode manifest parent. Debug negative
+exactly1corrupted/3OK/0missing/0skipped; Release ordinary Verify4OK. All sources and
+sentinels unchanged, private INIs restored, runtime matches launch, registry0.
+No publication, remote CI/CodeQL/full clean matrix. See [S27f.03](steps/S27f03.md).
+Goal ACTIVE; next S27f.04 Split & Combine; auxiliary Focus requires separate audit.
+
 ## S27f.02 Batch Rename locally validated (2026-10-24)
 
 Bundled renamer\renamer.spl internal Rename ID1 now passes the existing private
