@@ -13,6 +13,7 @@ def main():
     parser.add_argument('--configuration',choices=('Debug','Release','Both'),default='Both')
     args=parser.parse_args()
     source=read('src/plugins1.cpp')
+    assert re.search(r'#define\s+CMD_REGENERATE_THUMBNAIL\s+188\b', read('src/plugins/pictview/pictview.rh2'))
     command=block(read('src/mainwnd3.cpp'),'static bool BranchReadOnlyCommandAllowed(')
     names=sorted(set(re.findall(r'\bCM_[A-Z0-9_]+\b',command))-{'CM_PLUGINCMD_MIN','CM_PLUGINCMD_MAX'})
     generated=read('src/tests/branch_plugin_commands_tests.cpp.in')

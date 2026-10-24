@@ -331,3 +331,12 @@ Ondřej Kotas, Open Salamander Authors and Samandarin Contributors,
 GPL-2.0-or-later. Existing notices retained. Private posted-command gates,
 repository macro/wide-path and one-shot dispatch integration fixes, balanced
 handle tracking and focused native regression are local adaptations.
+
+### S27f.07 PictView Branch thumbnail integration
+
+PictView thumbnail selection and paired EXIF10 consumers retain the accepted code
+from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, including work by Milan Kase,
+Open Salamander Authors and Samandarin Contributors, GPL-2.0-or-later. Existing
+PictView/EXIF notices remain intact. The narrow host command gate and its policy
+regressions are local integration adaptations; actual component code is unchanged.

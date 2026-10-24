@@ -1,5 +1,25 @@
 # Plán postupného portu PR #769
 
+## S27f.07 PictView Update Thumbnail locally validated (2026-10-24)
+
+Only bundled pictview\pictview.spl command188 is newly admitted by the private
+Branch policy. Existing S12 donor thumbnail/EXIF10 consumers remain unchanged;
+capture/scan/refresh internals, arbitrary DLLs and neighboring IDs remain refused
+at dispatch. Some legacy plugin menu items can still appear enabled; this is not
+a claim that every refused command is visually disabled. No SDK/layout change.
+
+Host and PictView/EXIF Debug+Release /warnaserror builds PASS. Native policy89,
+paired real EXIF51, disk selection57 and WIC39 checks per configuration PASS;
+28 source/menu groups PASS. Actual D/R GUI: Cancel preserves inputs, selected
+same-name JPEGs in different parents and long Unicode paths receive valid EXIF
+thumbnails, original compressed image data/orientation6 remain unchanged. A fourth
+ordinary-panel JPEG also succeeds while Branch selection remains on the other
+side; unselected zz-keep.jpg and sentinel remain unchanged, no temp residue.
+Own hosts closed normally, private INIs restored exactly, LongPathsEnabled0.
+See [S27f.07](steps/S27f07.md); evidence ../evidence/S27f07.
+S27 remains unfinished: next .08 ZIP, then .09-.11 and auxiliary command audit.
+No push/PR, remote CI, CodeQL or full clean-build matrix claimed for this unit.
+
 ## S27f.06b Automation menu integration locally validated (2026-10-24)
 
 Private policy now admits fixed Automation1/2/3 and actual currently registered
