@@ -43,7 +43,8 @@ struct CFilesArray {
 };
 struct CFilesWindow {
  CFilesArray Directories,FileRows;CFilesArray* Dirs=&Directories;CFilesArray* Files=&FileRows;
- std::wstring Root=L"C:\\root";std::string RootText="C:\\root";bool Disk=true,Missing=false,ThrowPath=false;int Focus=0;
+ std::wstring Root=L"C:\\root";std::string RootText="C:\\root";bool Disk=true,Missing=false,ThrowPath=false,Branch=false;int Focus=0,Changes=0;HWND HWindow=nullptr;
+ BOOL IsBranchView(){return Branch;}BOOL ChangePathToDiskW(HWND,const wchar_t* path){Root=path;Branch=false;++Changes;return TRUE;}void SetCaretIndex(int index,BOOL){Focus=index;}
  BOOL Is(int type){return Disk&&type==ptDisk;}int GetCaretIndex(){return Focus;}
  const wchar_t* GetPathW(){return Root.c_str();}const char* GetPath(){return RootText.c_str();}
  Row* Find(const CFileData& f)const{for(auto a:{Dirs,Files})for(int i=0;i<a->Count;++i)if(&a->Data[i]==&f)return a->Rows[i].get();return nullptr;}
@@ -53,12 +54,14 @@ struct CFilesWindow {
  CFileData* Add(std::wstring name,std::wstring full,std::wstring relative,bool selected=false,bool dir=false){auto a=dir?Dirs:Files;a->Rows.emplace_back(new Row(std::move(name),std::move(full),std::move(relative),selected));a->Data.push_back(a->Rows.back()->File);++a->Count;return &a->Data.back();}
  void Clear(){Dirs->Clear();Files->Clear();Root=L"C:\\root";RootText="C:\\root";Disk=true;Missing=false;ThrowPath=false;Focus=0;}
 };
-struct MainWindowStub {CFilesWindow Left,Right;bool RightActive=false;
+struct MainWindowStub {HWND HWindow=nullptr;CFilesWindow Left,Right;bool RightActive=false;
  CFilesWindow* GetPanel(int panel){switch(panel){case PANEL_SOURCE:return RightActive?&Right:&Left;case PANEL_TARGET:return RightActive?&Left:&Right;case PANEL_LEFT:return &Left;case PANEL_RIGHT:return &Right;default:return nullptr;}}
 };
 static MainWindowStub Window;static MainWindowStub* MainWindow=&Window;static DWORD MainThreadID;static HWND TestWindow;
 struct CSalamanderGeneralAbstract {
  bool SnapshotAvailable=true,ResolverAvailable=true,BadInterface=false,BadVersion=false;int RootCalls=0,QueryCalls=0,CountOffset=0;
+ CFilesWindow* GetPanel(int panel){return Window.GetPanel(panel);}
+ void FocusNameInPanel(int,const char*,const char*);void SkipOneActivateRefresh(){}void SetUserWorkedOnPanelPath(int){}
  BOOL QueryService(const CSalamanderServiceQuery*,CSalamanderServiceResult*);
  void PostChangeOnPathNotification(const char*,BOOL){}
  void GetConfigParameter(int,void*,size_t,void*) {}
@@ -79,6 +82,10 @@ struct CSalamanderGeneralAbstract {
 static CDiskSelectionService Service;static CPanelItemPathsService Resolver;
 BOOL CSalamanderGeneralAbstract::QueryService(const CSalamanderServiceQuery* q,CSalamanderServiceResult* r){++QueryCalls;r->Interface=nullptr;r->Version=0;if(strcmp(q->ServiceId,SALAMANDER_SERVICE_DISK_SELECTION)==0){if(!SnapshotAvailable)return FALSE;r->Interface=BadInterface?nullptr:&Service;}else{if(!ResolverAvailable)return FALSE;r->Interface=BadInterface?nullptr:&Resolver;}r->Version=BadVersion?0:q->MinimumVersion;return TRUE;}
 
+#define WM_USER_FOCUSFILE (WM_APP+99)
+#define LOW_MEMORY "memory"
+#define CALL_STACK_MESSAGE3(...) ((void)0)
+#define CALL_STACK_MESSAGE4(...) ((void)0)
 #define CALL_STACK_MESSAGE1(...) ((void)0)
 #define CALL_STACK_MESSAGE2(...) ((void)0)
 #define CALL_STACK_MESSAGE6(...) ((void)0)
@@ -172,7 +179,10 @@ public:TIndirectArray<FILEINFO> fileList{10,10};const char* sourcePath;const cha
 static BOOL SafeReadFile(HANDLE, LPVOID, DWORD, DWORD*, const char*, HWND, BOOL* =nullptr, BOOL* =nullptr);
 @@IO@@
 @@THREADS@@
+@@FOCUS@@
 @@FUNCTIONS@@
+using CSalamanderForOperationsAbstract=void;static std::string Focus_Path;enum {CMD_VERIFY=2,CMD_CALCULATE=1,CMD_FOCUSFILE=99};struct CPluginInterfaceForMenuExt {BOOL ExecuteMenuItem(void*,HWND,int,DWORD);};
+@@FOCUS_COMMAND@@
 void CCalculateDialog::Execute(){
  CapturedRoot=SourcePath;Captured.clear();
  if(!GetFileList()){++Errors;return;}
@@ -272,6 +282,10 @@ int main(){
   auto folder=second;for(int i=0;i<14;++i)folder=fixture.Directory(folder,L"long-東京-component-"+std::to_wstring(i));
   paths.push_back(fixture.File(folder,L"same.bin",3));
   paths.push_back(fixture.File(first,std::wstring(90,L'東')+L".bin",4));
+  CPluginInterfaceForMenuExt menu;
+  for(bool branch:{true,false})for(size_t index=0;index<paths.size();++index){Populate(fixture,{paths[index]},false);Window.Left.Branch=branch;Window.Left.Focus=-1;Focus_Path=Utf8(paths[index]);Check(menu.ExecuteMenuItem(nullptr,nullptr,CMD_FOCUSFILE,0)&&Focus_Path.empty(),"actual Checksum Focus consumes owned full path");Check(!Window.Left.Branch&&Window.Left.Root==ChecksumPaths::Parent(paths[index])&&Window.Left.Focus==0,"actual host Branch focus uses exact parent and NameW, including100CJK/duplicate/long");}
+  Populate(fixture,{paths[0]},false);Window.Left.Focus=-1;General.FocusNameInPanel(PANEL_SOURCE,Utf8(first).c_str(),"SAME.BIN");Check(Window.Left.Focus==0,"ordinary disk case-insensitive focus remains supported");
+  Populate(fixture,{paths[0]},false);Window.Left.Branch=true;int changes=Window.Left.Changes;General.FocusNameInPanel(PANEL_SOURCE,Utf8(fixture.Root+L"\\missing").c_str(),"same.bin");Check(Window.Left.Branch&&Window.Left.Changes==changes,"missing parent preserves Branch and cannot fall back elsewhere");General.FocusNameInPanel(PANEL_SOURCE,Utf8(first).c_str(),"sub\\same.bin");Check(Window.Left.Branch&&Window.Left.Changes==changes,"non-basename focus refused");General.FocusNameInPanel(PANEL_SOURCE,nullptr,"same.bin");Check(Window.Left.Branch&&Window.Left.Changes==changes,"null focus path refused");
   Populate(fixture,paths,true);
   Check(OpenCalculateDialog(nullptr),"actual Calculate command accepts selected snapshot");
   Window.Left.Clear();RunPending();

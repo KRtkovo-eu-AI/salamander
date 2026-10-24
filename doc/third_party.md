@@ -390,3 +390,11 @@ pinned donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Open Salamander
 Authors and Samandarin Contributors, GPL-2.0-or-later. Original notices retained;
 local integration adds current-command policy and named-item validation to the
 experimental Branch gate, preserving ordinary-panel routing.
+
+### S27f.13 Checksum exact Focus
+
+Adapts Checksum Focus and host focus routing from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pinned donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Open Salamander
+Authors and Samandarin Contributors, GPL-2.0-or-later. Original notices retained.
+Uses the already accepted S27a1 owned-wide navigation approach for disk panels;
+local adaptation removes demonstrated legacy focus truncation without SDK changes.

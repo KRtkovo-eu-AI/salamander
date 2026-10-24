@@ -8,16 +8,6 @@
 #include "precomp.h"
 #include "common/widepath.h"
 
-#ifdef new
-#undef new
-#define RESTORE_ZIP_NEW_HEADER
-#endif
-#include <new>
-#ifdef RESTORE_ZIP_NEW_HEADER
-#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
-#undef RESTORE_ZIP_NEW_HEADER
-#endif
-
 #include "menu.h"
 #include "cfgdlg.h"
 #include "dialogs.h"

@@ -96,6 +96,9 @@ def main():
         "PARSER":block(misc,"void GetLastWord(")+"\n"+block(misc,"BYTE hex(")+"\n"+block(wrappers,"bool CCRCAlgo::ParseDigest("),
         "IO":block(misc,"BOOL SafeReadFile(")+"\n"+function("BOOL SafeOpenCreateFile(",misc),
     })
+    conversions=read("src/common/widepath.cpp")
+    pieces["FOCUS"]="\n".join(block(conversions,m) for m in ("BOOL SalIsExtendedLengthPathW(","std::wstring SalPathAddExtendedPrefixW(","BOOL IsValidPathUtf8Text(","std::wstring SalMultiByteToWidePath("))+"\n"+block(host,"void CSalamanderGeneral::FocusNameInPanel(").replace("CSalamanderGeneral::","CSalamanderGeneralAbstract::")
+    pieces["FOCUS_COMMAND"]=block(read("src/plugins/checksum/checksum.cpp"),"BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(")
     for key,value in pieces.items():generated=generated.replace("@@"+key+"@@",value)
     if "@@" in generated:raise AssertionError("unexpanded placeholder")
     environment=compiler_environment();compiler=shutil.which("cl",path=environment.get("PATH"))

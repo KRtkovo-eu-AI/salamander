@@ -78,7 +78,8 @@ int main(){
  plugin.DLLName="checksum\\checksum.spl";
  Check(plugin.IsBranchCommandAllowed(1)&&BranchReadOnlyCommandAllowed(item.SUID),"verified Checksum Calculate accepted");
  item.ID=2;Check(plugin.IsBranchCommandAllowed(2)&&BranchReadOnlyCommandAllowed(item.SUID),"verified Checksum Verify accepted");
- Check(!plugin.IsBranchCommandAllowed(99)&&!plugin.IsBranchCommandAllowed(3),"Checksum auxiliary commands remain refused");item.ID=1;
+ Check(plugin.IsBranchCommandAllowed(99)&&!plugin.IsBranchCommandAllowed(3),"Checksum Focus99 only accepted auxiliary ID");
+ for(BOOL operation:{FALSE,TRUE})Check(plugin.ExecutePostedMenuItem(&panel,NULL,99,operation)&&plugin.PluginIfaceForMenuExt.LastID==99&&plugin.PluginIfaceForMenuExt.LastHadOperations==(operation!=FALSE),"Checksum Focus actual posted dispatch retains operation context");item.ID=1;
  plugin.DLLName="splitcbn\\splitcbn.spl";
  Check(plugin.IsBranchCommandAllowed(1)&&BranchReadOnlyCommandAllowed(item.SUID),"verified Split command accepted");
  item.ID=2;Check(plugin.IsBranchCommandAllowed(2)&&BranchReadOnlyCommandAllowed(item.SUID),"verified Combine command accepted");

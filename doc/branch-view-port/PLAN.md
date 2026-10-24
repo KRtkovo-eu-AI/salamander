@@ -1,5 +1,57 @@
 # Plán postupného portu PR #769
 
+## S27f.13 Checksum Focus locally validated (2026-10-24)
+
+Only bundled Checksum auxiliary99 admitted; actual immediate/idle posted contexts
+retain event/operation semantics. Verify already owns full UTF8 fileName; Focus
+now splits via accepted ChecksumPaths wide Parent/Base and consumes its owned
+request, avoiding mutable CutDirectory scratch/root alias. Calculate/Verify and
+hash engines unchanged. No public SDK or virtual-layout change.
+
+Host FocusNameInPanel formerly copied MAX_PATH+200 path/name, then legacy message
+matched shortened Name into MAX_PATH NextFocusName. Disk panels now reuse S27a1
+wide navigation/exact NameW lookup, validating parent existence before leaving
+Branch, owning strings across row replacement, preserving case-insensitive name
+fallback after exact match. Applies to ordinary disk too: otherwise second Focus
+after leaving Branch would hit the same old buffers. Archive/plugin FS routing
+remains distinct. Allocation failure refuses navigation; no registry changes.
+
+D/R host and Checksum/dependency warning-as-error builds PASS. Actual checksum
+command+host Focus entry compiled in owned-file native harness:82/config PASS;
+actual policy/posted routes142/config PASS; all28 source/menu groups PASS.
+Native navigation uses explicit panel-storage/switch recording facades with real
+wide filesystem attribute checks; existing62 path/worker/parser/I/O tests retained.
+Real D/R final GUI: Verify4OK/config, Focus exact long Unicode duplicate parent,
+then Focus100-CJK source after panel becomes ordinary. Full directory read back
+through Change Directory; full focused name read from Quick Rename and Cancel.
+Four final Focus operations; exact complete fixture inventory and all hashes
+unchanged, including sources/manifests/unselected sentinels. Final host/plugin
+hashes match launch and actual loaded module. Own hosts closed, INIs restored,
+LongPathsEnabled0. Initial Branch-only GUI/build was followed by the complete
+ordinary-disk refinement and final rebuild/revalidation; not substituted evidence.
+
+No push/PR/remoteCI/CodeQL/full clean supported matrix. Evidence ../evidence/S27f13.
+Next PictView config refresh197/framework help audit; whole S27 unfinished.
+
+S27f.13 refinement: after Branch focus switches to an ordinary disk panel, a
+second Focus would still use legacy truncated buffers. Apply the same wide route
+to all disk panels; preserve case-insensitive fallback after exact match. Archive
+and plugin filesystems retain their distinct legacy routing. Rebuild and repeat
+final GUI tests; initial Branch-only evidence is not final binary acceptance.
+
+## S27f.13 Checksum Focus prerequisites and plan
+
+Audit: accepted Verify model stores exact owned UTF8 fileName, posted99 is gated.
+Legacy FocusNameInPanel truncates path/name toMAX_PATH+200; WM_USER_FOCUSFILE
+later matches shortened Name, so100-CJK focus is unreliable. Reuse S27a1 exact
+wide directory switch/final NameW matching only when source is Branch; preserve
+ordinary/archive/plugin routing. Keep missing directory from closing Branch.
+Checksum99 splits its owned path without mutable CutDirectory scratch alias.
+Compile actual focus entry and consumer with recording navigation but real wide
+filesystem attributes, actual policy/posted routes, D/R host+Checksum builds.
+Real Verify Focus must navigate to exact long duplicate parent and100-CJK name;
+ordinary Verify/Focus regression and source hashes. No new SDK/vtable/engine.
+
 ## S27f.12 Last Command locally validated (2026-10-24)
 
 Experimental WM_COMMAND gate swallowed Ctrl+I before accepted plugin dispatch.
