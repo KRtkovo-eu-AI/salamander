@@ -340,3 +340,11 @@ donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, including work by Milan Kase,
 Open Salamander Authors and Samandarin Contributors, GPL-2.0-or-later. Existing
 PictView/EXIF notices remain intact. The narrow host command gate and its policy
 regressions are local integration adaptations; actual component code is unchanged.
+
+### S27f.08a ZIP Branch command and message boundaries
+
+Owned ZIP command selection retains [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, including work by Milan Kase,
+Open Salamander Authors and Samandarin Contributors, GPL-2.0-or-later. Existing
+notices retained. Exact menu association, private Test Archive gate, Unicode-safe
+existing host hard wrapping and focused regressions are local integration repairs.

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Compile actual ZIP/7-Zip menu commands with a captured-selection and archive-engine harness."""
 import argparse
+import re
 from pathlib import Path
 import shutil
 import tempfile
@@ -12,9 +13,12 @@ def main():
     parser.add_argument('--configuration',choices=('Debug','Release','Both'),default='Both')
     args=parser.parse_args()
     zip_source=read('src/plugins/zip/main.cpp')
+    for name,identifier in (('MID_CREATESFX',1),('MID_REPAIR',2),('MID_TEST',3),('MID_COMMENT',4)):
+        assert re.search(r'#define\s+'+name+r'\s+'+str(identifier)+r'\b',zip_source)
     seven_source=read('src/plugins/7zip/7zip.cpp')
     generated=read('src/tests/archive_menu_selection_tests.cpp.in')
     pieces={
+        'ZIP_MENU':block(zip_source,'DWORD\nCPluginInterfaceForMenuExt::GetMenuItemState('),
         'FORMAT':block(zip_source,'static std::string ArchiveNameMessage('),
         'ZIP_COMMAND':block(zip_source,'BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem('),
         'SEVEN_COMMAND':block(seven_source,'static BOOL TestArchive('),

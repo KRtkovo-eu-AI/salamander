@@ -467,6 +467,13 @@ host-managed packing remains S22. Staged engine DLL hashes are not presented
 as observed loaded modules after the transient engine has already unloaded.
 The S13 ZIP GetMenuItemState long-basename limitation remains unresolved.
 
+## S27f.08a resolves the S13 ZIP long-basename menu limitation
+
+Exact NameW association matching and real final D/R Branch GUI pass for100-CJK
+basenames. The earlier S13 SKIP below is historical. ZIP command/engine unchanged;
+actual message hard-wrap byte splitting was also fixed and verified with wide GDI.
+Comment/CreateSFX remain private-gated for .08b; full S27 is not complete.
+
 ## S13 ZIP command boundary and menu limitation
 
 ZIP ExecuteMenuItem migration complete, three exact donor production files.

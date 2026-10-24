@@ -10,8 +10,8 @@
 #include <vector>
 #define SAL_MAX_PATH 32768
 #define CALL_STACK_MESSAGE3(a,b,c) ((void)0)
-enum { PANEL_SOURCE, SALDISKSELECTION_FOCUSED_ONLY=2, MID_COMMENT=1, MID_CREATESFX,
-    MID_REPAIR, MID_TEST, IDS_CONTINUE, IDS_PLUGINNAME, IDS_NODISPLAY, IDS_TESTOK,
+enum { PANEL_SOURCE, SALDISKSELECTION_FOCUSED_ONLY=2, MID_CREATESFX=1, MID_REPAIR=2,
+    MID_TEST=3, MID_COMMENT=4, IDS_CONTINUE, IDS_PLUGINNAME, IDS_NODISPLAY, IDS_TESTOK,
     IDS_TESTKO, IDS_TESTING_ARCHIVE, IDS_TESTING_ARCHIVE_NAME, IDS_TESTARCHIVEOK,
     IDS_TESTARCHIVECORRUPTED, MSGBOX_ERROR, MSGBOX_INFO, MSGBOX_QUESTION,
     OPER_OK=20, OPER_CONTINUE=21, OPER_CANCEL=22 };
@@ -34,9 +34,17 @@ static std::string Utf8FromWide(const wchar_t* path) {
 struct Row { std::wstring Full,Name;BOOL IsDir=FALSE,Focused=FALSE; };
 struct CSalamanderDiskSelectionItem { const wchar_t* FullPathW;const wchar_t* NameW;BOOL IsDir; };
 static std::vector<Row> Rows;
+struct CFileData {const char* Name;const wchar_t* NameW;bool UseWideName()const{return NameW&&*NameW;}};
+static std::vector<CFileData> MenuFiles;
+static BOOL MenuDirectory=FALSE;
+static bool MenuSelected=true;
+enum { MENU_EVENT_DISK=1,MENU_EVENT_THIS_PLUGIN_ARCH=2,MENU_EVENT_FILES_SELECTED=4,MENU_EVENT_FILE_FOCUSED=8,MENU_ITEM_STATE_ENABLED=1 };
 static bool CaptureFails=false;
 struct GeneralStub {
     std::string Archive;
+    const CFileData* GetPanelFocusedItem(int,BOOL* directory){*directory=MenuDirectory;return MenuFiles.empty()?nullptr:&MenuFiles[0];}
+    const CFileData* GetPanelSelectedItem(int,int* index,BOOL* directory){*directory=MenuDirectory;return MenuSelected&&*index<static_cast<int>(MenuFiles.size())?&MenuFiles[(*index)++]:nullptr;}
+    BOOL IsArchiveHandledByThisPlugin(const char* name){std::string n(name);return n.size()>=4&&n.substr(n.size()-4)==".zip";}
     std::vector<std::string> Messages,Notifications;
     BOOL GetPanelPath(int,char* output,int capacity,void*,char** archive) {
         const std::string path=Archive.empty()?"C:\\panel-root":Archive+"\\nested";
@@ -84,7 +92,8 @@ struct CZipUnpack {
     int UnpackWholeArchive(const char*,const char*){return 0;}
 };
 struct C7zClient { int TestArchive(CSalamanderForOperationsAbstract*,const char* path){Record(path);return EngineResult;} };
-struct CPluginInterfaceForMenuExt {BOOL ExecuteMenuItem(CSalamanderForOperationsAbstract*,HWND,int,DWORD);};
+struct CPluginInterfaceForMenuExt {DWORD GetMenuItemState(int,DWORD);BOOL ExecuteMenuItem(CSalamanderForOperationsAbstract*,HWND,int,DWORD);};
+@@ZIP_MENU@@
 @@FORMAT@@
 @@ZIP_COMMAND@@
 @@SEVEN_COMMAND@@
@@ -128,5 +137,16 @@ int main() {
     Reset();Add(std::wstring(L"C:\\root\\")+wchar_t(0xd800)+L".zip");
     Check(!zip.ExecuteMenuItem(&operations,nullptr,MID_TEST,0)&&Opened.empty(),"ZIP invalid UTF16 never opens an empty or substituted path");
     Check(!TestArchive(&operations,nullptr)&&Opened.empty(),"7-Zip invalid UTF16 never opens an empty or substituted path");
+    std::wstring wide=std::wstring(100,L'東')+L".zip";
+    MenuFiles={{"shortened-without-extension",wide.c_str()}};
+    Check(zip.GetMenuItemState(3,MENU_EVENT_DISK|MENU_EVENT_FILES_SELECTED)==MENU_ITEM_STATE_ENABLED,"exact wide long basename retains archive association");
+    MenuSelected=false;Check(zip.GetMenuItemState(3,MENU_EVENT_DISK|MENU_EVENT_FILE_FOCUSED)==MENU_ITEM_STATE_ENABLED,"exact focused wide basename retains archive association");MenuSelected=true;
+    MenuFiles={{"ordinary.zip",nullptr}};Check(zip.GetMenuItemState(3,MENU_EVENT_DISK|MENU_EVENT_FILES_SELECTED)==MENU_ITEM_STATE_ENABLED,"legacy authoritative name remains accepted");
+    MenuFiles.push_back({"plain.txt",nullptr});Check(zip.GetMenuItemState(3,MENU_EVENT_DISK|MENU_EVENT_FILES_SELECTED)==0,"mixed unhandled selection disabled");
+    MenuFiles={{"folder.zip",nullptr}};MenuDirectory=TRUE;Check(zip.GetMenuItemState(3,MENU_EVENT_DISK|MENU_EVENT_FILES_SELECTED)==0,"directory with archive suffix disabled");MenuDirectory=FALSE;
+    std::wstring invalid(1,wchar_t(0xd800));MenuFiles={{"misleading.zip",invalid.c_str()}};Check(zip.GetMenuItemState(3,MENU_EVENT_DISK|MENU_EVENT_FILES_SELECTED)==0,"invalid exact wide name cannot fall back to display alias");
+    MenuFiles.clear();Check(zip.GetMenuItemState(3,MENU_EVENT_DISK|MENU_EVENT_FILES_SELECTED)==0,"empty selection disabled");
+    Check(zip.GetMenuItemState(3,0)==0&&zip.GetMenuItemState(3,MENU_EVENT_DISK)==0,"foreign and unfocused panel disabled");
+    Check(zip.GetMenuItemState(3,MENU_EVENT_THIS_PLUGIN_ARCH)==MENU_ITEM_STATE_ENABLED,"archive panel contract retained");
     printf("Archive menu selection: %d checks, %d failures.\n",Checks,Failures);return Failures?1:0;
 }

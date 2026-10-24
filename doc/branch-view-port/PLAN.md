@@ -1,5 +1,29 @@
 # Plán postupného portu PR #769
 
+## S27f.08a ZIP Test Archive locally validated (2026-10-24)
+
+Only bundled zip\zip.spl Test Archive3 is newly admitted. Existing S13 owned
+command/engine logic retained; ZIP menu association now uses exact NameW instead
+of a shortened display alias. Directories/invalid names/allocation failures are
+refused. Comment4, CreateSFX1 and Repair2 remain gated for .08b/audit.
+
+Actual GUI found host message-box hard wrapping split UTF8 bytes. The existing
+function now measures wide GDI text and preserves complete surrogate pairs;
+body layout uses matching DrawTextW. No new SDK/dialog/localization strings.
+D/R host+ZIP /warnaserror builds PASS. Native archive43, policy97 and real-GDI
+message wrap22 checks/config PASS;28 source/menu groups PASS. Final actual Debug
+GUI tests three Branch archives in distinct parents; Release tests focused long
+100-CJK basename with no selection. Ordinary panels PASS in both configurations.
+Six exact result paths read from UI, no replacement symbols;10 original archives,
+20 independently read member hashes/control/sentinel unchanged, no temp residue.
+Own hosts closed normally, INIs exactly restored, registry0. Evidence ../evidence/
+S27f08a; see [S27f.08a](steps/S27f08a.md). S27 remains unfinished: .08b next,
+then .09-.11 and auxiliary audit. No push/PR/remote CI/CodeQL/full clean matrix.
+
+.08b separately validates Comment4 and CreateSFX1 before enabling them. Accepted
+.08a prerequisites: exact ZIP mask input and existing host wide hard wrapping.
+Original reproduction retained in Debug-initial-result-3-wrap-defect.txt.
+
 ## S27f.07 PictView Update Thumbnail locally validated (2026-10-24)
 
 Only bundled pictview\pictview.spl command188 is newly admitted by the private
