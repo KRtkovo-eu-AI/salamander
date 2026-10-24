@@ -16,8 +16,11 @@ def main():
     for name,identifier in (('MID_CREATESFX',1),('MID_REPAIR',2),('MID_TEST',3),('MID_COMMENT',4)):
         assert re.search(r'#define\s+'+name+r'\s+'+str(identifier)+r'\b',zip_source)
     seven_source=read('src/plugins/7zip/7zip.cpp')
+    assert 'int format = FocusedArchiveFormat(file);' in block(read('src/plugins2.cpp'),'void CPlugins::CalculateStateCache(')
     generated=read('src/tests/archive_menu_selection_tests.cpp.in')
     pieces={
+        'HOST_CONVERSION':block(read('src/common/widepath.cpp'),'std::string SalWideToMultiBytePath('),
+        'HOST_FORMAT':block(read('src/plugins2.cpp'),'static int FocusedArchiveFormat('),
         'ZIP_MENU':block(zip_source,'DWORD\nCPluginInterfaceForMenuExt::GetMenuItemState('),
         'FORMAT':block(zip_source,'static std::string ArchiveNameMessage('),
         'ZIP_COMMAND':block(zip_source,'BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem('),

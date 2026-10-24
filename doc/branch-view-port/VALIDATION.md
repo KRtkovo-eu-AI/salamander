@@ -1,5 +1,34 @@
 # Validace portu a baseline S00
 
+## S27f.09 7-Zip Test Archive locally validated (2026-10-24)
+
+Only bundled7zip\7zip.spl ID1 admitted; unknown IDs/custom DLL identities refused.
+Accepted S14 TestArchive/ArchiveNameMessage remain exact pinned donor functions;
+FOCUSED_ONLY preserves one exact FullPathW even with other selected rows. Earlier
+S27e2 wide packing/delete adaptations retained unchanged. No engine/SDK changes.
+
+Real100-CJK GUI found host CalculateStateCache matched shortened file->Name,
+losing .zip and disabling the menu. Private FocusedArchiveFormat uses exact NameW
+through existing UTF8 conversion, rejects invalid Unicode/allocation failure and
+keeps configured archive association; legacy authoritative Name fallback retained.
+No arbitrary plugin enablement or guessed parent/name. Native harness compiles
+actual helper/conversion and asserts production call site.53 archive checks and
+115 actual policy/dispatch checks/config D/R PASS;28 source/menu groups PASS.
+D/R x64 host+7-Zip/dependencies /warnaserror builds PASS. Final host rebuilt after
+association fix; unchanged7-Zip builds earlier in stage remain valid. Real GUI:
+Debug focused100-CJK true-long Unicode path, both distinct-parent same.zip, and
+ordinary; Release focused100-CJK long path and ordinary. Six exact success paths,
+all10 original ZIPs/20 member hashes/control/sentinel unchanged; exact inventory.
+Debug multi-selection still tests focused row only. Cancel/corrupt/capture failure
+covered by explicit native engine/snapshot doubles, not real GUI interruption.
+
+Final loaded plugin/host hashes match launch; transient engine staged hashes
+recorded without claiming loaded-module snapshots. Own hosts closed, INIs exactly
+restored, LongPathsEnabled0. No push/PR/CI/CodeQL/full clean supported matrix.
+Evidence ../evidence/S27f09. Next .10 PAK Optimize, .11 Undelete and auxiliary
+audit. Ctrl+I produced no result after closed plugin submenu; retain for planned
+LastCommand audit, not accepted as functioning here. Whole S27 unfinished.
+
 ## S27f.08b2 ZIP CreateSFX locally validated (2026-10-24)
 
 Only bundled ZIP CreateSFX1 newly admitted, alongside accepted Test3/Comment4.

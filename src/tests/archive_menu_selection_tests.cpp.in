@@ -35,6 +35,12 @@ struct Row { std::wstring Full,Name;BOOL IsDir=FALSE,Focused=FALSE; };
 struct CSalamanderDiskSelectionItem { const wchar_t* FullPathW;const wchar_t* NameW;BOOL IsDir; };
 static std::vector<Row> Rows;
 struct CFileData {const char* Name;const wchar_t* NameW;bool UseWideName()const{return NameW&&*NameW;}};
+struct PackerFacade {
+ std::string Last;
+ int PackIsArchive(const char* name){Last=name;return Last.size()>=4&&Last.substr(Last.size()-4)==".zip"?7:0;}
+} PackerFormatConfig;
+@@HOST_CONVERSION@@
+@@HOST_FORMAT@@
 static std::vector<CFileData> MenuFiles;
 static BOOL MenuDirectory=FALSE;
 static bool MenuSelected=true;
@@ -148,5 +154,10 @@ int main() {
     MenuFiles.clear();Check(zip.GetMenuItemState(3,MENU_EVENT_DISK|MENU_EVENT_FILES_SELECTED)==0,"empty selection disabled");
     Check(zip.GetMenuItemState(3,0)==0&&zip.GetMenuItemState(3,MENU_EVENT_DISK)==0,"foreign and unfocused panel disabled");
     Check(zip.GetMenuItemState(3,MENU_EVENT_THIS_PLUGIN_ARCH)==MENU_ITEM_STATE_ENABLED,"archive panel contract retained");
+    for(const auto& path:paths){CFileData file={"shortened-without-extension",path.c_str()};Check(FocusedArchiveFormat(&file)==7&&PackerFormatConfig.Last==SalamanderDiskSelection::Utf8FromWide(path.c_str()),"host uses exact wide focused archive association");}
+    CFileData longLeaf={"no-extension",wide.c_str()};Check(FocusedArchiveFormat(&longLeaf)==7&&PackerFormatConfig.Last==SalamanderDiskSelection::Utf8FromWide(wide.c_str()),"host100-CJK basename keeps actual extension");
+    CFileData bad={"misleading.zip",invalid.c_str()};Check(FocusedArchiveFormat(&bad)==0,"host invalid wide name cannot fall back to alias");
+    CFileData legacy={"ordinary.zip",nullptr};Check(FocusedArchiveFormat(&legacy)==7,"host legacy authoritative name retained");
+    CFileData missing={nullptr,nullptr};Check(FocusedArchiveFormat(nullptr)==0&&FocusedArchiveFormat(&missing)==0,"host missing focused name refused");
     printf("Archive menu selection: %d checks, %d failures.\n",Checks,Failures);return Failures?1:0;
 }

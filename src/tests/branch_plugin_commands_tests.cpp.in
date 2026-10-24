@@ -62,6 +62,11 @@ int main(){
  for(int route=0;route<4;++route){BOOL unselect=FALSE;BOOL result=route==0?plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect):route==1?plugin.ExecuteMenuItem2(&panel,NULL,0,4,unselect):route==2?plugin.ExecuteToolbarCommand(&panel,NULL,0,4,unselect):(unselect=Plugins.ExecuteCommand(0,0,&panel,NULL));Check(result&&unselect&&plugin.PluginIfaceForMenuExt.LastID==4,"ZIP comment passes each actual dispatcher");}
  for(const char* dll:{"zip.spl","custom\\zip.spl"}){plugin.DLLName=dll;Check(!plugin.IsBranchCommandAllowed(3),"custom ZIP DLL identity refused");}
  item.ID=1;
+ plugin.DLLName="7zip\\7zip.spl";item.ID=1;
+ Check(plugin.IsBranchCommandAllowed(1)&&BranchReadOnlyCommandAllowed(item.SUID),"verified 7-Zip focused Test Archive accepted");
+ for(int route=0;route<4;++route){BOOL unselect=FALSE;BOOL result=route==0?plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect):route==1?plugin.ExecuteMenuItem2(&panel,NULL,0,1,unselect):route==2?plugin.ExecuteToolbarCommand(&panel,NULL,0,1,unselect):(unselect=Plugins.ExecuteCommand(0,0,&panel,NULL));Check(result&&unselect&&plugin.PluginIfaceForMenuExt.LastID==1,"7-Zip test passes each actual dispatcher");}
+ Check(!plugin.IsBranchCommandAllowed(0)&&!plugin.IsBranchCommandAllowed(2),"unregistered 7-Zip IDs refused");
+ for(const char* dll:{"7zip.spl","custom\\7zip.spl"}){plugin.DLLName=dll;Check(!plugin.IsBranchCommandAllowed(1),"custom 7-Zip identity refused");}
  plugin.DLLName="renamer\\renamer.spl";
  Check(plugin.IsBranchCommandAllowed(1)&&BranchReadOnlyCommandAllowed(item.SUID),"verified Batch Rename command accepted");
  Check(!plugin.IsBranchCommandAllowed(2),"unregistered Renamer Undo command remains refused");

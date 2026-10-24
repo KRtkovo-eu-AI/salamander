@@ -366,3 +366,11 @@ work of Milan Kase, Open Salamander Authors and Samandarin Contributors under
 GPL-2.0-or-later; original file notices preserved. Heap paths, Unicode dialog/
 resource I/O, invalid-handle and allocation-flow repairs and native tests are local
 adaptations of demonstrated baseline prerequisites; original engines retained.
+
+### S27f.09 7-Zip focused archive tests
+
+Retains S14 owned TestArchive/ArchiveNameMessage from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Open Salamander Authors and
+Samandarin Contributors, GPL-2.0-or-later; all original notices and7-Zip engine
+credits preserved. Narrow host command gate and exact wide focused-name association
+are local integration adaptations of a reproduced truncated-display-name defect.
