@@ -87,6 +87,7 @@ def main():
             "CPanelTmpEnumData::CPanelTmpEnumData()", "CPanelTmpEnumData::~CPanelTmpEnumData()",
             "void CPanelTmpEnumData::Reset()")),
         "CONVERTER": block(converter, "std::string SalWideToMultiBytePath("),
+        "PACKER_GATE": block(source, "static BOOL IsVerifiedBranchPacker("),
         "CALLBACK": block(source, "const char* WINAPI PanelEnumDiskSelection("),
     }
     generated = read("src/tests/branch_archive_selection_tests.cpp.in")

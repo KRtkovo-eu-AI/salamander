@@ -251,3 +251,12 @@ Native drop/clipboard ingestion and wide worker integration are reused from
 Contributors, GPL-2.0-or-later. Original notices retained. Private root identity,
 staged safe receiving, queue ownership guards and native boundary tests are local
 adaptations; no public plugin ABI or Windows security policy changes.
+
+### S27e1 Branch ZIP/7-Zip packing
+
+The host selection callback and archive integration reuse
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin
+Contributors, GPL-2.0-or-later. Original notices retained. The staged bundled-packer
+gate, nothrow allocation adaptation and native boundary facades are local work;
+ZIP/7-Zip engines and the public plugin ABI remain unchanged.

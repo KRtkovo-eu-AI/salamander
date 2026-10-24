@@ -1,5 +1,48 @@
 # Stav portu PR #769
 
+## S27e1 locally validated — ZIP/7-Zip copy packing (2026-10-24)
+
+CM_PACK now uses the accepted S22 exact-relative callback for disk Branch sources.
+Only bundled ZIP/7-Zip copy packers and ordinary disk targets are accepted; Move,
+external/unknown plugins and Branch targets stay blocked before archive effects.
+Existing allocation-failure paths retain nothrow behavior. No SDK/engine changes.
+
+Host/dependency and both engine builds PASS Debug/Release x64 /warnaserror.
+Actual callback/gate native tests377 per configuration and28 source/menu groups PASS.
+Real D/R GUI ZIP and7z archives each contain five exact relative file names with
+independently decompressed SHA256 matches: duplicate basenames, Unicode parents,
+UTF8-byte-long and UTF16-long source paths. Cancel preserves all sources; ordinary
+panel7z control PASS both configurations. Private configs restored; policy stays0.
+Debug shutdown showed the previously documented heap notification (S22); this run
+only observed the notification, without proving identical allocations. Release
+clean exit and no new crash report. See [S27e1](steps/S27e1.md).
+No push/remote CI/CodeQL/clean full matrix run for this unit. Goal remains ACTIVE:
+next S27e2 move-packer cleanup, then S27f.01-.11 separately validated integrations.
+
+## S27d accepted; goal covers remaining S27 (2026-10-24)
+
+User accepted S27d at df01f687f062672cb74a2cc21a9116508593bc36. PR40 current-head
+checks, actual CodeQL analysis/upload and clean full supported Win32/x64/ARM64
+Rebuild40079394417 all PASS. Accepted local ref refactor/pr-769-incremental advanced
+by checked fast-forward from328cffd5; samandarin-0.16, donor and draft PR unchanged.
+
+User explicitly requested a goal through completion of S27, overriding the usual
+one-unit-per-run convention: retain one validated coherent commit per unit and
+continue locally. No new push/upstream PR authorized. Candidate starts from S27d.
+
+S27e split before activation:
+- S27e1: copy-only host packing via bundled ZIP/7-Zip. Real Branch relative identity
+  through accepted S22 callback. CM_PACK only, ordinary disk target only; block
+  unknown/external packer and Move selection before any file side effect. Native
+  callback/gates, D/R host and both engines, GUI real ZIP/7z entries and decompressed
+  hashes, duplicate basenames, Unicode/long source, Cancel/untouched-source proof.
+- S27e2: separately validate move-packer cleanup, file-link size cache/reset and
+  cancellation/failure before enabling deletion. Keep unsupported routes gated.
+- Then S27f.01-.11 separately: Comparator, Batch Rename, Checksum, Split/Combine,
+  Automation, Salamatrix, PictView, ZIP commands, 7-Zip test, PAK optimize, Undelete.
+  Audit pinned donor per unit, actual owned selection results and D/R builds/GUI.
+  Unknown plugin ranges remain unavailable; no SDK-layout/security/settings change.
+
 ## S27d5b completed locally; S27d goal complete (2026-10-24)
 
 Clipboard COPY/MOVE into Branch uses the actual collection root, independent of

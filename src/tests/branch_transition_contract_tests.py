@@ -21,7 +21,7 @@ class BranchTransitionContracts(unittest.TestCase):
   gate=function('mainwnd3.cpp','static bool BranchReadOnlyCommandAllowed(')
   for forbidden in ('CM_VIEW_WITH','CM_EDIT_WITH','CM_CLIPPASTELINKS'):
    self.assertNotIn('case '+forbidden+':',gate)
-  for allowed in ('CM_OPEN','CM_VIEW','CM_ALTVIEW','CM_EDIT','CM_BRANCH_OPENPARENT','CM_RENAMEFILE','CM_COPYFILES','CM_MOVEFILES','CM_DELETEFILES','CM_PROPERTIES','CM_CLIPCOPY','CM_CLIPCUT','CM_CLIPPASTE','CM_CONTEXTMENU'):
+  for allowed in ('CM_OPEN','CM_VIEW','CM_ALTVIEW','CM_EDIT','CM_BRANCH_OPENPARENT','CM_RENAMEFILE','CM_COPYFILES','CM_MOVEFILES','CM_DELETEFILES','CM_PROPERTIES','CM_CLIPCOPY','CM_CLIPCUT','CM_CLIPPASTE','CM_PACK','CM_CONTEXTMENU'):
    self.assertIn('case '+allowed+':',gate)
   self.assertIn('return false;',gate)
  def test_incoming_paths_require_real_root(self):
@@ -125,6 +125,13 @@ class BranchTransitionContracts(unittest.TestCase):
    if file == 'fileswn7.cpp': self.assertIn('IsBranchView() ||',text)
    else: self.assertIn('IsBranchView() && (countSizeMode != 0 || copyToSelectedDirs',text)
    self.assertIn('target->IsBranchView()',text)
+ def test_pack_is_verified_copy_only_to_ordinary_disk(self):
+  pack=function('fileswn7.cpp','void CFilesWindow::Pack(')
+  self.assertIn('target == NULL || target->IsBranchView()',pack)
+  self.assertIn('!Is(ptDisk) || !target->Is(ptDisk) || delFilesAfterPacking == 1',pack)
+  self.assertLess(pack.index('!IsVerifiedBranchPacker()'),pack.index('if (SalGetFullName(fileBuf'))
+  self.assertIn('data.SourcePanel = this',pack)
+  self.assertIn('data.ExactFileSelection = Is(ptDisk)',pack)
  def test_stop_is_present_in_the_actual_menu(self):
   self.assertIn("CM_BRANCH_STOP,",source("menu4.cpp"))
  def test_manual_only_refresh_and_detailed_layout(self):

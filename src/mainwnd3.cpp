@@ -4331,6 +4331,7 @@ static bool BranchReadOnlyCommandAllowed(UINT command)
     case CM_CLIPCOPY:
     case CM_CLIPCUT:
     case CM_CLIPPASTE:
+    case CM_PACK:
     case CM_CONTEXTMENU:
     case CM_RENAMEFILE:
     case CM_OPEN:

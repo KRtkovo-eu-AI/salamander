@@ -415,9 +415,24 @@ static void TestOrdinaryDispatch()
           "ordinary recursive result without record clears metadata");
 }
 
+struct CPluginData { const char* DLLName; BOOL SupportCustomPack; };
+static struct { int Index=0,Type=-1,Count=1;BOOL Move=FALSE;int GetPreferedPacker(){return Index;}int GetPackersCount(){return Count;}int GetPackerType(int){return Type;} } PackerConfig;
+static struct { CPluginData Plugin={"zip\\zip.spl",TRUE};const CPluginData* Get(int index){return index==0?&Plugin:nullptr;} } Plugins;
+@@PACKER_GATE@@
+static void TestPackerGate()
+{
+ Check(IsVerifiedBranchPacker(),"bundled ZIP copy allowed");
+ Plugins.Plugin.DLLName="7zip\\7zip.spl";Check(IsVerifiedBranchPacker(),"bundled 7-Zip copy allowed");
+ PackerConfig.Move=TRUE;Check(!IsVerifiedBranchPacker(),"unverified move-packer remains blocked");PackerConfig.Move=FALSE;
+ for(const char* name:{"other\\zip.spl","7zip.spl","external\\other.spl","C:\\custom\\zip.spl"}){Plugins.Plugin.DLLName=name;Check(!IsVerifiedBranchPacker(),"unknown or external packer cannot execute through Branch");}
+ Plugins.Plugin.DLLName=nullptr;Check(!IsVerifiedBranchPacker(),"null packer identity rejected");
+ Plugins.Plugin.DLLName="zip\\zip.spl";Plugins.Plugin.SupportCustomPack=FALSE;Check(!IsVerifiedBranchPacker(),"unsupported plugin rejected");Plugins.Plugin.SupportCustomPack=TRUE;
+ for(int type:{0,1,INT_MIN,-2}){PackerConfig.Type=type;Check(!IsVerifiedBranchPacker(),"invalid/external packer index rejected without overflow");}PackerConfig.Type=-1;
+ PackerConfig.Index=-1;Check(!IsVerifiedBranchPacker(),"missing preferred packer rejected");PackerConfig.Index=1;Check(!IsVerifiedBranchPacker(),"out of bounds preferred packer rejected");PackerConfig.Index=0;
+}
 int main()
 {
-    TestPathsAndModes(); TestFailures(); TestLinks(); TestOrdinaryDispatch();
+    TestPackerGate(); TestPathsAndModes(); TestFailures(); TestLinks(); TestOrdinaryDispatch();
     std::printf("Branch archive actual callback: %d/%d checks passed\n", Checks - Failures, Checks);
     return Failures == 0 ? 0 : 1;
 }
