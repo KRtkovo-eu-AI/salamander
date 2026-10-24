@@ -1,5 +1,22 @@
 # Stav portu PR #769
 
+## S27f.06a Salamatrix package integration locally validated (2026-10-24)
+
+Private policy admits only actual registered package commands of bundled
+salamatrix\salamatrix.spl. Unknown IDs, submenus/separators and fixed help ID
+remain blocked. Consumer runtime/capability/enabled checks unchanged; no SDK edit.
+Host/framework/all5 provider D/R builds PASS;64 actual policy/dispatch checks/config,
+243 immutable consumer checks/config and28 source/menu groups PASS. Real D/R GUI
+Python package captures exact mixed-parent Branch context,255-unit/763-byte CJK
+basename and long path; ordinary right-panel source/target resolution PASS.
+Actual5 production workers replay each captured context:179 exact typed scalar
+fields/provider/config and5 context calls each PASS. Explicit recording transport
+facade; this does not claim five GUI/provider-DLL executions. Existing native
+process runtime tests D/R including PHP PASS. Files unchanged, private INIs restored,
+own processes closed and extensions archived; registry0. [S27f.06a](steps/S27f06a.md).
+Goal ACTIVE; next S27f.06b Automation menu integration; remaining plugin units,
+Checksum Focus and auxiliary audit pending. No publication or remote CI claimed.
+
 ## S27f.05 Automation locally validated (2026-10-24)
 
 Only bundled automation\automation.spl RunFocusedScript1 is enabled by the private

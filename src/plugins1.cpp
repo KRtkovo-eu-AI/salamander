@@ -3666,9 +3666,23 @@ void CPluginData::InitMenuItems(HWND parent, int index, CMenuPopup* menu)
     }
 }
 
-// S27f.01-.05: Verified plugin commands use accepted owned snapshots.
-BOOL CPluginData::IsBranchCommandAllowed(int id) const
+// S27f.01-.06a: Verified plugin commands use accepted owned snapshots.
+BOOL CPluginData::IsBranchCommandAllowed(int id)
 {
+    // Package commands are dynamic; require the exact currently registered item.
+    // The framework retains runtime, enabled state and manifest capability checks.
+    if (DLLName != NULL && _stricmp(DLLName, "salamatrix\\salamatrix.spl") == 0 &&
+        id >= 0x62000001)
+    {
+        for (int i = 0; i < MenuItems.Count; ++i)
+        {
+            CPluginMenuItem* item = MenuItems[i];
+            if (item != NULL && item->Type == pmitItemOrSeparator &&
+                item->Name != NULL && item->ID == id)
+                return TRUE;
+        }
+        return FALSE;
+    }
     return DLLName != NULL &&
         ((id == 1 && (_stricmp(DLLName, "filecomp\\filecomp.spl") == 0 ||
                       _stricmp(DLLName, "renamer\\renamer.spl") == 0 ||

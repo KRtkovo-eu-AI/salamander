@@ -12,7 +12,7 @@
 @@CONSTANTS@@
 enum { pmitItemOrSeparator,pmitStartSubmenu,pmitEndSubmenu };
 struct CPluginMenuItem { int Type=pmitItemOrSeparator;const char* Name="Compare";int SUID=50003;int ID=1; };
-template<class T> struct Array { std::vector<T> Items;int Count=0;T operator[](int i) const{return Items.at(i);}void Add(T p){Items.push_back(p);Count=static_cast<int>(Items.size());} };
+template<class T> struct Array { std::vector<T> Items;int Count=0;T operator[](int i){return Items.at(i);}void Add(T p){Items.push_back(p);Count=static_cast<int>(Items.size());} };
 struct CFilesWindow { bool Branch=true;bool IsBranchView() const{return Branch;} };
 struct CSalamanderForOperations { explicit CSalamanderForOperations(CFilesWindow*){} };
 struct InterfaceStub { bool Loaded=true;int Calls=0,LastID=-1;bool NotEmpty()const{return Loaded;}BOOL ExecuteMenuItem(CSalamanderForOperations*,HWND,int id,DWORD){++Calls;LastID=id;return TRUE;} };
@@ -22,7 +22,7 @@ struct CPluginData {
  Array<CPluginMenuItem*> MenuItems;InterfaceStub PluginIfaceForMenuExt;
  BOOL GetMenuItemStateType(int,int,MENU_ITEM_INFO*){return TRUE;}
  int InitCalls=0;BOOL InitDLL(HWND){++InitCalls;return TRUE;}DWORD GetMaskForMenuItems(int){return 7;}
- BOOL IsBranchCommandAllowed(int id) const;
+ BOOL IsBranchCommandAllowed(int id);
  BOOL ExecuteMenuItem(CFilesWindow*,HWND,int,int,BOOL&);
  BOOL ExecuteMenuItem2(CFilesWindow*,HWND,int,int,BOOL&);
  BOOL ExecuteToolbarCommand(CFilesWindow*,HWND,int,int,BOOL&);
@@ -64,6 +64,14 @@ int main(){
  plugin.DLLName="automation\\automation.spl";
  Check(plugin.IsBranchCommandAllowed(1)&&BranchReadOnlyCommandAllowed(item.SUID),"verified Automation focused script accepted");
  Check(!plugin.IsBranchCommandAllowed(2)&&!plugin.IsBranchCommandAllowed(3)&&!plugin.IsBranchCommandAllowed(1000),"Automation popup and dynamic script IDs remain staged off");
+ plugin.DLLName="salamatrix\\salamatrix.spl";
+ item.ID=0x62000001;
+ Check(plugin.IsBranchCommandAllowed(item.ID)&&BranchReadOnlyCommandAllowed(item.SUID),"registered Salamatrix package command accepted");
+ Check(!plugin.IsBranchCommandAllowed(item.ID+1),"unregistered Salamatrix package ID refused");
+ for(int route=0;route<4;++route){BOOL unselect=FALSE;BOOL result=route==0?plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect):route==1?plugin.ExecuteMenuItem2(&panel,NULL,0,item.ID,unselect):route==2?plugin.ExecuteToolbarCommand(&panel,NULL,0,item.ID,unselect):(unselect=Plugins.ExecuteCommand(0,0,&panel,NULL));Check(result&&unselect&&plugin.PluginIfaceForMenuExt.LastID==item.ID,"registered package command passes each actual dispatcher");}
+ Check(!plugin.IsBranchCommandAllowed(1)&&!plugin.IsBranchCommandAllowed(0x61ffffff),"unverified Salamatrix fixed IDs refused");
+ item.Type=pmitStartSubmenu;Check(!plugin.IsBranchCommandAllowed(item.ID),"Salamatrix submenu is not executable");item.Type=pmitItemOrSeparator;
+ item.Name=nullptr;Check(!plugin.IsBranchCommandAllowed(item.ID),"Salamatrix separator is not executable");item.Name="Compare";item.ID=1;
  plugin.DLLName="FILECOMP\\FILECOMP.SPL";
  for(int route=0;route<4;++route){BOOL unselect=FALSE;BOOL result=route==0?plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect):route==1?plugin.ExecuteMenuItem2(&panel,NULL,0,1,unselect):route==2?plugin.ExecuteToolbarCommand(&panel,NULL,0,1,unselect):(unselect=Plugins.ExecuteCommand(0,0,&panel,NULL));Check(result&&unselect&&plugin.PluginIfaceForMenuExt.LastID==1,"verified actual dispatcher invokes comparator");}
  item.ID=2;Check(!BranchReadOnlyCommandAllowed(item.SUID),"SUID with unverified internal ID refused");

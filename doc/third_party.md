@@ -311,3 +311,13 @@ Automation owned COM selections and script consumers reuse
 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin
 Contributors, GPL-2.0-or-later. Existing notices and accepted S10/S11 adaptations
 are retained. Private host command permission and dispatch tests are local adaptations.
+
+### S27f.06a Branch Salamatrix package integration
+
+Owned full-path context and runtime consumers reuse
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin
+Contributors, GPL-2.0-or-later. Existing notices/accepted adaptations retained.
+Private registered-command permission and dispatch tests are local adaptations.
+Local validation uses PHP Group's official PHP CLI and existing Lua.org/PUC-Rio MIT
+interpreter assets, with notices preserved; no new interpreter redistribution.
