@@ -1,5 +1,33 @@
 # Validace portu a baseline S00
 
+## S27 uzavřena lokálně s popsanými omezeními (2026-10-24)
+
+Aktuální stav: S27a–d jsou předchozí přijaté checkpointy; S27e1/e2 a jednotlivé
+S27f.01–.14 jsou lokálně dokončené v samostatných navazujících commitech.
+PAK Optimize zůstává skrytý podle výslovné volby uživatele. ZIP Repair je skrytý
+i v připnutém donoru, nemá aktivní implementovanou nabídku a není povolen.
+Nejde o nehotové obnovení těchto nabídek. Aktuální přehled, přesná SHA, podporovaná
+hranice a výhrady jsou v [uzavření S27](steps/S27-completion.md).
+
+Závěrečný audit ověřil všech 19 nových checkpointů od přijatého S27d df01f687,
+238 vazeb na soubory v commitech a 225 hashů evidence. Donor a SOURCE.json
+zůstaly připnuté, donorový strom je čistý, veřejné hlavičky SDK se nezměnily.
+Experimentální gate zůstává výchozí vypnutý; LongPathsEnabled=0. Poslední
+Debug/Release ověření S27f.14: host/PictView/Salamatrix a závislosti sestavené,
+172 nativních kontrol/konfiguraci, všech 28 source/menu skupin a skutečné GUI
+nápovědy/konfigurace prošly. Dřívější operace mají vlastní přesnou evidenci;
+závěrečný audit není nové spuštění všech historických GUI/buildů.
+
+Publikace není provedena. Remote CI, CodeQL a čistá celá podporovaná sestava
+pro S27e/f zatím NEBĚŽELY. Známé baseline diagnostiky a dílčí engine limity
+zůstávají výslovně zaznamenané, žádná kontrola nebyla vypnuta. Další nejmenší
+krok je samostatně autorizovaný publikační checkpoint S27e s čistým CI/CodeQL,
+pak postupně jednotlivé pluginové skupiny. S28 je další implementační etapa;
+S28–S32 nejsou součástí tohoto dokončeného lokálního goalu.
+
+Následující starší záznamy jsou historické checkpointy. Jejich tehdejší „next“,
+„pending“ a „unfinished“ se čtou v kontextu data a novějšího přehledu výše.
+
 ## S27f.14 auxiliary refresh/help locally validated (2026-10-24)
 
 Only bundled PictView197 and current registered named Salamatrix0x61ffffff are
