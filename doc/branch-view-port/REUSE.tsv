@@ -557,3 +557,5 @@ src/plugins/checksum	Owned selection, workers, manifests and hash engines	same p
 src/plugins1.cpp	Private verified command permission	same path;src/tests/branch_plugin_commands_tests.cpp.in	S27f.03	ADAPTED	Calculate1/Verify2 only;50 dispatch+62 consumer checks/config; auxiliary Focus99 pending
 src/plugins/splitcbn	Owned paths, plans, wide I/O and identity protection	same paths	S27f.04	EXACT	All45 tracked blobs equal donor; actual D/R long-source6part Split and3parent Combine
 src/plugins1.cpp	Private verified command policy	same path;src/tests/branch_plugin_commands_tests.cpp.in	S27f.04	ADAPTED	Only Split1/Combine2;53 dispatch+210consumer checks/config; SDK unchanged
+src/plugins/automation	Accepted S10/S11 owned COM and context consumers	same paths	S27f.05	ADAPTED	Unchanged this unit; retained prior itemcoll/test adaptations; actual D/R16 COM lifetime checks
+src/plugins1.cpp	Private verified command policy	same path;src/tests/branch_plugin_commands_tests.cpp.in	S27f.05	ADAPTED	Only Automation RunFocusedScript1;55 dispatch+243 Automation checks/config; IDs2/3/1000+ deferred S27f.06

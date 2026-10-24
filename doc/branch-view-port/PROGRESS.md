@@ -1,5 +1,20 @@
 # Stav portu PR #769
 
+## S27f.05 Automation locally validated (2026-10-24)
+
+Only bundled automation\automation.spl RunFocusedScript1 is enabled by the private
+command policy. Actual D/R Branch scripts verify16 owned COM lifetime/identity
+checks each, including mixed parents, duplicate names, Unicode/>260 paths,
+deselect/navigation destroying rows, detached items and retained enumerators.
+Ordinary Release focused-script smoke PASS. Host/Automation D/R /warnaserror
+builds PASS;55 dispatch and243 Automation checks/config PASS;5 provider contracts
+and28 source/menu groups PASS. Private INIs restored, source hashes unchanged,
+own processes closed, LongPathsEnabled0. Existing Debug handle-tracker diagnostic
+is recorded, not suppressed. See [S27f.05](steps/S27f05.md).
+Goal ACTIVE; next S27f.06 Salamatrix actual runtime/provider parity and deferred
+Automation menu commands. Checksum auxiliary Focus remains pending. No publication
+or new remote CI/CodeQL/full clean supported matrix is claimed.
+
 ## S27f.04 Split & Combine locally validated (2026-10-24)
 
 Bundled splitcbn\splitcbn.spl Split1/Combine2 pass the private audited command
