@@ -1,5 +1,33 @@
 # Validace portu a baseline S00
 
+## S27f.06b Automation menu integration locally validated (2026-10-24)
+
+Private policy now admits fixed Automation1/2/3 and actual currently registered
+named loaded/runtime commands of the bundled DLL. Immediate and idle posted
+callbacks share the private Branch gate; original NULL/operation contexts and
+mask0 remain. Unverified background-origin posted commands are refused while the
+active panel is Branch; this is not a deferred retry queue. No SDK/vtable change.
+
+Real GUI exposed repository macro/Unicode manifest intake, missing explicit
+manifest command publication and inactive one-shot host dispatch. Adaptations
+resolve supported variables at I/O boundaries, preserve wide paths, publish only
+on explicit execution, and restore the prior stopping guard on scope exit. Shared
+tracked opens now match all text-reader closes, including empty/mapped legacy
+scripts; final Debug exits without the intermediate handle-tracker diagnostic.
+Capabilities, unload checks and worker protocol remain intact.
+
+Host D/R /warnaserror builds PASS; final Automation D/R3.27s/11.90s PASS. Native
+81 policy/dispatch checks/config,26 repository/manifest/lifetime/handle checks/config,
+243 immutable consumer checks/config,5 forwarding contracts and28 source/menu
+checks PASS. Actual D/R GUI verifies loaded legacy/deferred scripts, Cancel,
+registered Python command IDs and exact mixed-parent Unicode/>260 context; ordinary
+right-panel smoke PASS. Last handle-close-only patch repeated with final DLLs;
+legacy and runtime reports match prior functional results, Debug shutdown clean.
+Source/sentinel hashes unchanged, own processes closed, INIs restored, scripts
+archived, registry0. See [S27f.06b](steps/S27f06b.md); evidence ../evidence/S27f06b.
+S27 goal remains unfinished: next S27f.07, then .08-.11 and auxiliary commands.
+No push/PR, remote CI, CodeQL or full clean-build result claimed for this unit.
+
 ## S27f.06a Salamatrix package integration locally validated (2026-10-24)
 
 Private policy admits only actual registered package commands of bundled

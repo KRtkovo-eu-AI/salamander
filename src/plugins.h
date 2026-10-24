@@ -2674,6 +2674,7 @@ public:
     // returns 'unselect' = the return value of the plugin ExecuteMenuItem call
     // Private host policy; no plugin SDK/vtable change. Only individually verified commands.
     BOOL IsBranchCommandAllowed(int id);
+    BOOL ExecutePostedMenuItem(CFilesWindow* panel, HWND parent, int id, BOOL useOperationContext);
     BOOL ExecuteMenuItem(CFilesWindow* panel, HWND parent, int index, int suid, BOOL& unselect);
     // 'id' is the internal command ID; ExecuteMenuItem2 is used for Last Command
     BOOL ExecuteMenuItem2(CFilesWindow* panel, HWND parent, int index, int id, BOOL& unselect);

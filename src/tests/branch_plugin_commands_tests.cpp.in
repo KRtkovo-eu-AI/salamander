@@ -15,7 +15,7 @@ struct CPluginMenuItem { int Type=pmitItemOrSeparator;const char* Name="Compare"
 template<class T> struct Array { std::vector<T> Items;int Count=0;T operator[](int i){return Items.at(i);}void Add(T p){Items.push_back(p);Count=static_cast<int>(Items.size());} };
 struct CFilesWindow { bool Branch=true;bool IsBranchView() const{return Branch;} };
 struct CSalamanderForOperations { explicit CSalamanderForOperations(CFilesWindow*){} };
-struct InterfaceStub { bool Loaded=true;int Calls=0,LastID=-1;bool NotEmpty()const{return Loaded;}BOOL ExecuteMenuItem(CSalamanderForOperations*,HWND,int id,DWORD){++Calls;LastID=id;return TRUE;} };
+struct InterfaceStub { bool Loaded=true;int Calls=0,LastID=-1;bool NotEmpty()const{return Loaded;}bool LastHadOperations=false;DWORD LastMask=99;BOOL ExecuteMenuItem(CSalamanderForOperations* operation,HWND,int id,DWORD mask){++Calls;LastID=id;LastHadOperations=operation!=nullptr;LastMask=mask;return TRUE;} };
 struct MENU_ITEM_INFO {};
 struct CPluginData {
  const char* DLLName="filecomp\\filecomp.spl";const char* Version="test";
@@ -23,6 +23,7 @@ struct CPluginData {
  BOOL GetMenuItemStateType(int,int,MENU_ITEM_INFO*){return TRUE;}
  int InitCalls=0;BOOL InitDLL(HWND){++InitCalls;return TRUE;}DWORD GetMaskForMenuItems(int){return 7;}
  BOOL IsBranchCommandAllowed(int id);
+ BOOL ExecutePostedMenuItem(CFilesWindow*,HWND,int,BOOL);
  BOOL ExecuteMenuItem(CFilesWindow*,HWND,int,int,BOOL&);
  BOOL ExecuteMenuItem2(CFilesWindow*,HWND,int,int,BOOL&);
  BOOL ExecuteToolbarCommand(CFilesWindow*,HWND,int,int,BOOL&);
@@ -48,6 +49,7 @@ int main(){
   Check(!plugin.ExecuteMenuItem2(&panel,NULL,0,1,unselect)&&!unselect,"direct blocked ID refused");
   Check(!plugin.ExecuteToolbarCommand(&panel,NULL,0,1,unselect)&&!unselect,"toolbar blocked ID refused");
   Check(!Plugins.ExecuteCommand(0,0,&panel,NULL),"hotkey blocked before initialization");
+  Check(!plugin.ExecutePostedMenuItem(&panel,NULL,1,FALSE)&&!plugin.ExecutePostedMenuItem(&panel,NULL,1,TRUE),"unknown plugin refused by both posted contexts");
   Check(plugin.InitCalls==0&&plugin.PluginIfaceForMenuExt.Calls==0&&Plugins.LastChanges==before,"blocked command cannot initialize/call DLL or update last command");
  }
  plugin.DLLName="renamer\\renamer.spl";
@@ -63,7 +65,20 @@ int main(){
  Check(!plugin.IsBranchCommandAllowed(0)&&!plugin.IsBranchCommandAllowed(3),"unknown Split/Combine IDs remain refused");item.ID=1;
  plugin.DLLName="automation\\automation.spl";
  Check(plugin.IsBranchCommandAllowed(1)&&BranchReadOnlyCommandAllowed(item.SUID),"verified Automation focused script accepted");
- Check(!plugin.IsBranchCommandAllowed(2)&&!plugin.IsBranchCommandAllowed(3)&&!plugin.IsBranchCommandAllowed(1000),"Automation popup and dynamic script IDs remain staged off");
+ Check(plugin.IsBranchCommandAllowed(2)&&plugin.IsBranchCommandAllowed(3),"Automation popup and internal deferred continuation accepted");
+ Check(!plugin.IsBranchCommandAllowed(1000)&&!plugin.IsBranchCommandAllowed(0)&&!plugin.IsBranchCommandAllowed(-1),"unregistered Automation IDs refused");
+ item.ID=0x12345600;Check(plugin.IsBranchCommandAllowed(item.ID)&&BranchReadOnlyCommandAllowed(item.SUID),"registered preloaded script accepted");
+ item.ID=0x60000001;Check(plugin.IsBranchCommandAllowed(item.ID)&&BranchReadOnlyCommandAllowed(item.SUID),"registered runtime command accepted");
+ Check(!plugin.IsBranchCommandAllowed(item.ID+1),"unregistered runtime command refused");
+ item.Type=pmitStartSubmenu;Check(!plugin.IsBranchCommandAllowed(item.ID),"script submenu refused");item.Type=pmitItemOrSeparator;
+ item.Name=nullptr;Check(!plugin.IsBranchCommandAllowed(item.ID),"script separator refused");item.Name="Compare";
+ int beforePosted=plugin.PluginIfaceForMenuExt.Calls;int beforeLast=Plugins.LastChanges;
+ Check(plugin.ExecutePostedMenuItem(&panel,NULL,3,FALSE)&&!plugin.PluginIfaceForMenuExt.LastHadOperations&&plugin.PluginIfaceForMenuExt.LastMask==0,"immediate posted continuation retains null operation and zero mask");
+ Check(plugin.ExecutePostedMenuItem(&panel,NULL,3,TRUE)&&plugin.PluginIfaceForMenuExt.LastHadOperations&&plugin.PluginIfaceForMenuExt.LastMask==0,"idle posted continuation retains operation and zero mask");
+ Check(plugin.PluginIfaceForMenuExt.Calls==beforePosted+2&&plugin.PluginIfaceForMenuExt.LastID==3&&Plugins.LastChanges==beforeLast,"posted continuation preserves ID and does not change last command");
+ Check(!plugin.ExecutePostedMenuItem(&panel,NULL,item.ID+1,FALSE)&&!plugin.ExecutePostedMenuItem(&panel,NULL,item.ID+1,TRUE),"unknown script refused by both posted contexts");
+ plugin.PluginIfaceForMenuExt.Loaded=false;Check(!plugin.ExecutePostedMenuItem(&panel,NULL,3,FALSE)&&!plugin.ExecutePostedMenuItem(&panel,NULL,3,TRUE),"unloaded interface cannot execute either posted context");plugin.PluginIfaceForMenuExt.Loaded=true;
+ item.ID=1;
  plugin.DLLName="salamatrix\\salamatrix.spl";
  item.ID=0x62000001;
  Check(plugin.IsBranchCommandAllowed(item.ID)&&BranchReadOnlyCommandAllowed(item.SUID),"registered Salamatrix package command accepted");
@@ -80,5 +95,6 @@ int main(){
  Check(plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect)&&unselect,"ordinary panel preserves plugin dispatch");
  Check(plugin.ExecuteMenuItem2(&panel,NULL,0,1,unselect)&&unselect,"ordinary direct command unchanged");
  Check(plugin.ExecuteToolbarCommand(&panel,NULL,0,1,unselect)&&unselect,"ordinary toolbar command unchanged");
+ Check(plugin.ExecutePostedMenuItem(&panel,NULL,999,FALSE)&&plugin.ExecutePostedMenuItem(&panel,NULL,999,TRUE),"ordinary unknown plugin posted command unchanged");
  printf("Branch plugin actual policy/dispatch: %d/%d checks passed\n",Checks-Failures,Checks);return Failures?1:0;
 }

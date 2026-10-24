@@ -321,3 +321,13 @@ Contributors, GPL-2.0-or-later. Existing notices/accepted adaptations retained.
 Private registered-command permission and dispatch tests are local adaptations.
 Local validation uses PHP Group's official PHP CLI and existing Lua.org/PUC-Rio MIT
 interpreter assets, with notices preserved; no new interpreter redistribution.
+
+### S27f.06b Branch Automation menu integration
+
+Automation repository/manifest and immutable selection consumers reuse
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, including work by Milan Kase,
+Ondřej Kotas, Open Salamander Authors and Samandarin Contributors,
+GPL-2.0-or-later. Existing notices retained. Private posted-command gates,
+repository macro/wide-path and one-shot dispatch integration fixes, balanced
+handle tracking and focused native regression are local adaptations.

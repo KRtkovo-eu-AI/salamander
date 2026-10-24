@@ -489,6 +489,11 @@ try {
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_plugin_commands_tests.py'), '--configuration', $Configuration)
         },
         @{
+            Name = 'automation_repository_paths_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\plugins\automation\tests\repository_paths_tests.py'), '--configuration', $Configuration)
+        },
+        @{
             Name = 'archive_menu_selection_tests'
             ClassName = 'native-generated'
             Arguments = @(
