@@ -1,5 +1,22 @@
 # Plán postupného portu PR #769
 
+## S27f.10 PAK audit closed with explicit hidden-command boundary (2026-10-24)
+
+User explicitly chose to retain the PAK Optimize menu hidden, as in donor and
+baseline. No menu restoration, host allowlist change or temporary GUI adapter.
+Connect and Optimize/engine/header/project remain exact pinned donor files.
+Current pak_optimize_snapshot_tests.py --configuration Both PASS15/config:
+owned snapshot/duplicates/parent notifications/cancel and actual wide OpenPak
+missing-input noncreation; normal pack creation behavior retained. Recording
+command-engine facades are not actual PAK optimization. S15 actual engine GUI
+with temporary registration remains historical evidence only, not current menu
+acceptance. Production Optimize is NOT AVAILABLE in ordinary or Branch menus.
+
+This is a documented intentional exclusion, not a newly enabled integration or
+a fresh GUI/build/CI success. No production code changed, no new build necessary
+for this documentation-only checkpoint. Evidence ../evidence/S27f10. Next .11
+Undelete and auxiliary command audit; whole S27 remains unfinished. No push/PR.
+
 ## S27f.09 7-Zip Test Archive locally validated (2026-10-24)
 
 Only bundled7zip\7zip.spl ID1 admitted; unknown IDs/custom DLL identities refused.
