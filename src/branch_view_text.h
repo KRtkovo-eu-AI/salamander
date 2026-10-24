@@ -42,6 +42,15 @@ inline std::string ExpandTwo(const char* pattern, const char* token,
 
 } // namespace Detail
 
+// Display only: use the scanner-owned relative path, never strip a textual root.
+inline std::wstring DisplayDirectory(const std::wstring& absoluteDirectory,
+                                      const std::wstring& relativePath, bool relative)
+{
+    if (!relative) return absoluteDirectory;
+    const std::size_t separator = relativePath.find_last_of(L'\\');
+    return separator == std::wstring::npos ? L"." : relativePath.substr(0, separator);
+}
+
 inline std::string FormatStatus(const char* pattern, std::uint64_t files,
                                 std::uint64_t errorsOrPrevious)
 {

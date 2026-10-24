@@ -4334,6 +4334,7 @@ static bool BranchReadOnlyCommandAllowed(UINT command)
     case CM_BRANCHVIEW:
     case CM_LEFT_BRANCHVIEW:
     case CM_RIGHT_BRANCHVIEW:
+    case CM_CONFIGURATION: // S28a: normal guarded Configuration dialog also owns Branch display preferences.
     case CM_COPYFILES:
     case CM_MOVEFILES:
     case CM_DELETEFILES:

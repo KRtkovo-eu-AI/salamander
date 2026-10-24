@@ -885,6 +885,7 @@ public:
     ULONGLONG GetBranchViewGeneration() const;
     std::wstring GetItemFullPathW(const CFileData& file) const;
     std::wstring GetItemDirectoryW(const CFileData& file) const;
+    std::wstring GetBranchViewDisplayDirectoryW(const CFileData& file) const;
     std::wstring GetItemIdentityW(const CFileData& file) const;
     std::wstring GetItemRelativePathW(const CFileData& file) const;
     std::string GetItemCacheKey(const CFileData& file) const;

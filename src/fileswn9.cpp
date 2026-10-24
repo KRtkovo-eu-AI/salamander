@@ -2520,7 +2520,7 @@ static void WINAPI InternalGetBranchPath()
     if (TransferPanelWindow == NULL || TransferFileData == NULL || TransferIsDir == 2)
         return;
     const std::string path = SalWideToMultiBytePath(
-        TransferPanelWindow->GetItemDirectoryW(*TransferFileData).c_str(), CP_UTF8);
+        TransferPanelWindow->GetBranchViewDisplayDirectoryW(*TransferFileData).c_str(), CP_UTF8);
     size_t length = (std::min)(path.size(), (size_t)TRANSFER_BUFFER_MAX - 1);
     while (length < path.size() && length > 0 && ((unsigned char)path[length] & 0xc0) == 0x80)
         --length;

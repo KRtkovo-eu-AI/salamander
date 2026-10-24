@@ -415,3 +415,11 @@ Authors and Samandarin Contributors under GPL-2.0-or-later. Original notices
 retained. Reuses the property worker, lifetime/generation guards, thumbnails and
 association preparation already imported in S26a/b; adds only the narrow local
 transition-command adapter and updated regression contracts.
+
+### S28a optional relative Branch View Path display
+
+Extends the Branch View integration derived from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pinned donor 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Open Salamander
+Authors and Samandarin Contributors under GPL-2.0-or-later. Original notices
+retained. The new Panels preference and display formatter are a local user-requested
+extension absent from that donor; no additional third-party implementation imported.

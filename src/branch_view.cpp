@@ -279,6 +279,15 @@ std::wstring CFilesWindow::GetItemDirectoryW(const CFileData& file) const
     }
     return GetPathW() != NULL && GetPathW()[0] != 0 ? std::wstring(GetPathW()) : SalMultiByteToWidePath(GetPath(), IsValidPathUtf8Text(GetPath()) ? CP_UTF8 : CP_ACP);
 }
+std::wstring CFilesWindow::GetBranchViewDisplayDirectoryW(const CFileData& file) const
+{
+    if (!IsBranchView()) return GetItemDirectoryW(file);
+    std::lock_guard<std::mutex> lock(BranchView->ItemsMutex);
+    auto item = BranchView->Items.find(file.Name);
+    if (item == BranchView->Items.end()) return std::wstring();
+    return Salamander::BranchViewText::DisplayDirectory(item->second.Directory,
+        item->second.RelativePath, Configuration.BranchViewRelativePaths != FALSE);
+}
 std::wstring CFilesWindow::GetItemFullPathW(const CFileData& file) const
 {
     if (BranchView != NULL)

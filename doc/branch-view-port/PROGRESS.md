@@ -1,5 +1,17 @@
 # Stav portu PR #769
 
+## S28a — preference zobrazení Path, lokálně ověřena (2026-10-25)
+
+Uživatelské rozšíření je v Options > Configuration > Panels (Panely): relativní
+cesta je volitelná, absolutní výchozí. Běžné uložení konfigurace platí pro oba
+panely; operace dál používají úplné cesty. Debug/Release x64 host a závislosti,
+288 nativních kontrol na konfiguraci, 28 source/menu skupin a skutečné GUI
+včetně restartu a Cancel prošly. SDK, donor, cache identita a systémové nastavení
+nezměněny. [S28a](steps/S28a.md) obsahuje přesné příkazy, důkazy a omezení.
+S28a NOT_PUSHED: remote CI/CodeQL/čistá celá matice zatím neběžely. Předchozí S28
+byla mezitím publikována v draft PR #59; níže uvedený stav před publikací je
+historický, výsledky jeho CI se zde netvrdí. Další portovací etapa je S29.
+
 ## S28 dokončena lokálně (2026-10-25)
 
 S27f.01–.14 včetně podetap bylo mezitím publikováno a ověřeno v interních draft

@@ -267,8 +267,31 @@ static void CompressionTests()
               u8"Soubor 🗂 " + longPath + ": ", "Unicode template and empty error preserved");
 }
 
+static void DisplayDirectoryTests()
+{
+    using Salamander::BranchViewText::DisplayDirectory;
+    Check(DisplayDirectory(L"C:\\root\\one", L"one\\same.png", false) == L"C:\\root\\one",
+          "absolute display retains actual directory without filename");
+    Check(DisplayDirectory(L"C:\\root\\one", L"one\\same.png", true) == L"one",
+          "relative display uses scanner-owned directory");
+    Check(DisplayDirectory(L"C:\\root", L"same.png", true) == L".", "root file displays dot");
+    Check(DisplayDirectory(L"C:\\root", L"same.png", false) == L"C:\\root", "root absolute display unchanged");
+    Check(DisplayDirectory(L"C:\\root\\root-other", L"root-other\\same.png", true) == L"root-other",
+          "relative formatting never strips coincidental root text");
+    const std::wstring relative = L"žluťoučký-東京\\" + std::wstring(300, L'漢');
+    const std::wstring absolute = L"\\\\?\\UNC\\server\\share\\" + relative;
+    Check(DisplayDirectory(absolute, relative + L"\\same-📄.png", true) == relative,
+          "long Unicode relative directory preserved completely");
+    Check(DisplayDirectory(absolute, relative + L"\\same-📄.png", false) == absolute,
+          "extended UNC absolute directory preserved completely");
+    Check(DisplayDirectory(L"C:\\root\\one", L"one\\same.png", true) !=
+              DisplayDirectory(L"C:\\root\\two", L"two\\same.png", true),
+          "duplicate basenames retain different displayed parent directories");
+}
+
 int wmain(int argc, wchar_t** argv)
 {
+    DisplayDirectoryTests();
     StatusTests();
     CompressionTests();
     ResourceTests(argc == 2 ? std::filesystem::path(argv[1]) : std::filesystem::current_path());

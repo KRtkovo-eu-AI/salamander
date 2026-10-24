@@ -24,6 +24,41 @@ class BranchTransitionContracts(unittest.TestCase):
   for allowed in ('CM_OPEN','CM_VIEW','CM_ALTVIEW','CM_EDIT','CM_BRANCH_OPENPARENT','CM_RENAMEFILE','CM_COPYFILES','CM_MOVEFILES','CM_DELETEFILES','CM_PROPERTIES','CM_CLIPCOPY','CM_CLIPCUT','CM_CLIPPASTE','CM_PACK','CM_CONTEXTMENU'):
    self.assertIn('case '+allowed+':',gate)
   self.assertIn('return false;',gate)
+ def test_path_display_preference_defaults_absolute_and_is_persisted(self):
+  self.assertIn('BranchViewRelativePaths = FALSE;',source('dialogs4.cpp'))
+  config=source('mainwnd2.cpp')
+  self.assertIn('"Branch View Relative Paths"',config)
+  for call in ('SetValue(actKey, CONFIG_BRANCHVIEW_RELATIVEPATHS_REG, REG_DWORD,','GetValue(actKey, CONFIG_BRANCHVIEW_RELATIVEPATHS_REG, REG_DWORD,'):
+   self.assertIn(call,config)
+  self.assertIn('Configuration.BranchViewRelativePaths = Configuration.BranchViewRelativePaths ? TRUE : FALSE;',config)
+  appearance=function('dialogs5.cpp','void CCfgPagePanels::Transfer(')
+  self.assertIn('if (GetDlgItem(HWindow, IDC_BRANCH_RELATIVE_PATHS) != NULL)',appearance)
+  self.assertIn('ti.CheckBox(IDC_BRANCH_RELATIVE_PATHS, Configuration.BranchViewRelativePaths)',appearance)
+ def test_path_preference_is_display_only(self):
+  display=function('branch_view.cpp','std::wstring CFilesWindow::GetBranchViewDisplayDirectoryW(')
+  self.assertIn('std::lock_guard<std::mutex> lock(BranchView->ItemsMutex)',display)
+  self.assertIn('item->second.Directory',display)
+  self.assertIn('item->second.RelativePath, Configuration.BranchViewRelativePaths',display)
+  for getter in ('GetItemDirectoryW','GetItemFullPathW','GetItemIdentityW','GetItemRelativePathW'):
+   self.assertNotIn('BranchViewRelativePaths',function('branch_view.cpp','std::wstring CFilesWindow::'+getter+'('))
+  paint=source('fileswn4.cpp')
+  self.assertIn('const std::wstring parent = GetBranchViewDisplayDirectoryW(*f)',paint)
+  transfer=paint.split('TransferPanelWindow = this;',1)[1].split('TransferFileData = f;',1)[0]
+  self.assertIn('GetItemDirectoryW(*f)',transfer)
+  self.assertNotIn('GetBranchViewDisplayDirectoryW',transfer)
+  self.assertIn('GetBranchViewDisplayDirectoryW',function('fileswn9.cpp','static void WINAPI InternalGetBranchPath()'))
+ def test_path_preference_lives_in_configuration_not_panel_menus(self):
+  self.assertNotIn('BRANCHRELATIVEPATHS',source('menu4.cpp'))
+  self.assertIn('case CM_CONFIGURATION:',function('mainwnd3.cpp','static bool BranchReadOnlyCommandAllowed('))
+  onconfig=function('mainwnd3.cpp','void CMainWindow::OnConfiguration(')
+  self.assertIn('oldBranchViewRelativePaths != Configuration.BranchViewRelativePaths',onconfig)
+  self.assertIn('InvalidateRect(LeftPanel->GetListBoxHWND(), NULL, FALSE)',onconfig)
+  self.assertIn('InvalidateRect(RightPanel->GetListBoxHWND(), NULL, FALSE)',onconfig)
+  self.assertLess(onconfig.index('BeginStopRefresh()'),onconfig.index('dlg.Execute('))
+  self.assertGreater(onconfig.index('EndStopRefresh()'),onconfig.index('dlg.Execute('))
+  for path in (ROOT.parent/'translations').glob('*/salamand.slt'):
+   text=path.read_text(encoding='utf-8-sig');page=text.split('[DIALOG 1105]',1)[1].split('\n[',1)[0]
+   self.assertEqual(page.count('14528,'),1,str(path))
  def test_incoming_paths_require_real_root(self):
   self.assertIn('IsBranchView() && !Salamander::BranchView::IsRootDropTarget(GetPathW(), targetPath)',function('fileswn6.cpp','void CFilesWindow::DropCopyMove('))
   paste=function('fileswn9.cpp','BOOL CFilesWindow::ClipboardPaste(')
