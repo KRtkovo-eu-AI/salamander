@@ -3666,10 +3666,12 @@ void CPluginData::InitMenuItems(HWND parent, int index, CMenuPopup* menu)
     }
 }
 
-// S27f.01: File Comparator MID_COMPAREFILES=1 uses the accepted owned snapshots.
+// S27f.01/.02: Compare Files and Batch Rename use accepted owned snapshots.
 BOOL CPluginData::IsBranchCommandAllowed(int id) const
 {
-    return DLLName != NULL && _stricmp(DLLName, "filecomp\\filecomp.spl") == 0 && id == 1;
+    return DLLName != NULL && id == 1 &&
+        (_stricmp(DLLName, "filecomp\\filecomp.spl") == 0 ||
+         _stricmp(DLLName, "renamer\\renamer.spl") == 0);
 }
 
 BOOL CPluginData::ExecuteMenuItem(CFilesWindow* panel, HWND parent, int index, int suid, BOOL& unselect)

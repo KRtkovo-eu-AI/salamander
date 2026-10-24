@@ -50,6 +50,9 @@ int main(){
   Check(!Plugins.ExecuteCommand(0,0,&panel,NULL),"hotkey blocked before initialization");
   Check(plugin.InitCalls==0&&plugin.PluginIfaceForMenuExt.Calls==0&&Plugins.LastChanges==before,"blocked command cannot initialize/call DLL or update last command");
  }
+ plugin.DLLName="renamer\\renamer.spl";
+ Check(plugin.IsBranchCommandAllowed(1)&&BranchReadOnlyCommandAllowed(item.SUID),"verified Batch Rename command accepted");
+ Check(!plugin.IsBranchCommandAllowed(2),"unregistered Renamer Undo command remains refused");
  plugin.DLLName="FILECOMP\\FILECOMP.SPL";
  for(int route=0;route<4;++route){BOOL unselect=FALSE;BOOL result=route==0?plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect):route==1?plugin.ExecuteMenuItem2(&panel,NULL,0,1,unselect):route==2?plugin.ExecuteToolbarCommand(&panel,NULL,0,1,unselect):(unselect=Plugins.ExecuteCommand(0,0,&panel,NULL));Check(result&&unselect&&plugin.PluginIfaceForMenuExt.LastID==1,"verified actual dispatcher invokes comparator");}
  item.ID=2;Check(!BranchReadOnlyCommandAllowed(item.SUID),"SUID with unverified internal ID refused");

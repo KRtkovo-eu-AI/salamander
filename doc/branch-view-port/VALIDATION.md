@@ -1,5 +1,21 @@
 # Validace portu a baseline S00
 
+## S27f.02 Batch Rename locally validated (2026-10-24)
+
+Bundled renamer\renamer.spl internal Rename ID1 now passes the existing private
+Branch command policy. Other IDs remain blocked, including unpublished menu Undo
+ID2; Undo runs inside the existing Rename dialog. No SDK or engine change.
+All56 tracked Renamer files remain exactly equal to pinned donor47661e92.
+D/R host and Renamer /warnaserror builds PASS; command dispatch47, panel67 and
+filesystem89 native checks/config PASS; all28 source/menu contracts PASS.
+Actual D/R Branch GUI: four mixed-parent files, duplicate Unicode basenames,
+>260 UTF16 parent and >260 UTF8 basename; exact preview, Cancel, Rename and Undo
+PASS with independent path/SHA256 checks. Outside-selection sentinels unchanged.
+Ordinary two-file preview/Cancel PASS D/R. Private INIs restored, runtime hashes
+match launch, own processes exited, LongPathsEnabled remains0.
+No remote CI/CodeQL/full clean matrix or publication for this unit.
+See [S27f.02](steps/S27f02.md). Goal ACTIVE; next S27f.03 Checksum separately.
+
 ## S27f.01 File Comparator locally validated (2026-10-24)
 
 Only bundled filecomp\filecomp.spl internal Compare Files ID1 is accepted for
