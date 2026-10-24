@@ -906,7 +906,7 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (data != NULL)
         {
             FocusFirstNewItem = TRUE;
-            if (!IsBranchView()) DropCopyMove(data->Copy, data->TargetPath, data->Data);
+            DropCopyMove(data->Copy, data->TargetPath, data->Data); // S27d5b: worker revalidates Branch root.
             DestroyCopyMoveData(data->Data);
             delete data;
         }

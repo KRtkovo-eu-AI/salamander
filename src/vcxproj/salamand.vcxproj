@@ -965,6 +965,7 @@
     <ClInclude Include="..\operationrecycle.h" />
     <ClInclude Include="..\branchshell.h" />
     <ClInclude Include="..\branchclipboard.h" />
+    <ClInclude Include="..\branchdroptarget.h" />
     <ClInclude Include="..\branch_view.h" />
     <ClInclude Include="..\explorerpropertywork.h" />
     <ClInclude Include="..\branch_view_text.h" />

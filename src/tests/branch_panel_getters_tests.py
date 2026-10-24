@@ -77,6 +77,10 @@ def main():
     gate_begin = shell.index("    // S27d5a: selected Shell operations")
     gate_end = shell.index("    CALL_STACK_MESSAGE5", gate_begin)
     pieces = {
+        "DROP_ROOT": block(read("src/branchdroptarget.h",args.source_ref),"inline bool IsRootDropTarget("),
+        "DROP_QUEUE": block(shell,"BOOL DoCopyMove("),
+        "DROP_RECEIVE": block(block(shell,"const char* GetCurrentDir("),"    if (panel->IsBranchView())"),
+        "DROP_CLIP_RECEIVE": block(block(shell,"const char* GetCurrentDirClipboard("),"    if (panel->IsBranchView())"),
         "DRAG_SOURCE": block(shell[shell.index("    case saLeftDragFiles:"):], "        if (useSelection)"),
         "QUERY_CONTINUE_DRAG": "HRESULT QueryContinueDrag"+block(read("src/shellib.h",args.source_ref),"    (BOOL fEscapePressed, DWORD grfKeyState)"),
         "HOST_MENU_HELPER": block(shell,"static DWORD TrackBranchHostContextMenu("),

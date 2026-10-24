@@ -19,17 +19,22 @@ class BranchTransitionContracts(unittest.TestCase):
   text=source('mainwnd3.cpp');start=text.index('CFilesWindow* branchCommandPanel');part=text[start:]
   self.assertLess(part.index('!BranchReadOnlyCommandAllowed(LOWORD(wParam))'),part.index('if (HelpMode'))
   gate=function('mainwnd3.cpp','static bool BranchReadOnlyCommandAllowed(')
-  for forbidden in ('CM_VIEW_WITH','CM_EDIT_WITH','CM_CLIPPASTE','CM_CLIPPASTELINKS'):
+  for forbidden in ('CM_VIEW_WITH','CM_EDIT_WITH','CM_CLIPPASTELINKS'):
    self.assertNotIn('case '+forbidden+':',gate)
-  for allowed in ('CM_OPEN','CM_VIEW','CM_ALTVIEW','CM_EDIT','CM_BRANCH_OPENPARENT','CM_RENAMEFILE','CM_COPYFILES','CM_MOVEFILES','CM_DELETEFILES','CM_PROPERTIES','CM_CLIPCOPY','CM_CLIPCUT','CM_CONTEXTMENU'):
+  for allowed in ('CM_OPEN','CM_VIEW','CM_ALTVIEW','CM_EDIT','CM_BRANCH_OPENPARENT','CM_RENAMEFILE','CM_COPYFILES','CM_MOVEFILES','CM_DELETEFILES','CM_PROPERTIES','CM_CLIPCOPY','CM_CLIPCUT','CM_CLIPPASTE','CM_CONTEXTMENU'):
    self.assertIn('case '+allowed+':',gate)
   self.assertIn('return false;',gate)
- def test_readonly_direct_paths_are_guarded(self):
-  cases={'fileswn6.cpp':['void CFilesWindow::DropCopyMove('], 'fileswn9.cpp':['BOOL CFilesWindow::ClipboardPaste(']}
-  for file, markers in cases.items():
-   for marker in markers:
-    part=function(file,marker)
-    self.assertIn('if (IsBranchView()' if file == 'fileswn2.cpp' else 'if (IsBranchView()) return',part)
+ def test_incoming_paths_require_real_root(self):
+  self.assertIn('IsBranchView() && !Salamander::BranchView::IsRootDropTarget(GetPathW(), targetPath)',function('fileswn6.cpp','void CFilesWindow::DropCopyMove('))
+  paste=function('fileswn9.cpp','BOOL CFilesWindow::ClipboardPaste(')
+  for guard in ('onlyLinks ||','!Salamander::BranchView::IsRootDropTarget(GetPathW(), pastePath)','IsBranchView() && IsFakeDataObject','IsBranchView() && !ownRutine'):
+   self.assertIn(guard,paste)
+  self.assertLess(paste.index('IsBranchView() && !ownRutine'),paste.index('CreateIContextMenu2('))
+  root=function('branchdroptarget.h','inline bool IsRootDropTarget(')
+  self.assertIn('target == root',root)
+  receive=function('shellsup.cpp','const char* GetCurrentDir(')
+  for guard in ('index >= 0 && index < panel->Dirs->Count + panel->Files->Count','DropSourcePanel == NULL','DropSourcePanel == panel','!DropSourcePanel->Is(ptDisk)','srcType != 0','root.size() >= sizeof(panel->DropPath)'):
+   self.assertIn(guard,receive)
  def test_copy_is_flat_disk_only_and_requires_current_metadata(self):
   action=function('fileswn8.cpp','void CFilesWindow::FilesAction(')
   self.assertIn('(type != atCopy && type != atMove) || target == NULL || !target->Is(ptDisk)',action)

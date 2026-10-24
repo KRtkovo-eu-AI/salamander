@@ -1149,7 +1149,7 @@ static std::string GetDropSourceDirectory(CCopyMoveData* data)
 
 void CFilesWindow::DropCopyMove(BOOL copy, char* targetPath, CCopyMoveData* data)
 {
-    if (IsBranchView()) return; // S26 read-only direct boundary.
+    if (IsBranchView() && !Salamander::BranchView::IsRootDropTarget(GetPathW(), targetPath)) return; // S27d5b: recheck queued root identity.
 
     CALL_STACK_MESSAGE3("CFilesWindow::DropCopyMove(%d, %s, )", copy, targetPath);
     if (!FilesActionInProgress)

@@ -242,3 +242,12 @@ Existing drag source and QueryContinueDrag are reused from
 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin
 Contributors, GPL-2.0-or-later. Original notices retained. Local staged activation,
 nothrow allocation and explicit native facades preserve the port's failure contract.
+
+### S27d5b Branch receiving
+
+Native drop/clipboard ingestion and wide worker integration are reused from
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin
+Contributors, GPL-2.0-or-later. Original notices retained. Private root identity,
+staged safe receiving, queue ownership guards and native boundary tests are local
+adaptations; no public plugin ABI or Windows security policy changes.

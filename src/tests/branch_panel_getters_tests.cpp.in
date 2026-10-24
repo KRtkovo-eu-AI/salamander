@@ -200,6 +200,11 @@ struct CFilesWindow
     const char* GetItemCacheKeyPtr(const CFileData&) const;
     const CFileData* GetBranchViewFileByCacheKey(const char*) const;
     BOOL OpenBranchItemDirectory();
+    char DropPath[32768] = {};
+    int DropTarget = -1;
+    BOOL Disk = TRUE;
+    void SetDropTarget(int i){DropTarget=i;}
+
     void SetCaretIndex(int index, BOOL) { ++FocusCalls; FocusedIndex = index; Caret = index; }
     BOOL ChangePathToDiskW(HWND, const wchar_t* path) {
         ++NavigationCalls; OpenedDirectory = path;
@@ -210,7 +215,7 @@ struct CFilesWindow
     void ChangePathToArchive(const char* path,const char*,int,const char*,BOOL,BOOL*) {++ArchiveCalls;OpenedArchive=path;}
     int CancelCalls=0, RefreshCalls=0;
     bool CallbackLocked=false;
-    BOOL Is(int) const {return TRUE;}
+    BOOL Is(int) const {return Disk;}
     int GetSelCount() {int n=0;for(auto& f:FileRows.Values)n+=f.Selected!=FALSE;for(auto& f:DirRows.Values)n+=f.Selected!=FALSE;return n;}
     void SetSel(BOOL selected,int index) {if(index<Dirs->Count)Dirs->At(index).Selected=selected;else Files->At(index-Dirs->Count).Selected=selected;}
     void RepaintListBox(int) {}
@@ -366,6 +371,38 @@ static DWORD DragAllowed=0,DragChosen=DROPEFFECT_COPY;
 static HRESULT DragResult=DRAGDROP_S_DROP;
 static CFilesWindow* DropSourcePanel=nullptr;
 static bool DragHeldSource=false;
+namespace Salamander { namespace BranchView {
+@@DROP_ROOT@@
+} }
+static const char* TestReceive(CFilesWindow* panel,int index,DWORD* effect,int srcType=0){
+@@DROP_RECEIVE@@
+ return nullptr;
+}
+static const char* TestClipboardReceive(CFilesWindow* panel,DWORD* effect){
+@@DROP_CLIP_RECEIVE@@
+ return nullptr;
+}
+static int DestroyedDropData=0;
+static void DestroyCopyMoveData(CCopyMoveData*){++DestroyedDropData;}
+static bool DropPostSuccess=true,DropQueueAllocationFail=false;
+struct CTmpDropData {
+ BOOL Copy=FALSE;char TargetPath[32768]={};CCopyMoveData* Data=nullptr;
+ static void* operator new(size_t n,const std::nothrow_t&) noexcept{return DropQueueAllocationFail?nullptr:std::malloc(n);}
+ static void operator delete(void* p) noexcept{std::free(p);}
+ static void operator delete(void* p,const std::nothrow_t&) noexcept{std::free(p);}
+};
+static CTmpDropData* QueuedDrop=nullptr;
+static BOOL TestPostDrop(HWND,UINT,WPARAM p,LPARAM){if(!DropPostSuccess)return FALSE;QueuedDrop=(CTmpDropData*)p;return TRUE;}
+static const int SAL_MAX_PATH=32768,WM_USER_DROPCOPYMOVE=1;
+#pragma push_macro("PostMessage")
+#undef PostMessage
+#define PostMessage TestPostDrop
+#define lstrcpyn lstrcpynA
+@@DROP_QUEUE@@
+#undef lstrcpyn
+#undef PostMessage
+#pragma pop_macro("PostMessage")
+
 struct CImpIDropSource {
  DWORD MouseButton=(DWORD)-1;
  explicit CImpIDropSource(BOOL) noexcept{}
@@ -612,6 +649,34 @@ static void HostMenuTests(){
 #undef MENU_TYPE_STRING
 #undef LoadStr
 
+static void ReceiveTests()
+{
+ CFilesWindow panel,source;CBranchViewState branch;branch.Enabled=true;panel.BranchView=&branch;
+ panel.FileRows.Count=5;panel.WideRoot=L"C:\\root-東京";panel.AnsiRoot=SalWideToMultiBytePath(panel.WideRoot.c_str(),CP_UTF8);
+ Check(Salamander::BranchView::IsRootDropTarget(panel.GetPathW(),panel.AnsiRoot.c_str()),"root accepts exact UTF8 transport");
+ Check(!Salamander::BranchView::IsRootDropTarget(panel.GetPathW(),nullptr)&&!Salamander::BranchView::IsRootDropTarget(panel.GetPathW(),"")&&!Salamander::BranchView::IsRootDropTarget(panel.GetPathW(),"C:\\other"),"null empty and other roots rejected");
+ std::string child=panel.AnsiRoot+"\\same.txt";Check(!Salamander::BranchView::IsRootDropTarget(panel.GetPathW(),child.c_str()),"focused basename is never root destination");
+ panel.WideRoot+=std::wstring(300,L'東');panel.AnsiRoot=SalWideToMultiBytePath(panel.WideRoot.c_str(),CP_UTF8);
+ Check(Salamander::BranchView::IsRootDropTarget(panel.GetPathW(),panel.AnsiRoot.c_str()),"long UTF8 root retains complete identity");
+ DropSourcePanel=&source;DWORD effect=DROPEFFECT_COPY|DROPEFFECT_MOVE|DROPEFFECT_LINK;
+ Check(TestReceive(&panel,INT_MAX,&effect)==panel.DropPath&&effect==(DROPEFFECT_COPY|DROPEFFECT_MOVE)&&panel.DropPath==panel.AnsiRoot,"background is exact root with copy move only");
+ for(int row:{0,1,4}){effect=DROPEFFECT_COPY;Check(!TestReceive(&panel,row,&effect)&&effect==0&&panel.DropTarget==-1,"all Branch rows reject receive without file handler");}
+ DropSourcePanel=&panel;effect=DROPEFFECT_MOVE;Check(!TestReceive(&panel,INT_MAX,&effect)&&effect==0,"same-panel receive rejected");
+ DropSourcePanel=nullptr;effect=DROPEFFECT_COPY;Check(!TestReceive(&panel,INT_MAX,&effect)&&effect==0,"external drag rejected");
+ DropSourcePanel=&source;source.Disk=FALSE;effect=DROPEFFECT_COPY;Check(!TestReceive(&panel,INT_MAX,&effect)&&effect==0,"virtual source rejected");source.Disk=TRUE;
+ effect=DROPEFFECT_COPY;Check(!TestReceive(&panel,INT_MAX,&effect,1)&&effect==0,"archive source rejected");
+ effect=DROPEFFECT_LINK;Check(!TestReceive(&panel,INT_MAX,&effect)&&effect==0,"link-only receive rejected");
+ effect=DROPEFFECT_COPY;Check(TestClipboardReceive(&panel,&effect)==panel.DropPath,"clipboard exact root accepted");
+ panel.WideRoot=L"C:\\changed";effect=DROPEFFECT_MOVE;Check(!TestClipboardReceive(&panel,&effect)&&effect==0,"stale clipboard target rejected");
+ CCopyMoveRecord row;CCopyMoveData data{1,&row};DestroyedDropData=0;Check(!DoCopyMove(TRUE,panel.DropPath,&data,&panel)&&DestroyedDropData==1&&!QueuedDrop,"stale callback rejected with owned data cleanup");
+ panel.WideRoot=SalMultiByteToWidePathUtf8OrAcp(panel.DropPath);DropPostSuccess=true;
+ Check(DoCopyMove(FALSE,panel.DropPath,&data,&panel)&&QueuedDrop&&!QueuedDrop->Copy&&QueuedDrop->TargetPath==panel.AnsiRoot,"queue owns exact full root and data");delete QueuedDrop;QueuedDrop=nullptr;
+ DropPostSuccess=false;DestroyedDropData=0;Check(!DoCopyMove(TRUE,panel.DropPath,&data,&panel)&&DestroyedDropData==1&&!QueuedDrop,"post failure frees data without partial queue");DropPostSuccess=true;
+ DropQueueAllocationFail=true;DestroyedDropData=0;Check(!DoCopyMove(TRUE,panel.DropPath,&data,&panel)&&DestroyedDropData==1,"allocation failure preserves cleanup");DropQueueAllocationFail=false;
+ std::string tooLong(32768,'x');DestroyedDropData=0;Check(!DoCopyMove(TRUE,&tooLong[0],&data,&panel)&&DestroyedDropData==1,"overcapacity queue rejects instead of truncating");
+ panel.WideRoot=std::wstring(32768,L'東');effect=DROPEFFECT_COPY;Check(!TestReceive(&panel,INT_MAX,&effect)&&effect==0,"overcapacity background root rejected");
+ DropSourcePanel=nullptr;
+}
 static void PropertiesTests()
 {
     CBranchViewState state;CFilesWindow panel;panel.BranchView=&state;
@@ -1090,7 +1155,7 @@ int wmain(int argc, wchar_t** argv)
     Paths(panel, ordinary, L"", L"", L"", "new active Branch has no ordinary row fallback");
     Paths(panel, up, L"C:\\root", L"C:\\root\\..", L"..", "first-scan empty listing parent navigation");
 
-    try { HostMenuTests(); DropParentTests(); PropertiesTests(); RecycleQueueTests(); NotificationTests(); RelativeCopyTests(); CopySourceTests(); RenameMetadataTests(); }
+    try { ReceiveTests(); HostMenuTests(); DropParentTests(); PropertiesTests(); RecycleQueueTests(); NotificationTests(); RelativeCopyTests(); CopySourceTests(); RenameMetadataTests(); }
     catch (const std::exception& error) { Check(false,error.what()); }
     NavigationTests();
     ArchiveReadTests(argv[1]);

@@ -1,5 +1,27 @@
 # Validace portu a baseline S00
 
+## S27d5b completed locally; S27d goal complete (2026-10-24)
+
+Clipboard COPY/MOVE into Branch uses the actual collection root, independent of
+focused file parent. Internal disk drag onto blank background uses that root;
+all rows/updir, same-panel drag, external/virtual/archive sources and incoming
+links remain rejected. Fake and non-HDROP clipboard objects remain gated. Callback
+and queued worker check exact wide root; overcapacity/post/allocation failures
+preserve data cleanup. Existing donor native ingestion/wide worker stays in use.
+
+D/R host/dependencies /warnaserror final PASS12.21s/6.87s (initial Debug40.77s,
+Release82.14s; final executables match actual GUI binary hashes;
+first Release link hit95s deadline, preserved under evidence release-attempt1).
+Actual root/queue/receive and all previous native harness361/config PASS; existing
+real Shell fixture33/config and all28 source/menu groups PASS. Actual D/R GUI:
+3 exact copies, cut/paste1, mouse move1 into >260 Unicode root, row rejection and
+overwrite Cancel;7 final files, four original same-name sentinels unchanged.
+Known S30 limitation: long target notification requires manual Ctrl+R; verified.
+Private configs restored, clean exits, policy0, no security/system setting change.
+See [S27d5b](steps/S27d5b.md). S27d1 through S27d5 locally complete within their
+explicit staged boundaries. No push/PR/remote CI/CodeQL/full clean matrix run.
+Next proposed integration unit S27e; publication remains a separate instruction.
+
 ## S27d5a completed locally (2026-10-24)
 
 Selected left/right drag source now uses the existing complete wide IDataObject,

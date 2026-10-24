@@ -6,6 +6,7 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "branchdroptarget.h"
 #include "common/widepath.h"
 #include "branch_view.h"
 #include "branchclipboard.h"
@@ -185,7 +186,10 @@ BOOL SafeInvokeCommand(IContextMenu2* menu, CMINVOKECOMMANDINFO& ici)
 
 BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pastePath)
 {
-    if (IsBranchView()) return FALSE; // S26 experiment: unverified operation is blocked at direct dispatch.
+    const std::string branchRoot = IsBranchView() ? SalWideToMultiBytePath(GetPathW(), CP_UTF8) : std::string();
+    if (IsBranchView() && (branchRoot.empty() || branchRoot.size() >= sizeof(DropPath) ||
+        onlyLinks || (pastePath != NULL && !Salamander::BranchView::IsRootDropTarget(GetPathW(), pastePath))))
+        return FALSE; // S27d5b: only real-root copy/move, never focused row or arbitrary target.
 
     CALL_STACK_MESSAGE4("CFilesWindow::ClipboardPaste(%d, %d, %s)", onlyLinks, onlyTest, pastePath);
     IDataObject* dataObj;
