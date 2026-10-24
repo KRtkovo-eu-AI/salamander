@@ -1,5 +1,25 @@
 # Validace portu a baseline S00
 
+## S28 dokončena lokálně (2026-10-25)
+
+S27f.01–.14 včetně podetap bylo mezitím publikováno a ověřeno v interních draft
+PR #42–58: všech 17 aktuálních checkpointů prošlo CI/CodeQL a čistým podporovaným
+sestavením (externí evidence S27f-publication-goal/completion-audit.json). Uživatel
+přijal kód S27f.14 `7ca7844e`; uzavírací dokumentace `15ecc41c` zůstává zachována.
+Starší tvrzení o neprovedené publikaci níže jsou historická.
+
+S28 zachovává zvolený režim při vstupu/výstupu a povoluje existující příkazy
+šablon a vlastnostního řazení nad workerem a přípravou již převzatými v S26a/b.
+Debug/Release x64 host se závislostmi, 51 nativních kontrol na konfiguraci
+a všech 28 source/menu skupin prošly; skutečné GUI ověřilo odlišné stejnojmenné
+obrázky, dlouhou Unicode cestu, řazení, fokus, refresh a zobrazení v tmavém Debug
+i světlém Release. Debug shutdown upozornění zůstává výslovnou výhradou.
+Podrobné výsledky, příkazy a evidence: [S28](steps/S28.md). Experiment je výchozí
+vypnutý, LongPathsEnabled=0, SDK a bezpečnostní kontroly nezměněné.
+
+S28 zatím není pushnutá; remote CI, CodeQL a čistá celá matice pro ni NEBĚŽELY.
+Další implementační etapa je S29, mimo tento goal.
+
 ## S27 uzavřena lokálně s popsanými omezeními (2026-10-24)
 
 Aktuální stav: S27a–d jsou předchozí přijaté checkpointy; S27e1/e2 a jednotlivé

@@ -188,7 +188,7 @@ class BranchViewContracts(unittest.TestCase):
         self.assertNotIn("Items.clear()", leave)
         self.assertNotIn("SelectViewTemplate(", leave)
         toggle = body("branch_view.cpp", "void CFilesWindow::ToggleBranchView()")
-        self.assertIn("SelectViewTemplate(2", toggle) # S26 restricts the experiment to Detailed view.
+        self.assertNotIn("SelectViewTemplate(", toggle) # S28 preserves the user-selected layout.
         self.ordered(toggle, "if (!Is(ptDisk)) return;", "BranchView->OriginalViewTemplate = GetViewTemplateIndex()", "BranchView->Enabled = true", "BuildColumnsTemplate();", "EnsureWatching(this, FALSE);", "RefreshBranchView();")
 
     def test_tab_state_captured_before_creation_restored_before_activation(self):

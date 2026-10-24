@@ -143,12 +143,19 @@ class BranchTransitionContracts(unittest.TestCase):
   self.assertIn('if (!SafeDeleteFile(name2, fileSilent))',seven)
  def test_stop_is_present_in_the_actual_menu(self):
   self.assertIn("CM_BRANCH_STOP,",source("menu4.cpp"))
- def test_manual_only_refresh_and_detailed_layout(self):
+ def test_manual_only_refresh_preserves_selected_layout(self):
   self.assertIn('if (automatic) return;',function('branch_view.cpp','void CFilesWindow::RefreshBranchView('))
   toggle=function('branch_view.cpp','void CFilesWindow::ToggleBranchView()')
-  self.assertIn('SelectViewTemplate(2',toggle)
+  self.assertNotIn('SelectViewTemplate(',toggle)
   self.assertIn('OriginalViewTemplate',toggle)
   self.assertIn('StopRefresh || SnooperSuspended || FilesActionInProgress',toggle)
+ def test_display_and_property_sort_commands_use_only_existing_ranges(self):
+  gate=function('mainwnd3.cpp','static bool BranchReadOnlyCommandAllowed(')
+  for first,last in (('ACTIVEMODE_1','ACTIVEMODE_10'),('LEFTMODE_1','LEFTMODE_10'),('RIGHTMODE_1','RIGHTMODE_10'),('ACTIVEEXTRAMODE_MIN','ACTIVEEXTRAMODE_MAX'),('LEFTEXTRAMODE_MIN','LEFTEXTRAMODE_MAX'),('RIGHTEXTRAMODE_MIN','RIGHTEXTRAMODE_MAX'),('LEFTSORTBY_MIN','LEFTSORTBY_MAX'),('RIGHTSORTBY_MIN','RIGHTSORTBY_MAX')):
+   self.assertIn('command >= CM_'+first+' && command <= CM_'+last,gate)
+  self.assertNotIn('command >= CM_VIEWWITH_MIN',gate)
+  self.assertNotIn('command >= CM_EDITWITH_MIN',gate)
+  self.assertIn('return false;',gate)
  def test_program_broker_keeps_windows_execution_and_no_security_retry(self):
   execute=function('fileswn2.cpp','void CFilesWindow::Execute(')
   self.assertIn('BranchProgram::IsProgram(source.c_str())',execute)

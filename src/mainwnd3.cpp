@@ -4319,6 +4319,16 @@ void CMainWindow::OnConfiguration(int mode, int param)
 // S26 transition gate: commands not exercised for a collection remain unavailable.
 static bool BranchReadOnlyCommandAllowed(UINT command)
 {
+    // S28: existing display templates and property sorts use the same identity-safe workers.
+    if ((command >= CM_ACTIVEMODE_1 && command <= CM_ACTIVEMODE_10) ||
+        (command >= CM_LEFTMODE_1 && command <= CM_LEFTMODE_10) ||
+        (command >= CM_RIGHTMODE_1 && command <= CM_RIGHTMODE_10) ||
+        (command >= CM_ACTIVEEXTRAMODE_MIN && command <= CM_ACTIVEEXTRAMODE_MAX) ||
+        (command >= CM_LEFTEXTRAMODE_MIN && command <= CM_LEFTEXTRAMODE_MAX) ||
+        (command >= CM_RIGHTEXTRAMODE_MIN && command <= CM_RIGHTEXTRAMODE_MAX) ||
+        (command >= CM_LEFTSORTBY_MIN && command <= CM_LEFTSORTBY_MAX) ||
+        (command >= CM_RIGHTSORTBY_MIN && command <= CM_RIGHTSORTBY_MAX))
+        return true;
     switch (command)
     {
     case CM_BRANCHVIEW:

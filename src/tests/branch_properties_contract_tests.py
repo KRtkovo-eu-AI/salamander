@@ -35,7 +35,7 @@ class BranchPropertiesContracts(unittest.TestCase):
         self.assertIn("IsBranchView() && BranchView->Applying", part)
         branch = (ROOT / "branch_view.cpp").read_text(encoding="utf-8-sig")
         start = branch.index("void CFilesWindow::PollBranchView()")
-        part = branch[start:len(branch)]
+        part = branch[start:branch.index("\n}", start) + 2]
         positions = [part.index(item) for item in ("++BranchView->Generation;", "RefreshDirectory();", "BranchView->Applying = false;", "StartExplorerSortAsync(Files, Dirs,")]
         self.assertEqual(positions, sorted(positions))
     def test_deferred_publication_does_not_fall_back_to_sync_property_reads(self):

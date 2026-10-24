@@ -498,7 +498,6 @@ void CFilesWindow::ToggleBranchView()
         const int offset = BranchView->OriginalOffset;
         const std::wstring focus = BranchView->OriginalFocus;
         LeaveBranchView();
-        SelectViewTemplate(BranchView->OriginalViewTemplate, FALSE, FALSE); // S26 restores layout after core-only experiment.
         DetachDirectory(this);
         RefreshDirectory();
         PruneBranchViewMetadata();
@@ -541,13 +540,12 @@ void CFilesWindow::ToggleBranchView()
     ++BranchView->Generation; // mode change invalidates ordinary-panel property jobs
     BranchView->RestoreState.reset();
     BranchView->RestoreSelected.clear();
-    // S26 core-only read-only panel: arbitrary thumbnail/plugin layouts remain S28.
+    // Keep Icons, Thumbnails and custom Detailed templates intact.
     BuildColumnsTemplate();
     BranchView->Entries.clear();
     // Clear the ordinary directory rows immediately; a Branch collection only
     // contains files and the navigation row, even before its first batch.
     BranchView->Applying = true;
-    SelectViewTemplate(2, FALSE, FALSE); // Detailed; preserve original layout for exit.
     RefreshDirectory();
     BranchView->Applying = false;
     DetachDirectory(this);
