@@ -24,6 +24,9 @@ def main():
     generated=generated.replace('@@DISPATCH@@','\n'.join(block(source,marker) for marker in (
         'BOOL CPluginData::ExecutePostedMenuItem(', 'BOOL CPluginData::ExecuteMenuItem(', 'BOOL CPluginData::ExecuteMenuItem2(', 'BOOL CPluginData::ExecuteToolbarCommand(')))
     generated=generated.replace('@@HOTKEY@@','\n'.join(block(read('src/plugins2.cpp'),marker) for marker in ('BOOL CPlugins::ExecuteCommand(', 'BOOL CPlugins::FindLastCommand(', 'BOOL CPlugins::OnLastCommand(')))
+    auxiliary='\n'.join(block(read('src/plugins/salamatrix/salamatrix_api_docs.h'),m) for m in ('inline BOOL GetAutomationApiReferencePath(', 'inline BOOL OpenAutomationApiReference('))
+    generated=generated.replace('@@AUXILIARY@@',auxiliary)
+    generated=generated.replace('@@PICT_REFRESH@@',block(read('src/plugins/pictview/pictview.cpp'),'case CMD_INTERNAL_REREADTHUMBS:'))
     if '@@' in generated: raise AssertionError('unexpanded fixture marker')
     assert 'data->ExecutePostedMenuItem(GetActivePanel(), HWindow, (int)lParam, FALSE)' in read('src/mainwnd3.cpp')
     assert 'data->ExecutePostedMenuItem(MainWindow->GetActivePanel(), MainWindow->HWindow, id, TRUE)' in read('src/salamdr1.cpp')

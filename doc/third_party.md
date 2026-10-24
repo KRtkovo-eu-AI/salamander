@@ -398,3 +398,11 @@ pinned donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Open Salamander
 Authors and Samandarin Contributors, GPL-2.0-or-later. Original notices retained.
 Uses the already accepted S27a1 owned-wide navigation approach for disk panels;
 local adaptation removes demonstrated legacy focus truncation without SDK changes.
+
+### S27f.14 PictView refresh and Salamatrix API reference
+
+Adapts auxiliary command integration from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pinned donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Open Salamander
+Authors and Samandarin Contributors, GPL-2.0-or-later. Original notices retained.
+PictView refresh production body remains exact donor; local Salamatrix helper
+adaptation preserves wide installation identity and bounded UTF8 viewer input.

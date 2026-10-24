@@ -3678,7 +3678,7 @@ BOOL CPluginData::IsBranchCommandAllowed(int id)
     // The framework retains runtime, enabled state and manifest capability checks.
     if ((automation && id > 3) ||
         (DLLName != NULL && _stricmp(DLLName, "salamatrix\\salamatrix.spl") == 0 &&
-         id >= 0x62000001))
+         (id == 0x61ffffff || id >= 0x62000001)))
     {
         for (int i = 0; i < MenuItems.Count; ++i)
         {
@@ -3692,7 +3692,7 @@ BOOL CPluginData::IsBranchCommandAllowed(int id)
     return DLLName != NULL &&
         (((id == 1 || id == 3 || id == 4) && _stricmp(DLLName, "zip\\zip.spl") == 0) ||
          (id == 99 && _stricmp(DLLName, "checksum\\checksum.spl") == 0) ||
-         (id == 188 && _stricmp(DLLName, "pictview\\pictview.spl") == 0) ||
+         ((id == 188 || id == 197) && _stricmp(DLLName, "pictview\\pictview.spl") == 0) ||
          (id == 1 && (_stricmp(DLLName, "7zip\\7zip.spl") == 0 ||
                       _stricmp(DLLName, "filecomp\\filecomp.spl") == 0 ||
                       _stricmp(DLLName, "renamer\\renamer.spl") == 0)) ||

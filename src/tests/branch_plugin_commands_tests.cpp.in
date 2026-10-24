@@ -7,6 +7,9 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
+#include <string>
+#include <filesystem>
+#define SAL_MAX_PATH 32768
 #include <vector>
 #define CALL_STACK_MESSAGE5(...) ((void)0)
 #define TRACE_E(...) ((void)0)
@@ -38,6 +41,20 @@ struct CPlugins { char* LastPlgCmdPlugin=nullptr;int LastPlgCmdID=1,CacheCalls=0
 @@SUID_GATE@@
 @@DISPATCH@@
 @@HOTKEY@@
+enum { PANEL_LEFT=3,PANEL_RIGHT=4,PATH_TYPE_WINDOWS=10,CMD_INTERNAL_REREADTHUMBS=197 };
+struct CSalamanderGeneralAbstract {
+ int Left=PATH_TYPE_WINDOWS,Right=PATH_TYPE_WINDOWS,OpenCalls=0;std::vector<int> Refreshed;std::string Opened;
+ BOOL GetPanelPath(int panel,char*,int,int* type,void*){*type=panel==PANEL_LEFT?Left:Right;return TRUE;}
+ void RefreshPanelPath(int panel,BOOL reload){if(!reload)std::abort();Refreshed.push_back(panel);}
+ BOOL OpenFileInConfiguredViewer(HWND,const char* path){++OpenCalls;Opened=path;return TRUE;}
+};
+static CSalamanderGeneralAbstract AuxiliaryGeneral;static auto* SalamanderGeneral=&AuxiliaryGeneral;
+static std::wstring FakeModule;
+static DWORD FakeGetModuleFileNameW(HMODULE,wchar_t* buffer,DWORD capacity){if(FakeModule.size()>=capacity)return capacity;wcscpy_s(buffer,capacity,FakeModule.c_str());return static_cast<DWORD>(FakeModule.size());}
+#define GetModuleFileNameW FakeGetModuleFileNameW
+@@AUXILIARY@@
+#undef GetModuleFileNameW
+static void ActualRefresh(int id){switch(id){@@PICT_REFRESH@@}}
 static int Checks=0,Failures=0;
 static void Check(bool value,const char* text){++Checks;if(!value){++Failures;printf("FAIL: %s\n",text);}}
 int main(){
@@ -91,7 +108,8 @@ int main(){
  plugin.DLLName="pictview\\pictview.spl";item.ID=188;
  Check(plugin.IsBranchCommandAllowed(188)&&BranchReadOnlyCommandAllowed(item.SUID),"verified PictView Update Thumbnail accepted");
  for(int route=0;route<4;++route){BOOL unselect=FALSE;BOOL result=route==0?plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect):route==1?plugin.ExecuteMenuItem2(&panel,NULL,0,188,unselect):route==2?plugin.ExecuteToolbarCommand(&panel,NULL,0,188,unselect):(unselect=Plugins.ExecuteCommand(0,0,&panel,NULL));Check(result&&unselect&&plugin.PluginIfaceForMenuExt.LastID==188,"PictView thumbnail passes each actual dispatcher");}
- Check(!plugin.IsBranchCommandAllowed(187)&&!plugin.IsBranchCommandAllowed(189)&&!plugin.IsBranchCommandAllowed(197),"PictView neighboring and auxiliary commands remain refused");
+ Check(!plugin.IsBranchCommandAllowed(187)&&!plugin.IsBranchCommandAllowed(189)&&plugin.IsBranchCommandAllowed(197),"PictView refresh197 only accepted auxiliary ID");
+ for(BOOL operation:{FALSE,TRUE})Check(plugin.ExecutePostedMenuItem(&panel,NULL,197,operation)&&plugin.PluginIfaceForMenuExt.LastID==197&&plugin.PluginIfaceForMenuExt.LastHadOperations==(operation!=FALSE),"PictView refresh passes both actual posted contexts");
  for(const char* dll:{"pictview.spl","custom\\pictview.spl"}){plugin.DLLName=dll;Check(!plugin.IsBranchCommandAllowed(188),"custom PictView DLL identity refused");}
  item.ID=1;
  plugin.DLLName="automation\\automation.spl";
@@ -115,7 +133,9 @@ int main(){
  Check(plugin.IsBranchCommandAllowed(item.ID)&&BranchReadOnlyCommandAllowed(item.SUID),"registered Salamatrix package command accepted");
  Check(!plugin.IsBranchCommandAllowed(item.ID+1),"unregistered Salamatrix package ID refused");
  for(int route=0;route<4;++route){BOOL unselect=FALSE;BOOL result=route==0?plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect):route==1?plugin.ExecuteMenuItem2(&panel,NULL,0,item.ID,unselect):route==2?plugin.ExecuteToolbarCommand(&panel,NULL,0,item.ID,unselect):(unselect=Plugins.ExecuteCommand(0,0,&panel,NULL));Check(result&&unselect&&plugin.PluginIfaceForMenuExt.LastID==item.ID,"registered package command passes each actual dispatcher");}
- Check(!plugin.IsBranchCommandAllowed(1)&&!plugin.IsBranchCommandAllowed(0x61ffffff),"unverified Salamatrix fixed IDs refused");
+ Check(!plugin.IsBranchCommandAllowed(1)&&!plugin.IsBranchCommandAllowed(0x61ffffff),"unregistered Salamatrix fixed help remains refused");
+ item.ID=0x61ffffff;Check(plugin.IsBranchCommandAllowed(item.ID)&&BranchReadOnlyCommandAllowed(item.SUID),"registered bundled Salamatrix local reference admitted");
+ item.Name=nullptr;Check(!plugin.IsBranchCommandAllowed(item.ID),"unnamed help command refused");item.Name="Compare";item.ID=0x62000001;
  item.Type=pmitStartSubmenu;Check(!plugin.IsBranchCommandAllowed(item.ID),"Salamatrix submenu is not executable");item.Type=pmitItemOrSeparator;
  item.Name=nullptr;Check(!plugin.IsBranchCommandAllowed(item.ID),"Salamatrix separator is not executable");item.Name="Compare";item.ID=1;
  plugin.DLLName="FILECOMP\\FILECOMP.SPL";
@@ -139,5 +159,16 @@ int main(){
  Check(plugin.ExecuteMenuItem2(&panel,NULL,0,1,unselect)&&unselect,"ordinary direct command unchanged");
  Check(plugin.ExecuteToolbarCommand(&panel,NULL,0,1,unselect)&&unselect,"ordinary toolbar command unchanged");
  Check(plugin.ExecutePostedMenuItem(&panel,NULL,999,FALSE)&&plugin.ExecutePostedMenuItem(&panel,NULL,999,TRUE),"ordinary unknown plugin posted command unchanged");
+ AuxiliaryGeneral.Refreshed.clear();ActualRefresh(197);Check(AuxiliaryGeneral.Refreshed==std::vector<int>({PANEL_LEFT,PANEL_RIGHT}),"actual PictView refresh reloads both Windows disk panels");
+ AuxiliaryGeneral.Refreshed.clear();AuxiliaryGeneral.Left=-1;ActualRefresh(197);Check(AuxiliaryGeneral.Refreshed==std::vector<int>({PANEL_RIGHT}),"refresh preserves virtual left panel");AuxiliaryGeneral.Right=-1;AuxiliaryGeneral.Refreshed.clear();ActualRefresh(197);Check(AuxiliaryGeneral.Refreshed.empty(),"refresh never forces disk operation on virtual panels");
+ std::vector<wchar_t> temp(SAL_MAX_PATH);GetTempPathW(static_cast<DWORD>(temp.size()),temp.data());const std::wstring root=std::wstring(temp.data())+L"branch-aux-"+std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(GetTickCount64());
+ auto Extended=[](const std::wstring& p){return L"\\\\?\\"+p;};
+ struct Cleanup{std::wstring Root;~Cleanup(){std::error_code ec;std::filesystem::remove_all(Root,ec);}} cleanup{Extended(root)};
+ for(const std::wstring& part:{std::wstring(L"ascii"),std::wstring(L"žluťoučký-東京"),std::wstring(90,L'東')+L"\\"+std::wstring(90,L'a')+L"\\"+std::wstring(90,L'b')}){
+  const auto folder=root+L"\\"+part;const auto docs=folder+L"\\plugins\\salamatrix\\salamatrix-automation-api.html";std::filesystem::create_directories(Extended(folder+L"\\plugins\\salamatrix"));HANDLE file=CreateFileW(Extended(docs).c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);Check(file!=INVALID_HANDLE_VALUE,"create own real wide reference fixture");if(file!=INVALID_HANDLE_VALUE)CloseHandle(file);
+  FakeModule=folder+L"\\salamand.exe";std::vector<char> path(SAL_MAX_PATH);Check(GetAutomationApiReferencePath(&AuxiliaryGeneral,path.data(),static_cast<int>(path.size())),"actual wide reference resolver finds exact ASCII Unicode long installation path");int n=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,path.data(),-1,nullptr,0);std::vector<wchar_t> decoded(n);if(n)MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,path.data(),-1,decoded.data(),n);Check(n>0&&std::wstring(decoded.data())==docs,"reference path UTF8 roundtrip preserves complete identity");
+  Check(OpenAutomationApiReference(&AuxiliaryGeneral,nullptr)&&AuxiliaryGeneral.Opened==path.data(),"actual reference open uses existing configured viewer");char tiny[4]={'x',0};Check(!GetAutomationApiReferencePath(&AuxiliaryGeneral,tiny,4)&&tiny[0]==0,"insufficient UTF8 output refuses without truncation");Check(DeleteFileW(Extended(docs).c_str())!=FALSE,"remove only own native reference fixture");int opens=AuxiliaryGeneral.OpenCalls;Check(!OpenAutomationApiReference(&AuxiliaryGeneral,nullptr)&&AuxiliaryGeneral.OpenCalls==opens,"missing reference cannot launch viewer");
+ }
+ FakeModule=std::wstring(SAL_MAX_PATH,L'a');char clear[8]={'x',0};Check(!GetAutomationApiReferencePath(&AuxiliaryGeneral,clear,8)&&clear[0]==0,"truncated module path refused");Check(!GetAutomationApiReferencePath(nullptr,clear,8)&&!GetAutomationApiReferencePath(&AuxiliaryGeneral,nullptr,8),"invalid reference arguments refused");
  printf("Branch plugin actual policy/dispatch: %d/%d checks passed\n",Checks-Failures,Checks);return Failures?1:0;
 }
