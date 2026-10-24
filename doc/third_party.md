@@ -348,3 +348,12 @@ donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, including work by Milan Kase,
 Open Salamander Authors and Samandarin Contributors, GPL-2.0-or-later. Existing
 notices retained. Exact menu association, private Test Archive gate, Unicode-safe
 existing host hard wrapping and focused regressions are local integration repairs.
+
+### S27f.08b1 ZIP Branch comments
+
+Owned ZIP archive selection retains [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, including work by Milan Kase,
+Open Salamander Authors and Samandarin Contributors, GPL-2.0-or-later. Existing
+notices retained. Comment-only private gate, early stop on failed save reopen,
+Unicode-created dialog and heap-backed title formatting plus native regressions
+are local repairs of demonstrated integration/baseline defects.

@@ -3666,7 +3666,7 @@ void CPluginData::InitMenuItems(HWND parent, int index, CMenuPopup* menu)
     }
 }
 
-// S27f.01-.08a: Verified plugin commands use accepted owned snapshots.
+// S27f.01-.08b1: Verified plugin commands use accepted owned snapshots.
 BOOL CPluginData::IsBranchCommandAllowed(int id)
 {
     const BOOL automation = DLLName != NULL &&
@@ -3690,7 +3690,7 @@ BOOL CPluginData::IsBranchCommandAllowed(int id)
         return FALSE;
     }
     return DLLName != NULL &&
-        ((id == 3 && _stricmp(DLLName, "zip\\zip.spl") == 0) ||
+        (((id == 3 || id == 4) && _stricmp(DLLName, "zip\\zip.spl") == 0) ||
          (id == 188 && _stricmp(DLLName, "pictview\\pictview.spl") == 0) ||
          (id == 1 && (_stricmp(DLLName, "filecomp\\filecomp.spl") == 0 ||
                       _stricmp(DLLName, "renamer\\renamer.spl") == 0)) ||

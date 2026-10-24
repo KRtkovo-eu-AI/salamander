@@ -1,5 +1,31 @@
 # S00 read-only donor boundary audit
 
+## S27f.08b1 ZIP Comment locally validated (2026-10-24)
+
+Private policy now admits bundled zip\zip.spl Comment4 alongside Test3; SFX1 and
+Repair2 remain refused. Existing S13 owned command/engine path retained. Fixed
+two exact donor/baseline prerequisites: unbounded MAX_PATH caption formatting
+and continuing after failed SaveComment reopen. Existing dialog is now created
+Unicode, title/path independently decoded with existing UTF8-first/ACP helper;
+localized pattern retained, bad_alloc cancels. Comment byte encoding unchanged.
+
+D/R host+ZIP /warnaserror builds PASS. Actual SaveComment/title17, archive menu43,
+policy/dispatch102 checks per configuration PASS; all28 source/menu groups PASS.
+Real D/R GUI: three selected distinct-parent Branch ZIPs (duplicate same.zip and
+100-CJK basename in long Unicode path), ordinary ZIP and Cancel without edit.
+Independent byte comparison: only eight EOCD comments changed,20 members and
+unselected controls/sentinel unchanged; exact inventory, no residue, registry0,
+INIs byte restored and own hosts closed. Initial Unicode caption truncation
+reproduced and final W-dialog corrected. Debug shutdown warning remains: actual
+candidate and parent ZIP ordinary-dialog comparison both report nine MENU pairs,
+18 normal blocks/576 bytes, no other normal allocations. Heap filter unchanged;
+temporary instrumentation/source comparison restored exactly before final D/R
+rebuilds. Earlier GUI hashes and subsequent final rebuild hashes recorded honestly.
+
+Evidence ../evidence/S27f08b1; see [S27f.08b1](steps/S27f08b1.md). No push/PR,
+remote CI/CodeQL/full clean supported matrix. Next .08b2 SFX prerequisite/command,
+then .09-.11 and auxiliary audit. Whole S27 remains unfinished.
+
 ## S26a — IMPLEMENTED / association preparation lifetime prerequisite PASS (2026-10-23)
 
 Scoped donor AssociationPreparation/shared PreparationLifetime/PreparationSession
