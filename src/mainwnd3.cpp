@@ -4331,6 +4331,7 @@ static bool BranchReadOnlyCommandAllowed(UINT command)
     case CM_CLIPCOPY:
     case CM_CLIPCUT:
     case CM_CLIPPASTE:
+    case CM_LAST_PLUGIN_CMD: // router; OnLastCommand validates the current plugin/ID
     case CM_PACK:
     case CM_CONTEXTMENU:
     case CM_RENAMEFILE:

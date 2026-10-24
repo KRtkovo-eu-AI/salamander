@@ -6,9 +6,11 @@
 #include <windows.h>
 #include <cstdio>
 #include <cstring>
+#include <cstdlib>
 #include <vector>
 #define CALL_STACK_MESSAGE5(...) ((void)0)
 #define TRACE_E(...) ((void)0)
+#define stricmp _stricmp
 @@CONSTANTS@@
 enum { pmitItemOrSeparator,pmitStartSubmenu,pmitEndSubmenu };
 struct CPluginMenuItem { int Type=pmitItemOrSeparator;const char* Name="Compare";int SUID=50003;int ID=1; };
@@ -17,10 +19,13 @@ struct CFilesWindow { bool Branch=true;bool IsBranchView() const{return Branch;}
 struct CSalamanderForOperations { explicit CSalamanderForOperations(CFilesWindow*){} };
 struct InterfaceStub { bool Loaded=true;int Calls=0,LastID=-1;bool NotEmpty()const{return Loaded;}bool LastHadOperations=false;DWORD LastMask=99;BOOL ExecuteMenuItem(CSalamanderForOperations* operation,HWND,int id,DWORD mask){++Calls;LastID=id;LastHadOperations=operation!=nullptr;LastMask=mask;return TRUE;} };
 struct MENU_ITEM_INFO {};
+static int* ChangeLastOnState=nullptr;
 struct CPluginData {
  const char* DLLName="filecomp\\filecomp.spl";const char* Version="test";
  Array<CPluginMenuItem*> MenuItems;InterfaceStub PluginIfaceForMenuExt;
- BOOL GetMenuItemStateType(int,int,MENU_ITEM_INFO*){return TRUE;}
+ BOOL StateEnabled=TRUE,SupportDynMenuExt=FALSE;int StateCalls=0,BuildCalls=0;
+ BOOL GetLoaded(){return PluginIfaceForMenuExt.Loaded;}BOOL BuildMenu(HWND,BOOL){++BuildCalls;return TRUE;}
+ BOOL GetMenuItemStateType(int,int,MENU_ITEM_INFO*){++StateCalls;if(ChangeLastOnState)*ChangeLastOnState=999;return StateEnabled;}
  int InitCalls=0;BOOL InitDLL(HWND){++InitCalls;return TRUE;}DWORD GetMaskForMenuItems(int){return 7;}
  BOOL IsBranchCommandAllowed(int id);
  BOOL ExecutePostedMenuItem(CFilesWindow*,HWND,int,BOOL);
@@ -28,7 +33,7 @@ struct CPluginData {
  BOOL ExecuteMenuItem2(CFilesWindow*,HWND,int,int,BOOL&);
  BOOL ExecuteToolbarCommand(CFilesWindow*,HWND,int,int,BOOL&);
 };
-struct CPlugins { void CalculateStateCache(){} BOOL ExecuteCommand(int,int,CFilesWindow*,HWND); Array<CPluginData*> Data;int LastChanges=0;void SetLastPlgCmd(const char*,int){++LastChanges;}int GetCount(){return Data.Count;}CPluginData* Get(int i){return i>=0&&i<Data.Count?Data[i]:nullptr;} } Plugins;
+struct CPlugins { char* LastPlgCmdPlugin=nullptr;int LastPlgCmdID=1,CacheCalls=0;void CalculateStateCache(){++CacheCalls;} BOOL FindLastCommand(int*,int*,BOOL,HWND);BOOL OnLastCommand(CFilesWindow*,HWND);BOOL ExecuteCommand(int,int,CFilesWindow*,HWND); Array<CPluginData*> Data;int LastChanges=0;void SetLastPlgCmd(const char*,int){++LastChanges;}int GetCount(){return Data.Count;}CPluginData* Get(int i){return i>=0&&i<Data.Count?Data[i]:nullptr;} } Plugins;
 @@POLICY@@
 @@SUID_GATE@@
 @@DISPATCH@@
@@ -116,6 +121,18 @@ int main(){
  for(int route=0;route<4;++route){BOOL unselect=FALSE;BOOL result=route==0?plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect):route==1?plugin.ExecuteMenuItem2(&panel,NULL,0,1,unselect):route==2?plugin.ExecuteToolbarCommand(&panel,NULL,0,1,unselect):(unselect=Plugins.ExecuteCommand(0,0,&panel,NULL));Check(result&&unselect&&plugin.PluginIfaceForMenuExt.LastID==1,"verified actual dispatcher invokes comparator");}
  item.ID=2;Check(!BranchReadOnlyCommandAllowed(item.SUID),"SUID with unverified internal ID refused");
  item.ID=1;item.Type=pmitStartSubmenu;Check(!BranchReadOnlyCommandAllowed(item.SUID),"submenu is not a command");item.Type=pmitItemOrSeparator;item.Name=nullptr;Check(!BranchReadOnlyCommandAllowed(item.SUID),"separator is not a command");item.Name="Compare";
+ // Actual Last Command lookup/state/dispatch, independent of menu SUIDs.
+ auto SetLast=[&](const char* dll,int id){free(Plugins.LastPlgCmdPlugin);Plugins.LastPlgCmdPlugin=_strdup(dll);Plugins.LastPlgCmdID=id;};
+ Check(BranchReadOnlyCommandAllowed(CM_LAST_PLUGIN_CMD),"Last Command router admitted for final policy validation");
+ SetLast("FILECOMP\\FILECOMP.SPL",1);int calls=plugin.PluginIfaceForMenuExt.Calls;
+ Check(Plugins.OnLastCommand(&panel,NULL)&&plugin.PluginIfaceForMenuExt.Calls==calls+1,"actual CtrlI route repeats accepted current command");
+ ChangeLastOnState=&Plugins.LastPlgCmdID;calls=plugin.PluginIfaceForMenuExt.Calls;Check(Plugins.OnLastCommand(&panel,NULL)&&plugin.PluginIfaceForMenuExt.Calls==calls+1&&plugin.PluginIfaceForMenuExt.LastID==1,"state callback cannot substitute a different last command ID");ChangeLastOnState=nullptr;SetLast(plugin.DLLName,1);
+ plugin.StateEnabled=FALSE;calls=plugin.PluginIfaceForMenuExt.Calls;Check(!Plugins.OnLastCommand(&panel,NULL)&&plugin.PluginIfaceForMenuExt.Calls==calls,"disabled last command cannot execute");plugin.StateEnabled=TRUE;
+ for(int stale=0;stale<4;++stale){SetLast(plugin.DLLName,1);if(stale==0)item.ID=2;else if(stale==1)item.Name=nullptr;else if(stale==2)item.Type=pmitStartSubmenu;else plugin.PluginIfaceForMenuExt.Loaded=false;calls=plugin.PluginIfaceForMenuExt.Calls;int state=plugin.StateCalls;Check(!Plugins.OnLastCommand(&panel,NULL)&&!Plugins.LastPlgCmdPlugin&&plugin.PluginIfaceForMenuExt.Calls==calls&&plugin.StateCalls==state,"stale removed/separator/submenu/unloaded last command cleared before callback");item.ID=1;item.Name="Compare";item.Type=pmitItemOrSeparator;plugin.PluginIfaceForMenuExt.Loaded=true;}
+ plugin.DLLName="unknown\\other.spl";SetLast(plugin.DLLName,1);int states=plugin.StateCalls,cache=Plugins.CacheCalls,last=Plugins.LastChanges;calls=plugin.PluginIfaceForMenuExt.Calls;
+ Check(!Plugins.OnLastCommand(&panel,NULL)&&plugin.StateCalls==states&&Plugins.CacheCalls==cache&&plugin.PluginIfaceForMenuExt.Calls==calls&&Plugins.LastChanges==last,"unverified last command refused before state/cache/callback and selection side effect");
+ panel.Branch=false;Check(Plugins.OnLastCommand(&panel,NULL),"ordinary last command retains unknown plugin compatibility");panel.Branch=true;
+ plugin.DLLName="automation\\automation.spl";plugin.SupportDynMenuExt=TRUE;item.ID=0x60000001;SetLast(plugin.DLLName,item.ID);Check(Plugins.OnLastCommand(&panel,NULL),"current registered dynamic last command works without SUID");plugin.MenuItems.Count=0;calls=plugin.PluginIfaceForMenuExt.Calls;Check(!Plugins.OnLastCommand(&panel,NULL)&&!Plugins.LastPlgCmdPlugin&&plugin.PluginIfaceForMenuExt.Calls==calls,"removed dynamic command cannot resurrect by CtrlI");plugin.MenuItems.Count=1;item.ID=1;plugin.SupportDynMenuExt=FALSE;free(Plugins.LastPlgCmdPlugin);Plugins.LastPlgCmdPlugin=nullptr;
  plugin.DLLName="unknown\\other.spl";panel.Branch=false;BOOL unselect=FALSE;
  Check(plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect)&&unselect,"ordinary panel preserves plugin dispatch");
  Check(plugin.ExecuteMenuItem2(&panel,NULL,0,1,unselect)&&unselect,"ordinary direct command unchanged");

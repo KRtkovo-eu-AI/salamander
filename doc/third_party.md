@@ -382,3 +382,11 @@ pinned donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Milan Kase,
 Open Salamander Authors and Samandarin Contributors, GPL-2.0-or-later. Original
 notices preserved. Narrow command admission and private snapshot-based Unicode
 Restore label are local integration adaptations of a reproduced GUI alias defect.
+
+### S27f.12 Last Command routing
+
+Adapts existing host Last Command lookup and dispatch from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pinned donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Open Salamander
+Authors and Samandarin Contributors, GPL-2.0-or-later. Original notices retained;
+local integration adds current-command policy and named-item validation to the
+experimental Branch gate, preserving ordinary-panel routing.

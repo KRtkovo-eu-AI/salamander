@@ -1,5 +1,31 @@
 # S00 read-only donor boundary audit
 
+## S27f.12 Last Command locally validated (2026-10-24)
+
+Experimental WM_COMMAND gate swallowed Ctrl+I before accepted plugin dispatch.
+CM_LAST_PLUGIN_CMD now reaches existing router; OnLastCommand validates current
+bundled DLL/ID policy before cache/state callbacks in Branch. FindLastCommand
+accepts only current named normal items, clears missing/unloaded/removed commands
+as donor, excludes separators/submenus. Capture resolved commandID before state
+callback so it cannot substitute another LastPlgCmdID. Existing enabled-state and
+final dispatch gates remain; ordinary unknown-plugin compatibility preserved.
+
+Actual FindLastCommand/OnLastCommand plus existing policy/dispatch compiled:
+140 assertions/config D/R PASS, including stale dynamic removal, unloaded/missing,
+separator/submenu/disabled/unknown refusal and ID mutation during state callback.
+Host/dependency D/R warning-as-error builds PASS;28 source/menu groups PASS.
+Real D/R GUI: 7-Zip Test Archive menu then Ctrl+I over true-long100-CJK Unicode
+archive, switch ordinary panel then Ctrl+I uses newly focused ordinary.zip.
+Six exact success results; all10 ZIP hashes/20 member hashes/control/sentinel and
+inventory unchanged. No plugin engine or public SDK change. Final binary/loaded
+plugin hashes recorded, own hosts closed, INIs restored, LongPathsEnabled0.
+Native dynamic-menu cases use explicit storage/state/callback facades; no actual
+dynamic-plugin GUI removal claim. Build logs predate final test-only additions;
+production host source is the final GUI-tested revision throughout those builds.
+
+No push/PR/remoteCI/CodeQL/full clean supported matrix. Evidence ../evidence/S27f12.
+Next auxiliary Checksum99/PictView197/framework help audit. S27 unfinished.
+
 ## S27f.11 Undelete locally validated (2026-10-24)
 
 Admit only bundled undelete\undelete.spl Connect1/Restore2; unknown IDs/custom
