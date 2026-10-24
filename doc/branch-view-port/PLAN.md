@@ -1,5 +1,27 @@
 # Plán postupného portu PR #769
 
+## S27f.01 File Comparator locally validated (2026-10-24)
+
+Only bundled filecomp\filecomp.spl internal Compare Files ID1 is accepted for
+Branch plugin dispatch. Actual registered SUID resolves to that exact command;
+hotkey dispatch checks policy before DLL init; direct/menu/toolbar dispatch checks
+again before callback. Unknown DLLs/IDs/custom absolute identities stay blocked.
+Private CPluginData nonvirtual method only; no SDK/vtable/data-layout change.
+The accepted S06 adapter/engine blobs remain exactly equal to the pinned donor.
+
+D/R host/dependency and Filecomp builds /warnaserror PASS. New actual private-policy
+and dispatch native45/config; accepted owned-path/service native58/config; all28
+source/menu groups PASS. Actual D/R Branch mixed-parent same.txt pair includes
+>260 Unicode parent: exact dialog paths, one expected real content difference,
+Recompare and Cancel PASS. Debug also exercises submenu/SUID dispatch. Ordinary
+source-to-unique-target panel comparison PASS D/R. All6 input/control hashes
+unchanged, private INIs restored, clean host/reporter exit/no crash reports.
+Known S06 Unicode header rendering limitation remains visibly documented; do not
+claim full Unicode output UI support. Last Command remains staged off in Branch.
+Two Release attempts hit95s limits; subsequent full build PASS8.40s, failed/time-
+limited logs retained. No remote CI/CodeQL/full matrix or publication for this unit.
+See [S27f.01](steps/S27f01.md). Goal ACTIVE; next S27f.02 Batch Rename separately.
+
 ## S27e2 locally validated; S27e complete (2026-10-24)
 
 Bundled ZIP/7-Zip Move packing is enabled through the same exact-relative callback.

@@ -3666,57 +3666,10 @@ void CPluginData::InitMenuItems(HWND parent, int index, CMenuPopup* menu)
     }
 }
 
-// S27f.01-.11: Verified plugin commands use accepted owned snapshots.
-BOOL CPluginData::IsBranchCommandAllowed(int id)
+// S27f.01: File Comparator MID_COMPAREFILES=1 uses the accepted owned snapshots.
+BOOL CPluginData::IsBranchCommandAllowed(int id) const
 {
-    const BOOL automation = DLLName != NULL &&
-        _stricmp(DLLName, "automation\\automation.spl") == 0;
-    // OpenPopup3 is an internal deferred continuation, not a registered menu item.
-    if (automation && (id == 1 || id == 2 || id == 3))
-        return TRUE;
-    // Package and loaded script commands must still exist in the current menu.
-    // The framework retains runtime, enabled state and manifest capability checks.
-    if ((automation && id > 3) ||
-        (DLLName != NULL && _stricmp(DLLName, "salamatrix\\salamatrix.spl") == 0 &&
-         (id == 0x61ffffff || id >= 0x62000001)))
-    {
-        for (int i = 0; i < MenuItems.Count; ++i)
-        {
-            CPluginMenuItem* item = MenuItems[i];
-            if (item != NULL && item->Type == pmitItemOrSeparator &&
-                item->Name != NULL && item->ID == id)
-                return TRUE;
-        }
-        return FALSE;
-    }
-    return DLLName != NULL &&
-        (((id == 1 || id == 3 || id == 4) && _stricmp(DLLName, "zip\\zip.spl") == 0) ||
-         (id == 99 && _stricmp(DLLName, "checksum\\checksum.spl") == 0) ||
-         ((id == 188 || id == 197) && _stricmp(DLLName, "pictview\\pictview.spl") == 0) ||
-         (id == 1 && (_stricmp(DLLName, "7zip\\7zip.spl") == 0 ||
-                      _stricmp(DLLName, "filecomp\\filecomp.spl") == 0 ||
-                      _stricmp(DLLName, "renamer\\renamer.spl") == 0)) ||
-         ((id == 1 || id == 2) && (_stricmp(DLLName, "checksum\\checksum.spl") == 0 ||
-                                 _stricmp(DLLName, "splitcbn\\splitcbn.spl") == 0 ||
-                                 _stricmp(DLLName, "undelete\\undelete.spl") == 0)));
-}
-
-// Both posted paths retain their original operation-context choice and event mask.
-BOOL CPluginData::ExecutePostedMenuItem(CFilesWindow* panel, HWND parent,
-                                       int id, BOOL useOperationContext)
-{
-    if (panel != NULL && panel->IsBranchView() && !IsBranchCommandAllowed(id))
-        return FALSE;
-    if (!PluginIfaceForMenuExt.NotEmpty())
-        return FALSE;
-    if (useOperationContext)
-    {
-        CSalamanderForOperations operation(panel);
-        PluginIfaceForMenuExt.ExecuteMenuItem(&operation, parent, id, 0);
-    }
-    else
-        PluginIfaceForMenuExt.ExecuteMenuItem(NULL, parent, id, 0);
-    return TRUE;
+    return DLLName != NULL && _stricmp(DLLName, "filecomp\\filecomp.spl") == 0 && id == 1;
 }
 
 BOOL CPluginData::ExecuteMenuItem(CFilesWindow* panel, HWND parent, int index, int suid, BOOL& unselect)

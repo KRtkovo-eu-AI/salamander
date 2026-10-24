@@ -4391,6 +4391,20 @@ static bool BranchReadOnlyCommandAllowed(UINT command)
     case CM_ACTIVETYPE:
         return true;
     default:
+        if (command >= CM_PLUGINCMD_MIN && command <= CM_PLUGINCMD_MAX)
+        {
+            for (int i = 0; i < Plugins.GetCount(); ++i)
+            {
+                CPluginData* plugin = Plugins.Get(i);
+                if (plugin == NULL) continue;
+                for (int j = 0; j < plugin->MenuItems.Count; ++j)
+                {
+                    const CPluginMenuItem* item = plugin->MenuItems[j];
+                    if (item != NULL && item->Type == pmitItemOrSeparator && item->Name != NULL && item->SUID == static_cast<int>(command))
+                        return plugin->IsBranchCommandAllowed(item->ID) != FALSE;
+                }
+            }
+        }
         return false;
     }
 }
