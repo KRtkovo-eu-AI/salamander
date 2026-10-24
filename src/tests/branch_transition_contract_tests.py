@@ -125,13 +125,22 @@ class BranchTransitionContracts(unittest.TestCase):
    if file == 'fileswn7.cpp': self.assertIn('IsBranchView() ||',text)
    else: self.assertIn('IsBranchView() && (countSizeMode != 0 || copyToSelectedDirs',text)
    self.assertIn('target->IsBranchView()',text)
- def test_pack_is_verified_copy_only_to_ordinary_disk(self):
+ def test_pack_is_verified_to_ordinary_disk(self):
   pack=function('fileswn7.cpp','void CFilesWindow::Pack(')
   self.assertIn('target == NULL || target->IsBranchView()',pack)
-  self.assertIn('!Is(ptDisk) || !target->Is(ptDisk) || delFilesAfterPacking == 1',pack)
+  self.assertIn('!Is(ptDisk) || !target->Is(ptDisk)',pack)
+  self.assertNotIn('delFilesAfterPacking == 1',pack[:pack.index('CALL_STACK_MESSAGE4')])
   self.assertLess(pack.index('!IsVerifiedBranchPacker()'),pack.index('if (SalGetFullName(fileBuf'))
   self.assertIn('data.SourcePanel = this',pack)
   self.assertIn('data.ExactFileSelection = Is(ptDisk)',pack)
+ def test_move_cleanup_follows_success_and_preserves_cancel(self):
+  zip_source=source('plugins/zip/add.cpp')
+  self.assertIn('if (Move && !ErrorID && !UserBreak)',zip_source)
+  self.assertIn('ErrorID = CleanUpSource();',zip_source)
+  seven=source('plugins/7zip/7zip.cpp')
+  self.assertLess(seven.index('BOOL ret = client.Update('),seven.index('if (move && ret)'))
+  self.assertIn('if (fi->CanDelete && !fi->IsDir)',seven)
+  self.assertIn('if (!SafeDeleteFile(name2, fileSilent))',seven)
  def test_stop_is_present_in_the_actual_menu(self):
   self.assertIn("CM_BRANCH_STOP,",source("menu4.cpp"))
  def test_manual_only_refresh_and_detailed_layout(self):

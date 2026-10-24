@@ -1,5 +1,26 @@
 # Plán postupného portu PR #769
 
+## S27e2 locally validated; S27e complete (2026-10-24)
+
+Bundled ZIP/7-Zip Move packing is enabled through the same exact-relative callback.
+Audit found legacy narrow source deletion: ZIP cleanup now decodes UTF8 first with
+ACP fallback and uses extended wide DeleteFileW;7-Zip keeps owned full-path UTF8
+and uses its existing long-wide conversion before deletion. Existing success,
+Cancel/Skip/Retry and archive-self-lock semantics remain intact; no engine rewrite.
+
+D/R host/dependencies and both archive engines /warnaserror PASS. Actual callback,
+packer gate and source-deletion native tests421/config PASS, including real short
+and >260 Unicode file removal, unselected sentinel and failure/Cancel. All28
+registered source/menu groups PASS. User-confirmed GUI ZIP and7z Move each PASS
+in D/R:5 exact relative names and independently decompressed SHA256,5 selected
+sources removed, outside sentinel unchanged. Release checked-Move dialog Cancel
+preserved all5 source hashes with no output. Private configs restored; policy0.
+Debug repeated known heap notification (S22/S27e1; allocation origin not instrumented
+this run); Release clean exit/no new crash reports. See [S27e2](steps/S27e2.md).
+Unknown/external packers and Branch targets remain unavailable; no SDK/security
+change. No push/remote CI/CodeQL/full clean matrix run. S27 goal remains ACTIVE:
+next S27f.01 File Comparator, then separately verified plugin integrations.
+
 ## S27e1 locally validated — ZIP/7-Zip copy packing (2026-10-24)
 
 CM_PACK now uses the accepted S22 exact-relative callback for disk Branch sources.

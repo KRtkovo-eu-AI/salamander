@@ -260,3 +260,12 @@ The host selection callback and archive integration reuse
 Contributors, GPL-2.0-or-later. Original notices retained. The staged bundled-packer
 gate, nothrow allocation adaptation and native boundary facades are local work;
 ZIP/7-Zip engines and the public plugin ABI remain unchanged.
+
+### S27e2 Branch archive move cleanup
+
+Archive callbacks and ZIP/7-Zip packing/cleanup algorithms reuse
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin
+Contributors, GPL-2.0-or-later. Original notices retained. Wide source deletion,
+full-path UTF8 preservation, staged activation and owned native fixtures are local
+adaptations; original archive success/cancellation behavior and plugin ABI remain.

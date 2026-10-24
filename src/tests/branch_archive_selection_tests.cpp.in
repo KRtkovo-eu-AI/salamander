@@ -423,16 +423,79 @@ static void TestPackerGate()
 {
  Check(IsVerifiedBranchPacker(),"bundled ZIP copy allowed");
  Plugins.Plugin.DLLName="7zip\\7zip.spl";Check(IsVerifiedBranchPacker(),"bundled 7-Zip copy allowed");
- PackerConfig.Move=TRUE;Check(!IsVerifiedBranchPacker(),"unverified move-packer remains blocked");PackerConfig.Move=FALSE;
+ PackerConfig.Move=TRUE;Check(IsVerifiedBranchPacker(),"verified bundled move-packer accepted");PackerConfig.Move=FALSE;
  for(const char* name:{"other\\zip.spl","7zip.spl","external\\other.spl","C:\\custom\\zip.spl"}){Plugins.Plugin.DLLName=name;Check(!IsVerifiedBranchPacker(),"unknown or external packer cannot execute through Branch");}
  Plugins.Plugin.DLLName=nullptr;Check(!IsVerifiedBranchPacker(),"null packer identity rejected");
  Plugins.Plugin.DLLName="zip\\zip.spl";Plugins.Plugin.SupportCustomPack=FALSE;Check(!IsVerifiedBranchPacker(),"unsupported plugin rejected");Plugins.Plugin.SupportCustomPack=TRUE;
  for(int type:{0,1,INT_MIN,-2}){PackerConfig.Type=type;Check(!IsVerifiedBranchPacker(),"invalid/external packer index rejected without overflow");}PackerConfig.Type=-1;
  PackerConfig.Index=-1;Check(!IsVerifiedBranchPacker(),"missing preferred packer rejected");PackerConfig.Index=1;Check(!IsVerifiedBranchPacker(),"out of bounds preferred packer rejected");PackerConfig.Index=0;
 }
+
+enum { DIALOG_OK, DIALOG_RETRY, DIALOG_CANCEL, DIALOG_SKIP, DIALOG_SKIPALL,
+       BUTTONS_RETRYSKIPCANCEL, IDS_DELETE_ERROR };
+static const char* LoadStr(int) { return "delete error"; }
+struct DeleteGeneral {
+    int Reply = DIALOG_CANCEL, Calls = 0;
+    HWND GetMsgBoxParent() { return NULL; }
+    const char* GetErrorText(DWORD) { return "error"; }
+    int DialogError(HWND, int, const char*, const char*, const char*) { ++Calls; return Reply; }
+} DeleteHost;
+static DeleteGeneral* SalamanderGeneral = &DeleteHost;
+struct CleanupWidePath {
+    std::wstring Value;
+    const wchar_t* Ptr() const { return Value.c_str(); }
+};
+static CleanupWidePath GetSalamanderUnicodeString(const char* text);
+static CleanupWidePath GetSalamanderLongPath(CleanupWidePath path) {
+    if (path.Value.size() >= MAX_PATH && path.Value.compare(0,4,L"\\\\?\\") != 0)
+        path.Value = path.Value.compare(0,2,L"\\\\") == 0 ?
+            L"\\\\?\\UNC\\" + path.Value.substr(2) : L"\\\\?\\" + path.Value;
+    return path;
+}
+@@CLEANUP@@
+static CleanupWidePath GetSalamanderUnicodeString(const char* text) {
+    return {SalamanderDiskSelection::WideFromPath(text)};
+}
+static void TestSourceCleanup() {
+    // This native process owns its temporary working directory and only these files.
+    std::vector<wchar_t> cwd(SAL_MAX_PATH);
+    DWORD n=GetCurrentDirectoryW(static_cast<DWORD>(cwd.size()),cwd.data());
+    Check(n>0 && n<cwd.size(),"owned test cwd obtained");
+    if (!n || n>=cwd.size()) return;
+    std::wstring root(cwd.data());
+    std::vector<std::wstring> created;
+    for(int i=0;i<4;++i) {
+        root += L"\\" + std::wstring(75,L'漢') + std::to_wstring(i);
+        auto full=GetSalamanderLongPath({root}).Value;
+        Check(CreateDirectoryW(full.c_str(),NULL)!=FALSE,"create owned long Unicode directory");
+        created.push_back(full);
+    }
+    Check(root.size()>MAX_PATH && Utf8(root).size()>MAX_PATH,"cleanup fixture long in UTF16 and UTF8");
+    for(int operation=0;operation<4;++operation) {
+        const int engine=operation%2;
+        const std::wstring directory=operation<2?root:std::wstring(cwd.data());
+        std::wstring path=directory+L"\\selected-東京.txt", sentinel=directory+L"\\untouched-東京.txt";
+        auto wide=GetSalamanderLongPath({path}).Value, other=GetSalamanderLongPath({sentinel}).Value;
+        for(const auto& name: {wide,other}) {
+            HANDLE h=CreateFileW(name.c_str(),GENERIC_WRITE,0,NULL,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,NULL);
+            Check(h!=INVALID_HANDLE_VALUE,"create exact owned source/sentinel");
+            if(h!=INVALID_HANDLE_VALUE) { DWORD written=0;Check(WriteFile(h,"test",4,&written,NULL)&&written==4,"write fixture bytes");CloseHandle(h); }
+        }
+        auto text=Utf8(path);BOOL silent=FALSE;
+        Check(engine==0 ? DeletePackedSourceFile(text.c_str()) : SafeDeleteFile(text.c_str(),silent),"actual cleanup deletes exact long UTF8 source");
+        Check(GetFileAttributesW(wide.c_str())==INVALID_FILE_ATTRIBUTES,"selected source absent");
+        Check(GetFileAttributesW(other.c_str())!=INVALID_FILE_ATTRIBUTES,"unselected Unicode sentinel preserved");
+        Check(DeleteFileW(other.c_str())!=FALSE,"owned sentinel cleanup");
+    }
+    std::wstring missing=root+L"\\missing.txt";BOOL silent=FALSE;DeleteHost.Calls=0;
+    Check(!SafeDeleteFile(Utf8(missing).c_str(),silent)&&DeleteHost.Calls==1,"7zip deletion failure honors Cancel");
+    Check(!DeletePackedSourceFile(""),"empty source rejected");
+    for(auto i=created.rbegin();i!=created.rend();++i) Check(RemoveDirectoryW(i->c_str())!=FALSE,"remove empty owned fixture directory");
+}
+
 int main()
 {
-    TestPackerGate(); TestPathsAndModes(); TestFailures(); TestLinks(); TestOrdinaryDispatch();
+    TestSourceCleanup(); TestPackerGate(); TestPathsAndModes(); TestFailures(); TestLinks(); TestOrdinaryDispatch();
     std::printf("Branch archive actual callback: %d/%d checks passed\n", Checks - Failures, Checks);
     return Failures == 0 ? 0 : 1;
 }

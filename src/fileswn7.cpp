@@ -2288,11 +2288,11 @@ static BOOL UnpackArchiveToArchiveViaTemp(CFilesWindow* source, CPanelTmpEnumDat
     return done;
 }
 
-// S27e1 staged activation: only the bundled ZIP/7-Zip copy packers are verified.
+// S27e2 staged activation: only the bundled ZIP/7-Zip packers are verified.
 static BOOL IsVerifiedBranchPacker()
 {
     const int index = PackerConfig.GetPreferedPacker();
-    if (PackerConfig.Move || index < 0 || index >= PackerConfig.GetPackersCount())
+    if (index < 0 || index >= PackerConfig.GetPackersCount())
         return FALSE;
     const int type = PackerConfig.GetPackerType(index);
     if (type >= 0)
@@ -2306,7 +2306,7 @@ static BOOL IsVerifiedBranchPacker()
 void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* pluginName, int delFilesAfterPacking)
 {
     if (target == NULL || target->IsBranchView() ||
-        (IsBranchView() && (!Is(ptDisk) || !target->Is(ptDisk) || delFilesAfterPacking == 1))) return;
+        (IsBranchView() && (!Is(ptDisk) || !target->Is(ptDisk)))) return;
 
     CALL_STACK_MESSAGE4("CFilesWindow::Pack(, %d, %s, %d)", pluginIndex, pluginName, delFilesAfterPacking);
     if (Files->Count + Dirs->Count == 0)

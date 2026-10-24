@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Open Salamander Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Exercise the actual archive selection callback in Debug and Release, without UI or disk mutation."""
+"""Exercise the actual archive selection callback in Debug and Release, without UI; source cleanup uses owned temporary files."""
 import argparse
 import os
 from pathlib import Path
@@ -93,6 +93,10 @@ def main():
     generated = read("src/tests/branch_archive_selection_tests.cpp.in")
     for name, value in pieces.items():
         generated = generated.replace("@@" + name + "@@", value)
+    generated = generated.replace('@@CLEANUP@@',
+        'namespace SalamanderDiskSelection {\n' + block(read('src/plugins/shared/spl_diskselection.h'), 'inline std::wstring WideFromPath(') + '\n}\n' +
+        block(read('src/plugins/zip/add.cpp'), 'static BOOL DeletePackedSourceFile(') + '\n' +
+        block(read('src/plugins/7zip/7zip.cpp'), 'BOOL SafeDeleteFile('))
     if "@@" in generated:
         raise AssertionError("unexpanded archive fixture marker")
     environment = compiler_environment()

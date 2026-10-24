@@ -2033,28 +2033,6 @@ static BOOL DeletePackedSourceFile(const char* name)
     return DeleteFileW(path.c_str());
 }
 
-// Remove only the selected, now-empty directory; never recurse into retained data.
-static BOOL RemovePackedSourceDirectory(const char* name)
-{
-    try
-    {
-        std::wstring path = SalamanderDiskSelection::WideFromPath(name);
-        if (path.empty())
-        {
-            SetLastError(ERROR_INVALID_NAME);
-            return FALSE;
-        }
-        if (path.length() >= MAX_PATH && path.compare(0, 4, L"\\\\?\\") != 0)
-            path = path.compare(0, 2, L"\\\\") == 0 ? L"\\\\?\\UNC\\" + path.substr(2) : L"\\\\?\\" + path;
-        return RemoveDirectoryW(path.c_str());
-    }
-    catch (const std::bad_alloc&)
-    {
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return FALSE;
-    }
-}
-
 int CZipPack::CleanUpSource()
 {
     CALL_STACK_MESSAGE1("CZipPack::CleanUpSource()");
