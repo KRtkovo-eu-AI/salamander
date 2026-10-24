@@ -1,5 +1,20 @@
 # Stav portu PR #769
 
+## S27f.04 Split & Combine locally validated (2026-10-24)
+
+Bundled splitcbn\splitcbn.spl Split1/Combine2 pass the private audited command
+policy; other IDs stay blocked. All45 tracked plugin files equal donor47661e92.
+Host/plugin D/R /warnaserror builds PASS;53 dispatch and210 real consumer/I/O
+checks/config PASS; all28 source/menu groups PASS. Actual D/R Branch GUI Split
+reads the >260Unicode source and creates6parts in its actual long parent; ordered
+bytes/hash equal source, generated BAT name/CRC independently correct (never run).
+Actual D/R Combine of3explicit parts from3parents including long Unicode produces
+exact ordered bytes/hash under first input parent. All8sources/2sentinels unchanged.
+Release ordinary focused sibling discovery stays in actual parent; Cancel creates
+no output. Runtime matches launch, INIs restored, own processes closed, registry0.
+No publication/remote CI/CodeQL/full clean matrix. See [S27f.04](steps/S27f04.md).
+Goal ACTIVE; next S27f.05 Automation; Checksum auxiliary Focus remains pending.
+
 ## S27f.03 Checksum Calculate/Verify locally validated (2026-10-24)
 
 Only bundled checksum\checksum.spl Calculate ID1 and Verify ID2 pass the private

@@ -295,3 +295,11 @@ Checksum owned selection, manifest handling and engines reuse
 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin
 Contributors, GPL-2.0-or-later. Original notices and all plugin blobs retained.
 Private host command permission and recording dispatch tests are local adaptations.
+
+### S27f.04 Branch Split & Combine integration
+
+Split & Combine owned paths, plans and I/O engines reuse
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), donor
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin
+Contributors, GPL-2.0-or-later. Original notices/plugin blobs retained.
+Private host command permission and dispatch tests are local adaptations.

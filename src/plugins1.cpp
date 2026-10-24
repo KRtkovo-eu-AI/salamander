@@ -3666,13 +3666,14 @@ void CPluginData::InitMenuItems(HWND parent, int index, CMenuPopup* menu)
     }
 }
 
-// S27f.01-.03: Verified plugin commands use accepted owned snapshots.
+// S27f.01-.04: Verified plugin commands use accepted owned snapshots.
 BOOL CPluginData::IsBranchCommandAllowed(int id) const
 {
     return DLLName != NULL &&
         ((id == 1 && (_stricmp(DLLName, "filecomp\\filecomp.spl") == 0 ||
                       _stricmp(DLLName, "renamer\\renamer.spl") == 0)) ||
-         ((id == 1 || id == 2) && _stricmp(DLLName, "checksum\\checksum.spl") == 0));
+         ((id == 1 || id == 2) && (_stricmp(DLLName, "checksum\\checksum.spl") == 0 ||
+                                 _stricmp(DLLName, "splitcbn\\splitcbn.spl") == 0)));
 }
 
 BOOL CPluginData::ExecuteMenuItem(CFilesWindow* panel, HWND parent, int index, int suid, BOOL& unselect)
