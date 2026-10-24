@@ -1,5 +1,33 @@
 # S00 read-only donor boundary audit
 
+## S27f.11 Undelete locally validated (2026-10-24)
+
+Admit only bundled undelete\undelete.spl Connect1/Restore2; unknown IDs/custom
+DLLs remain refused. Accepted S16 owned selection and restore/Connect engines
+retained. GUI exposed truncated live-panel filename in Restore label. Private
+synchronous dialog now borrows the already-owned snapshot, counts its items,
+requests only localized noun/count templates, substitutes exact NameW once and
+sets wide label text. Host display-case %s/%S templates handled; literal percent
+in names stays literal. No SDK/vtable or operation engine change/new strings.
+
+D/R x64 host and final Undelete/dependencies warning-as-error builds PASS;
+71 restore/native and128 actual dispatch assertions/config PASS;28 registered
+source/menu groups PASS. Native EFS uses recording stubs, no real EFS import.
+Real D/R GUI: long100-CJK Unicode and ordinary unencrypted files copied with
+matching hashes; Release Cancel creates no file. Connect retains exact focused
+long image path and refuses it with explicit existing legacy-limit error before
+image I/O. No physical disk analyzed. Final %S case-template refinement rebuilt
+D/R and repeated both long GUI copies into fresh targets with actual loaded
+module verification. Earlier ordinary/cancel/Connect evidence keeps prior binary
+hashes explicitly. Six resulting outputs,10 sources/control/sentinel unchanged,
+exact inventory. Complete label retained in accessibility; existing dialog width
+still visually clips very long labels. No claim that entire label fits on screen.
+
+Own hosts closed, original INIs byte-restored, LongPathsEnabled0. No remote
+CI/CodeQL or full clean supported matrix yet; no push/PR. Evidence ../evidence/S27f11.
+Next auxiliary Checksum99/framework help/PictView config/LastCommand audit.
+Whole S27 remains unfinished.
+
 ## S27f.10 PAK audit closed with explicit hidden-command boundary (2026-10-24)
 
 User explicitly chose to retain the PAK Optimize menu hidden, as in donor and

@@ -161,7 +161,7 @@ static void FakeCloseEncryptedFileRaw(PVOID context){++RawCloses;auto p=static_c
 static bool ClearPanelOnModal=false,CancelModal=false;
 struct CRestoreDialog {
  std::string TargetPath;
- CRestoreDialog(HWND):TargetPath(UndeletePaths::Utf8(RestoreTarget.c_str())){}
+ CRestoreDialog(HWND,const CSalamanderDiskSelection&):TargetPath(UndeletePaths::Utf8(RestoreTarget.c_str())){}
  int Execute(){++ModalCalls;if(ClearPanelOnModal)Window.Left.Clear();return CancelModal?IDCANCEL:IDOK;}
 };
 @@ENTRY@@
@@ -176,6 +176,10 @@ static std::string Read(const std::wstring& p){HANDLE h=CreateFileW(UndeletePath
 static void Reset(){Window.Left.Clear();Opened.clear();Created.clear();Errors=0;SkipExisting=FailCreate=WantCancel=FailRawOpen=FailRawWrite=ClearPanelOnModal=CancelModal=false;RawOpens=RawCloses=ModalCalls=0;RawPath.clear();}
 static void Select(const std::wstring& full,bool selected=true,bool dir=false){auto n=full.substr(full.find_last_of(L'\\')+1);auto f=Window.Left.Add(n,full,n,selected,dir);f->Size.Value=Read(full).size();}
 int main(){
+ const std::wstring labelName=std::wstring(100,L'東')+L"%s.bin";
+ Check(UndeletePaths::RestoreSubject(L"file \"%s\"",labelName.c_str())==L"file \""+labelName+L"\"","wide restore subject preserves full CJK name and literal percent placeholder");
+ Check(UndeletePaths::RestoreSubject(L"2 files",labelName.c_str())==L"2 files","plural descriptor without placeholder retained");
+ Check(UndeletePaths::RestoreSubject(L"file \"%S\"",labelName.c_str())==L"file \""+labelName+L"\"","host uppercase filename display keeps exact restore subject");
  MainThreadID=GetCurrentThreadId();std::vector<wchar_t> temp(SAL_MAX_PATH);GetTempPathW(static_cast<DWORD>(temp.size()),temp.data());
  const std::wstring root=std::wstring(temp.data())+L"undelete-boundary-"+std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(GetTickCount64());MakeDir(root);
  struct Cleanup{std::wstring Root;~Cleanup(){std::error_code ec;std::filesystem::remove_all(UndeletePaths::IoPath(Root),ec);}}cleanup{root};

@@ -36,6 +36,16 @@ inline std::wstring IoPath(const std::wstring& path)
     std::wstring result(buffer.data());
     return result.compare(0, 2, L"\\\\") == 0 ? L"\\\\?\\UNC\\" + result.substr(2) : L"\\\\?\\" + result;
 }
+// Substitute a localized subject once; percent signs inside names stay literal.
+inline std::wstring RestoreSubject(std::wstring pattern, const wchar_t* subject)
+{
+    size_t placeholder = pattern.find(L"%s");
+    // The host applies its configured filename case to the inner placeholder.
+    if (placeholder == std::wstring::npos) placeholder = pattern.find(L"%S");
+    if (placeholder != std::wstring::npos)
+        pattern.replace(placeholder, 2, subject != NULL ? subject : L"");
+    return pattern;
+}
 inline std::wstring ReadText(HWND control)
 {
     int length = GetWindowTextLengthW(control);

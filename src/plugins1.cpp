@@ -3666,7 +3666,7 @@ void CPluginData::InitMenuItems(HWND parent, int index, CMenuPopup* menu)
     }
 }
 
-// S27f.01-.09: Verified plugin commands use accepted owned snapshots.
+// S27f.01-.11: Verified plugin commands use accepted owned snapshots.
 BOOL CPluginData::IsBranchCommandAllowed(int id)
 {
     const BOOL automation = DLLName != NULL &&
@@ -3696,7 +3696,8 @@ BOOL CPluginData::IsBranchCommandAllowed(int id)
                       _stricmp(DLLName, "filecomp\\filecomp.spl") == 0 ||
                       _stricmp(DLLName, "renamer\\renamer.spl") == 0)) ||
          ((id == 1 || id == 2) && (_stricmp(DLLName, "checksum\\checksum.spl") == 0 ||
-                                 _stricmp(DLLName, "splitcbn\\splitcbn.spl") == 0)));
+                                 _stricmp(DLLName, "splitcbn\\splitcbn.spl") == 0 ||
+                                 _stricmp(DLLName, "undelete\\undelete.spl") == 0)));
 }
 
 // Both posted paths retain their original operation-context choice and event mask.

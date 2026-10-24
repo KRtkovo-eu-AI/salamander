@@ -374,3 +374,11 @@ donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Open Salamander Authors and
 Samandarin Contributors, GPL-2.0-or-later; all original notices and7-Zip engine
 credits preserved. Narrow host command gate and exact wide focused-name association
 are local integration adaptations of a reproduced truncated-display-name defect.
+
+### S27f.11 Undelete command integration
+
+Retains the S16 owned restore and Connect paths from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pinned donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Milan Kase,
+Open Salamander Authors and Samandarin Contributors, GPL-2.0-or-later. Original
+notices preserved. Narrow command admission and private snapshot-based Unicode
+Restore label are local integration adaptations of a reproduced GUI alias defect.

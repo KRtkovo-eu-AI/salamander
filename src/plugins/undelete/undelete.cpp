@@ -517,7 +517,7 @@ try
     CSalamanderDiskSelection selection;
     if (!selection.Capture(SalamanderGeneral, PANEL_SOURCE) || selection.GetCount() == 0)
         return String<char>::SysError(IDS_UNDELETE, IDS_ERRORENCRYPTED);
-    CRestoreDialog dlg(parent);
+    CRestoreDialog dlg(parent, selection);
     if (dlg.Execute() == IDCANCEL) return FALSE;
     return RestoreEncryptedFiles(selection, dlg.TargetPath.c_str(), parent);
 }

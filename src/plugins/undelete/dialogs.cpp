@@ -822,8 +822,8 @@ static int CALLBACK RestoreBrowseCallback(HWND window, UINT message, LPARAM, LPA
     return 0;
 }
 
-CRestoreDialog::CRestoreDialog(HWND parent)
-    : CDialog(HLanguage, IDD_RESTORE, IDD_RESTORE, parent)
+CRestoreDialog::CRestoreDialog(HWND parent, const CSalamanderDiskSelection& selection)
+    : CDialog(HLanguage, IDD_RESTORE, IDD_RESTORE, parent), Selection(selection)
 {
 }
 

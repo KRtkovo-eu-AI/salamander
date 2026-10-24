@@ -78,6 +78,10 @@ int main(){
  Check(plugin.IsBranchCommandAllowed(1)&&BranchReadOnlyCommandAllowed(item.SUID),"verified Split command accepted");
  item.ID=2;Check(plugin.IsBranchCommandAllowed(2)&&BranchReadOnlyCommandAllowed(item.SUID),"verified Combine command accepted");
  Check(!plugin.IsBranchCommandAllowed(0)&&!plugin.IsBranchCommandAllowed(3),"unknown Split/Combine IDs remain refused");item.ID=1;
+ plugin.DLLName="undelete\\undelete.spl";
+ for(int id:{1,2}){item.ID=id;Check(plugin.IsBranchCommandAllowed(id)&&BranchReadOnlyCommandAllowed(item.SUID),"verified Undelete Connect/Restore accepted");for(int route=0;route<4;++route){BOOL unselect=FALSE;BOOL result=route==0?plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect):route==1?plugin.ExecuteMenuItem2(&panel,NULL,0,id,unselect):route==2?plugin.ExecuteToolbarCommand(&panel,NULL,0,id,unselect):(unselect=Plugins.ExecuteCommand(0,0,&panel,NULL));Check(result&&unselect&&plugin.PluginIfaceForMenuExt.LastID==id,"Undelete command passes each actual dispatcher");}}
+ Check(!plugin.IsBranchCommandAllowed(0)&&!plugin.IsBranchCommandAllowed(3),"unknown Undelete IDs refused");
+ for(const char* dll:{"undelete.spl","custom\\undelete.spl"}){plugin.DLLName=dll;Check(!plugin.IsBranchCommandAllowed(1)&&!plugin.IsBranchCommandAllowed(2),"custom Undelete identity refused");}
  plugin.DLLName="pictview\\pictview.spl";item.ID=188;
  Check(plugin.IsBranchCommandAllowed(188)&&BranchReadOnlyCommandAllowed(item.SUID),"verified PictView Update Thumbnail accepted");
  for(int route=0;route<4;++route){BOOL unselect=FALSE;BOOL result=route==0?plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect):route==1?plugin.ExecuteMenuItem2(&panel,NULL,0,188,unselect):route==2?plugin.ExecuteToolbarCommand(&panel,NULL,0,188,unselect):(unselect=Plugins.ExecuteCommand(0,0,&panel,NULL));Check(result&&unselect&&plugin.PluginIfaceForMenuExt.LastID==188,"PictView thumbnail passes each actual dispatcher");}
