@@ -42,7 +42,7 @@ int main(){
  Check(BranchReadOnlyCommandAllowed(item.SUID),"SUID resolved to exact plugin and command");
  Check(!BranchReadOnlyCommandAllowed(item.SUID+1),"unregistered SUID refused");
  Check(!BranchReadOnlyCommandAllowed(CM_PLUGINCMD_MIN-1)&&!BranchReadOnlyCommandAllowed(CM_PLUGINCMD_MAX+1),"range boundaries refused");
- for(const char* dll: {"unknown\\filecomp.spl","filecomp.spl","C:\\plugins\\filecomp\\filecomp.spl","zip\\zip.spl",static_cast<const char*>(nullptr)}){
+ for(const char* dll: {"unknown\\filecomp.spl","filecomp.spl","C:\\plugins\\filecomp\\filecomp.spl","custom\\zip.spl",static_cast<const char*>(nullptr)}){
   plugin.DLLName=dll;Check(!plugin.IsBranchCommandAllowed(1)&&!BranchReadOnlyCommandAllowed(item.SUID),"unknown/custom/absolute DLL identity refused");
   BOOL unselect=TRUE;int before=Plugins.LastChanges;
   Check(plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect)&&!unselect,"blocked SUID handled without unselect");
@@ -55,7 +55,9 @@ int main(){
  plugin.DLLName="zip\\zip.spl";item.ID=3;
  Check(plugin.IsBranchCommandAllowed(3)&&BranchReadOnlyCommandAllowed(item.SUID),"verified ZIP Test Archive accepted");
  for(int route=0;route<4;++route){BOOL unselect=FALSE;BOOL result=route==0?plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect):route==1?plugin.ExecuteMenuItem2(&panel,NULL,0,3,unselect):route==2?plugin.ExecuteToolbarCommand(&panel,NULL,0,3,unselect):(unselect=Plugins.ExecuteCommand(0,0,&panel,NULL));Check(result&&unselect&&plugin.PluginIfaceForMenuExt.LastID==3,"ZIP test passes each actual dispatcher");}
- Check(!plugin.IsBranchCommandAllowed(1)&&!plugin.IsBranchCommandAllowed(2),"ZIP SFX and repair commands remain refused");
+ Check(!plugin.IsBranchCommandAllowed(2),"ZIP repair command remains refused");
+ item.ID=1;Check(plugin.IsBranchCommandAllowed(1)&&BranchReadOnlyCommandAllowed(item.SUID),"verified ZIP Create SFX accepted");
+ for(int route=0;route<4;++route){BOOL unselect=FALSE;BOOL result=route==0?plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect):route==1?plugin.ExecuteMenuItem2(&panel,NULL,0,1,unselect):route==2?plugin.ExecuteToolbarCommand(&panel,NULL,0,1,unselect):(unselect=Plugins.ExecuteCommand(0,0,&panel,NULL));Check(result&&unselect&&plugin.PluginIfaceForMenuExt.LastID==1,"ZIP SFX passes each actual dispatcher");}
  item.ID=4;Check(plugin.IsBranchCommandAllowed(4)&&BranchReadOnlyCommandAllowed(item.SUID),"verified ZIP Comment accepted");
  for(int route=0;route<4;++route){BOOL unselect=FALSE;BOOL result=route==0?plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect):route==1?plugin.ExecuteMenuItem2(&panel,NULL,0,4,unselect):route==2?plugin.ExecuteToolbarCommand(&panel,NULL,0,4,unselect):(unselect=Plugins.ExecuteCommand(0,0,&panel,NULL));Check(result&&unselect&&plugin.PluginIfaceForMenuExt.LastID==4,"ZIP comment passes each actual dispatcher");}
  for(const char* dll:{"zip.spl","custom\\zip.spl"}){plugin.DLLName=dll;Check(!plugin.IsBranchCommandAllowed(3),"custom ZIP DLL identity refused");}

@@ -1,5 +1,41 @@
 # Stav portu PR #769
 
+## S27f.08b2 ZIP CreateSFX locally validated (2026-10-24)
+
+Only bundled ZIP CreateSFX1 newly admitted, alongside accepted Test3/Comment4.
+Existing S13 owned archive selection and ZIP/SFX engine retained; Repair2 remains
+blocked. Exact donor/baseline prerequisites repaired: heap output capacity,
+Unicode-created dialog and bounded UTF8 readback, heap progress title, wide final
+PE resource/icon I/O and failure cleanup, missing malloc-failure else. Existing
+overwrite/compatibility/engine guards retained; resource open rejects the actual
+INVALID_HANDLE_VALUE sentinel. No SDK/vtable change or new localized strings.
+
+D/R x64 host and ZIP /warnaserror builds PASS. Actual command/real Unicode edit
+26, policy/dispatch107, archive43, comment17 native checks/config PASS;28 source/
+menu groups PASS. Existing filename contract selector follows internal helper
+linkage; encoding assertions unchanged. Real D/R GUI creates three selected
+distinct-parent Branch outputs (duplicate same.zip, 100-CJK basename, true long
+Unicode path) plus ordinary output; Release target edited to ordinary-東京.exe.
+Cancel creates nothing. Independent verification:8 valid PE outputs, icon3/
+group-icon14/manifest24 resources, exact16 member hashes,10 original archives/
+20 source members and unselected controls/sentinel unchanged; exact inventory.
+Generated EXEs not executed. Final binary/module hashes match GUI launch; INIs
+restored, own hosts closed, LongPathsEnabled0. No shutdown warning observed in
+these SFX runs; this does not resolve b1's separately reproduced MENU diagnostic.
+
+Standalone shared-resource consumers: Zip2Sfx Debug full build and Release actual
+compile/link targets PASS; SfxMake D/R full build PASS. SelfExtr Release/ReleaseEx
+English built, fresh SfxMake generated actual English test package. Initial
+Zip2Sfx Release normal Build post-packaging failed missing OPENSAL_BUILD_DIR
+environment variable; full all-language packaging matrix NOT claimed. No project
+or CI checks disabled. Existing package-installation MAX_PATH limits retained;
+not a promise of arbitrary long installation/custom icon/package paths, ZIP64,
+multi-volume SFX or generated-program execution behavior. No remote CI/CodeQL or
+clean whole supported matrix run. Evidence ../evidence/S27f08b2.
+
+Next S27f.09 7-Zip Test Archive, then .10/.11 and auxiliary command audit.
+Whole S27 remains unfinished. Local commit only; no push/PR.
+
 ## S27f.08b1 ZIP Comment locally validated (2026-10-24)
 
 Private policy now admits bundled zip\zip.spl Comment4 alongside Test3; SFX1 and

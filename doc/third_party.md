@@ -357,3 +357,12 @@ Open Salamander Authors and Samandarin Contributors, GPL-2.0-or-later. Existing
 notices retained. Comment-only private gate, early stop on failed save reopen,
 Unicode-created dialog and heap-backed title formatting plus native regressions
 are local repairs of demonstrated integration/baseline defects.
+
+### S27f.08b2 ZIP self-extracting archives
+
+Retains owned ZIP/SFX commands from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+donor47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, and the ZIP/SFX/PE resource
+work of Milan Kase, Open Salamander Authors and Samandarin Contributors under
+GPL-2.0-or-later; original file notices preserved. Heap paths, Unicode dialog/
+resource I/O, invalid-handle and allocation-flow repairs and native tests are local
+adaptations of demonstrated baseline prerequisites; original engines retained.
