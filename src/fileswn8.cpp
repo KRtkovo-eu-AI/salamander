@@ -872,7 +872,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                         if (SalSplitWindowsPath(HWindow, LoadStr(type == atCopy ? IDS_COPY : IDS_MOVE),
                                                 LoadStr(type == atCopy ? IDS_ERRORCOPY : IDS_ERRORMOVE),
                                                 count, path, secondPart, pathIsDir, backslashAtEnd || mustBePath,
-                                                sourceBaseName.c_str(), sourceDirectory.c_str(), mask))
+                                                sourceBaseName.c_str(), sourceDirectory.c_str(), mask, SAL_MAX_PATH))
                         {
                             if (!validateDiskTarget())
                             {

@@ -1,5 +1,23 @@
 # Validace portu a baseline S00
 
+## S31b5b3b — skutečná kapacita cesty, masky a newDirs
+
+Interní split funkce mají povinné explicitní kapacity. Core předává SAL_MAX_PATH,
+nezměněné SDK virtual wrappery garantovaná minima2*MAX_PATH/path a MAX_PATH/newDirs.
+Růst o NUL, backslash a universal mask je ověřen před zápisy/potvrzením;
+Windows adapter používá soukromý heap mezikrok a kontroluje konečné packed bytes
+před tvorbou adresářů. Přesně zaplněný výstup uspěje i při větším mezikroku;
+mask se přebazuje do caller bufferu, chyba/cancel ponechá caller path beze změny.
+Actual split/create190 kontrol/config D/R PASS, včetně všech předchozích81
+podmínek, exact-fit/one-short, SDK minima, redzones a real-I/O odmítnutí před
+creation. Safe extra mutace: packing173/32, newDirs173/12, pointer190/16 failures.
+Host D/R x64 /warnaserror PASS; snapshot50/config, transitions28/operations All20
+PASS. GUI D dark/R light ordinary Unicode Copy + Cancel, exact readback PASS.
+SDK hlavičky/vtable a Branch entry guard beze změny; runtime plugin/Branch matice
+není tímto hotová. Navazuje S31b5b3c preflight výsledného rootu/mask a ověřená
+aktivace. ChangeDir zůstává odložený, G04/G05 OPEN, goal ACTIVE, S32 BLOCKED;
+bez push/PR/CI. Viz [S31b5b3b](steps/S31b5b3b.md).
+
 ## S31b5b3a — plný prefix oznámení vytvořených adresářů
 
 SalSplitWindowsPath uchová existující prefix v owned stringu před prvním

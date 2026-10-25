@@ -13,14 +13,21 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--configuration', choices=('Debug','Release','Both'), default='Both')
     args = parser.parse_args()
+    sdk = read('src/zip.cpp')
+    assert 'pathIsDir, backslashAtEnd, dirName, curDiskPath, mask, 2 * MAX_PATH);' in sdk
+    assert 'isTheSamePathF, 2 * MAX_PATH, MAX_PATH);' in sdk
+    assert 'sourceBaseName.c_str(), sourceDirectory.c_str(), mask, SAL_MAX_PATH))' in read('src/fileswn8.cpp')
+    assert 'backslashAtEnd || mustBePath, NULL, NULL, mask, SAL_MAX_PATH))' in read('src/fileswna.cpp')
     source = read('src/salamdr5.cpp')
+    bounds = source[source.index('// S31b5b3b: capacities'):source.index('BOOL SalSplitWindowsPath(')]
+    bounds += block(source, 'static BOOL ReadParsePathRoot(')
     windows = block(source, 'BOOL SalSplitWindowsPath(')
     general = block(source, 'BOOL SalSplitGeneralPath(')
     wide = read('src/common/widepath.cpp')
     utility = read('src/salamdr3.cpp')
     generated = read('src/tests/split_create_notification_tests.cpp.in')
     pieces = {
-        'IDS': 'enum {' + ','.join(sorted(set(re.findall(r'IDS_[A-Z0-9_]+', windows+general)))) + '};',
+        'IDS': 'enum {' + ','.join(sorted(set(re.findall(r'IDS_[A-Z0-9_]+', windows+general+bounds)))) + '};',
         'WIDE': '\n'.join(block(wide, marker) for marker in (
             'BOOL SalIsExtendedLengthPathW(', 'std::wstring SalPathAddExtendedPrefixW(',
             'BOOL IsValidPathUtf8Text(', 'std::wstring SalMultiByteToWidePath(',
@@ -30,7 +37,7 @@ def main():
                      'void SalPathRemoveBackslash(', 'BOOL SalPathAddBackslash(',
                      'BOOL SalPathAppend(', 'BOOL SalCreateDirectoryExW('))+'\n'+
                  block(read('src/fileswn5.cpp'),'BOOL CutSpacesFromBothSides('),
-        'SPLIT': general+'\n'+windows,
+        'SPLIT': bounds+'\n'+general+'\n'+windows,
     }
     for key, value in pieces.items(): generated = generated.replace('@@'+key+'@@', value)
     assert '@@' not in generated
