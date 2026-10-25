@@ -1,5 +1,16 @@
 # Validace portu a baseline S00
 
+## S29 dokončena lokálně (2026-10-25)
+
+Přijatá S28a 635f42c5 má úspěšné CI, CodeQL i čistou matici v PR60.
+S29a/b/c jsou LOCAL_VALIDATED: donorová tab/history integrace, oba host buildy,
+nativní regrese a všech 28 source/menu skupin PASS. Skutečné GUI prošlo 16 scénářů
+v tmavém Debug a 16 ve světlém Release, včetně obnovené historie s vypnutým gate.
+Úplné identity, oddělený fokus/výběr, layouty a původní sort zachovány; SDK beze změny.
+[S29](steps/S29.md) uvádí výsledky a omezení persistence. Přístup k ploše byl
+obnoven a GUI blokace vyřešena. NOT_PUSHED; remote CI/CodeQL/čistá celá matice S29
+NEBĚŽELY. Další etapou je S30, kterou tento checkpoint neimplementuje.
+
 ## S28a — preference zobrazení Path, lokálně ověřena (2026-10-25)
 
 Uživatelské rozšíření je v Options > Configuration > Panels (Panely): relativní

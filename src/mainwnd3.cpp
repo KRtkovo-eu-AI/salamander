@@ -4329,6 +4329,10 @@ static bool BranchReadOnlyCommandAllowed(UINT command)
         (command >= CM_LEFTSORTBY_MIN && command <= CM_LEFTSORTBY_MAX) ||
         (command >= CM_RIGHTSORTBY_MIN && command <= CM_RIGHTSORTBY_MAX))
         return true;
+    // S29: existing tab/history handlers restore owned full-identity snapshots.
+    if ((command >= CM_LEFTHISTORYPATH_MIN && command <= CM_LEFTHISTORYPATH_MAX) ||
+        (command >= CM_RIGHTHISTORYPATH_MIN && command <= CM_RIGHTHISTORYPATH_MAX))
+        return true;
     switch (command)
     {
     case CM_BRANCHVIEW:
@@ -4373,6 +4377,20 @@ static bool BranchReadOnlyCommandAllowed(UINT command)
     case CM_ACTIVEPARENTDIR:
     case CM_LPARENTDIR:
     case CM_RPARENTDIR:
+    case CM_DUPLICATETAB:
+    case CM_LEFT_DUPLICATETAB:
+    case CM_RIGHT_DUPLICATETAB:
+    case CM_LEFT_DUPLICATETABTORIGHT:
+    case CM_RIGHT_DUPLICATETABTOLEFT:
+    case CM_REOPENTAB:
+    case CM_LEFT_REOPENTAB:
+    case CM_RIGHT_REOPENTAB:
+    case CM_ACTIVEBACK:
+    case CM_ACTIVEFORWARD:
+    case CM_LBACK:
+    case CM_LFORWARD:
+    case CM_RBACK:
+    case CM_RFORWARD:
     case CM_CLOSETAB:
     case CM_LEFT_CLOSETAB:
     case CM_RIGHT_CLOSETAB:

@@ -423,3 +423,13 @@ pinned donor 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Open Salamander
 Authors and Samandarin Contributors under GPL-2.0-or-later. Original notices
 retained. The new Panels preference and display formatter are a local user-requested
 extension absent from that donor; no additional third-party implementation imported.
+
+### S29 Branch View tab and history restoration
+
+Adapts tab snapshots, disk-root identity checks and history state ownership from
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), pinned donor
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Open Salamander Authors and
+Samandarin Contributors under GPL-2.0-or-later. Original notices retained.
+Existing capture/restore logic remains gated; local command admission and native
+regression harness integrate it into the incremental port. Debug/Release GUI
+validation passed; no complete restart-persistence guarantee is introduced.

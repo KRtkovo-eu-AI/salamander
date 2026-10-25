@@ -59,6 +59,28 @@ class BranchTransitionContracts(unittest.TestCase):
   for path in (ROOT.parent/'translations').glob('*/salamand.slt'):
    text=path.read_text(encoding='utf-8-sig');page=text.split('[DIALOG 1105]',1)[1].split('\n[',1)[0]
    self.assertEqual(page.count('14528,'),1,str(path))
+ def test_tab_and_history_restores_keep_experimental_gate_and_exact_location(self):
+  restore=function('branch_view.cpp','void CFilesWindow::RestoreBranchViewState(')
+  self.assertIn('!Salamander::BranchView::ExperimentEnabled() || !state.Enabled || !Is(ptDisk)',restore)
+  gate=function('mainwnd3.cpp','static bool BranchReadOnlyCommandAllowed(')
+  for command in ('CM_DUPLICATETAB','CM_LEFT_DUPLICATETAB','CM_RIGHT_DUPLICATETAB','CM_LEFT_DUPLICATETABTORIGHT','CM_RIGHT_DUPLICATETABTOLEFT','CM_REOPENTAB','CM_LEFT_REOPENTAB','CM_RIGHT_REOPENTAB','CM_ACTIVEBACK','CM_ACTIVEFORWARD','CM_LBACK','CM_LFORWARD','CM_RBACK','CM_RFORWARD'):
+   self.assertIn('case '+command+':',gate)
+  self.assertIn('return false;',gate)
+  for signature,condition in (('CFilesWindow* CMainWindow::CreateDuplicatePanelTab(','sourceDiskPath == newPanel->GetPathW()'),('bool CMainWindow::CommandReopenClosedTab(','entry.DiskPathW == panel->GetPathW()')):
+   route=function('mainwnd3.cpp',signature)
+   self.assertLess(route.index(condition),route.index('RestoreBranchViewState('))
+  capture=function('fileswn2.cpp','void CFilesWindow::RefreshPathHistoryData(')
+  self.assertIn('Files->Count + Dirs->Count == 0',capture)
+  self.assertIn('const CBranchViewRestoreState branch = CaptureBranchViewState()',capture)
+  same=function('salamdr3.cpp','BOOL CPathHistoryItem::IsTheSamePath(')
+  self.assertIn('::IsTheSamePath(PathOrArchiveOrFSName, item.PathOrArchiveOrFSName)',same)
+  self.assertNotIn('MAX_PATH',same)
+  save=function('salamdr3.cpp','void CPathHistory::SaveToRegistry(')
+  load=function('salamdr3.cpp','void CPathHistory::LoadFromRegistry(')
+  self.assertIn('saveNavigationState && item->Type == 0',save)
+  self.assertIn('type == 0 && loadNavigationState',load)
+  self.assertIn('width >= 40 && width <= 10000',load)
+  self.assertNotIn('RestoreBranchViewState',load)
  def test_incoming_paths_require_real_root(self):
   self.assertIn('IsBranchView() && !Salamander::BranchView::IsRootDropTarget(GetPathW(), targetPath)',function('fileswn6.cpp','void CFilesWindow::DropCopyMove('))
   paste=function('fileswn9.cpp','BOOL CFilesWindow::ClipboardPaste(')
