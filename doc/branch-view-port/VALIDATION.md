@@ -1,5 +1,19 @@
 # Validace portu a baseline S00
 
+## S31a3a dokončena lokálně — Shell retry guard (2026-10-25)
+
+Druhý G03 error byl skutečný chybějící donorový post-retry guard, nikoli pouhý
+stale selektor. Obnoven guard ContextMenu/h a quiet full-selection retry.
+Původní assertion prošla beze změny, nové native testy 20 kontrol/config a oba
+host buildy Debug/Release PASS; GUI open/cancel v obou konfiguracích PASS.
+Podrobnosti: [S31a3a](steps/S31a3a.md). All scope má nyní jediný zbývající
+clipboard selector error; G03 zůstává otevřen. Následuje S31a3b aktivace All a
+temporary selection. NOT_PUSHED, remote CI/CodeQL/čistá celá matice neběžely.
+
+Uživatel zvolil pro S31b doplnění donorových core operací po malých ověřených
+krocích. Jejich odmítání nelze vydávat za dokončený port; proces gate, bezpečnost
+Windows a whitelist ostatních příkazů zůstávají. Goal S31 ACTIVE, S32 BLOCKED.
+
 ## S31a2 dokončena lokálně — G02 uzavřen (2026-10-25)
 
 ANSI rename fallback v Branch View nyní přesně donorově přechází do wide metody

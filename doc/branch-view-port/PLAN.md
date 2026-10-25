@@ -1,5 +1,28 @@
 # Plán postupného portu PR #769
 
+## S31a3a dokončena lokálně — Shell retry guard (2026-10-25)
+
+Druhý G03 error byl skutečný chybějící donorový post-retry guard, nikoli pouhý
+stale selektor. Obnoven guard ContextMenu/h a quiet full-selection retry.
+Původní assertion prošla beze změny, nové native testy 20 kontrol/config a oba
+host buildy Debug/Release PASS; GUI open/cancel v obou konfiguracích PASS.
+Podrobnosti: [S31a3a](steps/S31a3a.md). All scope má nyní jediný zbývající
+clipboard selector error; G03 zůstává otevřen. Následuje S31a3b aktivace All a
+temporary selection. NOT_PUSHED, remote CI/CodeQL/čistá celá matice neběžely.
+
+Uživatel zvolil pro S31b doplnění donorových core operací po malých ověřených
+krocích. Jejich odmítání nelze vydávat za dokončený port; proces gate, bezpečnost
+Windows a whitelist ostatních příkazů zůstávají. Goal S31 ACTIVE, S32 BLOCKED.
+
+## S31a3 rozdělena po kontrole skutečného Shell retry (2026-10-25)
+
+Nové zjištění: druhý G03 error je skutečně chybějící donorová post-retry validace
+ContextMenu/h, nikoli pouze stale selektor. Nejprve S31a3a obnoví kontrolu a tichý
+retry a ověří skutečný control flow při COM/menu failure, Debug/Release buildy.
+S31a3b potom opraví jen clipboard selector, zapne All a temporary selection test,
+zachová dosavadní assertions včetně post-retry guardu. Starší auditní označení
+obou chyb jako selector-only je tímto opravené; G03 a S32 zatím zůstávají otevřené.
+
 ## S31a2 dokončena lokálně — G02 uzavřen (2026-10-25)
 
 ANSI rename fallback v Branch View nyní přesně donorově přechází do wide metody

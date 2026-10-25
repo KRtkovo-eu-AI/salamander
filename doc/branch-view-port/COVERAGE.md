@@ -1,5 +1,13 @@
 # S31 — Úplnost portu proti donoru
 
+Aktualizace S31a3a: původní označení Shell G03 erroru jako selector-only bylo
+nesprávné. Obnoven skutečný donorový post-retry guard a quiet capture; původní
+test beze změny assertions nyní PASS, native20/config + D/R host a GUI PASS.
+Viz [S31a3a](steps/S31a3a.md). G03 ještě vyžaduje S31a3b (clipboard selector,
+All a temporary selection). Uživatel pro S31b výslovně zvolil doplnění donorových
+core operací po malých ověřených krocích; dokumentace odmítání je neuzavírá.
+G04/G05 a S32 zůstávají otevřené, goal ACTIVE.
+
 Aktualizace S31a2 (2026-10-25): **G02 RESOLVED_LOCAL**, donorový ANSI-to-wide
 rename hook, Debug/Release buildy, vynucený native fallback a skutečné ordinary/
 Branch GUI PASS, viz [S31a2](steps/S31a2.md). G01 je již uzavřen S31a1.
