@@ -2835,13 +2835,14 @@ DWORD CompressFile(char* fileName, DWORD attrs, const wchar_t* exactName = NULL)
 
     // if the path ends with a space or dot, we must append '\\', otherwise CreateFile
     // trims the spaces/dots and works with a different path
-    std::wstring fileNameCrFile = WorkerOperationPathW(fileName);
+    std::wstring fileNameCrFile = WorkerOperationPathW(fileName, exactName);
 
     BOOL attrsChange = FALSE;
     if (attrs & FILE_ATTRIBUTE_READONLY)
     {
         attrsChange = TRUE;
-        SetFileAttributesW(fileNameCrFile.c_str(), attrs & ~FILE_ATTRIBUTE_READONLY);
+        if (!SetFileAttributesW(fileNameCrFile.c_str(), attrs & ~FILE_ATTRIBUTE_READONLY))
+            return GetLastError();
     }
     HANDLE file = HANDLES_Q(CreateFileW(fileNameCrFile.c_str(), FILE_READ_DATA | FILE_WRITE_DATA,
                                        FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
@@ -2858,8 +2859,8 @@ DWORD CompressFile(char* fileName, DWORD attrs, const wchar_t* exactName = NULL)
             ret = GetLastError();
         HANDLES(CloseHandle(file));
     }
-    if (attrsChange)
-        SetFileAttributesW(fileNameCrFile.c_str(), attrs); // revert to the original attributes (on error the attributes would remain nonsensically changed)
+    if (attrsChange && !SetFileAttributesW(fileNameCrFile.c_str(), attrs) && ret == ERROR_SUCCESS)
+        ret = GetLastError(); // Restore must not hide an earlier failure or report false success.
     return ret;
 }
 
@@ -2871,13 +2872,14 @@ DWORD UncompressFile(char* fileName, DWORD attrs, const wchar_t* exactName = NUL
 
     // if the path ends with a space or dot, we must append '\\', otherwise CreateFile
     // trims the spaces/dots and works with a different path
-    std::wstring fileNameCrFile = WorkerOperationPathW(fileName);
+    std::wstring fileNameCrFile = WorkerOperationPathW(fileName, exactName);
 
     BOOL attrsChange = FALSE;
     if (attrs & FILE_ATTRIBUTE_READONLY)
     {
         attrsChange = TRUE;
-        SetFileAttributesW(fileNameCrFile.c_str(), attrs & ~FILE_ATTRIBUTE_READONLY);
+        if (!SetFileAttributesW(fileNameCrFile.c_str(), attrs & ~FILE_ATTRIBUTE_READONLY))
+            return GetLastError();
     }
 
     HANDLE file = HANDLES_Q(CreateFileW(fileNameCrFile.c_str(), FILE_READ_DATA | FILE_WRITE_DATA,
@@ -2895,8 +2897,8 @@ DWORD UncompressFile(char* fileName, DWORD attrs, const wchar_t* exactName = NUL
             ret = GetLastError();
         HANDLES(CloseHandle(file));
     }
-    if (attrsChange)
-        SetFileAttributesW(fileNameCrFile.c_str(), attrs); // revert to the original attributes (on error the attributes would remain nonsensically changed)
+    if (attrsChange && !SetFileAttributesW(fileNameCrFile.c_str(), attrs) && ret == ERROR_SUCCESS)
+        ret = GetLastError(); // Restore must not hide an earlier failure or report false success.
     return ret;
 }
 
@@ -2910,7 +2912,7 @@ DWORD MyEncryptFile(HWND hProgressDlg, char* fileName, DWORD attrs, DWORD finalA
 
     // if the path ends with a space or dot, we must append '\\', otherwise CreateFile
     // trims the spaces/dots and works with a different path
-    std::wstring fileNameCrFile = WorkerOperationPathW(fileName);
+    std::wstring fileNameCrFile = WorkerOperationPathW(fileName, exactName);
 
     // if the file has the SYSTEM attribute, the EncryptFile API function reports "access denied"; handle it:
     if ((attrs & FILE_ATTRIBUTE_SYSTEM) && (finalAttrs & FILE_ATTRIBUTE_SYSTEM))
@@ -2956,7 +2958,8 @@ DWORD MyEncryptFile(HWND hProgressDlg, char* fileName, DWORD attrs, DWORD finalA
     if (attrs & (FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_READONLY))
     {
         attrsChange = TRUE;
-        SetFileAttributesW(fileNameCrFile.c_str(), attrs & ~(FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_READONLY));
+        if (!SetFileAttributesW(fileNameCrFile.c_str(), attrs & ~(FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_READONLY)))
+            return GetLastError();
     }
     if (preserveDate)
     {
@@ -2969,18 +2972,8 @@ DWORD MyEncryptFile(HWND hProgressDlg, char* fileName, DWORD attrs, DWORD finalA
         if (file != INVALID_HANDLE_VALUE)
         {
             FILETIME ftCreated, /*ftAccessed,*/ ftModified;
-            GetFileTime(file, &ftCreated, NULL /*&ftAccessed*/, &ftModified);
-            HANDLES(CloseHandle(file));
-
-            if (!EncryptFileW(fileNameCrFile.c_str()))
-                retEnc = GetLastError();
-
-            file = HANDLES_Q(CreateFileW(fileNameCrFile.c_str(), GENERIC_WRITE,
-                                        FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                        NULL, OPEN_EXISTING,
-                                        (attrs & FILE_ATTRIBUTE_DIRECTORY) ? FILE_FLAG_BACKUP_SEMANTICS : 0,
-                                        NULL));
-            if (file != INVALID_HANDLE_VALUE)
+            // A failed read cannot supply timestamps for a later restore.
+            if (!GetFileTime(file, &ftCreated, NULL /*&ftAccessed*/, &ftModified))
             {
                 retEnc = GetLastError();
                 HANDLES(CloseHandle(file));
@@ -3013,8 +3006,8 @@ DWORD MyEncryptFile(HWND hProgressDlg, char* fileName, DWORD attrs, DWORD finalA
         if (!EncryptFileW(fileNameCrFile.c_str()))
             retEnc = GetLastError();
     }
-    if (attrsChange)
-        SetFileAttributesW(fileNameCrFile.c_str(), attrs); // revert to the original attributes (on error the attributes would remain nonsensically changed)
+    if (attrsChange && !SetFileAttributesW(fileNameCrFile.c_str(), attrs) && retEnc == ERROR_SUCCESS)
+        retEnc = GetLastError(); // Restore must not hide an earlier failure or report false success.
     return retEnc;
 }
 
@@ -3026,13 +3019,14 @@ DWORD MyDecryptFile(char* fileName, DWORD attrs, BOOL preserveDate, const wchar_
 
     // if the path ends with a space or dot, we must append '\\', otherwise CreateFile
     // trims the spaces/dots and works with a different path
-    std::wstring fileNameCrFile = WorkerOperationPathW(fileName);
+    std::wstring fileNameCrFile = WorkerOperationPathW(fileName, exactName);
 
     BOOL attrsChange = FALSE;
     if (attrs & FILE_ATTRIBUTE_READONLY)
     {
         attrsChange = TRUE;
-        SetFileAttributesW(fileNameCrFile.c_str(), attrs & ~FILE_ATTRIBUTE_READONLY);
+        if (!SetFileAttributesW(fileNameCrFile.c_str(), attrs & ~FILE_ATTRIBUTE_READONLY))
+            return GetLastError();
     }
     if (preserveDate)
     {
@@ -3045,18 +3039,8 @@ DWORD MyDecryptFile(char* fileName, DWORD attrs, BOOL preserveDate, const wchar_
         if (file != INVALID_HANDLE_VALUE)
         {
             FILETIME ftCreated, /*ftAccessed,*/ ftModified;
-            GetFileTime(file, &ftCreated, NULL /*&ftAccessed*/, &ftModified);
-            HANDLES(CloseHandle(file));
-
-            if (!DecryptFileW(fileNameCrFile.c_str(), 0))
-                ret = GetLastError();
-
-            file = HANDLES_Q(CreateFileW(fileNameCrFile.c_str(), GENERIC_WRITE,
-                                        FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                        NULL, OPEN_EXISTING,
-                                        (attrs & FILE_ATTRIBUTE_DIRECTORY) ? FILE_FLAG_BACKUP_SEMANTICS : 0,
-                                        NULL));
-            if (file != INVALID_HANDLE_VALUE)
+            // A failed read cannot supply timestamps for a later restore.
+            if (!GetFileTime(file, &ftCreated, NULL /*&ftAccessed*/, &ftModified))
             {
                 ret = GetLastError();
                 HANDLES(CloseHandle(file));
@@ -3089,8 +3073,8 @@ DWORD MyDecryptFile(char* fileName, DWORD attrs, BOOL preserveDate, const wchar_
         if (!DecryptFileW(fileNameCrFile.c_str(), 0))
             ret = GetLastError();
     }
-    if (attrsChange)
-        SetFileAttributesW(fileNameCrFile.c_str(), attrs); // revert to the original attributes (on error the attributes would remain nonsensically changed)
+    if (attrsChange && !SetFileAttributesW(fileNameCrFile.c_str(), attrs) && ret == ERROR_SUCCESS)
+        ret = GetLastError(); // Restore must not hide an earlier failure or report false success.
     return ret;
 }
 

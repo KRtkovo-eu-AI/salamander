@@ -1,5 +1,9 @@
 # S31 — Úplnost portu proti donoru
 
+S31b3a4a: NTFS helper/worker exact wide identity a failure propagation ověřené
+native160/config D/R včetně skutečných EFS/komprese; GUI staged do S31b3a4b.
+G04 attributes REMAINS_OPEN, viz [S31b3a4a](steps/S31b3a4a.md).
+
 S31b3a3: základní dialog atributů aktivní s root/tab/generation/selection guards;
 GUI exact long apply/Cancel D/R PASS. NTFS compression/encryption staged do
 S31b3a4; G04 attributes REMAINS_OPEN, viz [S31b3a3](steps/S31b3a3.md).

@@ -1,5 +1,20 @@
 # Plán postupného portu PR #769
 
+## S31b3a4a — přesné NTFS worker operace (2026-10-25)
+
+Compress/Uncompress/MyEncrypt/MyDecrypt nově přebírají optional owned wide cestu;
+DoChangeAttrs ji předává bez návratu k narrow display/mirror cestě. Opravené
+čtení/obnova časů, chybové otevření a dočasné Read-only/restore propagují chyby
+Windows. SYSTEM potvrzení i Retry/Skip/Cancel zachované. Native skutečného
+workeru160/config D/R PASS; parent ve stejné sadě31 assertion failures.
+Skutečná NTFS komprese/dekomprese a EFS encrypt/decrypt Unicode/long souborů
+ověřené. Trailing-dot EFS přímé Windows API odmítá error5 a worker stejnou chybu
+předá bez alias fallbacku. Host D/R Build /warnaserror, původní attrs73/config,
+All20/Transitions28 PASS. Viz [S31b3a4a](steps/S31b3a4a.md).
+GUI volby/příkazy stále staged; navazuje S31b3a4b confirmation/display a GUI
+aktivace, potom další core části. G04/G05 OPEN, goal ACTIVE, S32 BLOCKED.
+Bez push/PR, remote CI/CodeQL/clean full suite NOT_RUN.
+
 ## S31b3a3 — chráněný dialog atributů v Branch View (2026-10-25)
 
 CM_CHANGEATTR je zapojen; vlastní snapshot root/tab/generation/exact paths

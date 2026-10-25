@@ -15,10 +15,10 @@ static char* GetErrorText(DWORD e){LastDialogError=e;return LoadStr(0);}
 static LRESULT Dialog(HWND,UINT,WPARAM kind,LPARAM p){++Dialogs;if(kind==0)*(int*)((char**)p)[0]=Reply;return 0;}
 static void SetProgress(HWND,int,int,CProgressDlgData&){++Progress;}
 static int CaclProg(const CQuadWord&,const CQuadWord&){return 0;}
-static DWORD UncompressFile(char*,DWORD){return ERROR_INVALID_FUNCTION;}
-static DWORD CompressFile(char*,DWORD){return ERROR_INVALID_FUNCTION;}
-static DWORD MyDecryptFile(char*,DWORD,BOOL){return ERROR_INVALID_FUNCTION;}
-static DWORD MyEncryptFile(HWND,char*,DWORD,DWORD,CProgressDlgData&,BOOL&,BOOL){return ERROR_INVALID_FUNCTION;}
+static DWORD UncompressFile(char*,DWORD,const wchar_t* = nullptr){return ERROR_INVALID_FUNCTION;}
+static DWORD CompressFile(char*,DWORD,const wchar_t* = nullptr){return ERROR_INVALID_FUNCTION;}
+static DWORD MyDecryptFile(char*,DWORD,BOOL,const wchar_t* = nullptr){return ERROR_INVALID_FUNCTION;}
+static DWORD MyEncryptFile(HWND,char*,DWORD,DWORD,CProgressDlgData&,BOOL&,BOOL,const wchar_t* = nullptr){return ERROR_INVALID_FUNCTION;}
 static BOOL ReadTime(HANDLE h,FILETIME* c,FILETIME* a,FILETIME* m){++ReadCalls;if(FailReadTime>0){--FailReadTime;SetLastError(ERROR_ACCESS_DENIED);return FALSE;}return ::GetFileTime(h,c,a,m);}
 static BOOL WriteTime(HANDLE h,const FILETIME* c,const FILETIME* a,const FILETIME* m){++WriteCalls;TimeAttempted=true;if(FailWriteTime>0){--FailWriteTime;SetLastError(ERROR_ACCESS_DENIED);return FALSE;}return ::SetFileTime(h,c,a,m);}
 static HANDLE OpenTime(LPCWSTR p,DWORD a,DWORD share,LPSECURITY_ATTRIBUTES sec,DWORD disp,DWORD flags,HANDLE t){if(FailOpenTime>0){--FailOpenTime;SetLastError(ERROR_SHARING_VIOLATION);return INVALID_HANDLE_VALUE;}return ::CreateFileW(p,a,share,sec,disp,flags,t);}
