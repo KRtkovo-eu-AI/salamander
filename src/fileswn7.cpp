@@ -3272,7 +3272,7 @@ void CFilesWindow::AcceptChangeOnPathNotification(const char* path, BOOL includi
             HANDLES(EnterCriticalSection(&TimeCounterSection));
             const int stamp = MyTimeCounter++;
             HANDLES(LeaveCriticalSection(&TimeCounterSection));
-            PostMessage(HWindow, WM_USER_REFRESH_DIR, 0, stamp);
+            PostMessage(HWindow, WM_USER_REFRESH_DIR, TRUE, stamp);
         }
         RefreshDiskFreeSpace(TRUE, TRUE);
         return;

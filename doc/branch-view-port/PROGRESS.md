@@ -1,5 +1,16 @@
 # Stav portu PR #769
 
+## S30 dokončena lokálně (2026-10-25)
+
+Přijatý základ S29 d6cff6b8 má všechny kontroly PR #61 včetně skutečné CodeQL
+analýzy a čisté podporované matice SUCCESS. S30 propojuje donorové rekurzivní
+watchery s již převzatým schedulerem/publikací. Lokální owned notification queue
+odstraňuje truncation MAX_PATH; automatické zprávy nesmějí obnovit Stop Scan.
+Debug/Release host se závislostmi, relevantní nativní testy, 28 source/menu skupin
+a skutečné tmavé/světlé GUI PASS. Přesné scénáře, měření a omezení: [S30](steps/S30.md).
+NOT_PUSHED; remote CI/CodeQL a čistá celá matice pro S30 NEBĚŽELY.
+Následuje S31 audit úplnosti; není součástí tohoto checkpointu.
+
 ## S29 publikována v PR #61; oprava přípravy Pythonu pro VSIX
 
 Checkpoint 8a16315 publikován a čistá podporovaná Debug matice i hlavní testy

@@ -288,7 +288,7 @@ BOOL CFilesWindow::Recycle(int* selection,int selCount,CFileData* oneFile){
 static CRITICAL_SECTION TimeCounterSection;
 static int MyTimeCounter=1,PostedRefresh=0;
 static const UINT WM_USER_REFRESH_DIR=WM_APP+2;
-static BOOL RecordRefresh(HWND,UINT message,WPARAM w,LPARAM stamp){if(message==WM_USER_REFRESH_DIR&&w==0&&stamp>0)++PostedRefresh;return TRUE;}
+static BOOL RecordRefresh(HWND,UINT message,WPARAM w,LPARAM stamp){if(message==WM_USER_REFRESH_DIR&&w==TRUE&&stamp>0)++PostedRefresh;return TRUE;}
 #define HANDLES(call) (call)
 #pragma push_macro("PostMessage")
 #undef PostMessage
@@ -797,7 +797,13 @@ static void NotificationTests()
     panel.Notify("C:\\東京",FALSE);Check(PostedRefresh==3,"nonrecursive ancestor is ignored");
     panel.Notify("C:\\東京\\branch-other",TRUE);Check(PostedRefresh==3,"prefix sibling is not Branch descendant");
     panel.Notify("",TRUE);Check(PostedRefresh==3,"empty path cannot refresh unrelated Branch");
-    Check(panel.FreeSpaceCalls==6,"notification retains free-space refresh");DeleteCriticalSection(&TimeCounterSection);
+    Check(panel.FreeSpaceCalls==6,"notification retains free-space refresh");
+    panel.WideRoot=L"C:\\東京\\"+std::wstring(300,L'漢');
+    const std::string longRoot=SalWideToMultiBytePath(panel.WideRoot.c_str(),CP_UTF8);
+    panel.Notify(longRoot.c_str(),FALSE);Check(PostedRefresh==4,"full long UTF8 root posts automatic refresh");
+    panel.Notify((longRoot+"\\nested").c_str(),FALSE);Check(PostedRefresh==5,"full long descendant posts automatic refresh");
+    panel.Notify((longRoot+"-sibling").c_str(),TRUE);Check(PostedRefresh==5,"long shared prefix never matches sibling");
+    Check(panel.FreeSpaceCalls==9,"long notifications retain free-space refresh");DeleteCriticalSection(&TimeCounterSection);
 }
 
 static void CopySourceTests()

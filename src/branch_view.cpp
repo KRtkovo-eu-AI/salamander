@@ -450,7 +450,6 @@ static void StartBranchViewScan(CFilesWindow* panel)
 }
 void CFilesWindow::RefreshBranchView(BOOL automatic)
 {
-    if (automatic) return; // S26 manual refresh only; automatic watcher policy is S30.
     if (!IsBranchView()) return;
     const ULONGLONG now = GetTickCount64();
     BranchView->Refresh.Request(now, automatic != FALSE);

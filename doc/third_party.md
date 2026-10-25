@@ -433,3 +433,13 @@ Samandarin Contributors under GPL-2.0-or-later. Original notices retained.
 Existing capture/restore logic remains gated; local command admission and native
 regression harness integrate it into the incremental port. Debug/Release GUI
 validation passed; no complete restart-persistence guarantee is introduced.
+
+### S30 Branch View recursive refresh and publication validation
+
+Imports recursive watcher integration and connects the existing refresh scheduler
+from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pinned donor 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Open Salamander Authors
+and Samandarin Contributors under GPL-2.0-or-later. Original notices retained.
+Scheduler, preview/publication and association-preparation algorithms were already
+imported and are reused unchanged. Local integration preserves UTF8-first watcher
+paths, owned long notification paths, and automatic-message semantics after Stop.

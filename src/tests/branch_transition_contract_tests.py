@@ -200,8 +200,18 @@ class BranchTransitionContracts(unittest.TestCase):
   self.assertIn('if (!SafeDeleteFile(name2, fileSilent))',seven)
  def test_stop_is_present_in_the_actual_menu(self):
   self.assertIn("CM_BRANCH_STOP,",source("menu4.cpp"))
- def test_manual_only_refresh_preserves_selected_layout(self):
-  self.assertIn('if (automatic) return;',function('branch_view.cpp','void CFilesWindow::RefreshBranchView('))
+ def test_scheduled_refresh_preserves_selected_layout_and_stop(self):
+  refresh=function('branch_view.cpp','void CFilesWindow::RefreshBranchView(')
+  self.assertNotIn('if (automatic) return;',refresh)
+  self.assertIn('BranchView->Refresh.Request(now, automatic != FALSE)',refresh)
+  self.assertIn('if (BranchView->Refresh.Due(now)) StartBranchViewScan(this)',refresh)
+  self.assertIn('PostMessage(HWindow, WM_USER_REFRESH_DIR, TRUE, stamp)',function('fileswn7.cpp','void CFilesWindow::AcceptChangeOnPathNotification('))
+  queue=function('mainwnd3.cpp','void CMainWindow::PostChangeOnPathNotification(')
+  self.assertIn('ChangeNotifArray.push_back(CChangeNotifData{path, includingSubdirs})',queue)
+  self.assertIn('catch (const std::bad_alloc&)',queue)
+  self.assertNotIn('lstrcpyn(',queue)
+  self.assertIn('pathStorage.swap(item.Path)',source('mainwnd3.cpp'))
+  self.assertIn('owned until every subscriber callback returns',source('mainwnd3.cpp'))
   toggle=function('branch_view.cpp','void CFilesWindow::ToggleBranchView()')
   self.assertNotIn('SelectViewTemplate(',toggle)
   self.assertIn('OriginalViewTemplate',toggle)

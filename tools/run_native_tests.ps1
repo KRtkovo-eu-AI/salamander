@@ -479,6 +479,11 @@ try {
             )
         },
         @{
+            Name = 'branch_watch_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_watch_tests.py'), '--configuration', $Configuration)
+        },
+        @{
             Name = 'branch_restore_state_tests'
             ClassName = 'native-generated'
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_restore_state_tests.py'), '--configuration', $Configuration)
