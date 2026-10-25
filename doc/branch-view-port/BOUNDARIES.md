@@ -1,5 +1,20 @@
 # S00 read-only donor boundary audit
 
+## S31b1 — otevření souboru jako archivu podle obsahu (2026-10-25)
+
+Donorové předání přesné wide identity do archive probe je doplněné. Vlastněné
+cesty a kontrola generace/cache po callbacku brání použití změněného řádku.
+GUI našlo tři malé buffery v záhlaví, titulku a při odpojování pluginu; tyto
+lokální opravy používají dynamickou paměť. Native267/config a host Debug/Release
+PASS; šest funkčních GUI případů/config PASS před poslední opravou unload,
+finální unload GUI je veden zvlášť v [S31b1](steps/S31b1.md).
+Funkční archive entry je doplněné; S31b1 má otevřený heap nález při shutdown.
+Nejbližší S31b1a musí určit příčinu proti ordinary 7zip/baseline a případně ji opravit.
+G04 celkově zůstává otevřený.
+Dále S31b2 cíl zástupce, S31b3a/b atributy/Properties, S31b4 unpack a S31b5
+kontexty cíle; poté S31c. Goal ACTIVE, S32 BLOCKED. NOT_PUSHED; remote CI,
+CodeQL a čistá celá sestava NOT_RUN. Bez změny Windows zabezpečení či registrů.
+
 ## S31a3b dokončena lokálně — G03 uzavřen (2026-10-25)
 
 Obě dotčené source suites nyní běžně spouštějí celý rozsah: operations All 20 a

@@ -201,8 +201,6 @@ void CFilesWindow::CtrlPageDnOrEnter(WPARAM key)
 
 void CFilesWindow::TryEnterFileAsArchive(int index)
 {
-    if (IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
-
     CALL_STACK_MESSAGE2("CFilesWindow::TryEnterFileAsArchive(%d)", index);
     if (!Is(ptDisk) || index < Dirs->Count || index >= Files->Count + Dirs->Count)
         return;

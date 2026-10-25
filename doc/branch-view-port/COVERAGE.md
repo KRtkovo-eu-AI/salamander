@@ -1,5 +1,11 @@
 # S31 — Úplnost portu proti donoru
 
+Aktualizace S31b1: archive entry část G04 IMPLEMENTED_LOCAL, přesná identita a
+callback guards; native267/config, host D/R a funkční GUI D/R PASS. Tři navazující
+path buffery opravené; finální unload ověření viz [S31b1](steps/S31b1.md).
+G04 zbývající core operace a G05 zůstávají otevřené, goal ACTIVE, S32 BLOCKED.
+Historické S30 indexy níže zůstávají snapshotem před opravami.
+
 Aktualizace S31a3b: **G03 RESOLVED_LOCAL** po produkční opravě S31a3a a aktivaci
 celého rozsahu v S31a3b. Default/registrované příkazy/discovery mají 20 + 19 PASS,
 assertions zachované, rename notifikace aktivní i v All. Viz [S31a3b](steps/S31a3b.md).
