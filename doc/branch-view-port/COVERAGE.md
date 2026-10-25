@@ -1,5 +1,9 @@
 # S31 — Úplnost portu proti donoru
 
+S31b3a1: atributy mají donorový exact per-item zdroj v planneru. G04 attributes
+REMAINS_OPEN: ChangeAttr/host gate stále blokují, worker/dialog/GUI navazují.
+Native399/config a host D/R PASS, viz [S31b3a1](steps/S31b3a1.md).
+
 Aktualizace S31b2: shortcut/link-target část G04 IMPLEMENTED_LOCAL; exact wide
 source, COM/PIDL, reparse handle a skutečné povolení CM_AFOCUSSHORTCUT. Native92,
 router173/config, host D/R a GUI evidence viz [S31b2](steps/S31b2.md). Neuzavírá

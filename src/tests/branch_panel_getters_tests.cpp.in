@@ -128,7 +128,7 @@ static DWORD RecordAttributes(const wchar_t* path) {
 
 // Recorders for the actual BuildScriptMain per-item source block. Worker I/O
 // is validated separately and by the real host GUI; no test-only copy engine.
-const int atCopy=1, atMove=2, atDelete=3, SACCESS_READ=1,SACCESS_READWRITE=3;
+const int atCopy=1, atMove=2, atDelete=3, atChangeAttrs=4, SACCESS_READ=1,SACCESS_READWRITE=3;
 const DWORD OPFL_SRCPATH_IS_NET=1, OPFL_SRCPATH_IS_FAST=2, OPFL_TGTPATH_IS_NET=4;
 struct CopyCriteria {BOOL IgnoreADS=FALSE;};
 struct CQuadWord {
@@ -858,6 +858,37 @@ static void CopySourceTests()
     CPathBuffer::FailGrowth=false;state.Items[first.c_str()]=old;
 }
 
+// S31b3a1: real per-row planner source block; operation execution stays staged.
+static void AttributeSourceTests()
+{
+    const std::vector<std::pair<std::wstring,std::wstring>> cases={
+        {L"C:\\ascii",L"file.txt"},
+        {L"C:\\ascii",L"東京-🙂.txt"},
+        {L"C:\\東京",L"file.txt"},
+        {L"C:\\東京\\český\\日本",L"same.txt"},
+        {L"C:\\"+std::wstring(100,L'東'),L"same.txt"},
+        {L"C:\\"+std::wstring(100,L'a')+L"\\"+std::wstring(100,L'東')+L"\\"+std::wstring(100,L'b'),L"same.txt"},
+        {L"\\\\server\\share\\東京",L"same.txt"},
+        {L"C:\\",std::wstring(100,L'東')+L".txt"}
+    };
+    for(const auto& fixture:cases)
+    {
+        CBranchViewState state;CFilesWindow panel;panel.BranchView=&state;
+        std::string mirror="short display";
+        panel.FileRows.Values={{mirror.c_str(),fixture.second.c_str()}};panel.FileRows.Count=1;
+        auto& row=panel.Files->At(0);Add(state,row,fixture.first,fixture.second,L"relative");
+        state.CacheFiles[state.Items.at(row.Name).CacheKey]=&row;
+        CopyScript script;CopyCapture result;ADSQueried="untouched";const int resets=CopyCwdResets;
+        Check(panel.PrepareCopySource(&row,atChangeAttrs,result,&script,nullptr),"attributes accept exact current source row");
+        Check(result.Parent==SalWideToMultiBytePath(fixture.first.c_str(),CP_UTF8)&&result.Name==SalWideToMultiBytePath(fixture.second.c_str(),CP_UTF8)&&!result.HasDosName,"attributes preserve full parent and basename without display/DOS alias");
+        Check(script.Storage.empty()&&ADSQueried=="untouched"&&!script.SameRootButDiffVolume&&!script.ShowStatus&&CopyCwdResets==resets,"attributes do not take copy/move scheduling branches");
+        state.CacheFiles.clear();
+        Check(!panel.PrepareCopySource(&row,atChangeAttrs,result,&script,nullptr)&&CopyCwdResets==resets+1,"stale attribute row rejects before scheduling and restores CWD");
+    }
+    Check(cases[4].first.size()<260&&SalWideToMultiBytePath(cases[4].first.c_str(),CP_UTF8).size()>260,"attribute fixture covers byte-long parent");
+    Check(cases[5].first.size()>260,"attribute fixture covers UTF16 long parent");
+}
+
 static void RenameMetadataTests()
 {
     CBranchViewState state; CFilesWindow panel; panel.BranchView=&state;
@@ -1161,7 +1192,7 @@ int wmain(int argc, wchar_t** argv)
     Paths(panel, ordinary, L"", L"", L"", "new active Branch has no ordinary row fallback");
     Paths(panel, up, L"C:\\root", L"C:\\root\\..", L"..", "first-scan empty listing parent navigation");
 
-    try { ReceiveTests(); HostMenuTests(); DropParentTests(); PropertiesTests(); RecycleQueueTests(); NotificationTests(); RelativeCopyTests(); CopySourceTests(); RenameMetadataTests(); }
+    try { ReceiveTests(); HostMenuTests(); DropParentTests(); PropertiesTests(); RecycleQueueTests(); NotificationTests(); RelativeCopyTests(); CopySourceTests(); AttributeSourceTests(); RenameMetadataTests(); }
     catch (const std::exception& error) { Check(false,error.what()); }
     NavigationTests();
     ArchiveReadTests(argv[1]);

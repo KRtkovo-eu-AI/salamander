@@ -1,5 +1,19 @@
 # Stav portu PR #769
 
+## S31b3a1 — příprava přesných zdrojů atributů (2026-10-25)
+
+BuildScriptMain nově připouští atChangeAttrs v existujícím donorovém per-item
+wide parent/name bloku. Zůstává kontrola aktuálního cache řádku i CWD cleanup;
+ostatní dosud nepřevzaté akce jsou odmítané. Příkaz ChangeAttr a host router
+zůstávají beze změny a blokované do ověření celé navazující operace.
+Native skutečného bloku 399/config D/R PASS (34 nových assertions); stejný test
+proti parent kódu skončí očekávanými32 assertion failures. Host D/R warnaserror,
+All20 operation contracts a router173/config PASS. Jde pouze o ověřený přípravný
+checkpoint, nikoli dokončení změny atributů či GUI/worker certifikaci. Další krok
+S31b3a2: dialog/snapshot, worker včetně adresářů a callbacků, poté GUI aktivace.
+Viz [S31b3a1](steps/S31b3a1.md). Goal ACTIVE; G04/G05 otevřené, S32 BLOCKED;
+NOT_PUSHED, remote CI/CodeQL a čistá celá sestava NOT_RUN.
+
 ## S31b2 — cíl zástupce a reparse bodu (2026-10-25)
 
 Donorový FocusBranchShortcutTarget je zapojen do Ctrl+T a host routeru pouze
