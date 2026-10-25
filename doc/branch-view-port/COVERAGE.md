@@ -1,5 +1,11 @@
 # S31 — Úplnost portu proti donoru
 
+Aktualizace S31a2 (2026-10-25): **G02 RESOLVED_LOCAL**, donorový ANSI-to-wide
+rename hook, Debug/Release buildy, vynucený native fallback a skutečné ordinary/
+Branch GUI PASS, viz [S31a2](steps/S31a2.md). G01 je již uzavřen S31a1.
+Historické TSV zůstávají snapshotem S30; G03–G06 a S32 BLOCKED trvají. Goal S31
+pokračuje S31a3 a uzavřením support/validation hranic S31b/c. Bez push a remote CI.
+
 Aktualizace S31a1 (2026-10-25): **G01 RESOLVED_LOCAL** — donorové zapojení
 wrapperu opraveno, host Debug/Release i native/GUI ověření PASS, viz
 [S31a1](steps/S31a1.md). Následující audit a TSV indexy jsou neměnný snapshot S30;

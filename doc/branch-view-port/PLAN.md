@@ -1,5 +1,16 @@
 # Plán postupného portu PR #769
 
+## S31a2 dokončena lokálně — G02 uzavřen (2026-10-25)
+
+ANSI rename fallback v Branch View nyní přesně donorově přechází do wide metody
+před legacy mask/root kódem. Debug/Release x64 host + dependencies s warnaserror
+PASS, vynucená ANSI editace/Enter a skutečné wide I/O 44 kontrol/config PASS,
+365 getter/remap kontrol/config a 28 transition testů PASS. Skutečné GUI ordinary
+i Branch rename prošlo v obou konfiguracích; stejnojmenný soubor zůstal nedotčený.
+Podrobnosti: [S31a2](steps/S31a2.md). Opravena také čitelnost českého S31a1 textu.
+NOT_PUSHED; remote CI/CodeQL/čistá celá matice neběžely. Goal dokončení S31 je
+aktivní; následuje S31a3, poté S31b/c. G03–G06 a brána S32 zůstávají otevřené.
+
 ## S31a1 dokončena lokálně — G01 uzavřen (2026-10-25)
 
 SalCreateDirectoryEx nyní přesně donorově deleguje do WorkerCreateDirectory.

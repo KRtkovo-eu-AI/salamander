@@ -453,3 +453,13 @@ Samandarin Contributors under GPL-2.0-or-later. Existing notices retained.
 The previously ported wide helper is unchanged. The local regression harness
 extracts actual host/SDK wrappers, reuses the existing MSVC test support and
 adds real I/O plus controlled DOS-alias retry tests to cover the integration gap.
+
+### S31a2 ANSI rename fallback integration repair
+
+Reuses the exact early Branch dispatch from RenameFileInternal to its existing
+wide implementation in [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pinned 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Open Salamander Authors and
+Samandarin Contributors under GPL-2.0-or-later. Existing notices retained.
+The wide implementation and its identity/cache guards remain unchanged.
+Local actual-code native tests force ANSI edit fallback and exercise precise
+Unicode/long-path I/O; no additional third-party implementation is imported.

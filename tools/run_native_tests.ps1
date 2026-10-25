@@ -443,6 +443,11 @@ try {
             )
         },
         @{
+            Name = 'branch_rename_fallback_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_rename_fallback_tests.py'), '--configuration', $Configuration)
+        },
+        @{
             Name = 'create_directory_wrapper_tests'
             ClassName = 'native-generated'
             Arguments = @(
