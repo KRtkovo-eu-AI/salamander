@@ -1,10 +1,10 @@
 donor_path	symbol_or_hunk	target_path	stage	status	reason
-doc/branch-view-plugin-paths.md	Plugin support and legacy engine limits	doc/branch-view-plugin-paths.md	S31	DEFERRED	Audit evidence then publish only validated support
+doc/branch-view-plugin-paths.md	Plugin support and legacy engine limits	doc/branch-view-plugin-paths.md	S31	DEFERRED	S31 G06: release doc intentionally missing until S32; publish actual support only, never donor runtime claims.
 doc/branch-view-plugin-paths.md	Plugin support and legacy engine limits	doc/branch-view-plugin-paths.md	S32	DEFERRED	Audit evidence then publish only validated support
-doc/branch-view.md	Behavior, limitations and release documentation	doc/branch-view.md	S31	DEFERRED	Historical donor results must not become port validation claims
+doc/branch-view.md	Behavior, limitations and release documentation	doc/branch-view.md	S31	DEFERRED	S31 G06: release doc intentionally missing until S32; publish actual support only, never donor runtime claims.
 doc/branch-view.md	Behavior, limitations and release documentation	doc/branch-view.md	S32	DEFERRED	Historical donor results must not become port validation claims
 doc/third_party.md	Branch scanner attribution	doc/third_party.md	S25	ADAPTED	Scanner subset exact State/Run/Start/Cancel/Drain; native2476 checks/config actual cycle RAN; test-only scheduler/publication-sort sections retained deferred S26/S30; no panel/UI
-doc/third_party.md	Branch scanner attribution	doc/third_party.md	S31	DEFERRED	Preserve provenance when its implementation lands and audit final credits
+doc/third_party.md	Branch scanner attribution	doc/third_party.md	S31	ADAPTED	S31 attribution audited; staged named credits retained; complete source inventory in COVERAGE-FILES.tsv.
 doc/third_party.md	Branch scanner attribution	doc/third_party.md	S32	DEFERRED	Preserve provenance when its implementation lands and audit final credits
 src/branch_view_text.h	Typed placeholder expansion and generic message helpers	src/branch_view_text.h	S20c	EXACT	Independent pure typed formatter imported for compressed-size errors; no Branch state/UI
 src/branch_view_text.h	Branch status text users/resources	src/branch_view_text.h	S26	EXACT	Header already exact S20c/S24; full S26 resources now consumed;229 native checks/config,96 localized patterns
@@ -612,3 +612,9 @@ src/snooper.cpp	PreparedWatchPath/PrepareWatchPath/AttachPanelInternal/AddDirect
 src/mainwnd.h;src/mainwnd1.cpp;src/mainwnd3.cpp	CChangeNotifData and producer/dispatch ownership	same paths	S30	ADAPTED	Local integration repair absent donor: std::vector of owned strings; no raw relocation; allocation failure caught; swap before callbacks; LIFO preserved
 src/tests/branch_watch_tests.py;src/tests/branch_watch_tests.cpp.in	Actual watcher preparation/API and owned notification producer/drain	same paths;tools/run_native_tests.ps1	S30	ADAPTED	Local missing integration regression; 32 real Win32/ownership checks/config; unrelated UI dependencies explicit doubles
 src/tests/branch_panel_getters_tests.cpp.in;src/tests/branch_transition_contract_tests.py	Automatic notification flag and long-prefix regression	same paths	S30	ADAPTED	Replace temporary manual-only oracle with exact automatic flag/scheduler contract; preserve existing path/layout assertions and add four native checks
+*	All 231 donor files / 892 numbered hunks	*	S31	ADAPTED	S31 audit indexes COVERAGE-FILES/HUNKS.tsv are authoritative current decisions; historical rows retain checkpoint context.
+src/worker.cpp	SalCreateDirectoryEx / hunk 859	src/worker.cpp	S31	DEFERRED	G01 S31a1: live wrapper not routed to WorkerCreateDirectory; blocks S32.
+src/fileswn5.cpp	RenameFileInternal / mixed hunk 165	src/fileswn5.cpp	S31	ADAPTED	G02 S31a2: missing Branch ANSI-fallback route; wide normal path does not cover fallback.
+src/tests/branch_operations_contract_tests.py	All scope and two source selectors	src/tests/branch_operations_contract_tests.py	S31	DEFERRED	G03 S31a3: 14 default; explicit 20 yields 18 PASS and 2 selector ERROR; no assertion weakening.
+src/tests/branch_view_contract_tests.py	temporary dialog selection test	src/tests/branch_view_contract_tests.py	S31	DEFERRED	G03 S31a3: explicit test PASS but remains excluded from default registration.
+src/fileswn0.cpp	TryEnterFileAsArchive / FocusShortcutTarget	src/fileswn0.cpp	S31	DEFERRED	G04 S31b: guards retained; close explicit support decisions before S32.

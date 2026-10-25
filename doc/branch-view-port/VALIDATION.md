@@ -1,5 +1,21 @@
 # Validace portu a baseline S00
 
+## S31 audit dokončen s nálezy; S30 přijata (2026-10-25)
+
+S30 `58aabd60054f98d964f2be7b93bbf408ac692dde` přijata: všech 13 kontrol
+[PR #62](https://github.com/majklvi/salamander/pull/62) SUCCESS včetně skutečného
+CodeQL a čisté podporované Debug matice. Interní draft se nemerguje do reference.
+S31 je dokumentační AUDIT_COMPLETE_WITH_FINDINGS; **S32 BLOCKED**.
+[COVERAGE.md](COVERAGE.md) a tři úplné TSV indexy klasifikují 231 donorových cest,
+892 hunks a 190 dalších target cest. Nejde o potvrzení úplné funkční parity.
+
+Další nejmenší krok je S31a1: zapojit živý SalCreateDirectoryEx do wide helperu.
+Potom S31a2: bezpečný ANSI inline-rename fallback; S31a3: úplný test scope a dva
+stale selektory; S31b: rozhodnutí o bezpečně odmítnutých operacích; S31c: uzavření
+skutečných validačních mezer/limitů před S32. Podrobné akceptace jsou v COVERAGE.
+Tento commit pouze dokumentuje audit: bez produkčních změn a bez push/nového CI.
+Starší níže uvedené stavy publikace jsou historické a tímto záznamem nahrazené.
+
 ## S30 dokončena lokálně (2026-10-25)
 
 Přijatý základ S29 d6cff6b8 má všechny kontroly PR #61 včetně skutečné CodeQL
