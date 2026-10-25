@@ -3,7 +3,7 @@
 from pathlib import Path
 import unittest
 import argparse
-SCOPE = "OrdinaryRename"
+SCOPE = "All"
 ROOT = Path(__file__).resolve().parents[1]
 def source(name):
     return (ROOT / name).read_text(encoding='utf-8-sig')
@@ -58,9 +58,7 @@ class BranchOperationsContracts(unittest.TestCase):
         self.assertIn('GetItemDirectoryW(*f)', part)
         self.assertIn('GetItemFullPathW(*f)', part)
         self.assertEqual(part.count('UpdateFileDataNameAfterRename('), 3)
-        if SCOPE != 'All':
-            self.assertIn('PostChangeOnPathNotification(directory.c_str(), isDir)', part)
-            # S27b activates these donor rename remap/sleep assertions.
+        self.assertIn('PostChangeOnPathNotification(directory.c_str(), isDir)', part)
         self.assertEqual(part.count('BranchItemRenamed(oldNameKey, *f, oldFullPath)'), 3)
         self.assertEqual(part.count('SleepIconCacheThread()'), 3)
     def test_builder_resolves_each_selected_item(self):
@@ -161,7 +159,7 @@ class BranchOperationsContracts(unittest.TestCase):
         text = source('fileswn9.cpp')
         start = text.index('BOOL CFilesWindow::CopyFocusedNameToClipboard(')
         part = text[start:text.index('BOOL CFilesWindow::CopyCurrentPathToClipboard', start)]
-        branch = part[part.index('if (IsBranchView())'):part.index('    char buff[2 * MAX_PATH];')]
+        branch = part[part.index('if (Is(ptDisk))'):part.index('    char buff[2 * MAX_PATH];')]
         self.assertIn('GetItemFullPathW(file)', branch)
         self.assertIn('BranchClipboardUNCPath(fullPath, unc)', branch)
         self.assertEqual(branch.count('CopyTextToClipboardW('), 3)
@@ -233,8 +231,8 @@ def load_tests(loader, tests, pattern):
 
 if __name__ == '__main__':
     parser=argparse.ArgumentParser()
-    parser.add_argument('--scope', choices=('OrdinaryRename', 'OrdinaryCopyMove', 'OrdinaryOperations', 'All'), default='OrdinaryOperations')
+    parser.add_argument('--scope', choices=('OrdinaryRename', 'OrdinaryCopyMove', 'OrdinaryOperations', 'All'), default='All')
     args, remaining=parser.parse_known_args()
     SCOPE=args.scope
-    print('Operation contracts scope:', SCOPE, '; future Branch assertions require All/S26', flush=True)
+    print('Operation contracts scope:', SCOPE, flush=True)
     unittest.main(argv=[__file__, *remaining])

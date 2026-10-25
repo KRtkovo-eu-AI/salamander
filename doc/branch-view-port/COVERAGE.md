@@ -1,5 +1,12 @@
 # S31 — Úplnost portu proti donoru
 
+Aktualizace S31a3b: **G03 RESOLVED_LOCAL** po produkční opravě S31a3a a aktivaci
+celého rozsahu v S31a3b. Default/registrované příkazy/discovery mají 20 + 19 PASS,
+assertions zachované, rename notifikace aktivní i v All. Viz [S31a3b](steps/S31a3b.md).
+G01/G02 jsou již uzavřené; G04/G05 a S32 BLOCKED trvají. Uživatel požaduje core
+operace G04 implementovat: následuje S31b1, nikoli pouze dokumentace odmítání.
+Historické indexy pod tímto záznamem zůstávají snapshotem S30.
+
 Aktualizace S31a3a: původní označení Shell G03 erroru jako selector-only bylo
 nesprávné. Obnoven skutečný donorový post-retry guard a quiet capture; původní
 test beze změny assertions nyní PASS, native20/config + D/R host a GUI PASS.

@@ -1,5 +1,19 @@
 # Stav portu PR #769
 
+## S31a3b dokončena lokálně — G03 uzavřen (2026-10-25)
+
+Obě dotčené source suites nyní běžně spouštějí celý rozsah: operations All 20 a
+Branch View 19 testů včetně temporary selection. Stejně prošly skutečné runner
+registrace a unittest discovery. Žádná původní assertion se nezměnila; rename
+parent notifikace se navíc v All již nevynechává. Native20/365 kontrol/config a
+host Debug/Release buildy PASS. [S31a3b](steps/S31a3b.md) obsahuje důkazy a hranice.
+NOT_PUSHED, remote CI/CodeQL/čistá celá matice neběžely; goal S31 ACTIVE.
+
+Následuje S31b1 archive entry, S31b2 shortcut target, S31b3a/b atributy/Windows
+Properties, S31b4 unpack a S31b5 donorové destination kontexty; potom S31c.
+Uživatel požaduje core operace doplnit, ne uzavřít jejich odmítání dokumentací.
+G04/G05 a S32 BLOCKED trvají; nejde o povolení neověřených příkazů či pluginů.
+
 ## S31a3a dokončena lokálně — Shell retry guard (2026-10-25)
 
 Druhý G03 error byl skutečný chybějící donorový post-retry guard, nikoli pouhý

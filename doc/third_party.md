@@ -472,3 +472,12 @@ pinned 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Open Salamander Authors and
 Samandarin Contributors under GPL-2.0-or-later. Existing notices retained.
 The local native regression extracts the real retry/guard/fallback flow and uses
 controlled COM doubles with owned Win32 menus. Existing safety assertions remain.
+
+### S31a3b full Branch contract activation
+
+Retains the assertions adapted from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pinned 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Open Salamander Authors and
+Samandarin Contributors under GPL-2.0-or-later. The local port now registers the
+complete existing contract suites, adjusts the clipboard selector to the shared
+disk implementation and retains rename notifications in All scope. No new
+third-party implementation is imported; original provenance remains intact.

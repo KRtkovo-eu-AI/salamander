@@ -266,10 +266,5 @@ class BranchViewContracts(unittest.TestCase):
         self.assertIn("ReindexBranchViewFiles();", text)
 
 
-# These donor contracts require later stages; keep their original assertions intact.
-DEFERRED = {"test_temporary_dialog_selection_uses_exact_branch_identity"}
-def load_tests(loader, tests, pattern):
-    return unittest.TestSuite(BranchViewContracts(name) for name in loader.getTestCaseNames(BranchViewContracts) if name not in DEFERRED)
-
 if __name__ == "__main__":
     unittest.main()

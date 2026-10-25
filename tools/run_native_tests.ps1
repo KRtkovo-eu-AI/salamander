@@ -718,7 +718,7 @@ try {
         @{
             Name = 'branch_operations_contract_tests'
             ClassName = 'source-contract'
-            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_operations_contract_tests.py'))
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_operations_contract_tests.py'), '--scope', 'All')
         },
         @{
             Name = 'build_operation_name_tests'
