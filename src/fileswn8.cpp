@@ -269,12 +269,73 @@ void PluginFSConvertPathToExternal(char* path)
     }
 }
 
+// S31b5b2: own the disk destination across modal dispatch. A saved pointer is
+// compared only with live tab registry entries before it is dereferenced.
+struct CFilesActionDiskTarget
+{
+    CFilesWindow* Panel = NULL;
+    ULONGLONG Tab = 0, Generation = 0;
+    std::wstring Root;
+    std::string DefaultPath;
+    BOOL Branch = FALSE;
+    int VisibleSide = 0;
+
+    static CFilesWindow* FindLive(CMainWindow* main, CFilesWindow* expected)
+    {
+        if (main == NULL || expected == NULL) return NULL;
+        const CPanelSide sides[] = {cpsLeft, cpsRight};
+        for (int side = 0; side < 2; ++side)
+            for (int index = 0; index < main->GetPanelTabCount(sides[side]); ++index)
+            {
+                CFilesWindow* current = main->GetPanelTabAt(sides[side], index);
+                if (current == expected) return current;
+            }
+        for (int index = 0; index < main->GetDetachedTabCount(); ++index)
+        {
+            CFilesWindow* current = main->GetDetachedTabAt(index);
+            if (current == expected) return current;
+        }
+        return NULL;
+    }
+
+    bool Capture(CMainWindow* main, CFilesWindow* panel)
+    {
+        Panel = NULL;
+        CFilesWindow* live = FindLive(main, panel);
+        if (live == NULL || !live->Is(ptDisk) || live->IsBranchViewScanning()) return false;
+        const std::wstring root(live->GetPathW());
+        const std::string encoded = SalWideToMultiBytePath(root.c_str(), CP_UTF8);
+        if (root.empty() || SalMultiByteToWidePath(encoded.c_str(), CP_UTF8) != root) return false;
+        const std::string defaultPath = encoded + (root.back() == L'\\' ? "*.*" : "\\*.*");
+        if (defaultPath.size() >= SAL_MAX_PATH || live->GetPanelTabId() == 0) return false;
+        Root = root;
+        DefaultPath = defaultPath;
+        Tab = live->GetPanelTabId();
+        Branch = live->IsBranchView();
+        Generation = Branch ? live->GetBranchViewGeneration() : 0;
+        VisibleSide = main->LeftPanel == live ? 1 : main->RightPanel == live ? 2 : 0;
+        Panel = live;
+        return true;
+    }
+
+    bool IsCurrent(CMainWindow* main) const
+    {
+        CFilesWindow* live = FindLive(main, Panel);
+        return live != NULL && live->GetPanelTabId() == Tab && live->Is(ptDisk) &&
+               !live->IsBranchViewScanning() && Root == live->GetPathW() &&
+               live->IsBranchView() == Branch &&
+               (!Branch || Generation == live->GetBranchViewGeneration()) &&
+               (VisibleSide != 1 || main->LeftPanel == live) &&
+               (VisibleSide != 2 || main->RightPanel == live);
+    }
+};
+
 // countSizeMode - 0 normal calculation, 1 calculation for the selected item,
 // 2 calculation for all subdirectories
 void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int countSizeMode,
                                BOOL copyToSelectedDirs, BOOL* changeTargetRequested)
 {
-    // S27c1a: only flat copy into an ordinary disk panel is verified.
+    // S31b5: Branch destination admission is deferred until root/mask runtime verification.
     if (target != NULL && target->IsBranchView()) return;
     if (IsBranchView() && (countSizeMode != 0 || copyToSelectedDirs ||
         (type != atDelete && ((type != atCopy && type != atMove) || target == NULL || !target->Is(ptDisk))))) return;
@@ -788,6 +849,11 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                               type == atCopy ? LoadStr(IDS_ERRORCOPY) : LoadStr(IDS_ERRORMOVE),
                               count <= 1 ? nextFocus : NULL, NULL, SAL_MAX_PATH))
                 {
+                    if (!validateDiskTarget())
+                    {
+                        res = IDCANCEL;
+                        break;
+                    }
                     if (IsBranchView() && pathType != PATH_TYPE_WINDOWS)
                     {
                         SalMessageBox(HWindow, GetErrorText(ERROR_NOT_SUPPORTED), LoadStr(type == atCopy ? IDS_ERRORCOPY : IDS_ERRORMOVE),

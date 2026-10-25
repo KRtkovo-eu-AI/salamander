@@ -9,12 +9,8 @@ from branch_panel_getters_tests import block, read, compiler_environment, run
 
 
 def controller_contract():
-    for unit in ('src/fileswn7.cpp', 'src/fileswn8.cpp'):
-        assert '#include "fileactiondisktarget.h"' in read(unit), unit
     controller = block(read('src/fileswn8.cpp'), 'void CFilesWindow::FilesAction(')
-    assert 'if (target != NULL && target->IsBranchView() &&' in controller
-    assert '!CFilesActionDiskTarget::AllowsBranchTransfer(type, countSizeMode, copyToSelectedDirs, Is(ptDisk), target->Is(ptDisk))) return;' in controller
-    assert controller.index('!CFilesActionDiskTarget::AllowsBranchTransfer(') < controller.index('diskTarget.Capture(')
+    assert 'if (target != NULL && target->IsBranchView()) return;' in controller
     assert controller.index('diskTarget.Capture(MainWindow, target)') < controller.index('CheckPath(TRUE)')
     assert 'memcpy(path, diskTarget.DefaultPath.c_str(), diskTarget.DefaultPath.size() + 1);' in controller
     assert 'CheckPath(TRUE) == ERROR_SUCCESS && validateDiskTarget()' in controller
@@ -28,17 +24,7 @@ def controller_contract():
     assert 'if (!validateDiskTarget())' in controller[parser:parsed]
     late = controller.index('if (!validateDiskTarget()) cancel = TRUE;')
     assert controller.index('BOOL occupiedSpTooBig') < late < controller.index('!StartProgressDialog(')
-    classify = controller.index('const bool useDefaultDiskTarget =')
-    normalize = controller.index('if (!IsPluginFSPath(path)')
-    preflight = controller.index('!diskTarget.MatchesParsedDefault(')
-    split = controller.index('if (SalSplitWindowsPath(')
-    packed = controller.index('!diskTarget.MatchesSplitDefault(')
-    assert dialog < classify < normalize < parser < preflight < split < packed
-    assert 'useDefaultDiskTarget &&' in controller[preflight-80:preflight]
-    assert 'useDefaultDiskTarget &&' in controller[packed-80:packed]
-    assert 'if (!validateDiskTarget())' in controller[split:packed]
-    assert '#define PATH_TYPE_WINDOWS 1 ' in read('src/plugins/shared/spl_gen.h')
-    print('Disk target controller placement: PASS (only disk Copy/Move Branch admission)', flush=True)
+    print('Disk target controller placement: PASS (Branch admission remains blocked)', flush=True)
 
 
 def main():
@@ -51,9 +37,8 @@ def main():
         'BOOL IsValidPathUtf8Text(', 'std::wstring SalMultiByteToWidePath(',
         'std::string SalWideToMultiBytePath('))
     generated = read('src/tests/disk_target_identity_tests.cpp.in')
-    generated = generated.replace('@@ACTION@@', block(read('src/fileswnd.h'), 'enum CActionType')+';')
     generated = generated.replace('@@WIDE@@', helpers).replace('@@SNAPSHOT@@',
-        block(read('src/fileactiondisktarget.h'), 'struct CFilesActionDiskTarget')+';')
+        block(read('src/fileswn8.cpp'), 'struct CFilesActionDiskTarget')+';')
     assert '@@' not in generated
     env = compiler_environment()
     compiler = shutil.which('cl', path=env.get('PATH'))

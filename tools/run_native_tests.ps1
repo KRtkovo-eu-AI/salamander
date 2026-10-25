@@ -443,6 +443,11 @@ try {
             )
         },
         @{
+            Name = 'disk_target_identity_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\disk_target_identity_tests.py'), '--configuration', $Configuration)
+        },
+        @{
             Name = 'parse_path_context_tests'
             ClassName = 'native-generated'
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\parse_path_context_tests.py'), '--configuration', $Configuration)

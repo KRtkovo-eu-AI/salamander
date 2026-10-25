@@ -532,3 +532,13 @@ Local fixes preserve full wide/UTF8 context, reject failed/truncated bases,
 and bound localized error/trace formatting. Native tests extract actual code
 with explicit UI/plugin/absolute-name facades and real owned NTFS attributes.
 No additional third-party code imported; Branch admission remains guarded.
+
+### S31b5b2 destination identity integration
+
+Locally adapts the FilesAction flow and existing target-tab registry lookup
+pattern in mainwnd1.cpp. Reference context:
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), pinned
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and
+Samandarin Contributors, GPL-2.0-or-later. Existing notices retained.
+Adds owned wide destination identity and callback rechecks with explicit
+native registry doubles; no additional third-party code or SDK ABI change.

@@ -382,3 +382,21 @@ po ní opět native42/config a oba host buildy PASS. Žádná aktivace Branch ta
 ChangeDir zůstává odložený, long-source unpack NOT_VERIFIED. Navazuje S31b5b2
 owned target identity a modal recheck, poté S31b5b3 ověřená aktivace. Goal ACTIVE,
 G04/G05 OPEN, S32 BLOCKED; bez push/PR/CI/CodeQL. Viz [S31b5b1](steps/S31b5b1.md).
+
+## S31b5b2 — identita cílové karty přes modal/callback hranice
+
+Diskový target má owned wide root a úplný UTF8 default s maskou; živost se
+ověřuje přes registry běžných i detached karet před dereferencí uloženého pointeru.
+Kontrola zahrnuje tab ID, typ, root, Branch stav/generaci a původní viditelnou
+stranu. Neaktivní explicitně vybraná karta z detached chooseru zůstává podporovaná.
+FilesAction ověřuje target před/po dialogu, po resolveru/CheckPath, před analýzou
+stromu a před spuštěním. Ordinary ručně zadaný jiný cíl zůstává povolený.
+Actual snapshot50/config D/R + placement contracts PASS, mutation tab50/1 a
+root50/6 failures; transitions28/operations All20 PASS. Host D/R x64 /warnaserror
+PASS; actual GUI Debug dark/Release light relative Unicode copy + Cancel, exact
+readback a nezměněné zdroje/sentinel. Branch target guard stále blokuje vstup;
+nejde o ověřené celé Branch Copy/Move ani stale-target GUI. Navazuje S31b5b3
+preflight výsledného rootu/mask a ověřená aktivace; před delšími novými cíli také
+prověřit SalSplitWindowsPath changesRoot legacy buffer (statický nález níže).
+ChangeDir beze změny, G04/G05 OPEN, goal ACTIVE, S32 BLOCKED, bez push/PR/CI.
+Viz [S31b5b2](steps/S31b5b2.md).
