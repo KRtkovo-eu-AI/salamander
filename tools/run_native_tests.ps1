@@ -443,6 +443,11 @@ try {
             )
         },
         @{
+            Name = 'sevenzip_listing_ownership_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\sevenzip_listing_ownership_tests.py'), '--configuration', $Configuration)
+        },
+        @{
             Name = 'branch_archive_entry_tests'
             ClassName = 'native-generated'
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_archive_entry_tests.py'), '--configuration', $Configuration)

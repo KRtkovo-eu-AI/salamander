@@ -1,5 +1,19 @@
 # Stav portu PR #769
 
+## S31b1a — oprava vlastnictví wide názvů 7-Zip (2026-10-25)
+
+Srovnání se základem před S31b1 potvrdilo starší donorový únik: 7zip listing
+alokoval NameW, host však kvůli legacy ABI kopíruje pouze historická pole.
+Při úspěšném AddFile/AddDir tak chybělo uvolnění. Lokální scoped guard drží
+vlastnictví tohoto nepřebíraného vstupu; chybové cleanupy zůstávají zachované.
+Nativní test skutečné AddFileDir, cleanupu a host projekcí: 185 kontrol/config
+PASS. Negativní odstranění guardu únik detekuje. Instrumentované ordinary i
+Branch long GUI po opravě končí bez heap zprávy a bez dodatečného CRT reportu.
+Filtr/assertions se nemění. Podrobnosti a finální build/GUI hranice:
+[S31b1a](steps/S31b1a.md). S31b1 archive-entry nález je tímto opraven lokálně;
+G04 ostatní core operace a G05 zůstávají otevřené. Goal ACTIVE, S32 BLOCKED.
+Následuje S31b2 cíl zástupce. NOT_PUSHED; remote CI/CodeQL/čistá celá matice NOT_RUN.
+
 ## S31b1 — otevření souboru jako archivu podle obsahu (2026-10-25)
 
 Donorové předání přesné wide identity do archive probe je doplněné. Vlastněné

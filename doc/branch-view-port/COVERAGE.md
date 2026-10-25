@@ -1,5 +1,11 @@
 # S31 — Úplnost portu proti donoru
 
+Aktualizace S31b1a: archive-entry část G04 nyní RESOLVED_LOCAL po opravě
+preexistujícího 7zip wide-name úniku. Baseline/current ordinary i Branch měly
+stejný 30byte leak; scoped ownership jej odstraňuje bez změny heap filtru či ABI
+projekce. Native185/config a instrumentované GUI PASS, viz [S31b1a](steps/S31b1a.md).
+Ostatní core G04/G05 a S32 BLOCKED trvají. Starší záznamy níže jsou historické.
+
 Aktualizace S31b1: archive entry část G04 IMPLEMENTED_LOCAL, přesná identita a
 callback guards; native267/config, host D/R a funkční GUI D/R PASS. Tři navazující
 path buffery opravené; finální unload ověření viz [S31b1](steps/S31b1.md).
