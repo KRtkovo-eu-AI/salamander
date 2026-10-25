@@ -443,6 +443,16 @@ try {
             )
         },
         @{
+            Name = 'unpack_cleanup_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\unpack_cleanup_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'unpack_dialog_path_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\unpack_dialog_path_tests.py'), '--configuration', $Configuration)
+        },
+        @{
             Name = 'branch_unpack_source_tests'
             ClassName = 'native-generated'
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_unpack_source_tests.py'), '--configuration', $Configuration)

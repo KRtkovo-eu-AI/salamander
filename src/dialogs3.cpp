@@ -3080,6 +3080,35 @@ CPackDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 // CUnpackDialog
 //
 
+// Keep the Unpack target atomic: a shortened edit value must never become an I/O path.
+static BOOL ReadUnpackDialogPath(HWND control, int capacity, std::string& path, int& errorTextID)
+{
+    path.clear();
+    errorTextID = IDS_PATHISINVALID;
+    if (capacity <= 0 || !IsWindow(control) || !IsWindowUnicode(control)) return FALSE;
+    const int length = GetWindowTextLengthW(control);
+    if (length >= SAL_MAX_PATH)
+    {
+        errorTextID = IDS_TOOLONGPATH;
+        return FALSE;
+    }
+    std::vector<wchar_t> text((size_t)length + 1, L'\0');
+    SetLastError(ERROR_SUCCESS);
+    const int copied = GetWindowTextW(control, text.data(), (int)text.size());
+    if (copied != length || (copied == 0 && GetLastError() != ERROR_SUCCESS) ||
+        GetWindowTextLengthW(control) != copied) return FALSE;
+    const std::wstring exact(text.data(), copied);
+    std::string encoded = SalWideToMultiBytePath(exact.c_str(), CP_UTF8);
+    if (SalMultiByteToWidePath(encoded.c_str(), CP_UTF8) != exact) return FALSE;
+    if (encoded.size() >= (size_t)capacity)
+    {
+        errorTextID = IDS_TOOLONGPATH;
+        return FALSE;
+    }
+    path.swap(encoded);
+    return TRUE;
+}
+
 CUnpackDialog::CUnpackDialog(HWND parent, char* path, int pathBufSize, const char* pathAlt, char* mask,
                              CTruncatedString* subject, CUnpackerConfig* config,
                              BOOL* delArchiveWhenDone, BOOL allowDeleteArchive)
@@ -3268,13 +3297,12 @@ void CUnpackDialog::Transfer(CTransferInfo& ti)
         SendMessage(combo, CB_LIMITTEXT, PathBufSize > 0 ? PathBufSize - 1 : 0, 0);
         SendMessage(combo, CB_SETCURSEL, 0, 0);
         SetWindowTextW(combo, initial.c_str());
-        BOOL showDelete = AllowDeleteArchive && *DelArchiveWhenDone;
-        ti.CheckBox(IDC_DELETEARCHIVEFILES, showDelete);
+        ti.CheckBox(IDC_DELETEARCHIVEFILES, *DelArchiveWhenDone);
     }
     else
     {
         memcpy(Path, target.c_str(), target.size() + 1);
-        if (AllowDeleteArchive && IsWindowEnabled(GetDlgItem(HWindow, IDC_DELETEARCHIVEFILES)))
+        if (IsWindowEnabled(GetDlgItem(HWindow, IDC_DELETEARCHIVEFILES)))
             ti.CheckBox(IDC_DELETEARCHIVEFILES, *DelArchiveWhenDone);
         else
             *DelArchiveWhenDone = FALSE;

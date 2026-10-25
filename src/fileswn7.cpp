@@ -2810,9 +2810,48 @@ static BOOL PrepareUnpackArchiveSource(CFilesWindow* panel, const CFileData& fil
     return TRUE;
 }
 
+// Best-effort cleanup of the exact newly-created tree: never delete files or follow reparse directories.
+static void RemoveEmptyUnpackDirectoriesW(const std::wstring& root)
+{
+    if (root.empty()) return;
+    std::vector<std::wstring> directories(1, root);
+    for (size_t index = 0; index < directories.size(); ++index)
+    {
+        const std::wstring directory = directories[index];
+        const std::wstring ioPath = SalPathAddExtendedPrefixW(directory.c_str());
+        const DWORD attributes = GetFileAttributesW(ioPath.c_str());
+        if (attributes == INVALID_FILE_ATTRIBUTES || !(attributes & FILE_ATTRIBUTE_DIRECTORY) ||
+            (attributes & FILE_ATTRIBUTE_REPARSE_POINT)) continue;
+        std::wstring mask = directory;
+        SalPathAppendW(mask, L"*");
+        WIN32_FIND_DATAW data;
+        const std::wstring ioMask = SalPathAddExtendedPrefixW(mask.c_str());
+        HANDLE find = HANDLES_Q(FindFirstFileW(ioMask.c_str(), &data));
+        if (find == INVALID_HANDLE_VALUE) continue;
+        do
+        {
+            if (!(data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ||
+                (data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) ||
+                wcscmp(data.cFileName, L".") == 0 || wcscmp(data.cFileName, L"..") == 0) continue;
+            std::wstring child = directory;
+            SalPathAppendW(child, data.cFileName);
+            directories.push_back(child);
+        } while (FindNextFileW(find, &data));
+        HANDLES(FindClose(find));
+    }
+    for (size_t index = directories.size(); index > 0; --index)
+    {
+        const std::wstring ioPath = SalPathAddExtendedPrefixW(directories[index - 1].c_str());
+        const DWORD attributes = GetFileAttributesW(ioPath.c_str());
+        if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) &&
+            !(attributes & FILE_ATTRIBUTE_REPARSE_POINT))
+            RemoveDirectoryW(ioPath.c_str()); // succeeds only for an empty ordinary directory
+    }
+}
+
 void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* pluginName, const char* unpackMask)
 {
-    if (IsBranchView() || target != NULL && target->IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
+    if (target == NULL || !Is(ptDisk) || IsBranchView() || target->IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
 
     CALL_STACK_MESSAGE4("CFilesWindow::Unpack(, %d, %s, %s)", pluginIndex, pluginName, unpackMask);
 
@@ -2856,10 +2895,20 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
             EndStopRefresh();
             return;
         }
-        char path[SAL_MAX_PATH];
-        char pathAlt[MAX_PATH]; // alternate path displayed in the UnPack dialog combo box
-        char mask[MAX_PATH];
-        char subject[SAL_MAX_PATH + 100];
+        const std::wstring sourceDirectoryW = GetPathW();
+        const std::string sourceDirectory = SalWideToMultiBytePath(sourceDirectoryW.c_str(), CP_UTF8);
+        if (sourceDirectoryW.empty() || SalMultiByteToWidePath(sourceDirectory.c_str(), CP_UTF8) != sourceDirectoryW)
+        {
+            SalMessageBox(HWindow, LoadStr(IDS_PATHISINVALID), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+            EndStopRefresh();
+            return;
+        }
+        CPathBuffer pathBuffer, alternateBuffer, fileNameBuffer, subjectBuffer(SAL_MAX_PATH + 100);
+        char* path = pathBuffer.Data();
+        char* pathAlt = alternateBuffer.Data();
+        char* fileName = fileNameBuffer.Data();
+        char* subject = subjectBuffer.Data();
+        char mask[MAX_PATH]; // file mask, not a filesystem path
         path[0] = 0;
         pathAlt[0] = 0;
         if (target->Is(ptDisk))
@@ -2869,7 +2918,8 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
             if (targetW.empty() || targetText.size() >= (size_t)pathBuffer.Capacity() ||
                 SalMultiByteToWidePath(targetText.c_str(), CP_UTF8) != targetW)
             {
-                SalMessageBox(parent, LoadStr(IDS_PATHISINVALID), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+                SalMessageBox(HWindow, LoadStr(IDS_PATHISINVALID), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+                EndStopRefresh();
                 return;
             }
             if (Configuration.UseAnotherPanelForUnpack)
@@ -2892,7 +2942,8 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
         if (displayName.empty() || displayName.size() >= (size_t)fileNameBuffer.Capacity() ||
             SalMultiByteToWidePath(displayName.c_str(), CP_UTF8) != fileNameW)
         {
-            SalMessageBox(parent, LoadStr(IDS_PATHISINVALID), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+            SalMessageBox(HWindow, LoadStr(IDS_PATHISINVALID), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+            EndStopRefresh();
             return;
         }
         strcpy(fileName, displayName.c_str());
@@ -2906,7 +2957,8 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
                 char* buffer = index == 0 ? path : pathAlt;
                 if (!stem.empty() && !SalPathAppend(buffer, stem.c_str(), pathBuffer.Capacity()))
                 {
-                    SalMessageBox(parent, LoadStr(IDS_TOOLONGPATH), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+                    SalMessageBox(HWindow, LoadStr(IDS_TOOLONGPATH), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+                    EndStopRefresh();
                     return;
                 }
             }
@@ -2933,8 +2985,9 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
             }
             if (i2 == UnpackerConfig.GetUnpackersCount()) // requested plugin not found
             {
-                const bool haveMessage = Salamander::LocalizedText::Write(subject, static_cast<size_t>(subjectBuffer.Capacity()), LoadStr(IDS_PLUGINUNPACKERNOTFOUND), pluginName);
-                SalMessageBox(parent, haveMessage ? subject : GetErrorText(ERROR_INVALID_DATA), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+                sprintf_s(subject, subjectBuffer.Capacity(), LoadStr(IDS_PLUGINUNPACKERNOTFOUND), pluginName);
+                SalMessageBox(HWindow, subject, LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+                EndStopRefresh(); // the snooper resumes now
                 return;
             }
         }
@@ -2973,7 +3026,9 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
         const std::string offeredDiskTarget = watchDiskTarget ?
             (Configuration.UseAnotherPanelForUnpack ? path : pathAlt) : "";
         BOOL delArchiveWhenDone = FALSE;
-        while (true)
+    DO_AGAIN:
+
+        if (CUnpackDialog(HWindow, path, pathBuffer.Capacity(), pathAlt, mask, &str, &UnpackerConfig, &delArchiveWhenDone).Execute() == IDOK)
         {
             if (!panelsAreCurrent()) { reportChangedContext(); return; }
             CUnpackDialog dialog(parent, path, pathBuffer.Capacity(), pathAlt, mask, &str, &UnpackerConfig, &delArchiveWhenDone, TRUE);
@@ -3013,8 +3068,8 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
             CPathBuffer nextFocusBuffer;
             char* nextFocus = nextFocusBuffer.Data();
             nextFocus[0] = 0;
-            const char* errorText = NULL;
-            if (!SalGetFullName(path, &errTextID, sourceDirectory.c_str(), nextFocus, NULL, pathBuffer.Capacity()))
+            const char* text = NULL;
+            if (!SalGetFullName(path, &errTextID, Is(ptDisk) ? sourceDirectory.c_str() : NULL, nextFocus, NULL, pathBuffer.Capacity()))
             {
                 if (errTextID == IDS_EMPTYNAMENOTALLOWED)
                     strcpy(path, sourceDirectory.c_str());
@@ -3023,19 +3078,12 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
             }
             if (errorText != NULL)
             {
-                char newDir[MAX_PATH];
-                std::wstring pathW = SalMultiByteToWidePath(path, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                const std::wstring pathW = SalMultiByteToWidePath(path, IsValidPathUtf8Text(path) ? CP_UTF8 : CP_ACP);
                 std::wstring newDirW;
-                BOOL createdOK = GetACP() == CP_UTF8 && !pathW.empty() ?
-                                     CheckAndCreateDirectoryW(pathW.c_str(), NULL, TRUE, &newDirW, TRUE) :
-                                     CheckAndCreateDirectory(path, NULL, TRUE, NULL, 0, newDir, FALSE, TRUE);
+                const BOOL createdOK = !pathW.empty() && CheckAndCreateDirectoryW(pathW.c_str(), NULL, TRUE, &newDirW, TRUE);
+                std::string newDir = SalWideToMultiBytePath(newDirW.c_str(), CP_UTF8);
                 if (createdOK)
                 {
-                    if (!newDirW.empty())
-                    {
-                        std::string newDirA = SalWideToMultiBytePath(newDirW.c_str(), CP_UTF8);
-                        lstrcpyn(newDir, newDirA.c_str(), MAX_PATH);
-                    }
                     // launch the unpacker
                     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
                     CDynamicStringImp archiveVolumes;
@@ -3043,8 +3091,8 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
                                                         path, delArchiveWhenDone,
                                                         delArchiveWhenDone ? &archiveVolumes : NULL))
                     {
-                        if (newDir[0] != 0)
-                            RemoveEmptyDirs(newDir);
+                        if (!newDir.empty())
+                            RemoveEmptyUnpackDirectoriesW(newDirW);
                     }
                     else // unpacking succeeded (no Cancel, Skip may have occurred)
                     {
@@ -3084,7 +3132,8 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
                                 name = name + strlen(name) + 1;
                             } while (name - archiveVolumes.Text < archiveVolumes.Length);
                         }
-                        if (nextFocus[0] != 0)
+                        NextFocusName[0] = 0;
+                        if (nextFocus[0] != 0 && strlen(nextFocus) < sizeof(NextFocusName))
                         {
                             strcpy(NextFocusName, nextFocus);
                             PostMessage(HWindow, WM_USER_DONEXTFOCUS, 0, 0); // it is a directory, must be
@@ -3092,36 +3141,15 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
                     }
                     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
 
-            CDynamicStringImp archiveVolumes;
-            BOOL unpacked;
-            DWORD unpackError;
-            {
-                struct CUnpackPriorityScope
-                {
-                    CUnpackPriorityScope() { SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL); }
-                    ~CUnpackPriorityScope() { SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL); }
-                } priorityScope;
-                SetLastError(ERROR_SUCCESS);
-                unpacked = UnpackerConfig.ExecuteUnpacker(MainWindow->HWindow, this, archiveSource.c_str(), mask,
-                    path, delArchiveWhenDone, delArchiveWhenDone ? &archiveVolumes : NULL,
-                    &backendSnapshot, &sourceSnapshot, watchDiskTarget ? &diskTarget : NULL);
-                unpackError = GetLastError();
-            }
-            if (!unpacked)
-            {
-                if (!newDir.empty()) RemoveEmptyUnpackDirectoriesW(newDirW);
-            }
-            else if (contextIsCurrent())
-            {
-                if (delArchiveWhenDone && archiveVolumes.Length > 0)
-                {
-                    std::vector<CUnpackArchiveVolume> volumes;
-                    if (!PrepareUnpackArchiveVolumes(archiveVolumes.Text, archiveVolumes.Length, archiveVolumes.Allocated,
-                                                     archiveSource.c_str(), backendSnapshot.IsVerifiedBranchSourceUnpacker(), volumes))
+                    //---  refresh directories that are not automaticallyrefreshed
+                    // change in the directory containing the archive (should not happen during unpack,
+                    // but refresh anyway)
+                    MainWindow->PostChangeOnPathNotification(GetPath(), FALSE);
+                    if (!newDir.empty()) // some new subdirectories were created along the path
                     {
-                        const DWORD error = GetLastError();
-                        nextFocus[0] = 0;
-                        SalMessageBox(parent, GetErrorText(error), LoadStr(IDS_ERRORDELETINGFILE), MB_OK | MB_ICONEXCLAMATION);
+                        CutDirectory(newDir.data()); // should always work (path to the first newly created directory)
+                        // changes in the directory where the first new subdirectory was created
+                        MainWindow->PostChangeOnPathNotification(newDir.c_str(), TRUE);
                     }
                     else
                     {
@@ -3151,11 +3179,14 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
                 // A volume error dialog may have dispatched callbacks since the success check above.
                 if (contextIsCurrent() && !sourceSnapshot.Branch)
                 {
-                    NextFocusName[0] = 0;
-                    if (nextFocus[0] != 0 && strlen(nextFocus) < sizeof(NextFocusName))
+                    if (!newDir.empty())
                     {
-                        strcpy(NextFocusName, nextFocus);
-                        PostMessage(HWindow, WM_USER_DONEXTFOCUS, 0, 0);
+                        CutDirectory(newDir.data()); // should always work (path to the first newly created directory)
+
+                        //---  refresh directories that are not automatically refreshed
+                        // if creating directories failed, report changes immediately (the user may
+                        // choose a completely different path next time); the newly created path is kept (almost dead code)
+                        MainWindow->PostChangeOnPathNotification(newDir.c_str(), TRUE);
                     }
                 }
             }

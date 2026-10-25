@@ -1,5 +1,25 @@
 # S00 read-only donor boundary audit
 
+## S31b4b — Unicode cílový dialog a bezpečný úklid Unpack (2026-10-25)
+
+Dialog přenáší úplnou Unicode cestu s explicitní byte kapacitou a odmítne
+overflow/lossy vstup před změnou caller path, volby backendu či delete flagu.
+Řadič používá heap scratch, owned UTF8 source/target default, wide subject,
+explicitní kapacitu resolveru a CheckAndCreateDirectoryW; newDir se nezkracuje.
+Scoped wide cleanup odstraňuje jen prázdné běžné složky vytvořeného stromu,
+ne soubory ani reparse adresáře, bez změny process current directory.
+Native actual dialog38/cleanup22/source54 kontrol/config D/R PASS; mutace
+truncation38/4 a junction22/3 selhání. Host D/R x64 /warnaserror Build PASS,
+operations All20/transitions28 PASS. Skutečné GUI Debug dark/Release light:
+dlouhá cesta v dialogu + Cancel, Unicode kratší target a přesné ZIP payloady.
+Debug dlouhý target365 UTF16/875 UTF8: host vytvořil celý strom, ZIP plugin
+jej explicitně odmítl MAX_PATH limitem; potvrzený Cancel uklidil nově vytvořené
+prázdné složky a zachoval zdroje. To NENÍ long-target unpack PASS ani přijaté
+konečné omezení. Backend oprava/validace a původní long-source startup
+diagnostika navazují v S31b4c před aktivací Branch Unpack. G04/G05 OPEN,
+goal ACTIVE, S32 BLOCKED; bez push/PR/CI/CodeQL/clean full suite.
+Viz [S31b4b](steps/S31b4b.md) pro přesný rozsah a evidenci.
+
 ## S31b4a — owned exact archive source pro Unpack (2026-10-25)
 
 Unpack uloží skutečnou GetItemFullPathW identitu před modalem a předá ji

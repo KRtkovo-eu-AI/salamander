@@ -9,7 +9,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--configuration',choices=('Debug','Release','Both'),default='Both');a=p.parse_args()
     source=read('src/fileswn7.cpp');wide=read('src/common/widepath.cpp')
     controller=block(source,'void CFilesWindow::Unpack(')
-    assert 'if (IsBranchView() || target != NULL && target->IsBranchView()) return;' in controller
+    assert 'if (target == NULL || !Is(ptDisk) || IsBranchView() || target->IsBranchView()) return;' in controller
     assert controller.index('PrepareUnpackArchiveSource(')<controller.index('CUnpackDialog(')
     assert 'ExecuteUnpacker(MainWindow->HWindow, this, archiveSource.c_str(), mask,' in controller
     after=controller[controller.index('CUnpackDialog('):]

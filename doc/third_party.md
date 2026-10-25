@@ -491,3 +491,14 @@ Samandarin Contributors under GPL-2.0-or-later. The local port now registers the
 complete existing contract suites, adjusts the clipboard selector to the shared
 disk implementation and retains rename notifications in All scope. No new
 third-party implementation is imported; original provenance remains intact.
+
+### S31b4b Unpack Unicode target integration
+
+Adapts CUnpackDialog, CFilesWindow::Unpack and the existing widepath pattern
+from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pinned 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Open Salamander Authors and
+Samandarin Contributors under GPL-2.0-or-later. Existing notices retained.
+Local repairs add atomic Unicode target transfer, owned target/default buffers
+and scoped wide empty-directory cleanup. Tests extract actual code into real
+HWND and NTFS fixtures; no additional third-party code is imported. Branch
+Unpack remains blocked while ZIP backend limits and modal guards are resolved.
