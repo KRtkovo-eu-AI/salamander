@@ -1,5 +1,13 @@
 # S31 — Úplnost portu proti donoru
 
+S31b3b2: Properties část G04 RESOLVED_LOCAL po guarded command admission,
+actual dialog78/selection22/router179 a real Windows metadata I/O107/config
+D/R, GUI single/multi/Cancel/readonly failure + ordinary panel, D/R host Build.
+Cesty a hodnoty jsou wide/owned, registry/security policy beze změny.
+Handler capabilities/ACL dále rozhodují; snapshot není filesystem transakce.
+Viz [S31b3b2](steps/S31b3b2.md). Zbývající G04 a G05 OPEN, goal ACTIVE;
+S31b4 unpack je další krok, S32 BLOCKED. Starší záznamy jsou historické.
+
 S31b3b1: actual Windows metadata backend107/config D/R PASS bez změny
 produkce. Jde o I/O preflight před guarded GUI aktivací S31b3b2, nikoli
 uzavření Properties části G04. Viz [S31b3b1](steps/S31b3b1.md).

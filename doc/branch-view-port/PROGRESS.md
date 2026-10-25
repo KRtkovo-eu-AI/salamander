@@ -1,5 +1,24 @@
 # Stav portu PR #769
 
+## S31b3b2 — guarded Edit Tags and Windows Properties (2026-10-25)
+
+CM_EDITPROPERTIES je v experimentálním Branch View aktivní. Dialog vlastní
+wide cesty, před otevřením a každým zápisem ověřuje root/tab/generation/výběr;
+změněný výběr ukončí zbývající zápisy jako Cancel. Chybové hlášení používá
+lokalizovaný dynamický wide text s úplnou cestou a skutečným HRESULTem.
+Native dialog78, selection22, router179 a skutečné metadata I/O107 kontrol/config
+D/R PASS; properties14/All20/transitions28 a explorer-columns contract PASS.
+GUI Debug dark/Release light: Cancel, long Unicode single Apply, dvě same.jpg
+z různých rodičů, běžný panel a read-only failure0x80030005 ověřené skutečným
+readback/pixely/kontrolními soubory. Doplněno správné párování sledované SVG
+bitmapy; po této jediné pozdější runtime změně Debug Cancel/multi/shutdown
+znovu PASS, kompletní Release matice na finální binárce PASS. Host D/R x64
+Build /warnaserror PASS; nikoli čistá sestava celé sestavy. Viz
+[S31b3b2](steps/S31b3b2.md) pro přesné vazby testů a omezení.
+Properties část G04 RESOLVED_LOCAL. Další S31b4 přímé rozbalení, S31b5 kontexty
+potom S31c/G05; goal ACTIVE, S32 BLOCKED. Bez push/PR; CI/CodeQL NOT_RUN.
+Starší záznamy níže zachovávají stav tehdejších checkpointů.
+
 ## S31b3b1 — skutečný Windows metadata I/O preflight (2026-10-25)
 
 Nezměněné donor/target Read/WriteTags, Read/WritePropertyText a capability

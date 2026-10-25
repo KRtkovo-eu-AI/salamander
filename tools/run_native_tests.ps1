@@ -443,6 +443,11 @@ try {
             )
         },
         @{
+            Name = 'branch_edit_properties_dialog_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_edit_properties_dialog_tests.py'), '--configuration', $Configuration)
+        },
+        @{
             Name = 'branch_edit_properties_io_tests'
             ClassName = 'native-generated'
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_edit_properties_io_tests.py'), '--configuration', $Configuration)

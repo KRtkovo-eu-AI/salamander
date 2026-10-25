@@ -1180,7 +1180,9 @@ struct CBranchAttributeSelection
 
 void CFilesWindow::EditWindowsProperties()
 {
-    if (IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
+    const bool branchProperties = IsBranchView() != FALSE;
+    CBranchAttributeSelection selection;
+    if (branchProperties && !selection.Capture(this)) return;
 
     CALL_STACK_MESSAGE1("CFilesWindow::EditWindowsProperties()");
     if (!Is(ptDisk) || CheckPath(TRUE) != ERROR_SUCCESS ||
@@ -1204,7 +1206,10 @@ void CFilesWindow::EditWindowsProperties()
         if (index < Dirs->Count || index >= Dirs->Count + Files->Count)
             continue;
         CFileData* file = &Files->At(index - Dirs->Count);
-        paths.push_back(GetItemFullPathW(*file));
+        if (branchProperties && GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*file)) != file) return;
+        const std::wstring path = GetItemFullPathW(*file);
+        if (path.empty()) return;
+        paths.push_back(path);
     }
     if (paths.empty())
         return;
@@ -1221,45 +1226,6 @@ void CFilesWindow::EditWindowsProperties()
         PostMessage(HWindow, WM_USER_REFRESH_DIR, 0, GetTickCount());
     }
 }
-
-// S31b3a3: own the operation identities across modal message dispatch.
-// A dialog must not approve a replacement tab/listing or a different selection.
-struct CBranchAttributeSelection
-{
-    std::wstring Root;
-    ULONGLONG Tab = 0, Generation = 0;
-    std::vector<std::wstring> Paths;
-
-    bool Capture(CFilesWindow* panel)
-    {
-        Paths.clear();
-        if (!panel->Is(ptDisk) || !panel->IsBranchView()) return false;
-        Root = panel->GetPathW();
-        Tab = panel->GetPanelTabId();
-        Generation = panel->GetBranchViewGeneration();
-        const int selected = panel->GetSelCount();
-        const int caret = panel->GetCaretIndex();
-        const int total = panel->Dirs->Count + panel->Files->Count;
-        if (Root.empty() || (selected == 0 && (caret < 0 || caret >= total))) return false;
-        for (int i = 0; i < total; ++i)
-        {
-            const CFileData& file = i < panel->Dirs->Count ? panel->Dirs->At(i) : panel->Files->At(i - panel->Dirs->Count);
-            if (selected != 0 ? file.Selected == 0 : i != caret) continue;
-            if (panel->GetBranchViewFileByCacheKey(panel->GetItemCacheKeyPtr(file)) != &file) return false;
-            const std::wstring path = panel->GetItemFullPathW(file);
-            if (path.empty()) return false;
-            Paths.push_back(path);
-        }
-        return !Paths.empty();
-    }
-
-    bool IsCurrent(CFilesWindow* panel) const
-    {
-        CBranchAttributeSelection current;
-        return current.Capture(panel) && Root == current.Root && Tab == current.Tab &&
-               Generation == current.Generation && Paths == current.Paths;
-    }
-};
 
 // Build the confirmation with typed wide identities; display text is not an I/O path.
 static BOOL PrepareNtfsConfirmation(CFilesWindow* panel, int textID, int count, CTruncatedString& text)

@@ -4358,6 +4358,7 @@ static bool BranchReadOnlyCommandAllowed(UINT command)
     case CM_UNCOMPRESS:
     case CM_ENCRYPT:
     case CM_DECRYPT:
+    case CM_EDITPROPERTIES: // S31b3b2: owned paths and guarded metadata writes.
     case CM_CHANGEATTR: // S31b3a3: exact selection guarded attribute dialog.
     case CM_AFOCUSSHORTCUT: // S31b2: exact wide shortcut/link target navigation.
     case CM_BRANCH_OPENPARENT:
