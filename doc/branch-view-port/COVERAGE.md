@@ -1,5 +1,9 @@
 # S31 — Úplnost portu proti donoru
 
+S31b3a2: attribute/time worker error handling opravené a native73/config D/R
+ověřené. G04 attributes REMAINS_OPEN do modal/selection a GUI S31b3a3.
+Viz [S31b3a2](steps/S31b3a2.md); nepovoluje nové příkazy.
+
 S31b3a1: atributy mají donorový exact per-item zdroj v planneru. G04 attributes
 REMAINS_OPEN: ChangeAttr/host gate stále blokují, worker/dialog/GUI navazují.
 Native399/config a host D/R PASS, viz [S31b3a1](steps/S31b3a1.md).

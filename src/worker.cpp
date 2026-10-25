@@ -8957,8 +8957,11 @@ BOOL DoChangeAttrs(HWND hProgressDlg, char* name, const CQuadWord& size, DWORD a
                             error = GetLastError();
                     }
                     HANDLES(CloseHandle(file));
-                    if (attrs & FILE_ATTRIBUTE_READONLY)
-                        SetFileAttributesW(nameSetAttrs.c_str(), attrs);
+                    if ((attrs & FILE_ATTRIBUTE_READONLY) &&
+                        !SetFileAttributesW(nameSetAttrs.c_str(), attrs) && error == ERROR_SUCCESS)
+                        error = GetLastError();
+                    if (error != ERROR_SUCCESS)
+                        goto SHOW_ERROR;
                 }
                 else
                 {

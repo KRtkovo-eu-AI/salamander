@@ -443,6 +443,11 @@ try {
             )
         },
         @{
+            Name = 'branch_attribute_worker_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_attribute_worker_tests.py'), '--configuration', $Configuration)
+        },
+        @{
             Name = 'branch_shortcut_target_tests'
             ClassName = 'native-generated'
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_shortcut_target_tests.py'), '--configuration', $Configuration)

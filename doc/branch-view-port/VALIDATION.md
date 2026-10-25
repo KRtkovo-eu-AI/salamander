@@ -1,5 +1,19 @@
 # Validace portu a baseline S00
 
+## S31b3a2 — chyby změny času v attribute workeru (2026-10-25)
+
+Při ověření S31b3a se prokázala preexistující chyba: DoChangeAttrs ignoroval
+GetFileTime/SetFileTime i selhání obnovy Read-only a mohl hlásit úspěch.
+Oprava zachová Windows chybu přes CloseHandle/obnovu atributů, zastaví zápis
+po neúspěšném čtení a použije původní Retry/Skip/SkipAll/Cancel tok.
+Native skutečného workeru73/config D/R PASS; parent má12 assertion failures
+ve stejné sadě. Skutečné wide I/O pro Unicode/long soubory i adresář, timestamps,
+Read-only a nedotčený soused; UI/error injection facades jsou výslovně označené.
+Host D/R /warnaserror, registrace native D/R a All20 contracts PASS.
+Viz [S31b3a2](steps/S31b3a2.md). ChangeAttr/host guard stále blokují; následuje
+S31b3a3 modal/selection a GUI aktivace. G04/G05 OPEN, goal ACTIVE, S32 BLOCKED.
+Bez push/PR; remote CI/CodeQL/clean full suite NOT_RUN.
+
 ## S31b3a1 — příprava přesných zdrojů atributů (2026-10-25)
 
 BuildScriptMain nově připouští atChangeAttrs v existujícím donorovém per-item
