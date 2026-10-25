@@ -1261,11 +1261,59 @@ struct CBranchAttributeSelection
     }
 };
 
+// Build the confirmation with typed wide identities; display text is not an I/O path.
+static BOOL PrepareNtfsConfirmation(CFilesWindow* panel, int textID, int count, CTruncatedString& text)
+{
+    if (count < 0 || count != panel->GetSelCount()) return FALSE;
+    const auto wideText = [](const char* value) {
+        return SalMultiByteToWidePath(value, IsValidPathUtf8Text(value) ? CP_UTF8 : CP_ACP);
+    };
+    std::wstring format = wideText(LoadStr(textID));
+    const auto insertSubject = [&](const std::wstring& subject) {
+        for (size_t i = 0; i + 1 < format.size(); ++i)
+        {
+            if (format[i] != L'%') continue;
+            if (format[i + 1] == L'%') { ++i; continue; }
+            if (format[i + 1] == L's')
+            {
+                std::wstring result = format;
+                result.replace(i, 2, subject);
+                return result;
+            }
+        }
+        return format + L" " + subject;
+    };
+    if (count > 1)
+    {
+        int files = 0, dirs = 0;
+        for (int i = 0; i < panel->Dirs->Count; ++i)
+            if (panel->Dirs->At(i).Selected && strcmp(panel->Dirs->At(i).Name, "..") != 0) ++dirs;
+        for (int i = 0; i < panel->Files->Count; ++i)
+            if (panel->Files->At(i).Selected) ++files;
+        if (files + dirs != count) return FALSE;
+        char expanded[200]; // localized counts only, no file/path text
+        ExpandPluralFilesDirs(expanded, sizeof(expanded), files, dirs, epfdmNormal, FALSE);
+        format = insertSubject(wideText(expanded));
+        return text.SetW(format.c_str(), NULL);
+    }
+    int index = panel->GetCaretIndex();
+    if (count == 1) panel->GetSelItems(1, &index);
+    if (index < 0 || index >= panel->Dirs->Count + panel->Files->Count) return FALSE;
+    const BOOL isDir = index < panel->Dirs->Count;
+    const CFileData& file = isDir ? panel->Dirs->At(index) : panel->Files->At(index - panel->Dirs->Count);
+    if (strcmp(file.Name, "..") == 0) return FALSE;
+    if (panel->IsBranchView() && panel->GetBranchViewFileByCacheKey(panel->GetItemCacheKeyPtr(file)) != &file) return FALSE;
+    const std::wstring identity = panel->IsBranchView() ? panel->GetItemRelativePathW(file) : panel->GetItemFullPathW(file);
+    if (identity.empty()) return FALSE;
+    format = insertSubject(wideText(LoadStr(isDir ? IDS_QUESTION_DIRECTORY : IDS_QUESTION_FILE)));
+    return text.SetW(format.c_str(), identity.c_str());
+}
+
 void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncryption, BOOL encrypted)
 {
     const bool branchAttributes = IsBranchView() != FALSE;
     CBranchAttributeSelection branchSelection;
-    if (branchAttributes && (setCompress || setEncryption || !branchSelection.Capture(this))) return; // Fast NTFS commands remain staged.
+    if (branchAttributes && !branchSelection.Capture(this)) return;
 
     CALL_STACK_MESSAGE5("CFilesWindow::ChangeAttr(%d, %d, %d, %d)", setCompress, compressed, setEncryption, encrypted);
     if (Dirs->Count + Files->Count == 0)
@@ -1407,14 +1455,9 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
             }
 
             CChangeAttrDialog chDlg(HWindow, attr, attrDiff,
-                                    SelectionContainsDirectory(), branchAttributes ? FALSE : FileBasedCompression,
-                                    branchAttributes ? FALSE : FileBasedEncryption,
+                                    SelectionContainsDirectory(), FileBasedCompression,
+                                    FileBasedEncryption,
                                     &timeModified, &timeCreated, &timeAccessed);
-            if (branchAttributes)
-            {
-                chDlg.Compressed = 2; // Preserve unverified NTFS properties until their own checkpoint.
-                chDlg.Encrypted = 2;
-            }
             if (setCompress || setEncryption)
             {
                 chDlg.Archive = 2;

@@ -8,11 +8,13 @@ from branch_panel_getters_tests import block, read, compiler_environment, run
 def main():
     p=argparse.ArgumentParser();p.add_argument('--configuration',choices=('Debug','Release','Both'),default='Both');p.add_argument('--mutation',choices=('tab','generation','paths','cache'));args=p.parse_args()
     source=read('src/fileswn5.cpp');controller=block(source,'void CFilesWindow::ChangeAttr(')
-    assert 'setCompress || setEncryption || !branchSelection.Capture(this)' in controller
+    assert 'if (branchAttributes && !branchSelection.Capture(this)) return;' in controller
     assert controller.index('branchSelection.Capture(this)') < controller.index('BeginStopRefresh()')
-    assert 'branchAttributes ? FALSE : FileBasedCompression' in controller
-    assert 'branchAttributes ? FALSE : FileBasedEncryption' in controller
-    assert 'chDlg.Compressed = 2;' in controller and 'chDlg.Encrypted = 2;' in controller
+    assert 'SelectionContainsDirectory(), FileBasedCompression,' in controller
+    assert 'FileBasedEncryption,' in controller
+    assert 'GetLocalTime(&timeModified); // Fast commands still construct' in controller
+    assert 'if ((branchAttributes && !branchSelection.IsCurrent(this)) ||' in controller
+    assert '!PrepareNtfsConfirmation(this, resTextID, count, str)' in controller
     check=controller.index('if (CheckPath(TRUE) != ERROR_SUCCESS || (branchAttributes && !branchSelection.IsCurrent(this)))')
     assert controller.index('chDlg.Execute()') < check < controller.index('GetSelItems(count, indexes)')
     assert 'BOOL res = (!branchAttributes || branchSelection.IsCurrent(this)) &&' in controller

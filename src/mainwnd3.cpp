@@ -4354,6 +4354,10 @@ static bool BranchReadOnlyCommandAllowed(UINT command)
     case CM_VIEW:
     case CM_ALTVIEW:
     case CM_EDIT:
+    case CM_COMPRESS: // S31b3a4b: NTFS confirmation and exact selection guards.
+    case CM_UNCOMPRESS:
+    case CM_ENCRYPT:
+    case CM_DECRYPT:
     case CM_CHANGEATTR: // S31b3a3: exact selection guarded attribute dialog.
     case CM_AFOCUSSHORTCUT: // S31b2: exact wide shortcut/link target navigation.
     case CM_BRANCH_OPENPARENT:

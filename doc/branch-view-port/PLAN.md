@@ -1,5 +1,20 @@
 # Plán postupného portu PR #769
 
+## S31b3a4b — NTFS dialogy a příkazy Branch View (2026-10-25)
+
+Aktivní Compress/Uncompress/Encrypt/Decrypt i NTFS volby Change Attributes;
+stejné root/tab/generation/owned-selection guards platí i pro rychlé příkazy.
+Dynamický wide confirmation používá přesnou relativní identitu a existující
+lokalizované otázky/varování. Po Cancel se neprovede operace ani nezmění výběr
+jiného tabu. Native confirmation52, guard22, router178, NTFSworker160 a
+attrsworker73 kontrol/config D/R PASS; All20/Transitions28/Branch19 PASS.
+Skutečné GUI D/R: single long Cancel, dvě same.txt z různých rodičů při všech
+čtyřech NTFS operacích, kontrolní soubory/obsah beze změn, atributy vráceny32.
+Host D/R Build /warnaserror PASS; nikoli čistá sestava celé sestavy.
+Viz [S31b3a4b](steps/S31b3a4b.md). Attributes část G04 RESOLVED_LOCAL;
+Properties, unpack, zbývající kontexty a G05 dále OPEN. Goal ACTIVE, S32 BLOCKED.
+Bez push/PR, remote CI/CodeQL NOT_RUN. Registry/security policy beze změny.
+
 ## S31b3a4a — přesné NTFS worker operace (2026-10-25)
 
 Compress/Uncompress/MyEncrypt/MyDecrypt nově přebírají optional owned wide cestu;

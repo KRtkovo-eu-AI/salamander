@@ -1,5 +1,11 @@
 # S31 — Úplnost portu proti donoru
 
+S31b3a4b: attributes/NTFS část G04 RESOLVED_LOCAL po skutečném GUI D/R
+Cancel + čtyři NTFS roundtripy nad přesnými short/Unicode/long identitami.
+Native52/22/178/160/73 každá konfigurace a host D/R PASS; viz
+[S31b3a4b](steps/S31b3a4b.md). Zbývající G04/G05 OPEN, goal ACTIVE.
+Starší záznamy níže zachovávají stav v okamžiku svého checkpointu.
+
 S31b3a4a: NTFS helper/worker exact wide identity a failure propagation ověřené
 native160/config D/R včetně skutečných EFS/komprese; GUI staged do S31b3a4b.
 G04 attributes REMAINS_OPEN, viz [S31b3a4a](steps/S31b3a4a.md).
