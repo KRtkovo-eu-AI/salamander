@@ -763,4 +763,137 @@ BOOL CFilesWindow::OpenBranchItemDirectory()
     }
     return TRUE;
 }
+void CFilesWindow::FocusBranchShortcutTarget(CFilesWindow* panel, const CFileData& file)
+{
+    if (panel == NULL || !Is(ptDisk) || !IsBranchView() ||
+        GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(file)) != &file)
+        return;
+    const std::wstring source = GetItemFullPathW(file);
+    if (source.empty()) return;
+    const DWORD sourceAttributes = file.Attr;
+    const CFileData* const original = &file;
+    const std::string key = GetItemCacheKeyPtr(file);
+    const std::wstring root = GetPathW();
+    const ULONGLONG generation = GetBranchViewGeneration();
+    const auto sourceTab = PanelTabId;
+    const auto targetTab = panel->PanelTabId;
+    const CPanelType targetType = panel->GetPanelType();
+    const std::wstring targetRoot = panel->GetPathW();
+    const std::string targetLegacyPath = panel->GetPath();
+    const BOOL targetBranch = panel->IsBranchView();
+    const ULONGLONG targetGeneration = panel->GetBranchViewGeneration();
+    // Load/Resolve may dispatch messages. Only owned strings survive those calls;
+    // never navigate from a replacement listing or overwrite a changed target tab.
+    const auto stillCurrent = [&]() {
+        return Is(ptDisk) && IsBranchView() && PanelTabId == sourceTab &&
+            root == GetPathW() && generation == GetBranchViewGeneration() &&
+            GetBranchViewFileByCacheKey(key.c_str()) == original &&
+            panel->PanelTabId == targetTab && panel->GetPanelType() == targetType &&
+            targetRoot == panel->GetPathW() && targetLegacyPath == panel->GetPath() &&
+            panel->IsBranchView() == targetBranch &&
+            panel->GetBranchViewGeneration() == targetGeneration;
+    };
+    std::vector<wchar_t> target(SAL_MAX_PATH, 0);
+    bool resolved = false;
+    bool cancelled = false;
+    if ((sourceAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0)
+    {
+        const std::wstring extended = Salamander::BranchView::ExtendedPath(source);
+        HANDLE handle = CreateFileW(extended.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                    NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
+        if (handle != INVALID_HANDLE_VALUE)
+        {
+            DWORD length = GetFinalPathNameByHandleW(handle, target.data(), (DWORD)target.size(), FILE_NAME_NORMALIZED);
+            resolved = length != 0 && length < target.size();
+            CloseHandle(handle);
+        }
+    }
+    else
+    {
+        IShellLinkW* link = NULL;
+        if (CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLinkW, (void**)&link) == S_OK)
+        {
+            IPersistFile* persist = NULL;
+            if (link->QueryInterface(IID_IPersistFile, (void**)&persist) == S_OK)
+            {
+                const std::wstring extended = Salamander::BranchView::ExtendedPath(source);
+                HRESULT result = persist->Load(extended.c_str(), STGM_READ);
+                if (result == S_OK && stillCurrent())
+                {
+                    result = link->Resolve(HWindow, SLR_ANY_MATCH | SLR_UPDATE);
+                    cancelled = result == S_FALSE;
+                    if (result == S_OK && stillCurrent())
+                    {
+                        PIDLIST_ABSOLUTE pidl = NULL;
+                        if (link->GetIDList(&pidl) == S_OK && pidl != NULL)
+                        {
+                            // GetPath may return a short alias for a long target.
+                            // Ask the resolved filesystem PIDL for the complete wide path.
+                            resolved = SHGetPathFromIDListEx(pidl, target.data(), (DWORD)target.size(), GPFIDL_DEFAULT) != FALSE;
+                        }
+                        else
+                            resolved = link->GetPath(target.data(), (int)target.size(), NULL, SLGP_UNCPRIORITY) == S_OK;
+                        if (pidl != NULL) CoTaskMemFree(pidl);
+                        resolved = resolved && target[0] != 0 &&
+                                   std::find(target.begin(), target.end(), L'\0') != target.end();
+                    }
+                }
+                persist->Release();
+            }
+            link->Release();
+        }
+    }
+    if (cancelled || !stillCurrent()) return;
+    if (resolved)
+    {
+        std::wstring destination = SalPathRemoveExtendedPrefixW(target.data());
+        const bool drivePath = destination.size() >= 3 && destination[1] == L':' && destination[2] == L'\\' &&
+            ((destination[0] >= L'A' && destination[0] <= L'Z') || (destination[0] >= L'a' && destination[0] <= L'z'));
+        const bool uncPath = destination.size() > 2 && destination.compare(0, 2, L"\\\\") == 0 && destination[2] != L'.';
+        if (drivePath || uncPath)
+        {
+            const std::wstring extended = Salamander::BranchView::ExtendedPath(destination);
+            const DWORD length = GetLongPathNameW(extended.c_str(), target.data(), (DWORD)target.size());
+            if (length != 0 && length < target.size())
+                destination = SalPathRemoveExtendedPrefixW(target.data());
+        }
+        const DWORD attributes = drivePath || uncPath ?
+            GetFileAttributesW(Salamander::BranchView::ExtendedPath(destination).c_str()) : INVALID_FILE_ATTRIBUTES;
+        if (attributes != INVALID_FILE_ATTRIBUTES)
+        {
+            if ((attributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+                panel->ChangePathToDiskW(panel->HWindow, destination.c_str());
+            else
+            {
+                const size_t slash = destination.find_last_of(L'\\');
+                if (slash != std::wstring::npos)
+                {
+                    std::wstring directory = destination.substr(0, slash);
+                    if (slash == 2) directory += L'\\'; // retain a drive root, never use drive-relative C:
+                    const std::wstring name = destination.substr(slash + 1);
+                    const std::string focus = SalWideToMultiBytePath(name.c_str(), CP_UTF8);
+                    if (panel->ChangePathToDiskW(panel->HWindow, directory.c_str(), -1, focus.c_str()) &&
+                        panel->Is(ptDisk) && !panel->IsBranchView() &&
+                        CompareStringOrdinal(panel->GetPathW(), -1, directory.c_str(), -1, TRUE) == CSTR_EQUAL)
+                    {
+                        for (int i = 0; i < panel->Files->Count; ++i)
+                        {
+                            const CFileData& current = panel->Files->At(i);
+                            const std::wstring currentName = current.UseWideName() ? current.NameW :
+                                SalMultiByteToWidePath(current.Name, IsValidPathUtf8Text(current.Name) ? CP_UTF8 : CP_ACP);
+                            if (currentName == name)
+                            {
+                                panel->SetCaretIndex(panel->Dirs->Count + i, TRUE);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            return;
+        }
+    }
+    SalMessageBox(HWindow, LoadStr(IDS_SHORTCUT_WRONG_PATH), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+}
+
 #endif

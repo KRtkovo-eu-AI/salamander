@@ -895,6 +895,7 @@ public:
     void RestoreBranchViewState(const CBranchViewRestoreState& state);
     void BranchItemRenamed(const char* oldNameKey, const CFileData& file, const std::wstring& oldFullPath);
     BOOL OpenBranchItemDirectory();
+    void FocusBranchShortcutTarget(CFilesWindow* panel, const CFileData& file);
     void ToggleBranchView();
     void RefreshBranchView(BOOL automatic = FALSE);
     void PollBranchView();

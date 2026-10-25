@@ -4354,6 +4354,7 @@ static bool BranchReadOnlyCommandAllowed(UINT command)
     case CM_VIEW:
     case CM_ALTVIEW:
     case CM_EDIT:
+    case CM_AFOCUSSHORTCUT: // S31b2: exact wide shortcut/link target navigation.
     case CM_BRANCH_OPENPARENT:
     case CM_BRANCH_STOP:
     case CM_ACTIVEREFRESH:

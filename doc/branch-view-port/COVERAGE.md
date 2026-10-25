@@ -1,5 +1,10 @@
 # S31 — Úplnost portu proti donoru
 
+Aktualizace S31b2: shortcut/link-target část G04 IMPLEMENTED_LOCAL; exact wide
+source, COM/PIDL, reparse handle a skutečné povolení CM_AFOCUSSHORTCUT. Native92,
+router173/config, host D/R a GUI evidence viz [S31b2](steps/S31b2.md). Neuzavírá
+ostatní G04/G05 a S32; historické donor indexy níže zůstávají snapshotem S30.
+
 Aktualizace S31b1a: archive-entry část G04 nyní RESOLVED_LOCAL po opravě
 preexistujícího 7zip wide-name úniku. Baseline/current ordinary i Branch měly
 stejný 30byte leak; scoped ownership jej odstraňuje bez změny heap filtru či ABI

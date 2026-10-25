@@ -1,5 +1,18 @@
 # S00 read-only donor boundary audit
 
+## S31b2 — cíl zástupce a reparse bodu (2026-10-25)
+
+Donorový FocusBranchShortcutTarget je zapojen do Ctrl+T a host routeru pouze
+pro tento příkaz. Vlastněné wide identity a kontroly zdroje/cílového tabu po COM
+callbacku, původní Windows Resolve flags, filesystem PIDL a úplný název cíle.
+Native92/config, host Debug/Release buildy a router173/config PASS. GUI D/R
+potvrdilo přesný dlouhý adresář, dva same.lnk a Unicode focus i odmítnutí neplatné
+LNK; pět případů/config je doložených v [S31b2](steps/S31b2.md). Bez změny registrů,
+zabezpečení, SDK ABI či veřejné gate. G04 archive/shortcut části vyřešené lokálně;
+zbývá S31b3a/b atributy/Properties, S31b4 unpack a S31b5 destination kontexty,
+potom S31c/G05. Goal ACTIVE, S32 BLOCKED. NOT_PUSHED, remote CI/CodeQL a čistá
+celá sestava NOT_RUN.
+
 ## S31b1a — oprava vlastnictví wide názvů 7-Zip (2026-10-25)
 
 Srovnání se základem před S31b1 potvrdilo starší donorový únik: 7zip listing

@@ -144,6 +144,7 @@ int main(){
  item.ID=1;item.Type=pmitStartSubmenu;Check(!BranchReadOnlyCommandAllowed(item.SUID),"submenu is not a command");item.Type=pmitItemOrSeparator;item.Name=nullptr;Check(!BranchReadOnlyCommandAllowed(item.SUID),"separator is not a command");item.Name="Compare";
  // Actual Last Command lookup/state/dispatch, independent of menu SUIDs.
  auto SetLast=[&](const char* dll,int id){free(Plugins.LastPlgCmdPlugin);Plugins.LastPlgCmdPlugin=_strdup(dll);Plugins.LastPlgCmdID=id;};
+ Check(BranchReadOnlyCommandAllowed(CM_AFOCUSSHORTCUT),"verified wide shortcut target reaches host command router");
  Check(BranchReadOnlyCommandAllowed(CM_LAST_PLUGIN_CMD),"Last Command router admitted for final policy validation");
  SetLast("FILECOMP\\FILECOMP.SPL",1);int calls=plugin.PluginIfaceForMenuExt.Calls;
  Check(Plugins.OnLastCommand(&panel,NULL)&&plugin.PluginIfaceForMenuExt.Calls==calls+1,"actual CtrlI route repeats accepted current command");

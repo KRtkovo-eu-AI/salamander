@@ -283,8 +283,6 @@ void CFilesWindow::CtrlPageUpOrBackspace()
 
 void CFilesWindow::FocusShortcutTarget(CFilesWindow* panel)
 {
-    if (IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
-
     CALL_STACK_MESSAGE1("CFilesWindow::FocusShortcutTarget()");
     int index = GetCaretIndex();
     if (index < 0 || index >= Dirs->Count + Files->Count)
