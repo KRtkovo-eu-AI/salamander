@@ -542,3 +542,12 @@ pattern in mainwnd1.cpp. Reference context:
 Samandarin Contributors, GPL-2.0-or-later. Existing notices retained.
 Adds owned wide destination identity and callback rechecks with explicit
 native registry doubles; no additional third-party code or SDK ABI change.
+
+### S31b5b3a directory creation notification correction
+
+Locally adapts SalSplitWindowsPath notification storage from
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), pinned
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and
+Samandarin Contributors, GPL-2.0-or-later. Notices preserved. Native fixtures
+extract the existing shared split/create code and use real owned NTFS directories
+with explicit UI/notification doubles. No additional third-party code imported.

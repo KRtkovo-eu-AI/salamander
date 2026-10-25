@@ -1,5 +1,22 @@
 # Stav portu PR #769
 
+## S31b5b3a — plný prefix oznámení vytvořených adresářů
+
+SalSplitWindowsPath uchová existující prefix v owned stringu před prvním
+filesystem zápisem; oznámení již nepoužívá changesRoot[MAX_PATH]. Zachovány
+confirmation/cancel, chyby, maska a non-recursive refresh i při selhání tvorby.
+Actual shared Windows/general split a wide CreateDirectory:81 kontrol/config
+D/R PASS nad vlastními NTFS fixtures, včetně dlouhých UTF8/UTF16 prefixů,
+kolize se souborem, Cancel a přesné notifikace. Safe truncation mutation81/4
+failures. Host D/R x64 /warnaserror PASS; transitions28/operations All20 PASS.
+GUI D dark/R light ordinary Unicode Copy + readback PASS; Debug dlouhý nový
+cíl370 UTF16/884 UTF8: Create confirmation + No bez adresářů/výstupu. Skutečné
+vytvoření dlouhých adresářů prokázáno nativně, nikoli GUI tlačítkem Yes.
+Navazuje S31b5b3b kapacita path+mask a SDK legacy minimum2*MAX_PATH; tento commit
+neopravuje všechny mezní délky. Branch target entry guard zachován. ChangeDir
+nedotčený, long-source unpack NOT_VERIFIED, G04/G05 OPEN, goal ACTIVE,
+S32 BLOCKED; bez push/PR/CI. Viz [S31b5b3a](steps/S31b5b3a.md).
+
 ## S31b5b2 — identita cílové karty přes modal/callback hranice
 
 Diskový target má owned wide root a úplný UTF8 default s maskou; živost se

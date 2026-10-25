@@ -443,6 +443,11 @@ try {
             )
         },
         @{
+            Name = 'split_create_notification_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\split_create_notification_tests.py'), '--configuration', $Configuration)
+        },
+        @{
             Name = 'disk_target_identity_tests'
             ClassName = 'native-generated'
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\disk_target_identity_tests.py'), '--configuration', $Configuration)
