@@ -502,3 +502,14 @@ Local repairs add atomic Unicode target transfer, owned target/default buffers
 and scoped wide empty-directory cleanup. Tests extract actual code into real
 HWND and NTFS fixtures; no additional third-party code is imported. Branch
 Unpack remains blocked while ZIP backend limits and modal guards are resolved.
+
+### S31b4c1 ZIP extraction target integration
+
+Adapts ExtractFiles/ExtractSingleFile and reuses ZipPathToWide from
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), pinned
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Open Salamander Authors and
+Samandarin Contributors under GPL-2.0-or-later. Existing notices retained.
+Local fixes validate exact extraction capacity and safe relative components,
+and use wide output attributes/failed-output deletion while retaining the
+host SafeFileCreate and existing engine CRC/cancel decisions. Native tests
+extract actual functions into owned NTFS fixtures; no third-party code is added.

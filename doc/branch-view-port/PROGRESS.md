@@ -1,5 +1,23 @@
 # Stav portu PR #769
 
+## S31b4c1 — ZIP skutečně rozbaluje do dlouhého Unicode cíle (2026-10-25)
+
+Opraven konkrétní ZIP ExtractFiles MAX_PATH limit zjištěný v S31b4b. Nový
+preflight ověřuje úplný cíl před in-place assembly, skutečnou UTF8/UTF16
+kapacitu, RootLen hranici a bezpečné relativní komponenty. Neodstraňuje limit
+bez náhrady: odmítá dot/traversal, streams, device a nejednoznačné názvy.
+Atributy a mazání nedokončeného výstupu používají wide extended APIs;
+SafeFileCreate overwrite/skip i engine CRC/encryption rozhodnutí zachovaná.
+Native actual guard/metadata/delete85 kontrol/config D/R PASS; semantic
+mutace návratu MAX_PATH85/2 a odstranění component guardu85/10 selhání.
+ZIP+host D/R x64 /warnaserror Build PASS; ZIP comment17/SFX26/listing151Debug,
+138Release a encoding contract PASS. Actual GUI Debug dark/Release light:
+Cancel bez výstupu a ZIP payload.txt/sub/žluť.txt do nového cíle366/368 UTF16,
+876/878 UTF8, s přesným readbackem a nedotčenými zdroji. LongPathsEnabled0.
+Branch Unpack stále BLOCKED; G04/G05 OPEN, goal ACTIVE. Navazuje S31b4c2
+izolace long-source startupu, potom modal/backend guards a plný Branch runtime.
+Bez push/PR/remote CI/CodeQL/clean full suite. Viz [S31b4c1](steps/S31b4c1.md).
+
 ## S31b4b — Unicode cílový dialog a bezpečný úklid Unpack (2026-10-25)
 
 Dialog přenáší úplnou Unicode cestu s explicitní byte kapacitou a odmítne
