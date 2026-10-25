@@ -1,5 +1,11 @@
 # S31 — Úplnost portu proti donoru
 
+Aktualizace S31a1 (2026-10-25): **G01 RESOLVED_LOCAL** — donorové zapojení
+wrapperu opraveno, host Debug/Release i native/GUI ověření PASS, viz
+[S31a1](steps/S31a1.md). Následující audit a TSV indexy jsou neměnný snapshot S30;
+počet DEFERRED v nich není aktuální počet otevřených nálezů. G02–G06 a S32 BLOCKED
+zůstávají. Bez push a remote CI tohoto následného checkpointu.
+
 Stav: AUDIT_COMPLETE_WITH_FINDINGS, 2026-10-25. **S32 BLOCKED.** Tento checkpoint
 mění pouze dokumentaci. Neopravuje níže nalezené mezery ani nezpřístupňuje další
 operace. Branch View zůstává ve standardním procesu vypnuté. Výsledkem auditu je
@@ -87,8 +93,8 @@ souborové operace, ale výsledky rozhodně nejsou PASS.
 
 S31a3 má aktualizovat pouze vyhledání skutečných relevantních těl, zachovat
 bezpečnostní assertions, zapnout All a dosud odložený test. Všechny dosavadní
-regrese zůstanou registrované. Inventář zachoval všech 41 donorových skupin,
-aktuálně je skupin 59; samotná existence skupiny neznamená běh všech jejích testů.
+regrese zůstanou registrované. Inventář zachoval všech 41 pojmenovaných donorových položek; před S31a1 jich
+port má 57. Samotná existence položky neznamená běh všech jejích testů.
 
 ### G04 — Bezpečně nepodporované operace; S31b, rozhodnutí před S32
 
@@ -171,7 +177,10 @@ Tyto explicitní limity nejsou rozšířeny samotným wide snapshot API. Změna 
 nebo runtime schématu není součást portu ani tohoto auditu.
 
 Všech 13 donorových native projektů existuje. Runner zachovává 41 donorových
-skupin a registruje 59 skupin celkem; G03 vyjmenovává skutečné scope mezery.
+pojmenovaných položek; snapshot S30 jich má 57. Jde o Name assignments, nikoli
+ClassName labely či dynamicky registrované projekty. Původní údaj 59 chybně
+zahrnoval dva ClassName labely; S31a1 opravuje pouze tuto početní nepřesnost.
+G03 vyjmenovává skutečné scope mezery.
 Všech 15 donorových IDS_BRANCH_* má shodné číselné ID a právě jeden řádek v
 každém z 11 jazyků. Conversion cfg zůstávají ve Windows CP1250/1251/1252 bez
 UTF-8 BOM; 28/17/25 tabulek má po 256 bajtech. Česká jména Kameničtí/KOI-8 ČS2

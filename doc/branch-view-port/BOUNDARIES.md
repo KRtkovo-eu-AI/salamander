@@ -1,5 +1,16 @@
 # S00 read-only donor boundary audit
 
+## S31a1 dokončena lokálně — G01 uzavřen (2026-10-25)
+
+SalCreateDirectoryEx nyní přesně donorově deleguje do WorkerCreateDirectory.
+Debug/Release x64 host se závislostmi a warnaserror PASS; skutečné host+SDK
+wrapper testy 68 kontrol/config, worker/copy a SafeFile regrese PASS. GUI MakeDir
+v tmavém Debug a světlém Release vytvořilo přesný Unicode podadresář, kontrolní
+soubor beze změny. Podrobné příkazy, výsledky a hranice: [S31a1](steps/S31a1.md).
+Změna je lokální, NOT_PUSHED; remote CI/CodeQL ani čistá celá matice neběžely.
+Následuje S31a2 (ANSI rename fallback); G02–G06 nadále blokují S32. Starší auditní
+indexy a odstavce popisují snapshot před touto opravou, ne aktuální otevřený G01.
+
 ## S31 audit dokončen s nálezy; S30 přijata (2026-10-25)
 
 S30 `58aabd60054f98d964f2be7b93bbf408ac692dde` přijata: všech 13 kontrol

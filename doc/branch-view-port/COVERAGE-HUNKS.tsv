@@ -878,8 +878,8 @@ hunk_id	donor_path	donor_range	status	decision	text_postimage_screen
 877	src/zip.cpp	-26,6 +27,7	ADAPTED	COVERAGE-FILES.tsv: Owned archive selection and safe reader paths with target cache/worker adapters.	False
 878	src/zip.cpp	-713,6 +715,156	ADAPTED	COVERAGE-FILES.tsv: Owned archive selection and safe reader paths with target cache/worker adapters.	False
 879	src/zip.cpp	-725,6 +877,43	ADAPTED	COVERAGE-FILES.tsv: Owned archive selection and safe reader paths with target cache/worker adapters.	True
-880	tools/run_native_tests.ps1	-197,8 +197,14	ADAPTED	COVERAGE-FILES.tsv: All 41 donor groups retained, 59 current groups; Both configurations and target regressions added. Scope debt remains G03.	False
-881	tools/run_native_tests.ps1	-358,6 +364,90	ADAPTED	COVERAGE-FILES.tsv: All 41 donor groups retained, 59 current groups; Both configurations and target regressions added. Scope debt remains G03.	False
+880	tools/run_native_tests.ps1	-197,8 +197,14	ADAPTED	COVERAGE-FILES.tsv: All 41 donor named entries retained, 57 current named entries (Name assignments; excludes ClassName labels); Both configurations and target regressions added. Scope debt remains G03.	False
+881	tools/run_native_tests.ps1	-358,6 +364,90	ADAPTED	COVERAGE-FILES.tsv: All 41 donor named entries retained, 57 current named entries (Name assignments; excludes ClassName labels); Both configurations and target regressions added. Scope debt remains G03.	False
 882	translations/chinesesimplified/salamand.slt	-4139,9 +4139,29	ADAPTED	COVERAGE-FILES.tsv: Donor Branch IDs retained; S27a2 launch guidance and S28a Panels preference added; all 11 language rows checked.	False
 883	translations/czech/salamand.slt	-4139,9 +4139,29	ADAPTED	COVERAGE-FILES.tsv: Donor Branch IDs retained; S27a2 launch guidance and S28a Panels preference added; all 11 language rows checked.	False
 884	translations/dutch/salamand.slt	-4139,9 +4139,29	ADAPTED	COVERAGE-FILES.tsv: Donor Branch IDs retained; S27a2 launch guidance and S28a Panels preference added; all 11 language rows checked.	False

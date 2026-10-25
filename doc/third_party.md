@@ -443,3 +443,13 @@ and Samandarin Contributors under GPL-2.0-or-later. Original notices retained.
 Scheduler, preview/publication and association-preparation algorithms were already
 imported and are reused unchanged. Local integration preserves UTF8-first watcher
 paths, owned long notification paths, and automatic-message semantics after Stop.
+
+### S31a1 create-directory wrapper integration repair
+
+Reuses the exact SalCreateDirectoryEx delegation to WorkerCreateDirectory from
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), pinned
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Open Salamander Authors and
+Samandarin Contributors under GPL-2.0-or-later. Existing notices retained.
+The previously ported wide helper is unchanged. The local regression harness
+extracts actual host/SDK wrappers, reuses the existing MSVC test support and
+adds real I/O plus controlled DOS-alias retry tests to cover the integration gap.
