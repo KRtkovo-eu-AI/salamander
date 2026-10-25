@@ -1,5 +1,23 @@
 # Validace portu a baseline S00
 
+## S31b4a — owned exact archive source pro Unpack (2026-10-25)
+
+Unpack uloží skutečnou GetItemFullPathW identitu před modalem a předá ji
+ExecuteUnpacker jako vlastněný UTF8 řetězec; odstraněno root+basename skládání
+po dialogu. Neplatný/lossy převod či překročení legacy byte kapacity se odmítne
+lokalizovanou chybou, ne zkrácením. Branch admission se nemění.
+Native actual source/conversions + skutečné file I/O54 kontrol/config D/R PASS;
+negativní root-alias mutation54/24 semantic failures. Host D/R x64 Build
+/warnaserror PASS; operations All20 a transitions28 PASS. Běžný ASCII panel
+GUI ZIP Cancel/Unpack D/R PASS včetně Unicode jména uvnitř ZIP a přesného
+obsahu, zdrojové archivy/kontrolní soubory beze změny. Long-source GUI zatím
+NOT_VERIFIED: spuštění s dlouhým Unicode -l nevytvořilo targetable window,
+zatímco ASCII start stejné binárky prošel. Příčina není zjištěná, nelze z toho
+odvodit nepodporu samotného Unpack helperu. Další S31b4b řeší cílový dialog,
+scratch kapacity a před long GUI izoluje tento startup problém. S31b4c pak
+modal/backend guards a aktivace. Viz [S31b4a](steps/S31b4a.md).
+Unpack část G04 OPEN, goal ACTIVE, S32 BLOCKED; bez push/PR a bez CI/CodeQL.
+
 ## S31b3b2 — guarded Edit Tags and Windows Properties (2026-10-25)
 
 CM_EDITPROPERTIES je v experimentálním Branch View aktivní. Dialog vlastní

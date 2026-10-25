@@ -1,5 +1,12 @@
 # S31 — Úplnost portu proti donoru
 
+S31b4a: přímé Unpack má owned exact source před modalem; actual native
+54/config D/R s reálným readbackem a root-alias negativní kontrolou, běžný
+ASCII-panel ZIP GUI Cancel/Unpack D/R PASS. Jde o zdrojový předkrok, nikoli
+aktivaci Branch Unpack ani long-source GUI PASS. Startup -l nad dlouhým
+Unicode adresářem zatím bez targetable window; izolovat v navazující etapě.
+Unpack G04/G05 OPEN, goal ACTIVE. Viz [S31b4a](steps/S31b4a.md).
+
 S31b3b2: Properties část G04 RESOLVED_LOCAL po guarded command admission,
 actual dialog78/selection22/router179 a real Windows metadata I/O107/config
 D/R, GUI single/multi/Cancel/readonly failure + ordinary panel, D/R host Build.

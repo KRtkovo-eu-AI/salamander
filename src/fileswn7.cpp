@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
-// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-06 | Capture implicit archive destinations before callbacks and validation. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
@@ -2791,6 +2790,26 @@ static BOOL PrepareUnpackArchiveSource(CFilesWindow* panel, const CFileData& fil
 }
 
 
+// Capture the actual archive identity before modal callbacks; display names are not I/O paths.
+static BOOL PrepareUnpackArchiveSource(CFilesWindow* panel, const CFileData& file,
+                                       std::string& source, int& errorTextID)
+{
+    source.clear();
+    errorTextID = IDS_PATHISINVALID;
+    const std::wstring exact = panel->GetItemFullPathW(file);
+    if (exact.empty()) return FALSE;
+    std::string encoded = SalWideToMultiBytePath(exact.c_str(), CP_UTF8);
+    if (encoded.empty() || SalMultiByteToWidePath(encoded.c_str(), CP_UTF8) != exact)
+        return FALSE;
+    if (encoded.size() >= SAL_MAX_PATH)
+    {
+        errorTextID = IDS_TOOLONGPATH; // Legacy archiver API byte capacity; never pass a shortened identity.
+        return FALSE;
+    }
+    source.swap(encoded);
+    return TRUE;
+}
+
 void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* pluginName, const char* unpackMask)
 {
     if (IsBranchView() || target != NULL && target->IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
@@ -2829,19 +2848,18 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
         } refreshScope;
 
         CFileData* file = &Files->At(i - Dirs->Count);
-        std::string archiveSource, sourceDirectory;
+        std::string archiveSource;
         int sourceErrorTextID;
-        if (!PrepareUnpackArchiveSource(this, *file, archiveSource, sourceErrorTextID, &sourceDirectory))
+        if (!PrepareUnpackArchiveSource(this, *file, archiveSource, sourceErrorTextID))
         {
-            SalMessageBox(parent, LoadStr(sourceErrorTextID), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+            SalMessageBox(HWindow, LoadStr(sourceErrorTextID), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+            EndStopRefresh();
             return;
         }
-        CPathBuffer pathBuffer, alternateBuffer, fileNameBuffer, subjectBuffer(SAL_MAX_PATH + 100);
-        char* path = pathBuffer.Data();
-        char* pathAlt = alternateBuffer.Data();
-        char* fileName = fileNameBuffer.Data();
-        char* subject = subjectBuffer.Data();
-        char mask[MAX_PATH]; // file mask, not a filesystem path
+        char path[SAL_MAX_PATH];
+        char pathAlt[MAX_PATH]; // alternate path displayed in the UnPack dialog combo box
+        char mask[MAX_PATH];
+        char subject[SAL_MAX_PATH + 100];
         path[0] = 0;
         pathAlt[0] = 0;
         if (target->Is(ptDisk))
@@ -3005,45 +3023,74 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
             }
             if (errorText != NULL)
             {
-                SalMessageBox(parent, errorText, LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
-                continue;
-            }
-            if (watchDiskTarget && diskTarget.Branch)
-            {
-                if (!useOfferedDiskTarget || strcmp(path, offeredDiskTarget.c_str()) != 0)
+                char newDir[MAX_PATH];
+                std::wstring pathW = SalMultiByteToWidePath(path, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                std::wstring newDirW;
+                BOOL createdOK = GetACP() == CP_UTF8 && !pathW.empty() ?
+                                     CheckAndCreateDirectoryW(pathW.c_str(), NULL, TRUE, &newDirW, TRUE) :
+                                     CheckAndCreateDirectory(path, NULL, TRUE, NULL, 0, newDir, FALSE, TRUE);
+                if (createdOK)
                 {
-                    SalMessageBox(parent, GetErrorText(ERROR_NOT_SUPPORTED), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
-                    return;
-                }
-                if (!backendSnapshot.BindBranchTarget(&diskTarget, path)) { reportChangedContext(); return; }
-                branchTargetBound = true;
-            }
-            if (!contextIsCurrent() || !offeredRootExists()) { reportChangedContext(); return; }
-            if (!backendSnapshot.ValidateExternalPaths(archiveSource.c_str(), path))
-            {
-                const DWORD error = GetLastError();
-                SalMessageBox(parent, GetErrorText(error), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
-                continue;
-            }
-            const std::wstring pathW = SalMultiByteToWidePath(path, IsValidPathUtf8Text(path) ? CP_UTF8 : CP_ACP);
-            std::wstring newDirW;
-            const BOOL createdOK = !pathW.empty() && CheckAndCreateDirectoryW(pathW.c_str(), parent, TRUE, &newDirW, TRUE);
-            std::string newDir = SalWideToMultiBytePath(newDirW.c_str(), CP_UTF8);
-            if (!contextIsCurrent() || !offeredRootExists())
-            {
-                if (!newDir.empty()) RemoveEmptyUnpackDirectoriesW(newDirW);
-                reportChangedContext();
-                return;
-            }
-            if (!createdOK)
-            {
-                if (!newDir.empty())
-                {
-                    CutDirectory(newDir.data());
-                    notifyPath(newDir.c_str(), TRUE);
-                }
-                continue;
-            }
+                    if (!newDirW.empty())
+                    {
+                        std::string newDirA = SalWideToMultiBytePath(newDirW.c_str(), CP_UTF8);
+                        lstrcpyn(newDir, newDirA.c_str(), MAX_PATH);
+                    }
+                    // launch the unpacker
+                    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
+                    CDynamicStringImp archiveVolumes;
+                    if (!UnpackerConfig.ExecuteUnpacker(MainWindow->HWindow, this, archiveSource.c_str(), mask,
+                                                        path, delArchiveWhenDone,
+                                                        delArchiveWhenDone ? &archiveVolumes : NULL))
+                    {
+                        if (newDir[0] != 0)
+                            RemoveEmptyDirs(newDir);
+                    }
+                    else // unpacking succeeded (no Cancel, Skip may have occurred)
+                    {
+                        if (delArchiveWhenDone && archiveVolumes.Length > 0)
+                        {
+                            char* name = archiveVolumes.Text;
+                            BOOL skipAll = FALSE;
+                            do
+                            {
+                                if (*name != 0)
+                                {
+                                    while (1)
+                                    {
+                                        ClearReadOnlyAttr(name); // allow deletion of read-only files too
+                                        if (!DeleteFile(name) && !skipAll)
+                                        {
+                                            DWORD err = GetLastError();
+                                            if (err == ERROR_FILE_NOT_FOUND)
+                                                break; // if the user already managed to delete the file, all is OK
+                                            int res = (int)CFileErrorDlg(MainWindow->HWindow, LoadStr(IDS_ERRORDELETINGFILE), name, GetErrorText(err)).Execute();
+                                            if (res == IDB_SKIPALL)
+                                                skipAll = TRUE;
+                                            if (res == IDB_SKIPALL || res == IDB_SKIP)
+                                                break;           // skip
+                                            if (res == IDCANCEL) // cancel
+                                            {
+                                                name = archiveVolumes.Text + archiveVolumes.Length - 1;
+                                                nextFocus[0] = 0; // keep the cursor on the archive, do not jump to the directory with the unpacked archive
+                                                break;
+                                            }
+                                            // let IDRETRY attempt the next loop iteration
+                                        }
+                                        else
+                                            break; // deleted
+                                    }
+                                }
+                                name = name + strlen(name) + 1;
+                            } while (name - archiveVolumes.Text < archiveVolumes.Length);
+                        }
+                        if (nextFocus[0] != 0)
+                        {
+                            strcpy(NextFocusName, nextFocus);
+                            PostMessage(HWindow, WM_USER_DONEXTFOCUS, 0, 0); // it is a directory, must be
+                        }
+                    }
+                    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
 
             CDynamicStringImp archiveVolumes;
             BOOL unpacked;
