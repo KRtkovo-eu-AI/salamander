@@ -1,5 +1,15 @@
 # Stav portu PR #769
 
+## S29 publikována v PR #61; oprava přípravy Pythonu pro VSIX
+
+Checkpoint 8a16315 publikován a čistá podporovaná Debug matice i hlavní testy
+prošly. VSIX syntax test selhal při spuštění obecného python.exe. Následující
+úzká oprava explicitně připravuje Python 3.12, vyžaduje jeho kontrolu v CI a
+zlepšuje diagnostiku bez oslabení assertions či timeoutu. Lokálně prošlo všech
+37 VSIX testů, balení, oba host buildy i negativní kontroly; viz [S29](steps/S29.md).
+Stav NOT_PUSHED a neprovedeného CI níže popisuje stav před první publikací.
+Výsledky opakovaného CI včetně CodeQL/čisté matice je nutné ověřit pro nový head.
+
 ## S29 dokončena lokálně (2026-10-25)
 
 Přijatá S28a 635f42c5 má úspěšné CI, CodeQL i čistou matici v PR60.
