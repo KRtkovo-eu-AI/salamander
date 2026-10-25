@@ -669,18 +669,14 @@ try
     // LoadStr uses a rotating buffer; preserve arguments before loading another resource.
     const std::string ownedPath(path), ownedDetail(detail), ownedTitle(title);
     const std::string format(LoadStr(IDS_PATHERRORFORMAT));
-    size_t length = 0;
-    if (!Salamander::LocalizedText::Measure(format.c_str(), {ownedPath.c_str(), ownedDetail.c_str()}, length))
+    const int length = _scprintf(format.c_str(), ownedPath.c_str(), ownedDetail.c_str());
+    if (length < 0)
     {
         SalMessageBox(parent, ownedDetail.c_str(), ownedTitle.c_str(), MB_OK | MB_ICONEXCLAMATION);
         return;
     }
-    std::vector<char> message(length + 1);
-    if (!Salamander::LocalizedText::Write(message.data(), message.size(), format.c_str(), ownedPath.c_str(), ownedDetail.c_str()))
-    {
-        SalMessageBox(parent, ownedDetail.c_str(), ownedTitle.c_str(), MB_OK | MB_ICONEXCLAMATION);
-        return;
-    }
+    std::vector<char> message((size_t)length + 1);
+    sprintf_s(message.data(), message.size(), format.c_str(), ownedPath.c_str(), ownedDetail.c_str());
     SalMessageBox(parent, message.data(), ownedTitle.c_str(), MB_OK | MB_ICONEXCLAMATION);
 }
 catch (const std::bad_alloc&)

@@ -1198,3 +1198,20 @@ including framing overhead. Dynamic context exceeding either capacity is an
 explicit failure, not a promise of unbounded transport. Native fixed ItemInfo
 ABI remains unchanged and retains insufficient-buffer error for valid CJK names.
 GUI is real Python only (D/R), never reported as five worker executions.
+
+## S31b5b1 — úplný základ relativní cesty a kapacita chyb
+
+ParsePath nyní používá owned wide diskový základ převedený beze ztráty do UTF8,
+heap SAL_MAX_PATH a skutečný výsledek GetGeneralPath pro virtuální kontexty.
+Selhání kontextu ani doplnění lomítka nepředá zkrácený prefix backendu.
+SalParsePath ověřuje vstupní kapacitu, odmítne zkrácený/prázdný fallback,
+formátuje úplné lokalizované chyby do dynamického bufferu a explicitně odmítá
+UNC root přesahující dosavadní legacy ABI. Také vstupní trace respektuje kapacitu.
+Native actual wrapper/parser42/config D/R PASS; semantic capacity mutation42/4
+failures a error-truncation42/1 failures. Host Debug/Release x64 /warnaserror
+PASS. GUI ordinary relative Unicode Copy + Cancel v Debug dark/Release light:
+exact readback, zdroje/sentinel nedotčené. GUI před poslední trace-only úpravou;
+po ní opět native42/config a oba host buildy PASS. Žádná aktivace Branch targetu.
+ChangeDir zůstává odložený, long-source unpack NOT_VERIFIED. Navazuje S31b5b2
+owned target identity a modal recheck, poté S31b5b3 ověřená aktivace. Goal ACTIVE,
+G04/G05 OPEN, S32 BLOCKED; bez push/PR/CI/CodeQL. Viz [S31b5b1](steps/S31b5b1.md).
