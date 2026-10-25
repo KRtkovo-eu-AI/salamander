@@ -1,5 +1,9 @@
 # S31 — Úplnost portu proti donoru
 
+S31b3b1: actual Windows metadata backend107/config D/R PASS bez změny
+produkce. Jde o I/O preflight před guarded GUI aktivací S31b3b2, nikoli
+uzavření Properties části G04. Viz [S31b3b1](steps/S31b3b1.md).
+
 S31b3a4b: attributes/NTFS část G04 RESOLVED_LOCAL po skutečném GUI D/R
 Cancel + čtyři NTFS roundtripy nad přesnými short/Unicode/long identitami.
 Native52/22/178/160/73 každá konfigurace a host D/R PASS; viz

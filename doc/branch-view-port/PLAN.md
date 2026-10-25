@@ -1,5 +1,34 @@
 # Plán postupného portu PR #769
 
+## S31b3b1 — skutečný Windows metadata I/O preflight (2026-10-25)
+
+Nezměněné donor/target Read/WriteTags, Read/WritePropertyText a capability
+funkce ověřené proti skutečným Windows property handlers:107 kontrol/config
+D/R PASS. Unicode/emoji, dvě same.jpg z různých rodičů, UTF8-byte-long jméno,
+307–308 UTF16 long cesta, write/read/clear, pixels intact, sentinel byte-for-byte
+beze změny. Read-only odmítnut 0x80030005, unsupported.txt0x80004005;
+žádný fake COM handler ani registry změny. Negativní reroute do vlastního
+sentinelu má107 kontrol/22 behaviorálních selhání.
+Host D/R Build /warnaserror, properties14, explorer-columns contract a
+transitions28 PASS. Přidána jedna runner registrace, žádná původní odstraněná.
+Produkční kód beze změny; není to GUI aktivace. Viz [S31b3b1](steps/S31b3b1.md).
+Navazuje S31b3b2: modal/write guards, přesný chybový display a GUI aktivace.
+G04 Properties/G05 OPEN, goal ACTIVE, S32 BLOCKED, bez push/PR.
+
+## S31b3b — Windows Properties, pořadí podkroků
+
+1. S31b3b1: actual metadata I/O preflight. Registrovaný native harness skutečných
+   Read/WriteTags a Read/WritePropertyText + capability funkce proti Windows
+   property store. ASCII, Unicode/emoji, stejné basename v různých rodičích,
+   byte-long i full UTF16-long path; write/read/clear, nedotčený sentinel,
+   odmítnutí unsupported/readonly/missing, skutečný handler bez stubs. D/R buildy.
+2. S31b3b2: owned selection guard před dialogem i zápisem, bezpečné hlášení
+   dlouhé Unicode chybové identity, command admission a D/R GUI Cancel/Apply
+   single/multi + běžný panel. Zachovat write capabilities a Windows chyby.
+
+CM_EDITPROPERTIES zůstává do druhého ověřeného podkroku v Branch odmítnutý.
+Výsledek I/O preflight není důkaz GUI aktivace; goal ACTIVE, G04/G05 OPEN.
+
 ## S31b3a4b — NTFS dialogy a příkazy Branch View (2026-10-25)
 
 Aktivní Compress/Uncompress/Encrypt/Decrypt i NTFS volby Change Attributes;

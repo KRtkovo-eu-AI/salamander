@@ -1,5 +1,20 @@
 # S00 read-only donor boundary audit
 
+## S31b3b1 — skutečný Windows metadata I/O preflight (2026-10-25)
+
+Nezměněné donor/target Read/WriteTags, Read/WritePropertyText a capability
+funkce ověřené proti skutečným Windows property handlers:107 kontrol/config
+D/R PASS. Unicode/emoji, dvě same.jpg z různých rodičů, UTF8-byte-long jméno,
+307–308 UTF16 long cesta, write/read/clear, pixels intact, sentinel byte-for-byte
+beze změny. Read-only odmítnut 0x80030005, unsupported.txt0x80004005;
+žádný fake COM handler ani registry změny. Negativní reroute do vlastního
+sentinelu má107 kontrol/22 behaviorálních selhání.
+Host D/R Build /warnaserror, properties14, explorer-columns contract a
+transitions28 PASS. Přidána jedna runner registrace, žádná původní odstraněná.
+Produkční kód beze změny; není to GUI aktivace. Viz [S31b3b1](steps/S31b3b1.md).
+Navazuje S31b3b2: modal/write guards, přesný chybový display a GUI aktivace.
+G04 Properties/G05 OPEN, goal ACTIVE, S32 BLOCKED, bez push/PR.
+
 ## S31b3a4b — NTFS dialogy a příkazy Branch View (2026-10-25)
 
 Aktivní Compress/Uncompress/Encrypt/Decrypt i NTFS volby Change Attributes;
