@@ -513,3 +513,11 @@ Local fixes validate exact extraction capacity and safe relative components,
 and use wide output attributes/failed-output deletion while retaining the
 host SafeFileCreate and existing engine CRC/cancel decisions. Native tests
 extract actual functions into owned NTFS fixtures; no third-party code is added.
+
+### S31b5a destination flow audit
+
+Reviews FilesAction, ParsePath, SalParsePath and DropCopyMove against
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), pinned
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Open Salamander Authors and
+Samandarin Contributors under GPL-2.0-or-later. No additional third-party code
+is imported; the audit records local integration prerequisites and retains guards.

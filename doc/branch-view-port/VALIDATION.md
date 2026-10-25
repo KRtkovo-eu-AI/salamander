@@ -1,5 +1,21 @@
 # Validace portu a baseline S00
 
+## S31b5a — audit klasického Copy/Move cíle proti drop rootu
+
+Klasický FilesAction odmítá Branch target před dialogem; DropCopyMove naproti
+tomu připustí přesně shodný wide root. Zákaz nelze odstranit bez ověřeného
+target snapshotu a kontroly výsledku resolveru. Navíc ParsePath zděděný z donoru
+bere source-relative základ do520 byte curPath a ignoruje FALSE z GetGeneralPath
+při zkrácení. SalParsePath má také krátký error buffer s neohraničeným formátem
+plné cesty; jde o statický nález, nikoli nový doložený pád/exploit.
+Další nejmenší S31b5b1 opraví kapacitu a chybový kontrakt resolveru, potom
+S31b5b2 target identity/modal recheck a S31b5b3 ověřená aktivace Copy/Move do
+Branch rootu. Guardy beze změny. Native getters399/config D/R a source contracts
+transitions28/operations All20 PASS; nejsou nové GUI ani full-operation testy.
+ChangeDir je odložený na žádost uživatele a zůstal ve starém dirty worktree.
+Práce pokračuje odděleně v work-s31b5 od ověřeného0eafffd3. Goal ACTIVE,
+G04/G05 OPEN, S32 BLOCKED; bez push/PR. Viz [S31b5a](steps/S31b5a.md).
+
 ## S31b4c1 — ZIP skutečně rozbaluje do dlouhého Unicode cíle (2026-10-25)
 
 Opraven konkrétní ZIP ExtractFiles MAX_PATH limit zjištěný v S31b4b. Nový
