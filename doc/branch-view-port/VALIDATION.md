@@ -1,5 +1,19 @@
 # Validace portu a baseline S00
 
+## S31b3a3 — chráněný dialog atributů v Branch View (2026-10-25)
+
+CM_CHANGEATTR je zapojen; vlastní snapshot root/tab/generation/exact paths
+brání použití změněného výběru po dialogu a přípravě skriptu. Cleanup neoznačí
+jiný tab/nový výběr. Native guard22, worker73, getters/planner399 a router174
+kontrol/config D/R PASS;4 semantic mutation failures ověřené. Host D/R Build
+/warnaserror a GUI exact long apply/Cancel PASS; detail verzí [S31b3a3](steps/S31b3a3.md).
+Volby komprese/šifrování i jejich rychlé příkazy jsou zatím zakázané pro Branch,
+se zachováním jejich současných hodnot. Zbývá S31b3a4 NTFS ověření/aktivace;
+pak S31b3b Properties, S31b4 unpack, S31b5 kontexty a S31c. G04/G05 OPEN.
+All20, Branch19 a transitions28 PASS; transition očekávání nově obsahuje již
+převzaté atChangeAttrs a původní cache guard. Goal ACTIVE, S32 BLOCKED.
+Lokálně bez push/PR, remote CI/CodeQL/clean full suite NOT_RUN.
+
 ## S31b3a2 — chyby změny času v attribute workeru (2026-10-25)
 
 Při ověření S31b3a se prokázala preexistující chyba: DoChangeAttrs ignoroval

@@ -16,7 +16,7 @@ def main():
     assert re.search(r'#define\s+MID_TEST\s+3\b', read('src/plugins/zip/main.cpp'))
     assert re.search(r'#define\s+CMD_REGENERATE_THUMBNAIL\s+188\b', read('src/plugins/pictview/pictview.rh2'))
     command=block(read('src/mainwnd3.cpp'),'static bool BranchReadOnlyCommandAllowed(')
-    names=sorted(set(re.findall(r'\bCM_[A-Z0-9_]+\b',command))-{'CM_PLUGINCMD_MIN','CM_PLUGINCMD_MAX'}|{'CM_AFOCUSSHORTCUT'})
+    names=sorted(set(re.findall(r'\bCM_[A-Z0-9_]+\b',command))-{'CM_PLUGINCMD_MIN','CM_PLUGINCMD_MAX'}|{'CM_AFOCUSSHORTCUT','CM_CHANGEATTR'})
     generated=read('src/tests/branch_plugin_commands_tests.cpp.in')
     generated=generated.replace('@@CONSTANTS@@','enum { '+','.join(names)+', CM_PLUGINCMD_MIN=50000,CM_PLUGINCMD_MAX=51000 };')
     generated=generated.replace('@@POLICY@@',block(source,'BOOL CPluginData::IsBranchCommandAllowed('))

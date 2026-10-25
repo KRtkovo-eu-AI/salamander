@@ -99,7 +99,7 @@ class BranchTransitionContracts(unittest.TestCase):
   self.assertIn('target != NULL && target->IsBranchView()',action)
   self.assertLess(action.index('pathType != PATH_TYPE_WINDOWS'),action.index('if (pathType == PATH_TYPE_ARCHIVE)'))
   builder=function('fileswn6.cpp','BOOL CFilesWindow::BuildScriptMain(')
-  self.assertIn('(type != atCopy && type != atMove && type != atDelete) || GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*oneFile)) != oneFile',builder)
+  self.assertIn('(type != atCopy && type != atMove && type != atDelete && type != atChangeAttrs) || GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*oneFile)) != oneFile',builder)
   self.assertIn('script->AddStoragePath(sourcePath, type == atMove ? SACCESS_READWRITE : SACCESS_READ)',builder)
   self.assertIn('keepBranchPaths',builder)
   self.assertIn('BOOL keepBranchPaths = FALSE',action)

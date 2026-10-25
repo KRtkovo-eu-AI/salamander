@@ -1,5 +1,9 @@
 # S31 — Úplnost portu proti donoru
 
+S31b3a3: základní dialog atributů aktivní s root/tab/generation/selection guards;
+GUI exact long apply/Cancel D/R PASS. NTFS compression/encryption staged do
+S31b3a4; G04 attributes REMAINS_OPEN, viz [S31b3a3](steps/S31b3a3.md).
+
 S31b3a2: attribute/time worker error handling opravené a native73/config D/R
 ověřené. G04 attributes REMAINS_OPEN do modal/selection a GUI S31b3a3.
 Viz [S31b3a2](steps/S31b3a2.md); nepovoluje nové příkazy.
