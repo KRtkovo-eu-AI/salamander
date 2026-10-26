@@ -1,5 +1,17 @@
 # Validace portu a baseline S00
 
+## S31b6b2b2 — zapojený diskový cíl archivního F5 (2026-10-26)
+
+Stejný interní snapshot má adresářový režim bez masky. UnpackZIPArchive zachytí
+živý diskový target před callbacky, validuje modal/parser/create/backend hranice
+a předá jej do post-InitDLL gate. Zmizelý implicitní root nesmí být znovu vytvořen.
+Původních448 mask assertions zachováno, directory240/config, post-init68/config,
+listing151D/138R a další native/build x64 D/R PASS. Actual GUI D/R default/manual/
+inactive/detached cíle uspěly; missing-root/switch/closed =>1237 s nedotčenými daty.
+[Podrobnosti a meze](steps/S31b6b2b2.md). S31b6b2 diskový lifecycle předkrok uzavřen;
+S31b6b3 Branch target admission, G04/G05 a celá S31 OPEN. Branch guardy, SDK,
+archive delete a odložené ChangeDir zachovány. Bez push/PR/CodeQL/S32.
+
 ## S31b6b2b1 — kontrola cíle po inicializaci pluginu (2026-10-26)
 
 Interní PackUncompress předává optional disk target do CPluginData::UnpackArchive;

@@ -12,7 +12,7 @@ def main():
  text=text.replace('@@CONVERSIONS@@','\n'.join(block(wide,m) for m in ('std::wstring SalMultiByteToWidePath(', 'std::string SalWideToMultiBytePath(')))
  assert '@@' not in text
  controller=block(source,'void CFilesWindow::UnpackZIPArchive(')
- for needle in ('CPathBuffer changesRootBuffer;', 'CPathBuffer newDirsBuffer;', 'CopyUnpackDestination(tgtPath, path, pathBuffer.Capacity())', 'ReadUnpackDiskDestination(target->GetPathW()', 'NULL, NULL, pathBuffer.Capacity()', 'SalCreateDirectoryExW(newDirsW.c_str()', 'RemoveEmptyUnpackDirectoriesW(', 'if (strlen(path) >= MAX_PATH)', 'if (IsBranchView() || target != NULL && target->IsBranchView()) return;'):
+ for needle in ('CPathBuffer changesRootBuffer;', 'CPathBuffer newDirsBuffer;', 'CopyUnpackDestination(tgtPath, path, pathBuffer.Capacity())', 'ReadUnpackDiskDestination(diskTarget.Root.c_str()', 'NULL, NULL, pathBuffer.Capacity()', 'SalCreateDirectoryExW(newDirsW.c_str()', 'RemoveEmptyUnpackDirectoriesW(', 'if (strlen(path) >= MAX_PATH)', 'if (IsBranchView() || target != NULL && target->IsBranchView()) return;'):
   assert needle in controller,needle
  for forbidden in ('lstrcpyn(path, tgtPath', 'char newDirs[MAX_PATH]', 'char changesRoot[MAX_PATH]', 'SalPathAddBackslash(path, MAX_PATH + 200)', 'CreateDirectory(newDirs', 'RemoveEmptyDirs(newDirs'):
   assert forbidden not in controller,forbidden

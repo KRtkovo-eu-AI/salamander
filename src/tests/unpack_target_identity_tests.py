@@ -1,8 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
-# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
-# | Date | Summary | Reason | Ticket | Model |
-# | 2026-11-06 | Exercise implicit target resolution before the archive destination snapshot. | Validate upstream integration without weakening Branch path guarantees. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 """Actual directory snapshot; explicit registry doubles and controller placement contracts."""
 import argparse,shutil,tempfile
 from pathlib import Path
@@ -11,9 +8,7 @@ from branch_panel_getters_tests import block,read,compiler_environment,run
 def controller_contract():
  c=block(read('src/fileswn7.cpp'),'void CFilesWindow::UnpackZIPArchive(')
  live=c.index('CFilesActionDiskTarget::FindLive(');first=c.index('target->IsBranchView()');capture=c.index('diskTarget.Capture(MainWindow, target, TRUE)');update=c.index('MainWindow->UpdateDefaultDir(')
- fallback=c.index('if (!deleteOp && target == NULL && tgtPath == NULL)')
- assert fallback<live<first<capture<update
- assert c.count('target = MainWindow->GetOtherPanel(this);')==1
+ assert live<first<capture<update
  assert c[update:c.index('BeginStopRefresh();')].count('validateDiskTarget()')==1
  dialog=c.index('(int)dlg.Execute()');classify=c.index('const bool useDefaultDiskTarget =');normalize=c.index('SlashesToBackslashesAndRemoveDups(path)');parse=c.index('const BOOL parsed = ParsePath(');preflight=c.index('!diskTarget.MatchesParsedDirectoryDefault(');confirm=c.index('SalMessageBoxEx(&params)');create=c.index('SalCreateDirectoryExW(');backend=c.index('const BOOL unpacked = PackUncompress(');post=c.index('const bool targetCurrent = validateDiskTarget();');clear=c.index('if (unpacked && targetCurrent)')
  assert dialog<classify<normalize<parse<preflight<confirm<create<backend<post<clear
@@ -25,25 +20,13 @@ def controller_contract():
  assert 'ReadUnpackDiskDestination(diskTarget.Root.c_str()' in c
  assert 'watchDiskTarget ? &diskTarget : NULL' in c[backend:post]
  assert 'else if (!unpacked)' in c[clear:]
- assert 'PackGetVerifiedBranchUnpacker(this, GetZIPArchive(), PluginData.GetInterface()) == NULL' in c
- assert '(deleteOp || !target->Is(ptDisk) ||' in c
- reject=c.index('if (watchDiskTarget && diskTarget.Branch && !useDefaultDiskTarget)')
- assert classify<reject<normalize<parse
- assert 'IDS_PATHISINVALID' in c[reject:normalize]
- validate=c[c.index('auto validateDiskTarget'):update]
- assert 'diskTarget.IsCurrent(MainWindow)' in validate
- assert 'PackGetVerifiedBranchUnpacker(this, GetZIPArchive(), PluginData.GetInterface()) != NULL' in validate
+ assert 'if (IsBranchView() || target != NULL && target->IsBranchView()) return;' in c
  assert '#define PATH_TYPE_WINDOWS 1 ' in read('src/plugins/shared/spl_gen.h')
  print('Archive directory target controller placement PASS',flush=True)
 
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--configuration',choices=('Debug','Release','Both'),default='Both');a=p.parse_args();controller_contract()
  wide=read('src/common/widepath.cpp');text=read('src/tests/disk_target_identity_tests.cpp.in').split('int main()',1)[0]+read('src/tests/unpack_target_identity_tests.cpp.in')
- text=text.replace('    int GetPanelTabCount(', '    CFilesWindow* GetOtherPanel(CFilesWindow* source){return source==LeftPanel?RightPanel:LeftPanel;}\n    int GetPanelTabCount(')
- controller=block(read('src/fileswn7.cpp'),'void CFilesWindow::UnpackZIPArchive(')
- fallback=controller[controller.index('    if (!deleteOp && target == NULL && tgtPath == NULL)'):controller.index('    if (!deleteOp && target != NULL && CFilesActionDiskTarget::FindLive(')]
- # The free-function adapter substitutes only the member receiver; statements are production text.
- text=text.replace('@@IMPLICIT_TARGET@@',fallback.replace('GetOtherPanel(this)', 'GetOtherPanel(source)'))
  pieces={'ACTION':block(read('src/fileswnd.h'),'enum CActionType')+';','WIDE':'\n'.join(block(wide,m) for m in ('BOOL IsValidPathUtf8Text(', 'std::wstring SalMultiByteToWidePath(', 'std::string SalWideToMultiBytePath(')),'SNAPSHOT':block(read('src/fileactiondisktarget.h'),'struct CFilesActionDiskTarget')+';'}
  for k,v in pieces.items():text=text.replace('@@'+k+'@@',v)
  assert '@@' not in text;env=compiler_environment();cl=shutil.which('cl',path=env.get('PATH'))

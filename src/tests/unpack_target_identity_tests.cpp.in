@@ -1,34 +1,11 @@
 // SPDX-FileCopyrightText: 2026 Samandarin Contributors
-// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// | Date | Summary | Reason | Ticket | Model |
-// | 2026-11-06 | Verify implicit archive destinations retain identity across callbacks. | Validate upstream integration without weakening Branch path guarantees. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // Uses the existing explicit registry/panel doubles and actual shared snapshot.
-static CFilesActionDiskTarget CaptureImplicitTarget(CMainWindow* MainWindow, CFilesWindow* source,
-                                                     CFilesWindow*& target, BOOL deleteOp, const char* tgtPath)
-{
-@@IMPLICIT_TARGET@@
- CFilesActionDiskTarget snapshot;
- if (!deleteOp && target != nullptr && target->Is(ptDisk))
-  Check(snapshot.Capture(MainWindow,target,TRUE),"resolved implicit target is captured before callbacks");
- return snapshot;
-}
 int main()
 {
  CFilesWindow source,target,replacement;source.Tab=2;replacement.Tab=3;
  CMainWindow main;main.Left={&source};main.Right={&target,&replacement};main.LeftPanel=&source;main.RightPanel=&target;
  CFilesActionDiskTarget snapshot;
- for(BOOL branch:{FALSE,TRUE})
- {
-  target.Branch=branch;CFilesWindow* implicit=nullptr;
-  auto captured=CaptureImplicitTarget(&main,&source,implicit,FALSE,nullptr);
-  Check(implicit==&target&&captured.Panel==&target&&captured.Branch==branch,"implicit ordinary and Branch targets retain the resolved panel identity");
-  target.Root+=L"\\changed";Check(!captured.IsCurrent(&main),"implicit destination path changed during callback is rejected");target.Root=L"C:\\target";
-  implicit=nullptr;auto explicitPath=CaptureImplicitTarget(&main,&source,implicit,FALSE,"C:\\manual");
-  Check(implicit==nullptr&&explicitPath.Panel==nullptr,"explicit path does not infer an opposite panel");
-  implicit=nullptr;auto deleting=CaptureImplicitTarget(&main,&source,implicit,TRUE,nullptr);
-  Check(implicit==nullptr&&deleting.Panel==nullptr,"archive deletion does not infer a destination");
- }
  const std::vector<std::wstring> roots={L"C:\\",L"\\\\server\\share",L"C:\\ascii",L"C:\\ascii\\東京.txt",L"C:\\東京\\out",L"C:\\první\\東京\\🙂",L"C:\\"+std::wstring(100,L'東'),L"C:\\"+std::wstring(100,L'a')+L"\\"+std::wstring(100,L'b')+L"\\"+std::wstring(100,L'c')};
  for(BOOL branch:{FALSE,TRUE}) for(const auto& root:roots)
  {

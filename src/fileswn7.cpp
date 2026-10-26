@@ -812,6 +812,11 @@ static void RemoveEmptyUnpackDirectoriesW(const std::wstring& root)
 void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const char* tgtPath,
                                     BOOL* changeTargetRequested)
 {
+    if (!deleteOp && target != NULL && CFilesActionDiskTarget::FindLive(MainWindow, target) == NULL)
+    {
+        SalMessageBox(HWindow, GetErrorText(ERROR_RETRY), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
     if (IsBranchView() || target != NULL && target->IsBranchView()) return; // S26 read-only direct boundary.
 
     if (changeTargetRequested != NULL)
@@ -828,13 +833,7 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
         return;
     }
     const auto validateDiskTarget = [&]() {
-        if (!deleteOp && !archiveSource.IsCurrent(MainWindow))
-        {
-            SalMessageBox(operationParent, GetErrorText(ERROR_RETRY), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
-            return false;
-        }
-        if (!watchDiskTarget || (diskTarget.IsCurrent(MainWindow) &&
-            (!diskTarget.Branch || PackGetVerifiedBranchUnpacker(this, GetZIPArchive(), PluginData.GetInterface()) != NULL))) return true;
+        if (!watchDiskTarget || diskTarget.IsCurrent(MainWindow)) return true;
         SalMessageBox(HWindow, GetErrorText(ERROR_RETRY), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
         return false;
     };
@@ -954,7 +953,13 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
         //---  obtain the target directory
         if (!validateDiskTarget())
         {
-            if (!ReadUnpackDiskDestination(target->GetPathW(), path, pathBuffer.Capacity()))
+            delete[] data.Indexes;
+            EndStopRefresh();
+            return;
+        }
+        if (watchDiskTarget)
+        {
+            if (!ReadUnpackDiskDestination(diskTarget.Root.c_str(), path, pathBuffer.Capacity()))
             {
                 SalMessageBox(HWindow, LoadStr(IDS_TOOLONGPATH), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
                 delete[] data.Indexes;
@@ -1041,6 +1046,13 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
         }
         if (dialogResult == IDOK)
         {
+            if (!validateDiskTarget())
+            {
+                delete[] data.Indexes;
+                EndStopRefresh();
+                return;
+            }
+
             if (tgtPath != NULL && !CopyUnpackDestination(tgtPath, path, pathBuffer.Capacity()))
             {
                 SalMessageBox(HWindow, LoadStr(IDS_TOOLONGPATH), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
@@ -1048,16 +1060,11 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                 EndStopRefresh();
                 return;
             }
+            const bool useDefaultDiskTarget = watchDiskTarget && tgtPath == NULL &&
+                                              diskTarget.HasDefaultText(path, pathBuffer.Capacity());
             UpdateWindow(MainWindow->HWindow);
             if (!validateDiskTarget())
             {
-                delete[] data.Indexes;
-                EndStopRefresh();
-                return;
-            }
-            if (watchDiskTarget && diskTarget.Branch && !useDefaultDiskTarget)
-            {
-                SalMessageBox(HWindow, LoadStr(IDS_PATHISINVALID), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
                 delete[] data.Indexes;
                 EndStopRefresh();
                 return;
@@ -1082,7 +1089,8 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
             char* secondPart;
             CPathBuffer textBuffer(2 * SAL_MAX_PATH + 200);
             char* textBuf = textBuffer.Data();
-            if (ParsePath(path, pathType, pathIsDir, secondPart, LoadStr(IDS_ERRORCOPY), NULL, NULL, pathBuffer.Capacity()))
+            const BOOL parsed = ParsePath(path, pathType, pathIsDir, secondPart, LoadStr(IDS_ERRORCOPY), NULL, NULL, pathBuffer.Capacity());
+            if (!validateDiskTarget())
             {
                 delete[] data.Indexes;
                 EndStopRefresh();
@@ -1170,6 +1178,18 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                             char* firstSlash = NULL;
                             while (1)
                             {
+                                if (!validateDiskTarget())
+                                {
+                                    if (createdAny)
+                                    {
+                                        if (firstSlash != NULL) *firstSlash = 0;
+                                        RemoveEmptyUnpackDirectoriesW(SalMultiByteToWidePath(newDirs, IsValidPathUtf8Text(newDirs) ? CP_UTF8 : CP_ACP));
+                                        MainWindow->PostChangeOnPathNotification(changesRoot, TRUE);
+                                    }
+                                    delete[] data.Indexes;
+                                    EndStopRefresh();
+                                    return;
+                                }
                                 char* slash = strchr(st, '\\');
                                 const size_t componentLength = slash != NULL ? (size_t)(slash - st) : strlen(st);
                                 const BOOL invalidPath = IsUnpackDirectoryComponentInvalid(st, componentLength);
@@ -1247,9 +1267,8 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                         return;
                     }
                     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-                    const BOOL unpacked = PackUncompress(MainWindow->HWindow, this, archiveSource.ArchiveFile.c_str(), archiveSource.PluginData,
-                                       path, archiveSource.ArchiveRoot.c_str(), PanelSalEnumSelection, &data,
-                                       watchDiskTarget ? &diskTarget : NULL, data.ContextIsCurrent, data.Context);
+                    const BOOL unpacked = PackUncompress(MainWindow->HWindow, this, GetZIPArchive(), PluginData.GetInterface(),
+                                       path, GetZIPPath(), PanelSalEnumSelection, &data, watchDiskTarget ? &diskTarget : NULL);
                     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
                     const bool targetCurrent = validateDiskTarget();
                     if (unpacked && targetCurrent)

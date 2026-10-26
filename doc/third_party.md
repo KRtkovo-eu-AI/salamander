@@ -675,3 +675,13 @@ Contributors, GPL-2.0-or-later; original notices preserved. Optional internal
 host target identity is checked after InitDLL before plugin I/O; public SDK is
 unchanged. Native wrapper uses explicit initialization/backend/registry doubles;
 ordinary GUI validates legacy NULL dispatch. Controller integration remains open.
+
+### S31b6b2b2 archive disk destination lifecycle
+
+Local integration repair of UnpackZIPArchive and the shared disk target snapshot,
+referencing [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pinned47661e92d4b3cbe5bb593ae3d75a3f1f698ef413. Open Salamander Authors and
+Samandarin Contributors, GPL-2.0-or-later; original notices retained. Directory
+mode avoids the Copy/Move operation mask; controller checks modal/parser/create
+and plugin dispatch boundaries with the existing live target identity. Original
+assertions and SDK remain unchanged; Branch admission requires its next checkpoint.

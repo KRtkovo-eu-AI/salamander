@@ -4,7 +4,7 @@
 #pragma once
 
 // Internal host implementation. Include after mainwnd.h, fileswnd.h and common/widepath.h.
-// Shared unchanged from fileswn8.cpp for the archive destination lifecycle integration.
+// Shared by disk file actions and archive destination lifecycle validation.
 // S31b5b2: own the disk destination across modal dispatch. A saved pointer is
 // compared only with live tab registry entries before it is dereferenced.
 struct CFilesActionDiskTarget
@@ -14,6 +14,7 @@ struct CFilesActionDiskTarget
     std::wstring Root;
     std::string DefaultPath;
     BOOL Branch = FALSE;
+    BOOL DirectoryDefault = FALSE;
     int VisibleSide = 0;
 
     static bool AllowsBranchTransfer(CActionType type, int countSizeMode, BOOL selectedDirs,
@@ -40,7 +41,7 @@ struct CFilesActionDiskTarget
         return NULL;
     }
 
-    bool Capture(CMainWindow* main, CFilesWindow* panel)
+    bool Capture(CMainWindow* main, CFilesWindow* panel, BOOL directoryDefault = FALSE)
     {
         Panel = NULL;
         CFilesWindow* live = FindLive(main, panel);
@@ -48,10 +49,11 @@ struct CFilesActionDiskTarget
         const std::wstring root(live->GetPathW());
         const std::string encoded = SalWideToMultiBytePath(root.c_str(), CP_UTF8);
         if (root.empty() || SalMultiByteToWidePath(encoded.c_str(), CP_UTF8) != root) return false;
-        const std::string defaultPath = encoded + (root.back() == L'\\' ? "*.*" : "\\*.*");
+        const std::string defaultPath = directoryDefault ? encoded : encoded + (root.back() == L'\\' ? "*.*" : "\\*.*");
         if (defaultPath.size() >= SAL_MAX_PATH || live->GetPanelTabId() == 0) return false;
         Root = root;
         DefaultPath = defaultPath;
+        DirectoryDefault = directoryDefault;
         Tab = live->GetPanelTabId();
         Branch = live->IsBranchView();
         Generation = Branch ? live->GetBranchViewGeneration() : 0;
@@ -74,13 +76,21 @@ struct CFilesActionDiskTarget
     {
         // An absent root would leave additional components after secondPart and
         // let the split/create helper recreate it. Refuse before that helper.
-        return pathType == PATH_TYPE_WINDOWS && pathIsDir && HasDefaultText(path, capacity) &&
+        return !DirectoryDefault && pathType == PATH_TYPE_WINDOWS && pathIsDir && HasDefaultText(path, capacity) &&
                DefaultPath.size() >= 3 && secondPart == path + DefaultPath.size() - 3;
+    }
+
+    // Archive extraction accepts an existing directory, never an operation mask.
+    bool MatchesParsedDirectoryDefault(const char* path, int capacity, const char* secondPart,
+                                       int pathType, BOOL pathIsDir) const
+    {
+        return DirectoryDefault && pathType == PATH_TYPE_WINDOWS && pathIsDir &&
+               HasDefaultText(path, capacity) && secondPart == path + DefaultPath.size();
     }
 
     bool MatchesSplitDefault(const char* path, int capacity, const char* mask) const
     {
-        if (Panel == NULL || Root.empty() || DefaultPath.size() < 3 || path == NULL || capacity <= 0)
+        if (DirectoryDefault || Panel == NULL || Root.empty() || DefaultPath.size() < 3 || path == NULL || capacity <= 0)
             return false;
         const size_t limit = (size_t)(std::min)(capacity, SAL_MAX_PATH);
         const char* end = (const char*)memchr(path, 0, limit);

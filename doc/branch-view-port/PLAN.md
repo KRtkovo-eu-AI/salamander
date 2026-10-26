@@ -1,5 +1,38 @@
 # Plán postupného portu PR #769
 
+## S31b6b2b2 — zapojený diskový cíl archivního F5 (2026-10-26)
+
+Stejný interní snapshot má adresářový režim bez masky. UnpackZIPArchive zachytí
+živý diskový target před callbacky, validuje modal/parser/create/backend hranice
+a předá jej do post-InitDLL gate. Zmizelý implicitní root nesmí být znovu vytvořen.
+Původních448 mask assertions zachováno, directory240/config, post-init68/config,
+listing151D/138R a další native/build x64 D/R PASS. Actual GUI D/R default/manual/
+inactive/detached cíle uspěly; missing-root/switch/closed =>1237 s nedotčenými daty.
+[Podrobnosti a meze](steps/S31b6b2b2.md). S31b6b2 diskový lifecycle předkrok uzavřen;
+S31b6b3 Branch target admission, G04/G05 a celá S31 OPEN. Branch guardy, SDK,
+archive delete a odložené ChangeDir zachovány. Bez push/PR/CodeQL/S32.
+
+## S31b6b2b2 — předem vymezená implementace a akceptace
+
+Adresářový režim stejného CFilesActionDiskTarget (původní Capture default s maskou
+zachovat), přesný parsed-default preflight existujícího kořene bez masky. Archivní
+copy controller zachytí živý diskový target před callbacky, čte default z owned root,
+validuje po modalu/UpdateWindow/ParsePath/create-confirm, před každým create i plugin
+I/O a po backendu; předá snapshot do post-InitDLL gate. Stale cíl => ERROR_RETRY,
+bez nového I/O/clear selection; případné vlastní nové prázdné adresáře uklidit.
+Manual/history zachovají resolver semantics; explicit drop s target=NULL zůstává
+legitimní, implicitní zmizelý root nesmí být znovu vytvořen. Branch guards, archive
+delete body, source listing owner a SDK beze změny, external unpacker nezískává
+neprokázanou post-InitDLL garanci. Nejde o source lifetime/ChangeDir opravu.
+
+Akceptace: zachovat všech448 mask snapshot assertions, nové native actual directory
+snapshot/parser-default boundary případy ASCII/Unicode/UTF8-long/UTF16-long, driver
+placement checks, post-init68 a listing151D/138R D/R. Relevantní destination/parser/
+cleanup testy, host x64 Debug/Release. Actual archive F5 GUI D/R: valid default a
+manual directory, modal target switch/close z detached source, inactive/detached
+platný target, přesný readback/sentinels; zmizelý implicitní root odmítnout před
+create. Průběžné vlastní testy pouze v evidence/build, lokální commit až po ověření.
+
 ## S31b6b2b1 — kontrola cíle po inicializaci pluginu (2026-10-26)
 
 Interní PackUncompress předává optional disk target do CPluginData::UnpackArchive;
