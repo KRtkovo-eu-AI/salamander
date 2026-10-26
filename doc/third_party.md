@@ -561,3 +561,13 @@ Contributors, GPL-2.0-or-later. Notices preserved. Local capacity guards and a
 private Windows packing step retain exact fitting results and caller-owned mask
 storage; public virtual SDK remains unchanged. Native tests extract actual code
 with explicit UI/notification doubles and owned NTFS fixtures. No new third-party code.
+
+### S31b5b3c1 atomic Copy/Move destination dialog
+
+Adapts existing dialog/history flow from
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), pinned
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin
+Contributors, GPL-2.0-or-later. Notices preserved. The local existing atomic
+Unpack reader is reused unchanged. Native fixtures extract actual dialog/history
+and conversions, with explicit base/criteria doubles and real Unicode controls.
+No new third-party component imported.

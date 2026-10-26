@@ -1391,7 +1391,17 @@ void CCopyMoveMoreDialog::Transfer(CTransferInfo& ti)
     }
     else
     {
-        ti.EditLine(IDE_PATH, Path, PathBufSize);
+        if (ti.Type == ttDataFromWindow)
+            memcpy(Path, target.c_str(), target.size() + 1);
+        else
+        {
+            HWND control;
+            if (ti.GetControl(control, IDE_PATH))
+            {
+                const std::wstring initial = SalMultiByteToWidePath(Path, IsValidPathUtf8Text(Path) ? CP_UTF8 : CP_ACP);
+                SetWindowTextW(control, initial.c_str());
+            }
+        }
     }
     if (KeepBranchPathsInOut != NULL)
         ti.CheckBox(IDC_BRANCH_KEEP_PATHS, *KeepBranchPathsInOut);
@@ -3079,35 +3089,6 @@ CPackDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 // ****************************************************************************
 // CUnpackDialog
 //
-
-// Keep the Unpack target atomic: a shortened edit value must never become an I/O path.
-static BOOL ReadUnpackDialogPath(HWND control, int capacity, std::string& path, int& errorTextID)
-{
-    path.clear();
-    errorTextID = IDS_PATHISINVALID;
-    if (capacity <= 0 || !IsWindow(control) || !IsWindowUnicode(control)) return FALSE;
-    const int length = GetWindowTextLengthW(control);
-    if (length >= SAL_MAX_PATH)
-    {
-        errorTextID = IDS_TOOLONGPATH;
-        return FALSE;
-    }
-    std::vector<wchar_t> text((size_t)length + 1, L'\0');
-    SetLastError(ERROR_SUCCESS);
-    const int copied = GetWindowTextW(control, text.data(), (int)text.size());
-    if (copied != length || (copied == 0 && GetLastError() != ERROR_SUCCESS) ||
-        GetWindowTextLengthW(control) != copied) return FALSE;
-    const std::wstring exact(text.data(), copied);
-    std::string encoded = SalWideToMultiBytePath(exact.c_str(), CP_UTF8);
-    if (SalMultiByteToWidePath(encoded.c_str(), CP_UTF8) != exact) return FALSE;
-    if (encoded.size() >= (size_t)capacity)
-    {
-        errorTextID = IDS_TOOLONGPATH;
-        return FALSE;
-    }
-    path.swap(encoded);
-    return TRUE;
-}
 
 CUnpackDialog::CUnpackDialog(HWND parent, char* path, int pathBufSize, const char* pathAlt, char* mask,
                              CTruncatedString* subject, CUnpackerConfig* config,

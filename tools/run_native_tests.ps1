@@ -443,6 +443,11 @@ try {
             )
         },
         @{
+            Name = 'copy_move_dialog_path_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\copy_move_dialog_path_tests.py'), '--configuration', $Configuration)
+        },
+        @{
             Name = 'split_create_notification_tests'
             ClassName = 'native-generated'
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\split_create_notification_tests.py'), '--configuration', $Configuration)

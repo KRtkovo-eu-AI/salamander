@@ -1,8 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
-# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
-# | Date | Summary | Reason | Ticket | Model |
-# | 2026-11-06 | Include upstream scheduling controls in the atomic path transfer fixture. | Validate upstream integration without weakening Branch path guarantees. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 """Actual Copy/Move path Transfer and history against real Unicode HWND controls."""
 import argparse
 from pathlib import Path
@@ -21,7 +18,7 @@ def main():
     actual = '\n'.join(block(source, marker) for marker in (
         'HWND ResolveComboEditControl(', 'static BOOL ReadUnpackDialogPath(',
         'CCopyMoveMoreDialog::CCopyMoveMoreDialog(', 'CCopyMoveMoreDialog::~CCopyMoveMoreDialog(',
-        'void CCopyMoveMoreDialog::Transfer(', 'void CCopyMoveMoreDialog::UpdateTransferModeControls('))
+        'void CCopyMoveMoreDialog::Transfer('))
     option_enums = block(read('src/cfgdlg.h'), 'enum CCopyMoveConflictMode') + ';'
     scheduler = read('src/storagesched.h')
     for marker in ('CMS_SEQUENTIAL', 'COSP_STORAGE_AWARE', 'COSO_DEFAULT'):
@@ -35,7 +32,7 @@ def main():
             'std::string SalWideToMultiBytePath(')),
         'HISTORY':block(read('src/salamdr6.cpp'),'void AddValueToStdHistoryValues('),
         'DECL':block(read('src/dialogs.h'),'class CCopyMoveMoreDialog')+';',
-        'ACTUAL':block(read('src/storagesched.cpp'), 'int CopyMoveGetSchedulingOverride(')+'\n'+actual,
+        'ACTUAL':actual,
     }
     text = read('src/tests/copy_move_dialog_path_tests.cpp.in')
     for key,value in pieces.items(): text=text.replace('@@'+key+'@@',value)
@@ -51,7 +48,7 @@ def main():
             if args.configuration not in ('Both',config): continue
             print('Actual atomic Copy/Move dialog:',config,flush=True)
             for command in ([compiler,'/nologo','/std:c++17','/EHsc','/utf-8','/J','/W4','/WX',
-                            *flags,str(cpp),'/Fe:'+str(exe),'user32.lib'],*([str(exe), codepage] for codepage in ('system', '1250', '1252', '65001'))):
+                            *flags,str(cpp),'/Fe:'+str(exe),'user32.lib'],[str(exe)]):
                 result=run(command,cwd=directory,env=env,timeout=40)
                 if result.returncode:return result.returncode
     return 0

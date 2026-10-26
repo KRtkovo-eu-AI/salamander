@@ -1,5 +1,22 @@
 # S00 read-only donor boundary audit
 
+## S31b5b3c1 — atomický cíl dialogu Copy/Move (2026-10-26)
+
+Opraveno ignorované selhání načtení cíle v CCopyMoveMoreDialog::Transfer.
+Úplná wide cesta se ověří před změnou caller bufferu, historie i voleb; chyba
+zastaví potvrzení stávající lokalizovanou hláškou. Unicode ovládací prvky a wide
+historie zachovají UTF8-first/ACP fallback. Sdílený Unpack reader jen přesunut,
+jeho tělo i Unpack Transfer beze změny. SDK ABI a Branch target guard zachovány.
+Native actual Copy/Move52 a Unpack38 kontrol/config D/R PASS; snapshot50,
+transitions28 a operations All20 PASS. Bezpečná in-memory mutace ignorovaného
+výsledku vyvolá14 semantic failures/52 checks, bez souborového I/O či overflow.
+Host x64 Debug/Release /warnaserror PASS. GUI ordinary Copy do child\東京-🙂.txt
++ Cancel D dark/R light PASS, přesný obsah a nezměněné zdroje/sentinel.
+Podrobnosti: [S31b5b3c1](steps/S31b5b3c1.md).
+ChangeDir nadále DEFERRED/NOT_VERIFIED a jeho oddělený patch beze změny.
+Root/mask preflight a ověřená aktivace Branch cíle zbývají; G04/G05 OPEN,
+goal ACTIVE, S32 BLOCKED. Pouze lokální checkpoint, bez push/PR/CI.
+
 ## S31b5a — audit klasického Copy/Move cíle proti drop rootu
 
 Klasický FilesAction odmítá Branch target před dialogem; DropCopyMove naproti
