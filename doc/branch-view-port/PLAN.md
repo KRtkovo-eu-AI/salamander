@@ -1,5 +1,33 @@
 # Plán postupného portu PR #769
 
+## S31b6b3c2 — opravený 7-Zip output lifecycle (2026-10-26)
+
+Jedna plná UTF8-first wide identita pro stream, atributy a cleanup; kapacity a
+relative-name guard před první kopií. Full byte path pro overwrite/UI zůstává
+stabilní. Interní wide delete sdílí původní retry policy s char wrapperem;
+current-output ownership brání úklidu skipped/dokončené položky a pokrývá chybu
+parent check před PrepareOperation. SDK, vendor code pages a Branch policy beze změny.
+[Implementace a důkazy](steps/S31b6b3c2.md): native314/config, listing185/config,
+ZIP listing174D/161R, post-init96/config, host/plugin/deps D/R a actual7z F5 GUI
+D/R do Unicode rootů266/268 UTF16; všech5 archivních SHA256 + sentinel souhlasí.
+Cancel/SkipAll/overwrite Cancel beze změny dat. LongPathsEnabled=0.
+Další S31b6b3c3: teprve kvalifikovat7-Zip Branch admission; S31/G04/G05 OPEN,
+ChangeDir/long-source GUI odložené, bez push/PR/S32/nové clean matrix/CodeQL.
+
+## S31b6b3c2 — společná oprava 7-Zip output lifecycle
+
+Navázat přesně na c1: guard před copy/append (adaptace ZIP relative-name/capacity
+pravidel), UTF8-first full wide identita a stabilní byte TargetFileName pro host
+UI/overwrite. Wide stream/attributes/cleanup se stejnou identitou; interní wide
+SafeDeleteFile overload sdílí stávající retry/skip/cancel policy s char wrapperem.
+Parent-directory kontrola nesmí zkrátit full output buffer, její selhání se nesmí
+ignorovat. Init/current-output ownership nesmí dovolit úklid předchozí/skipped
+položky. Ponechat SafeFileCreate a celé overwrite/CRC/skip/cancel rozhodování,
+SDK/hesla/code pages i Branch whitelist. Native actual vendor helper/I/O a callback
+scénáře D/R, původní listing assertions, host/plugin a tranzitivní deps D/R,
+ordinary 7-Zip F5 GUI D/R s duplicate basenames, Unicode/long target, overwrite
+skip/cancel, přesný strom/sentinels. Commit až po ověření; žádný push/PR/S32.
+
 ## S31b6b3c1 — prokázaná 7-Zip output/cleanup návaznost (2026-10-26)
 
 Nová diagnostika s reálnými vendored AString/UString/COutFileStream a actual

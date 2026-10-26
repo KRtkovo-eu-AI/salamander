@@ -494,7 +494,7 @@ BOOL SafeDeleteFileW(const wchar_t* fileName, const char* displayName, BOOL& sil
     do
     {
         mbRet = DIALOG_OK;
-        if (!::DeleteFileW(GetSalamanderLongPath(GetSalamanderUnicodeString(fileName)).Ptr()) && !silent)
+        if (!::DeleteFileW(GetSalamanderLongPath(UString(fileName)).Ptr()) && !silent)
         {
             DWORD err = ::GetLastError();
             mbRet = SalamanderGeneral->DialogError(SalamanderGeneral->GetMsgBoxParent(), BUTTONS_RETRYSKIPCANCEL,

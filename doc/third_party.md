@@ -714,3 +714,14 @@ pinned47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later host/plugin).
 The external native probe compiles the actual bundled 7-Zip SDK string and file
 stream sources by Igor Pavlov under their existing7za/DOC/License.txt terms.
 Vendor sources, notices, production behavior and SDK remain unchanged.
+
+### S31b6b3c2 7-Zip extraction output adaptation
+
+Adaptation of the archive output lifecycle from
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), pinned
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Open Salamander Authors, Milan Kase
+and Samandarin Contributors (GPL-2.0-or-later). The local capacity/relative-name
+guard follows the qualified ZIP output guard; existing retry/overwrite behavior
+is retained. Native tests compile real bundled7-Zip SDK strings/streams by Igor
+Pavlov under the existing7za/DOC/License.txt terms. Vendor source, global encoding
+semantics, notices and public SDK remain unchanged; no new external dependency.
