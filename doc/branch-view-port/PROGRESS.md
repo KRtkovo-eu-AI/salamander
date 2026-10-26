@@ -1,5 +1,20 @@
 # Stav portu PR #769
 
+## S31b6c6 — Branch target direct Unpack (VERIFIED)
+
+ZIP/7Zip direct whole-archive Unpack now accepts a captured Branch disk target
+from ordinary or Branch disk sources, without deleting archives. Only the exact
+offered root or generated archive-stem child is admitted. Owned binding validates
+current target/backend and existing root before I/O and after InitDLL; manual
+redirection, missing roots and Win32 child aliases fail closed.
+[Scope and evidence](steps/S31b6c6.md): actual controller3920/config, backend183,
+whole-post-init119, source96, dialog106, target240/post-init124, disk448, external168,
+contracts20/30; native and host x64 Debug/Release PASS. Actual ZIP/7Zip GUI D/R
+success, Cancel, manual refusal and missing-root refusal PASS with exact payload
+hashes, unchanged sources/sentinels and long Unicode targets. LongPathsEnabled=0;
+deferred ChangeDir untouched. S31/G04/G05 OPEN. Next c7 exact-wide volume policy.
+Local only; no push/PR/CodeQL or clean full-platform matrix.
+
 ## S31b6c5b — Branch source bundled7Zip (VERIFIED)
 
 The selected live bundled7Zip backend joins ZIP for Branch source -> ordinary

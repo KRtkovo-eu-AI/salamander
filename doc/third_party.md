@@ -831,3 +831,13 @@ pin47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
 The local host admission now includes the already qualified bundled7Zip engine.
 Igor Pavlov's7-Zip SDK/license and other vendor notices, plugin sources and public
 SDK ABI remain unchanged. No external dependency was added.
+
+### S31b6c6 direct Unpack into Branch targets
+
+Adapted donor Unpack/controller/backend paths by Open Salamander Authors,
+Milan Kase and Samandarin Contributors,
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pin47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
+Local integration adds owned offered-target binding and live root validation for
+qualified bundled ZIP/7Zip only. Existing plugin/vendor notices, Igor Pavlov's
+7-Zip SDK/license and public SDK ABI remain unchanged. No new dependency.

@@ -1,5 +1,50 @@
 # Plán postupného portu PR #769
 
+## S31b6c6 — Branch target direct Unpack (VERIFIED)
+
+ZIP/7Zip direct whole-archive Unpack now accepts a captured Branch disk target
+from ordinary or Branch disk sources, without deleting archives. Only the exact
+offered root or generated archive-stem child is admitted. Owned binding validates
+current target/backend and existing root before I/O and after InitDLL; manual
+redirection, missing roots and Win32 child aliases fail closed.
+[Scope and evidence](steps/S31b6c6.md): actual controller3920/config, backend183,
+whole-post-init119, source96, dialog106, target240/post-init124, disk448, external168,
+contracts20/30; native and host x64 Debug/Release PASS. Actual ZIP/7Zip GUI D/R
+success, Cancel, manual refusal and missing-root refusal PASS with exact payload
+hashes, unchanged sources/sentinels and long Unicode targets. LongPathsEnabled=0;
+deferred ChangeDir untouched. S31/G04/G05 OPEN. Next c7 exact-wide volume policy.
+Local only; no push/PR/CodeQL or clean full-platform matrix.
+
+## S31b6c6 — Branch target direct whole-archive Unpack, upfront acceptance
+
+Admit ordinary/Branch disk sources into a Branch disk target only for the already
+qualified ZIP/7Zip backends and without archive deletion. Use the captured Branch
+root directory, never a focused item's parent. Preserve archive-subdir preference:
+allow the exact offered root or its single generated archive-stem child. A user
+must choose the offered Branch destination (including the alternate when the
+other-panel preference is off); manually redirected destinations fail closed as
+in archive-panel F5. Ordinary targets retain their existing manual semantics.
+
+Bind the resolved offered directory as owned whole-archive backend context before
+creation. Validate its exact target text, captured root and current directory-mode
+tab snapshot, generation/scan state, backend identity and existing root before
+creation/dispatch and after InitDLL before SDK context. Never recreate a missing
+Branch root. Clear target binding on backend recapture; malformed/unbound/changed
+text, parent escape or missing root must refuse. No SDK capability/framework or
+Windows setting change; deferred ChangeDir remains untouched.
+
+Acceptance: actual native controller/dispatcher/wrapper/backend D/R plus prior
+assertions and source/target/dialog/7Zip regressions; both qualified backends,
+ordinary/Branch sources, root/subdir, manual refusal, prefix/sibling/parent escape,
+missing/file root, source/target/config/generation/modal/create/InitDLL mutations,
+no-delete and balanced lifecycle. Host x64 D/R /warnaserror. Actual ZIP and7z GUI
+D/R to a long Unicode Branch root with a nested focused item: default/subdir exact
+payloads, Cancel/manual refusal, disappeared offered root refusal without root
+recreation and unchanged sources/sentinels. Target scope/long-path evidence is
+not a claim that deferred dense Unicode ChangeDir navigation is repaired.
+Commit only verified scope, local without push/PR/CodeQL/S32. Volume deletion
+remains c7; whole S31/G04/G05 remains OPEN.
+
 ## S31b6c5b — Branch source bundled7Zip (VERIFIED)
 
 The selected live bundled7Zip backend joins ZIP for Branch source -> ordinary

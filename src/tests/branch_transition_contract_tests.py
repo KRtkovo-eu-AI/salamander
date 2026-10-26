@@ -26,8 +26,8 @@ class BranchTransitionContracts(unittest.TestCase):
   self.assertIn('return false;',gate)
  def test_branch_direct_unpack_is_qualified_bundled_backend_without_archive_deletion(self):
   controller=function('fileswn7.cpp','void CFilesWindow::Unpack(')
-  self.assertIn('(IsBranchView() && !target->Is(ptDisk))) return;',controller)
-  self.assertIn('&delArchiveWhenDone, !sourceSnapshot.Branch)',controller)
+  self.assertIn('((IsBranchView() || target->IsBranchView()) && !target->Is(ptDisk))) return;',controller)
+  self.assertIn('&delArchiveWhenDone, !branchOperation)',controller)
   self.assertLess(controller.index('!backendSnapshot.IsVerifiedBranchSourceUnpacker()'),controller.index('CheckAndCreateDirectoryW('))
   self.assertIn('if (contextIsCurrent() && !sourceSnapshot.Branch)',controller)
   policy=function('packers.cpp','bool CWholeArchiveUnpackerSnapshot::IsVerifiedBranchSourceUnpacker(')
@@ -36,12 +36,22 @@ class BranchTransitionContracts(unittest.TestCase):
   self.assertIn('"7zip\\\\7zip.spl"',policy)
   for name,marker in (('packers.cpp','BOOL CUnpackerConfig::ExecuteUnpacker('),('plugins1.cpp','BOOL CPluginData::UnpackWholeArchive(')):
    guarded=function(name,marker)
-   self.assertIn('diskTarget == NULL || diskTarget->Branch',guarded)
+   self.assertIn('diskTarget == NULL || !diskTarget->IsCurrent(MainWindow)',guarded)
    self.assertIn('delArchiveWhenDone || backendSnapshot == NULL || !backendSnapshot->IsVerifiedBranchSourceUnpacker()',guarded)
   dialog=function('dialogs3.cpp','void CUnpackDialog::EnableDelArcCheckbox(')
   self.assertIn('AllowDeleteArchive && IsUnpackerChoiceCurrent(i)',dialog)
   self.assertIn('EnablerFileOnDisk, file && onDisk',source('mainwnd1.cpp'))
   self.assertIn('onDisk = activePanel->Is(ptDisk)',source('mainwnd1.cpp'))
+ def test_direct_unpack_branch_target_is_bound_to_existing_offered_directory(self):
+  controller=function('fileswn7.cpp','void CFilesWindow::Unpack(')
+  self.assertIn('!useOfferedDiskTarget || strcmp(path, offeredDiskTarget.c_str()) != 0',controller)
+  self.assertLess(controller.index('!backendSnapshot.BindBranchTarget('),controller.index('CheckAndCreateDirectoryW('))
+  self.assertIn('(!branchTargetBound || backendSnapshot.ValidateBranchTarget(&diskTarget, path))',controller)
+  validate=function('packers.cpp','bool CWholeArchiveUnpackerSnapshot::ValidateBranchTarget(')
+  for part in ('!target->DirectoryDefault','!target->IsCurrent(MainWindow)','BranchTargetDirectory != directory','SalPathAddExtendedPrefixW(','GetFileAttributesW(','FILE_ATTRIBUTE_DIRECTORY'):
+   self.assertIn(part,validate)
+  for name,marker in (('packers.cpp','BOOL CUnpackerConfig::ExecuteUnpacker('),('plugins1.cpp','BOOL CPluginData::UnpackWholeArchive(')):
+   self.assertIn('!backendSnapshot->ValidateBranchTarget(diskTarget, targetDir)',function(name,marker))
  def test_path_display_preference_defaults_absolute_and_is_persisted(self):
   self.assertIn('BranchViewRelativePaths = FALSE;',source('dialogs4.cpp'))
   config=source('mainwnd2.cpp')

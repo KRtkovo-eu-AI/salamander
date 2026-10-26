@@ -1436,6 +1436,7 @@ bool CWholeArchiveUnpackerSnapshot::Capture(CUnpackerConfig* configuration, BOOL
     DLLName.clear();
     Command.clear();
     Arguments.clear();
+    BranchTargetDirectory.clear();
     SupportLongNames = NeedANSIListFile = FALSE;
     // This object has process lifetime; never dereference an arbitrary saved configuration pointer.
     if (configuration != &UnpackerConfig)
@@ -1520,6 +1521,45 @@ bool CWholeArchiveUnpackerSnapshot::IsVerifiedBranchSourceUnpacker() const
             _stricmp(DLLName.c_str(), "7zip\\7zip.spl") == 0);
 }
 
+bool CWholeArchiveUnpackerSnapshot::BindBranchTarget(const CFilesActionDiskTarget* target, const char* directory)
+{
+    BranchTargetDirectory.clear();
+    if (target == NULL || !target->Branch || !target->DirectoryDefault ||
+        !target->IsCurrent(MainWindow) || !IsVerifiedBranchSourceUnpacker() || directory == NULL)
+        return false;
+    const size_t length = strlen(directory);
+    if (length == 0 || length >= SAL_MAX_PATH || target->DefaultPath.empty() || !IsValidPathUtf8Text(directory)) return false;
+    // The offered default is the root itself or its single generated archive-stem child.
+    try
+    {
+        const std::string prefix = target->DefaultPath + (target->DefaultPath.back() == '\\' ? "" : "\\");
+        if (target->DefaultPath != directory)
+        {
+            if (length <= prefix.size() || memcmp(directory, prefix.c_str(), prefix.size()) != 0) return false;
+            const char* child = directory + prefix.size();
+            // Reject Win32 aliases, including a stem such as ".. " that could resolve outside the root.
+            if (directory[length - 1] == '.' || directory[length - 1] == ' ' ||
+                strpbrk(child, "\\/:*?\"<>|") != NULL) return false;
+        }
+        BranchTargetDirectory = directory;
+    }
+    catch (const std::bad_alloc&) { SetLastError(ERROR_NOT_ENOUGH_MEMORY); return false; }
+    if (ValidateBranchTarget(target, directory)) return true;
+    BranchTargetDirectory.clear();
+    return false;
+}
+
+bool CWholeArchiveUnpackerSnapshot::ValidateBranchTarget(const CFilesActionDiskTarget* target, const char* directory) const
+{
+    if (target == NULL || !target->Branch) return true; // ordinary/legacy caller contract
+    if (!target->DirectoryDefault || !target->IsCurrent(MainWindow) || !IsVerifiedBranchSourceUnpacker() ||
+        BranchTargetDirectory.empty() || directory == NULL || BranchTargetDirectory != directory) return false;
+    const std::wstring root = target->Root.length() >= MAX_PATH ?
+        SalPathAddExtendedPrefixW(target->Root.c_str()) : target->Root;
+    const DWORD attrs = GetFileAttributesW(root.c_str());
+    return attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0;
+}
+
 bool CWholeArchiveUnpackerSnapshot::ValidateExternalPaths(const char* source, const char* target) const
 {
     if (Type != CUSTOMUNPACKER_EXTERNAL) return true;
@@ -1570,15 +1610,20 @@ BOOL CUnpackerConfig::ExecuteUnpacker(HWND parent, CFilesWindow* panel, const ch
         return FALSE;
     }
     CFilesWindow* liveSource = CFilesActionDiskTarget::FindLive(MainWindow, panel);
-    if ((sourceSnapshot != NULL && sourceSnapshot->Branch) || (liveSource != NULL && liveSource->IsBranchView()))
+    if ((sourceSnapshot != NULL && sourceSnapshot->Branch) || (liveSource != NULL && liveSource->IsBranchView()) || (diskTarget != NULL && diskTarget->Branch))
     {
         if (sourceSnapshot == NULL || sourceSnapshot->Panel != panel || !sourceSnapshot->IsCurrent(MainWindow) ||
-            diskTarget == NULL || diskTarget->Branch || !diskTarget->IsCurrent(MainWindow) ||
+            diskTarget == NULL || !diskTarget->IsCurrent(MainWindow) ||
             delArchiveWhenDone || backendSnapshot == NULL || !backendSnapshot->IsVerifiedBranchSourceUnpacker())
         {
             SetLastError(ERROR_NOT_SUPPORTED);
             return FALSE;
         }
+    }
+    if (backendSnapshot != NULL && !backendSnapshot->ValidateBranchTarget(diskTarget, targetDir))
+    {
+        SetLastError(ERROR_RETRY);
+        return FALSE;
     }
     if (backendSnapshot != NULL && !backendSnapshot->ValidateExternalPaths(zipFile, targetDir)) return FALSE;
     if (PreferedUnpacker >= 0 && PreferedUnpacker < Unpackers.Count)

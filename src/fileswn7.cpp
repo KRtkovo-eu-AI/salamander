@@ -2817,8 +2817,8 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
 {
     if (CFilesActionDiskTarget::FindLive(MainWindow, this) == NULL ||
         CFilesActionDiskTarget::FindLive(MainWindow, target) == NULL) return;
-    if (target == NULL || !Is(ptDisk) || target->IsBranchView() ||
-        (IsBranchView() && !target->Is(ptDisk))) return; // S31b6c5a: Branch sources require an ordinary disk target.
+    if (target == NULL || !Is(ptDisk) ||
+        ((IsBranchView() || target->IsBranchView()) && !target->Is(ptDisk))) return; // Branch operations require disk source and target.
 
     CALL_STACK_MESSAGE4("CFilesWindow::Unpack(, %d, %s, %s)", pluginIndex, pluginName, unpackMask);
 
@@ -2827,6 +2827,7 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
     const bool watchDiskTarget = target->Is(ptDisk);
     if (!sourceSnapshot.Capture(MainWindow, this, TRUE) ||
         (watchDiskTarget && !diskTarget.Capture(MainWindow, target, TRUE))) return;
+    const bool branchOperation = sourceSnapshot.Branch || (watchDiskTarget && diskTarget.Branch);
     const HWND parent = MainWindow->HWindow;
     const auto panelsAreCurrent = [&]() {
         return sourceSnapshot.IsCurrent(MainWindow) && (!watchDiskTarget || diskTarget.IsCurrent(MainWindow));
@@ -2982,7 +2983,7 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
         while (true)
         {
             if (!panelsAreCurrent()) { reportChangedContext(); return; }
-            CUnpackDialog dialog(parent, path, pathBuffer.Capacity(), pathAlt, mask, &str, &UnpackerConfig, &delArchiveWhenDone, !sourceSnapshot.Branch);
+            CUnpackDialog dialog(parent, path, pathBuffer.Capacity(), pathAlt, mask, &str, &UnpackerConfig, &delArchiveWhenDone, !branchOperation);
             if (dialog.Execute() != IDOK) break;
 
             CWholeArchiveUnpackerSnapshot backendSnapshot;
@@ -2991,14 +2992,16 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
                 reportChangedContext();
                 return;
             }
-            if (sourceSnapshot.Branch && (delArchiveWhenDone || !backendSnapshot.IsVerifiedBranchSourceUnpacker()))
+            if (branchOperation && (delArchiveWhenDone || !backendSnapshot.IsVerifiedBranchSourceUnpacker()))
             {
                 SalMessageBox(parent, GetErrorText(ERROR_NOT_SUPPORTED), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
                 return;
             }
+            bool branchTargetBound = false;
             const auto contextIsCurrent = [&]() {
                 return panelsAreCurrent() && dialog.IsSelectionCurrent() && backendSnapshot.IsCurrent() &&
-                       (!sourceSnapshot.Branch || (!delArchiveWhenDone && backendSnapshot.IsVerifiedBranchSourceUnpacker()));
+                       (!branchOperation || (!delArchiveWhenDone && backendSnapshot.IsVerifiedBranchSourceUnpacker())) &&
+                       (!branchTargetBound || backendSnapshot.ValidateBranchTarget(&diskTarget, path));
             };
             UpdateWindow(parent);
             if (!contextIsCurrent()) { reportChangedContext(); return; }
@@ -3029,6 +3032,16 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
             {
                 SalMessageBox(parent, errorText, LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
                 continue;
+            }
+            if (watchDiskTarget && diskTarget.Branch)
+            {
+                if (!useOfferedDiskTarget || strcmp(path, offeredDiskTarget.c_str()) != 0)
+                {
+                    SalMessageBox(parent, GetErrorText(ERROR_NOT_SUPPORTED), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+                    return;
+                }
+                if (!backendSnapshot.BindBranchTarget(&diskTarget, path)) { reportChangedContext(); return; }
+                branchTargetBound = true;
             }
             if (!contextIsCurrent() || !offeredRootExists()) { reportChangedContext(); return; }
             if (!backendSnapshot.ValidateExternalPaths(archiveSource.c_str(), path))
