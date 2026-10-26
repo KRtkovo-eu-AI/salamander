@@ -62,7 +62,15 @@ enum {SALENUM_CANCEL=-1,IDS_PACKERR_GENERAL=1,IDS_PACKERR_FILE,IDS_PACKERR_TITLE
 #define PACK_CMDLINE_MAXLEN 1040
 static std::function<void()> OnFree,OnExecute;
 static BOOL ExecuteOK=TRUE;
-static BOOL SalGetTempFileName(const char*,const char*,char* output,BOOL file){++Temps;strcpy(output,file?"C:\\own-list.tmp":"C:\\own-extract.tmp");return TRUE;}
+static std::wstring TempRoot=L"C:\\own-temp\\";
+static std::string UsedListRoot;
+static UINT OverrideACP=0;
+static UINT TestACP(){return OverrideACP?OverrideACP:GetACP();}
+static DWORD OwnTempPath(DWORD capacity,wchar_t* output){if(TempRoot.empty()){SetLastError(ERROR_PATH_NOT_FOUND);return 0;}if(TempRoot.size()>=capacity)return (DWORD)TempRoot.size()+1;wcscpy_s(output,capacity,TempRoot.c_str());return (DWORD)TempRoot.size();}
+#define GetACP TestACP
+#define GetTempPathW OwnTempPath
+
+static BOOL SalGetTempFileName(const char* root,const char*,char* output,BOOL file){if(file)UsedListRoot=root?root:"<legacy-default>";++Temps;strcpy(output,file?"C:\\own-list.tmp":"C:\\own-extract.tmp");return TRUE;}
 static BOOL DeleteOwnList(const char*){++ListsDeleted;return TRUE;}
 static BOOL RemoveOwnDir(const char*){++Cleanups;SetLastError(ERROR_ACCESS_DENIED);return TRUE;}
 static FILE* OpenOwnList(const char*,const char*){return reinterpret_cast<FILE*>(1);}
@@ -122,5 +130,20 @@ int main(){
   MainWindow=nullptr;Moves=0;OnExecute=nullptr;
   Check(PackUniversalUncompress(nullptr,"external",nullptr,"C:\\target",FALSE,&source,TRUE,"archive.zip","C:\\target",nullptr,EmptySelection,nullptr,TRUE)&&Moves==1,"legacy NULL callers retain old dispatch without requiring snapshot registry");
  }
+
+ for(int scenario=0;scenario<5;++scenario){
+  CFilesWindow source,target;source.Tab=2;target.Tab=3;CMainWindow main;MainWindow=&main;main.Left={&source};main.Right={&target};main.LeftPanel=&source;main.RightPanel=&target;
+  CFilesActionDiskTarget src,dst;Check(src.Capture(&main,&source,TRUE)&&dst.Capture(&main,&target,TRUE),"capture TEMP preflight context");
+  Temps=Moves=0;OnFree=OnExecute=nullptr;ExecuteOK=TRUE;OverrideACP=1250;TempRoot=L"C:\\own-temp\\";
+  if(scenario==0)TempRoot=L"C:\\"+std::wstring(300,L'a');
+  if(scenario==1)TempRoot=L"C:\\"+std::wstring(242,L'a');
+  if(scenario==2)TempRoot.clear();
+  if(scenario>=3)TempRoot=L"C:\\tmp-東京\\";
+  if(scenario==4)OverrideACP=CP_UTF8;
+  BOOL ok=PackUniversalUncompress(nullptr,"external",nullptr,"C:\\target",FALSE,&source,TRUE,"archive.zip","C:\\target",nullptr,EmptySelection,nullptr,TRUE,&src,&dst);
+  if(scenario<4)Check(!ok&&Temps==0&&Moves==0,"unsupported long/unrepresentable/missing TEMP refused before narrow helper or I/O");
+  else Check(ok&&Moves==1&&UsedListRoot==SalWideToMultiBytePath(TempRoot.c_str(),CP_UTF8),"exact owned UTF8 TEMP forwarded when system encoding matches");
+ }
+ OverrideACP=0;
  printf("Actual external unpack lifecycle: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
 }

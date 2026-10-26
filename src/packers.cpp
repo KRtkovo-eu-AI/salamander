@@ -1424,7 +1424,7 @@ BOOL CUnpackerConfig::SetUnpackerTitle(int index, const char* title)
     return data->Title != NULL;
 }
 
-bool CWholeArchiveUnpackerSnapshot::Capture(CUnpackerConfig* configuration)
+bool CWholeArchiveUnpackerSnapshot::Capture(CUnpackerConfig* configuration, BOOL allowExternal)
 {
     Configuration = NULL;
     Entry = NULL;
@@ -1434,6 +1434,9 @@ bool CWholeArchiveUnpackerSnapshot::Capture(CUnpackerConfig* configuration)
     Title.clear();
     Extensions.clear();
     DLLName.clear();
+    Command.clear();
+    Arguments.clear();
+    SupportLongNames = NeedANSIListFile = FALSE;
     // This object has process lifetime; never dereference an arbitrary saved configuration pointer.
     if (configuration != &UnpackerConfig)
     {
@@ -1447,14 +1450,17 @@ bool CWholeArchiveUnpackerSnapshot::Capture(CUnpackerConfig* configuration)
         return false;
     }
     const CUnpackerConfigData* entry = configuration->Unpackers[index];
-    if (entry == NULL || entry->OldType || entry->Type >= 0 || entry->Title == NULL || entry->Ext == NULL)
+    if (entry == NULL || entry->OldType || entry->Type > CUSTOMUNPACKER_EXTERNAL ||
+        (entry->Type == CUSTOMUNPACKER_EXTERNAL && !allowExternal) || entry->Title == NULL || entry->Ext == NULL)
     {
         SetLastError(ERROR_RETRY);
         return false;
     }
-    const int pluginIndex = -(entry->Type + 1); // avoid negating INT_MIN before bounds validation
-    CPluginData* plugin = Plugins.Get(pluginIndex);
-    if (plugin == NULL || !plugin->SupportCustomUnpack || plugin->DLLName == NULL || plugin->DLLName[0] == 0)
+    const bool external = entry->Type == CUSTOMUNPACKER_EXTERNAL;
+    const int pluginIndex = external ? -1 : -(entry->Type + 1); // avoid negating INT_MIN before bounds validation
+    CPluginData* plugin = external ? NULL : Plugins.Get(pluginIndex);
+    if (external ? (entry->CmdExecExtract == NULL || entry->CmdArgsExtract == NULL) :
+        (plugin == NULL || !plugin->SupportCustomUnpack || plugin->DLLName == NULL || plugin->DLLName[0] == 0))
     {
         SetLastError(ERROR_RETRY);
         return false;
@@ -1463,7 +1469,15 @@ bool CWholeArchiveUnpackerSnapshot::Capture(CUnpackerConfig* configuration)
     {
         Title = entry->Title;
         Extensions = entry->Ext;
-        DLLName = plugin->DLLName;
+        if (external)
+        {
+            Command = entry->CmdExecExtract;
+            Arguments = entry->CmdArgsExtract;
+            SupportLongNames = entry->SupportLongNames;
+            NeedANSIListFile = entry->NeedANSIListFile;
+        }
+        else
+            DLLName = plugin->DLLName;
     }
     catch (const std::bad_alloc&)
     {
@@ -1486,12 +1500,52 @@ bool CWholeArchiveUnpackerSnapshot::IsCurrent(const CPluginData* expectedPlugin)
         return false;
     // MoveUnpacker copies row contents, so pointer equality alone does not preserve the choice.
     const CUnpackerConfigData* entry = UnpackerConfig.Unpackers[Index];
-    if (entry->OldType || entry->Type != Type || Type >= 0 || entry->Title == NULL || entry->Ext == NULL ||
+    if (entry->OldType || entry->Type != Type || Type > CUSTOMUNPACKER_EXTERNAL || entry->Title == NULL || entry->Ext == NULL ||
         Title != entry->Title || Extensions != entry->Ext)
         return false;
+    if (Type == CUSTOMUNPACKER_EXTERNAL)
+        return expectedPlugin == NULL && Plugin == NULL && entry->CmdExecExtract != NULL && entry->CmdArgsExtract != NULL &&
+               Command == entry->CmdExecExtract && Arguments == entry->CmdArgsExtract &&
+               SupportLongNames == entry->SupportLongNames && NeedANSIListFile == entry->NeedANSIListFile;
     CPluginData* live = Plugins.Get(-(Type + 1));
     return live != NULL && live == Plugin && (expectedPlugin == NULL || live == expectedPlugin) &&
            live->SupportCustomUnpack && live->DLLName != NULL && _stricmp(live->DLLName, DLLName.c_str()) == 0;
+}
+
+bool CWholeArchiveUnpackerSnapshot::ValidateExternalPaths(const char* source, const char* target) const
+{
+    if (Type != CUSTOMUNPACKER_EXTERNAL) return true;
+    // This legacy backend still uses MAX_PATH buffers and narrow Win32/CRT I/O.
+    // Guard the UTF-8 controller input before creating directories or entering that backend.
+    const char* paths[] = {source, target};
+    for (const char* path : paths)
+    {
+        if (path == NULL || strlen(path) >= MAX_PATH)
+        {
+            SetLastError(ERROR_FILENAME_EXCED_RANGE);
+            return false;
+        }
+        if (*path == 0 || !IsValidPathUtf8Text(path))
+        {
+            SetLastError(ERROR_INVALID_NAME);
+            return false;
+        }
+        const std::wstring exact = SalMultiByteToWidePath(path, CP_UTF8);
+        if (exact.empty() || SalMultiByteToWidePath(path, GetACP()) != exact)
+        {
+            SetLastError(ERROR_NO_UNICODE_TRANSLATION);
+            return false;
+        }
+    }
+    // SalGetTempFileName appends a separator, "PACK", up to eight DWORD hex digits and ".tmp".
+    const size_t length = strlen(target);
+    const size_t resultLength = length + (target[length - 1] == char(92) ? 0 : 1) + 4 + 8 + 4;
+    if (resultLength >= MAX_PATH)
+    {
+        SetLastError(ERROR_FILENAME_EXCED_RANGE);
+        return false;
+    }
+    return true;
 }
 
 BOOL CUnpackerConfig::ExecuteUnpacker(HWND parent, CFilesWindow* panel, const char* zipFile, const char* mask,
@@ -1507,7 +1561,8 @@ BOOL CUnpackerConfig::ExecuteUnpacker(HWND parent, CFilesWindow* panel, const ch
         SetLastError(ERROR_RETRY);
         return FALSE;
     }
-    if (PreferedUnpacker != -1 && PreferedUnpacker < Unpackers.Count)
+    if (backendSnapshot != NULL && !backendSnapshot->ValidateExternalPaths(zipFile, targetDir)) return FALSE;
+    if (PreferedUnpacker >= 0 && PreferedUnpacker < Unpackers.Count)
     {
         CUnpackerConfigData* data = Unpackers[PreferedUnpacker];
         if (data->Type == CUSTOMUNPACKER_EXTERNAL)

@@ -895,6 +895,7 @@ protected:
         BOOL SupportCustomUnpack = FALSE;
     };
     std::vector<CUnpackerChoice> UnpackerChoices;
+    int SelectedUnpacker = -1;
     bool CaptureUnpackerChoices();
     bool IsUnpackerChoiceCurrent(int index) const;
 

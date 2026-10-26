@@ -88,17 +88,7 @@ static std::vector<std::pair<std::string,BOOL>> NotificationPaths;
 static int DetachedTransitions=0;
 static BOOL RecordNewDirectory=FALSE;
 static int SDKCalls=0,ExternalCalls=0,MoveCalls=0,OperationContexts=0,DeletedVolumes=0,CloseCalls=0;
-static BOOL ExpectedDiskTarget=TRUE,ModalAllowsDelete=TRUE;
-static BOOL RootIsDirectory=TRUE;
-static std::wstring LastAttributePath;
-static std::vector<std::wstring> VolumePaths,DeletedPaths;
-static std::string ReturnedVolumes;
-static char* ReturnedVolumeStorage=nullptr;
-static BOOL CustomVolumes=FALSE,BadVolumeCapacity=FALSE;
-static int VolumeAttributesCalls=0,VolumeSetCalls=0,FileErrors=0,DeleteFailures=0;
-static DWORD VolumeAttributeError=0,VolumeDeleteError=ERROR_SHARING_VIOLATION,VolumeFlags=FILE_ATTRIBUTE_NORMAL;
-static std::vector<int> FileResponses;
-static std::function<void()> OnFileError;
+static BOOL ExpectedDiskTarget=TRUE;
 static BOOL RootExists=TRUE,CreateOK=TRUE,ResolveOK=TRUE,BackendOK=TRUE,RequestDelete=FALSE;
 static int DialogResult=IDOK;
 static std::string ManualPath,ExpectedSource,ExpectedTarget;
@@ -115,18 +105,17 @@ BOOL CFilesWindow::CheckPath(BOOL,const char*){if(OnCheck)OnCheck();return ERROR
 @@MOVE_PREFIX@@
 static BOOL OwnUpdateWindow(HWND){++Updates;if(OnUpdate)OnUpdate();return TRUE;}
 static BOOL OwnPostMessage(HWND,UINT,WPARAM,LPARAM){++FocusPosts;return TRUE;}
-static DWORD OwnAttributes(const wchar_t* path){LastAttributePath=path;if(std::find(VolumePaths.begin(),VolumePaths.end(),path)!=VolumePaths.end()){++VolumeAttributesCalls;if(VolumeAttributeError){SetLastError(VolumeAttributeError);return INVALID_FILE_ATTRIBUTES;}return VolumeFlags;}return RootExists?(RootIsDirectory?FILE_ATTRIBUTE_DIRECTORY:FILE_ATTRIBUTE_NORMAL):INVALID_FILE_ATTRIBUTES;}
+static DWORD OwnAttributes(const wchar_t*){return RootExists?FILE_ATTRIBUTE_DIRECTORY:INVALID_FILE_ATTRIBUTES;}
 static BOOL OwnPriority(HANDLE,int priority){PriorityDepth+=priority==THREAD_PRIORITY_NORMAL?1:-1;++PriorityChanges;return TRUE;}
-static BOOL OwnDelete(const wchar_t* path){++DeletedVolumes;DeletedPaths.emplace_back(path);if(OnDelete)OnDelete();if(DeleteFailures>0){--DeleteFailures;SetLastError(VolumeDeleteError);return FALSE;}return TRUE;}
+static BOOL OwnDelete(const char*){++DeletedVolumes;if(OnDelete)OnDelete();return TRUE;}
 #undef UpdateWindow
 #define UpdateWindow OwnUpdateWindow
 #undef PostMessage
 #define PostMessage OwnPostMessage
 #define GetFileAttributesW OwnAttributes
 #define SetThreadPriority OwnPriority
-#define DeleteFileW OwnDelete
-static BOOL OwnSetAttributes(const wchar_t*,DWORD){++VolumeSetCalls;return TRUE;}
-#define SetFileAttributesW OwnSetAttributes
+#undef DeleteFile
+#define DeleteFile OwnDelete
 #define CALL_STACK_MESSAGE4(...) ((void)0)
 #define CALL_STACK_MESSAGE5(...) ((void)0)
 #define CALL_STACK_MESSAGE7(...) ((void)0)
@@ -148,6 +137,7 @@ static int SalMessageBox(HWND,const char*,const char*,UINT){++Messages;return ID
 static void BeginStopRefresh(){++StopDepth;++Begins;}
 static void EndStopRefresh(){--StopDepth;++Ends;}
 static void AlterFileName(char* out,const char* in,int,int,int,BOOL){strcpy(out,in);}
+static void ClearReadOnlyAttr(const char*){}
 static void CutDirectory(char* path){char* last=strrchr(path,char(92));if(last)*last=0;}
 static BOOL SalPathAppend(char* path,const char* part,int capacity){std::string full=std::string(path)+(path[0]?"\\":"")+part;if(full.size()>=(size_t)capacity)return FALSE;strcpy(path,full.c_str());return TRUE;}
 struct CPathBuffer {std::vector<char> Bytes;explicit CPathBuffer(int cap=SAL_MAX_PATH):Bytes(cap){}char* Data(){return Bytes.data();}int Capacity()const{return (int)Bytes.size();}};
@@ -164,9 +154,8 @@ static BOOL CheckAndCreateDirectoryW(const wchar_t*,HWND,BOOL,std::wstring* firs
 static void RemoveEmptyUnpackDirectoriesW(const std::wstring&){++Cleanups;}
 void CMainWindow::PostChangeOnPathNotification(const char* path,BOOL recursive){NotificationPaths.emplace_back(path,recursive);++Notifications;if(OnNotify)OnNotify();}
 struct CDynamicString {};
-struct CDynamicStringImp:CDynamicString {std::vector<char> Storage=std::vector<char>(2*SAL_MAX_PATH,0);char* Text=Storage.data();int Length=0;int Allocated=2*SAL_MAX_PATH;};
-@@VOLUMES@@
-struct CFileErrorDlg {CFileErrorDlg(HWND,const char*,const char*,const char*){}int Execute(){++FileErrors;if(OnFileError)OnFileError();if(FileResponses.empty())return IDCANCEL;const int response=FileResponses.front();FileResponses.erase(FileResponses.begin());return response;}};
+struct CDynamicStringImp:CDynamicString {char Storage[64]={};char* Text=Storage;int Length=0;};
+struct CFileErrorDlg {CFileErrorDlg(HWND,const char*,const char*,const char*){}int Execute(){return IDCANCEL;}};
 class CUnpackerConfig;
 @@ROW@@
 @@BACKEND@@
@@ -186,8 +175,7 @@ struct CSalamanderForOperations {explicit CSalamanderForOperations(CFilesWindow*
 struct ArchiverFacade {
  BOOL UnpackWholeArchive(CSalamanderForOperations*,const char* source,const char*,const char* target,BOOL del,CDynamicString* volumes){
   ++SDKCalls;Check(ExpectedSource==source&&ExpectedTarget==target,"SDK receives exact owned source/destination bytes");
-  if(del&&volumes){auto* v=static_cast<CDynamicStringImp*>(volumes);const std::string data=CustomVolumes?ReturnedVolumes:ExpectedSource+std::string(1,0)+ExpectedSource+".part2"+std::string(1,0);memcpy(v->Text,data.data(),data.size());v->Length=(int)data.size();ReturnedVolumeStorage=v->Text;if(BadVolumeCapacity)v->Allocated=v->Length;VolumePaths.clear();size_t at=0;while(at<data.size()){size_t end=data.find(char(0),at);if(end==std::string::npos)break;std::wstring path=SalMultiByteToWidePath(data.substr(at,end-at).c_str(),CP_UTF8);if(path.size()>=MAX_PATH)path=SalPathAddExtendedPrefixW(path.c_str());VolumePaths.push_back(path);at=end+1;}}
-
+  if(del&&volumes){auto* v=static_cast<CDynamicStringImp*>(volumes);memcpy(v->Storage,"first.zip\0second.zip\0",21);v->Length=21;}
   if(OnBackend)OnBackend();return BackendOK;
  }
 };
@@ -211,7 +199,7 @@ static BOOL PackUniversalUncompress(HWND,const char*,void*,const char*,BOOL,CFil
 class CUnpackDialog {
  char* Path;BOOL* Delete;CWholeArchiveUnpackerSnapshot Displayed;
 public:
- CUnpackDialog(HWND,char* path,int,const char*,char*,CTruncatedString*,CUnpackerConfig*,BOOL* del,BOOL allow=TRUE):Path(path),Delete(del){ModalAllowsDelete=allow;Check(Displayed.Capture(&UnpackerConfig,TRUE),"capture displayed modal choice facade");}
+ CUnpackDialog(HWND,char* path,int,const char*,char*,CTruncatedString*,CUnpackerConfig*,BOOL* del):Path(path),Delete(del){Check(Displayed.Capture(&UnpackerConfig,TRUE),"capture displayed modal choice facade");}
  int Execute(){++Dialogs;if(!ManualPath.empty())strcpy(Path,ManualPath.c_str());*Delete=RequestDelete;if(OnDialog)OnDialog();return DialogResult;}
  bool IsSelectionCurrent() const{return Displayed.IsCurrent();}
 };
@@ -222,7 +210,7 @@ static void Reset(){
  Check(StopDepth==0&&PriorityDepth==0,"prior controller invocation left no refresh/priority imbalance");
  Begins=Ends=PriorityChanges=Creates=Cleanups=Resolves=Dialogs=Updates=Notifications=Messages=FocusPosts=0;
  NotificationPaths.clear();SDKCalls=ExternalCalls=MoveCalls=OperationContexts=DeletedVolumes=CloseCalls=0;
- VolumePaths.clear();DeletedPaths.clear();ReturnedVolumes.clear();ReturnedVolumeStorage=nullptr;CustomVolumes=BadVolumeCapacity=FALSE;VolumeAttributesCalls=VolumeSetCalls=FileErrors=DeleteFailures=0;VolumeAttributeError=0;VolumeDeleteError=ERROR_SHARING_VIOLATION;VolumeFlags=FILE_ATTRIBUTE_NORMAL;FileResponses.clear();OnFileError=nullptr;LastAttributePath.clear();RootIsDirectory=TRUE;ExpectedDiskTarget=TRUE;RootExists=CreateOK=ResolveOK=BackendOK=TRUE;RecordNewDirectory=FALSE;DetachedTransitions=0;RequestDelete=FALSE;DialogResult=IDOK;ManualPath.clear();
+ ExpectedDiskTarget=TRUE;RootExists=CreateOK=ResolveOK=BackendOK=TRUE;RecordNewDirectory=FALSE;DetachedTransitions=0;RequestDelete=FALSE;DialogResult=IDOK;ManualPath.clear();
  OnDialog=OnUpdate=OnCreate=OnInit=OnBackend=OnNotify=OnCheck=OnMove=OnDelete=nullptr;
  Configuration.UseAnotherPanelForUnpack=TRUE;Configuration.UseSubdirNameByArchiveForUnpack=FALSE;
 }
@@ -318,205 +306,6 @@ int main(){
   Check(SDKCalls==1&&StopDepth==0&&target.StaleReads==0,"closed unused virtual target does not invalidate an owned ordinary source destination");
   Reset();source.FilesActionInProgress=TRUE;source.Unpack(&source,-1,nullptr,nullptr);Check(Begins==0&&Dialogs==0&&source.FilesActionInProgress,"reentrant busy source refused without resetting another operation flag");source.FilesActionInProgress=FALSE;
   main.Detached={nullptr};main.CloseDetachedTab(nullptr);Check(DetachedTransitions==0,"orphan null detached entry cannot be dereferenced by close guard");
- }
-
- // Qualified bundled Branch source admission: actual controller, dispatcher and post-init wrapper.
- for(const char* qualified : {"zip\\zip.spl", "7zip\\7zip.spl"}) {
- for(int scenario=0;scenario<30;++scenario){
-  Reset();CFilesWindow source,target;source.Root=L"C:\\collection";source.Branch=TRUE;source.Tab=2;target.Root=L"C:\\target";target.Tab=3;
-  source.FileStore.Item.Full=L"C:\\collection\\parent-東京\\same.zip";source.FileStore.Item.NameW=L"same.zip";
-  CMainWindow main;MainWindow=&main;main.Left={&source};main.Right={&target};main.LeftPanel=&source;main.RightPanel=&target;
-  CUnpackerConfigData row;Row(row);CPluginData plugin;plugin.DLLName=qualified;UnpackerConfig.Unpackers.Data={&row};UnpackerConfig.Unpackers.Count=1;UnpackerConfig.PreferedUnpacker=0;Plugins.Data={&plugin};
-  ExpectedSource=SalWideToMultiBytePath(source.FileStore.Item.Full.c_str(),CP_UTF8);ExpectedTarget="C:\\target";
-  if(scenario==1)plugin.DLLName="other\\7zip.spl";
-  if(scenario==2)plugin.DLLName="other\\zip.spl";
-  if(scenario==3){row.Type=0;row.CmdExecExtract=_strdup("external.exe");row.CmdArgsExtract=_strdup("args");}
-  if(scenario==4){RequestDelete=TRUE;plugin.DLLName="unqualified\\zip.spl";} // Delete cannot admit an unqualified backend.
-  if(scenario==5){target.Branch=TRUE;ManualPath="C:\\unverified-manual";}
-  if(scenario==6)target.Kind=ptPluginFS;
-  if(scenario==7)source.Scanning=TRUE;
-  if(scenario==8)OnDialog=[&]{++source.Generation;};
-  if(scenario==9)OnInit=[&]{++source.Generation;};
-  if(scenario==10)OnInit=[&]{plugin.DLLName=_stricmp(qualified,"zip\\zip.spl")==0?"7zip\\7zip.spl":"zip\\zip.spl";};
-  if(scenario==11)RootExists=FALSE;
-  if(scenario==12){ManualPath="relative";ExpectedTarget="C:\\collection\\parent-東京\\relative";}
-  if(scenario==13){Configuration.UseAnotherPanelForUnpack=FALSE;ExpectedTarget="C:\\collection\\parent-東京\\";}
-  if(scenario==14){Configuration.UseSubdirNameByArchiveForUnpack=TRUE;ExpectedTarget="C:\\target\\same";}
-  if(scenario==15)DialogResult=IDCANCEL;
-  if(scenario==16)BackendOK=FALSE;
-  if(scenario==17)OnInit=[&]{main.ClosePanelTab(&target);};
-  if(scenario==18)OnInit=[&]{main.ClosePanelTab(&source);};
-  if(scenario==19)OnBackend=[&]{++source.Generation;};
-  if(scenario==20)plugin.DLLName="ZIP\\ZIP.SPL";
-  if(scenario==21){source.FileStore.Item.Full=L"C:\\collection\\other-parent\\same.zip";ExpectedSource=SalWideToMultiBytePath(source.FileStore.Item.Full.c_str(),CP_UTF8);}
-  if(scenario==22){source.FileStore.Item.Full=L"C:\\collection\\"+std::wstring(110,L'東')+L"\\same.zip";ExpectedSource=SalWideToMultiBytePath(source.FileStore.Item.Full.c_str(),CP_UTF8);Check(ExpectedSource.size()>MAX_PATH,"Branch UTF8-byte-long actual source");}
-  if(scenario==23){source.FileStore.Item.Full=L"C:\\collection\\"+std::wstring(140,L'a')+L"\\"+std::wstring(140,L'b')+L"\\same.zip";ExpectedSource=SalWideToMultiBytePath(source.FileStore.Item.Full.c_str(),CP_UTF8);Check(source.FileStore.Item.Full.size()>MAX_PATH,"Branch UTF16-long actual source");}
-  if(scenario==24){main.Left.clear();main.LeftPanel=nullptr;main.Detached={&source};}
-  if(scenario==25)OnBackend=[&]{main.ClosePanelTab(&source);};
-  if(scenario>=26){target.Root=L"C:\\"+std::wstring(scenario==26?110:140,L'東')+L"\\"+std::wstring(scenario==26?1:140,L'a');ExpectedTarget=SalWideToMultiBytePath(target.Root.c_str(),CP_UTF8);}
-  if(scenario==28)OnCreate=[&]{++source.Generation;};
-  if(scenario==29)OnDialog=[&]{plugin.DLLName="other\\zip.spl";};
-  source.Unpack(&target,-1,nullptr,nullptr);
-  Check(StopDepth==0&&PriorityDepth==0&&!source.FilesActionInProgress,"Branch callbacks balance refresh/priority/busy lifetimes");
-  Check(source.StaleReads==0&&target.StaleReads==0&&FocusPosts==0&&DeletedVolumes==0,"Branch never uses retired getters, synthetic-root focus or archive deletion");
-  if(scenario>=1&&scenario<=11||scenario==15||scenario==17||scenario==18||scenario==28||scenario==29)Check(SDKCalls==0&&ExternalCalls==0,"unqualified/stale/cancelled Branch operation never dispatches I/O");
-  else Check(SDKCalls==1&&ExternalCalls==0,"only qualified bundled backend receives exact Branch source and ordinary disk target");
-  if(scenario>=1&&scenario<=4||scenario==8||scenario==11||scenario==15||scenario==29)Check(Creates==0,"unsupported Branch backend/delete/modal state refuses before target creation");
-  if(scenario!=5&&scenario!=6&&scenario!=7)Check(ModalAllowsDelete,"Branch dialog offers deletion subject to independent qualified-backend checks");
- }
- // Independent dispatcher/wrapper denial, even if caller omits or tampers with contexts.
- for(int scenario=0;scenario<6;++scenario){
-  Reset();CFilesWindow source,target;source.Branch=TRUE;source.Tab=2;target.Tab=3;CMainWindow main;MainWindow=&main;main.Left={&source};main.Right={&target};main.LeftPanel=&source;main.RightPanel=&target;
-  CUnpackerConfigData row;Row(row);CPluginData plugin;plugin.DLLName=qualified;Plugins.Data={&plugin};UnpackerConfig.Unpackers.Data={&row};UnpackerConfig.Unpackers.Count=1;UnpackerConfig.PreferedUnpacker=0;
-  CFilesActionDiskTarget src,dst;src.Capture(&main,&source,TRUE);dst.Capture(&main,&target,TRUE);CWholeArchiveUnpackerSnapshot backend;Check(backend.Capture(&UnpackerConfig),"capture direct Branch policy fixture");
-  if(scenario==1)dst.Branch=TRUE;if(scenario==2)++src.Generation;
-  BOOL ok=UnpackerConfig.ExecuteUnpacker(nullptr,&source,"a","*.*","b",scenario==3,nullptr,scenario==4?nullptr:&backend,scenario==0?nullptr:&src,scenario==5?nullptr:&dst);
-  Check(!ok&&SDKCalls==0&&ExternalCalls==0,"dispatcher independently rejects missing/stale/Branch-target/delete contexts");
- }
-
- for(int scenario=0;scenario<9;++scenario){
-  Reset();CFilesWindow source,target;source.Branch=TRUE;source.Tab=2;target.Tab=3;CMainWindow main;MainWindow=&main;main.Left={&source};main.Right={&target};main.LeftPanel=&source;main.RightPanel=&target;
-  CUnpackerConfigData row;Row(row);CPluginData plugin;plugin.DLLName=scenario==5?"other\\7zip.spl":qualified;Plugins.Data={&plugin};UnpackerConfig.Unpackers.Data={&row};UnpackerConfig.Unpackers.Count=1;UnpackerConfig.PreferedUnpacker=0;
-  if(scenario==6)target.Branch=TRUE;
-  CFilesActionDiskTarget src,dst;src.Capture(&main,&source,TRUE);dst.Capture(&main,&target,TRUE);CWholeArchiveUnpackerSnapshot backend;Check(backend.Capture(&UnpackerConfig),"capture concrete Branch wrapper policy fixture");
-  if(scenario==7)OnInit=[&]{++source.Generation;};if(scenario==8)OnInit=[&]{plugin.SupportCustomUnpack=FALSE;};ExpectedSource="a";ExpectedTarget="b";
-  BOOL ok=plugin.UnpackWholeArchive(&source,"a","*.*","b",scenario==4,nullptr,scenario==1?nullptr:&src,scenario==2?nullptr:&dst,scenario==3?nullptr:&backend);
-  Check(scenario==0?(ok&&SDKCalls==1&&OperationContexts==1):(!ok&&SDKCalls==0&&OperationContexts==0),"concrete post-init wrapper independently qualifies bundled backend, panels and no-delete before SDK");
- }
- }
-
- // Branch targets retain an offered root binding for both ordinary and Branch sources.
- for(const char* qualified : {"zip\\zip.spl","7zip\\7zip.spl"}) for(BOOL branchSource : {FALSE,TRUE}) for(int scenario=0;scenario<29;++scenario){
-  Reset();CFilesWindow source,target;source.Root=L"C:\\source";source.Tab=2;source.Branch=branchSource;target.Root=L"C:\\target-東京";target.Tab=3;target.Branch=TRUE;
-  CMainWindow main;MainWindow=&main;main.Left={&source};main.Right={&target};main.LeftPanel=&source;main.RightPanel=&target;
-  CUnpackerConfigData row;Row(row);CPluginData plugin;plugin.DLLName=qualified;UnpackerConfig.Unpackers.Data={&row};UnpackerConfig.Unpackers.Count=1;UnpackerConfig.PreferedUnpacker=0;Plugins.Data={&plugin};
-  ExpectedSource=SalWideToMultiBytePath(source.FileStore.Item.Full.c_str(),CP_UTF8);ExpectedTarget=SalWideToMultiBytePath(target.Root.c_str(),CP_UTF8);
-  if(scenario==1){Configuration.UseSubdirNameByArchiveForUnpack=TRUE;ExpectedTarget+="\\archive";}
-  if(scenario==2)ManualPath="C:\\manual";
-  if(scenario==3)ManualPath=ExpectedTarget+"-sibling";
-  if(scenario==4)OnDialog=[&]{RootExists=FALSE;};
-  if(scenario==5){RecordNewDirectory=TRUE;OnCreate=[&]{RootExists=FALSE;};}
-  if(scenario==6)OnInit=[&]{RootExists=FALSE;};
-  if(scenario==7)RootIsDirectory=FALSE;
-  if(scenario==8)OnDialog=[&]{++target.Generation;};
-  if(scenario==9)OnInit=[&]{++target.Generation;};
-  if(scenario==10)OnInit=[&]{main.ClosePanelTab(&target);};
-  if(scenario==11)OnUpdate=[&]{if(Updates==1)target.Root+=L"changed";};
-  if(scenario==12)OnDialog=[&]{target.Scanning=TRUE;};
-  if(scenario==13)plugin.DLLName="other\\7zip.spl";
-  if(scenario==14){row.Type=0;row.CmdExecExtract=_strdup("external");row.CmdArgsExtract=_strdup("args");}
-  if(scenario==15){RequestDelete=TRUE;plugin.DLLName="unqualified\\zip.spl";}
-  if(scenario==16)DialogResult=IDCANCEL;
-  if(scenario==17){Configuration.UseAnotherPanelForUnpack=FALSE;ManualPath=ExpectedTarget;}
-  if(scenario==18)Configuration.UseAnotherPanelForUnpack=FALSE;
-  if(scenario==19||scenario==20){target.Root=L"C:\\"+std::wstring(scenario==19?110:140,L'東')+L"\\"+std::wstring(scenario==19?1:140,L'a');ExpectedTarget=SalWideToMultiBytePath(target.Root.c_str(),CP_UTF8);}
-  if(scenario==21)OnBackend=[&]{++target.Generation;};
-  if(scenario==22)OnBackend=[&]{main.ClosePanelTab(&source);};
-  if(scenario==23&&branchSource)OnInit=[&]{++source.Generation;};
-  if(scenario==24)OnInit=[&]{plugin.DLLName="other\\zip.spl";};
-  if(scenario==25)ManualPath=ExpectedTarget+"\\..";
-  if(scenario==26){source.FileStore.Item.NameW=L"...zip";Configuration.UseSubdirNameByArchiveForUnpack=TRUE;}
-  if(scenario==27)RootExists=FALSE;
-  if(scenario==28){DialogResult=IDCANCEL;OnDialog=[&]{main.ClosePanelTab(&target);};}
-  source.Unpack(&target,-1,nullptr,nullptr);
-  const bool success=scenario==0||scenario==1||scenario==17||scenario==19||scenario==20||scenario==21||scenario==22||scenario==23&&!branchSource;
-  Check(success?(SDKCalls==1&&ExternalCalls==0):(SDKCalls==0&&ExternalCalls==0),"Branch target admission dispatches only exact qualified live offered directories");
-  Check(ModalAllowsDelete&&DeletedVolumes==0,"existing no-delete and unqualified-delete Branch target cases preserve source volumes");
-  Check(StopDepth==0&&PriorityDepth==0&&!source.FilesActionInProgress&&source.StaleReads==0&&target.StaleReads==0,"Branch target callbacks retain balanced lifetimes without retired getters");
-  if(scenario==2||scenario==3||scenario==4||scenario==7||scenario==8||scenario==11||scenario==12||scenario==13||scenario==14||scenario==15||scenario==16||scenario==18||scenario==25||scenario==26||scenario==27||scenario==28)Check(Creates==0,"unbound, manual, missing or stale Branch root refuses before directory creation");
-  if(scenario==5)Check(Cleanups==1,"root loss after creation cleans only owned new directory before refusal");
-  if(scenario==6||scenario==9||scenario==10||scenario==24||scenario==23&&branchSource)Check(OperationContexts==0,"post-init Branch target/root/backend invalidation precedes SDK context");
-  if((scenario==19||scenario==20)&&success)Check(LastAttributePath.rfind(L"\\\\?\\",0)==0||target.Root.size()<MAX_PATH,"Branch target root lookup adds extended prefix for Win32-long root");
- }
- // Independent binding and direct backend checks, even without the controller.
- for(const char* qualified : {"zip\\zip.spl","7zip\\7zip.spl"}) for(int scenario=0;scenario<21;++scenario){
-  Reset();CFilesWindow source,target;source.Tab=2;target.Tab=3;target.Branch=TRUE;CMainWindow main;MainWindow=&main;main.Left={&source};main.Right={&target};main.LeftPanel=&source;main.RightPanel=&target;
-  CUnpackerConfigData row;Row(row);CPluginData plugin;plugin.DLLName=qualified;Plugins.Data={&plugin};UnpackerConfig.Unpackers.Data={&row};UnpackerConfig.Unpackers.Count=1;UnpackerConfig.PreferedUnpacker=0;
-  CFilesActionDiskTarget src,dst;src.Capture(&main,&source,TRUE);dst.Capture(&main,&target,TRUE);CWholeArchiveUnpackerSnapshot backend;backend.Capture(&UnpackerConfig);
-  std::string path=dst.DefaultPath;if(scenario==1)path+="\\archive";if(scenario==2)path+="-sibling";if(scenario==3)path+="\\..";if(scenario==4)path+="\\a\\b";if(scenario==5)dst.DirectoryDefault=FALSE;if(scenario==6)RootExists=FALSE;if(scenario==7)RootIsDirectory=FALSE;
-  if(scenario==15)path+="\\.. ";if(scenario==16)path+="\\stem.";if(scenario==17)path+="\\stem ";if(scenario==18)path+="\\stem:stream";if(scenario==19)path+="\\a/b";if(scenario==20)path+="\\bad\xff";
-  const bool bound=backend.BindBranchTarget(&dst,path.c_str());Check(bound==(scenario==0||scenario==1||scenario>=8&&scenario<15),"actual binding allows only current existing root or one generated child");
-  if(scenario<8||scenario>=15)continue;
-  if(scenario==8)path+="tampered";if(scenario==9)backend.BranchTargetDirectory.clear();if(scenario==10)OnInit=[&]{RootExists=FALSE;};if(scenario==11)OnInit=[&]{++target.Generation;};if(scenario==12)OnInit=[&]{plugin.DLLName="other\\zip.spl";};if(scenario==13)backend.Capture(&UnpackerConfig);
-  ExpectedSource="a";ExpectedTarget=path;
-  const BOOL ok=UnpackerConfig.ExecuteUnpacker(nullptr,&source,"a","*.*",path.c_str(),scenario==14,nullptr,&backend,&src,&dst);
-  Check(!ok&&SDKCalls==0&&ExternalCalls==0&&OperationContexts==0,"direct dispatcher/wrapper refuse tampered/unbound/deleted/changed Branch target before SDK");
- }
-
- // Qualified Branch deletion: same owned plan and independent post-init gates.
- for(const char* dll:{"zip\\zip.spl","7zip\\7zip.spl"})
- for(BOOL branchSource:{FALSE,TRUE}) for(BOOL branchTarget:{FALSE,TRUE}) {
-  if(!branchSource&&!branchTarget)continue;
-  for(int scenario=0;scenario<14;++scenario){
-   Reset();CFilesWindow source,target;source.Tab=2;target.Tab=3;source.Branch=branchSource;target.Branch=branchTarget;
-   CMainWindow main;MainWindow=&main;main.Left={&source};main.Right={&target};main.LeftPanel=&source;main.RightPanel=&target;
-   CUnpackerConfigData row;Row(row);CPluginData plugin;plugin.DLLName=dll;Plugins.Data={&plugin};UnpackerConfig.Unpackers.Data={&row};UnpackerConfig.Unpackers.Count=1;UnpackerConfig.PreferedUnpacker=0;
-   ExpectedSource=SalWideToMultiBytePath(source.FileStore.Item.Full.c_str(),CP_UTF8);ExpectedTarget=SalWideToMultiBytePath(target.Root.c_str(),CP_UTF8);RequestDelete=TRUE;
-   const auto list=[](const std::string& s){return s+std::string(1,0);};
-   if(scenario==1)BackendOK=FALSE; // Includes qualified plugin's partial/error/Cancel outcome: no source handoff.
-   if(scenario==2)OnBackend=[&]{if(branchSource)++source.Generation;else source.Root+=L"changed";};
-   if(scenario==3)OnBackend=[&]{if(branchTarget)++target.Generation;else target.Root+=L"changed";};
-   if(scenario==4)OnInit=[&]{plugin.DLLName="other\\zip.spl";};
-   if(scenario==5){CustomVolumes=TRUE;ReturnedVolumes=list(ExpectedSource)+"unterminated";}
-   if(scenario==6){CustomVolumes=TRUE;ReturnedVolumes=list(ExpectedSource+".part2");}
-   if(scenario==7){CustomVolumes=TRUE;ReturnedVolumes=list(ExpectedSource)+list(ExpectedSource)+list(ExpectedSource+".part2");}
-   if(scenario==8)OnDelete=[&]{if(branchSource)++source.Generation;else source.Root+=L"changed";};
-   if(scenario==9)OnDelete=[&]{if(branchTarget)++target.Generation;else target.Root+=L"changed";};
-   if(scenario==10){DeleteFailures=1;FileResponses={IDCANCEL};}
-   if(scenario==11){DeleteFailures=1;FileResponses={IDRETRY};OnFileError=[&]{plugin.DLLName="other\\zip.spl";};}
-   if(scenario==12){source.FileStore.Item.Full=L"C:\\source-東京\\"+std::wstring(140,L'a')+L"\\"+std::wstring(140,L'b')+L"\\same.zip";ExpectedSource=SalWideToMultiBytePath(source.FileStore.Item.Full.c_str(),CP_UTF8);}
-   if(scenario==13)OnInit=[&]{main.ClosePanelTab(&source);};
-   source.Unpack(&target,-1,nullptr,nullptr);
-   const int expected=scenario==0||scenario==7||scenario==12?2:scenario>=8&&scenario<=11?1:0;
-   Check(DeletedVolumes==expected,"Branch source/target deletes only complete owned volumes while context remains current");
-   Check(ModalAllowsDelete&&ExternalCalls==0,"qualified Branch deletion stays on bundled backend with explicit dialog choice");
-   Check(StopDepth==0&&PriorityDepth==0&&!source.FilesActionInProgress&&source.StaleReads==0&&target.StaleReads==0,"Branch deletion retains balanced scopes and never reads retired panel");
-   if(branchSource)Check(FocusPosts==0,"Branch source never receives ordinary root-relative focus after deletion");
-   if(scenario==5||scenario==6)Check(VolumeAttributesCalls==0,"invalid complete plan refuses before first source attribute mutation");
-   if(scenario==4||scenario==13)Check(SDKCalls==0&&OperationContexts==0,"post-init backend/source invalidation precedes I/O and busy context");
-   if(scenario==12)Check(DeletedPaths.size()==2&&DeletedPaths[0].rfind(L"\\\\?\\",0)==0,"Branch delete carries exact extended Unicode source path");
-  }
- }
- // Ordinary volume deletion uses the actual plan/helper and preserves controller policies.
- for(const char* dll:{"zip\\zip.spl","7zip\\7zip.spl"}) for(int scenario=0;scenario<23;++scenario){
-  Reset();CFilesWindow source,target;source.Tab=2;target.Tab=3;CMainWindow main;MainWindow=&main;main.Left={&source};main.Right={&target};main.LeftPanel=&source;main.RightPanel=&target;
-  CUnpackerConfigData row;Row(row);CPluginData plugin;plugin.DLLName=dll;UnpackerConfig.Unpackers.Data={&row};UnpackerConfig.Unpackers.Count=1;UnpackerConfig.PreferedUnpacker=0;Plugins.Data={&plugin};RequestDelete=TRUE;
-  if(scenario==8)plugin.DLLName="legacy\\archiver.spl";
-  if(scenario==9){plugin.DLLName="legacy\\archiver.spl";source.Root=L"C:\\café";}
-  if(scenario==21)source.Root=L"C:\\東京\\"+std::wstring(140,L'a')+L"\\"+std::wstring(140,L'b');
-  source.FileStore.Item.Full=source.Root+L"\\"+source.FileStore.Item.NameW;
-  ExpectedSource=SalWideToMultiBytePath(source.FileStore.Item.Full.c_str(),CP_UTF8);ExpectedTarget=SalWideToMultiBytePath(target.Root.c_str(),CP_UTF8);
-  const auto list=[](const std::string& s){return s+std::string(1,0);};
-  if(scenario==1)DialogResult=IDCANCEL;
-  if(scenario==2)BackendOK=FALSE;
-  if(scenario==3){CustomVolumes=TRUE;ReturnedVolumes=list(ExpectedSource)+"unterminated";}
-  if(scenario==4){CustomVolumes=TRUE;ReturnedVolumes=list(ExpectedSource)+std::string(1,0);}
-  if(scenario==5){CustomVolumes=TRUE;ReturnedVolumes=list(ExpectedSource+".part2");}
-  if(scenario==6)BadVolumeCapacity=TRUE;
-  if(scenario==7){CustomVolumes=TRUE;ReturnedVolumes=list(ExpectedSource)+list(ExpectedSource)+list(ExpectedSource+".part2");}
-  if(scenario==10)VolumeFlags=FILE_ATTRIBUTE_READONLY|FILE_ATTRIBUTE_HIDDEN;
-  if(scenario==11)VolumeAttributeError=ERROR_ACCESS_DENIED;
-  if(scenario==12){DeleteFailures=1;FileResponses={IDRETRY};}
-  if(scenario==13){DeleteFailures=1;FileResponses={IDB_SKIP};}
-  if(scenario==14){DeleteFailures=2;FileResponses={IDB_SKIPALL};}
-  if(scenario==15)DeleteFailures=1;
-  if(scenario==16){DeleteFailures=1;FileResponses={IDRETRY};OnFileError=[&]{source.Root+=L"changed";};}
-  if(scenario==17)OnDelete=[&]{plugin.DLLName="changed\\archiver.spl";};
-  if(scenario==18)OnDelete=[&]{source.Root+=L"changed";};
-  if(scenario==19)OnDelete=[&]{target.Root+=L"changed";};
-  if(scenario==20)OnDelete=[&]{memset(ReturnedVolumeStorage,'x',8);};
-  if(scenario==22)VolumeAttributeError=ERROR_FILE_NOT_FOUND;
-  source.Unpack(&target,-1,nullptr,nullptr);
-  const bool preflightRefused=scenario>=3&&scenario<=6||scenario==9&&GetACP()!=CP_UTF8;
-  const int expectedDeletes=scenario==1||scenario==2||preflightRefused||scenario==11||scenario==22?0:scenario==12?3:scenario>=15&&scenario<=19?1:2;
-  Check(DeletedVolumes==expectedDeletes,"ordinary volume delete count follows validated list and retry/skip/cancel/context contract");
-  Check(StopDepth==0&&PriorityDepth==0&&!source.FilesActionInProgress&&source.StaleReads==0&&target.StaleReads==0,"volume errors and reentrant callbacks balance scopes without stale getters");
-  if(preflightRefused)Check(VolumeAttributesCalls==0&&VolumeSetCalls==0&&FileErrors==0&&FocusPosts==0,"entire invalid plan refuses before attribute mutation or first deletion");
-  if(scenario==10)Check(VolumeSetCalls==2,"readonly volumes are cleared through wide helper");
-  if(scenario==12||scenario==13||scenario==14)Check(FileErrors==1,"Retry/Skip/Skip All preserve prompt policy");
-  if(scenario==15||scenario==16||scenario==17||scenario==18||scenario==19)Check(FocusPosts==0,"Cancel or changed context suppresses post-delete focus");
-  if(scenario==20)Check(DeletedPaths.size()==2&&DeletedPaths[1]==SalMultiByteToWidePath((ExpectedSource+".part2").c_str(),CP_UTF8),"deletion iterates owned paths unaffected by producer-list mutation");
-  if(scenario==21)Check(DeletedPaths.size()==2&&DeletedPaths[0].rfind(L"\\\\?\\",0)==0,"controller forwards exact extended Unicode volume paths to I/O");
  }
  printf("Actual whole-archive controller: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
 }

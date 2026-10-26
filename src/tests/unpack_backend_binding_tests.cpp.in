@@ -22,6 +22,7 @@ struct CPluginDataInterfaceAbstract;
 struct Binding { const CPluginDataInterfaceAbstract* Interface=nullptr; BOOL Contains(const CPluginDataInterfaceAbstract* p) const {return p!=nullptr&&p==Interface;} };
 struct CFilesWindow
 {
+    BOOL FilesActionInProgress=FALSE;
     Binding PluginData; CPluginData* Owner=nullptr; const char* Archive="source.zip";
     CPluginData* GetPluginDataForPluginIface() {return Owner;}
     const char* GetZIPArchive() const {return Archive;}
@@ -88,9 +89,13 @@ struct PluginsFacade {
  CPluginData* Get(int i){return i>=0&&i<(int)Data.size()?Data[i]:nullptr;}
 } Plugins;
 static int ExternalCalls=0;
+static const CFilesActionDiskTarget *ExternalSource=nullptr,*ExternalTarget=nullptr;
 static char* DupStr(const char* s){return _strdup(s);}
 static void* PackEnumMask=nullptr;
-static BOOL PackUniversalUncompress(HWND,const char*,void*,const char*,BOOL,CFilesWindow*,BOOL,const char*,const char*,void*,void*,char**,BOOL){++ExternalCalls;return TRUE;}
+static BOOL PackUniversalUncompress(HWND,const char*,void*,const char*,BOOL,CFilesWindow*,BOOL,const char*,const char*,void*,void*,char**,BOOL,const CFilesActionDiskTarget* src=nullptr,const CFilesActionDiskTarget* dst=nullptr){ExternalSource=src;ExternalTarget=dst;++ExternalCalls;return TRUE;}
+static UINT OverrideACP=0;
+static UINT TestACP(){return OverrideACP?OverrideACP:GetACP();}
+#define GetACP TestACP
 #define CALL_STACK_MESSAGE5(...) ((void)0)
 #define CALL_STACK_MESSAGE7(...) ((void)0)
 #define TRACE_E(...) ((void)0)
@@ -160,6 +165,43 @@ int main(){
   Check(UnpackerConfig.ExecuteUnpacker(nullptr,&source,"exact.7z","*.txt","destination",TRUE,&volumes)&&plugin.PluginIfaceForArchiver.Calls==1,"NULL context retains legacy plugin dispatcher");
   first.Type=0;first.CmdExecExtract=_strdup("fake");first.CmdArgsExtract=_strdup("args");
   Check(UnpackerConfig.ExecuteUnpacker(nullptr,&source,"exact.7z","*.txt","destination",FALSE,nullptr)&&ExternalCalls==1,"NULL context retains external dispatcher contract without launching process");
+ }
+
+ for(int mutation=0;mutation<9;++mutation){
+  CUnpackerConfigData first,second;Row(first);Row(second);first.Type=0;first.CmdExecExtract=_strdup("external.exe");first.CmdArgsExtract=_strdup("arguments");first.SupportLongNames=TRUE;
+  CPluginData plugin,other;Install(first,second,plugin,other);CWholeArchiveUnpackerSnapshot snapshot;
+  Check(snapshot.Capture(&UnpackerConfig,TRUE)&&snapshot.IsCurrent(),"explicit external binding captures owned command/args/flags");
+  Check(!snapshot.IsCurrent(&plugin),"external binding cannot be used as a plugin identity");
+  CFilesActionDiskTarget sourceSnapshot,targetSnapshot;Check(sourceSnapshot.Capture(&main,&source,TRUE)&&targetSnapshot.Capture(&main,&target,TRUE),"capture external forwarding panel contexts");
+  switch(mutation){case 1:free(first.CmdExecExtract);first.CmdExecExtract=_strdup("different.exe");break;case 2:free(first.CmdArgsExtract);first.CmdArgsExtract=_strdup("different args");break;case 3:first.SupportLongNames=FALSE;break;case 4:first.NeedANSIListFile=TRUE;break;case 5:UnpackerConfig.PreferedUnpacker=1;break;case 6:free(first.Title);first.Title=_strdup("changed");break;case 7:free(first.Ext);first.Ext=_strdup("zip");break;case 8:free(first.CmdArgsExtract);first.CmdArgsExtract=nullptr;break;}
+  SetLastError(ERROR_SUCCESS);BOOL ok=UnpackerConfig.ExecuteUnpacker(nullptr,&source,"exact.7z","*.txt","destination",FALSE,&volumes,&snapshot,&sourceSnapshot,&targetSnapshot);
+  if(mutation==0)Check(ok&&ExternalCalls==1&&ExternalSource==&sourceSnapshot&&ExternalTarget==&targetSnapshot&&plugin.InitCalls==0,"actual external dispatcher forwards both contexts without plugin initialization");
+  else Check(!ok&&ExternalCalls==0&&plugin.InitCalls==0&&GetLastError()==ERROR_RETRY,"changed external configuration refuses before process dispatch");
+ }
+
+ {
+  CUnpackerConfigData first,second;Row(first);Row(second);first.Type=0;first.CmdExecExtract=_strdup("external.exe");first.CmdArgsExtract=_strdup("arguments");CPluginData plugin,other;Install(first,second,plugin,other);
+  CWholeArchiveUnpackerSnapshot snapshot;Check(snapshot.Capture(&UnpackerConfig,TRUE),"capture external path-policy fixture");
+  Check(snapshot.ValidateExternalPaths("C:\\source.zip","C:\\target"),"short ASCII external paths remain accepted");
+  const std::string longPath="C:\\"+std::string(300,'a');
+  Check(!snapshot.ValidateExternalPaths(longPath.c_str(),"C:\\target")&&GetLastError()==ERROR_FILENAME_EXCED_RANGE,"external long source cannot enter fixed-buffer backend");
+  Check(!snapshot.ValidateExternalPaths("C:\\source.zip",longPath.c_str())&&GetLastError()==ERROR_FILENAME_EXCED_RANGE,"external long destination cannot enter temp path strcpy");
+  const auto unicode=SalWideToMultiBytePath(L"C:\\rodič-東京\\archive.zip",CP_UTF8);OverrideACP=1250;
+  Check(!snapshot.ValidateExternalPaths(unicode.c_str(),"C:\\target")&&GetLastError()==ERROR_NO_UNICODE_TRANSLATION,"UTF8 bytes must not be interpreted through a different ACP path");
+  OverrideACP=CP_UTF8;Check(snapshot.ValidateExternalPaths(unicode.c_str(),"C:\\target"),"matching UTF8 ACP preserves exact short Unicode external path");
+  const auto byteLong=SalWideToMultiBytePath((L"C:\\"+std::wstring(100,L'東')).c_str(),CP_UTF8);
+  Check(!snapshot.ValidateExternalPaths("C:\\source.zip",byteLong.c_str())&&GetLastError()==ERROR_FILENAME_EXCED_RANGE,"external byte-long path refused below UTF16 MAX_PATH");
+  OverrideACP=0;Check(!snapshot.ValidateExternalPaths("","C:\\target")&&GetLastError()==ERROR_INVALID_NAME,"empty guarded external path explicitly refused");
+  SetLastError(0);Check(!UnpackerConfig.ExecuteUnpacker(nullptr,&source,"C:\\source.zip","*.txt",longPath.c_str(),FALSE,nullptr,&snapshot)&&ExternalCalls==0,"dispatcher independently refuses unsupported external path before backend");
+  UnpackerConfig.PreferedUnpacker=-2;Check(!UnpackerConfig.ExecuteUnpacker(nullptr,&source,"x","*","y",FALSE,nullptr)&&ExternalCalls==0,"legacy dispatcher negative preferred index never reads array");
+ }
+
+ {
+  CUnpackerConfigData first,second;Row(first);Row(second);first.Type=0;first.CmdExecExtract=_strdup("external.exe");first.CmdArgsExtract=_strdup("args");CPluginData plugin,other;Install(first,second,plugin,other);CWholeArchiveUnpackerSnapshot snapshot;Check(snapshot.Capture(&UnpackerConfig,TRUE),"capture legacy temporary-name reserve boundary fixture");
+  const std::string fits="C:\\"+std::string(239,'a');
+  Check(snapshot.ValidateExternalPaths("archive.zip",fits.c_str()),"reserve maximum DWORD suffix and NUL at last supported target length");
+  Check(!snapshot.ValidateExternalPaths("archive.zip",(fits+"a").c_str())&&GetLastError()==ERROR_FILENAME_EXCED_RANGE,"reject target whose generated temp name could overflow even below MAX_PATH");
+  Check(snapshot.ValidateExternalPaths("archive.zip",(fits+char(92)).c_str()),"existing final separator does not consume extra reserve byte");
  }
  printf("Actual whole-archive backend binding: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
 }

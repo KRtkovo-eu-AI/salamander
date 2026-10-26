@@ -1,5 +1,56 @@
 # Plán postupného portu PR #769
 
+## S31b6c4c2b — výsledek (VERIFIED)
+
+Controller zapojen a ověřen nativně i actual GUI D/R; modal/source/target/backend
+snapshot, guarded external handoff, busy tab lifetime, balanced refresh/priority,
+owned notifications a stale focus/volume refusal. [Přesný rozsah a limity](steps/S31b6c4c2b.md).
+Další nejmenší etapa S31b6c5: kvalifikace Branch source -> ordinary disk target,
+nejprve bundled ZIP a poté7Zip. Branch direct Unpack a volume-policy změny se
+zde nepovolují. Celá S31/G04/G05 OPEN, ChangeDir WIP nedotčen, bez push/PR/S32.
+
+### C2b zpřesnění z actual legacy external kódu
+
+SalGetTempFileName používá strcpy(tmpDir,path) do MAX_PATH+10 a MoveFiles má
+úzké MAX_PATH buffers. Guarded external context proto musí před tvorbou i
+dispatch ověřit source/target byte length <MAX_PATH a exact UTF-8 vs aktuální
+ACP decode. Neprovedené konverze nehádat; nepodporovaný případ explicitně
+odmítnout s lokalizovaným Win32 error, plugin cesta tím není omezena. Ověřit
+native default ACP i simulované1250/65001, byte-long a Win32-long odmítnutí.
+Zachovat legacy NULL API caller semantics a nezměnit systémové kódování.
+Opravit také záporný preferred index <-1 před pre-dialog extension lookup;
+native actual getter/dispatcher odmítne invalid index bez čtení pole.
+
+## S31b6c4c2b — controller wiring, implementační akceptace
+
+Source a disk target live snapshots zachytit před modal, parent/notify paths
+owned. Zachovat c4c1 dialog object/selected index a po Execute ověřit skutečnou
+zobrazenou volbu před backend Capture; poté opakovaně source/target/backend
+kontrolovat po UpdateWindow, před vytvářením a dispatch i po callbackách.
+CWholeArchiveUnpackerSnapshot rozšířit explicitním allowExternal default FALSE,
+owned external command/args/flags; původní plugin-only Capture assertions zachovat.
+Dispatcher předá context také do již připraveného PackUniversalUncompress.
+Implicitní nabídnutý disk root musí existovat před tvorbou, manual target má
+dosavadní resolver semantics. Retry a invalidace nikdy nereflektují stale panel.
+Begin/EndStopRefresh a thread priority vyvážit při všech návratech; notifications
+z owned paths, focus/archive deletion jen při current kontextu po callbackách.
+
+Použít existující FilesActionInProgress jako životnostní ochranu po InitDLL při
+plugin callback a během MoveFiles včetně CheckPath. ClosePanelTab/CloseDetachedTab
+musí busy panel ponechat živý; po ukončení operace se příznak vrátí a tab lze
+zavřít. Žádná nová SDK virtual/capability, žádné odemykání/změna Windows ochrany.
+Native actual controller s explicitními dialog/filesystem/backend doubles D/R:
+modal/update/create/init/backend callback invalidace, attached/detached close,
+root/tab/scan/type/side/config změny, balanced refresh/priority, source routing,
+busy close refusal a následné ordinary close. Actual modal/backend/external
+regresní testy zachovat bez oslabení assertions, doplnit nové external binding.
+Host a změněné komponenty D/R, actual ordinary7z GUI Cancel/success/long Unicode,
+missing implicit root refusal, InitDLL retarget callback přes vlastní test-only
+public-SDK proxy a ordinary external ASCII GUI D/R. GUI externí příkaz spouští
+uživatel kvůli Computer Use pravidlu; assistant ověří exact tree/hash/sentinels.
+Lokální commit až po úspěchu všech těchto bran, bez push/PR/S32. ChangeDir WIP
+nedotčen, Branch admission a volume path policy beze změny; S31/G04/G05 OPEN.
+
 ## S31b6c4c2a — external unpack handoff context (VERIFIED)
 
 Optional source/target snapshots v actual PackUniversalUncompress ověřují live

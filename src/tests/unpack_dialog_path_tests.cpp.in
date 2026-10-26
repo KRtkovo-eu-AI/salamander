@@ -183,6 +183,18 @@ int main(){
   Check(!init.IsGood()&&init.ErrorID==IDC_PACKER&&!FailNew&&!FailCaptureCopy&&!FailComboAdd&&SendMessageW(packer,CB_GETCOUNT,0,0)==0,"owned choice allocation or combo insertion failure refuses incomplete mapping");
   Check(std::string(destination)=="C:\\unchanged"&&std::string(testMask)=="*.keep"&&deletion,"initialization failure preserves caller fields");
  }
+
+ {
+  CUnpackerConfig selected;Plugin.DLLName="zip\\zip.spl";Plugin.SupportCustomUnpack=TRUE;Plugins.Entry=&Plugin;
+  char destination[64]="C:\\unchanged",testMask[MAX_PATH]="*.*";BOOL deletion=FALSE;
+  TestDialog test(nullptr,destination,sizeof(destination),"",testMask,&subject,&selected,&deletion);test.Attach(parent);
+  CTransferInfo init(parent,ttDataToWindow);test.Transfer(init);CTransferInfo from(parent,ttDataFromWindow);test.Transfer(from);
+  Check(from.IsGood()&&test.IsSelectionCurrent(),"durable dialog validates actual accepted row after transfer");
+  selected.Preferred=1;Check(!test.IsSelectionCurrent(),"another valid preferred row is not the row accepted by this dialog");selected.Preferred=0;
+  selected.Titles[0]="changed";Check(!test.IsSelectionCurrent(),"accepted selection remains bound to owned displayed metadata");selected.Titles[0]="ZIP (Plugin)";
+  Plugins.Entry=&OtherPlugin;Check(!test.IsSelectionCurrent(),"accepted dialog selection rejects plugin replacement after transfer");Plugins.Entry=&Plugin;
+  Check(test.IsSelectionCurrent(),"restoring exact same live selection restores validity without changing caller preference");
+ }
  {
   CUnpackerConfig missing;char destination[64]="C:\\unchanged",testMask[MAX_PATH]="*.keep";BOOL deletion=TRUE;
   TestDialog test(nullptr,destination,sizeof(destination),"",testMask,&subject,&missing,&deletion);test.Attach(parent);

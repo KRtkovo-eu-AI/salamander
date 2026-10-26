@@ -1556,6 +1556,31 @@ BOOL PackUniversalUncompress(HWND parent, const char* command, TPackErrorTable* 
         return FALSE;
     }
 
+    // Guarded UTF-8 controller calls own the exact legacy-compatible TEMP root.
+    // Do not let the old path==NULL helper copy an unchecked GetTempPathA result.
+    std::string checkedTempRoot;
+    const char* listTempRoot = NULL;
+    if (sourceSnapshot != NULL || diskTarget != NULL)
+    {
+        const auto invalidTempRoot = [&](DWORD error) {
+            (*PackErrorHandlerPtr)(parent, IDS_PACKERR_GENERAL, GetErrorText(error));
+            SetLastError(error);
+            return FALSE;
+        };
+        std::wstring root(SAL_MAX_PATH, L'\0');
+        const DWORD length = GetTempPathW((DWORD)root.size(), root.data());
+        if (length == 0) return invalidTempRoot(GetLastError());
+        if (length >= root.size()) return invalidTempRoot(ERROR_FILENAME_EXCED_RANGE);
+        root.resize(length);
+        checkedTempRoot = SalWideToMultiBytePath(root.c_str(), GetACP());
+        if (checkedTempRoot.empty() || SalMultiByteToWidePath(checkedTempRoot.c_str(), GetACP()) != root)
+            return invalidTempRoot(ERROR_NO_UNICODE_TRANSLATION);
+        const size_t bytes = checkedTempRoot.size();
+        const size_t resultLength = bytes + (checkedTempRoot.back() == char(92) ? 0 : 1) + 4 + 8 + 4;
+        if (resultLength >= MAX_PATH) return invalidTempRoot(ERROR_FILENAME_EXCED_RANGE);
+        listTempRoot = checkedTempRoot.c_str();
+    }
+
     //
     // We must adjust the directory in the archive to the required format
     //

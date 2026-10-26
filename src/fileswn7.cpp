@@ -2815,6 +2815,8 @@ static BOOL PrepareUnpackArchiveSource(CFilesWindow* panel, const CFileData& fil
 
 void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* pluginName, const char* unpackMask)
 {
+    if (CFilesActionDiskTarget::FindLive(MainWindow, this) == NULL ||
+        CFilesActionDiskTarget::FindLive(MainWindow, target) == NULL) return;
     if (target == NULL || !Is(ptDisk) || IsBranchView() || target->IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
 
     CALL_STACK_MESSAGE4("CFilesWindow::Unpack(, %d, %s, %s)", pluginIndex, pluginName, unpackMask);
@@ -2824,7 +2826,6 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
     const bool watchDiskTarget = target->Is(ptDisk);
     if (!sourceSnapshot.Capture(MainWindow, this, TRUE) ||
         (watchDiskTarget && !diskTarget.Capture(MainWindow, target, TRUE))) return;
-    const bool branchOperation = sourceSnapshot.Branch || (watchDiskTarget && diskTarget.Branch);
     const HWND parent = MainWindow->HWindow;
     const auto panelsAreCurrent = [&]() {
         return sourceSnapshot.IsCurrent(MainWindow) && (!watchDiskTarget || diskTarget.IsCurrent(MainWindow));
@@ -2855,8 +2856,7 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
         int sourceErrorTextID;
         if (!PrepareUnpackArchiveSource(this, *file, archiveSource, sourceErrorTextID, &sourceDirectory))
         {
-            SalMessageBox(HWindow, LoadStr(sourceErrorTextID), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
-            EndStopRefresh();
+            SalMessageBox(parent, LoadStr(sourceErrorTextID), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
             return;
         }
         CPathBuffer pathBuffer, alternateBuffer, fileNameBuffer, subjectBuffer(SAL_MAX_PATH + 100);
@@ -2874,8 +2874,7 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
             if (targetW.empty() || targetText.size() >= (size_t)pathBuffer.Capacity() ||
                 SalMultiByteToWidePath(targetText.c_str(), CP_UTF8) != targetW)
             {
-                SalMessageBox(HWindow, LoadStr(IDS_PATHISINVALID), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
-                EndStopRefresh();
+                SalMessageBox(parent, LoadStr(IDS_PATHISINVALID), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
                 return;
             }
             if (Configuration.UseAnotherPanelForUnpack)
@@ -2898,8 +2897,7 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
         if (displayName.empty() || displayName.size() >= (size_t)fileNameBuffer.Capacity() ||
             SalMultiByteToWidePath(displayName.c_str(), CP_UTF8) != fileNameW)
         {
-            SalMessageBox(HWindow, LoadStr(IDS_PATHISINVALID), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
-            EndStopRefresh();
+            SalMessageBox(parent, LoadStr(IDS_PATHISINVALID), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
             return;
         }
         strcpy(fileName, displayName.c_str());
@@ -2913,8 +2911,7 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
                 char* buffer = index == 0 ? path : pathAlt;
                 if (!stem.empty() && !SalPathAppend(buffer, stem.c_str(), pathBuffer.Capacity()))
                 {
-                    SalMessageBox(HWindow, LoadStr(IDS_TOOLONGPATH), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
-                    EndStopRefresh();
+                    SalMessageBox(parent, LoadStr(IDS_TOOLONGPATH), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
                     return;
                 }
             }
@@ -2942,8 +2939,7 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
             if (i2 == UnpackerConfig.GetUnpackersCount()) // requested plugin not found
             {
                 sprintf_s(subject, subjectBuffer.Capacity(), LoadStr(IDS_PLUGINUNPACKERNOTFOUND), pluginName);
-                SalMessageBox(HWindow, subject, LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
-                EndStopRefresh(); // the snooper resumes now
+                SalMessageBox(parent, subject, LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
                 return;
             }
         }
@@ -2982,12 +2978,10 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
         const std::string offeredDiskTarget = watchDiskTarget ?
             (Configuration.UseAnotherPanelForUnpack ? path : pathAlt) : "";
         BOOL delArchiveWhenDone = FALSE;
-    DO_AGAIN:
-
-        if (CUnpackDialog(HWindow, path, pathBuffer.Capacity(), pathAlt, mask, &str, &UnpackerConfig, &delArchiveWhenDone).Execute() == IDOK)
+        while (true)
         {
             if (!panelsAreCurrent()) { reportChangedContext(); return; }
-            CUnpackDialog dialog(parent, path, pathBuffer.Capacity(), pathAlt, mask, &str, &UnpackerConfig, &delArchiveWhenDone, TRUE);
+            CUnpackDialog dialog(parent, path, pathBuffer.Capacity(), pathAlt, mask, &str, &UnpackerConfig, &delArchiveWhenDone);
             if (dialog.Execute() != IDOK) break;
 
             CWholeArchiveUnpackerSnapshot backendSnapshot;
@@ -2996,16 +2990,8 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
                 reportChangedContext();
                 return;
             }
-            if (branchOperation && !backendSnapshot.IsVerifiedBranchSourceUnpacker())
-            {
-                SalMessageBox(parent, GetErrorText(ERROR_NOT_SUPPORTED), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
-                return;
-            }
-            bool branchTargetBound = false;
             const auto contextIsCurrent = [&]() {
-                return panelsAreCurrent() && dialog.IsSelectionCurrent() && backendSnapshot.IsCurrent() &&
-                       (!branchOperation || backendSnapshot.IsVerifiedBranchSourceUnpacker()) &&
-                       (!branchTargetBound || backendSnapshot.ValidateBranchTarget(&diskTarget, path));
+                return panelsAreCurrent() && dialog.IsSelectionCurrent() && backendSnapshot.IsCurrent();
             };
             UpdateWindow(parent);
             if (!contextIsCurrent()) { reportChangedContext(); return; }
@@ -3024,8 +3010,8 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
             CPathBuffer nextFocusBuffer;
             char* nextFocus = nextFocusBuffer.Data();
             nextFocus[0] = 0;
-            const char* text = NULL;
-            if (!SalGetFullName(path, &errTextID, Is(ptDisk) ? sourceDirectory.c_str() : NULL, nextFocus, NULL, pathBuffer.Capacity()))
+            const char* errorText = NULL;
+            if (!SalGetFullName(path, &errTextID, sourceDirectory.c_str(), nextFocus, NULL, pathBuffer.Capacity()))
             {
                 if (errTextID == IDS_EMPTYNAMENOTALLOWED)
                     strcpy(path, sourceDirectory.c_str());
@@ -3034,115 +3020,96 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
             }
             if (errorText != NULL)
             {
-                const std::wstring pathW = SalMultiByteToWidePath(path, IsValidPathUtf8Text(path) ? CP_UTF8 : CP_ACP);
-                std::wstring newDirW;
-                const BOOL createdOK = !pathW.empty() && CheckAndCreateDirectoryW(pathW.c_str(), NULL, TRUE, &newDirW, TRUE);
-                std::string newDir = SalWideToMultiBytePath(newDirW.c_str(), CP_UTF8);
-                if (createdOK)
+                SalMessageBox(parent, errorText, LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+                continue;
+            }
+            if (!contextIsCurrent() || !offeredRootExists()) { reportChangedContext(); return; }
+            if (!backendSnapshot.ValidateExternalPaths(archiveSource.c_str(), path))
+            {
+                const DWORD error = GetLastError();
+                SalMessageBox(parent, GetErrorText(error), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+                continue;
+            }
+            const std::wstring pathW = SalMultiByteToWidePath(path, IsValidPathUtf8Text(path) ? CP_UTF8 : CP_ACP);
+            std::wstring newDirW;
+            const BOOL createdOK = !pathW.empty() && CheckAndCreateDirectoryW(pathW.c_str(), parent, TRUE, &newDirW, TRUE);
+            std::string newDir = SalWideToMultiBytePath(newDirW.c_str(), CP_UTF8);
+            if (!contextIsCurrent() || !offeredRootExists())
+            {
+                if (!newDir.empty()) RemoveEmptyUnpackDirectoriesW(newDirW);
+                reportChangedContext();
+                return;
+            }
+            if (!createdOK)
+            {
+                if (!newDir.empty())
                 {
-                    // launch the unpacker
-                    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-                    CDynamicStringImp archiveVolumes;
-                    if (!UnpackerConfig.ExecuteUnpacker(MainWindow->HWindow, this, archiveSource.c_str(), mask,
-                                                        path, delArchiveWhenDone,
-                                                        delArchiveWhenDone ? &archiveVolumes : NULL))
-                    {
-                        if (!newDir.empty())
-                            RemoveEmptyUnpackDirectoriesW(newDirW);
-                    }
-                    else // unpacking succeeded (no Cancel, Skip may have occurred)
-                    {
-                        if (delArchiveWhenDone && archiveVolumes.Length > 0)
-                        {
-                            char* name = archiveVolumes.Text;
-                            BOOL skipAll = FALSE;
-                            do
-                            {
-                                if (*name != 0)
-                                {
-                                    while (1)
-                                    {
-                                        ClearReadOnlyAttr(name); // allow deletion of read-only files too
-                                        if (!DeleteFile(name) && !skipAll)
-                                        {
-                                            DWORD err = GetLastError();
-                                            if (err == ERROR_FILE_NOT_FOUND)
-                                                break; // if the user already managed to delete the file, all is OK
-                                            int res = (int)CFileErrorDlg(MainWindow->HWindow, LoadStr(IDS_ERRORDELETINGFILE), name, GetErrorText(err)).Execute();
-                                            if (res == IDB_SKIPALL)
-                                                skipAll = TRUE;
-                                            if (res == IDB_SKIPALL || res == IDB_SKIP)
-                                                break;           // skip
-                                            if (res == IDCANCEL) // cancel
-                                            {
-                                                name = archiveVolumes.Text + archiveVolumes.Length - 1;
-                                                nextFocus[0] = 0; // keep the cursor on the archive, do not jump to the directory with the unpacked archive
-                                                break;
-                                            }
-                                            // let IDRETRY attempt the next loop iteration
-                                        }
-                                        else
-                                            break; // deleted
-                                    }
-                                }
-                                name = name + strlen(name) + 1;
-                            } while (name - archiveVolumes.Text < archiveVolumes.Length);
-                        }
-                        NextFocusName[0] = 0;
-                        if (nextFocus[0] != 0 && strlen(nextFocus) < sizeof(NextFocusName))
-                        {
-                            strcpy(NextFocusName, nextFocus);
-                            PostMessage(HWindow, WM_USER_DONEXTFOCUS, 0, 0); // it is a directory, must be
-                        }
-                    }
-                    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
+                    CutDirectory(newDir.data());
+                    notifyPath(newDir.c_str(), TRUE);
+                }
+                continue;
+            }
 
-                    //---  refresh directories that are not automaticallyrefreshed
-                    // change in the directory containing the archive (should not happen during unpack,
-                    // but refresh anyway)
-                    MainWindow->PostChangeOnPathNotification(GetPath(), FALSE);
-                    if (!newDir.empty()) // some new subdirectories were created along the path
+            CDynamicStringImp archiveVolumes;
+            BOOL unpacked;
+            DWORD unpackError;
+            {
+                struct CUnpackPriorityScope
+                {
+                    CUnpackPriorityScope() { SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL); }
+                    ~CUnpackPriorityScope() { SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL); }
+                } priorityScope;
+                SetLastError(ERROR_SUCCESS);
+                unpacked = UnpackerConfig.ExecuteUnpacker(MainWindow->HWindow, this, archiveSource.c_str(), mask,
+                    path, delArchiveWhenDone, delArchiveWhenDone ? &archiveVolumes : NULL,
+                    &backendSnapshot, &sourceSnapshot, watchDiskTarget ? &diskTarget : NULL);
+                unpackError = GetLastError();
+            }
+            if (!unpacked)
+            {
+                if (!newDir.empty()) RemoveEmptyUnpackDirectoriesW(newDirW);
+            }
+            else if (contextIsCurrent())
+            {
+                if (delArchiveWhenDone && archiveVolumes.Length > 0)
+                {
+                    char* name = archiveVolumes.Text;
+                    BOOL skipAll = FALSE;
+                    bool stopDeleting = false;
+                    do
                     {
-                        CutDirectory(newDir.data()); // should always work (path to the first newly created directory)
-                        // changes in the directory where the first new subdirectory was created
-                        MainWindow->PostChangeOnPathNotification(newDir.c_str(), TRUE);
-                    }
-                    else
-                    {
-                        BOOL skipAll = FALSE;
-                        bool stopDeleting = false;
-                        for (const auto& volume : volumes)
+                        if (!contextIsCurrent()) { nextFocus[0] = 0; break; }
+                        if (*name != 0)
                         {
                             while (true)
                             {
                                 if (!contextIsCurrent()) { stopDeleting = true; nextFocus[0] = 0; break; }
-                                if (!DeleteUnpackArchiveVolumeW(volume.Path.c_str()) && !skipAll)
+                                ClearReadOnlyAttr(name); // volume encoding policy is unchanged, audited separately
+                                if (!DeleteFile(name) && !skipAll)
                                 {
-                                    const DWORD error = GetLastError();
-                                    if (error == ERROR_FILE_NOT_FOUND) break;
-                                    const int response = (int)CFileErrorDlg(parent, LoadStr(IDS_ERRORDELETINGFILE), volume.Display.c_str(), GetErrorText(error)).Execute();
+                                    DWORD err = GetLastError();
+                                    if (err == ERROR_FILE_NOT_FOUND) break;
+                                    int res = (int)CFileErrorDlg(parent, LoadStr(IDS_ERRORDELETINGFILE), name, GetErrorText(err)).Execute();
                                     if (!contextIsCurrent()) { stopDeleting = true; nextFocus[0] = 0; break; }
-                                    if (response == IDB_SKIPALL) skipAll = TRUE;
-                                    if (response == IDB_SKIPALL || response == IDB_SKIP) break;
-                                    if (response == IDCANCEL) { stopDeleting = true; nextFocus[0] = 0; break; }
+                                    if (res == IDB_SKIPALL) skipAll = TRUE;
+                                    if (res == IDB_SKIPALL || res == IDB_SKIP) break;
+                                    if (res == IDCANCEL) { stopDeleting = true; nextFocus[0] = 0; break; }
                                 }
                                 else break;
                             }
-                            if (stopDeleting) break;
                         }
-                    }
+                        if (stopDeleting) break;
+                        name += strlen(name) + 1;
+                    } while (name - archiveVolumes.Text < archiveVolumes.Length);
                 }
                 // A volume error dialog may have dispatched callbacks since the success check above.
-                if (contextIsCurrent() && !sourceSnapshot.Branch)
+                if (contextIsCurrent())
                 {
-                    if (!newDir.empty())
+                    NextFocusName[0] = 0;
+                    if (nextFocus[0] != 0 && strlen(nextFocus) < sizeof(NextFocusName))
                     {
-                        CutDirectory(newDir.data()); // should always work (path to the first newly created directory)
-
-                        //---  refresh directories that are not automatically refreshed
-                        // if creating directories failed, report changes immediately (the user may
-                        // choose a completely different path next time); the newly created path is kept (almost dead code)
-                        MainWindow->PostChangeOnPathNotification(newDir.c_str(), TRUE);
+                        strcpy(NextFocusName, nextFocus);
+                        PostMessage(HWindow, WM_USER_DONEXTFOCUS, 0, 0);
                     }
                 }
             }

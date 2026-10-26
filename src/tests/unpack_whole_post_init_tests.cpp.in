@@ -20,6 +20,7 @@ struct CPluginDataInterfaceAbstract;
 struct Binding { const CPluginDataInterfaceAbstract* Interface=nullptr; BOOL Contains(const CPluginDataInterfaceAbstract* p) const {return p!=nullptr&&p==Interface;} };
 struct CFilesWindow
 {
+    BOOL FilesActionInProgress=FALSE;
     Binding PluginData; CPluginData* Owner=nullptr; const char* Archive="source.zip";
     CPluginData* GetPluginDataForPluginIface() {return Owner;}
     const char* GetZIPArchive() const {return Archive;}

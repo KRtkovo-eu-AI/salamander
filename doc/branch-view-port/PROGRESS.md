@@ -1,5 +1,18 @@
 # Stav portu PR #769
 
+## S31b6c4c2b — whole-archive controller wiring (VERIFIED)
+
+Actual controller owns modal/source/target/backend context through callbacks,
+forwards it to plugin/external backends, scopes refresh/priority and guards
+post-operation focus/volume handling. Busy tab close protection spans SDK and
+MoveFiles CheckPath. Legacy external paths/TEMP explicitly validate encoding
+and suffix capacity. [Scope and evidence](steps/S31b6c4c2b.md): native2502/config,
+regressions183/104/168/119/124/96/22/448, contracts20/28, host/helper D/R PASS.
+Actual7Zip Cancel/exact5files/missing root and InitDLL source/target retarget GUI
+D/R PASS. Human-triggered external Debug/Release exact tree readbacks PASS.
+SDK/plugin/Branch admission unchanged; LongPathsEnabled=0. ChangeDir WIP untouched,
+long-source GUI NOT_VERIFIED; S31/G04/G05 OPEN. Local only, no push/PR/S32/CodeQL.
+
 ## S31b6c4c2a — external unpack handoff context (VERIFIED)
 
 Optional source/target snapshots v actual PackUniversalUncompress ověřují live

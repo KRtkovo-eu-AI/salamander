@@ -800,3 +800,13 @@ pin47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
 Local integration reuses the live disk action snapshot around external process
 callbacks and the MoveFiles handoff. Public SDK, vendor sources and notices
 remain unchanged; no external dependency was added.
+
+### S31b6c4c2b whole-archive controller integration
+
+Adapted the direct Unpack controller/dispatcher and existing operation lifetime
+paths by Open Salamander Authors, Milan Kase and Samandarin Contributors,
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pin47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
+Local integration reuses the prepared modal and live disk/backend snapshots,
+retaining SDK ABI and bundled plugin/vendor sources and notices. No new external
+dependency was added; the public-SDK retarget proxy is an uncommitted test fixture.

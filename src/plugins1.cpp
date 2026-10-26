@@ -3969,6 +3969,19 @@ BOOL CPluginData::UnpackWholeArchive(CFilesWindow* panel, const char* archiveFil
             SetLastError(ERROR_RETRY);
             return FALSE;
         }
+        // A supplied source was just resolved in the live registry. Keep it alive during SDK callbacks.
+        BOOL* busy = sourceSnapshot != NULL ? &panel->FilesActionInProgress : NULL;
+        if (busy != NULL && *busy)
+        {
+            SetLastError(ERROR_RETRY);
+            return FALSE;
+        }
+        struct CUnpackPanelBusyScope
+        {
+            BOOL* Flag;
+            explicit CUnpackPanelBusyScope(BOOL* flag) : Flag(flag) { if (Flag != NULL) *Flag = TRUE; }
+            ~CUnpackPanelBusyScope() { if (Flag != NULL) *Flag = FALSE; }
+        } panelBusy(busy);
         CSalamanderForOperations sc(panel);
         ret = PluginIfaceForArchiver.UnpackWholeArchive(&sc, archiveFileName, mask, targetDir,
                                                         delArchiveWhenDone, archiveVolumes);

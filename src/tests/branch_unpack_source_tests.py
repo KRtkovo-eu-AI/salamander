@@ -10,9 +10,9 @@ def main():
     source=read('src/fileswn7.cpp');wide=read('src/common/widepath.cpp')
     controller=block(source,'void CFilesWindow::Unpack(')
     assert 'if (target == NULL || !Is(ptDisk) || IsBranchView() || target->IsBranchView()) return;' in controller
-    assert controller.index('PrepareUnpackArchiveSource(')<controller.index('CUnpackDialog(')
+    assert controller.index('PrepareUnpackArchiveSource(')<controller.index('CUnpackDialog dialog(')
     assert 'ExecuteUnpacker(MainWindow->HWindow, this, archiveSource.c_str(), mask,' in controller
-    after=controller[controller.index('CUnpackDialog('):]
+    after=controller[controller.index('CUnpackDialog dialog('):]
     assert 'file->' not in after and 'sprintf(subject + l' not in after
     assert 'sourceErrorTextID, &sourceDirectory)' in controller and 'sourceDirectoryW = GetPathW()' not in controller
     text=read('src/tests/branch_unpack_source_tests.cpp.in')
