@@ -1,5 +1,41 @@
 # Plán postupného portu PR #769
 
+## S31b6b3a — kvalifikace archivních backendů (2026-10-26)
+
+Audit rozlišil association-first PackGetPluginForArchiveFile od skutečného
+listing-owner dispatch v PackUncompress. Admission musí hlídat owner+metadata,
+nikoli jen příponu. ZIP je první kandidát, jeho Branch F5 dosud neověřeno.
+7-Zip GetStream používá Windows default-ACP převod UTF8 output cesty: actual
+conversion probe D/R na ACP1250 doložil2 neshody ze3 cest, bez I/O; existující
+UTF8 helper je zachoval. Tento stream body je shodný s donorem, ne nová regrese.
+[Audit a návaznost](steps/S31b6b3a.md): další S31b6b3b ZIP-only policy/admission,
+potom samostatná 7-Zip output oprava/validace. Produkce/guardy beze změny;
+S31b6b3/G04/G05/S31 OPEN, bez push/PR/S32, ChangeDir odložené.
+
+## S31b6b3 — pořadí backend kvalifikace před admission
+
+1. S31b6b3a: audit skutečného listing-owner vs association lookup/dispatch, ZIP
+   a 7-Zip F5 output cesty proti připnutému donoru a dostupným checkpointům.
+   Ověřit Windows code-page hranici 7-Zip stream conversion izolovaným native
+   probe skutečných konverzních funkcí (bez souborového I/O). Zapsat konkrétní
+   závislosti a akceptaci; samotný audit neodemkne žádnou Branch operaci.
+2. S31b6b3b: nejprve ZIP-only archive-panel F5 do Branch rootu. Úzká interní
+   policy musí odpovídat skutečnému listing owneru i jeho metadata bindingu,
+   nikoli pouze příponě či preferred packeru. Vynutit před modal/create i ve
+   skutečném dispatch; unknown/external/FS a jiné backendy dál odmítnout.
+   Native skutečná policy/dispatch s negativními binding/config variantami,
+   zachovat dosavadní assertions, host D/R a actual ZIP F5 GUI D/R do Branch
+   rootu: vybrané adresáře, duplicitní basenames, Unicode/long cíle, přesný
+   strom a sentinels. Modal stale identity ověřit v relevantní Branch podobě.
+3. S31b6b3c: 7-Zip samostatně až po opravení/prokázání Windows UTF8/ACP a wide
+   output stream hranice. Nezměnit globální vendor encoding defaults pro
+   ostatní použití; testovat actual entry/stream path conversion a I/O D/R,
+   pak 7-Zip F5 GUI a teprve po důkazech rozšířit admission. Přesné dílčí
+   opravy zapsat před jejich implementací. CRC/cancel/overwrite/cleanup zachovat.
+
+Tento běh pouze S31b6b3a. Zdrojové listing lifetime, přímé Unpack, virtuální
+archive/FS a external pipeline zůstávají samostatné hranice; G04/G05 i S31 OPEN.
+
 ## S31b6b2b2 — zapojený diskový cíl archivního F5 (2026-10-26)
 
 Stejný interní snapshot má adresářový režim bez masky. UnpackZIPArchive zachytí

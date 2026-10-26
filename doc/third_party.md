@@ -685,3 +685,13 @@ Samandarin Contributors, GPL-2.0-or-later; original notices retained. Directory
 mode avoids the Copy/Move operation mask; controller checks modal/parser/create
 and plugin dispatch boundaries with the existing live target identity. Original
 assertions and SDK remain unchanged; Branch admission requires its next checkpoint.
+
+### S31b6b3a archive backend qualification audit
+
+Audit of listing-owner dispatch and ZIP/7-Zip F5 extraction paths from
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), pinned
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors, Milan Kase
+and Samandarin Contributors. Existing host/plugin GPL notices and bundled7-Zip
+SDK notices/licenses by Igor Pavlov are preserved. An external diagnostic probe
+uses actual Windows SDK conversion functions with explicit storage facades;
+no new third-party production code, SDK change or Branch admission in this audit.

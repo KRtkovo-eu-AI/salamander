@@ -1,5 +1,17 @@
 # S00 read-only donor boundary audit
 
+## S31b6b3a — kvalifikace archivních backendů (2026-10-26)
+
+Audit rozlišil association-first PackGetPluginForArchiveFile od skutečného
+listing-owner dispatch v PackUncompress. Admission musí hlídat owner+metadata,
+nikoli jen příponu. ZIP je první kandidát, jeho Branch F5 dosud neověřeno.
+7-Zip GetStream používá Windows default-ACP převod UTF8 output cesty: actual
+conversion probe D/R na ACP1250 doložil2 neshody ze3 cest, bez I/O; existující
+UTF8 helper je zachoval. Tento stream body je shodný s donorem, ne nová regrese.
+[Audit a návaznost](steps/S31b6b3a.md): další S31b6b3b ZIP-only policy/admission,
+potom samostatná 7-Zip output oprava/validace. Produkce/guardy beze změny;
+S31b6b3/G04/G05/S31 OPEN, bez push/PR/S32, ChangeDir odložené.
+
 ## S31b6b2b2 — zapojený diskový cíl archivního F5 (2026-10-26)
 
 Stejný interní snapshot má adresářový režim bez masky. UnpackZIPArchive zachytí
