@@ -1,5 +1,21 @@
 # S31 — Úplnost portu proti donoru
 
+## S31b5c — uzavírací audit resolveru (2026-10-26)
+
+D01 uzavřen pro ověřené diskové Copy/Move do jediného Branch cíle; D02/D03
+implementačně uzavřené s native42/config a výslovně omezenou GUI validací.
+Audit aktuálních funkcí versus testované commity a JSON/log bindings PASS:
+parser42, split190, atomic dialog52, getters399 a identity448/config D/R;
+host d2 D/R a GUI e1/e2/e3 znovu nespouštěny, jejich přesná source/hash vazba
+ověřena. Nový příkaz Audit.py + controller placement PASS; žádný nový build.
+Drop root-only helper a SDK hlavičky v rozsahu S31b5 beze změny. Klasický
+resolver zachovává vlastní úplný root/tab/generation a explicitní ruční cíl.
+ChangeDir a dlouhý source GUI/Unpack DEFERRED/NOT_VERIFIED, původní WIP nedotčený.
+Zbývající archive/FS guardy nejsou touto diskovou aktivací odstraněny. Viz
+[S31b5c](steps/S31b5c.md). Další nejmenší krok S31b6a: audit UnpackZIPArchive
+a samostatné archivní destination pipeline, potom ověřené donorové dílčí opravy.
+G04/G05 OPEN, celá S31 neuzavřena, S32 BLOCKED; lokální commit bez push/PR/CI.
+
 ## S31b5b3e3 — zavřený a odpojený Branch cíl ověřen (2026-10-26)
 
 Debug/Release GUI PASS: odpojený zdroj, nový připojený Branch cíl zvolený
@@ -340,14 +356,17 @@ port má 57. Samotná existence položky neznamená běh všech jejích testů.
 
 ### G04 — Bezpečně nepodporované operace; S31b, rozhodnutí před S32
 
-Následující odchylky mají explicitní ochrany. Jejich plošné odstranění není oprava:
+Tato tabulka zachycuje vstupní stav auditu před opravami S31b1 a dále; aktuální
+checkpointy a jejich důkazy jsou uvedeny výše. Staré odmítnutí nelze přenášet na
+později ověřené operace. Následující odchylky měly explicitní ochrany; jejich
+plošné odstranění není oprava:
 
 | Oblast | Stav proti donoru a rozhodnutí |
 | --- | --- |
 | `TryEnterFileAsArchive` | Branch guard zachován, donorové úplné identity v hunks 43/44 nepřevzaty. Odlišit tento vstup od již ověřené běžné Enter/archive cesty S27a2. |
 | `FocusShortcutTarget` | Branch guard; donorový `FocusBranchShortcutTarget`, deklarace a hook chybějí (hunk 45 a části branch_view.cpp/fileswnd.h). |
 | Windows Properties, ChangeAttr, přímé Unpack | Branch vstupy nadále odmítnuté; nepovažovat za úplnou donorovou podporu. |
-| Kopírování/přesun do nepodporovaného Branch cíle | Kořen, identita a kontext jsou ověřované; nepodporované cíle zůstávají odmítnuté. |
+| Kopírování/přesun do Branch cíle — aktualizace S31b5c | Diskový Copy/Move do jediného diskového cíle ověřen v d1/d2/e1/e2/e3; úplný root/mask, modal tab/generation a explicitní ruční cíl. Archive source/FS/multi-target Branch případy tato aktivace nezpřístupňuje. |
 | F3 plugin viewers | Obecné DLL prohlížeče nejsou připuštěné. Interní a konfigurovaný externí viewer mají vlastní ověření. PictView EXIF menu 188 a konfigurace 197 neprokazují obecné Branch F3. |
 | Neznámé plugin příkazy, externí packery | Explicitní admission policy v plugins1.cpp, žádné automatické povolení podle existence DLL. DemoPlug diskový snapshot se SDK>=105 neznamená obecné povolení jeho Branch příkazu. |
 | Shell a dlouhé cesty | Program/document oddělení a Windows kontroly zachovány. Nepodporovaný případ odmítnut s vysvětlením; LongPathsEnabled=0, registry a zabezpečení se neměnily. |

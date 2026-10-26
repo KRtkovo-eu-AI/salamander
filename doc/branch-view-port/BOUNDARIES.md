@@ -1,5 +1,21 @@
 # S00 read-only donor boundary audit
 
+## S31b5c — uzavírací audit resolveru (2026-10-26)
+
+D01 uzavřen pro ověřené diskové Copy/Move do jediného Branch cíle; D02/D03
+implementačně uzavřené s native42/config a výslovně omezenou GUI validací.
+Audit aktuálních funkcí versus testované commity a JSON/log bindings PASS:
+parser42, split190, atomic dialog52, getters399 a identity448/config D/R;
+host d2 D/R a GUI e1/e2/e3 znovu nespouštěny, jejich přesná source/hash vazba
+ověřena. Nový příkaz Audit.py + controller placement PASS; žádný nový build.
+Drop root-only helper a SDK hlavičky v rozsahu S31b5 beze změny. Klasický
+resolver zachovává vlastní úplný root/tab/generation a explicitní ruční cíl.
+ChangeDir a dlouhý source GUI/Unpack DEFERRED/NOT_VERIFIED, původní WIP nedotčený.
+Zbývající archive/FS guardy nejsou touto diskovou aktivací odstraněny. Viz
+[S31b5c](steps/S31b5c.md). Další nejmenší krok S31b6a: audit UnpackZIPArchive
+a samostatné archivní destination pipeline, potom ověřené donorové dílčí opravy.
+G04/G05 OPEN, celá S31 neuzavřena, S32 BLOCKED; lokální commit bez push/PR/CI.
+
 ## S31b5b3e3 — zavřený a odpojený Branch cíl ověřen (2026-10-26)
 
 Debug/Release GUI PASS: odpojený zdroj, nový připojený Branch cíl zvolený
