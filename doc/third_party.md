@@ -598,3 +598,12 @@ Locally staged admission of the existing shared FilesAction Move pipeline from
 Contributors, GPL-2.0-or-later. Notices preserved. The private policy now admits
 verified disk Copy/Move, keeping all owned-root and modal identity checks.
 No new third-party code imported.
+
+### S31b5b3e1 keep-subfolder-paths GUI validation
+
+Validation of the existing BuildScriptMain and FilesAction adaptation from
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), pinned
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin
+Contributors, GPL-2.0-or-later. Notices preserved. Debug/Release GUI Copy/Move
+retain relative Unicode subdirectories into long Branch destinations. No code
+import or production change in this checkpoint; existing runtime reused by hash.

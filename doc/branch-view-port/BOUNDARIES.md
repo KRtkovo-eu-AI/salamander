@@ -1,5 +1,19 @@
 # S00 read-only donor boundary audit
 
+## S31b5b3e1 — GUI Copy/Move se zachováním podadresářů (2026-10-26)
+
+Ověření existujícího keepBranchPaths TRUE bez změny produkce nebo testů.
+Skutečné GUI Debug Windows Dark Mode scheme a Release light: dva různé same.txt
+z one-東京 a two-🙂, zdroj i dlouhý diskový cíl v Branch View, F5/F6 s Keep
+subfolder paths. Obě operace/config PASS; přesné relativní názvy a obsah vůči
+zálohám/SHA256, Copy ponechá zdroje, Move odstraní pouze původní souborové cesty.
+Všech8 root/bystander sentinelů nezměněno. Debug keep-paths Cancel bez výstupu.
+Použity hashově nezměněné binárky a src tree d779e0f4 ze S31b5b3d2; nový build
+ani native běh nebyl potřeba a není tvrzen. LongPathsEnabled0, privátní profily,
+runtime ini obnoveny přesně, odložený ChangeDir patch nedotčený/NOT_VERIFIED.
+Viz [S31b5b3e1](steps/S31b5b3e1.md). Další samostatná podetapa: detached/modal
+destination identity. G04/G05 OPEN, goal ACTIVE, S32 BLOCKED; bez push/PR/CI.
+
 ## S31b5b3d2 — diskový Move do Branch cíle ověřen (2026-10-26)
 
 Private vstupní politika AllowsBranchTransfer dovolí atCopy/atMove pro diskový
