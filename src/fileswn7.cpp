@@ -16,11 +16,7 @@
 #include "zip.h"
 #include "pack.h"
 #include "common/widepath.h"
-#include "common/localizedtext.h"
 #include "fileactiondisktarget.h"
-#include "fileactionarchivesource.h"
-#include "fileactionpackcontext.h"
-#include "unpackvolumes.h"
 
 //
 // ****************************************************************************

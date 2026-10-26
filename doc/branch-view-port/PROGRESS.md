@@ -1,5 +1,14 @@
 # Stav portu PR #769
 
+## S31b6b2a — sdílený helper cílové identity (2026-10-26)
+
+CFilesActionDiskTarget přesunut beze změny do interní fileactiondisktarget.h
+pro fileswn7/8; controller bodies i všech448 assertions shodné. Native448+64
+D/R, host D/R a nové ordinary Copy/Move/ZIP F5 GUI s exact readbackem PASS.
+[S31b6b2a](steps/S31b6b2a.md) je pouze ověřený sdílecí předkrok; celá S31b6b2
+zůstává otevřená. Další S31b6b2b: directory default a modal/post-InitDLL target
+validace. Branch guardy a odložené ChangeDir beze změny; bez push/S32.
+
 ## S31b6b1 — úplný diskový cíl archivní extrakce (2026-10-26)
 
 UnpackZIPArchive má owned destination/prefix/create storage, skutečné kapacity,

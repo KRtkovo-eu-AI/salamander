@@ -962,6 +962,7 @@
     <ClInclude Include="..\viewerpath.h" />
     <ClInclude Include="..\workerpath.h" />
     <ClInclude Include="..\panel_temporary_selection.h" />
+    <ClInclude Include="..\fileactiondisktarget.h" />
     <ClInclude Include="..\operationrecycle.h" />
     <ClInclude Include="..\branchshell.h" />
     <ClInclude Include="..\branchclipboard.h" />

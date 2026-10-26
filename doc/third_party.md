@@ -655,3 +655,13 @@ owned capacity-aware storage, exact path helpers and unsigned UTF8 component
 validation address the documented gap. Existing wide create/cleanup helpers
 reused, all notices preserved. Native and real ZIP F5 GUI evidence recorded;
 Branch destination admission remains guarded.
+
+### S31b6b2a shared host destination identity
+
+Moved the existing local CFilesActionDiskTarget adaptation unchanged from
+fileswn8.cpp into internal fileactiondisktarget.h for archive controller reuse.
+Reference [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pinned47661e92d4b3cbe5bb593ae3d75a3f1f698ef413. Open Salamander Authors and
+Samandarin Contributors, GPL-2.0-or-later; original notices preserved. No new
+third-party implementation or public SDK interface; behavior and assertions
+preserved, next archive lifecycle integration remains explicitly open.

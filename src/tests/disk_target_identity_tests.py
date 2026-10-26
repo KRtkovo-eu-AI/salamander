@@ -9,6 +9,8 @@ from branch_panel_getters_tests import block, read, compiler_environment, run
 
 
 def controller_contract():
+    for unit in ('src/fileswn7.cpp', 'src/fileswn8.cpp'):
+        assert '#include "fileactiondisktarget.h"' in read(unit), unit
     controller = block(read('src/fileswn8.cpp'), 'void CFilesWindow::FilesAction(')
     assert 'if (target != NULL && target->IsBranchView() &&' in controller
     assert '!CFilesActionDiskTarget::AllowsBranchTransfer(type, countSizeMode, copyToSelectedDirs, Is(ptDisk), target->Is(ptDisk))) return;' in controller
@@ -51,7 +53,7 @@ def main():
     generated = read('src/tests/disk_target_identity_tests.cpp.in')
     generated = generated.replace('@@ACTION@@', block(read('src/fileswnd.h'), 'enum CActionType')+';')
     generated = generated.replace('@@WIDE@@', helpers).replace('@@SNAPSHOT@@',
-        block(read('src/fileswn8.cpp'), 'struct CFilesActionDiskTarget')+';')
+        block(read('src/fileactiondisktarget.h'), 'struct CFilesActionDiskTarget')+';')
     assert '@@' not in generated
     env = compiler_environment()
     compiler = shutil.which('cl', path=env.get('PATH'))

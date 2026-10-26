@@ -1,5 +1,29 @@
 # Plán postupného portu PR #769
 
+## S31b6b2a — sdílený helper cílové identity (2026-10-26)
+
+CFilesActionDiskTarget přesunut beze změny do interní fileactiondisktarget.h
+pro fileswn7/8; controller bodies i všech448 assertions shodné. Native448+64
+D/R, host D/R a nové ordinary Copy/Move/ZIP F5 GUI s exact readbackem PASS.
+[S31b6b2a](steps/S31b6b2a.md) je pouze ověřený sdílecí předkrok; celá S31b6b2
+zůstává otevřená. Další S31b6b2b: directory default a modal/post-InitDLL target
+validace. Branch guardy a odložené ChangeDir beze změny; bez push/S32.
+
+## S31b6b2 — rozdělení target lifecycle před implementací
+
+1. S31b6b2a: přesunout skutečný CFilesActionDiskTarget beze změny do interní
+   hlavičky společné pro fileswn7/8. Zachovat všech448 identity assertions;
+   generátor musí číst skutečnou novou definici. Native448+64 D/R, host D/R,
+   ordinary disk Copy/Move a archivní F5 GUI smoke. Bez změny chování/admission.
+2. S31b6b2b: adresářový default bez root\*.*, validace po dialogu/parseru a
+   před create/backend, live-registry před dereference; doplnit důkaz hranice
+   InitDLL uvnitř CPluginData::UnpackArchive. Přesné náležitosti/testy se zapíší
+   před změnou; nespoléhat na samostatný pre-dispatch check. Modal switch/close,
+   inactive/detached a ordinary pozitivní GUI D/R, neověřený Branch stále blokovat.
+
+Právě probíhá pouze první koherentní předkrok. Žádné SDK/ABI ani registry změny,
+ChangeDir odložené, bez push/PR/S32. S31b6b2 jako celek není dokončená.
+
 ## S31b6b1 — úplný diskový cíl archivní extrakce (2026-10-26)
 
 UnpackZIPArchive má owned destination/prefix/create storage, skutečné kapacity,
