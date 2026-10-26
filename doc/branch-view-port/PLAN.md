@@ -1,5 +1,41 @@
 # Plán postupného portu PR #769
 
+## S31b6c4a — interní whole-archive post-init panel guard (2026-10-26)
+
+Concrete host UnpackWholeArchive přijímá volitelné source/target snapshots a po
+InitDLL ověří live identity a source routing před operation context/SDK callback.
+Reuses unchanged CFilesActionDiskTarget; veřejné SDK/pluginy beze změny.
+[Důkazy a rozsah](steps/S31b6c4a.md): nový native119/config, původní post-init124/
+config a disk448/config, operations20/transitions28; host D/R a ordinary7z GUI
+D/R Cancel+5exact files/sentinels PASS, LongPathsEnabled=0. Plugin runtime přesně
+z ověřeného c3. Stávající runtime callers stále používají NULL defaults: nejde
+o hotovou controller lifecycle ochranu ani guarded GUI důkaz. Další S31b6c4b
+backend/config binding, potom c4c controller wiring/guarded GUI. Branch admission,
+SDK, volume policy beze změny; S31/G04/G05 OPEN, ChangeDir/long-source GUI
+NOT_VERIFIED a původní WIP nedotčen. Bez push/PR/S32/clean whole matrix/CodeQL.
+
+## S31b6c4 — rozdělení source/target/backend lifecycle
+
+1. **S31b6c4a:** internal concrete UnpackWholeArchive přijme volitelné source a
+   disk target CFilesActionDiskTarget snapshots. Po InitDLL a před operation
+   context/SDK callback ověří live registry/current identity a source.Panel==panel.
+   Původní NULL callers zachovat beze změny, žádná SDK virtual změna. Native actual
+   wrapper/snapshot D/R: attached/detached close/switch/tab/root/kind/branch scan/
+   generation, source routing, init/backend failure a legacy null. Host D/R,
+   běžný whole-archive GUI D/R; nové guarded GUI až při controller wiring. Commit
+   nesmí vydávat tuto interní přípravu za dokončenou runtime lifecycle ochranu.
+2. **S31b6c4b:** vlastněný backend/config kontext přímého ExecuteUnpacker a
+   post-InitDLL binding; native selected/replaced/config/backend/null/external
+   refusal, staré caller smlouvy a SDK zachované. Přesnou akceptaci před kódem.
+3. **S31b6c4c:** controller zachytí a předá source/target/backend kontext,
+   validace po modal i před vytvářením a následnými callbacky. Nativní vazby a
+   skutečné GUI D/R při změnách/uzavření/odpojení panelů; sources/sentinels beze
+   změny. Zvlášť ověřit bezpečné refresh/focus/EndStopRefresh po invalidaci.
+
+Nyní pouze první koherentní podetapa c4a; Branch admission, SDK/volume policy,
+ChangeDir a long-source GUI zůstávají beze změny. Lokální commit po D/R native,
+host a ordinary GUI; bez push/PR/S32. S31/G04/G05 OPEN.
+
 ## S31b6c3 — úplný whole-archive seznam 7-Zip (2026-10-26)
 
 GatherItems používá skutečnou kapacitu heap bufferu, file/directory append failure

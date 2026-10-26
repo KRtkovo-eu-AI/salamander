@@ -1,5 +1,19 @@
 # Validace portu a baseline S00
 
+## S31b6c4a — interní whole-archive post-init panel guard (2026-10-26)
+
+Concrete host UnpackWholeArchive přijímá volitelné source/target snapshots a po
+InitDLL ověří live identity a source routing před operation context/SDK callback.
+Reuses unchanged CFilesActionDiskTarget; veřejné SDK/pluginy beze změny.
+[Důkazy a rozsah](steps/S31b6c4a.md): nový native119/config, původní post-init124/
+config a disk448/config, operations20/transitions28; host D/R a ordinary7z GUI
+D/R Cancel+5exact files/sentinels PASS, LongPathsEnabled=0. Plugin runtime přesně
+z ověřeného c3. Stávající runtime callers stále používají NULL defaults: nejde
+o hotovou controller lifecycle ochranu ani guarded GUI důkaz. Další S31b6c4b
+backend/config binding, potom c4c controller wiring/guarded GUI. Branch admission,
+SDK, volume policy beze změny; S31/G04/G05 OPEN, ChangeDir/long-source GUI
+NOT_VERIFIED a původní WIP nedotčen. Bez push/PR/S32/clean whole matrix/CodeQL.
+
 ## S31b6c3 — úplný whole-archive seznam 7-Zip (2026-10-26)
 
 GatherItems používá skutečnou kapacitu heap bufferu, file/directory append failure

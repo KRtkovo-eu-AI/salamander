@@ -468,6 +468,11 @@ try {
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\unpack_target_identity_tests.py'), '--configuration', $Configuration)
         },
         @{
+            Name = 'unpack_whole_post_init_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\unpack_whole_post_init_tests.py'), '--configuration', $Configuration)
+        },
+        @{
             Name = 'unpack_post_init_target_tests'
             ClassName = 'native-generated'
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\unpack_post_init_target_tests.py'), '--configuration', $Configuration)

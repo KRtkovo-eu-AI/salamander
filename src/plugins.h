@@ -2728,8 +2728,7 @@ public:
     BOOL UnpackWholeArchive(CFilesWindow* panel, const char* archiveFileName, const char* mask,
                             const char* targetDir, BOOL delArchiveWhenDone,
                             CDynamicString* archiveVolumes, const CFilesActionDiskTarget* sourceSnapshot = NULL,
-                            const CFilesActionDiskTarget* diskTarget = NULL,
-                            const CWholeArchiveUnpackerSnapshot* backendSnapshot = NULL);
+                            const CFilesActionDiskTarget* diskTarget = NULL);
 
     // plugin call: CanCloseArchive
     BOOL CanCloseArchive(CFilesWindow* panel, const char* archiveFileName, BOOL force);

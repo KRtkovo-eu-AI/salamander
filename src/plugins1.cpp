@@ -3948,8 +3948,7 @@ BOOL CPluginData::DeleteFromArchive(CFilesWindow* panel, const char* archiveFile
 
 BOOL CPluginData::UnpackWholeArchive(CFilesWindow* panel, const char* archiveFileName, const char* mask,
                                      const char* targetDir, BOOL delArchiveWhenDone, CDynamicString* archiveVolumes,
-                                     const CFilesActionDiskTarget* sourceSnapshot, const CFilesActionDiskTarget* diskTarget,
-                                     const CWholeArchiveUnpackerSnapshot* backendSnapshot)
+                                     const CFilesActionDiskTarget* sourceSnapshot, const CFilesActionDiskTarget* diskTarget)
 {
     CALL_STACK_MESSAGE7("CPluginData::UnpackWholeArchive(, %s, %s, %s, %d,) (%s v. %s)", archiveFileName,
                         mask, targetDir, delArchiveWhenDone, DLLName, Version);
@@ -3962,43 +3961,12 @@ BOOL CPluginData::UnpackWholeArchive(CFilesWindow* panel, const char* archiveFil
     if (InitDLL(MainWindow->HWindow))
     {
         // Initialization can dispatch callbacks: validate live panel identities before operation context or I/O.
-        if ((backendSnapshot != NULL && !backendSnapshot->IsCurrent(this)) ||
-            (sourceSnapshot != NULL && (sourceSnapshot->Panel != panel || !sourceSnapshot->IsCurrent(MainWindow))) ||
+        if ((sourceSnapshot != NULL && (sourceSnapshot->Panel != panel || !sourceSnapshot->IsCurrent(MainWindow))) ||
             (diskTarget != NULL && !diskTarget->IsCurrent(MainWindow)))
         {
             SetLastError(ERROR_RETRY);
             return FALSE;
         }
-        // Independent post-init admission before the SDK operation context.
-        CFilesWindow* liveSource = CFilesActionDiskTarget::FindLive(MainWindow, panel);
-        if ((sourceSnapshot != NULL && sourceSnapshot->Branch) || (liveSource != NULL && liveSource->IsBranchView()) || (diskTarget != NULL && diskTarget->Branch))
-        {
-            if (sourceSnapshot == NULL || sourceSnapshot->Panel != panel || !sourceSnapshot->IsCurrent(MainWindow) ||
-                diskTarget == NULL || !diskTarget->IsCurrent(MainWindow) ||
-                (delArchiveWhenDone && archiveVolumes == NULL) || backendSnapshot == NULL || !backendSnapshot->IsVerifiedBranchSourceUnpacker())
-            {
-                SetLastError(ERROR_NOT_SUPPORTED);
-                return FALSE;
-            }
-        }
-        if (backendSnapshot != NULL && !backendSnapshot->ValidateBranchTarget(diskTarget, targetDir))
-        {
-            SetLastError(ERROR_RETRY);
-            return FALSE;
-        }
-        // A supplied source was just resolved in the live registry. Keep it alive during SDK callbacks.
-        BOOL* busy = sourceSnapshot != NULL ? &panel->FilesActionInProgress : NULL;
-        if (busy != NULL && *busy)
-        {
-            SetLastError(ERROR_RETRY);
-            return FALSE;
-        }
-        struct CUnpackPanelBusyScope
-        {
-            BOOL* Flag;
-            explicit CUnpackPanelBusyScope(BOOL* flag) : Flag(flag) { if (Flag != NULL) *Flag = TRUE; }
-            ~CUnpackPanelBusyScope() { if (Flag != NULL) *Flag = FALSE; }
-        } panelBusy(busy);
         CSalamanderForOperations sc(panel);
         ret = PluginIfaceForArchiver.UnpackWholeArchive(&sc, archiveFileName, mask, targetDir,
                                                         delArchiveWhenDone, archiveVolumes);

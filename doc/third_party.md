@@ -763,3 +763,12 @@ The local repair passes the real path capacity and explicitly rejects failed
 collection before decompression. Native tests compile actual bundled string
 sources by Igor Pavlov under existing7za/DOC/License.txt terms. Vendor sources,
 public SDK and notices are unchanged; no new dependency is introduced.
+
+### S31b6c4a whole-archive post-initialization panel identity
+
+Adapted concrete host wrapper from Open Salamander Authors, Milan Kase and
+Samandarin Contributors, [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pinned47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
+The staged integration reuses the already qualified live-tab snapshot after
+plugin initialization. Public SDK, bundled plugin/vendor sources and notices
+remain unchanged; this checkpoint adds no external dependency.
