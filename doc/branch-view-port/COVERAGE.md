@@ -1,5 +1,21 @@
 # S31 — Úplnost portu proti donoru
 
+## S31b6c1 — audit přímého Unpack (2026-10-26)
+
+Uzavřený audit, produkce/testy beze změny. Source helper vlastní úplný text cesty,
+ale controller stále používá panelový root pro relativní cíl a nemá doloženou
+source/target lifecycle garanci přes modal/InitDLL. Whole-archive dispatcher
+používá konfigurovaný SupportCustomUnpack, nikoli ověřeného listing ownera F5.
+7-Zip GatherItems má SAL_MAX_PATH storage, ale dvě append hranice MAX_PATH;
+selhání append položku/podstrom přeskočí bez chyby. Stejné v donoru. Delete-volume
+loop má stále byte ClearReadOnlyAttr/DeleteFile a vyžaduje samostatné ověření.
+[Symboly, důkazy a následné akceptace](steps/S31b6c1.md): actual source helper
+native54/config D/R, operations20/transitions28 PASS. Žádný nový host/plugin
+build ani engine/GUI/CodeQL/clean matrix běh; Branch source i target Unpack
+zůstávají blokované. Další S31b6c2: exact source-parent context bez admission.
+S31/G04/G05 OPEN; ChangeDir/long-source GUI NOT_VERIFIED a původní WIP nedotčen.
+Bez push/PR/S32, bezpečnostní ani systémová nastavení se nemění.
+
 ## S31b6b3c3 — ověřený 7-Zip cíl Branch View (2026-10-26)
 
 Po c2 rozšířena existující owner policy pouze o bundled7zip\7zip.spl. Přesný

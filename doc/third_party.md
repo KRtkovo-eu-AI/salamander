@@ -735,3 +735,12 @@ The local staged-port adapter qualifies the actual bundled7-Zip listing owner
 and preserves its backend kind across initialization. Existing bundled7-Zip
 SDK by Igor Pavlov,7za/DOC/License.txt, notices and vendor sources are unchanged;
 there is no new dependency or public SDK change.
+
+### S31b6c1 direct Unpack boundary audit
+
+Read-only reference to Open Salamander Authors, Milan Kase and Samandarin
+Contributors, [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pinned47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
+Actual direct-Unpack dispatch, source capture, bundled ZIP and7-Zip collection
+were compared to the donor. Igor Pavlov's bundled7-Zip SDK and existing license
+notices remain unchanged. This checkpoint imports or modifies no runtime code.
