@@ -1,5 +1,37 @@
 # Plán postupného portu PR #769
 
+## S31b6c4b — whole-archive backend/config binding (2026-10-26)
+
+Owned konfigurace vybraného plugin unpackeru se ověřuje před dispatch a před/i
+po InitDLL, před operation context/SDK I/O. Index, live row/plugin identity a
+owned metadata chrání i proti MoveUnpacker, který kopíruje row contents.
+[Důkazy a limity](steps/S31b6c4b.md): actual native133/config, původní119/124
+beze změny assertions; operations20/transitions28, host D/R, ordinary7z AltF9
+GUI D/R Cancel/exact5files+sentinels PASS. LongPathsEnabled=0, SDK/plugin sources
+unchanged, plugin runtime byte-identical c3. Controller stále používá NULL
+defaults; guarded controller GUI a vazba modal selection až S31b6c4c. Nejde
+o plugin capability ani nové Branch povolení. S31/G04/G05 OPEN; ChangeDir/
+long-source GUI NOT_VERIFIED, frozen WIP nedotčen. Lokální commit, bez push/PR/
+S32/clean whole matrix/CodeQL.
+
+## S31b6c4b — backend/config binding (implementační akceptace)
+
+Interní whole-archive snapshot svázat jen se stabilním global UnpackerConfig:
+owned selected index/type/title/ext a row pointer, live Plugins index/pointer,
+SupportCustomUnpack a owned DLLName. Kontrolovat registry/indexy před čtením row/
+plugin; MoveUnpacker kopíruje obsah, pouhá pointer equality není postačující.
+Capture external/old/invalid/null config odmítne; plugin snapshot je identity
+binding, nikoli Branch capability/whitelist. Zachovat ordinary NULL callers.
+Před dispatch a před i po InitDLL ověřit stejný snapshot; při změně ERROR_RETRY
+před operation context/SDK callback. Předat optional source/target snapshots z
+c4a skrz dispatcher, controller wiring až c4c. SDK beze změny. Native actual
+capture/current/dispatcher/wrapper D/R s config move/content/remove/preferred,
+plugin replacement/removal/support/DLL change, routing/init failure/legacy NULL,
+bez file I/O pro negativní případy; původní119/124 assertions zachovat. Host D/R
++ ordinary7z GUI D/R Cancel a exact tree/sentinels, plugin z nezměněného c3 buildu.
+Lokální commit až po ověření, bez push/PR/S32. Celá controller lifecycle c4c,
+Branch admission a source/target backend callbacks po vstupu zůstávají otevřené.
+
 ## S31b6c4a — interní whole-archive post-init panel guard (2026-10-26)
 
 Concrete host UnpackWholeArchive přijímá volitelné source/target snapshots a po

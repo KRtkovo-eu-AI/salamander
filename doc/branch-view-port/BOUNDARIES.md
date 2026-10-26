@@ -1,5 +1,19 @@
 # S00 read-only donor boundary audit
 
+## S31b6c4b — whole-archive backend/config binding (2026-10-26)
+
+Owned konfigurace vybraného plugin unpackeru se ověřuje před dispatch a před/i
+po InitDLL, před operation context/SDK I/O. Index, live row/plugin identity a
+owned metadata chrání i proti MoveUnpacker, který kopíruje row contents.
+[Důkazy a limity](steps/S31b6c4b.md): actual native133/config, původní119/124
+beze změny assertions; operations20/transitions28, host D/R, ordinary7z AltF9
+GUI D/R Cancel/exact5files+sentinels PASS. LongPathsEnabled=0, SDK/plugin sources
+unchanged, plugin runtime byte-identical c3. Controller stále používá NULL
+defaults; guarded controller GUI a vazba modal selection až S31b6c4c. Nejde
+o plugin capability ani nové Branch povolení. S31/G04/G05 OPEN; ChangeDir/
+long-source GUI NOT_VERIFIED, frozen WIP nedotčen. Lokální commit, bez push/PR/
+S32/clean whole matrix/CodeQL.
+
 ## S31b6c4a — interní whole-archive post-init panel guard (2026-10-26)
 
 Concrete host UnpackWholeArchive přijímá volitelné source/target snapshots a po

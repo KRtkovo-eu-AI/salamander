@@ -15,6 +15,7 @@ enum CPanelSide {cpsLeft,cpsRight};
 enum {ptDisk,ptZIPArchive,ptPluginFS};
 #define PATH_TYPE_WINDOWS 1 // unchanged public spl_gen.h value; checked by generator
 struct CPluginData;
+struct CWholeArchiveUnpackerSnapshot { bool IsCurrent(const CPluginData*) const { return true; } };
 struct CPluginDataInterfaceAbstract;
 struct Binding { const CPluginDataInterfaceAbstract* Interface=nullptr; BOOL Contains(const CPluginDataInterfaceAbstract* p) const {return p!=nullptr&&p==Interface;} };
 struct CFilesWindow

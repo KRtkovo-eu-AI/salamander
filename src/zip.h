@@ -543,16 +543,10 @@ struct CWholeArchiveUnpackerSnapshot
     const CUnpackerConfigData* Entry = NULL;
     CPluginData* Plugin = NULL;
     int Index = -1, Type = 0;
-    std::string Title, Extensions, DLLName, Command, Arguments;
-    std::string BranchTargetDirectory; // owned offered directory; empty until explicitly bound
-    BOOL SupportLongNames = FALSE, NeedANSIListFile = FALSE;
+    std::string Title, Extensions, DLLName;
 
-    bool Capture(CUnpackerConfig* configuration, BOOL allowExternal = FALSE);
+    bool Capture(CUnpackerConfig* configuration);
     bool IsCurrent(const CPluginData* expectedPlugin = NULL) const;
-    bool ValidateExternalPaths(const char* source, const char* target) const;
-    bool IsVerifiedBranchSourceUnpacker() const;
-    bool BindBranchTarget(const CFilesActionDiskTarget* target, const char* directory);
-    bool ValidateBranchTarget(const CFilesActionDiskTarget* target, const char* directory) const;
 };
 
 class CUnpackerConfig

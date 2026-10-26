@@ -772,3 +772,13 @@ pinned47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
 The staged integration reuses the already qualified live-tab snapshot after
 plugin initialization. Public SDK, bundled plugin/vendor sources and notices
 remain unchanged; this checkpoint adds no external dependency.
+
+### S31b6c4b whole-archive unpacker configuration binding
+
+Adapted the concrete whole-archive dispatcher/wrapper from Open Salamander
+Authors, Milan Kase and Samandarin Contributors,
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pin47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
+The local integration owns selected configuration metadata and checks its live
+plugin binding across initialization. Public SDK and bundled vendor/plugin
+sources and notices remain unchanged. No external dependency was added.
