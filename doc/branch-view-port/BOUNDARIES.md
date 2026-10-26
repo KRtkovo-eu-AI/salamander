@@ -1,5 +1,20 @@
 # S00 read-only donor boundary audit
 
+## S31b5b3e3 — zavřený a odpojený Branch cíl ověřen (2026-10-26)
+
+Debug/Release GUI PASS: odpojený zdroj, nový připojený Branch cíl zvolený
+chooserem zavřen během Copy dialogu. Potvrzení skončí chybou1237 bez změny dat,
+i když druhá záložka stále ukazuje stejný root. Nový odpojený Branch cíl zvolený
+přes Detached funguje pro Copy i Move; přesné názvy/obsah proti zálohám/SHA256,
+Copy zdroj zachován, Move zdroj absent, sentinel nedotčený. Native test doplněn
+o8 lifecycle assertions:448/config D/R PASS, všech původních440 zachováno.
+Safe extra-getter mutant vyvolá4 semantic failures/448 bez neplatné paměti.
+Produkce beze změny, d779e0f4 D/R runtime ověřený hashem, nový host build netvrzen.
+GUI blokace po dostupné ploše odstraněna; oba privátní runtime ini obnoveny.
+LongPathsEnabled0, ChangeDir odložený/NOT_VERIFIED, jeho WIP nedotčený.
+Viz [S31b5b3e3](steps/S31b5b3e3.md). Navazuje uzavírací audit S31b5 a přesné
+zbylé G04/G05 hranice; celá S31 neuzavřena, S32 BLOCKED, bez push/PR/CI.
+
 ## S31b5b3e2 — odpojený zdroj, neaktivní Branch cíl a modal switch (2026-10-26)
 
 GUI Debug Windows Dark Mode scheme a Release light PASS: z odpojené zdrojové

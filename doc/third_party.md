@@ -616,3 +616,13 @@ Validation of existing detached operation target selection and FilesAction from
 Contributors, GPL-2.0-or-later. Local owned snapshot protections remain unchanged.
 Debug/Release GUI verifies explicit inactive Branch destinations and refusal
 after a visible target switch during Move. No new third-party code imported.
+
+### S31b5b3e3 closed and detached target lifecycle validation
+
+Existing FilesAction and detached target selection from
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), pinned
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin
+Contributors, GPL-2.0-or-later. Production unchanged; local fixture getter counters
+verify no access after registry removal. Debug/Release GUI covers refused Copy
+after target close and Copy/Move into a detached Branch target. Notices preserved;
+no new third-party code imported.

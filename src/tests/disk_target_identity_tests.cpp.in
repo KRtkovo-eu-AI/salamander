@@ -18,12 +18,13 @@ struct CFilesWindow
     int Kind=ptDisk; ULONGLONG Tab=1, Generation=7;
     BOOL Branch=FALSE, Scanning=FALSE;
     std::wstring Root=L"C:\\target";
-    BOOL Is(int kind) const {return Kind==kind;}
-    BOOL IsBranchView() const {return Branch;}
-    BOOL IsBranchViewScanning() const {return Scanning;}
-    ULONGLONG GetPanelTabId() const {return Tab;}
-    ULONGLONG GetBranchViewGeneration() const {return Generation;}
-    const wchar_t* GetPathW() const {return Root.c_str();}
+    mutable unsigned AccessorReads=0;
+    BOOL Is(int kind) const {++AccessorReads;return Kind==kind;}
+    BOOL IsBranchView() const {++AccessorReads;return Branch;}
+    BOOL IsBranchViewScanning() const {++AccessorReads;return Scanning;}
+    ULONGLONG GetPanelTabId() const {++AccessorReads;return Tab;}
+    ULONGLONG GetBranchViewGeneration() const {++AccessorReads;return Generation;}
+    const wchar_t* GetPathW() const {++AccessorReads;return Root.c_str();}
 };
 struct CMainWindow
 {
@@ -110,7 +111,14 @@ int main()
     target.Root=L"C:\\target";Check(snapshot.Capture(&main,&target),"baseline target captured");
     target.Tab++;Check(!snapshot.IsCurrent(&main),"same address with replacement tab ID refused");target.Tab--;
     main.RightPanel=&replacement;Check(!snapshot.IsCurrent(&main),"visible target switched while old tab remains live refused");main.RightPanel=&target;
-    main.Right={&replacement};Check(!snapshot.IsCurrent(&main),"closed target refused without dereferencing missing pointer");
+    main.Right={&replacement};
+    const unsigned closedAttachedReads=target.AccessorReads;
+    Check(!snapshot.IsCurrent(&main),"closed target refused without dereferencing missing pointer");
+    Check(target.AccessorReads==closedAttachedReads,"closed attached target is never accessed during validation");
+    CFilesActionDiskTarget rejectedClosedTarget;
+    Check(!rejectedClosedTarget.Capture(&main,&target),"closed attached target cannot be recaptured");
+    Check(target.AccessorReads==closedAttachedReads,"closed attached target is never accessed during capture");
+    Check(rejectedClosedTarget.Panel==nullptr,"refused closed attached capture retains no panel");
     main.Right={&target,&replacement};target.Kind=ptZIPArchive;Check(!snapshot.IsCurrent(&main),"changed target panel type refused");target.Kind=ptDisk;
     target.Branch=TRUE;Check(!snapshot.IsCurrent(&main),"ordinary target replaced by Branch refused");
     Check(snapshot.Capture(&main,&target)&&snapshot.IsCurrent(&main),"Branch identity can be prepared without granting admission");
@@ -121,7 +129,13 @@ int main()
     main.Right={&replacement};main.Detached={&target};
     Check(snapshot.IsCurrent(&main),"owned inactive target identity remains valid when detached");
     Check(snapshot.Capture(&main,&target)&&snapshot.IsCurrent(&main),"detached registry target can be captured");
-    main.Detached.clear();Check(!snapshot.IsCurrent(&main),"closed detached target refused");
+    main.Detached.clear();
+    const unsigned closedDetachedReads=target.AccessorReads;
+    Check(!snapshot.IsCurrent(&main),"closed detached target refused");
+    Check(target.AccessorReads==closedDetachedReads,"closed detached target is never accessed during validation");
+    Check(!rejectedClosedTarget.Capture(&main,&target),"closed detached target cannot be recaptured");
+    Check(target.AccessorReads==closedDetachedReads,"closed detached target is never accessed during capture");
+    Check(rejectedClosedTarget.Panel==nullptr,"refused closed detached capture retains no panel");
     Check(!snapshot.Capture(&main,reinterpret_cast<CFilesWindow*>(1)),"unregistered invalid address never dereferenced");
     main.Right={&target,&replacement};main.RightPanel=&target;
     target.Root=L"";Check(!snapshot.Capture(&main,&target),"empty root refused");
