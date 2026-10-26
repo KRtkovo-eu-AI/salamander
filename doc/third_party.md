@@ -695,3 +695,13 @@ and Samandarin Contributors. Existing host/plugin GPL notices and bundled7-Zip
 SDK notices/licenses by Igor Pavlov are preserved. An external diagnostic probe
 uses actual Windows SDK conversion functions with explicit storage facades;
 no new third-party production code, SDK change or Branch admission in this audit.
+
+### S31b6b3b bounded ZIP Branch destination integration
+
+Internal adaptation of archive-panel F5 from
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), pinned
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, by Open Salamander Authors, Milan Kase
+and Samandarin Contributors (GPL-2.0-or-later). Exact listing-owner and private
+metadata qualification constrains the verified bundled ZIP destination path;
+original backend/SDK notices remain unchanged. No new third-party dependency
+or7-Zip vendor conversion change is introduced in this checkpoint.

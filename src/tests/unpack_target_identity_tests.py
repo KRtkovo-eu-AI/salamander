@@ -20,7 +20,14 @@ def controller_contract():
  assert 'ReadUnpackDiskDestination(diskTarget.Root.c_str()' in c
  assert 'watchDiskTarget ? &diskTarget : NULL' in c[backend:post]
  assert 'else if (!unpacked)' in c[clear:]
- assert 'if (IsBranchView() || target != NULL && target->IsBranchView()) return;' in c
+ assert 'PackGetVerifiedBranchUnpacker(this, GetZIPArchive(), PluginData.GetInterface()) == NULL' in c
+ assert '(deleteOp || !target->Is(ptDisk) ||' in c
+ reject=c.index('if (watchDiskTarget && diskTarget.Branch && !useDefaultDiskTarget)')
+ assert classify<reject<normalize<parse
+ assert 'IDS_PATHISINVALID' in c[reject:normalize]
+ validate=c[c.index('auto validateDiskTarget'):update]
+ assert 'diskTarget.IsCurrent(MainWindow)' in validate
+ assert 'PackGetVerifiedBranchUnpacker(this, GetZIPArchive(), PluginData.GetInterface()) != NULL' in validate
  assert '#define PATH_TYPE_WINDOWS 1 ' in read('src/plugins/shared/spl_gen.h')
  print('Archive directory target controller placement PASS',flush=True)
 

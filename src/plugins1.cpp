@@ -3876,7 +3876,10 @@ BOOL CPluginData::UnpackArchive(CFilesWindow* panel, const char* archiveFileName
     if (InitDLL(MainWindow->HWindow))
     {
         // InitDLL may dispatch callbacks; check the live registry again before plugin I/O.
-        if (diskTarget != NULL && !diskTarget->IsCurrent(MainWindow))
+        if (diskTarget != NULL && (!diskTarget->IsCurrent(MainWindow) ||
+            diskTarget->Branch && (!diskTarget->DirectoryDefault || targetDir == NULL ||
+                strcmp(targetDir, diskTarget->DefaultPath.c_str()) != 0 ||
+                PackGetVerifiedBranchUnpacker(panel, archiveFileName, pluginData) != this)))
         {
             SetLastError(ERROR_RETRY);
             return FALSE;

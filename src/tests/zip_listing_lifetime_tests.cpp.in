@@ -188,7 +188,7 @@ static void Scenario(const char* label, std::vector<Entry> entries, int expected
 }
 namespace Dispatch
 {
-struct CFilesActionDiskTarget;
+struct CFilesActionDiskTarget { BOOL Branch=TRUE, DirectoryDefault=TRUE; std::string DefaultPath="target"; };
 using SalEnumSelection = void*;
 enum { ptZIPArchive=1, IDS_PACKERR_ARCNAME_UNSUP=1 };
 struct CPluginData;
@@ -215,6 +215,7 @@ static int StrICmp(const char* a, const char* b) { return _stricmp(a,b); }
 struct CPluginData
 {
     BOOL SupportPanelView=TRUE;
+    const char* DLLName="zip\\zip.spl";
     int calls=0;
     BOOL UnpackArchive(CFilesWindow*, const char*, CPluginDataInterfaceAbstract* data,
                        const char* target, const char* root, SalEnumSelection next, void* param,
@@ -258,6 +259,7 @@ static BOOL PackUniversalUncompress(HWND,const char*,int,const char*,BOOL,CFiles
 @@PACK_OWNER_LOOKUP@@
 #define CALL_STACK_MESSAGE4(...) ((void)0)
 @@PACK_UNCOMPRESS_DECL@@
+@@BRANCH_POLICY@@
 @@PACK_UNCOMPRESS@@
 static void Test()
 {
@@ -297,6 +299,38 @@ static void Test()
     Check(invoke("other.external",nullptr,nullptr) && ExternalCalls==1,
           "off-panel external dispatch remains available");
 }
+static void BranchTest()
+{
+ CPluginData zip,seven;seven.DLLName="7zip\\7zip.spl";
+ CPluginDataInterfaceAbstract zipData{&zip},sevenData{&seven};CFilesWindow panel;
+ panel.owner=&zip;panel.PluginData.Interface=&zipData;Plugins.plugins[0]=&zip;Plugins.plugins[1]=&seven;
+ CFilesActionDiskTarget destination;PackerFormatConfig.format=1;PackerFormatConfig.unpacker=-2;
+ auto invoke=[&](CPluginDataInterfaceAbstract* data,const char* archive,const char* target)->BOOL{
+  void* context=&panel;return PackUncompress(nullptr,&panel,archive,data,target,"root",context,context,&destination);
+ };
+ Check(PackGetVerifiedBranchUnpacker(&panel,panel.archive,&zipData)==&zip,"actual ZIP listing owner qualifies independently of configured handler");
+ Check(invoke(&zipData,panel.archive,"target")&&zip.calls==1&&seven.calls==0,"qualified Branch dispatch uses ZIP owner not foreign association");
+ const int externalBefore=ExternalCalls;PackerFormatConfig.unpacker=0;
+ Check(invoke(&zipData,panel.archive,"target")&&zip.calls==2&&ExternalCalls==externalBefore,"external association cannot replace qualified ZIP listing owner");
+ const int zipBefore=zip.calls;
+ Check(!invoke(nullptr,panel.archive,"target"),"Branch null metadata never falls back to configured handler");
+ Check(!invoke(&sevenData,panel.archive,"target"),"Branch foreign metadata never reaches a different backend");
+ Check(!invoke(&zipData,"different.zip","target"),"Branch different archive cannot reuse owner qualification");
+ Check(!invoke(&zipData,panel.archive,"manual"),"Branch output cannot redirect to a manual root");
+ Check(!invoke(&zipData,panel.archive,nullptr),"Branch null target path refused before string access");
+ destination.DirectoryDefault=FALSE;Check(!invoke(&zipData,panel.archive,"target"),"Branch unpack cannot use Copy/Move mask snapshot");destination.DirectoryDefault=TRUE;
+ zip.SupportPanelView=FALSE;Check(!invoke(&zipData,panel.archive,"target"),"unsupported ZIP owner refused");zip.SupportPanelView=TRUE;
+ zip.DLLName=nullptr;Check(!invoke(&zipData,panel.archive,"target"),"owner without DLL qualification refused");
+ zip.DLLName="other\\zip.spl";Check(!invoke(&zipData,panel.archive,"target"),"same DLL basename in different plugin location not qualified");
+ zip.DLLName="7zip\\7zip.spl";Check(!invoke(&zipData,panel.archive,"target"),"7-Zip remains deferred despite valid metadata binding");
+ zip.DLLName="zip\\zip.spl";panel.owner=nullptr;Check(!invoke(&zipData,panel.archive,"target"),"missing owner cannot use ZIP association");panel.owner=&zip;
+ panel.archivePanel=false;Check(!invoke(&zipData,panel.archive,"target"),"non-archive panel cannot qualify ZIP private metadata");panel.archivePanel=true;
+ Check(zip.calls==zipBefore&&seven.calls==0&&ExternalCalls==externalBefore,"all refused Branch variants perform zero plugin or external dispatch");
+ Check(PackGetVerifiedBranchUnpacker(nullptr,panel.archive,&zipData)==nullptr,"missing source panel qualification refused");
+ Check(PackGetVerifiedBranchUnpacker(&panel,nullptr,&zipData)==nullptr,"missing archive path qualification refused");
+ zip.DLLName="ZIP\\ZIP.SPL";Check(PackGetVerifiedBranchUnpacker(&panel,panel.archive,&zipData)==&zip,"bundled ZIP location classification is Windows case insensitive");
+}
+
 }
 int main()
 {
@@ -316,6 +350,7 @@ int main()
     Scenario("long rejected path then valid entry",{{std::string(270,'a')+"\\file.bin"},{"next.bin"}},IDS_ERRADDFILE_TOOLONG,0);
     Scenario("invalid oversized leaf",{{std::string(512,'a')}},IDS_ERRADDFILE);
     Dispatch::Test();
+    Dispatch::BranchTest();
     std::printf("ZIP listing lifetime: %d checks, %d failures\n",Checks,Failures);
     return Failures ? 1 : 0;
 }

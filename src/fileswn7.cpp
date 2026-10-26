@@ -817,7 +817,9 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
         SalMessageBox(HWindow, GetErrorText(ERROR_RETRY), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
         return;
     }
-    if (IsBranchView() || target != NULL && target->IsBranchView()) return; // S26 read-only direct boundary.
+    if (IsBranchView() || target != NULL && target->IsBranchView() &&
+        (deleteOp || !target->Is(ptDisk) ||
+         PackGetVerifiedBranchUnpacker(this, GetZIPArchive(), PluginData.GetInterface()) == NULL)) return; // Only the qualified ZIP listing can copy to a Branch root.
 
     if (changeTargetRequested != NULL)
         *changeTargetRequested = FALSE;
@@ -833,7 +835,8 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
         return;
     }
     const auto validateDiskTarget = [&]() {
-        if (!watchDiskTarget || diskTarget.IsCurrent(MainWindow)) return true;
+        if (!watchDiskTarget || (diskTarget.IsCurrent(MainWindow) &&
+            (!diskTarget.Branch || PackGetVerifiedBranchUnpacker(this, GetZIPArchive(), PluginData.GetInterface()) != NULL))) return true;
         SalMessageBox(HWindow, GetErrorText(ERROR_RETRY), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
         return false;
     };
@@ -1065,6 +1068,13 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
             UpdateWindow(MainWindow->HWindow);
             if (!validateDiskTarget())
             {
+                delete[] data.Indexes;
+                EndStopRefresh();
+                return;
+            }
+            if (watchDiskTarget && diskTarget.Branch && !useDefaultDiskTarget)
+            {
+                SalMessageBox(HWindow, LoadStr(IDS_PATHISINVALID), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
                 delete[] data.Indexes;
                 EndStopRefresh();
                 return;

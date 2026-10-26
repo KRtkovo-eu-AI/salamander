@@ -1445,8 +1445,7 @@ CPluginData* PackGetVerifiedBranchUnpacker(CFilesWindow* panel, const char* arch
         return NULL;
     CPluginData* owner = panel->GetPluginDataForPluginIface();
     return owner != NULL && owner->SupportPanelView && owner->DLLName != NULL &&
-           (_stricmp(owner->DLLName, "zip\\zip.spl") == 0 ||
-            _stricmp(owner->DLLName, "7zip\\7zip.spl") == 0) ? owner : NULL;
+           _stricmp(owner->DLLName, "zip\\zip.spl") == 0 ? owner : NULL;
 }
 
 
@@ -1459,6 +1458,11 @@ BOOL PackUncompress(HWND parent, CFilesWindow* panel, const char* archiveFileNam
     if (validateSource != NULL && !validateSource(sourceContext))
     { SetLastError(ERROR_RETRY); return FALSE; }
     CALL_STACK_MESSAGE4("PackUncompress(, , %s, , %s, %s, ,)", archiveFileName, targetDir, archiveRoot);
+    if (diskTarget != NULL && diskTarget->Branch &&
+        (!diskTarget->DirectoryDefault || targetDir == NULL ||
+         strcmp(targetDir, diskTarget->DefaultPath.c_str()) != 0 ||
+         PackGetVerifiedBranchUnpacker(panel, archiveFileName, pluginData) == NULL))
+        return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_ARCNAME_UNSUP);
     // The listing's private interface and per-entry data belong to its plugin.
     // Configuration may change after the archive was opened (including during
     // startup); never pass that listing to a newly configured unpacker.

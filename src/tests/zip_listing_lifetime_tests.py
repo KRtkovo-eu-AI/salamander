@@ -31,6 +31,8 @@ def main():
     pack_header = native.read('src/pack.h', args.source_ref)
     declaration_start = pack_header.index('BOOL PackUncompress(')
     pieces['PACK_UNCOMPRESS_DECL'] = pack_header[declaration_start:pack_header.index(';', declaration_start)+1]
+    dispatch_source = native.read('src/pack1.cpp', args.source_ref)
+    pieces['BRANCH_POLICY'] = native.block(dispatch_source, 'CPluginData* PackGetVerifiedBranchUnpacker(') if 'CPluginData* PackGetVerifiedBranchUnpacker(' in dispatch_source else ''
     # Compile the real field-copy boundary which deliberately ignores the SDK
     # extension when a legacy binary plugin passes a shorter CFileData layout.
     for kind in ('File', 'Dir'):

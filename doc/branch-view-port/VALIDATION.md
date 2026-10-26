@@ -1,5 +1,18 @@
 # Validace portu a baseline S00
 
+## S31b6b3b — ověřené ZIP F5 do kořene Branch View (2026-10-26)
+
+Uzavřený ZIP-only checkpoint: skutečný archive listing owner + private metadata
++ archiv musí kvalifikovat bundled ZIP, nezávisle na asociaci. Controller před
+modalem i po něm, dispatcher a post-InitDLL kontrola chrání přesný diskový Branch
+root; ruční jiný/virtuální cíl se odmítne před ParsePath. Unknown/7-Zip/external,
+Branch source, archive delete a virtuální target se tímto nezpřístupňují.
+[Implementace a ověření](steps/S31b6b3b.md): native D/R, host D/R, actual ZIP GUI
+D/R s vybranými podadresáři, Unicode a kořeny265/267 UTF16; exact readback,
+Cancel, manual rejection i missing-root ERROR_RETRY PASS. LongPathsEnabled=0.
+S31b6b3/G04/G05/S31 OPEN; další S31b6b3c samostatný7-Zip output adapter.
+ChangeDir/long-source GUI odložené, žádný push/PR/S32 ani nový CodeQL/clean matrix.
+
 ## S31b6b3a — kvalifikace archivních backendů (2026-10-26)
 
 Audit rozlišil association-first PackGetPluginForArchiveFile od skutečného

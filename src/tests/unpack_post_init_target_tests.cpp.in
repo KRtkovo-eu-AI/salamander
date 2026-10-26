@@ -14,8 +14,14 @@
 enum CPanelSide {cpsLeft,cpsRight};
 enum {ptDisk,ptZIPArchive,ptPluginFS};
 #define PATH_TYPE_WINDOWS 1 // unchanged public spl_gen.h value; checked by generator
+struct CPluginData;
+struct CPluginDataInterfaceAbstract;
+struct Binding { const CPluginDataInterfaceAbstract* Interface=nullptr; BOOL Contains(const CPluginDataInterfaceAbstract* p) const {return p!=nullptr&&p==Interface;} };
 struct CFilesWindow
 {
+    Binding PluginData; CPluginData* Owner=nullptr; const char* Archive="source.zip";
+    CPluginData* GetPluginDataForPluginIface() {return Owner;}
+    const char* GetZIPArchive() const {return Archive;}
     int Kind=ptDisk; ULONGLONG Tab=1, Generation=7;
     BOOL Branch=FALSE, Scanning=FALSE;
     std::wstring Root=L"C:\\target";
@@ -55,11 +61,14 @@ struct ArchiverFacade {
  }
 };
 struct CPluginData {
+ BOOL SupportPanelView=TRUE;const char* DLLName="zip\\zip.spl";
  BOOL LoadOK=TRUE;int InitCalls=0;std::function<void()> DuringInit;
  ArchiverFacade PluginIfaceForArchiver;
  BOOL InitDLL(HWND){++InitCalls;if(DuringInit)DuringInit();return LoadOK;}
  @@DECL@@
 };
+static int StrICmp(const char* a,const char* b) {return _stricmp(a,b);}
+@@POLICY@@
 #define CALL_STACK_MESSAGE6(...) ((void)0)
 @@WRAPPER@@
 int main(){
@@ -107,5 +116,26 @@ int main(){
  CPluginData failed;failed.PluginIfaceForArchiver.Result=FALSE;SetLastError(ERROR_ACCESS_DENIED);
  Check(!failed.UnpackArchive(&source,"source.zip",&metadata,"destination","inside",&context,&context,&valid)&&failed.PluginIfaceForArchiver.Calls==1,"backend failure is retained after valid guard");
  Check(GetLastError()==ERROR_ACCESS_DENIED,"backend error not replaced with retry");
+
+ // Actual Branch policy is checked again after initialization and bound to this plugin object.
+ for(int scenario=0;scenario<=8;++scenario){
+  CPluginData plugin,replacementOwner;OperationContexts=0;source.Kind=ptZIPArchive;source.Owner=&plugin;source.Archive="source.zip";source.PluginData.Interface=&metadata;
+  target.Root=L"destination";target.Branch=TRUE;target.Scanning=FALSE;target.Kind=ptDisk;target.Tab=1;
+  main.Right={&target};main.RightPanel=&target;main.Detached.clear();CFilesActionDiskTarget snapshot;
+  Check(snapshot.Capture(&main,&target,TRUE),"capture actual directory-mode Branch identity before InitDLL");
+  plugin.DuringInit=[&]{switch(scenario){
+   case 1:source.Owner=&replacementOwner;break;
+   case 2:source.PluginData.Interface=nullptr;break;
+   case 3:source.Archive="different.zip";break;
+   case 4:plugin.DLLName="7zip\\7zip.spl";break;
+   case 5:plugin.SupportPanelView=FALSE;break;
+   case 6:source.Kind=ptDisk;break;
+   case 7:snapshot.DefaultPath="changed";break;
+   case 8:snapshot.DirectoryDefault=FALSE;break;
+  }};
+  SetLastError(ERROR_SUCCESS);BOOL result=plugin.UnpackArchive(&source,"source.zip",&metadata,"destination","inside",&context,&context,&snapshot);
+  if(scenario==0)Check(result&&plugin.PluginIfaceForArchiver.Calls==1&&OperationContexts==1,"valid bound ZIP Branch target dispatches after initialization");
+  else{Check(!result&&plugin.PluginIfaceForArchiver.Calls==0&&OperationContexts==0,"post-init owner, metadata or directory binding change never reaches plugin I/O");Check(GetLastError()==ERROR_RETRY,"post-init Branch qualification failure preserves retry refusal");}
+ }
  printf("Actual unpack post-init target: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
 }

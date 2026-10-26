@@ -1,5 +1,35 @@
 # Plán postupného portu PR #769
 
+## S31b6b3b — ověřené ZIP F5 do kořene Branch View (2026-10-26)
+
+Uzavřený ZIP-only checkpoint: skutečný archive listing owner + private metadata
++ archiv musí kvalifikovat bundled ZIP, nezávisle na asociaci. Controller před
+modalem i po něm, dispatcher a post-InitDLL kontrola chrání přesný diskový Branch
+root; ruční jiný/virtuální cíl se odmítne před ParsePath. Unknown/7-Zip/external,
+Branch source, archive delete a virtuální target se tímto nezpřístupňují.
+[Implementace a ověření](steps/S31b6b3b.md): native D/R, host D/R, actual ZIP GUI
+D/R s vybranými podadresáři, Unicode a kořeny265/267 UTF16; exact readback,
+Cancel, manual rejection i missing-root ERROR_RETRY PASS. LongPathsEnabled=0.
+S31b6b3/G04/G05/S31 OPEN; další S31b6b3c samostatný7-Zip output adapter.
+ChangeDir/long-source GUI odložené, žádný push/PR/S32 ani nový CodeQL/clean matrix.
+
+## S31b6b3b — přesná akceptace ZIP-only Branch root F5
+
+Zavést interní PackGetVerifiedBranchUnpacker pro exact archive/metadata/listing
+owner vazbu a bundled ZIP DLL klasifikaci bez InitDLL; nepoužít association lookup.
+Controller připustí pouze copy z archive listingu do diskového Branch rootu,
+nikoli archive delete/source Branch/7-Zip/unknown/FS/external. Zachovat captured
+identity; Branch implicitní cíl musí zůstat existujícím přesným rootem bez masky,
+manual jiný root či virtuální path se výslovně odmítne. Ordinary manual cíle beze
+změny. Recheck owner v controlleru i dispatch a po InitDLL proti skutečnému this;
+neplatná metadata/owner/path => žádný plugin callback, žádný foreign fallback.
+Žádné nové SDK ani globální encoding defaults. Původní native assertions zachovat,
+doplnit actual policy/dispatcher a post-init negativní owner/path scénáře D/R;
+regrese448/240/64/ZIP target85 a listing151D/138R (plus nové assertions), host D/R.
+Actual ZIP GUI D/R Branch root: vybrané directories s duplicate basenames,
+Unicode, dlouhý target root, bystander sentinel, Cancel a modal stale target.
+Readback musí porovnat celý očekávaný strom a zdroje, nový commit jen po ověření.
+
 ## S31b6b3a — kvalifikace archivních backendů (2026-10-26)
 
 Audit rozlišil association-first PackGetPluginForArchiveFile od skutečného
