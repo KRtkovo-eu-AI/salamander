@@ -1,5 +1,16 @@
 # Plán postupného portu PR #769
 
+## S31b6a — audit archivního cílového resolveru (2026-10-26)
+
+F5 z otevřeného archivu a Alt+F9 diskového archivu jsou odlišné pipeline.
+Donor UnpackZIPArchive má stejné krátké destination mezivrstvy; odstranění
+Branch guardu nestačí. Audit doložil pět konkrétních mezer/vazeb a registrace
+existujících testů, bez nového native/build/GUI běhu. S31b4c1 ZIP long-target
+oprava zůstává platná; long-source GUI/ChangeDir nadále odložené.
+Další S31b6b1 opraví diskovou destination větev UnpackZIPArchive při zachování
+Branch guardů; potom lifecycle a selektivní admission. Podrobnosti a akceptace
+v [S31b6a](steps/S31b6a.md). G04/G05 OPEN, S31 nedokončená, bez push/PR/S32.
+
 ## S31b5c — uzavírací audit resolveru (2026-10-26)
 
 D01 uzavřen pro ověřené diskové Copy/Move do jediného Branch cíle; D02/D03

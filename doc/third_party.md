@@ -635,3 +635,12 @@ Audit of FilesAction, ParsePath and exact Branch drop root contracts against
 Contributors, GPL-2.0-or-later. Existing local adaptations and their exact
 validation bindings reviewed; notices preserved. No new production or third-party
 code imported. Archive controllers and deferred GUI limits remain explicit.
+
+### S31b6a archive destination audit
+
+Compared archive-panel extraction, direct disk unpacking and packing with
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), pinned
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413. Open Salamander Authors and Samandarin
+Contributors, GPL-2.0-or-later; existing notices preserved. The donor shares the
+short archive-panel destination intermediates; documented local integration
+prerequisites without importing code or enabling unverified operations.
