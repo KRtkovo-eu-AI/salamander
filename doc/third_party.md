@@ -644,3 +644,14 @@ Compared archive-panel extraction, direct disk unpacking and packing with
 Contributors, GPL-2.0-or-later; existing notices preserved. The donor shares the
 short archive-panel destination intermediates; documented local integration
 prerequisites without importing code or enabling unverified operations.
+
+### S31b6b1 archive-panel disk destination adaptation
+
+Local integration repair of UnpackZIPArchive on
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), pinned
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413. Open Salamander Authors and Samandarin
+Contributors, GPL-2.0-or-later. The donor shares short destination intermediates;
+owned capacity-aware storage, exact path helpers and unsigned UTF8 component
+validation address the documented gap. Existing wide create/cleanup helpers
+reused, all notices preserved. Native and real ZIP F5 GUI evidence recorded;
+Branch destination admission remains guarded.

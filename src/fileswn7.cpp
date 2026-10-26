@@ -958,13 +958,7 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
         //---  obtain the target directory
         if (!validateDiskTarget())
         {
-            delete[] data.Indexes;
-            EndStopRefresh();
-            return;
-        }
-        if (watchDiskTarget)
-        {
-            if (!ReadUnpackDiskDestination(diskTarget.Root.c_str(), path, pathBuffer.Capacity()))
+            if (!ReadUnpackDiskDestination(target->GetPathW(), path, pathBuffer.Capacity()))
             {
                 SalMessageBox(HWindow, LoadStr(IDS_TOOLONGPATH), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
                 delete[] data.Indexes;
@@ -1051,13 +1045,6 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
         }
         if (dialogResult == IDOK)
         {
-            if (!validateDiskTarget())
-            {
-                delete[] data.Indexes;
-                EndStopRefresh();
-                return;
-            }
-
             if (tgtPath != NULL && !CopyUnpackDestination(tgtPath, path, pathBuffer.Capacity()))
             {
                 SalMessageBox(HWindow, LoadStr(IDS_TOOLONGPATH), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
@@ -1065,8 +1052,6 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                 EndStopRefresh();
                 return;
             }
-            const bool useDefaultDiskTarget = watchDiskTarget && tgtPath == NULL &&
-                                              diskTarget.HasDefaultText(path, pathBuffer.Capacity());
             UpdateWindow(MainWindow->HWindow);
             if (!validateDiskTarget())
             {
@@ -1101,8 +1086,7 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
             char* secondPart;
             CPathBuffer textBuffer(2 * SAL_MAX_PATH + 200);
             char* textBuf = textBuffer.Data();
-            const BOOL parsed = ParsePath(path, pathType, pathIsDir, secondPart, LoadStr(IDS_ERRORCOPY), NULL, NULL, pathBuffer.Capacity());
-            if (!validateDiskTarget())
+            if (ParsePath(path, pathType, pathIsDir, secondPart, LoadStr(IDS_ERRORCOPY), NULL, NULL, pathBuffer.Capacity()))
             {
                 delete[] data.Indexes;
                 EndStopRefresh();
@@ -1149,14 +1133,7 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                             if (Configuration.CnfrmCreatePath) // ask whether the path should be created
                             {
                                 BOOL dontShow = FALSE;
-                                if (!Salamander::LocalizedText::Write(textBuf, static_cast<size_t>(textBuffer.Capacity()), LoadStr(IDS_MOVECOPY_CREATEPATH), newDirs))
-                                {
-                                    // Never present a malformed/truncated target confirmation.
-                                    SalMessageBox(HWindow, GetErrorText(ERROR_INVALID_DATA), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
-                                    delete[] data.Indexes;
-                                    EndStopRefresh();
-                                    return;
-                                }
+                                sprintf_s(textBuf, textBuffer.Capacity(), LoadStr(IDS_MOVECOPY_CREATEPATH), newDirs);
 
                                 MSGBOXEX_PARAMS params;
                                 memset(&params, 0, sizeof(params));
@@ -1197,18 +1174,6 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                             char* firstSlash = NULL;
                             while (1)
                             {
-                                if (!validateDiskTarget())
-                                {
-                                    if (createdAny)
-                                    {
-                                        if (firstSlash != NULL) *firstSlash = 0;
-                                        RemoveEmptyUnpackDirectoriesW(SalMultiByteToWidePath(newDirs, IsValidPathUtf8Text(newDirs) ? CP_UTF8 : CP_ACP));
-                                        MainWindow->PostChangeOnPathNotification(changesRoot, TRUE);
-                                    }
-                                    delete[] data.Indexes;
-                                    EndStopRefresh();
-                                    return;
-                                }
                                 char* slash = strchr(st, '\\');
                                 const size_t componentLength = slash != NULL ? (size_t)(slash - st) : strlen(st);
                                 const BOOL invalidPath = IsUnpackDirectoryComponentInvalid(st, componentLength);
@@ -1221,8 +1186,8 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                                 std::wstring newDirsW = SalMultiByteToWidePath(newDirs, IsValidPathUtf8Text(newDirs) ? CP_UTF8 : CP_ACP);
                                 if (invalidPath || (newDirsW.empty() || !SalCreateDirectoryExW(newDirsW.c_str(), NULL)))
                                 {
-                                    const bool haveMessage = Salamander::LocalizedText::Write(textBuf, static_cast<size_t>(textBuffer.Capacity()), LoadStr(IDS_CREATEDIRFAILED), newDirs);
-                                    SalMessageBox(HWindow, haveMessage ? textBuf : GetErrorText(ERROR_INVALID_DATA), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+                                    sprintf_s(textBuf, textBuffer.Capacity(), LoadStr(IDS_CREATEDIRFAILED), newDirs);
+                                    SalMessageBox(HWindow, textBuf, LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
                                     ok = FALSE;
                                     break;
                                 }
@@ -2810,44 +2775,6 @@ static BOOL PrepareUnpackArchiveSource(CFilesWindow* panel, const CFileData& fil
     return TRUE;
 }
 
-// Best-effort cleanup of the exact newly-created tree: never delete files or follow reparse directories.
-static void RemoveEmptyUnpackDirectoriesW(const std::wstring& root)
-{
-    if (root.empty()) return;
-    std::vector<std::wstring> directories(1, root);
-    for (size_t index = 0; index < directories.size(); ++index)
-    {
-        const std::wstring directory = directories[index];
-        const std::wstring ioPath = SalPathAddExtendedPrefixW(directory.c_str());
-        const DWORD attributes = GetFileAttributesW(ioPath.c_str());
-        if (attributes == INVALID_FILE_ATTRIBUTES || !(attributes & FILE_ATTRIBUTE_DIRECTORY) ||
-            (attributes & FILE_ATTRIBUTE_REPARSE_POINT)) continue;
-        std::wstring mask = directory;
-        SalPathAppendW(mask, L"*");
-        WIN32_FIND_DATAW data;
-        const std::wstring ioMask = SalPathAddExtendedPrefixW(mask.c_str());
-        HANDLE find = HANDLES_Q(FindFirstFileW(ioMask.c_str(), &data));
-        if (find == INVALID_HANDLE_VALUE) continue;
-        do
-        {
-            if (!(data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ||
-                (data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) ||
-                wcscmp(data.cFileName, L".") == 0 || wcscmp(data.cFileName, L"..") == 0) continue;
-            std::wstring child = directory;
-            SalPathAppendW(child, data.cFileName);
-            directories.push_back(child);
-        } while (FindNextFileW(find, &data));
-        HANDLES(FindClose(find));
-    }
-    for (size_t index = directories.size(); index > 0; --index)
-    {
-        const std::wstring ioPath = SalPathAddExtendedPrefixW(directories[index - 1].c_str());
-        const DWORD attributes = GetFileAttributesW(ioPath.c_str());
-        if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) &&
-            !(attributes & FILE_ATTRIBUTE_REPARSE_POINT))
-            RemoveDirectoryW(ioPath.c_str()); // succeeds only for an empty ordinary directory
-    }
-}
 
 void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* pluginName, const char* unpackMask)
 {

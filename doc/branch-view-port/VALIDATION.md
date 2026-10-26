@@ -1,5 +1,17 @@
 # Validace portu a baseline S00
 
+## S31b6b1 — úplný diskový cíl archivní extrakce (2026-10-26)
+
+UnpackZIPArchive má owned destination/prefix/create storage, skutečné kapacity,
+lossless default a explicitní copy, wide create/cleanup. Unicode component
+kontroly rozlišují UTF8 bajty od ASCII controls; původní ASCII zákazy zachované.
+Nový native64/config a šest existujících native fixtures D/R PASS, host a ZIP
+x64 Debug/Release build PASS. F5 GUI D/R existující ASCII/Unicode/byte-long/
+long cíle, Cancel a finální new long Unicode create/file-target refusal PASS
+s přesným readbackem a sentinels. Vazby starších GUI a finálních binárek jsou
+výslovně oddělené v [S31b6b1](steps/S31b6b1.md). Branch guardy zůstávají;
+S31b6b2 doplní target lifecycle. ChangeDir odložené, G04/G05 OPEN, bez push/S32.
+
 ## S31b6a — audit archivního cílového resolveru (2026-10-26)
 
 F5 z otevřeného archivu a Alt+F9 diskového archivu jsou odlišné pipeline.
