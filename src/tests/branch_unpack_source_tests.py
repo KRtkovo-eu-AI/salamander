@@ -14,9 +14,10 @@ def main():
     assert 'ExecuteUnpacker(MainWindow->HWindow, this, archiveSource.c_str(), mask,' in controller
     after=controller[controller.index('CUnpackDialog('):]
     assert 'file->' not in after and 'sprintf(subject + l' not in after
+    assert 'sourceErrorTextID, &sourceDirectory)' in controller and 'sourceDirectoryW = GetPathW()' not in controller
     text=read('src/tests/branch_unpack_source_tests.cpp.in')
     text=text.replace('@@ACTUAL@@',block(source,'static BOOL PrepareUnpackArchiveSource('))
-    text=text.replace('@@CONVERSIONS@@','\n'.join(block(wide,m) for m in ('BOOL SalIsExtendedLengthPathW(', 'std::wstring SalPathAddExtendedPrefixW(', 'std::wstring SalMultiByteToWidePath(', 'std::string SalWideToMultiBytePath(')))
+    text=text.replace('@@CONVERSIONS@@','\n'.join(block(wide,m) for m in ('BOOL SalIsExtendedLengthPathW(', 'std::wstring SalPathAddExtendedPrefixW(', 'std::wstring SalMultiByteToWidePath(', 'std::string SalWideToMultiBytePath(', 'const wchar_t* SalPathFindFileNameW(')))
     assert '@@' not in text
     env=compiler_environment();cl=shutil.which('cl',path=env.get('PATH'))
     with tempfile.TemporaryDirectory(prefix='branch-unpack-source-') as temp:

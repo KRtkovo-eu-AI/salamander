@@ -744,3 +744,12 @@ pinned47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
 Actual direct-Unpack dispatch, source capture, bundled ZIP and7-Zip collection
 were compared to the donor. Igor Pavlov's bundled7-Zip SDK and existing license
 notices remain unchanged. This checkpoint imports or modifies no runtime code.
+
+### S31b6c2 exact archive source parent
+
+Adaptation of direct Unpack source capture using the unchanged wide filename
+helper from Open Salamander Authors, Milan Kase and Samandarin Contributors,
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), pinned
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later). The local capture
+adapter keeps source and parent identity together for relative targets. Existing
+notices, bundled ZIP source and public plugin SDK remain unchanged.

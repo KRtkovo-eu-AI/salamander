@@ -2782,9 +2782,10 @@ static BOOL PrepareUnpackArchiveSource(CFilesWindow* panel, const CFileData& fil
 
 // Capture the actual archive identity before modal callbacks; display names are not I/O paths.
 static BOOL PrepareUnpackArchiveSource(CFilesWindow* panel, const CFileData& file,
-                                       std::string& source, int& errorTextID)
+                                       std::string& source, int& errorTextID, std::string* sourceDirectory = NULL)
 {
     source.clear();
+    if (sourceDirectory != NULL) sourceDirectory->clear();
     errorTextID = IDS_PATHISINVALID;
     const std::wstring exact = panel->GetItemFullPathW(file);
     if (exact.empty()) return FALSE;
@@ -2795,6 +2796,17 @@ static BOOL PrepareUnpackArchiveSource(CFilesWindow* panel, const CFileData& fil
     {
         errorTextID = IDS_TOOLONGPATH; // Legacy archiver API byte capacity; never pass a shortened identity.
         return FALSE;
+    }
+    if (sourceDirectory != NULL)
+    {
+        // Keep the parent of this exact item, including its drive/share root separator.
+        const wchar_t* leaf = SalPathFindFileNameW(exact.c_str());
+        if (leaf == exact.c_str() || *leaf == 0) return FALSE;
+        const std::wstring parent(exact.c_str(), (size_t)(leaf - exact.c_str()));
+        std::string parentText = SalWideToMultiBytePath(parent.c_str(), CP_UTF8);
+        if (parentText.empty() || SalMultiByteToWidePath(parentText.c_str(), CP_UTF8) != parent)
+            return FALSE;
+        sourceDirectory->swap(parentText);
     }
     source.swap(encoded);
     return TRUE;
@@ -2839,19 +2851,11 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
         } refreshScope;
 
         CFileData* file = &Files->At(i - Dirs->Count);
-        std::string archiveSource;
+        std::string archiveSource, sourceDirectory;
         int sourceErrorTextID;
-        if (!PrepareUnpackArchiveSource(this, *file, archiveSource, sourceErrorTextID))
+        if (!PrepareUnpackArchiveSource(this, *file, archiveSource, sourceErrorTextID, &sourceDirectory))
         {
             SalMessageBox(HWindow, LoadStr(sourceErrorTextID), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
-            EndStopRefresh();
-            return;
-        }
-        const std::wstring sourceDirectoryW = GetPathW();
-        const std::string sourceDirectory = SalWideToMultiBytePath(sourceDirectoryW.c_str(), CP_UTF8);
-        if (sourceDirectoryW.empty() || SalMultiByteToWidePath(sourceDirectory.c_str(), CP_UTF8) != sourceDirectoryW)
-        {
-            SalMessageBox(HWindow, LoadStr(IDS_PATHISINVALID), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
             EndStopRefresh();
             return;
         }

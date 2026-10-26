@@ -62,7 +62,14 @@ int wmain(int argc,wchar_t** argv){
         const std::wstring capturedW=SalMultiByteToWidePath(captured.c_str(),CP_UTF8);
         Check(capturedW==file.Full,"complete Unicode exact source roundtrips");
         Check(Read(capturedW)==payload,"real read opens intended archive source, not root alias");
+        std::string pairedSource="stale",parent="stale";
+        Check(PrepareUnpackArchiveSource(&panel,file,pairedSource,error,&parent)!=FALSE,"capture parent and source in one preflight");
+        const auto expectedParent=fullPath.parent_path().wstring()+L"\\";
+        Check(pairedSource==captured&&SalMultiByteToWidePath(parent.c_str(),CP_UTF8)==expectedParent,"parent belongs to exact selected item, never panel root alias");
+        Check(Read(SalMultiByteToWidePath(parent.c_str(),CP_UTF8)+file.NameW)==payload,"captured parent plus unchanged basename reaches exact own file");
+        const auto ownedParent=parent;
         const auto owned=captured;file.Full=L"C:\\replacement\\same.zip";panel.Root=L"C:\\replacement";
+        Check(parent==ownedParent,"parent remains owned after panel/item replacement");
         Check(captured==owned&&Read(capturedW)==payload,"capture remains owned after panel/item replacement");
         panel.Root=root.wstring();
         for(const auto& sentinel:sentinels)Check(Read(sentinel)=="unselected-sentinel","root alias remains unchanged");
@@ -79,6 +86,24 @@ int wmain(int argc,wchar_t** argv){
     Check(!PrepareUnpackArchiveSource(&panel,file,captured,error)&&captured.empty()&&error==IDS_TOOLONGPATH,"legacy byte capacity refuses overflow without truncating source");
     file.Full=L"C:\\"+std::wstring(11000,L'東');
     Check(!PrepareUnpackArchiveSource(&panel,file,captured,error)&&captured.empty()&&error==IDS_TOOLONGPATH,"UTF8 byte overflow refused even below UTF16 long-path capacity");
+    struct ParentCase { const wchar_t* full;const wchar_t* parent; };
+    const ParentCase parents[]={
+        {L"C:\\same.zip",L"C:\\"},
+        {L"\\\\server\\share\\same.zip",L"\\\\server\\share\\"},
+        {L"\\\\?\\C:\\same.zip",L"\\\\?\\C:\\"},
+        {L"\\\\?\\UNC\\server\\share\\same.zip",L"\\\\?\\UNC\\server\\share\\"},
+        {L"C:\\one\\same.zip",L"C:\\one\\"},{L"C:\\two\\same.zip",L"C:\\two\\"}};
+    for(const auto& entry:parents){
+        file.Full=entry.full;std::string parent="stale";
+        Check(PrepareUnpackArchiveSource(&panel,file,captured,error,&parent)!=FALSE,"capture synthetic drive/share/extended exact context without I/O");
+        Check(SalMultiByteToWidePath(parent.c_str(),CP_UTF8)==entry.parent,"root separator and duplicate-basename parent preserved");
+    }
+    for(const std::wstring& bad:std::vector<std::wstring>{L"",L"same.zip",L"C:\\directory\\",L"C:\\"+std::wstring(SAL_MAX_PATH-3,L'a'),std::wstring(L"C:\\")+wchar_t(0xd800)+L".zip"}){
+        file.Full=bad;std::string parent="stale";captured="stale";
+        Check(!PrepareUnpackArchiveSource(&panel,file,captured,error,&parent)&&captured.empty()&&parent.empty(),"paired capture failure clears both outputs atomically");
+    }
+    file.Full=L"C:\\"+std::wstring(SAL_MAX_PATH-4,L'a');std::string boundaryParent;
+    Check(PrepareUnpackArchiveSource(&panel,file,captured,error,&boundaryParent)&&captured.size()==SAL_MAX_PATH-1&&boundaryParent=="C:\\","paired capture retains last-byte capacity contract");
     std::error_code ec;std::filesystem::remove_all(SalPathAddExtendedPrefixW(root.c_str()),ec);
     Check(!ec&&!std::filesystem::exists(root),"cleanup removes only the exact owned fixture root");
     printf("Actual unpack archive source: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;

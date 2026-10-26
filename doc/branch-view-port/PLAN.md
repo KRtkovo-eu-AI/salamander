@@ -1,5 +1,34 @@
 # Plán postupného portu PR #769
 
+## S31b6c2 — exact source-parent context (2026-10-26)
+
+Interní source helper zachytí owned archiv a parent ze stejné exact wide identity,
+s nezměněným donor SalPathFindFileNameW a zachovaným kořenovým separator. Controller
+už nepoužívá panelový GetPathW pro relativní target base. Původní assertions a
+controller od CPathBuffer dále beze změny; žádná Branch/SDK/backend/delete admission.
+[Implementace a důkazy](steps/S31b6c2.md): source native96/config, Unicode dialog38/
+config, operations20/transitions28; host x64 Debug32.79s/Release55.54s PASS.
+Actual ordinary AltF9 GUI D/R: default/alternate/subdir a Cancel, relativní Unicode
+výstup root260/262UTF16 (268/270UTF8), čtyři přesné file hashes + sentinels PASS.
+LongPathsEnabled=0; ZIP runtime nezměněn z ověřeného buildu. Další S31b6c3: oprava
+whole-archive7Zip collection podle c1. Source/target lifecycle a další admission
+zůstávají otevřené; S31/G04/G05 OPEN. ChangeDir/long-source GUI NOT_VERIFIED,
+původní WIP nedotčen. Bez push/PR/S32/nové clean matrix/CodeQL.
+
+## S31b6c2 — exact source-parent context (implementační akceptace)
+
+Rozšířit pouze interní PrepareUnpackArchiveSource o volitelný owned parent output;
+parent odvodit ze stejné exact wide identity existujícím donor helperem
+SalPathFindFileNameW, zachovat kořenové lomítko a exact UTF8 roundtrip. Při chybě
+oba výstupy prázdné, žádné root+basename odhady. Controller zachytí parent současně
+se source před dialogem, odstraní druhé čtení GetPathW pro relativní target base.
+Původní source-helper assertions zachovat, doplnit actual parent capture D/R,
+šest path shapes, duplicate basenames/owned state, drive/UNC/extended root a
+invalid/byte-capacity případy. Host D/R + ordinary AltF9 GUI D/R: default/alternate/
+subdir Cancel a explicit relative Unicode output, přesný strom/sentinels. Plugin
+runtime beze změny z ověřeného c2. Bez Branch admission, SDK, delete-volume změn,
+ChangeDir nebo long-source GUI claimu; lokální commit až po průchodu celé brány.
+
 ## S31b6c1 — audit přímého Unpack (2026-10-26)
 
 Uzavřený audit, produkce/testy beze změny. Source helper vlastní úplný text cesty,
