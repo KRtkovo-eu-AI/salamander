@@ -188,6 +188,7 @@ static void Scenario(const char* label, std::vector<Entry> entries, int expected
 }
 namespace Dispatch
 {
+struct CFilesActionDiskTarget;
 using SalEnumSelection = void*;
 enum { ptZIPArchive=1, IDS_PACKERR_ARCNAME_UNSUP=1 };
 struct CPluginData;
@@ -216,7 +217,8 @@ struct CPluginData
     BOOL SupportPanelView=TRUE;
     int calls=0;
     BOOL UnpackArchive(CFilesWindow*, const char*, CPluginDataInterfaceAbstract* data,
-                       const char* target, const char* root, SalEnumSelection next, void* param)
+                       const char* target, const char* root, SalEnumSelection next, void* param,
+                       const CFilesActionDiskTarget* = nullptr)
     {
         ++calls;
         Check(data==nullptr || data->owner==this,"unpacker receives only its own listing metadata");
@@ -255,6 +257,7 @@ static BOOL PackUniversalUncompress(HWND,const char*,int,const char*,BOOL,CFiles
 }
 @@PACK_OWNER_LOOKUP@@
 #define CALL_STACK_MESSAGE4(...) ((void)0)
+@@PACK_UNCOMPRESS_DECL@@
 @@PACK_UNCOMPRESS@@
 static void Test()
 {

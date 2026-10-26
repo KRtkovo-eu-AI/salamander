@@ -28,6 +28,9 @@ def main():
         'PACK_OWNER_LOOKUP': native.block(native.read('src/pack1.cpp', args.source_ref), 'CPluginData* PackGetPluginForArchiveFile('),
         'CONTAINS': native.block(native.read('src/plugins.h'), 'BOOL Contains(CPluginDataInterfaceAbstract const* iface)'),
     }
+    pack_header = native.read('src/pack.h', args.source_ref)
+    declaration_start = pack_header.index('BOOL PackUncompress(')
+    pieces['PACK_UNCOMPRESS_DECL'] = pack_header[declaration_start:pack_header.index(';', declaration_start)+1]
     # Compile the real field-copy boundary which deliberately ignores the SDK
     # extension when a legacy binary plugin passes a shorter CFileData layout.
     for kind in ('File', 'Dir'):

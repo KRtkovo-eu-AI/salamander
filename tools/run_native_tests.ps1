@@ -463,6 +463,11 @@ try {
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\parse_path_context_tests.py'), '--configuration', $Configuration)
         },
         @{
+            Name = 'unpack_post_init_target_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\unpack_post_init_target_tests.py'), '--configuration', $Configuration)
+        },
+        @{
             Name = 'unpack_copy_destination_tests'
             ClassName = 'native-generated'
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\unpack_copy_destination_tests.py'), '--configuration', $Configuration)

@@ -1,5 +1,33 @@
 # Plán postupného portu PR #769
 
+## S31b6b2b1 — kontrola cíle po inicializaci pluginu (2026-10-26)
+
+Interní PackUncompress předává optional disk target do CPluginData::UnpackArchive;
+nový gate po InitDLL odmítne neaktuální cíl před operation contextem a plugin I/O.
+Produkční callers zatím používají NULL: zapojení controlleru je další S31b6b2b2.
+Native actual wrapper68/config, listing151D/138R, identity448 a destination64/config,
+host x64 D/R i ordinary ZIP F5 GUI s exact readbackem PASS. Safe early-check mutant
+má očekávaných30 selhání. [Rozsah a evidence](steps/S31b6b2b1.md).
+SDK, Branch guardy a odložené ChangeDir beze změny; celé S31b6b2/G04/G05/S31 OPEN.
+Bez push/PR/CodeQL; external unpacker post-init ochrana touto etapou nedoložena.
+
+## S31b6b2b — hranice plugin callbacku a zapojení controlleru
+
+1. S31b6b2b1: interní optional pointer na owned disk target přes PackUncompress
+   až do CPluginData::UnpackArchive; kontrola po InitDLL před plugin callbackem.
+   Stávající callers mají NULL a zachovají chování. Actual native wrapper
+   s explicitním InitDLL callback double a skutečným snapshotem: platný/null,
+   root/tab/type/generation/scanning/retired/visible switch, init/backend failure.
+   Zachovat ZIP listing owner assertions; relevantní native D/R, host D/R,
+   ordinary archive F5 GUI smoke. Žádná SDK virtual změna ani Branch aktivace.
+2. S31b6b2b2: directory default a controller checks po modalu/parseru/create,
+   před backendem i po návratu; předat pointer do ověřené plugin dispatch cesty.
+   Odlišit manual/history, explicit drop/null target a implicitní root.
+   Modal switch/closed/inactive/detached GUI D/R před dokončením celé S31b6b2.
+
+Nyní pouze první koherentní změna interního rozhraní včetně implementace a testů.
+Celá S31 a archivní lifecycle integrace zůstávají OPEN; ChangeDir odložené.
+
 ## S31b6b2a — sdílený helper cílové identity (2026-10-26)
 
 CFilesActionDiskTarget přesunut beze změny do interní fileactiondisktarget.h

@@ -21,7 +21,6 @@
 #include <uxtheme.h>
 #include "dialogs.h"
 #include "configstorage.h"
-#include "viewer.h"
 #include "common/widepath.h"
 #include "fileactiondisktarget.h"
 
@@ -3862,8 +3861,7 @@ BOOL CPluginData::UnpackArchive(CFilesWindow* panel, const char* archiveFileName
                                 CPluginDataInterfaceAbstract* pluginData,
                                 const char* targetDir, const char* archiveRoot,
                                 SalEnumSelection nextName, void* param,
-                                const CFilesActionDiskTarget* diskTarget,
-                                BOOL (*validateSource)(void*), void* sourceContext)
+                                const CFilesActionDiskTarget* diskTarget)
 {
     if (validateSource != NULL && !validateSource(sourceContext))
     { SetLastError(ERROR_RETRY); return FALSE; }
@@ -3877,15 +3875,8 @@ BOOL CPluginData::UnpackArchive(CFilesWindow* panel, const char* archiveFileName
     const BOOL branchWasZip = branchTarget && branchOwnerQualified && _stricmp(DLLName, "zip\\zip.spl") == 0;
     if (InitDLL(MainWindow->HWindow))
     {
-        // InitDLL may dispatch callbacks; validate the source before any panel getter.
-        if (validateSource != NULL && !validateSource(sourceContext))
-        { SetLastError(ERROR_RETRY); return FALSE; }
-        // Check the live destination registry again before plugin I/O.
-        if (diskTarget != NULL && (!diskTarget->IsCurrent(MainWindow) ||
-            diskTarget->Branch && (!branchOwnerQualified || !diskTarget->DirectoryDefault || targetDir == NULL ||
-                strcmp(targetDir, diskTarget->DefaultPath.c_str()) != 0 ||
-                PackGetVerifiedBranchUnpacker(panel, archiveFileName, pluginData) != this ||
-                branchWasZip != (_stricmp(DLLName, "zip\\zip.spl") == 0))))
+        // InitDLL may dispatch callbacks; check the live registry again before plugin I/O.
+        if (diskTarget != NULL && !diskTarget->IsCurrent(MainWindow))
         {
             SetLastError(ERROR_RETRY);
             return FALSE;

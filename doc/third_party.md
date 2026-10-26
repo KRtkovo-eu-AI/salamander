@@ -665,3 +665,13 @@ pinned47661e92d4b3cbe5bb593ae3d75a3f1f698ef413. Open Salamander Authors and
 Samandarin Contributors, GPL-2.0-or-later; original notices preserved. No new
 third-party implementation or public SDK interface; behavior and assertions
 preserved, next archive lifecycle integration remains explicitly open.
+
+### S31b6b2b1 internal archive initialization boundary
+
+Local integration adaptation of PackUncompress/CPluginData::UnpackArchive from
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), pinned
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413. Open Salamander Authors and Samandarin
+Contributors, GPL-2.0-or-later; original notices preserved. Optional internal
+host target identity is checked after InitDLL before plugin I/O; public SDK is
+unchanged. Native wrapper uses explicit initialization/backend/registry doubles;
+ordinary GUI validates legacy NULL dispatch. Controller integration remains open.
