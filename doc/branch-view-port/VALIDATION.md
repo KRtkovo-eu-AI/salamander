@@ -1,5 +1,19 @@
 # Validace portu a baseline S00
 
+## S31b5b3e2 — odpojený zdroj, neaktivní Branch cíl a modal switch (2026-10-26)
+
+GUI Debug Windows Dark Mode scheme a Release light PASS: z odpojené zdrojové
+záložky F5/F6, explicitní chooser neaktivního dlouhého diskového Branch cíle.
+Copy zachová zdroj, Move jej přesune; přesné výsledky/zálohy/SHA256 a sentinel
+PASS. Při Move vybrán viditelný Branch cíl, v hlavním okně přepnuto na jinou
+záložku během otevřeného dialogu: po potvrzení chyba1237, žádná změna dat.
+Nový výběr původní neaktivní Branch záložky pak uspěje. Produkce/testy beze
+změn, reuse d779e0f4 src/binárky ověřený hashem; nový build/native běh netvrzen.
+LongPathsEnabled0, privátní profily, oba runtime ini obnoveny byte-exact.
+Viz [S31b5b3e2](steps/S31b5b3e2.md). Zbývá zavřený/odpojený cíl a audit;
+G04/G05 OPEN, goal ACTIVE, S32 BLOCKED. ChangeDir DEFERRED/NOT_VERIFIED,
+odložený patch nedotčený. Lokální checkpoint bez push/PR/CI.
+
 ## S31b5b3e1 — GUI Copy/Move se zachováním podadresářů (2026-10-26)
 
 Ověření existujícího keepBranchPaths TRUE bez změny produkce nebo testů.
