@@ -6,11 +6,13 @@
 #include <string>
 #include <vector>
 #include <cstdio>
+#include <cstring>
 #include <algorithm>
 #define SAL_MAX_PATH 32768
 #define SAL_MAX_EXTENDED_PATH 32768
 enum CPanelSide {cpsLeft,cpsRight};
 enum {ptDisk,ptZIPArchive,ptPluginFS};
+#define PATH_TYPE_WINDOWS 1 // unchanged public spl_gen.h value; checked by generator
 struct CFilesWindow
 {
     int Kind=ptDisk; ULONGLONG Tab=1, Generation=7;
@@ -54,6 +56,48 @@ int main()
         if(i==4)Check(expected.size()>520&&roots[i].size()<MAX_PATH,"UTF8-only long root fixture");
         if(i==5)Check(roots[i].size()>MAX_PATH,"full UTF16 long root fixture");
     }
+    for(BOOL branch:{FALSE,TRUE})
+        for(const auto& root:roots)
+        {
+            target.Root=root;target.Branch=branch;
+            Check(snapshot.Capture(&main,&target),"capture ordinary/Branch preflight root without granting Branch admission");
+            const std::string text=snapshot.DefaultPath;
+            const int cap=(int)text.size()+1;
+            Check(snapshot.HasDefaultText(text.c_str(),cap),"exact complete unmodified dialog text identifies implicit root");
+            Check(!snapshot.HasDefaultText(text.c_str(),cap-1),"unterminated caller capacity cannot identify default text");
+            const std::string explicitTarget=text+"manual";
+            Check(!snapshot.HasDefaultText(explicitTarget.c_str(),(int)explicitTarget.size()+1),"explicit manual destination remains separate from implicit root");
+            const char* suffix=text.c_str()+text.size()-3;
+            Check(snapshot.MatchesParsedDefault(text.c_str(),cap,suffix,PATH_TYPE_WINDOWS,TRUE),"parsed existing root has only universal mask after existing prefix");
+            Check(!snapshot.MatchesParsedDefault(text.c_str(),cap,suffix-1,PATH_TYPE_WINDOWS,TRUE),"missing-root prefix rejected before split can recreate directory");
+            Check(!snapshot.MatchesParsedDefault(text.c_str(),cap,suffix,PATH_TYPE_WINDOWS,FALSE),"file root rejected before split");
+            Check(!snapshot.MatchesParsedDefault(text.c_str(),cap,suffix,2,TRUE),"archive or plugin interpretation cannot redirect implicit disk root");
+            Check(!snapshot.MatchesParsedDefault(text.c_str(),cap,reinterpret_cast<const char*>(1),PATH_TYPE_WINDOWS,TRUE),"foreign parsed position refused without dereference");
+            const std::string directory=SalWideToMultiBytePath(root.c_str(),CP_UTF8);
+            std::vector<char> packed(directory.size()+5+16,'Z');
+            memcpy(packed.data(),directory.c_str(),directory.size()+1);
+            char* mask=packed.data()+directory.size()+1;memcpy(mask,"*.*",4);
+            const int actualCapacity=(int)packed.size()-16;
+            Check(snapshot.MatchesSplitDefault(packed.data(),actualCapacity,mask),"packed complete root and caller-owned universal mask accepted at exact capacity");
+            Check(!snapshot.MatchesSplitDefault(packed.data(),actualCapacity-1,mask),"missing final mask NUL capacity refused before mask read");
+            Check(!snapshot.MatchesSplitDefault(packed.data(),actualCapacity,reinterpret_cast<const char*>(1)),"foreign mask refused before dereference");
+            mask[0]='x';Check(!snapshot.MatchesSplitDefault(packed.data(),actualCapacity,mask),"changed final mask refused");mask[0]='*';
+            packed[0]='X';Check(!snapshot.MatchesSplitDefault(packed.data(),actualCapacity,mask),"changed final root refused");
+            const std::vector<char> noNul(8,'a');
+            Check(!snapshot.MatchesSplitDefault(noNul.data(),(int)noNul.size(),nullptr),"bounded packed root scan rejects missing directory NUL");
+            Check(std::all_of(packed.begin()+actualCapacity,packed.end(),[](char c){return c=='Z';}),"preflight never changes caller redzones");
+        }
+    target.Branch=FALSE;
+    target.Root=L"C:\\";Check(snapshot.Capture(&main,&target),"drive-root preflight captured");
+    const char drive[]={ 'C',':','\\',0,'*','.','*',0 };
+    Check(snapshot.MatchesSplitDefault(drive,sizeof(drive),drive+4),"drive root retains absolute backslash");
+    const char relativeDrive[]={ 'C',':',0,'*','.','*',0 };
+    Check(!snapshot.MatchesSplitDefault(relativeDrive,sizeof(relativeDrive),relativeDrive+3),"drive-relative C: is never accepted as absolute root");
+    target.Root=L"\\\\server\\share";Check(snapshot.Capture(&main,&target),"UNC transport preflight captured");
+    const std::string unc="\\\\server\\share";
+    std::vector<char> uncPacked(unc.size()+5);memcpy(uncPacked.data(),unc.c_str(),unc.size()+1);memcpy(uncPacked.data()+unc.size()+1,"*.*",4);
+    Check(snapshot.MatchesSplitDefault(uncPacked.data(),(int)uncPacked.size(),uncPacked.data()+unc.size()+1),"UNC exact packed root preserved without network I/O claim");
+    Check(!snapshot.HasDefaultText(nullptr,SAL_MAX_PATH)&&!snapshot.HasDefaultText("",0),"invalid unmodified-dialog input refused");
     target.Root=L"C:\\";Check(snapshot.Capture(&main,&target)&&snapshot.DefaultPath=="C:\\*.*","drive root avoids duplicate slash");
     target.Root=L"\\\\server\\share";Check(snapshot.Capture(&main,&target)&&snapshot.DefaultPath=="\\\\server\\share\\*.*","UNC root preserved as transport only; no network I/O claim");
     target.Root=L"C:\\target";Check(snapshot.Capture(&main,&target),"baseline target captured");

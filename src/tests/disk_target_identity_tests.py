@@ -24,6 +24,16 @@ def controller_contract():
     assert 'if (!validateDiskTarget())' in controller[parser:parsed]
     late = controller.index('if (!validateDiskTarget()) cancel = TRUE;')
     assert controller.index('BOOL occupiedSpTooBig') < late < controller.index('!StartProgressDialog(')
+    classify = controller.index('const bool useDefaultDiskTarget =')
+    normalize = controller.index('if (!IsPluginFSPath(path)')
+    preflight = controller.index('!diskTarget.MatchesParsedDefault(')
+    split = controller.index('if (SalSplitWindowsPath(')
+    packed = controller.index('!diskTarget.MatchesSplitDefault(')
+    assert dialog < classify < normalize < parser < preflight < split < packed
+    assert 'useDefaultDiskTarget &&' in controller[preflight-80:preflight]
+    assert 'useDefaultDiskTarget &&' in controller[packed-80:packed]
+    assert 'if (!validateDiskTarget())' in controller[split:packed]
+    assert '#define PATH_TYPE_WINDOWS 1 ' in read('src/plugins/shared/spl_gen.h')
     print('Disk target controller placement: PASS (Branch admission remains blocked)', flush=True)
 
 

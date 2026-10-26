@@ -318,6 +318,43 @@ struct CFilesActionDiskTarget
         return true;
     }
 
+    // Classify the unmodified dialog result. A manually entered destination has
+    // its own resolver semantics; it is not an implicit panel/drop root.
+    bool HasDefaultText(const char* path, int capacity) const
+    {
+        return Panel != NULL && !Root.empty() && !DefaultPath.empty() && path != NULL &&
+               capacity > 0 && DefaultPath.size() < (size_t)(std::min)(capacity, SAL_MAX_PATH) &&
+               memcmp(path, DefaultPath.c_str(), DefaultPath.size() + 1) == 0;
+    }
+
+    bool MatchesParsedDefault(const char* path, int capacity, const char* secondPart,
+                              int pathType, BOOL pathIsDir) const
+    {
+        // An absent root would leave additional components after secondPart and
+        // let the split/create helper recreate it. Refuse before that helper.
+        return pathType == PATH_TYPE_WINDOWS && pathIsDir && HasDefaultText(path, capacity) &&
+               DefaultPath.size() >= 3 && secondPart == path + DefaultPath.size() - 3;
+    }
+
+    bool MatchesSplitDefault(const char* path, int capacity, const char* mask) const
+    {
+        if (Panel == NULL || Root.empty() || DefaultPath.size() < 3 || path == NULL || capacity <= 0)
+            return false;
+        const size_t limit = (size_t)(std::min)(capacity, SAL_MAX_PATH);
+        const char* end = (const char*)memchr(path, 0, limit);
+        if (end == NULL) return false;
+        const size_t directoryLength = (size_t)(end - path);
+        // Only inspect the mask after checking that it belongs to caller storage
+        // immediately after the directory NUL and fits together with its own NUL.
+        if (mask != end + 1 || limit - directoryLength - 1 < 4 ||
+            memcmp(mask, "*.*", 4) != 0) return false;
+        const size_t prefixLength = DefaultPath.size() - 3; // includes root separator
+        const bool driveRoot = prefixLength == 3 && DefaultPath[1] == ':' && DefaultPath[2] == '\\';
+        if (directoryLength != prefixLength &&
+            (driveRoot || directoryLength + 1 != prefixLength)) return false;
+        return memcmp(path, DefaultPath.data(), directoryLength) == 0;
+    }
+
     bool IsCurrent(CMainWindow* main) const
     {
         CFilesWindow* live = FindLive(main, Panel);
@@ -853,6 +890,14 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     {
                         res = IDCANCEL;
                         break;
+                    }
+                    if (useDefaultDiskTarget &&
+                        !diskTarget.MatchesParsedDefault(path, SAL_MAX_PATH, secondPart, pathType, pathIsDir))
+                    {
+                        SalMessageBox(HWindow, GetErrorText(ERROR_RETRY), LoadStr(type == atCopy ? IDS_ERRORCOPY : IDS_ERRORMOVE),
+                                      MB_OK | MB_ICONEXCLAMATION);
+                        res = IDCANCEL;
+                        break; // Never recreate or redirect a stale implicit root in split/create.
                     }
                     if (IsBranchView() && pathType != PATH_TYPE_WINDOWS)
                     {

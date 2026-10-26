@@ -571,3 +571,12 @@ Contributors, GPL-2.0-or-later. Notices preserved. The local existing atomic
 Unpack reader is reused unchanged. Native fixtures extract actual dialog/history
 and conversions, with explicit base/criteria doubles and real Unicode controls.
 No new third-party component imported.
+
+### S31b5b3c2 implicit disk destination preflight
+
+Local adaptation of FilesAction and its owned target snapshot from
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), pinned
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin
+Contributors, GPL-2.0-or-later. Notices preserved. Exact default-text and parsed/
+packed root-mask guards preserve explicit manual destination semantics. Tests
+extract actual methods with explicit panel-registry doubles. No new third-party code.

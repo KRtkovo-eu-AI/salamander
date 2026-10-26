@@ -1,5 +1,21 @@
 # S00 read-only donor boundary audit
 
+## S31b5b3c2 — preflight implicitního rootu/mask (2026-10-26)
+
+FilesAction rozliší přesně zachovanou výchozí hodnotu dialogu ještě před její
+normalizací. Pro tento implicitní diskový cíl ověří po ParsePath úplný captured
+root, Windows directory interpretaci a secondPart ukazující jen na*.* před
+SalSplitWindowsPath/create. Po splitu ověří caller-owned masku, obě NUL a kořen;
+navíc znovu ověří identitu panelu. Ručně zadaná jiná hodnota používá původní
+resolver. Branch destination entry guard nadále zachován, aktivace není hotová.
+Native snapshot248/config D/R (původních50 zachováno), parser42 a split/create190
+PASS; transitions28/operations All20 PASS. Safe semantic mutants248/24 a248/12
+failures. Host x64 D/R /warnaserror PASS. GUI D dark/R light: předvyplněný cíl,
+explicitní child\東京-🙂.txt a Cancel, přesné readback/hashes PASS.
+[S31b5b3c2](steps/S31b5b3c2.md) vymezuje scope i zbývající runtime Branch matice.
+ChangeDir odložený/NOT_VERIFIED, deferred patch nedotčený. G04/G05 OPEN, goal
+ACTIVE, S32 BLOCKED. Lokální checkpoint bez push/PR/CI.
+
 ## S31b5b3c1 — atomický cíl dialogu Copy/Move (2026-10-26)
 
 Opraveno ignorované selhání načtení cíle v CCopyMoveMoreDialog::Transfer.
