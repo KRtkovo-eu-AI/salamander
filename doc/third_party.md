@@ -580,3 +580,12 @@ Local adaptation of FilesAction and its owned target snapshot from
 Contributors, GPL-2.0-or-later. Notices preserved. Exact default-text and parsed/
 packed root-mask guards preserve explicit manual destination semantics. Tests
 extract actual methods with explicit panel-registry doubles. No new third-party code.
+
+### S31b5b3d1 disk Copy into a Branch destination
+
+Locally staged activation of FilesAction from
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), pinned
+47661e92d4b3cbe5bb593ae3d75a3f1f698ef413, Open Salamander Authors and Samandarin
+Contributors, GPL-2.0-or-later. Notices preserved. The existing destination and
+worker flow is retained; the local admission policy enables only verified disk
+Copy while other Branch destinations stay deferred. No new third-party import.

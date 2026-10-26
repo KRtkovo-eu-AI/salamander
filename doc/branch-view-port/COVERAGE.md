@@ -1,5 +1,22 @@
 # S31 — Úplnost portu proti donoru
 
+## S31b5b3d1 — diskové Copy do Branch cíle ověřeno (2026-10-26)
+
+FilesAction nyní dovolí atCopy do jediného diskového Branch cíle při diskovém
+zdroji a countSizeMode0. Move/selected-dirs i ostatní typy zůstávají odmítnuté.
+Owned snapshot, atomický dialog, implicit root/mask preflight a modal/build/start
+rechecks se nemění. Explicitní ruční cíl zůstává podporovaný.
+Native snapshot/policy440 a Branch getters399/config D/R PASS; transitions28 a
+operations All20 PASS. Host x64 D/R /warnaserror PASS. GUI D dark/R light při
+LongPathsEnabled0: dvě ordinary-source kopie do Branch rootu272/274 UTF16,
+kopie z nested Unicode Branch řádku, explicitní Unicode cíl mimo root, Cancel
+bez dalších souborů a F6 bez Move dialogu. Všechny zdroje/alias sentinels SHA256
+nezměněny, přesné výsledné názvy/obsah ověřeny. Safe policy mutant440/1 failure.
+Viz [S31b5b3d1](steps/S31b5b3d1.md). Navazuje vlastní ověření a aktivace Move;
+GUI reentrant target switch/closed-tab injection není prohlášena za hotovou.
+ChangeDir odložený/NOT_VERIFIED, G04/G05 OPEN, goal ACTIVE, S32 BLOCKED.
+Lokální checkpoint bez push/PR/remote CI/CodeQL.
+
 ## S31b5b3c2 — preflight implicitního rootu/mask (2026-10-26)
 
 FilesAction rozliší přesně zachovanou výchozí hodnotu dialogu ještě před její

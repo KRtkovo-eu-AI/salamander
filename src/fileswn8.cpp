@@ -280,6 +280,12 @@ struct CFilesActionDiskTarget
     BOOL Branch = FALSE;
     int VisibleSide = 0;
 
+    static bool AllowsBranchCopy(CActionType type, int countSizeMode, BOOL selectedDirs,
+                                 BOOL sourceDisk, BOOL targetDisk)
+    {
+        return type == atCopy && countSizeMode == 0 && !selectedDirs && sourceDisk && targetDisk;
+    }
+
     static CFilesWindow* FindLive(CMainWindow* main, CFilesWindow* expected)
     {
         if (main == NULL || expected == NULL) return NULL;
@@ -372,8 +378,9 @@ struct CFilesActionDiskTarget
 void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int countSizeMode,
                                BOOL copyToSelectedDirs, BOOL* changeTargetRequested)
 {
-    // S31b5: Branch destination admission is deferred until root/mask runtime verification.
-    if (target != NULL && target->IsBranchView()) return;
+    // S31b5b3d1: Copy uses the owned root/mask resolver; other Branch targets remain deferred.
+    if (target != NULL && target->IsBranchView() &&
+        !CFilesActionDiskTarget::AllowsBranchCopy(type, countSizeMode, copyToSelectedDirs, Is(ptDisk), target->Is(ptDisk))) return;
     if (IsBranchView() && (countSizeMode != 0 || copyToSelectedDirs ||
         (type != atDelete && ((type != atCopy && type != atMove) || target == NULL || !target->Is(ptDisk))))) return;
 

@@ -34,12 +34,19 @@ struct CMainWindow
     int GetDetachedTabCount() const {return (int)Detached.size();}
     CFilesWindow* GetDetachedTabAt(int index) const {return Detached.at(index);}
 };
+@@ACTION@@
 @@WIDE@@
 @@SNAPSHOT@@
 static int Checks=0,Failures=0;
 static void Check(bool ok,const char* label){++Checks;if(!ok){++Failures;printf("FAIL: %s\n",label);}}
 int main()
 {
+    for(CActionType action:{atCopy,atMove,atDelete,atCountSize,atChangeAttrs,atChangeCase,atRecursiveConvert,atConvert})
+        for(int countMode:{0,1,2}) for(BOOL selected:{FALSE,TRUE})
+            for(BOOL sourceDisk:{FALSE,TRUE}) for(BOOL targetDisk:{FALSE,TRUE})
+                Check(CFilesActionDiskTarget::AllowsBranchCopy(action,countMode,selected,sourceDisk,targetDisk)==
+                      (action==atCopy&&countMode==0&&!selected&&sourceDisk&&targetDisk),
+                      "only verified disk Copy to a single Branch target is admitted");
     CFilesWindow source,target,replacement;source.Tab=2;replacement.Tab=3;
     CMainWindow main;main.Left={&source};main.Right={&target,&replacement};main.LeftPanel=&source;main.RightPanel=&target;
     CFilesActionDiskTarget snapshot;

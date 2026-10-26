@@ -10,7 +10,9 @@ from branch_panel_getters_tests import block, read, compiler_environment, run
 
 def controller_contract():
     controller = block(read('src/fileswn8.cpp'), 'void CFilesWindow::FilesAction(')
-    assert 'if (target != NULL && target->IsBranchView()) return;' in controller
+    assert 'if (target != NULL && target->IsBranchView() &&' in controller
+    assert '!CFilesActionDiskTarget::AllowsBranchCopy(type, countSizeMode, copyToSelectedDirs, Is(ptDisk), target->Is(ptDisk))) return;' in controller
+    assert controller.index('!CFilesActionDiskTarget::AllowsBranchCopy(') < controller.index('diskTarget.Capture(')
     assert controller.index('diskTarget.Capture(MainWindow, target)') < controller.index('CheckPath(TRUE)')
     assert 'memcpy(path, diskTarget.DefaultPath.c_str(), diskTarget.DefaultPath.size() + 1);' in controller
     assert 'CheckPath(TRUE) == ERROR_SUCCESS && validateDiskTarget()' in controller
@@ -34,7 +36,7 @@ def controller_contract():
     assert 'useDefaultDiskTarget &&' in controller[packed-80:packed]
     assert 'if (!validateDiskTarget())' in controller[split:packed]
     assert '#define PATH_TYPE_WINDOWS 1 ' in read('src/plugins/shared/spl_gen.h')
-    print('Disk target controller placement: PASS (Branch admission remains blocked)', flush=True)
+    print('Disk target controller placement: PASS (only disk Copy Branch admission)', flush=True)
 
 
 def main():
@@ -47,6 +49,7 @@ def main():
         'BOOL IsValidPathUtf8Text(', 'std::wstring SalMultiByteToWidePath(',
         'std::string SalWideToMultiBytePath('))
     generated = read('src/tests/disk_target_identity_tests.cpp.in')
+    generated = generated.replace('@@ACTION@@', block(read('src/fileswnd.h'), 'enum CActionType')+';')
     generated = generated.replace('@@WIDE@@', helpers).replace('@@SNAPSHOT@@',
         block(read('src/fileswn8.cpp'), 'struct CFilesActionDiskTarget')+';')
     assert '@@' not in generated
