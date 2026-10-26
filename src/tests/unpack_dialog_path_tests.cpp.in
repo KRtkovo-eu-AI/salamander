@@ -195,6 +195,16 @@ int main(){
   Plugins.Entry=&OtherPlugin;Check(!test.IsSelectionCurrent(),"accepted dialog selection rejects plugin replacement after transfer");Plugins.Entry=&Plugin;
   Check(test.IsSelectionCurrent(),"restoring exact same live selection restores validity without changing caller preference");
  }
+
+ {
+  CUnpackerConfig restricted;Plugin.DLLName="zip\\zip.spl";Plugin.SupportCustomUnpack=TRUE;Plugins.Entry=&Plugin;
+  char destination[64]="C:\\unchanged",testMask[MAX_PATH]="*.*";BOOL deletion=TRUE;
+  TestDialog test(nullptr,destination,sizeof(destination),"",testMask,&subject,&restricted,&deletion,FALSE);test.Attach(parent);
+  CTransferInfo init(parent,ttDataToWindow);test.Transfer(init);
+  Check(init.IsGood()&&!IsWindowEnabled(remove)&&SendMessageW(remove,BM_GETCHECK,0,0)==BST_UNCHECKED,"Branch dialog disables and clears displayed archive deletion");
+  EnableWindow(remove,TRUE);SendMessageW(remove,BM_SETCHECK,BST_CHECKED,0);CTransferInfo from(parent,ttDataFromWindow);test.Transfer(from);
+  Check(from.IsGood()&&!deletion,"Branch transfer refuses deletion even when a callback re-enables and checks the control");
+ }
  {
   CUnpackerConfig missing;char destination[64]="C:\\unchanged",testMask[MAX_PATH]="*.keep";BOOL deletion=TRUE;
   TestDialog test(nullptr,destination,sizeof(destination),"",testMask,&subject,&missing,&deletion);test.Attach(parent);

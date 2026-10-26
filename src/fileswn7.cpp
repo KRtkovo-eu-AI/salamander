@@ -2817,7 +2817,8 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
 {
     if (CFilesActionDiskTarget::FindLive(MainWindow, this) == NULL ||
         CFilesActionDiskTarget::FindLive(MainWindow, target) == NULL) return;
-    if (target == NULL || !Is(ptDisk) || IsBranchView() || target->IsBranchView()) return; // S26 experiment: unverified operation is blocked at direct dispatch.
+    if (target == NULL || !Is(ptDisk) || target->IsBranchView() ||
+        (IsBranchView() && !target->Is(ptDisk))) return; // S31b6c5a: Branch sources require an ordinary disk target.
 
     CALL_STACK_MESSAGE4("CFilesWindow::Unpack(, %d, %s, %s)", pluginIndex, pluginName, unpackMask);
 
@@ -2981,7 +2982,7 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
         while (true)
         {
             if (!panelsAreCurrent()) { reportChangedContext(); return; }
-            CUnpackDialog dialog(parent, path, pathBuffer.Capacity(), pathAlt, mask, &str, &UnpackerConfig, &delArchiveWhenDone);
+            CUnpackDialog dialog(parent, path, pathBuffer.Capacity(), pathAlt, mask, &str, &UnpackerConfig, &delArchiveWhenDone, !sourceSnapshot.Branch);
             if (dialog.Execute() != IDOK) break;
 
             CWholeArchiveUnpackerSnapshot backendSnapshot;
@@ -2990,8 +2991,14 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
                 reportChangedContext();
                 return;
             }
+            if (sourceSnapshot.Branch && (delArchiveWhenDone || !backendSnapshot.IsVerifiedBranchSourceUnpacker()))
+            {
+                SalMessageBox(parent, GetErrorText(ERROR_NOT_SUPPORTED), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+                return;
+            }
             const auto contextIsCurrent = [&]() {
-                return panelsAreCurrent() && dialog.IsSelectionCurrent() && backendSnapshot.IsCurrent();
+                return panelsAreCurrent() && dialog.IsSelectionCurrent() && backendSnapshot.IsCurrent() &&
+                       (!sourceSnapshot.Branch || (!delArchiveWhenDone && backendSnapshot.IsVerifiedBranchSourceUnpacker()));
             };
             UpdateWindow(parent);
             if (!contextIsCurrent()) { reportChangedContext(); return; }
@@ -3103,7 +3110,7 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
                     } while (name - archiveVolumes.Text < archiveVolumes.Length);
                 }
                 // A volume error dialog may have dispatched callbacks since the success check above.
-                if (contextIsCurrent())
+                if (contextIsCurrent() && !sourceSnapshot.Branch)
                 {
                     NextFocusName[0] = 0;
                     if (nextFocus[0] != 0 && strlen(nextFocus) < sizeof(NextFocusName))

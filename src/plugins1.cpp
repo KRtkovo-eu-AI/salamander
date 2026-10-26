@@ -3969,6 +3969,18 @@ BOOL CPluginData::UnpackWholeArchive(CFilesWindow* panel, const char* archiveFil
             SetLastError(ERROR_RETRY);
             return FALSE;
         }
+        // Independent post-init admission before the SDK operation context.
+        CFilesWindow* liveSource = CFilesActionDiskTarget::FindLive(MainWindow, panel);
+        if ((sourceSnapshot != NULL && sourceSnapshot->Branch) || (liveSource != NULL && liveSource->IsBranchView()))
+        {
+            if (sourceSnapshot == NULL || sourceSnapshot->Panel != panel || !sourceSnapshot->IsCurrent(MainWindow) ||
+                diskTarget == NULL || diskTarget->Branch || !diskTarget->IsCurrent(MainWindow) ||
+                delArchiveWhenDone || backendSnapshot == NULL || !backendSnapshot->IsVerifiedBranchSourceUnpacker())
+            {
+                SetLastError(ERROR_NOT_SUPPORTED);
+                return FALSE;
+            }
+        }
         // A supplied source was just resolved in the live registry. Keep it alive during SDK callbacks.
         BOOL* busy = sourceSnapshot != NULL ? &panel->FilesActionInProgress : NULL;
         if (busy != NULL && *busy)

@@ -1,5 +1,44 @@
 # Plán postupného portu PR #769
 
+## S31b6c5a — Branch source -> ordinary disk target, ZIP (VERIFIED)
+
+Bundled ZIP is now admitted by the actual selected backend binding, with exact
+owned source/parent and live modal/source/target/config guards. Other backends,
+Branch/virtual targets and archive deletion remain refused. Branch focus never
+uses the synthetic root. [Scope and evidence](steps/S31b6c5a.md): controller2766,
+dialog106, backend183, whole-post-init119 and source96 checks/config; contracts
+20/29; host x64 Debug/Release /warnaserror and actual ZIP GUI D/R PASS.
+Duplicate basenames, Unicode, byte-long/Win32-long sources, subdir/relative target,
+Cancel, Skip All and invalid ZIP verified with exact payload hashes and unchanged
+sources/sentinels. LongPathsEnabled remains0. Deferred ChangeDir navigation is
+not repaired; full S31/G04/G05 OPEN. Next c5b separately qualifies7Zip, then c6/c7.
+Local only; no push, PR, CodeQL or clean full-platform build.
+
+## S31b6c5 — source admission, ZIP first
+
+S31b6c5a implements only bundled ZIP whole-archive extraction from a Branch disk
+source into an ordinary disk target. Reuse exact owned source/parent and c4c2b
+live modal/backend/source/target guards; qualify the actually selected backend
+by live plugin binding and exact bundled ZIP DLL identity, before target creation
+and again in dispatcher/concrete wrapper after InitDLL. Refuse other backends,
+Branch/virtual targets, stale/scanning contexts and archive deletion. Add existing
+CM_UNPACK to the central gate; retain the existing file-on-disk menu enabler
+which already accepts Branch files. Delete checkbox must be disabled and its
+state ignored for Branch, with independent dispatch refusal. No stale/source
+folder focus updates in a collection. Ordinary behavior and NULL compatibility,
+public SDK, Windows security/default registry and deferred ChangeDir stay intact.
+
+Acceptance before local commit: actual controller/dialog/backend/wrapper native
+D/R including ZIP success, wrong/external7Zip/custom identities, generation,
+modal/InitDLL mutation, missing target, delete refusal, exact source parent and
+path shapes; retain old assertions and source contracts. Host D/R /warnaserror.
+Actual ZIP GUI D/R: duplicate archive basenames in different Unicode parents,
+Cancel, preference/subdir/default/manual-relative destinations, skip/error,
+exact payload hashes and untouched sources/sentinels. Use only owned fixtures
+and private profiles. No push/PR/CodeQL/clean whole platform matrix here.
+S31b6c5b separately qualifies7Zip; c6 Branch targets and c7 volume deletion remain
+closed until their own acceptance. Full S31/G04/G05 remains OPEN.
+
 ## S31b6c4c2b — výsledek (VERIFIED)
 
 Controller zapojen a ověřen nativně i actual GUI D/R; modal/source/target/backend

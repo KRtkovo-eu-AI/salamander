@@ -1512,6 +1512,13 @@ bool CWholeArchiveUnpackerSnapshot::IsCurrent(const CPluginData* expectedPlugin)
            live->SupportCustomUnpack && live->DLLName != NULL && _stricmp(live->DLLName, DLLName.c_str()) == 0;
 }
 
+bool CWholeArchiveUnpackerSnapshot::IsVerifiedBranchSourceUnpacker() const
+{
+    // S31b6c5a qualifies the selected whole-archive backend, not an extension/listing owner.
+    return Type < CUSTOMUNPACKER_EXTERNAL && IsCurrent() &&
+           _stricmp(DLLName.c_str(), "zip\\zip.spl") == 0;
+}
+
 bool CWholeArchiveUnpackerSnapshot::ValidateExternalPaths(const char* source, const char* target) const
 {
     if (Type != CUSTOMUNPACKER_EXTERNAL) return true;
@@ -1560,6 +1567,17 @@ BOOL CUnpackerConfig::ExecuteUnpacker(HWND parent, CFilesWindow* panel, const ch
     {
         SetLastError(ERROR_RETRY);
         return FALSE;
+    }
+    CFilesWindow* liveSource = CFilesActionDiskTarget::FindLive(MainWindow, panel);
+    if ((sourceSnapshot != NULL && sourceSnapshot->Branch) || (liveSource != NULL && liveSource->IsBranchView()))
+    {
+        if (sourceSnapshot == NULL || sourceSnapshot->Panel != panel || !sourceSnapshot->IsCurrent(MainWindow) ||
+            diskTarget == NULL || diskTarget->Branch || !diskTarget->IsCurrent(MainWindow) ||
+            delArchiveWhenDone || backendSnapshot == NULL || !backendSnapshot->IsVerifiedBranchSourceUnpacker())
+        {
+            SetLastError(ERROR_NOT_SUPPORTED);
+            return FALSE;
+        }
     }
     if (backendSnapshot != NULL && !backendSnapshot->ValidateExternalPaths(zipFile, targetDir)) return FALSE;
     if (PreferedUnpacker >= 0 && PreferedUnpacker < Unpackers.Count)

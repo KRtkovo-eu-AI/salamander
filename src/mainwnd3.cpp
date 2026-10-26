@@ -4348,6 +4348,7 @@ static bool BranchReadOnlyCommandAllowed(UINT command)
     case CM_CLIPPASTE:
     case CM_LAST_PLUGIN_CMD: // router; OnLastCommand validates the current plugin/ID
     case CM_PACK:
+    case CM_UNPACK: // S31b6c5a: controller qualifies bundled ZIP and ordinary disk target.
     case CM_CONTEXTMENU:
     case CM_RENAMEFILE:
     case CM_OPEN:

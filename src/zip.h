@@ -549,6 +549,7 @@ struct CWholeArchiveUnpackerSnapshot
     bool Capture(CUnpackerConfig* configuration, BOOL allowExternal = FALSE);
     bool IsCurrent(const CPluginData* expectedPlugin = NULL) const;
     bool ValidateExternalPaths(const char* source, const char* target) const;
+    bool IsVerifiedBranchSourceUnpacker() const;
 };
 
 class CUnpackerConfig

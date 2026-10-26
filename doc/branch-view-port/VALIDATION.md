@@ -1,5 +1,19 @@
 # Validace portu a baseline S00
 
+## S31b6c5a — Branch source -> ordinary disk target, ZIP (VERIFIED)
+
+Bundled ZIP is now admitted by the actual selected backend binding, with exact
+owned source/parent and live modal/source/target/config guards. Other backends,
+Branch/virtual targets and archive deletion remain refused. Branch focus never
+uses the synthetic root. [Scope and evidence](steps/S31b6c5a.md): controller2766,
+dialog106, backend183, whole-post-init119 and source96 checks/config; contracts
+20/29; host x64 Debug/Release /warnaserror and actual ZIP GUI D/R PASS.
+Duplicate basenames, Unicode, byte-long/Win32-long sources, subdir/relative target,
+Cancel, Skip All and invalid ZIP verified with exact payload hashes and unchanged
+sources/sentinels. LongPathsEnabled remains0. Deferred ChangeDir navigation is
+not repaired; full S31/G04/G05 OPEN. Next c5b separately qualifies7Zip, then c6/c7.
+Local only; no push, PR, CodeQL or clean full-platform build.
+
 ## S31b6c4c2b — whole-archive controller wiring (VERIFIED)
 
 Actual controller owns modal/source/target/backend context through callbacks,

@@ -885,6 +885,7 @@ protected:
     CTruncatedString* Subject;
     CUnpackerConfig* UnpackerConfig;
     BOOL* DelArchiveWhenDone;
+    BOOL AllowDeleteArchive;
     // Own the choices actually displayed; live configuration can change during modal callbacks.
     struct CUnpackerChoice
     {

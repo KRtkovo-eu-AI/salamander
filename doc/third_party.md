@@ -810,3 +810,14 @@ pin47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
 Local integration reuses the prepared modal and live disk/backend snapshots,
 retaining SDK ABI and bundled plugin/vendor sources and notices. No new external
 dependency was added; the public-SDK retarget proxy is an uncommitted test fixture.
+
+### S31b6c5a Branch source ZIP extraction
+
+Adapted the Unpack controller, existing dialog and backend dispatch by Open
+Salamander Authors, Milan Kase and Samandarin Contributors,
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pin47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
+The local staged integration reuses exact archive paths and live operation
+snapshots, admits only the qualified bundled ZIP backend and ordinary disk
+target, and independently refuses archive deletion. SDK ABI, plugin/vendor
+sources and their notices are preserved; no new external dependency.
