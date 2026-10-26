@@ -1,5 +1,41 @@
 # Plán postupného portu PR #769
 
+## S31b6c4c2a — external unpack handoff context (VERIFIED)
+
+Optional source/target snapshots v actual PackUniversalUncompress ověřují live
+panel registry při vstupu, před PackExecute a před panel->MoveFiles. Stale
+context odmítne s ERROR_RETRY po scoped temp cleanup. NULL callers beze změny.
+[Rozsah a evidence](steps/S31b6c4c2a.md): native158/config, staré133/99/config,
+contracts20/28, host/salspawn D/R PASS; actual external ASCII ZIP GUI spuštěno
+uživatelem, assistant kontroluje exact3payload hashes a source/target sentinels.
+Status: VERIFIED. SDK/plugin/dispatcher/controller a staré assertions beze změny.
+Další c4c2b musí nové kontexty předat a řešit post-modal/refresh/focus lifecycle.
+S31/G04/G05 OPEN, ChangeDir/long-source GUI NOT_VERIFIED, frozen WIP nedotčen.
+Bez push/PR/S32/CodeQL/clean whole matrix.
+
+## S31b6c4c2 — nalezená external callback závislost, pořadí
+
+PackUniversalUncompress po TestFreeSpace/PackExecute callbackách volá borrowed
+panel->MoveFiles. Pouhé controller snapshots toto vnitřní předání neochrání.
+1. **S31b6c4c2a:** internal optional source/target disk snapshots do této funkce,
+   validace před temp I/O, před externím spuštěním a před MoveFiles; source
+   routing, live registry-before-getters. Invalidace uklidí jen vlastní temp
+   adresář/list a vrátí ERROR_RETRY, MoveFiles se nezavolá. NULL legacy callers
+   beze změny, žádný SDK/Branch/externí bezpečnostní bypass. Actual celá funkce
+   native D/R s explicitními temp/process/I/O doubles; mutation v free-space a
+   process callback, attached/detached/root/tab/scan/type/routing; negative probe,
+   host D/R a actual ordinary external ASCII ZIP GUI D/R s již instalovaným tar,
+   private profile/own files/exact hashes, bez mazání zdrojového archivu.
+2. **S31b6c4c2b:** zachovat modal selection po Execute, controller source/target/
+   backend forwarding včetně external větve, opakované kontroly kolem callbacků
+   a bezpečné refresh/focus/EndStopRefresh. Native actual controller a guarded
+   GUI D/R. Přesnou akceptaci zapsat před implementací.
+
+Tento běh pouze c2a jako nutný předkrok; současní runtime callers nové snapshots
+ještě nepředávají. Žádná záruka životnosti uvnitř MoveFiles ani hotová controller
+ochrana se netvrdí. SDK/Branch guards/volume policy/ChangeDir beze změny;
+S31/G04/G05 OPEN, lokální commit až po ověření, bez push/PR/S32.
+
 ## S31b6c4c1 — bezpečná vazba modal unpacker volby (2026-10-26)
 
 Dialog vlastní zobrazené config metadata a plugin binding; stale index/content/

@@ -791,3 +791,12 @@ pin47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
 Local lifecycle adaptation owns displayed unpacker metadata and validates it
 before committing dialog state. SDK, vendor sources and their notices remain
 unchanged; no new external dependency.
+
+### S31b6c4c2a external unpacker context validation
+
+Adapted PackUniversalUncompress by Open Salamander Authors, Milan Kase and
+Samandarin Contributors, [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pin47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
+Local integration reuses the live disk action snapshot around external process
+callbacks and the MoveFiles handoff. Public SDK, vendor sources and notices
+remain unchanged; no external dependency was added.

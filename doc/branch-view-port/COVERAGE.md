@@ -1,5 +1,18 @@
 # S31 — Úplnost portu proti donoru
 
+## S31b6c4c2a — external unpack handoff context (VERIFIED)
+
+Optional source/target snapshots v actual PackUniversalUncompress ověřují live
+panel registry při vstupu, před PackExecute a před panel->MoveFiles. Stale
+context odmítne s ERROR_RETRY po scoped temp cleanup. NULL callers beze změny.
+[Rozsah a evidence](steps/S31b6c4c2a.md): native158/config, staré133/99/config,
+contracts20/28, host/salspawn D/R PASS; actual external ASCII ZIP GUI spuštěno
+uživatelem, assistant kontroluje exact3payload hashes a source/target sentinels.
+Status: VERIFIED. SDK/plugin/dispatcher/controller a staré assertions beze změny.
+Další c4c2b musí nové kontexty předat a řešit post-modal/refresh/focus lifecycle.
+S31/G04/G05 OPEN, ChangeDir/long-source GUI NOT_VERIFIED, frozen WIP nedotčen.
+Bez push/PR/S32/CodeQL/clean whole matrix.
+
 ## S31b6c4c1 — bezpečná vazba modal unpacker volby (2026-10-26)
 
 Dialog vlastní zobrazené config metadata a plugin binding; stale index/content/
