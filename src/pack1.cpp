@@ -1445,7 +1445,8 @@ CPluginData* PackGetVerifiedBranchUnpacker(CFilesWindow* panel, const char* arch
         return NULL;
     CPluginData* owner = panel->GetPluginDataForPluginIface();
     return owner != NULL && owner->SupportPanelView && owner->DLLName != NULL &&
-           _stricmp(owner->DLLName, "zip\\zip.spl") == 0 ? owner : NULL;
+           (_stricmp(owner->DLLName, "zip\\zip.spl") == 0 ||
+            _stricmp(owner->DLLName, "7zip\\7zip.spl") == 0) ? owner : NULL;
 }
 
 

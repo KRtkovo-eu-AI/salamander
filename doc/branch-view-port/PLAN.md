@@ -1,5 +1,36 @@
 # Plán postupného portu PR #769
 
+## S31b6b3c3 — ověřený 7-Zip cíl Branch View (2026-10-26)
+
+Po c2 rozšířena existující owner policy pouze o bundled7zip\7zip.spl. Přesný
+private metadata/archive/owner/target binding zůstává; před InitDLL zachycen
+backend kind a po něm odmítnuta i záměna ZIP↔7-Zip na témže objektu. Původní
+InitDLL pořadí a všechny původní post-init assertions zachovány, bez SDK změny.
+[Implementace a důkazy](steps/S31b6b3c3.md): post-init124/config, ZIP dispatcher/
+listing195D/182R,7-Zip listing185/config, extraction314/config, directory240/config,
+disk448/config; operations20/transitions28; host x64 D/R PASS. Actual7z F5 do
+Branch rootu266/268 UTF16 v Debug Dark Mode a Release light: Cancel, odmítnutí
+ruční změny cíle, missing-root1237 a úspěch; všech5 hashes a sentinels souhlasí.
+LongPathsEnabled=0; plugin/deps přesně z ověřeného nezměněného c2 runtime.
+Další nejmenší krok dle S31b6a: S31b6c audit source admission přímého Unpack.
+Source lifetime zůstává samostatná otevřená hranice. Celá S31/G04/G05 OPEN;
+ChangeDir/long-source GUI odložené NOT_VERIFIED. Bez push/PR/S32/nové clean CI/CodeQL.
+
+## S31b6b3c3 — kvalifikovaná 7-Zip Branch destination admission
+
+Po ověřené c2 povolit v existující internal listing-owner policy také bundled
+7zip\7zip.spl, bez association/extension-only fallbacku. Zachovat přesný private
+metadata/archiv/this/target binding. Před InitDLL ověřit Branch owner a zachytit
+ZIP vs7-Zip backend kind, po InitDLL odmítnout i přepnutí mezi těmito dvěma
+povolenými DLL na stejném objektu. Nepovolovat unknown/external/virtual backendy,
+source Branch/delete/ručně přepsaný root. Původní assertions zachovat (nahradit
+pouze dříve výslovně deferred7Zip variantu za nequalified DLL-path variantu),
+doplnit7Zip positive/foreign/config/invalid dispatch a post-init scenáře D/R.
+Actual host D/R; plugin z nezměněného ověřeného c2 buildu s hash bindingem;
+actual7z Branch F5 GUI D/R do long Unicode rootu, přesné5 hashes a sentinels,
+Cancel/manual refusal/missing-root retry. SDK/lifetime/ostatní G04/G05 otevřené,
+ChangeDir odložené; nový lokální commit až po ověření, bez push/PR/S32.
+
 ## S31b6b3c2 — opravený 7-Zip output lifecycle (2026-10-26)
 
 Jedna plná UTF8-first wide identita pro stream, atributy a cleanup; kapacity a

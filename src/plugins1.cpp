@@ -3877,9 +3877,10 @@ BOOL CPluginData::UnpackArchive(CFilesWindow* panel, const char* archiveFileName
     {
         // InitDLL may dispatch callbacks; check the live registry again before plugin I/O.
         if (diskTarget != NULL && (!diskTarget->IsCurrent(MainWindow) ||
-            diskTarget->Branch && (!diskTarget->DirectoryDefault || targetDir == NULL ||
+            diskTarget->Branch && (!branchOwnerQualified || !diskTarget->DirectoryDefault || targetDir == NULL ||
                 strcmp(targetDir, diskTarget->DefaultPath.c_str()) != 0 ||
-                PackGetVerifiedBranchUnpacker(panel, archiveFileName, pluginData) != this)))
+                PackGetVerifiedBranchUnpacker(panel, archiveFileName, pluginData) != this ||
+                branchWasZip != (_stricmp(DLLName, "zip\\zip.spl") == 0))))
         {
             SetLastError(ERROR_RETRY);
             return FALSE;

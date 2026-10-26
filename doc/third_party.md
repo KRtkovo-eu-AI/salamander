@@ -725,3 +725,13 @@ guard follows the qualified ZIP output guard; existing retry/overwrite behavior
 is retained. Native tests compile real bundled7-Zip SDK strings/streams by Igor
 Pavlov under the existing7za/DOC/License.txt terms. Vendor source, global encoding
 semantics, notices and public SDK remain unchanged; no new external dependency.
+
+### S31b6b3c3 qualified 7-Zip Branch destination
+
+Adapted archive dispatch and host wrapper from Open Salamander Authors, Milan
+Kase and Samandarin Contributors, [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pinned47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
+The local staged-port adapter qualifies the actual bundled7-Zip listing owner
+and preserves its backend kind across initialization. Existing bundled7-Zip
+SDK by Igor Pavlov,7za/DOC/License.txt, notices and vendor sources are unchanged;
+there is no new dependency or public SDK change.

@@ -1,5 +1,21 @@
 # S00 read-only donor boundary audit
 
+## S31b6b3c3 — ověřený 7-Zip cíl Branch View (2026-10-26)
+
+Po c2 rozšířena existující owner policy pouze o bundled7zip\7zip.spl. Přesný
+private metadata/archive/owner/target binding zůstává; před InitDLL zachycen
+backend kind a po něm odmítnuta i záměna ZIP↔7-Zip na témže objektu. Původní
+InitDLL pořadí a všechny původní post-init assertions zachovány, bez SDK změny.
+[Implementace a důkazy](steps/S31b6b3c3.md): post-init124/config, ZIP dispatcher/
+listing195D/182R,7-Zip listing185/config, extraction314/config, directory240/config,
+disk448/config; operations20/transitions28; host x64 D/R PASS. Actual7z F5 do
+Branch rootu266/268 UTF16 v Debug Dark Mode a Release light: Cancel, odmítnutí
+ruční změny cíle, missing-root1237 a úspěch; všech5 hashes a sentinels souhlasí.
+LongPathsEnabled=0; plugin/deps přesně z ověřeného nezměněného c2 runtime.
+Další nejmenší krok dle S31b6a: S31b6c audit source admission přímého Unpack.
+Source lifetime zůstává samostatná otevřená hranice. Celá S31/G04/G05 OPEN;
+ChangeDir/long-source GUI odložené NOT_VERIFIED. Bez push/PR/S32/nové clean CI/CodeQL.
+
 ## S31b6b3c2 — opravený 7-Zip output lifecycle (2026-10-26)
 
 Jedna plná UTF8-first wide identita pro stream, atributy a cleanup; kapacity a

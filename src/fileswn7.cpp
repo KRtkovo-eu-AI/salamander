@@ -819,7 +819,7 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
     }
     if (IsBranchView() || target != NULL && target->IsBranchView() &&
         (deleteOp || !target->Is(ptDisk) ||
-         PackGetVerifiedBranchUnpacker(this, GetZIPArchive(), PluginData.GetInterface()) == NULL)) return; // Only the qualified ZIP listing can copy to a Branch root.
+         PackGetVerifiedBranchUnpacker(this, GetZIPArchive(), PluginData.GetInterface()) == NULL)) return; // Only a qualified archive listing can copy to a Branch root.
 
     if (changeTargetRequested != NULL)
         *changeTargetRequested = FALSE;
