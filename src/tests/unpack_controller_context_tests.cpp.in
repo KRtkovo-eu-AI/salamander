@@ -308,14 +308,15 @@ int main(){
   main.Detached={nullptr};main.CloseDetachedTab(nullptr);Check(DetachedTransitions==0,"orphan null detached entry cannot be dereferenced by close guard");
  }
 
- // ZIP-only Branch source admission: actual controller, dispatcher and post-init wrapper.
+ // Qualified bundled Branch source admission: actual controller, dispatcher and post-init wrapper.
+ for(const char* qualified : {"zip\\zip.spl", "7zip\\7zip.spl"}) {
  for(int scenario=0;scenario<30;++scenario){
   Reset();CFilesWindow source,target;source.Root=L"C:\\collection";source.Branch=TRUE;source.Tab=2;target.Root=L"C:\\target";target.Tab=3;
   source.FileStore.Item.Full=L"C:\\collection\\parent-東京\\same.zip";source.FileStore.Item.NameW=L"same.zip";
   CMainWindow main;MainWindow=&main;main.Left={&source};main.Right={&target};main.LeftPanel=&source;main.RightPanel=&target;
-  CUnpackerConfigData row;Row(row);CPluginData plugin;plugin.DLLName="zip\\zip.spl";UnpackerConfig.Unpackers.Data={&row};UnpackerConfig.Unpackers.Count=1;UnpackerConfig.PreferedUnpacker=0;Plugins.Data={&plugin};
+  CUnpackerConfigData row;Row(row);CPluginData plugin;plugin.DLLName=qualified;UnpackerConfig.Unpackers.Data={&row};UnpackerConfig.Unpackers.Count=1;UnpackerConfig.PreferedUnpacker=0;Plugins.Data={&plugin};
   ExpectedSource=SalWideToMultiBytePath(source.FileStore.Item.Full.c_str(),CP_UTF8);ExpectedTarget="C:\\target";
-  if(scenario==1)plugin.DLLName="7zip\\7zip.spl";
+  if(scenario==1)plugin.DLLName="other\\7zip.spl";
   if(scenario==2)plugin.DLLName="other\\zip.spl";
   if(scenario==3){row.Type=0;row.CmdExecExtract=_strdup("external.exe");row.CmdArgsExtract=_strdup("args");}
   if(scenario==4)RequestDelete=TRUE; // Malicious facade bypasses disabled UI; controller must refuse independently.
@@ -324,7 +325,7 @@ int main(){
   if(scenario==7)source.Scanning=TRUE;
   if(scenario==8)OnDialog=[&]{++source.Generation;};
   if(scenario==9)OnInit=[&]{++source.Generation;};
-  if(scenario==10)OnInit=[&]{plugin.DLLName="7zip\\7zip.spl";};
+  if(scenario==10)OnInit=[&]{plugin.DLLName=_stricmp(qualified,"zip\\zip.spl")==0?"7zip\\7zip.spl":"zip\\zip.spl";};
   if(scenario==11)RootExists=FALSE;
   if(scenario==12){ManualPath="relative";ExpectedTarget="C:\\collection\\parent-東京\\relative";}
   if(scenario==13){Configuration.UseAnotherPanelForUnpack=FALSE;ExpectedTarget="C:\\collection\\parent-東京\\";}
@@ -347,14 +348,14 @@ int main(){
   Check(StopDepth==0&&PriorityDepth==0&&!source.FilesActionInProgress,"Branch callbacks balance refresh/priority/busy lifetimes");
   Check(source.StaleReads==0&&target.StaleReads==0&&FocusPosts==0&&DeletedVolumes==0,"Branch never uses retired getters, synthetic-root focus or archive deletion");
   if(scenario>=1&&scenario<=11||scenario==15||scenario==17||scenario==18||scenario==28||scenario==29)Check(SDKCalls==0&&ExternalCalls==0,"unqualified/stale/cancelled Branch operation never dispatches I/O");
-  else Check(SDKCalls==1&&ExternalCalls==0,"only qualified ZIP receives exact Branch source and ordinary disk target");
+  else Check(SDKCalls==1&&ExternalCalls==0,"only qualified bundled backend receives exact Branch source and ordinary disk target");
   if(scenario>=1&&scenario<=4||scenario==8||scenario==11||scenario==15||scenario==29)Check(Creates==0,"unsupported Branch backend/delete/modal state refuses before target creation");
   if(scenario!=5&&scenario!=6&&scenario!=7)Check(!ModalAllowsDelete,"Branch controller disables archive deletion in actual dialog contract");
  }
  // Independent dispatcher/wrapper denial, even if caller omits or tampers with contexts.
  for(int scenario=0;scenario<6;++scenario){
   Reset();CFilesWindow source,target;source.Branch=TRUE;source.Tab=2;target.Tab=3;CMainWindow main;MainWindow=&main;main.Left={&source};main.Right={&target};main.LeftPanel=&source;main.RightPanel=&target;
-  CUnpackerConfigData row;Row(row);CPluginData plugin;plugin.DLLName="zip\\zip.spl";Plugins.Data={&plugin};UnpackerConfig.Unpackers.Data={&row};UnpackerConfig.Unpackers.Count=1;UnpackerConfig.PreferedUnpacker=0;
+  CUnpackerConfigData row;Row(row);CPluginData plugin;plugin.DLLName=qualified;Plugins.Data={&plugin};UnpackerConfig.Unpackers.Data={&row};UnpackerConfig.Unpackers.Count=1;UnpackerConfig.PreferedUnpacker=0;
   CFilesActionDiskTarget src,dst;src.Capture(&main,&source,TRUE);dst.Capture(&main,&target,TRUE);CWholeArchiveUnpackerSnapshot backend;Check(backend.Capture(&UnpackerConfig),"capture direct Branch policy fixture");
   if(scenario==1)dst.Branch=TRUE;if(scenario==2)++src.Generation;
   BOOL ok=UnpackerConfig.ExecuteUnpacker(nullptr,&source,"a","*.*","b",scenario==3,nullptr,scenario==4?nullptr:&backend,scenario==0?nullptr:&src,scenario==5?nullptr:&dst);
@@ -363,12 +364,13 @@ int main(){
 
  for(int scenario=0;scenario<9;++scenario){
   Reset();CFilesWindow source,target;source.Branch=TRUE;source.Tab=2;target.Tab=3;CMainWindow main;MainWindow=&main;main.Left={&source};main.Right={&target};main.LeftPanel=&source;main.RightPanel=&target;
-  CUnpackerConfigData row;Row(row);CPluginData plugin;plugin.DLLName=scenario==5?"7zip\\7zip.spl":"zip\\zip.spl";Plugins.Data={&plugin};UnpackerConfig.Unpackers.Data={&row};UnpackerConfig.Unpackers.Count=1;UnpackerConfig.PreferedUnpacker=0;
+  CUnpackerConfigData row;Row(row);CPluginData plugin;plugin.DLLName=scenario==5?"other\\7zip.spl":qualified;Plugins.Data={&plugin};UnpackerConfig.Unpackers.Data={&row};UnpackerConfig.Unpackers.Count=1;UnpackerConfig.PreferedUnpacker=0;
   if(scenario==6)target.Branch=TRUE;
   CFilesActionDiskTarget src,dst;src.Capture(&main,&source,TRUE);dst.Capture(&main,&target,TRUE);CWholeArchiveUnpackerSnapshot backend;Check(backend.Capture(&UnpackerConfig),"capture concrete Branch wrapper policy fixture");
   if(scenario==7)OnInit=[&]{++source.Generation;};if(scenario==8)OnInit=[&]{plugin.SupportCustomUnpack=FALSE;};ExpectedSource="a";ExpectedTarget="b";
   BOOL ok=plugin.UnpackWholeArchive(&source,"a","*.*","b",scenario==4,nullptr,scenario==1?nullptr:&src,scenario==2?nullptr:&dst,scenario==3?nullptr:&backend);
-  Check(scenario==0?(ok&&SDKCalls==1&&OperationContexts==1):(!ok&&SDKCalls==0&&OperationContexts==0),"concrete post-init wrapper independently qualifies ZIP, panels and no-delete before SDK");
+  Check(scenario==0?(ok&&SDKCalls==1&&OperationContexts==1):(!ok&&SDKCalls==0&&OperationContexts==0),"concrete post-init wrapper independently qualifies bundled backend, panels and no-delete before SDK");
+ }
  }
  printf("Actual whole-archive controller: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
 }

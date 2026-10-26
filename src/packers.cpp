@@ -1514,9 +1514,10 @@ bool CWholeArchiveUnpackerSnapshot::IsCurrent(const CPluginData* expectedPlugin)
 
 bool CWholeArchiveUnpackerSnapshot::IsVerifiedBranchSourceUnpacker() const
 {
-    // S31b6c5a qualifies the selected whole-archive backend, not an extension/listing owner.
+    // S31b6c5: qualify the selected bundled backend, not an extension/listing owner.
     return Type < CUSTOMUNPACKER_EXTERNAL && IsCurrent() &&
-           _stricmp(DLLName.c_str(), "zip\\zip.spl") == 0;
+           (_stricmp(DLLName.c_str(), "zip\\zip.spl") == 0 ||
+            _stricmp(DLLName.c_str(), "7zip\\7zip.spl") == 0);
 }
 
 bool CWholeArchiveUnpackerSnapshot::ValidateExternalPaths(const char* source, const char* target) const

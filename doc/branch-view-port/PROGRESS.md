@@ -1,5 +1,18 @@
 # Stav portu PR #769
 
+## S31b6c5b — Branch source bundled7Zip (VERIFIED)
+
+The selected live bundled7Zip backend joins ZIP for Branch source -> ordinary
+disk target. All existing controller/dialog/dispatcher/wrapper guards and no-delete
+policy retained. [Exact scope](steps/S31b6c5b.md): actual controller3030/config,
+backend183, dialog106, whole-post-init119, source96,7Zip gather56/listing185/output314,
+contracts20/29; native and host x64 Debug/Release PASS. Actual7z Branch GUI D/R
+Cancel, success, Skip All, duplicate basenames/different payloads, relative target,
+Unicode and byte/Win32-long source paths, invalid archive PASS. Exact hashes and
+source/target sentinels checked. LongPathsEnabled=0; ChangeDir WIP untouched.
+Next c6 Branch target qualification, then c7 volume policy. S31/G04/G05 remain
+OPEN; no push/PR/S32/CodeQL or clean whole-platform matrix.
+
 ## S31b6c5a — Branch source -> ordinary disk target, ZIP (VERIFIED)
 
 Bundled ZIP is now admitted by the actual selected backend binding, with exact

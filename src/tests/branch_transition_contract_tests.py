@@ -24,7 +24,7 @@ class BranchTransitionContracts(unittest.TestCase):
   for allowed in ('CM_OPEN','CM_VIEW','CM_ALTVIEW','CM_EDIT','CM_BRANCH_OPENPARENT','CM_RENAMEFILE','CM_COPYFILES','CM_MOVEFILES','CM_DELETEFILES','CM_PROPERTIES','CM_CLIPCOPY','CM_CLIPCUT','CM_CLIPPASTE','CM_PACK','CM_UNPACK','CM_CONTEXTMENU'):
    self.assertIn('case '+allowed+':',gate)
   self.assertIn('return false;',gate)
- def test_branch_direct_unpack_is_qualified_zip_without_archive_deletion(self):
+ def test_branch_direct_unpack_is_qualified_bundled_backend_without_archive_deletion(self):
   controller=function('fileswn7.cpp','void CFilesWindow::Unpack(')
   self.assertIn('(IsBranchView() && !target->Is(ptDisk))) return;',controller)
   self.assertIn('&delArchiveWhenDone, !sourceSnapshot.Branch)',controller)
@@ -33,7 +33,7 @@ class BranchTransitionContracts(unittest.TestCase):
   policy=function('packers.cpp','bool CWholeArchiveUnpackerSnapshot::IsVerifiedBranchSourceUnpacker(')
   self.assertIn('IsCurrent()',policy)
   self.assertIn('"zip\\\\zip.spl"',policy)
-  self.assertNotIn('7zip',policy)
+  self.assertIn('"7zip\\\\7zip.spl"',policy)
   for name,marker in (('packers.cpp','BOOL CUnpackerConfig::ExecuteUnpacker('),('plugins1.cpp','BOOL CPluginData::UnpackWholeArchive(')):
    guarded=function(name,marker)
    self.assertIn('diskTarget == NULL || diskTarget->Branch',guarded)

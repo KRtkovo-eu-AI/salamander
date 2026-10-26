@@ -821,3 +821,13 @@ The local staged integration reuses exact archive paths and live operation
 snapshots, admits only the qualified bundled ZIP backend and ordinary disk
 target, and independently refuses archive deletion. SDK ABI, plugin/vendor
 sources and their notices are preserved; no new external dependency.
+
+### S31b6c5b bundled7Zip Branch source qualification
+
+Continues the staged integration of Unpack/backend code by Open Salamander
+Authors, Milan Kase and Samandarin Contributors,
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pin47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
+The local host admission now includes the already qualified bundled7Zip engine.
+Igor Pavlov's7-Zip SDK/license and other vendor notices, plugin sources and public
+SDK ABI remain unchanged. No external dependency was added.

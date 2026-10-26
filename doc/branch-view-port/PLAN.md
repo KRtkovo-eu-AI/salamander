@@ -1,5 +1,38 @@
 # Plán postupného portu PR #769
 
+## S31b6c5b — Branch source bundled7Zip (VERIFIED)
+
+The selected live bundled7Zip backend joins ZIP for Branch source -> ordinary
+disk target. All existing controller/dialog/dispatcher/wrapper guards and no-delete
+policy retained. [Exact scope](steps/S31b6c5b.md): actual controller3030/config,
+backend183, dialog106, whole-post-init119, source96,7Zip gather56/listing185/output314,
+contracts20/29; native and host x64 Debug/Release PASS. Actual7z Branch GUI D/R
+Cancel, success, Skip All, duplicate basenames/different payloads, relative target,
+Unicode and byte/Win32-long source paths, invalid archive PASS. Exact hashes and
+source/target sentinels checked. LongPathsEnabled=0; ChangeDir WIP untouched.
+Next c6 Branch target qualification, then c7 volume policy. S31/G04/G05 remain
+OPEN; no push/PR/S32/CodeQL or clean whole-platform matrix.
+
+## S31b6c5b — bundled7Zip qualification, upfront acceptance
+
+Extend only the exact live selected-backend qualification to bundled
+7zip\7zip.spl. Reuse c5a controller/source/target/dialog guards without relaxing
+stale identity, scan/generation, wrong DLL/config, ordinary target or no-delete
+requirements. Preserve ordinary behavior, SDK ABI/vendor/plugin source, Windows
+settings, deferred ChangeDir work and the already qualified ZIP path.
+
+Native D/R: run the actual whole controller and wrapper scenarios for both
+qualified backends; near-miss DLL identities remain refused. Existing assertions
+retain their meaning; replace only the obsolete7Zip refusal with another
+unqualified identity. Retest modal/backend/source and7Zip gather/listing/output
+regressions. Host D/R /warnaserror. Actual bundled7Zip GUI D/R from a short Branch
+collection: duplicate names/different payloads, Unicode, byte-long and UTF16-long
+sources, ordinary long target, subdir and manual relative target, Cancel, Skip,
+invalid archive, unchanged sources/sentinels and exact output hashes. No archive
+deletion or external commands; private profiles/owned fixtures only. Commit only
+after these checks, no push/PR/S32. c6 Branch target and c7 volume deletion remain
+closed. Full S31/G04/G05 OPEN; long-source extraction is not ChangeDir navigation.
+
 ## S31b6c5a — Branch source -> ordinary disk target, ZIP (VERIFIED)
 
 Bundled ZIP is now admitted by the actual selected backend binding, with exact
