@@ -1,5 +1,18 @@
 # S31 — Úplnost portu proti donoru
 
+## S31b6b3c1 — prokázaná 7-Zip output/cleanup návaznost (2026-10-26)
+
+Nová diagnostika s reálnými vendored AString/UString/COutFileStream a actual
+SafeDeleteFile (pouze error-dialog facade) D/R:99 kontrol/config na ACP1250.
+Ze šesti tvarů cest ASCII funguje; u pěti Unicode legacy stream vytvoří dva
+chybně pojmenované výstupy a třikrát selže otevření. Částečná oprava jen wide
+identity zápisu nechá u všech pěti nefunkční ACP cleanup. Sentinel beze změny.
+[Úplná hranice a akceptace](steps/S31b6b3c1.md): další S31b6b3c2 musí opravit
+celý output lifecycle (bounds/names, stream, attributes, cleanup) společně,
+potom S31b6b3c3 může kvalifikovat Branch admission. Produkce/testy/SDK beze změny;
+nejde o PASS správného rozbalování. S31/G04/G05 OPEN, ChangeDir odložené,
+bez push/PR/S32. ZIP-only dokončený checkpoint S31b6b3b zůstává zachovaný.
+
 ## S31b6b3b — ověřené ZIP F5 do kořene Branch View (2026-10-26)
 
 Uzavřený ZIP-only checkpoint: skutečný archive listing owner + private metadata

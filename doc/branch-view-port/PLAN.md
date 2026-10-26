@@ -1,5 +1,31 @@
 # Plán postupného portu PR #769
 
+## S31b6b3c1 — prokázaná 7-Zip output/cleanup návaznost (2026-10-26)
+
+Nová diagnostika s reálnými vendored AString/UString/COutFileStream a actual
+SafeDeleteFile (pouze error-dialog facade) D/R:99 kontrol/config na ACP1250.
+Ze šesti tvarů cest ASCII funguje; u pěti Unicode legacy stream vytvoří dva
+chybně pojmenované výstupy a třikrát selže otevření. Částečná oprava jen wide
+identity zápisu nechá u všech pěti nefunkční ACP cleanup. Sentinel beze změny.
+[Úplná hranice a akceptace](steps/S31b6b3c1.md): další S31b6b3c2 musí opravit
+celý output lifecycle (bounds/names, stream, attributes, cleanup) společně,
+potom S31b6b3c3 může kvalifikovat Branch admission. Produkce/testy/SDK beze změny;
+nejde o PASS správného rozbalování. S31/G04/G05 OPEN, ChangeDir odložené,
+bez push/PR/S32. ZIP-only dokončený checkpoint S31b6b3b zůstává zachovaný.
+
+## S31b6b3c1 — úplná identita 7-Zip outputu před opravou
+
+Před produkční změnou S31b6b3c zmapovat GetStream, overwrite-create, directory,
+metadata a cleanup na konkrétní textové/wide hranice. Předchozí b3a měřil pouze
+konverzi se storage facades; nyní native diagnostika s reálným vendored AString,
+UString a COutFileStream + Win32 I/O nad vlastními fixtures D/R, bez archiver GUI.
+Porovnat legacy výraz s existujícími lokálními UTF8-first/extended helpers,
+ASCII/Unicode/UTF8-byte-long/UTF16-long identity, atributy a cleanup; oddělit
+přímý důkaz od dosud neověřených host callbacků. Zapsat donor/current symbol
+hashes a rozdělit nejmenší související opravné kroky včetně akceptace celé output
+pipeline; žádná 7-Zip admission, SDK změna ani bezpečnostní nastavení. Tato první
+kvalifikační podetapa uzavírá jen konkrétní důkazy/předpoklady, nikoli runtime fix.
+
 ## S31b6b3b — ověřené ZIP F5 do kořene Branch View (2026-10-26)
 
 Uzavřený ZIP-only checkpoint: skutečný archive listing owner + private metadata

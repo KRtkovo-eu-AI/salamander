@@ -705,3 +705,12 @@ and Samandarin Contributors (GPL-2.0-or-later). Exact listing-owner and private
 metadata qualification constrains the verified bundled ZIP destination path;
 original backend/SDK notices remain unchanged. No new third-party dependency
 or7-Zip vendor conversion change is introduced in this checkpoint.
+
+### S31b6b3c1 7-Zip output lifecycle qualification
+
+Diagnostic reference: Open Salamander Authors, Milan Kase and Samandarin
+Contributors, [PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pinned47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later host/plugin).
+The external native probe compiles the actual bundled 7-Zip SDK string and file
+stream sources by Igor Pavlov under their existing7za/DOC/License.txt terms.
+Vendor sources, notices, production behavior and SDK remain unchanged.
