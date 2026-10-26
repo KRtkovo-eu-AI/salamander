@@ -623,6 +623,11 @@ try {
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\message_box_wrap_tests.py'), '--configuration', $Configuration)
         },
         @{
+            Name = 'sevenzip_gather_items_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\sevenzip_gather_items_tests.py'), '--configuration', $Configuration)
+        },
+        @{
             Name = 'sevenzip_extract_target_tests'
             ClassName = 'native-generated'
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\sevenzip_extract_target_tests.py'), '--configuration', $Configuration)

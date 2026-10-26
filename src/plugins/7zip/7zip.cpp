@@ -1144,10 +1144,7 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
                             C7zClient* client2 = ((CPluginDataInterface*)pluginData)->Get7zClient();
 
                             salamander->ProgressDialogAddText(LoadStr(IDS_UNPACKING), FALSE);
-                            const int result = client2->Decompress(salamander, fileName, targetDir, &archiveItems,
-                                                                   pluginData->Password, FALSE, &wholeArchiveExtracted);
-                            ret = result != OPER_CANCEL;
-                            wholeArchiveExtracted = wholeArchiveExtracted && result == OPER_OK;
+                            ret = client2->Decompress(salamander, fileName, targetDir, &archiveItems, pluginData->Password) != OPER_CANCEL;
                         }
                         free(archivePath);
                     }

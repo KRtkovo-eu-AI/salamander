@@ -1,5 +1,20 @@
 # S31 — Úplnost portu proti donoru
 
+## S31b6c3 — úplný whole-archive seznam 7-Zip (2026-10-26)
+
+GatherItems používá skutečnou kapacitu heap bufferu, file/directory append failure
+hlásí existující lokalizovanou chybu a OPER_CANCEL místo tichého přeskočení.
+Recursive parent se obnoví i při selhání; explicitní OOM a neúspěšný array Add
+nepředají částečný seznam Decompress. Původní listing/output assertions zachovány.
+[Důkazy a limity](steps/S31b6c3.md): nový native56/config, listing185/config,
+output314/config, operations20/transitions28; plugin/deps/host D/R PASS.
+Actual ordinary7z AltF9 D/R: Cancel a všech5files s dlouhými Unicode internal
+paths do root264/266UTF16, exact hashes/sentinels PASS, LongPathsEnabled=0.
+Initial Release build timeout95s zachován, samostatný final build PASS.
+Další S31b6c4: source/target/backend lifecycle před admission; celá S31/G04/G05
+OPEN. Branch guards/SDK/volume policy beze změny, ChangeDir/long-source GUI
+NOT_VERIFIED a původní WIP nedotčen. Bez push/PR/S32/clean whole matrix/CodeQL.
+
 ## S31b6c2 — exact source-parent context (2026-10-26)
 
 Interní source helper zachytí owned archiv a parent ze stejné exact wide identity,

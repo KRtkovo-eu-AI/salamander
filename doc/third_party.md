@@ -753,3 +753,13 @@ helper from Open Salamander Authors, Milan Kase and Samandarin Contributors,
 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later). The local capture
 adapter keeps source and parent identity together for relative targets. Existing
 notices, bundled ZIP source and public plugin SDK remain unchanged.
+
+### S31b6c3 whole-archive 7-Zip item collection
+
+Adapted GatherItems and its caller from Open Salamander Authors, Milan Kase
+and Samandarin Contributors, [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pinned47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
+The local repair passes the real path capacity and explicitly rejects failed
+collection before decompression. Native tests compile actual bundled string
+sources by Igor Pavlov under existing7za/DOC/License.txt terms. Vendor sources,
+public SDK and notices are unchanged; no new dependency is introduced.
