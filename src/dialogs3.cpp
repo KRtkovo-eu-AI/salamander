@@ -3192,11 +3192,89 @@ bool CUnpackDialog::IsSelectionCurrent() const
            IsUnpackerChoiceCurrent(SelectedUnpacker);
 }
 
+bool CUnpackDialog::CaptureUnpackerChoices()
+{
+    UnpackerChoices.clear();
+    if (UnpackerConfig == NULL)
+        return false;
+    try
+    {
+        std::vector<CUnpackerChoice> choices;
+        for (int i = 0; i < UnpackerConfig->GetUnpackersCount(); ++i)
+        {
+            CUnpackerChoice choice;
+            const char* title = UnpackerConfig->GetUnpackerTitle(i);
+            const char* ext = UnpackerConfig->GetUnpackerExt(i);
+            if (title == NULL || ext == NULL)
+                return false;
+            choice.Title = title;
+            choice.Extensions = ext;
+            choice.Type = UnpackerConfig->GetUnpackerType(i);
+            choice.OldType = UnpackerConfig->GetUnpackerOldType(i);
+            if (choice.OldType || choice.Type > CUSTOMUNPACKER_EXTERNAL)
+                return false;
+            if (choice.Type == CUSTOMUNPACKER_EXTERNAL)
+            {
+                const char* command = UnpackerConfig->GetUnpackerCmdExecExtract(i);
+                const char* arguments = UnpackerConfig->GetUnpackerCmdArgsExtract(i);
+                if (command == NULL || arguments == NULL)
+                    return false;
+                choice.Command = command;
+                choice.Arguments = arguments;
+                choice.SupportLongNames = UnpackerConfig->GetUnpackerSupLongNames(i);
+                choice.NeedANSIListFile = UnpackerConfig->GetUnpackerNeedANSIListFile(i);
+            }
+            else
+            {
+                choice.Plugin = Plugins.Get(-(choice.Type + 1));
+                if (choice.Plugin == NULL || choice.Plugin->DLLName == NULL)
+                    return false;
+                choice.DLLName = choice.Plugin->DLLName;
+                choice.SupportCustomUnpack = choice.Plugin->SupportCustomUnpack;
+            }
+            choices.push_back(std::move(choice));
+        }
+        UnpackerChoices.swap(choices);
+    }
+    catch (const std::bad_alloc&)
+    {
+        UnpackerChoices.clear();
+        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+        return false;
+    }
+    return true;
+}
+
+bool CUnpackDialog::IsUnpackerChoiceCurrent(int index) const
+{
+    if (UnpackerConfig == NULL || index < 0 || (size_t)index >= UnpackerChoices.size() ||
+        index >= UnpackerConfig->GetUnpackersCount())
+        return false;
+    const CUnpackerChoice& choice = UnpackerChoices[index];
+    const char* title = UnpackerConfig->GetUnpackerTitle(index);
+    const char* ext = UnpackerConfig->GetUnpackerExt(index);
+    if (title == NULL || ext == NULL || choice.Title != title || choice.Extensions != ext ||
+        choice.Type != UnpackerConfig->GetUnpackerType(index) || choice.OldType != UnpackerConfig->GetUnpackerOldType(index))
+        return false;
+    if (choice.Type == CUSTOMUNPACKER_EXTERNAL)
+    {
+        const char* command = UnpackerConfig->GetUnpackerCmdExecExtract(index);
+        const char* arguments = UnpackerConfig->GetUnpackerCmdArgsExtract(index);
+        return command != NULL && arguments != NULL && choice.Command == command && choice.Arguments == arguments &&
+               choice.SupportLongNames == UnpackerConfig->GetUnpackerSupLongNames(index) &&
+               choice.NeedANSIListFile == UnpackerConfig->GetUnpackerNeedANSIListFile(index);
+    }
+    CPluginData* live = Plugins.Get(-(choice.Type + 1));
+    return live != NULL && live == choice.Plugin && live->DLLName != NULL &&
+           _stricmp(live->DLLName, choice.DLLName.c_str()) == 0 &&
+           choice.SupportCustomUnpack && live->SupportCustomUnpack == choice.SupportCustomUnpack;
+}
+
 void CUnpackDialog::EnableDelArcCheckbox()
 {
     int i = (int)SendDlgItemMessage(HWindow, IDC_PACKER, CB_GETCURSEL, 0, 0);
     EnableWindow(GetDlgItem(HWindow, IDC_DELETEARCHIVEFILES),
-                 AllowDeleteArchive && IsUnpackerChoiceCurrent(i) && UnpackerChoices[i].Type != CUSTOMUNPACKER_EXTERNAL);
+                 IsUnpackerChoiceCurrent(i) && UnpackerChoices[i].Type != CUSTOMUNPACKER_EXTERNAL);
 }
 
 void CUnpackDialog::Transfer(CTransferInfo& ti)
@@ -3257,8 +3335,7 @@ void CUnpackDialog::Transfer(CTransferInfo& ti)
                 ti.ErrorOn(IDC_PACKER);
                 return;
             }
-            SelectedUnpacker = i != CB_ERR ? i : -1;
-            UnpackerConfig->SetPreferedUnpacker(SelectedUnpacker);
+            UnpackerConfig->SetPreferedUnpacker(i != CB_ERR ? i : -1);
         }
     }
     else

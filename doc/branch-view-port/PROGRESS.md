@@ -1,5 +1,18 @@
 # Stav portu PR #769
 
+## S31b6c4c1 — bezpečná vazba modal unpacker volby (2026-10-26)
+
+Dialog vlastní zobrazené config metadata a plugin binding; stale index/content/
+plugin změnu odmítne před změnou caller state. Checkbox nečte mimo live config.
+[Důkazy a rozsah](steps/S31b6c4c1.md): actual dialog99/config, původní backend133/
+whole119/config, contracts20/28, host a ordinary7z GUI D/R Cancel+exact5files/
+sentinels PASS. LongPathsEnabled=0. Native mutation scénáře nejsou vydávány za
+GUI registry mutation. SDK/plugin/controller/runner beze změny. Další c4c2 musí
+zachovat volbu i po návratu z modal a zapojit source/target/backend kontext,
+bezpečný refresh/focus/EndStopRefresh. S31/G04/G05 OPEN, ChangeDir/long-source
+GUI NOT_VERIFIED a frozen WIP nedotčen. Lokální commit bez push/PR/S32/CodeQL/
+clean whole matrix.
+
 ## S31b6c4b — whole-archive backend/config binding (2026-10-26)
 
 Owned konfigurace vybraného plugin unpackeru se ověřuje před dispatch a před/i

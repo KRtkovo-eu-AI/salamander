@@ -1,5 +1,37 @@
 # Plán postupného portu PR #769
 
+## S31b6c4c1 — bezpečná vazba modal unpacker volby (2026-10-26)
+
+Dialog vlastní zobrazené config metadata a plugin binding; stale index/content/
+plugin změnu odmítne před změnou caller state. Checkbox nečte mimo live config.
+[Důkazy a rozsah](steps/S31b6c4c1.md): actual dialog99/config, původní backend133/
+whole119/config, contracts20/28, host a ordinary7z GUI D/R Cancel+exact5files/
+sentinels PASS. LongPathsEnabled=0. Native mutation scénáře nejsou vydávány za
+GUI registry mutation. SDK/plugin/controller/runner beze změny. Další c4c2 musí
+zachovat volbu i po návratu z modal a zapojit source/target/backend kontext,
+bezpečný refresh/focus/EndStopRefresh. S31/G04/G05 OPEN, ChangeDir/long-source
+GUI NOT_VERIFIED a frozen WIP nedotčen. Lokální commit bez push/PR/S32/CodeQL/
+clean whole matrix.
+
+## S31b6c4c — rozdělení podle skutečné modal mezery
+
+1. **S31b6c4c1:** CUnpackDialog zachytí owned config metadata každé zobrazené
+   volby včetně externího příkazu/flags a live plugin pointer/DLL/custom support.
+   Checkbox i transfer validují index/live metadata, před jakoukoli změnou caller
+   state; invalidace odmítne s lokalizovanou chybou. Owned combo titles, OOM a
+   CB_ADDSTRING failure explicitně odmítnout, nezměnit external ordinary smlouvu.
+   Actual dialog native D/R, staré38 assertions zachovat; navíc stale index,
+   reorder/content/plugin mutation, invalid controls/OOM a unchanged external.
+   Host D/R a ordinary GUI Cancel/exact extract D/R; bez mazání/změny zabezpečení.
+2. **S31b6c4c2:** source/target/backend controller wiring, bezpečné opakované
+   live checks kolem modal/create/backend callbacks, refresh/focus/EndStopRefresh;
+   actual guarded native a GUI D/R. Přesnou akceptaci zapsat před kódem.
+
+V tomto běhu pouze c4c1; donor používá stejný indexový dialog bez snapshotu,
+jde o nutnou lokální lifecycle adaptaci, nikoli převzetí již bezpečné donorové
+implementace. SDK/Branch admission/volume policy a ChangeDir beze změny.
+Lokální commit až po native/build/GUI ověření; S31/G04/G05 OPEN, bez push/PR/S32.
+
 ## S31b6c4b — whole-archive backend/config binding (2026-10-26)
 
 Owned konfigurace vybraného plugin unpackeru se ověřuje před dispatch a před/i

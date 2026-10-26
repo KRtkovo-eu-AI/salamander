@@ -10,6 +10,9 @@
 #include <cstring>
 #include <cstdio>
 #include <algorithm>
+#include <new>
+#include <cstdlib>
+#include <functional>
 #define SAL_MAX_PATH 32768
 #define CALL_STACK_MESSAGE1(x) ((void)0)
 enum {IDE_PATH=101,IDE_MASK,IDC_PACKER,IDC_DELETEARCHIVEFILES,IDD_UNPACK,IDS_PATHISINVALID,IDS_TOOLONGPATH,IDS_ERRORUNPACK};
@@ -17,12 +20,31 @@ enum {ttDataToWindow,ttDataFromWindow,CUSTOMUNPACKER_EXTERNAL=0};
 static HINSTANCE HLanguage=nullptr;static int Messages=0,LastMessage=0;
 static const char* LoadStr(int id){LastMessage=id;return "localized diagnostic";}
 static int SalMessageBox(HWND,const char*,const char*,UINT){++Messages;return IDOK;}
+static const char* GetErrorText(DWORD){return "localized Windows diagnostic";}
+static bool FailNew=false,FailCaptureCopy=false,FailComboAdd=false;
+void* operator new(size_t n){if(FailNew){FailNew=false;throw std::bad_alloc();}if(void* p=malloc(n))return p;throw std::bad_alloc();}
+void operator delete(void* p)noexcept{free(p);}void operator delete(void* p,size_t)noexcept{free(p);}
+static LRESULT TestSendMessage(HWND h,UINT m,WPARAM w,LPARAM l){if(FailComboAdd&&m==CB_ADDSTRING){FailComboAdd=false;return CB_ERRSPACE;}return SendMessageA(h,m,w,l);}
+#undef SendMessage
+#define SendMessage TestSendMessage
+struct CPluginData {const char* DLLName="zip\\zip.spl";BOOL SupportCustomUnpack=TRUE;};
+static CPluginData Plugin,OtherPlugin;
+static struct {CPluginData* Entry=&Plugin;CPluginData* Get(int i){return i==0?Entry:nullptr;}} Plugins;
 static int StrICmp(const char*a,const char*b){return _stricmp(a,b);}
 struct CTruncatedString {};
 struct CUnpackerConfig {
  int Preferred=0;std::vector<int> Types={-1,0};
+ std::vector<std::string> Titles={"ZIP (Plugin)","External"},Extensions={"zip","7z"};
+ std::string Command="external.exe",Arguments="args";BOOL Long=TRUE,ANSI=FALSE;
+ BOOL Old=FALSE;
  int GetUnpackersCount() const{return (int)Types.size();}
- const char* GetUnpackerTitle(int i) const{return i==0?"ZIP (Plugin)":"External";}
+ const char* GetUnpackerTitle(int i) const{if(FailCaptureCopy){FailCaptureCopy=false;FailNew=true;}return Titles.at(i).c_str();}
+ const char* GetUnpackerExt(int i) const{return Extensions.at(i).c_str();}
+ BOOL GetUnpackerOldType(int) const{return Old;}
+ const char* GetUnpackerCmdExecExtract(int) const{return Command.c_str();}
+ const char* GetUnpackerCmdArgsExtract(int) const{return Arguments.c_str();}
+ BOOL GetUnpackerSupLongNames(int) const{return Long;}
+ BOOL GetUnpackerNeedANSIListFile(int) const{return ANSI;}
  int GetPreferedUnpacker() const{return Preferred;}
  void SetPreferedUnpacker(int i){Preferred=i;}
  int GetUnpackerType(int i) const{return Types.at(i);}
@@ -51,6 +73,7 @@ struct TestDialog:CUnpackDialog {
  using CUnpackDialog::CUnpackDialog;
  void Attach(HWND parent){HWindow=parent;}
  BOOL UsesWide() const{return UnicodeWnd;}
+ void RefreshCheckbox(){EnableDelArcCheckbox();}
 };
 static int Checks=0,Failures=0;
 static void Check(bool b,const char* text){++Checks;if(!b){++Failures;printf("FAIL: %s\n",text);}}
@@ -91,6 +114,8 @@ int main(){
  for(int capacity:{0,-1}){result="stale";Check(!ReadUnpackDialogPath(path,capacity,result,error)&&result.empty(),"invalid byte capacity refused");}
  {
   char small[16]="keep";BOOL unchanged=FALSE;TestDialog bounded(nullptr,small,8,"",filter,&subject,&config,&unchanged);bounded.Attach(parent);
+  CTransferInfo boundedTo(parent,ttDataToWindow);bounded.Transfer(boundedTo);
+  SetWindowTextW(path,L"東京");
   SendMessageW(packer,CB_SETCURSEL,1,0);SendMessageW(remove,BM_SETCHECK,BST_CHECKED,0);EnableWindow(remove,TRUE);config.Preferred=0;
   const char original[16]={'k','e','e','p',0};
   for(const auto& text:{std::wstring(L"東東東"),std::wstring(32768,L'a')}){
@@ -103,6 +128,67 @@ int main(){
   SetWindowTextW(path,L"1234567");CTransferInfo last(parent,ttDataFromWindow);bounded.Transfer(last);
   Check(last.IsGood()&&std::string(small)=="1234567"&&small[8]==0,"last complete byte before NUL fits exact capacity");
   SetWindowTextW(path,L"");CTransferInfo empty(parent,ttDataFromWindow);bounded.Transfer(empty);Check(empty.IsGood()&&small[0]==0,"empty target is preserved for controller default semantics");
+ }
+ // Preserve every original path assertion above; these cases exercise modal choice invalidation.
+ for(int scenario=0;scenario<12;++scenario){
+  CUnpackerConfig changed;char destination[64]="C:\\unchanged",testMask[MAX_PATH]="*.keep";BOOL deletion=FALSE;
+  Plugin.DLLName="zip\\zip.spl";Plugin.SupportCustomUnpack=TRUE;Plugins.Entry=&Plugin;
+  TestDialog test(nullptr,destination,sizeof(destination),"",testMask,&subject,&changed,&deletion);test.Attach(parent);
+  CTransferInfo init(parent,ttDataToWindow);test.Transfer(init);Check(init.IsGood(),"capture actual displayed choices before modal mutation");
+  SetWindowTextW(path,L"C:\\new-output");SetWindowTextA(mask,"*.changed");SendMessageW(remove,BM_SETCHECK,BST_CHECKED,0);
+  changed.Preferred=1;
+  switch(scenario){
+   case 0:changed.Types.clear();break;
+   case 1:changed.Types.erase(changed.Types.begin());changed.Titles.erase(changed.Titles.begin());changed.Extensions.erase(changed.Extensions.begin());break;
+   case 2:std::swap(changed.Types[0],changed.Types[1]);std::swap(changed.Titles[0],changed.Titles[1]);break;
+   case 3:changed.Titles[0]="replaced row";break;
+   case 4:changed.Extensions[0]="7z";break;
+   case 5:changed.Old=TRUE;break;
+   case 6:Plugins.Entry=nullptr;break;
+   case 7:Plugins.Entry=&OtherPlugin;break;
+   case 8:Plugin.DLLName="7zip\\7zip.spl";break;
+   case 9:Plugin.DLLName=nullptr;break;
+   case 10:Plugin.SupportCustomUnpack=FALSE;break;
+   case 11:changed.Types[0]=0;break;
+  }
+  test.RefreshCheckbox();Check(!IsWindowEnabled(remove),"stale displayed choice disables deletion without out-of-range config access");
+  int before=Messages;CTransferInfo from(parent,ttDataFromWindow);test.Transfer(from);
+  Check(!from.IsGood()&&from.ErrorID==IDC_PACKER&&Messages==before+1,"stale displayed selection refuses actual transfer with localized diagnostic");
+  Check(std::string(destination)=="C:\\unchanged"&&std::string(testMask)=="*.keep"&&!deletion&&changed.Preferred==1,"stale choice leaves all caller fields untouched");
+ }
+ for(int scenario=0;scenario<4;++scenario){
+  CUnpackerConfig changed;Plugins.Entry=&Plugin;Plugin.DLLName="zip\\zip.spl";Plugin.SupportCustomUnpack=TRUE;
+  char destination[64]="C:\\unchanged",testMask[MAX_PATH]="*.*";BOOL deletion=TRUE;
+  TestDialog test(nullptr,destination,sizeof(destination),"",testMask,&subject,&changed,&deletion);test.Attach(parent);
+  CTransferInfo init(parent,ttDataToWindow);test.Transfer(init);SendMessageW(packer,CB_SETCURSEL,1,0);
+  switch(scenario){case 0:changed.Command="different.exe";break;case 1:changed.Arguments="different args";break;case 2:changed.Long=FALSE;break;case 3:changed.ANSI=TRUE;break;}
+  SetWindowTextW(path,L"C:\\new-output");CTransferInfo from(parent,ttDataFromWindow);test.Transfer(from);
+  Check(!from.IsGood()&&from.ErrorID==IDC_PACKER&&std::string(destination)=="C:\\unchanged"&&deletion&&changed.Preferred==0,"external command, args and flags bound to displayed choice");
+ }
+ {
+  CUnpackerConfig unchanged;char destination[64]="C:\\unchanged",testMask[MAX_PATH]="*.*";BOOL deletion=TRUE;
+  TestDialog test(nullptr,destination,sizeof(destination),"",testMask,&subject,&unchanged,&deletion);test.Attach(parent);
+  CTransferInfo init(parent,ttDataToWindow);test.Transfer(init);SendMessageW(packer,CB_SETCURSEL,1,0);test.RefreshCheckbox();
+  Check(!IsWindowEnabled(remove),"unchanged external keeps deletion disabled");
+  SetWindowTextW(path,L"C:\\new-output");CTransferInfo from(parent,ttDataFromWindow);test.Transfer(from);
+  Check(from.IsGood()&&unchanged.Preferred==1&&std::string(destination)=="C:\\new-output"&&!deletion,"unchanged external selection still transfers ordinary contract");
+  SendMessageW(packer,CB_SETCURSEL,0,0);Plugin.DLLName="ZIP\\ZIP.SPL";test.RefreshCheckbox();
+  Check(IsWindowEnabled(remove),"DLL case-only spelling preserves same plugin binding");
+ }
+ for(int failure=0;failure<2;++failure){
+  CUnpackerConfig configFailure;configFailure.Titles[0]=std::string(80,'x');char destination[64]="C:\\unchanged",testMask[MAX_PATH]="*.keep";BOOL deletion=TRUE;
+  TestDialog test(nullptr,destination,sizeof(destination),"",testMask,&subject,&configFailure,&deletion);test.Attach(parent);
+  if(failure==0)FailCaptureCopy=true;else FailComboAdd=true;
+  CTransferInfo init(parent,ttDataToWindow);test.Transfer(init);
+  Check(!init.IsGood()&&init.ErrorID==IDC_PACKER&&!FailNew&&!FailCaptureCopy&&!FailComboAdd&&SendMessageW(packer,CB_GETCOUNT,0,0)==0,"owned choice allocation or combo insertion failure refuses incomplete mapping");
+  Check(std::string(destination)=="C:\\unchanged"&&std::string(testMask)=="*.keep"&&deletion,"initialization failure preserves caller fields");
+ }
+ {
+  CUnpackerConfig missing;char destination[64]="C:\\unchanged",testMask[MAX_PATH]="*.keep";BOOL deletion=TRUE;
+  TestDialog test(nullptr,destination,sizeof(destination),"",testMask,&subject,&missing,&deletion);test.Attach(parent);
+  Check(DestroyWindow(packer)!=FALSE,"remove only owned backend control for missing-control validation");
+  SetWindowTextW(path,L"C:\\new-output");CTransferInfo from(parent,ttDataFromWindow);test.Transfer(from);
+  Check(!from.IsGood()&&from.ErrorID==IDC_PACKER&&std::string(destination)=="C:\\unchanged"&&std::string(testMask)=="*.keep"&&deletion&&missing.Preferred==0,"missing backend control never commits partial caller state");
  }
  Check(DestroyWindow(parent)!=FALSE,"destroy complete owned control tree");
  printf("Actual Unicode Unpack dialog transfer: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;

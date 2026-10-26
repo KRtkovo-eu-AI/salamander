@@ -8,7 +8,7 @@ from branch_panel_getters_tests import block,read,compiler_environment,run
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--configuration',choices=('Debug','Release','Both'),default='Both');a=p.parse_args()
  source=read('src/dialogs3.cpp');wide=read('src/common/widepath.cpp');text=read('src/tests/unpack_dialog_path_tests.cpp.in')
- pieces={'DECL':block(read('src/dialogs.h'),'class CUnpackDialog')+';','ACTUAL':'\n'.join(block(source,m) for m in ('static BOOL ReadUnpackDialogPath(', 'CUnpackDialog::CUnpackDialog(', 'void CUnpackDialog::EnableDelArcCheckbox(', 'void CUnpackDialog::Transfer(')),'CONVERSIONS':'\n'.join(block(wide,m) for m in ('BOOL IsValidPathUtf8Text(', 'std::wstring SalMultiByteToWidePath(', 'std::string SalWideToMultiBytePath('))}
+ pieces={'DECL':block(read('src/dialogs.h'),'class CUnpackDialog')+';','ACTUAL':'\n'.join(block(source,m) for m in ('static BOOL ReadUnpackDialogPath(', 'CUnpackDialog::CUnpackDialog(', 'bool CUnpackDialog::CaptureUnpackerChoices(', 'bool CUnpackDialog::IsUnpackerChoiceCurrent(', 'void CUnpackDialog::EnableDelArcCheckbox(', 'void CUnpackDialog::Transfer(')),'CONVERSIONS':'\n'.join(block(wide,m) for m in ('BOOL IsValidPathUtf8Text(', 'std::wstring SalMultiByteToWidePath(', 'std::string SalWideToMultiBytePath('))}
  for k,v in pieces.items():text=text.replace('@@'+k+'@@',v)
  assert '@@' not in text
  controller=block(read('src/fileswn7.cpp'),'void CFilesWindow::Unpack(');assert 'CUnpackDialog(HWindow, path, pathBuffer.Capacity(), pathAlt, mask,' in controller
