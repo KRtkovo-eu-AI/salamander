@@ -1,5 +1,21 @@
 # S31 — Úplnost portu proti donoru
 
+## S31b5b3d2 — diskový Move do Branch cíle ověřen (2026-10-26)
+
+Private vstupní politika AllowsBranchTransfer dovolí atCopy/atMove pro diskový
+zdroj a jediný diskový Branch cíl, countSizeMode0 a bez selected-dirs. Ostatní
+operace zůstávají odmítnuté. Resolver/snapshot/preflight/worker i bezpečnostní
+kontroly se nemění. Native policy/snapshot440 a Branch getters399/config D/R
+PASS, transitions28/operations All20 PASS. Host x64 D/R /warnaserror PASS.
+GUI D dark/R light při LongPathsEnabled0: Cancel beze změn, přesun2 souborů do
+Branch rootu272/274 UTF16, ruční Unicode cíl mimo root, nested Unicode Branch
+source Move do rootu a další Cancel. V každé konfiguraci4 přesunuté zdroje chybí,
+výstupy přesně odpovídají zálohám/hashes; cancel.txt a alias sentinels nedotčené.
+Safe policy mutant rozšířený o Delete440/1 semantic failure. Viz
+[S31b5b3d2](steps/S31b5b3d2.md). Zbývá integrační destination matice keep-paths,
+detached/modal target a uzavírací audit; G04/G05 OPEN, goal ACTIVE, S32 BLOCKED.
+ChangeDir nadále odložený/NOT_VERIFIED. Lokální checkpoint bez push/PR/CI.
+
 ## S31b5b3d1 — diskové Copy do Branch cíle ověřeno (2026-10-26)
 
 FilesAction nyní dovolí atCopy do jediného diskového Branch cíle při diskovém
