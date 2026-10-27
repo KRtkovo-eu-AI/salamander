@@ -1,5 +1,18 @@
 # Validace portu a baseline S00
 
+## S31b6c7c2a — ZIP internal volume collection (VERIFIED)
+
+Both ZIP collection sites now check owned-copy/Add and retain a sticky incomplete-
+list flag; the wrapper refuses sorting/handoff after any collection failure.
+Native recorder69/config and wrapper83/config, retained regressions and actual
+host/ZIP/dependencies x64 D/R PASS. Ordinary ZIP no-delete, deletion-enabled Cancel
+and separately human-confirmed copy deletion D/R passed with exact payload hashes
+and preserved originals/sentinels. Own GUIs closed, private profiles restored,
+runtime hashes rechecked, LongPathsEnabled=0. [Scope](steps/S31b6c7c2a.md).
+c7c2b result/Skip/partial/mask/empty/CONTINUE semantics and actual multi-volume
+qualification remain OPEN; Branch deletion guards unchanged. S31/G04/G05 OPEN.
+Local only; no push/PR/CodeQL or clean whole-platform matrix.
+
 ## S31b6c7c1 — checked bundled volume-list handoff (VERIFIED)
 
 ZIP and7Zip now refuse a missing deletion-list sink before engine work and return

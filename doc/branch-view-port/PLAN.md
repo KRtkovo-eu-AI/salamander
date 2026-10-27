@@ -1,5 +1,39 @@
 # Plán postupného portu PR #769
 
+## S31b6c7c2a — ZIP internal volume collection (VERIFIED)
+
+Both ZIP collection sites now check owned-copy/Add and retain a sticky incomplete-
+list flag; the wrapper refuses sorting/handoff after any collection failure.
+Native recorder69/config and wrapper83/config, retained regressions and actual
+host/ZIP/dependencies x64 D/R PASS. Ordinary ZIP no-delete, deletion-enabled Cancel
+and separately human-confirmed copy deletion D/R passed with exact payload hashes
+and preserved originals/sentinels. Own GUIs closed, private profiles restored,
+runtime hashes rechecked, LongPathsEnabled=0. [Scope](steps/S31b6c7c2a.md).
+c7c2b result/Skip/partial/mask/empty/CONTINUE semantics and actual multi-volume
+qualification remain OPEN; Branch deletion guards unchanged. S31/G04/G05 OPEN.
+Local only; no push/PR/CodeQL or clean whole-platform matrix.
+
+## S31b6c7c2 — collection and extraction results, upfront split
+
+c7c2a first fixes the two ZIP internal volume collection sites. An owned-copy/Add
+failure returns IDS_LOWMEM, frees an unaccepted copy, and permanently marks this
+operation's list incomplete. The wrapper refuses handoff before sorting even if a
+nested extraction path clears its error. No-list ordinary extraction stays unchanged.
+Native actual recorder with allocation/sink doubles and retained actual-wrapper
+tests D/R; relevant ZIP/host regressions, host and ZIP/dependencies x64 D/R; actual
+ordinary ZIP no-delete and separately confirmed owned-copy deletion GUI D/R.
+No simulated host OOM or actual ZIP multi-volume qualification claim. No SDK,
+7Zip result-policy or Branch deletion admission change; local commit only after
+the complete checkpoint is verified, no push/PR.
+
+c7c2b then traces and fixes/qualifies exact partial/Skip/mask/empty-selection result
+signals in ZIP and7Zip (including callback NumErrors/overwrite Skip vs S_OK and
+OPER_CONTINUE), preserving ordinary semantics where the SDK explicitly permits
+Skip. Do not silently equate a successful selected subset with full extraction.
+Native actual engine/callback and GUI D/R acceptance must precede new Branch delete
+admission. Actual ZIP multi-volume/7Zip single-volume proof follows; Pack-target,
+F5-source-lifetime and G04/G05 closure stay OPEN. ChangeDir remains deferred.
+
 ## S31b6c7c1 — checked bundled volume-list handoff (VERIFIED)
 
 ZIP and7Zip now refuse a missing deletion-list sink before engine work and return

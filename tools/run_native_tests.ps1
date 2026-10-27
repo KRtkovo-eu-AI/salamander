@@ -468,6 +468,11 @@ try {
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\unpack_target_identity_tests.py'), '--configuration', $Configuration)
         },
         @{
+            Name = 'zip_volume_collection_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\zip_volume_collection_tests.py'), '--configuration', $Configuration)
+        },
+        @{
             Name = 'unpack_volume_handoff_tests'
             ClassName = 'native-generated'
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\unpack_volume_handoff_tests.py'), '--configuration', $Configuration)

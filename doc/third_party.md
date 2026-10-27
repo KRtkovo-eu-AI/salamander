@@ -868,3 +868,12 @@ by Open Salamander Authors, Milan Kase and Samandarin Contributors,
 pin47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
 Local NULL-sink and checked-Add integration retains public SDK ABI and existing
 Igor Pavlov/7-Zip/plugin/vendor notices. No new dependency or vendor source change.
+
+### S31b6c7c2a ZIP internal volume collection
+
+Adapted ZIP ChangeDisk/UnpackWholeArchive paths by Open Salamander Authors,
+Milan Kase and Samandarin Contributors, with shared TDirectArray2::Add body used
+by native verification, [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pin47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
+Local checked-copy/Add and sticky-list guard preserve all source/plugin/vendor
+notices and SDK ABI; Igor Pavlov/7-Zip licenses unchanged. No new dependency.
