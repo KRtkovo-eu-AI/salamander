@@ -8,7 +8,7 @@ from branch_panel_getters_tests import read, block, compiler_environment, run
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--configuration',choices=('Debug','Release','Both'),default='Both');a=p.parse_args()
  data=read('src/tests/sevenzip_unpack_completion_tests.cpp.in')
- for k,v in {'COMPLETION':block(read('src/plugins/7zip/extract.h'),'    bool IsSelectionComplete() const'),'DECOMPRESS':block(read('src/plugins/7zip/7zclient.cpp'),'int C7zClient::Decompress(')}.items():data=data.replace('@@'+k+'@@',v)
+ for k,v in {'COMPLETION':block(read('src/plugins/7zip/extract.h'),'    bool IsSelectionComplete() const'),'ARCHIVE_STATE':block(read('src/plugins/7zip/7zclient.cpp'),'static bool SevenZipArchiveStateAllowsDeletion('),'DECOMPRESS':block(read('src/plugins/7zip/7zclient.cpp'),'int C7zClient::Decompress(')}.items():data=data.replace('@@'+k+'@@',v)
  assert '@@' not in data
  env=compiler_environment();cl=shutil.which('cl',path=env.get('PATH'))
  with tempfile.TemporaryDirectory(prefix='sevenzip-completion-') as tmp:

@@ -905,3 +905,12 @@ production open/client code by Open Salamander Authors and Samandarin Contributo
 [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
 pin47661e92d4b3cbe5bb593ae3d75a3f1f698ef413. All existing GPL-2.0-or-later
 and vendor notices/licenses retained. No imported dependency or production change.
+
+### S31b6c7c3b archive-state deletion qualification
+
+Adapted the 7Zip client from Open Salamander Authors and Samandarin Contributors,
+KRtkovo-eu-AI/salamander PR #769, pinned commit
+`47661e92d4b3cbe5bb593ae3d75a3f1f698ef413`. Local typed pre/post archive
+metadata checks use the existing bundled Igor Pavlov 7-Zip property API to
+prevent deletion after damaged recovery. Existing licenses/notices preserved;
+no vendor or SDK changes. Details: [S31b6c7c3b](branch-view-port/steps/S31b6c7c3b.md).

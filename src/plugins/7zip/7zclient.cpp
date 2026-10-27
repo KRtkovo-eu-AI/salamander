@@ -560,6 +560,39 @@ compare(const void* arg1, const void* arg2)
     return *(UINT32*)arg1 - *(UINT32*)arg2;
 }
 
+// Indexed-entry success does not imply a clean archive (e.g. recovered ZIP locals).
+// VT_EMPTY is the bundled decoders' convention for an absent flag/message/volume
+// declaration, not discovery of a complete multi-volume set. This backend exposes
+// no open-volume callback; only its single input may be handed off for deletion.
+static bool SevenZipArchiveStateAllowsDeletion(IInArchive* archive)
+{
+    if (archive == NULL) return false;
+    const PROPID properties[] = {kpidErrorFlags, kpidWarningFlags, kpidError, kpidWarning,
+                                 kpidIsVolume, kpidNumVolumes, kpidVolumeIndex};
+    for (const PROPID id : properties)
+    {
+        NWindows::NCOM::CPropVariant value;
+        if (archive->GetArchiveProperty(id, &value) != S_OK) return false;
+        if (value.vt == VT_EMPTY) continue;
+        if (id == kpidErrorFlags || id == kpidWarningFlags)
+        {
+            if (value.vt != VT_UI4 || value.ulVal != 0) return false;
+        }
+        else if (id == kpidError || id == kpidWarning)
+        {
+            if (value.vt != VT_BSTR || value.bstrVal != NULL && SysStringLen(value.bstrVal) != 0)
+                return false;
+        }
+        else if (id == kpidIsVolume)
+        {
+            if (value.vt != VT_BOOL || value.boolVal != VARIANT_FALSE) return false;
+        }
+        else if (value.vt != VT_UI4 || value.ulVal != (id == kpidNumVolumes ? 1u : 0u))
+            return false;
+    }
+    return true;
+}
+
 int C7zClient::Decompress(CSalamanderForOperationsAbstract* salamander, const char* archiveName, const char* outDir,
                           TIndirectArray<CArchiveItemInfo>* itemList, UString& password, BOOL silentDelete /* = FALSE*/,
                           bool* wholeArchiveExtracted /* = NULL*/)
@@ -626,6 +659,9 @@ int C7zClient::Decompress(CSalamanderForOperationsAbstract* salamander, const ch
         for (const auto& requested : itemsToExtract)
             if (requested.first >= archiveItemCount) allArchiveItems = false;
 
+        const bool archiveStateComplete = wholeArchiveExtracted != NULL &&
+                                          SevenZipArchiveStateAllowsDeletion(inArchive);
+
         // setup callback
         CExtractCallbackImp* extractCallbackSpec = new CExtractCallbackImp(salamander->ProgressGetHWND(), password, itemsToExtract /*, fileIndex, count*/);
         if (extractCallbackSpec == NULL)
@@ -653,7 +689,8 @@ int C7zClient::Decompress(CSalamanderForOperationsAbstract* salamander, const ch
         ret = (result == E_ABORT) ? OPER_CANCEL :
               ((result == S_OK && extractCallbackSpec->IsSelectionComplete()) ? OPER_OK : OPER_CONTINUE);
         if (wholeArchiveExtracted != NULL)
-            *wholeArchiveExtracted = ret == OPER_OK && allArchiveItems;
+            *wholeArchiveExtracted = ret == OPER_OK && allArchiveItems && archiveStateComplete &&
+                                     SevenZipArchiveStateAllowsDeletion(inArchive);
 
         // check the thread's return code
         if (ret == OPER_CANCEL)

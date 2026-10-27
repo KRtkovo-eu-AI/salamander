@@ -3,6 +3,7 @@
 // Actual client Decompress and callback completion predicate; explicit engine/SDK doubles, no file I/O.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <oleauto.h>
 #include <map>
 #include <vector>
 #include <string>
@@ -21,9 +22,27 @@ struct CFileData {void* PluginData;};
 struct CArchiveItemInfo {CFileData* FileData;};
 template<class T>struct TIndirectArray {int Count=0;std::vector<T*> Data;T*&operator[](int i){return Data.at(i);}};
 using ItemsToExtractMap=std::map<UINT32,CArchiveItemInfo*>;
-struct State {UINT32 ArchiveCount=3;HRESULT CountResult=S_OK,Result=S_OK;bool Open=true,Complete=true,Pending=false,Incomplete=false;int Errors=0,Remaining=0;size_t Completed=3;int Runs=0,Cleanups=0;};
+enum {kpidErrorFlags=1,kpidWarningFlags,kpidError,kpidWarning,kpidIsVolume,kpidNumVolumes,kpidVolumeIndex};
+namespace NWindows { namespace NCOM { struct CPropVariant {VARTYPE vt=VT_EMPTY;ULONG ulVal=0;VARIANT_BOOL boolVal=VARIANT_FALSE;BSTR bstrVal=nullptr;}; }}
+#define SysStringLen wcslen
+struct State {int Property=0,Mode=0;bool OnlyAfter=false,OnlyBefore=false;UINT32 ArchiveCount=3;HRESULT CountResult=S_OK,Result=S_OK;bool Open=true,Complete=true,Pending=false,Incomplete=false;int Errors=0,Remaining=0;size_t Completed=3;int Runs=0,Cleanups=0;};
 static State G;
-struct IInArchive {HRESULT GetNumberOfItems(UINT32* count){*count=G.ArchiveCount;return G.CountResult;}};
+struct IInArchive {HRESULT GetNumberOfItems(UINT32* count){*count=G.ArchiveCount;return G.CountResult;}
+ HRESULT GetArchiveProperty(PROPID id,NWindows::NCOM::CPropVariant* value){
+  if((int)id!=G.Property || (G.OnlyAfter&&G.Runs==0 || G.OnlyBefore&&G.Runs!=0))return S_OK;
+  if(G.Mode==1)return E_FAIL;if(G.Mode==2)return S_FALSE;
+  if(G.Mode==3){value->vt=VT_UI4;value->ulVal=32;}
+  if(G.Mode==4){value->vt=VT_BOOL;value->boolVal=VARIANT_TRUE;}
+  if(G.Mode==5){value->vt=VT_BSTR;value->bstrVal=const_cast<BSTR>(L"error");}
+  if(G.Mode==6)value->vt=VT_UI8;
+  if(G.Mode==7){value->vt=VT_UI4;value->ulVal=2;}
+  if(G.Mode==8){value->vt=VT_UI4;value->ulVal=0;}
+  if(G.Mode==9){value->vt=VT_BOOL;value->boolVal=VARIANT_FALSE;}
+  if(G.Mode==10)value->vt=VT_BSTR;
+  if(G.Mode==11){value->vt=VT_UI4;value->ulVal=1;}
+  return S_OK;
+ }};
+ @@ARCHIVE_STATE@@
 struct IArchiveExtractCallback {virtual ~IArchiveExtractCallback()=default;};
 template<class T>struct CMyComPtr {T* Ptr=nullptr;CMyComPtr()=default;CMyComPtr(T*p):Ptr(p){}~CMyComPtr(){delete Ptr;}T**operator&(){return &Ptr;}T*operator->(){return Ptr;}operator T*(){return Ptr;}};
 struct CSalamanderForOperationsAbstract {HWND ProgressGetHWND(){return nullptr;}};
@@ -64,6 +83,18 @@ int main(){
   Check(whole==(scenario==0||scenario==14),"only complete all-index or validated empty archive qualifies deletion");
   Check(result==(scenario==7||scenario==15?OPER_CANCEL:scenario>=1&&scenario<=6?OPER_CONTINUE:OPER_OK),"client separates decoder, error, pending and selected output status");
   Check(G.Cleanups==(scenario==7?1:0),"cancellation retains existing output cleanup path");
+ }
+ // Fail closed on failed, malformed or reported dirty archive state, both before and after decoding.
+ for(int id=kpidErrorFlags;id<=kpidVolumeIndex;++id)for(int mode=1;mode<=11;++mode)for(int phase:{0,1,2}){
+  G=State{};G.Property=id;G.Mode=mode;G.OnlyAfter=phase==1;G.OnlyBefore=phase==2;
+  CItemData ids[]={{0},{1},{2}};CFileData fd[]={{&ids[0]},{&ids[1]},{&ids[2]}};CArchiveItemInfo info[]={{&fd[0]},{&fd[1]},{&fd[2]}};
+  TIndirectArray<CArchiveItemInfo> list;list.Count=3;list.Data={&info[0],&info[1],&info[2]};
+  C7zClient client;CSalamanderForOperationsAbstract ops;UString password;bool whole=true;
+  int result=client.Decompress(&ops,"owned-source","owned-target",&list,password,FALSE,&whole);
+  const bool allowed=(id==kpidErrorFlags||id==kpidWarningFlags)?mode==8:
+    (id==kpidError||id==kpidWarning)?mode==10:id==kpidIsVolume?mode==9:id==kpidNumVolumes?mode==11:mode==8;
+  Check(whole==allowed,"typed dirty/unknown/query-failure volume or archive state cannot qualify source deletion");
+  Check(result==OPER_OK&&G.Runs==1,"archive-state rejection retains successful no-delete output/recovery policy");
  }
  printf("Actual 7Zip client completion: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
 }

@@ -1,5 +1,19 @@
 # Stav portu PR #769
 
+## S31b6c7c3b — archive metadata before deletion (VERIFIED)
+
+7Zip now requires valid archive error/warning and volume metadata both before
+and after complete indexed extraction. Damaged recovery preserves its source;
+normal single-volume extraction and no-delete recovery remain supported.
+Debug/Release actual-policy native tests, real decoder probes, negative controls,
+fresh host/7Zip/dependencies builds and eight exact owned GUI readbacks PASS.
+Only separately confirmed complete test copies deleted; other hashes unchanged.
+Private profiles restored, registry0. [Evidence and precise limits](steps/S31b6c7c3b.md).
+No vendor/SDK/Branch admission changes. No remote CI/CodeQL/push/PR claim.
+Whole S31 remains unfinished. The user's finite six-requirement closure list
+supersedes historical next-stage wording below; old OPEN entries are historical.
+
+
 ## S31b6c7c3a — real 7Zip decoder metadata audit (VERIFIED audit)
 
 Actual b2-qualified7za.dll D/R: owned ZIP without central directory or truncated
