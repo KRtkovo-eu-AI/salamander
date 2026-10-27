@@ -1,5 +1,41 @@
 # Plán postupného portu PR #769
 
+## S31b6c7c1 — checked bundled volume-list handoff (VERIFIED)
+
+ZIP and7Zip now refuse a missing deletion-list sink before engine work and return
+FALSE on rejected SDK Add.7Zip hands off its single volume after existing cleanup.
+Actual whole wrappers/sort:77 native checks/config D/R PASS; retained relevant
+regressions, host and both plugins/dependencies x64 D/R PASS. Actual ordinary
+no-delete ZIP/7Zip GUI D/R passed with exact payload hashes and intact sources/
+sentinels; Debug ZIP Cancel also passed. Private profiles restored, registry0.
+[Scope and evidence](steps/S31b6c7c1.md). Internal collection/Skip/CONTINUE and real
+multi-volume completeness remain c7c2; Branch deletion guards unchanged.
+S31/G04/G05 remain OPEN. Local only; no push/PR/CodeQL/full-platform matrix.
+
+## S31b6c7c — producer/result completeness, upfront split
+
+c7c1 handles SDK volume-list handoff acknowledgement for both bundled wrappers:
+NULL output with delete requested refuses before engine work; Add failure must
+return FALSE, never successful extraction authorizing host deletion. ZIP retains
+its existing discovery/dedup but checks each host Add result.7Zip hands off its
+single input only after its existing extraction/cleanup result, with checked Add.
+No public SDK/vtable, host Branch admission or Skip/result-policy change yet.
+Native actual wrapper D/R: no-delete without list, valid/duplicate/multi-entry
+handoff, failure on first/later Add, NULL list, engine error/cancel and cleanup;
+existing relevant regressions, host and both plugin/dependencies x64 D/R and actual
+ordinary ZIP/7Zip no-delete GUI D/R smoke. Add rejection is a facade fault test,
+not an actual host OOM claim. Preserve all previous assertions/notices. Local
+commit only after validation; no push/PR/CodeQL/clean whole-platform claim.
+
+c7c2 must audit/fix internal collection acknowledgement and exact completeness
+signals (Skip, mask/empty selection, partial/error/OPER_CONTINUE) before Branch
+delete admission; do not equate c7c1 with complete producer proof. Then qualify
+actual ZIP multi-volume discovery/dedup and7Zip single-volume behavior with
+native/plugin/host/GUI D/R and separately confirmed owned-data deletion where
+required. Only verified cases may relax independent Branch no-delete guards.
+Remaining Pack-target/F5-source-lifetime and G04/G05 closure follow; ChangeDir
+stays deferred. Full S31 remains OPEN.
+
 ## S31b6c7b — bounded owned volume paths (VERIFIED)
 
 Ordinary whole-archive deletion now prepares a complete owned bounded list and

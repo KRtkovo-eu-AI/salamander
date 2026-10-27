@@ -1176,9 +1176,6 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
 
     SalamanderGeneral->FreeSalamanderDirectory(dir);
 
-    if (ret && delArchiveWhenDone && !wholeArchiveExtracted)
-        return Error(IDS_UNPACK_INCOMPLETE);
-
     // Hand off the single supported volume only after extraction and cleanup.
     // FIXME: multi-volume archives need complete volume discovery before deletion can be qualified.
     if (ret && delArchiveWhenDone && !archiveVolumes->Add(fileName, -2))

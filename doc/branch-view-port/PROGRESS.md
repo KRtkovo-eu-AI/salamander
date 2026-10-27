@@ -1,5 +1,17 @@
 # Stav portu PR #769
 
+## S31b6c7c1 — checked bundled volume-list handoff (VERIFIED)
+
+ZIP and7Zip now refuse a missing deletion-list sink before engine work and return
+FALSE on rejected SDK Add.7Zip hands off its single volume after existing cleanup.
+Actual whole wrappers/sort:77 native checks/config D/R PASS; retained relevant
+regressions, host and both plugins/dependencies x64 D/R PASS. Actual ordinary
+no-delete ZIP/7Zip GUI D/R passed with exact payload hashes and intact sources/
+sentinels; Debug ZIP Cancel also passed. Private profiles restored, registry0.
+[Scope and evidence](steps/S31b6c7c1.md). Internal collection/Skip/CONTINUE and real
+multi-volume completeness remain c7c2; Branch deletion guards unchanged.
+S31/G04/G05 remain OPEN. Local only; no push/PR/CodeQL/full-platform matrix.
+
 ## S31b6c7b — bounded owned volume paths (VERIFIED)
 
 Ordinary whole-archive deletion now prepares a complete owned bounded list and
