@@ -17,6 +17,7 @@
 #include "pack.h"
 #include "common/widepath.h"
 #include "fileactiondisktarget.h"
+#include "unpackvolumes.h"
 
 //
 // ****************************************************************************
@@ -3093,34 +3094,38 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
             {
                 if (delArchiveWhenDone && archiveVolumes.Length > 0)
                 {
-                    char* name = archiveVolumes.Text;
-                    BOOL skipAll = FALSE;
-                    bool stopDeleting = false;
-                    do
+                    std::vector<CUnpackArchiveVolume> volumes;
+                    if (!PrepareUnpackArchiveVolumes(archiveVolumes.Text, archiveVolumes.Length, archiveVolumes.Allocated,
+                                                     archiveSource.c_str(), backendSnapshot.IsVerifiedBranchSourceUnpacker(), volumes))
                     {
-                        if (!contextIsCurrent()) { nextFocus[0] = 0; break; }
-                        if (*name != 0)
+                        const DWORD error = GetLastError();
+                        nextFocus[0] = 0;
+                        SalMessageBox(parent, GetErrorText(error), LoadStr(IDS_ERRORDELETINGFILE), MB_OK | MB_ICONEXCLAMATION);
+                    }
+                    else
+                    {
+                        BOOL skipAll = FALSE;
+                        bool stopDeleting = false;
+                        for (const auto& volume : volumes)
                         {
                             while (true)
                             {
                                 if (!contextIsCurrent()) { stopDeleting = true; nextFocus[0] = 0; break; }
-                                ClearReadOnlyAttr(name); // volume encoding policy is unchanged, audited separately
-                                if (!DeleteFile(name) && !skipAll)
+                                if (!DeleteUnpackArchiveVolumeW(volume.Path.c_str()) && !skipAll)
                                 {
-                                    DWORD err = GetLastError();
-                                    if (err == ERROR_FILE_NOT_FOUND) break;
-                                    int res = (int)CFileErrorDlg(parent, LoadStr(IDS_ERRORDELETINGFILE), name, GetErrorText(err)).Execute();
+                                    const DWORD error = GetLastError();
+                                    if (error == ERROR_FILE_NOT_FOUND) break;
+                                    const int response = (int)CFileErrorDlg(parent, LoadStr(IDS_ERRORDELETINGFILE), volume.Display.c_str(), GetErrorText(error)).Execute();
                                     if (!contextIsCurrent()) { stopDeleting = true; nextFocus[0] = 0; break; }
-                                    if (res == IDB_SKIPALL) skipAll = TRUE;
-                                    if (res == IDB_SKIPALL || res == IDB_SKIP) break;
-                                    if (res == IDCANCEL) { stopDeleting = true; nextFocus[0] = 0; break; }
+                                    if (response == IDB_SKIPALL) skipAll = TRUE;
+                                    if (response == IDB_SKIPALL || response == IDB_SKIP) break;
+                                    if (response == IDCANCEL) { stopDeleting = true; nextFocus[0] = 0; break; }
                                 }
                                 else break;
                             }
+                            if (stopDeleting) break;
                         }
-                        if (stopDeleting) break;
-                        name += strlen(name) + 1;
-                    } while (name - archiveVolumes.Text < archiveVolumes.Length);
+                    }
                 }
                 // A volume error dialog may have dispatched callbacks since the success check above.
                 if (contextIsCurrent() && !sourceSnapshot.Branch)

@@ -850,3 +850,12 @@ Milan Kase, Samandarin Contributors and Igor Pavlov/7-Zip against
 pin47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later for the host/port;
 existing7-Zip/vendor licenses remain unchanged). No source import, SDK change or
 new dependency; production volume fixes remain the separately planned c7b/c7c.
+
+### S31b6c7b owned wide archive-volume handling
+
+Adapted host Unpack volume/readonly handling by Open Salamander Authors,
+Milan Kase and Samandarin Contributors,
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pin47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
+The internal bounded owned-path adapter preserves SDK ABI and existing plugin/
+vendor/Igor Pavlov7-Zip notices. No external dependency was added.

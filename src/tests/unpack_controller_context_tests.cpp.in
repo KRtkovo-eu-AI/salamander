@@ -91,6 +91,14 @@ static int SDKCalls=0,ExternalCalls=0,MoveCalls=0,OperationContexts=0,DeletedVol
 static BOOL ExpectedDiskTarget=TRUE,ModalAllowsDelete=TRUE;
 static BOOL RootIsDirectory=TRUE;
 static std::wstring LastAttributePath;
+static std::vector<std::wstring> VolumePaths,DeletedPaths;
+static std::string ReturnedVolumes;
+static char* ReturnedVolumeStorage=nullptr;
+static BOOL CustomVolumes=FALSE,BadVolumeCapacity=FALSE;
+static int VolumeAttributesCalls=0,VolumeSetCalls=0,FileErrors=0,DeleteFailures=0;
+static DWORD VolumeAttributeError=0,VolumeDeleteError=ERROR_SHARING_VIOLATION,VolumeFlags=FILE_ATTRIBUTE_NORMAL;
+static std::vector<int> FileResponses;
+static std::function<void()> OnFileError;
 static BOOL RootExists=TRUE,CreateOK=TRUE,ResolveOK=TRUE,BackendOK=TRUE,RequestDelete=FALSE;
 static int DialogResult=IDOK;
 static std::string ManualPath,ExpectedSource,ExpectedTarget;
@@ -107,17 +115,18 @@ BOOL CFilesWindow::CheckPath(BOOL,const char*){if(OnCheck)OnCheck();return ERROR
 @@MOVE_PREFIX@@
 static BOOL OwnUpdateWindow(HWND){++Updates;if(OnUpdate)OnUpdate();return TRUE;}
 static BOOL OwnPostMessage(HWND,UINT,WPARAM,LPARAM){++FocusPosts;return TRUE;}
-static DWORD OwnAttributes(const wchar_t* path){LastAttributePath=path;return RootExists?(RootIsDirectory?FILE_ATTRIBUTE_DIRECTORY:FILE_ATTRIBUTE_NORMAL):INVALID_FILE_ATTRIBUTES;}
+static DWORD OwnAttributes(const wchar_t* path){LastAttributePath=path;if(std::find(VolumePaths.begin(),VolumePaths.end(),path)!=VolumePaths.end()){++VolumeAttributesCalls;if(VolumeAttributeError){SetLastError(VolumeAttributeError);return INVALID_FILE_ATTRIBUTES;}return VolumeFlags;}return RootExists?(RootIsDirectory?FILE_ATTRIBUTE_DIRECTORY:FILE_ATTRIBUTE_NORMAL):INVALID_FILE_ATTRIBUTES;}
 static BOOL OwnPriority(HANDLE,int priority){PriorityDepth+=priority==THREAD_PRIORITY_NORMAL?1:-1;++PriorityChanges;return TRUE;}
-static BOOL OwnDelete(const char*){++DeletedVolumes;if(OnDelete)OnDelete();return TRUE;}
+static BOOL OwnDelete(const wchar_t* path){++DeletedVolumes;DeletedPaths.emplace_back(path);if(OnDelete)OnDelete();if(DeleteFailures>0){--DeleteFailures;SetLastError(VolumeDeleteError);return FALSE;}return TRUE;}
 #undef UpdateWindow
 #define UpdateWindow OwnUpdateWindow
 #undef PostMessage
 #define PostMessage OwnPostMessage
 #define GetFileAttributesW OwnAttributes
 #define SetThreadPriority OwnPriority
-#undef DeleteFile
-#define DeleteFile OwnDelete
+#define DeleteFileW OwnDelete
+static BOOL OwnSetAttributes(const wchar_t*,DWORD){++VolumeSetCalls;return TRUE;}
+#define SetFileAttributesW OwnSetAttributes
 #define CALL_STACK_MESSAGE4(...) ((void)0)
 #define CALL_STACK_MESSAGE5(...) ((void)0)
 #define CALL_STACK_MESSAGE7(...) ((void)0)
@@ -139,7 +148,6 @@ static int SalMessageBox(HWND,const char*,const char*,UINT){++Messages;return ID
 static void BeginStopRefresh(){++StopDepth;++Begins;}
 static void EndStopRefresh(){--StopDepth;++Ends;}
 static void AlterFileName(char* out,const char* in,int,int,int,BOOL){strcpy(out,in);}
-static void ClearReadOnlyAttr(const char*){}
 static void CutDirectory(char* path){char* last=strrchr(path,char(92));if(last)*last=0;}
 static BOOL SalPathAppend(char* path,const char* part,int capacity){std::string full=std::string(path)+(path[0]?"\\":"")+part;if(full.size()>=(size_t)capacity)return FALSE;strcpy(path,full.c_str());return TRUE;}
 struct CPathBuffer {std::vector<char> Bytes;explicit CPathBuffer(int cap=SAL_MAX_PATH):Bytes(cap){}char* Data(){return Bytes.data();}int Capacity()const{return (int)Bytes.size();}};
@@ -156,8 +164,9 @@ static BOOL CheckAndCreateDirectoryW(const wchar_t*,HWND,BOOL,std::wstring* firs
 static void RemoveEmptyUnpackDirectoriesW(const std::wstring&){++Cleanups;}
 void CMainWindow::PostChangeOnPathNotification(const char* path,BOOL recursive){NotificationPaths.emplace_back(path,recursive);++Notifications;if(OnNotify)OnNotify();}
 struct CDynamicString {};
-struct CDynamicStringImp:CDynamicString {char Storage[64]={};char* Text=Storage;int Length=0;};
-struct CFileErrorDlg {CFileErrorDlg(HWND,const char*,const char*,const char*){}int Execute(){return IDCANCEL;}};
+struct CDynamicStringImp:CDynamicString {std::vector<char> Storage=std::vector<char>(2*SAL_MAX_PATH,0);char* Text=Storage.data();int Length=0;int Allocated=2*SAL_MAX_PATH;};
+@@VOLUMES@@
+struct CFileErrorDlg {CFileErrorDlg(HWND,const char*,const char*,const char*){}int Execute(){++FileErrors;if(OnFileError)OnFileError();if(FileResponses.empty())return IDCANCEL;const int response=FileResponses.front();FileResponses.erase(FileResponses.begin());return response;}};
 class CUnpackerConfig;
 @@ROW@@
 @@BACKEND@@
@@ -177,7 +186,8 @@ struct CSalamanderForOperations {explicit CSalamanderForOperations(CFilesWindow*
 struct ArchiverFacade {
  BOOL UnpackWholeArchive(CSalamanderForOperations*,const char* source,const char*,const char* target,BOOL del,CDynamicString* volumes){
   ++SDKCalls;Check(ExpectedSource==source&&ExpectedTarget==target,"SDK receives exact owned source/destination bytes");
-  if(del&&volumes){auto* v=static_cast<CDynamicStringImp*>(volumes);memcpy(v->Storage,"first.zip\0second.zip\0",21);v->Length=21;}
+  if(del&&volumes){auto* v=static_cast<CDynamicStringImp*>(volumes);const std::string data=CustomVolumes?ReturnedVolumes:ExpectedSource+std::string(1,0)+ExpectedSource+".part2"+std::string(1,0);memcpy(v->Text,data.data(),data.size());v->Length=(int)data.size();ReturnedVolumeStorage=v->Text;if(BadVolumeCapacity)v->Allocated=v->Length;VolumePaths.clear();size_t at=0;while(at<data.size()){size_t end=data.find(char(0),at);if(end==std::string::npos)break;std::wstring path=SalMultiByteToWidePath(data.substr(at,end-at).c_str(),CP_UTF8);if(path.size()>=MAX_PATH)path=SalPathAddExtendedPrefixW(path.c_str());VolumePaths.push_back(path);at=end+1;}}
+
   if(OnBackend)OnBackend();return BackendOK;
  }
 };
@@ -212,7 +222,7 @@ static void Reset(){
  Check(StopDepth==0&&PriorityDepth==0,"prior controller invocation left no refresh/priority imbalance");
  Begins=Ends=PriorityChanges=Creates=Cleanups=Resolves=Dialogs=Updates=Notifications=Messages=FocusPosts=0;
  NotificationPaths.clear();SDKCalls=ExternalCalls=MoveCalls=OperationContexts=DeletedVolumes=CloseCalls=0;
- LastAttributePath.clear();RootIsDirectory=TRUE;ExpectedDiskTarget=TRUE;RootExists=CreateOK=ResolveOK=BackendOK=TRUE;RecordNewDirectory=FALSE;DetachedTransitions=0;RequestDelete=FALSE;DialogResult=IDOK;ManualPath.clear();
+ VolumePaths.clear();DeletedPaths.clear();ReturnedVolumes.clear();ReturnedVolumeStorage=nullptr;CustomVolumes=BadVolumeCapacity=FALSE;VolumeAttributesCalls=VolumeSetCalls=FileErrors=DeleteFailures=0;VolumeAttributeError=0;VolumeDeleteError=ERROR_SHARING_VIOLATION;VolumeFlags=FILE_ATTRIBUTE_NORMAL;FileResponses.clear();OnFileError=nullptr;LastAttributePath.clear();RootIsDirectory=TRUE;ExpectedDiskTarget=TRUE;RootExists=CreateOK=ResolveOK=BackendOK=TRUE;RecordNewDirectory=FALSE;DetachedTransitions=0;RequestDelete=FALSE;DialogResult=IDOK;ManualPath.clear();
  OnDialog=OnUpdate=OnCreate=OnInit=OnBackend=OnNotify=OnCheck=OnMove=OnDelete=nullptr;
  Configuration.UseAnotherPanelForUnpack=TRUE;Configuration.UseSubdirNameByArchiveForUnpack=FALSE;
 }
@@ -431,6 +441,47 @@ int main(){
   ExpectedSource="a";ExpectedTarget=path;
   const BOOL ok=UnpackerConfig.ExecuteUnpacker(nullptr,&source,"a","*.*",path.c_str(),scenario==14,nullptr,&backend,&src,&dst);
   Check(!ok&&SDKCalls==0&&ExternalCalls==0&&OperationContexts==0,"direct dispatcher/wrapper refuse tampered/unbound/deleted/changed Branch target before SDK");
+ }
+ // Ordinary volume deletion uses the actual plan/helper and preserves controller policies.
+ for(const char* dll:{"zip\\zip.spl","7zip\\7zip.spl"}) for(int scenario=0;scenario<23;++scenario){
+  Reset();CFilesWindow source,target;source.Tab=2;target.Tab=3;CMainWindow main;MainWindow=&main;main.Left={&source};main.Right={&target};main.LeftPanel=&source;main.RightPanel=&target;
+  CUnpackerConfigData row;Row(row);CPluginData plugin;plugin.DLLName=dll;UnpackerConfig.Unpackers.Data={&row};UnpackerConfig.Unpackers.Count=1;UnpackerConfig.PreferedUnpacker=0;Plugins.Data={&plugin};RequestDelete=TRUE;
+  if(scenario==8)plugin.DLLName="legacy\\archiver.spl";
+  if(scenario==9){plugin.DLLName="legacy\\archiver.spl";source.Root=L"C:\\café";}
+  if(scenario==21)source.Root=L"C:\\東京\\"+std::wstring(140,L'a')+L"\\"+std::wstring(140,L'b');
+  source.FileStore.Item.Full=source.Root+L"\\"+source.FileStore.Item.NameW;
+  ExpectedSource=SalWideToMultiBytePath(source.FileStore.Item.Full.c_str(),CP_UTF8);ExpectedTarget=SalWideToMultiBytePath(target.Root.c_str(),CP_UTF8);
+  const auto list=[](const std::string& s){return s+std::string(1,0);};
+  if(scenario==1)DialogResult=IDCANCEL;
+  if(scenario==2)BackendOK=FALSE;
+  if(scenario==3){CustomVolumes=TRUE;ReturnedVolumes=list(ExpectedSource)+"unterminated";}
+  if(scenario==4){CustomVolumes=TRUE;ReturnedVolumes=list(ExpectedSource)+std::string(1,0);}
+  if(scenario==5){CustomVolumes=TRUE;ReturnedVolumes=list(ExpectedSource+".part2");}
+  if(scenario==6)BadVolumeCapacity=TRUE;
+  if(scenario==7){CustomVolumes=TRUE;ReturnedVolumes=list(ExpectedSource)+list(ExpectedSource)+list(ExpectedSource+".part2");}
+  if(scenario==10)VolumeFlags=FILE_ATTRIBUTE_READONLY|FILE_ATTRIBUTE_HIDDEN;
+  if(scenario==11)VolumeAttributeError=ERROR_ACCESS_DENIED;
+  if(scenario==12){DeleteFailures=1;FileResponses={IDRETRY};}
+  if(scenario==13){DeleteFailures=1;FileResponses={IDB_SKIP};}
+  if(scenario==14){DeleteFailures=2;FileResponses={IDB_SKIPALL};}
+  if(scenario==15)DeleteFailures=1;
+  if(scenario==16){DeleteFailures=1;FileResponses={IDRETRY};OnFileError=[&]{source.Root+=L"changed";};}
+  if(scenario==17)OnDelete=[&]{plugin.DLLName="changed\\archiver.spl";};
+  if(scenario==18)OnDelete=[&]{source.Root+=L"changed";};
+  if(scenario==19)OnDelete=[&]{target.Root+=L"changed";};
+  if(scenario==20)OnDelete=[&]{memset(ReturnedVolumeStorage,'x',8);};
+  if(scenario==22)VolumeAttributeError=ERROR_FILE_NOT_FOUND;
+  source.Unpack(&target,-1,nullptr,nullptr);
+  const bool preflightRefused=scenario>=3&&scenario<=6||scenario==9&&GetACP()!=CP_UTF8;
+  const int expectedDeletes=scenario==1||scenario==2||preflightRefused||scenario==11||scenario==22?0:scenario==12?3:scenario>=15&&scenario<=19?1:2;
+  Check(DeletedVolumes==expectedDeletes,"ordinary volume delete count follows validated list and retry/skip/cancel/context contract");
+  Check(StopDepth==0&&PriorityDepth==0&&!source.FilesActionInProgress&&source.StaleReads==0&&target.StaleReads==0,"volume errors and reentrant callbacks balance scopes without stale getters");
+  if(preflightRefused)Check(VolumeAttributesCalls==0&&VolumeSetCalls==0&&FileErrors==0&&FocusPosts==0,"entire invalid plan refuses before attribute mutation or first deletion");
+  if(scenario==10)Check(VolumeSetCalls==2,"readonly volumes are cleared through wide helper");
+  if(scenario==12||scenario==13||scenario==14)Check(FileErrors==1,"Retry/Skip/Skip All preserve prompt policy");
+  if(scenario==15||scenario==16||scenario==17||scenario==18||scenario==19)Check(FocusPosts==0,"Cancel or changed context suppresses post-delete focus");
+  if(scenario==20)Check(DeletedPaths.size()==2&&DeletedPaths[1]==SalMultiByteToWidePath((ExpectedSource+".part2").c_str(),CP_UTF8),"deletion iterates owned paths unaffected by producer-list mutation");
+  if(scenario==21)Check(DeletedPaths.size()==2&&DeletedPaths[0].rfind(L"\\\\?\\",0)==0,"controller forwards exact extended Unicode volume paths to I/O");
  }
  printf("Actual whole-archive controller: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
 }

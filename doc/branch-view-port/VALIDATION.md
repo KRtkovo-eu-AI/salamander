@@ -1,5 +1,17 @@
 # Validace portu a baseline S00
 
+## S31b6c7b — bounded owned volume paths (VERIFIED)
+
+Ordinary whole-archive deletion now prepares a complete owned bounded list and
+uses wide attribute/delete I/O, with lossless producer decoding and exact source
+membership. Branch no-delete guards remain unchanged. Native controller4224 and
+volume paths157/config D/R PASS; related regressions and host x64 D/R PASS.
+Ordinary ZIP/7Zip Cancel, success, deletion-enabled Cancel and separately confirmed
+copy deletion GUI D/R PASS with exact payload hashes and preserved original archives/
+sentinels. Private profiles restored, own GUIs closed, LongPathsEnabled=0.
+[Scope and limits](steps/S31b6c7b.md). c7c producer/result completeness remains next;
+S31/G04/G05 OPEN. Local only; no push/PR/CodeQL or clean full-platform matrix.
+
 ## S31b6c7a — volume deletion audit (VERIFIED audit only)
 
 Host volume loop still uses byte readonly/DeleteFile and unbounded strlen over
