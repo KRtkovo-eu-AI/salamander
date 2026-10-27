@@ -877,3 +877,13 @@ by native verification, [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/sa
 pin47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
 Local checked-copy/Add and sticky-list guard preserve all source/plugin/vendor
 notices and SDK ABI; Igor Pavlov/7-Zip licenses unchanged. No new dependency.
+
+### S31b6c7c2b1 ZIP extraction-completion handling
+
+Adapted ZIP whole/mask/per-entry extraction and result wrapper by Open Salamander
+Authors, Milan Kase and Samandarin Contributors,
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pin47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
+Local deletion-completion tracking and the rejected-Add stale-read fix preserve
+existing parser/decoder/security checks and all SDK/plugin/vendor/Igor Pavlov7-Zip
+notices. No new external dependency or public SDK capability.

@@ -1,5 +1,18 @@
 # Validace portu a baseline S00
 
+## S31b6c7c2b1 — ZIP extraction completeness (VERIFIED)
+
+ZIP distinguishes complete extraction from successful SDK Skip/selected subsets.
+Mask exclusion, empty nonempty-archive selection, partial enumeration and file/
+directory Skip prevent deletion, with a localized preservation notice. Normal
+no-delete Skip and complete extraction remain supported. Fixed stale fileInfo
+read after rejected Add. Native actual loops47/config and wrapper89/config,
+retained regressions and host/ZIP/dependencies x64 D/R PASS. Actual ordinary ZIP
+normal/Skip, confirmed mask+delete preservation and confirmed complete-copy deletion
+GUI D/R PASS with exact hashes/sentinels. Private profiles restored, registry0.
+[Scope](steps/S31b6c7c2b1.md).7Zip b2, whole c7c2b and S31/G04/G05 remain OPEN;
+Branch deletion guards unchanged. Local only; no push/PR/CodeQL/full-platform matrix.
+
 ## S31b6c7c2a — ZIP internal volume collection (VERIFIED)
 
 Both ZIP collection sites now check owned-copy/Add and retain a sticky incomplete-

@@ -1271,6 +1271,11 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
             SalamanderGeneral->ShowMessageBox(LoadStr(IDS_LOWMEM), LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
             return FALSE;
         }
+        if (delArchiveWhenDone && !unpack.WholeArchiveExtracted)
+        {
+            SalamanderGeneral->ShowMessageBox(LoadStr(IDS_UNPACK_INCOMPLETE), LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
+            return FALSE;
+        }
         if (delArchiveWhenDone) // move unique volumes from 'arcVolumes' to 'archiveVolumes' (arcVolumes may contain duplicates)
         {
             if (arcVolumes.Count > 1)

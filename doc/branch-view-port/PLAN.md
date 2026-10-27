@@ -1,5 +1,41 @@
 # Plán postupného portu PR #769
 
+## S31b6c7c2b1 — ZIP extraction completeness (VERIFIED)
+
+ZIP distinguishes complete extraction from successful SDK Skip/selected subsets.
+Mask exclusion, empty nonempty-archive selection, partial enumeration and file/
+directory Skip prevent deletion, with a localized preservation notice. Normal
+no-delete Skip and complete extraction remain supported. Fixed stale fileInfo
+read after rejected Add. Native actual loops47/config and wrapper89/config,
+retained regressions and host/ZIP/dependencies x64 D/R PASS. Actual ordinary ZIP
+normal/Skip, confirmed mask+delete preservation and confirmed complete-copy deletion
+GUI D/R PASS with exact hashes/sentinels. Private profiles restored, registry0.
+[Scope](steps/S31b6c7c2b1.md).7Zip b2, whole c7c2b and S31/G04/G05 remain OPEN;
+Branch deletion guards unchanged. Local only; no push/PR/CodeQL/full-platform matrix.
+
+## S31b6c7c2b — extraction completeness, upfront implementation split
+
+b1 first implements ZIP whole-extraction completeness: mask exclusions/empty
+selection on nonempty archive, partial central-directory enumeration, skipped
+unsafe destinations and unsuccessful per-entry extraction prevent deletion.
+Retain normal SDK Skip/no-delete behavior and all existing safety guards. Track
+completion separately from ErrorID/UserBreak/volume-list completeness. Valid empty
+ZIP remains supported after normal CheckZip validation. Add a localized diagnostic
+that the archive is kept, without changing SDK ABI. Actual whole/match/extract-loop
+native D/R with explicit parser/decompressor/UI doubles, actual wrapper regression,
+relevant tests, host and ZIP/dependencies x64 D/R and real ordinary ZIP GUI D/R:
+normal success and partial-mask/overwrite Skip with source preservation. Confirm
+any delete-enabled GUI operation separately. Local commit only after verification.
+
+b2 then implements7Zip callback/engine/wrapper completeness, including NumErrors,
+overwrite Skip, pending/completed entries, error/CONTINUE and exact selected-vs-all
+entry coverage. Keep ordinary no-delete Skip semantics; no successful selected
+subset is automatically full extraction. Native actual callbacks/client/wrapper
+and plugin/dependency/host builds plus actual GUI D/R must pass independently.
+Only afterward qualify real ZIP multi-volume/7Zip supported single-volume cases
+before Branch deletion admission. Full S31/G04/G05 and Pack/F5 lifetimes stay OPEN;
+no push/PR/S32 or deferred ChangeDir work. One coherent substage per run.
+
 ## S31b6c7c2a — ZIP internal volume collection (VERIFIED)
 
 Both ZIP collection sites now check owned-copy/Add and retain a sticky incomplete-
