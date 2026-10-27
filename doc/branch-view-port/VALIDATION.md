@@ -1,5 +1,23 @@
 # Validace portu a baseline S00
 
+## S31b6c7c2b2 — 7Zip extraction completeness (VERIFIED)
+
+7Zip now distinguishes successful requested output from skipped, pending or failed
+items. Only a complete unique in-range selection of all archive indices, with
+successful decoder and callbacks, qualifies source deletion. Partial masks and
+OPER_CONTINUE preserve the archive with a localized notice; no-delete SDK Skip
+remains supported. Adapted pinned donor callback/client/wrapper; no SDK/Branch
+admission or safety-setting changes. Native client48/callback362/wrapper96,
+retained regressions, host/7Zip/dependencies x64 Debug+Release and owned ordinary
+GUI normal/Skip/confirmed partial preservation/complete deletion D/R PASS.
+Private profiles restored, source/sentinel hashes verified, registry0.
+[Scope and limits](steps/S31b6c7c2b2.md). This completes c7c2b1/b2 result semantics;
+real volume qualification, Pack-target/F5 lifetimes and S31/G04/G05 remain OPEN.
+Next: actual ZIP multi-volume and supported 7Zip single-volume qualification.
+Local only; no push/PR/CodeQL/full clean platform matrix. Earlier records below
+retain their historical scope/status.
+
+
 ## S31b6c7c2b1 — ZIP extraction completeness (VERIFIED)
 
 ZIP distinguishes complete extraction from successful SDK Skip/selected subsets.

@@ -216,6 +216,10 @@ STDMETHODIMP CExtractCallbackImp::GetStream(UINT32 index, ISequentialOutStream**
         OutFileStream.Release();
         OutFileStreamSpec = NULL;
         OutputCreated = FALSE;
+        if (PendingItem) ExtractionIncomplete = true; // a requested result never arrived
+        PendingItem = false;
+        ExtractMode = false;
+        OverwriteSkip = FALSE;
 
         // if we are extracting a file
         if (askExtractMode == NArchive::NExtract::NAskMode::kExtract)

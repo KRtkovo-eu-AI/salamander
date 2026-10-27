@@ -62,10 +62,12 @@ public:
  enum EOperationMode {Ask,Keep,Delete,Overwrite,Skip,Cancel};
  ItemsToExtractMap& ItemsToExtract;const char* TargetDir;char TargetFileName[SAL_MAX_PATH]={};
  struct {FILETIME LastWrite={};bool IsDirectory=false,AttributesAreDefined=false;DWORD Attributes=0;UINT64 Size=0;UString FileName;AString Name;} ProcessedFileInfo;
+ size_t ExpectedItems=0,CompletedItems=0;bool PendingItem=false,ExtractionIncomplete=false;
+ @@COMPLETION@@
  bool ExtractMode=false;CRITICAL_SECTION CSExtract;BOOL DataErrorSilent=FALSE;EOperationMode DataErrorMode=Ask;BOOL DataErrorDeleteSilent=FALSE,SilentDelete=FALSE;
  DWORD OverwriteSilent=0;BOOL OverwriteSkip=FALSE,OverwriteCancel=FALSE,WholeFile=TRUE,OutputCreated=FALSE;HWND hProgWnd=nullptr;
  bool PasswordIsDefined=false;UString Password;int NumErrors=0;CRetryableOutFileStream* OutFileStreamSpec=nullptr;CMyComPtr<ISequentialOutStream> OutFileStream;
- explicit CExtractCallbackImp(ItemsToExtractMap& items,const char* target):ItemsToExtract(items),TargetDir(target){InitializeCriticalSection(&CSExtract);}
+ explicit CExtractCallbackImp(ItemsToExtractMap& items,const char* target):ItemsToExtract(items),TargetDir(target){ExpectedItems=items.size();InitializeCriticalSection(&CSExtract);}
  ~CExtractCallbackImp(){DeleteCriticalSection(&CSExtract);}
  const char* GetName(){return ProcessedFileInfo.Name;}const char* GetFileName(){return TargetFileName;}FILETIME GetLastWrite(){return ProcessedFileInfo.LastWrite;}UINT64 GetSize(){return ProcessedFileInfo.Size;}
  DWORD* GetOverwriteSilent(){return &OverwriteSilent;}BOOL* GetOverwriteSkip(){return &OverwriteSkip;}void SetOverwriteCancel(BOOL state=TRUE){OverwriteCancel=state;}
@@ -89,10 +91,11 @@ int wmain(int argc,wchar_t**argv){
   Check(callback.GetStream(0,&stream,NArchive::NExtract::NAskMode::kExtract)==S_OK&&stream,"actual callback opens exact Unicode/long output");
   Check(callback.ProcessedFileInfo.FileName==full,"callback wide identity exact");Check(strcmp(callback.TargetFileName,UnicodeStringToMultiByte(full,CP_UTF8))==0,"full UI byte path preserved after parent check");
   if(stream){Check(callback.PrepareOperation(NArchive::NExtract::NAskMode::kExtract)==S_OK,"prepare actual callback");UInt32 n=0;Check(stream->Write("payload",7,&n)==S_OK&&n==7,"write real vendor stream");stream->Release();Check(callback.SetOperationResult(NArchive::NExtract::NOperationResult::kOK)==E_STOPEXTRACTION,"finish actual callback");}
+  Check(callback.IsSelectionComplete()&&callback.CompletedItems==1,"successful output result completes requested selection");
   HANDLE metadata=CreateFileW(GetSalamanderLongPath(full).Ptr(),FILE_READ_ATTRIBUTES,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);FILETIME written={};bool timeOK=metadata!=INVALID_HANDLE_VALUE&&GetFileTime(metadata,nullptr,nullptr,&written);if(metadata!=INVALID_HANDLE_VALUE)CloseHandle(metadata);Check(timeOK&&CompareFileTime(&written,&fd.LastWrite)==0,"stored timestamp equals archive metadata");
   Check(Read(full)=="payload","readback exact output");Check((GetFileAttributesW(GetSalamanderLongPath(full).Ptr())&FILE_ATTRIBUTE_HIDDEN)!=0,"metadata at exact path");
   // Skip/Cancel must not own or delete an existing output, including a previous success.
-  for(int mode:{1,2}){items[0]=&entry;callback.OverwriteSkip=FALSE;callback.OverwriteCancel=FALSE;CreateMode=mode;stream=nullptr;const auto r=callback.GetStream(0,&stream,NArchive::NExtract::NAskMode::kExtract);Check(r==(mode==1?S_OK:E_ABORT)&&stream==nullptr,"overwrite skip/cancel has no output stream");Check(!callback.OutputCreated,"skip/cancel does not own output");callback.Cleanup();Check(Read(full)=="payload","skip/cancel cleanup preserves bystander file");}
+  for(int mode:{1,2}){items[0]=&entry;callback.OverwriteSkip=FALSE;callback.OverwriteCancel=FALSE;CreateMode=mode;stream=nullptr;const auto r=callback.GetStream(0,&stream,NArchive::NExtract::NAskMode::kExtract);Check(r==(mode==1?S_OK:E_ABORT)&&stream==nullptr,"overwrite skip/cancel has no output stream");Check(!callback.OutputCreated,"skip/cancel does not own output");callback.Cleanup();Check(!callback.IsSelectionComplete(),"skip/cancel cannot qualify completed extraction");Check(Read(full)=="payload","skip/cancel cleanup preserves bystander file");}
   // Actual wide cleanup shares old retry policy; readonly denial is preserved.
   BOOL silent=FALSE;Check(SetFileAttributesW(GetSalamanderLongPath(full).Ptr(),FILE_ATTRIBUTE_READONLY),"set own readonly fixture");General.DeleteChoice=DIALOG_CANCEL;int dialogs=General.DeleteDialogs;
   Check(!SafeDeleteFileW(full.Ptr(),target,silent)&&General.DeleteDialogs==dialogs+1,"readonly cleanup reports denial and preserves Cancel");Check(Read(full)=="payload","readonly refusal keeps content");Check(SetFileAttributesW(GetSalamanderLongPath(full).Ptr(),FILE_ATTRIBUTE_NORMAL),"restore own attributes");Check(SafeDeleteFileW(full.Ptr(),target,silent),"wide cleanup deletes exact file");
@@ -100,7 +103,7 @@ int wmain(int argc,wchar_t**argv){
   Check(failedParent.GetStream(0,&stream,NArchive::NExtract::NAskMode::kExtract)==E_ABORT&&!stream&&failedParent.OutputCreated,"parent failure retains ownership only of just-created output");General.DirectoryOK=true;failedParent.Cleanup();Check(!failedParent.OutputCreated&&GetFileAttributesW(GetSalamanderLongPath(full).Ptr())==INVALID_FILE_ATTRIBUTES,"parent failure cleanup works before PrepareOperation");
   // Cancel during a partial stream: real callback closes before actual cleanup.
   items[0]=&entry;CExtractCallbackImp partial(items,target);CreateMode=0;stream=nullptr;Check(partial.GetStream(0,&stream,NArchive::NExtract::NAskMode::kExtract)==S_OK&&stream,"open own partial output");
-  if(stream){UInt32 n=0;Check(stream->Write("part",4,&n)==S_OK&&n==4,"write partial bytes");stream->Release();}partial.Cleanup();Check(GetFileAttributesW(GetSalamanderLongPath(full).Ptr())==INVALID_FILE_ATTRIBUTES&&!partial.OutputCreated,"partial cleanup closes and deletes current output only");
+  if(stream){UInt32 n=0;Check(stream->Write("part",4,&n)==S_OK&&n==4,"write partial bytes");stream->Release();}Check(!partial.IsSelectionComplete()&&partial.PendingItem,"pending stream without result is incomplete");partial.Cleanup();Check(GetFileAttributesW(GetSalamanderLongPath(full).Ptr())==INVALID_FILE_ATTRIBUTES&&!partial.OutputCreated,"partial cleanup closes and deletes current output only");
   // Actual data-error choices preserve Keep/Delete/Cancel semantics on the same wide output.
   for(int choice:{DIALOG_NO,DIALOG_YES,DIALOG_CANCEL}){
    items[0]=&entry;CExtractCallbackImp damaged(items,target);stream=nullptr;CreateMode=0;
@@ -112,8 +115,14 @@ int wmain(int argc,wchar_t**argv){
    if(choice==DIALOG_NO){Check(Read(full)=="part","Keep retains exact partial bytes");BOOL local=FALSE;Check(SafeDeleteFileW(full.Ptr(),target,local),"remove only own kept fixture");}
    else Check(GetFileAttributesW(GetSalamanderLongPath(full).Ptr())==INVALID_FILE_ATTRIBUTES,"Delete/Cancel removes only current damaged output");
   }
+  // Actual result callback retains CRC failure even after keeping partial data.
+  items[0]=&entry;CExtractCallbackImp crc(items,target);CreateMode=0;stream=nullptr;
+  Check(crc.GetStream(0,&stream,NArchive::NExtract::NAskMode::kExtract)==S_OK&&stream,"open own CRC test output");
+  if(stream){stream->Release();crc.PrepareOperation(NArchive::NExtract::NAskMode::kExtract);crc.SetOperationResult(NArchive::NExtract::NOperationResult::kCRCError);}
+  Check(crc.NumErrors==1&&!crc.IsSelectionComplete()&&crc.CompletedItems==0,"actual CRC error cannot count a completed item");
+  {BOOL local=FALSE;Check(SafeDeleteFileW(full.Ptr(),target,local),"remove only own CRC fixture");}
   CArchiveItemInfo directory{AString("directory"),&fd,true};UString directoryPath((parent/L"directory").c_str());items[0]=&directory;CExtractCallbackImp directories(items,target);stream=nullptr;
-  Check(directories.GetStream(0,&stream,NArchive::NExtract::NAskMode::kExtract)==S_OK&&!stream,"actual directory-only callback");directories.Cleanup();Check((GetFileAttributesW(GetSalamanderLongPath(directoryPath).Ptr())&FILE_ATTRIBUTE_DIRECTORY)!=0,"directory not deleted by file cleanup");Check(RemoveDirectoryW(GetSalamanderLongPath(directoryPath).Ptr()),"remove own directory fixture");
+  Check(directories.GetStream(0,&stream,NArchive::NExtract::NAskMode::kExtract)==S_OK&&!stream,"actual directory-only callback");directories.PrepareOperation(NArchive::NExtract::NAskMode::kExtract);directories.SetOperationResult(NArchive::NExtract::NOperationResult::kOK);Check(directories.IsSelectionComplete(),"successful explicit directory result completes selection");directories.Cleanup();Check((GetFileAttributesW(GetSalamanderLongPath(directoryPath).Ptr())&FILE_ATTRIBUTE_DIRECTORY)!=0,"directory not deleted by file cleanup");Check(RemoveDirectoryW(GetSalamanderLongPath(directoryPath).Ptr()),"remove own directory fixture");
   items[0]=&directory;General.DirectoryOK=false;CExtractCallbackImp deniedDirectory(items,target);stream=nullptr;
   Check(deniedDirectory.GetStream(0,&stream,NArchive::NExtract::NAskMode::kExtract)==E_ABORT&&!stream&&!deniedDirectory.OutputCreated,"directory creation failure aborts without output ownership");General.DirectoryOK=true;
   Check(Read(keep)=="keep","independent sentinel unchanged");

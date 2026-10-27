@@ -887,3 +887,13 @@ pin47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
 Local deletion-completion tracking and the rejected-Add stale-read fix preserve
 existing parser/decoder/security checks and all SDK/plugin/vendor/Igor Pavlov7-Zip
 notices. No new external dependency or public SDK capability.
+
+### S31b6c7c2b2 7Zip extraction-completion handling
+
+Adapted bundled 7Zip callback/client/whole-wrapper code by Open Salamander Authors
+and Samandarin Contributors,
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pin47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
+Local completion tracking qualifies source deletion independently of SDK Skip.
+Existing vendor decoder by Igor Pavlov/7-Zip, its licenses, provenance and security
+checks remain unchanged. No new dependency or public SDK capability.

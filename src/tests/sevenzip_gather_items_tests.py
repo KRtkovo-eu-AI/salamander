@@ -10,7 +10,7 @@ def main():
  host=read('src/plugins/7zip/7zip.cpp');whole=block(host,'BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(')
  assert 'malloc(SAL_MAX_PATH)' in whole and 'free(archivePath);' in whole
  assert 'if (GatherItems(dir, modmask, &archiveItems, archivePath, SAL_MAX_PATH) != OPER_CANCEL)' in whole
- assert whole.index('if (GatherItems(')<whole.index('ret = client2->Decompress(')<whole.index('free(archivePath);')
+ assert whole.index('if (GatherItems(')<whole.index('const int result = client2->Decompress(')<whole.index('free(archivePath);')
  data=read('src/tests/sevenzip_gather_items_tests.cpp.in')
  for k,v in {'RECORD':block(read('src/plugins/7zip/7zclient.h'),'struct CArchiveItemInfo')+';','APPEND':block(read('src/salamdr3.cpp'),'BOOL SalPathAppend('),'GATHER':block(host,'int GatherItems(')}.items():data=data.replace('@@'+k+'@@',v)
  assert '@@' not in data

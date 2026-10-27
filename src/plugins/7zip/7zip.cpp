@@ -1144,7 +1144,10 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
                             C7zClient* client2 = ((CPluginDataInterface*)pluginData)->Get7zClient();
 
                             salamander->ProgressDialogAddText(LoadStr(IDS_UNPACKING), FALSE);
-                            ret = client2->Decompress(salamander, fileName, targetDir, &archiveItems, pluginData->Password) != OPER_CANCEL;
+                            const int result = client2->Decompress(salamander, fileName, targetDir, &archiveItems,
+                                                                   pluginData->Password, FALSE, &wholeArchiveExtracted);
+                            ret = result != OPER_CANCEL;
+                            wholeArchiveExtracted = wholeArchiveExtracted && result == OPER_OK;
                         }
                         free(archivePath);
                     }
@@ -1175,6 +1178,9 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
     }
 
     SalamanderGeneral->FreeSalamanderDirectory(dir);
+
+    if (ret && delArchiveWhenDone && !wholeArchiveExtracted)
+        return Error(IDS_UNPACK_INCOMPLETE);
 
     // Hand off the single supported volume only after extraction and cleanup.
     // FIXME: multi-volume archives need complete volume discovery before deletion can be qualified.
