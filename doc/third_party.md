@@ -897,3 +897,11 @@ pin47661e92d4b3cbe5bb593ae3d75a3f1f698ef413 (GPL-2.0-or-later).
 Local completion tracking qualifies source deletion independently of SDK Skip.
 Existing vendor decoder by Igor Pavlov/7-Zip, its licenses, provenance and security
 checks remain unchanged. No new dependency or public SDK capability.
+
+### S31b6c7c3a decoder volume/archive-state audit
+
+Read-only verification uses existing bundled7-Zip decoder by Igor Pavlov and
+production open/client code by Open Salamander Authors and Samandarin Contributors,
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pin47661e92d4b3cbe5bb593ae3d75a3f1f698ef413. All existing GPL-2.0-or-later
+and vendor notices/licenses retained. No imported dependency or production change.

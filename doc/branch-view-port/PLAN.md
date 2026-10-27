@@ -1,5 +1,20 @@
 # Plán postupného portu PR #769
 
+## S31b6c7c3a — real 7Zip decoder metadata audit (VERIFIED audit)
+
+Actual b2-qualified7za.dll D/R: owned ZIP without central directory or truncated
+into the second local header opens/tests S_OK with zero indexed-item errors but
+archive ErrorFlags32. Current actual-client facade replay still qualifies all
+visible items for deletion. This proves a missing archive-state prerequisite,
+not a completed safety fix. Normal ZIP/7z controls and truncated7z were tested.
+Volume callback QI returns E_NOINTERFACE; no multi-volume discovery proof.
+[Evidence and limits](steps/S31b6c7c3a.md). Next c3b must add typed archive-status/
+volume qualification while retaining normal single-volume and no-delete recovery,
+then genuine ZIP multi-volume c3c. Existing Branch gates unchanged; S31/G04/G05
+remain OPEN. Documentation only; no source/test/SDK change, GUI deletion or push.
+Earlier completed c2b checkpoints cover indexed-entry result semantics only.
+
+
 ## S31b6c7c2b2 — 7Zip extraction completeness (VERIFIED)
 
 7Zip now distinguishes successful requested output from skipped, pending or failed
@@ -4513,3 +4528,19 @@ all unique archive indices and no errors. Wrapper preserves incomplete sources.
 Acceptance: focused native tests, host/7Zip dependencies Debug+Release x64 builds,
 owned ordinary-panel GUI normal/Skip/mask+delete/complete+delete and exact hashes.
 No new Branch deletion admission, SDK change, multi-volume claim or push.
+
+## S31b6c7c3 — actual volume qualification, upfront split
+
+c3a first audits the actual built 7Zip decoder volume/error metadata using owned
+normal, declared-split, truncated and incomplete-header archives, read-only memory
+streams and test-mode callbacks. Verify the production open-callback QI contract
+and distinguish successful indexed-entry decoding from full physical-source proof.
+No production change or new deletion admission; record exact DLL/fixture hashes
+and D/R results. If decoder reports incomplete metadata despite successful entry
+results, record the smallest prerequisite fix before ordinary single-volume proof.
+c3b then implements any proven prerequisite with native and host/plugin/dependency
+D/R builds and actual owned GUI verification; no source deletion on unqualified
+volume/error state. c3c qualifies actual ZIP multi-volume discovery/dedup plus
+missing-volume/Cancel and complete-owned-set outcomes. Confirm GUI deletion per
+operation. Do not conflate these with broad format support or Branch admission.
+S31/G04/G05, Pack/F5 lifetimes stay OPEN; ChangeDir deferred, no push/PR/S32.

@@ -1,5 +1,20 @@
 # S31 — Úplnost portu proti donoru
 
+## S31b6c7c3a — real 7Zip decoder metadata audit (VERIFIED audit)
+
+Actual b2-qualified7za.dll D/R: owned ZIP without central directory or truncated
+into the second local header opens/tests S_OK with zero indexed-item errors but
+archive ErrorFlags32. Current actual-client facade replay still qualifies all
+visible items for deletion. This proves a missing archive-state prerequisite,
+not a completed safety fix. Normal ZIP/7z controls and truncated7z were tested.
+Volume callback QI returns E_NOINTERFACE; no multi-volume discovery proof.
+[Evidence and limits](steps/S31b6c7c3a.md). Next c3b must add typed archive-status/
+volume qualification while retaining normal single-volume and no-delete recovery,
+then genuine ZIP multi-volume c3c. Existing Branch gates unchanged; S31/G04/G05
+remain OPEN. Documentation only; no source/test/SDK change, GUI deletion or push.
+Earlier completed c2b checkpoints cover indexed-entry result semantics only.
+
+
 ## S31b6c4c2a — external unpack handoff context (VERIFIED)
 
 Optional source/target snapshots v actual PackUniversalUncompress ověřují live
