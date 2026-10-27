@@ -2984,7 +2984,7 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
         while (true)
         {
             if (!panelsAreCurrent()) { reportChangedContext(); return; }
-            CUnpackDialog dialog(parent, path, pathBuffer.Capacity(), pathAlt, mask, &str, &UnpackerConfig, &delArchiveWhenDone, !branchOperation);
+            CUnpackDialog dialog(parent, path, pathBuffer.Capacity(), pathAlt, mask, &str, &UnpackerConfig, &delArchiveWhenDone, TRUE);
             if (dialog.Execute() != IDOK) break;
 
             CWholeArchiveUnpackerSnapshot backendSnapshot;
@@ -2993,7 +2993,7 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
                 reportChangedContext();
                 return;
             }
-            if (branchOperation && (delArchiveWhenDone || !backendSnapshot.IsVerifiedBranchSourceUnpacker()))
+            if (branchOperation && !backendSnapshot.IsVerifiedBranchSourceUnpacker())
             {
                 SalMessageBox(parent, GetErrorText(ERROR_NOT_SUPPORTED), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
                 return;
@@ -3001,7 +3001,7 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
             bool branchTargetBound = false;
             const auto contextIsCurrent = [&]() {
                 return panelsAreCurrent() && dialog.IsSelectionCurrent() && backendSnapshot.IsCurrent() &&
-                       (!branchOperation || (!delArchiveWhenDone && backendSnapshot.IsVerifiedBranchSourceUnpacker())) &&
+                       (!branchOperation || backendSnapshot.IsVerifiedBranchSourceUnpacker()) &&
                        (!branchTargetBound || backendSnapshot.ValidateBranchTarget(&diskTarget, path));
             };
             UpdateWindow(parent);

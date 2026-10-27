@@ -3975,7 +3975,7 @@ BOOL CPluginData::UnpackWholeArchive(CFilesWindow* panel, const char* archiveFil
         {
             if (sourceSnapshot == NULL || sourceSnapshot->Panel != panel || !sourceSnapshot->IsCurrent(MainWindow) ||
                 diskTarget == NULL || !diskTarget->IsCurrent(MainWindow) ||
-                delArchiveWhenDone || backendSnapshot == NULL || !backendSnapshot->IsVerifiedBranchSourceUnpacker())
+                (delArchiveWhenDone && archiveVolumes == NULL) || backendSnapshot == NULL || !backendSnapshot->IsVerifiedBranchSourceUnpacker())
             {
                 SetLastError(ERROR_NOT_SUPPORTED);
                 return FALSE;

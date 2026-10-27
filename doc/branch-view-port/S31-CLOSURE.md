@@ -27,9 +27,15 @@ Hotové důkazy se neopakují, pokud jejich vazba na aktuální implementaci pla
   důkaz `evidence/S31-closure-volumes/final-result.json` mimo Git. Deduplikace
   navíc má již dříve ověřený nativní wrapper/collection kontrakt. 7Zip zatím nemá
   open-volume callback ani úplný seznam více svazků; jejich mazání není připuštěné.
-- **Stav:** bezpečnost ordinary kvalifikovaných ZIP/7Zip operací uzavřena pro
-  uvedené scénáře; žádný příslib libovolného formátu či všech spanning variant.
-  Funkční integrace do Branch je samostatná položka 2, nikoli hotová pouhým testem.
+- **Oprava stavu důkazů:** první GUI pokus položky 2 odhalil ve zděděném runtime
+  starý ZIP plugin z c2a, před completion opravou b1. B1 má vlastní správný build
+  a GUI důkaz; starší binárka převzatá přes b2 jej nenahrazuje. První Branch
+  mask+delete pokus proto selhal a zůstává evidovaný jako FAIL, nikoli PASS
+  aktuálního kódu. Aktuální ZIP je nově sestavený D/R; jeho GUI se ověřuje.
+- **Zbývá:** potvrdit dotčené ZIP GUI důkazy včetně vícesvazkové kvalifikace proti
+  skutečně aktuální binárce. Neopakovat nedotčené 7Zip/host native kontroly.
+  Funkční integrace do Branch je samostatná položka 2; žádný příslib podpory
+  libovolného formátu či všech spanning variant.
 
 ## 2. Odpovídající integrace do Branch View
 
@@ -40,12 +46,18 @@ Hotové důkazy se neopakují, pokud jejich vazba na aktuální implementaci pla
   ordinary panelu a do kořene Branch cíle včetně automatického podadresáře,
   Cancel, odmítnutí ručního přesměrování a ztraceného cíle: c5a/c5b/c6 D/R.
   F5 ZIP/7Zip do Branch cíle je ověřené b6b3b/b6b3c3; životnost zdroje níže zbývá.
-- **Chybí:** propojení a důkaz bezpečného mazání po přímém Branch Unpack.
-  Aktuální dialog i controller mazání při Branch operaci stále odmítají.
-- **Akce a dokončení:** po položce 1 propojit kvalifikovaný owned source/volume
-  plán se stávajícími lifecycle kontrolami. D/R musí prokázat běžný úspěch,
-  částečné/chybové zachování a odmítnutí stale kontextu bez zásahu do jiného tabu.
-  Bez tohoto důkazu zůstane ochranný gate, ale požadavek nebude označen hotový.
+- **Nová implementace hotová:** kvalifikované Branch mazání je propojené s
+  vlastněným seznamem svazků. Nezávislý dispatcher i post-InitDLL wrapper
+  vyžadují platný sink a ověřený backend; source/target/root/tab/generation
+  kontroly zůstávají v controlleru i před každým odstraněním a opakováním.
+- **Nové ověření hotové:** native controller a související kontrakty D/R,
+  sestavení hostitele a aktuálního ZIP D/R. GUI Debug: ZIP i 7Zip částečné
+  rozbalení zachová zdroj a úplné odstraní pouze testovací kopii. Release ZIP
+  i 7Zip všechny čtyři případy prošly; přesné výstupy a sentinely ověřené hashi.
+- **Ověření této integrace dokončené:** oba backendy D/R, částečné/chybové
+  zachování, stale-context odmítnutí a přesný úplný úspěch bez zásahu do jiného
+  tabu. Vlastní GUI zavřené a profily obnovené. Důkazy váže
+  `evidence/S31-branch-unpack/final-audit.json` mimo Git; následuje lokální commit.
 
 ## 3. Pack-target a archivní F5 source-lifetime
 
@@ -69,6 +81,9 @@ Hotové důkazy se neopakují, pokud jejich vazba na aktuální implementaci pla
 - **Hotovo:** archive-entry a následná oprava vlastnictví b1/b1a, shortcut b2,
   atributy/NTFS b3a4b a Properties b3b2 mají funkční D/R důkazy; počáteční blanket
   refusal v historické coverage již nepopisuje jejich aktuální stav.
+  Vazba 17 relevantních těl na kvalifikované commity potvrzuje nezměněnou
+  implementaci; `evidence/S31-closure-g04/existing-core-binding.json` mimo Git.
+  Aktuální G04 tabulka už tyto příkazy neuvádí jako chybějící.
 - **Zbývá:** spojit výsledky položek 1–3 s aktuálním routerem a tabulkou G04;
   jednotlivě odlišit kvalifikované bundled ZIP/7Zip od neověřených pluginů,
   externích packerů/viewerů a virtuálních filesystem cílů. Nevyvozovat podporu

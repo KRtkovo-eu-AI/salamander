@@ -24,10 +24,10 @@ class BranchTransitionContracts(unittest.TestCase):
   for allowed in ('CM_OPEN','CM_VIEW','CM_ALTVIEW','CM_EDIT','CM_BRANCH_OPENPARENT','CM_RENAMEFILE','CM_COPYFILES','CM_MOVEFILES','CM_DELETEFILES','CM_PROPERTIES','CM_CLIPCOPY','CM_CLIPCUT','CM_CLIPPASTE','CM_PACK','CM_UNPACK','CM_CONTEXTMENU'):
    self.assertIn('case '+allowed+':',gate)
   self.assertIn('return false;',gate)
- def test_branch_direct_unpack_is_qualified_bundled_backend_without_archive_deletion(self):
+ def test_branch_direct_unpack_requires_qualified_backend_and_owned_deletion_sink(self):
   controller=function('fileswn7.cpp','void CFilesWindow::Unpack(')
   self.assertIn('((IsBranchView() || target->IsBranchView()) && !target->Is(ptDisk))) return;',controller)
-  self.assertIn('&delArchiveWhenDone, !branchOperation)',controller)
+  self.assertIn('&delArchiveWhenDone, TRUE)',controller)
   self.assertLess(controller.index('!backendSnapshot.IsVerifiedBranchSourceUnpacker()'),controller.index('CheckAndCreateDirectoryW('))
   self.assertIn('if (contextIsCurrent() && !sourceSnapshot.Branch)',controller)
   policy=function('packers.cpp','bool CWholeArchiveUnpackerSnapshot::IsVerifiedBranchSourceUnpacker(')
@@ -37,7 +37,7 @@ class BranchTransitionContracts(unittest.TestCase):
   for name,marker in (('packers.cpp','BOOL CUnpackerConfig::ExecuteUnpacker('),('plugins1.cpp','BOOL CPluginData::UnpackWholeArchive(')):
    guarded=function(name,marker)
    self.assertIn('diskTarget == NULL || !diskTarget->IsCurrent(MainWindow)',guarded)
-   self.assertIn('delArchiveWhenDone || backendSnapshot == NULL || !backendSnapshot->IsVerifiedBranchSourceUnpacker()',guarded)
+   self.assertIn('(delArchiveWhenDone && archiveVolumes == NULL) || backendSnapshot == NULL || !backendSnapshot->IsVerifiedBranchSourceUnpacker()',guarded)
   dialog=function('dialogs3.cpp','void CUnpackDialog::EnableDelArcCheckbox(')
   self.assertIn('AllowDeleteArchive && IsUnpackerChoiceCurrent(i)',dialog)
   self.assertIn('EnablerFileOnDisk, file && onDisk',source('mainwnd1.cpp'))

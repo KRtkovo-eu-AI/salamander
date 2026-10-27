@@ -331,7 +331,7 @@ int main(){
   if(scenario==1)plugin.DLLName="other\\7zip.spl";
   if(scenario==2)plugin.DLLName="other\\zip.spl";
   if(scenario==3){row.Type=0;row.CmdExecExtract=_strdup("external.exe");row.CmdArgsExtract=_strdup("args");}
-  if(scenario==4)RequestDelete=TRUE; // Malicious facade bypasses disabled UI; controller must refuse independently.
+  if(scenario==4){RequestDelete=TRUE;plugin.DLLName="unqualified\\zip.spl";} // Delete cannot admit an unqualified backend.
   if(scenario==5){target.Branch=TRUE;ManualPath="C:\\unverified-manual";}
   if(scenario==6)target.Kind=ptPluginFS;
   if(scenario==7)source.Scanning=TRUE;
@@ -362,7 +362,7 @@ int main(){
   if(scenario>=1&&scenario<=11||scenario==15||scenario==17||scenario==18||scenario==28||scenario==29)Check(SDKCalls==0&&ExternalCalls==0,"unqualified/stale/cancelled Branch operation never dispatches I/O");
   else Check(SDKCalls==1&&ExternalCalls==0,"only qualified bundled backend receives exact Branch source and ordinary disk target");
   if(scenario>=1&&scenario<=4||scenario==8||scenario==11||scenario==15||scenario==29)Check(Creates==0,"unsupported Branch backend/delete/modal state refuses before target creation");
-  if(scenario!=5&&scenario!=6&&scenario!=7)Check(!ModalAllowsDelete,"Branch controller disables archive deletion in actual dialog contract");
+  if(scenario!=5&&scenario!=6&&scenario!=7)Check(ModalAllowsDelete,"Branch dialog offers deletion subject to independent qualified-backend checks");
  }
  // Independent dispatcher/wrapper denial, even if caller omits or tampers with contexts.
  for(int scenario=0;scenario<6;++scenario){
@@ -405,7 +405,7 @@ int main(){
   if(scenario==12)OnDialog=[&]{target.Scanning=TRUE;};
   if(scenario==13)plugin.DLLName="other\\7zip.spl";
   if(scenario==14){row.Type=0;row.CmdExecExtract=_strdup("external");row.CmdArgsExtract=_strdup("args");}
-  if(scenario==15)RequestDelete=TRUE;
+  if(scenario==15){RequestDelete=TRUE;plugin.DLLName="unqualified\\zip.spl";}
   if(scenario==16)DialogResult=IDCANCEL;
   if(scenario==17){Configuration.UseAnotherPanelForUnpack=FALSE;ManualPath=ExpectedTarget;}
   if(scenario==18)Configuration.UseAnotherPanelForUnpack=FALSE;
@@ -421,7 +421,7 @@ int main(){
   source.Unpack(&target,-1,nullptr,nullptr);
   const bool success=scenario==0||scenario==1||scenario==17||scenario==19||scenario==20||scenario==21||scenario==22||scenario==23&&!branchSource;
   Check(success?(SDKCalls==1&&ExternalCalls==0):(SDKCalls==0&&ExternalCalls==0),"Branch target admission dispatches only exact qualified live offered directories");
-  Check(!ModalAllowsDelete&&DeletedVolumes==0,"Branch target never enables or performs source volume deletion");
+  Check(ModalAllowsDelete&&DeletedVolumes==0,"existing no-delete and unqualified-delete Branch target cases preserve source volumes");
   Check(StopDepth==0&&PriorityDepth==0&&!source.FilesActionInProgress&&source.StaleReads==0&&target.StaleReads==0,"Branch target callbacks retain balanced lifetimes without retired getters");
   if(scenario==2||scenario==3||scenario==4||scenario==7||scenario==8||scenario==11||scenario==12||scenario==13||scenario==14||scenario==15||scenario==16||scenario==18||scenario==25||scenario==26||scenario==27||scenario==28)Check(Creates==0,"unbound, manual, missing or stale Branch root refuses before directory creation");
   if(scenario==5)Check(Cleanups==1,"root loss after creation cleans only owned new directory before refusal");
@@ -441,6 +441,41 @@ int main(){
   ExpectedSource="a";ExpectedTarget=path;
   const BOOL ok=UnpackerConfig.ExecuteUnpacker(nullptr,&source,"a","*.*",path.c_str(),scenario==14,nullptr,&backend,&src,&dst);
   Check(!ok&&SDKCalls==0&&ExternalCalls==0&&OperationContexts==0,"direct dispatcher/wrapper refuse tampered/unbound/deleted/changed Branch target before SDK");
+ }
+
+ // Qualified Branch deletion: same owned plan and independent post-init gates.
+ for(const char* dll:{"zip\\zip.spl","7zip\\7zip.spl"})
+ for(BOOL branchSource:{FALSE,TRUE}) for(BOOL branchTarget:{FALSE,TRUE}) {
+  if(!branchSource&&!branchTarget)continue;
+  for(int scenario=0;scenario<14;++scenario){
+   Reset();CFilesWindow source,target;source.Tab=2;target.Tab=3;source.Branch=branchSource;target.Branch=branchTarget;
+   CMainWindow main;MainWindow=&main;main.Left={&source};main.Right={&target};main.LeftPanel=&source;main.RightPanel=&target;
+   CUnpackerConfigData row;Row(row);CPluginData plugin;plugin.DLLName=dll;Plugins.Data={&plugin};UnpackerConfig.Unpackers.Data={&row};UnpackerConfig.Unpackers.Count=1;UnpackerConfig.PreferedUnpacker=0;
+   ExpectedSource=SalWideToMultiBytePath(source.FileStore.Item.Full.c_str(),CP_UTF8);ExpectedTarget=SalWideToMultiBytePath(target.Root.c_str(),CP_UTF8);RequestDelete=TRUE;
+   const auto list=[](const std::string& s){return s+std::string(1,0);};
+   if(scenario==1)BackendOK=FALSE; // Includes qualified plugin's partial/error/Cancel outcome: no source handoff.
+   if(scenario==2)OnBackend=[&]{if(branchSource)++source.Generation;else source.Root+=L"changed";};
+   if(scenario==3)OnBackend=[&]{if(branchTarget)++target.Generation;else target.Root+=L"changed";};
+   if(scenario==4)OnInit=[&]{plugin.DLLName="other\\zip.spl";};
+   if(scenario==5){CustomVolumes=TRUE;ReturnedVolumes=list(ExpectedSource)+"unterminated";}
+   if(scenario==6){CustomVolumes=TRUE;ReturnedVolumes=list(ExpectedSource+".part2");}
+   if(scenario==7){CustomVolumes=TRUE;ReturnedVolumes=list(ExpectedSource)+list(ExpectedSource)+list(ExpectedSource+".part2");}
+   if(scenario==8)OnDelete=[&]{if(branchSource)++source.Generation;else source.Root+=L"changed";};
+   if(scenario==9)OnDelete=[&]{if(branchTarget)++target.Generation;else target.Root+=L"changed";};
+   if(scenario==10){DeleteFailures=1;FileResponses={IDCANCEL};}
+   if(scenario==11){DeleteFailures=1;FileResponses={IDRETRY};OnFileError=[&]{plugin.DLLName="other\\zip.spl";};}
+   if(scenario==12){source.FileStore.Item.Full=L"C:\\source-東京\\"+std::wstring(140,L'a')+L"\\"+std::wstring(140,L'b')+L"\\same.zip";ExpectedSource=SalWideToMultiBytePath(source.FileStore.Item.Full.c_str(),CP_UTF8);}
+   if(scenario==13)OnInit=[&]{main.ClosePanelTab(&source);};
+   source.Unpack(&target,-1,nullptr,nullptr);
+   const int expected=scenario==0||scenario==7||scenario==12?2:scenario>=8&&scenario<=11?1:0;
+   Check(DeletedVolumes==expected,"Branch source/target deletes only complete owned volumes while context remains current");
+   Check(ModalAllowsDelete&&ExternalCalls==0,"qualified Branch deletion stays on bundled backend with explicit dialog choice");
+   Check(StopDepth==0&&PriorityDepth==0&&!source.FilesActionInProgress&&source.StaleReads==0&&target.StaleReads==0,"Branch deletion retains balanced scopes and never reads retired panel");
+   if(branchSource)Check(FocusPosts==0,"Branch source never receives ordinary root-relative focus after deletion");
+   if(scenario==5||scenario==6)Check(VolumeAttributesCalls==0,"invalid complete plan refuses before first source attribute mutation");
+   if(scenario==4||scenario==13)Check(SDKCalls==0&&OperationContexts==0,"post-init backend/source invalidation precedes I/O and busy context");
+   if(scenario==12)Check(DeletedPaths.size()==2&&DeletedPaths[0].rfind(L"\\\\?\\",0)==0,"Branch delete carries exact extended Unicode source path");
+  }
  }
  // Ordinary volume deletion uses the actual plan/helper and preserves controller policies.
  for(const char* dll:{"zip\\zip.spl","7zip\\7zip.spl"}) for(int scenario=0;scenario<23;++scenario){

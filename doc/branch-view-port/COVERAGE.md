@@ -592,18 +592,22 @@ bezpečnostní assertions, zapnout All a dosud odložený test. Všechny dosavad
 regrese zůstanou registrované. Inventář zachoval všech 41 pojmenovaných donorových položek; před S31a1 jich
 port má 57. Samotná existence položky neznamená běh všech jejích testů.
 
-### G04 — Bezpečně nepodporované operace; S31b, rozhodnutí před S32
+### G04 — Aktuální podpora core operací a zbývající rozhodnutí
 
-Tato tabulka zachycuje vstupní stav auditu před opravami S31b1 a dále; aktuální
-checkpointy a jejich důkazy jsou uvedeny výše. Staré odmítnutí nelze přenášet na
-později ověřené operace. Následující odchylky měly explicitní ochrany; jejich
-plošné odstranění není oprava:
+Aktuální stav nahrazuje vstupní blanket odmítnutí auditu. Ověřené operace
+níže zachovávají přesné identity, lifecycle a backend admission. Hashové porovnání
+17 uvedených těl proti jejich kvalifikovaným commitům potvrdilo nezměněnou
+implementaci (`evidence/S31-closure-g04/existing-core-binding.json` mimo Git).
+Jde o platnost původních konkrétních důkazů, nikoli nové GUI či celkový PASS S31.
 
 | Oblast | Stav proti donoru a rozhodnutí |
 | --- | --- |
-| `TryEnterFileAsArchive` | Branch guard zachován, donorové úplné identity v hunks 43/44 nepřevzaty. Odlišit tento vstup od již ověřené běžné Enter/archive cesty S27a2. |
-| `FocusShortcutTarget` | Branch guard; donorový `FocusBranchShortcutTarget`, deklarace a hook chybějí (hunk 45 a části branch_view.cpp/fileswnd.h). |
-| Windows Properties, ChangeAttr, přímé Unpack | Branch vstupy nadále odmítnuté; nepovažovat za úplnou donorovou podporu. |
+| `TryEnterFileAsArchive` | IMPLEMENTED / VERIFIED_LOCAL: b1/b1a; přesná Branch identita, probe, vlastnictví archive-entry a host projekce, native a D/R GUI. Ověřená těla beze změny proti `7e2d853e`. Nejde o připuštění všech pluginů. |
+| `FocusShortcutTarget` | IMPLEMENTED / VERIFIED_LOCAL: b2; exact wide target a ochrany kontextu, pět GUI případů v každé D/R konfiguraci. Obě těla beze změny proti `05b6d56c`. |
+| ChangeAttr / NTFS | IMPLEMENTED / VERIFIED_LOCAL: b3a4b, výběr a potvrzení, komprese/dekomprese/šifrování/dešifrování D/R. Tři těla beze změny proti `664de26a`. Neprokazuje Undelete RAW EFS. |
+| Windows Properties | IMPLEMENTED / VERIFIED_LOCAL: b3b2; vlastní dialog, single/multi/Cancel a chybová větev D/R; tři těla beze změny proti `c5f3285f`. |
+| Přímé Unpack | ZIP/7Zip bez mazání z Branch do ordinary/Branch root ověřené c5/c6. Aktuální propojení bezpečného mazání má native a build D/R PASS, GUI všechny čtyři případy v Debug i Release PASS. Položka 2 cíleně ověřená; položka 1 ještě potřebuje aktuální ZIP vícesvazkovou kvalifikaci. |
+| Pack-target / archivní F5 | Odpovídající integrace a source-lifetime zbývá podle položky 3 konečného seznamu. Dosavadní dílčí cílové důkazy nejsou důkazem celého požadavku. |
 | Kopírování/přesun do Branch cíle — aktualizace S31b5c | Diskový Copy/Move do jediného diskového cíle ověřen v d1/d2/e1/e2/e3; úplný root/mask, modal tab/generation a explicitní ruční cíl. Archive source/FS/multi-target Branch případy tato aktivace nezpřístupňuje. |
 | F3 plugin viewers | Obecné DLL prohlížeče nejsou připuštěné. Interní a konfigurovaný externí viewer mají vlastní ověření. PictView EXIF menu 188 a konfigurace 197 neprokazují obecné Branch F3. |
 | Neznámé plugin příkazy, externí packery | Explicitní admission policy v plugins1.cpp, žádné automatické povolení podle existence DLL. DemoPlug diskový snapshot se SDK>=105 neznamená obecné povolení jeho Branch příkazu. |

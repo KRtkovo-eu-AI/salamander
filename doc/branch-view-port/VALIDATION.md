@@ -1,5 +1,28 @@
 # Validace portu a baseline S00
 
+## S31 — qualified Branch unpack deletion (VERIFIED_LOCAL)
+
+Branch direct Unpack now connects the existing owned volume plan to the qualified
+ZIP/7Zip routes while retaining independent dispatcher/post-InitDLL checks and
+live source/target/root/tab/generation/backend guards before each removal/retry.
+Native controller4886, binding183, post-init119, source96 checks/config and
+operations20/transition30 tests/config PASS; host and current ZIP builds D/R PASS.
+Eight actual Branch-to-Branch GUI cases D/R PASS: partial ZIP/7z preserve source,
+complete copies delete only after exact full output; all original backups and
+sentinels remain unchanged. Long Unicode destination roots exceed260 UTF16.
+Owned GUIs closed, private configuration restored, registry0, installed process
+untouched. Evidence outside Git: `evidence/S31-branch-unpack/final-audit.json`.
+
+A first mask test used an inherited pre-completion ZIP binary and failed; retained
+under `attempt-stale-zip` and `stale-zip-observation.json`, never counted as PASS.
+Fresh source-built ZIP D/R replaced it and passed all current Branch GUI tests.
+Earlier actual volume GUI evidence also used that inherited ZIP; it needs current
+binary requalification. No new production decoder change follows from that stale
+runtime error. C1 remains pending; C2 implementation/targeted validation complete.
+Pack-target/F5 lifetime, remaining G04/G05 and final revision proof still pending.
+No push/PR/remote CodeQL/full clean platform matrix/S32. Whole S31 goal ACTIVE.
+
+
 ## S31b6c7c3a — real 7Zip decoder metadata audit (VERIFIED audit)
 
 Actual b2-qualified7za.dll D/R: owned ZIP without central directory or truncated
