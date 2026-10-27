@@ -1,5 +1,55 @@
 # Plán postupného portu PR #769
 
+## S31b6c7a — volume deletion audit (VERIFIED audit only)
+
+Host volume loop still uses byte readonly/DeleteFile and unbounded strlen over
+CDynamicString output; Branch no-delete guards remain intact. SDK TRUE permits
+Skip. ZIP deduplicates discovered volumes after ErrorID/UserBreak checks;7Zip
+returns the input file only and treats OPER_CONTINUE as success. Both ignore
+Add failure. A read-only Win32 CP1250 probe proved a UTF8 path can resolve to a
+different owned ACP-named file, with no deletion/attribute change.
+[Evidence and acceptance](steps/S31b6c7a.md): exact current/donor blocks and hashes,
+controller3920/backend183/whole-post-init119/dialog106 D/R PASS, contracts20/30.
+Production/test/SDK/Windows/deferred ChangeDir unchanged. No new host/plugin build,
+destructive GUI, CodeQL, remote CI or push. c7b must first integrate bounded owned
+exact-wide ordinary volume handling; c7c qualifies producer/result completeness
+before new Branch deletion. This audit does not complete c7 or S31/G04/G05.
+
+## S31b6c7 — archive-volume deletion, upfront split
+
+c7a audits the actual current/donor host loop, volume producers, result and Add
+contracts, preserving Branch no-delete policy. Save exact symbol blocks/hashes
+and current native controller/backend/dialog/whole-post-init D/R plus operation/
+transition contracts. No production edits, new admission or destructive GUI test.
+
+c7b must implement a bounded owned volume plan and exact-wide attribute/delete
+path in the ordinary controller first, preserving retry/skip/cancel, notifications
+and live-context guards. Decode qualified producers consistently with their read
+path; unknown legacy producers need an explicit lossless compatibility decision,
+not a guessed Unicode identity. Validate complete list before first attribute or
+delete I/O, including malformed/truncated/empty entries, length, full disk paths,
+duplicates and source relationship. Reuse existing wide helpers; no MAX_PATH
+buffers or SDK ABI change. Do not infer exact file identity from a display name.
+Native actual list/controller/I/O D/R must include ASCII, Unicode parent/leaf,
+UTF8-byte-long and UTF16-long, ACP ambiguity, invalid input/terminator, allocation
+failure, readonly, missing/access denied, retry/skip-all/cancel and callback
+invalidation. Host D/R and ordinary ZIP/7Zip GUI with owned fixtures; content
+proof before separately confirmed GUI deletion. Missing/failed/canceled extraction
+must not delete volumes. No generic deletion fallback or security change.
+
+c7c qualifies producer/result completeness for new Branch deletion, first ZIP,
+then7Zip if coherent separate checkpoints are needed. Verify Add failures and
+partial/error/Skip semantics against the SDK and actual callbacks; do not confuse
+TRUE/OPER_CONTINUE with proof that every selected output exists. Keep ordinary
+compatibility explicit. ZIP multi-volume discovery/dedup and7Zip single-volume
+contract each need actual native/plugin/host and owned GUI D/R evidence. Preserve
+SDK ABI and notices. Only then enable verified Branch deletion with independent
+controller/dispatcher/post-init guards. Unsupported producers stay explicitly
+refused pending qualification; this is not a replacement for c7 completion.
+
+After c7, finish remaining Pack-target/F5-source-lifetime audit and G04/G05 closure.
+Deferred ChangeDir stays untouched. No push/PR, S32 or Windows setting change.
+
 ## S31b6c6 — Branch target direct Unpack (VERIFIED)
 
 ZIP/7Zip direct whole-archive Unpack now accepts a captured Branch disk target

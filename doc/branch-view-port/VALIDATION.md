@@ -1,5 +1,20 @@
 # Validace portu a baseline S00
 
+## S31b6c7a — volume deletion audit (VERIFIED audit only)
+
+Host volume loop still uses byte readonly/DeleteFile and unbounded strlen over
+CDynamicString output; Branch no-delete guards remain intact. SDK TRUE permits
+Skip. ZIP deduplicates discovered volumes after ErrorID/UserBreak checks;7Zip
+returns the input file only and treats OPER_CONTINUE as success. Both ignore
+Add failure. A read-only Win32 CP1250 probe proved a UTF8 path can resolve to a
+different owned ACP-named file, with no deletion/attribute change.
+[Evidence and acceptance](steps/S31b6c7a.md): exact current/donor blocks and hashes,
+controller3920/backend183/whole-post-init119/dialog106 D/R PASS, contracts20/30.
+Production/test/SDK/Windows/deferred ChangeDir unchanged. No new host/plugin build,
+destructive GUI, CodeQL, remote CI or push. c7b must first integrate bounded owned
+exact-wide ordinary volume handling; c7c qualifies producer/result completeness
+before new Branch deletion. This audit does not complete c7 or S31/G04/G05.
+
 ## S31b6c6 — Branch target direct Unpack (VERIFIED)
 
 ZIP/7Zip direct whole-archive Unpack now accepts a captured Branch disk target
