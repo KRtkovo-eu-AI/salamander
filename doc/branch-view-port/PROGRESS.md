@@ -1,5 +1,24 @@
 # Stav portu PR #769
 
+## S31 — finite completion list and actual volume verification
+
+[The six-item closure list](S31-CLOSURE.md) is now authoritative for remaining
+work; historical OPEN/next-stage wording below is not automatically current.
+Current c3b host and unchanged qualified ZIP binaries passed actual three-volume
+ZIP GUI Debug/Release: complete no-delete, missing second volume plus Cancel
+with all sources preserved, complete-copy deletion of exactly .z01/.z02/.zip.
+Central order revisits disk0 after disk1; all output/source/sentinel hashes match.
+Private profiles restored, registry0, unrelated installed instance preserved.
+Evidence: ../evidence/S31-closure-volumes/final-result.json with exact source and
+binary hashes and six readbacks. No runtime change/new build claim. Last Release
+case used individual exact-path volume confirmations after automatic continuation
+was rejected by approval review. No security setting or protection change.
+Ordinary qualification is closed for this fixture and prior single-volume cases;
+next functional requirement is the Branch deletion integration in closure item2.
+Pack-target/F5 source-lifetime and G04/G05/final proof remain unfinished. Local
+only: no push, PR, remote CodeQL/full matrix or S32. Whole S31 goal remains active.
+
+
 ## S31b6c7c3b — archive metadata before deletion (VERIFIED)
 
 7Zip now requires valid archive error/warning and volume metadata both before

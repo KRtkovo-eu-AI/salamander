@@ -1,5 +1,8 @@
 # Plán postupného portu PR #769
 
+Current S31 completion follows [the finite closure list](S31-CLOSURE.md).
+Historical nested next-stage proposals below are superseded by that list.
+
 ## S31b6c7c3a — real 7Zip decoder metadata audit (VERIFIED audit)
 
 Actual b2-qualified7za.dll D/R: owned ZIP without central directory or truncated
