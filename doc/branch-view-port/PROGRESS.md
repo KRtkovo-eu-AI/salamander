@@ -1,5 +1,15 @@
 # Stav portu PR #769
 
+## S31 publication — Win32 portability follow-up
+
+Publication was explicitly authorized on 2026-10-28. Draft fork PR #63 uses
+feature/pr769-s31-port-closure. Initial Win32 CI found C4018 in the Pack archive
+name capacity comparison. Explicit size_t conversion preserves the positive
+buffer capacity bound; no warning is disabled. A real local Win32 Debug host
+build passed /warnaserror. Current-head PR tests, CodeQL and a separate clean
+Win32/x64/ARM64 full supported-solution rebuild are publication gates, pending.
+Original local-closure records below remain historical scoped evidence.
+
 ## S31 — konečné lokální uzavření s přijatými validačními limity
 
 Funkční opravy uzavřené: guarded archive/core operace, úplnost rozbalení a přesné
