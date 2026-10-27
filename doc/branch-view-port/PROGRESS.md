@@ -1,5 +1,29 @@
 # Stav portu PR #769
 
+## S31 — current ZIP volume qualification completed
+
+Source-built ZIP D/R and the qualified b497f058 host passed six new actual
+three-volume ZIP GUI cases: full no-delete, missing z02/Cancel with sources
+preserved, and deletion of exactly z01/z02/zip after complete extraction.
+Central order revisits disk0 after disk1. Hash readbacks cover all outputs,
+original backups and sentinels. Owned GUIs closed; private profiles restored;
+LongPathsEnabled0 and installed unrelated process preserved. Individual volume
+paths confirmed; automatic continuation remained off. Evidence outside Git:
+`evidence/S31-current-zip-volumes/final-result.json`. This replaces the stale
+inherited-ZIP proof; the earlier failed Branch attempt remains recorded as FAIL.
+Closure item1 is verified in the stated format/fixture scope, item2 has b497f058.
+Final-revision reuse binding remains item6; whole S31 is not complete.
+
+Independent G05 progress: actual Windows-produced RAW EFS backup import/export
+restored six path classes plus ADS in Debug/Release using production restore
+functions; sources/backups unchanged. One first Debug cancel left an empty
+output, retained as FAIL despite later passing runs. UI/SafeFile policy facade
+limits and exact evidence: `evidence/S31-efs-raw/source-binding.json`. EFS cleanup
+boundary is still open. F5 source identity WIP has native checks but no new
+host build or GUI proof yet. Pack target and remaining G04/G05 still pending.
+Local only, no push/PR/remote CI/CodeQL/full clean matrix/S32; goal ACTIVE.
+
+
 ## S31 — qualified Branch unpack deletion (VERIFIED_LOCAL)
 
 Branch direct Unpack now connects the existing owned volume plan to the qualified

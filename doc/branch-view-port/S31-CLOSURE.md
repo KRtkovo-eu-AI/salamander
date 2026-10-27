@@ -32,10 +32,14 @@ Hotové důkazy se neopakují, pokud jejich vazba na aktuální implementaci pla
   a GUI důkaz; starší binárka převzatá přes b2 jej nenahrazuje. První Branch
   mask+delete pokus proto selhal a zůstává evidovaný jako FAIL, nikoli PASS
   aktuálního kódu. Aktuální ZIP je nově sestavený D/R; jeho GUI se ověřuje.
-- **Zbývá:** potvrdit dotčené ZIP GUI důkazy včetně vícesvazkové kvalifikace proti
-  skutečně aktuální binárce. Neopakovat nedotčené 7Zip/host native kontroly.
-  Funkční integrace do Branch je samostatná položka 2; žádný příslib podpory
-  libovolného formátu či všech spanning variant.
+- **Aktuální kvalifikace dokončená:** nově sestavený ZIP a ověřený host z
+  `b497f058` prošly všemi šesti svazkovými GUI případy D/R nad novou vlastní
+  fixture. Úplné rozbalení bez mazání, chybějící druhý svazek/Cancel a přesné
+  odstranění tří kopií mají nové hashové readbacky; profily obnovené. Důkaz
+  `evidence/S31-current-zip-volumes/final-result.json` mimo Git nahrazuje starý
+  binární důkaz pro aktuální ZIP. Nejde o libovolné formáty či spanning varianty.
+  Položka 1 je funkčně/validačně uzavřená v tomto rozsahu; platnost pro konečnou
+  revizi se ještě naváže v položce 6. Nedotčené 7Zip/host důkazy se neopakují.
 
 ## 2. Odpovídající integrace do Branch View
 
@@ -57,7 +61,7 @@ Hotové důkazy se neopakují, pokud jejich vazba na aktuální implementaci pla
 - **Ověření této integrace dokončené:** oba backendy D/R, částečné/chybové
   zachování, stale-context odmítnutí a přesný úplný úspěch bez zásahu do jiného
   tabu. Vlastní GUI zavřené a profily obnovené. Důkazy váže
-  `evidence/S31-branch-unpack/final-audit.json` mimo Git; následuje lokální commit.
+  `evidence/S31-branch-unpack/final-audit.json` mimo Git a lokální commit `b497f058`.
 
 ## 3. Pack-target a archivní F5 source-lifetime
 
@@ -66,6 +70,10 @@ Hotové důkazy se neopakují, pokud jejich vazba na aktuální implementaci pla
 - **Hotovo:** diskové Copy/Move cíle uzavřené S31b5c. Archivní F5 má wide cíl,
   captured disk target a post-InitDLL kontroly; ZIP/7Zip Branch target admission
   a output/cleanup jsou ověřené. Tyto hotové části znovu neimplementovat.
+- **Rozpracováno, dosud bez buildu/GUI:** interní epoch seznamu, vlastní text
+  identity a source callback před/po InitDLL i v enumeraci F5. Native identity,
+  post-init cílové/source kontroly, ZIP lifetime a Branch enum D/R PASS. Nejde
+  ještě o hotový source-lifetime důkaz ani nový ověřený checkpoint.
 - **Zbývá implementovat/ověřit:** `CFilesWindow::Pack` dosud odmítá Branch cíl.
   Archivní `UnpackZIPArchive` má cílové kontroly, ale samostatný důkaz vlastnictví
   a životnosti source listing přes dialog/callback není dokončený.
@@ -99,8 +107,18 @@ Hotové důkazy se neopakují, pokud jejich vazba na aktuální implementaci pla
 - **Hotovo:** jednotlivé lokální D/R buildy a operation-specific GUI/nativní
   důkazy. Reálné NTFS encrypt/decrypt je doložené b3a4a/b; to samo není důkaz
   raw EFS import/export v Undelete. String UNC není živý SMB test.
-- **Chybí nebo potřebuje přesné přiřazení:** skutečné EFS raw restore, Connect
-  backend/image hranice, SMB/offline/Cancel a konkrétní ADS/ACL/hardlink scénáře,
+- **Nový skutečný EFS důkaz:** Windows RAW export a skutečné restore funkce
+  obnovily šest druhů cest D/R včetně UTF8-byte-long, UTF16-long a alternativního
+  datového proudu; zdroje i backup zůstaly přesné. UI/SafeFile policy je facade,
+  RAW API jsou skutečné. První Debug cancel zanechal prázdný šifrovaný výstup;
+  diagnostický Debug a Release prošly, ale první FAIL zůstává otevřený, nikoli
+  přepsaný na PASS. Důkaz `evidence/S31-efs-raw/source-binding.json` mimo Git.
+- **Zbývající EFS akce/podmínka:** vysvětlit první cancel selhání a prokázat
+  příslušný úklid/error contract. Běžná obnova má skutečný důkaz; celá EFS
+  validační hranice ještě není uzavřená. Ignorování chyby DeleteFile bylo již
+  před portem; samo o sobě nedokazuje příčinu či neexistenci regrese.
+- **Chybí nebo potřebuje přesné přiřazení:** Connect backend/image hranice,
+  SMB/offline/Cancel a konkrétní ADS/ACL/hardlink scénáře,
   kompletní jazykové staging/runtime pokrytí. Čistá podporovaná platformní matice
   a CodeQL aktuální konečné revize nejsou provedené; vzdálené spuštění je zakázané.
 - **Akce a dokončení:** přiřadit existující důkaz aktuálnímu kódu a doplnit jen
