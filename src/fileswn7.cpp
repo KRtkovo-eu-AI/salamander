@@ -17,6 +17,7 @@
 #include "pack.h"
 #include "common/widepath.h"
 #include "fileactiondisktarget.h"
+#include "fileactionarchivesource.h"
 #include "unpackvolumes.h"
 
 //
@@ -28,6 +29,8 @@ CPanelTmpEnumData::CPanelTmpEnumData()
 {
     ExactFileSelection = FALSE;
     SourcePanel = NULL;
+    ContextIsCurrent = NULL;
+    Context = NULL;
     ErrGetFileSizeOfLnkTgtIgnAll = FALSE;
     Indexes = NULL;
     CurrentIndex = 0;
@@ -818,6 +821,33 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
         SalMessageBox(HWindow, GetErrorText(ERROR_RETRY), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
         return;
     }
+    const HWND operationParent = MainWindow != NULL ? MainWindow->HWindow : NULL;
+    CFilesActionArchiveSource archiveSource;
+    if (!deleteOp && !archiveSource.Capture(MainWindow, this))
+    {
+        SalMessageBox(operationParent, GetErrorText(ERROR_RETRY), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
+    // Keep the source tab alive through modal and plugin callbacks. Existing
+    // callers may already own the busy flag; restore their exact previous state.
+    struct CArchiveSourceBusyScope
+    {
+        CFilesActionArchiveSource* Source;
+        BOOL Previous;
+        CArchiveSourceBusyScope(CFilesActionArchiveSource* source) : Source(source), Previous(FALSE)
+        {
+            if (Source != NULL) { Previous = Source->Panel->FilesActionInProgress; Source->Panel->FilesActionInProgress = TRUE; }
+        }
+        ~CArchiveSourceBusyScope()
+        {
+            if (Source != NULL)
+            {
+                CFilesWindow* live = CFilesActionDiskTarget::FindLive(MainWindow, Source->Panel);
+                if (live != NULL && live->GetPanelTabId() == Source->Tab) live->FilesActionInProgress = Previous;
+            }
+        }
+    } sourceBusy(deleteOp ? NULL : &archiveSource);
+
     if (IsBranchView() || target != NULL && target->IsBranchView() &&
         (deleteOp || !target->Is(ptDisk) ||
          PackGetVerifiedBranchUnpacker(this, GetZIPArchive(), PluginData.GetInterface()) == NULL)) return; // Only a qualified archive listing can copy to a Branch root.
@@ -836,6 +866,11 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
         return;
     }
     const auto validateDiskTarget = [&]() {
+        if (!deleteOp && !archiveSource.IsCurrent(MainWindow))
+        {
+            SalMessageBox(operationParent, GetErrorText(ERROR_RETRY), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+            return false;
+        }
         if (!watchDiskTarget || (diskTarget.IsCurrent(MainWindow) &&
             (!diskTarget.Branch || PackGetVerifiedBranchUnpacker(this, GetZIPArchive(), PluginData.GetInterface()) != NULL))) return true;
         SalMessageBox(HWindow, GetErrorText(ERROR_RETRY), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
@@ -1278,8 +1313,9 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                         return;
                     }
                     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-                    const BOOL unpacked = PackUncompress(MainWindow->HWindow, this, GetZIPArchive(), PluginData.GetInterface(),
-                                       path, GetZIPPath(), PanelSalEnumSelection, &data, watchDiskTarget ? &diskTarget : NULL);
+                    const BOOL unpacked = PackUncompress(MainWindow->HWindow, this, archiveSource.ArchiveFile.c_str(), archiveSource.PluginData,
+                                       path, archiveSource.ArchiveRoot.c_str(), PanelSalEnumSelection, &data,
+                                       watchDiskTarget ? &diskTarget : NULL, data.ContextIsCurrent, data.Context);
                     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
                     const bool targetCurrent = validateDiskTarget();
                     if (unpacked && targetCurrent)

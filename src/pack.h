@@ -745,7 +745,8 @@ BOOL PackUncompress(HWND parent, CFilesWindow* panel, const char* archiveFileNam
                     CPluginDataInterfaceAbstract* pluginData,
                     const char* targetDir, const char* archiveRoot,
                     SalEnumSelection nextName, void* param,
-                    const CFilesActionDiskTarget* diskTarget = NULL);
+                    const CFilesActionDiskTarget* diskTarget = NULL,
+                    BOOL (*validateSource)(void*) = NULL, void* sourceContext = NULL);
 
 // universal archive extraction (for unpacking the entire archive)
 BOOL PackUniversalUncompress(HWND parent, const char* command, TPackErrorTable* const errorTable,

@@ -14,7 +14,7 @@ def main():
  assert '@@' not in text
  wrapper=pieces['WRAPPER'];assert wrapper.index('InitDLL(')<wrapper.index('diskTarget->IsCurrent(')<wrapper.index('CSalamanderForOperations sc(')<wrapper.index('PluginIfaceForArchiver.UnpackArchive(')
  dispatch=block(read('src/pack1.cpp'),'\nBOOL PackUncompress(')
- for owner in ('owner','stored','plugin'):assert 'return '+owner+'->UnpackArchive(panel, archiveFileName, pluginData, targetDir, archiveRoot, nextName, param, diskTarget);' in dispatch
+ for owner in ('owner','stored','plugin'):assert 'return '+owner+'->UnpackArchive(panel, archiveFileName, pluginData, targetDir, archiveRoot, nextName, param, diskTarget, validateSource, sourceContext);' in dispatch
  env=compiler_environment();cl=shutil.which('cl',path=env.get('PATH'))
  with tempfile.TemporaryDirectory(prefix='unpack-post-init-') as temp:
   d=Path(temp);cpp=d/'test.cpp';cpp.write_text(text,encoding='utf8');exe=d/'test.exe'

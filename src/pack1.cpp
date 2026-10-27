@@ -1454,7 +1454,8 @@ BOOL PackUncompress(HWND parent, CFilesWindow* panel, const char* archiveFileNam
                     CPluginDataInterfaceAbstract* pluginData,
                     const char* targetDir, const char* archiveRoot,
                     SalEnumSelection nextName, void* param,
-                    const CFilesActionDiskTarget* diskTarget)
+                    const CFilesActionDiskTarget* diskTarget,
+                    BOOL (*validateSource)(void*), void* sourceContext)
 {
     if (validateSource != NULL && !validateSource(sourceContext))
     { SetLastError(ERROR_RETRY); return FALSE; }
@@ -1474,7 +1475,7 @@ BOOL PackUncompress(HWND parent, CFilesWindow* panel, const char* archiveFileNam
         CPluginData* owner = panel->GetPluginDataForPluginIface();
         if (owner == NULL || !owner->SupportPanelView)
             return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_ARCNAME_UNSUP);
-        return owner->UnpackArchive(panel, archiveFileName, pluginData, targetDir, archiveRoot, nextName, param, diskTarget);
+        return owner->UnpackArchive(panel, archiveFileName, pluginData, targetDir, archiveRoot, nextName, param, diskTarget, validateSource, sourceContext);
     }
     // find the correct one according to the table
     int format = PackerFormatConfig.PackIsArchive(archiveFileName);
@@ -1483,7 +1484,7 @@ BOOL PackUncompress(HWND parent, CFilesWindow* panel, const char* archiveFileNam
         CPluginData* stored = PackGetPluginForArchiveFile(archiveFileName, panel);
         if (stored == NULL || !stored->SupportPanelView)
             return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_ARCNAME_UNSUP);
-        return stored->UnpackArchive(panel, archiveFileName, pluginData, targetDir, archiveRoot, nextName, param, diskTarget);
+        return stored->UnpackArchive(panel, archiveFileName, pluginData, targetDir, archiveRoot, nextName, param, diskTarget, validateSource, sourceContext);
     }
 
     format--;
@@ -1497,7 +1498,7 @@ BOOL PackUncompress(HWND parent, CFilesWindow* panel, const char* archiveFileNam
         {
             return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_ARCNAME_UNSUP);
         }
-        return plugin->UnpackArchive(panel, archiveFileName, pluginData, targetDir, archiveRoot, nextName, param, diskTarget);
+        return plugin->UnpackArchive(panel, archiveFileName, pluginData, targetDir, archiveRoot, nextName, param, diskTarget, validateSource, sourceContext);
     }
     const SPackBrowseTable* browseTable = ArchiverConfig.GetUnpackerConfigTable(index);
 

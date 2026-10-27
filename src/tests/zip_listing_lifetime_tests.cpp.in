@@ -219,8 +219,10 @@ struct CPluginData
     int calls=0;
     BOOL UnpackArchive(CFilesWindow*, const char*, CPluginDataInterfaceAbstract* data,
                        const char* target, const char* root, SalEnumSelection next, void* param,
-                       const CFilesActionDiskTarget* = nullptr)
+                       const CFilesActionDiskTarget* = nullptr,
+                       BOOL (*validateSource)(void*) = nullptr, void* sourceContext = nullptr)
     {
+        if (validateSource != nullptr && !validateSource(sourceContext)) return FALSE;
         ++calls;
         Check(data==nullptr || data->owner==this,"unpacker receives only its own listing metadata");
         Check(strcmp(target,"target")==0 && strcmp(root,"root")==0 && next==param,
@@ -360,6 +362,17 @@ static void SevenBranchTest()
  seven.DLLName="7ZIP\\7ZIP.SPL";Check(PackGetVerifiedBranchUnpacker(&panel,panel.archive,&data)==&seven,"7-Zip DLL classification is Windows case insensitive");
 }
 
+
+static void SourceContextTest()
+{
+ CPluginData owner;CPluginDataInterfaceAbstract metadata{&owner};CFilesWindow panel;panel.owner=&owner;panel.PluginData.Interface=&metadata;
+ BOOL current=FALSE;const auto validate=[](void* p)->BOOL{return *static_cast<BOOL*>(p);};
+ void* param=&panel;const int externalBefore=ExternalCalls,errorBefore=Errors;
+ Check(!PackUncompress(nullptr,reinterpret_cast<CFilesWindow*>(1),"retired.zip",&metadata,"target","root",param,param,nullptr,validate,&current)&&GetLastError()==ERROR_RETRY,"stale dispatcher source rejected before dereferencing retired panel");
+ Check(owner.calls==0&&ExternalCalls==externalBefore&&Errors==errorBefore,"stale source makes zero plugin/external/error-handler calls");
+ current=TRUE;Check(PackUncompress(nullptr,&panel,panel.archive,&metadata,"target","root",param,param,nullptr,validate,&current)&&owner.calls==1,"valid guarded source preserves ordinary owner dispatch");
+}
+
 }
 int main()
 {
@@ -381,6 +394,7 @@ int main()
     Dispatch::Test();
     Dispatch::BranchTest();
     Dispatch::SevenBranchTest();
+    Dispatch::SourceContextTest();
     std::printf("ZIP listing lifetime: %d checks, %d failures\n",Checks,Failures);
     return Failures ? 1 : 0;
 }

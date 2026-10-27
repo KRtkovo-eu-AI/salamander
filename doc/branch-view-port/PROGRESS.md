@@ -1,5 +1,34 @@
 # Stav portu PR #769
 
+## S31 — guarded archive F5 source lifetime (VERIFIED_LOCAL_SCOPED)
+
+Archive F5 now captures owned archive/root/directory text and an internal
+listing epoch before modal callbacks. It checks live tab membership, identity,
+listing owner and epoch before dispatch, after InitDLL and before enumeration
+borrows. The source busy scope preserves its previous state. This prevents
+reuse of retired plugin metadata; it does not clone private entries or create
+a filesystem transaction. SDK/CFileData layouts and existing admission remain.
+
+Debug/Release host builds and native source/real-enumerator, dispatcher,
+post-init, Branch selection and whole-Unpack regression groups PASS. Generated
+negative controls without the enumeration guards fail on stale reads in both
+configurations. Touched enumeration copies use explicit destination capacities;
+no diagnostic was disabled. Existing test assertions remain retained.
+
+Actual ZIP/7Zip F5 GUI: ordinary and Branch long Unicode targets, Cancel before
+writes and complete copies D/R PASS (16 readbacks). The final controller body is
+identical to that GUI revision. After bounded-copy/temporary-route guard changes,
+two new current-build 7Zip-to-Branch GUI copies D/R PASS, including automatic
+refresh, deep Unicode payload hashes and unchanged sources/sentinels. Profiles
+restored and owned GUIs closed. Limits and source bindings are in
+`evidence/S31-archive-source-current/final-audit.json` outside Git; original
+results remain in `evidence/S31-archive-source/gui-final-result.json`.
+
+This closes qualified archive F5-to-disk source lifetime, not Pack-target or
+new virtual/external backend qualification. Deferred ChangeDir unchanged;
+LongPathsEnabled0; unrelated installed process preserved. Pack-target and
+remaining finite G04/G05/final-revision obligations remain OPEN. No push/PR/CI.
+
 ## S31 — current ZIP volume qualification completed
 
 Source-built ZIP D/R and the qualified b497f058 host passed six new actual

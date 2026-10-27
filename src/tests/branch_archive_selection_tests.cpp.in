@@ -446,6 +446,7 @@ struct CleanupWidePath {
     const wchar_t* Ptr() const { return Value.c_str(); }
 };
 static CleanupWidePath GetSalamanderUnicodeString(const char* text);
+static CleanupWidePath UString(const wchar_t* text) { return {text}; }
 static CleanupWidePath GetSalamanderLongPath(CleanupWidePath path) {
     if (path.Value.size() >= MAX_PATH && path.Value.compare(0,4,L"\\\\?\\") != 0)
         path.Value = path.Value.compare(0,2,L"\\\\") == 0 ?

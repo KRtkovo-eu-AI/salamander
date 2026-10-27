@@ -70,13 +70,21 @@ Hotové důkazy se neopakují, pokud jejich vazba na aktuální implementaci pla
 - **Hotovo:** diskové Copy/Move cíle uzavřené S31b5c. Archivní F5 má wide cíl,
   captured disk target a post-InitDLL kontroly; ZIP/7Zip Branch target admission
   a output/cleanup jsou ověřené. Tyto hotové části znovu neimplementovat.
-- **Rozpracováno, dosud bez buildu/GUI:** interní epoch seznamu, vlastní text
-  identity a source callback před/po InitDLL i v enumeraci F5. Native identity,
-  post-init cílové/source kontroly, ZIP lifetime a Branch enum D/R PASS. Nejde
-  ještě o hotový source-lifetime důkaz ani nový ověřený checkpoint.
+- **F5 do diskového cíle implementováno a ověřeno:** vlastní text identity,
+  interní epoch před zánikem seznamu, registry/tab/owner kontroly, source callback
+  před/po InitDLL a před každým půjčením položek v enumerátoru. Busy scope drží
+  původní tab. Nejde o klon pluginových dat ani transakci nad souborem.
+  Skutečný enumerátor odmítne stale/recursive/modal invalidaci; negativní
+  kontroly bez guardů selžou D/R. Dispatcher a post-init regresní testy PASS.
+- **GUI F5 hotové:** ZIP/7Zip do ordinary i Branch dlouhého Unicode cíle,
+  Cancel a přesný úspěch D/R; nezměněné tělo controlleru váže starší důkaz.
+  Po poslední bounded-copy změně aktuální 7Zip Branch kopie D/R prošly včetně
+  automatického refresh. Buildy D/R, zdroje/sentinely, profily a hashové vazby:
+  `evidence/S31-archive-source-current/final-audit.json` mimo Git.
+  Obranné guardy v temp návaznostech nezakládají novou kvalifikaci FS/archivů.
 - **Zbývá implementovat/ověřit:** `CFilesWindow::Pack` dosud odmítá Branch cíl.
-  Archivní `UnpackZIPArchive` má cílové kontroly, ale samostatný důkaz vlastnictví
-  a životnosti source listing přes dialog/callback není dokončený.
+  Následuje koherentní zapojení skutečného rootu a identity přes dialog/backend,
+  nikoli pouhé odstranění guardu. Celá položka 3 proto ještě není uzavřená.
 - **Akce a dokončení:** převzít odpovídající donorové návaznosti po funkčních
   celcích; přesné source/target/backend snapshoty, bezpečný cleanup a refresh.
   Nativní reentrant/stale testy a skutečné Pack/F5 D/R ověří obyčejný i Branch

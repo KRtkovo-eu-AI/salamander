@@ -157,5 +157,16 @@ int main(){
   if(scenario==0)Check(result&&plugin.PluginIfaceForArchiver.Calls==1&&OperationContexts==1,"valid bound 7-Zip Branch target dispatches after initialization");
   else{Check(!result&&plugin.PluginIfaceForArchiver.Calls==0&&OperationContexts==0,"post-init owner, metadata or directory binding change never reaches plugin I/O");Check(GetLastError()==ERROR_RETRY,"post-init Branch qualification failure preserves retry refusal");}
  }
+ // Source context is independently checked before and after initialization.
+ for(int invalidation=0;invalidation<3;++invalidation){
+  CPluginData plugin;OperationContexts=0;BOOL current=invalidation!=0;
+  if(invalidation==1)plugin.DuringInit=[&]{current=FALSE;};
+  const auto validate=[](void* state)->BOOL{return *static_cast<BOOL*>(state);};
+  const BOOL result=plugin.UnpackArchive(&source,"source.zip",&metadata,"destination","inside",&context,&context,nullptr,validate,&current);
+  Check(result==(invalidation==2),"only current source context reaches backend");
+  Check(plugin.InitCalls==(invalidation==0?0:1),"stale source before initialization never enters loader");
+  Check(plugin.PluginIfaceForArchiver.Calls==(invalidation==2?1:0)&&OperationContexts==(invalidation==2?1:0),"post-init source loss precedes operation-context construction and I/O");
+  if(invalidation!=2)Check(GetLastError()==ERROR_RETRY,"source context rejection preserves retry error");
+ }
  printf("Actual unpack post-init target: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
 }

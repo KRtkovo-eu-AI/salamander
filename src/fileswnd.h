@@ -1905,6 +1905,9 @@ struct CPanelTmpEnumData
 {
     BOOL ExactFileSelection; // S22: file-only disk route; recursive selections keep their tree.
     CFilesWindow* SourcePanel;
+    BOOL (*ContextIsCurrent)(void* context); // Optional internal archive listing guard.
+    void* Context;
+    bool HasCurrentContext() const { return ContextIsCurrent == NULL || ContextIsCurrent(Context); }
     std::string BranchEnumName;
     BOOL ErrGetFileSizeOfLnkTgtIgnAll;
     std::vector<CQuadWord> BranchEnumLinkSizes;

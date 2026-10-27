@@ -96,6 +96,7 @@ def main():
     generated = generated.replace('@@CLEANUP@@',
         'namespace SalamanderDiskSelection {\n' + block(read('src/plugins/shared/spl_diskselection.h'), 'inline std::wstring WideFromPath(') + '\n}\n' +
         block(read('src/plugins/zip/add.cpp'), 'static BOOL DeletePackedSourceFile(') + '\n' +
+        block(read('src/plugins/7zip/7zip.cpp'), 'BOOL SafeDeleteFileW(') + '\n' +
         block(read('src/plugins/7zip/7zip.cpp'), 'BOOL SafeDeleteFile('))
     if "@@" in generated:
         raise AssertionError("unexpanded archive fixture marker")

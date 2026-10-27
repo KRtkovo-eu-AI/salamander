@@ -2706,7 +2706,8 @@ public:
                        CPluginDataInterfaceAbstract* pluginData,
                        const char* targetDir, const char* archiveRoot,
                        SalEnumSelection nextName, void* param,
-                       const CFilesActionDiskTarget* diskTarget = NULL);
+                       const CFilesActionDiskTarget* diskTarget = NULL,
+                       BOOL (*validateSource)(void*) = NULL, void* sourceContext = NULL);
 
     // plugin call: UnpackOneFile
     BOOL UnpackOneFile(CFilesWindow* panel, const char* archiveFileName,
