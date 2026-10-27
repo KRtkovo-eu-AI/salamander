@@ -463,6 +463,21 @@ try {
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\parse_path_context_tests.py'), '--configuration', $Configuration)
         },
         @{
+            Name = 'pack_context_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\pack_context_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'pack_directory_tree_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\pack_directory_tree_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'zip_pack_preview_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\zip_pack_preview_tests.py'), '--configuration', $Configuration)
+        },
+        @{
             Name = 'archive_source_identity_tests'
             ClassName = 'native-generated'
             Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\archive_source_identity_tests.py'), '--configuration', $Configuration)

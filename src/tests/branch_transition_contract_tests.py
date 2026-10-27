@@ -210,9 +210,16 @@ class BranchTransitionContracts(unittest.TestCase):
    if file == 'fileswn7.cpp': self.assertIn('IsBranchView() ||',text)
    else: self.assertIn('IsBranchView() && (countSizeMode != 0 || copyToSelectedDirs',text)
    self.assertIn('target->IsBranchView()',text)
- def test_pack_is_verified_to_ordinary_disk(self):
+ def test_pack_binds_qualified_disk_panels_and_backend(self):
   pack=function('fileswn7.cpp','void CFilesWindow::Pack(')
-  self.assertIn('target == NULL || target->IsBranchView()',pack)
+  self.assertIn('CFilesActionDiskTarget::FindLive(MainWindow, this) == NULL',pack)
+  self.assertIn('CFilesActionDiskTarget::FindLive(MainWindow, target) == NULL',pack)
+  self.assertIn('qualifiedPack = IsBranchView() || target->IsBranchView()',pack)
+  self.assertIn('packContext.Capture(MainWindow, this, target)',pack)
+  self.assertLess(pack.index('packContext.Capture('),pack.index('dlg.Execute()'))
+  self.assertLess(pack.index('!packContext.BindBackend('),pack.index('if (SalGetFullName(fileBuf'))
+  self.assertIn('packContext.Target.DefaultPath.c_str()',pack)
+  self.assertIn('data.ContextIsCurrent, data.Context',pack)
   self.assertIn('!Is(ptDisk) || !target->Is(ptDisk)',pack)
   self.assertNotIn('delFilesAfterPacking == 1',pack[:pack.index('CALL_STACK_MESSAGE4')])
   self.assertLess(pack.index('!IsVerifiedBranchPacker()'),pack.index('if (SalGetFullName(fileBuf'))

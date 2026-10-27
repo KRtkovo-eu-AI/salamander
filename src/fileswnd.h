@@ -1904,6 +1904,7 @@ public:
 struct CPanelTmpEnumData
 {
     BOOL ExactFileSelection; // S22: file-only disk route; recursive selections keep their tree.
+    BOOL WideDiskNames = FALSE; // Internal qualified Pack route; preserve legacy plugin byte names otherwise.
     CFilesWindow* SourcePanel;
     BOOL (*ContextIsCurrent)(void* context); // Optional internal archive listing guard.
     void* Context;

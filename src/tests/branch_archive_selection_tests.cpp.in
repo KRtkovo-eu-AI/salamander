@@ -123,11 +123,13 @@ static bool LinkHadNullName = false;
 static bool LinkIgnoreAllSeen = false;
 static BOOL* LinkIgnorePointer = NULL;
 static bool LinkSourceDeleted = false;
+static BOOL* InvalidateContextDuringLink = NULL;
 static const CQuadWord TargetSize(0x78563412, 0x42);
 static BOOL GetLinkTgtFileSize(HWND parent, const char* path, const char* name, CQuadWord* size,
                                BOOL* cancel, BOOL* ignoreAll)
 {
     ++LinkCalls;
+    if (InvalidateContextDuringLink != NULL) *InvalidateContextDuringLink = FALSE;
     LinkPath = path;
     LinkParent = parent;
     LinkHadNullName = name == NULL;
@@ -188,7 +190,7 @@ struct Fixture
         TreeCalls = RecursiveCalls = LinkCalls = 0;
         ConversionCalls = FailConversionAt = 0;
         LinkBehavior = LinkReply::Success;
-        LinkPath.clear(); LinkIgnoreAllSeen = false; LinkIgnorePointer = NULL; LinkSourceDeleted = false;
+        LinkPath.clear(); LinkIgnoreAllSeen = false; LinkIgnorePointer = NULL; LinkSourceDeleted = false; InvalidateContextDuringLink = NULL;
     }
     void Bind()
     {
@@ -491,11 +493,50 @@ static void TestSourceCleanup() {
     std::wstring missing=root+L"\\missing.txt";BOOL silent=FALSE;DeleteHost.Calls=0;
     Check(!SafeDeleteFile(Utf8(missing).c_str(),silent)&&DeleteHost.Calls==1,"7zip deletion failure honors Cancel");
     Check(!DeletePackedSourceFile(""),"empty source rejected");
+    for (const auto& parent : {root,std::wstring(cwd.data())}) {
+        const std::wstring empty=parent+L"\\owned-empty-東京", kept=parent+L"\\owned-kept-東京";
+        const auto emptyIO=GetSalamanderLongPath({empty}).Value, keptIO=GetSalamanderLongPath({kept}).Value;
+        Check(CreateDirectoryW(emptyIO.c_str(),NULL)!=FALSE&&CreateDirectoryW(keptIO.c_str(),NULL)!=FALSE,"create selected empty and retained directory fixtures");
+        const auto sentinel=keptIO+L"\\keep.txt";
+        HANDLE file=CreateFileW(sentinel.c_str(),GENERIC_WRITE,0,NULL,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,NULL);
+        Check(file!=INVALID_HANDLE_VALUE,"create unselected child sentinel");
+        if(file!=INVALID_HANDLE_VALUE)CloseHandle(file);
+        Check(!RemovePackedSourceDirectory(Utf8(kept).c_str())&&GetLastError()==ERROR_DIR_NOT_EMPTY,"source cleanup never removes a nonempty directory");
+        Check(GetFileAttributesW(sentinel.c_str())!=INVALID_FILE_ATTRIBUTES,"retained child still exists");
+        Check(RemovePackedSourceDirectory(Utf8(empty).c_str())!=FALSE,"actual ZIP cleanup removes exact empty Unicode directory");
+        Check(GetFileAttributesW(emptyIO.c_str())==INVALID_FILE_ATTRIBUTES,"selected empty directory absent");
+        Check(DeleteFileW(sentinel.c_str())!=FALSE&&RemovePackedSourceDirectory(Utf8(kept).c_str())!=FALSE,"clean only owned test sentinel and emptied directory");
+    }
+    Check(!RemovePackedSourceDirectory(""),"empty directory identity rejected");
     for(auto i=created.rbegin();i!=created.rend();++i) Check(RemoveDirectoryW(i->c_str())!=FALSE,"remove empty owned fixture directory");
+}
+
+static void GuardedDiskSourceCases()
+{
+    {
+        Fixture fixture; fixture.SelectOne(1); BOOL current = FALSE;
+        fixture.Data->Context = &current;
+        fixture.Data->ContextIsCurrent = [](void* context) -> BOOL { return *static_cast<BOOL*>(context); };
+        fixture.Panel.ThrowRelative = true; Output result;
+        Check(fixture.Next(0, result) == NULL && result.Error == SALENUM_CANCEL && GetLastError() == ERROR_RETRY,
+              "stale source context stops before disk panel path access");
+    }
+    {
+        Fixture fixture; fixture.SelectOne(6); fixture.Files.At(6).Attr |= FILE_ATTRIBUTE_REPARSE_POINT;
+        BOOL current = TRUE; fixture.Data->Context = &current;
+        fixture.Data->ContextIsCurrent = [](void* context) -> BOOL { return *static_cast<BOOL*>(context); };
+        InvalidateContextDuringLink = &current; Output result;
+        Check(fixture.Next(3, result) == NULL && result.Error == SALENUM_CANCEL && GetLastError() == ERROR_RETRY,
+              "link-size UI callback invalidation stops before borrowing output metadata");
+        Check(result.Attr == 0xffffffff && result.Time.dwLowDateTime == 0xffffffff,
+              "retired disk metadata is not returned after callback invalidation");
+        InvalidateContextDuringLink = NULL;
+    }
 }
 
 int main()
 {
+ GuardedDiskSourceCases();
     TestSourceCleanup(); TestPackerGate(); TestPathsAndModes(); TestFailures(); TestLinks(); TestOrdinaryDispatch();
     std::printf("Branch archive actual callback: %d/%d checks passed\n", Checks - Failures, Checks);
     return Failures == 0 ? 0 : 1;

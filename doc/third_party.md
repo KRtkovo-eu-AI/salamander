@@ -931,3 +931,11 @@ Adapts restore code by Open Salamander Authors and Samandarin Contributors from
 `47661e92d4b3cbe5bb593ae3d75a3f1f698ef413`. Local cancellation/cleanup reporting
 uses existing Windows EFS RAW APIs and localized error handling. Existing notices
 and GPL-2.0-or-later licensing retained; no external dependency added.
+
+### S31 qualified Pack target and selection lifetime
+
+Adapts host Pack/enumeration and ZIP preview/directory code by Open Salamander
+Authors and Samandarin Contributors from [Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), pinned
+`47661e92d4b3cbe5bb593ae3d75a3f1f698ef413`. Local lifecycle integration,
+wide metadata/cleanup and approved advanced-mode bounds retain original
+GPL-2.0-or-later notices and existing bundled 7-Zip attribution.

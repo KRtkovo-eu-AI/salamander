@@ -82,13 +82,28 @@ Hotové důkazy se neopakují, pokud jejich vazba na aktuální implementaci pla
   automatického refresh. Buildy D/R, zdroje/sentinely, profily a hashové vazby:
   `evidence/S31-archive-source-current/final-audit.json` mimo Git.
   Obranné guardy v temp návaznostech nezakládají novou kvalifikaci FS/archivů.
-- **Zbývá implementovat/ověřit:** `CFilesWindow::Pack` dosud odmítá Branch cíl.
-  Následuje koherentní zapojení skutečného rootu a identity přes dialog/backend,
-  nikoli pouhé odstranění guardu. Celá položka 3 proto ještě není uzavřená.
-- **Akce a dokončení:** převzít odpovídající donorové návaznosti po funkčních
-  celcích; přesné source/target/backend snapshoty, bezpečný cleanup a refresh.
-  Nativní reentrant/stale testy a skutečné Pack/F5 D/R ověří obyčejný i Branch
-  případ a odmítnutí změněného kontextu bez operace nad jiným zdrojem/cílem.
+- **Pack implementace hotová, ověření probíhá:** skutečný wide root Branch cíle,
+  identity source/target/listing a backendu přes modal/InitDLL/enumerátor, busy
+  a refresh scope. Nový wide diskový scanner platí jen pro kvalifikovaný Pack;
+  ostatní pluginy zachovávají původní byte encoding. SDK ABI se nemění.
+  GUI odhalilo přetečení preview ZIP dialogu a ANSI čtení/úklid adresářů;
+  opravené jsou přenos celé cesty, metadata a přesné odstranění prázdných
+  zdrojových adresářů. Příliš dlouhý podstrom se nevynechá jako údajný úspěch.
+- **Pack implementace a ověření dokončené:** host a ZIP D/R buildy, skutečná
+  nativní pipeline/context, scanner, preview/metadata a přesný cleanup. GUI ZIP
+  ordinary zdroj a 7Zip Branch zdroj do dlouhého Branch cíle: Copy, Move a Cancel
+  v Debug/Release, všech 16 readbacků PASS. Archivy obsahují přesných pět payloadů;
+  Move odstraní jen vlastní výběr (ZIP i prázdné vybrané podadresáře), zálohy a
+  sentinely zůstaly přesné; oba Branch panely se obnoví. Profily obnovené.
+- **Výslovně přijaté omezení:** uživatel schválil odmítnutí ZIP multi-volume/SFX
+  pro dlouhý cíl; byte hranice chrání i UTF8-byte-long cestu. Gate je před preview,
+  uloženými volbami i backendem; krátké cesty a běžné ZIP/7Zip zůstávají zachované.
+  Rozšíření těchto dvou pokročilých variant dlouhých cest je následná práce.
+- **Důkaz a podmínka:** [Pack checkpoint](steps/S31-pack-target.md),
+  `evidence/S31-pack-target/final-audit.json` mimo Git. Finální ZIP gate má actual
+  handler/default-loader test D/R; payload GUI důkazy předcházejí této ochranné
+  změně. Dřívější FAIL/timeouty nejsou PASS; finální vazba celé S31 zbývá v bodě 6.
+  Položka 3 je funkčně a lokálně validačně uzavřená.
 
 ## 4. Konečné rozhodnutí G04: podporované a odmítané operace
 
@@ -121,10 +136,17 @@ Hotové důkazy se neopakují, pokud jejich vazba na aktuální implementaci pla
   RAW API jsou skutečné. První Debug cancel zanechal prázdný šifrovaný výstup;
   diagnostický Debug a Release prošly, ale první FAIL zůstává otevřený, nikoli
   přepsaný na PASS. Důkaz `evidence/S31-efs-raw/source-binding.json` mimo Git.
-- **Zbývající EFS akce/podmínka:** vysvětlit první cancel selhání a prokázat
-  příslušný úklid/error contract. Běžná obnova má skutečný důkaz; celá EFS
-  validační hranice ještě není uzavřená. Ignorování chyby DeleteFile bylo již
-  před portem; samo o sobě nedokazuje příčinu či neexistenci regrese.
+- **EFS cancel uzavřen:** včasné zrušení nevytvoří ani nezkrátí výstup;
+  zrušení během RAW čtení i pozdní zrušení vrací neúspěch. Úklid kontroluje
+  DeleteFileW: Windows odmítnutí sdílení/přístupu se hlásí existující lokalizovanou
+  chybou, bez obcházení ochrany. Rozpracovaný výstup pak může zůstat zachovaný.
+  Původní první FAIL se nemaže; jeho tehdejší kód DeleteFile nebyl zachycen,
+  příčinu tedy nelze dodatečně vydávat za prokázanou.
+- **EFS ověření hotové:** skutečný Windows RAW export/import se šesti druhy cest
+  a ADS, early/midstream cancel D/R; nativní fault/cancel testy a plugin buildy
+  D/R PASS. UI/SafeFile policy je explicitní facade; nejde o GUI kvalifikaci
+  celého Undelete workflow. Důkaz `evidence/S31-efs-cancel/final-readback.json`
+  mimo Git a [rozsah opravy](steps/S31-efs-cancel.md).
 - **Chybí nebo potřebuje přesné přiřazení:** Connect backend/image hranice,
   SMB/offline/Cancel a konkrétní ADS/ACL/hardlink scénáře,
   kompletní jazykové staging/runtime pokrytí. Čistá podporovaná platformní matice
