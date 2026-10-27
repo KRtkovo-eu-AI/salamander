@@ -97,14 +97,18 @@ static CSalamanderGeneralAbstract General;
 static CSalamanderGeneralAbstract* SalamanderGeneral=&General;
 #include "@@PATHS@@"
 static int Errors=0;
+static DWORD LastReportedError=0;
 template<class T>struct String {
  static char* LoadStr(int){static char s[]="resource";return s;}
- static BOOL SysError(int,int){++Errors;return FALSE;}
+ static BOOL SysError(int,int){++Errors;LastReportedError=GetLastError();return FALSE;}
  static BOOL Error(int,int){++Errors;return FALSE;}
 };
 static std::vector<std::wstring> Opened,Created;
 static bool SkipExisting=false,FailCreate=false,WantCancel=false,FailRawOpen=false,FailRawWrite=false;
 static int LiveHandles=0,RawOpens=0,RawCloses=0,ModalCalls=0;
+static bool CancelOnRead=false,CancelAfterRawSuccess=false;
+static DWORD CleanupFailure=0,CleanupLastError=0;
+static int CleanupCalls=0,ReadCalls=0;
 static std::wstring RawPath,RestoreTarget;
 struct SAFE_FILE {HANDLE HFile;};
 struct SafeFiles {
@@ -122,7 +126,7 @@ struct SafeFiles {
   f->HFile=CreateFileW(w.c_str(),access,share,nullptr,CREATE_ALWAYS,attrs,nullptr);
   if(f->HFile!=INVALID_HANDLE_VALUE)++LiveHandles;return f->HFile;
  }
- BOOL SafeFileRead(SAFE_FILE* f,void* data,DWORD n,DWORD* got,HWND,int,void*,void*){return ReadFile(f->HFile,data,n,got,nullptr);}
+ BOOL SafeFileRead(SAFE_FILE* f,void* data,DWORD n,DWORD* got,HWND,int,void*,void*){++ReadCalls;const BOOL result=ReadFile(f->HFile,data,n,got,nullptr);if(CancelOnRead)WantCancel=true;return result;}
  BOOL SafeFileWrite(SAFE_FILE* f,const void* data,DWORD n,DWORD* wrote,HWND,int,void*,void*){return WriteFile(f->HFile,data,n,wrote,nullptr);}
 };
 static SafeFiles SafeFileService;static SafeFiles* SalamanderSafeFile=&SafeFileService;
@@ -135,6 +139,12 @@ struct CRestoreProgressDlg {
  void SetSourceFileName(const char*){}void SetDestFileName(const char*){}
  BOOL GetWantCancel(){return WantCancel;}
 };
+static bool SizeEscape = false;
+static SHORT FixtureRestoreKeyState(int key){ return key==VK_ESCAPE && SizeEscape ? static_cast<SHORT>(-32768) : 0; }
+static BOOL FixtureDeleteCancelledFileW(LPCWSTR path){
+ ++CleanupCalls;if(CleanupFailure){CleanupLastError=CleanupFailure;SetLastError(CleanupFailure);return FALSE;}
+ const BOOL result=::DeleteFileW(path);CleanupLastError=result?ERROR_SUCCESS:GetLastError();return result;
+}
 static BOOL FakeGetVolumeInformationW(LPCWSTR,LPWSTR,DWORD,LPDWORD,LPDWORD,LPDWORD flags,LPWSTR,DWORD){*flags=FILE_SUPPORTS_ENCRYPTION;return TRUE;}
 struct RawContext{HANDLE File;};
 static DWORD FakeOpenEncryptedFileRawW(LPCWSTR path,ULONG,PVOID* context){
@@ -143,7 +153,9 @@ static DWORD FakeOpenEncryptedFileRawW(LPCWSTR path,ULONG,PVOID* context){
  if(file==INVALID_HANDLE_VALUE)return GetLastError();*context=new RawContext{file};return ERROR_SUCCESS;
 }
 static DWORD FakeWriteEncryptedFileRaw(PFE_IMPORT_FUNC callback,PVOID cookie,PVOID context){
- if(FailRawWrite)return ERROR_CANCELLED;char buffer[37];
+ if(FailRawWrite)return ERROR_CANCELLED;
+ if(CancelAfterRawSuccess){WantCancel=true;return ERROR_SUCCESS;}
+ char buffer[37];
  for(;;){ULONG n=sizeof(buffer);DWORD error=callback(reinterpret_cast<PBYTE>(buffer),cookie,&n);if(error)return error;if(!n)return ERROR_SUCCESS;
   DWORD wrote=0;if(!WriteFile(static_cast<RawContext*>(context)->File,buffer,n,&wrote,nullptr)||wrote!=n)return ERROR_WRITE_FAULT;
  }
@@ -153,7 +165,11 @@ static void FakeCloseEncryptedFileRaw(PVOID context){++RawCloses;auto p=static_c
 #define OpenEncryptedFileRawW FakeOpenEncryptedFileRawW
 #define WriteEncryptedFileRaw FakeWriteEncryptedFileRaw
 #define CloseEncryptedFileRaw FakeCloseEncryptedFileRaw
+#define DeleteFileW FixtureDeleteCancelledFileW
+#define GetAsyncKeyState FixtureRestoreKeyState
 @@RESTORE@@
+#undef GetAsyncKeyState
+#undef DeleteFileW
 #undef GetVolumeInformationW
 #undef OpenEncryptedFileRawW
 #undef WriteEncryptedFileRaw
@@ -173,7 +189,7 @@ static void Write(const std::wstring& p,const std::string& bytes){
  if(h!=INVALID_HANDLE_VALUE){DWORD n=0;Check(WriteFile(h,bytes.data(),static_cast<DWORD>(bytes.size()),&n,nullptr)&&n==bytes.size(),"write fixture bytes");CloseHandle(h);}
 }
 static std::string Read(const std::wstring& p){HANDLE h=CreateFileW(UndeletePaths::IoPath(p).c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);if(h==INVALID_HANDLE_VALUE)return {};std::string out;char buffer[80];DWORD n;while(ReadFile(h,buffer,sizeof(buffer),&n,nullptr)&&n)out.append(buffer,n);CloseHandle(h);return out;}
-static void Reset(){Window.Left.Clear();Opened.clear();Created.clear();Errors=0;SkipExisting=FailCreate=WantCancel=FailRawOpen=FailRawWrite=ClearPanelOnModal=CancelModal=false;RawOpens=RawCloses=ModalCalls=0;RawPath.clear();}
+static void Reset(){Window.Left.Clear();Opened.clear();Created.clear();Errors=0;SkipExisting=FailCreate=WantCancel=FailRawOpen=FailRawWrite=ClearPanelOnModal=CancelModal=false;RawOpens=RawCloses=ModalCalls=0;RawPath.clear();CancelOnRead=CancelAfterRawSuccess=SizeEscape=false;CleanupFailure=CleanupLastError=LastReportedError=0;CleanupCalls=ReadCalls=0;}
 static void Select(const std::wstring& full,bool selected=true,bool dir=false){auto n=full.substr(full.find_last_of(L'\\')+1);auto f=Window.Left.Add(n,full,n,selected,dir);f->Size.Value=Read(full).size();}
 int main(){
  const std::wstring labelName=std::wstring(100,L'東')+L"%s.bin";
@@ -196,11 +212,32 @@ int main(){
  RestoreTarget=root+L"\\長い出力";
  const std::wstring byteLong=root+L"\\"+std::wstring(90,L'東')+L"\\short.txt";Write(byteLong,"utf8 lengthy");Check(byteLong.size()<260&&UndeletePaths::Utf8(byteLong.c_str()).size()>260,"fixture exceeds UTF8 capacity only");Reset();Select(byteLong);Check(ExecuteRestoreEncrypted(nullptr),"UTF8 byte-long path restored");Check(Read(RestoreTarget+L"\\short.txt")=="utf8 lengthy","UTF8 byte-long source correct");
  const std::wstring directory=root+L"\\tree東京";Write(directory+L"\\nested\\one.txt","one");Write(directory+L"\\two.txt","two");Reset();Select(directory,true,true);Check(ExecuteRestoreEncrypted(nullptr),"recursive restore wide local find data");Check(Read(RestoreTarget+L"\\tree東京\\nested\\one.txt")=="one"&&Read(RestoreTarget+L"\\tree東京\\two.txt")=="two","recursive siblings both retained");
+ Reset();Select(directory,true,true);SizeEscape=true;Check(!ExecuteRestoreEncrypted(nullptr)&&Opened.empty()&&Created.empty(),"isolated Escape during sizing cancels before restore I/O");
  Reset();Select(directory,true,true);RestoreTarget=directory;Check(!ExecuteRestoreEncrypted(nullptr)&&Created.empty(),"reject restore directory into own descendant before mutation");
  RestoreTarget=root+L"\\efs-output";MakeDir(RestoreTarget);DWORD signature[]={7,0x004f0052,0x00530042};std::string backup(reinterpret_cast<char*>(signature),sizeof(signature));backup+="opaque backed-up bytes";
  const std::wstring bak=longDir+L"\\秘密.bak";Write(bak,backup);Reset();Select(bak);Check(ExecuteRestoreEncrypted(nullptr),"actual EFS flow through stub with exact long Unicode source");Check(RawOpens==1&&RawCloses==1&&RawPath==UndeletePaths::IoPath(RestoreTarget+L"\\秘密"),"wide EFS destination exact and raw context closed");Check(Read(RestoreTarget+L"\\秘密")==backup,"EFS import callback reads actual source bytes");Check(LiveHandles==0,"EFS success closes source handle");
  Reset();Select(bak);FailRawOpen=true;Check(!ExecuteRestoreEncrypted(nullptr),"EFS open failure reported");Check(RawOpens==1&&RawCloses==0&&LiveHandles==0,"failed EFS open never closes uninitialized context");
- Reset();Select(bak);WantCancel=true;Check(!ExecuteRestoreEncrypted(nullptr),"cancel EFS callback");Check(RawCloses==1&&LiveHandles==0&&GetFileAttributesW((RestoreTarget+L"\\秘密").c_str())==INVALID_FILE_ATTRIBUTES,"cancel closes raw/source and deletes incomplete output");
+ const std::wstring restoredName=RestoreTarget+L"\\秘密";
+ Write(restoredName,"preserve existing destination");
+ Reset();Select(bak);WantCancel=true;Check(!ExecuteRestoreEncrypted(nullptr),"cancel before restore I/O");
+ Check(RawOpens==0&&RawCloses==0&&LiveHandles==0&&Opened.empty()&&Created.empty()&&Read(restoredName)=="preserve existing destination","pre-cancel never truncates an existing destination or opens RAW import");
+ RestoreTarget=root+L"\\efs-cancel-during-read";MakeDir(RestoreTarget);
+ Reset();Select(bak);CancelOnRead=true;Check(!ExecuteRestoreEncrypted(nullptr),"cancel from RAW read callback");
+ Check(ReadCalls>0&&RawOpens==1&&RawCloses==1&&LiveHandles==0&&CleanupCalls==1&&GetFileAttributesW(UndeletePaths::IoPath(RestoreTarget+L"\\秘密").c_str())==INVALID_FILE_ATTRIBUTES,"midstream cancel closes raw/source and deletes incomplete output");
+ RestoreTarget=root+L"\\efs-cancel-api-result";MakeDir(RestoreTarget);
+ Reset();Select(bak);FailRawWrite=true;Check(!ExecuteRestoreEncrypted(nullptr),"RAW cancellation result is cancellation without progress flag");
+ Check(!WantCancel&&RawCloses==1&&LiveHandles==0&&CleanupCalls==1&&GetFileAttributesW(UndeletePaths::IoPath(RestoreTarget+L"\\秘密").c_str())==INVALID_FILE_ATTRIBUTES,"API Cancel also cleans exact incomplete output");
+ RestoreTarget=root+L"\\efs-cancel-success-race";MakeDir(RestoreTarget);
+ Reset();Select(bak);CancelAfterRawSuccess=true;Check(!ExecuteRestoreEncrypted(nullptr),"cancellation wins over successful RAW API result");
+ Check(RawCloses==1&&LiveHandles==0&&CleanupCalls==1&&GetFileAttributesW(UndeletePaths::IoPath(RestoreTarget+L"\\秘密").c_str())==INVALID_FILE_ATTRIBUTES,"late cancellation cannot report or retain a successful partial output");
+ RestoreTarget=root+L"\\efs-cancel-cleanup-error";MakeDir(RestoreTarget);
+ Reset();Select(bak);CancelOnRead=true;CleanupFailure=ERROR_SHARING_VIOLATION;
+ Check(!ExecuteRestoreEncrypted(nullptr),"cleanup refusal remains a failed cancellation");
+ const auto incomplete=UndeletePaths::IoPath(RestoreTarget+L"\\秘密");
+ Check(RawCloses==1&&LiveHandles==0&&CleanupCalls==1&&Errors==1&&LastReportedError==ERROR_SHARING_VIOLATION&&GetFileAttributesW(incomplete.c_str())!=INVALID_FILE_ATTRIBUTES,"Windows cleanup refusal is reported, never silently ignored or bypassed");
+ Check(Read(bak)==backup,"all cancellation paths preserve backup bytes");
+ Check(DeleteFileW(incomplete.c_str())!=FALSE,"remove only owned incomplete fixture after simulated refusal");
+
  const std::wstring shortBak=root+L"\\short.bak";Write(shortBak,"bad");Reset();Select(shortBak);Check(ExecuteRestoreEncrypted(nullptr)&&RawOpens==0,"short .bak is copied, never misidentified as EFS backup");Check(Read(RestoreTarget+L"\\short.bak")=="bad","non-backup extension unchanged");
  Reset();Select(a);FailCreate=true;Check(!ExecuteRestoreEncrypted(nullptr)&&LiveHandles==0,"failed destination create closes source");
  Reset();Select(a);CancelModal=true;Check(!ExecuteRestoreEncrypted(nullptr)&&Opened.empty(),"destination dialog cancellation has no I/O");

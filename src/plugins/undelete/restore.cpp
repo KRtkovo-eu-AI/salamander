@@ -88,6 +88,7 @@ struct CRestoreRawContext
 
 static BOOL RestoreFile(const std::wstring& source, const std::wstring& destination)
 {
+    if (Progress->GetWantCancel()) return FALSE;
     const std::wstring sourceIO = UndeletePaths::IoPath(source);
     const std::string sourceUtf8 = UndeletePaths::Utf8(source.c_str());
     CRestoreSafeFile srcfile;
@@ -127,6 +128,10 @@ static BOOL RestoreFile(const std::wstring& source, const std::wstring& destinat
     Progress->SetSourceFileName(sourceUtf8.c_str());
     Progress->SetDestFileName(targetUtf8.c_str());
 
+    // Progress/UI callbacks above may have requested cancellation. Do not
+    // create or truncate a destination after that request.
+    if (Progress->GetWantCancel()) return FALSE;
+
     CRestoreSafeFile dstfile;
     BOOL skipped = FALSE;
     HANDLE hdst = SalamanderSafeFile->SafeFileCreate(targetUtf8.c_str(), GENERIC_WRITE, FILE_SHARE_READ,
@@ -140,8 +145,9 @@ static BOOL RestoreFile(const std::wstring& source, const std::wstring& destinat
         return TRUE;
     }
     if (hdst == INVALID_HANDLE_VALUE) return FALSE;
-    BOOL ret = TRUE;
-    if (real)
+    BOOL cancelled = Progress->GetWantCancel();
+    BOOL ret = !cancelled;
+    if (ret && real)
     {
         dstfile.Close(); // EFS owns its output handle, after SafeFile's overwrite decision.
         IMPORT_CONTEXT ctx = {&srcfile.File, hProgressWnd};
@@ -149,6 +155,7 @@ static BOOL RestoreFile(const std::wstring& source, const std::wstring& destinat
         DWORD result = OpenEncryptedFileRawW(targetIO.c_str(), CREATE_FOR_IMPORT, &raw.Context);
         if (result == ERROR_SUCCESS)
             result = WriteEncryptedFileRaw(RestoreCallback, &ctx, raw.Context);
+        if (result == ERROR_CANCELLED) cancelled = TRUE;
         if (result != ERROR_SUCCESS)
         {
             if (result != ERROR_CANCELLED)
@@ -156,7 +163,7 @@ static BOOL RestoreFile(const std::wstring& source, const std::wstring& destinat
             ret = FALSE;
         }
     }
-    else
+    else if (ret)
     {
         do
         {
@@ -172,6 +179,8 @@ static BOOL RestoreFile(const std::wstring& source, const std::wstring& destinat
     }
     dstfile.Close();
     srcfile.Close();
+    cancelled = cancelled || Progress->GetWantCancel();
+    if (cancelled) ret = FALSE;
     if (ret)
     {
         HANDLE file = CreateFileW(targetIO.c_str(), FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
@@ -179,12 +188,24 @@ static BOOL RestoreFile(const std::wstring& source, const std::wstring& destinat
         { SetFileTime(file, times, times + 1, times + 2); CloseHandle(file); }
         SetFileAttributesW(targetIO.c_str(), info.dwFileAttributes | FILE_ATTRIBUTE_ENCRYPTED);
     }
-    else if (Progress->GetWantCancel()) DeleteFileW(targetIO.c_str());
+    else if (cancelled && !DeleteFileW(targetIO.c_str()))
+    {
+        const DWORD error = GetLastError();
+        if (error != ERROR_FILE_NOT_FOUND && error != ERROR_PATH_NOT_FOUND)
+        {
+            // Cancellation is not a successful restore. If Windows prevents
+            // cleanup, report the retained incomplete output instead of silently
+            // discarding the delete error or bypassing access/sharing checks.
+            SetLastError(error);
+            String<char>::SysError(IDS_UNDELETE, IDS_ERRORENCRYPTED);
+        }
+    }
     return ret;
 }
 
 static BOOL RestoreDir(const std::wstring& source, const std::wstring& target)
 {
+    if (Progress->GetWantCancel()) return FALSE;
     const std::string sourceUtf8 = UndeletePaths::Utf8(source.c_str());
     const std::string targetUtf8 = UndeletePaths::Utf8(target.c_str());
     FileProgress = 0;

@@ -923,3 +923,11 @@ pinned donor `47661e92d4b3cbe5bb593ae3d75a3f1f698ef413`. Local integration
 connects the already owned archive/volume deletion plan to verified ZIP/7Zip
 Branch routes and extends actual-controller tests; existing lifecycle, SDK,
 backend and Windows safety checks and GPL-2.0-or-later notices remain preserved.
+
+### S31 EFS restore cancellation
+
+Adapts restore code by Open Salamander Authors and Samandarin Contributors from
+[Samandarin PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769), pinned
+`47661e92d4b3cbe5bb593ae3d75a3f1f698ef413`. Local cancellation/cleanup reporting
+uses existing Windows EFS RAW APIs and localized error handling. Existing notices
+and GPL-2.0-or-later licensing retained; no external dependency added.
