@@ -1,172 +1,93 @@
 # Konečný uzavírací seznam S31
 
-Výchozí revize: `0461f19396705c9e8dcc251cd7f51b252bde8076`.
-Tento seznam podle zadání uživatele nahrazuje historické návrhy dalších podetap.
-Starší OPEN/PENDING v deníku je stav tehdejšího checkpointu, nikoli nový úkol.
-S31 dosud není dokončená. Pracujeme lokálně, bez pushe, PR a S32.
-
-Nový nález patří sem jen pokud blokuje požadovanou funkci portu, je regresí portu,
-nebo ohrožuje data při zpřístupněné operaci. Ostatní patří do následné práce.
-Hotové důkazy se neopakují, pokud jejich vazba na aktuální implementaci platí.
+Stav: **COMPLETE_LOCAL_WITH_ACCEPTED_VALIDATION_LIMITS**, 2026-10-28.
+Funkční head `1d6ef63846f1da654645778ecb431e26ed1daedc`; konečný dokumentační
+commit a důkazy váže externí `evidence/S31-final/committed-validation.json`.
+Uživatel výslovně schválil předání níže uvedených chybějících prostředí a
+publikačních zkoušek do následné práce. Neověřeno se nepovažuje za nepodporováno
+ani za PASS. Bez pushe, vzdálených PR/CI a bez S32; vydání není schválené.
 
 ## 1. Úplnost rozbalení a bezpečné odstranění archivů/svazků
 
-- **Požadavek:** automatické odstranění smí následovat jen po úplném rozbalení
-  a úplném, vlastněném seznamu zdrojových svazků. Skip, maska, chyba, Cancel či
-  neúplná metadata nesmějí odstranit zdroj; rozbalení bez mazání zůstává funkční.
-- **Implementace hotová:** ohraničený wide plán hostitele, kontrolované Add a
-  interní ZIP kolekce, oddělená úplnost ZIP/7Zip včetně pending výsledků a nově
-  metadata archivu před/po extrakci. SDK ABI a kontrola CRC zachované.
-- **Ověření hotové:** S31b6c7b/c1/c2a/c2b1/c2b2/c3b; ordinary single-volume
-  ZIP/7z, částečný výběr, Skip, obnova poškozeného ZIP bez odstranění a úplná
-  extrakce s odstraněním testovací kopie v Debug/Release. Aktuální c3b důkazy
-  a platnost nezměněných dřívějších testů váže `final-audit.json` mimo Git.
-- **Nově ověřeno:** skutečný třísvazkový ZIP (WinZip-style, stored): úplná sada,
-  přechody disk0 → disk1 → disk0, chybějící svazek/Cancel a přesné odstranění
-  tří kopií D/R. Zdroje/sentinely/obsah ověřené hashi, profily obnovené;
-  důkaz `evidence/S31-closure-volumes/final-result.json` mimo Git. Deduplikace
-  navíc má již dříve ověřený nativní wrapper/collection kontrakt. 7Zip zatím nemá
-  open-volume callback ani úplný seznam více svazků; jejich mazání není připuštěné.
-- **Oprava stavu důkazů:** první GUI pokus položky 2 odhalil ve zděděném runtime
-  starý ZIP plugin z c2a, před completion opravou b1. B1 má vlastní správný build
-  a GUI důkaz; starší binárka převzatá přes b2 jej nenahrazuje. První Branch
-  mask+delete pokus proto selhal a zůstává evidovaný jako FAIL, nikoli PASS
-  aktuálního kódu. Aktuální ZIP je nově sestavený D/R; jeho GUI se ověřuje.
-- **Aktuální kvalifikace dokončená:** nově sestavený ZIP a ověřený host z
-  `b497f058` prošly všemi šesti svazkovými GUI případy D/R nad novou vlastní
-  fixture. Úplné rozbalení bez mazání, chybějící druhý svazek/Cancel a přesné
-  odstranění tří kopií mají nové hashové readbacky; profily obnovené. Důkaz
-  `evidence/S31-current-zip-volumes/final-result.json` mimo Git nahrazuje starý
-  binární důkaz pro aktuální ZIP. Nejde o libovolné formáty či spanning varianty.
-  Položka 1 je funkčně/validačně uzavřená v tomto rozsahu; platnost pro konečnou
-  revizi se ještě naváže v položce 6. Nedotčené 7Zip/host důkazy se neopakují.
+- **Požadavek:** odstranit zdroj jen po úplné extrakci a z vlastněného úplného
+  seznamu svazků; maska/Skip/chyba/Cancel/neúplná metadata zdroj zachovají.
+- **Implementace hotová:** host wide deletion plán, ZIP/7Zip completion a
+  pre/post error/volume metadata; rozbalení bez mazání zachované, SDK/CRC beze změny.
+- **Ověření hotové:** single-volume úplný/částečný/chybový průběh D/R;
+  skutečný aktuální ZIP o třech svazcích bez mazání, missing-volume/Cancel a
+  přesné odstranění právě tří kopií D/R (`016c2dd9`). 7Zip bez prokázaného
+  úplného seznamu svazků automatické odstranění nepovolí.
+- **Akce / dokončení:** nic funkčního nezbývá; aktuální nezměněná těla a scoped
+  důkazy svázané ve finálním záznamu. Nejde o všechny formáty spanning archivů.
 
 ## 2. Odpovídající integrace do Branch View
 
-- **Požadavek:** stejné kvalifikované rozbalování musí fungovat pro Branch zdroj
-  i diskový Branch cíl; root/tab/generace, vlastnictví výběru a backend zůstanou
-  ověřené přes dialogy a callbacky. Mazání nelze aktivovat jen odstraněním guardu.
-- **Implementace i ověření hotové:** přímý Unpack ZIP/7Zip z Branch zdroje do
-  ordinary panelu a do kořene Branch cíle včetně automatického podadresáře,
-  Cancel, odmítnutí ručního přesměrování a ztraceného cíle: c5a/c5b/c6 D/R.
-  F5 ZIP/7Zip do Branch cíle je ověřené b6b3b/b6b3c3; životnost zdroje níže zbývá.
-- **Nová implementace hotová:** kvalifikované Branch mazání je propojené s
-  vlastněným seznamem svazků. Nezávislý dispatcher i post-InitDLL wrapper
-  vyžadují platný sink a ověřený backend; source/target/root/tab/generation
-  kontroly zůstávají v controlleru i před každým odstraněním a opakováním.
-- **Nové ověření hotové:** native controller a související kontrakty D/R,
-  sestavení hostitele a aktuálního ZIP D/R. GUI Debug: ZIP i 7Zip částečné
-  rozbalení zachová zdroj a úplné odstraní pouze testovací kopii. Release ZIP
-  i 7Zip všechny čtyři případy prošly; přesné výstupy a sentinely ověřené hashi.
-- **Ověření této integrace dokončené:** oba backendy D/R, částečné/chybové
-  zachování, stale-context odmítnutí a přesný úplný úspěch bez zásahu do jiného
-  tabu. Vlastní GUI zavřené a profily obnovené. Důkazy váže
-  `evidence/S31-branch-unpack/final-audit.json` mimo Git a lokální commit `b497f058`.
+- **Požadavek:** stejné kvalifikované rozbalení z Branch do ordinary/Branch root,
+  včetně source/target/tab/generation/backend a per-delete kontrol.
+- **Implementace i ověření hotové:** `b497f058`, no-delete/cancel/error a osm
+  nových částečných/úplných ZIP/7Zip D/R GUI readbacků. Stale ZIP první pokus
+  zůstává FAIL; nahradil jej aktuálně sestavený a ověřený ZIP, nikoli přepsaný log.
+- **Akce / dokončení:** splněno; vlastní panely/profily uklizené, přesné výstupy,
+  zálohy a sentinely ověřené; aktuální controller/dispatcher těla nezměněná.
 
 ## 3. Pack-target a archivní F5 source-lifetime
 
-- **Požadavek:** donorové core operace nesmějí používat zaniklý panel/listing
-  po modal dialogu nebo plugin callbacku; Branch cíl znamená skutečný root.
-- **Hotovo:** diskové Copy/Move cíle uzavřené S31b5c. Archivní F5 má wide cíl,
-  captured disk target a post-InitDLL kontroly; ZIP/7Zip Branch target admission
-  a output/cleanup jsou ověřené. Tyto hotové části znovu neimplementovat.
-- **F5 do diskového cíle implementováno a ověřeno:** vlastní text identity,
-  interní epoch před zánikem seznamu, registry/tab/owner kontroly, source callback
-  před/po InitDLL a před každým půjčením položek v enumerátoru. Busy scope drží
-  původní tab. Nejde o klon pluginových dat ani transakci nad souborem.
-  Skutečný enumerátor odmítne stale/recursive/modal invalidaci; negativní
-  kontroly bez guardů selžou D/R. Dispatcher a post-init regresní testy PASS.
-- **GUI F5 hotové:** ZIP/7Zip do ordinary i Branch dlouhého Unicode cíle,
-  Cancel a přesný úspěch D/R; nezměněné tělo controlleru váže starší důkaz.
-  Po poslední bounded-copy změně aktuální 7Zip Branch kopie D/R prošly včetně
-  automatického refresh. Buildy D/R, zdroje/sentinely, profily a hashové vazby:
-  `evidence/S31-archive-source-current/final-audit.json` mimo Git.
-  Obranné guardy v temp návaznostech nezakládají novou kvalifikaci FS/archivů.
-- **Pack implementace hotová, ověření probíhá:** skutečný wide root Branch cíle,
-  identity source/target/listing a backendu přes modal/InitDLL/enumerátor, busy
-  a refresh scope. Nový wide diskový scanner platí jen pro kvalifikovaný Pack;
-  ostatní pluginy zachovávají původní byte encoding. SDK ABI se nemění.
-  GUI odhalilo přetečení preview ZIP dialogu a ANSI čtení/úklid adresářů;
-  opravené jsou přenos celé cesty, metadata a přesné odstranění prázdných
-  zdrojových adresářů. Příliš dlouhý podstrom se nevynechá jako údajný úspěch.
-- **Pack implementace a ověření dokončené:** host a ZIP D/R buildy, skutečná
-  nativní pipeline/context, scanner, preview/metadata a přesný cleanup. GUI ZIP
-  ordinary zdroj a 7Zip Branch zdroj do dlouhého Branch cíle: Copy, Move a Cancel
-  v Debug/Release, všech 16 readbacků PASS. Archivy obsahují přesných pět payloadů;
-  Move odstraní jen vlastní výběr (ZIP i prázdné vybrané podadresáře), zálohy a
-  sentinely zůstaly přesné; oba Branch panely se obnoví. Profily obnovené.
-- **Výslovně přijaté omezení:** uživatel schválil odmítnutí ZIP multi-volume/SFX
-  pro dlouhý cíl; byte hranice chrání i UTF8-byte-long cestu. Gate je před preview,
-  uloženými volbami i backendem; krátké cesty a běžné ZIP/7Zip zůstávají zachované.
-  Rozšíření těchto dvou pokročilých variant dlouhých cest je následná práce.
-- **Důkaz a podmínka:** [Pack checkpoint](steps/S31-pack-target.md),
-  `evidence/S31-pack-target/final-audit.json` mimo Git. Finální ZIP gate má actual
-  handler/default-loader test D/R; payload GUI důkazy předcházejí této ochranné
-  změně. Dřívější FAIL/timeouty nejsou PASS; finální vazba celé S31 zbývá v bodě 6.
-  Položka 3 je funkčně a lokálně validačně uzavřená.
+- **Požadavek:** vlastnit identity a zabránit půjčení zaniklého panelu/listingu
+  přes modal/InitDLL/callback; cíl Branch vždy znamená skutečný wide root.
+- **Implementace hotová:** F5 `72d83019`, Pack `1d6ef638`; epoch, live tab/owner,
+  backend binding, busy/refresh scopes, wide kvalifikovaný scanner s výslovným
+  zachováním legacy ACP, bezpečný metadata/preview/empty-directory cleanup ZIP.
+- **Ověření hotové:** nativní stale/reentrant/OOM/negative-control a D/R buildy;
+  F5 ordinary/Branch D/R payloady; Pack ZIP/7Zip Copy/Move/Cancel D/R má všech
+  16 přesných readbacků PASS a automatický refresh. Profily obnovené.
+- **Přijaté omezení:** dlouhý ZIP multi-volume/SFX uživatel výslovně schválil
+  bezpečně odmítat před preview/defaults/backend; krátké cesty a běžný ZIP/7Zip
+  zůstávají zachované. Actual handler/default-loader D/R testy a buildy PASS.
+- **Akce / dokončení:** splněno v tomto rozsahu; plná dlouhá multi/SFX podpora
+  je následná práce. [Pack důkazy a přesné limity](steps/S31-pack-target.md).
 
-## 4. Konečné rozhodnutí G04: podporované a odmítané operace
+## 4. Konečné rozhodnutí G04
 
-- **Požadavek:** pro každý původně požadovaný core příkaz existuje implementace,
-  skutečné ověření a přesná admission politika, nebo výslovné rozhodnutí uživatele.
-- **Hotovo:** archive-entry a následná oprava vlastnictví b1/b1a, shortcut b2,
-  atributy/NTFS b3a4b a Properties b3b2 mají funkční D/R důkazy; počáteční blanket
-  refusal v historické coverage již nepopisuje jejich aktuální stav.
-  Vazba 17 relevantních těl na kvalifikované commity potvrzuje nezměněnou
-  implementaci; `evidence/S31-closure-g04/existing-core-binding.json` mimo Git.
-  Aktuální G04 tabulka už tyto příkazy neuvádí jako chybějící.
-- **Zbývá:** spojit výsledky položek 1–3 s aktuálním routerem a tabulkou G04;
-  jednotlivě odlišit kvalifikované bundled ZIP/7Zip od neověřených pluginů,
-  externích packerů/viewerů a virtuálních filesystem cílů. Nevyvozovat podporu
-  pouze z možnosti načíst DLL ani tiše nezúžit dohodnuté core operace.
-- **Hotovo až:** aktuální G04 tabulka odkazuje pro každou operaci na platnou
-  implementaci, test a přesný gate. Opravdová změna rozsahu bude samostatné
-  konkrétní rozhodnutí uživatele; neověřeno se nepřejmenuje na nepodporováno.
+- **Požadavek:** každý dohodnutý core příkaz má implementaci, důkaz a přesný gate.
+- **Implementace i ověření hotové:** archive-entry, shortcut, atributy/NTFS a
+  Properties mají 17 aktuálně nezměněných kvalifikovaných těl; body 1–3 doplňují
+  Unpack/Pack/F5. Aktuální operation contracts All 20, view 19 a skutečný plugin
+  policy/dispatch D/R 179/config PASS. Počty nenahrazují jejich GUI důkazy.
+- **Akce / dokončení:** aktuální G04 tabulka v COVERAGE rozlišuje ověřené
+  bundled backendy, neověřené pluginy/externí packery a virtuální FS cíle.
+  Žádné nové plošné povolení DLL; dohodnuté core funkce se nezúžily. Splněno.
 
 ## 5. Skutečné validační mezery a přesná omezení G05
 
-- **Požadavek:** oddělit ověřeno, neověřeno a nepodporováno; doplnit chybějící
-  důkazy pro požadované portované chování, ne opravovat libovolné historické chyby.
-- **Hotovo:** jednotlivé lokální D/R buildy a operation-specific GUI/nativní
-  důkazy. Reálné NTFS encrypt/decrypt je doložené b3a4a/b; to samo není důkaz
-  raw EFS import/export v Undelete. String UNC není živý SMB test.
-- **Nový skutečný EFS důkaz:** Windows RAW export a skutečné restore funkce
-  obnovily šest druhů cest D/R včetně UTF8-byte-long, UTF16-long a alternativního
-  datového proudu; zdroje i backup zůstaly přesné. UI/SafeFile policy je facade,
-  RAW API jsou skutečné. První Debug cancel zanechal prázdný šifrovaný výstup;
-  diagnostický Debug a Release prošly, ale první FAIL zůstává otevřený, nikoli
-  přepsaný na PASS. Důkaz `evidence/S31-efs-raw/source-binding.json` mimo Git.
-- **EFS cancel uzavřen:** včasné zrušení nevytvoří ani nezkrátí výstup;
-  zrušení během RAW čtení i pozdní zrušení vrací neúspěch. Úklid kontroluje
-  DeleteFileW: Windows odmítnutí sdílení/přístupu se hlásí existující lokalizovanou
-  chybou, bez obcházení ochrany. Rozpracovaný výstup pak může zůstat zachovaný.
-  Původní první FAIL se nemaže; jeho tehdejší kód DeleteFile nebyl zachycen,
-  příčinu tedy nelze dodatečně vydávat za prokázanou.
-- **EFS ověření hotové:** skutečný Windows RAW export/import se šesti druhy cest
-  a ADS, early/midstream cancel D/R; nativní fault/cancel testy a plugin buildy
-  D/R PASS. UI/SafeFile policy je explicitní facade; nejde o GUI kvalifikaci
-  celého Undelete workflow. Důkaz `evidence/S31-efs-cancel/final-readback.json`
-  mimo Git a [rozsah opravy](steps/S31-efs-cancel.md).
-- **Chybí nebo potřebuje přesné přiřazení:** Connect backend/image hranice,
-  SMB/offline/Cancel a konkrétní ADS/ACL/hardlink scénáře,
-  kompletní jazykové staging/runtime pokrytí. Čistá podporovaná platformní matice
-  a CodeQL aktuální konečné revize nejsou provedené; vzdálené spuštění je zakázané.
-- **Akce a dokončení:** přiřadit existující důkaz aktuálnímu kódu a doplnit jen
-  chybějící požadovaný scénář. U neproveditelného ověření zapsat konkrétní důvod,
-  přesnou funkční hranici a potřebné rozhodnutí; neoznačit funkci za ověřenou.
-  ChangeDir zůstává výslovně odložený podle rozhodnutí uživatele; související
-  long-source GUI je NOT_VERIFIED, nikoli nově deklarovaná nepodporovaná funkce.
+- **Požadavek:** opravit skutečné mezery portu a odlišit ověřeno/neověřeno/
+  nepodporováno; nepřevzít všechny historické chyby jako další úkol S31.
+- **Implementace i ověření hotové:** EFS `59c39d5d`, skutečný Windows RAW a ADS
+  v šesti třídách cest D/R, early/midstream cancel, native fault/late-cancel a
+  plugin D/R buildy. Windows odmítnutí úklidu se hlásí, neobchází; neúplný soubor
+  může zůstat. První starý FAIL zachovaný, tehdejší delete error nebyl zachycen.
+- **Přesně chybějící důkazy:** úplné image/physical-disk backend scénáře,
+  skutečné SMB/offline, celá per-operation ADS/ACL/hardlink matice, všechny jazyky
+  v runtime/staging a čistá platformní CI/CodeQL této revize. **NOT_VERIFIED /
+  NOT_RUN**, funkce ani kontroly se neruší. Connect prefill/legacy refusal má
+  vlastní D/R důkaz a sedm nezměněných kvalifikovaných těl.
+- **Rozhodnutí a dokončení:** uživatel 2026-10-28 výslovně schválil jejich
+  předání do následné validační práce a lokální uzavření. Konkrétní budoucí
+  akce a ověřitelné podmínky jsou v [konečné matici](steps/S31-final-validation.md).
+  Odložený ChangeDir se neobnovuje; Debug heap výhrada se nepřepisuje na PASS
+  ani bez důkazu neoznačuje za novou regresi. Položka lokálně uzavřená rozhodnutím.
 
 ## 6. Coverage, provenience a důkazy konečné revize
 
-- **Požadavek:** žádná chybějící core funkce schovaná za historickou položkou;
-  původ převzatého kódu a skutečný rozsah ověření jsou dohledatelné.
-- **Hotovo:** připnutý donor, průběžná REUSE/third_party mapa, lokální checkpointy
-  a hashově svázané důkazy. Odložený ChangeDir WIP zůstává beze změny.
-- **Zbývá:** po funkčních položkách sjednotit COVERAGE/REUSE/VALIDATION/PROGRESS,
-  ověřit důkazy proti konečným blobům a doplnit pouze ověření změněného chování.
-- **Hotovo až:** všech šest položek má ověřitelný výsledek bez nevyřešené
-  povinnosti; finální diff, provenience, retained tests a revize důkazů souhlasí.
-  Počet assertions či nový auditní dokument samy nic neuzavírají. Goal zůstává
-  otevřený do splnění těchto podmínek. PAK Optimize zůstává skrytý; Windows
-  bezpečnostní nastavení, testy a kontroly se neoslabují. S32 se nezahajuje.
+- **Požadavek:** žádná skrytá chybějící core funkce, změněný zdroj nebo stale
+  binárka vydávaná za konečný důkaz.
+- **Ověření hotové:** 231 donor souborů / 892 hunků a 352 target extras aktuálně
+  klasifikované; všech 140 změněných source/tool cest S31 má REUSE mapu.
+  Čtyři funkční DEFERRED hunks G01/G04 jsou doloženě vyřešené. Jen dva S32
+  dokumenty zůstávají DEFERRED. Textový screen není runtime kvalifikace.
+- **Provenience a integrita:** donor pin čistý, původní odložený patch bajtově
+  zachovaný, veřejné SDK proti S30 beze změny, původní scoped důkazy použité jen
+  pro shodná těla. Nové Pack/EFS source, test a artifact hashe svázané; historické
+  FAIL/timeouty zachované. Windows registry stále LongPathsEnabled=0.
+- **Akce / dokončení:** finální diff/registrace/doc vazby a čistý lokální commit
+  ověřené závěrečným záznamem. Goal lze uzavřít lokálně s přijatými limity bodu 5.
+  PAK Optimize zůstává skryté, S32 se nezahajuje a nic se nepublikuje.

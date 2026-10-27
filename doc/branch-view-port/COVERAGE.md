@@ -1,5 +1,18 @@
 # S31 — Úplnost portu proti donoru
 
+## S31 — konečné lokální uzavření s přijatými validačními limity
+
+Funkční opravy uzavřené: guarded archive/core operace, úplnost rozbalení a přesné
+mazání svazků, Branch integrace, F5 source lifetime, Pack-target a EFS cancel.
+Nové checkpointy `59c39d5d` (EFS) a `1d6ef638` (Pack) mají D/R důkazy.
+Aktuální zdrojové vazby, nikoli staré OPEN stavy, určuje
+[S31-CLOSURE.md](S31-CLOSURE.md). [Konečná matice](steps/S31-final-validation.md)
+obsahuje uživatelem 2026-10-28 schválené předání zbývající image/SMB/metadata/
+language/platform/CodeQL validace. Tyto výsledky zůstávají NOT_VERIFIED/NOT_RUN;
+nejde o zrušení funkcí či schválení vydání. ChangeDir odložený a PAK Optimize
+skrytý. Bez pushe, vzdálených PR/CI a bez S32. Závěrečná externí evidence
+`evidence/S31-final/committed-validation.json` váže finální commit a čistý stav.
+
 ## S31b6c7c3a — real 7Zip decoder metadata audit (VERIFIED audit)
 
 Actual b2-qualified7za.dll D/R: owned ZIP without central directory or truncated
@@ -592,7 +605,7 @@ bezpečnostní assertions, zapnout All a dosud odložený test. Všechny dosavad
 regrese zůstanou registrované. Inventář zachoval všech 41 pojmenovaných donorových položek; před S31a1 jich
 port má 57. Samotná existence položky neznamená běh všech jejích testů.
 
-### G04 — Aktuální podpora core operací a zbývající rozhodnutí
+### G04 — Aktuální podpora core operací (lokální funkční uzavření)
 
 Aktuální stav nahrazuje vstupní blanket odmítnutí auditu. Ověřené operace
 níže zachovávají přesné identity, lifecycle a backend admission. Hashové porovnání
@@ -606,8 +619,8 @@ Jde o platnost původních konkrétních důkazů, nikoli nové GUI či celkový
 | `FocusShortcutTarget` | IMPLEMENTED / VERIFIED_LOCAL: b2; exact wide target a ochrany kontextu, pět GUI případů v každé D/R konfiguraci. Obě těla beze změny proti `05b6d56c`. |
 | ChangeAttr / NTFS | IMPLEMENTED / VERIFIED_LOCAL: b3a4b, výběr a potvrzení, komprese/dekomprese/šifrování/dešifrování D/R. Tři těla beze změny proti `664de26a`. Neprokazuje Undelete RAW EFS. |
 | Windows Properties | IMPLEMENTED / VERIFIED_LOCAL: b3b2; vlastní dialog, single/multi/Cancel a chybová větev D/R; tři těla beze změny proti `c5f3285f`. |
-| Přímé Unpack | ZIP/7Zip bez mazání z Branch do ordinary/Branch root ověřené c5/c6. Aktuální propojení bezpečného mazání má native a build D/R PASS, GUI všechny čtyři případy v Debug i Release PASS. Položka 2 cíleně ověřená; položka 1 ještě potřebuje aktuální ZIP vícesvazkovou kvalifikaci. |
-| Pack-target / archivní F5 | Odpovídající integrace a source-lifetime zbývá podle položky 3 konečného seznamu. Dosavadní dílčí cílové důkazy nejsou důkazem celého požadavku. |
+| Přímé Unpack | ZIP/7Zip bez mazání z Branch do ordinary/Branch root ověřené c5/c6. Bezpečné mazání má native/build a osm Branch GUI readbacků D/R PASS; aktuální ZIP třísvazková kvalifikace včetně chybějícího svazku a přesného odstranění D/R dokončená (`016c2dd9`). |
+| Pack-target / archivní F5 | F5 source lifetime `72d83019` a Pack `1d6ef638` implementované a lokálně ověřené D/R. Přesné root/context/epoch/backend guardy; Copy/Move/Cancel payload důkazy. Dlouhý ZIP multi/SFX výslovně odmítnut po rozhodnutí uživatele; krátké cesty zachované. Viz konečný seznam bod 3. |
 | Kopírování/přesun do Branch cíle — aktualizace S31b5c | Diskový Copy/Move do jediného diskového cíle ověřen v d1/d2/e1/e2/e3; úplný root/mask, modal tab/generation a explicitní ruční cíl. Archive source/FS/multi-target Branch případy tato aktivace nezpřístupňuje. |
 | F3 plugin viewers | Obecné DLL prohlížeče nejsou připuštěné. Interní a konfigurovaný externí viewer mají vlastní ověření. PictView EXIF menu 188 a konfigurace 197 neprokazují obecné Branch F3. |
 | Neznámé plugin příkazy, externí packery | Explicitní admission policy v plugins1.cpp, žádné automatické povolení podle existence DLL. DemoPlug diskový snapshot se SDK>=105 neznamená obecné povolení jeho Branch příkazu. |
@@ -615,21 +628,25 @@ Jde o platnost původních konkrétních důkazů, nikoli nové GUI či celkový
 | PAK Optimize | Záměrně skryté menu v původním kódu i donoru; uživatel výslovně zvolil zachování a dokumentaci. Test těla příkazu nepřidává viditelnou funkci. |
 | ZIP Repair | Záměrně skrytý příkaz i v donoru; nepovažovat jej za dokončenou aktivní nabídku. |
 
-S31b má pro konkrétní veřejně požadované core operace vybrat samostatnou
-implementaci s testy, nebo výslovné release omezení a kontrolu všech jejich vstupů.
-PAK Optimize se neobnovuje. Přijaté limity Windows se neobcházejí. Do uzavření
-rozhodnutí nelze tvrdit úplnou funkční paritu ani zapnout celý port pro vydání.
+G04 požadované core implementace a jejich lokální ověření jsou dokončené v
+uvedeném kvalifikovaném rozsahu. PAK Optimize se neobnovuje; neznámé pluginy,
+FS cíle a externí nástroje nedostávají automatické povolení. Aktuální policy
+native D/R a operation contracts All PASS. Nejde o univerzální engine paritu.
 
-### G05 — Hranice skutečné validace; S31c, uzavřít před S32
+### G05 — Přesné validační hranice konečné lokální revize
 
-- Undelete RestoreEncrypted2 má native EFS callback stubs a skutečné GUI kopie nešifrovaných souborů. Windows EFS import/export skutečně šifrovaných dat zůstává NOT_TESTED. Je třeba cílená skutečná validace, nebo výslovná podpora omezená v dokumentaci a admission policy.
-- Connect image ověřuje přesný wide prefill a odmítá nepodporovaný ACP/legacy vstup. Fyzický disk a všechny backend scénáře nebyly tímto ověřeny.
-- Historické SMB/live UNC/offline cancellation a některé ADS/ACL/hardlink scénáře mají konkrétní unavailable/skip hranice; test řetězce UNC není skutečný SMB provoz. Chybějící prostředí nesmí být přepsáno na PASS.
-- Všech 11 překladů má ověřené Branch resource ID/řádky. Kompletní jazykový balicí/staging runtime matrix zatím neproběhl. Čistá podporovaná CI matice je Debug Win32/x64/ARM64 se stávajícím vyloučením SFTP; CodeQL Release x64 není celé Release sestavení všech pluginů.
+Skutečný Windows RAW EFS/ADS import/export a cancel contract jsou nově ověřené
+D/R v `59c39d5d`; původní NOT_TESTED níže v historických záznamech je překonané.
+Connect prefill/legacy refusal se váže na sedm nezměněných kvalifikovaných těl.
+Backend image/physical disk, SMB/offline, úplná per-operation ADS/ACL/hardlink
+matice, jazykový runtime/staging a čistá CI/CodeQL konečné revize zůstávají přesně
+NOT_VERIFIED/NOT_RUN. To není zrušení funkcí ani jejich označení unsupported.
 
-S31c má uzavřít konkrétní validační tvrzení: doplnit potřebnou skutečnou zkoušku,
-nebo zúžit veřejný příslib a ověřit bezpečné odmítnutí. Audit neopakuje celou
-historickou GUI matici ani neprohlašuje všechny tyto scénáře za novou regresi.
+[Konkrétní důkazy, chybějící prostředí a podmínky](steps/S31-final-validation.md)
+obsahují návrh předání těchto validačních hranic do následné práce. Uživatel
+2026-10-28 výslovně schválil toto předání a lokální uzavření; neověřené výsledky
+zůstávají neověřené a neomezují dosavadní funkce. ChangeDir zůstává
+výslovně odložený a S32 se nezahajuje.
 
 ### G06 — Release dokumentace a malé nepřesnosti; S32 po bráně
 

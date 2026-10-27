@@ -1,5 +1,18 @@
 # Plán postupného portu PR #769
 
+## S31 — konečné lokální uzavření s přijatými validačními limity
+
+Funkční opravy uzavřené: guarded archive/core operace, úplnost rozbalení a přesné
+mazání svazků, Branch integrace, F5 source lifetime, Pack-target a EFS cancel.
+Nové checkpointy `59c39d5d` (EFS) a `1d6ef638` (Pack) mají D/R důkazy.
+Aktuální zdrojové vazby, nikoli staré OPEN stavy, určuje
+[S31-CLOSURE.md](S31-CLOSURE.md). [Konečná matice](steps/S31-final-validation.md)
+obsahuje uživatelem 2026-10-28 schválené předání zbývající image/SMB/metadata/
+language/platform/CodeQL validace. Tyto výsledky zůstávají NOT_VERIFIED/NOT_RUN;
+nejde o zrušení funkcí či schválení vydání. ChangeDir odložený a PAK Optimize
+skrytý. Bez pushe, vzdálených PR/CI a bez S32. Závěrečná externí evidence
+`evidence/S31-final/committed-validation.json` váže finální commit a čistý stav.
+
 Current S31 completion follows [the finite closure list](S31-CLOSURE.md).
 Historical nested next-stage proposals below are superseded by that list.
 
