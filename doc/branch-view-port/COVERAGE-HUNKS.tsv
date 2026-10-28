@@ -1,6 +1,6 @@
 hunk_id	donor_path	donor_range	status	decision	text_postimage_screen
-1	doc/branch-view-plugin-paths.md	-0,0 +1,161	DEFERRED	COVERAGE-FILES.tsv: Release documentation scheduled for S32; must describe actual port support, not donor validation claims (G06).	False
-2	doc/branch-view.md	-0,0 +1,352	DEFERRED	COVERAGE-FILES.tsv: Release documentation scheduled for S32; must describe actual port support, not donor validation claims (G06).	False
+1	doc/branch-view-plugin-paths.md	-0,0 +1,161	ADAPTED	S32: donor documentation adapted to port evidence, public activation, relative Path preference and precise approved limits; historical measurements not claimed.	False
+2	doc/branch-view.md	-0,0 +1,352	ADAPTED	S32: donor documentation adapted to port evidence, public activation, relative Path preference and precise approved limits; historical measurements not claimed.	False
 3	doc/third_party.md	-9,6 +9,7	ADAPTED	COVERAGE-FILES.tsv: Current S31 adaptation; exact changed symbols, provenance and scoped qualification in REUSE.tsv and S31-CLOSURE.md. Named donor contributors and staged port attribution replace generic donor credit.	False
 4	src/branch_view.cpp	-0,0 +1,787	ADAPTED	COVERAGE-FILES.tsv: UTF8-first identities, default-off gate, display-only relative preference and safe parent/shortcut navigation; shortcut implemented S31b2.	False
 5	src/branch_view.h	-0,0 +1,221	ADAPTED	COVERAGE-FILES.tsv: Additional process experiment gate defaults off; donor state model preserved.	False

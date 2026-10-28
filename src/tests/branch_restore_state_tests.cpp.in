@@ -11,7 +11,6 @@
 #include <cstdio>
 #include <utility>
 @@STATE@@
-namespace Salamander { namespace BranchView { @@GATE@@ } }
 constexpr int ptDisk=0;
 struct Row { std::wstring Identity; BOOL Selected=FALSE; };
 struct Rows { std::vector<Row> Data; int Count=0; Row& At(int n){return Data.at(n);} };
@@ -54,7 +53,8 @@ int main(){
  p.Storage.Data[0].Selected=FALSE;
  Check(state.Selected.size()==2,"snapshot owns selection independently of live panel mutation");
  SetEnvironmentVariableW(L"SAMANDARIN_EXPERIMENTAL_BRANCH_VIEW",NULL);p.Mode=false;
- p.RestoreBranchViewState(state);Check(!p.Mode&&p.Toggles==0&&p.Rebuilds==0,"default-off restore cannot activate Branch View");
+ p.RestoreBranchViewState(state);Check(p.Mode&&p.Toggles==1&&p.Rebuilds==1,"public disk restore activates without process opt-in");
+ p.Mode=false;p.Toggles=0;p.Rebuilds=0;
  SetEnvironmentVariableW(L"SAMANDARIN_EXPERIMENTAL_BRANCH_VIEW",L"1");p.Disk=false;
  p.RestoreBranchViewState(state);Check(!p.Mode&&p.Toggles==0,"archive/plugin panel rejects disk restoration");
  p.Disk=true;auto disabled=state;disabled.Enabled=false;p.RestoreBranchViewState(disabled);

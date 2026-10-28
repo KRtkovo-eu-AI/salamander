@@ -11,7 +11,6 @@ def main():
  args=parser.parse_args()
  header=read('src/branch_view.h'); source=read('src/branch_view.cpp')
  pieces={'STATE':block(header,'struct CBranchViewRestoreState',';'),
- 'GATE':block(header,'inline bool ExperimentEnabled('),
  'METHODS':'\n'.join(block(source,s) for s in ('CBranchViewRestoreState CFilesWindow::CaptureBranchViewState(', 'void CFilesWindow::RestoreBranchViewState(')),
  'HISTORY':block(read('src/salamdr3.cpp'),'void CPathHistory::ChangeActualPathData(')}
  generated=read('src/tests/branch_restore_state_tests.cpp.in')

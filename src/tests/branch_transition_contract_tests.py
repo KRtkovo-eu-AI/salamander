@@ -10,11 +10,21 @@ def function(name, marker):
   depth+=(text[end]=='{')-(text[end]=='}');end+=1
  return text[start:end]
 class BranchTransitionContracts(unittest.TestCase):
- def test_activation_and_restore_require_process_gate(self):
-  self.assertIn('SAMANDARIN_EXPERIMENTAL_BRANCH_VIEW',source('branch_view.h'))
-  self.assertIn("value[0] == L'1'",source('branch_view.h'))
-  for marker in ('void CFilesWindow::ToggleBranchView()', 'void CFilesWindow::RestoreBranchViewState('):
-   self.assertIn('ExperimentEnabled()',function('branch_view.cpp',marker))
+ def test_public_activation_has_no_process_opt_in_but_retains_disk_and_operation_guards(self):
+  for name in ('branch_view.h','branch_view.cpp','mainwnd3.cpp'):
+   self.assertNotIn('ExperimentEnabled',source(name))
+   self.assertNotIn('SAMANDARIN_EXPERIMENTAL_BRANCH_VIEW',source(name))
+  toggle=function('branch_view.cpp','void CFilesWindow::ToggleBranchView()')
+  self.assertIn('if (!Is(ptDisk)) return;',toggle)
+  self.assertIn('if (StopRefresh || SnooperSuspended || FilesActionInProgress) return;',toggle)
+  restore=function('branch_view.cpp','void CFilesWindow::RestoreBranchViewState(')
+  self.assertIn('if (!state.Enabled || !Is(ptDisk)) return;',restore)
+  main=source('mainwnd3.cpp')
+  dispatch=main[main.rindex('case CM_LEFT_BRANCHVIEW:'):main.index('case CM_BRANCH_STOP:',main.rindex('case CM_LEFT_BRANCHVIEW:'))]
+  self.assertIn('if (panel != NULL && panel->Is(ptDisk))',dispatch)
+  self.assertIn('panel->ToggleBranchView()',dispatch)
+  self.assertIn('branchPanel->Is(ptDisk));',main)
+  self.assertIn('Ctrl+B',source('lang/texts.rc2'))
  def test_command_gate_precedes_plugin_and_user_callbacks(self):
   text=source('mainwnd3.cpp');start=text.index('CFilesWindow* branchCommandPanel');part=text[start:]
   self.assertLess(part.index('!BranchReadOnlyCommandAllowed(LOWORD(wParam))'),part.index('if (HelpMode'))
@@ -87,9 +97,9 @@ class BranchTransitionContracts(unittest.TestCase):
   for path in (ROOT.parent/'translations').glob('*/salamand.slt'):
    text=path.read_text(encoding='utf-8-sig');page=text.split('[DIALOG 1105]',1)[1].split('\n[',1)[0]
    self.assertEqual(page.count('14528,'),1,str(path))
- def test_tab_and_history_restores_keep_experimental_gate_and_exact_location(self):
+ def test_tab_and_history_restores_keep_disk_guard_and_exact_location(self):
   restore=function('branch_view.cpp','void CFilesWindow::RestoreBranchViewState(')
-  self.assertIn('!Salamander::BranchView::ExperimentEnabled() || !state.Enabled || !Is(ptDisk)',restore)
+  self.assertIn('!state.Enabled || !Is(ptDisk)',restore)
   gate=function('mainwnd3.cpp','static bool BranchReadOnlyCommandAllowed(')
   for command in ('CM_DUPLICATETAB','CM_LEFT_DUPLICATETAB','CM_RIGHT_DUPLICATETAB','CM_LEFT_DUPLICATETABTORIGHT','CM_RIGHT_DUPLICATETABTOLEFT','CM_REOPENTAB','CM_LEFT_REOPENTAB','CM_RIGHT_REOPENTAB','CM_ACTIVEBACK','CM_ACTIVEFORWARD','CM_LBACK','CM_LFORWARD','CM_RBACK','CM_RFORWARD'):
    self.assertIn('case '+command+':',gate)

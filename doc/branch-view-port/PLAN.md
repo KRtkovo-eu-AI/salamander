@@ -1,5 +1,16 @@
 # Plán postupného portu PR #769
 
+## S32 — lokálně ověřeno, publikační CI čeká
+
+Goal S32 je aktivní. Odstraněný pouze experimentální opt-in; dvě veřejné
+dokumentace převzaté a přizpůsobené skutečným hranicím portu. Lokální D/R host,
+scanner, actual restore/snapshot/ABI, cílené source contracts a dark/light GUI
+smoke bez opt-in PASS. Přesná kvalifikace a záznamy neúspěšných pokusů v
+[S32](steps/S32.md). 7Zip Release GUI používá přesně source/hash-bound starší
+artefakty; čerstvé Release dependency pokusy timeout, nikoli PASS.
+Zbývá current-head publikační CI/CodeQL a čistá platformní sestava po zvláštním
+zadání k pushi. G05 limity zůstávají NOT_VERIFIED; nejde o schválení vydání.
+
 ## S31 — konečné lokální uzavření s přijatými validačními limity
 
 Funkční opravy uzavřené: guarded archive/core operace, úplnost rozbalení a přesné

@@ -173,20 +173,6 @@ int wmain()
 {
     CheckRefreshSchedule();
     CheckPublicationBudgetAndPathOrder();
-    const wchar_t* gateName = L"SAMANDARIN_EXPERIMENTAL_BRANCH_VIEW";
-    DWORD previousLength = GetEnvironmentVariableW(gateName, NULL, 0);
-    std::vector<wchar_t> previousGate(previousLength == 0 ? 1 : previousLength);
-    if (previousLength != 0) GetEnvironmentVariableW(gateName, previousGate.data(), previousLength);
-    SetEnvironmentVariableW(gateName, NULL);
-    Check(!ExperimentEnabled(), "experiment is default off without process opt-in");
-    for (const wchar_t* value : {L"", L"0", L"true", L"11", L"1-extra"})
-    {
-        SetEnvironmentVariableW(gateName, value);
-        Check(!ExperimentEnabled(), "only exact process opt-in value1 enables experiment");
-    }
-    SetEnvironmentVariableW(gateName, L"1");
-    Check(ExperimentEnabled(), "explicit process opt-in enables compiled experiment");
-    SetEnvironmentVariableW(gateName, previousLength == 0 ? NULL : previousGate.data());
     Fixture fixture;
     std::wstring a = Join(fixture.Root, L"A"), b = Join(fixture.Root, L"Žluťoučký-東京-😀");
     fixture.Directory(a); fixture.Directory(b);

@@ -16,12 +16,6 @@ static const DWORD BRANCH_VIEW_PATH_COLUMN = 0x42565041;
 
 // No CFileData/plug-in ABI changes: the panel owns these paths separately.
 namespace Salamander { namespace BranchView {
-// S26: process-only explicit experiment; all normal configurations compile the code.
-inline bool ExperimentEnabled()
-{
-    wchar_t value[2] = {};
-    return GetEnvironmentVariableW(L"SAMANDARIN_EXPERIMENTAL_BRANCH_VIEW", value, 2) == 1 && value[0] == L'1';
-}
 struct Entry
 {
     std::wstring Directory;

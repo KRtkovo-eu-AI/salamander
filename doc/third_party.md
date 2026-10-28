@@ -947,3 +947,12 @@ Samandarin Contributors, [PR #769](https://github.com/KRtkovo-eu-AI/salamander/p
 pinned `47661e92d4b3cbe5bb593ae3d75a3f1f698ef413`. The restricted string-insert
 renderer and regression fixtures are local GPL-2.0-or-later adaptations; existing
 notices remain and no third-party component is added.
+
+### S32 Branch View activation and public documentation
+
+The recursive panel and SDK documentation adapt the work of Open Salamander
+Authors and Samandarin Contributors from [PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pinned `47661e92d4b3cbe5bb593ae3d75a3f1f698ef413`. S32 removes the local
+process-only activation adapter, retaining qualified operation guards. Donor
+performance/runtime claims are replaced by scoped port evidence and explicit
+limits. Existing source notices and GPL-2.0-or-later licensing remain unchanged.

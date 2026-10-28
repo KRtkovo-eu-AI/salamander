@@ -481,7 +481,7 @@ CBranchViewRestoreState CFilesWindow::CaptureBranchViewState()
 }
 void CFilesWindow::RestoreBranchViewState(const CBranchViewRestoreState& state)
 {
-    if (!Salamander::BranchView::ExperimentEnabled() || !state.Enabled || !Is(ptDisk)) return;
+    if (!state.Enabled || !Is(ptDisk)) return;
     if (!IsBranchView()) ToggleBranchView();
     if (!IsBranchView()) return;
     BranchView->PathColumnWidth = state.PathColumnWidth;
@@ -497,7 +497,6 @@ void CFilesWindow::RestoreBranchViewState(const CBranchViewRestoreState& state)
 }
 void CFilesWindow::ToggleBranchView()
 {
-    if (!IsBranchView() && !Salamander::BranchView::ExperimentEnabled()) return;
     if (StopRefresh || SnooperSuspended || FilesActionInProgress) return; // No mode switch in a reentrant operation callback.
     if (!Is(ptDisk)) return;
     if (IsBranchView())
