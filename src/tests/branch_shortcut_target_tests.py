@@ -31,7 +31,7 @@ def main():
         for c in configs:
             flags=['/MDd','/D_DEBUG','/Od'] if c=='Debug' else ['/MD','/DNDEBUG','/O2']
             print('Actual Branch shortcut target:',c,flush=True)
-            for command in ([compiler,'/nologo','/std:c++17','/EHsc','/utf-8','/W4','/WX','/D_CRT_SECURE_NO_WARNINGS',*flags,str(source),'/Fe:'+str(exe),'ole32.lib','shell32.lib','uuid.lib','user32.lib'],[str(exe)]):
+            for command in ([compiler,'/nologo','/std:c++17','/EHsc','/utf-8','/W4','/WX','/D_CRT_SECURE_NO_WARNINGS',*flags,str(source),'/Fe:'+str(exe),'ole32.lib','shell32.lib','uuid.lib','user32.lib'],[str(exe)],[str(exe),'--temp-junction'],[str(exe),'--temp-short']):
                 r=run(command,cwd=d,env=env,timeout=35)
                 if r.returncode:return r.returncode
     return 0

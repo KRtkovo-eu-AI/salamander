@@ -44,6 +44,22 @@ struct CCommonDialog
     virtual void Transfer(CTransferInfo&){}
     virtual ~CCommonDialog()=default;
 };
+// Process-local ACP facade only: real Windows conversions for the selected
+// code page, without changing the machine locale or accepting lossy fixtures.
+static const UINT NativeACP = GetACP();
+static UINT HistoryCodePage = NativeACP;
+static UINT WINAPI FixtureGetACP() { return HistoryCodePage; }
+static int WINAPI FixtureMultiByteToWideChar(UINT cp,DWORD flags,LPCCH text,int count,LPWSTR wide,int capacity)
+{
+    return MultiByteToWideChar(cp == CP_ACP ? HistoryCodePage : cp,flags,text,count,wide,capacity);
+}
+static int WINAPI FixtureWideCharToMultiByte(UINT cp,DWORD flags,LPCWCH text,int count,LPSTR bytes,int capacity,LPCCH replacement,LPBOOL used)
+{
+    return WideCharToMultiByte(cp == CP_ACP ? HistoryCodePage : cp,flags,text,count,bytes,capacity,replacement,used);
+}
+#define GetACP FixtureGetACP
+#define MultiByteToWideChar FixtureMultiByteToWideChar
+#define WideCharToMultiByte FixtureWideCharToMultiByte
 @@CONVERSIONS@@
 @@HISTORY@@
 @@DECL@@
@@ -67,8 +83,12 @@ static char* Dup(const std::string& text){auto p=(char*)malloc(text.size()+1);if
 static std::wstring Text(HWND control){std::wstring result((size_t)GetWindowTextLengthW(control)+1,L'\0');int n=GetWindowTextW(control,result.data(),(int)result.size());result.resize(n);return result;}
 static std::wstring Item(HWND combo,int index){auto n=SendMessageW(combo,CB_GETLBTEXTLEN,index,0);if(n==CB_ERR)return {};std::wstring result((size_t)n+1,L'\0');SendMessageW(combo,CB_GETLBTEXT,index,(LPARAM)result.data());result.resize((size_t)n);return result;}
 static std::vector<std::string> History(char** values){std::vector<std::string> result;for(int i=0;i<3;++i)result.emplace_back(values[i]?values[i]:"<null>");return result;}
-int main()
+int main(int argc,char** argv)
 {
+    if(argc != 2) return 2;
+    if(strcmp(argv[1],"system") != 0) HistoryCodePage = static_cast<UINT>(strtoul(argv[1],nullptr,10));
+    if(HistoryCodePage == 0) return 2;
+    printf("History ACP=%u (native=%u), real Win32 conversions\n",HistoryCodePage,NativeACP);
     setvbuf(stdout,nullptr,_IONBF,0);
     HWND parent=CreateWindowExW(0,L"STATIC",L"owned Copy/Move native fixture",WS_OVERLAPPED,0,0,500,300,nullptr,nullptr,nullptr,nullptr);
     HWND path=CreateWindowExW(0,L"COMBOBOX",L"",WS_CHILD|CBS_DROPDOWN,0,0,400,100,parent,(HMENU)IDE_PATH,nullptr,nullptr);
@@ -79,7 +99,26 @@ int main()
     HWND targets=CreateWindowExW(0,L"LISTBOX",L"",WS_CHILD,0,0,100,100,parent,(HMENU)IDC_COPY_TARGETDIRS,nullptr,nullptr);
     if(!parent||!path||!keep||!wait||!mode||!conflict||!targets)return 2;
     Check(IsWindowUnicode(path)&&IsWindowUnicode(ResolveComboEditControl(path)),"fixture owns actual Unicode combo and edit controls");
-    char* history[3]={Dup(SalWideToMultiBytePath(L"C:\\historie-東京\\🙂",CP_UTF8)),Dup(SalWideToMultiBytePath(L"C:\\žluť",CP_ACP)),nullptr};
+    // The original Czech fixture remains mandatory in the CP1250 run. A
+    // CP1252 runner must not be asked to encode characters its ACP cannot hold.
+    const std::wstring legacyHistory = HistoryCodePage == 1250 ? L"C:\\žluť" :
+        HistoryCodePage == CP_UTF8 ? L"C:\\東京-🙂" : L"C:\\café";
+    BOOL usedDefault=FALSE;
+    const DWORD flags = HistoryCodePage == CP_UTF8 ? 0 : WC_NO_BEST_FIT_CHARS;
+    LPBOOL used = HistoryCodePage == CP_UTF8 ? nullptr : &usedDefault;
+    const int needed=WideCharToMultiByte(HistoryCodePage,flags,legacyHistory.c_str(),-1,nullptr,0,nullptr,used);
+    Check(needed>1&&!usedDefault,"legacy fixture is representable without default or best-fit substitution");
+    if(needed<=1||usedDefault) return 3;
+    std::vector<char> legacyBytes(static_cast<size_t>(needed));
+    Check(WideCharToMultiByte(HistoryCodePage,flags,legacyHistory.c_str(),-1,legacyBytes.data(),needed,nullptr,used)==needed&&!usedDefault,
+          "legacy fixture encoding is exact, never a replacement-byte expectation");
+    if(usedDefault) return 3;
+    std::vector<wchar_t> decoded(legacyHistory.size()+1);
+    Check(MultiByteToWideChar(HistoryCodePage,0,legacyBytes.data(),-1,decoded.data(),static_cast<int>(decoded.size()))==static_cast<int>(decoded.size())&&decoded.data()==legacyHistory,
+          "independent Windows ACP roundtrip preserves the original fixture text");
+    Check(HistoryCodePage==CP_UTF8 ? IsValidPathUtf8Text(legacyBytes.data()) : !IsValidPathUtf8Text(legacyBytes.data()),
+          "history fixture exercises the intended UTF8 or distinct legacy ACP route");
+    char* history[3]={Dup(SalWideToMultiBytePath(L"C:\\historie-東京\\🙂",CP_UTF8)),Dup(legacyBytes.data()),nullptr};
     if(!history[0]||!history[1])return 3;
     CTruncatedString subject;CCriteriaData criteria;BOOL keepValue=FALSE;int modeValue=CMS_SEQUENTIAL,conflictValue=CMCM_CURRENT,scheduling=COSO_DEFAULT;
     char title[]="Copy";std::vector<char> storage(SAL_MAX_PATH+16,'Z');strcpy(storage.data(),"C:\\initial");
@@ -88,7 +127,7 @@ int main()
     Check(dialog.UsesWide(),"actual constructor selects Unicode resource creation");
     CTransferInfo to(parent,ttDataToWindow);dialog.Transfer(to);
     Check(to.IsGood()&&Text(path)==L"C:\\initial","actual Transfer shows exact initial path");
-    Check(Item(path,0)==L"C:\\historie-東京\\🙂"&&Item(path,1)==L"C:\\žluť","wide history preserves UTF8 and legacy ACP path entries");
+    Check(Item(path,0)==L"C:\\historie-東京\\🙂"&&Item(path,1)==legacyHistory,"wide history preserves UTF8 and legacy ACP path entries");
     const std::vector<std::wstring> shapes={L"C:\\ascii\\target",L"C:\\ascii\\東京-🙂.txt",L"C:\\rodič-東京\\target",L"C:\\první-🙂\\druhý-東京\\target",L"C:\\"+std::wstring(100,L'東'),L"C:\\"+std::wstring(140,L'日')+L"\\"+std::wstring(140,L'本')+L"\\target"};
     for(size_t i=0;i<shapes.size();++i)
     {

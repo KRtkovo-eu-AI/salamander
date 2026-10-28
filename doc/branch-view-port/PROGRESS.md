@@ -1,5 +1,15 @@
 # Stav portu PR #769
 
+## S31 publication — history and shortcut fixture portability
+
+PR #63 fixture fixes preserve production/security code and all original checks.
+History now validates lossless native/CP1250/CP1252/UTF8 paths against actual
+Unicode controls; shortcut fixtures resolve their parent before creation and
+exercise real short-name/junction parents with unchanged exact result assertions.
+Both groups passed Debug/Release; four negative controls failed as required.
+[Details and qualification](steps/S31-ci-test-fixes.md). Current-head remote
+CI/CodeQL and clean full supported-solution build are rerun after publication.
+
 ## S31 publication — Win32 portability follow-up
 
 Publication was explicitly authorized on 2026-10-28. Draft fork PR #63 uses

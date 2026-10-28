@@ -80,7 +80,7 @@ ani za PASS. Bez pushe, vzdálených PR/CI a bez S32; vydání není schválené
 
 - **Požadavek:** žádná skrytá chybějící core funkce, změněný zdroj nebo stale
   binárka vydávaná za konečný důkaz.
-- **Ověření hotové:** 231 donor souborů / 892 hunků a 352 target extras aktuálně
+- **Ověření hotové:** 231 donor souborů / 892 hunků a 353 target extras aktuálně
   klasifikované; všech 140 změněných source/tool cest S31 má REUSE mapu.
   Čtyři funkční DEFERRED hunks G01/G04 jsou doloženě vyřešené. Jen dva S32
   dokumenty zůstávají DEFERRED. Textový screen není runtime kvalifikace.
@@ -91,3 +91,8 @@ ani za PASS. Bez pushe, vzdálených PR/CI a bez S32; vydání není schválené
 - **Akce / dokončení:** finální diff/registrace/doc vazby a čistý lokální commit
   ověřené závěrečným záznamem. Goal lze uzavřít lokálně s přijatými limity bodu 5.
   PAK Optimize zůstává skryté, S32 se nezahajuje a nic se nepublikuje.
+
+Publikační kvalifikace PR #63 doplnila [přenositelnost testovacích fixture](steps/S31-ci-test-fixes.md).
+Nezměnila produkční funkce ani podmínky přijatého předání G05; všechny původní
+exact-path a ochranné testy zůstaly aktivní. Nový remote výsledek se váže na nový
+publikovaný commit, původní lokální a chybové záznamy zůstávají historické.

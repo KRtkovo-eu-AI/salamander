@@ -88,9 +88,58 @@ static bool Junction(const std::wstring& source,const std::wstring& destination)
  HANDLE h=CreateFileW(Salamander::BranchView::ExtendedPath(source).c_str(),GENERIC_WRITE,0,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT|FILE_FLAG_BACKUP_SEMANTICS,nullptr);if(h==INVALID_HANDLE_VALUE)return false;DWORD n=0;BOOL ok=DeviceIoControl(h,FSCTL_SET_REPARSE_POINT,bytes.data(),DWORD(bytes.size()),nullptr,0,&n,nullptr);CloseHandle(h);return ok!=FALSE;
 }
 
-int wmain(){
+// Resolve the fixture parent before creating files, not the observed result
+// after the production operation. CI TEMP can contain RUNNER~1 or a junction.
+// Strict expected directory/name comparisons below must remain unchanged.
+static bool FixtureDirectory(const std::wstring& input,std::wstring& output){
+ const std::wstring io=Salamander::BranchView::ExtendedPath(input);
+ HANDLE h=CreateFileW(io.c_str(),0,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS,nullptr);
+ if(h==INVALID_HANDLE_VALUE)return false;
+ std::vector<wchar_t> path(SAL_MAX_PATH);BY_HANDLE_FILE_INFORMATION original{};
+ DWORD n=GetFinalPathNameByHandleW(h,path.data(),DWORD(path.size()),FILE_NAME_NORMALIZED);
+ BOOL haveOriginal=GetFileInformationByHandle(h,&original);CloseHandle(h);
+ if(!n||n>=path.size()||!haveOriginal)return false;
+ output=SalPathRemoveExtendedPrefixW(path.data());
+ // Independently verify that canonicalizing the parent did not select another
+ // directory. A wrong parent still fails before any production path is tested.
+ const std::wstring canonicalIO=Salamander::BranchView::ExtendedPath(output);
+ h=CreateFileW(canonicalIO.c_str(),0,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS,nullptr);
+ if(h==INVALID_HANDLE_VALUE)return false;
+ BY_HANDLE_FILE_INFORMATION canonical{};BOOL haveCanonical=GetFileInformationByHandle(h,&canonical);CloseHandle(h);
+ return haveCanonical&&original.dwVolumeSerialNumber==canonical.dwVolumeSerialNumber&&original.nFileIndexHigh==canonical.nFileIndexHigh&&original.nFileIndexLow==canonical.nFileIndexLow;
+}
+int wmain(int argc,wchar_t** argv){
  HRESULT init=CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);Check(SUCCEEDED(init),"initialize standard Shell COM apartment");
- std::vector<wchar_t> tmp(SAL_MAX_PATH);GetTempPathW(DWORD(tmp.size()),tmp.data());std::wstring root=std::wstring(tmp.data())+L"S31b2-"+std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(GetTickCount64());Check(Mk(root),"own fixture root");SaveTemporary=root+L"\\create.lnk";
+ std::vector<wchar_t> tmp(SAL_MAX_PATH);DWORD temporaryLength=GetTempPathW(DWORD(tmp.size()),tmp.data());
+ Check(temporaryLength>0&&temporaryLength<tmp.size(),"complete Windows temporary parent fits owned fixture storage");
+ if(!temporaryLength||temporaryLength>=tmp.size())return 2;
+ std::wstring parent=tmp.data();
+ const std::wstring suffix=std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(GetTickCount64());
+ if(argc==2&&wcscmp(argv[1],L"--temp-junction")==0){
+  const std::wstring alias=parent+L"S31b2-parent-alias-"+suffix;
+  Check(Junction(alias,parent),"create owned temporary-parent junction without system changes");parent=alias;
+ }else if(argc==2&&wcscmp(argv[1],L"--temp-short")==0){
+  const std::wstring spelled=parent+L"S31b2-parent-long-spelling-"+suffix;
+  Check(Mk(spelled),"create owned long-spelled temporary parent for short-name probe");
+  std::vector<wchar_t> shortParent(SAL_MAX_PATH);
+  DWORD n=GetShortPathNameW(Salamander::BranchView::ExtendedPath(spelled).c_str(),shortParent.data(),DWORD(shortParent.size()));
+  Check(n>0&&n<shortParent.size(),"complete short-name temporary parent is available without changing 8.3 policy");
+  if(!n||n>=shortParent.size())return 2;
+  parent=SalPathRemoveExtendedPrefixW(shortParent.data());
+ }else if(argc!=1)return 2;
+ std::wstring canonicalParent;
+ Check(FixtureDirectory(parent,canonicalParent),"fixture parent resolves to the same filesystem directory before file creation");
+ if(canonicalParent.empty())return 2;
+ if(canonicalParent.back()!=L'\\')canonicalParent+=L'\\';
+ std::wstring root=canonicalParent+L"S31b2-"+suffix;
+ Check(Mk(root),"own fixture root");SaveTemporary=root+L"\\create.lnk";
+ // GetShortPathName can return the unchanged spelling when 8.3 names are not
+ // generated. The explicit junction run above always exercises an alias.
+ std::vector<wchar_t> shortRoot(SAL_MAX_PATH);DWORD shortLength=GetShortPathNameW(Salamander::BranchView::ExtendedPath(root).c_str(),shortRoot.data(),DWORD(shortRoot.size()));
+ std::wstring canonicalShort;
+ Check(shortLength>0&&shortLength<shortRoot.size()&&FixtureDirectory(shortRoot.data(),canonicalShort)&&canonicalShort==root,
+       "short-form fixture parent resolves to the exact same owned canonical directory");
+ std::printf("TEMP_PARENT alias=%d rawUTF16=%zu canonicalUTF16=%zu\n",argc==2,parent.size(),canonicalParent.size());
  std::wstring unicode=root+L"\\東京-žluťoučký";Check(Mk(unicode),"Unicode folder");std::wstring byte=root+L"\\"+std::wstring(85,L'日');Check(Mk(byte),"UTF8 byte-long folder");std::wstring deep=unicode;
  for(int i=0;i<3;++i){deep+=L"\\"+std::wstring(80,L'本');Check(Mk(deep),"full long folder");}
  for(const auto& dir:{root,unicode,byte,deep}){

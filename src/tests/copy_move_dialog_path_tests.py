@@ -48,7 +48,7 @@ def main():
             if args.configuration not in ('Both',config): continue
             print('Actual atomic Copy/Move dialog:',config,flush=True)
             for command in ([compiler,'/nologo','/std:c++17','/EHsc','/utf-8','/J','/W4','/WX',
-                            *flags,str(cpp),'/Fe:'+str(exe),'user32.lib'],[str(exe)]):
+                            *flags,str(cpp),'/Fe:'+str(exe),'user32.lib'],*([str(exe), codepage] for codepage in ('system', '1250', '1252', '65001'))):
                 result=run(command,cwd=directory,env=env,timeout=40)
                 if result.returncode:return result.returncode
     return 0
