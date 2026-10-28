@@ -27,7 +27,8 @@ BOOL IsPluginFSPath(const char*,char* =nullptr,const char** =nullptr);
 BOOL IsPluginFSPath(char*,char*,char**);
 static std::string ResourceScratch,Message,Title;static int Messages=0,Expansions=0,Attributes=0,PluginCalls=0;
 static DWORD InjectedAttributeError=0;
-static const char* LoadStr(int id){ResourceScratch=id==IDS_PATHERRORFORMAT?"Path: \"%s\"\nError: %s":id==IDS_TOOLONGPATH?"path too long":id==IDS_NOTPLUGINFS?"unknown plugin":id==IDS_EMPTYNAMENOTALLOWED?"empty path":"invalid path";return ResourceScratch.c_str();}
+static bool BadResourceFormat=false;
+static const char* LoadStr(int id){ResourceScratch=id==IDS_PATHERRORFORMAT?(BadResourceFormat ? "%n" : "Path: \"%s\"\nError: %s"):id==IDS_TOOLONGPATH?"path too long":id==IDS_NOTPLUGINFS?"unknown plugin":id==IDS_EMPTYNAMENOTALLOWED?"empty path":"invalid path";return ResourceScratch.c_str();}
 static const char* GetErrorText(DWORD){return "filesystem failure";}
 static int SalMessageBox(HWND,const char*message,const char*title,UINT){++Messages;Message=message;Title=title;return IDOK;}
 @@WIDE@@
@@ -97,5 +98,12 @@ int wmain(int argc,wchar_t**argv){
  const std::string unc="\\\\"+std::string(260,'a')+"\\share\\child";Reset();memcpy(buffer.data(),unc.c_str(),unc.size()+1);Check(!SalParsePath(nullptr,buffer.data(),type,isDir,second,"error",nullptr,TRUE,"C:\\",nullptr,&error,SAL_MAX_PATH)&&Attributes==0&&error==SPP_WINDOWSPATHERROR,"over-capacity legacy UNC root explicitly refused without aliased I/O");
  Reset();const std::string wanted=Utf8(root.wstring())+"\\denied\\child";memcpy(buffer.data(),wanted.c_str(),wanted.size()+1);InjectedAttributeError=ERROR_ACCESS_DENIED;Check(!SalParsePath(nullptr,buffer.data(),type,isDir,second,"error",nullptr,TRUE,Utf8(root.wstring()).c_str(),nullptr,&error,SAL_MAX_PATH)&&error==SPP_WINDOWSPATHERROR&&Message=="Path: \""+wanted+"\"\nError: filesystem failure","access denial preserved with complete failing path");
  std::error_code ec;std::filesystem::remove_all(Full(root),ec);Check(!ec&&!std::filesystem::exists(Full(root)),"cleanup only exact owned fixture root");
+ // Exercise the actual error renderer, including LoadStr's rotating storage.
+ const std::string percentPath=Utf8(root.wstring())+"%s-%n-%p";
+ Reset();ShowParsePathError(nullptr,percentPath.c_str(),"detail %n %s","owned title");
+ Check(Messages==1&&Message=="Path: \""+percentPath+"\"\nError: detail %n %s"&&Title=="owned title","actual parser error inserts percent-bearing paths and details literally");
+ BadResourceFormat=true;Reset();ShowParsePathError(nullptr,percentPath.c_str(),"retained detail","retained title");
+ Check(Messages==1&&Message=="retained detail"&&Title=="retained title","malformed resource uses owned localized fallback without formatting");
+ BadResourceFormat=false;
  printf("Actual path parser context: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
 }

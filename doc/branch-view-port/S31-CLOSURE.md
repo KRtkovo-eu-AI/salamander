@@ -80,7 +80,7 @@ ani za PASS. Bez pushe, vzdálených PR/CI a bez S32; vydání není schválené
 
 - **Požadavek:** žádná skrytá chybějící core funkce, změněný zdroj nebo stale
   binárka vydávaná za konečný důkaz.
-- **Ověření hotové:** 231 donor souborů / 892 hunků a 353 target extras aktuálně
+- **Ověření hotové:** 231 donor souborů / 892 hunků a 357 target extras aktuálně
   klasifikované; všech 140 změněných source/tool cest S31 má REUSE mapu.
   Čtyři funkční DEFERRED hunks G01/G04 jsou doloženě vyřešené. Jen dva S32
   dokumenty zůstávají DEFERRED. Textový screen není runtime kvalifikace.
@@ -96,3 +96,10 @@ Publikační kvalifikace PR #63 doplnila [přenositelnost testovacích fixture](
 Nezměnila produkční funkce ani podmínky přijatého předání G05; všechny původní
 exact-path a ochranné testy zůstaly aktivní. Nový remote výsledek se váže na nový
 publikovaný commit, původní lokální a chybové záznamy zůstávají historické.
+
+## Publication follow-up: six CodeQL diagnostics
+
+See [S31-codeql-fixes](steps/S31-codeql-fixes.md). The prior local closure stays
+scoped historical evidence. Six format sinks now use bounded literal insertion;
+message/confirmation changes have new Debug/Release actual-source tests and host
+builds. Current-head remote analysis and findings checks remain publication gates.

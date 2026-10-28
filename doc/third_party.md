@@ -939,3 +939,11 @@ Authors and Samandarin Contributors from [Samandarin PR #769](https://github.com
 `47661e92d4b3cbe5bb593ae3d75a3f1f698ef413`. Local lifecycle integration,
 wide metadata/cleanup and approved advanced-mode bounds retain original
 GPL-2.0-or-later notices and existing bundled 7-Zip attribution.
+
+### S31 localized diagnostic rendering
+
+Host Unpack/Pack and path diagnostics derive from Open Salamander Authors and
+Samandarin Contributors, [PR #769](https://github.com/KRtkovo-eu-AI/salamander/pull/769),
+pinned `47661e92d4b3cbe5bb593ae3d75a3f1f698ef413`. The restricted string-insert
+renderer and regression fixtures are local GPL-2.0-or-later adaptations; existing
+notices remain and no third-party component is added.

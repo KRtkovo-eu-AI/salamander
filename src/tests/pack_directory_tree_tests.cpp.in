@@ -53,7 +53,8 @@ struct CSalamanderDirectory {
     }
 };
 static struct { BOOL SortDirsByExt = FALSE; } Configuration;
-static const char* LoadStr(int id) { return id==IDS_CANNOTREADDIR ? "%s: %s" : "owned fixture"; }
+static bool InvalidMessageTemplate=false;
+static const char* LoadStr(int id) { return id==IDS_CANNOTREADDIR ? (InvalidMessageTemplate ? "%n" : "%s: %s") : "owned fixture"; }
 static const char* GetErrorText(DWORD) { return "expected I/O error"; }
 static int SalMessageBox(HWND,const char*,const char*,UINT) { return IDCANCEL; }
 static BOOL UserWantsToCancelSafeWaitWindow() { return FALSE; }
@@ -130,6 +131,10 @@ int main(int argc,char** argv) {
     error=SALENUM_SUCCESS;
     Check(!_ReadDirectoryTree(reinterpret_cast<HWND>(1),*reinterpret_cast<char(*)[SAL_MAX_PATH]>(path.get()),"missing",nullptr,&error,FALSE,&ignored,nullptr,nullptr,TRUE)&&error==SALENUM_CANCEL,"I/O Cancel is preserved");
     Check(encoded==path.get(),"I/O Cancel restores root");
+    InvalidMessageTemplate=true;error=SALENUM_SUCCESS;
+    Check(!_ReadDirectoryTree(nullptr,*reinterpret_cast<char(*)[SAL_MAX_PATH]>(path.get()),"missing",nullptr,&error,FALSE,&ignored,nullptr,nullptr,TRUE)&&error==SALENUM_ERROR&&GetLastError()==ERROR_INVALID_DATA,"malformed localized error cannot approve incomplete enumeration");
+    Check(encoded==path.get(),"malformed error template restores exact root");
+    InvalidMessageTemplate=false;
     DWORD before=0,after=0;GetProcessHandleCount(GetCurrentProcess(),&before);
     FailConversion=true;error=SALENUM_SUCCESS;
     Check(!_ReadDirectoryTree(nullptr,*reinterpret_cast<char(*)[SAL_MAX_PATH]>(path.get()),"ascii",nullptr,&error,FALSE,&ignored,nullptr,nullptr,TRUE)&&error==SALENUM_CANCEL,"conversion allocation failure cancels");

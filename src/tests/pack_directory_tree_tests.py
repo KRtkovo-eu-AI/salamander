@@ -18,6 +18,7 @@ def main():
         'std::wstring SalMultiByteToWidePath(', 'std::string SalWideToMultiBytePath('))
     source = read('src/tests/pack_directory_tree_tests.cpp.in')
     source = source.replace('@@WIDE@@', converters).replace('@@SCANNER@@', block(read('src/fileswn7.cpp'), 'BOOL _ReadDirectoryTree('))
+    source = source.replace("#define SAL_MAX_PATH ", '#include "' + str(Path(__file__).resolve().parents[2] / "src/common/localizedtext.h").replace("\\", "/") + '"\n#define SAL_MAX_PATH ', 1)
     env = compiler_environment()
     compiler = shutil.which('cl', path=env.get('PATH'))
     with owned_temporary() as directory:

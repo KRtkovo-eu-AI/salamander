@@ -1,5 +1,13 @@
 # Validace portu a baseline S00
 
+## S31 publication — six CodeQL format-string findings
+
+The six PR #63 format-string sinks now use bounded literal string insertion.
+Debug/Release host builds and targeted actual-source tests passed; all original
+checks remain. Malformed localized templates cannot authorize path creation.
+[Implementation and evidence](steps/S31-codeql-fixes.md). Current-head remote
+CodeQL findings, PR CI and full supported-solution rebuild must qualify this commit.
+
 ## S31 publication — history and shortcut fixture portability
 
 PR #63 fixture fixes preserve production/security code and all original checks.

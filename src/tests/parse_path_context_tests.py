@@ -18,6 +18,7 @@ def main():
  text=text.replace('@@PARSER@@',show+block(source,'static BOOL ReadParsePathRoot(')+'\n'+block(source,'BOOL SalParsePath('))
  text=text.replace('@@WRAPPER@@',block(read('src/fileswn9.cpp'),'BOOL CFilesWindow::ParsePath('))
  assert '@@' not in text
+ text = text.replace("#define SAL_MAX_PATH ", '#include "' + str(Path(__file__).resolve().parents[2] / "src/common/localizedtext.h").replace("\\", "/") + '"\n#define SAL_MAX_PATH ', 1)
  env=compiler_environment();cl=shutil.which('cl',path=env.get('PATH'))
  with tempfile.TemporaryDirectory(prefix='parse-path-context-') as temp:
   d=Path(temp);cpp=d/'test.cpp';exe=d/'test.exe';cpp.write_text(text,encoding='utf8')

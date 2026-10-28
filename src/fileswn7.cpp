@@ -16,6 +16,7 @@
 #include "zip.h"
 #include "pack.h"
 #include "common/widepath.h"
+#include "common/localizedtext.h"
 #include "fileactiondisktarget.h"
 #include "fileactionarchivesource.h"
 #include "fileactionpackcontext.h"
@@ -1184,7 +1185,14 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                             if (Configuration.CnfrmCreatePath) // ask whether the path should be created
                             {
                                 BOOL dontShow = FALSE;
-                                sprintf_s(textBuf, textBuffer.Capacity(), LoadStr(IDS_MOVECOPY_CREATEPATH), newDirs);
+                                if (!Salamander::LocalizedText::Write(textBuf, static_cast<size_t>(textBuffer.Capacity()), LoadStr(IDS_MOVECOPY_CREATEPATH), newDirs))
+                                {
+                                    // Never present a malformed/truncated target confirmation.
+                                    SalMessageBox(HWindow, GetErrorText(ERROR_INVALID_DATA), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+                                    delete[] data.Indexes;
+                                    EndStopRefresh();
+                                    return;
+                                }
 
                                 MSGBOXEX_PARAMS params;
                                 memset(&params, 0, sizeof(params));
@@ -1249,8 +1257,8 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                                 std::wstring newDirsW = SalMultiByteToWidePath(newDirs, IsValidPathUtf8Text(newDirs) ? CP_UTF8 : CP_ACP);
                                 if (invalidPath || (newDirsW.empty() || !SalCreateDirectoryExW(newDirsW.c_str(), NULL)))
                                 {
-                                    sprintf_s(textBuf, textBuffer.Capacity(), LoadStr(IDS_CREATEDIRFAILED), newDirs);
-                                    SalMessageBox(HWindow, textBuf, LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+                                    const bool haveMessage = Salamander::LocalizedText::Write(textBuf, static_cast<size_t>(textBuffer.Capacity()), LoadStr(IDS_CREATEDIRFAILED), newDirs);
+                                    SalMessageBox(HWindow, haveMessage ? textBuf : GetErrorText(ERROR_INVALID_DATA), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
                                     ok = FALSE;
                                     break;
                                 }
@@ -1546,7 +1554,13 @@ BOOL _ReadDirectoryTree(HWND parent, char (&path)[SAL_MAX_PATH], const char* nam
             if (errorOccured != NULL)
                 *errorOccured = SALENUM_ERROR;
             strcpy_s(end, _countof(path) - (end - path), name);
-            sprintf_s(text.Data(), text.Capacity(), LoadStr(IDS_CANNOTREADDIR), path, GetErrorText(err));
+            if (!Salamander::LocalizedText::Write(text.Data(), static_cast<size_t>(text.Capacity()), LoadStr(IDS_CANNOTREADDIR), path, GetErrorText(err)))
+            {
+                if (parent != NULL)
+                    SalMessageBox(parent, GetErrorText(ERROR_INVALID_DATA), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                SetLastError(ERROR_INVALID_DATA);
+                return FALSE;
+            }
             *end = 0; // restore the path
             if (parent != NULL &&
                 SalMessageBox(parent, text.Data(), LoadStr(IDS_ERRORTITLE),
@@ -1754,7 +1768,13 @@ BOOL _ReadDirectoryTree(HWND parent, char (&path)[SAL_MAX_PATH], const char* nam
             if (errorOccured != NULL)
                 *errorOccured = SALENUM_ERROR;
             strcpy_s(end, _countof(path) - (end - path), name);
-            sprintf_s(text.Data(), text.Capacity(), LoadStr(IDS_CANNOTREADDIR), path, GetErrorText(err));
+            if (!Salamander::LocalizedText::Write(text.Data(), static_cast<size_t>(text.Capacity()), LoadStr(IDS_CANNOTREADDIR), path, GetErrorText(err)))
+            {
+                if (parent != NULL)
+                    SalMessageBox(parent, GetErrorText(ERROR_INVALID_DATA), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                SetLastError(ERROR_INVALID_DATA);
+                return FALSE;
+            }
             *end = 0; // restore the path
             if (parent != NULL &&
                 SalMessageBox(parent, text.Data(), LoadStr(IDS_ERRORTITLE),
@@ -3045,8 +3065,8 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
             }
             if (i2 == UnpackerConfig.GetUnpackersCount()) // requested plugin not found
             {
-                sprintf_s(subject, subjectBuffer.Capacity(), LoadStr(IDS_PLUGINUNPACKERNOTFOUND), pluginName);
-                SalMessageBox(parent, subject, LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+                const bool haveMessage = Salamander::LocalizedText::Write(subject, static_cast<size_t>(subjectBuffer.Capacity()), LoadStr(IDS_PLUGINUNPACKERNOTFOUND), pluginName);
+                SalMessageBox(parent, haveMessage ? subject : GetErrorText(ERROR_INVALID_DATA), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
                 return;
             }
         }
