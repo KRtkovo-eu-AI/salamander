@@ -285,13 +285,20 @@ void ApplyRecursive(HWND hwnd, BOOL dark)
         const LONG_PTR type = style & BS_TYPEMASK;
         if (gSetWindowTheme != NULL)
         {
-            if (type == BS_GROUPBOX)
+            const BOOL isGroup = (type == BS_GROUPBOX);
+            const BOOL isCheckOrRadio = (type == BS_AUTOCHECKBOX || type == BS_CHECKBOX || type == BS_AUTO3STATE ||
+                                         type == BS_3STATE || type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON);
+            // keep in sync with PluginDarkMode_HandleCtlColor: same themes, and update its
+            // "OpenSalamander.BtnDarkTheme" cache (1 = dark, 2 = light) so a later toggle re-applies
+            if (isGroup)
                 gSetWindowTheme(hwnd, dark ? L"" : nullptr, nullptr);
-            else if (type == BS_AUTOCHECKBOX || type == BS_CHECKBOX || type == BS_AUTO3STATE ||
-                     type == BS_3STATE || type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON)
-                gSetWindowTheme(hwnd, dark ? L"DarkMode_Explorer" : nullptr, nullptr);
+            else if (isCheckOrRadio)
+                gSetWindowTheme(hwnd, dark ? L"" : nullptr, dark ? L"" : nullptr);
             else
                 gSetWindowTheme(hwnd, dark ? L"DarkMode_Explorer" : nullptr, nullptr);
+            if (isGroup || isCheckOrRadio)
+                SetPropW(hwnd, L"OpenSalamander.BtnDarkTheme",
+                         reinterpret_cast<HANDLE>(static_cast<INT_PTR>(dark ? 1 : 2)));
             InvalidateRect(hwnd, NULL, TRUE);
         }
     }
