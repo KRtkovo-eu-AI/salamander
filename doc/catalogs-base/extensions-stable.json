@@ -191,6 +191,35 @@
         "elevation": "never"
       },
       "packageSha256": "e675b02cf8d4d68826b85d5669d60a6927e2205fd6fb446c56762f414f8a2519"
+    },
+    {
+      "id": "TabuleSprZel",
+      "packageType": "extension",
+      "name": {
+        "english": "Tabule SprŽel",
+        "czech": "Tabule SprŽel"
+      },
+      "author": "Ondřej Kotas (KRtekTM)",
+      "description": {
+        "english": "Scrapes railway departures from Správa Železnic website and displays them in Samandarin file-system panel.",
+        "czech": "Získává údaje o odjezdech vlaků z webu Správy železnic a zobrazuje je v panelu souborového systému."
+      },
+      "latestVersion": "1.2.0 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://krtkovo.eu/sprzel/",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_tabuleSprZel_1.2.0_x64/plugin_5.0_tabuleSprZel_1.2.0_x64.7z",
+      "dependencies": [
+        "javascriptruntime"
+      ],
+      "icon": "https://github.com/user-attachments/assets/276cfc35-8ef9-48a1-b233-8b04ddb0bd1a",
+      "security": {
+        "networkAccess": "yes",
+        "externalProcesses": "yes",
+        "scriptExecution": "yes",
+        "activeWebContent": "yes",
+        "elevation": "never"
+      },
+      "packageSha256": "F2CC2342367677C6C6DEB54CB22E52C49288047AFAFA624D5EEFE1E8A1652845"
     }
   ]
 }
