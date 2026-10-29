@@ -528,7 +528,8 @@ BOOL PluginDarkMode_HandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, L
     HBRUSH brush = PluginDarkMode_GetDialogCtlColorBrush(dc, message);
     if (brush == NULL)
         return FALSE;
-    if (ctrl != NULL && message == WM_CTLCOLORBTN)
+    // Checkbox/radio/groupbox send WM_CTLCOLORSTATIC (push buttons send WM_CTLCOLORBTN); handle both.
+    if (ctrl != NULL && (message == WM_CTLCOLORBTN || message == WM_CTLCOLORSTATIC))
     {
         wchar_t cls[16] = {0};
         if (GetClassNameW(ctrl, cls, _countof(cls)) != 0 && lstrcmpiW(cls, L"Button") == 0)
@@ -538,11 +539,22 @@ BOOL PluginDarkMode_HandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, L
             if (gSetWindowTheme != NULL)
             {
                 const BOOL dark = PluginDarkMode_ShouldUseDark();
-                if (type == BS_GROUPBOX)
-                    gSetWindowTheme(ctrl, dark ? L"" : nullptr, nullptr);
-                else if (type == BS_AUTOCHECKBOX || type == BS_CHECKBOX || type == BS_AUTO3STATE ||
-                         type == BS_3STATE || type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON)
-                    gSetWindowTheme(ctrl, dark ? L"" : nullptr, dark ? L"" : nullptr);
+                const BOOL isGroup = (type == BS_GROUPBOX);
+                const BOOL isCheckOrRadio = (type == BS_AUTOCHECKBOX || type == BS_CHECKBOX || type == BS_AUTO3STATE ||
+                                             type == BS_3STATE || type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON);
+                if (isGroup || isCheckOrRadio)
+                {
+                    // call SetWindowTheme only when the desired state changes (1 = dark, 2 = light)
+                    const HANDLE want = reinterpret_cast<HANDLE>(static_cast<INT_PTR>(dark ? 1 : 2));
+                    if (GetPropW(ctrl, L"OpenSalamander.BtnDarkTheme") != want)
+                    {
+                        if (isGroup)
+                            gSetWindowTheme(ctrl, dark ? L"" : nullptr, nullptr);
+                        else
+                            gSetWindowTheme(ctrl, dark ? L"" : nullptr, dark ? L"" : nullptr);
+                        SetPropW(ctrl, L"OpenSalamander.BtnDarkTheme", want);
+                    }
+                }
             }
         }
     }
@@ -552,8 +564,25 @@ BOOL PluginDarkMode_HandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, L
         if (GetClassNameW(ctrl, cls, _countof(cls)) != 0 && lstrcmpiW(cls, L"Static") == 0)
         {
             LONG_PTR style = GetWindowLongPtrW(ctrl, GWL_STYLE);
-            if ((style & (SS_ICON | SS_BITMAP | SS_BLACKRECT | SS_GRAYRECT | SS_WHITERECT)) != 0)
+            // SS_* low bits are an enumerated type, not flags
+            const LONG_PTR staticType = style & SS_TYPEMASK;
+            switch (staticType)
+            {
+            case SS_ICON:
+            case SS_BITMAP:
+            case SS_ENHMETAFILE:
+            case SS_BLACKRECT:
+            case SS_GRAYRECT:
+            case SS_WHITERECT:
+            case SS_BLACKFRAME:
+            case SS_GRAYFRAME:
+            case SS_WHITEFRAME:
+            case SS_ETCHEDHORZ:
+            case SS_ETCHEDVERT:
+            case SS_ETCHEDFRAME:
+            case SS_OWNERDRAW:
                 return FALSE;
+            }
             if ((style & SS_NOTIFY) != 0)
                 c.readableText = RGB(130, 180, 255);
         }

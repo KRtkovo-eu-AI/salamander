@@ -231,6 +231,7 @@ void ApplyWinLibDarkMode(HWND hwnd)
         DarkModeApplyTree(hwnd);
     }
 }
+} // namespace
 
 BOOL HandleWinLibDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result)
 {
@@ -245,7 +246,6 @@ BOOL HandleWinLibDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* 
         return TRUE;
     }
     return FALSE;
-}
 }
 
 void InitializeWinLibDarkMode(CSalamanderGeneralAbstract* salamanderGeneral)
