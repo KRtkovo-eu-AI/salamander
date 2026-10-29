@@ -297,7 +297,9 @@ void ReleaseWinLibDarkMode()
     WinLibDarkModeUseWindowsDarkMode = FALSE;
     WinLibDarkModeSchemeText = CLR_INVALID;
     WinLibDarkModeSchemeBackground = CLR_INVALID;
-    DarkModeSetEnabled(false);
+    // Do not call DarkModeSetEnabled(false) here: it would reset the process-wide
+    // preferred app mode and flush menu themes, turning dark mode off for the host
+    // and every other plugin. The host owns the app mode.
 }
 #endif // USE_DARKMODELIB
 
