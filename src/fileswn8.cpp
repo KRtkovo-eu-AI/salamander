@@ -573,9 +573,6 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
         int transferMode = Configuration.CopyMoveScheduling == CMTP_KEEP_LAST
                                ? Configuration.CopyMoveLastTransferMode
                                : Configuration.CopyMoveScheduling;
-        int operationSchedulingOverride = Configuration.CopyMoveOperationPolicy == COSP_ASK
-                                              ? COSO_WAIT_ALL
-                                              : COSO_DEFAULT;
         int conflictMode = Configuration.CopyMoveConflictPreference == CMCP_KEEP_LAST
                                ? Configuration.CopyMoveLastConflictMode
                                : Configuration.CopyMoveConflictPreference;
@@ -583,6 +580,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
             conflictMode = CMCM_CURRENT;
         if (transferMode != CMS_SEQUENTIAL && transferMode != CMS_STORAGE_AWARE)
             transferMode = CMS_STORAGE_AWARE;
+        int operationSchedulingOverride = CopyMoveGetSchedulingOverride(transferMode, FALSE);
         if (CopyMoveOptions.Get() != NULL) // if they exist, pull the defaults
             criteria = *CopyMoveOptions.Get();
         CCriteriaData* criteriaPtr = NULL; // pointer to 'criteria'; if NULL, they are ignored
@@ -1134,7 +1132,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     {
                         script->CopyMoveTransferMode = transferMode;
                         script->CopyMoveConflictMode = conflictMode;
-                        script->OperationSchedulingPolicy = Configuration.CopyMoveOperationPolicy;
+                        script->OperationSchedulingPolicy = COSP_STORAGE_AWARE;
                         script->OperationSchedulingOverride = operationSchedulingOverride;
                     }
                     const char* caption;

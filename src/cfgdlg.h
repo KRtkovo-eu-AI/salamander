@@ -16,7 +16,7 @@ enum CWorkDirsHistoryScope
 
 enum CCopyMoveTransferPreference
 {
-    CMTP_SEQUENTIAL = 0,
+    CMTP_SEQUENTIAL = 0, // User-controlled; retain the persisted value.
     CMTP_STORAGE_AWARE = 1,
     CMTP_KEEP_LAST = 2,
 };
@@ -257,7 +257,6 @@ struct CConfiguration
         UseSalOpen,             // should salopen.exe be used (otherwise association runs directly)
         NetwareFastDirMove,     // should fast-dir-move (rename directories) be used on the Novell Netware? (otherwise rename files only, directories are created + old empty ones deleted) (REASON: for some users, fast-dir-move works on Novell and they don’t want to wait)
         UseAsyncCopyAlg,        // Win7+ only (older OS: always FALSE): should asynchronous file copy algorithm be used on network drives?
-        CopyMoveOperationPolicy, // COSP_STORAGE_AWARE / COSP_GLOBAL_SEQUENTIAL / COSP_ASK
         CopyMoveScheduling,     // legacy field name; CMTP_SEQUENTIAL / CMTP_STORAGE_AWARE / CMTP_KEEP_LAST
         CopyMoveLastTransferMode, // CMS_SEQUENTIAL / CMS_STORAGE_AWARE
         CopyMoveConflictPreference, // CMCP_CURRENT / CMCP_SCAN_AHEAD / CMCP_KEEP_LAST

@@ -373,6 +373,14 @@ try {
                 (Join-Path $repositoryRoot `
                     'src\tests\copy_move_scheduling_contract_tests.py')
             )
+        },
+        @{
+            Name = 'operations_queue_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\operations_queue_tests.py')
+            )
         }
     )) {
         Write-Host "Running $($contractTest.Name)..."

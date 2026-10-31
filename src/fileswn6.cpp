@@ -1124,13 +1124,13 @@ void CFilesWindow::DropCopyMove(BOOL copy, char* targetPath, CCopyMoveData* data
                                                ? Configuration.CopyMoveLastTransferMode
                                                : Configuration.CopyMoveScheduling;
             script->CopyMoveConflictMode = CMCM_CURRENT; // internal/archive moves keep legacy conflict handling
-            script->OperationSchedulingPolicy = Configuration.CopyMoveOperationPolicy == COSP_ASK
-                                                    ? COSP_STORAGE_AWARE
-                                                    : Configuration.CopyMoveOperationPolicy;
-            script->OperationSchedulingOverride = COSO_DEFAULT;
+            script->OperationSchedulingPolicy = COSP_STORAGE_AWARE;
             if (script->CopyMoveTransferMode != CMS_SEQUENTIAL &&
                 script->CopyMoveTransferMode != CMS_STORAGE_AWARE)
                 script->CopyMoveTransferMode = CMS_STORAGE_AWARE;
+            // Drops have no wait checkbox: user-controlled transfers start now.
+            script->OperationSchedulingOverride = CopyMoveGetSchedulingOverride(
+                script->CopyMoveTransferMode, FALSE);
             if (sourceDir[0] != 0)
                 script->AddStoragePath(sourceDir, copy ? SACCESS_READ : SACCESS_READWRITE);
             script->AddStoragePath(targetPath, SACCESS_WRITE);

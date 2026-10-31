@@ -99,6 +99,7 @@ protected:
     int* TransferModeInOut; // CMS_SEQUENTIAL / CMS_STORAGE_AWARE for this operation
     int* ConflictModeInOut; // CMCM_CURRENT / CMCM_SCAN_AHEAD for this operation
     int* OperationSchedulingOverrideInOut; // COSO_* for this operation; NULL outside Copy/Move
+    BOOL LegacyWait; // actual user choice, separate from the checked storage-aware display
 
     int OriginalWidth;    // full dialog width
     int OriginalHeight;   // full dialog height
@@ -131,6 +132,7 @@ protected:
     HDWP OffsetControl(HDWP hdwp, int id, int yOffset);
     void EnableControls();
     void TransferCriteriaControls(CTransferInfo& ti);
+    void UpdateTransferModeControls();
     void UpdateAdvancedText();
 };
 
