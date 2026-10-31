@@ -204,10 +204,10 @@
         "english": "Scrapes railway departures from Správa Železnic website and displays them in Samandarin file-system panel.",
         "czech": "Získává údaje o odjezdech vlaků z webu Správy železnic a zobrazuje je v panelu souborového systému."
       },
-      "latestVersion": "1.5.0 (x64)",
+      "latestVersion": "1.6.0 (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://krtkovo.eu/sprzel/",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_tabuleSprZel_1.5.0_x64/plugin_5.0_tabuleSprZel_1.5.0_x64.7z",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_tabuleSprZel_1.6.0_x64/plugin_5.0_tabuleSprZel_1.6.0_x64.7z",
       "dependencies": [
         "javascriptruntime"
       ],
@@ -219,7 +219,7 @@
         "activeWebContent": "yes",
         "elevation": "never"
       },
-      "packageSha256": "2EDF4D3EC4897274564362898711CC9E8EF205B97E5CCA9F15C98E4AE8188D5C"
+      "packageSha256": "83E77A7EB252D21B3B2651FAD21F3D7B74531F2CD191D6CAD0828C4F57A65271"
     }
   ]
 }
