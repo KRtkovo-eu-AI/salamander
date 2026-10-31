@@ -2126,12 +2126,18 @@ void CEditWindow::SetFont()
             }
             else
                 tm.tmHeight = EnvFontCharHeight;
-            if (HDPIFont != NULL)
-                HANDLES(DeleteObject(HDPIFont));
-            HDPIFont = newFont;
-            DPIFontHeight = tm.tmHeight;
+            if (WinLibDPISetControlFont(HWindow, newFont, FALSE))
+            {
+                if (HDPIFont != NULL)
+                    HANDLES(DeleteObject(HDPIFont));
+                HDPIFont = newFont;
+                DPIFontHeight = tm.tmHeight;
+            }
+            else
+                HANDLES(DeleteObject(newFont));
         }
-        SendMessage(HWindow, WM_SETFONT, (WPARAM)(HDPIFont != NULL ? HDPIFont : EnvFont), 0);
+        else
+            WinLibDPISetControlFont(HWindow, HDPIFont != NULL ? HDPIFont : EnvFont, FALSE);
         SendMessage(EditLine->HWindow, EM_SETMARGINS, (WPARAM)EC_LEFTMARGIN | EC_RIGHTMARGIN, 0);
 
         RECT r;

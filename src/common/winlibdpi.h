@@ -4,6 +4,7 @@
 #pragma once
 
 #include <commctrl.h>
+#include <string.h>
 
 // WinLib is also compiled by plugins which still support older Windows SDK
 // headers. Keep the PMv2 helpers dynamically linked and avoid making the
@@ -129,9 +130,104 @@ inline int WinLibDPIFromLogical(HWND hwnd, int logical)
     return MulDiv(logical, (int)WinLibDPIGetWindowDPI(hwnd), USER_DEFAULT_SCREEN_DPI);
 }
 
+inline LRESULT CALLBACK WinLibDPIComboInputSubclassProc(HWND child, UINT message,
+                                                       WPARAM wParam, LPARAM lParam,
+                                                       UINT_PTR subclassID, DWORD_PTR)
+{
+    if (message == WM_NCDESTROY)
+    {
+        RemoveWindowSubclass(child, WinLibDPIComboInputSubclassProc, subclassID);
+        return DefSubclassProc(child, message, wParam, lParam);
+    }
+    if (message != WM_SETFONT && message != WM_WINDOWPOSCHANGED)
+        return DefSubclassProc(child, message, wParam, lParam);
+
+    COMBOBOXINFO comboInfo;
+    comboInfo.cbSize = sizeof(comboInfo);
+    if (!GetComboBoxInfo(child, &comboInfo) || comboInfo.hwndItem == NULL)
+        return message == WM_SETFONT ? 0 : DefSubclassProc(child, message, wParam, lParam);
+
+    // Font and layout updates can replace an editable combo's text with a
+    // matching history item, including during system DPI changes. If input cannot
+    // be saved, skip font updates but still let Windows process layout changes.
+    HWND edit = comboInfo.hwndItem;
+    BOOL unicode = IsWindowUnicode(edit);
+    int textLength = unicode ? GetWindowTextLengthW(edit) : GetWindowTextLengthA(edit);
+    if (textLength < 0 || textLength > MAXLONG - 2)
+        return message == WM_SETFONT ? 0 : DefSubclassProc(child, message, wParam, lParam);
+    // One extra character lets the comparison detect a longer matching prefix.
+    int capacity = textLength + 2;
+    SIZE_T charBytes = unicode ? sizeof(WCHAR) : sizeof(char);
+    if ((SIZE_T)capacity > (SIZE_T)-1 / (2 * charBytes))
+        return message == WM_SETFONT ? 0 : DefSubclassProc(child, message, wParam, lParam);
+    SIZE_T textBytes = (SIZE_T)capacity * charBytes;
+    BYTE* text = (BYTE*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, 2 * textBytes);
+    if (text == NULL)
+        return message == WM_SETFONT ? 0 : DefSubclassProc(child, message, wParam, lParam);
+    BYTE* currentText = text + textBytes;
+    SetLastError(ERROR_SUCCESS);
+    int copied = unicode ? GetWindowTextW(edit, (WCHAR*)text, capacity)
+                         : GetWindowTextA(edit, (char*)text, capacity);
+    if (copied == 0 && GetLastError() != ERROR_SUCCESS)
+    {
+        HeapFree(GetProcessHeap(), 0, text);
+        return message == WM_SETFONT ? 0 : DefSubclassProc(child, message, wParam, lParam);
+    }
+
+    DWORD selectionStart, selectionEnd;
+    SendMessage(edit, EM_GETSEL, (WPARAM)&selectionStart, (LPARAM)&selectionEnd);
+    LRESULT selectedItem = SendMessage(child, CB_GETCURSEL, 0, 0);
+    LRESULT modified = SendMessage(edit, EM_GETMODIFY, 0, 0);
+    LRESULT result = DefSubclassProc(child, message, wParam, lParam);
+    if (SendMessage(child, CB_GETCURSEL, 0, 0) != selectedItem)
+        SendMessage(child, CB_SETCURSEL, selectedItem, 0);
+
+    int currentLength = unicode ? GetWindowTextLengthW(edit) : GetWindowTextLengthA(edit);
+    int currentCopied = unicode ? GetWindowTextW(edit, (WCHAR*)currentText, capacity)
+                                : GetWindowTextA(edit, (char*)currentText, capacity);
+    if (currentLength != textLength || currentCopied != copied ||
+        memcmp(text, currentText, (SIZE_T)copied * charBytes) != 0)
+    {
+        if (unicode)
+            SetWindowTextW(edit, (WCHAR*)text);
+        else
+            SetWindowTextA(edit, (char*)text);
+    }
+    DWORD currentStart, currentEnd;
+    SendMessage(edit, EM_GETSEL, (WPARAM)&currentStart, (LPARAM)&currentEnd);
+    if (currentStart != selectionStart || currentEnd != selectionEnd)
+        SendMessage(edit, EM_SETSEL, selectionStart, selectionEnd);
+    if (SendMessage(edit, EM_GETMODIFY, 0, 0) != modified)
+        SendMessage(edit, EM_SETMODIFY, modified, 0);
+    HeapFree(GetProcessHeap(), 0, text);
+    return result;
+}
+
+inline BOOL WinLibDPISetControlFont(HWND child, HFONT font, BOOL redraw)
+{
+    if (child == NULL)
+        return FALSE;
+    WCHAR className[16];
+    LONG comboStyle = GetWindowLong(child, GWL_STYLE) & 3;
+    if ((comboStyle == CBS_DROPDOWN || comboStyle == CBS_SIMPLE) &&
+        GetClassNameW(child, className, _countof(className)) != 0 &&
+        lstrcmpiW(className, L"ComboBox") == 0)
+    {
+        const UINT_PTR subclassID = 0xD1F1;
+        DWORD_PTR data;
+        if (!GetWindowSubclass(child, WinLibDPIComboInputSubclassProc, subclassID, &data) &&
+            !SetWindowSubclass(child, WinLibDPIComboInputSubclassProc, subclassID, 0))
+        {
+            return FALSE;
+        }
+    }
+    SendMessage(child, WM_SETFONT, (WPARAM)font, MAKELPARAM(redraw, 0));
+    return (HFONT)SendMessage(child, WM_GETFONT, 0, 0) == font;
+}
+
 inline BOOL CALLBACK WinLibDPIApplyDialogFontChild(HWND child, LPARAM param)
 {
-    SendMessage(child, WM_SETFONT, (WPARAM)param, MAKELPARAM(FALSE, 0));
+    WinLibDPISetControlFont(child, (HFONT)param, FALSE);
     return TRUE;
 }
 
