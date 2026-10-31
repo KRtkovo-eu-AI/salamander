@@ -46,7 +46,7 @@ void FillFileCompFaceRect(HDC dc, const RECT* rect)
 CFileHeaderWindow::CFileHeaderWindow(const char* text)
 {
     CALL_STACK_MESSAGE2("CFileHeaderWindow::CFileHeaderWindow(%s)", text);
-    Text = text != NULL ? text : "";
+    Text = PluginMultiByteToWidePath(text, CP_UTF8);
     BkgndBrush = NULL;
 }
 
@@ -60,7 +60,7 @@ CFileHeaderWindow::~CFileHeaderWindow()
 void CFileHeaderWindow::SetText(const char* text)
 {
     CALL_STACK_MESSAGE2("CFileHeaderWindow::SetText(%s)", text);
-    Text = text != NULL ? text : "";
+    Text = PluginMultiByteToWidePath(text, CP_UTF8);
     InvalidateRect(HWindow, NULL, FALSE);
     UpdateWindow(HWindow);
 }
@@ -107,12 +107,29 @@ CFileHeaderWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         r.right--;
 
         // DT_PATH_ELLIPSIS does not work on some strings, which prints clipped text
-        // PathCompactPath() needs a copy in a local buffer, but it does not clip the text
-        char buff[SAL_MAX_PATH];
-        strncpy_s(buff, _countof(buff), Text.c_str(), _TRUNCATE);
-        PathCompactPath(dc, buff, r.right - r.left);
+        // Keep the mutable copy in UTF-16, with room for an ellipsis even for short input.
+        std::vector<wchar_t> buff(std::max<size_t>(SAL_MAX_PATH, Text.size() + 4), L'\0');
+        std::copy(Text.begin(), Text.end(), buff.begin());
+        PathCompactPathW(dc, &buff[0], r.right > r.left ? r.right - r.left : 0);
 
-        DrawText(dc, buff, -1, &r, /*DT_PATH_ELLIPSIS | */ DT_SINGLELINE | DT_NOPREFIX);
+        // PathCompactPathW can cut through a surrogate pair. Remove only orphaned
+        // code units from the compacted copy, preserving complete Unicode characters.
+        wchar_t* output = &buff[0];
+        for (const wchar_t* input = &buff[0]; *input != 0; ++input)
+        {
+            if (*input >= 0xD800 && *input <= 0xDBFF)
+            {
+                if (input[1] < 0xDC00 || input[1] > 0xDFFF)
+                    continue;
+                *output++ = *input++;
+            }
+            else if (*input >= 0xDC00 && *input <= 0xDFFF)
+                continue;
+            *output++ = *input;
+        }
+        *output = 0;
+
+        DrawTextW(dc, &buff[0], -1, &r, /*DT_PATH_ELLIPSIS | */ DT_SINGLELINE | DT_NOPREFIX);
         SetBkColor(dc, oldBkColor);
         SetTextColor(dc, oldTexColor);
         SelectObject(dc, oldFont);
