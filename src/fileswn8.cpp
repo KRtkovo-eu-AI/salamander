@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -424,15 +424,14 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                                 else
                                     selDirs = 1;
                             }
-                            char fallbackPath[SAL_MAX_PATH];
-                            lstrcpyn(fallbackPath, path, SAL_MAX_PATH);
+                            const std::string fallbackPath(path);
                             if (!target->GetPluginFS()->CopyOrMoveFromDiskToFS(type == atCopy, 1,
                                                                                target->GetPluginFS()->GetPluginFSName(),
                                                                                HWindow, NULL, NULL, NULL,
                                                                                selFiles, selDirs, path, NULL))
                             {
                                 if (path[0] == 0)
-                                    lstrcpyn(path, fallbackPath, SAL_MAX_PATH);
+                                    lstrcpyn(path, fallbackPath.c_str(), SAL_MAX_PATH);
                             }
                             // convert the path to external format (before showing it in the dialog)
                             PluginFSConvertPathToExternal(path);

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -871,22 +871,21 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                 if (target != NULL && target->Is(ptPluginFS) && target->GetPluginFS()->NotEmpty() &&
                     target->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMDISKTOFS))
                 {
-                    char fallbackPath[MAX_PATH];
                     target->GetGeneralPath(path, MAX_PATH);
-                    lstrcpyn(fallbackPath, path, MAX_PATH);
+                    const std::string fallbackPath(path);
                     if (!target->GetPluginFS()->CopyOrMoveFromDiskToFS(TRUE, 1,
                                                                        target->GetPluginFS()->GetPluginFSName(),
                                                                        HWindow, NULL, NULL, NULL,
                                                                        sourceFiles, sourceDirs, path, NULL))
                     {
                         if (path[0] == 0)
-                            lstrcpyn(path, fallbackPath, MAX_PATH);
+                            lstrcpyn(path, fallbackPath.c_str(), MAX_PATH);
                     }
                     else
                     {
                         // convert the path to external format (before showing it in the dialog)
                         PluginFSConvertPathToExternal(path);
-                        
+
                         // Unpacking from an archive does not support operation masks.
                         // Strip the mask appended by the plugin's CopyOrMoveFromDiskToFS(Mode=1)
                         // and ensure the path ends with a backslash/slash.
