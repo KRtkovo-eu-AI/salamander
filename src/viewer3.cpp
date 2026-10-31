@@ -1980,7 +1980,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 break;
                             if (len >= SearchData.GetLength())
                             {
-                                found = SearchData.SearchForward((char*)(Buffer + (FindOffset - Seek)),
+                                found = SearchData.SearchForward((char*)(GetSearchBuffer() + (FindOffset - Seek)),
                                                                  (int)len, 0);
                                 if (found != -1 && FindDialog.WholeWords)
                                 {
@@ -1989,7 +1989,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                     {
                                         if (Prepare(&hFile, FindOffset + found - 1, 1, fatalErr) == 1 && !fatalErr)
                                         {
-                                            char c = *(Buffer + (FindOffset + found - 1 - Seek));
+                                            char c = *(GetSearchBuffer() + (FindOffset + found - 1 - Seek));
                                             fail |= (c == '_' || IsCharAlpha(c) || IsCharAlphaNumeric(c));
                                         }
                                         if (fatalErr)
@@ -1997,7 +1997,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                     }
                                     if (Prepare(&hFile, FindOffset + found + SearchData.GetLength(), 1, fatalErr) == 1 && !fatalErr)
                                     {
-                                        char c = *(Buffer + (FindOffset + found + SearchData.GetLength() - Seek));
+                                        char c = *(GetSearchBuffer() + (FindOffset + found + SearchData.GetLength() - Seek));
                                         fail |= (c == '_' || IsCharAlpha(c) || IsCharAlphaNumeric(c));
                                     }
                                     if (fatalErr)
@@ -2054,7 +2054,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 break;
                             if (len >= SearchData.GetLength())
                             {
-                                found = SearchData.SearchBackward((char*)(Buffer + (off - Seek)), (int)len);
+                                found = SearchData.SearchBackward((char*)(GetSearchBuffer() + (off - Seek)), (int)len);
                                 if (found != -1 && FindDialog.WholeWords)
                                 {
                                     BOOL fail = FALSE;
@@ -2062,7 +2062,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                     {
                                         if (Prepare(&hFile, off + found - 1, 1, fatalErr) == 1 && !fatalErr)
                                         {
-                                            char c = *(Buffer + (off + found - 1 - Seek));
+                                            char c = *(GetSearchBuffer() + (off + found - 1 - Seek));
                                             fail |= (c == '_' || IsCharAlpha(c) || IsCharAlphaNumeric(c));
                                         }
                                         if (fatalErr)
@@ -2070,7 +2070,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                     }
                                     if (Prepare(&hFile, off + found + SearchData.GetLength(), 1, fatalErr) == 1 && !fatalErr)
                                     {
-                                        char c = *(Buffer + (off + found + SearchData.GetLength() - Seek));
+                                        char c = *(GetSearchBuffer() + (off + found + SearchData.GetLength() - Seek));
                                         fail |= (c == '_' || IsCharAlpha(c) || IsCharAlphaNumeric(c));
                                     }
                                     if (fatalErr)
