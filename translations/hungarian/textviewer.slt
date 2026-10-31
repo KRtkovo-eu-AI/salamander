@@ -70,4 +70,14 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 90,1,"Az egyéni színpaletta mentése nem sikerült."
 91,1,"A Salamatrix.UI nem érhető el."
 92,1,"Nem sikerült megnyitni a bővítmény beállítási párbeszédablakát."
+93,1,"Sz&erkesztés"
+94,1,"&Másolás\tCtrl+C"
+95,1,"Ö&sszes kijelölése\tCtrl+A"
+
+[STRINGTABLE 4]
+96,1,"&Keresés...\tCtrl+F"
+97,1,"Keresés &tovább\tF3"
+98,1,"Keresés &vissza\tShift+F3"
+99,1,"&Ugrás sorra...\tCtrl+G"
+100,1,"&Nyomtatás...\tCtrl+P"
 

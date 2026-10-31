@@ -2847,9 +2847,10 @@ BOOL CFindDialog::GetFocusedFile(char* buffer, int bufferLen, int* viewedIndex)
     return TRUE;
 }
 
-void CFindDialog::UpdateInternalViewerData()
+BOOL CFindDialog::UpdateInternalViewerData()
 {
-    // copy the find text to the internal viewer
+    // copy the find text to the internal viewer; returns TRUE if a non-empty text was copied
+    BOOL copied = FALSE;
     if (Configuration.CopyFindText)
     { // Alt+F3 never reaches here, so no alternate viewer...
         CFindSetDialog oldGlobalFindDialog = GlobalFindDialog;
@@ -2869,7 +2870,10 @@ void CFindDialog::UpdateInternalViewerData()
                         ViewerHistory, TRUE);
         if (!dummyTI.IsGood()) // something went wrong (hex mode)
             GlobalFindDialog = oldGlobalFindDialog;
+        else
+            copied = GlobalFindDialog.Text[0] != 0;
     }
+    return copied;
 }
 
 void CFindDialog::OnViewFile(BOOL alternate)
@@ -2891,12 +2895,14 @@ void CFindDialog::OnViewFile(BOOL alternate)
             return;
         }
     }
-    UpdateInternalViewerData();
+    BOOL passFindText = UpdateInternalViewerData();
     COpenViewerData openData;
     openData.FileName = longName;
     openData.EnumFileNamesSourceUID = FoundFilesListView->EnumFileNamesSourceUID;
     openData.EnumFileNamesLastFileIndex = viewedIndex;
+    PassFindTextToPluginViewer = passFindText;
     SendMessage(MainWindow->GetActivePanel()->HWindow, WM_USER_VIEWFILE, (WPARAM)(&openData), (LPARAM)alternate);
+    PassFindTextToPluginViewer = FALSE;
 }
 
 void CFindDialog::OnEditFile()
@@ -2939,7 +2945,7 @@ void CFindDialog::OnViewFileWith()
             return;
         }
     }
-    UpdateInternalViewerData();
+    BOOL passFindText = UpdateInternalViewerData();
     POINT menuPoint;
     GetListViewContextMenuPos(FoundFilesListView->HWindow, &menuPoint);
     DWORD handlerID;
@@ -2964,8 +2970,10 @@ void CFindDialog::OnViewFileWith()
         openData.FileName = longName;
         openData.EnumFileNamesSourceUID = FoundFilesListView->EnumFileNamesSourceUID;
         openData.EnumFileNamesLastFileIndex = viewedIndex;
+        PassFindTextToPluginViewer = passFindText;
         SendMessage(MainWindow->GetActivePanel()->HWindow, WM_USER_VIEWFILEWITH,
                     (WPARAM)(&openData), (LPARAM)handlerID);
+        PassFindTextToPluginViewer = FALSE;
     }
 }
 

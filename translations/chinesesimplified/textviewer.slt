@@ -70,4 +70,14 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 90,1,"无法保存自定义调色板。"
 91,1,"Salamatrix.UI 不可用。"
 92,1,"无法打开插件配置对话框。"
+93,1,"&编辑"
+94,1,"&复制\tCtrl+C"
+95,1,"&全选\tCtrl+A"
+
+[STRINGTABLE 4]
+96,1,"&查找...\tCtrl+F"
+97,1,"查找&下一个\tF3"
+98,1,"查找&上一个\tShift+F3"
+99,1,"&转到行...\tCtrl+G"
+100,1,"&打印...\tCtrl+P"
 

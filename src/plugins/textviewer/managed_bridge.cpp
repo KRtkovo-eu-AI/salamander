@@ -65,7 +65,7 @@ LOGFONT ReadMenuFont()
 
 NativeViewerStrings ReadStrings()
 {
-    return {SalamanderGeneral->LoadStrW(HLanguage, IDS_PLUGINNAME),
+    NativeViewerStrings strings = {SalamanderGeneral->LoadStrW(HLanguage, IDS_PLUGINNAME),
             SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_FILE),
             SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_VIEW),
             SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_CLOSE),
@@ -106,6 +106,15 @@ NativeViewerStrings ReadStrings()
             SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_REGEX),
             SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_SAVE_FAILED),
             SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COLORS_UI_UNAVAILABLE)};
+    strings.editMenu = SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_EDIT);
+    strings.copy = SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_COPY);
+    strings.selectAll = SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_SELECT_ALL);
+    strings.find = SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_FIND);
+    strings.findNext = SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_FIND_NEXT);
+    strings.findPrevious = SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_FIND_PREVIOUS);
+    strings.goToLine = SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_GOTO_LINE);
+    strings.print = SalamanderGeneral->LoadStrW(HLanguage, IDS_VIEWER_PRINT);
+    return strings;
 }
 
 LOGFONT ReadViewerFont()
@@ -138,13 +147,29 @@ bool ManagedBridge_RequestShutdown(HWND, bool forceClose)
 }
 
 bool ManagedBridge_ViewTextFile(HWND parent, const char* filePath, const RECT& placement,
-                                UINT showCmd, BOOL alwaysOnTop, HANDLE fileLock, bool)
+                                UINT showCmd, BOOL alwaysOnTop, HANDLE fileLock, bool,
+                                CSalamanderPluginViewerData* viewerData)
 {
     std::wstring path = PathToWide(filePath);
+    std::wstring searchPhrase;
+    DWORD searchFlags = 0;
+    if (viewerData != nullptr && viewerData->Size >= sizeof(CSalamanderPluginViewerSelectionData))
+    {
+        const CSalamanderPluginViewerSelectionData* sel =
+            reinterpret_cast<const CSalamanderPluginViewerSelectionData*>(viewerData);
+        if (sel->SelectionMagic == SALAMANDER_PLUGIN_VIEWER_SELECTION_MAGIC &&
+            sel->SearchPhrase != nullptr && sel->SearchPhrase[0] != '\0')
+        {
+            searchPhrase = PathToWide(sel->SearchPhrase);
+            searchFlags = sel->SearchFlags;
+        }
+    }
     NativeViewerRequest request = {DLLInstance, parent, path.c_str(), placement, showCmd,
                                    alwaysOnTop != FALSE, fileLock, NativeViewerKind::PrismText,
                                    ReadTheme(), ReadStrings(), ReadMenuFont(), SalamanderGUI,
-                                   ReadViewerFont(), SalamanderGeneral};
+                                   ReadViewerFont(), SalamanderGeneral,
+                                   searchPhrase.empty() ? nullptr : searchPhrase.c_str(),
+                                   searchFlags};
     return NativeViewer_Show(request);
 }
 

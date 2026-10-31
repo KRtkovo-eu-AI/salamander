@@ -159,9 +159,11 @@ def main() -> None:
         or 'value == L"salamander-prism-theme-ready:" + std::to_wstring(self->virtualGeneration_)' not in native_viewer
         or "self->ShowPrismBrowser()" not in native_viewer
         or "ApplyControllerZoom()" not in native_viewer
+        or "case WM_SETFOCUS:" not in native_viewer
+        or "FocusBrowser()" not in native_viewer
     ):
         raise AssertionError(
-            "Prism must reveal only its themed page and report Ready after painted content"
+            "Prism must reveal only its themed page, manage focus, and report Ready after painted content"
         )
     reuse_contract = (
         "NV_IDLE_PRISM_TIMEOUT_MS = 60 * 1000",
@@ -260,7 +262,7 @@ def main() -> None:
     )
     if any(token not in native_viewer for token in virtual_contract):
         raise AssertionError("Prism files must use native line indexing and virtualization")
-    if 'L"prism.local"' in native_viewer or "https://prism.local/" in virtual_viewer:
+    if re.search(r'L"(?:https://)?(?:prism|markdown|document)\.local', native_viewer) or "https://prism.local/" in virtual_viewer:
         raise AssertionError("Prism's local asset mapping must avoid the delayed .local hostname")
     if (
         "NV_PRISM_FILE_LIMIT = 16U * 1024U * 1024U" not in native_viewer
@@ -277,7 +279,7 @@ def main() -> None:
         raise AssertionError("rendered Markdown images must load lazily after DOM rendering")
     if (
         'AddWebResourceRequestedFilter(' not in native_viewer
-        or 'L"https://markdown.local/*"' not in native_viewer
+        or 'L"https://markdown.example/*"' not in native_viewer
         or "CreateWebResourceResponse(" not in native_viewer
         or "webView_->Navigate(markdownDocumentUri_.c_str())" not in native_viewer
     ):
@@ -555,6 +557,116 @@ def main() -> None:
         or "GetFileAttributesExW(" not in webview_plugin_source
     ):
         raise AssertionError("file-size checks must remain Unicode and long-path safe")
+
+    spl_gen = (REPOSITORY_ROOT / "src" / "plugins" / "shared" / "spl_gen.h").read_text(encoding="utf-8")
+    if (
+        "SALCFG_VIEWERFINDTEXT" not in spl_gen
+        or "SALCFG_VIEWERFINDCASE" not in spl_gen
+        or "SALCFG_VIEWERFINDWHOLEWORDS" not in spl_gen
+        or "SearchPhrase" not in spl_gen
+        or "SearchFlags" not in spl_gen
+    ):
+        raise AssertionError("spl_gen.h must define viewer find configuration parameters and selection fields")
+
+    plugins1 = (REPOSITORY_ROOT / "src" / "plugins1.cpp").read_text(encoding="utf-8")
+    if (
+        "GlobalFindDialog.Text" not in plugins1
+        or "selectionData.SearchPhrase" not in plugins1
+    ):
+        raise AssertionError("plugins1.cpp must propagate find search phrase to viewer plugins")
+    if "PassFindTextToPluginViewer && GlobalFindDialog.Text" not in plugins1:
+        raise AssertionError("only a viewer opened from Find Files may get the search phrase")
+    if "SALCFG_VIEWERFINDTEXT" in native_viewer:
+        raise AssertionError("the viewer must not open its find bar with the last viewer search text")
+
+    zip_cpp = (REPOSITORY_ROOT / "src" / "zip.cpp").read_text(encoding="utf-8")
+    if "case SALCFG_VIEWERFINDTEXT:" not in zip_cpp:
+        raise AssertionError("zip.cpp must handle SALCFG_VIEWERFINDTEXT in GetConfigParameter")
+
+    if (
+        "viewer-find-bar" not in virtual_html
+        or "find-input" not in virtual_html
+        or "find-count" not in virtual_html
+        or "find-prev" not in virtual_html
+        or "find-next" not in virtual_html
+    ):
+        raise AssertionError("virtual-viewer.html must provide an integrated find bar")
+
+    if (
+        "salamander-find:" not in virtual_viewer
+        or "handleFindResult" not in virtual_viewer
+        or "navigateToMatch" not in virtual_viewer
+        or "highlightMatchInChunk" not in virtual_viewer
+        or "pendingMatch" not in virtual_viewer
+    ):
+        raise AssertionError("virtual-viewer.js must implement full-text search navigation and match highlighting")
+
+    if (
+        "ExecuteSearch" not in native_viewer
+        or "NavigateSearchMatch" not in native_viewer
+        or "salamander-find:" not in native_viewer
+        or "pendingPreparationResult_" not in native_viewer
+    ):
+        raise AssertionError("native_viewer.cpp must support full-text search and parallel preparation")
+
+    # Edit menu, print, go to line, DevTools policy.
+    for token in (
+        "IDM_NV_COPY",
+        "IDM_NV_SELECT_ALL",
+        "IDM_NV_FIND_NEXT",
+        "IDM_NV_FIND_PREVIOUS",
+        "IDM_NV_GOTO_LINE",
+        "IDM_NV_PRINT",
+        "ICoreWebView2_16",
+        "ShowPrintUI",
+        "salamander-copy-all",
+        "salamander-copy-text:",
+        "openGoto",
+    ):
+        if token not in native_viewer:
+            raise AssertionError(f"native_viewer.cpp must implement the Edit menu command {token}")
+    if "&Edit" not in native_viewer or "Ctrl+G" not in native_viewer or "Ctrl+P" not in native_viewer:
+        raise AssertionError("the Edit/File menus must show their shortcuts")
+    flattened = native_viewer.replace("\r\n", "\n")
+    if "#ifdef _DEBUG\n            settings->put_AreDevToolsEnabled(TRUE);" not in flattened:
+        raise AssertionError("DevTools may only be enabled in Debug builds")
+    if "put_AreDevToolsEnabled(FALSE)" not in native_viewer:
+        raise AssertionError("DevTools must be disabled in Release builds")
+    if "viewer-goto-bar" not in virtual_html or "goto-input" not in virtual_html:
+        raise AssertionError("virtual-viewer.html must provide the go to line bar")
+    if "prism-edit-menu-5" not in virtual_html:
+        raise AssertionError("virtual-viewer.html must bump the script cache-buster for the edit menu")
+    copy_command = flattened[flattened.index("void CopyCommand()"):flattened.index("void SelectAllCommand()")]
+    if copy_command.count("awaitingCopyText_ = true;") < 2:
+        raise AssertionError("CopyCommand must arm awaitingCopyText_ for the Prism kind too, or the page reply is dropped")
+    if "salamander-close" not in native_viewer or "salamander-close" not in virtual_viewer:
+        raise AssertionError("Esc must be owned by the Prism page (bars first) and close the host via salamander-close")
+    esc_block = flattened[flattened.index("virtualKey == VK_ESCAPE"):flattened.index("virtualKey == VK_F5")]
+    if "PrismText" not in esc_block:
+        raise AssertionError("the host Esc accelerator must not close a Prism viewer while a find/go-to bar is open")
+    reset_block = virtual_viewer[virtual_viewer.index("documentEpoch += 1;"):virtual_viewer.index("clearFindHighlight();")]
+    for token in ("selectAllActive = false;", "hideGotoBar();", "gotoTotal = 1;"):
+        if token not in reset_block:
+            raise AssertionError(f"the document reset must run {token}")
+    for token in ("openGotoBar", "goToLine", "selectWholeDocument", "copySelection", "salamander-copy-all"):
+        if token not in virtual_viewer:
+            raise AssertionError(f"virtual-viewer.js must implement {token}")
+    for name in ("textviewer", "webview2renderviewer", "salamatrix"):
+        plugin_dir = REPOSITORY_ROOT / "src" / "plugins" / name
+        sources = "".join(
+            path.read_text(encoding="utf-8-sig")
+            for path in plugin_dir.rglob("*")
+            if path.suffix in (".rc2", ".rh", ".rh2", ".cpp") and "vcxproj" not in path.parts
+        )
+        for token in ("IDS_VIEWER_EDIT", "IDS_VIEWER_COPY", "IDS_VIEWER_SELECT_ALL", "IDS_VIEWER_PRINT"):
+            if sources.count(token) < 3:
+                raise AssertionError(f"{name} must define, translate and load {token}")
+    textviewer_rc = (REPOSITORY_ROOT / "src" / "plugins" / "textviewer" / "lang" / "lang.rc2").read_text(
+        encoding="utf-8-sig"
+    )
+    for token in ("IDS_VIEWER_FIND_NEXT", "IDS_VIEWER_FIND_PREVIOUS", "IDS_VIEWER_GOTO_LINE"):
+        if token not in textviewer_rc:
+            raise AssertionError(f"textviewer must carry the Prism-only caption {token}")
 
     print("WebView2 render viewer source-contract tests passed.")
 

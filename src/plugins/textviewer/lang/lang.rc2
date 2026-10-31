@@ -80,4 +80,12 @@ STRINGTABLE
  IDS_VIEWER_READY,               "Ready"
  IDS_VIEWER_WEBVIEW_FAILED,      "Unable to initialize the WebView2 renderer."
  IDS_VIEWER_OPEN_FAILED,         "Unable to open the selected file."
+ IDS_VIEWER_EDIT,                 "&Edit"
+ IDS_VIEWER_COPY,                 "&Copy	Ctrl+C"
+ IDS_VIEWER_SELECT_ALL,           "Select &All	Ctrl+A"
+ IDS_VIEWER_FIND,                 "&Find...	Ctrl+F"
+ IDS_VIEWER_FIND_NEXT,            "Find &Next	F3"
+ IDS_VIEWER_FIND_PREVIOUS,        "Find &Previous	Shift+F3"
+ IDS_VIEWER_GOTO_LINE,            "&Go to Line...	Ctrl+G"
+ IDS_VIEWER_PRINT,                "&Print...	Ctrl+P"
 }

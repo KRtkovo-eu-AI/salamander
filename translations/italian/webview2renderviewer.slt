@@ -34,4 +34,8 @@ COMMENT,"English version"
 [STRINGTABLE 2]
 64,1,"&A capo\tF2"
 65,1,"Mostra &spazi bianchi"
+66,1,"&Modifica"
+67,1,"&Copia\tCtrl+C"
+68,1,"Seleziona t&utto\tCtrl+A"
+69,1,"St&ampa...\tCtrl+P"
 

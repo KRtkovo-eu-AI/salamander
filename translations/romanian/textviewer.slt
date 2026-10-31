@@ -70,4 +70,14 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 90,1,"Paleta de culori personalizată nu a putut fi salvată."
 91,1,"Salamatrix.UI nu este disponibil."
 92,1,"Nu se poate deschide fereastra de configurare a modulului."
+93,1,"&Editare"
+94,1,"&Copiere\tCtrl+C"
+95,1,"Selectează &tot\tCtrl+A"
+
+[STRINGTABLE 4]
+96,1,"Ca&ută...\tCtrl+F"
+97,1,"Caută &următorul\tF3"
+98,1,"Caută &precedentul\tShift+F3"
+99,1,"&Salt la linia...\tCtrl+G"
+100,1,"&Imprimare...\tCtrl+P"
 

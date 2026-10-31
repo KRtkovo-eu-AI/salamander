@@ -5,8 +5,11 @@
 
 #include <string>
 
+struct CSalamanderPluginViewerData;
+
 bool ManagedBridge_EnsureInitialized(HWND parent);
 void ManagedBridge_Shutdown();
 bool ManagedBridge_RequestShutdown(HWND parent, bool forceClose);
 bool ManagedBridge_ViewTextFile(HWND parent, const char* filePath, const RECT& placement,
-                                UINT showCmd, BOOL alwaysOnTop, HANDLE fileLock, bool asynchronous);
+                                UINT showCmd, BOOL alwaysOnTop, HANDLE fileLock, bool asynchronous,
+                                CSalamanderPluginViewerData* viewerData = nullptr);

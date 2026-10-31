@@ -73,6 +73,13 @@ constexpr int IDM_NV_COLORS_VISUAL_STUDIO = 40009;
 constexpr int IDM_NV_COLORS_PRISM = 40010;
 constexpr int IDM_NV_COLORS_CUSTOM = 40011;
 constexpr int IDM_NV_COLORS_EDIT_CUSTOM = 40012;
+constexpr int IDM_NV_COPY = 40013;
+constexpr int IDM_NV_SELECT_ALL = 40014;
+constexpr int IDM_NV_FIND = 40015;
+constexpr int IDM_NV_FIND_NEXT = 40016;
+constexpr int IDM_NV_FIND_PREVIOUS = 40017;
+constexpr int IDM_NV_GOTO_LINE = 40018;
+constexpr int IDM_NV_PRINT = 40019;
 constexpr DWORD NV_PALETTE_VISUAL_STUDIO = 0;
 constexpr DWORD NV_PALETTE_PRISM = 1;
 constexpr DWORD NV_PALETTE_CUSTOM = 2;
@@ -103,6 +110,12 @@ std::mutex gWindowsLock;
 std::vector<HWND> gWindows;
 std::atomic<bool> gShuttingDown(false);
 std::mutex gViewerHostLock;
+// Last text searched in any viewer during this run; Ctrl+F offers it again.
+// Deliberately not persisted, so the first search after start begins empty.
+std::mutex gLastFindLock;
+std::wstring gLastFindQuery;
+bool gLastFindMatchCase = false;
+bool gLastFindWholeWord = false;
 HANDLE gViewerHostThread = nullptr;
 DWORD gViewerHostThreadId = 0;
 HANDLE gViewerHostReady = nullptr;
@@ -1052,8 +1065,18 @@ struct ViewerParameters
     std::wstring tokenRegex;
     std::wstring saveFailed;
     std::wstring uiUnavailable;
+    std::wstring editMenu;
+    std::wstring copy;
+    std::wstring selectAll;
+    std::wstring find;
+    std::wstring findNext;
+    std::wstring findPrevious;
+    std::wstring goToLine;
+    std::wstring print;
     LOGFONT viewerFont = {};
     CSalamanderGeneralAbstract* general = nullptr;
+    std::wstring searchPhrase;
+    DWORD searchFlags = 0;
 };
 
 constexpr size_t kPrismTokenCount = 12;
@@ -1419,6 +1442,7 @@ public:
         gIdlePrismViewer = nullptr;
         gIdlePrismWindow.store(nullptr);
         idle_ = false;
+        awaitingCopyText_ = false;
         // Menus and labels must follow the new request, including font/locale.
         DestroyMenus();
         parameters_.swap(parameters);
@@ -1457,6 +1481,12 @@ public:
         BringWindowToTop(window_);
         SetForegroundWindow(window_);
         UpdateWindow(window_);
+    }
+
+    void FocusBrowser()
+    {
+        if (controller_ != nullptr && browserVisible_)
+            controller_->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
     }
 
 private:
@@ -1532,6 +1562,13 @@ private:
         }
         browserVisible_ = false;
         preparationGeneration_ = gNextPreparationGeneration.fetch_add(1);
+        preparationInFlight_ = false;
+        pendingPreparationResult_.reset();
+        // Search state belongs to the closed document; F3 after reopen must
+        // not jump using the old offsets.
+        std::wstring().swap(currentSearchQuery_);
+        std::vector<size_t>().swap(currentMatchOffsets_);
+        currentMatchIndex_ = 0;
         virtualGeneration_ = 0;
         virtualInitSent_ = false;
         std::wstring().swap(virtualText_);
@@ -1571,15 +1608,40 @@ private:
         }
     }
 
+    static std::wstring MenuText(const std::wstring& text, const wchar_t* fallback)
+    {
+        return text.empty() ? std::wstring(fallback) : text;
+    }
+
     HMENU CreateMenuBar()
     {
         HMENU bar = CreateMenu();
         HMENU file = CreatePopupMenu();
+        AppendMenuW(file, MF_STRING, IDM_NV_PRINT, MenuText(parameters_->print, L"&Print...\tCtrl+P").c_str());
+        AppendMenuW(file, MF_SEPARATOR, 0, nullptr);
         AppendMenuW(file, MF_STRING, IDM_NV_CLOSE, parameters_->close.c_str());
         // Native menu bars do not add enough breathing room for these short
         // captions. Padding also gives the first item a left inset.
         std::wstring fileCaption = L"  " + parameters_->fileMenu + L"  ";
         AppendMenuW(bar, MF_POPUP, reinterpret_cast<UINT_PTR>(file), fileCaption.c_str());
+        HMENU edit = CreatePopupMenu();
+        AppendMenuW(edit, MF_STRING, IDM_NV_COPY, MenuText(parameters_->copy, L"&Copy\tCtrl+C").c_str());
+        AppendMenuW(edit, MF_STRING, IDM_NV_SELECT_ALL,
+                    MenuText(parameters_->selectAll, L"Select &All\tCtrl+A").c_str());
+        if (parameters_->kind == NativeViewerKind::PrismText)
+        {
+            AppendMenuW(edit, MF_SEPARATOR, 0, nullptr);
+            AppendMenuW(edit, MF_STRING, IDM_NV_FIND, MenuText(parameters_->find, L"&Find...\tCtrl+F").c_str());
+            AppendMenuW(edit, MF_STRING, IDM_NV_FIND_NEXT,
+                        MenuText(parameters_->findNext, L"Find &Next\tF3").c_str());
+            AppendMenuW(edit, MF_STRING, IDM_NV_FIND_PREVIOUS,
+                        MenuText(parameters_->findPrevious, L"Find &Previous\tShift+F3").c_str());
+            AppendMenuW(edit, MF_SEPARATOR, 0, nullptr);
+            AppendMenuW(edit, MF_STRING, IDM_NV_GOTO_LINE,
+                        MenuText(parameters_->goToLine, L"&Go to Line...\tCtrl+G").c_str());
+        }
+        std::wstring editCaption = L"  " + MenuText(parameters_->editMenu, L"&Edit") + L"  ";
+        AppendMenuW(bar, MF_POPUP, reinterpret_cast<UINT_PTR>(edit), editCaption.c_str());
         HMENU view = CreatePopupMenu();
         AppendMenuW(view, MF_STRING, IDM_NV_REFRESH, parameters_->refresh.c_str());
         AppendMenuW(view, MF_SEPARATOR, 0, nullptr);
@@ -1731,9 +1793,24 @@ private:
         mainMenu_ = parameters_->gui->CreateMenuPopup();
         CGUIMenuPopupAbstract* file = parameters_->gui->CreateMenuPopup();
         CGUIMenuPopupAbstract* view = parameters_->gui->CreateMenuPopup();
-        if (mainMenu_ == nullptr || file == nullptr || view == nullptr)
+        CGUIMenuPopupAbstract* edit = parameters_->gui->CreateMenuPopup();
+        if (mainMenu_ == nullptr || file == nullptr || view == nullptr || edit == nullptr)
             return false;
+        AddMenuItem(file, MenuText(parameters_->print, L"&Print...\tCtrl+P"), IDM_NV_PRINT);
+        AddMenuSeparator(file);
         AddMenuItem(file, parameters_->close, IDM_NV_CLOSE);
+        AddMenuItem(edit, MenuText(parameters_->copy, L"&Copy\tCtrl+C"), IDM_NV_COPY);
+        AddMenuItem(edit, MenuText(parameters_->selectAll, L"Select &All\tCtrl+A"), IDM_NV_SELECT_ALL);
+        if (parameters_->kind == NativeViewerKind::PrismText)
+        {
+            AddMenuSeparator(edit);
+            AddMenuItem(edit, MenuText(parameters_->find, L"&Find...\tCtrl+F"), IDM_NV_FIND);
+            AddMenuItem(edit, MenuText(parameters_->findNext, L"Find &Next\tF3"), IDM_NV_FIND_NEXT);
+            AddMenuItem(edit, MenuText(parameters_->findPrevious, L"Find &Previous\tShift+F3"),
+                        IDM_NV_FIND_PREVIOUS);
+            AddMenuSeparator(edit);
+            AddMenuItem(edit, MenuText(parameters_->goToLine, L"&Go to Line...\tCtrl+G"), IDM_NV_GOTO_LINE);
+        }
         AddMenuItem(view, parameters_->refresh, IDM_NV_REFRESH);
         AddMenuSeparator(view);
         AddMenuItem(view, parameters_->zoomIn, IDM_NV_ZOOM_IN);
@@ -1749,6 +1826,7 @@ private:
                 return false;
         }
         if (!AddMenuItem(mainMenu_, parameters_->fileMenu, 0, file) ||
+            !AddMenuItem(mainMenu_, MenuText(parameters_->editMenu, L"&Edit"), 0, edit) ||
             !AddMenuItem(mainMenu_, parameters_->viewMenu, 0, view) ||
             (parameters_->kind == NativeViewerKind::PrismText &&
              (!AddMenuItem(mainMenu_,
@@ -1828,6 +1906,15 @@ private:
             UpdateViewMenuChecks();
             ApplyTheme();
             BeginBrowserInitialization();
+            if (parameters_->kind == NativeViewerKind::PrismText)
+                StartPreparation(false);
+            else if (parameters_->kind == NativeViewerKind::RenderDocument)
+            {
+                const std::wstring extension = ExtensionOf(parameters_->filePath);
+                if (extension == L".md" || extension == L".markdown" || extension == L".mdown" ||
+                    extension == L".mkd" || extension == L".mdx")
+                    StartPreparation(true);
+            }
             return 0;
         }
         case WM_SIZE:
@@ -1837,6 +1924,9 @@ private:
             if (idle_)
                 return 0;
             HandleCommand(LOWORD(wParam), HIWORD(wParam));
+            return 0;
+        case WM_SETFOCUS:
+            FocusBrowser();
             return 0;
         case WM_KEYDOWN:
             if (wParam == VK_ESCAPE)
@@ -1908,6 +1998,8 @@ private:
         waitingForReusedDocument_ = false;
         SetWindowTextW(status_, parameters_->ready.c_str());
         ShowPrismBrowser();
+        if (GetActiveWindow() == window_ || GetForegroundWindow() == window_)
+            FocusBrowser();
         loadProgress_ = 100;
     }
 
@@ -1920,6 +2012,8 @@ private:
         {
             controller_->put_IsVisible(TRUE);
             browserVisible_ = true;
+            if (GetActiveWindow() == window_ || GetForegroundWindow() == window_)
+                FocusBrowser();
         }
     }
 
@@ -2119,7 +2213,12 @@ private:
         {
             settings->put_IsStatusBarEnabled(FALSE);
             settings->put_AreDefaultContextMenusEnabled(TRUE);
+#ifdef _DEBUG
             settings->put_AreDevToolsEnabled(TRUE);
+#else
+            // DevTools (F12 / context menu Inspect) are a developer aid only.
+            settings->put_AreDevToolsEnabled(FALSE);
+#endif
             settings->put_IsZoomControlEnabled(TRUE);
         }
         const HWND viewerWindow = window_;
@@ -2140,6 +2239,8 @@ private:
                         self->browserHealthy_ = false;
                         self->prismPageReady_ = false;
                         self->preparationGeneration_ = gNextPreparationGeneration.fetch_add(1);
+                        self->preparationInFlight_ = false;
+                        self->pendingPreparationResult_.reset();
                         self->virtualGeneration_ = 0;
                         self->virtualInitSent_ = false;
                         if (self->idle_)
@@ -2167,6 +2268,8 @@ private:
                 [viewerWindow, viewerGeneration](ICoreWebView2*, ICoreWebView2NavigationStartingEventArgs*) -> HRESULT
                 {
                     ViewerWindow* self = Resolve({viewerWindow, viewerGeneration});
+                    if (self != nullptr)
+                        self->awaitingCopyText_ = false;
                     if (self != nullptr && !self->idle_)
                         self->SetLoadProgress(90);
                     return S_OK;
@@ -2193,11 +2296,20 @@ private:
                                 L"}';document.head.appendChild(s);}})();";
                             self->webView_->ExecuteScript(script.c_str(), nullptr);
                         }
+                        if (!self->parameters_->searchPhrase.empty())
+                        {
+                            std::wstring findScript = L"window.find(" + JsonString(self->parameters_->searchPhrase) +
+                                L", " + ((self->parameters_->searchFlags & SALVIEWER_SEARCH_CASE_SENSITIVE) ? L"true" : L"false") +
+                                L", false, true);";
+                            self->webView_->ExecuteScript(findScript.c_str(), nullptr);
+                        }
                         SetWindowTextW(self->status_, self->parameters_->ready.c_str());
                         if (!self->browserVisible_ && self->controller_)
                         {
                             self->controller_->put_IsVisible(TRUE);
                             self->browserVisible_ = true;
+                            if (GetActiveWindow() == self->window_ || GetForegroundWindow() == self->window_)
+                                self->FocusBrowser();
                         }
                         self->loadProgress_ = 100;
                         return S_OK;
@@ -2237,8 +2349,17 @@ private:
                     int command = 0;
                     if (virtualKey == VK_ESCAPE)
                     {
-                        args->put_Handled(TRUE);
-                        PostMessageW(viewerWindow, WM_CLOSE, 0, 0);
+                        // A loaded Prism page owns Esc: it closes the find/go-to bar first and only
+                        // then asks the host to close (salamander-close). Without a live page script
+                        // (loading, error page, crashed renderer) the host closes, as before.
+                        const bool pageOwnsEsc = self->parameters_->kind == NativeViewerKind::PrismText &&
+                                                 self->prismPageReady_ && self->browserHealthy_ &&
+                                                 self->browserVisible_;
+                        if (!pageOwnsEsc)
+                        {
+                            args->put_Handled(TRUE);
+                            PostMessageW(viewerWindow, WM_CLOSE, 0, 0);
+                        }
                     }
                     else if (virtualKey == VK_F5)
                         command = IDM_NV_REFRESH;
@@ -2246,12 +2367,30 @@ private:
                         command = IDM_NV_WRAP_LINES;
                     else if ((GetKeyState(VK_CONTROL) & 0x8000) != 0)
                     {
-                        if (virtualKey == '0' || virtualKey == VK_NUMPAD0)
+                        const bool shiftOrAlt = (GetKeyState(VK_SHIFT) & 0x8000) != 0 || (GetKeyState(VK_MENU) & 0x8000) != 0;
+                        if (virtualKey == 'F')
+                        {
+                            args->put_Handled(TRUE);
+                            if (self->parameters_->kind == NativeViewerKind::PrismText)
+                                self->PostOpenFind();
+                            return S_OK;
+                        }
+                        else if (virtualKey == 'G' && !shiftOrAlt && self->parameters_->kind == NativeViewerKind::PrismText)
+                            command = IDM_NV_GOTO_LINE;
+                        else if (virtualKey == 'P' && !shiftOrAlt)
+                            command = IDM_NV_PRINT;
+                        else if (virtualKey == '0' || virtualKey == VK_NUMPAD0)
                             command = IDM_NV_ZOOM_RESET;
                         else if (virtualKey == VK_OEM_PLUS || virtualKey == VK_ADD)
                             command = IDM_NV_ZOOM_IN;
                         else if (virtualKey == VK_OEM_MINUS || virtualKey == VK_SUBTRACT)
                             command = IDM_NV_ZOOM_OUT;
+                    }
+                    else if (virtualKey == VK_F3)
+                    {
+                        args->put_Handled(TRUE);
+                        self->FindNextCommand((GetKeyState(VK_SHIFT) & 0x8000) != 0);
+                        return S_OK;
                     }
                     if (command != 0)
                     {
@@ -2302,6 +2441,37 @@ private:
                             self->HandleVirtualChunk(value);
                             return S_OK;
                         }
+                        constexpr wchar_t copyTextPrefix[] = L"salamander-copy-text:";
+                        if (value == L"salamander-close")
+                        {
+                            if (self->parameters_->kind == NativeViewerKind::PrismText && !self->idle_)
+                                PostMessageW(viewerWindow, WM_CLOSE, 0, 0);
+                            return S_OK;
+                        }
+                        if (value == L"salamander-copy-all")
+                        {
+                            self->awaitingCopyText_ = false;
+                            // Ctrl+C in the page also sends this without a menu request.
+                            if (self->parameters_->kind == NativeViewerKind::PrismText && !self->virtualText_.empty())
+                                self->SetClipboardText(self->virtualText_);
+                            return S_OK;
+                        }
+                        if (value.compare(0, std::size(copyTextPrefix) - 1, copyTextPrefix) == 0)
+                        {
+                            const bool accepted = self->awaitingCopyText_;
+                            self->awaitingCopyText_ = false;
+                            // Only honour the reply to our own Copy request: a rendered page
+                            // must not be able to overwrite the clipboard on its own.
+                            if (accepted && value.size() > std::size(copyTextPrefix) - 1)
+                                self->SetClipboardText(value.substr(std::size(copyTextPrefix) - 1));
+                            return S_OK;
+                        }
+                        constexpr wchar_t findPrefix[] = L"salamander-find:";
+                        if (value.compare(0, std::size(findPrefix) - 1, findPrefix) == 0)
+                        {
+                            self->HandleFindMessage(value.substr(std::size(findPrefix) - 1));
+                            return S_OK;
+                        }
                         if (self->parameters_->kind != NativeViewerKind::RenderDocument)
                             return S_OK;
                         constexpr wchar_t prefix[] = L"salamander-link:";
@@ -2312,7 +2482,7 @@ private:
                         return S_OK;
                     }).Get(), &webMessageToken_);
         webView_->AddWebResourceRequestedFilter(
-            L"https://markdown.local/*", COREWEBVIEW2_WEB_RESOURCE_CONTEXT_DOCUMENT);
+            L"https://markdown.example/*", COREWEBVIEW2_WEB_RESOURCE_CONTEXT_DOCUMENT);
         webView_->add_WebResourceRequested(
             Callback<ICoreWebView2WebResourceRequestedEventHandler>(
                 [viewerWindow, viewerGeneration](ICoreWebView2*, ICoreWebView2WebResourceRequestedEventArgs* args) -> HRESULT
@@ -2393,10 +2563,10 @@ private:
         if (folder.empty() || FAILED(webView_.As(&webView3)))
             return L"";
         HRESULT hr = webView3->SetVirtualHostNameToFolderMapping(
-            L"document.local", folder.c_str(), COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
+            L"document.example", folder.c_str(), COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
         if (FAILED(hr))
             return L"";
-        return L"https://document.local/" + UrlEncodePathSegment(FileNameOf(parameters_->filePath));
+        return L"https://document.example/" + UrlEncodePathSegment(FileNameOf(parameters_->filePath));
     }
 
     struct PrismStyleMetrics
@@ -2471,6 +2641,7 @@ private:
             std::lock_guard<std::mutex> guard(preparationTarget_->lock);
             preparationTarget_->alive = false;
             preparationGeneration_ = gNextPreparationGeneration.fetch_add(1);
+            preparationInFlight_ = false;
             MSG pending = {};
             while (PeekMessageW(&pending, window_, WM_NV_PREPARATION_COMPLETE,
                                 WM_NV_PREPARATION_COMPLETE, PM_REMOVE))
@@ -2488,6 +2659,12 @@ private:
             return;
         }
         preparationGeneration_ = gNextPreparationGeneration.fetch_add(1);
+        preparationInFlight_ = false;
+        pendingPreparationResult_.reset();
+        // Match offsets refer to the previous text; the page reset clears its find bar too.
+        currentSearchQuery_.clear();
+        currentMatchOffsets_.clear();
+        currentMatchIndex_ = 0;
         virtualGeneration_ = 0;
         virtualInitSent_ = false;
         if (!markdown && prismPageReady_ && controller_)
@@ -2521,13 +2698,14 @@ private:
             ShowError(parameters_->openFailed, HRESULT_FROM_WIN32(GetLastError()));
             return;
         }
+        preparationInFlight_ = true;
         CloseHandle(worker);
     }
 
     void NavigateMarkdown(const std::wstring& fragment)
     {
         std::wstring mappedUri = MapLocalDocument();
-        std::wstring base = mappedUri.empty() ? L"" : L"https://document.local/";
+        std::wstring base = mappedUri.empty() ? L"" : L"https://document.example/";
         COLORREF codeBackground = BlendColor(parameters_->theme.background, parameters_->theme.foreground,
                                               parameters_->theme.dark ? 10 : 6);
         COLORREF border = BlendColor(parameters_->theme.background, parameters_->theme.foreground,
@@ -2547,7 +2725,7 @@ private:
             CssColor(border) + L";margin:2em 0}ul,ol{margin:0 0 1em 1.5em}</style>"
             L"</head><body>" + fragment + L"</body></html>";
         markdownDocumentUtf8_ = WideToUtf8(html);
-        markdownDocumentUri_ = L"https://markdown.local/document.html?generation=" +
+        markdownDocumentUri_ = L"https://markdown.example/document.html?generation=" +
                                std::to_wstring(preparationGeneration_);
         SetLoadProgress(80);
         webView_->Navigate(markdownDocumentUri_.c_str());
@@ -2562,7 +2740,20 @@ private:
                 ShowError(parameters_->openFailed, E_OUTOFMEMORY);
             return;
         }
-        if (idle_ || result->generation != preparationGeneration_ || !webView_)
+        if (idle_ || result->generation != preparationGeneration_)
+            return;
+        preparationInFlight_ = false;
+        if (!webView_)
+        {
+            pendingPreparationResult_ = std::move(result);
+            return;
+        }
+        ApplyPreparationResult(std::move(result));
+    }
+
+    void ApplyPreparationResult(std::unique_ptr<PreparationResult> result)
+    {
+        if (result == nullptr || !webView_)
             return;
         if (result->error != ERROR_SUCCESS)
         {
@@ -2645,7 +2836,10 @@ private:
             L",\"selectedBackground\":" + JsonString(CssColor(parameters_->theme.selectedBackground)) +
             L",\"gutterForeground\":" + JsonString(style.gutterForeground) +
             L",\"gutterBackground\":" + JsonString(style.gutterBackground) +
-            L",\"palette\":" + JsonString(ColorPaletteName());
+            L",\"palette\":" + JsonString(ColorPaletteName()) +
+            L",\"searchPhrase\":" + JsonString(parameters_->searchPhrase) +
+            L",\"searchCaseSensitive\":" + ((parameters_->searchFlags & SALVIEWER_SEARCH_CASE_SENSITIVE) ? std::wstring(L"true") : L"false") +
+            L",\"searchWholeWords\":" + ((parameters_->searchFlags & SALVIEWER_SEARCH_WHOLE_WORDS) ? std::wstring(L"true") : L"false");
         AppendCustomPaletteJson(json, nullptr, nullptr);
         json += L"}";
         if (SUCCEEDED(webView_->PostWebMessageAsJson(json.c_str())))
@@ -2835,6 +3029,396 @@ private:
         return true;
     }
 
+    static bool IsWordChar(wchar_t c)
+    {
+        return (c >= L'a' && c <= L'z') || (c >= L'A' && c <= L'Z') || (c >= L'0' && c <= L'9') || c == L'_';
+    }
+
+    static bool IsWholeWordMatch(const std::wstring& text, size_t pos, size_t len)
+    {
+        if (pos > 0 && IsWordChar(text[pos - 1]))
+            return false;
+        if (pos + len < text.size() && IsWordChar(text[pos + len]))
+            return false;
+        return true;
+    }
+
+    static bool FindJsonString(const std::wstring& json, const wchar_t* key, std::wstring& out)
+    {
+        std::wstring needle = L"\"" + std::wstring(key) + L"\"";
+        size_t pos = json.find(needle);
+        if (pos == std::wstring::npos)
+            return false;
+        pos = json.find(L':', pos);
+        if (pos == std::wstring::npos)
+            return false;
+        pos = json.find(L'"', pos);
+        if (pos == std::wstring::npos)
+            return false;
+        size_t end = json.find(L'"', pos + 1);
+        if (end == std::wstring::npos)
+            return false;
+        out = json.substr(pos + 1, end - pos - 1);
+        return true;
+    }
+
+    static bool FindJsonBool(const std::wstring& json, const wchar_t* key, bool& out)
+    {
+        std::wstring needle = L"\"" + std::wstring(key) + L"\"";
+        size_t pos = json.find(needle);
+        if (pos == std::wstring::npos)
+            return false;
+        pos = json.find(L':', pos);
+        if (pos == std::wstring::npos)
+            return false;
+        while (pos < json.size() && (json[pos] == L':' || json[pos] == L' ' || json[pos] == L'\t'))
+            pos++;
+        if (json.compare(pos, 4, L"true") == 0)
+        {
+            out = true;
+            return true;
+        }
+        if (json.compare(pos, 5, L"false") == 0)
+        {
+            out = false;
+            return true;
+        }
+        return false;
+    }
+
+    static bool FindJsonNumber(const std::wstring& json, const wchar_t* key, size_t& out)
+    {
+        std::wstring needle = L"\"" + std::wstring(key) + L"\"";
+        size_t pos = json.find(needle);
+        if (pos == std::wstring::npos)
+            return false;
+        pos = json.find(L':', pos);
+        if (pos == std::wstring::npos)
+            return false;
+        while (pos < json.size() && (json[pos] == L':' || json[pos] == L' ' || json[pos] == L'\t'))
+            pos++;
+        size_t end = pos;
+        while (end < json.size() && iswdigit(json[end]))
+            end++;
+        if (end == pos)
+            return false;
+        uint64_t val = 0;
+        if (ParseUnsigned(json.substr(pos, end - pos), val))
+        {
+            out = static_cast<size_t>(val);
+            return true;
+        }
+        return false;
+    }
+
+    // F3 / Shift+F3 / Edit > Find Next|Previous.
+    void FindNextCommand(bool backward)
+    {
+        if (parameters_->kind == NativeViewerKind::PrismText)
+        {
+            NavigateSearchMatch(!backward);
+        }
+        else if (parameters_->kind == NativeViewerKind::RenderDocument && webView_)
+        {
+            std::wstring phrase = parameters_->searchPhrase;
+            std::wstring script = L"window.find(" + (phrase.empty() ? L"''" : JsonString(phrase)) +
+                L", " + ((parameters_->searchFlags & SALVIEWER_SEARCH_CASE_SENSITIVE) ? L"true" : L"false") +
+                L", " + (backward ? L"true" : L"false") + L", true);";
+            webView_->ExecuteScript(script.c_str(), nullptr);
+        }
+    }
+
+    // Puts plain text on the clipboard; bare LF becomes CRLF like Windows editors expect.
+    void SetClipboardText(const std::wstring& text)
+    {
+        std::wstring normalized;
+        normalized.reserve(text.size() + text.size() / 32 + 1);
+        for (size_t i = 0; i < text.size(); ++i)
+        {
+            if (text[i] == L'\n' && (i == 0 || text[i - 1] != L'\r'))
+                normalized.push_back(L'\r');
+            normalized.push_back(text[i]);
+        }
+        const size_t bytes = (normalized.size() + 1) * sizeof(wchar_t);
+        HGLOBAL memory = GlobalAlloc(GMEM_MOVEABLE, bytes);
+        if (memory == nullptr)
+            return;
+        void* target = GlobalLock(memory);
+        if (target == nullptr)
+        {
+            GlobalFree(memory);
+            return;
+        }
+        memcpy(target, normalized.c_str(), bytes);
+        GlobalUnlock(memory);
+        if (!OpenClipboard(window_))
+        {
+            GlobalFree(memory);
+            return;
+        }
+        if (!EmptyClipboard())
+        {
+            CloseClipboard();
+            GlobalFree(memory);
+            return;
+        }
+        if (SetClipboardData(CF_UNICODETEXT, memory) == nullptr)
+            GlobalFree(memory);
+        CloseClipboard();
+    }
+
+    // Edit > Copy. Prism text: the page decides between the real selection and
+    // "everything" (after Select All the DOM only holds the mounted chunks).
+    // Rendered documents: the selection text is posted back and copied here.
+    void CopyCommand()
+    {
+        if (!webView_)
+            return;
+        if (parameters_->kind == NativeViewerKind::PrismText)
+        {
+            // The page answers with salamander-copy-all or salamander-copy-text:<sel>;
+            // only a reply to this request is accepted by the message handler.
+            awaitingCopyText_ = true;
+            webView_->PostWebMessageAsJson(L"{\"type\":\"copy\"}");
+        }
+        else
+        {
+            awaitingCopyText_ = true;
+            webView_->ExecuteScript(
+                L"window.chrome.webview.postMessage('salamander-copy-text:' + String(window.getSelection()));",
+                nullptr);
+        }
+    }
+
+    void SelectAllCommand()
+    {
+        if (!webView_)
+            return;
+        if (controller_)
+            controller_->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+        if (parameters_->kind == NativeViewerKind::PrismText)
+            webView_->PostWebMessageAsJson(L"{\"type\":\"selectAll\"}");
+        else
+            webView_->ExecuteScript(L"document.execCommand('selectAll');", nullptr);
+    }
+
+    void GoToLineCommand()
+    {
+        if (!webView_ || parameters_->kind != NativeViewerKind::PrismText)
+            return;
+        std::wstring label = parameters_->goToLine;
+        const size_t tab = label.find(L'\t');
+        if (tab != std::wstring::npos)
+            label.resize(tab);
+        label.erase(std::remove(label.begin(), label.end(), L'&'), label.end());
+        while (!label.empty() && (label.back() == L'.' || label.back() == L' ' || label.back() == 0x2026))
+            label.pop_back();
+        if (label.empty())
+            label = L"Go to line";
+        const size_t total = virtualLineStarts_.empty() ? 1 : virtualLineStarts_.size();
+        std::wstring json = L"{\"type\":\"openGoto\",\"label\":" + JsonString(label) +
+                            L",\"total\":" + std::to_wstring(total) + L"}";
+        webView_->PostWebMessageAsJson(json.c_str());
+    }
+
+    void PrintCommand()
+    {
+        if (!webView_)
+            return;
+        ComPtr<ICoreWebView2_16> webView16;
+        if (SUCCEEDED(webView_->QueryInterface(IID_PPV_ARGS(&webView16))) && webView16)
+        {
+            if (SUCCEEDED(webView16->ShowPrintUI(COREWEBVIEW2_PRINT_DIALOG_KIND_BROWSER)))
+                return;
+        }
+        webView_->ExecuteScript(L"window.print();", nullptr);
+    }
+
+    void PostOpenFind()
+    {
+        if (!webView_)
+            return;
+        std::wstring query;
+        bool matchCase = false;
+        bool wholeWord = false;
+        {
+            std::lock_guard<std::mutex> guard(gLastFindLock);
+            query = gLastFindQuery;
+            matchCase = gLastFindMatchCase;
+            wholeWord = gLastFindWholeWord;
+        }
+        std::wstring json = L"{\"type\":\"openFind\",\"query\":" + JsonString(query) +
+                            L",\"matchCase\":" + (matchCase ? L"true" : L"false") +
+                            L",\"wholeWord\":" + (wholeWord ? L"true" : L"false") + L"}";
+        webView_->PostWebMessageAsJson(json.c_str());
+    }
+
+    void ExecuteSearch(const std::wstring& query, bool matchCase, bool wholeWord, size_t fromLine)
+    {
+        if (!query.empty())
+        {
+            std::lock_guard<std::mutex> guard(gLastFindLock);
+            gLastFindQuery = query;
+            gLastFindMatchCase = matchCase;
+            gLastFindWholeWord = wholeWord;
+        }
+        currentSearchQuery_ = query;
+        currentSearchMatchCase_ = matchCase;
+        currentSearchWholeWord_ = wholeWord;
+        currentMatchOffsets_.clear();
+        currentMatchIndex_ = 0;
+
+        if (query.empty() || virtualText_.empty())
+        {
+            SendFindResult(0, 0, 0);
+            return;
+        }
+
+        const size_t textLen = virtualText_.size();
+        const size_t qLen = query.size();
+        if (qLen <= textLen)
+        {
+            if (matchCase)
+            {
+                size_t pos = 0;
+                while ((pos = virtualText_.find(query, pos)) != std::wstring::npos)
+                {
+                    if (!wholeWord || IsWholeWordMatch(virtualText_, pos, qLen))
+                        currentMatchOffsets_.push_back(pos);
+                    pos += 1;
+                }
+            }
+            else
+            {
+                std::wstring queryLower = query;
+                for (wchar_t& ch : queryLower)
+                    ch = towlower(ch);
+                const wchar_t firstLower = queryLower[0];
+                for (size_t i = 0; i <= textLen - qLen; ++i)
+                {
+                    if (towlower(virtualText_[i]) == firstLower)
+                    {
+                        bool match = true;
+                        for (size_t j = 1; j < qLen; ++j)
+                        {
+                            if (towlower(virtualText_[i + j]) != queryLower[j])
+                            {
+                                match = false;
+                                break;
+                            }
+                        }
+                        if (match)
+                        {
+                            if (!wholeWord || IsWholeWordMatch(virtualText_, i, qLen))
+                                currentMatchOffsets_.push_back(i);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (currentMatchOffsets_.empty())
+        {
+            SendFindResult(0, 0, 0);
+            return;
+        }
+
+        size_t targetOffset = (fromLine < virtualLineStarts_.size()) ? virtualLineStarts_[fromLine] : 0;
+        auto it = std::lower_bound(currentMatchOffsets_.begin(), currentMatchOffsets_.end(), targetOffset);
+        if (it != currentMatchOffsets_.end())
+            currentMatchIndex_ = std::distance(currentMatchOffsets_.begin(), it);
+        else
+            currentMatchIndex_ = 0;
+
+        SendCurrentMatch();
+    }
+
+    void NavigateSearchMatch(bool forward)
+    {
+        if (currentMatchOffsets_.empty())
+        {
+            if (!parameters_->searchPhrase.empty() && currentSearchQuery_.empty())
+            {
+                ExecuteSearch(parameters_->searchPhrase,
+                              (parameters_->searchFlags & SALVIEWER_SEARCH_CASE_SENSITIVE) != 0,
+                              (parameters_->searchFlags & SALVIEWER_SEARCH_WHOLE_WORDS) != 0, 0);
+                return;
+            }
+            if (currentSearchQuery_.empty())
+            {
+                // nothing searched in this viewer yet: F3 asks for the text like Ctrl+F
+                PostOpenFind();
+                return;
+            }
+            SendFindResult(0, 0, 0);
+            return;
+        }
+
+        if (forward)
+            currentMatchIndex_ = (currentMatchIndex_ + 1) % currentMatchOffsets_.size();
+        else
+            currentMatchIndex_ = (currentMatchIndex_ + currentMatchOffsets_.size() - 1) % currentMatchOffsets_.size();
+
+        SendCurrentMatch();
+    }
+
+    void SendCurrentMatch()
+    {
+        if (currentMatchOffsets_.empty() || !webView_)
+            return;
+        size_t offset = currentMatchOffsets_[currentMatchIndex_];
+        size_t line = 0;
+        size_t col = 0;
+        if (!virtualLineStarts_.empty())
+        {
+            auto it = std::upper_bound(virtualLineStarts_.begin(), virtualLineStarts_.end(), offset) - 1;
+            line = std::distance(virtualLineStarts_.begin(), it);
+            col = offset - *it;
+        }
+        SendFindResult(line, col, currentSearchQuery_.length());
+    }
+
+    void SendFindResult(size_t line, size_t col, size_t length)
+    {
+        if (!webView_)
+            return;
+        std::wstring json = L"{\"type\":\"findResult\","
+            L"\"query\":" + JsonString(currentSearchQuery_) + L","
+            L"\"matchIndex\":" + std::to_wstring(currentMatchOffsets_.empty() ? 0 : currentMatchIndex_ + 1) + L","
+            L"\"totalCount\":" + std::to_wstring(currentMatchOffsets_.size()) + L","
+            L"\"line\":" + std::to_wstring(line) + L","
+            L"\"col\":" + std::to_wstring(col) + L","
+            L"\"length\":" + std::to_wstring(length) + L"}";
+        webView_->PostWebMessageAsJson(json.c_str());
+    }
+
+    void HandleFindMessage(const std::wstring& payload)
+    {
+        std::wstring action;
+        if (!FindJsonString(payload, L"action", action))
+            return;
+        if (action == L"search")
+        {
+            std::wstring query;
+            FindJsonString(payload, L"query", query);
+            bool matchCase = false;
+            FindJsonBool(payload, L"matchCase", matchCase);
+            bool wholeWord = false;
+            FindJsonBool(payload, L"wholeWord", wholeWord);
+            size_t fromLine = 0;
+            FindJsonNumber(payload, L"fromLine", fromLine);
+            ExecuteSearch(query, matchCase, wholeWord, fromLine);
+        }
+        else if (action == L"next")
+        {
+            NavigateSearchMatch(true);
+        }
+        else if (action == L"prev")
+        {
+            NavigateSearchMatch(false);
+        }
+    }
+
     void HandleVirtualChunk(const std::wstring& message)
     {
         constexpr wchar_t prefix[] = L"salamander-chunk:";
@@ -2891,6 +3475,32 @@ private:
         }
     }
 
+    // View -> Refresh must re-read the file even when the previous text is
+    // still loaded, so it cannot go through LoadDocument()'s reuse logic.
+    void RefreshDocument()
+    {
+        if (!webView_)
+            return;
+        if (parameters_->kind == NativeViewerKind::PrismText)
+        {
+            SetLoadProgress(70);
+            StartPreparation(false);
+            return;
+        }
+        if (parameters_->kind == NativeViewerKind::RenderDocument)
+        {
+            const std::wstring extension = ExtensionOf(parameters_->filePath);
+            if (extension == L".md" || extension == L".markdown" || extension == L".mdown" ||
+                extension == L".mkd" || extension == L".mdx")
+            {
+                SetLoadProgress(70);
+                StartPreparation(true);
+                return;
+            }
+        }
+        LoadDocument();
+    }
+
     void LoadDocument()
     {
         if (!webView_)
@@ -2899,7 +3509,20 @@ private:
         const std::wstring extension = ExtensionOf(parameters_->filePath);
         if (parameters_->kind == NativeViewerKind::PrismText)
         {
-            StartPreparation(false);
+            if (pendingPreparationResult_)
+            {
+                ApplyPreparationResult(std::move(pendingPreparationResult_));
+            }
+            else if (preparationInFlight_)
+            {
+                // WM_CREATE already started the read; HandlePreparationResult
+                // applies it once it arrives.  Do not read the file twice.
+                return;
+            }
+            else
+            {
+                StartPreparation(false);
+            }
             return;
         }
 
@@ -2932,7 +3555,18 @@ private:
         if (extension == L".md" || extension == L".markdown" || extension == L".mdown" ||
             extension == L".mkd" || extension == L".mdx")
         {
-            StartPreparation(true);
+            if (pendingPreparationResult_)
+            {
+                ApplyPreparationResult(std::move(pendingPreparationResult_));
+            }
+            else if (preparationInFlight_)
+            {
+                return;
+            }
+            else
+            {
+                StartPreparation(true);
+            }
             return;
         }
         std::wstring uri = MapLocalDocument();
@@ -2997,7 +3631,20 @@ private:
         if (command == IDM_NV_CLOSE)
             CloseOrKeepReady();
         else if (command == IDM_NV_REFRESH && webView_)
-            LoadDocument();
+            RefreshDocument();
+        else if (command == IDM_NV_COPY)
+            CopyCommand();
+        else if (command == IDM_NV_SELECT_ALL)
+            SelectAllCommand();
+        else if (command == IDM_NV_PRINT)
+            PrintCommand();
+        else if (parameters_->kind == NativeViewerKind::PrismText && command == IDM_NV_FIND)
+            PostOpenFind();
+        else if (parameters_->kind == NativeViewerKind::PrismText &&
+                 (command == IDM_NV_FIND_NEXT || command == IDM_NV_FIND_PREVIOUS))
+            FindNextCommand(command == IDM_NV_FIND_PREVIOUS);
+        else if (parameters_->kind == NativeViewerKind::PrismText && command == IDM_NV_GOTO_LINE)
+            GoToLineCommand();
         else if (command == IDM_NV_ZOOM_IN || command == IDC_NV_ZOOM_IN)
             SetZoom(zoomPercent_ + 10);
         else if (command == IDM_NV_ZOOM_OUT || command == IDC_NV_ZOOM_OUT)
@@ -3191,6 +3838,7 @@ private:
     bool showLineNumbers_ = false;
     bool wrapLines_ = false;
     bool showWhitespace_ = false;
+    bool awaitingCopyText_ = false;
     DWORD colorPalette_ = NV_PALETTE_VISUAL_STUDIO;
     std::wstring automaticLanguage_;
     std::wstring selectedLanguage_;
@@ -3207,11 +3855,18 @@ private:
     PreparationTarget* preparationTarget_ = nullptr;
     uint64_t preparationGeneration_ = 0;
     uint64_t virtualGeneration_ = 0;
+    bool preparationInFlight_ = false;
     bool virtualInitSent_ = false;
     std::wstring virtualText_;
     std::vector<size_t> virtualLineStarts_;
     std::wstring markdownDocumentUri_;
     std::string markdownDocumentUtf8_;
+    std::unique_ptr<PreparationResult> pendingPreparationResult_;
+    std::wstring currentSearchQuery_;
+    bool currentSearchMatchCase_ = false;
+    bool currentSearchWholeWord_ = false;
+    std::vector<size_t> currentMatchOffsets_;
+    size_t currentMatchIndex_ = 0;
 };
 
 void PrewarmSharedEnvironment()
@@ -3358,6 +4013,13 @@ DWORD WINAPI ViewerHostThread(void* readyEvent)
                     command = IDM_NV_ZOOM_IN;
                 else if (message.wParam == VK_OEM_MINUS || message.wParam == VK_SUBTRACT)
                     command = IDM_NV_ZOOM_OUT;
+                else if (message.wParam == 'F')
+                {
+                    ViewerWindow* viewer = IsWindow(viewerWindow)
+                        ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(viewerWindow, GWLP_USERDATA)) : nullptr;
+                    if (viewer != nullptr)
+                        viewer->FocusBrowser();
+                }
             }
             if (command != 0)
             {
@@ -3500,7 +4162,22 @@ bool NativeViewer_Show(const NativeViewerRequest& request)
     data->tokenRegex = CopyString(request.strings.tokenRegex);
     data->saveFailed = CopyString(request.strings.saveFailed);
     data->uiUnavailable = CopyString(request.strings.uiUnavailable);
+    data->editMenu = CopyString(request.strings.editMenu);
+    data->copy = CopyString(request.strings.copy);
+    data->selectAll = CopyString(request.strings.selectAll);
+    data->find = CopyString(request.strings.find);
+    data->findNext = CopyString(request.strings.findNext);
+    data->findPrevious = CopyString(request.strings.findPrevious);
+    data->goToLine = CopyString(request.strings.goToLine);
+    data->print = CopyString(request.strings.print);
     data->general = request.general;
+    if (request.searchPhrase != nullptr && request.searchPhrase[0] != L'\0')
+    {
+        data->searchPhrase = request.searchPhrase;
+        data->searchFlags = request.searchFlags;
+    }
+    // No fallback to the configured viewer find text: the last search text is
+    // remembered for F3, it is not a request to search on every open.
 
     DWORD hostThreadId = 0;
     if (!EnsureViewerHost(&hostThreadId))

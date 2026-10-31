@@ -70,4 +70,14 @@ COMMENT,"English version"
 90,1,"Impossibile salvare la tavolozza colori personalizzata."
 91,1,"Salamatrix.UI non è disponibile."
 92,1,"Impossibile aprire la finestra di configurazione del plugin."
+93,1,"&Modifica"
+94,1,"&Copia\tCtrl+C"
+95,1,"Seleziona t&utto\tCtrl+A"
+
+[STRINGTABLE 4]
+96,1,"&Trova...\tCtrl+F"
+97,1,"Trova &successivo\tF3"
+98,1,"Trova &precedente\tShift+F3"
+99,1,"&Vai alla riga...\tCtrl+G"
+100,1,"St&ampa...\tCtrl+P"
 

@@ -398,6 +398,28 @@ try {
             -ProcessResult $contractResult
     }
 
+    $nodeCommand = Get-Command 'node.exe' -CommandType Application `
+        -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($null -eq $nodeCommand -or
+        [string]::IsNullOrWhiteSpace($nodeCommand.Source)) {
+        Write-Host ('SKIPPED Prism node tests: node.exe was not found on ' +
+            'PATH (install Node.js to run them).')
+    }
+    else {
+        foreach ($nodeTest in @(
+            'prism_frontend_loading_runtime_tests',
+            'prism_frontend_reset_runtime_tests'
+        )) {
+            Write-Host "Running $nodeTest..."
+            $nodeResult = Invoke-TestProcess -FilePath $nodeCommand.Source `
+                -Arguments @(
+                    (Join-Path $repositoryRoot "src\tests\$nodeTest.js")
+                ) -WorkingDirectory $repositoryRoot
+            Add-TestResult -ClassName 'source-contract' -Name $nodeTest `
+                -ProcessResult $nodeResult
+        }
+    }
+
     $windowsPowerShell = Resolve-ApplicationPath -Name 'powershell.exe'
     Write-Host 'Running extension_menu_builder_smoke_tests...'
     $menuBuilderResult = Invoke-TestProcess -FilePath $windowsPowerShell `

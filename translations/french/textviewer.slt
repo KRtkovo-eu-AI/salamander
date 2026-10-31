@@ -70,4 +70,14 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 90,1,"Impossible d'enregistrer la palette de couleurs personnalisée."
 91,1,"Salamatrix.UI n'est pas disponible."
 92,1,"Impossible d'ouvrir la boîte de dialogue de configuration du plugin."
+93,1,"&Édition"
+94,1,"&Copier\tCtrl+C"
+95,1,"&Tout sélectionner\tCtrl+A"
+
+[STRINGTABLE 4]
+96,1,"&Rechercher...\tCtrl+F"
+97,1,"Rechercher le &suivant\tF3"
+98,1,"Rechercher le &précédent\tShift+F3"
+99,1,"&Atteindre la ligne...\tCtrl+G"
+100,1,"&Imprimer...\tCtrl+P"
 

@@ -70,4 +70,14 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 90,1,"Vlastnú paletu farieb sa nepodarilo uložiť."
 91,1,"Služba Salamatrix.UI nie je dostupná."
 92,1,"Nepodarilo sa otvoriť dialóg nastavenia doplnku."
+93,1,"Ú&pravy"
+94,1,"&Kopírovať\tCtrl+C"
+95,1,"Vybrať &všetko\tCtrl+A"
+
+[STRINGTABLE 4]
+96,1,"&Nájsť...\tCtrl+F"
+97,1,"Nájsť ď&alšie\tF3"
+98,1,"Nájsť &predchádzajúce\tShift+F3"
+99,1,"Prejsť na &riadok...\tCtrl+G"
+100,1,"&Tlačiť...\tCtrl+P"
 
