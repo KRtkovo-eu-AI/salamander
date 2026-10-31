@@ -271,6 +271,14 @@ try {
             )
         },
         @{
+            Name = 'association_icon_cache_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\association_icon_cache_tests.py')
+            )
+        },
+        @{
             Name = 'panel_tab_location_contract_tests'
             Arguments = @(
                 '-B',
