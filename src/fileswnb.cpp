@@ -814,6 +814,7 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 BOOL icoFileIcon = iconSize == ICONSIZE_16 && *(DWORD*)extension == *(DWORD*)"ico";
                 if (!icoFileIcon &&
                     Associations.GetIndex(extension, index) &&       // pripona ma ikonku (asociaci)
+                    Associations[index].GetIndex(iconSize) != -2 && // per-file icons must never become shared extension icons
                     (Associations[index].GetIndex(iconSize) == -1 || // jde o ikonku, ktera se nacita
                      Associations[index].GetIndex(iconSize) == -3 ||
                      Associations.GetPixelIconIndex(index, GetIconSize(iconSize)) < 0))
