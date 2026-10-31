@@ -23,7 +23,7 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 
 ### Viewers and extensions
 - Internal Viewer with Unicode, status and selection information, zoom, line numbers, and live Log View Mode.
-- Prism Text Viewer with syntax highlighting, plus WebView2 rendering for HTML, Markdown, SVG, modern images, and PDF.
+- Prism Text Viewer with syntax highlighting, plus WebView2 rendering for HTML, Markdown, SVG, modern images, and PDF; features full-text search across virtualized chunks, F3 / Shift+F3 match navigation, Salamander Find dialog integration, and fast parallel startup.
 - PictView combines WIC with native decoders, embedded previews, interactive STL preview, and expanded STL/CDR/folder/image thumbnails.
 - Salamatrix Framework v1 provides commands, viewers, panel file systems, native UI, localization, and shared capabilities across JavaScript, Python, PowerShell, PHP, and Lua.
 - Process Explorer, Hardware Monitor, and Event Viewer extensions provide integrated Windows diagnostics panels.

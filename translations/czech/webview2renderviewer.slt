@@ -34,4 +34,8 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 [STRINGTABLE 2]
 64,1,"&Zalomit řádky\tF2"
 65,1,"Zobrazit &mezery"
+66,1,"Ú&pravy"
+67,1,"&Kopírovat\tCtrl+C"
+68,1,"Vybrat &vše\tCtrl+A"
+69,1,"&Tisk...\tCtrl+P"
 

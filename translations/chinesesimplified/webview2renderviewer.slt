@@ -34,4 +34,8 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 [STRINGTABLE 2]
 64,1,"&自动换行\tF2"
 65,1,"显示(&W)空白"
+66,1,"&编辑"
+67,1,"&复制\tCtrl+C"
+68,1,"&全选\tCtrl+A"
+69,1,"&打印...\tCtrl+P"
 

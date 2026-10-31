@@ -34,4 +34,8 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 [STRINGTABLE 2]
 64,1,"&Ajustar líneas\tF2"
 65,1,"Mostrar &espacios en blanco"
+66,1,"&Edición"
+67,1,"&Copiar\tCtrl+C"
+68,1,"Seleccionar &todo\tCtrl+A"
+69,1,"Im&primir...\tCtrl+P"
 

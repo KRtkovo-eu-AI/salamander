@@ -366,7 +366,7 @@ BOOL WINAPI CPluginInterfaceForViewer::ViewFile(const char* name, int left, int 
             return FALSE;
         }
 
-        if (!ManagedBridge_ViewDocument(parent, name, placement, showCmd, alwaysOnTop, fileLock, true))
+        if (!ManagedBridge_ViewDocument(parent, name, placement, showCmd, alwaysOnTop, fileLock, true, viewerData))
         {
             HANDLES(CloseHandle(fileLock));
             return FALSE;
@@ -379,7 +379,7 @@ BOOL WINAPI CPluginInterfaceForViewer::ViewFile(const char* name, int left, int 
         return TRUE;
     }
 
-    return ManagedBridge_ViewDocument(parent, name, placement, showCmd, alwaysOnTop, NULL, true);
+    return ManagedBridge_ViewDocument(parent, name, placement, showCmd, alwaysOnTop, NULL, true, viewerData);
 }
 
 BOOL WINAPI CPluginInterfaceForViewer::CanViewFile(const char* name)

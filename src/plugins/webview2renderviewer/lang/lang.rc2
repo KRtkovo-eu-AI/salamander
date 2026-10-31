@@ -42,4 +42,8 @@ STRINGTABLE
  IDS_VIEWER_READY,               "Ready"
  IDS_VIEWER_WEBVIEW_FAILED,      "Unable to initialize the WebView2 renderer."
  IDS_VIEWER_OPEN_FAILED,         "Unable to open the selected file."
+ IDS_VIEWER_EDIT,                 "&Edit"
+ IDS_VIEWER_COPY,                 "&Copy	Ctrl+C"
+ IDS_VIEWER_SELECT_ALL,           "Select &All	Ctrl+A"
+ IDS_VIEWER_PRINT,                "&Print...	Ctrl+P"
 }
