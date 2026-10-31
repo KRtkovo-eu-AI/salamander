@@ -4,6 +4,8 @@
 
 #include "precomp.h"
 
+void ReleaseDPIAwareWindowIcons(HWND hWindow);
+
 #include <algorithm>
 #include <new>
 #include <string>
@@ -11930,6 +11932,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         DriveFreeSpaceShutdown(); // stop notifications and bounded probes before HWND destruction
         UnregisterSessionNotification(HWindow);
+        // CWindow detaches at WM_DESTROY, so its owner never sees WM_NCDESTROY.
+        ReleaseDPIAwareWindowIcons(HWindow);
         KillTimer(HWindow, IDT_RESTOREWINDOWPLACEMENT);
 
         // notify the task list that we are exiting

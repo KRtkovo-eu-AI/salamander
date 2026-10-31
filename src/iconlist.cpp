@@ -463,14 +463,20 @@ BOOL CIconList::ReplaceIcon(int index, HICON hIcon)
 
     // CopyImage usually performs the conversion, but some shell icon handles
     // ignore the requested dimensions or fail to resize.
-    hConvertedIcon = (HICON)CopyImage(hIconOrig, IMAGE_ICON, ImageWidth, ImageHeight, 0);
+    hConvertedIcon = (HICON)HANDLES_Q(CopyImage(hIconOrig, IMAGE_ICON, ImageWidth, ImageHeight, 0));
     if (hConvertedIcon != NULL)
     {
         ICONINFO convertedInfo;
         ZeroMemory(&convertedInfo, sizeof(convertedInfo));
         BITMAP convertedBitmap;
         ZeroMemory(&convertedBitmap, sizeof(convertedBitmap));
-        if (!GetIconInfo(hConvertedIcon, &convertedInfo) ||
+        const BOOL haveConvertedInfo = GetIconInfo(hConvertedIcon, &convertedInfo);
+        // GetIconInfo returns owned bitmap copies outside the HANDLES wrappers.
+        if (convertedInfo.hbmMask != NULL)
+            HANDLES_ADD(__htBitmap, __hoUnknown, convertedInfo.hbmMask);
+        if (convertedInfo.hbmColor != NULL)
+            HANDLES_ADD(__htBitmap, __hoUnknown, convertedInfo.hbmColor);
+        if (!haveConvertedInfo ||
             convertedInfo.hbmMask == NULL ||
             GetObject(convertedInfo.hbmMask, sizeof(convertedBitmap), &convertedBitmap) != sizeof(convertedBitmap) ||
             convertedBitmap.bmWidth != ImageWidth ||
@@ -542,7 +548,12 @@ BOOL CIconList::ReplaceIcon(int index, HICON hIcon)
     }
     hIcon = hConvertedIcon;
 
-    if (!GetIconInfo(hIcon, &ii))
+    const BOOL haveIconInfo = GetIconInfo(hIcon, &ii);
+    if (ii.hbmMask != NULL)
+        HANDLES_ADD(__htBitmap, __hoUnknown, ii.hbmMask);
+    if (ii.hbmColor != NULL)
+        HANDLES_ADD(__htBitmap, __hoUnknown, ii.hbmColor);
+    if (!haveIconInfo)
     {
         TRACE_E("GetIconInfo() failed!");
         goto BAIL;

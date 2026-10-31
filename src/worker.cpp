@@ -5773,9 +5773,10 @@ COPY_AGAIN:
                     // GENERIC_READ for 'out' slows asynchronous copying from disk to network (measured 95 MB/s instead of 111 MB/s on Win7 x64 GLAN)
                     if (op->TargetNameWValid)
                     {
-                        out = HANDLES_Q(CreateFileW(op->TargetNameW.c_str(), GENERIC_WRITE | (script->CopyAttrs ? GENERIC_READ : 0), 0, NULL, CREATE_NEW, fileAttrs, NULL));
+                        // Both branches register out once in HANDLES_ADD_EX below.
+                        out = NOHANDLES(CreateFileW(op->TargetNameW.c_str(), GENERIC_WRITE | (script->CopyAttrs ? GENERIC_READ : 0), 0, NULL, CREATE_NEW, fileAttrs, NULL));
                         if (script->CopyAttrs && out == INVALID_HANDLE_VALUE)
-                            out = HANDLES_Q(CreateFileW(op->TargetNameW.c_str(), GENERIC_WRITE, 0, NULL, CREATE_NEW, fileAttrs, NULL));
+                            out = NOHANDLES(CreateFileW(op->TargetNameW.c_str(), GENERIC_WRITE, 0, NULL, CREATE_NEW, fileAttrs, NULL));
                     }
                     else
                     {

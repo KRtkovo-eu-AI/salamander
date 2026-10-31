@@ -1172,6 +1172,8 @@ BOOL CAssociations::GetIcon(int iconIndex, CIconList** iconList, int* iconListIn
                 char systemDir[SAL_MAX_PATH];
                 GetSystemDirectory(systemDir, SAL_MAX_PATH);
                 GetFileIconForPanel(systemDir, &icon, ICONSIZE_16, pixelSize, GetSystemDPI(), TRUE, TRUE);
+                if (icon != NULL)
+                    HANDLES_ADD(__htIcon, __hoUnknown, icon);
             }
             else
                 icon = SalLoadImage(i == ASSOC_ICON_SOME_FILE ? 90 : i == ASSOC_ICON_SOME_EXE ? 15 : 2,

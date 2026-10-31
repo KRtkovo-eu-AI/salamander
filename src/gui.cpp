@@ -2318,7 +2318,7 @@ CButton::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     hBrush = (HBRUSH)(COLOR_BTNFACE + 1);
                 FillRect(hMemDC, &ClientRect, hBrush);
                 if (createdDarkBrush)
-                    DeleteObject(hBrush);
+                    HANDLES(DeleteObject(hBrush));
 
                 // draw the button background
                 DrawThemeBackground(hTheme, hMemDC, BP_PUSHBUTTON, state, &ClientRect, NULL);

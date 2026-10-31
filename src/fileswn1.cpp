@@ -2311,7 +2311,7 @@ unsigned IconThreadThreadFBody(void* parameter)
                                             // The icon was extracted while the panel was still using an old DPI.
                                             // Do not let a delayed 24px read populate a freshly rebuilt 16px cache
                                             // after moving from a high-DPI monitor to a 100% monitor.
-                                            HANDLES(DestroyIcon(shi.hIcon));
+                                            ::NOHANDLES(DestroyIcon(shi.hIcon));
                                             shi.hIcon = NULL;
                                             failed = TRUE;
                                         }
