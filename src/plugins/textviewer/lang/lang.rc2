@@ -20,9 +20,22 @@
 #include "..\versinfo.rh2"
 #include "versinfo.rc2"
 
+IDD_PRISM_CONFIGURATION DIALOGEX 0, 0, 310, 129
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Prism Text Viewer Configuration"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    GROUPBOX "Performance",IDC_PRISM_PERFORMANCE,7,7,296,86
+    CONTROL "&Keep Prism Viewer ready for faster reopening",IDC_PRISM_KEEP_READY,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,17,21,276,18
+    LTEXT "Keeps one viewer ready for up to 60 seconds after closing a file. This uses additional memory (about 100 MB or more). The first file still opens normally.",IDC_PRISM_KEEP_READY_INFO,17,44,276,40
+    DEFPUSHBUTTON "OK",IDOK,197,108,50,14
+    PUSHBUTTON "Cancel",IDCANCEL,253,108,50,14
+END
+
 STRINGTABLE
 {
  IDS_PLUGINNAME,                 "Prism Text Viewer"
+ IDS_CONFIGURATION_FAILED,       "Unable to open the plugin configuration dialog."
  IDS_ABOUT,                      "About Plugin"
  IDS_PLUGIN_DESCRIPTION,         "Native viewer that renders text files with Prism.js syntax highlighting."
  IDS_PLUGIN_HOME,                "https://samandarin.net/"

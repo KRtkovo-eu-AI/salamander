@@ -9,6 +9,14 @@ AUTHOR,"KRtekTM"
 WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
+[DIALOG 8500]
+310,129,1,"Prism-Textbetrachter konfigurieren"
+8701,7,7,296,86,1,"Leistung"
+8700,17,21,276,18,1,"&Prism für schnelleres erneutes Öffnen bereithalten"
+8702,17,44,276,40,1,"Hält einen Betrachter nach dem Schließen einer Datei bis zu 60 Sekunden bereit. Dies benötigt zusätzlichen Speicher (etwa 100 MB oder mehr). Die erste Datei wird weiterhin normal geöffnet."
+1,197,108,50,14,1,"OK"
+2,253,108,50,14,1,"Abbrechen"
+
 [STRINGTABLE 0]
 46,1,"Prism-Textbetrachter"
 47,1,"Über das Plugin"
@@ -61,4 +69,5 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 89,1,"Regulärer Ausdruck"
 90,1,"Die benutzerdefinierte Farbpalette konnte nicht gespeichert werden."
 91,1,"Salamatrix.UI ist nicht verfügbar."
+92,1,"Der Konfigurationsdialog des Plugins konnte nicht geöffnet werden."
 

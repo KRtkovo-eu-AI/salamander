@@ -9,6 +9,14 @@ AUTHOR,"KRtekTM"
 WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
+[DIALOG 8500]
+310,129,1,"Configuration de la visionneuse de texte Prism"
+8701,7,7,296,86,1,"Performances"
+8700,17,21,276,18,1,"&Garder la visionneuse Prism prête pour une réouverture plus rapide"
+8702,17,44,276,40,1,"Maintient une visionneuse prête pendant 60 secondes maximum après la fermeture d'un fichier. Cela utilise davantage de mémoire (environ 100 Mo ou plus). Le premier fichier s'ouvre normalement."
+1,197,108,50,14,1,"OK"
+2,253,108,50,14,1,"Annuler"
+
 [STRINGTABLE 0]
 46,1,"Visionneuse de texte Prism"
 47,1,"À propos du plug-in"
@@ -61,4 +69,5 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 89,1,"Expression régulière"
 90,1,"Impossible d'enregistrer la palette de couleurs personnalisée."
 91,1,"Salamatrix.UI n'est pas disponible."
+92,1,"Impossible d'ouvrir la boîte de dialogue de configuration du plugin."
 

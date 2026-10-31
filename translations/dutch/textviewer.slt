@@ -9,6 +9,14 @@ AUTHOR,"KRtekTM"
 WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
+[DIALOG 8500]
+310,129,1,"Prism-tekstviewer instellen"
+8701,7,7,296,86,1,"Prestaties"
+8700,17,21,276,18,1,"Prism-viewer &gereed houden om sneller opnieuw te openen"
+8702,17,44,276,40,1,"Houdt één viewer tot 60 seconden gereed na het sluiten van een bestand. Dit gebruikt extra geheugen (ongeveer 100 MB of meer). Het eerste bestand wordt op de normale manier geopend."
+1,197,108,50,14,1,"OK"
+2,253,108,50,14,1,"Annuleren"
+
 [STRINGTABLE 0]
 46,1,"Prism-tekstviewer"
 47,1,"Over plug-in"
@@ -61,4 +69,5 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 89,1,"Reguliere expressie"
 90,1,"Het aangepaste kleurenpalet kon niet worden opgeslagen."
 91,1,"Salamatrix.UI is niet beschikbaar."
+92,1,"Het configuratievenster van de plug-in kan niet worden geopend."
 

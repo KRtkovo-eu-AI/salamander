@@ -9,6 +9,14 @@ AUTHOR,"KRtekTM"
 WEB,"https://samandarin.net/"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
+[DIALOG 8500]
+310,129,1,"Nastavenie textového prehliadača Prism"
+8701,7,7,296,86,1,"Výkon"
+8700,17,21,276,18,1,"&Ponechať prehliadač Prism pripravený na rýchlejšie otvorenie"
+8702,17,44,276,40,1,"Po zatvorení súboru ponechá jeden prehliadač pripravený až 60 sekúnd. Vyžaduje to ďalšiu pamäť (približne 100 MB alebo viac). Prvý súbor sa otvára ako zvyčajne."
+1,197,108,50,14,1,"OK"
+2,253,108,50,14,1,"Storno"
+
 [STRINGTABLE 0]
 46,1,"Textový prehliadač Prism"
 47,1,"O doplnku"
@@ -61,4 +69,5 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 89,1,"Regulárny výraz"
 90,1,"Vlastnú paletu farieb sa nepodarilo uložiť."
 91,1,"Služba Salamatrix.UI nie je dostupná."
+92,1,"Nepodarilo sa otvoriť dialóg nastavenia doplnku."
 

@@ -154,15 +154,86 @@ def main() -> None:
             "Prism navigation must not depend on a hidden-WebView readiness timer"
         )
     if (
-        'value == L"salamander-prism-ready"' not in native_viewer
+        'value == L"salamander-prism-ready:" + std::to_wstring(self->virtualGeneration_)' not in native_viewer
         or "CompletePrismDisplay()" not in native_viewer
-        or 'value == L"salamander-prism-theme-ready"' not in native_viewer
+        or 'value == L"salamander-prism-theme-ready:" + std::to_wstring(self->virtualGeneration_)' not in native_viewer
         or "self->ShowPrismBrowser()" not in native_viewer
         or "ApplyControllerZoom()" not in native_viewer
     ):
         raise AssertionError(
             "Prism must reveal only its themed page and report Ready after painted content"
         )
+    reuse_contract = (
+        "NV_IDLE_PRISM_TIMEOUT_MS = 60 * 1000",
+        "gShuttingDown.load() || gIdlePrismViewer != nullptr",
+        "idle_ && prismPageReady_ && browserHealthy_ && controller_ && webView_",
+        "preparationGeneration_ = gNextPreparationGeneration.fetch_add(1)",
+        "if (self->idle_)",
+        "if (idle_ || waitingForReusedDocument_)",
+        "DestroyWindow(gIdlePrismViewer->Window())",
+        'PostWebMessageAsJson(L"{\\"type\\":\\"reset\\"}")',
+    )
+    if any(token not in native_viewer for token in reuse_contract):
+        raise AssertionError("Prism reuse must be bounded, generation-safe, hidden until ready, and released at shutdown")
+    keep_ready_setter = re.search(
+        r"void NativeViewer_SetPrismKeepReady\(bool enabled\).*?\n}", native_viewer, re.DOTALL
+    )
+    keep_ready_dispatch = re.search(
+        r"case WM_NV_PRISM_POLICY_CHANGED:.*?return 0;",
+        native_viewer, re.DOTALL
+    )
+    keep_ready_reopen = re.search(r"bool Reopen\(.*?\n    }", native_viewer, re.DOTALL)
+    if (
+        "std::atomic<bool> gPrismKeepReady(false)" not in native_viewer
+        or "return gPrismKeepReady.load() && idle_" not in native_viewer
+        or "if (!gPrismKeepReady.load() || gShuttingDown.load()" not in native_viewer
+        or keep_ready_reopen is None
+        or "if (!gPrismKeepReady.load())" not in keep_ready_reopen.group(0)
+        or keep_ready_setter is None
+        or "gPrismKeepReady.store(enabled)" not in keep_ready_setter.group(0)
+        or "HWND idleWindow = gIdlePrismWindow.load()" not in keep_ready_setter.group(0)
+        or "PostMessageW(idleWindow, WM_NV_PRISM_POLICY_CHANGED, 0, 0)" not in keep_ready_setter.group(0)
+        or "EnsureViewerHost" in keep_ready_setter.group(0)
+        or "DestroyWindow" in keep_ready_setter.group(0)
+        or keep_ready_dispatch is None
+        or "if (!gPrismKeepReady.load() && idle_)" not in keep_ready_dispatch.group(0)
+        or "DestroyWindow(window_)" not in keep_ready_dispatch.group(0)
+        or "gWindows" in keep_ready_dispatch.group(0)
+        or re.search(
+            r"gIdlePrismWindow.store\(window_\);.*?if \(!gPrismKeepReady.load\(\) \|\|\s*SetTimer",
+            native_viewer, re.DOTALL
+        ) is None
+    ):
+        raise AssertionError("Prism retention must default off, gate parking/reuse, and evict only idle state on the existing STA using the latest policy")
+    failed_close = re.search(r"void PostFailedClose\(\).*?\n    }", native_viewer, re.DOTALL)
+    failed_close_handler = re.search(
+        r"case WM_NV_CLOSE_FAILED:.*?return 0;", native_viewer, re.DOTALL
+    )
+    if (
+        failed_close is None
+        or failed_close_handler is None
+        or "PostMessageW(window_, WM_NV_CLOSE_FAILED," not in failed_close.group(0)
+        or "static_cast<DWORD>(viewerGeneration_)" not in failed_close.group(0)
+        or "static_cast<DWORD>(viewerGeneration_ >> 32)" not in failed_close.group(0)
+        or "static_cast<DWORD>(wParam) == static_cast<DWORD>(viewerGeneration_)" not in failed_close_handler.group(0)
+        or "static_cast<DWORD>(lParam) == static_cast<DWORD>(viewerGeneration_ >> 32)" not in failed_close_handler.group(0)
+        or "DestroyWindow(window_)" not in failed_close_handler.group(0)
+        or native_viewer.count("self->PostFailedClose();") != 2
+        or "PostMessageW(viewerWindow, WM_NV_CLOSE_ALL" in native_viewer
+    ):
+        raise AssertionError("Queued browser failures must preserve and check the full viewer token before closing an HWND")
+    signal_closed = re.search(r"void SignalClosed\(\).*?\n    }", native_viewer, re.DOTALL)
+    if signal_closed is None or not (
+        signal_closed.group(0).index("parameters_->closeEvent = nullptr")
+        < signal_closed.group(0).index("SetEvent(closed)")
+    ):
+        raise AssertionError("The logical close must release the event handle before signalling its owner")
+    if (
+        'message.type === "reset"' not in virtual_viewer
+        or 'postHost(PRISM_READY_MESSAGE + ":" + generation)' not in virtual_viewer
+        or 'postHost(THEME_READY_MESSAGE + ":" + generation)' not in virtual_viewer
+    ):
+        raise AssertionError("The retained Prism page must clear its document and tag readiness with its generation")
     if "Prism.highlightElement(code);finish();" in native_viewer:
         raise AssertionError("small Prism files must not highlight on the UI thread via NavigateToString")
     if (
@@ -183,11 +254,14 @@ def main() -> None:
         "virtualLineStarts_",
         "virtualInitSent_",
         'L"salamander-chunk:"',
-        'L"https://prism.local/viewer/virtual-viewer.html?g="',
+        'L"https://prism.example/viewer/virtual-viewer.html?g="',
+        'L"prism.example", folder.c_str()',
         "ApplyControllerZoom()",
     )
     if any(token not in native_viewer for token in virtual_contract):
         raise AssertionError("Prism files must use native line indexing and virtualization")
+    if 'L"prism.local"' in native_viewer or "https://prism.local/" in virtual_viewer:
+        raise AssertionError("Prism's local asset mapping must avoid the delayed .local hostname")
     if (
         "NV_PRISM_FILE_LIMIT = 16U * 1024U * 1024U" not in native_viewer
         or "NV_MARKDOWN_FILE_LIMIT = 32U * 1024U * 1024U" not in native_viewer
@@ -234,7 +308,7 @@ def main() -> None:
         or "cachedHtml" not in virtual_viewer
         or "ensureLanguage(canonicalLanguage())" not in virtual_viewer
         or "Prism.plugins.autoloader" not in virtual_viewer
-        or 'languages_path = "https://prism.local/components/"' not in virtual_viewer
+        or 'languages_path = new URL("../components/", document.baseURI).href' not in virtual_viewer
         or "loadLanguages" not in virtual_viewer
         or "highlightOnMainThread" not in virtual_viewer
         or "layoutLineNumbers(pre, state, true)" not in virtual_viewer

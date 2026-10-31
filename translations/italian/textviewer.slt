@@ -9,6 +9,14 @@ AUTHOR,"Open Salamander"
 WEB,"www.altap.cz"
 COMMENT,"English version"
 
+[DIALOG 8500]
+310,129,1,"Configurazione del visualizzatore di testo Prism"
+8701,7,7,296,86,1,"Prestazioni"
+8700,17,21,276,18,1,"&Mantieni pronto Prism per riaprire più velocemente"
+8702,17,44,276,40,1,"Mantiene un visualizzatore pronto fino a 60 secondi dopo la chiusura di un file. Richiede memoria aggiuntiva (circa 100 MB o più). Il primo file continua ad aprirsi normalmente."
+1,197,108,50,14,1,"OK"
+2,253,108,50,14,1,"Annulla"
+
 [STRINGTABLE 0]
 46,1,"Visualizzatore di testo Prism"
 47,1,"Informazioni sul plugin"
@@ -61,4 +69,5 @@ COMMENT,"English version"
 89,1,"Espressione regolare"
 90,1,"Impossibile salvare la tavolozza colori personalizzata."
 91,1,"Salamatrix.UI non è disponibile."
+92,1,"Impossibile aprire la finestra di configurazione del plugin."
 
