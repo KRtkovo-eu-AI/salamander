@@ -51,6 +51,12 @@ void SetCurrentToolTip(HWND hNotifyWindow, DWORD id, int showDelay)
         MainWindow->ToolTip->SetCurrentToolTip(hNotifyWindow, id, showDelay);
 }
 
+void RearmCurrentToolTip(HWND hNotifyWindow, DWORD id, int showDelay)
+{
+    if (MainWindow != NULL && MainWindow->ToolTip != NULL)
+        MainWindow->ToolTip->RearmCurrentToolTip(hNotifyWindow, id, showDelay);
+}
+
 void SetCurrentPanelToolTip(HWND hNotifyWindow, DWORD id, int showDelay)
 {
     if (MainWindow != NULL && MainWindow->ToolTip != NULL)

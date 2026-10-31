@@ -6,6 +6,10 @@
 
 #include "menu.h"
 #include "drivelst.h"
+#include "drivefreespace.h"
+#include "drivefreespace_text.h"
+
+#include <string>
 #include "cfgdlg.h"
 #include "dialogs.h"
 #include "plugins.h"
@@ -2592,6 +2596,92 @@ void CDrivesList::DestroyData()
     DestroyDrives(Drives);
 }
 
+// This path only reads the session cache and queues work. Media/network probes
+// run in bounded helper processes, never in the menu or tooltip thread.
+static DriveFreeSpaceValue GetOptionalDriveFreeSpace(const CDriveData& drive)
+{
+    if (drive.DriveType != drvtRemovable && drive.DriveType != drvtRemote)
+        return {};
+    const int mode = drive.DriveType == drvtRemovable
+        ? Configuration.RemovableFreeSpacePolicy : Configuration.RemoteFreeSpacePolicy;
+    if (mode < dfsOnce || mode > dfsUpdated || drive.DriveText == NULL ||
+        MainWindow == NULL || MainWindow->HWindow == NULL)
+        return {};
+    return DriveFreeSpaceQuery(static_cast<wchar_t>(drive.DriveText[0]),
+        drive.DriveType == drvtRemote ? DRIVE_REMOTE : DRIVE_REMOVABLE,
+        nullptr, drive.Accessible == FALSE, static_cast<DriveFreeSpaceMode>(mode),
+        MainWindow->HWindow, WM_USER_DRIVE_FREESPACE_READY);
+}
+
+static std::string OptionalDriveMenuText(const CDriveData& drive, bool& subdued)
+{
+    std::string text = drive.DriveText != NULL ? drive.DriveText : "";
+    subdued = false;
+    const DriveFreeSpaceValue value = GetOptionalDriveFreeSpace(drive);
+    if (value.Available)
+    {
+        char size[100];
+        PrintDiskSize(size, CQuadWord(static_cast<DWORD>(value.Bytes),
+                                    static_cast<DWORD>(value.Bytes >> 32)), 0);
+        if (text.find('\t') == std::string::npos)
+            text += '\t';
+        text += '\t';
+        text += size;
+        subdued = value.Stale || value.Pending;
+    }
+    return text;
+}
+
+static void AppendOptionalDriveFreeSpace(const CDriveData& drive, char* text)
+{
+    const DriveFreeSpaceValue value = GetOptionalDriveFreeSpace(drive);
+    if (!value.Available)
+        return;
+    char size[100];
+    PrintDiskSize(size, CQuadWord(static_cast<DWORD>(value.Bytes),
+                                static_cast<DWORD>(value.Bytes >> 32)), 0);
+    FILETIME local;
+    SYSTEMTIME time;
+    wchar_t date[128] = {}, clock[128] = {}, stamp[260] = {};
+    char timestamp[800] = {};
+    if (FileTimeToLocalFileTime(&value.LastSuccess, &local) && FileTimeToSystemTime(&local, &time))
+    {
+        GetDateFormatW(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &time, NULL, date, _countof(date));
+        GetTimeFormatW(LOCALE_USER_DEFAULT, TIME_NOSECONDS, &time, NULL, clock, _countof(clock));
+        _snwprintf_s(stamp, _countof(stamp), _TRUNCATE, L"%s %s", date, clock);
+        WideCharToMultiByte(CP_UTF8, 0, stamp, -1, timestamp, sizeof(timestamp), NULL, NULL);
+    }
+    const int policy = drive.DriveType == drvtRemovable
+        ? Configuration.RemovableFreeSpacePolicy : Configuration.RemoteFreeSpacePolicy;
+    const int format = policy == dfsOnce ? IDS_DRIVE_SPACE_CACHED
+        : value.Stale || value.Pending ? IDS_DRIVE_SPACE_STALE : IDS_DRIVE_SPACE_FREE;
+    const char* pattern = LoadStr(format);
+    const std::string description =
+        Salamander::DriveFreeSpaceText::FormatDescription(pattern, size, timestamp);
+    size_t used = strlen(text);
+    if (used && used < TOOLTIP_TEXT_MAX - 1)
+    {
+        text[used++] = '\n';
+        text[used] = 0;
+    }
+    if (used < TOOLTIP_TEXT_MAX - 1)
+        CopyStringTruncateUtf8(text + used, static_cast<int>(TOOLTIP_TEXT_MAX - used), description.c_str());
+}
+
+// Menu hover must use the same cached value/format as the Drive Bar without
+// invoking its legacy volume-label or filesystem queries.
+static void GetDriveMenuFreeSpaceToolTip(void* context, DWORD itemID, char* text)
+{
+    text[0] = 0;
+    CDrivesList* list = static_cast<CDrivesList*>(context);
+    const TDirectArray<CDriveData>* drives = list->GetDrives();
+    if (itemID == 0 || itemID > static_cast<DWORD>(drives->Count))
+        return;
+    const CDriveData& drive = drives->At(static_cast<int>(itemID - 1));
+    if (drive.DriveType == drvtRemovable || drive.DriveType == drvtRemote)
+        AppendOptionalDriveFreeSpace(drive, text);
+}
+
 BOOL CDrivesList::LoadMenuFromData()
 {
     CALL_STACK_MESSAGE1("CDrivesList::LoadMenuFromData()");
@@ -2601,6 +2691,7 @@ BOOL CDrivesList::LoadMenuFromData()
     {
         CDriveData* item = &Drives->At(i);
         mii.ID = i + 1;
+        std::string displayText;
         if (item->DriveType == drvtSeparator)
         {
             mii.Mask = MENU_MASK_TYPE;
@@ -2615,10 +2706,12 @@ BOOL CDrivesList::LoadMenuFromData()
             mii.HOverlay = NULL;
             if (item->Shared)
                 mii.HOverlay = HSharedOverlays[ICONSIZE_16];
-            mii.String = item->DriveText;
-            mii.State = 0;
+            bool subdued;
+            displayText = OptionalDriveMenuText(*item, subdued);
+            mii.String = const_cast<char*>(displayText.c_str()); // menu copies the text
+            mii.State = subdued ? MENU_STATE_RIGHTTEXT_GRAY : 0;
             if (i == FocusIndex) // if FocusIndex==-1, nothing is marked
-                mii.State = MENU_STATE_CHECKED;
+                mii.State |= MENU_STATE_CHECKED;
             if (item->DriveType == drvtPluginFSInOtherPanel)
                 mii.State |= MFS_DISABLED | MFS_GRAYED;
         }
@@ -2829,6 +2922,7 @@ BOOL CDrivesList::Track()
         return FALSE;
     }
     MenuPopup->SetStyle(MENU_POPUP_THREECOLUMNS);
+    MenuPopup->SetRightTextToolTip(GetDriveMenuFreeSpaceToolTip, this);
     if (!BuildData(FALSE))
     {
         delete MenuPopup;
@@ -3032,6 +3126,7 @@ BOOL CDrivesList::GetDriveBarToolTip(int index, char* text)
             }
         }
         strcpy(text, volumeName);
+        AppendOptionalDriveFreeSpace(*item, text);
         break;
     }
 
@@ -3088,6 +3183,7 @@ BOOL CDrivesList::GetDriveBarToolTip(int index, char* text)
             strcpy(text, item->DriveText + 2);
             RemoveAmpersands(text);
         }
+        AppendOptionalDriveFreeSpace(*item, text);
         break;
     }
 
@@ -3542,6 +3638,31 @@ BOOL CDrivesList::OnContextMenu(BOOL posByMouse, int itemIndex, int panel, const
         DestroyMenu(h);
 
     return FALSE;
+}
+
+void CDrivesList::UpdateFreeSpace()
+{
+    if (MenuPopup == NULL || !MenuPopup->BeginModifyMode())
+        return;
+    for (int i = 0; i < Drives->Count; ++i)
+    {
+        const CDriveData& drive = Drives->At(i);
+        if (drive.DriveType != drvtRemovable && drive.DriveType != drvtRemote)
+            continue;
+        MENU_ITEM_INFO mii = {};
+        mii.Mask = MENU_MASK_STATE;
+        if (!MenuPopup->GetItemInfo(i, TRUE, &mii))
+            continue;
+        bool subdued;
+        const std::string text = OptionalDriveMenuText(drive, subdued);
+        mii.Mask |= MENU_MASK_STRING;
+        mii.String = const_cast<char*>(text.c_str()); // menu copies the text
+        mii.State &= ~MENU_STATE_RIGHTTEXT_GRAY;
+        if (subdued)
+            mii.State |= MENU_STATE_RIGHTTEXT_GRAY;
+        MenuPopup->SetItemInfo(i, TRUE, &mii);
+    }
+    MenuPopup->EndModifyMode();
 }
 
 BOOL CDrivesList::RebuildMenu()

@@ -1382,6 +1382,8 @@ const char* CONFIG_DRVSPEC_REMOTE_SIMPLE = "Remote Simple Icons";
 const char* CONFIG_DRVSPEC_REMOTE_ACT = "Remote Do Not Refresh on Activation";
 const char* CONFIG_DRVSPEC_CDROM_MON = "CDROM Automatic Refresh";
 const char* CONFIG_DRVSPEC_CDROM_SIMPLE = "CDROM Simple Icons";
+const char* CONFIG_REMOVABLE_FREE_SPACE_POLICY = "Removable Free Space Policy";
+const char* CONFIG_REMOTE_FREE_SPACE_POLICY = "Remote Free Space Policy";
 
 const char* SALAMANDER_HOTPATHS_REG = "Hot Paths";
 
@@ -3600,6 +3602,10 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                              &Configuration.DrvSpecCDROMMon, sizeof(DWORD));
                     SetValue(actSubKey, CONFIG_DRVSPEC_CDROM_SIMPLE, REG_DWORD,
                              &Configuration.DrvSpecCDROMSimple, sizeof(DWORD));
+                    SetValue(actSubKey, CONFIG_REMOVABLE_FREE_SPACE_POLICY, REG_DWORD,
+                             &Configuration.RemovableFreeSpacePolicy, sizeof(DWORD));
+                    SetValue(actSubKey, CONFIG_REMOTE_FREE_SPACE_POLICY, REG_DWORD,
+                             &Configuration.RemoteFreeSpacePolicy, sizeof(DWORD));
                     CloseKey(actSubKey);
                 }
 
@@ -5803,6 +5809,9 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                 CloseKey(actSubKey);
             }
 
+            // Missing or invalid opt-in settings must preserve the conservative default.
+            Configuration.RemovableFreeSpacePolicy = 0;
+            Configuration.RemoteFreeSpacePolicy = 0;
             if (OpenKey(actKey, SALAMANDER_DRVSPEC_REG, actSubKey))
             {
                 GetValue(actSubKey, CONFIG_DRVSPEC_FLOPPY_MON, REG_DWORD,
@@ -5827,6 +5836,14 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                          &Configuration.DrvSpecCDROMMon, sizeof(DWORD));
                 GetValue(actSubKey, CONFIG_DRVSPEC_CDROM_SIMPLE, REG_DWORD,
                          &Configuration.DrvSpecCDROMSimple, sizeof(DWORD));
+                GetValue(actSubKey, CONFIG_REMOVABLE_FREE_SPACE_POLICY, REG_DWORD,
+                         &Configuration.RemovableFreeSpacePolicy, sizeof(DWORD));
+                GetValue(actSubKey, CONFIG_REMOTE_FREE_SPACE_POLICY, REG_DWORD,
+                         &Configuration.RemoteFreeSpacePolicy, sizeof(DWORD));
+                if ((unsigned)Configuration.RemovableFreeSpacePolicy > 2)
+                    Configuration.RemovableFreeSpacePolicy = 0;
+                if ((unsigned)Configuration.RemoteFreeSpacePolicy > 2)
+                    Configuration.RemoteFreeSpacePolicy = 0;
 
                 // for old versions we force icon reading on removable drives because we introduced the floppy category
                 if (Configuration.ConfigVersion < 31)

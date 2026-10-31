@@ -117,6 +117,9 @@
     <ClCompile Include="..\dialogsp.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
+    <ClCompile Include="..\drivefreespace.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
     <ClCompile Include="..\drivelst.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
@@ -586,6 +589,15 @@
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\dialogs.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\drivefreespace.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\drivefreespace_cache.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\drivefreespace_text.h">
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\drivelst.h">

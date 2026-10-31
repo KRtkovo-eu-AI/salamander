@@ -5,7 +5,9 @@
 #include "common/winlibdpi.h"
 
 #include "tooltip.h"
+#include "tooltipcursor.h"
 #include "mainwnd.h"
+
 
 #define WC_TOOLTIP "SalamanderToolTip"
 
@@ -127,57 +129,6 @@ CToolTip::GetTime(BOOL init)
         return GetDoubleClickTime();
     else
         return (GetDoubleClickTime() * 10) / 100;
-}
-
-// jediny zpusob, ktery jsem vykoumal pro detekci vysky kurzoru
-// je nakresleni masky kurzoru do DIBu a nasledne prohledani bitoveho pole
-BOOL GetCursorHeight(HCURSOR hCursor)
-{
-    if (hCursor == 0)
-        return 0;
-
-    HDC hMemDC = HANDLES(CreateCompatibleDC(NULL));
-    BITMAPINFO bi;
-    ZeroMemory(&bi, sizeof(bi));
-    bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bi.bmiHeader.biWidth = 32;
-    bi.bmiHeader.biHeight = 32;
-    bi.bmiHeader.biPlanes = 1;
-    bi.bmiHeader.biBitCount = 1; // kazdy radek bude reprezentovan 32 bity
-    bi.bmiHeader.biCompression = BI_RGB;
-    bi.bmiHeader.biClrUsed = 0;
-    bi.bmiHeader.biClrImportant = 0;
-    void* bits;
-    HBITMAP hDib = HANDLES(CreateDIBSection(NULL, &bi, DIB_RGB_COLORS, &bits, NULL, 0));
-
-    HBITMAP hOldBitmap = (HBITMAP)SelectObject(hMemDC, hDib);
-    DrawIconEx(hMemDC, 0, 0, hCursor, 0, 0, 0, NULL, DI_MASK | DI_DEFAULTSIZE);
-    SelectObject(hMemDC, hOldBitmap);
-
-    GdiFlush(); // Flush the GDI batch, so we can play with the bits
-
-    // bitmapa ulozena od poslendi scanline smerem k nulte
-    int i;
-    for (i = 0; i < 32; i++)
-    {
-        if (*((DWORD*)bits + i) != 0xffffffff)
-            break;
-    }
-
-    HANDLES(DeleteObject(hDib));
-
-    HANDLES(DeleteDC(hMemDC));
-
-    ICONINFO ii;
-    if (GetIconInfo(hCursor, &ii))
-    {
-        DeleteObject(ii.hbmMask);
-        DeleteObject(ii.hbmColor);
-    }
-    else
-        ii.yHotspot = 0;
-
-    return 32 - i - ii.yHotspot;
 }
 
 void CToolTip::MessageLoop()
@@ -416,8 +367,9 @@ BOOL CToolTip::Show(int x, int y, BOOL considerCursor, BOOL modal, HWND hParent)
         GetNeededWindowSize(&sz);
 
         int oldY = y;
+        int cursorHeight = considerCursor ? GetToolTipCursorHeight(GetCursor()) : 0;
         if (considerCursor)
-            y += GetCursorHeight(GetCursor());
+            y += cursorHeight;
         if (HWindow != NULL)
             Hide(); // zhasneme predchozi tooltip
 
@@ -496,6 +448,16 @@ void CToolTip::MyKillTimer()
 void CToolTip::SetCurrentToolTip(HWND hNotifyWindow, DWORD id, int showDelay)
 {
     SetCurrentToolTipInternal(hNotifyWindow, id, showDelay, FALSE);
+}
+
+void CToolTip::RearmCurrentToolTip(HWND hNotifyWindow, DWORD id, int showDelay)
+{
+    if (IsModal)
+        return;
+    SetCurrentToolTip(NULL, 0, 0);
+    GetCursorPos(&LastCursorPos);
+    LastCursorPos.x ^= 1; // bypass only this explicit call's stationary suppression
+    SetCurrentToolTip(hNotifyWindow, id, showDelay);
 }
 
 void CToolTip::SetCurrentPanelToolTip(HWND hNotifyWindow, DWORD id, int showDelay)

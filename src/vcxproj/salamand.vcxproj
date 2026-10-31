@@ -499,6 +499,9 @@
     </ClCompile>
     <ClCompile Include="..\dialogsp.cpp">
     </ClCompile>
+    <ClCompile Include="..\drivefreespace.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="..\drivelst.cpp">
     </ClCompile>
     <ClCompile Include="..\editwnd.cpp">
@@ -998,6 +1001,9 @@
     </ClInclude>
     <ClInclude Include="..\dialogs.h">
     </ClInclude>
+    <ClInclude Include="..\drivefreespace.h" />
+    <ClInclude Include="..\drivefreespace_cache.h" />
+    <ClInclude Include="..\drivefreespace_text.h" />
     <ClInclude Include="..\drivelst.h">
     </ClInclude>
     <ClInclude Include="..\editwnd.h">

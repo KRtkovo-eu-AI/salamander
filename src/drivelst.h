@@ -172,6 +172,9 @@ public:
     // and the program is in the Track method.
     BOOL RebuildMenu();
 
+    // Update only cached free-space columns, without enumerating or probing drives.
+    void UpdateFreeSpace();
+
     // if 'noTimeout' is TRUE, it waits for CD volume label without timeout (otherwise only 500ms);
     // if 'copyDrives' is not NULL, data are copied from it (instead of getting data from the system)
     // if 'getGrayIcons' is TRUE, black and white version of the icon is obtained for selected items
