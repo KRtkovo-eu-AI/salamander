@@ -1389,9 +1389,10 @@ extern const char* SALAMANDER_TEXT_VERSION; // textove oznaceni aplikace vcetne 
 extern const char *LOW_MEMORY,
     *MAINWINDOW_NAME,
     *CMAINWINDOW_CLASSNAME,
-    *CFILESBOX_CLASSNAME,
     *SAVEBITS_CLASSNAME,
     *SHELLEXECUTE_CLASSNAME;
+
+extern const wchar_t* CFILESBOX_CLASSNAMEW;
 
 extern const char* STR_NONE; // "(none)" - plug-iny: pro DLLName a Version pokud jsou nezjistitelne
 
