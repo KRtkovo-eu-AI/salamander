@@ -2496,10 +2496,22 @@ CMainWindow::GetPanel(int panel)
     case PANEL_LEFT:
         if (GetActivePanel() == DetachedTabPanel && DetachedTabOriginalSide == cpsLeft)
             return DetachedTabPanel;
+        if (GetActivePanel() != NULL && IsDetachedTabPanel(GetActivePanel()))
+        {
+            CDetachedTabInfo* info = FindDetachedTab(GetActivePanel());
+            if (info != NULL && info->OriginalSide == cpsLeft)
+                return GetActivePanel();
+        }
         return LeftPanel;
     case PANEL_RIGHT:
         if (GetActivePanel() == DetachedTabPanel && DetachedTabOriginalSide == cpsRight)
             return DetachedTabPanel;
+        if (GetActivePanel() != NULL && IsDetachedTabPanel(GetActivePanel()))
+        {
+            CDetachedTabInfo* info = FindDetachedTab(GetActivePanel());
+            if (info != NULL && info->OriginalSide == cpsRight)
+                return GetActivePanel();
+        }
         return RightPanel;
     default:
         TRACE_E("Invalid panel (PANEL_XXX) constant: " << panel);
@@ -2519,4 +2531,42 @@ void CMainWindow::PostFocusNameInPanel(int panel, const char* path, const char* 
         lstrcpyn(nameBackup, name, MAX_PATH + 200);
         PostMessage(p->HWindow, WM_USER_FOCUSFILE, (WPARAM)nameBackup, (LPARAM)pathBackup);
     }
+}
+
+BOOL CMainWindow::FindPluginFSPanel(CPluginFSInterfaceAbstract* pluginFS, int& panel)
+{
+    if (pluginFS == NULL)
+        return FALSE;
+    if (LeftPanel != NULL && LeftPanel->Is(ptPluginFS) &&
+        LeftPanel->GetPluginFS()->GetInterface() == pluginFS)
+    {
+        panel = PANEL_LEFT;
+        return TRUE;
+    }
+    if (RightPanel != NULL && RightPanel->Is(ptPluginFS) &&
+        RightPanel->GetPluginFS()->GetInterface() == pluginFS)
+    {
+        panel = PANEL_RIGHT;
+        return TRUE;
+    }
+    // An active detached tab: GetPanel() maps its original side back to it.
+    // Inactive tabs are not reported, because GetPanel(PANEL_LEFT/RIGHT) would
+    // return a different panel and the plug-in would act on the wrong one.
+    CFilesWindow* active = GetActivePanel();
+    if (active != NULL && active != LeftPanel && active != RightPanel && active->Is(ptPluginFS) &&
+        active->GetPluginFS()->GetInterface() == pluginFS)
+    {
+        if (active == DetachedTabPanel)
+        {
+            panel = DetachedTabOriginalSide == cpsLeft ? PANEL_LEFT : PANEL_RIGHT;
+            return TRUE;
+        }
+        const CDetachedTabInfo* info = FindDetachedTab(active);
+        if (info != NULL)
+        {
+            panel = info->OriginalSide == cpsLeft ? PANEL_LEFT : PANEL_RIGHT;
+            return TRUE;
+        }
+    }
+    return FALSE;
 }
