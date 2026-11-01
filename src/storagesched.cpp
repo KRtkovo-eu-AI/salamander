@@ -240,8 +240,11 @@ int StorageOperationIsFifoBarrier(int policy, int operationOverride)
 
 int CopyMoveGetSchedulingOverride(int transferMode, int legacyWait)
 {
-    if (transferMode == CMS_SEQUENTIAL)
-        return legacyWait ? COSO_WAIT_ALL : COSO_START_NOW;
+    // Checked box = wait for all earlier operations. Otherwise use storage-conflict
+    // admission (COSO_DEFAULT); two conflicting operations never run on the same
+    // physical disk. COSO_START_NOW stays in the API but is not produced here.
+    if (transferMode == CMS_SEQUENTIAL && legacyWait)
+        return COSO_WAIT_ALL;
     // Automatic scheduling is independent of the disabled checkbox's appearance.
     // Unresolved legacy mode values use the same conservative automatic policy.
     return COSO_DEFAULT;

@@ -610,7 +610,7 @@ public:
     BOOL AddOperation(HWND dlg, int schedulingPolicy, int operationOverride, BOOL* startPaused,
                       int* waitReason, const COperationStorageUse* storageUse);
 
-    // Compatibility API: checked means wait-all; unchecked explicitly starts now.
+    // Compatibility API: checked means wait-all; unchecked uses storage-conflict admission.
     BOOL AddOperation(HWND dlg, BOOL startOnIdle, BOOL* startPaused, const COperationStorageUse* storageUse);
 
     // removes the operation from the queue (the operation finished); if 'doNotResume' is FALSE, it posts

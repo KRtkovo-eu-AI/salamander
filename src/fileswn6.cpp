@@ -1128,7 +1128,7 @@ void CFilesWindow::DropCopyMove(BOOL copy, char* targetPath, CCopyMoveData* data
             if (script->CopyMoveTransferMode != CMS_SEQUENTIAL &&
                 script->CopyMoveTransferMode != CMS_STORAGE_AWARE)
                 script->CopyMoveTransferMode = CMS_STORAGE_AWARE;
-            // Drops have no wait checkbox: user-controlled transfers start now.
+            // Drops have no wait checkbox: storage-conflict admission still applies.
             script->OperationSchedulingOverride = CopyMoveGetSchedulingOverride(
                 script->CopyMoveTransferMode, FALSE);
             if (sourceDir[0] != 0)

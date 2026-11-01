@@ -291,8 +291,8 @@ void TestSchedulingModes()
     CStorageOpView sameView = ViewOf(sameHdd);
     Check(CopyMoveShouldStartPaused(CMS_STORAGE_AWARE, 0, 1, &sameView, &run, 1) != 0,
           "Storage-aware must queue a second operation on the same HDD");
-    Check(CopyMoveShouldStartPaused(CMS_SEQUENTIAL, 0, 1, &sameView, &run, 1) == 0,
-          "User-controlled unchecked must start immediately even on the same HDD");
+    Check(CopyMoveShouldStartPaused(CMS_SEQUENTIAL, 0, 1, &sameView, &run, 1) != 0,
+          "User-controlled unchecked must queue a second operation on the same HDD");
     Check(CopyMoveShouldStartPaused(CMS_SEQUENTIAL, 1, 1, &cand, &run, 1) != 0,
           "User-controlled checked must wait even for an independent earlier operation");
 }
@@ -353,14 +353,17 @@ void TestTransferModeAdmissionContract()
     COperationStorageUse overlap = UseFrom(LocalDisk(1, 1, SACCESS_WRITE));
     COperationStorageUse independent = UseFrom(LocalDisk(2, 1, SACCESS_WRITE));
     COperationStorageUse unknown = UseFrom(GlobalUnknown(SACCESS_READWRITE));
-    const int immediate = CopyMoveGetSchedulingOverride(CMS_SEQUENTIAL, 0);
+    const int sequentialUnchecked = CopyMoveGetSchedulingOverride(CMS_SEQUENTIAL, 0);
+    const int immediate = COSO_START_NOW; // explicit API value; no UI mode produces it
     const int waitAll = CopyMoveGetSchedulingOverride(CMS_SEQUENTIAL, 1);
-    Check(immediate == COSO_START_NOW, "User-controlled unchecked means explicit start-now");
+    Check(sequentialUnchecked == COSO_DEFAULT, "User-controlled unchecked uses storage-conflict admission, not start-now");
+    Check(WaitReason(COSP_STORAGE_AWARE, sequentialUnchecked, 1, 0, overlap, &hdd, 1) == CSWR_PHYSICAL_DEVICE_CONFLICT,
+          "User-controlled unchecked never runs two operations on the same physical disk");
     Check(waitAll == COSO_WAIT_ALL, "User-controlled checked means explicit wait-all");
     Check(WaitReason(COSP_STORAGE_AWARE, immediate, 1, 1, overlap, &hdd, 1) == CSWR_NONE,
-          "User-controlled unchecked bypasses physical conflicts and queued waiters");
+          "explicit start-now API bypasses physical conflicts and queued waiters");
     Check(WaitReason(COSP_STORAGE_AWARE, immediate, 1, 0, unknown, &hdd, 1) == CSWR_NONE,
-          "User-controlled unchecked bypasses unknown-storage fallback");
+          "explicit start-now API bypasses unknown-storage fallback");
     Check(WaitReason(COSP_STORAGE_AWARE, waitAll, 1, 0, independent, &hdd, 1) == CSWR_EXPLICIT_OR_GLOBAL_WAIT,
           "User-controlled wait includes earlier independent operations");
     Check(WaitReason(COSP_STORAGE_AWARE, waitAll, 0, 0, independent) == CSWR_NONE,

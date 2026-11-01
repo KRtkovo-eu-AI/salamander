@@ -50,7 +50,8 @@ Defaults will be used when you open this dialog box next time.
 
 <dt><i>Wait until all other Copy/Move operations are finished</i></dt>
 <dd>When checked, the operation is paused until all previous Copy/Move operations
-are finished (or cancelled). Otherwise operation is started immediately.
+are finished (or cancelled). Otherwise the operation starts at once unless an
+earlier operation uses the same physical disk; then it waits until that disk is free.
 Use this option to process operations in a simple queue.
 It is recommended to use this option if source or destination directories of
 operations are on the same disk. If you start all operations simultaneously, the disk
