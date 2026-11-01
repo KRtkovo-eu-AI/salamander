@@ -12,6 +12,7 @@
 #include <vector>
 #include <windows.h>
 #include "../common/unicode/ViewerBomText.h"
+#include "../viewerhex.h"
 
 static int Checks = 0;
 static int Failures = 0;
@@ -105,7 +106,9 @@ public:
     BOOL UseCodeTable = FALSE;
     char CodeTable[256] = {};
     unsigned char* Buffer = NULL;
+    unsigned char* RawBuffer = NULL;
     std::vector<unsigned char> Storage;
+    std::vector<unsigned char> RawStorage;
     int FatalErrors = 0;
     int PrepareCalls = 0;
 
@@ -113,6 +116,8 @@ public:
     {
         Storage.assign(bytes.begin(), bytes.end());
         Buffer = Storage.data();
+        RawStorage.assign(Storage.size(), 0);
+        RawBuffer = RawStorage.data();
         FileSize = (__int64)Storage.size();
         Seek = StartSelection = 0;
         EndSelection = FileSize;
