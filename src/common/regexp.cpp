@@ -135,7 +135,7 @@ BOOL CRegularExpression::SetFlags(WORD flags)
             char* s1 = pattern;
             char* s2 = OriginalPattern;
             while (*s2 != 0)
-                *s1++ = LowerCase[*s2++];
+                *s1++ = LowerTable[*s2++];
             *s1 = 0;
         }
         else
@@ -212,7 +212,7 @@ BOOL CRegularExpression::SetLine(const char* start, const char* end)
         {
             char* l = Line;
             while (start < end)
-                *l++ = LowerCase[*start++];
+                *l++ = LowerTable[*start++];
             *l = 0;
         }
     }
@@ -229,7 +229,7 @@ BOOL CRegularExpression::SetLine(const char* start, const char* end)
         {
             char* l = Line;
             while (start < end)
-                *l++ = LowerCase[*--end];
+                *l++ = LowerTable[*--end];
             *l = 0;
         }
     }

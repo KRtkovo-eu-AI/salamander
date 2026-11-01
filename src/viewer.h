@@ -399,7 +399,9 @@ protected:
     CFindSetDialog FindDialog;
     CSearchData SearchData;
     CRegularExpression RegExp;
-    __int64 FindOffset,              // seek from which to search
+    BYTE FindLowerTable[256];         // case-insensitive map for legacy bytes in FindLowerTableCodePage
+    UINT FindLowerTableCodePage = 0;  // code page FindLowerTable was built for (0 = not built)
+    __int64 FindOffset,             // seek from which to search
         LastFindSeekY,               // seek of the first screen line after searching, for detecting back-and-forth movement
         LastFindOffset;              // seek from which to search (set after searching), for detecting back-and-forth movement
     BOOL ResetFindOffsetOnNextPaint; // TRUE = set FindOffset during the next WM_PAINT (the visible page size is known only after drawing, enabling FindOffset to be set even for backward searches)

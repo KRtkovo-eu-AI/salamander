@@ -2848,12 +2848,27 @@ UINT CViewerWindow::GetLegacyFindCodePage() const
 
 void CViewerWindow::PrepareFindPattern()
 {
+    UINT legacyCodePage = FindDialog.HexMode ? 0 : GetLegacyFindCodePage();
+    // Case-insensitive search must fold regional letters (e.g. CP1250 0xC8 -> 0xE8),
+    // which the global LowerCase cannot do under the UTF-8 process code page.
+    const BYTE* lowerTable = NULL;
+    if (legacyCodePage != 0)
+    {
+        if (FindLowerTableCodePage != legacyCodePage)
+        {
+            BuildLegacyLowerCaseTable(legacyCodePage, FindLowerTable);
+            FindLowerTableCodePage = legacyCodePage;
+        }
+        lowerTable = FindLowerTable;
+    }
+    SearchData.SetLowerCaseTable(lowerTable);
+    RegExp.SetLowerCaseTable(lowerTable);
+
     if (FindDialog.Text[0] == 0 || FindDialog.HexMode)
         return; // hex patterns are raw bytes already (set by InitFindDialog)
 
     const char* pattern = FindDialog.Text;
     std::string legacy;
-    UINT legacyCodePage = GetLegacyFindCodePage();
     // An unrepresentable character keeps the original text, which then cannot
     // match legacy bytes; a lossy '?' substitute would match the wrong text.
     if (legacyCodePage != 0 &&

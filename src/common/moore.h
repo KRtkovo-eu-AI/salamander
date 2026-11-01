@@ -23,6 +23,7 @@ public:
         Length = 0;
         Pattern = NULL;
         Flags = 0;
+        LowerTable = LowerCase;
     }
 
     ~CSearchData()
@@ -47,6 +48,9 @@ public:
     BOOL IsGood() const { return OriginalPattern != NULL &&
                                  Pattern != NULL &&
                                  Fail1 != NULL && Fail2 != NULL; }
+    // Lower-case map for case-insensitive search; NULL restores the global LowerCase.
+    // Used by the next Set()/SetFlags() and by searches, so set it before Set().
+    void SetLowerCaseTable(const BYTE* table) { LowerTable = table != NULL ? table : LowerCase; }
     void SetFlags(WORD flags);
     void Set(const char* pattern, WORD flags);
     // pro patterny obsahujici '\0'
@@ -70,6 +74,7 @@ private:
     BOOL Initialize(); // vola se jen ze SetFlags
 
     WORD Flags; // menit pres SetFlags
+    const BYTE* LowerTable; // menit pres SetLowerCaseTable
 };
 
 //
@@ -105,14 +110,14 @@ int CSearchData::SearchForward(const char* text, int length, int start)
         while (j < length)
         {
             i = l1;
-            while (i >= 0 && LowerCase[text[j]] == Pattern[i])
+            while (i >= 0 && LowerTable[text[j]] == Pattern[i])
             {
                 i--;
                 j--;
             }
             if (i == -1)
                 return j + 1;
-            j += Maximum(Fail1[LowerCase[text[j]]], Fail2[i]);
+            j += Maximum(Fail1[LowerTable[text[j]]], Fail2[i]);
         }
     }
     return -1;
@@ -151,14 +156,14 @@ int CSearchData::SearchBackward(const char* text, int length)
         while (j < length)
         {
             i = l1;
-            while (i >= 0 && LowerCase[text[l2 - j]] == Pattern[i])
+            while (i >= 0 && LowerTable[text[l2 - j]] == Pattern[i])
             {
                 i--;
                 j--;
             }
             if (i == -1)
                 return l2 - j - Length;
-            j += Maximum(Fail1[LowerCase[text[l2 - j]]], Fail2[i]);
+            j += Maximum(Fail1[LowerTable[text[l2 - j]]], Fail2[i]);
         }
     }
     return -1;

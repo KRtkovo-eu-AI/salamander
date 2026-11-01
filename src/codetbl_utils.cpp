@@ -209,6 +209,43 @@ int ConvertLegacyViewerTextToProcessText(const char* source, int sourceLength,
     return 0;
 }
 
+BOOL BuildLegacyLowerCaseTable(UINT legacyCodePage, BYTE* table)
+{
+    if (table == NULL)
+        return FALSE;
+    for (int i = 0; i < 256; i++)
+        table[i] = (BYTE)(i >= 'A' && i <= 'Z' ? i - 'A' + 'a' : i);
+    CPINFO info;
+    if (!IsValidCodePage(legacyCodePage) || legacyCodePage == CP_UTF8 || legacyCodePage == CP_UTF7 ||
+        !GetCPInfo(legacyCodePage, &info) || info.MaxCharSize != 1)
+    {
+        return FALSE; // multi-byte pages keep the ASCII-only map (bytes >= 0x80 are not whole characters)
+    }
+    for (int i = 0x80; i < 256; i++)
+    {
+        char source = (char)i;
+        WCHAR wide;
+        if (MultiByteToWideChar(legacyCodePage, MB_ERR_INVALID_CHARS, &source, 1, &wide, 1) != 1)
+            continue;
+        WCHAR lower = wide;
+        if (LCMapStringEx(LOCALE_NAME_INVARIANT, LCMAP_LOWERCASE, &wide, 1, &lower, 1, NULL, NULL, 0) != 1 ||
+            lower == wide)
+        {
+            continue;
+        }
+        // Keep the byte when the lower-case letter has no exact single-byte form
+        // (e.g. a best-fit '?' would make unrelated letters compare equal).
+        char result;
+        BOOL usedDefault = FALSE;
+        if (WideCharToMultiByte(legacyCodePage, WC_NO_BEST_FIT_CHARS, &lower, 1, &result, 1, NULL, &usedDefault) == 1 &&
+            !usedDefault)
+        {
+            table[i] = (BYTE)result;
+        }
+    }
+    return TRUE;
+}
+
 BOOL ShouldPreferWindowsCodePageText(const char* source, int sourceLength,
                                      UINT windowsCodePage,
                                      const char* recognizedCodePage)

@@ -137,6 +137,22 @@ void TestViewerFindTextConversion()
           "a buffer too small for one character yields empty text");
 }
 
+void TestLegacyLowerCaseTable()
+{
+    BYTE table[256];
+    Check(BuildLegacyLowerCaseTable(1250, table), "CP1250 lower-case table builds");
+    Check(table['A'] == 'a' && table['z'] == 'z' && table['1'] == '1', "ASCII letters fold, others stay");
+    // CP1250: Č 0xC8 -> č 0xE8, Š 0x8A -> š 0x9A, Ř 0xD8 -> ř 0xF8, Ů 0xD9 -> ů 0xF9.
+    Check(table[0xC8] == 0xE8 && table[0x8A] == 0x9A && table[0xD8] == 0xF8 && table[0xD9] == 0xF9,
+          "CP1250 upper-case letters fold to their lower-case bytes");
+    Check(table[0xE8] == 0xE8 && table[0xDF] == 0xDF && table[0xA0] == 0xA0,
+          "lower-case letters, sharp s and NBSP stay");
+    Check(BuildLegacyLowerCaseTable(1251, table) && table[0xC0] == 0xE0 && table[0xA8] == 0xB8,
+          "CP1251 Cyrillic letters fold (А -> а, Ё -> ё)");
+    Check(!BuildLegacyLowerCaseTable(932, table) && table['A'] == 'a' && table[0x82] == 0x82,
+          "a multi-byte code page keeps the ASCII-only map");
+}
+
 void TestInheritedViewerFontDpiScaling()
 {
     LOGFONT font = {};
@@ -286,6 +302,7 @@ int main()
     TestRegionalTextConversion();
     TestLegacyViewerTextConversion();
     TestViewerFindTextConversion();
+    TestLegacyLowerCaseTable();
     TestInheritedViewerFontDpiScaling();
     TestLegacyAutoDetectionPreference();
     TestShippedConversionDirectories();

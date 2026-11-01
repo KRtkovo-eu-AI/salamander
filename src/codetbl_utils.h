@@ -45,6 +45,13 @@ int ConvertLegacyViewerTextToProcessText(const char* source, int sourceLength,
                                          UINT legacyCodePage, UINT processCodePage,
                                          char* destination, int destinationSize);
 
+// Fills a 256-byte lower-case map for case-insensitive search in legacy viewer
+// bytes of a single-byte code page (the global LowerCase folds only ASCII under
+// the UTF-8 manifest). Letters whose lower-case form has no exact byte in that
+// code page map to themselves. Returns FALSE (with an ASCII-only map) for
+// invalid or multi-byte code pages.
+BOOL BuildLegacyLowerCaseTable(UINT legacyCodePage, BYTE* table);
+
 // ISO-8859 code pages reserve bytes 0x80..0x9F for C1 controls. When those
 // bytes are letters in the configured Windows code page, prefer that page. A
 // narrow CP1250-versus-CP852 rule also recognizes repeated structured Windows
