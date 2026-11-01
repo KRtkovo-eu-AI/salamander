@@ -5170,7 +5170,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 for (unsigned i = 0; i < 26; ++i)
                     if (volume->dbcv_unitmask & (1UL << i))
                         DriveFreeSpaceInvalidate(static_cast<wchar_t>(L'A' + i));
-                PostMessage(HWindow, WM_USER_DRIVE_FREESPACE_READY, 0, 0);
+                if (Configuration.RemovableFreeSpacePolicy != 0 || Configuration.RemoteFreeSpacePolicy != 0)
+                    PostMessage(HWindow, WM_USER_DRIVE_FREESPACE_READY, 0, 0);
             }
         }
         break;

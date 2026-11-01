@@ -367,6 +367,9 @@ void SalmonCheckBugs()
 
 BOOL SalmonFireAndWait(const EXCEPTION_POINTERS* e, char* bugReportPath)
 {
+    // The drive free-space helper process starts without salmon (see MyEntryPoint).
+    if (SalmonSharedMemory == NULL)
+        return FALSE;
     SalmonUpdateDarkModeConfig();
     SalmonSharedMemory->ThreadId = GetCurrentThreadId();
     SalmonSharedMemory->ExceptionRecord = *e->ExceptionRecord;

@@ -227,6 +227,37 @@ void X64StressTestAlloc()
 }
 
 #endif //X64_STRESS_TEST
+// Runs before the CRT exists, so only plain code and kernel32 may be used.
+// True when the first argument after the program name is exactly the private
+// drive free-space helper switch (see DriveFreeSpaceHelperDispatch).
+static bool IsDriveFreeSpaceHelperLaunch()
+{
+    static const WCHAR sw[] = L"--sal-drive-free-space-helper";
+    const WCHAR* p = GetCommandLineW();
+    if (p == NULL)
+        return false;
+    if (*p == L'"') // program name in quotes
+    {
+        p++;
+        while (*p != 0 && *p != L'"')
+            p++;
+        if (*p == L'"')
+            p++;
+    }
+    else
+        while (*p != 0 && *p != L' ' && *p != L'\t')
+            p++;
+    while (*p == L' ' || *p == L'\t')
+        p++;
+    const WCHAR* s = sw;
+    while (*s != 0 && *p == *s)
+    {
+        p++;
+        s++;
+    }
+    return *s == 0 && (*p == 0 || *p == L' ' || *p == L'\t');
+}
+
 // nas vlastni vstupni bod, o ktery jsme si pozadali linker pomoci pragmy
 int MyEntryPoint()
 {
@@ -236,6 +267,11 @@ int MyEntryPoint()
 #endif //X64_STRESS_TEST
 
     int ret = 1; // error
+
+    // The short-lived drive free-space probe helper must start fast and must
+    // not spawn salmon.exe; it never needs the crash reporter.
+    if (IsDriveFreeSpaceHelperLaunch())
+        return WinMainCRTStartup();
 
     // spustime Salmon, chceme aby pochytal maximum nasich padu
     if (SalmonInit())

@@ -3642,6 +3642,9 @@ BOOL CDrivesList::OnContextMenu(BOOL posByMouse, int itemIndex, int panel, const
 
 void CDrivesList::UpdateFreeSpace()
 {
+    // Both policies Off: nothing can have changed; do not re-layout the menu.
+    if (Configuration.RemovableFreeSpacePolicy == 0 && Configuration.RemoteFreeSpacePolicy == 0)
+        return;
     if (MenuPopup == NULL || !MenuPopup->BeginModifyMode())
         return;
     for (int i = 0; i < Drives->Count; ++i)
