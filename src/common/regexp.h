@@ -81,6 +81,7 @@ protected:
     char* OriginalPattern;
     regexp* Expression; // nakompilovany regularni vyraz
     WORD Flags;
+    const BYTE* LowerTable; // lower-case map for case-insensitive search
 
     char* Line;                // buffer pro radek
     const char* OrigLineStart; // pointer na zacatek puvodniho textu (predaneho do SetLine() jako 'start')
@@ -98,6 +99,7 @@ public:
         Allocated = 0;
         LineLength = 0;
         LastErrorText = NULL;
+        LowerTable = LowerCase;
     }
 
     ~CRegularExpression()
@@ -115,6 +117,9 @@ public:
 
     const char* GetLastErrorText() const { return LastErrorText; }
     BOOL Set(const char* pattern, WORD flags); // vraci FALSE pri chybe (volat metodu GetLastErrorText)
+    // Lower-case map for case-insensitive search; NULL restores the global LowerCase.
+    // Used by the next Set()/SetFlags() and SetLine(), so set it before Set().
+    void SetLowerCaseTable(const BYTE* table) { LowerTable = table != NULL ? table : LowerCase; }
     BOOL SetFlags(WORD flags);                 // vraci FALSE pri chybe (volat metodu GetLastErrorText)
 
     BOOL SetLine(const char* start, const char* end); // radek textu, ve kterem vyhledava, vraci FALSE pri chybe (volat metodu GetLastErrorText)

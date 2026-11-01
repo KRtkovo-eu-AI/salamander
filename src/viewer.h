@@ -304,6 +304,13 @@ protected:
     BOOL HasDecodedTextMode() const { return Type == vtText && Salamander::Unicode::IsDecodedEncoding(TextEncoding); }
     BOOL HasDecodedTextEncoding() const { return Salamander::Unicode::IsDecodedEncoding(TextEncoding); }
     __int64 TextStartOffset() const { return HasDecodedTextEncoding() ? TextContentOffset : 0; }
+    // Legacy (non-decoded) buffers hold bytes in the regional code page shown by
+    // MyTextOut; returns that code page when it differs from the process code page.
+    UINT GetLegacyFindCodePage() const;
+    // Re-applies FindDialog.Text to RegExp/SearchData in the encoding of the searched bytes.
+    void PrepareFindPattern();
+    // Word-character test for "whole words" on searched (non-decoded) bytes.
+    BOOL IsFindWordChar(char c) const;
     BOOL DecodeTextRange(HANDLE* hFile, __int64 start, __int64 end, Salamander::Unicode::DecodedRun& run,
                          BOOL& fatalErr, bool flush = true);
     BOOL ReadDecodedScalar(HANDLE* hFile, __int64 offset, Salamander::Unicode::DecodedRun& scalar, BOOL& fatalErr);
@@ -392,7 +399,9 @@ protected:
     CFindSetDialog FindDialog;
     CSearchData SearchData;
     CRegularExpression RegExp;
-    __int64 FindOffset,              // seek from which to search
+    BYTE FindLowerTable[256];         // case-insensitive map for legacy bytes in FindLowerTableCodePage
+    UINT FindLowerTableCodePage = 0;  // code page FindLowerTable was built for (0 = not built)
+    __int64 FindOffset,             // seek from which to search
         LastFindSeekY,               // seek of the first screen line after searching, for detecting back-and-forth movement
         LastFindOffset;              // seek from which to search (set after searching), for detecting back-and-forth movement
     BOOL ResetFindOffsetOnNextPaint; // TRUE = set FindOffset during the next WM_PAINT (the visible page size is known only after drawing, enabling FindOffset to be set even for backward searches)

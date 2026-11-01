@@ -143,7 +143,7 @@ void CSearchData::SetFlags(WORD flags)
         int c = Length;
         while (c--)
         {
-            *s = LowerCase[*s];
+            *s = LowerTable[*s];
             s++;
         }
     }
