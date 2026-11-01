@@ -1712,10 +1712,18 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
             BOOL fatalErr = FALSE;
             FindingSoDonotSwitchToHex = TRUE; // during searching disable switching to "hex" when a line has more than 10000 characters
-            if (HasDecodedTextMode() && !FindDialog.Regular && !FindDialog.HexMode)
+            // The encoding of the searched bytes can change between searches (text/hex view, file reload).
+            PrepareFindPattern();
+            // UTF-8/UTF-16 text is searched decoded in the text and in the hex view
+            if (HasDecodedTextEncoding() && !FindDialog.Regular && !FindDialog.HexMode)
             {
                 BOOL foundMatch = FALSE;
                 if (FindDecodedLiteral(&hFile, forward, flags, foundMatch, fatalErr) && foundMatch)
+                    found = 0;
+            }
+            else if (UseDecodedRegExp() && RegExp.SetFlags(flags))
+            { // an invalid expression falls through to the branch below, which reports it
+                if (FindDecodedRegExp(&hFile, forward, noNotFound, escPressed, fatalErr))
                     found = 0;
             }
             else if (FindDialog.Regular)
@@ -1777,7 +1785,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                                     if (Prepare(&hFile, lineBegin + found - 1, 1, fatalErr) == 1 && !fatalErr)
                                                     {
                                                         char c = *(Buffer + (lineBegin + found - 1 - Seek));
-                                                        fail |= (c == '_' || IsCharAlpha(c) || IsCharAlphaNumeric(c));
+                                                        fail |= IsFindWordChar(c);
                                                     }
                                                     if (fatalErr)
                                                         break;
@@ -1786,7 +1794,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                                     Prepare(&hFile, lineBegin + found + foundLen, 1, fatalErr) == 1 && !fatalErr)
                                                 {
                                                     char c = *(Buffer + (lineBegin + found + foundLen - Seek));
-                                                    fail |= (c == '_' || IsCharAlpha(c) || IsCharAlphaNumeric(c));
+                                                    fail |= IsFindWordChar(c);
                                                 }
                                                 if (fatalErr)
                                                     break;
@@ -1890,7 +1898,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                                     if (Prepare(&hFile, lineBegin + found - 1, 1, fatalErr) == 1 && !fatalErr)
                                                     {
                                                         char c = *(Buffer + (lineBegin + found - 1 - Seek));
-                                                        fail |= (c == '_' || IsCharAlpha(c) || IsCharAlphaNumeric(c));
+                                                        fail |= IsFindWordChar(c);
                                                     }
                                                     if (fatalErr)
                                                         break;
@@ -1899,7 +1907,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                                     Prepare(&hFile, lineBegin + found + foundLen, 1, fatalErr) == 1 && !fatalErr)
                                                 {
                                                     char c = *(Buffer + (lineBegin + found + foundLen - Seek));
-                                                    fail |= (c == '_' || IsCharAlpha(c) || IsCharAlphaNumeric(c));
+                                                    fail |= IsFindWordChar(c);
                                                 }
                                                 if (fatalErr)
                                                     break;
@@ -1958,8 +1966,8 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 else
                 {
                     char buf[500];
-                    if (RegExp.GetPattern() != NULL)
-                        sprintf(buf, LoadStr(IDS_INVALIDREGEXP), RegExp.GetPattern(), RegExp.GetLastErrorText());
+                    if (RegExp.GetPattern() != NULL) // show the typed text; the compiled pattern may be in the regional code page
+                        _snprintf_s(buf, _TRUNCATE, LoadStr(IDS_INVALIDREGEXP), FindDialog.Text, RegExp.GetLastErrorText());
                     else
                         strcpy(buf, RegExp.GetLastErrorText());
                     SalMessageBox(HWindow, buf, LoadStr(IDS_FINDTITLE), MB_OK | MB_ICONEXCLAMATION);
@@ -1990,7 +1998,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                         if (Prepare(&hFile, FindOffset + found - 1, 1, fatalErr) == 1 && !fatalErr)
                                         {
                                             char c = *(GetSearchBuffer() + (FindOffset + found - 1 - Seek));
-                                            fail |= (c == '_' || IsCharAlpha(c) || IsCharAlphaNumeric(c));
+                                            fail |= IsFindWordChar(c);
                                         }
                                         if (fatalErr)
                                             break;
@@ -1998,7 +2006,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                     if (Prepare(&hFile, FindOffset + found + SearchData.GetLength(), 1, fatalErr) == 1 && !fatalErr)
                                     {
                                         char c = *(GetSearchBuffer() + (FindOffset + found + SearchData.GetLength() - Seek));
-                                        fail |= (c == '_' || IsCharAlpha(c) || IsCharAlphaNumeric(c));
+                                        fail |= IsFindWordChar(c);
                                     }
                                     if (fatalErr)
                                         break;
@@ -2063,7 +2071,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                         if (Prepare(&hFile, off + found - 1, 1, fatalErr) == 1 && !fatalErr)
                                         {
                                             char c = *(GetSearchBuffer() + (off + found - 1 - Seek));
-                                            fail |= (c == '_' || IsCharAlpha(c) || IsCharAlphaNumeric(c));
+                                            fail |= IsFindWordChar(c);
                                         }
                                         if (fatalErr)
                                             break;
@@ -2071,7 +2079,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                     if (Prepare(&hFile, off + found + SearchData.GetLength(), 1, fatalErr) == 1 && !fatalErr)
                                     {
                                         char c = *(GetSearchBuffer() + (off + found + SearchData.GetLength() - Seek));
-                                        fail |= (c == '_' || IsCharAlpha(c) || IsCharAlphaNumeric(c));
+                                        fail |= IsFindWordChar(c);
                                     }
                                     if (fatalErr)
                                         break;

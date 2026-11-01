@@ -2683,11 +2683,20 @@ BOOL CViewerWindow::GetFindText(char* buf, int& len, BOOL hexMode)
         FatalFileErrorOccured();
         return FALSE;
     }
-    else
+    len = (int)(endSel - startSel);
+
+    UINT legacyCodePage = hexMode ? 0 : GetLegacyFindCodePage();
+    if (legacyCodePage != 0 && len > 0)
     {
-        len = (int)(endSel - startSel);
-        return TRUE;
+        // The Find combo box expects process-code-page (UTF-8) text, not regional bytes.
+        std::string legacy(buf, (size_t)len);
+        int written = ConvertLegacyViewerTextToProcessText(legacy.c_str(), len, legacyCodePage, GetACP(),
+                                                           buf, FIND_TEXT_LEN);
+        if (written <= 0)
+            return FALSE;
+        len = written;
     }
+    return TRUE;
 }
 
 BOOL CViewerWindow::CheckSelectionIsNotTooBig(HWND parent, BOOL* msgBoxDisplayed)
@@ -2827,11 +2836,301 @@ CViewerWindow::GetSelectedTextW(BOOL& fatalErr, int* textLen)
     return h;
 }
 
+UINT CViewerWindow::GetLegacyFindCodePage() const
+{
+    // Decoded encodings keep their own bytes (UTF-8/UTF-16); on a non-UTF-8
+    // process code page the legacy rows already use the process code page.
+    if (HasDecodedTextEncoding() || GetACP() != CP_UTF8)
+        return 0;
+    UINT codePage = GetEffectiveConversionCodePage();
+    return codePage != CP_UTF8 && IsValidCodePage(codePage) ? codePage : 0;
+}
+
+void CViewerWindow::PrepareFindPattern()
+{
+    UINT legacyCodePage = FindDialog.HexMode ? 0 : GetLegacyFindCodePage();
+    // Case-insensitive search must fold regional letters (e.g. CP1250 0xC8 -> 0xE8),
+    // which the global LowerCase cannot do under the UTF-8 process code page.
+    const BYTE* lowerTable = NULL;
+    if (legacyCodePage != 0)
+    {
+        if (FindLowerTableCodePage != legacyCodePage)
+        {
+            BuildLegacyLowerCaseTable(legacyCodePage, FindLowerTable);
+            FindLowerTableCodePage = legacyCodePage;
+        }
+        lowerTable = FindLowerTable;
+    }
+    SearchData.SetLowerCaseTable(lowerTable);
+    RegExp.SetLowerCaseTable(lowerTable);
+    BOOL decodedRegExp = UseDecodedRegExp();
+    RegExp.SetUtf8(decodedRegExp);
+
+    if (FindDialog.Text[0] == 0 || FindDialog.HexMode)
+        return; // hex patterns are raw bytes already (set by InitFindDialog)
+
+    const char* pattern = FindDialog.Text;
+    std::string utf8;
+    if (decodedRegExp && GetACP() != CP_UTF8)
+    { // decoded lines are searched as UTF-8, the typed text is in the process code page
+        int wideLen = MultiByteToWideChar(CP_ACP, 0, FindDialog.Text, -1, NULL, 0);
+        if (wideLen > 1)
+        {
+            std::wstring wide((std::size_t)wideLen, L'\0');
+            MultiByteToWideChar(CP_ACP, 0, FindDialog.Text, -1, wide.data(), wideLen);
+            int utf8Len = WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), -1, NULL, 0, NULL, NULL);
+            if (utf8Len > 1)
+            {
+                utf8.resize((std::size_t)utf8Len);
+                WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), -1, utf8.data(), utf8Len, NULL, NULL);
+                utf8.resize((std::size_t)utf8Len - 1);
+                pattern = utf8.c_str();
+            }
+        }
+    }
+    std::string legacy;
+    // An unrepresentable character keeps the original text, which then cannot
+    // match legacy bytes; a lossy '?' substitute would match the wrong text.
+    if (legacyCodePage != 0 &&
+        ConvertProcessTextToLegacyViewerText(FindDialog.Text, GetACP(), legacyCodePage, &legacy))
+    {
+        pattern = legacy.c_str();
+    }
+    if (FindDialog.Regular)
+        RegExp.Set(pattern, 0);
+    else
+        SearchData.Set(pattern, 0);
+}
+
+BOOL CViewerWindow::IsFindWordChar(char c) const
+{
+    UINT legacyCodePage = GetLegacyFindCodePage();
+    if (legacyCodePage != 0 && (BYTE)c >= 0x80)
+    {
+        // IsCharAlphaA cannot classify regional bytes under a UTF-8 process code page.
+        WCHAR wc;
+        if (MultiByteToWideChar(legacyCodePage, 0, &c, 1, &wc, 1) == 1)
+            return IsCharAlphaNumericW(wc);
+        return FALSE;
+    }
+    return c == '_' || IsCharAlpha(c) || IsCharAlphaNumeric(c);
+}
+
+BOOL ViewerActive(HWND hwnd); // viewer3.cpp
+
+BOOL CViewerWindow::FindDecodedRegExp(HANDLE* hFile, BOOL forward, BOOL& noNotFound, BOOL& escPressed, BOOL& fatalErr)
+{
+    noNotFound = FALSE;
+    escPressed = FALSE;
+    fatalErr = FALSE;
+    if (!HasDecodedTextEncoding())
+        return FALSE;
+
+    using Salamander::Unicode::IsLineBreakScalar;
+    using Salamander::Unicode::IsWordScalar;
+    const __int64 textStart = TextStartOffset();
+    Salamander::Unicode::DecodedRun run;
+    std::string line;
+    std::vector<std::size_t> cellByte; // byte offset of each cell of 'line'
+    std::vector<std::size_t> byteCell; // cell of each byte of 'line'
+
+    // Searches the line made of the cells [first, end) of 'run'; 1 = found (selection set),
+    // 0 = not found, -1 = stop (message shown).
+    auto searchLine = [&](std::size_t first, std::size_t end) -> int
+    {
+        if (first >= end)
+            return 0;
+        Salamander::Unicode::EncodeCellsUtf8(run, first, end, line, cellByte, byteCell);
+        if (!RegExp.SetLine(line.data(), line.data() + line.size()))
+        {
+            SalMessageBox(HWindow, RegExp.GetLastErrorText(), LoadStr(IDS_FINDTITLE), MB_OK | MB_ICONEXCLAMATION);
+            noNotFound = TRUE;
+            return -1;
+        }
+        // the match must start (forward) / end (backward) on this side of FindOffset
+        std::size_t limitCell = first;
+        if (forward)
+        {
+            while (limitCell < end && run.RawStart[limitCell] < FindOffset)
+                limitCell++;
+        }
+        else
+        {
+            while (limitCell < end && run.RawEnd[limitCell] <= FindOffset)
+                limitCell++;
+        }
+        int limit = (int)cellByte[limitCell - first];
+        if (forward ? limit >= (int)line.size() : limit <= 0)
+            return 0;
+        while (TRUE)
+        {
+            int foundLen = 0;
+            int found = forward ? RegExp.SearchForward(limit, foundLen) : RegExp.SearchBackward(limit, foundLen);
+            if (found == -1)
+                return 0;
+            std::size_t c0 = first + byteCell[(std::size_t)found];
+            std::size_t c1 = first + byteCell[(std::size_t)(found + foundLen)];
+            if (FindDialog.WholeWords &&
+                ((c0 > first && IsWordScalar(run.Scalars[c0 - 1])) || (c1 < end && IsWordScalar(run.Scalars[c1]))))
+            {
+                if (forward)
+                { // try again one character further
+                    limit = (int)cellByte[c0 + 1 - first];
+                    if (limit >= (int)line.size())
+                        return 0;
+                }
+                else
+                { // try again without the last character of this match
+                    if (foundLen == 0)
+                        return 0;
+                    limit = (int)cellByte[byteCell[(std::size_t)(found + foundLen - 1)]];
+                    if (limit <= 0)
+                        return 0;
+                }
+                continue;
+            }
+            if (foundLen == 0)
+            {
+                SalMessageBox(HWindow, LoadStr(IDS_EMPTYMATCH), LoadStr(IDS_FINDTITLE), MB_OK | MB_ICONINFORMATION);
+                noNotFound = TRUE;
+                return -1;
+            }
+            StartSelection = run.RawStart[c0];
+            EndSelection = run.RawEnd[c1 - 1];
+            FindOffset = forward ? EndSelection : StartSelection;
+            SelectionIsFindResult = TRUE;
+            return 1;
+        }
+    };
+    auto escape = [&]() -> BOOL
+    {
+        if ((GetAsyncKeyState(VK_ESCAPE) & 0x8001) && ViewerActive(HWindow) || GetSafeWaitWindowClosePressed())
+            escPressed = TRUE;
+        return escPressed;
+    };
+
+    if (forward)
+    {
+        // start of the line holding FindOffset
+        __int64 lineBegin = textStart;
+        if (FindOffset > textStart)
+        {
+            __int64 from = max(textStart, FindOffset - FIND_LINE_LEN);
+            if (!DecodeTextRange(hFile, from, FindOffset, run, fatalErr, FALSE) || fatalErr)
+                return FALSE;
+            lineBegin = from;
+            for (std::size_t c = run.CellCount(); c-- > 0;)
+            {
+                if (IsLineBreakScalar(run.Scalars[c]))
+                {
+                    lineBegin = run.RawEnd[c];
+                    break;
+                }
+            }
+        }
+        while (lineBegin < FileSize)
+        {
+            __int64 windowEnd = min(FileSize, lineBegin + FIND_LINE_LEN);
+            BOOL atEof = windowEnd >= FileSize;
+            if (!DecodeTextRange(hFile, lineBegin, windowEnd, run, fatalErr, atEof != FALSE) || fatalErr)
+                return FALSE;
+            std::size_t n = run.CellCount();
+            if (n == 0)
+                break;
+            std::size_t first = 0;
+            for (std::size_t c = 0; c < n; c++)
+            {
+                if (IsLineBreakScalar(run.Scalars[c]))
+                {
+                    int r = searchLine(first, c);
+                    if (r != 0)
+                        return r > 0;
+                    first = c + 1;
+                }
+            }
+            __int64 nextBegin;
+            if (first < n && (atEof || first == 0))
+            { // the last line ends at the end of the file, or the line is longer than FIND_LINE_LEN
+                int r = searchLine(first, n);
+                if (r != 0)
+                    return r > 0;
+                nextBegin = run.RawEnd[n - 1];
+            }
+            else // the incomplete last line is searched with the next window
+                nextBegin = first < n ? run.RawStart[first] : run.RawEnd[n - 1];
+            if (nextBegin <= lineBegin)
+                break; // no progress (cannot happen with n > 0)
+            lineBegin = nextBegin;
+            if (escape())
+                return FALSE;
+        }
+    }
+    else
+    {
+        // end of the line holding FindOffset
+        __int64 lineEnd = FindOffset;
+        if (FindOffset < FileSize)
+        {
+            __int64 to = min(FileSize, FindOffset + FIND_LINE_LEN);
+            if (!DecodeTextRange(hFile, FindOffset, to, run, fatalErr, to >= FileSize) || fatalErr)
+                return FALSE;
+            if (to >= FileSize)
+                lineEnd = FileSize;
+            for (std::size_t c = 0; c < run.CellCount(); c++)
+            {
+                if (IsLineBreakScalar(run.Scalars[c]))
+                {
+                    lineEnd = run.RawStart[c];
+                    break;
+                }
+            }
+        }
+        while (lineEnd > textStart)
+        {
+            __int64 windowStart = max(textStart, lineEnd - FIND_LINE_LEN);
+            if (!DecodeTextRange(hFile, windowStart, lineEnd, run, fatalErr, lineEnd >= FileSize) || fatalErr)
+                return FALSE;
+            std::size_t n = run.CellCount();
+            if (n == 0)
+                break;
+            std::size_t end = n;
+            for (std::size_t c = n; c-- > 0;)
+            {
+                if (IsLineBreakScalar(run.Scalars[c]))
+                {
+                    int r = searchLine(c + 1, end);
+                    if (r != 0)
+                        return r > 0;
+                    end = c;
+                }
+            }
+            __int64 nextEnd;
+            if (end > 0 && (windowStart == textStart || end == n))
+            { // the first line starts at the beginning of the text, or the line is longer than FIND_LINE_LEN
+                int r = searchLine(0, end);
+                if (r != 0)
+                    return r > 0;
+                nextEnd = run.RawStart[0];
+            }
+            else // the incomplete first line is searched with the previous window
+                nextEnd = end < n ? run.RawStart[end] : run.RawStart[0];
+            if (windowStart == textStart && nextEnd <= run.RawStart[0])
+                break;
+            if (nextEnd >= lineEnd)
+                break; // no progress (cannot happen with n > 0)
+            lineEnd = nextEnd;
+            if (escape())
+                return FALSE;
+        }
+    }
+    return FALSE;
+}
+
 BOOL CViewerWindow::FindDecodedLiteral(HANDLE* hFile, BOOL forward, WORD flags, BOOL& foundMatch, BOOL& fatalErr)
 {
     foundMatch = FALSE;
     fatalErr = FALSE;
-    if (!HasDecodedTextMode() || FindDialog.Text[0] == 0)
+    if (!HasDecodedTextEncoding() || FindDialog.Text[0] == 0)
         return FALSE;
 
     int wideLen = MultiByteToWideChar(CP_ACP, 0, FindDialog.Text, -1, NULL, 0);

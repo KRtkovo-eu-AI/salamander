@@ -79,4 +79,17 @@ bool FindLiteralForward(const DecodedRun& run, const std::wstring& pattern, bool
 bool FindLiteralBackward(const DecodedRun& run, const std::wstring& pattern, bool caseSensitive,
                          bool wholeWords, std::size_t cellLimit, LiteralMatch& match);
 
+// Line breaks of decoded text for the regular-expression search (CR, LF, NUL; CR LF is
+// two break cells, the second one ends the line).
+bool IsLineBreakScalar(std::uint32_t scalar);
+// Letter, digit or '_' (the whole-words test of the literal search).
+bool IsWordScalar(std::uint32_t scalar);
+
+// UTF-8 text of the cells [firstCell, endCell) of 'run', for searching decoded text with
+// the UTF-8 mode of the regular expressions. cellByte[i] is the byte offset of cell
+// firstCell + i, byteCell[b] the index (relative to firstCell) of the cell holding byte b;
+// both get one extra entry for the end. Invalid scalars are encoded as U+FFFD.
+void EncodeCellsUtf8(const DecodedRun& run, std::size_t firstCell, std::size_t endCell, std::string& text,
+                     std::vector<std::size_t>& cellByte, std::vector<std::size_t>& byteCell);
+
 } // namespace Salamander::Unicode

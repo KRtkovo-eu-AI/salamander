@@ -18,6 +18,16 @@
 
 namespace Salamander::Unicode
 {
+
+bool IsWordScalar(std::uint32_t scalar)
+{
+    if (scalar == L'_')
+        return true;
+    if (scalar <= std::numeric_limits<wchar_t>::max())
+        return iswalnum((wchar_t)scalar) != 0;
+    return true;
+}
+
 namespace
 {
 
@@ -72,18 +82,18 @@ std::uint32_t FoldScalar(std::uint32_t scalar, bool caseSensitive)
 {
     if (caseSensitive)
         return scalar;
-    if (scalar <= std::numeric_limits<wchar_t>::max())
-        return (std::uint32_t)towlower((wchar_t)scalar);
+    if (scalar < 0x80)
+        return scalar >= 'A' && scalar <= 'Z' ? scalar - 'A' + 'a' : scalar;
+    // CRT towlower folds only A-Z in the "C" locale; non-ASCII letters (e.g. Č/č,
+    // Ж/ж) need the OS case tables. Supplementary-plane scalars stay as they are.
+    if (scalar <= 0xFFFF)
+    {
+        wchar_t ch = (wchar_t)scalar;
+        wchar_t lower = ch;
+        if (LCMapStringEx(LOCALE_NAME_INVARIANT, LCMAP_LOWERCASE, &ch, 1, &lower, 1, NULL, NULL, 0) == 1)
+            return (std::uint32_t)lower;
+    }
     return scalar;
-}
-
-bool IsWordScalar(std::uint32_t scalar)
-{
-    if (scalar == L'_')
-        return true;
-    if (scalar <= std::numeric_limits<wchar_t>::max())
-        return iswalnum((wchar_t)scalar) != 0;
-    return true;
 }
 
 std::vector<std::uint32_t> PatternScalars(const std::wstring& pattern)
@@ -505,6 +515,59 @@ bool FindLiteralBackward(const DecodedRun& run, const std::wstring& pattern, boo
         return true;
     }
     return false;
+}
+
+bool IsLineBreakScalar(std::uint32_t scalar)
+{
+    return scalar == L'\n' || scalar == L'\r' || scalar == 0;
+}
+
+void EncodeCellsUtf8(const DecodedRun& run, std::size_t firstCell, std::size_t endCell, std::string& text,
+                     std::vector<std::size_t>& cellByte, std::vector<std::size_t>& byteCell)
+{
+    text.clear();
+    cellByte.clear();
+    byteCell.clear();
+    endCell = (std::min)(endCell, run.CellCount());
+    for (std::size_t cell = firstCell; cell < endCell; cell++)
+    {
+        std::uint32_t cp = run.Scalars[cell];
+        if (cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF))
+            cp = Replacement;
+        char buf[4];
+        int n;
+        if (cp < 0x80)
+        {
+            buf[0] = (char)cp;
+            n = 1;
+        }
+        else if (cp < 0x800)
+        {
+            buf[0] = (char)(0xC0 | (cp >> 6));
+            buf[1] = (char)(0x80 | (cp & 0x3F));
+            n = 2;
+        }
+        else if (cp < 0x10000)
+        {
+            buf[0] = (char)(0xE0 | (cp >> 12));
+            buf[1] = (char)(0x80 | ((cp >> 6) & 0x3F));
+            buf[2] = (char)(0x80 | (cp & 0x3F));
+            n = 3;
+        }
+        else
+        {
+            buf[0] = (char)(0xF0 | (cp >> 18));
+            buf[1] = (char)(0x80 | ((cp >> 12) & 0x3F));
+            buf[2] = (char)(0x80 | ((cp >> 6) & 0x3F));
+            buf[3] = (char)(0x80 | (cp & 0x3F));
+            n = 4;
+        }
+        cellByte.push_back(text.size());
+        text.append(buf, (std::size_t)n);
+        byteCell.insert(byteCell.end(), (std::size_t)n, cell - firstCell);
+    }
+    cellByte.push_back(text.size());
+    byteCell.push_back(endCell > firstCell ? endCell - firstCell : 0);
 }
 
 } // namespace Salamander::Unicode

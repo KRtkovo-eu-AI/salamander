@@ -304,6 +304,13 @@ protected:
     BOOL HasDecodedTextMode() const { return Type == vtText && Salamander::Unicode::IsDecodedEncoding(TextEncoding); }
     BOOL HasDecodedTextEncoding() const { return Salamander::Unicode::IsDecodedEncoding(TextEncoding); }
     __int64 TextStartOffset() const { return HasDecodedTextEncoding() ? TextContentOffset : 0; }
+    // Legacy (non-decoded) buffers hold bytes in the regional code page shown by
+    // MyTextOut; returns that code page when it differs from the process code page.
+    UINT GetLegacyFindCodePage() const;
+    // Re-applies FindDialog.Text to RegExp/SearchData in the encoding of the searched bytes.
+    void PrepareFindPattern();
+    // Word-character test for "whole words" on searched (non-decoded) bytes.
+    BOOL IsFindWordChar(char c) const;
     BOOL DecodeTextRange(HANDLE* hFile, __int64 start, __int64 end, Salamander::Unicode::DecodedRun& run,
                          BOOL& fatalErr, bool flush = true);
     BOOL ReadDecodedScalar(HANDLE* hFile, __int64 offset, Salamander::Unicode::DecodedRun& scalar, BOOL& fatalErr);
@@ -320,6 +327,11 @@ protected:
     void PaintDecodedText(HDC dc, const RECT& fullLine, int lines, int columns, int clipFirstRow,
                           int clipLastRow, BOOL& fatalErr, BOOL& setFindOffset);
     BOOL FindDecodedLiteral(HANDLE* hFile, BOOL forward, WORD flags, BOOL& foundMatch, BOOL& fatalErr);
+    // Regular expression on UTF-8/UTF-16 text (text and hex view): lines are decoded and searched
+    // as UTF-8 (RegExp in UTF-8 mode, see PrepareFindPattern). On a match sets the selection and
+    // FindOffset and returns TRUE; 'noNotFound' = a message (empty match, low memory) was shown.
+    BOOL FindDecodedRegExp(HANDLE* hFile, BOOL forward, BOOL& noNotFound, BOOL& escPressed, BOOL& fatalErr);
+    BOOL UseDecodedRegExp() const { return HasDecodedTextEncoding() && FindDialog.Regular && !FindDialog.HexMode; }
 
     void SetToolTipOffset(__int64 offset);
 
@@ -392,7 +404,9 @@ protected:
     CFindSetDialog FindDialog;
     CSearchData SearchData;
     CRegularExpression RegExp;
-    __int64 FindOffset,              // seek from which to search
+    BYTE FindLowerTable[256];         // case-insensitive map for legacy bytes in FindLowerTableCodePage
+    UINT FindLowerTableCodePage = 0;  // code page FindLowerTable was built for (0 = not built)
+    __int64 FindOffset,             // seek from which to search
         LastFindSeekY,               // seek of the first screen line after searching, for detecting back-and-forth movement
         LastFindOffset;              // seek from which to search (set after searching), for detecting back-and-forth movement
     BOOL ResetFindOffsetOnNextPaint; // TRUE = set FindOffset during the next WM_PAINT (the visible page size is known only after drawing, enabling FindOffset to be set even for backward searches)

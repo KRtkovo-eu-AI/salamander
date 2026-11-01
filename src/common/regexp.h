@@ -24,12 +24,15 @@ typedef struct regexp
     char* endp[NSUBEXP];
     char regstart;   /* Internal use only. */
     char reganch;    /* Internal use only. */
+    char regutf8;    /* Internal use only: '.', [...] and repeats work on UTF-8 characters. */
     char* regmust;   /* Internal use only. */
     int regmlen;     /* Internal use only. */
     char program[1]; /* Unwarranted chumminess with compiler. */
 } regexp;
 
-regexp* regcomp(char* exp, const char*& lastErrorText);
+// 'utf8': treat the pattern and the searched text as UTF-8 ('.', [...], ranges and
+// repeats take whole characters instead of bytes); FALSE keeps the byte semantics.
+regexp* regcomp(char* exp, const char*& lastErrorText, BOOL utf8 = FALSE);
 int regexec(regexp* prog, char* string, int offset);
 void regerror(const char* error);
 
@@ -81,6 +84,8 @@ protected:
     char* OriginalPattern;
     regexp* Expression; // nakompilovany regularni vyraz
     WORD Flags;
+    const BYTE* LowerTable; // lower-case map for case-insensitive search
+    BOOL Utf8;              // pattern and lines are UTF-8 (see SetUtf8)
 
     char* Line;                // buffer pro radek
     const char* OrigLineStart; // pointer na zacatek puvodniho textu (predaneho do SetLine() jako 'start')
@@ -98,6 +103,8 @@ public:
         Allocated = 0;
         LineLength = 0;
         LastErrorText = NULL;
+        LowerTable = LowerCase;
+        Utf8 = FALSE;
     }
 
     ~CRegularExpression()
@@ -115,6 +122,13 @@ public:
 
     const char* GetLastErrorText() const { return LastErrorText; }
     BOOL Set(const char* pattern, WORD flags); // vraci FALSE pri chybe (volat metodu GetLastErrorText)
+    // Lower-case map for case-insensitive search; NULL restores the global LowerCase.
+    // Used by the next Set()/SetFlags() and SetLine(), so set it before Set().
+    void SetLowerCaseTable(const BYTE* table) { LowerTable = table != NULL ? table : LowerCase; }
+    // UTF-8 mode: '.', [...], ranges and repeats match whole UTF-8 characters, case-insensitive
+    // search folds non-ASCII letters (LowerTable is then not used) and backward search reverses
+    // lines by characters. Used by the next Set()/SetFlags() and SetLine(), so set it before Set().
+    void SetUtf8(BOOL utf8) { Utf8 = utf8; }
     BOOL SetFlags(WORD flags);                 // vraci FALSE pri chybe (volat metodu GetLastErrorText)
 
     BOOL SetLine(const char* start, const char* end); // radek textu, ve kterem vyhledava, vraci FALSE pri chybe (volat metodu GetLastErrorText)
