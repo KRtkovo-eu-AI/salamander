@@ -86,7 +86,6 @@ int main()
     Check(Salamander::Unicode::EncodingDisplayName(BomEncoding::LegacyBytes) == nullptr,
           "legacy encoding keeps the conversion-table caption path");
 
-    std::puts("viewer_unicode_tests passed");
     // Case-insensitive literal search must fold non-ASCII letters too
     // (CRT towlower folds only A-Z in the "C" locale).
     Salamander::Unicode::DecodedRun czech = DecodeUtf8("Tady je p\xC5\x99\xC3\xADli\xC5\xA1 k\xC5\xAF\xC5\x88.");
@@ -103,5 +102,27 @@ int main()
     Check(Salamander::Unicode::FindLiteralBackward(cyrillic, L"ЖУК", false, false, cyrillic.CellCount(), match),
           "backward case-insensitive search must match upper-case Cyrillic letters");
 
+    // Decoded lines are re-encoded as UTF-8 for the regular expressions, with byte <-> cell maps.
+    {
+        const std::uint8_t utf16[] = {'a', 0, 0x7E, 0x01, 0x3D, 0xD8, 0x00, 0xDE, '\n', 0, 'b', 0}; // až😀\nb
+        Salamander::Unicode::DecodedRun run = DecodeBytes(BomEncoding::Utf16Le, utf16, sizeof(utf16), 100, true);
+        Check(run.CellCount() == 5, "UTF-16 sample must decode to 5 cells");
+        Check(Salamander::Unicode::IsLineBreakScalar(run.Scalars[3]) && !Salamander::Unicode::IsLineBreakScalar(run.Scalars[2]),
+              "LF must be a line break, other scalars not");
+        std::string text;
+        std::vector<std::size_t> cellByte, byteCell;
+        Salamander::Unicode::EncodeCellsUtf8(run, 0, 3, text, cellByte, byteCell);
+        Check(text == "a\xC5\xBE\xF0\x9F\x98\x80", "cells must be encoded as UTF-8");
+        Check(cellByte == std::vector<std::size_t>({0, 1, 3, 7}), "cellByte must hold each cell's byte offset plus the end");
+        Check(byteCell == std::vector<std::size_t>({0, 1, 1, 2, 2, 2, 2, 3}), "byteCell must map each byte to its cell plus the end");
+        Check(run.RawStart[2] == 104 && run.RawEnd[2] == 108, "the surrogate pair must be one 4-byte cell");
+        Salamander::Unicode::EncodeCellsUtf8(run, 4, 5, text, cellByte, byteCell);
+        Check(text == "b" && cellByte == std::vector<std::size_t>({0, 1}) && byteCell == std::vector<std::size_t>({0, 1}),
+              "a sub-range must be encoded relative to its first cell");
+        Salamander::Unicode::EncodeCellsUtf8(run, 2, 2, text, cellByte, byteCell);
+        Check(text.empty() && cellByte.size() == 1 && byteCell.size() == 1, "an empty range must give only the end entries");
+    }
+
+    std::puts("viewer_unicode_tests passed");
     return 0;
 }

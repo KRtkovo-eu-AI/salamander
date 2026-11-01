@@ -1714,10 +1714,16 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             FindingSoDonotSwitchToHex = TRUE; // during searching disable switching to "hex" when a line has more than 10000 characters
             // The encoding of the searched bytes can change between searches (text/hex view, file reload).
             PrepareFindPattern();
-            if (HasDecodedTextMode() && !FindDialog.Regular && !FindDialog.HexMode)
+            // UTF-8/UTF-16 text is searched decoded in the text and in the hex view
+            if (HasDecodedTextEncoding() && !FindDialog.Regular && !FindDialog.HexMode)
             {
                 BOOL foundMatch = FALSE;
                 if (FindDecodedLiteral(&hFile, forward, flags, foundMatch, fatalErr) && foundMatch)
+                    found = 0;
+            }
+            else if (UseDecodedRegExp() && RegExp.SetFlags(flags))
+            { // an invalid expression falls through to the branch below, which reports it
+                if (FindDecodedRegExp(&hFile, forward, noNotFound, escPressed, fatalErr))
                     found = 0;
             }
             else if (FindDialog.Regular)
