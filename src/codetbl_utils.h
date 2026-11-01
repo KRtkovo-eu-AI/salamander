@@ -30,6 +30,21 @@ BOOL ConvertConversionTableText(const char* source, UINT sourceCodePage,
 BOOL ConvertLegacyViewerTextToWide(const char* source, int sourceLength,
                                    UINT sourceCodePage, std::wstring* destination);
 
+// Viewer Find text is in the process code page (UTF-8 under the activeCodePage
+// manifest), while legacy viewer rows are bytes in the regional code page.
+// Converts the NUL-terminated Find text to those bytes. Fails (and clears
+// 'destination') when a character has no exact representation in the legacy
+// code page, so a lossy '?' substitute can never produce a false match.
+BOOL ConvertProcessTextToLegacyViewerText(const char* source, UINT processCodePage,
+                                          UINT legacyCodePage, std::string* destination);
+
+// Reverse direction for text taken from a legacy viewer selection into the Find
+// dialog. Writes at most destinationSize - 1 bytes plus a NUL, truncating only at
+// a character boundary. Returns the number of bytes written (0 on failure).
+int ConvertLegacyViewerTextToProcessText(const char* source, int sourceLength,
+                                         UINT legacyCodePage, UINT processCodePage,
+                                         char* destination, int destinationSize);
+
 // ISO-8859 code pages reserve bytes 0x80..0x9F for C1 controls. When those
 // bytes are letters in the configured Windows code page, prefer that page. A
 // narrow CP1250-versus-CP852 rule also recognizes repeated structured Windows
