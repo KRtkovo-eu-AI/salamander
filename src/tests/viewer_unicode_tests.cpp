@@ -87,5 +87,21 @@ int main()
           "legacy encoding keeps the conversion-table caption path");
 
     std::puts("viewer_unicode_tests passed");
+    // Case-insensitive literal search must fold non-ASCII letters too
+    // (CRT towlower folds only A-Z in the "C" locale).
+    Salamander::Unicode::DecodedRun czech = DecodeUtf8("Tady je p\xC5\x99\xC3\xADli\xC5\xA1 k\xC5\xAF\xC5\x88.");
+    Salamander::Unicode::LiteralMatch match = {};
+    Check(Salamander::Unicode::FindLiteralForward(czech, L"PŘÍLIŠ", false, false, 0, match),
+          "case-insensitive search must match upper-case Czech letters");
+    Check(Salamander::Unicode::FindLiteralForward(czech, L"KŮŇ", false, true, 0, match),
+          "case-insensitive whole-word search must match an upper-case Czech word");
+    Check(!Salamander::Unicode::FindLiteralForward(czech, L"PŘÍLIŠ", true, false, 0, match),
+          "case-sensitive search must not fold Czech letters");
+    Salamander::Unicode::DecodedRun cyrillic = DecodeUtf8("\xD0\xB6\xD1\x83\xD0\xBA");    // "жук"
+    Check(Salamander::Unicode::FindLiteralForward(cyrillic, L"ЖУК", false, false, 0, match),
+          "case-insensitive search must match upper-case Cyrillic letters");
+    Check(Salamander::Unicode::FindLiteralBackward(cyrillic, L"ЖУК", false, false, cyrillic.CellCount(), match),
+          "backward case-insensitive search must match upper-case Cyrillic letters");
+
     return 0;
 }

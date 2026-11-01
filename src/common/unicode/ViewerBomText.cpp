@@ -72,8 +72,17 @@ std::uint32_t FoldScalar(std::uint32_t scalar, bool caseSensitive)
 {
     if (caseSensitive)
         return scalar;
-    if (scalar <= std::numeric_limits<wchar_t>::max())
-        return (std::uint32_t)towlower((wchar_t)scalar);
+    if (scalar < 0x80)
+        return scalar >= 'A' && scalar <= 'Z' ? scalar - 'A' + 'a' : scalar;
+    // CRT towlower folds only A-Z in the "C" locale; non-ASCII letters (e.g. Č/č,
+    // Ж/ж) need the OS case tables. Supplementary-plane scalars stay as they are.
+    if (scalar <= 0xFFFF)
+    {
+        wchar_t ch = (wchar_t)scalar;
+        wchar_t lower = ch;
+        if (LCMapStringEx(LOCALE_NAME_INVARIANT, LCMAP_LOWERCASE, &ch, 1, &lower, 1, NULL, NULL, 0) == 1)
+            return (std::uint32_t)lower;
+    }
     return scalar;
 }
 
