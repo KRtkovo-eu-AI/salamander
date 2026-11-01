@@ -97,6 +97,139 @@ void regerror(const char* s)
 
 //*****************************************************************************
 //
+// UTF-8 helpers for the optional UTF-8 mode (CRegularExpression::SetUtf8)
+//
+
+// Length of the UTF-8 character at 's' (1 for ASCII and for invalid or truncated
+// sequences, so every byte of malformed text is still one character).
+static int RegUtf8Len(const char* s)
+{
+    unsigned char c = (unsigned char)*s;
+    int n = c < 0xC2 ? 1 : c < 0xE0 ? 2 : c < 0xF0 ? 3 : c < 0xF5 ? 4 : 1;
+    for (int i = 1; i < n; i++)
+    {
+        if (((unsigned char)s[i] & 0xC0) != 0x80)
+            return 1;
+    }
+    return n;
+}
+
+// Start of the character that ends right before 'p' (never before 'min').
+static const char* RegUtf8Prev(const char* p, const char* min)
+{
+    const char* q = p - 1;
+    int steps = 0;
+    while (q > min && ((unsigned char)*q & 0xC0) == 0x80 && steps < 3)
+    {
+        q--;
+        steps++;
+    }
+    return (q + RegUtf8Len(q) == p) ? q : p - 1;
+}
+
+// Code point of the character at 's' ('n' = RegUtf8Len(s)); a malformed byte is returned as is.
+static unsigned RegUtf8Decode(const char* s, int n)
+{
+    const unsigned char* u = (const unsigned char*)s;
+    switch (n)
+    {
+    case 2:
+        return ((u[0] & 0x1F) << 6) | (u[1] & 0x3F);
+    case 3:
+        return ((u[0] & 0x0F) << 12) | ((u[1] & 0x3F) << 6) | (u[2] & 0x3F);
+    case 4:
+        return ((u[0] & 0x07) << 18) | ((u[1] & 0x3F) << 12) | ((u[2] & 0x3F) << 6) | (u[3] & 0x3F);
+    default:
+        return u[0];
+    }
+}
+
+static int RegUtf8Encode(unsigned cp, char* out)
+{
+    if (cp < 0x80)
+    {
+        out[0] = (char)cp;
+        return 1;
+    }
+    if (cp < 0x800)
+    {
+        out[0] = (char)(0xC0 | (cp >> 6));
+        out[1] = (char)(0x80 | (cp & 0x3F));
+        return 2;
+    }
+    if (cp < 0x10000)
+    {
+        out[0] = (char)(0xE0 | (cp >> 12));
+        out[1] = (char)(0x80 | ((cp >> 6) & 0x3F));
+        out[2] = (char)(0x80 | (cp & 0x3F));
+        return 3;
+    }
+    out[0] = (char)(0xF0 | (cp >> 18));
+    out[1] = (char)(0x80 | ((cp >> 12) & 0x3F));
+    out[2] = (char)(0x80 | ((cp >> 6) & 0x3F));
+    out[3] = (char)(0x80 | (cp & 0x3F));
+    return 4;
+}
+
+// Copies one UTF-8 character ('n' bytes) folded to lower case. The folded form is
+// used only when it has the same byte length, so match offsets stay valid.
+static void RegUtf8FoldChar(const char* src, int n, char* dst)
+{
+    if (n == 1)
+    {
+        char c = *src;
+        *dst = (c >= 'A' && c <= 'Z') ? (char)(c - 'A' + 'a') : c;
+        return;
+    }
+    memcpy(dst, src, n);
+    unsigned cp = RegUtf8Decode(src, n);
+    if (cp < 0x80 || cp > 0xFFFF || (cp >= 0xD800 && cp <= 0xDFFF))
+        return;
+    WCHAR ch = (WCHAR)cp;
+    WCHAR lower = ch;
+    if (LCMapStringEx(LOCALE_NAME_INVARIANT, LCMAP_LOWERCASE, &ch, 1, &lower, 1, NULL, NULL, 0) != 1 || lower == ch)
+        return;
+    char buf[4];
+    if (RegUtf8Encode(lower, buf) == n)
+        memcpy(dst, buf, n);
+}
+
+// Lower-cases 'len' bytes of UTF-8 text into 'dst' (same length), optionally reversing
+// the order of characters (not bytes) for backward search.
+static void RegUtf8Copy(char* dst, const char* src, int len, BOOL fold, BOOL reverse)
+{
+    const char* end = src + len;
+    if (!reverse)
+    {
+        while (src < end)
+        {
+            int n = min(RegUtf8Len(src), (int)(end - src));
+            if (fold)
+                RegUtf8FoldChar(src, n, dst);
+            else
+                memcpy(dst, src, n);
+            src += n;
+            dst += n;
+        }
+    }
+    else
+    {
+        while (end > src)
+        {
+            const char* q = RegUtf8Prev(end, src);
+            int n = (int)(end - q);
+            if (fold)
+                RegUtf8FoldChar(q, n, dst);
+            else
+                memcpy(dst, q, n);
+            dst += n;
+            end = q;
+        }
+    }
+}
+
+//*****************************************************************************
+//
 // CRegularExpression
 //
 
@@ -130,7 +263,13 @@ BOOL CRegularExpression::SetFlags(WORD flags)
     if ((Flags & sfCaseSensitive) == 0)
     {
         pattern = (char*)malloc(strlen(OriginalPattern) + 1);
-        if (pattern != NULL)
+        if (pattern != NULL && Utf8)
+        {
+            int len = (int)strlen(OriginalPattern);
+            RegUtf8Copy(pattern, OriginalPattern, len, TRUE, FALSE);
+            pattern[len] = 0;
+        }
+        else if (pattern != NULL)
         {
             char* s1 = pattern;
             char* s2 = OriginalPattern;
@@ -156,7 +295,7 @@ BOOL CRegularExpression::SetFlags(WORD flags)
 
     if (Expression != NULL)
         free(Expression);
-    Expression = regcomp(pattern, LastErrorText);
+    Expression = regcomp(pattern, LastErrorText, Utf8);
 
     if (Expression != NULL && (Flags & sfForward) == 0)
     { // vyraz je syntakticky o.k. + backward search
@@ -170,7 +309,7 @@ BOOL CRegularExpression::SetFlags(WORD flags)
             char* end = backwardPat + len;
             *end = 0;
             ReverseRegExp(end, pattern, pattern + len);
-            Expression = regcomp(backwardPat, LastErrorText);
+            Expression = regcomp(backwardPat, LastErrorText, Utf8);
             free(backwardPat);
         }
         else
@@ -201,7 +340,12 @@ BOOL CRegularExpression::SetLine(const char* start, const char* end)
 
     OrigLineStart = start;
     LineLength = (int)(end - start);
-    if (Flags & sfForward)
+    if (Utf8)
+    {
+        RegUtf8Copy(Line, start, LineLength, (Flags & sfCaseSensitive) == 0, (Flags & sfForward) == 0);
+        Line[LineLength] = 0;
+    }
+    else if (Flags & sfForward)
     {
         if (Flags & sfCaseSensitive)
         {
@@ -356,7 +500,7 @@ void CRegularExpression::ReverseRegExp(char*& dstExpEnd, char* srcExp, char* src
         switch (*s)
         {
         case '\\':
-            ss = (*(s + 1) != 0) ? (s + 2) : (s + 1);
+            ss = (*(s + 1) != 0) ? (s + 1 + (Utf8 ? RegUtf8Len(s + 1) : 1)) : (s + 1);
             break;
 
         case '(':
@@ -418,7 +562,7 @@ void CRegularExpression::ReverseRegExp(char*& dstExpEnd, char* srcExp, char* src
             //      case '^':
             //      case '$':
         default:
-            ss = s + 1;
+            ss = s + (Utf8 ? RegUtf8Len(s) : 1); // a UTF-8 character is one atom
             break;
         }
 
@@ -433,7 +577,11 @@ void CRegularExpression::ReverseRegExp(char*& dstExpEnd, char* srcExp, char* src
         case '\\':
         {
             if (*(s + 1) != 0)
-                *--dstExpEnd = *(s + 1);
+            { // keep the bytes of an escaped UTF-8 character in order
+                int n = (int)(oldSS - (s + 1));
+                dstExpEnd -= n;
+                memcpy(dstExpEnd, s + 1, n);
+            }
             *--dstExpEnd = '\\';
             break;
         }
@@ -472,8 +620,12 @@ void CRegularExpression::ReverseRegExp(char*& dstExpEnd, char* srcExp, char* src
             //      case '|':
             //      case '.':
         default:
-            *--dstExpEnd = *s;
+        { // keep the bytes of a UTF-8 character in order
+            int n = (int)(oldSS - s);
+            dstExpEnd -= n;
+            memcpy(dstExpEnd, s, n);
             break;
+        }
         }
 
         //---  prechod na dalsi atom
@@ -621,6 +773,23 @@ int regnpar;    /* () count. */
 char regdummy;
 char* regcode; /* Code-emit pointer; &regdummy = don't. */
 long regsize;  /* Code size. */
+int regu8;     /* UTF-8 mode of the program being compiled or executed. */
+
+// Character length at 's' in the current mode.
+static int regclen(const char* s) { return regu8 ? RegUtf8Len(s) : 1; }
+
+// Is the character at 's' ('n' bytes) one of the characters of the NUL-terminated set?
+static int reginset(const char* set, const char* s, int n)
+{
+    if (!regu8)
+        return strchr(set, *s) != NULL;
+    for (const char* p = set; *p != '\0'; p += RegUtf8Len(p))
+    {
+        if (RegUtf8Len(p) == n && memcmp(p, s, n) == 0)
+            return 1;
+    }
+    return 0;
+}
 
 /*
  * Forward declarations for regcomp()'s friends.
@@ -651,9 +820,10 @@ void regoptail(char* p, char* val);
  * Beware that the optimization-preparation code in here knows about some
  * of the structure of the compiled regexp.
  */
-regexp* regcomp(char* exp, const char*& lastErrorText)
+regexp* regcomp(char* exp, const char*& lastErrorText, BOOL utf8)
 {
     __RegExpSection.Enter();
+    regu8 = utf8 ? 1 : 0;
     CRegularExpression::LastError = NULL;
 
     regexp* r;
@@ -711,6 +881,7 @@ regexp* regcomp(char* exp, const char*& lastErrorText)
     r->reganch = 0;
     r->regmust = NULL;
     r->regmlen = 0;
+    r->regutf8 = (char)regu8;
     scan = r->program + 1; /* First BRANCH. */
     if (OP(regnext(scan)) == END)
     { /* Only one top-level choice. */
@@ -970,6 +1141,7 @@ char* regatom(int* flagp)
         }
         else
             ret = regnode(ANYOF);
+        char* lastChar = regparse; // start of the last class member (range start in UTF-8 mode)
         if (*regparse == ']' || *regparse == '-')
             regc(*regparse++);
         while (*regparse != '\0' && *regparse != ']')
@@ -979,6 +1151,25 @@ char* regatom(int* flagp)
                 regparse++;
                 if (*regparse == ']' || *regparse == '\0')
                     regc('-');
+                else if (regu8)
+                {
+                    int endLen = RegUtf8Len(regparse);
+                    unsigned from = RegUtf8Decode(lastChar, RegUtf8Len(lastChar)) + 1;
+                    unsigned to = RegUtf8Decode(regparse, endLen);
+                    if (from > to + 1)
+                        FAIL(RegExpErrorText(reeInvalidRange));
+                    if (to >= from && to - from > 4096) // keeps the expanded class within the program size limit
+                        FAIL(RegExpErrorText(reeTooBig));
+                    for (; from <= to; from++)
+                    {
+                        char buf[4];
+                        int len = RegUtf8Encode(from, buf);
+                        for (int i = 0; i < len; i++)
+                            regc(buf[i]);
+                    }
+                    lastChar = regparse;
+                    regparse += endLen;
+                }
                 else
                 {
                     _class = UCHARAT(regparse - 2) + 1;
@@ -991,7 +1182,12 @@ char* regatom(int* flagp)
                 }
             }
             else
-                regc(*regparse++);
+            {
+                lastChar = regparse;
+                int len = regclen(regparse);
+                while (len-- > 0)
+                    regc(*regparse++);
+            }
         }
         regc('\0');
         if (*regparse != ']')
@@ -1017,9 +1213,13 @@ char* regatom(int* flagp)
         if (*regparse == '\0')
             FAIL(RegExpErrorText(reeTrailingBackslash));
         ret = regnode(EXACTLY);
-        regc(*regparse++);
+        {
+            int len = regclen(regparse);
+            *flagp |= (len == 1) ? (HASWIDTH | SIMPLE) : HASWIDTH; // STAR/PLUS repeat single bytes only
+            while (len-- > 0)
+                regc(*regparse++);
+        }
         regc('\0');
-        *flagp |= HASWIDTH | SIMPLE;
         break;
     default:
     {
@@ -1032,7 +1232,11 @@ char* regatom(int* flagp)
             FAIL(RegExpErrorText(reeInternalDisaster));
         ender = *(regparse + len);
         if (len > 1 && ISMULT(ender))
-            len--; /* Back off clear of ?+* operand. */
+        { /* Back off clear of ?+* operand (a whole character in UTF-8 mode). */
+            int last = regu8 ? (int)(regparse + len - RegUtf8Prev(regparse + len, regparse)) : 1;
+            if (last < len)
+                len -= last;
+        }
         *flagp |= HASWIDTH;
         if (len == 1)
             *flagp |= SIMPLE;
@@ -1208,6 +1412,7 @@ int regexec(regexp* prog, char* string, int offset)
 
     /* Mark beginning of line for ^ . */
     regbol = string;
+    regu8 = prog->regutf8;
 
     /* Simplest case:  anchored match need be tried only once. */
     if (prog->reganch)
@@ -1246,7 +1451,10 @@ int regexec(regexp* prog, char* string, int offset)
                 __RegExpSection.Leave();
                 return (1);
             }
-        } while (*s++ != '\0');
+            if (*s == '\0')
+                break;
+            s += regclen(s); // never start a match inside a UTF-8 character
+        } while (TRUE);
 
     /* Failure. */
     __RegExpSection.Leave();
@@ -1316,7 +1524,7 @@ int regmatch(char* prog) /* 0 failure, 1 success */
         case ANY:
             if (*reginput == '\0')
                 return (0);
-            reginput++;
+            reginput += regclen(reginput);
             break;
         case EXACTLY:
         {
@@ -1334,14 +1542,14 @@ int regmatch(char* prog) /* 0 failure, 1 success */
         }
         break;
         case ANYOF:
-            if (*reginput == '\0' || strchr(OPERAND(scan), *reginput) == NULL)
+            if (*reginput == '\0' || !reginset(OPERAND(scan), reginput, regclen(reginput)))
                 return (0);
-            reginput++;
+            reginput += regclen(reginput);
             break;
         case ANYBUT:
-            if (*reginput == '\0' || strchr(OPERAND(scan), *reginput) != NULL)
+            if (*reginput == '\0' || reginset(OPERAND(scan), reginput, regclen(reginput)))
                 return (0);
-            reginput++;
+            reginput += regclen(reginput);
             break;
         case NOTHING:
             break;
@@ -1446,15 +1654,19 @@ int regmatch(char* prog) /* 0 failure, 1 success */
             min = (OP(scan) == STAR) ? 0 : 1;
             save = reginput;
             no = regrepeat(OPERAND(scan));
+            char* cur = reginput; // end of the repeated part
             while (no >= min)
             {
                 /* If it could work, try it. */
                 if (nextch == '\0' || *reginput == nextch)
                     if (regmatch(next))
                         return (1);
-                /* Couldn't or didn't -- back up. */
+                /* Couldn't or didn't -- back up (by a whole character in UTF-8 mode). */
                 no--;
-                reginput = save + no;
+                if (no < min)
+                    break;
+                reginput = regu8 ? (char*)RegUtf8Prev(cur, save) : save + no;
+                cur = reginput;
             }
             return (0);
         }
@@ -1490,8 +1702,19 @@ int regrepeat(char* p)
     switch (OP(p))
     {
     case ANY:
-        count = (int)strlen(scan);
-        scan += count;
+        if (regu8)
+        {
+            while (*scan != '\0')
+            {
+                scan += RegUtf8Len(scan);
+                count++;
+            }
+        }
+        else
+        {
+            count = (int)strlen(scan);
+            scan += count;
+        }
         break;
     case EXACTLY:
         while (*opnd == *scan)
@@ -1501,17 +1724,17 @@ int regrepeat(char* p)
         }
         break;
     case ANYOF:
-        while (*scan != '\0' && strchr(opnd, *scan) != NULL)
+        while (*scan != '\0' && reginset(opnd, scan, regclen(scan)))
         {
             count++;
-            scan++;
+            scan += regclen(scan);
         }
         break;
     case ANYBUT:
-        while (*scan != '\0' && strchr(opnd, *scan) == NULL)
+        while (*scan != '\0' && !reginset(opnd, scan, regclen(scan)))
         {
             count++;
-            scan++;
+            scan += regclen(scan);
         }
         break;
     default:       /* Oh dear.  Called inappropriately. */
