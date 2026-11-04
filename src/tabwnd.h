@@ -1,5 +1,9 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Always scroll the selected tab into view when it is clipped. | Startup cleared the one-shot pending flag while the first tab was still visible, so a later active overflow tab stayed hidden. | | Composer |
+// | 2026-11-04 | Fix first-launch "+" selection and startup overflow scroll-to-active tab. | Clean default config left the new-tab button selected, and initial overflow positioning cleared its pending flag before the selected tab was actually visible. | | Composer |
 
 #pragma once
 
@@ -26,7 +30,7 @@ public:
     void RemoveAllTabs();
     void SetTabText(int index, const wchar_t* text);
     void SetCurSel(int index);
-    void EnsureSelectedTabVisible();
+    bool EnsureSelectedTabVisible();
     int GetCurSel() const;
     int GetTabCount() const;
     LPARAM GetItemData(int index) const;
@@ -54,6 +58,9 @@ protected:
 private:
     void EnsureSelection();
     void EnsureInitialSelectedTabVisible();
+    void RequestEnsureSelectedTabVisible();
+    bool IsSelectedTabInView() const;
+    bool GetSelectedTabVisibleRect(RECT& visibleRect) const;
     void EnsureNewTabButton();
     int GetDisplayedTabCount() const;
     int GetNewTabButtonIndex() const;
@@ -121,6 +128,7 @@ private:
     bool LastClickWasSelected;
     int MouseWheelAccumulator;
     bool InitialEnsureSelectedTabVisiblePending;
+    int EnsureVisibleRetryCount;
 
     std::vector<STabColor> TabColors;
 

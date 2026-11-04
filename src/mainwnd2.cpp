@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Re-ensure the active tab is visible after panel config load/show. | Overflow scroll must run again after the tab strip is shown with its final width. | | Composer |
+// | 2026-11-04 | Select the first real tab when loading a clean panel config. | Missing TabCount left CurSel on the "+" button after first-run creation. | | Composer |
 // | 2026-11-04 | Load toolbar layouts using the real buffer size. | Panel toolbars now persist the same catalog as the middle toolbar. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 // | 2026-11-04 | Format legacy configuration names with a literal printf format. | CodeQL rejected the loaded product template as a non-constant format string. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
@@ -4154,6 +4156,13 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         {
             LoadPanelSettingsFromKey(panel, actKey, panelPath, panelPath != NULL ? MAX_PATH : 0);
             UpdatePanelTabColor(panel);
+            // Clean/default configs have no TabCount value. The tab control may
+            // still have CurSel on the trailing "+" button from creation; force
+            // the real first tab selected so "+" keeps working.
+            CTabWindow* tabWnd = GetPanelTabWindow(side);
+            int index = GetPanelTabIndex(side, panel);
+            if (tabWnd != NULL && tabWnd->HWindow != NULL && index >= 0)
+                tabWnd->SetCurSel(index);
         }
         CloseKey(actKey);
         return;
@@ -4320,16 +4329,18 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     else if (localTabs.Count > 0)
         activePanel = localTabs[0];
 
+    CTabWindow* tabWnd = GetPanelTabWindow(side);
     if (activePanel != NULL)
     {
         SwitchPanelTab(activePanel);
         int sel = GetPanelTabIndex(side, activePanel);
-        CTabWindow* tabWnd = GetPanelTabWindow(side);
         if (tabWnd != NULL && tabWnd->HWindow != NULL && sel >= 0)
             tabWnd->SetCurSel(sel);
     }
 
     UpdatePanelTabVisibility(side);
+    if (tabWnd != NULL && tabWnd->HWindow != NULL)
+        tabWnd->EnsureSelectedTabVisible();
 
     if (side == cpsLeft)
         PanelConfigPathsRestoredLeft = activeRestored;

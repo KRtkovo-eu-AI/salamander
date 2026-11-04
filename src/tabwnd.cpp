@@ -1,5 +1,9 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Always scroll the selected tab into view when it is clipped. | Startup cleared the one-shot pending flag while the first tab was still visible, so a later active overflow tab stayed hidden. | | Composer |
+// | 2026-11-04 | Fix first-launch "+" selection and startup overflow scroll-to-active tab. | Clean default config left the new-tab button selected, and initial overflow positioning cleared its pending flag before the selected tab was actually visible. | | Composer |
 
 #include "precomp.h"
 #include "common/winlibdpi.h"
@@ -208,7 +212,10 @@ namespace
 static char g_TabTipText[MAX_PATH] = "";
 static bool g_TabTipClassRegistered = false;
 static const UINT_PTR kTabTipTimerId = 1001;
+static const UINT_PTR kEnsureVisibleTimerId = 1002;
 static const int kTabTipDelayMs = 500;
+static const int kEnsureVisibleTimerDelayMs = 50;
+static const int kEnsureVisibleTimerMaxRetries = 20;
 static const UINT WM_USER_ENSURE_SELECTED_TAB_VISIBLE = WM_APP + 321;
 
 
@@ -276,6 +283,7 @@ CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
     LastClickWasSelected = false;
     MouseWheelAccumulator = 0;
     InitialEnsureSelectedTabVisiblePending = true;
+    EnsureVisibleRetryCount = 0;
     HTabTipWnd = NULL;
     HTabTipFont = NULL;
     TabTipDPI = 0;
@@ -298,6 +306,22 @@ CTabWindow::~CTabWindow()
         HANDLES(DeleteObject(HDPIFontBold));
     if (HTabTipFont != NULL)
         HANDLES(DeleteObject(HTabTipFont));
+}
+
+void CTabWindow::RequestEnsureSelectedTabVisible()
+{
+    CALL_STACK_MESSAGE_NONE
+    if (HWindow == NULL)
+        return;
+
+    PostMessage(HWindow, WM_USER_ENSURE_SELECTED_TAB_VISIBLE, 0, 0);
+
+    // Layout and TCM_SETITEM during startup can reset the native scroll after an
+    // earlier successful ensure. Keep retrying briefly until the selected tab
+    // stays fully in view (or we give up after a short settle window).
+    EnsureVisibleRetryCount = 0;
+    KillTimer(HWindow, kEnsureVisibleTimerId);
+    SetTimer(HWindow, kEnsureVisibleTimerId, kEnsureVisibleTimerDelayMs, NULL);
 }
 
 BOOL CTabWindow::Create(HWND parent, int controlID)
@@ -325,6 +349,7 @@ void CTabWindow::DestroyWindow()
 {
     CALL_STACK_MESSAGE_NONE
     KillTimer(HWindow, kTabTipTimerId);
+    KillTimer(HWindow, kEnsureVisibleTimerId);
     HideTabToolTip();
     if (HTabTipWnd != NULL)
     {
@@ -481,7 +506,6 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
 
     std::wstring finalText = desired;
     setItemText(finalText);
-    bool ensureSelectedVisible = (index == TabCtrl_GetCurSel(HWindow));
 
     int closeBtnExtraPx = 0;
     if (ShouldShowCloseButton(index, TabCtrl_GetCurSel(HWindow)))
@@ -497,8 +521,7 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
     HDC hdc = GetDC(HWindow);
     if (hdc == NULL)
     {
-        if (ensureSelectedVisible)
-            EnsureSelectedTabVisible();
+        EnsureSelectedTabVisible();
         return;
     }
     HFONT oldFont = NULL;
@@ -522,8 +545,7 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
         if (oldFont != NULL)
             SelectObject(hdc, oldFont);
         ReleaseDC(HWindow, hdc);
-        if (ensureSelectedVisible)
-            EnsureSelectedTabVisible();
+        EnsureSelectedTabVisible();
         return;
     }
     int currentWidth = rect.right - rect.left;
@@ -590,8 +612,11 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
     if (oldFont != NULL)
         SelectObject(hdc, oldFont);
     ReleaseDC(HWindow, hdc);
-    if (ensureSelectedVisible)
-        EnsureSelectedTabVisible();
+    // TCM_SETITEM on any tab can reset the native overflow scroll position, so
+    // always re-check the selected tab — not only when its own title changed.
+    EnsureSelectedTabVisible();
+    if (!IsSelectedTabInView())
+        RequestEnsureSelectedTabVisible();
 }
 
 void CTabWindow::SetCurSel(int index)
@@ -604,94 +629,188 @@ void CTabWindow::SetCurSel(int index)
             CSelChangeGuard guard(SuppressSelectionNotifications);
             TabCtrl_SetCurSel(HWindow, index);
         }
-        EnsureInitialSelectedTabVisible();
+        // Do not gate this on InitialEnsureSelectedTabVisiblePending. Startup can
+        // clear that flag while the first tab is still visible, then select an
+        // overflowed active tab afterwards; that later selection must still scroll.
+        EnsureSelectedTabVisible();
+        RequestEnsureSelectedTabVisible();
     }
+}
+
+bool CTabWindow::GetSelectedTabVisibleRect(RECT& visibleRect) const
+{
+    CALL_STACK_MESSAGE_NONE
+    if (HWindow == NULL)
+        return false;
+
+    RECT clientRect;
+    if (!GetClientRect(HWindow, &clientRect))
+        return false;
+    if (clientRect.right - clientRect.left <= 0 || clientRect.bottom - clientRect.top <= 0)
+        return false;
+
+    visibleRect = clientRect;
+    HWND upDown = FindWindowEx(HWindow, NULL, UPDOWN_CLASS, NULL);
+    if (upDown == NULL || !IsWindowVisible(upDown))
+        return true;
+
+    RECT upDownRect;
+    if (!GetWindowRect(upDown, &upDownRect))
+        return true;
+
+    POINT pt = {upDownRect.left, upDownRect.top};
+    ScreenToClient(HWindow, &pt);
+    upDownRect.left = pt.x;
+    upDownRect.top = pt.y;
+    pt.x = upDownRect.right;
+    pt.y = upDownRect.bottom;
+    ScreenToClient(HWindow, &pt);
+    upDownRect.right = pt.x;
+    upDownRect.bottom = pt.y;
+
+    if (upDownRect.left > visibleRect.left && upDownRect.left < visibleRect.right)
+        visibleRect.right = upDownRect.left;
+    return true;
+}
+
+bool CTabWindow::IsSelectedTabInView() const
+{
+    CALL_STACK_MESSAGE_NONE
+    if (HWindow == NULL)
+        return false;
+
+    int sel = TabCtrl_GetCurSel(HWindow);
+    if (sel < 0 || IsNewTabButtonIndex(sel))
+        return false;
+
+    RECT visibleRect;
+    if (!GetSelectedTabVisibleRect(visibleRect))
+        return false;
+
+    RECT tabRect;
+    if (!TabCtrl_GetItemRect(HWindow, sel, &tabRect))
+        return false;
+
+    if (tabRect.left >= visibleRect.left && tabRect.right <= visibleRect.right)
+        return true;
+
+    // A tab wider than the strip can never be fully contained. Treat it as in
+    // view once its left edge sits inside the visible area so startup retry
+    // logic can settle instead of oscillating on the overflow arrows forever.
+    int visibleWidth = visibleRect.right - visibleRect.left;
+    int tabWidth = tabRect.right - tabRect.left;
+    return tabWidth > visibleWidth &&
+           tabRect.left >= visibleRect.left &&
+           tabRect.left < visibleRect.right;
 }
 
 void CTabWindow::EnsureInitialSelectedTabVisible()
 {
     CALL_STACK_MESSAGE_NONE
-    if (!InitialEnsureSelectedTabVisiblePending || HWindow == NULL)
+    if (HWindow == NULL)
         return;
+
+    // The "+" new-tab button must never remain the selected item.
+    EnsureSelection();
 
     int sel = TabCtrl_GetCurSel(HWindow);
     if (sel < 0 || IsNewTabButtonIndex(sel) || !IsWindowVisible(HWindow))
         return;
 
     EnsureSelectedTabVisible();
-    InitialEnsureSelectedTabVisiblePending = false;
+    if (IsSelectedTabInView())
+        InitialEnsureSelectedTabVisiblePending = false;
 }
 
-void CTabWindow::EnsureSelectedTabVisible()
+bool CTabWindow::EnsureSelectedTabVisible()
 {
     CALL_STACK_MESSAGE_NONE
     if (HWindow == NULL)
-        return;
+        return false;
 
     int sel = TabCtrl_GetCurSel(HWindow);
     if (sel < 0 || IsNewTabButtonIndex(sel))
-        return;
+        return false;
+
+    if (IsSelectedTabInView())
+        return true;
 
     HWND upDown = FindWindowEx(HWindow, NULL, UPDOWN_CLASS, NULL);
-    if (upDown == NULL || !IsWindowVisible(upDown))
-        return;
+    if (upDown == NULL || !IsWindowVisible(upDown) || !IsWindowEnabled(upDown))
+        return IsSelectedTabInView();
 
     CSelChangeGuard guard(SuppressSelectionNotifications);
 
     // TCM_SETCURFOCUS can move the native tab strip close to the selected tab,
     // but during startup/restored layouts it is not reliable enough by itself.
-    // Use it as a cheap first attempt, then fall back to clicking the native
-    // overflow arrows until the selected tab rectangle is inside the visible
-    // strip area.
     SendMessage(HWindow, TCM_SETCURFOCUS, sel, 0);
     if (TabCtrl_GetCurSel(HWindow) != sel)
         TabCtrl_SetCurSel(HWindow, sel);
 
-    RECT clientRect;
-    if (!GetClientRect(HWindow, &clientRect))
-        return;
-
-    RECT visibleRect = clientRect;
-    RECT upDownRect;
-    if (GetWindowRect(upDown, &upDownRect))
+    if (IsSelectedTabInView())
     {
-        POINT pt = {upDownRect.left, upDownRect.top};
-        ScreenToClient(HWindow, &pt);
-        upDownRect.left = pt.x;
-        upDownRect.top = pt.y;
-        pt.x = upDownRect.right;
-        pt.y = upDownRect.bottom;
-        ScreenToClient(HWindow, &pt);
-        upDownRect.right = pt.x;
-        upDownRect.bottom = pt.y;
-
-        if (upDownRect.left > visibleRect.left && upDownRect.left < visibleRect.right)
-            visibleRect.right = upDownRect.left;
+        UpdateOverflowButtonColors();
+        return true;
     }
 
     RECT upDownClientRect;
     if (!GetClientRect(upDown, &upDownClientRect))
-        return;
+        return IsSelectedTabInView();
 
     int width = upDownClientRect.right - upDownClientRect.left;
     int height = upDownClientRect.bottom - upDownClientRect.top;
     if (width <= 0 || height <= 0)
-        return;
+        return IsSelectedTabInView();
 
     int leftArrowX = width / 4;
     int rightArrowX = (3 * width) / 4;
     int arrowY = height / 2;
+
+    // Jump toward the selected tab by clicking the overflow arrows as many times
+    // as the up-down position delta requires. Putting the selected index near the
+    // first-visible position is much more reliable than inching from tab 0 after
+    // startup layouts reset the native scroll.
+    LRESULT range = SendMessage(upDown, UDM_GETRANGE, 0, 0);
+    short maxPos = (short)LOWORD(range);
+    short minPos = (short)HIWORD(range);
+    int targetPos = sel;
+    if (targetPos > maxPos)
+        targetPos = maxPos;
+    if (targetPos < minPos)
+        targetPos = minPos;
+
+    LRESULT posResult = SendMessage(upDown, UDM_GETPOS, 0, 0);
+    int curPos = (short)LOWORD(posResult);
+    int jumpDelta = targetPos - curPos;
+    if (jumpDelta != 0)
+    {
+        bool scrollLeft = jumpDelta < 0;
+        LPARAM clickPoint = MAKELPARAM(scrollLeft ? leftArrowX : rightArrowX, arrowY);
+        int jumpCount = jumpDelta < 0 ? -jumpDelta : jumpDelta;
+        for (int i = 0; i < jumpCount; ++i)
+        {
+            SendMessage(upDown, WM_LBUTTONDOWN, MK_LBUTTON, clickPoint);
+            SendMessage(upDown, WM_LBUTTONUP, 0, clickPoint);
+        }
+        if (TabCtrl_GetCurSel(HWindow) != sel)
+            TabCtrl_SetCurSel(HWindow, sel);
+    }
+
+    RECT visibleRect;
+    if (!GetSelectedTabVisibleRect(visibleRect))
+        return IsSelectedTabInView();
+
     int maxScrollAttempts = GetDisplayedTabCount() * 2;
     if (maxScrollAttempts < 1)
         maxScrollAttempts = 1;
 
     for (int i = 0; i < maxScrollAttempts; ++i)
     {
-        RECT tabRect;
-        if (!TabCtrl_GetItemRect(HWindow, sel, &tabRect))
+        if (IsSelectedTabInView())
             break;
 
-        if (tabRect.left >= visibleRect.left && tabRect.right <= visibleRect.right)
+        RECT tabRect;
+        if (!TabCtrl_GetItemRect(HWindow, sel, &tabRect))
             break;
 
         bool scrollLeft = tabRect.left < visibleRect.left;
@@ -704,6 +823,8 @@ void CTabWindow::EnsureSelectedTabVisible()
     }
 
     UpdateOverflowButtonColors();
+    InvalidateRect(HWindow, NULL, FALSE);
+    return IsSelectedTabInView();
 }
 
 int CTabWindow::GetCurSel() const
@@ -843,20 +964,25 @@ void CTabWindow::EnsureSelection()
         return;
 
     int sel = TabCtrl_GetCurSel(HWindow);
+    int target = -1;
     if (sel < 0)
     {
-        SetCurSel(0);
-        return;
+        target = 0;
+    }
+    else
+    {
+        int newTabIndex = GetNewTabButtonIndex();
+        if (newTabIndex >= 0 && sel == newTabIndex)
+            target = (newTabIndex > 0) ? (newTabIndex - 1) : 0;
     }
 
-    int newTabIndex = GetNewTabButtonIndex();
-    if (newTabIndex >= 0 && sel == newTabIndex)
-    {
-        if (newTabIndex > 0)
-            SetCurSel(newTabIndex - 1);
-        else
-            SetCurSel(0);
-    }
+    if (target < 0 || target >= GetTabCount())
+        return;
+
+    // Use TabCtrl_SetCurSel directly so callers such as EnsureNewTabButton /
+    // EnsureInitialSelectedTabVisible do not re-enter SetCurSel.
+    CSelChangeGuard guard(SuppressSelectionNotifications);
+    TabCtrl_SetCurSel(HWindow, target);
 }
 
 void CTabWindow::EnsureNewTabButton()
@@ -890,6 +1016,11 @@ void CTabWindow::EnsureNewTabButton()
 
     UpdateNewTabButtonWidth();
     UpdateOverflowButtonColors();
+    // Inserting the "+" button (or a real tab before it) can leave the native
+    // tab control's CurSel on "+". That blocks further clicks on "+" because
+    // TCN_SELCHANGE does not fire when the selection does not change. Keep a
+    // real tab selected whenever one exists.
+    EnsureSelection();
 }
 
 void CTabWindow::RefreshLayout()
@@ -897,7 +1028,8 @@ void CTabWindow::RefreshLayout()
     CALL_STACK_MESSAGE_NONE
     UpdateNewTabButtonWidth();
     UpdateOverflowButtonColors();
-    EnsureInitialSelectedTabVisible();
+    EnsureSelectedTabVisible();
+    RequestEnsureSelectedTabVisible();
 }
 
 void CTabWindow::EnsureTabTipWnd()
@@ -2474,7 +2606,12 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_THEMECHANGED:
         DarkModePreserveCustomTabControl(HWindow);
         UpdateOverflowButtonColors();
-        PostMessage(HWindow, WM_USER_ENSURE_SELECTED_TAB_VISIBLE, 0, 0);
+        RequestEnsureSelectedTabVisible();
+        break;
+
+    case WM_SHOWWINDOW:
+        if (wParam)
+            RequestEnsureSelectedTabVisible();
         break;
 
     case WM_ERASEBKGND:
@@ -2491,7 +2628,10 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
 
     case WM_USER_ENSURE_SELECTED_TAB_VISIBLE:
-        EnsureInitialSelectedTabVisible();
+        EnsureSelection();
+        EnsureSelectedTabVisible();
+        if (IsSelectedTabInView())
+            InitialEnsureSelectedTabVisiblePending = false;
         return 0;
 
     case WM_PARENTNOTIFY:
@@ -2742,6 +2882,23 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
 
     case WM_TIMER:
+        if (wParam == kEnsureVisibleTimerId)
+        {
+            KillTimer(HWindow, kEnsureVisibleTimerId);
+            EnsureSelection();
+            EnsureSelectedTabVisible();
+            if (IsSelectedTabInView())
+            {
+                InitialEnsureSelectedTabVisiblePending = false;
+                EnsureVisibleRetryCount = 0;
+            }
+            else if (EnsureVisibleRetryCount < kEnsureVisibleTimerMaxRetries)
+            {
+                EnsureVisibleRetryCount++;
+                SetTimer(HWindow, kEnsureVisibleTimerId, kEnsureVisibleTimerDelayMs, NULL);
+            }
+            return 0;
+        }
         if (wParam == kTabTipTimerId)
         {
             KillTimer(HWindow, kTabTipTimerId);
