@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Persist Copy/Move transfer, conflict, and wait defaults with CCriteriaData. | Save options as defaults ignored the newer dialog settings. | https://github.com/KRtkovo-eu-AI/salamander/issues/734 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -14,6 +17,7 @@
 #include "zip.h"
 #include "shellib.h"
 #include "pack.h"
+#include "storagesched.h"
 
 
 static std::wstring ConfirmDeleteTextToWideWithCodePage(const char* text, UINT codePage, DWORD flags)
@@ -1488,6 +1492,10 @@ CCriteriaData::CCriteriaData()
 void CCriteriaData::Reset()
 {
     OverwriteOlder = FALSE;
+    StartOnIdle = FALSE;
+    TransferMode = CMS_STORAGE_AWARE;
+    ConflictMode = CMCM_CURRENT;
+    HasSchedulingDefaults = FALSE;
     CopySecurity = FALSE;
     CopyAttrs = FALSE;
     PreserveDirTime = FALSE;
@@ -1505,6 +1513,10 @@ CCriteriaData&
 CCriteriaData::operator=(const CCriteriaData& s)
 {
     OverwriteOlder = s.OverwriteOlder;
+    StartOnIdle = s.StartOnIdle;
+    TransferMode = s.TransferMode;
+    ConflictMode = s.ConflictMode;
+    HasSchedulingDefaults = s.HasSchedulingDefaults;
     CopySecurity = s.CopySecurity;
     CopyAttrs = s.CopyAttrs;
     PreserveDirTime = s.PreserveDirTime;
@@ -1522,7 +1534,9 @@ CCriteriaData::operator=(const CCriteriaData& s)
 
 BOOL CCriteriaData::IsDirty()
 {
-    return OverwriteOlder || CopySecurity || CopyAttrs ||
+    return OverwriteOlder || StartOnIdle ||
+           TransferMode != CMS_STORAGE_AWARE || ConflictMode != CMCM_CURRENT ||
+           CopySecurity || CopyAttrs ||
            PreserveDirTime || IgnoreADS || SkipEmptyDirs || UseMasks ||
            UseAdvanced || UseSpeedLimit;
 }
@@ -1557,6 +1571,9 @@ BOOL CCriteriaData::AgreeMasksAndAdvanced(const WIN32_FIND_DATA* file)
 }
 
 const char* CRITERIADATA_OVERWRITEOLDER_REG = "Overwrite Older";
+const char* CRITERIADATA_STARTONIDLE_REG = "Start On Idle";
+const char* CRITERIADATA_TRANSFERMODE_REG = "Transfer Mode";
+const char* CRITERIADATA_CONFLICTMODE_REG = "Conflict Mode";
 const char* CRITERIADATA_COPYSECURITY_REG = "Copy Security";
 const char* CRITERIADATA_COPYATTRIBUTES_REG = "Copy Attributes";
 const char* CRITERIADATA_PRESERVEDIRTIME_REG = "Preserve Dir Time";
@@ -1576,6 +1593,15 @@ BOOL CCriteriaData::Save(HKEY hKey)
 
     if (OverwriteOlder != def.OverwriteOlder)
         SetValue(hKey, CRITERIADATA_OVERWRITEOLDER_REG, REG_DWORD, &OverwriteOlder, sizeof(DWORD));
+    // Always persist scheduling defaults when any Copy/Move options are saved so Load
+    // can distinguish a fresh save from older profiles that never stored these keys.
+    if (HasSchedulingDefaults || StartOnIdle != def.StartOnIdle ||
+        TransferMode != def.TransferMode || ConflictMode != def.ConflictMode)
+    {
+        SetValue(hKey, CRITERIADATA_STARTONIDLE_REG, REG_DWORD, &StartOnIdle, sizeof(DWORD));
+        SetValue(hKey, CRITERIADATA_TRANSFERMODE_REG, REG_DWORD, &TransferMode, sizeof(DWORD));
+        SetValue(hKey, CRITERIADATA_CONFLICTMODE_REG, REG_DWORD, &ConflictMode, sizeof(DWORD));
+    }
     if (CopySecurity != def.CopySecurity)
         SetValue(hKey, CRITERIADATA_COPYSECURITY_REG, REG_DWORD, &CopySecurity, sizeof(DWORD));
     if (CopyAttrs != def.CopyAttrs)
@@ -1605,6 +1631,14 @@ BOOL CCriteriaData::Save(HKEY hKey)
 BOOL CCriteriaData::Load(HKEY hKey)
 {
     GetValue(hKey, CRITERIADATA_OVERWRITEOLDER_REG, REG_DWORD, &OverwriteOlder, sizeof(DWORD));
+    BOOL hasStartOnIdle = GetValue(hKey, CRITERIADATA_STARTONIDLE_REG, REG_DWORD, &StartOnIdle, sizeof(DWORD));
+    BOOL hasTransferMode = GetValue(hKey, CRITERIADATA_TRANSFERMODE_REG, REG_DWORD, &TransferMode, sizeof(DWORD));
+    BOOL hasConflictMode = GetValue(hKey, CRITERIADATA_CONFLICTMODE_REG, REG_DWORD, &ConflictMode, sizeof(DWORD));
+    HasSchedulingDefaults = hasStartOnIdle || hasTransferMode || hasConflictMode;
+    if (TransferMode != CMS_SEQUENTIAL && TransferMode != CMS_STORAGE_AWARE)
+        TransferMode = CMS_STORAGE_AWARE;
+    if (ConflictMode != CMCM_CURRENT && ConflictMode != CMCM_SCAN_AHEAD)
+        ConflictMode = CMCM_CURRENT;
     GetValue(hKey, CRITERIADATA_COPYSECURITY_REG, REG_DWORD, &CopySecurity, sizeof(DWORD));
     GetValue(hKey, CRITERIADATA_COPYATTRIBUTES_REG, REG_DWORD, &CopyAttrs, sizeof(DWORD));
     GetValue(hKey, CRITERIADATA_PRESERVEDIRTIME_REG, REG_DWORD, &PreserveDirTime, sizeof(DWORD));

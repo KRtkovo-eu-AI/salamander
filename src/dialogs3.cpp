@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Save and reset Copy/Move transfer, conflict, and wait dialog defaults. | Save options as defaults ignored the newer dialog settings. | https://github.com/KRtkovo-eu-AI/salamander/issues/734 | Composer |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
@@ -1278,8 +1279,11 @@ CCopyMoveMoreDialog::CCopyMoveMoreDialog(HWND parent, char* path, int pathBufSiz
     TransferModeInOut = transferModeInOut;
     ConflictModeInOut = conflictModeInOut;
     OperationSchedulingOverrideInOut = operationSchedulingOverrideInOut;
-    LegacyWait = OperationSchedulingOverrideInOut != NULL &&
-                 *OperationSchedulingOverrideInOut == COSO_WAIT_ALL;
+    // Prefer the persisted Legacy wait choice from criteria defaults; fall back to
+    // the current override so User-controlled Wait remains sticky across Storage-aware.
+    LegacyWait = Criteria->StartOnIdle ||
+                 (OperationSchedulingOverrideInOut != NULL &&
+                  *OperationSchedulingOverrideInOut == COSO_WAIT_ALL);
     TargetPaths = targetPaths;
     AllowChangeTarget = allowChangeTarget;
     MoreButton = NULL;
@@ -1350,6 +1354,7 @@ void CCopyMoveMoreDialog::Transfer(CTransferInfo& ti)
         {
             int mode = (int)SendMessage(transferMode, CB_GETCURSEL, 0, 0);
             *TransferModeInOut = mode == CMS_SEQUENTIAL ? CMS_SEQUENTIAL : CMS_STORAGE_AWARE;
+            Criteria->TransferMode = *TransferModeInOut;
         }
     }
     if (OperationSchedulingOverrideInOut != NULL)
@@ -1362,6 +1367,7 @@ void CCopyMoveMoreDialog::Transfer(CTransferInfo& ti)
             if (mode == CMS_SEQUENTIAL)
                 LegacyWait = IsDlgButtonChecked(HWindow, IDC_CM_STARTONIDLE) == BST_CHECKED;
             *OperationSchedulingOverrideInOut = CopyMoveGetSchedulingOverride(mode, LegacyWait);
+            Criteria->StartOnIdle = LegacyWait;
         }
     }
     if (ConflictModeInOut != NULL)
@@ -1381,6 +1387,7 @@ void CCopyMoveMoreDialog::Transfer(CTransferInfo& ti)
         {
             int mode = (int)SendMessage(conflictMode, CB_GETCURSEL, 0, 0);
             *ConflictModeInOut = mode == CMCM_SCAN_AHEAD ? CMCM_SCAN_AHEAD : CMCM_CURRENT;
+            Criteria->ConflictMode = *ConflictModeInOut;
         }
     }
 }
@@ -1906,7 +1913,16 @@ MENU_TEMPLATE_ITEM CopyMoveMoreDialogMenu[] =
                     if (ValidateData())
                     {
                         if (TransferData(ttDataFromWindow))
-                            CopyMoveOptions.Set(Criteria->IsDirty() ? Criteria : NULL); // save the new default
+                        {
+                            if (Criteria->IsDirty())
+                            {
+                                // Transfer/conflict/wait are part of dialog defaults from now on
+                                Criteria->HasSchedulingDefaults = TRUE;
+                                CopyMoveOptions.Set(Criteria); // save the new default
+                            }
+                            else
+                                CopyMoveOptions.Set(NULL);
+                        }
                     }
                     break;
                 }
@@ -1915,8 +1931,35 @@ MENU_TEMPLATE_ITEM CopyMoveMoreDialogMenu[] =
                 {
                     CopyMoveOptions.Set(NULL);
 
-                    // clear the dialog
+                    // clear the dialog, including transfer/conflict/wait controls
                     Criteria->Reset();
+                    if (TransferModeInOut != NULL)
+                    {
+                        int mode = Configuration.CopyMoveScheduling == CMTP_KEEP_LAST
+                                       ? Configuration.CopyMoveLastTransferMode
+                                       : Configuration.CopyMoveScheduling;
+                        if (mode != CMS_SEQUENTIAL && mode != CMS_STORAGE_AWARE)
+                            mode = CMS_STORAGE_AWARE;
+                        *TransferModeInOut = mode;
+                        Criteria->TransferMode = mode;
+                    }
+                    if (ConflictModeInOut != NULL)
+                    {
+                        int mode = Configuration.CopyMoveConflictPreference == CMCP_KEEP_LAST
+                                       ? Configuration.CopyMoveLastConflictMode
+                                       : Configuration.CopyMoveConflictPreference;
+                        if (mode != CMCM_CURRENT && mode != CMCM_SCAN_AHEAD)
+                            mode = CMCM_CURRENT;
+                        *ConflictModeInOut = mode;
+                        Criteria->ConflictMode = mode;
+                    }
+                    LegacyWait = FALSE;
+                    Criteria->StartOnIdle = FALSE;
+                    if (OperationSchedulingOverrideInOut != NULL)
+                    {
+                        int mode = TransferModeInOut != NULL ? *TransferModeInOut : CMS_STORAGE_AWARE;
+                        *OperationSchedulingOverrideInOut = CopyMoveGetSchedulingOverride(mode, FALSE);
+                    }
                     TransferData(ttDataToWindow);
                     break;
                 }

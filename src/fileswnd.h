@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Persist Copy/Move transfer, conflict, and wait defaults in CCriteriaData. | Save options as defaults ignored the newer dialog settings. | https://github.com/KRtkovo-eu-AI/salamander/issues/734 | Composer |
 // | 2026-11-05 | Add SafeHandleContextMenuMsg2 for shell-extension SEH. | Panel ContextMenu HandleMenuMsg must not live inside WindowProc SEH. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
@@ -95,6 +96,10 @@ class CCriteriaData // data pro atCopy/atMove
 {
 public:
     BOOL OverwriteOlder;      // overwrite older, skip newer ones
+    BOOL StartOnIdle;         // legacy wait-until-idle choice for User-controlled transfer mode
+    int TransferMode;         // CMS_SEQUENTIAL / CMS_STORAGE_AWARE saved with dialog defaults
+    int ConflictMode;         // CMCM_CURRENT / CMCM_SCAN_AHEAD saved with dialog defaults
+    BOOL HasSchedulingDefaults; // TRUE when transfer/conflict/wait were saved with these defaults
     BOOL CopySecurity;        // preserve NTFS permissions, FALSE = don't care = no special handling, result doesn't matter
     BOOL CopyAttrs;           // preserve Archive, Encrypt and Compress attributes; FALSE = don't care = no special handling, result doesn't matter to us
     BOOL PreserveDirTime;     // preserve date and time of directories
