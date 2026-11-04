@@ -72,7 +72,8 @@ def test_report_compares_source_without_building_release(tmp_path: Path) -> None
     }
     assert report["comparison"]["summary"]["deltaNloc"] > 0
     assert report["comparison"]["files"][0]["path"] == "src/main.cpp"
-    assert "Source code growth report" in output_markdown.read_text(encoding="utf-8")
+    rendered = output_markdown.read_text(encoding="utf-8")
+    assert rendered.splitlines()[0] == "# Source code growth report"
 
 
 def test_release_report_compares_two_explicit_tags(tmp_path: Path) -> None:
@@ -167,6 +168,7 @@ def test_report_compares_to_explicit_pull_request_base_without_release_tags(tmp_
             "--baseline-commit", base_commit,
             "--baseline-label", "PR base branch",
             "--current-label", "PR head",
+            "--title", "Source code growth compared with the base branch",
             "--output-json", str(output_json),
             "--output-markdown", str(output_markdown),
         ],
@@ -180,7 +182,9 @@ def test_report_compares_to_explicit_pull_request_base_without_release_tags(tmp_
         "commit": base_commit,
     }
     assert report["comparison"]["summary"]["deltaNloc"] > 0
-    assert "Baseline: **PR base branch**" in output_markdown.read_text(encoding="utf-8")
+    rendered = output_markdown.read_text(encoding="utf-8")
+    assert rendered.splitlines()[0] == "# Source code growth compared with the base branch"
+    assert "Baseline: **PR base branch**" in rendered
 
 
 def test_workflow_is_source_only_and_pr_build_calls_codeql_after_success() -> None:
@@ -193,8 +197,13 @@ def test_workflow_is_source_only_and_pr_build_calls_codeql_after_success() -> No
     assert "<!-- source-code-growth-pr-report -->" in workflow
     assert "--baseline-commit" in workflow
     assert "github.event.pull_request.base.sha" in workflow
-    assert "github.rest.issues.createComment" in workflow
+    assert workflow.count("github.rest.issues.createComment") == 2
     assert "github.rest.issues.updateComment" in workflow
+    assert "github.rest.issues.deleteComment" not in workflow
+    assert "github-actions[bot]" in workflow
+    assert "Source code growth compared with the latest release" in workflow
+    assert "Source code growth compared with the base branch" in workflow
+    assert "Publish pull request source growth report" in workflow
     assert "pull-requests: write" in workflow
     assert "msbuild" not in workflow.lower()
     assert "binary-size" not in workflow
@@ -228,8 +237,12 @@ def test_fork_pull_requests_get_source_growth_comments() -> None:
     assert "<!-- source-code-growth-report -->" in comment_workflow
     assert "<!-- source-code-growth-pr-report -->" in comment_workflow
     assert "github.rest.issues.createComment" in comment_workflow
+    assert comment_workflow.count("await publish(") == 2
     assert "github.rest.issues.updateComment" in comment_workflow
-    assert "# Source code growth report" in comment_workflow
+    assert "github.rest.issues.deleteComment" not in comment_workflow
+    assert "github-actions[bot]" in comment_workflow
+    assert "# Source code growth compared with the latest release" in comment_workflow
+    assert "# Source code growth compared with the base branch" in comment_workflow
     assert "issues: write" in comment_workflow
     assert "pull-requests: write" in comment_workflow
     assert "actions: read" in comment_workflow

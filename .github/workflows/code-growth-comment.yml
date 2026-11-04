@@ -95,17 +95,16 @@ jobs:
               return;
             }
 
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: pull.number,
-              per_page: 100,
-            });
+            const isOurs = (comment) => comment.user?.login === 'github-actions[bot]';
+            const hasMarker = (comment, value) => {
+              const text = comment.body || '';
+              return text.startsWith(`${value}\n`) || text.startsWith(`${value}\r\n`);
+            };
 
-            async function publish(marker, reportPath, footer) {
+            async function publish(marker, reportPath, expectedHeading, footer) {
               const report = fs.readFileSync(reportPath, 'utf8').trim();
-              if (!report.startsWith('# Source code growth report')) {
-                throw new Error(`Report ${reportPath} is not a source code growth report.`);
+              if (!report.startsWith(expectedHeading)) {
+                throw new Error(`Report ${reportPath} does not start with ${expectedHeading}.`);
               }
 
               const body = `${marker}\n${report}${footer}`;
@@ -113,8 +112,14 @@ jobs:
                 throw new Error(`Source growth report is too large for a PR comment (${body.length} characters).`);
               }
 
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pull.number,
+                per_page: 100,
+              });
               const existing = comments.find(
-                (comment) => comment.user?.type === 'Bot' && comment.body?.includes(marker),
+                (comment) => isOurs(comment) && hasMarker(comment, marker),
               );
               if (existing) {
                 const updated = await github.rest.issues.updateComment({
@@ -123,7 +128,6 @@ jobs:
                   comment_id: existing.id,
                   body,
                 });
-                existing.body = body;
                 core.info(`Updated source growth report: ${updated.data.html_url}`);
                 return;
               }
@@ -134,17 +138,18 @@ jobs:
                 issue_number: pull.number,
                 body,
               });
-              comments.push(created.data);
               core.info(`Published source growth report: ${created.data.html_url}`);
             }
 
             await publish(
               '<!-- source-code-growth-report -->',
               process.env.REPORT_PATH,
+              '# Source code growth compared with the latest release',
               `\n\n---\n<sub>Automatically updated for \`${headSha}\`. [Open workflow run](${runUrl}).</sub>`,
             );
             await publish(
               '<!-- source-code-growth-pr-report -->',
               process.env.PR_REPORT_PATH,
+              '# Source code growth compared with the base branch',
               `\n\n---\n<sub>Compared with base branch \`${pull.base.ref}\` at \`${pull.base.sha}\`; updated for \`${headSha}\`. [Open workflow run](${runUrl}).</sub>`,
             );
