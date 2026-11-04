@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2024 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Enable Install for the next selected package. | After one extension was scheduled, Install stayed disabled for every other row. | | Grok 4.7 |
 
 using System;
 using System.Collections.Concurrent;
@@ -1370,7 +1373,7 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
     private readonly List<PluginUpdateRow> _rows = new();
     private int _sortColumn = 2;
     private SortOrder _sortOrder = SortOrder.Ascending;
-    private bool _installScheduled;
+    private readonly HashSet<string> _scheduledPackageKeys = new(StringComparer.OrdinalIgnoreCase);
     private bool _installInProgress;
     private CancellationTokenSource? _catalogImageLoadCancellation;
 
@@ -2191,7 +2194,7 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
                 : NativeStrings.Get(NativeStringId.PluginInstall)
             : NativeStrings.Get(NativeStringId.PluginUpdatesOpenPage);
         _installButton.Enabled = supportsAutomaticInstall
-            ? !_installScheduled && !_installInProgress
+            ? !_installInProgress && !IsPackageScheduled(row)
             : !_installInProgress && row is not null && !string.IsNullOrWhiteSpace(row.WebUrl);
     }
 
@@ -2274,13 +2277,38 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
             ? null
             : _listView.SelectedItems[0].Tag as PluginUpdateRow;
 
+    private static string PackageScheduleKey(PluginUpdateRow row)
+    {
+        if (!string.IsNullOrWhiteSpace(row.Id))
+        {
+            return "id:" + row.Id;
+        }
+
+        if (!string.IsNullOrWhiteSpace(row.WebUrl))
+        {
+            return "url:" + row.WebUrl;
+        }
+
+        return "name:" + row.Name;
+    }
+
+    private bool IsPackageScheduled(PluginUpdateRow? row) =>
+        row is not null && _scheduledPackageKeys.Contains(PackageScheduleKey(row));
+
     private bool CanInstallSelected() =>
-        !_installScheduled && !_installInProgress && PluginPackageInstaller.CanInstall(GetSelectedRow());
+        !_installInProgress &&
+        !IsPackageScheduled(GetSelectedRow()) &&
+        PluginPackageInstaller.CanInstall(GetSelectedRow());
 
     private async Task ActivateSelectedAsync()
     {
         var row = GetSelectedRow();
-        if (row is null)
+        if (row is null || _installInProgress)
+        {
+            return;
+        }
+
+        if (PluginPackageInstaller.CanInstall(row) && IsPackageScheduled(row))
         {
             return;
         }
@@ -2504,8 +2532,20 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
             return;
         }
 
-        if (_installScheduled || _installInProgress)
+        if (_installInProgress)
         {
+            return;
+        }
+
+        var pendingPackages = automaticPackages
+            .Where(package => !IsPackageScheduled(package))
+            .ToList();
+        if (pendingPackages.Count == 0)
+        {
+            foreach (var webRow in webRows)
+            {
+                OpenUrl(webRow.WebUrl);
+            }
             return;
         }
 
@@ -2518,11 +2558,11 @@ internal sealed class PluginUpdatesDialog : DeterministicDpiForm
         try
         {
             var status = string.Empty;
-            foreach (var package in automaticPackages)
+            foreach (var package in pendingPackages)
             {
                 status = await PluginPackageInstaller.StageAsync(package).ConfigureAwait(true);
+                _scheduledPackageKeys.Add(PackageScheduleKey(package));
             }
-            _installScheduled = true;
             _statusLabel.Text = status;
             ThemeHelper.ShowMessageBox(
                 this,

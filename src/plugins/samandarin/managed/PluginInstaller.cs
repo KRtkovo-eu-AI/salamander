@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Serialize package copies that share a version file. | Scheduling a second extension before restart could drop the other extensions.ver record. | | Grok 4.7 |
 // | 2026-11-04 | Overwrite extension files and record them for discovery. | Install wrote a receipt without registering the package, and updates left the previous files in place. | | Grok 4.7 |
 
 using System;
@@ -572,6 +573,22 @@ function Remove-ExtraPackageFiles([string]$from, [string]$to) {{
         Remove-Item -LiteralPath $item.FullName -Recurse -Force -ErrorAction SilentlyContinue
     }}
 }}
+function Invoke-PackageInstallLock([scriptblock]$Action) {{
+    $mutex = New-Object System.Threading.Mutex($false, 'Local\OpenSamandarin.PackageInstall')
+    $acquired = $false
+    try {{
+        try {{
+            $acquired = $mutex.WaitOne([TimeSpan]::FromMinutes(30))
+        }} catch [System.Threading.AbandonedMutexException] {{
+            $acquired = $true
+        }}
+        if (-not $acquired) {{ throw 'Timed out waiting for another package install to finish.' }}
+        & $Action
+    }} finally {{
+        if ($acquired) {{ $mutex.ReleaseMutex() | Out-Null }}
+        $mutex.Dispose()
+    }}
+}}
 $sourceProcessId = {Process.GetCurrentProcess().Id}
 $source = Decode('{Encode(sourceDirectory)}')
 $target = Decode('{Encode(targetDirectory)}')
@@ -588,6 +605,7 @@ try {{
         Start-Sleep -Milliseconds 250
     }} while ($true)
     Start-Sleep -Milliseconds 500
+    Invoke-PackageInstallLock {{
     Copy-PackageTree $source $target
     Remove-ExtraPackageFiles $source $target
     if ($pluginRelative.Length -ne 0) {{
@@ -626,6 +644,7 @@ try {{
     }}
     Set-ReceiptError $null
     Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
+    }}
 }} catch {{
     Set-ReceiptError ($_ | Out-String)
 }}";

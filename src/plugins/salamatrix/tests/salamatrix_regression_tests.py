@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-04 | Require Install to follow the selected package. | One scheduled extension disabled Install for every other row. | | Grok 4.7 |
+# | 2026-11-04 | Require late extension installs to be integrated after startup. | A restart that overlaps the install helper left the package out of Plugin Manager. | | Grok 4.7 |
 # | 2026-11-04 | Require plug-in DLLs to stay mapped until every Release returns. | Exit crash in an unloaded runtime plug-in. | https://github.com/KRtkovo-eu-AI/salamander/issues/770 https://github.com/KRtkovo-eu-AI/salamander/issues/750 | Grok 4.7 |
 """Fast source-level regression checks for Salamatrix integration contracts."""
 
@@ -433,6 +435,22 @@ def main() -> int:
         r"MaxConnectionsPerServer\s*=\s*"
         r"PluginUpdatesDialog\.CatalogImageDownloadConcurrency",
         "Samandarin catalog icons are not deduplicated and loaded with bounded concurrency")
+    require(
+        samandarin_entry,
+        r"HashSet<string> _scheduledPackageKeys = new\(StringComparer\.OrdinalIgnoreCase\).*?"
+        r"!IsPackageScheduled\(row\).*?"
+        r"_scheduledPackageKeys\.Add\(PackageScheduleKey\(package\)\)",
+        "Plugin Updates keeps Install disabled after the selection changes")
+    require_absent(
+        samandarin_entry,
+        r"_installScheduled",
+        "Plugin Updates still disables Install for every row after one install")
+    require(
+        read("src/plugins/samandarin/managed/PluginInstaller.cs"),
+        r"Local\\OpenSamandarin\.PackageInstall.*?"
+        r"Invoke-PackageInstallLock \{\{.*?"
+        r"extensions\.ver",
+        "Concurrent package installs can overwrite extensions.ver")
 
     require(dialogs, r"HasStablePluginKey\(p->RegKeyName, \"SALAMATRIX\"\).*?IsPluginName\(p->Name, \"Salamatrix Framework\"\)",
             "Salamatrix Framework key/name fallback is missing")
@@ -1807,6 +1825,36 @@ def main() -> int:
         r'void CPluginData::FreeDeferredModule\(\).*?'
         r'HANDLES\(FreeLibrary\(module\)\)',
         "deferred plug-in unload does not keep the DLL mapped through Release")
+    require(
+        packages,
+        r'void PackageManager::DiscoverMissingPackages\(.*?'
+        r'void PackageManager::IntegrateNewlyInstalledExtensions\(\).*?'
+        r'DiscoverMissingPackages\(Roots\[index\]\)',
+        "extension installs that finish after startup are not integrated")
+    require(
+        packages,
+        r'bool PackageManager::IsInstallCommitted\(.*?'
+        r'if \(!IsInstallCommitted\(directory\)\)\s*'
+        r'return;',
+        "extension discovery does not wait until extensions.ver commits the copy")
+    require(
+        packages,
+        r'bool notReady = false;.*?'
+        r'AcceptInstalledExtensionManifest\(line\.substr\(colon \+ 1\), &notReady\).*?'
+        r'waitingForManifest = true;',
+        "an unreadable extension manifest still consumes its install record")
+    require(
+        packages,
+        r'RefreshInProgress = FALSE;\s*StartExtensionInstallWatch\(\)',
+        "startup does not keep watching for an extension install that is still being copied")
+    require(
+        read("src/plugins/salamatrix/salamatrix.def"),
+        r"EXPORTS SalamatrixIntegrateInstalledExtensions",
+        "Salamatrix does not export late extension-install integration")
+    require(
+        dialogs,
+        r'GetProcAddress\(salamatrix, "SalamatrixIntegrateInstalledExtensions"\)',
+        "Plugin Manager does not integrate extension installs finished after startup")
     for phase in (
             "ssdpUnregisteringToolbarButtons",
             "ssdpUnregisteringExtensions",

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Pick up extension installs that finish after startup. | The install helper copies files only after Samandarin exits, so a restart that overlaps that copy never saw the new package. | | Grok 4.7 |
 // | 2026-11-04 | Register updater installs and report a missing runtime. | New extension packages were not added on the next start, and activation failed without telling the user which runtime was missing. | | Grok 4.7 |
 
 #include "precomp.h"
@@ -2520,7 +2521,10 @@ PackageManager::PackageManager()
       ActiveHostDispatches(0),
       ActiveExecutions(0),
       ShuttingDown(FALSE),
-      ExecutionsIdleEvent(CreateEvent(NULL, TRUE, TRUE, NULL))
+      ExecutionsIdleEvent(CreateEvent(NULL, TRUE, TRUE, NULL)),
+      ExtensionInstallTimer(0),
+      ExtensionInstallTicks(0),
+      IntegratingExtensions(FALSE)
 {
     InitializeCriticalSection(&FileSystemActionThreadsLock);
 }
@@ -2576,6 +2580,7 @@ BOOL PackageManager::Initialize(
 void PackageManager::Shutdown()
 {
     InterlockedExchange(&ShuttingDown, TRUE);
+    StopExtensionInstallWatch();
     for (size_t index = 0; index < Packages.size(); ++index)
         InterlockedExchange(&Packages[index]->Stopping, TRUE);
     // Stop persistent runtimes before waiting for active executions. An
@@ -2845,6 +2850,7 @@ void PackageManager::Refresh()
     if (General != NULL)
         General->PostPluginMenuChanged();
     RefreshInProgress = FALSE;
+    StartExtensionInstallWatch();
     if (RefreshPending && ActiveHostDispatches == 0 &&
         ActiveExecutions == 0)
         Refresh();
@@ -3465,6 +3471,7 @@ void PackageManager::SetRefreshDeferred(BOOL deferred)
 void PackageManager::CompleteStartupRefreshBatch()
 {
     RefreshDeferred = FALSE;
+    StartExtensionInstallWatch();
     if (!RefreshPending)
         return;
 
@@ -4304,6 +4311,214 @@ std::wstring PathForCreateFile(const std::wstring& full)
 }
 }
 
+namespace
+{
+PackageManager* ExtensionInstallWatchManager = NULL;
+}
+
+VOID CALLBACK PackageManager::ExtensionInstallTimerProc(
+    HWND, UINT, UINT_PTR, DWORD)
+{
+    PackageManager* manager = ExtensionInstallWatchManager;
+    if (manager == NULL ||
+        InterlockedCompareExchange(&manager->ShuttingDown, FALSE, FALSE) != FALSE)
+        return;
+    // Startup batching still owns the catalog. Keep the watch, but do not
+    // spend its time limit before the real scan has finished.
+    if (manager->RefreshDeferred || manager->RefreshInProgress)
+        return;
+    // The helper waits until this process exits, then copies the package.
+    // A restart started during that copy misses the startup scan. Keep
+    // looking for a few minutes so the package appears without another restart.
+    if (++manager->ExtensionInstallTicks >= 300)
+        manager->StopExtensionInstallWatch();
+    manager->IntegrateNewlyInstalledExtensions();
+}
+
+void PackageManager::StartExtensionInstallWatch()
+{
+    if (ExtensionInstallTimer != 0 ||
+        InterlockedCompareExchange(&ShuttingDown, FALSE, FALSE) != FALSE)
+        return;
+    ExtensionInstallTicks = 0;
+    ExtensionInstallWatchManager = this;
+    ExtensionInstallTimer = SetTimer(NULL, 0, 1000, ExtensionInstallTimerProc);
+}
+
+void PackageManager::StopExtensionInstallWatch()
+{
+    if (ExtensionInstallWatchManager == this)
+        ExtensionInstallWatchManager = NULL;
+    if (ExtensionInstallTimer != 0)
+    {
+        KillTimer(NULL, ExtensionInstallTimer);
+        ExtensionInstallTimer = 0;
+    }
+}
+
+bool PackageManager::HasPackageDirectory(const std::wstring& directory) const
+{
+    for (size_t index = 0; index < Packages.size(); ++index)
+    {
+        const Package* package = Packages[index];
+        if (package != NULL &&
+            _wcsicmp(package->Directory.c_str(), directory.c_str()) == 0)
+            return true;
+    }
+    return false;
+}
+
+bool PackageManager::IsInstallCommitted(const std::wstring& directory) const
+{
+    std::wstring rootFull;
+    std::wstring directoryFull;
+    if (!GetNormalizedFullPath(ExpandRoot(L"$(SalDir)\\extensions"), &rootFull) ||
+        !GetNormalizedFullPath(directory, &directoryFull))
+        return false;
+    // Packages outside the extensions root are not copied by the install
+    // helper, so the startup scan's directory rules still apply.
+    if (!IsPathInsideDirectory(directoryFull, rootFull) ||
+        _wcsicmp(directoryFull.c_str(), rootFull.c_str()) == 0)
+        return true;
+
+    std::wstring relative = directoryFull.substr(rootFull.size());
+    while (!relative.empty() &&
+           (relative.front() == L'\\' || relative.front() == L'/'))
+        relative.erase(relative.begin());
+    relative += L"\\extension.json";
+    for (size_t index = 0; index < relative.size(); ++index)
+        if (relative[index] == L'/')
+            relative[index] = L'\\';
+
+    std::string text;
+    if (!ReadUtf8File(
+            PathForCreateFile(ExpandRoot(L"$(SalDir)\\extensions\\extensions.ver")),
+            &text) ||
+        text.empty())
+        return false;
+    if (text.size() >= 3 &&
+        static_cast<unsigned char>(text[0]) == 0xEF &&
+        static_cast<unsigned char>(text[1]) == 0xBB &&
+        static_cast<unsigned char>(text[2]) == 0xBF)
+        text.erase(0, 3);
+
+    bool first = true;
+    size_t offset = 0;
+    while (offset < text.size())
+    {
+        size_t end = text.find_first_of("\r\n", offset);
+        if (end == std::string::npos)
+            end = text.size();
+        std::string line = text.substr(offset, end - offset);
+        offset = end;
+        while (offset < text.size() && (text[offset] == '\r' || text[offset] == '\n'))
+            ++offset;
+        if (line.empty())
+            continue;
+        if (first)
+        {
+            first = false;
+            continue;
+        }
+        size_t colon = line.find(':');
+        if (colon == std::string::npos || colon + 1 >= line.size())
+            continue;
+        std::wstring recorded;
+        if (!ToWide(line.substr(colon + 1), &recorded))
+            continue;
+        while (!recorded.empty() &&
+               (recorded.back() == L' ' || recorded.back() == L'\t'))
+            recorded.pop_back();
+        for (size_t index = 0; index < recorded.size(); ++index)
+            if (recorded[index] == L'/')
+                recorded[index] = L'\\';
+        if (_wcsicmp(recorded.c_str(), relative.c_str()) == 0)
+            return true;
+    }
+    return false;
+}
+
+void PackageManager::DiscoverMissingPackages(const std::wstring& directory)
+{
+    if (directory.empty() || HasPackageDirectory(directory))
+        return;
+
+    std::wstring manifestPath = directory + L"\\extension.json";
+    DWORD attributes = GetFileAttributesW(PathForCreateFile(manifestPath).c_str());
+    if (attributes != INVALID_FILE_ATTRIBUTES &&
+        (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+    {
+        // extension.json is copied before the rest of the tree. Wait until
+        // extensions.ver names this package, which the helper writes last.
+        if (!IsInstallCommitted(directory))
+            return;
+        size_t slash = directory.find_last_of(L"\\/");
+        if (slash == std::wstring::npos)
+            return;
+        std::wstring parent = directory.substr(0, slash);
+        DiscoverDirectory(parent, &directory);
+        return;
+    }
+
+    std::wstring pattern = PathForCreateFile(directory + L"\\*");
+    WIN32_FIND_DATAW data;
+    HANDLE find = FindFirstFileW(pattern.c_str(), &data);
+    if (find == INVALID_HANDLE_VALUE)
+        return;
+    do
+    {
+        if (wcscmp(data.cFileName, L".") == 0 || wcscmp(data.cFileName, L"..") == 0)
+            continue;
+        if ((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0 ||
+            (data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0)
+            continue;
+        DiscoverMissingPackages(directory + L"\\" + data.cFileName);
+    } while (FindNextFileW(find, &data));
+    FindClose(find);
+}
+
+void PackageManager::IntegrateNewlyInstalledExtensions()
+{
+    if (IntegratingExtensions ||
+        RefreshDeferred || RefreshInProgress ||
+        ActiveHostDispatches != 0 || ActiveExecutions != 0 ||
+        InterlockedCompareExchange(&ShuttingDown, FALSE, FALSE) != FALSE)
+        return;
+    if (General != NULL)
+    {
+        CSalamanderServiceQuery query;
+        CSalamanderServiceResult result;
+        memset(&query, 0, sizeof(query));
+        memset(&result, 0, sizeof(result));
+        query.ServiceId = SALAMANDER_SERVICE_SHUTDOWN_PROGRESS;
+        query.MinimumVersion = SALAMANDER_SHUTDOWN_PROGRESS_VERSION_1_0;
+        if (General->QueryService(&query, &result))
+            return;
+    }
+
+    IntegratingExtensions = TRUE;
+    size_t before = Packages.size();
+    ApplyPendingExtensionInstalls();
+    if (InterlockedCompareExchange(&ShuttingDown, FALSE, FALSE) == FALSE)
+    {
+        for (size_t index = 0; index < Roots.size(); ++index)
+            DiscoverMissingPackages(Roots[index]);
+        for (size_t index = 0; index < CustomPackages.size(); ++index)
+            DiscoverMissingPackages(CustomPackages[index]);
+    }
+    if (Packages.size() != before &&
+        InterlockedCompareExchange(&ShuttingDown, FALSE, FALSE) == FALSE)
+    {
+        ResolveDependenciesAndActivate();
+        ApplyUserOrder();
+        UnregisterToolbarButtons();
+        RegisterToolbarButtons();
+        if (General != NULL)
+            General->PostPluginMenuChanged();
+    }
+    IntegratingExtensions = FALSE;
+}
+
 void PackageManager::ApplyPendingExtensionInstalls()
 {
     std::wstring versionFile = ExpandRoot(L"$(SalDir)\\extensions\\extensions.ver");
@@ -4317,6 +4532,8 @@ void PackageManager::ApplyPendingExtensionInstalls()
         text.erase(0, 3);
 
     int headerVersion = 0;
+    int reachedVersion = LastExtensionVer;
+    bool waitingForManifest = false;
     bool first = true;
     size_t offset = 0;
     while (offset < text.size())
@@ -4334,8 +4551,9 @@ void PackageManager::ApplyPendingExtensionInstalls()
         {
             first = false;
             headerVersion = atoi(line.c_str());
-            // The counter moves forward after this pass. Replaying the same
-            // file must not undo a removal the user makes afterwards.
+            // Replaying the same file must not undo a removal the user makes
+            // afterwards. A record whose manifest cannot be read yet does not
+            // move the counter, so the install helper can finish the copy.
             if (headerVersion <= LastExtensionVer)
                 return;
             continue;
@@ -4346,14 +4564,27 @@ void PackageManager::ApplyPendingExtensionInstalls()
         int version = atoi(line.c_str());
         if (version <= LastExtensionVer)
             continue;
-        AcceptInstalledExtensionManifest(line.substr(colon + 1));
+        bool notReady = false;
+        if (!AcceptInstalledExtensionManifest(line.substr(colon + 1), &notReady) &&
+            notReady)
+        {
+            waitingForManifest = true;
+            break;
+        }
+        if (version > reachedVersion)
+            reachedVersion = version;
     }
-    if (headerVersion > LastExtensionVer)
-        LastExtensionVer = headerVersion;
+    if (!waitingForManifest && headerVersion > reachedVersion)
+        reachedVersion = headerVersion;
+    if (reachedVersion > LastExtensionVer)
+        LastExtensionVer = reachedVersion;
 }
 
-BOOL PackageManager::AcceptInstalledExtensionManifest(const std::string& relativePath)
+BOOL PackageManager::AcceptInstalledExtensionManifest(
+    const std::string& relativePath, bool* notReady)
 {
+    if (notReady != NULL)
+        *notReady = false;
     std::string relative = relativePath;
     while (!relative.empty() &&
            (relative.back() == ' ' || relative.back() == '\t' ||
@@ -4389,7 +4620,11 @@ BOOL PackageManager::AcceptInstalledExtensionManifest(const std::string& relativ
 
     std::string json;
     if (!ReadUtf8File(PathForCreateFile(manifestFull), &json))
+    {
+        if (notReady != NULL)
+            *notReady = true;
         return FALSE;
+    }
     if (json.size() >= 3 &&
         static_cast<unsigned char>(json[0]) == 0xEF &&
         static_cast<unsigned char>(json[1]) == 0xBB &&

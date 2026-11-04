@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Pick up extension installs that finish after startup. | The install helper copies files only after Samandarin exits, so a restart that overlaps that copy never saw the new package. | | Grok 4.7 |
 // | 2026-11-04 | Accept extension installs recorded in extensions.ver. | A package copied into the extensions directory stayed removed or undiscovered until its manifest was added by hand. | | Grok 4.7 |
 
 #pragma once
@@ -66,6 +67,9 @@ private:
     LONG ActiveExecutions;
     volatile LONG ShuttingDown;
     HANDLE ExecutionsIdleEvent;
+    UINT_PTR ExtensionInstallTimer;
+    int ExtensionInstallTicks;
+    BOOL IntegratingExtensions;
     CRITICAL_SECTION FileSystemActionThreadsLock;
     std::vector<HANDLE> FileSystemActionThreads;
 
@@ -107,6 +111,10 @@ public:
     void SetRefreshDeferred(BOOL deferred);
     void CompleteStartupRefreshBatch();
     void Refresh();
+    // Load extension packages copied into a discovery root after the startup
+    // scan. The install helper runs only once this process has exited, so the
+    // next process can start while that copy is still in progress.
+    void IntegrateNewlyInstalledExtensions();
 
     CPluginInterfaceForMenuExtAbstract* GetMenuExtension();
     CPluginInterfaceForViewerAbstract* GetViewerExtension();
@@ -152,8 +160,20 @@ private:
     BOOL MoveExtension(const char* extensionId, int delta);
     void ApplyUserOrder();
     bool IsRemoved(const std::string& extensionId) const;
+    void StartExtensionInstallWatch();
+    void StopExtensionInstallWatch();
+    static VOID CALLBACK ExtensionInstallTimerProc(HWND hwnd, UINT message, UINT_PTR timerId, DWORD time);
+    void DiscoverMissingPackages(const std::wstring& directory);
+    bool HasPackageDirectory(const std::wstring& directory) const;
+    // The install helper writes extensions.ver only after the package tree
+    // has been copied. A directory under the extensions root is ready once
+    // that record exists.
+    bool IsInstallCommitted(const std::wstring& directory) const;
     void ApplyPendingExtensionInstalls();
-    BOOL AcceptInstalledExtensionManifest(const std::string& relativePath);
+    // Returns FALSE and sets notReady when the manifest file is not readable
+    // yet. The extensions.ver counter must stay put so the same record is
+    // tried again after the install helper finishes writing it.
+    BOOL AcceptInstalledExtensionManifest(const std::string& relativePath, bool* notReady);
     void NotifyRuntimeUnavailable(const Package* package);
     BOOL Activate(Package* package);
     BOOL Deactivate(Package* package);

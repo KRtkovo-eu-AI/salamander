@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Export late extension-install integration. | Plugin Manager has to see a package whose files landed after the startup scan. | | Grok 4.7 |
 
 /*
     Salamatrix Framework plugin for Open Salamander
@@ -107,6 +110,12 @@ extern "C"
     CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbstract* salamander);
 };
 #endif
+
+extern "C" void WINAPI SalamatrixIntegrateInstalledExtensions()
+{
+    if (SalamatrixPackages != NULL)
+        SalamatrixPackages->IntegrateNewlyInstalledExtensions();
+}
 
 int WINAPI SalamanderPluginGetReqVer()
 {

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Ask Salamatrix to integrate extension installs before listing them. | A package copied after startup stayed invisible in Plugin Manager until another restart. | | Grok 4.7 |
 // | 2026-11-04 | Explain when an extension runtime is missing. | Installing a Salamatrix extension whose interpreter is absent failed activation with no dialog. | | Grok 4.7 |
 // | 2026-11-04 | Match the missing-runtime dialog linkage to its declaration. | The dllexport definition did not match the earlier declaration. | | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
@@ -865,6 +866,15 @@ void CPluginsDlg::SetColumnWidths()
 
 void CPluginsDlg::RefreshListView(BOOL setOnly, int selIndex, const CPluginData* selectPlugin, BOOL setColumnWidths)
 {
+    HMODULE salamatrix = GetModuleHandleA("salamatrix.spl");
+    typedef void(WINAPI* IntegrateInstalledExtensionsProc)();
+    IntegrateInstalledExtensionsProc integrate = salamatrix == NULL
+                                                     ? NULL
+                                                     : reinterpret_cast<IntegrateInstalledExtensionsProc>(
+                                                           GetProcAddress(salamatrix, "SalamatrixIntegrateInstalledExtensions"));
+    if (integrate != NULL)
+        integrate();
+
     SendMessage(HListView, WM_SETREDRAW, FALSE, 0);
 
     const int previousExtensionCount = static_cast<int>(ExtensionRows.size());
