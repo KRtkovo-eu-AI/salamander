@@ -1,3 +1,6 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-04 | Cancel an older Salamatrix Studio run before queueing Windows. | A new push should not leave the previous VSIX build waiting for a runner. | | Grok 4.7 |
+
 name: PR Salamatrix Studio
 
 on:
@@ -18,14 +21,25 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 concurrency:
-  group: pr-salamatrix-studio-${{ github.ref }}
+  group: pr-salamatrix-studio-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  keep-latest:
+    uses: ./.github/workflows/keep-latest-pr-run.yml
+    with:
+      workflow_file: pr-salamatrix-studio.yml
+      current_run_id: ${{ github.run_id }}
+      event_name: ${{ github.event_name }}
+      head_branch: ${{ github.event.pull_request.head.ref || github.ref_name }}
+      head_repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+
   test:
     name: VSIX build and tests
+    needs: keep-latest
     runs-on: windows-2025
     timeout-minutes: 10
 

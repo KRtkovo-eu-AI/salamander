@@ -1,5 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Open Salamander Authors
+# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
+
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-04 | Expect one queued source-growth run on Ubuntu. | The report was occupying Windows runners beside the test workflow. | | Grok 4.7 |
 
 import json
 import subprocess
@@ -215,6 +219,26 @@ def test_workflow_is_source_only_and_pr_build_calls_codeql_after_success() -> No
     assert "report_code_growth.py" in targets
     assert "'$(Configuration)|$(Platform)' == 'Release|x64'" in targets
     assert "OpenSalamanderReportBinarySize" not in targets
+    assert "runs-on: ubuntu-latest" in workflow
+    assert "runs-on: windows" not in workflow
+    assert "keep-latest-pr-run.yml" in workflow
+    assert "workflow_file: code-growth.yml" in workflow
+    assert "keep-latest-pr-run.yml" in pr_build
+    assert "needs: prepare" in pr_build
+    assert "has_build_relevant_changes == 'true') && 'windows-2025' || 'ubuntu-latest'" in pr_build
+    keeper = (ROOT / ".github" / "workflows" / "keep-latest-pr-run.yml").read_text(encoding="utf-8")
+    assert "cancelWorkflowRun" in keeper
+    assert "run.id >= currentRunId" in keeper
+    assert "run.event !== eventName" in keeper
+    assert "run.head_branch !== headBranch" in keeper
+    pr_tests = (ROOT / ".github" / "workflows" / "pr-tests.yml").read_text(encoding="utf-8")
+    assert "workflow_file: pr-tests.yml" in pr_tests
+    assert "needs: keep-latest" in pr_tests
+    assert "use-actions-summary: true" in pr_tests
+    assert "use-actions-summary: false" not in pr_tests
+    guard = (ROOT / ".github" / "workflows" / "pr-comments-guard.yml").read_text(encoding="utf-8")
+    assert "workflow_file: pr-comments-guard.yml" in guard
+    assert "needs.gate.outputs.should_run == 'true' && 'windows-2022' || 'ubuntu-latest'" in guard
 
 
 def test_fork_pull_requests_get_source_growth_comments() -> None:
@@ -246,3 +270,4 @@ def test_fork_pull_requests_get_source_growth_comments() -> None:
     assert "issues: write" in comment_workflow
     assert "pull-requests: write" in comment_workflow
     assert "actions: read" in comment_workflow
+    assert "code-growth-comment-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}" in comment_workflow
