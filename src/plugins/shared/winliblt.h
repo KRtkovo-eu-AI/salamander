@@ -37,6 +37,8 @@ void InitializeWinLibDarkMode(CSalamanderGeneralAbstract* salamanderGeneral);
 void RefreshWinLibDarkModeFromHost();
 void WinLibApplyDarkMode(HWND hwnd);
 void ReleaseWinLibDarkMode();
+// pro pluginy s vlastnim DLGPROC: zpracuje WM_CTLCOLOR* tmavymi barvami; vraci TRUE a v 'result' brush
+BOOL HandleWinLibDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result);
 #endif // USE_DARKMODELIB
 // je potreba zavolat po pouziti WinLibu; 'dllInstance' je modul pluginu (pouziva se pri zruseni
 // registrace univerzalnich trid WinLibu)
