@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Register video containers with existing viewers. | Installed viewers kept the previous audio-only extension list. | https://github.com/KRtkovo-eu-AI/salamander/issues/732 | Grok 4.7 |
 
 #include "precomp.h"
 
@@ -60,7 +63,8 @@ const char* PLUGIN_NAME = "MMVIEWER"; // plugin name required for WinLib
 // CURRENT_CONFIG_VERSION: 0 - default,
 //                         1 - after the 2.5b6 major upgrade,
 //                         2 - TagLib audio formats added
-#define CURRENT_CONFIG_VERSION 2
+//                         3 - video containers added
+#define CURRENT_CONFIG_VERSION 3
 int ConfigVersion = 0;
 
 LOGFONT CfgLogFont;
@@ -522,6 +526,7 @@ void CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamand
 #endif
 
                           ";*.ogg;*.oga;*.opus;*.flac;*.m4a;*.mp4;*.m4b;*.aac;*.aif;*.aiff;*.ape;*.mpc;*.wv;*.tta;*.dsf;*.dff;*.mka;*.webm;*.spx"
+                          ";*.mkv;*.m4v;*.mov;*.qt;*.3gp;*.3g2;*.asf;*.avi;*.divx;*.wmv;*.mpg;*.mpeg;*.m2ts;*.mts"
 
 #ifdef _MOD_SUPPORT_
                           ";*.it;*.s3m;*.stm;*.xm;*.mod;*.mtm;*.669"
@@ -534,6 +539,8 @@ void CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamand
         salamander->AddViewer("*.wav;*.wave;*.wma", TRUE);
     if (ConfigVersion < 2) // formats supported by the TagLib backend
         salamander->AddViewer("*.ogg;*.oga;*.opus;*.flac;*.m4a;*.mp4;*.m4b;*.aac;*.aif;*.aiff;*.ape;*.mpc;*.wv;*.tta;*.dsf;*.dff;*.mka;*.webm;*.spx", TRUE);
+    if (ConfigVersion < 3) // video containers
+        salamander->AddViewer("*.mkv;*.m4v;*.mov;*.qt;*.3gp;*.3g2;*.asf;*.avi;*.divx;*.wmv;*.mpg;*.mpeg;*.m2ts;*.mts", TRUE);
 
     /* used by the export_mnu.py script, which generates salmenu.mnu for the Translator
    keep it synchronized with the salamander->AddMenuItem() calls below...

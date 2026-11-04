@@ -1,4 +1,6 @@
-﻿// WARNING: cannot be replaced by "#pragma once" because it is included from .rc file and it seems resource compiler does not support "#pragma once"
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Add string ids for video stream details. | The viewer needs localized labels for codec, resolution, and frame rate. | https://github.com/KRtkovo-eu-AI/salamander/issues/732 | Grok 4.7 |
+// WARNING: cannot be replaced by "#pragma once" because it is included from .rc file and it seems resource compiler does not support "#pragma once"
 #ifndef __MMVIEWER_RH2
 #define __MMVIEWER_RH2
 
@@ -252,6 +254,26 @@
 #define IDS_MP4_HEADTYPE_RAW            12611
 #define IDS_MP4_HEADTYPE_ADIF           12612
 #define IDS_MP4_HEADTYPE_ADTS           12613
+
+#define IDS_VIDEO_INFO                  12624
+#define IDS_VIDEO_INFO_INDEX            12625
+#define IDS_VIDEO_CODEC                 12626
+#define IDS_VIDEO_RESOLUTION            12627
+#define IDS_VIDEO_FRAMERATE             12628
+#define IDS_VIDEO_BITRATE               12629
+#define IDS_VIDEO_PIXEL_ASPECT          12630
+#define IDS_VIDEO_SCAN                  12631
+#define IDS_VIDEO_ROTATION              12632
+#define IDS_VIDEO_PROFILE               12633
+#define IDS_VIDEO_LEVEL                 12634
+#define IDS_VIDEO_PROGRESSIVE           12635
+#define IDS_VIDEO_INTERLACED            12636
+#define IDS_VIDEO_MIXED                 12637
+#define IDS_AUDIO_INFO_INDEX            12638
+#define IDS_AUDIO_CODEC                 12639
+#define IDS_AUDIO_BITDEPTH              12640
+#define IDS_MF_INFO                     12641
+#define IDS_MEDIA_UNKNOWN               12642
 
 // help IDs
 #define IDH_EXPORT                      13500

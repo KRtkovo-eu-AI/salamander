@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Destroy parser objects through the base interface. | Video and TagLib parsers own heap data that must be released on close. | https://github.com/KRtkovo-eu-AI/salamander/issues/732 | Grok 4.7 |
 
 #pragma once
 
@@ -29,6 +32,8 @@ class COutputInterface;
 class CParserInterface
 {
 public:
+    virtual ~CParserInterface() {}
+
     // called to open the requested file
     virtual CParserResultEnum OpenFile(const char* fileName) = 0;
 

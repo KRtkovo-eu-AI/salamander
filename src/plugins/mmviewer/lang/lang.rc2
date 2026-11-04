@@ -1,3 +1,5 @@
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Add English labels for video stream details. | Viewers need codec, resolution, and frame rate text in the UI language. | https://github.com/KRtkovo-eu-AI/salamander/issues/732 | Grok 4.7 |
 //
 // lang.rc2 - resources Microsoft Visual C++ does not edit directly
 //
@@ -18,7 +20,7 @@
 
 STRINGTABLE DISCARDABLE
 BEGIN
-    IDS_PLUGIN_DESCRIPTION  "Display information about multimedia files such as MP3, OGG, WAV, etc."
+    IDS_PLUGIN_DESCRIPTION  "Display information about audio and video files such as MP3, MP4, MKV, AVI, OGG, and WAV."
     IDS_ABOUT               "About Plugin"
     IDS_PLUGIN_NAME         "Multimedia Viewer"
     IDS_OPENED_WINDOWS      "Some Multimedia Viewer windows are opened. Do you want to close them?"
@@ -82,7 +84,7 @@ END
 
 STRINGTABLE DISCARDABLE
 BEGIN
-    IDS_VIEWERFILTER        "Multimedia files (*.mp3;*.ogg;*.opus;*.flac;*.m4a;*.aac;*.ape;*.wv;*.wav;*.wma;...)|*.mp3;*.mp2;*.ogg;*.oga;*.opus;*.flac;*.m4a;*.mp4;*.m4b;*.aac;*.aif;*.aiff;*.ape;*.mpc;*.wv;*.tta;*.dsf;*.dff;*.mka;*.webm;*.spx;*.wma;*.wav;*.wave;*.vqf;*.669;*.it;*.mod;*.mtm;*.s3m;*.stm;*.xm|All Files (*.*)|*.*||"
+    IDS_VIEWERFILTER        "Multimedia files (*.mp3;*.mp4;*.mkv;*.avi;*.ogg;*.wav;...)|*.mp3;*.mp2;*.ogg;*.oga;*.opus;*.flac;*.m4a;*.mp4;*.m4b;*.aac;*.aif;*.aiff;*.ape;*.mpc;*.wv;*.tta;*.dsf;*.dff;*.mka;*.webm;*.mkv;*.m4v;*.mov;*.qt;*.3gp;*.3g2;*.asf;*.avi;*.divx;*.wmv;*.mpg;*.mpeg;*.m2ts;*.mts;*.spx;*.wma;*.wav;*.wave;*.vqf;*.669;*.it;*.mod;*.mtm;*.s3m;*.stm;*.xm|All Files (*.*)|*.*||"
     IDS_HTMLEXPFILTER   "HTML files (*.htm;*.html)|*.htm;*.html|All Files (*.*)|*.*||"
     IDS_EXPORTOPEN          "Do you wish to open exported data?"
     IDS_EXPORTHTML          "Export Info into &HTML..."
@@ -315,4 +317,31 @@ END
 STRINGTABLE DISCARDABLE
 BEGIN
     IDS_MMV_EXTENSION_ERROR "Unable to initialize Windows extensions"
+END
+
+STRINGTABLE DISCARDABLE
+BEGIN
+    IDS_VIDEO_INFO          "Video Information"
+    IDS_VIDEO_INFO_INDEX    "Video Information %u"
+    IDS_VIDEO_CODEC         "Codec"
+    IDS_VIDEO_RESOLUTION    "Resolution"
+    IDS_VIDEO_FRAMERATE     "Frame rate (fps)"
+    IDS_VIDEO_BITRATE       "Bitrate (kbps)"
+    IDS_VIDEO_PIXEL_ASPECT  "Pixel aspect ratio"
+    IDS_VIDEO_SCAN          "Scan"
+    IDS_VIDEO_ROTATION      "Rotation"
+    IDS_VIDEO_PROFILE       "Profile"
+    IDS_VIDEO_LEVEL         "Level"
+    IDS_VIDEO_PROGRESSIVE   "Progressive"
+    IDS_VIDEO_INTERLACED    "Interlaced"
+    IDS_VIDEO_MIXED         "Mixed"
+    IDS_AUDIO_INFO_INDEX    "Audio Information %u"
+    IDS_AUDIO_CODEC         "Audio codec"
+END
+
+STRINGTABLE DISCARDABLE
+BEGIN
+    IDS_AUDIO_BITDEPTH      "Bits per sample"
+    IDS_MF_INFO             "Media Information"
+    IDS_MEDIA_UNKNOWN       "Unknown"
 END
