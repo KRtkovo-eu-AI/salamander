@@ -1,3 +1,7 @@
+/*
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Open the bundled UI Capabilities demo and name new extensions for Open Samandarin. | The demo gallery had no command, and new extension descriptions still named Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+*/
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { DialogEditorProvider } from './dialogEditor.js';
@@ -17,7 +21,10 @@ import {
 import { StudioProjectExplorer } from './projectExplorer.js';
 import { t, tf } from './localize.js';
 import { PreviewHost, type PreviewTheme } from './previewHost.js';
-import { chooseProject, findProjectRoot, readJson } from './workspace.js';
+import { chooseProject, discoverProjects, findProjectRoot, readJson, type ExtensionProject } from './workspace.js';
+
+const uiCapabilitiesDemoId = 'Salamatrix.Studio.UiCapabilitiesDemo';
+const pendingDemoDialogKey = 'salamatrixStudio.pendingDemoDialog';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const pendingOverviewKey = 'salamatrixStudio.pendingOverview';
@@ -76,6 +83,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       await addExistingExtensionFolder();
       await refreshExplorer();
     }),
+    vscode.commands.registerCommand('salamatrixStudio.openUiCapabilitiesDemo', async () => {
+      try {
+        const root = await openUiCapabilitiesDemo(context);
+        if (!root) return;
+        await refreshExplorer();
+        await openUiCapabilitiesDialog(root);
+      } catch (error) {
+        void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
+      }
+    }),
     vscode.commands.registerCommand('salamatrixStudio.openManifestDesigner', async (uri?: vscode.Uri, section: 'overview' | 'menus' = 'overview') => {
       const target = uri ?? vscode.window.activeTextEditor?.document.uri;
       if (!target || path.basename(target.fsPath).toLowerCase() !== 'extension.json') {
@@ -130,6 +147,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     if (vscode.workspace.getWorkspaceFolder(uri)) {
       await context.globalState.update(pendingOverviewKey, undefined);
       await manifestEditor.open(uri, 'overview');
+    }
+  }
+  const pendingDemo = context.globalState.get<string>(pendingDemoDialogKey);
+  if (pendingDemo) {
+    const uri = vscode.Uri.parse(pendingDemo);
+    if (vscode.workspace.workspaceFolders?.some((folder) => containsUri(folder.uri, uri))) {
+      await context.globalState.update(pendingDemoDialogKey, undefined);
+      await vscode.commands.executeCommand('vscode.openWith', uri, DialogEditorProvider.viewType);
     }
   }
 }
@@ -303,7 +328,7 @@ async function createExtensionProject(): Promise<vscode.Uri | undefined> {
   if (!runtime) return undefined;
   const description = await vscode.window.showInputBox({
     title: t('Create Salamatrix Extension (4/5)'), prompt: t('Description (optional)'),
-    value: `${name} extension for Open Salamander.`,
+    value: tf('{0} extension for Open Samandarin.', name),
   });
   if (description === undefined) return undefined;
   const root = await chooseExtensionDestination(name);
@@ -371,6 +396,122 @@ async function addExistingExtensionFolder(): Promise<void> {
     return;
   }
   vscode.workspace.updateWorkspaceFolders(folders.length, 0, { uri: selected, name: path.basename(selected.fsPath) });
+}
+
+async function openUiCapabilitiesDemo(context: vscode.ExtensionContext): Promise<vscode.Uri | undefined> {
+  const existing = await findUiCapabilitiesDemo();
+  if (existing) return existing.root;
+
+  const bundled = vscode.Uri.joinPath(context.extensionUri, 'examples', 'salamatrix-ui-capabilities');
+  try {
+    await vscode.workspace.fs.stat(vscode.Uri.joinPath(bundled, 'extension.json'));
+  } catch {
+    void vscode.window.showErrorMessage(t('The UI Capabilities demo is not included in this Salamatrix Studio installation.'));
+    return undefined;
+  }
+
+  const parent = await chooseDemoParent();
+  if (!parent) return undefined;
+  const destination = vscode.Uri.joinPath(parent, 'salamatrix-ui-capabilities');
+  if (!samePath(destination.fsPath, bundled.fsPath)) {
+    let existingDemo = false;
+    try {
+      await vscode.workspace.fs.stat(destination);
+      existingDemo = await readExtensionId(vscode.Uri.joinPath(destination, 'extension.json')) === uiCapabilitiesDemoId;
+      if (!existingDemo) {
+        void vscode.window.showErrorMessage(tf(
+          'The folder {0} already exists and is not the UI Capabilities demo.',
+          destination.fsPath,
+        ));
+        return undefined;
+      }
+    } catch {
+      await copyDirectory(bundled, destination);
+    }
+  }
+
+  const folders = vscode.workspace.workspaceFolders ?? [];
+  if (!folders.some((folder) => containsUri(folder.uri, destination))) {
+    if (folders.length === 0) {
+      await context.globalState.update(pendingDemoDialogKey, uiCapabilitiesDialog(destination).toString());
+      await vscode.commands.executeCommand('vscode.openFolder', destination);
+      return undefined;
+    }
+    vscode.workspace.updateWorkspaceFolders(folders.length, 0, {
+      uri: destination,
+      name: 'salamatrix-ui-capabilities',
+    });
+  }
+  return destination;
+}
+
+async function findUiCapabilitiesDemo(): Promise<ExtensionProject | undefined> {
+  for (const project of await discoverProjects()) {
+    if (await readExtensionId(project.manifest) === uiCapabilitiesDemoId) return project;
+  }
+  return undefined;
+}
+
+async function readExtensionId(uri: vscode.Uri): Promise<string | undefined> {
+  try {
+    const json = await readJson(uri) as { id?: unknown };
+    return typeof json.id === 'string' ? json.id : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function chooseDemoParent(): Promise<vscode.Uri | undefined> {
+  const folders = vscode.workspace.workspaceFolders ?? [];
+  if (folders.length === 1) return folders[0]!.uri;
+  if (folders.length > 1) {
+    const picked = await vscode.window.showQuickPick(
+      folders.map((folder) => ({ label: folder.name, description: folder.uri.fsPath, uri: folder.uri })),
+      {
+        title: t('Select the workspace folder for the UI Capabilities demo'),
+        placeHolder: t('Select the workspace folder'),
+      },
+    );
+    return picked?.uri;
+  }
+  return (await vscode.window.showOpenDialog({
+    title: t('Select the parent folder for the UI Capabilities demo'),
+    canSelectFolders: true,
+    canSelectFiles: false,
+    canSelectMany: false,
+  }))?.[0];
+}
+
+function uiCapabilitiesDialog(root: vscode.Uri): vscode.Uri {
+  return vscode.Uri.joinPath(root, '.salamatrix', 'dialogs', 'ui-capabilities.salamatrix-dialog.json');
+}
+
+async function openUiCapabilitiesDialog(root: vscode.Uri): Promise<void> {
+  const dialog = uiCapabilitiesDialog(root);
+  try {
+    await vscode.workspace.fs.stat(dialog);
+  } catch {
+    void vscode.window.showErrorMessage(t('The UI Capabilities demo dialog was not found.'));
+    return;
+  }
+  await vscode.commands.executeCommand('vscode.openWith', dialog, DialogEditorProvider.viewType);
+}
+
+async function copyDirectory(source: vscode.Uri, destination: vscode.Uri): Promise<void> {
+  await vscode.workspace.fs.createDirectory(destination);
+  for (const [name, type] of await vscode.workspace.fs.readDirectory(source)) {
+    const from = vscode.Uri.joinPath(source, name);
+    const to = vscode.Uri.joinPath(destination, name);
+    if ((type & vscode.FileType.Directory) !== 0) await copyDirectory(from, to);
+    else if ((type & vscode.FileType.File) !== 0) await vscode.workspace.fs.copy(from, to, { overwrite: false });
+  }
+}
+
+function samePath(left: string, right: string): boolean {
+  const compared = process.platform === 'win32'
+    ? (value: string) => path.resolve(value).toLowerCase()
+    : (value: string) => path.resolve(value);
+  return compared(left) === compared(right);
 }
 
 function containsUri(parent: vscode.Uri, child: vscode.Uri): boolean {

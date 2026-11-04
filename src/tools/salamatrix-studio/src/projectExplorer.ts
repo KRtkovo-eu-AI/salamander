@@ -1,14 +1,19 @@
+/*
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Show the extension source path beside its name. | Identical extension names are otherwise indistinguishable in the project view. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+*/
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { ExtensionProject, discoverProjects } from './workspace.js';
 import { t } from './localize.js';
 
-type Node = ProjectNode | FileNode | GroupNode | SectionNode;
+type Node = ProjectNode | FileNode | GroupNode | SectionNode | DemoNode;
 
 class ProjectNode extends vscode.TreeItem {
   constructor(public readonly project: ExtensionProject) {
     super(project.name, vscode.TreeItemCollapsibleState.Expanded);
-    this.description = project.runtime;
+    this.description = `${project.location} · ${project.runtime}`;
+    this.tooltip = `${project.name}\n${project.root.fsPath}`;
     this.iconPath = new vscode.ThemeIcon('package');
     this.contextValue = 'salamatrixProject';
   }
@@ -30,6 +35,19 @@ class SectionNode extends vscode.TreeItem {
     this.command = {
       command: 'salamatrixStudio.openManifestDesigner', title: this.label as string,
       arguments: [project.manifest, section],
+    };
+  }
+}
+
+class DemoNode extends vscode.TreeItem {
+  constructor() {
+    super(t('UI Capabilities Demo'), vscode.TreeItemCollapsibleState.None);
+    this.description = t('Open the bundled dialog gallery');
+    this.iconPath = new vscode.ThemeIcon('window');
+    this.contextValue = 'salamatrixUiCapabilitiesDemo';
+    this.command = {
+      command: 'salamatrixStudio.openUiCapabilitiesDemo',
+      title: t('Open UI Capabilities Demo'),
     };
   }
 }
@@ -62,7 +80,9 @@ export class StudioProjectExplorer implements vscode.TreeDataProvider<Node> {
   async getChildren(element?: Node): Promise<Node[]> {
     if (!element) {
       if (this.projects.length === 0) this.projects = await discoverProjects();
-      return this.projects.map((project) => new ProjectNode(project));
+      const nodes: Node[] = this.projects.map((project) => new ProjectNode(project));
+      if (nodes.length > 0) nodes.push(new DemoNode());
+      return nodes;
     }
     if (element instanceof ProjectNode) {
       return [

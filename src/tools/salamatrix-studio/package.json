@@ -2,7 +2,7 @@
   "name": "salamatrix-studio",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "publisher": "KRtekTM",
   "license": "GPL-2.0-or-later",
   "icon": "resources/studio.png",
@@ -27,7 +27,7 @@
     "Other"
   ],
   "keywords": [
-    "open salamander",
+    "open samandarin",
     "salamatrix",
     "extension",
     "dialog designer"
@@ -41,6 +41,7 @@
     "onView:salamatrixStudio.projectExplorer",
     "onCommand:salamatrixStudio.createExtension",
     "onCommand:salamatrixStudio.addExistingExtensionFolder",
+    "onCommand:salamatrixStudio.openUiCapabilitiesDemo",
     "onCustomEditor:salamatrixStudio.dialogDesigner",
     "onCustomEditor:salamatrixStudio.manifestDesigner"
   ],
@@ -55,6 +56,11 @@
         "command": "salamatrixStudio.addExistingExtensionFolder",
         "title": "%command.addExistingExtensionFolder%",
         "icon": "$(folder-opened)"
+      },
+      {
+        "command": "salamatrixStudio.openUiCapabilitiesDemo",
+        "title": "%command.openUiCapabilitiesDemo%",
+        "icon": "$(window)"
       },
       {
         "command": "salamatrixStudio.addStandaloneDialog",
@@ -173,6 +179,11 @@
           "command": "salamatrixStudio.addExistingExtensionFolder",
           "when": "view == salamatrixStudio.projectExplorer",
           "group": "navigation@4"
+        },
+        {
+          "command": "salamatrixStudio.openUiCapabilitiesDemo",
+          "when": "view == salamatrixStudio.projectExplorer",
+          "group": "navigation@5"
         }
       ],
       "editor/title": [
