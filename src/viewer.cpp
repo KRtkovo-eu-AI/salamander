@@ -5,6 +5,8 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-04 | Cache line-number checkpoints; keep wrap painting aligned with text elements. | Slow scrolling at EOF (#746) rescanned the whole file for every gutter/status update. | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
+| 2026-11-05 | Initialize previous-line size cache used by line-up scrolling. | Keep scroll-up as cheap as scroll-down after navigating large decoded files (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
+| 2026-11-05 | Build a full logical-line start index for O(log n) line-up. | Scroll-up remained much slower than scroll-down because each step rescanned backwards (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
 */
 
 #include "precomp.h"
@@ -640,7 +642,8 @@ CViewerGoToOffsetDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* caption,
                              BOOL wholeCaption, CObjectOrigin origin,
                              int enumFileNamesSourceUID, int enumFileNamesLastFileIndex)
-    : CWindow(origin), LineOffset(300, 100), LineNumberCheckpoints(64, 64),
+    : CWindow(origin), LineOffset(300, 100), LogicalLineStarts(1024, 1024),
+      DecodedWrapRowStarts(64, 64),
       FindDialog(HLanguage, IDD_FINDSET, IDD_FINDSET)
 {
     // GDI variables
@@ -718,6 +721,9 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     MaxSeekY = -1;
     ViewSize = FileSize = 0;
     LastLineSize = FirstLineSize = 0;
+    PrevLineSizeCache = PrevLineSizeCacheSeekY = -1;
+    DecodedWrapCacheLineBegin = -1;
+    LogicalLineIndexComplete = FALSE;
     EnablePaint = TRUE;
     StartSelection = -1; // no selection yet
     EndSelection = -1;   // no selection yet
@@ -830,6 +836,7 @@ void CViewerWindow::FindNewSeekY(__int64 newSeekY, BOOL& fatalErr)
 {
     CALL_STACK_MESSAGE2("CViewerWindow::FindNewSeekY(%g,)", (double)newSeekY);
     fatalErr = FALSE;
+    __int64 oldSeekY = SeekY;
     if (newSeekY >= MaxSeekY)
         SeekY = MaxSeekY;
     else
@@ -843,6 +850,8 @@ void CViewerWindow::FindNewSeekY(__int64 newSeekY, BOOL& fatalErr)
                 SeekY = newSeekY;
         }
     }
+    if (SeekY != oldSeekY)
+        PrevLineSizeCacheSeekY = -1;
 }
 
 int TranslateU2T(int u, BOOL left, int hexOffsetLength)
@@ -2722,10 +2731,47 @@ int CViewerWindow::GetDocumentTop() const
     return ViewerMenuBar != NULL ? ViewerMenuBar->GetNeededHeight() : 0;
 }
 
+int CViewerWindow::FindLogicalLineIndexForOffset(__int64 offset) const
+{
+    if (LogicalLineStarts.Count == 0)
+        return -1;
+    int lo = 0;
+    int hi = LogicalLineStarts.Count - 1;
+    int best = -1;
+    while (lo <= hi)
+    {
+        int mid = lo + (hi - lo) / 2;
+        __int64 start = LogicalLineStarts.At(mid);
+        if (start < 0)
+        {
+            hi = mid - 1;
+            continue;
+        }
+        if (start <= offset)
+        {
+            best = mid;
+            lo = mid + 1;
+        }
+        else
+            hi = mid - 1;
+    }
+    return best;
+}
+
+BOOL CViewerWindow::EnsureLogicalLineIndex(BOOL& fatalErr)
+{
+    fatalErr = FALSE;
+    if (LogicalLineIndexComplete && LogicalLineStarts.Count > 0)
+        return TRUE;
+    // One sequential scan fills LogicalLineStarts for the whole file.  After
+    // that, line-up and gutter queries are binary searches (#746).
+    GetDocumentLineNumber(FileSize);
+    LogicalLineIndexComplete = LogicalLineStarts.Count > 0;
+    return LogicalLineIndexComplete;
+}
+
 __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
 {
-    static const int kLineNumberCheckpointStride = 64;
-
     if (offset <= TextStartOffset())
     {
         if (lineStart)
@@ -2747,20 +2793,33 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
         return LineNumberCacheLine;
     }
 
-    auto rememberCheckpoint = [&](__int64 line, __int64 lineStartOff)
+    auto rememberLineStart = [&](__int64 line, __int64 lineStartOff)
     {
-        if (line <= 1)
+        if (line < 1 || lineStartOff < 0)
             return;
-        if (((line - 1) % kLineNumberCheckpointStride) != 0)
-            return;
-        int index = (int)((line - 1) / kLineNumberCheckpointStride);
-        while (LineNumberCheckpoints.Count <= index)
-            LineNumberCheckpoints.Add(-1);
-        if (LineNumberCheckpoints[index] < 0)
-            LineNumberCheckpoints[index] = lineStartOff;
+        int index = (int)(line - 1);
+        while (LogicalLineStarts.Count <= index)
+            LogicalLineStarts.Add(-1);
+        if (LogicalLineStarts[index] < 0)
+            LogicalLineStarts[index] = lineStartOff;
     };
 
-    auto startFromCheckpoint = [&](__int64& line, __int64& lastNewline, __int64& pos, BOOL decodedStarts)
+    // Fast path: complete index already covers this offset.
+    if (LogicalLineIndexComplete && LogicalLineStarts.Count > 0)
+    {
+        int idx = FindLogicalLineIndexForOffset(offset);
+        if (idx >= 0 && LogicalLineStarts[idx] >= 0)
+        {
+            if (lineStart)
+                *lineStart = LogicalLineStarts[idx];
+            LineNumberCacheOffset = offset;
+            LineNumberCacheLine = idx + 1;
+            LineNumberCacheLineStart = LogicalLineStarts[idx];
+            return LineNumberCacheLine;
+        }
+    }
+
+    auto startFromIndex = [&](__int64& line, __int64& lastNewline, __int64& pos, BOOL decodedStarts)
     {
         line = 1;
         lastNewline = decodedStarts ? TextStartOffset() : TextStartOffset() - 1;
@@ -2774,18 +2833,14 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
             return;
         }
 
-        int best = -1;
-        for (int i = 0; i < LineNumberCheckpoints.Count; i++)
+        int idx = FindLogicalLineIndexForOffset(offset);
+        // Prefer a filled entry at or before offset; if holes exist, walk back.
+        while (idx >= 0 && LogicalLineStarts[idx] < 0)
+            idx--;
+        if (idx >= 0)
         {
-            __int64 cp = LineNumberCheckpoints[i];
-            if (cp < 0 || cp > offset)
-                break;
-            best = i;
-        }
-        if (best >= 0)
-        {
-            line = 1 + (__int64)best * kLineNumberCheckpointStride;
-            pos = LineNumberCheckpoints[best];
+            line = idx + 1;
+            pos = LogicalLineStarts[idx];
             lastNewline = decodedStarts ? pos : pos - 1;
         }
     };
@@ -2799,8 +2854,8 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
         __int64 pos = TextStartOffset();
         __int64 pendingCREnd = -1;
         BOOL fatalErr = FALSE;
-        startFromCheckpoint(line, lastNewline, pos, TRUE);
-        rememberCheckpoint(line, lastNewline);
+        startFromIndex(line, lastNewline, pos, TRUE);
+        rememberLineStart(line, lastNewline);
         while (pos < offset)
         {
             __int64 read = Prepare(NULL, pos, min((__int64)VIEW_BUFFER_SIZE, offset - pos), fatalErr);
@@ -2820,7 +2875,7 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
                     {
                         lastNewline = rawEnd;
                         ++line;
-                        rememberCheckpoint(line, lastNewline);
+                        rememberLineStart(line, lastNewline);
                         pendingCREnd = -1;
                         continue;
                     }
@@ -2828,7 +2883,7 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
                     {
                         lastNewline = pendingCREnd;
                         ++line;
-                        rememberCheckpoint(line, lastNewline);
+                        rememberLineStart(line, lastNewline);
                     }
                     pendingCREnd = -1;
                 }
@@ -2838,13 +2893,13 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
                 {
                     lastNewline = rawEnd;
                     ++line;
-                    rememberCheckpoint(line, lastNewline);
+                    rememberLineStart(line, lastNewline);
                 }
                 else if (scalar == 0 && Configuration.EOL_NULL)
                 {
                     lastNewline = rawEnd;
                     ++line;
-                    rememberCheckpoint(line, lastNewline);
+                    rememberLineStart(line, lastNewline);
                 }
             }
             pos += read;
@@ -2853,13 +2908,15 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
         {
             lastNewline = pendingCREnd;
             ++line;
-            rememberCheckpoint(line, lastNewline);
+            rememberLineStart(line, lastNewline);
         }
         if (lineStart)
             *lineStart = lastNewline;
         LineNumberCacheOffset = offset;
         LineNumberCacheLine = line;
         LineNumberCacheLineStart = lastNewline;
+        if (offset >= FileSize)
+            LogicalLineIndexComplete = TRUE;
         if (savedLoaded > 0)
         {
             BOOL restoreFatalErr = FALSE;
@@ -2878,8 +2935,8 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
     __int64 pendingCREnd = -1;
     __int64 pos = TextStartOffset();
     BOOL fatalErr = FALSE;
-    startFromCheckpoint(line, lastNewline, pos, FALSE);
-    rememberCheckpoint(line, lastNewline + 1);
+    startFromIndex(line, lastNewline, pos, FALSE);
+    rememberLineStart(line, lastNewline + 1);
     while (pos < offset)
     {
         __int64 read = Prepare(NULL, pos, min((__int64)VIEW_BUFFER_SIZE, offset - pos), fatalErr);
@@ -2895,7 +2952,7 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
                 {
                     lastNewline = pos + i;
                     ++line;
-                    rememberCheckpoint(line, lastNewline + 1);
+                    rememberLineStart(line, lastNewline + 1);
                     pendingCREnd = -1;
                     continue;
                 }
@@ -2903,7 +2960,7 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
                 {
                     lastNewline = pendingCREnd;
                     ++line;
-                    rememberCheckpoint(line, lastNewline + 1);
+                    rememberLineStart(line, lastNewline + 1);
                 }
                 pendingCREnd = -1;
             }
@@ -2917,7 +2974,7 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
                 {
                     lastNewline = pos + i;
                     ++line;
-                    rememberCheckpoint(line, lastNewline + 1);
+                    rememberLineStart(line, lastNewline + 1);
                 }
             }
             else if (ch == 0)
@@ -2926,7 +2983,7 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
                 {
                     lastNewline = pos + i;
                     ++line;
-                    rememberCheckpoint(line, lastNewline + 1);
+                    rememberLineStart(line, lastNewline + 1);
                 }
             }
         }
@@ -2936,13 +2993,15 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
     {
         lastNewline = pendingCREnd;
         ++line;
-        rememberCheckpoint(line, lastNewline + 1);
+        rememberLineStart(line, lastNewline + 1);
     }
     if (lineStart)
         *lineStart = lastNewline + 1; // character after the last EOL is the start of the current logical line
     LineNumberCacheOffset = offset;
     LineNumberCacheLine = line;
     LineNumberCacheLineStart = lastNewline + 1;
+    if (offset >= FileSize)
+        LogicalLineIndexComplete = TRUE;
     if (savedLoaded > 0)
     {
         BOOL restoreFatalErr = FALSE;

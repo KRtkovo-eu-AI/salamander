@@ -1,6 +1,11 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
+/*
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-05 | Keep previous-line size cache in sync on line-up/line-down. | Scroll-up after EOF was still O(FindPreviousEOL) per step while scroll-down reused FirstLineSize (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
+*/
 
 #include "precomp.h"
 #include "common/winlibdpi.h"
@@ -434,6 +439,8 @@ void CViewerWindow::OnVScroll()
             return;
         }
         SeekY = newSeekY;
+        if (SeekY != oldSeekY)
+            PrevLineSizeCacheSeekY = -1;
 
         if (EnableSetScroll || SeekY != oldSeekY)
         {
@@ -523,9 +530,12 @@ BOOL CViewerWindow::ScrollViewLineUp(DWORD repeatCmd, BOOL* scrolled, BOOL repai
     {
         __int64 oldSeekY = SeekY;
         BOOL fatalErr = FALSE;
-        SeekY -= ZeroLineSize(fatalErr, firstLineEndOff, firstLineCharLen);
+        __int64 step = ZeroLineSize(fatalErr, firstLineEndOff, firstLineCharLen);
+        SeekY -= step;
         if (SeekY < 0)
             SeekY = 0;
+        // The row above the new SeekY is unknown until the next compute/scroll-down.
+        PrevLineSizeCacheSeekY = -1;
         if (fatalErr)
             FatalFileErrorOccured(repeatCmd);
         if (fatalErr || ExitTextMode)
@@ -566,9 +576,17 @@ BOOL CViewerWindow::ScrollViewLineDown(BOOL fullRedraw)
     if (SeekY < MaxSeekY)
     {
         __int64 oldSeekY = SeekY;
-        SeekY = min(MaxSeekY, SeekY + FirstLineSize);
+        __int64 step = FirstLineSize;
+        SeekY = min(MaxSeekY, SeekY + step);
         if (oldSeekY != SeekY)
         {
+            // The row we just scrolled off the top is exactly the previous row
+            // for the new SeekY, so the next line-up can reuse this size.
+            if (step > 0)
+            {
+                PrevLineSizeCache = SeekY - oldSeekY;
+                PrevLineSizeCacheSeekY = SeekY;
+            }
             if (!fullRedraw)
             {
                 if (ShowLineNumbers)
@@ -2762,6 +2780,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         if (fatalErr || ExitTextMode)
                             return 0;
                         SeekY = newSeekY;
+                        PrevLineSizeCacheSeekY = -1;
                         break;
                     }
                     }
@@ -2784,6 +2803,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     {
                         SeekY = min(MaxSeekY, SeekY + size);
                     }
+                    PrevLineSizeCacheSeekY = -1;
                     ch = TRUE;
                 }
                 break;
@@ -2816,6 +2836,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     EndSelectionRow = -1; // disable the optimization
                     SeekY = 0;
                     OriginX = 0;
+                    PrevLineSizeCacheSeekY = -1;
                     ch = TRUE;
                 }
                 break;
@@ -2874,6 +2895,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     EndSelectionRow = -1; // disable the optimization
                     SeekY = MaxSeekY;
                     OriginX = newOriginX;
+                    PrevLineSizeCacheSeekY = -1;
                     ch = TRUE;
                 }
                 break;

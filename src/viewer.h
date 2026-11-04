@@ -5,6 +5,9 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-04 | Cache sparse line-number checkpoints for Internal Viewer. | Avoid O(n) full-file rescans on every paint/status update near EOF (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
+| 2026-11-05 | Cache previous visual-row size for line-up scrolling. | Scroll-up still recomputed ZeroLineSize on every step while scroll-down reused FirstLineSize (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
+| 2026-11-05 | Cache decoded wrap-row starts per logical line. | Line-up through wrapped UTF-8 rows re-walked the whole logical line on every step (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
+| 2026-11-05 | Index every logical line start for O(log n) line-up. | Scroll-up still called FindSeekBefore per step; scroll-down reused FirstLineSize (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
 */
 
 #pragma once
@@ -363,6 +366,13 @@ protected:
     int GetTextLeft() const;
     int GetDocumentTop() const;
     __int64 GetDocumentLineNumber(__int64 offset, __int64* lineStart = NULL);
+    // Ensures LogicalLineStarts covers the file (one sequential scan). Used by
+    // ZeroLineSize() so line-up does not re-read the file on every step.
+    BOOL EnsureLogicalLineIndex(BOOL& fatalErr);
+    // Greatest i with LogicalLineStarts[i] <= offset, or -1.
+    int FindLogicalLineIndexForOffset(__int64 offset) const;
+    // Fills DecodedWrapRowStarts for one logical line (cached by line begin).
+    BOOL BuildDecodedWrapRowStarts(__int64 logicalBegin, BOOL& fatalErr);
 
     void ResetMouseWheelAccumulator()
     {
@@ -392,7 +402,17 @@ protected:
         FileSize,          // file size
         ViewSize,          // size of the displayed portion of the file (in bytes)
         FirstLineSize,     // size of the first displayed line (in bytes)
-        LastLineSize;      // size of the last fully displayed line (in bytes)
+        LastLineSize,      // size of the last fully displayed line (in bytes)
+        // Byte length of the visual row immediately above SeekY.  Scroll-down
+        // fills this from FirstLineSize so the next line-up is O(1); -1 means
+        // ZeroLineSize() must recompute.  PrevLineSizeCacheSeekY is the SeekY
+        // the cache belongs to (-1 = invalid).
+        PrevLineSizeCache,
+        PrevLineSizeCacheSeekY;
+    // Visual-row starts for one decoded logical line while WrapText is on.
+    // Line-up reuses this so scrolling through a long wrapped line is not O(n^2).
+    TDirectArray<__int64> DecodedWrapRowStarts;
+    __int64 DecodedWrapCacheLineBegin; // logical-line begin the array describes (-1 = invalid)
 
     __int64 StartSelection,           // seek of the selection start (including that character) (-1 = no selection yet)
         EndSelection;                 // seek of the selection end (up to but not including that character) (-1 = no selection yet)
@@ -511,10 +531,11 @@ protected:
     __int64 CachedSelectionLineCount;
     __int64 CachedSelectionCharacterCount;
     __int64 CachedVerticalPageSize; // stable V-scrollbar page extent (-1 = not computed)
-    // Sparse index for GetDocumentLineNumber(): offset of logical lines
-    // 1, 1+stride, 1+2*stride, ... built while scanning so EOF scrolling does
-    // not re-read the whole file on every paint/status update (#746).
-    TDirectArray<__int64> LineNumberCheckpoints;
+    // Start offset of every logical line (index 0 = line 1).  Built while
+    // scanning for line numbers / first line-up so ZeroLineSize() can step
+    // backwards with a binary search instead of FindSeekBefore() (#746).
+    TDirectArray<__int64> LogicalLineStarts;
+    BOOL LogicalLineIndexComplete;    // TRUE = index covers the whole file
     __int64 LineNumberCacheOffset;    // last resolved offset (-1 = none)
     __int64 LineNumberCacheLine;      // line number at LineNumberCacheOffset
     __int64 LineNumberCacheLineStart; // logical line start for that offset
