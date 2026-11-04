@@ -1,3 +1,7 @@
+/*
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Add Czech text for the UI Capabilities demo and Open Samandarin scaffold description. | The new Studio commands and the default extension description need the same Czech wording as the rest of Studio. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+*/
 import * as vscode from 'vscode';
 
 const czech: Record<string, string> = {
@@ -46,6 +50,15 @@ const czech: Record<string, string> = {
   'Preview with Salamander dark mode': 'Náhled v tmavém režimu Salamanderu',
   'Preview with modern Windows light mode': 'Náhled v moderním světlém režimu Windows',
   'Cannot start native preview: {0}': 'Nativní náhled nelze spustit: {0}',
+  '{0} extension for Open Samandarin.': 'Extension {0} pro Open Samandarin.',
+  'The UI Capabilities demo is not included in this Salamatrix Studio installation.': 'Ukázka UI Capabilities není součástí této instalace Salamatrix Studia.',
+  'The folder {0} already exists and is not the UI Capabilities demo.': 'Složka {0} už existuje a není ukázkou UI Capabilities.',
+  'Select the workspace folder for the UI Capabilities demo': 'Vyberte složku workspace pro ukázku UI Capabilities',
+  'Select the parent folder for the UI Capabilities demo': 'Vyberte nadřazenou složku pro ukázku UI Capabilities',
+  'The UI Capabilities demo dialog was not found.': 'Dialog ukázky UI Capabilities se nepodařilo najít.',
+  'UI Capabilities Demo': 'Ukázka UI Capabilities',
+  'Open the bundled dialog gallery': 'Otevřít přibalenou galerii dialogu',
+  'Open UI Capabilities Demo': 'Otevřít ukázku UI Capabilities',
 };
 
 export function t(text: string): string {
