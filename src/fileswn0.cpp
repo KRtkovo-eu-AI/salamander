@@ -28,8 +28,7 @@ void CFilesWindow::EndQuickSearch()
 {
     CALL_STACK_MESSAGE_NONE
     QuickSearchMode = FALSE;
-    QuickSearch[0] = 0;
-    QuickSearchMask[0] = 0;
+    QuickSearchHighSurrogate = 0;
     QuickSearchW.erase();
     QuickSearchMaskW.erase();
     SearchIndex = INT_MAX;
@@ -46,99 +45,11 @@ namespace
                MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, textLen, NULL, 0) != 0;
     }
 
-    BOOL GetUtf8QuickSearchText(WPARAM wParam, char* buffer, int bufferSize)
-    {
-        static unsigned char pendingUtf8[4];
-        static int pendingUtf8Len = 0;
-        static int pendingUtf8Expected = 0;
-
-        if (buffer == NULL || bufferSize <= 0)
-            return FALSE;
-        buffer[0] = 0;
-        if (wParam <= 31)
-            return FALSE;
-
-        if (GetACP() == CP_UTF8 && wParam >= 0x80 && wParam <= 0xFF)
-        {
-            unsigned char ch = (unsigned char)(wParam & 0xFF);
-            if (pendingUtf8Len == 0)
-            {
-                if ((ch & 0xE0) == 0xC0)
-                    pendingUtf8Expected = 2;
-                else if ((ch & 0xF0) == 0xE0)
-                    pendingUtf8Expected = 3;
-                else if ((ch & 0xF8) == 0xF0)
-                    pendingUtf8Expected = 4;
-                else
-                    pendingUtf8Expected = 0;
-
-                if (pendingUtf8Expected > 0)
-                {
-                    pendingUtf8[pendingUtf8Len++] = ch;
-                    return FALSE;
-                }
-            }
-            else if ((ch & 0xC0) == 0x80)
-            {
-                pendingUtf8[pendingUtf8Len++] = ch;
-                if (pendingUtf8Len < pendingUtf8Expected)
-                    return FALSE;
-
-                if (pendingUtf8Expected < bufferSize)
-                {
-                    memcpy(buffer, pendingUtf8, pendingUtf8Expected);
-                    buffer[pendingUtf8Expected] = 0;
-                    pendingUtf8Len = 0;
-                    pendingUtf8Expected = 0;
-                    return TRUE;
-                }
-                pendingUtf8Len = 0;
-                pendingUtf8Expected = 0;
-                return FALSE;
-            }
-
-            pendingUtf8Len = 0;
-            pendingUtf8Expected = 0;
-        }
-        else
-        {
-            pendingUtf8Len = 0;
-            pendingUtf8Expected = 0;
-        }
-
-        WCHAR wide[3] = {0, 0, 0};
-        if (wParam <= 0xFFFF)
-        {
-            wide[0] = (WCHAR)(wParam & 0xFFFF);
-        }
-        else if (wParam <= 0x10FFFF)
-        {
-            DWORD codePoint = (DWORD)wParam - 0x10000;
-            wide[0] = (WCHAR)(0xD800 + (codePoint >> 10));
-            wide[1] = (WCHAR)(0xDC00 + (codePoint & 0x3FF));
-        }
-        else
-            return FALSE;
-
-        int written = WideCharToMultiByte(CP_UTF8, 0, wide, -1, buffer, bufferSize, NULL, NULL);
-        return written > 1;
-    }
-
     std::wstring QuickSearchTextToWide(const char* text)
     {
         if (text != NULL && IsValidQuickSearchUtf8Text(text, (int)strlen(text)))
             return SalMultiByteToWidePath(text, CP_UTF8);
         return SalMultiByteToWidePath(text, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
-    }
-
-    std::string QuickSearchWideToText(const std::wstring& text)
-    {
-        return SalWideToMultiBytePath(text.c_str(), CP_UTF8);
-    }
-
-    BOOL UseWideQuickSearch()
-    {
-        return TRUE;
     }
 
     std::wstring FileDataNameToWide(const CFileData& file)
@@ -156,95 +67,53 @@ namespace
     }
 } // namespace
 
-BOOL CFilesWindow::QSFindNext(int currentIndex, BOOL next, BOOL skip, BOOL wholeString, const char* newText, int& index)
+BOOL CFilesWindow::QSFindNext(int currentIndex, BOOL next, BOOL skip, BOOL wholeString, const wchar_t* newText, int& index)
 {
-    CALL_STACK_MESSAGE6("CFilesWindow::QSFindNext(%d, %d, %d, %d, %s)", currentIndex, next, skip, wholeString, newText != NULL ? newText : "");
-    int len = (int)strlen(QuickSearchMask);
-    int newTextLen = newText != NULL ? (int)strlen(newText) : 0;
-    std::wstring newTextW;
-    BOOL useWideQS = UseWideQuickSearch();
-
-    if (newTextLen > 0)
+    CALL_STACK_MESSAGE5("CFilesWindow::QSFindNext(%d, %d, %d, %d,)", currentIndex, next, skip, wholeString);
+    const size_t previousLength = QuickSearchMaskW.length();
+    if (newText != NULL)
     {
-        if (len + newTextLen >= MAX_PATH)
+        const size_t addedLength = wcslen(newText);
+        if (addedLength >= SAL_MAX_PATH || previousLength >= SAL_MAX_PATH - addedLength)
             return FALSE;
-        memcpy(QuickSearchMask + len, newText, newTextLen + 1);
-        len += newTextLen;
-        if (useWideQS)
-        {
-            newTextW = QuickSearchTextToWide(newText);
-            QuickSearchMaskW += newTextW;
-        }
+        QuickSearchMaskW += newText;
     }
-    else if (useWideQS && QuickSearchMaskW.empty() && QuickSearchMask[0] != 0)
-        QuickSearchMaskW = QuickSearchTextToWide(QuickSearchMask);
 
-    int delta = skip ? 1 : 0;
-
-    int offset = 0;
-    char mask[MAX_PATH];
-    PrepareQSMask(mask, QuickSearchMask);
-    std::wstring maskW;
-    if (useWideQS)
-        PrepareQSMaskW(maskW, QuickSearchMaskW);
-
-    int count = Dirs->Count + Files->Count;
-    int dirCount = Dirs->Count;
+    const int delta = skip ? 1 : 0;
+    std::wstring mask;
+    PrepareQSMaskW(mask, QuickSearchMaskW);
+    const int count = Dirs->Count + Files->Count;
+    const int dirCount = Dirs->Count;
     for (int i = next ? currentIndex + delta : currentIndex - delta;
          next ? i < count : i >= 0;
          next ? i++ : i--)
     {
-        CFileData& file = i < dirCount ? Dirs->At(i) : Files->At(i - dirCount);
-        char* name = file.Name;
-        BOOL isDir = i < dirCount;
-        BOOL hasExtension = useWideQS ? FileHasExtensionForQS(file, isDir) :
-                            (isDir ? strchr(name, '.') != NULL : *file.Ext != 0);
-        if (i == 0 && isDir && strcmp(name, "..") == 0)
+        const CFileData& file = i < dirCount ? Dirs->At(i) : Files->At(i - dirCount);
+        const BOOL isDir = i < dirCount;
+        std::wstring name = FileDataNameToWide(file);
+        if (i == 0 && isDir && name == L"..")
         {
-            if (len == 0)
+            if (QuickSearchMaskW.empty())
             {
-                QuickSearch[0] = 0;
-                QuickSearchW.erase();
+                QuickSearchW.clear();
                 index = i;
                 return TRUE;
             }
         }
         else
         {
-            BOOL agree;
-            if (useWideQS)
+            int offset = 0;
+            if (AgreeQSMaskW(name.c_str(), FileHasExtensionForQS(file, isDir),
+                             mask.c_str(), wholeString, offset))
             {
-                std::wstring nameW = FileDataNameToWide(file);
-                agree = AgreeQSMaskW(nameW.c_str(), hasExtension, maskW.c_str(), wholeString, offset);
-                if (agree)
-                {
-                    QuickSearchW.assign(nameW.c_str(), offset);
-                    std::string quickSearch = QuickSearchWideToText(QuickSearchW);
-                    lstrcpyn(QuickSearch, quickSearch.c_str(), MAX_PATH);
-                    index = i;
-                    return TRUE;
-                }
-            }
-            else
-            {
-                agree = AgreeQSMask(name, hasExtension, mask, wholeString, offset);
-                if (agree)
-                {
-                    lstrcpyn(QuickSearch, name, offset + 1);
-                    index = i;
-                    return TRUE;
-                }
+                QuickSearchW.assign(name, 0, offset);
+                index = i;
+                return TRUE;
             }
         }
     }
-
-    if (newTextLen > 0)
-    {
-        len -= newTextLen;
-        QuickSearchMask[len] = 0;
-        if (useWideQS && !newTextW.empty() && QuickSearchMaskW.length() >= newTextW.length())
-            QuickSearchMaskW.erase(QuickSearchMaskW.length() - newTextW.length());
-    }
+    // A failed append must be rolled back before the opposite-direction retry.
+    QuickSearchMaskW.resize(previousLength);
     return FALSE;
 }
 
@@ -1051,25 +920,40 @@ BOOL CFilesWindow::OnSysChar(WPARAM wParam, LPARAM lParam, LRESULT* lResult)
         return TRUE;
     }
 
+    if (Configuration.QuickSearchEnterAlt && wParam > 31 &&
+        (lParam & (1L << 29)) != 0 && (GetKeyState(VK_CONTROL) & 0x8000) == 0)
+    {
+        // Use the Unicode character produced by TranslateMessage, including
+        // dead-key composition. Translating this key again can consume its state.
+        OnChar(wParam, lParam, lResult, TRUE);
+        *lResult = 0;
+        return TRUE;
+    }
     return FALSE;
 }
 
-BOOL CFilesWindow::OnChar(WPARAM wParam, LPARAM lParam, LRESULT* lResult)
+BOOL CFilesWindow::OnChar(WPARAM wParam, LPARAM lParam, LRESULT* lResult, BOOL fromSystemChar)
 {
     CALL_STACK_MESSAGE_NONE
     if (SkipCharacter || MainWindow->DragMode || DragBox || !IsWindowEnabled(MainWindow->HWindow))
     {
+        QuickSearchHighSurrogate = 0;
         *lResult = 0;
         return TRUE;
     }
+    std::wstring quickSearchText;
+    if (!Salamander::Panel::AppendQuickSearchCodeUnit(QuickSearchHighSurrogate,
+                                                     (std::uint32_t)wParam, quickSearchText))
+        return FALSE;
+
     BOOL controlPressed = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
-    BOOL altPressed = (GetKeyState(VK_MENU) & 0x8000) != 0;
+    BOOL altPressed = fromSystemChar || (GetKeyState(VK_MENU) & 0x8000) != 0;
 
     // if we are in QuickSearchEnterAlt mode, we must set the focus to
     // the command line and buffer the letter there
     if (!controlPressed && !altPressed &&
         !QuickSearchMode &&
-        wParam > 32 && wParam < 256 &&
+        quickSearchText[0] > 32 &&
         Configuration.QuickSearchEnterAlt)
     {
         if (MainWindow->EditWindow->IsEnabled())
@@ -1078,14 +962,13 @@ BOOL CFilesWindow::OnChar(WPARAM wParam, LPARAM lParam, LRESULT* lResult)
             // we send the character there
             HWND hEditLine = MainWindow->GetEditLineHWND(TRUE);
             if (hEditLine != NULL)
-                PostMessage(hEditLine, WM_CHAR, wParam, lParam);
+                for (size_t i = 0; i < quickSearchText.length(); ++i)
+                    PostMessageW(hEditLine, WM_CHAR, quickSearchText[i], lParam);
         }
         return FALSE;
     }
 
-    char quickSearchText[8];
-    if (GetUtf8QuickSearchText(wParam, quickSearchText, _countof(quickSearchText)) &&
-        Dirs->Count + Files->Count > 0) // at least 1 item
+    if (Dirs->Count + Files->Count > 0) // at least 1 item
     {
         int index = FocusedIndex;
         // On a German keyboard, the slash is on Shift+7, so it conflicts with HotPaths
@@ -1106,8 +989,8 @@ BOOL CFilesWindow::OnChar(WPARAM wParam, LPARAM lParam, LRESULT* lResult)
         //}
         //else
         //{
-        if (!QSFindNext(GetCaretIndex(), TRUE, FALSE, FALSE, quickSearchText, index))
-            QSFindNext(GetCaretIndex(), FALSE, TRUE, FALSE, quickSearchText, index);
+        if (!QSFindNext(GetCaretIndex(), TRUE, FALSE, FALSE, quickSearchText.c_str(), index))
+            QSFindNext(GetCaretIndex(), FALSE, TRUE, FALSE, quickSearchText.c_str(), index);
         //}
 
         if (!QuickSearchMode) // initialization of search
@@ -1195,22 +1078,16 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
     BOOL controlPressed = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
     BOOL altPressed = (GetKeyState(VK_MENU) & 0x8000) != 0;
 
-    if (((Configuration.QuickSearchEnterAlt &&
-          altPressed && !controlPressed)) &&
-        wParam > 31 && wParam < 256 &&
-        Dirs->Count + Files->Count > 0)
+    if (wParam != VK_SHIFT && wParam != VK_CONTROL && wParam != VK_MENU && wParam != VK_PACKET)
+        QuickSearchHighSurrogate = 0;
+    if (Configuration.QuickSearchEnterAlt && altPressed && !controlPressed &&
+        wParam > 31 && wParam < 256 && Dirs->Count + Files->Count > 0 &&
+        MapVirtualKeyExW((UINT)wParam, MAPVK_VK_TO_CHAR, GetKeyboardLayout(0)) != 0)
     {
-        BYTE ks[256];
-        GetKeyboardState(ks);
-        ks[VK_CONTROL] = 0;
-        WORD ch;
-        int ret = ToAscii((UINT)wParam, 0, ks, &ch, 0);
-        if (ret == 1)
-        {
-            SkipSysCharacter = TRUE;
-            SendMessage(ListBox->HWindow, WM_CHAR, LOBYTE(ch), 0);
-            return TRUE;
-        }
+        // Reserve printable/dead keys for quick search. The actual text arrives
+        // as WM_SYSCHAR; this lookup does not change the keyboard dead-key state.
+        SkipCharacter = FALSE;
+        return TRUE;
     }
 
     SkipCharacter = FALSE;
@@ -1559,25 +1436,11 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
             goto INSERT_KEY;
         }
 
-        case VK_BACK: // backspace - we delete a character in the quicksearch mask
+        case VK_BACK: // remove the last complete character from the mask
         {
-            if (QuickSearchMask[0] != 0)
+            if (!QuickSearchMaskW.empty())
             {
-                if (UseWideQuickSearch())
-                {
-                    if (QuickSearchMaskW.empty())
-                        QuickSearchMaskW = QuickSearchTextToWide(QuickSearchMask);
-                    if (!QuickSearchMaskW.empty())
-                        QuickSearchMaskW.erase(QuickSearchMaskW.length() - 1);
-                    std::string mask = QuickSearchWideToText(QuickSearchMaskW);
-                    lstrcpyn(QuickSearchMask, mask.c_str(), MAX_PATH);
-                }
-                else
-                {
-                    int len = (int)strlen(QuickSearchMask) - 1; // we remove a character
-                    QuickSearchMask[len] = 0;
-                }
-
+                Salamander::Panel::RemoveLastQuickSearchCharacter(QuickSearchMaskW);
                 int index;
                 QSFindNext(GetCaretIndex(), FALSE, FALSE, FALSE, NULL, index);
                 SetQuickSearchCaretPos();
@@ -1585,34 +1448,19 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
             return TRUE;
         }
 
-        case VK_LEFT: // left arrow - we convert the mask to a string and remove a character
+        case VK_LEFT: // shorten the matched prefix and keep its mask in sync
         {
-            if (QuickSearch[0] != 0)
+            if (!QuickSearchW.empty())
             {
-                if (UseWideQuickSearch())
-                {
-                    if (QuickSearchW.empty())
-                        QuickSearchW = QuickSearchTextToWide(QuickSearch);
-                    if (!QuickSearchW.empty())
-                        QuickSearchW.erase(QuickSearchW.length() - 1);
-                    std::string qs = QuickSearchWideToText(QuickSearchW);
-                    lstrcpyn(QuickSearch, qs.c_str(), MAX_PATH);
-                }
-                else
-                {
-                    int len = (int)strlen(QuickSearch) - 1; // we remove a character
-                    QuickSearch[len] = 0;
-                }
-                int len2 = (int)strlen(QuickSearchMask);
-                if (len2 > 1 && !IsQSWildChar(QuickSearchMask[len2 - 1]) && !IsQSWildChar(QuickSearchMask[len2 - 2]))
-                {
-                    QuickSearchMask[len2 - 1] = 0;
-                }
-                else
-                {
-                    // in this case, we discard the "wild" characters and switch to normal search, because
-                    strcpy(QuickSearchMask, QuickSearch);
-                }
+                Salamander::Panel::ShortenQuickSearchPrefix(QuickSearchW, QuickSearchMaskW);
+                // The filename prefix may be decomposed while the typed mask is
+                // composed. Keep a wildcard suffix only if it still describes
+                // the complete shortened prefix in the same Unicode matcher.
+                std::wstring mask;
+                PrepareQSMaskW(mask, QuickSearchMaskW);
+                int matchedLength;
+                if (!AgreeQSMaskW(QuickSearchW.c_str(), TRUE, mask.c_str(), TRUE, matchedLength))
+                    QuickSearchMaskW = QuickSearchW;
                 SetQuickSearchCaretPos();
             }
             return TRUE;
@@ -1622,38 +1470,11 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
         {
             if (FocusedIndex >= 0 && FocusedIndex < Dirs->Count + Files->Count)
             {
-                char* name = (FocusedIndex < Dirs->Count) ? Dirs->At(FocusedIndex).Name : Files->At(FocusedIndex - Dirs->Count).Name;
-                int len = (int)strlen(QuickSearch); // we add a character
-                if ((FocusedIndex > Dirs->Count || FocusedIndex != 0 ||
-                     strcmp(name, "..") != 0) &&
-                    name[len] != 0)
-                {
-                    // if there is still another one
-                    if (UseWideQuickSearch())
-                    {
-                        std::wstring nameW = FileDataNameToWide(FocusedIndex < Dirs->Count ? Dirs->At(FocusedIndex) : Files->At(FocusedIndex - Dirs->Count));
-                        if (QuickSearchW.empty())
-                            QuickSearchW = QuickSearchTextToWide(QuickSearch);
-                        if (QuickSearchW.length() < nameW.length())
-                        {
-                            QuickSearchW += nameW[QuickSearchW.length()];
-                            QuickSearchMaskW += nameW[QuickSearchW.length() - 1];
-                            std::string qs = QuickSearchWideToText(QuickSearchW);
-                            std::string mask = QuickSearchWideToText(QuickSearchMaskW);
-                            lstrcpyn(QuickSearch, qs.c_str(), MAX_PATH);
-                            lstrcpyn(QuickSearchMask, mask.c_str(), MAX_PATH);
-                        }
-                    }
-                    else
-                    {
-                        QuickSearch[len] = name[len];
-                        QuickSearch[len + 1] = 0;
-                        int len2 = (int)strlen(QuickSearchMask);
-                        QuickSearchMask[len2] = name[len];
-                        QuickSearchMask[len2 + 1] = 0;
-                    }
+                const CFileData& file = FocusedIndex < Dirs->Count ? Dirs->At(FocusedIndex) : Files->At(FocusedIndex - Dirs->Count);
+                std::wstring name = FileDataNameToWide(file);
+                if (!(FocusedIndex == 0 && FocusedIndex < Dirs->Count && name == L"..") &&
+                    Salamander::Panel::ExtendQuickSearchPrefix(QuickSearchW, QuickSearchMaskW, name))
                     SetQuickSearchCaretPos();
-                }
             }
             return TRUE;
         }
@@ -2294,6 +2115,7 @@ void CFilesWindow::OnSetFocus(BOOL focusVisible)
 
 void CFilesWindow::OnKillFocus(HWND hwndGetFocus)
 {
+    QuickSearchHighSurrogate = 0;
     CALL_STACK_MESSAGE_NONE
     if (Parent->EditWindowKnowHWND(hwndGetFocus))
         Parent->EditMode = TRUE;
@@ -3431,29 +3253,19 @@ void CFilesWindow::SetQuickSearchCaretPos()
     }
     else
         file = &Files->At(FocusedIndex - Dirs->Count);
-    char formatedFileName[MAX_PATH];
+    CPathBuffer formattedBuffer;
+    char* formatedFileName = formattedBuffer.Data();
     AlterFileName(formatedFileName, file->Name, -1,
                   Configuration.FileNameFormat, 0,
                   FocusedIndex < Dirs->Count);
 
-    int qsLen = (int)strlen(QuickSearch);
-    int preLen = isDir && !Configuration.SortDirsByExt ? file->NameLen : (int)(file->Ext - file->Name);
-    char* ss;
-    BOOL ext = FALSE;
-    int offset = 0;
-    if ((!isDir || Configuration.SortDirsByExt) && GetViewMode() == vmDetailed &&
-        IsExtensionInSeparateColumn() && file->Ext[0] != 0 && file->Ext > file->Name + 1 && // exception for names like ".htaccess", they are shown in the Name column even though they are extensions
-        qsLen >= preLen)
-    {
-        ss = formatedFileName + preLen;
-        qsLen -= preLen;
-        offset = Columns[0].Width + 4 - (3 + GetIconSize(ICONSIZE_16));
-        ext = TRUE;
-    }
-    else
-    {
-        ss = formatedFileName;
-    }
+    std::wstring name = FileDataNameToWide(*file);
+    const bool separateExtension = (!isDir || Configuration.SortDirsByExt) &&
+                                   GetViewMode() == vmDetailed && IsExtensionInSeparateColumn() && file->Ext[0] != 0;
+    Salamander::Panel::QuickSearchCaretTextRange range =
+        Salamander::Panel::GetQuickSearchCaretTextRange(name, QuickSearchW.length(), separateExtension);
+    BOOL ext = separateExtension && range.Start != 0;
+    int offset = ext ? Columns[0].Width + 4 - (3 + GetIconSize(ICONSIZE_16)) : 0;
 
     HDC hDC = ListBox->HPrivateDC;
     HFONT hOldFont;
@@ -3462,17 +3274,7 @@ void CFilesWindow::SetQuickSearchCaretPos()
     else
         hOldFont = (HFONT)SelectObject(hDC, GetPanelFont());
 
-    if (UseWideQuickSearch())
-    {
-        if (QuickSearchW.empty())
-            QuickSearchW = QuickSearchTextToWide(QuickSearch);
-        std::wstring nameW = FileDataNameToWide(*file);
-        Salamander::Panel::QuickSearchCaretTextRange range =
-            Salamander::Panel::GetQuickSearchCaretTextRange(nameW, QuickSearchW.length(), ext != FALSE);
-        GetTextExtentPoint32W(hDC, QuickSearchW.c_str() + range.Start, (int)range.Length, &s);
-    }
-    else
-        GetTextExtentPoint32(hDC, ss, qsLen, &s);
+    GetTextExtentPoint32W(hDC, QuickSearchW.c_str() + range.Start, (int)range.Length, &s);
 
     RECT r;
     if (ListBox->GetItemRect(FocusedIndex, &r))

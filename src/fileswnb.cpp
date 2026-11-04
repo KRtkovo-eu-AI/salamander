@@ -1131,9 +1131,13 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ToggleDirectoryLine();
         //---  nahozeni typu viewu + nacteni obsahu adresare
         SetThumbnailSize(Configuration.ThumbnailSize); // musi existovat ListBox
+#ifndef _UNICODE
+        if (!ListBox->CreateExW(WS_EX_WINDOWEDGE,
+#else
         if (!ListBox->CreateEx(WS_EX_WINDOWEDGE,
-                               CFILESBOX_CLASSNAME,
-                               "",
+#endif
+                               CFILESBOX_CLASSNAMEW,
+                               L"",
                                WS_BORDER | WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
                                0, 0, 0, 0, // dummy
                                HWindow,

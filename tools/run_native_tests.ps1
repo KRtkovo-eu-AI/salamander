@@ -1,5 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Open Salamander Authors
+# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-04 | Keep the viewer hex and Quick Search contract tests together. | Both entries were added at the same place in the native test list. | https://github.com/KRtkovo-eu-AI/salamander/pull/768 | Grok 4.7 |
 
 [CmdletBinding()]
 param(
@@ -211,6 +214,14 @@ try {
                 '-B',
                 (Join-Path $repositoryRoot `
                     'src\tests\viewer_hex_contract_tests.py')
+            )
+        },
+        @{
+            Name = 'quick_search_unicode_contract_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\quick_search_unicode_contract_tests.py')
             )
         },
         @{
