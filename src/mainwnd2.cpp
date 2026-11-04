@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Ask Yes/No before importing a config file for another version. | The "import anyway" prompt only had OK, so the action could not be confirmed or cancelled. | https://github.com/KRtkovo-eu-AI/salamander/issues/742 | Composer |
 // | 2026-11-04 | Re-ensure the active tab is visible after panel config load/show. | Overflow scroll must run again after the tab strip is shown with its final width. | | Composer |
 // | 2026-11-04 | Select the first real tab when loading a clean panel config. | Missing TabCount left CurSel on the "+" button after first-run creation. | | Composer |
 // | 2026-11-04 | Load toolbar layouts using the real buffer size. | Panel toolbars now persist the same catalog as the middle toolbar. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
@@ -351,6 +352,77 @@ static const char* MCDFindSourceSubkeyInRegistry(CSalamanderRegistryExAbstract* 
     return NULL;
 }
 
+static BOOL MCDKeyLooksLikeConfigRoot(CSalamanderRegistryExAbstract* registry, HKEY key)
+{
+    if (registry == NULL || key == NULL)
+        return FALSE;
+
+    HKEY child;
+    if (registry->OpenKey(key, SALAMANDER_CONFIG_REG, child))
+    {
+        registry->CloseKey(child);
+        return TRUE;
+    }
+    if (registry->OpenKey(key, SALAMANDER_VERSION_REG, child))
+    {
+        registry->CloseKey(child);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+// When a .reg file contains no known SalamanderConfigurationRoots entry (for example an
+// upstream Open Salamander export), locate any Software\...\* key that still looks like a
+// Salamander configuration root so "import anyway" can remap it into the target key.
+static BOOL MCDFindUnknownConfigSubkey(CSalamanderRegistryExAbstract* registry, char* outPath, int outPathSize)
+{
+    if (registry == NULL || outPath == NULL || outPathSize <= 0)
+        return FALSE;
+    outPath[0] = 0;
+
+    HKEY softwareKey;
+    if (!registry->OpenKey(HKEY_CURRENT_USER, "Software", softwareKey))
+        return FALSE;
+
+    BOOL found = FALSE;
+    char company[MAX_PATH];
+    for (DWORD i = 0; !found && registry->EnumKey(softwareKey, i, company, SizeOf(company)); i++)
+    {
+        HKEY companyKey;
+        if (!registry->OpenKey(softwareKey, company, companyKey))
+            continue;
+
+        // Depth 1: Software\X is itself a config root (oldest Salamander keys).
+        if (MCDKeyLooksLikeConfigRoot(registry, companyKey))
+        {
+            _snprintf_s(outPath, outPathSize, _TRUNCATE, "Software\\%s", company);
+            found = TRUE;
+        }
+        else
+        {
+            char product[MAX_PATH];
+            for (DWORD j = 0; registry->EnumKey(companyKey, j, product, SizeOf(product)); j++)
+            {
+                HKEY productKey;
+                if (!registry->OpenKey(companyKey, product, productKey))
+                    continue;
+                if (MCDKeyLooksLikeConfigRoot(registry, productKey))
+                {
+                    _snprintf_s(outPath, outPathSize, _TRUNCATE, "Software\\%s\\%s", company, product);
+                    found = TRUE;
+                    registry->CloseKey(productKey);
+                    break;
+                }
+                registry->CloseKey(productKey);
+            }
+        }
+        registry->CloseKey(companyKey);
+    }
+
+    registry->CloseKey(softwareKey);
+    return found;
+}
+
 static int MCDRootIndexFromSubkey(const char* subkey)
 {
     if (subkey == NULL)
@@ -624,17 +696,25 @@ static BOOL MCDLoadSourceIntoTargetRegistry(HWND parent, const CFoundConfig& src
         if (MCDParseRegFileToMemory(parent, srcCfg.Location, sourceReg))
         {
             const char* sourceSubkey = MCDFindSourceSubkeyInRegistry(sourceReg);
+            char unknownSubkey[MAX_PATH];
+            unknownSubkey[0] = 0;
+            if (sourceSubkey == NULL)
+            {
+                char text[MAX_PATH + 300];
+                _snprintf_s(text, _TRUNCATE, LoadStr(IDS_IMPORTCFG_NOTOURVER), srcCfg.Location);
+                // Match ImportConfiguration(): this is a Yes/No question, not an error OK box.
+                if (SalMessageBox(parent, text, LoadStr(IDS_QUESTION),
+                                  MB_YESNO | MSGBOXEX_ESCAPEENABLED | MB_ICONQUESTION | MB_DEFBUTTON2) == IDYES)
+                {
+                    if (MCDFindUnknownConfigSubkey(sourceReg, unknownSubkey, SizeOf(unknownSubkey)))
+                        sourceSubkey = unknownSubkey;
+                }
+            }
             if (sourceSubkey != NULL)
             {
                 ret = MCDCopyRegistryBranchToTarget(sourceReg, sourceSubkey, targetReg, targetSubkey, TRUE);
                 if (ret && MCDShouldMigrateSamandarin01To06Scheme(sourceSubkey, srcCfg.Version))
                     MCDNormalizeSamandarin01To06ColorScheme(targetReg, targetSubkey);
-            }
-            else
-            {
-                char text[MAX_PATH + 300];
-                _snprintf_s(text, _TRUNCATE, LoadStr(IDS_IMPORTCFG_NOTOURVER), srcCfg.Location);
-                SalMessageBox(parent, text, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
             }
         }
         sourceReg->Release();
