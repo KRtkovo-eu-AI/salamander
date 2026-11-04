@@ -1,5 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Open Salamander Authors
+# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-04 | Reject process-wide CLR Stop in the managed bridges. | Stopping the CLR prevents JSON Viewer from opening again in the same process. | | Grok 4.7 |
 
 from pathlib import Path
 import re
@@ -90,6 +93,29 @@ def main() -> int:
     ):
         print("Samandarin CLR prewarm must not block startup and must join before shutdown")
         return 1
+    clr_bridge_paths = (
+        ROOT / "plugins/jsonviewer/managed_bridge.cpp",
+        ROOT / "plugins/samandarin/managed_bridge.cpp",
+        ROOT / "plugins/hypervm/managed_bridge.cpp",
+        ROOT / "plugins/csdemo/managed_bridge.cpp",
+    )
+    for bridge_path in clr_bridge_paths:
+        bridge_text = bridge_path.read_text(encoding="utf-8")
+        if "gRuntimeHost->Stop()" in bridge_text:
+            print("CLR host must stay loaded for the process lifetime:", bridge_path.as_posix())
+            return 1
+        if "runtimeInfo->IsLoadable(&loadable)" not in bridge_text:
+            print("CLR host must check IsLoadable before Start:", bridge_path.as_posix())
+            return 1
+        if "The CLR was already stopped in this process. Restart Salamander." not in bridge_text:
+            print("CLR start failure must explain a stopped runtime:", bridge_path.as_posix())
+            return 1
+        if "This process requires .NET Framework 4.8" not in bridge_text:
+            print("CLR load failure must name .NET Framework 4.8:", bridge_path.as_posix())
+            return 1
+        if "wchar_t modulePath[MAX_PATH]" in bridge_text:
+            print("CLR host must not copy the plugin path through MAX_PATH:", bridge_path.as_posix())
+            return 1
 
     if (
         "const BOOL requestLargeArtwork = iconSize != ICONSIZE_16 || shellSourcePixelSize >= 32;" not in geticon
