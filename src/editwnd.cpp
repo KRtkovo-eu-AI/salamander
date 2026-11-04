@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Stop Ctrl+arrow on both sides of spaces too. | Spaces were still skipped while punctuation already stopped before and after. | | Composer |
 // | 2026-11-04 | Stop Ctrl+arrow on punctuation and symbol runs. | Word movement skipped characters such as '-' and ':'. | | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 

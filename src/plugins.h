@@ -1,8 +1,9 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-04 | Keep plug-in DLLs mapped until every plug-in Release returns. | Unloading a runtime plug-in before Salamatrix joins its pump thread crashes on exit. | https://github.com/KRtkovo-eu-AI/salamander/issues/770 https://github.com/KRtkovo-eu-AI/salamander/issues/750 | Grok 4.7 |
+// | 2026-11-04 | Return a panel operations object to plug-ins. | Portable Devices needs Salamander's standard progress dialog. | | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -1893,11 +1894,15 @@ public:
 // CSalamanderGeneral
 //
 
+class CSalamanderForOperations;
+
 class CSalamanderGeneral : public CSalamanderGeneralAbstract
 {
 protected:
     CPluginInterfaceAbstract* Plugin; // plug-in used by this iface; !!! note: may be NULL
                                       // (plugin not loaded) or -1 (during the plugin's entry point)
+
+    CSalamanderForOperations* PanelOperations; // one panel operations object for this plug-in, or NULL
 
     char HelpFileName[MAX_PATH]; // if not empty, this is the name (without path) of the .chm help file used by this plugin (optimization only, not stored anywhere)
 
@@ -2418,6 +2423,7 @@ public:
         const char* ownerKey, const char* ownerName,
         const char* stableId, const char* name,
         const char* description);
+    virtual CSalamanderForOperationsAbstract* WINAPI GetSalamanderForOperations(HWND panel);
 };
 
 //

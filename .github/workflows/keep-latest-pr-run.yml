@@ -1,0 +1,106 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-04 | Cancel older queued runs of the calling workflow. | A new pull request push should replace runs already waiting for a runner. | | Grok 4.7 |
+
+name: Keep latest pull request run
+
+on:
+  workflow_call:
+    inputs:
+      workflow_file:
+        description: Workflow file name, for example pr-tests.yml
+        required: true
+        type: string
+      current_run_id:
+        description: Run id of the caller. Only older runs are cancelled.
+        required: true
+        type: string
+      event_name:
+        description: Event that started the caller
+        required: true
+        type: string
+      head_branch:
+        description: Pull request head branch, or the ref name for a manual run
+        required: true
+        type: string
+      head_repository:
+        description: Repository that owns the head branch
+        required: true
+        type: string
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  keep-latest:
+    name: Cancel older queued runs
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Cancel older runs of this workflow
+        uses: actions/github-script@v7
+        env:
+          KEEP_WORKFLOW_FILE: ${{ inputs.workflow_file }}
+          KEEP_CURRENT_RUN_ID: ${{ inputs.current_run_id }}
+          KEEP_EVENT_NAME: ${{ inputs.event_name }}
+          KEEP_HEAD_BRANCH: ${{ inputs.head_branch }}
+          KEEP_HEAD_REPOSITORY: ${{ inputs.head_repository }}
+        with:
+          script: |
+            const workflowFile = process.env.KEEP_WORKFLOW_FILE || '';
+            const currentRunId = Number(process.env.KEEP_CURRENT_RUN_ID);
+            const eventName = process.env.KEEP_EVENT_NAME || '';
+            const headBranch = process.env.KEEP_HEAD_BRANCH || '';
+            const headRepository = process.env.KEEP_HEAD_REPOSITORY || '';
+
+            if (!workflowFile || !Number.isInteger(currentRunId) || currentRunId <= 0 || !eventName || !headBranch) {
+              core.setFailed('keep-latest-pr-run requires workflow_file, current_run_id, event_name, and head_branch.');
+              return;
+            }
+
+            const statuses = ['queued', 'in_progress', 'waiting', 'requested', 'pending'];
+            let cancelled = 0;
+
+            for (const status of statuses) {
+              let runs;
+              try {
+                runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: workflowFile,
+                  status,
+                  branch: headBranch,
+                  per_page: 100,
+                });
+              } catch (error) {
+                core.warning(`Could not list ${status} runs of ${workflowFile}: ${error.message}`);
+                continue;
+              }
+
+              for (const run of runs) {
+                if (run.id >= currentRunId) continue;
+                if (run.event !== eventName) continue;
+                const runRepository = run.head_repository && run.head_repository.full_name;
+                if (runRepository && headRepository && runRepository !== headRepository) continue;
+                if (run.head_branch && run.head_branch !== headBranch) continue;
+
+                try {
+                  await github.rest.actions.cancelWorkflowRun({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    run_id: run.id,
+                  });
+                  cancelled += 1;
+                  core.info(`Cancelled older ${status} run ${run.id} (${run.html_url}).`);
+                } catch (error) {
+                  const statusCode = error.status || (error.response && error.response.status);
+                  if (statusCode === 401 || statusCode === 403) {
+                    core.warning(`Cannot cancel run ${run.id}. This token cannot cancel workflow runs.`);
+                    return;
+                  }
+                  core.warning(`Could not cancel run ${run.id}: ${error.message}`);
+                }
+              }
+            }
+
+            core.info(`Cancelled ${cancelled} older ${workflowFile} run(s) for ${headRepository}@${headBranch}.`);

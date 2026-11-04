@@ -42,7 +42,7 @@ COMMENT,"Version française"
 11111,1,"Certaines fenêtres du Visualiseur Multimédia sont ouvertes. Voulez-vous les fermer?"
 
 [STRINGTABLE 2]
-11120,1,"Fichiers Multimédia (*.mp3;*.mp2;*.ogg;*.vqf;*.wma;*.wav;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm)|*.mp3;*.mp2;*.ogg;*.wma;*.wav;*.wave;*.vqf;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm|Tous les fichiers (*.*)|*.*||"
+11120,1,"Fichiers Multimédia (*.mp3;*.mp2;*.ogg;*.vqf;*.wma;*.wav;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm)|*.mp3;*.mp2;*.ogg;*.oga;*.opus;*.flac;*.m4a;*.mp4;*.m4b;*.aac;*.aif;*.aiff;*.ape;*.mpc;*.wv;*.tta;*.dsf;*.dff;*.mka;*.webm;*.mkv;*.m4v;*.mov;*.qt;*.3gp;*.3g2;*.asf;*.avi;*.divx;*.wmv;*.mpg;*.mpeg;*.m2ts;*.mts;*.spx;*.wma;*.wav;*.wave;*.vqf;*.669;*.it;*.mod;*.mtm;*.s3m;*.stm;*.xm|Tous les fichiers (*.*)|*.*||"
 11123,1,"Erreur à l'ouverture de %s.\nCe format n'est pas supporté par le Visualisaeur Multimédia."
 11124,1,"Fichiers HTML (*.htm;*.html)|*.htm;*.html|Tous les fichiers (*.*)|*.*||"
 11125,1,"Vouleez-vous ouvrir les données exportées?"
@@ -51,7 +51,7 @@ COMMENT,"Version française"
 11128,1,".html"
 11129,1,"Traitement des fichiers, patientez..."
 11130,1,"Les fichiers %lu de %lu ont été correctement traités."
-11131,1,"Afficher les informations des fichiers multimédia tels que MP3, OGG, WAV, etc."
+11131,1,"Affiche des informations sur les fichiers audio et vidéo tels que MP3, MP4, MKV, AVI, OGG et WAV."
 11132,1,"A propos du module"
 
 [STRINGTABLE 3]
@@ -275,3 +275,25 @@ COMMENT,"Version française"
 12612,1,"ADIF"
 12613,1,"ADTS"
 
+[STRINGTABLE 25]
+12624,1,"Informations vidéo"
+12625,1,"Informations vidéo %u"
+12626,1,"Codec"
+12627,1,"Résolution"
+12628,1,"Fréquence d'images (fps)"
+12629,1,"Débit (kbps)"
+12630,1,"Rapport d'aspect des pixels"
+12631,1,"Balayage"
+12632,1,"Rotation"
+12633,1,"Profil"
+12634,1,"Niveau"
+12635,1,"Progressif"
+12636,1,"Entrelacé"
+12637,1,"Mixte"
+12638,1,"Informations audio %u"
+12639,1,"Codec audio"
+
+[STRINGTABLE 26]
+12640,1,"Bits par échantillon"
+12641,1,"Informations sur le média"
+12642,1,"Inconnu"

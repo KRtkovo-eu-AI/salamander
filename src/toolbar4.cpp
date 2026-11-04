@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Offer the middle-toolbar button catalog in panel toolbars. | Panel customize listed only a subset, so Hot Paths and the other shared commands could not be placed next to Change Drive. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 
 #include "precomp.h"
 
@@ -263,11 +266,11 @@ CButtonData ToolBarButtons[TBBE_TERMINATOR] =
 };
 
 //
-// TopToolbar
+// Shared toolbar catalog
 //
-// Vyjadruje vsechna mozna tlacitka, ktera muze obsahovat TopToolbar.
-// Poradi udava poradi tlacitek v konfiguracnim dialogu toolbary a muze
-// byt libovolne meneno.
+// Every button the Top, Middle, and Panel toolbars can offer.
+// Order is the order in the customize dialog and can be changed freely.
+// Each panel toolbar prepends its own Change Drive button.
 //
 
 DWORD TopToolBarButtons[] =
@@ -373,49 +376,7 @@ DWORD TopToolBarButtons[] =
         NIB2(TBBE_HELP_CONTENTS)
             NIB2(TBBE_HELP_CONTEXT)
 
-                TBBE_TERMINATOR // terminator - musi zde byt !
-};
-
-DWORD LeftToolBarButtons[] =
-    {
-        TBBE_CHANGE_DRIVE_L,
-        TBBE_PARENT_DIR,
-        TBBE_ROOT_DIR,
-        TBBE_CHANGEDIR,
-        TBBE_AS_OTHER_PANEL,
-        TBBE_BACK,
-        TBBE_FORWARD,
-        TBBE_VIEW_MODE,
-        TBBE_SORT_NAME,
-        TBBE_SORT_EXT,
-        TBBE_SORT_SIZE,
-        TBBE_SORT_DATE,
-        TBBE_FILTER,
-        TBBE_REFRESH,
-        TBBE_SMART_COLUMN_MODE,
-
-        TBBE_TERMINATOR // terminator - musi zde byt !
-};
-
-DWORD RightToolBarButtons[] =
-    {
-        TBBE_CHANGE_DRIVE_R,
-        TBBE_PARENT_DIR,
-        TBBE_ROOT_DIR,
-        TBBE_CHANGEDIR,
-        TBBE_AS_OTHER_PANEL,
-        TBBE_BACK,
-        TBBE_FORWARD,
-        TBBE_VIEW_MODE,
-        TBBE_SORT_NAME,
-        TBBE_SORT_EXT,
-        TBBE_SORT_SIZE,
-        TBBE_SORT_DATE,
-        TBBE_FILTER,
-        TBBE_REFRESH,
-        TBBE_SMART_COLUMN_MODE,
-
-        TBBE_TERMINATOR // terminator - musi zde byt !
+                TBBE_TERMINATOR // terminator - must stay here
 };
 
 void GetSVGIconsMainToolbar(CSVGIcon** svgIcons, int* svgIconsCount)
@@ -1053,66 +1014,70 @@ BOOL CMainToolBar::FillTII(int tbbeIndex, TLBI_ITEM_INFO2* tii, BOOL fillName)
         TRACE_E("tbbeIndex = " << tbbeIndex);
         return FALSE;
     }
-    if (ToolBarButtons[tbbeIndex].ImageIndex == 0xFFFF)
-    {
-        // stara polozka, ktera v teto verzi byla zrusena
-        return FALSE;
-    }
-
-    if (tbbeIndex == -1 || tbbeIndex >= TBBE_TERMINATOR)
+    if (tbbeIndex == -1)
     {
         tii->Mask = TLBI_MASK_STYLE;
         tii->Style = TLBI_STYLE_SEPARATOR;
+        return TRUE;
     }
-    else
+    if (ToolBarButtons[tbbeIndex].ImageIndex == 0xFFFF)
     {
-        if (Type == mtbtLeft && tbbeIndex == TBBE_CHANGE_DRIVE_R)
-            tbbeIndex = TBBE_CHANGE_DRIVE_L;
-        if (Type == mtbtRight && tbbeIndex == TBBE_CHANGE_DRIVE_L)
-            tbbeIndex = TBBE_CHANGE_DRIVE_R;
-        tii->Mask = TLBI_MASK_STYLE | TLBI_MASK_ID |
-                    TLBI_MASK_ENABLER | TLBI_MASK_CUSTOMDATA;
-        tii->Style = 0;
-        tii->CustomData = tbbeIndex;
-        tii->Mask |= TLBI_MASK_IMAGEINDEX;
-        tii->ImageIndex = ToolBarButtons[tbbeIndex].ImageIndex;
+        // Retired button that this version no longer offers.
+        return FALSE;
+    }
 
-        if (ToolBarButtons[tbbeIndex].DropDown)
-            tii->Style |= TLBI_STYLE_SEPARATEDROPDOWN;
-        if (ToolBarButtons[tbbeIndex].WholeDropDown)
-            tii->Style |= TLBI_STYLE_WHOLEDROPDOWN | TLBI_STYLE_DROPDOWN;
-        if (ToolBarButtons[tbbeIndex].Check)
-            tii->Style |= TLBI_STYLE_RADIO;
-        switch (Type)
-        {
-        case mtbtMiddle:
-        case mtbtTop:
-        {
-            tii->ID = ToolBarButtons[tbbeIndex].ID;
-            tii->Enabler = ToolBarButtons[tbbeIndex].Enabler;
-            break;
-        }
+    if (Type == mtbtLeft && tbbeIndex == TBBE_CHANGE_DRIVE_R)
+        tbbeIndex = TBBE_CHANGE_DRIVE_L;
+    if (Type == mtbtRight && tbbeIndex == TBBE_CHANGE_DRIVE_L)
+        tbbeIndex = TBBE_CHANGE_DRIVE_R;
+    tii->Mask = TLBI_MASK_STYLE | TLBI_MASK_ID |
+                TLBI_MASK_ENABLER | TLBI_MASK_CUSTOMDATA;
+    tii->Style = 0;
+    tii->CustomData = tbbeIndex;
+    tii->Mask |= TLBI_MASK_IMAGEINDEX;
+    tii->ImageIndex = ToolBarButtons[tbbeIndex].ImageIndex;
 
-        case mtbtLeft:
-        {
-            tii->ID = ToolBarButtons[tbbeIndex].LeftID;
-            tii->Enabler = ToolBarButtons[tbbeIndex].LeftEnabler;
-            break;
-        }
+    if (ToolBarButtons[tbbeIndex].DropDown)
+        tii->Style |= TLBI_STYLE_SEPARATEDROPDOWN;
+    if (ToolBarButtons[tbbeIndex].WholeDropDown)
+        tii->Style |= TLBI_STYLE_WHOLEDROPDOWN | TLBI_STYLE_DROPDOWN;
+    if (ToolBarButtons[tbbeIndex].Check)
+        tii->Style |= TLBI_STYLE_RADIO;
+    switch (Type)
+    {
+    case mtbtMiddle:
+    case mtbtTop:
+    {
+        tii->ID = ToolBarButtons[tbbeIndex].ID;
+        tii->Enabler = ToolBarButtons[tbbeIndex].Enabler;
+        break;
+    }
 
-        case mtbtRight:
+    case mtbtLeft:
+    case mtbtRight:
+    {
+        // Keep a side-specific command when the button has one, so Parent,
+        // Sort, and Back still affect that panel. Shared buttons have no
+        // side command; use the same command and enabler as the middle toolbar.
+        // An ID of 0 is drawn disabled and never posts a command.
+        BOOL left = (Type == mtbtLeft);
+        DWORD id = left ? ToolBarButtons[tbbeIndex].LeftID : ToolBarButtons[tbbeIndex].RightID;
+        DWORD* enabler = left ? ToolBarButtons[tbbeIndex].LeftEnabler : ToolBarButtons[tbbeIndex].RightEnabler;
+        if (id == 0)
         {
-            tii->ID = ToolBarButtons[tbbeIndex].RightID;
-            tii->Enabler = ToolBarButtons[tbbeIndex].RightEnabler;
-            break;
+            id = ToolBarButtons[tbbeIndex].ID;
+            enabler = ToolBarButtons[tbbeIndex].Enabler;
         }
-        }
-        if (fillName)
-        {
-            tii->Name = LoadStr(ToolBarButtons[tbbeIndex].ToolTipResID);
-            // retezec bude orezan, proto muzeme operaci provest nad bufferem z LoadStr
-            PrepareToolTipText(tii->Name, TRUE);
-        }
+        tii->ID = id;
+        tii->Enabler = enabler;
+        break;
+    }
+    }
+    if (fillName)
+    {
+        tii->Name = LoadStr(ToolBarButtons[tbbeIndex].ToolTipResID);
+        // The text is shortened in place, so LoadStr's buffer can be edited.
+        PrepareToolTipText(tii->Name, TRUE);
     }
     return TRUE;
 }
@@ -1160,14 +1125,17 @@ BOOL CMainToolBar::Load(const char* data)
     return TRUE;
 }
 
-BOOL CMainToolBar::Save(char* data)
+BOOL CMainToolBar::Save(char* data, int dataSize)
 {
     CALL_STACK_MESSAGE1("CMainToolBar::Save()");
+    if (data == NULL || dataSize <= 0)
+        return FALSE;
+    data[0] = 0;
+
     TLBI_ITEM_INFO2 tii;
     int count = GetItemCount();
-    int tbbeIndex;
     char* p = data;
-    *p = 0;
+    char* end = data + dataSize;
     BOOL wrote = FALSE;
     int i;
     for (i = 0; i < count; i++)
@@ -1176,13 +1144,19 @@ BOOL CMainToolBar::Save(char* data)
         GetItemInfo2(i, TRUE, &tii);
         if (static_cast<int>(tii.CustomData) <= -2)
             continue;
+        int tbbeIndex;
         if (tii.Style == TLBI_STYLE_SEPARATOR)
             tbbeIndex = -1;
         else
-            tbbeIndex = tii.CustomData;
-        if (wrote)
-            *p++ = ',';
-        p += sprintf(p, "%d", tbbeIndex);
+            tbbeIndex = (int)tii.CustomData;
+        char token[16];
+        int tokenLen = sprintf(token, wrote ? ",%d" : "%d", tbbeIndex);
+        // Keep a valid prefix when the caller buffer cannot hold every separator.
+        if (tokenLen < 0 || p + tokenLen >= end)
+            break;
+        memmove(p, token, tokenLen);
+        p += tokenLen;
+        *p = 0;
         wrote = TRUE;
     }
     return TRUE;
@@ -1222,27 +1196,29 @@ BOOL CMainToolBar::OnEnumButton(LPARAM lParam)
 {
     CALL_STACK_MESSAGE2("CMainToolBar::OnEnumButton(0x%IX)", lParam);
     TLBI_ITEM_INFO2* tii = (TLBI_ITEM_INFO2*)lParam;
-    DWORD tbbeIndex;
-    int staticCount = 0;
-    switch (Type)
+    if (tii == NULL || tii->Index < 0)
+        return FALSE;
+
+    // Panel toolbars offer the same catalog as the middle toolbar, preceded by
+    // the Change Drive button that belongs to that panel.
+    int index = tii->Index;
+    DWORD tbbeIndex = TBBE_TERMINATOR;
+    if (Type == mtbtLeft || Type == mtbtRight)
     {
-    case mtbtMiddle:
-    case mtbtTop:
-        staticCount = _countof(TopToolBarButtons);
-        tbbeIndex = TopToolBarButtons[tii->Index];
-        break;
-    case mtbtLeft:
-        staticCount = _countof(LeftToolBarButtons);
-        tbbeIndex = LeftToolBarButtons[tii->Index];
-        break;
-    case mtbtRight:
-        staticCount = _countof(RightToolBarButtons);
-        tbbeIndex = RightToolBarButtons[tii->Index];
-        break;
+        if (index == 0)
+            tbbeIndex = (Type == mtbtLeft) ? TBBE_CHANGE_DRIVE_L : TBBE_CHANGE_DRIVE_R;
+        else
+            index--;
     }
     if (tbbeIndex == TBBE_TERMINATOR)
-        return FALSE; // vsechna tlacitka uz byla natlacena
-    FillTII(tbbeIndex, tii, TRUE);
+    {
+        if (index >= (int)_countof(TopToolBarButtons))
+            return FALSE;
+        tbbeIndex = TopToolBarButtons[index];
+    }
+    if (tbbeIndex == TBBE_TERMINATOR)
+        return FALSE; // every button has already been supplied
+    FillTII((int)tbbeIndex, tii, TRUE);
     return TRUE;
 }
 

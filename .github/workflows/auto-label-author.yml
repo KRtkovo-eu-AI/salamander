@@ -1,3 +1,6 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-04 | Keep one labeling run per pull request. | Each synchronize event was adding another labeling run. | | Grok 4.7 |
+
 name: Auto-label PRs from specific authors
 
 on:
@@ -8,6 +11,10 @@ permissions:
   contents: read
   issues: write
   pull-requests: write
+
+concurrency:
+  group: auto-label-author-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   label:

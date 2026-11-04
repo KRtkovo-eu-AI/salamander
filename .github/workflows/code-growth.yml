@@ -1,3 +1,6 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-04 | Run source growth on Ubuntu and keep only the newest pull request run. | This report was taking a Windows runner and its check suite collected test results. | | Grok 4.7 |
+
 name: Source Code Growth
 
 on:
@@ -11,15 +14,26 @@ permissions:
   contents: read
   issues: write
   pull-requests: write
+  actions: write
 
 concurrency:
-  group: code-growth-${{ github.ref }}
+  group: code-growth-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  keep-latest:
+    uses: ./.github/workflows/keep-latest-pr-run.yml
+    with:
+      workflow_file: code-growth.yml
+      current_run_id: ${{ github.run_id }}
+      event_name: ${{ github.event_name }}
+      head_branch: ${{ github.event.pull_request.head.ref || github.ref_name }}
+      head_repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+
   report:
     name: Source growth against latest release and PR base
-    runs-on: windows-2022
+    needs: keep-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 10
 
     defaults:

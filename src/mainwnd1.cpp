@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Reflect context help on panel toolbars and bound toolbar saves. | Panel toolbars can now hold the shared help button, and their layouts use the larger buffers. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
@@ -677,7 +678,7 @@ BOOL CMainWindow::ToggleTopToolBar(BOOL storePos)
 
     if (TopToolBar->HWindow != NULL)
     {
-        TopToolBar->Save(Configuration.TopToolBar);
+        TopToolBar->Save(Configuration.TopToolBar, sizeof(Configuration.TopToolBar));
         int index = (int)SendMessage(HTopRebar, RB_IDTOINDEX, BANDID_TOPTOOLBAR, 0);
         SendMessage(HTopRebar, RB_DELETEBAND, index, 0);
         //    InvalidateRect(HTopRebar, NULL, TRUE);
@@ -828,7 +829,7 @@ BOOL CMainWindow::ToggleMiddleToolBar()
 
     if (MiddleToolBar->HWindow != NULL)
     {
-        MiddleToolBar->Save(Configuration.MiddleToolBar);
+        MiddleToolBar->Save(Configuration.MiddleToolBar, sizeof(Configuration.MiddleToolBar));
         DestroyWindow(MiddleToolBar->HWindow);
         Configuration.MiddleToolBarVisible = FALSE;
     }
@@ -6977,10 +6978,17 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     if (obj->HelpMode != CheckerHelpMode || IdleForceRefresh)
     {
         CheckerHelpMode = obj->HelpMode;
+        BOOL helpActive = obj->HelpMode == HELP_ACTIVE;
         if (topToolbar != NULL && topToolbar->HWindow != NULL)
-            topToolbar->CheckItem(CM_HELP_CONTEXT, FALSE, obj->HelpMode == HELP_ACTIVE);
+            topToolbar->CheckItem(CM_HELP_CONTEXT, FALSE, helpActive);
         if (midToolbar != NULL && midToolbar->HWindow != NULL)
-            midToolbar->CheckItem(CM_HELP_CONTEXT, FALSE, obj->HelpMode == HELP_ACTIVE);
+            midToolbar->CheckItem(CM_HELP_CONTEXT, FALSE, helpActive);
+        CToolBar* leftToolbar = (obj->LeftPanel != NULL && obj->LeftPanel->DirectoryLine != NULL) ? obj->LeftPanel->DirectoryLine->ToolBar : NULL;
+        CToolBar* rightToolbar = (obj->RightPanel != NULL && obj->RightPanel->DirectoryLine != NULL) ? obj->RightPanel->DirectoryLine->ToolBar : NULL;
+        if (leftToolbar != NULL && leftToolbar->HWindow != NULL)
+            leftToolbar->CheckItem(CM_HELP_CONTEXT, FALSE, helpActive);
+        if (rightToolbar != NULL && rightToolbar->HWindow != NULL)
+            rightToolbar->CheckItem(CM_HELP_CONTEXT, FALSE, helpActive);
     }
     if (viewMode != CheckerViewMode || IdleForceRefresh)
     {

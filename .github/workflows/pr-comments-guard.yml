@@ -1,3 +1,6 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-04 | Check the translation label before taking a Windows runner. | Every pull request was queueing two Windows jobs that usually only skipped. | | Grok 4.7 |
+
 name: PR Comment Guard
 
 on:
@@ -6,22 +9,32 @@ on:
 
 permissions:
   contents: read
+  actions: write
+
+concurrency:
+  group: pr-comments-guard-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
-  comment-only:
-    name: Ensure Only Comments Change (${{ matrix.mode }}) # Include active mode in job name for clearer logs.
-    strategy: # Expand the job to cover both evaluation modes.
-      fail-fast: false # Make sure the relaxed run completes even if the strict mode fails first.
-      matrix:
-        mode: [strict, ignore-whitespace] # Run the guard in strict mode and with whitespace ignored.
-    runs-on: windows-2022
-    defaults:
-      run:
-        shell: pwsh
+  keep-latest:
+    uses: ./.github/workflows/keep-latest-pr-run.yml
+    with:
+      workflow_file: pr-comments-guard.yml
+      current_run_id: ${{ github.run_id }}
+      event_name: ${{ github.event_name }}
+      head_branch: ${{ github.event.pull_request.head.ref }}
+      head_repository: ${{ github.event.pull_request.head.repo.full_name }}
 
+  gate:
+    name: Check comments translation label
+    needs: keep-latest
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.label_check.outputs.should-run }}
     steps:
       - name: Check for "comments translation" label
         id: label_check
+        shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -49,15 +62,34 @@ jobs:
             }
           }
 
-          if (-not $hasLabel) {
-            'should-skip=true' | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-            Write-Host "Label 'comments translation' not present on PR; skipping verification."
-          } else {
+          if ($hasLabel) {
+            'should-run=true' | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
             Write-Host "Label 'comments translation' detected; continuing verification."
+          } else {
+            'should-run=false' | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            Write-Host "Label 'comments translation' not present on PR; skipping verification."
           }
 
+  comment-only:
+    name: Ensure Only Comments Change (${{ matrix.mode }}) # Include active mode in job name for clearer logs.
+    needs: gate
+    strategy: # Expand the job to cover both evaluation modes.
+      fail-fast: false # Make sure the relaxed run completes even if the strict mode fails first.
+      matrix:
+        mode: [strict, ignore-whitespace] # Run the guard in strict mode and with whitespace ignored.
+    runs-on: ${{ needs.gate.outputs.should_run == 'true' && 'windows-2022' || 'ubuntu-latest' }}
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Skip when the comments translation label is absent
+        if: needs.gate.outputs.should_run != 'true'
+        shell: bash
+        run: echo "Label comments translation is absent. Verification was not queued on Windows."
+
       - name: Checkout PR
-        if: steps.label_check.outputs.should-skip != 'true'
+        if: needs.gate.outputs.should_run == 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -65,7 +97,7 @@ jobs:
           persist-credentials: false
 
       - name: Verify comment-only changes
-        if: steps.label_check.outputs.should-skip != 'true'
+        if: needs.gate.outputs.should_run == 'true'
         env:
           COMMENT_GUARD_MODE: ${{ matrix.mode }} # Pass the selected mode down to the PowerShell script.
         run: |

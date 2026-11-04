@@ -1,4 +1,6 @@
-﻿// Microsoft Visual C++ generated resource script.
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Add portable overwrite and rename messages. | Copy, move, and rename questions must come from the plugin language table. | | Grok 4.7 |
+// Microsoft Visual C++ generated resource script.
 //
 #pragma code_page(65001)
 
@@ -98,6 +100,15 @@ BEGIN
     IDS_OPERATIONPROGRESS_MOVED "%s of %s moved"
     IDS_OPERATIONPROGRESS_PROCESSED "%s of %s processed"
     IDS_OPERATIONPROGRESS_DELETINGSELECTED "Deleting selected items"
+    IDS_OPERATION_FAILED_FMT "%s '%s' failed (0x%08X)."
+    IDS_OPERATION_RENAME "Rename"
+    IDS_OPERATION_CREATEFOLDER "Create folder"
+    IDS_OPERATION_VIEW "View"
+    IDS_OPERATION_NAME_STILL_EXISTS "The name is still on the device. The item was not created again."
+    IDS_OPERATION_TYPE_MISMATCH_FILE "A file cannot replace a folder."
+    IDS_OPERATION_TYPE_MISMATCH_DIR "A folder cannot replace a file."
+    IDS_OPERATION_ALREADY_EXISTS "An item with this name already exists."
+    IDS_OPERATION_DETAILS_UNKNOWN "?"
 END
 
 #endif    // Czech (Czech Republic) resources

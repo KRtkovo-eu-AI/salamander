@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- | Date | Summary | Reason | Ticket | Model | -->
+<!-- | 2026-11-04 | Compile the Media Foundation metadata reader. | Video files need stream details beside the TagLib audio report. | https://github.com/KRtkovo-eu-AI/salamander/issues/732 | Grok 4.7 | -->
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -222,6 +224,8 @@
     </ClCompile>
     <ClCompile Include="..\taglibparser.cpp">
     </ClCompile>
+    <ClCompile Include="..\mfinfo.cpp">
+    </ClCompile>
     <ClCompile Include="..\parser.cpp">
     </ClCompile>
     <ClCompile Include="..\precomp.cpp">
@@ -295,6 +299,8 @@
     <ClInclude Include="..\output.h">
     </ClInclude>
     <ClInclude Include="..\taglibparser.h">
+    </ClInclude>
+    <ClInclude Include="..\mfinfo.h">
     </ClInclude>
     <ClInclude Include="..\parser.h">
     </ClInclude>

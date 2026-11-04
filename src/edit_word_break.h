@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Stop on both sides of space runs. | Spaces were still skipped while punctuation already stopped before and after. | | Composer |
 // | 2026-11-04 | Add word boundaries for edit controls. | Ctrl+arrow must stop around punctuation and symbols. | | Grok 4.7 |
 
 #ifndef _EDIT_WORD_BREAK_H
@@ -16,9 +17,9 @@
 // stay with the preceding character. Characters outside the BMP, including a
 // surrogate pair, are one word and are never split.
 //
-// Every other character except whitespace is a boundary: punctuation, symbols,
-// and '_'. A consecutive run of those characters is one step. Moving forward
-// skips spaces and tabs, but stops before a line break.
+// Every other character is a boundary: punctuation, symbols, '_', spaces, and
+// line breaks. A consecutive run of the same class is one step, so the caret
+// stops before and after the run.
 
 enum EditWordClass
 {
@@ -141,13 +142,6 @@ inline EditWordClass EditWordClassAt(const wchar_t* text, int length, int index)
     return EditWordClassOfBase(ch);
 }
 
-inline int EditWordSkipSpaces(const wchar_t* text, int length, int index)
-{
-    while (index < length && EditWordClassAt(text, length, index) == EditWordClassSpace)
-        index = EditWordNextUnit(text, length, index);
-    return index;
-}
-
 inline int EditWordEndOfRun(const wchar_t* text, int length, int index)
 {
     EditWordClass kind;
@@ -183,52 +177,21 @@ inline int EditWordStartOfRun(const wchar_t* text, int length, int index)
 
 inline int NextEditWordBoundary(const wchar_t* text, int length, int caret)
 {
-    EditWordClass kind;
-    int after;
-
     if (text == NULL || length <= 0)
         return 0;
     caret = EditWordNormalizeCaret(text, length, caret);
     if (caret >= length)
         return length;
-
-    kind = EditWordClassAt(text, length, caret);
-    if (kind == EditWordClassSpace)
-    {
-        after = EditWordSkipSpaces(text, length, caret);
-        if (after >= length)
-            return length;
-        kind = EditWordClassAt(text, length, after);
-        if (kind == EditWordClassWord || kind == EditWordClassLineBreak)
-            return after;
-        return EditWordSkipSpaces(text, length, EditWordEndOfRun(text, length, after));
-    }
-    return EditWordSkipSpaces(text, length, EditWordEndOfRun(text, length, caret));
+    return EditWordEndOfRun(text, length, caret);
 }
 
 inline int PreviousEditWordBoundary(const wchar_t* text, int length, int caret)
 {
-    int previous;
-
     if (text == NULL || length <= 0)
         return 0;
     caret = EditWordNormalizeCaret(text, length, caret);
     if (caret <= 0)
         return 0;
-
-    previous = EditWordPreviousUnit(text, caret);
-    if (EditWordClassAt(text, length, previous) == EditWordClassSpace)
-    {
-        while (caret > 0)
-        {
-            previous = EditWordPreviousUnit(text, caret);
-            if (EditWordClassAt(text, length, previous) != EditWordClassSpace)
-                break;
-            caret = previous;
-        }
-        if (caret == 0)
-            return 0;
-    }
     return EditWordStartOfRun(text, length, caret);
 }
 

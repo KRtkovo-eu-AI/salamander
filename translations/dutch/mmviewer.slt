@@ -42,7 +42,7 @@ COMMENT,"Nederlandse versie"
 11111,1,"Er zijn Multimedia Viewer vensters geopend. Wilt u ze sluiten?"
 
 [STRINGTABLE 2]
-11120,1,"Multimedia bestanden (*.mp3;*.mp2;*.ogg;*.vqf;*.wma;*.wav;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm)|*.mp3;*.mp2;*.ogg;*.wma;*.wav;*.wave;*.vqf;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm|Alle bestanden (*.*)|*.*||"
+11120,1,"Multimedia bestanden (*.mp3;*.mp2;*.ogg;*.vqf;*.wma;*.wav;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm)|*.mp3;*.mp2;*.ogg;*.oga;*.opus;*.flac;*.m4a;*.mp4;*.m4b;*.aac;*.aif;*.aiff;*.ape;*.mpc;*.wv;*.tta;*.dsf;*.dff;*.mka;*.webm;*.mkv;*.m4v;*.mov;*.qt;*.3gp;*.3g2;*.asf;*.avi;*.divx;*.wmv;*.mpg;*.mpeg;*.m2ts;*.mts;*.spx;*.wma;*.wav;*.wave;*.vqf;*.669;*.it;*.mod;*.mtm;*.s3m;*.stm;*.xm|Alle bestanden (*.*)|*.*||"
 11123,1,"Fout bij het openen van %s.\nDit formaat wordt niet ondersteunt door Multimedia Viewer."
 11124,1,"HTML bestanden (*.htm;*.html)|*.htm;*.html|All Files (*.*)|*.*||"
 11125,1,"Wilt u de geëxporteerde gegevens openen?"
@@ -51,7 +51,7 @@ COMMENT,"Nederlandse versie"
 11128,1,".html"
 11129,1,"Verwerken van bestanden, een ogenblik geduld..."
 11130,1,"%lu van %lu bestanden zijn met succes verwerkt."
-11131,1,"Toon informatie over multimedia bestanden zoals MP3, OGG, WAV, etc."
+11131,1,"Toont informatie over audio- en videobestanden zoals MP3, MP4, MKV, AVI, OGG en WAV."
 11132,1,"Over plugin"
 
 [STRINGTABLE 3]
@@ -275,3 +275,25 @@ COMMENT,"Nederlandse versie"
 12612,1,"ADIF"
 12613,1,"ADTS"
 
+[STRINGTABLE 25]
+12624,1,"Video-informatie"
+12625,1,"Video-informatie %u"
+12626,1,"Codec"
+12627,1,"Resolutie"
+12628,1,"Beeldsnelheid (fps)"
+12629,1,"Bitsnelheid (kbps)"
+12630,1,"Pixelverhouding"
+12631,1,"Scan"
+12632,1,"Rotatie"
+12633,1,"Profiel"
+12634,1,"Niveau"
+12635,1,"Progressief"
+12636,1,"Geïnterlinieerd"
+12637,1,"Gemengd"
+12638,1,"Audio-informatie %u"
+12639,1,"Audiocodec"
+
+[STRINGTABLE 26]
+12640,1,"Bits per sample"
+12641,1,"Media-informatie"
+12642,1,"Onbekend"

@@ -42,7 +42,7 @@ COMMENT,"Versiunea romana"
 11111,1,"Cateva ferestre Vizualizator Multimedia sunt deschise. Doriti sa le inchid?"
 
 [STRINGTABLE 2]
-11120,1,"Fisiere multimedia (*.mp3;*.mp2;*.ogg;*.vqf;*.wma;*.wav;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm)|*.mp3;*.mp2;*.ogg;*.wma;*.wav;*.wave;*.vqf;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm|Toate Fisierele (*.*)|*.*||"
+11120,1,"Fisiere multimedia (*.mp3;*.mp2;*.ogg;*.vqf;*.wma;*.wav;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm)|*.mp3;*.mp2;*.ogg;*.oga;*.opus;*.flac;*.m4a;*.mp4;*.m4b;*.aac;*.aif;*.aiff;*.ape;*.mpc;*.wv;*.tta;*.dsf;*.dff;*.mka;*.webm;*.mkv;*.m4v;*.mov;*.qt;*.3gp;*.3g2;*.asf;*.avi;*.divx;*.wmv;*.mpg;*.mpeg;*.m2ts;*.mts;*.spx;*.wma;*.wav;*.wave;*.vqf;*.669;*.it;*.mod;*.mtm;*.s3m;*.stm;*.xm|Toate Fisierele (*.*)|*.*||"
 11123,1,"Eroare la deschidere %s.\nAcest format nu e suportat de Vizualizatorul Multimedia."
 11124,1,"Fisiere HTML (*.htm;*.html)|*.htm;*.html|Toate Fisierele (*.*)|*.*||"
 11125,1,"Doriti sa deschideti datele exportate?"
@@ -51,7 +51,7 @@ COMMENT,"Versiunea romana"
 11128,1,".html"
 11129,1,"Procesez fisierele, va rugam asteptati..."
 11130,1,"%lu din %lu fisiere au fost procesate cu succes."
-11131,1,"Arata informatii despre fisierele multimedia cum ar fi MP3, OGG, WAV, etc."
+11131,1,"Afiseaza informatii despre fisiere audio si video precum MP3, MP4, MKV, AVI, OGG si WAV."
 11132,1,"Despre Plugin"
 
 [STRINGTABLE 3]
@@ -275,3 +275,25 @@ COMMENT,"Versiunea romana"
 12612,1,"ADIF"
 12613,1,"ADTS"
 
+[STRINGTABLE 25]
+12624,1,"Informatii video"
+12625,1,"Informatii video %u"
+12626,1,"Codec"
+12627,1,"Rezolutie"
+12628,1,"Frecventa cadre (fps)"
+12629,1,"Bitrate (kbps)"
+12630,1,"Raport de aspect al pixelilor"
+12631,1,"Scanare"
+12632,1,"Rotatie"
+12633,1,"Profil"
+12634,1,"Nivel"
+12635,1,"Progresiv"
+12636,1,"Intretesut"
+12637,1,"Mixt"
+12638,1,"Informatii audio %u"
+12639,1,"Codec audio"
+
+[STRINGTABLE 26]
+12640,1,"Biti pe esantion"
+12641,1,"Informatii media"
+12642,1,"Necunoscut"

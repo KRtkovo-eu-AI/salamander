@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-04 | Require PR test reports to stay on the job summary. | Separate check runs were attached to the Source Code Growth workflow. | | Grok 4.7 |
 # | 2026-11-04 | Require Install to follow the selected package. | One scheduled extension disabled Install for every other row. | | Grok 4.7 |
 # | 2026-11-04 | Require late extension installs to be integrated after startup. | A restart that overlaps the install helper left the package out of Plugin Manager. | | Grok 4.7 |
 # | 2026-11-04 | Require plug-in DLLs to stay mapped until every Release returns. | Exit crash in an unloaded runtime plug-in. | https://github.com/KRtkovo-eu-AI/salamander/issues/770 https://github.com/KRtkovo-eu-AI/salamander/issues/750 | Grok 4.7 |
@@ -695,12 +696,14 @@ def main() -> int:
                                r'Report native and source-contract tests.*?'
                                r'dorny/test-reporter@v3.*?'
                                r'reporter:\s*java-junit.*?'
-                               r'use-actions-summary:\s*false.*?'
+                               r'use-actions-summary:\s*true.*?'
                                r'Report Python tests.*?'
                                r'dorny/test-reporter@v3.*?'
                                r'reporter:\s*python-xunit.*?'
-                               r'use-actions-summary:\s*false',
-            "same-repository PR workflow does not publish both Test Reporter checks")
+                               r'use-actions-summary:\s*true',
+            "same-repository PR tests do not publish both reports on this job summary")
+    require_absent(pr_tests_workflow, r'use-actions-summary:\s*false',
+                   "PR tests create check runs that GitHub can attach to Source Code Growth")
     require(pr_tests_workflow, r'head\.repo\.full_name == github\.repository',
             "direct Test Reporter checks are not limited to writable PR tokens")
     require(pr_tests_workflow,
@@ -730,11 +733,13 @@ def main() -> int:
             r'head_repository\.full_name == github\.repository.*?'
             r'head_repository\.full_name != github\.repository.*?'
             r'dorny/test-reporter@v3.*?'
-            r'use-actions-summary:\s*false.*?'
+            r'use-actions-summary:\s*true.*?'
             r'head_repository\.full_name != github\.repository.*?'
             r'dorny/test-reporter@v3.*?'
-            r'use-actions-summary:\s*false',
+            r'use-actions-summary:\s*true',
             "workflow_run Test Reporter fallback is not limited to fork PRs")
+    require_absent(pr_test_report_workflow, r'use-actions-summary:\s*false',
+                   "fork test reports create check runs that GitHub can attach to Source Code Growth")
     require(runtime_protocol, r'valueEnd = position.*?'
                               r"json\[valueEnd - 1\] == '\\n'.*?"
                               r'value->assign\(json, valueStart, valueEnd - valueStart\)',

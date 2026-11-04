@@ -1,5 +1,6 @@
 ﻿<!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Document video containers and stream details. | Multimedia Viewer now reports the video track as well as the audio track. | https://github.com/KRtkovo-eu-AI/salamander/issues/732 | Grok 4.7 |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -24,7 +25,9 @@ It works with the following multimedia file formats:</p>
  <ul>
  <li>MP3, MP2 - MPEG 1 or MPEG 2 audio files, layer I, II, and III<br/>
      Displays MP3 ID3 Tag version 1 and 2</li>
- <li>Ogg Vorbis, WMA, WAV</li>
+ <li>Ogg Vorbis, Opus, FLAC, WMA, WAV, and other audio formats opened by the metadata library</li>
+ <li>MP4, M4A, M4V, MOV, WebM, and MKV - audio properties and tags, plus the video track when Windows can read it: codec, resolution, frame rate, bitrate, and related stream details</li>
+ <li>AVI, WMV, MPEG, and M2TS - video and audio stream details when Windows media support can open the file. On older Windows versions a container may remain audio-only, or may not open at all, when the system has no splitter for it</li>
  <li>669, IT, MOD, MTM, S3M, STM, XM - Tracker Modules</li>
  </ul>
  

@@ -1,3 +1,6 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-04 | Cancel an older CodeQL run when a newer one is queued. | A stale analysis kept a Windows runner while the pull request had moved on. | | Grok 4.7 |
+
 name: CodeQL Security Scan
 
 on:
@@ -25,8 +28,8 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: codeql-${{ github.ref }}
-  cancel-in-progress: false
+  group: codeql-${{ inputs.pr_number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # Keep this cheap: the required "Analyze C++" check must still succeed when

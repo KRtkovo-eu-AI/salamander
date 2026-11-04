@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Refresh open panels after a device arrives or leaves. | The device-notification window only logged the event, so the panel kept a stale device list. | | Grok 4.7 |
 
 /*
 	Windows Portable Devices Plugin for Open Salamander
@@ -15,7 +18,12 @@
 #include "precomp.h"
 #include "notifier.h"
 #include "fx.h"
+#include "wpdfs.h"
 #include <Dbt.h>
+
+static const UINT_PTR WPD_DEVICE_REFRESH_TIMER = 1;
+static const UINT WPD_DEVICE_REFRESH_FIRST_MS = 800;
+static const UINT WPD_DEVICE_REFRESH_FOLLOWUP_MS = 2000;
 
 const WCHAR CWpdNotifier::CLS_WPDNOTIFIER_W[] = L"ASPortablesPluginWpdNotiferWndCls";
 
@@ -23,6 +31,7 @@ CWpdNotifier::CWpdNotifier()
 {
     m_hWnd = nullptr;
     m_hDevNotify = nullptr;
+    m_refreshPasses = 0;
     RegisterWndCls();
     CreateWnd();
 }
@@ -79,6 +88,8 @@ void CWpdNotifier::CreateWnd()
 void CWpdNotifier::DestroyWnd()
 {
     _ASSERTE(m_hWnd != nullptr);
+    ::KillTimer(m_hWnd, WPD_DEVICE_REFRESH_TIMER);
+    m_refreshPasses = 0;
     BOOL ok = ::DestroyWindow(m_hWnd);
     _ASSERTE(ok);
     _ASSERTE(m_hWnd == nullptr);
@@ -134,7 +145,32 @@ LRESULT CWpdNotifier::WndProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
 
     case WM_DEVICECHANGE:
-        TRACE_I("WPD device change");
+        // WPD publishes the new device slightly after the first arrival message.
+        // Collapse the burst and list again once the manager can see it.
+        if (wParam == DBT_DEVICEARRIVAL || wParam == DBT_DEVICEREMOVECOMPLETE ||
+            wParam == DBT_DEVICEREMOVEPENDING)
+        {
+            TRACE_I("WPD device change");
+            m_refreshPasses = 2;
+            ::SetTimer(m_hWnd, WPD_DEVICE_REFRESH_TIMER, WPD_DEVICE_REFRESH_FIRST_MS, nullptr);
+        }
+        break;
+
+    case WM_TIMER:
+        if (wParam == WPD_DEVICE_REFRESH_TIMER)
+        {
+            WpdRefreshPanelsForDeviceChange();
+            if (m_refreshPasses > 1)
+            {
+                --m_refreshPasses;
+                ::SetTimer(m_hWnd, WPD_DEVICE_REFRESH_TIMER, WPD_DEVICE_REFRESH_FOLLOWUP_MS, nullptr);
+            }
+            else
+            {
+                m_refreshPasses = 0;
+                ::KillTimer(m_hWnd, WPD_DEVICE_REFRESH_TIMER);
+            }
+        }
         break;
     }
 

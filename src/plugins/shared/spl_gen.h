@@ -2,7 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Stop Ctrl+arrow on both sides of spaces too. | Spaces were still skipped while punctuation already stopped before and after. | | Composer |
 // | 2026-11-04 | Describe punctuation runs as edit word boundaries. | Ctrl+arrow now stops around every punctuation and symbol run. | | Grok 4.7 |
+// | 2026-11-04 | Return a panel operations object to plug-ins. | Portable Devices needs Salamander's standard progress dialog. The method is appended so older plug-ins keep their vtable. | | Grok 4.7 |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 //****************************************************************************
@@ -873,6 +875,8 @@ enum CHtmlHelpCommand
 #define HTMLHELP_SALID_PWDMANAGER 1 // zobrazi napovedu pro Password Manager
 
 class CPluginFSInterfaceAbstract;
+
+class CSalamanderForOperationsAbstract;
 
 class CSalamanderZLIBAbstract;
 
@@ -2730,8 +2734,8 @@ public:
     // InstallWordBreakProc
     //   Installs special word break procedure to the specified window. This procedure
     //   is intended for easier cursor movement in the single line edit controls.
-    //   Ctrl+Left and Ctrl+Right stop on both sides of a run of punctuation or symbols,
-    //   including '_'. Letters and digits form a word, and spaces are skipped.
+    //   Ctrl+Left and Ctrl+Right stop on both sides of a run of punctuation, symbols
+    //   (including '_'), or spaces. Letters and digits form a word.
     //   Ctrl+Shift extends the selection. Ctrl+Backspace and Ctrl+Delete remove the
     //   same span.
     //
@@ -3732,6 +3736,13 @@ public:
         const char* ownerKey, const char* ownerName,
         const char* stableId, const char* name,
         const char* description) = 0;
+
+    // Returns the same CSalamanderForOperations family that archivers receive,
+    // bound to the panel window 'panel'. Salamander owns the object. It stays
+    // valid until the next call for this plug-in or until that plug-in is
+    // unloaded. Returns NULL when no panel is available.
+    // Appended so the published SDK vtable prefix stays unchanged.
+    virtual CSalamanderForOperationsAbstract* WINAPI GetSalamanderForOperations(HWND panel) = 0;
 };
 
 #ifdef _MSC_VER

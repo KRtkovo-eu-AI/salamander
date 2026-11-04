@@ -1,3 +1,6 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-04 | Queue only the newest build and skip Windows when nothing compiles. | Older pulls stayed in the Windows runner queue, including pulls with no build. | | Grok 4.7 |
+
 name: PR Build
 
 on:
@@ -8,46 +11,31 @@ on:
 
 permissions:
   contents: read
-  actions: read
+  actions: write
   pull-requests: read
   security-events: write
 
 concurrency:
-  group: pr-msbuild-${{ github.ref }}
+  group: pr-msbuild-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build ${{ matrix.platform }} Debug (fail on warnings)
-    runs-on: windows-2025
+  keep-latest:
+    uses: ./.github/workflows/keep-latest-pr-run.yml
+    with:
+      workflow_file: pr-msbuild.yml
+      current_run_id: ${{ github.run_id }}
+      event_name: ${{ github.event_name }}
+      head_branch: ${{ github.event.pull_request.head.ref || github.ref_name }}
+      head_repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
 
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: Win32
-            msvc_arch: x64
-            sftp_triplet: x86-windows
-          - platform: x64
-            msvc_arch: x64
-            sftp_triplet: x64-windows
-          - platform: ARM64
-            msvc_arch: x64_arm64
-            sftp_triplet: arm64-windows
-
-    defaults:
-      run:
-        shell: pwsh
-        working-directory: s
-
-    env:
-      BUILD_CONFIGURATION: Debug
-      # SFTP is not shipped yet; keep this off to avoid building the plugin and
-      # its vcpkg dependencies during PR validation.
-      BUILD_SFTP_PLUGIN: 'false'
-      SOLUTION_PATH: '.\src\vcxproj\salamand.sln'
-      LOG_DIRECTORY: build_logs
-
+  prepare:
+    name: Decide whether a Windows build is needed
+    needs: keep-latest
+    runs-on: ubuntu-latest
+    outputs:
+      has_build_relevant_changes: ${{ steps.build_changes.outputs.has_build_relevant_changes }}
+      changed_files_json: ${{ steps.build_changes.outputs.changed_files_json }}
     steps:
       - name: Check whether build-relevant files changed
         id: build_changes
@@ -85,22 +73,61 @@ jobs:
                 : 'No build-relevant source files changed; PR build steps will be skipped while the required workflow succeeds.',
             );
 
+  build:
+    name: Build ${{ matrix.platform }} Debug (fail on warnings)
+    needs: prepare
+    runs-on: ${{ (github.event_name != 'pull_request' || needs.prepare.outputs.has_build_relevant_changes == 'true') && 'windows-2025' || 'ubuntu-latest' }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Win32
+            msvc_arch: x64
+            sftp_triplet: x86-windows
+          - platform: x64
+            msvc_arch: x64
+            sftp_triplet: x64-windows
+          - platform: ARM64
+            msvc_arch: x64_arm64
+            sftp_triplet: arm64-windows
+
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: s
+
+    env:
+      BUILD_CONFIGURATION: Debug
+      # SFTP is not shipped yet; keep this off to avoid building the plugin and
+      # its vcpkg dependencies during PR validation.
+      BUILD_SFTP_PLUGIN: 'false'
+      SOLUTION_PATH: '.\src\vcxproj\salamand.sln'
+      LOG_DIRECTORY: build_logs
+
+    steps:
+      - name: Skip Windows build when no build-relevant files changed
+        if: github.event_name == 'pull_request' && needs.prepare.outputs.has_build_relevant_changes != 'true'
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: echo "No build-relevant source files changed. The required check succeeds without a Windows runner."
+
       - name: Checkout
-        if: steps.build_changes.outputs.has_build_relevant_changes == 'true'
+        if: needs.prepare.outputs.has_build_relevant_changes == 'true'
         uses: actions/checkout@v4
         with:
           path: s
           submodules: recursive
 
       - name: Provide shared plugin files for SFTP submodule
-        if: steps.build_changes.outputs.has_build_relevant_changes == 'true' && env.BUILD_SFTP_PLUGIN == 'true'
+        if: needs.prepare.outputs.has_build_relevant_changes == 'true' && env.BUILD_SFTP_PLUGIN == 'true'
         run: |
           $sftpShared = Join-Path (Get-Location) 'src\plugins\sftp\shared'
           New-Item -ItemType Directory -Force -Path $sftpShared | Out-Null
           Copy-Item -Path '.\src\plugins\shared\*' -Destination $sftpShared -Recurse -Force
 
       - name: Configure SFTP submodule build
-        if: steps.build_changes.outputs.has_build_relevant_changes == 'true' && env.BUILD_SFTP_PLUGIN == 'true'
+        if: needs.prepare.outputs.has_build_relevant_changes == 'true' && env.BUILD_SFTP_PLUGIN == 'true'
         run: |
           $sftpRoot = Join-Path (Get-Location) 'src\plugins\sftp'
           $directoryBuildProps = Join-Path $sftpRoot 'Directory.Build.props'
@@ -122,29 +149,29 @@ jobs:
           }
 
       - name: Setup MSBuild in PATH (VS2026)
-        if: steps.build_changes.outputs.has_build_relevant_changes == 'true'
+        if: needs.prepare.outputs.has_build_relevant_changes == 'true'
         uses: microsoft/setup-msbuild@v2
 
       - name: Setup MSVC Developer Command Prompt (${{ matrix.msvc_arch }} toolchain)
-        if: steps.build_changes.outputs.has_build_relevant_changes == 'true'
+        if: needs.prepare.outputs.has_build_relevant_changes == 'true'
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: ${{ matrix.msvc_arch }}
 
       - name: Register MSVC problem matcher
-        if: steps.build_changes.outputs.has_build_relevant_changes == 'true'
+        if: needs.prepare.outputs.has_build_relevant_changes == 'true'
         uses: ammaraskar/msvc-problem-matcher@master
 
       - name: Install SFTP plugin dependencies
-        if: steps.build_changes.outputs.has_build_relevant_changes == 'true' && env.BUILD_SFTP_PLUGIN == 'true'
+        if: needs.prepare.outputs.has_build_relevant_changes == 'true' && env.BUILD_SFTP_PLUGIN == 'true'
         run: |
           .\tools\vcpkg\build-third-party-libs.ps1 -SftpPlugin -OnlySftpPlugin -Triplet '${{ matrix.sftp_triplet }}'
 
       - name: Select changed projects
-        if: github.event_name == 'pull_request' && steps.build_changes.outputs.has_build_relevant_changes == 'true'
+        if: github.event_name == 'pull_request' && needs.prepare.outputs.has_build_relevant_changes == 'true'
         id: changed_projects
         env:
-          CHANGED_FILES_JSON: ${{ steps.build_changes.outputs.changed_files_json }}
+          CHANGED_FILES_JSON: ${{ needs.prepare.outputs.changed_files_json }}
         run: |
           $solutionPath = Join-Path (Get-Location) $env:SOLUTION_PATH
           $solutionDir = Split-Path -Parent $solutionPath

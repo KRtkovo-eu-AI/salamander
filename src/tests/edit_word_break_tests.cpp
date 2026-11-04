@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Expect stops on both sides of spaces. | Spaces must match punctuation: stop before and after the run. | | Composer |
 // | 2026-11-04 | Cover edit word-boundary movement. | Ctrl+arrow must stop around punctuation and symbols. | | Grok 4.7 |
 
 #include <windows.h>
@@ -80,18 +81,21 @@ void TestPath()
 
 void TestSpaces()
 {
-    ExpectNext(L"hello world", 0, 6, "one Ctrl+Right from the start skips the space");
-    ExpectNext(L"hello world", 2, 6, "middle of the first word skips the space");
-    ExpectNext(L"hello world", 5, 6, "caret on the space lands on the next word");
+    ExpectNext(L"hello world", 0, 5, "stop before the space");
+    ExpectNext(L"hello world", 2, 5, "middle of the first word still stops before the space");
+    ExpectNext(L"hello world", 5, 6, "a space run is its own stop");
     ExpectNext(L"hello world", 6, 11, "second word runs to the end");
     ExpectPrevious(L"hello world", 11, 6, "back from the end to the second word");
     ExpectPrevious(L"hello world", 8, 6, "middle of the second word returns to its start");
-    ExpectPrevious(L"hello world", 6, 0, "back from the second word skips the space");
-    ExpectPrevious(L"hello world", 5, 0, "caret before the space returns to the first word");
+    ExpectPrevious(L"hello world", 6, 5, "back from the second word stops on the space");
+    ExpectPrevious(L"hello world", 5, 0, "back from the space returns to the first word");
 
-    ExpectNext(L"hello  world", 0, 7, "repeated spaces are skipped together");
-    ExpectNext(L"hello  world", 5, 7, "caret inside repeated spaces reaches the word");
-    ExpectPrevious(L"hello  world", 7, 0, "back across repeated spaces reaches the first word");
+    ExpectNext(L"hello  world", 0, 5, "stop before a repeated space run");
+    ExpectNext(L"hello  world", 5, 7, "repeated spaces are one step");
+    ExpectNext(L"hello  world", 6, 7, "middle of repeated spaces jumps to their end");
+    ExpectPrevious(L"hello  world", 7, 5, "back from the second word to the space run");
+    ExpectPrevious(L"hello  world", 6, 5, "middle of repeated spaces returns to their start");
+    ExpectPrevious(L"hello  world", 5, 0, "back from the space run to the first word");
 }
 
 void TestPunctuationRuns()
@@ -105,11 +109,14 @@ void TestPunctuationRuns()
     ExpectPrevious(L"abc...def", 5, 3, "middle of the run returns to its start");
     ExpectPrevious(L"abc...def", 3, 0, "back from the run to the word");
 
-    ExpectNext(L"abc ((())) def", 0, 4, "space before parentheses is skipped");
-    ExpectNext(L"abc ((())) def", 3, 11, "space then a parenthesis run lands on the next word");
-    ExpectNext(L"abc ((())) def", 4, 11, "parenthesis run and the following space are one forward step");
-    ExpectPrevious(L"abc ((())) def", 11, 4, "back from def to the parenthesis run");
-    ExpectPrevious(L"abc ((())) def", 4, 0, "back from the parenthesis run to abc");
+    ExpectNext(L"abc ((())) def", 0, 3, "stop before the space before parentheses");
+    ExpectNext(L"abc ((())) def", 3, 4, "space before parentheses is its own stop");
+    ExpectNext(L"abc ((())) def", 4, 10, "parenthesis run stops before the following space");
+    ExpectNext(L"abc ((())) def", 10, 11, "space after parentheses is its own stop");
+    ExpectPrevious(L"abc ((())) def", 11, 10, "back from def to the trailing space");
+    ExpectPrevious(L"abc ((())) def", 10, 4, "back from that space to the parenthesis run");
+    ExpectPrevious(L"abc ((())) def", 4, 3, "back from the parenthesis run to the leading space");
+    ExpectPrevious(L"abc ((())) def", 3, 0, "back from that space to abc");
 
     ExpectNext(L"32.3", 0, 2, "a dot splits a number");
     ExpectNext(L"32.3", 2, 3, "the dot is its own stop");
@@ -127,36 +134,42 @@ void TestPunctuationRuns()
 void TestParenthesesAndWords()
 {
     const wchar_t* text = L" (1) abc";
-    ExpectNext(text, 0, 2, "leading space is skipped and the opening parenthesis is consumed");
+    ExpectNext(text, 0, 1, "leading space is its own stop");
     ExpectNext(text, 1, 2, "opening parenthesis stops before the digit");
     ExpectNext(text, 2, 3, "digit stops before the closing parenthesis");
-    ExpectNext(text, 3, 5, "closing parenthesis and the following space land on abc");
+    ExpectNext(text, 3, 4, "closing parenthesis stops before the following space");
+    ExpectNext(text, 4, 5, "space after the closing parenthesis is its own stop");
     ExpectNext(text, 5, 8, "abc runs to the end");
     ExpectPrevious(text, 8, 5, "back from the end to abc");
-    ExpectPrevious(text, 5, 3, "back from abc to the closing parenthesis");
+    ExpectPrevious(text, 5, 4, "back from abc to the trailing space");
+    ExpectPrevious(text, 4, 3, "back from that space to the closing parenthesis");
     ExpectPrevious(text, 3, 2, "back from the closing parenthesis to the digit");
     ExpectPrevious(text, 2, 1, "back from the digit to the opening parenthesis");
-    ExpectPrevious(text, 1, 0, "back from the opening parenthesis to the start");
+    ExpectPrevious(text, 1, 0, "back from the opening parenthesis to the leading space");
 }
 
 void TestUnicode()
 {
     const wchar_t* czech = L"P\u0159\u00edli\u0161 \u017elu\u0165ou\u010dk\u00fd";
     Check((int)std::wcslen(czech) == 16, "Czech sample has the expected length");
-    ExpectNext(czech, 0, 7, "Czech word and the following space are one forward step");
-    ExpectNext(czech, 3, 7, "middle of a Czech word still reaches the next word");
+    ExpectNext(czech, 0, 6, "stop before the space after the first Czech word");
+    ExpectNext(czech, 3, 6, "middle of a Czech word still stops before the space");
+    ExpectNext(czech, 6, 7, "space between Czech words is its own stop");
     ExpectNext(czech, 7, 16, "second Czech word runs to the end");
     ExpectPrevious(czech, 16, 7, "back to the second Czech word");
     ExpectPrevious(czech, 10, 7, "middle of the second Czech word returns to its start");
-    ExpectPrevious(czech, 7, 0, "back across the space to the first Czech word");
+    ExpectPrevious(czech, 7, 6, "back from the second Czech word stops on the space");
+    ExpectPrevious(czech, 6, 0, "back from the space to the first Czech word");
 
     const wchar_t decomposed[] = {L'e', 0x0301, L'x', 0};
     ExpectNext(decomposed, 0, 3, "a combining mark stays inside the word");
     ExpectPrevious(decomposed, 2, 0, "back through a combining mark returns to the base");
     Check(!EditWordIsDelimiter(decomposed, 3, 1), "combining mark is not a delimiter");
 
-    ExpectNext(L"a\u00a0b", 0, 2, "no-break space is skipped like a space");
-    ExpectPrevious(L"a\u00a0b", 2, 0, "back across a no-break space reaches the first word");
+    ExpectNext(L"a\u00a0b", 0, 1, "stop before a no-break space");
+    ExpectNext(L"a\u00a0b", 1, 2, "no-break space is its own stop");
+    ExpectPrevious(L"a\u00a0b", 2, 1, "back from b stops on the no-break space");
+    ExpectPrevious(L"a\u00a0b", 1, 0, "back from the no-break space reaches a");
 
     const wchar_t line[] = {L'h', L'e', L'l', L'l', L'o', L'\n', L'w', L'o', L'r', L'l', L'd', 0};
     ExpectNext(line, 0, 5, "forward stops before a line break");
@@ -194,7 +207,9 @@ void TestCaretMovementAndDeletion()
     selection = EditWordDeleteRange(text, length, 1, 6, TRUE);
     Check(selection.Anchor == 1 && selection.Caret == 6, "a selection is deleted as it stands");
     selection = EditWordDeleteRange(L"hello world", 11, 0, 0, TRUE);
-    Check(selection.Anchor == 0 && selection.Caret == 6, "Ctrl+Delete removes the first word and its space");
+    Check(selection.Anchor == 0 && selection.Caret == 5, "Ctrl+Delete removes the first word and stops before the space");
+    selection = EditWordDeleteRange(L"hello world", 11, 5, 5, TRUE);
+    Check(selection.Anchor == 5 && selection.Caret == 6, "Ctrl+Delete on a space removes only the space");
 }
 
 void TestEdges()

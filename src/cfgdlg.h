@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Enlarge the persisted panel-toolbar layouts. | The shared button catalog no longer fits in the old 200-byte buffers. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -377,10 +380,13 @@ struct CConfiguration
 
     int HotPathAutoConfig; // automatically open configuration after assigning from a panel
 
-    char TopToolBar[400]; // ToolBar contents
-    char MiddleToolBar[400];
-    char LeftToolBar[200];
-    char RightToolBar[200];
+    // Comma-separated toolbar button indexes. Panel toolbars can store the same
+    // catalog as the middle toolbar, including separators, so all four layouts
+    // share one capacity.
+    char TopToolBar[1024];
+    char MiddleToolBar[1024];
+    char LeftToolBar[1024];
+    char RightToolBar[1024];
 
     int UseRecycleBin;       // 0 - do not use, 1 - for all, 2 - for RecycleMasks
     CMaskGroup RecycleMasks; // mask array determining what is sent to the Recycle Bin

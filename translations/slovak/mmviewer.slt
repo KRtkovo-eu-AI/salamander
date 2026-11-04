@@ -42,7 +42,7 @@ COMMENT,"Slovenská verzia"
 11111,1,"Multimediálny prehliadač má otvorené najmenej jedno okno. Chcete ho zatvoriť?"
 
 [STRINGTABLE 2]
-11120,1,"Multimediálne súbory (*.mp3;*.mp2;*.ogg;*.vqf;*.wma;*.wav;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm)|*.mp3;*.mp2;*.ogg;*.wma;*.wav;*.wave;*.vqf;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm|Všetky súbory (*.*)|*.*||"
+11120,1,"Multimediálne súbory (*.mp3;*.mp2;*.ogg;*.vqf;*.wma;*.wav;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm)|*.mp3;*.mp2;*.ogg;*.oga;*.opus;*.flac;*.m4a;*.mp4;*.m4b;*.aac;*.aif;*.aiff;*.ape;*.mpc;*.wv;*.tta;*.dsf;*.dff;*.mka;*.webm;*.mkv;*.m4v;*.mov;*.qt;*.3gp;*.3g2;*.asf;*.avi;*.divx;*.wmv;*.mpg;*.mpeg;*.m2ts;*.mts;*.spx;*.wma;*.wav;*.wave;*.vqf;*.669;*.it;*.mod;*.mtm;*.s3m;*.stm;*.xm|Všetky súbory (*.*)|*.*||"
 11123,1,"Chyba otvárania %s.\nTento formát Multimediálny prehliadač nepodporuje."
 11124,1,"HTML súbory (*.htm;*.html)|*.htm;*.html|Všetky súbory (*.*)|*.*||"
 11125,1,"Chcete otvoriť exportované dáta?"
@@ -51,7 +51,7 @@ COMMENT,"Slovenská verzia"
 11128,1,".html"
 11129,1,"Spracovanie súborov, čakajte prosím..."
 11130,1,"%lu z %lu súborov bolo úspešne spracovaných."
-11131,1,"Zobrazí informácie o multimediálnych súboroch ako napr.: MP3, OGG, WAV, atď."
+11131,1,"Zobrazí informácie o zvukových a video súboroch, napríklad MP3, MP4, MKV, AVI, OGG a WAV."
 11132,1,"O plugine"
 
 [STRINGTABLE 3]
@@ -275,3 +275,25 @@ COMMENT,"Slovenská verzia"
 12612,1,"ADIF"
 12613,1,"ADTS"
 
+[STRINGTABLE 25]
+12624,1,"Video informácie"
+12625,1,"Video informácie %u"
+12626,1,"Kodek"
+12627,1,"Rozlíšenie"
+12628,1,"Snímková frekvencia (fps)"
+12629,1,"Bitrate (kbps)"
+12630,1,"Pomer strán pixelu"
+12631,1,"Skenovanie"
+12632,1,"Otočenie"
+12633,1,"Profil"
+12634,1,"Úroveň"
+12635,1,"Progresívne"
+12636,1,"Prekladané"
+12637,1,"Zmiešané"
+12638,1,"Audio informácie %u"
+12639,1,"Audio kodek"
+
+[STRINGTABLE 26]
+12640,1,"Bitov na vzorku"
+12641,1,"Informácie o médiu"
+12642,1,"Neznámy"

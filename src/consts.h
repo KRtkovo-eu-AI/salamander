@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Stop Ctrl+arrow on both sides of spaces too. | Spaces were still skipped while punctuation already stopped before and after. | | Composer |
 // | 2026-11-04 | Describe punctuation runs as edit word boundaries. | Ctrl+arrow now stops around every punctuation and symbol run. | | Grok 4.7 |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
@@ -1029,8 +1030,8 @@ void RearmCurrentToolTip(HWND hNotifyWindow, DWORD id, int showDelay = 0);
 void SetCurrentPanelToolTip(HWND hNotifyWindow, DWORD id, int showDelay = 0);
 void SuppressToolTipOnCurrentMousePos();                                 // popis v tooltip.h
 
-// Ctrl+Left/Right stops on both sides of a punctuation or symbol run, including '_'.
-// Letters and digits stay one word and spaces are skipped. Assigns EditWordBreakProc
+// Ctrl+Left/Right stops on both sides of a punctuation, symbol, or space run,
+// including '_'. Letters and digits stay one word. Assigns EditWordBreakProc
 // to an edit line or a combo box. Safe to call from WM_INITDIALOG. No need to uninstall.
 BOOL InstallWordBreakProc(HWND hWindow);
 

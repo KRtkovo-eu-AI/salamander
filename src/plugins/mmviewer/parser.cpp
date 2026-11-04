@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Open video containers and fall back to Media Foundation. | TagLib reports audio only, and AVI, WMV, and MPEG were not recognized. | https://github.com/KRtkovo-eu-AI/salamander/issues/732 | Grok 4.7 |
 
 #include "precomp.h"
 
@@ -11,6 +14,7 @@
 #include "mmviewer.rh2"
 #include "lang\lang.rh"
 #include "taglibparser.h"
+#include "mfinfo.h"
 
 #ifdef _MP4_SUPPORT_
 #include "mp4\\mp4parser.h"
@@ -80,6 +84,34 @@ void ShowParserError(HWND hParent, CParserResultEnum result)
     SalGeneral->SalMessageBox(hParent, text, LoadStr(IDS_PLUGIN_NAME), MB_OK | MB_ICONEXCLAMATION);
 }
 
+namespace
+{
+bool ExtensionListed(const char* ext, const char* const* list, size_t count)
+{
+    for (size_t i = 0; i < count; i++)
+    {
+        if (SalGeneral->StrICmp(ext, list[i]) == 0)
+            return true;
+    }
+    return false;
+}
+
+template <class TParser>
+CParserInterface* CreateCheckedParser()
+{
+#ifdef new
+#undef new
+#define RESTORE_MMV_CHECKED_PARSER_DEBUG_NEW_MACRO
+#endif
+    CParserInterface* iface = new (std::nothrow) TParser();
+#ifdef RESTORE_MMV_CHECKED_PARSER_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_MMV_CHECKED_PARSER_DEBUG_NEW_MACRO
+#endif
+    return iface;
+}
+}
+
 CParserResultEnum
 CreateAppropriateParser(const char* fileName, CParserInterface** parser)
 {
@@ -134,23 +166,50 @@ CreateAppropriateParser(const char* fileName, CParserInterface** parser)
     static const char* tagLibExtensions[] = {
         ".ogg", ".oga", ".opus", ".flac", ".m4a", ".mp4", ".m4b", ".aac",
         ".aif", ".aiff", ".ape", ".mpc", ".wv", ".tta", ".dsf", ".dff",
-        ".mka", ".webm", ".spx"};
-    for (size_t i = 0; iface == NULL && i < _countof(tagLibExtensions); i++)
+        ".mka", ".webm", ".spx", ".mkv", ".m4v", ".mov", ".qt", ".3gp",
+        ".3g2", ".asf"};
+    static const char* mfFallbackExtensions[] = {
+        ".m4a", ".mp4", ".m4b", ".mka", ".webm", ".mkv", ".m4v", ".mov",
+        ".qt", ".3gp", ".3g2", ".asf"};
+    static const char* mfOnlyExtensions[] = {
+        ".avi", ".divx", ".wmv", ".mpg", ".mpeg", ".m2ts", ".mts"};
+
+    if (iface == NULL && ExtensionListed(ext, tagLibExtensions, _countof(tagLibExtensions)))
     {
-        if (SalGeneral->StrICmp(ext, tagLibExtensions[i]) == 0)
+        extensionSupported = TRUE;
+        iface = CreateCheckedParser<CParserTagLib>();
+        if (iface == NULL)
+            return preOutOfMemory;
+
+        const CParserResultEnum opened = iface->OpenFile(fileName);
+        if (opened == preOK)
         {
-            extensionSupported = TRUE;
-#ifdef new
-#undef new
-#define RESTORE_MMV_TAGLIB_PARSER_DEBUG_NEW_MACRO
-#endif
-            iface = new (std::nothrow) CParserTagLib();
-#ifdef RESTORE_MMV_TAGLIB_PARSER_DEBUG_NEW_MACRO
-#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
-#undef RESTORE_MMV_TAGLIB_PARSER_DEBUG_NEW_MACRO
-#endif
-            break;
+            *parser = iface;
+            return preOK;
         }
+        delete iface;
+        iface = NULL;
+        if (opened != preUnknownFile || !ExtensionListed(ext, mfFallbackExtensions, _countof(mfFallbackExtensions)))
+            return opened;
+    }
+
+    if (iface == NULL &&
+        (ExtensionListed(ext, mfOnlyExtensions, _countof(mfOnlyExtensions)) ||
+         ExtensionListed(ext, mfFallbackExtensions, _countof(mfFallbackExtensions))))
+    {
+        extensionSupported = TRUE;
+        iface = CreateCheckedParser<CParserMF>();
+        if (iface == NULL)
+            return preOutOfMemory;
+
+        const CParserResultEnum opened = iface->OpenFile(fileName);
+        if (opened == preOK)
+        {
+            *parser = iface;
+            return preOK;
+        }
+        delete iface;
+        return opened;
     }
 
 #ifdef _MOD_SUPPORT_

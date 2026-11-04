@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Scale the splash logo.svg graphic up by about 15%. | The mandarin/hand mark read a bit small next to the wordmark. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Composer |
+// | 2026-11-04 | Raise the splash status label by 1 px and grow the dialog by 1 px. | The status text sat 10 px from the top and 7 px from the bottom of the orange bar; the extra pixel centers it. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Composer |
 // | 2026-11-04 | Start the splash yellow bar under the copyright. | The version and fork line now sit above the copyright, so the bar follows the lower block. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Soften the splash copyright and fork caption. | Those lines should stay readable without competing with the version. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
@@ -191,13 +193,16 @@ BOOL CSplashScreen::PrepareBitmap()
     CSVGSprite svgText;
     CSVGSprite svgGrad;
     CSVGSprite svgHand;
+    // logo.svg is taller than the visible mandarin/hand; scale a bit above the
+    // splash height so the mark reads larger. Excess is clipped by the DIB DC.
+    const int handHeight = MulDiv(Height, 115, 100);
     concurrency::parallel_invoke(
         [&]
         { svgText.Load(logoTextResID, OpenSalR.right - OpenSalR.left, OpenSalR.bottom - OpenSalR.top, SVGSTATE_ORIGINAL); },
         [&]
         { svgGrad.Load(IDB_LOGO_GRAD, Width, -1, SVGSTATE_ORIGINAL); },
         [&]
-        { svgHand.Load(IDB_LOGO_HAND, -1, Height, SVGSTATE_ORIGINAL); });
+        { svgHand.Load(IDB_LOGO_HAND, -1, handHeight, SVGSTATE_ORIGINAL); });
 
     SIZE textSize, gradSize, handSize;
     svgText.GetSize(&textSize);
@@ -308,6 +313,18 @@ CSplashScreen::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_COPYRIGHT, &CopyrightR);
         GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_FORK, &ForkR);
         GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_STATUS, &StatusR);
+
+        // Status text sat 10 px above / 7 px below inside the orange bar.
+        // Shift it up 1 px and grow the client (and thus the bar) by 1 px so
+        // both gaps become 9 px. Dialog units cannot express a single pixel.
+        OffsetRect(&StatusR, 0, -1);
+        Height += 1;
+        RECT windowR;
+        GetWindowRect(HWindow, &windowR);
+        SetWindowPos(HWindow, NULL, 0, 0,
+                     windowR.right - windowR.left,
+                     windowR.bottom - windowR.top + 1,
+                     SWP_NOMOVE | SWP_NOZORDER);
 
         GradientY = CopyrightR.bottom + 5;
 

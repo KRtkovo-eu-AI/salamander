@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Load toolbar layouts using the real buffer size. | Panel toolbars now persist the same catalog as the middle toolbar. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 // | 2026-11-04 | Format legacy configuration names with a literal printf format. | CodeQL rejected the loaded product template as a non-constant format string. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
@@ -5915,13 +5916,13 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
 
             if (Configuration.ConfigVersion >= 8) // force the new toolbar for old versions
                 GetValue(actKey, CONFIG_TOPTOOLBAR_REG, REG_SZ,
-                         Configuration.TopToolBar, 400);
+                         Configuration.TopToolBar, sizeof(Configuration.TopToolBar));
             GetValue(actKey, CONFIG_MIDDLETOOLBAR_REG, REG_SZ,
-                     Configuration.MiddleToolBar, 400);
+                     Configuration.MiddleToolBar, sizeof(Configuration.MiddleToolBar));
             GetValue(actKey, CONFIG_LEFTTOOLBAR_REG, REG_SZ,
-                     Configuration.LeftToolBar, 100);
+                     Configuration.LeftToolBar, sizeof(Configuration.LeftToolBar));
             GetValue(actKey, CONFIG_RIGHTTOOLBAR_REG, REG_SZ,
-                     Configuration.RightToolBar, 100);
+                     Configuration.RightToolBar, sizeof(Configuration.RightToolBar));
             // there used to be only one change drive button - now we introduce two buttons
             // and merge all bitmaps into one
 

@@ -1,3 +1,6 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-04 | Keep test reports on this job and queue only the newest run. | Separate check runs were attached to Source Code Growth for the same commit. | | Grok 4.7 |
+
 name: PR Tests
 
 on:
@@ -9,14 +12,25 @@ on:
 permissions:
   contents: read
   checks: write
+  actions: write
 
 concurrency:
-  group: pr-tests-${{ github.ref }}
+  group: pr-tests-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  keep-latest:
+    uses: ./.github/workflows/keep-latest-pr-run.yml
+    with:
+      workflow_file: pr-tests.yml
+      current_run_id: ${{ github.run_id }}
+      event_name: ${{ github.event_name }}
+      head_branch: ${{ github.event.pull_request.head.ref || github.ref_name }}
+      head_repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+
   test:
     name: Native and Python tests
+    needs: keep-latest
     runs-on: windows-2025
     timeout-minutes: 30
 
@@ -94,9 +108,10 @@ jobs:
           path: test-results/native.xml
           reporter: java-junit
           fail-on-empty: true
-          # v3 publishes either a Job Summary or a Check Run. Keep this false
-          # so the detailed result is visible as a separate PR check.
-          use-actions-summary: false
+          # false would create a check run for this commit. GitHub attaches that
+          # check to whichever Actions suite already exists, often Source Code
+          # Growth. Keep the report on this job instead.
+          use-actions-summary: true
 
       - name: Report Python tests
         id: python_report
@@ -115,9 +130,10 @@ jobs:
           path: test-results/python.xml
           reporter: python-xunit
           fail-on-empty: true
-          # v3 publishes either a Job Summary or a Check Run. Keep this false
-          # so the detailed result is visible as a separate PR check.
-          use-actions-summary: false
+          # false would create a check run for this commit. GitHub attaches that
+          # check to whichever Actions suite already exists, often Source Code
+          # Growth. Keep the report on this job instead.
+          use-actions-summary: true
 
       - name: Show test counts on the PR workflow check
         if: >-
@@ -261,8 +277,8 @@ jobs:
                       Write-Host "$Name is already completed."
                       return $true
                   }
-                  Write-Host "No check run named $Name on $env:HEAD_SHA."
-                  return $false
+                  Write-Host "No separate check run named $Name on $env:HEAD_SHA. The job summary is the report."
+                  return $true
               }
               $summaries = New-Object System.Collections.Generic.List[string]
               if (-not [string]::IsNullOrWhiteSpace($SummaryFile) -and (Test-Path -LiteralPath $SummaryFile)) {
@@ -325,6 +341,6 @@ jobs:
               throw "Test failure: native=$env:NATIVE_OUTCOME, python=$env:PYTHON_OUTCOME"
           }
           $reportFailed = $env:NATIVE_REPORT_OUTCOME -eq 'failure' -or $env:PYTHON_REPORT_OUTCOME -eq 'failure'
-          if ($reportFailed -and $env:REPORT_RECOVER_OUTCOME -ne 'success') {
+          if ($reportFailed) {
               throw "Test reporting failure: native=$env:NATIVE_REPORT_OUTCOME, python=$env:PYTHON_REPORT_OUTCOME, recover=$env:REPORT_RECOVER_OUTCOME"
           }
