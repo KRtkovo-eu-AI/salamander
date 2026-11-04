@@ -228,7 +228,19 @@ CMenuItem::~CMenuItem()
 {
     CALL_STACK_MESSAGE_NONE
     if (SubMenu != NULL)
-        delete SubMenu;
+    {
+        // The submenu can be inside TrackInternal while its parent menu is
+        // destroyed (the viewer window goes away during the open menu).
+        // Deleting it here would free the object the track frame still uses.
+        if (SubMenu->TrackDepth > 0)
+        {
+            SubMenu->DestroyPending = TRUE;
+            SubMenu->OwnerDetached = TRUE;
+            SubMenu = NULL;
+        }
+        else
+            delete SubMenu;
+    }
     if (String != NULL)
         delete[] String;
 }

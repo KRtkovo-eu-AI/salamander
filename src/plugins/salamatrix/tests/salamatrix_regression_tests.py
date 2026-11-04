@@ -1431,6 +1431,13 @@ def main() -> int:
         r"UnregisterToolbarButtons\(\);.*?RemovePackages\(\);.*?"
         r"RegisterToolbarButtons\(\);",
         "package refresh does not rebuild Extension Bar registrations cleanly")
+    require(
+        packages,
+        r"void PackageManager::RemovePackages\(\).*?"
+        r"removing\.swap\(Packages\).*?"
+        r"UnregisterExtension\(package->Id\.c_str\(\), package\).*?"
+        r"delete package",
+        "extension removal leaves deleted packages reachable from Packages")
     require(packages, r"InvokeOnMainThread\(\s*HostDispatchOnMainThread",
             "extension host calls are not marshaled to Salamander's UI thread")
     require(
