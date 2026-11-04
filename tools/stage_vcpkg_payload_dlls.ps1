@@ -106,6 +106,23 @@ function Test-FreshCertumSignature {
     return (Get-Item -LiteralPath $Path).LastWriteTime -ge $fileAgeLimit
 }
 
+function Get-FileSha256 {
+    param([string]$Path)
+    if (Get-Command -Name Get-FileHash -ErrorAction SilentlyContinue) {
+        return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
+    }
+    $hasher = [System.Security.Cryptography.SHA256]::Create()
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+        $bytes = $hasher.ComputeHash($stream)
+        return ([System.BitConverter]::ToString($bytes) -replace '-', '')
+    }
+    finally {
+        $stream.Dispose()
+        $hasher.Dispose()
+    }
+}
+
 function Copy-VcpkgDllIfNeeded {
     param(
         [string]$SourcePath,
@@ -121,8 +138,8 @@ function Copy-VcpkgDllIfNeeded {
         return 'copied'
     }
 
-    $sourceHash = (Get-FileHash -LiteralPath $SourcePath -Algorithm SHA256).Hash
-    $destinationHash = (Get-FileHash -LiteralPath $DestinationPath -Algorithm SHA256).Hash
+    $sourceHash = Get-FileSha256 -Path $SourcePath
+    $destinationHash = Get-FileSha256 -Path $DestinationPath
     if ($sourceHash -eq $destinationHash) { return 'unchanged' }
 
     if ((Test-FreshCertumSignature $DestinationPath) -and
