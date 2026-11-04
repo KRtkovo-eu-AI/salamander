@@ -272,6 +272,9 @@ protected:
     void (*RightTextToolTipCallback)(void* context, DWORD itemID, char* buffer);
     void* RightTextToolTipContext;
     int RightTextToolTipIndex;
+    int TrackDepth;       // Track/TrackInternal frames still using this object
+    BOOL DestroyPending;  // DestroyMenuPopup arrived while a track frame was active
+    BOOL OwnerDetached;   // parent item was destroyed and must not delete this object
 
 public:
     //
@@ -393,6 +396,12 @@ public:
     //   is nonzero if the function succeeds and zero if it fails.
     virtual DWORD WINAPI Track(DWORD trackFlags, int x, int y, HWND hwnd, const RECT* exclude);
 
+    // Deletes this object, or marks it when a track frame is still on the stack.
+    // Returns TRUE when the object was deleted.
+    BOOL DestroyIfIdle();
+    void BeginTrack();
+    void EndTrack(CMenuBar* menuBar);
+
     virtual BOOL WINAPI GetItemRect(int index, RECT* rect); // vrati obsany obdelnik kolem polozky v screen souradnicich
 
     // obehne vsechny polozky a pokud maji nastaveny ukazatel 'EnablerData'
@@ -436,6 +445,7 @@ protected:
     //
     DWORD TrackInternal(DWORD trackFlags, int x, int y, HWND hwnd, const RECT* exclude,
                         CMenuBar* menuBar, MSG& delayedMsg, BOOL& dispatchDelayedMsg);
+    BOOL IsTracking();
 
     void CloseOpenedSubmenu();
     void HideAll();
@@ -525,6 +535,10 @@ protected:
     BOOL HelpMode2;      // obdrzeli jmse WM_USER_HELP_MOUSEMOVE a cekame na WM_USER_HELP_MOUSELEAVE? (musime vysvecovat polozku pod kurzorem)
     WORD UIState;        // zobrazovani akceleratoru
     BOOL ForceAccelVisible;
+    int TrackDepth;        // EnterMenuInternal frames still using this object
+    int InsideWindowProc;  // nested CMenuBar::WindowProc frames
+    BOOL DestroyPending;   // DestroyMenuBar arrived while the bar or its menu was tracking
+    BOOL Deleting;         // DeleteDeferred is already on the stack
 
 public:
     //
@@ -551,6 +565,11 @@ public:
     // If the message is translated, the return value is TRUE.
     virtual BOOL WINAPI IsMenuBarMessage(CONST MSG* lpMsg);
 
+    // Destroys the bar, or marks it when EnterMenuInternal/WindowProc is active.
+    // Returns TRUE when the object was deleted. A pending menu popup owned by
+    // the bar is deleted together with it.
+    BOOL DestroyIfIdle();
+
 protected:
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
@@ -572,6 +591,22 @@ protected:
     BOOL HotKeyIndexLookup(char hotKey, int& itemIndex);
 
     friend class CMenuPopup;
+
+    class WindowProcGuard
+    {
+    public:
+        explicit WindowProcGuard(CMenuBar* bar);
+        ~WindowProcGuard();
+
+    private:
+        CMenuBar* Bar;
+        WindowProcGuard(const WindowProcGuard&);
+        WindowProcGuard& operator=(const WindowProcGuard&);
+    };
+
+    void EndTracking();
+    void DeleteDeferred();
+    void ReleasePendingMenu();
 };
 
 BOOL InitializeMenu();
