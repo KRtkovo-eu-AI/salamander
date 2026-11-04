@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Register updater installs and report a missing runtime. | New extension packages were not added on the next start, and activation failed without telling the user which runtime was missing. | | Grok 4.7 |
 
 #include "precomp.h"
 #include "salamatrix_packages.h"
@@ -2507,6 +2510,7 @@ PackageManager::PackageManager()
       Sides(NULL),
       Storage(NULL),
       UI(NULL),
+      LastExtensionVer(0),
       Menu(NULL),
       Viewer(NULL),
       FileSystem(NULL),
@@ -2633,10 +2637,16 @@ void PackageManager::LoadConfiguration(HKEY key, CSalamanderRegistryAbstract* re
     ExtensionOrder.clear();
     RemovedExtensions.clear();
     RegisteredViewerKeys.clear();
+    LastExtensionVer = 0;
     Roots.push_back(ExpandRoot(L"$(SalDir)\\extensions"));
     Roots.push_back(ExpandRoot(L"$(SalDir)\\plugins\\automation\\scripts"));
     if (key == NULL || registry == NULL)
         return;
+    DWORD storedVersion = 0;
+    if (registry->GetValue(
+            key, "LastExtensionVer", REG_DWORD, &storedVersion, sizeof(storedVersion)) &&
+        storedVersion <= 0x7FFFFFFF)
+        LastExtensionVer = static_cast<int>(storedVersion);
     HKEY rootsKey = NULL;
     if (registry->OpenKey(key, "ExtensionRoots", rootsKey))
     {
@@ -2704,6 +2714,9 @@ void PackageManager::SaveConfiguration(HKEY key, CSalamanderRegistryAbstract* re
 {
     if (key == NULL || registry == NULL)
         return;
+    DWORD storedVersion = LastExtensionVer > 0 ? static_cast<DWORD>(LastExtensionVer) : 0;
+    registry->SetValue(
+        key, "LastExtensionVer", REG_DWORD, &storedVersion, sizeof(storedVersion));
     HKEY rootsKey = NULL;
     if (!registry->CreateKey(key, "ExtensionRoots", rootsKey))
         return;
@@ -2804,6 +2817,7 @@ void PackageManager::Refresh()
     }
     RefreshInProgress = TRUE;
     RefreshPending = FALSE;
+    ApplyPendingExtensionInstalls();
     ReportStartupProgress(
         ssppDiscoveringExtensions, NULL, 0,
         static_cast<int>(Roots.size() + CustomPackages.size()));
@@ -3764,9 +3778,11 @@ BOOL PackageManager::ExecuteCommand(
                 BOOL executed = scriptRunner->ExecuteGenerated(
                     &compatibilityRequest, &compatibilityResult);
                 package->Operations = NULL;
-                return executed;
+                if (executed)
+                    return TRUE;
             }
         }
+        NotifyRuntimeUnavailable(package);
         return FALSE;
     }
     Runtime::RuntimeExecutionRequest request;
@@ -4224,6 +4240,234 @@ void PackageManager::ApplyUserOrder()
         Extensions->ApplyExtensionOrder(
             &ids[0], static_cast<int>(ids.size()));
     }
+}
+
+namespace
+{
+bool IsSafeExtensionRelative(const std::string& relative)
+{
+    if (relative.empty() || relative.size() > 16000 ||
+        relative.find(':') != std::string::npos ||
+        relative[0] == '\\' || relative[0] == '/')
+        return false;
+    size_t start = 0;
+    while (start <= relative.size())
+    {
+        size_t slash = relative.find_first_of("\\/", start);
+        std::string part = relative.substr(
+            start, slash == std::string::npos ? std::string::npos : slash - start);
+        if (part.empty() || part == "." || part == "..")
+            return false;
+        if (slash == std::string::npos)
+            break;
+        start = slash + 1;
+    }
+    return true;
+}
+
+BOOL GetNormalizedFullPath(const std::wstring& path, std::wstring* full)
+{
+    if (full == NULL || path.empty())
+        return FALSE;
+    std::vector<wchar_t> buffer(SAL_MAX_PATH);
+    DWORD length = GetFullPathNameW(
+        path.c_str(), static_cast<DWORD>(buffer.size()), &buffer[0], NULL);
+    if (length == 0 || length >= buffer.size())
+        return FALSE;
+    full->assign(&buffer[0], length);
+    while (full->size() > 3 &&
+           (full->back() == L'\\' || full->back() == L'/'))
+        full->pop_back();
+    return !full->empty();
+}
+
+bool IsPathInsideDirectory(const std::wstring& path, const std::wstring& directory)
+{
+    if (directory.empty())
+        return false;
+    if (_wcsicmp(path.c_str(), directory.c_str()) == 0)
+        return true;
+    std::wstring prefix = directory;
+    if (prefix.back() != L'\\' && prefix.back() != L'/')
+        prefix.push_back(L'\\');
+    return prefix.size() < path.size() &&
+           _wcsnicmp(path.c_str(), prefix.c_str(), prefix.size()) == 0;
+}
+
+std::wstring PathForCreateFile(const std::wstring& full)
+{
+    if (full.size() < MAX_PATH || full.compare(0, 4, L"\\\\?\\") == 0)
+        return full;
+    if (full.size() >= 2 && full[0] == L'\\' && full[1] == L'\\')
+        return L"\\\\?\\UNC\\" + full.substr(2);
+    return L"\\\\?\\" + full;
+}
+}
+
+void PackageManager::ApplyPendingExtensionInstalls()
+{
+    std::wstring versionFile = ExpandRoot(L"$(SalDir)\\extensions\\extensions.ver");
+    std::string text;
+    if (!ReadUtf8File(PathForCreateFile(versionFile), &text) || text.empty())
+        return;
+    if (text.size() >= 3 &&
+        static_cast<unsigned char>(text[0]) == 0xEF &&
+        static_cast<unsigned char>(text[1]) == 0xBB &&
+        static_cast<unsigned char>(text[2]) == 0xBF)
+        text.erase(0, 3);
+
+    int headerVersion = 0;
+    bool first = true;
+    size_t offset = 0;
+    while (offset < text.size())
+    {
+        size_t end = text.find_first_of("\r\n", offset);
+        if (end == std::string::npos)
+            end = text.size();
+        std::string line = text.substr(offset, end - offset);
+        offset = end;
+        while (offset < text.size() && (text[offset] == '\r' || text[offset] == '\n'))
+            ++offset;
+        if (line.empty())
+            continue;
+        if (first)
+        {
+            first = false;
+            headerVersion = atoi(line.c_str());
+            // The counter moves forward after this pass. Replaying the same
+            // file must not undo a removal the user makes afterwards.
+            if (headerVersion <= LastExtensionVer)
+                return;
+            continue;
+        }
+        size_t colon = line.find(':');
+        if (colon == std::string::npos || colon == 0)
+            continue;
+        int version = atoi(line.c_str());
+        if (version <= LastExtensionVer)
+            continue;
+        AcceptInstalledExtensionManifest(line.substr(colon + 1));
+    }
+    if (headerVersion > LastExtensionVer)
+        LastExtensionVer = headerVersion;
+}
+
+BOOL PackageManager::AcceptInstalledExtensionManifest(const std::string& relativePath)
+{
+    std::string relative = relativePath;
+    while (!relative.empty() &&
+           (relative.back() == ' ' || relative.back() == '\t' ||
+            relative.back() == '\r' || relative.back() == '\n'))
+        relative.pop_back();
+    while (!relative.empty() && (relative.front() == ' ' || relative.front() == '\t'))
+        relative.erase(relative.begin());
+    if (!IsSafeExtensionRelative(relative))
+        return TRUE;
+
+    std::wstring relativeWide;
+    if (!ToWide(relative, &relativeWide))
+        return FALSE;
+    std::wstring extensionsRoot = ExpandRoot(L"$(SalDir)\\extensions");
+    std::wstring extensionsFull;
+    if (!GetNormalizedFullPath(extensionsRoot, &extensionsFull))
+        return FALSE;
+    std::wstring combined = extensionsFull;
+    if (!combined.empty() && combined.back() != L'\\')
+        combined.push_back(L'\\');
+    combined += relativeWide;
+    std::wstring manifestFull;
+    if (!GetNormalizedFullPath(combined, &manifestFull) ||
+        !IsPathInsideDirectory(manifestFull, extensionsFull) ||
+        _wcsicmp(manifestFull.c_str(), extensionsFull.c_str()) == 0)
+        return TRUE;
+    size_t leafSlash = manifestFull.find_last_of(L"\\/");
+    std::wstring leaf = leafSlash == std::wstring::npos
+                            ? manifestFull
+                            : manifestFull.substr(leafSlash + 1);
+    if (_wcsicmp(leaf.c_str(), L"extension.json") != 0)
+        return TRUE;
+
+    std::string json;
+    if (!ReadUtf8File(PathForCreateFile(manifestFull), &json))
+        return FALSE;
+    if (json.size() >= 3 &&
+        static_cast<unsigned char>(json[0]) == 0xEF &&
+        static_cast<unsigned char>(json[1]) == 0xBB &&
+        static_cast<unsigned char>(json[2]) == 0xBF)
+        json.erase(0, 3);
+    CExtensionManifest manifest;
+    CExtensionManifestError error;
+    if (!manifest.Parse(json.data(), json.size(), error) ||
+        !CExtensionManifest::IsSafeRelativeEntryPoint(manifest.EntryPoint) ||
+        manifest.Id.empty())
+        return FALSE;
+
+    for (std::vector<std::string>::iterator item = RemovedExtensions.begin();
+         item != RemovedExtensions.end();)
+    {
+        if (_stricmp(item->c_str(), manifest.Id.c_str()) == 0)
+            item = RemovedExtensions.erase(item);
+        else
+            ++item;
+    }
+
+    std::wstring packageDirectory = manifestFull;
+    size_t slash = packageDirectory.find_last_of(L"\\/");
+    if (slash == std::wstring::npos)
+        return TRUE;
+    packageDirectory.erase(slash);
+    bool covered = false;
+    for (size_t index = 0; index < Roots.size(); ++index)
+    {
+        std::wstring rootFull;
+        if (GetNormalizedFullPath(Roots[index], &rootFull) &&
+            IsPathInsideDirectory(packageDirectory, rootFull))
+        {
+            covered = true;
+            break;
+        }
+    }
+    if (!covered)
+    {
+        bool listed = false;
+        for (size_t index = 0; index < CustomPackages.size(); ++index)
+        {
+            if (_wcsicmp(CustomPackages[index].c_str(), packageDirectory.c_str()) == 0)
+            {
+                listed = true;
+                break;
+            }
+        }
+        if (!listed)
+            CustomPackages.push_back(packageDirectory);
+    }
+    return TRUE;
+}
+
+void PackageManager::NotifyRuntimeUnavailable(const Package* package)
+{
+    if (package == NULL)
+        return;
+    HWND parent = General != NULL ? General->GetMsgBoxParent() : NULL;
+    HMODULE host = GetModuleHandle(NULL);
+    typedef void(WINAPI* ShowUnavailableRuntimesProc)(HWND, const char*);
+    ShowUnavailableRuntimesProc show = host == NULL
+                                           ? NULL
+                                           : reinterpret_cast<ShowUnavailableRuntimesProc>(
+                                                 GetProcAddress(
+                                                     host, "SalamanderShowUnavailableExtensionRuntimes"));
+    if (show != NULL)
+    {
+        show(parent, package->Id.c_str());
+        return;
+    }
+    if (General == NULL)
+        return;
+    const std::string& name = package->Manifest.Name.empty() ? package->Id : package->Manifest.Name;
+    std::string message = "The extension \"" + name +
+                          "\" could not be activated because its runtime (" +
+                          package->Manifest.RuntimeId + ") is not available.";
+    General->SalMessageBox(parent, message.c_str(), "Error", MB_OK | MB_ICONEXCLAMATION);
 }
 
 BOOL PackageManager::InstallManifest(const wchar_t* manifestPath)

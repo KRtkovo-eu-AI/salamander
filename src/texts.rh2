@@ -1,3 +1,5 @@
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Describe a missing extension runtime. | Activation failed silently when the interpreter or runtime provider was not installed. | | Grok 4.7 |
 // WARNING: cannot be replaced by "#pragma once" because it is included from .rc file and it seems resource compiler does not support "#pragma once"
 #ifndef __TEXTS_RH2
 #define __TEXTS_RH2
@@ -2327,6 +2329,8 @@
 #define IDS_PLUGINUPDATES             13205
 #define IDS_EXTENSIONREMOVEOK         13206
 #define IDS_EXTENSIONADDFAILED        13207
+#define IDS_EXTENSIONRUNTIMEEXECUTABLE 13254
+#define IDS_EXTENSIONRUNTIMEPROVIDER   13255
 
 //
 // find file menu

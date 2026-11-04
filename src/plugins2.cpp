@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// | 2026-11-04 | Report extensions whose runtime is missing after startup. | Activation was skipped with no dialog when Node.js, Python, or another interpreter was not installed. | | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -4209,6 +4210,9 @@ void CPlugins::HandleLoadOnStartFlag(HWND parent)
         DestroyWindow(startupProgress.HWindow);
         SetCursor(oldCursor);
     }
+    SalamanderShowUnavailableExtensionRuntimes(
+        parent != NULL ? parent : (MainWindow != NULL ? MainWindow->HWindow : NULL),
+        NULL);
 }
 
 void CPlugins::GetCmdAndUnloadMarkedPlugins(HWND parent, int* cmd, CPluginData** data)

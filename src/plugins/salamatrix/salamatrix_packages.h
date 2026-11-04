@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Accept extension installs recorded in extensions.ver. | A package copied into the extensions directory stayed removed or undiscovered until its manifest was added by hand. | | Grok 4.7 |
 
 #pragma once
 
@@ -45,6 +48,9 @@ private:
     std::vector<std::wstring> CustomPackages;
     std::vector<std::string> ExtensionOrder;
     std::vector<std::string> RemovedExtensions;
+    // Highest extensions.ver counter already applied. A later user removal
+    // must not be undone by replaying older install records.
+    int LastExtensionVer;
     // Keys of viewer mask groups that have already been offered to the host.
     // This permits a one-time force registration for newly installed extension
     // viewers without restoring associations later removed by the user.
@@ -146,6 +152,9 @@ private:
     BOOL MoveExtension(const char* extensionId, int delta);
     void ApplyUserOrder();
     bool IsRemoved(const std::string& extensionId) const;
+    void ApplyPendingExtensionInstalls();
+    BOOL AcceptInstalledExtensionManifest(const std::string& relativePath);
+    void NotifyRuntimeUnavailable(const Package* package);
     BOOL Activate(Package* package);
     BOOL Deactivate(Package* package);
     void RefreshContributionFlags(Package* package);
