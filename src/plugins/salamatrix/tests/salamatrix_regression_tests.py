@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-04 | Require plug-in DLLs to stay mapped until every Release returns. | Exit crash in an unloaded runtime plug-in. | https://github.com/KRtkovo-eu-AI/salamander/issues/770 https://github.com/KRtkovo-eu-AI/salamander/issues/750 | Grok 4.7 |
 """Fast source-level regression checks for Salamatrix integration contracts."""
 
 from pathlib import Path
@@ -1792,6 +1794,19 @@ def main() -> int:
         r'CPlugins::UnloadAll\(.*?ReportShutdownProgress\(\s*'
         r'ssdpUnloadingPlugins, Data\[i\]->Name',
         "plug-in unload progress does not identify each loaded plug-in")
+    require(
+        plugins2,
+        r'CPlugins::UnloadAll\(.*?Unload\(parent, FALSE, FALSE\).*?'
+        r'FreeDeferredModule\(\)',
+        "exit still unmaps a plug-in DLL before every plug-in Release returns")
+    require(
+        plugins1,
+        r'BOOL CPluginData::Unload\(HWND parent, BOOL ask, BOOL freeLibrary\).*?'
+        r'if \(freeMappedModule && !freeLibrary\)\s*'
+        r'DeferredModule = DLL;.*?'
+        r'void CPluginData::FreeDeferredModule\(\).*?'
+        r'HANDLES\(FreeLibrary\(module\)\)',
+        "deferred plug-in unload does not keep the DLL mapped through Release")
     for phase in (
             "ssdpUnregisteringToolbarButtons",
             "ssdpUnregisteringExtensions",

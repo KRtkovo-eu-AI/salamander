@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Unmap plug-in DLLs only after every plug-in Release returns. | Salamatrix pump threads were still executing inside javascriptruntime.spl and powershellruntime.spl when those DLLs were unloaded on exit. | https://github.com/KRtkovo-eu-AI/salamander/issues/770 https://github.com/KRtkovo-eu-AI/salamander/issues/750 | Grok 4.7 |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Report extensions whose runtime is missing after startup. | Activation was skipped with no dialog when Node.js, Python, or another interpreter was not installed. | | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
@@ -2034,6 +2035,9 @@ BOOL CPlugins::UnloadAll(
             ++loadedCount;
     int unloaded = 0;
     int i;
+    // Release every plug-in before unmapping any plug-in DLL. Salamatrix pump
+    // threads execute inside the runtime plug-ins. FreeLibrary of those
+    // providers first leaves the pump thread running in unmapped code.
     for (i = 0; i < Data.Count; i++)
     {
         if (Data[i]->GetLoaded())
@@ -2042,11 +2046,13 @@ BOOL CPlugins::UnloadAll(
                 progress->ReportShutdownProgress(
                     ssdpUnloadingPlugins, Data[i]->Name,
                     unloaded + 1, loadedCount);
-            if (!Data[i]->Unload(parent, FALSE))
+            if (!Data[i]->Unload(parent, FALSE, FALSE))
                 ret = FALSE;
             ++unloaded;
         }
     }
+    for (i = Data.Count - 1; i >= 0; i--)
+        Data[i]->FreeDeferredModule();
     return ret;
 }
 
