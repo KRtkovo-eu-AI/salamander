@@ -1,11 +1,12 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+| 2026-11-04 | Name the UI guide host Open Samandarin. | The lead sentence still said Open Salamander, so the generated HTML check failed. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 -->
 # Salamatrix.UI framework and custom dialog guide
 
 Salamatrix.UI is the framework-owned native user-interface service for Open
-Salamander extensions. It lets a native plugin, an Automation script, or an
+Samandarin extensions. It lets a native plugin, an Automation script, or an
 out-of-process JavaScript, Python, PowerShell, PHP, or Lua extension construct
 the same dialog from the same control model.
 
