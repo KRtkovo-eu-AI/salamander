@@ -5,7 +5,7 @@ VERSION,"2,4,0,196"
 
 [TRANSLATION]
 LANGID,1040
-AUTHOR,"Open Salamander"
+AUTHOR,"Open Samandarin"
 WEB,"www.altap.cz"
 COMMENT,"English version"
 
@@ -81,7 +81,7 @@ COMMENT,"English version"
 68,1,"Le modifiche avranno effetto quando la finestra 'Calcola checksum' verra aperta la prossima volta."
 70,1,"Tutti i file OK"
 71,1,"%d danneggiati, %d mancanti, %d saltati"
-72,1,"Open Salamander e occupato. Impossibile completare il comando richiesto, riprova piu tardi."
+72,1,"Open Samandarin e occupato. Impossibile completare il comando richiesto, riprova piu tardi."
 74,1,"&Chiudi"
 75,1,"Lettura dell'albero delle directory, attendere..."
 76,1,"Errore durante la lettura della directory"

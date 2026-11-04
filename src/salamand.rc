@@ -1,4 +1,8 @@
-﻿// Microsoft Visual C++ generated resource script.
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Put the splash version under the logo, then the fork line, then the copyright. | The version should lead that block, with a gap before the quieter copyright. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// | 2026-11-04 | Move splash copyright under the logo and shorten the yellow bar. | The combined copyright overflowed the yellow bar. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// | 2026-11-04 | Restore the splash width and place the fork line under the version. | The shorter copyright fits the original width, and the version should read as the title of that block. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// Microsoft Visual C++ generated resource script.
 //
 #pragma code_page(65001)
 
@@ -224,15 +228,16 @@ BEGIN
     RTEXT           "",IDS_MSGBOX_HINT,184,73,35,8,WS_TABSTOP
 END
 
-IDD_SPLASH DIALOGEX 58, 50, 299, 94
+IDD_SPLASH DIALOGEX 58, 50, 299, 84
 STYLE DS_SETFONT | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_BORDER
 EXSTYLE WS_EX_TOOLWINDOW
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     LTEXT           "",IDC_SPLASH_OPENSAL,8,7,143,41
-    LTEXT           "",IDC_SPLASH_VERSION,8,60,237,8
-    LTEXT           "",IDC_SPLASH_COPYRIGHT,8,73,237,8
-    LTEXT           "",IDC_SPLASH_STATUS,8,83,237,8
+    LTEXT           "",IDC_SPLASH_VERSION,8,26,283,8
+    LTEXT           "",IDC_SPLASH_FORK,8,34,283,8
+    LTEXT           "",IDC_SPLASH_COPYRIGHT,8,50,283,16
+    LTEXT           "",IDC_SPLASH_STATUS,8,73,283,8
 END
 
 #endif    // Neutral resources

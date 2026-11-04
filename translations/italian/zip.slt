@@ -5,7 +5,7 @@ VERSION,"1,8,0,196"
 
 [TRANSLATION]
 LANGID,1040
-AUTHOR,"Open Salamander"
+AUTHOR,"Open Samandarin"
 WEB,"www.altap.cz"
 COMMENT,"English version"
 
@@ -50,7 +50,7 @@ COMMENT,"English version"
 115,14,58,168,12,1,"Non memorizzare cartelle &vuote in archivio ZIP"
 174,14,70,253,12,1,"Imposta ora dell'archivio sull'ora del file &più recente quando lo modifichi"
 118,14,82,279,12,1,"Usa nomi file compatibili con WinZip per archivi a più volumi (eccetto per il self-"
-3004,26,94,319,8,1,"estrazione di archivi, che usano sempre le convenzioni di denominazione di Open Salamander)"
+3004,26,94,319,8,1,"estrazione di archivi, che usano sempre le convenzioni di denominazione di Open Samandarin)"
 3005,14,107,251,8,1,"Livello di &compressione (0 - 9, 9 compressione migliore, tempo più lungo):"
 116,218,105,16,12,1,""
 3006,14,120,180,8,1,"Lingua predefinita dell'autoestrattore (&self-extractor):"

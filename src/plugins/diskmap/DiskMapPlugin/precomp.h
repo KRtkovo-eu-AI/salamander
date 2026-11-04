@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 // stdafx.h : include file for standard system include files,
 // or project specific include files that are used frequently, but
@@ -10,7 +13,7 @@
 
 #ifndef OPENSAL_VERSION // version built for Salamander distribution will not be backward compatible with version 5.0 (unnecessary complication)
 #define SALSDK_COMPATIBLE_WITH_VER 103
-#define REQUIRE_COMPATIBLE_SAL_VERSION "This plugin requires Open Salamander 5.0 or later."
+#define REQUIRE_COMPATIBLE_SAL_VERSION "This plugin requires Open Samandarin 5.0 or later."
 #endif // OPENSAL_VERSION
 
 //#define TIMINGTEST

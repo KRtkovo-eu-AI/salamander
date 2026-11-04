@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 //********************************************************************************
 // texts.h
@@ -8,7 +11,7 @@
 
 STRING(STR_WELCOME_MESSAGE,
        "\n"
-       "Zip2Sfx 2.9  Copyright (c) 2000-2026 Open Salamander Authors   Home page: www.altap.cz\n"
+       "Zip2Sfx 2.9  Copyright (c) 2000-2026 Open Salamander Authors, Open Samandarin Authors   Home page: www.altap.cz\n"
        "                                             E-mail:    support@altap.cz\n\n")
 STRING(STR_HELP,
        "Usage:\tzip2sfx [options] zipfile [exefile]\n"

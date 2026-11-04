@@ -1,3 +1,5 @@
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 #include <stdio.h>
 #include <string>
 
@@ -26,8 +28,8 @@ static bool EndsWith(const std::wstring& value, const std::wstring& suffix)
 
 int main()
 {
-    const std::wstring suffix = L"Open Salamander 5.0 Samandarin 0.9 (x64)";
-    const std::wstring adminSuffix = L"Open Salamander 5.0 Samandarin 0.9 (x64) (Administrator)";
+    const std::wstring suffix = L"Open Samandarin 0.9 (x64)";
+    const std::wstring adminSuffix = L"Open Samandarin 0.9 (x64) (Administrator)";
 
     CHECK(BuildMainWindowTitleText(L"", L"C:\\temp\\test", suffix) == L"C:\\temp\\test - " + suffix,
           "full path title keeps suffix");

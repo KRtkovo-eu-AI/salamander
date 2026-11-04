@@ -1,3 +1,7 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+-->
 <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
 <HTML>
 <HEAD>
@@ -14,7 +18,7 @@
 		</OBJECT>
 	<UL>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="Introducing Open Salamander">
+			<param name="Name" value="Introducing Open Samandarin">
 			<param name="Local" value="hh\salamand\introduction_intro.htm">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
@@ -121,7 +125,7 @@
 			</OBJECT>
 	</UL>
 	<LI> <OBJECT type="text/sitemap">
-		<param name="Name" value="Using Open Salamander">
+		<param name="Name" value="Using Open Samandarin">
 		</OBJECT>
 	<UL>
 		<LI> <OBJECT type="text/sitemap">
@@ -481,11 +485,11 @@
 				</OBJECT>
 		</UL>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="Customizing Open Salamander">
+			<param name="Name" value="Customizing Open Samandarin">
 			</OBJECT>
 		<UL>
 			<LI> <OBJECT type="text/sitemap">
-				<param name="Name" value="Configuring Open Salamander">
+				<param name="Name" value="Configuring Open Samandarin">
 				<param name="Local" value="hh\salamand\customize_configuration.htm">
 				</OBJECT>
 			<LI> <OBJECT type="text/sitemap">
@@ -538,15 +542,15 @@
 				<param name="Local" value="hh\salamand\othertask_help.htm">
 				</OBJECT>
 			<LI> <OBJECT type="text/sitemap">
-				<param name="Name" value="Using Open Salamander Task List">
+				<param name="Name" value="Using Open Samandarin Task List">
 				<param name="Local" value="hh\salamand\othertask_tasklist.htm">
 				</OBJECT>
 			<LI> <OBJECT type="text/sitemap">
-				<param name="Name" value="Starting Open Salamander with Parameters">
+				<param name="Name" value="Starting Open Samandarin with Parameters">
 				<param name="Local" value="hh\salamand\othertask_param.htm">
 				</OBJECT>
 			<LI> <OBJECT type="text/sitemap">
-				<param name="Name" value="Exiting Open Salamander">
+				<param name="Name" value="Exiting Open Samandarin">
 				<param name="Local" value="hh\salamand\othertask_exit.htm">
 				</OBJECT>
 		</UL>
@@ -720,7 +724,7 @@
 				</OBJECT>
 		</UL>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="Open Salamander Task List">
+			<param name="Name" value="Open Samandarin Task List">
 			<param name="Local" value="hh\salamand\dlgboxes_tasks.htm">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">

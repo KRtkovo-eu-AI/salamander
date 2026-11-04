@@ -58,6 +58,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path code-growth-report | Out-Null
           python tools/code_metrics/report_code_growth.py `
             --repository-root . `
+            --title 'Source code growth compared with the latest release' `
             --current-label '${{ github.event.pull_request.head.sha || github.sha }}' `
             --output-json code-growth-report/report.json `
             --output-markdown code-growth-report/report.md
@@ -73,17 +74,21 @@ jobs:
           New-Item -ItemType Directory -Force -Path code-growth-pr-report | Out-Null
           python tools/code_metrics/report_code_growth.py `
             --repository-root . `
+            --title 'Source code growth compared with the base branch' `
             --baseline-commit '${{ github.event.pull_request.base.sha }}' `
             --baseline-label 'base branch: ${{ github.event.pull_request.base.ref }}' `
             --current-label 'PR head: ${{ github.event.pull_request.head.sha }}' `
             --output-json code-growth-pr-report/report.json `
             --output-markdown code-growth-pr-report/report.md
-          "## Pull request source code growth" | Add-Content -Path $env:GITHUB_STEP_SUMMARY
           Get-Content code-growth-pr-report/report.md | Add-Content -Path $env:GITHUB_STEP_SUMMARY
           $report = Get-Content code-growth-pr-report/report.json -Raw | ConvertFrom-Json
           $delta = [int]$report.comparison.summary.deltaNloc
           "title=$('{0:+#,#;-#,#;0} NLOC in PR' -f $delta)" | Add-Content -Path $env:GITHUB_OUTPUT
 
+      # A pull_request run from a fork gets a read-only GITHUB_TOKEN, so it cannot
+      # update this check or post comments. Keep these steps on same-repository
+      # PRs. Fork comments are published by code-growth-comment.yml after this
+      # workflow completes.
       - name: Show source growth summary on the PR check
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         env:
@@ -94,7 +99,7 @@ jobs:
         run: |
           $summary = Get-Content code-growth-report/report.md -Raw
           if (Test-Path code-growth-pr-report/report.md) {
-            $summary += "`n`n---`n`n## Pull request source code growth`n`n"
+            $summary += "`n`n---`n`n"
             $summary += Get-Content code-growth-pr-report/report.md -Raw
           }
           @{
@@ -137,8 +142,13 @@ jobs:
               issue_number: context.issue.number,
               per_page: 100,
             });
+            const isOurs = (comment) => comment.user?.login === 'github-actions[bot]';
+            const hasMarker = (comment, value) => {
+              const text = comment.body || '';
+              return text.startsWith(`${value}\n`) || text.startsWith(`${value}\r\n`);
+            };
             const existing = comments.find(
-              (comment) => comment.user?.type === 'Bot' && comment.body?.includes(marker),
+              (comment) => isOurs(comment) && hasMarker(comment, marker),
             );
 
             if (existing) {
@@ -187,8 +197,13 @@ jobs:
               issue_number: context.issue.number,
               per_page: 100,
             });
+            const isOurs = (comment) => comment.user?.login === 'github-actions[bot]';
+            const hasMarker = (comment, value) => {
+              const text = comment.body || '';
+              return text.startsWith(`${value}\n`) || text.startsWith(`${value}\r\n`);
+            };
             const existing = comments.find(
-              (comment) => comment.user?.type === 'Bot' && comment.body?.includes(marker),
+              (comment) => isOurs(comment) && hasMarker(comment, marker),
             );
 
             if (existing) {

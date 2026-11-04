@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 #pragma once
 
@@ -588,7 +591,7 @@ void InitDefaultDir();        // inicializace pole DefaultDir (posledni navstive
 // jednu zpravu, opakovane volani ohlasi chybu do TRACE (neni fatalni), 'delay' je zpozdeni
 // pred otevrenim okenka (od okamziku volani CreateSafeWaitWindow)
 // 'message' muze byt vicerakova; jednotlive radky se oddeluji znakem '\n'
-// 'caption' muze byt NULL: pouzije se pak "Open Salamander"
+// 'caption' muze byt NULL: pouzije se pak "Open Samandarin"
 // 'showCloseButton' udava, zda bude okenko obsahovat tlacitko Close
 // 'hForegroundWnd' urcuje okno, ktere musi byt aktivni, aby bylo okenko zobrazeno
 // a zaroven urcuje okno, ktere bude aktivovana pri kliknuti do wait okenka
@@ -1773,7 +1776,7 @@ extern char WindowsDirectory[MAX_PATH]; // cachovany vysledek GetWindowsDirector
 extern char RTCErrorDescription[RTC_ERROR_DESCRIPTION_SIZE];
 //#endif // MSVC_RUNTIME_CHECKS
 
-// cesta, kde vytvorime bug report a minidump, umisteni: do Visty u salamand.exe, ve Viste (a dale) v CSIDL_APPDATA + "\\Open Salamander"
+// cesta, kde vytvorime bug report a minidump, umisteni: do Visty u salamand.exe, ve Viste (a dale) v CSIDL_APPDATA + "\\Open Samandarin" (nebo starsi "\\Open Salamander")
 extern char BugReportPath[MAX_PATH];
 
 // nazev souboru, ktery bude importovan (pokud existuje) do registry
@@ -2191,7 +2194,9 @@ int GetWMCommandFromSalCmd(int salCmd);
 //******************************************************************************
 
 // pocet polozek v poli SalamanderConfigurationRoots
-#define SALCFG_ROOTS_COUNT 98
+#define SALCFG_ROOTS_COUNT 99
+
+void FormatConfigDisplayName(const char* root, const char* version, char* buffer, size_t bufferChars);
 
 // id hlavniho threadu (platne az po vstupu do WinMain())
 extern DWORD MainThreadID;
@@ -2525,10 +2530,10 @@ void GetCommonFileTypeStr(char* buf, int* resLen, const char* ext);
 // separatory v kontextovem menu na .bar souborech)
 void RemoveUselessSeparatorsFromMenu(HMENU h);
 
-// vraci adresar "Open Salamander" na ceste CSIDL_APPDATA do 'buf' (buffer o velikosti MAX_PATH)
+// vraci adresar "Open Samandarin" na ceste CSIDL_APPDATA (pripadne starsi "Open Salamander") do 'buf' (buffer o velikosti MAX_PATH)
 BOOL GetOurPathInRoamingAPPDATA(char* buf);
 
-// vytvori adresar "Open Salamander" na ceste CSIDL_APPDATA; vraci TRUE pokud se cesta
+// vytvori adresar "Open Samandarin" na ceste CSIDL_APPDATA (pripadne pouzije starsi "Open Salamander"); vraci TRUE pokud se cesta
 // vejde do MAX_PATH (jeji existence neni zarucena, vysledek CreateDirectory se nekontroluje);
 // neni-li 'buf' NULL, jde o buffer o velikosti MAX_PATH, ve kterem se vraci tato cesta
 // POZOR: pouziti jen Vista+

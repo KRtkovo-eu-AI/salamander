@@ -1,4 +1,9 @@
-# Codex rules for Open Salamander path/Unicode work
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Rename the product to Open Samandarin and record the file-header rule. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+-->
+
+# Codex rules for Open Samandarin path/Unicode work
 
 These rules apply to all future agentic development in this repository.
 
@@ -17,7 +22,7 @@ These rules apply to all future agentic development in this repository.
 ## Windows paths and buffer sizes
 
 - Do not introduce new `MAX_PATH`-sized buffers for file names, directory names, command lines, viewer/editor arguments, or paths.
-- Use `SAL_MAX_PATH` for Open Salamander path buffers. If a buffer may be larger than a few KB or is used in nested call paths, prefer heap-backed storage such as `CPathBuffer`, `CWidePathBuffer`, `std::string`, `std::wstring`, or `std::vector` instead of large stack arrays.
+- Use `SAL_MAX_PATH` for Open Samandarin path buffers. If a buffer may be larger than a few KB or is used in nested call paths, prefer heap-backed storage such as `CPathBuffer`, `CWidePathBuffer`, `std::string`, `std::wstring`, or `std::vector` instead of large stack arrays.
 - When passing a mutable path buffer to helpers such as `SalGetFullName`, pass the real buffer capacity (usually `SAL_MAX_PATH` or `buffer.Capacity()`), never rely on the default `MAX_PATH` argument.
 - Any feature that accepts or constructs a file path must be checked for:
   - long file names,
@@ -116,10 +121,34 @@ When changing any plug-in-facing SDK interface, preserve binary compatibility wi
 
 ## Allocation failure handling and CodeQL
 
-- Never silence CodeQL's "Incorrect allocation-error handling" warning by deleting an existing `NULL` check after a C++ `new`. In Open Salamander, that check usually documents intentional non-throwing, low-memory behavior; changing it to throwing allocation can terminate an operation or the application instead of following the established failure path.
+- Never silence CodeQL's "Incorrect allocation-error handling" warning by deleting an existing `NULL` check after a C++ `new`. In Open Samandarin, that check usually documents intentional non-throwing, low-memory behavior; changing it to throwing allocation can terminate an operation or the application instead of following the established failure path.
 - When an allocation is followed by a `NULL`/`LOW_MEMORY` branch, or the surrounding API is explicitly exception-free, use `new (std::nothrow)` and preserve the complete existing failure behavior. For required objects, return or otherwise stop before any later dereference; for optional UI helpers, retain the guarded degraded-mode path.
 - Main Salamander and many plug-ins redefine `new` in `precomp.h` for CRT debug allocation tracking. A placement form such as `new (std::nothrow)` must use the established narrow workaround: conditionally `#undef new`, define a uniquely named local restore marker, perform only the nothrow allocation, then immediately restore `#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)` and undefine the marker. Do not disable the debug macro for a wider scope.
 - Before applying an automated CodeQL/Copilot suggestion about allocation handling, inspect the constructor's ownership, all later dereferences, and the caller's low-memory contract. The correct fix must satisfy both CodeQL's throwing-`new` semantics and Salamander's existing runtime behavior; a clean alert alone is not sufficient.
+
+## File headers
+
+Every modified file gets a new changelog row at the top. Do not delete older rows. The columns are:
+
+- Date (`YYYY-MM-DD`)
+- Summary of the change
+- Reason for the change
+- Link to the ticket, or an empty field when there is no ticket
+- Name of the AI model that worked on the change
+
+Keep SPDX as the first lines so license tools still see it. Do not remove an existing `SPDX-FileCopyrightText` line. When the file already has one, add a second line for the year of the edit:
+
+```
+SPDX-FileCopyrightText: 2023 Open Salamander Authors
+SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+SPDX-License-Identifier: GPL-2.0-or-later
+```
+
+Put the changelog table immediately under the SPDX block, using that file's comment syntax. In Markdown and HTML, put the table in an HTML comment so it is not rendered.
+
+Do not invent an SPDX block in a file that does not already have one. Do not add the changelog to translation `.slt` files, because the importer requires `[EXPORTINFO]` as the first line. Do not add it to binary `.tab` tables or to the installer license texts in `doc/runbook-setup/license*.txt`, because Inno Setup shows those files verbatim. Do not edit SVG artwork only to add a header.
+
+When a visible copyright line is updated, keep `Open Salamander Authors` and add `Open Samandarin Authors` beside it.
 
 # Font used for C++ dialogs, windows etc.
 

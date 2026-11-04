@@ -1,3 +1,8 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+-->
+
 ## Development
 
 ### Prerequisites
@@ -16,11 +21,11 @@
 
 You can build the `\src\vcxproj\salamand.sln` solution in Visual Studio or from the command line with `\src\vcxproj\rebuild.cmd`.
 
-Use `\src\vcxproj\!populate_build_dir.cmd` to populate the build directory with the files required to run Open Salamander.
+Use `\src\vcxproj\!populate_build_dir.cmd` to populate the build directory with the files required to run Open Samandarin.
 
 ### Contributing
 
-Contributions that help build, maintain, and improve Open Salamander are welcome.
+Contributions that help build, maintain, and improve Open Samandarin are welcome.
 
 ## Repository Contents
 
@@ -28,7 +33,7 @@ Contributions that help build, maintain, and improve Open Salamander are welcome
 \convert         Conversion tables for the Convert command
 \doc             Documentation
 \help            User manual source files
-\src             Open Salamander core source code
+\src             Open Samandarin core source code
 \src\common      Shared libraries
 \src\common\dep  Shared third-party libraries
 \src\lang        English resources

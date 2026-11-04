@@ -1,6 +1,8 @@
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 //****************************************************************************
 //
-// Copyright (c) 2023 Open Salamander Authors
+// Copyright (c) 2023 Open Salamander Authors, Open Samandarin Authors
 //
 // This is a part of the Open Salamander SDK library.
 //
@@ -97,8 +99,8 @@ STRINGTABLE
  IDS_PLUGIN_INSTALL_PREPARING, "Downloading and validating the package..."
  IDS_PLUGIN_INSTALL_FAILED, "The package could not be prepared for installation."
  IDS_PLUGIN_INSTALL_UNAVAILABLE, "Automatic installation is available only for official plugin or extension .7z release packages."
- IDS_PLUGIN_INSTALL_SCHEDULED, "The package is ready and will be installed after Open Salamander exits."
- IDS_PLUGIN_UPDATE_SCHEDULED, "The update is ready and will replace the installed package after Open Salamander exits."
+ IDS_PLUGIN_INSTALL_SCHEDULED, "The package is ready and will be installed after Open Samandarin exits."
+ IDS_PLUGIN_UPDATE_SCHEDULED, "The update is ready and will replace the installed package after Open Samandarin exits."
  IDS_PLUGIN_DEPENDENCIES_REQUIRED, "The selected plugin requires these missing dependencies. They will be installed automatically or their web pages will be opened together:\n\n{0}\n\nContinue?"
  IDS_PLUGIN_DEPENDENCY_UNAVAILABLE, "A required dependency is missing from the enabled catalogs or does not provide an installation page:\n\n{0}"
  IDS_PLUGIN_INSTALL_MISSING_HASH, "Automatic installation requires a SHA-256 digest in the catalog. The official catalog has not published a hash for this package yet."

@@ -1,4 +1,6 @@
-﻿#ifdef APSTUDIO_INVOKED
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+#ifdef APSTUDIO_INVOKED
 #error this file is not editable by Microsoft Visual C++
 #endif //APSTUDIO_INVOKED
 
@@ -17,12 +19,12 @@ CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "manifest.xml"
  {
   BLOCK "040904b0"
   {
-   VALUE "CompanyName", "Open Salamander\0"
+   VALUE "CompanyName", "Open Samandarin\0"
    VALUE "FileDescription", "Maker of ZIP SFX packages\0"
    VALUE "FileVersion", "1.0\0"
    VALUE "InternalName", "SFXMAKE\0"
    VALUE "OriginalFilename", "SFXMAKE.EXE\0"
-   VALUE "LegalCopyright", "Copyright \251 2000-2026 Open Salamander Authors\0"
+   VALUE "LegalCopyright", "Copyright \251 2000-2026 Open Salamander Authors, Open Samandarin Authors\0"
    VALUE "ProductVersion", "1.0\0"
    VALUE "ProductName", "SFXMAKE\0"
   }

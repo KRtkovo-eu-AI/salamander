@@ -154,15 +154,88 @@ def main() -> None:
             "Prism navigation must not depend on a hidden-WebView readiness timer"
         )
     if (
-        'value == L"salamander-prism-ready"' not in native_viewer
+        'value == L"salamander-prism-ready:" + std::to_wstring(self->virtualGeneration_)' not in native_viewer
         or "CompletePrismDisplay()" not in native_viewer
-        or 'value == L"salamander-prism-theme-ready"' not in native_viewer
+        or 'value == L"salamander-prism-theme-ready:" + std::to_wstring(self->virtualGeneration_)' not in native_viewer
         or "self->ShowPrismBrowser()" not in native_viewer
         or "ApplyControllerZoom()" not in native_viewer
+        or "case WM_SETFOCUS:" not in native_viewer
+        or "FocusBrowser()" not in native_viewer
     ):
         raise AssertionError(
-            "Prism must reveal only its themed page and report Ready after painted content"
+            "Prism must reveal only its themed page, manage focus, and report Ready after painted content"
         )
+    reuse_contract = (
+        "NV_IDLE_PRISM_TIMEOUT_MS = 60 * 1000",
+        "gShuttingDown.load() || gIdlePrismViewer != nullptr",
+        "idle_ && prismPageReady_ && browserHealthy_ && controller_ && webView_",
+        "preparationGeneration_ = gNextPreparationGeneration.fetch_add(1)",
+        "if (self->idle_)",
+        "if (idle_ || waitingForReusedDocument_)",
+        "DestroyWindow(gIdlePrismViewer->Window())",
+        'PostWebMessageAsJson(L"{\\"type\\":\\"reset\\"}")',
+    )
+    if any(token not in native_viewer for token in reuse_contract):
+        raise AssertionError("Prism reuse must be bounded, generation-safe, hidden until ready, and released at shutdown")
+    keep_ready_setter = re.search(
+        r"void NativeViewer_SetPrismKeepReady\(bool enabled\).*?\n}", native_viewer, re.DOTALL
+    )
+    keep_ready_dispatch = re.search(
+        r"case WM_NV_PRISM_POLICY_CHANGED:.*?return 0;",
+        native_viewer, re.DOTALL
+    )
+    keep_ready_reopen = re.search(r"bool Reopen\(.*?\n    }", native_viewer, re.DOTALL)
+    if (
+        "std::atomic<bool> gPrismKeepReady(false)" not in native_viewer
+        or "return gPrismKeepReady.load() && idle_" not in native_viewer
+        or "if (!gPrismKeepReady.load() || gShuttingDown.load()" not in native_viewer
+        or keep_ready_reopen is None
+        or "if (!gPrismKeepReady.load())" not in keep_ready_reopen.group(0)
+        or keep_ready_setter is None
+        or "gPrismKeepReady.store(enabled)" not in keep_ready_setter.group(0)
+        or "HWND idleWindow = gIdlePrismWindow.load()" not in keep_ready_setter.group(0)
+        or "PostMessageW(idleWindow, WM_NV_PRISM_POLICY_CHANGED, 0, 0)" not in keep_ready_setter.group(0)
+        or "EnsureViewerHost" in keep_ready_setter.group(0)
+        or "DestroyWindow" in keep_ready_setter.group(0)
+        or keep_ready_dispatch is None
+        or "if (!gPrismKeepReady.load() && idle_)" not in keep_ready_dispatch.group(0)
+        or "DestroyWindow(window_)" not in keep_ready_dispatch.group(0)
+        or "gWindows" in keep_ready_dispatch.group(0)
+        or re.search(
+            r"gIdlePrismWindow.store\(window_\);.*?if \(!gPrismKeepReady.load\(\) \|\|\s*SetTimer",
+            native_viewer, re.DOTALL
+        ) is None
+    ):
+        raise AssertionError("Prism retention must default off, gate parking/reuse, and evict only idle state on the existing STA using the latest policy")
+    failed_close = re.search(r"void PostFailedClose\(\).*?\n    }", native_viewer, re.DOTALL)
+    failed_close_handler = re.search(
+        r"case WM_NV_CLOSE_FAILED:.*?return 0;", native_viewer, re.DOTALL
+    )
+    if (
+        failed_close is None
+        or failed_close_handler is None
+        or "PostMessageW(window_, WM_NV_CLOSE_FAILED," not in failed_close.group(0)
+        or "static_cast<DWORD>(viewerGeneration_)" not in failed_close.group(0)
+        or "static_cast<DWORD>(viewerGeneration_ >> 32)" not in failed_close.group(0)
+        or "static_cast<DWORD>(wParam) == static_cast<DWORD>(viewerGeneration_)" not in failed_close_handler.group(0)
+        or "static_cast<DWORD>(lParam) == static_cast<DWORD>(viewerGeneration_ >> 32)" not in failed_close_handler.group(0)
+        or "DestroyWindow(window_)" not in failed_close_handler.group(0)
+        or native_viewer.count("self->PostFailedClose();") != 2
+        or "PostMessageW(viewerWindow, WM_NV_CLOSE_ALL" in native_viewer
+    ):
+        raise AssertionError("Queued browser failures must preserve and check the full viewer token before closing an HWND")
+    signal_closed = re.search(r"void SignalClosed\(\).*?\n    }", native_viewer, re.DOTALL)
+    if signal_closed is None or not (
+        signal_closed.group(0).index("parameters_->closeEvent = nullptr")
+        < signal_closed.group(0).index("SetEvent(closed)")
+    ):
+        raise AssertionError("The logical close must release the event handle before signalling its owner")
+    if (
+        'message.type === "reset"' not in virtual_viewer
+        or 'postHost(PRISM_READY_MESSAGE + ":" + generation)' not in virtual_viewer
+        or 'postHost(THEME_READY_MESSAGE + ":" + generation)' not in virtual_viewer
+    ):
+        raise AssertionError("The retained Prism page must clear its document and tag readiness with its generation")
     if "Prism.highlightElement(code);finish();" in native_viewer:
         raise AssertionError("small Prism files must not highlight on the UI thread via NavigateToString")
     if (
@@ -183,11 +256,14 @@ def main() -> None:
         "virtualLineStarts_",
         "virtualInitSent_",
         'L"salamander-chunk:"',
-        'L"https://prism.local/viewer/virtual-viewer.html?g="',
+        'L"https://prism.example/viewer/virtual-viewer.html?g="',
+        'L"prism.example", folder.c_str()',
         "ApplyControllerZoom()",
     )
     if any(token not in native_viewer for token in virtual_contract):
         raise AssertionError("Prism files must use native line indexing and virtualization")
+    if re.search(r'L"(?:https://)?(?:prism|markdown|document)\.local', native_viewer) or "https://prism.local/" in virtual_viewer:
+        raise AssertionError("Prism's local asset mapping must avoid the delayed .local hostname")
     if (
         "NV_PRISM_FILE_LIMIT = 16U * 1024U * 1024U" not in native_viewer
         or "NV_MARKDOWN_FILE_LIMIT = 32U * 1024U * 1024U" not in native_viewer
@@ -203,7 +279,7 @@ def main() -> None:
         raise AssertionError("rendered Markdown images must load lazily after DOM rendering")
     if (
         'AddWebResourceRequestedFilter(' not in native_viewer
-        or 'L"https://markdown.local/*"' not in native_viewer
+        or 'L"https://markdown.example/*"' not in native_viewer
         or "CreateWebResourceResponse(" not in native_viewer
         or "webView_->Navigate(markdownDocumentUri_.c_str())" not in native_viewer
     ):
@@ -234,7 +310,7 @@ def main() -> None:
         or "cachedHtml" not in virtual_viewer
         or "ensureLanguage(canonicalLanguage())" not in virtual_viewer
         or "Prism.plugins.autoloader" not in virtual_viewer
-        or 'languages_path = "https://prism.local/components/"' not in virtual_viewer
+        or 'languages_path = new URL("../components/", document.baseURI).href' not in virtual_viewer
         or "loadLanguages" not in virtual_viewer
         or "highlightOnMainThread" not in virtual_viewer
         or "layoutLineNumbers(pre, state, true)" not in virtual_viewer
@@ -481,6 +557,116 @@ def main() -> None:
         or "GetFileAttributesExW(" not in webview_plugin_source
     ):
         raise AssertionError("file-size checks must remain Unicode and long-path safe")
+
+    spl_gen = (REPOSITORY_ROOT / "src" / "plugins" / "shared" / "spl_gen.h").read_text(encoding="utf-8")
+    if (
+        "SALCFG_VIEWERFINDTEXT" not in spl_gen
+        or "SALCFG_VIEWERFINDCASE" not in spl_gen
+        or "SALCFG_VIEWERFINDWHOLEWORDS" not in spl_gen
+        or "SearchPhrase" not in spl_gen
+        or "SearchFlags" not in spl_gen
+    ):
+        raise AssertionError("spl_gen.h must define viewer find configuration parameters and selection fields")
+
+    plugins1 = (REPOSITORY_ROOT / "src" / "plugins1.cpp").read_text(encoding="utf-8")
+    if (
+        "GlobalFindDialog.Text" not in plugins1
+        or "selectionData.SearchPhrase" not in plugins1
+    ):
+        raise AssertionError("plugins1.cpp must propagate find search phrase to viewer plugins")
+    if "PassFindTextToPluginViewer && GlobalFindDialog.Text" not in plugins1:
+        raise AssertionError("only a viewer opened from Find Files may get the search phrase")
+    if "SALCFG_VIEWERFINDTEXT" in native_viewer:
+        raise AssertionError("the viewer must not open its find bar with the last viewer search text")
+
+    zip_cpp = (REPOSITORY_ROOT / "src" / "zip.cpp").read_text(encoding="utf-8")
+    if "case SALCFG_VIEWERFINDTEXT:" not in zip_cpp:
+        raise AssertionError("zip.cpp must handle SALCFG_VIEWERFINDTEXT in GetConfigParameter")
+
+    if (
+        "viewer-find-bar" not in virtual_html
+        or "find-input" not in virtual_html
+        or "find-count" not in virtual_html
+        or "find-prev" not in virtual_html
+        or "find-next" not in virtual_html
+    ):
+        raise AssertionError("virtual-viewer.html must provide an integrated find bar")
+
+    if (
+        "salamander-find:" not in virtual_viewer
+        or "handleFindResult" not in virtual_viewer
+        or "navigateToMatch" not in virtual_viewer
+        or "highlightMatchInChunk" not in virtual_viewer
+        or "pendingMatch" not in virtual_viewer
+    ):
+        raise AssertionError("virtual-viewer.js must implement full-text search navigation and match highlighting")
+
+    if (
+        "ExecuteSearch" not in native_viewer
+        or "NavigateSearchMatch" not in native_viewer
+        or "salamander-find:" not in native_viewer
+        or "pendingPreparationResult_" not in native_viewer
+    ):
+        raise AssertionError("native_viewer.cpp must support full-text search and parallel preparation")
+
+    # Edit menu, print, go to line, DevTools policy.
+    for token in (
+        "IDM_NV_COPY",
+        "IDM_NV_SELECT_ALL",
+        "IDM_NV_FIND_NEXT",
+        "IDM_NV_FIND_PREVIOUS",
+        "IDM_NV_GOTO_LINE",
+        "IDM_NV_PRINT",
+        "ICoreWebView2_16",
+        "ShowPrintUI",
+        "salamander-copy-all",
+        "salamander-copy-text:",
+        "openGoto",
+    ):
+        if token not in native_viewer:
+            raise AssertionError(f"native_viewer.cpp must implement the Edit menu command {token}")
+    if "&Edit" not in native_viewer or "Ctrl+G" not in native_viewer or "Ctrl+P" not in native_viewer:
+        raise AssertionError("the Edit/File menus must show their shortcuts")
+    flattened = native_viewer.replace("\r\n", "\n")
+    if "#ifdef _DEBUG\n            settings->put_AreDevToolsEnabled(TRUE);" not in flattened:
+        raise AssertionError("DevTools may only be enabled in Debug builds")
+    if "put_AreDevToolsEnabled(FALSE)" not in native_viewer:
+        raise AssertionError("DevTools must be disabled in Release builds")
+    if "viewer-goto-bar" not in virtual_html or "goto-input" not in virtual_html:
+        raise AssertionError("virtual-viewer.html must provide the go to line bar")
+    if "prism-edit-menu-5" not in virtual_html:
+        raise AssertionError("virtual-viewer.html must bump the script cache-buster for the edit menu")
+    copy_command = flattened[flattened.index("void CopyCommand()"):flattened.index("void SelectAllCommand()")]
+    if copy_command.count("awaitingCopyText_ = true;") < 2:
+        raise AssertionError("CopyCommand must arm awaitingCopyText_ for the Prism kind too, or the page reply is dropped")
+    if "salamander-close" not in native_viewer or "salamander-close" not in virtual_viewer:
+        raise AssertionError("Esc must be owned by the Prism page (bars first) and close the host via salamander-close")
+    esc_block = flattened[flattened.index("virtualKey == VK_ESCAPE"):flattened.index("virtualKey == VK_F5")]
+    if "PrismText" not in esc_block:
+        raise AssertionError("the host Esc accelerator must not close a Prism viewer while a find/go-to bar is open")
+    reset_block = virtual_viewer[virtual_viewer.index("documentEpoch += 1;"):virtual_viewer.index("clearFindHighlight();")]
+    for token in ("selectAllActive = false;", "hideGotoBar();", "gotoTotal = 1;"):
+        if token not in reset_block:
+            raise AssertionError(f"the document reset must run {token}")
+    for token in ("openGotoBar", "goToLine", "selectWholeDocument", "copySelection", "salamander-copy-all"):
+        if token not in virtual_viewer:
+            raise AssertionError(f"virtual-viewer.js must implement {token}")
+    for name in ("textviewer", "webview2renderviewer", "salamatrix"):
+        plugin_dir = REPOSITORY_ROOT / "src" / "plugins" / name
+        sources = "".join(
+            path.read_text(encoding="utf-8-sig")
+            for path in plugin_dir.rglob("*")
+            if path.suffix in (".rc2", ".rh", ".rh2", ".cpp") and "vcxproj" not in path.parts
+        )
+        for token in ("IDS_VIEWER_EDIT", "IDS_VIEWER_COPY", "IDS_VIEWER_SELECT_ALL", "IDS_VIEWER_PRINT"):
+            if sources.count(token) < 3:
+                raise AssertionError(f"{name} must define, translate and load {token}")
+    textviewer_rc = (REPOSITORY_ROOT / "src" / "plugins" / "textviewer" / "lang" / "lang.rc2").read_text(
+        encoding="utf-8-sig"
+    )
+    for token in ("IDS_VIEWER_FIND_NEXT", "IDS_VIEWER_FIND_PREVIOUS", "IDS_VIEWER_GOTO_LINE"):
+        if token not in textviewer_rc:
+            raise AssertionError(f"textviewer must carry the Prism-only caption {token}")
 
     print("WebView2 render viewer source-contract tests passed.")
 

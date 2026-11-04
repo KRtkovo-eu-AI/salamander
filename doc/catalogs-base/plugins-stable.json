@@ -8,9 +8,9 @@
       "name": {
         "english": "7-Zip"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "7-Zip plugin for Open Salamander",
+        "english": "7-Zip plugin for Open Samandarin",
         "chinesesimplified": "创建、浏览和提取 7-Zip 存档。",
         "czech": "Vytváří, prohlíží a extrahuje 7-Zip archivy.",
         "german": "Erstellt, durchsucht und entpackt 7-Zip-Archive.",
@@ -52,9 +52,9 @@
         "romanian": "Automat",
         "spanish": "Automatización"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "Automation plugin for Open Salamander",
+        "english": "Automation plugin for Open Samandarin",
         "chinesesimplified": "自动化通用任务使用脚本。",
         "czech": "Automatizuje běžné úkoly použitím skriptů.",
         "german": "Automatisiert allgemeine Aufgaben mit Hilfe von Skripts.",
@@ -96,9 +96,9 @@
         "romanian": "Vizualizator baze de date",
         "spanish": "Visor de bases de datos"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "Database Viewer for Open Salamander",
+        "english": "Database Viewer for Open Samandarin",
         "chinesesimplified": "显示 dBase, FoxPro 和 CSV 数据库文件。",
         "czech": "Zobrazí dBase, FoxPro a CSV soubory databáze.",
         "german": "Anzeige von dBase, FoxPro und CSV Datenbankdateien.",
@@ -132,7 +132,7 @@
       },
       "author": "Ondřej Kotas (KRtekTM)",
       "description": {
-        "english": "DiskDir catalog support for Open Salamander"
+        "english": "DiskDir catalog support for Open Samandarin"
       },
       "latestVersion": "1.1 (x64)",
       "versionScheme": "fileversion",
@@ -166,7 +166,7 @@
       },
       "author": "Ondřej Zarevúcky",
       "description": {
-        "english": "DiskMap Plugin for Open Salamander",
+        "english": "DiskMap Plugin for Open Samandarin",
         "chinesesimplified": "用树形图显示你的磁盘上的文件。",
         "czech": "Zobrazuje stromovou mapu souborů na Vašem disku.",
         "german": "Zeigt eine strukturelle Abbildung der Dateien eines Laufwerks an.",
@@ -208,19 +208,19 @@
         "romanian": "Comparator de fișiere",
         "spanish": "Comparador de archivos"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "File Comparator for Open Salamander",
-        "chinesesimplified": "Open Salamander 的文件比较器",
-        "czech": "Porovnání souborů pro Open Salamander",
-        "german": "Dateivergleich für Open Salamander",
-        "dutch": "Bestandsvergelijker voor Open Salamander",
-        "hungarian": "Fájlösszehasonlító az Open Salamanderhez",
-        "russian": "Сравнение файлов для Open Salamander",
-        "french": "Comparateur de fichiers pour Open Salamander",
-        "slovak": "Porovnanie súborov pre Open Salamander",
-        "romanian": "Comparator de fișiere pentru Open Salamander",
-        "spanish": "Comparador de archivos para Open Salamander"
+        "english": "File Comparator for Open Samandarin",
+        "chinesesimplified": "Open Samandarin 的文件比较器",
+        "czech": "Porovnání souborů pro Open Samandarin",
+        "german": "Dateivergleich für Open Samandarin",
+        "dutch": "Bestandsvergelijker voor Open Samandarin",
+        "hungarian": "Fájlösszehasonlító az Open Samandarinhez",
+        "russian": "Сравнение файлов для Open Samandarin",
+        "french": "Comparateur de fichiers pour Open Samandarin",
+        "slovak": "Porovnanie súborov pre Open Samandarin",
+        "romanian": "Comparator de fișiere pentru Open Samandarin",
+        "spanish": "Comparador de archivos para Open Samandarin"
       },
       "latestVersion": "1.22 (x64)",
       "versionScheme": "fileversion",
@@ -252,9 +252,9 @@
         "spanish": "Carpetas",
         "chinesesimplified": "文件夹"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "Folders plugin for Open Salamander",
+        "english": "Folders plugin for Open Samandarin",
         "czech": "Procházejte složky jako Plocha, Ovládací panely, Koš atd.",
         "german": "Durchsuchen Sie Ordner wie Desktop, Systemsteuerung, Papierkorb usw.",
         "dutch": "Blader door mappen zoals Bureaublad, Configuratiescherm, Prullenbak, enz.",
@@ -296,9 +296,9 @@
         "romanian": "Client FTP",
         "spanish": "Cliente FTP"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "FTP Client for Open Salamander",
+        "english": "FTP Client for Open Samandarin",
         "chinesesimplified": "通过 FTP 传输文件和目录。",
         "czech": "Přenáší soubory a adresáře přes FTP.",
         "german": "Übertragung von Dateien und Verzeichnissen über FTP.",
@@ -384,9 +384,9 @@
         "romanian": "Checksum",
         "spanish": "Suma de comprobación"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "Checksum plugin for Open Salamander",
+        "english": "Checksum plugin for Open Samandarin",
         "chinesesimplified": "SFV, MD5, SHA-1, SHA-256, 及 SHA-512 校验和验证器和计算器。",
         "czech": "Ověření a výpočet SFV, MD5, SHA-1, SHA-256 a SHA-512 kontrolního součtu.",
         "german": "SFV-, MD5-, SHA-1-, SHA-256 und SHA-512-Prüfsummen verifizieren/berechnen.",
@@ -428,9 +428,9 @@
         "romanian": "Vizualizator Internet Explorer",
         "spanish": "Visor de Internet Explorer"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "Internet Explorer Viewer for Open Salamander",
+        "english": "Internet Explorer Viewer for Open Samandarin",
         "chinesesimplified": "基于 Internet Explorer 的轻量 HTML 和 XML 查看器。",
         "czech": "Jednoduchý HTML nebo XML prohlížeč založený na Internet Exploreru.",
         "german": "Schlanker HTML- und XML-Betrachter basierend auf dem Internet Explorer.",
@@ -474,7 +474,7 @@
       },
       "author": "Ondřej Kotas (KRtekTM)",
       "description": {
-        "english": "JSON Viewer .NET plugin for Open Salamander",
+        "english": "JSON Viewer .NET plugin for Open Samandarin",
         "chinesesimplified": "内部查看器，使用托管的 WinForms UI 显示 JSON 文档。",
         "czech": "Interní prohlížeč, který zobrazuje dokumenty JSON pomocí spravovaného uživatelského rozhraní WinForms.",
         "german": "Interner Viewer, der JSON-Dokumente mit einer verwalteten WinForms-Benutzeroberfläche anzeigt.",
@@ -516,9 +516,9 @@
         "romanian": "Vizualizator Multimedia",
         "spanish": "Visor multimedia"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "Multimedia Viewer for Open Salamander",
+        "english": "Multimedia Viewer for Open Samandarin",
         "chinesesimplified": "显示诸如 MP3, OGG, WAV, 等等的多媒体文件的信息。",
         "czech": "Zobrazí informace o multimedia souborech jako např.: MP3, OGG, WAV, atd.",
         "german": "Zeigt Informationen über Multimediadateien wie MP3, OGG, WAV, etc. an.",
@@ -560,9 +560,9 @@
         "romanian": "Retea",
         "spanish": "Red"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "Network plugin for Open Salamander",
+        "english": "Network plugin for Open Samandarin",
         "chinesesimplified": "提供到网络上的计算机的访问。",
         "czech": "Poskytuje přístup k počítačům na síti.",
         "german": "Ermöglicht den Zugriff auf Computer im Netzwerk.",
@@ -604,9 +604,9 @@
         "romanian": "PAK",
         "spanish": "PAK"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "Quake PAK archiver for Open Salamander",
+        "english": "Quake PAK archiver for Open Samandarin",
         "chinesesimplified": "浏览并解压 Quake PAK 压缩包。",
         "czech": "Prohlíží a extrahuje Quake PAK archivy.",
         "german": "Durchsucht und entpackt Quake PAK-Archive.",
@@ -648,9 +648,9 @@
         "romanian": "Vizualizator Executabil Portabil",
         "spanish": "Visor de ejecutable portátil"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "Portable Executable Viewer for Open Salamander",
+        "english": "Portable Executable Viewer for Open Samandarin",
         "chinesesimplified": "显示可移植的可执行文件，例如EXE，DLL等信息。",
         "czech": "Zobrazí informace o spustitelných souborech - EXE, DLL, atd.",
         "german": "Zeigt Informationen über ausführbare Dateien an (EXE, DLL, usw.).",
@@ -692,9 +692,9 @@
         "romanian": "PictView",
         "spanish": "PictView"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "Picture Viewer for Open Salamander",
+        "english": "Picture Viewer for Open Samandarin",
         "chinesesimplified": "快速文件查看器和转换器。",
         "czech": "Rychlý prohlížeč a konvertor obrázků.",
         "german": "Schnelles Betrachten und Konvertieren von Grafikdateien.",
@@ -736,9 +736,9 @@
         "romanian": "Dispozitive portabile",
         "spanish": "Dispositivos portátiles"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "Windows Portable Devices for Open Salamander",
+        "english": "Windows Portable Devices for Open Samandarin",
         "chinesesimplified": "管理便携式设备。",
         "czech": "Spravujte přenosná zařízení.",
         "german": "Tragbare Geräte verwalten.",
@@ -780,9 +780,9 @@
         "romanian": "Editor Registri",
         "spanish": "Editor del registro"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "Registry Editor for Open Salamander",
+        "english": "Registry Editor for Open Samandarin",
         "chinesesimplified": "浏览、查看和修改 Windows 注册表。",
         "czech": "Prohlíží, zobrazuje a upravuje Windows registr.",
         "german": "Durchsuchen, Anzeigen und Bearbeiten der Windows-Registrierung.",
@@ -824,9 +824,9 @@
         "romanian": "Cel ce Redenumeste",
         "spanish": "Cambio de nombre"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "Renamer plugin for Open Salamander",
+        "english": "Renamer plugin for Open Samandarin",
         "chinesesimplified": "强大的带有实时预览的批量重命名器。",
         "czech": "Hromadné přejmenování s náhledem v reálném čase.",
         "german": "Leistungsstarker Dateiumbenenner mit Echtzeit-Vorschau.",
@@ -870,7 +870,7 @@
       },
       "author": "Ondřej Kotas (KRtekTM)",
       "description": {
-        "english": "Samandarin update notification plugin for Open Salamander",
+        "english": "Samandarin update notification plugin for Open Samandarin",
         "chinesesimplified": "检查 GitHub 版本发布，并提供打开最新的 Samandarin 构建。",
         "czech": "Kontroluje vydání na GitHubu a nabízí otevřít nejnovější sestavení Samandarin.",
         "german": "Prüft GitHub-Releases und bietet an, die neueste Samandarin-Version zu öffnen.",
@@ -912,7 +912,7 @@
         "romanian": "Service Explorer",
         "spanish": "Service Explorer"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
         "english": "Browse and configure services.",
         "chinesesimplified": "浏览并配置服务。",
@@ -958,17 +958,17 @@
       },
       "author": "Dupl3xx",
       "description": {
-        "english": "A full-featured SFTP and SCP client as a file-system add-on for Open Salamander 5.0 (x64). Built on top of libssh2 + OpenSSL, it can handle modern cryptography that the original solution couldn't.",
-        "czech": "Plnohodnotný SFTP a SCP klient jako file-system doplněk do Open Salamander 5.0 (x64). Postavený nad libssh2 + OpenSSL, takže umí i moderní kryptografii, kterou původní řešení neuměla.",
-        "dutch": "Een volwaardige SFTP- en SCP-client als file-system add-on voor Open Salamander 5.0 (x64). Gebouwd op libssh2 + OpenSSL, waardoor hij moderne cryptografie aankan die de oorspronkelijke oplossing niet ondersteunde.",
-        "french": "Un client SFTP et SCP complet sous forme d’extension de système de fichiers pour Open Salamander 5.0 (x64). Basé sur libssh2 + OpenSSL, il prend en charge la cryptographie moderne que la solution d’origine ne pouvait pas gérer.",
-        "german": "Ein voll ausgestatteter SFTP- und SCP-Client als Dateisystem-Add-on für Open Salamander 5.0 (x64). Basierend auf libssh2 + OpenSSL unterstützt er moderne Kryptografie, die die ursprüngliche Lösung nicht beherrschte.",
-        "hungarian": "Teljes értékű SFTP- és SCP-kliens fájlrendszer-kiegészítőként az Open Salamander 5.0 (x64) számára. A libssh2 + OpenSSL alapjaira épül, így kezeli a modern kriptográfiát is, amelyre az eredeti megoldás nem volt képes.",
-        "chinesesimplified": "一个功能完整的 SFTP 和 SCP 客户端，作为 Open Salamander 5.0 (x64) 的文件系统插件提供。它基于 libssh2 + OpenSSL 构建，因此能够处理原始解决方案无法支持的现代加密技术。",
-        "romanian": "Un client SFTP și SCP complet, sub formă de extensie de sistem de fișiere pentru Open Salamander 5.0 (x64). Construit pe libssh2 + OpenSSL, poate gestiona criptografia modernă pe care soluția originală nu o putea suporta.",
-        "russian": "Полнофункциональный клиент SFTP и SCP в виде дополнения файловой системы для Open Salamander 5.0 (x64). Построен на базе libssh2 + OpenSSL, поэтому поддерживает современную криптографию, с которой исходное решение не справлялось.",
-        "slovak": "Plnohodnotný SFTP a SCP klient ako file-system doplnok pre Open Salamander 5.0 (x64). Postavený nad libssh2 + OpenSSL, takže zvláda aj modernú kryptografiu, ktorú pôvodné riešenie nepodporovalo.",
-        "spanish": "Un cliente SFTP y SCP completo como complemento de sistema de archivos para Open Salamander 5.0 (x64). Basado en libssh2 + OpenSSL, puede manejar criptografía moderna que la solución original no podía soportar."
+        "english": "A full-featured SFTP and SCP client as a file-system add-on for Open Samandarin 5.0 (x64). Built on top of libssh2 + OpenSSL, it can handle modern cryptography that the original solution couldn't.",
+        "czech": "Plnohodnotný SFTP a SCP klient jako file-system doplněk do Open Samandarin 5.0 (x64). Postavený nad libssh2 + OpenSSL, takže umí i moderní kryptografii, kterou původní řešení neuměla.",
+        "dutch": "Een volwaardige SFTP- en SCP-client als file-system add-on voor Open Samandarin 5.0 (x64). Gebouwd op libssh2 + OpenSSL, waardoor hij moderne cryptografie aankan die de oorspronkelijke oplossing niet ondersteunde.",
+        "french": "Un client SFTP et SCP complet sous forme d’extension de système de fichiers pour Open Samandarin 5.0 (x64). Basé sur libssh2 + OpenSSL, il prend en charge la cryptographie moderne que la solution d’origine ne pouvait pas gérer.",
+        "german": "Ein voll ausgestatteter SFTP- und SCP-Client als Dateisystem-Add-on für Open Samandarin 5.0 (x64). Basierend auf libssh2 + OpenSSL unterstützt er moderne Kryptografie, die die ursprüngliche Lösung nicht beherrschte.",
+        "hungarian": "Teljes értékű SFTP- és SCP-kliens fájlrendszer-kiegészítőként az Open Samandarin 5.0 (x64) számára. A libssh2 + OpenSSL alapjaira épül, így kezeli a modern kriptográfiát is, amelyre az eredeti megoldás nem volt képes.",
+        "chinesesimplified": "一个功能完整的 SFTP 和 SCP 客户端，作为 Open Samandarin 5.0 (x64) 的文件系统插件提供。它基于 libssh2 + OpenSSL 构建，因此能够处理原始解决方案无法支持的现代加密技术。",
+        "romanian": "Un client SFTP și SCP complet, sub formă de extensie de sistem de fișiere pentru Open Samandarin 5.0 (x64). Construit pe libssh2 + OpenSSL, poate gestiona criptografia modernă pe care soluția originală nu o putea suporta.",
+        "russian": "Полнофункциональный клиент SFTP и SCP в виде дополнения файловой системы для Open Samandarin 5.0 (x64). Построен на базе libssh2 + OpenSSL, поэтому поддерживает современную криптографию, с которой исходное решение не справлялось.",
+        "slovak": "Plnohodnotný SFTP a SCP klient ako file-system doplnok pre Open Samandarin 5.0 (x64). Postavený nad libssh2 + OpenSSL, takže zvláda aj modernú kryptografiu, ktorú pôvodné riešenie nepodporovalo.",
+        "spanish": "Un cliente SFTP y SCP completo como complemento de sistema de archivos para Open Samandarin 5.0 (x64). Basado en libssh2 + OpenSSL, puede manejar criptografía moderna que la solución original no podía soportar."
       },
       "latestVersion": "1.3 beta (x64)",
       "versionScheme": "fileversion",
@@ -1000,9 +1000,9 @@
         "romanian": "Imparte & Combina",
         "spanish": "Split & Combine"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "Split & Combine plugin for Open Salamander",
+        "english": "Split & Combine plugin for Open Samandarin",
         "chinesesimplified": "分割和合并文件。",
         "czech": "Rozdělení a spojení souborů.",
         "german": "Teilen und Zusammenfügen von Dateien.",
@@ -1044,9 +1044,9 @@
         "romanian": "TAR",
         "spanish": "TAR"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "TAR plugin for Open Salamander",
+        "english": "TAR plugin for Open Samandarin",
         "chinesesimplified": "浏览并解压 Unix 压缩包。",
         "czech": "Prohlíží a extrahuje Unix archivy.",
         "german": "Durchsucht und entpackt Unix Archive.",
@@ -1125,9 +1125,9 @@
       "name": {
         "english": "UnARJ"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "UnARJ plugin for Open Salamander"
+        "english": "UnARJ plugin for Open Samandarin"
       },
       "latestVersion": "1.23 (x64)",
       "versionScheme": "fileversion",
@@ -1149,9 +1149,9 @@
       "name": {
         "english": "UnCAB"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "UnCAB plugin for Open Salamander"
+        "english": "UnCAB plugin for Open Samandarin"
       },
       "latestVersion": "1.29 (x64)",
       "versionScheme": "fileversion",
@@ -1183,9 +1183,9 @@
         "romanian": "Recuperare",
         "spanish": "Desborrado"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "Undelete plugin for Open Salamander",
+        "english": "Undelete plugin for Open Samandarin",
         "chinesesimplified": "恢复从 FAT 或 NTFS 分区删除的文件。",
         "czech": "Obnoví vymazané soubory z FAT nebo NTFS oddílu.",
         "german": "Stellt auf FAT oder NTFS-Partitionen gelöschte Dateien wieder her.",
@@ -1217,9 +1217,9 @@
       "name": {
         "english": "UnFAT"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "UnFAT plugin for Open Salamander"
+        "english": "UnFAT plugin for Open Samandarin"
       },
       "latestVersion": "1.3 (x64)",
       "versionScheme": "fileversion",
@@ -1241,9 +1241,9 @@
       "name": {
         "english": "UnCHM"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "UnCHM plugin for Open Salamander"
+        "english": "UnCHM plugin for Open Samandarin"
       },
       "latestVersion": "1.6 (x64)",
       "versionScheme": "fileversion",
@@ -1265,9 +1265,9 @@
       "name": {
         "english": "UnISO"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "UnISO plugin for Open Salamander"
+        "english": "UnISO plugin for Open Samandarin"
       },
       "latestVersion": "1.39 (x64)",
       "versionScheme": "fileversion",
@@ -1299,9 +1299,9 @@
         "romanian": "UnLHA",
         "spanish": "UnLHA"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "UnLHA plugin for Open Salamander",
+        "english": "UnLHA plugin for Open Samandarin",
         "chinesesimplified": "浏览并解压 LHA 压缩包。",
         "czech": "Prohlíží a extrahuje LHA archivy.",
         "german": "Durchsucht und entpackt LHA Archive.",
@@ -1343,9 +1343,9 @@
         "romanian": "UnMIME",
         "spanish": "UnMIME"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "UnMIME plugin for Open Salamander",
+        "english": "UnMIME plugin for Open Samandarin",
         "chinesesimplified": "浏览并解压 MIME/Base64, UU/XXEncode, yEncode 和 BinHex 文件。",
         "czech": "Prohlíží a extrahuje MIME/Base64, UU/XXEncode, yEncode a BinHex soubory.",
         "german": "Durchsucht und entpackt MIME/Base64, UU/XX-/yEncode und BinHex Dateien.",
@@ -1377,9 +1377,9 @@
       "name": {
         "english": "UnOLE"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "UnOLE plugin for Open Salamander"
+        "english": "UnOLE plugin for Open Samandarin"
       },
       "latestVersion": "1.3 (x64)",
       "versionScheme": "fileversion",
@@ -1401,9 +1401,9 @@
       "name": {
         "english": "UnRAR"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "UnRAR plugin for Open Salamander"
+        "english": "UnRAR plugin for Open Samandarin"
       },
       "latestVersion": "3.4 (x64)",
       "versionScheme": "fileversion",
@@ -1437,7 +1437,7 @@
       },
       "author": "Ondřej Kotas (KRtekTM)",
       "description": {
-        "english": "WebView2 Render Viewer .NET plugin for Open Salamander",
+        "english": "WebView2 Render Viewer .NET plugin for Open Samandarin",
         "chinesesimplified": "使用 WebView2 显示已渲染的 HTML、Markdown 和网页文档的查看器。",
         "czech": "Zobrazovač, který pomocí WebView2 zobrazuje vykreslený HTML, Markdown a webové dokumenty.",
         "german": "Ansicht, die gerendertes HTML, Markdown und Webdokumente mithilfe von WebView2 anzeigt.",
@@ -1484,7 +1484,7 @@
       },
       "author": "Juraj Rojko",
       "description": {
-        "english": "Windows Mobile plugin for Open Salamander",
+        "english": "Windows Mobile plugin for Open Samandarin",
         "chinesesimplified": "访问你 Windows Mobile 设备上的文件。",
         "czech": "Zpřístupní soubory na Vašem Windows Mobile zařízení.",
         "german": "Zugriff auf Dateien des Windows Mobile Gerätes.",
@@ -1526,9 +1526,9 @@
         "romanian": "ZIP",
         "spanish": "ZIP"
       },
-      "author": "Open Salamander Authors",
+      "author": "Open Salamander Authors, Open Samandarin Authors",
       "description": {
-        "english": "ZIP plugin for Open Salamander",
+        "english": "ZIP plugin for Open Samandarin",
         "chinesesimplified": "创建，浏览，和解压 ZIP 压缩包。",
         "czech": "Vytváří,prohlíží, a extrahuje ZIP archivy.",
         "german": "Erstellt, durchsucht, und entpackt ZIP-Archive.",

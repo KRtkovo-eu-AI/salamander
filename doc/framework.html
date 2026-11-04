@@ -1,9 +1,13 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+-->
 <!DOCTYPE html>
 <!-- saved from url=(0011)about:blank -->
 <html data-theme="dark" style="color-scheme: dark;"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!--<base href="file:///G:/Dokumenty/_2026/notes/">--><base href="."><meta name="color-scheme" content="dark light"><title>salamander-extensions.md</title><script>(function(){if(window.chrome&&window.chrome.webview&&document){document.addEventListener('keydown',function(ev){if(ev&&ev.key==='Escape'){ev.preventDefault();try{window.chrome.webview.postMessage('escape');}catch(e){}}});}})();</script><style>html,body{margin:0;padding:16px;font-family:'Segoe UI',SegoeUI,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;background-color:#202020;color:#DCDCDC;}h1,h2,h3,h4,h5,h6{color:#DCDCDC;margin-top:1.2em;}a{color:#0078D7;text-decoration:none;}a:hover{text-decoration:underline;}code{font-family:'Consolas','Courier New',monospace;background-color:#313131;padding:2px 4px;border-radius:4px;}pre{overflow:auto;padding:12px;border-radius:6px;background-color:#313131;border:1px solid #434343;}table{border-collapse:collapse;margin:1em 0;width:100%;}th,td{border:1px solid #434343;padding:8px;text-align:left;}blockquote{border-left:4px solid #0078D7;margin:1em 0;padding:0.5em 1em;color:#494949;background-color:#8F8F8F;}img,video,iframe{max-width:100%;height:auto;display:block;margin:0.5em 0;}hr{border:0;border-top:1px solid #434343;margin:2em 0;}ul,ol{margin:0 0 1em 1.5em;}</style></head><body><p><strong>Úterý 14.07.2026 06:06</strong></p>
 <aside style="border:1px solid #0078D7;border-radius:6px;padding:12px;margin:12px 0;background:#252b31"><strong>Stav implementace 13. 8. 2026:</strong> tento soubor je původní vize. Aktuální stav a zbývající hardening popisuje <a href="salamatrix-gap-analysis.html">GAP analýza</a>. První finální rozsah prostřední vrstvy nyní zahrnuje persistentní balíčky, jednotný dispatcher a lifecycle, pět moderních runtime providerů, UI/commands/sides/events/storage, pojmenované lehké Viewery registrované podle masek a plochý <code>salamatrix:</code> FS na úrovni Hyper-V Machines (položky, SVG ikony, Enter, kontextové akce, refresh, <code>..</code>, breadcrumb a režimy zobrazení cesty). Viewer i FS mají srovnatelná dema ve všech pěti runtimech. Po zobrazení hlavního okna host ukazuje lokalizovaný průběh načítání s názvem právě načítaného pluginu nebo extension a samostatnými fázemi pro discovery, registraci extension, FS, menu, toolbarů, Viewerů a aktivaci. Stejný detail je dostupný při ukončování: dialog ukazuje právě uvolňovaný plugin a u Salamatrix konkrétní extension při oznámení shutdownu, odregistrování toolbarů a extension, zastavení runtime, zavírání oken a služeb, následované panely, uložením konfigurace a dokončením aplikace. Salamatrix.AI a lokální LLaMA nejsou součástí tohoto hodnocení.</aside>
-<p>Představuju si to jako <strong>novou vrstvu rozšiřitelnosti Salamanderu mezi dnešním Automation skriptem a plnohodnotným nativním C++ pluginem</strong>.</p>
-<p>Dnes už Automation obsahuje dobrý základ: skript může pracovat přes objektový model Salamanderu, přistupovat k panelům a jejich položkám, vytvářet formuláře a používat pomocné funkce pro práci s cestami. Skripty mohou být napsané v libovolném jazyce, pro který je dostupný Windows Script Host engine; nativně tedy JScript a VBScript, přes dodatečné enginy například i Python a další. (<a href="https://www.altap.cz/salamander/help/automation/ref_salamander/?utm_source=chatgpt.com" title="Salamander Object">altap.cz</a>)</p>
+<p>Představuju si to jako <strong>novou vrstvu rozšiřitelnosti Samandarinu mezi dnešním Automation skriptem a plnohodnotným nativním C++ pluginem</strong>.</p>
+<p>Dnes už Automation obsahuje dobrý základ: skript může pracovat přes objektový model Samandarinu, přistupovat k panelům a jejich položkám, vytvářet formuláře a používat pomocné funkce pro práci s cestami. Skripty mohou být napsané v libovolném jazyce, pro který je dostupný Windows Script Host engine; nativně tedy JScript a VBScript, přes dodatečné enginy například i Python a další. (<a href="https://www.altap.cz/salamander/help/automation/ref_salamander/?utm_source=chatgpt.com" title="Salamander Object">altap.cz</a>)</p>
 <p>Já bych ale udělal krok dál:</p>
 <blockquote>
 <p><strong>Salamander by neposkytoval jen možnost „spustit skript“, ale obecný framework, pomocí kterého lze psát lehká skriptovaná rozšíření integrovaná do aplikace.</strong></p>
@@ -26,7 +30,7 @@ L¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦�
 -                                              -
 -  Python / PowerShell / JavaScript / ...      -
 -  Commands, menus, buttons, events, dialogs   -
--  Dlouhodobá integrace se Salamanderem        -
+-  Dlouhodobá integrace se Samandarinem        -
 L¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦-
                        ^
                        -
@@ -122,7 +126,7 @@ Git Tools
 ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 Properties
 </code></pre>
-<p>To už není obyčejný skript. <strong>Rozšíření skutečně žije uvnitř Salamanderu.</strong></p>
+<p>To už není obyčejný skript. <strong>Rozšíření skutečně žije uvnitř Samandarinu.</strong></p>
 <hr>
 <h1 id="spolecne-salamander-api">4. Společné Salamander API</h1>
 <p>Tohle bych považoval za úplný střed celé koncepce.</p>
@@ -173,7 +177,7 @@ L¦¦ Environment
 <p>A teď podrobněji.</p>
 <hr>
 <h2 id="leftside-a-rightside">5. <code>LeftSide</code> a <code>RightSide</code></h2>
-<p>Ve forku Samandarin jsem provedl mnoho změn ve „stranách“ Salamanderu a tabech, proto bych nové API už nestavěl jen kolem staré abstrakce <code>LeftPanel</code> a <code>RightPanel</code>, ale kolem <strong>stran</strong>, které mohou obsahovat více tabů:</p>
+<p>Ve forku Samandarin jsem provedl mnoho změn ve „stranách“ Samandarinu a tabech, proto bych nové API už nestavěl jen kolem staré abstrakce <code>LeftPanel</code> a <code>RightPanel</code>, ale kolem <strong>stran</strong>, které mohou obsahovat více tabů:</p>
 <pre><code class="language-text">Salamander.LeftSide
 -
 +¦¦ ActiveTab
@@ -198,7 +202,7 @@ for tab in left.tabs:
 $activeTab.Path = "C:\Repositories\Salamander"
 </code></pre>
 <p>To je podle mě důležitá modernizace object modelu, protože současný Automation historicky pracuje s objekty jako <code>LeftPanel</code>, <code>RightPanel</code>, <code>SourcePanel</code> a <code>TargetPanel</code>. (<a href="https://www.altap.cz/salamander/help/automation/ref_salamander/?utm_source=chatgpt.com" title="Salamander Object">altap.cz</a>)</p>
-<p>V moderním Salamanderu s taby bych spíš chtěl:</p>
+<p>V moderním Samandarinu s taby bych spíš chtěl:</p>
 <pre><code class="language-text">LeftSide/MainSide
     Tab 1
     Tab 2
@@ -214,7 +218,7 @@ TargetSide
 </code></pre>
 <p>podle toho, která strana je právě aktivní.</p>
 <hr>
-<h1 id="pristup-k-internim-prikazum-salamanderu">6. Přístup k interním příkazům Salamanderu</h1>
+<h1 id="pristup-k-internim-prikazum-salamanderu">6. Přístup k interním příkazům Samandarinu</h1>
 <p>Tady bych viděl jednu z největších přidaných hodnot.</p>
 <p>Skript by neměl muset sám znovu implementovat kopírování, mazání, archivaci nebo přejmenování, když už tyto věci umí Salamander.</p>
 <p>Takže například:</p>
@@ -245,7 +249,7 @@ Salamander.commands.execute("CompareDirectories")
 )
 </code></pre>
 <p>To dovoluje mnohem jemnější automatizaci.</p>
-<p>A právě tady by podle mě bylo možné velmi dobře využít existující implementaci Salamanderu namísto jejího opakování v každém skriptu.</p>
+<p>A právě tady by podle mě bylo možné velmi dobře využít existující implementaci Samandarinu namísto jejího opakování v každém skriptu.</p>
 <hr>
 <h1 id="registrace-vlastnich-prikazu">7. Registrace vlastních příkazů</h1>
 <p>Rozšíření by mohlo při inicializaci říct:</p>
@@ -255,7 +259,7 @@ Salamander.commands.execute("CompareDirectories")
     handler=open_on_github
 )
 </code></pre>
-<p>Tím by vznikl příkaz uvnitř Salamanderu.</p>
+<p>Tím by vznikl příkaz uvnitř Samandarinu.</p>
 <p>A ten samý příkaz by potom mohl být umístěn:</p>
 <pre><code class="language-text">Plugins menu
 Toolbar
@@ -290,7 +294,7 @@ něco udělá
 skončí
 </code></pre>
 <p>Extension může reagovat:</p>
-<pre><code class="language-text">něco se v Salamanderu stane
+<pre><code class="language-text">něco se v Samandarinu stane
     ˇ
 framework vyvolá event
     ˇ
@@ -588,7 +592,7 @@ for (const item of selected) {
     Salamander.log.info(item.path);
 }
 </code></pre>
-<p>Takový runtime by mohl být velmi malý a třeba přímo distribuovaný se Salamanderem.</p>
+<p>Takový runtime by mohl být velmi malý a třeba přímo distribuovaný se Samandarinem.</p>
 <p>A zde bych osobně zachoval i zpětnou kompatibilitu s existujícím Automation pluginem a jeho skripty, protože dnešní plugin má stále reálné uživatele a ještě v roce 2025 se na fóru objevovalo praktické používání VBScript automatizace. (<a href="https://forum.altap.cz/viewtopic.php?t=45491&amp;utm_source=chatgpt.com" title="Pomoc s vylepšením VBSkriptu pre premenovanie súborov">forum.altap.cz</a>)</p>
 <hr>
 <h1 id="mohla-by-existovat-jednoducha-extension-bez-manifestu">17. Mohla by existovat jednoduchá extension bez manifestu</h1>
@@ -778,7 +782,7 @@ L¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦-
 <h1 id="a-uplne-nejpodstatnejsi-myslenka">A úplně nejpodstatnější myšlenka</h1>
 <p>Já bych to formuloval asi takto:</p>
 <blockquote>
-<p><strong>Dnes má Salamander Plugin SDK pro plnohodnotné nativní pluginy a Automation plugin pro spouštění skriptů. Mezi těmito dvěma úrovněmi ale existuje velký prostor pro lehká skriptovaná rozšíření, která se mohou dlouhodobě integrovat do Salamanderu, registrovat vlastní příkazy a UI prvky, reagovat na události a používat společné Salamander API z různých programovacích jazyků.</strong></p>
+<p><strong>Dnes má Salamander Plugin SDK pro plnohodnotné nativní pluginy a Automation plugin pro spouštění skriptů. Mezi těmito dvěma úrovněmi ale existuje velký prostor pro lehká skriptovaná rozšíření, která se mohou dlouhodobě integrovat do Samandarinu, registrovat vlastní příkazy a UI prvky, reagovat na události a používat společné Salamander API z různých programovacích jazyků.</strong></p>
 </blockquote>
 <p>A přesně v tom podle mě spočívá největší potenciál toho nápadu.</p>
 <p>Nejde vlastně primárně o:</p>
@@ -799,7 +803,7 @@ L¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦-
 <li><strong>Automation Framework</strong>, který abstrahuje jednotlivé runtimy a poskytuje společné Salamander API.</li>
 <li><strong>AI-assisted automation</strong>, kde uživatel vůbec nemusí umět programovat: popíše, co právě potřebuje udělat, AI vytvoří jednorázový skript proti známému Automation API a Salamander ho provede.</li>
 </ol>
-<p>A právě ten třetí bod mi přijde mimořádně zajímavý, protože by to nebyl žádný obecný „AI chat přilepený k file manageru“. Byl by to <strong>účelově omezený programátor Salamanderu na vyžádání</strong>.</p>
+<p>A právě ten třetí bod mi přijde mimořádně zajímavý, protože by to nebyl žádný obecný „AI chat přilepený k file manageru“. Byl by to <strong>účelově omezený programátor Samandarinu na vyžádání</strong>.</p>
 <h2 id="predstava-z-pohledu-uzivatele">Představa z pohledu uživatele</h2>
 <p>Uživatel má například v levé straně:</p>
 <pre><code class="language-text">IMG_20250713_194501.jpg
@@ -1277,9 +1281,9 @@ Generating automation...
 <p>Nehledám utilitu.</p>
 <p>Nehledám na Googlu PowerShell command.</p>
 <p>Nepíšu skript.</p>
-<p>Prostě řeknu Salamanderu, <strong>co potřebuji udělat s právě otevřenými soubory</strong>.</p>
+<p>Prostě řeknu Samandarinu, <strong>co potřebuji udělat s právě otevřenými soubory</strong>.</p>
 <hr>
-<h1 id="a-pritom-se-z-toho-muze-stat-nova-funkce-salamanderu">A přitom se z toho může stát „nová funkce Salamanderu“</h1>
+<h1 id="a-pritom-se-z-toho-muze-stat-nova-funkce-salamanderu">A přitom se z toho může stát „nová funkce Samandarinu“</h1>
 <p>Třeba zjistíš, že pořád používáš AI požadavek:</p>
 <blockquote>
 <p>Z označených souborů vytvoř Markdown tabulku s názvem, velikostí, SHA-256 a relativní cestou a zkopíruj ji do clipboardu.</p>
@@ -1342,7 +1346,7 @@ Missing capabilities:
 • Register custom panel column
 • Provide thumbnail image for a file item
 </code></pre>
-<p>A to je pro vývoj Salamanderu překvapivě cenné.</p>
+<p>A to je pro vývoj Samandarinu překvapivě cenné.</p>
 <p>Protože po určité době můžeme zjistit:</p>
 <pre><code class="language-text">Most commonly requested unavailable Automation capabilities:
 
@@ -1428,7 +1432,7 @@ Valid
 </code></pre>
 <p>A upřímně: <strong>mně se tohle jako celek líbí ještě víc než původní nápad „rozšiřme Automation o Python a PowerShell“.</strong> Protože tady už vzniká skutečný systém:</p>
 <blockquote>
-<p>Salamander má jednotné aplikační a UI API. Nativní pluginy i skriptovaná rozšíření ho mohou používat. Automation Framework poskytuje různé jazykové runtimy. A nad nejjednodušší vrstvou automatizace může sedět AI, která uživateli na požádání vytvoří přesně ten jednorázový nástroj, který v daném okamžiku potřebuje — a pokud se osvědčí, může ho uložit jako trvalou součást svého Salamanderu.</p>
+<p>Salamander má jednotné aplikační a UI API. Nativní pluginy i skriptovaná rozšíření ho mohou používat. Automation Framework poskytuje různé jazykové runtimy. A nad nejjednodušší vrstvou automatizace může sedět AI, která uživateli na požádání vytvoří přesně ten jednorázový nástroj, který v daném okamžiku potřebuje — a pokud se osvědčí, může ho uložit jako trvalou součást svého Samandarinu.</p>
 </blockquote>
-<p>Tohle je podle mě <strong>velmi silná vize moderního Salamanderu</strong>, aniž by přestal být Salamanderem. AI není přilepený chatbot, Python není alternativní Plugin SDK a scripted extensions nejsou druhotřídní pluginy. Všechno vyrůstá z jednoho společného API a liší se jen úrovní permanence a složitosti.</p>
+<p>Tohle je podle mě <strong>velmi silná vize moderního Samandarinu</strong>, aniž by přestal být Samandarinem. AI není přilepený chatbot, Python není alternativní Plugin SDK a scripted extensions nejsou druhotřídní pluginy. Všechno vyrůstá z jednoho společného API a liší se jen úrovní permanence a složitosti.</p>
 </body></html>
