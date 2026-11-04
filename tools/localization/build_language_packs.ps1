@@ -435,9 +435,21 @@ if ($validationWarnings.Count -gt 0)
 if ($fatalFailures -eq 0)
 {
     $langDir = Join-Path $buildRootFull "lang"
-    $coreLangs = Get-ChildItem -LiteralPath $langDir -Filter "*.slg" | ForEach-Object { $_.Name }
+    $coreLangs = Get-ChildItem -LiteralPath $langDir -Filter "*.slg" -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }
     Write-Host ""
-    Write-Host "  Language packs now in runtime lang/: $($coreLangs -join ', ')"
+    Write-Host "  Language .slg intermediates in runtime lang/: $($coreLangs -join ', ')"
+
+    $officialPackScript = Join-Path $scriptDir "build_official_langpack.ps1"
+    if (Test-Path -LiteralPath $officialPackScript)
+    {
+        Write-Host ""
+        Write-Host "Building official langpack.dll from non-English .slg intermediates..."
+        & $officialPackScript -BuildRoot $buildRootFull
+        if (-not $?)
+        {
+            throw "Official language pack build failed."
+        }
+    }
 }
 else
 {

@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Initialize English language metadata without a separate english.slg file. | English UI is embedded in host binaries; other languages come from langpack.dll. | | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -15,6 +18,7 @@
 #include "reglib\src\regparse.h"
 #include "configstorage.h"
 #include "filenamecase.h"
+#include "langpack.h"
 
 // ****************************************************************************
 
@@ -3114,13 +3118,45 @@ BOOL IsSLGFileValid(HINSTANCE hModule, HINSTANCE hSLG, WORD& slgLangID, char* is
 BOOL CLanguage::Init(const char* fileName, HINSTANCE modul)
 {
     BOOL ret = FALSE;
-    char path[MAX_PATH];
     if (modul == NULL)
         modul = HInstance;
+
+    // Embedded English: no separate english.slg is required.
+    if (SalIsEnglishLanguageName(fileName))
+    {
+        return Init(fileName, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US),
+                    L"Open Samandarin Authors", "https://samandarin.net",
+                    L"English version", "ENGLISH");
+    }
+
+    char languageBase[64];
+    SalLanguageBaseName(fileName, languageBase, _countof(languageBase));
+
+    // Try the official language pack first (module key from host / plugin folder).
+    char moduleKey[64];
+    lstrcpyn(moduleKey, SAL_LANGPACK_MODULE_SALAMAND, _countof(moduleKey));
+    if (modul != HInstance)
+    {
+        char dllPath[MAX_PATH];
+        if (GetModuleFileName(modul, dllPath, MAX_PATH) != 0)
+        {
+            char* file = strrchr(dllPath, '\\');
+            if (file != NULL)
+            {
+                *file = 0;
+                char* dir = strrchr(dllPath, '\\');
+                if (dir != NULL)
+                    lstrcpyn(moduleKey, dir + 1, _countof(moduleKey));
+            }
+        }
+    }
+
+    BOOL owned = FALSE;
+    HINSTANCE hLib = SalLoadLanguageForModule(modul, moduleKey, fileName, &owned);
+    char path[MAX_PATH];
     GetModuleFileName(modul, path, MAX_PATH);
     sprintf(strrchr(path, '\\') + 1, "lang\\%s", fileName);
 
-    HINSTANCE hLib = HANDLES(LoadLibrary(path));
     if (hLib != NULL)
     {
         WORD langID;
@@ -3138,25 +3174,25 @@ BOOL CLanguage::Init(const char* fileName, HINSTANCE modul)
             {
                 ok &= ver.ReadResource(hLib, VS_VERSION_INFO);
                 if (!ok)
-                    TRACE_E("Missing VERSIONINFO resource in language file " << path);
+                    TRACE_E("Missing VERSIONINFO resource in language module for " << fileName);
             }
             if (ok)
             {
                 ok &= ver.QueryString("\\StringFileInfo\\040904b0\\SLGAuthor", NULL, 0, slg_athorW, _countof(slg_athorW));
                 if (!ok)
-                    TRACE_E("Missing SLGAuthor in VERSIONINFO resource in language file " << path);
+                    TRACE_E("Missing SLGAuthor in VERSIONINFO resource in language module for " << fileName);
             }
             if (ok)
             {
                 ok &= ver.QueryString("\\StringFileInfo\\040904b0\\SLGWeb", slg_web, _countof(slg_web));
                 if (!ok)
-                    TRACE_E("Missing SLGWeb in VERSIONINFO resource in language file " << path);
+                    TRACE_E("Missing SLGWeb in VERSIONINFO resource in language module for " << fileName);
             }
             if (ok)
             {
                 ok &= ver.QueryString("\\StringFileInfo\\040904b0\\SLGComment", NULL, 0, slg_commentW, _countof(slg_commentW));
                 if (!ok)
-                    TRACE_E("Missing SLGComment in VERSIONINFO resource in language file " << path);
+                    TRACE_E("Missing SLGComment in VERSIONINFO resource in language module for " << fileName);
             }
             if (ok)
             {
@@ -3180,12 +3216,13 @@ BOOL CLanguage::Init(const char* fileName, HINSTANCE modul)
                 ret = TRUE;
         }
         else
-            TRACE_E("SLG is not valid (or plugin's VERSIONINFO resource is not set properly): " << path);
+            TRACE_E("Language module is not valid (or plugin's VERSIONINFO resource is not set properly): " << fileName);
 
-        HANDLES(FreeLibrary(hLib));
+        if (owned && !SalLanguageModuleIsHost(modul, hLib))
+            FreeLibrary(hLib);
     }
     else
-        TRACE_E("Cannot load SLG module " << path);
+        TRACE_E("Cannot load language module " << fileName << " (pack/path: " << path << ")");
     return ret;
 }
 

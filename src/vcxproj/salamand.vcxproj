@@ -694,6 +694,8 @@
     </ClCompile>
     <ClCompile Include="..\safefile.cpp">
     </ClCompile>
+    <ClCompile Include="..\langpack.cpp">
+    </ClCompile>
     <ClCompile Include="..\salamdr1.cpp">
     </ClCompile>
     <ClCompile Include="..\salamdr2.cpp">
@@ -1217,6 +1219,9 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\salamand.rc">
+    </ResourceCompile>
+    <ResourceCompile Include="..\lang\lang.rc">
+      <PreprocessorDefinitions>SKIP_LANG_VERSIONINFO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
