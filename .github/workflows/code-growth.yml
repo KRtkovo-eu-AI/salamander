@@ -84,6 +84,10 @@ jobs:
           $delta = [int]$report.comparison.summary.deltaNloc
           "title=$('{0:+#,#;-#,#;0} NLOC in PR' -f $delta)" | Add-Content -Path $env:GITHUB_OUTPUT
 
+      # A pull_request run from a fork gets a read-only GITHUB_TOKEN, so it cannot
+      # update this check or post comments. Keep these steps on same-repository
+      # PRs. Fork comments are published by code-growth-comment.yml after this
+      # workflow completes.
       - name: Show source growth summary on the PR check
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         env:

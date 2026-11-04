@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[3]
 REPORT = ROOT / "tools" / "code_metrics" / "report_code_growth.py"
 RELEASE_REPORTS = ROOT / "tools" / "code_metrics" / "generate_release_reports.py"
 WORKFLOW = ROOT / ".github" / "workflows" / "code-growth.yml"
+COMMENT_WORKFLOW = ROOT / ".github" / "workflows" / "code-growth-comment.yml"
 PR_BUILD = ROOT / ".github" / "workflows" / "pr-msbuild.yml"
 DIRECTORY_TARGETS = ROOT / "Directory.Build.targets"
 
@@ -205,3 +206,30 @@ def test_workflow_is_source_only_and_pr_build_calls_codeql_after_success() -> No
     assert "report_code_growth.py" in targets
     assert "'$(Configuration)|$(Platform)' == 'Release|x64'" in targets
     assert "OpenSalamanderReportBinarySize" not in targets
+
+
+def test_fork_pull_requests_get_source_growth_comments() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    comment_workflow = COMMENT_WORKFLOW.read_text(encoding="utf-8")
+
+    assert "head.repo.full_name == github.repository" in workflow
+    assert "code-growth-comment.yml" in workflow
+    assert "workflow_run:" in comment_workflow
+    assert "workflows: ['Source Code Growth']" in comment_workflow
+    assert "github.event.workflow_run.event == 'pull_request'" in comment_workflow
+    assert "github.event.workflow_run.conclusion == 'success'" in comment_workflow
+    assert "pull_requests[0]" not in comment_workflow
+    assert "head_repository.full_name != github.repository" in comment_workflow
+    assert "name: source-code-growth-report" in comment_workflow
+    assert "name: source-code-growth-pr-report" in comment_workflow
+    assert "github.event.workflow_run.id" in comment_workflow
+    assert "head: `${headOwner}:${headBranch}`" in comment_workflow
+    assert "item.head.sha === headSha" in comment_workflow
+    assert "<!-- source-code-growth-report -->" in comment_workflow
+    assert "<!-- source-code-growth-pr-report -->" in comment_workflow
+    assert "github.rest.issues.createComment" in comment_workflow
+    assert "github.rest.issues.updateComment" in comment_workflow
+    assert "# Source code growth report" in comment_workflow
+    assert "issues: write" in comment_workflow
+    assert "pull-requests: write" in comment_workflow
+    assert "actions: read" in comment_workflow
