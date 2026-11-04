@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Format legacy configuration names with a literal printf format. | CodeQL rejected the loaded product template as a non-constant format string. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
@@ -1949,8 +1950,29 @@ void FormatConfigDisplayName(const char* root, const char* version, char* buffer
         return;
     }
 
-    const char* format = DetectProductName(root);
-    _snprintf_s(buffer, bufferChars, _TRUNCATE, format != NULL ? format : "%s", version != NULL ? version : "");
+    // The localized templates are "Product %s". They come from LoadStr, so they
+    // must not be passed as the printf format string.
+    const char* productFormat = DetectProductName(root);
+    const char* safeVersion = version != NULL ? version : "";
+    const char* placeholder = productFormat != NULL ? strstr(productFormat, "%s") : NULL;
+    if (productFormat == NULL || placeholder == NULL)
+    {
+        _snprintf_s(buffer, bufferChars, _TRUNCATE, "%s",
+                    productFormat != NULL ? productFormat : safeVersion);
+        return;
+    }
+
+    size_t prefixChars = (size_t)(placeholder - productFormat);
+    if (prefixChars >= bufferChars)
+        prefixChars = bufferChars - 1;
+    if (prefixChars > 0)
+        memcpy(buffer, productFormat, prefixChars);
+    buffer[prefixChars] = 0;
+    if (prefixChars + 1 < bufferChars)
+    {
+        _snprintf_s(buffer + prefixChars, bufferChars - prefixChars, _TRUNCATE, "%s%s",
+                    safeVersion, placeholder + 2);
+    }
 }
 
 static void MCDTrimTrailingSpaces(char* text)
