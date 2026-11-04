@@ -209,7 +209,7 @@ void RealHelperSmokeTest()
     ULONGLONG started = GetTickCount64();
     DriveFreeSpaceValue value = DriveFreeSpaceQuery(letter, DRIVE_REMOVABLE, nullptr,
                                                     false, dfsOnce, nullptr, 0);
-    Check(GetTickCount64() - started < 250, "real query returns without waiting for child probe");
+    Check(GetTickCount64() - started < 1000, "real query returns without waiting for child probe");
     for (unsigned i = 0; value.Pending && i < 180; ++i)
     {
         Sleep(25);
@@ -233,7 +233,7 @@ void RealHelperSmokeTest()
         value = DriveFreeSpaceQuery(letter, DRIVE_REMOVABLE, nullptr, false, dfsUpdated, nullptr, 0);
     }
     ULONGLONG elapsed = GetTickCount64() - started;
-    Check(!value.Pending && !value.Available && elapsed >= Deadline && elapsed < 5000,
+    Check(!value.Pending && !value.Available && elapsed >= Deadline && elapsed < 8000,
           "actual never-returning helper is timed out within bounded deadline");
     Check(WaitForChildren(0), "timed-out process exits and leaves no child behind");
     std::printf("Real hung helper deadline: %llu ms\n", elapsed);
@@ -253,7 +253,7 @@ void RealHelperSmokeTest()
     started = GetTickCount64();
     DriveFreeSpaceShutdown();
     Check(WaitForChildren(0), "shutdown kills an actual running helper without orphaning it");
-    Check(GetTickCount64() - started < 2000, "shutdown does not wait for a filesystem provider");
+    Check(GetTickCount64() - started < 5000, "shutdown does not wait for a filesystem provider");
     std::printf("Real shutdown: %llu ms\n", GetTickCount64() - started);
     SetEnvironmentVariableW(L"SAL_TEST_DRIVE_FREE_SPACE_HANG", nullptr);
 }

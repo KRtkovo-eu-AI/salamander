@@ -50,7 +50,7 @@ struct Job
     SharedProbe* Shared = nullptr;
     unsigned Drive = 0;
     std::uint64_t Token = 0;
-    bool Terminating = false;
+    ULONGLONG Due = 0; // Absolute tick of the probe deadline, set after launch.
 };
 
 struct Service
@@ -300,10 +300,30 @@ bool StartJob(Service& service, Job& job, const Request& request)
     return assigned;
 }
 
+// Timed-out helpers are killed at once but may stay alive in uninterruptible
+// kernel (SMB) I/O. They leave their probe slot immediately and wait here, in
+// a bounded list, until Windows really ends them. Invariant: live probes plus
+// zombies never exceed MaxZombies, so moving a job here cannot overflow.
+const unsigned MaxZombies = 8;
+
+void MoveToZombies(Job& job, Job* zombies)
+{
+    TerminateProcess(job.Process, ERROR_TIMEOUT);
+    for (unsigned i = 0; i < MaxZombies; ++i)
+        if (zombies[i].Process == nullptr)
+        {
+            zombies[i] = job;
+            job = Job();
+            return;
+        }
+    CloseJob(job, true); // Unreachable thanks to the launch gate.
+}
+
 DWORD WINAPI ServiceThread(void* parameter)
 {
     Service& service = *static_cast<Service*>(parameter);
     Job jobs[MaxProbes];
+    Job zombies[MaxZombies];
     for (;;)
     {
         AcquireSRWLockExclusive(&service.Lock);
@@ -311,18 +331,15 @@ DWORD WINAPI ServiceThread(void* parameter)
         ReleaseSRWLockExclusive(&service.Lock);
         if (stop)
             break;
+        for (Job& zombie : zombies)
+            if (zombie.Process != nullptr && WaitForSingleObject(zombie.Process, 0) == WAIT_OBJECT_0)
+                CloseJob(zombie, false);
         for (Job& job : jobs)
         {
             if (job.Process == nullptr)
                 continue;
             ULONGLONG now = GetTickCount64();
             bool finished = WaitForSingleObject(job.Process, 0) == WAIT_OBJECT_0;
-            if (job.Terminating)
-            {
-                if (finished)
-                    CloseJob(job, false);
-                continue;
-            }
             AcquireSRWLockExclusive(&service.Lock);
             bool current = service.Values.IsCurrent(job.Drive, job.Token);
             bool expired = service.Values.Expired(job.Drive, job.Token, now);
@@ -345,19 +362,20 @@ DWORD WINAPI ServiceThread(void* parameter)
                 if (finished)
                     CloseJob(job, false);
                 else
-                {
-                    TerminateProcess(job.Process, ERROR_TIMEOUT);
-                    // Keep this slot occupied until Windows confirms exit.
-                    // A broken provider must never create an unbounded chain
-                    // of timed-out processes still stuck in kernel I/O.
-                    job.Terminating = true;
-                }
+                    MoveToZombies(job, zombies);
             }
         }
         for (Job& job : jobs)
         {
             if (job.Process != nullptr)
                 continue;
+            unsigned occupied = 0;
+            for (const Job& other : jobs)
+                occupied += other.Process != nullptr ? 1 : 0;
+            for (const Job& zombie : zombies)
+                occupied += zombie.Process != nullptr ? 1 : 0;
+            if (occupied >= MaxZombies)
+                break; // Too many unkillable helpers; wait for some to exit.
             AcquireSRWLockExclusive(&service.Lock);
             int drive = service.Stop ? -1 : service.Values.Reserve(GetTickCount64());
             Request request;
@@ -370,7 +388,18 @@ DWORD WINAPI ServiceThread(void* parameter)
             ReleaseSRWLockExclusive(&service.Lock);
             if (drive < 0)
                 break;
-            if (!StartJob(service, job, request))
+            if (StartJob(service, job, request))
+            {
+                // The deadline covers the probe only, not CreateProcess and
+                // the helper's CRT start-up; remote shares are legitimately slower.
+                ULONGLONG now = GetTickCount64();
+                unsigned limit = request.Type == DRIVE_REMOTE ? DeadlineRemote : DeadlineRemovable;
+                job.Due = now + limit;
+                AcquireSRWLockExclusive(&service.Lock);
+                service.Values.Start(job.Drive, job.Token, now, limit);
+                ReleaseSRWLockExclusive(&service.Lock);
+            }
+            else
             {
                 AcquireSRWLockExclusive(&service.Lock);
                 bool completed = service.Values.Complete(job.Drive, job.Token, false, 0, GetTickCount64(), 0);
@@ -378,21 +407,36 @@ DWORD WINAPI ServiceThread(void* parameter)
                     PostMessageW(request.Window, request.Message, 0, 0);
                 ReleaseSRWLockExclusive(&service.Lock);
                 if (job.Process != nullptr)
-                {
-                    TerminateProcess(job.Process, ERROR_TIMEOUT);
-                    job.Terminating = true;
-                }
+                    MoveToZombies(job, zombies);
                 else
                     CloseJob(job, false);
             }
         }
-        bool active = false;
+        // Sleep until something can change: a wake request, any helper exit
+        // (live or zombie), or the earliest live deadline. No polling.
+        HANDLE handles[1 + MaxProbes + MaxZombies];
+        DWORD count = 0;
+        handles[count++] = service.Wake;
+        ULONGLONG now = GetTickCount64();
+        DWORD timeout = INFINITE;
         for (const Job& job : jobs)
-            active = active || job.Process != nullptr;
-        WaitForSingleObject(service.Wake, active ? 25 : INFINITE);
+            if (job.Process != nullptr)
+            {
+                handles[count++] = job.Process;
+                ULONGLONG remaining = job.Due > now ? job.Due - now : 0;
+                if (remaining < timeout)
+                    timeout = static_cast<DWORD>(remaining);
+            }
+        for (const Job& zombie : zombies)
+            if (zombie.Process != nullptr)
+                handles[count++] = zombie.Process;
+        if (WaitForMultipleObjects(count, handles, FALSE, timeout) == WAIT_FAILED)
+            Sleep(25); // Never spin if a handle is unexpectedly invalid.
     }
     for (Job& job : jobs)
         CloseJob(job, true);
+    for (Job& zombie : zombies)
+        CloseJob(zombie, true);
     return 0;
 }
 

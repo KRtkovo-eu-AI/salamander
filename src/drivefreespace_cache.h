@@ -10,7 +10,9 @@
 namespace DriveFreeSpaceDetail
 {
 constexpr std::uint64_t Lifetime = 60000;
-constexpr std::uint64_t Deadline = 3000;
+constexpr std::uint64_t DeadlineRemovable = 3000;
+constexpr std::uint64_t DeadlineRemote = 10000;
+constexpr std::uint64_t Deadline = DeadlineRemovable;
 constexpr unsigned MaxProbes = 2;
 
 struct Entry
@@ -21,6 +23,7 @@ struct Entry
     std::uint64_t SuccessTime = 0;
     std::uint64_t NextAttempt = 0;
     std::uint64_t Started = 0;
+    std::uint64_t Limit = Deadline;
     unsigned Mode = 0;
     bool Available = false;
     bool Attempted = false;
@@ -122,9 +125,21 @@ public:
                 Entries[i].Queued = false;
                 Entries[i].Running = true;
                 Entries[i].Started = now;
+                Entries[i].Limit = Deadline;
                 return static_cast<int>(i);
             }
         return -1;
+    }
+
+    // Restarts the deadline clock once the helper really runs (after
+    // CreateProcess and ResumeThread), with a per-drive-type limit.
+    void Start(unsigned drive, std::uint64_t token, std::uint64_t now, std::uint64_t limit)
+    {
+        if (IsCurrent(drive, token))
+        {
+            Entries[drive].Started = now;
+            Entries[drive].Limit = limit;
+        }
     }
 
     bool IsCurrent(unsigned drive, std::uint64_t token) const
@@ -134,7 +149,7 @@ public:
 
     bool Expired(unsigned drive, std::uint64_t token, std::uint64_t now) const
     {
-        return IsCurrent(drive, token) && now - Entries[drive].Started >= Deadline;
+        return IsCurrent(drive, token) && now - Entries[drive].Started >= Entries[drive].Limit;
     }
 
     bool Complete(unsigned drive, std::uint64_t token, bool success,
