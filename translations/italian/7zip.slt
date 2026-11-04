@@ -5,7 +5,7 @@ VERSION,"1,36,0,196"
 
 [TRANSLATION]
 LANGID,1040
-AUTHOR,"Open Salamander"
+AUTHOR,"Open Samandarin"
 WEB,"www.altap.cz"
 COMMENT,"English version"
 
@@ -101,7 +101,7 @@ COMMENT,"English version"
 1024,1,"Le operazioni di aggiornamento non sono supportate per questo archivio."
 1025,1,"Impossibile spostare l'archivio temporaneo '%s'."
 1026,1,"Impossibile eliminare l'archivio temporaneo '%s'."
-1027,1,"Si è verificato un errore durante l'aggiornamento dell'archivio.\n\nQuesto non è un difetto del plug-in Open Salamander 7zip. Il problema è in 7za.dll,\nquindi NON inviarci bugreport, sappiamo di questo problema."
+1027,1,"Si è verificato un errore durante l'aggiornamento dell'archivio.\n\nQuesto non è un difetto del plug-in Open Samandarin 7zip. Il problema è in 7za.dll,\nquindi NON inviarci bugreport, sappiamo di questo problema."
 1028,1,"L'eliminazione di file dagli archivi solidi non è supportata."
 1029,1,"Impossibile aggiornare l'archivio '%s'."
 1030,1,"Impossibile creare il file temporaneo."

@@ -694,6 +694,13 @@ def main() -> int:
             r'check-runs/\$env:CHECK_RUN_ID',
             "PR workflow check does not display aggregate Test Reporter counts")
     require(pr_tests_workflow,
+            r'Finish test checks left in progress.*?'
+            r'steps\.native_report\.outcome == .failure.*?'
+            r'steps\.python_report\.outcome == .failure.*?'
+            r'check-runs/\$Id.*?'
+            r'REPORT_RECOVER_OUTCOME',
+            "a rejected Test Reporter update must not leave the check in progress")
+    require(pr_tests_workflow,
             r'repository:\s*\$\{\{\s*github\.event\.pull_request\.head\.repo\.full_name\s*\|\|\s*github\.repository\s*\}\}.*?'
             r'ref:\s*\$\{\{\s*github\.event\.pull_request\.head\.sha\s*\|\|\s*github\.sha\s*\}\}',
             "PR tests do not explicitly check out the selected source branch commit")
@@ -1424,6 +1431,13 @@ def main() -> int:
         r"UnregisterToolbarButtons\(\);.*?RemovePackages\(\);.*?"
         r"RegisterToolbarButtons\(\);",
         "package refresh does not rebuild Extension Bar registrations cleanly")
+    require(
+        packages,
+        r"void PackageManager::RemovePackages\(\).*?"
+        r"removing\.swap\(Packages\).*?"
+        r"UnregisterExtension\(package->Id\.c_str\(\), package\).*?"
+        r"delete package",
+        "extension removal leaves deleted packages reachable from Packages")
     require(packages, r"InvokeOnMainThread\(\s*HostDispatchOnMainThread",
             "extension host calls are not marshaled to Salamander's UI thread")
     require(

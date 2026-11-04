@@ -1,6 +1,10 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+-->
 # Third-Party Software Notices
 
-[Open Salamander: Samandarin](https://samandarin.net/) builds on the work of many authors, maintainers, and
+[Open Samandarin](https://samandarin.net/) builds on the work of many authors, maintainers, and
 projects. This page records the components, code, ideas, and tooling that are
 used by the application and its plugins. Thank you to everyone listed here for
 making their work available.
@@ -55,7 +59,7 @@ making their work available.
 | Newtonsoft.Json 13.0.3 | JSON Viewer plugin | By James Newton-King, released under the MIT License. |
 | Microsoft .NET Framework 4.8 | JSON Viewer plugin | Provided by Microsoft Corporation under the Microsoft .NET Framework license terms. |
 | Prism.js 1.29.0 | Viewer Frame (Salamatrix and Prism Text Viewer) | By Lea Verou and PrismJS contributors, released under the MIT License. |
-| Microsoft.Web.WebView2 1.0.2420.47 | Viewer Frame | By Microsoft Corporation, distributed under the BSD 3-Clause License. |
+| Microsoft.Web.WebView2 1.0.2420.47 | Viewer Frame | By Microsoft Corporation, distributed under the BSD 3-Clause License. Prism virtual-host naming follows Microsoft's [virtual host mapping guidance](https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2.setvirtualhostnametofoldermapping) to avoid navigation delays with `.local`. Bounded Prism instance reuse follows Microsoft's [WebView2 performance guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/performance#avoid-redundant-webview2-instances). |
 | Markdig 0.36.2 | MarkdigRenderer for WebView2 Render Viewer | By Alexandre Mutel and contributors, released under the BSD 2-Clause License. |
 
 ## Network, Synchronization, and Device Plugins

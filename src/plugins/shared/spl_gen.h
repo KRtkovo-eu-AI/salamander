@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 //****************************************************************************
 //
@@ -430,6 +433,10 @@ struct CSalamanderPluginViewerData
 // from mistaking another plug-in-specific viewer-data extension for this one.
 #define SALAMANDER_PLUGIN_VIEWER_SELECTION_MAGIC 0x56534C53 // 'SLSV'
 
+// Search flags for CSalamanderPluginViewerSelectionData::SearchFlags
+#define SALVIEWER_SEARCH_CASE_SENSITIVE 0x01
+#define SALVIEWER_SEARCH_WHOLE_WORDS    0x02
+
 // Extended viewer data used when Salamander invokes a specifically named
 // viewer association exposed by a plug-in. The Size member distinguishes this
 // structure from the base and from plug-in-specific extensions. ViewerLabel is
@@ -439,6 +446,8 @@ struct CSalamanderPluginViewerSelectionData : public CSalamanderPluginViewerData
 {
     DWORD SelectionMagic;
     const char* ViewerLabel;
+    const char* SearchPhrase;
+    DWORD SearchFlags;
 };
 
 // rozsireni struktury CSalamanderPluginViewerData pro interni text/hex viewer
@@ -525,6 +534,9 @@ struct CSalamanderPluginInternalViewerData : public CSalamanderPluginViewerData
 #define SALCFG_AUTOCOPYSELTOCLIPBOARD 128 // BOOL, TRUE = when user selects some text, this text is instantly copied to the cliboard
 #define SALCFG_DIALOGFONT 129             // LOGFONT, effective font for application and plug-in dialogs
 #define SALCFG_MENUFONT 130               // LOGFONT, effective font for application menu bars and menus
+#define SALCFG_VIEWERFINDTEXT 131         // STRING (FIND_TEXT_LEN), viewer find search text
+#define SALCFG_VIEWERFINDCASE 132         // BOOL, viewer find case sensitive
+#define SALCFG_VIEWERFINDWHOLEWORDS 133   // BOOL, viewer find whole words
 // archivers
 #define SALCFG_ARCOTHERPANELFORPACK 140    // BOOL, should it pack to other panel path?
 #define SALCFG_ARCOTHERPANELFORUNPACK 141  // BOOL, should it unpack to other panel path?
@@ -2276,7 +2288,7 @@ public:
     // otevreni okenka s textem 'message' se zpodenim 'delay' (v ms), jen pokud je 'hForegroundWnd' NULL
     // nebo identifikuje okno na popredi (foreground)
     // 'message' muze byt vicerakova; jednotlive radky se oddeluji znakem '\n'
-    // 'caption' muze byt NULL: pouzije se pak "Open Salamander"
+    // 'caption' muze byt NULL: pouzije se pak "Open Samandarin"
     // 'showCloseButton' udava, zda bude okenko obsahovat tlacitko Close; ekvivalent ke klavese Escape
     virtual void WINAPI CreateSafeWaitWindow(const char* message, const char* caption,
                                              int delay, BOOL showCloseButton, HWND hForegroundWnd) = 0;

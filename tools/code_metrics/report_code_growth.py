@@ -285,10 +285,10 @@ def compare(baseline: dict[str, Any], current: dict[str, Any]) -> dict[str, Any]
     }
 
 
-def markdown(report: dict[str, Any]) -> str:
+def markdown(report: dict[str, Any], title: str = "Source code growth report") -> str:
     summary = report["comparison"]["summary"]
     lines = [
-        "# Source code growth report",
+        f"# {title}",
         "",
         f"Baseline: **{report['baseline']['tag']}** (`{report['baseline']['commit']}`)  ",
         f"Current: **{report['current']['label']}**  ",
@@ -335,6 +335,7 @@ def main() -> int:
     parser.add_argument("--baseline-label")
     parser.add_argument("--tag-prefix", default="5.0-samandarin-")
     parser.add_argument("--current-label", default="working tree")
+    parser.add_argument("--title", default="Source code growth report")
     parser.add_argument("--output-json", type=Path)
     parser.add_argument("--output-markdown", type=Path)
     parser.add_argument("--summary-only", action="store_true")
@@ -373,7 +374,7 @@ def main() -> int:
         "baselineSnapshot": baseline_snapshot,
     }
     report["comparison"] = compare(baseline_snapshot, current_snapshot)
-    rendered = markdown(report)
+    rendered = markdown(report, args.title)
 
     if args.output_json:
         args.output_json.parent.mkdir(parents=True, exist_ok=True)

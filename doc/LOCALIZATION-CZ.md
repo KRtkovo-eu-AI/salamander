@@ -1,3 +1,7 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+-->
 # Jak přeložit Samandarin
 
 Pro běžnou práci používejte pouze `tools/localization/localize.ps1`. Ostatní skripty v adresáři jsou jeho implementační detaily.
@@ -84,12 +88,12 @@ do kopií aktuálních anglických `.slg`, ověří layout, zkontroluje SLT roun
 potom hotové `.slg` zkopíruje zpět do populovaného runtime stromu.
 
 Pokud jsou texty v `translations/` správně, už je nepřekódovávejte a znovu je
-nespouštějte přes překladové API. Udělejte jen čerstvý build Salamandera, čerstvý build
+nespouštějte přes překladové API. Udělejte jen čerstvý build Samandarina, čerstvý build
 `utils\translator.exe` a spusťte výše uvedený `localize.ps1 build`. Skript při
 jakékoliv fatální chybě nezapíše nové `.slg` do runtime stromu; nejdřív opravte
 vypsaný problém a potom build spusťte znovu.
 
-Tímhle krokem se nemění runtime architektura Salamandera: `.slg` musí být správně
+Tímhle krokem se nemění runtime architektura Samandarina: `.slg` musí být správně
 vygenerované už před spuštěním aplikace. Pokud round-trip validace selže, nejde
 o varování k ignorování — výsledný language pack se nesmí testovat ani shipovat.
 

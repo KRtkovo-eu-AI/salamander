@@ -1,3 +1,7 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+-->
 <!doctype html>
 <html lang="en">
 <head>
@@ -40,7 +44,7 @@ th { background:var(--surface); } li { margin:.2em 0; }
 <a href="salamatrix-automation-api.html">Salamatrix Automation API reference</a> <a href="salamatrix-ui.html">Salamatrix.UI framework and custom dialog guide</a> <a href="salamatrix-platform.html">Salamatrix Platform Foundation</a> <a href="salamatrix-runtime-providers.html">Standalone Salamatrix runtime providers</a> <a href="salamatrix-runtime-provider-development.html" aria-current="page">Developing a Salamatrix language runtime provider</a> <a href="salamatrix-gap-analysis.html">Salamatrix GAP analysis</a>
 </nav>
 <h1 id="developing-a-salamatrix-language-runtime-provider">Developing a Salamatrix language runtime provider</h1>
-<p>Salamatrix language runtimes are optional Open Salamander plugins. A runtime provider registers one language adapter with <code>Salamatrix.Runtime</code>, starts the language interpreter out of process, and translates between the interpreter and Salamander through the language-neutral SMX1 protocol.</p>
+<p>Salamatrix language runtimes are optional Open Samandarin plugins. A runtime provider registers one language adapter with <code>Salamatrix.Runtime</code>, starts the language interpreter out of process, and translates between the interpreter and Salamander through the language-neutral SMX1 protocol.</p>
 <p>This design keeps language engines out of <code>SALAMATRIX.SPL</code> and the Automation plugin. It also means that a provider can support a system-installed interpreter without linking its SDK or redistributing it. The built-in PowerShell, CPython, PHP CLI, Node, and Lua providers are working reference implementations.</p>
 <h2 id="choose-the-process-model">Choose the process model</h2>
 <p>An out-of-process CLI adapter is the recommended starting point for a new language:</p>

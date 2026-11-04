@@ -5,7 +5,7 @@ VERSION,"1,12,0,196"
 
 [TRANSLATION]
 LANGID,1040
-AUTHOR,"Open Salamander"
+AUTHOR,"Open Samandarin"
 WEB,"www.altap.cz"
 COMMENT,"English version"
 
@@ -125,7 +125,7 @@ COMMENT,"English version"
 64,1,"&Combina file..."
 67,1,"Informazioni sul plugin"
 68,1,"Dividi e unisci file."
-69,1,"Generato da Open Salamander"
+69,1,"Generato da Open Samandarin"
 70,1,"Premi Ctrl-C per uscire."
 71,1,"Questo file batch ricrea il file '%s'."
 72,1,"B"

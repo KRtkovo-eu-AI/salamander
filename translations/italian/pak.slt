@@ -5,7 +5,7 @@ VERSION,"1,73,0,196"
 
 [TRANSLATION]
 LANGID,1040
-AUTHOR,"Open Salamander"
+AUTHOR,"Open Samandarin"
 WEB,"www.altap.cz"
 COMMENT,"English version"
 
@@ -64,7 +64,7 @@ COMMENT,"English version"
 
 [STRINGTABLE 3]
 1024,1,"Impossibile leggere dal file: "
-1025,1,"Impossibile connettere il plug-in a Open Salamander."
+1025,1,"Impossibile connettere il plug-in a Open Samandarin."
 1026,1,"ottimizzazione, attendere..."
 1027,1,"Ottimizzazione archivio PAK - %s"
 1028,1,"L'eliminazione dei file non è stata completata correttamente. Potrebbe essere necessario avviare l'ottimizzazione PAK dal menu del plug-in PAK per preservare lo spreco di spazio su disco."

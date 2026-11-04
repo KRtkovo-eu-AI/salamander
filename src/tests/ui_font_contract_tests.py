@@ -192,9 +192,15 @@ def main() -> None:
         require(source, "WinLibGetDefaultUILogFont",
                 f"shared UI font in {relative_path}")
 
-    sftp_fs1 = (ROOT / "src/plugins/sftp/src/fs1.cpp").read_text(encoding="utf-8")
-    require(sftp_fs1, "WinLibApplyDialogFont(HWindow)",
-            "UI font in the raw SFTP connection dialog")
+    # The SFTP plugin lives in a separate repository (git submodule); skip its
+    # check when the submodule is not checked out.
+    sftp_fs1_path = ROOT / "src/plugins/sftp/src/fs1.cpp"
+    if sftp_fs1_path.is_file():
+        sftp_fs1 = sftp_fs1_path.read_text(encoding="utf-8")
+        require(sftp_fs1, "WinLibApplyDialogFont(HWindow)",
+                "UI font in the raw SFTP connection dialog")
+    else:
+        print("SKIPPED: SFTP submodule (src/plugins/sftp) is not initialized")
 
     pictview_status = (ROOT / "src/plugins/pictview/statsbar.cpp").read_text(encoding="utf-8")
     require(pictview_status, "WinLibGetDefaultUILogFont(HWindow, &logFont)",
@@ -309,7 +315,7 @@ def main() -> None:
             "Prism removes its document padding to match Internal Viewer spacing")
     require(native_viewer, "gutterWidth",
             "Prism sizes its gutter from the document line-number digit count")
-    require(virtual_html, "::selection {",
+    require(virtual_html, "::selection,",
             "Prism uses the Internal Viewer selection colors")
     require(native_viewer, "parameters_->viewerFont.lfWeight",
             "Prism preserves the configured Internal Viewer font weight")
