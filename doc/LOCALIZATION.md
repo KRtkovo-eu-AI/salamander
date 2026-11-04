@@ -1,6 +1,7 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-05 | Document FIFO matching for duplicate menu POPUP IDs. | Prevent Internal Viewer and other menu titles from collapsing to Help after rebase. | https://github.com/KRtkovo-eu-AI/salamander/issues/751 | Composer |
+| 2026-11-04 | Document English-in-host and the single langpack.dll shipping model. | Reduce signed .slg files while keeping an English-only minimal install. | | Composer |
 -->
 # How to Translate Samandarin
 
@@ -74,7 +75,7 @@ List plugins that are missing translation archives:
 pwsh -File .\tools\localization\localize.ps1 check
 ```
 
-Build all available language `.slg` files into the completed runtime:
+Build the official language pack into the completed runtime:
 
 ```powershell
 pwsh -File .\tools\localization\localize.ps1 build `
@@ -85,8 +86,20 @@ The `build` command is the release step for language packs. Internally it calls
 `tools/localization/build_language_packs.ps1`, creates a disposable Translator
 workspace, imports committed `translations/<language>/<module>.slt` archives into
 copies of the current English `.slg` files, validates layout, verifies an SLT
-round-trip, and then copies the produced `.slg` files back into the populated
-runtime tree.
+round-trip, copies the produced `.slg` intermediates into the runtime tree, and
+then packs every non-English `.slg` into one signed PE container:
+`lang\langpack.dll` (`tools/localization/build_official_langpack.ps1`).
+
+Runtime architecture:
+
+- **English** is embedded in `salamand.exe` and each first-party `.spl` (no
+  `english.slg` required at runtime).
+- **Official non-English languages** load from `lang\langpack.dll`.
+- **Legacy / third-party plug-ins** may still ship `plugins\<name>\lang\*.slg`;
+  the host keeps that fallback path.
+
+A minimal install can omit `langpack.dll` and run English-only. The Inno Setup
+task “Additional UI languages” installs the pack.
 
 If the committed files under `translations/` already contain the correct text, do
 not re-encode them and do not send them through the translation API again. Build Salamander,
@@ -95,9 +108,8 @@ command above. When a fatal validation error occurs, the script does not copy ne
 `.slg` files into the runtime tree; fix the reported problem and run the build
 again.
 
-This step does not change Salamander's runtime architecture: `.slg` files must be
-correct before the application starts. If round-trip validation fails, it is not
-a warning to ignore — that language pack must not be smoke-tested or shipped.
+If round-trip validation fails, it is not a warning to ignore — that language
+must not be packed into `langpack.dll` or shipped.
 
 Every `.slt` archive must also carry the correct `LANGID` in its `[TRANSLATION]`
 section for the language folder. The batch translation script normalizes this when writing

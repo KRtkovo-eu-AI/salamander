@@ -4,10 +4,13 @@
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-07 | Defer the periodic Debug heap walk for large Find result sets. | Keep both Find and its worker responsive during large searches. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-05 | Survive faulty shell extension SEH when extracting icons. | GetFileIcon shell handlers must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
+// | 2026-11-04 | Load English from the host PE and other languages from langpack.dll. | Reduce signed .slg files; keep .slg fallback for legacy plugins. | | Composer |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-09 | Show Extension Bar at startup on clean configuration. | LoadConfig() returns FALSE on first launch (no registry), skipping the band loop; add Extension Bar creation to the startup recovery path in salamdr1.cpp. | | nvidia/nemotron-3.5-super-vl:free |
 
 #include "precomp.h"
+
+#include "langpack.h"
 
 #include <new>
 
@@ -5020,7 +5023,7 @@ FIND_NEW_SLG_FILE:
         slgDialog.Initialize();
         if (slgDialog.GetLanguagesCount() == 0)
         {
-            MessageBox(NULL, "Unable to find any language file (.SLG) in subdirectory LANG.\n"
+            MessageBox(NULL, "Unable to find any language (embedded English, language pack, or .SLG).\n"
                              "Please reinstall Open Samandarin.",
                        SALAMANDER_TEXT_VERSION, MB_OK | MB_ICONERROR);
             goto EXIT_1a;
@@ -5072,33 +5075,53 @@ FIND_NEW_SLG_FILE:
 
     char path[MAX_PATH];
     char errorText[MAX_PATH + 200];
-    GetModuleFileName(NULL, path, MAX_PATH);
-    sprintf(strrchr(path, '\\') + 1, "lang\\%s", Configuration.SLGName);
-    HLanguage = HANDLES(LoadLibrary(path));
+    BOOL languageOwned = FALSE;
+    HLanguage = SalLoadLanguageForModule(HInstance, SAL_LANGPACK_MODULE_SALAMAND,
+                                         Configuration.SLGName, &languageOwned);
     LanguageID = 0;
-    if (HLanguage == NULL || !IsSLGFileValid(HInstance, HLanguage, LanguageID, IsSLGIncomplete))
+    IsSLGIncomplete[0] = 0;
+    BOOL languageOk = FALSE;
+    if (HLanguage != NULL)
     {
-        if (HLanguage != NULL)
-            HANDLES(FreeLibrary(HLanguage));
-        if (!newSLGFile) // zapamatovany .SLG soubor prestal nejspis existovat, zkusime najit jiny
+        if (SalIsEnglishLanguageName(Configuration.SLGName) &&
+            SalLanguageModuleIsHost(HInstance, HLanguage))
         {
-            sprintf(errorText, "File %s was not found or is not valid language file.\nOpen Samandarin "
-                               "will try to search for some other language file (.SLG).",
-                    path);
+            LanguageID = MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
+            languageOk = TRUE;
+        }
+        else
+        {
+            languageOk = IsSLGFileValid(HInstance, HLanguage, LanguageID, IsSLGIncomplete);
+        }
+    }
+    if (!languageOk)
+    {
+        if (HLanguage != NULL && languageOwned)
+            HANDLES(FreeLibrary(HLanguage));
+        HLanguage = NULL;
+        GetModuleFileName(NULL, path, MAX_PATH);
+        sprintf(strrchr(path, '\\') + 1, "lang\\%s", Configuration.SLGName);
+        if (!newSLGFile) // remembered language disappeared; try to find another
+        {
+            sprintf(errorText, "Language \"%s\" was not found or is not valid "
+                               "(checked embedded English, language pack, and %s).\n"
+                               "Open Samandarin will try to search for some other language.",
+                    Configuration.SLGName, path);
             MessageBox(NULL, errorText, SALAMANDER_TEXT_VERSION, MB_OK | MB_ICONERROR);
             Configuration.SLGName[0] = 0;
             goto FIND_NEW_SLG_FILE;
         }
-        else // nemelo by vubec nastat - .SLG soubor jiz byl otestovan
+        else
         {
-            sprintf(errorText, "File %s was not found or is not valid language file.\n"
-                               "Please run Open Samandarin again and try to choose some other language file.",
-                    path);
+            sprintf(errorText, "Language \"%s\" was not found or is not valid.\n"
+                               "Please run Open Samandarin again and try to choose some other language.",
+                    Configuration.SLGName);
             MessageBox(NULL, errorText, "Open Samandarin", MB_OK | MB_ICONERROR);
             goto EXIT_1a;
         }
     }
-
+    if (languageOwned)
+        HANDLES_ADD(__htLibrary, __hoLoadLibrary, HLanguage);
 
     lstrcpyn(Configuration.LoadedSLGName, Configuration.SLGName, _countof(Configuration.LoadedSLGName));
     if (initialLanguageBootstrapPath[0] != 0)
@@ -5118,8 +5141,9 @@ FIND_NEW_SLG_FILE:
 
     EXIT_2:
         ConfigurationStorage.Release();
-        if (HLanguage != NULL)
+        if (HLanguage != NULL && !SalLanguageModuleIsHost(HInstance, HLanguage))
             HANDLES(FreeLibrary(HLanguage));
+        HLanguage = NULL;
         goto EXIT_1a;
     }
 
@@ -6235,7 +6259,8 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
     ReleaseGraphics(FALSE);
     ReleaseConstGraphics();
 
-    HANDLES(FreeLibrary(HLanguage));
+    if (HLanguage != NULL && !SalLanguageModuleIsHost(HInstance, HLanguage))
+        HANDLES(FreeLibrary(HLanguage));
     HLanguage = NULL;
 
     // pro jistotu zavreme az jako posledni, ale asi zbytecne obavy

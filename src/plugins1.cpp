@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
@@ -7,6 +7,7 @@
 // | 2026-11-07 | Preserve user-owned extensions during plugin association cleanup. | Keep upgrade-time ForceRemovePanelArchiver consistent with persistent Configuration provenance. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-06 | Preserve repeated deferred LoadLibrary references before any teardown. | Preserve every LoadLibrary reference across a refused close and provider reload. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // | 2026-11-06 | Preserve native exit finalization before deferred module unload. | Combine the port callback gate with upstream runtime-provider shutdown ordering. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
+// | 2026-11-04 | Load plug-in languages from host English, langpack.dll, then .slg. | Official languages ship in one pack; .slg remains for legacy/3rd-party plug-ins. | | Composer |
 // | 2026-11-04 | Keep plug-in DLLs mapped until every plug-in Release returns. | Unloading a runtime plug-in before Salamatrix joins its pump thread crashes on exit. | https://github.com/KRtkovo-eu-AI/salamander/issues/770 https://github.com/KRtkovo-eu-AI/salamander/issues/750 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
@@ -27,6 +28,7 @@
 #include "viewer.h"
 #include "common/widepath.h"
 #include "fileactiondisktarget.h"
+#include "langpack.h"
 
 CPlugins Plugins;
 
@@ -1820,14 +1822,45 @@ BOOL CSalamanderPluginEntry::SetBasicPluginData(const char* pluginName, DWORD fu
     return TRUE; // data successfully acquired
 }
 
+static void GetPluginLangPackModuleKey(const char* dllName, char* out, int outSize)
+{
+    if (out == NULL || outSize <= 0)
+        return;
+    out[0] = 0;
+    if (dllName == NULL)
+        return;
+
+    const char* start = dllName;
+    const char* slash = strpbrk(dllName, "\\/");
+    char temp[MAX_PATH];
+    if (slash != NULL)
+    {
+        size_t len = (size_t)(slash - dllName);
+        if (len >= sizeof(temp))
+            len = sizeof(temp) - 1;
+        memcpy(temp, dllName, len);
+        temp[len] = 0;
+        lstrcpyn(out, temp, outSize);
+        return;
+    }
+
+    lstrcpyn(temp, dllName, _countof(temp));
+    char* dot = strrchr(temp, '.');
+    if (dot != NULL)
+        *dot = 0;
+    lstrcpyn(out, temp, outSize);
+}
+
 HINSTANCE
 CSalamanderPluginEntry::LoadLanguageModule(HWND parent, const char* pluginName)
 {
     HINSTANCE lang = NULL;
     char path[MAX_PATH];
     char errorText[MAX_PATH + 300];
+    char moduleKey[64];
+    GetPluginLangPackModuleKey(Plugin->DLLName, moduleKey, _countof(moduleKey));
 
-    // obtain the path to the plugin's LANG directory
+    // obtain the path to the plugin's LANG directory (used for .slg fallback + selector)
     char* s = Plugin->DLLName;
     if ((*s != '\\' || *(s + 1) != '\\') && // not UNC
         (*s == 0 || *(s + 1) != ':'))       // not "c:" -> path relative to the plugins subdirectory
@@ -1844,95 +1877,87 @@ CSalamanderPluginEntry::LoadLanguageModule(HWND parent, const char* pluginName)
     char* slgName = path + strlen(path);
     int slgNameBufSize = MAX_PATH - (int)(slgName - path);
 
-    // first try to load the SLG of the language Salamander is currently running in
-    lstrcpyn(slgName, Configuration.LoadedSLGName, slgNameBufSize);
-    lang = HANDLES_Q(LoadLibrary(path));
-    WORD languageID = 0;
-    if (lang == NULL || !IsSLGFileValid(Plugin->GetPluginDLL(), lang, languageID, NULL))
-    { // the SLG doesn't exist or isn't the expected one (completely different file or at least another version)
-        if (lang != NULL)
-            HANDLES(FreeLibrary(lang));
-        lang = NULL;
-        if (Plugin->LastSLGName == NULL ||               // no .slg chosen during the previous plugin load
-            _stricmp(slgName, Plugin->LastSLGName) == 0) // we already tried this .slg
+    HINSTANCE pluginDll = Plugin->GetPluginDLL();
+    BOOL owned = FALSE;
+    char chosenSLGName[MAX_PATH];
+    lstrcpyn(chosenSLGName, Configuration.LoadedSLGName, _countof(chosenSLGName));
+
+    // Prefer Salamander's current language via host English / langpack / .slg
+    lang = SalLoadLanguageForModule(pluginDll, moduleKey, chosenSLGName, &owned);
+    if (lang == NULL)
+    {
+        if (Plugin->LastSLGName != NULL && _stricmp(chosenSLGName, Plugin->LastSLGName) != 0)
         {
-            if (!Configuration.DoNotDispCantLoadPluginSLG)
-            {
-                MSGBOXEX_PARAMS params;
-                memset(&params, 0, sizeof(params));
-                params.HParent = parent;
-                params.Flags = MB_OK | MB_ICONERROR;
-                params.Caption = pluginName;
-                _snprintf_s(errorText, _TRUNCATE, LoadStr(IDS_CANTLOADPLUGINSLG1), path);
-                params.Text = errorText;
-                params.CheckBoxText = LoadStr(IDS_DONOTSHOWCANTLOADPLUGINSLG);
-                params.CheckBoxValue = &Configuration.DoNotDispCantLoadPluginSLG;
-                SalMessageBoxEx(&params);
-            }
-        }
-        else // try to load the .slg chosen during the previous plugin load
-        {
-            lstrcpyn(slgName, Plugin->LastSLGName, slgNameBufSize);
-            lang = HANDLES_Q(LoadLibrary(path));
-            if (lang == NULL || !IsSLGFileValid(Plugin->GetPluginDLL(), lang, languageID, NULL))
-            { // the SLG doesn't exist or isn't the expected one (completely different file or at least another version)
-                if (lang != NULL)
-                    HANDLES(FreeLibrary(lang));
-                lang = NULL;
-                if (!Configuration.DoNotDispCantLoadPluginSLG2)
-                {
-                    MSGBOXEX_PARAMS params;
-                    memset(&params, 0, sizeof(params));
-                    params.HParent = parent;
-                    params.Flags = MB_OK | MB_ICONERROR;
-                    params.Caption = pluginName;
-                    _snprintf_s(errorText, _TRUNCATE, LoadStr(IDS_CANTLOADPLUGINSLG2), path);
-                    params.Text = errorText;
-                    params.CheckBoxText = LoadStr(IDS_DONOTSHOWCANTLOADPLUGINSLG);
-                    params.CheckBoxValue = &Configuration.DoNotDispCantLoadPluginSLG2;
-                    SalMessageBoxEx(&params);
-                }
-            }
-        }
-        if (lang == NULL) // find all .slg files on the disk for the plugin and let the user choose (if there's more than one .slg)
-        {
-            char selSLGName[MAX_PATH];
-            selSLGName[0] = 0;
-            CLanguageSelectorDialog slgDialog(parent, selSLGName, pluginName);
-            lstrcpyn(slgName, "*.slg", slgNameBufSize);
-            slgDialog.Initialize(path, Plugin->GetPluginDLL());
-            if (slgDialog.GetLanguagesCount() == 0)
-                SalMessageBox(parent, LoadStr(IDS_PLUGINSLGNOTFOUND), pluginName, MB_OK | MB_ICONERROR);
-            else
-            {
-                if (slgDialog.GetLanguagesCount() == 1)
-                    slgDialog.GetSLGName(selSLGName); // if only one language exists, use it
-                else
-                {
-                    if (Configuration.UseAsAltSLGInOtherPlugins &&
-                        slgDialog.SLGNameExists(Configuration.AltPluginSLGName))
-                    {
-                        lstrcpy(selSLGName, Configuration.AltPluginSLGName);
-                    }
-                    else
-                    {
-                        if (Configuration.UseAsAltSLGInOtherPlugins) // fallback language is defined but unavailable for this plugin, let the user choose another one
-                            Configuration.UseAsAltSLGInOtherPlugins = FALSE;
-                        slgDialog.Execute();
-                    }
-                }
-                lstrcpyn(slgName, selSLGName, slgNameBufSize);
-                lang = HANDLES_Q(LoadLibrary(path));
-                if (lang == NULL || !IsSLGFileValid(Plugin->GetPluginDLL(), lang, languageID, NULL))
-                { // shouldn't theoretically happen (dialog verifies the validity of the .SLG module)
-                    if (lang != NULL)
-                        HANDLES(FreeLibrary(lang));
-                    lang = NULL;
-                    TRACE_E("CSalamanderPluginEntry::LoadLanguageModule(): unexpected situation: SLG module is invalid!");
-                }
-            }
+            lstrcpyn(chosenSLGName, Plugin->LastSLGName, _countof(chosenSLGName));
+            lang = SalLoadLanguageForModule(pluginDll, moduleKey, chosenSLGName, &owned);
         }
     }
+
+    if (lang == NULL)
+    {
+        lstrcpyn(slgName, Configuration.LoadedSLGName, slgNameBufSize);
+        if (!Configuration.DoNotDispCantLoadPluginSLG &&
+            (Plugin->LastSLGName == NULL || _stricmp(slgName, Plugin->LastSLGName) == 0))
+        {
+            MSGBOXEX_PARAMS params;
+            memset(&params, 0, sizeof(params));
+            params.HParent = parent;
+            params.Flags = MB_OK | MB_ICONERROR;
+            params.Caption = pluginName;
+            _snprintf_s(errorText, _TRUNCATE, LoadStr(IDS_CANTLOADPLUGINSLG1), path);
+            params.Text = errorText;
+            params.CheckBoxText = LoadStr(IDS_DONOTSHOWCANTLOADPLUGINSLG);
+            params.CheckBoxValue = &Configuration.DoNotDispCantLoadPluginSLG;
+            SalMessageBoxEx(&params);
+        }
+        else if (Plugin->LastSLGName != NULL && !Configuration.DoNotDispCantLoadPluginSLG2 &&
+                 _stricmp(slgName, Plugin->LastSLGName) != 0)
+        {
+            // already tried LastSLGName above; still show the secondary warning
+            MSGBOXEX_PARAMS params;
+            memset(&params, 0, sizeof(params));
+            params.HParent = parent;
+            params.Flags = MB_OK | MB_ICONERROR;
+            params.Caption = pluginName;
+            _snprintf_s(errorText, _TRUNCATE, LoadStr(IDS_CANTLOADPLUGINSLG2), path);
+            params.Text = errorText;
+            params.CheckBoxText = LoadStr(IDS_DONOTSHOWCANTLOADPLUGINSLG);
+            params.CheckBoxValue = &Configuration.DoNotDispCantLoadPluginSLG2;
+            SalMessageBoxEx(&params);
+        }
+
+        char selSLGName[MAX_PATH];
+        selSLGName[0] = 0;
+        CLanguageSelectorDialog slgDialog(parent, selSLGName, pluginName);
+        lstrcpyn(slgName, "*.slg", slgNameBufSize);
+        slgDialog.Initialize(path, pluginDll);
+        if (slgDialog.GetLanguagesCount() == 0)
+            SalMessageBox(parent, LoadStr(IDS_PLUGINSLGNOTFOUND), pluginName, MB_OK | MB_ICONERROR);
+        else
+        {
+            if (slgDialog.GetLanguagesCount() == 1)
+                slgDialog.GetSLGName(selSLGName);
+            else
+            {
+                if (Configuration.UseAsAltSLGInOtherPlugins &&
+                    slgDialog.SLGNameExists(Configuration.AltPluginSLGName))
+                {
+                    lstrcpy(selSLGName, Configuration.AltPluginSLGName);
+                }
+                else
+                {
+                    if (Configuration.UseAsAltSLGInOtherPlugins)
+                        Configuration.UseAsAltSLGInOtherPlugins = FALSE;
+                    slgDialog.Execute();
+                }
+            }
+            lstrcpyn(chosenSLGName, selSLGName, _countof(chosenSLGName));
+            lang = SalLoadLanguageForModule(pluginDll, moduleKey, chosenSLGName, &owned);
+            if (lang == NULL)
+                TRACE_E("CSalamanderPluginEntry::LoadLanguageModule(): unexpected situation: selected language is invalid!");
+        }
+    }
+
     if (Plugin->LastSLGName != NULL)
     {
         free(Plugin->LastSLGName);
@@ -1940,13 +1965,18 @@ CSalamanderPluginEntry::LoadLanguageModule(HWND parent, const char* pluginName)
     }
     if (lang != NULL)
     {
-        if (_stricmp(slgName, Configuration.LoadedSLGName) != 0)
-            Plugin->LastSLGName = DupStr(slgName);
+        if (_stricmp(chosenSLGName, Configuration.LoadedSLGName) != 0)
+            Plugin->LastSLGName = DupStr(chosenSLGName);
         if (Plugin->SalamanderGeneral.LanguageModule == NULL)
+        {
             Plugin->SalamanderGeneral.LanguageModule = lang;
+            if (owned)
+                HANDLES_ADD(__htLibrary, __hoLoadLibrary, lang);
+        }
         else
         {
-            HANDLES(FreeLibrary(lang));
+            if (owned && !SalLanguageModuleIsHost(pluginDll, lang))
+                FreeLibrary(lang);
             lang = NULL;
             TRACE_E("CSalamanderPluginEntry::LoadLanguageModule(): you can call this method only once!");
         }

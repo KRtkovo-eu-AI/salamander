@@ -2,11 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Do not FreeLibrary English language modules that are the plug-in .spl itself. | English UI is embedded in the host PE. | | Composer |
 // | 2026-11-04 | Create panel operations objects for plug-ins. | Portable Devices opens the standard progress dialog through the same object archivers use. | | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include "common/widepath.h"
+
+#include "langpack.h"
 
 #ifdef new
 #undef new
@@ -535,7 +538,10 @@ CSalamanderGeneral::~CSalamanderGeneral()
     if (LanguageModule != NULL)
     {
         TRACE_E("CSalamanderGeneral::~CSalamanderGeneral(): unexpected situation!");
-        HANDLES(FreeLibrary(LanguageModule));
+        HINSTANCE pluginDll = (Plugin != NULL) ? Plugin->GetPluginDLL() : NULL;
+        if (!SalLanguageModuleIsHost(pluginDll, LanguageModule))
+            HANDLES(FreeLibrary(LanguageModule));
+        LanguageModule = NULL;
     }
 }
 
@@ -544,7 +550,11 @@ void CSalamanderGeneral::Clear()
     delete PanelOperations;
     PanelOperations = NULL;
     if (LanguageModule != NULL)
-        HANDLES(FreeLibrary(LanguageModule));
+    {
+        HINSTANCE pluginDll = (Plugin != NULL) ? Plugin->GetPluginDLL() : NULL;
+        if (!SalLanguageModuleIsHost(pluginDll, LanguageModule))
+            HANDLES(FreeLibrary(LanguageModule));
+    }
     LanguageModule = NULL;
     HelpFileName[0] = 0;
 }

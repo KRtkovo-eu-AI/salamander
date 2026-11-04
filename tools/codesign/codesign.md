@@ -1,3 +1,7 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Document signing langpack.dll instead of hundreds of .slg files. | Official languages ship in one PE. | | Composer |
+-->
 # Code signing
 
 This project signs Windows release binaries with Authenticode and Certum Open Source Code Signing in the Cloud on SimplySign.
@@ -46,7 +50,7 @@ Use this first to verify that SimplySign, the certificate, SignTool and the scri
 tools\codesign\codesign_certum.cmd --file "H:\_projects\salamander\output\salamander\Release_x64\salamand.exe"
 ```
 
-The script signs only `.exe`, `.dll`, `.spl` and `.slg` files. Before signing, it checks whether the target already has a valid Authenticode signature and skips it if it is already signed. It verifies newly signed files with:
+The script signs only `.exe`, `.dll`, `.spl` and `.slg` files. The official UI language pack is `lang\langpack.dll` (a normal `.dll`, signed with the other binaries). Separate per-language `.slg` files are no longer shipped for first-party modules; `.slg` remains supported for legacy/third-party plug-ins. Before signing, it checks whether the target already has a valid Authenticode signature and skips it if it is already signed. It verifies newly signed files with:
 
 ```cmd
 signtool verify /pa /all /v "path\to\file.exe"
@@ -69,15 +73,15 @@ The script reads `doc\runbook-setup\inno_setup_salamander_x64.iss` and signs onl
 - `.spl`
 - `.slg`
 
-Files that already have a valid Authenticode signature are skipped before signing. The remaining files are signed in batches of `CODESIGN_BATCH_SIZE` files, defaulting to 25 files per `signtool sign` invocation. This avoids Windows command-line length failures when the payload contains many `.slg` files. Verification still runs for each newly signed file.
+Files that already have a valid Authenticode signature are skipped before signing. The remaining files are signed in batches of `CODESIGN_BATCH_SIZE` files, defaulting to 25 files per `signtool sign` invocation. Verification still runs for each newly signed file.
 
-If you want to sign only `.slg` files grouped by language, use:
+`--slg-by-lang` remains available for legacy payloads that still contain `.slg` files:
 
 ```cmd
 tools\codesign\codesign_certum.cmd --slg-by-lang --payload-dir "H:\_projects\salamander\output\salamander\Release_x64"
 ```
 
-This mode reads the same Inno Setup script, groups existing `.slg` files by language file name, and then applies the same already-signed skip and batch signing logic to each language group.
+Current first-party releases should only need a normal `--inno-x64` pass (hosts + `langpack.dll`).
 
 External DLLs are skipped. The exclusion list includes:
 

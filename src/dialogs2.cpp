@@ -1,8 +1,9 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-09 | Copy transient first-registration viewer state. | Let startup merge newly registered extension rows without persisting the marker. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-04 | Enumerate embedded English and langpack.dll languages in the selector. | Official languages no longer ship as per-language .slg files. | | Composer |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
@@ -15,6 +16,7 @@
 #include "execute.h"
 #include "fileactionpath.h"
 #include "plugins.h"
+#include "langpack.h"
 #include "fileswnd.h"
 #include "mainwnd.h"
 #include "gui.h"
@@ -1013,6 +1015,7 @@ CLanguageSelectorDialog::~CLanguageSelectorDialog()
 int CLanguageSelectorDialog::Execute()
 {
     HINSTANCE hTmpLanguage = NULL;
+    BOOL tmpOwned = FALSE;
     if (OpenedFromConfiguration || OpenedForPlugin)
     {
         // use the template from the currently running language version
@@ -1020,19 +1023,31 @@ int CLanguageSelectorDialog::Execute()
     }
     else
     {
-        // load the template from the best available SLG
+        // load the template from the best available language (host / pack / .slg)
         int index = GetPreferredLanguageIndex(SLGName);
-        char path[SAL_MAX_PATH];
-        GetModuleFileName(HInstance, path, SAL_MAX_PATH);
-        sprintf(strrchr(path, '\\') + 1, "lang\\%s", Items[index].FileName);
-        hTmpLanguage = HANDLES(LoadLibrary(path));
-        if (hTmpLanguage != NULL)
-            Modul = hTmpLanguage;
+        if (index >= 0 && index < Items.Count)
+        {
+            if (SalIsEnglishLanguageName(Items[index].FileName))
+            {
+                Modul = HInstance;
+            }
+            else
+            {
+                hTmpLanguage = SalLoadLanguageForModule(HInstance, SAL_LANGPACK_MODULE_SALAMAND,
+                                                       Items[index].FileName, &tmpOwned);
+                if (hTmpLanguage != NULL)
+                {
+                    Modul = hTmpLanguage;
+                    if (tmpOwned)
+                        HANDLES_ADD(__htLibrary, __hoLoadLibrary, hTmpLanguage);
+                }
+            }
+        }
     }
-    if (!LoadString(Modul, IDS_SELLANGEXITBUTTON, ExitButtonLabel, 100))
+    if (Modul == NULL || !LoadString(Modul, IDS_SELLANGEXITBUTTON, ExitButtonLabel, 100))
         strcpy(ExitButtonLabel, "Exit");
     int ret = (int)CCommonDialog::Execute();
-    if (hTmpLanguage != NULL)
+    if (hTmpLanguage != NULL && tmpOwned && !SalLanguageModuleIsHost(HInstance, hTmpLanguage))
     {
         Modul = NULL;
         HANDLES(FreeLibrary(hTmpLanguage));
@@ -1151,8 +1166,92 @@ void CLanguageSelectorDialog::Transfer(CTransferInfo& ti)
     }
 }
 
+namespace
+{
+
+struct CAddPackLangCtx
+{
+    TDirectArray<CLanguage>* Items;
+    HINSTANCE PluginDLL;
+    BOOL Ok;
+};
+
+BOOL AddPackLanguageToSelector(const char* languageBase, void* userData)
+{
+    CAddPackLangCtx* ctx = (CAddPackLangCtx*)userData;
+    char slgName[64];
+    _snprintf_s(slgName, _TRUNCATE, "%s.slg", languageBase);
+
+    for (int i = 0; i < ctx->Items->Count; i++)
+    {
+        if (_stricmp((*ctx->Items)[i].FileName, slgName) == 0)
+            return TRUE; // already present
+    }
+
+    CLanguage lang;
+    if (lang.Init(slgName, ctx->PluginDLL))
+    {
+        ctx->Items->Add(lang);
+        if (!ctx->Items->IsGood())
+        {
+            ctx->Items->ResetState();
+            lang.Free();
+            ctx->Ok = FALSE;
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+} // namespace
+
 BOOL CLanguageSelectorDialog::Initialize(const char* slgSearchPath, HINSTANCE pluginDLL)
 {
+    // Always offer embedded English from the host binary.
+    {
+        CLanguage english;
+        if (english.Init("english.slg", pluginDLL))
+        {
+            Items.Add(english);
+            if (!Items.IsGood())
+            {
+                Items.ResetState();
+                english.Free();
+                return FALSE;
+            }
+        }
+    }
+
+    // Official non-English languages from langpack.dll
+    CAddPackLangCtx packCtx;
+    packCtx.Items = &Items;
+    packCtx.PluginDLL = pluginDLL;
+    packCtx.Ok = TRUE;
+    const char* moduleKey = SAL_LANGPACK_MODULE_SALAMAND;
+    char pluginKey[64];
+    if (pluginDLL != NULL && pluginDLL != HInstance)
+    {
+        char dllPath[MAX_PATH];
+        if (GetModuleFileName(pluginDLL, dllPath, MAX_PATH) != 0)
+        {
+            char* file = strrchr(dllPath, '\\');
+            if (file != NULL)
+            {
+                *file = 0;
+                char* dir = strrchr(dllPath, '\\');
+                if (dir != NULL)
+                {
+                    lstrcpyn(pluginKey, dir + 1, _countof(pluginKey));
+                    moduleKey = pluginKey;
+                }
+            }
+        }
+    }
+    SalEnumLangPackLanguages(moduleKey, AddPackLanguageToSelector, &packCtx);
+    if (!packCtx.Ok)
+        return FALSE;
+
+    // Legacy / 3rd-party .slg files on disk
     char path[SAL_MAX_PATH];
     if (slgSearchPath == NULL)
     {
@@ -1171,6 +1270,18 @@ BOOL CLanguageSelectorDialog::Initialize(const char* slgSearchPath, HINSTANCE pl
             char* point = strrchr(file.cFileName, '.');
             if (point != NULL && stricmp(point + 1, "slg") == 0) // it was returning *.slg*
             {
+                BOOL already = FALSE;
+                for (int i = 0; i < Items.Count; i++)
+                {
+                    if (_stricmp(Items[i].FileName, file.cFileName) == 0)
+                    {
+                        already = TRUE;
+                        break;
+                    }
+                }
+                if (already)
+                    continue;
+
                 CLanguage lang;
                 if (lang.Init(file.cFileName, pluginDLL))
                 {
@@ -1320,7 +1431,7 @@ CLanguageSelectorDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             Initialize();
             if (GetLanguagesCount() == 0) // should not happen because this dialog is loaded from the .slg module (that .slg cannot be deleted)
             {
-                MessageBox(HWindow, "Unable to find any language file (.SLG) in subdirectory LANG.\n"
+                MessageBox(HWindow, "Unable to find any language (embedded English, language pack, or .SLG).\n"
                                     "Please reinstall Open Samandarin.",
                            SALAMANDER_TEXT_VERSION, MB_OK | MB_ICONERROR);
                 TRACE_E("CLanguageSelectorDialog: unexpected situation (no language file): calling ExitProcess(667).");

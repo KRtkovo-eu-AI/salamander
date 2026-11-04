@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Skip VERSIONINFO when English UI is embedded into the host PE. | Host binaries already provide VERSIONINFO; lang.rc is compiled into .exe/.spl with SKIP_LANG_VERSIONINFO. | | Composer |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 //****************************************************************************
 //
@@ -30,6 +31,7 @@
 // na strance Version jako "Language"
 //
 
+#ifndef SKIP_LANG_VERSIONINFO
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION VERSINFO_MAJOR,VERSINFO_MINORA,VERSINFO_MINORB,VERSINFO_BUILDNUMBER
  PRODUCTVERSION VERSINFO_SALAMANDER_MAJOR,VERSINFO_SALAMANDER_MINORA,VERSINFO_SALAMANDER_MINORB,VERSINFO_BUILDNUMBER
@@ -77,3 +79,4 @@ BEGIN
         VALUE "Translation", 0x0409, 0x04b0
     END
 END
+#endif // !SKIP_LANG_VERSIONINFO
