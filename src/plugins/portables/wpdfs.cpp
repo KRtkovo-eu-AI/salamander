@@ -1,5 +1,13 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Fix rename progress title and Total bar by summing sizes before upload. | english.slg lacked IDS_OPERATION_RENAME, and AddTotal during the copy made Total jump ahead of File. | | Grok 4.7 |
+// | 2026-11-04 | Open Salamander progress without Salamatrix, match folder renames on either name, and find children in one bulk property pass. | Overwrite waited on one GetValues per sibling, folder rename fell into a full download after ORIGINAL_FILE_NAME stayed old, and progress never appeared when Salamatrix.UI was missing. | | Grok 4.7 |
+// | 2026-11-04 | Skip a missing host operations method, refresh panels on device change, and keep the copy buffer off the stack. | Calling the new slot in an older salamand.exe executes an RTTI record and kills the process. The device list stayed cached until a manual refresh. | | Grok 4.7 |
+// | 2026-11-04 | Include the standard containers through precomp.h. | Debug builds with a precompiled header never saw the <vector> include above it. | | Grok 4.7 |
+// | 2026-11-04 | Overwrite, merge, and rename portable items through Salamander progress. | Creating an object whose name is still present wedges Android MTP, and folder renames must survive devices that ignore WPD_OBJECT_NAME. | | Grok 4.7 |
 
 /*
 	Windows Portable Devices Plugin for Open Salamander
@@ -21,18 +29,48 @@
 #include "config.h"
 #include "globals.h"
 #include "lang\lang.rh"
-#include "..\shared\plugindarkmode.h"
+#include "wpdnamepolicy.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // CWpdFS
 
 extern CWpdDeviceList g_oDeviceList;
 
+static std::vector<CWpdFS*> WpdOpenPanels;
+
+void WINAPI WpdRefreshPanelsForDeviceChange()
+{
+    g_oDeviceList.SetForceUpdate();
+    if (SalamanderGeneral == nullptr)
+    {
+        return;
+    }
+
+    std::vector<CWpdFS*> panels = WpdOpenPanels;
+    for (size_t i = 0; i < panels.size(); ++i)
+    {
+        SalamanderGeneral->PostRefreshPanelFS(panels[i], FALSE);
+    }
+}
+
 PCSTR CWpdFS::SUGGESTED_NAME = SuggestedFSName;
 
 CWpdFS::CWpdFS(CFxPluginInterfaceForFS& owner)
     : TFxPluginFSInterface(owner)
 {
+    WpdOpenPanels.push_back(this);
+}
+
+CWpdFS::~CWpdFS()
+{
+    for (size_t i = 0; i < WpdOpenPanels.size(); ++i)
+    {
+        if (WpdOpenPanels[i] == this)
+        {
+            WpdOpenPanels.erase(WpdOpenPanels.begin() + static_cast<std::ptrdiff_t>(i));
+            break;
+        }
+    }
 }
 
 HRESULT WINAPI CWpdFS::GetChildEnumerator(
@@ -117,866 +155,359 @@ static PCSTR WpdLoadStr(UINT id)
     return SalamanderGeneral->LoadStr(Fx::FxGetLangInstance(), id);
 }
 
-class CWpdOperationProgress;
-static CWpdOperationProgress* WpdActiveOperationProgress = nullptr;
-
-enum CWpdOperationProgressType
+static std::string WpdText(UINT id)
 {
-    wpdProgressCopy,
-    wpdProgressMove,
-    wpdProgressDelete
-};
+    const char* text = WpdLoadStr(id);
+    if (text != nullptr && lstrcmpA(text, "ERROR LOADING STRING") != 0)
+    {
+        return std::string(text);
+    }
+    // Fallback when the staged .slg is older than the plug-in and is missing
+    // the new string IDs (rename/overwrite titles showed ERROR LOADING STRING).
+    switch (id)
+    {
+    case IDS_OPERATION_FAILED_FMT:
+        return "%s '%s' failed (0x%08X).";
+    case IDS_OPERATION_RENAME:
+        return "Rename";
+    case IDS_OPERATION_CREATEFOLDER:
+        return "Create Folder";
+    case IDS_OPERATION_VIEW:
+        return "View";
+    case IDS_OPERATION_NAME_STILL_EXISTS:
+        return "The name is still on the device. The item was not created again.";
+    case IDS_OPERATION_TYPE_MISMATCH_FILE:
+        return "A file cannot replace a folder.";
+    case IDS_OPERATION_TYPE_MISMATCH_DIR:
+        return "A folder cannot replace a file.";
+    case IDS_OPERATION_ALREADY_EXISTS:
+        return "An item with this name already exists.";
+    case IDS_OPERATION_DETAILS_UNKNOWN:
+        return "?";
+    case IDS_OPERATIONPROGRESS_COPY:
+        return "Copy";
+    case IDS_OPERATIONPROGRESS_MOVE:
+        return "Move";
+    case IDS_OPERATIONPROGRESS_DELETE:
+        return "Delete";
+    case IDS_OPERATIONPROGRESS_TITLE:
+        return "Portable Devices";
+    default:
+        return text != nullptr ? std::string(text) : std::string();
+    }
+}
 
-class CWpdOperationProgress
+static HWND WpdDialogOwner = nullptr;
+static bool WpdReportedError = false;
+class CWpdStandardProgress;
+static CWpdStandardProgress* WpdActiveProgress = nullptr;
+
+// MSVC turns a pointer to a virtual method into a thunk that jumps through
+// the vtable slot. An older salamand.exe does not have GetSalamanderForOperations,
+// so that slot is the next object's RTTI record. Executing it is the access
+// violation from the rename and overwrite dumps. Read the slot and accept it
+// only when it points at executable code.
+static size_t WpdOperationsVtableOffset()
+{
+    using Method = CSalamanderForOperationsAbstract*(WINAPI CSalamanderGeneralAbstract::*)(HWND);
+    Method method = &CSalamanderGeneralAbstract::GetSalamanderForOperations;
+    void* thunk = nullptr;
+    memcpy(&thunk, &method, sizeof(thunk));
+
+    MEMORY_BASIC_INFORMATION info;
+    if (thunk == nullptr || ::VirtualQuery(thunk, &info, sizeof(info)) == 0)
+    {
+        return static_cast<size_t>(-1);
+    }
+    const DWORD protect = info.Protect & 0xFF;
+    if (protect != PAGE_EXECUTE && protect != PAGE_EXECUTE_READ &&
+        protect != PAGE_EXECUTE_READWRITE && protect != PAGE_EXECUTE_WRITECOPY)
+    {
+        return static_cast<size_t>(-1);
+    }
+
+    const unsigned char* code = static_cast<const unsigned char*>(thunk);
+    size_t opcode = static_cast<size_t>(-1);
+    // x64: mov rax, [rcx] / jmp|call [rax+slot]
+    if (code[0] == 0x48 && code[1] == 0x8B && code[2] == 0x01 && code[3] == 0xFF)
+    {
+        opcode = 4;
+    }
+    // x86: mov eax, [ecx] / jmp|call [eax+slot]
+    else if (code[0] == 0x8B && code[1] == 0x01 && code[2] == 0xFF)
+    {
+        opcode = 3;
+    }
+    if (opcode == static_cast<size_t>(-1))
+    {
+        return static_cast<size_t>(-1);
+    }
+    if (code[opcode] == 0x60)
+    {
+        return code[opcode + 1];
+    }
+    if (code[opcode] == 0xA0 || code[opcode] == 0x90)
+    {
+        int displacement = 0;
+        memcpy(&displacement, code + opcode + 1, sizeof(displacement));
+        if (displacement >= 0)
+        {
+            return static_cast<size_t>(displacement);
+        }
+    }
+    return static_cast<size_t>(-1);
+}
+
+static bool WpdHostExportsOperations()
+{
+    const size_t offset = WpdOperationsVtableOffset();
+    if (offset == static_cast<size_t>(-1) || SalamanderGeneral == nullptr)
+    {
+        return false;
+    }
+
+    void** vtable = *reinterpret_cast<void***>(SalamanderGeneral);
+    if (vtable == nullptr)
+    {
+        return false;
+    }
+
+    MEMORY_BASIC_INFORMATION info;
+    void* slot = reinterpret_cast<unsigned char*>(vtable) + offset;
+    if (::VirtualQuery(slot, &info, sizeof(info)) == 0)
+    {
+        return false;
+    }
+    const DWORD slotProtect = info.Protect & 0xFF;
+    const bool slotReadable = slotProtect == PAGE_READONLY || slotProtect == PAGE_READWRITE ||
+                              slotProtect == PAGE_WRITECOPY || slotProtect == PAGE_EXECUTE_READ ||
+                              slotProtect == PAGE_EXECUTE_READWRITE || slotProtect == PAGE_EXECUTE_WRITECOPY;
+    if (!slotReadable)
+    {
+        return false;
+    }
+
+    void* target = *reinterpret_cast<void**>(slot);
+    if (::VirtualQuery(target, &info, sizeof(info)) == 0)
+    {
+        return false;
+    }
+    const DWORD targetProtect = info.Protect & 0xFF;
+    return targetProtect == PAGE_EXECUTE || targetProtect == PAGE_EXECUTE_READ ||
+           targetProtect == PAGE_EXECUTE_READWRITE || targetProtect == PAGE_EXECUTE_WRITECOPY;
+}
+
+static HWND WpdDialogParent(HWND fallback)
+{
+    return WpdDialogOwner != nullptr ? WpdDialogOwner : fallback;
+}
+
+class CWpdStandardProgress
 {
 public:
-    CWpdOperationProgress(HWND parent, CWpdOperationProgressType operationType, int totalItems)
-        : m_window(nullptr),
-          m_operationLabel(nullptr),
-          m_text(nullptr),
-          m_targetLabel(nullptr),
-          m_targetText(nullptr),
-          m_fileLabel(nullptr),
-          m_totalLabel(nullptr),
-          m_bytesLabel(nullptr),
-          m_fileProgress(nullptr),
-          m_totalProgress(nullptr),
-          m_minimize(nullptr),
-          m_pause(nullptr),
-          m_cancel(nullptr),
-          m_font(nullptr),
-          m_canceled(false),
-          m_operationType(operationType),
-          m_totalItems(totalItems > 0 ? totalItems : 1),
-          m_doneItems(0),
-          m_filePulse(0),
-          m_filePos(0),
-          m_totalPos(0),
+    CWpdStandardProgress()
+        : m_operations(nullptr),
+          m_previousOwner(nullptr),
+          m_totalBytes(0),
           m_doneBytes(0),
-          m_currentFileBytes(0),
-          m_currentFileTotal(static_cast<ULONGLONG>(-1)),
-          m_totalBytes(0)
+          m_opened(false),
+          m_opsDialog(false),
+          m_waitWindow(false)
     {
-        m_bytesText[0] = '\0';
-        m_bytesTextDirty = true;
-        RegisterWindowClass();
-        BOOL useDarkMode = FALSE;
-        int configType = SALCFGTYPE_NOTFOUND;
-        if (SalamanderGeneral->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE, &useDarkMode, sizeof(useDarkMode), &configType) &&
-            configType == SALCFGTYPE_BOOL)
-        {
-            PluginDarkMode_SetHostPolicyAvailable(TRUE, useDarkMode);
-        }
-
-        NONCLIENTMETRICS metrics = {};
-        metrics.cbSize = sizeof(metrics);
-        if (::SystemParametersInfo(SPI_GETNONCLIENTMETRICS, metrics.cbSize, &metrics, 0))
-        {
-            HDC dc = ::GetDC(nullptr);
-            if (dc != nullptr)
-            {
-                metrics.lfMessageFont.lfHeight = -::MulDiv(8, ::GetDeviceCaps(dc, LOGPIXELSY), 72);
-                ::ReleaseDC(nullptr, dc);
-            }
-            StringCchCopy(metrics.lfMessageFont.lfFaceName, _countof(metrics.lfMessageFont.lfFaceName), "MS Shell Dlg");
-            m_font = ::CreateFontIndirect(&metrics.lfMessageFont);
-        }
-
-        HWND owner = SalamanderGeneral->GetMainWindowHWND();
-        RECT ownerRect;
-        if (owner == nullptr || !::GetWindowRect(owner, &ownerRect))
-        {
-            ownerRect.left = ownerRect.top = 0;
-            ownerRect.right = ::GetSystemMetrics(SM_CXSCREEN);
-            ownerRect.bottom = ::GetSystemMetrics(SM_CYSCREEN);
-        }
-
-        const int width = 535;
-        const int height = 214;
-        int x = ownerRect.left + ((ownerRect.right - ownerRect.left) - width) / 2;
-        int y = ownerRect.top + ((ownerRect.bottom - ownerRect.top) - height) / 2;
-
-        m_window = ::CreateWindowEx(
-            WS_EX_APPWINDOW | WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE,
-            WindowClassName(),
-            WpdLoadStr(IDS_OPERATIONPROGRESS_TITLE),
-            WS_POPUP | WS_CAPTION | WS_SYSMENU,
-            x,
-            y,
-            width,
-            height,
-            owner,
-            nullptr,
-            Fx::FxGetModuleInstance(),
-            this);
-        if (m_window == nullptr)
-        {
-            return;
-        }
-
-        RECT clientRect;
-        ::GetClientRect(m_window, &clientRect);
-        const int topMargin = 18;
-        const int bottomMargin = 10;
-        const int buttonHeight = 24;
-        const int buttonY = clientRect.bottom - bottomMargin - buttonHeight;
-
-        m_operationLabel = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_RIGHT,
-                                            14, topMargin, 50, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
-        m_text = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_LEFT,
-                                  70, topMargin, width - 100, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
-        m_targetLabel = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_RIGHT,
-                                         14, topMargin + 20, 50, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
-        m_targetText = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_LEFT,
-                                        70, topMargin + 20, width - 100, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
-        m_fileLabel = ::CreateWindowEx(0, "STATIC", WpdLoadStr(IDS_OPERATIONPROGRESS_FILE), WS_CHILD | WS_VISIBLE | SS_RIGHT,
-                                       24, topMargin + 51, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
-        m_fileProgress = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_OWNERDRAW,
-                                          70, topMargin + 48, width - 100, 20, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
-        m_totalLabel = ::CreateWindowEx(0, "STATIC", WpdLoadStr(IDS_OPERATIONPROGRESS_TOTAL), WS_CHILD | WS_VISIBLE | SS_RIGHT,
-                                        24, topMargin + 77, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
-        m_totalProgress = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_OWNERDRAW,
-                                           70, topMargin + 74, width - 100, 20, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
-        m_bytesLabel = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_OWNERDRAW,
-                                        70, topMargin + 100, width - 100, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
-        m_minimize = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_MINIMIZE), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_OWNERDRAW,
-                                      140, buttonY, 74, buttonHeight, m_window, reinterpret_cast<HMENU>(IDOK), Fx::FxGetModuleInstance(), nullptr);
-        m_pause = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_PAUSE), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_OWNERDRAW,
-                                   230, buttonY, 74, buttonHeight, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
-        m_cancel = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_CANCEL), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_OWNERDRAW,
-                                    320, buttonY, 74, buttonHeight, m_window, reinterpret_cast<HMENU>(IDCANCEL), Fx::FxGetModuleInstance(), nullptr);
-        ::EnableWindow(m_pause, FALSE);
-        ApplyFont();
-
-        ApplyTheme();
-        WpdActiveOperationProgress = this;
-        Step(WpdLoadStr(IDS_OPERATIONPROGRESS_PREPARING));
-        ::ShowWindow(m_window, SW_SHOWNORMAL);
-        ::UpdateWindow(m_window);
-        PumpMessages();
     }
 
-    ~CWpdOperationProgress()
+    ~CWpdStandardProgress()
     {
         Close();
-        if (m_font != nullptr)
-        {
-            ::DeleteObject(m_font);
-            m_font = nullptr;
-        }
     }
 
-    bool Step(PCSTR sourceName, PCSTR targetName = nullptr)
-    {
-        if (m_window == nullptr)
-        {
-            return true;
-        }
-
-        if (targetName != nullptr && targetName[0] != '\0')
-        {
-            char targetText[MAX_PATH + 128];
-            ::SetWindowText(m_operationLabel, GetOperationVerb());
-            ::SetWindowText(m_text, sourceName);
-            ::SetWindowText(m_targetLabel, WpdLoadStr(IDS_OPERATIONPROGRESS_TO));
-            StringCchPrintf(targetText, _countof(targetText), "%s", targetName);
-            ::SetWindowText(m_targetText, targetText);
-        }
-        else
-        {
-            char text[MAX_PATH + 128];
-            StringCchPrintf(text, _countof(text), "%s %s", GetOperationVerb(), sourceName);
-            ::SetWindowText(m_operationLabel, "");
-            ::SetWindowText(m_text, text);
-            ::SetWindowText(m_targetLabel, "");
-            ::SetWindowText(m_targetText, "");
-        }
-        m_filePulse = 0;
-        m_filePos = 0;
-        m_currentFileBytes = 0;
-        m_currentFileTotal = static_cast<ULONGLONG>(-1);
-        m_totalPos = m_doneItems * 1000 / m_totalItems;
-        ::ShowWindow(m_window, SW_SHOWNORMAL);
-        UpdateTitle();
-        UpdateBytesText();
-        Redraw();
-        PumpMessages();
-        return !m_canceled;
-    }
-
-    bool Advance()
-    {
-        ++m_doneItems;
-        if (m_window != nullptr)
-        {
-            if (m_currentFileTotal != static_cast<ULONGLONG>(-1))
-            {
-                m_doneBytes += m_currentFileTotal;
-            }
-            else
-            {
-                m_doneBytes += m_currentFileBytes;
-            }
-            m_filePulse = 0;
-            m_filePos = 0;
-            m_currentFileBytes = 0;
-            m_currentFileTotal = static_cast<ULONGLONG>(-1);
-            m_totalPos = m_doneItems * 1000 / m_totalItems;
-            UpdateTitle();
-            UpdateBytesText();
-            RedrawProgress();
-            PumpMessages();
-        }
-        return !m_canceled;
-    }
-
-    bool SetFileProgress(ULONGLONG current, ULONGLONG total)
-    {
-        if (m_window != nullptr)
-        {
-            int pos;
-            if (total != 0 && total != static_cast<ULONGLONG>(-1))
-            {
-                pos = static_cast<int>((current * 1000) / total);
-                if (pos > 1000)
-                {
-                    pos = 1000;
-                }
-            }
-            else
-            {
-                m_filePulse += 25;
-                if (m_filePulse > 990)
-                {
-                    m_filePulse = 990;
-                }
-                pos = m_filePulse;
-            }
-            m_filePos = pos;
-            m_currentFileBytes = current;
-            m_currentFileTotal = total;
-            m_totalPos = ((m_doneItems * 1000) + m_filePos) / m_totalItems;
-            if (m_totalPos > 1000)
-            {
-                m_totalPos = 1000;
-            }
-            UpdateTitle();
-            UpdateBytesText();
-            RedrawProgress();
-            PumpMessages();
-        }
-        return !m_canceled;
-    }
-
-    void SetDevice(CWpdDevice* device)
-    {
-        if (device != nullptr)
-        {
-            device->GetName(m_deviceName);
-            UpdateTitle();
-        }
-    }
-
-    void AddTotalBytes(ULONGLONG bytes)
+    void AddTotal(ULONGLONG bytes)
     {
         if (bytes != 0 && bytes != static_cast<ULONGLONG>(-1))
         {
             m_totalBytes += bytes;
-            UpdateBytesText();
         }
     }
 
-    void ApplyFont()
+    // Push the summed Total size into the dialog before the first file starts.
+    // Calling this after every AddTotal during the copy made Total race ahead
+    // of File because the denominator was still only the files seen so far.
+    void CommitTotals()
     {
-        if (m_font != nullptr)
+        if (!m_opsDialog || m_operations == nullptr)
         {
-            HWND controls[] = {m_operationLabel, m_text, m_targetLabel, m_targetText, m_fileLabel, m_totalLabel, m_bytesLabel, m_minimize, m_pause, m_cancel};
-            for (int i = 0; i < _countof(controls); ++i)
+            return;
+        }
+        CQuadWord unchanged(-1, -1);
+        CQuadWord allTotal;
+        allTotal.SetUI64(m_totalBytes == 0 ? 1 : m_totalBytes);
+        m_operations->ProgressSetTotalSize(unchanged, allTotal);
+        CQuadWord zero(0, 0);
+        CQuadWord done;
+        done.SetUI64(m_doneBytes);
+        m_operations->ProgressSetSize(unchanged, done, FALSE);
+    }
+
+    // Prefer the host progress dialog. When this host build has no
+    // GetSalamanderForOperations slot, show the Safe Wait window so the user
+    // still sees that the plugin is working.
+    bool Open(HWND panel, const std::string& title)
+    {
+        Close();
+        m_previousOwner = WpdDialogOwner;
+        WpdDialogOwner = panel;
+        WpdActiveProgress = this;
+        m_opened = true;
+
+        if (SalamanderGeneral != nullptr && WpdHostExportsOperations())
+        {
+            m_operations = SalamanderGeneral->GetSalamanderForOperations(panel);
+            if (m_operations != nullptr)
             {
-                if (controls[i] != nullptr)
+                m_operations->OpenProgressDialog(title.c_str(), TRUE, panel, TRUE);
+                m_opsDialog = true;
+                HWND progressWindow = m_operations->ProgressGetHWND();
+                if (progressWindow != nullptr)
                 {
-                    ::SendMessage(controls[i], WM_SETFONT, reinterpret_cast<WPARAM>(m_font), TRUE);
+                    WpdDialogOwner = progressWindow;
                 }
+                m_operations->ProgressEnableCancel(TRUE);
+                return true;
             }
+        }
+
+        if (SalamanderGeneral != nullptr)
+        {
+            SalamanderGeneral->CreateSafeWaitWindow(title.c_str(), nullptr, 0, TRUE, panel);
+            m_waitWindow = true;
+        }
+        return true;
+    }
+
+    bool BeginItem(const char* name, ULONGLONG fileBytes)
+    {
+        if (m_opsDialog && m_operations != nullptr)
+        {
+            if (name != nullptr && name[0] != '\0')
+            {
+                m_operations->ProgressDialogAddText(name, FALSE);
+            }
+
+            CQuadWord unchanged(-1, -1);
+            CQuadWord fileTotal;
+            if (fileBytes == static_cast<ULONGLONG>(-1))
+            {
+                // Keep the existing File total; only refresh the Total bar.
+                fileTotal = unchanged;
+            }
+            else
+            {
+                fileTotal.SetUI64(fileBytes == 0 ? 1 : fileBytes);
+            }
+            CQuadWord allTotal;
+            if (m_totalBytes == 0)
+            {
+                allTotal = unchanged;
+            }
+            else
+            {
+                allTotal.SetUI64(m_totalBytes);
+            }
+            m_operations->ProgressSetTotalSize(fileTotal, allTotal);
+
+            CQuadWord filePos(0, 0);
+            CQuadWord done;
+            done.SetUI64(m_doneBytes);
+            return m_operations->ProgressSetSize(filePos, done, FALSE);
+        }
+
+        if (m_waitWindow && SalamanderGeneral != nullptr)
+        {
+            if (name != nullptr && name[0] != '\0')
+            {
+                SalamanderGeneral->SetSafeWaitWindowText(name);
+            }
+            return !SalamanderGeneral->GetSafeWaitWindowClosePressed();
+        }
+        return true;
+    }
+
+    bool OnBytes(ULONGLONG copied, ULONGLONG total)
+    {
+        UNREFERENCED_PARAMETER(total);
+        if (m_opsDialog && m_operations != nullptr)
+        {
+            CQuadWord filePos;
+            CQuadWord done;
+            filePos.SetUI64(copied);
+            done.SetUI64(m_doneBytes + copied);
+            return m_operations->ProgressSetSize(filePos, done, TRUE);
+        }
+        if (m_waitWindow && SalamanderGeneral != nullptr)
+        {
+            return !SalamanderGeneral->GetSafeWaitWindowClosePressed();
+        }
+        return true;
+    }
+
+    void EndItem(ULONGLONG fileBytes)
+    {
+        if (fileBytes != static_cast<ULONGLONG>(-1))
+        {
+            m_doneBytes += fileBytes;
+        }
+        if (m_opsDialog && m_operations != nullptr)
+        {
+            CQuadWord filePos;
+            CQuadWord done;
+            filePos.SetUI64(fileBytes == static_cast<ULONGLONG>(-1) ? 0 : fileBytes);
+            done.SetUI64(m_doneBytes);
+            m_operations->ProgressSetSize(filePos, done, FALSE);
         }
     }
 
     void Close()
     {
-        if (WpdActiveOperationProgress == this)
+        if (WpdActiveProgress == this)
         {
-            WpdActiveOperationProgress = nullptr;
+            WpdActiveProgress = nullptr;
         }
-        if (m_window != nullptr)
+        if (m_opsDialog && m_operations != nullptr)
         {
-            HWND window = m_window;
-            m_window = nullptr;
-            ::DestroyWindow(window);
-            if (m_font != nullptr)
-            {
-                ::DeleteObject(m_font);
-                m_font = nullptr;
-            }
-            PumpMessages();
+            m_operations->CloseProgressDialog();
         }
-    }
-
-    void ApplyTheme()
-    {
-        if (m_window == nullptr)
+        if (m_waitWindow && SalamanderGeneral != nullptr)
         {
-            return;
+            SalamanderGeneral->DestroySafeWaitWindow();
         }
-        PluginDarkMode_ApplyTitleBar(m_window);
-        PluginDarkMode_ApplyListTreeThemeRecursive(m_window);
-        if (PluginDarkMode_ShouldUseDark())
+        m_operations = nullptr;
+        m_opsDialog = false;
+        m_waitWindow = false;
+        if (m_opened)
         {
-            ::InvalidateRect(m_fileProgress, nullptr, TRUE);
-            ::InvalidateRect(m_totalProgress, nullptr, TRUE);
+            WpdDialogOwner = m_previousOwner;
+            m_opened = false;
         }
-        InvalidateRect(m_window, nullptr, TRUE);
-        Redraw();
     }
 
 private:
-    PCSTR GetOperationName() const
-    {
-        switch (m_operationType)
-        {
-        case wpdProgressCopy:
-            return WpdLoadStr(IDS_OPERATIONPROGRESS_COPY);
-        case wpdProgressMove:
-            return WpdLoadStr(IDS_OPERATIONPROGRESS_MOVE);
-        case wpdProgressDelete:
-            return WpdLoadStr(IDS_OPERATIONPROGRESS_DELETE);
-        default:
-            return "";
-        }
-    }
-
-    PCSTR GetOperationVerb() const
-    {
-        switch (m_operationType)
-        {
-        case wpdProgressCopy:
-            return WpdLoadStr(IDS_OPERATIONPROGRESS_COPYING);
-        case wpdProgressMove:
-            return WpdLoadStr(IDS_OPERATIONPROGRESS_MOVING);
-        case wpdProgressDelete:
-            return WpdLoadStr(IDS_OPERATIONPROGRESS_DELETING);
-        default:
-            return "";
-        }
-    }
-
-    PCSTR GetBytesFormat() const
-    {
-        switch (m_operationType)
-        {
-        case wpdProgressMove:
-            return WpdLoadStr(IDS_OPERATIONPROGRESS_MOVED);
-        case wpdProgressDelete:
-            return WpdLoadStr(IDS_OPERATIONPROGRESS_PROCESSED);
-        case wpdProgressCopy:
-        default:
-            return WpdLoadStr(IDS_OPERATIONPROGRESS_BYTES);
-        }
-    }
-
-    static PCSTR WindowClassName()
-    {
-        return "OpenSalamanderWpdOperationProgress";
-    }
-
-    static void RegisterWindowClass()
-    {
-        static ATOM atom = 0;
-        if (atom != 0)
-        {
-            return;
-        }
-
-        WNDCLASS wc = {};
-        wc.lpfnWndProc = WindowProc;
-        wc.hInstance = Fx::FxGetModuleInstance();
-        wc.hCursor = ::LoadCursor(nullptr, IDC_ARROW);
-        wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_BTNFACE + 1);
-        wc.lpszClassName = WindowClassName();
-        atom = ::RegisterClass(&wc);
-    }
-
-    static LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
-    {
-        CWpdOperationProgress* self = reinterpret_cast<CWpdOperationProgress*>(::GetWindowLongPtr(window, GWLP_USERDATA));
-        if (message == WM_NCCREATE)
-        {
-            auto createStruct = reinterpret_cast<CREATESTRUCT*>(lParam);
-            self = reinterpret_cast<CWpdOperationProgress*>(createStruct->lpCreateParams);
-            ::SetWindowLongPtr(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(self));
-        }
-        if (self != nullptr)
-        {
-            if (PluginDarkMode_HandleThemeMessage(window, message, lParam))
-            {
-                self->ApplyTheme();
-                return 0;
-            }
-            LRESULT brush = 0;
-            if (PluginDarkMode_HandleCtlColor(message, wParam, lParam, &brush))
-            {
-                return brush;
-            }
-            if (message == WM_CTLCOLORSTATIC && PluginDarkMode_ShouldUseDark())
-            {
-                HDC dc = reinterpret_cast<HDC>(wParam);
-                PluginDarkModeColors colors = PluginDarkMode_GetColors();
-                ::SetTextColor(dc, colors.readableText);
-                ::SetBkColor(dc, colors.background);
-                ::SetBkMode(dc, TRANSPARENT);
-                return reinterpret_cast<LRESULT>(PluginDarkMode_GetDialogCtlColorBrush(dc, message));
-            }
-            if (message == WM_DRAWITEM)
-            {
-                auto drawItem = reinterpret_cast<DRAWITEMSTRUCT*>(lParam);
-                if (drawItem != nullptr &&
-                    (drawItem->hwndItem == self->m_minimize || drawItem->hwndItem == self->m_pause || drawItem->hwndItem == self->m_cancel))
-                {
-                    self->DrawButton(drawItem);
-                    return TRUE;
-                }
-                if (drawItem != nullptr &&
-                    (drawItem->hwndItem == self->m_fileProgress || drawItem->hwndItem == self->m_totalProgress))
-                {
-                    self->DrawProgress(drawItem, drawItem->hwndItem == self->m_fileProgress ? self->m_filePos : self->m_totalPos);
-                    return TRUE;
-                }
-                if (drawItem != nullptr && drawItem->hwndItem == self->m_bytesLabel)
-                {
-                    self->DrawBytesLabel(drawItem);
-                    return TRUE;
-                }
-            }
-            if (message == WM_ERASEBKGND && PluginDarkMode_ShouldUseDark())
-            {
-                RECT rect;
-                GetClientRect(window, &rect);
-                HBRUSH darkBrush = PluginDarkMode_GetDialogCtlColorBrush(reinterpret_cast<HDC>(wParam), WM_CTLCOLORDLG);
-                if (darkBrush != nullptr)
-                {
-                    FillRect(reinterpret_cast<HDC>(wParam), &rect, darkBrush);
-                    return 1;
-                }
-            }
-            if (message == WM_COMMAND && LOWORD(wParam) == IDOK)
-            {
-                ::ShowWindow(window, SW_MINIMIZE);
-                return 0;
-            }
-            if (message == WM_COMMAND && LOWORD(wParam) == IDCANCEL)
-            {
-                self->m_canceled = true;
-                ::EnableWindow(self->m_cancel, FALSE);
-                return 0;
-            }
-            if (message == WM_CLOSE)
-            {
-                self->m_canceled = true;
-                ::EnableWindow(self->m_cancel, FALSE);
-                return 0;
-            }
-        }
-        return ::DefWindowProc(window, message, wParam, lParam);
-    }
-
-    void Redraw()
-    {
-        if (m_window == nullptr)
-        {
-            return;
-        }
-
-        HWND controls[] = {m_operationLabel, m_text, m_targetLabel, m_targetText, m_fileLabel, m_totalLabel, m_bytesLabel, m_fileProgress, m_totalProgress, m_minimize, m_pause, m_cancel};
-        for (int i = 0; i < _countof(controls); ++i)
-        {
-            if (controls[i] != nullptr)
-            {
-                ::RedrawWindow(controls[i], nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
-            }
-        }
-    }
-
-    void UpdateTitle()
-    {
-        if (m_window == nullptr)
-        {
-            return;
-        }
-
-        char title[MAX_PATH + 64];
-        if (!m_deviceName.IsEmpty())
-        {
-            StringCchPrintf(title, _countof(title), "(%d %%) %s - %s", m_totalPos / 10, GetOperationName(), m_deviceName.GetString());
-        }
-        else
-        {
-            StringCchPrintf(title, _countof(title), "(%d %%) %s", m_totalPos / 10, GetOperationName());
-        }
-        ::SetWindowText(m_window, title);
-    }
-
-    void UpdateBytesText()
-    {
-        if (m_bytesLabel == nullptr)
-        {
-            return;
-        }
-
-        ULONGLONG copied = m_doneBytes + m_currentFileBytes;
-        ULONGLONG total = m_totalBytes;
-        if (total == 0 && m_currentFileTotal != static_cast<ULONGLONG>(-1))
-        {
-            total = m_doneBytes + m_currentFileTotal;
-        }
-        if (total < copied)
-        {
-            total = copied;
-        }
-        if (copied == 0 && total == 0)
-        {
-            if (m_bytesText[0] != '\0')
-            {
-                m_bytesText[0] = '\0';
-                m_bytesTextDirty = true;
-            }
-            return;
-        }
-
-        CQuadWord copiedSize;
-        CQuadWord totalSize;
-        copiedSize.SetUI64(copied);
-        totalSize.SetUI64(total);
-
-        char copiedText[64];
-        char totalText[64];
-        char copiedFormatted[64];
-        char totalFormatted[64];
-        SalamanderGeneral->PrintDiskSize(copiedFormatted, copiedSize, 1);
-        SalamanderGeneral->PrintDiskSize(totalFormatted, totalSize, 1);
-        ExtractSizeInParentheses(copiedFormatted, copiedText, _countof(copiedText));
-        ExtractSizeInParentheses(totalFormatted, totalText, _countof(totalText));
-
-        char text[160];
-        StringCchPrintf(text, _countof(text), GetBytesFormat(), copiedText, totalText);
-        if (lstrcmp(m_bytesText, text) != 0)
-        {
-            StringCchCopy(m_bytesText, _countof(m_bytesText), text);
-            m_bytesTextDirty = true;
-        }
-    }
-
-    static void ExtractSizeInParentheses(PCSTR text, char* buffer, int bufferSize)
-    {
-        const char* begin = text != nullptr ? strrchr(text, '(') : nullptr;
-        const char* end = begin != nullptr ? strchr(begin + 1, ')') : nullptr;
-        if (begin != nullptr && end != nullptr && end > begin + 1)
-        {
-            size_t capacity = static_cast<size_t>(bufferSize - 1);
-            size_t len = static_cast<size_t>(end - begin - 1);
-            if (len > capacity)
-            {
-                len = capacity;
-            }
-            memcpy(buffer, begin + 1, len);
-            buffer[len] = '\0';
-        }
-        else
-        {
-            StringCchCopy(buffer, bufferSize, text != nullptr ? text : "");
-        }
-    }
-
-    void RedrawProgress()
-    {
-        if (m_window == nullptr)
-        {
-            return;
-        }
-
-        HWND controls[] = {m_fileProgress, m_totalProgress};
-        for (int i = 0; i < _countof(controls); ++i)
-        {
-            if (controls[i] != nullptr)
-            {
-                ::RedrawWindow(controls[i], nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW | RDW_NOERASE);
-            }
-        }
-        if (m_bytesTextDirty && m_bytesLabel != nullptr)
-        {
-            ::RedrawWindow(m_bytesLabel, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW | RDW_NOERASE);
-            m_bytesTextDirty = false;
-        }
-    }
-
-    void DrawButton(DRAWITEMSTRUCT* drawItem)
-    {
-        bool dark = PluginDarkMode_ShouldUseDark();
-        PluginDarkModeColors colors = PluginDarkMode_GetColors();
-        COLORREF background = dark ? RGB(0x2B, 0x2B, 0x2B) : ::GetSysColor(COLOR_BTNFACE);
-        COLORREF border = dark ? RGB(0x80, 0x80, 0x80) : ::GetSysColor(COLOR_BTNSHADOW);
-        COLORREF text = dark ? colors.readableText : ::GetSysColor(COLOR_BTNTEXT);
-        if ((drawItem->itemState & ODS_DISABLED) != 0)
-        {
-            text = dark ? RGB(0x80, 0x80, 0x80) : ::GetSysColor(COLOR_GRAYTEXT);
-        }
-        if ((drawItem->itemState & ODS_SELECTED) != 0)
-        {
-            background = dark ? RGB(0x3A, 0x3A, 0x3A) : ::GetSysColor(COLOR_3DLIGHT);
-        }
-
-        HBRUSH brush = ::CreateSolidBrush(background);
-        ::FillRect(drawItem->hDC, &drawItem->rcItem, brush);
-        ::DeleteObject(brush);
-        HPEN pen = ::CreatePen(PS_SOLID, 1, border);
-        HGDIOBJ oldPen = ::SelectObject(drawItem->hDC, pen);
-        HGDIOBJ oldBrush = ::SelectObject(drawItem->hDC, ::GetStockObject(NULL_BRUSH));
-        ::Rectangle(drawItem->hDC, drawItem->rcItem.left, drawItem->rcItem.top, drawItem->rcItem.right, drawItem->rcItem.bottom);
-        ::SelectObject(drawItem->hDC, oldBrush);
-        ::SelectObject(drawItem->hDC, oldPen);
-        ::DeleteObject(pen);
-
-        char textBuffer[128];
-        ::GetWindowText(drawItem->hwndItem, textBuffer, _countof(textBuffer));
-        HGDIOBJ oldFont = nullptr;
-        if (m_font != nullptr)
-        {
-            oldFont = ::SelectObject(drawItem->hDC, m_font);
-        }
-        ::SetBkMode(drawItem->hDC, TRANSPARENT);
-        ::SetTextColor(drawItem->hDC, text);
-        RECT textRect = drawItem->rcItem;
-        ::DrawText(drawItem->hDC, textBuffer, -1, &textRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-        if (oldFont != nullptr)
-        {
-            ::SelectObject(drawItem->hDC, oldFont);
-        }
-        if ((drawItem->itemState & ODS_FOCUS) != 0)
-        {
-            RECT focusRect = drawItem->rcItem;
-            ::InflateRect(&focusRect, -3, -3);
-            ::DrawFocusRect(drawItem->hDC, &focusRect);
-        }
-    }
-
-    void DrawBytesLabel(DRAWITEMSTRUCT* drawItem)
-    {
-        RECT targetRect = drawItem->rcItem;
-        const int width = targetRect.right - targetRect.left;
-        const int height = targetRect.bottom - targetRect.top;
-        RECT rect = targetRect;
-        HDC dc = drawItem->hDC;
-        HDC memDC = ::CreateCompatibleDC(dc);
-        HBITMAP bitmap = memDC != nullptr ? ::CreateCompatibleBitmap(dc, width, height) : nullptr;
-        HGDIOBJ oldBitmap = nullptr;
-        if (memDC != nullptr && bitmap != nullptr)
-        {
-            oldBitmap = ::SelectObject(memDC, bitmap);
-            dc = memDC;
-            ::SetRect(&rect, 0, 0, width, height);
-        }
-
-        bool dark = PluginDarkMode_ShouldUseDark();
-        PluginDarkModeColors colors = PluginDarkMode_GetColors();
-        COLORREF background = dark ? colors.background : ::GetSysColor(COLOR_BTNFACE);
-        COLORREF text = dark ? colors.readableText : ::GetSysColor(COLOR_BTNTEXT);
-
-        HBRUSH brush = ::CreateSolidBrush(background);
-        ::FillRect(dc, &rect, brush);
-        ::DeleteObject(brush);
-
-        HGDIOBJ oldFont = nullptr;
-        if (m_font != nullptr)
-        {
-            oldFont = ::SelectObject(dc, m_font);
-        }
-        ::SetBkMode(dc, TRANSPARENT);
-        ::SetTextColor(dc, text);
-        RECT textRect = rect;
-        ::DrawText(dc, m_bytesText, -1, &textRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-        if (oldFont != nullptr)
-        {
-            ::SelectObject(dc, oldFont);
-        }
-
-        if (memDC != nullptr && bitmap != nullptr)
-        {
-            ::BitBlt(drawItem->hDC, targetRect.left, targetRect.top, width, height, memDC, 0, 0, SRCCOPY);
-            ::SelectObject(memDC, oldBitmap);
-            ::DeleteObject(bitmap);
-            ::DeleteDC(memDC);
-        }
-        else if (memDC != nullptr)
-        {
-            ::DeleteDC(memDC);
-        }
-    }
-
-    void DrawProgress(DRAWITEMSTRUCT* drawItem, int pos)
-    {
-        RECT targetRect = drawItem->rcItem;
-        const int width = targetRect.right - targetRect.left;
-        const int height = targetRect.bottom - targetRect.top;
-        RECT rect = targetRect;
-        HDC dc = drawItem->hDC;
-        HDC memDC = ::CreateCompatibleDC(dc);
-        HBITMAP bitmap = memDC != nullptr ? ::CreateCompatibleBitmap(dc, width, height) : nullptr;
-        HGDIOBJ oldBitmap = nullptr;
-        if (memDC != nullptr && bitmap != nullptr)
-        {
-            oldBitmap = ::SelectObject(memDC, bitmap);
-            dc = memDC;
-            ::SetRect(&rect, 0, 0, width, height);
-        }
-
-        bool dark = PluginDarkMode_ShouldUseDark();
-        PluginDarkModeColors colors = PluginDarkMode_GetColors();
-        COLORREF background = dark ? RGB(0x2B, 0x2B, 0x2B) : RGB(0xF0, 0xF0, 0xF0);
-        COLORREF border = dark ? RGB(0x5A, 0x5A, 0x5A) : RGB(0x80, 0x80, 0x80);
-        COLORREF bar = RGB(0x00, 0x78, 0xD7);
-        COLORREF text = dark ? colors.readableText : RGB(0, 0, 0);
-
-        HBRUSH brush = ::CreateSolidBrush(background);
-        ::FillRect(dc, &rect, brush);
-        ::DeleteObject(brush);
-
-        RECT fill = rect;
-        ::InflateRect(&fill, -1, -1);
-        if (pos < 0)
-        {
-            pos = 0;
-        }
-        if (pos > 1000)
-        {
-            pos = 1000;
-        }
-        fill.right = fill.left + ((fill.right - fill.left) * pos) / 1000;
-        if (fill.right > fill.left)
-        {
-            brush = ::CreateSolidBrush(bar);
-            ::FillRect(dc, &fill, brush);
-            ::DeleteObject(brush);
-        }
-
-        HPEN pen = ::CreatePen(PS_SOLID, 1, border);
-        HGDIOBJ oldPen = ::SelectObject(dc, pen);
-        HGDIOBJ oldBrush = ::SelectObject(dc, ::GetStockObject(NULL_BRUSH));
-        ::Rectangle(dc, rect.left, rect.top, rect.right, rect.bottom);
-        ::SelectObject(dc, oldBrush);
-        ::SelectObject(dc, oldPen);
-        ::DeleteObject(pen);
-
-        char percent[16];
-        StringCchPrintf(percent, _countof(percent), "%d %%", pos / 10);
-        HGDIOBJ oldFont = nullptr;
-        if (m_font != nullptr)
-        {
-            oldFont = ::SelectObject(dc, m_font);
-        }
-        ::SetBkMode(dc, TRANSPARENT);
-        ::SetTextColor(dc, text);
-        ::DrawText(dc, percent, -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-        if (oldFont != nullptr)
-        {
-            ::SelectObject(dc, oldFont);
-        }
-
-        if (memDC != nullptr && bitmap != nullptr)
-        {
-            ::BitBlt(drawItem->hDC, targetRect.left, targetRect.top, width, height, memDC, 0, 0, SRCCOPY);
-            ::SelectObject(memDC, oldBitmap);
-            ::DeleteObject(bitmap);
-            ::DeleteDC(memDC);
-        }
-        else if (memDC != nullptr)
-        {
-            ::DeleteDC(memDC);
-        }
-    }
-
-    void PumpMessages()
-    {
-        MSG msg;
-        // Dispatch only messages for the progress window and its children. Pumping
-        // the whole thread here can re-enter Salamander while it is inside this
-        // plug-in call and invalidate panel items used by the active operation.
-        while (m_window != nullptr && ::PeekMessage(&msg, m_window, 0, 0, PM_REMOVE))
-        {
-            // WM_QUIT is returned regardless of the window filter. Preserve it for
-            // Salamander's outer message loop instead of silently consuming it here.
-            if (msg.message == WM_QUIT)
-            {
-                ::PostQuitMessage(static_cast<int>(msg.wParam));
-                break;
-            }
-            ::TranslateMessage(&msg);
-            ::DispatchMessage(&msg);
-        }
-    }
-
-    HWND m_window;
-    HWND m_operationLabel;
-    HWND m_text;
-    HWND m_targetLabel;
-    HWND m_targetText;
-    HWND m_fileLabel;
-    HWND m_totalLabel;
-    HWND m_bytesLabel;
-    HWND m_fileProgress;
-    HWND m_totalProgress;
-    HWND m_minimize;
-    HWND m_pause;
-    HWND m_cancel;
-    HFONT m_font;
-    bool m_canceled;
-    CWpdOperationProgressType m_operationType;
-    CFxString m_deviceName;
-    int m_totalItems;
-    int m_doneItems;
-    int m_filePulse;
-    int m_filePos;
-    int m_totalPos;
-    ULONGLONG m_doneBytes;
-    ULONGLONG m_currentFileBytes;
-    ULONGLONG m_currentFileTotal;
+    CSalamanderForOperationsAbstract* m_operations;
+    HWND m_previousOwner;
     ULONGLONG m_totalBytes;
-    char m_bytesText[160];
-    bool m_bytesTextDirty;
+    ULONGLONG m_doneBytes;
+    bool m_opened;
+    bool m_opsDialog;
+    bool m_waitWindow;
 };
-
-static void WINAPI WpdAddSelectedPanelTotalBytes(CWpdOperationProgress& progress, int panel, BOOL focused)
-{
-    int index = 0;
-    for (;;)
-    {
-        BOOL isDir = FALSE;
-        const CFileData* file = focused ? SalamanderGeneral->GetPanelFocusedItem(panel, &isDir) : SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir);
-        if (file == nullptr)
-        {
-            break;
-        }
-        progress.AddTotalBytes(file->Size.Value);
-        if (focused)
-        {
-            break;
-        }
-    }
-}
 
 static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG size)
 {
     _ASSERTE(source != nullptr);
     _ASSERTE(target != nullptr);
 
-    BYTE buffer[64 * 1024];
+    // The copy runs on the UI thread under the progress dialog. A 64 KB stack
+    // buffer there is large enough to overflow a deep call.
+    std::vector<BYTE> buffer(64 * 1024);
     ULONGLONG copied = 0;
     for (;;)
     {
@@ -985,19 +516,17 @@ static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG 
             return S_OK;
         }
 
-        ULONG toRead = sizeof(buffer);
-
         ULONG read = 0;
-        HRESULT hr = source->Read(buffer, toRead, &read);
+        HRESULT hr = source->Read(buffer.data(), static_cast<ULONG>(buffer.size()), &read);
         if (FAILED(hr))
         {
             return hr;
         }
         if (read == 0)
         {
-            if (WpdActiveOperationProgress != nullptr)
+            if (WpdActiveProgress != nullptr)
             {
-                WpdActiveOperationProgress->SetFileProgress(copied, copied != 0 ? copied : 1);
+                WpdActiveProgress->OnBytes(copied, copied != 0 ? copied : 1);
             }
             return S_OK;
         }
@@ -1012,7 +541,7 @@ static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG 
         while (writtenTotal < toWrite)
         {
             ULONG written = 0;
-            hr = target->Write(buffer + writtenTotal, toWrite - writtenTotal, &written);
+            hr = target->Write(buffer.data() + writtenTotal, toWrite - writtenTotal, &written);
             if (FAILED(hr))
             {
                 return hr;
@@ -1025,16 +554,15 @@ static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG 
         }
 
         copied += toWrite;
-        if (WpdActiveOperationProgress != nullptr &&
-            !WpdActiveOperationProgress->SetFileProgress(copied, size))
+        if (WpdActiveProgress != nullptr && !WpdActiveProgress->OnBytes(copied, size))
         {
             return HRESULT_FROM_WIN32(ERROR_CANCELLED);
         }
         if (hr == S_FALSE)
         {
-            if (WpdActiveOperationProgress != nullptr)
+            if (WpdActiveProgress != nullptr)
             {
-                WpdActiveOperationProgress->SetFileProgress(copied, copied != 0 ? copied : 1);
+                WpdActiveProgress->OnBytes(copied, copied != 0 ? copied : 1);
             }
             return S_OK;
         }
@@ -1058,18 +586,488 @@ static bool WINAPI WpdRequiresDeviceReconnect(HRESULT hr)
         ;
 }
 
-static void WINAPI WpdShowOperationError(HWND parent, PCSTR operation, PCSTR name, HRESULT hr)
+static bool WINAPI WpdIsMoveUnsupported(HRESULT hr)
+{
+    return hr == E_NOTIMPL ||
+           hr == E_NOINTERFACE ||
+           hr == HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED) ||
+           hr == HRESULT_FROM_WIN32(ERROR_CALL_NOT_IMPLEMENTED) ||
+           hr == HRESULT_FROM_WIN32(ERROR_INVALID_FUNCTION);
+}
+
+static std::string WpdFormatOperationError(UINT operationId, const char* name, HRESULT hr)
+{
+    std::string format = WpdText(IDS_OPERATION_FAILED_FMT);
+    std::string operation = WpdText(operationId);
+    const char* shown = name != nullptr ? name : "";
+    std::string message(format.size() + operation.size() + strlen(shown) + 48, '\0');
+    if (FAILED(StringCchPrintfA(&message[0], message.size(), format.c_str(), operation.c_str(), shown, static_cast<unsigned>(hr))))
+    {
+        return operation;
+    }
+    message.resize(strlen(message.c_str()));
+    return message;
+}
+
+static void WINAPI WpdShowOperationError(HWND parent, UINT operationId, const char* name, HRESULT hr)
 {
     if (WpdIsOperationCancelled(hr))
     {
         return;
     }
 
-    CFxString message;
-    message.Format("%s '%s' failed (0x%08X).", operation, name != nullptr ? name : "", hr);
-    SalamanderGeneral->ShowMessageBox(message, "Portable Devices", MSGBOX_ERROR);
+    WpdReportedError = true;
+    std::string message = WpdFormatOperationError(operationId, name, hr);
+    std::string title = WpdText(IDS_OPERATIONPROGRESS_TITLE);
+    SalamanderGeneral->DialogError(WpdDialogParent(parent), BUTTONS_OK, name != nullptr ? name : "", message.c_str(), title.c_str());
 }
 
+static int WpdStrICmp(const char* left, const char* right)
+{
+    if (SalamanderGeneral == nullptr)
+    {
+        return lstrcmpiA(left, right);
+    }
+    return SalamanderGeneral->StrICmp(left, right);
+}
+
+static bool WpdUtf8ToWide(const char* text, std::wstring& wide)
+{
+    wide.clear();
+    if (text == nullptr)
+    {
+        return false;
+    }
+    if (text[0] == '\0')
+    {
+        return true;
+    }
+
+    int length = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, -1, nullptr, 0);
+    if (length <= 1)
+    {
+        return false;
+    }
+    wide.resize(static_cast<size_t>(length - 1));
+    return ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, -1, &wide[0], length) > 0;
+}
+
+static bool WpdWideToUtf8(const wchar_t* text, std::string& utf8)
+{
+    utf8.clear();
+    if (text == nullptr)
+    {
+        return false;
+    }
+    if (text[0] == L'\0')
+    {
+        return true;
+    }
+
+    int length = ::WideCharToMultiByte(CP_UTF8, 0, text, -1, nullptr, 0, nullptr, nullptr);
+    if (length <= 1)
+    {
+        return false;
+    }
+    utf8.resize(static_cast<size_t>(length - 1));
+    return ::WideCharToMultiByte(CP_UTF8, 0, text, -1, &utf8[0], length, nullptr, nullptr) > 0;
+}
+
+static HRESULT WpdPanelTextToWide(const char* text, std::wstring& wide)
+{
+    if (text == nullptr)
+    {
+        return E_INVALIDARG;
+    }
+    if (WpdUtf8ToWide(text, wide))
+    {
+        return S_OK;
+    }
+
+    int length = ::MultiByteToWideChar(CP_ACP, 0, text, -1, nullptr, 0);
+    if (length <= 0)
+    {
+        return HRESULT_FROM_WIN32(::GetLastError());
+    }
+    wide.assign(static_cast<size_t>(length > 0 ? length - 1 : 0), L'\0');
+    if (length > 1 && ::MultiByteToWideChar(CP_ACP, 0, text, -1, &wide[0], length) <= 0)
+    {
+        return HRESULT_FROM_WIN32(::GetLastError());
+    }
+    return S_OK;
+}
+
+static bool WpdWideNameEqualsPanelName(const wchar_t* wideName, const char* panelName)
+{
+    std::wstring panelWide;
+    std::string left;
+    std::string right;
+    if (FAILED(WpdPanelTextToWide(panelName, panelWide)) ||
+        !WpdWideToUtf8(wideName, left) ||
+        !WpdWideToUtf8(panelWide.c_str(), right))
+    {
+        return false;
+    }
+    return WpdNamesEqualInsensitive(left.c_str(), right.c_str(), WpdStrICmp);
+}
+
+static bool WpdStoredNamesMatch(const std::wstring& originalName, bool hasOriginal,
+                                const std::wstring& objectName, bool hasObject,
+                                const char* panelName)
+{
+    std::wstring panelWide;
+    std::string wanted;
+    if (FAILED(WpdPanelTextToWide(panelName, panelWide)) || !WpdWideToUtf8(panelWide.c_str(), wanted))
+    {
+        return false;
+    }
+
+    std::string originalUtf8;
+    std::string objectUtf8;
+    bool originalOk = hasOriginal && WpdWideToUtf8(originalName.c_str(), originalUtf8);
+    bool objectOk = hasObject && WpdWideToUtf8(objectName.c_str(), objectUtf8);
+    return WpdChildMatchesEitherName(originalOk ? originalUtf8.c_str() : "", originalOk,
+                                     objectOk ? objectUtf8.c_str() : "", objectOk,
+                                     wanted.c_str(), WpdStrICmp);
+}
+
+static bool WpdDisplayNameMatches(const std::wstring& originalName, bool hasOriginal,
+                                  const std::wstring& objectName, bool hasObject,
+                                  const char* wantedName)
+{
+    if (hasOriginal)
+    {
+        return WpdWideNameEqualsPanelName(originalName.c_str(), wantedName);
+    }
+    if (hasObject)
+    {
+        return WpdWideNameEqualsPanelName(objectName.c_str(), wantedName);
+    }
+    return false;
+}
+
+static std::wstring WpdForWin32(const std::wstring& path)
+{
+    if (path.size() < MAX_PATH || path.compare(0, 4, L"\\\\?\\") == 0)
+    {
+        return path;
+    }
+    if (path.size() >= 2 && path[0] == L'\\' && path[1] == L'\\')
+    {
+        return L"\\\\?\\UNC\\" + path.substr(2);
+    }
+    return L"\\\\?\\" + path;
+}
+
+static void WpdAppendComponent(std::wstring& path, const wchar_t* name)
+{
+    if (!path.empty() && path.back() != L'\\')
+    {
+        path.push_back(L'\\');
+    }
+    if (name != nullptr)
+    {
+        path += name;
+    }
+}
+
+static std::wstring WpdSafeComponent(const std::wstring& name)
+{
+    std::wstring safe = name;
+    for (size_t i = 0; i < safe.size(); ++i)
+    {
+        wchar_t ch = safe[i];
+        if (ch == L'\\' || ch == L'/' || ch == L':' || ch == L'*' || ch == L'?' ||
+            ch == L'"' || ch == L'<' || ch == L'>' || ch == L'|')
+        {
+            safe[i] = L'_';
+        }
+    }
+    if (safe.empty() || safe == L"." || safe == L"..")
+    {
+        safe = L"_";
+    }
+    return safe;
+}
+
+static ULONGLONG WpdDiskTreeBytes(const std::wstring& path)
+{
+    std::wstring native = WpdForWin32(path);
+    DWORD attributes = ::GetFileAttributesW(native.c_str());
+    if (attributes == INVALID_FILE_ATTRIBUTES)
+    {
+        return 0;
+    }
+    if ((attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+    {
+        WIN32_FILE_ATTRIBUTE_DATA info;
+        if (!::GetFileAttributesExW(native.c_str(), GetFileExInfoStandard, &info))
+        {
+            return 0;
+        }
+        return (static_cast<ULONGLONG>(info.nFileSizeHigh) << 32) | info.nFileSizeLow;
+    }
+
+    ULONGLONG total = 0;
+    std::wstring mask = native;
+    WpdAppendComponent(mask, L"*");
+    WIN32_FIND_DATAW data;
+    HANDLE find = ::FindFirstFileW(mask.c_str(), &data);
+    if (find == INVALID_HANDLE_VALUE)
+    {
+        return 0;
+    }
+    do
+    {
+        if (lstrcmpW(data.cFileName, L".") == 0 || lstrcmpW(data.cFileName, L"..") == 0)
+        {
+            continue;
+        }
+        std::wstring child = path;
+        WpdAppendComponent(child, data.cFileName);
+        if ((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+        {
+            total += WpdDiskTreeBytes(child);
+        }
+        else
+        {
+            total += (static_cast<ULONGLONG>(data.nFileSizeHigh) << 32) | data.nFileSizeLow;
+        }
+    } while (::FindNextFileW(find, &data));
+    ::FindClose(find);
+    return total;
+}
+
+static void WpdDeleteDiskTree(const std::wstring& path)
+{
+    std::wstring native = WpdForWin32(path);
+    DWORD attributes = ::GetFileAttributesW(native.c_str());
+    if (attributes == INVALID_FILE_ATTRIBUTES)
+    {
+        return;
+    }
+    if ((attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+    {
+        ::SetFileAttributesW(native.c_str(), FILE_ATTRIBUTE_NORMAL);
+        ::DeleteFileW(native.c_str());
+        return;
+    }
+
+    std::wstring mask = native;
+    WpdAppendComponent(mask, L"*");
+    WIN32_FIND_DATAW data;
+    HANDLE find = ::FindFirstFileW(mask.c_str(), &data);
+    if (find != INVALID_HANDLE_VALUE)
+    {
+        do
+        {
+            if (lstrcmpW(data.cFileName, L".") == 0 || lstrcmpW(data.cFileName, L"..") == 0)
+            {
+                continue;
+            }
+            std::wstring child = path;
+            WpdAppendComponent(child, data.cFileName);
+            WpdDeleteDiskTree(child);
+        } while (::FindNextFileW(find, &data));
+        ::FindClose(find);
+    }
+    ::SetFileAttributesW(native.c_str(), FILE_ATTRIBUTE_NORMAL);
+    ::RemoveDirectoryW(native.c_str());
+}
+
+static HRESULT WpdMakeTempDirectory(std::wstring& path)
+{
+    DWORD length = ::GetTempPathW(0, nullptr);
+    if (length == 0)
+    {
+        return HRESULT_FROM_WIN32(::GetLastError());
+    }
+    std::wstring root(static_cast<size_t>(length), L'\0');
+    DWORD written = ::GetTempPathW(length, &root[0]);
+    if (written == 0)
+    {
+        return HRESULT_FROM_WIN32(::GetLastError());
+    }
+    root.resize(written);
+
+    for (int attempt = 0; attempt < 100; ++attempt)
+    {
+        wchar_t suffix[32];
+        StringCchPrintfW(suffix, 32, L"wpd%08lX%08lX", ::GetCurrentProcessId(), ::GetTickCount() + attempt);
+        path = root;
+        WpdAppendComponent(path, suffix);
+        if (::CreateDirectoryW(WpdForWin32(path).c_str(), nullptr))
+        {
+            return S_OK;
+        }
+        DWORD error = ::GetLastError();
+        if (error != ERROR_ALREADY_EXISTS)
+        {
+            return HRESULT_FROM_WIN32(error);
+        }
+    }
+    return HRESULT_FROM_WIN32(ERROR_ALREADY_EXISTS);
+}
+
+static HRESULT WpdJoinSalPath(const char* directory, const char* name, std::string& joined)
+{
+    if (directory == nullptr || name == nullptr)
+    {
+        return E_INVALIDARG;
+    }
+    size_t capacity = strlen(directory) + strlen(name) + 8;
+    std::vector<char> buffer(capacity);
+    lstrcpynA(buffer.data(), directory, static_cast<int>(buffer.size()));
+    if (!SalamanderGeneral->SalPathAppend(buffer.data(), name, static_cast<int>(buffer.size())))
+    {
+        return HRESULT_FROM_WIN32(ERROR_FILENAME_EXCED_RANGE);
+    }
+    joined = buffer.data();
+    return S_OK;
+}
+
+static void WpdRewindStream(IStream* stream)
+{
+    if (stream == nullptr)
+    {
+        return;
+    }
+    LARGE_INTEGER zero = {};
+    stream->Seek(zero, STREAM_SEEK_SET, nullptr);
+}
+
+static void WpdCancelDataStream(IStream* stream)
+{
+    if (stream == nullptr)
+    {
+        return;
+    }
+    ATL::CComPtr<IPortableDeviceDataStream> dataStream;
+    if (SUCCEEDED(stream->QueryInterface(__uuidof(IPortableDeviceDataStream), reinterpret_cast<void**>(&dataStream))))
+    {
+        dataStream->Cancel();
+    }
+}
+
+static std::string WpdFormatDetails(ULONGLONG size, bool hasSize, const FILETIME* time, bool hasTime)
+{
+    std::string text;
+    if (hasSize)
+    {
+        CQuadWord value;
+        value.SetUI64(size);
+        char number[64];
+        SalamanderGeneral->NumberToStr(number, value);
+        text = number;
+    }
+    if (hasTime && time != nullptr && (time->dwLowDateTime != 0 || time->dwHighDateTime != 0))
+    {
+        FILETIME localTime;
+        SYSTEMTIME systemTime;
+        if (::FileTimeToLocalFileTime(time, &localTime) && ::FileTimeToSystemTime(&localTime, &systemTime))
+        {
+            char date[64];
+            char clock[64];
+            if (::GetDateFormatA(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &systemTime, nullptr, date, 64) == 0)
+            {
+                StringCchPrintfA(date, 64, "%u.%u.%u", systemTime.wDay, systemTime.wMonth, systemTime.wYear);
+            }
+            if (::GetTimeFormatA(LOCALE_USER_DEFAULT, 0, &systemTime, nullptr, clock, 64) == 0)
+            {
+                StringCchPrintfA(clock, 64, "%u:%u:%u", systemTime.wHour, systemTime.wMinute, systemTime.wSecond);
+            }
+            if (!text.empty())
+            {
+                text += ", ";
+            }
+            text += date;
+            text += ", ";
+            text += clock;
+        }
+    }
+    if (text.empty())
+    {
+        text = WpdText(IDS_OPERATION_DETAILS_UNKNOWN);
+    }
+    return text;
+}
+
+struct WpdOutcome
+{
+    HRESULT hr;
+    bool skipped;
+
+    bool Failed() const
+    {
+        return FAILED(hr);
+    }
+
+    bool Completed() const
+    {
+        return SUCCEEDED(hr) && !skipped;
+    }
+};
+
+static WpdOutcome WpdOk()
+{
+    WpdOutcome outcome = {S_OK, false};
+    return outcome;
+}
+
+static WpdOutcome WpdSkipped()
+{
+    WpdOutcome outcome = {S_OK, true};
+    return outcome;
+}
+
+static WpdOutcome WpdFail(HRESULT hr)
+{
+    WpdOutcome outcome = {hr, false};
+    return outcome;
+}
+
+struct WpdConflictState
+{
+    bool overwriteAll;
+    bool skipAll;
+
+    WpdConflictState()
+        : overwriteAll(false),
+          skipAll(false)
+    {
+    }
+};
+
+struct WpdCopyContext
+{
+    WpdConflictState conflict;
+    bool stop;
+    HWND parent;
+    UINT operationId;
+    CWpdStandardProgress* progress;
+    CWpdDevice* sourceDevice;
+    CWpdDevice* targetDevice;
+
+    WpdCopyContext()
+        : stop(false),
+          parent(nullptr),
+          operationId(IDS_OPERATIONPROGRESS_COPY),
+          progress(nullptr),
+          sourceDevice(nullptr),
+          targetDevice(nullptr)
+    {
+    }
+};
+
+enum WpdNameChoice
+{
+    wpdNameFree = 0,
+    wpdNameSameObject,
+    wpdNameExistingFile,
+    wpdNameExistingFolder,
+    wpdNameSkip,
+    wpdNameCancel
+};
 static HRESULT WINAPI WpdObjectIdToString(PCWSTR objectId, CFxString& s)
 {
     _ASSERTE(objectId != nullptr);
@@ -1096,72 +1094,6 @@ static bool WINAPI WpdIsFolderContentType(const GUID& contentType)
 {
     return IsEqualGUID(contentType, WPD_CONTENT_TYPE_FOLDER) ||
            IsEqualGUID(contentType, WPD_CONTENT_TYPE_FUNCTIONAL_OBJECT);
-}
-
-static HRESULT WINAPI WpdGetObjectNameAndAttributes(
-    IPortableDeviceProperties* properties,
-    PCWSTR objectId,
-    CFxString& name,
-    DWORD& attributes)
-{
-    static const PROPERTYKEY* const keys[] =
-        {
-            &WPD_OBJECT_ORIGINAL_FILE_NAME,
-            &WPD_OBJECT_NAME,
-            &WPD_OBJECT_CONTENT_TYPE,
-        };
-
-    ATL::CComPtr<IPortableDeviceKeyCollection> keyCollection;
-    keyCollection.Attach(WpdInitKeys(keys, _countof(keys)));
-
-    ATL::CComPtr<IPortableDeviceValues> values;
-    HRESULT hr = properties->GetValues(objectId, keyCollection, &values);
-    if (FAILED(hr))
-    {
-        return hr;
-    }
-
-    hr = WpdGetStringValue(values, WPD_OBJECT_ORIGINAL_FILE_NAME, name);
-    if (FAILED(hr) || name.IsEmpty())
-    {
-        hr = WpdGetStringValue(values, WPD_OBJECT_NAME, name);
-    }
-    if (FAILED(hr))
-    {
-        return hr;
-    }
-
-    GUID contentType;
-    hr = values->GetGuidValue(WPD_OBJECT_CONTENT_TYPE, &contentType);
-    if (FAILED(hr))
-    {
-        return hr;
-    }
-
-    attributes = WpdIsFolderContentType(contentType) ? FILE_ATTRIBUTE_DIRECTORY : 0;
-    return S_OK;
-}
-
-static ULONGLONG WINAPI WpdGetObjectSizeOrUnknown(IPortableDeviceProperties* properties, PCWSTR objectId)
-{
-    static const PROPERTYKEY* const keys[] =
-        {
-            &WPD_OBJECT_SIZE,
-        };
-
-    ATL::CComPtr<IPortableDeviceKeyCollection> keyCollection;
-    keyCollection.Attach(WpdInitKeys(keys, _countof(keys)));
-
-    ATL::CComPtr<IPortableDeviceValues> values;
-    HRESULT hr = properties->GetValues(objectId, keyCollection, &values);
-    if (FAILED(hr))
-    {
-        return static_cast<ULONGLONG>(-1);
-    }
-
-    ULONGLONG size = 0;
-    hr = values->GetUnsignedLargeIntegerValue(WPD_OBJECT_SIZE, &size);
-    return SUCCEEDED(hr) ? size : static_cast<ULONGLONG>(-1);
 }
 
 static PCSTR WINAPI WpdGetUserPartFromFSPath(PCSTR fsName, PCSTR path)
@@ -1299,412 +1231,357 @@ HRESULT WINAPI CWpdFS::GetCurrentContentLocation(_Out_ CWpdDevice*& device, _Out
     return GetContentLocationForPath(GetCurrentPath().GetString(), device, objectId);
 }
 
-HRESULT WINAPI CWpdFS::CreateWpdFolder(CWpdDevice* device, PCWSTR parentObjectId, PCSTR name)
+static HRESULT WINAPI WpdAddObjectId(IPortableDevicePropVariantCollection* objects, PCWSTR objectId)
 {
-    ATL::CComPtr<IPortableDeviceValues> values;
-    HRESULT hr = values.CoCreateInstance(CLSID_PortableDeviceValues);
-    if (FAILED(hr)) return hr;
+    _ASSERTE(objects != nullptr);
+    _ASSERTE(objectId != nullptr);
 
-    ATL::CA2W wideName(name);
-    hr = values->SetStringValue(WPD_OBJECT_PARENT_ID, parentObjectId);
-    if (SUCCEEDED(hr)) hr = values->SetStringValue(WPD_OBJECT_NAME, wideName);
-    if (SUCCEEDED(hr)) hr = values->SetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME, wideName);
-    if (SUCCEEDED(hr)) hr = values->SetGuidValue(WPD_OBJECT_CONTENT_TYPE, WPD_CONTENT_TYPE_FOLDER);
-    if (FAILED(hr)) return hr;
-
-    PWSTR newObjectId = nullptr;
-    hr = device->GetContentNoAddRef()->CreateObjectWithPropertiesOnly(values, &newObjectId);
-    ::CoTaskMemFree(newObjectId);
-    return hr;
+    PROPVARIANT value;
+    PropVariantInit(&value);
+    value.vt = VT_LPWSTR;
+    value.pwszVal = const_cast<PWSTR>(objectId);
+    return objects->Add(&value);
 }
 
-HRESULT WINAPI CWpdFS::RenameWpdObject(CWpdBaseContentItem* item, PCSTR newName)
+static HRESULT WpdReadResultCollection(IPortableDevicePropVariantCollection* results)
 {
-    CWpdDevice* device = item->GetDeviceNoAddRef();
-    HRESULT hr = device->Open(GENERIC_READ | GENERIC_WRITE);
-    if (FAILED(hr)) return hr;
-
-    ATL::CComPtr<IPortableDeviceValues> values;
-    hr = values.CoCreateInstance(CLSID_PortableDeviceValues);
-    if (SUCCEEDED(hr))
+    if (results == nullptr)
     {
-        ATL::CA2W wideName(newName);
-        hr = values->SetStringValue(WPD_OBJECT_NAME, wideName);
-        if (SUCCEEDED(hr)) hr = values->SetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME, wideName);
-        ATL::CComPtr<IPortableDeviceValues> results;
-        if (SUCCEEDED(hr)) hr = device->GetPropertiesNoAddRef()->SetValues(item->GetObjectId(), values, &results);
+        return S_OK;
     }
-    device->Close();
+
+    DWORD count = 0;
+    HRESULT hr = results->GetCount(&count);
     if (FAILED(hr))
     {
-        return RenameWpdObjectByCopy(item, newName);
+        return hr;
     }
 
+    for (DWORD i = 0; i < count; ++i)
+    {
+        PROPVARIANT value;
+        PropVariantInit(&value);
+        hr = results->GetAt(i, &value);
+        if (FAILED(hr))
+        {
+            PropVariantClear(&value);
+            return hr;
+        }
+
+        HRESULT itemHr = S_OK;
+        if (value.vt == VT_ERROR)
+        {
+            itemHr = value.scode;
+        }
+        else if (value.vt == VT_I4)
+        {
+            itemHr = static_cast<HRESULT>(value.lVal);
+        }
+        else if (value.vt == VT_UI4)
+        {
+            itemHr = static_cast<HRESULT>(value.ulVal);
+        }
+        PropVariantClear(&value);
+        if (FAILED(itemHr))
+        {
+            return itemHr;
+        }
+    }
     return S_OK;
 }
 
-HRESULT WINAPI CWpdFS::RenameWpdObjectByCopy(CWpdBaseContentItem* item, PCSTR newName)
+static HRESULT WpdEnsureDeviceOpen(CWpdDevice* device)
 {
-    CWpdDevice* device = item->GetDeviceNoAddRef();
-    HRESULT hr = device->Open(GENERIC_READ | GENERIC_WRITE);
-    if (FAILED(hr)) return hr;
+    if (device == nullptr)
+    {
+        return E_POINTER;
+    }
+    if (device->IsOpen())
+    {
+        return S_OK;
+    }
+    return device->Open(GENERIC_READ | GENERIC_WRITE);
+}
+
+static HRESULT WpdReadStoredNames(CWpdDevice* device, PCWSTR objectId, std::wstring& originalName, bool& hasOriginal,
+                                  std::wstring& objectName, bool& hasObject, DWORD& attributes)
+{
+    hasOriginal = false;
+    hasObject = false;
+    originalName.clear();
+    objectName.clear();
+    attributes = 0;
+
+    bool hold = !device->IsOpen();
+    HRESULT hr = S_OK;
+    if (hold)
+    {
+        hr = device->Open(GENERIC_READ | GENERIC_WRITE);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+    }
 
     static const PROPERTYKEY* const keys[] =
         {
-            &WPD_OBJECT_PARENT_ID,
+            &WPD_OBJECT_ORIGINAL_FILE_NAME,
+            &WPD_OBJECT_NAME,
+            &WPD_OBJECT_CONTENT_TYPE,
         };
-
     ATL::CComPtr<IPortableDeviceKeyCollection> keyCollection;
     keyCollection.Attach(WpdInitKeys(keys, _countof(keys)));
-
     ATL::CComPtr<IPortableDeviceValues> values;
-    hr = device->GetPropertiesNoAddRef()->GetValues(item->GetObjectId(), keyCollection, &values);
-    PWSTR parentObjectId = nullptr;
+    hr = device->GetPropertiesNoAddRef()->GetValues(objectId, keyCollection, &values);
     if (SUCCEEDED(hr))
     {
-        hr = values->GetStringValue(WPD_OBJECT_PARENT_ID, &parentObjectId);
-    }
-
-    if (SUCCEEDED(hr))
-    {
-        DWORD attributes = item->GetAttributes();
-        if (attributes & FILE_ATTRIBUTE_DIRECTORY)
+        PWSTR text = nullptr;
+        if (SUCCEEDED(values->GetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME, &text)) && text != nullptr && text[0] != L'\0')
         {
-            // Directory rename fallback requires recursive WPD-to-WPD copy.  If
-            // property rename was ignored for a directory, report a real error
-            // instead of silently leaving the item unchanged.
-            hr = E_NOTIMPL;
+            originalName = text;
+            hasOriginal = true;
         }
-        else
+        ::CoTaskMemFree(text);
+        text = nullptr;
+        if (SUCCEEDED(values->GetStringValue(WPD_OBJECT_NAME, &text)) && text != nullptr && text[0] != L'\0')
         {
-            char tempPath[MAX_PATH];
-            char tempName[MAX_PATH];
-            if (::GetTempPath(_countof(tempPath), tempPath) == 0 ||
-                ::GetTempFileName(tempPath, "wpd", 0, tempName) == 0)
-            {
-                hr = HRESULT_FROM_WIN32(::GetLastError());
-            }
-            else
-            {
-                hr = DownloadWpdObject(device, item->GetObjectId(), tempName);
-                if (SUCCEEDED(hr))
-                {
-                    hr = UploadDiskObject(device, parentObjectId, tempName, newName);
-                }
-                if (SUCCEEDED(hr))
-                {
-                    ATL::CComPtr<IPortableDevicePropVariantCollection> objects;
-                    hr = objects.CoCreateInstance(CLSID_PortableDevicePropVariantCollection);
-                    if (SUCCEEDED(hr))
-                    {
-                        hr = AddWpdObjectId(objects, item->GetObjectId());
-                    }
-                    if (SUCCEEDED(hr))
-                    {
-                        ATL::CComPtr<IPortableDevicePropVariantCollection> results;
-                        hr = device->GetContentNoAddRef()->Delete(PORTABLE_DEVICE_DELETE_WITH_RECURSION, objects, &results);
-                    }
-                }
-                ::DeleteFile(tempName);
-            }
+            objectName = text;
+            hasObject = true;
+        }
+        ::CoTaskMemFree(text);
+
+        GUID contentType;
+        if (SUCCEEDED(values->GetGuidValue(WPD_OBJECT_CONTENT_TYPE, &contentType)) && WpdIsFolderContentType(contentType))
+        {
+            attributes = FILE_ATTRIBUTE_DIRECTORY;
+        }
+        if (!hasOriginal && !hasObject)
+        {
+            hr = E_FAIL;
         }
     }
 
-    ::CoTaskMemFree(parentObjectId);
-    device->Close();
+    if (hold)
+    {
+        device->Close();
+    }
     return hr;
 }
 
-HRESULT WINAPI CWpdFS::DownloadWpdFile(CWpdBaseContentItem* item, PCSTR targetName)
+static void WpdReadSizeAndTime(CWpdDevice* device, PCWSTR objectId, ULONGLONG& size, bool& hasSize, FILETIME& time, bool& hasTime)
 {
-    CWpdDevice* device = item->GetDeviceNoAddRef();
-    HRESULT hr = device->Open(GENERIC_READ);
-    if (FAILED(hr)) return hr;
-
-    ATL::CComPtr<IPortableDeviceResources> resources;
-    hr = device->GetContentNoAddRef()->Transfer(&resources);
-    if (SUCCEEDED(hr))
+    size = 0;
+    hasSize = false;
+    time.dwLowDateTime = 0;
+    time.dwHighDateTime = 0;
+    hasTime = false;
+    if (device == nullptr || objectId == nullptr || !device->IsOpen())
     {
-        ATL::CComPtr<IStream> source;
-        DWORD optimalBufferSize = 0;
-        hr = resources->GetStream(item->GetObjectId(), WPD_RESOURCE_DEFAULT, STGM_READ, &optimalBufferSize, &source);
-        if (SUCCEEDED(hr))
-        {
-            ATL::CComPtr<IStream> target;
-            hr = ::SHCreateStreamOnFile(targetName, STGM_CREATE | STGM_WRITE, &target);
-            if (SUCCEEDED(hr))
-            {
-                ULONGLONG size = WpdGetObjectSizeOrUnknown(device->GetPropertiesNoAddRef(), item->GetObjectId());
-                hr = WpdCopyStream(source, target, size);
-                if (SUCCEEDED(hr))
-                {
-                    hr = target->Commit(STGC_DEFAULT);
-                }
-            }
-        }
+        return;
     }
 
-    device->Close();
-    return hr;
+    static const PROPERTYKEY* const keys[] =
+        {
+            &WPD_OBJECT_SIZE,
+            &WPD_OBJECT_DATE_MODIFIED,
+            &WPD_OBJECT_DATE_CREATED,
+        };
+    ATL::CComPtr<IPortableDeviceKeyCollection> keyCollection;
+    keyCollection.Attach(WpdInitKeys(keys, _countof(keys)));
+    ATL::CComPtr<IPortableDeviceValues> values;
+    if (FAILED(device->GetPropertiesNoAddRef()->GetValues(objectId, keyCollection, &values)) || values == nullptr)
+    {
+        return;
+    }
+
+    ULONGLONG objectSize = 0;
+    if (SUCCEEDED(values->GetUnsignedLargeIntegerValue(WPD_OBJECT_SIZE, &objectSize)))
+    {
+        size = objectSize;
+        hasSize = true;
+    }
+    if (SUCCEEDED(WpdGetDateTimeValue(values, WPD_OBJECT_DATE_MODIFIED, time)) ||
+        SUCCEEDED(WpdGetDateTimeValue(values, WPD_OBJECT_DATE_CREATED, time)))
+    {
+        hasTime = time.dwLowDateTime != 0 || time.dwHighDateTime != 0;
+    }
 }
 
-HRESULT WINAPI CWpdFS::DownloadWpdObject(CWpdDevice* device, PCWSTR objectId, PCSTR targetName)
+class CWpdBulkGetCallback : public IPortableDevicePropertiesBulkCallback
 {
-    _ASSERTE(device != nullptr);
-    _ASSERTE(objectId != nullptr);
-    _ASSERTE(targetName != nullptr);
-
-    CFxString name;
-    DWORD attributes;
-    HRESULT hr = WpdGetObjectNameAndAttributes(device->GetPropertiesNoAddRef(), objectId, name, attributes);
-    if (FAILED(hr))
+public:
+    CWpdBulkGetCallback()
+        : m_refs(1),
+          m_done(::CreateEventW(nullptr, TRUE, FALSE, nullptr)),
+          m_status(E_FAIL)
     {
-        return hr;
     }
 
-    if (attributes & FILE_ATTRIBUTE_DIRECTORY)
+    ~CWpdBulkGetCallback()
     {
-        if (!::CreateDirectory(targetName, nullptr))
+        if (m_done != nullptr)
         {
-            DWORD err = ::GetLastError();
-            if (err != ERROR_ALREADY_EXISTS)
-            {
-                return HRESULT_FROM_WIN32(err);
-            }
+            ::CloseHandle(m_done);
         }
+    }
 
-        ATL::CComPtr<IEnumPortableDeviceObjectIDs> childEnum;
-        hr = device->GetContentNoAddRef()->EnumObjects(0U, objectId, nullptr, &childEnum);
-        if (FAILED(hr))
+    HRESULT Wait()
+    {
+        if (m_done == nullptr)
         {
-            return hr;
+            return E_OUTOFMEMORY;
         }
-
         for (;;)
         {
-            PWSTR childObjectId = nullptr;
-            ULONG fetched = 0;
-            hr = childEnum->Next(1, &childObjectId, &fetched);
-            if (hr != S_OK)
+            DWORD wait = ::MsgWaitForMultipleObjects(1, &m_done, FALSE, INFINITE, QS_ALLINPUT);
+            if (wait == WAIT_OBJECT_0)
             {
-                if (hr == S_FALSE)
-                {
-                    hr = S_OK;
-                }
-                break;
+                return m_status;
             }
-
-            CFxString childName;
-            DWORD childAttributes;
-            hr = WpdGetObjectNameAndAttributes(device->GetPropertiesNoAddRef(), childObjectId, childName, childAttributes);
-            if (SUCCEEDED(hr))
+            if (wait != WAIT_OBJECT_0 + 1)
             {
-                char childTargetName[MAX_PATH];
-                lstrcpyn(childTargetName, targetName, _countof(childTargetName));
-                if (!SalamanderGeneral->SalPathAppend(childTargetName, childName, _countof(childTargetName)))
-                {
-                    hr = HRESULT_FROM_WIN32(ERROR_FILENAME_EXCED_RANGE);
-                }
-                else
-                {
-                    hr = DownloadWpdObject(device, childObjectId, childTargetName);
-                }
+                return HRESULT_FROM_WIN32(::GetLastError());
             }
-
-            ::CoTaskMemFree(childObjectId);
-            if (FAILED(hr))
+            MSG msg;
+            while (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
             {
-                break;
+                ::TranslateMessage(&msg);
+                ::DispatchMessageW(&msg);
             }
         }
-
-        return hr;
     }
 
-    ATL::CComPtr<IPortableDeviceResources> resources;
-    hr = device->GetContentNoAddRef()->Transfer(&resources);
-    if (FAILED(hr))
+    const std::vector<ATL::CComPtr<IPortableDeviceValues>>& Results() const
     {
-        return hr;
+        return m_results;
     }
 
-    ATL::CComPtr<IStream> source;
-    DWORD optimalBufferSize = 0;
-    hr = resources->GetStream(objectId, WPD_RESOURCE_DEFAULT, STGM_READ, &optimalBufferSize, &source);
-    if (FAILED(hr))
+    STDMETHODIMP QueryInterface(REFIID riid, void** object)
     {
-        return hr;
+        if (object == nullptr)
+        {
+            return E_POINTER;
+        }
+        if (riid == IID_IUnknown || riid == IID_IPortableDevicePropertiesBulkCallback)
+        {
+            *object = static_cast<IPortableDevicePropertiesBulkCallback*>(this);
+            AddRef();
+            return S_OK;
+        }
+        *object = nullptr;
+        return E_NOINTERFACE;
     }
 
-    ATL::CComPtr<IStream> target;
-    hr = ::SHCreateStreamOnFile(targetName, STGM_CREATE | STGM_WRITE, &target);
-    if (FAILED(hr))
+    STDMETHODIMP_(ULONG) AddRef()
     {
-        return hr;
+        return static_cast<ULONG>(::InterlockedIncrement(&m_refs));
     }
 
-    ULONGLONG size = WpdGetObjectSizeOrUnknown(device->GetPropertiesNoAddRef(), objectId);
-    hr = WpdCopyStream(source, target, size);
-    if (SUCCEEDED(hr))
+    STDMETHODIMP_(ULONG) Release()
     {
-        hr = target->Commit(STGC_DEFAULT);
+        LONG refs = ::InterlockedDecrement(&m_refs);
+        if (refs == 0)
+        {
+            delete this;
+        }
+        return static_cast<ULONG>(refs);
     }
 
-    return hr;
-}
+    STDMETHODIMP OnStart(REFGUID)
+    {
+        return S_OK;
+    }
 
-HRESULT WINAPI CWpdFS::UploadDiskFile(CWpdDevice* device, PCWSTR parentObjectId, PCSTR sourceName, PCSTR targetName)
+    STDMETHODIMP OnProgress(REFGUID, IPortableDeviceValuesCollection* results)
+    {
+        if (results == nullptr)
+        {
+            return S_OK;
+        }
+        DWORD count = 0;
+        if (FAILED(results->GetCount(&count)))
+        {
+            return S_OK;
+        }
+        for (DWORD i = 0; i < count; ++i)
+        {
+            ATL::CComPtr<IPortableDeviceValues> values;
+            if (SUCCEEDED(results->GetAt(i, &values)) && values != nullptr)
+            {
+                m_results.push_back(values);
+            }
+        }
+        return S_OK;
+    }
+
+    STDMETHODIMP OnEnd(REFGUID, HRESULT status)
+    {
+        m_status = status;
+        if (m_done != nullptr)
+        {
+            ::SetEvent(m_done);
+        }
+        return S_OK;
+    }
+
+private:
+    LONG m_refs;
+    HANDLE m_done;
+    HRESULT m_status;
+    std::vector<ATL::CComPtr<IPortableDeviceValues>> m_results;
+};
+
+static bool WpdValuesMatchChildName(IPortableDeviceValues* values, const char* childName,
+                                    std::wstring& objectId, DWORD* attributes)
 {
-    ATL::CComPtr<IStream> source;
-    HRESULT hr = ::SHCreateStreamOnFile(sourceName, STGM_READ, &source);
-    if (FAILED(hr)) return hr;
-
-    STATSTG stat;
-    hr = source->Stat(&stat, STATFLAG_NONAME);
-    if (FAILED(hr)) return hr;
-
-    ATL::CComPtr<IPortableDeviceValues> values;
-    hr = values.CoCreateInstance(CLSID_PortableDeviceValues);
-    if (FAILED(hr)) return hr;
-
-    ATL::CA2W wideTargetName(targetName);
-    hr = values->SetStringValue(WPD_OBJECT_PARENT_ID, parentObjectId);
-    if (SUCCEEDED(hr)) hr = values->SetStringValue(WPD_OBJECT_NAME, wideTargetName);
-    if (SUCCEEDED(hr)) hr = values->SetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME, wideTargetName);
-    if (SUCCEEDED(hr)) hr = values->SetGuidValue(WPD_OBJECT_CONTENT_TYPE, WPD_CONTENT_TYPE_GENERIC_FILE);
-    if (SUCCEEDED(hr)) hr = values->SetGuidValue(WPD_OBJECT_FORMAT, WPD_OBJECT_FORMAT_UNSPECIFIED);
-    if (SUCCEEDED(hr)) hr = values->SetUnsignedLargeIntegerValue(WPD_OBJECT_SIZE, stat.cbSize.QuadPart);
-    if (FAILED(hr)) return hr;
-
-    hr = device->Open(GENERIC_READ | GENERIC_WRITE);
-    if (FAILED(hr)) return hr;
-
-    ATL::CComPtr<IStream> target;
-    DWORD optimalBufferSize = 0;
-    PWSTR newObjectId = nullptr;
-    hr = device->GetContentNoAddRef()->CreateObjectWithPropertiesAndData(values, &target, &optimalBufferSize, &newObjectId);
-    if (SUCCEEDED(hr))
+    if (values == nullptr || childName == nullptr)
     {
-        hr = WpdCopyStream(source, target, stat.cbSize.QuadPart);
-        if (SUCCEEDED(hr))
+        return false;
+    }
+
+    PWSTR id = nullptr;
+    if (FAILED(values->GetStringValue(WPD_OBJECT_ID, &id)) || id == nullptr || id[0] == L'\0')
+    {
+        ::CoTaskMemFree(id);
+        return false;
+    }
+    objectId = id;
+    ::CoTaskMemFree(id);
+
+    std::wstring originalName;
+    std::wstring objectName;
+    bool hasOriginal = false;
+    bool hasObject = false;
+    PWSTR text = nullptr;
+    if (SUCCEEDED(values->GetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME, &text)) && text != nullptr && text[0] != L'\0')
+    {
+        originalName = text;
+        hasOriginal = true;
+    }
+    ::CoTaskMemFree(text);
+    text = nullptr;
+    if (SUCCEEDED(values->GetStringValue(WPD_OBJECT_NAME, &text)) && text != nullptr && text[0] != L'\0')
+    {
+        objectName = text;
+        hasObject = true;
+    }
+    ::CoTaskMemFree(text);
+
+    if (attributes != nullptr)
+    {
+        *attributes = 0;
+        GUID contentType;
+        if (SUCCEEDED(values->GetGuidValue(WPD_OBJECT_CONTENT_TYPE, &contentType)) && WpdIsFolderContentType(contentType))
         {
-            hr = target->Commit(STGC_DEFAULT);
+            *attributes = FILE_ATTRIBUTE_DIRECTORY;
         }
     }
-    ::CoTaskMemFree(newObjectId);
-    device->Close();
-    return hr;
+
+    return WpdStoredNamesMatch(originalName, hasOriginal, objectName, hasObject, childName);
 }
 
-HRESULT WINAPI CWpdFS::UploadDiskObject(CWpdDevice* device, PCWSTR parentObjectId, PCSTR sourceName, PCSTR targetName)
-{
-    DWORD attributes = ::GetFileAttributes(sourceName);
-    if (attributes == INVALID_FILE_ATTRIBUTES)
-    {
-        return HRESULT_FROM_WIN32(::GetLastError());
-    }
-
-    if ((attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
-    {
-        return UploadDiskFile(device, parentObjectId, sourceName, targetName);
-    }
-
-    HRESULT hr = device->Open(GENERIC_READ | GENERIC_WRITE);
-    if (FAILED(hr))
-    {
-        return hr;
-    }
-
-    hr = CreateWpdFolder(device, parentObjectId, targetName);
-    if (FAILED(hr))
-    {
-        device->Close();
-        return hr;
-    }
-
-    // Resolve the newly created child by enumerating the destination folder.
-    ATL::CComPtr<IEnumPortableDeviceObjectIDs> childEnum;
-    hr = device->GetContentNoAddRef()->EnumObjects(0U, parentObjectId, nullptr, &childEnum);
-    if (FAILED(hr))
-    {
-        device->Close();
-        return hr;
-    }
-
-    PWSTR childObjectId = nullptr;
-    for (;;)
-    {
-        ULONG fetched = 0;
-        hr = childEnum->Next(1, &childObjectId, &fetched);
-        if (hr != S_OK)
-        {
-            device->Close();
-            return hr == S_FALSE ? HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND) : hr;
-        }
-
-        CFxString childName;
-        DWORD childAttributes;
-        hr = WpdGetObjectNameAndAttributes(device->GetPropertiesNoAddRef(), childObjectId, childName, childAttributes);
-        if (SUCCEEDED(hr) && (childAttributes & FILE_ATTRIBUTE_DIRECTORY) && childName.Compare(targetName) == 0)
-        {
-            break;
-        }
-        ::CoTaskMemFree(childObjectId);
-        childObjectId = nullptr;
-        if (FAILED(hr))
-        {
-            device->Close();
-            return hr;
-        }
-    }
-
-    device->Close();
-
-    char mask[MAX_PATH];
-    lstrcpyn(mask, sourceName, _countof(mask));
-    if (!SalamanderGeneral->SalPathAppend(mask, "*", _countof(mask)))
-    {
-        ::CoTaskMemFree(childObjectId);
-        return HRESULT_FROM_WIN32(ERROR_FILENAME_EXCED_RANGE);
-    }
-
-    WIN32_FIND_DATA findData;
-    HANDLE find = ::FindFirstFile(mask, &findData);
-    if (find != INVALID_HANDLE_VALUE)
-    {
-        do
-        {
-            if (lstrcmp(findData.cFileName, ".") == 0 || lstrcmp(findData.cFileName, "..") == 0)
-            {
-                continue;
-            }
-
-            char childSourceName[MAX_PATH];
-            lstrcpyn(childSourceName, sourceName, _countof(childSourceName));
-            if (!SalamanderGeneral->SalPathAppend(childSourceName, findData.cFileName, _countof(childSourceName)))
-            {
-                hr = HRESULT_FROM_WIN32(ERROR_FILENAME_EXCED_RANGE);
-                break;
-            }
-            hr = UploadDiskObject(device, childObjectId, childSourceName, findData.cFileName);
-        } while (SUCCEEDED(hr) && ::FindNextFile(find, &findData));
-
-        if (SUCCEEDED(hr) && ::GetLastError() != ERROR_NO_MORE_FILES)
-        {
-            hr = HRESULT_FROM_WIN32(::GetLastError());
-        }
-        ::FindClose(find);
-    }
-    else if (::GetLastError() != ERROR_FILE_NOT_FOUND)
-    {
-        hr = HRESULT_FROM_WIN32(::GetLastError());
-    }
-
-    ::CoTaskMemFree(childObjectId);
-    return hr;
-}
-
-HRESULT WINAPI CWpdFS::FindWpdChildObject(CWpdDevice* device, PCWSTR parentObjectId, PCSTR childName, _Out_ PWSTR* childObjectId, _Out_opt_ DWORD* attributes)
+static HRESULT WpdFindChild(CWpdDevice* device, PCWSTR parentObjectId, const char* childName, PCWSTR ignoreObjectId,
+                            PWSTR* childObjectId, DWORD* attributes)
 {
     _ASSERTE(childObjectId != nullptr);
     *childObjectId = nullptr;
@@ -1712,18 +1589,120 @@ HRESULT WINAPI CWpdFS::FindWpdChildObject(CWpdDevice* device, PCWSTR parentObjec
     {
         *attributes = 0;
     }
-
-    HRESULT hr = device->Open(GENERIC_READ);
-    if (FAILED(hr))
+    if (childName == nullptr)
     {
-        return hr;
+        return E_INVALIDARG;
     }
 
-    ATL::CComPtr<IEnumPortableDeviceObjectIDs> childEnum;
-    hr = device->GetContentNoAddRef()->EnumObjects(0U, parentObjectId, nullptr, &childEnum);
+    bool hold = !device->IsOpen();
+    HRESULT hr = S_OK;
+    if (hold)
+    {
+        hr = device->Open(GENERIC_READ | GENERIC_WRITE);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+    }
+
+    static const PROPERTYKEY* const keys[] =
+        {
+            &WPD_OBJECT_ID,
+            &WPD_OBJECT_ORIGINAL_FILE_NAME,
+            &WPD_OBJECT_NAME,
+            &WPD_OBJECT_CONTENT_TYPE,
+        };
+    ATL::CComPtr<IPortableDeviceKeyCollection> keyCollection;
+    keyCollection.Attach(WpdInitKeys(keys, _countof(keys)));
+
+    ATL::CComPtr<IPortableDevicePropertiesBulk> bulk;
+    hr = device->GetPropertiesNoAddRef()->QueryInterface(IID_PPV_ARGS(&bulk));
+    if (SUCCEEDED(hr) && bulk != nullptr && keyCollection != nullptr)
+    {
+#ifdef new
+#undef new
+#define RESTORE_WPD_BULK_DEBUG_NEW
+#endif
+        CWpdBulkGetCallback* callback = new (std::nothrow) CWpdBulkGetCallback();
+#ifdef RESTORE_WPD_BULK_DEBUG_NEW
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_WPD_BULK_DEBUG_NEW
+#endif
+        if (callback == nullptr)
+        {
+            hr = E_OUTOFMEMORY;
+        }
+        else
+        {
+            GUID context = GUID_NULL;
+            hr = bulk->QueueGetValuesByObjectFormat(WPD_OBJECT_FORMAT_ALL, parentObjectId, 1, keyCollection, callback, &context);
+            if (SUCCEEDED(hr))
+            {
+                hr = bulk->Start(context);
+            }
+            if (SUCCEEDED(hr))
+            {
+                hr = callback->Wait();
+            }
+            if (SUCCEEDED(hr))
+            {
+                const std::vector<ATL::CComPtr<IPortableDeviceValues>>& results = callback->Results();
+                for (size_t i = 0; i < results.size(); ++i)
+                {
+                    std::wstring objectId;
+                    DWORD enumAttributes = 0;
+                    if (!WpdValuesMatchChildName(results[i], childName, objectId, &enumAttributes))
+                    {
+                        continue;
+                    }
+                    if (ignoreObjectId != nullptr && lstrcmpW(objectId.c_str(), ignoreObjectId) == 0)
+                    {
+                        continue;
+                    }
+                    size_t bytes = (objectId.size() + 1) * sizeof(wchar_t);
+                    PWSTR copy = static_cast<PWSTR>(::CoTaskMemAlloc(bytes));
+                    if (copy == nullptr)
+                    {
+                        callback->Release();
+                        if (hold)
+                        {
+                            device->Close();
+                        }
+                        return E_OUTOFMEMORY;
+                    }
+                    memcpy(copy, objectId.c_str(), bytes);
+                    *childObjectId = copy;
+                    if (attributes != nullptr)
+                    {
+                        *attributes = enumAttributes;
+                    }
+                    callback->Release();
+                    if (hold)
+                    {
+                        device->Close();
+                    }
+                    return S_OK;
+                }
+                callback->Release();
+                if (hold)
+                {
+                    device->Close();
+                }
+                return S_FALSE;
+            }
+            callback->Release();
+        }
+    }
+
+    // Older drivers without bulk properties still need a correct answer.
+    ATL::CComPtr<IEnumPortableDeviceObjectIDs> enumerator;
+    hr = device->GetContentNoAddRef()->EnumObjects(0U, parentObjectId, nullptr, &enumerator);
     if (FAILED(hr))
     {
-        device->Close();
+        if (hold)
+        {
+            device->Close();
+        }
         return hr;
     }
 
@@ -1731,43 +1710,105 @@ HRESULT WINAPI CWpdFS::FindWpdChildObject(CWpdDevice* device, PCWSTR parentObjec
     {
         PWSTR enumObjectId = nullptr;
         ULONG fetched = 0;
-        hr = childEnum->Next(1, &enumObjectId, &fetched);
+        hr = enumerator->Next(1, &enumObjectId, &fetched);
         if (hr != S_OK)
         {
-            device->Close();
+            if (hold)
+            {
+                device->Close();
+            }
             return hr == S_FALSE ? S_FALSE : hr;
         }
 
-        CFxString enumName;
+        if (ignoreObjectId != nullptr && enumObjectId != nullptr && lstrcmpW(enumObjectId, ignoreObjectId) == 0)
+        {
+            ::CoTaskMemFree(enumObjectId);
+            continue;
+        }
+
+        std::wstring originalName;
+        std::wstring objectName;
+        bool hasOriginal = false;
+        bool hasObject = false;
         DWORD enumAttributes = 0;
-        hr = WpdGetObjectNameAndAttributes(device->GetPropertiesNoAddRef(), enumObjectId, enumName, enumAttributes);
-        if (SUCCEEDED(hr) && enumName.Compare(childName) == 0)
+        hr = WpdReadStoredNames(device, enumObjectId, originalName, hasOriginal, objectName, hasObject, enumAttributes);
+        if (SUCCEEDED(hr) && WpdStoredNamesMatch(originalName, hasOriginal, objectName, hasObject, childName))
         {
             *childObjectId = enumObjectId;
             if (attributes != nullptr)
             {
                 *attributes = enumAttributes;
             }
-            device->Close();
+            if (hold)
+            {
+                device->Close();
+            }
             return S_OK;
         }
 
         ::CoTaskMemFree(enumObjectId);
         if (FAILED(hr))
         {
-            device->Close();
+            if (hold)
+            {
+                device->Close();
+            }
             return hr;
         }
     }
 }
 
-HRESULT WINAPI CWpdFS::ConfirmAndDeleteExistingWpdObject(HWND parent, CWpdDevice* device, PCWSTR parentObjectId, PCSTR targetName, PCSTR sourceName, bool& overwriteAll, bool& skipAll, _Out_ bool& skip)
+static HRESULT WpdAskTypeMismatch(HWND parent, const char* name, bool sourceIsDir, WpdConflictState& state, bool& skip)
 {
     skip = false;
+    std::string message = WpdText(sourceIsDir ? IDS_OPERATION_TYPE_MISMATCH_DIR : IDS_OPERATION_TYPE_MISMATCH_FILE);
+    std::string title = WpdText(IDS_OPERATIONPROGRESS_TITLE);
+    WpdReportedError = true;
+    int answer = SalamanderGeneral->DialogError(WpdDialogParent(parent), BUTTONS_SKIPCANCEL, name != nullptr ? name : "", message.c_str(), title.c_str());
+    if (answer == DIALOG_SKIPALL)
+    {
+        state.skipAll = true;
+        skip = true;
+        return S_OK;
+    }
+    if (answer == DIALOG_SKIP)
+    {
+        skip = true;
+        return S_OK;
+    }
+    return HRESULT_FROM_WIN32(ERROR_CANCELLED);
+}
 
-    PWSTR existingObjectId = nullptr;
+static HRESULT WpdReportNameRemains(HWND parent, const char* name, WpdConflictState& state, bool& skip)
+{
+    skip = false;
+    std::string message = WpdText(IDS_OPERATION_NAME_STILL_EXISTS);
+    std::string title = WpdText(IDS_OPERATIONPROGRESS_TITLE);
+    WpdReportedError = true;
+    int answer = SalamanderGeneral->DialogError(WpdDialogParent(parent), BUTTONS_SKIPCANCEL, name != nullptr ? name : "", message.c_str(), title.c_str());
+    if (answer == DIALOG_SKIPALL)
+    {
+        state.skipAll = true;
+        skip = true;
+        return S_OK;
+    }
+    if (answer == DIALOG_SKIP)
+    {
+        skip = true;
+        return S_OK;
+    }
+    return HRESULT_FROM_WIN32(ERROR_CANCELLED);
+}
+
+static HRESULT WpdResolveName(WpdCopyContext& context, CWpdDevice* device, PCWSTR parentObjectId, const char* targetName,
+                              const char* sourceName, bool sourceIsDir, ULONGLONG sourceSize, bool sourceHasSize,
+                              const FILETIME* sourceTime, bool sourceHasTime, PCWSTR ignoreObjectId, WpdNameChoice& choice, PWSTR* existingObjectId)
+{
+    choice = wpdNameFree;
+    *existingObjectId = nullptr;
     DWORD existingAttributes = 0;
-    HRESULT hr = FindWpdChildObject(device, parentObjectId, targetName, &existingObjectId, &existingAttributes);
+    PWSTR foundId = nullptr;
+    HRESULT hr = WpdFindChild(device, parentObjectId, targetName, nullptr, &foundId, &existingAttributes);
     if (hr == S_FALSE)
     {
         return S_OK;
@@ -1777,89 +1818,1513 @@ HRESULT WINAPI CWpdFS::ConfirmAndDeleteExistingWpdObject(HWND parent, CWpdDevice
         return hr;
     }
 
-    if (skipAll)
+    if (ignoreObjectId != nullptr && foundId != nullptr && lstrcmpW(foundId, ignoreObjectId) == 0)
     {
-        skip = true;
-        ::CoTaskMemFree(existingObjectId);
+        choice = wpdNameSameObject;
+        *existingObjectId = foundId;
         return S_OK;
     }
 
-    if (!overwriteAll)
+    bool destinationIsDir = (existingAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+    if (destinationIsDir != sourceIsDir)
     {
-        char existingInfo[64];
-        StringCchCopy(existingInfo, _countof(existingInfo), (existingAttributes & FILE_ATTRIBUTE_DIRECTORY) ? "Folder" : "File");
-        char sourceInfo[64];
-        StringCchCopy(sourceInfo, _countof(sourceInfo), "File");
-        int answer = SalamanderGeneral->DialogOverwrite(parent, BUTTONS_YESALLSKIPCANCEL, targetName, existingInfo, sourceName, sourceInfo);
+        ::CoTaskMemFree(foundId);
+        bool skip = false;
+        hr = WpdAskTypeMismatch(context.parent, targetName, sourceIsDir, context.conflict, skip);
+        if (FAILED(hr))
+        {
+            choice = wpdNameCancel;
+            return hr;
+        }
+        choice = wpdNameSkip;
+        return S_OK;
+    }
+
+    if (context.conflict.skipAll)
+    {
+        ::CoTaskMemFree(foundId);
+        choice = wpdNameSkip;
+        return S_OK;
+    }
+
+    if (!context.conflict.overwriteAll)
+    {
+        ULONGLONG targetSize = 0;
+        bool targetHasSize = false;
+        FILETIME targetTime = {};
+        bool targetHasTime = false;
+        WpdReadSizeAndTime(device, foundId, targetSize, targetHasSize, targetTime, targetHasTime);
+        if (destinationIsDir)
+        {
+            targetHasSize = false;
+            sourceHasSize = false;
+        }
+        std::string targetInfo = WpdFormatDetails(targetSize, targetHasSize, &targetTime, targetHasTime);
+        std::string sourceInfo = WpdFormatDetails(sourceSize, sourceHasSize, sourceTime, sourceHasTime);
+        int answer = SalamanderGeneral->DialogOverwrite(WpdDialogParent(context.parent), BUTTONS_YESALLSKIPCANCEL,
+                                                        targetName != nullptr ? targetName : "", targetInfo.c_str(),
+                                                        sourceName != nullptr ? sourceName : "", sourceInfo.c_str());
         if (answer == DIALOG_ALL)
         {
-            overwriteAll = true;
+            context.conflict.overwriteAll = true;
         }
         else if (answer == DIALOG_SKIPALL)
         {
-            skipAll = true;
-            skip = true;
-            ::CoTaskMemFree(existingObjectId);
+            context.conflict.skipAll = true;
+            ::CoTaskMemFree(foundId);
+            choice = wpdNameSkip;
             return S_OK;
         }
         else if (answer == DIALOG_SKIP)
         {
-            skip = true;
-            ::CoTaskMemFree(existingObjectId);
+            ::CoTaskMemFree(foundId);
+            choice = wpdNameSkip;
             return S_OK;
         }
         else if (answer != DIALOG_YES)
         {
-            ::CoTaskMemFree(existingObjectId);
+            ::CoTaskMemFree(foundId);
+            choice = wpdNameCancel;
             return HRESULT_FROM_WIN32(ERROR_CANCELLED);
         }
     }
 
+    *existingObjectId = foundId;
+    choice = destinationIsDir ? wpdNameExistingFolder : wpdNameExistingFile;
+    return S_OK;
+}
+
+static HRESULT WpdDeleteObject(CWpdDevice* device, PCWSTR objectId)
+{
+    ATL::CComPtr<IPortableDevicePropVariantCollection> objects;
+    HRESULT hr = objects.CoCreateInstance(CLSID_PortableDevicePropVariantCollection);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    hr = WpdAddObjectId(objects, objectId);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    bool hold = !device->IsOpen();
+    if (hold)
+    {
+        hr = device->Open(GENERIC_READ | GENERIC_WRITE);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+    }
+
+    ATL::CComPtr<IPortableDevicePropVariantCollection> results;
+    hr = device->GetContentNoAddRef()->Delete(PORTABLE_DEVICE_DELETE_WITH_RECURSION, objects, &results);
+    HRESULT itemsHr = SUCCEEDED(hr) ? WpdReadResultCollection(results) : S_OK;
+    if (hold)
+    {
+        device->Close();
+    }
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    return itemsHr;
+}
+
+static HRESULT WpdDeleteAndConfirmGone(WpdCopyContext& context, CWpdDevice* device, PCWSTR parentObjectId, PCWSTR objectId, const char* name, bool& gone)
+{
+    gone = false;
+    HRESULT hr = WpdDeleteObject(device, objectId);
+    if (WpdRequiresDeviceReconnect(hr))
+    {
+        return hr;
+    }
+
+    PWSTR stillThere = nullptr;
+    HRESULT findHr = WpdFindChild(device, parentObjectId, name, nullptr, &stillThere, nullptr);
+    if (findHr == S_OK)
+    {
+        ::CoTaskMemFree(stillThere);
+        gone = false;
+        return HRESULT_FROM_WIN32(ERROR_ALREADY_EXISTS);
+    }
+    if (FAILED(findHr))
+    {
+        return findHr;
+    }
+    gone = true;
+    if (FAILED(hr))
+    {
+        // The driver reported a per-item failure, but the name is gone.
+        // Creating the replacement is safe.
+        return S_OK;
+    }
+    UNREFERENCED_PARAMETER(context);
+    return S_OK;
+}
+
+static HRESULT WpdCreateFolderChecked(CWpdDevice* device, PCWSTR parentObjectId, const wchar_t* wideName, const char* panelName)
+{
+    PWSTR existing = nullptr;
+    HRESULT findHr = WpdFindChild(device, parentObjectId, panelName, nullptr, &existing, nullptr);
+    bool present = findHr == S_OK;
+    ::CoTaskMemFree(existing);
+    if (FAILED(findHr))
+    {
+        return findHr;
+    }
+    if (!WpdMayCreateWhenNamePresent(present))
+    {
+        return HRESULT_FROM_WIN32(ERROR_ALREADY_EXISTS);
+    }
+
+    bool hold = !device->IsOpen();
+    HRESULT hr = S_OK;
+    if (hold)
+    {
+        hr = device->Open(GENERIC_READ | GENERIC_WRITE);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+    }
+
+    ATL::CComPtr<IPortableDeviceValues> values;
+    hr = values.CoCreateInstance(CLSID_PortableDeviceValues);
+    if (SUCCEEDED(hr))
+    {
+        hr = values->SetStringValue(WPD_OBJECT_PARENT_ID, parentObjectId);
+    }
+    if (SUCCEEDED(hr))
+    {
+        hr = values->SetStringValue(WPD_OBJECT_NAME, wideName);
+    }
+    if (SUCCEEDED(hr))
+    {
+        hr = values->SetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME, wideName);
+    }
+    if (SUCCEEDED(hr))
+    {
+        hr = values->SetGuidValue(WPD_OBJECT_CONTENT_TYPE, WPD_CONTENT_TYPE_FOLDER);
+    }
+    PWSTR newObjectId = nullptr;
+    if (SUCCEEDED(hr))
+    {
+        hr = device->GetContentNoAddRef()->CreateObjectWithPropertiesOnly(values, &newObjectId);
+    }
+    ::CoTaskMemFree(newObjectId);
+    if (hold)
+    {
+        device->Close();
+    }
+    return hr;
+}
+
+static HRESULT WpdCreateFileWithData(CWpdDevice* device, PCWSTR parentObjectId, const wchar_t* wideName, const char* panelName,
+                                     IStream* source, ULONGLONG size, const GUID* contentType, const GUID* format)
+{
+    WpdRewindStream(source);
+    PWSTR existing = nullptr;
+    HRESULT findHr = WpdFindChild(device, parentObjectId, panelName, nullptr, &existing, nullptr);
+    bool present = findHr == S_OK;
+    ::CoTaskMemFree(existing);
+    if (FAILED(findHr))
+    {
+        return findHr;
+    }
+    if (!WpdMayCreateWhenNamePresent(present))
+    {
+        return HRESULT_FROM_WIN32(ERROR_ALREADY_EXISTS);
+    }
+
+    bool hold = !device->IsOpen();
+    HRESULT hr = S_OK;
+    if (hold)
+    {
+        hr = device->Open(GENERIC_READ | GENERIC_WRITE);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+    }
+
+    ATL::CComPtr<IPortableDeviceValues> values;
+    hr = values.CoCreateInstance(CLSID_PortableDeviceValues);
+    if (SUCCEEDED(hr))
+    {
+        hr = values->SetStringValue(WPD_OBJECT_PARENT_ID, parentObjectId);
+    }
+    if (SUCCEEDED(hr))
+    {
+        hr = values->SetStringValue(WPD_OBJECT_NAME, wideName);
+    }
+    if (SUCCEEDED(hr))
+    {
+        hr = values->SetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME, wideName);
+    }
+    if (SUCCEEDED(hr))
+    {
+        hr = values->SetGuidValue(WPD_OBJECT_CONTENT_TYPE, contentType != nullptr ? *contentType : WPD_CONTENT_TYPE_GENERIC_FILE);
+    }
+    if (SUCCEEDED(hr))
+    {
+        hr = values->SetGuidValue(WPD_OBJECT_FORMAT, format != nullptr ? *format : WPD_OBJECT_FORMAT_UNSPECIFIED);
+    }
+    if (SUCCEEDED(hr) && size != static_cast<ULONGLONG>(-1))
+    {
+        hr = values->SetUnsignedLargeIntegerValue(WPD_OBJECT_SIZE, size);
+    }
+
+    ATL::CComPtr<IStream> target;
+    DWORD optimalBufferSize = 0;
+    PWSTR newObjectId = nullptr;
+    if (SUCCEEDED(hr))
+    {
+        hr = device->GetContentNoAddRef()->CreateObjectWithPropertiesAndData(values, &target, &optimalBufferSize, &newObjectId);
+        if (SUCCEEDED(hr))
+        {
+            HRESULT copyHr = WpdCopyStream(source, target, size);
+            if (SUCCEEDED(copyHr))
+            {
+                copyHr = target->Commit(STGC_DEFAULT);
+            }
+            if (FAILED(copyHr))
+            {
+                // An unfinished create must be cancelled before the stream is
+                // released, or Android MTP keeps the session busy.
+                WpdCancelDataStream(target);
+                target.Release();
+            }
+            hr = copyHr;
+        }
+    }
+    ::CoTaskMemFree(newObjectId);
+    if (hold)
+    {
+        device->Close();
+    }
+    return hr;
+}
+
+static HRESULT WpdTryWriteExisting(CWpdDevice* device, PCWSTR objectId, IStream* source, ULONGLONG size)
+{
+    WpdRewindStream(source);
+    bool hold = !device->IsOpen();
+    HRESULT hr = S_OK;
+    if (hold)
+    {
+        hr = device->Open(GENERIC_READ | GENERIC_WRITE);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+    }
+
+    ATL::CComPtr<IPortableDeviceResources> resources;
+    hr = device->GetContentNoAddRef()->Transfer(&resources);
+    ATL::CComPtr<IStream> target;
+    DWORD optimalBufferSize = 0;
+    if (SUCCEEDED(hr))
+    {
+        hr = resources->GetStream(objectId, WPD_RESOURCE_DEFAULT, STGM_WRITE, &optimalBufferSize, &target);
+    }
+    if (SUCCEEDED(hr))
+    {
+        if (size != static_cast<ULONGLONG>(-1))
+        {
+            ULARGE_INTEGER newSize;
+            newSize.QuadPart = size;
+            target->SetSize(newSize);
+        }
+        LARGE_INTEGER zero = {};
+        target->Seek(zero, STREAM_SEEK_SET, nullptr);
+        hr = WpdCopyStream(source, target, size);
+        if (SUCCEEDED(hr))
+        {
+            hr = target->Commit(STGC_DEFAULT);
+        }
+        if (FAILED(hr))
+        {
+            WpdCancelDataStream(target);
+            target.Release();
+        }
+    }
+    if (hold)
+    {
+        device->Close();
+    }
+    return hr;
+}
+
+static HRESULT WpdPutFileStream(WpdCopyContext& context, CWpdDevice* device, PCWSTR parentObjectId, const wchar_t* wideName,
+                                const char* panelName, const char* sourceDisplay, IStream* source, ULONGLONG size, bool hasSize,
+                                const FILETIME* time, bool hasTime, const GUID* contentType, const GUID* format, PCWSTR ignoreObjectId)
+{
+    if (context.stop)
+    {
+        return HRESULT_FROM_WIN32(ERROR_CANCELLED);
+    }
+    if (context.progress != nullptr && !context.progress->BeginItem(sourceDisplay != nullptr ? sourceDisplay : panelName, hasSize ? size : static_cast<ULONGLONG>(-1)))
+    {
+        return HRESULT_FROM_WIN32(ERROR_CANCELLED);
+    }
+
+    WpdNameChoice choice = wpdNameFree;
+    PWSTR existingId = nullptr;
+    HRESULT hr = WpdResolveName(context, device, parentObjectId, panelName, sourceDisplay, false, size, hasSize, time, hasTime, ignoreObjectId, choice, &existingId);
+    if (choice == wpdNameSkip)
+    {
+        ::CoTaskMemFree(existingId);
+        return S_FALSE;
+    }
+    if (FAILED(hr) || choice == wpdNameCancel)
+    {
+        ::CoTaskMemFree(existingId);
+        return FAILED(hr) ? hr : HRESULT_FROM_WIN32(ERROR_CANCELLED);
+    }
+
+    if (choice == wpdNameExistingFolder)
+    {
+        ::CoTaskMemFree(existingId);
+        bool skip = false;
+        HRESULT askHr = WpdAskTypeMismatch(context.parent, panelName, false, context.conflict, skip);
+        if (SUCCEEDED(askHr) && skip)
+        {
+            return S_FALSE;
+        }
+        return FAILED(askHr) ? askHr : HRESULT_FROM_WIN32(ERROR_CANCELLED);
+    }
+
+    if (choice == wpdNameExistingFile || choice == wpdNameSameObject)
+    {
+        hr = WpdTryWriteExisting(device, existingId, source, size);
+        if (SUCCEEDED(hr))
+        {
+            ::CoTaskMemFree(existingId);
+            if (context.progress != nullptr)
+            {
+                context.progress->EndItem(hasSize ? size : 0);
+            }
+            return S_OK;
+        }
+        if (WpdRequiresDeviceReconnect(hr) || WpdIsOperationCancelled(hr))
+        {
+            ::CoTaskMemFree(existingId);
+            return hr;
+        }
+
+        bool gone = false;
+        HRESULT deleteHr = WpdDeleteAndConfirmGone(context, device, parentObjectId, existingId, panelName, gone);
+        ::CoTaskMemFree(existingId);
+        if (FAILED(deleteHr) || !gone)
+        {
+            bool skip = false;
+            HRESULT askHr = WpdReportNameRemains(context.parent, panelName, context.conflict, skip);
+            if (SUCCEEDED(askHr) && skip)
+            {
+                return S_FALSE;
+            }
+            return FAILED(askHr) ? askHr : HRESULT_FROM_WIN32(ERROR_CANCELLED);
+        }
+    }
+    else
+    {
+        ::CoTaskMemFree(existingId);
+    }
+
+    hr = WpdCreateFileWithData(device, parentObjectId, wideName, panelName, source, size, contentType, format);
+    if (hr == HRESULT_FROM_WIN32(ERROR_ALREADY_EXISTS))
+    {
+        bool skip = false;
+        HRESULT askHr = WpdReportNameRemains(context.parent, panelName, context.conflict, skip);
+        if (SUCCEEDED(askHr) && skip)
+        {
+            return S_FALSE;
+        }
+        return FAILED(askHr) ? askHr : HRESULT_FROM_WIN32(ERROR_CANCELLED);
+    }
+    if (SUCCEEDED(hr) && context.progress != nullptr)
+    {
+        context.progress->EndItem(hasSize ? size : 0);
+    }
+    return hr;
+}
+
+static WpdOutcome WpdUploadDisk(WpdCopyContext& context, PCWSTR parentObjectId, const std::wstring& sourcePath, const wchar_t* targetWide,
+                                const char* panelName, const char* sourceDisplay, ULONGLONG sourceSize, bool sourceHasSize,
+                                const FILETIME* sourceTime, bool sourceHasTime);
+
+static WpdOutcome WpdUploadChildren(WpdCopyContext& context, PCWSTR parentObjectId, const std::wstring& sourceDirectory)
+{
+    std::wstring mask = WpdForWin32(sourceDirectory);
+    WpdAppendComponent(mask, L"*");
+    WIN32_FIND_DATAW data;
+    HANDLE find = ::FindFirstFileW(mask.c_str(), &data);
+    if (find == INVALID_HANDLE_VALUE)
+    {
+        DWORD error = ::GetLastError();
+        if (error == ERROR_FILE_NOT_FOUND)
+        {
+            return WpdOk();
+        }
+        return WpdFail(HRESULT_FROM_WIN32(error));
+    }
+
+    WpdOutcome outcome = WpdOk();
+    bool anySkip = false;
+    do
+    {
+        if (lstrcmpW(data.cFileName, L".") == 0 || lstrcmpW(data.cFileName, L"..") == 0)
+        {
+            continue;
+        }
+        if (context.stop)
+        {
+            outcome = WpdFail(HRESULT_FROM_WIN32(ERROR_CANCELLED));
+            break;
+        }
+
+        std::wstring childPath = sourceDirectory;
+        WpdAppendComponent(childPath, data.cFileName);
+        std::string childPanel;
+        if (!WpdWideToUtf8(data.cFileName, childPanel))
+        {
+            outcome = WpdFail(E_FAIL);
+            break;
+        }
+        ULONGLONG childSize = (static_cast<ULONGLONG>(data.nFileSizeHigh) << 32) | data.nFileSizeLow;
+        bool childIsDir = (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+        outcome = WpdUploadDisk(context, parentObjectId, childPath, data.cFileName, childPanel.c_str(), childPanel.c_str(),
+                                childSize, !childIsDir, &data.ftLastWriteTime, true);
+        if (outcome.Failed())
+        {
+            break;
+        }
+        if (outcome.skipped)
+        {
+            anySkip = true;
+        }
+    } while (::FindNextFileW(find, &data));
+    ::FindClose(find);
+    if (outcome.Failed())
+    {
+        return outcome;
+    }
+    return anySkip ? WpdSkipped() : WpdOk();
+}
+
+static WpdOutcome WpdUploadDisk(WpdCopyContext& context, PCWSTR parentObjectId, const std::wstring& sourcePath, const wchar_t* targetWide,
+                                const char* panelName, const char* sourceDisplay, ULONGLONG sourceSize, bool sourceHasSize,
+                                const FILETIME* sourceTime, bool sourceHasTime)
+{
+    if (context.stop)
+    {
+        return WpdFail(HRESULT_FROM_WIN32(ERROR_CANCELLED));
+    }
+
+    std::wstring native = WpdForWin32(sourcePath);
+    DWORD attributes = ::GetFileAttributesW(native.c_str());
+    if (attributes == INVALID_FILE_ATTRIBUTES)
+    {
+        return WpdFail(HRESULT_FROM_WIN32(::GetLastError()));
+    }
+    bool sourceIsDir = (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+    if (!sourceIsDir)
+    {
+        ATL::CComPtr<IStream> source;
+        HRESULT fileHr = ::SHCreateStreamOnFileEx(native.c_str(), STGM_READ | STGM_SHARE_DENY_NONE, FILE_ATTRIBUTE_NORMAL, FALSE, nullptr, &source);
+        if (FAILED(fileHr))
+        {
+            return WpdFail(fileHr);
+        }
+        fileHr = WpdPutFileStream(context, context.targetDevice, parentObjectId, targetWide, panelName, sourceDisplay, source,
+                                  sourceHasSize ? sourceSize : static_cast<ULONGLONG>(-1), sourceHasSize, sourceTime, sourceHasTime, nullptr, nullptr, nullptr);
+        if (fileHr == S_FALSE)
+        {
+            return WpdSkipped();
+        }
+        return FAILED(fileHr) ? WpdFail(fileHr) : WpdOk();
+    }
+
+    WpdNameChoice choice = wpdNameFree;
+    PWSTR existingId = nullptr;
+    HRESULT hr = WpdResolveName(context, context.targetDevice, parentObjectId, panelName, sourceDisplay, sourceIsDir,
+                                sourceSize, sourceHasSize && !sourceIsDir, sourceTime, sourceHasTime, nullptr, choice, &existingId);
+    if (FAILED(hr))
+    {
+        ::CoTaskMemFree(existingId);
+        return WpdFail(hr);
+    }
+    if (choice == wpdNameSkip || choice == wpdNameCancel)
+    {
+        ::CoTaskMemFree(existingId);
+        return choice == wpdNameSkip ? WpdSkipped() : WpdFail(HRESULT_FROM_WIN32(ERROR_CANCELLED));
+    }
+
+    PWSTR folderId = nullptr;
+    bool createdFolder = false;
+    if (choice == wpdNameExistingFolder)
+    {
+        folderId = existingId;
+        existingId = nullptr;
+    }
+    else
+    {
+        ::CoTaskMemFree(existingId);
+        existingId = nullptr;
+        hr = WpdCreateFolderChecked(context.targetDevice, parentObjectId, targetWide, panelName);
+        if (hr == HRESULT_FROM_WIN32(ERROR_ALREADY_EXISTS))
+        {
+            bool skip = false;
+            HRESULT askHr = WpdReportNameRemains(context.parent, panelName, context.conflict, skip);
+            return FAILED(askHr) ? WpdFail(askHr) : WpdSkipped();
+        }
+        if (FAILED(hr))
+        {
+            return WpdFail(hr);
+        }
+        createdFolder = true;
+        hr = WpdFindChild(context.targetDevice, parentObjectId, panelName, nullptr, &folderId, nullptr);
+        if (hr != S_OK)
+        {
+            return WpdFail(FAILED(hr) ? hr : HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND));
+        }
+    }
+    ::CoTaskMemFree(existingId);
+
+    if (context.progress != nullptr &&
+        !context.progress->BeginItem(sourceDisplay != nullptr ? sourceDisplay : panelName, static_cast<ULONGLONG>(-1)))
+    {
+        ::CoTaskMemFree(folderId);
+        if (createdFolder)
+        {
+            PWSTR createdId = nullptr;
+            if (WpdFindChild(context.targetDevice, parentObjectId, panelName, nullptr, &createdId, nullptr) == S_OK)
+            {
+                WpdDeleteObject(context.targetDevice, createdId);
+                ::CoTaskMemFree(createdId);
+            }
+        }
+        return WpdFail(HRESULT_FROM_WIN32(ERROR_CANCELLED));
+    }
+    WpdOutcome children = WpdUploadChildren(context, folderId, sourcePath);
+    ::CoTaskMemFree(folderId);
+    if (children.Failed() && createdFolder)
+    {
+        PWSTR createdId = nullptr;
+        if (WpdFindChild(context.targetDevice, parentObjectId, panelName, nullptr, &createdId, nullptr) == S_OK)
+        {
+            WpdDeleteObject(context.targetDevice, createdId);
+            ::CoTaskMemFree(createdId);
+        }
+    }
+    return children;
+}
+
+static HRESULT WpdOpenReadStream(CWpdDevice* device, PCWSTR objectId, ATL::CComPtr<IStream>& stream)
+{
+    bool hold = !device->IsOpen();
+    HRESULT hr = S_OK;
+    if (hold)
+    {
+        hr = device->Open(GENERIC_READ | GENERIC_WRITE);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+    }
+    ATL::CComPtr<IPortableDeviceResources> resources;
+    hr = device->GetContentNoAddRef()->Transfer(&resources);
+    DWORD optimalBufferSize = 0;
+    if (SUCCEEDED(hr))
+    {
+        hr = resources->GetStream(objectId, WPD_RESOURCE_DEFAULT, STGM_READ, &optimalBufferSize, &stream);
+    }
+    if (hold)
+    {
+        device->Close();
+    }
+    return hr;
+}
+
+static WpdOutcome WpdCopyDeviceObject(WpdCopyContext& context, CWpdDevice* sourceDevice, PCWSTR sourceObjectId, PCWSTR targetParentId, const char* panelName);
+
+static HRESULT WpdEnumChildIds(CWpdDevice* device, PCWSTR parentObjectId, std::vector<std::wstring>& children)
+{
+    children.clear();
+    bool hold = !device->IsOpen();
+    HRESULT hr = S_OK;
+    if (hold)
+    {
+        hr = device->Open(GENERIC_READ | GENERIC_WRITE);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+    }
+    ATL::CComPtr<IEnumPortableDeviceObjectIDs> enumerator;
+    hr = device->GetContentNoAddRef()->EnumObjects(0U, parentObjectId, nullptr, &enumerator);
+    if (SUCCEEDED(hr))
+    {
+        for (;;)
+        {
+            PWSTR childId = nullptr;
+            ULONG fetched = 0;
+            hr = enumerator->Next(1, &childId, &fetched);
+            if (hr != S_OK)
+            {
+                hr = hr == S_FALSE ? S_OK : hr;
+                break;
+            }
+            if (childId != nullptr)
+            {
+                children.push_back(childId);
+                ::CoTaskMemFree(childId);
+            }
+        }
+    }
+    if (hold)
+    {
+        device->Close();
+    }
+    return hr;
+}
+
+static WpdOutcome WpdCopyDeviceObject(WpdCopyContext& context, CWpdDevice* sourceDevice, PCWSTR sourceObjectId, PCWSTR targetParentId, const char* panelName)
+{
+    if (context.stop)
+    {
+        return WpdFail(HRESULT_FROM_WIN32(ERROR_CANCELLED));
+    }
+
+    std::wstring originalName;
+    std::wstring objectName;
+    bool hasOriginal = false;
+    bool hasObject = false;
+    DWORD attributes = 0;
+    HRESULT hr = WpdReadStoredNames(sourceDevice, sourceObjectId, originalName, hasOriginal, objectName, hasObject, attributes);
+    if (FAILED(hr))
+    {
+        return WpdFail(hr);
+    }
+    const std::wstring& displayName = hasOriginal ? originalName : objectName;
+    std::string displayUtf8;
+    if (!WpdWideToUtf8(displayName.c_str(), displayUtf8))
+    {
+        return WpdFail(E_FAIL);
+    }
+    const char* name = panelName != nullptr && panelName[0] != '\0' ? panelName : displayUtf8.c_str();
+    bool sourceIsDir = (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+    ULONGLONG size = 0;
+    bool hasSize = false;
+    FILETIME time = {};
+    bool hasTime = false;
+    WpdReadSizeAndTime(sourceDevice, sourceObjectId, size, hasSize, time, hasTime);
+
+    if (!sourceIsDir)
+    {
+        ATL::CComPtr<IStream> source;
+        hr = WpdOpenReadStream(sourceDevice, sourceObjectId, source);
+        if (FAILED(hr))
+        {
+            return WpdFail(hr);
+        }
+        hr = WpdPutFileStream(context, context.targetDevice, targetParentId, displayName.c_str(), name, name, source, size, hasSize, &time, hasTime, nullptr, nullptr, sourceObjectId);
+        if (hr == S_FALSE)
+        {
+            return WpdSkipped();
+        }
+        return FAILED(hr) ? WpdFail(hr) : WpdOk();
+    }
+
+    WpdNameChoice choice = wpdNameFree;
+    PWSTR existingId = nullptr;
+    hr = WpdResolveName(context, context.targetDevice, targetParentId, name, name, true, size, false, &time, hasTime, sourceObjectId, choice, &existingId);
+    if (FAILED(hr))
+    {
+        ::CoTaskMemFree(existingId);
+        return WpdFail(hr);
+    }
+    if (choice == wpdNameSkip || choice == wpdNameCancel)
+    {
+        ::CoTaskMemFree(existingId);
+        return choice == wpdNameSkip ? WpdSkipped() : WpdFail(HRESULT_FROM_WIN32(ERROR_CANCELLED));
+    }
+
+    PWSTR folderId = nullptr;
+    if (choice == wpdNameExistingFolder)
+    {
+        folderId = existingId;
+    }
+    else
+    {
+        ::CoTaskMemFree(existingId);
+        hr = WpdCreateFolderChecked(context.targetDevice, targetParentId, displayName.c_str(), name);
+        if (hr == HRESULT_FROM_WIN32(ERROR_ALREADY_EXISTS))
+        {
+            bool skip = false;
+            HRESULT askHr = WpdReportNameRemains(context.parent, name, context.conflict, skip);
+            return FAILED(askHr) ? WpdFail(askHr) : WpdSkipped();
+        }
+        if (FAILED(hr))
+        {
+            return WpdFail(hr);
+        }
+        hr = WpdFindChild(context.targetDevice, targetParentId, name, nullptr, &folderId, nullptr);
+        if (hr != S_OK)
+        {
+            return WpdFail(FAILED(hr) ? hr : HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND));
+        }
+    }
+
+    if (context.progress != nullptr && !context.progress->BeginItem(name, static_cast<ULONGLONG>(-1)))
+    {
+        ::CoTaskMemFree(folderId);
+        return WpdFail(HRESULT_FROM_WIN32(ERROR_CANCELLED));
+    }
+    std::vector<std::wstring> children;
+    hr = WpdEnumChildIds(sourceDevice, sourceObjectId, children);
+    if (FAILED(hr))
+    {
+        ::CoTaskMemFree(folderId);
+        return WpdFail(hr);
+    }
+    bool anySkip = false;
+    for (size_t i = 0; i < children.size(); ++i)
+    {
+        WpdOutcome child = WpdCopyDeviceObject(context, sourceDevice, children[i].c_str(), folderId, nullptr);
+        if (child.Failed())
+        {
+            ::CoTaskMemFree(folderId);
+            return child;
+        }
+        if (child.skipped)
+        {
+            anySkip = true;
+        }
+    }
+    ::CoTaskMemFree(folderId);
+    return anySkip ? WpdSkipped() : WpdOk();
+}
+
+static HRESULT WpdDownloadObjectWide(WpdCopyContext& context, CWpdDevice* device, PCWSTR objectId, const std::wstring& targetPath)
+{
+    std::wstring originalName;
+    std::wstring objectName;
+    bool hasOriginal = false;
+    bool hasObject = false;
+    DWORD attributes = 0;
+    HRESULT hr = WpdReadStoredNames(device, objectId, originalName, hasOriginal, objectName, hasObject, attributes);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    std::wstring native = WpdForWin32(targetPath);
+    if ((attributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+    {
+        if (!::CreateDirectoryW(native.c_str(), nullptr) && ::GetLastError() != ERROR_ALREADY_EXISTS)
+        {
+            return HRESULT_FROM_WIN32(::GetLastError());
+        }
+        std::vector<std::wstring> children;
+        hr = WpdEnumChildIds(device, objectId, children);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+        for (size_t i = 0; i < children.size(); ++i)
+        {
+            std::wstring childOriginal;
+            std::wstring childObject;
+            bool childHasOriginal = false;
+            bool childHasObject = false;
+            DWORD childAttributes = 0;
+            hr = WpdReadStoredNames(device, children[i].c_str(), childOriginal, childHasOriginal, childObject, childHasObject, childAttributes);
+            if (FAILED(hr))
+            {
+                return hr;
+            }
+            const std::wstring& childName = childHasOriginal ? childOriginal : childObject;
+            std::wstring childTarget = targetPath;
+            WpdAppendComponent(childTarget, WpdSafeComponent(childName).c_str());
+            hr = WpdDownloadObjectWide(context, device, children[i].c_str(), childTarget);
+            if (FAILED(hr))
+            {
+                return hr;
+            }
+        }
+        return S_OK;
+    }
+
+    if (context.progress != nullptr)
+    {
+        std::string utf8;
+        WpdWideToUtf8((hasOriginal ? originalName : objectName).c_str(), utf8);
+        ULONGLONG size = 0;
+        bool hasSize = false;
+        FILETIME time = {};
+        bool hasTime = false;
+        WpdReadSizeAndTime(device, objectId, size, hasSize, time, hasTime);
+        if (!context.progress->BeginItem(utf8.c_str(), hasSize ? size : static_cast<ULONGLONG>(-1)))
+        {
+            return HRESULT_FROM_WIN32(ERROR_CANCELLED);
+        }
+    }
+
+    ATL::CComPtr<IStream> source;
+    hr = WpdOpenReadStream(device, objectId, source);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    ATL::CComPtr<IStream> target;
+    hr = ::SHCreateStreamOnFileEx(native.c_str(), STGM_CREATE | STGM_WRITE | STGM_SHARE_EXCLUSIVE, FILE_ATTRIBUTE_NORMAL, TRUE, nullptr, &target);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    ULONGLONG size = 0;
+    bool hasSize = false;
+    FILETIME time = {};
+    bool hasTime = false;
+    WpdReadSizeAndTime(device, objectId, size, hasSize, time, hasTime);
+    hr = WpdCopyStream(source, target, hasSize ? size : static_cast<ULONGLONG>(-1));
+    if (SUCCEEDED(hr))
+    {
+        hr = target->Commit(STGC_DEFAULT);
+    }
+    if (SUCCEEDED(hr) && context.progress != nullptr)
+    {
+        context.progress->EndItem(hasSize ? size : 0);
+    }
+    return hr;
+}
+
+static HRESULT WpdSetStringProperty(CWpdDevice* device, PCWSTR objectId, REFPROPERTYKEY key, const wchar_t* value, HRESULT& propertyHr)
+{
+    propertyHr = S_OK;
+    ATL::CComPtr<IPortableDeviceValues> values;
+    HRESULT hr = values.CoCreateInstance(CLSID_PortableDeviceValues);
+    if (FAILED(hr))
+    {
+        propertyHr = hr;
+        return hr;
+    }
+    hr = values->SetStringValue(key, value);
+    if (FAILED(hr))
+    {
+        propertyHr = hr;
+        return hr;
+    }
+    ATL::CComPtr<IPortableDeviceValues> results;
+    hr = device->GetPropertiesNoAddRef()->SetValues(objectId, values, &results);
+    propertyHr = hr;
+    if (results != nullptr)
+    {
+        HRESULT perProperty = hr;
+        if (SUCCEEDED(results->GetErrorValue(key, &perProperty)))
+        {
+            propertyHr = perProperty;
+        }
+    }
+    return FAILED(propertyHr) ? propertyHr : hr;
+}
+
+static HRESULT WpdReadParentId(CWpdDevice* device, PCWSTR objectId, std::wstring& parentId)
+{
+    static const PROPERTYKEY* const keys[] = {&WPD_OBJECT_PARENT_ID};
+    ATL::CComPtr<IPortableDeviceKeyCollection> keyCollection;
+    keyCollection.Attach(WpdInitKeys(keys, _countof(keys)));
+    ATL::CComPtr<IPortableDeviceValues> values;
+    HRESULT hr = device->GetPropertiesNoAddRef()->GetValues(objectId, keyCollection, &values);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    PWSTR text = nullptr;
+    hr = values->GetStringValue(WPD_OBJECT_PARENT_ID, &text);
+    if (FAILED(hr) || text == nullptr)
+    {
+        ::CoTaskMemFree(text);
+        return FAILED(hr) ? hr : E_FAIL;
+    }
+    parentId = text;
+    ::CoTaskMemFree(text);
+    return S_OK;
+}
+
+static HRESULT WpdMoveChildren(CWpdDevice* device, PCWSTR sourceFolderId, PCWSTR destinationFolderId, bool& unsupported)
+{
+    unsupported = false;
+    std::vector<std::wstring> children;
+    HRESULT hr = WpdEnumChildIds(device, sourceFolderId, children);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    if (children.empty())
+    {
+        return S_OK;
+    }
+
     ATL::CComPtr<IPortableDevicePropVariantCollection> objects;
     hr = objects.CoCreateInstance(CLSID_PortableDevicePropVariantCollection);
-    if (SUCCEEDED(hr))
+    if (FAILED(hr))
     {
-        hr = AddWpdObjectId(objects, existingObjectId);
+        return hr;
     }
-    if (SUCCEEDED(hr))
+    for (size_t i = 0; i < children.size(); ++i)
     {
-        hr = DeleteWpdObjects(device, objects);
+        hr = WpdAddObjectId(objects, children[i].c_str());
+        if (FAILED(hr))
+        {
+            return hr;
+        }
     }
-    ::CoTaskMemFree(existingObjectId);
+    ATL::CComPtr<IPortableDevicePropVariantCollection> results;
+    hr = device->GetContentNoAddRef()->Move(objects, destinationFolderId, &results);
+    if (WpdIsMoveUnsupported(hr))
+    {
+        unsupported = true;
+        return hr;
+    }
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    return WpdReadResultCollection(results);
+}
+
+static HRESULT WpdRenameFolderFallback(WpdCopyContext& context, CWpdDevice* device, PCWSTR objectId, const wchar_t* wideName, const char* newName)
+{
+    std::wstring parentId;
+    HRESULT hr = WpdReadParentId(device, objectId, parentId);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    WpdNameChoice choice = wpdNameFree;
+    PWSTR existingId = nullptr;
+    ULONGLONG size = 0;
+    bool hasSize = false;
+    FILETIME time = {};
+    bool hasTime = false;
+    WpdReadSizeAndTime(device, objectId, size, hasSize, time, hasTime);
+    hr = WpdResolveName(context, device, parentId.c_str(), newName, newName, true, size, false, &time, hasTime, objectId, choice, &existingId);
+    if (FAILED(hr))
+    {
+        ::CoTaskMemFree(existingId);
+        return hr;
+    }
+    if (choice == wpdNameSkip || choice == wpdNameCancel)
+    {
+        ::CoTaskMemFree(existingId);
+        return choice == wpdNameSkip ? S_FALSE : HRESULT_FROM_WIN32(ERROR_CANCELLED);
+    }
+    if (choice == wpdNameExistingFile)
+    {
+        ::CoTaskMemFree(existingId);
+        bool skip = false;
+        HRESULT askHr = WpdAskTypeMismatch(context.parent, newName, true, context.conflict, skip);
+        if (SUCCEEDED(askHr) && skip)
+        {
+            return S_FALSE;
+        }
+        return FAILED(askHr) ? askHr : HRESULT_FROM_WIN32(ERROR_CANCELLED);
+    }
+
+    PWSTR destinationId = nullptr;
+    bool createdDestination = false;
+    if (choice == wpdNameExistingFolder)
+    {
+        destinationId = existingId;
+    }
+    else
+    {
+        ::CoTaskMemFree(existingId);
+        if (choice == wpdNameSameObject)
+        {
+            // The case-insensitive match is this folder. Create a temporary
+            // sibling, move the children, remove the old folder, then create
+            // the requested name once that name is free.
+            std::wstring temporary = std::wstring(wideName) + L"~wpd";
+            std::string temporaryPanel;
+            if (!WpdWideToUtf8(temporary.c_str(), temporaryPanel))
+            {
+                return E_FAIL;
+            }
+            hr = WpdCreateFolderChecked(device, parentId.c_str(), temporary.c_str(), temporaryPanel.c_str());
+            if (FAILED(hr))
+            {
+                return hr;
+            }
+            hr = WpdFindChild(device, parentId.c_str(), temporaryPanel.c_str(), nullptr, &destinationId, nullptr);
+            if (hr != S_OK)
+            {
+                return FAILED(hr) ? hr : HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);
+            }
+            createdDestination = true;
+        }
+        else
+        {
+            hr = WpdCreateFolderChecked(device, parentId.c_str(), wideName, newName);
+            if (hr == HRESULT_FROM_WIN32(ERROR_ALREADY_EXISTS))
+            {
+                bool skip = false;
+                HRESULT askHr = WpdReportNameRemains(context.parent, newName, context.conflict, skip);
+                if (SUCCEEDED(askHr) && skip)
+                {
+                    return S_FALSE;
+                }
+                return FAILED(askHr) ? askHr : HRESULT_FROM_WIN32(ERROR_CANCELLED);
+            }
+            if (FAILED(hr))
+            {
+                return hr;
+            }
+            hr = WpdFindChild(device, parentId.c_str(), newName, nullptr, &destinationId, nullptr);
+            if (hr != S_OK)
+            {
+                return FAILED(hr) ? hr : HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);
+            }
+            createdDestination = true;
+        }
+    }
+
+    bool unsupported = false;
+    hr = WpdMoveChildren(device, objectId, destinationId, unsupported);
+    if (unsupported)
+    {
+        std::wstring tempDirectory;
+        HRESULT downloadHr = WpdMakeTempDirectory(tempDirectory);
+        if (SUCCEEDED(downloadHr))
+        {
+            downloadHr = WpdDownloadObjectWide(context, device, objectId, tempDirectory);
+        }
+        if (SUCCEEDED(downloadHr))
+        {
+            WpdOutcome uploaded = WpdUploadChildren(context, destinationId, tempDirectory);
+            if (uploaded.Failed())
+            {
+                downloadHr = uploaded.hr;
+            }
+            else if (uploaded.skipped)
+            {
+                downloadHr = S_FALSE;
+            }
+            else
+            {
+                downloadHr = S_OK;
+            }
+        }
+        WpdDeleteDiskTree(tempDirectory);
+        hr = downloadHr;
+    }
+    if (hr == S_FALSE)
+    {
+        ::CoTaskMemFree(destinationId);
+        return S_FALSE;
+    }
+    if (FAILED(hr))
+    {
+        if (createdDestination && destinationId != nullptr)
+        {
+            WpdDeleteObject(device, destinationId);
+        }
+        ::CoTaskMemFree(destinationId);
+        return hr;
+    }
+
+    hr = WpdDeleteObject(device, objectId);
+    if (choice == wpdNameSameObject && SUCCEEDED(hr))
+    {
+        HRESULT createHr = WpdCreateFolderChecked(device, parentId.c_str(), wideName, newName);
+        if (createHr == HRESULT_FROM_WIN32(ERROR_ALREADY_EXISTS))
+        {
+            ::CoTaskMemFree(destinationId);
+            bool skip = false;
+            HRESULT askHr = WpdReportNameRemains(context.parent, newName, context.conflict, skip);
+            if (SUCCEEDED(askHr) && skip)
+            {
+                return S_FALSE;
+            }
+            return FAILED(askHr) ? askHr : HRESULT_FROM_WIN32(ERROR_ALREADY_EXISTS);
+        }
+        if (FAILED(createHr))
+        {
+            ::CoTaskMemFree(destinationId);
+            return createHr;
+        }
+        PWSTR finalId = nullptr;
+        createHr = WpdFindChild(device, parentId.c_str(), newName, nullptr, &finalId, nullptr);
+        if (createHr == S_OK)
+        {
+            bool secondUnsupported = false;
+            HRESULT moveHr = WpdMoveChildren(device, destinationId, finalId, secondUnsupported);
+            if (secondUnsupported)
+            {
+                std::wstring tempDirectory;
+                moveHr = WpdMakeTempDirectory(tempDirectory);
+                if (SUCCEEDED(moveHr))
+                {
+                    moveHr = WpdDownloadObjectWide(context, device, destinationId, tempDirectory);
+                }
+                if (SUCCEEDED(moveHr))
+                {
+                    WpdOutcome uploaded = WpdUploadChildren(context, finalId, tempDirectory);
+                    moveHr = uploaded.Failed() ? uploaded.hr : S_OK;
+                    if (uploaded.skipped)
+                    {
+                        moveHr = HRESULT_FROM_WIN32(ERROR_CANCELLED);
+                    }
+                }
+                WpdDeleteDiskTree(tempDirectory);
+            }
+            if (SUCCEEDED(moveHr))
+            {
+                WpdDeleteObject(device, destinationId);
+            }
+            ::CoTaskMemFree(finalId);
+            ::CoTaskMemFree(destinationId);
+            return moveHr;
+        }
+        ::CoTaskMemFree(destinationId);
+        return createHr;
+    }
+    ::CoTaskMemFree(destinationId);
     return hr;
+}
+static void WpdReleaseReconnect(CWpdDevice* first, CWpdDevice* second)
+{
+    if (first != nullptr)
+    {
+        first->ForceClose();
+    }
+    if (second != nullptr && second != first)
+    {
+        second->ForceClose();
+    }
+}
+
+HRESULT WINAPI CWpdFS::FinishWpdBatchError(WpdCopyContext& context, HRESULT hr, const char* name)
+{
+    if (WpdRequiresDeviceReconnect(hr))
+    {
+        context.stop = true;
+        WpdReleaseReconnect(context.sourceDevice, context.targetDevice);
+        if (!WpdReportedError)
+        {
+            WpdReportedError = true;
+            std::string message = WpdText(IDS_RECONNECT_DEVICE_REQUIRED);
+            std::string title = WpdText(IDS_OPERATIONPROGRESS_TITLE);
+            SalamanderGeneral->DialogError(WpdDialogParent(context.parent), BUTTONS_OK, "", message.c_str(), title.c_str());
+        }
+        ChangeDirectory("\\");
+        SalamanderGeneral->PostRefreshPanelFS(this);
+        return hr;
+    }
+    if (!WpdIsOperationCancelled(hr) && !WpdReportedError)
+    {
+        WpdShowOperationError(context.parent, context.operationId, name, hr);
+    }
+    return hr;
+}
+static HRESULT WpdRenameFileFallback(WpdCopyContext& context, CWpdDevice* device, CWpdBaseContentItem* item,
+                                     const wchar_t* wideName, const char* newName)
+{
+    std::wstring parentId;
+    HRESULT hr = WpdReadParentId(device, item->GetObjectId(), parentId);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    std::wstring originalName;
+    std::wstring objectName;
+    bool hasOriginal = false;
+    bool hasObject = false;
+    DWORD storedAttributes = 0;
+    hr = WpdReadStoredNames(device, item->GetObjectId(), originalName, hasOriginal, objectName, hasObject, storedAttributes);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    const std::wstring& oldWide = hasOriginal ? originalName : objectName;
+    std::string oldPanel;
+    if (!WpdWideToUtf8(oldWide.c_str(), oldPanel))
+    {
+        return E_FAIL;
+    }
+
+    ULONGLONG size = 0;
+    bool hasSize = false;
+    FILETIME time = {};
+    bool hasTime = false;
+    WpdReadSizeAndTime(device, item->GetObjectId(), size, hasSize, time, hasTime);
+
+    PWSTR existingId = nullptr;
+    DWORD existingAttributes = 0;
+    HRESULT findHr = WpdFindChild(device, parentId.c_str(), newName, nullptr, &existingId, &existingAttributes);
+    bool sameObject = findHr == S_OK && existingId != nullptr && lstrcmpW(existingId, item->GetObjectId()) == 0;
+    ::CoTaskMemFree(existingId);
+    if (FAILED(findHr))
+    {
+        return findHr;
+    }
+
+    if (sameObject)
+    {
+        std::wstring tempDirectory;
+        hr = WpdMakeTempDirectory(tempDirectory);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+        std::wstring tempFile = tempDirectory;
+        WpdAppendComponent(tempFile, L"item");
+        hr = WpdDownloadObjectWide(context, device, item->GetObjectId(), tempFile);
+        if (FAILED(hr))
+        {
+            WpdDeleteDiskTree(tempDirectory);
+            return hr;
+        }
+
+        bool gone = false;
+        hr = WpdDeleteAndConfirmGone(context, device, parentId.c_str(), item->GetObjectId(), newName, gone);
+        if (FAILED(hr) || !gone)
+        {
+            WpdDeleteDiskTree(tempDirectory);
+            if (!WpdRequiresDeviceReconnect(hr))
+            {
+                bool skip = false;
+                HRESULT askHr = WpdReportNameRemains(context.parent, newName, context.conflict, skip);
+                if (SUCCEEDED(askHr) && skip)
+                {
+                    return S_FALSE;
+                }
+                return FAILED(askHr) ? askHr : HRESULT_FROM_WIN32(ERROR_ALREADY_EXISTS);
+            }
+            return hr;
+        }
+
+        WpdOutcome uploaded = WpdUploadDisk(context, parentId.c_str(), tempFile, wideName, newName, newName, size, hasSize, hasTime ? &time : nullptr, hasTime);
+        if (!uploaded.Completed())
+        {
+            WpdOutcome restored = WpdUploadDisk(context, parentId.c_str(), tempFile, oldWide.c_str(), oldPanel.c_str(), oldPanel.c_str(), size, hasSize, hasTime ? &time : nullptr, hasTime);
+            if (!restored.Completed())
+            {
+                std::string tempUtf8;
+                if (WpdWideToUtf8(tempFile.c_str(), tempUtf8) && !WpdReportedError)
+                {
+                    WpdShowOperationError(context.parent, IDS_OPERATION_RENAME, tempUtf8.c_str(), uploaded.Failed() ? uploaded.hr : restored.hr);
+                }
+                return uploaded.Failed() ? uploaded.hr : HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);
+            }
+            WpdDeleteDiskTree(tempDirectory);
+            return uploaded.skipped ? S_FALSE : uploaded.hr;
+        }
+        WpdDeleteDiskTree(tempDirectory);
+        return S_OK;
+    }
+
+    ATL::CComPtr<IStream> source;
+    hr = WpdOpenReadStream(device, item->GetObjectId(), source);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    hr = WpdPutFileStream(context, device, parentId.c_str(), wideName, newName, newName, source, size, hasSize, hasTime ? &time : nullptr, hasTime, nullptr, nullptr, item->GetObjectId());
+    if (hr == S_FALSE)
+    {
+        return S_FALSE;
+    }
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    return WpdDeleteObject(device, item->GetObjectId());
+}
+
+static ULONGLONG WpdPanelSelectionBytes(int panel, BOOL focused)
+{
+    ULONGLONG total = 0;
+    int index = 0;
+    for (;;)
+    {
+        BOOL isDir = FALSE;
+        const CFileData* file = focused ? SalamanderGeneral->GetPanelFocusedItem(panel, &isDir)
+                                        : SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir);
+        if (file == nullptr)
+        {
+            break;
+        }
+        if ((file->Attr & FILE_ATTRIBUTE_DIRECTORY) == 0)
+        {
+            total += file->Size.Value;
+        }
+        if (focused)
+        {
+            break;
+        }
+    }
+    return total;
+}
+
+static std::string WpdOperationTitle(UINT operationId, CWpdDevice* device)
+{
+    std::string title = WpdText(operationId);
+    if (device != nullptr)
+    {
+        CFxString name;
+        device->GetName(name);
+        if (!name.IsEmpty())
+        {
+            title += " - ";
+            title += name.GetString();
+        }
+    }
+    return title;
+}
+
+static HRESULT WpdConfirmDiskTarget(WpdCopyContext& context, const std::wstring& targetPath, const char* sourceName,
+                                   bool sourceIsDir, ULONGLONG sourceSize, bool sourceHasSize, const FILETIME* sourceTime, bool sourceHasTime)
+{
+    if (context.conflict.skipAll)
+    {
+        return S_FALSE;
+    }
+
+    std::wstring native = WpdForWin32(targetPath);
+    DWORD attributes = ::GetFileAttributesW(native.c_str());
+    if (attributes == INVALID_FILE_ATTRIBUTES)
+    {
+        return S_OK;
+    }
+
+    bool destinationIsDir = (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+    if (destinationIsDir != sourceIsDir)
+    {
+        bool skip = false;
+        HRESULT askHr = WpdAskTypeMismatch(context.parent, sourceName, sourceIsDir, context.conflict, skip);
+        if (SUCCEEDED(askHr) && skip)
+        {
+            return S_FALSE;
+        }
+        return FAILED(askHr) ? askHr : HRESULT_FROM_WIN32(ERROR_CANCELLED);
+    }
+
+    if (context.conflict.overwriteAll)
+    {
+        return S_OK;
+    }
+
+    ULONGLONG destinationSize = 0;
+    bool destinationHasSize = false;
+    FILETIME destinationTime = {};
+    bool destinationHasTime = false;
+    WIN32_FILE_ATTRIBUTE_DATA info;
+    if (::GetFileAttributesExW(native.c_str(), GetFileExInfoStandard, &info))
+    {
+        destinationHasSize = !destinationIsDir;
+        destinationSize = (static_cast<ULONGLONG>(info.nFileSizeHigh) << 32) | info.nFileSizeLow;
+        destinationTime = info.ftLastWriteTime;
+        destinationHasTime = true;
+    }
+
+    std::string targetUtf8;
+    if (!WpdWideToUtf8(targetPath.c_str(), targetUtf8))
+    {
+        targetUtf8.clear();
+    }
+    std::string targetInfo = WpdFormatDetails(destinationSize, destinationHasSize, destinationHasTime ? &destinationTime : nullptr, destinationHasTime);
+    std::string sourceInfo = WpdFormatDetails(sourceSize, sourceHasSize && !sourceIsDir, sourceTime, sourceHasTime);
+    int answer = SalamanderGeneral->DialogOverwrite(WpdDialogParent(context.parent), BUTTONS_YESALLSKIPCANCEL,
+                                                    targetUtf8.c_str(), targetInfo.c_str(),
+                                                    sourceName != nullptr ? sourceName : "", sourceInfo.c_str());
+    if (answer == DIALOG_ALL)
+    {
+        context.conflict.overwriteAll = true;
+        return S_OK;
+    }
+    if (answer == DIALOG_YES)
+    {
+        return S_OK;
+    }
+    if (answer == DIALOG_SKIPALL)
+    {
+        context.conflict.skipAll = true;
+        return S_FALSE;
+    }
+    if (answer == DIALOG_SKIP)
+    {
+        return S_FALSE;
+    }
+    return HRESULT_FROM_WIN32(ERROR_CANCELLED);
+}
+
+HRESULT WINAPI CWpdFS::CreateWpdFolder(CWpdDevice* device, PCWSTR parentObjectId, PCSTR name)
+{
+    std::wstring wideName;
+    HRESULT hr = WpdPanelTextToWide(name, wideName);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    return WpdCreateFolderChecked(device, parentObjectId, wideName.c_str(), name);
+}
+
+HRESULT WINAPI CWpdFS::FindWpdChildObject(CWpdDevice* device, PCWSTR parentObjectId, PCSTR childName, _Out_ PWSTR* childObjectId, _Out_opt_ DWORD* attributes)
+{
+    return WpdFindChild(device, parentObjectId, childName, nullptr, childObjectId, attributes);
 }
 
 HRESULT WINAPI CWpdFS::AddWpdObjectId(IPortableDevicePropVariantCollection* objects, PCWSTR objectId)
 {
-    _ASSERTE(objects != nullptr);
-    _ASSERTE(objectId != nullptr);
-
-    PROPVARIANT pv;
-    PropVariantInit(&pv);
-    pv.vt = VT_LPWSTR;
-    pv.pwszVal = const_cast<PWSTR>(objectId);
-    return objects->Add(&pv);
+    return WpdAddObjectId(objects, objectId);
 }
 
 HRESULT WINAPI CWpdFS::DeleteWpdObjects(CWpdDevice* device, IPortableDevicePropVariantCollection* objects)
 {
-    HRESULT hr = device->Open(GENERIC_READ | GENERIC_WRITE);
-    if (FAILED(hr)) return hr;
+    bool hold = !device->IsOpen();
+    HRESULT hr = S_OK;
+    if (hold)
+    {
+        hr = device->Open(GENERIC_READ | GENERIC_WRITE);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+    }
 
     ATL::CComPtr<IPortableDevicePropVariantCollection> results;
     hr = device->GetContentNoAddRef()->Delete(PORTABLE_DEVICE_DELETE_WITH_RECURSION, objects, &results);
-    device->Close();
-    return hr;
+    HRESULT itemsHr = SUCCEEDED(hr) ? WpdReadResultCollection(results) : S_OK;
+    if (hold)
+    {
+        device->Close();
+    }
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    return itemsHr;
 }
 
-HRESULT WINAPI CWpdFS::CopyOrMoveWpdObjects(
-    CWpdDevice* device,
-    IPortableDevicePropVariantCollection* objects,
-    PCWSTR destinationObjectId,
-    bool copy)
+HRESULT WINAPI CWpdFS::CopyOrMoveWpdObjects(CWpdDevice* device, IPortableDevicePropVariantCollection* objects, PCWSTR destinationObjectId, bool copy)
 {
-    HRESULT hr = device->Open(GENERIC_READ | GENERIC_WRITE);
-    if (FAILED(hr)) return hr;
+    bool hold = !device->IsOpen();
+    HRESULT hr = S_OK;
+    if (hold)
+    {
+        hr = device->Open(GENERIC_READ | GENERIC_WRITE);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+    }
 
     ATL::CComPtr<IPortableDevicePropVariantCollection> results;
     if (copy)
@@ -1870,22 +3335,326 @@ HRESULT WINAPI CWpdFS::CopyOrMoveWpdObjects(
     {
         hr = device->GetContentNoAddRef()->Move(objects, destinationObjectId, &results);
     }
+    HRESULT itemsHr = SUCCEEDED(hr) ? WpdReadResultCollection(results) : S_OK;
+    if (hold)
+    {
+        device->Close();
+    }
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    return itemsHr;
+}
 
-    device->Close();
+HRESULT WINAPI CWpdFS::DownloadWpdObject(CWpdDevice* device, PCWSTR objectId, PCSTR targetName)
+{
+    std::wstring wideTarget;
+    HRESULT hr = WpdPanelTextToWide(targetName, wideTarget);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    bool hold = !device->IsOpen();
+    if (hold)
+    {
+        hr = device->Open(GENERIC_READ | GENERIC_WRITE);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+    }
+
+    WpdCopyContext context;
+    context.sourceDevice = device;
+    context.targetDevice = device;
+    context.progress = WpdActiveProgress;
+    context.parent = WpdDialogOwner;
+    hr = WpdDownloadObjectWide(context, device, objectId, wideTarget);
+    if (hold)
+    {
+        device->Close();
+    }
+    return hr;
+}
+
+HRESULT WINAPI CWpdFS::DownloadWpdFile(CWpdBaseContentItem* item, PCSTR targetName)
+{
+    return DownloadWpdObject(item->GetDeviceNoAddRef(), item->GetObjectId(), targetName);
+}
+
+HRESULT WINAPI CWpdFS::UploadDiskObject(CWpdDevice* device, PCWSTR parentObjectId, PCSTR sourceName, PCSTR targetName)
+{
+    std::wstring sourceWide;
+    std::wstring targetWide;
+    HRESULT hr = WpdPanelTextToWide(sourceName, sourceWide);
+    if (SUCCEEDED(hr))
+    {
+        hr = WpdPanelTextToWide(targetName, targetWide);
+    }
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    bool hold = !device->IsOpen();
+    if (hold)
+    {
+        hr = device->Open(GENERIC_READ | GENERIC_WRITE);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+    }
+
+    ULONGLONG size = 0;
+    bool hasSize = false;
+    FILETIME time = {};
+    bool hasTime = false;
+    WIN32_FILE_ATTRIBUTE_DATA info;
+    if (::GetFileAttributesExW(WpdForWin32(sourceWide).c_str(), GetFileExInfoStandard, &info))
+    {
+        hasSize = (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+        size = (static_cast<ULONGLONG>(info.nFileSizeHigh) << 32) | info.nFileSizeLow;
+        time = info.ftLastWriteTime;
+        hasTime = true;
+    }
+
+    WpdCopyContext context;
+    context.parent = WpdDialogOwner;
+    context.targetDevice = device;
+    context.sourceDevice = device;
+    context.progress = WpdActiveProgress;
+    context.operationId = IDS_OPERATIONPROGRESS_COPY;
+    WpdOutcome outcome = WpdUploadDisk(context, parentObjectId, sourceWide, targetWide.c_str(), targetName, sourceName, size, hasSize, hasTime ? &time : nullptr, hasTime);
+    if (hold)
+    {
+        device->Close();
+    }
+    if (outcome.skipped)
+    {
+        return S_FALSE;
+    }
+    return outcome.hr;
+}
+
+HRESULT WINAPI CWpdFS::UploadDiskFile(CWpdDevice* device, PCWSTR parentObjectId, PCSTR sourceName, PCSTR targetName)
+{
+    return UploadDiskObject(device, parentObjectId, sourceName, targetName);
+}
+
+HRESULT WINAPI CWpdFS::RenameWpdObject(HWND parent, CWpdBaseContentItem* item, PCSTR newName)
+{
+    if (item == nullptr || newName == nullptr || newName[0] == '\0')
+    {
+        return E_INVALIDARG;
+    }
+
+    CWpdDevice* device = item->GetDeviceNoAddRef();
+    bool opened = false;
+    HRESULT hr = S_OK;
+    if (!device->IsOpen())
+    {
+        hr = device->Open(GENERIC_READ | GENERIC_WRITE);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+        opened = true;
+    }
+
+    std::wstring wideName;
+    if (SUCCEEDED(hr))
+    {
+        hr = WpdPanelTextToWide(newName, wideName);
+    }
+
+    HRESULT nameHr = S_OK;
+    HRESULT originalHr = S_OK;
+    bool isDirectory = (item->GetAttributes() & FILE_ATTRIBUTE_DIRECTORY) != 0;
+    if (SUCCEEDED(hr))
+    {
+        std::wstring originalName;
+        std::wstring objectName;
+        bool hasOriginal = false;
+        bool hasObject = false;
+        DWORD attributes = 0;
+        if (SUCCEEDED(WpdReadStoredNames(device, item->GetObjectId(), originalName, hasOriginal, objectName, hasObject, attributes)) &&
+            (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+        {
+            isDirectory = true;
+        }
+
+        if (WpdActiveProgress != nullptr)
+        {
+            WpdActiveProgress->BeginItem(newName, static_cast<ULONGLONG>(-1));
+        }
+
+        if (WpdRenamePlanForObject(isDirectory) == WpdRenameFolderNameOnly)
+        {
+            // Folders keep ORIGINAL_FILE_NAME unchanged. Matching only that
+            // property made every successful rename look like a failure and
+            // triggered the download/upload fallback.
+            nameHr = WpdSetStringProperty(device, item->GetObjectId(), WPD_OBJECT_NAME, wideName.c_str(), nameHr);
+            hr = nameHr;
+        }
+        else
+        {
+            nameHr = WpdSetStringProperty(device, item->GetObjectId(), WPD_OBJECT_NAME, wideName.c_str(), nameHr);
+            if (!WpdRequiresDeviceReconnect(nameHr))
+            {
+                originalHr = WpdSetStringProperty(device, item->GetObjectId(), WPD_OBJECT_ORIGINAL_FILE_NAME, wideName.c_str(), originalHr);
+            }
+            if (WpdRequiresDeviceReconnect(nameHr))
+            {
+                hr = nameHr;
+            }
+            else if (WpdRequiresDeviceReconnect(originalHr))
+            {
+                hr = originalHr;
+            }
+            else if (SUCCEEDED(nameHr) || SUCCEEDED(originalHr))
+            {
+                hr = S_OK;
+            }
+            else
+            {
+                hr = FAILED(nameHr) ? nameHr : originalHr;
+            }
+        }
+    }
+
+    bool matched = false;
+    if (!WpdRequiresDeviceReconnect(hr))
+    {
+        std::wstring originalName;
+        std::wstring objectName;
+        bool hasOriginal = false;
+        bool hasObject = false;
+        DWORD attributes = 0;
+        if (SUCCEEDED(WpdReadStoredNames(device, item->GetObjectId(), originalName, hasOriginal, objectName, hasObject, attributes)))
+        {
+            // Either stored name may carry the new display name. Folders only
+            // update WPD_OBJECT_NAME, so ORIGINAL_FILE_NAME alone is not enough.
+            matched = WpdStoredNamesMatch(originalName, hasOriginal, objectName, hasObject, newName);
+        }
+        else if (SUCCEEDED(hr))
+        {
+            // Some devices accept SetValues but refuse a follow-up GetValues.
+            // Treat a successful write as done instead of copying the tree.
+            matched = true;
+        }
+    }
+
+    if (matched)
+    {
+        if (opened)
+        {
+            device->Close();
+        }
+        return S_OK;
+    }
+
+    if (WpdRequiresDeviceReconnect(hr))
+    {
+        if (opened)
+        {
+            device->Close();
+        }
+        return hr;
+    }
+
+    hr = RenameWpdObjectByCopy(parent, item, newName);
+    if (opened)
+    {
+        device->Close();
+    }
+    return hr;
+}
+
+HRESULT WINAPI CWpdFS::RenameWpdObjectByCopy(HWND parent, CWpdBaseContentItem* item, PCSTR newName)
+{
+    CWpdDevice* device = item->GetDeviceNoAddRef();
+    WpdCopyContext context;
+    context.parent = parent;
+    context.operationId = IDS_OPERATION_RENAME;
+    context.sourceDevice = device;
+    context.targetDevice = device;
+    context.progress = WpdActiveProgress;
+
+    std::wstring wideName;
+    HRESULT hr = WpdPanelTextToWide(newName, wideName);
+    if (SUCCEEDED(hr))
+    {
+        bool isDirectory = (item->GetAttributes() & FILE_ATTRIBUTE_DIRECTORY) != 0;
+        std::wstring originalName;
+        std::wstring objectName;
+        bool hasOriginal = false;
+        bool hasObject = false;
+        DWORD attributes = 0;
+        if (SUCCEEDED(WpdReadStoredNames(device, item->GetObjectId(), originalName, hasOriginal, objectName, hasObject, attributes)))
+        {
+            isDirectory = (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+        }
+
+        if (WpdRenamePlanForObject(isDirectory) == WpdRenameFolderNameOnly)
+        {
+            hr = WpdRenameFolderFallback(context, device, item->GetObjectId(), wideName.c_str(), newName);
+        }
+        else
+        {
+            hr = WpdRenameFileFallback(context, device, item, wideName.c_str(), newName);
+        }
+    }
+
+    if (WpdRequiresDeviceReconnect(hr))
+    {
+        WpdReleaseReconnect(device, nullptr);
+    }
     return hr;
 }
 
 BOOL WINAPI CWpdFS::QuickRename(const char*, int mode, HWND parent, CFileData& file, BOOL, char* newName, BOOL& cancel)
 {
     cancel = FALSE;
-    if (mode == 1) return FALSE;
-    auto item = static_cast<CWpdBaseContentItem*>(reinterpret_cast<CFxItem*>(file.PluginData));
-    HRESULT hr = RenameWpdObject(item, newName);
-    if (FAILED(hr))
+    if (mode == 1)
     {
-        if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, "Rename", file.Name, hr);
         return FALSE;
     }
+
+    HWND previousOwner = WpdDialogOwner;
+    WpdDialogOwner = parent;
+    WpdReportedError = false;
+    auto item = static_cast<CWpdBaseContentItem*>(reinterpret_cast<CFxItem*>(file.PluginData));
+    CWpdStandardProgress progress;
+    progress.Open(parent, WpdOperationTitle(IDS_OPERATION_RENAME, item->GetDeviceNoAddRef()));
+    HRESULT hr = RenameWpdObject(parent, item, newName);
+    progress.Close();
+    WpdDialogOwner = previousOwner;
+
+    if (hr == S_FALSE)
+    {
+        return FALSE;
+    }
+    if (FAILED(hr))
+    {
+        if (WpdIsOperationCancelled(hr))
+        {
+            cancel = TRUE;
+            return FALSE;
+        }
+        if (HandleDeviceReconnectRequired(parent, hr, item->GetDeviceNoAddRef()))
+        {
+            return FALSE;
+        }
+        if (!WpdReportedError)
+        {
+            WpdShowOperationError(parent, IDS_OPERATION_RENAME, file.Name, hr);
+        }
+        return FALSE;
+    }
+
     SalamanderGeneral->PostRefreshPanelFS(this);
     return TRUE;
 }
@@ -2014,14 +3783,24 @@ void WINAPI CWpdFS::CompleteDirectoryLineHotPath(char* path, int pathBufSize)
     }
 }
 
-BOOL WINAPI CWpdFS::HandleDeviceReconnectRequired(HWND parent, HRESULT hr)
+BOOL WINAPI CWpdFS::HandleDeviceReconnectRequired(HWND parent, HRESULT hr, CWpdDevice* device)
 {
     if (!WpdRequiresDeviceReconnect(hr))
     {
         return FALSE;
     }
 
-    SalamanderGeneral->ShowMessageBox(WpdLoadStr(IDS_RECONNECT_DEVICE_REQUIRED), WpdLoadStr(IDS_OPERATIONPROGRESS_TITLE), MSGBOX_ERROR);
+    if (device != nullptr)
+    {
+        device->ForceClose();
+    }
+    if (!WpdReportedError)
+    {
+        WpdReportedError = true;
+        std::string message = WpdText(IDS_RECONNECT_DEVICE_REQUIRED);
+        std::string title = WpdText(IDS_OPERATIONPROGRESS_TITLE);
+        SalamanderGeneral->DialogError(WpdDialogParent(parent), BUTTONS_OK, "", message.c_str(), title.c_str());
+    }
     ChangeDirectory("\\");
     SalamanderGeneral->PostRefreshPanelFS(this);
     return TRUE;
@@ -2030,7 +3809,14 @@ BOOL WINAPI CWpdFS::HandleDeviceReconnectRequired(HWND parent, HRESULT hr)
 BOOL WINAPI CWpdFS::CreateDir(const char*, int mode, HWND parent, char* newName, BOOL& cancel)
 {
     cancel = FALSE;
-    if (mode == 1) return FALSE;
+    if (mode == 1)
+    {
+        return FALSE;
+    }
+
+    HWND previousOwner = WpdDialogOwner;
+    WpdDialogOwner = parent;
+    WpdReportedError = false;
 
     CWpdDevice* device = nullptr;
     CFxString objectId;
@@ -2046,11 +3832,28 @@ BOOL WINAPI CWpdFS::CreateDir(const char*, int mode, HWND parent, char* newName,
         }
         device->Release();
     }
-    if (FAILED(hr))
+
+    WpdDialogOwner = previousOwner;
+    if (hr == HRESULT_FROM_WIN32(ERROR_ALREADY_EXISTS))
     {
-        if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, "Create folder", newName, hr);
+        std::string message = WpdText(IDS_OPERATION_ALREADY_EXISTS);
+        std::string title = WpdText(IDS_OPERATIONPROGRESS_TITLE);
+        SalamanderGeneral->DialogError(WpdDialogParent(parent), BUTTONS_OK, newName != nullptr ? newName : "", message.c_str(), title.c_str());
         return FALSE;
     }
+    if (FAILED(hr))
+    {
+        if (HandleDeviceReconnectRequired(parent, hr, nullptr))
+        {
+            return FALSE;
+        }
+        if (!WpdReportedError)
+        {
+            WpdShowOperationError(parent, IDS_OPERATION_CREATEFOLDER, newName, hr);
+        }
+        return FALSE;
+    }
+
     SalamanderGeneral->PostRefreshPanelFS(this);
     return TRUE;
 }
@@ -2065,7 +3868,7 @@ void WINAPI CWpdFS::ViewFile(const char* fsName, HWND parent, CSalamanderForView
     StringCchCat(uniqueFileName, _countof(uniqueFileName), currentPath);
     if (!SalamanderGeneral->SalPathAppend(uniqueFileName, file.Name, _countof(uniqueFileName)))
     {
-        WpdShowOperationError(parent, "View", file.Name, HRESULT_FROM_WIN32(ERROR_FILENAME_EXCED_RANGE));
+        WpdShowOperationError(parent, IDS_OPERATION_VIEW, file.Name, HRESULT_FROM_WIN32(ERROR_FILENAME_EXCED_RANGE));
         return;
     }
 
@@ -2097,7 +3900,7 @@ void WINAPI CWpdFS::ViewFile(const char* fsName, HWND parent, CSalamanderForView
         }
         else
         {
-            if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, "View", file.Name, hr);
+            if (!HandleDeviceReconnectRequired(parent, hr, item->GetDeviceNoAddRef())) WpdShowOperationError(parent, IDS_OPERATION_VIEW, file.Name, hr);
         }
     }
 
@@ -2381,35 +4184,66 @@ BOOL WINAPI CWpdFS::HandleMenuMsg(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESU
 BOOL WINAPI CWpdFS::Delete(const char*, int mode, HWND parent, int panel, int selectedFiles, int selectedDirs, BOOL& cancelOrError)
 {
     cancelOrError = FALSE;
-    if (mode == 1) return FALSE;
+    if (mode == 1)
+    {
+        return FALSE;
+    }
+
+    HWND previousOwner = WpdDialogOwner;
+    WpdDialogOwner = parent;
+    WpdReportedError = false;
 
     ATL::CComPtr<IPortableDevicePropVariantCollection> objects;
     HRESULT hr = objects.CoCreateInstance(CLSID_PortableDevicePropVariantCollection);
     if (FAILED(hr))
     {
-        if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, "Delete", "", hr);
+        WpdDialogOwner = previousOwner;
+        if (!HandleDeviceReconnectRequired(parent, hr, nullptr))
+        {
+            WpdShowOperationError(parent, IDS_OPERATIONPROGRESS_DELETE, "", hr);
+        }
         cancelOrError = TRUE;
         return TRUE;
     }
 
-    CWpdDevice* device = nullptr;
     BOOL focused = (selectedFiles == 0 && selectedDirs == 0);
-    CWpdOperationProgress progress(parent, wpdProgressDelete, focused ? 1 : selectedFiles + selectedDirs);
-    int index = 0;
+    CWpdDevice* device = nullptr;
+    bool opened = false;
+    CWpdStandardProgress progress;
+    progress.AddTotal(focused ? 1 : static_cast<ULONGLONG>(selectedFiles + selectedDirs));
     bool ok = true;
+    int index = 0;
     for (;;)
     {
         BOOL isDir = FALSE;
-        const CFileData* f = focused ? SalamanderGeneral->GetPanelFocusedItem(panel, &isDir) : SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir);
-        if (f == nullptr) break;
+        const CFileData* file = focused ? SalamanderGeneral->GetPanelFocusedItem(panel, &isDir)
+                                        : SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir);
+        if (file == nullptr)
+        {
+            break;
+        }
 
-        auto item = static_cast<CWpdBaseContentItem*>(reinterpret_cast<CFxItem*>(f->PluginData));
+        auto item = static_cast<CWpdBaseContentItem*>(reinterpret_cast<CFxItem*>(file->PluginData));
         if (device == nullptr)
         {
             device = item->GetDeviceNoAddRef();
-            progress.SetDevice(device);
+            progress.Open(parent, WpdOperationTitle(IDS_OPERATIONPROGRESS_DELETE, device));
+            hr = device->Open(GENERIC_READ | GENERIC_WRITE);
+            if (FAILED(hr))
+            {
+                WpdCopyContext context;
+                context.parent = parent;
+                context.operationId = IDS_OPERATIONPROGRESS_DELETE;
+                context.sourceDevice = device;
+                context.targetDevice = device;
+                FinishWpdBatchError(context, hr, file->Name);
+                ok = false;
+                break;
+            }
+            opened = true;
         }
-        if (!progress.Step(f->Name))
+
+        if (!progress.BeginItem(file->Name, 1))
         {
             ok = false;
             break;
@@ -2417,34 +4251,93 @@ BOOL WINAPI CWpdFS::Delete(const char*, int mode, HWND parent, int panel, int se
         hr = AddWpdObjectId(objects, item->GetObjectId());
         if (FAILED(hr))
         {
-            if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, "Delete", f->Name, hr);
+            WpdCopyContext context;
+            context.parent = parent;
+            context.operationId = IDS_OPERATIONPROGRESS_DELETE;
+            context.sourceDevice = device;
+            context.targetDevice = device;
+            FinishWpdBatchError(context, hr, file->Name);
             ok = false;
             break;
         }
-        if (!progress.Advance())
+        progress.EndItem(1);
+        if (focused)
         {
-            ok = false;
             break;
         }
-        if (focused) break;
     }
-    if (ok && device != nullptr)
+
+    if (ok && device != nullptr && opened)
     {
-        progress.Step(WpdLoadStr(IDS_OPERATIONPROGRESS_DELETINGSELECTED));
-        hr = DeleteWpdObjects(device, objects);
-        if (FAILED(hr))
+        std::string deleting = WpdText(IDS_OPERATIONPROGRESS_DELETINGSELECTED);
+        if (!progress.BeginItem(deleting.c_str(), 1))
         {
-            if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, "Delete", "", hr);
             ok = false;
         }
+        else
+        {
+            hr = DeleteWpdObjects(device, objects);
+            if (FAILED(hr))
+            {
+                WpdCopyContext context;
+                context.parent = parent;
+                context.operationId = IDS_OPERATIONPROGRESS_DELETE;
+                context.sourceDevice = device;
+                context.targetDevice = device;
+                FinishWpdBatchError(context, hr, "");
+                ok = false;
+            }
+            else
+            {
+                progress.EndItem(1);
+            }
+        }
     }
+
     progress.Close();
+    if (opened && device != nullptr)
+    {
+        device->Close();
+    }
+    WpdDialogOwner = previousOwner;
     cancelOrError = !ok;
-    if (ok)
+    if (ok && device != nullptr)
     {
         SalamanderGeneral->PostRefreshPanelFS(this);
     }
     return TRUE;
+}
+
+static std::string WpdTargetUserPart(const char* fsName, const char* targetPath)
+{
+    const char* raw = WpdGetUserPartFromFSPath(fsName, targetPath);
+    std::string user = raw != nullptr ? raw : "";
+    std::vector<char> mutableUser(user.begin(), user.end());
+    mutableUser.push_back('\0');
+    WpdStripOperationMask(mutableUser.data(), static_cast<int>(mutableUser.size()));
+    return std::string(mutableUser.data());
+}
+
+static bool WpdHoldSourceDevice(std::vector<CWpdDevice*>& opened, CWpdDevice* source, CWpdDevice* target, HRESULT& hr)
+{
+    if (source == nullptr || source == target)
+    {
+        return true;
+    }
+    for (size_t i = 0; i < opened.size(); ++i)
+    {
+        if (opened[i] == source)
+        {
+            return true;
+        }
+    }
+    hr = source->Open(GENERIC_READ | GENERIC_WRITE);
+    if (FAILED(hr))
+    {
+        return false;
+    }
+    opened.push_back(source);
+    return true;
 }
 
 BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
@@ -2458,22 +4351,24 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
     char* targetPath,
     BOOL& operationMask,
     BOOL& cancelOrHandlePath,
-    HWND)
+    HWND dropTarget)
 {
+    UNREFERENCED_PARAMETER(dropTarget);
     operationMask = FALSE;
     cancelOrHandlePath = FALSE;
 
     if (mode == 1)
     {
-        if (*targetPath == '\0')
+        if (targetPath[0] == '\0')
         {
-            char path[2 * MAX_PATH];
+            std::vector<char> path(32768, '\0');
             int targetPanel = (panel == PANEL_LEFT ? PANEL_RIGHT : PANEL_LEFT);
-            int type;
-            char* fs;
-            if (SalamanderGeneral->GetPanelPath(targetPanel, path, _countof(path), &type, &fs))
+            int type = 0;
+            char* fs = nullptr;
+            if (SalamanderGeneral->GetPanelPath(targetPanel, path.data(), static_cast<int>(path.size()), &type, &fs))
             {
-                lstrcpyn(targetPath, path, 2 * MAX_PATH);
+                // The caller buffer has no length argument. Salamander passes the historical 2 * MAX_PATH array.
+                lstrcpyn(targetPath, path.data(), 2 * MAX_PATH);
                 SalamanderGeneral->SetUserWorkedOnPanelPath(PANEL_TARGET);
             }
         }
@@ -2486,106 +4381,123 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
     }
 
     int fsNameLen = lstrlen(fsName);
-    bool isOurFsTarget = SalamanderGeneral->StrNICmp(targetPath, fsName, fsNameLen) == 0 &&
-                         targetPath[fsNameLen] == ':';
+    bool isOurFsTarget = SalamanderGeneral->StrNICmp(targetPath, fsName, fsNameLen) == 0 && targetPath[fsNameLen] == ':';
+    UINT operationId = copy ? IDS_OPERATIONPROGRESS_COPY : IDS_OPERATIONPROGRESS_MOVE;
+
     if (isOurFsTarget)
     {
+        HWND previousOwner = WpdDialogOwner;
+        WpdDialogOwner = parent;
+        WpdReportedError = false;
+
+        std::string userPart = WpdTargetUserPart(fsName, targetPath);
         CWpdDevice* targetDevice = nullptr;
         CFxString targetObjectId;
-        char targetUserPart[2 * MAX_PATH];
-        lstrcpyn(targetUserPart, WpdGetUserPartFromFSPath(fsName, targetPath), _countof(targetUserPart));
-        WpdStripOperationMask(targetUserPart, _countof(targetUserPart));
-
-        HRESULT hr = GetContentLocationForPath(targetUserPart, targetDevice, targetObjectId);
-        if (FAILED(hr))
+        HRESULT hr = GetContentLocationForPath(userPart.c_str(), targetDevice, targetObjectId);
+        if (FAILED(hr) || targetDevice == nullptr)
         {
-            if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, copy ? "Copy" : "Move", targetPath, hr);
+            if (targetDevice != nullptr)
+            {
+                targetDevice->Release();
+            }
+            WpdDialogOwner = previousOwner;
+            HRESULT reportHr = FAILED(hr) ? hr : E_FAIL;
+            if (!HandleDeviceReconnectRequired(parent, reportHr, nullptr))
+            {
+                WpdShowOperationError(parent, operationId, targetPath, reportHr);
+            }
             cancelOrHandlePath = TRUE;
             return TRUE;
         }
 
-        ATL::CA2W wideTargetObjectId(targetObjectId);
+        ATL::CA2W wideTarget(targetObjectId);
         BOOL focused = (selectedFiles == 0 && selectedDirs == 0);
-        CWpdOperationProgress progress(parent, copy ? wpdProgressCopy : wpdProgressMove, focused ? 1 : selectedFiles + selectedDirs);
-        progress.SetDevice(targetDevice);
-        WpdAddSelectedPanelTotalBytes(progress, panel, focused);
-        int index = 0;
-        bool overwriteAll = false;
-        bool skipAll = false;
-        for (;;)
+        CWpdStandardProgress progress;
+        progress.AddTotal(WpdPanelSelectionBytes(panel, focused));
+        progress.Open(parent, WpdOperationTitle(operationId, targetDevice));
+        progress.CommitTotals();
+
+        WpdCopyContext context;
+        context.parent = parent;
+        context.operationId = operationId;
+        context.progress = &progress;
+        context.targetDevice = targetDevice;
+
+        bool ok = true;
+        bool targetOpened = false;
+        std::vector<CWpdDevice*> openedSources;
+        hr = targetDevice->Open(GENERIC_READ | GENERIC_WRITE);
+        if (FAILED(hr))
         {
-            BOOL isDir = FALSE;
-            const CFileData* f = focused ? SalamanderGeneral->GetPanelFocusedItem(panel, &isDir) : SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir);
-            if (f == nullptr) break;
-
-            if (!progress.Step(f->Name, targetPath))
+            context.sourceDevice = targetDevice;
+            FinishWpdBatchError(context, hr, targetPath);
+            ok = false;
+        }
+        else
+        {
+            targetOpened = true;
+            int index = 0;
+            for (;;)
             {
-                hr = HRESULT_FROM_WIN32(ERROR_CANCELLED);
-                break;
-            }
-
-            char tempPath[MAX_PATH];
-            char tempName[MAX_PATH];
-            if (::GetTempPath(_countof(tempPath), tempPath) == 0 ||
-                ::GetTempFileName(tempPath, "wpd", 0, tempName) == 0)
-            {
-                hr = HRESULT_FROM_WIN32(::GetLastError());
-            }
-            else
-            {
-                ::DeleteFile(tempName);
-                auto item = static_cast<CWpdBaseContentItem*>(reinterpret_cast<CFxItem*>(f->PluginData));
-                CWpdDevice* sourceDevice = item->GetDeviceNoAddRef();
-                hr = sourceDevice->Open(GENERIC_READ);
-                if (SUCCEEDED(hr))
+                BOOL isDir = FALSE;
+                const CFileData* file = focused ? SalamanderGeneral->GetPanelFocusedItem(panel, &isDir)
+                                               : SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir);
+                if (file == nullptr)
                 {
-                    hr = DownloadWpdObject(sourceDevice, item->GetObjectId(), tempName);
-                    sourceDevice->Close();
+                    break;
                 }
-                if (SUCCEEDED(hr))
+
+                auto item = static_cast<CWpdBaseContentItem*>(reinterpret_cast<CFxItem*>(file->PluginData));
+                CWpdDevice* source = item->GetDeviceNoAddRef();
+                context.sourceDevice = source;
+                if (!WpdHoldSourceDevice(openedSources, source, targetDevice, hr))
                 {
-                    bool skipExisting = false;
-                    hr = ConfirmAndDeleteExistingWpdObject(parent, targetDevice, wideTargetObjectId, f->Name, f->Name, overwriteAll, skipAll, skipExisting);
-                    if (SUCCEEDED(hr) && !skipExisting)
+                    FinishWpdBatchError(context, hr, file->Name);
+                    ok = false;
+                    break;
+                }
+
+                WpdOutcome outcome = WpdCopyDeviceObject(context, source, item->GetObjectId(), wideTarget, file->Name);
+                if (outcome.Failed())
+                {
+                    FinishWpdBatchError(context, outcome.hr, file->Name);
+                    ok = false;
+                    break;
+                }
+                if (!copy && outcome.Completed())
+                {
+                    hr = WpdDeleteObject(source, item->GetObjectId());
+                    if (FAILED(hr))
                     {
-                        hr = UploadDiskObject(targetDevice, wideTargetObjectId, tempName, f->Name);
+                        FinishWpdBatchError(context, hr, file->Name);
+                        ok = false;
+                        break;
                     }
                 }
-                if (SUCCEEDED(hr) && !copy)
+                if (context.stop || focused)
                 {
-                    ATL::CComPtr<IPortableDevicePropVariantCollection> objects;
-                    hr = objects.CoCreateInstance(CLSID_PortableDevicePropVariantCollection);
-                    if (SUCCEEDED(hr)) hr = AddWpdObjectId(objects, item->GetObjectId());
-                    if (SUCCEEDED(hr)) hr = DeleteWpdObjects(sourceDevice, objects);
-                }
-                if (isDir)
-                {
-                    SalamanderGeneral->ClearReadOnlyAttr(tempName);
-                    SalamanderGeneral->RemoveTemporaryDir(tempName);
-                }
-                else
-                {
-                    ::DeleteFile(tempName);
+                    if (context.stop)
+                    {
+                        ok = false;
+                    }
+                    break;
                 }
             }
-            if (FAILED(hr))
-            {
-                if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, copy ? "Copy" : "Move", f->Name, hr);
-                break;
-            }
-
-            if (!progress.Advance())
-            {
-                hr = HRESULT_FROM_WIN32(ERROR_CANCELLED);
-                break;
-            }
-            if (focused) break;
         }
 
         progress.Close();
+        for (size_t i = 0; i < openedSources.size(); ++i)
+        {
+            openedSources[i]->Close();
+        }
+        if (targetOpened)
+        {
+            targetDevice->Close();
+        }
         targetDevice->Release();
-        cancelOrHandlePath = FAILED(hr);
-        if (SUCCEEDED(hr))
+        WpdDialogOwner = previousOwner;
+        cancelOrHandlePath = !ok;
+        if (ok)
         {
             targetPath[0] = '\0';
             SalamanderGeneral->PostRefreshPanelFS(this);
@@ -2593,8 +4505,6 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
         return TRUE;
     }
 
-    // For Windows targets ask Salamander to parse the path and use its standard
-    // fallback path handling.
     if (mode == 2 || mode == 5)
     {
         cancelOrHandlePath = TRUE;
@@ -2603,110 +4513,120 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
 
     if (mode == 3)
     {
-        bool ok = true;
+        HWND previousOwner = WpdDialogOwner;
+        WpdDialogOwner = parent;
+        WpdReportedError = false;
+
         BOOL focused = (selectedFiles == 0 && selectedDirs == 0);
-        CWpdOperationProgress progress(parent, copy ? wpdProgressCopy : wpdProgressMove, focused ? 1 : selectedFiles + selectedDirs);
-        WpdAddSelectedPanelTotalBytes(progress, panel, focused);
+        CWpdStandardProgress progress;
+        progress.AddTotal(WpdPanelSelectionBytes(panel, focused));
+        WpdCopyContext context;
+        context.parent = parent;
+        context.operationId = operationId;
+        context.progress = &progress;
+
+        bool ok = true;
+        bool opened = false;
+        CWpdDevice* device = nullptr;
         int index = 0;
-        bool progressDeviceSet = false;
-        bool overwriteAll = false;
-        bool skipAll = false;
         for (;;)
         {
             BOOL isDir = FALSE;
-            const CFileData* f = focused ? SalamanderGeneral->GetPanelFocusedItem(panel, &isDir) : SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir);
-            if (f == nullptr) break;
-            auto item = static_cast<CWpdBaseContentItem*>(reinterpret_cast<CFxItem*>(f->PluginData));
-            if (!progressDeviceSet)
+            const CFileData* file = focused ? SalamanderGeneral->GetPanelFocusedItem(panel, &isDir)
+                                           : SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir);
+            if (file == nullptr)
             {
-                progress.SetDevice(item->GetDeviceNoAddRef());
-                progressDeviceSet = true;
-            }
-
-            char targetName[MAX_PATH];
-            lstrcpyn(targetName, targetPath, _countof(targetName));
-            if (!SalamanderGeneral->SalPathAppend(targetName, f->Name, _countof(targetName)))
-            {
-                WpdShowOperationError(parent, copy ? "Copy" : "Move", f->Name, HRESULT_FROM_WIN32(ERROR_FILENAME_EXCED_RANGE));
-                ok = false;
                 break;
             }
 
-            DWORD targetAttributes = ::GetFileAttributes(targetName);
-            if (targetAttributes != INVALID_FILE_ATTRIBUTES)
+            auto item = static_cast<CWpdBaseContentItem*>(reinterpret_cast<CFxItem*>(file->PluginData));
+            if (device == nullptr)
             {
-                if (skipAll)
+                device = item->GetDeviceNoAddRef();
+                context.sourceDevice = device;
+                context.targetDevice = device;
+                progress.Open(parent, WpdOperationTitle(operationId, device));
+                progress.CommitTotals();
+                HRESULT openHr = device->Open(GENERIC_READ | GENERIC_WRITE);
+                if (FAILED(openHr))
                 {
-                    if (focused) break;
-                    continue;
+                    FinishWpdBatchError(context, openHr, file->Name);
+                    ok = false;
+                    break;
                 }
-                if (!overwriteAll)
-                {
-                    int answer = SalamanderGeneral->DialogOverwrite(parent, BUTTONS_YESALLSKIPCANCEL, targetName, "", f->Name, "");
-                    if (answer == DIALOG_ALL)
-                    {
-                        overwriteAll = true;
-                    }
-                    else if (answer == DIALOG_SKIPALL)
-                    {
-                        skipAll = true;
-                        if (focused) break;
-                        continue;
-                    }
-                    else if (answer == DIALOG_SKIP)
-                    {
-                        if (focused) break;
-                        continue;
-                    }
-                    else if (answer != DIALOG_YES)
-                    {
-                        ok = false;
-                        break;
-                    }
-                }
+                opened = true;
             }
 
-            if (!progress.Step(f->Name, targetName))
-            {
-                ok = false;
-                break;
-            }
-
-            CWpdDevice* device = item->GetDeviceNoAddRef();
-            HRESULT hr = device->Open(GENERIC_READ);
-            if (SUCCEEDED(hr))
-            {
-                hr = DownloadWpdObject(device, item->GetObjectId(), targetName);
-                device->Close();
-            }
-            if (SUCCEEDED(hr) && !copy)
-            {
-                ATL::CComPtr<IPortableDevicePropVariantCollection> objects;
-                hr = objects.CoCreateInstance(CLSID_PortableDevicePropVariantCollection);
-                if (SUCCEEDED(hr))
-                {
-                    hr = AddWpdObjectId(objects, item->GetObjectId());
-                }
-                if (SUCCEEDED(hr))
-                {
-                    hr = DeleteWpdObjects(item->GetDeviceNoAddRef(), objects);
-                }
-            }
+            std::string targetName;
+            HRESULT hr = WpdJoinSalPath(targetPath, file->Name, targetName);
             if (FAILED(hr))
             {
-                if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, copy ? "Copy" : "Move", f->Name, hr);
+                WpdShowOperationError(parent, operationId, file->Name, hr);
+                ok = false;
+                break;
+            }
+            std::wstring targetWide;
+            hr = WpdPanelTextToWide(targetName.c_str(), targetWide);
+            if (FAILED(hr))
+            {
+                WpdShowOperationError(parent, operationId, file->Name, hr);
                 ok = false;
                 break;
             }
 
-            if (!progress.Advance())
+            bool sourceIsDir = (file->Attr & FILE_ATTRIBUTE_DIRECTORY) != 0;
+            HRESULT confirmHr = WpdConfirmDiskTarget(context, targetWide, file->Name, sourceIsDir, file->Size.Value, !sourceIsDir, &file->LastWrite, TRUE);
+            if (confirmHr == S_FALSE)
             {
+                if (focused)
+                {
+                    break;
+                }
+                continue;
+            }
+            if (FAILED(confirmHr))
+            {
+                if (!WpdIsOperationCancelled(confirmHr) && !WpdReportedError)
+                {
+                    WpdShowOperationError(parent, operationId, file->Name, confirmHr);
+                }
                 ok = false;
                 break;
             }
-            if (focused) break;
+
+            hr = WpdDownloadObjectWide(context, device, item->GetObjectId(), targetWide);
+            if (FAILED(hr))
+            {
+                FinishWpdBatchError(context, hr, file->Name);
+                ok = false;
+                break;
+            }
+            if (!copy)
+            {
+                hr = WpdDeleteObject(device, item->GetObjectId());
+                if (FAILED(hr))
+                {
+                    FinishWpdBatchError(context, hr, file->Name);
+                    ok = false;
+                    break;
+                }
+            }
+            if (context.stop || focused)
+            {
+                if (context.stop)
+                {
+                    ok = false;
+                }
+                break;
+            }
         }
+
         progress.Close();
+        if (opened && device != nullptr)
+        {
+            device->Close();
+        }
+        WpdDialogOwner = previousOwner;
         cancelOrHandlePath = !ok;
         if (ok)
         {
@@ -2733,6 +4653,8 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
     char* targetPath,
     BOOL* invalidPathOrCancel)
 {
+    UNREFERENCED_PARAMETER(sourceFiles);
+    UNREFERENCED_PARAMETER(sourceDirs);
     if (invalidPathOrCancel != nullptr)
     {
         *invalidPathOrCancel = FALSE;
@@ -2749,16 +4671,33 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
         return FALSE;
     }
 
-    char targetUserPart[2 * MAX_PATH];
-    lstrcpyn(targetUserPart, WpdGetUserPartFromFSPath(fsName, targetPath), _countof(targetUserPart));
-    WpdStripOperationMask(targetUserPart, _countof(targetUserPart));
+    HWND previousOwner = WpdDialogOwner;
+    WpdDialogOwner = parent;
+    WpdReportedError = false;
+    UINT operationId = copy ? IDS_OPERATIONPROGRESS_COPY : IDS_OPERATIONPROGRESS_MOVE;
 
+    // Show progress before the slow path walk and sibling lookup so the
+    // overwrite dialog is not preceded by a silent freeze.
+    CWpdStandardProgress progress;
+    progress.Open(parent, WpdText(operationId));
+
+    std::string userPart = WpdTargetUserPart(fsName, targetPath);
     CWpdDevice* targetDevice = nullptr;
     CFxString targetObjectId;
-    HRESULT hr = GetContentLocationForPath(targetUserPart, targetDevice, targetObjectId);
-    if (FAILED(hr))
+    HRESULT hr = GetContentLocationForPath(userPart.c_str(), targetDevice, targetObjectId);
+    if (FAILED(hr) || targetDevice == nullptr)
     {
-        if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, copy ? "Copy" : "Move", targetPath, hr);
+        progress.Close();
+        if (targetDevice != nullptr)
+        {
+            targetDevice->Release();
+        }
+        WpdDialogOwner = previousOwner;
+        HRESULT reportHr = FAILED(hr) ? hr : E_FAIL;
+        if (!HandleDeviceReconnectRequired(parent, reportHr, nullptr))
+        {
+            WpdShowOperationError(parent, operationId, targetPath, reportHr);
+        }
         if (invalidPathOrCancel != nullptr)
         {
             *invalidPathOrCancel = TRUE;
@@ -2766,77 +4705,150 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
         return TRUE;
     }
 
-    ATL::CA2W wideTargetObjectId(targetObjectId);
-    BOOL ok = TRUE;
-    const char* name;
-    const char* dosName;
-    BOOL isDir;
+    progress.BeginItem(WpdOperationTitle(operationId, targetDevice).c_str(), static_cast<ULONGLONG>(-1));
+    ATL::CA2W wideTarget(targetObjectId);
+    WpdCopyContext context;
+    context.parent = parent;
+    context.operationId = operationId;
+    context.progress = &progress;
+    context.targetDevice = targetDevice;
+
+    struct WpdDiskUploadItem
+    {
+        std::string name;
+        BOOL isDir;
+        ULONGLONG size;
+        FILETIME lastWrite;
+    };
+
+    bool ok = true;
+    bool opened = false;
+    hr = targetDevice->Open(GENERIC_READ | GENERIC_WRITE);
+    if (FAILED(hr))
+    {
+        FinishWpdBatchError(context, hr, targetPath);
+        ok = false;
+    }
+
+    const char* name = nullptr;
+    const char* dosName = nullptr;
+    BOOL isDir = FALSE;
     CQuadWord size;
-    DWORD attr;
+    DWORD attr = 0;
     FILETIME lastWrite;
     int errorOccured = SALENUM_SUCCESS;
-    CWpdOperationProgress progress(parent, copy ? wpdProgressCopy : wpdProgressMove, sourceFiles + sourceDirs);
-    progress.SetDevice(targetDevice);
-    bool overwriteAll = false;
-    bool skipAll = false;
-    while ((name = next(parent, 0, &dosName, &isDir, &size, &attr, &lastWrite, nextParam, &errorOccured)) != nullptr)
+    std::vector<WpdDiskUploadItem> items;
+    if (ok)
     {
-        progress.AddTotalBytes(size.Value);
-        if (!progress.Step(name, targetPath))
+        opened = true;
+        // Collect the whole selection and its byte total first. Adding sizes
+        // while uploading made Total % run far ahead of File %.
+        while ((name = next(parent, 0, &dosName, &isDir, &size, &attr, &lastWrite, nextParam, &errorOccured)) != nullptr)
         {
-            ok = FALSE;
-            break;
-        }
+            WpdDiskUploadItem item;
+            item.name = name;
+            item.isDir = isDir;
+            item.size = size.Value;
+            item.lastWrite = lastWrite;
+            items.push_back(item);
 
-        char sourceName[MAX_PATH];
-        lstrcpyn(sourceName, sourcePath, _countof(sourceName));
-        if (!SalamanderGeneral->SalPathAppend(sourceName, name, _countof(sourceName)))
-        {
-            hr = HRESULT_FROM_WIN32(ERROR_FILENAME_EXCED_RANGE);
-        }
-        else
-        {
-            const char* targetName = strrchr(name, '\\');
-            targetName = targetName != nullptr ? targetName + 1 : name;
-            bool skipExisting = false;
-            hr = ConfirmAndDeleteExistingWpdObject(parent, targetDevice, wideTargetObjectId, targetName, sourceName, overwriteAll, skipAll, skipExisting);
-            if (SUCCEEDED(hr) && !skipExisting)
+            std::string sourceJoined;
+            hr = WpdJoinSalPath(sourcePath, name, sourceJoined);
+            if (FAILED(hr))
             {
-                hr = UploadDiskObject(targetDevice, wideTargetObjectId, sourceName, targetName);
+                WpdShowOperationError(parent, operationId, name, hr);
+                ok = false;
+                break;
             }
-            if (SUCCEEDED(hr) && !skipExisting && !copy)
+            std::wstring sourceWide;
+            hr = WpdPanelTextToWide(sourceJoined.c_str(), sourceWide);
+            if (FAILED(hr))
             {
-                if (isDir)
-                {
-                    SalamanderGeneral->ClearReadOnlyAttr(sourceName);
-                    SalamanderGeneral->RemoveTemporaryDir(sourceName);
-                }
-                else if (!::DeleteFile(sourceName))
-                {
-                    hr = HRESULT_FROM_WIN32(::GetLastError());
-                }
+                WpdShowOperationError(parent, operationId, name, hr);
+                ok = false;
+                break;
             }
-        }
-
-        if (FAILED(hr))
-        {
-            if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, copy ? "Copy" : "Move", name, hr);
-            ok = FALSE;
-            break;
-        }
-        if (!progress.Advance())
-        {
-            ok = FALSE;
-            break;
+            if (isDir)
+            {
+                progress.AddTotal(WpdDiskTreeBytes(sourceWide));
+            }
+            else
+            {
+                progress.AddTotal(size.Value);
+            }
         }
     }
 
-    progress.Close();
-    targetDevice->Release();
+    if (ok)
+    {
+        progress.CommitTotals();
+        for (size_t i = 0; i < items.size(); ++i)
+        {
+            const WpdDiskUploadItem& item = items[i];
+            std::string sourceJoined;
+            hr = WpdJoinSalPath(sourcePath, item.name.c_str(), sourceJoined);
+            if (FAILED(hr))
+            {
+                WpdShowOperationError(parent, operationId, item.name.c_str(), hr);
+                ok = false;
+                break;
+            }
+
+            std::wstring sourceWide;
+            hr = WpdPanelTextToWide(sourceJoined.c_str(), sourceWide);
+            const char* leaf = strrchr(item.name.c_str(), '\\');
+            leaf = leaf != nullptr ? leaf + 1 : item.name.c_str();
+            std::wstring leafWide;
+            if (SUCCEEDED(hr))
+            {
+                hr = WpdPanelTextToWide(leaf, leafWide);
+            }
+            if (FAILED(hr))
+            {
+                WpdShowOperationError(parent, operationId, item.name.c_str(), hr);
+                ok = false;
+                break;
+            }
+
+            WpdOutcome outcome = WpdUploadDisk(context, wideTarget, sourceWide, leafWide.c_str(), leaf, item.name.c_str(),
+                                               item.size, !item.isDir, &item.lastWrite, TRUE);
+            if (outcome.Failed())
+            {
+                FinishWpdBatchError(context, outcome.hr, item.name.c_str());
+                ok = false;
+                break;
+            }
+            if (!copy && outcome.Completed())
+            {
+                WpdDeleteDiskTree(sourceWide);
+                if (::GetFileAttributesW(WpdForWin32(sourceWide).c_str()) != INVALID_FILE_ATTRIBUTES)
+                {
+                    hr = HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED);
+                    FinishWpdBatchError(context, hr, item.name.c_str());
+                    ok = false;
+                    break;
+                }
+            }
+            if (context.stop)
+            {
+                ok = false;
+                break;
+            }
+        }
+    }
+
     if (errorOccured == SALENUM_CANCEL)
     {
         ok = FALSE;
     }
+
+    progress.Close();
+    if (opened)
+    {
+        targetDevice->Close();
+    }
+    targetDevice->Release();
+    WpdDialogOwner = previousOwner;
     if (invalidPathOrCancel != nullptr)
     {
         *invalidPathOrCancel = !ok;

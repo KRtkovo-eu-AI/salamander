@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Refresh open panels after a device arrives or leaves. | The device-notification window only logged the event, so the panel kept a stale device list. | | Grok 4.7 |
 
 /*
 	Windows Portable Devices Plugin for Open Salamander
@@ -21,6 +24,7 @@ private:
 
     HWND m_hWnd;
     HDEVNOTIFY m_hDevNotify;
+    int m_refreshPasses;
 
     void RegisterWndCls();
     void UnregisterWndCls();

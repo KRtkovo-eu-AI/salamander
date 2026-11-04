@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Release the whole WPD session at once. | A nested Close leaves the driver session open after the device stops responding. | | Grok 4.7 |
 
 /*
 	Windows Portable Devices Plugin for Open Salamander
@@ -38,6 +41,7 @@ CWpdDevice::CWpdDevice(PCWSTR pnpId)
     m_bIsHidden = false;
 
     m_cOpen = 0;
+    m_bConnectionReleased = false;
     m_pDevice = nullptr;
     m_pContent = nullptr;
     m_pProperties = nullptr;
@@ -318,6 +322,11 @@ HRESULT WINAPI CWpdDevice::Open(DWORD access)
 {
     UNREFERENCED_PARAMETER(access); // Unused, for now.
 
+    if (m_cOpen == 0)
+    {
+        m_bConnectionReleased = false;
+    }
+
     HRESULT hr = S_OK;
 
     if (m_cOpen == 0)
@@ -333,28 +342,53 @@ HRESULT WINAPI CWpdDevice::Open(DWORD access)
     return hr;
 }
 
+void WINAPI CWpdDevice::ReleaseComDevice()
+{
+    if (m_pContent != nullptr)
+    {
+        m_pContent->Release();
+        m_pContent = nullptr;
+    }
+
+    if (m_pProperties != nullptr)
+    {
+        m_pProperties->Release();
+        m_pProperties = nullptr;
+    }
+
+    if (m_pDevice != nullptr)
+    {
+        m_pDevice->Release();
+        m_pDevice = nullptr;
+    }
+}
+
 void WINAPI CWpdDevice::Close()
 {
+    if (m_bConnectionReleased)
+    {
+        m_cOpen = 0;
+        return;
+    }
+
     _ASSERTE(m_cOpen > 0);
+    if (m_cOpen == 0)
+    {
+        return;
+    }
 
     --m_cOpen;
     if (m_cOpen == 0)
     {
-        if (m_pContent != nullptr)
-        {
-            m_pContent->Release();
-            m_pContent = nullptr;
-        }
-
-        if (m_pProperties != nullptr)
-        {
-            m_pProperties->Release();
-            m_pProperties = nullptr;
-        }
-
-        m_pDevice->Release();
-        m_pDevice = nullptr;
+        ReleaseComDevice();
     }
+}
+
+void WINAPI CWpdDevice::ForceClose()
+{
+    m_bConnectionReleased = true;
+    m_cOpen = 0;
+    ReleaseComDevice();
 }
 
 IPortableDevice* WINAPI CWpdDevice::GetDeviceNoAddRef()

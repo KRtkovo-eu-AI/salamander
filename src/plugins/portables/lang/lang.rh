@@ -1,6 +1,8 @@
 ﻿//{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
 // Used by lang.rc
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Add portable overwrite and rename messages. | Copy, move, and rename questions must come from the plugin language table. | | Grok 4.7 |
 //
 #define IDS_SELECTEDDEVICEFMT           128
 #define IDS_NODEVICEINFOLINE            129
@@ -23,6 +25,15 @@
 #define IDS_OPERATIONPROGRESS_MOVED    146
 #define IDS_OPERATIONPROGRESS_PROCESSED 147
 #define IDS_OPERATIONPROGRESS_DELETINGSELECTED 148
+#define IDS_OPERATION_FAILED_FMT        149
+#define IDS_OPERATION_RENAME            150
+#define IDS_OPERATION_CREATEFOLDER      151
+#define IDS_OPERATION_VIEW              152
+#define IDS_OPERATION_NAME_STILL_EXISTS 153
+#define IDS_OPERATION_TYPE_MISMATCH_FILE 154
+#define IDS_OPERATION_TYPE_MISMATCH_DIR 155
+#define IDS_OPERATION_ALREADY_EXISTS    156
+#define IDS_OPERATION_DETAILS_UNKNOWN   157
 
 // Next default values for new objects
 // 
