@@ -267,10 +267,10 @@ COMMENT,"Versión en español"
 253,11,98,208,12,1,"&No preguntar en lo sucesivo y dehar los textos sin cambiar"
 
 [MENU 400]
-0,1,"&Opciones"
+0,1,"&Fichero"
 401,1,"&Exportar ajustes...\tCtrl+E"
 402,1,"&Importar ajustes...\tCtrl+I"
-0,1,"&Opciones"
+0,1,"&Ver"
 403,1,"Pre&visualización de diálogo SFX...\tCtr+V"
 0,1,"&Opciones"
 404,1,"&Reiniciar todo\tCtrl+Mays+R"

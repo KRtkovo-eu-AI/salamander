@@ -260,4 +260,22 @@ COMMENT,\"\"
    with self.assertRaises(urllib.error.HTTPError): slt.request_openai({},"x","m",attempts=2,sleep=lambda _:None)
    self.assertEqual(len(calls),2)
   finally: slt.urllib.request.urlopen=old
+
+ def test_duplicate_menu_popup_ids_keep_distinct_source_text(self):
+  source=[
+   "[MENU 6010]\n",
+   '0,0,"&File"\n',
+   '6050,0,"&Open"\n',
+   '0,0,"&Edit"\n',
+   '0,0,"&Help"\n',
+  ]
+  translated=[
+   "[MENU 6010]\n",
+   '0,1,"&Soubor"\n',
+   '6050,1,"&Otevrit"\n',
+   '0,0,"&Edit"\n',
+   '0,1,"Napoveda"\n',
+  ]
+  items=slt.attach_source_text(slt.parse_items(translated, force=True), source)
+  self.assertEqual([i.source_text for i in items], ["&File", "&Open", "&Edit", "&Help"])
 if __name__=="__main__": unittest.main()

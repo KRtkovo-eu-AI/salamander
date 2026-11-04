@@ -267,10 +267,10 @@ COMMENT,"English version"
 253,11,98,205,12,1,"Non chiedere in futuro e lascia sempre i testi &invariati"
 
 [MENU 400]
-0,1,"&Opzioni"
+0,1,"&File"
 401,1,"&Esporta impostazioni...\tCtrl+E"
 402,1,"&Importa impostazioni...\tCtrl+I"
-0,1,"&Opzioni"
+0,1,"&Visualizza"
 403,1,"Ante&prima finestra di dialogo SFX...\tCtr+V"
 0,1,"&Opzioni"
 404,1,"&Ripristina tutto\tCtrl+Shift+R"

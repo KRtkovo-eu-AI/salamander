@@ -267,10 +267,10 @@ COMMENT,"Nederlandse versie"
 253,11,98,205,12,1,"Niet opnieuw vragen en laat tekst &onveranderd"
 
 [MENU 400]
-0,1,"&Opties"
+0,1,"&Bestand"
 401,1,"&Instellingen exporteren...\tCtrl+E"
 402,1,"I&nstellingen importeren...\tCtrl+I"
-0,1,"&Opties"
+0,1,"&Tonen"
 403,1,"&Voorvertoning SFX-dialoogvenster...\tCtrl+V"
 0,1,"&Opties"
 404,1,"Alles &resetten\tCtrl+Shift+R"

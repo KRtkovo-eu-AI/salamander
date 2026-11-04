@@ -267,10 +267,10 @@ COMMENT,"Magyar változat"
 253,11,98,215,12,1,"&Ne kérdezze meg és a szövegeket mindig hagyja érintetlenül"
 
 [MENU 400]
-0,1,"Beállítás&ok"
+0,1,"&Fájl"
 401,1,"&Exportálási beállítások...\tCtrl+E"
 402,1,"&Importálási beállítások...\tCtrl+I"
-0,1,"Beállítás&ok"
+0,1,"&Nézet"
 403,1,"&SFX ablak előnézete...\tCtr+V"
 0,1,"Beállítás&ok"
 404,1,"&Mind visszaállít\tCtrl+Shift+R"

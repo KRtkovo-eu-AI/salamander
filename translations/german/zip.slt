@@ -267,10 +267,10 @@ COMMENT,"Deutsche Version"
 253,11,98,205,12,1,"&Nicht wieder fragen und Texte immer unverändert lassen"
 
 [MENU 400]
-0,1,"&Optionen"
+0,1,"&Datei"
 401,1,"&Einstellungen exportieren...\tStrg+E"
 402,1,"Einstellungen &importieren...\tStrg+I"
-0,1,"&Optionen"
+0,1,"&Anzeigen"
 403,1,"&Vorschau SFX-Fenster...\tStrg+V"
 0,1,"&Optionen"
 404,1,"Alles zu&rücksetzen\tStrg+Umschalt+R"
