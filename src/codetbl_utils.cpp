@@ -135,6 +135,117 @@ BOOL ConvertLegacyViewerTextToWide(const char* source, int sourceLength,
     return TRUE;
 }
 
+BOOL ConvertProcessTextToLegacyViewerText(const char* source, UINT processCodePage,
+                                          UINT legacyCodePage, std::string* destination)
+{
+    if (destination == NULL)
+        return FALSE;
+    destination->clear();
+    if (source == NULL || !IsValidCodePage(processCodePage) || !IsValidCodePage(legacyCodePage))
+        return FALSE;
+    if (source[0] == 0)
+        return TRUE;
+
+    int wideLength = MultiByteToWideChar(processCodePage, MB_ERR_INVALID_CHARS, source, -1, NULL, 0);
+    if (wideLength <= 1)
+        return FALSE;
+    std::wstring wide((size_t)wideLength, L'\0');
+    if (MultiByteToWideChar(processCodePage, MB_ERR_INVALID_CHARS, source, -1, &wide[0], wideLength) != wideLength)
+        return FALSE;
+
+    // UTF-8/UTF-7 targets reject the lpUsedDefaultChar argument; they are lossless anyway.
+    BOOL lossless = legacyCodePage == CP_UTF8 || legacyCodePage == CP_UTF7;
+    DWORD flags = lossless ? 0 : WC_NO_BEST_FIT_CHARS;
+    BOOL usedDefault = FALSE;
+    BOOL* usedDefaultPtr = lossless ? NULL : &usedDefault;
+    int length = WideCharToMultiByte(legacyCodePage, flags, wide.c_str(), -1, NULL, 0, NULL, usedDefaultPtr);
+    if (length <= 1 || usedDefault)
+        return FALSE;
+    destination->resize((size_t)length);
+    if (WideCharToMultiByte(legacyCodePage, flags, wide.c_str(), -1, &(*destination)[0], length,
+                            NULL, usedDefaultPtr) != length ||
+        usedDefault)
+    {
+        destination->clear();
+        return FALSE;
+    }
+    destination->resize((size_t)length - 1); // drop the converted terminator
+    return TRUE;
+}
+
+int ConvertLegacyViewerTextToProcessText(const char* source, int sourceLength,
+                                         UINT legacyCodePage, UINT processCodePage,
+                                         char* destination, int destinationSize)
+{
+    if (destination == NULL || destinationSize <= 0)
+        return 0;
+    destination[0] = 0;
+    std::wstring wide;
+    if (sourceLength <= 0 || !IsValidCodePage(processCodePage) ||
+        !ConvertLegacyViewerTextToWide(source, sourceLength, legacyCodePage, &wide) || wide.empty())
+    {
+        return 0;
+    }
+
+    int wideLength = (int)wide.size();
+    while (wideLength > 0)
+    {
+        int required = WideCharToMultiByte(processCodePage, 0, wide.c_str(), wideLength, NULL, 0, NULL, NULL);
+        if (required > 0 && required <= destinationSize - 1)
+        {
+            int written = WideCharToMultiByte(processCodePage, 0, wide.c_str(), wideLength,
+                                              destination, required, NULL, NULL);
+            if (written != required)
+                break;
+            destination[written] = 0;
+            return written;
+        }
+        // Too long: drop one character, keeping a surrogate pair together.
+        wideLength--;
+        if (wideLength > 0 && IS_LOW_SURROGATE(wide[wideLength]) && IS_HIGH_SURROGATE(wide[wideLength - 1]))
+            wideLength--;
+    }
+    destination[0] = 0;
+    return 0;
+}
+
+BOOL BuildLegacyLowerCaseTable(UINT legacyCodePage, BYTE* table)
+{
+    if (table == NULL)
+        return FALSE;
+    for (int i = 0; i < 256; i++)
+        table[i] = (BYTE)(i >= 'A' && i <= 'Z' ? i - 'A' + 'a' : i);
+    CPINFO info;
+    if (!IsValidCodePage(legacyCodePage) || legacyCodePage == CP_UTF8 || legacyCodePage == CP_UTF7 ||
+        !GetCPInfo(legacyCodePage, &info) || info.MaxCharSize != 1)
+    {
+        return FALSE; // multi-byte pages keep the ASCII-only map (bytes >= 0x80 are not whole characters)
+    }
+    for (int i = 0x80; i < 256; i++)
+    {
+        char source = (char)i;
+        WCHAR wide;
+        if (MultiByteToWideChar(legacyCodePage, MB_ERR_INVALID_CHARS, &source, 1, &wide, 1) != 1)
+            continue;
+        WCHAR lower = wide;
+        if (LCMapStringEx(LOCALE_NAME_INVARIANT, LCMAP_LOWERCASE, &wide, 1, &lower, 1, NULL, NULL, 0) != 1 ||
+            lower == wide)
+        {
+            continue;
+        }
+        // Keep the byte when the lower-case letter has no exact single-byte form
+        // (e.g. a best-fit '?' would make unrelated letters compare equal).
+        char result;
+        BOOL usedDefault = FALSE;
+        if (WideCharToMultiByte(legacyCodePage, WC_NO_BEST_FIT_CHARS, &lower, 1, &result, 1, NULL, &usedDefault) == 1 &&
+            !usedDefault)
+        {
+            table[i] = (BYTE)result;
+        }
+    }
+    return TRUE;
+}
+
 BOOL ShouldPreferWindowsCodePageText(const char* source, int sourceLength,
                                      UINT windowsCodePage,
                                      const char* recognizedCodePage)

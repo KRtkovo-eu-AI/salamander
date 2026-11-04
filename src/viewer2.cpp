@@ -2683,11 +2683,20 @@ BOOL CViewerWindow::GetFindText(char* buf, int& len, BOOL hexMode)
         FatalFileErrorOccured();
         return FALSE;
     }
-    else
+    len = (int)(endSel - startSel);
+
+    UINT legacyCodePage = hexMode ? 0 : GetLegacyFindCodePage();
+    if (legacyCodePage != 0 && len > 0)
     {
-        len = (int)(endSel - startSel);
-        return TRUE;
+        // The Find combo box expects process-code-page (UTF-8) text, not regional bytes.
+        std::string legacy(buf, (size_t)len);
+        int written = ConvertLegacyViewerTextToProcessText(legacy.c_str(), len, legacyCodePage, GetACP(),
+                                                           buf, FIND_TEXT_LEN);
+        if (written <= 0)
+            return FALSE;
+        len = written;
     }
+    return TRUE;
 }
 
 BOOL CViewerWindow::CheckSelectionIsNotTooBig(HWND parent, BOOL* msgBoxDisplayed)
@@ -2825,6 +2834,66 @@ CViewerWindow::GetSelectedTextW(BOOL& fatalErr, int* textLen)
     if (textLen != NULL)
         *textLen = (int)run.Text.size();
     return h;
+}
+
+UINT CViewerWindow::GetLegacyFindCodePage() const
+{
+    // Decoded encodings keep their own bytes (UTF-8/UTF-16); on a non-UTF-8
+    // process code page the legacy rows already use the process code page.
+    if (HasDecodedTextEncoding() || GetACP() != CP_UTF8)
+        return 0;
+    UINT codePage = GetEffectiveConversionCodePage();
+    return codePage != CP_UTF8 && IsValidCodePage(codePage) ? codePage : 0;
+}
+
+void CViewerWindow::PrepareFindPattern()
+{
+    UINT legacyCodePage = FindDialog.HexMode ? 0 : GetLegacyFindCodePage();
+    // Case-insensitive search must fold regional letters (e.g. CP1250 0xC8 -> 0xE8),
+    // which the global LowerCase cannot do under the UTF-8 process code page.
+    const BYTE* lowerTable = NULL;
+    if (legacyCodePage != 0)
+    {
+        if (FindLowerTableCodePage != legacyCodePage)
+        {
+            BuildLegacyLowerCaseTable(legacyCodePage, FindLowerTable);
+            FindLowerTableCodePage = legacyCodePage;
+        }
+        lowerTable = FindLowerTable;
+    }
+    SearchData.SetLowerCaseTable(lowerTable);
+    RegExp.SetLowerCaseTable(lowerTable);
+
+    if (FindDialog.Text[0] == 0 || FindDialog.HexMode)
+        return; // hex patterns are raw bytes already (set by InitFindDialog)
+
+    const char* pattern = FindDialog.Text;
+    std::string legacy;
+    // An unrepresentable character keeps the original text, which then cannot
+    // match legacy bytes; a lossy '?' substitute would match the wrong text.
+    if (legacyCodePage != 0 &&
+        ConvertProcessTextToLegacyViewerText(FindDialog.Text, GetACP(), legacyCodePage, &legacy))
+    {
+        pattern = legacy.c_str();
+    }
+    if (FindDialog.Regular)
+        RegExp.Set(pattern, 0);
+    else
+        SearchData.Set(pattern, 0);
+}
+
+BOOL CViewerWindow::IsFindWordChar(char c) const
+{
+    UINT legacyCodePage = GetLegacyFindCodePage();
+    if (legacyCodePage != 0 && (BYTE)c >= 0x80)
+    {
+        // IsCharAlphaA cannot classify regional bytes under a UTF-8 process code page.
+        WCHAR wc;
+        if (MultiByteToWideChar(legacyCodePage, 0, &c, 1, &wc, 1) == 1)
+            return IsCharAlphaNumericW(wc);
+        return FALSE;
+    }
+    return c == '_' || IsCharAlpha(c) || IsCharAlphaNumeric(c);
 }
 
 BOOL CViewerWindow::FindDecodedLiteral(HANDLE* hFile, BOOL forward, WORD flags, BOOL& foundMatch, BOOL& fatalErr)

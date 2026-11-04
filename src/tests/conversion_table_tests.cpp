@@ -104,6 +104,55 @@ void TestLegacyViewerTextConversion()
           "An unsupported viewer code page must fail without stale output");
 }
 
+void TestViewerFindTextConversion()
+{
+    // "příliš kůň" in UTF-8 and in CP1250.
+    const char utf8[] = "p\xC5\x99\xC3\xADli\xC5\xA1 k\xC5\xAF\xC5\x88";
+    const char cp1250[] = "p\xF8\xEDli\x9A k\xF9\xF2";
+    std::string legacy;
+    Check(ConvertProcessTextToLegacyViewerText(utf8, CP_UTF8, 1250, &legacy) && legacy == cp1250,
+          "UTF-8 Find text must become CP1250 bytes for a legacy viewer buffer");
+    Check(ConvertProcessTextToLegacyViewerText("abc", CP_UTF8, 1250, &legacy) && legacy == "abc",
+          "ASCII Find text is unchanged");
+    Check(ConvertProcessTextToLegacyViewerText("", CP_UTF8, 1250, &legacy) && legacy.empty(),
+          "empty Find text converts to nothing");
+    // U+4E2D (CJK) has no CP1250 byte: must fail rather than search for '?'.
+    Check(!ConvertProcessTextToLegacyViewerText("a\xE4\xB8\xAD", CP_UTF8, 1250, &legacy) && legacy.empty(),
+          "unrepresentable characters must not turn into a lossy '?' pattern");
+    Check(!ConvertProcessTextToLegacyViewerText("\xC5", CP_UTF8, 1250, &legacy) && legacy.empty(),
+          "invalid UTF-8 Find text is rejected");
+
+    char out[64];
+    Check(ConvertLegacyViewerTextToProcessText(cp1250, (int)strlen(cp1250), 1250, CP_UTF8, out, sizeof(out)) ==
+                  (int)strlen(utf8) &&
+              strcmp(out, utf8) == 0,
+          "a CP1250 viewer selection must reach the Find dialog as UTF-8");
+    // 5 bytes allow "př" (3 bytes) + "í" (2 bytes) but the next char must not be split.
+    char shortOut[6];
+    Check(ConvertLegacyViewerTextToProcessText(cp1250, (int)strlen(cp1250), 1250, CP_UTF8, shortOut, sizeof(shortOut)) == 5 &&
+              strcmp(shortOut, "p\xC5\x99\xC3\xAD") == 0,
+          "truncation keeps whole UTF-8 characters");
+    char tiny[2];
+    Check(ConvertLegacyViewerTextToProcessText("\xF8", 1, 1250, CP_UTF8, tiny, sizeof(tiny)) == 0 && tiny[0] == 0,
+          "a buffer too small for one character yields empty text");
+}
+
+void TestLegacyLowerCaseTable()
+{
+    BYTE table[256];
+    Check(BuildLegacyLowerCaseTable(1250, table), "CP1250 lower-case table builds");
+    Check(table['A'] == 'a' && table['z'] == 'z' && table['1'] == '1', "ASCII letters fold, others stay");
+    // CP1250: Č 0xC8 -> č 0xE8, Š 0x8A -> š 0x9A, Ř 0xD8 -> ř 0xF8, Ů 0xD9 -> ů 0xF9.
+    Check(table[0xC8] == 0xE8 && table[0x8A] == 0x9A && table[0xD8] == 0xF8 && table[0xD9] == 0xF9,
+          "CP1250 upper-case letters fold to their lower-case bytes");
+    Check(table[0xE8] == 0xE8 && table[0xDF] == 0xDF && table[0xA0] == 0xA0,
+          "lower-case letters, sharp s and NBSP stay");
+    Check(BuildLegacyLowerCaseTable(1251, table) && table[0xC0] == 0xE0 && table[0xA8] == 0xB8,
+          "CP1251 Cyrillic letters fold (А -> а, Ё -> ё)");
+    Check(!BuildLegacyLowerCaseTable(932, table) && table['A'] == 'a' && table[0x82] == 0x82,
+          "a multi-byte code page keeps the ASCII-only map");
+}
+
 void TestInheritedViewerFontDpiScaling()
 {
     LOGFONT font = {};
@@ -252,6 +301,8 @@ int main()
     TestIdentifierParsing();
     TestRegionalTextConversion();
     TestLegacyViewerTextConversion();
+    TestViewerFindTextConversion();
+    TestLegacyLowerCaseTable();
     TestInheritedViewerFontDpiScaling();
     TestLegacyAutoDetectionPreference();
     TestShippedConversionDirectories();
