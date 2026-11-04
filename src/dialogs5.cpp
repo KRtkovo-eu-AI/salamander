@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-04 | Explain when an extension runtime is missing. | Installing a Salamatrix extension whose interpreter is absent failed activation with no dialog. | | Grok 4.7 |
+// | 2026-11-04 | Match the missing-runtime dialog linkage to its declaration. | The dllexport definition did not match the earlier declaration. | | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -219,7 +220,9 @@ extern "C" __declspec(dllexport) void WINAPI SalamanderShowUnavailableExtensionR
     HWND parent, const char* extensionId)
 {
     if (InterlockedCompareExchange(&UnavailableRuntimeDialogShowing, 1, 0) != 0)
+    {
         return;
+    }
     UnavailableRuntimeDialogGuard showingGuard;
     (void)showingGuard;
 
