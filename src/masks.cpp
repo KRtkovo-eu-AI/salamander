@@ -3,6 +3,7 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "quick_search_match.h"
 
 namespace
 {
@@ -40,21 +41,7 @@ std::wstring NormalizeStringC(const wchar_t* text)
     return normalized;
 }
 
-int MapNormalizedOffsetToOriginal(const wchar_t* original, int normalizedOffset)
-{
-    if (original == NULL || normalizedOffset <= 0)
-        return 0;
 
-    int originalLen = (int)wcslen(original);
-    for (int i = 1; i <= originalLen; i++)
-    {
-        std::wstring prefix;
-        NormalizeStringC(original, i, prefix);
-        if ((int)prefix.length() >= normalizedOffset)
-            return i;
-    }
-    return originalLen;
-}
 }
 
 //
@@ -365,55 +352,10 @@ BOOL AgreeQSMaskAux(const char* filename, BOOL hasExtension, const char* filenam
 }
 
 
-BOOL AgreeQSMaskAuxW(const wchar_t* filename, BOOL hasExtension, const wchar_t* filenameBase, const wchar_t* mask, BOOL wholeString, int& offset)
-{
-    while (*filename != 0)
-    {
-        if (!wholeString && *mask == 0)
-        {
-            offset = (int)(filename - filenameBase);
-            return TRUE;
-        }
-        if (towlower(*filename) == towlower(*mask))
-        {
-            filename++;
-            mask++;
-        }
-        else if (*mask == L'/')
-        {
-            mask++;
-            while (*filename != 0)
-            {
-                if (AgreeQSMaskAuxW(filename, hasExtension, filenameBase, mask, wholeString, offset))
-                    return TRUE;
-                filename++;
-            }
-            break;
-        }
-        else
-            return FALSE;
-    }
-    if (*mask == 0 || !hasExtension && *mask == L'.' && *(mask + 1) == 0)
-    {
-        offset = (int)(filename - filenameBase);
-        return TRUE;
-    }
-    return FALSE;
-}
-
 BOOL AgreeQSMaskW(const wchar_t* filename, BOOL hasExtension, const wchar_t* mask, BOOL wholeString, int& offset)
 {
-    offset = 0;
-    if (filename == NULL || mask == NULL)
-        return FALSE;
-
-    std::wstring filenameNorm = NormalizeStringC(filename);
-    std::wstring maskNorm = NormalizeStringC(mask);
-    BOOL ret = AgreeQSMaskAuxW(filenameNorm.c_str(), hasExtension, filenameNorm.c_str(),
-                               maskNorm.c_str(), wholeString, offset);
-    if (ret)
-        offset = MapNormalizedOffsetToOriginal(filename, offset);
-    return ret;
+    return Salamander::Panel::MatchQuickSearchWide(filename, hasExtension != FALSE,
+                                                  mask, wholeString != FALSE, offset);
 }
 
 BOOL AgreeQSMask(const char* filename, BOOL hasExtension, const char* mask, BOOL wholeString, int& offset)

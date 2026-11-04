@@ -2865,8 +2865,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
 
     QuickSearchMode = FALSE;
     CaretHeight = 1; // dummy
-    QuickSearch[0] = 0;
-    QuickSearchMask[0] = 0;
+    QuickSearchHighSurrogate = 0;
     SearchIndex = INT_MAX;
     FocusedIndex = 0;
     FocusVisible = FALSE;
