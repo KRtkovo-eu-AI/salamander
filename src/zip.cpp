@@ -3778,6 +3778,22 @@ BOOL CSalamanderGeneral::GetConfigParameter(int paramID, void* buffer, int buffe
         break;
     }
 
+    case SALCFG_VIEWERFINDTEXT:
+    {
+        auxType = SALCFGTYPE_STRING;
+        auxDataSize = (int)strlen(GlobalFindDialog.Text) + 1;
+        lstrcpyn((char*)auxBuf, GlobalFindDialog.Text, sizeof(auxBuf));
+        break;
+    }
+
+    case SALCFG_VIEWERFINDCASE:
+        *((DWORD*)auxBuf) = (DWORD)GlobalFindDialog.CaseSensitive;
+        break;
+
+    case SALCFG_VIEWERFINDWHOLEWORDS:
+        *((DWORD*)auxBuf) = (DWORD)GlobalFindDialog.WholeWords;
+        break;
+
     case SALCFG_ARCOTHERPANELFORPACK:
         *((DWORD*)auxBuf) = (DWORD)Configuration.UseAnotherPanelForPack;
         break;

@@ -3311,9 +3311,16 @@ void PackageManager::ResolveDependenciesAndActivate()
 
 void PackageManager::RemovePackages()
 {
-    for (size_t index = 0; index < Packages.size(); ++index)
+    // UnregisterExtension runs the extension lifecycle callback, and Deactivate
+    // rebuilds toolbar buttons by walking Packages. Detach the vector first so
+    // that callback cannot load a package this loop has already deleted.
+    std::vector<Package*> removing;
+    removing.swap(Packages);
+    for (size_t index = 0; index < removing.size(); ++index)
     {
-        Package* package = Packages[index];
+        Package* package = removing[index];
+        if (package == NULL)
+            continue;
         const char* progressDetail = package->Manifest.Name.empty()
                                          ? package->Id.c_str()
                                          : package->Manifest.Name.c_str();
@@ -3323,24 +3330,24 @@ void PackageManager::RemovePackages()
             ReportShutdownProgress(
                 ssdpUnregisteringExtensions, progressDetail,
                 static_cast<int>(index + 1),
-                static_cast<int>(Packages.size()));
+                static_cast<int>(removing.size()));
             Extensions->UnregisterExtension(package->Id.c_str(), package);
         }
         ReleaseEventSubscriptions(package);
         ReportShutdownProgress(
             ssdpStoppingExtensionRuntimes, progressDetail,
             static_cast<int>(index + 1),
-            static_cast<int>(Packages.size()));
+            static_cast<int>(removing.size()));
         StopSession(package);
         ReportShutdownProgress(
             ssdpClosingExtensionWindows, progressDetail,
             static_cast<int>(index + 1),
-            static_cast<int>(Packages.size()));
+            static_cast<int>(removing.size()));
         ReleaseProgress(package);
         ReleaseDialogs(package);
         delete package;
+        removing[index] = NULL;
     }
-    Packages.clear();
 }
 
 CPluginInterfaceForMenuExtAbstract* PackageManager::GetMenuExtension()
@@ -3573,8 +3580,23 @@ BOOL PackageManager::Deactivate(Package* package)
     ReleaseEventSubscriptions(package);
     StopSession(package);
     ReleaseDialogs(package);
-    if (package->CommandsChanged)
+    if (package->CommandsChanged &&
+        InterlockedCompareExchange(&ShuttingDown, FALSE, FALSE) == FALSE)
     {
+        bool listed = false;
+        for (size_t index = 0; index < Packages.size(); ++index)
+        {
+            if (Packages[index] == package)
+            {
+                listed = true;
+                break;
+            }
+        }
+        // RemovePackages has already taken this package out of Packages.
+        // Rebuilding toolbars here would either see an empty list or, if the
+        // package were still present, walk siblings that have been deleted.
+        if (!listed)
+            return TRUE;
         UnregisterToolbarButtons();
         package->Manifest.Commands = package->InitialCommands;
         package->CommandIds = package->InitialCommandIds;
@@ -5802,6 +5824,14 @@ BOOL WINAPI PackageManager::HostDispatch(
             owner->General->LoadStrW(DLLInstance, IDS_VIEWER_SHOW_WHITESPACE),
             owner->General->LoadStrW(DLLInstance, IDS_VIEWER_LOADING), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_READY),
             owner->General->LoadStrW(DLLInstance, IDS_VIEWER_WEBVIEW_FAILED), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_OPEN_FAILED)};
+        strings.editMenu = owner->General->LoadStrW(DLLInstance, IDS_VIEWER_EDIT);
+        strings.copy = owner->General->LoadStrW(DLLInstance, IDS_VIEWER_COPY);
+        strings.selectAll = owner->General->LoadStrW(DLLInstance, IDS_VIEWER_SELECT_ALL);
+        strings.print = owner->General->LoadStrW(DLLInstance, IDS_VIEWER_PRINT);
+        strings.find = owner->General->LoadStrW(DLLInstance, IDS_VIEWER_FIND);
+        strings.findNext = owner->General->LoadStrW(DLLInstance, IDS_VIEWER_FIND_NEXT);
+        strings.findPrevious = owner->General->LoadStrW(DLLInstance, IDS_VIEWER_FIND_PREVIOUS);
+        strings.goToLine = owner->General->LoadStrW(DLLInstance, IDS_VIEWER_GOTO_LINE);
         NativeViewerRequest request = {DLLInstance, parent, widePath.c_str(), placement, SW_SHOWNORMAL, false, NULL, kind, theme, strings};
         const bool opened = NativeViewer_Show(request);
         return CopyResult(std::string("{\"ok\":true,\"opened\":") + (opened ? "true}" : "false}"),
@@ -6413,6 +6443,8 @@ void PackageManager::RegisterToolbarButtons()
     for (size_t p = 0; p < Packages.size(); ++p)
     {
         Package* package = Packages[p];
+        if (package == NULL)
+            continue;
         if (!package->RuntimeUsable)
             continue;
         bool hasToolbarCommand = false;
@@ -6498,18 +6530,21 @@ void PackageManager::UnregisterToolbarButtons()
         return;
     for (size_t p = 0; p < Packages.size(); ++p)
     {
-        if (!Packages[p]->CommandIds.empty())
+        Package* package = Packages[p];
+        if (package == NULL)
+            continue;
+        if (!package->CommandIds.empty())
         {
-            const char* progressDetail = Packages[p]->Manifest.Name.empty()
-                                             ? Packages[p]->Id.c_str()
-                                             : Packages[p]->Manifest.Name.c_str();
+            const char* progressDetail = package->Manifest.Name.empty()
+                                             ? package->Id.c_str()
+                                             : package->Manifest.Name.c_str();
             ReportShutdownProgress(
                 ssdpUnregisteringToolbarButtons, progressDetail,
                 static_cast<int>(p + 1),
                 static_cast<int>(Packages.size()));
         }
-        for (size_t c = 0; c < Packages[p]->CommandIds.size(); ++c)
-            General->UnregisterToolbarButton(Packages[p]->CommandIds[c]);
+        for (size_t c = 0; c < package->CommandIds.size(); ++c)
+            General->UnregisterToolbarButton(package->CommandIds[c]);
     }
 }
 

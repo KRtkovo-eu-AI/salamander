@@ -1,4 +1,6 @@
-﻿1 VERSIONINFO
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+1 VERSIONINFO
 FILEVERSION 1,7,0,92
 PRODUCTVERSION 1,7,0,92
 FILEOS 0x4
@@ -9,7 +11,7 @@ FILETYPE 0x2
         BLOCK "040904E4"
         {
             VALUE "CompanyName", "Martin Prikryl\0"
-            VALUE "FileDescription", "WinSCP: SFTP/SCP client for Open Salamander\0"
+            VALUE "FileDescription", "WinSCP: SFTP/SCP client for Open Samandarin\0"
             VALUE "FileVersion", "1.7.0.92\0"
             VALUE "InternalName", "WINSCP\0"
             VALUE "LegalCopyright", "(c) 2000-2026 Martin Prikryl\0"

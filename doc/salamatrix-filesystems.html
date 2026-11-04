@@ -1,11 +1,15 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+-->
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Salamatrix file-system panels</title>
-<meta name="description" content="Build virtual Open Salamander file-system panels with Salamatrix manifest fileSystems providers, typed columns, refresh policies, icons, actions, and localization.">
-<meta name="keywords" content="Salamatrix, Open Salamander, file-system panel, virtual file system, Event Viewer, Process Explorer, Hardware Monitor">
+<meta name="description" content="Build virtual Open Samandarin file-system panels with Salamatrix manifest fileSystems providers, typed columns, refresh policies, icons, actions, and localization.">
+<meta name="keywords" content="Salamatrix, Open Samandarin, file-system panel, virtual file system, Event Viewer, Process Explorer, Hardware Monitor">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="../consent.css">
 <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
@@ -13,7 +17,7 @@
 <body>
 <header class="site-header">
   <a class="skip-link" href="#content">Skip to content</a>
-  <div class="site-header__row"><div class="site-branding"><h1><a href="index.html"><img id="header-logo" src="salamatrix_logo_64px.png" alt="Salamatrix logo"></a>Salamatrix <span class="site-branding__accent">File-system panels</span></h1><p id="description-text">Virtual panels that feel native in Open Salamander</p></div></div>
+  <div class="site-header__row"><div class="site-branding"><h1><a href="index.html"><img id="header-logo" src="salamatrix_logo_64px.png" alt="Salamatrix logo"></a>Salamatrix <span class="site-branding__accent">File-system panels</span></h1><p id="description-text">Virtual panels that feel native in Open Samandarin</p></div></div>
   <nav class="section-nav" aria-label="Page sections">
     <a href="index.html" id="site-branding__small_logo"><img src="salamatrix_logo_64px.png" alt="Salamatrix logo"></a>
       <div class="section-nav__item section-nav__item--has-submenu">
@@ -30,7 +34,7 @@
   </nav>
 </header>
 <main id="content">
-<section class="hero-panel" id="overview" aria-labelledby="hero-title"><div class="hero-panel__copy"><h2 id="hero-title">Bring a real virtual file system into the panels.</h2><p>A Salamatrix extension can provide a browsable <code>salamatrix:</code> namespace instead of only adding commands or dialogs. Salamander opens it in the normal file panels, with native navigation, columns, icons, context actions, refresh, and dark-mode behavior.</p><p>Providers are declared by a schema-2 <code>fileSystems</code> manifest role and backed by the selected runtime. The framework owns panel integration; the extension supplies the item data and actions.</p></div><div class="hero-panel__visual architecture-visual"><div class="architecture-stack"><div class="stack-box stack-box--top"><strong>salamatrix: provider</strong><span>roots · paths · items · actions</span></div><div class="stack-connector">↕</div><div class="stack-box stack-box--middle"><strong>Salamatrix host</strong><span>listing · refresh · icons · localization</span></div><div class="stack-connector">↕</div><div class="stack-box stack-box--bottom"><strong>Open Salamander panels</strong><span>native navigation and interaction</span></div></div><span class="compatibility-badge">FS<br><small>panel API</small></span></div></section>
+<section class="hero-panel" id="overview" aria-labelledby="hero-title"><div class="hero-panel__copy"><h2 id="hero-title">Bring a real virtual file system into the panels.</h2><p>A Salamatrix extension can provide a browsable <code>salamatrix:</code> namespace instead of only adding commands or dialogs. Salamander opens it in the normal file panels, with native navigation, columns, icons, context actions, refresh, and dark-mode behavior.</p><p>Providers are declared by a schema-2 <code>fileSystems</code> manifest role and backed by the selected runtime. The framework owns panel integration; the extension supplies the item data and actions.</p></div><div class="hero-panel__visual architecture-visual"><div class="architecture-stack"><div class="stack-box stack-box--top"><strong>salamatrix: provider</strong><span>roots · paths · items · actions</span></div><div class="stack-connector">↕</div><div class="stack-box stack-box--middle"><strong>Salamatrix host</strong><span>listing · refresh · icons · localization</span></div><div class="stack-connector">↕</div><div class="stack-box stack-box--bottom"><strong>Open Samandarin panels</strong><span>native navigation and interaction</span></div></div><span class="compatibility-badge">FS<br><small>panel API</small></span></div></section>
 <section class="content-grid" id="capabilities"><h2>What a file-system provider can do</h2><div class="card-grid"><article class="info-card"><h3>Browse and navigate</h3><p>Expose root items and hierarchical paths. A command can open a provider such as <code>salamatrix:OpenSalamander.ProcessExplorer!processes</code> directly in a panel.</p></article><article class="info-card"><h3>Describe every item</h3><p>Return names, folders, paths, icons, dark-mode icon variants and custom fields. Columns can be numeric, size-aware, or date/time formatted.</p></article><article class="info-card"><h3>Refresh intelligently</h3><p>Use periodic refresh, bounded refresh depth, and selected refresh paths so live data updates without rebuilding unrelated branches.</p></article><article class="info-card"><h3>Act on selection</h3><p>Declare default actions, separators, item prefixes and refresh behavior. Handlers can open properties, terminate a process, or perform device-management operations.</p></article><article class="info-card"><h3>Localize the surface</h3><p>Package locales can translate the provider name, roots, columns, item labels and action titles while the host keeps the same manifest contract.</p></article><article class="info-card"><h3>Stay inside the host policy</h3><p>Capabilities and security metadata make file-system, process, script, network and elevation requirements visible and enforceable at the package boundary.</p></article></div></section>
 <section class="content-grid" id="manifest"><h2>Manifest shape</h2><p>The provider is a normal manifest-backed extension. The <code>fileSystems</code> entry declares the public panel contract; the runtime entry point implements its list and action handlers.</p><pre><code>{
   "schema": 2,

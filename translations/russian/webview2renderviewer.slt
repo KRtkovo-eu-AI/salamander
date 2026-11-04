@@ -34,4 +34,8 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 [STRINGTABLE 2]
 64,1,"&Перенос строк\tF2"
 65,1,"Показать &пробелы"
+66,1,"&Правка"
+67,1,"&Копировать\tCtrl+C"
+68,1,"Выделить &все\tCtrl+A"
+69,1,"Пе&чать...\tCtrl+P"
 

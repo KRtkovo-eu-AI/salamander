@@ -34,4 +34,8 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 [STRINGTABLE 2]
 64,1,"&Încadrează rândurile\tF2"
 65,1,"Afișează &spațiile"
+66,1,"&Editare"
+67,1,"&Copiere\tCtrl+C"
+68,1,"Selectează &tot\tCtrl+A"
+69,1,"&Imprimare...\tCtrl+P"
 

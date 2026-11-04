@@ -19,6 +19,7 @@
 #define IDC_SPLASH_VERSION              2492
 #define IDC_SPLASH_COPYRIGHT            2493
 #define IDC_SPLASH_STATUS               2494
+#define IDC_SPLASH_FORK                 2498
 
 #define IDD_DARK_FONT_DIALOG            2495
 

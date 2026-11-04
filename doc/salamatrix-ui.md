@@ -1,7 +1,12 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+| 2026-11-04 | Name the UI guide host Open Samandarin. | The lead sentence still said Open Salamander, so the generated HTML check failed. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+-->
 # Salamatrix.UI framework and custom dialog guide
 
 Salamatrix.UI is the framework-owned native user-interface service for Open
-Salamander extensions. It lets a native plugin, an Automation script, or an
+Samandarin extensions. It lets a native plugin, an Automation script, or an
 out-of-process JavaScript, Python, PowerShell, PHP, or Lua extension construct
 the same dialog from the same control model.
 
@@ -14,7 +19,7 @@ examples that are absent from that projection.
 
 The window is not rendered by the language runtime and it is not owned by the
 Automation plugin. Callers describe a dialog and its controls; Salamatrix
-creates the native window, attaches Open Salamander controls, applies the
+creates the native window, attaches Open Samandarin controls, applies the
 selected Salamander color scheme, scales the layout for the current monitor,
 and returns values and events through the caller's native facade.
 
@@ -36,7 +41,7 @@ Node / Python / PowerShell / PHP / Lua extension
        Salamatrix.UI IDialog / IControl
                    |
                    v
- Open Salamander native controls, DPI and dark mode
+ Open Samandarin native controls, DPI and dark mode
 ```
 
 Native plugins query `SALAMATRIX_SERVICE_UI` and call the C++ interfaces
@@ -47,7 +52,7 @@ Runtime providers remain independent `.SPL` plugins. In particular, Python,
 PowerShell, PHP, Node, and Lua dialogs do not require the Automation plugin to
 be installed or loaded.
 
-When hosted inside Open Salamander, `Salamatrix.UI` delegates static text,
+When hosted inside Open Samandarin, `Salamatrix.UI` delegates static text,
 hyperlink, progress, arrow, text-arrow, color-arrow, and toolbar-header controls
 to the corresponding `CSalamanderGUI` implementations. This preserves the
 native button imagery, command behavior, color interaction, dark-mode styling,
@@ -138,7 +143,7 @@ Common options are:
 | `keepOpen` | Keep the dialog open after the button is clicked. |
 | `multiline` | Create a multiline text box. |
 | `filter`, `save` | File-picker filter and save mode. |
-| `styleFlags` | Native Salamatrix/Open Salamander control flags. |
+| `styleFlags` | Native Salamatrix/Open Samandarin control flags. |
 
 Static-text controls use the native flag values for emphasis and overflow behavior: `STF_BOLD` and `STF_UNDERLINE` preserve bold and underline in the native host, while `STF_END_ELLIPSIS` keeps text on one line and shortens its end and `STF_PATH_ELLIPSIS` shortens the middle of a path with `...`. Salamatrix Studio mirrors these rules in its editor preview, using the same 8 pt `MS Shell Dlg` metrics so layout and overflow remain predictable before generation.
 
@@ -160,7 +165,7 @@ same.
 
 ## The capabilities gallery layout
 
-The common demo dialog is `463 x 236`. It mirrors the Open Salamander DemoPlug
+The common demo dialog is `463 x 236`. It mirrors the Open Samandarin DemoPlug
 control gallery:
 
 ```text
@@ -423,11 +428,11 @@ kind, text, checked state, and selected index. The worker facades expose
 ## Dark mode, DPI, and accessibility
 
 Dark mode means the **Windows Dark Mode (experimental)** scheme selected in
-Open Salamander under **Configuration > Colors > Scheme**. It does not mean the
+Open Samandarin under **Configuration > Colors > Scheme**. It does not mean the
 operating-system app-mode setting.
 
 `NativeDialog` applies the shared Salamander dark-mode policy to the title bar,
-dialog background, standard controls, Open Salamander GUI controls, pickers,
+dialog background, standard controls, Open Samandarin GUI controls, pickers,
 lists, and progress components. Callers should not choose dark colors or query
 Windows app mode themselves.
 

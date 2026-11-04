@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 #include "precomp.h"
 
@@ -8,7 +11,8 @@
 
 #include "config.h"
 
-const char* DB_ROOT_KEY = "Software\\Open Salamander Samandarin\\Bug Reporter";
+const char* DB_ROOT_KEY = "Software\\Open Samandarin\\Bug Reporter";
+const char* LEGACY_DB_ROOT_KEY = "Software\\Open Salamander Samandarin\\Bug Reporter";
 const char* CONFIG_EMAIL_REG = "Email";
 
 CConfiguration Config;
@@ -92,7 +96,8 @@ CConfiguration::CConfiguration()
 BOOL CConfiguration::Load()
 {
     HKEY hKey;
-    if (OpenKey(HKEY_CURRENT_USER, DB_ROOT_KEY, hKey))
+    if (OpenKey(HKEY_CURRENT_USER, DB_ROOT_KEY, hKey) ||
+        OpenKey(HKEY_CURRENT_USER, LEGACY_DB_ROOT_KEY, hKey))
     {
         GetValue(hKey, CONFIG_EMAIL_REG, REG_SZ, Email, EMAIL_SIZE);
         HANDLES(RegCloseKey(hKey));

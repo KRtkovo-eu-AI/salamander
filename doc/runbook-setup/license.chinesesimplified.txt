@@ -1,6 +1,6 @@
-Open Salamander Samandarin
+Open Samandarin
 
-Open Salamander Samandarin 是 Open Salamander 的非官方、实验性开源分支，
+Open Samandarin 是基于 Open Salamander 5.0 的社区分支，
 由 Ondrej Kotas (KRtekTM) 借助 AI 辅助 / vibe-coding 开发创建。它面向愿意尝试的用户；
 请预期可能存在不完善之处，并在将其用于重要工作前查看发行说明。
 
