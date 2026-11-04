@@ -42,7 +42,7 @@ COMMENT,"Magyar változat"
 11111,1,"Néhány Multimédia Néző nyitva van. Bezárja őket?"
 
 [STRINGTABLE 2]
-11120,1,"Multimédia fájlok (*.mp3;*.mp2;*.ogg;*.vqf;*.wma;*.wav;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm)|*.mp3;*.mp2;*.ogg;*.wma;*.wav;*.wave;*.vqf;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm|Minden fájl (*.*)|*.*||"
+11120,1,"Multimédia fájlok (*.mp3;*.mp2;*.ogg;*.vqf;*.wma;*.wav;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm)|*.mp3;*.mp2;*.ogg;*.oga;*.opus;*.flac;*.m4a;*.mp4;*.m4b;*.aac;*.aif;*.aiff;*.ape;*.mpc;*.wv;*.tta;*.dsf;*.dff;*.mka;*.webm;*.mkv;*.m4v;*.mov;*.qt;*.3gp;*.3g2;*.asf;*.avi;*.divx;*.wmv;*.mpg;*.mpeg;*.m2ts;*.mts;*.spx;*.wma;*.wav;*.wave;*.vqf;*.669;*.it;*.mod;*.mtm;*.s3m;*.stm;*.xm|Minden fájl (*.*)|*.*||"
 11123,1,"Megnyitási hiba: %s.\nEzt a formátumot nem támogatja a Multimédia Néző."
 11124,1,"HTML fájlok (*.htm;*.html)|*.htm;*.html|Minden fájl (*.*)|*.*||"
 11125,1,"Meg akarja nyitni az exportált adatot?"
@@ -51,7 +51,7 @@ COMMENT,"Magyar változat"
 11128,1,".html"
 11129,1,"Fájlok feldolgozása, kérem várjon..."
 11130,1,"%lu / %lu fájl sikeresen feldolgozva."
-11131,1,"Multimédia fájlok információinak megjelenítése, mint az MP3, OGG, WAV, stb."
+11131,1,"Hang- és videófájlok adatainak megjelenítése, például MP3, MP4, MKV, AVI, OGG és WAV."
 11132,1,"Névjegy"
 
 [STRINGTABLE 3]
@@ -275,3 +275,25 @@ COMMENT,"Magyar változat"
 12612,1,"ADIF"
 12613,1,"ADTS"
 
+[STRINGTABLE 25]
+12624,1,"Videóinformáció"
+12625,1,"Videóinformáció %u"
+12626,1,"Kodek"
+12627,1,"Felbontás"
+12628,1,"Képkockasebesség (fps)"
+12629,1,"Bitráta (kbps)"
+12630,1,"Képpont-oldalarány"
+12631,1,"Pásztázás"
+12632,1,"Elforgatás"
+12633,1,"Profil"
+12634,1,"Szint"
+12635,1,"Progresszív"
+12636,1,"Váltottsoros"
+12637,1,"Vegyes"
+12638,1,"Hanginformáció %u"
+12639,1,"Hangkodek"
+
+[STRINGTABLE 26]
+12640,1,"Bit mintánként"
+12641,1,"Médiaadatok"
+12642,1,"Ismeretlen"

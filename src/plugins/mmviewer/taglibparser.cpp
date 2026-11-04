@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Show Media Foundation video streams beside TagLib audio. | MP4, MKV, and WebM were described as audio only. | https://github.com/KRtkovo-eu-AI/salamander/issues/732 | Grok 4.7 |
 
 #include "precomp.h"
 #include "../../audio_metadata_legacy.h"
@@ -11,49 +14,13 @@
 #include <tpropertymap.h>
 
 #include "taglibparser.h"
+#include "mfinfo.h"
 #include "output.h"
 char* LoadStr(int resID);
 #include "mmviewer.rh2"
 
 namespace
 {
-std::wstring PathToWide(const char* path)
-{
-    if (path == NULL || path[0] == 0)
-        return std::wstring();
-
-    UINT codePage = CP_UTF8;
-    DWORD flags = MB_ERR_INVALID_CHARS;
-    int required = MultiByteToWideChar(codePage, flags, path, -1, NULL, 0);
-    if (required <= 0)
-    {
-        codePage = CP_ACP;
-        flags = 0;
-        required = MultiByteToWideChar(codePage, flags, path, -1, NULL, 0);
-    }
-    if (required <= 0)
-        return std::wstring();
-
-    std::wstring result(static_cast<size_t>(required), L'\0');
-    if (MultiByteToWideChar(codePage, flags, path, -1, &result[0], required) <= 0)
-        return std::wstring();
-    result.resize(static_cast<size_t>(required - 1));
-    return result;
-}
-
-std::wstring MakeExtendedPath(const wchar_t* path)
-{
-    if (path == NULL)
-        return std::wstring();
-
-    std::wstring result(path);
-    if (result.compare(0, 4, L"\\\\?\\") == 0 || result.length() < MAX_PATH)
-        return result;
-    if (result.compare(0, 2, L"\\\\") == 0)
-        return L"\\\\?\\UNC\\" + result.substr(2);
-    return L"\\\\?\\" + result;
-}
-
 std::string ToUtf8(const TagLib::String& value)
 {
     return value.to8Bit(true);
@@ -114,8 +81,8 @@ CParserTagLib::CParserTagLib()
 
 CParserResultEnum CParserTagLib::OpenFile(const char* fileName)
 {
-    const std::wstring wideName = PathToWide(fileName);
-    FileName = MakeExtendedPath(wideName.c_str());
+    const std::wstring wideName = MmViewerPathToWide(fileName);
+    FileName = MmViewerMakeExtendedPath(wideName.c_str());
     if (FileName.empty())
         return preOpenError;
 
@@ -143,10 +110,14 @@ CParserResultEnum CParserTagLib::GetFileInfo(COutputInterface* output)
     if (file.isNull() || file.file() == NULL)
         return preReadError;
 
-    output->AddHeader(LoadStr(IDS_OGG_INFO));
     TagLib::AudioProperties* audio = file.audioProperties();
+    CMfMediaInfo media;
+    const bool mediaOk = MmViewerMayContainVideo(FileName.c_str()) &&
+                         ReadMediaFoundationInfo(FileName.c_str(), &media, false);
+    bool any = false;
     if (audio != NULL)
     {
+        output->AddHeader(LoadStr(IDS_OGG_INFO));
         char value[64];
         FormatDuration(audio->lengthInMilliseconds(), value, _countof(value));
         output->AddItem(LoadStr(IDS_OGG_LENGTH), value);
@@ -156,6 +127,19 @@ CParserResultEnum CParserTagLib::GetFileInfo(COutputInterface* output)
         output->AddItem(LoadStr(IDS_OGG_FREQUENCY), value);
         _snprintf_s(value, _countof(value), _TRUNCATE, "%d", audio->channels());
         output->AddItem(LoadStr(IDS_OGG_CHANNELS), value);
+        any = true;
+    }
+    else if (mediaOk && AppendMfAudioSection(output, media))
+    {
+        any = true;
+    }
+
+    if (mediaOk && !media.Video.empty())
+    {
+        if (any)
+            output->AddSeparator();
+        AppendMfVideoSection(output, media);
+        any = true;
     }
 
     const TagLib::PropertyMap properties = file.properties();
@@ -163,7 +147,8 @@ CParserResultEnum CParserTagLib::GetFileInfo(COutputInterface* output)
     SalLegacyAudioMetadata::ReadOggTextProperties(FileName.c_str(), legacyProperties);
     if (!properties.isEmpty() || !legacyProperties.empty())
     {
-        output->AddSeparator();
+        if (any)
+            output->AddSeparator();
         output->AddHeader(LoadStr(IDS_OGG_STDTAGS));
         std::vector<std::string> emittedKeys;
         for (TagLib::PropertyMap::ConstIterator it = properties.begin(); it != properties.end(); ++it)

@@ -42,7 +42,7 @@ COMMENT,"English version"
 11111,1,"Alcune finestre del Visualizzatore multimediale sono aperte. Vuoi chiuderle?"
 
 [STRINGTABLE 2]
-11120,1,"File multimediali (*.mp3;*.mp2;*.ogg;*.vqf;*.wma;*.wav;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm)|*.mp3;*.mp2;*.ogg;*.wma;*.wav;*.wave;*.vqf;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm|Tutti i file (*.*)|*.*||"
+11120,1,"File multimediali (*.mp3;*.mp2;*.ogg;*.vqf;*.wma;*.wav;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm)|*.mp3;*.mp2;*.ogg;*.oga;*.opus;*.flac;*.m4a;*.mp4;*.m4b;*.aac;*.aif;*.aiff;*.ape;*.mpc;*.wv;*.tta;*.dsf;*.dff;*.mka;*.webm;*.mkv;*.m4v;*.mov;*.qt;*.3gp;*.3g2;*.asf;*.avi;*.divx;*.wmv;*.mpg;*.mpeg;*.m2ts;*.mts;*.spx;*.wma;*.wav;*.wave;*.vqf;*.669;*.it;*.mod;*.mtm;*.s3m;*.stm;*.xm|Tutti i file (*.*)|*.*||"
 11123,1,"Errore durante l'apertura di %s.\nQuesto formato non è supportato da Visualizzatore multimediale."
 11124,1,"File HTML (*.htm;*.html)|*.htm;*.html|Tutti i file (*.*)|*.*||"
 11125,1,"Vuoi aprire i dati esportati?"
@@ -51,7 +51,7 @@ COMMENT,"English version"
 11128,1,".html"
 11129,1,"Elaborazione file, attendere..."
 11130,1,"%lu di %lu file sono stati elaborati correttamente."
-11131,1,"Mostra informazioni sui file multimediali come MP3, OGG, WAV, ecc."
+11131,1,"Mostra informazioni sui file audio e video come MP3, MP4, MKV, AVI, OGG e WAV."
 11132,1,"Informazioni sul plug-in"
 
 [STRINGTABLE 3]
@@ -275,3 +275,25 @@ COMMENT,"English version"
 12612,1,"ADIF"
 12613,1,"ADTS"
 
+[STRINGTABLE 25]
+12624,1,"Informazioni video"
+12625,1,"Informazioni video %u"
+12626,1,"Codec"
+12627,1,"Risoluzione"
+12628,1,"Frequenza dei fotogrammi (fps)"
+12629,1,"Bitrate (kbps)"
+12630,1,"Proporzioni pixel"
+12631,1,"Scansione"
+12632,1,"Rotazione"
+12633,1,"Profilo"
+12634,1,"Livello"
+12635,1,"Progressivo"
+12636,1,"Interlacciato"
+12637,1,"Misto"
+12638,1,"Informazioni audio %u"
+12639,1,"Codec audio"
+
+[STRINGTABLE 26]
+12640,1,"Bit per campione"
+12641,1,"Informazioni sul supporto"
+12642,1,"Sconosciuto"

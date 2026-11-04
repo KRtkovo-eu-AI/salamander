@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- | Date | Summary | Reason | Ticket | Model | -->
+<!-- | 2026-11-04 | Link Media Foundation for video stream details. | The viewer reads codec and picture size through the system media APIs. | https://github.com/KRtkovo-eu-AI/salamander/issues/732 | Grok 4.7 | -->
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ImportGroup Label="PropertySheets">
   </ImportGroup>
@@ -16,8 +18,8 @@
     <Link>
       <AdditionalLibraryDirectories Condition="'$(Configuration)'=='Debug'">$(TagLibRoot)\debug\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalLibraryDirectories Condition="'$(Configuration)'!='Debug'">$(TagLibRoot)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies Condition="'$(Configuration)'=='Debug'">tag.lib;zsd.lib;MSACM32.LIB;WINMM.LIB;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalDependencies Condition="'$(Configuration)'!='Debug'">tag.lib;zs.lib;MSACM32.LIB;WINMM.LIB;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(Configuration)'=='Debug'">tag.lib;zsd.lib;MSACM32.LIB;WINMM.LIB;mfplat.lib;mfreadwrite.lib;mfuuid.lib;propsys.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(Configuration)'!='Debug'">tag.lib;zs.lib;MSACM32.LIB;WINMM.LIB;mfplat.lib;mfreadwrite.lib;mfuuid.lib;propsys.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>$(TagLibRoot)\include\taglib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>

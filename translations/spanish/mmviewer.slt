@@ -42,7 +42,7 @@ COMMENT,"Versión en español"
 11111,1,"Hay abiertas algunas ventanas del visor multimedia. ¿Desea cerrarlas?"
 
 [STRINGTABLE 2]
-11120,1,"Ficheros multimedia (*.mp3;*.mp2;*.ogg;*.vqf;*.wma;*.wav;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm)|*.mp3;*.mp2;*.ogg;*.wma;*.wav;*.wave;*.vqf;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm|Todos los ficheros (*.*)|*.*||"
+11120,1,"Ficheros multimedia (*.mp3;*.mp2;*.ogg;*.vqf;*.wma;*.wav;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm)|*.mp3;*.mp2;*.ogg;*.oga;*.opus;*.flac;*.m4a;*.mp4;*.m4b;*.aac;*.aif;*.aiff;*.ape;*.mpc;*.wv;*.tta;*.dsf;*.dff;*.mka;*.webm;*.mkv;*.m4v;*.mov;*.qt;*.3gp;*.3g2;*.asf;*.avi;*.divx;*.wmv;*.mpg;*.mpeg;*.m2ts;*.mts;*.spx;*.wma;*.wav;*.wave;*.vqf;*.669;*.it;*.mod;*.mtm;*.s3m;*.stm;*.xm|Todos los ficheros (*.*)|*.*||"
 11123,1,"Error abriendo %s.\nEste formato no es admitido por el visor multimedia."
 11124,1,"Ficheros HTML (*.htm;*.html)|*.htm;*.html|Todos los ficheros (*.*)|*.*||"
 11125,1,"¿Desea abrir datos exportados?"
@@ -51,7 +51,7 @@ COMMENT,"Versión en español"
 11128,1,".html"
 11129,1,"Procesando ficheros, espere..."
 11130,1,"%lu de %lu filcheros fueron procesados con éxito."
-11131,1,"Presenta información sobre ficheros multimedia como MP3, OGG, WAV, etc."
+11131,1,"Muestra información sobre archivos de audio y vídeo como MP3, MP4, MKV, AVI, OGG y WAV."
 11132,1,"Acerca del Plugin"
 
 [STRINGTABLE 3]
@@ -275,3 +275,25 @@ COMMENT,"Versión en español"
 12612,1,"ADIF"
 12613,1,"ADTS"
 
+[STRINGTABLE 25]
+12624,1,"Información de vídeo"
+12625,1,"Información de vídeo %u"
+12626,1,"Códec"
+12627,1,"Resolución"
+12628,1,"Velocidad de fotogramas (fps)"
+12629,1,"Tasa de bits (kbps)"
+12630,1,"Relación de aspecto del píxel"
+12631,1,"Exploración"
+12632,1,"Rotación"
+12633,1,"Perfil"
+12634,1,"Nivel"
+12635,1,"Progresivo"
+12636,1,"Entrelazado"
+12637,1,"Mixto"
+12638,1,"Información de audio %u"
+12639,1,"Códec de audio"
+
+[STRINGTABLE 26]
+12640,1,"Bits por muestra"
+12641,1,"Información del medio"
+12642,1,"Desconocido"

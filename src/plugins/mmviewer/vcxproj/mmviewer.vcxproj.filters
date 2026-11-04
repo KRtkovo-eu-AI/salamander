@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- | Date | Summary | Reason | Ticket | Model | -->
+<!-- | 2026-11-04 | List the Media Foundation metadata reader in the project filters. | The new sources belong with the other viewer parsers. | https://github.com/KRtkovo-eu-AI/salamander/issues/732 | Grok 4.7 | -->
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="cpp">
@@ -52,6 +54,9 @@
       <Filter>cpp</Filter>
     </ClCompile>
     <ClCompile Include="..\taglibparser.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mfinfo.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
     <ClCompile Include="..\parser.cpp">
@@ -132,6 +137,9 @@
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\taglibparser.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mfinfo.h">
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\parser.h">

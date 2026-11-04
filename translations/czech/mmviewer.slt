@@ -42,7 +42,7 @@ COMMENT,"Česká verze"
 11111,1,"Prohlížeč Multimedia má otevřené nejméně jedno okno. Chcete je zavřít?"
 
 [STRINGTABLE 2]
-11120,1,"Multimedia soubory (*.mp3;*.mp2;*.ogg;*.vqf;*.wma;*.wav;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm)|*.mp3;*.mp2;*.ogg;*.wma;*.wav;*.wave;*.vqf;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm|Všechny soubory (*.*)|*.*||"
+11120,1,"Multimedia soubory (*.mp3;*.mp2;*.ogg;*.vqf;*.wma;*.wav;*.669;*.it;*.mod;*.mtm;*s3m;*.stm;*.xm)|*.mp3;*.mp2;*.ogg;*.oga;*.opus;*.flac;*.m4a;*.mp4;*.m4b;*.aac;*.aif;*.aiff;*.ape;*.mpc;*.wv;*.tta;*.dsf;*.dff;*.mka;*.webm;*.mkv;*.m4v;*.mov;*.qt;*.3gp;*.3g2;*.asf;*.avi;*.divx;*.wmv;*.mpg;*.mpeg;*.m2ts;*.mts;*.spx;*.wma;*.wav;*.wave;*.vqf;*.669;*.it;*.mod;*.mtm;*.s3m;*.stm;*.xm|Všechny soubory (*.*)|*.*||"
 11123,1,"Chyba otevírání %s.\nTento formát Prohlížeč Multimedia nepodporuje."
 11124,1,"HTML soubory (*.htm;*.html)|*.htm;*.html|Všechny soubory (*.*)|*.*||"
 11125,1,"Chcete otevřít exportovaná data?"
@@ -51,7 +51,7 @@ COMMENT,"Česká verze"
 11128,1,".html"
 11129,1,"Zpracování souborů, čekejte prosím..."
 11130,1,"%lu z %lu souborů bylo úspěšně zpracováno."
-11131,1,"Zobrazí informace o multimedia souborech jako např.: MP3, OGG, WAV, atd."
+11131,1,"Zobrazí informace o zvukových a video souborech, například MP3, MP4, MKV, AVI, OGG a WAV."
 11132,1,"O pluginu"
 
 [STRINGTABLE 3]
@@ -275,3 +275,25 @@ COMMENT,"Česká verze"
 12612,1,"ADIF"
 12613,1,"ADTS"
 
+[STRINGTABLE 25]
+12624,1,"Video informace"
+12625,1,"Video informace %u"
+12626,1,"Kodek"
+12627,1,"Rozlišení"
+12628,1,"Snímková frekvence (fps)"
+12629,1,"Bitrate (kbps)"
+12630,1,"Poměr stran pixelu"
+12631,1,"Řádkování"
+12632,1,"Otočení"
+12633,1,"Profil"
+12634,1,"Úroveň"
+12635,1,"Progresivní"
+12636,1,"Prokládané"
+12637,1,"Smíšené"
+12638,1,"Audio informace %u"
+12639,1,"Audio kodek"
+
+[STRINGTABLE 26]
+12640,1,"Bitů na vzorek"
+12641,1,"Informace o médiu"
+12642,1,"Neznámý"
