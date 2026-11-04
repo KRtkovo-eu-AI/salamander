@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -1720,28 +1723,28 @@ void CPlugins::Load(HWND parent, HKEY regKey)
     {
         if (!AddPlugin("ZIP", "zip\\zip.spl",
                        TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, "1.32",
-                       "Copyright © 2000-2026 Open Salamander Authors",
-                       "ZIP archives support for Open Salamander.",
+                       "Copyright © 2000-2026 Open Salamander Authors, Open Samandarin Authors",
+                       "ZIP archives support for Open Samandarin.",
                        "ZIP", "zip;pk3;jar", NULL, FALSE, NULL, NULL) ||
             !AddPlugin("TAR", "tar\\tar.spl",
                        TRUE, FALSE, FALSE, TRUE, FALSE, TRUE, TRUE, FALSE, FALSE, FALSE, "3.3",
-                       "Copyright © 1999-2026 Open Salamander Authors",
-                       "Unix archives readonly support for Open Salamander.",
+                       "Copyright © 1999-2026 Open Salamander Authors, Open Samandarin Authors",
+                       "Unix archives readonly support for Open Samandarin.",
                        "TAR", "tar;tgz;taz;tbz;gz;bz;bz2;z;rpm;cpio", NULL, FALSE, NULL, NULL) ||
             !AddPlugin("DiskDir", "diskdir\\diskdir.spl",
                        TRUE, FALSE, TRUE, TRUE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, "1.0",
-                       "Copyright © 2026 Open Salamander Authors",
+                       "Copyright © 2026 Open Salamander Authors, Open Samandarin Authors",
                        "Creates and browses Total Commander DiskDir-compatible file catalogs.",
                        "DISKDIR", "lst", NULL, FALSE, NULL, "www.altap.cz") ||
             !AddPlugin("PAK", "pak\\pak.spl",
                        TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, "1.68",
-                       "Copyright © 1999-2026 Open Salamander Authors",
+                       "Copyright © 1999-2026 Open Salamander Authors, Open Samandarin Authors",
                        "This plug-ing adds support for Quake PAK archives.",
                        "PAK", "pak", NULL, FALSE, NULL, NULL) ||
             !AddPlugin("Internet Explorer Viewer", "ieviewer\\ieviewer.spl",
                        FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE, FALSE, FALSE,
-                       "1.1", "Copyright © 1999-2026 Open Salamander Authors",
-                       "Internet Explorer Viewer for Open Salamander.",
+                       "1.1", "Copyright © 1999-2026 Open Salamander Authors, Open Samandarin Authors",
+                       "Internet Explorer Viewer for Open Samandarin.",
                        "IEVIEWER", "", NULL, FALSE, NULL, NULL))
         {
             HANDLES(EnterCriticalSection(&DataCS));
@@ -4156,7 +4159,7 @@ void CPlugins::HandleLoadOnStartFlag(HWND parent)
             serviceRegistered = startupRegistry.RegisterService(
                 SALAMANDER_SERVICE_STARTUP_PROGRESS,
                 SALAMANDER_STARTUP_PROGRESS_VERSION_1_0,
-                &progressService, "Open Salamander");
+                &progressService, "Open Samandarin");
         }
     }
 

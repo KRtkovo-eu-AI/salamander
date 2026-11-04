@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-04 | Keep Markdown changelog comments out of generated Salamatrix HTML. | A rendered changelog paragraph made the documentation check fail. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 """Generate the self-contained HTML Salamatrix authoring references."""
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ DOCUMENTS = (
 )
 
 HTML_DOCUMENT_NAMES = {f"{slug}.md": f"{slug}.html" for slug, _ in DOCUMENTS}
+LEADING_COMMENT = re.compile(r"\A(<!--.*?-->\n)", re.DOTALL)
 
 
 def inline(text: str) -> str:
@@ -39,6 +42,14 @@ def inline(text: str) -> str:
         return f'<a href="{target}">{match.group(1)}</a>'
 
     return re.sub(r"\[([^\]]+)\]\(([^)]+)\)", link, value)
+
+
+def split_leading_comment(markdown: str) -> tuple[str, str]:
+    """Keep a source changelog comment with the file instead of rendering it."""
+    match = LEADING_COMMENT.match(markdown)
+    if match is None:
+        return "", markdown
+    return match.group(1), markdown[match.end() :]
 
 
 def render(markdown: str, document_title: str, current_slug: str) -> str:
@@ -189,7 +200,8 @@ def main() -> int:
     for slug, title in DOCUMENTS:
         source = ROOT / "doc" / f"{slug}.md"
         target = ROOT / "doc" / f"{slug}.html"
-        generated = render(source.read_text(encoding="utf-8"), title, slug)
+        preamble, markdown = split_leading_comment(source.read_text(encoding="utf-8"))
+        generated = preamble + render(markdown, title, slug)
         generated_documents.append((target, generated))
         if not target.exists() or target.read_text(encoding="utf-8") != generated:
             stale.append(target)
@@ -198,7 +210,10 @@ def main() -> int:
             print(f"{target} is stale; run {Path(__file__).name}", file=sys.stderr)
         return 1 if stale else 0
     for target, generated in generated_documents:
-        target.write_text(generated, encoding="utf-8", newline="\n")
+        if target.exists() and target.read_text(encoding="utf-8") == generated:
+            continue
+        newline = "\r\n" if target.exists() and b"\r\n" in target.read_bytes() else "\n"
+        target.write_text(generated, encoding="utf-8", newline=newline)
     return 0
 
 

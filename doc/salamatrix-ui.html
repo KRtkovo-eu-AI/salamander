@@ -1,3 +1,8 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+| 2026-11-04 | Name the UI guide host Open Samandarin. | The lead sentence still said Open Salamander, so the generated HTML check failed. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+-->
 <!doctype html>
 <html lang="en">
 <head>
@@ -40,9 +45,9 @@ th { background:var(--surface); } li { margin:.2em 0; }
 <a href="salamatrix-automation-api.html">Salamatrix Automation API reference</a> <a href="salamatrix-ui.html" aria-current="page">Salamatrix.UI framework and custom dialog guide</a> <a href="salamatrix-platform.html">Salamatrix Platform Foundation</a> <a href="salamatrix-runtime-providers.html">Standalone Salamatrix runtime providers</a> <a href="salamatrix-runtime-provider-development.html">Developing a Salamatrix language runtime provider</a> <a href="salamatrix-gap-analysis.html">Salamatrix GAP analysis</a>
 </nav>
 <h1 id="salamatrix-ui-framework-and-custom-dialog-guide">Salamatrix.UI framework and custom dialog guide</h1>
-<p>Salamatrix.UI is the framework-owned native user-interface service for Open Salamander extensions. It lets a native plugin, an Automation script, or an out-of-process JavaScript, Python, PowerShell, PHP, or Lua extension construct the same dialog from the same control model.</p>
+<p>Salamatrix.UI is the framework-owned native user-interface service for Open Samandarin extensions. It lets a native plugin, an Automation script, or an out-of-process JavaScript, Python, PowerShell, PHP, or Lua extension construct the same dialog from the same control model.</p>
 <p>This is both the user-facing UI authoring guide and the normative source for AI providers generating Salamatrix dialogs. The installed HTML edition is linked from the Automation API reference. Local AI providers receive a bounded, machine-readable projection of the same lifecycle, control kinds, option names, result fields, and runtime conventions; they must not infer methods from the examples that are absent from that projection.</p>
-<p>The window is not rendered by the language runtime and it is not owned by the Automation plugin. Callers describe a dialog and its controls; Salamatrix creates the native window, attaches Open Salamander controls, applies the selected Salamander color scheme, scales the layout for the current monitor, and returns values and events through the caller's native facade.</p>
+<p>The window is not rendered by the language runtime and it is not owned by the Automation plugin. Callers describe a dialog and its controls; Salamatrix creates the native window, attaches Open Samandarin controls, applies the selected Salamander color scheme, scales the layout for the current monitor, and returns values and events through the caller's native facade.</p>
 <p>The bundled <strong>Salamatrix UI capabilities</strong> demos are executable examples of this contract. Every demo builds the complete window itself. The only visible difference is the <code>Created by</code> group, which identifies the runtime and the extension or plugin that constructed the dialog.</p>
 <h2 id="ownership-and-execution-model">Ownership and execution model</h2>
 <pre><code class="language-text">Node / Python / PowerShell / PHP / Lua extension
@@ -55,10 +60,10 @@ th { background:var(--surface); } li { margin:.2em 0; }
        Salamatrix.UI IDialog / IControl
                    |
                    v
- Open Salamander native controls, DPI and dark mode</code></pre>
+ Open Samandarin native controls, DPI and dark mode</code></pre>
 <p>Native plugins query <code>SALAMATRIX_SERVICE_UI</code> and call the C++ interfaces directly. Automation JScript uses a COM facade over the same service. Neither path introduces a second dialog implementation.</p>
 <p>Runtime providers remain independent <code>.SPL</code> plugins. In particular, Python, PowerShell, PHP, Node, and Lua dialogs do not require the Automation plugin to be installed or loaded.</p>
-<p>When hosted inside Open Salamander, <code>Salamatrix.UI</code> delegates static text, hyperlink, progress, arrow, text-arrow, color-arrow, and toolbar-header controls to the corresponding <code>CSalamanderGUI</code> implementations. This preserves the native button imagery, command behavior, color interaction, dark-mode styling, and control lifetime rules. The portable Win32 control implementation is only the fallback for standalone hosts such as Salamatrix Studio preview.</p>
+<p>When hosted inside Open Samandarin, <code>Salamatrix.UI</code> delegates static text, hyperlink, progress, arrow, text-arrow, color-arrow, and toolbar-header controls to the corresponding <code>CSalamanderGUI</code> implementations. This preserves the native button imagery, command behavior, color interaction, dark-mode styling, and control lifetime rules. The portable Win32 control implementation is only the fallback for standalone hosts such as Salamatrix Studio preview.</p>
 <p>Modal dialogs, message boxes, file/folder pickers, and the controls showcase do not inherit the ordinary 120-second host-call timeout. They remain synchronously owned by the UI thread until the user closes them, so a dialog may safely stay open for an arbitrary amount of time. A button with <code>dialogResult: 0</code> is an action button and stays open; buttons with a nonzero result close the dialog. This rule also keeps the legacy Automation COM dialog facade compatible even though its original <code>add()</code> signature predates the explicit <code>keepOpen</code> option.</p>
 <h2 id="dialog-lifecycle">Dialog lifecycle</h2>
 <p>All facades follow the same lifecycle:</p>
@@ -254,14 +259,14 @@ th { background:var(--surface); } li { margin:.2em 0; }
 </tr>
 <tr>
 <td><code>styleFlags</code></td>
-<td>Native Salamatrix/Open Salamander control flags.</td>
+<td>Native Salamatrix/Open Samandarin control flags.</td>
 </tr>
 </tbody></table></div>
 <p>Static-text controls use the native flag values for emphasis and overflow behavior: <code>STF_BOLD</code> and <code>STF_UNDERLINE</code> preserve bold and underline in the native host, while <code>STF_END_ELLIPSIS</code> keeps text on one line and shortens its end and <code>STF_PATH_ELLIPSIS</code> shortens the middle of a path with <code>...</code>. Salamatrix Studio mirrors these rules in its editor preview, using the same 8 pt <code>MS Shell Dlg</code> metrics so layout and overflow remain predictable before generation.</p>
 <p>| <code>pathSeparator</code> | Separator used by path ellipsis. | | <code>toolTip</code> | Tooltip text owned by the native control. | | <code>actionOpen</code> | URL or shell target opened by a hyperlink. | | <code>actionCommand</code> | Command posted by a hyperlink. | | <code>actionHint</code> | Hint displayed by a hyperlink. | | <code>progress</code>, <code>progressText</code> | Direct progress value and optional text. | | <code>progressCurrent</code>, <code>progressTotal</code> | 64-bit progress values. | | <code>indeterminateDuration</code>, <code>indeterminateInterval</code> | Self-moving progress timing. | | <code>textColor</code>, <code>backgroundColor</code> | <code>COLORREF</code> values for a color-arrow button. | | <code>alignControlId</code>, <code>buttonMask</code> | List control and buttons for a toolbar header. |</p>
 <p>The five worker facades deliberately forward the same option set. Language syntax is idiomatic, but payload fields, defaults, and native behavior are the same.</p>
 <h2 id="the-capabilities-gallery-layout">The capabilities gallery layout</h2>
-<p>The common demo dialog is <code>463 x 236</code>. It mirrors the Open Salamander DemoPlug control gallery:</p>
+<p>The common demo dialog is <code>463 x 236</code>. It mirrors the Open Samandarin DemoPlug control gallery:</p>
 <pre><code class="language-text">+--------------------------------+-----------------------+
 | CGUIStaticTextAbstract         | CGUIHyperLinkAbstract |
 |                                +-----------------------+
@@ -487,8 +492,8 @@ dialog.add_item(&quot;files&quot;, &quot;report.txt&quot;)
 dialog.set_selected_index(&quot;files&quot;, 0)</code></pre>
 <p>Required-field validation is configured after adding the control. Change events are delivered as SMX1 event frames with dialog ID, control ID, control kind, text, checked state, and selected index. The worker facades expose <code>onChange</code>/<code>on_change</code> and matching unsubscribe helpers.</p>
 <h2 id="dark-mode-dpi-and-accessibility">Dark mode, DPI, and accessibility</h2>
-<p>Dark mode means the <strong>Windows Dark Mode (experimental)</strong> scheme selected in Open Salamander under <strong>Configuration &gt; Colors &gt; Scheme</strong>. It does not mean the operating-system app-mode setting.</p>
-<p><code>NativeDialog</code> applies the shared Salamander dark-mode policy to the title bar, dialog background, standard controls, Open Salamander GUI controls, pickers, lists, and progress components. Callers should not choose dark colors or query Windows app mode themselves.</p>
+<p>Dark mode means the <strong>Windows Dark Mode (experimental)</strong> scheme selected in Open Samandarin under <strong>Configuration &gt; Colors &gt; Scheme</strong>. It does not mean the operating-system app-mode setting.</p>
+<p><code>NativeDialog</code> applies the shared Salamander dark-mode policy to the title bar, dialog background, standard controls, Open Samandarin GUI controls, pickers, lists, and progress components. Callers should not choose dark colors or query Windows app mode themselves.</p>
 <p>The framework also:</p>
 <ul>
 <li>scales dialog and child bounds on <code>WM_DPICHANGED</code>;</li>

@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 #include "precomp.h"
 #include "salamatrixai.h"
@@ -511,7 +514,7 @@ static bool HttpGenerateRequest(
                           ? L"/v1/chat/completions"
                           : L"/api/generate";
     HINTERNET session = WinHttpOpen(
-        L"Open Salamander Salamatrix AI/1.0",
+        L"Open Samandarin Salamatrix AI/1.0",
         WINHTTP_ACCESS_TYPE_NO_PROXY,
         WINHTTP_NO_PROXY_NAME,
         WINHTTP_NO_PROXY_BYPASS,
@@ -1833,7 +1836,7 @@ BOOL WINAPI CLocalHttpAssistantProvider::Generate(
         prompt += request->ContextJson;
     }
     std::string system =
-        "You are the local Open Salamander script assistant. Return only one "
+        "You are the local Open Samandarin script assistant. Return only one "
         "JSON object with title, description, capabilities (array), "
         "estimatedEffects (object), and script. You may set canImplement "
         "to false and return missingCapabilities when the API lacks a "

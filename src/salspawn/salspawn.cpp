@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 #include <windows.h>
 
@@ -158,7 +161,7 @@ void mainCRTStartup()
     {
         DWORD written;
         WriteFile(GetStdHandle(STD_OUTPUT_HANDLE),
-                  "SALSPAWN: Spawn for Open Salamander, Copyright (C) 1998-2026 Open Salamander Authors\n\nUsage: salspawn [-|/<switch>] <executable> [exe params]\n\nAvailable switches:\n  ?,h,H - this help screen\n  c<num> - sets base of SALSPAWN error level to <num>\n\n",
+                  "SALSPAWN: Spawn for Open Samandarin, Copyright (C) 1998-2026 Open Salamander Authors, Open Samandarin Authors\n\nUsage: salspawn [-|/<switch>] <executable> [exe params]\n\nAvailable switches:\n  ?,h,H - this help screen\n  c<num> - sets base of SALSPAWN error level to <num>\n\n",
                   221, &written, NULL);
         ExitProcess(retBase + 1);
     }

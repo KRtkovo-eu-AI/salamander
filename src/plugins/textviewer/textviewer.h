@@ -38,9 +38,9 @@ public:
 
     virtual BOOL WINAPI Release(HWND parent, BOOL force) override;
 
-    virtual void WINAPI LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRegistryAbstract* registry) override {}
-    virtual void WINAPI SaveConfiguration(HWND parent, HKEY regKey, CSalamanderRegistryAbstract* registry) override {}
-    virtual void WINAPI Configuration(HWND parent) override {}
+    virtual void WINAPI LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRegistryAbstract* registry) override;
+    virtual void WINAPI SaveConfiguration(HWND parent, HKEY regKey, CSalamanderRegistryAbstract* registry) override;
+    virtual void WINAPI Configuration(HWND parent) override;
 
     virtual void WINAPI Connect(HWND parent, CSalamanderConnectAbstract* salamander) override;
 

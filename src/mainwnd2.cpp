@@ -1,5 +1,9 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Format legacy configuration names with a literal printf format. | CodeQL rejected the loaded product template as a non-constant format string. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -239,7 +243,7 @@ static void MCDApplyWelcomeTargetMetadata(CSalamanderRegistryExAbstract* registr
     if (customConfigName != NULL && customConfigName[0] != 0)
         strncpy_s(effectiveName, customConfigName, _TRUNCATE);
     else
-        sprintf_s(effectiveName, DetectProductName(targetSubkey), SalamanderConfigurationVersions[0]);
+        FormatConfigDisplayName(targetSubkey, SalamanderConfigurationVersions[0], effectiveName, _countof(effectiveName));
     MCDSetConfigValue(registry, targetSubkey, "ConfigDisplayName", REG_SZ,
                       effectiveName, (DWORD)(strlen(effectiveName) + 1));
 
@@ -464,7 +468,7 @@ BOOL MCDReadFileConfigurationInfo(const char* fileName, CFoundConfig& cfg, BOOL 
             if (customName[0] != 0)
                 strncpy_s(cfg.DisplayName, customName, _TRUNCATE);
             else
-                sprintf_s(cfg.DisplayName, DetectProductName(sourceSubkey), SalamanderConfigurationVersions[rootIndex]);
+                FormatConfigDisplayName(sourceSubkey, SalamanderConfigurationVersions[rootIndex], cfg.DisplayName, _countof(cfg.DisplayName));
             cfg.IsGeneratedName = MCDIsGeneratedConfigDisplayName(sourceSubkey, SalamanderConfigurationVersions[rootIndex], cfg.DisplayName);
             MCDReadRegistryConfigLanguage(sourceReg, rootKey, cfg.Language, SizeOf(cfg.Language));
             sourceReg->CloseKey(rootKey);
@@ -844,6 +848,7 @@ const DWORD THIS_CONFIG_VERSION = 119;
 // !!! Keep the corresponding lines in SalamanderConfigurationVersions up to date
 const char* SalamanderConfigurationRoots[SALCFG_ROOTS_COUNT + 1] =
     {
+        "Software\\Open Samandarin\\5.0-samandarin-0.16",
         "Software\\Open Salamander Samandarin\\5.0-samandarin-0.16",
         "Software\\Open Salamander Samandarin\\5.0-samandarin-0.15.1",
         "Software\\Open Salamander Samandarin\\5.0-samandarin-0.15",
@@ -945,6 +950,7 @@ const char* SalamanderConfigurationRoots[SALCFG_ROOTS_COUNT + 1] =
 };
 const char* SalamanderConfigurationVersions[SALCFG_ROOTS_COUNT] =
     {
+        "5.0 Samandarin 0.16",
         "5.0 Samandarin 0.16",
         "5.0 Samandarin 0.15.1",
         "5.0 Samandarin 0.15",
@@ -1691,7 +1697,7 @@ BOOL GetUpgradeInfo(BOOL* autoImportConfig, char* autoImportConfigFromKey, int a
                                  "configuration for the new version. You can use this existing configuration (the configuration of "
                                  "the old version remains in registry, so you can import it later). Or you can overwrite "
                                  "this existing configuration (it would be lost) with the configuration of the old version. "
-                                 "Or you can exit Open Salamander and solve this problem later.",
+                                 "Or you can exit Open Samandarin and solve this problem later.",
                             keyName, SALAMANDER_TEXT_VERSION);
                     params.Text = buf;
                     char aliasBtnNames[200];
@@ -1906,11 +1912,67 @@ BOOL MyRegRenameKey(HKEY key, const char* name, const char* newName)
 // Helper: detect product name from registry path
 static const char* DetectProductName(const char* root)
 {
+    if (root != NULL && StrIStr(root, "\\Open Samandarin\\") != NULL)
+        return "Open Samandarin %s";
     if (StrIStr(root, "Open Salamander") != NULL)
         return LoadStr(IDS_MCD_OPEN_SALAMANDER);
     if (StrIStr(root, "Altap Salamander") != NULL)
         return LoadStr(IDS_MCD_ALTAP_SALAMANDER);
     return LoadStr(IDS_MCD_SERVANT_SALAMANDER);
+}
+
+void FormatConfigDisplayName(const char* root, const char* version, char* buffer, size_t bufferChars)
+{
+    if (buffer == NULL || bufferChars == 0)
+        return;
+    buffer[0] = 0;
+
+    // The registry version text is "5.0 Samandarin 0.16". The visible name is
+    // "Open Samandarin 0.16" so the upstream product name stays out of the label.
+    if (root != NULL && StrIStr(root, "\\Open Samandarin\\") != NULL)
+    {
+        const char* forkVersion = "";
+        if (version != NULL)
+        {
+            const char* marker = StrIStr(version, "Samandarin");
+            if (marker != NULL)
+            {
+                marker += 10; // strlen("Samandarin")
+                while (*marker == ' ')
+                    marker++;
+                if (*marker != 0)
+                    forkVersion = marker;
+            }
+            else if (version[0] != 0)
+                forkVersion = version;
+        }
+        _snprintf_s(buffer, bufferChars, _TRUNCATE, "Open Samandarin %s", forkVersion);
+        return;
+    }
+
+    // The localized templates are "Product %s". They come from LoadStr, so they
+    // must not be passed as the printf format string.
+    const char* productFormat = DetectProductName(root);
+    const char* safeVersion = version != NULL ? version : "";
+    const char* placeholder = productFormat != NULL ? strstr(productFormat, "%s") : NULL;
+    if (productFormat == NULL || placeholder == NULL)
+    {
+        _snprintf_s(buffer, bufferChars, _TRUNCATE, "%s",
+                    productFormat != NULL ? productFormat : safeVersion);
+        return;
+    }
+
+    size_t prefixChars = (size_t)(placeholder - productFormat);
+    if (prefixChars >= bufferChars)
+        prefixChars = bufferChars - 1;
+    if (prefixChars > 0)
+        memcpy(buffer, productFormat, prefixChars);
+    buffer[prefixChars] = 0;
+    if (prefixChars + 1 < bufferChars)
+    {
+        _snprintf_s(buffer + prefixChars, bufferChars - prefixChars, _TRUNCATE, "%s%s",
+                    safeVersion, placeholder + 2);
+    }
 }
 
 static void MCDTrimTrailingSpaces(char* text)
@@ -1932,7 +1994,7 @@ static BOOL MCDIsGeneratedConfigDisplayName(const char* root, const char* versio
     MCDTrimTrailingSpaces(actual);
 
     char expected[256];
-    _snprintf_s(expected, _TRUNCATE, "%s", DetectProductName(root));
+    FormatConfigDisplayName(root, version, expected, _countof(expected));
     MCDTrimTrailingSpaces(expected);
     if (_stricmp(actual, expected) == 0)
         return TRUE;
@@ -2125,8 +2187,7 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
             }
             else
             {
-                const char* name = DetectProductName(root);
-                sprintf_s(cfg.DisplayName, name, SalamanderConfigurationVersions[rootIndex]);
+                FormatConfigDisplayName(root, SalamanderConfigurationVersions[rootIndex], cfg.DisplayName, _countof(cfg.DisplayName));
             }
             cfg.IsGeneratedName = MCDIsGeneratedConfigDisplayName(root, SalamanderConfigurationVersions[rootIndex], cfg.DisplayName);
 
