@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Start the splash yellow bar under the copyright. | The version and fork line now sit above the copyright, so the bar follows the lower block. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// | 2026-11-04 | Soften the splash copyright and fork caption. | Those lines should stay readable without competing with the version. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Draw About static text without an opaque background. | An opaque text band covered the logo. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Draw the splash copyright as two lines under the logo. | The single copyright line overflowed the yellow bar. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
@@ -208,17 +210,21 @@ BOOL CSplashScreen::PrepareBitmap()
 
     // fixed texts
     COLORREF bodyClr = useDark ? RGB(255, 255, 255) : RGB(96, 96, 96);
+    // Quiet captions sit on RGB(33,33,33) or white. Keep them a step away from
+    // that background so 8 pt text stays readable in both schemes.
+    COLORREF captionClr = useDark ? RGB(140, 140, 140) : RGB(120, 120, 120);
 
-    // Two lines in the dark area under the wordmark. The control is two text rows tall.
+    // Version, fork line, then a gap, then the two-line copyright. The copyright
+    // control is two text rows tall.
     int copyrightLine = (CopyrightR.bottom - CopyrightR.top) / 2;
     PaintTextW(L"Copyright \u00A9 1997-2026 Open Salamander Authors,",
                CopyrightR.left,
                CopyrightR.top,
-               FALSE, bodyClr);
+               FALSE, captionClr);
     PaintTextW(L"Open Samandarin Authors, Ond\u0159ej Kotas (KRtekTM)",
                CopyrightR.left,
                CopyrightR.top + copyrightLine,
-               FALSE, bodyClr);
+               FALSE, captionClr);
     PaintText(SALAMANDER_TEXT_VERSION,
               VersionR.left,
               VersionR.top,
@@ -226,7 +232,7 @@ BOOL CSplashScreen::PrepareBitmap()
     PaintTextW(L"Community fork based on Open Salamander 5.0",
                ForkR.left,
                ForkR.top,
-               FALSE, bodyClr);
+               FALSE, captionClr);
 
     // backup of the bitmap without text
     BitBlt(OriginalBitmap->HMemDC, 0, 0, Width, Height, Bitmap->HMemDC, 0, 0, SRCCOPY);
@@ -303,7 +309,7 @@ CSplashScreen::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_FORK, &ForkR);
         GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_STATUS, &StatusR);
 
-        GradientY = ForkR.bottom + 5;
+        GradientY = CopyrightR.bottom + 5;
 
         TRACE_I("!!!!!!!!!!!!! BEG ");
         PrepareBitmap();
