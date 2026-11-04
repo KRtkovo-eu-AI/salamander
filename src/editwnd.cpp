@@ -1,5 +1,9 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Stop Ctrl+arrow on both sides of spaces too. | Spaces were still skipped while punctuation already stopped before and after. | | Composer |
+// | 2026-11-04 | Stop Ctrl+arrow on punctuation and symbol runs. | Word movement skipped characters such as '-' and ':'. | | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -14,165 +18,346 @@
 #include <uxtheme.h>
 
 #include <Shlwapi.h>
+#include "edit_word_break.h"
 
 //*****************************************************************************
 //
 // InstallWordBreakProc
 //
-// ensures the cursor stops at backslashes in paths
-//
-// Implementation hack to work around stupid Windows behavior.
-// Extracted and rewritten in C from IE 5.5 / BROWSEUI.DLL.
+// Ctrl+Left/Right stops on both sides of a punctuation or symbol run.
+// Keyboard movement is handled below. Double-click asks for WB_LEFT(index),
+// then WB_RIGHT of that start plus one, and the callback returns that token.
 //
 
-BOOL IsCharacterDelimiter(char ch)
+static int EditWordAnsiToWide(const char* text, int textLen, int byteIndex, wchar_t* wide, int wideLen)
 {
-    return ch == ' ' || ch == '/' || ch == '\\' || ch == ';' || ch == ',' || ch == '.' || ch == '_';
+    int wideIndex;
+
+    if (byteIndex <= 0 || text == NULL)
+        return 0;
+    if (byteIndex > textLen)
+        byteIndex = textLen;
+    wideIndex = MultiByteToWideChar(CP_ACP, 0, text, byteIndex, NULL, 0);
+    if (wideIndex < 0)
+        return 0;
+    if (wideIndex > wideLen)
+        return wideLen;
+    return wideIndex;
 }
 
-BOOL IsCharacterDelimiter(WCHAR ch)
+static int EditWordWideToAnsi(const wchar_t* wide, int wideLen, int wideIndex, int textLen)
 {
-    return ch == L' ' || ch == L'/' || ch == L'\\' || ch == L';' || ch == L',' || ch == L'.' || ch == L'_';
+    int byteIndex;
+
+    if (wideIndex <= 0 || wide == NULL)
+        return 0;
+    if (wideIndex > wideLen)
+        wideIndex = wideLen;
+    byteIndex = WideCharToMultiByte(CP_ACP, 0, wide, wideIndex, NULL, 0, NULL, NULL);
+    if (byteIndex < 0)
+        return 0;
+    if (byteIndex > textLen)
+        return textLen;
+    return byteIndex;
 }
 
 int CALLBACK
 EditWordBreakProc(char* text, int current, int textLen, int code)
 {
-    CALL_STACK_MESSAGE5("EditWordBreakProc(%s, %d, %d, %d)", text, current, textLen, code);
-    if (textLen == 0)
+    int wideLen;
+    int wideCurrent;
+    int wideResult;
+    wchar_t* wide;
+
+    CALL_STACK_MESSAGE5("EditWordBreakProc(0x%p, %d, %d, %d)", text, current, textLen, code);
+    if (text == NULL || textLen <= 0)
         return 0;
-    static BOOL gRightBreak = FALSE;
-    BOOL ebp_8 = FALSE;
-    char* ebp_10 = NULL;
-    char* esi = text + current;
-    switch (code)
+    if (current < 0)
+        current = 0;
+    if (current > textLen)
+        current = textLen;
+
+    wideLen = MultiByteToWideChar(CP_ACP, 0, text, textLen, NULL, 0);
+    if (wideLen <= 0 || (size_t)wideLen > ((size_t)-1) / sizeof(wchar_t))
+        return current;
+    wide = (wchar_t*)HeapAlloc(GetProcessHeap(), 0, (size_t)wideLen * sizeof(wchar_t));
+    if (wide == NULL)
+        return current;
+    if (MultiByteToWideChar(CP_ACP, 0, text, textLen, wide, wideLen) != wideLen)
     {
-    case WB_LEFT:
-    {
-        do
-        {
-            esi = CharPrev(text, esi);
-            if (esi == text)
-                break;
-            if (!IsCharacterDelimiter(*esi))
-            {
-                gRightBreak = FALSE;
-                ebp_8 = TRUE;
-                continue;
-            }
-            if (gRightBreak)
-                break;
-            if (ebp_8)
-                break;
-        } while (1);
-        if (esi - text <= 0)
-            return 0;
-        if (esi - text >= textLen)
-            return (int)(esi - text);
-        return (int)(esi - text + 1);
+        HeapFree(GetProcessHeap(), 0, wide);
+        return current;
     }
 
-    case WB_RIGHT:
+    wideCurrent = EditWordAnsiToWide(text, textLen, current, wide, wideLen);
+    if (code == WB_ISDELIMITER)
     {
-        gRightBreak = FALSE;
-        ebp_10 = text + textLen;
-        if (esi == ebp_10)
-            return (int)(esi - text);
-        BOOL edi = !IsCharacterDelimiter(*esi);
-        do
-        {
-            esi = CharNext(esi);
-            if (esi == ebp_10)
-                return (int)(esi - text);
-
-            if (IsCharacterDelimiter(*esi))
-                edi = FALSE;
-            else if (!edi)
-                return (int)(esi - text);
-        } while (1);
-        return 0;
+        int delimiter = EditWordIsDelimiter(wide, wideLen, wideCurrent);
+        HeapFree(GetProcessHeap(), 0, wide);
+        return delimiter;
+    }
+    if (code != WB_LEFT && code != WB_RIGHT)
+    {
+        HeapFree(GetProcessHeap(), 0, wide);
+        return textLen;
     }
 
-    case WB_ISDELIMITER:
-    {
-        gRightBreak = TRUE;
-        return IsCharacterDelimiter(text[current]);
-    }
-    }
-    return textLen;
+    wideResult = EditWordBreakBoundary(wide, wideLen, wideCurrent, code);
+    current = EditWordWideToAnsi(wide, wideLen, wideResult, textLen);
+    HeapFree(GetProcessHeap(), 0, wide);
+    return current;
 }
 
 int CALLBACK
 EditWordBreakProcUNICODE(WCHAR* text, int current, int textLen, int code)
 {
     CALL_STACK_MESSAGE5("EditWordBreakProcUNICODE(0x%p, %d, %d, %d)", text, current, textLen, code);
-    if (textLen == 0)
-        return 0;
-
-    static BOOL gRightBreak = FALSE;
-    BOOL ebp_8 = FALSE;
-    WCHAR* ebp_10 = NULL;
-    WCHAR* esi = text + current;
-    switch (code)
-    {
-    case WB_LEFT:
-    {
-        do
-        {
-            if (esi > text)
-                esi--;
-            if (esi == text)
-                break;
-            if (!IsCharacterDelimiter(*esi))
-            {
-                gRightBreak = FALSE;
-                ebp_8 = TRUE;
-                continue;
-            }
-            if (gRightBreak)
-                break;
-            if (ebp_8)
-                break;
-        } while (1);
-        if (esi - text <= 0)
-            return 0;
-        if (esi - text >= textLen)
-            return (int)(esi - text);
-        return (int)(esi - text + 1);
-    }
-
-    case WB_RIGHT:
-    {
-        gRightBreak = FALSE;
-        ebp_10 = text + textLen;
-        if (esi == ebp_10)
-            return (int)(esi - text);
-        BOOL edi = !IsCharacterDelimiter(*esi);
-        do
-        {
-            esi++;
-            if (esi == ebp_10)
-                return (int)(esi - text);
-
-            if (IsCharacterDelimiter(*esi))
-                edi = FALSE;
-            else if (!edi)
-                return (int)(esi - text);
-        } while (1);
-        return 0;
-    }
-
-    case WB_ISDELIMITER:
-    {
-        gRightBreak = TRUE;
-        return IsCharacterDelimiter(text[current]);
-    }
-    }
-    return textLen;
+    return EditWordBreakBoundary(text, textLen, current, code);
 }
 
 const char* BACKSPACE_SUBCLASSPROC = "SALBSSubClass";
-int CALLBACK EditWordBreakProc(char* text, int current, int textLen, int code);
+
+struct EditWordTextBuffer
+{
+    wchar_t* Wide;
+    int WideLength;
+    char* Ansi;
+    int AnsiLength;
+};
+
+static void FreeEditWordText(EditWordTextBuffer* text)
+{
+    if (text->Wide != NULL)
+        HeapFree(GetProcessHeap(), 0, text->Wide);
+    if (text->Ansi != NULL)
+        HeapFree(GetProcessHeap(), 0, text->Ansi);
+    text->Wide = NULL;
+    text->Ansi = NULL;
+    text->WideLength = 0;
+    text->AnsiLength = 0;
+}
+
+static BOOL LoadEditWordText(HWND hwnd, EditWordTextBuffer* text)
+{
+    int length;
+    int wideLength;
+
+    text->Wide = NULL;
+    text->WideLength = 0;
+    text->Ansi = NULL;
+    text->AnsiLength = 0;
+
+    if (IsWindowUnicode(hwnd))
+    {
+        length = GetWindowTextLengthW(hwnd);
+        if (length < 0 || (size_t)length > (((size_t)-1) / sizeof(wchar_t)) - 1)
+            return FALSE;
+        text->Wide = (wchar_t*)HeapAlloc(GetProcessHeap(), 0, ((size_t)length + 1) * sizeof(wchar_t));
+        if (text->Wide == NULL)
+            return FALSE;
+        text->WideLength = GetWindowTextW(hwnd, text->Wide, length + 1);
+        if (text->WideLength < 0)
+            text->WideLength = 0;
+        return TRUE;
+    }
+
+    length = GetWindowTextLengthA(hwnd);
+    if (length < 0)
+        return FALSE;
+    text->Ansi = (char*)HeapAlloc(GetProcessHeap(), 0, (size_t)length + 1);
+    if (text->Ansi == NULL)
+        return FALSE;
+    text->AnsiLength = GetWindowTextA(hwnd, text->Ansi, length + 1);
+    if (text->AnsiLength < 0)
+        text->AnsiLength = 0;
+    wideLength = text->AnsiLength == 0 ? 0 : MultiByteToWideChar(CP_ACP, 0, text->Ansi, text->AnsiLength, NULL, 0);
+    if (wideLength < 0)
+        wideLength = 0;
+    if ((size_t)wideLength > (((size_t)-1) / sizeof(wchar_t)) - 1)
+    {
+        FreeEditWordText(text);
+        return FALSE;
+    }
+    text->Wide = (wchar_t*)HeapAlloc(GetProcessHeap(), 0, ((size_t)wideLength + 1) * sizeof(wchar_t));
+    if (text->Wide == NULL)
+    {
+        FreeEditWordText(text);
+        return FALSE;
+    }
+    if (wideLength == 0)
+        text->Wide[0] = 0;
+    else if (MultiByteToWideChar(CP_ACP, 0, text->Ansi, text->AnsiLength, text->Wide, wideLength) != wideLength)
+    {
+        FreeEditWordText(text);
+        return FALSE;
+    }
+    text->Wide[wideLength] = 0;
+    text->WideLength = wideLength;
+    return TRUE;
+}
+
+static int EditIndexToWide(const EditWordTextBuffer* text, int editIndex)
+{
+    if (text->Ansi == NULL)
+    {
+        if (editIndex < 0)
+            return 0;
+        if (editIndex > text->WideLength)
+            return text->WideLength;
+        return editIndex;
+    }
+    return EditWordAnsiToWide(text->Ansi, text->AnsiLength, editIndex, text->Wide, text->WideLength);
+}
+
+static int WideIndexToEdit(const EditWordTextBuffer* text, int wideIndex)
+{
+    if (text->Ansi == NULL)
+    {
+        if (wideIndex < 0)
+            return 0;
+        if (wideIndex > text->WideLength)
+            return text->WideLength;
+        return wideIndex;
+    }
+    return EditWordWideToAnsi(text->Wide, text->WideLength, wideIndex, text->AnsiLength);
+}
+
+static int EditDistance(int left, int right)
+{
+    int delta = left - right;
+    return delta < 0 ? -delta : delta;
+}
+
+// EM_GETSEL returns the selection in order, so the caret is the end nearest the caret point.
+static int EditIndexNearCaret(HWND hwnd, int selStart, int selEnd)
+{
+    POINT caret;
+    int candidates[2];
+    int best;
+    int bestDistance;
+    int i;
+
+    if (selStart == selEnd)
+        return selStart;
+    if (!GetCaretPos(&caret))
+        return selEnd;
+
+    candidates[0] = selStart;
+    candidates[1] = selEnd;
+    best = selEnd;
+    bestDistance = INT_MAX;
+    for (i = 0; i < 2; i++)
+    {
+        LRESULT packed;
+        int distance;
+
+        packed = SendMessage(hwnd, EM_POSFROMCHAR, candidates[i], 0);
+        if (packed == -1)
+            continue;
+        distance = EditDistance((short)LOWORD(packed), caret.x) + EditDistance((short)HIWORD(packed), caret.y);
+        if (distance < bestDistance)
+        {
+            bestDistance = distance;
+            best = candidates[i];
+        }
+    }
+    return best;
+}
+
+static void SetEditCaret(HWND hwnd, int anchor, int caret)
+{
+    if (IsWindowUnicode(hwnd))
+        SendMessageW(hwnd, EM_SETSEL, anchor, caret);
+    else
+        SendMessageA(hwnd, EM_SETSEL, anchor, caret);
+}
+
+static void ReplaceEditSelection(HWND hwnd, int start, int end)
+{
+    if (start == end)
+        return;
+    if (IsWindowUnicode(hwnd))
+    {
+        SendMessageW(hwnd, EM_SETSEL, start, end);
+        SendMessageW(hwnd, EM_REPLACESEL, TRUE, (LPARAM)L"");
+    }
+    else
+    {
+        SendMessageA(hwnd, EM_SETSEL, start, end);
+        SendMessageA(hwnd, EM_REPLACESEL, TRUE, (LPARAM)"");
+    }
+}
+
+static BOOL HandleEditWordKey(HWND hwnd, WPARAM wParam, LPARAM lParam)
+{
+    BOOL controlPressed;
+    BOOL altPressed;
+    BOOL shiftPressed;
+    BOOL forward;
+    BOOL deleting;
+    EditWordTextBuffer text;
+    int selStart;
+    int selEnd;
+    int caretEdit;
+    int anchorEdit;
+    int caretWide;
+    int anchorWide;
+    UINT repeat;
+    UINT step;
+
+    controlPressed = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+    altPressed = (GetKeyState(VK_MENU) & 0x8000) != 0;
+    shiftPressed = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+    if (!controlPressed || altPressed)
+        return FALSE;
+    if (wParam != VK_LEFT && wParam != VK_RIGHT && wParam != VK_BACK && wParam != VK_DELETE)
+        return FALSE;
+    deleting = wParam == VK_BACK || wParam == VK_DELETE;
+    if (deleting && shiftPressed)
+        return FALSE;
+    if (deleting && (GetWindowLong(hwnd, GWL_STYLE) & ES_READONLY) != 0)
+        return TRUE;
+
+    forward = wParam == VK_RIGHT || wParam == VK_DELETE;
+    if (!LoadEditWordText(hwnd, &text))
+        return FALSE;
+
+    selStart = 0;
+    selEnd = 0;
+    if (IsWindowUnicode(hwnd))
+        SendMessageW(hwnd, EM_GETSEL, (WPARAM)&selStart, (LPARAM)&selEnd);
+    else
+        SendMessageA(hwnd, EM_GETSEL, (WPARAM)&selStart, (LPARAM)&selEnd);
+    caretEdit = EditIndexNearCaret(hwnd, selStart, selEnd);
+    anchorEdit = caretEdit == selStart ? selEnd : selStart;
+    caretWide = EditIndexToWide(&text, caretEdit);
+    anchorWide = EditIndexToWide(&text, anchorEdit);
+
+    if (deleting)
+    {
+        EditWordSelection range = EditWordDeleteRange(text.Wide, text.WideLength, anchorWide, caretWide, forward);
+        ReplaceEditSelection(hwnd, WideIndexToEdit(&text, range.Anchor), WideIndexToEdit(&text, range.Caret));
+        FreeEditWordText(&text);
+        return TRUE;
+    }
+
+    repeat = (UINT)(lParam & 0xFFFF);
+    if (repeat == 0)
+        repeat = 1;
+    if (repeat > 64)
+        repeat = 64;
+    for (step = 0; step < repeat; step++)
+    {
+        EditWordSelection moved = MoveEditWordCaret(text.Wide, text.WideLength, anchorWide, caretWide, shiftPressed, forward);
+        if (moved.Caret == caretWide && moved.Anchor == anchorWide)
+            break;
+        anchorWide = moved.Anchor;
+        caretWide = moved.Caret;
+    }
+    SetEditCaret(hwnd, WideIndexToEdit(&text, anchorWide), WideIndexToEdit(&text, caretWide));
+    FreeEditWordText(&text);
+    return TRUE;
+}
 
 LRESULT CALLBACK
 BSHandlerSubclassProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -194,48 +379,8 @@ BSHandlerSubclassProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     case WM_KEYDOWN:
     {
-        // handles Ctrl+Backspace for deleting a word
-        if (wParam == VK_BACK)
-        {
-            BOOL controlPressed = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
-            BOOL altPressed = (GetKeyState(VK_MENU) & 0x8000) != 0;
-            BOOL shiftPressed = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
-            if (controlPressed && !altPressed && !shiftPressed)
-            {
-                int iStart, iEnd;
-                SendMessage(hwnd, EM_GETSEL, (WPARAM)&iStart, (LPARAM)&iEnd);
-
-                // if a selection exists, cancel it and move the cursor to the end
-                if (iStart != iEnd)
-                {
-                    SendMessage(hwnd, EM_SETSEL, iEnd, iEnd);
-                    iStart = iEnd;
-                }
-                //          if (iStart == iEnd) // nothing can't be selected
-                //          {
-                int len = IsWindowUnicode(hwnd) ? GetWindowTextLengthW(hwnd) : GetWindowTextLengthA(hwnd);
-                if (len >= 10000 - 1)
-                    break;
-                if (IsWindowUnicode(hwnd))
-                {
-                    WCHAR buff[10000];
-                    GetWindowTextW(hwnd, buff, ARRAYSIZE(buff));
-                    iStart = EditWordBreakProcUNICODE(buff, iStart, len, WB_LEFT);
-                    SendMessageW(hwnd, EM_SETSEL, iStart, iEnd);
-                    SendMessageW(hwnd, EM_REPLACESEL, TRUE, (LPARAM)L"");
-                }
-                else
-                {
-                    char buff[10000];
-                    GetWindowTextA(hwnd, buff, ARRAYSIZE(buff));
-                    iStart = EditWordBreakProc(buff, iStart, len, WB_LEFT);
-                    SendMessageA(hwnd, EM_SETSEL, iStart, iEnd);
-                    SendMessageA(hwnd, EM_REPLACESEL, TRUE, (LPARAM)"");
-                }
-                //          }
-                return 0; // we handled it
-            }
-        }
+        if (HandleEditWordKey(hwnd, wParam, lParam))
+            return 0;
         break;
     }
 
@@ -300,7 +445,7 @@ BOOL InstallWordBreakProc(HWND hWindow)
     else
         SendMessageA(hWindow, EM_SETWORDBREAKPROC, NULL, (LPARAM)EditWordBreakProc);
 
-    // enable Ctrl+Backspace deletion by words
+    // Ctrl+arrow movement and Ctrl+Backspace/Delete use the same word boundaries
     if (!AttachBackspaceHandler(hWindow))
         TRACE_E("AttachBackspaceHandler on hWnd=0x" << hWindow);
 
