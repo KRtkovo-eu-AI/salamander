@@ -424,18 +424,17 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                                 else
                                     selDirs = 1;
                             }
+                            const std::string fallbackPath(path);
                             if (!target->GetPluginFS()->CopyOrMoveFromDiskToFS(type == atCopy, 1,
                                                                                target->GetPluginFS()->GetPluginFSName(),
                                                                                HWindow, NULL, NULL, NULL,
                                                                                selFiles, selDirs, path, NULL))
                             {
-                                path[0] = 0; // error while retrieving the target path
+                                if (path[0] == 0)
+                                    lstrcpyn(path, fallbackPath.c_str(), SAL_MAX_PATH);
                             }
-                            else
-                            {
-                                // convert the path to external format (before showing it in the dialog)
-                                PluginFSConvertPathToExternal(path);
-                            }
+                            // convert the path to external format (before showing it in the dialog)
+                            PluginFSConvertPathToExternal(path);
                         }
                         else
                         {

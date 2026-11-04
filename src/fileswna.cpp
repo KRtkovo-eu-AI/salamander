@@ -547,12 +547,12 @@ void CFilesWindow::PluginFSFilesAction(CPluginFSActionType type, CFilesWindow* t
             }
 
             char targetPath[SAL_MAX_PATH];
-            if (target->Is(ptDisk))
-                target->GetGeneralPath(targetPath, SAL_MAX_PATH);
-            else
+            targetPath[0] = 0;
+            if (target != NULL)
             {
-                targetPath[0] = 0;
-                if (target->Is(ptZIPArchive))
+                if (target->Is(ptDisk))
+                    target->GetGeneralPath(targetPath, SAL_MAX_PATH);
+                else if (target->Is(ptZIPArchive))
                 {
                     target->GetGeneralPath(targetPath, SAL_MAX_PATH);
                     SalPathAddBackslash(targetPath, SAL_MAX_PATH);
@@ -561,26 +561,22 @@ void CFilesWindow::PluginFSFilesAction(CPluginFSActionType type, CFilesWindow* t
                     if (format == 0 || !PackerFormatConfig.GetUsePacker(format - 1))
                         targetPath[0] = 0;
                 }
-                else
+                else if (target->Is(ptPluginFS) && target->GetPluginFS()->NotEmpty() &&
+                         target->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMDISKTOFS))
                 {
-                    if (target->Is(ptPluginFS) && target->GetPluginFS()->NotEmpty() &&
-                        target->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMDISKTOFS))
+                    target->GetGeneralPath(targetPath, SAL_MAX_PATH);
+                    const std::string fallbackPath(targetPath);
+                    if (!target->GetPluginFS()->CopyOrMoveFromDiskToFS(TRUE, 1,
+                                                                       target->GetPluginFS()->GetPluginFSName(),
+                                                                       HWindow, NULL, NULL, NULL,
+                                                                       targetSelectedFiles, targetSelectedDirs,
+                                                                       targetPath, NULL))
                     {
-                        target->GetGeneralPath(targetPath, SAL_MAX_PATH);
-                        if (!target->GetPluginFS()->CopyOrMoveFromDiskToFS(TRUE, 1,
-                                                                           target->GetPluginFS()->GetPluginFSName(),
-                                                                           HWindow, NULL, NULL, NULL,
-                                                                           targetSelectedFiles, targetSelectedDirs,
-                                                                           targetPath, NULL))
-                        {
-                            targetPath[0] = 0;
-                        }
-                        else
-                        {
-                            // Convert the path to external format before showing it in the dialog.
-                            PluginFSConvertPathToExternal(targetPath);
-                        }
+                        if (targetPath[0] == 0)
+                            lstrcpyn(targetPath, fallbackPath.c_str(), SAL_MAX_PATH);
                     }
+                    // Convert the path to external format before showing it in the dialog.
+                    PluginFSConvertPathToExternal(targetPath);
                 }
             }
 

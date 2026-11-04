@@ -917,6 +917,14 @@ public:
         CFilesWindow* activePanel = GetActivePanel();
         if (activePanel == DetachedTabPanel)
             return DetachedTabOriginalSide == cpsLeft ? RightPanel : LeftPanel;
+        if (activePanel != NULL && IsDetachedTabPanel(activePanel))
+        {
+            CDetachedTabInfo* info = FindDetachedTab(activePanel);
+            if (info != NULL)
+                return info->OriginalSide == cpsLeft ? RightPanel : LeftPanel;
+        }
+        if (activePanel != NULL)
+            return activePanel->GetPanelSide() == cpsLeft ? RightPanel : LeftPanel;
         return activePanel == LeftPanel ? RightPanel : LeftPanel;
     }
 
@@ -1045,6 +1053,7 @@ public:
 
     CFilesWindow* GetPanel(int panel);
     void PostFocusNameInPanel(int panel, const char* path, const char* name);
+    BOOL FindPluginFSPanel(CPluginFSInterfaceAbstract* pluginFS, int& panel);
 
 private:
     friend class CStatusWindow;
