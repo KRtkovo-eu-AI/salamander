@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-04 | Retry a native build that reaches the runner limit, and wait up to 119 seconds. | The first MSBuild codegen step reached the old 110 second cap on a cold runner. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 # | 2026-11-04 | Run the panel-toolbar customize contract test. | The panel and middle toolbar catalogs must stay the same set of commands. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 # | 2026-11-04 | Keep the viewer hex and Quick Search contract tests together. | Both entries were added at the same place in the native test list. | https://github.com/KRtkovo-eu-AI/salamander/pull/768 | Grok 4.7 |
 
@@ -16,7 +17,7 @@ param(
     [string]$ResultsPath = 'test-results/native.xml',
 
     [ValidateRange(1, 119)]
-    [int]$CommandTimeoutSeconds = 110
+    [int]$CommandTimeoutSeconds = 119
 )
 
 $ErrorActionPreference = 'Stop'
@@ -169,7 +170,7 @@ try {
     foreach ($project in $testProjects) {
         $testName = [System.IO.Path]::GetFileNameWithoutExtension($project.Name)
         Write-Host "Building $testName..."
-        $buildResult = Invoke-TestProcess -FilePath $msbuild -Arguments @(
+        $buildArguments = @(
             $project.FullName,
             '/m',
             '/t:Build',
@@ -180,7 +181,26 @@ try {
             '/p:RestoreFallbackFolders=',
             '/nr:false',
             '/v:minimal'
-        ) -WorkingDirectory $repositoryRoot
+        )
+        $buildResult = Invoke-TestProcess -FilePath $msbuild -Arguments $buildArguments `
+            -WorkingDirectory $repositoryRoot
+        # The first cold codegen can sit past the cap. The compiler is warm on the retry.
+        if ($buildResult.TimedOut) {
+            $firstOutput = $buildResult.Output
+            Write-Host "Build of $testName exceeded $CommandTimeoutSeconds seconds; retrying once."
+            Start-Sleep -Seconds 3
+            $buildResult = Invoke-TestProcess -FilePath $msbuild -Arguments $buildArguments `
+                -WorkingDirectory $repositoryRoot
+            if ($buildResult.TimedOut -or $buildResult.ExitCode -ne 0) {
+                $buildResult.Output = @(
+                    'First build exceeded the timeout.',
+                    $firstOutput,
+                    '',
+                    'Retry:',
+                    $buildResult.Output
+                ) -join [Environment]::NewLine
+            }
+        }
         if ($buildResult.ExitCode -ne 0 -or $buildResult.TimedOut) {
             Add-TestResult -ClassName 'native-build' -Name $testName `
                 -ProcessResult $buildResult

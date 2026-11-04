@@ -1,5 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Open Salamander Authors
+# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-04 | Stop a timed-out association-cache compiler and its children. | A compiler left running after the timeout starved the following contract tests. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 
 """Compile and exercise production association-cache logic without the GUI.
 
@@ -11,9 +14,11 @@ directory. Requires a C++17 compiler (clang++, g++, or cl in a developer prompt)
 """
 
 import argparse
+import os
 from pathlib import Path
 import re
 import shutil
+import signal
 import subprocess
 import tempfile
 
@@ -35,6 +40,51 @@ def function(text: str, signature: str) -> str:
     # nested scopes are indented. Fail loudly if their structure changes.
     end = text.index("\n}", start) + 2
     return text[start:end]
+
+
+def terminate_process_tree(proc: subprocess.Popen) -> None:
+    """Stop a timed-out compiler and the children Python's timeout leaves behind."""
+    if os.name == "nt":
+        try:
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=8,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            proc.kill()
+    else:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError, OSError):
+            proc.kill()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        try:
+            proc.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            pass
+
+
+def run_command(command: list[str], cwd: Path, timeout: int, check: bool) -> int:
+    # A new session lets the timeout kill the compiler and every helper it starts.
+    proc = subprocess.Popen(
+        command,
+        cwd=cwd,
+        start_new_session=os.name != "nt",
+    )
+    try:
+        code = proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        terminate_process_tree(proc)
+        raise
+    if check and code != 0:
+        raise subprocess.CalledProcessError(code, command)
+    return code
 
 
 def main() -> int:
@@ -73,7 +123,10 @@ def main() -> int:
     if re.search(r"@[A-Z_]+@", template):
         raise RuntimeError("unexpanded production-source placeholder")
 
-    with tempfile.TemporaryDirectory(prefix="salamander-association-tests-") as folder:
+    # ignore_cleanup_errors covers a compiler that Windows has not released yet.
+    with tempfile.TemporaryDirectory(
+        prefix="salamander-association-tests-", ignore_cleanup_errors=True
+    ) as folder:
         work = Path(folder)
         unit = work / "association_icon_cache_tests.cpp"
         binary = work / "association_icon_cache_tests.exe"
@@ -83,8 +136,9 @@ def main() -> int:
                        str(unit), f"/Fe:{binary}"]
         else:
             command = [compiler, "-std=c++17", "-O0", str(unit), "-o", str(binary)]
-        subprocess.run(command, cwd=work, check=True, timeout=60)
-        return subprocess.run([str(binary)], cwd=work, timeout=20).returncode
+        # Stay inside the native runner's per-command cap, with time left to run.
+        run_command(command, work, timeout=90, check=True)
+        return run_command([str(binary)], work, timeout=15, check=False)
 
 
 if __name__ == "__main__":
