@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Expand the import-anyway message without a LoadStr printf format. | CodeQL rejected the localized IDS_IMPORTCFG_NOTOURVER template as a non-constant format string. | https://github.com/KRtkovo-eu-AI/salamander/issues/742 | Composer |
 // | 2026-11-05 | Ask Yes/No before importing a config file for another version. | The "import anyway" prompt only had OK, so the action could not be confirmed or cancelled. | https://github.com/KRtkovo-eu-AI/salamander/issues/742 | Composer |
 // | 2026-11-04 | Re-ensure the active tab is visible after panel config load/show. | Overflow scroll must run again after the tab strip is shown with its final width. | | Composer |
 // | 2026-11-04 | Select the first real tab when loading a clean panel config. | Missing TabCount left CurSel on the "+" button after first-run creation. | | Composer |
@@ -701,7 +702,29 @@ static BOOL MCDLoadSourceIntoTargetRegistry(HWND parent, const CFoundConfig& src
             if (sourceSubkey == NULL)
             {
                 char text[MAX_PATH + 300];
-                _snprintf_s(text, _TRUNCATE, LoadStr(IDS_IMPORTCFG_NOTOURVER), srcCfg.Location);
+                // Localized template comes from LoadStr, so expand "%s" here instead of
+                // passing it as a printf format string (CodeQL non-constant format).
+                const char* pattern = LoadStr(IDS_IMPORTCFG_NOTOURVER);
+                const char* location = srcCfg.Location;
+                const char* placeholder = pattern != NULL ? strstr(pattern, "%s") : NULL;
+                if (pattern == NULL)
+                    text[0] = 0;
+                else if (placeholder == NULL)
+                    _snprintf_s(text, _TRUNCATE, "%s", pattern);
+                else
+                {
+                    size_t prefixChars = (size_t)(placeholder - pattern);
+                    if (prefixChars >= SizeOf(text))
+                        prefixChars = SizeOf(text) - 1;
+                    if (prefixChars > 0)
+                        memcpy(text, pattern, prefixChars);
+                    text[prefixChars] = 0;
+                    if (prefixChars + 1 < SizeOf(text))
+                    {
+                        _snprintf_s(text + prefixChars, SizeOf(text) - prefixChars, _TRUNCATE, "%s%s",
+                                    location != NULL ? location : "", placeholder + 2);
+                    }
+                }
                 // Match ImportConfiguration(): this is a Yes/No question, not an error OK box.
                 if (SalMessageBox(parent, text, LoadStr(IDS_QUESTION),
                                   MB_YESNO | MSGBOXEX_ESCAPEENABLED | MB_ICONQUESTION | MB_DEFBUTTON2) == IDYES)
