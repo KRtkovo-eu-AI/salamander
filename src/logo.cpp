@@ -1,5 +1,11 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// | 2026-11-04 | Draw About static text without an opaque background. | An opaque text band covered the logo. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// | 2026-11-04 | Draw the splash copyright as two lines under the logo. | The single copyright line overflowed the yellow bar. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// | 2026-11-04 | Keep the original splash width and show the fork line under a bold version. | The second copyright line is only the Samandarin authors, so it fits without widening the window. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -201,15 +207,26 @@ BOOL CSplashScreen::PrepareBitmap()
     svgHand.AlphaBlend(hDC, Width - handSize.cx, 0, handSize.cx, handSize.cy, SVGSTATE_ORIGINAL);
 
     // fixed texts
+    COLORREF bodyClr = useDark ? RGB(255, 255, 255) : RGB(96, 96, 96);
+
+    // Two lines in the dark area under the wordmark. The control is two text rows tall.
+    int copyrightLine = (CopyrightR.bottom - CopyrightR.top) / 2;
+    PaintTextW(L"Copyright \u00A9 1997-2026 Open Salamander Authors,",
+               CopyrightR.left,
+               CopyrightR.top,
+               FALSE, bodyClr);
+    PaintTextW(L"Open Samandarin Authors, Ond\u0159ej Kotas (KRtekTM)",
+               CopyrightR.left,
+               CopyrightR.top + copyrightLine,
+               FALSE, bodyClr);
     PaintText(SALAMANDER_TEXT_VERSION,
               VersionR.left,
               VersionR.top,
-              FALSE, useDark ? RGB(255, 255, 255) : RGB(96, 96, 96));
-
-    PaintTextW(L"Copyright \u00A9 1997-2026 Open Salamander Authors",
-               CopyrightR.left,
-               CopyrightR.top,
-               TRUE, RGB(255, 255, 255));
+              TRUE, bodyClr);
+    PaintTextW(L"Community fork based on Open Salamander 5.0",
+               ForkR.left,
+               ForkR.top,
+               FALSE, bodyClr);
 
     // backup of the bitmap without text
     BitBlt(OriginalBitmap->HMemDC, 0, 0, Width, Height, Bitmap->HMemDC, 0, 0, SRCCOPY);
@@ -283,9 +300,10 @@ CSplashScreen::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_OPENSAL, &OpenSalR);
         GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_VERSION, &VersionR);
         GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_COPYRIGHT, &CopyrightR);
+        GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_FORK, &ForkR);
         GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_STATUS, &StatusR);
 
-        GradientY = VersionR.bottom + 5;
+        GradientY = ForkR.bottom + 5;
 
         TRACE_I("!!!!!!!!!!!!! BEG ");
         PrepareBitmap();
@@ -498,7 +516,7 @@ CAboutDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         }
         SetTextColor(hdcStatic, textClr);
-        SetBkColor(hdcStatic, useDark ? RGB(33, 33, 33) : RGB(255, 255, 255));
+        SetBkMode(hdcStatic, TRANSPARENT);
         return (BOOL)(UINT_PTR)GetStockObject(NULL_BRUSH);
     }
 

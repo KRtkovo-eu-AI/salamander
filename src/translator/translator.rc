@@ -1,4 +1,6 @@
-﻿// Microsoft Visual C++ generated resource script.
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// Microsoft Visual C++ generated resource script.
 //
 #pragma code_page(65001)
 
@@ -103,8 +105,8 @@ BEGIN
         MENUITEM "&Validate Translation...\tCtrl+Q", CM_HOTKEY_CONFLICTS
         MENUITEM "&Edit Dialog Layout...\tCtrl+L", ID_TOOLS_EDITLAYOUT
         MENUITEM SEPARATOR
-        MENUITEM "&Save All and Restart Open Salamander\tF5", ID_TOOLS_RESTART
-        MENUITEM "&Kill Open Salamander\tShift+F5", ID_TOOLS_KILL
+        MENUITEM "&Save All and Restart Open Samandarin\tF5", ID_TOOLS_RESTART
+        MENUITEM "&Kill Open Samandarin\tShift+F5", ID_TOOLS_KILL
         MENUITEM SEPARATOR
         MENUITEM "&Mark Changed Strings as Translated\tCtrl+K", ID_TOOLS_MARKASTR
         MENUITEM "&Reset Dialogs Layouts to Original\tCtrl+N", ID_TOOLS_RESETDLGSTOORIG
@@ -322,14 +324,14 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,192,117,50,14
 END
 
-IDD_ABOUT DIALOGEX 0, 0, 150, 74
+IDD_ABOUT DIALOGEX 0, 0, 150, 88
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "About Translator"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,50,53,50,14
+    DEFPUSHBUTTON   "OK",IDOK,50,67,50,14
     LTEXT           "Translator 1.24",IDC_STATIC,16,10,114,8
-    LTEXT           "Copyright © 2010-2026 Open Salamander Authors",IDC_STATIC,15,22,107,8
+    LTEXT           "Copyright © 2010-2026 Open Salamander Authors, Open Samandarin Authors",IDC_STATIC,15,22,130,16
 END
 
 IDD_FIND DIALOGEX 0, 0, 223, 139

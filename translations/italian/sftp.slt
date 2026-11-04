@@ -105,7 +105,7 @@ COMMENT,"English version"
 2,125,56,50,14,1,"Annulla"
 
 [DIALOG 550]
-463,236,1,"Controlli forniti da Open Salamander"
+463,236,1,"Controlli forniti da Open Samandarin"
 3000,6,4,254,108,1,"CGUIStaticTextAbstract"
 3001,14,17,93,8,1,"Testo statico non associato"
 551,102,17,152,8,1,"Il sistema è stato avviato %d ms fa."

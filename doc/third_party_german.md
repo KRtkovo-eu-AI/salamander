@@ -1,6 +1,10 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+-->
 # Hinweise zu Software Dritter
 
-[Open Salamander: Samandarin](https://samandarin.net/) baut auf der Arbeit vieler Autoren, Betreuer und
+[Open Samandarin](https://samandarin.net/) baut auf der Arbeit vieler Autoren, Betreuer und
 Projekte auf. Diese Seite listet die Komponenten, Code, Ideen und Werkzeuge
 auf, die von der Anwendung und ihren Plugins verwendet werden. Vielen Dank an
 alle hier Genannten für die Bereitstellung ihrer Arbeit.

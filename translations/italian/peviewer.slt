@@ -5,7 +5,7 @@ VERSION,"3,1,0,196"
 
 [TRANSLATION]
 LANGID,1040
-AUTHOR,"Open Salamander"
+AUTHOR,"Open Samandarin"
 WEB,"www.altap.cz"
 COMMENT,"English version"
 
@@ -34,5 +34,5 @@ COMMENT,"English version"
 10104,1,"Visualizza informazioni sui file Portable Executable come EXE, DLL, ecc."
 
 [STRINGTABLE 2]
-10118,1,"Nella configurazione del plugin non è stata trovata alcuna sezione Portable Executable selezionata.\nUsa il menu Opzioni > Configurazione plugin > Portable Executable Viewer\nin nella finestra principale di Open Salamander per impostare le sezioni visibili."
+10118,1,"Nella configurazione del plugin non è stata trovata alcuna sezione Portable Executable selezionata.\nUsa il menu Opzioni > Configurazione plugin > Portable Executable Viewer\nin nella finestra principale di Open Samandarin per impostare le sezioni visibili."
 

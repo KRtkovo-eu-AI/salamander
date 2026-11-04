@@ -1,4 +1,6 @@
-﻿// Microsoft Visual C++ generated resource script.
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// Microsoft Visual C++ generated resource script.
 //
 #pragma code_page(65001)
 
@@ -112,7 +114,7 @@ BEGIN
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,14,70,240,12
     CONTROL         "Use WinZip compatible file names for multi-volume archives (except for self-",IDC_WINZIPNAMES,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,14,82,279,12
-    LTEXT           "extracting archives, which always use Open Salamander naming conventions)",IDC_STATIC_5,26,94,262,8
+    LTEXT           "extracting archives, which always use Open Samandarin naming conventions)",IDC_STATIC_5,26,94,262,8
     LTEXT           "Compression &level (0 - 9, 9 best compression, longest time):",IDC_STATIC_6,14,107,203,8
     EDITTEXT        IDC_LEVEL,218,105,16,12
     LTEXT           "Default &self-extractor language:",IDC_STATIC_7,14,120,109,8

@@ -1,4 +1,6 @@
-; Inno Setup script for Open Salamander Samandarin x64.
+; | Date | Summary | Reason | Ticket | Model |
+; | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+; Inno Setup script for Open Samandarin x64.
 ;
 ; This file is intentionally kept in the runbook folder next to setup_x64.inf.
 ; It mirrors the file list, shortcut locations, registry keys and private setup
@@ -25,16 +27,16 @@
 ; If /DPayloadDir is not supplied, OPENSAL_BUILD_DIR is used when present; otherwise
 ; the fallback path below is relative to this .iss file.
 
-#define AppToInstallName "Open Salamander Samandarin"
+#define AppToInstallName "Open Samandarin"
 #define SamandarinVersion "0.16"
-#define AppToInstallDisplayName "Open Salamander 5.0 Samandarin " + SamandarinVersion + " (x64)"
+#define AppToInstallDisplayName "Open Samandarin " + SamandarinVersion + " (x64)"
 #define AppToInstallVersion "5.0-samandarin-" + SamandarinVersion
 #define AppToInstallPublisher "Ondřej Kotas (KRtekTM)"
 #define AppToInstallCopyright "© 2026 " + AppToInstallPublisher + " KRtkovo.eu"
 #define AppToInstallURL "https://samandarin.net/"
 #define AppToInstallExeName "salamand.exe"
-#define AppToInstallRegPath = "'Software\Open Salamander Samandarin\5.0-samandarin-" + SamandarinVersion + "'"
-#define AppToInstallRegPathRem = "'HKCU\Software\Open Salamander Samandarin\5.0-samandarin-" + SamandarinVersion + "'"
+#define AppToInstallRegPath = "'Software\Open Samandarin\5.0-samandarin-" + SamandarinVersion + "'"
+#define AppToInstallRegPathRem = "'HKCU\Software\Open Samandarin\5.0-samandarin-" + SamandarinVersion + "'"
 #ifndef PayloadDir
   #if GetEnv("OPENSAL_BUILD_DIR") != ""
     #define PayloadDir AddBackslash(GetEnv("OPENSAL_BUILD_DIR")) + "salamander\Release_x64"
@@ -94,62 +96,62 @@ Name: "slovak"; MessagesFile: "compiler:Languages\Slovak.isl"; LicenseFile: "{#S
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"; LicenseFile: "{#SourcePath}\license.spanish.txt"
 
 [CustomMessages]
-english.RemoveUserConfigQuestion=Do you want to remove the Open Salamander Samandarin user configuration?
+english.RemoveUserConfigQuestion=Do you want to remove the Open Samandarin user configuration?
 english.FileStorage=File storage:
 english.RegistryKey=Registry key:
 english.RemoveUserConfigFiles=Choose Yes to delete the configuration files, or No to keep your settings.
 english.RemoveUserConfigRegistry=Choose Yes to delete the key including all contents, or No to keep your settings.
-chinesesimplified.RemoveUserConfigQuestion=是否要删除 Open Salamander Samandarin 用户配置？
+chinesesimplified.RemoveUserConfigQuestion=是否要删除 Open Samandarin 用户配置？
 chinesesimplified.FileStorage=文件存储:
 chinesesimplified.RegistryKey=注册表项:
 chinesesimplified.RemoveUserConfigFiles=选择“是”删除配置文件，选择“否”保留您的设置。
 chinesesimplified.RemoveUserConfigRegistry=选择“是”删除该项及其所有内容，选择“否”保留您的设置。
-czech.RemoveUserConfigQuestion=Chcete odstranit uživatelskou konfiguraci Open Salamander Samandarin?
+czech.RemoveUserConfigQuestion=Chcete odstranit uživatelskou konfiguraci Open Samandarin?
 czech.FileStorage=Úložiště souborů:
 czech.RegistryKey=Klíč registru:
 czech.RemoveUserConfigFiles=Zvolte Ano pro odstranění konfiguračních souborů, nebo Ne pro zachování nastavení.
 czech.RemoveUserConfigRegistry=Zvolte Ano pro odstranění klíče včetně celého obsahu, nebo Ne pro zachování nastavení.
-dutch.RemoveUserConfigQuestion=Wilt u de gebruikersconfiguratie van Open Salamander Samandarin verwijderen?
+dutch.RemoveUserConfigQuestion=Wilt u de gebruikersconfiguratie van Open Samandarin verwijderen?
 dutch.FileStorage=Bestandsopslag:
 dutch.RegistryKey=Registersleutel:
 dutch.RemoveUserConfigFiles=Kies Ja om de configuratiebestanden te verwijderen, of Nee om uw instellingen te behouden.
 dutch.RemoveUserConfigRegistry=Kies Ja om de sleutel inclusief alle inhoud te verwijderen, of Nee om uw instellingen te behouden.
-french.RemoveUserConfigQuestion=Voulez-vous supprimer la configuration utilisateur d’Open Salamander Samandarin ?
+french.RemoveUserConfigQuestion=Voulez-vous supprimer la configuration utilisateur d’Open Samandarin ?
 french.FileStorage=Stockage des fichiers :
 french.RegistryKey=Clé de registre :
 french.RemoveUserConfigFiles=Choisissez Oui pour supprimer les fichiers de configuration, ou Non pour conserver vos paramètres.
 french.RemoveUserConfigRegistry=Choisissez Oui pour supprimer la clé avec tout son contenu, ou Non pour conserver vos paramètres.
-german.RemoveUserConfigQuestion=Möchten Sie die Benutzerkonfiguration von Open Salamander Samandarin entfernen?
+german.RemoveUserConfigQuestion=Möchten Sie die Benutzerkonfiguration von Open Samandarin entfernen?
 german.FileStorage=Dateispeicher:
 german.RegistryKey=Registrierungsschlüssel:
 german.RemoveUserConfigFiles=Wählen Sie Ja, um die Konfigurationsdateien zu löschen, oder Nein, um Ihre Einstellungen beizubehalten.
 german.RemoveUserConfigRegistry=Wählen Sie Ja, um den Schlüssel einschließlich aller Inhalte zu löschen, oder Nein, um Ihre Einstellungen beizubehalten.
-hungarian.RemoveUserConfigQuestion=Szeretné eltávolítani az Open Salamander Samandarin felhasználói konfigurációját?
+hungarian.RemoveUserConfigQuestion=Szeretné eltávolítani az Open Samandarin felhasználói konfigurációját?
 hungarian.FileStorage=Fájltároló:
 hungarian.RegistryKey=Beállításkulcs:
 hungarian.RemoveUserConfigFiles=Válassza az Igen lehetőséget a konfigurációs fájlok törléséhez, vagy a Nem lehetőséget a beállítások megtartásához.
 hungarian.RemoveUserConfigRegistry=Válassza az Igen lehetőséget a kulcs és teljes tartalmának törléséhez, vagy a Nem lehetőséget a beállítások megtartásához.
-italian.RemoveUserConfigQuestion=Vuoi rimuovere la configurazione utente di Open Salamander Samandarin?
+italian.RemoveUserConfigQuestion=Vuoi rimuovere la configurazione utente di Open Samandarin?
 italian.FileStorage=Archiviazione file:
 italian.RegistryKey=Chiave del Registro di sistema:
 italian.RemoveUserConfigFiles=Scegli Sì per eliminare i file di configurazione oppure No per mantenere le impostazioni.
 italian.RemoveUserConfigRegistry=Scegli Sì per eliminare la chiave e tutto il suo contenuto oppure No per mantenere le impostazioni.
-romanian.RemoveUserConfigQuestion=Doriți să eliminați configurația de utilizator Open Salamander Samandarin?
+romanian.RemoveUserConfigQuestion=Doriți să eliminați configurația de utilizator Open Samandarin?
 romanian.FileStorage=Stocare în fișiere:
 romanian.RegistryKey=Cheie de registru:
 romanian.RemoveUserConfigFiles=Alegeți Da pentru a șterge fișierele de configurare sau Nu pentru a păstra setările.
 romanian.RemoveUserConfigRegistry=Alegeți Da pentru a șterge cheia, inclusiv tot conținutul, sau Nu pentru a păstra setările.
-russian.RemoveUserConfigQuestion=Удалить пользовательскую конфигурацию Open Salamander Samandarin?
+russian.RemoveUserConfigQuestion=Удалить пользовательскую конфигурацию Open Samandarin?
 russian.FileStorage=Файловое хранилище:
 russian.RegistryKey=Раздел реестра:
 russian.RemoveUserConfigFiles=Выберите «Да», чтобы удалить файлы конфигурации, или «Нет», чтобы сохранить настройки.
 russian.RemoveUserConfigRegistry=Выберите «Да», чтобы удалить раздел со всем содержимым, или «Нет», чтобы сохранить настройки.
-slovak.RemoveUserConfigQuestion=Chcete odstrániť používateľskú konfiguráciu Open Salamander Samandarin?
+slovak.RemoveUserConfigQuestion=Chcete odstrániť používateľskú konfiguráciu Open Samandarin?
 slovak.FileStorage=Úložisko súborov:
 slovak.RegistryKey=Kľúč registra:
 slovak.RemoveUserConfigFiles=Zvoľte Áno na odstránenie konfiguračných súborov alebo Nie na zachovanie nastavení.
 slovak.RemoveUserConfigRegistry=Zvoľte Áno na odstránenie kľúča vrátane celého obsahu alebo Nie na zachovanie nastavení.
-spanish.RemoveUserConfigQuestion=¿Desea eliminar la configuración de usuario de Open Salamander Samandarin?
+spanish.RemoveUserConfigQuestion=¿Desea eliminar la configuración de usuario de Open Samandarin?
 spanish.FileStorage=Almacenamiento de archivos:
 spanish.RegistryKey=Clave del Registro:
 spanish.RemoveUserConfigFiles=Elija Sí para eliminar los archivos de configuración, o No para conservar la configuración.
@@ -526,6 +528,9 @@ Name: "{app}\toolbars\pictview"
 Name: "{app}\toolbars\darkmode\pictview"
 
 [InstallDelete]
+Type: files; Name: "{autodesktop}\Open Salamander Samandarin (x64).lnk"
+Type: files; Name: "{autoprograms}\Open Salamander Samandarin\Open Salamander Samandarin (x64).lnk"
+Type: dirifempty; Name: "{autoprograms}\Open Salamander Samandarin"
 Type: files; Name: "{app}\MarkdigRenderer.exe"
 Type: files; Name: "{app}\WebView2Loader.dll"
 Type: files; Name: "{app}\plugins\salamatrix\WebView2Loader.dll"
@@ -1131,8 +1136,8 @@ Source: "{#PayloadDir}\vcruntime140_1.dll"; DestDir: "{app}"; Flags: ignoreversi
 Source: "{#PayloadDir}\utils\MarkdigRenderer.exe"; DestDir: "{app}\utils"; Flags: ignoreversion
 Source: "{#PayloadDir}\utils\WebView2Loader.dll"; DestDir: "{app}\utils"; Flags: ignoreversion
 [Icons]
-Name: "{autodesktop}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#AppToInstallExeName}"; WorkingDir: "{app}"; Check: ShouldCreateShortcut('desktop')
-Name: "{group}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#AppToInstallExeName}"; WorkingDir: "{app}"; Check: ShouldCreateShortcut('startmenu')
+Name: "{autodesktop}\Open Samandarin (x64)"; Filename: "{app}\{#AppToInstallExeName}"; WorkingDir: "{app}"; Check: ShouldCreateShortcut('desktop')
+Name: "{group}\Open Samandarin (x64)"; Filename: "{app}\{#AppToInstallExeName}"; WorkingDir: "{app}"; Check: ShouldCreateShortcut('startmenu')
 
 [Run]
 Filename: "{app}\{#AppToInstallExeName}"; Parameters: "-welcome -language ""{language}"""; Description: "{cm:LaunchProgram}"; Flags: nowait postinstall; Check: ShouldRunApplication
@@ -1689,8 +1694,20 @@ begin
 end;
 
 function GetStandardDefaultDir(): String;
+var
+  InstallLocation: String;
 begin
-  Result := ExpandConstant('{autopf}\Open Salamander Samandarin');
+  if RegQueryStringValue(HKLM, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\OpenSalamanderSamandarin-x64_is1', 'InstallLocation', InstallLocation) and DirExists(RemoveBackslash(InstallLocation)) then
+  begin
+    Result := RemoveBackslash(InstallLocation);
+    Exit;
+  end;
+  if RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\OpenSalamanderSamandarin-x64_is1', 'InstallLocation', InstallLocation) and DirExists(RemoveBackslash(InstallLocation)) then
+  begin
+    Result := RemoveBackslash(InstallLocation);
+    Exit;
+  end;
+  Result := ExpandConstant('{autopf}\Open Samandarin');
 end;
 
 function GetPortableDefaultDir(): String;
@@ -1740,7 +1757,7 @@ begin
   if RegQueryStringValue(RootKey, SubKeyName, 'InstallLocation', InstallLocation) and
      (CompareText(RemoveBackslashUnlessRoot(InstallLocation), RemoveBackslashUnlessRoot(ExpandConstant('{app}'))) = 0) and
      RegQueryStringValue(RootKey, SubKeyName, 'DisplayName', DisplayName) and
-     (Pos('Open Salamander', DisplayName) = 1) and
+     (Pos('Open Samandarin', DisplayName) = 1) and
      RegQueryStringValue(RootKey, SubKeyName, 'UninstallString', UninstallString) and
      FileExists(RemoveQuotes(UninstallString)) then
   begin
@@ -2130,7 +2147,7 @@ begin
 
     { Mirrors the setup_x64.inf IncrementFileContent metadata by ensuring plugins.ver exists.
       The legacy installer used the registry value
-      HKCU\Software\Open Salamander Samandarin\5.0-samandarin-(samandarinVersion)\Configuration\Plugins.ver Version (x64)
+      HKCU\Software\Open Samandarin\5.0-samandarin-(samandarinVersion)\Configuration\Plugins.ver Version (x64)
       to decide whether selected plugins should be appended. Inno installs the staged plugins directly. }
     PluginsVer := ExpandConstant('{app}\plugins\plugins.ver');
     if not FileExists(PluginsVer) then

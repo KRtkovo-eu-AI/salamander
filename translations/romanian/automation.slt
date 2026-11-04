@@ -56,7 +56,7 @@ COMMENT,"Versiunea romana"
 [STRINGTABLE 2]
 144,1,"Anuleaza script"
 145,1,"Anuleaza script care ruleaza\tCtrl+Break"
-146,1,"Fereastra Open Salamander este blocata de plugin Automation. Va rugam terminati de rulat scriptul."
+146,1,"Fereastra Open Samandarin este blocata de plugin Automation. Va rugam terminati de rulat scriptul."
 147,1,"Esuare in initializarea motorului de script."
 
 [STRINGTABLE 3]

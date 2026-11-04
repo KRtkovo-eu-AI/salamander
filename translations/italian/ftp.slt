@@ -5,7 +5,7 @@ VERSION,"1,38,0,196"
 
 [TRANSLATION]
 LANGID,1040
-AUTHOR,"Open Salamander"
+AUTHOR,"Open Samandarin"
 WEB,"www.altap.cz"
 COMMENT,"English version"
 
@@ -1536,7 +1536,7 @@ COMMENT,"English version"
 10674,1,"Stringa non valida con mesi di testo (formato: 12 mesi separati da spazi)."
 10680,1,"La condizione di rilevamento automatico contiene un errore.\n\nErrore: %s"
 10685,1,"Tipo di server sconosciuto, impossibile analizzare l'elenco di testo...\r\n"
-10686,1,"Impossibile analizzare l'elenco di file e cartelle dal server. Verrà visualizzato nel riquadro solo il testo normale dell'elenco.\n\nControlla le nostre pagine Web per una versione più recente di Open Salamander. Se stai usando la versione più recente, inviaci l'elenco in formato grezzo (se non riservato; fai clic con il pulsante destro nel riquadro > Mostra elenco grezzo > Salva con nome) all'indirizzo email support@altap.cz. Aiutaci a supportare il maggior numero possibile di tipi di server."
+10686,1,"Impossibile analizzare l'elenco di file e cartelle dal server. Verrà visualizzato nel riquadro solo il testo normale dell'elenco.\n\nControlla le nostre pagine Web per una versione più recente di Open Samandarin. Se stai usando la versione più recente, inviaci l'elenco in formato grezzo (se non riservato; fai clic con il pulsante destro nel riquadro > Mostra elenco grezzo > Salva con nome) all'indirizzo email support@altap.cz. Aiutaci a supportare il maggior numero possibile di tipi di server."
 10687,1,"Impossibile analizzare l’elenco di testo usando il tipo di server selezionato...\r\n"
 
 [STRINGTABLE 42]
@@ -1974,7 +1974,7 @@ COMMENT,"English version"
 11337,1,"Impossibile ottenere la dimensione (in byte) della parte del file di destinazione già copiata/spostata.\r\n"
 11338,1,"Impossibile riprendere (accodare) il file (errore imprevisto).\r\n"
 11339,1,"Intero file inviato, ma il server non ne ha confermato la ricezione.\r\nProvo a ottenere la dimensione del file (in byte) per verificare se il file è stato copiato/spostato correttamente.\r\n"
-11340,1,"Impossibile trovare o caricare le librerie OpenSSL necessarie per la cifratura.\r\nI file necessari sono ssleay32.dll e libeay32.dll.\r\nFanno parte dell'installazione di Open Salamander."
+11340,1,"Impossibile trovare o caricare le librerie OpenSSL necessarie per la cifratura.\r\nI file necessari sono ssleay32.dll e libeay32.dll.\r\nFanno parte dell'installazione di Open Samandarin."
 11342,1,"Impossibile allocare la struttura di controllo di OpenSSL. Memoria insufficiente."
 11343,1,"ERRORE SSL: Impossibile allocare la struttura di controllo di OpenSSL. Memoria insufficiente.\r\n"
 
