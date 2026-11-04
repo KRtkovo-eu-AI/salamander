@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Keep plug-in DLLs mapped until every plug-in Release returns. | Unloading a runtime plug-in before Salamatrix joins its pump thread crashes on exit. | https://github.com/KRtkovo-eu-AI/salamander/issues/770 https://github.com/KRtkovo-eu-AI/salamander/issues/750 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -2074,6 +2077,7 @@ CPluginData::CPluginData(const char* name, const char* dllName, BOOL supportPane
     BugReportEMail = NULL;
     SubMenu = NULL;
     DLL = NULL;
+    DeferredModule = NULL;
     BuiltForVersion = 0;
     Name = DupStr(name);
     DLLName = DupStr(dllName);
@@ -2185,6 +2189,7 @@ CPluginData::~CPluginData()
 #endif // _DEBUG
     if (PluginIface.NotEmpty())
         PluginIface.Release(NULL, TRUE);
+    FreeDeferredModule();
     if (DLL != NULL)
     {
         TRACE_E("CPluginData::~CPluginData(): unexpected situation (2)!");
@@ -3149,7 +3154,7 @@ static BOOL IsSamandarinPlugin(const char* dllName)
     return fileName != NULL && StrNICmp(fileName, "samandarin", 10) == 0;
 }
 
-BOOL CPluginData::Unload(HWND parent, BOOL ask)
+BOOL CPluginData::Unload(HWND parent, BOOL ask, BOOL freeLibrary)
 {
     CALL_STACK_MESSAGE5("CPluginData::Unload(0x%p, %d) (%s v. %s)", parent, ask, DLLName, Version);
     BOOL ret = FALSE;
@@ -3263,7 +3268,11 @@ BOOL CPluginData::Unload(HWND parent, BOOL ask)
                     // unload SPL+SLG and clean up the interfaces
                     Plugins.UnregisterToolbarButtons(unloadedPlugin);
                     SalamanderGeneral.Clear();
-                    if (DLL != NULL && (!skipTCProxyShutdownCallbacks || skipSamandarinShutdown))
+                    BOOL freeMappedModule = DLL != NULL &&
+                                            (!skipTCProxyShutdownCallbacks || skipSamandarinShutdown);
+                    if (freeMappedModule && !freeLibrary)
+                        DeferredModule = DLL;
+                    else if (freeMappedModule)
                         HANDLES(FreeLibrary(DLL));
                     DLL = NULL;
                     BuiltForVersion = 0;
@@ -3288,6 +3297,15 @@ BOOL CPluginData::Unload(HWND parent, BOOL ask)
         ThumbnailMasksDisabled = FALSE; // unloading completed (we can safely allow the plugin to load again)
     }
     return ret;
+}
+
+void CPluginData::FreeDeferredModule()
+{
+    if (DeferredModule == NULL)
+        return;
+    HINSTANCE module = DeferredModule;
+    DeferredModule = NULL;
+    HANDLES(FreeLibrary(module));
 }
 
 BOOL CPluginData::GetMenuItemStateType(int pluginIndex, int menuItemIndex, MENU_ITEM_INFO* mii)

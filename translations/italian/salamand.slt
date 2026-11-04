@@ -3459,6 +3459,8 @@ SLGINCOMPLETE,""
 13251,1,"Ri+apri scheda chiusa &..."
 13252,1,"&Blocca scheda"
 13253,1,"Sbloc&ca scheda"
+13254,1,"Impossibile attivare l'estensione %s perché il suo runtime (%s) non è installato su questo computer.\n\nInstalla quel runtime e attiva di nuovo l'estensione."
+13255,1,"Impossibile attivare l'estensione %s perché il provider del suo runtime (%s) non è installato.\n\nInstalla il plugin di runtime e riavvia Open Samandarin."
 13260,1,"&Schede"
 13261,1,"&Schede"
 

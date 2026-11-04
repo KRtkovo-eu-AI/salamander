@@ -4,6 +4,8 @@
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Remember the splash fork-line rectangle. | The community-fork sentence sits under the bold version. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// | 2026-11-04 | Explain when an extension runtime is missing. | Installing a Salamatrix extension whose interpreter is absent failed activation with no dialog. | | Grok 4.7 |
+// | 2026-11-04 | Export the missing-runtime dialog with the same linkage as its definition. | The declaration and the dllexport definition were not the same linkage. | | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -12,6 +14,11 @@
 #include <vector>
 
 #include "plugins/salamatrix/salamatrix_extensions.h"
+
+// Shows one dialog for extensions whose Salamatrix runtime provider or
+// interpreter is missing. A NULL extension id reports every such extension.
+extern "C" __declspec(dllexport) void WINAPI SalamanderShowUnavailableExtensionRuntimes(
+    HWND parent, const char* extensionId);
 
 //
 // ****************************************************************************

@@ -1,7 +1,12 @@
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Serialize package copies that share a version file. | Scheduling a second extension before restart could drop the other extensions.ver record. | | Grok 4.7 |
+// | 2026-11-04 | Overwrite extension files and record them for discovery. | Install wrote a receipt without registering the package, and updates left the previous files in place. | | Grok 4.7 |
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -158,14 +163,28 @@ internal static class PluginPackageInstaller
             var extractedRoot = ExtractAndValidate(archivePath, payloadDirectory, packageKind);
             AuthenticodeVerifier.VerifyExtractedPackage(extractedRoot, packageKind);
             var signer = FindFirstPartyPublisher(extractedRoot);
+            var contentRoot = packageKind == OfficialPackageKind.Extension
+                ? ResolveExtensionContentRoot(extractedRoot)
+                : extractedRoot;
             var installed = !string.IsNullOrWhiteSpace(row.InstallDirectory);
             var targetDirectory = installed
                 ? Path.GetFullPath(row.InstallDirectory)
-                : Path.Combine(packageRoot, Path.GetFileName(extractedRoot));
+                : Path.Combine(packageRoot, Path.GetFileName(
+                    contentRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)));
             ValidateTargetDirectory(targetDirectory, executableDirectory, packageRoot);
             var pluginRelativePath = packageKind == OfficialPackageKind.Plugin
                 ? FindPluginRelativePath(extractedRoot, row.Id)
                 : null;
+            var extensionManifests = packageKind == OfficialPackageKind.Extension
+                ? BuildExtensionManifestRecords(contentRoot, packageRoot, targetDirectory)
+                : string.Empty;
+            if (packageKind == OfficialPackageKind.Extension &&
+                string.IsNullOrEmpty(extensionManifests) &&
+                IsInside(targetDirectory, packageRoot))
+            {
+                throw new InvalidDataException(
+                    "The extension package does not contain a manifest that can be registered.");
+            }
             PluginReceiptStore.Upsert(new PluginReceiptRecord
             {
                 id = row.Id,
@@ -179,11 +198,12 @@ internal static class PluginPackageInstaller
             PluginReceiptStore.ClearLastError();
             var helperPath = WriteInstallHelper(
                 stagingDirectory,
-                extractedRoot,
+                contentRoot,
                 targetDirectory,
                 packageRoot,
                 pluginRelativePath,
                 appendPluginRecord: packageKind == OfficialPackageKind.Plugin && !installed,
+                extensionManifests,
                 PluginReceiptStore.GetStorePath());
             StartInstallHelper(
                 helperPath,
@@ -350,6 +370,83 @@ internal static class PluginPackageInstaller
         }
     }
 
+    // A package with one extension.json is that manifest's directory, even when
+    // the archive wraps it in another folder. Several manifests, such as the
+    // demos bundle, stay rooted at the archive directory.
+    private static string ResolveExtensionContentRoot(string extractedRoot)
+    {
+        var manifests = Directory.EnumerateFiles(
+            extractedRoot, "extension.json", SearchOption.AllDirectories).ToList();
+        if (manifests.Count != 1)
+        {
+            return extractedRoot;
+        }
+
+        var directory = Path.GetDirectoryName(manifests[0]);
+        return string.IsNullOrEmpty(directory) ? extractedRoot : directory;
+    }
+
+    private static string BuildExtensionManifestRecords(
+        string contentRoot, string extensionsRoot, string targetDirectory)
+    {
+        var prefix = Path.GetFullPath(extensionsRoot).TrimEnd(Path.DirectorySeparatorChar) +
+                     Path.DirectorySeparatorChar;
+        var contentPrefix = contentRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) +
+                            Path.DirectorySeparatorChar;
+        var records = new List<string>();
+        foreach (var manifest in Directory.EnumerateFiles(
+                     contentRoot, "extension.json", SearchOption.AllDirectories))
+        {
+            if (!manifest.StartsWith(contentPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var relativeToContent = manifest.Substring(contentPrefix.Length);
+            var installed = Path.GetFullPath(Path.Combine(targetDirectory, relativeToContent));
+            if (!installed.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var record = installed.Substring(prefix.Length)
+                .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+            if (!IsSafeExtensionRelative(record))
+            {
+                continue;
+            }
+
+            records.Add(record);
+        }
+
+        records.Sort(StringComparer.OrdinalIgnoreCase);
+        return string.Join("\n", records);
+    }
+
+    private static bool IsSafeExtensionRelative(string relative)
+    {
+        if (string.IsNullOrWhiteSpace(relative) || relative.Length > 16000 || relative.IndexOf(':') >= 0)
+        {
+            return false;
+        }
+
+        if (relative[0] == '\\' || relative[0] == '/')
+        {
+            return false;
+        }
+
+        var parts = relative.Split(new[] { '\\', '/' }, StringSplitOptions.None);
+        foreach (var part in parts)
+        {
+            if (part.Length == 0 || part == "." || part == "..")
+            {
+                return false;
+            }
+        }
+
+        return relative.EndsWith("extension.json", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string FindPluginRelativePath(string extractedRoot, string id)
     {
         var modules = Directory.EnumerateFiles(extractedRoot, "*.spl", SearchOption.AllDirectories).ToList();
@@ -412,11 +509,12 @@ internal static class PluginPackageInstaller
 
     private static string WriteInstallHelper(
         string stagingDirectory,
-        string extractedRoot,
+        string sourceDirectory,
         string targetDirectory,
-        string pluginsRoot,
+        string packageRoot,
         string? pluginRelativePath,
         bool appendPluginRecord,
+        string? extensionManifests,
         string? receiptsPath)
     {
         var helperPath = Path.Combine(stagingDirectory, "install.ps1");
@@ -438,29 +536,82 @@ function Set-ReceiptError([string]$text) {{
     [IO.File]::WriteAllText($tmp, $json, [Text.UTF8Encoding]::new($false))
     Move-Item -LiteralPath $tmp -Destination $path -Force
 }}
+function Use-LongPath([string]$path) {{
+    $full = [IO.Path]::GetFullPath($path)
+    if ($full.Length -lt 260 -or $full.StartsWith('\\?\')) {{ return $full }}
+    if ($full.StartsWith('\\')) {{ return '\\?\UNC\' + $full.Substring(2) }}
+    return '\\?\' + $full
+}}
+function Copy-PackageTree([string]$from, [string]$to) {{
+    if (-not (Test-Path -LiteralPath $from)) {{ throw 'The staged package is missing.' }}
+    $parent = [IO.Path]::GetDirectoryName($to)
+    if ($parent) {{ New-Item -ItemType Directory -Path $parent -Force | Out-Null }}
+    New-Item -ItemType Directory -Path $to -Force | Out-Null
+    Get-ChildItem -LiteralPath $to -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {{
+        $_.Attributes = $_.Attributes -band (-bnot [IO.FileAttributes]::ReadOnly)
+    }}
+    $robocopy = Join-Path $env:SystemRoot 'System32\robocopy.exe'
+    if (Test-Path -LiteralPath $robocopy) {{
+        & $robocopy (Use-LongPath $from) (Use-LongPath $to) /E /R:2 /W:1 /NFL /NDL /NJH /NJS /NP /IS /IT | Out-Null
+        if ($LASTEXITCODE -ge 8) {{ throw ""Copying package files failed (robocopy $LASTEXITCODE)."" }}
+        $global:LASTEXITCODE = 0
+    }} else {{
+        Copy-Item -LiteralPath (Join-Path $from '*') -Destination $to -Recurse -Force
+    }}
+}}
+function Remove-ExtraPackageFiles([string]$from, [string]$to) {{
+    $fromFull = [IO.Path]::GetFullPath($from).TrimEnd('\')
+    $toFull = [IO.Path]::GetFullPath($to).TrimEnd('\')
+    if ($toFull.Length -lt 4) {{ throw 'Refusing to update an unsafe package directory.' }}
+    if ($toFull.Equals($fromFull, [StringComparison]::OrdinalIgnoreCase)) {{ throw 'Refusing to clean the staged package.' }}
+    $items = @(Get-ChildItem -LiteralPath $toFull -Recurse -Force -ErrorAction SilentlyContinue | Sort-Object {{ $_.FullName.Length }} -Descending)
+    foreach ($item in $items) {{
+        if (-not (Test-Path -LiteralPath $item.FullName)) {{ continue }}
+        $relative = $item.FullName.Substring($toFull.Length).TrimStart('\')
+        if ([string]::IsNullOrEmpty($relative)) {{ continue }}
+        if (Test-Path -LiteralPath (Join-Path $fromFull $relative)) {{ continue }}
+        Remove-Item -LiteralPath $item.FullName -Recurse -Force -ErrorAction SilentlyContinue
+    }}
+}}
+function Invoke-PackageInstallLock([scriptblock]$Action) {{
+    $mutex = New-Object System.Threading.Mutex($false, 'Local\OpenSamandarin.PackageInstall')
+    $acquired = $false
+    try {{
+        try {{
+            $acquired = $mutex.WaitOne([TimeSpan]::FromMinutes(30))
+        }} catch [System.Threading.AbandonedMutexException] {{
+            $acquired = $true
+        }}
+        if (-not $acquired) {{ throw 'Timed out waiting for another package install to finish.' }}
+        & $Action
+    }} finally {{
+        if ($acquired) {{ $mutex.ReleaseMutex() | Out-Null }}
+        $mutex.Dispose()
+    }}
+}}
 $sourceProcessId = {Process.GetCurrentProcess().Id}
-$source = Decode('{Encode(extractedRoot)}')
+$source = Decode('{Encode(sourceDirectory)}')
 $target = Decode('{Encode(targetDirectory)}')
-$pluginsRoot = Decode('{Encode(pluginsRoot)}')
+$pluginsRoot = Decode('{Encode(packageRoot)}')
 $staging = Decode('{Encode(stagingDirectory)}')
 $pluginRelative = Decode('{Encode(pluginRelativePath ?? string.Empty)}')
-$backup = $target + '.samandarin-backup-{Guid.NewGuid():N}'
+$extensionManifests = Decode('{Encode(extensionManifests ?? string.Empty)}')
 try {{
-    Wait-Process -Id $sourceProcessId -ErrorAction SilentlyContinue
-    New-Item -ItemType Directory -Path ([IO.Path]::GetDirectoryName($target)) -Force | Out-Null
-    if (Test-Path -LiteralPath $target) {{ Move-Item -LiteralPath $target -Destination $backup -Force }}
-    try {{
-        Move-Item -LiteralPath $source -Destination $target -Force
-    }} catch {{
-        if ((Test-Path -LiteralPath $backup) -and -not (Test-Path -LiteralPath $target)) {{
-            Move-Item -LiteralPath $backup -Destination $target -Force
-        }}
-        throw
-    }}
-    if (Test-Path -LiteralPath $backup) {{ Remove-Item -LiteralPath $backup -Recurse -Force }}
+    $deadline = (Get-Date).AddMinutes(30)
+    do {{
+        $running = Get-Process -Id $sourceProcessId -ErrorAction SilentlyContinue
+        if (-not $running) {{ break }}
+        if ((Get-Date) -ge $deadline) {{ break }}
+        Start-Sleep -Milliseconds 250
+    }} while ($true)
+    Start-Sleep -Milliseconds 500
+    Invoke-PackageInstallLock {{
+    Copy-PackageTree $source $target
+    Remove-ExtraPackageFiles $source $target
     if ($pluginRelative.Length -ne 0) {{
         $versionFile = Join-Path $pluginsRoot 'plugins.ver'
         [string[]]$lines = if (Test-Path -LiteralPath $versionFile) {{ [IO.File]::ReadAllLines($versionFile, [Text.Encoding]::Default) }} else {{ @() }}
+        if ($lines.Count -gt 0) {{ $lines[0] = $lines[0].TrimStart([char]0xFEFF) }}
         $oldVersion = 0
         if ($lines.Count -gt 0 -and $lines[0] -match '^\s*(\d+)') {{ $oldVersion = [int]$Matches[1] }}
         $newVersion = $oldVersion + 1
@@ -476,8 +627,24 @@ try {{
         }}
         [IO.File]::WriteAllLines($versionFile, [string[]]$lines, [Text.Encoding]::Default)
     }}
+    if ($extensionManifests.Length -ne 0) {{
+        $versionFile = Join-Path $pluginsRoot 'extensions.ver'
+        [string[]]$lines = if (Test-Path -LiteralPath $versionFile) {{ [IO.File]::ReadAllLines($versionFile, [Text.UTF8Encoding]::new($false)) }} else {{ @() }}
+        if ($lines.Count -gt 0) {{ $lines[0] = $lines[0].TrimStart([char]0xFEFF) }}
+        $oldVersion = 0
+        if ($lines.Count -gt 0 -and $lines[0] -match '^\s*(\d+)') {{ $oldVersion = [int]$Matches[1] }}
+        $newVersion = $oldVersion + 1
+        if ($lines.Count -eq 0) {{ $lines = @([string]$newVersion) }} else {{ $lines[0] = [string]$newVersion }}
+        foreach ($relative in ($extensionManifests -split ""`n"")) {{
+            $relative = $relative.Trim()
+            if ($relative.Length -eq 0) {{ continue }}
+            $lines += ([string]$newVersion + ':' + $relative)
+        }}
+        [IO.File]::WriteAllLines($versionFile, [string[]]$lines, [Text.UTF8Encoding]::new($false))
+    }}
     Set-ReceiptError $null
     Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
+    }}
 }} catch {{
     Set-ReceiptError ($_ | Out-String)
 }}";

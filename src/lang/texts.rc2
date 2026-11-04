@@ -1,5 +1,7 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// | 2026-11-04 | Describe a missing extension runtime. | Activation failed silently when the interpreter or runtime provider was not installed. | | Grok 4.7 |
+// | 2026-11-04 | Keep the missing-runtime strings valid for the resource compiler. | A backslash before a quote was read as the end of the string. | | Grok 4.7 |
 #include "..\texts.rh2"
 
 STRINGTABLE
@@ -1421,6 +1423,8 @@ STRINGTABLE
  IDS_PLUGINREMOVEOK, "Do you really want to remove %s plugin?\n\nNote: it doesn't delete plugin files from disk."
  IDS_EXTENSIONREMOVEOK, "Do you really want to remove the %s extension?\n\nIts files will not be deleted. Automatic discovery will keep it removed until you add its extension.json again."
  IDS_EXTENSIONADDFAILED, "The selected extension.json could not be installed. Check that the manifest is valid and its entry point is a safe relative path."
+ IDS_EXTENSIONRUNTIMEEXECUTABLE, "The extension %s could not be activated because its runtime (%s) is not installed on this computer.\n\nInstall that runtime and activate the extension again."
+ IDS_EXTENSIONRUNTIMEPROVIDER, "The extension %s could not be activated because its runtime provider (%s) is not installed.\n\nInstall the runtime plug-in and restart Open Samandarin."
  IDS_PLUGINEXISTS, "%s plugin (%s) has already been installed.\nYou can not add it once more."
  IDS_PLUGINFORCEUNLOAD, "%s plugin has rejected to unload.\nDo you want to force it to unload?"
  IDS_PLUGINEXTNONE, "(none)"

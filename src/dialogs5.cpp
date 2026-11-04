@@ -1,5 +1,10 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Ask Salamatrix to integrate extension installs before listing them. | A package copied after startup stayed invisible in Plugin Manager until another restart. | | Grok 4.7 |
+// | 2026-11-04 | Explain when an extension runtime is missing. | Installing a Salamatrix extension whose interpreter is absent failed activation with no dialog. | | Grok 4.7 |
+// | 2026-11-04 | Match the missing-runtime dialog linkage to its declaration. | The dllexport definition did not match the earlier declaration. | | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -157,6 +162,117 @@ Salamatrix::UI::IUIService* QueryExtensionUIService()
     if (!Plugins.QueryService(&query, &result) || result.Interface == NULL)
         return NULL;
     return static_cast<Salamatrix::UI::IUIService*>(result.Interface);
+}
+
+static const char* DescribeMissingExtensionRuntime(const char* runtimeId)
+{
+    if (runtimeId == NULL || runtimeId[0] == 0)
+        return "";
+    if (_stricmp(runtimeId, "JavaScript.Node") == 0)
+        return "Node.js";
+    if (_stricmp(runtimeId, "Python.CPython") == 0)
+        return "Python";
+    if (_stricmp(runtimeId, "PowerShell") == 0)
+        return "PowerShell";
+    if (_stricmp(runtimeId, "PHP.CLI") == 0)
+        return "PHP";
+    if (_stricmp(runtimeId, "Lua") == 0)
+        return "Lua";
+    return runtimeId;
+}
+
+static std::string FormatExtensionRuntimeMessage(
+    const char* format, const char* extensionName, const char* runtimeName)
+{
+    std::string result;
+    if (format == NULL)
+        return result;
+    const char* first = strstr(format, "%s");
+    if (first == NULL)
+        return format;
+    result.append(format, static_cast<size_t>(first - format));
+    if (extensionName != NULL)
+        result += extensionName;
+    const char* rest = first + 2;
+    const char* second = strstr(rest, "%s");
+    if (second == NULL)
+    {
+        result += rest;
+        return result;
+    }
+    result.append(rest, static_cast<size_t>(second - rest));
+    if (runtimeName != NULL)
+        result += runtimeName;
+    result += second + 2;
+    return result;
+}
+
+static volatile LONG UnavailableRuntimeDialogShowing = 0;
+
+struct UnavailableRuntimeDialogGuard
+{
+    ~UnavailableRuntimeDialogGuard()
+    {
+        InterlockedExchange(&UnavailableRuntimeDialogShowing, 0);
+    }
+};
+
+extern "C" __declspec(dllexport) void WINAPI SalamanderShowUnavailableExtensionRuntimes(
+    HWND parent, const char* extensionId)
+{
+    if (InterlockedCompareExchange(&UnavailableRuntimeDialogShowing, 1, 0) != 0)
+    {
+        return;
+    }
+    UnavailableRuntimeDialogGuard showingGuard;
+    (void)showingGuard;
+
+    Salamatrix::Extensions::IExtensionsService* service = QueryExtensionService();
+    std::string body;
+    if (service != NULL)
+    {
+        const int count = service->GetExtensionCount();
+        for (int index = 0; index < count; ++index)
+        {
+            Salamatrix::Extensions::ExtensionInfo info;
+            if (!service->GetExtensionInfo(index, &info))
+                continue;
+            if (extensionId != NULL && extensionId[0] != 0 &&
+                _stricmp(info.Descriptor.Id, extensionId) != 0)
+                continue;
+            const DWORD flags = info.Descriptor.Flags;
+            if ((flags & Salamatrix::Extensions::ExtensionFlagDisabled) != 0)
+                continue;
+            const bool executableMissing =
+                (flags & Salamatrix::Extensions::ExtensionFlagRuntimeExecutableUnavailable) != 0;
+            const bool providerMissing =
+                (flags & Salamatrix::Extensions::ExtensionFlagRuntimeUnavailable) != 0;
+            if (!executableMissing && !providerMissing)
+                continue;
+            const char* format = LoadStr(
+                executableMissing ? IDS_EXTENSIONRUNTIMEEXECUTABLE
+                                  : IDS_EXTENSIONRUNTIMEPROVIDER);
+            std::string formatCopy = format != NULL ? format : "";
+            const char* name = info.Descriptor.Name[0] != 0
+                                   ? info.Descriptor.Name
+                                   : info.Descriptor.Id;
+            std::string paragraph = FormatExtensionRuntimeMessage(
+                formatCopy.c_str(), name,
+                DescribeMissingExtensionRuntime(info.Descriptor.RuntimeId));
+            if (paragraph.empty())
+                continue;
+            if (!body.empty())
+                body += "\n\n";
+            body += paragraph;
+        }
+    }
+
+    if (!body.empty())
+    {
+        std::string title = LoadStr(IDS_ERRORTITLE);
+        SalMessageBox(
+            parent, body.c_str(), title.c_str(), MB_OK | MB_ICONEXCLAMATION);
+    }
 }
 
 //
@@ -750,6 +866,15 @@ void CPluginsDlg::SetColumnWidths()
 
 void CPluginsDlg::RefreshListView(BOOL setOnly, int selIndex, const CPluginData* selectPlugin, BOOL setColumnWidths)
 {
+    HMODULE salamatrix = GetModuleHandleA("salamatrix.spl");
+    typedef void(WINAPI* IntegrateInstalledExtensionsProc)();
+    IntegrateInstalledExtensionsProc integrate = salamatrix == NULL
+                                                     ? NULL
+                                                     : reinterpret_cast<IntegrateInstalledExtensionsProc>(
+                                                           GetProcAddress(salamatrix, "SalamatrixIntegrateInstalledExtensions"));
+    if (integrate != NULL)
+        integrate();
+
     SendMessage(HListView, WM_SETREDRAW, FALSE, 0);
 
     const int previousExtensionCount = static_cast<int>(ExtensionRows.size());
@@ -2027,6 +2152,9 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 Salamatrix::Extensions::IExtensionsService* service = QueryExtensionService();
                 if (extension != NULL && service != NULL)
                 {
+                    char extensionId[128];
+                    lstrcpynA(
+                        extensionId, extension->Descriptor.Id, _countof(extensionId));
                     const BOOL active =
                         extension->State == Salamatrix::Extensions::ExtensionStateActive;
                     const BOOL disabled =
@@ -2040,32 +2168,26 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         // facing persistent disable control for manifest
                         // packages. Do not mark it disabled until its worker
                         // has stopped successfully.
-                        if (service->DeactivateExtension(
-                                extension->Descriptor.Id) &&
+                        if (service->DeactivateExtension(extensionId) &&
                             (storage == NULL || storage->SetBoolean(
-                                extension->Descriptor.Id,
-                                "salamatrix.enabled", FALSE)))
+                                extensionId, "salamatrix.enabled", FALSE)))
                         {
-                            service->SetExtensionDisabled(
-                                extension->Descriptor.Id, TRUE);
+                            service->SetExtensionDisabled(extensionId, TRUE);
                         }
                     }
                     else if (disabled)
                     {
                         if (storage == NULL || storage->SetBoolean(
-                                extension->Descriptor.Id,
-                                "salamatrix.enabled", TRUE))
+                                extensionId, "salamatrix.enabled", TRUE))
                         {
-                            if (service->SetExtensionDisabled(
-                                    extension->Descriptor.Id, FALSE))
-                            {
-                                service->ActivateExtension(
-                                    extension->Descriptor.Id);
-                            }
+                            if (service->SetExtensionDisabled(extensionId, FALSE))
+                                service->ActivateExtension(extensionId);
                         }
                     }
                     else
-                        service->ActivateExtension(extension->Descriptor.Id);
+                        service->ActivateExtension(extensionId);
+                    if (!active)
+                        SalamanderShowUnavailableExtensionRuntimes(HWindow, extensionId);
                     RefreshListView(TRUE, listIndex);
                 }
             }
