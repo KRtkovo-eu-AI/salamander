@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Describe punctuation runs as edit word boundaries. | Ctrl+arrow now stops around every punctuation and symbol run. | | Grok 4.7 |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 #pragma once
@@ -1028,10 +1029,9 @@ void RearmCurrentToolTip(HWND hNotifyWindow, DWORD id, int showDelay = 0);
 void SetCurrentPanelToolTip(HWND hNotifyWindow, DWORD id, int showDelay = 0);
 void SuppressToolTipOnCurrentMousePos();                                 // popis v tooltip.h
 
-// zajisti skoky kurzoru pri Ctrl+Left/Right po zpetnych lomitkach a mezerach
-// k editline nebo comboboxu priradi EditWordBreakProc
-// je mozne zavolat napriklad v WM_INITDIALOG
-// neni nutne odinstalovavat
+// Ctrl+Left/Right stops on both sides of a punctuation or symbol run, including '_'.
+// Letters and digits stay one word and spaces are skipped. Assigns EditWordBreakProc
+// to an edit line or a combo box. Safe to call from WM_INITDIALOG. No need to uninstall.
 BOOL InstallWordBreakProc(HWND hWindow);
 
 // vymaze vsechny polozky z dropdown listboxu od comboboxu

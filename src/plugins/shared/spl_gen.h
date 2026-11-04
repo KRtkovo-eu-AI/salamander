@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Describe punctuation runs as edit word boundaries. | Ctrl+arrow now stops around every punctuation and symbol run. | | Grok 4.7 |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 //****************************************************************************
@@ -2728,10 +2729,11 @@ public:
     //
     // InstallWordBreakProc
     //   Installs special word break procedure to the specified window. This procedure
-    //   is inteded for easier cursor movevement in the single line edit controls.
-    //   Delimiters '\\', '/', ' ', ';', ',', and '.' are used as cursor stops when user
-    //   navigates using Ctrl+Left or Ctrl+Right keys.
-    //   You can use Ctrl+Backspace to delete one word.
+    //   is intended for easier cursor movement in the single line edit controls.
+    //   Ctrl+Left and Ctrl+Right stop on both sides of a run of punctuation or symbols,
+    //   including '_'. Letters and digits form a word, and spaces are skipped.
+    //   Ctrl+Shift extends the selection. Ctrl+Backspace and Ctrl+Delete remove the
+    //   same span.
     //
     // Parameters
     //   'hWindow'
