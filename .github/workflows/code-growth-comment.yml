@@ -1,0 +1,155 @@
+name: Source Code Growth Comment
+
+on:
+  workflow_run:
+    workflows: ['Source Code Growth']
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: code-growth-comment-${{ github.event.workflow_run.head_repository.owner.login }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+jobs:
+  comment:
+    name: Publish source growth comments
+    # Fork runs leave workflow_run.pull_requests empty, so the pull request is
+    # resolved from the head repository and branch below.
+    if: >-
+      ${{
+        github.event.workflow_run.event == 'pull_request' &&
+        github.event.workflow_run.conclusion == 'success'
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      # Same-repository PRs already get comments from code-growth.yml. Skipping
+      # this whole job left the workflow grey on every in-repo PR.
+      - name: Same-repository comments already published
+        if: github.event.workflow_run.head_repository.full_name == github.repository
+        run: |
+          echo "Same-repository PR; source growth comments were published by Source Code Growth."
+
+      - name: Download release comparison report
+        if: github.event.workflow_run.head_repository.full_name != github.repository
+        uses: actions/download-artifact@v4
+        with:
+          name: source-code-growth-report
+          path: code-growth-report
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download pull request comparison report
+        if: github.event.workflow_run.head_repository.full_name != github.repository
+        uses: actions/download-artifact@v4
+        with:
+          name: source-code-growth-pr-report
+          path: code-growth-pr-report
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish source growth comments
+        if: github.event.workflow_run.head_repository.full_name != github.repository
+        uses: actions/github-script@v7
+        env:
+          HEAD_OWNER: ${{ github.event.workflow_run.head_repository.owner.login }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          REPORT_PATH: code-growth-report/report.md
+          PR_REPORT_PATH: code-growth-pr-report/report.md
+        with:
+          script: |
+            const fs = require('fs');
+
+            const headOwner = process.env.HEAD_OWNER;
+            const headBranch = process.env.HEAD_BRANCH;
+            const headSha = process.env.HEAD_SHA;
+            const runUrl = process.env.RUN_URL;
+            if (!headOwner || !headBranch || !headSha || !runUrl) {
+              core.setFailed('Source Code Growth run is missing its head repository, branch, commit, or URL.');
+              return;
+            }
+
+            const pulls = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              head: `${headOwner}:${headBranch}`,
+              per_page: 100,
+            });
+            if (pulls.length === 0) {
+              core.setFailed(`No pull request from ${headOwner}:${headBranch} was found.`);
+              return;
+            }
+
+            const pull = pulls.find((item) => item.state === 'open' && item.head.sha === headSha);
+            if (!pull) {
+              core.warning(`No open pull request from ${headOwner}:${headBranch} is at ${headSha}.`);
+              return;
+            }
+
+            const isOurs = (comment) => comment.user?.login === 'github-actions[bot]';
+            const hasMarker = (comment, value) => {
+              const text = comment.body || '';
+              return text.startsWith(`${value}\n`) || text.startsWith(`${value}\r\n`);
+            };
+
+            async function publish(marker, reportPath, expectedHeading, footer) {
+              const report = fs.readFileSync(reportPath, 'utf8').trim();
+              if (!report.startsWith(expectedHeading)) {
+                throw new Error(`Report ${reportPath} does not start with ${expectedHeading}.`);
+              }
+
+              const body = `${marker}\n${report}${footer}`;
+              if (body.length > 65000) {
+                throw new Error(`Source growth report is too large for a PR comment (${body.length} characters).`);
+              }
+
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pull.number,
+                per_page: 100,
+              });
+              const existing = comments.find(
+                (comment) => isOurs(comment) && hasMarker(comment, marker),
+              );
+              if (existing) {
+                const updated = await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existing.id,
+                  body,
+                });
+                core.info(`Updated source growth report: ${updated.data.html_url}`);
+                return;
+              }
+
+              const created = await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pull.number,
+                body,
+              });
+              core.info(`Published source growth report: ${created.data.html_url}`);
+            }
+
+            await publish(
+              '<!-- source-code-growth-report -->',
+              process.env.REPORT_PATH,
+              '# Source code growth compared with the latest release',
+              `\n\n---\n<sub>Automatically updated for \`${headSha}\`. [Open workflow run](${runUrl}).</sub>`,
+            );
+            await publish(
+              '<!-- source-code-growth-pr-report -->',
+              process.env.PR_REPORT_PATH,
+              '# Source code growth compared with the base branch',
+              `\n\n---\n<sub>Compared with base branch \`${pull.base.ref}\` at \`${pull.base.sha}\`; updated for \`${headSha}\`. [Open workflow run](${runUrl}).</sub>`,
+            );
