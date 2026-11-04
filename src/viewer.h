@@ -327,6 +327,11 @@ protected:
     void PaintDecodedText(HDC dc, const RECT& fullLine, int lines, int columns, int clipFirstRow,
                           int clipLastRow, BOOL& fatalErr, BOOL& setFindOffset);
     BOOL FindDecodedLiteral(HANDLE* hFile, BOOL forward, WORD flags, BOOL& foundMatch, BOOL& fatalErr);
+    // Regular expression on UTF-8/UTF-16 text (text and hex view): lines are decoded and searched
+    // as UTF-8 (RegExp in UTF-8 mode, see PrepareFindPattern). On a match sets the selection and
+    // FindOffset and returns TRUE; 'noNotFound' = a message (empty match, low memory) was shown.
+    BOOL FindDecodedRegExp(HANDLE* hFile, BOOL forward, BOOL& noNotFound, BOOL& escPressed, BOOL& fatalErr);
+    BOOL UseDecodedRegExp() const { return HasDecodedTextEncoding() && FindDialog.Regular && !FindDialog.HexMode; }
 
     void SetToolTipOffset(__int64 offset);
 
