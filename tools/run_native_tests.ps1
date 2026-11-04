@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-05 | Run the Find Look in contract test. | Keep HistoryComboBox from replacing the current panel path with history[0]. | https://github.com/KRtkovo-eu-AI/salamander/issues/743 | Composer |
 # | 2026-11-05 | Run the shell-extension crash-protection contract test. | Faulty third-party shell extensions must not TerminateProcess Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 # | 2026-11-05 | Run the SVG FS-panel icon contract test. | Salamatrix/SVG panel icons must keep 16/32/48 sizes and a clean alpha path. | | Composer |
 # | 2026-11-04 | Retry a native build that reaches the runner limit, and wait up to 119 seconds. | The first MSBuild codegen step reached the old 110 second cap on a cold runner. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
@@ -438,6 +439,14 @@ try {
                 '-B',
                 (Join-Path $repositoryRoot `
                     'src\tests\copy_move_scheduling_contract_tests.py')
+            )
+        },
+        @{
+            Name = 'find_look_in_contract_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\find_look_in_contract_tests.py')
             )
         },
         @{
