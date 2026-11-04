@@ -3,6 +3,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Fix rename progress title and Total bar by summing sizes before upload. | english.slg lacked IDS_OPERATION_RENAME, and AddTotal during the copy made Total jump ahead of File. | | Grok 4.7 |
+// | 2026-11-04 | Open Salamander progress without Salamatrix, match folder renames on either name, and find children in one bulk property pass. | Overwrite waited on one GetValues per sibling, folder rename fell into a full download after ORIGINAL_FILE_NAME stayed old, and progress never appeared when Salamatrix.UI was missing. | | Grok 4.7 |
+// | 2026-11-04 | Skip a missing host operations method, refresh panels on device change, and keep the copy buffer off the stack. | Calling the new slot in an older salamand.exe executes an RTTI record and kills the process. The device list stayed cached until a manual refresh. | | Grok 4.7 |
 // | 2026-11-04 | Include the standard containers through precomp.h. | Debug builds with a precompiled header never saw the <vector> include above it. | | Grok 4.7 |
 // | 2026-11-04 | Overwrite, merge, and rename portable items through Salamander progress. | Creating an object whose name is still present wedges Android MTP, and folder renames must survive devices that ignore WPD_OBJECT_NAME. | | Grok 4.7 |
 
@@ -27,18 +30,47 @@
 #include "globals.h"
 #include "lang\lang.rh"
 #include "wpdnamepolicy.h"
-#include "../salamatrix/salamatrix_ui.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // CWpdFS
 
 extern CWpdDeviceList g_oDeviceList;
 
+static std::vector<CWpdFS*> WpdOpenPanels;
+
+void WINAPI WpdRefreshPanelsForDeviceChange()
+{
+    g_oDeviceList.SetForceUpdate();
+    if (SalamanderGeneral == nullptr)
+    {
+        return;
+    }
+
+    std::vector<CWpdFS*> panels = WpdOpenPanels;
+    for (size_t i = 0; i < panels.size(); ++i)
+    {
+        SalamanderGeneral->PostRefreshPanelFS(panels[i], FALSE);
+    }
+}
+
 PCSTR CWpdFS::SUGGESTED_NAME = SuggestedFSName;
 
 CWpdFS::CWpdFS(CFxPluginInterfaceForFS& owner)
     : TFxPluginFSInterface(owner)
 {
+    WpdOpenPanels.push_back(this);
+}
+
+CWpdFS::~CWpdFS()
+{
+    for (size_t i = 0; i < WpdOpenPanels.size(); ++i)
+    {
+        if (WpdOpenPanels[i] == this)
+        {
+            WpdOpenPanels.erase(WpdOpenPanels.begin() + static_cast<std::ptrdiff_t>(i));
+            break;
+        }
+    }
 }
 
 HRESULT WINAPI CWpdFS::GetChildEnumerator(
@@ -126,13 +158,144 @@ static PCSTR WpdLoadStr(UINT id)
 static std::string WpdText(UINT id)
 {
     const char* text = WpdLoadStr(id);
-    return text != nullptr ? std::string(text) : std::string();
+    if (text != nullptr && lstrcmpA(text, "ERROR LOADING STRING") != 0)
+    {
+        return std::string(text);
+    }
+    // Fallback when the staged .slg is older than the plug-in and is missing
+    // the new string IDs (rename/overwrite titles showed ERROR LOADING STRING).
+    switch (id)
+    {
+    case IDS_OPERATION_FAILED_FMT:
+        return "%s '%s' failed (0x%08X).";
+    case IDS_OPERATION_RENAME:
+        return "Rename";
+    case IDS_OPERATION_CREATEFOLDER:
+        return "Create Folder";
+    case IDS_OPERATION_VIEW:
+        return "View";
+    case IDS_OPERATION_NAME_STILL_EXISTS:
+        return "The name is still on the device. The item was not created again.";
+    case IDS_OPERATION_TYPE_MISMATCH_FILE:
+        return "A file cannot replace a folder.";
+    case IDS_OPERATION_TYPE_MISMATCH_DIR:
+        return "A folder cannot replace a file.";
+    case IDS_OPERATION_ALREADY_EXISTS:
+        return "An item with this name already exists.";
+    case IDS_OPERATION_DETAILS_UNKNOWN:
+        return "?";
+    case IDS_OPERATIONPROGRESS_COPY:
+        return "Copy";
+    case IDS_OPERATIONPROGRESS_MOVE:
+        return "Move";
+    case IDS_OPERATIONPROGRESS_DELETE:
+        return "Delete";
+    case IDS_OPERATIONPROGRESS_TITLE:
+        return "Portable Devices";
+    default:
+        return text != nullptr ? std::string(text) : std::string();
+    }
 }
 
 static HWND WpdDialogOwner = nullptr;
 static bool WpdReportedError = false;
 class CWpdStandardProgress;
 static CWpdStandardProgress* WpdActiveProgress = nullptr;
+
+// MSVC turns a pointer to a virtual method into a thunk that jumps through
+// the vtable slot. An older salamand.exe does not have GetSalamanderForOperations,
+// so that slot is the next object's RTTI record. Executing it is the access
+// violation from the rename and overwrite dumps. Read the slot and accept it
+// only when it points at executable code.
+static size_t WpdOperationsVtableOffset()
+{
+    using Method = CSalamanderForOperationsAbstract*(WINAPI CSalamanderGeneralAbstract::*)(HWND);
+    Method method = &CSalamanderGeneralAbstract::GetSalamanderForOperations;
+    void* thunk = nullptr;
+    memcpy(&thunk, &method, sizeof(thunk));
+
+    MEMORY_BASIC_INFORMATION info;
+    if (thunk == nullptr || ::VirtualQuery(thunk, &info, sizeof(info)) == 0)
+    {
+        return static_cast<size_t>(-1);
+    }
+    const DWORD protect = info.Protect & 0xFF;
+    if (protect != PAGE_EXECUTE && protect != PAGE_EXECUTE_READ &&
+        protect != PAGE_EXECUTE_READWRITE && protect != PAGE_EXECUTE_WRITECOPY)
+    {
+        return static_cast<size_t>(-1);
+    }
+
+    const unsigned char* code = static_cast<const unsigned char*>(thunk);
+    size_t opcode = static_cast<size_t>(-1);
+    // x64: mov rax, [rcx] / jmp|call [rax+slot]
+    if (code[0] == 0x48 && code[1] == 0x8B && code[2] == 0x01 && code[3] == 0xFF)
+    {
+        opcode = 4;
+    }
+    // x86: mov eax, [ecx] / jmp|call [eax+slot]
+    else if (code[0] == 0x8B && code[1] == 0x01 && code[2] == 0xFF)
+    {
+        opcode = 3;
+    }
+    if (opcode == static_cast<size_t>(-1))
+    {
+        return static_cast<size_t>(-1);
+    }
+    if (code[opcode] == 0x60)
+    {
+        return code[opcode + 1];
+    }
+    if (code[opcode] == 0xA0 || code[opcode] == 0x90)
+    {
+        int displacement = 0;
+        memcpy(&displacement, code + opcode + 1, sizeof(displacement));
+        if (displacement >= 0)
+        {
+            return static_cast<size_t>(displacement);
+        }
+    }
+    return static_cast<size_t>(-1);
+}
+
+static bool WpdHostExportsOperations()
+{
+    const size_t offset = WpdOperationsVtableOffset();
+    if (offset == static_cast<size_t>(-1) || SalamanderGeneral == nullptr)
+    {
+        return false;
+    }
+
+    void** vtable = *reinterpret_cast<void***>(SalamanderGeneral);
+    if (vtable == nullptr)
+    {
+        return false;
+    }
+
+    MEMORY_BASIC_INFORMATION info;
+    void* slot = reinterpret_cast<unsigned char*>(vtable) + offset;
+    if (::VirtualQuery(slot, &info, sizeof(info)) == 0)
+    {
+        return false;
+    }
+    const DWORD slotProtect = info.Protect & 0xFF;
+    const bool slotReadable = slotProtect == PAGE_READONLY || slotProtect == PAGE_READWRITE ||
+                              slotProtect == PAGE_WRITECOPY || slotProtect == PAGE_EXECUTE_READ ||
+                              slotProtect == PAGE_EXECUTE_READWRITE || slotProtect == PAGE_EXECUTE_WRITECOPY;
+    if (!slotReadable)
+    {
+        return false;
+    }
+
+    void* target = *reinterpret_cast<void**>(slot);
+    if (::VirtualQuery(target, &info, sizeof(info)) == 0)
+    {
+        return false;
+    }
+    const DWORD targetProtect = info.Protect & 0xFF;
+    return targetProtect == PAGE_EXECUTE || targetProtect == PAGE_EXECUTE_READ ||
+           targetProtect == PAGE_EXECUTE_READWRITE || targetProtect == PAGE_EXECUTE_WRITECOPY;
+}
 
 static HWND WpdDialogParent(HWND fallback)
 {
@@ -143,12 +306,13 @@ class CWpdStandardProgress
 {
 public:
     CWpdStandardProgress()
-        : m_dialog(nullptr),
-          m_ui(nullptr),
+        : m_operations(nullptr),
           m_previousOwner(nullptr),
           m_totalBytes(0),
           m_doneBytes(0),
-          m_opened(false)
+          m_opened(false),
+          m_opsDialog(false),
+          m_waitWindow(false)
     {
     }
 
@@ -165,10 +329,28 @@ public:
         }
     }
 
-    // Salamatrix.UI is optional. When the service or the operations object is
-    // missing, overwrite and error dialogs stay parented to the panel and the
-    // copy, move, or delete still runs. A missing progress dialog is not a
-    // reason to fail the operation.
+    // Push the summed Total size into the dialog before the first file starts.
+    // Calling this after every AddTotal during the copy made Total race ahead
+    // of File because the denominator was still only the files seen so far.
+    void CommitTotals()
+    {
+        if (!m_opsDialog || m_operations == nullptr)
+        {
+            return;
+        }
+        CQuadWord unchanged(-1, -1);
+        CQuadWord allTotal;
+        allTotal.SetUI64(m_totalBytes == 0 ? 1 : m_totalBytes);
+        m_operations->ProgressSetTotalSize(unchanged, allTotal);
+        CQuadWord zero(0, 0);
+        CQuadWord done;
+        done.SetUI64(m_doneBytes);
+        m_operations->ProgressSetSize(unchanged, done, FALSE);
+    }
+
+    // Prefer the host progress dialog. When this host build has no
+    // GetSalamanderForOperations slot, show the Safe Wait window so the user
+    // still sees that the plugin is working.
     bool Open(HWND panel, const std::string& title)
     {
         Close();
@@ -177,93 +359,95 @@ public:
         WpdActiveProgress = this;
         m_opened = true;
 
-        if (SalamanderGeneral == nullptr)
+        if (SalamanderGeneral != nullptr && WpdHostExportsOperations())
         {
-            return true;
+            m_operations = SalamanderGeneral->GetSalamanderForOperations(panel);
+            if (m_operations != nullptr)
+            {
+                m_operations->OpenProgressDialog(title.c_str(), TRUE, panel, TRUE);
+                m_opsDialog = true;
+                HWND progressWindow = m_operations->ProgressGetHWND();
+                if (progressWindow != nullptr)
+                {
+                    WpdDialogOwner = progressWindow;
+                }
+                m_operations->ProgressEnableCancel(TRUE);
+                return true;
+            }
         }
 
-        CSalamanderForOperationsAbstract* operations = SalamanderGeneral->GetSalamanderForOperations(panel);
-        CSalamanderServiceQuery query;
-        CSalamanderServiceResult result;
-        memset(&query, 0, sizeof(query));
-        memset(&result, 0, sizeof(result));
-        query.ServiceId = SALAMATRIX_SERVICE_UI;
-        query.MinimumVersion = SALAMATRIX_UI_VERSION_1_0;
-        if (operations == nullptr ||
-            !SalamanderGeneral->QueryService(&query, &result) ||
-            result.Interface == nullptr)
+        if (SalamanderGeneral != nullptr)
         {
-            return true;
-        }
-
-        m_ui = static_cast<Salamatrix::UI::IUIService*>(result.Interface);
-        m_dialog = m_ui->CreateProgressDialog(operations);
-        if (m_dialog == nullptr)
-        {
-            m_ui = nullptr;
-            return true;
-        }
-
-        Salamatrix::UI::ProgressDialogOptions options;
-        options.Title = title.c_str();
-        options.Parent = panel;
-        options.TwoProgressBars = TRUE;
-        options.FileProgress = TRUE;
-        options.CancelEnabled = TRUE;
-        m_dialog->Open(options);
-        HWND progressWindow = m_dialog->GetHWND();
-        if (progressWindow != nullptr)
-        {
-            WpdDialogOwner = progressWindow;
+            SalamanderGeneral->CreateSafeWaitWindow(title.c_str(), nullptr, 0, TRUE, panel);
+            m_waitWindow = true;
         }
         return true;
     }
 
     bool BeginItem(const char* name, ULONGLONG fileBytes)
     {
-        if (m_dialog == nullptr || !m_dialog->IsOpen())
+        if (m_opsDialog && m_operations != nullptr)
         {
-            return true;
+            if (name != nullptr && name[0] != '\0')
+            {
+                m_operations->ProgressDialogAddText(name, FALSE);
+            }
+
+            CQuadWord unchanged(-1, -1);
+            CQuadWord fileTotal;
+            if (fileBytes == static_cast<ULONGLONG>(-1))
+            {
+                // Keep the existing File total; only refresh the Total bar.
+                fileTotal = unchanged;
+            }
+            else
+            {
+                fileTotal.SetUI64(fileBytes == 0 ? 1 : fileBytes);
+            }
+            CQuadWord allTotal;
+            if (m_totalBytes == 0)
+            {
+                allTotal = unchanged;
+            }
+            else
+            {
+                allTotal.SetUI64(m_totalBytes);
+            }
+            m_operations->ProgressSetTotalSize(fileTotal, allTotal);
+
+            CQuadWord filePos(0, 0);
+            CQuadWord done;
+            done.SetUI64(m_doneBytes);
+            return m_operations->ProgressSetSize(filePos, done, FALSE);
         }
 
-        if (name != nullptr && name[0] != '\0')
+        if (m_waitWindow && SalamanderGeneral != nullptr)
         {
-            m_dialog->AddText(name, FALSE);
+            if (name != nullptr && name[0] != '\0')
+            {
+                SalamanderGeneral->SetSafeWaitWindowText(name);
+            }
+            return !SalamanderGeneral->GetSafeWaitWindowClosePressed();
         }
-
-        CQuadWord fileTotal;
-        if (fileBytes == static_cast<ULONGLONG>(-1))
-        {
-            fileTotal.SetUI64(1);
-        }
-        else
-        {
-            fileTotal.SetUI64(fileBytes == 0 ? 1 : fileBytes);
-        }
-        CQuadWord allTotal;
-        allTotal.SetUI64(m_totalBytes == 0 ? 1 : m_totalBytes);
-        m_dialog->SetTotals(fileTotal, allTotal);
-
-        CQuadWord filePos;
-        CQuadWord done;
-        filePos.SetUI64(0);
-        done.SetUI64(m_doneBytes);
-        return m_dialog->SetPositions(filePos, done, FALSE) && !m_dialog->IsCancelled();
+        return true;
     }
 
     bool OnBytes(ULONGLONG copied, ULONGLONG total)
     {
         UNREFERENCED_PARAMETER(total);
-        if (m_dialog == nullptr || !m_dialog->IsOpen())
+        if (m_opsDialog && m_operations != nullptr)
         {
-            return true;
+            CQuadWord filePos;
+            CQuadWord done;
+            filePos.SetUI64(copied);
+            done.SetUI64(m_doneBytes + copied);
+            return m_operations->ProgressSetSize(filePos, done, TRUE);
         }
-
-        CQuadWord filePos;
-        CQuadWord done;
-        filePos.SetUI64(copied);
-        done.SetUI64(m_doneBytes + copied);
-        return m_dialog->SetPositions(filePos, done, TRUE) && !m_dialog->IsCancelled();
+        if (m_waitWindow && SalamanderGeneral != nullptr)
+        {
+            return !SalamanderGeneral->GetSafeWaitWindowClosePressed();
+        }
+        return true;
     }
 
     void EndItem(ULONGLONG fileBytes)
@@ -272,13 +456,13 @@ public:
         {
             m_doneBytes += fileBytes;
         }
-        if (m_dialog != nullptr && m_dialog->IsOpen())
+        if (m_opsDialog && m_operations != nullptr)
         {
             CQuadWord filePos;
             CQuadWord done;
             filePos.SetUI64(fileBytes == static_cast<ULONGLONG>(-1) ? 0 : fileBytes);
             done.SetUI64(m_doneBytes);
-            m_dialog->SetPositions(filePos, done, FALSE);
+            m_operations->ProgressSetSize(filePos, done, FALSE);
         }
     }
 
@@ -288,13 +472,17 @@ public:
         {
             WpdActiveProgress = nullptr;
         }
-        if (m_dialog != nullptr && m_ui != nullptr)
+        if (m_opsDialog && m_operations != nullptr)
         {
-            m_dialog->Close();
-            m_ui->DestroyProgressDialog(m_dialog);
+            m_operations->CloseProgressDialog();
         }
-        m_dialog = nullptr;
-        m_ui = nullptr;
+        if (m_waitWindow && SalamanderGeneral != nullptr)
+        {
+            SalamanderGeneral->DestroySafeWaitWindow();
+        }
+        m_operations = nullptr;
+        m_opsDialog = false;
+        m_waitWindow = false;
         if (m_opened)
         {
             WpdDialogOwner = m_previousOwner;
@@ -303,12 +491,13 @@ public:
     }
 
 private:
-    Salamatrix::UI::IProgressDialog* m_dialog;
-    Salamatrix::UI::IUIService* m_ui;
+    CSalamanderForOperationsAbstract* m_operations;
     HWND m_previousOwner;
     ULONGLONG m_totalBytes;
     ULONGLONG m_doneBytes;
     bool m_opened;
+    bool m_opsDialog;
+    bool m_waitWindow;
 };
 
 static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG size)
@@ -316,7 +505,9 @@ static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG 
     _ASSERTE(source != nullptr);
     _ASSERTE(target != nullptr);
 
-    BYTE buffer[64 * 1024];
+    // The copy runs on the UI thread under the progress dialog. A 64 KB stack
+    // buffer there is large enough to overflow a deep call.
+    std::vector<BYTE> buffer(64 * 1024);
     ULONGLONG copied = 0;
     for (;;)
     {
@@ -326,7 +517,7 @@ static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG 
         }
 
         ULONG read = 0;
-        HRESULT hr = source->Read(buffer, sizeof(buffer), &read);
+        HRESULT hr = source->Read(buffer.data(), static_cast<ULONG>(buffer.size()), &read);
         if (FAILED(hr))
         {
             return hr;
@@ -350,7 +541,7 @@ static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG 
         while (writtenTotal < toWrite)
         {
             ULONG written = 0;
-            hr = target->Write(buffer + writtenTotal, toWrite - writtenTotal, &written);
+            hr = target->Write(buffer.data() + writtenTotal, toWrite - writtenTotal, &written);
             if (FAILED(hr))
             {
                 return hr;
@@ -597,6 +788,54 @@ static std::wstring WpdSafeComponent(const std::wstring& name)
         safe = L"_";
     }
     return safe;
+}
+
+static ULONGLONG WpdDiskTreeBytes(const std::wstring& path)
+{
+    std::wstring native = WpdForWin32(path);
+    DWORD attributes = ::GetFileAttributesW(native.c_str());
+    if (attributes == INVALID_FILE_ATTRIBUTES)
+    {
+        return 0;
+    }
+    if ((attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+    {
+        WIN32_FILE_ATTRIBUTE_DATA info;
+        if (!::GetFileAttributesExW(native.c_str(), GetFileExInfoStandard, &info))
+        {
+            return 0;
+        }
+        return (static_cast<ULONGLONG>(info.nFileSizeHigh) << 32) | info.nFileSizeLow;
+    }
+
+    ULONGLONG total = 0;
+    std::wstring mask = native;
+    WpdAppendComponent(mask, L"*");
+    WIN32_FIND_DATAW data;
+    HANDLE find = ::FindFirstFileW(mask.c_str(), &data);
+    if (find == INVALID_HANDLE_VALUE)
+    {
+        return 0;
+    }
+    do
+    {
+        if (lstrcmpW(data.cFileName, L".") == 0 || lstrcmpW(data.cFileName, L"..") == 0)
+        {
+            continue;
+        }
+        std::wstring child = path;
+        WpdAppendComponent(child, data.cFileName);
+        if ((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+        {
+            total += WpdDiskTreeBytes(child);
+        }
+        else
+        {
+            total += (static_cast<ULONGLONG>(data.nFileSizeHigh) << 32) | data.nFileSizeLow;
+        }
+    } while (::FindNextFileW(find, &data));
+    ::FindClose(find);
+    return total;
 }
 
 static void WpdDeleteDiskTree(const std::wstring& path)
@@ -1168,6 +1407,179 @@ static void WpdReadSizeAndTime(CWpdDevice* device, PCWSTR objectId, ULONGLONG& s
     }
 }
 
+class CWpdBulkGetCallback : public IPortableDevicePropertiesBulkCallback
+{
+public:
+    CWpdBulkGetCallback()
+        : m_refs(1),
+          m_done(::CreateEventW(nullptr, TRUE, FALSE, nullptr)),
+          m_status(E_FAIL)
+    {
+    }
+
+    ~CWpdBulkGetCallback()
+    {
+        if (m_done != nullptr)
+        {
+            ::CloseHandle(m_done);
+        }
+    }
+
+    HRESULT Wait()
+    {
+        if (m_done == nullptr)
+        {
+            return E_OUTOFMEMORY;
+        }
+        for (;;)
+        {
+            DWORD wait = ::MsgWaitForMultipleObjects(1, &m_done, FALSE, INFINITE, QS_ALLINPUT);
+            if (wait == WAIT_OBJECT_0)
+            {
+                return m_status;
+            }
+            if (wait != WAIT_OBJECT_0 + 1)
+            {
+                return HRESULT_FROM_WIN32(::GetLastError());
+            }
+            MSG msg;
+            while (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
+            {
+                ::TranslateMessage(&msg);
+                ::DispatchMessageW(&msg);
+            }
+        }
+    }
+
+    const std::vector<ATL::CComPtr<IPortableDeviceValues>>& Results() const
+    {
+        return m_results;
+    }
+
+    STDMETHODIMP QueryInterface(REFIID riid, void** object)
+    {
+        if (object == nullptr)
+        {
+            return E_POINTER;
+        }
+        if (riid == IID_IUnknown || riid == IID_IPortableDevicePropertiesBulkCallback)
+        {
+            *object = static_cast<IPortableDevicePropertiesBulkCallback*>(this);
+            AddRef();
+            return S_OK;
+        }
+        *object = nullptr;
+        return E_NOINTERFACE;
+    }
+
+    STDMETHODIMP_(ULONG) AddRef()
+    {
+        return static_cast<ULONG>(::InterlockedIncrement(&m_refs));
+    }
+
+    STDMETHODIMP_(ULONG) Release()
+    {
+        LONG refs = ::InterlockedDecrement(&m_refs);
+        if (refs == 0)
+        {
+            delete this;
+        }
+        return static_cast<ULONG>(refs);
+    }
+
+    STDMETHODIMP OnStart(REFGUID)
+    {
+        return S_OK;
+    }
+
+    STDMETHODIMP OnProgress(REFGUID, IPortableDeviceValuesCollection* results)
+    {
+        if (results == nullptr)
+        {
+            return S_OK;
+        }
+        DWORD count = 0;
+        if (FAILED(results->GetCount(&count)))
+        {
+            return S_OK;
+        }
+        for (DWORD i = 0; i < count; ++i)
+        {
+            ATL::CComPtr<IPortableDeviceValues> values;
+            if (SUCCEEDED(results->GetAt(i, &values)) && values != nullptr)
+            {
+                m_results.push_back(values);
+            }
+        }
+        return S_OK;
+    }
+
+    STDMETHODIMP OnEnd(REFGUID, HRESULT status)
+    {
+        m_status = status;
+        if (m_done != nullptr)
+        {
+            ::SetEvent(m_done);
+        }
+        return S_OK;
+    }
+
+private:
+    LONG m_refs;
+    HANDLE m_done;
+    HRESULT m_status;
+    std::vector<ATL::CComPtr<IPortableDeviceValues>> m_results;
+};
+
+static bool WpdValuesMatchChildName(IPortableDeviceValues* values, const char* childName,
+                                    std::wstring& objectId, DWORD* attributes)
+{
+    if (values == nullptr || childName == nullptr)
+    {
+        return false;
+    }
+
+    PWSTR id = nullptr;
+    if (FAILED(values->GetStringValue(WPD_OBJECT_ID, &id)) || id == nullptr || id[0] == L'\0')
+    {
+        ::CoTaskMemFree(id);
+        return false;
+    }
+    objectId = id;
+    ::CoTaskMemFree(id);
+
+    std::wstring originalName;
+    std::wstring objectName;
+    bool hasOriginal = false;
+    bool hasObject = false;
+    PWSTR text = nullptr;
+    if (SUCCEEDED(values->GetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME, &text)) && text != nullptr && text[0] != L'\0')
+    {
+        originalName = text;
+        hasOriginal = true;
+    }
+    ::CoTaskMemFree(text);
+    text = nullptr;
+    if (SUCCEEDED(values->GetStringValue(WPD_OBJECT_NAME, &text)) && text != nullptr && text[0] != L'\0')
+    {
+        objectName = text;
+        hasObject = true;
+    }
+    ::CoTaskMemFree(text);
+
+    if (attributes != nullptr)
+    {
+        *attributes = 0;
+        GUID contentType;
+        if (SUCCEEDED(values->GetGuidValue(WPD_OBJECT_CONTENT_TYPE, &contentType)) && WpdIsFolderContentType(contentType))
+        {
+            *attributes = FILE_ATTRIBUTE_DIRECTORY;
+        }
+    }
+
+    return WpdStoredNamesMatch(originalName, hasOriginal, objectName, hasObject, childName);
+}
+
 static HRESULT WpdFindChild(CWpdDevice* device, PCWSTR parentObjectId, const char* childName, PCWSTR ignoreObjectId,
                             PWSTR* childObjectId, DWORD* attributes)
 {
@@ -1193,6 +1605,96 @@ static HRESULT WpdFindChild(CWpdDevice* device, PCWSTR parentObjectId, const cha
         }
     }
 
+    static const PROPERTYKEY* const keys[] =
+        {
+            &WPD_OBJECT_ID,
+            &WPD_OBJECT_ORIGINAL_FILE_NAME,
+            &WPD_OBJECT_NAME,
+            &WPD_OBJECT_CONTENT_TYPE,
+        };
+    ATL::CComPtr<IPortableDeviceKeyCollection> keyCollection;
+    keyCollection.Attach(WpdInitKeys(keys, _countof(keys)));
+
+    ATL::CComPtr<IPortableDevicePropertiesBulk> bulk;
+    hr = device->GetPropertiesNoAddRef()->QueryInterface(IID_PPV_ARGS(&bulk));
+    if (SUCCEEDED(hr) && bulk != nullptr && keyCollection != nullptr)
+    {
+#ifdef new
+#undef new
+#define RESTORE_WPD_BULK_DEBUG_NEW
+#endif
+        CWpdBulkGetCallback* callback = new (std::nothrow) CWpdBulkGetCallback();
+#ifdef RESTORE_WPD_BULK_DEBUG_NEW
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_WPD_BULK_DEBUG_NEW
+#endif
+        if (callback == nullptr)
+        {
+            hr = E_OUTOFMEMORY;
+        }
+        else
+        {
+            GUID context = GUID_NULL;
+            hr = bulk->QueueGetValuesByObjectFormat(WPD_OBJECT_FORMAT_ALL, parentObjectId, 1, keyCollection, callback, &context);
+            if (SUCCEEDED(hr))
+            {
+                hr = bulk->Start(context);
+            }
+            if (SUCCEEDED(hr))
+            {
+                hr = callback->Wait();
+            }
+            if (SUCCEEDED(hr))
+            {
+                const std::vector<ATL::CComPtr<IPortableDeviceValues>>& results = callback->Results();
+                for (size_t i = 0; i < results.size(); ++i)
+                {
+                    std::wstring objectId;
+                    DWORD enumAttributes = 0;
+                    if (!WpdValuesMatchChildName(results[i], childName, objectId, &enumAttributes))
+                    {
+                        continue;
+                    }
+                    if (ignoreObjectId != nullptr && lstrcmpW(objectId.c_str(), ignoreObjectId) == 0)
+                    {
+                        continue;
+                    }
+                    size_t bytes = (objectId.size() + 1) * sizeof(wchar_t);
+                    PWSTR copy = static_cast<PWSTR>(::CoTaskMemAlloc(bytes));
+                    if (copy == nullptr)
+                    {
+                        callback->Release();
+                        if (hold)
+                        {
+                            device->Close();
+                        }
+                        return E_OUTOFMEMORY;
+                    }
+                    memcpy(copy, objectId.c_str(), bytes);
+                    *childObjectId = copy;
+                    if (attributes != nullptr)
+                    {
+                        *attributes = enumAttributes;
+                    }
+                    callback->Release();
+                    if (hold)
+                    {
+                        device->Close();
+                    }
+                    return S_OK;
+                }
+                callback->Release();
+                if (hold)
+                {
+                    device->Close();
+                }
+                return S_FALSE;
+            }
+            callback->Release();
+        }
+    }
+
+    // Older drivers without bulk properties still need a correct answer.
     ATL::CComPtr<IEnumPortableDeviceObjectIDs> enumerator;
     hr = device->GetContentNoAddRef()->EnumObjects(0U, parentObjectId, nullptr, &enumerator);
     if (FAILED(hr))
@@ -2984,10 +3486,18 @@ HRESULT WINAPI CWpdFS::RenameWpdObject(HWND parent, CWpdBaseContentItem* item, P
             isDirectory = true;
         }
 
+        if (WpdActiveProgress != nullptr)
+        {
+            WpdActiveProgress->BeginItem(newName, static_cast<ULONGLONG>(-1));
+        }
+
         if (WpdRenamePlanForObject(isDirectory) == WpdRenameFolderNameOnly)
         {
+            // Folders keep ORIGINAL_FILE_NAME unchanged. Matching only that
+            // property made every successful rename look like a failure and
+            // triggered the download/upload fallback.
             nameHr = WpdSetStringProperty(device, item->GetObjectId(), WPD_OBJECT_NAME, wideName.c_str(), nameHr);
-            hr = WpdRequiresDeviceReconnect(nameHr) ? nameHr : S_OK;
+            hr = nameHr;
         }
         else
         {
@@ -3004,9 +3514,13 @@ HRESULT WINAPI CWpdFS::RenameWpdObject(HWND parent, CWpdBaseContentItem* item, P
             {
                 hr = originalHr;
             }
-            else
+            else if (SUCCEEDED(nameHr) || SUCCEEDED(originalHr))
             {
                 hr = S_OK;
+            }
+            else
+            {
+                hr = FAILED(nameHr) ? nameHr : originalHr;
             }
         }
     }
@@ -3021,7 +3535,15 @@ HRESULT WINAPI CWpdFS::RenameWpdObject(HWND parent, CWpdBaseContentItem* item, P
         DWORD attributes = 0;
         if (SUCCEEDED(WpdReadStoredNames(device, item->GetObjectId(), originalName, hasOriginal, objectName, hasObject, attributes)))
         {
-            matched = WpdDisplayNameMatches(originalName, hasOriginal, objectName, hasObject, newName);
+            // Either stored name may carry the new display name. Folders only
+            // update WPD_OBJECT_NAME, so ORIGINAL_FILE_NAME alone is not enough.
+            matched = WpdStoredNamesMatch(originalName, hasOriginal, objectName, hasObject, newName);
+        }
+        else if (SUCCEEDED(hr))
+        {
+            // Some devices accept SetValues but refuse a follow-up GetValues.
+            // Treat a successful write as done instead of copying the tree.
+            matched = true;
         }
     }
 
@@ -3059,10 +3581,7 @@ HRESULT WINAPI CWpdFS::RenameWpdObjectByCopy(HWND parent, CWpdBaseContentItem* i
     context.operationId = IDS_OPERATION_RENAME;
     context.sourceDevice = device;
     context.targetDevice = device;
-
-    CWpdStandardProgress progress;
-    progress.Open(parent, WpdOperationTitle(IDS_OPERATION_RENAME, device));
-    context.progress = &progress;
+    context.progress = WpdActiveProgress;
 
     std::wstring wideName;
     HRESULT hr = WpdPanelTextToWide(newName, wideName);
@@ -3089,7 +3608,6 @@ HRESULT WINAPI CWpdFS::RenameWpdObjectByCopy(HWND parent, CWpdBaseContentItem* i
         }
     }
 
-    progress.Close();
     if (WpdRequiresDeviceReconnect(hr))
     {
         WpdReleaseReconnect(device, nullptr);
@@ -3109,7 +3627,10 @@ BOOL WINAPI CWpdFS::QuickRename(const char*, int mode, HWND parent, CFileData& f
     WpdDialogOwner = parent;
     WpdReportedError = false;
     auto item = static_cast<CWpdBaseContentItem*>(reinterpret_cast<CFxItem*>(file.PluginData));
+    CWpdStandardProgress progress;
+    progress.Open(parent, WpdOperationTitle(IDS_OPERATION_RENAME, item->GetDeviceNoAddRef()));
     HRESULT hr = RenameWpdObject(parent, item, newName);
+    progress.Close();
     WpdDialogOwner = previousOwner;
 
     if (hr == S_FALSE)
@@ -3894,6 +4415,7 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
         CWpdStandardProgress progress;
         progress.AddTotal(WpdPanelSelectionBytes(panel, focused));
         progress.Open(parent, WpdOperationTitle(operationId, targetDevice));
+        progress.CommitTotals();
 
         WpdCopyContext context;
         context.parent = parent;
@@ -4024,6 +4546,7 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
                 context.sourceDevice = device;
                 context.targetDevice = device;
                 progress.Open(parent, WpdOperationTitle(operationId, device));
+                progress.CommitTotals();
                 HRESULT openHr = device->Open(GENERIC_READ | GENERIC_WRITE);
                 if (FAILED(openHr))
                 {
@@ -4153,12 +4676,18 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
     WpdReportedError = false;
     UINT operationId = copy ? IDS_OPERATIONPROGRESS_COPY : IDS_OPERATIONPROGRESS_MOVE;
 
+    // Show progress before the slow path walk and sibling lookup so the
+    // overwrite dialog is not preceded by a silent freeze.
+    CWpdStandardProgress progress;
+    progress.Open(parent, WpdText(operationId));
+
     std::string userPart = WpdTargetUserPart(fsName, targetPath);
     CWpdDevice* targetDevice = nullptr;
     CFxString targetObjectId;
     HRESULT hr = GetContentLocationForPath(userPart.c_str(), targetDevice, targetObjectId);
     if (FAILED(hr) || targetDevice == nullptr)
     {
+        progress.Close();
         if (targetDevice != nullptr)
         {
             targetDevice->Release();
@@ -4176,14 +4705,21 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
         return TRUE;
     }
 
+    progress.BeginItem(WpdOperationTitle(operationId, targetDevice).c_str(), static_cast<ULONGLONG>(-1));
     ATL::CA2W wideTarget(targetObjectId);
-    CWpdStandardProgress progress;
-    progress.Open(parent, WpdOperationTitle(operationId, targetDevice));
     WpdCopyContext context;
     context.parent = parent;
     context.operationId = operationId;
     context.progress = &progress;
     context.targetDevice = targetDevice;
+
+    struct WpdDiskUploadItem
+    {
+        std::string name;
+        BOOL isDir;
+        ULONGLONG size;
+        FILETIME lastWrite;
+    };
 
     bool ok = true;
     bool opened = false;
@@ -4201,15 +4737,20 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
     DWORD attr = 0;
     FILETIME lastWrite;
     int errorOccured = SALENUM_SUCCESS;
+    std::vector<WpdDiskUploadItem> items;
     if (ok)
     {
         opened = true;
+        // Collect the whole selection and its byte total first. Adding sizes
+        // while uploading made Total % run far ahead of File %.
         while ((name = next(parent, 0, &dosName, &isDir, &size, &attr, &lastWrite, nextParam, &errorOccured)) != nullptr)
         {
-            if (!isDir)
-            {
-                progress.AddTotal(size.Value);
-            }
+            WpdDiskUploadItem item;
+            item.name = name;
+            item.isDir = isDir;
+            item.size = size.Value;
+            item.lastWrite = lastWrite;
+            items.push_back(item);
 
             std::string sourceJoined;
             hr = WpdJoinSalPath(sourcePath, name, sourceJoined);
@@ -4219,11 +4760,44 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
                 ok = false;
                 break;
             }
+            std::wstring sourceWide;
+            hr = WpdPanelTextToWide(sourceJoined.c_str(), sourceWide);
+            if (FAILED(hr))
+            {
+                WpdShowOperationError(parent, operationId, name, hr);
+                ok = false;
+                break;
+            }
+            if (isDir)
+            {
+                progress.AddTotal(WpdDiskTreeBytes(sourceWide));
+            }
+            else
+            {
+                progress.AddTotal(size.Value);
+            }
+        }
+    }
+
+    if (ok)
+    {
+        progress.CommitTotals();
+        for (size_t i = 0; i < items.size(); ++i)
+        {
+            const WpdDiskUploadItem& item = items[i];
+            std::string sourceJoined;
+            hr = WpdJoinSalPath(sourcePath, item.name.c_str(), sourceJoined);
+            if (FAILED(hr))
+            {
+                WpdShowOperationError(parent, operationId, item.name.c_str(), hr);
+                ok = false;
+                break;
+            }
 
             std::wstring sourceWide;
             hr = WpdPanelTextToWide(sourceJoined.c_str(), sourceWide);
-            const char* leaf = strrchr(name, '\\');
-            leaf = leaf != nullptr ? leaf + 1 : name;
+            const char* leaf = strrchr(item.name.c_str(), '\\');
+            leaf = leaf != nullptr ? leaf + 1 : item.name.c_str();
             std::wstring leafWide;
             if (SUCCEEDED(hr))
             {
@@ -4231,15 +4805,16 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
             }
             if (FAILED(hr))
             {
-                WpdShowOperationError(parent, operationId, name, hr);
+                WpdShowOperationError(parent, operationId, item.name.c_str(), hr);
                 ok = false;
                 break;
             }
 
-            WpdOutcome outcome = WpdUploadDisk(context, wideTarget, sourceWide, leafWide.c_str(), leaf, name, size.Value, !isDir, &lastWrite, TRUE);
+            WpdOutcome outcome = WpdUploadDisk(context, wideTarget, sourceWide, leafWide.c_str(), leaf, item.name.c_str(),
+                                               item.size, !item.isDir, &item.lastWrite, TRUE);
             if (outcome.Failed())
             {
-                FinishWpdBatchError(context, outcome.hr, name);
+                FinishWpdBatchError(context, outcome.hr, item.name.c_str());
                 ok = false;
                 break;
             }
@@ -4249,7 +4824,7 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
                 if (::GetFileAttributesW(WpdForWin32(sourceWide).c_str()) != INVALID_FILE_ATTRIBUTES)
                 {
                     hr = HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED);
-                    FinishWpdBatchError(context, hr, name);
+                    FinishWpdBatchError(context, hr, item.name.c_str());
                     ok = false;
                     break;
                 }

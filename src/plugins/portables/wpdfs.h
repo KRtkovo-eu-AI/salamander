@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Refresh every open panel when a device arrives or leaves. | The device list was cached until a manual refresh. | | Grok 4.7 |
 // | 2026-11-04 | Overwrite, merge, and rename portable items safely. | Creating an object whose name is still present wedges Android MTP. | | Grok 4.7 |
 
 /*
@@ -22,6 +23,9 @@
 class CWpdDevice;
 class CWpdBaseContentItem;
 struct WpdCopyContext;
+
+// Drop the cached device list and ask every open Portable Devices panel to list again.
+void WINAPI WpdRefreshPanelsForDeviceChange();
 
 class CWpdFS final : public TFxPluginFSInterface<CWpdFS>
 {
@@ -147,6 +151,7 @@ protected:
 
 public:
     CWpdFS(CFxPluginInterfaceForFS& owner);
+    ~CWpdFS();
 
     enum _SupportedServices
     {
