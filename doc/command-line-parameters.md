@@ -1,7 +1,11 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+-->
 # Command-line parameters
 
 This document describes every command-line form accepted by the two executable
-programs shipped with Open Salamander. Parameter names are case-insensitive.
+programs shipped with Open Samandarin. Parameter names are case-insensitive.
 Quote an argument that contains spaces. `salamand.exe` accepts only the
 hyphen-prefixed forms listed below, except where another form is explicitly
 shown.
@@ -47,7 +51,7 @@ other than `/language` cause Salamander to show an invalid-command-line error.
 
 ## `utils\\salmon.exe`
 
-`salmon.exe` is Open Salamander's crash-report helper. It is normally launched
+`salmon.exe` is Open Samandarin's crash-report helper. It is normally launched
 by Salamander and is not intended to be run directly by end users.
 
 | Parameter form | Description |

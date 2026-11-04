@@ -71,12 +71,55 @@ CMenuPopup::CMenuPopup(DWORD id)
     RightTextToolTipCallback = NULL;
     RightTextToolTipContext = NULL;
     RightTextToolTipIndex = -1;
+    TrackDepth = 0;
+    DestroyPending = FALSE;
+    OwnerDetached = FALSE;
     Cleanup();
 }
 
 CMenuPopup::~CMenuPopup()
 {
     ClearRightTextToolTip();
+}
+
+void CMenuPopup::BeginTrack()
+{
+    TrackDepth++;
+}
+
+void CMenuPopup::EndTrack(CMenuBar* menuBar)
+{
+    if (TrackDepth > 0)
+        TrackDepth--;
+    // TrackHotIndex does not touch the popup after TrackInternal returns.
+    // A parent item that was destroyed mid-track left this object orphaned.
+    if (OwnerDetached && TrackDepth == 0 && menuBar != NULL)
+        delete this;
+}
+
+BOOL CMenuPopup::IsTracking()
+{
+    if (TrackDepth > 0)
+        return TRUE;
+    int i;
+    for (i = 0; i < Items.Count; i++)
+    {
+        CMenuItem* item = Items[i];
+        if (item != NULL && item->SubMenu != NULL && item->SubMenu->IsTracking())
+            return TRUE;
+    }
+    return FALSE;
+}
+
+BOOL CMenuPopup::DestroyIfIdle()
+{
+    if (IsTracking())
+    {
+        DestroyPending = TRUE;
+        return FALSE;
+    }
+    delete this;
+    return TRUE;
 }
 
 void CMenuPopup::SetRightTextToolTip(void (*callback)(void*, DWORD, char*), void* context)
@@ -3132,6 +3175,7 @@ DWORD
 CMenuPopup::Track(DWORD trackFlags, int x, int y, HWND hwnd, const RECT* exclude)
 {
     CALL_STACK_MESSAGE4("CMenuPopup::Track(0x%X, %d, %d, , )", trackFlags, x, y);
+    BeginTrack();
     MSG msg;
     BOOL dispatchMsg;
 
@@ -3185,6 +3229,10 @@ CMenuPopup::Track(DWORD trackFlags, int x, int y, HWND hwnd, const RECT* exclude
 
     if (!(trackFlags & MENU_TRACK_NONOTIFY))
         PostMessage(hwnd, WM_USER_LEAVEMENULOOP2, 0, 0);
+    if (TrackDepth > 0)
+        TrackDepth--;
+    if (TrackDepth == 0 && (DestroyPending || OwnerDetached))
+        delete this;
     return ret;
 }
 
@@ -3194,6 +3242,20 @@ CMenuPopup::TrackInternal(DWORD trackFlags, int x, int y, HWND hwnd, const RECT*
 {
     CALL_STACK_MESSAGE5("CMenuPopup::TrackInternal(0x%X, %d, %d, , , , , %d)",
                         trackFlags, x, y, dispatchDelayedMsg);
+    struct TrackGuard
+    {
+        CMenuPopup* Popup;
+        CMenuBar* MenuBar;
+        TrackGuard(CMenuPopup* popup, CMenuBar* menuBar) : Popup(popup), MenuBar(menuBar)
+        {
+            Popup->BeginTrack();
+        }
+        ~TrackGuard()
+        {
+            if (Popup != NULL)
+                Popup->EndTrack(MenuBar);
+        }
+    } trackGuard(this, menuBar);
     //  TRACE_I("CMenuPopup::TrackInternal begin");
     dispatchDelayedMsg = FALSE;
     // create shared resources

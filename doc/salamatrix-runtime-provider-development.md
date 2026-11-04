@@ -1,6 +1,10 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+-->
 # Developing a Salamatrix language runtime provider
 
-Salamatrix language runtimes are optional Open Salamander plugins. A runtime
+Salamatrix language runtimes are optional Open Samandarin plugins. A runtime
 provider registers one language adapter with `Salamatrix.Runtime`, starts the
 language interpreter out of process, and translates between the interpreter
 and Salamander through the language-neutral SMX1 protocol.

@@ -1,7 +1,7 @@
-Open Salamander Samandarin
+Open Samandarin
 
-Open Salamander Samandarin este un fork open-source neoficial și experimental
-al Open Salamander, creat de Ondrej Kotas (KRtekTM) cu dezvoltare asistată de IA /
+Open Samandarin este un fork comunitar bazat pe Open Salamander 5.0.
+Este o versiune open-source experimentală creată de Ondrej Kotas (KRtekTM) cu dezvoltare asistată de IA /
 vibe-coding. Este destinat utilizatorilor aventuroși; vă rugăm să vă așteptați
 la imperfecțiuni și să verificați notele de lansare înainte de a vă baza pe el
 pentru lucrări importante.

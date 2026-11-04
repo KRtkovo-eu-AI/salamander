@@ -34,4 +34,8 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 [STRINGTABLE 2]
 64,1,"Zeilen &umbrechen\tF2"
 65,1,"Leerraum &anzeigen"
+66,1,"&Bearbeiten"
+67,1,"&Kopieren\tCtrl+C"
+68,1,"&Alles auswählen\tCtrl+A"
+69,1,"&Drucken...\tCtrl+P"
 

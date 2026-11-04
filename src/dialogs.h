@@ -1,5 +1,9 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// | 2026-11-04 | Remember the splash fork-line rectangle. | The community-fork sentence sits under the bold version. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -917,6 +921,7 @@ protected:
     RECT OpenSalR;
     RECT VersionR;
     RECT CopyrightR;
+    RECT ForkR;
     RECT StatusR;
     int GradientY;
     int Width;
@@ -1185,7 +1190,7 @@ public:
     CWaitWindow(HWND hParent, int textResID, BOOL showCloseButton, CObjectOrigin origin = ooAllocated, BOOL showProgressBar = FALSE);
     ~CWaitWindow();
 
-    void SetCaption(const char* text); // if not called, the caption will be "Open Salamander"
+    void SetCaption(const char* text); // if not called, the caption will be "Open Samandarin"
     void SetText(const char* text);
 
     void SetProgressMax(DWORD max);
@@ -1302,7 +1307,7 @@ struct CFoundConfig
     BOOL IsCorrupted;
     BOOL IsGeneratedName;     // TRUE when DisplayName was generated from the product/version
     int RootIndex;            // index do SalamanderConfigurationRoots (-1 = portable)
-    char DisplayName[256];    // "Open Salamander 5.0 Samandarin 0.5"
+    char DisplayName[256];    // "Open Samandarin 0.16"
     char Version[64];         // "5.0-samandarin-0.5"
     char StorageTypeStr[32];  // "Registry" / "File storage" / "-"
     char Language[50];        // "en", "cs", "-"

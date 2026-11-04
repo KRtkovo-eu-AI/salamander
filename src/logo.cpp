@@ -1,5 +1,13 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Start the splash yellow bar under the copyright. | The version and fork line now sit above the copyright, so the bar follows the lower block. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// | 2026-11-04 | Soften the splash copyright and fork caption. | Those lines should stay readable without competing with the version. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// | 2026-11-04 | Draw About static text without an opaque background. | An opaque text band covered the logo. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// | 2026-11-04 | Draw the splash copyright as two lines under the logo. | The single copyright line overflowed the yellow bar. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// | 2026-11-04 | Keep the original splash width and show the fork line under a bold version. | The second copyright line is only the Samandarin authors, so it fits without widening the window. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -201,15 +209,30 @@ BOOL CSplashScreen::PrepareBitmap()
     svgHand.AlphaBlend(hDC, Width - handSize.cx, 0, handSize.cx, handSize.cy, SVGSTATE_ORIGINAL);
 
     // fixed texts
+    COLORREF bodyClr = useDark ? RGB(255, 255, 255) : RGB(96, 96, 96);
+    // Quiet captions sit on RGB(33,33,33) or white. Keep them a step away from
+    // that background so 8 pt text stays readable in both schemes.
+    COLORREF captionClr = useDark ? RGB(140, 140, 140) : RGB(120, 120, 120);
+
+    // Version, fork line, then a gap, then the two-line copyright. The copyright
+    // control is two text rows tall.
+    int copyrightLine = (CopyrightR.bottom - CopyrightR.top) / 2;
+    PaintTextW(L"Copyright \u00A9 1997-2026 Open Salamander Authors,",
+               CopyrightR.left,
+               CopyrightR.top,
+               FALSE, captionClr);
+    PaintTextW(L"Open Samandarin Authors, Ond\u0159ej Kotas (KRtekTM)",
+               CopyrightR.left,
+               CopyrightR.top + copyrightLine,
+               FALSE, captionClr);
     PaintText(SALAMANDER_TEXT_VERSION,
               VersionR.left,
               VersionR.top,
-              FALSE, useDark ? RGB(255, 255, 255) : RGB(96, 96, 96));
-
-    PaintTextW(L"Copyright \u00A9 1997-2026 Open Salamander Authors",
-               CopyrightR.left,
-               CopyrightR.top,
-               TRUE, RGB(255, 255, 255));
+              TRUE, bodyClr);
+    PaintTextW(L"Community fork based on Open Salamander 5.0",
+               ForkR.left,
+               ForkR.top,
+               FALSE, captionClr);
 
     // backup of the bitmap without text
     BitBlt(OriginalBitmap->HMemDC, 0, 0, Width, Height, Bitmap->HMemDC, 0, 0, SRCCOPY);
@@ -283,9 +306,10 @@ CSplashScreen::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_OPENSAL, &OpenSalR);
         GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_VERSION, &VersionR);
         GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_COPYRIGHT, &CopyrightR);
+        GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_FORK, &ForkR);
         GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_STATUS, &StatusR);
 
-        GradientY = VersionR.bottom + 5;
+        GradientY = CopyrightR.bottom + 5;
 
         TRACE_I("!!!!!!!!!!!!! BEG ");
         PrepareBitmap();
@@ -498,7 +522,7 @@ CAboutDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         }
         SetTextColor(hdcStatic, textClr);
-        SetBkColor(hdcStatic, useDark ? RGB(33, 33, 33) : RGB(255, 255, 255));
+        SetBkMode(hdcStatic, TRANSPARENT);
         return (BOOL)(UINT_PTR)GetStockObject(NULL_BRUSH);
     }
 

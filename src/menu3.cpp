@@ -135,7 +135,10 @@ BOOL CMenuSharedResources::Create(HWND hParent, int width, int height)
 
     // generate a copy and a bold version from the menu font
     HWND dpiWindow = HParent;
-    if (MainWindow != NULL)
+    // GetDetachedAwareDialogParent reads main-window state. Viewer menus call
+    // Create from their own UI thread, so only do this on the main UI thread.
+    if (MainWindow != NULL && MainWindow->HWindow != NULL &&
+        GetWindowThreadProcessId(MainWindow->HWindow, NULL) == GetCurrentThreadId())
         dpiWindow = MainWindow->GetDetachedAwareDialogParent(HParent);
     const int dpi = (int)WinLibDPIGetWindowDPI(dpiWindow);
     LOGFONT menuFont;

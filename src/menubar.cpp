@@ -100,6 +100,10 @@ CMenuBar::CMenuBar(CMenuPopup* menu, HWND hNotifyWindow, CObjectOrigin origin)
     Closing = FALSE;
     MouseIsTracked = FALSE;
     HelpMode = FALSE;
+    TrackDepth = 0;
+    InsideWindowProc = 0;
+    DestroyPending = FALSE;
+    Deleting = FALSE;
 
     UIState = 0;
     BOOL alwaysVisible;
@@ -379,15 +383,102 @@ void CMenuBar::EnterMenu()
     EnterMenuInternal(-1, FALSE, FALSE); // user pressed VK_MENU
 }
 
+CMenuBar::WindowProcGuard::WindowProcGuard(CMenuBar* bar) : Bar(bar)
+{
+    Bar->InsideWindowProc++;
+}
+
+CMenuBar::WindowProcGuard::~WindowProcGuard()
+{
+    if (Bar == NULL)
+        return;
+    Bar->InsideWindowProc--;
+    if (Bar->TrackDepth != 0 || Bar->InsideWindowProc != 0 || Bar->Deleting)
+        return;
+    if (Bar->DestroyPending)
+    {
+        CMenuBar* dying = Bar;
+        Bar = NULL;
+        dying->DeleteDeferred();
+        return;
+    }
+    Bar->ReleasePendingMenu();
+}
+
+void CMenuBar::EndTracking()
+{
+    if (TrackDepth > 0)
+        TrackDepth--;
+    if (TrackDepth != 0 || InsideWindowProc != 0 || Deleting)
+        return;
+    if (DestroyPending)
+    {
+        DeleteDeferred();
+        return;
+    }
+    ReleasePendingMenu();
+}
+
+void CMenuBar::ReleasePendingMenu()
+{
+    if (Menu == NULL || !Menu->DestroyPending || Menu->IsTracking())
+        return;
+    CMenuPopup* menu = Menu;
+    Menu = NULL;
+    menu->DestroyPending = FALSE;
+    delete menu;
+}
+
+void CMenuBar::DeleteDeferred()
+{
+    if (Deleting)
+        return;
+    Deleting = TRUE;
+    DestroyPending = FALSE;
+    CMenuPopup* menu = Menu;
+    Menu = NULL;
+    HWND hwnd = HWindow;
+    if (hwnd != NULL)
+        DestroyWindow(hwnd);
+    delete this;
+    if (menu != NULL && menu->DestroyPending)
+    {
+        if (menu->IsTracking())
+            TRACE_E("CMenuBar::DeleteDeferred: menu is still tracking");
+        else
+        {
+            menu->DestroyPending = FALSE;
+            delete menu;
+        }
+    }
+}
+
+BOOL CMenuBar::DestroyIfIdle()
+{
+    if (Deleting)
+        return TRUE;
+    if (TrackDepth > 0 || InsideWindowProc > 0 || (Menu != NULL && Menu->IsTracking()))
+    {
+        DestroyPending = TRUE;
+        return FALSE;
+    }
+    DeleteDeferred();
+    return TRUE;
+}
+
 void CMenuBar::EnterMenuInternal(int index, BOOL openWidthSelect, BOOL byMouse)
 {
     CALL_STACK_MESSAGE4("CMenuBar::EnterMenuInternal(%d, %d, %d)", index,
                         openWidthSelect, byMouse);
+    if (DestroyPending || Deleting)
+        return;
     if (MenuLoop)
     {
         TRACE_E("Recursive call to CMenuBar::EnterMenuInternal");
         return;
     }
+    TrackDepth++;
+    HWND trackedWindow = HWindow;
     //  TRACE_I("CMenuBar::EnterMenuInternal begin");
     MenuLoop = TRUE;
     Closing = FALSE;
@@ -628,19 +719,23 @@ void CMenuBar::EnterMenuInternal(int index, BOOL openWidthSelect, BOOL byMouse)
     {
         int oldHotIndex = HotIndex;
         HotIndex = -1;
-        DrawItem(oldHotIndex);
+        if (HWindow != NULL)
+            DrawItem(oldHotIndex);
     }
 
     // should we hide accelerators?
     if (ForceAccelVisible)
     {
         ForceAccelVisible = FALSE;
-        InvalidateRect(HWindow, NULL, FALSE);
-        UpdateWindow(HWindow);
+        if (HWindow != NULL)
+        {
+            InvalidateRect(HWindow, NULL, FALSE);
+            UpdateWindow(HWindow);
+        }
     }
 
     // remove ourselves from monitoring closing messages
-    MenuWindowQueue.Remove(HWindow);
+    MenuWindowQueue.Remove(trackedWindow);
     // if we hooked, we will also unhook
     if (hOldHookProc != NULL)
         OldMenuHookTlsAllocator.UnhookThread(hOldHookProc);
@@ -682,6 +777,7 @@ void CMenuBar::EnterMenuInternal(int index, BOOL openWidthSelect, BOOL byMouse)
 
     PostMessage(HNotifyWindow, WM_USER_LEAVEMENULOOP2, 0, 0);
     Closing = FALSE;
+    EndTracking();
     //  TRACE_I("CMenuBar::EnterMenuInternal end");
 }
 
@@ -897,6 +993,7 @@ LRESULT
 CMenuBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     SLOW_CALL_STACK_MESSAGE4("CMenuBar::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
+    WindowProcGuard windowProcGuard(this);
     switch (uMsg)
     {
     case WM_DPICHANGED_AFTERPARENT:
@@ -915,6 +1012,17 @@ CMenuBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             DrawItem(HotIndex); // remove HotIndex highlight (Closing == TRUE)
         SetEvent(HCloseEvent);  // let the message queue run
         return 0;
+    }
+
+    case WM_DESTROY:
+    {
+        // The owner window (for example the text viewer) can be destroyed
+        // while this bar's WindowProc is inside EnterMenuInternal. Leave the
+        // menu loop; the object itself stays alive until tracking unwinds.
+        Closing = TRUE;
+        if (HCloseEvent != NULL)
+            SetEvent(HCloseEvent);
+        break;
     }
 
     case WM_ERASEBKGND:
@@ -1042,8 +1150,17 @@ CMenuBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_LBUTTONDOWN:
     {
-        MainWindow->CancelPanelsUI(); // cancel QuickSearch and QuickEdit
-        UpdateWindow(MainWindow->HWindow);
+        // Plugin menu bars (the native viewer) run on their own UI thread.
+        // Touching the main window from that thread re-enters the main thread
+        // and can destroy this menu while its window procedure is active.
+        if (MainWindow != NULL && MainWindow->HWindow != NULL &&
+            GetWindowThreadProcessId(MainWindow->HWindow, NULL) == GetCurrentThreadId())
+        {
+            MainWindow->CancelPanelsUI(); // cancel QuickSearch and QuickEdit
+            UpdateWindow(MainWindow->HWindow);
+        }
+        if (DestroyPending || Deleting)
+            break;
 
         HWND hActivate = GetAncestor(HWindow, GA_ROOT);
         SetForegroundWindow(hActivate != NULL ? hActivate : HNotifyWindow);

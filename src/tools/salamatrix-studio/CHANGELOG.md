@@ -1,4 +1,14 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Record Salamatrix Studio 0.1.12. | The Marketplace description, project paths, and UI Capabilities demo need a released version. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+-->
 # Change Log
+
+## 0.1.12
+
+- Describe Salamatrix Studio as tools for Open Samandarin extensions.
+- Show the workspace path beside each extension name so identical names stay distinct.
+- Open the bundled Salamatrix UI Capabilities demo from the empty workspace and the project view.
 
 ## 0.1.11
 

@@ -161,6 +161,156 @@ jobs:
                   "repos/$env:GITHUB_REPOSITORY/check-runs/$env:CHECK_RUN_ID" `
                   --input -
 
+      # The reporter creates a check and updates it immediately. GitHub can
+      # answer that update with 404 and leave the check in progress, which
+      # fails this job after the tests themselves passed. Finish that check.
+      - name: Finish test checks left in progress
+        id: report_recover
+        if: >-
+          ${{
+            !cancelled() &&
+            (steps.native_report.outcome == 'failure' ||
+             steps.python_report.outcome == 'failure')
+          }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          CHECK_RUN_ID: ${{ job.check_run_id }}
+          NATIVE_REPORT_OUTCOME: ${{ steps.native_report.outcome }}
+          PYTHON_REPORT_OUTCOME: ${{ steps.python_report.outcome }}
+          NATIVE_SUMMARY_FILE: ${{ steps.native_report.outputs.summary_file }}
+          PYTHON_SUMMARY_FILE: ${{ steps.python_report.outputs.summary_file }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+
+          function Get-AttrInt($node, [string]$name) {
+              $value = $node.GetAttribute($name)
+              if ([string]::IsNullOrWhiteSpace($value)) { return 0 }
+              return [int]$value
+          }
+
+          function Get-JunitCounts([string]$Path) {
+              $doc = New-Object System.Xml.XmlDocument
+              $doc.Load((Resolve-Path -LiteralPath $Path))
+              $tests = 0
+              $failures = 0
+              $skipped = 0
+              foreach ($node in @($doc.SelectNodes('//testsuite'))) {
+                  if ($node.SelectSingleNode('testsuite')) { continue }
+                  $tests += Get-AttrInt $node 'tests'
+                  $failures += (Get-AttrInt $node 'failures') + (Get-AttrInt $node 'errors')
+                  $skipped += Get-AttrInt $node 'skipped'
+              }
+              [pscustomobject]@{
+                  Passed = $tests - $failures - $skipped
+                  Failed = $failures
+                  Skipped = $skipped
+              }
+          }
+
+          function Write-JsonFile([string]$Path, $Value) {
+              $json = $Value | ConvertTo-Json -Depth 8 -Compress
+              $utf8 = New-Object System.Text.UTF8Encoding $false
+              [System.IO.File]::WriteAllText($Path, $json, $utf8)
+          }
+
+          function Invoke-GhApi([string[]]$GhArgs) {
+              $output = & gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" @GhArgs 2>&1
+              return [pscustomobject]@{
+                  ExitCode = $LASTEXITCODE
+                  Output = ($output | Out-String).Trim()
+              }
+          }
+
+          function Update-CheckRun([string]$Id, $Body) {
+              $path = Join-Path $env:RUNNER_TEMP "check-update-$Id.json"
+              Write-JsonFile $path $Body
+              for ($attempt = 1; $attempt -le 3; $attempt++) {
+                  $result = Invoke-GhApi @('--method', 'PATCH', "repos/$env:GITHUB_REPOSITORY/check-runs/$Id", '--input', $path)
+                  if ($result.ExitCode -eq 0) { return $true }
+                  $detail = $result.Output
+                  if ($detail.Length -gt 500) { $detail = $detail.Substring(0, 500) }
+                  Write-Host "check-runs/$Id update attempt $attempt failed: $detail"
+                  if ($attempt -lt 3) { Start-Sleep -Seconds 2 }
+              }
+              return $false
+          }
+
+          function Complete-StuckCheck([string]$Name, [string]$XmlPath, [string]$SummaryFile) {
+              $counts = Get-JunitCounts $XmlPath
+              $title = "$($counts.Passed) passed, $($counts.Failed) failed and $($counts.Skipped) skipped"
+              $conclusion = $(if ($counts.Failed -gt 0) { 'failure' } else { 'success' })
+              $encoded = [uri]::EscapeDataString($Name)
+              $listed = Invoke-GhApi @("repos/$env:GITHUB_REPOSITORY/commits/$env:HEAD_SHA/check-runs?per_page=20&check_name=$encoded")
+              if ($listed.ExitCode -ne 0) {
+                  Write-Host "Unable to list check runs for ${Name}: $($listed.Output)"
+                  return $false
+              }
+              $jsonStart = $listed.Output.IndexOf('{')
+              $jsonEnd = $listed.Output.LastIndexOf('}')
+              if ($jsonStart -lt 0 -or $jsonEnd -lt $jsonStart) {
+                  Write-Host "Check run list was not JSON for ${Name}: $($listed.Output)"
+                  return $false
+              }
+              $payload = $listed.Output.Substring($jsonStart, $jsonEnd - $jsonStart + 1) | ConvertFrom-Json
+              $stuck = @($payload.check_runs | Where-Object { $_.status -eq 'in_progress' })
+              if ($stuck.Count -eq 0) {
+                  $completed = @($payload.check_runs | Where-Object { $_.status -eq 'completed' })
+                  if ($completed.Count -gt 0) {
+                      Write-Host "$Name is already completed."
+                      return $true
+                  }
+                  Write-Host "No check run named $Name on $env:HEAD_SHA."
+                  return $false
+              }
+              $summaries = New-Object System.Collections.Generic.List[string]
+              if (-not [string]::IsNullOrWhiteSpace($SummaryFile) -and (Test-Path -LiteralPath $SummaryFile)) {
+                  $fromFile = [System.IO.File]::ReadAllText($SummaryFile)
+                  if (-not [string]::IsNullOrWhiteSpace($fromFile)) { $summaries.Add($fromFile) }
+              }
+              $summaries.Add("$title.")
+              foreach ($run in $stuck) {
+                  $Id = '{0:0}' -f $run.id
+                  $updated = $false
+                  foreach ($summary in $summaries) {
+                      $updated = Update-CheckRun $Id @{
+                          status = 'completed'
+                          conclusion = $conclusion
+                          output = @{ title = $title; summary = $summary }
+                      }
+                      if ($updated) { break }
+                  }
+                  if (-not $updated) { return $false }
+                  Write-Host "Completed check-runs/$Id ($Name) as $conclusion."
+              }
+              return $true
+          }
+
+          $ok = $true
+          if ($env:NATIVE_REPORT_OUTCOME -eq 'failure') {
+              if (-not (Complete-StuckCheck 'Native and source-contract tests' 'test-results/native.xml' $env:NATIVE_SUMMARY_FILE)) {
+                  $ok = $false
+              }
+          }
+          if ($env:PYTHON_REPORT_OUTCOME -eq 'failure') {
+              if (-not (Complete-StuckCheck 'Python tests' 'test-results/python.xml' $env:PYTHON_SUMMARY_FILE)) {
+                  $ok = $false
+              }
+          }
+          if (-not $ok) { throw "Test reporting failure: a check run stayed in progress." }
+
+          $native = Get-JunitCounts 'test-results/native.xml'
+          $python = Get-JunitCounts 'test-results/python.xml'
+          $passed = $native.Passed + $python.Passed
+          $failed = $native.Failed + $python.Failed
+          $skipped = $native.Skipped + $python.Skipped
+          $title = "$passed passed, $failed failed and $skipped skipped"
+          $summary = "| Test group | Passed | Failed | Skipped |`n| --- | ---: | ---: | ---: |`n| Native and source-contract | $($native.Passed) | $($native.Failed) | $($native.Skipped) |`n| Python | $($python.Passed) | $($python.Failed) | $($python.Skipped) |`n| **Total** | **$passed** | **$failed** | **$skipped** |"
+          if (-not (Update-CheckRun $env:CHECK_RUN_ID @{ output = @{ title = $title; summary = $summary } })) {
+              Write-Host "The workflow check title was not updated. The test checks were completed."
+          }
+
       - name: Fail when a test group failed
         if: ${{ !cancelled() }}
         env:
@@ -168,12 +318,13 @@ jobs:
           PYTHON_OUTCOME: ${{ steps.python_tests.outcome }}
           NATIVE_REPORT_OUTCOME: ${{ steps.native_report.outcome }}
           PYTHON_REPORT_OUTCOME: ${{ steps.python_report.outcome }}
+          REPORT_RECOVER_OUTCOME: ${{ steps.report_recover.outcome }}
         run: |
           if ($env:NATIVE_OUTCOME -ne 'success' -or
               $env:PYTHON_OUTCOME -ne 'success') {
               throw "Test failure: native=$env:NATIVE_OUTCOME, python=$env:PYTHON_OUTCOME"
           }
-          if ($env:NATIVE_REPORT_OUTCOME -eq 'failure' -or
-              $env:PYTHON_REPORT_OUTCOME -eq 'failure') {
-              throw "Test reporting failure: native=$env:NATIVE_REPORT_OUTCOME, python=$env:PYTHON_REPORT_OUTCOME"
+          $reportFailed = $env:NATIVE_REPORT_OUTCOME -eq 'failure' -or $env:PYTHON_REPORT_OUTCOME -eq 'failure'
+          if ($reportFailed -and $env:REPORT_RECOVER_OUTCOME -ne 'success') {
+              throw "Test reporting failure: native=$env:NATIVE_REPORT_OUTCOME, python=$env:PYTHON_REPORT_OUTCOME, recover=$env:REPORT_RECOVER_OUTCOME"
           }

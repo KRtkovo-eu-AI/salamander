@@ -1,8 +1,9 @@
 {
   "displayName": "Salamatrix Studio",
-  "description": "Developer tools and visual designers for Open Salamander extensions.",
+  "description": "Developer tools and visual designers for Open Samandarin extensions.",
   "command.createExtension": "Salamatrix Studio: Create New Extension...",
   "command.addExistingExtensionFolder": "Salamatrix Studio: Add Existing Extension Folder...",
+  "command.openUiCapabilitiesDemo": "Salamatrix Studio: Open UI Capabilities Demo",
   "command.addStandaloneDialog": "Salamatrix Studio: New Standalone Dialog Design...",
   "command.generateDialogForRuntime": "Salamatrix Studio: Generate Dialog Code For Runtime...",
   "command.previewDialog": "Salamatrix Studio: Native Preview",
@@ -16,5 +17,5 @@
   "editor.extensionDesigner": "Salamatrix Extension Designer",
   "viewContainer.title": "Salamatrix Studio",
   "view.projectExplorer": "Extension Project",
-  "welcome.noProjects": "No Salamatrix extension was found in this workspace.\n[Create New Extension](command:salamatrixStudio.createExtension)\n[Add Existing Extension Folder](command:salamatrixStudio.addExistingExtensionFolder)"
+  "welcome.noProjects": "No Salamatrix extension was found in this workspace.\n[Create New Extension](command:salamatrixStudio.createExtension)\n[Add Existing Extension Folder](command:salamatrixStudio.addExistingExtensionFolder)\n[Open UI Capabilities Demo](command:salamatrixStudio.openUiCapabilitiesDemo)"
 }

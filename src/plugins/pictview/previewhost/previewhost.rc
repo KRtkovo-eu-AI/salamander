@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 #include "../versinfo.rh2"
 
@@ -23,14 +26,14 @@ CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "manifest.xml"
  {
   BLOCK "040904b0"
   {
-   VALUE "CompanyName", "Open Salamander\0"
+   VALUE "CompanyName", "Open Samandarin\0"
    VALUE "FileDescription", "PictView Preview Handler Host\0"
    VALUE "FileVersion", "1.0\0"
    VALUE "InternalName", "pictview-previewhost\0"
    VALUE "OriginalFilename", "pictview-previewhost.exe\0"
    VALUE "LegalCopyright", VERSINFO_COPYRIGHT "\0"
    VALUE "ProductVersion", VERSINFO_SALAMANDER_VERSION "\0"
-   VALUE "ProductName", "Open Salamander\0"
+   VALUE "ProductName", "Open Samandarin\0"
   }
  }
  BLOCK "VarFileInfo" { VALUE "Translation", 0x0409, 0x04b0 }
