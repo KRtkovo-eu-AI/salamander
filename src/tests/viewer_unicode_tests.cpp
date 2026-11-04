@@ -1,5 +1,10 @@
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+/*
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Assert precomposed Czech letters stay separate text elements. | Wrap used merged diacritic letters and hid characters at wrap boundaries. | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
+*/
 
 #include "../common/unicode/ViewerBomText.h"
 
@@ -40,6 +45,13 @@ void CheckElementCount(const std::string& text, std::size_t expected, const char
 
 int main()
 {
+    // Precomposed Czech letters must each be their own wrap/caret column.
+    // Windows marks them C3_DIACRITIC|C3_ALPHA; merging them hid characters at
+    // Internal Viewer wrap boundaries.
+    CheckElementCount("pou\xC5\xBEili", 7, "precomposed Czech letters must not merge into fewer text elements");
+    CheckElementCount("p\xC5\x99\xC3\xADli\xC5\xA1", 6, "příliš must count one element per letter");
+    CheckElementCount("a\xCC\x81", 1, "combining acute on ASCII still forms one text element");
+
     // Latin NFD: A + COMBINING ACUTE ACCENT.
     CheckElementCount("A\xCC\x81", 1, "decomposed Latin letter must be one text element");
 

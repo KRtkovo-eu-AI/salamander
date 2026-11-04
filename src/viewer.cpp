@@ -1,6 +1,11 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
+/*
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Cache line-number checkpoints; keep wrap painting aligned with text elements. | Slow scrolling at EOF (#746) rescanned the whole file for every gutter/status update. | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
+*/
 
 #include "precomp.h"
 #include "common/winlibdpi.h"
@@ -635,7 +640,7 @@ CViewerGoToOffsetDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* caption,
                              BOOL wholeCaption, CObjectOrigin origin,
                              int enumFileNamesSourceUID, int enumFileNamesLastFileIndex)
-    : CWindow(origin), LineOffset(300, 100),
+    : CWindow(origin), LineOffset(300, 100), LineNumberCheckpoints(64, 64),
       FindDialog(HLanguage, IDD_FINDSET, IDD_FINDSET)
 {
     // GDI variables
@@ -656,6 +661,7 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
     VisibleFirstDocumentLine = -1;
     CachedSelectionStart = CachedSelectionEnd = CachedSelectionLineCount = CachedSelectionCharacterCount = -1;
     CachedVerticalPageSize = -1;
+    LineNumberCacheOffset = LineNumberCacheLine = LineNumberCacheLineStart = -1;
     LayoutNeeded = TRUE;
 
     Width = Height = 0;
@@ -2718,6 +2724,8 @@ int CViewerWindow::GetDocumentTop() const
 
 __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
 {
+    static const int kLineNumberCheckpointStride = 64;
+
     if (offset <= TextStartOffset())
     {
         if (lineStart)
@@ -2731,6 +2739,57 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
         return offset / 16 + 1;
     }
 
+    // Reuse the last answer for the same offset (status bar + gutter both ask).
+    if (LineNumberCacheOffset == offset && LineNumberCacheLine > 0)
+    {
+        if (lineStart)
+            *lineStart = LineNumberCacheLineStart;
+        return LineNumberCacheLine;
+    }
+
+    auto rememberCheckpoint = [&](__int64 line, __int64 lineStartOff)
+    {
+        if (line <= 1)
+            return;
+        if (((line - 1) % kLineNumberCheckpointStride) != 0)
+            return;
+        int index = (int)((line - 1) / kLineNumberCheckpointStride);
+        while (LineNumberCheckpoints.Count <= index)
+            LineNumberCheckpoints.Add(-1);
+        if (LineNumberCheckpoints[index] < 0)
+            LineNumberCheckpoints[index] = lineStartOff;
+    };
+
+    auto startFromCheckpoint = [&](__int64& line, __int64& lastNewline, __int64& pos, BOOL decodedStarts)
+    {
+        line = 1;
+        lastNewline = decodedStarts ? TextStartOffset() : TextStartOffset() - 1;
+        pos = TextStartOffset();
+
+        if (LineNumberCacheOffset >= 0 && offset >= LineNumberCacheOffset && LineNumberCacheLine > 0)
+        {
+            line = LineNumberCacheLine;
+            lastNewline = decodedStarts ? LineNumberCacheLineStart : LineNumberCacheLineStart - 1;
+            pos = LineNumberCacheOffset;
+            return;
+        }
+
+        int best = -1;
+        for (int i = 0; i < LineNumberCheckpoints.Count; i++)
+        {
+            __int64 cp = LineNumberCheckpoints[i];
+            if (cp < 0 || cp > offset)
+                break;
+            best = i;
+        }
+        if (best >= 0)
+        {
+            line = 1 + (__int64)best * kLineNumberCheckpointStride;
+            pos = LineNumberCheckpoints[best];
+            lastNewline = decodedStarts ? pos : pos - 1;
+        }
+    };
+
     if (HasDecodedTextMode())
     {
         const __int64 savedSeek = Seek;
@@ -2740,6 +2799,8 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
         __int64 pos = TextStartOffset();
         __int64 pendingCREnd = -1;
         BOOL fatalErr = FALSE;
+        startFromCheckpoint(line, lastNewline, pos, TRUE);
+        rememberCheckpoint(line, lastNewline);
         while (pos < offset)
         {
             __int64 read = Prepare(NULL, pos, min((__int64)VIEW_BUFFER_SIZE, offset - pos), fatalErr);
@@ -2759,6 +2820,7 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
                     {
                         lastNewline = rawEnd;
                         ++line;
+                        rememberCheckpoint(line, lastNewline);
                         pendingCREnd = -1;
                         continue;
                     }
@@ -2766,6 +2828,7 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
                     {
                         lastNewline = pendingCREnd;
                         ++line;
+                        rememberCheckpoint(line, lastNewline);
                     }
                     pendingCREnd = -1;
                 }
@@ -2775,11 +2838,13 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
                 {
                     lastNewline = rawEnd;
                     ++line;
+                    rememberCheckpoint(line, lastNewline);
                 }
                 else if (scalar == 0 && Configuration.EOL_NULL)
                 {
                     lastNewline = rawEnd;
                     ++line;
+                    rememberCheckpoint(line, lastNewline);
                 }
             }
             pos += read;
@@ -2788,9 +2853,13 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
         {
             lastNewline = pendingCREnd;
             ++line;
+            rememberCheckpoint(line, lastNewline);
         }
         if (lineStart)
             *lineStart = lastNewline;
+        LineNumberCacheOffset = offset;
+        LineNumberCacheLine = line;
+        LineNumberCacheLineStart = lastNewline;
         if (savedLoaded > 0)
         {
             BOOL restoreFatalErr = FALSE;
@@ -2809,6 +2878,8 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
     __int64 pendingCREnd = -1;
     __int64 pos = TextStartOffset();
     BOOL fatalErr = FALSE;
+    startFromCheckpoint(line, lastNewline, pos, FALSE);
+    rememberCheckpoint(line, lastNewline + 1);
     while (pos < offset)
     {
         __int64 read = Prepare(NULL, pos, min((__int64)VIEW_BUFFER_SIZE, offset - pos), fatalErr);
@@ -2824,6 +2895,7 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
                 {
                     lastNewline = pos + i;
                     ++line;
+                    rememberCheckpoint(line, lastNewline + 1);
                     pendingCREnd = -1;
                     continue;
                 }
@@ -2831,6 +2903,7 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
                 {
                     lastNewline = pendingCREnd;
                     ++line;
+                    rememberCheckpoint(line, lastNewline + 1);
                 }
                 pendingCREnd = -1;
             }
@@ -2844,6 +2917,7 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
                 {
                     lastNewline = pos + i;
                     ++line;
+                    rememberCheckpoint(line, lastNewline + 1);
                 }
             }
             else if (ch == 0)
@@ -2852,6 +2926,7 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
                 {
                     lastNewline = pos + i;
                     ++line;
+                    rememberCheckpoint(line, lastNewline + 1);
                 }
             }
         }
@@ -2861,9 +2936,13 @@ __int64 CViewerWindow::GetDocumentLineNumber(__int64 offset, __int64* lineStart)
     {
         lastNewline = pendingCREnd;
         ++line;
+        rememberCheckpoint(line, lastNewline + 1);
     }
     if (lineStart)
         *lineStart = lastNewline + 1; // character after the last EOL is the start of the current logical line
+    LineNumberCacheOffset = offset;
+    LineNumberCacheLine = line;
+    LineNumberCacheLineStart = lastNewline + 1;
     if (savedLoaded > 0)
     {
         BOOL restoreFatalErr = FALSE;

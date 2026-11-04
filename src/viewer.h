@@ -1,6 +1,11 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
+/*
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Cache sparse line-number checkpoints for Internal Viewer. | Avoid O(n) full-file rescans on every paint/status update near EOF (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
+*/
 
 #pragma once
 
@@ -506,6 +511,13 @@ protected:
     __int64 CachedSelectionLineCount;
     __int64 CachedSelectionCharacterCount;
     __int64 CachedVerticalPageSize; // stable V-scrollbar page extent (-1 = not computed)
+    // Sparse index for GetDocumentLineNumber(): offset of logical lines
+    // 1, 1+stride, 1+2*stride, ... built while scanning so EOF scrolling does
+    // not re-read the whole file on every paint/status update (#746).
+    TDirectArray<__int64> LineNumberCheckpoints;
+    __int64 LineNumberCacheOffset;    // last resolved offset (-1 = none)
+    __int64 LineNumberCacheLine;      // line number at LineNumberCacheOffset
+    __int64 LineNumberCacheLineStart; // logical line start for that offset
     BOOL LayoutNeeded; // TRUE = LayoutStatusBar() must run before the next paint
 
     int EnumFileNamesSourceUID;     // UID of our source for enumerating names in the viewer

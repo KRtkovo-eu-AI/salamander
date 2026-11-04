@@ -276,3 +276,5 @@ src/plugins/zip/vcxproj/sfxmake/Release/
 src/plugins/zip/vcxproj/selfextr/ReleaseEx/
 
 src/plugins/zip/vcxproj/selfextr/Release/
+
+_build/

@@ -1,6 +1,11 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
+/*
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Wrap FindPreviousDecodedEOL within one logical line; invalidate line-number checkpoints on reload. | Full-file wrap replay and line scans made EOF scrolling O(n) for large Unicode files (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
+*/
 
 #include "precomp.h"
 
@@ -934,7 +939,7 @@ void CViewerWindow::HeightChanged(BOOL& fatalErr)
 {
     CALL_STACK_MESSAGE1("CViewerWindow::HeightChanged()");
     fatalErr = FALSE;
-    CachedTotalLines = CachedVerticalPageSize = -1; // invalidate document metrics cache
+    CachedTotalLines = CachedVerticalPageSize = -1; // invalidate viewport metrics (line checkpoints stay valid)
     switch (Type)
     {
     case vtHex:
@@ -1095,6 +1100,8 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
             FindOffset = 0;
             StartSelection = EndSelection = -1;
             CachedSelectionStart = CachedSelectionEnd = -1;
+            LineNumberCheckpoints.DestroyMembers();
+            LineNumberCacheOffset = LineNumberCacheLine = LineNumberCacheLineStart = -1;
             ReleaseMouseDrag();
             FirstLineSize = LastLineSize = ViewSize = 0;
             LastFindSeekY = -1;
@@ -1121,6 +1128,8 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
             if (!testOnlyFileSize || FileSize != oldFS)
             {
                 CachedMaxLineLen = 0;
+                LineNumberCheckpoints.DestroyMembers();
+                LineNumberCacheOffset = LineNumberCacheLine = LineNumberCacheLineStart = -1;
                 Seek = 0;
                 Loaded = 0;
                 FindOffset = 0;
@@ -1288,6 +1297,8 @@ void CViewerWindow::FileChanged(HANDLE file, BOOL testOnlyFileSize, BOOL& fatalE
         FindOffset = 0;
         StartSelection = EndSelection = -1;
         CachedSelectionStart = CachedSelectionEnd = -1;
+        LineNumberCheckpoints.DestroyMembers();
+        LineNumberCacheOffset = LineNumberCacheLine = LineNumberCacheLineStart = -1;
         ReleaseMouseDrag();
         FirstLineSize = LastLineSize = ViewSize = 0;
         LastFindSeekY = -1;
@@ -1726,14 +1737,11 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
                                            BOOL& fatalErr, int* lines, __int64* firstLineEndOff,
                                            __int64* firstLineCharLen, BOOL addLineIfSeekIsWrap)
 {
-    // Keep decoded backwards navigation close to the legacy byte path: scan backwards from
-    // the current seek instead of replaying the whole file from TextContentOffset.  The
-    // replay implementation was correct but made opening large Unicode files very slow,
-    // because HeightChanged() asks FindSeekBefore(FileSize, visibleLines) during the first
-    // paint and that turned into a full-file decode before any content was drawn.
-    UNREFERENCED_PARAMETER(takeLineBegin);
-    UNREFERENCED_PARAMETER(addLineIfSeekIsWrap);
-
+    // Keep decoded backwards navigation close to the legacy byte path: find the
+    // logical line by scanning backwards from seek, then (only when wrap is on)
+    // correct the start within that one logical line.  Never replay wraps from
+    // TextContentOffset — HeightChanged()/line-up at EOF would otherwise decode
+    // the whole file on every scroll for large Unicode documents (#746).
     fatalErr = FALSE;
     if (firstLineEndOff != NULL)
         *firstLineEndOff = -1;
@@ -1748,67 +1756,6 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
     {
         if (firstLineCharLen != NULL)
             *firstLineCharLen = 0;
-        return TRUE;
-    }
-
-    if (allowWrap && WrapText && Width > 0 && Height > 0)
-    {
-        // Decoded text uses variable-width byte sequences, so the legacy
-        // byte-scanning wrap correction cannot be reused safely.  Walk the
-        // decoded visual rows forward with the same ReadDecodedTextLine() path
-        // that painting uses, then pick the requested row from the tail.  This
-        // keeps MaxSeekY exact for wrapped Unicode text and also keeps line-up
-        // / mouse-wheel-up movement on real visual row boundaries.
-        int columns = max(1, (Width - GetTextLeft()) / CharWidth);
-        TDirectArray<__int64> visualStarts(256, 256);
-        __int64 rowStart = minSeek;
-        while (rowStart <= seek && rowStart < FileSize)
-        {
-            visualStarts.Add(rowStart);
-
-            Salamander::Unicode::DecodedRun row;
-            __int64 rowEnd = rowStart;
-            __int64 nextRow = rowStart;
-            BOOL eol = FALSE;
-            BOOL wrapped = FALSE;
-            int eolBytes = 0;
-            if (!ReadDecodedTextLine(hFile, rowStart, columns, row, rowEnd, nextRow, eol, wrapped, eolBytes, fatalErr))
-                return FALSE;
-            if (fatalErr)
-                return FALSE;
-            if (nextRow <= rowStart)
-                break;
-            if (nextRow > seek)
-                break;
-            rowStart = nextRow;
-        }
-
-        // FindSeekBefore() has already consumed the first requested line in
-        // its while(lines--) loop before passing the remaining count here.
-        // Add it back so callers asking for two lines (for example line-up via
-        // ZeroLineSize()) receive the previous visual row instead of the
-        // current one.
-        int lineCount = lines != NULL ? max(1, *lines + 1) : 1;
-        int index = max(0, visualStarts.Count - lineCount);
-        lineBegin = visualStarts.Count > 0 ? visualStarts[index] : minSeek;
-        previousLineEnd = lineBegin;
-        if (lines != NULL)
-            *lines = 0;
-        if (firstLineEndOff != NULL)
-            *firstLineEndOff = lineBegin;
-        if (firstLineCharLen != NULL)
-        {
-            __int64 countEnd = max(lineBegin, min(seek, FileSize));
-            Salamander::Unicode::DecodedRun visual;
-            if (countEnd > lineBegin)
-            {
-                if (!DecodeTextRange(hFile, lineBegin, countEnd, visual, fatalErr))
-                    return FALSE;
-                if (fatalErr)
-                    return FALSE;
-            }
-            *firstLineCharLen = (__int64)Salamander::Unicode::BuildTextElementMap(visual).Count();
-        }
         return TRUE;
     }
 
@@ -1942,8 +1889,77 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
         previousLineEnd = minSeek;
     }
 
+    // Wrap adjustment below may still refine firstLineEndOff for wrapped rows.
     if (firstLineEndOff != NULL)
         *firstLineEndOff = lineBegin > minSeek ? previousLineEnd : lineBegin;
+
+    __int64 originalLineBegin = lineBegin;
+    if (allowWrap && WrapText && Width > 0 && Height > 0)
+    {
+        // Mirror the legacy wrap correction: walk visual rows only inside this
+        // logical line with ReadDecodedTextLine(), then optionally step back
+        // additional wrapped rows when FindSeekBefore() still needs more lines.
+        int columns = max(1, (Width - GetTextLeft()) / CharWidth);
+        while (1)
+        {
+            Salamander::Unicode::DecodedRun row;
+            __int64 rowEnd = lineBegin;
+            __int64 nextRow = lineBegin;
+            BOOL eol = FALSE;
+            BOOL wrapped = FALSE;
+            int eolBytes = 0;
+            if (!ReadDecodedTextLine(hFile, lineBegin, columns, row, rowEnd, nextRow, eol, wrapped, eolBytes, fatalErr))
+                return FALSE;
+            if (fatalErr)
+                return FALSE;
+
+            BOOL rowReachesSeek = takeLineBegin ? (nextRow > seek) : (nextRow >= seek);
+            if (rowReachesSeek || nextRow <= lineBegin || !wrapped)
+            {
+                if (takeLineBegin && addLineIfSeekIsWrap && originalLineBegin < lineBegin && lineBegin == seek)
+                {
+                    if (lines != NULL)
+                        (*lines)++;
+                    addLineIfSeekIsWrap = FALSE;
+                }
+                if (!takeLineBegin && firstLineCharLen != NULL)
+                {
+                    Salamander::Unicode::DecodedRun visual;
+                    __int64 countEnd = max(lineBegin, min(seek, FileSize));
+                    if (countEnd > lineBegin)
+                    {
+                        if (!DecodeTextRange(hFile, lineBegin, countEnd, visual, fatalErr))
+                            return FALSE;
+                        if (fatalErr)
+                            return FALSE;
+                    }
+                    *firstLineCharLen = (__int64)Salamander::Unicode::BuildTextElementMap(visual).Count();
+                    firstLineCharLen = NULL;
+                }
+                if (firstLineEndOff != NULL)
+                {
+                    if (originalLineBegin < lineBegin)
+                        *firstLineEndOff = lineBegin;
+                    firstLineEndOff = NULL;
+                }
+
+                if (originalLineBegin < lineBegin)
+                {
+                    if (lines != NULL && *lines > 0)
+                    {
+                        (*lines)--;
+                        takeLineBegin = FALSE;
+                        seek = lineBegin;
+                        lineBegin = originalLineBegin;
+                        continue;
+                    }
+                    previousLineEnd = lineBegin;
+                }
+                break;
+            }
+            lineBegin = nextRow;
+        }
+    }
 
     if (firstLineCharLen != NULL)
     {
