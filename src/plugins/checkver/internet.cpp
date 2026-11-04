@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 #include "precomp.h"
 #include <wininet.h>
@@ -14,7 +17,7 @@ const char* SCRIPT_URL_FTP_CZ = "ftp://ftp.altap.cz/pub/altap/salamand/checkver/
 const char* SCRIPT_URL_HTTP = "https://www.altap.cz/salupdate40/";
 const char* SCRIPT_URL_HTTP_AFTERINSTALL = "https://www.altap.cz/salupdatenew40/";
 
-const char* AGENT_NAME = "Open Salamander CheckVer Plugin";
+const char* AGENT_NAME = "Open Samandarin CheckVer Plugin";
 
 // limitation - may be called from only one thread; otherwise buffer overwrites are not handled
 const char* GetInetErrorText(DWORD dError)

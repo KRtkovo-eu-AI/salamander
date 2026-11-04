@@ -105,7 +105,7 @@ COMMENT,"English version"
 2,125,56,50,14,1,"Abbrechen"
 
 [DIALOG 550]
-463,236,1,"Steuerelemente, bereitgestellt von Open Salamander"
+463,236,1,"Steuerelemente, bereitgestellt von Open Samandarin"
 3000,6,4,254,108,1,"CGUIStaticTextAbstract"
 3001,14,17,110,8,1,"Nicht angefügter statischer Text"
 551,102,17,152,8,1,"Das System wurde vor %d ms gestartet."

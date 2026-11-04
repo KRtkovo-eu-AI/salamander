@@ -1,9 +1,13 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+-->
 # Salamatrix Platform Foundation
 
 ## Purpose
 
 Salamatrix is the working technical name for the unified extensibility platform in
-Open Salamander. It is intended to connect the Salamander core, native plugins,
+Open Samandarin. It is intended to connect the Salamander core, native plugins,
 scripted extensions, future language runtime adapters, shared UI services, and future SDK
 surface area without creating separate APIs for each runtime.
 

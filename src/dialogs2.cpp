@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -799,13 +802,7 @@ void CImportConfigDialog::Transfer(CTransferInfo& ti)
         {
             if (ConfigurationExist[i])
             {
-                // detect whether this is "Open Salamander", "Altap Salamander", or the old "Servant Salamander"
-                BOOL openSalamander = StrIStr(SalamanderConfigurationRoots[i], "Open Salamander") != NULL;
-                BOOL altapSalamander = StrIStr(SalamanderConfigurationRoots[i], "Altap Salamander") != NULL;
-                const char* name = openSalamander    ? "Open Salamander %s"
-                                   : altapSalamander ? "Altap Salamander %s"
-                                                     : "Servant Salamander %s";
-                sprintf(buff, name, SalamanderConfigurationVersions[i]);
+                FormatConfigDisplayName(SalamanderConfigurationRoots[i], SalamanderConfigurationVersions[i], buff, _countof(buff));
                 SendDlgItemMessage(HWindow, IDC_IMPORTCONFIG, CB_ADDSTRING, 0, (LPARAM)buff);
                 if (selIndex == 0)
                     selIndex = 1; // the last configuration becomes default
@@ -847,13 +844,7 @@ void CImportConfigDialog::Transfer(CTransferInfo& ti)
                 lvi.iSubItem = 0;
                 lvi.state = 0;
 
-                // detect whether this is "Open Salamander", "Altap Salamander", or the old "Servant Salamander"
-                BOOL openSalamander = StrIStr(SalamanderConfigurationRoots[i], "Open Salamander") != NULL;
-                BOOL altapSalamander = StrIStr(SalamanderConfigurationRoots[i], "Altap Salamander") != NULL;
-                const char* name = openSalamander    ? "Open Salamander %s"
-                                   : altapSalamander ? "Altap Salamander %s"
-                                                     : "Servant Salamander %s";
-                sprintf(buff, name, SalamanderConfigurationVersions[i]);
+                FormatConfigDisplayName(SalamanderConfigurationRoots[i], SalamanderConfigurationVersions[i], buff, _countof(buff));
                 lvi.pszText = buff;
                 ListView_InsertItem(hListView, &lvi);
                 index++;
@@ -1325,7 +1316,7 @@ CLanguageSelectorDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (GetLanguagesCount() == 0) // should not happen because this dialog is loaded from the .slg module (that .slg cannot be deleted)
             {
                 MessageBox(HWindow, "Unable to find any language file (.SLG) in subdirectory LANG.\n"
-                                    "Please reinstall Open Salamander.",
+                                    "Please reinstall Open Samandarin.",
                            SALAMANDER_TEXT_VERSION, MB_OK | MB_ICONERROR);
                 TRACE_E("CLanguageSelectorDialog: unexpected situation (no language file): calling ExitProcess(667).");
                 //          ExitProcess(667);
@@ -1877,6 +1868,8 @@ static BOOL MCDLooksLikeGeneratedConfigName(const CFoundConfig& cfg)
     strncpy_s(version, cfg.Version, _TRUNCATE);
     MCDNormalizeGeneratedNameText(version);
 
+    if (_strnicmp(name, "Open Samandarin ", 16) == 0)
+        return StrIStr(version, name + 16) != NULL;
     return (_strnicmp(name, "Open Salamander ", 16) == 0 ||
             _strnicmp(name, "Altap Salamander ", 16) == 0 ||
             _strnicmp(name, "Servant Salamander ", 18) == 0) &&

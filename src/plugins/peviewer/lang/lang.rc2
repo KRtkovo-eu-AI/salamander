@@ -1,4 +1,6 @@
-﻿//
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+//
 // lang.rc2 - resources Microsoft Visual C++ does not edit directly
 //
 
@@ -20,5 +22,5 @@ STRINGTABLE
  IDS_ERR_OPEN_FILE, "Unable to open file %s."
  IDS_ERR_TMP, "Creation of temporary file has failed."
  IDS_EXCEPTION, "Exception has occured.\n\nViewed file: %s\n\nIf you think that viewed file is not corrupted, please send this file to support@altap.cz.\nWe will reproduce and fix the viewer bug. Thanks for cooperation!"
- IDS_HIDDEN_SECTIONS, "No Portable Executable section selected in plugin configuration was found.\nUse menu Options > Plugin Configuration > Portable Executable Viewer\nin Open Salamander main window to setup visible sections."
+ IDS_HIDDEN_SECTIONS, "No Portable Executable section selected in plugin configuration was found.\nUse menu Options > Plugin Configuration > Portable Executable Viewer\nin Open Samandarin main window to setup visible sections."
 }

@@ -1,8 +1,12 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Describe Salamatrix Studio as an Open Samandarin extension tool. | The Studio readme still named Open Salamander and omitted the UI Capabilities demo. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+-->
 # Salamatrix Studio
 
 Salamatrix Studio is a developer-first Visual Studio Code and VSCodium
-extension for creating Open Salamander extensions. It is distributed as a
-standalone VSIX and does not require a running or installed Open Salamander.
+extension for creating Open Samandarin extensions. It is distributed as a
+standalone VSIX and does not require a running or installed Open Samandarin.
 
 The extension is intended for developers who prefer to keep source code as the
 source of truth while using visual designers as a convenient layer for menus
@@ -17,7 +21,7 @@ its Extensions view.
 
 The current package contains a native Windows x64 preview host. It supports
 Windows x64 only; ARM64 is reserved for a future package. A running
-Open Salamander installation and the Visual C++ Redistributable are not
+Open Samandarin installation and the Visual C++ Redistributable are not
 required. The preview host uses the static C/C++ runtime and is distributed
 inside the VSIX.
 
@@ -25,7 +29,9 @@ inside the VSIX.
 
 1. Open an empty folder or an existing extension repository in VS Code.
 2. Open **Salamatrix Studio** in the Activity Bar.
-3. Choose **Create New Extension** or **Add Existing Extension Folder**.
+3. Choose **Create New Extension**, **Add Existing Extension Folder**, or
+   **Open UI Capabilities Demo**. The demo is the bundled Salamatrix UI
+   Capabilities window, ready to open in the dialog designer.
 4. Open **Overview** to inspect the manifest, **Menu Builder** to design
    commands, or **Dialogs** to create and edit Salamatrix UI dialog documents.
 5. Use the editor actions to preview the dialog or generate runtime-specific
@@ -41,8 +47,9 @@ Studio never overwrites existing project files during scaffolding. Generated
 
 - creates functional extension projects for PowerShell, Python, Node.js, PHP,
   Lua, and Automation JScript without overwriting existing files;
-- discovers `extension.json` projects in the workspace and offers a welcome
-  page for creating or adding one when the workspace is empty;
+- discovers `extension.json` projects in the workspace, shows the path each
+  one was loaded from, and offers a welcome page for creating, adding, or
+  opening the UI Capabilities demo when the workspace is empty;
 - shows each project as **Overview**, **Menu Builder**, **Dialogs**, and
   **Source Files** in the Salamatrix Studio activity bar;
 - creates `.salamatrix/dialogs/*.salamatrix-dialog.json` design documents;

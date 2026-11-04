@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 //****************************************************************************
 //
@@ -384,7 +387,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     {                            // reject older versions
         MessageBox(salamander->GetParentWindow(),
 #ifdef DEMOPLUG_COMPATIBLE_WITH_500
-                   "This plugin requires Open Salamander 5.0 or later.",
+                   "This plugin requires Open Samandarin 5.0 or later.",
 #else  // DEMOPLUG_COMPATIBLE_WITH_500
                    REQUIRE_LAST_VERSION_OF_SALAMANDER,
 #endif // DEMOPLUG_COMPATIBLE_WITH_500
@@ -702,7 +705,7 @@ CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamander)
     salamander->AddSubmenuEnd();
     salamander->AddSubmenuEnd();
     salamander->AddMenuItem(-1, NULL, 0, 0, FALSE, 0, 0, MENU_SKILLLEVEL_ALL); // separator
-    salamander->AddMenuItem(-1, "&Controls provided by Open Salamander...", 0, MENUCMD_SHOWCONTROLS, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE,
+    salamander->AddMenuItem(-1, "&Controls provided by Open Samandarin...", 0, MENUCMD_SHOWCONTROLS, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE,
                             MENU_SKILLLEVEL_BEGINNER | MENU_SKILLLEVEL_INTERMEDIATE | MENU_SKILLLEVEL_ADVANCED);
     salamander->AddMenuItem(-1, NULL, 0, 0, FALSE, 0, 0, MENU_SKILLLEVEL_ALL); // separator
     salamander->AddSubmenuStart(-1, "Salamatrix PoC", 0, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);

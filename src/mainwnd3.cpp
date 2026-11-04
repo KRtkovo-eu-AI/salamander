@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -6723,15 +6726,10 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                         cfg.IsPortable = FALSE;
                         cfg.RootIndex = rootIndex;
 
-                        BOOL openSalamander = StrIStr(root, "Open Salamander") != NULL;
-                        BOOL altapSalamander = StrIStr(root, "Altap Salamander") != NULL;
-                        const char* name = openSalamander ? LoadStr(IDS_MCD_OPEN_SALAMANDER)
-                                           : altapSalamander ? LoadStr(IDS_MCD_ALTAP_SALAMANDER)
-                                                             : LoadStr(IDS_MCD_SERVANT_SALAMANDER);
                         if (customName[0] != 0)
                             strncpy_s(cfg.DisplayName, customName, _TRUNCATE);
                         else
-                            sprintf_s(cfg.DisplayName, name, SalamanderConfigurationVersions[rootIndex]);
+                            FormatConfigDisplayName(root, SalamanderConfigurationVersions[rootIndex], cfg.DisplayName, _countof(cfg.DisplayName));
                         // Verze: pro Samandarin pouzit format s pomlckami
                         strncpy_s(cfg.Version, SalamanderConfigurationVersions[rootIndex], _TRUNCATE);
                         if (StrIStr(cfg.Version, "Samandarin") != NULL)
@@ -11626,7 +11624,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         shutdownProgressRegistered = shutdownProgressRegistry.RegisterService(
             SALAMANDER_SERVICE_SHUTDOWN_PROGRESS,
             SALAMANDER_SHUTDOWN_PROGRESS_VERSION_1_0,
-            &shutdownProgressService, "Open Salamander");
+            &shutdownProgressService, "Open Samandarin");
         GlobalSaveWaitWindow = &closingProgress;
         GlobalSaveWaitWindowProgress = 0;
         EnableWindow(HWindow, FALSE);

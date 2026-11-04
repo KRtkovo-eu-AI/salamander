@@ -1,4 +1,6 @@
-﻿/////////////////////////////////////////////////////////////////////////////
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+/////////////////////////////////////////////////////////////////////////////
 //
 // Manifest
 //
@@ -34,12 +36,12 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "CompanyName", "Open Salamander Samandarin"
-            VALUE "FileDescription", "Open Salamander: Samandarin Uninstaller"
+            VALUE "CompanyName", "Open Samandarin"
+            VALUE "FileDescription", "Open Samandarin Uninstaller"
             VALUE "FileVersion", "1.28.0.0"
-            VALUE "InternalName", "Open Salamander: Samandarin Uninstaller"
+            VALUE "InternalName", "Open Samandarin Uninstaller"
             VALUE "OriginalFilename", "remove.exe"
-            VALUE "LegalCopyright", "Copyright © 1997-2026 Open Salamander Authors"
+            VALUE "LegalCopyright", "Copyright © 1997-2026 Open Salamander Authors, Open Samandarin Authors"
         END
     END
     BLOCK "VarFileInfo"

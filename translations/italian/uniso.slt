@@ -5,7 +5,7 @@ VERSION,"1,39,0,196"
 
 [TRANSLATION]
 LANGID,1040
-AUTHOR,"Open Salamander"
+AUTHOR,"Open Samandarin"
 WEB,"www.altap.cz"
 COMMENT,"English version"
 
@@ -72,7 +72,7 @@ COMMENT,"English version"
 1056,1,"Tipo di nodo radice BTree non supportato nel file Catalog."
 1057,1,"Il file del catalogo è frammentato in più di 8 frammenti, cosa non supportata."
 1058,1,"Il file '%s' è frammentato in più di 8 frammenti, cosa non supportata.\nIl file non verrà estratto."
-1059,1,"Questa immagine del disco contiene un percorso troppo lungo che Open Salamander non può gestire."
+1059,1,"Questa immagine del disco contiene un percorso troppo lungo che Open Samandarin non può gestire."
 1060,1,"Impossibile completare l'operazione a causa di un nome troppo lungo."
 1070,1,"Impossibile leggere l'intestazione del pacchetto. File troppo piccolo."
 1071,1,"Questo pacchetto è crittografato.\nI pacchetti crittografati non sono supportati."

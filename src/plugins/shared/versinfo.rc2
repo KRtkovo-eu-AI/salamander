@@ -1,6 +1,8 @@
-﻿//****************************************************************************
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+//****************************************************************************
 //
-// Copyright (c) 2023 Open Salamander Authors
+// Copyright (c) 2023 Open Salamander Authors, Open Samandarin Authors
 //
 // This is a part of the Open Salamander SDK library.
 //
@@ -56,7 +58,7 @@ BEGIN
             VALUE "OriginalFilename", VERSINFO_ORIGINAL "\0"
             VALUE "LegalCopyright", VERSINFO_COPYRIGHT "\0"
             VALUE "ProductVersion", VERSINFO_SALAMANDER_VERSION "\0"
-            VALUE "ProductName", "Open Salamander\0"
+            VALUE "ProductName", "Open Samandarin\0"
 #ifdef _LANG
             VALUE "Comments", "Language resources\0"
             VALUE "SLGAuthor", VERSINFO_COMPANY "\0"

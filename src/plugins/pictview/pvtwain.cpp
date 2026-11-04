@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 #include "precomp.h"
 
@@ -40,8 +43,8 @@ CTwain::CTwain()
     AppIdentity.ProtocolMajor = TWON_PROTOCOLMAJOR;
     AppIdentity.ProtocolMinor = TWON_PROTOCOLMINOR;
     AppIdentity.SupportedGroups = DG_IMAGE | DG_CONTROL;
-    strcpy(AppIdentity.Manufacturer, "Open Salamander");
-    strcpy(AppIdentity.ProductFamily, "Open Salamander plugin");
+    strcpy(AppIdentity.Manufacturer, "Open Samandarin");
+    strcpy(AppIdentity.ProductFamily, "Open Samandarin plugin");
     strcpy(AppIdentity.ProductName, PLUGIN_NAME_EN);
 
     memset(&SrcIdentity, 0, sizeof(SrcIdentity));

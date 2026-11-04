@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -37,7 +40,8 @@ HANDLE GetBugReporterRegistryMutex()
 
 BOOL SalmonGetBugReportUID(DWORD64* uid)
 {
-    const char* BUG_REPORTER_KEY = "Software\\Open Salamander Samandarin\\Bug Reporter";
+    const char* BUG_REPORTER_KEY = "Software\\Open Samandarin\\Bug Reporter";
+    const char* LEGACY_BUG_REPORTER_KEY = "Software\\Open Salamander Samandarin\\Bug Reporter";
     const char* BUG_REPORTER_UID = "ID";
 
     // this section runs during Salamander start-up and theoretically concurrent registry reads/writes may occur
@@ -47,7 +51,13 @@ BOOL SalmonGetBugReportUID(DWORD64* uid)
         WaitForSingleObject(hMutex, INFINITE);
     *uid = 0;
     HKEY hKey;
+    BOOL fromLegacy = FALSE;
     LONG res = NOHANDLES(RegOpenKeyEx(HKEY_CURRENT_USER, BUG_REPORTER_KEY, 0, KEY_READ, &hKey));
+    if (res != ERROR_SUCCESS)
+    {
+        res = NOHANDLES(RegOpenKeyEx(HKEY_CURRENT_USER, LEGACY_BUG_REPORTER_KEY, 0, KEY_READ, &hKey));
+        fromLegacy = res == ERROR_SUCCESS;
+    }
     if (res == ERROR_SUCCESS)
     {
         // try to load the previous record if it exists
@@ -57,6 +67,17 @@ BOOL SalmonGetBugReportUID(DWORD64* uid)
         if (res != ERROR_SUCCESS || gettedType != REG_QWORD)
             *uid = 0;
         NOHANDLES(RegCloseKey(hKey));
+    }
+    if (*uid != 0 && fromLegacy)
+    {
+        DWORD createType;
+        LONG res2 = NOHANDLES(RegCreateKeyEx(HKEY_CURRENT_USER, BUG_REPORTER_KEY, 0, NULL, REG_OPTION_NON_VOLATILE,
+                                             KEY_READ | KEY_WRITE, NULL, &hKey, &createType));
+        if (res2 == ERROR_SUCCESS)
+        {
+            RegSetValueEx(hKey, BUG_REPORTER_UID, 0, REG_QWORD, (BYTE*)uid, sizeof(*uid));
+            NOHANDLES(RegCloseKey(hKey));
+        }
     }
     // if the UID does not exist yet, create and store it
     if (*uid == 0)
@@ -115,7 +136,19 @@ BOOL SalmonSharedMemInit(CSalmonSharedMemory* mem)
         int len = lstrlen(mem->BugPath);
         if (len > 0 && mem->BugPath[len - 1] == '\\') // better check for a trailing backslash at the end of the path
             mem->BugPath[len - 1] = 0;
-        lstrcat(mem->BugPath, "\\Open Salamander");
+        int baseLen = lstrlen(mem->BugPath);
+        if (baseLen + 18 < MAX_PATH)
+        {
+            lstrcpy(mem->BugPath + baseLen, "\\Open Samandarin");
+            DWORD attr = GetFileAttributes(mem->BugPath);
+            if (attr == INVALID_FILE_ATTRIBUTES || (attr & FILE_ATTRIBUTE_DIRECTORY) == 0)
+            {
+                lstrcpy(mem->BugPath + baseLen, "\\Open Salamander");
+                attr = GetFileAttributes(mem->BugPath);
+                if (attr == INVALID_FILE_ATTRIBUTES || (attr & FILE_ATTRIBUTE_DIRECTORY) == 0)
+                    lstrcpy(mem->BugPath + baseLen, "\\Open Samandarin");
+            }
+        }
     }
 
     // base name for bug report files

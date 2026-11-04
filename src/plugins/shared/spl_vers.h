@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 //****************************************************************************
 //
@@ -232,6 +235,6 @@
 
 #define LAST_VERSION_OF_SALAMANDER 106
 #define SAL_SDK_VER_CANOPENARCHIVE 106
-#define REQUIRE_LAST_VERSION_OF_SALAMANDER "This plugin requires Open Salamander 5.0 (" SAL_VER_PLATFORM ") or later."
+#define REQUIRE_LAST_VERSION_OF_SALAMANDER "This plugin requires Open Samandarin 5.0 (" SAL_VER_PLATFORM ") or later."
 
 #endif // __SPL_VERS_H

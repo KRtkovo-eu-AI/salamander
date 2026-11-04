@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 #include "precomp.h"
 
@@ -280,7 +283,7 @@ int MyEntryPoint()
         ret = WinMainCRTStartup();
     }
     else
-        MessageBox(NULL, "Open Salamander Bug Reporter (salmon.exe) initialization has failed. Please reinstall Open Salamander.",
+        MessageBox(NULL, "Open Samandarin Bug Reporter (salmon.exe) initialization has failed. Please reinstall Open Samandarin.",
                    SALAMANDER_TEXT_VERSION, MB_OK | MB_ICONSTOP);
 
     // sem uz mi debugger nechodi, sestreli nas v RTL (testovano pod VC 2008 s nasim RTL)
@@ -390,7 +393,7 @@ const char* SALCF_FAKE_REALPATH = "SalFakeRealPath";
 const char* SALCF_FAKE_SRCTYPE = "SalFakeSrcType";
 const char* SALCF_FAKE_SRCFSPATH = "SalFakeSrcFSPath";
 
-const char* MAINWINDOW_NAME = "Open Salamander 5.0 Samandarin";
+const char* MAINWINDOW_NAME = "Open Samandarin";
 const char* CMAINWINDOW_CLASSNAME = "SalamanderMainWindowVer25";
 static const wchar_t* CMAINWINDOW_CLASSNAMEW = L"SalamanderMainWindowVer25";
 const char* SAVEBITS_CLASSNAME = "SalamanderSaveBits";
@@ -833,6 +836,7 @@ BOOL DragFullWindows = TRUE;
 CWindowQueue ViewerWindowQueue("Internal Viewers");
 
 CFindSetDialog GlobalFindDialog(NULL /* ignored */, 0 /* ignored */, 0 /* ignored */);
+BOOL PassFindTextToPluginViewer = FALSE;
 
 CNames GlobalSelection;
 CDirectorySizesHolder DirectorySizesHolder;
@@ -5003,7 +5007,7 @@ FIND_NEW_SLG_FILE:
         if (slgDialog.GetLanguagesCount() == 0)
         {
             MessageBox(NULL, "Unable to find any language file (.SLG) in subdirectory LANG.\n"
-                             "Please reinstall Open Salamander.",
+                             "Please reinstall Open Samandarin.",
                        SALAMANDER_TEXT_VERSION, MB_OK | MB_ICONERROR);
             goto EXIT_1a;
         }
@@ -5064,7 +5068,7 @@ FIND_NEW_SLG_FILE:
             HANDLES(FreeLibrary(HLanguage));
         if (!newSLGFile) // zapamatovany .SLG soubor prestal nejspis existovat, zkusime najit jiny
         {
-            sprintf(errorText, "File %s was not found or is not valid language file.\nOpen Salamander "
+            sprintf(errorText, "File %s was not found or is not valid language file.\nOpen Samandarin "
                                "will try to search for some other language file (.SLG).",
                     path);
             MessageBox(NULL, errorText, SALAMANDER_TEXT_VERSION, MB_OK | MB_ICONERROR);
@@ -5074,9 +5078,9 @@ FIND_NEW_SLG_FILE:
         else // nemelo by vubec nastat - .SLG soubor jiz byl otestovan
         {
             sprintf(errorText, "File %s was not found or is not valid language file.\n"
-                               "Please run Open Salamander again and try to choose some other language file.",
+                               "Please run Open Samandarin again and try to choose some other language file.",
                     path);
-            MessageBox(NULL, errorText, "Open Salamander", MB_OK | MB_ICONERROR);
+            MessageBox(NULL, errorText, "Open Samandarin", MB_OK | MB_ICONERROR);
             goto EXIT_1a;
         }
     }
@@ -5916,7 +5920,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                                         HWND hParent = NULL;
                                         if (MainWindow != NULL)
                                             hParent = MainWindow->HWindow;
-                                        MessageBox(hParent, "_CrtCheckMemory failed. Look to the Trace Server for details.", "Open Salamander", MB_OK | MB_ICONERROR);
+                                        MessageBox(hParent, "_CrtCheckMemory failed. Look to the Trace Server for details.", "Open Samandarin", MB_OK | MB_ICONERROR);
                                     }
                                     LastCrtCheckMemoryTime = GetTickCount();
                                 }
