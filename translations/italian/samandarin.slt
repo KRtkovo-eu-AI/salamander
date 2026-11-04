@@ -5,7 +5,7 @@ VERSION,"0,10,0,196"
 
 [TRANSLATION]
 LANGID,1040
-AUTHOR,"Open Salamander"
+AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net"
 COMMENT,"English version"
 
@@ -95,8 +95,8 @@ COMMENT,"English version"
 118,1,"Scaricamento e verifica del pacchetto..."
 119,1,"Impossibile preparare il pacchetto per l'installazione."
 120,1,"L'installazione automatica è disponibile solo per pacchetti di rilascio .7z ufficiali di plugin o estensioni."
-121,1,"Il pacchetto è pronto e verrà installato dopo l'uscita di Open Salamander."
-122,1,"L'aggiornamento è pronto e sostituirà il pacchetto installato dopo l'uscita di Open Salamander."
+121,1,"Il pacchetto è pronto e verrà installato dopo l'uscita di Open Samandarin."
+122,1,"L'aggiornamento è pronto e sostituirà il pacchetto installato dopo l'uscita di Open Samandarin."
 123,0,"The selected plugin requires these missing dependencies. They will be installed automatically or their web pages will be opened together:\n\n{0}\n\nContinue?"
 124,1,"Manca una dipendenza richiesta nei cataloghi abilitati o non fornisce una pagina di installazione:\n\n{0}"
 125,1,"L'installazione automatica richiede un digest SHA-256 nel catalogo. Il catalogo ufficiale non ha ancora pubblicato un hash per questo pacchetto."

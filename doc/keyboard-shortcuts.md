@@ -1,6 +1,10 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+-->
 # Atalhos de Teclado
 
-Este arquivo consolida os atalhos de teclado documentados no help do projeto para o Open Salamander e plugins incluídos no repositório.
+Este arquivo consolida os atalhos de teclado documentados no help do projeto para o Open Samandarin e plugins incluídos no repositório.
 
 Observacoes:
 
@@ -24,7 +28,7 @@ Observacoes:
 | `F7` | Create the directory in the active panel |
 | `F8` | Delete the selected files and directories |
 | `F9` | Open the user menu |
-| `F10` or `Alt` | Enter or leave Open Salamander's menu bar |
+| `F10` or `Alt` | Enter or leave Open Samandarin's menu bar |
 | `F11` | Connect the network drive |
 | `F12` | Disconnect the network drive |
 | `Ctrl+F1` | Display the Drive Information dialog |
@@ -41,7 +45,7 @@ Observacoes:
 | `Alt+F1` | Change the drive in the left panel |
 | `Alt+F2` | Change the drive in the right panel |
 | `Alt+F3` | View the focused file in the alternate viewer |
-| `Alt+F4` | Exit Open Salamander |
+| `Alt+F4` | Exit Open Samandarin |
 | `Alt+F5` | Pack selected files and directories |
 | `Alt+F6` | Unpack selected archive |
 | `Alt+F7` | Find files |
@@ -62,7 +66,7 @@ Observacoes:
 | `Ctrl+Shift+F6` | Load the selected names |
 | `Ctrl+Shift+F9` | Display shared directories |
 | `Ctrl+Shift+F10` | Calculates directory sizes in active panel |
-| `Ctrl+Shift+F11` | Maximize/restore main window of Open Salamander |
+| `Ctrl+Shift+F11` | Maximize/restore main window of Open Samandarin |
 | `Alt+Shift+F10` | Open the context menu for the current directory in active panel |
 | `Insert` | Select/unselect the focused file or directory in the active panel |
 | `Ctrl+Insert` | Copy the selected files and directories to the clipboard |
@@ -74,7 +78,7 @@ Observacoes:
 | `Delete` | Delete the selected files and directories |
 | `Shift+Delete` | Delete the selected files and directories, inverts Recycle Bin settings |
 | `Space` | Select/unselect the focused file or directory in the active panel and calculate directory size |
-| `Alt+Space` | Open the window menu of Open Salamander's main window |
+| `Alt+Space` | Open the window menu of Open Samandarin's main window |
 | `Ctrl+Space` | Insert the full name of the current directory in the active panel to the Command line |
 | `Ctrl+Shift+Space` | Insert the DOS name of the current directory in the active panel to the Command line |
 | `Backspace` | Go to the parent directory in the active panel |
@@ -116,7 +120,7 @@ Observacoes:
 | `Alt+Enter` | Show properties of the focused file or directory |
 | `Tab` | Switch to the inactive panel |
 | `Ctrl+Tab` | Switch to/from the Command line |
-| `Shift+Escape` | Minimize the main window of Open Salamander |
+| `Shift+Escape` | Minimize the main window of Open Samandarin |
 | `Num +` | Select files (and optionally also directories) in the active panel |
 | `Ctrl+= (+)` | Select files (and optionally also directories) in the active panel |
 | `Ctrl+Num +` | Select all files and directories in the active panel |
@@ -143,7 +147,7 @@ Observacoes:
 | `Ctrl+Shift+= (+)` | Add the current directory to Hot Paths |
 | `Shift+A..Z` | Change the drive in the active panel to drive `A:`..`Z:` |
 | `A..Z` | Quick Search |
-| `Alt+A..Z` | Open submenu from the Open Salamander menu using the menu bar hotkeys |
+| `Alt+A..Z` | Open submenu from the Open Samandarin menu using the menu bar hotkeys |
 | `Ctrl+A` | Select all files and directories |
 | `Ctrl+C` | Copy the selected files and directories to the clipboard |
 | `Ctrl+D` | Unselect all files and directories |

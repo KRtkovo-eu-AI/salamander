@@ -1,3 +1,5 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 #!/usr/bin/env python3
 """Bump the Samandarin version and matching configuration metadata.
 
@@ -147,8 +149,8 @@ def main() -> None:
     )
     main_text = replace_one(
         main_text,
-        rf"^(\s*)\"Software\\\\Open Salamander Samandarin\\\\5\.0-samandarin-{re.escape(old_config_version_name)}\",$",
-        rf'\g<1>"Software\\\\Open Salamander Samandarin\\\\5.0-samandarin-{new_version}",\n\g<0>',
+        rf"^(\s*)\"Software\\\\Open Samandarin\\\\5\.0-samandarin-{re.escape(old_config_version_name)}\",$",
+        rf'\g<1>"Software\\\\Open Samandarin\\\\5.0-samandarin-{new_version}",\n\g<0>',
         file_name=str(mainwnd2),
     )
     main_text = replace_one(

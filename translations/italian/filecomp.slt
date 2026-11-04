@@ -5,7 +5,7 @@ VERSION,"1,22,0,196"
 
 [TRANSLATION]
 LANGID,1040
-AUTHOR,"Open Salamander"
+AUTHOR,"Open Samandarin"
 WEB,"www.altap.cz"
 COMMENT,"English version"
 
@@ -106,7 +106,7 @@ COMMENT,"English version"
 136,65,134,165,14,1,""
 309,6,156,21,8,1,"Altro"
 310,29,160,219,1,1,""
-144,12,166,162,12,1,"&Carica plugin all'avvio di Open Salamander"
+144,12,166,162,12,1,"&Carica plugin all'avvio di Open Samandarin"
 
 [DIALOG 150]
 254,221,1,"Opzioni predefinite del confronto"
@@ -270,8 +270,8 @@ COMMENT,"English version"
 1075,1,"Confronto file - Errore"
 1076,0,"Invalid arguments. Usage:\n\tfilecomp.exe [options] first second\nOptions are:\n\t-w\tWait until File Comparator closes.\n\t--wait\tWait until File Comparator closes."
 1077,1,"Impossibile inviare messaggio al plugin Confronto file."
-1078,1,"Impossibile avviare Open Salamander."
-1079,1,"Impossibile inviare messaggio al plug-in File Comparator. Assicurarsi che l'opzione "Carica plugin all'avvio di Open Salamander" sia impostata nella configurazione di File Comparator."
+1078,1,"Impossibile avviare Open Samandarin."
+1079,1,"Impossibile inviare messaggio al plug-in File Comparator. Assicurarsi che l'opzione "Carica plugin all'avvio di Open Samandarin" sia impostata nella configurazione di File Comparator."
 1080,1,"Confronto visivo di due file di testo o binari."
 1081,1,"Configurazione del confronto file"
 1082,1,"Informazioni sul plug-in"

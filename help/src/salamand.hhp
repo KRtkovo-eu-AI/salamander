@@ -1,3 +1,5 @@
+; | Date | Summary | Reason | Ticket | Model |
+; | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 [OPTIONS]
 Auto Index=Yes
 Binary Index=Yes
@@ -11,7 +13,7 @@ Full text search stop list file=..\..\plugins\shared\help\en\stop.stp
 Full-text search=Yes
 Index file=salamand.hhk
 Language=0x409 English (United States)
-Title=Open Salamander Help
+Title=Open Samandarin Help
 
 [WINDOWS]
 $global_ssdefault=,"salamand.hhc","salamand.hhk","hh\salamand\introduction_intro.htm","hh\salamand\introduction_intro.htm",,,,"Web Help",0x23520,,0x180e,,,,,,,,0

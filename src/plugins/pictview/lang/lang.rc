@@ -1,3 +1,5 @@
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // Microsoft Visual C++ generated resource script.
 //
 #pragma code_page(65001)
@@ -75,7 +77,7 @@ FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     DEFPUSHBUTTON   "Close",IDCANCEL,282,114,50,14
     ICON            "",IDC_ABOUT_ICON,11,9,20,20
-    LTEXT           "PictView %s - Picture Viewer for Open Salamander",IDC_ABOUT_TITLE,46,9,288,8
+    LTEXT           "PictView %s - Picture Viewer for Open Samandarin",IDC_ABOUT_TITLE,46,9,288,8
     LTEXT           "",IDC_ABOUT_COPYRIGHT,46,19,288,8,SS_NOPREFIX
     LTEXT           "This plugin uses the following imaging backend:",IDC_STATIC_2,46,40,190,8
     LTEXT           "%hs",IDC_ABOUT_PVW32,46,51,277,8
@@ -93,7 +95,7 @@ CAPTION "Appearance"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     GROUPBOX        "Window size",IDC_STATIC_1,6,5,256,53,WS_GROUP
-    CONTROL         "Sa&me as of Open Salamander",IDC_CFGAPP_WINPOS_SAME,
+    CONTROL         "Sa&me as of Open Samandarin",IDC_CFGAPP_WINPOS_SAME,
                     "Button",BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,14,17,151,12
     CONTROL         "&Larger if needed but not smaller",IDC_CFGAPP_WINPOS_LARGER,
                     "Button",BS_AUTORADIOBUTTON | WS_TABSTOP,14,29,148,12

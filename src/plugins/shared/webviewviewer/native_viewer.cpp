@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 #include "precomp.h"
 
@@ -190,20 +193,54 @@ CreateWebView2EnvironmentFn GetCreateWebView2Environment()
     return createEnvironment;
 }
 
-constexpr const wchar_t* kViewerSettingsKey = L"Software\\Open Salamander\\ViewerFrame";
+constexpr const wchar_t* kViewerSettingsKey = L"Software\\Open Samandarin\\ViewerFrame";
+constexpr const wchar_t* kLegacyViewerSettingsKey = L"Software\\Open Salamander\\ViewerFrame";
+
+void EnsureViewerSettingsKey()
+{
+    HKEY current = nullptr;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, kViewerSettingsKey, 0, KEY_READ, &current) == ERROR_SUCCESS)
+    {
+        RegCloseKey(current);
+        return;
+    }
+    HKEY legacy = nullptr;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, kLegacyViewerSettingsKey, 0, KEY_READ, &legacy) != ERROR_SUCCESS)
+        return;
+    using RegCopyTreeWFn = LONG(WINAPI*)(HKEY, LPCWSTR, HKEY);
+    HMODULE advapi = GetModuleHandleW(L"advapi32.dll");
+    RegCopyTreeWFn copyTree = advapi != nullptr ? reinterpret_cast<RegCopyTreeWFn>(GetProcAddress(advapi, "RegCopyTreeW")) : nullptr;
+    HKEY created = nullptr;
+    if (copyTree != nullptr &&
+        RegCreateKeyExW(HKEY_CURRENT_USER, kViewerSettingsKey, 0, nullptr, 0, KEY_WRITE, nullptr, &created, nullptr) == ERROR_SUCCESS)
+    {
+        copyTree(legacy, nullptr, created);
+        RegCloseKey(created);
+    }
+    RegCloseKey(legacy);
+}
 
 std::wstring ViewerUserDataFolder()
 {
     PWSTR appData = nullptr;
     if (FAILED(SHGetKnownFolderPath(FOLDERID_LocalAppData, KF_FLAG_DEFAULT, nullptr, &appData)))
         return L"";
-    std::wstring result = std::wstring(appData) + L"\\Open Salamander\\Native WebView2 Viewer";
+    std::wstring base(appData);
     CoTaskMemFree(appData);
-    return result;
+    std::wstring current = base + L"\\Open Samandarin\\Native WebView2 Viewer";
+    std::wstring legacy = base + L"\\Open Salamander\\Native WebView2 Viewer";
+    DWORD currentAttr = GetFileAttributesW(current.c_str());
+    if (currentAttr != INVALID_FILE_ATTRIBUTES && (currentAttr & FILE_ATTRIBUTE_DIRECTORY) != 0)
+        return current;
+    DWORD legacyAttr = GetFileAttributesW(legacy.c_str());
+    if (legacyAttr != INVALID_FILE_ATTRIBUTES && (legacyAttr & FILE_ATTRIBUTE_DIRECTORY) != 0)
+        return legacy;
+    return current;
 }
 
 DWORD ReadViewerSetting(const wchar_t* name, DWORD fallback)
 {
+    EnsureViewerSettingsKey();
     DWORD value = fallback;
     DWORD size = sizeof(value);
     if (RegGetValueW(HKEY_CURRENT_USER, kViewerSettingsKey, name, RRF_RT_REG_DWORD,
@@ -214,6 +251,7 @@ DWORD ReadViewerSetting(const wchar_t* name, DWORD fallback)
 
 void WriteViewerSetting(const wchar_t* name, DWORD value)
 {
+    EnsureViewerSettingsKey();
     HKEY key = nullptr;
     if (RegCreateKeyExW(HKEY_CURRENT_USER, kViewerSettingsKey, 0, nullptr, 0, KEY_SET_VALUE,
                         nullptr, &key, nullptr) == ERROR_SUCCESS)
@@ -225,6 +263,7 @@ void WriteViewerSetting(const wchar_t* name, DWORD value)
 
 std::wstring ReadViewerSettingString(const wchar_t* name)
 {
+    EnsureViewerSettingsKey();
     DWORD size = 0;
     if (name == nullptr ||
         RegGetValueW(HKEY_CURRENT_USER, kViewerSettingsKey, name, RRF_RT_REG_SZ, nullptr, nullptr,
@@ -244,6 +283,7 @@ std::wstring ReadViewerSettingString(const wchar_t* name)
 
 bool WriteViewerSettingString(const wchar_t* name, const std::wstring& value)
 {
+    EnsureViewerSettingsKey();
     HKEY key = nullptr;
     if (name == nullptr ||
         RegCreateKeyExW(HKEY_CURRENT_USER, kViewerSettingsKey, 0, nullptr, 0, KEY_SET_VALUE,

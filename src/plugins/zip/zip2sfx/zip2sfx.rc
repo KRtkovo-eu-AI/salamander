@@ -1,4 +1,6 @@
-﻿#ifdef APSTUDIO_INVOKED
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+#ifdef APSTUDIO_INVOKED
 #error this file is not editable by Microsoft Visual C++
 #endif //APSTUDIO_INVOKED
 
@@ -31,14 +33,14 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "CompanyName", "Open Salamander" "\0"
+            VALUE "CompanyName", "Open Samandarin" "\0"
             VALUE "FileDescription", "Zip2Sfx, ZIP to self-extracting archives convertor" "\0"
             VALUE "FileVersion", "2.9" "\0"
             VALUE "InternalName", "Zip2Sfx" "\0"
             VALUE "OriginalFilename", "zip2sfx.exe" "\0"
-            VALUE "LegalCopyright", "Copyright © 2000-2026 Open Salamander Authors" "\0"
+            VALUE "LegalCopyright", "Copyright © 2000-2026 Open Salamander Authors, Open Samandarin Authors" "\0"
             VALUE "ProductVersion", VERSINFO_SALAMANDER_VERSION "\0"
-            VALUE "ProductName", "Open Salamander\0"
+            VALUE "ProductName", "Open Samandarin\0"
         END
     END
     BLOCK "VarFileInfo"
