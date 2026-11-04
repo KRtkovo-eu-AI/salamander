@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Include the shell header that declares the property-store call. | The Windows 7 plugin target does not see that call from propsys.h. | https://github.com/KRtkovo-eu-AI/salamander/issues/732 | Grok 4.7 |
 // | 2026-11-04 | Read video and audio stream details with Media Foundation. | Multimedia Viewer showed only the audio part of video files. | https://github.com/KRtkovo-eu-AI/salamander/issues/732 | Grok 4.7 |
 
 #include "precomp.h"
@@ -10,6 +11,7 @@
 #include <mfidl.h>
 #include <mfreadwrite.h>
 #include <mferror.h>
+#include <shobjidl.h>
 #include <propsys.h>
 #include <propkey.h>
 

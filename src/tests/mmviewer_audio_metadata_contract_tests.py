@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-04 | Require the shell header for the property-store call. | propsys.h does not declare it for the Windows 7 plugin target. | https://github.com/KRtkovo-eu-AI/salamander/issues/732 | Grok 4.7 |
 # | 2026-11-04 | Cover video container registration and Media Foundation metadata. | The viewer contract now includes video streams as well as audio. | https://github.com/KRtkovo-eu-AI/salamander/issues/732 | Grok 4.7 |
 
 from pathlib import Path
@@ -78,6 +79,7 @@ def main() -> None:
     require(media_info, 'return L"\\\\\\\\?\\\\UNC\\\\"', "extended UNC path support")
     require(media_info, 'return L"\\\\\\\\?\\\\"', "extended local path support")
     require(media_info, 'strstr(pattern, "%u")', "indexed labels do not use a translated format string")
+    require(media_info, "#include <shobjidl.h>", "shell property-store declaration")
     require(media_info, "GetNativeMediaType", "native media type without decoding")
     require(media_info, "MFCreateSourceReaderFromURL", "wide-path media source open")
     require(media_info, "MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING, FALSE",
