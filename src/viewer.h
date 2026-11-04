@@ -520,6 +520,9 @@ void SetViewerWindowText(HWND hWindow, const char* text);
 extern CWindowQueue ViewerWindowQueue; // list of all viewer windows
 
 extern CFindSetDialog GlobalFindDialog; // for initializing a new viewer window
+// TRUE only while the Find dialog opens a viewer with its "Containing" text copied
+// into GlobalFindDialog; plugin viewers get the search phrase only then
+extern BOOL PassFindTextToPluginViewer;
 
 extern BOOL UseCustomViewerFont; // if TRUE, use the ViewerLogFont structure stored in the configuration; otherwise default values
 extern LOGFONT ViewerLogFont;

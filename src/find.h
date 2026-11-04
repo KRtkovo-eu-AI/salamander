@@ -785,7 +785,7 @@ public:
     BOOL GetFocusedFile(char* buffer, int bufferLen, int* viewedIndex /* can be NULL */);
     const char* GetName(int index);
     const char* GetPath(int index);
-    void UpdateInternalViewerData();
+    BOOL UpdateInternalViewerData();
 
     BOOL IsSearchInProgress() { return SearchInProgress; }
 

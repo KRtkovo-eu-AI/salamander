@@ -16,6 +16,7 @@
 #include <uxtheme.h>
 #include "dialogs.h"
 #include "configstorage.h"
+#include "viewer.h"
 
 CPlugins Plugins;
 
@@ -3875,15 +3876,20 @@ BOOL CPluginData::ViewFile(const char* name, int left, int top, int width, int h
         /*&& PluginIfaceForViewer.NotEmpty()*/) // unnecessary, because downgrade is impossible and InitDLL checks the interfaces
     {
         CSalamanderPluginViewerSelectionData selectionData;
-        CSalamanderPluginViewerData* viewerData = NULL;
-        if (viewerLabel != NULL && viewerLabel[0] != 0)
+        memset(&selectionData, 0, sizeof(selectionData));
+        selectionData.Size = sizeof(selectionData);
+        selectionData.FileName = name;
+        selectionData.SelectionMagic = SALAMANDER_PLUGIN_VIEWER_SELECTION_MAGIC;
+        selectionData.ViewerLabel = (viewerLabel != NULL && viewerLabel[0] != 0) ? viewerLabel : NULL;
+        // the last viewer search text is not a request to search; only a viewer
+        // opened from Find Files gets its "Containing" text
+        if (PassFindTextToPluginViewer && GlobalFindDialog.Text[0] != '\0')
         {
-            selectionData.Size = sizeof(selectionData);
-            selectionData.FileName = name;
-            selectionData.SelectionMagic = SALAMANDER_PLUGIN_VIEWER_SELECTION_MAGIC;
-            selectionData.ViewerLabel = viewerLabel;
-            viewerData = &selectionData;
+            selectionData.SearchPhrase = GlobalFindDialog.Text;
+            selectionData.SearchFlags = (GlobalFindDialog.CaseSensitive ? SALVIEWER_SEARCH_CASE_SENSITIVE : 0) |
+                                        (GlobalFindDialog.WholeWords ? SALVIEWER_SEARCH_WHOLE_WORDS : 0);
         }
+        CSalamanderPluginViewerData* viewerData = &selectionData;
         ret = PluginIfaceForViewer.ViewFile(name, left, top, width, height, showCmd, alwaysOnTop,
                                             returnLock, lock, lockOwner, viewerData, enumFilesSourceUID,
                                             enumFilesCurrentIndex);
