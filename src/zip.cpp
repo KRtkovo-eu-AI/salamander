@@ -1,8 +1,21 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Create panel operations objects for plug-ins. | Portable Devices opens the standard progress dialog through the same object archivers use. | | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+
+#ifdef new
+#undef new
+#define RESTORE_ZIP_NEW_HEADER
+#endif
+#include <new>
+#ifdef RESTORE_ZIP_NEW_HEADER
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_ZIP_NEW_HEADER
+#endif
 
 #include "menu.h"
 #include "cfgdlg.h"
@@ -508,12 +521,15 @@ CZIPUnpackProgress::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 CSalamanderGeneral::CSalamanderGeneral()
 {
     Plugin = NULL;
+    PanelOperations = NULL;
     LanguageModule = NULL;
     HelpFileName[0] = 0;
 }
 
 CSalamanderGeneral::~CSalamanderGeneral()
 {
+    delete PanelOperations;
+    PanelOperations = NULL;
     if (LanguageModule != NULL)
     {
         TRACE_E("CSalamanderGeneral::~CSalamanderGeneral(): unexpected situation!");
@@ -523,6 +539,8 @@ CSalamanderGeneral::~CSalamanderGeneral()
 
 void CSalamanderGeneral::Clear()
 {
+    delete PanelOperations;
+    PanelOperations = NULL;
     if (LanguageModule != NULL)
         HANDLES(FreeLibrary(LanguageModule));
     LanguageModule = NULL;
@@ -3343,6 +3361,69 @@ int CSalamanderGeneral::RegisterPanelColumnDefinition(
         return -1;
     return MainWindow->ViewTemplates.RegisterPluginColumn(
         ownerKey, ownerName, stableId, name, description);
+}
+
+static CFilesWindow* FindPanelForOperations(HWND panel)
+{
+    if (MainWindow == NULL)
+        return NULL;
+
+    if (panel != NULL)
+    {
+        CFilesWindow* direct[2] = {MainWindow->LeftPanel, MainWindow->RightPanel};
+        int i;
+        for (i = 0; i < 2; i++)
+        {
+            if (direct[i] != NULL && direct[i]->HWindow == panel)
+                return direct[i];
+        }
+
+        const CPanelSide sides[2] = {cpsLeft, cpsRight};
+        int side;
+        for (side = 0; side < 2; side++)
+        {
+            int count = MainWindow->GetPanelTabCount(sides[side]);
+            for (i = 0; i < count; i++)
+            {
+                CFilesWindow* tab = MainWindow->GetPanelTabAt(sides[side], i);
+                if (tab != NULL && tab->HWindow == panel)
+                    return tab;
+            }
+        }
+    }
+
+    return MainWindow->GetActivePanel();
+}
+
+CSalamanderForOperations* CSalamanderForOperations::CreateForPanelWindow(HWND panel)
+{
+    CFilesWindow* filesWindow = FindPanelForOperations(panel);
+    if (filesWindow == NULL)
+        return NULL;
+
+#ifdef new
+#undef new
+#define RESTORE_PANEL_OPERATIONS_DEBUG_NEW
+#endif
+    CSalamanderForOperations* operations = new (std::nothrow) CSalamanderForOperations(filesWindow);
+#ifdef RESTORE_PANEL_OPERATIONS_DEBUG_NEW
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_PANEL_OPERATIONS_DEBUG_NEW
+#endif
+    return operations;
+}
+
+CSalamanderForOperationsAbstract* CSalamanderGeneral::GetSalamanderForOperations(HWND panel)
+{
+    CALL_STACK_MESSAGE1("CSalamanderGeneral::GetSalamanderForOperations()");
+    // Reuse the object while its progress dialog is still open. The next call
+    // replaces it after the plug-in has closed that dialog.
+    if (PanelOperations != NULL && PanelOperations->ProgressGetHWND() != NULL)
+        return PanelOperations;
+
+    delete PanelOperations;
+    PanelOperations = CSalamanderForOperations::CreateForPanelWindow(panel);
+    return PanelOperations;
 }
 
 void CSalamanderGeneral::ExecuteAssociation(HWND parent, const char* path, const char* name)

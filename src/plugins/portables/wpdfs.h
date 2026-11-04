@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Overwrite, merge, and rename portable items safely. | Creating an object whose name is still present wedges Android MTP. | | Grok 4.7 |
 
 /*
 	Windows Portable Devices Plugin for Open Salamander
@@ -18,6 +21,7 @@
 
 class CWpdDevice;
 class CWpdBaseContentItem;
+struct WpdCopyContext;
 
 class CWpdFS final : public TFxPluginFSInterface<CWpdFS>
 {
@@ -25,8 +29,8 @@ protected:
     HRESULT WINAPI GetContentLocationForPath(PCSTR path, _Out_ CWpdDevice*& device, _Out_ CFxString& objectId);
     HRESULT WINAPI GetCurrentContentLocation(_Out_ CWpdDevice*& device, _Out_ CFxString& objectId);
     HRESULT WINAPI CreateWpdFolder(CWpdDevice* device, PCWSTR parentObjectId, PCSTR name);
-    HRESULT WINAPI RenameWpdObject(CWpdBaseContentItem* item, PCSTR newName);
-    HRESULT WINAPI RenameWpdObjectByCopy(CWpdBaseContentItem* item, PCSTR newName);
+    HRESULT WINAPI RenameWpdObject(HWND parent, CWpdBaseContentItem* item, PCSTR newName);
+    HRESULT WINAPI RenameWpdObjectByCopy(HWND parent, CWpdBaseContentItem* item, PCSTR newName);
     HRESULT WINAPI AddWpdObjectId(IPortableDevicePropVariantCollection* objects, PCWSTR objectId);
     HRESULT WINAPI DeleteWpdObjects(CWpdDevice* device, IPortableDevicePropVariantCollection* objects);
     HRESULT WINAPI CopyOrMoveWpdObjects(
@@ -39,8 +43,8 @@ protected:
     HRESULT WINAPI UploadDiskFile(CWpdDevice* device, PCWSTR parentObjectId, PCSTR sourceName, PCSTR targetName);
     HRESULT WINAPI UploadDiskObject(CWpdDevice* device, PCWSTR parentObjectId, PCSTR sourceName, PCSTR targetName);
     HRESULT WINAPI FindWpdChildObject(CWpdDevice* device, PCWSTR parentObjectId, PCSTR childName, _Out_ PWSTR* childObjectId, _Out_opt_ DWORD* attributes);
-    HRESULT WINAPI ConfirmAndDeleteExistingWpdObject(HWND parent, CWpdDevice* device, PCWSTR parentObjectId, PCSTR targetName, PCSTR sourceName, bool& overwriteAll, bool& skipAll, _Out_ bool& skip);
-    BOOL WINAPI HandleDeviceReconnectRequired(HWND parent, HRESULT hr);
+    HRESULT WINAPI FinishWpdBatchError(WpdCopyContext& context, HRESULT hr, const char* name);
+    BOOL WINAPI HandleDeviceReconnectRequired(HWND parent, HRESULT hr, CWpdDevice* device = nullptr);
     BOOL WINAPI TryShellContextMenu(const char* fsName, HWND parent, int menuX, int menuY, int panel);
 
     /* CFxPluginFSInterface Overrides */

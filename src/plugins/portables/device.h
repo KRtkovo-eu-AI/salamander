@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Release the whole WPD session at once. | A nested Close leaves the driver session open after the device stops responding. | | Grok 4.7 |
 
 /*
 	Windows Portable Devices Plugin for Open Salamander
@@ -47,6 +50,10 @@ private:
 
     unsigned m_cOpen;
 
+    // Set when ForceClose drops the COM device regardless of the open count.
+    // Later Close calls from the same operation become no-ops until the next Open.
+    bool m_bConnectionReleased;
+
     IPortableDevice* m_pDevice;
 
     IPortableDeviceContent* m_pContent;
@@ -55,6 +62,8 @@ private:
 
 private:
     HRESULT WINAPI Open(_Out_ IPortableDevice** device, _In_opt_ DWORD access = GENERIC_READ | GENERIC_WRITE);
+
+    void WINAPI ReleaseComDevice();
 
     HRESULT WINAPI LoadIconResourceLocked();
 
@@ -125,6 +134,15 @@ public:
     HRESULT WINAPI Open(_In_opt_ DWORD access = GENERIC_READ | GENERIC_WRITE);
 
     void WINAPI Close();
+
+    // Drops the COM device even when Open calls are still nested.
+    // The next Open starts a new session.
+    void WINAPI ForceClose();
+
+    bool WINAPI IsOpen() const
+    {
+        return m_cOpen > 0 && m_pDevice != nullptr && !m_bConnectionReleased;
+    }
 
     IPortableDevice* WINAPI GetDeviceNoAddRef();
 

@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Create panel operations objects for plug-ins. | Portable Devices opens the standard progress dialog through the same object archivers use. | | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -96,6 +99,10 @@ protected:
 public:
     CSalamanderForOperations(CFilesWindow* panel);
     ~CSalamanderForOperations();
+
+    // Operations object for a panel HWND. NULL when Salamander has no panel.
+    // CSalamanderGeneral::GetSalamanderForOperations owns the returned pointer.
+    static CSalamanderForOperations* CreateForPanelWindow(HWND panel);
 
     // PROGRESS DIALOG: the dialog contains one or two progress meters (depending on 'twoProgressBars' FALSE/TRUE)
     // opens the progress dialog with the title 'title'; 'parent' is the parent window of the progress dialog (if
