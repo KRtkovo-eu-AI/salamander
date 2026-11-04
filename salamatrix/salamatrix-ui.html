@@ -1,3 +1,7 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Rename the website to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,19 +11,19 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="../consent.css">
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
-  <meta name="description" content="Build native Open Salamander dialogs from Node, Python, PowerShell, PHP, Lua, Automation JScript, or C++ with Salamatrix.UI.">
-  <meta name="keywords" content="Salamatrix.UI, Open Salamander, native dialogs, Python, PowerShell, PHP, Node, Lua, C++, dark mode, DPI">
+  <meta name="description" content="Build native Open Samandarin dialogs from Node, Python, PowerShell, PHP, Lua, Automation JScript, or C++ with Salamatrix.UI.">
+  <meta name="keywords" content="Salamatrix.UI, Open Samandarin, native dialogs, Python, PowerShell, PHP, Node, Lua, C++, dark mode, DPI">
   <meta name="robots" content="index, follow">
-  <meta property="og:title" content="Salamatrix.UI — Native dialogs for Open Salamander extensions">
-  <meta property="og:description" content="Build native Open Salamander dialogs from Node, Python, PowerShell, PHP, Lua, Automation JScript, or C++ with Salamatrix.UI.">
+  <meta property="og:title" content="Salamatrix.UI — Native dialogs for Open Samandarin extensions">
+  <meta property="og:description" content="Build native Open Samandarin dialogs from Node, Python, PowerShell, PHP, Lua, Automation JScript, or C++ with Salamatrix.UI.">
   <meta property="og:image" content="https://samandarin.krtkovo.eu/images/salamatrix_preview.png">
   <meta property="og:image:alt" content="Salamatrix.UI capabilities preview">
   <meta property="og:url" content="https://samandarin.krtkovo.eu/salamatrix/salamatrix-ui.html">
   <meta property="og:type" content="article">
-  <meta property="og:site_name" content="Open Salamander: Samandarin">
+  <meta property="og:site_name" content="Open Samandarin">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Salamatrix.UI — Native dialogs for Open Salamander extensions">
-  <meta name="twitter:description" content="Build native Open Salamander dialogs from seven supported extension surfaces.">
+  <meta name="twitter:title" content="Salamatrix.UI — Native dialogs for Open Samandarin extensions">
+  <meta name="twitter:description" content="Build native Open Samandarin dialogs from seven supported extension surfaces.">
   <meta name="twitter:image" content="https://samandarin.krtkovo.eu/images/salamatrix_preview.png">
   <link rel="canonical" href="https://samandarin.krtkovo.eu/salamatrix/salamatrix-ui.html">
   
@@ -69,7 +73,7 @@
     <section class="hero-panel ui-hero" id="overview">
       <div class="hero-panel__copy">
         <h2>Build the window in your language. Let Salamander make it native.</h2>
-        <p>Salamatrix.UI is the framework-owned dialog and control layer for Open Salamander extensions. Node, Python, PowerShell, PHP, Lua, Automation JScript, and native C++ all describe the same controls and receive the same native window.</p>
+        <p>Salamatrix.UI is the framework-owned dialog and control layer for Open Samandarin extensions. Node, Python, PowerShell, PHP, Lua, Automation JScript, and native C++ all describe the same controls and receive the same native window.</p>
         <p>Dark mode, current Salamander colors, DPI scaling, keyboard traversal, host controls, accessibility metadata, validation, and cleanup stay inside Salamatrix. A runtime provider never needs its own GUI toolkit.</p>
         <p class="hero-actions"><a aria="button" href="#gallery">See every language</a><!-- <a class="button-secondary" aria="button" href="salamatrix-ui.md">Read the complete Markdown guide</a>--></p>
       </div>
@@ -82,7 +86,7 @@
       <h2 id="model">Framework ownership, not a prebuilt gallery</h2>
       <p>The capabilities window is both a gallery and real extension source. Every bundled demo creates the dialog, adds every control, sets every native property, shows it, and destroys it.</p>
       <div class="ownership-flow" aria-label="Salamatrix UI ownership flow">
-        <div><strong>Extension source</strong><span>Node · Python · PowerShell · PHP · Lua</span></div><i>SMX1</i><div><strong>Salamatrix package host</strong><span>Dialog IDs · ownership · events · cleanup</span></div><i>ABI</i><div><strong>NativeDialog</strong><span>Open Salamander controls · DPI · dark mode</span></div>
+        <div><strong>Extension source</strong><span>Node · Python · PowerShell · PHP · Lua</span></div><i>SMX1</i><div><strong>Salamatrix package host</strong><span>Dialog IDs · ownership · events · cleanup</span></div><i>ABI</i><div><strong>NativeDialog</strong><span>Open Samandarin controls · DPI · dark mode</span></div>
       </div>
       <p>Automation JScript uses a thin COM facade over the same service. DemoPlug queries <code>SALAMATRIX_SERVICE_UI</code> and uses <code>IDialog</code>/<code>IControl</code> directly. The concrete window still lives in Salamatrix in both cases.</p>
 
