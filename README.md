@@ -44,9 +44,10 @@ Explore the [complete feature guide](https://samandarin.krtkovo.eu/#features), [
 Samandarin includes code and implementation work derived from or substantially informed by Sally by [0xeb](https://github.com/0xeb/sally) - in particular, parts of the Unicode viewer/filename handling and localization tooling were adapted from Sally or were used as a reference point. Copyright and license notices are preserved in the relevant source files.
 
 ## Plugin Catalog
-- Stable: https://samandarin.krtkovo.eu/catalogs/plugins-stable.json
-- Unofficial third party: https://samandarin.krtkovo.eu/catalogs/plugins-unofficial.json
+- Plugins (stable): https://samandarin.krtkovo.eu/catalogs/plugins-stable.json
 - Extension runtimes: https://samandarin.krtkovo.eu/catalogs/extension-runtimes.json
+- Extensions (stable): https://samandarin.krtkovo.eu/catalogs/extensions-stable.json
+- Unofficial 3rd party addons: https://samandarin.krtkovo.eu/catalogs/plugins-unofficial.json
 
 Catalog entries can carry icons, dependencies, integrity information, and curated capability declarations. Plugin Updates can install or update plug-ins, runtimes, and extensions together with required dependencies.
 
