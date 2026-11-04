@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Open panel-toolbar Hot Paths in that panel. | The button sits beside Change Drive, so it must change the panel that owns the toolbar. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
@@ -4455,6 +4456,45 @@ CMainWindow::OnPaint()
     return 0;
 }
 
+static BOOL ToolBarBelongsToPanel(CFilesWindow* panel, CToolBar* toolBar)
+{
+    return panel != NULL && panel->DirectoryLine != NULL &&
+           panel->DirectoryLine->ToolBar == toolBar;
+}
+
+// Middle-toolbar Hot Paths follow the active panel. A panel toolbar is tied to
+// one panel, including a background or detached tab, so its menu must use that
+// panel's command range.
+static int HotPathMenuCommandForToolBar(CMainWindow* window, CToolBar* toolBar)
+{
+    if (window == NULL || toolBar == NULL)
+        return CM_ACTIVEHOTPATH_MIN;
+
+    if (ToolBarBelongsToPanel(window->LeftPanel, toolBar))
+        return CM_LEFTHOTPATH_MIN;
+    if (ToolBarBelongsToPanel(window->RightPanel, toolBar))
+        return CM_RIGHTHOTPATH_MIN;
+
+    int i;
+    for (i = 0; i < window->LeftPanelTabs.Count; i++)
+    {
+        if (ToolBarBelongsToPanel(window->LeftPanelTabs[i], toolBar))
+            return CM_LEFTHOTPATH_MIN;
+    }
+    for (i = 0; i < window->RightPanelTabs.Count; i++)
+    {
+        if (ToolBarBelongsToPanel(window->RightPanelTabs[i], toolBar))
+            return CM_RIGHTHOTPATH_MIN;
+    }
+    for (i = 0; i < window->GetDetachedTabCount(); i++)
+    {
+        CFilesWindow* panel = window->GetDetachedTabAt(i);
+        if (ToolBarBelongsToPanel(panel, toolBar))
+            return panel->IsLeftPanel() ? CM_LEFTHOTPATH_MIN : CM_RIGHTHOTPATH_MIN;
+    }
+    return CM_ACTIVEHOTPATH_MIN;
+}
+
 LRESULT
 CMainWindow::WindowProcImpl(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -5308,7 +5348,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CM_OPENHOTPATHSDROP:
         {
             CMenuPopup menu;
-            HotPaths.FillHotPathsMenu(&menu, CM_ACTIVEHOTPATH_MIN);
+            HotPaths.FillHotPathsMenu(&menu, HotPathMenuCommandForToolBar(this, tlb));
             menu.Track(0, r.left, r.bottom, HWindow, &r);
             break;
         }
@@ -8622,15 +8662,15 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             RebuildPanelTabs(cpsLeft);
             RebuildPanelTabs(cpsRight);
 
-            // prohodime zaznamy toolbar
-            char buff[1024];
-            lstrcpy(buff, Configuration.LeftToolBar);
-            lstrcpy(Configuration.LeftToolBar, Configuration.RightToolBar);
-            lstrcpy(Configuration.RightToolBar, buff);
-            // nechame vsechny taby nacist prohozene toolbary
+            // Swap the persisted toolbar layouts together with the panels.
+            char buff[sizeof(Configuration.LeftToolBar)];
+            lstrcpyn(buff, Configuration.LeftToolBar, sizeof(buff));
+            lstrcpyn(Configuration.LeftToolBar, Configuration.RightToolBar, sizeof(Configuration.LeftToolBar));
+            lstrcpyn(Configuration.RightToolBar, buff, sizeof(Configuration.RightToolBar));
+            // Let every tab load the swapped toolbars.
             ReloadPanelToolBars(cpsLeft);
             ReloadPanelToolBars(cpsRight);
-            // ikonka se musi zmenit v imagelistu
+            // The drive icon has to change in the image list.
             if (LeftPanel != NULL)
                 LeftPanel->UpdateDriveIcon(FALSE);
             if (RightPanel != NULL)
@@ -9179,22 +9219,22 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         HWND hToolBar = (HWND)wParam;
         if (TopToolBar != NULL && hToolBar == TopToolBar->HWindow)
         {
-            TopToolBar->Save(Configuration.TopToolBar);
+            TopToolBar->Save(Configuration.TopToolBar, sizeof(Configuration.TopToolBar));
         }
         if (MiddleToolBar != NULL && hToolBar == MiddleToolBar->HWindow)
         {
-            MiddleToolBar->Save(Configuration.MiddleToolBar);
+            MiddleToolBar->Save(Configuration.MiddleToolBar, sizeof(Configuration.MiddleToolBar));
         }
         if (LeftPanel->DirectoryLine->ToolBar != NULL && hToolBar == LeftPanel->DirectoryLine->ToolBar->HWindow)
         {
             LeftPanel->DirectoryLine->LayoutWindow();
-            LeftPanel->DirectoryLine->ToolBar->Save(Configuration.LeftToolBar);
+            LeftPanel->DirectoryLine->ToolBar->Save(Configuration.LeftToolBar, sizeof(Configuration.LeftToolBar));
             ReloadPanelToolBars(cpsLeft, hToolBar);
         }
         if (RightPanel->DirectoryLine->ToolBar != NULL && hToolBar == RightPanel->DirectoryLine->ToolBar->HWindow)
         {
             RightPanel->DirectoryLine->LayoutWindow();
-            RightPanel->DirectoryLine->ToolBar->Save(Configuration.RightToolBar);
+            RightPanel->DirectoryLine->ToolBar->Save(Configuration.RightToolBar, sizeof(Configuration.RightToolBar));
             ReloadPanelToolBars(cpsRight, hToolBar);
         }
         return FALSE; // we have no buttons
