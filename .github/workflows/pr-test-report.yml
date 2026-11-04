@@ -1,3 +1,6 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-04 | Publish fork test reports as a job summary and keep the latest run. | Check runs from this workflow were showing up under Source Code Growth. | | Grok 4.7 |
+
 name: PR Test Report
 
 on:
@@ -10,6 +13,10 @@ permissions:
   actions: read
   checks: write
 
+concurrency:
+  group: pr-test-report-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
 jobs:
   report:
     name: Publish test results
@@ -21,10 +28,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Same-repository PRs already publish Check Runs from pr-tests.yml, which
-      # has a writable token. Skipping this whole job left the workflow red/grey
-      # as "skipped" on every in-repo PR. Succeed here instead; only forks need
-      # the workflow_run reporter (their PR Tests token cannot write checks).
+      # Same-repository PRs already publish the report on the PR Tests job
+      # summary. Skipping this whole job left the workflow grey on every in-repo
+      # PR. Succeed here instead. Forks publish the summary here, without a
+      # separate check run that GitHub would attach to another workflow.
       - name: Same-repository reports already published
         if: github.event.workflow_run.head_repository.full_name == github.repository
         run: |
@@ -43,9 +50,9 @@ jobs:
           path: native.xml
           reporter: java-junit
           fail-on-empty: true
-          # A Check Run is the user-visible report; true would only write the
-          # workflow Job Summary.
-          use-actions-summary: false
+          # Do not create a check run. GitHub would attach it to another workflow
+          # already running for this commit, often Source Code Growth.
+          use-actions-summary: true
 
       - name: Report Python tests
         if: >-
@@ -60,6 +67,6 @@ jobs:
           path: python.xml
           reporter: python-xunit
           fail-on-empty: true
-          # A Check Run is the user-visible report; true would only write the
-          # workflow Job Summary.
-          use-actions-summary: false
+          # Do not create a check run. GitHub would attach it to another workflow
+          # already running for this commit, often Source Code Growth.
+          use-actions-summary: true

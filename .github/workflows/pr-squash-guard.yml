@@ -1,3 +1,6 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-04 | Keep one squash-guard run per pull request. | Edited and synchronize events were starting a run for the same commit. | | Grok 4.7 |
+
 name: PR squash guard
 
 on:
@@ -7,6 +10,10 @@ on:
 permissions:
   contents: read
   pull-requests: read
+
+concurrency:
+  group: pr-squash-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check-commits:
