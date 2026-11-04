@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Add EnsureExtensionsForPlugin for TAR-family archive association repair. | Restoring .tgz/.tar.gz panel ownership after imported association corruption. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -671,6 +674,10 @@ public:
     void RemoveExtensionsForPlugin(int pluginIndex, const char* const* extensions, int extensionCount);
     void RemoveExtensionsFromLegacyRows(const char* const* extensions, int extensionCount,
                                         const char* const* legacyMarkers, int markerCount);
+    // Ensures the given plugin owns the listed panel-archiver extensions for view
+    // (Enter). Missing extensions are appended to an existing row owned by the
+    // plugin, or a new view-only row is created when none exists.
+    void EnsureExtensionsForPlugin(int pluginIndex, const char* const* extensions, int extensionCount);
 
     // archiveNameLen serves only as an optimization; if it is -1, the function measures the string itself
     int PackIsArchive(const char* archiveName, int archiveNameLen = -1);

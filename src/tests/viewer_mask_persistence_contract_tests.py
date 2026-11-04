@@ -1,5 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Open Salamander Authors
+# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-05 | Require post-load TAR-family association restoration. | Guard the issue #748 archive association ownership fix. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | Composer |
 
 from pathlib import Path
 import re
@@ -176,6 +179,14 @@ def main() -> None:
         raise AssertionError("imported legacy archive rows must be cleaned by their contents, not unstable plugin indices")
     if 'GetPluginDataFromSuffix("zip.spl")' not in require_text:
         raise AssertionError("ZIP-owned imported archive rows must receive the same targeted document cleanup")
+    if (
+        'GetPluginDataFromSuffix("tar.spl")' not in require_text
+        or "EnsureExtensionsForPlugin" not in require_text
+        or "tarFamilyExts" not in require_text
+    ):
+        raise AssertionError("TAR-family panel associations must be restored after archive associations are loaded")
+    if 'GetPluginDataFromSuffix("unrar.spl")' not in require_text:
+        raise AssertionError("UnRAR-owned imported archive rows must lose stolen TAR-family extensions")
 
     dialog_phase_start = startup.index("Startup recovery, command-line handling")
     final_reveal = startup.index("MainWindow->RevealStartupWindow();", dialog_phase_start)

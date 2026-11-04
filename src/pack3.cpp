@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Add EnsureExtensionsForPlugin for TAR-family archive association repair. | Restoring .tgz/.tar.gz panel ownership after imported association corruption. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -687,6 +690,81 @@ void CPackerFormatConfig::RemoveExtensionsFromLegacyRows(const char* const* exte
             Formats.Delete(i);
         else if (strcmp(kept.c_str(), data->Ext) != 0)
             SetFormat(i, kept.c_str(), data->UsePacker, data->PackerIndex, data->UnpackerIndex, data->OldType);
+    }
+    BuildArray();
+}
+
+void CPackerFormatConfig::EnsureExtensionsForPlugin(int pluginIndex, const char* const* extensions, int extensionCount)
+{
+    if (pluginIndex < 0 || extensions == NULL || extensionCount <= 0)
+        return;
+
+    const int unpackerIndex = -pluginIndex - 1;
+    int ownedIndex = -1;
+    for (int i = 0; i < Formats.Count; ++i)
+    {
+        if (Formats[i]->UnpackerIndex == unpackerIndex)
+        {
+            ownedIndex = i;
+            break;
+        }
+    }
+
+    std::string missing;
+    for (int j = 0; j < extensionCount; ++j)
+    {
+        const char* extension = extensions[j];
+        if (extension == NULL || *extension == 0)
+            continue;
+
+        bool owned = false;
+        for (int i = 0; i < Formats.Count && !owned; ++i)
+        {
+            CPackerFormatConfigData* data = Formats[i];
+            if (data->UnpackerIndex != unpackerIndex)
+                continue;
+
+            const char* begin = data->Ext;
+            while (begin != NULL && *begin != 0)
+            {
+                const char* end = strchr(begin, ';');
+                const size_t length = end != NULL ? static_cast<size_t>(end - begin) : strlen(begin);
+                if (strlen(extension) == length && _strnicmp(begin, extension, length) == 0)
+                {
+                    owned = true;
+                    break;
+                }
+                if (end == NULL)
+                    break;
+                begin = end + 1;
+            }
+        }
+        if (!owned)
+        {
+            if (!missing.empty())
+                missing += ';';
+            missing += extension;
+        }
+    }
+
+    if (missing.empty())
+        return;
+
+    if (ownedIndex >= 0)
+    {
+        CPackerFormatConfigData* data = Formats[ownedIndex];
+        std::string combined = data->Ext != NULL ? data->Ext : "";
+        if (!combined.empty() && combined[combined.size() - 1] != ';')
+            combined += ';';
+        combined += missing;
+        SetFormat(ownedIndex, combined.c_str(), data->UsePacker, data->PackerIndex, data->UnpackerIndex, data->OldType);
+    }
+    else
+    {
+        const int index = AddFormat();
+        if (index == -1)
+            return;
+        SetFormat(index, missing.c_str(), FALSE, -1, unpackerIndex, FALSE);
     }
     BuildArray();
 }
