@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Pass the toolbar layout buffer size into Save. | Panel toolbars can now persist the full shared button catalog. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 
 #pragma once
 
@@ -257,8 +260,8 @@ protected:
 //
 // CMainToolBar
 //
-// Toolbar, ktery jde konfigurovat, nese tlacitka s commandy. Lezi na vrsku
-// Salama a nad kazdym panelem.
+// Configurable toolbar that carries command buttons. It sits at the top of
+// Open Samandarin and above each panel.
 //
 
 enum CMainToolBarType
@@ -278,13 +281,13 @@ public:
     CMainToolBar(HWND hNotifyWindow, CMainToolBarType type, CObjectOrigin origin = ooStatic);
 
     BOOL Load(const char* data);
-    BOOL Save(char* data);
+    BOOL Save(char* data, int dataSize);
 
-    // je treba vratit tooltip
+    // Returns the tooltip text.
     void OnGetToolTip(LPARAM lParam);
-    // pri konfiguraci plni konfiguracni dialog polozkama
+    // Fills the customize dialog with the buttons this toolbar can hold.
     BOOL OnEnumButton(LPARAM lParam);
-    // uzivatel stisknul reset v konfiguracnim dialogu - nalejeme default sestavu
+    // The user pressed Reset in the customize dialog; load the default layout.
     void OnReset();
 
     // Rebuilds the toolbar from its persisted native layout and appends
@@ -294,9 +297,9 @@ public:
     void SetType(CMainToolBarType type);
 
 protected:
-    // do 'tii' naplni data pro poozku 'tbbeIndex' a vrati TRUE
-    // pokud polozka neni uplna (zruseny prikaz), vrati FALSE
-    BOOL FillTII(int tbbeIndex, TLBI_ITEM_INFO2* tii, BOOL fillName); // 'buttonIndex' je z rodiny TBBE_xxxx; -1 = separator
+    // Fills 'tii' for button 'tbbeIndex' and returns TRUE.
+    // Returns FALSE when the button is incomplete (a removed command).
+    BOOL FillTII(int tbbeIndex, TLBI_ITEM_INFO2* tii, BOOL fillName); // 'tbbeIndex' is a TBBE_xxxx value; -1 = separator
 };
 
 //*****************************************************************************
