@@ -1,5 +1,9 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Include <string> and <vector> in the precompiled header. | MSVC ignores includes placed before precomp.h, so std::vector was an incomplete template in Debug builds. | | Grok 4.7 |
 
 /*
 	Windows Portable Devices Plugin for Open Salamander
@@ -36,6 +40,8 @@
 #include <new>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string>
+#include <vector>
 
 #define STRSAFE_NO_DEPRECATE
 #include <strsafe.h>

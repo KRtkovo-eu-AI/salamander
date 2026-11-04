@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Include the standard containers through precomp.h. | Debug builds with a precompiled header never saw the <vector> include above it. | | Grok 4.7 |
 // | 2026-11-04 | Overwrite, merge, and rename portable items through Salamander progress. | Creating an object whose name is still present wedges Android MTP, and folder renames must survive devices that ignore WPD_OBJECT_NAME. | | Grok 4.7 |
 
 /*
@@ -15,8 +16,6 @@
 	Salamander file system.
 */
 
-#include <string>
-#include <vector>
 #include "precomp.h"
 #include "fxfs.h"
 #include "wpdfs.h"
