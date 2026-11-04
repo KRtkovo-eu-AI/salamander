@@ -368,7 +368,8 @@ BOOL CSalamanderGUI::DestroyMenuPopup(CGUIMenuPopupAbstract* popup)
         TRACE_E("CSalamanderGUI::DestroyMenuPopup popup==NULL!");
         return FALSE;
     }
-    delete (CMenuPopup*)popup;
+    // The cast adjusts for CMenuPopup's second base (CGUIMenuPopupAbstract).
+    ((CMenuPopup*)popup)->DestroyIfIdle();
     return TRUE;
 }
 
@@ -391,10 +392,8 @@ BOOL CSalamanderGUI::DestroyMenuBar(CGUIMenuBarAbstract* menuBar)
         return FALSE;
     }
 
-    CMenuBar* bar = (CMenuBar*)menuBar;
-    if (bar->HWindow != NULL)
-        DestroyWindow(bar->HWindow);
-    delete bar;
+    // The cast adjusts for CMenuBar's second base (CGUIMenuBarAbstract).
+    ((CMenuBar*)menuBar)->DestroyIfIdle();
     return TRUE;
 }
 

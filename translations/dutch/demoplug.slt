@@ -5,7 +5,7 @@ VERSION,"2,0,0,196"
 
 [TRANSLATION]
 LANGID,1043
-AUTHOR,"Open Salamander"
+AUTHOR,"Open Samandarin"
 WEB,"www.altap.cz"
 COMMENT,"English version"
 
@@ -59,7 +59,7 @@ COMMENT,"English version"
 2,151,57,50,14,1,"Annuleren"
 
 [DIALOG 550]
-463,236,1,"Besturingselementen geleverd door Open Salamander"
+463,236,1,"Besturingselementen geleverd door Open Samandarin"
 3000,6,4,254,108,1,"CGUIStaticTextAbstract"
 3001,14,17,119,8,1,"Niet-aangekoppelde statische tekst"
 551,102,17,152,8,1,"Het systeem is gestart %d ms geleden."

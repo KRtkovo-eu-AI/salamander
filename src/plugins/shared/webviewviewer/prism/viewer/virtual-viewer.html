@@ -134,7 +134,8 @@
       white-space: pre;
     }
 
-    ::selection {
+    ::selection,
+    ::highlight(viewer-find-match) {
       color: var(--viewer-selected-foreground);
       background: var(--viewer-selected-background);
     }
@@ -352,16 +353,114 @@
     .show-whitespace .token.space::before {
       content: "\00B7";
     }
+
+    .find-bar {
+      position: fixed;
+      top: 8px;
+      right: 18px;
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      background: var(--viewer-gutter-background);
+      color: var(--viewer-foreground);
+      border: 1px solid var(--viewer-gutter-foreground);
+      border-radius: 4px;
+      padding: 3px 5px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+      font-family: "MS Shell Dlg", Tahoma, Arial, sans-serif;
+      font-size: 12px;
+    }
+
+    .find-bar.hidden {
+      display: none;
+    }
+
+    #find-input,
+    #goto-input {
+      width: 170px;
+      height: 22px;
+      padding: 1px 5px;
+      background: var(--viewer-background);
+      color: var(--viewer-foreground);
+      border: 1px solid var(--viewer-gutter-foreground);
+      border-radius: 2px;
+      font-size: 12px;
+      font-family: inherit;
+      outline: none;
+    }
+
+    .goto-bar {
+      top: 44px;
+    }
+
+    #find-input:focus,
+    #goto-input:focus {
+      border-color: var(--viewer-selected-background);
+    }
+
+    #find-input.no-results {
+      border-color: #d9534f;
+      background-color: rgba(217, 83, 79, 0.18);
+    }
+
+    .find-count {
+      min-width: 54px;
+      text-align: center;
+      font-size: 11px;
+      color: var(--viewer-gutter-foreground);
+      user-select: none;
+    }
+
+    .find-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      height: 22px;
+      padding: 0 3px;
+      background: transparent;
+      color: var(--viewer-foreground);
+      border: 1px solid transparent;
+      border-radius: 2px;
+      cursor: pointer;
+      font-size: 11px;
+      user-select: none;
+    }
+
+    .find-btn:hover {
+      background: var(--viewer-background);
+      border-color: var(--viewer-gutter-foreground);
+    }
+
+    .find-toggle.active {
+      background: var(--viewer-selected-background);
+      color: var(--viewer-selected-foreground);
+      border-color: var(--viewer-selected-background);
+    }
   </style>
   <script>window.Prism = { manual: true };</script>
   <script src="../prism.js"></script>
   <script src="../plugins/autoloader/prism-autoloader.min.js"></script>
   <script src="../plugins/show-invisibles/prism-show-invisibles.min.js"></script>
   <script src="prism-patches.js?v=vs-tokens-18"></script>
-  <script src="virtual-viewer.js?v=vs-tokens-18" defer></script>
+  <script src="virtual-viewer.js?v=prism-edit-menu-5" defer></script>
 </head>
 <body>
   <div id="viewer-status" class="visually-hidden" role="status" aria-live="polite"></div>
+  <div id="viewer-find-bar" class="find-bar hidden" role="search">
+    <input type="text" id="find-input" placeholder="Find..." spellcheck="false" autocomplete="off" />
+    <span id="find-count" class="find-count"></span>
+    <button type="button" id="find-case" class="find-btn find-toggle" title="Match Case (Alt+C)">Aa</button>
+    <button type="button" id="find-word" class="find-btn find-toggle" title="Match Whole Word (Alt+W)">\b</button>
+    <button type="button" id="find-prev" class="find-btn" title="Previous Match (Shift+F3)">▲</button>
+    <button type="button" id="find-next" class="find-btn" title="Next Match (F3 or Enter)">▼</button>
+    <button type="button" id="find-close" class="find-btn" title="Close (Escape)">✕</button>
+  </div>
+  <div id="viewer-goto-bar" class="find-bar goto-bar hidden" role="dialog">
+    <input type="text" id="goto-input" inputmode="numeric" spellcheck="false" autocomplete="off" />
+    <button type="button" id="goto-close" class="find-btn" title="Close (Escape)">&#x2715;</button>
+  </div>
   <main id="virtual-spacer" role="document" aria-busy="true"></main>
 </body>
 </html>

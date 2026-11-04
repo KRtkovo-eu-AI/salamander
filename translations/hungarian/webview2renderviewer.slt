@@ -34,4 +34,8 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 [STRINGTABLE 2]
 64,1,"&Sorok tördelése\tF2"
 65,1,"Sz&óközök megjelenítése"
+66,1,"Sz&erkesztés"
+67,1,"&Másolás\tCtrl+C"
+68,1,"Ö&sszes kijelölése\tCtrl+A"
+69,1,"&Nyomtatás...\tCtrl+P"
 

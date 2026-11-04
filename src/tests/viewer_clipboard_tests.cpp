@@ -12,6 +12,7 @@
 #include <vector>
 #include <windows.h>
 #include "../common/unicode/ViewerBomText.h"
+#include "../viewerhex.h"
 
 static int Checks = 0;
 static int Failures = 0;
@@ -105,14 +106,20 @@ public:
     BOOL UseCodeTable = FALSE;
     char CodeTable[256] = {};
     unsigned char* Buffer = NULL;
+    // Original bytes live beside the converted text. CodeCharacters copies them
+    // through CaptureViewerBytes before a conversion table rewrites Buffer.
+    unsigned char* RawBuffer = NULL;
     std::vector<unsigned char> Storage;
+    std::vector<unsigned char> RawStorage;
     int FatalErrors = 0;
     int PrepareCalls = 0;
 
     void Load(const std::string& bytes)
     {
         Storage.assign(bytes.begin(), bytes.end());
+        RawStorage.resize(Storage.size());
         Buffer = Storage.data();
+        RawBuffer = RawStorage.data();
         FileSize = (__int64)Storage.size();
         Seek = StartSelection = 0;
         EndSelection = FileSize;

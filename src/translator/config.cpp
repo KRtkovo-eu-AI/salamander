@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 #include "precomp.h"
 
@@ -7,7 +10,8 @@
 #include "config.h"
 #include "translator.h"
 
-const char* DB_ROOT_KEY = "Software\\Open Salamander\\Translator";
+const char* DB_ROOT_KEY = "Software\\Open Samandarin\\Translator";
+const char* LEGACY_DB_ROOT_KEY = "Software\\Open Salamander\\Translator";
 const char* WINDOW_LEFT_REG = "Left";
 const char* WINDOW_RIGHT_REG = "Right";
 const char* WINDOW_TOP_REG = "Top";
@@ -627,8 +631,33 @@ BOOL CConfiguration::Save()
     return TRUE;
 }
 
+static void CopyLegacyTranslatorKey()
+{
+    HKEY current;
+    if (RegOpenKeyEx(HKEY_CURRENT_USER, DB_ROOT_KEY, 0, KEY_READ, &current) == ERROR_SUCCESS)
+    {
+        RegCloseKey(current);
+        return;
+    }
+    HKEY legacy;
+    if (RegOpenKeyEx(HKEY_CURRENT_USER, LEGACY_DB_ROOT_KEY, 0, KEY_READ, &legacy) != ERROR_SUCCESS)
+        return;
+    typedef LONG(WINAPI * CopyTreeFn)(HKEY, LPCSTR, HKEY);
+    HMODULE advapi = GetModuleHandleA("advapi32.dll");
+    CopyTreeFn copyTree = advapi != NULL ? (CopyTreeFn)GetProcAddress(advapi, "RegCopyTreeA") : NULL;
+    HKEY created;
+    if (copyTree != NULL &&
+        RegCreateKeyEx(HKEY_CURRENT_USER, DB_ROOT_KEY, 0, NULL, 0, KEY_WRITE, NULL, &created, NULL) == ERROR_SUCCESS)
+    {
+        copyTree(legacy, NULL, created);
+        RegCloseKey(created);
+    }
+    RegCloseKey(legacy);
+}
+
 BOOL CConfiguration::Load()
 {
+    CopyLegacyTranslatorKey();
     HKEY config;
     if (OpenKey(HKEY_CURRENT_USER, DB_ROOT_KEY, config))
     {

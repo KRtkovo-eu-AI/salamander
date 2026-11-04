@@ -5,7 +5,7 @@ VERSION,"2,0,0,196"
 
 [TRANSLATION]
 LANGID,2052
-AUTHOR,"Open Salamander"
+AUTHOR,"Open Samandarin"
 WEB,"www.altap.cz"
 COMMENT,"English version"
 
@@ -13,7 +13,7 @@ COMMENT,"English version"
 205,61,1,"查看器"
 3000,4,6,199,41,1,"窗口位置"
 491,11,17,63,12,1,"&关闭时保存"
-492,11,29,156,12,1,"S&et到Salamander窗口的位置"
+492,11,29,156,12,1,"S&et到Samandarin窗口的位置"
 
 [DIALOG 500]
 205,84,1,"第一页"
@@ -59,7 +59,7 @@ COMMENT,"English version"
 2,151,57,50,14,1,"取消"
 
 [DIALOG 550]
-463,236,1,"由 Open Salamander 提供的控件"
+463,236,1,"由 Open Samandarin 提供的控件"
 3000,6,4,254,108,1,"CGUIStaticTextAbstract"
 3001,14,17,80,8,1,"未附加的静态文本"
 551,102,17,152,8,1,"系统启动于 %d ms 前。"

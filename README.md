@@ -1,5 +1,9 @@
-# Open Salamander: Samandarin
-Open Salamander: Samandarin is a fast and reliable dual-pane file manager for Windows.
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+-->
+# Open Samandarin
+Open Samandarin is a community fork based on Open Salamander 5.0. It is a fast and reliable dual-pane file manager for Windows.
 
 It evolves the [original project](https://github.com/OpenSalamander/salamander) with enhancements and new features while staying compatible with the upstream code and plugin ecosystem.
 
@@ -23,7 +27,7 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 
 ### Viewers and extensions
 - Internal Viewer with Unicode, status and selection information, zoom, line numbers, and live Log View Mode.
-- Prism Text Viewer with syntax highlighting, plus WebView2 rendering for HTML, Markdown, SVG, modern images, and PDF.
+- Prism Text Viewer with syntax highlighting, plus WebView2 rendering for HTML, Markdown, SVG, modern images, and PDF; features full-text search across virtualized chunks, F3 / Shift+F3 match navigation, Salamander Find dialog integration, and fast parallel startup.
 - PictView combines WIC with native decoders, embedded previews, interactive STL preview, and expanded STL/CDR/folder/image thumbnails.
 - Salamatrix Framework v1 provides commands, viewers, panel file systems, native UI, localization, and shared capabilities across JavaScript, Python, PowerShell, PHP, and Lua.
 - Process Explorer, Hardware Monitor, and Event Viewer extensions provide integrated Windows diagnostics panels.
@@ -60,7 +64,7 @@ Together they promise the same Salamander DNA with a spicy hint of danger.
 
 ### Installation Notes
 
-Samandarin writes its configuration to a dedicated registry hive named "Open Salamander Samandarin" to avoid interfering with an official installation. If you previously tried the "tabbed panels PoC" pre-release, manually clean the legacy registry keys because that build still stored settings in the original location.
+Samandarin writes its configuration to a dedicated registry hive named "Open Samandarin" to avoid interfering with an official installation. If you previously tried the "tabbed panels PoC" pre-release, manually clean the legacy registry keys because that build still stored settings in the original location.
 
 
 ## Origin Overview
@@ -73,7 +77,7 @@ Salamander was our first major C++ project, and the code reflects both that lear
 
 We would like to thank [Fine](https://www.finesoftware.eu/) for making the open-source release of Salamander possible.
 
-The Samandarin fork continues this story by blending the original Salamander DNA with AI-driven enhancements, keeping development moving while inviting adventurous contributors to explore and extend the project.
+Open Samandarin continues this story by blending the original Salamander DNA with AI-driven enhancements, keeping development moving while inviting adventurous contributors to explore and extend the project.
 
 
 ## Resources
@@ -92,5 +96,5 @@ The Samandarin fork continues this story by blending the original Salamander DNA
 
 ## License
 
-Open Salamander is open-source software licensed under [GPLv2](LICENSE) or later.
+Open Samandarin is open-source software licensed under [GPLv2](LICENSE) or later.
 Some individual [files and libraries](doc/third_party.md) use different but compatible licenses.

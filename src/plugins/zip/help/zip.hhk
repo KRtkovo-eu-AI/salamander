@@ -1,3 +1,7 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+-->
 <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
 <HTML>
 <HEAD>
@@ -59,7 +63,7 @@
 		<param name="Local" value="hh\zip\faq_faq.htm">
 		</OBJECT>
 	<LI> <OBJECT type="text/sitemap">
-		<param name="Name" value="Introducing ZIP Plugin for Open Salamander">
+		<param name="Name" value="Introducing ZIP Plugin for Open Samandarin">
 		<param name="Local" value="hh\zip\introduction_intro.htm">
 		</OBJECT>
 	<LI> <OBJECT type="text/sitemap">

@@ -1,4 +1,6 @@
-﻿//
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+//
 // lang.rc2 - resources Microsoft Visual C++ does not edit directly
 //
 
@@ -510,7 +512,7 @@ STRINGTABLE
   IDS_OPENFILTER, "Common Graphic Files (*.bmp;*.cur;*.gif;*.icn;*.ico;*.jpg;*.jpeg;*.lbm;*.pcx;*.png;*.psd;*.tga;*.tif;*.tiff)|*.bmp;*.cur;*.gif;*.icn;*.ico;*.jpg;*.jpeg;*.lbm;*.pcx;*.png;*.psd;*.tga;*.tif;*.tiff|All Files (*.*)|*.*|"
   IDS_CUSTOM_COLOR, "&Custom color..."
   IDS_AUTOMATIC_COLOR, "&Automatic color"
-  IDS_SAL_IS_BUSY, "Open Salamander is busy. The requested command cannot be accomplished, please try it again later."
+  IDS_SAL_IS_BUSY, "Open Samandarin is busy. The requested command cannot be accomplished, please try it again later."
   IDS_RENAME_TO, "Rename file ""%s"" to"
   IDS_ERRORRENAMINGFILE, "Error Renaming File"
   IDS_TOOLONGNAME, "Can't finish operation because of too long name."

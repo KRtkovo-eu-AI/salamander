@@ -1,4 +1,6 @@
-﻿//
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+//
 // lang.rc2 - resources Microsoft Visual C++ does not edit directly
 //
 
@@ -89,8 +91,8 @@ STRINGTABLE
   IDS_NOTVALIDFILE, "Cannot open '%s'."
   IDS_INVALIDARGS, "Invalid arguments. Usage:\n\tfilecomp.exe [options] first second\nOptions are:\n\t-w\tWait until File Comparator closes.\n\t--wait\tWait until File Comparator closes."
   IDS_MSGERR, "Cannot send message to File Comparator plugin."
-  IDS_LAUNCHSAL, "Unable to launch Open Salamander."
-  IDS_MSGERR2, "Cannot send message to File Comparator plugin. Ensure 'Launch on Open Salamander start' option is set in File Comparator configuration."
+  IDS_LAUNCHSAL, "Unable to launch Open Samandarin."
+  IDS_MSGERR2, "Cannot send message to File Comparator plugin. Ensure 'Launch on Open Samandarin start' option is set in File Comparator configuration."
   IDS_ERRORUNICODE, "Conversion to Unicode failed."
   IDS_ENCMENU_AUTO, "Automatic"
   IDS_ENCMENU_ASCII8, "ASCII-8"

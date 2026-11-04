@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -3416,7 +3419,7 @@ HWND CWaitWindow::Create(HWND hForegroundWnd)
 
     CreateEx(WS_EX_DLGMODALFRAME | WS_EX_TOOLWINDOW,
              SAVEBITS_CLASSNAME,
-             Caption == NULL ? "Open Salamander" : Caption,
+             Caption == NULL ? "Open Samandarin" : Caption,
              WS_BORDER | WS_OVERLAPPED | (ShowCloseButton ? WS_SYSMENU : 0),
              0, 0, width, height,
              HParent,

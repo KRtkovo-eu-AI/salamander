@@ -1,4 +1,6 @@
-﻿// Microsoft Visual C++ generated resource script.
+﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// Microsoft Visual C++ generated resource script.
 //
 #pragma code_page(65001)
 
@@ -125,7 +127,7 @@ BEGIN
     ERROR_ERRWAIT           "Unable to wait for thread termination: "
     ERROR_EXITCODE          "Unable to get thread exit code: "
     ERROR_CREATEPROC        "Unable to launch external program: "
-    ERROR_X64               "You cannot install the 64-bit version of Open Salamander on a 32-bit version of Windows.\n\nPlease download the 32-bit version of Open Salamander."
+    ERROR_X64               "You cannot install the 64-bit version of Open Samandarin on a 32-bit version of Windows.\n\nPlease download the 32-bit version of Open Samandarin."
     ARC_INEOF               "Archive corrupted, premature end of file."
     ARC_FORMAT              "Unknown archive format."
     ARC_NUMFOLDERS          "This number of folders in the archive is not supported."
@@ -149,7 +151,7 @@ BEGIN
     IDS_CREATEDIRFAILED     "Unable to create new directory:\n%s"
     IDS_STATUS_STARTSETUP   "Starting installation..."
     IDS_STATUS_STARTNOTEPAD "Starting Notepad with the ctime file..."
-    IDS_STATUS_STARTSALAM   "Starting Open Salamander..."
+    IDS_STATUS_STARTSALAM   "Starting Open Samandarin..."
 END
 
 #endif    // Czech resources
@@ -218,7 +220,7 @@ BEGIN
     ERROR_ERRWAIT           "Kann nicht auf Thread-Beendigung warten: "
     ERROR_EXITCODE          "Kann kein Thread-Exit-Code erhalten: "
     ERROR_CREATEPROC        "Kann kein externes Programm starten: "
-    ERROR_X64               "Sie können keine 64-Bit Version von Open Salamander auf eine 32-Bit Version von Windows installieren.\n\nLaden Sie bitte die 32-Bit Version von Open Salamander herunter."
+    ERROR_X64               "Sie können keine 64-Bit Version von Open Samandarin auf eine 32-Bit Version von Windows installieren.\n\nLaden Sie bitte die 32-Bit Version von Open Samandarin herunter."
     ARC_INEOF               "Archiv beschädigt, vorzeitiges Ende der Datei."
     ARC_FORMAT              "Unbekanntes Archivformat."
     ARC_NUMFOLDERS          "Diese Anzahl von Ordnern im Archiv wird nicht unterstützt."
@@ -242,7 +244,7 @@ BEGIN
     IDS_CREATEDIRFAILED     "Kann das neue Verzeichnis nicht erstellen:\n%s"
     IDS_STATUS_STARTSETUP   "Starte Installation..."
     IDS_STATUS_STARTNOTEPAD "Starte Notepad mit der Liesmich-Datei..."
-    IDS_STATUS_STARTSALAM   "Starte Open Salamander..."
+    IDS_STATUS_STARTSALAM   "Starte Open Samandarin..."
 END
 
 #endif    // German (Neutral) resources
@@ -311,7 +313,7 @@ BEGIN
     ERROR_ERRWAIT           "Unable to wait for thread termination: "
     ERROR_EXITCODE          "Unable to get thread exit code: "
     ERROR_CREATEPROC        "Unable to spawn external program: "
-    ERROR_X64               "It is not possible to install 64-bit version of Open Salamander on 32-bit version of Windows.\n\nPlease download 32-bit version of Open Salamander."
+    ERROR_X64               "It is not possible to install 64-bit version of Open Samandarin on 32-bit version of Windows.\n\nPlease download 32-bit version of Open Samandarin."
     ARC_INEOF               "Archive corrupted, premature end of file."
     ARC_FORMAT              "Unknown archive format."
     ARC_NUMFOLDERS          "This number of folders in the archive is not supported."
@@ -335,7 +337,7 @@ BEGIN
     IDS_CREATEDIRFAILED     "Unable to create new directory:\n%s"
     IDS_STATUS_STARTSETUP   "Starting installation..."
     IDS_STATUS_STARTNOTEPAD "Starting Notepad with readme file..."
-    IDS_STATUS_STARTSALAM   "Starting Open Salamander..."
+    IDS_STATUS_STARTSALAM   "Starting Open Samandarin..."
 END
 
 #endif    // English (U.S.) resources
