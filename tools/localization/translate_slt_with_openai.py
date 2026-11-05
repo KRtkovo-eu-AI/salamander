@@ -1,3 +1,5 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-05 | Register fifteen major-language translation stubs. | Empty language folders need LANGID metadata before AI batch translation. | | Composer |
 #!/usr/bin/env python3
 """Translate untranslated SLT resource lines through a supported LLM provider."""
 from __future__ import annotations
@@ -33,17 +35,32 @@ ACCELERATOR_RE = re.compile(r'(?<!&)&(?!&)')
 MOJIBAKE_RE = re.compile(r'[ÃÂÅ][\u0080-\u00BF\u00A0-\u00BF\u0100-\u017F\u2122]')
 REPLACEMENT_CHARS = {"\ufffd", "\u25a1", "\u25a0"}
 LANGUAGES = {
+    "arabic": {"name": "Arabic", "locale": "ar-SA", "langid": 1025, "script": "Arabic script (RTL)"},
+    "bulgarian": {"name": "Bulgarian", "locale": "bg-BG", "langid": 1026, "script": "Cyrillic"},
     "chinesesimplified": {"name": "Simplified Chinese", "locale": "zh-CN", "langid": 2052, "script": "Simplified Chinese characters"},
+    "chinesetraditional": {"name": "Traditional Chinese", "locale": "zh-TW", "langid": 1028, "script": "Traditional Chinese characters"},
+    "croatian": {"name": "Croatian", "locale": "hr-HR", "langid": 1050, "script": "Croatian Latin with accents"},
     "czech": {"name": "Czech", "locale": "cs-CZ", "langid": 1029, "script": "Czech Latin with accents"},
     "dutch": {"name": "Dutch", "locale": "nl-NL", "langid": 1043, "script": "Dutch Latin"},
     "french": {"name": "French", "locale": "fr-FR", "langid": 1036, "script": "French Latin with accents"},
     "german": {"name": "German", "locale": "de-DE", "langid": 1031, "script": "German Latin with umlauts and ß"},
+    "greek": {"name": "Greek", "locale": "el-GR", "langid": 1032, "script": "Greek alphabet"},
+    "hebrew": {"name": "Hebrew", "locale": "he-IL", "langid": 1037, "script": "Hebrew script (RTL)"},
     "hungarian": {"name": "Hungarian", "locale": "hu-HU", "langid": 1038, "script": "Hungarian Latin with accents"},
+    "indonesian": {"name": "Indonesian", "locale": "id-ID", "langid": 1057, "script": "Indonesian Latin"},
     "italian": {"name": "Italian", "locale": "it-IT", "langid": 1040, "script": "Italian Latin with accents"},
+    "japanese": {"name": "Japanese", "locale": "ja-JP", "langid": 1041, "script": "Japanese kana and kanji"},
+    "korean": {"name": "Korean", "locale": "ko-KR", "langid": 1042, "script": "Hangul"},
+    "polish": {"name": "Polish", "locale": "pl-PL", "langid": 1045, "script": "Polish Latin with accents"},
+    "portuguese": {"name": "Brazilian Portuguese", "locale": "pt-BR", "langid": 1046, "script": "Portuguese Latin with accents"},
     "romanian": {"name": "Romanian", "locale": "ro-RO", "langid": 1048, "script": "Romanian Latin with ș/ț diacritics"},
     "russian": {"name": "Russian", "locale": "ru-RU", "langid": 1049, "script": "Cyrillic"},
     "slovak": {"name": "Slovak", "locale": "sk-SK", "langid": 1051, "script": "Slovak Latin with accents"},
     "spanish": {"name": "Spanish", "locale": "es-ES", "langid": 3082, "script": "Spanish Latin with accents"},
+    "swedish": {"name": "Swedish", "locale": "sv-SE", "langid": 1053, "script": "Swedish Latin with å/ä/ö"},
+    "turkish": {"name": "Turkish", "locale": "tr-TR", "langid": 1055, "script": "Turkish Latin with ğ/ı/ş/ç/ö/ü"},
+    "ukrainian": {"name": "Ukrainian", "locale": "uk-UA", "langid": 1058, "script": "Cyrillic with Ukrainian letters"},
+    "vietnamese": {"name": "Vietnamese", "locale": "vi-VN", "langid": 1066, "script": "Vietnamese Latin with tone marks"},
 }
 
 def language_info(language: str) -> dict:
