@@ -7,6 +7,7 @@
 // | 2026-11-07 | Preserve user-owned extensions during plugin association cleanup. | Keep upgrade-time ForceRemovePanelArchiver consistent with persistent Configuration provenance. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-06 | Preserve repeated deferred LoadLibrary references before any teardown. | Preserve every LoadLibrary reference across a refused close and provider reload. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // | 2026-11-06 | Preserve native exit finalization before deferred module unload. | Combine the port callback gate with upstream runtime-provider shutdown ordering. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
+// | 2026-11-04 | Use a literal format string when expanding plugin language errors. | CodeQL rejects LoadStr() as a non-constant printf format. | | Composer |
 // | 2026-11-04 | Load plug-in languages from host English, langpack.dll, then .slg. | Official languages ship in one pack; .slg remains for legacy/3rd-party plug-ins. | | Composer |
 // | 2026-11-04 | Keep plug-in DLLs mapped until every plug-in Release returns. | Unloading a runtime plug-in before Salamatrix joins its pump thread crashes on exit. | https://github.com/KRtkovo-eu-AI/salamander/issues/770 https://github.com/KRtkovo-eu-AI/salamander/issues/750 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
@@ -1904,7 +1905,18 @@ CSalamanderPluginEntry::LoadLanguageModule(HWND parent, const char* pluginName)
             params.HParent = parent;
             params.Flags = MB_OK | MB_ICONERROR;
             params.Caption = pluginName;
-            _snprintf_s(errorText, _TRUNCATE, LoadStr(IDS_CANTLOADPLUGINSLG1), path);
+            {
+                char fmt[400];
+                lstrcpyn(fmt, LoadStr(IDS_CANTLOADPLUGINSLG1), _countof(fmt));
+                char* placeholder = strstr(fmt, "%s");
+                if (placeholder != NULL)
+                {
+                    *placeholder = 0;
+                    _snprintf_s(errorText, _TRUNCATE, "%s%s%s", fmt, path, placeholder + 2);
+                }
+                else
+                    lstrcpyn(errorText, fmt, _countof(errorText));
+            }
             params.Text = errorText;
             params.CheckBoxText = LoadStr(IDS_DONOTSHOWCANTLOADPLUGINSLG);
             params.CheckBoxValue = &Configuration.DoNotDispCantLoadPluginSLG;
@@ -1919,7 +1931,18 @@ CSalamanderPluginEntry::LoadLanguageModule(HWND parent, const char* pluginName)
             params.HParent = parent;
             params.Flags = MB_OK | MB_ICONERROR;
             params.Caption = pluginName;
-            _snprintf_s(errorText, _TRUNCATE, LoadStr(IDS_CANTLOADPLUGINSLG2), path);
+            {
+                char fmt[400];
+                lstrcpyn(fmt, LoadStr(IDS_CANTLOADPLUGINSLG2), _countof(fmt));
+                char* placeholder = strstr(fmt, "%s");
+                if (placeholder != NULL)
+                {
+                    *placeholder = 0;
+                    _snprintf_s(errorText, _TRUNCATE, "%s%s%s", fmt, path, placeholder + 2);
+                }
+                else
+                    lstrcpyn(errorText, fmt, _countof(errorText));
+            }
             params.Text = errorText;
             params.CheckBoxText = LoadStr(IDS_DONOTSHOWCANTLOADPLUGINSLG);
             params.CheckBoxValue = &Configuration.DoNotDispCantLoadPluginSLG2;
