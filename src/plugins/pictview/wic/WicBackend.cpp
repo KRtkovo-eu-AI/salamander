@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Survive faulty shell thumbnail provider SEH. | IThumbnailProvider / IShellItemImageFactory must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 
 #include "precomp.h"
 #include "WicBackend.h"
@@ -3822,6 +3825,80 @@ HRESULT AdoptShellBitmap(Backend& backend, ImageHandle& handle, HBITMAP bitmap)
     return S_OK;
 }
 
+// Raw COM path without C++ objects that require unwinding, so SEH can wrap it.
+HRESULT TryGetShellThumbnailBitmapBody(const wchar_t* fileName, HBITMAP* outBitmap)
+{
+    *outBitmap = nullptr;
+    IShellItem* item = nullptr;
+    HRESULT hr = SHCreateItemFromParsingName(fileName, nullptr, IID_IShellItem, reinterpret_cast<void**>(&item));
+    if (FAILED(hr) || item == nullptr)
+    {
+        return hr;
+    }
+
+    IThumbnailProvider* provider = nullptr;
+    const HRESULT bindHr = item->BindToHandler(nullptr, BHID_ThumbnailHandler, IID_IThumbnailProvider,
+                                               reinterpret_cast<void**>(&provider));
+    if (SUCCEEDED(bindHr) && provider != nullptr)
+    {
+        WTS_ALPHATYPE alpha = WTSAT_UNKNOWN;
+        hr = provider->GetThumbnail(2048, outBitmap, &alpha);
+        provider->Release();
+        if (SUCCEEDED(hr) && *outBitmap != nullptr)
+        {
+            item->Release();
+            return S_OK;
+        }
+        if (*outBitmap != nullptr)
+        {
+            DeleteObject(*outBitmap);
+            *outBitmap = nullptr;
+        }
+    }
+
+    IShellItemImageFactory* factory = nullptr;
+    hr = item->QueryInterface(IID_IShellItemImageFactory, reinterpret_cast<void**>(&factory));
+    item->Release();
+    if (FAILED(hr) || factory == nullptr)
+    {
+        return hr;
+    }
+    const SIZE size{2048, 2048};
+    hr = factory->GetImage(size, SIIGBF_THUMBNAILONLY | SIIGBF_BIGGERSIZEOK | SIIGBF_RESIZETOFIT, outBitmap);
+    factory->Release();
+    if (FAILED(hr) || *outBitmap == nullptr)
+    {
+        return FAILED(hr) ? hr : WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
+    }
+    return S_OK;
+}
+
+HRESULT TryGetShellThumbnailBitmap(const wchar_t* fileName, HBITMAP* outBitmap)
+{
+    // volatile: referenced from __except after a third-party shell-extension AV
+    volatile HBITMAP bitmap = nullptr;
+    HRESULT hr = E_UNEXPECTED;
+    __try
+    {
+        HBITMAP localBitmap = nullptr;
+        hr = TryGetShellThumbnailBitmapBody(fileName, &localBitmap);
+        bitmap = localBitmap;
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        // Faulty third-party IThumbnailProvider / IShellItemImageFactory (#773).
+        if (bitmap != nullptr)
+        {
+            DeleteObject(bitmap);
+            bitmap = nullptr;
+        }
+        *outBitmap = nullptr;
+        return E_UNEXPECTED;
+    }
+    *outBitmap = bitmap;
+    return hr;
+}
+
 HRESULT TryOpenShellThumbnail(Backend& backend, ImageHandle& handle)
 {
     if (handle.fileName.empty())
@@ -3840,40 +3917,9 @@ HRESULT TryOpenShellThumbnail(Backend& backend, ImageHandle& handle)
     {
         return WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
     }
-    ComPtr<IShellItem> item;
-    HRESULT hr = SHCreateItemFromParsingName(handle.fileName.c_str(), nullptr, IID_PPV_ARGS(&item));
-    if (FAILED(hr) || !item)
-    {
-        return hr;
-    }
-
-    ComPtr<IThumbnailProvider> provider;
-    const HRESULT bindHr = item->BindToHandler(nullptr, BHID_ThumbnailHandler, IID_PPV_ARGS(&provider));
-    if (SUCCEEDED(bindHr) && provider)
-    {
-        HBITMAP bitmap = nullptr;
-        WTS_ALPHATYPE alpha = WTSAT_UNKNOWN;
-        hr = provider->GetThumbnail(2048, &bitmap, &alpha);
-        if (SUCCEEDED(hr) && bitmap)
-        {
-            return AdoptShellBitmap(backend, handle, bitmap);
-        }
-        if (bitmap)
-        {
-            DeleteObject(bitmap);
-        }
-    }
-
-    ComPtr<IShellItemImageFactory> factory;
-    hr = item.As(&factory);
-    if (FAILED(hr) || !factory)
-    {
-        return hr;
-    }
-    const SIZE size{2048, 2048};
     HBITMAP bitmap = nullptr;
-    hr = factory->GetImage(size, SIIGBF_THUMBNAILONLY | SIIGBF_BIGGERSIZEOK | SIIGBF_RESIZETOFIT, &bitmap);
-    if (FAILED(hr) || !bitmap)
+    const HRESULT hr = TryGetShellThumbnailBitmap(handle.fileName.c_str(), &bitmap);
+    if (FAILED(hr) || bitmap == nullptr)
     {
         return FAILED(hr) ? hr : WINCODEC_ERR_UNKNOWNIMAGEFORMAT;
     }

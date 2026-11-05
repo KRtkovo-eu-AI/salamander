@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Survive faulty shell extension SEH in drive menus. | Drive context-menu QueryContextMenu/InvokeCommand must not terminate. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -1022,8 +1025,9 @@ void DisplayMenuAux(IContextMenu2* contextMenu, CMINVOKECOMMANDINFO* ici)
     {
         contextMenu->InvokeCommand(ici);
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 1))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
+        TRACE_E("Faulty shell extension threw an exception in InvokeCommand (drive menu).");
         ICExceptionHasOccured++;
     }
 
@@ -1049,8 +1053,9 @@ void DisplayMenuAux2(IContextMenu2* contextMenu, HMENU h)
 
         contextMenu->QueryContextMenu(h, 0, 0, -1, flags);
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 2))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
+        TRACE_E("Faulty shell extension threw an exception in QueryContextMenu (drive menu).");
         QCMExceptionHasOccured++;
     }
 

@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Survive faulty shell extension SEH in panel menu messages. | New submenu and ContextMenu HandleMenuMsg must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -540,12 +543,51 @@ void CFilesWindow::SafeHandleMenuNewMsg2(UINT uMsg, WPARAM wParam, LPARAM lParam
         }
         ContextSubmenuNew->GetMenu2()->HandleMenuMsg(uMsg, wParam, lParam);
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 3))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
+        TRACE_E("Faulty shell extension threw an exception in HandleMenuMsg (panel New submenu).");
         MenuNewExceptionHasOccured++;
         if (ContextSubmenuNew->MenuIsAssigned())
             ContextSubmenuNew->Release();
     }
+}
+
+BOOL CFilesWindow::SafeHandleContextMenuMsg2(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT* plResult)
+{
+    CALL_STACK_MESSAGE_NONE
+    *plResult = 0;
+    if (ContextMenu == NULL)
+        return FALSE;
+
+    BOOL shouldReturnResult = FALSE;
+    __try
+    {
+        IContextMenu3* contextMenu3 = NULL;
+        if (SUCCEEDED(ContextMenu->QueryInterface(IID_IContextMenu3, (void**)&contextMenu3)))
+        {
+            HRESULT hr = contextMenu3->HandleMenuMsg2(uMsg, wParam, lParam, plResult);
+            contextMenu3->Release();
+            if (SUCCEEDED(hr))
+            {
+                if (uMsg == WM_MENUCHAR)
+                    shouldReturnResult = TRUE;
+            }
+            else
+                ContextMenu->HandleMenuMsg(uMsg, wParam, lParam);
+        }
+        else
+            ContextMenu->HandleMenuMsg(uMsg, wParam, lParam);
+    }
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
+    {
+        // Keep this helper free of C++ objects with destructors so SEH is valid;
+        // WindowProc must call this instead of hosting __try itself (C2712).
+        TRACE_E("Faulty shell extension threw an exception in HandleMenuMsg (panel context menu).");
+        MenuNewExceptionHasOccured++;
+        *plResult = 0;
+        shouldReturnResult = FALSE;
+    }
+    return shouldReturnResult;
 }
 
 void CFilesWindow::RegisterDragDrop()

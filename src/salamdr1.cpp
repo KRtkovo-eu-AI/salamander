@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Survive faulty shell extension SEH when extracting icons. | GetFileIcon shell handlers must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 #include "precomp.h"
@@ -1510,8 +1511,9 @@ HICON GetFileOrPathIconAux(const char* path, BOOL large, BOOL isDir)
             HANDLES_ADD(__htIcon, __hoLoadImage, shi.hIcon);
         return shi.hIcon;
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 13))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
+        TRACE_E("Faulty shell extension threw an exception in GetFileOrPathIconAux.");
         FGIExceptionHasOccured++;
     }
     return NULL;
@@ -2489,8 +2491,9 @@ static HICON SafeLoadDirectoryIcon(const char* systemDir, CIconSizeEnum sizeInde
         if (!GetFileIcon(systemDir, FALSE, &hIcon, sizeIndex, FALSE, FALSE))
             hIcon = NULL;
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 15))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
+        TRACE_E("Faulty shell extension threw an exception in SafeLoadDirectoryIcon.");
         FGIExceptionHasOccured++;
         hIcon = NULL;
     }

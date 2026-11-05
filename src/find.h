@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Add SafeHandleContextMenuMsg for shell-extension SEH. | Find dialog HandleMenuMsg must not live inside WindowProc SEH. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -832,6 +835,9 @@ protected:
     void UpdateListViewItems();
 
     void OnContextMenu(int x, int y);
+    // Forwards owner-draw/cascade messages to ContextMenu under SEH. Returns TRUE when
+    // WindowProc should return *plResult (including WM_MENUCHAR and handled DrawItem paths).
+    BOOL SafeHandleContextMenuMsg(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT* plResult);
     void OnFocusFile();
     void OnViewFile(BOOL alternate);
     void OnEditFile();
