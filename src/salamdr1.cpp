@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Bound language-load error strings with _snprintf_s. | CodeQL flagged unbounded sprintf on Configuration.SLGName/path. | | Composer |
 // | 2026-11-04 | Load English from the host PE and other languages from langpack.dll. | Reduce signed .slg files; keep .slg fallback for legacy plugins. | | Composer |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
@@ -5060,7 +5061,7 @@ FIND_NEW_SLG_FILE:
     }
 
     char path[MAX_PATH];
-    char errorText[MAX_PATH + 200];
+    char errorText[2 * MAX_PATH + 300];
     BOOL languageOwned = FALSE;
     HLanguage = SalLoadLanguageForModule(HInstance, SAL_LANGPACK_MODULE_SALAMAND,
                                          Configuration.SLGName, &languageOwned);
@@ -5086,22 +5087,26 @@ FIND_NEW_SLG_FILE:
             HANDLES(FreeLibrary(HLanguage));
         HLanguage = NULL;
         GetModuleFileName(NULL, path, MAX_PATH);
-        sprintf(strrchr(path, '\\') + 1, "lang\\%s", Configuration.SLGName);
+        char* slash = strrchr(path, '\\');
+        if (slash != NULL)
+            _snprintf_s(slash + 1, MAX_PATH - (int)(slash + 1 - path), _TRUNCATE, "lang\\%s", Configuration.SLGName);
         if (!newSLGFile) // remembered language disappeared; try to find another
         {
-            sprintf(errorText, "Language \"%s\" was not found or is not valid "
-                               "(checked embedded English, language pack, and %s).\n"
-                               "Open Samandarin will try to search for some other language.",
-                    Configuration.SLGName, path);
+            _snprintf_s(errorText, _TRUNCATE,
+                        "Language \"%s\" was not found or is not valid "
+                        "(checked embedded English, language pack, and %s).\n"
+                        "Open Samandarin will try to search for some other language.",
+                        Configuration.SLGName, path);
             MessageBox(NULL, errorText, SALAMANDER_TEXT_VERSION, MB_OK | MB_ICONERROR);
             Configuration.SLGName[0] = 0;
             goto FIND_NEW_SLG_FILE;
         }
         else
         {
-            sprintf(errorText, "Language \"%s\" was not found or is not valid.\n"
-                               "Please run Open Samandarin again and try to choose some other language.",
-                    Configuration.SLGName);
+            _snprintf_s(errorText, _TRUNCATE,
+                        "Language \"%s\" was not found or is not valid.\n"
+                        "Please run Open Samandarin again and try to choose some other language.",
+                        Configuration.SLGName);
             MessageBox(NULL, errorText, "Open Samandarin", MB_OK | MB_ICONERROR);
             goto EXIT_1a;
         }

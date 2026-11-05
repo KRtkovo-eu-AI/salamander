@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Check the destination bound before reading src in AsciiToUpperCopy. | CodeQL flagged the offset use before the range check. | | Composer |
 // | 2026-11-04 | Implement the official language-pack loader. | English ships in host binaries; non-English languages ship in one signed pack. | | Composer |
 
 #include "precomp.h"
@@ -14,10 +15,15 @@ namespace
 
 void AsciiToUpperCopy(const char* src, char* dst, int dstSize)
 {
-    if (dstSize <= 0)
+    if (dst == NULL || dstSize <= 0)
         return;
+    if (src == NULL)
+    {
+        dst[0] = 0;
+        return;
+    }
     int i = 0;
-    for (; src[i] != 0 && i < dstSize - 1; i++)
+    for (; i < dstSize - 1 && src[i] != 0; i++)
     {
         unsigned char c = (unsigned char)src[i];
         dst[i] = (char)toupper(c);

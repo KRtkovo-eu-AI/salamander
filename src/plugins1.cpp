@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-04 | Use a literal format string when expanding plugin language errors. | CodeQL rejects LoadStr() as a non-constant printf format. | | Composer |
 // | 2026-11-04 | Load plug-in languages from host English, langpack.dll, then .slg. | Official languages ship in one pack; .slg remains for legacy/3rd-party plug-ins. | | Composer |
 // | 2026-11-04 | Keep plug-in DLLs mapped until every plug-in Release returns. | Unloading a runtime plug-in before Salamatrix joins its pump thread crashes on exit. | https://github.com/KRtkovo-eu-AI/salamander/issues/770 https://github.com/KRtkovo-eu-AI/salamander/issues/750 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
@@ -1889,7 +1890,18 @@ CSalamanderPluginEntry::LoadLanguageModule(HWND parent, const char* pluginName)
             params.HParent = parent;
             params.Flags = MB_OK | MB_ICONERROR;
             params.Caption = pluginName;
-            _snprintf_s(errorText, _TRUNCATE, LoadStr(IDS_CANTLOADPLUGINSLG1), path);
+            {
+                char fmt[400];
+                lstrcpyn(fmt, LoadStr(IDS_CANTLOADPLUGINSLG1), _countof(fmt));
+                char* placeholder = strstr(fmt, "%s");
+                if (placeholder != NULL)
+                {
+                    *placeholder = 0;
+                    _snprintf_s(errorText, _TRUNCATE, "%s%s%s", fmt, path, placeholder + 2);
+                }
+                else
+                    lstrcpyn(errorText, fmt, _countof(errorText));
+            }
             params.Text = errorText;
             params.CheckBoxText = LoadStr(IDS_DONOTSHOWCANTLOADPLUGINSLG);
             params.CheckBoxValue = &Configuration.DoNotDispCantLoadPluginSLG;
@@ -1904,7 +1916,18 @@ CSalamanderPluginEntry::LoadLanguageModule(HWND parent, const char* pluginName)
             params.HParent = parent;
             params.Flags = MB_OK | MB_ICONERROR;
             params.Caption = pluginName;
-            _snprintf_s(errorText, _TRUNCATE, LoadStr(IDS_CANTLOADPLUGINSLG2), path);
+            {
+                char fmt[400];
+                lstrcpyn(fmt, LoadStr(IDS_CANTLOADPLUGINSLG2), _countof(fmt));
+                char* placeholder = strstr(fmt, "%s");
+                if (placeholder != NULL)
+                {
+                    *placeholder = 0;
+                    _snprintf_s(errorText, _TRUNCATE, "%s%s%s", fmt, path, placeholder + 2);
+                }
+                else
+                    lstrcpyn(errorText, fmt, _countof(errorText));
+            }
             params.Text = errorText;
             params.CheckBoxText = LoadStr(IDS_DONOTSHOWCANTLOADPLUGINSLG);
             params.CheckBoxValue = &Configuration.DoNotDispCantLoadPluginSLG2;
