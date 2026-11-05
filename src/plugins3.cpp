@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Build SVG HICONs with straight alpha and a real AND mask. | Premultiplied color + empty mask caused muddy FS-panel SVG icons. | | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -455,6 +458,11 @@ HICON CSalamanderGUI::CreateSVGIcon(const char* svgName, int iconSize)
     if (!RenderSVGIconBitmap(svgName, iconSize, TRUE, &hColorBitmap))
         return NULL;
 
+    // RenderSVGIconBitmap emits premultiplied BGRA for AlphaBlend/toolbars.
+    // Panel icon lists (CIconList::DrawALPHA) and CreateIconIndirect expect
+    // straight alpha — convert in place before building the HICON.
+    UnpremultiplySVGIconBitmap(hColorBitmap);
+
     const int maskStride = ((iconSize + 15) / 16) * 2;
     BYTE* maskBits = (BYTE*)calloc(maskStride, iconSize);
     if (maskBits == NULL)
@@ -462,6 +470,28 @@ HICON CSalamanderGUI::CreateSVGIcon(const char* svgName, int iconSize)
         HANDLES(DeleteObject(hColorBitmap));
         return NULL;
     }
+
+    DIBSECTION section;
+    memset(&section, 0, sizeof(section));
+    if (GetObject(hColorBitmap, sizeof(section), &section) == sizeof(section) &&
+        section.dsBm.bmBits != NULL && section.dsBm.bmBitsPixel == 32)
+    {
+        const int width = min(iconSize, section.dsBm.bmWidth);
+        const int height = min(iconSize, abs(section.dsBm.bmHeight));
+        BYTE* colorBits = (BYTE*)section.dsBm.bmBits;
+        for (int y = 0; y < height; y++)
+        {
+            BYTE* src = colorBits + (size_t)y * section.dsBm.bmWidthBytes;
+            BYTE* dst = maskBits + (size_t)y * maskStride;
+            for (int x = 0; x < width; x++)
+            {
+                // 1 means transparent in an icon AND mask.
+                if (src[x * 4 + 3] < 16)
+                    dst[x / 8] |= (BYTE)(0x80 >> (x % 8));
+            }
+        }
+    }
+
     HBITMAP hMaskBitmap = HANDLES(CreateBitmap(iconSize, iconSize, 1, 1, maskBits));
     free(maskBits);
     if (hMaskBitmap == NULL)

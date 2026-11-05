@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Supersample SVG icon bitmaps and keep a single premul BGRA pass. | FS-panel SVG icons looked muddy and lost detail after a second premultiply, especially at 16px. | | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -201,15 +204,146 @@ void RenderSVGImage(NSVGrasterizer* rast, HDC hDC, int x, int y, const char* svg
 }
 
 
+// Downsample a 2x premultiplied BGRA buffer into iconSize x iconSize with a
+// box filter. Averaging premultiplied channels preserves coverage correctly.
+static void DownsamplePremultipliedBGRA2x(const BYTE* src, int iconSize, BYTE* dst)
+{
+    const int srcSize = iconSize * 2;
+    for (int y = 0; y < iconSize; y++)
+    {
+        const BYTE* row0 = src + (size_t)(y * 2) * srcSize * 4;
+        const BYTE* row1 = row0 + srcSize * 4;
+        BYTE* out = dst + (size_t)y * iconSize * 4;
+        for (int x = 0; x < iconSize; x++)
+        {
+            const BYTE* p00 = row0 + x * 8;
+            const BYTE* p01 = p00 + 4;
+            const BYTE* p10 = row1 + x * 8;
+            const BYTE* p11 = p10 + 4;
+            out[0] = (BYTE)(((unsigned)p00[0] + p01[0] + p10[0] + p11[0] + 2) / 4);
+            out[1] = (BYTE)(((unsigned)p00[1] + p01[1] + p10[1] + p11[1] + 2) / 4);
+            out[2] = (BYTE)(((unsigned)p00[2] + p01[2] + p10[2] + p11[2] + 2) / 4);
+            out[3] = (BYTE)(((unsigned)p00[3] + p01[3] + p10[3] + p11[3] + 2) / 4);
+            out += 4;
+        }
+    }
+}
+
+// Converts NanoSVG's premultiplied BGRA into straight BGRA so CreateIconIndirect /
+// CIconList::DrawALPHA can blend without dark fringe artifacts. Also defringes
+// fully transparent neighbours the same way NanoSVG's unpremultiply helper does.
+BOOL UnpremultiplySVGIconBitmap(HBITMAP hBitmap)
+{
+    if (hBitmap == NULL)
+        return FALSE;
+
+    DIBSECTION section;
+    memset(&section, 0, sizeof(section));
+    if (GetObject(hBitmap, sizeof(section), &section) != sizeof(section) ||
+        section.dsBm.bmBits == NULL || section.dsBm.bmBitsPixel != 32 ||
+        section.dsBm.bmWidth <= 0 || section.dsBm.bmHeight == 0)
+        return FALSE;
+
+    const int width = section.dsBm.bmWidth;
+    const int height = abs(section.dsBm.bmHeight);
+    const int stride = section.dsBm.bmWidthBytes;
+    BYTE* bits = (BYTE*)section.dsBm.bmBits;
+
+    for (int y = 0; y < height; y++)
+    {
+        BYTE* row = bits + (size_t)y * stride;
+        for (int x = 0; x < width; x++)
+        {
+            BYTE* p = row + x * 4;
+            const unsigned a = p[3];
+            if (a == 0)
+            {
+                p[0] = p[1] = p[2] = 0;
+            }
+            else if (a < 255)
+            {
+                p[0] = (BYTE)min(255u, (p[0] * 255u + a / 2) / a);
+                p[1] = (BYTE)min(255u, (p[1] * 255u + a / 2) / a);
+                p[2] = (BYTE)min(255u, (p[2] * 255u + a / 2) / a);
+            }
+        }
+    }
+
+    // Defringe: fill RGB of fully transparent pixels from opaque neighbours so
+    // bilinear upscales (Tiles/Thumbnails/DPI) do not pick up black fringes.
+    for (int y = 0; y < height; y++)
+    {
+        BYTE* row = bits + (size_t)y * stride;
+        for (int x = 0; x < width; x++)
+        {
+            BYTE* p = row + x * 4;
+            if (p[3] != 0)
+                continue;
+
+            unsigned r = 0, g = 0, b = 0, n = 0;
+            if (x > 0 && row[(x - 1) * 4 + 3] != 0)
+            {
+                b += row[(x - 1) * 4 + 0];
+                g += row[(x - 1) * 4 + 1];
+                r += row[(x - 1) * 4 + 2];
+                n++;
+            }
+            if (x + 1 < width && row[(x + 1) * 4 + 3] != 0)
+            {
+                b += row[(x + 1) * 4 + 0];
+                g += row[(x + 1) * 4 + 1];
+                r += row[(x + 1) * 4 + 2];
+                n++;
+            }
+            if (y > 0)
+            {
+                BYTE* above = bits + (size_t)(y - 1) * stride + x * 4;
+                if (above[3] != 0)
+                {
+                    b += above[0];
+                    g += above[1];
+                    r += above[2];
+                    n++;
+                }
+            }
+            if (y + 1 < height)
+            {
+                BYTE* below = bits + (size_t)(y + 1) * stride + x * 4;
+                if (below[3] != 0)
+                {
+                    b += below[0];
+                    g += below[1];
+                    r += below[2];
+                    n++;
+                }
+            }
+            if (n > 0)
+            {
+                p[0] = (BYTE)(b / n);
+                p[1] = (BYTE)(g / n);
+                p[2] = (BYTE)(r / n);
+            }
+        }
+    }
+    return TRUE;
+}
+
 static BOOL RenderSVGIconBitmapText(char* svg, int iconSize, BOOL enabled, HBITMAP* hBitmap)
 {
     if (hBitmap == NULL)
         return FALSE;
     *hBitmap = NULL;
-    if (svg == NULL)
+    if (svg == NULL || iconSize <= 0 || iconSize > 512)
         return FALSE;
 
+    // 2x supersampling keeps thin strokes and logo detail readable at the
+    // panel's 16/32/48 buckets (and their DPI-scaled sizes up to 64).
+    const int renderSize = (iconSize <= 64) ? iconSize * 2 : iconSize;
+
     HDC hMemDC = HANDLES(CreateCompatibleDC(NULL));
+    if (hMemDC == NULL)
+        return FALSE;
+
     BITMAPINFOHEADER bmhdr;
     memset(&bmhdr, 0, sizeof(bmhdr));
     bmhdr.biSize = sizeof(bmhdr);
@@ -222,11 +356,13 @@ static BOOL RenderSVGIconBitmapText(char* svg, int iconSize, BOOL enabled, HBITM
     bmhdr.biCompression = BI_RGB;
     void* lpMemBits = NULL;
     HBITMAP hMemBmp = HANDLES(CreateDIBSection(hMemDC, (CONST BITMAPINFO*)&bmhdr, DIB_RGB_COLORS, &lpMemBits, NULL, 0));
+    BYTE* renderBits = NULL;
     if (hMemBmp != NULL && lpMemBits != NULL)
     {
         memset(lpMemBits, 0, static_cast<size_t>(iconSize) * iconSize * 4);
-        float sysDPIScale = (float)GetScaleForSystemDPI();
-        NSVGimage* image = nsvgParse(svg, "px", sysDPIScale);
+        // Parse with the CSS/SVG reference DPI. Callers already pass the target
+        // size in device pixels (including system-DPI toolbar sizes).
+        NSVGimage* image = nsvgParse(svg, "px", 96.0f);
         if (image != NULL)
         {
             if (!enabled)
@@ -243,28 +379,36 @@ static BOOL RenderSVGIconBitmapText(char* svg, int iconSize, BOOL enabled, HBITM
             NSVGrasterizer* rast = nsvgCreateRasterizer();
             if (rast != NULL)
             {
+                BYTE* rasterTarget = (BYTE*)lpMemBits;
+                int rasterSize = iconSize;
+                if (renderSize != iconSize)
+                {
+                    renderBits = (BYTE*)malloc((size_t)renderSize * renderSize * 4);
+                    if (renderBits != NULL)
+                    {
+                        memset(renderBits, 0, (size_t)renderSize * renderSize * 4);
+                        rasterTarget = renderBits;
+                        rasterSize = renderSize;
+                    }
+                }
+
                 float scale = 1.0f;
                 float offsetX = 0.0f;
                 float offsetY = 0.0f;
                 if (image->width > 0.0f && image->height > 0.0f)
                 {
-                    scale = min((float)iconSize / image->width, (float)iconSize / image->height);
-                    offsetX = ((float)iconSize - image->width * scale) / 2.0f;
-                    offsetY = ((float)iconSize - image->height * scale) / 2.0f;
+                    scale = min((float)rasterSize / image->width, (float)rasterSize / image->height);
+                    offsetX = ((float)rasterSize - image->width * scale) / 2.0f;
+                    offsetY = ((float)rasterSize - image->height * scale) / 2.0f;
                 }
-                nsvgRasterize(rast, image, offsetX, offsetY, scale, (BYTE*)lpMemBits, iconSize, iconSize, iconSize * 4);
-                DWORD* pixels = (DWORD*)lpMemBits;
-                for (int i = 0; i < iconSize * iconSize; i++)
-                {
-                    BYTE alpha = (BYTE)(pixels[i] >> 24);
-                    BYTE red = (BYTE)(pixels[i] & 0xff);
-                    BYTE green = (BYTE)((pixels[i] >> 8) & 0xff);
-                    BYTE blue = (BYTE)((pixels[i] >> 16) & 0xff);
-                    red = (BYTE)((red * alpha + 127) / 255);
-                    green = (BYTE)((green * alpha + 127) / 255);
-                    blue = (BYTE)((blue * alpha + 127) / 255);
-                    pixels[i] = ((DWORD)alpha << 24) | ((DWORD)blue << 16) | ((DWORD)green << 8) | red;
-                }
+                // nsvgRasterize (with the local NanoSVG patch) emits premultiplied
+                // BGRA. Keep that single premul pass — a second multiply here used
+                // to darken anti-aliased edges and muddy detailed logos.
+                nsvgRasterize(rast, image, offsetX, offsetY, scale, rasterTarget,
+                              rasterSize, rasterSize, rasterSize * 4);
+                if (renderBits != NULL)
+                    DownsamplePremultipliedBGRA2x(renderBits, iconSize, (BYTE*)lpMemBits);
+
                 nsvgDeleteRasterizer(rast);
                 *hBitmap = hMemBmp;
                 hMemBmp = NULL;
@@ -272,6 +416,7 @@ static BOOL RenderSVGIconBitmapText(char* svg, int iconSize, BOOL enabled, HBITM
             nsvgDelete(image);
         }
     }
+    free(renderBits);
     if (hMemBmp != NULL)
         HANDLES(DeleteObject(hMemBmp));
     HANDLES(DeleteDC(hMemDC));

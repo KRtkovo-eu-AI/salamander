@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Rasterize Salamatrix FS SVG icons at 16/32/48. | Thumbnail/Tiles views requested SALICONSIZE_48 but icons were forced to 16px. | | Composer |
 // | 2026-11-04 | Pick up extension installs that finish after startup. | The install helper copies files only after Samandarin exits, so a restart that overlaps that copy never saw the new package. | | Grok 4.7 |
 // | 2026-11-04 | Register updater installs and report a missing runtime. | New extension packages were not added on the next start, and activation failed without telling the user which runtime was missing. | | Grok 4.7 |
 
@@ -1106,6 +1107,22 @@ static BOOL SalamatrixFileIconPathToWide(
     return TRUE;
 }
 
+// Map SALICONSIZE_xxx to the matching pixel bucket. Thumbnail/Tiles views
+// request SALICONSIZE_48; treating anything other than 32 as 16 left those
+// views with upscaled muddy SVG icons.
+static int SalamatrixIconSizeToPixels(int iconSize)
+{
+    switch (iconSize)
+    {
+    case SALICONSIZE_48:
+        return 48;
+    case SALICONSIZE_32:
+        return 32;
+    default:
+        return 16;
+    }
+}
+
 static HICON SalamatrixExtractFileIcon(
     const std::string& fileIcon, int iconSize)
 {
@@ -1122,7 +1139,7 @@ static HICON SalamatrixExtractFileIcon(
                              ? L"\\\\?\\UNC\\" + extractionPath.substr(2)
                              : L"\\\\?\\" + extractionPath;
     }
-    const int size = iconSize == SALICONSIZE_32 ? 32 : 16;
+    const int size = SalamatrixIconSizeToPixels(iconSize);
     HICON icon = NULL;
     UINT iconId = 0;
     UINT extracted = PrivateExtractIconsW(
@@ -1330,7 +1347,7 @@ public:
             ImageList_Destroy(Images);
             Images = NULL;
         }
-        const int size = iconSize == SALICONSIZE_32 ? 32 : 16;
+        const int size = SalamatrixIconSizeToPixels(iconSize);
         Images = ImageList_Create(size, size, ILC_COLOR32 | ILC_MASK, 1, 1);
         if (Images == NULL)
             return NULL;
@@ -1357,6 +1374,7 @@ public:
         const CFileData* file, int iconSize, BOOL& destroyIcon)
     {
         destroyIcon = TRUE;
+        const int pixels = SalamatrixIconSizeToPixels(iconSize);
         const SalamatrixFileSystemItemData* data = file != NULL
             ? reinterpret_cast<const SalamatrixFileSystemItemData*>(file->PluginData)
             : NULL;
@@ -1367,11 +1385,10 @@ public:
             const std::string& preferred = dark
                 ? data->Item.IconDark : data->Item.Icon;
             HICON icon = preferred.empty() ? NULL
-                : SalamanderGUI->CreateSVGIcon(
-                      preferred.c_str(), iconSize == SALICONSIZE_32 ? 32 : 16);
+                : SalamanderGUI->CreateSVGIcon(preferred.c_str(), pixels);
             if (icon == NULL && dark && !data->Item.Icon.empty())
                 icon = SalamanderGUI->CreateSVGIcon(
-                    data->Item.Icon.c_str(), iconSize == SALICONSIZE_32 ? 32 : 16);
+                    data->Item.Icon.c_str(), pixels);
             if (icon != NULL)
                 return icon;
         }
@@ -1384,9 +1401,7 @@ public:
             return icon;
         return reinterpret_cast<HICON>(LoadImage(
             DLLInstance, MAKEINTRESOURCE(IDI_PLUGINICON), IMAGE_ICON,
-            iconSize == SALICONSIZE_32 ? 32 : 16,
-            iconSize == SALICONSIZE_32 ? 32 : 16,
-            SalamanderGeneral->GetIconLRFlags()));
+            pixels, pixels, SalamanderGeneral->GetIconLRFlags()));
     }
     virtual int WINAPI CompareFilesFromFS(
         const CFileData* file1, const CFileData* file2)

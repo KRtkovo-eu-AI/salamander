@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Flatten extension toolbar SVG icons with BGRA channel order. | Premul composite was mixing the red background into the blue channel. | | Composer |
 // | 2026-11-04 | Unmap plug-in DLLs only after every plug-in Release returns. | Salamatrix pump threads were still executing inside javascriptruntime.spl and powershellruntime.spl when those DLLs were unloaded on exit. | https://github.com/KRtkovo-eu-AI/salamander/issues/770 https://github.com/KRtkovo-eu-AI/salamander/issues/750 | Grok 4.7 |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Report extensions whose runtime is missing after startup. | Activation was skipped with no dialog when Node.js, Python, or another interpreter was not installed. | | Grok 4.7 |
@@ -3024,18 +3025,18 @@ static BOOL CompositeExtensionToolbarBitmap(HBITMAP bitmap,
         {
             const BYTE alpha = pixel[3];
             const UINT inverseAlpha = 255 - alpha;
-            // RenderSVGIconBitmapFromFile returns premultiplied RGBA. The
+            // RenderSVGIconBitmapFromFile returns premultiplied BGRA. The
             // toolbar image lists are mask-based DDBs and discard alpha, so
             // flatten each pixel onto their real light/dark background first.
             pixel[0] = static_cast<BYTE>(
                 min(255U, static_cast<UINT>(pixel[0]) +
-                              backgroundRed * inverseAlpha / 255));
+                              backgroundBlue * inverseAlpha / 255));
             pixel[1] = static_cast<BYTE>(
                 min(255U, static_cast<UINT>(pixel[1]) +
                               backgroundGreen * inverseAlpha / 255));
             pixel[2] = static_cast<BYTE>(
                 min(255U, static_cast<UINT>(pixel[2]) +
-                              backgroundBlue * inverseAlpha / 255));
+                              backgroundRed * inverseAlpha / 255));
             pixel[3] = 255;
         }
         row += section.dsBm.bmWidthBytes;
