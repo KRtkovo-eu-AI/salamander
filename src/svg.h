@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Expose UnpremultiplySVGIconBitmap for HICON creation. | CreateSVGIcon needs straight alpha for the panel icon list. | | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -8,9 +11,12 @@ struct NSVGrasterizer;
 struct NSVGimage;
 void RenderSVGImage(NSVGrasterizer* rast, HDC hDC, int x, int y, const char* svgName, int iconSize, COLORREF bkColor, BOOL enabled);
 BOOL RenderSVGIconBitmap(const char* svgName, int iconSize, BOOL enabled, HBITMAP* hBitmap);
-// Renders an extension-owned SVG file using the same DPI-aware NanoSVG path
+// Renders an extension-owned SVG file using the same NanoSVG path
 // as built-in toolbar icons. The caller owns the returned bitmap.
+// Output is premultiplied BGRA suitable for AlphaBlend / toolbar flattening.
 BOOL RenderSVGIconBitmapFromFile(const char* svgFile, int iconSize, BOOL enabled, HBITMAP* hBitmap);
+// Converts a premultiplied BGRA SVG icon DIB to straight alpha (+defringe).
+BOOL UnpremultiplySVGIconBitmap(HBITMAP hBitmap);
 // Creates a dark-mode-friendly variant of a rendered extension icon. The
 // source bitmap is left untouched; the caller owns the returned bitmap.
 BOOL CreateDarkModeIconBitmap(HBITMAP hSource, HBITMAP* hBitmap);

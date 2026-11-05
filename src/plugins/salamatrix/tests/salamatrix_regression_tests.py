@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-05 | Require Salamatrix FS SVG icons at 16/32/48. | Thumbnail view asked for 48px icons but SVG items stayed at 16px. | | Composer |
 # | 2026-11-04 | Require PR test reports to stay on the job summary. | Separate check runs were attached to the Source Code Growth workflow. | | Grok 4.7 |
 # | 2026-11-04 | Require Install to follow the selected package. | One scheduled extension disabled Install for every other row. | | Grok 4.7 |
 # | 2026-11-04 | Require late extension installs to be integrated after startup. | A restart that overlaps the install helper left the package out of Plugin Manager. | | Grok 4.7 |
@@ -1440,6 +1441,16 @@ def main() -> int:
         r'salamander\.ui\.renderIcon.*?CreateSVGIcon.*?'
         r'Get-BuilderPreviewImage.*?item\.Image',
         "Extension Menu Builder preview does not render command SVG icons")
+    require(
+        packages,
+        r"SalamatrixIconSizeToPixels\(int iconSize\).*?"
+        r"case SALICONSIZE_48:\s*return 48;.*?"
+        r"GetPluginIcon\([\s\S]*?CreateSVGIcon\(preferred\.c_str\(\), pixels\)",
+        "Salamatrix FS SVG icons do not honor SALICONSIZE_48 for thumbnail/tiles views")
+    require_absent(
+        packages,
+        r"CreateSVGIcon\([^;]*iconSize == SALICONSIZE_32 \? 32 : 16\)",
+        "Salamatrix FS SVG icons still collapse non-32 sizes to 16px")
     require(packages, r"SALAMATRIX_SERVICE_SCRIPT_RUNNER", "legacy compatibility script runner fallback is missing")
     require(packages, r"RuntimeAdapterFlagCompatibility", "legacy fallback is not limited to compatibility adapters")
     require(

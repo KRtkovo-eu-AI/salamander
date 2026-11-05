@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Composite SVG thumbnails with premul-correct blending. | NanoSVG leaves premultiplied BGRA; multiplying by alpha again darkened edges. | | Composer |
 
 #include "precomp.h"
 
@@ -103,17 +106,20 @@ static BOOL LoadSVGThumbnail(LPCTSTR filename, int thumbWidth, int thumbHeight,
                 memset(pixels, 0, (size_t)targetWidth * targetHeight * 4);
                 nsvgRasterize(rast, image, 0.0f, 0.0f, scale, pixels, targetWidth, targetHeight, targetWidth * 4);
 
-                // nsvgRasterize emits BGRA (see the GDI conversion at the end of nanosvgrast.h).
+                // nsvgRasterize emits premultiplied BGRA (see nanosvgrast.h patch).
+                // Flatten onto the panel background with premul-correct blending;
+                // the thumbnail maker wants opaque RGB (alpha cleared).
                 const BYTE bgR = GetRValue(G.rgbPanelBackground);
                 const BYTE bgG = GetGValue(G.rgbPanelBackground);
                 const BYTE bgB = GetBValue(G.rgbPanelBackground);
                 for (int i = 0; i < targetWidth * targetHeight; i++)
                 {
                     BYTE* p = pixels + (size_t)i * 4;
-                    const BYTE alpha = p[3];
-                    p[0] = (BYTE)((p[0] * alpha + bgB * (255 - alpha) + 127) / 255);
-                    p[1] = (BYTE)((p[1] * alpha + bgG * (255 - alpha) + 127) / 255);
-                    p[2] = (BYTE)((p[2] * alpha + bgR * (255 - alpha) + 127) / 255);
+                    const unsigned alpha = p[3];
+                    const unsigned inv = 255 - alpha;
+                    p[0] = (BYTE)min(255u, (unsigned)p[0] + (bgB * inv + 127) / 255);
+                    p[1] = (BYTE)min(255u, (unsigned)p[1] + (bgG * inv + 127) / 255);
+                    p[2] = (BYTE)min(255u, (unsigned)p[2] + (bgR * inv + 127) / 255);
                     p[3] = 0;
                 }
 

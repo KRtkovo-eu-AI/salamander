@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-05 | Run the SVG FS-panel icon contract test. | Salamatrix/SVG panel icons must keep 16/32/48 sizes and a clean alpha path. | | Composer |
 # | 2026-11-04 | Retry a native build that reaches the runner limit, and wait up to 119 seconds. | The first MSBuild codegen step reached the old 110 second cap on a cold runner. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 # | 2026-11-04 | Run the panel-toolbar customize contract test. | The panel and middle toolbar catalogs must stay the same set of commands. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 # | 2026-11-04 | Keep the viewer hex and Quick Search contract tests together. | Both entries were added at the same place in the native test list. | https://github.com/KRtkovo-eu-AI/salamander/pull/768 | Grok 4.7 |
@@ -364,6 +365,14 @@ try {
                 '-B',
                 (Join-Path $repositoryRoot `
                     'src\tests\pictview_native_decoder_contract_tests.py')
+            )
+        },
+        @{
+            Name = 'svg_fs_panel_icon_contract_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\svg_fs_panel_icon_contract_tests.py')
             )
         },
         @{
