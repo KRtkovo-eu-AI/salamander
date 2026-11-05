@@ -1,7 +1,7 @@
 {
   "name": "Extension Menu Builder",
   "commands": {
-    "OpenSalamander.ExtensionMenuBuilder.open": "Extension Menu Builder..."
+    "ExtensionMenuBuilder.open": "Extension Menu Builder..."
   },
   "strings": {
     "title": "Extension Menu Builder",
@@ -44,7 +44,7 @@
     "defaultExtensionName": "My custom menu",
     "fileMissing": "The selected file does not exist: {0}",
     "requiredExtensionFields": "Enter an extension name, identifier, and output folder.",
-    "invalidExtensionId": "Use a dotted identifier such as OpenSalamander.MyMenu.",
+    "invalidExtensionId": "Use a dotted identifier such as MyMenu.",
     "atLeastOneCommand": "Add at least one menu item.",
     "invalidCommand": "Every item needs a title and a simple handler key.",
     "duplicateCommand": "The handler key \"{0}\" is used more than once.",

@@ -1,5 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Open Salamander Authors
+# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-06 | Accept title and window geometry for ui.viewer. | Keep Salamatrix runtime viewer options in parity. |  | Composer |
 """Small standard-library Salamatrix worker for Python extensions.
 
 The host starts this file instead of the extension entry point for persistent
@@ -383,9 +386,24 @@ class _UI:
         return self._transport.call(
             "salamander.ui.fileProperties", path=str(path))
 
-    def viewer(self, path: str, renderer: str = "auto") -> bool:
+    def viewer(self, path: str, renderer: Any = "auto") -> bool:
+        payload: Dict[str, Any] = {"path": str(path), "renderer": "auto"}
+        options = renderer if isinstance(renderer, dict) else {"renderer": renderer}
+        payload["renderer"] = str(options.get("renderer", "auto"))
+        title = options.get("title")
+        if title:
+            payload["title"] = str(title)
+        document_name = options.get("documentName") or options.get("document_name")
+        if document_name:
+            payload["documentName"] = str(document_name)
+        window = options.get("window") if isinstance(options.get("window"), dict) else options
+        for key in ("left", "top", "width", "height", "showCmd"):
+            if key in window and window[key] is not None:
+                payload[key] = int(window[key])
+        if "alwaysOnTop" in window and window["alwaysOnTop"] is not None:
+            payload["alwaysOnTop"] = bool(window["alwaysOnTop"])
         return bool(self._transport.call(
-            "salamander.ui.viewer.open", path=str(path), renderer=str(renderer)
+            "salamander.ui.viewer.open", **payload
         ).get("opened", False))
 
     def uptime(self) -> str:

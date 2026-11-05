@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "id": "OpenSalamander.FileLockInspector",
+  "id": "FileLockInspector",
   "name": "File Lock Inspector",
   "version": "1.0.3",
   "description": "Find processes that prevent selected files from being changed, moved, or deleted.",
@@ -39,7 +39,7 @@
   },
   "commands": [
     {
-      "id": "OpenSalamander.FileLockInspector.inspect",
+      "id": "FileLockInspector.inspect",
       "title": "File Lock Inspector...",
       "handler": "inspect",
       "menu": "both",

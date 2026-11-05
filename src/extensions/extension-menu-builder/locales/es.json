@@ -1,7 +1,7 @@
 {
   "name": "Creador de menús de extensiones",
   "commands": {
-    "OpenSalamander.ExtensionMenuBuilder.open": "Creador de menús de extensiones..."
+    "ExtensionMenuBuilder.open": "Creador de menús de extensiones..."
   },
   "strings": {
     "title": "Creador de menús de extensiones",
@@ -44,7 +44,7 @@
     "defaultExtensionName": "Mi menú personalizado",
     "fileMissing": "El archivo seleccionado no existe: {0}",
     "requiredExtensionFields": "Introduzca el nombre, identificador y carpeta de salida.",
-    "invalidExtensionId": "Use un identificador con puntos, como OpenSalamander.MiMenu.",
+    "invalidExtensionId": "Use un identificador con puntos, como MiMenu.",
     "atLeastOneCommand": "Añada al menos un elemento de menú.",
     "invalidCommand": "Cada elemento necesita título y una clave simple.",
     "duplicateCommand": "La clave «{0}» se usa más de una vez.",

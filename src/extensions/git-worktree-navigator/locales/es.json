@@ -1,9 +1,9 @@
 {
   "name": "Navegador de worktrees Git",
   "commands": {
-    "OpenSalamander.GitWorktreeNavigator.open": "Navegador de worktrees Git...",
-    "OpenSalamander.GitWorktreeNavigator.commit": "Commit de Git...",
-    "OpenSalamander.GitWorktreeNavigator.createLocalRepository": "Crear repositorio Git local"
+    "GitWorktreeNavigator.open": "Navegador de worktrees Git...",
+    "GitWorktreeNavigator.commit": "Commit de Git...",
+    "GitWorktreeNavigator.createLocalRepository": "Crear repositorio Git local"
   },
   "strings": {
     "title": "Navegador de worktrees Git",

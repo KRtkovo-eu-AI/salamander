@@ -1,7 +1,7 @@
 {
   "name": "Bestandsvergrendelingsinspecteur",
   "commands": {
-    "OpenSalamander.FileLockInspector.inspect": "Bestandsvergrendelingsinspecteur..."
+    "FileLockInspector.inspect": "Bestandsvergrendelingsinspecteur..."
   },
   "strings": {
     "title": "Bestandsvergrendelingsinspecteur",

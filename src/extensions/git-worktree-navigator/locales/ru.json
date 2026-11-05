@@ -1,9 +1,9 @@
 {
   "name": "Навигатор рабочих деревьев Git",
   "commands": {
-    "OpenSalamander.GitWorktreeNavigator.open": "Навигатор рабочих деревьев Git...",
-    "OpenSalamander.GitWorktreeNavigator.commit": "Коммит Git...",
-    "OpenSalamander.GitWorktreeNavigator.createLocalRepository": "Создать локальный репозиторий Git"
+    "GitWorktreeNavigator.open": "Навигатор рабочих деревьев Git...",
+    "GitWorktreeNavigator.commit": "Коммит Git...",
+    "GitWorktreeNavigator.createLocalRepository": "Создать локальный репозиторий Git"
   },
   "strings": {
     "title": "Навигатор рабочих деревьев Git",

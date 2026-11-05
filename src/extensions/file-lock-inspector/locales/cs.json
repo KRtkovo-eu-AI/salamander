@@ -1,7 +1,7 @@
 {
   "name": "Inspektor zámků souborů",
   "commands": {
-    "OpenSalamander.FileLockInspector.inspect": "Inspektor zámků souborů..."
+    "FileLockInspector.inspect": "Inspektor zámků souborů..."
   },
   "strings": {
     "title": "Inspektor zámků souborů",

@@ -2,6 +2,17 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-06 | Esc closes document Find bar without closing the viewer. | Mirror Prism: page owns Esc; salamander-close only when Find is closed. |  | Composer |
+// | 2026-11-06 | Move document Find bar 50px lower. | Keep clear of the JSON Viewer chrome at the top edge. |  | Composer |
+// | 2026-11-06 | Scroll document panels to the current Find match. | JSON Viewer uses nested overflow:auto; window.scrollTo left matches off-screen. |  | Composer |
+// | 2026-11-06 | Stop resetting Find to the first match on F3. | Re-injecting the Find script + duplicate findNext raced back to match 1. |  | Composer |
+// | 2026-11-06 | Live-highlight Find matches while typing (CSS Highlight API). | Match Prism Sharp live paint without stealing find-input focus. |  | Composer |
+// | 2026-11-06 | Keep Find input focus while typing the query. | window.find() was stealing focus after every character. |  | Composer |
+// | 2026-11-06 | Reliably inject/open the Prism Find bar for documents. | File-only injection failed when assets were missing or the page wiped the bar. |  | Composer |
+// | 2026-11-06 | Use the Prism Sharp Find bar for document viewers. | JSON Viewer should share the same Find chrome as Prism Text. |  | Composer |
+// | 2026-11-06 | Restore the native WebView2 Find UI for documents. | Custom find bar replaced Edge's built-in dialog; users want the native one. |  | Composer |
+// | 2026-11-06 | Harden document Find, menus, and window icons. | Ctrl+F and title-bar icons must work for JSON Viewer tree/raw modes. |  | Composer |
+// | 2026-11-06 | Support custom icons and Find for document viewers. | Salamatrix JSON Viewer needs package icons and Ctrl+F in tree/raw modes. |  | Composer |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 #include "precomp.h"
@@ -594,6 +605,7 @@ std::wstring PathToFileUri(const std::wstring& path)
 }
 
 std::string WideToUtf8(const std::wstring& value);
+std::wstring Utf8ToWideText(const std::string& value);
 
 std::wstring UrlEncodePathSegment(const std::wstring& value)
 {
@@ -640,6 +652,36 @@ std::wstring ModuleDirectory(HINSTANCE module)
 std::wstring PrismAssetsDirectory()
 {
     return ModuleDirectory(nullptr) + L"plugins\\salamatrix\\prism";
+}
+
+std::wstring LoadDocumentFindBarScript(HINSTANCE module)
+{
+    static std::wstring cached;
+    if (!cached.empty())
+        return cached;
+    const std::wstring candidates[] = {
+        PrismAssetsDirectory() + L"\\viewer\\document-find-bar.js",
+        ModuleDirectory(module) + L"prism\\viewer\\document-find-bar.js",
+        ModuleDirectory(module) + L"viewer\\document-find-bar.js",
+    };
+    for (const std::wstring& path : candidates)
+    {
+        std::vector<unsigned char> bytes;
+        if (!ReadFileBytes(path, bytes) || bytes.empty())
+            continue;
+        size_t start = 0;
+        if (bytes.size() >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
+            start = 3;
+        const std::string utf8(reinterpret_cast<const char*>(bytes.data() + start),
+                               bytes.size() - start);
+        cached = Utf8ToWideText(utf8);
+        if (!cached.empty())
+            return cached;
+    }
+    // Embedded copy keeps Find working when prism/viewer assets were not staged.
+#include "document_find_bar_script.inc"
+    cached = Utf8ToWideText(std::string(kDocumentFindBarScriptUtf8));
+    return cached;
 }
 
 bool WriteAll(HANDLE handle, const void* data, size_t size)
@@ -1117,6 +1159,26 @@ struct ViewerParameters
     CSalamanderGeneralAbstract* general = nullptr;
     std::wstring searchPhrase;
     DWORD searchFlags = 0;
+    HICON icon = nullptr;
+    HICON iconSmall = nullptr;
+    bool destroyIcons = false;
+    std::wstring documentName;
+
+    ~ViewerParameters()
+    {
+        if (!destroyIcons)
+            return;
+        if (icon != nullptr)
+        {
+            DestroyIcon(icon);
+            icon = nullptr;
+        }
+        if (iconSmall != nullptr)
+        {
+            DestroyIcon(iconSmall);
+            iconSmall = nullptr;
+        }
+    }
 };
 
 constexpr size_t kPrismTokenCount = 12;
@@ -1460,8 +1522,32 @@ public:
                                   parameters_->placement.left, parameters_->placement.top, width, height,
                                   nullptr, nullptr, parameters_->module, this);
         if (window_ != nullptr)
+        {
             creationComplete_ = true;
+            ApplyWindowIcons();
+        }
         return window_ != nullptr;
+    }
+
+    void ApplyWindowIcons()
+    {
+        if (window_ == nullptr)
+            return;
+        // Copy icons into the window so WM_SETICON keeps working after the
+        // owned package icons are destroyed with ViewerParameters.
+        if (parameters_->icon != nullptr)
+        {
+            HICON big = CopyIcon(parameters_->icon);
+            if (big != nullptr)
+                SendMessageW(window_, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(big));
+        }
+        HICON smallSource = parameters_->iconSmall != nullptr ? parameters_->iconSmall : parameters_->icon;
+        if (smallSource != nullptr)
+        {
+            HICON smallIcon = CopyIcon(smallSource);
+            if (smallIcon != nullptr)
+                SendMessageW(window_, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(smallIcon));
+        }
     }
 
     HWND Window() const { return window_; }
@@ -1633,7 +1719,10 @@ private:
 
     std::wstring WindowTitle() const
     {
-        std::wstring title = FileNameOf(parameters_->filePath) + L" - " + parameters_->pluginName;
+        const std::wstring document = parameters_->documentName.empty()
+            ? FileNameOf(parameters_->filePath)
+            : parameters_->documentName;
+        std::wstring title = document + L" - " + parameters_->pluginName;
         if (parameters_->kind == NativeViewerKind::PrismText)
             title += L" - [" + (activeLanguage_.empty() ? std::wstring(L"none") : activeLanguage_) + L"]";
         return title;
@@ -1668,14 +1757,14 @@ private:
         AppendMenuW(edit, MF_STRING, IDM_NV_COPY, MenuText(parameters_->copy, L"&Copy\tCtrl+C").c_str());
         AppendMenuW(edit, MF_STRING, IDM_NV_SELECT_ALL,
                     MenuText(parameters_->selectAll, L"Select &All\tCtrl+A").c_str());
+        AppendMenuW(edit, MF_SEPARATOR, 0, nullptr);
+        AppendMenuW(edit, MF_STRING, IDM_NV_FIND, MenuText(parameters_->find, L"&Find...\tCtrl+F").c_str());
+        AppendMenuW(edit, MF_STRING, IDM_NV_FIND_NEXT,
+                    MenuText(parameters_->findNext, L"Find &Next\tF3").c_str());
+        AppendMenuW(edit, MF_STRING, IDM_NV_FIND_PREVIOUS,
+                    MenuText(parameters_->findPrevious, L"Find &Previous\tShift+F3").c_str());
         if (parameters_->kind == NativeViewerKind::PrismText)
         {
-            AppendMenuW(edit, MF_SEPARATOR, 0, nullptr);
-            AppendMenuW(edit, MF_STRING, IDM_NV_FIND, MenuText(parameters_->find, L"&Find...\tCtrl+F").c_str());
-            AppendMenuW(edit, MF_STRING, IDM_NV_FIND_NEXT,
-                        MenuText(parameters_->findNext, L"Find &Next\tF3").c_str());
-            AppendMenuW(edit, MF_STRING, IDM_NV_FIND_PREVIOUS,
-                        MenuText(parameters_->findPrevious, L"Find &Previous\tShift+F3").c_str());
             AppendMenuW(edit, MF_SEPARATOR, 0, nullptr);
             AppendMenuW(edit, MF_STRING, IDM_NV_GOTO_LINE,
                         MenuText(parameters_->goToLine, L"&Go to Line...\tCtrl+G").c_str());
@@ -1824,12 +1913,22 @@ private:
         return true;
     }
 
-    bool CreateCustomMenuBar()
+    bool CreateWin32MenuBar()
+    {
+        // Salamatrix historically omitted the GUI bridge; keep a Win32 menu
+        // so Find/Copy remain reachable without Salamander menu chrome.
+        HMENU bar = CreateMenuBar();
+        if (bar == nullptr)
+            return false;
+        SetMenu(window_, bar);
+        DrawMenuBar(window_);
+        return true;
+    }
+
+    bool CreateGuiMenuBar()
     {
         if (parameters_->gui == nullptr)
-            // The Node viewer request does not provide the optional GUI bridge.
-            // The viewer can still render documents without its native menu bar.
-            return true;
+            return false;
         mainMenu_ = parameters_->gui->CreateMenuPopup();
         CGUIMenuPopupAbstract* file = parameters_->gui->CreateMenuPopup();
         CGUIMenuPopupAbstract* view = parameters_->gui->CreateMenuPopup();
@@ -1841,13 +1940,13 @@ private:
         AddMenuItem(file, parameters_->close, IDM_NV_CLOSE);
         AddMenuItem(edit, MenuText(parameters_->copy, L"&Copy\tCtrl+C"), IDM_NV_COPY);
         AddMenuItem(edit, MenuText(parameters_->selectAll, L"Select &All\tCtrl+A"), IDM_NV_SELECT_ALL);
+        AddMenuSeparator(edit);
+        AddMenuItem(edit, MenuText(parameters_->find, L"&Find...\tCtrl+F"), IDM_NV_FIND);
+        AddMenuItem(edit, MenuText(parameters_->findNext, L"Find &Next\tF3"), IDM_NV_FIND_NEXT);
+        AddMenuItem(edit, MenuText(parameters_->findPrevious, L"Find &Previous\tShift+F3"),
+                    IDM_NV_FIND_PREVIOUS);
         if (parameters_->kind == NativeViewerKind::PrismText)
         {
-            AddMenuSeparator(edit);
-            AddMenuItem(edit, MenuText(parameters_->find, L"&Find...\tCtrl+F"), IDM_NV_FIND);
-            AddMenuItem(edit, MenuText(parameters_->findNext, L"Find &Next\tF3"), IDM_NV_FIND_NEXT);
-            AddMenuItem(edit, MenuText(parameters_->findPrevious, L"Find &Previous\tShift+F3"),
-                        IDM_NV_FIND_PREVIOUS);
             AddMenuSeparator(edit);
             AddMenuItem(edit, MenuText(parameters_->goToLine, L"&Go to Line...\tCtrl+G"), IDM_NV_GOTO_LINE);
         }
@@ -1882,6 +1981,16 @@ private:
             return false;
         menuBar_->SetFont();
         return true;
+    }
+
+    bool CreateCustomMenuBar()
+    {
+        if (CreateGuiMenuBar())
+            return true;
+        // GUI menu creation can fail off the Salamander UI thread; never leave
+        // a document viewer without Edit→Find reachable by mouse.
+        DestroyMenus();
+        return CreateWin32MenuBar();
     }
 
     LRESULT HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
@@ -2324,24 +2433,49 @@ private:
                         ViewerWindow* self = Resolve({viewerWindow, viewerGeneration});
                         if (self == nullptr || self->parameters_->kind != NativeViewerKind::RenderDocument)
                             return S_OK;
-                        if (self->parameters_->theme.dark)
                         {
+                            // Theme tokens match Prism's find-bar CSS variables so the
+                            // shared Find chrome looks identical in document mode.
                             std::wstring script = L"(function(){if(!document||!document.documentElement)return;"
-                                L"document.documentElement.style.colorScheme='dark';"
-                                L"var s=document.getElementById('salamander-viewer-dark');if(!s){s=document.createElement('style');"
-                                L"s.id='salamander-viewer-dark';s.textContent=':where(html,body){background-color:" +
-                                CssColor(self->parameters_->theme.background) + L";color:" +
-                                CssColor(self->parameters_->theme.foreground) +
-                                L"}:where(a:link){color:" + CssColor(self->parameters_->theme.accent) +
-                                L"}';document.head.appendChild(s);}})();";
+                                L"var r=document.documentElement.style;"
+                                L"r.setProperty('--viewer-background','" + CssColor(self->parameters_->theme.background) + L"');"
+                                L"r.setProperty('--viewer-foreground','" + CssColor(self->parameters_->theme.foreground) + L"');"
+                                L"r.setProperty('--viewer-selected-background','" + CssColor(self->parameters_->theme.selectedBackground) + L"');"
+                                L"r.setProperty('--viewer-selected-foreground','" + CssColor(self->parameters_->theme.selectedForeground) + L"');"
+                                L"r.setProperty('--viewer-gutter-background','" +
+                                (self->parameters_->theme.dark ? std::wstring(L"#262626") : std::wstring(L"#f5f5f5")) + L"');"
+                                L"r.setProperty('--viewer-gutter-foreground','" +
+                                (self->parameters_->theme.dark ? std::wstring(L"#a0a0a0") : std::wstring(L"#606060")) + L"');";
+                            if (self->parameters_->theme.dark)
+                            {
+                                script += L"r.colorScheme='dark';"
+                                    L"var s=document.getElementById('salamander-viewer-dark');if(!s){s=document.createElement('style');"
+                                    L"s.id='salamander-viewer-dark';s.textContent=':where(html,body){background-color:" +
+                                    CssColor(self->parameters_->theme.background) + L";color:" +
+                                    CssColor(self->parameters_->theme.foreground) +
+                                    L"}:where(a:link){color:" + CssColor(self->parameters_->theme.accent) +
+                                    L"}';document.head.appendChild(s);}";
+                            }
+                            script += L"})();";
                             self->webView_->ExecuteScript(script.c_str(), nullptr);
                         }
+                        // Re-inject after DOMContentLoaded: JSON Viewer scripts can
+                        // replace the document and drop the document-created Find bar.
+                        if (self->parameters_->kind == NativeViewerKind::RenderDocument)
+                            self->InjectDocumentFindBar();
                         if (!self->parameters_->searchPhrase.empty())
                         {
-                            std::wstring findScript = L"window.find(" + JsonString(self->parameters_->searchPhrase) +
-                                L", " + ((self->parameters_->searchFlags & SALVIEWER_SEARCH_CASE_SENSITIVE) ? L"true" : L"false") +
-                                L", false, true);";
-                            self->webView_->ExecuteScript(findScript.c_str(), nullptr);
+                            if (self->parameters_->kind == NativeViewerKind::RenderDocument)
+                            {
+                                self->PostOpenFind();
+                            }
+                            else
+                            {
+                                std::wstring findScript = L"window.find(" + JsonString(self->parameters_->searchPhrase) +
+                                    L", " + ((self->parameters_->searchFlags & SALVIEWER_SEARCH_CASE_SENSITIVE) ? L"true" : L"false") +
+                                    L", false, true);";
+                                self->webView_->ExecuteScript(findScript.c_str(), nullptr);
+                            }
                         }
                         SetWindowTextW(self->status_, self->parameters_->ready.c_str());
                         if (!self->browserVisible_ && self->controller_)
@@ -2389,12 +2523,14 @@ private:
                     int command = 0;
                     if (virtualKey == VK_ESCAPE)
                     {
-                        // A loaded Prism page owns Esc: it closes the find/go-to bar first and only
-                        // then asks the host to close (salamander-close). Without a live page script
+                        // A loaded page owns Esc: it closes the Find bar first and only then asks
+                        // the host to close (salamander-close). Without a live page script
                         // (loading, error page, crashed renderer) the host closes, as before.
-                        const bool pageOwnsEsc = self->parameters_->kind == NativeViewerKind::PrismText &&
-                                                 self->prismPageReady_ && self->browserHealthy_ &&
-                                                 self->browserVisible_;
+                        const bool pageOwnsEsc =
+                            self->browserHealthy_ && self->browserVisible_ &&
+                            ((self->parameters_->kind == NativeViewerKind::PrismText &&
+                              self->prismPageReady_) ||
+                             self->parameters_->kind == NativeViewerKind::RenderDocument);
                         if (!pageOwnsEsc)
                         {
                             args->put_Handled(TRUE);
@@ -2405,18 +2541,17 @@ private:
                         command = IDM_NV_REFRESH;
                     else if (virtualKey == VK_F2)
                         command = IDM_NV_WRAP_LINES;
-                    else if ((GetKeyState(VK_CONTROL) & 0x8000) != 0)
-                    {
-                        const bool shiftOrAlt = (GetKeyState(VK_SHIFT) & 0x8000) != 0 || (GetKeyState(VK_MENU) & 0x8000) != 0;
-                        if (virtualKey == 'F')
+                        else if ((GetKeyState(VK_CONTROL) & 0x8000) != 0)
                         {
-                            args->put_Handled(TRUE);
-                            if (self->parameters_->kind == NativeViewerKind::PrismText)
+                            const bool shiftOrAlt = (GetKeyState(VK_SHIFT) & 0x8000) != 0 || (GetKeyState(VK_MENU) & 0x8000) != 0;
+                            if (virtualKey == 'F')
+                            {
+                                args->put_Handled(TRUE);
                                 self->PostOpenFind();
-                            return S_OK;
-                        }
-                        else if (virtualKey == 'G' && !shiftOrAlt && self->parameters_->kind == NativeViewerKind::PrismText)
-                            command = IDM_NV_GOTO_LINE;
+                                return S_OK;
+                            }
+                            else if (virtualKey == 'G' && !shiftOrAlt && self->parameters_->kind == NativeViewerKind::PrismText)
+                                command = IDM_NV_GOTO_LINE;
                         else if (virtualKey == 'P' && !shiftOrAlt)
                             command = IDM_NV_PRINT;
                         else if (virtualKey == '0' || virtualKey == VK_NUMPAD0)
@@ -2484,7 +2619,11 @@ private:
                         constexpr wchar_t copyTextPrefix[] = L"salamander-copy-text:";
                         if (value == L"salamander-close")
                         {
-                            if (self->parameters_->kind == NativeViewerKind::PrismText && !self->idle_)
+                            // Prism Text and document viewers (JSON, etc.) both ask the host
+                            // to close after Esc when no Find/goto bar is open.
+                            if (!self->idle_ &&
+                                (self->parameters_->kind == NativeViewerKind::PrismText ||
+                                 self->parameters_->kind == NativeViewerKind::RenderDocument))
                                 PostMessageW(viewerWindow, WM_CLOSE, 0, 0);
                             return S_OK;
                         }
@@ -2563,6 +2702,9 @@ private:
                 L"document.addEventListener('mouseout',function(e){var a=e.target&&e.target.closest?e.target.closest('a'):null;"
                 L"if(a&&!a.contains(e.relatedTarget))window.chrome.webview.postMessage('salamander-link-clear');});})();";
             webView_->AddScriptToExecuteOnDocumentCreated(hoverScript, nullptr);
+            const std::wstring findBarScript = LoadDocumentFindBarScript(parameters_->module);
+            if (!findBarScript.empty())
+                webView_->AddScriptToExecuteOnDocumentCreated(findBarScript.c_str(), nullptr);
         }
         webView_->add_NavigationCompleted(
             Callback<ICoreWebView2NavigationCompletedEventHandler>(
@@ -3160,12 +3302,64 @@ private:
         }
         else if (parameters_->kind == NativeViewerKind::RenderDocument && webView_)
         {
-            std::wstring phrase = parameters_->searchPhrase;
-            std::wstring script = L"window.find(" + (phrase.empty() ? L"''" : JsonString(phrase)) +
-                L", " + ((parameters_->searchFlags & SALVIEWER_SEARCH_CASE_SENSITIVE) ? L"true" : L"false") +
-                L", " + (backward ? L"true" : L"false") + L", true);";
-            webView_->ExecuteScript(script.c_str(), nullptr);
+            std::wstring phrase;
+            {
+                std::lock_guard<std::mutex> guard(gLastFindLock);
+                phrase = gLastFindQuery;
+            }
+            if (phrase.empty())
+                phrase = parameters_->searchPhrase;
+            if (phrase.empty())
+            {
+                PostOpenFind();
+                return;
+            }
+            // Call the installed Find helpers only. Re-executing document-find-bar.js
+            // here reset matchIndex to 1, and also posting findNext raced with that
+            // inject so F3 briefly advanced then snapped back to the first hit.
+            const wchar_t* script = backward
+                ? L"(function(){if(typeof window.__salamanderFindPrev==='function')"
+                  L"window.__salamanderFindPrev();"
+                  L"else if(typeof window.__salamanderOpenFind==='function')"
+                  L"window.__salamanderOpenFind({});})();"
+                : L"(function(){if(typeof window.__salamanderFindNext==='function')"
+                  L"window.__salamanderFindNext();"
+                  L"else if(typeof window.__salamanderOpenFind==='function')"
+                  L"window.__salamanderOpenFind({});})();";
+            webView_->ExecuteScript(script, nullptr);
         }
+    }
+
+    void InjectDocumentFindBar()
+    {
+        if (!webView_ || parameters_->kind != NativeViewerKind::RenderDocument)
+            return;
+        const std::wstring script = LoadDocumentFindBarScript(parameters_->module);
+        if (script.empty())
+            return;
+        webView_->ExecuteScript(script.c_str(), nullptr);
+    }
+
+    void DocumentFind(const std::wstring& phrase, bool matchCase, bool backward)
+    {
+        if (!webView_ || phrase.empty())
+            return;
+        {
+            std::lock_guard<std::mutex> guard(gLastFindLock);
+            gLastFindQuery = phrase;
+            gLastFindMatchCase = matchCase;
+        }
+        parameters_->searchPhrase = phrase;
+        if (matchCase)
+            parameters_->searchFlags |= SALVIEWER_SEARCH_CASE_SENSITIVE;
+        else
+            parameters_->searchFlags &= ~SALVIEWER_SEARCH_CASE_SENSITIVE;
+        // Fallback when the page posts a search action; the Prism-style bar
+        // normally searches itself and only asks the host to remember the query.
+        std::wstring script = L"window.find(" + JsonString(phrase) +
+            L", " + (matchCase ? L"true" : L"false") +
+            L", " + (backward ? L"true" : L"false") + L", true);";
+        webView_->ExecuteScript(script.c_str(), nullptr);
     }
 
     // Puts plain text on the clipboard; bare LF becomes CRLF like Windows editors expect.
@@ -3287,9 +3481,27 @@ private:
             matchCase = gLastFindMatchCase;
             wholeWord = gLastFindWholeWord;
         }
+        // Prism Text and document viewers share the same openFind payload; the
+        // document page hosts an identical Find bar via document-find-bar.js.
         std::wstring json = L"{\"type\":\"openFind\",\"query\":" + JsonString(query) +
                             L",\"matchCase\":" + (matchCase ? L"true" : L"false") +
                             L",\"wholeWord\":" + (wholeWord ? L"true" : L"false") + L"}";
+        if (parameters_->kind == NativeViewerKind::RenderDocument)
+        {
+            // One ExecuteScript both reinstalls the Prism Find bar (pages may
+            // wipe document-created scripts) and opens it. Separate inject+open
+            // races are avoided by concatenating the calls.
+            std::wstring script = LoadDocumentFindBarScript(parameters_->module);
+            script +=
+                L"\n;(function(){var msg={query:" + JsonString(query) +
+                L",matchCase:" + (matchCase ? L"true" : L"false") +
+                L",wholeWord:" + (wholeWord ? L"true" : L"false") + L"};"
+                L"if(typeof window.__salamanderOpenFind==='function')"
+                L"window.__salamanderOpenFind(msg);"
+                L"})();";
+            if (!script.empty())
+                webView_->ExecuteScript(script.c_str(), nullptr);
+        }
         webView_->PostWebMessageAsJson(json.c_str());
     }
 
@@ -3437,6 +3649,25 @@ private:
         std::wstring action;
         if (!FindJsonString(payload, L"action", action))
             return;
+        if (action == L"remember")
+        {
+            std::wstring query;
+            FindJsonString(payload, L"query", query);
+            bool matchCase = false;
+            FindJsonBool(payload, L"matchCase", matchCase);
+            if (!query.empty())
+            {
+                std::lock_guard<std::mutex> guard(gLastFindLock);
+                gLastFindQuery = query;
+                gLastFindMatchCase = matchCase;
+                parameters_->searchPhrase = query;
+                if (matchCase)
+                    parameters_->searchFlags |= SALVIEWER_SEARCH_CASE_SENSITIVE;
+                else
+                    parameters_->searchFlags &= ~SALVIEWER_SEARCH_CASE_SENSITIVE;
+            }
+            return;
+        }
         if (action == L"search")
         {
             std::wstring query;
@@ -3447,15 +3678,26 @@ private:
             FindJsonBool(payload, L"wholeWord", wholeWord);
             size_t fromLine = 0;
             FindJsonNumber(payload, L"fromLine", fromLine);
+            if (parameters_->kind == NativeViewerKind::RenderDocument)
+            {
+                DocumentFind(query, matchCase, false);
+                return;
+            }
             ExecuteSearch(query, matchCase, wholeWord, fromLine);
         }
         else if (action == L"next")
         {
-            NavigateSearchMatch(true);
+            if (parameters_->kind == NativeViewerKind::RenderDocument)
+                FindNextCommand(false);
+            else
+                NavigateSearchMatch(true);
         }
         else if (action == L"prev")
         {
-            NavigateSearchMatch(false);
+            if (parameters_->kind == NativeViewerKind::RenderDocument)
+                FindNextCommand(true);
+            else
+                NavigateSearchMatch(false);
         }
     }
 
@@ -3678,10 +3920,9 @@ private:
             SelectAllCommand();
         else if (command == IDM_NV_PRINT)
             PrintCommand();
-        else if (parameters_->kind == NativeViewerKind::PrismText && command == IDM_NV_FIND)
+        else if (command == IDM_NV_FIND)
             PostOpenFind();
-        else if (parameters_->kind == NativeViewerKind::PrismText &&
-                 (command == IDM_NV_FIND_NEXT || command == IDM_NV_FIND_PREVIOUS))
+        else if (command == IDM_NV_FIND_NEXT || command == IDM_NV_FIND_PREVIOUS)
             FindNextCommand(command == IDM_NV_FIND_PREVIOUS);
         else if (parameters_->kind == NativeViewerKind::PrismText && command == IDM_NV_GOTO_LINE)
             GoToLineCommand();
@@ -4054,12 +4295,7 @@ DWORD WINAPI ViewerHostThread(void* readyEvent)
                 else if (message.wParam == VK_OEM_MINUS || message.wParam == VK_SUBTRACT)
                     command = IDM_NV_ZOOM_OUT;
                 else if (message.wParam == 'F')
-                {
-                    ViewerWindow* viewer = IsWindow(viewerWindow)
-                        ? reinterpret_cast<ViewerWindow*>(GetWindowLongPtrW(viewerWindow, GWLP_USERDATA)) : nullptr;
-                    if (viewer != nullptr)
-                        viewer->FocusBrowser();
-                }
+                    command = IDM_NV_FIND;
             }
             if (command != 0)
             {
@@ -4148,7 +4384,17 @@ bool NativeViewer_Show(const NativeViewerRequest& request)
         return false;
     std::unique_ptr<ViewerParameters> data(NewNoThrow<ViewerParameters>());
     if (!data)
+    {
+        // Caller transferred icon ownership with destroyIcons; free them here.
+        if (request.destroyIcons)
+        {
+            if (request.icon != nullptr)
+                DestroyIcon(request.icon);
+            if (request.iconSmall != nullptr)
+                DestroyIcon(request.iconSmall);
+        }
         return false;
+    }
     data->module = request.module;
     data->owner = request.owner;
     data->filePath = request.filePath;
@@ -4211,6 +4457,11 @@ bool NativeViewer_Show(const NativeViewerRequest& request)
     data->goToLine = CopyString(request.strings.goToLine);
     data->print = CopyString(request.strings.print);
     data->general = request.general;
+    data->icon = request.icon;
+    data->iconSmall = request.iconSmall;
+    data->destroyIcons = request.destroyIcons;
+    if (request.documentName != nullptr && request.documentName[0] != L'\0')
+        data->documentName = request.documentName;
     if (request.searchPhrase != nullptr && request.searchPhrase[0] != L'\0')
     {
         data->searchPhrase = request.searchPhrase;

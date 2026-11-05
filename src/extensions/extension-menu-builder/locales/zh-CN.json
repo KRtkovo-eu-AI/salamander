@@ -1,7 +1,7 @@
 {
   "name": "扩展菜单生成器",
   "commands": {
-    "OpenSalamander.ExtensionMenuBuilder.open": "扩展菜单生成器..."
+    "ExtensionMenuBuilder.open": "扩展菜单生成器..."
   },
   "strings": {
     "title": "扩展菜单生成器",
@@ -44,7 +44,7 @@
     "defaultExtensionName": "我的自定义菜单",
     "fileMissing": "所选文件不存在：{0}",
     "requiredExtensionFields": "请输入扩展名称、标识符和输出文件夹。",
-    "invalidExtensionId": "请使用带点的标识符，例如 OpenSalamander.MyMenu。",
+    "invalidExtensionId": "请使用带点的标识符，例如 MyMenu。",
     "atLeastOneCommand": "请至少添加一个菜单项。",
     "invalidCommand": "每个项目都需要标题和简单的处理程序键。",
     "duplicateCommand": "处理程序键“{0}”被多次使用。",

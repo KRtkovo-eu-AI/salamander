@@ -1,7 +1,7 @@
 {
   "name": "Bővítménymenü-készítő",
   "commands": {
-    "OpenSalamander.ExtensionMenuBuilder.open": "Bővítménymenü-készítő..."
+    "ExtensionMenuBuilder.open": "Bővítménymenü-készítő..."
   },
   "strings": {
     "title": "Bővítménymenü-készítő",
@@ -44,7 +44,7 @@
     "defaultExtensionName": "Saját menüm",
     "fileMissing": "A kiválasztott fájl nem létezik: {0}",
     "requiredExtensionFields": "Adja meg a bővítmény nevét, azonosítóját és kimeneti mappáját.",
-    "invalidExtensionId": "Pontozott azonosítót használjon, például OpenSalamander.SajatMenu.",
+    "invalidExtensionId": "Pontozott azonosítót használjon, például SajatMenu.",
     "atLeastOneCommand": "Adjon hozzá legalább egy menüelemet.",
     "invalidCommand": "Minden elemhez cím és egyszerű kezelőkulcs szükséges.",
     "duplicateCommand": "A(z) „{0}” kezelőkulcs többször szerepel.",

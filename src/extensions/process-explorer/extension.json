@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "id": "OpenSalamander.ProcessExplorer",
+  "id": "ProcessExplorer",
   "name": "Process Explorer",
   "version": "1.3.0",
   "description": "Lists running Windows processes in a Salamander file-system panel.",
@@ -19,9 +19,9 @@
   "capabilities": ["file-system", "process.read", "process.write", "panels.write", "ui.dialogs"],
   "events": [],
   "commands": [{
-    "id": "OpenSalamander.ProcessExplorer.open",
+    "id": "ProcessExplorer.open",
     "title": "Open Process Explorer",
-    "path": "salamatrix:OpenSalamander.ProcessExplorer!processes",
+    "path": "salamatrix:ProcessExplorer!processes",
     "menu": "none",
     "toolbar": true,
     "icon": "icon.svg",

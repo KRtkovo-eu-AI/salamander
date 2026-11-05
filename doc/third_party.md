@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-05 | Credit pd4d10/json-viewer for JSON Web Viewer. | Salamatrix WebView2 JSON extension vendors that renderer. |  | Composer |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 -->
 # Third-Party Software Notices
@@ -58,6 +59,7 @@ making their work available.
 | libexif | PictView plugin | Portions of the PictView plugin use libexif. Copyright (C) 2001-2019 Curtis Galloway and Lutz Muller. |
 | Newtonsoft.Json 13.0.3 | JSON Viewer plugin | By James Newton-King, released under the MIT License. |
 | Microsoft .NET Framework 4.8 | JSON Viewer plugin | Provided by Microsoft Corporation under the Microsoft .NET Framework license terms. |
+| pd4d10/json-viewer 2.2.0 | JSON Viewer (nodeJS) Salamatrix extension | Port of Firefox's JSON Viewer for Chromium by Rongjian Zhang ([pd4d10/json-viewer](https://github.com/pd4d10/json-viewer)). MIT License for the wrapper; the bundled UI includes Mozilla DevTools JSON Viewer code under MPL-2.0 and React under MIT. Vendored as `src/extensions/json-viewer-nodejs/vendor/pd4d10-json-viewer/` (`content-script.js` from the Chrome Web Store package). |
 | Prism.js 1.29.0 | Viewer Frame (Salamatrix and Prism Text Viewer) | By Lea Verou and PrismJS contributors, released under the MIT License. |
 | Microsoft.Web.WebView2 1.0.2420.47 | Viewer Frame | By Microsoft Corporation, distributed under the BSD 3-Clause License. Prism virtual-host naming follows Microsoft's [virtual host mapping guidance](https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2.setvirtualhostnametofoldermapping) to avoid navigation delays with `.local`. Bounded Prism instance reuse follows Microsoft's [WebView2 performance guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/performance#avoid-redundant-webview2-instances). |
 | Markdig 0.36.2 | MarkdigRenderer for WebView2 Render Viewer | By Alexandre Mutel and contributors, released under the BSD 2-Clause License. |

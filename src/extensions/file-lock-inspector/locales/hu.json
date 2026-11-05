@@ -1,7 +1,7 @@
 {
   "name": "Fájlzárolás-vizsgáló",
   "commands": {
-    "OpenSalamander.FileLockInspector.inspect": "Fájlzárolás-vizsgáló..."
+    "FileLockInspector.inspect": "Fájlzárolás-vizsgáló..."
   },
   "strings": {
     "title": "Fájlzárolás-vizsgáló",

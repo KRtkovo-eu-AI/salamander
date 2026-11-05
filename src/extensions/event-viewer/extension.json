@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "id": "OpenSalamander.EventViewer",
+  "id": "EventViewer",
   "name": "Event Viewer",
   "version": "1.0.0",
   "description": "Browses Windows event logs in a Salamander file-system panel.",
@@ -19,9 +19,9 @@
   "capabilities": ["file-system", "panels.write", "ui.dialogs"],
   "events": [],
   "commands": [{
-    "id": "OpenSalamander.EventViewer.open",
+    "id": "EventViewer.open",
     "title": "Open Event Viewer",
-    "path": "salamatrix:OpenSalamander.EventViewer!events",
+    "path": "salamatrix:EventViewer!events",
     "menu": "none",
     "toolbar": true,
     "icon": "icon.svg",

@@ -5,6 +5,7 @@
 # | 2026-11-05 | Run the Find Look in contract test. | Keep HistoryComboBox from replacing the current panel path with history[0]. | https://github.com/KRtkovo-eu-AI/salamander/issues/743 | Composer |
 # | 2026-11-05 | Run the shell-extension crash-protection contract test. | Faulty third-party shell extensions must not TerminateProcess Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 # | 2026-11-05 | Run the SVG FS-panel icon contract test. | Salamatrix/SVG panel icons must keep 16/32/48 sizes and a clean alpha path. | | Composer |
+# | 2026-11-05 | Run the JSON Web Viewer extension contract tests. | Guard the Salamatrix WebView2 JSON viewer package layout and session prep. |  | Composer |
 # | 2026-11-04 | Retry a native build that reaches the runner limit, and wait up to 119 seconds. | The first MSBuild codegen step reached the old 110 second cap on a cold runner. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 # | 2026-11-04 | Run the panel-toolbar customize contract test. | The panel and middle toolbar catalogs must stay the same set of commands. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 # | 2026-11-04 | Keep the viewer hex and Quick Search contract tests together. | Both entries were added at the same place in the native test list. | https://github.com/KRtkovo-eu-AI/salamander/pull/768 | Grok 4.7 |
@@ -351,6 +352,14 @@ try {
                 '-B',
                 (Join-Path $repositoryRoot `
                     'src\tests\webview2_render_viewer_contract_tests.py')
+            )
+        },
+        @{
+            Name = 'json_web_viewer_extension_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\json_web_viewer_extension_tests.py')
             )
         },
         @{

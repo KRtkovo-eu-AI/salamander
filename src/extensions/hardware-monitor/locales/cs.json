@@ -2,7 +2,7 @@
   "name": "Monitor hardwaru",
   "description": "Zobrazuje podrobné informace o hardwaru, čtení senzorů a využití systému v panelu souborového systému Salamandera.",
   "commands": {
-    "OpenSalamander.HardwareMonitor.open": "Otevřít Monitor hardwaru"
+    "HardwareMonitor.open": "Otevřít Monitor hardwaru"
   },
   "fileSystems": {
     "hardware-info": {

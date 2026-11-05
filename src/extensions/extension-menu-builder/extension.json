@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "id": "OpenSalamander.ExtensionMenuBuilder",
+  "id": "ExtensionMenuBuilder",
   "name": "Extension Menu Builder",
   "version": "1.1.2",
   "description": "Create and edit simple menu-driven Salamatrix extensions interactively.",
@@ -36,7 +36,7 @@
   },
   "commands": [
     {
-      "id": "OpenSalamander.ExtensionMenuBuilder.open",
+      "id": "ExtensionMenuBuilder.open",
       "title": "Extension Menu Builder...",
       "handler": "open",
       "menu": "plugin",

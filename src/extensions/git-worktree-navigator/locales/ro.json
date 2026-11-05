@@ -1,9 +1,9 @@
 {
   "name": "Navigator worktree Git",
   "commands": {
-    "OpenSalamander.GitWorktreeNavigator.open": "Navigator worktree Git...",
-    "OpenSalamander.GitWorktreeNavigator.commit": "Commit Git...",
-    "OpenSalamander.GitWorktreeNavigator.createLocalRepository": "Creează depozit Git local"
+    "GitWorktreeNavigator.open": "Navigator worktree Git...",
+    "GitWorktreeNavigator.commit": "Commit Git...",
+    "GitWorktreeNavigator.createLocalRepository": "Creează depozit Git local"
   },
   "strings": {
     "title": "Navigator worktree Git",

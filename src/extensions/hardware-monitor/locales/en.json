@@ -2,7 +2,7 @@
   "name": "Hardware Monitor",
   "description": "Displays detailed hardware information, sensor readings, and system utilization in a Salamander file-system panel.",
   "commands": {
-    "OpenSalamander.HardwareMonitor.open": "Open Hardware Monitor"
+    "HardwareMonitor.open": "Open Hardware Monitor"
   },
   "fileSystems": {
     "hardware-info": {

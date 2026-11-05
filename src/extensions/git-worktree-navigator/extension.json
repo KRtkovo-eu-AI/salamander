@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "id": "OpenSalamander.GitWorktreeNavigator",
+  "id": "GitWorktreeNavigator",
   "name": "Git Worktree Navigator",
   "version": "1.0.2",
   "description": "Browse, open, create, and safely remove Git worktrees from Open Salamander.",
@@ -37,7 +37,7 @@
   },
   "commands": [
     {
-      "id": "OpenSalamander.GitWorktreeNavigator.open",
+      "id": "GitWorktreeNavigator.open",
       "title": "Git Worktree Navigator...",
       "handler": "open",
       "menu": "both",
@@ -50,7 +50,7 @@
       "requires": "disk"
     },
     {
-      "id": "OpenSalamander.GitWorktreeNavigator.commit",
+      "id": "GitWorktreeNavigator.commit",
       "title": "Git Commit...",
       "handler": "commit",
       "menu": "both",
@@ -62,7 +62,7 @@
       "requires": "disk"
     },
     {
-      "id": "OpenSalamander.GitWorktreeNavigator.createLocalRepository",
+      "id": "GitWorktreeNavigator.createLocalRepository",
       "title": "Git Create Local Repository",
       "handler": "createLocalRepository",
       "menu": "both",

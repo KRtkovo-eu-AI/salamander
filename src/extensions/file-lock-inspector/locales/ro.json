@@ -1,7 +1,7 @@
 {
   "name": "Inspector blocări fișiere",
   "commands": {
-    "OpenSalamander.FileLockInspector.inspect": "Inspector blocări fișiere..."
+    "FileLockInspector.inspect": "Inspector blocări fișiere..."
   },
   "strings": {
     "title": "Inspector blocări fișiere",

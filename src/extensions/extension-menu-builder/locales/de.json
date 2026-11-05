@@ -1,7 +1,7 @@
 {
   "name": "Extension-Menü-Editor",
   "commands": {
-    "OpenSalamander.ExtensionMenuBuilder.open": "Extension-Menü-Editor..."
+    "ExtensionMenuBuilder.open": "Extension-Menü-Editor..."
   },
   "strings": {
     "title": "Extension-Menü-Editor",
@@ -44,7 +44,7 @@
     "defaultExtensionName": "Mein eigenes Menü",
     "fileMissing": "Die ausgewählte Datei existiert nicht: {0}",
     "requiredExtensionFields": "Name, Kennung und Ausgabeordner der Extension eingeben.",
-    "invalidExtensionId": "Eine gepunktete Kennung wie OpenSalamander.MeinMenue verwenden.",
+    "invalidExtensionId": "Eine gepunktete Kennung wie MeinMenue verwenden.",
     "atLeastOneCommand": "Mindestens einen Menüeintrag hinzufügen.",
     "invalidCommand": "Jeder Eintrag benötigt einen Titel und einen einfachen Handler-Schlüssel.",
     "duplicateCommand": "Der Handler-Schlüssel „{0}“ wird mehrfach verwendet.",

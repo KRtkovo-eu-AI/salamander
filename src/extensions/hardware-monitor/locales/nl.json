@@ -2,7 +2,7 @@
   "name": "Hardware-monitor",
   "description": "Toont gedetailleerde hardware-informatie, sensorwaarden en systeemberbruik in een Salamander bestandssysteempaneel.",
   "commands": {
-    "OpenSalamander.HardwareMonitor.open": "Hardware-monitor openen"
+    "HardwareMonitor.open": "Hardware-monitor openen"
   },
   "fileSystems": {
     "hardware-info": {
