@@ -1,6 +1,11 @@
 // SPDX-FileCopyrightText: 2026 Sally Authors (0xeb)
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+/*
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-04 | Treat precomposed letters with diacritics as caret stops, not combining marks. | Internal Viewer wrap hid characters in Czech/Unicode text because C3_DIACRITIC letters were merged into fewer text elements than columns. | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
+*/
 
 #include "ViewerBomText.h"
 
@@ -71,7 +76,12 @@ bool IsFallbackContinuation(std::uint32_t scalar, std::uint32_t previous)
     {
         WORD type = 0;
         wchar_t ch = (wchar_t)scalar;
+        // Precomposed letters such as á/ř/ž carry C3_DIACRITIC (and often
+        // C3_NONSPACING) together with C3_ALPHA.  They are still independent
+        // caret stops / wrap columns.  Only true combining marks (no ALPHA)
+        // must stay glued to the previous scalar.
         if (GetStringTypeW(CT_CTYPE3, &ch, 1, &type) &&
+            (type & C3_ALPHA) == 0 &&
             (type & (C3_NONSPACING | C3_DIACRITIC | C3_VOWELMARK)) != 0)
             return true;
     }
