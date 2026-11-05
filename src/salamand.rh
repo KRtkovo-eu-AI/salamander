@@ -14,7 +14,8 @@
 #define IDS_MSGBOX_HINT                 2484
 #define IDS_MSGBOX_URL                  2485
 
-#define IDD_SPLASH                      2490
+// 2490 is IDD_CHANGECODING in lang/lang.rh; keep splash out of the embedded English UI ID space.
+#define IDD_SPLASH                      2496
 #define IDC_SPLASH_OPENSAL              2491
 #define IDC_SPLASH_VERSION              2492
 #define IDC_SPLASH_COPYRIGHT            2493
