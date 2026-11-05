@@ -1,3 +1,5 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-05 | Register fifteen major-language translation stubs. | Empty language folders need LANGID metadata before AI batch translation. | | Composer |
 <#
 .SYNOPSIS
     Build translated .slg language packs from committed .slt archives.
@@ -224,17 +226,32 @@ $validationWarnings = New-Object System.Collections.Generic.List[string]
 $roundtripFailures = New-Object System.Collections.Generic.List[string]
 $pendingCopies = New-Object System.Collections.Generic.List[object]
 $languageLangIds = @{
+    arabic = 1025
+    bulgarian = 1026
     chinesesimplified = 2052
+    chinesetraditional = 1028
+    croatian = 1050
     czech = 1029
     dutch = 1043
     french = 1036
     german = 1031
+    greek = 1032
+    hebrew = 1037
     hungarian = 1038
+    indonesian = 1057
     italian = 1040
+    japanese = 1041
+    korean = 1042
+    polish = 1045
+    portuguese = 1046
     romanian = 1048
     russian = 1049
     slovak = 1051
     spanish = 3082
+    swedish = 1053
+    turkish = 1055
+    ukrainian = 1058
+    vietnamese = 1066
 }
 
 foreach ($language in $requestedLanguages)
