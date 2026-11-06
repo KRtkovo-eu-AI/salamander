@@ -7,15 +7,15 @@ VERSION,"1,5,0,196"
 LANGID,1041
 AUTHOR,"Open Samandarin"
 WEB,"www.altap.cz"
-COMMENT,"japanese translation stub (English seed)"
+COMMENT,"Japanese (ja-JP) UI translation"
 
 [STRINGTABLE 0]
-46,0,"JSON Viewer .NET"
-47,0,"About Plugin"
+46,1,"JSON Viewer .NET"
+47,1,"プラグインについて"
 
 [STRINGTABLE 1]
-48,0,"Internal viewer that displays JSON documents using a managed WinForms UI."
-49,0,"https://samandarin.net/"
-50,0,"Unable to prepare synchronization event required by the viewer."
-51,0,"The selected JSON file is too large to open. Files larger than 8 MB are not supported."
+48,1,"マネージド WinForms UI を使用して JSON ドキュメントを表示する内部ビューア。"
+49,1,"https://samandarin.net/"
+50,1,"ビューアが必要とする同期イベントを準備できません。"
+51,1,"選択した JSON ファイルは大きすぎて開けません。 8 MB を超えるファイルはサポートされていません。"
 

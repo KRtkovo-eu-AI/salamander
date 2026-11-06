@@ -7,11 +7,11 @@ VERSION,"0,3,0,196"
 LANGID,1041
 AUTHOR,"Open Samandarin"
 WEB,"www.altap.cz"
-COMMENT,"japanese translation stub (English seed)"
+COMMENT,"Japanese (ja-JP) UI translation"
 
 [STRINGTABLE 0]
-1000,0,"Folders"
-1001,0,"About Plugin"
-1003,0,"Browse folders such as Desktop, Control Panel, Recycle Bin, etc."
-1004,0,"'\tDesktop"
+1000,1,"フォルダー"
+1001,1,"プラグインについて"
+1003,1,"デスクトップ、コントロール パネル、ごみ箱などのフォルダーを参照します。"
+1004,1,"'\tデスクトップ"
 
