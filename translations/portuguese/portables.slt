@@ -52,7 +52,7 @@ COMMENT,"portuguese translation stub (English seed)"
 
 [STRINGTABLE 4]
 10240,1,"Erro ao alterar o diretório"
-10241,1,"Caminho: "%s"\r\nErro: %s"
+10241,1,"Caminho: "%s"\r\n Erro: %s"
 
 [STRINGTABLE 5]
 19457,1,"O caminho especificado contém o caminho de um arquivo."

@@ -11,10 +11,10 @@ COMMENT,"portuguese translation stub (English seed)"
 
 [STRINGTABLE 0]
 1,1,"Arquivo LZH inválido ou formato desconhecido."
-2,1,"Erro de checksum do cabeçalho.\nO arquivo está corrompido - nem todos os arquivos podem ser listados."
+2,1,"Erro de checksum do cabeçalho.\n O arquivo está corrompido - nem todos os arquivos podem ser listados."
 3,1,"Memória insuficiente."
 4,1,"Erro de gravação"
-5,1,"UnLHA"
+5,1,"Un LHA"
 6,1,"Erro ao abrir o arquivo compactado."
 7,1,"Não foi possível adicionar a entrada do arquivo à lista de arquivos."
 8,1,"O arquivo contém um ou mais links simbólicos UNIX, que não serão exibidos."

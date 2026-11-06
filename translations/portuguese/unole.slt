@@ -10,7 +10,7 @@ WEB,"www.altap.cz"
 COMMENT,"portuguese translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,1,"UnOLE2"
+1000,1,"Un OLE2"
 1001,1,"Memória insuficiente."
 1002,1,"Não foi possível abrir o Compound File %s.\n"
 1003,1,"Não foi possível obter o alocador de memória.\n"

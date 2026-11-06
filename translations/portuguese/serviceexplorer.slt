@@ -28,10 +28,10 @@ COMMENT,"portuguese translation stub (English seed)"
 3001,6,30,58,8,1,"Nome de e&xibição:"
 3004,6,54,52,8,1,"Descrição:"
 3005,4,100,111,8,1,"Caminho do executável:"
-1013,6,72,46,8,1,"NomeDoServico"
+1013,6,72,46,8,1,"Nome Do Servico"
 1032,6,136,47,8,1,"Tipo de inicialização:"
 1033,6,160,62,8,1,"Status do serviço:"
-1014,60,160,198,8,1,"StatusDoServico"
+1014,60,160,198,8,1,"Status Do Servico"
 
 [DIALOG 510]
 230,70,1,"Controle de serviço"

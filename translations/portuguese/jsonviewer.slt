@@ -14,7 +14,7 @@ COMMENT,"portuguese translation stub (English seed)"
 47,1,"Sobre o plug-in"
 
 [STRINGTABLE 1]
-48,1,"Visualizador interno que exibe documentos JSON com uma interface WinForms gerenciada."
+48,1,"Visualizador interno que exibe documentos JSON com uma interface Win Forms gerenciada."
 49,1,"https://samandarin.net/"
 50,1,"Não foi possível preparar o evento de sincronização exigido pelo visualizador."
 51,1,"O arquivo JSON selecionado é grande demais para abrir. Arquivos maiores que 8 MB não são suportados."

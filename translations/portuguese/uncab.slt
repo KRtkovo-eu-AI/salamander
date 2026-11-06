@@ -35,7 +35,7 @@ COMMENT,"portuguese translation stub (English seed)"
 2,211,63,50,14,1,"Cancelar"
 
 [DIALOG 106]
-220,85,1,"Configuração do UnCAB"
+220,85,1,"Configuração do Un CAB"
 300,23,22,154,8,1,"ao descompactar."
 107,12,10,220,12,1,"&Ignorar automaticamente arquivos continuados do volume anterior"
 301,23,44,111,8,1,"não pode ser listado."
@@ -45,7 +45,7 @@ COMMENT,"portuguese translation stub (English seed)"
 2,112,66,50,14,1,"Cancelar"
 
 [DIALOG 115]
-213,108,1,"UnCAB - Atenção"
+213,108,1,"Un CAB - Atenção"
 300,11,9,193,24,1,"Nem todos os arquivos do arquivo multivolume podem ser listados (e vistos no painel), porque alguns volumes não foram encontrados."
 301,11,40,193,16,1,"Para listar todo o conteúdo do arquivo, copie todos os volumes para o mesmo diretório e abra o PRIMEIRO volume."
 105,11,65,159,12,1,"&Não exibir esta mensagem no futuro"
@@ -53,7 +53,7 @@ COMMENT,"portuguese translation stub (English seed)"
 1,154,90,50,14,1,"OK"
 
 [STRINGTABLE 0]
-1000,1,"UnCAB"
+1000,1,"Un CAB"
 1001,1,"Memória insuficiente."
 
 [STRINGTABLE 1]
@@ -88,7 +88,7 @@ COMMENT,"portuguese translation stub (English seed)"
 1039,1,"ignorando arquivo"
 
 [STRINGTABLE 3]
-1040,1,"Insira um disco com o volume do cabinet número %d ou localize o arquivo cabinet apropriado no disco.\n\nPressione OK quando estiver pronto."
+1040,1,"Insira um disco com o volume do cabinet número %d ou localize o arquivo cabinet apropriado no disco.\n\n Pressione OK quando estiver pronto."
 1041,1,"Erro"
 1042,1,"Navegar e extrair arquivos CAB."
 1043,1,"Sobre o plug-in"

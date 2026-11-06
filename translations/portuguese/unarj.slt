@@ -11,7 +11,7 @@ COMMENT,"portuguese translation stub (English seed)"
 
 [DIALOG 100]
 194,110,1,"Próximo volume do arquivo"
-300,12,9,170,32,1,"Insira o disco com o próximo volume do arquivo ou localize o arquivo apropriado no disco.\n\nPressione OK quando estiver pronto."
+300,12,9,170,32,1,"Insira o disco com o próximo volume do arquivo ou localize o arquivo apropriado no disco.\n\n Pressione OK quando estiver pronto."
 301,12,48,70,8,1,"Volume anterior:"
 103,73,48,109,12,1,""
 302,12,62,67,8,1,"&Próximo volume:"
@@ -31,7 +31,7 @@ COMMENT,"portuguese translation stub (English seed)"
 2,181,63,50,14,1,"Cancelar"
 
 [DIALOG 106]
-220,85,1,"Configuração do UnARJ"
+220,85,1,"Configuração do Un ARJ"
 300,23,22,154,8,1,"ao descompactar."
 107,12,10,218,12,1,"&Ignorar automaticamente arquivos continuados do volume anterior"
 301,23,44,111,8,1,"não pode ser listado."
@@ -41,7 +41,7 @@ COMMENT,"portuguese translation stub (English seed)"
 2,112,66,50,14,1,"Cancelar"
 
 [DIALOG 115]
-213,107,1,"UnARJ - Atenção"
+213,107,1,"Un ARJ - Atenção"
 300,11,10,194,24,1,"Nem todos os arquivos do arquivo multivolume podem ser listados (e vistos no painel), porque alguns volumes não foram encontrados."
 301,11,41,192,16,1,"Para listar todo o conteúdo do arquivo, copie todos os volumes para o mesmo diretório."
 105,11,66,159,12,1,"&Não exibir esta mensagem no futuro"
@@ -49,7 +49,7 @@ COMMENT,"portuguese translation stub (English seed)"
 1,153,89,50,14,1,"OK"
 
 [STRINGTABLE 0]
-1000,1,"UnARJ"
+1000,1,"Un ARJ"
 1001,1,"Memória insuficiente."
 1002,1,"Fim inesperado do arquivo compactado."
 1005,1,"O arquivo está corrompido."
@@ -76,7 +76,7 @@ COMMENT,"portuguese translation stub (English seed)"
 [STRINGTABLE 2]
 1024,1,"Versão desconhecida do arquivo compactado."
 1025,1,"Tipo desconhecido do arquivo compactado."
-1026,1,"O arquivo foi compactado por um método não suportado pelo plug-in UnARJ."
+1026,1,"O arquivo foi compactado por um método não suportado pelo plug-in Un ARJ."
 1027,1,"Desculpe, arquivos criptografados não são suportados."
 1028,1,"Volume inválido ou estrutura de arquivo desconhecida."
 1029,1,"Desculpe, o plug-in expirou. Verifique nosso site para obter uma versão mais recente."
