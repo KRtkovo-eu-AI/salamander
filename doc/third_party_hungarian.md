@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-06 | Credit pd4d10/json-viewer for JSON Web Viewer. | A Salamatrix WebView2 JSON bővítmény ezt a renderert szállítja. |  | Composer |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 -->
 # Harmadik fél szoftvereinek értesítései
@@ -57,6 +58,7 @@ szerepel, hogy hozzáférhetővé tették munkájukat.
 | libexif | PictView bővítmény | A PictView bővítmény egyes részei libexif-et használnak. Copyright (C) 2001-2019 Curtis Galloway és Lutz Muller. |
 | Newtonsoft.Json 13.0.3 | JSON Viewer bővítmény | James Newton-King, MIT Licenc alatt kiadva. |
 | Microsoft .NET Framework 4.8 | JSON Viewer bővítmény | A Microsoft Corporation biztosítja a Microsoft .NET Framework licenc feltételei szerint. |
+| pd4d10/json-viewer 2.2.0 | JSON Viewer (nodeJS) Salamatrix bővítmény | A Firefox JSON Viewer Chromium-portja Rongjian Zhangtól ([pd4d10/json-viewer](https://github.com/pd4d10/json-viewer)). A burkoló MIT licenc alatt; a mellékelt UI Mozilla DevTools JSON Viewer kódot tartalmaz MPL-2.0 alatt és Reactet MIT alatt. Szállítva: `src/extensions/json-viewer-nodejs/vendor/pd4d10-json-viewer/` (`content-script.js` a Chrome Web Store csomagból). |
 | Prism.js 1.29.0 | Viewer Frame (Salamatrix és Prism Text Viewer) | Lea Verou és a PrismJS közreműködők, MIT Licenc alatt kiadva. |
 | Microsoft.Web.WebView2 1.0.2420.47 | Viewer Frame | Microsoft Corporation, BSD 3-Clause Licenc alatt terjesztve. |
 | Markdig 0.36.2 | MarkdigRenderer a WebView2 Render Viewerhez | Alexandre Mutel és közreműködők, BSD 2-Clause Licenc alatt kiadva. |
