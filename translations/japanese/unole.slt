@@ -7,30 +7,30 @@ VERSION,"1,3,0,196"
 LANGID,1041
 AUTHOR,"Open Samandarin"
 WEB,"www.altap.cz"
-COMMENT,"japanese translation stub (English seed)"
+COMMENT,"Japanese (ja-JP) UI translation"
 
 [STRINGTABLE 0]
-1000,0,"UnOLE2"
-1001,0,"Insufficient memory."
-1002,0,"Cannot open Compound File %s.\n"
-1003,0,"Unable to obtain memory allocator.\n"
-1004,0,"Cannot write to file.\n"
-1005,0,"Cannot create file %s.\n"
-1006,0,"Cannot open stream %s.\n"
-1007,0,"Cannot write to file.\n"
+1000,1,"UnOLE2"
+1001,1,"メモリが不足しています。"
+1002,1,"複合ファイル %s.\n を開けません"
+1003,1,"メモリ アロケータを取得できません。\n"
+1004,1,"ファイルに書き込めません。\n"
+1005,1,"ファイル %s.\n を作成できません"
+1006,1,"ストリーム %s.\n を開けません"
+1007,1,"ファイルに書き込めません。\n"
 
 [STRINGTABLE 1]
-1008,0,"Unknown error occurred."
-1014,0,"Unable to add archive entry to the files list."
-1015,0,"Unpacking Compound File"
-1017,0,"unpacking..."
-1018,0,"unpacking: "
+1008,1,"不明なエラーが発生しました。"
+1014,1,"ファイル リストにアーカイブ エントリを追加できません。"
+1015,1,"複合ファイルの解凍"
+1017,1,"展開中..."
+1018,1,"展開中: "
 
 [STRINGTABLE 2]
-1025,0,"Sorry, the plugin has expired. Please check our web site for newer version."
+1025,1,"申し訳ありませんが、プラグインの有効期限が切れています。新しいバージョンについては、当社の Web サイトをご確認ください。"
 
 [STRINGTABLE 3]
-1041,0,"Error"
-1042,0,"Browse and extract OLE Compound files."
-1043,0,"About Plugin"
+1041,1,"エラー"
+1042,1,"OLE 複合ファイルを参照して抽出します。"
+1043,1,"プラグインについて"
 
