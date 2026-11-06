@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Reset Copy/Move options before hiding the expanded controls. | Reset and hide options only hid the dialog without restoring configured defaults. |  | openai/gpt-5.6-luna-pro |
+// | 2026-11-07 | Restore Copy/Move wait preference when resetting dialog defaults. | Reset options and defaults discarded the Configuration transfer preference's wait behavior. |  | openai/gpt-5.6-luna-pro |
 // | 2026-11-05 | Save and reset Copy/Move transfer, conflict, and wait dialog defaults. | Save options as defaults ignored the newer dialog settings. | https://github.com/KRtkovo-eu-AI/salamander/issues/734 | Composer |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
@@ -1899,10 +1901,41 @@ MENU_TEMPLATE_ITEM CopyMoveMoreDialogMenu[] =
                     popup->SetSelectedItemIndex(0);
                     flags |= MENU_TRACK_SELECT;
                 }
-                switch (popup->Track(flags, r.left, r.bottom, HWindow, &r))
+                int menuCommand = popup->Track(flags, r.left, r.bottom, HWindow, &r);
+                switch (menuCommand)
                 {
                 case 1: // Reset and hide options
                 {
+                    // clear the dialog, including transfer/conflict/wait controls
+                    Criteria->Reset();
+                    if (TransferModeInOut != NULL)
+                    {
+                        int mode = Configuration.CopyMoveScheduling == CMTP_KEEP_LAST
+                                       ? Configuration.CopyMoveLastTransferMode
+                                       : Configuration.CopyMoveScheduling;
+                        if (mode != CMS_SEQUENTIAL && mode != CMS_STORAGE_AWARE)
+                            mode = CMS_STORAGE_AWARE;
+                        *TransferModeInOut = mode;
+                        Criteria->TransferMode = mode;
+                    }
+                    if (ConflictModeInOut != NULL)
+                    {
+                        int mode = Configuration.CopyMoveConflictPreference == CMCP_KEEP_LAST
+                                       ? Configuration.CopyMoveLastConflictMode
+                                       : Configuration.CopyMoveConflictPreference;
+                        if (mode != CMCM_CURRENT && mode != CMCM_SCAN_AHEAD)
+                            mode = CMCM_CURRENT;
+                        *ConflictModeInOut = mode;
+                        Criteria->ConflictMode = mode;
+                    }
+                    LegacyWait = TransferModeInOut != NULL && *TransferModeInOut == CMS_SEQUENTIAL;
+                    Criteria->StartOnIdle = LegacyWait;
+                    if (OperationSchedulingOverrideInOut != NULL)
+                    {
+                        int mode = TransferModeInOut != NULL ? *TransferModeInOut : CMS_STORAGE_AWARE;
+                        *OperationSchedulingOverrideInOut = CopyMoveGetSchedulingOverride(mode, LegacyWait);
+                    }
+                    TransferData(ttDataToWindow);
                     PostMessage(HWindow, WM_COMMAND, MAKELPARAM(IDC_MORE, BN_CLICKED), 0);
                     break;
                 }
@@ -1953,12 +1986,12 @@ MENU_TEMPLATE_ITEM CopyMoveMoreDialogMenu[] =
                         *ConflictModeInOut = mode;
                         Criteria->ConflictMode = mode;
                     }
-                    LegacyWait = FALSE;
-                    Criteria->StartOnIdle = FALSE;
+                    LegacyWait = TransferModeInOut != NULL && *TransferModeInOut == CMS_SEQUENTIAL;
+                    Criteria->StartOnIdle = LegacyWait;
                     if (OperationSchedulingOverrideInOut != NULL)
                     {
                         int mode = TransferModeInOut != NULL ? *TransferModeInOut : CMS_STORAGE_AWARE;
-                        *OperationSchedulingOverrideInOut = CopyMoveGetSchedulingOverride(mode, FALSE);
+                        *OperationSchedulingOverrideInOut = CopyMoveGetSchedulingOverride(mode, LegacyWait);
                     }
                     TransferData(ttDataToWindow);
                     break;

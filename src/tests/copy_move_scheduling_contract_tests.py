@@ -2,6 +2,8 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-07 | Cover Copy/Move reset-and-hide behavior. | Reset and hide options must reset values before collapsing the dialog. |  | openai/gpt-5.6-luna-pro |
+# | 2026-11-07 | Verify Copy/Move reset restores the configured wait behavior. | Reset options and defaults must derive Wait until from the transfer preference. |  | openai/gpt-5.6-luna-pro |
 # | 2026-11-05 | Cover Copy/Move Save options as defaults for transfer, conflict, and wait. | Regression for dialog defaults that were not persisted. | https://github.com/KRtkovo-eu-AI/salamander/issues/734 | Composer |
 
 from pathlib import Path
@@ -726,7 +728,7 @@ def main() -> None:
     save_defaults = function_slice(
         dialogs3,
         "case 2: // Save options as defaults",
-        "case 3: // Reset options and defaults")
+        "delete popup;")
     require(save_defaults, "Criteria->HasSchedulingDefaults = TRUE;",
             "Save options as defaults marks scheduling fields as persisted")
     require(save_defaults, "CopyMoveOptions.Set(Criteria);",
@@ -737,6 +739,16 @@ def main() -> None:
             "dialog Legacy wait choice is copied into saved criteria")
     require(transfer, "Criteria->ConflictMode = *ConflictModeInOut;",
             "dialog conflict mode is copied into saved criteria")
+    reset_and_hide = function_slice(
+        dialogs3,
+        "case 1: // Reset and hide options",
+        "case 2: // Save options as defaults")
+    forbid(reset_and_hide, "CopyMoveOptions.Set(NULL);",
+           "Reset and hide changing saved Copy/Move options")
+    require(reset_and_hide, "Criteria->Reset();",
+            "Reset and hide resets current Copy/Move options")
+    require(reset_and_hide, "PostMessage(HWindow, WM_COMMAND, MAKELPARAM(IDC_MORE, BN_CLICKED), 0);",
+            "Reset and hide collapses the dialog after resetting")
     reset_defaults = function_slice(
         dialogs3,
         "case 3: // Reset options and defaults",
@@ -747,8 +759,12 @@ def main() -> None:
             "Reset restores transfer mode from global preference")
     require(reset_defaults, "Configuration.CopyMoveConflictPreference == CMCP_KEEP_LAST",
             "Reset restores conflict mode from global preference")
-    require(reset_defaults, "LegacyWait = FALSE;",
-            "Reset clears the Legacy wait choice")
+    require(reset_defaults, "LegacyWait = TransferModeInOut != NULL && *TransferModeInOut == CMS_SEQUENTIAL;",
+            "Reset restores Wait until from the configured transfer preference")
+    require(reset_defaults, "Criteria->StartOnIdle = LegacyWait;",
+            "Reset stores the restored Wait until choice in dialog criteria")
+    require(reset_defaults, "CopyMoveGetSchedulingOverride(mode, LegacyWait)",
+            "Reset maps the restored Wait until choice to the operation override")
     require(fileswn8, "if (criteria.HasSchedulingDefaults)",
             "saved scheduling defaults override Configuration on reopen")
     require(fileswn8, "legacyWait = criteria.StartOnIdle;",
