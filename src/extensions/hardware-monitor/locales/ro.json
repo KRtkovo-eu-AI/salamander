@@ -2,7 +2,7 @@
   "name": "Monitor de hardware",
   "description": "Afișează informații detaliate despre hardware, citiri de senzori și utilizarea sistemului într-un panou al sistemului de fișiere Salamander.",
   "commands": {
-    "OpenSalamander.HardwareMonitor.open": "Deschide monitorul de hardware"
+    ".open": "Deschide monitorul de hardware"
   },
   "fileSystems": {
     "hardware-info": {

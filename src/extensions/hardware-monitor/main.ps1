@@ -967,13 +967,13 @@ function ConvertTo-DeviceItemId {
 }
 
 function Initialize-DeviceManagerNativeMethods {
-    if ($null -ne ('OpenSalamander.HardwareMonitor.DeviceManagerNative' -as [type])) { return }
+    if ($null -ne ('HardwareMonitor.DeviceManagerNative' -as [type])) { return }
     Add-Type -ErrorAction Stop -TypeDefinition @'
 using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 
-namespace OpenSalamander.HardwareMonitor
+namespace HardwareMonitor
 {
     public static class DeviceManagerNative
     {
@@ -1117,13 +1117,13 @@ if ($handler -in @('deviceProperties', 'updateDriver', 'disableDevice',
                 $verb, ('"' + $deviceId.Replace('"', '') + '"')) -Wait
         } elseif ($handler -eq 'updateDriver') {
             Initialize-DeviceManagerNativeMethods
-            [OpenSalamander.HardwareMonitor.DeviceManagerNative]::ShowUpdateDriver($deviceId)
+            [HardwareMonitor.DeviceManagerNative]::ShowUpdateDriver($deviceId)
         } else {
             Initialize-DeviceManagerNativeMethods
             $parentWindow = try {
                 [long]([string]$Salamander.invocation.parentWindow)
             } catch { 0L }
-            [OpenSalamander.HardwareMonitor.DeviceManagerNative]::LaunchDeviceProperties(
+            [HardwareMonitor.DeviceManagerNative]::LaunchDeviceProperties(
                 $deviceId, $parentWindow)
         }
     }

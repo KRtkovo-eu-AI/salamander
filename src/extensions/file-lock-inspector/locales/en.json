@@ -1,7 +1,7 @@
 {
   "name": "File Lock Inspector",
   "commands": {
-    "OpenSalamander.FileLockInspector.inspect": "File Lock Inspector..."
+    "FileLockInspector.inspect": "File Lock Inspector..."
   },
   "strings": {
     "title": "File Lock Inspector",

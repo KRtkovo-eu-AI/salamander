@@ -1,7 +1,7 @@
 {
   "name": "Инспектор блокировки файлов",
   "commands": {
-    "OpenSalamander.FileLockInspector.inspect": "Инспектор блокировки файлов..."
+    "FileLockInspector.inspect": "Инспектор блокировки файлов..."
   },
   "strings": {
     "title": "Инспектор блокировки файлов",

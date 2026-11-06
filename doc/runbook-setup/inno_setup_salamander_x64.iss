@@ -1,4 +1,6 @@
 ; | Date | Summary | Reason | Ticket | Model |
+; | 2026-11-06 | Rename JSON Web Viewer to JSON Viewer (nodeJS). | Match the requested product name in the installer plugin list. |  | Composer |
+; | 2026-11-05 | Ship the Salamatrix JSON Web Viewer extension. | Offer a lightweight WebView2 alternative to JSON Viewer .NET. |  | Composer |
 ; | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 ; Inno Setup script for Open Samandarin x64.
 ;
@@ -485,6 +487,7 @@ Name: "{app}\extensions\file-lock-inspector"
 Name: "{app}\extensions\process-explorer"
 Name: "{app}\extensions\hardware-monitor"
 Name: "{app}\extensions\event-viewer"
+Name: "{app}\extensions\json-viewer-nodejs"
 Name: "{app}\plugins\serviceexplorer"
 Name: "{app}\plugins\serviceexplorer\lang"
 Name: "{app}\plugins\splitcbn"
@@ -833,6 +836,7 @@ Source: "{#PayloadDir}\extensions\file-lock-inspector\*"; DestDir: "{app}\extens
 Source: "{#PayloadDir}\extensions\process-explorer\*"; DestDir: "{app}\extensions\process-explorer"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('processexplorer')
 Source: "{#PayloadDir}\extensions\hardware-monitor\*"; DestDir: "{app}\extensions\hardware-monitor"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('hardwaremonitor')
 Source: "{#PayloadDir}\extensions\event-viewer\*"; DestDir: "{app}\extensions\event-viewer"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('eventviewer')
+Source: "{#PayloadDir}\extensions\json-viewer-nodejs\*"; DestDir: "{app}\extensions\json-viewer-nodejs"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsPluginSelected('jsonwebviewer')
 Source: "{#PayloadDir}\plugins\extension-runtimes\javascriptruntime\javascriptruntime.spl"; DestDir: "{app}\plugins\extension-runtimes\javascriptruntime"; Flags: ignoreversion; Check: IsPluginSelected('javascriptruntime')
 Source: "{#PayloadDir}\plugins\extension-runtimes\javascriptruntime\runtime\salamatrix_worker.mjs"; DestDir: "{app}\plugins\extension-runtimes\javascriptruntime\runtime"; Flags: ignoreversion; Check: IsPluginSelected('javascriptruntime')
 Source: "{#PayloadDir}\plugins\extension-runtimes\luaruntime\luaruntime.spl"; DestDir: "{app}\plugins\extension-runtimes\luaruntime"; Flags: ignoreversion; Check: IsPluginSelected('luaruntime')
@@ -1246,6 +1250,7 @@ begin
   AddPluginDependency('processexplorer', 'powershellruntime');
   AddPluginDependency('hardwaremonitor', 'powershellruntime');
   AddPluginDependency('eventviewer', 'powershellruntime');
+  AddPluginDependency('jsonwebviewer', 'javascriptruntime');
 
   { The demo package contains one Automation extension and five runtime demos. }
   AddPluginDependency('salamatrixdemos', 'automation');
@@ -1420,6 +1425,7 @@ begin
   else if CompareText(PluginId, 'processexplorer') = 0 then ExpectedPath := 'extensions/process-explorer/'
   else if CompareText(PluginId, 'hardwaremonitor') = 0 then ExpectedPath := 'extensions/hardware-monitor/'
   else if CompareText(PluginId, 'eventviewer') = 0 then ExpectedPath := 'extensions/event-viewer/'
+  else if CompareText(PluginId, 'jsonwebviewer') = 0 then ExpectedPath := 'extensions/json-viewer-nodejs/'
   else if CompareText(PluginId, 'salamatrixdemos') = 0 then ExpectedPath := 'plugins/automation/scripts/Salamatrix Progress Demo/'
   else Exit;
   Count := StrToIntDef(GetIniString('InstalledPlugins', 'Count', '0', ExpandConstant('{app}\configstorage.ini')), 0);
@@ -1446,6 +1452,7 @@ begin
   if (CompareText(PluginId, 'extensionmenubuilder') = 0) or (CompareText(PluginId, 'gitworktreenavigator') = 0) or
      (CompareText(PluginId, 'filelockinspector') = 0) or (CompareText(PluginId, 'processexplorer') = 0) or
      (CompareText(PluginId, 'hardwaremonitor') = 0) or (CompareText(PluginId, 'eventviewer') = 0) or
+     (CompareText(PluginId, 'jsonwebviewer') = 0) or
      (CompareText(PluginId, 'salamatrixdemos') = 0) then
   begin
     Result := GetInstalledExtensionVersion(PluginId);
@@ -1893,6 +1900,7 @@ begin
   AddPlugin('processexplorer', 'Process Explorer', '1.3.0 (x64)', 'advanced,expert');
   AddPlugin('hardwaremonitor', 'Hardware Monitor', '1.0.0 (x64)', 'advanced,expert');
   AddPlugin('eventviewer', 'Event Viewer', '1.0.0 (x64)', 'advanced,expert');
+  AddPlugin('jsonwebviewer', 'JSON Viewer (nodeJS)', '1.2.5 (x64)', 'advanced,expert');
   AddPlugin('folders', 'Folders', '0.3 (x64)', 'advanced,expert');
   AddPlugin('ftp', 'FTP Client', '1.38 (x64)', 'standard,advanced,expert');
   AddPlugin('gitworktreenavigator', 'Git Worktree Navigator', '1.0.2 (x64)', 'advanced,expert');

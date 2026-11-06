@@ -1,14 +1,14 @@
 Set-StrictMode -Version 2.0
 
 function Initialize-ExtensionDarkMode {
-    if ($null -ne ('OpenSalamander.Extensions.DarkModeNativeMethods' -as [type])) {
+    if ($null -ne ('Extensions.DarkModeNativeMethods' -as [type])) {
         return
     }
     Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
 
-namespace OpenSalamander.Extensions
+namespace Extensions
 {
     public static class DarkModeNativeMethods
     {
@@ -133,7 +133,7 @@ function Set-ExtensionDarkMode {
     if (-not $script:UseWindowsDarkMode) { return }
 
     Initialize-ExtensionDarkMode
-    [OpenSalamander.Extensions.DarkModeNativeMethods]::EnableImmersiveDarkMode()
+    [Extensions.DarkModeNativeMethods]::EnableImmersiveDarkMode()
     $background = [System.Drawing.Color]::FromArgb(32, 32, 32)
     $surface = [System.Drawing.Color]::FromArgb(45, 45, 48)
     $input = [System.Drawing.Color]::FromArgb(37, 37, 38)
@@ -184,7 +184,7 @@ function Set-ExtensionDarkMode {
         }
 
         try {
-            [OpenSalamander.Extensions.DarkModeNativeMethods]::AllowImmersiveDarkMode(
+            [Extensions.DarkModeNativeMethods]::AllowImmersiveDarkMode(
                 $control.Handle)
             $theme = $null
             if ($control -is [System.Windows.Forms.CheckBox] -or
@@ -198,9 +198,9 @@ function Set-ExtensionDarkMode {
                 $theme = 'DarkMode_Explorer'
             }
             if ($null -ne $theme) {
-                [void][OpenSalamander.Extensions.DarkModeNativeMethods]::SetWindowTheme(
+                [void][Extensions.DarkModeNativeMethods]::SetWindowTheme(
                     $control.Handle, $theme, $null)
-                [void][OpenSalamander.Extensions.DarkModeNativeMethods]::SendMessage(
+                [void][Extensions.DarkModeNativeMethods]::SendMessage(
                     $control.Handle, 0x031A, [IntPtr]::Zero, [IntPtr]::Zero)
             }
         } catch {}
@@ -212,13 +212,13 @@ function Set-ExtensionDarkMode {
     $enable = 1
     try {
         $result =
-            [OpenSalamander.Extensions.DarkModeNativeMethods]::DwmSetWindowAttribute(
+            [Extensions.DarkModeNativeMethods]::DwmSetWindowAttribute(
                 $Form.Handle, 20, [ref]$enable, 4)
         if ($result -ne 0) {
-            [void][OpenSalamander.Extensions.DarkModeNativeMethods]::DwmSetWindowAttribute(
+            [void][Extensions.DarkModeNativeMethods]::DwmSetWindowAttribute(
                 $Form.Handle, 19, [ref]$enable, 4)
         }
-        [void][OpenSalamander.Extensions.DarkModeNativeMethods]::SendMessage(
+        [void][Extensions.DarkModeNativeMethods]::SendMessage(
             $Form.Handle, 0x031A, [IntPtr]::Zero, [IntPtr]::Zero)
     } catch {}
 }
@@ -245,7 +245,7 @@ function Get-InspectorStrings {
 }
 
 function Initialize-RestartManager {
-    if ($null -ne ('OpenSalamander.FileLockInspector.RestartManager' -as [type])) {
+    if ($null -ne ('FileLockInspector.RestartManager' -as [type])) {
         return
     }
 
@@ -255,7 +255,7 @@ using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace OpenSalamander.FileLockInspector
+namespace FileLockInspector
 {
     public enum RmAppType
     {
@@ -396,7 +396,7 @@ function Get-LockingProcesses {
 
     $result = New-Object System.Collections.Generic.List[object]
     $records =
-        [OpenSalamander.FileLockInspector.RestartManager]::GetLockingProcesses(
+        [FileLockInspector.RestartManager]::GetLockingProcesses(
             $Paths)
     foreach ($record in $records) {
         $pidValue = [int]$record.Process.ProcessId
@@ -683,7 +683,7 @@ if ($Salamander.command_handler -eq 'inspect') {
             $null -ne $darkProperty -and [bool]$darkProperty.Value
         if ($script:UseWindowsDarkMode) {
             Initialize-ExtensionDarkMode
-            [OpenSalamander.Extensions.DarkModeNativeMethods]::EnableImmersiveDarkMode()
+            [Extensions.DarkModeNativeMethods]::EnableImmersiveDarkMode()
         }
         [System.Windows.Forms.Application]::EnableVisualStyles()
 

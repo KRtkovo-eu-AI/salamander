@@ -20,14 +20,14 @@ function Get-ProcessExplorerStrings {
 }
 
 function Initialize-ProcessNativeMethods {
-    if ($null -ne ('OpenSalamander.ProcessExplorer.NativeMethods' -as [type])) { return }
+    if ($null -ne ('ProcessExplorer.NativeMethods' -as [type])) { return }
     Add-Type -ErrorAction Stop -TypeDefinition @'
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace OpenSalamander.ProcessExplorer
+namespace ProcessExplorer
 {
     public static class NativeMethods
     {
@@ -326,20 +326,20 @@ if ($handler -in @('endTask', 'endProcessTree', 'openFileLocation', 'properties'
     if ($handler -eq 'endTask' -or $handler -eq 'endProcessTree') {
         $errorCode = 0
         $tree = $handler -eq 'endProcessTree'
-        if (-not [OpenSalamander.ProcessExplorer.NativeMethods]::EndProcess(
+        if (-not [ProcessExplorer.NativeMethods]::EndProcess(
                 $processId, $tree, [ref]$errorCode)) {
             Show-ProcessExplorerError ([string]$strings.endFailed) $errorCode
         }
         return
     }
-    $path = [OpenSalamander.ProcessExplorer.NativeMethods]::GetExecutablePath($processId)
+    $path = [ProcessExplorer.NativeMethods]::GetExecutablePath($processId)
     if ([string]::IsNullOrWhiteSpace($path)) {
         Show-ProcessExplorerError ([string]$strings.pathUnavailable)
         return
     }
     $errorCode = 0
     if ($handler -eq 'openFileLocation') {
-        if (-not [OpenSalamander.ProcessExplorer.NativeMethods]::OpenFileLocation(
+        if (-not [ProcessExplorer.NativeMethods]::OpenFileLocation(
                 $path, [ref]$errorCode)) {
             Show-ProcessExplorerError ([string]$strings.openLocationFailed) $errorCode
         }
@@ -382,7 +382,7 @@ foreach ($process in $processes) {
         if ([string]::IsNullOrWhiteSpace($executablePath)) {
             try {
                 $executablePath =
-                    [OpenSalamander.ProcessExplorer.NativeMethods]::GetExecutablePath(
+                    [ProcessExplorer.NativeMethods]::GetExecutablePath(
                         $process.Id)
             } catch {}
         }
@@ -405,7 +405,7 @@ foreach ($process in $processes) {
         $userName = try { [string]$process.UserName } catch { '' }
         $processIdText = [string]$process.Id
         $privateWorkingSet =
-            [OpenSalamander.ProcessExplorer.NativeMethods]::GetPrivateWorkingSet(
+            [ProcessExplorer.NativeMethods]::GetPrivateWorkingSet(
                 $process.Id)
         $memoryText = if ($privateWorkingSet -gt 0) {
             ([uint64]$privateWorkingSet).ToString(

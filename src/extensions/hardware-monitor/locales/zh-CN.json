@@ -2,7 +2,7 @@
   "name": "硬件监控器",
   "description": "在 Salamander 文件系统面板中显示详细的硬件信息、传感器读数和系统利用率。",
   "commands": {
-    "OpenSalamander.HardwareMonitor.open": "打开硬件监控器"
+    "HardwareMonitor.open": "打开硬件监控器"
   },
   "fileSystems": {
     "hardware-info": {

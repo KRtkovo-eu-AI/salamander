@@ -425,9 +425,26 @@ const ui = {
   fileProperties: (path) => hostCall("salamander.ui.fileProperties", {
     path: String(path),
   }),
-  viewer: (path, options = {}) => hostCall("salamander.ui.viewer.open", {
-    path: String(path), renderer: String(options.renderer || "auto"),
-  }).then((result) => result.opened === true),
+  viewer: (path, options = {}) => {
+    const opts = options && typeof options === "object" ? options : {};
+    const payload = {
+      path: String(path),
+      renderer: String(opts.renderer || "auto"),
+    };
+    if (opts.title != null && String(opts.title))
+      payload.title = String(opts.title);
+    if (opts.documentName != null && String(opts.documentName))
+      payload.documentName = String(opts.documentName);
+    const window = opts.window && typeof opts.window === "object" ? opts.window : opts;
+    for (const key of ["left", "top", "width", "height", "showCmd"]) {
+      if (window[key] != null && Number.isFinite(Number(window[key])))
+        payload[key] = Number(window[key]);
+    }
+    if (window.alwaysOnTop != null)
+      payload.alwaysOnTop = Boolean(window.alwaysOnTop);
+    return hostCall("salamander.ui.viewer.open", payload)
+      .then((result) => result.opened === true);
+  },
   uptime: () => hostCall("salamander.host.uptime")
     .then((result) => String(result.milliseconds)),
   inputBox: (prompt, initial = "", title = "Salamander") =>

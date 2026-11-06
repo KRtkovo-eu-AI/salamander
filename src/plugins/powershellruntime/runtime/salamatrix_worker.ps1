@@ -1,5 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Open Salamander Authors
+# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-06 | Accept title and window geometry for Viewer. | Keep Salamatrix runtime viewer options in parity. |  | Composer |
 
 [CmdletBinding()]
 param(
@@ -348,8 +351,42 @@ $ui | Add-Member ScriptMethod FileProperties {
     Invoke-Host -Method 'salamander.ui.fileProperties' -Arguments @{ path = $Path }
 }
 $ui | Add-Member ScriptMethod Viewer {
-    param([string]$Path, [string]$Renderer = 'auto')
-    (Invoke-Host -Method 'salamander.ui.viewer.open' -Arguments @{ path = $Path; renderer = $Renderer }).opened
+    param([string]$Path, $Options = 'auto')
+    $arguments = @{ path = $Path; renderer = 'auto' }
+    if ($Options -is [string]) {
+        $arguments.renderer = $Options
+    }
+    elseif ($Options -is [hashtable] -or $Options -is [pscustomobject]) {
+        $map = @{}
+        if ($Options -is [hashtable]) { $map = $Options }
+        else { $Options.PSObject.Properties | ForEach-Object { $map[$_.Name] = $_.Value } }
+        if ($map.ContainsKey('renderer') -and $null -ne $map.renderer) {
+            $arguments.renderer = [string]$map.renderer
+        }
+        if ($map.ContainsKey('title') -and ![string]::IsNullOrWhiteSpace([string]$map.title)) {
+            $arguments.title = [string]$map.title
+        }
+        if ($map.ContainsKey('documentName') -and ![string]::IsNullOrWhiteSpace([string]$map.documentName)) {
+            $arguments.documentName = [string]$map.documentName
+        }
+        $window = $map
+        if ($map.ContainsKey('window') -and $null -ne $map.window) {
+            if ($map.window -is [hashtable]) { $window = $map.window }
+            elseif ($map.window -is [pscustomobject]) {
+                $window = @{}
+                $map.window.PSObject.Properties | ForEach-Object { $window[$_.Name] = $_.Value }
+            }
+        }
+        foreach ($key in @('left', 'top', 'width', 'height', 'showCmd')) {
+            if ($window.ContainsKey($key) -and $null -ne $window[$key]) {
+                $arguments[$key] = [int]$window[$key]
+            }
+        }
+        if ($window.ContainsKey('alwaysOnTop') -and $null -ne $window.alwaysOnTop) {
+            $arguments.alwaysOnTop = [bool]$window.alwaysOnTop
+        }
+    }
+    (Invoke-Host -Method 'salamander.ui.viewer.open' -Arguments $arguments).opened
 }
 $ui | Add-Member ScriptMethod Uptime { [string](Invoke-Host -Method 'salamander.host.uptime' -Arguments @{}).milliseconds }
 $ui | Add-Member ScriptMethod InputBox {

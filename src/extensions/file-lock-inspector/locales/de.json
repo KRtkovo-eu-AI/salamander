@@ -1,7 +1,7 @@
 {
   "name": "Dateisperren-Inspektor",
   "commands": {
-    "OpenSalamander.FileLockInspector.inspect": "Dateisperren-Inspektor..."
+    "FileLockInspector.inspect": "Dateisperren-Inspektor..."
   },
   "strings": {
     "title": "Dateisperren-Inspektor",

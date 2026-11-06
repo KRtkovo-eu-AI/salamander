@@ -1,7 +1,7 @@
 {
   "name": "Extensiemenu-maker",
   "commands": {
-    "OpenSalamander.ExtensionMenuBuilder.open": "Extensiemenu-maker..."
+    "ExtensionMenuBuilder.open": "Extensiemenu-maker..."
   },
   "strings": {
     "title": "Extensiemenu-maker",
@@ -44,7 +44,7 @@
     "defaultExtensionName": "Mijn eigen menu",
     "fileMissing": "Het geselecteerde bestand bestaat niet: {0}",
     "requiredExtensionFields": "Vul de extensienaam, identificatie en uitvoermap in.",
-    "invalidExtensionId": "Gebruik een identificatie met punten, zoals OpenSalamander.MijnMenu.",
+    "invalidExtensionId": "Gebruik een identificatie met punten, zoals MijnMenu.",
     "atLeastOneCommand": "Voeg minstens één menu-item toe.",
     "invalidCommand": "Elk item heeft een titel en eenvoudige handlersleutel nodig.",
     "duplicateCommand": "De handlersleutel ‘{0}’ wordt meermaals gebruikt.",

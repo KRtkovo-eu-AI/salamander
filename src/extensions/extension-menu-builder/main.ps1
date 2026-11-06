@@ -1,14 +1,14 @@
 Set-StrictMode -Version 2.0
 
 function Initialize-BuilderDarkMode {
-    if ($null -ne ('OpenSalamander.ExtensionMenuBuilder.DarkMode' -as [type])) {
+    if ($null -ne ('ExtensionMenuBuilder.DarkMode' -as [type])) {
         return
     }
     Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
 
-namespace OpenSalamander.ExtensionMenuBuilder
+namespace ExtensionMenuBuilder
 {
     public static class DarkMode
     {
@@ -108,7 +108,7 @@ function Set-BuilderDarkMode {
     if (-not $script:UseWindowsDarkMode) { return }
 
     Initialize-BuilderDarkMode
-    [OpenSalamander.ExtensionMenuBuilder.DarkMode]::EnableApplication()
+    [ExtensionMenuBuilder.DarkMode]::EnableApplication()
     $background = [System.Drawing.Color]::FromArgb(32, 32, 32)
     $surface = [System.Drawing.Color]::FromArgb(45, 45, 48)
     $input = [System.Drawing.Color]::FromArgb(37, 37, 38)
@@ -141,7 +141,7 @@ function Set-BuilderDarkMode {
             $control.BackColor = $background
         }
         try {
-            [OpenSalamander.ExtensionMenuBuilder.DarkMode]::EnableWindow(
+            [ExtensionMenuBuilder.DarkMode]::EnableWindow(
                 $control.Handle)
             $theme = if (
                 $control -is [System.Windows.Forms.TextBox] -or
@@ -152,10 +152,10 @@ function Set-BuilderDarkMode {
                 $null
             }
             if ($null -ne $theme) {
-                [void][OpenSalamander.ExtensionMenuBuilder.DarkMode]::SetWindowTheme(
+                [void][ExtensionMenuBuilder.DarkMode]::SetWindowTheme(
                     $control.Handle, $theme, $null)
             }
-            [void][OpenSalamander.ExtensionMenuBuilder.DarkMode]::SendMessage(
+            [void][ExtensionMenuBuilder.DarkMode]::SendMessage(
                 $control.Handle, 0x031A, [IntPtr]::Zero, [IntPtr]::Zero)
         } catch {}
         foreach ($child in $control.Controls) { $stack.Push($child) }
@@ -163,10 +163,10 @@ function Set-BuilderDarkMode {
     $enable = 1
     try {
         $result =
-            [OpenSalamander.ExtensionMenuBuilder.DarkMode]::DwmSetWindowAttribute(
+            [ExtensionMenuBuilder.DarkMode]::DwmSetWindowAttribute(
                 $Form.Handle, 20, [ref]$enable, 4)
         if ($result -ne 0) {
-            [void][OpenSalamander.ExtensionMenuBuilder.DarkMode]::DwmSetWindowAttribute(
+            [void][ExtensionMenuBuilder.DarkMode]::DwmSetWindowAttribute(
                 $Form.Handle, 19, [ref]$enable, 4)
         }
     } catch {}
@@ -702,12 +702,12 @@ function Save-BuilderProject {
     }
     $actions = [pscustomobject][ordered]@{
         schema = 1
-        generatedBy = 'OpenSalamander.ExtensionMenuBuilder'
+        generatedBy = 'ExtensionMenuBuilder'
         commands = [object[]]$runtimeCommands.ToArray()
     }
     $project = [pscustomobject][ordered]@{
         schema = 1
-        generatedBy = 'OpenSalamander.ExtensionMenuBuilder'
+        generatedBy = 'ExtensionMenuBuilder'
         name = $Name
         id = $Id
         description = $Description
@@ -856,7 +856,7 @@ function Show-BuilderWindow {
     $idLabel.SetBounds(438, 27, 85, 22)
     $extensionGroup.Controls.Add($idLabel)
     $idBox = New-Object System.Windows.Forms.TextBox
-    $idBox.Text = 'OpenSalamander.CustomMenu'
+    $idBox.Text = 'CustomMenu'
     $idBox.SetBounds(528, 24, 495, 24)
     $idBox.Anchor = 'Top, Left, Right'
     $extensionGroup.Controls.Add($idBox)
@@ -1330,7 +1330,7 @@ if ($Salamander.command_handler -eq 'open') {
             $null -ne $dark -and [bool]$dark.Value
         if ($script:UseWindowsDarkMode) {
             Initialize-BuilderDarkMode
-            [OpenSalamander.ExtensionMenuBuilder.DarkMode]::EnableApplication()
+            [ExtensionMenuBuilder.DarkMode]::EnableApplication()
         }
         [System.Windows.Forms.Application]::EnableVisualStyles()
         $language = $Salamander.application.Language()

@@ -193,6 +193,33 @@
       "packageSha256": "e675b02cf8d4d68826b85d5669d60a6927e2205fd6fb446c56762f414f8a2519"
     },
     {
+      "id": "json-viewer-nodejs",
+      "packageType": "extension",
+      "name": {
+        "english": "JSON Viewer (nodeJS)"
+      },
+      "author": "Open Salamander Authors, Open Samandarin Authors",
+      "description": {
+        "english": "Lightweight WebView2 JSON viewer using the Firefox/Chrome JSON Viewer (pd4d10/json-viewer)."
+      },
+      "latestVersion": "1.2.5 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
+      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander-plugins/releases/download/plugin_5.0_json-viewer-nodejs_1.2.5_x64/plugin_5.0_json-viewer-nodejs_1.2.5_x64.7z",
+      "dependencies": [
+        "javascriptruntime"
+      ],
+      "icon": "https://samandarin.net/catalogs/img/plugin.png",
+      "security": {
+        "networkAccess": "no",
+        "externalProcesses": "no",
+        "scriptExecution": "yes",
+        "activeWebContent": "yes",
+        "elevation": "never"
+      },
+      "packageSha256": ""
+    },
+    {
       "id": "TabuleSprZel",
       "packageType": "extension",
       "name": {

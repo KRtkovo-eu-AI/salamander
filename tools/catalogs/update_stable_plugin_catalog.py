@@ -70,6 +70,13 @@ SECURITY_SCRIPT_LOCAL = {
     "activeWebContent": "no",
     "elevation": "never",
 }
+SECURITY_SCRIPT_WEB_LOCAL = {
+    "networkAccess": "no",
+    "externalProcesses": "no",
+    "scriptExecution": "yes",
+    "activeWebContent": "yes",
+    "elevation": "never",
+}
 SECURITY_SCRIPT_PROCESSES = {
     "networkAccess": "no",
     "externalProcesses": "yes",
@@ -152,6 +159,7 @@ PACKAGE_SECURITY: dict[str, dict[str, str]] = {
     "hardware-monitor": SECURITY_SCRIPT,
     "process-explorer": SECURITY_SCRIPT_PROCESSES,
     "event-viewer": SECURITY_SCRIPT_LOCAL,
+    "json-viewer-nodejs": SECURITY_SCRIPT_WEB_LOCAL,
     "salamatrixdemos": SECURITY_SCRIPT_LOCAL,
     "certview": SECURITY_LOCAL,
     "x-tc-proxy": {

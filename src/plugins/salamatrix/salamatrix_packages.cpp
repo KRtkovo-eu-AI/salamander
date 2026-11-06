@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-05 | Rasterize Salamatrix FS SVG icons at 16/32/48. | Thumbnail/Tiles views requested SALICONSIZE_48 but icons were forced to 16px. | | Composer |
+// | 2026-11-06 | Apply ViewFile placement and default JSON Viewer title on the host. | Title/size must work even when the worker drops ui.viewer options. |  | Composer |
+// | 2026-11-06 | Pass viewer title, placement, package icon, and GUI bridge. | JSON Viewer (nodeJS) needs correct chrome, size, and Find menus. |  | Composer |
 // | 2026-11-04 | Pick up extension installs that finish after startup. | The install helper copies files only after Samandarin exits, so a restart that overlaps that copy never saw the new package. | | Grok 4.7 |
 // | 2026-11-04 | Register updater installs and report a missing runtime. | New extension packages were not added on the next start, and activation failed without telling the user which runtime was missing. | | Grok 4.7 |
 
@@ -1041,6 +1043,23 @@ public:
             *lockOwner = FALSE;
         if (Owner == NULL || name == NULL)
             return FALSE;
+        // Remember Salamander's viewer rectangle on the host. ui.viewer.open
+        // reuses it when the script (or an older worker) does not echo geometry.
+        Owner->HasPendingViewerPlacement = width > 0 && height > 0;
+        Owner->PendingViewerLeft = left;
+        Owner->PendingViewerTop = top;
+        Owner->PendingViewerWidth = width;
+        Owner->PendingViewerHeight = height;
+        Owner->PendingViewerShowCmd = showCmd;
+        Owner->PendingViewerAlwaysOnTop = alwaysOnTop;
+        Owner->PendingViewerDocumentName.clear();
+        {
+            const char* slash = strrchr(name, '\\');
+            const char* slashFwd = strrchr(name, '/');
+            if (slashFwd != NULL && (slash == NULL || slashFwd > slash))
+                slash = slashFwd;
+            Owner->PendingViewerDocumentName = slash != NULL ? slash + 1 : name;
+        }
         std::string invocation =
             std::string("{\"role\":\"viewer\",\"path\":\"") +
             JsonEscape(name) + "\",\"window\":{" +
@@ -2539,7 +2558,15 @@ PackageManager::PackageManager()
       ExecutionsIdleEvent(CreateEvent(NULL, TRUE, TRUE, NULL)),
       ExtensionInstallTimer(0),
       ExtensionInstallTicks(0),
-      IntegratingExtensions(FALSE)
+      IntegratingExtensions(FALSE),
+      HasPendingViewerPlacement(false),
+      PendingViewerLeft(0),
+      PendingViewerTop(0),
+      PendingViewerWidth(0),
+      PendingViewerHeight(0),
+      PendingViewerShowCmd(SW_SHOWNORMAL),
+      PendingViewerAlwaysOnTop(FALSE),
+      PendingViewerDocumentName()
 {
     InitializeCriticalSection(&FileSystemActionThreadsLock);
 }
@@ -6268,9 +6295,24 @@ BOOL WINAPI PackageManager::HostDispatch(
     {
         std::string path;
         std::string renderer = "auto";
+        std::string title;
+        std::string documentName;
         if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "path", &path) || path.empty())
             return CopyResult("{\"ok\":false,\"error\":\"viewer path is required\"}", resultJson, resultCapacity, resultLength);
         Runtime::Protocol::Json::FindStringMember(payloadJson, "renderer", &renderer);
+        Runtime::Protocol::Json::FindStringMember(payloadJson, "title", &title);
+        Runtime::Protocol::Json::FindStringMember(payloadJson, "documentName", &documentName);
+        // Keep a stable window title even when an older worker drops `title`.
+        if (title.empty())
+        {
+            if (_stricmp(package->Id.c_str(), "JsonViewerNodeJS") == 0 ||
+                _stricmp(package->Id.c_str(), "OpenSalamander.JsonWebViewer") == 0)
+                title = "JSON Viewer";
+            else if (!package->Manifest.Name.empty())
+                title = package->Manifest.Name;
+        }
+        if (documentName.empty() && !owner->PendingViewerDocumentName.empty())
+            documentName = owner->PendingViewerDocumentName;
         std::wstring widePath;
         if (!ToWide(path, &widePath))
             return CopyResult("{\"ok\":false,\"error\":\"viewer path is not valid UTF-8\"}", resultJson, resultCapacity, resultLength);
@@ -6297,10 +6339,44 @@ BOOL WINAPI PackageManager::HostDispatch(
         RECT placement = {};
         HWND parent = owner->General->GetMainWindowHWND();
         GetWindowRect(parent, &placement);
-        placement.left += 48;
-        placement.top += 48;
-        placement.right = placement.left + (std::max)(placement.right - placement.left - 96L, 640L);
-        placement.bottom = placement.top + (std::max)(placement.bottom - placement.top - 96L, 480L);
+        int left = 0;
+        int top = 0;
+        int width = 0;
+        int height = 0;
+        const bool hasLeft = Runtime::Protocol::Json::FindIntegerMember(payloadJson, "left", &left) != FALSE;
+        const bool hasTop = Runtime::Protocol::Json::FindIntegerMember(payloadJson, "top", &top) != FALSE;
+        const bool hasWidth = Runtime::Protocol::Json::FindIntegerMember(payloadJson, "width", &width) != FALSE;
+        const bool hasHeight = Runtime::Protocol::Json::FindIntegerMember(payloadJson, "height", &height) != FALSE;
+        if (hasLeft && hasTop && hasWidth && hasHeight && width > 0 && height > 0)
+        {
+            placement.left = left;
+            placement.top = top;
+            placement.right = left + width;
+            placement.bottom = top + height;
+        }
+        else if (owner->HasPendingViewerPlacement &&
+                 owner->PendingViewerWidth > 0 && owner->PendingViewerHeight > 0)
+        {
+            placement.left = owner->PendingViewerLeft;
+            placement.top = owner->PendingViewerTop;
+            placement.right = owner->PendingViewerLeft + owner->PendingViewerWidth;
+            placement.bottom = owner->PendingViewerTop + owner->PendingViewerHeight;
+        }
+        // Consume the ViewFile rectangle/name after the first open attempt so a
+        // later unrelated viewer.open does not reuse a stale size or caption.
+        owner->HasPendingViewerPlacement = false;
+        owner->PendingViewerDocumentName.clear();
+        int showCmd = SW_SHOWNORMAL;
+        if (!Runtime::Protocol::Json::FindIntegerMember(payloadJson, "showCmd", &showCmd) ||
+            showCmd <= 0)
+        {
+            showCmd = owner->PendingViewerShowCmd > 0
+                          ? static_cast<int>(owner->PendingViewerShowCmd)
+                          : SW_SHOWNORMAL;
+        }
+        BOOL alwaysOnTop = FALSE;
+        if (!Runtime::Protocol::Json::FindBoolMember(payloadJson, "alwaysOnTop", &alwaysOnTop))
+            alwaysOnTop = owner->PendingViewerAlwaysOnTop;
         BOOL dark = FALSE;
         int configType = 0;
         owner->General->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE, &dark, sizeof(dark), &configType);
@@ -6309,8 +6385,17 @@ BOOL WINAPI PackageManager::HostDispatch(
             owner->General->GetCurrentColor(SALCOL_HOT_PANEL),
             owner->General->GetCurrentColor(SALCOL_VIEWER_FG_SELECTED),
             owner->General->GetCurrentColor(SALCOL_VIEWER_BK_SELECTED)};
+        std::wstring customTitle;
+        std::wstring customDocumentName;
+        if (!title.empty() && !ToWide(title, &customTitle))
+            return CopyResult("{\"ok\":false,\"error\":\"viewer title is not valid UTF-8\"}", resultJson, resultCapacity, resultLength);
+        if (!documentName.empty() && !ToWide(documentName, &customDocumentName))
+            return CopyResult("{\"ok\":false,\"error\":\"viewer documentName is not valid UTF-8\"}", resultJson, resultCapacity, resultLength);
+        const wchar_t* pluginName = customTitle.empty()
+            ? owner->General->LoadStrW(DLLInstance, IDS_VIEWER_NAME)
+            : customTitle.c_str();
         NativeViewerStrings strings = {
-            owner->General->LoadStrW(DLLInstance, IDS_VIEWER_NAME), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_FILE),
+            pluginName, owner->General->LoadStrW(DLLInstance, IDS_VIEWER_FILE),
             owner->General->LoadStrW(DLLInstance, IDS_VIEWER_VIEW), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_CLOSE),
             owner->General->LoadStrW(DLLInstance, IDS_VIEWER_REFRESH), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_ZOOM_IN),
             owner->General->LoadStrW(DLLInstance, IDS_VIEWER_ZOOM_OUT), owner->General->LoadStrW(DLLInstance, IDS_VIEWER_ZOOM_RESET),
@@ -6326,7 +6411,65 @@ BOOL WINAPI PackageManager::HostDispatch(
         strings.findNext = owner->General->LoadStrW(DLLInstance, IDS_VIEWER_FIND_NEXT);
         strings.findPrevious = owner->General->LoadStrW(DLLInstance, IDS_VIEWER_FIND_PREVIOUS);
         strings.goToLine = owner->General->LoadStrW(DLLInstance, IDS_VIEWER_GOTO_LINE);
-        NativeViewerRequest request = {DLLInstance, parent, widePath.c_str(), placement, SW_SHOWNORMAL, false, NULL, kind, theme, strings};
+
+        LOGFONT menuFont = {};
+        if (!owner->General->GetConfigParameter(SALCFG_MENUFONT, &menuFont, sizeof(menuFont), nullptr))
+            GetObjectW(GetStockObject(DEFAULT_GUI_FONT), sizeof(menuFont), &menuFont);
+        LOGFONT viewerFont = {};
+        if (!owner->General->GetConfigParameter(SALCFG_VIEWERFONT, &viewerFont, sizeof(viewerFont), nullptr))
+        {
+            viewerFont.lfHeight = -13;
+            viewerFont.lfWeight = FW_NORMAL;
+            strcpy_s(viewerFont.lfFaceName, "Consolas");
+        }
+
+        HICON icon = NULL;
+        HICON iconSmall = NULL;
+        bool destroyIcons = false;
+        if (SalamanderGUI != NULL)
+        {
+            const bool useDarkIcon =
+                DarkModeIsWindowsDarkSchemeSelected() &&
+                !package->IconDarkPath.empty();
+            const char* preferredPath =
+                useDarkIcon ? package->IconDarkPath.c_str()
+                            : package->IconPath.c_str();
+            if (preferredPath != NULL && preferredPath[0] != '\0')
+            {
+                icon = SalamanderGUI->CreateSVGIcon(preferredPath, 32);
+                iconSmall = SalamanderGUI->CreateSVGIcon(preferredPath, 16);
+                if ((icon == NULL || iconSmall == NULL) && useDarkIcon &&
+                    !package->IconPath.empty())
+                {
+                    if (icon == NULL)
+                        icon = SalamanderGUI->CreateSVGIcon(package->IconPath.c_str(), 32);
+                    if (iconSmall == NULL)
+                        iconSmall = SalamanderGUI->CreateSVGIcon(package->IconPath.c_str(), 16);
+                }
+                destroyIcons = icon != NULL || iconSmall != NULL;
+            }
+        }
+
+        NativeViewerRequest request = {};
+        request.module = DLLInstance;
+        request.owner = parent;
+        request.filePath = widePath.c_str();
+        request.placement = placement;
+        request.showCommand = static_cast<UINT>(showCmd);
+        request.alwaysOnTop = alwaysOnTop != FALSE;
+        request.closeEvent = NULL;
+        request.kind = kind;
+        request.theme = theme;
+        request.strings = strings;
+        request.menuFont = menuFont;
+        request.gui = SalamanderGUI;
+        request.viewerFont = viewerFont;
+        request.general = owner->General;
+        request.icon = icon;
+        request.iconSmall = iconSmall;
+        request.destroyIcons = destroyIcons;
+        request.documentName = customDocumentName.empty() ? NULL : customDocumentName.c_str();
+        // NativeViewer_Show takes ownership of destroyIcons handles, including on failure.
         const bool opened = NativeViewer_Show(request);
         return CopyResult(std::string("{\"ok\":true,\"opened\":") + (opened ? "true}" : "false}"),
                           resultJson, resultCapacity, resultLength);

@@ -1,5 +1,8 @@
 -- SPDX-FileCopyrightText: 2026 Open Salamander Authors
+-- SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 -- SPDX-License-Identifier: GPL-2.0-or-later
+-- | Date | Summary | Reason | Ticket | Model |
+-- | 2026-11-06 | Accept title and window geometry for ui.viewer. | Keep Salamatrix runtime viewer options in parity. |  | Composer |
 
 local MAX_FRAME_BYTES = 1024 * 1024
 local json_null = {}
@@ -571,9 +574,25 @@ function ui.file_properties(path)
     })
 end
 function ui.viewer(path, renderer)
-    return host_call("salamander.ui.viewer.open", {
-        path = tostring(path), renderer = renderer or "auto"
-    }).opened
+    local payload = { path = tostring(path), renderer = "auto" }
+    local options = type(renderer) == "table" and renderer or { renderer = renderer }
+    payload.renderer = tostring(options.renderer or "auto")
+    if options.title ~= nil and tostring(options.title) ~= "" then
+        payload.title = tostring(options.title)
+    end
+    if options.documentName ~= nil and tostring(options.documentName) ~= "" then
+        payload.documentName = tostring(options.documentName)
+    end
+    local window = type(options.window) == "table" and options.window or options
+    for _, key in ipairs({ "left", "top", "width", "height", "showCmd" }) do
+        if window[key] ~= nil then
+            payload[key] = tonumber(window[key])
+        end
+    end
+    if window.alwaysOnTop ~= nil then
+        payload.alwaysOnTop = not not window.alwaysOnTop
+    end
+    return host_call("salamander.ui.viewer.open", payload).opened
 end
 function ui.uptime() return tostring(host_call("salamander.host.uptime", {}).milliseconds) end
 function ui.input_box(prompt, title, initial)

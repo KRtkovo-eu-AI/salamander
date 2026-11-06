@@ -1,7 +1,7 @@
 {
   "name": "Inspecteur de verrouillage de fichiers",
   "commands": {
-    "OpenSalamander.FileLockInspector.inspect": "Inspecteur de verrouillage de fichiers..."
+    "FileLockInspector.inspect": "Inspecteur de verrouillage de fichiers..."
   },
   "strings": {
     "title": "Inspecteur de verrouillage de fichiers",

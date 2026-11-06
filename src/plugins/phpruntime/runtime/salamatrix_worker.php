@@ -1,6 +1,9 @@
 <?php
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-06 | Accept title and window geometry for viewer(). | Keep Salamatrix runtime viewer options in parity. |  | Composer |
 
 const SALAMATRIX_MAX_FRAME_BYTES = 1048576;
 
@@ -117,7 +120,20 @@ class SalamatrixUi {
     public function notify($message, $title = 'Salamander', $timeoutMs = 5000) { $r = $this->client->call('salamander.ui.notify', array('message' => $message, 'title' => $title, 'timeoutMs' => max(0, (int)$timeoutMs))); return !empty($r['shown']); }
     public function controls() { $r = $this->client->call('salamander.ui.controls', array()); return !empty($r['shown']); }
     public function fileProperties($path) { return $this->client->call('salamander.ui.fileProperties', array('path' => (string)$path)); }
-    public function viewer($path, $renderer = 'auto') { $r = $this->client->call('salamander.ui.viewer.open', array('path' => (string)$path, 'renderer' => (string)$renderer)); return !empty($r['opened']); }
+    public function viewer($path, $renderer = 'auto') {
+        $payload = array('path' => (string)$path, 'renderer' => 'auto');
+        $options = is_array($renderer) ? $renderer : array('renderer' => $renderer);
+        if (isset($options['renderer'])) $payload['renderer'] = (string)$options['renderer'];
+        if (!empty($options['title'])) $payload['title'] = (string)$options['title'];
+        if (!empty($options['documentName'])) $payload['documentName'] = (string)$options['documentName'];
+        $window = (isset($options['window']) && is_array($options['window'])) ? $options['window'] : $options;
+        foreach (array('left', 'top', 'width', 'height', 'showCmd') as $key) {
+            if (isset($window[$key]) && is_numeric($window[$key])) $payload[$key] = (int)$window[$key];
+        }
+        if (array_key_exists('alwaysOnTop', $window)) $payload['alwaysOnTop'] = (bool)$window['alwaysOnTop'];
+        $r = $this->client->call('salamander.ui.viewer.open', $payload);
+        return !empty($r['opened']);
+    }
     public function uptime() { $r = $this->client->call('salamander.host.uptime', array()); return (string)$r['milliseconds']; }
     public function inputBox($prompt, $title = 'Salamander', $initial = '') { return $this->client->call('salamander.ui.inputBox', array('prompt' => $prompt, 'title' => $title, 'initial' => $initial)); }
     public function pickFile($save = false, $title = '', $filter = '', $initial = '') { return $this->client->call('salamander.ui.pickFile', array('save' => (bool)$save, 'title' => $title, 'filter' => $filter, 'initial' => $initial)); }

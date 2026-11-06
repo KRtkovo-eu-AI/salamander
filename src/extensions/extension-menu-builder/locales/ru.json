@@ -1,7 +1,7 @@
 {
   "name": "Конструктор меню расширений",
   "commands": {
-    "OpenSalamander.ExtensionMenuBuilder.open": "Конструктор меню расширений..."
+    "ExtensionMenuBuilder.open": "Конструктор меню расширений..."
   },
   "strings": {
     "title": "Конструктор меню расширений",
@@ -44,7 +44,7 @@
     "defaultExtensionName": "Моё пользовательское меню",
     "fileMissing": "Выбранный файл не существует: {0}",
     "requiredExtensionFields": "Введите название, идентификатор и выходную папку.",
-    "invalidExtensionId": "Используйте идентификатор с точками, например OpenSalamander.MyMenu.",
+    "invalidExtensionId": "Используйте идентификатор с точками, например MyMenu.",
     "atLeastOneCommand": "Добавьте хотя бы один пункт меню.",
     "invalidCommand": "Каждому пункту нужны название и простой ключ обработчика.",
     "duplicateCommand": "Ключ обработчика «{0}» используется несколько раз.",

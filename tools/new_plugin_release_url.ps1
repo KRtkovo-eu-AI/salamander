@@ -178,6 +178,8 @@ function Get-KnownPluginDescriptions {
         'hypervm' = 'Show local Hyper-V virtual machines in the panel'
         'ieviewer' = 'Internet Explorer Viewer for Open Salamander'
         'jsonviewer' = 'JSON Viewer .NET plugin for Open Salamander'
+        'json-viewer-nodejs' = 'Salamatrix JSON Viewer (nodeJS) extension using WebView2 and pd4d10/json-viewer'
+        'jsonwebviewer' = 'Salamatrix JSON Viewer (nodeJS) extension using WebView2 and pd4d10/json-viewer'
         'mmviewer' = 'Multimedia Viewer for Open Salamander'
         'nethood' = 'Network plugin for Open Salamander'
         'pak' = 'Quake PAK archiver for Open Salamander'

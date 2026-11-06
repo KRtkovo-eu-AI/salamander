@@ -1,0 +1,40 @@
+{
+  "schema": 2,
+  "id": "JsonViewerNodeJS",
+  "name": "JSON Viewer (nodeJS)",
+  "version": "1.2.5",
+  "description": "Lightweight alternative to JSON Viewer .NET. Renders JSON files in WebView2 with the Firefox/Chrome JSON Viewer (pd4d10/json-viewer).",
+  "runtime": "JavaScript.Node",
+  "entryPoint": "main.mjs",
+  "web": "https://samandarin.net/",
+  "security": {
+    "networkAccess": "no",
+    "externalProcesses": "no",
+    "scriptExecution": "yes",
+    "activeWebContent": "yes",
+    "elevation": "never"
+  },
+  "icon": "icon.svg",
+  "iconDark": "icon-dark.svg",
+  "capabilities": ["ui.dialogs"],
+  "events": [],
+  "locales": {
+    "en": "locales/en.json",
+    "cs": "locales/cs.json",
+    "de": "locales/de.json",
+    "es": "locales/es.json",
+    "fr": "locales/fr.json",
+    "hu": "locales/hu.json",
+    "it": "locales/it.json",
+    "nl": "locales/nl.json",
+    "ro": "locales/ro.json",
+    "ru": "locales/ru.json",
+    "sk": "locales/sk.json",
+    "zh-CN": "locales/zh-CN.json"
+  },
+  "viewers": [{
+    "name": "JSON Viewer (nodeJS)",
+    "patterns": ["*.json"],
+    "handler": "viewJson"
+  }]
+}

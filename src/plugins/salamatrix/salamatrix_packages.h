@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-06 | Remember ViewFile placement for ui.viewer.open. | JSON Viewer chrome must not depend on the script round-tripping geometry. |  | Composer |
 // | 2026-11-04 | Pick up extension installs that finish after startup. | The install helper copies files only after Samandarin exits, so a restart that overlaps that copy never saw the new package. | | Grok 4.7 |
 // | 2026-11-04 | Accept extension installs recorded in extensions.ver. | A package copied into the extensions directory stayed removed or undiscovered until its manifest was added by hand. | | Grok 4.7 |
 
@@ -72,6 +73,17 @@ private:
     BOOL IntegratingExtensions;
     CRITICAL_SECTION FileSystemActionThreadsLock;
     std::vector<HANDLE> FileSystemActionThreads;
+    // Placement supplied by Salamander's ViewFile call. Applied by the next
+    // salamander.ui.viewer.open from that viewer session when the script omits
+    // (or an older worker strips) left/top/width/height.
+    bool HasPendingViewerPlacement;
+    int PendingViewerLeft;
+    int PendingViewerTop;
+    int PendingViewerWidth;
+    int PendingViewerHeight;
+    UINT PendingViewerShowCmd;
+    BOOL PendingViewerAlwaysOnTop;
+    std::string PendingViewerDocumentName;
 
     PackageManager(const PackageManager&);
     PackageManager& operator=(const PackageManager&);

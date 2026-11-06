@@ -1,7 +1,7 @@
 {
   "name": "Creator de meniuri pentru extensii",
   "commands": {
-    "OpenSalamander.ExtensionMenuBuilder.open": "Creator de meniuri pentru extensii..."
+    "ExtensionMenuBuilder.open": "Creator de meniuri pentru extensii..."
   },
   "strings": {
     "title": "Creator de meniuri pentru extensii",
@@ -44,7 +44,7 @@
     "defaultExtensionName": "Meniul meu personalizat",
     "fileMissing": "Fișierul selectat nu există: {0}",
     "requiredExtensionFields": "Introduceți numele, identificatorul și dosarul de ieșire.",
-    "invalidExtensionId": "Folosiți un identificator cu puncte, precum OpenSalamander.MeniulMeu.",
+    "invalidExtensionId": "Folosiți un identificator cu puncte, precum MeniulMeu.",
     "atLeastOneCommand": "Adăugați cel puțin un element de meniu.",
     "invalidCommand": "Fiecare element necesită titlu și o cheie handler simplă.",
     "duplicateCommand": "Cheia handler „{0}” este folosită de mai multe ori.",

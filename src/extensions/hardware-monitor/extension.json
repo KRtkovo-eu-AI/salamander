@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "id": "OpenSalamander.HardwareMonitor",
+  "id": "HardwareMonitor",
   "name": "Hardware Monitor",
   "version": "1.0.0",
   "description": "Displays detailed hardware information, sensor readings, and system utilization in a Salamander file-system panel, similar to AIDA64.",
@@ -19,9 +19,9 @@
   "capabilities": ["file-system", "panels.write", "ui.dialogs", "process.write"],
   "events": [],
   "commands": [{
-    "id": "OpenSalamander.HardwareMonitor.open",
+    "id": "HardwareMonitor.open",
     "title": "Open Hardware Monitor",
-    "path": "salamatrix:OpenSalamander.HardwareMonitor!hardware-info",
+    "path": "salamatrix:HardwareMonitor!hardware-info",
     "menu": "none",
     "toolbar": true,
     "icon": "icon.svg",

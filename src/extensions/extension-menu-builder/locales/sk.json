@@ -1,7 +1,7 @@
 {
   "name": "Tvorca menu extensions",
   "commands": {
-    "OpenSalamander.ExtensionMenuBuilder.open": "Tvorca menu extensions..."
+    "ExtensionMenuBuilder.open": "Tvorca menu extensions..."
   },
   "strings": {
     "title": "Tvorca menu extensions",
@@ -44,7 +44,7 @@
     "defaultExtensionName": "Moje vlastné menu",
     "fileMissing": "Vybraný súbor neexistuje: {0}",
     "requiredExtensionFields": "Zadajte názov, identifikátor a výstupný priečinok extension.",
-    "invalidExtensionId": "Použite bodkovaný identifikátor, napríklad OpenSalamander.MojeMenu.",
+    "invalidExtensionId": "Použite bodkovaný identifikátor, napríklad MojeMenu.",
     "atLeastOneCommand": "Pridajte aspoň jednu položku menu.",
     "invalidCommand": "Každá položka musí mať názov a jednoduchý kľúč handlera.",
     "duplicateCommand": "Kľúč handlera „{0}“ je použitý viackrát.",

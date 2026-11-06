@@ -2,7 +2,7 @@
   "name": "Moniteur matériel",
   "description": "Affiche des informations détaillées sur le matériel, des lectures de capteurs et l'utilisation du système dans un panneau du système de fichiers Salamander.",
   "commands": {
-    "OpenSalamander.HardwareMonitor.open": "Ouvrir le moniteur matériel"
+    "HardwareMonitor.open": "Ouvrir le moniteur matériel"
   },
   "fileSystems": {
     "hardware-info": {

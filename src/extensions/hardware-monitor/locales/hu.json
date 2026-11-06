@@ -2,7 +2,7 @@
   "name": "Hardverfigyelő",
   "description": "Részletes hardverinformációkat, szenzorértékeket és rendszerkihasználtságot jelenít meg egy Salamander fájlrendszer panelen.",
   "commands": {
-    "OpenSalamander.HardwareMonitor.open": "Hardverfigyelő megnyitása"
+    "HardwareMonitor.open": "Hardverfigyelő megnyitása"
   },
   "fileSystems": {
     "hardware-info": {

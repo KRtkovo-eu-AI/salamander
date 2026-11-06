@@ -1,9 +1,9 @@
 {
   "name": "Navigátor Git worktree",
   "commands": {
-    "OpenSalamander.GitWorktreeNavigator.open": "Navigátor Git worktree...",
-    "OpenSalamander.GitWorktreeNavigator.commit": "Git commit...",
-    "OpenSalamander.GitWorktreeNavigator.createLocalRepository": "Git – vytvoriť lokálny repozitár"
+    "GitWorktreeNavigator.open": "Navigátor Git worktree...",
+    "GitWorktreeNavigator.commit": "Git commit...",
+    "GitWorktreeNavigator.createLocalRepository": "Git – vytvoriť lokálny repozitár"
   },
   "strings": {
     "title": "Navigátor Git worktree",

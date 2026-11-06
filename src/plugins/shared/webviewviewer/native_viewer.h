@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-06 | Allow custom window icons on NativeViewerRequest. | Salamatrix viewers need package SVG icons in the title bar. |  | Composer |
 
 #pragma once
 
@@ -96,6 +99,13 @@ struct NativeViewerRequest
     CSalamanderGeneralAbstract* general;
     const wchar_t* searchPhrase;
     DWORD searchFlags;
+    // Optional window icons. When destroyIcons is true, NativeViewer owns them
+    // and destroys them after the viewer window is torn down.
+    HICON icon;
+    HICON iconSmall;
+    bool destroyIcons;
+    // Optional document label for the title bar (overrides the file name stem).
+    const wchar_t* documentName;
 };
 
 // Disabled by default. Safe before initialization; never starts the viewer host.
