@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-06 | Check deferred plug-in references through refusal and reload. | The production vector owns one LoadLibrary reference per successful deferred unload. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 # | 2026-11-06 | Expect short Salamatrix extension/command IDs. | Packages dropped the OpenSalamander. prefix; old IDs failed CI. | | Composer |
 # | 2026-11-05 | Require Salamatrix FS SVG icons at 16/32/48. | Thumbnail view asked for 48px icons but SVG items stayed at 16px. | | Composer |
 # | 2026-11-04 | Require PR test reports to stay on the job summary. | Separate check runs were attached to the Source Code Growth workflow. | | Grok 4.7 |
@@ -34,6 +35,12 @@ def require(text: str, pattern: str, message: str) -> None:
 def require_absent(text: str, pattern: str, message: str) -> None:
     if re.search(pattern, text, re.MULTILINE | re.DOTALL):
         raise AssertionError(message)
+
+
+def cpp_function(text: str, signature: str) -> str:
+    # Top-level definitions close at column zero; nested scopes are indented.
+    start = text.index(signature)
+    return text[start:text.index("\n}", start) + 2]
 
 
 def main() -> int:
@@ -1829,19 +1836,50 @@ def main() -> int:
         r'CPlugins::UnloadAll\(.*?ReportShutdownProgress\(\s*'
         r'ssdpUnloadingPlugins, Data\[i\]->Name',
         "plug-in unload progress does not identify each loaded plug-in")
+    unload_all = cpp_function(plugins2, "BOOL CPlugins::UnloadAll(")
+    unload = cpp_function(plugins1, "BOOL CPluginData::Unload(HWND parent, BOOL ask, BOOL freeLibrary)")
+    free_deferred = cpp_function(plugins1, "void CPluginData::FreeDeferredModule(")
     require(
-        plugins2,
-        r'CPlugins::UnloadAll\(.*?Unload\(parent, FALSE, FALSE\).*?'
-        r'FreeDeferredModule\(\)',
+        unload_all,
+        r'Unload\(parent, FALSE, FALSE\).*?FreeDeferredModule\(\)',
         "exit still unmaps a plug-in DLL before every plug-in Release returns")
     require(
-        plugins1,
-        r'BOOL CPluginData::Unload\(HWND parent, BOOL ask, BOOL freeLibrary\).*?'
+        unload_all,
+        r'if \(!Data\[i\]->Unload\(parent, FALSE, FALSE\)\)\s*ret = FALSE;.*?'
+        r'if \(ret\)\s*for \(i = Data.Count - 1; i >= 0; i--\)\s*'
+        r'Data\[i\]->FreeDeferredModule\(\);',
+        "a refused plug-in Release must retain all deferred provider references until a successful retry")
+    require(
+        plugins_header,
+        r'std::vector<HINSTANCE>\s+DeferredModules;',
+        "deferred ownership must retain every LoadLibrary reference, including identical module handles")
+    require(
+        unload,
+        r'DeferredModules.reserve\(DeferredModules.size\(\) \+ 1\);.*?'
+        r'PrepareNativeProcessExit\(TRUE\).*?PluginIface.Release\(.*?'
+        r'if \(ret\).*?SalamanderGeneral.Clear\(\);.*?'
         r'if \(freeMappedModule && !freeLibrary\)\s*'
-        r'DeferredModule = DLL;.*?'
-        r'void CPluginData::FreeDeferredModule\(\).*?'
-        r'HANDLES\(FreeLibrary\(module\)\)',
-        "deferred plug-in unload does not keep the DLL mapped through Release")
+        r'DeferredModules.push_back\(DLL\);.*?'
+        r'else if \(freeMappedModule\)\s*HANDLES\(FreeLibrary\(DLL\)\);\s*DLL = NULL;',
+        "deferred plug-in unload must reserve before callbacks and transfer the released DLL reference before clearing it")
+    require(
+        unload,
+        r'try\s*\{\s*DeferredModules.reserve\(DeferredModules.size\(\) \+ 1\);\s*\}'
+        r'\s*catch \(\.\.\.\)\s*\{\s*TRACE_E\(LOW_MEMORY\);\s*'
+        r'ThumbnailMasksDisabled = FALSE;\s*return FALSE;',
+        "deferred ownership allocation failure must refuse unload before native finalization or Release")
+    require_absent(
+        unload,
+        r'DeferredModules\.(?:clear|erase|pop_back)\s*\(|FreeDeferredModule\s*\(|'
+        r'\bDeferredModules\s*=|\bDeferredModule\s*=',
+        "an unload/reload must preserve all previously deferred module references")
+    require(
+        free_deferred,
+        r'while \(!DeferredModules.empty\(\)\)\s*\{\s*'
+        r'HINSTANCE module = DeferredModules.back\(\);\s*'
+        r'DeferredModules.pop_back\(\);[^\n]*\n\s*'
+        r'HANDLES\(FreeLibrary\(module\)\);\s*\}',
+        "deferred cleanup must remove and free each exact owned reference once, including reentrant cleanup")
     require(
         packages,
         r'void PackageManager::DiscoverMissingPackages\(.*?'

@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-06 | Extract the production prepared association cache and dependencies. | IsAssociated now calls the cache helper; native checks must execute its real body. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 # | 2026-11-04 | Stop a timed-out association-cache compiler and its children. | A compiler left running after the timeout starved the following contract tests. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 
 """Compile and exercise production association-cache logic without the GUI.
@@ -108,13 +109,27 @@ def main() -> int:
         "static CAssociationsPixelIconSet* FindAssociationPixelSet(",
         "int CAssociations::GetPixelIconIndex(",
         "BOOL CAssociations::SetPixelIconIndex(",
+        "BOOL CAssociations::QueryShellAssociationCached(",
+        "void CAssociations::PrepareShellAssociation(",
         "BOOL CAssociations::IsAssociated(char* ext,",
     ))
+    # Keep the cache's result type, epoch, storage and default argument exactly
+    # aligned with production instead of replacing the newly added helper.
+    shell_start = header.index("    struct CShellAssociationResult")
+    shell_end = header.index(";", header.index("    BOOL QueryShellAssociationCached(", shell_start)) + 1
+    prepare_declaration = re.search(r"    void PrepareShellAssociation\([^;\n]+;", header)
+    if prepare_declaration is None:
+        raise RuntimeError("production shell preparation declaration is missing")
+    release = function(cache, "void CAssociations::Release()")
+    invalidation = release[release.index("{") + 1:release.index("    int i;")]
     handler = panel[panel.index("    case WM_USER_REFRESHINDEX:"):
                     panel.index("    case WM_USER_DROPCOPYMOVE:")]
     template = (ROOT / "tests/association_icon_cache_tests.cpp.in").read_text(encoding="utf-8")
     for key, value in {
         "ASSOCIATION_DATA": header[data_start:data_end],
+        "SHELL_ASSOCIATION_MEMBERS": header[shell_start:shell_end],
+        "SHELL_ASSOCIATION_PREPARE_DECLARATION": prepare_declaration.group(0),
+        "SHELL_ASSOCIATION_INVALIDATION": invalidation,
         "CACHE_METHODS": methods,
         "INSERT_DATA": function(cache, "void CAssociations::InsertData("),
         "REFRESH_HANDLER": handler,
