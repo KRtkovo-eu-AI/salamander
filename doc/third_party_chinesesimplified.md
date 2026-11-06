@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-06 | Credit pd4d10/json-viewer for JSON Web Viewer. | Salamatrix WebView2 JSON 扩展提供该渲染器。 |  | Composer |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 -->
 # 第三方软件声明
@@ -54,6 +55,7 @@
 | libexif | PictView 插件 | PictView 插件的部分内容使用 libexif。Copyright (C) 2001-2019 Curtis Galloway 和 Lutz Muller. |
 | Newtonsoft.Json 13.0.3 | JSON Viewer 插件 | 由 James Newton-King 提供，在 MIT 许可证下发布。 |
 | Microsoft .NET Framework 4.8 | JSON Viewer 插件 | 由 Microsoft Corporation 根据 Microsoft .NET Framework 许可条款提供。 |
+| pd4d10/json-viewer 2.2.0 | JSON Viewer (nodeJS) Salamatrix 扩展 | Rongjian Zhang 为 Chromium 移植的 Firefox JSON Viewer（[pd4d10/json-viewer](https://github.com/pd4d10/json-viewer)）。封装采用 MIT 许可证；附带 UI 包含 Mozilla DevTools JSON Viewer 代码（MPL-2.0）和 React（MIT）。以 `src/extensions/json-viewer-nodejs/vendor/pd4d10-json-viewer/` 形式提供（来自 Chrome 网上应用店软件包的 `content-script.js`）。 |
 | Prism.js 1.29.0 | Viewer Frame（Salamatrix 和 Prism Text Viewer） | 由 Lea Verou 和 PrismJS 贡献者提供，在 MIT 许可证下发布。 |
 | Microsoft.Web.WebView2 1.0.2420.47 | Viewer Frame | 由 Microsoft Corporation 提供，在 BSD 3-Clause 许可证下分发。 |
 | Markdig 0.36.2 | 用于 WebView2 Render Viewer 的 MarkdigRenderer | 由 Alexandre Mutel 和贡献者提供，在 BSD 2-Clause 许可证下发布。 |

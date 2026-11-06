@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-06 | Credit pd4d10/json-viewer for JSON Web Viewer. | Die Salamatrix-WebView2-JSON-Erweiterung liefert diesen Renderer. |  | Composer |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 -->
 # Hinweise zu Software Dritter
@@ -57,6 +58,7 @@ alle hier Genannten für die Bereitstellung ihrer Arbeit.
 | libexif | PictView-Plugin | Teile des PictView-Plugins verwenden libexif. Copyright (C) 2001-2019 Curtis Galloway und Lutz Muller. |
 | Newtonsoft.Json 13.0.3 | JSON Viewer Plugin | Von James Newton-King, veröffentlicht unter der MIT-Lizenz. |
 | Microsoft .NET Framework 4.8 | JSON Viewer Plugin | Bereitgestellt von Microsoft Corporation unter den Lizenzbedingungen des Microsoft .NET Framework. |
+| pd4d10/json-viewer 2.2.0 | JSON Viewer (nodeJS) Salamatrix-Erweiterung | Port des Firefox-JSON-Viewers für Chromium von Rongjian Zhang ([pd4d10/json-viewer](https://github.com/pd4d10/json-viewer)). MIT-Lizenz für den Wrapper; die mitgelieferte UI enthält Mozilla-DevTools-JSON-Viewer-Code unter MPL-2.0 und React unter MIT. Mitgeliefert als `src/extensions/json-viewer-nodejs/vendor/pd4d10-json-viewer/` (`content-script.js` aus dem Chrome-Web-Store-Paket). |
 | Prism.js 1.29.0 | Viewer Frame (Salamatrix und Prism Text Viewer) | Von Lea Verou und den PrismJS-Mitwirkenden, veröffentlicht unter der MIT-Lizenz. |
 | Microsoft.Web.WebView2 1.0.2420.47 | Viewer Frame | Von Microsoft Corporation, vertrieben unter der BSD 3-Clause-Lizenz. |
 | Markdig 0.36.2 | MarkdigRenderer für WebView2 Render Viewer | Von Alexandre Mutel und Mitwirkenden, veröffentlicht unter der BSD 2-Clause-Lizenz. |
