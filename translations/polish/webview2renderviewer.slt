@@ -1,0 +1,41 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,196"
+
+[TRANSLATION]
+LANGID,1045
+AUTHOR,"Open Samandarin"
+WEB,"www.altap.cz"
+COMMENT,"polish translation stub (English seed)"
+
+[STRINGTABLE 0]
+46,1,"Przeglądarka renderowania WebView2"
+47,1,"O wtyczce"
+
+[STRINGTABLE 1]
+48,1,"Przeglądarka wyświetlająca wyrenderowane dokumenty HTML, Markdown i internetowe za pomocą WebView2."
+49,1,"https://samandarin.net/"
+50,1,"Nie można przygotować zdarzenia synchronizacji wymaganego przez przeglądarkę."
+51,1,"Wybrany plik jest zbyt duży, aby go otworzyć. Pliki większe niż 32 MB nie są obsługiwane."
+52,1,"&Plik"
+53,1,"&Widok"
+54,1,"&Zamknij\tEsc"
+55,1,"&Odśwież\tF5"
+56,1,"Po&większ\tCtrl++"
+57,1,"Po&mniejsz\tCtrl+-"
+58,1,"&Resetuj\tCtrl+0"
+59,1,"Ładowanie..."
+60,1,"Gotowe"
+61,1,"Nie można zainicjować renderera WebView2."
+62,1,"Nie można otworzyć wybranego pliku."
+63,1,"Pokaż &numery wierszy"
+
+[STRINGTABLE 2]
+64,1,"&Zawijaj wiersze\tF2"
+65,1,"Pokaż &białe znaki"
+66,1,"&Edycja"
+67,1,"&Kopiuj\tCtrl+C"
+68,1,"Zaznacz w&szystko\tCtrl+A"
+69,1,"&Drukuj...\tCtrl+P"
+

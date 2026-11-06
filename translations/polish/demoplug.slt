@@ -1,0 +1,146 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\demoplug\demoplug.atp"
+TEXTVERSION,"2.0 (x64)"
+VERSION,"2,0,0,196"
+
+[TRANSLATION]
+LANGID,1045
+AUTHOR,"Open Samandarin"
+WEB,"www.altap.cz"
+COMMENT,"polish translation stub (English seed)"
+
+[DIALOG 490]
+205,61,1,"Przeglądarka"
+3000,4,6,199,41,1,"Położenie okna"
+491,11,17,75,12,1,"&Zapisz przy zamknięciu"
+492,11,29,184,12,1,"Us&taw na pozycję okna Salamandera"
+
+[DIALOG 500]
+205,84,1,"Pierwsza strona"
+3000,7,10,52,8,1,"Ciąg testowy:"
+501,53,8,144,12,1,""
+3001,7,25,55,8,1,"Liczba testowa:"
+502,53,23,54,12,1,""
+3002,112,25,86,8,1,"musi być mniejsza niż 10"
+3003,57,53,143,1,1,""
+3004,5,49,81,8,1,"Oto pole kombi"
+3005,15,62,74,8,1,"Testowe pole kombi:"
+503,61,60,113,50,1,""
+
+[DIALOG 510]
+205,61,1,"Druga strona"
+511,5,5,70,12,1,"Pole wyboru"
+512,5,20,60,12,1,"Opcja 1"
+513,5,32,60,12,1,"Opcja 2"
+514,5,44,60,12,1,"Opcja 3"
+
+[DIALOG 520]
+205,68,1,"Połącz ścieżkę"
+3000,7,10,64,8,1,"&Połącz ścieżkę:"
+521,7,20,191,80,1,""
+1,48,45,50,14,1,"OK"
+2,107,45,50,14,1,"Anuluj"
+
+[DIALOG 530]
+205,79,1,"Wprowadź ścieżkę dysku"
+3000,7,10,40,8,1,"Ścieżka:"
+531,53,8,144,12,1,""
+532,9,31,171,12,1,"Ścieżka do pliku (wył. = ścieżka do katalogu)"
+1,18,55,50,14,1,"OK"
+2,77,55,50,14,1,"Anuluj"
+9,136,55,50,14,1,"Pomoc"
+
+[DIALOG 540]
+353,77,1,""
+3000,-32,11,72,8,1,"Usuwanie"
+541,43,11,305,8,1,""
+3001,14,35,26,8,1,"Razem:"
+542,43,34,297,12,1,""
+2,151,57,50,14,1,"Anuluj"
+
+[DIALOG 550]
+463,236,1,"Kontrolki dostarczane przez Open Salamander"
+3000,6,4,254,108,1,"CGUIStaticTextAbstract"
+3001,14,17,92,8,1,"Niedołączony tekst statyczny"
+551,102,17,152,8,1,"System został uruchomiony %d ms temu."
+3002,14,27,75,8,1,"0 (bez flag)"
+565,102,27,152,8,1,"dummy"
+3003,14,37,75,8,1,"STF_CACHED_PAINT"
+554,102,37,152,8,1,"dummy"
+3004,14,47,75,8,1,"STF_BOLD"
+552,102,47,152,8,1,"Tekst &pogrubiony"
+3005,14,56,75,8,1,"STF_UNDERLINE"
+553,102,56,152,8,1,"Tekst podkreślony"
+3006,14,66,75,8,1,"STF_END_ELLIPSIS"
+556,102,66,237,8,1,"Long long long long long long long long long string."
+3007,14,76,75,8,1,"STF_PATH_ELLIPSIS"
+555,102,76,216,8,1,"C:\Program Files\Some Application With Long Path\example.exe"
+3008,14,87,75,8,1,"STF_PATH_ELLIPSIS"
+564,102,87,160,8,1,"ftp://ftp.altap.cz/pub/salamander/example.exe"
+3009,98,97,156,8,1,"Przeciągnij teksty, aby zmienić ich rozmiar."
+3010,6,118,254,66,1,"CGUIProgressBarAbstract"
+3011,15,129,78,8,1,"Etykieta postępu"
+559,15,138,235,12,1,""
+3012,15,154,88,8,1,"Nieznany postęp"
+570,15,163,235,12,1,""
+3013,6,188,254,40,1,"Button, CGUITextArrowButtonAbstract, CGUIColorArrowButtonAbstract"
+566,15,204,15,14,1,"..."
+562,37,204,15,14,1,""
+560,60,204,50,14,1,"&Wybierz"
+568,117,204,50,14,1,"&Upuść"
+561,174,204,33,14,1,""
+563,215,204,33,14,1,"Tekst"
+3014,269,4,185,48,1,"CGUIHyperLinkAbstract"
+3015,277,17,75,8,1,"SetActionOpen"
+557,365,17,47,8,1,"www.altap.cz"
+3016,277,27,81,8,1,"SetActionPostCommand"
+558,365,27,55,8,1,"Powiedz coś!"
+3017,277,37,81,8,1,"SetActionPostCommand"
+569,365,37,81,8,1,"podpowiedzi maski"
+3018,269,59,185,31,1,"SetCurrentToolTip"
+567,278,73,169,8,1,"Zatrzymaj wskaźnik myszy nad tym tekstem."
+2510,269,102,96,8,1,"CGUIToolbarHeaderAbstract"
+2511,269,113,185,50,1,""
+1,403,213,50,14,1,"Zamknij"
+
+[STRINGTABLE 0]
+46,1,"DemoPlug"
+47,1,"O wtyczce"
+
+[STRINGTABLE 1]
+48,1,"Ta wtyczka ma pomóc w tworzeniu własnych wtyczek."
+49,1,"www.altap.cz"
+50,1,"Wystąpił wyjątek w DemoPlug, poinformuj autorów!\nJeśli pracowałeś z jakimś plikiem .dop, gdy wystąpił wyjątek,\nspróbuj odtworzyć błąd z tym plikiem .dop i jeśli wyjątek\nwystąpi ponownie, wyślij nam ten plik .dop (odtworzymy i naprawimy błąd).\nDziękujemy!"
+51,1,"petr.solin@altap.cz"
+52,1,"Konfiguracja jest już otwarta."
+53,1,"Niektóre okna przeglądarki DemoPlug są otwarte. Czy chcesz je zamknąć?"
+54,1,"Konfiguracja DemoPlug"
+55,1,"Nieprawidłowa liczba!"
+56,1,"Pliki DemoPlug (*.dop)|*.dop|Wszystkie pliki (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&Pliki"
+2001,1,"&Otwórz\tCtrl+O"
+2002,1,"Za&kończ"
+2010,1,"&Edycja"
+2011,1,"Wy&tnij\tCtrl+X"
+2012,1,"&Kopiuj\tCtrl+C"
+2013,1,"W&klej\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&Widok"
+2021,1,"&Filtr"
+2022,1,"Filtr"
+2025,1,"&Opcje"
+2026,1,"&Konfiguracja..."
+
+[STRINGTABLE 4]
+2032,1,"&Pomoc"
+2033,1,"&O programie"
+
+[STRINGTABLE 5]
+2500,1,"Wytnij\tCtrl+X"
+2501,1,"Kopiuj\tCtrl+C"
+2502,1,"Wklej\tCtrl+V"
+2503,1,"Filtr\tCtrl+U"
+

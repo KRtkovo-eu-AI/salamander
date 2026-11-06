@@ -1,0 +1,95 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\uncab\uncab.atp"
+TEXTVERSION,"1.29 (x64)"
+VERSION,"1,29,0,196"
+
+[TRANSLATION]
+LANGID,1045
+AUTHOR,"Open Samandarin"
+WEB,"www.altap.cz"
+COMMENT,"polish translation stub (English seed)"
+
+[DIALOG 100]
+221,122,1,"Następny wolumin cabinet"
+112,12,9,198,32,1,""
+300,12,48,56,8,1,"Nazwa dysku:"
+110,54,48,156,8,1,""
+301,12,59,40,8,1,"Nazwa CAB:"
+111,54,59,156,8,1,""
+302,12,70,34,8,1,"&Ścieżka:"
+101,12,80,182,12,1,""
+102,197,80,13,12,1,"..."
+1,106,103,50,14,1,"OK"
+2,160,103,50,14,1,"Anuluj"
+303,6,97,209,1,1,""
+
+[DIALOG 103]
+352,85,1,"Błąd"
+300,6,10,26,8,1,"Nazwa:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Błąd:"
+302,36,23,309,16,1,"Pliku nie można wypakować, ponieważ jest kontynuacją z poprzedniego woluminu. Aby wypakować ten plik, musisz zacząć od woluminu, w którym plik się zaczyna."
+105,36,44,183,12,1,"&Nie pokazuj tej wiadomości w przyszłości."
+108,91,63,50,14,1,"&Pomiń"
+109,151,63,50,14,1,"Pomiń &wszystkie"
+2,211,63,50,14,1,"Anuluj"
+
+[DIALOG 106]
+220,85,1,"Konfiguracja UnCAB"
+300,23,22,154,8,1,"podczas rozpakowywania."
+107,12,10,220,12,1,"&Automatycznie pomijaj pliki kontynuowane z poprzedniego woluminu"
+301,23,44,111,8,1,"nie może zostać wyświetlona."
+116,12,32,236,12,1,"&Nie wyświetlaj ostrzeżenia, gdy cała zawartość archiwum"
+302,6,60,208,1,1,""
+1,57,66,50,14,1,"OK"
+2,112,66,50,14,1,"Anuluj"
+
+[DIALOG 115]
+213,108,1,"UnCAB - Uwaga"
+300,11,9,193,24,1,"Nie wszystkie pliki w archiwum wielowoluminowym mogą zostać wyświetlone (i widoczne w panelu), ponieważ niektórych woluminów archiwum nie można znaleźć."
+301,11,40,193,16,1,"Aby wyświetlić całą zawartość archiwum, skopiuj wszystkie woluminy archiwum do tego samego katalogu i otwórz PIERWSZY wolumin archiwum."
+105,11,65,159,12,1,"&Nie pokazuj tej wiadomości w przyszłości"
+302,5,83,202,1,1,""
+1,154,90,50,14,1,"OK"
+
+[STRINGTABLE 0]
+1000,1,"UnCAB"
+1001,1,"Niewystarczająca ilość pamięci."
+
+[STRINGTABLE 1]
+1008,1,"Wystąpił nieznany błąd."
+1012,1,"Wybierz folder"
+1014,1,"Nie można dodać wpisu archiwum do listy plików."
+1015,1,"Rozpakowywanie archiwum CAB - %s"
+1016,1,"przygotowywanie danych i tworzenie katalogów..."
+1017,1,"rozpakowywanie..."
+1018,1,"rozpakowywanie: "
+1019,1,"Nie można pobrać wskaźnika pliku: "
+1020,1,"Nie można zapisać do pliku:"
+1021,1,"Nie można ustawić wskaźnika pliku: "
+1022,1,"Nie można dokończyć operacji z powodu zbyt długiej nazwy ścieżki."
+1023,1,"Nie można dokończyć operacji z powodu zbyt długiej maski."
+
+[STRINGTABLE 2]
+1025,1,"Przepraszamy, ważność wtyczki wygasła. Sprawdź naszą witrynę w poszukiwaniu nowszej wersji."
+1026,1,"Nie można utworzyć ani otworzyć pliku."
+1027,1,"Nie można odczytać pliku."
+1028,1,"Nie znaleziono cabinetu."
+1029,1,"Plik cabinet nie ma prawidłowego formatu."
+1030,1,"Plik cabinet ma nieznany numer wersji."
+1031,1,"Plik cabinet jest uszkodzony."
+1032,1,"Nieznany typ kompresji w folderze cabinet."
+1033,1,"Niepowodzenie dekompresji danych z pliku cabinet."
+1034,1,"Cabinety w zestawie nie mają takich samych rozmiarów RESERVE."
+1035,1,"Przerwanie przez użytkownika."
+1036,1,"Wybierz folder zawierający '%s'."
+1037,1,"Nieprawidłowy plik cabinet."
+1038,1,"Nie znaleziono pliku."
+1039,1,"pomijanie pliku"
+
+[STRINGTABLE 3]
+1040,1,"Włóż dysk z woluminem cabinet o numerze %d lub wskaż odpowiedni plik cabinet na dysku.\n\nNaciśnij OK, gdy będzie gotowe."
+1041,1,"Błąd"
+1042,1,"Przeglądaj i wypakowuj archiwa CAB."
+1043,1,"O wtyczce"
+
