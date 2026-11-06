@@ -10,8 +10,8 @@ WEB,"www.altap.cz"
 COMMENT,"korean translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,0,"Folders"
-1001,0,"About Plugin"
-1003,0,"Browse folders such as Desktop, Control Panel, Recycle Bin, etc."
-1004,0,"'\tDesktop"
+1000,1,"폴더"
+1001,1,"플러그인 정보"
+1003,1,"바탕 화면, 제어판, 휴지통 등의 폴더를 탐색합니다."
+1004,1,"'\t바탕 화면"
 
