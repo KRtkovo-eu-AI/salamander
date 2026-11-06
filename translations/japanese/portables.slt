@@ -39,8 +39,8 @@ COMMENT,"Japanese (ja-JP) UI translation"
 152,1,"ビジュアリッツァ"
 153,1,"私はその名前を使います。新しい要素を作成する必要はありません。"
 154,1,"カルテラの解決策をファイルしないでください。"
-155,1,"Una carella non può sostituire un file。"
-156,1,"Esiste già un elemento con Questo nome。"
+155,1,"フォルダーでファイルを置き換えることはできません。"
+156,1,"同じ名前の項目が既に存在します。"
 157,1,"?"
 
 [STRINGTABLE 2]
