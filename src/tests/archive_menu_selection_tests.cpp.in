@@ -1,0 +1,163 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Commands and filename formatting are production source. Host snapshots and
+// archive engines are isolated test doubles; no archive or GUI is opened here.
+#define NOMINMAX
+#include <windows.h>
+#include <cstdio>
+#include <cstring>
+#include <string>
+#include <vector>
+#define SAL_MAX_PATH 32768
+#define CALL_STACK_MESSAGE3(a,b,c) ((void)0)
+enum { PANEL_SOURCE, SALDISKSELECTION_FOCUSED_ONLY=2, MID_CREATESFX=1, MID_REPAIR=2,
+    MID_TEST=3, MID_COMMENT=4, IDS_CONTINUE, IDS_PLUGINNAME, IDS_NODISPLAY, IDS_TESTOK,
+    IDS_TESTKO, IDS_TESTING_ARCHIVE, IDS_TESTING_ARCHIVE_NAME, IDS_TESTARCHIVEOK,
+    IDS_TESTARCHIVECORRUPTED, MSGBOX_ERROR, MSGBOX_INFO, MSGBOX_QUESTION,
+    OPER_OK=20, OPER_CONTINUE=21, OPER_CANCEL=22 };
+static const char* LoadStr(int id) {
+    switch(id) {
+    case IDS_TESTOK:case IDS_TESTARCHIVEOK:return "Archive '%s' is OK.";
+    case IDS_TESTKO:case IDS_TESTARCHIVECORRUPTED:return "Archive '%s' is corrupt.";
+    case IDS_TESTING_ARCHIVE_NAME:return "Testing archive '%s'...";
+    default:return "Archive plugin";
+    }
+}
+namespace SalamanderDiskSelection {
+static std::string Utf8FromWide(const wchar_t* path) {
+    const int n=WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,path,-1,nullptr,0,nullptr,nullptr);
+    if(n<=0)return std::string();
+    std::string out(n,'\0');WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,path,-1,&out[0],n,nullptr,nullptr);
+    out.resize(n-1);return out;
+}
+}
+struct Row { std::wstring Full,Name;BOOL IsDir=FALSE,Focused=FALSE; };
+struct CSalamanderDiskSelectionItem { const wchar_t* FullPathW;const wchar_t* NameW;BOOL IsDir; };
+static std::vector<Row> Rows;
+struct CFileData {const char* Name;const wchar_t* NameW;bool UseWideName()const{return NameW&&*NameW;}};
+struct PackerFacade {
+ std::string Last;
+ int PackIsArchive(const char* name){Last=name;return Last.size()>=4&&Last.substr(Last.size()-4)==".zip"?7:0;}
+} PackerFormatConfig;
+@@HOST_CONVERSION@@
+@@HOST_FORMAT@@
+static std::vector<CFileData> MenuFiles;
+static BOOL MenuDirectory=FALSE;
+static bool MenuSelected=true;
+enum { MENU_EVENT_DISK=1,MENU_EVENT_THIS_PLUGIN_ARCH=2,MENU_EVENT_FILES_SELECTED=4,MENU_EVENT_FILE_FOCUSED=8,MENU_ITEM_STATE_ENABLED=1 };
+static bool CaptureFails=false;
+struct GeneralStub {
+    std::string Archive;
+    const CFileData* GetPanelFocusedItem(int,BOOL* directory){*directory=MenuDirectory;return MenuFiles.empty()?nullptr:&MenuFiles[0];}
+    const CFileData* GetPanelSelectedItem(int,int* index,BOOL* directory){*directory=MenuDirectory;return MenuSelected&&*index<static_cast<int>(MenuFiles.size())?&MenuFiles[(*index)++]:nullptr;}
+    BOOL IsArchiveHandledByThisPlugin(const char* name){std::string n(name);return n.size()>=4&&n.substr(n.size()-4)==".zip";}
+    std::vector<std::string> Messages,Notifications;
+    BOOL GetPanelPath(int,char* output,int capacity,void*,char** archive) {
+        const std::string path=Archive.empty()?"C:\\panel-root":Archive+"\\nested";
+        if(path.size()>=static_cast<size_t>(capacity))return FALSE;
+        memcpy(output,path.c_str(),path.size()+1);*archive=Archive.empty()?nullptr:output+Archive.size();return TRUE;
+    }
+    const char* GetErrorText(int){return "Path too long";}
+    int ShowMessageBox(const char* text,const char*,int){Messages.push_back(text);return IDYES;}
+    int SalMessageBox(HWND,const char* text,const char*,int){Messages.push_back(text);return IDOK;}
+    void SetUserWorkedOnPanelPath(int){}
+    BOOL CutDirectory(char* path) {char* slash=strrchr(path,'\\');if(!slash)return FALSE;*slash=0;return TRUE;}
+    void PostChangeOnPathNotification(const char* path,BOOL){Notifications.push_back(path);}
+};
+static GeneralStub General;
+static GeneralStub* SalamanderGeneral=&General;
+class CSalamanderDiskSelection {
+    std::vector<Row> Copy;std::vector<CSalamanderDiskSelectionItem> Items;
+public:
+    BOOL Capture(GeneralStub*,int,DWORD mode=0) {
+        if(CaptureFails)return FALSE;
+        for(const auto& row:Rows)if(mode!=SALDISKSELECTION_FOCUSED_ONLY||row.Focused)Copy.push_back(row);
+        for(const auto& row:Copy)Items.push_back({row.Full.c_str(),row.Name.c_str(),row.IsDir});return TRUE;
+    }
+    int GetCount()const{return static_cast<int>(Items.size());}
+    const CSalamanderDiskSelectionItem* GetItem(int i)const{return &Items.at(i);}
+};
+static std::vector<std::string> Opened;
+static int EngineResult=OPER_OK;
+static bool RefreshOnOpen=false;
+static void Record(const char* path){Opened.push_back(path);if(RefreshOnOpen)Rows.clear();}
+struct CSalamanderForOperationsAbstract {
+    int OpenDialogs=0;std::string Text;
+    void OpenProgressDialog(const char*,BOOL,void*,BOOL){++OpenDialogs;}
+    void ProgressDialogAddText(const char* text,BOOL){Text=text;}
+    void CloseProgressDialog(){--OpenDialogs;}
+};
+struct CZipPack {
+    int ErrorID=0;BOOL UserBreak=FALSE;
+    CZipPack(const char* path,const char*,CSalamanderForOperationsAbstract*){Record(path);}
+    int CommentArchive(){return 0;}int CreateSFX(){return 0;}
+};
+struct CZipUnpack {
+    int ErrorID=0;BOOL UserBreak=FALSE,Test=FALSE,AllFilesOK=TRUE;
+    CZipUnpack(const char* path,const char*,CSalamanderForOperationsAbstract*,void*){Record(path);}
+    int UnpackWholeArchive(const char*,const char*){return 0;}
+};
+struct C7zClient { int TestArchive(CSalamanderForOperationsAbstract*,const char* path){Record(path);return EngineResult;} };
+struct CPluginInterfaceForMenuExt {DWORD GetMenuItemState(int,DWORD);BOOL ExecuteMenuItem(CSalamanderForOperationsAbstract*,HWND,int,DWORD);};
+@@ZIP_MENU@@
+@@FORMAT@@
+@@ZIP_COMMAND@@
+@@SEVEN_COMMAND@@
+static int Checks=0,Failures=0;
+static void Check(bool ok,const char* message){++Checks;if(!ok){++Failures;printf("FAIL %s\n",message);}}
+static void Reset(){Rows.clear();General=GeneralStub();Opened.clear();CaptureFails=false;RefreshOnOpen=false;EngineResult=OPER_OK;}
+static void Add(const std::wstring& path,BOOL directory=FALSE,BOOL focus=TRUE){Rows.push_back({path,path.substr(path.find_last_of(L'\\')+1),directory,focus});}
+int main() {
+    const std::vector<std::wstring> paths={L"C:\\plain\\same.zip",L"C:\\plain\\žluťoučký.zip",
+        L"C:\\žluťoučký\\東京\\same.zip",L"\\\\server\\share\\東京\\same.zip",
+        L"C:\\"+std::wstring(110,L'漢')+L"\\same.zip",
+        L"C:\\"+std::wstring(120,L'a')+L"\\"+std::wstring(150,L'b')+L"\\same.zip"};
+    CPluginInterfaceForMenuExt zip;CSalamanderForOperationsAbstract operations;
+    for(const auto& path:paths) {
+        Reset();Add(path);Add(L"C:\\other\\same.zip");RefreshOnOpen=true;
+        zip.ExecuteMenuItem(&operations,nullptr,MID_TEST,0);
+        Check(Opened==std::vector<std::string>{SalamanderDiskSelection::Utf8FromWide(path.c_str()),"C:\\other\\same.zip"},"ZIP uses every captured full path after panel replacement");
+        Check(General.Messages[0].find(Opened[0])!=std::string::npos,"ZIP result message retains exact UTF8 path");
+        Reset();Add(path);RefreshOnOpen=true;
+        Check(TestArchive(&operations,nullptr)&&Opened.size()==1&&Opened[0]==SalamanderDiskSelection::Utf8FromWide(path.c_str()),"7-Zip focused command uses exact Unicode UNC or long path");
+        Check(operations.OpenDialogs==0,"7-Zip closes progress after successful test");
+    }
+    Reset();Add(L"C:\\first\\same.zip");Add(L"C:\\second\\same.zip");
+    zip.ExecuteMenuItem(&operations,nullptr,MID_COMMENT,0);
+    Check(General.Notifications==std::vector<std::string>{"C:\\first","C:\\second"},"ZIP modifications notify every actual parent");
+    Reset();General.Archive="C:\\archive-parent\\archive.zip";
+    zip.ExecuteMenuItem(&operations,nullptr,MID_TEST,0);
+    Check(Opened==std::vector<std::string>{General.Archive},"archive panel retains its archive-file contract");
+    Reset();Add(L"C:\\root\\directory",TRUE);zip.ExecuteMenuItem(&operations,nullptr,MID_TEST,0);
+    Check(Opened.empty()&&!TestArchive(&operations,nullptr),"archive commands do not open directories");
+    Reset();Add(L"C:\\root\\same.zip");CaptureFails=true;
+    Check(!zip.ExecuteMenuItem(&operations,nullptr,MID_TEST,0)&&!TestArchive(&operations,nullptr)&&Opened.empty(),"capture failure never guesses a path");
+    Reset();Add(L"C:\\root\\same.zip");EngineResult=OPER_CONTINUE;
+    Check(!TestArchive(&operations,nullptr)&&operations.OpenDialogs==0,"corrupt result returns false and closes progress");
+    EngineResult=OPER_CANCEL;
+    Check(!TestArchive(&operations,nullptr)&&operations.OpenDialogs==0,"cancel returns false and closes progress");
+    const std::string longName(6000,'x');
+    Check(ArchiveNameMessage("'%s' literal %n",longName)=="'"+longName+"' literal %n","heap-backed formatting does not interpret unknown directives or truncate names");
+    Reset();Add(L"C:\\"+std::wstring(12000,L'漢')+L"\\same.zip");
+    Check(!zip.ExecuteMenuItem(&operations,nullptr,MID_TEST,0)&&Opened.empty(),"ZIP engine byte limit rejects rather than truncates UTF8");
+    Reset();Add(std::wstring(L"C:\\root\\")+wchar_t(0xd800)+L".zip");
+    Check(!zip.ExecuteMenuItem(&operations,nullptr,MID_TEST,0)&&Opened.empty(),"ZIP invalid UTF16 never opens an empty or substituted path");
+    Check(!TestArchive(&operations,nullptr)&&Opened.empty(),"7-Zip invalid UTF16 never opens an empty or substituted path");
+    std::wstring wide=std::wstring(100,L'東')+L".zip";
+    MenuFiles={{"shortened-without-extension",wide.c_str()}};
+    Check(zip.GetMenuItemState(3,MENU_EVENT_DISK|MENU_EVENT_FILES_SELECTED)==MENU_ITEM_STATE_ENABLED,"exact wide long basename retains archive association");
+    MenuSelected=false;Check(zip.GetMenuItemState(3,MENU_EVENT_DISK|MENU_EVENT_FILE_FOCUSED)==MENU_ITEM_STATE_ENABLED,"exact focused wide basename retains archive association");MenuSelected=true;
+    MenuFiles={{"ordinary.zip",nullptr}};Check(zip.GetMenuItemState(3,MENU_EVENT_DISK|MENU_EVENT_FILES_SELECTED)==MENU_ITEM_STATE_ENABLED,"legacy authoritative name remains accepted");
+    MenuFiles.push_back({"plain.txt",nullptr});Check(zip.GetMenuItemState(3,MENU_EVENT_DISK|MENU_EVENT_FILES_SELECTED)==0,"mixed unhandled selection disabled");
+    MenuFiles={{"folder.zip",nullptr}};MenuDirectory=TRUE;Check(zip.GetMenuItemState(3,MENU_EVENT_DISK|MENU_EVENT_FILES_SELECTED)==0,"directory with archive suffix disabled");MenuDirectory=FALSE;
+    std::wstring invalid(1,wchar_t(0xd800));MenuFiles={{"misleading.zip",invalid.c_str()}};Check(zip.GetMenuItemState(3,MENU_EVENT_DISK|MENU_EVENT_FILES_SELECTED)==0,"invalid exact wide name cannot fall back to display alias");
+    MenuFiles.clear();Check(zip.GetMenuItemState(3,MENU_EVENT_DISK|MENU_EVENT_FILES_SELECTED)==0,"empty selection disabled");
+    Check(zip.GetMenuItemState(3,0)==0&&zip.GetMenuItemState(3,MENU_EVENT_DISK)==0,"foreign and unfocused panel disabled");
+    Check(zip.GetMenuItemState(3,MENU_EVENT_THIS_PLUGIN_ARCH)==MENU_ITEM_STATE_ENABLED,"archive panel contract retained");
+    for(const auto& path:paths){CFileData file={"shortened-without-extension",path.c_str()};Check(FocusedArchiveFormat(&file)==7&&PackerFormatConfig.Last==SalamanderDiskSelection::Utf8FromWide(path.c_str()),"host uses exact wide focused archive association");}
+    CFileData longLeaf={"no-extension",wide.c_str()};Check(FocusedArchiveFormat(&longLeaf)==7&&PackerFormatConfig.Last==SalamanderDiskSelection::Utf8FromWide(wide.c_str()),"host100-CJK basename keeps actual extension");
+    CFileData bad={"misleading.zip",invalid.c_str()};Check(FocusedArchiveFormat(&bad)==0,"host invalid wide name cannot fall back to alias");
+    CFileData legacy={"ordinary.zip",nullptr};Check(FocusedArchiveFormat(&legacy)==7,"host legacy authoritative name retained");
+    CFileData missing={nullptr,nullptr};Check(FocusedArchiveFormat(nullptr)==0&&FocusedArchiveFormat(&missing)==0,"host missing focused name refused");
+    printf("Archive menu selection: %d checks, %d failures.\n",Checks,Failures);return Failures?1:0;
+}

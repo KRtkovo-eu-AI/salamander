@@ -17,6 +17,11 @@
 #include "resedit.h"
 #include "selfextr\\comdefs.h"
 
+#ifdef ZIP_DLL
+// ZIP-only I/O uses the same conversion as its existing file writer.
+std::wstring ZipPathToWide(const char* path);
+#endif
+
 CIcon* LoadIconsFromDirectory(HINSTANCE module, LPICONDIR directory, BOOL isIco);
 LPICONDIR LoadIconDirectoryByResName(HINSTANCE module, LPTSTR lpszName);
 LPICONDIR LoadIconDirectoryFromEXE(HINSTANCE module, DWORD index);
@@ -37,7 +42,21 @@ BOOL ChangeSfxIconAndAddManifest(const char* sfxFile, CIcon* icons, int iconsCou
     TIndirectArray2<TCHAR> IDsArray(16, FALSE);
     BOOL ret = FALSE;
 
+#ifdef ZIP_DLL
+    HINSTANCE module = NULL;
+    try
+    {
+        const std::wstring path = ZipPathToWide(sfxFile);
+        module = LoadLibraryExW(path.c_str(), NULL, LOAD_LIBRARY_AS_DATAFILE);
+    }
+    catch (const std::bad_alloc&)
+    {
+        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+        return FALSE;
+    }
+#else
     HINSTANCE module = LoadLibraryEx(sfxFile, NULL, LOAD_LIBRARY_AS_DATAFILE);
+#endif
     if (module)
     {
         LoadIDsList(module, IDsArray);

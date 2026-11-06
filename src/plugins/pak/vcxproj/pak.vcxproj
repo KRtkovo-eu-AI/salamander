@@ -201,6 +201,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\shared\spl_diskselection.h" />
     <ClInclude Include="..\..\shared\lukas\array2.h">
     </ClInclude>
     <ClInclude Include="..\..\shared\lukas\dumpmem.h">

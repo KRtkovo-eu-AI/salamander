@@ -13,6 +13,7 @@ struct CExplorerSortAsyncData;
 struct CExplorerPropertyCache;
 
 #include "plugins.h"
+#include "panel_temporary_selection.h"
 #include <string>
 #include <vector>
 
@@ -184,6 +185,9 @@ class CStatusWindow;
 class CFilesArray;
 struct CFileData;
 class CIconCache;
+class CBranchViewState;
+struct CBranchViewRestoreState;
+namespace Salamander { namespace BranchView { struct Progress; } }
 class CSalamanderDirectory;
 struct IContextMenu2;
 class CPathHistory;
@@ -506,6 +510,7 @@ private:
     BOOL SuppressAutoRefresh; // TRUE if the user canceled directory listing during reading and chose temporary auto-refresh suppression
 
     CPanelType PanelType; // type of panel (disk, archive, plugin FS)
+    ULONGLONG ListingIdentityGeneration = 1; // Internal host epoch; not an SDK/CFileData field.
 
     BOOL MonitorChanges; // should changes be monitored (auto refresh)?
     UINT DriveType;      // disk+archive: drive type of Path (see MyGetDriveType())
@@ -567,6 +572,8 @@ public:
     //          before destroying PluginFSDir and PluginData because icons are
     //          retrieved using PluginFSDir and PluginData ...
     void ReleaseListing();
+    ULONGLONG GetListingIdentityGeneration() const { return ListingIdentityGeneration; }
+    void AdvanceListingIdentity() { if (++ListingIdentityGeneration == 0) ++ListingIdentityGeneration; }
 
     // returns the path shown in the panel (disk, archive, or FS);
     // if convertFSPathToExternal is TRUE and the panel holds an FS path,
@@ -574,7 +581,7 @@ public:
     // it returns TRUE if the path fits into the buffer completely, otherwise a truncated path is returned
     BOOL GetGeneralPath(char* buf, int bufSize, BOOL convertFSPathToExternal = FALSE);
 
-    const char* GetPath() { return Path; }
+    const char* GetPath() const { return Path; }
     const wchar_t* GetPathW() const { return PathW.c_str(); }
     BOOL Is(CPanelType type) { return type == PanelType; }
     CPanelType GetPanelType() { return PanelType; }
@@ -591,10 +598,10 @@ public:
 
     void SetPath(const char* path);
     void SetMonitorChanges(BOOL monitorChanges) { MonitorChanges = monitorChanges; }
-    void SetPanelType(CPanelType type) { PanelType = type; }
+    void SetPanelType(CPanelType type) { if (PanelType != type) AdvanceListingIdentity(); PanelType = type; }
     void SetZIPPath(const char* path);
     void SetZIPArchive(const char* archive);
-    void SetArchiveDir(CSalamanderDirectory* dir) { ArchiveDir = dir; }
+    void SetArchiveDir(CSalamanderDirectory* dir) { if (ArchiveDir != dir) AdvanceListingIdentity(); ArchiveDir = dir; }
     void SetZIPArchiveDate(FILETIME& time) { ZIPArchiveDate = time; }
     void SetZIPArchiveSize(const CQuadWord& size) { ZIPArchiveSize = size; }
     void SetSuppressAutoRefresh(BOOL suppress) { SuppressAutoRefresh = suppress; }
@@ -870,6 +877,39 @@ public:
 
     CPanelSide PanelSide;
     ULONGLONG PanelTabId;
+
+    CBranchViewState* BranchView; // core-owned disk collection, NULL for ordinary panels
+
+    BOOL IsBranchView() const;
+    BOOL IsBranchViewScanning() const;
+    ULONGLONG GetBranchViewGeneration() const;
+    std::wstring GetItemFullPathW(const CFileData& file) const;
+    std::wstring GetItemDirectoryW(const CFileData& file) const;
+    std::wstring GetBranchViewDisplayDirectoryW(const CFileData& file) const;
+    std::wstring GetItemIdentityW(const CFileData& file) const;
+    std::wstring GetItemRelativePathW(const CFileData& file) const;
+    std::string GetItemCacheKey(const CFileData& file) const;
+    const char* GetItemCacheKeyPtr(const CFileData& file) const;
+    const CFileData* GetBranchViewFileByCacheKey(const char* key) const;
+    CBranchViewRestoreState CaptureBranchViewState();
+    void RestoreBranchViewState(const CBranchViewRestoreState& state);
+    void BranchItemRenamed(const char* oldNameKey, const CFileData& file, const std::wstring& oldFullPath);
+    BOOL OpenBranchItemDirectory();
+    void FocusBranchShortcutTarget(CFilesWindow* panel, const CFileData& file);
+    void ToggleBranchView();
+    void RefreshBranchView(BOOL automatic = FALSE);
+    void PollBranchView();
+    void CancelBranchViewScan();
+    void ShutdownBranchView();
+    void LeaveBranchView();
+    void GetBranchViewProgress(Salamander::BranchView::Progress& progress) const;
+    std::wstring GetBranchViewStatusW() const;
+    std::string GetBranchViewStatusText() const;
+    int GetBranchViewPathColumnWidth() const;
+    void SetBranchViewPathColumnWidth(int width);
+    void PruneBranchViewMetadata();
+    void ReindexBranchViewFiles();
+
     bool CustomTabColorValid;
     COLORREF CustomTabColor;
     bool CustomTabPrefixValid;
@@ -1510,7 +1550,7 @@ public:
                          char* mask, int selCount, int* selection,
                          CFileData* oneFile, CAttrsData* attrsData,
                          CChangeCaseData* chCaseData, BOOL onlySize,
-                         CCriteriaData* filterCriteria);
+                         CCriteriaData* filterCriteria, BOOL keepBranchPaths = FALSE);
     BOOL BuildScriptDir(COperations* script, CActionType type, char* sourcePath,
                         BOOL sourcePathSupADS, char* targetPath, CTargetPathState targetPathState,
                         BOOL targetPathSupADS, BOOL targetPathIsFAT32, char* mask, char* dirName,
@@ -1733,8 +1773,8 @@ public:
 
     int GetSelCount(); // returns the number of selected items
 
-    void SelectFocusedItemAndGetName(char* name, int nameMax);
-    void UnselectItemWithName(const char* name);
+    void SelectFocusedItemAndGetName(CPanelTemporarySelection& selection);
+    void UnselectItemWithName(const CPanelTemporarySelection& selection);
 
     // returns PANEL_LEFT or PANEL_RIGHT depending on which side this panel is on
     int GetPanelCode();
@@ -1863,6 +1903,16 @@ public:
 
 struct CPanelTmpEnumData
 {
+    BOOL ExactFileSelection; // S22: file-only disk route; recursive selections keep their tree.
+    BOOL WideDiskNames = FALSE; // Internal qualified Pack route; preserve legacy plugin byte names otherwise.
+    CFilesWindow* SourcePanel;
+    BOOL (*ContextIsCurrent)(void* context); // Optional internal archive listing guard.
+    void* Context;
+    bool HasCurrentContext() const { return ContextIsCurrent == NULL || ContextIsCurrent(Context); }
+    std::string BranchEnumName;
+    BOOL ErrGetFileSizeOfLnkTgtIgnAll;
+    std::vector<CQuadWord> BranchEnumLinkSizes;
+    std::vector<BYTE> BranchEnumLinkSizeValid;
     int* Indexes;
     int CurrentIndex;
     int IndexesCount;

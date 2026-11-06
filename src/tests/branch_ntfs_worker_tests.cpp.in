@@ -1,0 +1,159 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include "@@HEADER@@"
+#include <winioctl.h>
+#include <filesystem>
+#include <vector>
+#include <cstdio>
+struct CQuadWord {ULONGLONG Value=0;CQuadWord(ULONGLONG v=0):Value(v){} CQuadWord& operator+=(const CQuadWord& b){Value+=b.Value;return *this;}};
+struct COperations {CQuadWord TotalSize=100;};
+struct CProgressDlgData {HANDLE WorkerNotSuspended=nullptr;BOOL* CancelWorker=nullptr;BOOL SkipAllChangeAttrs=FALSE,EncryptSystemAll=FALSE,SkipAllEncryptSystem=FALSE;};
+enum {IDB_SKIP=400,IDB_SKIPALL,IDS_ERRORCOMPRESSING,IDS_ERRORENCRYPTING,IDS_COMPRNOTSUPPORTED,IDS_ENCRYPNOTSUPPORTED,IDS_ERRORCHANGINGATTRS,WM_USER_DIALOG=WM_APP+3,IDB_ALL=450,IDS_CONFIRMSFILEENCRYPT,IDS_ENCRYPTSFILE};
+static int Reply=IDCANCEL,Dialogs=0,Progress=0,Failures=0,Checks=0,FailReadTime=0,FailWriteTime=0,FailRestore=0,FailClear=0,FailOpenTime=0,ReadCalls=0,WriteCalls=0,Closes=0;
+static DWORD LastDialogError=0;static bool TimeAttempted=false;
+static char* LoadStr(int){static char s[]="fixture";return s;}
+static char* GetErrorText(DWORD e){LastDialogError=e;return LoadStr(0);}
+static LRESULT Dialog(HWND,UINT,WPARAM kind,LPARAM p){++Dialogs;if(kind==0||kind==2)*(int*)((char**)p)[0]=Reply;return 0;}
+static void SetProgress(HWND,int,int,CProgressDlgData&){++Progress;}
+static int CaclProg(const CQuadWord&,const CQuadWord&){return 0;}
+static BOOL ReadTime(HANDLE h,FILETIME* c,FILETIME* a,FILETIME* m){++ReadCalls;if(FailReadTime>0){--FailReadTime;SetLastError(ERROR_ACCESS_DENIED);return FALSE;}return ::GetFileTime(h,c,a,m);}
+static BOOL WriteTime(HANDLE h,const FILETIME* c,const FILETIME* a,const FILETIME* m){++WriteCalls;TimeAttempted=true;if(FailWriteTime>0){--FailWriteTime;SetLastError(ERROR_ACCESS_DENIED);return FALSE;}return ::SetFileTime(h,c,a,m);}
+static HANDLE OpenTime(LPCWSTR p,DWORD a,DWORD share,LPSECURITY_ATTRIBUTES sec,DWORD disp,DWORD flags,HANDLE t){if(FailOpenTime>0){--FailOpenTime;SetLastError(ERROR_SHARING_VIOLATION);return INVALID_HANDLE_VALUE;}return ::CreateFileW(p,a,share,sec,disp,flags,t);}
+static BOOL Close(HANDLE h){++Closes;return ::CloseHandle(h);}
+static BOOL Attrs(const wchar_t* p,DWORD a){if(FailClear>0&&(a&FILE_ATTRIBUTE_READONLY)==0){--FailClear;SetLastError(ERROR_ACCESS_DENIED);return FALSE;}if(FailRestore>0&&TimeAttempted&&(a&FILE_ATTRIBUTE_READONLY)){--FailRestore;SetLastError(ERROR_ACCESS_DENIED);return FALSE;}return ::SetFileAttributesW(p,a);}
+static int EfsBehavior=1,EfsCalls=0;
+static BOOL Encrypt(const wchar_t* p){++EfsCalls;if(EfsBehavior==0)return ::EncryptFileW(p);if(EfsBehavior==2){SetLastError(ERROR_ACCESS_DENIED);return FALSE;}return TRUE;}
+static BOOL Decrypt(const wchar_t* p,DWORD flags){++EfsCalls;if(EfsBehavior==0)return ::DecryptFileW(p,flags);if(EfsBehavior==2){SetLastError(ERROR_ACCESS_DENIED);return FALSE;}return TRUE;}
+static BOOL Control(HANDLE h,DWORD code,LPVOID in,DWORD inSize,LPVOID out,DWORD outSize,LPDWORD n,LPOVERLAPPED overlapped){TimeAttempted=true;return ::DeviceIoControl(h,code,in,inSize,out,outSize,n,overlapped);}
+#define HANDLES_Q(x) (x)
+#define HANDLES(x) (x)
+#pragma push_macro("SendMessage")
+#undef SendMessage
+#define SendMessage Dialog
+#define GetFileTime ReadTime
+#define SetFileTime WriteTime
+#define SetFileAttributesW Attrs
+#define CloseHandle Close
+#define CreateFileW OpenTime
+#define EncryptFileW Encrypt
+#define DecryptFileW Decrypt
+#define DeviceIoControl Control
+@@NTFS@@
+@@WORKER@@
+#undef EncryptFileW
+#undef DecryptFileW
+#undef DeviceIoControl
+#undef GetFileTime
+#undef SetFileTime
+#undef SetFileAttributesW
+#undef CloseHandle
+#undef CreateFileW
+#pragma pop_macro("SendMessage")
+static void Check(bool b,const char* label){++Checks;if(!b){++Failures;printf("FAIL: %s\n",label);}}
+static std::wstring Api(const std::filesystem::path& p){return LR"(\\?\)"+p.wstring();}
+static std::string Utf8(const std::wstring& p){int n=WideCharToMultiByte(CP_UTF8,0,p.c_str(),-1,nullptr,0,nullptr,nullptr);std::string s(n,0);WideCharToMultiByte(CP_UTF8,0,p.c_str(),-1,&s[0],n,nullptr,nullptr);s.resize(n-1);return s;}
+static bool Write(const std::filesystem::path& p){HANDLE h=CreateFileW(Api(p).c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,0,nullptr);if(h==INVALID_HANDLE_VALUE)return false;DWORD n=0;BOOL ok=WriteFile(h,"owned",5,&n,nullptr);CloseHandle(h);return ok&&n==5;}
+static bool Payload(const std::filesystem::path& p){HANDLE h=CreateFileW(Api(p).c_str(),GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,OPEN_EXISTING,0,nullptr);if(h==INVALID_HANDLE_VALUE)return false;char b[5];DWORD n=0;BOOL ok=ReadFile(h,b,5,&n,nullptr);CloseHandle(h);return ok&&n==5&&memcmp(b,"owned",5)==0;}
+static FILETIME Modified(const std::filesystem::path& p){WIN32_FILE_ATTRIBUTE_DATA d={};GetFileAttributesExW(Api(p).c_str(),GetFileExInfoStandard,&d);return d.ftLastWriteTime;}
+static bool Equal(FILETIME a,FILETIME b){return a.dwLowDateTime==b.dwLowDateTime&&a.dwHighDateTime==b.dwHighDateTime;}
+int wmain(int argc,wchar_t** argv){
+ setvbuf(stdout,nullptr,_IONBF,0);if(argc!=2)return 2;const auto parent=std::filesystem::absolute(argv[1]).lexically_normal();const auto root=parent/L"owned-attributes";if(root.parent_path()!=parent||std::filesystem::exists(root))return 2;
+ std::filesystem::create_directories(root/L"ascii");std::filesystem::create_directories(root/L"東京"/L"český");auto deep=root;for(int i=0;i<4;++i)deep/=std::wstring(65,L'東');std::filesystem::create_directories(std::filesystem::path(Api(deep)));
+ std::vector<std::filesystem::path> files={root/L"ascii"/L"same.txt",root/L"ascii"/L"東京-🙂.txt",root/L"東京"/L"český"/L"same.txt",deep/L"same.txt",root/(std::wstring(100,L'東')+L".txt"),root/L"trail."};
+ auto sentinel=root/L"untouched.txt";Check(Write(sentinel),"create unselected sentinel");DWORD sentinelAttrs=GetFileAttributesW(Api(sentinel).c_str());
+ BOOL cancel=FALSE,compression=FALSE,encryption=FALSE;COperations script;CQuadWord done;CProgressDlgData data;data.CancelWorker=&cancel;data.WorkerNotSuspended=CreateEventW(nullptr,TRUE,TRUE,nullptr);
+ SYSTEMTIME system={2020,1,0,2,3,4,6,0};FILETIME changed={};SystemTimeToFileTime(&system,&changed);
+ for(const auto& file:files){Check(Write(file),"create owned source");auto name=Utf8(sentinel.wstring());auto exact=Api(file);
+  Check(DoChangeAttrs(nullptr,name.data(),1,FILE_ATTRIBUTE_ARCHIVE|FILE_ATTRIBUTE_READONLY,&script,done,nullptr,nullptr,nullptr,compression,encryption,FILE_ATTRIBUTE_ARCHIVE,data,exact.c_str()),"actual attribute worker on exact long Unicode source");
+  Check((GetFileAttributesW(exact.c_str())&FILE_ATTRIBUTE_READONLY)!=0&&Payload(file),"readonly set and content intact");
+  Check(DoChangeAttrs(nullptr,name.data(),1,FILE_ATTRIBUTE_ARCHIVE|FILE_ATTRIBUTE_READONLY,&script,done,&changed,nullptr,nullptr,compression,encryption,FILE_ATTRIBUTE_ARCHIVE|FILE_ATTRIBUTE_READONLY,data,exact.c_str()),"modify timestamp while preserving readonly");
+  Check(Equal(Modified(file),changed)&&(GetFileAttributesW(exact.c_str())&FILE_ATTRIBUTE_READONLY)!=0,"exact timestamp persisted and readonly restored");
+  Check(Payload(sentinel)&&GetFileAttributesW(Api(sentinel).c_str())==sentinelAttrs,"unselected sibling unaffected");
+  name=Utf8(file.wstring());Check(DoChangeAttrs(nullptr,name.data(),1,FILE_ATTRIBUTE_ARCHIVE,&script,done,nullptr,nullptr,nullptr,compression,encryption,FILE_ATTRIBUTE_ARCHIVE|FILE_ATTRIBUTE_READONLY,data,nullptr),"UTF8-only worker fallback opens exact long Unicode source");
+  Check((GetFileAttributesW(exact.c_str())&FILE_ATTRIBUTE_READONLY)==0&&Payload(file)&&Payload(sentinel),"UTF8 fallback changes only intended source");
+ }
+ Check(done.Value==files.size()*3&&Dialogs==0,"success progress counts only completed work");
+ auto directory=deep/L"directory-東京";Check(CreateDirectoryW(Api(directory).c_str(),nullptr)!=FALSE,"create exact long directory");auto dn=Utf8(directory.wstring());
+ Check(DoChangeAttrs(nullptr,dn.data(),1,FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_HIDDEN,&script,done,&changed,nullptr,nullptr,compression,encryption,FILE_ATTRIBUTE_DIRECTORY,data,Api(directory).c_str())&&Equal(Modified(directory),changed)&&(GetFileAttributesW(Api(directory).c_str())&FILE_ATTRIBUTE_HIDDEN),"actual wide directory attribute and timestamp path");SetFileAttributesW(Api(directory).c_str(),FILE_ATTRIBUTE_DIRECTORY);
+ auto file=files[0];auto name=Utf8(file.wstring());auto exact=Api(file);const FILETIME before=Modified(file);
+ for(int kind=0;kind<4;++kind){Reply=IDCANCEL;data.SkipAllChangeAttrs=FALSE;TimeAttempted=false;FailReadTime=kind==0;FailWriteTime=kind==1;FailRestore=kind==2;FailOpenTime=kind==3;int dialogs=Dialogs,closed=Closes,writes=WriteCalls;auto wasDone=done.Value;
+  Check(!DoChangeAttrs(nullptr,name.data(),1,FILE_ATTRIBUTE_ARCHIVE|FILE_ATTRIBUTE_READONLY,&script,done,&changed,nullptr,nullptr,compression,encryption,FILE_ATTRIBUTE_ARCHIVE,data,exact.c_str()),"timestamp/read-only failure Cancel is not success");
+  Check(Dialogs==dialogs+1&&LastDialogError==DWORD(kind==3?ERROR_SHARING_VIOLATION:ERROR_ACCESS_DENIED)&&done.Value==wasDone&&Closes==closed+(kind==3?0:1),"failure retains Windows error closes handle and leaves progress unchanged");
+  if(kind==0)Check(WriteCalls==writes&&Equal(Modified(file),before),"failed time read never writes uninitialized timestamps");
+  if(kind!=2)Check((GetFileAttributesW(exact.c_str())&FILE_ATTRIBUTE_READONLY)!=0,"readonly restored even after timestamp failure");
+  FailReadTime=FailWriteTime=FailRestore=FailOpenTime=0;SetFileAttributesW(exact.c_str(),FILE_ATTRIBUTE_ARCHIVE);
+ }
+ for(int reply:std::vector<int>{IDB_SKIP,IDB_SKIPALL,IDRETRY}){Reply=reply;data.SkipAllChangeAttrs=FALSE;FailWriteTime=1;TimeAttempted=false;int dialogs=Dialogs;auto wasDone=done.Value;
+  Check(DoChangeAttrs(nullptr,name.data(),1,FILE_ATTRIBUTE_ARCHIVE,&script,done,&changed,nullptr,nullptr,compression,encryption,FILE_ATTRIBUTE_ARCHIVE,data,exact.c_str())&&done.Value==wasDone+1&&Dialogs==dialogs+1,"timestamp failure preserves Skip/SkipAll/Retry accounting");
+  Check((reply==IDB_SKIPALL)==(data.SkipAllChangeAttrs!=FALSE),"SkipAll state follows explicit reply only");
+ }
+ data.SkipAllChangeAttrs=FALSE;cancel=TRUE;FailWriteTime=1;int dialogs=Dialogs;auto wasDone=done.Value;
+ Check(!DoChangeAttrs(nullptr,name.data(),1,FILE_ATTRIBUTE_ARCHIVE,&script,done,&changed,nullptr,nullptr,compression,encryption,FILE_ATTRIBUTE_ARCHIVE,data,exact.c_str())&&Dialogs==dialogs&&done.Value==wasDone,"worker cancellation after failed timestamp bypasses dialog without false success");cancel=FALSE;FailWriteTime=0;
+ auto missing=Utf8((root/L"missing").wstring());Reply=IDCANCEL;
+ Check(!DoChangeAttrs(nullptr,missing.data(),1,FILE_ATTRIBUTE_ARCHIVE,&script,done,nullptr,nullptr,nullptr,compression,encryption,FILE_ATTRIBUTE_ARCHIVE,data,nullptr)&&Payload(sentinel),"missing source uses error Cancel and preserves sibling");
+
+ // Actual filesystem compression through both the helper and full attribute worker.
+ DWORD volumeFlags=0;Check(GetVolumeInformationW(parent.root_path().c_str(),nullptr,0,nullptr,nullptr,&volumeFlags,nullptr,0)!=FALSE,"read actual volume capabilities");
+ Check((volumeFlags&FILE_FILE_COMPRESSION)!=0,"owned fixture volume supports NTFS compression");
+ for(const auto& p:files){auto actual=Api(p);auto mirror=Utf8(sentinel.wstring());DWORD attrs=GetFileAttributesW(actual.c_str());BOOL comp=TRUE,enc=FALSE;
+  Check(DoChangeAttrs(nullptr,mirror.data(),1,attrs|FILE_ATTRIBUTE_COMPRESSED|FILE_ATTRIBUTE_READONLY,&script,done,nullptr,nullptr,nullptr,comp,enc,attrs,data,actual.c_str()),"real compression through owned exact attribute source");
+  Check((GetFileAttributesW(actual.c_str())&(FILE_ATTRIBUTE_COMPRESSED|FILE_ATTRIBUTE_READONLY))==(FILE_ATTRIBUTE_COMPRESSED|FILE_ATTRIBUTE_READONLY),"exact long source compressed and readonly");
+  Check((GetFileAttributesW(Api(sentinel).c_str())&FILE_ATTRIBUTE_COMPRESSED)==0&&Payload(sentinel),"narrow mirror cannot redirect compression into unselected sentinel");
+  attrs=GetFileAttributesW(actual.c_str());comp=TRUE;Check(DoChangeAttrs(nullptr,mirror.data(),1,attrs&~FILE_ATTRIBUTE_COMPRESSED,&script,done,nullptr,nullptr,nullptr,comp,enc,attrs,data,actual.c_str()),"real decompression through exact attribute source");
+  Check((GetFileAttributesW(actual.c_str())&FILE_ATTRIBUTE_COMPRESSED)==0&&Payload(p),"decompression preserves actual contents");SetFileAttributesW(actual.c_str(),FILE_ATTRIBUTE_ARCHIVE);
+ }
+ Check(CompressFile(dn.data(),GetFileAttributesW(Api(directory).c_str()))==ERROR_SUCCESS&&(GetFileAttributesW(Api(directory).c_str())&FILE_ATTRIBUTE_COMPRESSED),"actual long directory compression");
+ Check(UncompressFile(dn.data(),GetFileAttributesW(Api(directory).c_str()))==ERROR_SUCCESS&&(GetFileAttributesW(Api(directory).c_str())&FILE_ATTRIBUTE_COMPRESSED)==0,"actual long directory decompression");
+ auto narrow=Utf8(files[0].wstring());auto wide=Api(files[0]);
+ for(bool compress:{true,false}){
+  DWORD attrs=GetFileAttributesW(wide.c_str());if(!compress){Check(CompressFile(narrow.data(),attrs)==ERROR_SUCCESS,"prepare compressed source for restore failure");attrs=GetFileAttributesW(wide.c_str());}
+  Check(SetFileAttributesW(wide.c_str(),attrs|FILE_ATTRIBUTE_READONLY)!=FALSE,"prepare readonly NTFS source");attrs=GetFileAttributesW(wide.c_str());FailRestore=1;TimeAttempted=false;
+  DWORD result=compress?CompressFile(narrow.data(),attrs):UncompressFile(narrow.data(),attrs);
+  Check(result==ERROR_ACCESS_DENIED,"compression readonly restore failure is reported");FailRestore=0;SetFileAttributesW(wide.c_str(),FILE_ATTRIBUTE_ARCHIVE);UncompressFile(narrow.data(),GetFileAttributesW(wide.c_str()));
+ }
+ for(int action=0;action<4;++action){SetFileAttributesW(wide.c_str(),FILE_ATTRIBUTE_ARCHIVE|FILE_ATTRIBUTE_READONLY);DWORD attrs=FILE_ATTRIBUTE_ARCHIVE|FILE_ATTRIBUTE_READONLY|(action==1?FILE_ATTRIBUTE_COMPRESSED:0)|(action==3?FILE_ATTRIBUTE_ENCRYPTED:0);FailClear=1;int calls=EfsCalls;BOOL canceled=FALSE;
+  DWORD result=action==0?CompressFile(narrow.data(),attrs):action==1?UncompressFile(narrow.data(),attrs):action==2?MyEncryptFile(nullptr,narrow.data(),attrs,0,data,canceled,TRUE):MyDecryptFile(narrow.data(),attrs,TRUE);
+  Check(result==ERROR_ACCESS_DENIED&&EfsCalls==calls&&(GetFileAttributesW(wide.c_str())&FILE_ATTRIBUTE_READONLY),"failed readonly preparation prevents NTFS transform and preserves original attributes");FailClear=0;SetFileAttributesW(wide.c_str(),FILE_ATTRIBUTE_ARCHIVE);
+ }
+ // Deterministic EFS API facades validate failure/control flow without altering policy.
+ EfsBehavior=1;
+ for(bool encrypt:{true,false})for(int fault=0;fault<4;++fault){SetFileAttributesW(wide.c_str(),FILE_ATTRIBUTE_ARCHIVE|FILE_ATTRIBUTE_READONLY);DWORD attrs=GetFileAttributesW(wide.c_str())|(encrypt?0:FILE_ATTRIBUTE_ENCRYPTED);BOOL canceled=FALSE;
+  FailReadTime=fault==0;FailWriteTime=fault==1;FailOpenTime=fault==2;FailRestore=fault==3;TimeAttempted=false;int calls=EfsCalls,writes=WriteCalls;
+  DWORD result=encrypt?MyEncryptFile(nullptr,narrow.data(),attrs,0,data,canceled,TRUE):MyDecryptFile(narrow.data(),attrs,TRUE);
+  Check(result==DWORD(fault==2?ERROR_SHARING_VIOLATION:ERROR_ACCESS_DENIED),"EFS preserve-time/open/restore failure retains Windows error");
+  if(fault==0)Check(EfsCalls==calls&&WriteCalls==writes,"failed EFS timestamp read never transforms or restores uninitialized times");
+  FailReadTime=FailWriteTime=FailOpenTime=FailRestore=0;SetFileAttributesW(wide.c_str(),FILE_ATTRIBUTE_ARCHIVE);
+ }
+ BOOL canceled=FALSE;data.EncryptSystemAll=FALSE;data.SkipAllEncryptSystem=FALSE;Reply=IDCANCEL;int calls=EfsCalls;
+ Check(MyEncryptFile(nullptr,narrow.data(),FILE_ATTRIBUTE_SYSTEM,FILE_ATTRIBUTE_SYSTEM,data,canceled,FALSE)==ERROR_SUCCESS&&canceled&&EfsCalls==calls,"SYSTEM encryption confirmation Cancel preserves source");
+ Reply=IDB_SKIPALL;canceled=FALSE;Check(MyEncryptFile(nullptr,narrow.data(),FILE_ATTRIBUTE_SYSTEM,FILE_ATTRIBUTE_SYSTEM,data,canceled,FALSE)==ERROR_SUCCESS&&!canceled&&data.SkipAllEncryptSystem&&EfsCalls==calls,"SYSTEM encryption SkipAll retains policy and skips API");data.SkipAllEncryptSystem=FALSE;
+ Reply=IDB_ALL;Check(MyEncryptFile(nullptr,narrow.data(),FILE_ATTRIBUTE_SYSTEM,FILE_ATTRIBUTE_SYSTEM,data,canceled,FALSE)==ERROR_SUCCESS&&data.EncryptSystemAll&&EfsCalls==calls+1,"SYSTEM encryption All requires explicit confirmation");data.EncryptSystemAll=FALSE;
+ EfsBehavior=2;Check(MyEncryptFile(nullptr,narrow.data(),FILE_ATTRIBUTE_ARCHIVE,0,data,canceled,TRUE)==ERROR_ACCESS_DENIED,"EFS API failure is preserved despite timestamp cleanup");
+ SetFileAttributesW(wide.c_str(),FILE_ATTRIBUTE_ARCHIVE); // Undo the SYSTEM confirmation fixture before real transforms.
+ // Actual EFS capability is separately reported; unsupported systems are not certified.
+ auto probe=root/L"efs-probe.txt";Check(Write(probe),"create owned actual EFS probe");DWORD status=0;BOOL statusOK=FileEncryptionStatusW(Api(probe).c_str(),&status);printf("EFS status available=%d status=%lu volumeFlags=%lu\n",int(statusOK),status,volumeFlags);
+ if(statusOK&&status==FILE_ENCRYPTABLE){const FILETIME probeModified=Modified(probe);EfsBehavior=0;auto pn=Utf8(probe.wstring());DWORD result=MyEncryptFile(nullptr,pn.data(),GetFileAttributesW(Api(probe).c_str()),0,data,canceled,TRUE);
+  if(result==ERROR_SUCCESS){Check((GetFileAttributesW(Api(probe).c_str())&FILE_ATTRIBUTE_ENCRYPTED)!=0,"actual EFS encryption changes owned probe only");Check(Equal(Modified(probe),probeModified),"actual encryption preserves modified time");Check(MyDecryptFile(pn.data(),GetFileAttributesW(Api(probe).c_str()),TRUE)==ERROR_SUCCESS&&(GetFileAttributesW(Api(probe).c_str())&FILE_ATTRIBUTE_ENCRYPTED)==0&&Payload(probe),"actual EFS decrypt restores readable owned data");Check(Equal(Modified(probe),probeModified),"actual decryption preserves modified time");Check(MyEncryptFile(nullptr,pn.data(),GetFileAttributesW(Api(probe).c_str()),0,data,canceled,FALSE)==ERROR_SUCCESS,"actual EFS non-preserve-date encrypt caller remains supported");Check(MyDecryptFile(pn.data(),GetFileAttributesW(Api(probe).c_str()),FALSE)==ERROR_SUCCESS&&Payload(probe),"actual EFS non-preserve-date decrypt caller remains supported");
+   Reply=IDCANCEL;for(const auto& source:files){auto efsPath=Api(source);auto mirror=Utf8(sentinel.wstring());DWORD attrs=GetFileAttributesW(efsPath.c_str());BOOL comp=FALSE,enc=TRUE;
+    if(source.filename().wstring().back()==L'.'){
+     BOOL raw=::EncryptFileW(efsPath.c_str());DWORD rawError=raw?ERROR_SUCCESS:GetLastError();
+     if(!raw){Check(rawError!=ERROR_SUCCESS,"native Windows refuses special trailing-dot EFS probe explicitly");
+      Check(!DoChangeAttrs(nullptr,mirror.data(),1,attrs|FILE_ATTRIBUTE_ENCRYPTED,&script,done,nullptr,nullptr,nullptr,comp,enc,attrs,data,efsPath.c_str())&&LastDialogError==rawError,"worker surfaces identical native EFS refusal through Cancel");
+      Check((GetFileAttributesW(efsPath.c_str())&FILE_ATTRIBUTE_ENCRYPTED)==0&&Payload(source)&&Payload(sentinel)&&(GetFileAttributesW(Api(sentinel).c_str())&FILE_ATTRIBUTE_ENCRYPTED)==0,"unsupported EFS exact name never redirects or changes content");
+      printf("EFS trailing-dot exact name refused by raw Windows error=%lu; worker refusal matches; NOT_SUPPORTED_HERE\n",rawError);continue;
+     }
+     Check(::DecryptFileW(efsPath.c_str(),0)!=FALSE,"reset successful raw trailing-dot capability probe");
+    }
+
+    Check(DoChangeAttrs(nullptr,mirror.data(),1,attrs|FILE_ATTRIBUTE_ENCRYPTED|FILE_ATTRIBUTE_READONLY,&script,done,nullptr,nullptr,nullptr,comp,enc,attrs,data,efsPath.c_str()),"actual EFS owned long Unicode source encrypt through worker");printf("EFS matrix sourceUtf16=%zu encrypted=%lu\n",source.wstring().size(),GetFileAttributesW(efsPath.c_str())&FILE_ATTRIBUTE_ENCRYPTED);
+    Check((GetFileAttributesW(efsPath.c_str())&(FILE_ATTRIBUTE_ENCRYPTED|FILE_ATTRIBUTE_READONLY))==(FILE_ATTRIBUTE_ENCRYPTED|FILE_ATTRIBUTE_READONLY)&&(GetFileAttributesW(Api(sentinel).c_str())&FILE_ATTRIBUTE_ENCRYPTED)==0,"actual encryption uses wide source instead of narrow sentinel");
+    attrs=GetFileAttributesW(efsPath.c_str());enc=TRUE;Check(DoChangeAttrs(nullptr,mirror.data(),1,attrs&~FILE_ATTRIBUTE_ENCRYPTED,&script,done,nullptr,nullptr,nullptr,comp,enc,attrs,data,efsPath.c_str()),"actual EFS owned long Unicode source decrypt through worker");
+    Check((GetFileAttributesW(efsPath.c_str())&FILE_ATTRIBUTE_ENCRYPTED)==0&&Payload(source)&&Payload(sentinel),"actual decryption retains source and unselected contents");SetFileAttributesW(efsPath.c_str(),FILE_ATTRIBUTE_ARCHIVE);
+   }
+   printf("EFS actual roundtrip PASS\n");}
+  else{printf("EFS actual unavailable Windows error=%lu; roundtrip NOT_VERIFIED\n",result);Check(Payload(probe),"unsupported EFS attempt preserves owned data");}
+ }else printf("EFS actual roundtrip NOT_RUN: Windows capability unavailable\n");
+ auto sn=Utf8(sentinel.wstring());UncompressFile(sn.data(),GetFileAttributesW(Api(sentinel).c_str()));
+ CloseHandle(data.WorkerNotSuspended);for(const auto& p:files)SetFileAttributesW(Api(p).c_str(),FILE_ATTRIBUTE_NORMAL);Check(root.parent_path()==parent&&root.filename()==L"owned-attributes","cleanup remains inside owned fixture root");std::filesystem::remove_all(std::filesystem::path(Api(root)));
+ printf("Actual NTFS worker: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

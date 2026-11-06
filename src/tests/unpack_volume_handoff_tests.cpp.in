@@ -1,0 +1,89 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual entire bundled ZIP/7Zip wrappers and ZIP sort; explicit engine/SDK sink doubles.
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#define SAL_MAX_PATH 32768
+#define CALL_STACK_MESSAGE5(...) ((void)0)
+#define CRT_MEM_CHECKPOINT
+#define CRT_MEM_DUMP_ALL_OBJECTS_SINCE
+#define IDS_NODISPLAY 1
+#define IDS_PLUGINNAME 2
+#define IDS_UNPACK_INCOMPLETE 8
+#define IDS_LOWMEM 3
+#define IDS_INSUFFICIENT_MEMORY 4
+#define IDS_UNPACKING_ARCHIVE 5
+#define IDS_READING_ARCHIVEITEMS 6
+#define IDS_UNPACKING 7
+#define MSGBOX_ERROR 1
+#define OPER_OK 0
+#define OPER_CANCEL 1
+#define OPER_CONTINUE 2
+#define dtDelete 1
+static int Checks=0,Failures=0;
+static void Check(bool ok,const char* why){++Checks;if(!ok){++Failures;printf("FAIL: %s\n",why);}}
+struct State {int InitialError=0,RunError=0,DecompressResult=OPER_OK,GatherResult=OPER_OK;bool ExtractionIncomplete=false,CollectionFailed=false,Break=false,ListOK=true,SpaceOK=true,AllocOK=true;int Calls=0,Lists=0,Decompressions=0,Errors=0,Live=0,Directories=0,Progress=0,Closes=0,LastErrorID=0;std::vector<std::string> Volumes;};
+static State G;
+static const char* LoadStr(int){return "localized diagnostic";}
+struct CDynamicString {virtual BOOL Add(const char*,int)=0;virtual ~CDynamicString()=default;};
+struct Sink:CDynamicString {int FailAt=-1,Calls=0;bool Seven=false;std::vector<std::string> Accepted;BOOL Add(const char* path,int length)override{++Calls;Check(length==-2,"SDK receives each NUL-terminated volume entry");if(Seven)Check(G.Live==0&&G.Directories==0&&G.Progress==0,"7Zip hands off only after engine/context cleanup");if(Calls==FailAt)return FALSE;Accepted.emplace_back(path);return TRUE;}};
+struct CSalamanderForOperationsAbstract {void OpenProgressDialog(const char*,BOOL,void*,BOOL){++G.Progress;}void ProgressDialogAddText(const char*,BOOL){}void CloseProgressDialog(){--G.Progress;}};
+struct CQuadWord {CQuadWord(int,int){}};
+struct CArchiveItemInfo {};
+template<class T>struct TIndirectArray {TIndirectArray(int,int,int){}};
+struct CSalamanderDirectoryAbstract {void Clear(void*){}};
+struct General {void ShowMessageBox(const char*,const char*,int){++G.Errors;}CSalamanderDirectoryAbstract* AllocSalamanderDirectory(BOOL){if(!G.AllocOK)return nullptr;++G.Directories;return new CSalamanderDirectoryAbstract;}void FreeSalamanderDirectory(CSalamanderDirectoryAbstract* p){--G.Directories;delete p;}HWND GetMsgBoxParent(){return nullptr;}BOOL TestFreeSpace(HWND,const char*,const CQuadWord&,const char*){return G.SpaceOK;}void PrepareMask(char* out,const char* in){strcpy(out,in);}};
+static General GeneralObject;static General* SalamanderGeneral=&GeneralObject;
+namespace Zip {
+template<class T>struct TIndirectArray2 {int Count=0;std::vector<T*> Data;TIndirectArray2(int,BOOL){}~TIndirectArray2(){for(T* p:Data)free(p);}void Add(T* p){Data.push_back(p);++Count;}T*& operator[](int i){return Data.at(i);}};
+struct CZipUnpack {int ErrorID=G.InitialError;BOOL UserBreak=FALSE;bool WholeArchiveExtracted=true;bool ArchiveVolumesComplete=true;TIndirectArray2<char>* Volumes;CZipUnpack(const char*,const char*,CSalamanderForOperationsAbstract*,TIndirectArray2<char>* v):Volumes(v){++G.Live;}~CZipUnpack(){--G.Live;}int UnpackWholeArchive(const char*,const char*){++G.Calls;WholeArchiveExtracted=!G.ExtractionIncomplete;ArchiveVolumesComplete=!G.CollectionFailed;ErrorID=G.RunError;UserBreak=G.Break;if(Volumes)for(const auto& v:G.Volumes)Volumes->Add(_strdup(v.c_str()));return ErrorID;}};
+struct CPluginInterfaceForArchiver {BOOL UnpackWholeArchive(CSalamanderForOperationsAbstract*,const char*,const char*,const char*,BOOL,CDynamicString*);};
+@@ZIP_SORT@@
+@@ZIP@@
+}
+namespace Seven {
+static BOOL Error(int id){++G.Errors;G.LastErrorID=id;return FALSE;}
+struct CPluginDataInterface;
+struct C7zClient {C7zClient(){++G.Live;}~C7zClient(){--G.Live;}BOOL ListArchive(const char*,CSalamanderDirectoryAbstract*,CPluginDataInterface*,std::string&){++G.Lists;return G.ListOK;}int Decompress(CSalamanderForOperationsAbstract*,const char*,const char*,TIndirectArray<CArchiveItemInfo>*,std::string&,BOOL,bool* complete){++G.Decompressions;*complete=!G.ExtractionIncomplete;return G.DecompressResult;}};
+struct CPluginDataInterface {C7zClient* Client;std::string Password;explicit CPluginDataInterface(C7zClient* p):Client(p){}~CPluginDataInterface(){delete Client;}C7zClient* Get7zClient(){return Client;}};
+static struct Plugin {void ReleasePluginDataInterface(CPluginDataInterface* p){delete p;}} PluginInterface;
+static void CalcSize(CSalamanderDirectoryAbstract*,const char*,CQuadWord&,int& count){count=1;}
+static int GatherItems(CSalamanderDirectoryAbstract*,const char*,TIndirectArray<CArchiveItemInfo>*,char*,int){return G.GatherResult;}
+struct CPluginInterfaceForArchiver {BOOL UnpackWholeArchive(CSalamanderForOperationsAbstract*,const char*,const char*,const char*,BOOL,CDynamicString*);BOOL CanCloseArchive(CSalamanderForOperationsAbstract*,const char*,BOOL,int&){++G.Closes;return TRUE;}};
+@@SEVEN@@
+}
+int main(){
+ const char* source="C:\\owned-東京\\archive.zip";CSalamanderForOperationsAbstract operations;
+ for(int scenario=0;scenario<14;++scenario){G=State{};G.Volumes={"C:\\owned-東京\\part2.zip",source,source,"C:\\owned-東京\\part2.zip"};Sink sink;Zip::CPluginInterfaceForArchiver plugin;const BOOL deletion=scenario!=1;CDynamicString* output=&sink;
+  if(scenario==2)sink.FailAt=1;if(scenario==3)sink.FailAt=2;if(scenario==4)output=nullptr;if(scenario==5)G.InitialError=IDS_NODISPLAY;if(scenario==6)G.RunError=IDS_LOWMEM;if(scenario==7)G.Break=true;if(scenario==8){G.Volumes.push_back("C:\\owned-東京\\part3.zip");sink.FailAt=3;}if(scenario==9)output=nullptr;if(scenario==10||scenario==11)G.CollectionFailed=true;if(scenario==12||scenario==13)G.ExtractionIncomplete=true;
+  const BOOL del=scenario==9||scenario==11||scenario==13?FALSE:deletion;const BOOL result=plugin.UnpackWholeArchive(&operations,source,"*.*","C:\\target",del,output);
+  const bool expected=scenario==0||scenario==1||scenario==9||scenario==11||scenario==13;Check((result!=FALSE)==expected,"ZIP never authorizes deletion after first/later Add rejection or failed/canceled engine");Check(G.Live==0,"ZIP engine is destroyed on every return");
+  if(scenario==0)Check(sink.Calls==2&&sink.Accepted.size()==2&&sink.Accepted[0]==source,"actual ZIP sort and exact dedup preserve unique volume handoff");
+  if(scenario==1||scenario==9)Check(G.Calls==1&&sink.Calls==0,"ZIP no-delete extraction never needs or writes a volume sink");
+  if(scenario==4)Check(G.Calls==0&&sink.Calls==0&&GetLastError()==ERROR_INVALID_PARAMETER,"ZIP NULL deletion sink refuses before engine work");
+  if(scenario==2||scenario==3||scenario==8)Check(sink.Calls==sink.FailAt&&G.Errors==1,"ZIP Add rejection stops handoff immediately and reports localized memory failure");
+  if(scenario>=5&&scenario<=7)Check(sink.Calls==0,"ZIP error or user cancellation never hands off a deletion list");
+  if(scenario==10)Check(sink.Calls==0&&G.Errors==1,"sticky internal collection failure refuses before sort/handoff even after cleared engine error");
+  if(scenario==11)Check(sink.Calls==0,"no-delete result policy is independent of deletion-list qualification");
+  if(scenario==12)Check(sink.Calls==0&&G.Errors==1,"partial extraction never hands off a deletion list");
+  if(scenario==13)Check(sink.Calls==0&&G.Errors==0,"ordinary no-delete extraction retains successful SDK Skip semantics");
+ }
+ for(int scenario=0;scenario<14;++scenario){G=State{};Sink sink;sink.Seven=true;Seven::CPluginInterfaceForArchiver plugin;CDynamicString* output=&sink;BOOL deletion=TRUE;
+  if(scenario==1||scenario==9)deletion=FALSE;if(scenario==2)sink.FailAt=1;if(scenario==3||scenario==9)output=nullptr;if(scenario==4)G.ListOK=false;if(scenario==5)G.SpaceOK=false;if(scenario==6)G.GatherResult=OPER_CANCEL;if(scenario==7)G.DecompressResult=OPER_CANCEL;if(scenario==8)G.DecompressResult=OPER_CONTINUE;if(scenario==10)G.AllocOK=false;if(scenario==11){deletion=FALSE;G.DecompressResult=OPER_CONTINUE;}if(scenario==12||scenario==13){G.ExtractionIncomplete=true;if(scenario==13)deletion=FALSE;}
+  const BOOL result=plugin.UnpackWholeArchive(&operations,source,"*.*","C:\\target",deletion,output);const bool expected=scenario==0||scenario==1||scenario==9||scenario==11||scenario==13;
+  Check((result!=FALSE)==expected,"7Zip Add rejection cannot authorize deletion; incomplete/CONTINUE result cannot authorize deletion");Check(G.Live==0&&G.Directories==0&&G.Progress==0,"7Zip releases client/directory/progress on success and all handoff failures");
+  if(scenario==0)Check(sink.Accepted.size()==1&&sink.Accepted[0]==source,"7Zip hands off only its exact supported single volume");
+  if(scenario==1||scenario==9)Check(sink.Calls==0&&G.Decompressions==1,"7Zip no-delete extraction does not require a sink");
+  if(scenario==2)Check(sink.Calls==1&&G.Errors==1&&G.LastErrorID==IDS_INSUFFICIENT_MEMORY&&G.Closes==1,"7Zip rejection is reported only after cleanup and close callback");
+  if(scenario==8||scenario==12)Check(sink.Calls==0&&G.Errors==1&&G.LastErrorID==IDS_UNPACK_INCOMPLETE,"7Zip partial or CONTINUE result preserves source and reports localized notice");
+  if(scenario==11||scenario==13)Check(sink.Calls==0,"7Zip no-delete SDK Skip policy remains available");
+  if(scenario==3)Check(G.Lists==0&&sink.Calls==0&&GetLastError()==ERROR_INVALID_PARAMETER,"7Zip NULL deletion sink refuses before engine work");
+  if(scenario>=4&&scenario<=7||scenario==10)Check(sink.Calls==0,"7Zip failed/canceled extraction never hands off a deletion list");
+ }
+ printf("Actual whole-archive volume handoff: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

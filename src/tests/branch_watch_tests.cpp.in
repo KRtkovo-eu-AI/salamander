@@ -1,0 +1,90 @@
+// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual preparation, watch API invocation and queued ownership; unrelated UI callbacks are doubles.
+#define NOMINMAX
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <cstdio>
+#include <new>
+#include <cstdlib>
+#include <utility>
+@@CONVERSIONS@@
+namespace Salamander { namespace BranchView { @@EXTENDED@@ } }
+@@PATH@@
+#define HANDLES_Q(x) (x)
+static HANDLE OpenWatch(const PreparedWatchPath& prepared) {
+@@OPEN_WATCH@@
+ return handle;
+}
+@@QUEUE_TYPE@@
+static CRITICAL_SECTION TimeCounterSection;
+static int MyTimeCounter=0,Posted=0;
+static BOOL RecordMessage(HWND,UINT,WPARAM,LPARAM){++Posted;return TRUE;}
+#undef PostMessage
+#define PostMessage RecordMessage
+#define CALL_STACK_MESSAGE3(...)
+#define HANDLES(x) (x)
+#define TRACE_E(x) ((void)0)
+constexpr UINT WM_USER_DISPACHCHANGENOTIF=WM_APP+1;
+struct CMainWindow {
+ CRITICAL_SECTION DispachChangeNotifCS; std::vector<CChangeNotifData> ChangeNotifArray; HWND HWindow=nullptr;
+ CMainWindow(){InitializeCriticalSection(&DispachChangeNotifCS);}
+ ~CMainWindow(){DeleteCriticalSection(&DispachChangeNotifCS);}
+ void PostChangeOnPathNotification(const char*,BOOL);
+ bool Drain(std::string& pathStorage,BOOL& includingSubdirs){
+  BOOL ok=TRUE;
+@@DRAIN@@
+  return ok!=FALSE;
+ }
+};
+@@POST@@
+static int checks=0,failures=0;
+static void Check(bool ok,const char* message){++checks;if(!ok){++failures;printf("FAIL %s (%lu)\n",message,GetLastError());}}
+static std::wstring Ext(const std::wstring& s){return Salamander::BranchView::ExtendedPath(s);}
+struct Fixture {
+ std::wstring Root;std::vector<std::wstring> Dirs,Files;
+ Fixture(){std::vector<wchar_t> tmp(32768);DWORD n=GetTempPathW((DWORD)tmp.size(),tmp.data());if(!n||n>=tmp.size())std::abort();Root=std::wstring(tmp.data())+L"S30-watch-"+std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(GetTickCount64());Dir(Root);}
+ void Dir(const std::wstring& path){Check(CreateDirectoryW(Ext(path).c_str(),nullptr)!=FALSE,"create owned directory");Dirs.push_back(path);}
+ void File(const std::wstring& path){HANDLE h=CreateFileW(Ext(path).c_str(),GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);Check(h!=INVALID_HANDLE_VALUE,"create owned file");if(h!=INVALID_HANDLE_VALUE){DWORD n;Check(WriteFile(h,"watch",5,&n,nullptr)&&n==5,"write own data");CloseHandle(h);}Files.push_back(path);}
+ ~Fixture(){for(auto i=Files.rbegin();i!=Files.rend();++i){if(i->compare(0,Root.size()+1,Root+L"\\")!=0)std::abort();DeleteFileW(Ext(*i).c_str());}for(auto i=Dirs.rbegin();i!=Dirs.rend();++i){if(i->compare(0,Root.size(),Root)!=0)std::abort();RemoveDirectoryW(Ext(*i).c_str());}}
+};
+int main(){
+ InitializeCriticalSection(&TimeCounterSection);
+ Fixture f;const std::wstring sub=f.Root+L"\\žluťoučký-東京";f.Dir(sub);
+ auto utf8=SalWideToMultiBytePath(f.Root.c_str(),CP_UTF8);auto recursive=PrepareWatchPath(utf8.c_str(),TRUE),ordinary=PrepareWatchPath(utf8.c_str(),FALSE);
+ Check(recursive.Key!=ordinary.Key&&recursive.Recursive&&!ordinary.Recursive,"recursive and ordinary registrations are distinct");
+ Check(PrepareWatchPath((utf8+"\\").c_str(),TRUE).Key==recursive.Key,"trailing slash shares exact registration");
+ HANDLE r=OpenWatch(recursive),o=OpenWatch(ordinary);Check(r!=INVALID_HANDLE_VALUE&&o!=INVALID_HANDLE_VALUE,"open simultaneous real ordinary and subtree watches");
+ f.File(sub+L"\\unicode-😀.txt");
+ Check(WaitForSingleObject(r,2000)==WAIT_OBJECT_0,"recursive watch sees deep Unicode file");
+ Check(WaitForSingleObject(o,100)==WAIT_TIMEOUT,"ordinary watch does not inherit recursion");
+ Check(FindNextChangeNotification(r)!=FALSE,"rearm recursive watch");
+ f.File(f.Root+L"\\ordinary.txt");
+ Check(WaitForSingleObject(o,2000)==WAIT_OBJECT_0,"ordinary root notifications remain enabled");
+ Check(WaitForSingleObject(r,2000)==WAIT_OBJECT_0,"recursive root notifications remain enabled");
+ FindCloseChangeNotification(r);FindCloseChangeNotification(o);
+ std::wstring parent=sub;
+ for(int i=0;i<4;++i){parent+=L"\\"+std::wstring(65,L'漢');f.Dir(parent);}
+ auto long8=SalWideToMultiBytePath(parent.c_str(),CP_UTF8);auto longPath=PrepareWatchPath(long8.c_str(),TRUE);
+ Check(parent.size()>MAX_PATH&&longPath.WidePath==Ext(parent+L"\\"),"exact UTF16 long root preserved from UTF8");
+ HANDLE l=OpenWatch(longPath);Check(l!=INVALID_HANDLE_VALUE,"long Unicode watch works without LongPathsEnabled");
+ f.File(parent+L"\\same.txt");Check(WaitForSingleObject(l,2000)==WAIT_OBJECT_0,"long Unicode watch receives mutation");FindCloseChangeNotification(l);
+ auto shortUnicode=f.Root+L"\\"+std::wstring(80,L'漢');auto short8=SalWideToMultiBytePath(shortUnicode.c_str(),CP_UTF8);
+ Check(shortUnicode.size()<MAX_PATH&&short8.size()>MAX_PATH,"UTF8 over MAX_PATH fixture distinct from UTF16 long root");
+ Check(PrepareWatchPath(short8.c_str(),FALSE).WidePath==Ext(shortUnicode+L"\\"),"UTF8 byte length does not truncate ordinary watch path");
+ auto acp=SalWideToMultiBytePath(L"C:\\legacy-é",CP_ACP);Check(PrepareWatchPath(acp.c_str(),FALSE).WidePath==Ext(SalMultiByteToWidePath(acp.c_str(),CP_ACP)+L"\\"),"legacy ACP watcher fallback retained");
+ CMainWindow host;std::string caller=long8;host.PostChangeOnPathNotification(caller.c_str(),TRUE);caller="changed by caller";
+ Check(host.ChangeNotifArray.size()==1&&host.ChangeNotifArray[0].Path==long8,"queued notification owns entire long UTF8 path");
+ for(int i=0;i<1000;++i)host.PostChangeOnPathNotification((utf8+"\\storm-"+std::to_string(i)).c_str(),FALSE);
+ std::string delivered;BOOL including=FALSE;int count=0;
+ while(host.Drain(delivered,including)){++count;if(count==1)Check(delivered==utf8+"\\storm-999"&&!including,"queue keeps existing LIFO and flag contract");}
+ Check(count==1001&&delivered==long8&&including,"storm drains without truncating original path or losing flags");
+ Check(Posted==1001,"every enqueue posts dispatch request");
+ host.PostChangeOnPathNotification(long8.c_str(),TRUE);host.Drain(delivered,including);
+ host.PostChangeOnPathNotification("C:\\callback-path",FALSE);
+ Check(delivered==long8&&including,"reentrant enqueue cannot invalidate detached callback path");
+ Check(host.Drain(delivered,including)&&delivered=="C:\\callback-path"&&!including,"reentrant callback notification retains independent ownership");
+ DeleteCriticalSection(&TimeCounterSection);
+ printf("Actual watcher/notification: %d checks, %d failures\n",checks,failures);return failures?1:0;
+}

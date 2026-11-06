@@ -2201,10 +2201,21 @@ BOOL C__Handles::GlobalUnlock(HGLOBAL hMem)
 }
 
 HANDLE
-C__Handles::FindFirstChangeNotification(LPCTSTR lpPathName, BOOL bWatchSubtree,
+C__Handles::FindFirstChangeNotificationA(LPCSTR lpPathName, BOOL bWatchSubtree,
                                         DWORD dwNotifyFilter)
 {
-    HANDLE ret = ::FindFirstChangeNotification(lpPathName, bWatchSubtree,
+    HANDLE ret = ::FindFirstChangeNotificationA(lpPathName, bWatchSubtree,
+                                               dwNotifyFilter);
+    CheckCreate(ret != INVALID_HANDLE_VALUE, __htChangeNotification,
+                __hoFindFirstChangeNotification, ret, GetLastError());
+    return ret;
+}
+
+HANDLE
+C__Handles::FindFirstChangeNotificationW(LPCWSTR lpPathName, BOOL bWatchSubtree,
+                                        DWORD dwNotifyFilter)
+{
+    HANDLE ret = ::FindFirstChangeNotificationW(lpPathName, bWatchSubtree,
                                                dwNotifyFilter);
     CheckCreate(ret != INVALID_HANDLE_VALUE, __htChangeNotification,
                 __hoFindFirstChangeNotification, ret, GetLastError());
@@ -2305,10 +2316,32 @@ BOOL C__Handles::LocalUnlock(HLOCAL hMem)
 }
 
 HANDLE
-C__Handles::LoadImage(HINSTANCE hinst, LPCTSTR lpszName, UINT uType,
+C__Handles::LoadImageA(HINSTANCE hinst, LPCSTR lpszName, UINT uType,
                       int cxDesired, int cyDesired, UINT fuLoad)
 {
-    HANDLE ret = ::LoadImage(hinst, lpszName, uType, cxDesired, cyDesired, fuLoad);
+    HANDLE ret = ::LoadImageA(hinst, lpszName, uType, cxDesired, cyDesired, fuLoad);
+    C__HandlesType type;
+    switch (uType)
+    {
+    case IMAGE_BITMAP:
+        type = __htBitmap;
+        break;
+    case IMAGE_CURSOR:
+        type = __htCursor;
+        break;
+    default:
+        type = __htIcon;
+        break;
+    }
+    CheckCreate(ret != NULL, type, __hoLoadImage, ret, GetLastError());
+    return ret;
+}
+
+HANDLE
+C__Handles::LoadImageW(HINSTANCE hinst, LPCWSTR lpszName, UINT uType,
+                      int cxDesired, int cyDesired, UINT fuLoad)
+{
+    HANDLE ret = ::LoadImageW(hinst, lpszName, uType, cxDesired, cyDesired, fuLoad);
     C__HandlesType type;
     switch (uType)
     {

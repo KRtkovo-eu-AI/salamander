@@ -1,0 +1,196 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <windows.h>
+#include <cstdio>
+#include <string>
+#include <vector>
+#include <cstring>
+#include <cwchar>
+
+// Only deterministic 8.3/error cases replace APIs; ordinary path cases below
+// call real Windows I/O. No volume settings or real DOS aliases are modified.
+static int Mode = 0, Creates = 0, Moves = 0, Removes = 0;
+static BOOL TestCreateDirectoryW(LPCWSTR path, LPSECURITY_ATTRIBUTES attrs)
+{
+    if (!Mode) return CreateDirectoryW(path, attrs);
+    ++Creates;
+    if (Creates == 1) { SetLastError(ERROR_ALREADY_EXISTS); return FALSE; }
+    return TRUE;
+}
+static BOOL TestMoveFileW(LPCWSTR source, LPCWSTR target)
+{
+    if (!Mode) return MoveFileW(source, target);
+    ++Moves;
+    if (Moves == 1) { SetLastError(ERROR_ALREADY_EXISTS); return FALSE; }
+    if (Mode == 2 && Moves == 3) { SetLastError(ERROR_ACCESS_DENIED); return FALSE; }
+    return TRUE;
+}
+static HANDLE TestFindFirstFileW(LPCWSTR path, LPWIN32_FIND_DATAW data)
+{
+    if (!Mode) return FindFirstFileW(path, data);
+    *data = WIN32_FIND_DATAW{};
+    wcscpy_s(data->cFileName, L"Long original name.txt");
+    wcscpy_s(data->cAlternateFileName, L"LONGOR~1.TXT");
+    return reinterpret_cast<HANDLE>(static_cast<INT_PTR>(123));
+}
+static BOOL TestFindClose(HANDLE find) { return Mode ? TRUE : FindClose(find); }
+static DWORD TestGetFileAttributesW(LPCWSTR path) { return Mode ? FILE_ATTRIBUTE_ARCHIVE : GetFileAttributesW(path); }
+static BOOL TestRemoveDirectoryW(LPCWSTR path)
+{
+    if (!Mode) return RemoveDirectoryW(path);
+    ++Removes; return TRUE;
+}
+#define CreateDirectoryW TestCreateDirectoryW
+#define MoveFileW TestMoveFileW
+#define FindFirstFileW TestFindFirstFileW
+#define FindClose TestFindClose
+#define GetFileAttributesW TestGetFileAttributesW
+#define RemoveDirectoryW TestRemoveDirectoryW
+#include "@@WORKER_PATH_HEADER@@"
+@@HOST_WRAPPER@@
+class CSalamanderGeneral { public: BOOL SalCreateDirectoryEx(const char*, DWORD*); };
+#define CALL_STACK_MESSAGE1(message) ((void)0)
+@@SDK_WRAPPER@@
+#undef CreateDirectoryW
+#undef MoveFileW
+#undef FindFirstFileW
+#undef FindClose
+#undef GetFileAttributesW
+#undef RemoveDirectoryW
+
+static int Failed = 0, Checks = 0;
+static void Check(bool ok, const char* name)
+{
+    ++Checks;
+    if (!ok) { ++Failed; std::printf("FAIL: %s (error %lu)\n", name, GetLastError()); }
+}
+static std::string Utf8(const std::wstring& value)
+{
+    int size = WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, NULL, 0, NULL, NULL);
+    std::string result(size, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, result.data(), size, NULL, NULL);
+    result.resize(size - 1); return result;
+}
+static std::wstring Exact(const std::wstring& value) { return L"\\\\?\\" + value; }
+static bool IsDir(const std::wstring& path)
+{
+    DWORD attrs = GetFileAttributesW(Exact(path).c_str());
+    return attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0;
+}
+int wmain()
+{
+    DWORD capacity = GetCurrentDirectoryW(0, NULL);
+    std::vector<wchar_t> current(capacity);
+    if (!GetCurrentDirectoryW(capacity, current.data())) return 2;
+    const std::wstring previous(current.data());
+    const std::wstring root = previous + L"\\owned-wrapper-fixture";
+    if (!CreateDirectoryW(root.c_str(), NULL)) return 2;
+    if (root.size() >= 170) return 2;
+    std::vector<std::wstring> dirs = {root};
+    CSalamanderGeneral sdk;
+    auto invoke = [&](const char* path, DWORD* err, bool viaSdk) {
+        return viaSdk ? sdk.SalCreateDirectoryEx(path, err) : ::SalCreateDirectoryEx(path, err);
+    };
+    auto make = [&](const std::wstring& path, bool viaSdk) {
+        DWORD err = 12345;
+        BOOL ok = invoke(Utf8(path).c_str(), &err, viaSdk);
+        Check(ok && err == ERROR_SUCCESS && IsDir(path), "wrapper creates exact UTF-16 directory and clears error");
+        if (ok) dirs.push_back(path);
+        return ok != FALSE;
+    };
+    make(root + L"\\unicode-\u65e5-\u010d-\U0001f600", false);
+    const std::wstring unicode = dirs.back();
+    for (bool viaSdk : {false, true})
+    {
+        const std::wstring tag = viaSdk ? L"sdk-" : L"host-";
+        make(root + L"\\" + tag + L"ascii", viaSdk);
+        make(root + L"\\" + tag + L"\u65e5\U0001f600", viaSdk);
+        make(unicode + L"\\" + tag + L"ascii", viaSdk);
+        make(unicode + L"\\" + tag + L"\u6771\u4eac-\u010desk\u00fd", viaSdk);
+        std::wstring bytes = root + L"\\" + tag + std::wstring(100, L'\u65e5');
+        Check(Utf8(bytes).size() > MAX_PATH && bytes.size() < MAX_PATH, "fixture separates byte-long from UTF-16-long path");
+        make(bytes, viaSdk);
+        Check(root.size() < 170, "fixture root leaves room for deterministic long-path components");
+        std::wstring parent = root + L"\\" + tag + std::wstring(180 - root.size() - tag.size() - 1, L'a');
+        make(parent, viaSdk);
+        std::wstring longPath = parent + L"\\" + std::wstring(90, L'\u65e5');
+        Check(longPath.size() > MAX_PATH, "fixture exceeds UTF-16 MAX_PATH");
+        make(longPath, viaSdk);
+        make(longPath + L"\\" + tag + L"child", viaSdk);
+        std::wstring dot = root + L"\\" + tag + L"exact.";
+        make(dot, viaSdk);
+        Check(!IsDir(root + L"\\" + tag + L"exact"), "trailing-dot directory never changes normalized sibling");
+        std::wstring space = root + L"\\" + tag + L"exact ";
+        make(space, viaSdk);
+        Check(!IsDir(root + L"\\" + tag + L"exact"), "trailing-space directory never changes normalized sibling");
+        DWORD error = 12345;
+        const std::wstring file = root + L"\\" + tag + L"existing-file";
+        HANDLE existing = CreateFileW(file.c_str(), GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+        Check(existing != INVALID_HANDLE_VALUE, "create owned collision sentinel");
+        if (existing != INVALID_HANDLE_VALUE)
+        {
+            DWORD written = 0;
+            Check(WriteFile(existing, "KEEP", 4, &written, NULL) && written == 4, "write collision sentinel payload");
+            CloseHandle(existing);
+            Check(!CreateDirectoryW(file.c_str(), NULL), "native oracle refuses file collision");
+            DWORD nativeError = GetLastError();
+            Check(!invoke(Utf8(file).c_str(), &error, viaSdk) && error == nativeError, "wrapper preserves actual file-collision error");
+            existing = CreateFileW(file.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+            char data[4] = {}; DWORD bytesRead = 0;
+            Check(existing != INVALID_HANDLE_VALUE && ReadFile(existing, data, 4, &bytesRead, NULL) &&
+                  bytesRead == 4 && memcmp(data, "KEEP", 4) == 0, "file collision leaves source bytes unchanged");
+            if (existing != INVALID_HANDLE_VALUE) CloseHandle(existing);
+            Check(DeleteFileW(file.c_str()) != FALSE, "remove owned sentinel only");
+        }
+        Check(!invoke(Utf8(bytes).c_str(), &error, viaSdk) && error == ERROR_ALREADY_EXISTS, "existing-directory collision preserves precise error");
+        std::wstring missing = root + L"\\absent\\" + tag + L"child";
+        Check(!invoke(Utf8(missing).c_str(), &error, viaSdk) && error == ERROR_PATH_NOT_FOUND && !IsDir(missing), "missing parent fails exactly without guessed path");
+        Check(!invoke("", &error, viaSdk) && error != ERROR_SUCCESS, "empty input fails and reports error");
+        Check(!invoke(NULL, &error, viaSdk) && error != ERROR_SUCCESS, "null input fails and reports error");
+        Check(SetCurrentDirectoryW(root.c_str()) != FALSE, "enter owned short working directory");
+        std::wstring relative = tag + L"relative-\u65e5";
+        BOOL made = invoke(Utf8(relative).c_str(), &error, viaSdk);
+        Check(made && error == ERROR_SUCCESS && IsDir(root + L"\\" + relative), "relative Unicode input resolves to exact working directory");
+        if (made) dirs.push_back(root + L"\\" + relative);
+        std::wstring optional = tag + L"null-error";
+        made = invoke(Utf8(optional).c_str(), NULL, viaSdk);
+        Check(made && IsDir(root + L"\\" + optional), "optional error pointer works on success");
+        if (made) dirs.push_back(root + L"\\" + optional);
+        Check(!invoke("absent\\child", NULL, viaSdk), "optional error pointer works on failure");
+        Check(SetCurrentDirectoryW(previous.c_str()) != FALSE, "restore working directory");
+    }
+    // Invalid UTF-8 keeps legacy ACP input usable; the oracle decodes explicitly.
+    if (GetACP() != CP_UTF8)
+    {
+        std::string acp = "legacy-\xe8";
+        wchar_t wide[32];
+        MultiByteToWideChar(CP_ACP, 0, acp.c_str(), -1, wide, 32);
+        DWORD err = 12345;
+        Check(SetCurrentDirectoryW(root.c_str()) != FALSE, "ACP fixture cwd");
+        BOOL made = ::SalCreateDirectoryEx(acp.c_str(), &err);
+        Check(made && err == ERROR_SUCCESS && IsDir(root + L"\\" + wide), "invalid UTF-8 uses exact legacy ACP fallback");
+        if (made) dirs.push_back(root + L"\\" + wide);
+        SetCurrentDirectoryW(previous.c_str());
+    }
+    else std::puts("SKIP: distinct ACP fallback (system ACP is UTF-8)");
+    for (int mode : {1, 2})
+    {
+        Mode = mode; Creates = Moves = Removes = 0;
+        DWORD error = 12345;
+        BOOL created = sdk.SalCreateDirectoryEx("C:\\mock-only\\LONGOR~1.TXT", &error);
+        Check(mode == 1 ? created && error == ERROR_SUCCESS : !created && error == ERROR_ALREADY_EXISTS,
+              "controlled DOS alias retry preserves result and original error on rollback");
+        Check(Creates == 2 && Moves == (mode == 1 ? 3 : 4) && Removes == (mode == 1 ? 0 : 1),
+              "controlled temporary-name collision retries and failed restore rolls back");
+        Mode = 0;
+    }
+    bool cleanup = true;
+    for (auto it = dirs.rbegin(); it != dirs.rend(); ++it)
+    {
+        if (*it != root && it->rfind(root + L"\\", 0) != 0) { cleanup = false; continue; }
+        cleanup = RemoveDirectoryW(Exact(*it).c_str()) != FALSE && cleanup;
+    }
+    Check(cleanup, "remove only owned fixture directories, including exact trailing-dot/space names");
+    std::printf("Actual wrappers: %d checks, %d failures\n", Checks, Failed);
+    return Failed ? 1 : 0;
+}

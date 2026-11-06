@@ -15,6 +15,9 @@
 #include <stdio.h>
 #include <limits.h>
 #include <string>
+#include <vector>
+#include <memory>
+#include <new>
 
 #ifndef SAL_MAX_PATH
 #define SAL_MAX_PATH 32768
@@ -31,6 +34,7 @@
 #include "spl_base.h"
 #include "spl_file.h"
 #include "spl_gen.h"
+#include "spl_diskselection.h"
 #include "spl_gui.h"
 #include "spl_menu.h"
 #include "spl_file.h"
@@ -84,3 +88,5 @@ static std::wstring PluginPathAddExtendedPrefixW(const wchar_t* path)
         return std::wstring(L"\\\\?\\UNC\\") + (path + 2);
     return std::wstring(L"\\\\?\\") + path;
 }
+
+#include "checksum_paths.h"

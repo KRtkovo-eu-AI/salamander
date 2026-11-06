@@ -3,11 +3,13 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "common/widepath.h"
 
 #include "cfgdlg.h"
 #include "mainwnd.h"
 #include "plugins.h"
 #include "fileswnd.h"
+#include "branch_view.h"
 #include "filesbox.h"
 #include "shiconov.h"
 
@@ -226,17 +228,16 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
             CIconList* iconList = NULL;
             int iconListIndex = -1; // close it if not set
             BOOL sharedIconList = FALSE;
-            char fileName[MAX_PATH + 4];
+            std::string fileName = GetItemCacheKey(*f);
+            fileName.append(4, '\0'); // icon-cache comparisons read aligned DWORD chunks
 
             if (GetPluginIconsType() != pitFromPlugin || !Is(ptPluginFS))
             {
                 if (isDir) // it's a directory
                 {
                     int icon;
-                    memmove(fileName, f->Name, f->NameLen);
-                    *(DWORD*)(fileName + f->NameLen) = 0;
 
-                    if (!IconCache->GetIndex(fileName, icon, NULL, NULL) ||                             // the icon-thread isn't loading it
+                    if (!IconCache->GetIndex(fileName.c_str(), icon, NULL, NULL) ||                             // the icon-thread isn't loading it
                         IconCache->At(icon).GetFlag() != 1 && IconCache->At(icon).GetFlag() != 2 ||     // neither new nor old icon is loaded
                         !IconCache->GetIcon(IconCache->At(icon).GetIndex(), &iconList, &iconListIndex)) // failed to obtain its icon
                     {                                                                                   // we will display a simple symbol
@@ -265,9 +266,7 @@ void CFilesWindow::DrawIcon(HDC hDC, CFileData* f, BOOL isDir, BOOL isItemUpDir,
                             Associations.GetPixelIconIndex(index, GetIconSize(iconSize)) < 0) // dynamic icon or missing pixel-sized copy
                         {                                                             // icon in the file
                             int icon;
-                            memmove(fileName, f->Name, f->NameLen);
-                            *(DWORD*)(fileName + f->NameLen) = 0;
-                            if (!IconCache->GetIndex(fileName, icon, NULL, NULL) ||                         // the icon-thread isn't loading it
+                            if (!IconCache->GetIndex(fileName.c_str(), icon, NULL, NULL) ||                         // the icon-thread isn't loading it
                                 IconCache->At(icon).GetFlag() != 1 && IconCache->At(icon).GetFlag() != 2 || // neither new nor old icon is loaded
                                 !IconCache->GetIcon(IconCache->At(icon).GetIndex(),
                                                     &iconList, &iconListIndex)) // failed to obtain loaded icon
@@ -871,8 +870,10 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
             TransferPanelPathW[0] = 0;
             if (Is(ptDisk))
             {
-                GetGeneralPath(TransferPanelPath, SAL_MAX_PATH);
-                lstrcpynW(TransferPanelPathW, GetPathW(), SAL_MAX_PATH);
+                const std::wstring parent = GetItemDirectoryW(*f);
+                const std::string parentUtf8 = SalWideToMultiBytePath(parent.c_str(), CP_UTF8);
+                CopyStringTruncateUtf8(TransferPanelPath, SAL_MAX_PATH, parentUtf8.c_str());
+                lstrcpynW(TransferPanelPathW, parent.c_str(), SAL_MAX_PATH);
             }
             TransferFileData = f;
             TransferIsDir = isDir ? (isItemUpDir ? 2 : 1) : 0;
@@ -893,91 +894,109 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
                 // check whether the column area is at least partially visible
                 if (drawFlags & DRAWFLAG_SKIP_VISTEST || RectVisible(hDC, &r))
                 {
-                    // retrieve the text
-                    if (column->ID != COLUMN_ID_EXTENSION)
+                    if (IsBranchView() && column->ID == COLUMN_ID_CUSTOM &&
+                        column->CustomData == BRANCH_VIEW_PATH_COLUMN)
                     {
-                        TransferActCustomData = column->CustomData;
-                        column->GetText();
-                    }
-                    else
-                    {
-                        // extension is an exception - it always follows Name and we handle it explicitly
-                        if (isDir && !Configuration.SortDirsByExt || f->Ext[0] == 0 || f->Ext <= f->Name + 1) // empty value in the Ext column (exception for names like ".htaccess", they appear in the Name column even though they are extensions)
-                            TransferLen = 0;
-                        else
+                        ExtTextOutW(hDC, r.left, y, ETO_OPAQUE, &adjR, L"", 0, NULL);
+                        if (!isItemUpDir && !(drawFlags & DRAWFLAG_MASK))
                         {
-                            if (!fileNameFormated)
-                                AlterFileName(TransferBuffer, f->Name, -1, Configuration.FileNameFormat, 0, isDir);
-                            TransferLen = (int)(f->NameLen - (f->Ext - f->Name));
-                            if (TransferLen > 0)
-                                MoveMemory(TransferBuffer, TransferBuffer + (f->Ext - f->Name), TransferLen); // buffer overlap may occur
+                            const std::wstring parent = GetBranchViewDisplayDirectoryW(*f);
+                            RECT textRect = r;
+                            textRect.left += SPACE_WIDTH / 2;
+                            textRect.right -= SPACE_WIDTH / 2;
+                            textRect.top = y;
+                            DrawTextW(hDC, parent.c_str(), (int)parent.size(), &textRect,
+                                      DT_SINGLELINE | DT_NOPREFIX | DT_PATH_ELLIPSIS);
                         }
                     }
-
-                    if (TransferLen == 0)
-                        ExtTextOut(hDC, r.left, y, ETO_OPAQUE, &adjR, "", 0, NULL); // just clearing
                     else
                     {
-                        if (column->FixedWidth == 1) // NarrowedNameColumn does not apply here (not Name column)
+                        // retrieve the text
+                        if (column->ID != COLUMN_ID_EXTENSION)
                         {
-                            int fitChars;
-                            // for fixed-width columns we must check whether the entire text fits
-                            int textWidth = r.right - r.left - SPACE_WIDTH;
-                            GetTextExtentExPoint(hDC, TransferBuffer, TransferLen, textWidth,
-                                                 &fitChars, DrawItemAlpDx, &textSize);
-                            if (fitChars < TransferLen)
+                            TransferActCustomData = column->CustomData;
+                            column->GetText();
+                        }
+                        else
+                        {
+                            // extension is an exception - it always follows Name and we handle it explicitly
+                            if (isDir && !Configuration.SortDirsByExt || f->Ext[0] == 0 || f->Ext <= f->Name + 1) // empty value in the Ext column (exception for names like ".htaccess", they appear in the Name column even though they are extensions)
+                                TransferLen = 0;
+                            else
                             {
-                                // search from the end for the character after which we can copy "..." and it fits in the column
-                                while (fitChars > 0 && DrawItemAlpDx[fitChars - 1] + GetTextEllipsisWidth() > textWidth)
-                                    fitChars--;
-                                // copy part of the original string to another buffer
-                                int totalCount;
-                                if (fitChars > 0)
+                                if (!fileNameFormated)
+                                    AlterFileName(TransferBuffer, f->Name, -1, Configuration.FileNameFormat, 0, isDir);
+                                TransferLen = (int)(f->NameLen - (f->Ext - f->Name));
+                                if (TransferLen > 0)
+                                    MoveMemory(TransferBuffer, TransferBuffer + (f->Ext - f->Name), TransferLen); // buffer overlap may occur
+                            }
+                        }
+
+                        if (TransferLen == 0)
+                            ExtTextOut(hDC, r.left, y, ETO_OPAQUE, &adjR, "", 0, NULL); // just clearing
+                        else
+                        {
+                            if (column->FixedWidth == 1) // NarrowedNameColumn does not apply here (not Name column)
+                            {
+                                int fitChars;
+                                // for fixed-width columns we must check whether the entire text fits
+                                int textWidth = r.right - r.left - SPACE_WIDTH;
+                                GetTextExtentExPoint(hDC, TransferBuffer, TransferLen, textWidth,
+                                                     &fitChars, DrawItemAlpDx, &textSize);
+                                if (fitChars < TransferLen)
                                 {
-                                    fitChars = Utf8SafeDrawPrefixLen(TransferBuffer, fitChars);
-                                }
-                                if (fitChars > 0)
-                                {
-                                    memmove(DrawItemBuff, TransferBuffer, fitChars);
-                                    // and append "..."
-                                    memmove(DrawItemBuff + fitChars, "...", 3);
-                                    totalCount = fitChars + 3;
+                                    // search from the end for the character after which we can copy "..." and it fits in the column
+                                    while (fitChars > 0 && DrawItemAlpDx[fitChars - 1] + GetTextEllipsisWidth() > textWidth)
+                                        fitChars--;
+                                    // copy part of the original string to another buffer
+                                    int totalCount;
+                                    if (fitChars > 0)
+                                    {
+                                        fitChars = Utf8SafeDrawPrefixLen(TransferBuffer, fitChars);
+                                    }
+                                    if (fitChars > 0)
+                                    {
+                                        memmove(DrawItemBuff, TransferBuffer, fitChars);
+                                        // and append "..."
+                                        memmove(DrawItemBuff + fitChars, "...", 3);
+                                        totalCount = fitChars + 3;
+                                    }
+                                    else
+                                    {
+                                        DrawItemBuff[0] = '.';
+                                        totalCount = 1;
+                                    }
+                                    ExtTextOut(hDC, r.left + SPACE_WIDTH / 2, y, ETO_OPAQUE, &adjR, DrawItemBuff, totalCount, NULL);
                                 }
                                 else
                                 {
-                                    DrawItemBuff[0] = '.';
-                                    totalCount = 1;
+                                    if (column->LeftAlignment == 0)
+                                    {
+                                        deltaX = r.right - r.left - SPACE_WIDTH / 2 - textSize.cx;
+                                        if (deltaX < SPACE_WIDTH / 2)
+                                            deltaX = SPACE_WIDTH / 2;
+                                    }
+                                    else
+                                        deltaX = SPACE_WIDTH / 2;
+                                    ExtTextOut(hDC, r.left + deltaX, y, ETO_OPAQUE, &adjR, TransferBuffer, TransferLen, NULL);
                                 }
-                                ExtTextOut(hDC, r.left + SPACE_WIDTH / 2, y, ETO_OPAQUE, &adjR, DrawItemBuff, totalCount, NULL);
                             }
                             else
                             {
+                                // it's a flexible column and the contents definitely fit
                                 if (column->LeftAlignment == 0)
                                 {
+                                    // if the column is right-aligned, measure the text width
+                                    GetTextExtentPoint32(hDC, TransferBuffer, TransferLen, &textSize);
                                     deltaX = r.right - r.left - SPACE_WIDTH / 2 - textSize.cx;
                                     if (deltaX < SPACE_WIDTH / 2)
                                         deltaX = SPACE_WIDTH / 2;
                                 }
                                 else
                                     deltaX = SPACE_WIDTH / 2;
+
                                 ExtTextOut(hDC, r.left + deltaX, y, ETO_OPAQUE, &adjR, TransferBuffer, TransferLen, NULL);
                             }
-                        }
-                        else
-                        {
-                            // it's a flexible column and the contents definitely fit
-                            if (column->LeftAlignment == 0)
-                            {
-                                // if the column is right-aligned, measure the text width
-                                GetTextExtentPoint32(hDC, TransferBuffer, TransferLen, &textSize);
-                                deltaX = r.right - r.left - SPACE_WIDTH / 2 - textSize.cx;
-                                if (deltaX < SPACE_WIDTH / 2)
-                                    deltaX = SPACE_WIDTH / 2;
-                            }
-                            else
-                                deltaX = SPACE_WIDTH / 2;
-
-                            ExtTextOut(hDC, r.left + deltaX, y, ETO_OPAQUE, &adjR, TransferBuffer, TransferLen, NULL);
                         }
                     }
                 }
@@ -1312,11 +1331,10 @@ void CFilesWindow::DrawIconThumbnailItem(HDC hTgtDC, int itemIndex, RECT* itemRe
             if (Is(ptDisk))
             {
                 int icon;
-                char fileName[MAX_PATH + 4];
-                memmove(fileName, f->Name, f->NameLen);
-                *(DWORD*)(fileName + f->NameLen) = 0;
+                std::string fileName = GetItemCacheKey(*f);
+                fileName.append(4, '\0');
 
-                if (IconCache->GetIndex(fileName, icon, NULL, NULL))
+                if (IconCache->GetIndex(fileName.c_str(), icon, NULL, NULL))
                 {
                     DWORD flag = IconCache->At(icon).GetFlag();
                     if (flag == 5 || flag == 6) // o.k. || old version

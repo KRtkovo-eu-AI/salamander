@@ -511,6 +511,19 @@ void WINAPI CPluginInterface::Event(int event, DWORD param)
 // CPluginInterfaceForMenuExt
 //
 
+static BOOL ExecuteRestoreEncrypted(HWND parent)
+try
+{
+    CSalamanderDiskSelection selection;
+    if (!selection.Capture(SalamanderGeneral, PANEL_SOURCE) || selection.GetCount() == 0)
+        return String<char>::SysError(IDS_UNDELETE, IDS_ERRORENCRYPTED);
+    CRestoreDialog dlg(parent, selection);
+    if (dlg.Execute() == IDCANCEL) return FALSE;
+    return RestoreEncryptedFiles(selection, dlg.TargetPath.c_str(), parent);
+}
+catch (const std::bad_alloc&)
+{ SetLastError(ERROR_NOT_ENOUGH_MEMORY); return String<char>::SysError(IDS_UNDELETE, IDS_ERRORENCRYPTED); }
+
 BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* SalOp,
                                                  HWND parent, int id, DWORD eventMask)
 {
@@ -526,12 +539,7 @@ BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstrac
 
     case CMD_RESTORE_ENCRYPTED:
     {
-        CRestoreDialog dlg(parent);
-        if (dlg.Execute() == IDCANCEL)
-            return FALSE;
-        return RestoreEncryptedFiles(dlg.TargetPath, parent);
-        // SalamanderGeneral->SalMessageBox(parent, "Not implemented yet.", "Restore", MB_OK | MB_ICONINFORMATION);
-        // return FALSE;
+        return ExecuteRestoreEncrypted(parent);
     }
 
     default:

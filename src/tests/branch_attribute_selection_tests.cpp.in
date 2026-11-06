@@ -1,0 +1,47 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <windows.h>
+#include <vector>
+#include <string>
+#include <cstdio>
+static int Checks=0,Failures=0;
+static void Check(bool b,const char* name){++Checks;if(!b){++Failures;printf("FAIL: %s\n",name);}}
+constexpr int ptDisk=1;
+struct CFileData {std::string Key;std::wstring Full;int Selected=0;bool Current=true;};
+struct Rows {int Count=0;std::vector<CFileData> Items;CFileData& At(int i){return Items.at(size_t(i));}};
+struct CFilesWindow {
+ bool Disk=true,Branch=true;std::wstring Root=L"C:\\東京";ULONGLONG Tab=1,Generation=2;int Caret=0;
+ Rows D,F;Rows* Dirs=&D;Rows* Files=&F;
+ bool Is(int)const{return Disk;}bool IsBranchView()const{return Branch;}
+ const wchar_t* GetPathW()const{return Root.c_str();}ULONGLONG GetPanelTabId()const{return Tab;}ULONGLONG GetBranchViewGeneration()const{return Generation;}
+ int GetCaretIndex()const{return Caret;}int GetSelCount()const{int n=0;for(const auto& f:F.Items)n+=f.Selected!=0;for(const auto& f:D.Items)n+=f.Selected!=0;return n;}
+ const char* GetItemCacheKeyPtr(const CFileData& f)const{return f.Key.c_str();}
+ const CFileData* GetBranchViewFileByCacheKey(const char* key)const{for(const auto* rows:{&D,&F})for(const auto& f:rows->Items)if(f.Key==key&&f.Current)return &f;return nullptr;}
+ std::wstring GetItemFullPathW(const CFileData& f)const{return f.Full;}
+};
+@@GUARD@@
+int main(){
+ CFilesWindow p;const auto longParent=L"C:\\"+std::wstring(100,L'東')+L"\\"+std::wstring(100,L'a')+L"\\"+std::wstring(100,L'b');
+ p.F.Items={{"one",L"C:\\東京\\one\\same.txt",1},{"two",longParent+L"\\same.txt",1},{"keep",L"C:\\東京\\keep.txt",0}};p.F.Count=3;
+ CBranchAttributeSelection snapshot;Check(snapshot.Capture(&p),"capture two distinct same-basename rows");
+ Check(snapshot.Paths.size()==2&&snapshot.Paths[0]!=snapshot.Paths[1]&&snapshot.Paths[1].size()>260,"own exact long source identities");
+ Check(snapshot.IsCurrent(&p),"unchanged selection accepted");p.Caret=2;Check(snapshot.IsCurrent(&p),"caret irrelevant for explicit selection");
+ ++p.Tab;Check(!snapshot.IsCurrent(&p),"same-root different tab refused");--p.Tab;
+ ++p.Generation;Check(!snapshot.IsCurrent(&p),"replacement generation refused");--p.Generation;
+ auto root=p.Root;p.Root=L"C:\\elsewhere";Check(!snapshot.IsCurrent(&p),"different root refused");p.Root=root;
+ p.Branch=false;Check(!snapshot.IsCurrent(&p),"ordinary panel cannot replace Branch selection");p.Branch=true;
+ p.Disk=false;Check(!snapshot.IsCurrent(&p),"virtual panel refused");p.Disk=true;
+ p.F.Items[1].Full=L"C:\\wrong\\same.txt";Check(!snapshot.IsCurrent(&p),"same basename at replacement path refused");p.F.Items[1].Full=longParent+L"\\same.txt";
+ p.F.Items[1].Selected=0;p.F.Items[2].Selected=1;Check(!snapshot.IsCurrent(&p),"different selection refused");p.F.Items[1].Selected=1;p.F.Items[2].Selected=0;
+ p.F.Items[1].Current=false;Check(!snapshot.IsCurrent(&p),"stale cache row refused");p.F.Items[1].Current=true;
+ p.F.Items[1].Full.clear();Check(!snapshot.IsCurrent(&p),"missing exact path refused");p.F.Items[1].Full=longParent+L"\\same.txt";
+ p.F.Items[0].Selected=p.F.Items[1].Selected=0;p.Caret=1;
+ Check(snapshot.Capture(&p)&&snapshot.Paths.size()==1&&snapshot.Paths[0]==p.F.Items[1].Full,"implicit focused item captured by full identity");
+ p.F.Items[1].Selected=1;Check(snapshot.IsCurrent(&p),"automatic temporary selection preserves operation identity");p.F.Items[1].Selected=0;
+ p.Caret=0;Check(!snapshot.IsCurrent(&p),"different implicit caret refused");p.Caret=-1;Check(!snapshot.Capture(&p),"negative caret refused");p.Caret=3;Check(!snapshot.Capture(&p),"past-end caret refused");
+ p.Caret=0;p.Root.clear();Check(!snapshot.Capture(&p),"empty root refused");p.Root=root;
+ p.D.Items={{"dir",longParent+L"\\directory",1}};p.D.Count=1;p.Caret=0;Check(snapshot.Capture(&p)&&snapshot.Paths.size()==1&&snapshot.Paths[0]==p.D.Items[0].Full,"selected directory owns exact path");
+ p.F.Items[0].Selected=1;Check(!snapshot.IsCurrent(&p),"adding file to directory selection changes operation");
+ p.F.Items.clear();p.F.Count=0;p.D.Items.clear();p.D.Count=0;Check(!snapshot.Capture(&p),"empty listing refused");
+ printf("Actual attribute selection guard: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

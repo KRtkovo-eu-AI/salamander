@@ -9,7 +9,7 @@
 // Version 6: 2007.05.15: ConvertUTF8ToUCS2 is exported
 
 // NOTE: the version also needs to be increased in the exif.def file
-#define EXIF_DLL_VERSION 9
+#define EXIF_DLL_VERSION 10
 
 #ifndef RC_INVOKED
 
@@ -50,6 +50,9 @@ typedef BOOL(WINAPI* EXIFGETINFOW)(const wchar_t* fileName,
 
 typedef BOOL(WINAPI* EXIFREPLACETHUMBNAIL)(char* fileName, char* newFile,
                                            unsigned char* pData, int size);
+
+typedef BOOL(WINAPI* EXIFREPLACETHUMBNAILW)(const wchar_t* fileName, const wchar_t* newFile,
+                                             unsigned char* pData, int size);
 
 typedef void(WINAPI* EXIFINITTRANSLATIONS)(LPCTSTR fname);
 

@@ -13,19 +13,58 @@ struct CSourceFile
     CQuadWord Size;        // file size in bytes
     DWORD Attr;            // file attributes - ORed FILE_ATTRIBUTE_XXX constants
     FILETIME LastWrite;    // time of the last write to the file (UTC-based time)
-    unsigned NameLen : 15; // length of the FullName string (strlen(FullName))
+    int NameLen; // length of the FullName string (strlen(FullName))
     unsigned IsDir : 1;
     // unsigned Delete:	1; // the destructor should call free(FullName);
     unsigned State : 1; // 0 -- file not renamed (error, cancel, undo)
                         // 1 -- successfully renamed
 
     CSourceFile(const CFileData* fileData, const char* path, int pathLen, BOOL isDir);
+    CSourceFile(const CFileData* fileData, const char* fullName, BOOL isDir);
+    explicit CSourceFile(const CSalamanderDiskSelectionItem& item);
+    BOOL IsGood() const { return FullName != NULL; }
     CSourceFile(CSourceFile* orig);
     CSourceFile(CSourceFile* orig, const char* newName);
-    CSourceFile(WIN32_FIND_DATA& fd, const char* path, int pathLen);
+    CSourceFile(WIN32_FIND_DATAW& fd, const char* path, int pathLen);
     ~CSourceFile();
     CSourceFile* SetName(const char* name);
+    void SwapName(CSourceFile& other)
+    {
+        std::swap(FullName, other.FullName);
+        std::swap(Name, other.Name);
+        std::swap(Ext, other.Ext);
+        std::swap(NameLen, other.NameLen);
+    }
 };
+
+
+// CSourceFile owns malloc-backed path text. Keep the plugin's established
+// non-throwing allocation contract even when a helper needs temporary strings.
+#if defined(_DEBUG) && defined(_MSC_VER) && defined(new)
+#undef new
+#define RENAMER_RESTORE_SOURCE_NEW
+#endif
+template <class... Args>
+CSourceFile* NewSourceFile(Args&&... args)
+{
+    CSourceFile* file = NULL;
+    try
+    {
+        file = new (std::nothrow) CSourceFile(std::forward<Args>(args)...);
+    }
+    catch (const std::bad_alloc&)
+    {
+    }
+    if (file != NULL && file->IsGood())
+        return file;
+    delete file;
+    SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+    return NULL;
+}
+#ifdef RENAMER_RESTORE_SOURCE_NEW
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RENAMER_RESTORE_SOURCE_NEW
+#endif
 
 enum CChangeCase
 {
@@ -104,7 +143,7 @@ enum CRenamerErrorType
 class CRenamer
 {
 protected:
-    char (&Root)[3 * MAX_PATH];
+    const char* Root;
     int& RootLen;
 
     // information about the last error
@@ -128,7 +167,7 @@ protected:
     BOOL ExcludeExt;
 
 public:
-    CRenamer(char (&root)[3 * MAX_PATH], int& rootLen);
+    CRenamer(const char* root, int& rootLen);
     ~CRenamer();
 
     BOOL IsGood() { return Error == 0; }
@@ -143,7 +182,7 @@ public:
 
     BOOL SetOptions(CRenamerOptions* options);
 
-    int Rename(CSourceFile* file, int counter, char* newName,
+    int Rename(CSourceFile* file, int counter, char* newName, int capacity,
                char** newPart);
 
 protected:

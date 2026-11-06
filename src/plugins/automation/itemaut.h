@@ -18,9 +18,8 @@
 class CSalamanderPanelItemAutomation : public CDispatchImpl<CSalamanderPanelItemAutomation, ISalamanderPanelItem>
 {
 private:
-    WCHAR* m_pszFullPath;
-    size_t m_cchFullPath;
-    WCHAR* m_pszName;
+    std::wstring m_fullPath;
+    std::wstring m_name;
     LARGE_INTEGER m_size;
     DATE m_dateLastModified;
     DWORD m_dwAttributes;
@@ -31,10 +30,12 @@ public:
     DECLARE_DISPOBJ_NAME(L"Salamander.Item")
 
     CSalamanderPanelItemAutomation();
+    explicit CSalamanderPanelItemAutomation(const CSalamanderDiskSelectionItem& item);
     CSalamanderPanelItemAutomation(const CFileData* pData, PCTSTR pszPath);
     CSalamanderPanelItemAutomation(const CFileData* pData, int nPanel);
     ~CSalamanderPanelItemAutomation();
 
+    void Set(const CSalamanderDiskSelectionItem& item);
     void Set(const CFileData* pData, PCTSTR pszPath);
     void Set(const CFileData* pData, int nPanel);
 

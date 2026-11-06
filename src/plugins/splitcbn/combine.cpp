@@ -17,7 +17,7 @@
 
 #define BUFSIZE (512 * 1024)
 
-BOOL CombineFiles(TIndirectArray<char>& files, LPTSTR targetName,
+BOOL CombineFiles(TIndirectArray<char>& files, const char* targetName,
                   BOOL bOnlyCrc, BOOL bTestCrc, UINT32& Crc,
                   BOOL bTime, FILETIME* origTime, HWND parent,
                   CSalamanderForOperationsAbstract* salamander)
@@ -34,11 +34,14 @@ BOOL CombineFiles(TIndirectArray<char>& files, LPTSTR targetName,
 
     // sum sizes of all partial files (while simultaneously checking their accessibility)
     CQuadWord totalSize = CQuadWord(0, 0);
-    char text[MAX_PATH + 50];
+    SplitCBNPaths::Buffer textBuffer(2 * SplitCBNPaths::Capacity);
+    char* text = textBuffer.data();
+    CSplitCBNInputFiles inputFiles(files.Count);
+    std::vector<SplitCBNPaths::FileIdentity> identities(bOnlyCrc ? 0 : static_cast<size_t>(files.Count));
     int i;
     for (i = 0; i < files.Count; i++)
     {
-        SAFE_FILE file;
+        SAFE_FILE& file = inputFiles.Get(i);
         if (!SalamanderSafeFile->SafeFileOpen(&file, files[i], GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING,
                                               0, parent, BUTTONS_RETRYCANCEL, NULL, NULL))
         {
@@ -47,21 +50,26 @@ BOOL CombineFiles(TIndirectArray<char>& files, LPTSTR targetName,
         CQuadWord size;
         size.LoDWord = GetFileSize(file.HFile, &size.HiDWord);
         totalSize += size;
-        SalamanderSafeFile->SafeFileClose(&file);
+        if (!bOnlyCrc && !SplitCBNPaths::GetIdentity(file.HFile, identities[static_cast<size_t>(i)]))
+            return Error2(parent, IDS_COMBINE, IDS_OPENERROR);
     }
 
     // check available free space
     if (!bOnlyCrc)
     {
-        char dir[MAX_PATH];
-        strncpy_s(dir, targetName, _TRUNCATE);
-        SalamanderGeneral->CutDirectory(dir);
-        if (!SalamanderGeneral->TestFreeSpace(parent, dir, totalSize, LoadStr(IDS_COMBINE)))
+        const std::string dir = SplitCBNPaths::Parent(targetName);
+        if (!TestTargetSpace(parent, dir.c_str(), totalSize, IDS_COMBINE))
             return FALSE;
     }
 
+    // Compare actual volume/file IDs, including hardlinks and reparse aliases.
+    // Every source remains open without write/delete sharing until completion.
+    if (!bOnlyCrc && !SplitCBNPaths::CanCreateCombineTarget(targetName, identities))
+        return Error2(parent, IDS_COMBINE, IDS_WRITEERROR);
+
     // create the output file
     SAFE_FILE outfile;
+    CSplitCBNSafeFileScope outfileScope(outfile);
     if (!bOnlyCrc)
     {
         if (SalamanderSafeFile->SafeFileCreate(targetName, GENERIC_WRITE, FILE_SHARE_READ, FILE_ATTRIBUTE_NORMAL,
@@ -72,7 +80,15 @@ BOOL CombineFiles(TIndirectArray<char>& files, LPTSTR targetName,
     }
 
     // merge the files
-    char* pBuffer = new char[BUFSIZE];
+#ifdef new
+#define SPLITCBN_RESTORE_NEW
+#undef new
+#endif
+    char* pBuffer = new (std::nothrow) char[BUFSIZE];
+#ifdef SPLITCBN_RESTORE_NEW
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef SPLITCBN_RESTORE_NEW
+#endif
     if (pBuffer == NULL)
     {
         SalamanderGeneral->ShowMessageBox(LoadStr(IDS_OUTOFMEM), LoadStr(idTitle), MSGBOX_ERROR);
@@ -81,10 +97,14 @@ BOOL CombineFiles(TIndirectArray<char>& files, LPTSTR targetName,
         return FALSE;
     }
 
+    std::unique_ptr<char[]> bufferOwner(pBuffer);
+
     UINT32 CrcVal = 0;
 
     // open the progress dialog
+    CSplitCBNProgressScope progressScope(salamander);
     salamander->OpenProgressDialog(LoadStr(idTitle), TRUE, parent, FALSE);
+    progressScope.Started();
     salamander->ProgressSetTotalSize(CQuadWord(-1, -1), totalSize);
     salamander->ProgressSetSize(CQuadWord(-1, -1), CQuadWord(0, 0), FALSE);
     CQuadWord totalProgress = CQuadWord(0, 0);
@@ -96,13 +116,7 @@ BOOL CombineFiles(TIndirectArray<char>& files, LPTSTR targetName,
         sprintf(text, "%s %s...", LoadStr(IDS_PROCESSING), files[j]);
         salamander->ProgressDialogAddText(text, TRUE);
 
-        SAFE_FILE file;
-        if (!SalamanderSafeFile->SafeFileOpen(&file, files[j], GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING,
-                                              FILE_FLAG_SEQUENTIAL_SCAN, parent, BUTTONS_RETRYCANCEL, NULL, NULL))
-        {
-            ret = FALSE;
-            break;
-        }
+        SAFE_FILE& file = inputFiles.Get(j);
 
         DWORD numread, numwr;
         CQuadWord currentProgress = CQuadWord(0, 0), size;
@@ -134,13 +148,11 @@ BOOL CombineFiles(TIndirectArray<char>& files, LPTSTR targetName,
         } while (numread == BUFSIZE);
 
         totalProgress += currentProgress;
-        SalamanderSafeFile->SafeFileClose(&file);
         if (ret == FALSE)
             break;
     }
 
-    salamander->CloseProgressDialog();
-    delete[] pBuffer;
+    progressScope.Close();
     if (!bOnlyCrc)
     {
         if (ret)
@@ -149,17 +161,13 @@ BOOL CombineFiles(TIndirectArray<char>& files, LPTSTR targetName,
                 SetFileTime(outfile.HFile, NULL, NULL, origTime);
             SalamanderSafeFile->SafeFileClose(&outfile);
 
-            char* name = (char*)SalamanderGeneral->SalPathFindFileName(targetName);
-            if (name > targetName)
-            {
-                name[-1] = 0;
-                SalamanderGeneral->PostChangeOnPathNotification(targetName, FALSE);
-            }
+            const std::string directory = SplitCBNPaths::Parent(targetName);
+            SalamanderGeneral->PostChangeOnPathNotification(directory.c_str(), FALSE);
         }
         else
         {
             SalamanderSafeFile->SafeFileClose(&outfile);
-            DeleteFile(targetName);
+            DeleteFileW(SplitCBNPaths::ApiPath(targetName).c_str());
         }
     }
 
@@ -175,108 +183,6 @@ BOOL CombineFiles(TIndirectArray<char>& files, LPTSTR targetName,
         Crc = CrcVal;
 
     return ret;
-}
-
-// *****************************************************************************
-//
-//  CalculateFileCRC
-//
-
-/*BOOL CalculateFileCRC(UINT32& Crc, HWND parent, CSalamanderForOperationsAbstract* salamander)
-{      
-  CALL_STACK_MESSAGE1("CalculateFileCRC()");
-  HANDLE hFile;
-  const CFileData* pfd = SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, NULL);
-  char path[MAX_PATH];
-  SalamanderGeneral->GetPanelPath(PANEL_SOURCE, path, MAX_PATH, NULL, NULL);
-  if (!SalamanderGeneral->SalPathAppend(path, pfd->Name, MAX_PATH))
-  {
-    SalamanderGeneral->ShowMessageBox(LoadStr(IDS_TOOLONGNAME2), LoadStr(IDS_CALCCRC), MSGBOX_ERROR);
-    return FALSE;
-  }
-  if ((hFile = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
-    FILE_FLAG_SEQUENTIAL_SCAN, NULL)) == INVALID_HANDLE_VALUE)
-  {
-    return Error(IDS_CALCCRC, IDS_OPENERROR);
-  }
-
-  char* pBuffer = new char[BUFSIZE];
-  if (pBuffer == NULL)
-  {
-    CloseHandle(hFile);
-    SalamanderGeneral->ShowMessageBox(LoadStr(IDS_OUTOFMEM), LoadStr(IDS_CALCCRC), MSGBOX_ERROR);
-    return FALSE;
-  }
-
-  Crc = 0;
-
-  salamander->OpenProgressDialog(LoadStr(IDS_CALCCRC), FALSE, NULL, FALSE);
-  salamander->ProgressSetTotalSize(CQuadWord(GetFileSize(hFile, NULL), 0), CQuadWord(-1, -1));
-
-  DWORD numread;
-  int ret = TRUE;
-  CQuadWord progress = CQuadWord(0, 0);
-  do
-  {
-    if (!SafeReadFile(hFile, pBuffer, BUFSIZE, &numread, path))
-    {
-      ret = FALSE;
-      break;
-    }
-    Crc = SalamanderGeneral->UpdateCrc32(pBuffer, numread, Crc);
-    progress += CQuadWord(numread, 0);
-    if (!salamander->ProgressSetSize(progress, CQuadWord(-1, -1), TRUE)) 
-    {
-      ret = FALSE;
-      break;
-    }
-  }
-  while (numread == BUFSIZE);
-
-  salamander->CloseProgressDialog();
-  delete [] pBuffer;
-  CloseHandle(hFile);
-  return ret;
-}*/
-
-// *****************************************************************************
-//
-//  CombineCommand
-//
-
-static BOOL AddFile(TIndirectArray<char>& files, LPTSTR sourceDir, LPTSTR name, BOOL bReverse)
-{
-    CALL_STACK_MESSAGE1("AllocName( , , )");
-    char* str = (char*)malloc(strlen(sourceDir) + 2 + strlen(name));
-    if (str == NULL)
-    {
-        SalamanderGeneral->ShowMessageBox(LoadStr(IDS_OUTOFMEM), LoadStr(IDS_COMBINE), MSGBOX_ERROR);
-        return FALSE;
-    }
-    strcpy(str, sourceDir);
-    if (!SalamanderGeneral->SalPathAppend(str, name, MAX_PATH))
-    {
-        SalamanderGeneral->ShowMessageBox(LoadStr(IDS_TOOLONGNAME2), LoadStr(IDS_COMBINE), MSGBOX_ERROR);
-        return FALSE;
-    }
-    if (bReverse)
-        files.Insert(0, str);
-    else
-        files.Add(str);
-    return TRUE;
-}
-
-static BOOL IsInPanel(LPTSTR fileName)
-{
-    CALL_STACK_MESSAGE1("IsInPanel()");
-    int index = 0;
-    const CFileData* pfd;
-    BOOL isDir;
-    while ((pfd = SalamanderGeneral->GetPanelItem(PANEL_SOURCE, &index, &isDir)) != NULL)
-        if (!isDir)
-            if (!lstrcmpi(fileName, pfd->Name))
-                return TRUE;
-    return FALSE;
 }
 
 static BOOL FindValue(const char*& p)
@@ -308,7 +214,7 @@ static BOOL FindCrc(const char* text, LPCTSTR searchstring, UINT32& crc)
         return FALSE;
 }
 
-static BOOL FindName(const char* text, const char* text_locase, LPCTSTR searchstring, LPTSTR name)
+static BOOL FindName(const char* text, const char* text_locase, LPCTSTR searchstring, std::string& name)
 {
     CALL_STACK_MESSAGE2("FindName( , %s, )", searchstring);
     const char* p = strstr(text_locase, searchstring);
@@ -320,10 +226,10 @@ static BOOL FindName(const char* text, const char* text_locase, LPCTSTR searchst
             p += text - text_locase;
             if (*p == '\"')
                 p++;
-            char* q = name;
-            while (*p && *p != '\r' && *p != '\n' && *p != '\"' && (q - name < MAX_PATH))
-                *q++ = *p++;
-            *q = 0;
+            const char* begin = p;
+            while (*p && *p != '\r' && *p != '\n' && *p != '\"')
+                ++p;
+            name.assign(begin, p);
             return TRUE;
         }
         else
@@ -355,14 +261,13 @@ static BOOL FindTime(const char* text, LPCTSTR searchstring, FILETIME* ft)
         return FALSE;
 }
 
-static void AnalyzeFile(LPTSTR fileName, LPTSTR origName, UINT32& origCrc, FILETIME* origTime,
+static void AnalyzeFile(const char* fileName, std::string& origName, UINT32& origCrc, FILETIME* origTime,
                         BOOL& bNameAcquired, BOOL& bCrcAcquired, BOOL& bTimeAcquired)
 {
     CALL_STACK_MESSAGE2("AnalyzeFile(%s, , , , )", fileName);
-    bNameAcquired = bCrcAcquired = FALSE;
     // load the file into a buffer
     HANDLE hFile;
-    if ((hFile = CreateFile(fileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+    if ((hFile = CreateFileW(SplitCBNPaths::ApiPath(fileName).c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
                             FILE_FLAG_SEQUENTIAL_SCAN, NULL)) == INVALID_HANDLE_VALUE)
         return;
     DWORD size = GetFileSize(hFile, NULL), numread;
@@ -373,10 +278,20 @@ static void AnalyzeFile(LPTSTR fileName, LPTSTR origName, UINT32& origCrc, FILET
         CloseHandle(hFile);
         return;
     } // skip such large files
-    char* text = new char[size + 1];
-    char* text_locase = new char[size + 1];
+#ifdef new
+#define SPLITCBN_RESTORE_NEW
+#undef new
+#endif
+    char* text = new (std::nothrow) char[size + 1];
+    char* text_locase = new (std::nothrow) char[size + 1];
+#ifdef SPLITCBN_RESTORE_NEW
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef SPLITCBN_RESTORE_NEW
+#endif
     if (text == NULL || text_locase == NULL)
     {
+        delete[] text;
+        delete[] text_locase;
         CloseHandle(hFile);
         return;
     }
@@ -391,7 +306,9 @@ static void AnalyzeFile(LPTSTR fileName, LPTSTR origName, UINT32& origCrc, FILET
     text[size] = 0;
 
     strcpy(text_locase, text);
-    CharLower(text_locase);
+    for (char* ch = text_locase; *ch != 0; ++ch)
+        if (*ch >= 'A' && *ch <= 'Z')
+            *ch += 'a' - 'A';
     // try to find "crc32" or "crc"
     if (!bCrcAcquired)
     {
@@ -400,12 +317,15 @@ static void AnalyzeFile(LPTSTR fileName, LPTSTR origName, UINT32& origCrc, FILET
             bCrcAcquired = FindCrc(text_locase, "crc", origCrc);
     }
     // "filename" or "name"
+    const BOOL needName = !bNameAcquired;
     if (!bNameAcquired)
     {
         bNameAcquired = FindName(text, text_locase, "filename", origName);
         if (!bNameAcquired)
             bNameAcquired = FindName(text, text_locase, "name", origName);
     }
+    if (needName && bNameAcquired && strstr(text_locase, "rem encoding=utf8-cmd") != NULL)
+        origName = SplitCBNPaths::DecodeBatchMetadata(origName);
     // "time"
     if (!bTimeAcquired)
     {
@@ -416,232 +336,76 @@ static void AnalyzeFile(LPTSTR fileName, LPTSTR origName, UINT32& origCrc, FILET
     delete[] text_locase;
 }
 
-BOOL CombineCommand(DWORD eventMask, HWND parent, CSalamanderForOperationsAbstract* salamander)
+static BOOL CombineCommandImpl(HWND parent, CSalamanderForOperationsAbstract* salamander)
 {
-    CALL_STACK_MESSAGE2("CombineCommand(%X, , )", eventMask);
-
-    TIndirectArray<char> files(100, 100, dtDelete);
-
-    char sourceDir[MAX_PATH];
-    SalamanderGeneral->GetPanelPath(PANEL_SOURCE, sourceDir, MAX_PATH, NULL, NULL);
-
-    BOOL bTestCompanionFile = FALSE;
-    char companionFile[MAX_PATH];
-    char name1[MAX_PATH], name2[MAX_PATH];
-    const CFileData* pfd;
-    BOOL isDir;
-
-    if (eventMask & MENU_EVENT_FILES_SELECTED)
-    { // files are selected
-        int index = 0;
-        BOOL bAllSameNames = TRUE;
-        BOOL bFirst = TRUE;
-
-        // load selected items into the array (except directories)
-        while ((pfd = SalamanderGeneral->GetPanelSelectedItem(PANEL_SOURCE, &index, &isDir)) != NULL)
-        {
-            if (!isDir)
-            {
-                if (bFirst)
-                {
-                    strcpy(name1, pfd->Name);
-                    StripExtension(name1);
-                    bFirst = FALSE;
-                }
-                else if (bAllSameNames)
-                {
-                    strcpy(name2, pfd->Name);
-                    StripExtension(name2);
-                    if (lstrcmpi(name1, name2))
-                        bAllSameNames = FALSE;
-                }
-                if (!AddFile(files, sourceDir, pfd->Name, FALSE))
-                    return FALSE;
-            }
-        }
-
-        // if all names were identical, there is a chance we will find a companion .BAT or .CRC
-        bTestCompanionFile = bAllSameNames;
-        if (!bAllSameNames)
-            strcpy(name1, "combinedfile");
-        strcpy(companionFile, sourceDir);
-        if (!SalamanderGeneral->SalPathAppend(companionFile, name1, MAX_PATH) ||
-            strlen(companionFile) + 1 >= MAX_PATH) // safety check for the strcat() below
-        {
-            SalamanderGeneral->ShowMessageBox(LoadStr(IDS_TOOLONGNAME2), LoadStr(IDS_COMBINE), MSGBOX_ERROR);
-            return FALSE;
-        }
-        strcat(companionFile, ".");
-    }
-    else // only the focus is on a file - try to extend the selection with "higher" files
+    CSalamanderDiskSelection selection;
+    if (!selection.Capture(SalamanderGeneral, PANEL_SOURCE))
+        return Error(IDS_COMBINE, IDS_OPENERROR);
+    bool selected = false;
+    for (int i = 0; i < selection.GetCount(); ++i)
+        selected = selected || selection.GetItem(i)->Selected != FALSE;
+    CSalamanderDiskSelection siblings;
+    if (!selected && !siblings.Capture(SalamanderGeneral, PANEL_SOURCE, SALDISKSELECTION_ALL_ITEMS))
+        return Error(IDS_COMBINE, IDS_OPENERROR);
+    SplitCBNPaths::CombinePlan plan;
+    if (!SplitCBNPaths::BuildCombinePlan(selection, selected ? NULL : &siblings, plan))
     {
-        pfd = SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, &isDir);
-        if (pfd == NULL || isDir)
+        SalamanderGeneral->ShowMessageBox(LoadStr(IDS_ZEROFILES), LoadStr(IDS_COMBINE), MSGBOX_ERROR);
+        return FALSE;
+    }
+    TIndirectArray<char> files(100, 100, dtDelete);
+    for (size_t i = 0; i < plan.Files.size(); ++i)
+    {
+        char* name = _strdup(plan.Files[i].c_str());
+        if (name == NULL)
+            throw std::bad_alloc();
+        files.Add(name);
+        if (!files.IsGood())
         {
-            TRACE_E("CombineCommand(): No focus on a file?!?");
-            return FALSE;
+            free(name);
+            throw std::bad_alloc();
         }
-        BOOL bJustOneFile = FALSE;
-        // first analyze the extension
-        char* ext = _tcsrchr(pfd->Name, '.');
-        if (ext != NULL) // ".cvspass" is an extension in Windows
-        {
-            BOOL bZeroPadded, bAddThisFile = TRUE;
-            int nextIndex;
-            if (!lstrcmpi(ext, ".tns"))
-            { // tns = Turbo Navigator Split - consider it as "000"
-                bZeroPadded = FALSE;
-                nextIndex = 2;
-            }
-            else if (!lstrcmpi(ext, ".bat") || !lstrcmpi(ext, ".crc"))
-            { // Salamander's BAT or WinCommander CRC; this will not work with TN files here
-                bZeroPadded = TRUE;
-                nextIndex = 1;
-                bAddThisFile = FALSE;
-            }
-            else
-            { // is the extension composed of digits?
-                BOOL bNumbers = TRUE;
-                int numberCount = 0, i = 1;
-                while (ext[i])
-                    if (ext[i] < '0' || ext[i] > '9')
-                    {
-                        bNumbers = FALSE;
-                        break;
-                    }
-                    else
-                    {
-                        numberCount++;
-                        i++;
-                    }
-                if (!bNumbers || numberCount > 3)
-                    bJustOneFile = TRUE; // strange extension - we will not extend anything
-                else
-                {
-                    bZeroPadded = (ext[1] == '0');
-                    nextIndex = atol(ext + 1) + 1;
-                }
-            }
-
-            lstrcpyn(name1, pfd->Name, (int)(ext - pfd->Name + 2));
-            strcpy(companionFile, sourceDir);
-            if (!SalamanderGeneral->SalPathAppend(companionFile, name1, MAX_PATH))
-            {
-                SalamanderGeneral->ShowMessageBox(LoadStr(IDS_TOOLONGNAME2), LoadStr(IDS_COMBINE), MSGBOX_ERROR);
-                return FALSE;
-            }
-
-            if (!bJustOneFile)
-            {
-                if (nextIndex > 1)
-                {
-                    int prevIndex = nextIndex - 2;
-                    while (1)
-                    {
-                        sprintf(name2, bZeroPadded ? "%s%#03ld" : "%s%ld", name1, prevIndex--);
-                        if (!IsInPanel(name2))
-                            break;
-                        if (!AddFile(files, sourceDir, name2, TRUE))
-                            return FALSE;
-                    }
-                }
-
-                strcpy(name2, pfd->Name);
-                bTestCompanionFile = TRUE;
-                do
-                {
-                    if (bAddThisFile)
-                        if (!AddFile(files, sourceDir, name2, FALSE))
-                            return FALSE;
-                    sprintf(name2, bZeroPadded ? "%s%#03ld" : "%s%ld", name1, nextIndex++);
-                    bAddThisFile = TRUE;
-                } while (IsInPanel(name2));
-            }
-        }
-        else
-        { // missing extension - skip it, we will not extend anything
-            bJustOneFile = TRUE;
-            strcpy(companionFile, sourceDir);
-            if (!SalamanderGeneral->SalPathAppend(companionFile, "combinedfile", MAX_PATH))
-            {
-                SalamanderGeneral->ShowMessageBox(LoadStr(IDS_TOOLONGNAME2), LoadStr(IDS_COMBINE), MSGBOX_ERROR);
-                return FALSE;
-            }
-        }
-
-        if (bJustOneFile)
-            if (!AddFile(files, sourceDir, pfd->Name, FALSE))
-                return FALSE;
     }
 
     BOOL bName = FALSE, bCrc = FALSE, bTime = FALSE;
-    UINT32 origCrc;
-    FILETIME origTime;
-
-    if (bTestCompanionFile)
-    { // inspect a potential BAT or CRC
-        size_t ext = strlen(companionFile);
-        if (ext + 3 >= MAX_PATH) // safety check for the strcat() below
-        {
-            SalamanderGeneral->ShowMessageBox(LoadStr(IDS_TOOLONGNAME2), LoadStr(IDS_COMBINE), MSGBOX_ERROR);
-            return FALSE;
-        }
-        strcat(companionFile, "bat");
-        AnalyzeFile(companionFile, name2, origCrc, &origTime, bName, bCrc, bTime);
+    UINT32 origCrc = 0;
+    FILETIME origTime = {};
+    std::string originalName;
+    if (plan.TestCompanion)
+    {
+        AnalyzeFile((plan.CompanionPrefix + "bat").c_str(), originalName, origCrc, &origTime, bName, bCrc, bTime);
         if (!bName || !bCrc)
-        {
-            companionFile[ext] = 0;
-            strcat(companionFile, "crc");
-            AnalyzeFile(companionFile, name2, origCrc, &origTime, bName, bCrc, bTime);
-        }
-        companionFile[ext] = 0;
-        if (bName)
-        {
-            strcpy(name1, sourceDir);
-            if (!SalamanderGeneral->SalPathAppend(name1, name2, MAX_PATH))
-            {
-                SalamanderGeneral->ShowMessageBox(LoadStr(IDS_TOOLONGNAME2), LoadStr(IDS_COMBINE), MSGBOX_ERROR);
-                return FALSE;
-            }
-        }
+            AnalyzeFile((plan.CompanionPrefix + "crc").c_str(), originalName, origCrc, &origTime, bName, bCrc, bTime);
     }
-
-    if (!bName)
-    { // set a default name
-        strcpy(name1, companionFile);
-        name1[strlen(name1) - 1] = 0;
-        char* dot = _tcsrchr(name1, '.');
-        if (dot == NULL) // ".cvspass" is an extension in Windows
-        {
-            if (strlen(name1) + 4 >= MAX_PATH) // safety check for the strcat() below
-            {
-                SalamanderGeneral->ShowMessageBox(LoadStr(IDS_TOOLONGNAME2), LoadStr(IDS_COMBINE), MSGBOX_ERROR);
-                return FALSE;
-            }
-            strcat(name1, ".EXT");
-        }
+    std::string target;
+    if (bName)
+        target = SplitCBNPaths::Join(plan.SourceDirectory, SplitCBNPaths::Utf8(SplitCBNPaths::Wide(originalName.c_str()).c_str()));
+    else
+    {
+        target = plan.CompanionPrefix.substr(0, plan.CompanionPrefix.size() - 1);
+        if (SplitCBNPaths::Name(target).find('.') == std::string::npos)
+            target += ".EXT";
     }
-
+    const std::string targetDirectory = GetTargetDir(plan.SourceDirectory.c_str(), NULL, FALSE);
     if (configCombineToOther)
-    { // JC - February 2002 - adjustment for combining to the other panel, sorry, a bit of a hack
-        // but the previous code did not anticipate it, so I would have had to rewrite it all...
-        // This code replaces the path in "name1", which points to the source panel, with the target panel path
-        SalamanderGeneral->SalPathStripPath(name1);
-        GetTargetDir(name2, NULL, FALSE);
-        if (!SalamanderGeneral->SalPathAppend(name2, name1, MAX_PATH))
-        {
-            SalamanderGeneral->ShowMessageBox(LoadStr(IDS_TOOLONGNAME2), LoadStr(IDS_COMBINE), MSGBOX_ERROR);
-            return FALSE;
-        }
-        strcpy(name1, name2);
+        target = SplitCBNPaths::Join(targetDirectory, SplitCBNPaths::Name(target));
+    if (!CombineDialog(files, target, bCrc, origCrc, parent, salamander))
+        return FALSE;
+    if (!MakePathAbsolute(target, FALSE, targetDirectory.c_str(), !configCombineToOther, IDS_COMBINE))
+        return FALSE;
+    return CombineFiles(files, target.c_str(), FALSE, bCrc, origCrc, bTime, &origTime, parent, salamander);
+}
+
+BOOL CombineCommand(DWORD eventMask, HWND parent, CSalamanderForOperationsAbstract* salamander)
+{
+    CALL_STACK_MESSAGE2("CombineCommand(%X, , )", eventMask);
+    try
+    {
+        return CombineCommandImpl(parent, salamander);
     }
-
-    if (!CombineDialog(files, name1, bCrc, origCrc, parent, salamander))
+    catch (const std::bad_alloc&)
+    {
+        SalamanderGeneral->ShowMessageBox(LoadStr(IDS_OUTOFMEM), LoadStr(IDS_COMBINE), MSGBOX_ERROR);
         return FALSE;
-
-    GetTargetDir(sourceDir, NULL, FALSE);
-    if (!MakePathAbsolute(name1, FALSE, sourceDir, !configCombineToOther, IDS_COMBINE))
-        return FALSE;
-
-    return CombineFiles(files, name1, FALSE, bCrc, origCrc, bTime, &origTime, parent, salamander);
+    }
 }

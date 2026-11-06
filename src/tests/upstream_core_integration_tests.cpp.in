@@ -1,0 +1,130 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-06 | Exercise actual archive metadata keys and drop scheduling. | Cover strict ACP fallback, long paths and per-operation admission after upstream integration. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
+#define _CRT_SECURE_NO_WARNINGS
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <utility>
+#define SAL_MAX_EXTENDED_PATH 32768
+static UINT TestCodePage=1250;
+static int WINAPI FixtureMultiByteToWideChar(UINT cp,DWORD flags,LPCCH text,int count,LPWSTR wide,int capacity)
+{
+    return MultiByteToWideChar(cp==CP_ACP?TestCodePage:cp,flags,text,count,wide,capacity);
+}
+#define MultiByteToWideChar FixtureMultiByteToWideChar
+#include "@@VIEWER_PATH_HEADER@@"
+#undef MultiByteToWideChar
+#include "@@SCHEDULER_HEADER@@"
+@@PREFIX@@
+struct CFileData
+{
+    struct {DWORD HiDWord=0,LoDWord=11;} Size;
+    FILETIME LastWrite={1,2};
+    const char* Name="entry.txt";
+};
+@@CACHE@@
+@@OVERRIDE@@
+enum {CMTP_KEEP_LAST=99,CMCM_CURRENT=0};
+static struct {int CopyMoveScheduling=CMS_SEQUENTIAL,CopyMoveLastTransferMode=CMS_STORAGE_AWARE;} Configuration;
+struct Script
+{
+    int CopyMoveTransferMode=-1,CopyMoveConflictMode=-1,OperationSchedulingPolicy=-1,OperationSchedulingOverride=-1;
+    std::vector<std::pair<std::string,int>> Claims;
+    void AddStoragePath(const char* path,int access){Claims.emplace_back(path,access);}
+};
+static void ConfigureDrop(Script* script,const std::string& sourceDir,const char* targetPath,BOOL copy)
+{
+@@DROP@@
+}
+static int Checks=0,Failures=0;
+static void Check(bool ok,const char* text){++Checks;if(!ok){++Failures;printf("FAIL: %s\n",text);}}
+static std::string Encode(const std::wstring& text,UINT cp=CP_UTF8)
+{
+    int count=WideCharToMultiByte(cp,0,text.c_str(),-1,nullptr,0,nullptr,nullptr);
+    if(count<=0)return {};
+    std::string bytes(static_cast<size_t>(count),'\0');
+    WideCharToMultiByte(cp,0,text.c_str(),-1,bytes.data(),count,nullptr,nullptr);bytes.pop_back();return bytes;
+}
+static bool Directory(const std::wstring& path)
+{
+    return CreateDirectoryW(SalPathAddExtendedPrefixW(path.c_str()).c_str(),nullptr)!=FALSE||GetLastError()==ERROR_ALREADY_EXISTS;
+}
+static bool WriteArchive(const std::wstring& path,DWORD size,FILETIME modified)
+{
+    const std::wstring io=SalPathAddExtendedPrefixW(path.c_str());
+    HANDLE file=CreateFileW(io.c_str(),GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
+    if(file==INVALID_HANDLE_VALUE)return false;
+    std::string data(size,'x');DWORD written=0;
+    bool ok=WriteFile(file,data.data(),size,&written,nullptr)!=FALSE&&written==size&&SetFileTime(file,nullptr,nullptr,&modified)!=FALSE;
+    CloseHandle(file);return ok;
+}
+static std::string Key(const std::string& archive,const CFileData* entry)
+{
+    char key[2048];BuildArchiveCacheKey(key,sizeof(key),archive.c_str(),"folder\\entry.txt",entry);return key;
+}
+int wmain(int argc,wchar_t** argv)
+{
+    if(argc!=3)return 2;
+    TestCodePage=static_cast<UINT>(wcstoul(argv[2],nullptr,10));
+    const std::wstring root=argv[1];
+    // Python owns this root and cleans it after exit; no existing directory is removed by the fixture.
+    if(root.empty()||GetFileAttributesW(root.c_str())==INVALID_FILE_ATTRIBUTES)return 2;
+    const std::wstring unicode=root+L"\\\u6771\u4eac";
+    const std::wstring multiple=unicode+L"\\\u017elu\u0165";
+    const std::wstring byteLong=root+L"\\"+std::wstring(80,L'\u6771');
+    std::wstring charLong=root;std::vector<std::wstring> longDirectories;
+    Check(Directory(unicode)&&Directory(multiple)&&Directory(byteLong),"create owned Unicode directory fixtures");
+    for(int i=0;i<3;++i){charLong+=L"\\"+std::wstring(90,static_cast<wchar_t>(L'a'+i));Check(Directory(charLong),"create owned extended-length directory fixture");longDirectories.push_back(charLong);}
+    std::vector<std::wstring> archives={root+L"\\ascii.arc",root+L"\\\u6771\u4eac.arc",unicode+L"\\ascii.arc",multiple+L"\\ascii.arc",byteLong+L"\\ascii.arc",charLong+L"\\ascii.arc"};
+    FILETIME stamp;GetSystemTimeAsFileTime(&stamp);
+    CFileData entry;
+    for(const auto& archive:archives)
+    {
+        Check(WriteArchive(archive,3,stamp),"write real archive fixture");
+        const auto path=Encode(archive);const auto initial=Key(path,&entry);
+        Check(initial==Key(path,&entry),"unchanged archive and entry reuse the same cache key");
+        Check(initial.substr(21,16)=="0000000000000003","key contains actual wide archive size");
+        Check(WriteArchive(archive,5,stamp),"change only archive size");
+        Check(initial!=Key(path,&entry),"archive size invalidates the key");
+        auto before=Key(path,&entry);FILETIME changed=stamp;changed.dwHighDateTime+=1;
+        Check(WriteArchive(archive,5,changed)&&before!=Key(path,&entry),"archive write time invalidates the key");
+        before=Key(path,&entry);entry.Size.LoDWord+=1;Check(before!=Key(path,&entry),"entry size invalidates the key");
+        before=Key(path,&entry);entry.LastWrite.dwLowDateTime+=1;Check(before!=Key(path,&entry),"entry write time invalidates the key");
+        Check(Key(path,nullptr).substr(21,16)=="0000000000000005","optional entry still includes archive metadata");
+    }
+    Check(Encode(archives[4]).size()>MAX_PATH&&archives[4].size()<MAX_PATH,"UTF8 byte length fixture exceeds MAX_PATH before UTF16 does");
+    Check(archives[5].size()>MAX_PATH,"UTF16 long fixture exceeds MAX_PATH");
+    const std::wstring legacy=root+L"\\caf\u00e9.arc";
+    Check(WriteArchive(legacy,7,stamp),"write representable legacy archive");
+    const auto legacyBytes=Encode(legacy,TestCodePage);
+    const auto legacyKey=Key(legacyBytes,&entry);
+    Check(legacyKey.substr(21,16)=="0000000000000007","strict decoder probes the actual legacy ACP or UTF8 archive");
+    Check(WriteArchive(legacy,9,stamp)&&legacyKey!=Key(legacyBytes,&entry),"legacy archive metadata changes invalidate cache");
+    const std::string source=Encode(multiple+L"\\"+std::wstring(100,L'\u6771'));
+    const std::string target=Encode(charLong);
+    for(BOOL copy:{FALSE,TRUE})for(int mode:std::vector<int>{CMS_SEQUENTIAL,CMS_STORAGE_AWARE,-3,CMTP_KEEP_LAST})
+    {
+        Configuration.CopyMoveScheduling=mode;Script script;
+        ConfigureDrop(&script,source,target.c_str(),copy);
+        const int selected=mode==CMS_SEQUENTIAL?CMS_SEQUENTIAL:CMS_STORAGE_AWARE;
+        Check(script.CopyMoveTransferMode==selected&&script.OperationSchedulingPolicy==COSP_STORAGE_AWARE,"drop selects per-operation automatic policy and normalizes legacy mode");
+        Check(script.OperationSchedulingOverride==(selected==CMS_SEQUENTIAL?COSO_START_NOW:COSO_DEFAULT),"drop sequential starts now while automatic uses resource admission");
+        Check(script.Claims.size()==2&&script.Claims[0].first==source&&script.Claims[0].second==(copy?SACCESS_READ:SACCESS_READWRITE)&&script.Claims[1].first==target&&script.Claims[1].second==SACCESS_WRITE,"storage claims retain complete Unicode long source and target paths");
+    }
+    Script empty;ConfigureDrop(&empty,"",target.c_str(),TRUE);
+    Check(empty.Claims.size()==1&&empty.Claims[0].first==target,"empty source does not produce an invalid storage claim");
+    // Only exact child paths constructed from the owned root are removed here.
+    for(const auto& archive:archives)Check(DeleteFileW(SalPathAddExtendedPrefixW(archive.c_str()).c_str())!=FALSE,"remove owned archive fixture");
+    Check(DeleteFileW(SalPathAddExtendedPrefixW(legacy.c_str()).c_str())!=FALSE,"remove owned legacy archive fixture");
+    for(auto it=longDirectories.rbegin();it!=longDirectories.rend();++it)
+        Check(RemoveDirectoryW(SalPathAddExtendedPrefixW(it->c_str()).c_str())!=FALSE,"remove exact owned extended-length child directory");
+    printf("Actual upstream core integration ACP=%u: %d checks, %d failures\n",TestCodePage,Checks,Failures);
+    return Failures?1:0;
+}

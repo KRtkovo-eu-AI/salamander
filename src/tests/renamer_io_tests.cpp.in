@@ -1,0 +1,74 @@
+// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Includes the actual production header. Only unused host SDK discovery is mocked.
+#define NOMINMAX
+#include <windows.h>
+#include <crtdbg.h>
+#include <cstdio>
+#include <cstring>
+#include <string>
+#include <vector>
+#include <new>
+#define SAL_MAX_PATH 32768
+#define SALAMANDER_SERVICE_PANEL_ITEM_PATHS "Salamander.PanelItemPaths"
+#define SALAMANDER_PANEL_ITEM_PATHS_VERSION_1_0 0x00010000
+struct CFileData { const char* Name=nullptr;const wchar_t* NameW=nullptr;BOOL UseWideName()const{return NameW!=nullptr;} };
+@@SDK@@
+struct CSalamanderGeneralAbstract { BOOL QueryService(const CSalamanderServiceQuery*,CSalamanderServiceResult*){return FALSE;} };
+#if defined(_DEBUG) && defined(_MSC_VER)
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#endif
+#include "@@IO_HEADER@@"
+static int Checks=0,Failures=0;
+static void Check(bool ok,const char* what){++Checks;if(!ok){++Failures;printf("FAIL %s (Win32=%lu)\n",what,GetLastError());}}
+static std::string Utf8(const std::wstring& text){return RenamerPaths::ToUtf8(text.c_str());}
+struct Fixture {
+    std::wstring Root;
+    std::vector<std::string> Files,Directories;
+    bool Ready=false;
+    Fixture(){std::vector<wchar_t> temp(SAL_MAX_PATH);DWORD length=GetTempPathW((DWORD)temp.size(),temp.data());if(length==0||length>=temp.size())return;Root=temp.data();Root+=L"Samandarin-RenamerIO-"+std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(GetTickCount64());Ready=Directory(Root);}
+    bool Directory(const std::wstring& path){std::string encoded=Utf8(path);if(!RenamerIO::CreateDir(encoded.c_str()))return false;Directories.push_back(encoded);return true;}
+    bool Write(const std::wstring& path,const std::string& content){std::string encoded=Utf8(path);HANDLE file=RenamerIO::Open(encoded.c_str(),GENERIC_WRITE,FILE_SHARE_READ,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);if(file==INVALID_HANDLE_VALUE)return false;Files.push_back(encoded);DWORD written=0;BOOL ok=WriteFile(file,content.data(),(DWORD)content.size(),&written,nullptr);CloseHandle(file);return ok&&written==content.size();}
+    std::string Read(const std::wstring& path){std::string result;HANDLE file=RenamerIO::Open(Utf8(path).c_str(),GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);if(file==INVALID_HANDLE_VALUE)return result;char bytes[4096];DWORD count=0;if(ReadFile(file,bytes,sizeof(bytes),&count,nullptr))result.assign(bytes,count);CloseHandle(file);return result;}
+    void RememberTarget(const std::wstring& path){Files.push_back(Utf8(path));}
+    ~Fixture(){for(auto i=Files.rbegin();i!=Files.rend();++i){if(RenamerIO::Attributes(i->c_str())!=INVALID_FILE_ATTRIBUTES){RenamerIO::ClearReadOnly(i->c_str());Check(RenamerIO::Delete(i->c_str())!=FALSE,"cleanup deletes only a test-owned file");}}for(auto i=Directories.rbegin();i!=Directories.rend();++i)Check(RenamerIO::RemoveDir(i->c_str())!=FALSE,"cleanup removes only a test-owned empty directory");}
+};
+static void ConversionTests(){
+    const std::wstring local=L"C:\\root\\\u017elu\u0165ou\u010dk\u00fd\\same.png";
+    Check(RenamerIO::Path(Utf8(local).c_str())==L"\\\\?\\"+local,"UTF8 local path preserves Unicode and receives extended prefix");
+    Check(RenamerIO::Path("\\\\server\\share\\name.png")==L"\\\\?\\UNC\\server\\share\\name.png","UNC path receives correct extended UNC prefix");
+    Check(RenamerIO::Path("\\\\?\\C:\\root\\name.png")==L"\\\\?\\C:\\root\\name.png","already-extended path is not prefixed twice");
+    Check(RenamerIO::Path("C:/root/name.png")==L"\\\\?\\C:\\root\\name.png","forward separators retain normal Win32 meaning");
+    Check(RenamerIO::Path("").empty()&&RenamerIO::Attributes("")==INVALID_FILE_ATTRIBUTES,"empty paths fail without touching the current directory");
+    const char invalidUtf8[]="\xe8.txt";wchar_t acp[20]={};MultiByteToWideChar(CP_ACP,0,invalidUtf8,-1,acp,20);Check(RenamerPaths::ToWide(invalidUtf8)==std::wstring(acp),"invalid UTF8 keeps established ACP fallback");
+#if @@HAS_SAME_ROOT@@
+    Check(RenamerIO::SameRoot("\\\\server\\SHARE\\x","\\\\?\\UNC\\SERVER\\share\\y"),"UNC root comparison accepts case and extended-prefix variants");
+    Check(RenamerIO::SameRoot(Utf8(L"\\\\server\\\u010c-share\\x").c_str(),Utf8(L"\\\\?\\UNC\\SERVER\\\u010d-SHARE\\y").c_str()),"UNC root comparison applies Unicode case semantics");
+    Check(!RenamerIO::SameRoot("C:\\x","D:\\y"),"different drive roots remain different");
+#endif
+}
+static void FileCase(Fixture& fixture,const std::wstring& directory,const wchar_t* basename){
+    const std::wstring source=directory+L"\\"+basename,target=directory+L"\\renamed-"+basename;
+    const std::string marker=Utf8(basename);Check(fixture.Write(source,marker),"actual Open/CreateFileW creates exact Unicode or long source");
+    const std::string encoded=Utf8(source);DWORD attrs=RenamerIO::Attributes(encoded.c_str());Check(attrs!=INVALID_FILE_ATTRIBUTES&&(attrs&FILE_ATTRIBUTE_DIRECTORY)==0,"actual Attributes sees source");
+    WIN32_FIND_DATAW found={};HANDLE search=RenamerIO::FindFirst(encoded.c_str(),&found);Check(search!=INVALID_HANDLE_VALUE&&std::wstring(found.cFileName)==basename,"FindFirst preserves exact wide basename");if(search!=INVALID_HANDLE_VALUE)FindClose(search);
+    Check(RenamerIO::SetAttributes(encoded.c_str(),attrs|FILE_ATTRIBUTE_READONLY)!=FALSE&&(RenamerIO::Attributes(encoded.c_str())&FILE_ATTRIBUTE_READONLY)!=0,"SetAttributes reaches exact source");
+    Check(RenamerIO::ClearReadOnly(encoded.c_str())!=FALSE&&(RenamerIO::Attributes(encoded.c_str())&FILE_ATTRIBUTE_READONLY)==0,"ClearReadOnly reaches exact source");
+    DWORD error=123;fixture.RememberTarget(target);Check(RenamerIO::Move(encoded.c_str(),Utf8(target).c_str(),&error)!=FALSE&&error==ERROR_SUCCESS,"MoveFileW renames source without parent truncation");
+    Check(RenamerIO::Attributes(encoded.c_str())==INVALID_FILE_ATTRIBUTES&&fixture.Read(target)==marker,"renamed file keeps data and source disappears");
+    Check(RenamerIO::Move(Utf8(target).c_str(),encoded.c_str(),&error)!=FALSE&&fixture.Read(source)==marker,"Undo move restores the exact original parent and basename");
+    Check(RenamerIO::Delete(encoded.c_str())!=FALSE&&RenamerIO::Attributes(encoded.c_str())==INVALID_FILE_ATTRIBUTES,"Delete removes the exact source");
+}
+static void RunFilesystem(){
+    Fixture fixture;Check(fixture.Ready,"isolated temporary fixture root created");if(!fixture.Ready)return;
+    auto ascii=fixture.Root+L"\\ascii",unicode=fixture.Root+L"\\\u017elu\u0165ou\u010dk\u00fd \u6771\u4eac";
+    Check(fixture.Directory(ascii)&&fixture.Directory(unicode),"ASCII and Unicode fixture directories created");
+    FileCase(fixture,ascii,L"same.png");FileCase(fixture,unicode,L"same.png");FileCase(fixture,ascii,L"\u010d\u0159-\u6771\u4eac.png");
+    std::wstring utf8Long=fixture.Root+L"\\"+std::wstring(85,L'\u6f22');Check(fixture.Directory(utf8Long),"UTF8-long fixture directory created");Check(Utf8(utf8Long).size()>260&&utf8Long.size()<260,"fixture distinguishes UTF8 byte count from UTF16 length");FileCase(fixture,utf8Long,L"same.png");
+    std::wstring deep=fixture.Root;for(int i=0;i<3;++i){deep+=L"\\"+std::wstring(90,static_cast<wchar_t>(L'a'+i))+L"\u6771\u4eac";Check(fixture.Directory(deep),"deep Unicode fixture component created");}Check(deep.size()>260,"fixture exceeds Win32 legacy UTF16 MAX_PATH");FileCase(fixture,deep,L"same.png");
+    FileCase(fixture,ascii,(std::wstring(100,L'\u6f22')+L".png").c_str());
+    const std::wstring normal=ascii+L"\\exact",dot=ascii+L"\\exact.",space=ascii+L"\\exact ";Check(fixture.Write(normal,"normal")&&fixture.Write(dot,"dot")&&fixture.Write(space,"space"),"trailing dot and space names are distinct actual files");Check(fixture.Read(normal)=="normal"&&fixture.Read(dot)=="dot"&&fixture.Read(space)=="space","W helpers never alias trailing-dot/space names to ordinary name");
+    const std::wstring collision=unicode+L"\\collision";Check(fixture.Write(collision,"keep"),"collision fixture created");DWORD error=0;Check(!RenamerIO::Move(Utf8(normal).c_str(),Utf8(collision).c_str(),&error)&&error!=ERROR_SUCCESS&&fixture.Read(normal)=="normal"&&fixture.Read(collision)=="keep","failed move preserves both existing identities and contents");
+    const std::wstring sub=unicode+L"\\sub",normalized=unicode+L"\\normalized.png";Check(fixture.Directory(sub),"dot-component fixture created");fixture.RememberTarget(normalized);Check(RenamerIO::Move(Utf8(normal).c_str(),Utf8(sub+L"\\.\\..\\normalized.png").c_str())&&fixture.Read(normalized)=="normal","target dot-dot component is normalized before applying extended prefix");
+}
+int main(){ConversionTests();RunFilesystem();printf("Renamer I/O: %d checks, %d failures; disposable native filesystem fixtures.\n",Checks,Failures);return Failures?1:0;}

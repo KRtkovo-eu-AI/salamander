@@ -2,11 +2,16 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-06 | Retain all deferred provider references across reload and shutdown retry. | Preserve every LoadLibrary reference across a refused close and provider reload. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
+// | 2026-11-06 | Combine native exit readiness with deferred module unload. | Preserve managed callback gates and runtime-provider mapping during upstream integration. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // | 2026-11-04 | Keep plug-in DLLs mapped until every plug-in Release returns. | Unloading a runtime plug-in before Salamatrix joins its pump thread crashes on exit. | https://github.com/KRtkovo-eu-AI/salamander/issues/770 https://github.com/KRtkovo-eu-AI/salamander/issues/750 | Grok 4.7 |
 // | 2026-11-04 | Return a panel operations object to plug-ins. | Portable Devices needs Salamander's standard progress dialog. | | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
+
+struct CFilesActionDiskTarget; // internal host target identity; no SDK interface change
+struct CWholeArchiveUnpackerSnapshot;
 
 #include <string>
 #include <vector>
@@ -2569,7 +2574,7 @@ public:
 
 protected:
     HINSTANCE DLL;                                                         // handle of the plug-in’s DLL file
-    HINSTANCE DeferredModule;                                              // mapped until every plug-in Release has returned
+    std::vector<HINSTANCE> DeferredModules;                                // one owned reference per deferred LoadLibrary; may contain identical handles
     CPluginInterfaceEncapsulation PluginIface;                             // plugin interface (set to -1 during the entry point call)
     CPluginInterfaceForArchiverEncapsulation PluginIfaceForArchiver;       // plugin interface: archiver
     CPluginInterfaceForViewerEncapsulation PluginIfaceForViewer;           // plugin interface: viewer
@@ -2637,8 +2642,10 @@ public:
     // threads execute inside the runtime plug-ins.
     BOOL Unload(HWND parent, BOOL ask, BOOL freeLibrary = TRUE);
 
-    // unmaps a module left loaded by Unload(..., FALSE)
+    // unmaps all references left loaded by Unload(..., FALSE), in reverse order
     void FreeDeferredModule();
+    // Optional Samandarin native exit hook; readiness does not release resources.
+    BOOL PrepareNativeProcessExit(BOOL finalize);
 
     // checks if the plugin can be removed; 'parent' is the parent message box window,
     // 'index' is this plugin index in Plugins; returns TRUE if the plugin can be removed
@@ -2671,6 +2678,9 @@ public:
     // 'parent' is the parent message box window, 'index' is this plugin index in Plugins,
     // returns TRUE if 'suid' was found among the plugin's menu items,
     // returns 'unselect' = the return value of the plugin ExecuteMenuItem call
+    // Private host policy; no plugin SDK/vtable change. Only individually verified commands.
+    BOOL IsBranchCommandAllowed(int id);
+    BOOL ExecutePostedMenuItem(CFilesWindow* panel, HWND parent, int id, BOOL useOperationContext);
     BOOL ExecuteMenuItem(CFilesWindow* panel, HWND parent, int index, int suid, BOOL& unselect);
     // 'id' is the internal command ID; ExecuteMenuItem2 is used for Last Command
     BOOL ExecuteMenuItem2(CFilesWindow* panel, HWND parent, int index, int id, BOOL& unselect);
@@ -2701,7 +2711,9 @@ public:
     BOOL UnpackArchive(CFilesWindow* panel, const char* archiveFileName,
                        CPluginDataInterfaceAbstract* pluginData,
                        const char* targetDir, const char* archiveRoot,
-                       SalEnumSelection nextName, void* param);
+                       SalEnumSelection nextName, void* param,
+                       const CFilesActionDiskTarget* diskTarget = NULL,
+                       BOOL (*validateSource)(void*) = NULL, void* sourceContext = NULL);
 
     // plugin call: UnpackOneFile
     BOOL UnpackOneFile(CFilesWindow* panel, const char* archiveFileName,
@@ -2712,7 +2724,8 @@ public:
     // plugin call: PackToArchive
     BOOL PackToArchive(CFilesWindow* panel, const char* archiveFileName,
                        const char* archiveRoot, BOOL move, const char* sourceDir,
-                       SalEnumSelection2 nextName, void* param);
+                       SalEnumSelection2 nextName, void* param,
+                       BOOL (*validateContext)(void*) = NULL, void* context = NULL);
 
     // plugin call: DeleteFromArchive
     BOOL DeleteFromArchive(CFilesWindow* panel, const char* archiveFileName,
@@ -2722,7 +2735,9 @@ public:
     // plugin call: UnpackWholeArchive
     BOOL UnpackWholeArchive(CFilesWindow* panel, const char* archiveFileName, const char* mask,
                             const char* targetDir, BOOL delArchiveWhenDone,
-                            CDynamicString* archiveVolumes);
+                            CDynamicString* archiveVolumes, const CFilesActionDiskTarget* sourceSnapshot = NULL,
+                            const CFilesActionDiskTarget* diskTarget = NULL,
+                            const CWholeArchiveUnpackerSnapshot* backendSnapshot = NULL);
 
     // plugin call: CanCloseArchive
     BOOL CanCloseArchive(CFilesWindow* panel, const char* archiveFileName, BOOL force);

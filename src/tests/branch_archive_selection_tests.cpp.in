@@ -1,0 +1,543 @@
+// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Only the production callback/state/converter are injected. UI, panel storage and
+// link-size queries are deterministic dependencies; no archive algorithm is copied.
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <climits>
+#include <cstdio>
+#include <cstring>
+#include <memory>
+#include <new>
+#include <string>
+#include <vector>
+
+#define CALL_STACK_MESSAGE_NONE
+#define SAL_MAX_PATH 32768
+@@CONSTANTS@@
+
+struct CQuadWord
+{
+    DWORD LoDWord, HiDWord;
+    CQuadWord(DWORD low = 0, DWORD high = 0) : LoDWord(low), HiDWord(high) {}
+    bool operator==(const CQuadWord& other) const
+    { return LoDWord == other.LoDWord && HiDWord == other.HiDWord; }
+};
+struct CFileData
+{
+    const char* Name = "same.png";
+    const char* DosName = "SAME~1.PNG";
+    CQuadWord Size;
+    DWORD Attr = FILE_ATTRIBUTE_ARCHIVE;
+    FILETIME LastWrite = {};
+    size_t Identity = 0;
+};
+struct CFilesArray
+{
+    std::vector<CFileData> Items;
+    int Count = 0;
+    CFileData& At(int index) { return Items.at(static_cast<size_t>(index)); }
+};
+struct CSalamanderDirectory {};
+
+static int Checks = 0;
+static int Failures = 0;
+static void Check(bool condition, const char* message)
+{
+    ++Checks;
+    if (!condition) { ++Failures; std::printf("FAIL: %s\n", message); }
+}
+static std::string Utf8(const std::wstring& text)
+{
+    const int length = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, text.data(),
+                                         static_cast<int>(text.size()), NULL, 0, NULL, NULL);
+    if (length <= 0) return {};
+    std::string result(static_cast<size_t>(length), '\0');
+    WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, text.data(), static_cast<int>(text.size()),
+                        &result[0], length, NULL, NULL);
+    return result;
+}
+struct CFilesWindow
+{
+    bool Branch = true;
+    std::wstring Root = L"C:\\archive-test\\fixtures";
+    std::vector<std::wstring> Relative;
+    bool ThrowRelative = false;
+    bool ThrowFull = false;
+    bool EmptyFull = false;
+    BOOL IsBranchView() const { return Branch; }
+    std::wstring GetItemRelativePathW(const CFileData& file) const
+    {
+        if (ThrowRelative) throw std::bad_alloc();
+        return Relative.at(file.Identity);
+    }
+    std::wstring GetItemFullPathW(const CFileData& file) const
+    {
+        if (ThrowFull) throw std::bad_alloc();
+        if (EmptyFull) return {};
+        return Root + L"\\" + Relative.at(file.Identity);
+    }
+};
+
+@@STATE@@
+@@STATE_METHODS@@
+
+// Fault injection affects only the OS conversion call used by the actual helper.
+static int FailConversionAt = 0;
+static int ConversionCalls = 0;
+static int WINAPI FixtureWideCharToMultiByte(UINT page, DWORD flags, LPCWCH input, int length,
+                                            LPSTR output, int capacity, LPCCH defaultChar, LPBOOL usedDefault)
+{
+    ++ConversionCalls;
+    if (FailConversionAt == ConversionCalls) { SetLastError(ERROR_NO_UNICODE_TRANSLATION); return 0; }
+    return ::WideCharToMultiByte(page, flags, input, length, output, capacity, defaultChar, usedDefault);
+}
+#define WideCharToMultiByte FixtureWideCharToMultiByte
+@@CONVERTER@@
+#undef WideCharToMultiByte
+
+static int TreeCalls = 0;
+static int RecursiveCalls = 0;
+static CFileData* RecursiveFile = NULL;
+static CSalamanderDirectory* ReadDirectoryTree(HWND, CPanelTmpEnumData*, int*, BOOL, void*, void*)
+{
+    ++TreeCalls;
+    return new CSalamanderDirectory;
+}
+static const char* _PanelSalEnumSelection(int, const char**, BOOL*, CQuadWord* size,
+                                        const CFileData** file, void*, HWND, int*)
+{
+    ++RecursiveCalls;
+    *file = RecursiveFile;
+    if (size != NULL && RecursiveFile != NULL) *size = RecursiveFile->Size;
+    return "ordinary\\recursive.png";
+}
+
+enum class LinkReply { Success, Ignore, Cancel, IgnoreAll };
+static LinkReply LinkBehavior = LinkReply::Success;
+static int LinkCalls = 0;
+static std::string LinkPath;
+static HWND LinkParent = NULL;
+static bool LinkHadNullName = false;
+static bool LinkIgnoreAllSeen = false;
+static BOOL* LinkIgnorePointer = NULL;
+static bool LinkSourceDeleted = false;
+static BOOL* InvalidateContextDuringLink = NULL;
+static const CQuadWord TargetSize(0x78563412, 0x42);
+static BOOL GetLinkTgtFileSize(HWND parent, const char* path, const char* name, CQuadWord* size,
+                               BOOL* cancel, BOOL* ignoreAll)
+{
+    ++LinkCalls;
+    if (InvalidateContextDuringLink != NULL) *InvalidateContextDuringLink = FALSE;
+    LinkPath = path;
+    LinkParent = parent;
+    LinkHadNullName = name == NULL;
+    LinkIgnoreAllSeen = *ignoreAll != FALSE;
+    LinkIgnorePointer = ignoreAll;
+    *cancel = LinkSourceDeleted || LinkBehavior == LinkReply::Cancel;
+    if (LinkSourceDeleted) { SetLastError(ERROR_FILE_NOT_FOUND); return FALSE; }
+    if (LinkBehavior == LinkReply::IgnoreAll) *ignoreAll = TRUE;
+    if (LinkBehavior != LinkReply::Success) return FALSE;
+    *size = TargetSize;
+    return TRUE;
+}
+
+@@CALLBACK@@
+
+struct Output
+{
+    const char* DosName = "unchanged";
+    BOOL IsDir = TRUE;
+    CQuadWord Size{0xffffffff, 0xffffffff};
+    DWORD Attr = 0xffffffff;
+    FILETIME Time{0xffffffff, 0xffffffff};
+    int Error = -1;
+};
+struct Fixture
+{
+    CFilesWindow Panel;
+    CFilesArray Dirs, Files;
+    std::vector<int> Indexes;
+    // The real state contains legacy SAL_MAX_PATH scratch arrays; keep it off stack.
+    std::unique_ptr<CPanelTmpEnumData> Data{new CPanelTmpEnumData};
+    const HWND Parent = reinterpret_cast<HWND>(static_cast<ULONG_PTR>(0x1234));
+    Fixture()
+    {
+        const std::wstring unicode = L"\u017Elu\u0165ou\u010Dk\u00FD \u6771\u4EAC";
+        std::wstring shortCjk, longUtf8;
+        for (int i = 0; i < 25; ++i) shortCjk += L"\u6771\u4EAC_";
+        for (int i = 0; i < 38; ++i) longUtf8 += L"\u6771\u4EAC_";
+        Panel.Relative = {L"alpha\\same.png", unicode + L"\\same.png",
+            unicode + L"\\vno\u0159en\u00E1\\same.png",
+            L"unicode-name\\\u017Elu\u0165ou\u010Dk\u00FD-\u6771\u4EAC.png",
+            shortCjk + L"\\same.png", longUtf8 + L"\\same.png",
+            L"dlouh\u00E1_\u017Elu\u0165ou\u010Dk\u00E1_" + std::wstring(70, L'a') + L"\\\u6771\u4EAC_" +
+            std::wstring(85, L'b') + L"\\vno\u0159en\u00E1_" + std::wstring(85, L'c') + L"\\same.png"};
+        Dirs.Items.resize(1); // '..' is present but must never be returned by Branch enumeration.
+        Dirs.Count = 1;
+        Files.Items.resize(Panel.Relative.size());
+        Files.Count = static_cast<int>(Files.Items.size());
+        for (size_t i = 0; i < Files.Items.size(); ++i)
+        {
+            Files.Items[i].Identity = i;
+            Files.Items[i].Size = CQuadWord(100 + static_cast<DWORD>(i), 10 + static_cast<DWORD>(i));
+            Files.Items[i].Attr = FILE_ATTRIBUTE_ARCHIVE | ((i % 2) ? FILE_ATTRIBUTE_READONLY : 0);
+            Files.Items[i].LastWrite = FILETIME{9000 + static_cast<DWORD>(i), 2000 + static_cast<DWORD>(i)};
+        }
+        Indexes = {7, 2, 5, 1, 4, 6, 3}; // Selection order differs from physical storage order.
+        Bind();
+        TreeCalls = RecursiveCalls = LinkCalls = 0;
+        ConversionCalls = FailConversionAt = 0;
+        LinkBehavior = LinkReply::Success;
+        LinkPath.clear(); LinkIgnoreAllSeen = false; LinkIgnorePointer = NULL; LinkSourceDeleted = false; InvalidateContextDuringLink = NULL;
+    }
+    void Bind()
+    {
+        Data->SourcePanel = &Panel;
+        Data->ExactFileSelection = Panel.Branch;
+        Data->Files = &Files; Data->Dirs = &Dirs;
+        Data->Indexes = Indexes.data(); Data->IndexesCount = static_cast<int>(Indexes.size());
+        Data->Reset();
+    }
+    const char* Next(int mode, Output& out)
+    {
+        return PanelEnumDiskSelection(Parent, mode, &out.DosName, &out.IsDir, &out.Size,
+                                      &out.Attr, &out.Time, Data.get(), &out.Error);
+    }
+    void SelectOne(size_t identity)
+    {
+        Indexes = {Dirs.Count + static_cast<int>(identity)};
+        Bind();
+    }
+};
+
+static bool SameTime(FILETIME a, FILETIME b)
+{ return a.dwLowDateTime == b.dwLowDateTime && a.dwHighDateTime == b.dwHighDateTime; }
+
+static void TestPathsAndModes()
+{
+    Fixture fixture;
+    const std::wstring utf8Long = fixture.Panel.Root + L"\\" + fixture.Panel.Relative[5];
+    Check(utf8Long.size() < 260 && Utf8(utf8Long).size() > 260, "fixture includes UTF8-only over-260 path");
+    Check((fixture.Panel.Root + L"\\" + fixture.Panel.Relative[6]).size() > 260, "fixture includes true UTF16 long path");
+    for (int mode = 0; mode <= 3; ++mode)
+    {
+        fixture.Data->Reset();
+        std::vector<std::string> firstPass;
+        for (int repeat = 0; repeat < 2; ++repeat)
+        {
+            for (size_t position = 0; position < fixture.Indexes.size(); ++position)
+            {
+                Output out;
+                const int index = fixture.Indexes[position] - fixture.Dirs.Count;
+                const CFileData& file = fixture.Files.At(index);
+                const std::string expected = Utf8(fixture.Panel.Relative[file.Identity]);
+                const char* name = fixture.Next(mode, out);
+                Check(name != NULL && expected == name, "all modes preserve exact relative UTF8 path and selection order");
+                Check(name != NULL && Utf8(fixture.Panel.Root) + "\\" + name ==
+                      Utf8(fixture.Panel.GetItemFullPathW(file)), "source root plus relative name identifies exact item");
+                Check(out.Error == SALENUM_SUCCESS && !out.IsDir && out.DosName == NULL,
+                      "Branch file metadata identifies no DOS alias or directory");
+                Check(out.Size == file.Size && out.Attr == file.Attr && SameTime(out.Time, file.LastWrite),
+                      "64-bit size, attributes and FILETIME survive enumeration");
+                if (repeat == 0) firstPass.emplace_back(name == NULL ? "" : name);
+                else Check(name != NULL && firstPass[position] == name, "reset repeats exact original order");
+                if (name != NULL)
+                {
+                    // Client-side work must not invalidate the callback-owned pointer before Next.
+                    const auto full = fixture.Panel.GetItemFullPathW(file);
+                    const std::string unrelated(10000, 'x');
+                    Check(expected == name && !full.empty() && !unrelated.empty(), "name lifetime extends until next enum call");
+                }
+            }
+            Output end;
+            Check(fixture.Next(mode, end) == NULL && end.Error == SALENUM_SUCCESS, "end of selection is not cancellation");
+            Output reset;
+            Check(fixture.Next(-1, reset) == NULL && reset.Error == SALENUM_SUCCESS && reset.DosName == NULL &&
+                  !reset.IsDir && reset.Size == CQuadWord() && reset.Attr == 0 && SameTime(reset.Time, FILETIME{}),
+                  "enum -1 clears result metadata and resets enumeration");
+        }
+    }
+    Check(TreeCalls == 0 && RecursiveCalls == 0 && LinkCalls == 0, "Branch files never enter ordinary directory traversal");
+    fixture.Indexes.clear(); fixture.Bind();
+    for (int mode = 0; mode <= 3; ++mode)
+    {
+        Output out;
+        Check(fixture.Next(mode, out) == NULL && out.Error == SALENUM_SUCCESS, "empty selection is successful for every mode");
+    }
+    fixture.SelectOne(0);
+    Check(PanelEnumDiskSelection(fixture.Parent, 1, NULL, NULL, NULL, NULL, NULL, fixture.Data.get(), NULL) != NULL,
+          "optional metadata and error pointers may be NULL");
+}
+
+static void TestFailures()
+{
+    for (int invalid : {-1, 0, 8, INT_MAX})
+    {
+        Fixture fixture;
+        fixture.Indexes = {invalid}; fixture.Bind();
+        Output out;
+        Check(fixture.Next(1, out) == NULL && out.Error == SALENUM_CANCEL, "directory or out-of-range selection index cancels");
+    }
+    {
+        Fixture fixture; fixture.SelectOne(0); fixture.Panel.Relative[0].clear();
+        Output out; SetLastError(ERROR_SUCCESS);
+        Check(fixture.Next(1, out) == NULL && out.Error == SALENUM_CANCEL && GetLastError() == ERROR_INVALID_DATA,
+              "empty relative identity cancels instead of returning empty filename");
+    }
+    {
+        Fixture fixture; fixture.SelectOne(0); FailConversionAt = 1;
+        Output out; SetLastError(ERROR_SUCCESS);
+        Check(fixture.Next(1, out) == NULL && out.Error == SALENUM_CANCEL && GetLastError() == ERROR_INVALID_DATA,
+              "empty UTF8 conversion cancels instead of returning empty filename");
+    }
+    {
+        Fixture fixture; fixture.SelectOne(0); fixture.Panel.ThrowRelative = true;
+        Output out; bool escaped = false; const char* name = "not-called"; SetLastError(ERROR_SUCCESS);
+        try { name = fixture.Next(1, out); } catch (const std::bad_alloc&) { escaped = true; }
+        Check(!escaped && name == NULL && out.Error == SALENUM_CANCEL && GetLastError() == ERROR_NOT_ENOUGH_MEMORY,
+              "relative getter allocation failure returns cancellation and low-memory error");
+    }
+}
+
+static void TestLinks()
+{
+    {
+        Fixture fixture; fixture.SelectOne(6);
+        CFileData& file = fixture.Files.At(6);
+        file.Attr |= FILE_ATTRIBUTE_REPARSE_POINT;
+        const CQuadWord cachedSize = file.Size;
+        Output regular;
+        Check(fixture.Next(1, regular) != NULL && regular.Size == cachedSize && LinkCalls == 0,
+              "enum1 uses cached reparse size without touching link target");
+        fixture.Data->Reset();
+        Output resolved;
+        Check(fixture.Next(3, resolved) != NULL && resolved.Size == TargetSize && resolved.Error == SALENUM_SUCCESS,
+              "enum3 reports link target size");
+        Check(LinkCalls == 1 && LinkPath == Utf8(fixture.Panel.GetItemFullPathW(file)) &&
+              LinkParent == fixture.Parent && LinkHadNullName, "link query receives exact long UTF8 full path and owner");
+        Check(!LinkIgnoreAllSeen && LinkIgnorePointer != NULL, "ignore-all starts false and belongs to enumeration state");
+        Check(file.Size == cachedSize && resolved.Attr == file.Attr && SameTime(resolved.Time, file.LastWrite),
+              "target size leaves cached panel data and other metadata unchanged");
+        // 7zip counts, resets and packs, then may delete source files before its
+        // final directory-cleanup enumeration. No later pass may reopen that link.
+        LinkSourceDeleted = true;
+        for (int pass = 0; pass < 2; ++pass)
+        {
+            Output reset; fixture.Next(-1, reset);
+            Output repeated;
+            const char* name = PanelEnumDiskSelection(NULL, 3, &repeated.DosName, &repeated.IsDir, &repeated.Size,
+                                                      &repeated.Attr, &repeated.Time, fixture.Data.get(), &repeated.Error);
+            Check(name != NULL && repeated.Error == SALENUM_SUCCESS && repeated.Size == TargetSize && LinkCalls == 1,
+                  "second and third enum3 passes use resolved size after source removal, with no query or dialog owner");
+        }
+        fixture.Data->Reset();
+        Output original;
+        Check(fixture.Next(1, original) != NULL && original.Size == cachedSize && LinkCalls == 1,
+              "enum1 after enum3 still reports original cached panel size");
+    }
+    {
+        Fixture fixture; fixture.SelectOne(6); fixture.Files.At(6).Attr |= FILE_ATTRIBUTE_REPARSE_POINT;
+        LinkBehavior = LinkReply::Ignore;
+        Output ignored;
+        Check(fixture.Next(3, ignored) != NULL && ignored.Error == SALENUM_SUCCESS && ignored.Size == fixture.Files.At(6).Size,
+              "ignored link-size error retains cached size and continues");
+        LinkSourceDeleted = true;
+        for (int pass = 0; pass < 2; ++pass)
+        {
+            Output reset; fixture.Next(-1, reset);
+            Output repeated;
+            Check(fixture.Next(3, repeated) != NULL && repeated.Error == SALENUM_SUCCESS &&
+                  repeated.Size == fixture.Files.At(6).Size && LinkCalls == 1,
+                  "ignored size decision is cached across subsequent passes after source removal");
+        }
+    }
+    {
+        Fixture fixture; fixture.SelectOne(6); fixture.Files.At(6).Attr |= FILE_ATTRIBUTE_REPARSE_POINT;
+        LinkBehavior = LinkReply::Cancel;
+        Output cancelled;
+        Check(fixture.Next(3, cancelled) == NULL && cancelled.Error == SALENUM_CANCEL,
+              "link-size cancellation propagates to archive plugin");
+        fixture.Data->Reset(); LinkBehavior = LinkReply::Success;
+        Output retry;
+        Check(fixture.Next(3, retry) != NULL && retry.Size == TargetSize && LinkCalls == 2,
+              "cancelled size lookup does not poison the cached result");
+    }
+    {
+        Fixture fixture;
+        fixture.Indexes = {7, 2}; fixture.Bind();
+        fixture.Files.At(6).Attr |= FILE_ATTRIBUTE_REPARSE_POINT;
+        fixture.Files.At(1).Attr |= FILE_ATTRIBUTE_REPARSE_POINT;
+        LinkBehavior = LinkReply::IgnoreAll;
+        Output ignoreAll;
+        Check(fixture.Next(3, ignoreAll) != NULL, "ignore-all permits current file");
+        BOOL* originalIgnorePointer = LinkIgnorePointer;
+        Output reset; fixture.Next(-1, reset); LinkBehavior = LinkReply::Ignore;
+        Output cached;
+        Check(fixture.Next(3, cached) != NULL && LinkCalls == 1,
+              "reset preserves first link's ignored cached size");
+        Output next;
+        Check(fixture.Next(3, next) != NULL && LinkCalls == 2 && LinkIgnoreAllSeen && LinkIgnorePointer == originalIgnorePointer,
+              "reset preserves operation-wide ignore-all for next uncached selection position");
+        Check(LinkPath == Utf8(fixture.Panel.GetItemFullPathW(fixture.Files.At(1))),
+              "duplicate basenames in separate positions have independent full-path link queries");
+    }
+    for (int fault = 0; fault < 3; ++fault)
+    {
+        Fixture failure; failure.SelectOne(6); failure.Files.At(6).Attr |= FILE_ATTRIBUTE_REPARSE_POINT;
+        if (fault == 0) failure.Panel.EmptyFull = true;
+        if (fault == 1) FailConversionAt = 3; // two relative conversion calls, then full-path sizing
+        if (fault == 2) failure.Panel.ThrowFull = true;
+        Output out; bool escaped = false; const char* name = "not-called"; SetLastError(ERROR_SUCCESS);
+        try { name = failure.Next(3, out); } catch (const std::bad_alloc&) { escaped = true; }
+        Check(!escaped && name == NULL && out.Error == SALENUM_CANCEL && LinkCalls == 0 &&
+              GetLastError() == static_cast<DWORD>(fault == 2 ? ERROR_NOT_ENOUGH_MEMORY : ERROR_INVALID_DATA),
+              "invalid/full-path allocation failure cancels before link filesystem query");
+    }
+}
+
+static void TestOrdinaryDispatch()
+{
+    Fixture fixture; fixture.SelectOne(0); fixture.Panel.Branch = false; fixture.Data->ExactFileSelection = FALSE;
+    CFileData& file = fixture.Files.At(0);
+    Output direct;
+    Check(fixture.Next(0, direct) == file.Name && direct.DosName == file.DosName && !direct.IsDir &&
+          direct.Size == file.Size && direct.Attr == file.Attr && SameTime(direct.Time, file.LastWrite),
+          "ordinary nonrecursive dispatch keeps existing name and metadata");
+    fixture.Data->Reset(); RecursiveFile = &file;
+    Output recursive;
+    const char* name = fixture.Next(3, recursive);
+    Check(name != NULL && std::strcmp(name, "ordinary\\recursive.png") == 0 && TreeCalls == 1 && RecursiveCalls == 1 &&
+          recursive.Attr == file.Attr && SameTime(recursive.Time, file.LastWrite),
+          "whole ordinary recursive branch delegates and propagates file metadata");
+    RecursiveFile = NULL;
+    Output noRecord;
+    Check(fixture.Next(1, noRecord) != NULL && TreeCalls == 1 && noRecord.Attr == 0 && SameTime(noRecord.Time, FILETIME{}),
+          "ordinary recursive result without record clears metadata");
+}
+
+struct CPluginData { const char* DLLName; BOOL SupportCustomPack; };
+static struct { int Index=0,Type=-1,Count=1;BOOL Move=FALSE;int GetPreferedPacker(){return Index;}int GetPackersCount(){return Count;}int GetPackerType(int){return Type;} } PackerConfig;
+static struct { CPluginData Plugin={"zip\\zip.spl",TRUE};const CPluginData* Get(int index){return index==0?&Plugin:nullptr;} } Plugins;
+@@PACKER_GATE@@
+static void TestPackerGate()
+{
+ Check(IsVerifiedBranchPacker(),"bundled ZIP copy allowed");
+ Plugins.Plugin.DLLName="7zip\\7zip.spl";Check(IsVerifiedBranchPacker(),"bundled 7-Zip copy allowed");
+ PackerConfig.Move=TRUE;Check(IsVerifiedBranchPacker(),"verified bundled move-packer accepted");PackerConfig.Move=FALSE;
+ for(const char* name:{"other\\zip.spl","7zip.spl","external\\other.spl","C:\\custom\\zip.spl"}){Plugins.Plugin.DLLName=name;Check(!IsVerifiedBranchPacker(),"unknown or external packer cannot execute through Branch");}
+ Plugins.Plugin.DLLName=nullptr;Check(!IsVerifiedBranchPacker(),"null packer identity rejected");
+ Plugins.Plugin.DLLName="zip\\zip.spl";Plugins.Plugin.SupportCustomPack=FALSE;Check(!IsVerifiedBranchPacker(),"unsupported plugin rejected");Plugins.Plugin.SupportCustomPack=TRUE;
+ for(int type:{0,1,INT_MIN,-2}){PackerConfig.Type=type;Check(!IsVerifiedBranchPacker(),"invalid/external packer index rejected without overflow");}PackerConfig.Type=-1;
+ PackerConfig.Index=-1;Check(!IsVerifiedBranchPacker(),"missing preferred packer rejected");PackerConfig.Index=1;Check(!IsVerifiedBranchPacker(),"out of bounds preferred packer rejected");PackerConfig.Index=0;
+}
+
+enum { DIALOG_OK, DIALOG_RETRY, DIALOG_CANCEL, DIALOG_SKIP, DIALOG_SKIPALL,
+       BUTTONS_RETRYSKIPCANCEL, IDS_DELETE_ERROR };
+static const char* LoadStr(int) { return "delete error"; }
+struct DeleteGeneral {
+    int Reply = DIALOG_CANCEL, Calls = 0;
+    HWND GetMsgBoxParent() { return NULL; }
+    const char* GetErrorText(DWORD) { return "error"; }
+    int DialogError(HWND, int, const char*, const char*, const char*) { ++Calls; return Reply; }
+} DeleteHost;
+static DeleteGeneral* SalamanderGeneral = &DeleteHost;
+struct CleanupWidePath {
+    std::wstring Value;
+    const wchar_t* Ptr() const { return Value.c_str(); }
+};
+static CleanupWidePath GetSalamanderUnicodeString(const char* text);
+static CleanupWidePath UString(const wchar_t* text) { return {text}; }
+static CleanupWidePath GetSalamanderLongPath(CleanupWidePath path) {
+    if (path.Value.size() >= MAX_PATH && path.Value.compare(0,4,L"\\\\?\\") != 0)
+        path.Value = path.Value.compare(0,2,L"\\\\") == 0 ?
+            L"\\\\?\\UNC\\" + path.Value.substr(2) : L"\\\\?\\" + path.Value;
+    return path;
+}
+@@CLEANUP@@
+static CleanupWidePath GetSalamanderUnicodeString(const char* text) {
+    return {SalamanderDiskSelection::WideFromPath(text)};
+}
+static void TestSourceCleanup() {
+    // This native process owns its temporary working directory and only these files.
+    std::vector<wchar_t> cwd(SAL_MAX_PATH);
+    DWORD n=GetCurrentDirectoryW(static_cast<DWORD>(cwd.size()),cwd.data());
+    Check(n>0 && n<cwd.size(),"owned test cwd obtained");
+    if (!n || n>=cwd.size()) return;
+    std::wstring root(cwd.data());
+    std::vector<std::wstring> created;
+    for(int i=0;i<4;++i) {
+        root += L"\\" + std::wstring(75,L'漢') + std::to_wstring(i);
+        auto full=GetSalamanderLongPath({root}).Value;
+        Check(CreateDirectoryW(full.c_str(),NULL)!=FALSE,"create owned long Unicode directory");
+        created.push_back(full);
+    }
+    Check(root.size()>MAX_PATH && Utf8(root).size()>MAX_PATH,"cleanup fixture long in UTF16 and UTF8");
+    for(int operation=0;operation<4;++operation) {
+        const int engine=operation%2;
+        const std::wstring directory=operation<2?root:std::wstring(cwd.data());
+        std::wstring path=directory+L"\\selected-東京.txt", sentinel=directory+L"\\untouched-東京.txt";
+        auto wide=GetSalamanderLongPath({path}).Value, other=GetSalamanderLongPath({sentinel}).Value;
+        for(const auto& name: {wide,other}) {
+            HANDLE h=CreateFileW(name.c_str(),GENERIC_WRITE,0,NULL,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,NULL);
+            Check(h!=INVALID_HANDLE_VALUE,"create exact owned source/sentinel");
+            if(h!=INVALID_HANDLE_VALUE) { DWORD written=0;Check(WriteFile(h,"test",4,&written,NULL)&&written==4,"write fixture bytes");CloseHandle(h); }
+        }
+        auto text=Utf8(path);BOOL silent=FALSE;
+        Check(engine==0 ? DeletePackedSourceFile(text.c_str()) : SafeDeleteFile(text.c_str(),silent),"actual cleanup deletes exact long UTF8 source");
+        Check(GetFileAttributesW(wide.c_str())==INVALID_FILE_ATTRIBUTES,"selected source absent");
+        Check(GetFileAttributesW(other.c_str())!=INVALID_FILE_ATTRIBUTES,"unselected Unicode sentinel preserved");
+        Check(DeleteFileW(other.c_str())!=FALSE,"owned sentinel cleanup");
+    }
+    std::wstring missing=root+L"\\missing.txt";BOOL silent=FALSE;DeleteHost.Calls=0;
+    Check(!SafeDeleteFile(Utf8(missing).c_str(),silent)&&DeleteHost.Calls==1,"7zip deletion failure honors Cancel");
+    Check(!DeletePackedSourceFile(""),"empty source rejected");
+    for (const auto& parent : {root,std::wstring(cwd.data())}) {
+        const std::wstring empty=parent+L"\\owned-empty-東京", kept=parent+L"\\owned-kept-東京";
+        const auto emptyIO=GetSalamanderLongPath({empty}).Value, keptIO=GetSalamanderLongPath({kept}).Value;
+        Check(CreateDirectoryW(emptyIO.c_str(),NULL)!=FALSE&&CreateDirectoryW(keptIO.c_str(),NULL)!=FALSE,"create selected empty and retained directory fixtures");
+        const auto sentinel=keptIO+L"\\keep.txt";
+        HANDLE file=CreateFileW(sentinel.c_str(),GENERIC_WRITE,0,NULL,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,NULL);
+        Check(file!=INVALID_HANDLE_VALUE,"create unselected child sentinel");
+        if(file!=INVALID_HANDLE_VALUE)CloseHandle(file);
+        Check(!RemovePackedSourceDirectory(Utf8(kept).c_str())&&GetLastError()==ERROR_DIR_NOT_EMPTY,"source cleanup never removes a nonempty directory");
+        Check(GetFileAttributesW(sentinel.c_str())!=INVALID_FILE_ATTRIBUTES,"retained child still exists");
+        Check(RemovePackedSourceDirectory(Utf8(empty).c_str())!=FALSE,"actual ZIP cleanup removes exact empty Unicode directory");
+        Check(GetFileAttributesW(emptyIO.c_str())==INVALID_FILE_ATTRIBUTES,"selected empty directory absent");
+        Check(DeleteFileW(sentinel.c_str())!=FALSE&&RemovePackedSourceDirectory(Utf8(kept).c_str())!=FALSE,"clean only owned test sentinel and emptied directory");
+    }
+    Check(!RemovePackedSourceDirectory(""),"empty directory identity rejected");
+    for(auto i=created.rbegin();i!=created.rend();++i) Check(RemoveDirectoryW(i->c_str())!=FALSE,"remove empty owned fixture directory");
+}
+
+static void GuardedDiskSourceCases()
+{
+    {
+        Fixture fixture; fixture.SelectOne(1); BOOL current = FALSE;
+        fixture.Data->Context = &current;
+        fixture.Data->ContextIsCurrent = [](void* context) -> BOOL { return *static_cast<BOOL*>(context); };
+        fixture.Panel.ThrowRelative = true; Output result;
+        Check(fixture.Next(0, result) == NULL && result.Error == SALENUM_CANCEL && GetLastError() == ERROR_RETRY,
+              "stale source context stops before disk panel path access");
+    }
+    {
+        Fixture fixture; fixture.SelectOne(6); fixture.Files.At(6).Attr |= FILE_ATTRIBUTE_REPARSE_POINT;
+        BOOL current = TRUE; fixture.Data->Context = &current;
+        fixture.Data->ContextIsCurrent = [](void* context) -> BOOL { return *static_cast<BOOL*>(context); };
+        InvalidateContextDuringLink = &current; Output result;
+        Check(fixture.Next(3, result) == NULL && result.Error == SALENUM_CANCEL && GetLastError() == ERROR_RETRY,
+              "link-size UI callback invalidation stops before borrowing output metadata");
+        Check(result.Attr == 0xffffffff && result.Time.dwLowDateTime == 0xffffffff,
+              "retired disk metadata is not returned after callback invalidation");
+        InvalidateContextDuringLink = NULL;
+    }
+}
+
+int main()
+{
+ GuardedDiskSourceCases();
+    TestSourceCleanup(); TestPackerGate(); TestPathsAndModes(); TestFailures(); TestLinks(); TestOrdinaryDispatch();
+    std::printf("Branch archive actual callback: %d/%d checks passed\n", Checks - Failures, Checks);
+    return Failures == 0 ? 0 : 1;
+}

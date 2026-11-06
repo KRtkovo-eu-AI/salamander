@@ -1,0 +1,117 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <windows.h>
+#include <oleauto.h>
+#include <tchar.h>
+#include <cassert>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+#include <vector>
+#include <unordered_set>
+#include <functional>
+using UINT32 = unsigned int;
+static constexpr int SAL_MAX_PATH=32768;
+static constexpr DWORD FILE_ATTRIBUTE_UNIX_EXTENSION=0x8000;
+#define S_ISLNK(m) (((m)&0170000)==0120000)
+struct CQuadWord {ULONGLONG Value=0; CQuadWord()=default; explicit CQuadWord(ULONGLONG n):Value(n){} CQuadWord(DWORD lo,DWORD hi):Value((ULONGLONG(hi)<<32)|lo){}};
+struct CFileData {
+ char *Name=nullptr,*Ext=nullptr;CQuadWord Size;DWORD Attr=0;FILETIME LastWrite={};char* DosName=nullptr;DWORD_PTR PluginData=0;
+ size_t NameLen=0;BOOL Hidden=0,IsLink=0,IsOffline=0,IconOverlayIndex=0,Association=0,Selected=0,Shared=0,Archive=0,SizeValid=0,Dirty=0,CutToClip=0,IconOverlayDone=0;
+ wchar_t* NameW=nullptr;
+};
+static std::unordered_set<void*> WideAllocations;
+static std::unordered_set<char*> NarrowAllocations;
+static int InvalidFrees=0,Checks=0,Failed=0,ItemDataLive=0,Errors=0;
+static BOOL FailWide=FALSE,FailNarrow=FALSE,FillOK=TRUE,SortByExtDirsAsFiles=FALSE;
+static std::function<void()> DuringAdd;
+static void* WideMalloc(size_t n){if(FailWide)return nullptr;void* p=std::malloc(n);if(p)WideAllocations.insert(p);return p;}
+static void WideFree(void* p){if(!p)return;if(WideAllocations.erase(p)!=1){++InvalidFrees;return;}std::free(p);}
+struct GeneralFacade {
+ char* DupStr(const char* s){if(FailNarrow)return nullptr;size_t n=std::strlen(s)+1;char* p=(char*)std::malloc(n);if(p){std::memcpy(p,s,n);NarrowAllocations.insert(p);}return p;}
+ void Free(char* p){if(!p)return;if(NarrowAllocations.erase(p)!=1){++InvalidFrees;return;}std::free(p);}
+ BOOL IsFileLink(const char*){return FALSE;}
+} General;
+static GeneralFacade* SalamanderGeneral=&General;
+static constexpr int IDS_INSUFFICIENT_MEMORY=1,IDS_ERRADDDIR_TOOLONG=2,IDS_ERROR=3,IDS_ERRADDFILE_TOOLONG=4;
+static void Error(int){++Errors;}
+class AString {
+ std::string Text;
+public:
+ AString()=default;AString(std::string t):Text(std::move(t)){} AString(const char* t):Text(t){}
+ bool IsEmpty()const{return Text.empty();} size_t Len()const{return Text.size();}
+ int ReverseFind(char c)const{auto pos=Text.rfind(c);return pos==std::string::npos?-1:int(pos);}
+ void Delete(int pos,size_t n){Text.erase(size_t(pos),n);}operator const char*()const{return Text.c_str();}
+};
+using UString=std::wstring;
+static AString UnicodeStringToMultiByte(const UString& w,UINT cp){int n=WideCharToMultiByte(cp,0,w.c_str(),int(w.size()),nullptr,0,nullptr,nullptr);std::string t(size_t(n),'\0');WideCharToMultiByte(cp,0,w.c_str(),int(w.size()),t.data(),n,nullptr,nullptr);return AString(t);}
+namespace NWindows {namespace NCOM {struct CPropVariant {VARTYPE vt=VT_EMPTY;BSTR bstrVal=nullptr;FILETIME filetime={};ULONG ulVal=0;VARIANT_BOOL boolVal=VARIANT_FALSE;ULONGLONG Size=0;};}}
+static constexpr int kpidPath=1,kpidMTime=2,kpidAttrib=3,kpidIsDir=4,kpidSize=5;
+struct IInArchive {
+ std::wstring Name;BOOL IsDir=FALSE;
+ HRESULT GetProperty(UINT32,int prop,NWindows::NCOM::CPropVariant* p){*p={};if(prop==kpidPath&&!Name.empty()){p->vt=VT_BSTR;p->bstrVal=const_cast<wchar_t*>(Name.c_str());}if(prop==kpidIsDir)p->boolVal=IsDir?VARIANT_TRUE:VARIANT_FALSE;if(prop==kpidSize)p->Size=19;return S_OK;}
+};
+static BOOL VARIANT_BOOLToBool(VARIANT_BOOL v){return v!=VARIANT_FALSE;}
+static void ConvertPropVariantToUInt64(const NWindows::NCOM::CPropVariant& p,ULONGLONG& out){out=p.Size;}
+class C7zClient;
+struct CPluginDataInterface {};
+struct CSalamanderDirectoryAbstract {
+ BOOL Accept=TRUE;int Calls=0;std::wstring SeenWide;std::string SeenName,SeenPath;CFileData Stored;BOOL HasStored=FALSE;
+ BOOL AddFile(const char* path,CFileData& file,CPluginDataInterface*){
+@@FILE_PROJECTION@@
+  return Store(path,file,fileCopy);
+ }
+ BOOL AddDir(const char* path,CFileData& dir,CPluginDataInterface*){
+@@DIR_PROJECTION@@
+  return Store(path,dir,dirCopy);
+ }
+ BOOL Store(const char* path,const CFileData& input,const CFileData& projected){++Calls;SeenWide=input.NameW?input.NameW:L"";SeenName=input.Name;SeenPath=path;if(projected.NameW!=nullptr)++InvalidFrees;if(DuringAdd)DuringAdd();if(!Accept)return FALSE;Stored=projected;HasStored=TRUE;return TRUE;}
+ void Clear();
+};
+class C7zClient {
+public:
+ struct CItemData {BOOL Encrypted=FALSE;CItemData(){++ItemDataLive;}~CItemData(){--ItemDataLive;}};
+ BOOL FillItemData(IInArchive*,UINT32,CItemData*){return FillOK;}
+ BOOL AddFileDir(IInArchive*,UINT32,CSalamanderDirectoryAbstract*,CPluginDataInterface*&,BOOL*,const char*);
+};
+void CSalamanderDirectoryAbstract::Clear(){if(HasStored){SalamanderGeneral->Free(Stored.Name);delete (C7zClient::CItemData*)Stored.PluginData;HasStored=FALSE;Stored={};}}
+#define malloc WideMalloc
+#define free WideFree
+@@DUP@@
+@@GUARD@@
+@@FREE@@
+@@ADD@@
+#undef malloc
+#undef free
+static void Check(bool value,const char* label){++Checks;if(!value){++Failed;std::printf("FAIL: %s\n",label);}}
+static void ReclaimFailedMutation(){for(auto p:WideAllocations)std::free(p);WideAllocations.clear();}
+int main(){
+ for(const auto& name:std::vector<std::wstring>{L"LONG-SEVEN.txt",L"sub\\žluťoučký-東京-\U0001F642.txt",L"東京",L""})
+ for(BOOL isDir:{FALSE,TRUE})for(int mode=0;mode<5;++mode){
+  FillOK=mode!=2;FailWide=mode==3;FailNarrow=mode==4;Errors=0;DuringAdd=nullptr;
+  IInArchive archive;archive.Name=name;archive.IsDir=isDir;CSalamanderDirectoryAbstract host;host.Accept=mode!=1;
+  C7zClient client;CPluginDataInterface* plugin=nullptr;BOOL tooLong=TRUE;
+  client.AddFileDir(&archive,0,&host,plugin,&tooLong,"fallback.7z");
+  const bool added=mode==0||mode==3;
+  Check(bool(host.HasStored)==added,"actual listing transfers normal name/plugin data only on success");
+  if(added){
+   std::wstring leaf=name.empty()?L"fallback":name.substr(name.find_last_of(L'\\')==std::wstring::npos?0:name.find_last_of(L'\\')+1);
+   std::string utf8=(const char*)UnicodeStringToMultiByte(leaf,CP_UTF8);
+   Check(host.SeenName==utf8,"exact Unicode leaf remains UTF8 in historical ABI field");
+   Check(host.SeenWide==(FailWide?std::wstring():leaf),"optional NameW exposed during AddFile/AddDir call");
+   Check(host.Stored.NameW==nullptr,"actual host projection keeps ignored extension NULL");
+   Check(WideAllocations.empty(),"wide input released after successful transfer");
+  }
+  host.Clear();
+  Check(WideAllocations.empty()&&NarrowAllocations.empty()&&ItemDataLive==0,"success, reject, metadata failure and allocation failure release owned resources");
+  Check(InvalidFrees==0,"no double free on existing error cleanup");
+  ReclaimFailedMutation();
+ }
+ // An exception after the wide allocation must still unwind its owner. The facade
+ // throws only before any ownership transfer; normal data cleanup remains explicit.
+ CFileData fd;fd.NameW=DupUtf8NameW("東京",6);
+ try {CListedNameWGuard guard(fd);throw FALSE;}catch(BOOL){}
+ Check(WideAllocations.empty()&&fd.NameW==nullptr,"actual wide owner unwinds exceptions");
+ std::printf("7zip listing ownership: %d checks, %d failures\n",Checks,Failed);return Failed?1:0;
+}

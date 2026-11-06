@@ -470,13 +470,21 @@ def main() -> int:
     )
     require(
         "SetWindowTextW(HWindow, title.c_str());" in file_window
-        and "MultiByteToWideChar(CP_ACP" in file_window
+        and "IsValidPathUtf8Text(value) ? CP_UTF8 : CP_ACP" in file_window
         and "Paths[0].find_last_of(L\"\\\\/\")" in file_window
         and "ExpandPluralFilesDirs(fileCount" in file_window
         and "epfdmNormal, FALSE" in file_window
         and "LoadStr(IDS_EDPROP_VIEW_TITLE)" in file_window
         and 'IDS_EDPROP_VIEW_TITLE, "%s - Edit Tags and Windows Properties"' in lang_texts,
         "the Edit Tags and Windows Properties title must identify one Unicode file or a localized plural file count",
+    )
+    svg = (ROOT / "svg.cpp").read_text(encoding="utf-8")
+    require(
+        "HBITMAP hMemBmp = HANDLES(CreateDIBSection" in svg
+        and "*hBitmap = hMemBmp;" in svg
+        and 'RenderSVGIconBitmap("Modify", propertyIconSize, TRUE, &editBitmap)' in file_window
+        and "HANDLES(DeleteObject(editBitmap));" in file_window,
+        "the properties icon must release its tracked SVG bitmap through the handle monitor",
     )
     return 0
 

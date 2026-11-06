@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include <new>
 #include <crtdbg.h>
 #include <ostream>
 #include <commctrl.h>
@@ -166,7 +167,6 @@ START_LIST:
                 break;
             }
             memcpy(file.Name, name, sizeof(TCHAR) * (file.NameLen + 1));
-            file.NameW = DupZipUtf8NameW(name, nameLen);
             //initialize remaining members of CFileData
             file.Size = CQuadWord().SetUI64(fileInfo.Size);
             file.Attr = fileInfo.FileAttr & FILE_ATTTRIBUTE_MASK;
@@ -175,13 +175,23 @@ START_LIST:
             file.LastWrite = fileInfo.LastWrite;
             file.DosName = NULL;
             file.Hidden = file.Attr & FILE_ATTRIBUTE_HIDDEN ? 1 : 0;
-            file.PluginData = (DWORD_PTR) new CZIPFileData(fileInfo.CompSize, cnt, Unix);
+#ifdef new
+#undef new
+#define ZIP_LIST_RESTORE_DEBUG_NEW
+#endif
+            file.PluginData = (DWORD_PTR) new (std::nothrow) CZIPFileData(fileInfo.CompSize, cnt, Unix);
+#ifdef ZIP_LIST_RESTORE_DEBUG_NEW
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef ZIP_LIST_RESTORE_DEBUG_NEW
+#endif
             if (!file.PluginData)
             {
                 SalamanderGeneral->Free(file.Name);
                 errorID = IDS_LOWMEM;
                 break;
             }
+            file.NameW = DupZipUtf8NameW(name, nameLen);
+            ((CZIPFileData*)file.PluginData)->OwnedNameW = file.NameW;
 
             if (!sortByExtDirsAsFiles && fileInfo.IsDir)
             {
@@ -207,8 +217,6 @@ START_LIST:
                 {
                     delete (CZIPFileData*)file.PluginData;
                     TRACE_E("Error adding directory " << path << "\\" << file.Name << " in the list");
-                    if (file.NameW != NULL)
-                        free(file.NameW);
                     SalamanderGeneral->Free(file.Name);
                     if (_tcslen(path) >= _MAX_PATH)
                     {
@@ -229,8 +237,6 @@ START_LIST:
                 {
                     delete (CZIPFileData*)file.PluginData;
                     TRACE_E("Error adding file " << path << "\\" << file.Name << " to the list");
-                    if (file.NameW != NULL)
-                        free(file.NameW);
                     SalamanderGeneral->Free(file.Name);
                     if (_tcslen(path) >= _MAX_PATH)
                     {

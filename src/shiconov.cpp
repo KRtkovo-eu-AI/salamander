@@ -752,7 +752,7 @@ void CShellIconOverlays::ReleaseIconReadersIconOverlayIds(IShellIconOverlayIdent
 }
 
 BOOL GetIconOverlayIndexAuxAux(IShellIconOverlayIdentifier** iconReadersIconOverlayIds,
-                               int i, WCHAR* wPath, const char* name, DWORD shAttrs)
+                               int i, const WCHAR* wPath, const char* name, DWORD shAttrs)
 {
     HRESULT res;
     if (iconReadersIconOverlayIds[i] != NULL &&
@@ -769,7 +769,7 @@ BOOL GetIconOverlayIndexAuxAux(IShellIconOverlayIdentifier** iconReadersIconOver
 }
 
 BOOL GetIconOverlayIndexAux(IShellIconOverlayIdentifier** iconReadersIconOverlayIds,
-                            int i, WCHAR* wPath, const char* name, DWORD shAttrs)
+                            int i, const WCHAR* wPath, const char* name, DWORD shAttrs)
 {
     __try
     {
@@ -813,7 +813,14 @@ CShellIconOverlays::GetIconOverlayIndex(WCHAR* wPath, WCHAR* wName, char* aPath,
     MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, name, -1, wName, MAX_PATH - (int)(wName - wPath));
     wPath[MAX_PATH - 1] = 0; // just to be safe
     strcpy(aName, name);
+    return GetIconOverlayIndexForPathW(wPath, fileAttrs, minPriority,
+                                      iconReadersIconOverlayIds, isGoogleDrivePath);
+}
 
+DWORD CShellIconOverlays::GetIconOverlayIndexForPathW(
+    const wchar_t* wPath, DWORD fileAttrs, int minPriority,
+    IShellIconOverlayIdentifier** iconReadersIconOverlayIds, BOOL isGoogleDrivePath)
+{
     //  SHFILEINFO fi;
     //  if (SHGetFileInfoAux(aPath, 0, &fi, sizeof(fi), SHGFI_ATTRIBUTES))
     //  {

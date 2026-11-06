@@ -1,0 +1,125 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual controller, Apply and selection guard; UI/property stores are explicit recording facades.
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <commctrl.h>
+#include <vector>
+#include <string>
+#include <functional>
+#include <cstdio>
+#include <cstring>
+#include <cwchar>
+#include <cstdlib>
+#define TRACE_E(x) ((void)0)
+#define CALL_STACK_MESSAGE1(x) ((void)0)
+static int Checks=0,Failures=0,Depth=0,EndCalls=0,DialogCalls=0,RefreshCalls=0,PostCalls=0;
+static int TagsState=BST_UNCHECKED;static DWORD FakeAttributes=INVALID_FILE_ATTRIBUTES;static HRESULT WriteResult=S_OK;
+static bool Writable=true;static std::wstring Message,AttributesPath;static std::function<void()> OnSave,OnWrite,OnMessage,OnRow;
+static void Check(bool b,const char* name){++Checks;if(!b){++Failures;printf("FAIL: %s\n",name);}}
+static void BeginStopRefresh(){++Depth;}static void EndStopRefresh(){--Depth;}
+static BOOL TestEndDialog(HWND,INT_PTR result){Check(result==IDCANCEL,"stale dialog closes as Cancel");++EndCalls;return TRUE;}
+#define EndDialog TestEndDialog
+static BOOL TestPostMessage(HWND,UINT,WPARAM,LPARAM){++PostCalls;return TRUE;}
+#undef PostMessage
+#define PostMessage TestPostMessage
+static UINT TestGetDlgButtonChecked(HWND,int){return TagsState;}
+#define IsDlgButtonChecked TestGetDlgButtonChecked
+static DWORD TestGetFileAttributesW(const wchar_t* path){AttributesPath=path;return FakeAttributes;}
+#define GetFileAttributesW TestGetFileAttributesW
+static HCURSOR TestSetCursor(HCURSOR cursor){return cursor;}
+#define SetCursor TestSetCursor
+@@CLASS@@
+@@STRING@@
+@@CONVERSIONS@@
+@@FORMAT@@
+enum {IDS_EDPROP_RESULT=1,IDS_EDPROP_RESULT_DETAIL,IDS_EDPROP_REASON_OTHER,IDS_EDPROP_REASON_READONLY,IDS_EDPROP_REASON_UNSUPPORTED,IDS_EDPROP_TITLE,IDS_FFA_TAGS,IDC_EDPROP_TAGS_ENABLE,IDD_EDIT_PROPERTIES,HLanguage,TAG_HISTORY_SIZE=10,WM_USER_REFRESH_DIR=WM_APP+5};
+#define MSGBOXEX_OK 0
+#define MSGBOXEX_ICONEXCLAMATION 48
+#define MSGBOXEX_ICONINFORMATION 64
+@@RESOURCES@@
+static const char* LoadStr(int id){return ActualResources.at(size_t(id-1)).c_str();}
+using PROPERTYKEY=int;static const int PKEY_Keywords=99,VT_VECTOR=0x1000,VT_LPWSTR=31;
+static const PROPERTYKEY* GetExplorerColumnPropertyKey(int row){static const int key=1;return row<0?nullptr:&key;}
+static int GetExplorerColumnType(int row){return row%2==0?VT_LPWSTR:(VT_VECTOR|VT_LPWSTR);}
+static const char* GetExplorerColumnName(int){return "Title";}
+static BOOL IsFilePropertyWritableW(const wchar_t*,const PROPERTYKEY&){return Writable;}
+struct Write {std::wstring Path,Value;int Kind;};static std::vector<Write> Writes;
+static HRESULT Record(const wchar_t* path,const std::wstring& value,int kind){Writes.push_back({path,value,kind});if(OnWrite)OnWrite();return WriteResult;}
+static HRESULT WriteFileTagsW(const wchar_t* path,const std::vector<std::wstring>& tags){return Record(path,tags.empty()?L"":tags[0],0);}
+static HRESULT WriteFileStringVectorPropertyW(const wchar_t* path,const PROPERTYKEY&,const std::vector<std::wstring>& values){return Record(path,values.empty()?L"":values[0],1);}
+static HRESULT WriteFilePropertyTextW(const wchar_t* path,const PROPERTYKEY&,const wchar_t* value,BOOL clear){return Record(path,clear?L"":value,2);}
+static void ParseFileTagsW(const wchar_t* value,std::vector<std::wstring>& values){values={value};}
+static std::wstring SalPathAddExtendedPrefixW(const wchar_t* path){return L"\\\\?\\"+std::wstring(path);}
+static std::string SalWideToMultiBytePath(const wchar_t* value,UINT cp){int n=WideCharToMultiByte(cp,0,value,-1,nullptr,0,nullptr,nullptr);std::string r(n,'\0');WideCharToMultiByte(cp,0,value,-1,r.data(),n,nullptr,nullptr);r.resize(n-1);return r;}
+static struct {std::vector<std::string> TagHistory;} Configuration;
+static void AddValueToStdHistoryValues(std::vector<std::string>& values,int,const char* value,BOOL){values.push_back(value);}
+struct CMessageBox {CTruncatedString* Text;CMessageBox(HWND,DWORD,const char*,CTruncatedString* t,void*,void*,void*,int,void*,void*,void*,void*):Text(t){}INT_PTR Execute(){Message=Text->GetW();if(OnMessage)OnMessage();return IDOK;}};
+struct CCommonDialog {HWND HWindow=nullptr;CCommonDialog(int,int,HWND h):HWindow(h){}};
+struct TagList {void OnSaveEdit(){if(OnSave)OnSave();}void OnEndEdit(){}};
+class CEditWindowsPropertiesDialog;
+static std::function<INT_PTR(CEditWindowsPropertiesDialog&)> OnExecute;
+class CEditWindowsPropertiesDialog:public CCommonDialog {public:
+ struct CPropertyRow {int ExplorerIndex=0;std::wstring Value=L"new 東京 🙂",OriginalValue=L"old";BOOL HadValue=TRUE,Writable=TRUE;int InitialState=BST_CHECKED;BOOL Modified=TRUE;};
+ const std::vector<std::wstring> Paths;const std::function<bool()> SelectionCurrent;TagList* TagsList=nullptr;
+ HWND PropertiesList=nullptr,PropertyEdit=nullptr;HIMAGELIST PropertyImages=nullptr;int EditingProperty=0;BOOL FillingProperties=FALSE,TagsHadValue=FALSE,TagsWritable=FALSE;int InitialTagsState=BST_UNCHECKED;std::vector<std::wstring> InitialTags,CurrentTags={L"new tag"};std::vector<CPropertyRow> PropertyRows;std::vector<int> States;
+ std::vector<std::wstring> GetTags(){return CurrentTags;}int GetPropertyState(int row){return States.at(size_t(row));}
+ void UpdatePropertyModifiedState(int row){if(OnRow)OnRow();auto& r=PropertyRows.at(size_t(row));r.Modified=r.Value!=r.OriginalValue||GetPropertyState(row)!=r.InitialState;}
+ @@CTOR@@
+ @@CHECK@@
+ @@APPLY@@
+ INT_PTR Execute(){++DialogCalls;Check(Depth==1,"refresh paused during modal execution");return OnExecute?OnExecute(*this):IDCANCEL;}
+};
+constexpr int ptDisk=1;
+struct CFileData {std::string Key;std::wstring Full;int Selected=0;bool Current=true;};
+struct Rows {int Count=0;std::vector<CFileData> Items;CFileData& At(int i){return Items.at(size_t(i));}};
+struct CFilesWindow {
+ bool Disk=true,Branch=true;std::wstring Root=L"C:\\東京";ULONGLONG Tab=1,Generation=2;int Caret=0,FocusedIndex=0;HWND HWindow=nullptr;std::function<void()> OnCheckPath;
+ Rows D,F;Rows* Dirs=&D;Rows* Files=&F;
+ bool Is(int)const{return Disk;}bool IsBranchView()const{return Branch;}
+ const wchar_t* GetPathW()const{return Root.c_str();}ULONGLONG GetPanelTabId()const{return Tab;}ULONGLONG GetBranchViewGeneration()const{return Generation;}
+ int GetCaretIndex()const{return Caret;}int GetSelCount()const{int n=0;for(const auto& f:F.Items)n+=f.Selected!=0;for(const auto& f:D.Items)n+=f.Selected!=0;return n;}
+ void GetSelItems(int count,int* out)const{int n=0;for(int i=0;i<D.Count+F.Count&&n<count;++i){const auto& f=i<D.Count?D.Items.at(size_t(i)):F.Items.at(size_t(i-D.Count));if(f.Selected)out[n++]=i;}}
+ const char* GetItemCacheKeyPtr(const CFileData& f)const{return f.Key.c_str();}
+ const CFileData* GetBranchViewFileByCacheKey(const char* key)const{for(const auto* rows:{&D,&F})for(const auto& f:rows->Items)if(f.Key==key&&f.Current)return &f;return nullptr;}
+ std::wstring GetItemFullPathW(const CFileData& f)const{return f.Full;}
+ DWORD CheckPath(BOOL){if(OnCheckPath)OnCheckPath();return ERROR_SUCCESS;}void RefreshListBox(int,int,int,BOOL,BOOL){++RefreshCalls;}
+ void EditWindowsProperties();
+};
+@@GUARD@@
+@@CONTROLLER@@
+static void Reset(){Writes.clear();Message.clear();OnSave=OnWrite=OnMessage=OnRow=nullptr;OnExecute=nullptr;EndCalls=DialogCalls=RefreshCalls=PostCalls=0;TagsState=BST_UNCHECKED;WriteResult=S_OK;Writable=true;FakeAttributes=INVALID_FILE_ATTRIBUTES;Configuration.TagHistory.clear();Check(Depth==0,"refresh pause balanced");}
+static void Title(CEditWindowsPropertiesDialog& d){d.PropertyRows={{}};d.States={BST_CHECKED};}
+int main(){
+ const std::wstring longPath=L"C:\\日本\\"+std::wstring(300,L'東')+L"\\same%s.jpg";
+ CFilesWindow p;p.F.Items={{"one",L"C:\\日本\\one\\same.jpg",1},{"two",longPath,1},{"keep",L"C:\\日本\\keep.jpg",0}};p.F.Count=3;
+ Reset();CBranchAttributeSelection selection;Check(selection.Capture(&p),"capture exact property sources");
+ {
+  std::vector<std::wstring> input={longPath};CEditWindowsPropertiesDialog d(nullptr,input);input.clear();Check(d.Paths==std::vector<std::wstring>({longPath}),"dialog owns copied paths independently of input vector");
+  Title(d);Check(d.Apply()&&Writes.size()==1&&Writes[0].Path==longPath&&Writes[0].Value==L"new 東京 🙂","ordinary/no-validator Apply uses complete wide source and value");
+ }
+ Reset();{
+ CEditWindowsPropertiesDialog d(nullptr,selection.Paths,[&](){return selection.IsCurrent(&p);});Title(d);d.PropertyRows.push_back({1});d.States.push_back(BST_CHECKED);d.TagsWritable=TRUE;TagsState=BST_CHECKED;
+ Check(d.Apply()&&Writes.size()==6,"multi selection applies tags text and vector properties");Check(Writes[0].Path==p.F.Items[0].Full&&Writes[3].Path==longPath,"each same-basename path stays independent");Check(Message.find(L"Updated: 2")!=std::wstring::npos&&Message.find(L"Failed or read-only: 0")!=std::wstring::npos,"actual localized success summary retained");Check(!d.PropertyRows[0].Modified&&!Configuration.TagHistory.empty(),"successful writes update dirty/history state");
+ }
+ Reset();{CEditWindowsPropertiesDialog d(nullptr,{longPath});Title(d);d.PropertyRows[0].OriginalValue=d.PropertyRows[0].Value;Check(d.Apply()&&Writes.empty(),"unchanged property not rewritten");}
+ Reset();{CEditWindowsPropertiesDialog d(nullptr,{longPath});Title(d);d.PropertyRows[0].Writable=FALSE;d.TagsWritable=FALSE;TagsState=BST_CHECKED;Check(d.Apply()&&Writes.empty(),"unsupported UI capability cannot write property or tags");}
+ Reset();{CEditWindowsPropertiesDialog d(nullptr,{longPath});Title(d);d.States[0]=TagsState=BST_INDETERMINATE;d.TagsWritable=TRUE;Check(d.Apply()&&Writes.empty(),"indeterminate values preserved");}
+ for(HRESULT failure:{E_ACCESSDENIED,E_FAIL}){Reset();CEditWindowsPropertiesDialog d(nullptr,{longPath});Title(d);WriteResult=failure;Writable=false;Check(!d.Apply()&&Writes.size()==1,"property failure reported");Check(d.PropertyRows[0].OriginalValue==L"old"&&d.PropertyRows[0].Modified,"failed property remains dirty");Check(Message.find(longPath)!=std::wstring::npos,"complete long Unicode percent-containing failed path retained");Check(Message.find(failure==E_ACCESSDENIED?L"read-only":L"does not support")!=std::wstring::npos,"actual localized failure reason retained");}
+ Reset();{CEditWindowsPropertiesDialog d(nullptr,{longPath});Title(d);WriteResult=E_FAIL;FakeAttributes=FILE_ATTRIBUTE_READONLY;Check(!d.Apply()&&Message.find(L"read-only")!=std::wstring::npos,"readonly attribute identifies failure reason");Check(AttributesPath==L"\\\\?\\"+longPath,"error attribute query uses extended exact identity");}
+ for(int change=0;change<4;++change){Reset();auto saved=p;CEditWindowsPropertiesDialog d(nullptr,selection.Paths,[&](){return selection.IsCurrent(&p);});Title(d);if(change==0)++p.Tab;else if(change==1)++p.Generation;else if(change==2)p.F.Items[1].Full=L"C:\\wrong\\same.jpg";else p.F.Items[1].Current=false;Check(!d.Apply()&&Writes.empty()&&EndCalls==1,"stale tab generation path or cache rejected before write");p=saved;p.Dirs=&p.D;p.Files=&p.F;}
+ Reset();{CEditWindowsPropertiesDialog d(nullptr,selection.Paths,[&](){return selection.IsCurrent(&p);});Title(d);TagList list;d.TagsList=&list;OnSave=[&](){++p.Generation;};Check(!d.Apply()&&Writes.empty()&&EndCalls==1,"selection rechecked after edit commit callback");--p.Generation;}
+ Reset();{CEditWindowsPropertiesDialog d(nullptr,selection.Paths,[&](){return selection.IsCurrent(&p);});Title(d);d.TagsWritable=TRUE;TagsState=BST_CHECKED;OnWrite=[&](){++p.Generation;};Check(!d.Apply()&&Writes.size()==1&&EndCalls==1,"reentrant metadata write cannot approve next row or path");Check(Configuration.TagHistory.empty(),"cancelled remainder does not claim successful batch state");--p.Generation;}
+ Reset();{CEditWindowsPropertiesDialog d(nullptr,selection.Paths,[&](){return selection.IsCurrent(&p);});Title(d);OnRow=[&](){++p.Generation;};Check(!d.Apply()&&Writes.empty()&&EndCalls==1,"row UI callback cannot replace write selection");--p.Generation;}
+ Reset();OnExecute=[&](CEditWindowsPropertiesDialog& d){Check(d.Paths==selection.Paths,"actual controller passes exact owned selection");Title(d);return d.Apply()?IDOK:IDCANCEL;};p.EditWindowsProperties();Check(Writes.size()==2&&RefreshCalls==1&&PostCalls==1,"actual Branch controller Apply refreshes current listing");
+ Reset();OnExecute=[&](CEditWindowsPropertiesDialog& d){Title(d);OnMessage=[&](){++p.Tab;};return d.Apply()?IDOK:IDCANCEL;};p.EditWindowsProperties();Check(Writes.size()==2&&RefreshCalls==0&&PostCalls==0,"summary callback cannot refresh a replacement tab");--p.Tab;
+ Reset();p.OnCheckPath=[&](){++p.Generation;};p.EditWindowsProperties();Check(DialogCalls==0&&Writes.empty(),"CheckPath callback replacement rejected before dialog");p.OnCheckPath=nullptr;--p.Generation;
+ Reset();p.F.Items[1].Current=false;p.EditWindowsProperties();Check(DialogCalls==0&&Writes.empty(),"stale cache rejected at direct controller entry");p.F.Items[1].Current=true;
+ Reset();p.F.Items[0].Selected=p.F.Items[1].Selected=0;p.Caret=1;OnExecute=[&](CEditWindowsPropertiesDialog& d){Check(d.Paths==std::vector<std::wstring>({longPath}),"implicit focused long source passed exactly");return IDCANCEL;};p.EditWindowsProperties();Check(DialogCalls==1&&Writes.empty()&&RefreshCalls==0,"Cancel performs no metadata write or refresh");
+ Reset();p.Branch=false;OnExecute=[&](CEditWindowsPropertiesDialog& d){Title(d);Check(!d.SelectionCurrent,"ordinary controller does not require Branch state");return d.Apply()?IDOK:IDCANCEL;};p.EditWindowsProperties();Check(Writes.size()==1&&Writes[0].Path==longPath&&RefreshCalls==1,"ordinary controller retains exact write compatibility");
+ Reset();p.Disk=false;p.EditWindowsProperties();Check(DialogCalls==0,"virtual panel refused");p.Disk=true;p.Branch=true;
+ Reset();p.F.Items[1].Full.clear();p.EditWindowsProperties();Check(DialogCalls==0,"empty exact source refused");p.F.Items[1].Full=longPath;
+ Check(FormatEditPropertiesLocalizedArguments(L"%% %s %d %08X",{longPath,L"2",L"80030005"})==L"% "+longPath+L" 2 80030005","wide localized tokens preserve percent inside substituted path");Check(FormatEditPropertiesLocalizedArguments(L"%s %q %d",{L"x"})==L"x %q %d","missing or unknown tokens remain data");Check(FormatEditPropertiesLocalizedArguments(nullptr,{}).empty(),"null localized format safe");
+ Check(EditPropertiesLocalizedToWide("\xE6\x9D\xB1\xE4\xBA\xAC")==L"東京","UTF8 localized text decoded before ACP fallback");
+ Reset();printf("Actual edit properties dialog: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

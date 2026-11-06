@@ -1,0 +1,55 @@
+﻿// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+#define NOMINMAX
+#include <windows.h>
+#include <objidl.h>
+#include <wrl/client.h>
+#include <algorithm>
+#include <cstdio>
+#include <string>
+#include <vector>
+#include <limits>
+#include <new>
+// Legacy public PV ABI intentionally uses pack(4), including 64-bit fields.
+#pragma warning(push)
+#pragma warning(disable:4121)
+#include "@@PV_HEADER@@"
+#pragma warning(pop)
+#define SAL_MAX_PATH 32768
+@@PREFIX@@
+struct GuidMapping {};
+struct ImageHandle { int EncodeCalls=0; int Error=PVC_OK; size_t Bytes=150001; };
+// Encoder dependency only: real encoder integration is additionally exercised
+// through the actual plugin and GUI. Stream/callback adapter below is actual code.
+static PVCODE SaveFrame(ImageHandle& image,int,const wchar_t*,const GuidMapping&,LPPVSaveImageInfo,IStream* output=nullptr){
+ ++image.EncodeCalls;if(image.Error!=PVC_OK)return image.Error;
+ std::vector<BYTE> data(image.Bytes);for(size_t i=0;i<data.size();++i)data[i]=static_cast<BYTE>(i);
+ ULONG written=0;HRESULT hr=output->Write(data.data(),static_cast<ULONG>(data.size()),&written);
+ return SUCCEEDED(hr)&&written==data.size()?PVC_OK:PVC_WRITING_ERROR;
+}
+@@ADAPTER@@
+static int Checks=0,Failures=0;
+static void Check(bool ok,const char* why){++Checks;if(!ok){++Failures;printf("FAIL: %s\n",why);}}
+struct Output { std::vector<BYTE> Bytes; int Writes=0,Seeks=0; bool BadSeek=false,ShortWrite=false; int CancelAt=-1; int LastProgress=-1; };
+static DWORD WINAPI Write(void* raw,void* data,DWORD count){auto& o=*static_cast<Output*>(raw);++o.Writes;o.Bytes.insert(o.Bytes.end(),static_cast<BYTE*>(data),static_cast<BYTE*>(data)+count);return o.ShortWrite?count-1:count;}
+static DWORD WINAPI Seek(void* raw,LONG position,int origin){auto& o=*static_cast<Output*>(raw);++o.Seeks;Check(position==0&&origin==FILE_BEGIN,"output is rewound using declared contract");return o.BadSeek?static_cast<DWORD>(-1):0;}
+static BOOL WINAPI Progress(int value,void* raw){auto& o=*static_cast<Output*>(raw);Check(value>=o.LastProgress&&value>=0&&value<=100,"progress remains monotonic and bounded");o.LastProgress=value;return o.CancelAt>=0&&value>=o.CancelAt;}
+int main(){
+ CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);
+ std::wstring shortPath=L"C:\\"+std::wstring(MAX_PATH-4,L'a');Check(shortPath.size()==MAX_PATH-1&&AddExtendedPrefixIfNeeded(shortPath)==shortPath,"below Win32 boundary unchanged");
+ std::wstring longPath=shortPath+L'a';Check(AddExtendedPrefixIfNeeded(longPath)==L"\\\\?\\"+longPath,"Win32 boundary uses extended prefix before SAL capacity");
+ Check(AddExtendedPrefixIfNeeded(L"\\\\server\\share\\"+std::wstring(260,L'東'))==L"\\\\?\\UNC\\server\\share\\"+std::wstring(260,L'東'),"long Unicode UNC prefix");
+ Check(AddExtendedPrefixIfNeeded(L"\\\\?\\C:\\already")==L"\\\\?\\C:\\already","existing prefix preserved");Check(AddExtendedPrefixIfNeeded(L"").empty(),"empty path preserved");
+ ImageHandle image;GuidMapping mapping;Output out;PVSaveImageInfo info={};info.WriteFunc=Write;info.SeekFunc=Seek;
+ Check(SaveFrameToCallback(image,0,mapping,&info,Progress,&out)==PVC_OK,"actual callback adapter succeeds");Check(image.EncodeCalls==1&&out.Seeks==1&&out.Writes==3&&out.Bytes.size()==image.Bytes&&out.LastProgress==100,"complete encoded output and bounded chunks");
+ bool exact=true;for(size_t i=0;i<out.Bytes.size();++i)exact=exact&&out.Bytes[i]==static_cast<BYTE>(i);Check(exact,"all encoded bytes preserved");
+ image=ImageHandle();out=Output();image.Error=PVC_READING_ERROR;Check(SaveFrameToCallback(image,0,mapping,&info,Progress,&out)==PVC_READING_ERROR&&out.Bytes.empty()&&out.Seeks==0,"encoder error cannot deliver partial output");
+ image=ImageHandle();out=Output();image.Bytes=0;Check(SaveFrameToCallback(image,0,mapping,&info,nullptr,&out)==PVC_WRITING_ERROR&&out.Bytes.empty(),"empty encoded stream rejected");
+ image=ImageHandle();out=Output();out.BadSeek=true;Check(SaveFrameToCallback(image,0,mapping,&info,nullptr,&out)==PVC_WRITING_ERROR&&out.Bytes.empty(),"seek failure does not write");
+ image=ImageHandle();out=Output();out.ShortWrite=true;Check(SaveFrameToCallback(image,0,mapping,&info,nullptr,&out)==PVC_WRITING_ERROR&&out.Writes==1,"short write stops immediately");
+ image=ImageHandle();out=Output();out.CancelAt=0;Check(SaveFrameToCallback(image,0,mapping,&info,Progress,&out)==PVC_CANCELED&&image.EncodeCalls==0&&out.Bytes.empty(),"pre-encode cancellation preserves output");
+ image=ImageHandle();out=Output();out.CancelAt=50;Check(SaveFrameToCallback(image,0,mapping,&info,Progress,&out)==PVC_CANCELED&&out.Writes==2&&out.Bytes.size()==131072,"cancellation between bounded output chunks");
+ image=ImageHandle();out=Output();out.CancelAt=100;Check(SaveFrameToCallback(image,0,mapping,&info,Progress,&out)==PVC_CANCELED&&out.Bytes.size()==image.Bytes,"final cancellation remains explicit before caller replaces original");
+ image=ImageHandle();out=Output();Check(SaveFrameToCallback(image,0,mapping,nullptr,nullptr,&out)==PVC_UNSUP_OUT_PARAMS&&image.EncodeCalls==0,"null output descriptor rejected");info.WriteFunc=nullptr;Check(SaveFrameToCallback(image,0,mapping,&info,nullptr,&out)==PVC_UNSUP_OUT_PARAMS&&image.EncodeCalls==0,"missing write callback rejected");info.WriteFunc=Write;info.SeekFunc=nullptr;Check(SaveFrameToCallback(image,0,mapping,&info,nullptr,&out)==PVC_UNSUP_OUT_PARAMS&&image.EncodeCalls==0,"missing seek callback rejected");
+ CoUninitialize();printf("Actual WIC output adapter: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

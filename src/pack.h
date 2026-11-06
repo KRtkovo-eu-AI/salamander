@@ -4,6 +4,8 @@
 
 #pragma once
 
+struct CFilesActionDiskTarget; // internal host target identity; no SDK interface change
+
 // ****************************************************************************
 // Constants
 //
@@ -736,17 +738,24 @@ CPluginData* PackProbeArchivePlugin(const char* archiveFileName, CFilesWindow* p
 CPluginData* PackGetPluginForArchiveFile(const char* archiveFileName, CFilesWindow* panel);
 
 // extract the selected files from the archive (calls UniversalUncompress)
+CPluginData* PackGetVerifiedBranchUnpacker(CFilesWindow* panel, const char* archiveFileName,
+                                               CPluginDataInterfaceAbstract* pluginData);
+
 BOOL PackUncompress(HWND parent, CFilesWindow* panel, const char* archiveFileName,
                     CPluginDataInterfaceAbstract* pluginData,
                     const char* targetDir, const char* archiveRoot,
-                    SalEnumSelection nextName, void* param);
+                    SalEnumSelection nextName, void* param,
+                    const CFilesActionDiskTarget* diskTarget = NULL,
+                    BOOL (*validateSource)(void*) = NULL, void* sourceContext = NULL);
 
 // universal archive extraction (for unpacking the entire archive)
 BOOL PackUniversalUncompress(HWND parent, const char* command, TPackErrorTable* const errorTable,
                              const char* initDir, BOOL expandInitDir, CFilesWindow* panel,
                              const BOOL supportLongNames, const char* archiveFileName,
                              const char* targetDir, const char* archiveRoot,
-                             SalEnumSelection nextName, void* param, BOOL needANSIListFile);
+                             SalEnumSelection nextName, void* param, BOOL needANSIListFile,
+                             const CFilesActionDiskTarget* sourceSnapshot = NULL,
+                             const CFilesActionDiskTarget* diskTarget = NULL);
 
 // extract a single file from the archive (for viewer)
 BOOL PackUnpackOneFile(CFilesWindow* panel, const char* archiveFileName,

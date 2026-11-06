@@ -698,6 +698,7 @@ CConfiguration::CConfiguration()
     // for displaying items in the panel
     FullRowSelect = FALSE;
     FullRowHighlight = TRUE;
+    BranchViewRelativePaths = FALSE;
     UseIconTincture = TRUE;
     UsePanelTabs = TRUE;
     ShowPanelCaption = TRUE;

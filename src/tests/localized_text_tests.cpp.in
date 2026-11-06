@@ -1,0 +1,78 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual bounded renderer and actual pre-confirmation guard; UI is explicit facade.
+#include <windows.h>
+#include <algorithm>
+#include <cstdio>
+#include <cstring>
+#include <string>
+#include <vector>
+@@HEADER@@
+static int Checks=0,Failures=0;
+static void Check(bool ok,const char* label){++Checks;if(!ok){++Failures;std::printf("FAIL: %s\n",label);}}
+struct Golden {const char* Pattern;const char* First;const char* Second;const char* Expected;int Count;};
+static const Golden Translations[]={
+@@TRANSLATIONS@@
+};
+static void Verify(const char* pattern,std::initializer_list<const char*> values,const std::string& expected){
+ size_t measured=0;
+ Check(Salamander::LocalizedText::Measure(pattern,values,measured)&&measured==expected.size(),"measured localized text length equals independent expected bytes");
+ const size_t capacity=expected.size()+1;
+ std::vector<char> storage(capacity+16,'Z');char* output=storage.data()+8;
+ Check(Salamander::LocalizedText::Write(output,capacity,pattern,values)&&std::string(output)==expected,"complete localized output and literal parameter bytes");
+ Check(std::all_of(storage.begin(),storage.begin()+8,[](char c){return c=='Z';})&&std::all_of(storage.end()-8,storage.end(),[](char c){return c=='Z';}),"both destination red zones preserved");
+ std::fill(storage.begin(),storage.end(),'Z');
+ Check(!Salamander::LocalizedText::Write(output,expected.size(),pattern,values)&&output[0]==(expected.empty()?'Z':0),"insufficient capacity refuses instead of returning a partial UTF8 message");
+ Check(std::all_of(storage.begin(),storage.begin()+8,[](char c){return c=='Z';})&&std::all_of(storage.begin()+9,storage.end(),[](char c){return c=='Z';}),"refusal changes only the failure sentinel");
+}
+static constexpr int IDS_MOVECOPY_CREATEPATH=1,IDS_ERRORCOPY=2;
+static HWND HWindow=nullptr;
+static const char* CurrentPattern=nullptr;
+static int Messages=0,Confirmations=0,StopDepth=0;
+static std::string Confirmed;
+static const char* LoadStr(int id){return id==IDS_MOVECOPY_CREATEPATH?CurrentPattern:"localized title";}
+static const char* GetErrorText(DWORD){return "localized invalid template";}
+static int SalMessageBox(HWND,const char*,const char*,UINT){++Messages;return IDOK;}
+static void EndStopRefresh(){--StopDepth;}
+struct CPathBuffer {std::vector<char> Bytes;explicit CPathBuffer(int count):Bytes(count){}char* Data(){return Bytes.data();}int Capacity()const{return static_cast<int>(Bytes.size());}};
+static void TryConfirmation(const char* pattern,const char* newDirs,int capacity){
+ CurrentPattern=pattern;CPathBuffer textBuffer(capacity);char* textBuf=textBuffer.Data();
+ struct {int* Indexes;}data={new int[1]{23}};
+ ++StopDepth;
+@@GUARD@@
+ ++Confirmations;Confirmed=textBuf;
+ delete[] data.Indexes;EndStopRefresh();
+}
+int main(){
+ for(const auto& row:Translations){
+  if(row.Count==1)Verify(row.Pattern,{row.First},row.Expected);
+  else Verify(row.Pattern,{row.First,row.Second},row.Expected);
+ }
+ Verify("prefix %s / %s tail",{u8R"(C:\東京\literal-%n-%s.txt)",u8"chyba %S %p %d"},u8R"(prefix C:\東京\literal-%n-%s.txt / chyba %S %p %d tail)");
+ Verify("100%%: %s",{"100% literal %n"},"100%: 100% literal %n");
+ Verify("%s%s",{"",""},"");
+ Verify("literal %%",{},"literal %");
+ std::string longPath=u8R"(C:\東京\)";for(int i=0;i<12000;++i)longPath+=u8"日";
+ const std::string detail="system %n %s %%";
+ Verify("Path: %s\nError: %s",{longPath.c_str(),detail.c_str()},"Path: "+longPath+"\nError: "+detail);
+ for(const char* pattern:{"%n","%d","%p","%S","%hs","%ls","%*s","%.2s","%1$s","tail%","%s%s"}){
+  char output[32];std::fill(std::begin(output),std::end(output),'Z');
+  Check(!Salamander::LocalizedText::Write(output,sizeof(output),pattern,"owned")&&output[0]==0&&output[1]=='Z',"unsupported directive or wrong count rejected without format interpretation");
+ }
+ char buffer[8]={'Z'};
+ Check(!Salamander::LocalizedText::Write(nullptr,8,"%s","text"),"null destination refused");
+ Check(!Salamander::LocalizedText::Write(buffer,0,"%s","text")&&buffer[0]=='Z',"zero capacity never writes");
+ Check(!Salamander::LocalizedText::Write(buffer,sizeof(buffer),nullptr,"text")&&buffer[0]==0,"null template refused");
+ Check(!Salamander::LocalizedText::Write(buffer,sizeof(buffer),"plain","extra")&&buffer[0]==0,"unused argument is not silently discarded");
+ Check(!Salamander::LocalizedText::Write(buffer,sizeof(buffer),"%s",static_cast<const char*>(nullptr))&&buffer[0]==0,"null string argument refused");
+ Messages=Confirmations=0;Confirmed.clear();TryConfirmation("Create %s?",u8R"(C:\東京\%n-%s)",256);
+ Check(Confirmations==1&&Messages==0&&StopDepth==0&&Confirmed==u8R"(Create C:\東京\%n-%s?)","actual valid create confirmation retains exact percent-bearing target");
+ for(const char* pattern:{"%n","%s%s","missing insert"}){
+  Messages=Confirmations=0;Confirmed.clear();TryConfirmation(pattern,"owned target",256);
+  Check(Confirmations==0&&Messages==1&&StopDepth==0&&Confirmed.empty(),"actual malformed confirmation aborts and restores refresh before any confirmation");
+ }
+ Messages=Confirmations=0;TryConfirmation("Create %s?",longPath.c_str(),8);
+ Check(Confirmations==0&&Messages==1&&StopDepth==0,"actual oversized confirmation cannot authorize directory creation");
+ std::printf("Actual localized renderer/confirmation: %d checks, %d failures; resource templates=%zu\n",Checks,Failures,std::size(Translations));
+ return Failures?1:0;
+}

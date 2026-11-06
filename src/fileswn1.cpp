@@ -3,6 +3,7 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "branch_view.h"
 #include "common/winlibdpi.h"
 #include "commoncontrols.h"
 
@@ -28,6 +29,7 @@
 #include "geticon.h"
 #include "shiconov.h"
 #include "common/widepath.h"
+#include <map>
 
 namespace
 {
@@ -95,7 +97,8 @@ DWORD ReadDWordLE(const BYTE* data)
 
 int GetBestIcoImageSize(const char* path, int maxSize)
 {
-    HANDLE file = HANDLES_Q(CreateFile(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+    const std::wstring pathW = SalPathAddExtendedPrefixW(PathToWideMirror(path).c_str());
+    HANDLE file = HANDLES_Q(CreateFileW(pathW.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
                                        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
     if (file == INVALID_HANDLE_VALUE)
         return 0;
@@ -162,7 +165,8 @@ BOOL LoadIcoThumbnail(const char* path, int thumbnailSize, COLORREF bkgndColor, 
     if (iconSize <= 0)
         iconSize = thumbnailSize;
 
-    HICON hIcon = (HICON)HANDLES(LoadImage(NULL, path, IMAGE_ICON, iconSize, iconSize,
+    const std::wstring pathW = SalPathAddExtendedPrefixW(PathToWideMirror(path).c_str());
+    HICON hIcon = (HICON)HANDLES(LoadImageW(NULL, pathW.c_str(), IMAGE_ICON, iconSize, iconSize,
                                            LR_LOADFROMFILE | IconLRFlags));
     if (hIcon == NULL)
         return FALSE;
@@ -446,6 +450,12 @@ std::string BuildDiskThumbnailPathUtf8(CFilesWindow* window, const char* fileNam
     if (window == NULL || fileName == NULL || fileName[0] == 0 || !window->Is(ptDisk))
         return std::string();
 
+    if (window->IsBranchView())
+    {
+        const CFileData* item = window->GetBranchViewFileByCacheKey(fileName);
+        return item != NULL ? SalWideToMultiBytePath(window->GetItemFullPathW(*item).c_str(), CP_UTF8)
+                            : std::string();
+    }
     std::wstring fullPath;
     if (window->GetPathW() != NULL && window->GetPathW()[0] != 0)
     {
@@ -1089,6 +1099,7 @@ CFilesWindowAncestor::CheckPath(BOOL echo, const char* path, DWORD err, BOOL pos
 void CFilesWindowAncestor::ReleaseListing()
 {
     CALL_STACK_MESSAGE_NONE
+    AdvanceListingIdentity(); // Invalidate borrowers before any plugin release callback.
 
         ((CFilesWindow*)this)
             ->VisibleItemsArray.InvalidateArr();
@@ -1140,7 +1151,7 @@ BOOL CFilesWindowAncestor::IsPathFromActiveFS(const char* fsName, char* fsUserPa
 BOOL CFilesWindowAncestor::GetGeneralPath(char* buf, int bufSize, BOOL convertFSPathToExternal)
 {
     CALL_STACK_MESSAGE_NONE
-    if (bufSize == 0)
+    if (buf == NULL || bufSize <= 0)
         return FALSE;
     BOOL ret = TRUE;
     char buf2[2 * MAX_PATH];
@@ -1159,21 +1170,15 @@ BOOL CFilesWindowAncestor::GetGeneralPath(char* buf, int bufSize, BOOL convertFS
     {
         if (Is(ptZIPArchive))
         {
-            strcpy(buf2, GetZIPArchive());
+            std::string archivePath(GetZIPArchive());
             if (GetZIPPath()[0] != 0)
             {
                 if (GetZIPPath()[0] != '\\')
-                    strcat(buf2, "\\");
-                strcat(buf2, GetZIPPath());
+                    archivePath += "\\";
+                archivePath += GetZIPPath();
             }
-            int l = (int)strlen(buf2);
-            if (l >= bufSize)
-            {
-                l = bufSize - 1;
-                ret = FALSE;
-            }
-            memcpy(buf, buf2, l);
-            buf[l] = 0;
+            ret = archivePath.size() < static_cast<size_t>(bufSize);
+            CopyStringTruncateUtf8(buf, bufSize, archivePath.c_str());
         }
         else
         {
@@ -1658,6 +1663,7 @@ CFilesWindowAncestor::GetPluginDataForPluginIface()
 
 void CFilesWindowAncestor::SetZIPPath(const char* path)
 {
+    AdvanceListingIdentity();
     CALL_STACK_MESSAGE_NONE
     if (*path == '\\')
         path++; // ZIPPath will not start with '\\'
@@ -1672,6 +1678,7 @@ void CFilesWindowAncestor::SetZIPPath(const char* path)
 
 void CFilesWindowAncestor::SetZIPArchive(const char* archive)
 {
+    AdvanceListingIdentity();
     CALL_STACK_MESSAGE_NONE
     lstrcpyn(ZIPArchive, archive, SAL_MAX_PATH);
 }
@@ -1793,31 +1800,31 @@ unsigned IconThreadThreadFBody(void* parameter)
                 int iconListIndex;
                 SHFILEINFO shi; // for historical reasons (SHGetFileInfo) shi.hIcon is used for all icon types
 
-                // prepare the full path for files/directories being loaded (only when window->Is(ptDisk))
-                char path[MAX_PATH + 10];
+                // Snapshot exact full paths while the listing is locked. Ordinary
+                // cache names can be ACP: concatenating them with a UTF-8 parent
+                // would create a mixed-encoding path. Branch keys are already full paths.
+                CPathBuffer iconPathBuffer(4 * SAL_MAX_PATH + 16);
+                char* path = iconPathBuffer.Data();
                 path[0] = 0;
-                WCHAR wPath[MAX_PATH + 10];
-                wPath[0] = 0;
                 char* name = path;
-                WCHAR* wName = wPath;
-                BOOL pathIsInvalid = FALSE;
-                BOOL isGoogleDrivePath = FALSE;
-                if (window->Is(ptDisk))
+                const BOOL diskListing = window->Is(ptDisk);
+                const BOOL branchListing = window->IsBranchView();
+                std::map<std::string, std::string> diskItemPaths;
+                if (diskListing && !branchListing)
                 {
-                    int l = (int)strlen(window->GetPath());
-                    memmove(path, window->GetPath(), l);
-                    if (path[l - 1] != '\\')
-                        path[l++] = '\\';
-                    name = path + l; // pointer to the location of the name in the full path
-                    *name = 0;
-                    MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, path, l, wPath, MAX_PATH + 10);
-                    wName = wPath + l;
-                    *wName = 0;
-                    pathIsInvalid = !PathContainsValidComponents(path, FALSE);
-                    if (pathIsInvalid)
-                        TRACE_I("Path contains invalid components, shell cannot read icons from such paths! Path: " << path);
-                    isGoogleDrivePath = ShellIconOverlays.IsGoogleDrivePath(path);
+                    for (int itemIndex = 0; itemIndex < window->Dirs->Count + window->Files->Count; ++itemIndex)
+                    {
+                        const CFileData& file = itemIndex < window->Dirs->Count ? window->Dirs->At(itemIndex) :
+                                               window->Files->At(itemIndex - window->Dirs->Count);
+                        diskItemPaths[window->GetItemCacheKey(file)] =
+                            SalWideToMultiBytePath(window->GetItemFullPathW(file).c_str(), CP_UTF8);
+                    }
                 }
+                const auto resolveDiskPath = [&diskItemPaths, diskListing, branchListing](const char* key) -> std::string {
+                    if (!diskListing || branchListing) return key;
+                    auto item = diskItemPaths.find(key);
+                    return item != diskItemPaths.end() ? item->second : std::string();
+                };
 
                 BOOL readOnlyVisibleItems = window->InactWinOptimizedReading; // refreshes from the snooper in an inactive window: read only visible icons/thumbnails/overlays to save CPU time (we are in the background)
                                                                               //          if (readOnlyVisibleItems) TRACE_I("Refresh in inactive window, reading only visible icons...");
@@ -1990,9 +1997,11 @@ unsigned IconThreadThreadFBody(void* parameter)
                                 {
                                     fileData->IconOverlayDone = 1; // mark that this overlay was already retrieved so we don't repeat it in this cycle
 
-                                    char fileName[MAX_PATH];
+                                    const std::string fileKey = window->GetItemCacheKey(*fileData);
+                                    const std::wstring overlayPath = window->GetItemFullPathW(*fileData);
+                                    const std::string overlayPathUtf8 = SalWideToMultiBytePath(overlayPath.c_str(), CP_UTF8);
+                                    const BOOL isGoogleDrivePath = ShellIconOverlays.IsGoogleDrivePath(overlayPathUtf8.c_str());
                                     DWORD fileAttrs = fileData->Attr;
-                                    memcpy(fileName, fileData->Name, fileData->NameLen + 1);
                                     int minPriority = 100;
                                     if (i >= window->Dirs->Count && fileData->IsLink || // file is a link
                                         fileData->IsOffline ||                          // file or directory is offline (slow)
@@ -2006,14 +2015,9 @@ unsigned IconThreadThreadFBody(void* parameter)
                                     HANDLES(LeaveCriticalSection(&window->ICSleepSection));
 
                                     // let the icon be loaded from the file; the icon reader may enter sleep mode during loading
-                                    *name = 0;
-                                    //                    TRACE_I("Getting icon overlay index for: " << fileName << "...");
-                                    SLOW_CALL_STACK_MESSAGE5("IconThreadThreadFBody::GetIconOverlayIndex(%s%s, 0x%08X, %d)",
-                                                             path, fileName, fileAttrs, isGoogleDrivePath);
-                                    DWORD iconOverlayIndex = ShellIconOverlays.GetIconOverlayIndex(wPath, wName, path, name,
-                                                                                                   fileName, fileAttrs,
-                                                                                                   minPriority, iconReadersIconOverlayIds,
-                                                                                                   isGoogleDrivePath);
+                                    DWORD iconOverlayIndex = ShellIconOverlays.GetIconOverlayIndexForPathW(
+                                        overlayPath.c_str(), fileAttrs, minPriority,
+                                        iconReadersIconOverlayIds, isGoogleDrivePath);
                                     //                    TRACE_I("Getting icon overlay index is done.");
 
                                     HANDLES(EnterCriticalSection(&window->ICSleepSection));
@@ -2022,7 +2026,7 @@ unsigned IconThreadThreadFBody(void* parameter)
 
                                     CFileData* fileDataCheck = i < window->Dirs->Count ? &window->Dirs->At(i) : i < window->Files->Count + window->Dirs->Count ? &window->Files->At(i - window->Dirs->Count)
                                                                                                                                                                : NULL;
-                                    if (fileData != fileDataCheck || strcmp(fileName, fileData->Name) != 0)
+                                    if (fileData != fileDataCheck || fileKey != window->GetItemCacheKey(*fileData))
                                     {
                                         if (fileData != fileDataCheck)
                                             TRACE_E("IconThreadThreadFBody::GetIconOverlayIndex: PRUSER!!! (fileData != fileDataCheck)");
@@ -2056,9 +2060,11 @@ unsigned IconThreadThreadFBody(void* parameter)
                                     {
                                         if (!pluginFSIconsFromPlugin) // icon on disk
                                         {
-                                            if (strlen(iconData->NameAndData) + (name - path) < MAX_PATH)
+                                            const std::string itemPath = resolveDiskPath(iconData->NameAndData);
+                                            if (!itemPath.empty() && itemPath.size() < (size_t)iconPathBuffer.Capacity())
                                             {
-                                                strcpy(name, iconData->NameAndData);
+                                                memcpy(path, itemPath.c_str(), itemPath.size() + 1);
+                                                const BOOL pathIsInvalid = !PathContainsValidComponents(path, FALSE);
 
                                                 if (window->ICSleep)
                                                     goto GO_SLEEP_MODE;
@@ -2134,7 +2140,7 @@ unsigned IconThreadThreadFBody(void* parameter)
                                             {
                                                 *num = 0;
                                                 index = atoi(num + 1);
-                                                if (strlen(s) < MAX_PATH)
+                                                if (strlen(s) < (size_t)iconPathBuffer.Capacity())
                                                 {
                                                     strcpy(path, s);
                                                     doExtractIcons = TRUE;
@@ -2146,7 +2152,7 @@ unsigned IconThreadThreadFBody(void* parameter)
                                             }
                                             else
                                             {
-                                                if (strlen(s) < MAX_PATH)
+                                                if (strlen(s) < (size_t)iconPathBuffer.Capacity())
                                                 {
                                                     strcpy(path, s);
                                                     doLoadImage = TRUE;
@@ -2217,10 +2223,12 @@ unsigned IconThreadThreadFBody(void* parameter)
                                             int thumbnailSize = window->GetThumbnailSize();
                                             BOOL thumbnailLoaded = FALSE;
 
-                                            if (strlen(s) + (name - path) < MAX_PATH)
+                                            const std::string thumbnailPathUtf8 = resolveDiskPath(s);
+                                            if (!thumbnailPathUtf8.empty() && thumbnailPathUtf8.size() < (size_t)iconPathBuffer.Capacity())
                                             {
-                                                strcpy(name, s);
-                                                if (LoadIcoThumbnail(path, thumbnailSize, GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]), &thumbMaker))
+                                                memcpy(path, thumbnailPathUtf8.c_str(), thumbnailPathUtf8.size() + 1);
+                                                if (PathContainsValidComponents(path, FALSE) &&
+                                                    LoadIcoThumbnail(path, thumbnailSize, GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]), &thumbMaker))
                                                 {
                                                     thumbnailFlag = 5;
                                                     thumbnailLoaded = TRUE;
@@ -2229,18 +2237,7 @@ unsigned IconThreadThreadFBody(void* parameter)
 
                                             if (!thumbnailLoaded)
                                             {
-                                                std::string thumbnailPathUtf8 = BuildDiskThumbnailPathUtf8(window, s);
-                                                const char* thumbnailPath = NULL;
-                                                if (!thumbnailPathUtf8.empty())
-                                                {
-                                                    thumbnailPath = thumbnailPathUtf8.c_str();
-                                                }
-                                                else if (strlen(s) + (name - path) < MAX_PATH)
-                                                {
-                                                    strcpy(name, s);
-                                                    thumbnailPath = path;
-                                                }
-
+                                                const char* thumbnailPath = thumbnailPathUtf8.empty() ? NULL : thumbnailPathUtf8.c_str();
                                                 if (thumbnailPath != NULL)
                                                 {
                                                     //                          TRACE_I("Load thumbnail for: " << name << "...");
@@ -2370,7 +2367,7 @@ unsigned IconThreadThreadFBody(void* parameter)
                                                     int z;
                                                     for (z = 0; z < arr->Count; z++)
                                                     {
-                                                        if (strcmp(name2, arr->At(z).Name) == 0)
+                                                        if (window->GetItemCacheKey(arr->At(z)) == name2)
                                                         {
                                                             PostMessage(window->HWindow, WM_USER_REFRESHINDEX, z, 0);
                                                             break;
@@ -2382,7 +2379,7 @@ unsigned IconThreadThreadFBody(void* parameter)
                                                         int j;
                                                         for (j = 0; j < arr->Count; j++)
                                                         {
-                                                            if (strcmp(name2, arr->At(j).Name) == 0)
+                                                            if (window->GetItemCacheKey(arr->At(j)) == name2)
                                                             {
                                                                 PostMessage(window->HWindow, WM_USER_REFRESHINDEX,
                                                                             window->Dirs->Count + j, 0);
@@ -2427,7 +2424,7 @@ unsigned IconThreadThreadFBody(void* parameter)
                                                     int z;
                                                     for (z = 0; z < window->Dirs->Count; z++)
                                                     {
-                                                        if (strcmp(name2, window->Dirs->At(z).Name) == 0)
+                                                        if (window->GetItemCacheKey(window->Dirs->At(z)) == name2)
                                                         {
                                                             PostMessage(window->HWindow, WM_USER_REFRESHINDEX, z, 0);
                                                             break;
@@ -2437,7 +2434,7 @@ unsigned IconThreadThreadFBody(void* parameter)
                                                     {
                                                         for (z = 0; z < window->Files->Count; z++)
                                                         {
-                                                            if (strcmp(name2, window->Files->At(z).Name) == 0)
+                                                            if (window->GetItemCacheKey(window->Files->At(z)) == name2)
                                                             {
                                                                 PostMessage(window->HWindow, WM_USER_REFRESHINDEX,
                                                                             window->Dirs->Count + z, 0);
@@ -2713,6 +2710,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     static ULONGLONG nextPanelTabId = 0;
 
     CALL_STACK_MESSAGE1("CFilesWindow::CFilesWindow()");
+    BranchView = NULL;
     NarrowedNameColumn = FALSE;
     FullWidthOfNameCol = 0;
     WidthOfMostOfNames = 0;
@@ -2911,6 +2909,10 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
 CFilesWindow::~CFilesWindow()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::~CFilesWindow()");
+    // WM_DESTROY has already deleted DirectoryLine and ListBox. Teardown must
+    // cancel only the worker, without the user-visible Stop Scan UI update.
+    if (BranchView != NULL)
+        BranchView->Worker.Cancel();
 
     ClearIndependentIconLists();
     StopExplorerSortAsync();
@@ -2976,6 +2978,8 @@ CFilesWindow::~CFilesWindow()
         }
         HANDLES(CloseHandle(IconCacheThread));
     }
+
+    ShutdownBranchView(); // no icon reader can retain metadata pointers now
 
     HANDLES(DeleteCriticalSection(&ICSectionUsingThumb));
     HANDLES(DeleteCriticalSection(&ICSectionUsingIcon));
@@ -3434,8 +3438,10 @@ BOOL CFilesWindow::CanUnloadPlugin(HWND parent, CPluginInterfaceAbstract* plugin
         {
             if (Is(ptZIPArchive) || Is(ptPluginFS)) // archive -> just leave it; plug-in FS -> return to the last disk path
             {
-                char path[MAX_PATH];
-                strcpy(path, GetPath());
+                const std::string currentPath(GetPath());
+                std::vector<char> pathStorage(currentPath.begin(), currentPath.end());
+                pathStorage.push_back(0);
+                char* path = pathStorage.data();
 
                 DWORD err, lastErr;
                 BOOL pathInvalid, cut;
@@ -3470,17 +3476,18 @@ void CFilesWindow::DirectoryLineSetText()
     CALL_STACK_MESSAGE1("CFilesWindow::DirectoryLineSetText()");
     char ZIPbuf[2 * MAX_PATH];
     std::string diskPathText;
+    std::string archivePathText;
     const char* path = NULL;
     if (Is(ptZIPArchive))
     {
-        strcpy(ZIPbuf, GetZIPArchive());
+        archivePathText = GetZIPArchive();
         if (GetZIPPath()[0] != 0)
         {
             if (GetZIPPath()[0] != '\\')
-                strcat(ZIPbuf, "\\");
-            strcat(ZIPbuf, GetZIPPath());
+                archivePathText += "\\";
+            archivePathText += GetZIPPath();
         }
-        path = ZIPbuf;
+        path = archivePathText.c_str();
         PathHistory->AddPath(1, GetZIPArchive(), GetZIPPath(), NULL, NULL);
     }
     else
@@ -3518,7 +3525,22 @@ void CFilesWindow::DirectoryLineSetText()
     if (path == NULL)
         return;
 
-    if (FilterEnabled)
+    if (IsBranchView())
+    {
+        std::string branchText(path);
+        const int rootLength = (int)branchText.length();
+        if (FilterEnabled)
+        {
+            branchText += "  [";
+            branchText += Filter.GetMasksString();
+            branchText += "]";
+        }
+        branchText += "  [";
+        branchText += GetBranchViewStatusText();
+        branchText += "]";
+        DirectoryLine->SetText(branchText.c_str(), rootLength);
+    }
+    else if (FilterEnabled)
     {
         std::string filterText;
         char buf[3 * MAX_PATH]; // zip path (2x) + filter (1x) = 3x MAX_PATH
@@ -3685,6 +3707,10 @@ void CFilesWindow::SelectUnselectByFocusedItem(BOOL select, BOOL byName)
     }
 }
 
+// Internal saved selections from a Branch collection identify exact files.
+// Clipboard name lists retain their existing portable, name-only semantics.
+static BOOL GlobalSelectionUsesFullPaths = FALSE;
+
 void CFilesWindow::StoreGlobalSelection()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::StoreGlobalSelection()");
@@ -3739,13 +3765,17 @@ void CFilesWindow::StoreGlobalSelection()
             {
                 // store the list in GlobalSelection
                 GlobalSelection.Clear();
+                GlobalSelectionUsesFullPaths = IsBranchView();
+                GlobalSelection.SetCaseSensitive(GlobalSelectionUsesFullPaths);
                 int i;
                 for (i = 0; i < totalCount; i++)
                 {
                     CFileData* f = (i < Dirs->Count) ? &Dirs->At(i) : &Files->At(i - Dirs->Count);
                     if (f->Selected)
                     {
-                        if (!GlobalSelection.Add(i < Dirs->Count, f->Name))
+                        const std::string identity = GlobalSelectionUsesFullPaths ?
+                            SalWideToMultiBytePath(GetItemIdentityW(*f).c_str(), CP_UTF8) : f->Name;
+                        if (!GlobalSelection.Add(i < Dirs->Count, identity.c_str()))
                             break; // low memory
                     }
                 }
@@ -3791,17 +3821,20 @@ void CFilesWindow::RestoreGlobalSelection()
                 CFileData* file = isDir ? &Dirs->At(i) : &Files->At(i - Dirs->Count);
                 if (clipboard)
                     isDir = FALSE; // when using the clipboard everything is in Files
+                const std::string identity = !clipboard && GlobalSelectionUsesFullPaths ?
+                    SalWideToMultiBytePath(GetItemIdentityW(*file).c_str(), CP_UTF8) : file->Name;
+                const BOOL contained = selection->Contains(isDir, identity.c_str());
                 switch (operation)
                 {
                 case lsoCOPY:
                 {
-                    SetSel(selection->Contains(isDir, file->Name), file);
+                    SetSel(contained, file);
                     break;
                 }
 
                 case lsoOR:
                 {
-                    if (selection->Contains(isDir, file->Name))
+                    if (contained)
                         SetSel(TRUE, file);
                     break;
                 }
@@ -3809,13 +3842,13 @@ void CFilesWindow::RestoreGlobalSelection()
                 case lsoDIFF:
                 {
                     if (file->Selected)
-                        SetSel(!selection->Contains(isDir, file->Name), file);
+                        SetSel(!contained, file);
                     break;
                 }
 
                 case lsoAND:
                 {
-                    SetSel(file->Selected && selection->Contains(isDir, file->Name), file);
+                    SetSel(file->Selected && contained, file);
                     break;
                 }
 
@@ -3850,7 +3883,7 @@ void CFilesWindow::StoreSelection()
             CFileData* f = isDir ? &Dirs->At(i) : &Files->At(i - Dirs->Count);
             if (f->Selected)
             {
-                if (!OldSelection.Add(isDir, f->Name))
+                if (!OldSelection.Add(isDir, GetItemCacheKey(*f).c_str()))
                     break; // low memory
             }
         }
@@ -3868,7 +3901,7 @@ void CFilesWindow::Reselect()
     {
         BOOL isDir = i < Dirs->Count;
         CFileData* file = isDir ? &Dirs->At(i) : &Files->At(i - Dirs->Count);
-        if (OldSelection.Contains(isDir, file->Name))
+        if (OldSelection.Contains(isDir, GetItemCacheKey(*file).c_str()))
             SetSel(TRUE, file);
         else
             SetSel(FALSE, file);
@@ -3908,7 +3941,7 @@ void CFilesWindow::ShowHideNames(int mode)
                 CFileData* f = isDir ? &Dirs->At(i) : &Files->At(i - Dirs->Count);
                 if (f->Selected)
                 {
-                    if (!HiddenNames.Add(isDir, f->Name))
+                    if (!HiddenNames.Add(isDir, GetItemCacheKey(*f).c_str()))
                         break; // low memory, we will not continue
                     refreshPanel = TRUE;
                 }
@@ -3930,7 +3963,7 @@ void CFilesWindow::ShowHideNames(int mode)
             CFileData* f = (isDir) ? &Dirs->At(i) : &Files->At(i - Dirs->Count);
             if (!f->Selected)
             {
-                if (!HiddenNames.Add(isDir, f->Name))
+                if (!HiddenNames.Add(isDir, GetItemCacheKey(*f).c_str()))
                     break; // low memory, we will not continue
                 refreshPanel = TRUE;
             }

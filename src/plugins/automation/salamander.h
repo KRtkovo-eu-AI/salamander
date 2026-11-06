@@ -30,6 +30,10 @@
 #include "spl_base.h"
 #include "spl_arc.h"
 #include "spl_gen.h"
+#include "spl_diskselection.h"
+#include <memory>
+#include <string>
+#include <vector>
 #include "spl_fs.h"
 #include "spl_menu.h"
 #include "spl_thum.h"

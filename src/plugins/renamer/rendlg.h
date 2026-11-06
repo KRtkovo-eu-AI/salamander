@@ -95,7 +95,9 @@ protected:
     BOOL SourceFilesValid;
     BOOL SourceFilesNeedUpdate;
     DWORD LastUpdateTime;
-    char Root[3 * MAX_PATH];
+    TBuffer<char> RootBuffer;
+    char* Root;
+    BOOL SelectionValid;
     int RootLen;
 
     BOOL Errors;
@@ -117,6 +119,7 @@ public:
         ZeroOnDestroy = zeroOnDestroy;
     }
 
+    BOOL HasValidSelection() const { return SelectionValid; }
     BOOL Init();
     void Destroy();
 
@@ -150,7 +153,7 @@ public:
     BOOL BuildScript(CRenameScriptEntry*& script, int& count,
                      BOOL validate, BOOL& somethingToDo);
     int GetManualModeNewName(CSourceFile* file, int index,
-                             char* newName, char*& newPart);
+                             char* newName, int capacity, char*& newPart);
     void ExecuteScript(CRenameScriptEntry* script, int count);
     void Undo();
 

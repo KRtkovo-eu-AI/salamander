@@ -14,6 +14,7 @@
 #include "cfgdlg.h"
 #include "dialogs.h"
 #include "execute.h"
+#include "fileactionpath.h"
 #include "cache.h"
 #include "toolbar.h"
 #include "salinflt.h"
@@ -762,7 +763,7 @@ BOOL GetNextFileFromPanel(int index, char* path, char* name, void* param)
         {
             index = data->Window->GetCaretIndex();
             data->Index = NULL;
-            strcpy(path, data->Window->GetPath());
+            strcpy(path, Salamander::FileActionPaths::Utf8(data->Window->GetPathW()).c_str());
             if (index < 0 || index >= data->Window->Dirs->Count + data->Window->Files->Count ||
                 index == 0 && upDir)
             {
@@ -771,7 +772,8 @@ BOOL GetNextFileFromPanel(int index, char* path, char* name, void* param)
             else // copy the name for others
             {
                 CFileData* f = &((index < data->Window->Dirs->Count) ? data->Window->Dirs->At(index) : data->Window->Files->At(index - data->Window->Dirs->Count));
-                strcpy(name, f->Name);
+                strcpy(path, Salamander::FileActionPaths::Utf8(data->Window->GetItemDirectoryW(*f)).c_str());
+                strcpy(name, f->UseWideName() ? Salamander::FileActionPaths::Utf8(f->NameW).c_str() : f->Name);
             }
             return TRUE;
         }
@@ -783,8 +785,8 @@ BOOL GetNextFileFromPanel(int index, char* path, char* name, void* param)
     if (index >= 0 && index < data->Count)
     {
         CFileData* f = &((data->Index[index] < data->Window->Dirs->Count) ? data->Window->Dirs->At(data->Index[index]) : data->Window->Files->At(data->Index[index] - data->Window->Dirs->Count));
-        strcpy(path, data->Window->GetPath());
-        strcpy(name, f->Name);
+        strcpy(path, Salamander::FileActionPaths::Utf8(data->Window->GetItemDirectoryW(*f)).c_str());
+        strcpy(name, f->UseWideName() ? Salamander::FileActionPaths::Utf8(f->NameW).c_str() : f->Name);
         return TRUE;
     }
     else
@@ -869,58 +871,32 @@ BOOL ExpandCommand2(HWND parent,
                         cmdSize, initDirSize, path, longName);
 
     *fileNameUsed = FALSE;
-    char command[MAX_PATH];
-    if (ExpandCommand(parent, item->UMCommand, command, MAX_PATH, ignoreEnvVarNotFoundOrTooLong))
+    CPathBuffer commandStorage(3 * SAL_MAX_PATH);
+    char* command = commandStorage.Data();
+    std::string commandTemplate = Salamander::FileActionPaths::Normalize(item->UMCommand);
+    if (ExpandCommand(parent, commandTemplate.c_str(), command, commandStorage.Capacity(), ignoreEnvVarNotFoundOrTooLong))
     {
-        char fileName[MAX_PATH];
         if (path[0] != 0)
         {
-            int l = (int)strlen(path);
-            if (path[l - 1] == '\\')
-                l--;
-            memcpy(fileName, path, l);
-
-            char dosName[MAX_PATH];
+            std::string fullName = path;
             if (longName[0] != 0)
             {
-                if (l + 1 + lstrlen(longName) > MAX_PATH - 1)
-                {
-                    SalMessageBox(parent, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORTITLE),
-                                  MB_OK | MB_ICONEXCLAMATION);
-                    goto EXIT;
-                }
-                fileName[l++] = '\\';
-                strcpy(fileName + l, longName);
-                if (GetShortPathName(fileName, dosName, MAX_PATH) == 0)
-                {
-                    TRACE_E("GetShortPathName() failed");
-                    dosName[0] = 0;
-                }
+                if (fullName.back() != '\\') fullName += '\\';
+                fullName += longName;
             }
-            else
-            {
-                if (l == 2 && fileName[1] == ':') // we must append '\\' after a standard root path
-                {
-                    fileName[l++] = '\\';
-                }
-                fileName[l] = 0;
-                if (GetShortPathName(fileName, dosName, MAX_PATH) == 0)
-                {
-                    TRACE_E("GetShortPathName() failed");
-                    dosName[0] = 0;
-                }
-                else
-                {
-                    SalPathAddBackslash(dosName, MAX_PATH);
-                }
-                SalPathAddBackslash(fileName, MAX_PATH);
-            }
-
-            char expArguments[USRMNUARGS_MAXLEN];
-            if (ExpandUserMenuArguments(parent, fileName, dosName, item->Arguments, expArguments,
+            else if (fullName.back() != '\\') fullName += '\\';
+            const char* fileName = fullName.c_str();
+            std::string shortName = Salamander::FileActionPaths::ShortPath(fileName);
+            if (longName[0] == 0 && !shortName.empty() && shortName.back() != '\\') shortName += '\\';
+            const char* dosName = shortName.c_str();
+            CPathBuffer expArgumentsStorage(USRMNUARGS_MAXLEN);
+            char* expArguments = expArgumentsStorage.Data();
+            std::string argumentsTemplate = Salamander::FileActionPaths::Normalize(item->Arguments);
+            std::string directoryTemplate = Salamander::FileActionPaths::Normalize(item->InitDir);
+            if (ExpandUserMenuArguments(parent, fileName, dosName, argumentsTemplate.c_str(), expArguments,
                                         USRMNUARGS_MAXLEN, fileNameUsed, userMenuAdvancedData,
                                         ignoreEnvVarNotFoundOrTooLong) &&
-                ExpandInitDir(parent, fileName, dosName, item->InitDir, initDir, initDirSize,
+                ExpandInitDir(parent, fileName, dosName, directoryTemplate.c_str(), initDir, initDirSize,
                               ignoreEnvVarNotFoundOrTooLong))
             {
                 int len = (int)strlen(command);
@@ -969,7 +945,6 @@ BOOL ExpandCommand2(HWND parent,
             }
         }
     }
-EXIT:
     cmd[0] = 0;
     args[0] = 0;
     initDir[0] = 0;
@@ -1143,10 +1118,9 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 {
                     if (swapNames)
                     {
-                        char swap[MAX_PATH];
-                        lstrcpyn(swap, userMenuAdvancedData->CompareName1, MAX_PATH);
-                        lstrcpyn(userMenuAdvancedData->CompareName1, userMenuAdvancedData->CompareName2, MAX_PATH);
-                        lstrcpyn(userMenuAdvancedData->CompareName2, swap, MAX_PATH);
+                        std::string swap = userMenuAdvancedData->CompareName1;
+                        strcpy(userMenuAdvancedData->CompareName1, userMenuAdvancedData->CompareName2);
+                        strcpy(userMenuAdvancedData->CompareName2, swap.c_str());
                     }
                 }
                 if (Configuration.CnfrmShowNamesToCompare ||
@@ -1170,6 +1144,16 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
             HANDLE file;
             char batUniqueName[50]; // we need a unique name for the batch file in the cache
             DWORD lastErr;
+            CPathBuffer initDirStorage(3 * SAL_MAX_PATH), prevInitDirStorage(3 * SAL_MAX_PATH);
+            CPathBuffer pathStorage(3 * SAL_MAX_PATH), nameStorage(3 * SAL_MAX_PATH);
+            CPathBuffer cmdLineStorage(USRMNUCMDLINE_MAXLEN), argumentsStorage(USRMNUARGS_MAXLEN);
+            char* initDir = initDirStorage.Data();
+            char* prevInitDir = prevInitDirStorage.Data();
+            char* path = pathStorage.Data();
+            char* name = nameStorage.Data();
+            char* cmdLine = cmdLineStorage.Data();
+            char* arguments = argumentsStorage.Data();
+            BOOL skipErrorMessage = FALSE;
 
         _TRY_AGAIN:
 
@@ -1187,7 +1171,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                     }
                     return; // fatal error
                 }
-                file = HANDLES_Q(CreateFile(batName, GENERIC_WRITE, 0, NULL, CREATE_NEW,
+                file = HANDLES_Q(CreateFileW(Salamander::ViewerPaths::Decode(batName).c_str(), GENERIC_WRITE, 0, NULL, CREATE_NEW,
                                             FILE_ATTRIBUTE_TEMPORARY, NULL));
                 if (file == INVALID_HANDLE_VALUE)
                 {
@@ -1199,16 +1183,10 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
             // build the .bat file
             int index;
             index = 0;
-            char cmdLine[USRMNUCMDLINE_MAXLEN];
-            char arguments[USRMNUARGS_MAXLEN];
-            char initDir[MAX_PATH];
-            char prevInitDir[MAX_PATH];
             initDir[0] = 0;
             arguments[0] = 0;
-            char path[MAX_PATH], name[MAX_PATH];
             BOOL error;
             error = FALSE;
-            BOOL skipErrorMessage;
             skipErrorMessage = FALSE;
             DWORD written;
             BOOL fileNameUsed;
@@ -1220,7 +1198,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 BOOL expandOK = ExpandCommand2(parent,
                                                cmdLine, USRMNUCMDLINE_MAXLEN,
                                                arguments, USRMNUARGS_MAXLEN, buildBat, // if we are running via a batch file, allow
-                                               initDir, MAX_PATH,                      // arguments will be inserted into cmdLine
+                                               initDir, initDirStorage.Capacity(),                      // arguments will be inserted into cmdLine
                                                UserMenuItems->At(itemIndex),
                                                path, name, &fileNameUsed,
                                                userMenuAdvancedData,
@@ -1235,23 +1213,28 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 {
                     if (buildBat) // building a .bat file
                     {
-                        char initDirOEM[MAX_PATH];
-                        char cmdLineOEM[USRMNUCMDLINE_MAXLEN];
-                        CharToOem(initDir, initDirOEM);
-                        CharToOem(cmdLine, cmdLineOEM);
+                        std::string batchDirectoryStorage = Salamander::FileActionPaths::Utf8(
+                            Salamander::FileActionPaths::InitialDirectory(initDir));
+                        const char* batchDirectory = batchDirectoryStorage.c_str();
+                        const char* batchCommand = cmdLine;
+                        if (!batNotEmpty)
+                        {
+                            const char header[] = "@chcp 65001 >nul\r\n";
+                            if (!WriteFile(file, header, sizeof(header) - 1, &written, NULL))
+                            {
+                                error = TRUE;
+                                break;
+                            }
+                        }
                         batNotEmpty = TRUE;
-                        if ((initDirOEM[0] != 0 &&
-                                 (initDirOEM[1] == ':' && // "@C:"
-                                  (!WriteFile(file, "@", 1, &written, NULL) ||
-                                   !WriteFile(file, initDirOEM, 2, &written, NULL) ||
-                                   !WriteFile(file, "\r\n", 2, &written, NULL))) ||
-                             (initDirOEM[1] == ':' && // "@cd C:\\path"
-                              (!WriteFile(file, "@cd \"", 5, &written, NULL) ||
-                               !WriteFile(file, initDirOEM, (DWORD)strlen(initDirOEM), &written, NULL) ||
-                               !WriteFile(file, "\"\r\n", 3, &written, NULL)))) ||
+                        if ((batchDirectory[0] != 0 &&
+                             (!WriteFile(file, "@pushd \"", 8, &written, NULL) ||
+                              !WriteFile(file, batchDirectory, (DWORD)strlen(batchDirectory), &written, NULL) ||
+                              !WriteFile(file, "\" || exit /b 1\r\n", 16, &written, NULL))) ||
                             !WriteFile(file, "call ", 5, &written, NULL) ||
-                            !WriteFile(file, cmdLineOEM, (DWORD)strlen(cmdLineOEM), &written, NULL) ||
-                            !WriteFile(file, "\r\n", 2, &written, NULL))
+                            !WriteFile(file, batchCommand, (DWORD)strlen(batchCommand), &written, NULL) ||
+                            !WriteFile(file, "\r\n", 2, &written, NULL) ||
+                            (batchDirectory[0] != 0 && !WriteFile(file, "@popd\r\n", 7, &written, NULL)))
                         {
                             error = TRUE;
                             break;
@@ -1279,16 +1262,18 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                         //RemoveRedundantBackslahes(cmdLine); // ShellExecuteEx dislikes multiple backslashes, "$(SalDir)\salamand.exe"
 
                         CShellExecuteWnd shellExecuteWnd;
-                        SHELLEXECUTEINFO sei;
-                        memset(&sei, 0, sizeof(SHELLEXECUTEINFO));
-                        sei.cbSize = sizeof(SHELLEXECUTEINFO);
+                        std::wstring commandW = Salamander::ViewerPaths::Decode(cmdLine);
+                        std::wstring argumentsW = Salamander::ViewerPaths::Decode(arguments);
+                        std::wstring directoryW = Salamander::FileActionPaths::InitialDirectory(initDir);
+                        SHELLEXECUTEINFOW sei = {};
+                        sei.cbSize = sizeof(sei);
                         sei.hwnd = shellExecuteWnd.Create(parent, "SEW: CMainWindow::UserMenu"); // handle to any message boxes that the system might produce while executing
-                        sei.lpFile = cmdLine;
-                        sei.lpParameters = arguments;
-                        sei.lpDirectory = (initDir[0] != 0) ? initDir : NULL;
+                        sei.lpFile = commandW.c_str();
+                        sei.lpParameters = argumentsW.c_str();
+                        sei.lpDirectory = directoryW.empty() ? NULL : directoryW.c_str();
                         sei.nShow = SW_SHOWNORMAL;
 
-                        if (!ShellExecuteEx(&sei))
+                        if (!ShellExecuteExW(&sei))
                         {
                             DWORD err = GetLastError();
                             char buff[4 * MAX_PATH];
@@ -1321,10 +1306,10 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                     {
                         MainWindow->SetDefaultDirectories((initDir[0] != 0) ? initDir : NULL);
 
-                        STARTUPINFO si;
-                        memset(&si, 0, sizeof(STARTUPINFO));
-                        si.cb = sizeof(STARTUPINFO);
-                        si.lpTitle = LoadStr(IDS_COMMANDSHELL);
+                        STARTUPINFOW si = {};
+                        si.cb = sizeof(si);
+                        std::wstring shellTitle = Salamander::ViewerPaths::Decode(LoadStr(IDS_COMMANDSHELL));
+                        si.lpTitle = &shellTitle[0];
                         si.dwFlags = STARTF_USESHOWWINDOW;
                         POINT p;
                         if (UserMenuItems->At(itemIndex)->UseWindow &&
@@ -1353,9 +1338,15 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                         else
                             strcpy(cmdLine, batName);
 
-                        if (!HANDLES(CreateProcess(NULL, cmdLine, NULL, NULL, FALSE,
-                                                   CREATE_DEFAULT_ERROR_MODE | NORMAL_PRIORITY_CLASS,
-                                                   NULL, NULL, &si, &pi)))
+                        BOOL created = NOHANDLES(Salamander::FileActionPaths::LaunchProcess(cmdLine, NULL,
+                                                               CREATE_DEFAULT_ERROR_MODE | NORMAL_PRIORITY_CLASS,
+                                                               &si, &pi));
+                        if (created)
+                        {
+                            HANDLES_ADD(__htProcess, __hoCreateProcess, pi.hProcess);
+                            HANDLES_ADD(__htThread, __hoCreateProcess, pi.hThread);
+                        }
+                        if (!created)
                         {
                             DWORD err = GetLastError();
                             char buff[4 * MAX_PATH];
@@ -1412,9 +1403,10 @@ void CMainWindow::SetDefaultDirectories(const char* curPath)
             dir = DefaultDir[d - 'a'];
 
         if (dir[1] == ':' && dir[2] == '\\' && dir[3] == 0)
-            SetEnvironmentVariable(name, NULL);
+            SetEnvironmentVariableW(Salamander::ViewerPaths::Decode(name).c_str(), NULL);
         else
-            SetEnvironmentVariable(name, dir);
+            SetEnvironmentVariableW(Salamander::ViewerPaths::Decode(name).c_str(),
+                                    Salamander::ViewerPaths::Decode(dir).c_str());
     }
 }
 

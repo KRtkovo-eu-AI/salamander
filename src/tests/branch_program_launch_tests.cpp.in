@@ -1,0 +1,87 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+#define NOMINMAX
+#define SALAMANDER_BRANCHPROGRAM_CLIENT
+#include "@@PROGRAM_HEADER@@"
+#include "@@FILEACTION_HEADER@@"
+#include <cstdio>
+#include <vector>
+#include <string>
+static int Failed=0,Count=0;
+static void Check(bool ok,const char* text){++Count;std::printf("%s: %s\n",ok?"PASS":"FAIL",text);if(!ok)++Failed;}
+static std::wstring Native(const std::wstring& p){return p.rfind(L"\\\\?\\",0)==0?p:L"\\\\?\\"+p;}
+static std::wstring Read(const std::wstring& p){HANDLE h=CreateFileW(Native(p).c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);if(h==INVALID_HANDLE_VALUE)return L"";DWORD size=GetFileSize(h,nullptr),n=0;std::wstring text(size/2,L'\0');if(size)ReadFile(h,&text[0],size,&n,nullptr);CloseHandle(h);return n==size?text:L"";}
+static bool Same(const std::wstring& a,const std::wstring& b){HANDLE x=CreateFileW(Native(a).c_str(),0,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS,nullptr);HANDLE y=CreateFileW(Native(b).c_str(),0,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS,nullptr);bool same=x!=INVALID_HANDLE_VALUE&&y!=INVALID_HANDLE_VALUE&&Salamander::BranchProgram::SameObject(x,y);if(x!=INVALID_HANDLE_VALUE)CloseHandle(x);if(y!=INVALID_HANDLE_VALUE)CloseHandle(y);return same;}
+static bool RemoveOwned(const std::wstring& p){ULONGLONG end=GetTickCount64()+5000;do{if(DeleteFileW(Native(p).c_str()))return true;if(GetLastError()!=ERROR_SHARING_VIOLATION)return false;Sleep(20);}while(GetTickCount64()<end);return false;}
+static int Capture(const wchar_t* path){std::vector<wchar_t> module(32768),cwd(32768);if(!GetModuleFileNameW(nullptr,module.data(),(DWORD)module.size())||!GetCurrentDirectoryW((DWORD)cwd.size(),cwd.data()))return 2;std::wstring data=std::wstring(module.data())+L"\n"+cwd.data();HANDLE h=CreateFileW(Native(path).c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,0,nullptr);if(h==INVALID_HANDLE_VALUE)return 3;DWORD n=0;BOOL ok=WriteFile(h,data.data(),(DWORD)(data.size()*2),&n,nullptr);CloseHandle(h);return ok&&n==data.size()*2?0:4;}
+@@REGISTRY_ENUM@@
+static LSTATUS OpenError=ERROR_SUCCESS,QueryError=ERROR_SUCCESS;
+static DWORD RegType=REG_DWORD,RegBytes=4,RegValue=0;static int Closed=0;
+static LSTATUS Open(HKEY,LPCWSTR,DWORD,REGSAM mask,HKEY* key){Check((mask&KEY_WOW64_64KEY)!=0,"registry query consistently uses native machine view");*key=(HKEY)1;return OpenError;}
+static LSTATUS Query(HKEY,LPCWSTR,LPDWORD,LPDWORD type,LPBYTE data,LPDWORD bytes){*type=RegType;*(DWORD*)data=RegValue;*bytes=RegBytes;return QueryError;}
+static LSTATUS Close(HKEY){++Closed;return ERROR_SUCCESS;}
+#define RegOpenKeyExW Open
+#define RegQueryValueExW Query
+#define RegCloseKey Close
+@@REGISTRY_FUNCTION@@
+#undef RegOpenKeyExW
+#undef RegQueryValueExW
+#undef RegCloseKey
+static void RegistryTests(){
+ using S=BranchLongPathSetting;
+ Check(ReadBranchLongPathSetting()==S::Disabled,"DWORD zero is disabled");RegValue=1;Check(ReadBranchLongPathSetting()==S::Enabled,"DWORD one is enabled");RegValue=2;Check(ReadBranchLongPathSetting()==S::Unknown,"unexpected DWORD remains unknown");RegValue=0;RegType=REG_SZ;Check(ReadBranchLongPathSetting()==S::Unknown,"wrong registry type is unknown");RegType=REG_DWORD;RegBytes=2;Check(ReadBranchLongPathSetting()==S::Unknown,"short registry value is unknown");RegBytes=4;QueryError=ERROR_FILE_NOT_FOUND;Check(ReadBranchLongPathSetting()==S::NotConfigured,"missing value uses default/not-configured state");QueryError=ERROR_ACCESS_DENIED;Check(ReadBranchLongPathSetting()==S::Unknown,"unreadable value is unknown");QueryError=ERROR_SUCCESS;OpenError=ERROR_ACCESS_DENIED;int before=Closed;Check(ReadBranchLongPathSetting()==S::Unknown&&Closed==before,"failed registry open is unknown without closing an invalid key");OpenError=ERROR_SUCCESS;
+}
+int wmain(int argc,wchar_t**argv){
+ std::vector<wchar_t> capture(32768);if(GetEnvironmentVariableW(L"S27_PROGRAM_CAPTURE",capture.data(),(DWORD)capture.size()))return Capture(capture.data());
+ if(argc!=3)return 2;const std::wstring broker=argv[1],root=std::wstring(argv[2])+L"\\io";
+ HWND owner=CreateWindowExW(0,L"STATIC",L"owned-program-test",WS_OVERLAPPED,0,0,10,10,nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);Check(owner!=nullptr,"create owned test owner window");
+ RegistryTests();using namespace Salamander::BranchProgram;
+ for(const wchar_t* path:{L"a.txt",L"a.cmd",L"a.bat",L"a.lnk",L"a.msi",L"a.exe.txt",L"a.com"})Check(!IsProgram(path),"documents/scripts/links/installers are not program-broker candidates");
+ Check(IsProgram(L"C:\\x.EXE")&&!IsProgram(nullptr),"case-insensitive exe classification and null rejection");
+ Check(Execute(owner,L"C:\\program#fragment.exe")==HRESULT_FROM_WIN32(ERROR_INVALID_NAME)&&Execute(owner,L"C:\\program%20.exe")==HRESULT_FROM_WIN32(ERROR_INVALID_NAME),"URL-sensitive source names are rejected without a different Shell identity");
+ Check(Receive(GetCurrentProcessId(),nullptr,0)==ERROR_INVALID_DATA,"malformed helper request rejected before opening a source");
+ std::vector<std::wstring> dirs;auto make=[&](const std::wstring& p){BOOL ok=CreateDirectoryW(Native(p).c_str(),nullptr);if(ok)dirs.push_back(p);Check(ok!=FALSE,"create owned fixture directory");return ok!=FALSE;};if(!make(root))return 3;
+ const std::wstring spaces=root+L"\\with spaces";make(spaces);
+ const std::wstring unicodeParent=root+L"\\žluťoučký-東京";make(unicodeParent);
+ const std::wstring unicode=unicodeParent+L"\\podložka-中文",bytes=root+L"\\"+std::wstring(100,L'東');make(unicode);make(bytes);
+ std::wstring deep=unicode;for(int i=0;i<4;++i){deep+=L"\\"+std::wstring(65,L'a')+std::to_wstring(i);make(deep);}
+ Check(root.size()+20<MAX_PATH,"ASCII control is below the UTF16 Shell limit");Check(Salamander::FileActionPaths::Utf8(bytes).size()>MAX_PATH&&bytes.size()+10<MAX_PATH,"byte-long fixture exceeds UTF8 byte limit while remaining short in UTF16");Check(deep.size()>MAX_PATH,"long fixture exceeds UTF16 path limit");
+ std::vector<wchar_t> module(32768);GetModuleFileNameW(nullptr,module.data(),(DWORD)module.size());
+ std::vector<std::wstring> parents={root,root,unicode,bytes,spaces,deep};std::vector<std::wstring> names={L"ascii.exe",L"žluťoučký-東京.exe",L"same.exe",L"same.exe",L"space name.exe",L"same.exe"};std::vector<std::wstring> created;
+ for(size_t i=0;i<parents.size();++i){
+  std::wstring source=parents[i]+L"\\"+names[i],result=root+L"\\result"+std::to_wstring(i);bool copied=CopyFileW(module.data(),Native(source).c_str(),TRUE)!=FALSE;Check(copied,"copy owned known PE executable without replacing a file");if(!copied)continue;created.push_back(source);SetEnvironmentVariableW(L"S27_PROGRAM_CAPTURE",result.c_str());
+  const auto cwd=Salamander::FileActionPaths::InitialDirectory(Salamander::FileActionPaths::Utf8(parents[i]).c_str());DWORD stage=0;HRESULT hr=Launch(owner,source,cwd,broker,&stage);SetEnvironmentVariableW(L"S27_PROGRAM_CAPTURE",nullptr);
+  if(SUCCEEDED(hr)){
+   ULONGLONG deadline=GetTickCount64()+5000;std::wstring text;do{text=Read(result);if(!text.empty())break;Sleep(20);}while(GetTickCount64()<deadline);const auto split=text.find(L'\n');Check(split!=std::wstring::npos,"Windows Attachment Services produced a real child record");if(split!=std::wstring::npos){Check(Same(text.substr(0,split),source),"child module is the exact selected file");Check(Same(text.substr(split+1),parents[i]),"child physical CWD is the selected file's real parent");}created.push_back(result);
+  }else{
+   std::printf("UNSUPPORTED scenario %zu HRESULT %08lx\n",i+1,(unsigned long)hr);std::printf("STAGE %lu\n",stage);
+   Check(source.size()>=MAX_PATH&&GetFileAttributesW(Native(result).c_str())==INVALID_FILE_ATTRIBUTES,"unsupported UTF16-long launch is explicitly rejected without a child");
+  }
+ }
+ // A packet cannot redirect its pinned program or escape its pinned directory.
+ auto rejectPinned=[&](const std::wstring& claimed,const std::wstring& actual,const std::wstring& folder,HRESULT expected){
+  HANDLE file=CreateFileW(Native(actual).c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);
+  HANDLE dir=CreateFileW(Native(folder).c_str(),0,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS,nullptr);
+  Check(file!=INVALID_HANDLE_VALUE&&dir!=INVALID_HANDLE_VALUE,"open owned pins for hostile request test");
+  DWORD stage=0;HRESULT hr=Execute(owner,claimed.c_str(),&stage,&file,dir);
+  Check(hr==expected&&stage==2,"mismatched pinned source/directory rejected before Windows execution");
+  if(file!=INVALID_HANDLE_VALUE)CloseHandle(file);if(dir!=INVALID_HANDLE_VALUE)CloseHandle(dir);
+ };
+ rejectPinned(root+L"\\other.exe",root+L"\\ascii.exe",root,HRESULT_FROM_WIN32(ERROR_INVALID_NAME));
+ rejectPinned(root+L"\\ascii.exe",root+L"\\ascii.exe",unicode,HRESULT_FROM_WIN32(ERROR_DIRECTORY));
+ rejectPinned(root+L"\\with spaces\\space name.exe",spaces+L"\\space name.exe",root,HRESULT_FROM_WIN32(ERROR_DIRECTORY));
+ const wchar_t* validated=nullptr;DWORD validatedLength=0;
+ Check(FAILED(ValidateSource(L"C:\\safe\\..\\outside.exe",validated,validatedLength)),"traversal component rejected before any host file open");
+ Check(FAILED(ValidateSource(L"C:\\safe\\program.exe:stream.exe",validated,validatedLength)),"alternate data stream rejected before any host file open");
+ Check(FAILED(ValidateSource(L"\\\\server\\share\\program.exe",validated,validatedLength)),"UNC source rejected before any host file open");
+ // A saved Internet origin must never be relabeled as a local executable.
+ std::wstring source=root+L"\\blocked.exe";bool blockedCopy=CopyFileW(module.data(),Native(source).c_str(),TRUE)!=FALSE;Check(blockedCopy,"create separate owned PE for saved-origin checks");if(!blockedCopy)return 4;created.push_back(source);std::wstring zone=source+L":Zone.Identifier",result=root+L"\\blocked";
+ const char marker[]="[ZoneTransfer]\r\nZoneId=3\r\n";HANDLE z=CreateFileW(Native(zone).c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,0,nullptr);DWORD n=0;Check(z!=INVALID_HANDLE_VALUE,"create owned Internet-origin marker");if(z!=INVALID_HANDLE_VALUE){WriteFile(z,marker,sizeof(marker)-1,&n,nullptr);CloseHandle(z);SetEnvironmentVariableW(L"S27_PROGRAM_CAPTURE",result.c_str());HRESULT hr=Launch(owner,source,parents[0],broker);SetEnvironmentVariableW(L"S27_PROGRAM_CAPTURE",nullptr);Check(FAILED(hr)&&GetFileAttributesW(Native(result).c_str())==INVALID_FILE_ATTRIBUTES,"Internet-origin executable is not downgraded to local or started");char data[64];z=CreateFileW(Native(zone).c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);n=0;if(z!=INVALID_HANDLE_VALUE){ReadFile(z,data,sizeof(data),&n,nullptr);CloseHandle(z);}Check(n==sizeof(marker)-1&&std::string(data,n)==marker,"original Zone.Identifier remains byte-identical");DeleteFileW(Native(zone).c_str());}
+ SetEnvironmentVariableW(L"S27_PROGRAM_CAPTURE",result.c_str());HRESULT wrong=Launch(owner,source,unicode,broker);SetEnvironmentVariableW(L"S27_PROGRAM_CAPTURE",nullptr);Check(FAILED(wrong)&&GetFileAttributesW(Native(result).c_str())==INVALID_FILE_ATTRIBUTES,"mismatched working directory is rejected without a root fallback");
+ std::wstring fake=root+L"\\fake.exe";HANDLE bad=CreateFileW(Native(fake).c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,0,nullptr);Check(bad!=INVALID_HANDLE_VALUE,"create owned non-PE exe fixture");if(bad!=INVALID_HANDLE_VALUE){const char text[]="not a PE program";WriteFile(bad,text,sizeof(text)-1,&n,nullptr);CloseHandle(bad);created.push_back(fake);SetEnvironmentVariableW(L"S27_PROGRAM_CAPTURE",result.c_str());HRESULT invalid=Launch(owner,fake,root,broker);SetEnvironmentVariableW(L"S27_PROGRAM_CAPTURE",nullptr);Check(FAILED(invalid)&&GetFileAttributesW(Native(result).c_str())==INVALID_FILE_ATTRIBUTES,"exe extension alone cannot authorize native execution");}
+ const DWORD packetBytes=(DWORD)(sizeof(Request)+6*sizeof(wchar_t));HANDLE packet=CreateFileMappingW(INVALID_HANDLE_VALUE,nullptr,PAGE_READWRITE,0,packetBytes,nullptr);Request* malformed=(Request*)MapViewOfFile(packet,FILE_MAP_READ|FILE_MAP_WRITE,0,0,packetBytes);Check(malformed!=nullptr,"create owned malformed-request fixture");if(malformed){malformed->Bytes=packetBytes;malformed->Signature=Magic;malformed->SourceChars=5;malformed->Result=E_PENDING;wchar_t* data=(wchar_t*)(malformed+1);for(int i=0;i<6;++i)data[i]=L'A';Check(Receive(GetCurrentProcessId(),packet,packetBytes)==ERROR_INVALID_DATA&&malformed->Result==E_PENDING,"unterminated shared request rejected without executing a target");UnmapViewOfFile(malformed);}if(packet)CloseHandle(packet);
+ HRESULT absent=Launch(owner,root+L"\\missing.exe",root,broker);Check(FAILED(absent),"missing executable fails closed");
+ for(auto i=created.rbegin();i!=created.rend();++i)Check(RemoveOwned(*i),"remove only owned fixture files");for(auto i=dirs.rbegin();i!=dirs.rend();++i)Check(RemoveDirectoryW(Native(*i).c_str())!=FALSE,"remove only owned fixture directories");
+ if(owner)DestroyWindow(owner);
+ std::printf("%d checks; %d failures\n",Count,Failed);return Failed?1:0;
+}

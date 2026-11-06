@@ -1,0 +1,42 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual save/title functions; ZIP file writer is an explicit recording facade.
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <string>
+#include <cstring>
+#include <cstdio>
+#include <vector>
+#define CALL_STACK_MESSAGE1(...) ((void)0)
+namespace SalamanderDiskSelection {
+@@WIDE@@
+}
+@@TITLE@@
+enum {IDS_READONLY=20,ERR_LOWMEM=30,IDS_LOWMEM=40,IDS_NODISPLAY=50,PE_NOSKIP=60};
+using __UINT16=unsigned short;
+struct CEOCentrDirRecord {unsigned short CommentLen=0;};
+struct CFile {int FilePointer=0,OutputBuffer=0,BufferPosition=0;HANDLE File=nullptr;};
+static int OpenResult=0,WriteFailure=0,Writes=0,Flushes=0,Closes=0,Truncates=0;
+static std::string Opened;
+static CFile Storage;
+static void CloseCFile(CFile*){++Closes;}
+static int CreateCFile(CFile** file,const char* path,DWORD,DWORD,DWORD,DWORD,int,void*,bool,bool){Opened=path;*file=OpenResult?nullptr:&Storage;return OpenResult;}
+static int Write(CFile*,const void*,unsigned int,void*){return ++Writes==WriteFailure?1:0;}
+static int Flush(CFile*,int,int,void*){++Flushes;return WriteFailure==3;}
+static BOOL TruncateFile(HANDLE){++Truncates;return TRUE;}
+#define SetEndOfFile TruncateFile
+struct CZipPack {DWORD ZipAttr=0;CFile* ZipFile=&Storage;const char* ZipName="C:\\archive.zip";char* Comment=nullptr;int ErrorID=0,EOCentrDirOffs=77;CEOCentrDirRecord EONewCentrDir;int SaveComment();};
+@@SAVE@@
+static int checks=0,failures=0;
+static void Check(bool ok,const char* label){++checks;if(!ok){++failures;printf("FAIL %s\n",label);}}
+static void Reset(){OpenResult=WriteFailure=Writes=Flushes=Closes=Truncates=0;Opened.clear();}
+static std::string Utf8(const std::wstring& s){int n=WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,s.c_str(),-1,nullptr,0,nullptr,nullptr);std::string out(n,'\0');WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,s.c_str(),-1,&out[0],n,nullptr,nullptr);out.resize(n-1);return out;}
+int main(){
+ const std::vector<std::wstring> paths={L"C:\\plain\\same.zip",L"C:\\žluťoučký\\東京\\same.zip",L"C:\\"+std::wstring(110,L'漢')+L"\\same.zip",L"C:\\"+std::wstring(120,L'a')+L"\\"+std::wstring(150,L'b')+L"\\"+std::wstring(100,L'東')+L".zip"};
+ for(const auto& wide:paths){std::string path=Utf8(wide);Check(CommentArchiveTitleW("Comment '%s' literal %n",path.c_str())==L"Comment '"+wide+L"' literal %n","full title path and literal directives preserved");Reset();CZipPack p;std::string comment="owned-comment";p.Comment=&comment[0];p.ZipName=path.c_str();Check(p.SaveComment()==0&&Opened==path&&Writes==2&&Flushes==1&&Truncates==1,"exact path successful save follows full write flow");}
+ for(int result:{static_cast<int>(ERR_LOWMEM),99}){Reset();OpenResult=result;CZipPack p;Check(p.SaveComment()==(result==ERR_LOWMEM?IDS_LOWMEM:IDS_NODISPLAY),"reopen failure preserves existing error");Check(Writes==0&&Flushes==0&&Truncates==0&&p.ZipFile==nullptr,"failed reopen never dereferences null file or writes");}
+ Reset();CZipPack p;p.ZipAttr=FILE_ATTRIBUTE_READONLY;Check(p.SaveComment()==IDS_READONLY&&Closes==0&&Opened.empty(),"read-only file rejected before close or reopen");
+ for(int fail:{1,2,3}){Reset();WriteFailure=fail;CZipPack q;std::string comment="test";q.Comment=&comment[0];Check(q.SaveComment()==IDS_NODISPLAY&&Truncates==0,"write or flush failure never truncates file");}
+ Check(CommentArchiveTitleW("no placeholder","C:\\ignored.zip")==L"no placeholder","localized pattern without placeholder retained");
+ printf("ZIP comment paths: %d checks, %d failures.\n",checks,failures);return failures?1:0;
+}

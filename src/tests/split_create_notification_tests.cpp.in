@@ -1,0 +1,235 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual shared split/create flow, real owned NTFS directories; explicit UI/notification doubles.
+#define WIN32_LEAN_AND_MEAN
+#define _CRT_SECURE_NO_WARNINGS
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <new>
+#include <filesystem>
+#include <cstdio>
+#include <cstring>
+#include <algorithm>
+#define SAL_MAX_PATH 32768
+#define SAL_MAX_EXTENDED_PATH 32768
+#define TRACE_E(...) ((void)0)
+#define CALL_STACK_MESSAGE1(...) ((void)0)
+#define CALL_STACK_MESSAGE2(...) ((void)0)
+#define CALL_STACK_MESSAGE3(...) ((void)0)
+#define CALL_STACK_MESSAGE4(...) ((void)0)
+@@IDS@@
+using SGP_IsTheSamePathF = BOOL (*)(const char*,const char*);
+struct MSGBOXEX_PARAMS { HWND HParent; DWORD Flags; const char *Caption,*Text,*CheckBoxText; BOOL* CheckBoxValue; };
+enum { MSGBOXEX_YESNO=1,MSGBOXEX_ICONQUESTION=2,MSGBOXEX_SILENT=4,MSGBOXEX_ESCAPEENABLED=8,MSGBOXEX_HINT=16 };
+static unsigned char LowerCase[256];
+static int StrICmp(const char*a,const char*b){return _stricmp(a,b);}
+static BOOL IsTheSamePath(const char*a,const char*b){return StrICmp(a,b)==0;} // rename comparison outside fixture scope
+static struct {BOOL CnfrmCreatePath=TRUE;} Configuration;
+static int Answer=IDYES,Prompts=0,Messages=0;
+static std::string LastMessage;
+static const char* LoadStr(int id){return id==IDS_MOVECOPY_CREATEPATH?"Create path %s?":id==IDS_CREATEDIRFAILED?"Cannot create %s":"localized message";}
+static const char* GetErrorText(DWORD){return "out of memory";}
+static int SalMessageBox(HWND,const char* message,const char*,UINT){++Messages;LastMessage=message;return Answer;}
+static int SalMessageBoxEx(MSGBOXEX_PARAMS* params){++Prompts;LastMessage=params->Text;return Answer;}
+struct NotificationSink {std::vector<std::string> Paths;std::vector<BOOL> Recursive;void PostChangeOnPathNotification(const char* path,BOOL subdirs){Paths.emplace_back(path);Recursive.push_back(subdirs);}};
+static NotificationSink Notifications;
+static NotificationSink* MainWindow=&Notifications;
+@@WIDE@@
+@@UTILS@@
+BOOL SalSplitGeneralPath(HWND,const char*,const char*,int,char*,char*,char*,BOOL,BOOL,const char*,const char*,char*&,char*,SGP_IsTheSamePathF,int,int);
+@@SPLIT@@
+static int Checks=0,Failures=0;
+static void Check(bool ok,const char*label){++Checks;if(!ok){++Failures;printf("FAIL: %s\n",label);}}
+static std::string Utf8(const std::wstring&path){return SalWideToMultiBytePath(path.c_str(),CP_UTF8);}
+static std::wstring Full(std::filesystem::path path){path.make_preferred();return SalPathAddExtendedPrefixW(path.c_str());}
+static void Reset(int answer=IDYES){Answer=answer;Prompts=Messages=0;LastMessage.clear();Notifications.Paths.clear();Notifications.Recursive.clear();Configuration.CnfrmCreatePath=TRUE;}
+static bool WriteOwned(const std::filesystem::path& path,const std::string& data){HANDLE f=CreateFileW(Full(path).c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,0,nullptr);if(f==INVALID_HANDLE_VALUE)return false;DWORD n=0;bool ok=WriteFile(f,data.data(),(DWORD)data.size(),&n,nullptr)&&n==data.size();CloseHandle(f);return ok;}
+static std::string ReadOwned(const std::filesystem::path&path){HANDLE f=CreateFileW(Full(path).c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);if(f==INVALID_HANDLE_VALUE)return {};char data[64];DWORD n=0;bool ok=ReadFile(f,data,sizeof(data),&n,nullptr)!=FALSE;CloseHandle(f);return ok?std::string(data,n):std::string();}
+static bool Redzone(const std::vector<char>&buffer){return std::all_of(buffer.begin()+SAL_MAX_PATH,buffer.end(),[](char c){return c=='Z';});}
+static bool OwnsMask(const std::vector<char>& buffer,const char* mask,int capacity)
+{
+    const UINT_PTR begin=(UINT_PTR)buffer.data(),address=(UINT_PTR)mask;
+    return mask!=nullptr&&address>=begin&&address-begin<(size_t)capacity;
+}
+int wmain(int argc,wchar_t**argv)
+{
+    if(argc!=2)return 2;
+    for(int i=0;i<256;++i)LowerCase[i]=(unsigned char)(i>='A'&&i<='Z'?i+32:i);
+    auto root=std::filesystem::absolute(argv[1]);root.make_preferred();
+    if(root.filename()!=L"owned-fixtures"||std::filesystem::exists(Full(root)))return 3;
+    std::filesystem::create_directories(Full(root));
+    const std::vector<std::filesystem::path> shapes={L"ascii",L"unicode-name",L"rodič-東京",std::filesystem::path(L"první-🙂")/L"druhý-東京",std::wstring(140,L'東'),std::filesystem::path(std::wstring(100,L'日'))/std::wstring(100,L'本')/std::wstring(100,L'東')};
+    for(size_t i=0;i<shapes.size();++i)
+    {
+        auto base=root/shapes[i];base.make_preferred();std::filesystem::create_directories(Full(base));
+        Check(WriteOwned(base/L"keep.bin","unchanged sentinel"),"create own source sentinel");
+        const std::wstring name=i==1?L"東京-🙂.txt":L"same.txt";
+        const std::string prefix=Utf8(base.wstring())+"\\";
+        const std::string input=prefix+Utf8(L"new-東京\\sub\\"+name);
+        std::vector<char> buffer(SAL_MAX_PATH+16,'Z');memcpy(buffer.data(),input.c_str(),input.size()+1);char* mask=nullptr;Reset();
+        const bool ok=SalSplitWindowsPath(nullptr,"Copy","Copy error",1,buffer.data(),buffer.data()+prefix.size(),TRUE,FALSE,nullptr,nullptr,mask,SAL_MAX_PATH)!=FALSE;
+        const auto target=base/L"new-東京"/L"sub";
+        Check(ok&&std::string(buffer.data())==Utf8(target.wstring())&&OwnsMask(buffer,mask,(int)buffer.size()-16)&&std::string(mask)==Utf8(name),"actual shared split returns exact directory and Unicode operation mask");
+        Check(std::filesystem::is_directory(Full(target))&&!std::filesystem::exists(Full(target/name)),"actual wide create reaches whole target; split does not create output file");
+        Check(Notifications.Paths==std::vector<std::string>{prefix}&&Notifications.Recursive==std::vector<BOOL>{FALSE},"notification owns complete existing parent without truncation or recursive broadening");
+        Check(Prompts==1&&Messages==0&&Configuration.CnfrmCreatePath,"existing confirmation remains enabled and precedes creation");
+        Check(ReadOwned(base/L"keep.bin")=="unchanged sentinel"&&Redzone(buffer),"source sentinel and caller red zone remain untouched");
+        if(i==4)Check(prefix.size()>MAX_PATH&&base.wstring().size()<MAX_PATH,"UTF8 prefix exceeds old byte capacity while UTF16 is short");
+        if(i==5)Check(base.wstring().size()>MAX_PATH,"real long UTF16 parent exercised");
+        const std::string canceled=prefix+"cancel-new\\file.txt";memcpy(buffer.data(),canceled.c_str(),canceled.size()+1);Reset(IDNO);mask=nullptr;
+        Check(!SalSplitWindowsPath(nullptr,"Copy","Copy error",1,buffer.data(),buffer.data()+prefix.size(),TRUE,FALSE,nullptr,nullptr,mask,SAL_MAX_PATH)&&std::string(buffer.data())==canceled,"confirmation cancellation restores complete input including mask");
+        Check(Prompts==1&&Notifications.Paths.empty()&&!std::filesystem::exists(Full(base/L"cancel-new")),"cancel performs no directory write or notification");
+        Check(WriteOwned(base/L"blocked","existing file"),"create own race-collision sentinel");
+        const std::string failed=prefix+"blocked\\new\\file.txt";memcpy(buffer.data(),failed.c_str(),failed.size()+1);Reset();mask=nullptr;
+        Check(!SalSplitWindowsPath(nullptr,"Copy","Copy error",1,buffer.data(),buffer.data()+prefix.size(),TRUE,FALSE,nullptr,nullptr,mask,SAL_MAX_PATH)&&std::string(buffer.data())==failed,"directory creation failure restores complete caller path");
+        Check(Messages==1&&Notifications.Paths==std::vector<std::string>{prefix}&&Notifications.Recursive==std::vector<BOOL>{FALSE},"failed creation retains error and complete parent refresh");
+        Check(ReadOwned(base/L"blocked")=="existing file"&&ReadOwned(base/L"keep.bin")=="unchanged sentinel"&&Redzone(buffer),"failure neither replaces files nor exceeds caller capacity");
+        const std::string existing=Utf8(base.wstring());memcpy(buffer.data(),existing.c_str(),existing.size()+1);Reset();mask=nullptr;
+        Check(SalSplitWindowsPath(nullptr,"Copy","Copy error",1,buffer.data(),buffer.data()+existing.size(),TRUE,TRUE,nullptr,nullptr,mask,SAL_MAX_PATH)&&OwnsMask(buffer,mask,(int)buffer.size()-16)&&std::string(mask)=="*.*"&&Notifications.Paths.empty()&&Prompts==0,"existing destination retains universal mask with no new directory notification");
+    }
+    // Synthetic packing boundaries test capacities, not filesystem existence.
+    // The allocation contains extra guard bytes, so failed guards can be detected safely.
+    const auto packing = [&](const std::string& input, size_t secondOffset, BOOL directory,
+                             BOOL trailing, int capacity, int dirsCapacity, bool succeed,
+                             const std::string& expectedPath, const std::string& expectedMask,
+                             const std::string& expectedDirs, const char* sourceName=nullptr,
+                             const char* sourcePath=nullptr)
+    {
+        std::vector<char> buffer((size_t)capacity+16,'Z'),dirs((size_t)dirsCapacity+16,'K');
+        memcpy(buffer.data(),input.c_str(),input.size()+1);char* mask=nullptr;Reset();
+        const bool ok=SalSplitGeneralPath(nullptr,"Copy","Copy error",1,buffer.data(),buffer.data()+3,
+            buffer.data()+secondOffset,directory,trailing,sourceName,sourcePath,mask,dirs.data(),nullptr,
+            capacity,dirsCapacity)!=FALSE;
+        Check(ok==succeed,"capacity boundary result matches required packed size");
+        if(succeed)
+        {
+            Check(std::string(buffer.data())==expectedPath&&OwnsMask(buffer,mask,(int)buffer.size()-16)&&std::string(mask)==expectedMask&&
+                  std::string(dirs.data())==expectedDirs,"exact-fit packing preserves complete directory, mask and relative creation path");
+            Check(Messages==0&&Prompts==(expectedDirs.empty()?0:1),"valid packing retains expected confirmation behavior");
+        }
+        else
+        {
+            Check(std::string(buffer.data())==input&&mask==nullptr&&dirs[0]==0,
+                  "insufficient capacity preserves input and clears output handles instead of returning a prefix");
+            Check(Messages==1&&Prompts==0,"insufficient capacity is reported before confirmation");
+        }
+        Check(std::all_of(buffer.begin()+capacity,buffer.end(),[](char c){return c=='Z';})&&
+              std::all_of(dirs.begin()+dirsCapacity,dirs.end(),[](char c){return c=='K';}),
+              "caller path and relative-directory red zones intact");
+    };
+    const std::string existing="C:\\same",withSlash=existing+"\\";
+    packing(existing,existing.size(),TRUE,TRUE,(int)existing.size()+6,MAX_PATH,true,withSlash,"*.*","");
+    packing(existing,existing.size(),TRUE,TRUE,(int)existing.size()+5,MAX_PATH,false,"","","");
+    packing(withSlash,withSlash.size(),TRUE,TRUE,(int)withSlash.size()+5,MAX_PATH,true,withSlash,"*.*","");
+    packing(withSlash,withSlash.size(),TRUE,TRUE,(int)withSlash.size()+4,MAX_PATH,false,"","","");
+    for(const std::string name:{"new.txt","*.txt"})
+    {
+        const std::string input="C:\\base\\"+name;
+        packing(input,8,TRUE,FALSE,(int)input.size()+2,MAX_PATH,true,"C:\\base\\",name,"");
+        packing(input,8,TRUE,FALSE,(int)input.size()+1,MAX_PATH,false,"","","");
+    }
+    const std::string file="C:\\base\\same.txt";
+    packing(file,8,FALSE,FALSE,(int)file.size()+2,MAX_PATH,true,"C:\\base\\","same.txt","");
+    packing(file,8,FALSE,FALSE,(int)file.size()+1,MAX_PATH,false,"","","");
+    const std::string directory="C:\\base\\newdir";
+    packing(directory,8,TRUE,TRUE,(int)directory.size()+6,7,true,directory+"\\","*.*","newdir");
+    packing(directory,8,TRUE,TRUE,(int)directory.size()+5,7,false,"","","");
+    packing(directory,8,TRUE,TRUE,(int)directory.size()+6,6,false,"","","");
+    const std::string nested="C:\\base\\new\\*.bin";
+    packing(nested,8,TRUE,FALSE,(int)nested.size()+2,5,true,"C:\\base\\new\\","*.bin","new\\");
+    packing(nested,8,TRUE,FALSE,(int)nested.size()+2,4,false,"","","");
+    const std::string rename="C:\\base\\same";
+    packing(rename,rename.size(),TRUE,FALSE,(int)rename.size()+2,MAX_PATH,true,"C:\\base\\","same","","same","C:\\base");
+    packing(rename,rename.size(),TRUE,FALSE,(int)rename.size()+1,MAX_PATH,false,"","","","same","C:\\base");
+    const std::string relative=std::string(100,'a')+"\\"+std::string(100,'b')+"\\"+std::string(60,'c')+"\\";
+    const std::string sdk="C:\\base\\"+relative+"*.bin";
+    packing(sdk,8,TRUE,FALSE,2*MAX_PATH,MAX_PATH,false,"","","");
+    packing(sdk,8,TRUE,FALSE,2*MAX_PATH,(int)relative.size()+1,true,"C:\\base\\"+relative,"*.bin",relative);
+    std::string large="C:\\";
+    while(large.size()+101+8<SAL_MAX_PATH-2)large+=std::string(100,'a')+"\\";
+    large+=std::string(SAL_MAX_PATH-2-large.size()-8,'b')+"file.txt";
+    const size_t fileOffset=large.find_last_of('\\')+1;
+    packing(large,fileOffset,FALSE,FALSE,SAL_MAX_PATH,MAX_PATH,true,large.substr(0,fileOffset),large.substr(fileOffset),"");
+    packing(large,fileOffset,FALSE,FALSE,SAL_MAX_PATH-1,MAX_PATH,false,"","","");
+    for(int spare=0;spare<2;++spare)
+    {
+        const std::string unsupported="C:\\"+std::string(180,'a')+"\\"+std::string(180,'b')+"\\"+std::string(180,'c')+"\\file.zip\\child";
+        const int capacity=(int)unsupported.size()+1+spare;
+        std::vector<char> buffer((size_t)capacity+16,'Z');memcpy(buffer.data(),unsupported.c_str(),unsupported.size()+1);
+        char* mask=nullptr;Reset();
+        // Exercise the separate unsupported-file branch, whose optional slash restoration
+        // must use the real capacity even when the path is longer than legacy byte limits.
+        memcpy(buffer.data(),unsupported.c_str(),unsupported.size()+1);Reset();mask=nullptr;
+        Check(!SalSplitGeneralPath(nullptr,"Copy","error",1,buffer.data(),buffer.data()+3,buffer.data()+3,FALSE,TRUE,
+              nullptr,nullptr,mask,nullptr,nullptr,capacity,0)&&
+              std::string(buffer.data())==unsupported+(spare?"\\":"")&&Messages==1,
+              "unsupported file path preserves complete error input and bounds optional trailing slash");
+        Check(std::all_of(buffer.begin()+capacity,buffer.end(),[](char c){return c=='Z';}),"unsupported-path restoration never exceeds caller capacity");
+    }
+    std::vector<char> invalid(20,'Q');char* invalidMask=invalid.data();Reset();
+    Check(!SalSplitGeneralPath(nullptr,"Copy","error",1,invalid.data(),invalid.data(),invalid.data(),TRUE,TRUE,
+          nullptr,nullptr,invalidMask,nullptr,nullptr,4,0)&&invalidMask==nullptr&&
+          std::all_of(invalid.begin(),invalid.end(),[](char c){return c=='Q';}),"unterminated input read bounded by actual capacity");
+    const std::string valid="C:\\base";memcpy(invalid.data(),valid.c_str(),valid.size()+1);char output='K';Reset();
+    Check(!SalSplitGeneralPath(nullptr,"Copy","error",1,invalid.data(),invalid.data()+3,invalid.data()+valid.size(),TRUE,TRUE,
+          nullptr,nullptr,invalidMask,&output,nullptr,(int)invalid.size(),0)&&output=='K',"zero-capacity newDirs is never dereferenced");
+    Reset();Check(!SalSplitGeneralPath(nullptr,"Copy","error",1,nullptr,nullptr,nullptr,TRUE,TRUE,
+          nullptr,nullptr,invalidMask,nullptr,nullptr,0,0)&&invalidMask==nullptr,"null path rejected with cleared mask");
+    Reset();Check(!SalSplitGeneralPath(nullptr,"Copy","error",1,invalid.data(),reinterpret_cast<char*>(1),invalid.data(),TRUE,TRUE,
+          nullptr,nullptr,invalidMask,nullptr,nullptr,(int)invalid.size(),0)&&invalidMask==nullptr,"out-of-buffer split pointer rejected before dereference");
+    auto capacityParent=root/L"capacity-parent";std::filesystem::create_directories(Full(capacityParent));
+    const std::string capacityPrefix=Utf8(capacityParent.wstring())+"\\",wanted=capacityPrefix+"not-created";
+    for(int fit=0;fit<2;++fit)
+    {
+        const int capacity=(int)wanted.size()+4+fit;std::vector<char> buffer((size_t)capacity+16,'Z');
+        memcpy(buffer.data(),wanted.c_str(),wanted.size()+1);char* mask=nullptr;Reset();
+        const bool ok=SalSplitWindowsPath(nullptr,"Copy","error",1,buffer.data(),buffer.data()+capacityPrefix.size(),TRUE,TRUE,
+            nullptr,nullptr,mask,capacity)!=FALSE;
+        Check(ok==(fit!=0),"Windows splitter obeys actual packed caller capacity");
+        if(!fit)
+            Check(Messages==1&&Prompts==0&&Notifications.Paths.empty()&&
+                  !std::filesystem::exists(Full(capacityParent/L"not-created"))&&std::string(buffer.data())==wanted,
+                  "too-small Windows target refused before confirmation, directory creation and notification");
+        else
+            Check(OwnsMask(buffer,mask,(int)buffer.size()-16)&&std::string(mask)=="*.*"&&std::filesystem::is_directory(Full(capacityParent/L"not-created"))&&
+                  Notifications.Paths==std::vector<std::string>{capacityPrefix},"exact-fit Windows target creates only requested directory and full parent notification");
+        Check(std::all_of(buffer.begin()+capacity,buffer.end(),[](char c){return c=='Z';}),"Windows splitter caller red zone preserved");
+    }
+    const std::string compact=capacityPrefix+"not-created\\renamed.txt";
+    const int compactCapacity=(int)compact.size()+1;
+    std::vector<char> compactBuffer((size_t)compactCapacity+16,'Z');
+    memcpy(compactBuffer.data(),compact.c_str(),compact.size()+1);char* compactMask=nullptr;Reset();
+    Check(SalSplitWindowsPath(nullptr,"Copy","error",1,compactBuffer.data(),compactBuffer.data()+compact.find_last_of('\\')+1,TRUE,FALSE,
+          nullptr,nullptr,compactMask,compactCapacity)&&OwnsMask(compactBuffer,compactMask,compactCapacity)&&std::string(compactMask)=="renamed.txt",
+          "final exact-fit Windows file target succeeds even when intermediate split needs an extra byte");
+    Check(std::string(compactBuffer.data())==Utf8((capacityParent/L"not-created").wstring())&&
+          std::all_of(compactBuffer.begin()+compactCapacity,compactBuffer.end(),[](char c){return c=='Z';}),
+          "compacted Windows output has exact path and leaves caller red zone intact");
+    Check(OwnsMask(compactBuffer,compactMask,compactCapacity),
+          "returned Windows mask belongs to caller storage after private workspace destruction");
+    for(int fit=0;fit<2;++fit)
+    {
+        const int capacity=7+fit;std::vector<char> buffer((size_t)capacity+16,'Z');strcpy(buffer.data(),"C:\\");char* mask=nullptr;Reset();
+        const bool ok=SalSplitWindowsPath(nullptr,"Copy","error",1,buffer.data(),buffer.data()+3,TRUE,TRUE,
+            nullptr,nullptr,mask,capacity)!=FALSE;
+        Check(ok==(fit!=0),"uncompacted drive-root universal mask obeys exact caller capacity");
+        Check(std::string(buffer.data())=="C:\\"&&(fit?(OwnsMask(buffer,mask,(int)buffer.size()-16)&&std::string(mask)=="*.*"):(mask==nullptr&&Messages==1)),
+              "root capacity failure preserves caller input and clears mask");
+        Check(Notifications.Paths.empty()&&std::all_of(buffer.begin()+capacity,buffer.end(),[](char c){return c=='Z';}),
+              "root packing does not notify or exceed caller capacity");
+    }
+    const std::string rootFile="C:\\new.txt";
+    const int rootFileCapacity=(int)rootFile.size()+1;
+    std::vector<char> rootFileBuffer((size_t)rootFileCapacity+16,'Z');
+    memcpy(rootFileBuffer.data(),rootFile.c_str(),rootFile.size()+1);char* rootFileMask=nullptr;Reset();
+    Check(!SalSplitWindowsPath(nullptr,"Copy","error",2,rootFileBuffer.data(),rootFileBuffer.data()+3,TRUE,FALSE,
+          nullptr,nullptr,rootFileMask,rootFileCapacity)&&rootFileMask==nullptr&&Messages==1&&Prompts==0,
+          "uncompacted root filename capacity rejected before ambiguous multi-item warning");
+    Check(std::string(rootFileBuffer.data())==rootFile&&std::all_of(rootFileBuffer.begin()+rootFileCapacity,
+          rootFileBuffer.end(),[](char c){return c=='Z';}),"root filename error leaves complete input and red zone intact");
+    std::error_code error;std::filesystem::remove_all(Full(root),error);
+    Check(!error&&!std::filesystem::exists(Full(root)),"cleanup only exact owned fixture root");
+    printf("Actual split/create notification: %d checks, %d failures\n",Checks,Failures);
+    return Failures?1:0;
+}

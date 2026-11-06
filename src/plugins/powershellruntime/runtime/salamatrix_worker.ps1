@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-06 | Normalize shared viewer options across all five workers. | Invalid optional fields are omitted consistently while valid chrome options preserve their types. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 # | 2026-11-06 | Accept title and window geometry for Viewer. | Keep Salamatrix runtime viewer options in parity. |  | Composer |
 
 [CmdletBinding()]
@@ -353,40 +354,35 @@ $ui | Add-Member ScriptMethod FileProperties {
 $ui | Add-Member ScriptMethod Viewer {
     param([string]$Path, $Options = 'auto')
     $arguments = @{ path = $Path; renderer = 'auto' }
-    if ($Options -is [string]) {
-        $arguments.renderer = $Options
+    $map = @{}
+    if ($Options -is [string]) { $map.renderer = $Options }
+    elseif ($Options -is [hashtable]) { $map = $Options }
+    elseif ($Options -is [pscustomobject]) {
+        $Options.PSObject.Properties | ForEach-Object { $map[$_.Name] = $_.Value }
     }
-    elseif ($Options -is [hashtable] -or $Options -is [pscustomobject]) {
-        $map = @{}
-        if ($Options -is [hashtable]) { $map = $Options }
-        else { $Options.PSObject.Properties | ForEach-Object { $map[$_.Name] = $_.Value } }
-        if ($map.ContainsKey('renderer') -and $null -ne $map.renderer) {
-            $arguments.renderer = [string]$map.renderer
-        }
-        if ($map.ContainsKey('title') -and ![string]::IsNullOrWhiteSpace([string]$map.title)) {
-            $arguments.title = [string]$map.title
-        }
-        if ($map.ContainsKey('documentName') -and ![string]::IsNullOrWhiteSpace([string]$map.documentName)) {
-            $arguments.documentName = [string]$map.documentName
-        }
-        $window = $map
-        if ($map.ContainsKey('window') -and $null -ne $map.window) {
-            if ($map.window -is [hashtable]) { $window = $map.window }
-            elseif ($map.window -is [pscustomobject]) {
-                $window = @{}
-                $map.window.PSObject.Properties | ForEach-Object { $window[$_.Name] = $_.Value }
+    if ($map.renderer -is [string] -and $map.renderer.Length -gt 0) { $arguments.renderer = $map.renderer }
+    foreach ($key in @('title', 'documentName')) {
+        if ($map[$key] -is [string] -and $map[$key].Length -gt 0) { $arguments[$key] = $map[$key] }
+    }
+    $window = $map
+    if ($map.window -is [hashtable]) { $window = $map.window }
+    elseif ($map.window -is [pscustomobject]) {
+        $window = @{}
+        $map.window.PSObject.Properties | ForEach-Object { $window[$_.Name] = $_.Value }
+    }
+    foreach ($key in @('left', 'top', 'width', 'height', 'showCmd')) {
+        $value = $window[$key]
+        if ($null -ne $value -and [Type]::GetTypeCode($value.GetType()).ToString() -in
+            @('Byte', 'SByte', 'Int16', 'UInt16', 'Int32', 'UInt32', 'Int64', 'UInt64', 'Single', 'Double', 'Decimal')) {
+            $number = [double]$value
+            if ($number -ge -2147483648 -and $number -le 2147483647 -and [Math]::Truncate($number) -eq $number) {
+                $arguments[$key] = [int]$number
             }
         }
-        foreach ($key in @('left', 'top', 'width', 'height', 'showCmd')) {
-            if ($window.ContainsKey($key) -and $null -ne $window[$key]) {
-                $arguments[$key] = [int]$window[$key]
-            }
-        }
-        if ($window.ContainsKey('alwaysOnTop') -and $null -ne $window.alwaysOnTop) {
-            $arguments.alwaysOnTop = [bool]$window.alwaysOnTop
-        }
     }
-    (Invoke-Host -Method 'salamander.ui.viewer.open' -Arguments $arguments).opened
+    if ($window.alwaysOnTop -is [bool]) { $arguments.alwaysOnTop = $window.alwaysOnTop }
+    $result = Invoke-Host -Method 'salamander.ui.viewer.open' -Arguments $arguments
+    $result.opened -is [bool] -and $result.opened
 }
 $ui | Add-Member ScriptMethod Uptime { [string](Invoke-Host -Method 'salamander.host.uptime' -Arguments @{}).milliseconds }
 $ui | Add-Member ScriptMethod InputBox {

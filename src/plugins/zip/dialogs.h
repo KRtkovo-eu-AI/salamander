@@ -403,13 +403,17 @@ class CCreateSFXDialog : public CDlgRoot
     CExtendedOptions* PackOptions;
     char* ZipName;
     char* ExeName;
+    size_t ZipNameCapacity;
+    size_t ExeNameCapacity;
 
 public:
-    CCreateSFXDialog(HWND parent, char* zipName, char* exeName,
+    CCreateSFXDialog(HWND parent, char* zipName, size_t zipNameCapacity, char* exeName, size_t exeNameCapacity,
                      CExtendedOptions* options, CZipPack* packObject) : CDlgRoot(parent)
     {
         ZipName = zipName;
         ExeName = exeName;
+        ZipNameCapacity = zipNameCapacity;
+        ExeNameCapacity = exeNameCapacity;
         PackOptions = options;
         PackObject = packObject;
     }

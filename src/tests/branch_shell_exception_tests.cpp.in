@@ -1,0 +1,379 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-06 | Inject COM faults around actual Branch Shell transfer and cleanup. | Detect partial selections, leaked media and failures to survive third-party SEH. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
+#include <windows.h>
+#include <shlobj.h>
+#include <shellapi.h>
+#include <cstdio>
+#include <cstring>
+#include <filesystem>
+#include <map>
+#include <set>
+#include <string>
+#include <vector>
+
+static int Checks = 0, Failures = 0;
+static void Check(bool value, const char* name)
+{
+    ++Checks;
+    if (!value) { ++Failures; std::printf("FAIL: %s (error %lu)\n", name, GetLastError()); }
+}
+enum class Fault { None, Desktop, Parse, Bind, GetUI, MenuQuery, Create, DataQuery, SetDataBefore, SetDataAfter, SetDataFailure,
+                   ReleaseDesktop, ReleaseParent, ReleaseMenu, ReleaseData };
+static Fault Inject = Fault::None;
+static bool RealShell = false;
+static IShellFolder* RealDesktop = NULL;
+static int DesktopRefs = 0, ParentRefs = 0, MenuRefs = 0, DataRefs = 0;
+static int ParseCalls = 0, BindCalls = 0, GetUICalls = 0, CreateCalls = 0, SetDataCalls = 0, Raised = 0;
+static int AmbiguousUnclaimedFaultMedia = 0;
+static bool OnlyConsumerOwnedMedia = true;
+static std::set<void*> ParsedPidls;
+static std::map<HGLOBAL, int> FreedMedia;
+static std::map<HGLOBAL, size_t> LiveMedia;
+static std::vector<int> AllocationFrees;
+static std::vector<size_t> ReceivedMedia;
+static std::vector<BYTE> DropBytes, EffectBytes;
+static void RaiseAt(Fault fault)
+{
+    if (Inject == fault) { ++Raised; RaiseException(EXCEPTION_ACCESS_VIOLATION, 0, 0, NULL); }
+}
+static void FreeParsed(void* memory)
+{
+    ParsedPidls.erase(memory);
+    CoTaskMemFree(memory);
+}
+static HGLOBAL AllocateMedium(UINT flags, SIZE_T bytes)
+{
+    HGLOBAL memory = GlobalAlloc(flags, bytes);
+    if (memory != NULL && !RealShell)
+    {
+        Check(LiveMedia.count(memory) == 0, "new source medium does not overwrite a live allocation");
+        LiveMedia[memory] = AllocationFrees.size(); AllocationFrees.push_back(0);
+    }
+    return memory;
+}
+static HGLOBAL FreeMedium(HGLOBAL memory)
+{
+    if (RealShell) { ++FreedMedia[memory]; return GlobalFree(memory); }
+    auto allocation = LiveMedia.find(memory);
+    Check(allocation != LiveMedia.end(), "source HGLOBAL belongs to one live allocation");
+    if (allocation != LiveMedia.end()) { ++AllocationFrees[allocation->second]; LiveMedia.erase(allocation); }
+    ++FreedMedia[memory]; return GlobalFree(memory);
+}
+static HRESULT RealGetDesktop(IShellFolder** folder) { return SHGetDesktopFolder(folder); }
+static HRESULT RealBind(PCIDLIST_ABSOLUTE id, REFIID iid, void** folder, PCUITEMID_CHILD* child)
+{ return SHBindToParent(id, iid, folder, child); }
+static HRESULT RealCreate(PCIDLIST_ABSOLUTE parent, UINT count, PCUITEMID_CHILD_ARRAY items,
+                          IDataObject* inner, REFIID iid, void** object)
+{ return SHCreateDataObject(parent, count, items, inner, iid, object); }
+static HRESULT TestGetDesktop(IShellFolder** folder);
+static HRESULT TestBind(PCIDLIST_ABSOLUTE id, REFIID iid, void** folder, PCUITEMID_CHILD* child);
+static HRESULT TestCreate(PCIDLIST_ABSOLUTE parent, UINT count, PCUITEMID_CHILD_ARRAY items,
+                          IDataObject* inner, REFIID iid, void** object);
+#define SHGetDesktopFolder TestGetDesktop
+#define SHBindToParent TestBind
+#define SHCreateDataObject TestCreate
+#define CoTaskMemFree FreeParsed
+#define GlobalFree FreeMedium
+#define GlobalAlloc AllocateMedium
+#include "@@BRANCH_SHELL_HEADER@@"
+#undef SHGetDesktopFolder
+#undef SHBindToParent
+#undef SHCreateDataObject
+#undef CoTaskMemFree
+#undef GlobalFree
+#undef GlobalAlloc
+
+class TestMenu final : public IContextMenu
+{
+public:
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** object) override
+    {
+        *object = NULL;
+        if (iid != IID_IUnknown && iid != IID_IContextMenu) return E_NOINTERFACE;
+        *object = static_cast<IContextMenu*>(this); AddRef(); RaiseAt(Fault::MenuQuery); return S_OK;
+    }
+    ULONG STDMETHODCALLTYPE AddRef() override { return static_cast<ULONG>(++MenuRefs); }
+    ULONG STDMETHODCALLTYPE Release() override
+    { const ULONG left = static_cast<ULONG>(--MenuRefs); RaiseAt(Fault::ReleaseMenu); return left; }
+    HRESULT STDMETHODCALLTYPE QueryContextMenu(HMENU, UINT, UINT, UINT, UINT) override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE InvokeCommand(CMINVOKECOMMANDINFO*) override { return E_NOTIMPL; }
+    HRESULT STDMETHODCALLTYPE GetCommandString(UINT_PTR, UINT, UINT*, LPSTR, UINT) override { return E_NOTIMPL; }
+};
+static TestMenu Menu;
+class TestData final : public IDataObject
+{
+public:
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** object) override
+    {
+        *object = NULL;
+        if (iid != IID_IUnknown && iid != IID_IDataObject) return E_NOINTERFACE;
+        *object = static_cast<IDataObject*>(this); AddRef(); RaiseAt(Fault::DataQuery); return S_OK;
+    }
+    ULONG STDMETHODCALLTYPE AddRef() override { return static_cast<ULONG>(++DataRefs); }
+    ULONG STDMETHODCALLTYPE Release() override
+    { const ULONG left = static_cast<ULONG>(--DataRefs); RaiseAt(Fault::ReleaseData); return left; }
+    HRESULT STDMETHODCALLTYPE GetData(FORMATETC* format, STGMEDIUM* medium) override
+    {
+        const auto& bytes = format->cfFormat == CF_HDROP ? DropBytes : EffectBytes;
+        if (bytes.empty()) return DV_E_FORMATETC;
+        medium->tymed = TYMED_HGLOBAL; medium->pUnkForRelease = NULL;
+        medium->hGlobal = GlobalAlloc(GMEM_MOVEABLE, bytes.size());
+        if (medium->hGlobal == NULL) return E_OUTOFMEMORY;
+        void* target = GlobalLock(medium->hGlobal); if (target == NULL) { GlobalFree(medium->hGlobal); return E_OUTOFMEMORY; }
+        memcpy(target, bytes.data(), bytes.size()); GlobalUnlock(medium->hGlobal); return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE GetDataHere(FORMATETC*, STGMEDIUM*) override { return E_NOTIMPL; }
+    HRESULT STDMETHODCALLTYPE QueryGetData(FORMATETC*) override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE GetCanonicalFormatEtc(FORMATETC*, FORMATETC*) override { return E_NOTIMPL; }
+    HRESULT STDMETHODCALLTYPE SetData(FORMATETC* format, STGMEDIUM* medium, BOOL release) override
+    {
+        ++SetDataCalls; OnlyConsumerOwnedMedia = OnlyConsumerOwnedMedia && release;
+        ReceivedMedia.push_back(LiveMedia.at(medium->hGlobal));
+        if (!release || medium->tymed != TYMED_HGLOBAL) return E_INVALIDARG;
+        RaiseAt(Fault::SetDataBefore);
+        if (Inject == Fault::SetDataFailure) return E_FAIL;
+        const SIZE_T size = GlobalSize(medium->hGlobal); const BYTE* data = static_cast<const BYTE*>(GlobalLock(medium->hGlobal));
+        if (data == NULL) return E_OUTOFMEMORY;
+        auto& copy = format->cfFormat == CF_HDROP ? DropBytes : EffectBytes;
+        copy.assign(data, data + size); GlobalUnlock(medium->hGlobal);
+        // Consume ownership before faulting: caller must not free this handle again.
+        FreeMedium(medium->hGlobal);
+        RaiseAt(Fault::SetDataAfter); return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE EnumFormatEtc(DWORD, IEnumFORMATETC**) override { return E_NOTIMPL; }
+    HRESULT STDMETHODCALLTYPE DAdvise(FORMATETC*, DWORD, IAdviseSink*, DWORD*) override { return OLE_E_ADVISENOTSUPPORTED; }
+    HRESULT STDMETHODCALLTYPE DUnadvise(DWORD) override { return OLE_E_ADVISENOTSUPPORTED; }
+    HRESULT STDMETHODCALLTYPE EnumDAdvise(IEnumSTATDATA**) override { return OLE_E_ADVISENOTSUPPORTED; }
+};
+static TestData Data;
+class TestFolder final : public IShellFolder
+{
+    bool Parent;
+public:
+    explicit TestFolder(bool parent) : Parent(parent) {}
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** object) override
+    {
+        *object = NULL; if (iid != IID_IUnknown && iid != IID_IShellFolder) return E_NOINTERFACE;
+        *object = static_cast<IShellFolder*>(this); AddRef(); return S_OK;
+    }
+    ULONG STDMETHODCALLTYPE AddRef() override { return static_cast<ULONG>(Parent ? ++ParentRefs : ++DesktopRefs); }
+    ULONG STDMETHODCALLTYPE Release() override
+    {
+        const ULONG left = static_cast<ULONG>(Parent ? --ParentRefs : --DesktopRefs);
+        RaiseAt(Parent ? Fault::ReleaseParent : Fault::ReleaseDesktop); return left;
+    }
+    HRESULT STDMETHODCALLTYPE ParseDisplayName(HWND owner, IBindCtx* bind, LPWSTR name,
+                                               ULONG* eaten, PIDLIST_RELATIVE* item, ULONG* attrs) override
+    {
+        ++ParseCalls;
+        const HRESULT result = RealDesktop->ParseDisplayName(owner, bind, name, eaten, item, attrs);
+        if (*item != NULL) ParsedPidls.insert(*item);
+        // Fail the second item after it allocated a valid PIDL: never publish the first subset.
+        if (ParseCalls == 2) RaiseAt(Fault::Parse);
+        return result;
+    }
+    HRESULT STDMETHODCALLTYPE EnumObjects(HWND, SHCONTF, IEnumIDList**) override { return E_NOTIMPL; }
+    HRESULT STDMETHODCALLTYPE BindToObject(PCUIDLIST_RELATIVE, IBindCtx*, REFIID, void**) override { return E_NOTIMPL; }
+    HRESULT STDMETHODCALLTYPE BindToStorage(PCUIDLIST_RELATIVE, IBindCtx*, REFIID, void**) override { return E_NOTIMPL; }
+    HRESULT STDMETHODCALLTYPE CompareIDs(LPARAM, PCUIDLIST_RELATIVE, PCUIDLIST_RELATIVE) override { return E_NOTIMPL; }
+    HRESULT STDMETHODCALLTYPE CreateViewObject(HWND, REFIID, void**) override { return E_NOTIMPL; }
+    HRESULT STDMETHODCALLTYPE GetAttributesOf(UINT, PCUITEMID_CHILD_ARRAY, SFGAOF*) override { return E_NOTIMPL; }
+    HRESULT STDMETHODCALLTYPE GetUIObjectOf(HWND, UINT count, PCUITEMID_CHILD_ARRAY items,
+                                           REFIID, UINT*, void** object) override
+    {
+        ++GetUICalls;
+        Check(Parent && count == 2 && items[0] != NULL && items[1] != NULL, "context binds both immediate children to parent");
+        *object = static_cast<IContextMenu*>(&Menu); Menu.AddRef(); RaiseAt(Fault::GetUI); return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE GetDisplayNameOf(PCUITEMID_CHILD, SHGDNF, STRRET*) override { return E_NOTIMPL; }
+    HRESULT STDMETHODCALLTYPE SetNameOf(HWND, PCUITEMID_CHILD, LPCWSTR, SHGDNF, PITEMID_CHILD*) override { return E_NOTIMPL; }
+};
+static TestFolder Desktop(false), Parent(true);
+static HRESULT TestGetDesktop(IShellFolder** folder)
+{
+    if (RealShell) return RealGetDesktop(folder);
+    *folder = &Desktop; Desktop.AddRef(); RaiseAt(Fault::Desktop); return S_OK;
+}
+static HRESULT TestBind(PCIDLIST_ABSOLUTE id, REFIID iid, void** folder, PCUITEMID_CHILD* child)
+{
+    if (RealShell) return RealBind(id, iid, folder, child);
+    ++BindCalls; *folder = static_cast<IShellFolder*>(&Parent); Parent.AddRef(); RaiseAt(Fault::Bind); return S_OK;
+}
+static HRESULT TestCreate(PCIDLIST_ABSOLUTE parent, UINT count, PCUITEMID_CHILD_ARRAY items,
+                          IDataObject* inner, REFIID iid, void** object)
+{
+    if (RealShell)
+    {
+        const HRESULT created = RealCreate(parent, count, items, inner, iid, object);
+        std::printf("Real SHCreateDataObject HRESULT: %08lX\n", static_cast<unsigned long>(created));
+        if (SUCCEEDED(created) && *object != NULL)
+        {
+            IDataObject* queried = NULL;
+            const HRESULT query = static_cast<IUnknown*>(*object)->QueryInterface(IID_PPV_ARGS(&queried));
+            std::printf("Real IDataObject QueryInterface HRESULT: %08lX\n", static_cast<unsigned long>(query));
+            if (queried != NULL) queried->Release();
+        }
+        return created;
+    }
+    ++CreateCalls; Check(count == 2 && items != NULL, "data construction retains complete two-item selection");
+    *object = static_cast<IDataObject*>(&Data); Data.AddRef(); RaiseAt(Fault::Create); return S_OK;
+}
+static void Reset(Fault fault, bool real = false)
+{
+    Check(DesktopRefs == 0 && ParentRefs == 0 && MenuRefs == 0 && DataRefs == 0, "previous call released every interface reference");
+    Check(ParsedPidls.empty(), "previous call freed parsed PIDLs");
+    Inject = fault; RealShell = real; ParseCalls = BindCalls = GetUICalls = CreateCalls = SetDataCalls = Raised = 0;
+    OnlyConsumerOwnedMedia = true; FreedMedia.clear(); ReceivedMedia.clear(); LiveMedia.clear(); AllocationFrees.clear(); DropBytes.clear(); EffectBytes.clear();
+}
+static void CheckClean()
+{
+    Check(DesktopRefs == 0 && ParentRefs == 0 && MenuRefs == 0 && DataRefs == 0, "cleanup releases partial and temporary interfaces");
+    Check(ParsedPidls.empty(), "cleanup frees all valid PIDLs including failed parse output");
+    Check(OnlyConsumerOwnedMedia, "SetData uses the real Shell transfer-ownership contract");
+    Check(LiveMedia.empty(), "no original medium remains allocated");
+    for (size_t allocation : ReceivedMedia) Check(AllocationFrees[allocation] == 1, "each source allocation is freed once by its owner");
+}
+static void RecoverUnclaimedFaultMedium()
+{
+    // SEH before consumption leaves ownership unknowable to production. The
+    // fixture knows its fake recipient did not consume it and reclaims it here.
+    Check(LiveMedia.size() == 1 && ReceivedMedia.size() == 1, "pre-consumption SEH leaves only the documented ambiguous medium");
+    if (!LiveMedia.empty())
+    {
+        const auto allocation = *LiveMedia.begin();
+        Check(AllocationFrees[allocation.second] == 0, "ambiguous medium is not unsafely freed by the caller");
+        ++AmbiguousUnclaimedFaultMedia; FreeMedium(allocation.first);
+    }
+}
+static bool MakeFile(const std::filesystem::path& path)
+{
+    const std::wstring extended = L"\\\\?\\" + path.wstring();
+    HANDLE file = CreateFileW(extended.c_str(), GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE) return false;
+    const char data[] = "owned fixture bytes\n"; DWORD written = 0;
+    const BOOL result = WriteFile(file, data, sizeof(data), &written, NULL); CloseHandle(file);
+    return result && written == sizeof(data);
+}
+static bool FixtureUnchanged(const std::filesystem::path& path)
+{
+    const std::wstring extended = L"\\\\?\\" + path.wstring();
+    HANDLE file = CreateFileW(extended.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE) return false;
+    const char expected[] = "owned fixture bytes\n"; char bytes[sizeof(expected) + 1] = {}; DWORD count = 0;
+    const BOOL result = ReadFile(file, bytes, sizeof(bytes), &count, NULL); CloseHandle(file);
+    return result && count == sizeof(expected) && memcmp(bytes, expected, sizeof(expected)) == 0;
+}
+static void CheckDrop(IDataObject* object, const std::vector<std::wstring>& paths)
+{
+    FORMATETC format = {CF_HDROP, NULL, DVASPECT_CONTENT, -1, TYMED_HGLOBAL}; STGMEDIUM medium = {};
+    const HRESULT result = object->GetData(&format, &medium);
+    Check(SUCCEEDED(result) && medium.tymed == TYMED_HGLOBAL, "GetData retains CF_HDROP after original medium was freed");
+    if (FAILED(result) || medium.tymed != TYMED_HGLOBAL) return;
+    const SIZE_T size = GlobalSize(medium.hGlobal); const BYTE* start = static_cast<const BYTE*>(GlobalLock(medium.hGlobal));
+    Check(start != NULL && size >= sizeof(DROPFILES), "CF_HDROP has readable owned storage");
+    if (start != NULL && size >= sizeof(DROPFILES))
+    {
+        const DROPFILES* drop = reinterpret_cast<const DROPFILES*>(start); Check(drop->fWide && drop->pFiles >= sizeof(DROPFILES), "CF_HDROP is wide and has a valid offset");
+        std::vector<wchar_t> expected;
+        for (const auto& path : paths) { expected.insert(expected.end(), path.begin(), path.end()); expected.push_back(0); }
+        expected.push_back(0);
+        const SIZE_T bytes = expected.size() * sizeof(wchar_t);
+        Check(drop->pFiles <= size && bytes <= size - drop->pFiles && memcmp(start + drop->pFiles, expected.data(), bytes) == 0,
+              "CF_HDROP retains exact Unicode/long paths, order and double terminator");
+        GlobalUnlock(medium.hGlobal);
+    }
+    ReleaseStgMedium(&medium);
+}
+static void CheckEffect(IDataObject* object, DWORD expected)
+{
+    FORMATETC format = {static_cast<CLIPFORMAT>(RegisterClipboardFormat(CFSTR_PREFERREDDROPEFFECT)), NULL, DVASPECT_CONTENT, -1, TYMED_HGLOBAL}; STGMEDIUM medium = {};
+    const HRESULT result = object->GetData(&format, &medium); Check(SUCCEEDED(result), "preferred effect survives caller HGLOBAL free");
+    if (SUCCEEDED(result))
+    {
+        const DWORD* value = static_cast<const DWORD*>(GlobalLock(medium.hGlobal));
+        Check(value != NULL && GlobalSize(medium.hGlobal) >= sizeof(DWORD) && *value == expected, "preferred effect is the exact requested operation");
+        if (value != NULL) GlobalUnlock(medium.hGlobal); ReleaseStgMedium(&medium);
+    }
+}
+int wmain(int argc, wchar_t** argv)
+{
+    if (argc != 2 || FAILED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED))) return 2;
+    if (FAILED(RealGetDesktop(&RealDesktop))) { CoUninitialize(); return 2; }
+    const std::filesystem::path fixtureParent = std::filesystem::path(argv[1]);
+    const auto root = fixtureParent / (L"shell-owned-" + std::to_wstring(GetCurrentProcessId()));
+    const auto unicode = root / L"\u017dlu\u0165ou\u010dk\u00fd-\u6771\u4eac-\U0001f600";
+    std::error_code error; std::filesystem::create_directories(unicode, error);
+    auto longDirectory = unicode;
+    for (int i = 0; i < 5; ++i) longDirectory /= std::wstring(50, L'\u6f22');
+    std::filesystem::create_directories(std::filesystem::path(L"\\\\?\\" + longDirectory.wstring()), error);
+    const auto ascii = root / L"same.txt", sameParent = root / L"\u010d\u0159.txt", otherParent = unicode / L"same.txt", longFile = longDirectory / L"\u010d\u0159.json";
+    Check(MakeFile(ascii) && MakeFile(sameParent) && MakeFile(otherParent) && MakeFile(longFile), "create owned ASCII/Unicode/long-path fixture files");
+    Check(longFile.wstring().size() > MAX_PATH, "fixture includes a real Win32 long path");
+    const auto byteLong = root / (std::wstring(90, L'\u6f22') + L".txt");
+    Check(byteLong.wstring().size() < MAX_PATH && MakeFile(byteLong), "create Unicode filename below Win32 path character limit");
+    Check(WideCharToMultiByte(CP_UTF8, 0, byteLong.c_str(), -1, NULL, 0, NULL, NULL) > MAX_PATH,
+          "fixture UTF8 byte length exceeds MAX_PATH while UTF16 length does not");
+    const std::vector<std::wstring> pair = {ascii.wstring(), sameParent.wstring()};
+    for (Fault fault : {Fault::Desktop, Fault::Parse, Fault::Bind, Fault::GetUI, Fault::MenuQuery})
+    {
+        Reset(fault); void* output = reinterpret_cast<void*>(1);
+        const HRESULT result = CreateShellObjectForPaths(NULL, pair, IID_IContextMenu, &output, TRUE);
+        Check(result == E_UNEXPECTED && output == NULL && Raised > 0, "context SEH returns explicit failure without partial object"); CheckClean();
+    }
+    for (Fault fault : {Fault::Desktop, Fault::Parse, Fault::Create, Fault::DataQuery, Fault::SetDataBefore, Fault::SetDataAfter})
+    {
+        Reset(fault); void* output = reinterpret_cast<void*>(1);
+        const HRESULT result = CreateShellObjectForPaths(NULL, pair, IID_IDataObject, &output, FALSE);
+        Check(result == E_UNEXPECTED && output == NULL && Raised > 0, "transfer SEH returns explicit failure without partial object");
+        if (fault == Fault::SetDataBefore) RecoverUnclaimedFaultMedium();
+        CheckClean();
+    }
+    for (Fault fault : {Fault::ReleaseDesktop, Fault::ReleaseParent, Fault::ReleaseMenu, Fault::ReleaseData})
+    {
+        Reset(fault); void* output = NULL; const BOOL context = fault != Fault::ReleaseData;
+        const HRESULT result = CreateShellObjectForPaths(NULL, pair, context ? IID_IContextMenu : IID_IDataObject, &output, context);
+        Check(SUCCEEDED(result) && output != NULL && Raised > 0, "cleanup SEH does not escape or destroy an independently owned successful result");
+        ReleaseBranchShellInterface(static_cast<IUnknown*>(output)); CheckClean();
+    }
+    Reset(Fault::None); void* mixed = reinterpret_cast<void*>(1);
+    Check(CreateShellObjectForPaths(NULL, {ascii.wstring(), otherParent.wstring()}, IID_IContextMenu, &mixed, TRUE) == HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED) && mixed == NULL,
+          "mixed parents fail as a complete selection"); Check(BindCalls == 0 && GetUICalls == 0, "mixed parents never obtain a first-folder subset menu"); CheckClean();
+    Reset(Fault::None); void* alias = reinterpret_cast<void*>(1);
+    Check(CreateShellObjectForPaths(NULL, {ascii.wstring() + L"."}, IID_IDataObject, &alias, FALSE) == HRESULT_FROM_WIN32(ERROR_INVALID_NAME) && alias == NULL,
+          "normalizing trailing-dot alias fails closed"); Check(ParseCalls == 0 && CreateCalls == 0, "invalid alias cannot reach Shell binding"); CheckClean();
+    Reset(Fault::SetDataFailure); void* rejected = reinterpret_cast<void*>(1);
+    Check(CreateShellObjectForPaths(NULL, pair, IID_IDataObject, &rejected, FALSE) == E_FAIL && rejected == NULL,
+          "normal SetData failure frees caller medium and rejects the complete object"); CheckClean();
+    for (Fault fault : {Fault::SetDataBefore, Fault::SetDataAfter})
+    {
+        Reset(fault); Data.AddRef(); const HRESULT badEffect = SetShellDataDropEffect(&Data, DROPEFFECT_MOVE);
+        Check(badEffect == E_UNEXPECTED && Raised == 1, "preferred drop effect SetData fault is contained");
+        ReleaseBranchShellInterface(&Data); if (fault == Fault::SetDataBefore) RecoverUnclaimedFaultMedium(); CheckClean();
+    }
+    Reset(Fault::None); IDataObject* copied = NULL;
+    Check(SUCCEEDED(CreateShellObjectForPaths(NULL, pair, IID_IDataObject, reinterpret_cast<void**>(&copied), FALSE)) && copied != NULL, "fake COM recipient accepts transferred medium");
+    if (copied != NULL) { CheckDrop(copied, pair); Check(SUCCEEDED(SetShellDataDropEffect(copied, DROPEFFECT_COPY)), "copy effect accepted with consumer ownership"); CheckEffect(copied, DROPEFFECT_COPY); ReleaseBranchShellInterface(copied); }
+    CheckClean();
+    Reset(Fault::None, true); IDataObject* actual = NULL;
+    const std::vector<std::wstring> actualPaths = {ascii.wstring(), otherParent.wstring(), longFile.wstring(), byteLong.wstring()};
+    const HRESULT actualResult = CreateShellObjectForPaths(NULL, actualPaths, IID_IDataObject, reinterpret_cast<void**>(&actual), FALSE);
+    if (FAILED(actualResult)) std::printf("Real Shell transfer HRESULT: %08lX\n", static_cast<unsigned long>(actualResult));
+    Check(SUCCEEDED(actualResult) && actual != NULL, "real SHCreateDataObject accepts mixed-parent Unicode/long selection");
+    if (actual != NULL)
+    {
+        Check(FreedMedia.empty(), "helper transfers successful source medium ownership to real Shell");
+        CheckDrop(actual, actualPaths); Check(SUCCEEDED(SetShellDataDropEffect(actual, DROPEFFECT_MOVE)), "real Shell copies preferred effect");
+        CheckEffect(actual, DROPEFFECT_MOVE); ReleaseBranchShellInterface(actual);
+        Check(FreedMedia.empty(), "helper never double-frees media successfully accepted by real Shell");
+    }
+    for (const auto& file : {ascii, sameParent, otherParent, longFile, byteLong})
+        Check(FixtureUnchanged(file), "Shell preparation preserves each owned source's exact bytes");
+    if (root.parent_path() == fixtureParent && root.filename().wstring().find(L"shell-owned-") == 0)
+        std::filesystem::remove_all(std::filesystem::path(L"\\\\?\\" + root.wstring()), error);
+    RealDesktop->Release(); CoUninitialize();
+    std::printf("Documented pre-consumption SEH ambiguous media: %d (reclaimed by fixture)\n", AmbiguousUnclaimedFaultMedia);
+    std::printf("Branch Shell exception/ownership: %d checks, %d failures\n", Checks, Failures);
+    return Failures == 0 ? 0 : 1;
+}

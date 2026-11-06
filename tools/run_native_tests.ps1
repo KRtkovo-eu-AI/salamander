@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-06 | Preserve upstream regressions and register integration tests. | Integrate the port while retaining JSON Viewer and directory-cancellation coverage. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 # | 2026-11-05 | Run the Find Look in contract test. | Keep HistoryComboBox from replacing the current panel path with history[0]. | https://github.com/KRtkovo-eu-AI/salamander/issues/743 | Composer |
 # | 2026-11-05 | Run the shell-extension crash-protection contract test. | Faulty third-party shell extensions must not TerminateProcess Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 # | 2026-11-05 | Run the SVG FS-panel icon contract test. | Salamatrix/SVG panel icons must keep 16/32/48 sizes and a clean alpha path. | | Composer |
@@ -443,6 +444,502 @@ try {
             )
         },
         @{
+            Name = 'viewer_worker_options_tests'
+            ClassName = 'source-contract'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\viewer_worker_options_tests.py'))
+        },
+        @{
+            Name = 'branch_shell_exception_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_shell_exception_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'upstream_core_integration_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\upstream_core_integration_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'plugin_shutdown_integration_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\plugin_shutdown_integration_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'copy_move_dialog_path_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\copy_move_dialog_path_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'split_create_notification_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\split_create_notification_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'disk_target_identity_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\disk_target_identity_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'localized_text_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\localized_text_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'parse_path_context_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\parse_path_context_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'pack_context_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\pack_context_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'pack_directory_tree_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\pack_directory_tree_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'zip_pack_preview_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\zip_pack_preview_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'archive_source_identity_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\archive_source_identity_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'unpack_target_identity_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\unpack_target_identity_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'zip_unpack_completion_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\zip_unpack_completion_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'zip_volume_collection_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\zip_volume_collection_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'unpack_volume_handoff_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\unpack_volume_handoff_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'unpack_volume_paths_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\unpack_volume_paths_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'unpack_controller_context_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\unpack_controller_context_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'external_unpack_context_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\external_unpack_context_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'unpack_backend_binding_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\unpack_backend_binding_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'unpack_whole_post_init_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\unpack_whole_post_init_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'unpack_post_init_target_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\unpack_post_init_target_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'unpack_copy_destination_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\unpack_copy_destination_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'unpack_cleanup_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\unpack_cleanup_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'unpack_dialog_path_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\unpack_dialog_path_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'branch_unpack_source_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_unpack_source_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'branch_edit_properties_dialog_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_edit_properties_dialog_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'branch_edit_properties_io_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_edit_properties_io_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'branch_ntfs_confirmation_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_ntfs_confirmation_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'branch_ntfs_worker_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_ntfs_worker_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'branch_attribute_selection_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_attribute_selection_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'branch_attribute_worker_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_attribute_worker_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'branch_shortcut_target_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_shortcut_target_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'sevenzip_listing_ownership_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\sevenzip_listing_ownership_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'branch_archive_entry_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_archive_entry_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'branch_shell_retry_guard_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_shell_retry_guard_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'branch_rename_fallback_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_rename_fallback_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'create_directory_wrapper_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\create_directory_wrapper_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'safe_file_paths_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\safe_file_paths_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'panel_item_paths_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\panel_item_paths_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'pictview_wic_output_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\pictview_wic_output_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'pictview_thumbnail_paths_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\pictview_thumbnail_paths_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'branch_watch_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_watch_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'branch_restore_state_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_restore_state_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'branch_archive_selection_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_archive_selection_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'branch_plugin_commands_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_plugin_commands_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'automation_repository_paths_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\plugins\automation\tests\repository_paths_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'message_box_wrap_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\message_box_wrap_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'sevenzip_unpack_completion_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\sevenzip_unpack_completion_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'sevenzip_gather_items_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\sevenzip_gather_items_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'sevenzip_extract_target_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\sevenzip_extract_target_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'zip_extract_target_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\zip_extract_target_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'zip_sfx_paths_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\zip_sfx_paths_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'zip_comment_paths_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\zip_comment_paths_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'archive_menu_selection_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\archive_menu_selection_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'pak_optimize_snapshot_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\pak_optimize_snapshot_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'undelete_selection_paths_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\undelete_selection_paths_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'branch_program_launch_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\branch_program_launch_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'branch_panel_getters_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\branch_panel_getters_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'branch_delete_worker_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\branch_delete_worker_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'disk_file_size_paths_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\disk_file_size_paths_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'directory_size_cancel_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\directory_size_cancel_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'branch_view_file_action_contract_tests'
+            ClassName = 'source-contract'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_view_file_action_contract_tests.py'))
+        },
+        @{
+            Name = 'disk_selection_snapshot_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\disk_selection_snapshot_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'automation_selection_snapshot_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\plugins\automation\tests\selection_snapshot_tests.py'),
+                '--configuration', $Configuration,
+                '--scope', 'All'
+            )
+        },
+        @{
+            Name = 'splitcbn_selection_paths_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\plugins\splitcbn\tests\selection_paths_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'checksum_selection_paths_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\checksum_selection_paths_tests.py')
+            )
+        },
+        @{
+            Name = 'renamer_panel_paths_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\renamer_panel_paths_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'renamer_io_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\renamer_io_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'filecomp_panel_paths_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\filecomp_panel_paths_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'icon_reader_path_scratch_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\icon_reader_path_scratch_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'filecomp_dialog_lifetime_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\filecomp_dialog_lifetime_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'zip_listing_lifetime_tests'
+            ClassName = 'native-generated'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot 'src\tests\zip_listing_lifetime_tests.py'),
+                '--configuration', $Configuration
+            )
+        },
+        @{
+            Name = 'branch_view_contract_tests'
+            ClassName = 'source-contract'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_view_contract_tests.py'))
+        },
+        @{
+            Name = 'branch_properties_contract_tests'
+            ClassName = 'source-contract'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_properties_contract_tests.py'))
+        },
+        @{
+            Name = 'branch_activation_contract_tests'
+            ClassName = 'source-contract'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_activation_contract_tests.py'))
+        },
+        @{
+            Name = 'branch_transition_contract_tests'
+            ClassName = 'source-contract'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_transition_contract_tests.py'))
+        },
+        @{
+            Name = 'branch_operations_contract_tests'
+            ClassName = 'source-contract'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\branch_operations_contract_tests.py'), '--scope', 'All')
+        },
+        @{
+            Name = 'build_operation_name_tests'
+            ClassName = 'native-generated'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\build_operation_name_tests.py'), '--configuration', $Configuration)
+        },
+        @{
+            Name = 'worker_copy_path_contract_tests'
+            Arguments = @('-B', (Join-Path $repositoryRoot 'src\tests\worker_copy_path_contract_tests.py'))
+        },
+        @{
             Name = 'copy_move_scheduling_contract_tests'
             Arguments = @(
                 '-B',
@@ -470,7 +967,8 @@ try {
         Write-Host "Running $($contractTest.Name)..."
         $contractResult = Invoke-TestProcess -FilePath $python `
             -Arguments $contractTest.Arguments -WorkingDirectory $repositoryRoot
-        Add-TestResult -ClassName 'source-contract' -Name $contractTest.Name `
+        $testClass = if ($contractTest.ContainsKey('ClassName')) { $contractTest.ClassName } else { 'source-contract' }
+        Add-TestResult -ClassName $testClass -Name $contractTest.Name `
             -ProcessResult $contractResult
     }
 

@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-06 | Specify shared viewer option types and failure behavior. | All five worker facades must send equivalent viewer payloads. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 | 2026-11-04 | Name the UI guide host Open Samandarin. | The lead sentence still said Open Salamander, so the generated HTML check failed. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 -->
@@ -65,6 +66,26 @@ th { background:var(--surface); } li { margin:.2em 0; }
 <p>Runtime providers remain independent <code>.SPL</code> plugins. In particular, Python, PowerShell, PHP, Node, and Lua dialogs do not require the Automation plugin to be installed or loaded.</p>
 <p>When hosted inside Open Samandarin, <code>Salamatrix.UI</code> delegates static text, hyperlink, progress, arrow, text-arrow, color-arrow, and toolbar-header controls to the corresponding <code>CSalamanderGUI</code> implementations. This preserves the native button imagery, command behavior, color interaction, dark-mode styling, and control lifetime rules. The portable Win32 control implementation is only the fallback for standalone hosts such as Salamatrix Studio preview.</p>
 <p>Modal dialogs, message boxes, file/folder pickers, and the controls showcase do not inherit the ordinary 120-second host-call timeout. They remain synchronously owned by the UI thread until the user closes them, so a dialog may safely stay open for an arbitrary amount of time. A button with <code>dialogResult: 0</code> is an action button and stays open; buttons with a nonzero result close the dialog. This rule also keeps the legacy Automation COM dialog facade compatible even though its original <code>add()</code> signature predates the explicit <code>keepOpen</code> option.</p>
+<h2 id="viewer-options">Viewer options</h2>
+<p><code>ui.viewer(path, options)</code> opens the shared viewer and returns <code>true</code> only when its host response contains the Boolean <code>opened: true</code>. Host/transport failures still raise the runtime's normal host-call error. The caller passes the complete source path separately from the optional <code>documentName</code> title label.</p>
+<p>The JavaScript, Python, PowerShell, PHP and Lua worker facades use the same <code>options</code> contract (Python also accepts <code>document_name</code>):</p>
+<ul>
+<li><code>renderer</code>: a nonempty string; missing, null or invalid values default to <code>auto</code>.</li>
+<p>The host accepts <code>auto</code>, <code>prism</code> and <code>document</code>; unknown names remain host errors. A string in place of <code>options</code> is shorthand for <code>renderer</code>.</p>
+<li><code>title</code> and <code>documentName</code>: nonempty strings, including <code>"0"</code>; invalid values</li>
+<p>are omitted. Whitespace is preserved.</p>
+<li><code>left</code>, <code>top</code>, <code>width</code>, <code>height</code>, <code>showCmd</code>: finite integral numeric values in</li>
+<p>the signed 32-bit range -2147483648 through 2147483647. Strings, Booleans, fractions, nulls and out-of-range values are omitted without a conversion error.</p>
+<li><code>alwaysOnTop</code>: a Boolean; invalid or missing values are omitted.</li>
+<li>Put geometry and <code>alwaysOnTop</code> in a nested <code>window</code> map, or directly in <code>options</code>.</li>
+<p>A supplied map takes precedence over outer geometry. The host applies its existing geometry/show-policy defaults when fields are absent or dimensions are unusable. No field grants permission to bypass viewer/package lifetimes.</p>
+</ul>
+<p>Equivalent examples for the bundled extension demos (their existing <code>ui.dialogs</code> capability already covers <code>salamander.ui.viewer.open</code>):</p>
+<pre><code class="language-javascript">await Salamander.ui.viewer(path, { renderer: &quot;prism&quot;, title: &quot;Demo&quot;, window: { left: 20, top: 20, width: 800, height: 600, alwaysOnTop: false } });</code></pre>
+<pre><code class="language-python">Salamander.ui.viewer(path, {&quot;renderer&quot;: &quot;prism&quot;, &quot;title&quot;: &quot;Demo&quot;, &quot;window&quot;: {&quot;left&quot;: 20, &quot;top&quot;: 20, &quot;width&quot;: 800, &quot;height&quot;: 600, &quot;alwaysOnTop&quot;: False}})</code></pre>
+<pre><code class="language-powershell">$Salamander.ui.Viewer($path, @{renderer=&#x27;prism&#x27;; title=&#x27;Demo&#x27;; window=@{left=20; top=20; width=800; height=600; alwaysOnTop=$false}})</code></pre>
+<pre><code class="language-php">$Salamander-&gt;ui-&gt;viewer($path, array(&#x27;renderer&#x27;=&gt;&#x27;prism&#x27;, &#x27;title&#x27;=&gt;&#x27;Demo&#x27;, &#x27;window&#x27;=&gt;array(&#x27;left&#x27;=&gt;20, &#x27;top&#x27;=&gt;20, &#x27;width&#x27;=&gt;800, &#x27;height&#x27;=&gt;600, &#x27;alwaysOnTop&#x27;=&gt;false)));</code></pre>
+<pre><code class="language-lua">Salamander.ui.viewer(path, {renderer=&quot;prism&quot;, title=&quot;Demo&quot;, window={left=20, top=20, width=800, height=600, alwaysOnTop=false}})</code></pre>
 <h2 id="dialog-lifecycle">Dialog lifecycle</h2>
 <p>All facades follow the same lifecycle:</p>
 <p>1. Create a dialog with a title and native layout size. 2. Add controls in the desired order. 3. Populate list, tree, combo, or tab items where required. 4. Configure validation or change-event delivery where required. 5. Show the dialog modally. 6. Read values and checked/selection state. 7. Destroy or close the dialog in a <code>finally</code>/cleanup block.</p>

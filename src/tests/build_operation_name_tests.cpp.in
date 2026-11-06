@@ -1,0 +1,40 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// S19 acceptance gap: actual donor BuildName and wide conversion helpers.
+// Dialog delivery is stubbed; joining, length checks and allocations are real.
+#include <windows.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+enum { IDS_NAMEISTOOLONG, IDS_ERRORTITLE, IDS_MSGBOXBTN_SKIP, IDS_MSGBOXBTN_SKIPALL, IDS_MSGBOXBTN_FOCUS, PANEL_SOURCE };
+enum { MSGBOXEX_YESNOOKCANCEL=1, MSGBOXEX_DEFBUTTON3=2, MSGBOXEX_SILENT=4, DIALOG_YES=1, DIALOG_NO=2, DIALOG_OK=3 };
+struct MSGBOXEX_PARAMS { HWND HParent; UINT Flags; const char *Caption,*Text,*AliasBtnNames; };
+static int DialogCalls=0, DialogResult=DIALOG_YES;
+static const char* LoadStr(int id) { return id==IDS_NAMEISTOOLONG ? "%s %s" : "fixture"; }
+static int SalMessageBoxEx(MSGBOXEX_PARAMS*) { ++DialogCalls; return DialogResult; }
+static int SalMessageBox(HWND,const char*,const char*,UINT) { ++DialogCalls; return 0; }
+struct MainWindowFixture { HWND HWindow=nullptr; int FocusCalls=0; void PostFocusNameInPanel(int,const char*,const char*) { ++FocusCalls; } };
+static MainWindowFixture Window;
+static MainWindowFixture* MainWindow=&Window;
+#define TRACE_E(x) ((void)0)
+#define LOW_MEMORY "fixture"
+@@WIDE_HELPERS@@
+@@BUILD_NAME@@
+static int Checks=0,Failures=0;
+static void Check(bool ok,const char* name) { ++Checks;if(!ok){++Failures;std::printf("FAIL: %s\n",name);} }
+static std::string Utf8(const std::wstring& value) { int n=WideCharToMultiByte(CP_UTF8,0,value.c_str(),-1,nullptr,0,nullptr,nullptr);std::string out(n,'\0');WideCharToMultiByte(CP_UTF8,0,value.c_str(),-1,&out[0],n,nullptr,nullptr);out.resize(n-1);return out; }
+static void Joined(std::string path,std::string name,const std::string& expected) { BOOL skip=TRUE,all=FALSE;char* out=BuildName(path.data(),name.data(),nullptr,&skip,&all,path.c_str());Check(out!=nullptr&&!skip&&!all,"successful path construction");Check(out!=nullptr&&expected==out,"complete bytes and terminator");free(out); }
+int main() {
+ Joined("C:\\root","plain.txt","C:\\root\\plain.txt");Joined("C:\\root\\","plain.txt","C:\\root\\plain.txt");Joined("","plain.txt","plain.txt");
+ const std::string unicode=Utf8(L"C:\\日本-č-😀");Joined(unicode,Utf8(L"ž-東京-😀.txt"),unicode+"\\"+Utf8(L"ž-東京-😀.txt"));
+ const std::string large=Utf8(L"C:\\"+std::wstring(16000,L'日'));Check(large.size()>32767,"UTF8 input exceeds legacy byte limit");Joined(large,"file.txt",large+"\\file.txt");
+ Joined("C:\\",std::string(32763,'x'),"C:\\"+std::string(32763,'x'));
+ std::string root="C:\\",tooLong(32764,'x'),dos="SHORT~1.TXT";BOOL skip=FALSE,all=TRUE;
+ char* result=BuildName(root.data(),tooLong.data(),nullptr,&skip,&all,root.c_str());Check(result==nullptr&&skip&&all&&DialogCalls==0,"UTF16 overflow respects prior SkipAll without UI");free(result);
+ skip=TRUE;all=FALSE;result=BuildName(root.data(),tooLong.data(),dos.data(),&skip,&all,root.c_str());Check(result!=nullptr&&!skip&&std::string(result)==root+dos,"DOS fallback only for UTF16 overflow");free(result);
+ DialogResult=DIALOG_NO;skip=FALSE;all=FALSE;result=BuildName(root.data(),tooLong.data(),nullptr,&skip,&all,root.c_str());Check(result==nullptr&&skip&&all&&DialogCalls==1,"over-limit SkipAll records explicit error decision");free(result);
+ DialogResult=DIALOG_OK;skip=FALSE;all=FALSE;result=BuildName(root.data(),tooLong.data(),nullptr,&skip,&all,root.c_str());Check(result==nullptr&&!skip&&!all&&Window.FocusCalls==1,"over-limit Focus preserves selection decision");free(result);
+ std::string only=unicode;result=BuildName(only.data(),nullptr,nullptr,nullptr,nullptr,nullptr);Check(result!=nullptr&&only==result,"null leaf preserves complete owned path");free(result);
+ std::printf("Actual BuildName: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

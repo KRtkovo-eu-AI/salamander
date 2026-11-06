@@ -1,0 +1,87 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// The error branch and storage are extracted verbatim from production. UI is a
+// recording facade; paths include actual UTF-8 bytes, not a shortened surrogate.
+#define _CRT_SECURE_NO_WARNINGS // Match production headers; retain /GS and /WX.
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <algorithm>
+#include <cstdio>
+#include <cstring>
+#include <string>
+#include <vector>
+#include <cstdlib>
+#define SAL_MAX_PATH 32768
+static const int SAL_MAX_EXTENDED_PATH = SAL_MAX_PATH;
+using std::max;
+@@HEADER@@
+@@BUFFER@@
+static constexpr int IDS_CANNOTREADDIR=1,IDS_ERRORTITLE=2,IDS_MSGBOXBTN_SKIP=3,IDS_MSGBOXBTN_SKIPALL=4;
+static constexpr int DIALOG_YES=IDYES,DIALOG_NO=IDNO,MSGBOXEX_DEFBUTTON3=MB_DEFBUTTON3,MSGBOXEX_SILENT=0;
+struct MSGBOXEX_PARAMS {HWND HParent; UINT Flags; const char* Caption; const char* Text; const char* AliasBtnNames;};
+static struct {HWND HWindow=nullptr;} MainWindowObject;
+static auto MainWindow=&MainWindowObject;
+static bool BadPattern=false;
+static const char* Pattern=nullptr;
+static const char* LoadStr(int id) {
+    if(id==IDS_CANNOTREADDIR)return BadPattern?"%n":Pattern;
+    return id==IDS_MSGBOXBTN_SKIP?"Skip":id==IDS_MSGBOXBTN_SKIPALL?"Skip All":"Error";
+}
+static const char* GetErrorText(DWORD) {return "(3) The system cannot find the path specified. %n %s";}
+static BOOL ErrListDirSkipAll=FALSE;
+static int Choice=IDCANCEL,Dialogs=0,Checks=0,Failures=0;
+static std::string Shown;
+static int SalMessageBoxEx(MSGBOXEX_PARAMS* params) {
+    ++Dialogs;Shown=params->Text;
+    if(params->Flags!=(MB_YESNOCANCEL|MB_ICONEXCLAMATION|MSGBOXEX_DEFBUTTON3|MSGBOXEX_SILENT))++Failures;
+    return Choice;
+}
+static void Check(bool ok,const char* label){++Checks;if(!ok){++Failures;std::printf("FAIL %s\n",label);}}
+// Called through a non-inlined boundary so the original /GS cookie is tested on
+// return, just like Esc/Cancel unwinding the recursive application call.
+__declspec(noinline) static BOOL ReadError(char* sourcePath,char* sourceEnd,char* targetEnd,DWORD err) {
+@@STORAGE@@
+@@ERROR@@
+    return TRUE;
+}
+struct Golden {const char* Pattern;const char* Expected;int Count;};
+static const Golden Patterns[]={
+@@PATTERNS@@
+};
+int main(){
+    SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX);
+    _set_abort_behavior(0,_WRITE_ABORT_MSG|_CALL_REPORTFAULT);
+    for(const auto& row:Patterns){
+        CPathBuffer textBuffer(2*SAL_MAX_PATH+100);
+        const bool ok=row.Count==1?Salamander::LocalizedText::Write(textBuffer.Data(),textBuffer.Capacity(),row.Pattern,"PATH"):
+            Salamander::LocalizedText::Write(textBuffer.Data(),textBuffer.Capacity(),row.Pattern,"PATH","ERROR");
+        Check(ok&&std::string(textBuffer.Data())==row.Expected,"real localized error and confirmation patterns");
+    }
+    std::vector<std::string> paths={"C:\\owned\\child",u8"C:\\owned\\東京",u8"C:\\café\\one\\東京"};
+    std::string utf8Short="C:\\";for(int i=0;i<100;++i)utf8Short+=u8"東";paths.push_back(utf8Short+"\\child");
+    std::string deep=u8"C:\\owned\\東京";for(int i=0;i<100;++i)deep+=u8"\\deep-東%n";paths.push_back(deep+"\\child");
+    paths.push_back("\\\\server\\share\\"+std::string(31000,'x')+"\\child");
+    for(const auto& path:paths)for(bool hasTarget:{false,true})for(int choice:{IDYES,IDNO,IDCANCEL}){
+        std::vector<char> source(SAL_MAX_PATH,0);strcpy_s(source.data(),source.size(),path.c_str());
+        const auto parent=path.substr(0,path.rfind('\\'));
+        char target[]="C:\\target\\child";char* targetEnd=hasTarget?target+9:nullptr;
+        Choice=choice;Dialogs=0;Shown.clear();ErrListDirSkipAll=FALSE;BadPattern=false;
+        Pattern="Cannot read directory \"%s\".\n%s";
+        const BOOL ok=ReadError(source.data(),source.data()+parent.size(),targetEnd,ERROR_PATH_NOT_FOUND);
+        Check(ok==(choice!=IDCANCEL),"Skip/Skip All continue, Cancel unwinds safely");
+        Check(Dialogs==1&&Shown=="Cannot read directory \""+path+"\".\n"+GetErrorText(3),"complete path and error reach dialog without overflow or format injection");
+        Check(source.data()==parent,"source path restored before dialog result");
+        Check(!hasTarget||std::string(target)=="C:\\target","target path restored");
+        Check(ErrListDirSkipAll==(choice==IDNO),"Skip All state preserved");
+    }
+    for(bool skipAll:{false,true}){
+        std::string path=deep+"\\child";std::vector<char> source(SAL_MAX_PATH,0);strcpy_s(source.data(),source.size(),path.c_str());
+        const auto parent=path.substr(0,path.rfind('\\'));
+        ErrListDirSkipAll=skipAll;Dialogs=0;BadPattern=true;SetLastError(0);
+        Check(!ReadError(source.data(),source.data()+parent.size(),nullptr,ERROR_PATH_NOT_FOUND),"malformed resource refuses operation, even with Skip All");
+        Check(Dialogs==0&&GetLastError()==ERROR_INVALID_DATA&&source.data()==parent,"no malformed dialog and path restored on formatting failure");
+    }
+    std::printf("Directory size error/cancel: %d checks, %d failures.\n",Checks,Failures);
+    return Failures?1:0;
+}

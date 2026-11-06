@@ -670,6 +670,37 @@ void CPluginInterface::ClearHistory(HWND parent)
 // CPluginInterfaceForMenu
 //
 
+// Selection paths and metadata are supplied atomically by the SDK.
+static BOOL GetFileCompPanelItemPath(const CSalamanderDiskSelectionItem* item,
+                                     char* path, int capacity)
+{
+    if (path == NULL || capacity <= 0)
+    {
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return FALSE;
+    }
+    path[0] = 0;
+    if (item == NULL || item->FullPathW == NULL || *item->FullPathW == 0)
+    {
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return FALSE;
+    }
+    const std::string encoded = PluginWideToMultiBytePath(item->FullPathW, CP_UTF8);
+    if (encoded.empty() || encoded.size() >= (size_t)capacity)
+    {
+        SetLastError(encoded.empty() ? ERROR_INVALID_NAME : ERROR_INSUFFICIENT_BUFFER);
+        return FALSE;
+    }
+    memcpy(path, encoded.c_str(), encoded.size() + 1);
+    return TRUE;
+}
+
+static BOOL FileCompPanelItemNamesEqual(const CSalamanderDiskSelectionItem* first,
+                                       const CSalamanderDiskSelectionItem* second)
+{
+    return CompareStringOrdinal(first->NameW, -1, second->NameW, -1, TRUE) == CSTR_EQUAL;
+}
+
 BOOL CPluginInterfaceForMenu::ExecuteMenuItem(CSalamanderForOperationsAbstract* salamander, HWND parent,
                                               int id, DWORD eventMask)
 {
@@ -679,107 +710,84 @@ BOOL CPluginInterfaceForMenu::ExecuteMenuItem(CSalamanderForOperationsAbstract* 
     {
     case MID_COMPAREFILES:
     {
-        char file1[SAL_MAX_PATH];
-        char file2[SAL_MAX_PATH];
-        const CFileData *fd1, *fd2 = NULL;
-        int index = 0;
-        BOOL isDir;
-        BOOL secondFromSource = FALSE;
-        int tgtPathType;
-        SG->GetPanelPath(PANEL_TARGET, NULL, 0, &tgtPathType, NULL);
-        BOOL tgtPanelIsDisk = (tgtPathType == PATH_TYPE_WINDOWS);
-
-        *file1 = 0;
-        *file2 = 0;
-
-        fd1 = SG->GetPanelSelectedItem(PANEL_SOURCE, &index, &isDir);
-
-        if (fd1 && isDir)
-            goto SELECTION_FINISHED; // ignore directories
-
-        if (fd1)
+        try
         {
-            // we have the first selected file; try to find a second one in the source panel
-            fd2 = SG->GetPanelSelectedItem(PANEL_SOURCE, &index, &isDir);
-
-            if (fd2 && isDir)
-                goto SELECTION_FINISHED; // ignore directories
-
-            if (!fd2)
-            {
-                // one item is selected and we take the other either from focus
-                // or from the selection in the target panel
-                index = 0;
-                fd2 = SG->GetPanelSelectedItem(PANEL_TARGET, &index, &isDir);
-                if (!tgtPanelIsDisk || !fd2 || SG->GetPanelSelectedItem(PANEL_TARGET, &index, &isDir))
-                {
-                    // the target panel contains zero or more than one selected file
-                    // so fall back to the focused item in the source panel
-                    fd2 = SG->GetPanelFocusedItem(PANEL_SOURCE, &isDir);
-                }
-                else
-                    fd2 = NULL;
-            }
-            else
-            {
-                // we have two selected files; ensure a third one is not selected
-                // three selected files are ignored
-                if (SG->GetPanelSelectedItem(PANEL_SOURCE, &index, &isDir))
-                    goto SELECTION_FINISHED;
-            }
+        // Match the comparator engine's existing byte capacity; an unrepresentable
+        // input is rejected before the thread, never truncated inside its dialog.
+        std::vector<char> file1Buffer(SAL_MAX_PATH, 0);
+        std::vector<char> file2Buffer(SAL_MAX_PATH, 0);
+        char* file1 = file1Buffer.data();
+        char* file2 = file2Buffer.data();
+        CSalamanderDiskSelection source, sourceFocus, targetSelection, targetItems;
+        if (!source.Capture(SG, PANEL_SOURCE, SALDISKSELECTION_SELECTED_ONLY))
+            return FALSE;
+        int tgtPathType = -1;
+        SG->GetPanelPath(PANEL_TARGET, NULL, 0, &tgtPathType, NULL);
+        BOOL tgtPanelIsDisk = tgtPathType == PATH_TYPE_WINDOWS;
+        const CSalamanderDiskSelectionItem *fd1 = NULL, *fd2 = NULL;
+        const int selectedCount = source.GetCount();
+        int targetSelectedCount = 0;
+        BOOL secondFromSource = FALSE;
+        if (selectedCount > 2)
+            goto SELECTION_FINISHED;
+        if (selectedCount > 0)
+        {
+            fd1 = source.GetItem(0);
+            if (selectedCount == 2) fd2 = source.GetItem(1);
+            if (fd1->IsDir || (fd2 != NULL && fd2->IsDir))
+                goto SELECTION_FINISHED;
         }
         else
         {
-            // no file was selected; use the focused item instead
-            fd1 = SG->GetPanelFocusedItem(PANEL_SOURCE, &isDir);
-
-            if (fd1 && isDir)
-                goto SELECTION_FINISHED; // ignore directories
+            if (!sourceFocus.Capture(SG, PANEL_SOURCE, SALDISKSELECTION_FOCUSED_ONLY))
+                return FALSE;
+            fd1 = sourceFocus.GetItem(0);
         }
-
-        if (fd1 == NULL)
-            goto SELECTION_FINISHED; // empty panel
-
-        // store the name of the first file
-        if (!SG->GetPanelPath(PANEL_SOURCE, file1, SizeOf(file1), NULL, NULL))
-            return NULL;
-        SG->SalPathAppend(file1, fd1->UseWideName() ? PluginWideToMultiBytePath(fd1->NameW, CP_UTF8).c_str() : fd1->Name, SizeOf(file1));
-
-        if (fd2 &&
-            !isDir && fd2 != fd1) // in case we take the file from the focus
+        if (fd1 == NULL || fd1->IsDir)
+            goto SELECTION_FINISHED;
+        if (selectedCount < 2 && tgtPanelIsDisk)
         {
-            // store the name of the second file
-            SG->GetPanelPath(PANEL_SOURCE, file2, SizeOf(file2), NULL, NULL);
-            SG->SalPathAppend(file2, fd2->UseWideName() ? PluginWideToMultiBytePath(fd2->NameW, CP_UTF8).c_str() : fd2->Name, SizeOf(file2));
+            if (!targetSelection.Capture(SG, PANEL_TARGET, SALDISKSELECTION_SELECTED_ONLY))
+                return FALSE;
+            targetSelectedCount = targetSelection.GetCount();
+        }
+        if (selectedCount == 1 && (!tgtPanelIsDisk || targetSelectedCount != 1))
+        {
+            if (!sourceFocus.Capture(SG, PANEL_SOURCE, SALDISKSELECTION_FOCUSED_ONLY))
+                return FALSE;
+            fd2 = sourceFocus.GetItem(0);
+        }
+        if (!GetFileCompPanelItemPath(fd1, file1, (int)file1Buffer.size()))
+            return FALSE;
+        if (fd2 != NULL && !fd2->IsDir && fd2->PanelIndex != fd1->PanelIndex)
+        {
+            if (!GetFileCompPanelItemPath(fd2, file2, (int)file2Buffer.size()))
+                return FALSE;
             secondFromSource = TRUE;
         }
-        else
+        else if (tgtPanelIsDisk)
         {
-            if (tgtPanelIsDisk)
+            fd2 = targetSelectedCount == 1 ? targetSelection.GetItem(0) : NULL;
+            if (fd2 != NULL && fd2->IsDir) fd2 = NULL;
+            if (fd2 == NULL)
             {
-                // we still need to pick the second file from the target panel
-                index = 0;
-                fd2 = SG->GetPanelSelectedItem(PANEL_TARGET, &index, &isDir);
-
-                if (!fd2 || isDir || SG->GetPanelSelectedItem(PANEL_TARGET, &index, &isDir))
+                if (!targetItems.Capture(SG, PANEL_TARGET, SALDISKSELECTION_ALL_ITEMS))
+                    return FALSE;
+                int matches = 0;
+                for (int i = 0; i < targetItems.GetCount(); ++i)
                 {
-                    // find the file with the same name as the first one
-                    index = 0;
-                    while ((fd2 = SG->GetPanelItem(PANEL_TARGET, &index, &isDir)) != 0)
+                    const CSalamanderDiskSelectionItem* item = targetItems.GetItem(i);
+                    if (!item->IsDir && FileCompPanelItemNamesEqual(fd1, item))
                     {
-                        if (!isDir && SG->StrICmp(fd1->Name, fd2->Name) == 0)
-                            break;
+                        fd2 = item;
+                        ++matches;
                     }
                 }
-
-                if (fd2)
-                {
-                    // store the name of the second file
-                    if (!SG->GetPanelPath(PANEL_TARGET, file2, SizeOf(file2), NULL, NULL))
-                        return NULL;
-                    SG->SalPathAppend(file2, fd2->UseWideName() ? PluginWideToMultiBytePath(fd2->NameW, CP_UTF8).c_str() : fd2->Name, SizeOf(file2));
-                }
+                // Duplicate basenames do not identify a unique target file.
+                if (matches != 1) fd2 = NULL;
             }
+            if (fd2 != NULL && !GetFileCompPanelItemPath(fd2, file2, (int)file2Buffer.size()))
+                return FALSE;
         }
 
     SELECTION_FINISHED:
@@ -788,7 +796,15 @@ BOOL CPluginInterfaceForMenu::ExecuteMenuItem(CSalamanderForOperationsAbstract* 
         SG->GetConfigParameter(SALCFG_ALWAYSONTOP, &AlwaysOnTop, sizeof(AlwaysOnTop), NULL);
         RefreshFileCompDarkModeFromHost();
         ConfigureFileCompDarkModeFromHost();
-        CFilecompThread* d = new CFilecompThread(doNotSwapNames ? file1 : file2, doNotSwapNames ? file2 : file1, FALSE, "");
+#ifdef new
+#undef new
+#define FILECOMP_SELECTION_RESTORE_NEW
+#endif
+        CFilecompThread* d = new (std::nothrow) CFilecompThread(doNotSwapNames ? file1 : file2, doNotSwapNames ? file2 : file1, FALSE, "");
+#ifdef FILECOMP_SELECTION_RESTORE_NEW
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef FILECOMP_SELECTION_RESTORE_NEW
+#endif
         if (!d)
             return Error((HWND)-1, IDS_LOWMEM);
         if (!d->Create(ThreadQueue))
@@ -798,6 +814,12 @@ BOOL CPluginInterfaceForMenu::ExecuteMenuItem(CSalamanderForOperationsAbstract* 
             SG->SetUserWorkedOnPanelPath(PANEL_TARGET); // also record the target panel
 
         return FALSE;
+        }
+        catch (const std::bad_alloc&)
+        {
+            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+            return Error((HWND)-1, IDS_LOWMEM);
+        }
     }
     }
     return FALSE;

@@ -1,0 +1,37 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual production conversion/wrapping; real compatible DC and stock UI font.
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <cstdio>
+#include <cstdlib>
+#include <string>
+#include <vector>
+#include <new>
+#include <algorithm>
+#define TRACE_E(...) ((void)0)
+@@CONVERT@@
+@@WRAP@@
+static int checks=0,failures=0;
+static void Check(bool ok,const char* label){++checks;if(!ok){++failures;printf("FAIL %s\n",label);}}
+static std::wstring StripEOL(std::wstring s){s.erase(std::remove(s.begin(),s.end(),L'\n'),s.end());s.erase(std::remove(s.begin(),s.end(),L'\r'),s.end());return s;}
+static std::string Utf8(const std::wstring& s){int n=WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,s.c_str(),-1,nullptr,0,nullptr,nullptr);std::string out(n,'\0');WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,s.c_str(),-1,&out[0],n,nullptr,nullptr);out.resize(n-1);return out;}
+int main(){
+ HDC dc=CreateCompatibleDC(nullptr);Check(dc!=nullptr,"real GDI DC");if(!dc)return 1;
+ HGDIOBJ old=SelectObject(dc,GetStockObject(DEFAULT_GUI_FONT));
+ Check(DuplicateStrAndInsertEOLs(nullptr,dc,20)==nullptr&&DuplicateStrAndInsertEOLs("",dc,20)==nullptr,"empty input");
+ Check(DuplicateStrAndInsertEOLs("short",dc,10000)==nullptr,"short text unchanged");
+ const std::vector<std::wstring> cases={std::wstring(6000,L'x'),L"C:\\žluťoučký\\東京\\"+std::wstring(100,L'東')+L".zip",L"emoji-"+std::wstring(80,L'\x6771')+L"\U0001F600\U0001F600-end",L"existing\r\nline-"+std::wstring(160,L'漢')};
+ for(const auto& text:cases){
+  std::string input=Utf8(text);char* raw=DuplicateStrAndInsertEOLs(input.c_str(),dc,90);Check(raw!=nullptr,"long input is wrapped");if(!raw)continue;
+  Check(MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,raw,-1,nullptr,0)>0,"wrapped output is strictly valid UTF8");
+  std::wstring output=MessageBoxTextToWide(raw);Check(StripEOL(output)==StripEOL(text),"all original Unicode scalars retained in order");
+  Check(output.find(wchar_t(0xfffd))==std::wstring::npos,"no replacement character introduced");
+  if(text.find(L"\r\n")!=std::wstring::npos)Check(output.find(L"\r\n")!=std::wstring::npos,"existing CRLF retained");
+  free(raw);
+ }
+ std::string acp(160,"\xe8"[0]);std::wstring expected=MessageBoxTextToWide(acp.c_str());char* raw=DuplicateStrAndInsertEOLs(acp.c_str(),dc,90);
+ Check(raw!=nullptr&&StripEOL(MessageBoxTextToWide(raw))==expected,"legacy ACP fallback retains decoded text");free(raw);
+ raw=DuplicateStrAndInsertEOLs(Utf8(L"東\U0001F600東").c_str(),dc,1);Check(raw!=nullptr&&StripEOL(MessageBoxTextToWide(raw))==L"東\U0001F600東","narrow width never splits surrogate pair");free(raw);
+ SelectObject(dc,old);DeleteDC(dc);printf("Message box wrap: %d checks, %d failures.\n",checks,failures);return failures?1:0;
+}

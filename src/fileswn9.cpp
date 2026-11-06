@@ -6,6 +6,10 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "branchdroptarget.h"
+#include "common/widepath.h"
+#include "branch_view.h"
+#include "branchclipboard.h"
 #include "audio_metadata_legacy.h"
 
 #include <shlwapi.h>
@@ -61,19 +65,44 @@ CColumDataItem* GetStdColumn(int i, BOOL isDisk)
 BOOL CFilesWindow::ParsePath(char* path, int& type, BOOL& isDir, char*& secondPart,
                              const char* errorTitle, char* nextFocus, int* error, int pathBufSize)
 {
-    CALL_STACK_MESSAGE3("CFilesWindow::ParsePath(%s, , , , %s, ,)", path, errorTitle);
+    CALL_STACK_MESSAGE4("CFilesWindow::ParsePath(%.*s, , , , %s, ,)",
+                        path != NULL && pathBufSize > 0 ? pathBufSize : 0, path != NULL ? path : "", errorTitle);
 
+    CPathBuffer currentPath(SAL_MAX_PATH);
     const char* curArchivePath = NULL;
-    char curPath[2 * MAX_PATH];
-    GetGeneralPath(curPath, 2 * MAX_PATH);
-    if (Is(ptZIPArchive))
+    int failure = 0;
+    if (Is(ptDisk))
     {
-        SalPathAddBackslash(curPath, 2 * MAX_PATH);
+        const std::wstring wide = GetPathW();
+        const std::string encoded = SalWideToMultiBytePath(wide.c_str(), CP_UTF8);
+        if (wide.empty() || SalMultiByteToWidePath(encoded.c_str(), CP_UTF8) != wide)
+            failure = IDS_PATHISINVALID;
+        else if (encoded.size() >= (size_t)currentPath.Capacity())
+            failure = IDS_TOOLONGPATH;
+        else
+            memcpy(currentPath.Data(), encoded.c_str(), encoded.size() + 1);
+    }
+    else if (!GetGeneralPath(currentPath.Data(), currentPath.Capacity()))
+        failure = IDS_TOOLONGPATH; // do not reinterpret the shortened prefix as a valid context
+    if (failure == 0 && Is(ptZIPArchive))
+    {
+        if (!SalPathAddBackslash(currentPath.Data(), currentPath.Capacity()))
+            failure = IDS_TOOLONGPATH;
         curArchivePath = GetZIPArchive();
+    }
+    if (failure != 0)
+    {
+        type = -1;
+        isDir = FALSE;
+        secondPart = NULL;
+        if (nextFocus != NULL) nextFocus[0] = 0;
+        if (error != NULL) *error = SPP_WINDOWSPATHERROR;
+        SalMessageBox(HWindow, LoadStr(failure), errorTitle, MB_OK | MB_ICONEXCLAMATION);
+        return FALSE;
     }
 
     return SalParsePath(HWindow, path, type, isDir, secondPart, errorTitle, nextFocus,
-                        Is(ptDisk) || Is(ptZIPArchive), curPath, curArchivePath, error, pathBufSize);
+                        Is(ptDisk) || Is(ptZIPArchive), currentPath.Data(), curArchivePath, error, pathBufSize);
 }
 
 void CFilesWindow::SetPanelSide(CPanelSide side)
@@ -157,6 +186,11 @@ BOOL SafeInvokeCommand(IContextMenu2* menu, CMINVOKECOMMANDINFO& ici)
 
 BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pastePath)
 {
+    const std::string branchRoot = IsBranchView() ? SalWideToMultiBytePath(GetPathW(), CP_UTF8) : std::string();
+    if (IsBranchView() && (branchRoot.empty() || branchRoot.size() >= sizeof(DropPath) ||
+        onlyLinks || (pastePath != NULL && !Salamander::BranchView::IsRootDropTarget(GetPathW(), pastePath))))
+        return FALSE; // S27d5b: only real-root copy/move, never focused row or arbitrary target.
+
     CALL_STACK_MESSAGE4("CFilesWindow::ClipboardPaste(%d, %d, %s)", onlyLinks, onlyTest, pastePath);
     IDataObject* dataObj;
     BOOL files = FALSE;       // check whether the clipboard data are files at all
@@ -165,6 +199,11 @@ BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pas
                               //          (onlyTest ? "test " : "") << (pastePath != NULL ? pastePath : "(null)"));
     if (OleGetClipboard(&dataObj) == S_OK && dataObj != NULL)
     {
+        if (IsBranchView() && IsFakeDataObject(dataObj, NULL, NULL, 0))
+        {
+            dataObj->Release();
+            return FALSE;
+        }
         if (!onlyLinks && !onlyTest && IsFakeDataObject(dataObj, NULL, NULL, 0) && SalShExtSharedMemView != NULL)
         { // Salamander "fake" data object on the clipboard -> paste files/directories from the archive
             BOOL pasteFromOurData = FALSE;
@@ -249,6 +288,11 @@ BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pas
             enumFormat->Release();
         }
 
+        if (IsBranchView() && !ownRutine)
+        {
+            dataObj->Release();
+            return FALSE; // Require native HDROP ingestion; no arbitrary Shell paste verb.
+        }
         BOOL ourClipDataObject = FALSE;
         DWORD effect = 0;
         if (ownRutine) // if there's a chance for our own handling, check if it's copy or move
@@ -292,7 +336,9 @@ BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pas
 
         if (ownRutine) // execute our own routine - copy or move
         {
-            if (pastePath != NULL)
+            if (IsBranchView())
+                memcpy(DropPath, branchRoot.c_str(), branchRoot.size() + 1);
+            else if (pastePath != NULL)
                 lstrcpyn(DropPath, pastePath, SAL_MAX_PATH);
             else
                 lstrcpyn(DropPath, GetPath(), SAL_MAX_PATH);
@@ -1546,6 +1592,11 @@ void CFilesWindow::GetPanelItemToolTip(DWORD id, char* text, int textSize)
     char displayName[256];
     FormatPanelTipName(f, displayName, _countof(displayName));
     AppendTipLine(text, textSize, IDS_PANELTIP_NAME, displayName);
+    if (IsBranchView())
+    {
+        const std::string parent = SalWideToMultiBytePath(GetItemDirectoryW(*f).c_str(), CP_UTF8);
+        AppendTipLine(text, textSize, IDS_BRANCH_PATH_LABEL, parent.c_str());
+    }
 
     // File-system plug-ins already provide the most useful item summary for
     // the information line.  Reuse it in the panel tooltip as well, so the
@@ -1571,8 +1622,8 @@ void CFilesWindow::GetPanelItemToolTip(DWORD id, char* text, int textSize)
     BOOL categoryAppended = FALSE;
     if (!isDir && Is(ptDisk) && category != ptcUnknown)
     {
-        std::wstring pathW;
-        if (BuildPanelFilePathW(GetPathW(), GetPath(), f, pathW))
+        std::wstring pathW = GetItemFullPathW(*f);
+        if (!pathW.empty())
             categoryAppended = AppendCategoryProperties(text, textSize, pathW.c_str(), category,
                                                        IsLegacyOggFile(f));
     }
@@ -2327,6 +2378,30 @@ BOOL CFilesWindow::CopyFocusedNameToClipboard(CCopyFocusedNameModeEnum mode)
     if (FocusedIndex < 0 || FocusedIndex >= Files->Count + Dirs->Count)
         return FALSE; // ignore an invalid index
 
+    if (Is(ptDisk))
+    {
+        const CFileData& file = FocusedIndex < Dirs->Count ? Dirs->At(FocusedIndex) : Files->At(FocusedIndex - Dirs->Count);
+        const std::wstring fullPath = GetItemFullPathW(file);
+        if (fullPath.empty()) return FALSE;
+        if (mode == cfnmShort)
+            return CopyTextToClipboardW(SalPathFindFileNameW(fullPath.c_str()));
+        if (mode == cfnmFull)
+            return CopyTextToClipboardW(fullPath.c_str());
+        if (mode == cfnmUNC)
+        {
+            std::wstring unc;
+            if (BranchClipboardUNCPath(fullPath, unc))
+                return CopyTextToClipboardW(unc.c_str());
+            std::wstring message = SalMultiByteToWidePath(LoadStr(IDS_CANNOT_CREATE_UNC_NAME), CP_ACP);
+            const size_t marker = message.find(L"%s");
+            if (marker != std::wstring::npos) message.replace(marker, 2, fullPath);
+            const std::string text = SalWideToMultiBytePath(message.c_str(), CP_UTF8);
+            SalMessageBox(HWindow, text.c_str(), LoadStr(IDS_INFOTITLE), MB_OK | MB_ICONINFORMATION);
+            return FALSE;
+        }
+        return FALSE;
+    }
+
     char buff[2 * MAX_PATH];
     buff[0] = 0;
 
@@ -2438,6 +2513,21 @@ void AddStrToStr(char* dstStr, int dstBufSize, const char* srcStr)
 }
 
 // prepare a template for the 'Columns' variable
+
+static void WINAPI InternalGetBranchPath()
+{
+    TransferLen = 0;
+    if (TransferPanelWindow == NULL || TransferFileData == NULL || TransferIsDir == 2)
+        return;
+    const std::string path = SalWideToMultiBytePath(
+        TransferPanelWindow->GetBranchViewDisplayDirectoryW(*TransferFileData).c_str(), CP_UTF8);
+    size_t length = (std::min)(path.size(), (size_t)TRANSFER_BUFFER_MAX - 1);
+    while (length < path.size() && length > 0 && ((unsigned char)path[length] & 0xc0) == 0x80)
+        --length;
+    memcpy(TransferBuffer, path.data(), length);
+    TransferBuffer[length] = 0;
+    TransferLen = (int)length;
+}
 
 BOOL CFilesWindow::BuildColumnsTemplate()
 {
@@ -2555,6 +2645,27 @@ BOOL CFilesWindow::BuildColumnsTemplate()
         }
     }
 
+    if (IsBranchView())
+    {
+        CColumn pathColumn = {};
+        lstrcpyn(pathColumn.Name, LoadStr(IDS_BRANCH_PATH), COLUMN_NAME_MAX);
+        lstrcpyn(pathColumn.Description, LoadStr(IDS_BRANCH_PATH_DESC), COLUMN_DESCRIPTION_MAX);
+        pathColumn.ID = COLUMN_ID_CUSTOM;
+        pathColumn.CustomData = BRANCH_VIEW_PATH_COLUMN;
+        pathColumn.GetText = InternalGetBranchPath;
+        pathColumn.SupportSorting = 1;
+        pathColumn.LeftAlignment = 1;
+        pathColumn.FixedWidth = 1;
+        pathColumn.Width = GetBranchViewPathColumnWidth();
+        // Keep the real parent visible beside Name, including duplicate names.
+        const int pathIndex = ColumnsTemplate.Count > 1 && ColumnsTemplate[1].ID == COLUMN_ID_EXTENSION ? 2 : 1;
+        ColumnsTemplate.Insert(pathIndex, pathColumn);
+        if (!ColumnsTemplate.IsGood())
+        {
+            ColumnsTemplate.ResetState();
+            return FALSE;
+        }
+    }
     return TRUE;
 }
 
@@ -2662,7 +2773,11 @@ void CFilesWindow::OnHeaderLineColWidthChanged()
             colIndex = 8;
             break;
         }
-        if (column->ID == COLUMN_ID_CUSTOM &&
+        if (column->ID == COLUMN_ID_CUSTOM && column->CustomData == BRANCH_VIEW_PATH_COLUMN)
+        {
+            SetBranchViewPathColumnWidth(column->Width);
+        }
+        else if (column->ID == COLUMN_ID_CUSTOM &&
             column->GetText == InternalGetExplorerColumn &&
             column->CustomData < EXPLORER_COLUMNS_COUNT)
         {

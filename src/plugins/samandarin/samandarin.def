@@ -11,3 +11,4 @@ EXPORTS Samandarin_SetDarkModeState
 EXPORTS Samandarin_UpdateListViewDarkMode
 EXPORTS Samandarin_ExportInstalledPlugins
 EXPORTS Samandarin_ExportInstalledExtensions
+EXPORTS Samandarin_PrepareForProcessExit

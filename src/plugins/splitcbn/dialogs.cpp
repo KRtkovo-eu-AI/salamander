@@ -13,6 +13,47 @@
 
 namespace
 {
+bool BrowseFolder(HWND parent, std::string& path)
+{
+    const std::wstring title = SplitCBNPaths::Wide(LoadStr(IDS_SELECTDIR));
+    const std::wstring initial = SplitCBNPaths::Wide(path.c_str());
+    IFileDialog* dialog = NULL;
+    if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dialog))))
+        return false;
+    dialog->SetTitle(title.c_str());
+    FILEOPENDIALOGOPTIONS options = 0;
+    dialog->GetOptions(&options);
+    dialog->SetOptions(options | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM | FOS_NOCHANGEDIR);
+    IShellItem* folder = NULL;
+    if (SUCCEEDED(SHCreateItemFromParsingName(initial.c_str(), NULL, IID_PPV_ARGS(&folder))))
+    {
+        dialog->SetFolder(folder);
+        folder->Release();
+    }
+    bool accepted = false;
+    if (SUCCEEDED(dialog->Show(parent)) && SUCCEEDED(dialog->GetResult(&folder)))
+    {
+        PWSTR selected = NULL;
+        if (SUCCEEDED(folder->GetDisplayName(SIGDN_FILESYSPATH, &selected)))
+        {
+            try { path = SplitCBNPaths::Utf8(selected); accepted = true; }
+            catch (...) { CoTaskMemFree(selected); folder->Release(); dialog->Release(); throw; }
+            CoTaskMemFree(selected);
+        }
+        folder->Release();
+    }
+    dialog->Release();
+    return accepted;
+}
+
+std::wstring FileDialogFilter()
+{
+    std::wstring filter = SplitCBNPaths::Wide(LoadStr(IDS_ADDFILTER));
+    filter.push_back(L'\0');
+    filter.append(L"*.*", 3);
+    filter.push_back(L'\0');
+    return filter;
+}
 BOOL HandleSplitCBNDarkDialogMessage(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result)
 {
     switch (uMsg)
@@ -57,9 +98,10 @@ BOOL HandleSplitCBNDarkDialogMessage(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 namespace split
 {
 
-    static LPTSTR pszFileName;
+    static const char* pszFileName;
+    static const char* sourceDirectory;
     static CQuadWord qwFileSize;
-    static LPTSTR pszTargetDir;
+    static std::string* pszTargetDir;
     static CQuadWord* pqwPartialSize;
 
     static HWND hDialog;
@@ -229,10 +271,10 @@ namespace split
         }
     }
 
-    static INT_PTR CALLBACK SplitDlgProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+    static INT_PTR SplitDlgProcImpl(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         CALL_STACK_MESSAGE4("SplitDlgProc( , 0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
-        char text[MAX_PATH + 100];
+        char text[200];
 
         switch (uMsg)
         {
@@ -250,7 +292,8 @@ namespace split
             SalamanderGUI->SetSubjectTruncatedText(GetDlgItem(hWnd, IDC_STATIC_TITLE), text,
                                                    pszFileName, FALSE, FALSE);
 
-            SetDlgItemText(hWnd, IDC_EDIT_DIR, pszTargetDir);
+            SplitCBNPaths::SetWindowPath(GetDlgItem(hWnd, IDC_EDIT_DIR), pszTargetDir->c_str());
+            SendDlgItemMessage(hWnd, IDC_EDIT_DIR, EM_SETLIMITTEXT, SAL_MAX_PATH - 1, 0);
             CheckDlgButton(hWnd, IDC_RADIO_SIZE, BST_CHECKED);
             SendMessage(hWnd, WM_COMMAND, IDC_RADIO_SIZE, 0);
             SendMessage(GetDlgItem(hWnd, IDC_EDIT_NUMBER), EM_SETLIMITTEXT, 3, 0);
@@ -311,7 +354,7 @@ namespace split
             }
 
             case IDOK:
-                GetDlgItemText(hWnd, IDC_EDIT_DIR, pszTargetDir, MAX_PATH);
+                *pszTargetDir = SplitCBNPaths::WindowText(GetDlgItem(hWnd, IDC_EDIT_DIR));
                 EndDialog(hWnd, TRUE);
                 break;
 
@@ -352,11 +395,9 @@ namespace split
 
             case IDC_BUTTON_BROWSE:
             {
-                HWND parent = SalamanderGeneral->GetMsgBoxParent();
-                GetDlgItemText(hWnd, IDC_EDIT_DIR, text, MAX_PATH);
-                if (SalamanderGeneral->GetTargetDirectory(hWnd, parent, LoadStr(IDS_SPLIT),
-                                                          LoadStr(IDS_SELECTDIR), text, FALSE, text))
-                    SetDlgItemText(hWnd, IDC_EDIT_DIR, text);
+                std::string directory = SplitCBNPaths::WindowText(GetDlgItem(hWnd, IDC_EDIT_DIR));
+                if (BrowseFolder(hWnd, directory))
+                    SplitCBNPaths::SetWindowPath(GetDlgItem(hWnd, IDC_EDIT_DIR), directory.c_str());
                 break;
             }
 
@@ -367,8 +408,8 @@ namespace split
                 ConfigDialog(hWnd);
                 if (oldSplitToOther != configSplitToOther || oldSplitToSubdir != configSplitToSubdir)
                 {
-                    GetTargetDir(text, pszFileName, TRUE);
-                    SetDlgItemText(hWnd, IDC_EDIT_DIR, text);
+                    const std::string target = GetTargetDir(sourceDirectory, pszFileName, TRUE);
+                    SplitCBNPaths::SetWindowPath(GetDlgItem(hWnd, IDC_EDIT_DIR), target.c_str());
                 }
                 break;
             }
@@ -381,18 +422,30 @@ namespace split
         return FALSE;
     }
 
+    static INT_PTR CALLBACK SplitDlgProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
+    {
+        try { return SplitDlgProcImpl(window, message, wParam, lParam); }
+        catch (const std::bad_alloc&)
+        {
+            SalamanderGeneral->SalMessageBox(window, LoadStr(IDS_OUTOFMEM), LoadStr(IDS_SPLIT), MB_OK | MB_ICONEXCLAMATION);
+            EndDialog(window, FALSE);
+            return TRUE;
+        }
+    }
+
 } // namespace split
 using namespace split;
 
-BOOL SplitDialog(LPTSTR fileName, CQuadWord& fileSize, LPTSTR targetDir,
-                 CQuadWord* partialSize, HWND hParent)
+BOOL SplitDialog(const char* fileName, CQuadWord& fileSize, std::string& targetDir,
+                 const char* sourceDir, CQuadWord* partialSize, HWND hParent)
 {
-    CALL_STACK_MESSAGE4("SplitDialog(%s, %I64u, %s, , )", fileName, fileSize.Value, targetDir);
+    CALL_STACK_MESSAGE4("SplitDialog(%s, %I64u, %s, , )", fileName, fileSize.Value, targetDir.c_str());
     pszFileName = fileName;
     qwFileSize = fileSize;
-    pszTargetDir = targetDir;
+    pszTargetDir = &targetDir;
+    split::sourceDirectory = sourceDir;
     pqwPartialSize = partialSize;
-    return (BOOL)DialogBoxParam(HLanguage, MAKEINTRESOURCE(IDD_SPLIT), hParent, SplitDlgProc, 0);
+    return (BOOL)DialogBoxParamW(HLanguage, MAKEINTRESOURCEW(IDD_SPLIT), hParent, SplitDlgProc, 0);
 }
 
 // *****************************************************************************
@@ -404,7 +457,7 @@ namespace combine
 {
 
     static TIndirectArray<char>* files;
-    static LPTSTR targetName;
+    static std::string* targetName;
     static BOOL bOrigCrcFound;
     static UINT32 origCrc;
     static UINT uDragMsg;
@@ -418,10 +471,10 @@ namespace combine
     {
         int index;
         //HICON hIcon;
-        char text[MAX_PATH];
+        std::wstring text;
     };
 
-    static BOOL AddFile(LPTSTR fullName, BOOL bUpdateArray = TRUE)
+    static BOOL AddFile(const char* fullName, BOOL bUpdateArray = TRUE)
     {
         CALL_STACK_MESSAGE3("AddFile(%s, %ld)", fullName, bUpdateArray);
 
@@ -435,22 +488,24 @@ namespace combine
                 return FALSE;
             }
             files->Add(dup);
+            if (!files->IsGood())
+            {
+                free(dup);
+                throw std::bad_alloc();
+            }
         }
 
-        char dir[MAX_PATH];
-        SalamanderGeneral->GetPanelPath(PANEL_SOURCE, dir, MAX_PATH, NULL, NULL);
-        const char* name = SalamanderGeneral->SalPathFindFileName(fullName);
-        ITEMDATA* pid = new ITEMDATA;
-        if ((name - fullName - 1) == (int)strlen(dir) && !_memicmp(dir, fullName, name - fullName - 1))
-            strcpy(pid->text, name);
-        else
-            strcpy(pid->text, fullName);
+        std::unique_ptr<ITEMDATA> owned(new ITEMDATA);
+        ITEMDATA* pid = owned.get();
+        // Full paths disambiguate equal basenames from different directories.
+        pid->text = SplitCBNPaths::Wide(fullName);
         pid->index = (int)SendMessage(hLB, LB_GETCOUNT, 0, 0) - 1;
-        SendMessage(hLB, LB_INSERTSTRING, pid->index, 1);
+        if (SendMessage(hLB, LB_INSERTSTRING, pid->index, 1) == LB_ERRSPACE)
+            throw std::bad_alloc();
         /*SHFILEINFO sfi;
   SHGetFileInfo(fullName, 0, &sfi, sizeof(sfi), SHGFI_ICON | SHGFI_SMALLICON);
   pid->hIcon = sfi.hIcon;*/
-        SendMessage(hLB, LB_SETITEMDATA, pid->index, (LPARAM)pid);
+        SendMessage(hLB, LB_SETITEMDATA, pid->index, (LPARAM)owned.release());
 
         SendMessage(hLB, LB_SETCURSEL, currentIndex = pid->index, 0);
         return TRUE;
@@ -519,89 +574,56 @@ namespace combine
 
     static void OnAdd()
     {
-        CALL_STACK_MESSAGE1("OnAdd()");
-        OPENFILENAME ofn;
-        char* filenames = new char[MAX_PATH * 100];
-        if (filenames == NULL)
-        {
-            SalamanderGeneral->SalMessageBox(hDialog, LoadStr(IDS_OUTOFMEM), LoadStr(IDS_COMBINE),
-                                             MB_OK | MB_ICONEXCLAMATION);
-            return;
-        }
-        filenames[0] = 0;
-        ZeroMemory(&ofn, sizeof(ofn));
+        std::vector<wchar_t> filenames(4 * SAL_MAX_PATH);
+        std::wstring filter = FileDialogFilter();
+        const std::wstring title = SplitCBNPaths::Wide(LoadStr(IDS_ADDTITLE));
+        const std::wstring initial = SplitCBNPaths::Wide(files->Count ? SplitCBNPaths::Parent((*files)[0]).c_str() : "");
+        OPENFILENAMEW ofn = {};
         ofn.lStructSize = sizeof(ofn);
         ofn.hwndOwner = hDialog;
         ofn.hInstance = HLanguage;
-        char filter[100];
-        strcpy(filter, LoadStr(IDS_ADDFILTER));
-        memcpy(filter + strlen(filter) + 1, "*.*\0\0", 5);
-        ofn.lpstrFilter = filter;
-        ofn.lpstrCustomFilter = NULL;
-        ofn.lpstrFile = filenames;
-        ofn.nMaxFile = MAX_PATH * 100;
-        ofn.lpstrTitle = LoadStr(IDS_ADDTITLE);
-        char initdir[MAX_PATH];
-        SalamanderGeneral->GetPanelPath(PANEL_SOURCE, initdir, MAX_PATH, NULL, NULL);
-        ofn.lpstrInitialDir = initdir;
+        ofn.lpstrFilter = filter.c_str();
+        ofn.lpstrFile = filenames.data();
+        ofn.nMaxFile = static_cast<DWORD>(filenames.size());
+        ofn.lpstrTitle = title.c_str();
+        ofn.lpstrInitialDir = initial.empty() ? NULL : initial.c_str();
         ofn.Flags = OFN_ALLOWMULTISELECT | OFN_PATHMUSTEXIST | OFN_EXPLORER | OFN_READONLY | OFN_NOCHANGEDIR;
-
-        if (SalamanderGeneral->SafeGetOpenFileName(&ofn))
+        if (GetOpenFileNameW(&ofn))
         {
-            SendMessage(hLB, WM_SETREDRAW, FALSE, 0);
-            int i = ofn.nFileOffset;
-            if (i > 0)
-                filenames[i - 1] = 0;
-            while (filenames[i])
+            const wchar_t* name = filenames.data() + wcslen(filenames.data()) + 1;
+            if (*name == 0)
+                AddFile(SplitCBNPaths::Utf8(filenames.data()).c_str());
+            else
             {
-                char fullname[MAX_PATH];
-                strcpy(fullname, filenames);
-                if (!SalamanderGeneral->SalPathAppend(fullname, filenames + i, MAX_PATH))
+                const std::string directory = SplitCBNPaths::Utf8(filenames.data());
+                while (*name != 0)
                 {
-                    SalamanderGeneral->SalMessageBox(hDialog, LoadStr(IDS_TOOLONGNAME2), LoadStr(IDS_COMBINE),
-                                                     MB_OK | MB_ICONEXCLAMATION);
-                    delete[] filenames;
-                    return;
+                    if (!AddFile(SplitCBNPaths::Join(directory, SplitCBNPaths::Utf8(name)).c_str()))
+                        break;
+                    name += wcslen(name) + 1;
                 }
-                if (!AddFile(fullname))
-                {
-                    delete[] filenames;
-                    return;
-                }
-                while (filenames[i])
-                    i++;
-                i++;
             }
-            SendMessage(hLB, WM_SETREDRAW, TRUE, 0);
         }
-
-        delete[] filenames;
     }
 
     static void OnBrowse()
     {
-        CALL_STACK_MESSAGE1("OnBrowse()");
-        OPENFILENAME ofn;
-        char filename[MAX_PATH];
-        filename[0] = 0;
-        ZeroMemory(&ofn, sizeof(ofn));
+        std::vector<wchar_t> filename(SAL_MAX_PATH);
+        std::wstring filter = FileDialogFilter();
+        const std::wstring title = SplitCBNPaths::Wide(LoadStr(IDS_BROWSETITLE));
+        const std::wstring initial = SplitCBNPaths::Wide(files->Count ? SplitCBNPaths::Parent((*files)[0]).c_str() : "");
+        OPENFILENAMEW ofn = {};
         ofn.lStructSize = sizeof(ofn);
         ofn.hwndOwner = hDialog;
         ofn.hInstance = HLanguage;
-        char filter[100];
-        strcpy(filter, LoadStr(IDS_ADDFILTER));
-        memcpy(filter + strlen(filter) + 1, "*.*\0\0", 5);
-        ofn.lpstrFilter = filter;
-        ofn.lpstrCustomFilter = NULL;
-        ofn.lpstrFile = filename;
-        ofn.nMaxFile = MAX_PATH;
-        ofn.lpstrTitle = LoadStr(IDS_BROWSETITLE);
-        char initdir[MAX_PATH];
-        SalamanderGeneral->GetPanelPath(PANEL_SOURCE, initdir, MAX_PATH, NULL, NULL);
-        ofn.lpstrInitialDir = initdir;
+        ofn.lpstrFilter = filter.c_str();
+        ofn.lpstrFile = filename.data();
+        ofn.nMaxFile = static_cast<DWORD>(filename.size());
+        ofn.lpstrTitle = title.c_str();
+        ofn.lpstrInitialDir = initial.empty() ? NULL : initial.c_str();
         ofn.Flags = OFN_PATHMUSTEXIST | OFN_EXPLORER | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
-        if (SalamanderGeneral->SafeGetSaveFileName(&ofn))
-            SetDlgItemText(hDialog, IDC_EDIT_TARGET, filename);
+        if (GetSaveFileNameW(&ofn))
+            SetWindowTextW(GetDlgItem(hDialog, IDC_EDIT_TARGET), filename.data());
     }
 
     static void OnCRC(HWND parent)
@@ -626,7 +648,7 @@ namespace combine
 
             if (pid && (pid->index >= 0))
             {
-                GetTextExtentPoint32(hDC, pid->text, (int)strlen(pid->text), &sz);
+                GetTextExtentPoint32W(hDC, pid->text.c_str(), static_cast<int>(pid->text.size()), &sz);
                 if (sz.cx > minWidth)
                     minWidth = sz.cx;
             }
@@ -636,7 +658,7 @@ namespace combine
         ReleaseDC(hWnd, hDC);
     }
 
-    static INT_PTR CALLBACK CombineDlgProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+    static INT_PTR CombineDlgProcImpl(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         CALL_STACK_MESSAGE4("CombineDlgProc( , 0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
         switch (uMsg)
@@ -677,7 +699,8 @@ namespace combine
             UpdateHorizontalScrollbar(hLB);
 
             HWND hEdit = GetDlgItem(hWnd, IDC_EDIT_TARGET);
-            SetWindowText(hEdit, targetName);
+            SplitCBNPaths::SetWindowPath(hEdit, targetName->c_str());
+            SendMessage(hEdit, EM_SETLIMITTEXT, SAL_MAX_PATH - 1, 0);
             SetFocus(GetDlgItem(hWnd, IDC_EDIT_TARGET));
             SendMessage(hEdit, EM_SETSEL, 0, -1);
 
@@ -732,7 +755,7 @@ namespace combine
                 break;
 
             case IDOK:
-                GetDlgItemText(hWnd, IDC_EDIT_TARGET, targetName, MAX_PATH);
+                *targetName = SplitCBNPaths::WindowText(GetDlgItem(hWnd, IDC_EDIT_TARGET));
                 EndDialog(hWnd, TRUE);
                 break;
 
@@ -823,7 +846,7 @@ namespace combine
                 SetTextColor(hDC, selected ? GetSysColor(COLOR_HIGHLIGHTTEXT) :
                                     (useDark ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_WINDOWTEXT)));
                 SetBkMode(hDC, TRANSPARENT);
-                DrawText(hDC, pid->text, -1, &r, DT_SINGLELINE | DT_LEFT | DT_VCENTER);
+                DrawTextW(hDC, pid->text.c_str(), -1, &r, DT_SINGLELINE | DT_LEFT | DT_VCENTER);
                 r.left -= 21;
             }
             if (focused)
@@ -891,20 +914,31 @@ namespace combine
         return FALSE;
     }
 
+    static INT_PTR CALLBACK CombineDlgProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
+    {
+        try { return CombineDlgProcImpl(window, message, wParam, lParam); }
+        catch (const std::bad_alloc&)
+        {
+            SalamanderGeneral->SalMessageBox(window, LoadStr(IDS_OUTOFMEM), LoadStr(IDS_COMBINE), MB_OK | MB_ICONEXCLAMATION);
+            EndDialog(window, FALSE);
+            return TRUE;
+        }
+    }
+
 } // namespace combine
 using namespace combine;
 
-BOOL CombineDialog(TIndirectArray<char>& f, LPTSTR t, BOOL b, UINT32 c, HWND hParent,
+BOOL CombineDialog(TIndirectArray<char>& f, std::string& t, BOOL b, UINT32 c, HWND hParent,
                    CSalamanderForOperationsAbstract* sal)
 {
-    CALL_STACK_MESSAGE4("CombineDialog( , %s, %ld, %X, , )", t, b, c);
+    CALL_STACK_MESSAGE4("CombineDialog( , %s, %ld, %X, , )", t.c_str(), b, c);
     files = &f;
-    targetName = t;
+    targetName = &t;
     bOrigCrcFound = b;
     origCrc = c;
     salamander = sal;
     uDragMsg = 0xffffffff;
-    return (BOOL)DialogBoxParam(HLanguage, MAKEINTRESOURCE(IDD_COMBINE), hParent, CombineDlgProc, 0);
+    return (BOOL)DialogBoxParamW(HLanguage, MAKEINTRESOURCEW(IDD_COMBINE), hParent, CombineDlgProc, 0);
 }
 
 // *****************************************************************************

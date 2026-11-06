@@ -1,0 +1,218 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-06 | Check independent sequential wait choices and automatic scheduling with real controls. | Validate upstream integration without weakening Branch path guarantees. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
+// Actual Copy/Move constructor, Transfer, atomic reader and history update.
+// Dialog base/criteria controls are explicit doubles; HWND text and checkbox I/O are real.
+// Actual legacy history routine uses CRT strcpy; retain /W4 /WX for all other diagnostics.
+#define _CRT_SECURE_NO_WARNINGS
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <cstring>
+#include <cstdlib>
+#include <cstdio>
+#include <algorithm>
+#define SAL_MAX_PATH 32768
+#define CALL_STACK_MESSAGE1(...) ((void)0)
+#define TRACE_E(...) ((void)0)
+@@IDS@@
+enum {ttDataToWindow,ttDataFromWindow};
+static HINSTANCE HLanguage=nullptr;
+static int Messages=0,CriteriaTransfers=0;
+static std::string LastMessage;
+static const char* LoadStr(int id){return id==IDS_TOOLONGPATH?"path too long":id==IDS_PATHISINVALID?"invalid path":"localized UI";}
+static int SalMessageBox(HWND,const char* text,const char*,UINT){++Messages;LastMessage=text;return IDOK;}
+static int StrICmp(const char*a,const char*b){return _stricmp(a,b);}
+struct CTruncatedString {};
+struct CCriteriaData {int Token=10;};
+class CButton;
+static struct {int CopyMoveOperationPolicy=COSP_ASK;} Configuration;
+struct CTransferInfo
+{
+    HWND Parent;int Type;bool Good=true;int ErrorID=0;
+    CTransferInfo(HWND parent,int type):Parent(parent),Type(type){}
+    BOOL GetControl(HWND& control,int id){control=GetDlgItem(Parent,id);if(!control){Good=false;ErrorID=id;}return control!=nullptr;}
+    BOOL IsGood() const{return Good;}
+    void ErrorOn(int id){Good=false;ErrorID=id;}
+    void CheckBox(int id,BOOL& value){if(Type==ttDataToWindow)SendDlgItemMessageW(Parent,id,BM_SETCHECK,value?BST_CHECKED:BST_UNCHECKED,0);else value=SendDlgItemMessageW(Parent,id,BM_GETCHECK,0,0)==BST_CHECKED;}
+};
+struct CCommonDialog
+{
+    HWND HWindow=nullptr;BOOL UnicodeWnd=FALSE;
+    CCommonDialog(HINSTANCE,int,DWORD,HWND){}
+    virtual void Transfer(CTransferInfo&){}
+    virtual ~CCommonDialog()=default;
+};
+// Process-local ACP facade only: real Windows conversions for the selected
+// code page, without changing the machine locale or accepting lossy fixtures.
+static const UINT NativeACP = GetACP();
+static UINT HistoryCodePage = NativeACP;
+static UINT WINAPI FixtureGetACP() { return HistoryCodePage; }
+static int WINAPI FixtureMultiByteToWideChar(UINT cp,DWORD flags,LPCCH text,int count,LPWSTR wide,int capacity)
+{
+    return MultiByteToWideChar(cp == CP_ACP ? HistoryCodePage : cp,flags,text,count,wide,capacity);
+}
+static int WINAPI FixtureWideCharToMultiByte(UINT cp,DWORD flags,LPCWCH text,int count,LPSTR bytes,int capacity,LPCCH replacement,LPBOOL used)
+{
+    return WideCharToMultiByte(cp == CP_ACP ? HistoryCodePage : cp,flags,text,count,bytes,capacity,replacement,used);
+}
+#define GetACP FixtureGetACP
+#define MultiByteToWideChar FixtureMultiByteToWideChar
+#define WideCharToMultiByte FixtureWideCharToMultiByte
+@@CONVERSIONS@@
+@@HISTORY@@
+@@DECL@@
+@@ACTUAL@@
+void CCopyMoveMoreDialog::Validate(CTransferInfo&){} // unrelated criteria validation excluded
+INT_PTR CCopyMoveMoreDialog::DialogProc(UINT,WPARAM,LPARAM){return 0;} // actual resource/drawing covered by GUI smoke
+void CCopyMoveMoreDialog::TransferCriteriaControls(CTransferInfo& ti)
+{
+    ++CriteriaTransfers;
+    if(ti.Type==ttDataFromWindow){++Criteria->Token;*CriteriaInOut=*Criteria;}
+}
+struct TestDialog:CCopyMoveMoreDialog
+{
+    using CCopyMoveMoreDialog::CCopyMoveMoreDialog;
+    void Attach(HWND parent){HWindow=parent;}
+    BOOL UsesWide() const{return UnicodeWnd;}
+    void RefreshScheduling(){UpdateTransferModeControls();}
+};
+static int Checks=0,Failures=0;
+static void Check(bool ok,const char* text){++Checks;if(!ok){++Failures;printf("FAIL: %s\n",text);}}
+static char* Dup(const std::string& text){auto p=(char*)malloc(text.size()+1);if(p)memcpy(p,text.c_str(),text.size()+1);return p;}
+static std::wstring Text(HWND control){std::wstring result((size_t)GetWindowTextLengthW(control)+1,L'\0');int n=GetWindowTextW(control,result.data(),(int)result.size());result.resize(n);return result;}
+static std::wstring Item(HWND combo,int index){auto n=SendMessageW(combo,CB_GETLBTEXTLEN,index,0);if(n==CB_ERR)return {};std::wstring result((size_t)n+1,L'\0');SendMessageW(combo,CB_GETLBTEXT,index,(LPARAM)result.data());result.resize((size_t)n);return result;}
+static std::vector<std::string> History(char** values){std::vector<std::string> result;for(int i=0;i<3;++i)result.emplace_back(values[i]?values[i]:"<null>");return result;}
+int main(int argc,char** argv)
+{
+    if(argc != 2) return 2;
+    if(strcmp(argv[1],"system") != 0) HistoryCodePage = static_cast<UINT>(strtoul(argv[1],nullptr,10));
+    if(HistoryCodePage == 0) return 2;
+    printf("History ACP=%u (native=%u), real Win32 conversions\n",HistoryCodePage,NativeACP);
+    setvbuf(stdout,nullptr,_IONBF,0);
+    HWND parent=CreateWindowExW(0,L"STATIC",L"owned Copy/Move native fixture",WS_OVERLAPPED,0,0,500,300,nullptr,nullptr,nullptr,nullptr);
+    HWND path=CreateWindowExW(0,L"COMBOBOX",L"",WS_CHILD|CBS_DROPDOWN,0,0,400,100,parent,(HMENU)IDE_PATH,nullptr,nullptr);
+    HWND keep=CreateWindowExW(0,L"BUTTON",L"keep paths",WS_CHILD|BS_AUTOCHECKBOX,0,0,100,20,parent,(HMENU)IDC_BRANCH_KEEP_PATHS,nullptr,nullptr);
+    HWND wait=CreateWindowExW(0,L"BUTTON",L"wait",WS_CHILD|BS_AUTOCHECKBOX,0,0,100,20,parent,(HMENU)IDC_CM_STARTONIDLE,nullptr,nullptr);
+    HWND mode=CreateWindowExW(0,L"COMBOBOX",L"",WS_CHILD|CBS_DROPDOWNLIST,0,0,100,100,parent,(HMENU)IDC_CM_TRANSFERMODE,nullptr,nullptr);
+    HWND conflict=CreateWindowExW(0,L"COMBOBOX",L"",WS_CHILD|CBS_DROPDOWNLIST,0,0,100,100,parent,(HMENU)IDC_CM_CONFLICTMODE,nullptr,nullptr);
+    HWND targets=CreateWindowExW(0,L"LISTBOX",L"",WS_CHILD,0,0,100,100,parent,(HMENU)IDC_COPY_TARGETDIRS,nullptr,nullptr);
+    if(!parent||!path||!keep||!wait||!mode||!conflict||!targets)return 2;
+    Check(IsWindowUnicode(path)&&IsWindowUnicode(ResolveComboEditControl(path)),"fixture owns actual Unicode combo and edit controls");
+    // The original Czech fixture remains mandatory in the CP1250 run. A
+    // CP1252 runner must not be asked to encode characters its ACP cannot hold.
+    const std::wstring legacyHistory = HistoryCodePage == 1250 ? L"C:\\žluť" :
+        HistoryCodePage == CP_UTF8 ? L"C:\\東京-🙂" : L"C:\\café";
+    BOOL usedDefault=FALSE;
+    const DWORD flags = HistoryCodePage == CP_UTF8 ? 0 : WC_NO_BEST_FIT_CHARS;
+    LPBOOL used = HistoryCodePage == CP_UTF8 ? nullptr : &usedDefault;
+    const int needed=WideCharToMultiByte(HistoryCodePage,flags,legacyHistory.c_str(),-1,nullptr,0,nullptr,used);
+    Check(needed>1&&!usedDefault,"legacy fixture is representable without default or best-fit substitution");
+    if(needed<=1||usedDefault) return 3;
+    std::vector<char> legacyBytes(static_cast<size_t>(needed));
+    Check(WideCharToMultiByte(HistoryCodePage,flags,legacyHistory.c_str(),-1,legacyBytes.data(),needed,nullptr,used)==needed&&!usedDefault,
+          "legacy fixture encoding is exact, never a replacement-byte expectation");
+    if(usedDefault) return 3;
+    std::vector<wchar_t> decoded(legacyHistory.size()+1);
+    Check(MultiByteToWideChar(HistoryCodePage,0,legacyBytes.data(),-1,decoded.data(),static_cast<int>(decoded.size()))==static_cast<int>(decoded.size())&&decoded.data()==legacyHistory,
+          "independent Windows ACP roundtrip preserves the original fixture text");
+    Check(HistoryCodePage==CP_UTF8 ? IsValidPathUtf8Text(legacyBytes.data()) : !IsValidPathUtf8Text(legacyBytes.data()),
+          "history fixture exercises the intended UTF8 or distinct legacy ACP route");
+    char* history[3]={Dup(SalWideToMultiBytePath(L"C:\\historie-東京\\🙂",CP_UTF8)),Dup(legacyBytes.data()),nullptr};
+    if(!history[0]||!history[1])return 3;
+    CTruncatedString subject;CCriteriaData criteria;BOOL keepValue=FALSE;int modeValue=CMS_SEQUENTIAL,conflictValue=CMCM_CURRENT,scheduling=COSO_DEFAULT;
+    char title[]="Copy";std::vector<char> storage(SAL_MAX_PATH+16,'Z');strcpy(storage.data(),"C:\\initial");
+    TestDialog dialog(nullptr,storage.data(),SAL_MAX_PATH,title,&subject,0,history,3,&criteria,TRUE,TRUE,
+        &modeValue,&conflictValue,&scheduling,nullptr,FALSE,&keepValue);dialog.Attach(parent);
+    Check(dialog.UsesWide(),"actual constructor selects Unicode resource creation");
+    CTransferInfo to(parent,ttDataToWindow);dialog.Transfer(to);
+    Check(to.IsGood()&&Text(path)==L"C:\\initial","actual Transfer shows exact initial path");
+    Check(Item(path,0)==L"C:\\historie-東京\\🙂"&&Item(path,1)==legacyHistory,"wide history preserves UTF8 and legacy ACP path entries");
+    SendMessageW(mode,CB_SETCURSEL,CMS_STORAGE_AWARE,0);dialog.RefreshScheduling();
+    Check(!IsWindowEnabled(wait)&&IsDlgButtonChecked(parent,IDC_CM_STARTONIDLE)==BST_CHECKED,"automatic mode shows disabled checked wait without changing the independent user choice");
+    SendMessageW(mode,CB_SETCURSEL,CMS_SEQUENTIAL,0);dialog.RefreshScheduling();
+    Check(IsWindowEnabled(wait)&&IsDlgButtonChecked(parent,IDC_CM_STARTONIDLE)==BST_UNCHECKED,"returning to sequential restores the unchecked user choice");
+    SendMessageW(wait,BM_SETCHECK,BST_CHECKED,0);CTransferInfo waitChoice(parent,ttDataFromWindow);dialog.Transfer(waitChoice);
+    Check(waitChoice.IsGood()&&scheduling==COSO_WAIT_ALL,"sequential checked waits for earlier operations");
+    SendMessageW(mode,CB_SETCURSEL,CMS_STORAGE_AWARE,0);dialog.RefreshScheduling();
+    CTransferInfo automatic(parent,ttDataFromWindow);dialog.Transfer(automatic);
+    Check(automatic.IsGood()&&scheduling==COSO_DEFAULT,"automatic mode ignores checked display and keeps resource scheduling");
+    SendMessageW(mode,CB_SETCURSEL,CMS_SEQUENTIAL,0);dialog.RefreshScheduling();
+    Check(IsDlgButtonChecked(parent,IDC_CM_STARTONIDLE)==BST_CHECKED,"automatic roundtrip preserves the independent checked sequential choice");
+    const std::vector<std::wstring> shapes={L"C:\\ascii\\target",L"C:\\ascii\\東京-🙂.txt",L"C:\\rodič-東京\\target",L"C:\\první-🙂\\druhý-東京\\target",L"C:\\"+std::wstring(100,L'東'),L"C:\\"+std::wstring(140,L'日')+L"\\"+std::wstring(140,L'本')+L"\\target"};
+    for(size_t i=0;i<shapes.size();++i)
+    {
+        Check(SetWindowTextW(path,shapes[i].c_str())!=FALSE,"set actual Unicode destination text");
+        const auto expected=SalWideToMultiBytePath(shapes[i].c_str(),CP_UTF8);
+        CTransferInfo from(parent,ttDataFromWindow);dialog.Transfer(from);
+        Check(from.IsGood()&&std::string(storage.data())==expected,"complete destination transferred without shortening");
+        Check(history[0]&&std::string(history[0])==expected,"actual history update receives complete validated target");
+        Check(std::all_of(storage.begin()+SAL_MAX_PATH,storage.end(),[](char value){return value=='Z';}),"caller capacity red zone preserved");
+        if(i==4)Check(expected.size()>MAX_PATH&&shapes[i].size()<MAX_PATH,"UTF8-only long text exercised");
+        if(i==5)Check(shapes[i].size()>MAX_PATH,"long UTF16 text exercised");
+    }
+    {
+        std::vector<char> small(64,'Z');strcpy(small.data(),"keep");CCriteriaData original;
+        BOOL savedKeep=FALSE;int savedMode=CMS_SEQUENTIAL,savedConflict=CMCM_CURRENT,savedSchedule=COSO_DEFAULT;
+        TestDialog bounded(nullptr,small.data(),8,title,&subject,0,history,3,&original,TRUE,TRUE,
+            &savedMode,&savedConflict,&savedSchedule,nullptr,FALSE,&savedKeep);bounded.Attach(parent);
+        CTransferInfo init(parent,ttDataToWindow);bounded.Transfer(init);
+        SendMessageW(keep,BM_SETCHECK,BST_CHECKED,0);SendMessageW(wait,BM_SETCHECK,BST_UNCHECKED,0);
+        SendMessageW(mode,CB_SETCURSEL,1,0);SendMessageW(conflict,CB_SETCURSEL,1,0);
+        const auto input=small;const auto oldHistory=History(history);
+        const std::vector<std::wstring> invalid={L"東東東",std::wstring(32768,L'a'),std::wstring(L"C:\\")+wchar_t(0xd800)};
+        for(const auto& value:invalid)
+        {
+            SetWindowTextW(path,value.c_str());const int before=Messages,criteriaBefore=CriteriaTransfers;
+            CTransferInfo from(parent,ttDataFromWindow);bounded.Transfer(from);
+            Check(!from.IsGood()&&from.ErrorID==IDE_PATH&&Messages==before+1,"invalid/overflow target blocks Transfer with localized error");
+            Check(small==input&&History(history)==oldHistory,"rejected path leaves caller bytes and actual history unchanged");
+            Check(original.Token==10&&!savedKeep&&savedMode==CMS_SEQUENTIAL&&savedConflict==CMCM_CURRENT&&savedSchedule==COSO_DEFAULT&&CriteriaTransfers==criteriaBefore,
+                  "invalid target does not mutate criteria, keep paths, scheduling or transfer/conflict modes");
+        }
+        SetWindowTextW(path,L"1234567");CTransferInfo exact(parent,ttDataFromWindow);bounded.Transfer(exact);
+        Check(exact.IsGood()&&std::string(small.data())=="1234567"&&small[8]=='Z',"last complete byte before NUL fits exact capacity");
+        Check(original.Token==11&&savedKeep&&savedMode==CMS_STORAGE_AWARE&&savedConflict==CMCM_SCAN_AHEAD&&savedSchedule==COSO_DEFAULT,
+              "successful automatic target retains storage-aware scheduling regardless of the disabled wait checkbox");
+        SetWindowTextW(path,L"");CTransferInfo empty(parent,ttDataFromWindow);bounded.Transfer(empty);
+        Check(empty.IsGood()&&small[0]==0&&history[0]&&history[0][0]==0,"intentional empty target retained for controller semantics");
+        for(int capacity:{0,-1})
+        {
+            strcpy(small.data(),"keep");TestDialog invalidCapacity(nullptr,small.data(),capacity,title,&subject,0,history,3,&original,TRUE,TRUE,
+                nullptr,nullptr,nullptr);invalidCapacity.Attach(parent);const auto saved=small;const auto previous=History(history);
+            CTransferInfo from(parent,ttDataFromWindow);invalidCapacity.Transfer(from);
+            Check(!from.IsGood()&&small==saved&&History(history)==previous,"non-positive capacity refuses without path/history mutation");
+        }
+        TestDialog nullPath(nullptr,nullptr,8,title,&subject,0,history,3,&original,TRUE,TRUE,nullptr,nullptr,nullptr);nullPath.Attach(parent);
+        CTransferInfo noPath(parent,ttDataFromWindow);nullPath.Transfer(noPath);Check(!noPath.IsGood(),"null caller path is refused before memcpy");
+        DestroyWindow(path);path=nullptr;const int before=Messages;const auto saved=small;
+        CTransferInfo missing(parent,ttDataFromWindow);bounded.Transfer(missing);
+        Check(!missing.IsGood()&&Messages==before&&small==saved,"missing path control preserves caller and does not duplicate diagnostics");
+    }
+    path=CreateWindowExW(0,L"EDIT",L"",WS_CHILD,0,0,300,20,parent,(HMENU)IDE_PATH,nullptr,nullptr);
+    {
+        std::vector<char> small(64,'Z');strcpy(small.data(),"keep");CCriteriaData data;
+        TestDialog editOnly(nullptr,small.data(),8,title,&subject,0,nullptr,0,&data,TRUE,TRUE,nullptr,nullptr,nullptr);editOnly.Attach(parent);
+        CTransferInfo init(parent,ttDataToWindow);editOnly.Transfer(init);Check(Text(path)==L"keep","edit-only fallback initializes with wide text");
+        SetWindowTextW(path,L"東京");CTransferInfo valid(parent,ttDataFromWindow);editOnly.Transfer(valid);
+        Check(valid.IsGood()&&std::string(small.data())==SalWideToMultiBytePath(L"東京",CP_UTF8),"edit-only fallback uses same complete atomic reader");
+        const auto saved=small;SetWindowTextW(path,L"東東東");CTransferInfo tooLong(parent,ttDataFromWindow);editOnly.Transfer(tooLong);
+        Check(!tooLong.IsGood()&&small==saved,"edit-only overflow never approves a partial target");
+        DestroyWindow(path);path=CreateWindowExA(0,"EDIT","ANSI control",WS_CHILD,0,0,100,20,parent,(HMENU)IDE_PATH,nullptr,nullptr);
+        CTransferInfo ansi(parent,ttDataFromWindow);editOnly.Transfer(ansi);Check(!ansi.IsGood()&&small==saved,"unexpected ANSI control refused instead of lossy interpretation");
+    }
+    DestroyWindow(path);path=nullptr;
+    {
+        CCriteriaData data;const std::vector<std::string> selected={"C:\\selected-one","C:\\selected-two"};
+        TestDialog selectedDirs(nullptr,nullptr,SAL_MAX_PATH,title,&subject,0,nullptr,0,&data,TRUE,TRUE,nullptr,nullptr,nullptr,&selected);selectedDirs.Attach(parent);
+        CTransferInfo toList(parent,ttDataToWindow);selectedDirs.Transfer(toList);CTransferInfo fromList(parent,ttDataFromWindow);selectedDirs.Transfer(fromList);
+        Check(toList.IsGood()&&fromList.IsGood()&&SendMessageW(targets,LB_GETCOUNT,0,0)==2,"selected-directory list mode remains independent of the editable path");
+    }
+    for(char* value:history)free(value);
+    Check(DestroyWindow(parent)!=FALSE,"destroy exact owned control tree");
+    printf("Actual atomic Copy/Move dialog: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

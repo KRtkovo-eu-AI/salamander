@@ -272,15 +272,17 @@ jobs:
                              @($selected | Where-Object Name -eq 'ftp').Count -gt 0
           Add-Content -Path $env:GITHUB_OUTPUT -Value "needs_ftp_openssl=$(if ($needsFtpOpenSsl) { 'true' } else { 'false' })"
 
-      - name: Install selected project dependencies
+      - name: Install project dependencies
         if: >-
+          github.event_name == 'workflow_dispatch' ||
           steps.changed_projects.outputs.needs_lua == 'true' ||
           steps.changed_projects.outputs.needs_mmviewer_taglib == 'true' ||
           steps.changed_projects.outputs.needs_unrar == 'true' ||
           steps.changed_projects.outputs.needs_ftp_openssl == 'true'
         env:
-          NEEDS_LUA: ${{ steps.changed_projects.outputs.needs_lua }}
-          NEEDS_MMVIEWER_TAGLIB: ${{ steps.changed_projects.outputs.needs_mmviewer_taglib }}
+          # Full builds skip changed-project selection, but include both plugins.
+          NEEDS_LUA: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.changed_projects.outputs.needs_lua }}
+          NEEDS_MMVIEWER_TAGLIB: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.changed_projects.outputs.needs_mmviewer_taglib }}
           NEEDS_UNRAR: ${{ steps.changed_projects.outputs.needs_unrar }}
           NEEDS_FTP_OPENSSL: ${{ steps.changed_projects.outputs.needs_ftp_openssl }}
         run: |

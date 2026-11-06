@@ -1,0 +1,436 @@
+// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual production functions are injected unchanged. Only the host snapshot,
+// dialogs, progress and separately tested SafeFile service are deterministic.
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#define _CRT_SECURE_NO_WARNINGS
+#pragma warning(disable: 4245) // Existing SDK sentinel CQuadWord(-1, -1).
+#include <windows.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cwctype>
+#include <string>
+#include <vector>
+#include <new>
+#include <utility>
+#include <memory>
+#include <filesystem>
+#include <stdexcept>
+#define SAL_MAX_PATH 32768
+#define PATH_TYPE_WINDOWS 1
+#define PANEL_SOURCE 1
+#define PANEL_TARGET 2
+#define SALDISKSELECTION_SELECTED_OR_FOCUSED 0
+#define SALDISKSELECTION_SELECTED_ONLY 1
+#define SALDISKSELECTION_FOCUSED_ONLY 2
+#define SALDISKSELECTION_ALL_ITEMS 3
+#define CALL_STACK_MESSAGE1(...)
+#define CALL_STACK_MESSAGE2(...)
+#define CALL_STACK_MESSAGE3(...)
+#define CALL_STACK_MESSAGE4(...)
+#define TRACE_E(...)
+#define MSGBOX_ERROR 1
+#define MSGBOX_WARNING 2
+#define MSGBOX_EX_ERROR 3
+#define BUTTONS_RETRYCANCEL 1
+#define MAX_CMDLINE 127
+#define MAX_FILENAME 34
+#define MAX_BAT 100000
+#define BUFSIZE (512 * 1024)
+#define BUFSIZE1 (128 * 1024)
+#define BUFSIZE2 (256 * 1024)
+@@LANG@@
+#pragma warning(push)
+#pragma warning(disable: 4201) // SDK CQuadWord ABI uses a nameless union.
+@@QUAD@@
+#pragma warning(pop)
+#define SIZE_AUTODETECT CQuadWord(-1, -1)
+@@SDK_ITEM@@
+namespace SalamanderDiskSelection { @@CONVERSIONS@@ }
+struct Row
+{
+    std::wstring Name, Full, Directory;
+    CSalamanderDiskSelectionItem Item = {};
+    void Bind()
+    {
+        Item.NameW = Name.c_str(); Item.FullPathW = Full.c_str(); Item.DirectoryW = Directory.c_str();
+        Item.RelativePathW = Name.c_str(); Item.ExtensionW = L"";
+    }
+};
+struct CSalamanderGeneralAbstract
+{
+    std::vector<Row> Rows;
+    std::wstring Target;
+    bool FailCapture = false;
+    int TargetType = PATH_TYPE_WINDOWS;
+    int Errors = 0;
+    int CaptureMode = -1;
+    std::vector<std::string> Notifications;
+    BOOL GetPanelPath(int, char* value, int capacity, int* type, void*)
+    {
+        if (type) *type = TargetType;
+        const std::string path = SalamanderDiskSelection::Utf8FromWide(Target.c_str());
+        return strcpy_s(value, static_cast<size_t>(capacity), path.c_str()) == 0;
+    }
+    HWND GetMsgBoxParent() { return NULL; }
+    void SalUpdateDefaultDir(BOOL) {}
+    int ShowMessageBox(const char*, const char*, int) { ++Errors; return IDYES; }
+    int SalMessageBox(HWND, const char*, const char*, UINT) { return IDYES; }
+    void PostChangeOnPathNotification(const char* path, BOOL) { Notifications.push_back(path); }
+    const char* SalPathFindFileName(const char* path)
+    { const char* name = strrchr(path, '\\'); return name ? name + 1 : path; }
+    UINT32 UpdateCrc32(const void* data, DWORD count, UINT32 value)
+    {
+        value = ~value;
+        const BYTE* bytes = static_cast<const BYTE*>(data);
+        for (DWORD i = 0; i < count; ++i)
+        {
+            value ^= bytes[i];
+            for (int bit = 0; bit < 8; ++bit) value = (value >> 1) ^ (0xedb88320U & (0U - (value & 1U)));
+        }
+        return ~value;
+    }
+};
+class CSalamanderDiskSelection
+{
+    std::vector<Row> Rows;
+public:
+    BOOL Capture(CSalamanderGeneralAbstract* general, int, DWORD mode = 0)
+    {
+        Rows.clear(); general->CaptureMode = static_cast<int>(mode);
+        if (general->FailCapture) { SetLastError(ERROR_NOT_SUPPORTED); return FALSE; }
+        bool anySelected = false;
+        for (const Row& row : general->Rows) anySelected = anySelected || row.Item.Selected != FALSE;
+        for (const Row& row : general->Rows)
+        {
+            if (row.Name == L"..") continue;
+            if (mode == 0 && !(anySelected ? row.Item.Selected : row.Item.Focused)) continue;
+            if (mode == 1 && !row.Item.Selected) continue;
+            if (mode == 2 && !row.Item.Focused) continue;
+            Rows.push_back(row);
+        }
+        for (Row& row : Rows) row.Bind();
+        return TRUE;
+    }
+    int GetCount() const { return static_cast<int>(Rows.size()); }
+    const CSalamanderDiskSelectionItem* GetItem(int i) const
+    { return i >= 0 && static_cast<size_t>(i) < Rows.size() ? &Rows[static_cast<size_t>(i)].Item : NULL; }
+};
+@@PATHS@@
+CSalamanderGeneralAbstract General;
+CSalamanderGeneralAbstract* SalamanderGeneral = &General;
+BOOL configIncludeFileExt = TRUE, configCreateBatchFile = TRUE;
+BOOL configSplitToOther = FALSE, configCombineToOther = FALSE, configSplitToSubdir = FALSE;
+static int checks = 0, failures = 0;
+#define CHECK(x) do { ++checks; if (!(x)) { ++failures; printf("FAIL line %d: %s (error %lu)\n", __LINE__, #x, GetLastError()); } } while (0)
+static const char* LoadStr(int id)
+{
+    if (id == IDS_BATFILE_DESCR) return "Combine %s";
+    return "Fixture";
+}
+static BOOL Error(int, int, ...) { ++General.Errors; return FALSE; }
+static BOOL Error2(HWND, int, int, ...) { ++General.Errors; return FALSE; }
+static void GetInfo(char* value, CQuadWord& size) { sprintf_s(value, 50, "%llu", size.Value); }
+static void StripExtension(char* name) { if (char* dot = strrchr(name, '.')) *dot = 0; }
+static void MakeDirectories(const std::string& directory)
+{
+    std::filesystem::create_directories(SplitCBNPaths::ApiPath(directory.c_str()));
+}
+struct SAFE_FILE { HANDLE HFile = INVALID_HANDLE_VALUE; };
+struct SafeFileService
+{
+    bool FailNextRead = false;
+    std::string ReplaceTargetWithHardlink;
+    std::vector<std::string> Opened, Created;
+    BOOL SafeFileOpen(SAFE_FILE* file, const char* path, DWORD access, DWORD share, DWORD disposition, DWORD flags, HWND, DWORD, void*, void*)
+    {
+        Opened.push_back(path);
+        file->HFile = CreateFileW(SplitCBNPaths::ApiPath(path).c_str(), access, share, NULL, disposition, flags, NULL);
+        return file->HFile != INVALID_HANDLE_VALUE;
+    }
+    HANDLE SafeFileCreate(const char* path, DWORD access, DWORD share, DWORD flags, BOOL directory, HWND,
+                          const char*, const char*, DWORD*, BOOL, BOOL* skip, void*, int, void*, SAFE_FILE* file)
+    {
+        Created.push_back(path);
+        if (skip) *skip = FALSE;
+        if (directory) { MakeDirectories(path); return reinterpret_cast<HANDLE>(1); }
+        MakeDirectories(SplitCBNPaths::Parent(path));
+        if (!ReplaceTargetWithHardlink.empty())
+        {
+            CHECK(DeleteFileW(SplitCBNPaths::ApiPath(path).c_str()));
+            CHECK(CreateHardLinkW(SplitCBNPaths::ApiPath(path).c_str(), SplitCBNPaths::ApiPath(ReplaceTargetWithHardlink.c_str()).c_str(), NULL));
+            ReplaceTargetWithHardlink.clear();
+        }
+        file->HFile = CreateFileW(SplitCBNPaths::ApiPath(path).c_str(), access, share, NULL, CREATE_ALWAYS, flags, NULL);
+        return file->HFile;
+    }
+    void SafeFileClose(SAFE_FILE* file) { CloseHandle(file->HFile); file->HFile = INVALID_HANDLE_VALUE; }
+    BOOL SafeFileRead(SAFE_FILE* file, void* data, DWORD size, DWORD* read, HWND, DWORD, void*, void*)
+    {
+        if (FailNextRead) { FailNextRead = false; SetLastError(ERROR_READ_FAULT); return FALSE; }
+        return ReadFile(file->HFile, data, size, read, NULL);
+    }
+    BOOL SafeFileWrite(SAFE_FILE* file, const void* data, DWORD size, DWORD* written, HWND, DWORD, void*, void*)
+    { return WriteFile(file->HFile, data, size, written, NULL); }
+    BOOL SafeFileSeekMsg(SAFE_FILE* file, CQuadWord* distance, DWORD method, HWND, DWORD, void*, void*, BOOL)
+    {
+        LARGE_INTEGER amount; amount.QuadPart = static_cast<LONGLONG>(distance->Value);
+        return SetFilePointerEx(file->HFile, amount, NULL, method);
+    }
+} SafeFiles;
+SafeFileService* SalamanderSafeFile = &SafeFiles;
+class CSalamanderForOperationsAbstract
+{
+public:
+    int ProgressDepth = 0;
+    void OpenProgressDialog(const char*, BOOL, HWND, BOOL) { ++ProgressDepth; }
+    void CloseProgressDialog() { --ProgressDepth; }
+    void ProgressSetTotalSize(CQuadWord, CQuadWord) {}
+    BOOL ProgressSetSize(CQuadWord, CQuadWord, BOOL) { return TRUE; }
+    void ProgressDialogAddText(const char*, BOOL) {}
+} Operations;
+const int dtDelete = 1;
+template<class T> class TIndirectArray
+{
+    std::vector<T*> Values;
+public:
+    int Count = 0;
+    TIndirectArray(int, int, int) {}
+    ~TIndirectArray() { for (T* item : Values) free(item); }
+    void Add(T* item) { Values.push_back(item); Count = static_cast<int>(Values.size()); }
+    bool IsGood() const { return true; }
+    T* operator[](int index) const { return Values[static_cast<size_t>(index)]; }
+};
+static std::string DialogTarget, DialogName;
+static std::vector<std::string> DialogFiles;
+static BOOL SplitDialog(const char* name, CQuadWord&, std::string& target, const char*, CQuadWord*, HWND)
+{ DialogName = name; DialogTarget = target; return FALSE; }
+static BOOL CombineDialog(TIndirectArray<char>& files, std::string& target, BOOL, UINT32, HWND, CSalamanderForOperationsAbstract*)
+{
+    DialogTarget = target; DialogFiles.clear();
+    for (int i = 0; i < files.Count; ++i) DialogFiles.push_back(files[i]);
+    return FALSE;
+}
+@@GUARDS@@
+@@TARGET@@
+@@COMBINE@@
+@@SPLIT@@
+static Row Item(const std::wstring& full, bool selected = true, bool focused = false, bool directory = false)
+{
+    Row row;
+    row.Full = full;
+    const size_t slash = full.find_last_of(L'\\');
+    row.Name = full.substr(slash + 1);
+    row.Directory = full.substr(0, slash);
+    row.Item.Selected = selected; row.Item.Focused = focused; row.Item.IsDir = directory;
+    row.Bind(); return row;
+}
+static void Write(const std::string& path, const std::string& contents)
+{
+    MakeDirectories(SplitCBNPaths::Parent(path));
+    HANDLE file = CreateFileW(SplitCBNPaths::ApiPath(path.c_str()).c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    CHECK(file != INVALID_HANDLE_VALUE);
+    if (file == INVALID_HANDLE_VALUE) throw std::runtime_error("fixture create");
+    DWORD written = 0;
+    CHECK(WriteFile(file, contents.data(), static_cast<DWORD>(contents.size()), &written, NULL));
+    CHECK(written == contents.size());
+    CloseHandle(file);
+}
+static std::string Read(const std::string& path)
+{
+    HANDLE file = CreateFileW(SplitCBNPaths::ApiPath(path.c_str()).c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    CHECK(file != INVALID_HANDLE_VALUE);
+    if (file == INVALID_HANDLE_VALUE) throw std::runtime_error("fixture open");
+    const DWORD size = GetFileSize(file, NULL);
+    std::string contents(size, '\0');
+    DWORD read = 0;
+    CHECK(ReadFile(file, contents.data(), size, &read, NULL));
+    CHECK(read == size);
+    CloseHandle(file);
+    return contents;
+}
+int main()
+{
+    std::vector<wchar_t> cwd(SAL_MAX_PATH);
+    GetCurrentDirectoryW(static_cast<DWORD>(cwd.size()), cwd.data());
+    const std::wstring root = std::wstring(cwd.data()) + L"\\owned-fixture";
+    const std::wstring deep = root + L"\\dlouhá_žluťoučká_" + std::wstring(110, L'a') + L"\\東京_" + std::wstring(110, L'b') + L"\\vnořená_" + std::wstring(90, L'c');
+    const std::vector<std::wstring> paths = {
+        root + L"\\ascii\\same.001",
+        root + L"\\ascii\\český.001",
+        root + L"\\žluťoučký\\same.001",
+        root + L"\\žluťoučký\\東京\\same.001",
+        root + L"\\" + std::wstring(95, L'č') + L"\\" + std::wstring(30, L'東') + L"\\same.001",
+        deep + L"\\same.001",
+        deep + L"\\procento%TEMP% & caret^ bang!.001"};
+    CHECK(deep.size() > MAX_PATH);
+    CHECK(paths[4].size() < MAX_PATH);
+    CHECK(SplitCBNPaths::Utf8(paths[4].c_str()).size() > MAX_PATH);
+    General.Target = root + L"\\output";
+    MakeDirectories(SplitCBNPaths::Utf8(General.Target.c_str()));
+    std::string combined;
+    for (size_t i = 0; i < paths.size(); ++i)
+    {
+        const std::string contents = "owned-content-" + std::to_string(i) + "-0123456789";
+        Write(SplitCBNPaths::Utf8(paths[i].c_str()), contents);
+        combined += contents;
+        General.Rows.push_back(Item(paths[i], true, i == 0));
+    }
+    CSalamanderDiskSelection selected, all;
+    CHECK(selected.Capture(&General, PANEL_SOURCE));
+    CHECK(all.Capture(&General, PANEL_SOURCE, SALDISKSELECTION_ALL_ITEMS));
+    SplitCBNPaths::CombinePlan plan;
+    CHECK(SplitCBNPaths::BuildCombinePlan(selected, &all, plan));
+    CHECK(plan.Files.size() == paths.size());
+    CHECK(!plan.TestCompanion);
+    for (size_t i = 0; i < paths.size(); ++i) CHECK(plan.Files[i] == SplitCBNPaths::Utf8(paths[i].c_str()));
+    General.Rows.clear(); // plan is independent of panel and snapshot mutation
+    CHECK(plan.Files.size() == paths.size());
+    for (size_t i = 0; i < paths.size(); ++i) General.Rows.push_back(Item(paths[i], true, i == 0));
+    DialogFiles.clear();
+    CHECK(!CombineCommand(0, NULL, &Operations)); // cancelled by deterministic dialog
+    CHECK(DialogFiles == plan.Files);
+    General.Rows[0].Item.Focused = FALSE; General.Rows.back().Item.Focused = TRUE;
+    CHECK(!CombineCommand(0, NULL, &Operations));
+    CHECK(SplitCBNPaths::Parent(DialogTarget) == SplitCBNPaths::Parent(SplitCBNPaths::Utf8(paths.back().c_str())));
+    General.Rows[0].Item.Focused = TRUE; General.Rows.back().Item.Focused = FALSE;
+    CHECK(!CombineCommand(0, NULL, &Operations));
+    CHECK(SplitCBNPaths::Parent(DialogTarget) == SplitCBNPaths::Parent(plan.Files[0]));
+    configCombineToOther = TRUE;
+    CHECK(!CombineCommand(0, NULL, &Operations));
+    CHECK(SplitCBNPaths::Parent(DialogTarget) == SplitCBNPaths::Utf8(General.Target.c_str()));
+    configCombineToOther = FALSE;
+    General.FailCapture = true; DialogFiles.clear();
+    CHECK(!CombineCommand(0, NULL, &Operations));
+    CHECK(DialogFiles.empty()); General.FailCapture = false;
+
+    // Autodiscovery uses actual sibling identities and cannot pick another root's same.002.
+    General.Rows = {Item(deep + L"\\data.002", false, true), Item(root + L"\\other\\data.001", false),
+                    Item(deep + L"\\data.001", false), Item(deep + L"\\data.003", false),
+                    Item(root + L"\\other\\data.004", false)};
+    CHECK(selected.Capture(&General, PANEL_SOURCE)); CHECK(all.Capture(&General, PANEL_SOURCE, 3));
+    CHECK(SplitCBNPaths::BuildCombinePlan(selected, &all, plan));
+    CHECK(plan.Files.size() == 3);
+    for (int i = 0; i < 3; ++i)
+        CHECK(plan.Files[static_cast<size_t>(i)] == SplitCBNPaths::Utf8((deep + L"\\data.00" + std::to_wstring(i + 1)).c_str()));
+    CHECK(plan.TestCompanion);
+    General.Rows[0] = Item(deep + L"\\data.bat", false, true);
+    CHECK(selected.Capture(&General, PANEL_SOURCE)); CHECK(all.Capture(&General, PANEL_SOURCE, 3));
+    CHECK(SplitCBNPaths::BuildCombinePlan(selected, &all, plan));
+    CHECK(plan.Files.size() == 1); // .002 absent from the snapshot: stop at gap
+    General.Rows = {Item(deep + L"\\A.001", true), Item(deep + L"\\A.002", true)};
+    CHECK(selected.Capture(&General, PANEL_SOURCE));
+    CHECK(SplitCBNPaths::BuildCombinePlan(selected, NULL, plan)); CHECK(plan.TestCompanion);
+    General.Rows.push_back(Item(root + L"\\A.003", true));
+    CHECK(selected.Capture(&General, PANEL_SOURCE));
+    CHECK(SplitCBNPaths::BuildCombinePlan(selected, NULL, plan)); CHECK(!plan.TestCompanion);
+    General.Rows.clear(); CHECK(selected.Capture(&General, PANEL_SOURCE));
+    CHECK(!SplitCBNPaths::BuildCombinePlan(selected, NULL, plan));
+
+    // Real split uses SafeFile's wide service boundary; generated parts and BAT are audited.
+    const std::string source = SplitCBNPaths::Utf8(paths.back().c_str());
+    const std::string output = SplitCBNPaths::Utf8((deep + L"\\části").c_str());
+    General.Rows = {Item(paths.back(), false, true)};
+    DialogName.clear(); DialogTarget.clear();
+    CHECK(!SplitCommand(NULL, &Operations));
+    CHECK(General.CaptureMode == SALDISKSELECTION_FOCUSED_ONLY);
+    CHECK(DialogName == SplitCBNPaths::Name(source));
+    CHECK(DialogTarget == SplitCBNPaths::Parent(source));
+    configSplitToSubdir = TRUE;
+    CHECK(!SplitCommand(NULL, &Operations));
+    CHECK(DialogTarget == SplitCBNPaths::Join(SplitCBNPaths::Parent(source), SplitCBNPaths::Stem(SplitCBNPaths::Name(source))));
+    configSplitToSubdir = FALSE;
+    General.FailCapture = true; DialogName.clear();
+    CHECK(!SplitCommand(NULL, &Operations)); CHECK(DialogName.empty()); General.FailCapture = false;
+    CQuadWord partSize(7, 0);
+    CHECK(SplitFile(source.c_str(), output.c_str(), partSize, NULL, &Operations));
+    CHECK(Operations.ProgressDepth == 0);
+    const std::string original = Read(source);
+    const std::string base = SplitCBNPaths::Name(source);
+    std::string parts;
+    TIndirectArray<char> partFiles(10, 10, dtDelete);
+    int count = 0;
+    for (size_t offset = 0; offset < original.size(); offset += 7)
+    {
+        const std::string name = SplitCBNPaths::Join(output, SplitCBNPaths::PartName(base + ".", ++count, true));
+        const std::string piece = Read(name);
+        CHECK(piece == original.substr(offset, 7)); parts += piece;
+        partFiles.Add(_strdup(name.c_str()));
+    }
+    CHECK(parts == original);
+    const std::string batchPath = SplitCBNPaths::Join(output, base + ".bat");
+    const std::string batch = Read(batchPath);
+    CHECK(batch.find("chcp 65001 >nul\r\n") != std::string::npos);
+    CHECK(batch.find("setlocal DisableDelayedExpansion\r\n") != std::string::npos);
+    CHECK(batch.find("%%TEMP%%") != std::string::npos);
+    CHECK(batch.find("procento%TEMP%") == std::string::npos);
+    CHECK(batch.find("copy /b \"" + SplitCBNPaths::EscapeBatchName(base, false) + ".001\"") != std::string::npos);
+    const std::string boundedBatch = SplitCBNPaths::BatchCommands("file", "original", 1000000000);
+    CHECK(boundedBatch.size() >= 100000 && boundedBatch.size() < 101000);
+    const std::string punctuation = "č%TEMP% &^!().png";
+    CHECK(SplitCBNPaths::DecodeBatchMetadata(SplitCBNPaths::EscapeBatchName(punctuation, true)) == punctuation);
+    BOOL foundName = FALSE, foundCrc = FALSE, foundTime = FALSE;
+    UINT32 crc = 0; FILETIME time = {}; std::string parsedName;
+    AnalyzeFile(batchPath.c_str(), parsedName, crc, &time, foundName, foundCrc, foundTime);
+    CHECK(foundName && foundCrc && foundTime); CHECK(parsedName == base);
+    const std::string joined = SplitCBNPaths::Join(output, "obnovený_日本.bin");
+    CHECK(CombineFiles(partFiles, joined.c_str(), FALSE, TRUE, crc, TRUE, &time, NULL, &Operations));
+    CHECK(Read(joined) == original); CHECK(Read(source) == original);
+    CHECK(Operations.ProgressDepth == 0);
+    const std::string failed = SplitCBNPaths::Join(output, "selhání_日本.bin");
+    SafeFiles.FailNextRead = true;
+    CHECK(!CombineFiles(partFiles, failed.c_str(), FALSE, FALSE, crc, FALSE, &time, NULL, &Operations));
+    CHECK(GetFileAttributesW(SplitCBNPaths::ApiPath(failed.c_str()).c_str()) == INVALID_FILE_ATTRIBUTES);
+    CHECK(Operations.ProgressDepth == 0);
+    TIndirectArray<char> mixed(10, 10, dtDelete);
+    for (const std::wstring& path : paths) mixed.Add(_strdup(SplitCBNPaths::Utf8(path.c_str()).c_str()));
+    const size_t beforeCreate = SafeFiles.Created.size();
+    const std::string existingSource = SplitCBNPaths::Utf8(paths[3].c_str());
+    const std::string beforeSource = Read(existingSource);
+    CHECK(!CombineFiles(mixed, existingSource.c_str(), FALSE, FALSE, crc, FALSE, &time, NULL, &Operations));
+    CHECK(SafeFiles.Created.size() == beforeCreate);
+    CHECK(Read(existingSource) == beforeSource);
+    CHECK(Operations.ProgressDepth == 0);
+    const std::string hardlink = SplitCBNPaths::Join(output, "alias_日本.bin");
+    CHECK(CreateHardLinkW(SplitCBNPaths::ApiPath(hardlink.c_str()).c_str(), SplitCBNPaths::ApiPath(existingSource.c_str()).c_str(), NULL));
+    CHECK(!CombineFiles(mixed, hardlink.c_str(), FALSE, FALSE, crc, FALSE, &time, NULL, &Operations));
+    CHECK(SafeFiles.Created.size() == beforeCreate);
+    CHECK(Read(existingSource) == beforeSource && Read(hardlink) == beforeSource);
+    CHECK(Operations.ProgressDepth == 0);
+    // A directory cannot be identified through this file-only target handle;
+    // refuse it before any create/overwrite service can be invoked.
+    CHECK(!CombineFiles(mixed, output.c_str(), FALSE, FALSE, crc, FALSE, &time, NULL, &Operations));
+    CHECK(SafeFiles.Created.size() == beforeCreate);
+    CHECK(Operations.ProgressDepth == 0);
+    const std::string mixedOutput = SplitCBNPaths::Join(output, "mixed.bin");
+    CHECK(CombineFiles(mixed, mixedOutput.c_str(), FALSE, FALSE, crc, FALSE, &time, NULL, &Operations));
+    CHECK(Read(mixedOutput) == combined);
+    Write(mixedOutput, "previous distinct target");
+    CHECK(CombineFiles(mixed, mixedOutput.c_str(), FALSE, FALSE, crc, FALSE, &time, NULL, &Operations));
+    CHECK(Read(mixedOutput) == combined);
+    const std::string racedTarget = SplitCBNPaths::Join(output, "raced-target.bin");
+    Write(racedTarget, "distinct before guard");
+    SafeFiles.ReplaceTargetWithHardlink = existingSource;
+    CHECK(!CombineFiles(mixed, racedTarget.c_str(), FALSE, FALSE, crc, FALSE, &time, NULL, &Operations));
+    CHECK(Read(existingSource) == beforeSource);
+    CHECK(Read(racedTarget) == beforeSource);
+    CHECK(Operations.ProgressDepth == 0);
+    std::string absolute;
+    CHECK(SplitCBNPaths::Absolute(".\\další\\..\\výsledek.bin", output.c_str(), absolute));
+    CHECK(absolute == SplitCBNPaths::Join(output, "výsledek.bin"));
+    CHECK(SplitCBNPaths::Absolute("soubor.", output.c_str(), absolute));
+    CHECK(absolute == SplitCBNPaths::Join(output, "soubor."));
+    CHECK(!SplitCBNPaths::Absolute("bad:name", output.c_str(), absolute));
+    CHECK(SplitCBNPaths::ApiPath("\\\\server\\share\\東京\\a") == L"\\\\?\\UNC\\server\\share\\東京\\a");
+    std::string target = SplitCBNPaths::Join(output, "neexistující\\soubor.bin");
+    CHECK(MakePathAbsolute(target, FALSE, output.c_str(), TRUE, IDS_COMBINE));
+    target = source;
+    CHECK(!MakePathAbsolute(target, TRUE, output.c_str(), TRUE, IDS_SPLIT));
+    for (size_t i = 0; i < paths.size(); ++i)
+        CHECK(Read(SplitCBNPaths::Utf8(paths[i].c_str())) == "owned-content-" + std::to_string(i) + "-0123456789");
+    std::filesystem::remove_all(SplitCBNPaths::ApiPath(SplitCBNPaths::Utf8(root.c_str()).c_str()));
+    printf("Actual SplitCBN intake, target, batch and I/O: %d/%d PASS\n", checks - failures, checks);
+    return failures ? 1 : 0;
+}

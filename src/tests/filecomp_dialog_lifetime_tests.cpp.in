@@ -1,0 +1,137 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+#pragma comment(linker, "\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <commctrl.h>
+#include <shellapi.h>
+#include <shlobj.h>
+#include <cstdio>
+#include <cstring>
+#include <string>
+
+constexpr int SAL_MAX_PATH = 32768;
+constexpr int IDE_PATH1 = 101;
+constexpr int IDE_PATH2 = 102;
+constexpr UINT ProbeMessage = WM_APP + 17;
+constexpr LRESULT ProbeResult = 123456;
+static bool ParentAttached = false;
+static int Checks = 0, Failures = 0, DestroyedBelow = 0, DestroyedAbove = 0;
+static int MessagesBelow = 0, MessagesAbove = 0;
+static void Check(bool value, const char* message)
+{
+    ++Checks;
+    if (!value) { ++Failures; std::printf("FAIL: %s\n", message); }
+}
+
+class CCompareFilesDialog;
+static CCompareFilesDialog* Dialog = nullptr;
+struct CWindowsManagerFacade
+{
+    void* GetWindowPtr(HWND) { return ParentAttached ? Dialog : nullptr; }
+} WindowsManager;
+
+class CCompareFilesDialog
+{
+public:
+    HWND HWindow = nullptr;
+    WNDPROC OldEditProc1 = nullptr, OldEditProc2 = nullptr; // Only used by the negative control.
+    static @@SIGNATURE@@;
+    void Install(HWND hWnd1, HWND hWnd2)
+    {
+@@INSTALL@@
+    }
+};
+
+@@CALLBACK@@
+
+static LRESULT CALLBACK ParentProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (message == WM_DESTROY) ParentAttached = false; // Real CDialog detaches here.
+    return DefWindowProcA(hwnd, message, wParam, lParam);
+}
+
+static LRESULT CALLBACK Observer(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam,
+                                 UINT_PTR id, DWORD_PTR)
+{
+    if (message == WM_NCDESTROY)
+    {
+        Check(!ParentAttached, "child cleanup follows parent object detach");
+        if (id == 1) ++DestroyedBelow; else ++DestroyedAbove;
+        RemoveWindowSubclass(hwnd, Observer, id);
+    }
+    if (message == ProbeMessage)
+    {
+        if (id == 1) { ++MessagesBelow; return ProbeResult; }
+        ++MessagesAbove;
+    }
+    return DefSubclassProc(hwnd, message, wParam, lParam);
+}
+
+static void DropFile(HWND hwnd)
+{
+    const char name[] = "C:\\owned-filecomp-fixture\\dropped.txt";
+    HGLOBAL memory = GlobalAlloc(GHND, sizeof(DROPFILES) + sizeof(name) + 1);
+    Check(memory != nullptr, "allocate owned drop payload");
+    if (!memory) return;
+    auto data = static_cast<DROPFILES*>(GlobalLock(memory));
+    if (!data) { GlobalFree(memory); Check(false, "lock drop payload"); return; }
+    data->pFiles = sizeof(DROPFILES);
+    std::memcpy(reinterpret_cast<char*>(data) + sizeof(DROPFILES), name, sizeof(name));
+    GlobalUnlock(memory);
+    Check(SendMessageA(hwnd, WM_DROPFILES, reinterpret_cast<WPARAM>(memory), 0) == 0,
+          "actual drop callback consumes payload"); // Callback owns DragFinish.
+    char text[128] = {};
+    GetWindowTextA(hwnd, text, sizeof(text));
+    Check(std::strcmp(text, name) == 0, "actual drop updates the intended combo");
+}
+
+int main()
+{
+    INITCOMMONCONTROLSEX common = { sizeof(common), ICC_STANDARD_CLASSES };
+    Check(InitCommonControlsEx(&common) != FALSE, "initialize native controls");
+    HINSTANCE module = GetModuleHandleW(nullptr);
+    WNDCLASSA windowClass = {};
+    windowClass.hInstance = module;
+    windowClass.lpfnWndProc = ParentProc;
+    windowClass.lpszClassName = "FileCompOwnedLifetimeTest";
+    Check(RegisterClassA(&windowClass) != 0, "register owned test class");
+    for (int iteration = 0; iteration < 40; ++iteration)
+    {
+        CCompareFilesDialog dialog;
+        Dialog = &dialog;
+        dialog.HWindow = CreateWindowExA(0, windowClass.lpszClassName, "", WS_OVERLAPPED,
+                                        0, 0, 300, 120, nullptr, nullptr, module, nullptr);
+        ParentAttached = true;
+        HWND first = CreateWindowExA(0, "COMBOBOX", "", WS_CHILD | CBS_DROPDOWN,
+                                    0, 0, 250, 60, dialog.HWindow, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDE_PATH1)), module, nullptr);
+        HWND second = CreateWindowExA(0, "COMBOBOX", "", WS_CHILD | CBS_DROPDOWN,
+                                     0, 60, 250, 60, dialog.HWindow, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDE_PATH2)), module, nullptr);
+        Check(dialog.HWindow && first && second, "create both real combo controls");
+        if (!dialog.HWindow || !first || !second) return 2;
+        Check(SetWindowSubclass(first, Observer, 1, 0) != FALSE, "observer below first drop hook");
+        Check(SetWindowSubclass(second, Observer, 1, 0) != FALSE, "observer below second drop hook");
+        dialog.Install(first, second); // Exact production registration hunk.
+        // Exercise a subclass installed later too, as font/theme helpers may do.
+        Check(SetWindowSubclass(first, Observer, 2, 0) != FALSE, "observer above first drop hook");
+        Check(SetWindowSubclass(second, Observer, 2, 0) != FALSE, "observer above second drop hook");
+        DropFile(first);
+        Check(GetWindowTextLengthA(second) == 0, "drop does not change other input");
+        DropFile(second);
+        Check(SendMessageA(first, ProbeMessage, 0, 0) == ProbeResult, "forward unhandled first message");
+        Check(SendMessageA(second, ProbeMessage, 0, 0) == ProbeResult, "forward unhandled second message");
+        // Once CDialog detaches, the old callback returned NULL for every message.
+        ParentAttached = false;
+        Check(SendMessageA(first, ProbeMessage, 0, 0) == ProbeResult, "first chain survives dialog detach");
+        Check(SendMessageA(second, ProbeMessage, 0, 0) == ProbeResult, "second chain survives dialog detach");
+        Check(DestroyWindow(dialog.HWindow) != FALSE, "destroy owned parent and children");
+        Check(!IsWindow(first) && !IsWindow(second), "both controls destroyed");
+        Check(DestroyedBelow == (iteration + 1) * 2, "all lower subclasses receive final cleanup");
+        Check(DestroyedAbove == (iteration + 1) * 2, "all upper subclasses receive final cleanup");
+        Dialog = nullptr;
+    }
+    Check(MessagesBelow == 160 && MessagesAbove == 160, "all messages reached both subclass layers");
+    Check(UnregisterClassA(windowClass.lpszClassName, module) != FALSE, "unregister owned class");
+    std::printf("File Comparator lifecycle: %d checks, %d failures\n", Checks, Failures);
+    return Failures ? 1 : 0;
+}

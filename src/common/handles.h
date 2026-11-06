@@ -517,8 +517,11 @@ public:
     HANDLE CopyImage(HANDLE hImage, UINT uType, int cxDesired, int cyDesired,
                      UINT fuFlags);
 
-    HANDLE LoadImage(HINSTANCE hinst, LPCTSTR lpszName, UINT uType,
-                     int cxDesired, int cyDesired, UINT fuLoad);
+    HANDLE LoadImageA(HINSTANCE hinst, LPCSTR lpszName, UINT uType,
+                      int cxDesired, int cyDesired, UINT fuLoad);
+
+    HANDLE LoadImageW(HINSTANCE hinst, LPCWSTR lpszName, UINT uType,
+                      int cxDesired, int cyDesired, UINT fuLoad);
 
     HCURSOR CreateCursor(HINSTANCE hInst, int xHotSpot, int yHotSpot,
                          int nWidth, int nHeight, CONST VOID* pvANDPlane,
@@ -604,8 +607,11 @@ public:
 
     BOOL GlobalUnlock(HGLOBAL hMem);
 
-    HANDLE FindFirstChangeNotification(LPCTSTR lpPathName, BOOL bWatchSubtree,
-                                       DWORD dwNotifyFilter);
+    HANDLE FindFirstChangeNotificationA(LPCSTR lpPathName, BOOL bWatchSubtree,
+                                        DWORD dwNotifyFilter);
+
+    HANDLE FindFirstChangeNotificationW(LPCWSTR lpPathName, BOOL bWatchSubtree,
+                                        DWORD dwNotifyFilter);
 
     BOOL FindCloseChangeNotification(HANDLE hChangeHandle);
 

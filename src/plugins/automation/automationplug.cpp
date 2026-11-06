@@ -104,17 +104,40 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
 
     if (id == CmdRunFocusedScript)
     {
-        std::vector<TCHAR> szFullName(SAL_MAX_PATH);
-        const CFileData* pFocusedFile;
-
-        SalamanderGeneral->GetPanelPath(
-            PANEL_SOURCE, &szFullName[0], static_cast<int>(szFullName.size()), NULL, NULL);
-        pFocusedFile = SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, NULL);
-        AppendFocusedItemName(
-            &szFullName[0], static_cast<int>(szFullName.size()), pFocusedFile);
-
-        CScriptInfo scriptInfo(&szFullName[0], NULL);
-        bExecuted = scriptInfo.Execute(info);
+        int pathType = 0;
+        if (!SalamanderGeneral->GetPanelPath(PANEL_SOURCE, NULL, 0, &pathType, NULL))
+            return FALSE;
+        if (pathType == PATH_TYPE_WINDOWS)
+        {
+            CSalamanderDiskSelection selection;
+            if (!selection.Capture(SalamanderGeneral, PANEL_SOURCE, SALDISKSELECTION_FOCUSED_ONLY))
+                return FALSE;
+            const CSalamanderDiskSelectionItem* focused = selection.GetItem(0);
+            if (focused == NULL || focused->IsDir)
+                return FALSE;
+            try
+            {
+                const std::string fullName = SalamanderDiskSelection::Utf8FromWide(focused->FullPathW);
+                if (fullName.empty() || fullName.size() >= SAL_MAX_PATH)
+                {
+                    SetLastError(ERROR_FILENAME_EXCED_RANGE);
+                    return FALSE;
+                }
+                CScriptInfo scriptInfo(fullName.c_str(), NULL);
+                bExecuted = scriptInfo.Execute(info);
+            }
+            catch (const std::bad_alloc&) { return FALSE; }
+        }
+        else
+        {
+            std::vector<TCHAR> fullName(SAL_MAX_PATH);
+            if (!SalamanderGeneral->GetPanelPath(PANEL_SOURCE, fullName.data(), static_cast<int>(fullName.size()), NULL, NULL))
+                return FALSE;
+            const CFileData* focused = SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, NULL);
+            AppendFocusedItemName(fullName.data(), static_cast<int>(fullName.size()), focused);
+            CScriptInfo scriptInfo(fullName.data(), NULL);
+            bExecuted = scriptInfo.Execute(info);
+        }
     }
     else if (id == CmdScriptPopupMenu)
     {

@@ -182,8 +182,8 @@ HBITMAP CreateServiceBitmap()
   HGDIOBJ old = SelectObject(dc, bitmap);
   UINT loadFlags = SalamanderGeneral != NULL ? SalamanderGeneral->GetIconLRFlags()
                                              : (LR_DEFAULTCOLOR | LR_LOADTRANSPARENT);
-  HICON icon = reinterpret_cast<HICON>(LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SERVICEEXPLORER_DIR),
-                                                 IMAGE_ICON, 16, 16, loadFlags));
+  HICON icon = reinterpret_cast<HICON>(HANDLES(LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SERVICEEXPLORER_DIR),
+                                                 IMAGE_ICON, 16, 16, loadFlags)));
   if (icon != NULL)
   {
     DrawIconEx(dc, 0, 0, icon, 16, 16, 0, NULL, DI_NORMAL);
@@ -214,8 +214,8 @@ bool SetServiceExplorerIconList(CSalamanderConnectAbstract* salamander)
 
   UINT loadFlags = SalamanderGeneral != NULL ? SalamanderGeneral->GetIconLRFlags()
                                              : (LR_DEFAULTCOLOR | LR_LOADTRANSPARENT);
-  HICON icon = reinterpret_cast<HICON>(LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SERVICEEXPLORER_DIR),
-                                                 IMAGE_ICON, 16, 16, loadFlags));
+  HICON icon = reinterpret_cast<HICON>(HANDLES(LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SERVICEEXPLORER_DIR),
+                                                 IMAGE_ICON, 16, 16, loadFlags)));
   if (icon == NULL)
   {
     SalamanderGUI->DestroyIconList(iconList);

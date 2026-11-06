@@ -13,6 +13,7 @@
 #include "logo.h"
 
 #include <string>
+#include <vector>
 
 
 static std::wstring MessageBoxTextToWide(const char* text)
@@ -258,69 +259,69 @@ char* DuplicateStrAndInsertEOLs(const char* src, HDC hDC, int maxWidth)
 {
     if (src == NULL || *src == 0)
         return NULL;
+    try
+    {
+        const std::wstring wide = MessageBoxTextToWide(src);
+        if (wide.empty())
+            return NULL;
+        std::vector<int> widths(wide.size() + 1, 0);
+        SIZE size;
+        if (!GetTextExtentExPointW(hDC, wide.c_str(), (int)wide.size(), 0,
+                                  NULL, widths.data() + 1, &size))
+            return NULL;
 
-    int srcLen = (int)strlen(src);
-
-    // array for storing partial lengths in the string
-    int* alpDx = (int*)malloc((1 + srcLen + 1) * sizeof(int)); // one extra slot for safety
-    if (alpDx == NULL)
+        std::wstring wrapped;
+        int lineWidth = 0;
+        bool changed = false;
+        for (size_t i = 0; i < wide.size();)
+        {
+            // Measure and copy a complete Unicode scalar. Never insert an EOL
+            // between UTF-8 bytes or between the halves of a surrogate pair.
+            size_t next = i + 1;
+            if (wide[i] >= 0xD800 && wide[i] <= 0xDBFF && next < wide.size() &&
+                wide[next] >= 0xDC00 && wide[next] <= 0xDFFF)
+                ++next;
+            const int width = widths[next] - widths[i];
+            if (wide[i] == L'\r' || wide[i] == L'\n')
+                lineWidth = 0;
+            else
+            {
+                if (lineWidth > 0 && lineWidth + width > maxWidth)
+                {
+                    wrapped += L'\n';
+                    lineWidth = 0;
+                    changed = true;
+                }
+                lineWidth += width;
+            }
+            wrapped.append(wide, i, next - i);
+            i = next;
+        }
+        if (!changed)
+            return NULL;
+        const int bytes = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS,
+            wrapped.c_str(), -1, NULL, 0, NULL, NULL);
+        if (bytes <= 0)
+            return NULL;
+        char* text = (char*)malloc(bytes);
+        if (text == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            return NULL;
+        }
+        if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wrapped.c_str(), -1,
+                              text, bytes, NULL, NULL) != bytes)
+        {
+            free(text);
+            return NULL;
+        }
+        return text;
+    }
+    catch (const std::bad_alloc&)
     {
         TRACE_E(LOW_MEMORY);
         return NULL;
     }
-    alpDx[0] = 0;
-
-    SIZE sz;
-    if (!GetTextExtentExPoint(hDC, src, srcLen, 0, NULL, alpDx + 1, &sz))
-    {
-        free(alpDx);
-        return NULL;
-    }
-
-    int breakCount = 0;
-    int lineLen = 0;
-    int i;
-    for (i = 0; i < srcLen; i++)
-    {
-        if (src[i] == '\n')
-        {
-            // end of line
-            lineLen = 0;
-        }
-        else
-        {
-            if (lineLen + (alpDx[i + 1] - alpDx[i]) > maxWidth)
-            {
-                alpDx[breakCount] = i;
-                breakCount++;
-                lineLen = 0;
-            }
-            else
-            {
-                lineLen += alpDx[i + 1] - alpDx[i];
-            }
-        }
-    }
-
-    if (breakCount > 0)
-    {
-        char* text = (char*)malloc((srcLen + breakCount + 1) * sizeof(char));
-        if (text != NULL)
-        {
-            memcpy(text, src, srcLen + 1);
-            int i2;
-            for (i2 = 0; i2 < breakCount; i2++)
-            {
-                memmove(text + alpDx[i2] + 1, text + alpDx[i2], srcLen - alpDx[i2] + 1 + i2);
-                text[alpDx[i2]] = '\n';
-            }
-            free(alpDx);
-            return text;
-        }
-    }
-
-    free(alpDx);
-    return NULL;
 }
 
 BOOL CMessageBox::CopyToClipboard()
@@ -674,7 +675,7 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             DrawTextW(hDC, scrollableLabelText.c_str(), -1, &tR, DT_CALCRECT | DT_LEFT | DT_WORDBREAK | DT_EXPANDTABS | DT_NOPREFIX);
         }
         else
-            DrawText(hDC, Text.Get(), -1, &tR, DT_CALCRECT | DT_LEFT | DT_WORDBREAK | DT_EXPANDTABS | DT_NOPREFIX);
+            DrawTextW(hDC, MessageBoxTextToWide(Text.Get()).c_str(), -1, &tR, DT_CALCRECT | DT_LEFT | DT_WORDBREAK | DT_EXPANDTABS | DT_NOPREFIX);
 
         if (tR.right > maxTextWidth && !scrollableText)
         {
@@ -684,7 +685,7 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (newText != NULL)
             {
                 tR.right = maxTextWidth;
-                DrawText(hDC, newText, -1, &tR, DT_CALCRECT | DT_LEFT | DT_WORDBREAK | DT_EXPANDTABS | DT_NOPREFIX);
+                DrawTextW(hDC, MessageBoxTextToWide(newText).c_str(), -1, &tR, DT_CALCRECT | DT_LEFT | DT_WORDBREAK | DT_EXPANDTABS | DT_NOPREFIX);
                 SetDlgItemTextUtf8Aware(HWindow, IDS_MSGBOX_TEXT, newText);
                 free((void*)newText);
             }
@@ -699,7 +700,7 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 goodRight = iterRect.right;
                 iterRect.right -= 5; // step by five pixels
-                DrawText(hDC, Text.Get(), -1, &iterRect, DT_CALCRECT | DT_LEFT | DT_WORDBREAK | DT_EXPANDTABS | DT_NOPREFIX);
+                DrawTextW(hDC, MessageBoxTextToWide(Text.Get()).c_str(), -1, &iterRect, DT_CALCRECT | DT_LEFT | DT_WORDBREAK | DT_EXPANDTABS | DT_NOPREFIX);
                 //        TRACE_I("Iter: right="<<iterRect.right);
             } while (iterRect.bottom == tR.bottom && iterRect.right < goodRight && iterRect.right >= 0);
             tR.right = goodRight;

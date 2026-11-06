@@ -1,0 +1,172 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual target snapshot; panel registry/storage are explicit doubles. No file operation is simulated as GUI proof.
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <cstdio>
+#include <cstring>
+#include <algorithm>
+#include <functional>
+#define SAL_MAX_PATH 32768
+#define SAL_MAX_EXTENDED_PATH 32768
+enum CPanelSide {cpsLeft,cpsRight};
+enum {ptDisk,ptZIPArchive,ptPluginFS};
+#define PATH_TYPE_WINDOWS 1 // unchanged public spl_gen.h value; checked by generator
+struct CPluginData;
+struct CPluginDataInterfaceAbstract;
+struct Binding { const CPluginDataInterfaceAbstract* Interface=nullptr; BOOL Contains(const CPluginDataInterfaceAbstract* p) const {return p!=nullptr&&p==Interface;} };
+struct CFilesWindow
+{
+    Binding PluginData; CPluginData* Owner=nullptr; const char* Archive="source.zip";
+    CPluginData* GetPluginDataForPluginIface() {return Owner;}
+    const char* GetZIPArchive() const {return Archive;}
+    int Kind=ptDisk; ULONGLONG Tab=1, Generation=7;
+    BOOL Branch=FALSE, Scanning=FALSE;
+    std::wstring Root=L"C:\\target";
+    mutable unsigned AccessorReads=0;
+    BOOL Is(int kind) const {++AccessorReads;return Kind==kind;}
+    BOOL IsBranchView() const {++AccessorReads;return Branch;}
+    BOOL IsBranchViewScanning() const {++AccessorReads;return Scanning;}
+    ULONGLONG GetPanelTabId() const {++AccessorReads;return Tab;}
+    ULONGLONG GetBranchViewGeneration() const {++AccessorReads;return Generation;}
+    const wchar_t* GetPathW() const {++AccessorReads;return Root.c_str();}
+};
+struct CMainWindow
+{
+    HWND HWindow=nullptr;
+    CFilesWindow *LeftPanel=nullptr,*RightPanel=nullptr;
+    std::vector<CFilesWindow*> Left,Right,Detached;
+    int GetPanelTabCount(CPanelSide side) const {return (int)(side==cpsLeft?Left:Right).size();}
+    CFilesWindow* GetPanelTabAt(CPanelSide side,int index) const {return (side==cpsLeft?Left:Right).at(index);}
+    int GetDetachedTabCount() const {return (int)Detached.size();}
+    CFilesWindow* GetDetachedTabAt(int index) const {return Detached.at(index);}
+};
+@@ACTION@@
+@@WIDE@@
+@@SNAPSHOT@@
+static int Checks=0,Failures=0,OperationContexts=0;
+static void Check(bool ok,const char* label){++Checks;if(!ok){++Failures;printf("FAIL: %s\n",label);}}
+static CMainWindow* MainWindow=nullptr;
+struct CPluginDataInterfaceAbstract {};
+using SalEnumSelection=void*;
+struct CSalamanderForOperations { explicit CSalamanderForOperations(CFilesWindow*) {++OperationContexts;} };
+struct ArchiverFacade {
+ int Calls=0;BOOL Result=TRUE;
+ BOOL UnpackArchive(CSalamanderForOperations*,const char* archive,CPluginDataInterfaceAbstract* metadata,
+                    const char* target,const char* root,SalEnumSelection next,void* param){
+  ++Calls;Check(strcmp(archive,"source.zip")==0&&strcmp(target,"destination")==0&&strcmp(root,"inside")==0,"plugin arguments retain exact owned strings");
+  Check(metadata!=nullptr&&next==param,"metadata and selection callback parameters retained");return Result;
+ }
+};
+struct CPluginData {
+ BOOL SupportPanelView=TRUE;const char* DLLName="zip\\zip.spl";
+ BOOL LoadOK=TRUE;int InitCalls=0;std::function<void()> DuringInit;
+ ArchiverFacade PluginIfaceForArchiver;
+ BOOL InitDLL(HWND){++InitCalls;if(DuringInit)DuringInit();return LoadOK;}
+ @@DECL@@
+};
+static int StrICmp(const char* a,const char* b) {return _stricmp(a,b);}
+@@POLICY@@
+#define CALL_STACK_MESSAGE6(...) ((void)0)
+@@WRAPPER@@
+int main(){
+ CFilesWindow source,target,replacement;source.Tab=2;replacement.Tab=3;
+ CMainWindow main;MainWindow=&main;CPluginDataInterfaceAbstract metadata;int context=0;
+ for(int scenario=0;scenario<=10;++scenario){
+  target.Kind=ptDisk;target.Tab=1;target.Generation=7;target.Scanning=FALSE;target.Branch=(scenario==7);target.Root=L"C:\\destination";
+  main.Left={&source};main.Right={&target,&replacement};main.Detached.clear();main.LeftPanel=&source;main.RightPanel=&target;
+  if(scenario==10){main.Right={&replacement};main.RightPanel=&replacement;main.Detached={&target};}
+  CFilesActionDiskTarget snapshot;Check(snapshot.Capture(&main,&target),"snapshot captured before initialization callback");
+  CPluginData plugin;OperationContexts=0;unsigned retiredReads=0;
+  plugin.DuringInit=[&]{
+   switch(scenario){
+    case 1:target.Root+=L"\\changed";break;
+    case 2:++target.Tab;break;
+    case 3:main.Right={&replacement};main.RightPanel=&replacement;retiredReads=target.AccessorReads;break;
+    case 4:main.RightPanel=&replacement;break;
+    case 5:target.Kind=ptZIPArchive;break;
+    case 6:target.Scanning=TRUE;break;
+    case 7:++target.Generation;break;
+    case 8:target.Branch=TRUE;break;
+    case 9:main.Right={&replacement};retiredReads=target.AccessorReads;break;
+    case 10:main.Detached.clear();retiredReads=target.AccessorReads;break;
+   }
+  };
+  SetLastError(ERROR_SUCCESS);
+  const BOOL result=plugin.UnpackArchive(&source,"source.zip",&metadata,"destination","inside",&context,&context,&snapshot);
+  Check(plugin.InitCalls==1,"actual wrapper initializes plugin before checking callback-mutated target");
+  if(scenario==0){Check(result&&plugin.PluginIfaceForArchiver.Calls==1&&OperationContexts==1,"current target dispatches exactly once");}
+  else{
+   Check(!result&&plugin.PluginIfaceForArchiver.Calls==0,"callback invalidation prevents plugin invocation");
+   Check(OperationContexts==0,"invalid target is refused before creating operation context");
+   Check(GetLastError()==ERROR_RETRY,"callback invalidation reports retry without continuing operation");
+   if(scenario==3||scenario==9||scenario==10)Check(retiredReads==target.AccessorReads,"retired attached/detached target receives no getter access");
+  }
+ }
+ // Existing callers pass NULL and retain their previous dispatch contract.
+ main.Right={&target};main.RightPanel=&target;target.Kind=ptDisk;target.Branch=FALSE;target.Scanning=FALSE;target.Tab=1;
+ CPluginData legacy;legacy.DuringInit=[&]{target.Root+=L"\\changed";};OperationContexts=0;
+ Check(legacy.UnpackArchive(&source,"source.zip",&metadata,"destination","inside",&context,&context)!=FALSE&&legacy.PluginIfaceForArchiver.Calls==1,"default NULL preserves legacy caller behavior");
+ CFilesActionDiskTarget valid;Check(valid.Capture(&main,&target),"capture for init/backend failure cases");
+ CPluginData unloaded;unloaded.LoadOK=FALSE;OperationContexts=0;SetLastError(ERROR_MOD_NOT_FOUND);
+ Check(!unloaded.UnpackArchive(&source,"source.zip",&metadata,"destination","inside",&context,&context,&valid)&&unloaded.PluginIfaceForArchiver.Calls==0&&OperationContexts==0,"initialization failure never calls plugin");
+ Check(GetLastError()==ERROR_MOD_NOT_FOUND,"initialization error retained");
+ CPluginData failed;failed.PluginIfaceForArchiver.Result=FALSE;SetLastError(ERROR_ACCESS_DENIED);
+ Check(!failed.UnpackArchive(&source,"source.zip",&metadata,"destination","inside",&context,&context,&valid)&&failed.PluginIfaceForArchiver.Calls==1,"backend failure is retained after valid guard");
+ Check(GetLastError()==ERROR_ACCESS_DENIED,"backend error not replaced with retry");
+
+ // Actual Branch policy is checked again after initialization and bound to this plugin object.
+ for(int scenario=0;scenario<=8;++scenario){
+  CPluginData plugin,replacementOwner;OperationContexts=0;source.Kind=ptZIPArchive;source.Owner=&plugin;source.Archive="source.zip";source.PluginData.Interface=&metadata;
+  target.Root=L"destination";target.Branch=TRUE;target.Scanning=FALSE;target.Kind=ptDisk;target.Tab=1;
+  main.Right={&target};main.RightPanel=&target;main.Detached.clear();CFilesActionDiskTarget snapshot;
+  Check(snapshot.Capture(&main,&target,TRUE),"capture actual directory-mode Branch identity before InitDLL");
+  plugin.DuringInit=[&]{switch(scenario){
+   case 1:source.Owner=&replacementOwner;break;
+   case 2:source.PluginData.Interface=nullptr;break;
+   case 3:source.Archive="different.zip";break;
+   case 4:plugin.DLLName="7zip\\7zip.spl";break;
+   case 5:plugin.SupportPanelView=FALSE;break;
+   case 6:source.Kind=ptDisk;break;
+   case 7:snapshot.DefaultPath="changed";break;
+   case 8:snapshot.DirectoryDefault=FALSE;break;
+  }};
+  SetLastError(ERROR_SUCCESS);BOOL result=plugin.UnpackArchive(&source,"source.zip",&metadata,"destination","inside",&context,&context,&snapshot);
+  if(scenario==0)Check(result&&plugin.PluginIfaceForArchiver.Calls==1&&OperationContexts==1,"valid bound ZIP Branch target dispatches after initialization");
+  else{Check(!result&&plugin.PluginIfaceForArchiver.Calls==0&&OperationContexts==0,"post-init owner, metadata or directory binding change never reaches plugin I/O");Check(GetLastError()==ERROR_RETRY,"post-init Branch qualification failure preserves retry refusal");}
+ }
+ // The same post-init identity/kind contract applies to the qualified 7-Zip owner.
+ for(int scenario=0;scenario<=8;++scenario){
+  CPluginData plugin,replacementOwner;plugin.DLLName="7zip\\7zip.spl";replacementOwner.DLLName="7zip\\7zip.spl";OperationContexts=0;source.Kind=ptZIPArchive;source.Owner=&plugin;source.Archive="source.zip";source.PluginData.Interface=&metadata;
+  target.Root=L"destination";target.Branch=TRUE;target.Scanning=FALSE;target.Kind=ptDisk;target.Tab=1;
+  main.Right={&target};main.RightPanel=&target;main.Detached.clear();CFilesActionDiskTarget snapshot;
+  Check(snapshot.Capture(&main,&target,TRUE),"capture actual directory-mode Branch identity before InitDLL");
+  plugin.DuringInit=[&]{switch(scenario){
+   case 1:source.Owner=&replacementOwner;break;
+   case 2:source.PluginData.Interface=nullptr;break;
+   case 3:source.Archive="different.zip";break;
+   case 4:plugin.DLLName="zip\\zip.spl";break;
+   case 5:plugin.SupportPanelView=FALSE;break;
+   case 6:source.Kind=ptDisk;break;
+   case 7:snapshot.DefaultPath="changed";break;
+   case 8:snapshot.DirectoryDefault=FALSE;break;
+  }};
+  SetLastError(ERROR_SUCCESS);BOOL result=plugin.UnpackArchive(&source,"source.zip",&metadata,"destination","inside",&context,&context,&snapshot);
+  if(scenario==0)Check(result&&plugin.PluginIfaceForArchiver.Calls==1&&OperationContexts==1,"valid bound 7-Zip Branch target dispatches after initialization");
+  else{Check(!result&&plugin.PluginIfaceForArchiver.Calls==0&&OperationContexts==0,"post-init owner, metadata or directory binding change never reaches plugin I/O");Check(GetLastError()==ERROR_RETRY,"post-init Branch qualification failure preserves retry refusal");}
+ }
+ // Source context is independently checked before and after initialization.
+ for(int invalidation=0;invalidation<3;++invalidation){
+  CPluginData plugin;OperationContexts=0;BOOL current=invalidation!=0;
+  if(invalidation==1)plugin.DuringInit=[&]{current=FALSE;};
+  const auto validate=[](void* state)->BOOL{return *static_cast<BOOL*>(state);};
+  const BOOL result=plugin.UnpackArchive(&source,"source.zip",&metadata,"destination","inside",&context,&context,nullptr,validate,&current);
+  Check(result==(invalidation==2),"only current source context reaches backend");
+  Check(plugin.InitCalls==(invalidation==0?0:1),"stale source before initialization never enters loader");
+  Check(plugin.PluginIfaceForArchiver.Calls==(invalidation==2?1:0)&&OperationContexts==(invalidation==2?1:0),"post-init source loss precedes operation-context construction and I/O");
+  if(invalidation!=2)Check(GetLastError()==ERROR_RETRY,"source context rejection preserves retry error");
+ }
+ printf("Actual unpack post-init target: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

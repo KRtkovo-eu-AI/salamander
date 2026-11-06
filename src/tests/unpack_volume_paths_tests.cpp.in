@@ -1,0 +1,90 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual internal volume plan and delete helper; owned files and explicit error injection.
+#define NOMINMAX
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <cstdio>
+#include <cstring>
+#include <new>
+#include <cstdlib>
+#include <filesystem>
+#include <crtdbg.h>
+#define SAL_MAX_PATH 32768
+// Inject owned data-buffer/vector allocation failures; exclude STL debug proxy metadata.
+static long FailAllocation=-1;
+void* operator new(size_t size){if(size>32){if(FailAllocation==0){FailAllocation=-1;throw std::bad_alloc();}if(FailAllocation>0)--FailAllocation;}void* p=malloc(size?size:1);if(!p)throw std::bad_alloc();return p;}
+void operator delete(void* p) noexcept {free(p);}
+void operator delete(void* p,size_t) noexcept {free(p);}
+static int Checks=0,Failures=0;
+#ifdef _DEBUG
+static int __cdecl Report(int type,char* text,int*){if(type==_CRT_ASSERT)++Failures;fprintf(stderr,"CRT report: %s\n",text);return FALSE;}
+#endif
+static void Check(bool ok,const char* why){++Checks;if(!ok){++Failures;printf("FAIL: %s (%lu)\n",why,GetLastError());}}
+@@WIDE@@
+static std::wstring Root;
+static int AttributeCalls=0,SetCalls=0,DeleteCalls=0;
+static DWORD AttributeError=0,SetError=0,DeleteError=0,LastSet=0;
+static std::wstring LastIOPath;
+static bool Owned(const wchar_t* path){const auto plain=SalPathRemoveExtendedPrefixW(path);return plain.size()>Root.size()&&plain.compare(0,Root.size(),Root)==0&&plain[Root.size()]==L'\\'&&plain.find(L"..") == std::wstring::npos;}
+static DWORD VolumeGet(const wchar_t* path){++AttributeCalls;LastIOPath=path;if(!Owned(path)){SetLastError(ERROR_ACCESS_DENIED);return INVALID_FILE_ATTRIBUTES;}if(AttributeError){SetLastError(AttributeError);return INVALID_FILE_ATTRIBUTES;}return ::GetFileAttributesW(path);}
+static BOOL VolumeSet(const wchar_t* path,DWORD attributes){++SetCalls;LastSet=attributes;LastIOPath=path;if(!Owned(path)){SetLastError(ERROR_ACCESS_DENIED);return FALSE;}if(SetError){SetLastError(SetError);return FALSE;}return ::SetFileAttributesW(path,attributes);}
+static BOOL VolumeDelete(const wchar_t* path){++DeleteCalls;LastIOPath=path;if(!Owned(path)){SetLastError(ERROR_ACCESS_DENIED);return FALSE;}if(DeleteError){SetLastError(DeleteError);return FALSE;}return ::DeleteFileW(path);}
+#define GetFileAttributesW VolumeGet
+#define SetFileAttributesW VolumeSet
+#define DeleteFileW VolumeDelete
+@@ACTUAL@@
+#undef GetFileAttributesW
+#undef SetFileAttributesW
+#undef DeleteFileW
+static std::string List(std::initializer_list<std::string> names){std::string s;for(const auto& name:names){s+=name;s.push_back(0);}return s;}
+static bool Prepare(const std::string& bytes,const std::string& source,bool utf8,std::vector<CUnpackArchiveVolume>& plan){return PrepareUnpackArchiveVolumes(bytes.data(),(int)bytes.size(),(int)bytes.size()+1,source.c_str(),utf8,plan);}
+static std::wstring IO(const std::wstring& p){return SalPathAddExtendedPrefixW(p.c_str());}
+static bool Write(const std::wstring& path,const std::string& payload){if(!Owned(path.c_str()))return false;std::filesystem::create_directories(std::filesystem::path(IO(path)).parent_path());HANDLE h=CreateFileW(IO(path).c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);if(h==INVALID_HANDLE_VALUE)return false;DWORD n=0;BOOL ok=WriteFile(h,payload.data(),(DWORD)payload.size(),&n,nullptr);CloseHandle(h);return ok&&n==payload.size();}
+static std::string Read(const std::wstring& path){HANDLE h=CreateFileW(IO(path).c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);if(h==INVALID_HANDLE_VALUE)return {};char b[128]={};DWORD n=0;BOOL ok=ReadFile(h,b,sizeof(b),&n,nullptr);CloseHandle(h);return ok?std::string(b,n):std::string();}
+static void ResetIO(){AttributeCalls=SetCalls=DeleteCalls=0;AttributeError=SetError=DeleteError=LastSet=0;LastIOPath.clear();}
+int wmain(int argc,wchar_t** argv){
+ #ifdef _DEBUG
+ _CrtSetReportMode(_CRT_ASSERT,_CRTDBG_MODE_FILE);_CrtSetReportFile(_CRT_ASSERT,_CRTDBG_FILE_STDERR);_CrtSetReportHook(Report);
+#endif
+ setvbuf(stdout,nullptr,_IONBF,0);puts("PHASE paths");if(argc!=2)return 2;Root=argv[1];if(Root.empty()||Root.find(L"..")!=std::wstring::npos)return 2;std::filesystem::create_directories(Root);
+ const std::string source="C:\\owned\\archive.zip";std::vector<CUnpackArchiveVolume> plan;
+ for(const auto& path:std::vector<std::wstring>{L"C:\\owned\\ascii.zip",L"C:\\owned\\žluť-東京.zip",L"C:\\東京\\ascii.zip",L"C:\\東京\\žluť\\café.zip",L"C:\\"+std::wstring(110,L'東')+L"\\a.zip",L"C:\\"+std::wstring(140,L'a')+L"\\"+std::wstring(140,L'b')+L"\\東京.zip",L"\\\\server\\share\\東京.zip",L"\\\\?\\C:\\owned\\archive.zip",L"\\\\?\\UNC\\server\\share\\東京.zip"}){
+  const auto utf8=SalWideToMultiBytePath(path.c_str(),CP_UTF8);Check(Prepare(List({utf8}),utf8,true,plan)&&plan.size()==1,"qualified full path preserves owned volume identity");const auto plain=SalPathRemoveExtendedPrefixW(path.c_str());Check(plan.size()==1&&SalPathRemoveExtendedPrefixW(plan[0].Path.c_str())==plain,"no path truncation or display-name reconstruction");if(plain.size()>=MAX_PATH)Check(plan[0].Path.rfind(L"\\\\?\\",0)==0,"Win32-long deletion path has extended prefix");
+ }
+ for(const auto& bad:std::vector<std::string>{"", "relative.zip","C:relative.zip","\\relative.zip","C:\\owned\\..\\other.zip","C:\\owned\\.\\a.zip","C:\\owned\\a.zip ","C:\\owned\\a.zip.","C:\\owned\\a.zip:stream","C:/owned/a.zip","\\\\server\\share","\\\\.\\C:\\a.zip","\\\\?\\GLOBALROOT\\Device\\x",std::string("C:\\owned\\bad")+char(1),"C:\\owned\\a?b.zip"}){
+  plan={{"stale",L"stale"}};ResetIO();Check(!Prepare(List({source,bad}),source,true,plan)&&plan.empty(),"entire malformed list refuses with empty plan");Check(AttributeCalls==0&&SetCalls==0&&DeleteCalls==0,"validation failure performs no attribute or deletion I/O");
+ }
+ const std::string oversized="C:\\owned\\"+std::string(SAL_MAX_PATH,'a');Check(!Prepare(List({source,oversized}),source,true,plan)&&plan.empty(),"oversized list entry refuses before any I/O");
+ Check(!Prepare(std::string(source),source,true,plan)&&plan.empty(),"unterminated final entry refuses");Check(!Prepare(List({source})+"broken",source,true,plan)&&plan.empty(),"valid first entry does not permit malformed tail");Check(!Prepare(List({source+".part2"}),source,true,plan)&&plan.empty(),"nonempty list must include exact selected source");
+ const auto bytes=List({source});for(int mode=0;mode<5;++mode){plan={{"stale",L"stale"}};const bool ok=PrepareUnpackArchiveVolumes(mode==0?nullptr:bytes.data(),mode==1?-1:(int)bytes.size(),mode==2?-1:mode==3?(int)bytes.size():mode==4?0:(int)bytes.size()+1,source.c_str(),true,plan);Check(!ok&&plan.empty(),"invalid length/capacity/text refuses before reading");}
+ Check(PrepareUnpackArchiveVolumes(nullptr,0,0,source.c_str(),true,plan)&&plan.empty(),"legacy empty absent result performs no work");Check(Prepare("",source,true,plan)&&plan.empty(),"legacy empty allocated result performs no work");
+ Check(Prepare(List({source,source,source+".part2",source+".part2"}),source,true,plan)&&plan.size()==2,"exact duplicates are removed before deletion");
+ Check(Prepare(List({source,"C:\\owned\\ARCHIVE.zip"}),source,true,plan)&&plan.size()==2,"distinct case spellings are not conflated in case-sensitive directories");
+ const std::string utf8Source="C:\\owned\\café.zip";Check(Prepare(List({utf8Source}),utf8Source,true,plan)&&plan.size()==1,"qualified UTF8 source uses UTF8 regardless of ACP alias");
+ if(GetACP()!=CP_UTF8){Check(!Prepare(List({utf8Source}),utf8Source,false,plan)&&plan.empty(),"unknown legacy producer cannot guess ambiguous UTF8 source identity");}
+ const std::wstring acpName=L"C:\\owned\\žluť.zip";const auto acpBytes=SalWideToMultiBytePath(acpName.c_str(),CP_ACP);if(SalMultiByteToWidePath(acpBytes.c_str(),CP_ACP)==acpName){Check(Prepare(List({source,acpBytes}),source,false,plan)&&plan.size()==2&&plan[1].Display==SalWideToMultiBytePath(acpName.c_str(),CP_UTF8),"legacy ACP additional volume roundtrips and gets UTF8 diagnostic");}
+ Check(!Prepare(List({source}),std::string("C:\\bad")+char(-1),true,plan)&&plan.empty(),"invalid UTF8 selected source refuses");
+ puts("PHASE allocation");int rejected=0;for(int i=0;i<40;++i){const auto input=List({source,source+".part2"});FailAllocation=i;const bool ok=Prepare(input,source,true,plan);const DWORD error=GetLastError();FailAllocation=-1;if(!ok){++rejected;Check(error==ERROR_NOT_ENOUGH_MEMORY&&plan.empty(),"allocation failure leaves no partially executable volume plan");}else Check(plan.size()==2,"complete allocation path retains both volumes");}Check(rejected>8,"allocation injection exercises multiple owned-plan allocations");
+ puts("PHASE real I/O");for(const auto& suffix:std::vector<std::wstring>{L"\\ascii.zip",L"\\café.zip",L"\\東京\\ascii.zip",L"\\東京\\žluť\\archive.zip",L"\\"+std::wstring(110,L'東')+L"\\archive.zip",L"\\"+std::wstring(140,L'a')+L"\\"+std::wstring(140,L'b')+L"\\東京.zip"}){
+  const auto path=Root+suffix;Check(Write(path,"owned-archive-payload"),"create owned deletion fixture");const auto utf8=SalWideToMultiBytePath(path.c_str(),CP_UTF8);Check(Prepare(List({utf8}),utf8,true,plan)&&plan.size()==1,"real file plan retains exact long/Unicode source");ResetIO();Check(DeleteUnpackArchiveVolumeW(plan[0].Path.c_str())&&DeleteCalls==1&&SetCalls==0,"real wide deletion removes owned normal file");Check(::GetFileAttributesW(IO(path).c_str())==INVALID_FILE_ATTRIBUTES,"exact file was removed");
+ }
+ const auto selected=Root+L"\\alias-identity\\café.zip";
+ const auto selectedBytes=SalWideToMultiBytePath(selected.c_str(),CP_UTF8);
+ const auto aliasPath=SalMultiByteToWidePath(selectedBytes.c_str(),CP_ACP);
+ if(aliasPath!=selected){
+  Check(Write(selected,"selected-utf8-archive")&&Write(aliasPath,"retain-acp-alias"),"create distinct owned UTF8 and ACP alias files");
+  Check(!Prepare(List({selectedBytes}),selectedBytes,false,plan)&&Read(selected)=="selected-utf8-archive"&&Read(aliasPath)=="retain-acp-alias","ambiguous legacy decoding refuses without touching either file");
+  Check(Prepare(List({selectedBytes}),selectedBytes,true,plan)&&plan.size()==1,"qualified UTF8 alias case binds exact file");ResetIO();Check(DeleteUnpackArchiveVolumeW(plan[0].Path.c_str()),"delete selected UTF8 file through wide I/O");Check(::GetFileAttributesW(IO(selected).c_str())==INVALID_FILE_ATTRIBUTES&&Read(aliasPath)=="retain-acp-alias","UTF8 deletion leaves existing ACP alias byte-identical");
+ }
+ puts("PHASE readonly");const auto ro=Root+L"\\readonly.zip";Check(Write(ro,"readonly"),"create readonly fixture");Check(::SetFileAttributesW(IO(ro).c_str(),FILE_ATTRIBUTE_READONLY|FILE_ATTRIBUTE_HIDDEN),"set owned readonly+hidden attributes");ResetIO();Check(DeleteUnpackArchiveVolumeW(IO(ro).c_str())&&SetCalls==1&&LastSet==FILE_ATTRIBUTE_HIDDEN&&DeleteCalls==1,"readonly clears only that bit and deletes exact file");
+ const auto keep=Root+L"\\keep.txt";Check(Write(keep,"untouched-sentinel"),"create keep sentinel");
+ const auto fail=Root+L"\\failure.zip";Check(Write(fail,"retain-on-failure"),"create failure fixture");
+ for(DWORD error:{ERROR_ACCESS_DENIED,ERROR_SHARING_VIOLATION,ERROR_PATH_NOT_FOUND}){ResetIO();AttributeError=error;Check(!DeleteUnpackArchiveVolumeW(IO(fail).c_str())&&GetLastError()==error&&SetCalls==0&&DeleteCalls==0,"unreadable attributes refuse without guessed ARCHIVE attributes or deletion");Check(Read(fail)=="retain-on-failure","attribute failure preserves content");}
+ Check(::SetFileAttributesW(IO(fail).c_str(),FILE_ATTRIBUTE_READONLY),"prepare readonly failure");ResetIO();SetError=ERROR_ACCESS_DENIED;Check(!DeleteUnpackArchiveVolumeW(IO(fail).c_str())&&GetLastError()==ERROR_ACCESS_DENIED&&SetCalls==1&&DeleteCalls==0,"readonly-clear failure prevents deletion");Check(Read(fail)=="retain-on-failure","readonly failure preserves content");Check(::SetFileAttributesW(IO(fail).c_str(),FILE_ATTRIBUTE_NORMAL),"reset own fixture attributes");ResetIO();DeleteError=ERROR_SHARING_VIOLATION;Check(!DeleteUnpackArchiveVolumeW(IO(fail).c_str())&&GetLastError()==ERROR_SHARING_VIOLATION&&DeleteCalls==1,"deletion error is retained for controller retry dialog");ResetIO();Check(DeleteUnpackArchiveVolumeW(IO(fail).c_str()),"retry after sharing failure succeeds");ResetIO();Check(DeleteUnpackArchiveVolumeW(IO(fail).c_str())&&SetCalls==0&&DeleteCalls==0,"already missing file is accepted without attribute mutation");
+ const auto directory=Root+L"\\directory";std::filesystem::create_directory(directory);ResetIO();Check(!DeleteUnpackArchiveVolumeW(IO(directory).c_str())&&GetLastError()==ERROR_ACCESS_DENIED&&SetCalls==0&&DeleteCalls==0,"directory is never treated as an archive volume file");
+ Check(Read(keep)=="untouched-sentinel","all cases preserve unselected sentinel");
+ const bool cleanupScope=Owned((Root+L"\\cleanup-scope").c_str());Check(cleanupScope,"cleanup scope remains inside owned temporary root");if(cleanupScope)std::filesystem::remove_all(IO(Root));
+ printf("Actual unpack volume paths: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

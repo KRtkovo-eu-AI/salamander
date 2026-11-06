@@ -126,5 +126,6 @@ STRINGTABLE
   IDS_ARCLOCK_ERROR           "Archive Lock Error"
   IDS_ERRADDFILE_TOOLONG,     "Cannot add 1 or more files to the list. The total path is too long.\nSome directories or files may be missing in the archive listing."
   IDS_ERRADDDIR_TOOLONG,      "Cannot add 1 or more directories to the list. The total path is too long.\nSome directories or files may be missing in the archive listing."
+  IDS_UNPACK_INCOMPLETE,      "Not all archive entries were unpacked. The source archive has been kept."
   IDS_NAMEISTOOLONG,          "Name ""%s"" with full path is too long.\n\nPath: %s"
 }

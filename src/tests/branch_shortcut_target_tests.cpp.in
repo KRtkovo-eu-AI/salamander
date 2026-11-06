@@ -1,0 +1,177 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <windows.h>
+#include <algorithm>
+#include <winioctl.h>
+#include <unordered_set>
+#include <shlobj.h>
+#include <shobjidl.h>
+#include <string>
+#include <vector>
+#include <functional>
+#include <cstdio>
+#include <cstring>
+#include <cwchar>
+#define CALL_STACK_MESSAGE1(...) ((void)0)
+static constexpr int SAL_MAX_PATH=32768,IDS_SHORTCUT_WRONG_PATH=1,IDS_ERRORTITLE=2;
+static int Checks=0,Failed=0,Errors=0,LegacyCalls=0,Loads=0,Resolves=0,Paths=0,Releases=0,Creates=0;
+static const char* LoadStr(int){return "fixture";}
+static int SalMessageBox(HWND,const char*,const char*,UINT){++Errors;return IDOK;}
+@@HELPERS@@
+namespace Salamander {namespace BranchView {
+@@EXTENDED@@
+}}
+enum CPanelType {ptDisk,ptZIPArchive,ptPluginFS};
+struct CFileData {std::string Key,Text;wchar_t* NameW=nullptr;char* Name=nullptr;DWORD Attr=0;std::wstring Full;
+ bool UseWideName()const{return NameW&&NameW[0];}};
+struct Rows {int Count=0;std::vector<CFileData> Data;CFileData& At(int i){return Data.at(size_t(i));}};
+class CFilesWindow {
+public:
+ BOOL Branch=TRUE,Current=TRUE,ChangeOK=TRUE,Redirect=FALSE;CPanelType Type=ptDisk;ULONGLONG Generation=1,PanelTabId=17;HWND HWindow=nullptr;
+ std::wstring Root,Changed,FocusedWide;std::string RootA,Focus;Rows FileRows,DirRows;Rows *Files=&FileRows,*Dirs=&DirRows;int Caret=0,Changes=0,SetCarets=0;
+ void Set(const std::wstring& root,const std::wstring& full){Root=root;RootA=SalWideToMultiBytePath(root.c_str(),CP_UTF8);FileRows.Data.resize(1);FileRows.Count=1;auto& f=FileRows.Data[0];f.Key="identity";f.Full=full;f.Text="input.lnk";f.Name=f.Text.data();}
+ BOOL Is(CPanelType t){return t==Type;}CPanelType GetPanelType(){return Type;}BOOL IsBranchView(){return Branch;}
+ const wchar_t* GetPathW(){return Root.c_str();}const char* GetPath(){return RootA.c_str();}ULONGLONG GetBranchViewGeneration(){return Generation;}
+ const char* GetItemCacheKeyPtr(const CFileData& f){return f.Key.c_str();}
+ const CFileData* GetBranchViewFileByCacheKey(const char* key){return Branch&&Current&&Files->Count&&Files->At(0).Key==key?&Files->At(0):nullptr;}
+ std::wstring GetItemFullPathW(const CFileData& f){return f.Full;}int GetCaretIndex(){return Caret;}
+ BOOL ChangePathToDiskW(HWND,const wchar_t* path,int=-1,const char* focus=nullptr){++Changes;Changed=path;Focus=focus?focus:"";if(!ChangeOK)return FALSE;Root=Redirect?L"C:\\wrong rescue":path;RootA=SalWideToMultiBytePath(Root.c_str(),CP_UTF8);Branch=FALSE;Type=ptDisk;
+ FileRows.Data.clear();FileRows.Count=0;if(focus){FileRows.Data.resize(2);FileRows.Count=2;FileRows.Data[0].Text="wrong";FileRows.Data[0].Name=FileRows.Data[0].Text.data();FileRows.Data[1].Text=Focus;FileRows.Data[1].Name=FileRows.Data[1].Text.data();}return TRUE;}
+ void SetCaretIndex(int i,BOOL){++SetCarets;const auto& f=Files->At(i-Dirs->Count);FocusedWide=f.UseWideName()?f.NameW:SalMultiByteToWidePath(f.Name,CP_UTF8);}
+ void FocusShortcutTarget(CFilesWindow*);void FocusBranchShortcutTarget(CFilesWindow*,const CFileData&);
+};
+static std::wstring FakeTarget,LoadedSource;static HRESULT LoadResult=S_OK,ResolveResult=S_OK,PathResult=S_OK,CreateResult=S_OK,QueryResult=S_OK;
+static int PidlMode=0;static std::unordered_set<void*> FakePidls;static std::function<void()> OnPidl;
+static BOOL Fake=FALSE,Unterminated=FALSE;static DWORD ResolveFlags=0;static std::function<void()> OnLoad,OnResolve,OnGetPath;
+struct FakePersist final:IPersistFile {
+ HRESULT STDMETHODCALLTYPE QueryInterface(REFIID,void** p)override{*p=nullptr;return E_NOINTERFACE;}ULONG STDMETHODCALLTYPE AddRef()override{return 1;}ULONG STDMETHODCALLTYPE Release()override{++Releases;return 0;}
+ HRESULT STDMETHODCALLTYPE GetClassID(CLSID*)override{return E_NOTIMPL;}HRESULT STDMETHODCALLTYPE IsDirty()override{return S_FALSE;}
+ HRESULT STDMETHODCALLTYPE Load(LPCOLESTR path,DWORD mode)override{++Loads;LoadedSource=path;if(mode!=STGM_READ)++Failed;if(OnLoad)OnLoad();return LoadResult;}
+ HRESULT STDMETHODCALLTYPE Save(LPCOLESTR,BOOL)override{return E_NOTIMPL;}HRESULT STDMETHODCALLTYPE SaveCompleted(LPCOLESTR)override{return E_NOTIMPL;}HRESULT STDMETHODCALLTYPE GetCurFile(LPOLESTR*)override{return E_NOTIMPL;}
+} Persist;
+struct FakeLink final:IShellLinkW {
+ HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,void** p)override{*p=nullptr;if(iid==IID_IPersistFile&&QueryResult==S_OK){*p=&Persist;return S_OK;}return QueryResult==S_OK?E_NOINTERFACE:QueryResult;}
+ ULONG STDMETHODCALLTYPE AddRef()override{return 1;}ULONG STDMETHODCALLTYPE Release()override{++Releases;return 0;}
+ HRESULT STDMETHODCALLTYPE GetPath(LPWSTR path,int n,WIN32_FIND_DATAW*,DWORD flags)override{++Paths;if(flags!=SLGP_UNCPRIORITY)++Failed;if(OnGetPath)OnGetPath();if(Unterminated){for(int i=0;i<n;++i)path[i]=L'x';}else wcscpy_s(path,size_t(n),FakeTarget.c_str());return PathResult;}
+ HRESULT STDMETHODCALLTYPE GetIDList(PIDLIST_ABSOLUTE* out)override{*out=nullptr;if(OnPidl)OnPidl();if(PidlMode==0)return E_NOTIMPL;if(PidlMode==3)return S_OK;if(PidlMode==2){HRESULT r=SHGetKnownFolderIDList(FOLDERID_RecycleBinFolder,0,nullptr,out);if(r!=S_OK)return r;}else {HRESULT r=SHParseDisplayName(FakeTarget.c_str(),nullptr,out,0,nullptr);if(r!=S_OK)return r;}FakePidls.insert(*out);return PidlMode==4?E_FAIL:S_OK;}HRESULT STDMETHODCALLTYPE SetIDList(PCIDLIST_ABSOLUTE)override{return E_NOTIMPL;}
+ HRESULT STDMETHODCALLTYPE GetDescription(LPWSTR,int)override{return E_NOTIMPL;}HRESULT STDMETHODCALLTYPE SetDescription(LPCWSTR)override{return E_NOTIMPL;}
+ HRESULT STDMETHODCALLTYPE GetWorkingDirectory(LPWSTR,int)override{return E_NOTIMPL;}HRESULT STDMETHODCALLTYPE SetWorkingDirectory(LPCWSTR)override{return E_NOTIMPL;}
+ HRESULT STDMETHODCALLTYPE GetArguments(LPWSTR,int)override{return E_NOTIMPL;}HRESULT STDMETHODCALLTYPE SetArguments(LPCWSTR)override{return E_NOTIMPL;}
+ HRESULT STDMETHODCALLTYPE GetHotkey(WORD*)override{return E_NOTIMPL;}HRESULT STDMETHODCALLTYPE SetHotkey(WORD)override{return E_NOTIMPL;}
+ HRESULT STDMETHODCALLTYPE GetShowCmd(int*)override{return E_NOTIMPL;}HRESULT STDMETHODCALLTYPE SetShowCmd(int)override{return E_NOTIMPL;}
+ HRESULT STDMETHODCALLTYPE GetIconLocation(LPWSTR,int,int*)override{return E_NOTIMPL;}HRESULT STDMETHODCALLTYPE SetIconLocation(LPCWSTR,int)override{return E_NOTIMPL;}
+ HRESULT STDMETHODCALLTYPE SetRelativePath(LPCWSTR,DWORD)override{return E_NOTIMPL;}HRESULT STDMETHODCALLTYPE Resolve(HWND,DWORD flags)override{++Resolves;ResolveFlags=flags;if(OnResolve)OnResolve();return ResolveResult;}
+ HRESULT STDMETHODCALLTYPE SetPath(LPCWSTR)override{return E_NOTIMPL;}
+} Link;
+static HRESULT NativeCreate(REFCLSID cls,LPUNKNOWN outer,DWORD context,REFIID iid,LPVOID* object){++Creates;if(Fake){*object=CreateResult==S_OK?&Link:nullptr;return CreateResult;}return CoCreateInstance(cls,outer,context,iid,object);}
+static void CountedPidlFree(void* p){FakePidls.erase(p);CoTaskMemFree(p);}
+#define CoTaskMemFree CountedPidlFree
+#define CoCreateInstance NativeCreate
+@@FOCUS@@
+@@DISPATCH@@
+#undef CoCreateInstance
+#undef CoTaskMemFree
+static void Check(bool ok,const char* label){++Checks;if(!ok){++Failed;std::printf("FAIL: %s (%lu)\n",label,GetLastError());}}
+static std::vector<std::wstring> OwnedDirs,OwnedFiles;
+static bool Mk(const std::wstring& p){if(!CreateDirectoryW(Salamander::BranchView::ExtendedPath(p).c_str(),nullptr))return false;OwnedDirs.push_back(p);return true;}
+static bool Put(const std::wstring& p){HANDLE h=CreateFileW(Salamander::BranchView::ExtendedPath(p).c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,0,nullptr);if(h==INVALID_HANDLE_VALUE)return false;CloseHandle(h);OwnedFiles.push_back(p);return true;}
+static void Reset(){PidlMode=0;OnPidl=nullptr;Errors=LegacyCalls=Loads=Resolves=Paths=Releases=Creates=0;LoadResult=ResolveResult=PathResult=CreateResult=QueryResult=S_OK;Unterminated=FALSE;OnLoad=OnResolve=OnGetPath=nullptr;}
+static std::wstring SaveTemporary;
+static HRESULT SaveLink(const std::wstring& path,const std::wstring& destination){IShellLinkW* link=nullptr;HRESULT r=CoCreateInstance(CLSID_ShellLink,nullptr,CLSCTX_INPROC_SERVER,IID_IShellLinkW,(void**)&link);if(r!=S_OK)return r;HRESULT set=link->SetPath(destination.c_str());if(destination.size()>=MAX_PATH){PIDLIST_ABSOLUTE id=nullptr;HRESULT parse=SHParseDisplayName(destination.c_str(),nullptr,&id,0,nullptr);std::printf("LONG_PIDLPARSE=%08lX\n",(unsigned long)parse);if(parse==S_OK&&id){set=link->SetIDList(id);CoTaskMemFree(id);}}std::printf("SET_PATH=%08lX\n",(unsigned long)set);if(set!=S_OK){link->Release();return set;}IPersistFile* p=nullptr;r=link->QueryInterface(IID_IPersistFile,(void**)&p);if(r==S_OK){r=p->Save(SaveTemporary.c_str(),TRUE);if(r==S_OK){if(!CopyFileW(SaveTemporary.c_str(),Salamander::BranchView::ExtendedPath(path).c_str(),TRUE))r=HRESULT_FROM_WIN32(GetLastError());DeleteFileW(SaveTemporary.c_str());}p->Release();}link->Release();if(r==S_OK)OwnedFiles.push_back(path);return r;}
+// Own local junction fixture, using the standard mount-point reparse layout.
+static bool Junction(const std::wstring& source,const std::wstring& destination){
+ if(!Mk(source))return false;const std::wstring substitute=LR"(\??\)"+destination;
+ struct Data {DWORD Tag;USHORT Length,Reserved,SubOffset,SubLength,PrintOffset,PrintLength;wchar_t Path[1];};
+ const size_t subBytes=substitute.size()*sizeof(wchar_t),printBytes=destination.size()*sizeof(wchar_t);
+ std::vector<BYTE> bytes(16+subBytes+printBytes+2*sizeof(wchar_t),0);auto* data=(Data*)bytes.data();data->Tag=IO_REPARSE_TAG_MOUNT_POINT;data->Length=USHORT(bytes.size()-8);data->SubLength=USHORT(subBytes);data->PrintOffset=USHORT(subBytes+sizeof(wchar_t));data->PrintLength=USHORT(printBytes);
+ std::memcpy(data->Path,substitute.c_str(),subBytes);std::memcpy((BYTE*)data->Path+data->PrintOffset,destination.c_str(),printBytes);
+ HANDLE h=CreateFileW(Salamander::BranchView::ExtendedPath(source).c_str(),GENERIC_WRITE,0,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT|FILE_FLAG_BACKUP_SEMANTICS,nullptr);if(h==INVALID_HANDLE_VALUE)return false;DWORD n=0;BOOL ok=DeviceIoControl(h,FSCTL_SET_REPARSE_POINT,bytes.data(),DWORD(bytes.size()),nullptr,0,&n,nullptr);CloseHandle(h);return ok!=FALSE;
+}
+
+// Resolve the fixture parent before creating files, not the observed result
+// after the production operation. CI TEMP can contain RUNNER~1 or a junction.
+// Strict expected directory/name comparisons below must remain unchanged.
+static bool FixtureDirectory(const std::wstring& input,std::wstring& output){
+ const std::wstring io=Salamander::BranchView::ExtendedPath(input);
+ HANDLE h=CreateFileW(io.c_str(),0,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS,nullptr);
+ if(h==INVALID_HANDLE_VALUE)return false;
+ std::vector<wchar_t> path(SAL_MAX_PATH);BY_HANDLE_FILE_INFORMATION original{};
+ DWORD n=GetFinalPathNameByHandleW(h,path.data(),DWORD(path.size()),FILE_NAME_NORMALIZED);
+ BOOL haveOriginal=GetFileInformationByHandle(h,&original);CloseHandle(h);
+ if(!n||n>=path.size()||!haveOriginal)return false;
+ output=SalPathRemoveExtendedPrefixW(path.data());
+ // Independently verify that canonicalizing the parent did not select another
+ // directory. A wrong parent still fails before any production path is tested.
+ const std::wstring canonicalIO=Salamander::BranchView::ExtendedPath(output);
+ h=CreateFileW(canonicalIO.c_str(),0,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS,nullptr);
+ if(h==INVALID_HANDLE_VALUE)return false;
+ BY_HANDLE_FILE_INFORMATION canonical{};BOOL haveCanonical=GetFileInformationByHandle(h,&canonical);CloseHandle(h);
+ return haveCanonical&&original.dwVolumeSerialNumber==canonical.dwVolumeSerialNumber&&original.nFileIndexHigh==canonical.nFileIndexHigh&&original.nFileIndexLow==canonical.nFileIndexLow;
+}
+int wmain(int argc,wchar_t** argv){
+ HRESULT init=CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);Check(SUCCEEDED(init),"initialize standard Shell COM apartment");
+ std::vector<wchar_t> tmp(SAL_MAX_PATH);DWORD temporaryLength=GetTempPathW(DWORD(tmp.size()),tmp.data());
+ Check(temporaryLength>0&&temporaryLength<tmp.size(),"complete Windows temporary parent fits owned fixture storage");
+ if(!temporaryLength||temporaryLength>=tmp.size())return 2;
+ std::wstring parent=tmp.data();
+ const std::wstring suffix=std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(GetTickCount64());
+ if(argc==2&&wcscmp(argv[1],L"--temp-junction")==0){
+  const std::wstring alias=parent+L"S31b2-parent-alias-"+suffix;
+  Check(Junction(alias,parent),"create owned temporary-parent junction without system changes");parent=alias;
+ }else if(argc==2&&wcscmp(argv[1],L"--temp-short")==0){
+  const std::wstring spelled=parent+L"S31b2-parent-long-spelling-"+suffix;
+  Check(Mk(spelled),"create owned long-spelled temporary parent for short-name probe");
+  std::vector<wchar_t> shortParent(SAL_MAX_PATH);
+  DWORD n=GetShortPathNameW(Salamander::BranchView::ExtendedPath(spelled).c_str(),shortParent.data(),DWORD(shortParent.size()));
+  Check(n>0&&n<shortParent.size(),"complete short-name temporary parent is available without changing 8.3 policy");
+  if(!n||n>=shortParent.size())return 2;
+  parent=SalPathRemoveExtendedPrefixW(shortParent.data());
+ }else if(argc!=1)return 2;
+ std::wstring canonicalParent;
+ Check(FixtureDirectory(parent,canonicalParent),"fixture parent resolves to the same filesystem directory before file creation");
+ if(canonicalParent.empty())return 2;
+ if(canonicalParent.back()!=L'\\')canonicalParent+=L'\\';
+ std::wstring root=canonicalParent+L"S31b2-"+suffix;
+ Check(Mk(root),"own fixture root");SaveTemporary=root+L"\\create.lnk";
+ // GetShortPathName can return the unchanged spelling when 8.3 names are not
+ // generated. The explicit junction run above always exercises an alias.
+ std::vector<wchar_t> shortRoot(SAL_MAX_PATH);DWORD shortLength=GetShortPathNameW(Salamander::BranchView::ExtendedPath(root).c_str(),shortRoot.data(),DWORD(shortRoot.size()));
+ std::wstring canonicalShort;
+ Check(shortLength>0&&shortLength<shortRoot.size()&&FixtureDirectory(shortRoot.data(),canonicalShort)&&canonicalShort==root,
+       "short-form fixture parent resolves to the exact same owned canonical directory");
+ std::printf("TEMP_PARENT alias=%d rawUTF16=%zu canonicalUTF16=%zu\n",argc==2,parent.size(),canonicalParent.size());
+ std::wstring unicode=root+L"\\東京-žluťoučký";Check(Mk(unicode),"Unicode folder");std::wstring byte=root+L"\\"+std::wstring(85,L'日');Check(Mk(byte),"UTF8 byte-long folder");std::wstring deep=unicode;
+ for(int i=0;i<3;++i){deep+=L"\\"+std::wstring(80,L'本');Check(Mk(deep),"full long folder");}
+ for(const auto& dir:{root,unicode,byte,deep}){
+  std::wstring dest=dir+L"\\cíl-東京-\U0001F642.txt",lnk=dir+L"\\same-東京.lnk";Check(Put(dest),"exact target file");HRESULT save=SaveLink(lnk,dest);std::printf("REAL_SHELL_LINK save=%08lX sourceUTF16=%zu targetUTF16=%zu\n",(unsigned long)save,lnk.size(),dest.size());Check(save==S_OK,"save real wide shell link under default Windows");
+  IShellLinkW* probe=nullptr;CoCreateInstance(CLSID_ShellLink,nullptr,CLSCTX_INPROC_SERVER,IID_IShellLinkW,(void**)&probe);IPersistFile* disk=nullptr;probe->QueryInterface(IID_IPersistFile,(void**)&disk);HRESULT load=disk->Load(Salamander::BranchView::ExtendedPath(lnk).c_str(),STGM_READ);std::vector<wchar_t> result(SAL_MAX_PATH);HRESULT get=probe->GetPath(result.data(),int(result.size()),nullptr,SLGP_UNCPRIORITY);std::printf("REAL_LOAD=%08lX GET=%08lX GOT=%zu sourceAttrs=%lu destAttrs=%lu\n",(unsigned long)load,(unsigned long)get,wcslen(result.data()),GetFileAttributesW(Salamander::BranchView::ExtendedPath(lnk).c_str()),GetFileAttributesW(Salamander::BranchView::ExtendedPath(dest).c_str()));disk->Release();probe->Release();
+  Reset();Fake=FALSE;CFilesWindow panel;panel.Set(root,lnk);panel.FocusShortcutTarget(&panel);Check(panel.Changes==1&&Errors==0,"real Shell resolve navigates exactly once");Check(panel.Changed==dir&&panel.FocusedWide==L"cíl-東京-\U0001F642.txt","wide destination and exact leaf focus");
+ }
+ // Real Shell directory targets, including a long destination, and real NTFS junctions.
+ for(const auto& targetDir:{unicode,deep}){
+  const std::wstring lnk=root+L"\\directory-"+std::to_wstring(targetDir.size())+L".lnk";
+  Check(SaveLink(lnk,targetDir)==S_OK,"create real directory shortcut");Reset();Fake=FALSE;CFilesWindow p;p.Set(root,lnk);p.FocusShortcutTarget(&p);Check(p.Changes==1&&p.Changed==targetDir&&p.Focus.empty(),"real Shell directory target uses complete wide directory");
+  const std::wstring junction=root+L"\\junction-"+std::to_wstring(targetDir.size());Check(Junction(junction,targetDir),"create own real junction without Windows setting changes");Reset();CFilesWindow j;j.Set(root,junction);j.Files->At(0).Attr=FILE_ATTRIBUTE_REPARSE_POINT|FILE_ATTRIBUTE_DIRECTORY;j.FocusShortcutTarget(&j);Check(j.Changes==1&&j.Changed==targetDir&&Creates==0,"actual wide reparse handle resolves exact real junction");
+ }
+ const std::wstring broken=root+L"\\broken-junction";Check(Junction(broken,root+L"\\missing"),"create owned dangling junction");Reset();CFilesWindow brokenPanel;brokenPanel.Set(root,broken);brokenPanel.Files->At(0).Attr=FILE_ATTRIBUTE_REPARSE_POINT;brokenPanel.FocusShortcutTarget(&brokenPanel);Check(brokenPanel.Changes==0&&Errors==1,"dangling junction remains unchanged and reports failure");
+
+ // Deterministic COM callbacks/failures test actual production control flow.
+ Fake=TRUE;FakeTarget=unicode+L"\\owned.txt";Check(Put(FakeTarget),"fake COM uses real accessible target");
+ for(int mode=0;mode<19;++mode){Reset();CFilesWindow panel,other;panel.Set(root,root+L"\\source.lnk");other.Set(root,root+L"\\other.lnk");CFilesWindow* target=&panel;
+  if(mode==1)ResolveResult=S_FALSE;if(mode==2)LoadResult=E_FAIL;if(mode==3)ResolveResult=E_FAIL;if(mode==4)PathResult=S_FALSE;if(mode==5)CreateResult=E_FAIL;if(mode==6)QueryResult=E_NOINTERFACE;
+  if(mode==7)OnLoad=[&](){++panel.Generation;};if(mode==8)OnResolve=[&](){panel.FileRows.Data.clear();panel.Files->Count=0;};if(mode==9)OnResolve=[&](){++panel.PanelTabId;};if(mode==10)OnResolve=[&](){panel.Branch=FALSE;};
+  if(mode==11)OnGetPath=[&](){panel.Root=L"changed";};if(mode==12)panel.Current=FALSE;if(mode==13)Unterminated=TRUE;if(mode==14)target=nullptr;
+  if(mode==15){target=&other;OnResolve=[&](){++other.PanelTabId;};}if(mode==16){target=&other;OnResolve=[&](){other.Type=ptZIPArchive;};}
+  if(mode==17)panel.ChangeOK=FALSE;if(mode==18)panel.Redirect=TRUE;
+  panel.FocusShortcutTarget(target);const bool attempt=mode==0||mode==17||mode==18;if(panel.Changes!=int(attempt)||other.Changes!=0)std::printf("FAKE_MODE=%d changes=%d other=%d errors=%d\n",mode,panel.Changes,other.Changes,Errors);Check(panel.Changes==int(attempt)&&other.Changes==0,"failure/cancel/stale context never changes another listing");
+  Check(Releases==(mode==5||mode==12||mode==14?0:mode==6?1:2),"COM references released on every return path");
+  if(mode==0){Check(LoadedSource==Salamander::BranchView::ExtendedPath(root+L"\\source.lnk"),"probe uses owned exact source path");Check(ResolveFlags==DWORD(SLR_ANY_MATCH|SLR_UPDATE),"original Windows resolve/security flags preserved");}
+  if(mode==1)Check(Errors==0,"Shell cancellation remains quiet");if(mode==17||mode==18)Check(panel.SetCarets==0,"failed/rescue navigation cannot focus wrong same-name file");
+ }
+ for(int mode=1;mode<=6;++mode){Reset();Fake=TRUE;PidlMode=mode<=4?mode:1;CFilesWindow p;p.Set(root,root+L"\\pidl.lnk");if(mode==5)OnPidl=[&](){++p.Generation;};if(mode==6)FakeTarget=root+L"\\missing-target";p.FocusShortcutTarget(&p);Check(FakePidls.empty(),"every allocated PIDL is released, including non-success returns");Check(p.Changes==int(mode==1||mode==3||mode==4),"filesystem PIDL, virtual PIDL and callback replacement use safe destination policy");}
+ Reset();Fake=TRUE;FakeTarget=deep+L"\\cíl-東京-\U0001F642.txt";CFilesWindow longFake;longFake.Set(root,root+L"\\longtarget.lnk");longFake.FocusShortcutTarget(&longFake);Check(longFake.Changes==1&&longFake.Changed==deep&&longFake.FocusedWide==L"cíl-東京-\U0001F642.txt","fallback GetPath also retains complete long destination");
+
+ Reset();CFilesWindow normal;normal.Set(root,root+L"\\ordinary.lnk");normal.Branch=FALSE;normal.FocusShortcutTarget(&normal);Check(LegacyCalls==1&&Creates==0,"ordinary dispatcher remains legacy path");normal.Caret=-1;normal.FocusShortcutTarget(&normal);Check(LegacyCalls==1,"negative caret rejected");
+ for(auto i=OwnedFiles.rbegin();i!=OwnedFiles.rend();++i)DeleteFileW(Salamander::BranchView::ExtendedPath(*i).c_str());for(auto i=OwnedDirs.rbegin();i!=OwnedDirs.rend();++i)RemoveDirectoryW(Salamander::BranchView::ExtendedPath(*i).c_str());if(SUCCEEDED(init))CoUninitialize();
+ std::printf("Branch shortcut target: %d checks, %d failures\n",Checks,Failed);return Failed?1:0;
+}

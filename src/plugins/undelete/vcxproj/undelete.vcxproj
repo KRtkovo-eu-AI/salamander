@@ -311,6 +311,8 @@
     </ClInclude>
     <ClInclude Include="..\library\volume.h">
     </ClInclude>
+    <ClInclude Include="..\undelete_paths.h" />
+    <ClInclude Include="..\..\shared\spl_diskselection.h" />
     <ClInclude Include="..\restore.h">
     </ClInclude>
     <ClInclude Include="..\undelete.h">

@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-06 | Normalize shared viewer options across all five workers. | Invalid optional fields are omitted consistently while valid chrome options preserve their types. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 # | 2026-11-06 | Accept title and window geometry for ui.viewer. | Keep Salamatrix runtime viewer options in parity. |  | Composer |
 """Small standard-library Salamatrix worker for Python extensions.
 
@@ -387,24 +388,24 @@ class _UI:
             "salamander.ui.fileProperties", path=str(path))
 
     def viewer(self, path: str, renderer: Any = "auto") -> bool:
-        payload: Dict[str, Any] = {"path": str(path), "renderer": "auto"}
         options = renderer if isinstance(renderer, dict) else {"renderer": renderer}
-        payload["renderer"] = str(options.get("renderer", "auto"))
-        title = options.get("title")
-        if title:
-            payload["title"] = str(title)
-        document_name = options.get("documentName") or options.get("document_name")
-        if document_name:
-            payload["documentName"] = str(document_name)
+        value = options.get("renderer")
+        payload: Dict[str, Any] = {"path": str(path), "renderer": value if isinstance(value, str) and value else "auto"}
+        for key in ("title", "documentName"):
+            value = options.get(key)
+            if key == "documentName" and value is None:
+                value = options.get("document_name")
+            if isinstance(value, str) and value:
+                payload[key] = value
         window = options.get("window") if isinstance(options.get("window"), dict) else options
         for key in ("left", "top", "width", "height", "showCmd"):
-            if key in window and window[key] is not None:
-                payload[key] = int(window[key])
-        if "alwaysOnTop" in window and window["alwaysOnTop"] is not None:
-            payload["alwaysOnTop"] = bool(window["alwaysOnTop"])
-        return bool(self._transport.call(
-            "salamander.ui.viewer.open", **payload
-        ).get("opened", False))
+            value = window.get(key)
+            if (isinstance(value, (int, float)) and not isinstance(value, bool)
+                    and -2147483648 <= value <= 2147483647 and value == int(value)):
+                payload[key] = int(value)
+        if isinstance(window.get("alwaysOnTop"), bool):
+            payload["alwaysOnTop"] = window["alwaysOnTop"]
+        return self._transport.call("salamander.ui.viewer.open", **payload).get("opened") is True
 
     def uptime(self) -> str:
         return str(self._transport.call(

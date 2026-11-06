@@ -111,7 +111,8 @@ public:
     BOOL CanOpenByContent(const char* fileName);
 
     int Decompress(CSalamanderForOperationsAbstract* salamander, const char* archiveName, const char* outDir,
-                   TIndirectArray<CArchiveItemInfo>* itemList, UString& password, BOOL silentDelete = FALSE);
+                   TIndirectArray<CArchiveItemInfo>* itemList, UString& password, BOOL silentDelete = FALSE,
+                   bool* wholeArchiveExtracted = NULL);
 
     int TestArchive(CSalamanderForOperationsAbstract* salamander, const char* fileName);
 

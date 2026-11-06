@@ -18,6 +18,9 @@
 #include "zip.h"
 #include "shiconov.h"
 #include "common/widepath.h"
+#include "branch_view.h"
+#include "explorerpropertywork.h"
+#include <algorithm>
 
 #include <map>
 #include <string>
@@ -78,6 +81,7 @@ wchar_t* AllocWideNameFromUtf8ACP(const char* name)
 
 struct CExplorerSortContext
 {
+    CFilesWindow* Panel = NULL;
     std::map<std::string, std::string> Values;
     BOOL Reverse;
 };
@@ -92,7 +96,7 @@ struct CExplorerSortAsyncItem
 
 std::string ExplorerSortKey(const CFileData& file)
 {
-    std::map<std::string, std::string>::const_iterator it = ExplorerSortContext->Values.find(file.Name);
+    std::map<std::string, std::string>::const_iterator it = ExplorerSortContext->Values.find(ExplorerSortContext->Panel != NULL ? ExplorerSortContext->Panel->GetItemCacheKey(file) : std::string(file.Name));
     if (it != ExplorerSortContext->Values.end())
         return it->second;
     return std::string();
@@ -115,7 +119,10 @@ BOOL LessExplorerNameExt(const CFileData& f1, const CFileData& f2, BOOL reverse)
         if (res != 0)
             return reverse ? res > 0 : res < 0;
     }
-    return LessNameExt(f1, f2, FALSE);
+    if (LessNameExt(f1, f2, FALSE)) return TRUE;
+    if (LessNameExt(f2, f1, FALSE)) return FALSE;
+    return ExplorerSortContext->Panel != NULL && ExplorerSortContext->Panel->IsBranchView() &&
+           ExplorerSortContext->Panel->GetItemIdentityW(f1) < ExplorerSortContext->Panel->GetItemIdentityW(f2);
 }
 
 void SortExplorerNameExtAux(CFilesArray& files, int left, int right, BOOL reverse)
@@ -329,29 +336,33 @@ void FillExplorerSortCache(CExplorerSortContext& context, const char* path, cons
     for (int i = firstIndex; i < items->Count; i++)
     {
         CFileData* file = &items->At(i);
-        if (GetExplorerColumnTextForFile(path, pathW, file, explorerIndex, text, TRANSFER_BUFFER_MAX))
-            context.Values[file->Name] = text;
+        const std::wstring directory = context.Panel != NULL ? context.Panel->GetItemDirectoryW(*file) : std::wstring();
+        const std::string key = context.Panel != NULL ? context.Panel->GetItemCacheKey(*file) : std::string(file->Name);
+        if (GetExplorerColumnTextForFile(path, directory.empty() ? pathW : directory.c_str(), file, explorerIndex, text, TRANSFER_BUFFER_MAX))
+            context.Values[key] = text;
         else
-            context.Values[file->Name] = "";
+            context.Values[key] = "";
     }
 }
 } // namespace
 
-struct CExplorerSortAsyncData
+struct CExplorerSortAsyncData : CExplorerPropertyTaskLifetime
 {
-    HWND HPanelWindow;
+    explicit CExplorerSortAsyncData(HWND target) : CExplorerPropertyTaskLifetime(target) {}
     ULONGLONG PanelTabId;
+    ULONGLONG BranchGeneration;
     int ColumnIndex;
+    bool VisibleOnly;
     std::wstring PanelPath;
     std::vector<CExplorerSortAsyncItem> Items;
     std::vector<int> ColumnIndices;
     std::map<std::string, std::string> Values;
     std::map<std::pair<std::string, int>, std::string> PropertyValues;
-    volatile LONG Cancelled;
 };
 
 struct CExplorerPropertyCache
 {
+    ULONGLONG BranchGeneration;
     std::wstring PanelPath;
     std::map<std::pair<std::string, int>, std::string> Values;
 };
@@ -382,7 +393,8 @@ static DWORD WINAPI ExplorerSortThreadBody(void* param)
 
     if (SUCCEEDED(initializeResult))
         CoUninitialize();
-    PostMessage(data->HPanelWindow, WM_USER_EXPLORER_SORT_DONE, 0, (LPARAM)data);
+    data->PostCompletion(WM_USER_EXPLORER_SORT_DONE, (LPARAM)data);
+    data->Release(); // worker ownership; cancellation may have already released the panel
     return 0;
 }
 
@@ -404,9 +416,32 @@ static std::wstring GetExplorerSortItemPath(const std::wstring& panelPath, const
     return fullPath;
 }
 
+static int CurrentExplorerSortColumn(CFilesWindow* panel)
+{
+    if (panel->SortType == stCustom)
+        for (int i = 0; i < panel->Columns.Count; ++i)
+        {
+            const CColumn* column = &panel->Columns[i];
+            if (column->ID == COLUMN_ID_CUSTOM && column->GetText == InternalGetExplorerColumn &&
+                column->CustomData == panel->SortCustomData)
+                return (int)column->CustomData;
+        }
+    return -1;
+}
+
 BOOL CFilesWindow::StartExplorerSortAsync(CFilesArray* files, CFilesArray* dirs, int firstDirIndex)
 {
-    if (ExplorerSortData != NULL || HWindow == NULL)
+    // A newer Branch snapshot must not wait for an obsolete full property job.
+    // Keep its completion connected: it will schedule the replacement snapshot.
+    CExplorerSortAsyncData* pending = (CExplorerSortAsyncData*)ExplorerSortData;
+    if (pending != NULL && IsBranchView() && ExplorerPropertyRequestNeedsReplacement(
+            pending->BranchGeneration, pending->ColumnIndex, GetBranchViewGeneration(),
+            CurrentExplorerSortColumn(this), InterlockedCompareExchange(&pending->Cancelled, 0, 0) != 0))
+        InterlockedExchange(&pending->Cancelled, 1);
+    // RefreshDirectory temporarily sorts the old rows after the Branch
+    // generation advances. Only the completed publication may snapshot items.
+    if (ExplorerSortData != NULL || HWindow == NULL ||
+        (IsBranchView() && BranchView->Applying))
         return FALSE;
 
     std::wstring panelPath = GetPathW() != NULL && GetPathW()[0] != 0
@@ -415,10 +450,12 @@ BOOL CFilesWindow::StartExplorerSortAsync(CFilesArray* files, CFilesArray* dirs,
     if (panelPath.empty())
         return FALSE;
 
-    CExplorerSortAsyncData* data = new CExplorerSortAsyncData;
-    data->HPanelWindow = HWindow;
+    CExplorerSortAsyncData* data = new CExplorerSortAsyncData(HWindow);
     data->PanelTabId = PanelTabId;
-    data->ColumnIndex = (int)SortCustomData;
+    data->BranchGeneration = GetBranchViewGeneration();
+    // Loading visible properties does not imply sorting by a property. In
+    // particular, Branch View's Path column has its own comparator.
+    data->ColumnIndex = -1;
     data->PanelPath = panelPath;
     data->Cancelled = 0;
     for (int column = 0; column < Columns.Count; column++)
@@ -426,43 +463,89 @@ BOOL CFilesWindow::StartExplorerSortAsync(CFilesArray* files, CFilesArray* dirs,
         const CColumn* panelColumn = &Columns[column];
         if (panelColumn->ID == COLUMN_ID_CUSTOM &&
             panelColumn->GetText == InternalGetExplorerColumn)
+        {
             data->ColumnIndices.push_back((int)panelColumn->CustomData);
+            if (SortType == stCustom && panelColumn->CustomData == SortCustomData)
+                data->ColumnIndex = (int)panelColumn->CustomData;
+        }
     }
     if (data->ColumnIndices.empty())
     {
         delete data;
         return FALSE;
     }
-    data->Items.reserve(files->Count + dirs->Count - firstDirIndex);
-
-    int i;
-    for (i = 0; i < files->Count; i++)
+    data->VisibleOnly = IsBranchView() && data->ColumnIndex < 0;
+    const bool cacheCurrent = ExplorerPropertyCache != NULL &&
+        ExplorerPropertyCache->BranchGeneration == data->BranchGeneration &&
+        ExplorerPropertyCache->PanelPath == data->PanelPath;
+    if (!cacheCurrent)
+        ClearExplorerPropertyCache();
+    if (data->VisibleOnly)
     {
-        CExplorerSortAsyncItem item;
-        item.Name = files->At(i).Name;
-        item.FullPath = GetExplorerSortItemPath(panelPath, &files->At(i));
-        data->Items.push_back(item);
+        // Displaying a property does not justify opening every file in a large
+        // recursive collection. Snapshot only missing visible rows, in bounded
+        // batches; repaint/scroll requests the next batch through GetCached.
+        int first = 0, count = 0;
+        if (ListBox != NULL) ListBox->GetVisibleItems(&first, &count);
+        const std::vector<int> rows = ExplorerPropertyDisplayRows(files->Count + dirs->Count, first, count,
+            [&](int index) {
+                if (index < firstDirIndex) return false;
+                if (!cacheCurrent) return true;
+                const CFileData& file = index < dirs->Count ? dirs->At(index) : files->At(index - dirs->Count);
+                const std::string key = GetItemCacheKey(file);
+                for (size_t column = 0; column < data->ColumnIndices.size(); ++column)
+                    if (ExplorerPropertyCache->Values.find(std::make_pair(key, data->ColumnIndices[column])) == ExplorerPropertyCache->Values.end())
+                        return true;
+                return false;
+            });
+        data->Items.reserve(rows.size());
+        for (int index : rows)
+        {
+            const CFileData& file = index < dirs->Count ? dirs->At(index) : files->At(index - dirs->Count);
+            CExplorerSortAsyncItem item;
+            item.Name = GetItemCacheKey(file);
+            item.FullPath = GetItemFullPathW(file);
+            data->Items.push_back(item);
+        }
     }
-    for (i = firstDirIndex; i < dirs->Count; i++)
+    else
     {
-        CExplorerSortAsyncItem item;
-        item.Name = dirs->At(i).Name;
-        item.FullPath = GetExplorerSortItemPath(panelPath, &dirs->At(i));
-        data->Items.push_back(item);
+        // Explicit property sorting requires values for every item. This path
+        // is deliberately not capped by the display-only batch size.
+        data->Items.reserve(files->Count + dirs->Count - firstDirIndex);
+        for (int i = 0; i < files->Count; ++i)
+        {
+            CExplorerSortAsyncItem item;
+            item.Name = GetItemCacheKey(files->At(i));
+            item.FullPath = GetItemFullPathW(files->At(i));
+            data->Items.push_back(item);
+        }
+        for (int i = firstDirIndex; i < dirs->Count; ++i)
+        {
+            CExplorerSortAsyncItem item;
+            item.Name = GetItemCacheKey(dirs->At(i));
+            item.FullPath = GetItemFullPathW(dirs->At(i));
+            data->Items.push_back(item);
+        }
     }
-
-    delete ExplorerPropertyCache;
-    ExplorerPropertyCache = NULL;
+    if (data->Items.empty())
+    {
+        delete data;
+        return FALSE;
+    }
     ExplorerSortData = data;
     DWORD threadID;
+    data->AddRef(); // worker ownership established before it can start
     ExplorerSortThread = HANDLES(CreateThread(NULL, 0, ExplorerSortThreadBody, data, 0, &threadID));
     if (ExplorerSortThread == NULL)
     {
         ExplorerSortData = NULL;
-        delete data;
+        data->Release(); // unstarted worker
+        data->Release(); // panel
         return FALSE;
     }
-    if (DirectoryLine != NULL)
+    // Branch scan status is independent of background property metadata.
+    if (DirectoryLine != NULL && !IsBranchView())
     {
         ExplorerSortThrobberID = DirectoryLine->ChangeThrobberID();
         DirectoryLine->SetThrobber(TRUE, 150);
@@ -482,8 +565,10 @@ void CFilesWindow::FinishExplorerSortAsync(CExplorerSortAsyncData* data)
     }
 
     BOOL apply = data == ExplorerSortData && data->PanelTabId == PanelTabId &&
+                 data->BranchGeneration == GetBranchViewGeneration() &&
                  InterlockedCompareExchange(&data->Cancelled, 0, 0) == 0 &&
-                 SortType == stCustom && (int)SortCustomData == data->ColumnIndex;
+                 data->ColumnIndex >= 0 && SortType == stCustom &&
+                 (int)SortCustomData == data->ColumnIndex;
     if (apply)
     {
         const wchar_t* currentPath = GetPathW();
@@ -499,15 +584,27 @@ void CFilesWindow::FinishExplorerSortAsync(CExplorerSortAsyncData* data)
     if (data == ExplorerSortData)
         ExplorerSortData = NULL;
 
-    if (apply || data->PanelTabId == PanelTabId)
+    if ((apply || data->PanelTabId == PanelTabId) && data->BranchGeneration == GetBranchViewGeneration() &&
+        InterlockedCompareExchange(&data->Cancelled, 0, 0) == 0)
     {
         const wchar_t* currentPath = GetPathW();
         if (currentPath != NULL && _wcsicmp(currentPath, data->PanelPath.c_str()) == 0)
         {
-            delete ExplorerPropertyCache;
-            ExplorerPropertyCache = new CExplorerPropertyCache;
-            ExplorerPropertyCache->PanelPath = data->PanelPath;
-            ExplorerPropertyCache->Values.swap(data->PropertyValues);
+            if (ExplorerPropertyCache == NULL || ExplorerPropertyCache->PanelPath != data->PanelPath ||
+                ExplorerPropertyCache->BranchGeneration != data->BranchGeneration || !data->VisibleOnly)
+            {
+                ClearExplorerPropertyCache();
+                ExplorerPropertyCache = new CExplorerPropertyCache;
+                ExplorerPropertyCache->PanelPath = data->PanelPath;
+                ExplorerPropertyCache->BranchGeneration = data->BranchGeneration;
+            }
+            if (data->VisibleOnly)
+            {
+                for (auto& value : data->PropertyValues)
+                    ExplorerPropertyCache->Values[value.first] = std::move(value.second);
+            }
+            else
+                ExplorerPropertyCache->Values.swap(data->PropertyValues);
         }
     }
 
@@ -518,9 +615,15 @@ void CFilesWindow::FinishExplorerSortAsync(CExplorerSortAsyncData* data)
 
     if (apply)
     {
+        int focusIndex = FocusedIndex;
+        const char* branchFocusName = NULL;
+        const int caret = GetCaretIndex();
+        if (IsBranchView() && caret >= 0 && caret < Dirs->Count + Files->Count)
+            branchFocusName = caret < Dirs->Count ? Dirs->At(caret).Name : Files->At(caret - Dirs->Count).Name;
         CExplorerSortContext context;
         context.Values.swap(data->Values);
         context.Reverse = ReverseSort;
+        context.Panel = this;
         ExplorerSortContext = &context;
 
         BOOL hasRoot = Dirs->Count > 0 && Dirs->At(0).NameLen == 2 && Dirs->At(0).Name[0] == '.' && Dirs->At(0).Name[1] == '.';
@@ -534,16 +637,35 @@ void CFilesWindow::FinishExplorerSortAsync(CExplorerSortAsyncData* data)
         if (Files->Count > 1)
             SortExplorerNameExtAux(*Files, 0, Files->Count - 1, ReverseSort);
         ExplorerSortContext = NULL;
+        ReindexBranchViewFiles();
         if (UseSystemIcons || UseThumbnails)
             WakeupIconCacheThread();
 
+        if (branchFocusName != NULL)
+        {
+            for (int i = 0; i < Dirs->Count; ++i)
+                if (Dirs->At(i).Name == branchFocusName) focusIndex = i;
+            for (int i = 0; i < Files->Count; ++i)
+                if (Files->At(i).Name == branchFocusName) { focusIndex = Dirs->Count + i; break; }
+        }
         VisibleItemsArray.InvalidateArr();
         VisibleItemsArraySurround.InvalidateArr();
-        RefreshListBox(-1, -1, FocusedIndex, FALSE, FALSE);
+        RefreshListBox(-1, -1, focusIndex, FALSE, FALSE);
     }
     else if (ExplorerPropertyCache != NULL)
-        RefreshListBox(-1, -1, FocusedIndex, FALSE, FALSE);
-    delete data;
+    {
+        if (IsBranchView() && ListBox != NULL)
+            InvalidateRect(GetListBoxHWND(), NULL, FALSE); // metadata cannot change row geometry
+        else
+            RefreshListBox(-1, -1, FocusedIndex, FALSE, FALSE);
+    }
+    const bool restartBranchProperties = IsBranchView() && ExplorerSortData == NULL &&
+        ExplorerPropertyRequestNeedsReplacement(data->BranchGeneration, data->ColumnIndex,
+            GetBranchViewGeneration(), CurrentExplorerSortColumn(this),
+            InterlockedCompareExchange(&data->Cancelled, 0, 0) != 0);
+    data->Release(); // panel ownership; worker drops its own reference after posting
+    if (restartBranchProperties)
+        StartExplorerSortAsync(Files, Dirs, Dirs->Count > 0 && strcmp(Dirs->At(0).Name, "..") == 0 ? 1 : 0);
 }
 
 BOOL CFilesWindow::GetCachedExplorerColumnText(const CFileData* file, int columnIndex,
@@ -554,13 +676,33 @@ BOOL CFilesWindow::GetCachedExplorerColumnText(const CFileData* file, int column
     buffer[0] = 0;
     if (file == NULL)
         return FALSE;
+    if (IsBranchView())
+    {
+        if (ExplorerPropertyCache != NULL &&
+            ExplorerPropertyCache->BranchGeneration == GetBranchViewGeneration() &&
+            ExplorerPropertyCache->PanelPath == GetPathW())
+        {
+            auto value = ExplorerPropertyCache->Values.find(std::make_pair(GetItemCacheKey(*file), columnIndex));
+            if (value != ExplorerPropertyCache->Values.end())
+            {
+                CopyStringTruncateUtf8(buffer, bufferSize, value->second.c_str());
+                return !value->second.empty(); // empty is a completed lookup, too
+            }
+        }
+        // Never perform shell property I/O in Branch painting. Start a bounded
+        // visible snapshot if scrolling/repainting exposes an uncached row.
+        if (ExplorerSortData == NULL)
+            StartExplorerSortAsync(Files, Dirs, Dirs->Count > 0 && strcmp(Dirs->At(0).Name, "..") == 0 ? 1 : 0);
+        return FALSE;
+    }
     if (ExplorerPropertyCache == NULL)
     {
         // A running worker deliberately leaves the cell empty.  If the worker
         // could not be created, retain the old synchronous fallback instead of
         // permanently hiding the property value.
+        const std::wstring directory = GetItemDirectoryW(*file);
         return ExplorerSortData == NULL &&
-               GetExplorerColumnTextForFile(GetPath(), GetPathW(), file, columnIndex,
+               GetExplorerColumnTextForFile(GetPath(), directory.c_str(), file, columnIndex,
                                             buffer, bufferSize);
     }
 
@@ -569,7 +711,7 @@ BOOL CFilesWindow::GetCachedExplorerColumnText(const CFileData* file, int column
         return FALSE;
 
     std::map<std::pair<std::string, int>, std::string>::const_iterator value =
-        ExplorerPropertyCache->Values.find(std::make_pair(std::string(file->Name), columnIndex));
+        ExplorerPropertyCache->Values.find(std::make_pair(GetItemCacheKey(*file), columnIndex));
     if (value == ExplorerPropertyCache->Values.end() || value->second.empty())
         return FALSE;
     CopyStringTruncateUtf8(buffer, bufferSize, value->second.c_str());
@@ -586,29 +728,16 @@ void CFilesWindow::StopExplorerSortAsync()
 {
     CExplorerSortAsyncData* data = (CExplorerSortAsyncData*)ExplorerSortData;
     if (data != NULL)
-        InterlockedExchange(&data->Cancelled, 1);
+        data->CancelCompletion(WM_USER_EXPLORER_SORT_DONE);
     if (ExplorerSortThread != NULL)
     {
-        if (WaitForSingleObject(ExplorerSortThread, 2000) == WAIT_TIMEOUT)
-        {
-            TRACE_E("Terminating Explorer property sort thread");
-            TerminateThread(ExplorerSortThread, 666);
-            WaitForSingleObject(ExplorerSortThread, INFINITE);
-        }
+        // Closing our handle does not terminate the worker. Its owned immutable
+        // snapshot survives until the current shell call returns and observes cancellation.
         HANDLES(CloseHandle(ExplorerSortThread));
         ExplorerSortThread = NULL;
     }
-    if (data != NULL)
-    {
-        MSG msg;
-        while (PeekMessage(&msg, HWindow, WM_USER_EXPLORER_SORT_DONE, WM_USER_EXPLORER_SORT_DONE, PM_REMOVE))
-        {
-            if ((CExplorerSortAsyncData*)msg.lParam != data)
-                delete (CExplorerSortAsyncData*)msg.lParam;
-        }
-        ExplorerSortData = NULL;
-        delete data;
-    }
+    ExplorerSortData = NULL;
+    if (data != NULL) data->Release();
     if (DirectoryLine != NULL && ExplorerSortThrobberID != -1 &&
         DirectoryLine->IsThrobberVisible(ExplorerSortThrobberID))
         DirectoryLine->SetThrobber(FALSE);
@@ -693,9 +822,11 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
     //  TRACE_I("ReadDirectory: begin");
 
     //  MainWindow->ReleaseMenuNew();  // in case of it's about this directory
+    const bool branchListing = IsBranchView() != FALSE;
     HiddenDirsFilesReason = 0;
     HiddenDirsCount = HiddenFilesCount = 0;
 
+    SleepIconCacheThread(); // collection metadata has the same lifetime as the listing
     CutToClipChanged = FALSE; // forget cut-to-clip flags by this operation
 
     FocusFirstNewItem = FALSE;
@@ -703,6 +834,20 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
     UseThumbnails = FALSE;
     Files->DestroyMembers();
     Dirs->DestroyMembers();
+    if (branchListing)
+    {
+        // The snapshot already gives an upper bound; avoid hundreds of growing
+        // reallocations while assembling a large collection on the UI thread.
+        Files->Reserve((int)(std::min)(BranchView->Entries.size(), size_t(INT_MAX)));
+        std::lock_guard<std::mutex> lock(BranchView->ItemsMutex);
+        BranchView->Items.reserve(BranchView->Items.size() + BranchView->Entries.size());
+    }
+    if (!branchListing && BranchView != NULL)
+    {
+        std::lock_guard<std::mutex> lock(BranchView->ItemsMutex);
+        BranchView->Items.clear();
+        BranchView->CacheFiles.clear();
+    }
     VisibleItemsArray.InvalidateArr();
     VisibleItemsArraySurround.InvalidateArr();
     SelectedCount = 0;
@@ -711,7 +856,6 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
     InactWinOptimizedReading = FALSE;
 
     // icon-cache cleanup
-    SleepIconCacheThread();
     IconCache->Release();
     EndOfIconReadingTime = GetTickCount() - 10000;
     StopThumbnailLoading = FALSE; // icon-cache is cleaned, the period of impossibility of using data about "thumbnail-loaders" in icon-cache ends
@@ -763,7 +907,9 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         // the full on-disk name never passes through that fixed UTF-8 buffer.
         const bool useWideDiskPath = GetPathW() != NULL && GetPathW()[0] != 0 &&
                                      (GetACP() == CP_UTF8 || strlen(GetPath()) >= MAX_PATH);
-        if (useWideDiskPath)
+        if (branchListing)
+            SetCurrentDirectoryToSystem();
+        else if (useWideDiskPath)
         {
             std::wstring currentDirW = SalPathAddExtendedPrefixW(GetPathW());
             SetCurrentDirectoryW(currentDirW.c_str()); // so that it works better
@@ -775,7 +921,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         BOOL isWindows64BitDir = Windows64Bit && WindowsDirectory[0] != 0 && IsTheSamePath(GetPath(), WindowsDirectory);
 #endif // _WIN64
 
-        RefreshDiskFreeSpace(FALSE);
+        if (!branchListing) RefreshDiskFreeSpace(FALSE);
 
         Files->SetDeleteData(TRUE);
         Dirs->SetDeleteData(TRUE);
@@ -793,8 +939,8 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         BOOL isRootPath = (strlen(GetPath()) <= strlen(fileName));
 
         //--- getting drive type (we will not bother network drives with getting shares)
-        UINT drvType = MyGetDriveType(GetPath());
-        BOOL testShares = drvType != DRIVE_REMOTE;
+        UINT drvType = branchListing ? GetPathDriveType() : MyGetDriveType(GetPath());
+        BOOL testShares = !branchListing && drvType != DRIVE_REMOTE;
         if (testShares)
             Shares.PrepareSearch(GetPath());
         switch (drvType)
@@ -928,7 +1074,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         // after 2000 ms we will show a window with a cancel prompt
         char buf[32768 + 1000];
         _snprintf_s(buf, _countof(buf), _TRUNCATE, LoadStr(IDS_READINGPATHESC), GetPath());
-        CreateSafeWaitWindow(buf, NULL, 2000, TRUE, MainWindow->HWindow);
+        if (!branchListing) CreateSafeWaitWindow(buf, NULL, 2000, TRUE, MainWindow->HWindow);
 
         DWORD lastEscCheckTime;
         //lastEscCheckTime = GetTickCount() - 200;  // the first ESC will go immediately
@@ -942,9 +1088,29 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         BOOL isUpDir = FALSE;
         WIN32_FIND_DATA fileData;
         WIN32_FIND_DATAW fileDataW;
+        // Legacy narrow panel consumers have fixed basename buffers. Keep
+        // their UTF-8-safe display mirror bounded; NameW and Branch metadata
+        // remain exact and are authoritative for every filesystem action.
+        auto loadBranchEntry = [&](size_t index) -> BOOL {
+            if (index >= BranchView->Entries.size()) { SetLastError(ERROR_NO_MORE_FILES); return FALSE; }
+            fileDataW = BranchView->Entries[index].Data;
+            CopyFindDataWToA(fileDataW, fileData);
+            return TRUE;
+        };
         BOOL wideSearch = FALSE;
         HANDLE search;
-        if (useWideDiskPath)
+        size_t branchIndex = 0;
+        if (branchListing)
+        {
+            wideSearch = TRUE;
+            search = BranchView->Entries.empty() ? INVALID_HANDLE_VALUE : (HANDLE)1;
+            if (search != INVALID_HANDLE_VALUE)
+            {
+                loadBranchEntry(0);
+            }
+            else SetLastError(ERROR_NO_MORE_FILES);
+        }
+        else if (useWideDiskPath)
         {
             std::wstring searchPathW = GetPathW();
             if (!searchPathW.empty() && searchPathW[searchPathW.length() - 1] != L'\\')
@@ -1055,7 +1221,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 NumberOfItemsInCurDir++;
 
                 // test ESC - doesn't user want to interrupt reading?
-                if (GetTickCount() - lastEscCheckTime >= 200) // 5 times per second
+                if (!branchListing && GetTickCount() - lastEscCheckTime >= 200) // 5 times per second
                 {
                     if (UserWantsToCancelSafeWaitWindow())
                     {
@@ -1160,7 +1326,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 }
 
                 //--- if the name is occupied in the array HiddenNames, we will discard it
-                if (HiddenNames.Contains(isDir, fileData.cFileName))
+                if (HiddenNames.Contains(isDir, branchListing ? BranchView->Entries[branchIndex].CacheKey.c_str() : fileData.cFileName))
                 {
                     if (isDir)
                         HiddenDirsCount++;
@@ -1179,7 +1345,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                     if (search != NULL)
                     {
                         DestroySafeWaitWindow();
-                        HANDLES(FindClose(search));
+                        if (!branchListing) HANDLES(FindClose(search));
                     }
                     TRACE_E(LOW_MEMORY);
                     SetCurrentDirectoryToSystem();
@@ -1193,7 +1359,13 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 }
                 memmove(file.Name, st, len + 1); // copy of text
                 file.NameW = wideSearch ? AllocWideNameCopy(fileDataW.cFileName) : AllocWideNameFromUtf8ACP(file.Name);
-                file.NameLen = len;
+                file.NameLen = min(len, 511); // legacy bitfield; NameW and metadata retain the entire name
+                if (branchListing && !isUpDir)
+                {
+                    Salamander::BranchView::Entry entry = BranchView->Entries[branchIndex];
+                    std::lock_guard<std::mutex> lock(BranchView->ItemsMutex);
+                    BranchView->Items[file.Name] = std::move(entry);
+                }
                 //--- extension
                 if (!Configuration.SortDirsByExt && (fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) // this is ptDisk
                 {
@@ -1235,7 +1407,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         if (search != NULL)
                         {
                             DestroySafeWaitWindow();
-                            HANDLES(FindClose(search));
+                            if (!branchListing) HANDLES(FindClose(search));
                         }
                         TRACE_E(LOW_MEMORY);
                         SetCurrentDirectoryToSystem();
@@ -1291,7 +1463,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         if (search != NULL)
                         {
                             DestroySafeWaitWindow();
-                            HANDLES(FindClose(search));
+                            if (!branchListing) HANDLES(FindClose(search));
                         }
                         SetCurrentDirectoryToSystem();
                         Files->DestroyMembers();
@@ -1381,7 +1553,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         if (search != NULL)
                         {
                             DestroySafeWaitWindow();
-                            HANDLES(FindClose(search));
+                            if (!branchListing) HANDLES(FindClose(search));
                         }
                         SetCurrentDirectoryToSystem();
                         Files->DestroyMembers();
@@ -1394,6 +1566,8 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                     }
                 }
 
+                const std::string itemCacheKey = GetItemCacheKey(file);
+                const int cacheNameLen = (int)itemCacheKey.length();
                 // at the file or directory, we will check if it's necessary to load its thumbnail
                 const BOOL isDirectory = (file.Attr & FILE_ATTRIBUTE_DIRECTORY) != 0;
                 const BOOL isDotDot = isDirectory && file.NameLen == 2 && file.Name[0] == '.' && file.Name[1] == '.';
@@ -1460,7 +1634,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                     {
                         if (foundThumbLoaderPlugins.Count > 0)
                         {
-                            int size = len + 4;
+                            int size = cacheNameLen + 4;
                             size -= (size & 0x3); // size % 4 (alignment per four bytes)
                             int nameSize = size;
                             size += sizeof(CQuadWord) + sizeof(FILETIME);
@@ -1468,8 +1642,8 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                             iconData.NameAndData = (char*)malloc(size);
                             if (iconData.NameAndData != NULL)
                             {
-                                memcpy(iconData.NameAndData, file.Name, len);
-                                memset(iconData.NameAndData + len, 0, nameSize - len); // end of name is zeroed
+                                memcpy(iconData.NameAndData, itemCacheKey.c_str(), cacheNameLen);
+                                memset(iconData.NameAndData + cacheNameLen, 0, nameSize - cacheNameLen); // end of name is zeroed
                                 // size is added + time of last write to file
                                 *(CQuadWord*)(iconData.NameAndData + nameSize) = file.Size;
                                 *(FILETIME*)(iconData.NameAndData + nameSize + sizeof(CQuadWord)) = file.LastWrite;
@@ -1509,13 +1683,13 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 // adding directory to IconCache -> we need to load icon
                 if (UseSystemIcons && addtoIconCache)
                 {
-                    int size = len + 4;
+                    int size = cacheNameLen + 4;
                     size -= (size & 0x3); // size % 4 (alignment per four bytes)
                     iconData.NameAndData = (char*)malloc(size);
                     if (iconData.NameAndData != NULL)
                     {
-                        memmove(iconData.NameAndData, file.Name, len);
-                        memset(iconData.NameAndData + len, 0, size - len); // end of name is zeroed
+                        memmove(iconData.NameAndData, itemCacheKey.c_str(), cacheNameLen);
+                        memset(iconData.NameAndData + cacheNameLen, 0, size - cacheNameLen); // end of name is zeroed
                         iconData.SetFlag(0);                               // no not-loaded icon yet
                                                                            // need to allocate space for bitmaps, can't be done in thread
                         iconData.SetIndex(IconCache->AllocIcon(NULL, NULL));
@@ -1540,13 +1714,14 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 #endif                     // _WIN64
                     break; // the second pass (adding ".." or win64 redirected-dir)
                 }
-            } while (wideSearch ? (FindNextFileW(search, &fileDataW) ? (CopyFindDataWToA(fileDataW, fileData), TRUE) : FALSE) : FindNextFile(search, &fileData));
+            } while (branchListing ? loadBranchEntry(++branchIndex) :
+                     wideSearch ? (FindNextFileW(search, &fileDataW) ? (CopyFindDataWToA(fileDataW, fileData), TRUE) : FALSE) : FindNextFile(search, &fileData));
             DWORD err = GetLastError();
 
             if (search != NULL) // the first pass
             {
                 DestroySafeWaitWindow();
-                HANDLES(FindClose(search));
+                if (!branchListing) HANDLES(FindClose(search));
             }
 
             if (testFindNextErr && err != ERROR_NO_MORE_FILES)
@@ -1563,8 +1738,9 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         {
             upDir = FALSE;
             *(fileNameEnd - 1) = 0; // it's not logical, but times ".." are from current directory
-            if (!UNCRootUpDir)
+            if (!UNCRootUpDir && !branchListing)
                 search = HANDLES_Q(FindFirstFile(fileName, &fileData));
+            else if (branchListing) search = INVALID_HANDLE_VALUE;
             else
                 search = INVALID_HANDLE_VALUE;
             if (search == INVALID_HANDLE_VALUE)
@@ -1590,11 +1766,12 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 fileData.dwReserved0 = fileData.dwReserved1 = 0;
             }
             else
-                HANDLES(FindClose(search));
+                if (!branchListing) HANDLES(FindClose(search));
             search = NULL;                                              // the second/third pass
             fileData.dwFileAttributes |= FILE_ATTRIBUTE_DIRECTORY;      // this is ptDisk
             fileData.dwFileAttributes &= ~FILE_ATTRIBUTE_REPARSE_POINT; // need to remove flag FILE_ATTRIBUTE_REPARSE_POINT, otherwise link overlay will be on ".."
             strcpy(fileData.cFileName, "..");
+            if (branchListing) wcscpy_s(fileDataW.cFileName, L"..");
             fileData.cAlternateFileName[0] = 0;
             st = fileData.cFileName;
             len = (int)strlen(st);
@@ -1607,7 +1784,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
     FIND_NEXT_WIN64_REDIRECTEDDIR:
 
         BOOL dirWithSameNameExists;
-        if (foundWin64RedirectedDirs < 10 &&
+        if (!branchListing && foundWin64RedirectedDirs < 10 &&
             AddWin64RedirectedDir(GetPath(), Dirs, &fileData, &foundWin64RedirectedDirs, &dirWithSameNameExists))
         {
             foundWin64RedirectedDirs++; // e.g. under system32 there can be 5, I've added some reserve to 10...
@@ -2406,27 +2583,59 @@ void CFilesWindow::SortDirectory(CFilesArray* files, CFilesArray* dirs)
         files = Files;
     if (dirs == NULL)
         dirs = Dirs;
-    if (SortType == stCustom && Is(ptDisk))
+    if (IsBranchView() && SortType == stCustom && SortCustomData == BRANCH_VIEW_PATH_COLUMN)
+    {
+        if (files->Count > 1)
+        {
+            // The reader is suspended by sort callers. One lock protects stable
+            // metadata references; comparisons allocate no directory/path strings.
+            std::lock_guard<std::mutex> lock(BranchView->ItemsMutex);
+            std::stable_sort(&files->At(0), &files->At(0) + files->Count,
+                [this](const CFileData& a, const CFileData& b) {
+                    auto first = BranchView->Items.find(a.Name), second = BranchView->Items.find(b.Name);
+                    if (first == BranchView->Items.end() || second == BranchView->Items.end())
+                        return LessNameExt(a, b, ReverseSort) != FALSE;
+                    const int comparison = Salamander::BranchView::CompareEntryPaths(first->second, second->second);
+                    return ReverseSort ? comparison > 0 : comparison < 0;
+                });
+        }
+        // Path sorting still needs all visible Windows properties populated.
+        // The loader's ColumnIndex remains -1, so completion only repaints rows.
+        if (sortingPanelListing)
+            StartExplorerSortAsync(files, dirs, dirs->Count > 0 && strcmp(dirs->At(0).Name, "..") == 0 ? 1 : 0);
+    }
+    else if (SortType == stCustom && Is(ptDisk))
     {
         BOOL hasRoot = dirs->Count > 0 && dirs->At(0).NameLen == 2 && dirs->At(0).Name[0] == '.' && dirs->At(0).Name[1] == '.';
         int firstDirIndex = hasRoot ? 1 : 0;
 
-        BOOL asyncSortPending = FALSE;
-        CExplorerSortAsyncData* explorerSortData = (CExplorerSortAsyncData*)ExplorerSortData;
-        if (sortingPanelListing && explorerSortData != NULL &&
-            explorerSortData->ColumnIndex == (int)SortCustomData)
+        // Branch metadata is always asynchronous, including a requested sort
+        // change while a viewport batch or another sort column is still busy.
+        // Start marks that job superseded; completion starts the current intent.
+        BOOL asyncSortPending = IsBranchView();
+        if (asyncSortPending)
         {
-            const wchar_t* currentPath = GetPathW();
-            std::wstring currentPathStorage;
-            if (currentPath == NULL || currentPath[0] == 0)
-            {
-                currentPathStorage = SalMultiByteToWidePath(GetPath(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
-                currentPath = currentPathStorage.c_str();
-            }
-            asyncSortPending = _wcsicmp(currentPath, explorerSortData->PanelPath.c_str()) == 0;
+            if (sortingPanelListing)
+                StartExplorerSortAsync(files, dirs, firstDirIndex);
         }
-        if (!asyncSortPending && sortingPanelListing)
-            asyncSortPending = StartExplorerSortAsync(files, dirs, firstDirIndex);
+        else
+        {
+            CExplorerSortAsyncData* explorerSortData = (CExplorerSortAsyncData*)ExplorerSortData;
+            if (sortingPanelListing && explorerSortData != NULL &&
+                explorerSortData->ColumnIndex == (int)SortCustomData)
+            {
+                const wchar_t* currentPath = GetPathW();
+                std::wstring currentPathStorage;
+                if (currentPath == NULL || currentPath[0] == 0)
+                {
+                    currentPathStorage = SalMultiByteToWidePath(GetPath(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+                    currentPath = currentPathStorage.c_str();
+                }
+                asyncSortPending = _wcsicmp(currentPath, explorerSortData->PanelPath.c_str()) == 0;
+            }
+            if (!asyncSortPending && sortingPanelListing)
+                asyncSortPending = StartExplorerSortAsync(files, dirs, firstDirIndex);
+        }
 
         if (asyncSortPending)
         {
@@ -2439,6 +2648,7 @@ void CFilesWindow::SortDirectory(CFilesArray* files, CFilesArray* dirs)
         {
             CExplorerSortContext context;
             context.Reverse = ReverseSort;
+        context.Panel = this;
             ExplorerSortContext = &context;
             FillExplorerSortCache(context, GetPath(), GetPathW(), files, 0, (int)SortCustomData);
             if (!Configuration.SortDirsByName)
@@ -2500,8 +2710,38 @@ void CFilesWindow::SortDirectory(CFilesArray* files, CFilesArray* dirs)
     }
     else
     {
-        SortFilesAndDirectories(files, dirs, SortType, ReverseSort, Configuration.SortDirsByName);
-        if (sortingPanelListing && Is(ptDisk) && ExplorerSortData == NULL)
+        if (!IsBranchView())
+            SortFilesAndDirectories(files, dirs, SortType, ReverseSort, Configuration.SortDirsByName);
+        if (IsBranchView() && files->Count > 1)
+        {
+            CLessFunction less = LessNameExt;
+            switch (SortType)
+            {
+            case stExtension: less = LessExtName; break;
+            case stTime: less = LessTimeNameExt; break;
+            case stAttr: less = LessAttrNameExt; break;
+            case stSize: less = LessSizeNameExt; break;
+            default: break;
+            }
+            std::lock_guard<std::mutex> lock(BranchView->ItemsMutex);
+            std::stable_sort(&files->At(0), &files->At(0) + files->Count,
+                [this, less](const CFileData& a, const CFileData& b) {
+                    if (SortType == stName)
+                    {
+                        const int comparison = CmpNameExt(a, b);
+                        if (comparison != 0) return ReverseSort ? comparison > 0 : comparison < 0;
+                    }
+                    else
+                    {
+                        if (less(a, b, ReverseSort)) return true;
+                        if (less(b, a, ReverseSort)) return false;
+                    }
+                    auto first = BranchView->Items.find(a.Name), second = BranchView->Items.find(b.Name);
+                    if (first == BranchView->Items.end() || second == BranchView->Items.end()) return false;
+                    return first->second.RelativePath < second->second.RelativePath;
+                });
+        }
+        if (sortingPanelListing && Is(ptDisk) && (ExplorerSortData == NULL || IsBranchView()))
         {
             BOOL hasRoot = dirs->Count > 0 && dirs->At(0).NameLen == 2 &&
                            dirs->At(0).Name[0] == '.' && dirs->At(0).Name[1] == '.';
@@ -2511,6 +2751,7 @@ void CFilesWindow::SortDirectory(CFilesArray* files, CFilesArray* dirs)
 
     // single-purpose monitors for changes of Configuration.SortUsesLocale and Configuration.SortDetectNumbers
     // variables for the method CFilesWindow::RefreshDirectory
+    ReindexBranchViewFiles();
     SortedWithRegSet = Configuration.SortUsesLocale;
     SortedWithDetectNum = Configuration.SortDetectNumbers;
     VisibleItemsArray.InvalidateArr();

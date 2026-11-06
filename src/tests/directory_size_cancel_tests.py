@@ -1,0 +1,81 @@
+# SPDX-FileCopyrightText: 2026 Samandarin Contributors
+# SPDX-License-Identifier: GPL-2.0-or-later
+"""Compile the actual BuildScriptDir error/cancel branch, including its message storage."""
+import argparse
+import json
+import re
+import shutil
+import tempfile
+from pathlib import Path
+from disk_file_size_paths_tests import read, run, compiler_environment, ROOT
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--configuration', choices=('Debug', 'Release', 'Both'), default='Both')
+    parser.add_argument('--source-ref', help='demonstrate the original overrun with the same native harness')
+    args = parser.parse_args()
+    production = read('src/fileswn6.cpp', args.source_ref)
+    production = production[production.index('BOOL CFilesWindow::BuildScriptDir('):production.index('\nBOOL GetLinkTgtFileSize(')]
+    start = production.index('    CPathBuffer textBuffer(') if '    CPathBuffer textBuffer(' in production else production.index('    char text[')
+    storage = production[start:production.index('    char finalName[', start)]
+    enumeration = production[production.index('//---  build the path to sourceDirName and start searching for contained files'):]
+    marker = 'if (err != ERROR_FILE_NOT_FOUND && err != ERROR_NO_MORE_FILES)'
+    start = enumeration.index(marker)
+    opening = enumeration.index('{', start)
+    # Menu-export comments contain unmatched C++ braces; ignore comments and literals.
+    tokens = re.finditer(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\])*"|[{}]', enumeration[opening:], re.S)
+    depth = 0
+    for token in tokens:
+        if token.group() == '{': depth += 1
+        elif token.group() == '}':
+            depth -= 1
+            if not depth:
+                error = enumeration[start:opening + token.end()]
+                break
+    else: raise AssertionError('unterminated production error branch')
+    header = '#include "' + (ROOT / 'src/common/localizedtext.h').as_posix() + '"\n'
+    header += '#include "' + (ROOT / 'src/common/widepath.h').as_posix() + '"'
+    wide = read('src/common/widepath.cpp', args.source_ref)
+    buffer = wide[wide.index('CPathBuffer::CPathBuffer()'):wide.index('CWidePathBuffer::CWidePathBuffer()')]
+    names = ('IDS_CANNOTREADDIR', 'IDS_NAMEISTOOLONG', 'IDS_TOOLONGNAME2', 'IDS_DELETESHDIR', 'IDS_NONEMPTYDIRDELCONFIRM')
+    patterns = []
+    english = read('src/lang/texts.rc2')
+    ids = read('src/texts.rh2')
+    for name in names:
+        text = re.search(r'^\s*' + name + r', "(.*)"\s*$', english, re.M).group(1)
+        patterns.append((name, json.loads('"' + text.replace('""', r'\"') + '"')))
+        number = re.search(r'^#define\s+' + name + r'\s+(\d+)', ids, re.M).group(1)
+        for translation in sorted((ROOT / 'translations').glob('*/salamand.slt')):
+            text = re.search(r'^' + number + r',[01],"(.*)"\s*$', translation.read_text(encoding='utf-8-sig'), re.M).group(1)
+            patterns.append((name, re.sub(r'\\([nrt\\])', lambda m: {'n': '\n', 'r': '\r', 't': '\t', '\\': '\\'}[m[1]], text)))
+    golden = []
+    for name, pattern in patterns:
+        values = ['PATH', 'ERROR'] if name in ('IDS_CANNOTREADDIR', 'IDS_NAMEISTOOLONG', 'IDS_TOOLONGNAME2') else ['PATH']
+        it = iter(values)
+        expected = ''.join(next(it) if token == '%s' else '%' if token == '%%' else token for token in re.split(r'(%s|%%)', pattern))
+        golden.append('{' + ','.join(json.dumps(v, ensure_ascii=False) for v in (pattern, expected)) + ',' + str(len(values)) + '}')
+    source = read('src/tests/directory_size_cancel_tests.cpp.in')
+    for key, value in {'HEADER': header, 'BUFFER': buffer, 'STORAGE': storage, 'ERROR': error, 'PATTERNS': ',\n'.join(golden)}.items():
+        source = source.replace('@@' + key + '@@', value)
+    assert '@@' not in source
+    env = compiler_environment()
+    compiler = shutil.which('cl', path=env.get('PATH'))
+    with tempfile.TemporaryDirectory(prefix='directory-size-cancel-') as temp:
+        directory = Path(temp)
+        cpp, exe = directory / 'test.cpp', directory / 'test.exe'
+        cpp.write_text(source, encoding='utf8')
+        for config, flags in [('Debug', ['/MDd', '/D_DEBUG', '/Od']), ('Release', ['/MD', '/DNDEBUG', '/O2'])]:
+            if args.configuration not in ('Both', config):
+                continue
+            print('Actual BuildScriptDir error/cancel:', config, flush=True)
+            for command in ([compiler, '/nologo', '/std:c++17', '/EHsc', '/utf-8', '/W4', '/WX', '/GS', *flags, str(cpp), '/Fe:' + str(exe), 'user32.lib'], [str(exe)]):
+                result = run(command, cwd=directory, env=env, timeout=35)
+                if result.returncode:
+                    print('Native exit:', hex(result.returncode & 0xffffffff), flush=True)
+                    return 1
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

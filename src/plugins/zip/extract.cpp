@@ -3,6 +3,8 @@
 
 #include "precomp.h"
 #include <tchar.h>
+#include <string>
+#include <new>
 #include <crtdbg.h>
 #include <ostream>
 #include <commctrl.h>
@@ -35,6 +37,104 @@
 
 #define ZIP_MAX_PATH SAL_MAX_PATH
 
+
+// Validate the exact destination before the legacy in-place path assembly.
+// Extended Win32 paths must not turn dot components/device names into an escape.
+static DWORD ZipExtractTargetError(const char* targetDir, int targetDirLen, const char* entry,
+                                   int rootLen, const char* newFileName, bool test)
+{
+    if (targetDir == NULL || entry == NULL || targetDirLen < 0 || rootLen < 0)
+        return ERROR_INVALID_NAME;
+    const size_t targetLength = strlen(targetDir), entryLength = strlen(entry);
+    if ((size_t)targetDirLen != targetLength || (size_t)rootLen > entryLength ||
+        (rootLen != 0 && entry[rootLen] != '\\')) return ERROR_INVALID_NAME;
+    if (targetLength >= ZIP_MAX_PATH || entryLength >= ZIP_MAX_PATH)
+        return ERROR_FILENAME_EXCED_RANGE;
+    try
+    {
+        std::string relative = entry + rootLen + (rootLen ? 1 : 0);
+        if (newFileName != NULL)
+        {
+            if (strchr(newFileName, '\\') != NULL || strchr(newFileName, '/') != NULL)
+                return ERROR_INVALID_NAME;
+            const size_t slash = relative.find_last_of('\\');
+            relative.resize(slash == std::string::npos ? 0 : slash + 1);
+            relative += newFileName;
+        }
+        if (relative.size() >= ZIP_MAX_PATH - targetLength - 1)
+            return ERROR_FILENAME_EXCED_RANGE; // reserve separator and NUL, for both legacy callers
+        if (test) return ERROR_SUCCESS; // archive CRC testing performs no destination I/O
+        if (relative.empty()) return ERROR_INVALID_NAME;
+        size_t start = 0;
+        while (start < relative.size())
+        {
+            const size_t slash = relative.find('\\', start);
+            const std::string component = relative.substr(start, slash == std::string::npos ? slash : slash - start);
+            if (component.empty() || component == "." || component == ".." ||
+                component.back() == '.' || component.back() == ' ' ||
+                component.find_first_of("<>:\"/|?*") != std::string::npos)
+                return ERROR_INVALID_NAME;
+            for (const unsigned char character : component)
+                if (character < 32) return ERROR_INVALID_NAME;
+            std::wstring device = ZipPathToWide(component.c_str());
+            device.resize(device.find('.') == std::wstring::npos ? device.size() : device.find('.'));
+            while (!device.empty() && device.back() == L' ') device.pop_back();
+            if (_wcsicmp(device.c_str(), L"CON") == 0 || _wcsicmp(device.c_str(), L"PRN") == 0 ||
+                _wcsicmp(device.c_str(), L"AUX") == 0 || _wcsicmp(device.c_str(), L"NUL") == 0 ||
+                _wcsicmp(device.c_str(), L"CONIN$") == 0 || _wcsicmp(device.c_str(), L"CONOUT$") == 0 ||
+                device.size() == 4 && (_wcsnicmp(device.c_str(), L"COM", 3) == 0 || _wcsnicmp(device.c_str(), L"LPT", 3) == 0) &&
+                (device[3] >= L'1' && device[3] <= L'9' || device[3] == L'\u00b9' || device[3] == L'\u00b2' || device[3] == L'\u00b3'))
+                return ERROR_INVALID_NAME;
+            if (slash == std::string::npos) break;
+            start = slash + 1;
+            if (start == relative.size()) return ERROR_INVALID_NAME;
+        }
+        const std::string destination = std::string(targetDir) + "\\" + relative;
+        const std::wstring wide = ZipPathToWide(destination.c_str());
+        if (wide.empty() || !(wide.size() > 2 && wide[1] == L':' && wide[2] == L'\\' ||
+                              wide.compare(0, 2, L"\\\\") == 0)) return ERROR_INVALID_NAME;
+        return wide.size() >= 32767 ? ERROR_FILENAME_EXCED_RANGE : ERROR_SUCCESS;
+    }
+    catch (const std::bad_alloc&)
+    {
+        return ERROR_NOT_ENOUGH_MEMORY;
+    }
+}
+
+static BOOL SetZipExtractAttributes(const char* path, DWORD attributes)
+{
+    try
+    {
+        return SetFileAttributesW(ZipPathToWide(path).c_str(), attributes);
+    }
+    catch (const std::bad_alloc&)
+    {
+        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+        return FALSE;
+    }
+}
+
+// The engine calls this only for its own failed output, after closing the handle.
+static BOOL DeleteZipExtractOutput(const char* path, bool clearReadOnly)
+{
+    try
+    {
+        const std::wstring wide = ZipPathToWide(path);
+        if (clearReadOnly)
+        {
+            const DWORD attributes = GetFileAttributesW(wide.c_str());
+            if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_READONLY) &&
+                !SetFileAttributesW(wide.c_str(), attributes & ~FILE_ATTRIBUTE_READONLY)) return FALSE;
+        }
+        return DeleteFileW(wide.c_str());
+    }
+    catch (const std::bad_alloc&)
+    {
+        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+        return FALSE;
+    }
+}
+
 CZipUnpack::CZipUnpack(const char* zipName, const char* zipRoot, CSalamanderForOperationsAbstract* salamander,
                        TIndirectArray2<char>* archiveVolumes) : CZipCommon(zipName, zipRoot, salamander, archiveVolumes), Passwords(8)
 {
@@ -47,6 +147,7 @@ CZipUnpack::CZipUnpack(const char* zipName, const char* zipRoot, CSalamanderForO
     Extract = true;
     Unshrinking = false;
     Test = false;
+    WholeArchiveExtracted = false;
     AllocateWholeFile = true;
     TestAllocateWholeFile = true;
 }
@@ -110,7 +211,7 @@ int CZipUnpack::UnpackArchive(const char* targetDir, SalEnumSelection next, void
                     QuickSortHeaders(0, extrFiles.Count - 1, extrFiles);
                 }
                 if (*OriginalCurrentDir)
-                    SetCurrentDirectory(targetDir);
+                    SetCurrentDirectoryW(ZipPathToWide(targetDir).c_str());
                 ErrorID = ExtractFiles(targetDir);
             }
         }
@@ -145,6 +246,7 @@ int CZipUnpack::UnpackOneFile(const char* nameInZip, const CFileData* fileData, 
         ErrorID = FindFile(nameInZip, &fileInfo, zipFileData->ItemNumber);
         if (!ErrorID)
         {
+            if (strlen(targetPath) >= SAL_MAX_PATH) return ErrorID = IDS_TOOLONGNAME3;
             lstrcpy(targetDir, targetPath);
             targetDirLen = lstrlen(targetDir);
             if (targetDirLen && targetDir[targetDirLen - 1] == '\\')
@@ -203,6 +305,7 @@ int CZipUnpack::UnpackOneFile(const char* nameInZip, const CFileData* fileData, 
 int CZipUnpack::UnpackWholeArchive(const char* mask, const char* targetDir)
 {
     CALL_STACK_MESSAGE3("CZipUnpack::UnpackWholeArchive(%s, %s)", mask, targetDir);
+    WholeArchiveExtracted = true;
     TIndirectArray2<char> maskArray(16);
     TIndirectArray2<CFileInfo> extrFiles(256); //file header of files to be extracted
 
@@ -219,8 +322,8 @@ int CZipUnpack::UnpackWholeArchive(const char* mask, const char* targetDir)
     Salamander->OpenProgressDialog(title, TRUE, NULL, FALSE);
     Salamander->ProgressDialogAddText(LoadStr(IDS_PREPAREDATA), FALSE);
     ErrorID = CheckZip();
-    if (!ErrorID && ArchiveVolumes != NULL)
-        ArchiveVolumes->Add(_strdup(ZipName));
+    if (!ErrorID)
+        ErrorID = RecordArchiveVolume();
     if (!ErrorID && !ZeroZip)
     {
         MatchedTotalSize = CQuadWord(0, 0);
@@ -232,10 +335,13 @@ int CZipUnpack::UnpackWholeArchive(const char* mask, const char* targetDir)
             ErrorID = MatchFilesToMask(maskArray);
             if (ErrorID && extrFiles.Count)
             {
+                WholeArchiveExtracted = false; // preserving a usable subset is not full extraction
                 if (ErrorID != IDS_NODISPLAY)
                     SalamanderGeneral->ShowMessageBox(LoadStr(ErrorID), LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
                 ErrorID = 0;
             }
+            if (extrFiles.Count == 0)
+                WholeArchiveExtracted = false; // nonempty archive with no selected entries
             ProgressTotalSize = MatchedTotalSize;
             if (!ErrorID && extrFiles.Count)
             {
@@ -263,10 +369,12 @@ int CZipUnpack::UnpackWholeArchive(const char* mask, const char* targetDir)
                     QuickSortHeaders(0, extrFiles.Count - 1, extrFiles);
                 }
                 if (*OriginalCurrentDir && !Test)
-                    SetCurrentDirectory(targetDir);
+                    SetCurrentDirectoryW(ZipPathToWide(targetDir).c_str());
                 ErrorID = ExtractFiles(targetDir);
             }
         }
+        else
+            WholeArchiveExtracted = false;
     }
     Salamander->CloseProgressDialog();
     return ErrorID;
@@ -471,11 +579,13 @@ int CZipUnpack::MatchFilesToMask(TIndirectArray2<char>& maskArray)
                     delete fileInfo;
                     errorID = IDS_LOWMEM;
                 };
-                if (!ErrorID)
+                if (!errorID) // failed Add already released fileInfo
                     MatchedTotalSize += CQuadWord().SetUI64(fileInfo->Size);
                 break;
             }
         }
+        if (j == maskArray.Count)
+            WholeArchiveExtracted = false; // excluded archive entry must survive in the source
     }
     free(centralHeader);
     free(tempName);
@@ -1182,6 +1292,10 @@ int CZipUnpack::ExtractSingleFile(char* targetDir, int targetDirLen,
     AESContextValid = FALSE; // initialization
     if (success)
         *success = FALSE;
+    const DWORD targetError = ZipExtractTargetError(targetDir, targetDirLen, fileInfo->Name, RootLen, newFileName, Test);
+    if (targetError != ERROR_SUCCESS)
+        return targetError == ERROR_NOT_ENOUGH_MEMORY ? IDS_LOWMEM :
+               targetError == ERROR_FILENAME_EXCED_RANGE ? IDS_TOOLONGNAME3 : IDS_ERRCREATE;
     localHeader = (CLocalFileHeader*)malloc(MAX_HEADER_SIZE);
     pathBuf = (LPTSTR)malloc(sizeof(TCHAR) * (ZIP_MAX_PATH + 1));
     if (!localHeader || !pathBuf)
@@ -1237,6 +1351,9 @@ int CZipUnpack::ExtractSingleFile(char* targetDir, int targetDirLen,
                             case ERR_RETRY:
                                 retry = true;
                                 break;
+                            case ERR_SKIP:
+                                WholeArchiveExtracted = false;
+                                break;
                             case ERR_CANCEL:
                                 errorID = IDS_NODISPLAY;
                             }
@@ -1244,7 +1361,7 @@ int CZipUnpack::ExtractSingleFile(char* targetDir, int targetDirLen,
                     } while (retry);
                     if (!errorID)
                     {
-                        SetFileAttributes(targetDir, fileInfo->FileAttr & FILE_ATTTRIBUTE_MASK);
+                        SetZipExtractAttributes(targetDir, fileInfo->FileAttr & FILE_ATTTRIBUTE_MASK);
                         if (success)
                         {
                             *success = TRUE;
@@ -1273,6 +1390,9 @@ int CZipUnpack::ExtractSingleFile(char* targetDir, int targetDirLen,
                             {
                             case ERR_RETRY:
                                 retry = true;
+                                break;
+                            case ERR_SKIP:
+                                WholeArchiveExtracted = false;
                                 break;
                             case ERR_CANCEL:
                                 errorID = IDS_NODISPLAY;
@@ -1575,9 +1695,9 @@ int CZipUnpack::ExtractSingleFile(char* targetDir, int targetDirLen,
                                             NULL, &fileInfo->LastWrite);
                                 CloseCFile(OutputFile);
                                 if (result || UserBreak)
-                                    DeleteFile(targetDir);
+                                    DeleteZipExtractOutput(targetDir, false);
                                 else
-                                    SetFileAttributes(targetDir, fileInfo->FileAttr & FILE_ATTTRIBUTE_MASK);
+                                    SetZipExtractAttributes(targetDir, fileInfo->FileAttr & FILE_ATTTRIBUTE_MASK);
                             }
                             else
                                 remain = fileInfo->Size - ExtractedBytes;
@@ -1600,8 +1720,7 @@ int CZipUnpack::ExtractSingleFile(char* targetDir, int targetDirLen,
                                         }
                                         if (!Test)
                                         {
-                                            SalamanderGeneral->ClearReadOnlyAttr(targetDir);
-                                            DeleteFile(targetDir);
+                                            DeleteZipExtractOutput(targetDir, true);
                                         }
                                     }
                                     else
@@ -1644,6 +1763,7 @@ int CZipUnpack::ExtractSingleFile(char* targetDir, int targetDirLen,
 int CZipUnpack::ExtractFiles(const char* targetDir)
 {
     CALL_STACK_MESSAGE2("CZipUnpack::ExtractFiles(%s)", targetDir);
+    if (targetDir == NULL || strlen(targetDir) >= ZIP_MAX_PATH) return IDS_TOOLONGNAME3;
     CLocalFileHeader* localHeader;
     CFileInfo* fileInfo;
     char* tempDir;
@@ -1714,13 +1834,17 @@ int CZipUnpack::ExtractFiles(const char* targetDir)
         for (i = 0; i < ExtrFiles->Count && !errorID && !UserBreak; i++)
         {
             fileInfo = (*ExtrFiles)[i];
-            if (tempDirLen + 1 + fileInfo->NameLen - RootLen - (RootLen ? 1 : 0) >=
-                (DWORD)(Test ? ZIP_MAX_PATH : MAX_PATH - (fileInfo->IsDir ? 12 : 0)))
+            const DWORD targetError = ZipExtractTargetError(tempDir, tempDirLen, fileInfo->Name, RootLen, NULL, Test);
+            if (targetError != ERROR_SUCCESS)
             {
-                switch (ProcessError(IDS_TOOLONGNAME3, 0, fileInfo->Name + RootLen + (RootLen ? 1 : 0),
+                if (targetError == ERROR_NOT_ENOUGH_MEMORY) { errorID = IDS_LOWMEM; break; }
+                const int message = targetError == ERROR_FILENAME_EXCED_RANGE ? IDS_TOOLONGNAME3 : IDS_ERRCREATE;
+                switch (ProcessError(message, targetError, fileInfo->Name,
                                      PE_NORETRY | DialogFlags, &SkipAllLongNames))
                 {
                 case ERR_SKIP:
+                    WholeArchiveExtracted = false;
+                    AllFilesOK = FALSE;
                     UserBreak = !ProgressAddSize(fileInfo->Size + 1);
                     continue;
                 case ERR_CANCEL:
@@ -1736,7 +1860,10 @@ int CZipUnpack::ExtractFiles(const char* targetDir)
                 BOOL ok;
                 errorID = ExtractSingleFile(tempDir, tempDirLen, fileInfo, &ok);
                 if (!ok)
+                {
                     AllFilesOK = FALSE; // for archive testing
+                    WholeArchiveExtracted = false;
+                }
                 UserBreak = !Salamander->ProgressAddSize(1, TRUE);
             }
             else

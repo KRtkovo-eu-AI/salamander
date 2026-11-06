@@ -333,6 +333,7 @@
     </Midl>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\shared\spl_diskselection.h" />
     <ClInclude Include="..\abortmodal.h">
     </ClInclude>
     <ClInclude Include="..\abortpalette.h">

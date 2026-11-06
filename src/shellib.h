@@ -5,6 +5,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #ifndef SAL_MAX_PATH
 #define SAL_MAX_PATH 32768
@@ -29,6 +30,10 @@ IDataObject* CreateIDataObject(HWND hOwnerWindow, const char* rootDir, int files
 // Creates a context menu interface for the selected files and directories from rootDir
 IContextMenu2* CreateIContextMenu2(HWND hOwnerWindow, const char* rootDir, int files,
                                    CEnumFileNamesFunction nextFile, void* param);
+
+// Disk selections may contain files from different parents (Branch View).
+IDataObject* CreateIDataObjectForPaths(HWND owner, const std::vector<std::wstring>& paths);
+IContextMenu2* CreateIContextMenu2ForPaths(HWND owner, const std::vector<std::wstring>& paths);
 
 // Creates a context menu's interface for the given directory
 IContextMenu2* CreateIContextMenu2(HWND hOwnerWindow, const char* dir);

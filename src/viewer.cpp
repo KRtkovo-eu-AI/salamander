@@ -11,6 +11,7 @@
 */
 
 #include "precomp.h"
+#include "viewerpath.h"
 #include "common/winlibdpi.h"
 
 #include <algorithm>
@@ -68,10 +69,7 @@ void SetViewerWindowText(HWND hWindow, const char* text)
 
 static std::wstring ViewerPathToWide(const char* path)
 {
-    std::wstring wide = SalMultiByteToWidePath(path, CP_UTF8);
-    if (wide.empty() && GetACP() != CP_UTF8)
-        wide = SalMultiByteToWidePath(path, CP_ACP);
-    return wide;
+    return Salamander::ViewerPaths::Decode(path);
 }
 
 char* ViewerHistory[VIEWER_HISTORY_SIZE];
@@ -735,19 +733,11 @@ CViewerWindow::CViewerWindow(const char* fileName, CViewType type, const char* c
         FileName = NULL; // error
     else
     {
-        char name[SAL_MAX_PATH];
-        lstrcpyn(name, fileName, SAL_MAX_PATH);
-        if (SalGetFullName(name, NULL, NULL, NULL, NULL, SAL_MAX_PATH))
-        {
-            FileName = (char*)malloc(strlen(name) + 1);
-            if (FileName != NULL)
-            {
-                memcpy(FileName, name, strlen(name) + 1);
-                FileNameW = ViewerPathToWide(name);
-            }
-        }
-        else
-            FileName = NULL;
+        FileNameW = Salamander::ViewerPaths::FullPath(ViewerPathToWide(fileName).c_str());
+        std::string name = SalWideToMultiBytePath(FileNameW.c_str(), CP_UTF8);
+        FileName = !name.empty() ? (char*)malloc(name.size() + 1) : NULL;
+        if (FileName != NULL)
+            memcpy(FileName, name.c_str(), name.size() + 1);
     }
     Buffer = (unsigned char*)malloc(2 * VIEW_BUFFER_SIZE);
     RawBuffer = Buffer != NULL ? Buffer + VIEW_BUFFER_SIZE : NULL;

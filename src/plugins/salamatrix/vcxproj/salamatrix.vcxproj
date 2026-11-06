@@ -189,6 +189,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\shared\spl_diskselection.h" />
     <ClInclude Include="..\..\shared\dbg.h" />
     <ClInclude Include="..\..\shared\mhandles.h" />
     <ClInclude Include="..\..\shared\spl_base.h" />
