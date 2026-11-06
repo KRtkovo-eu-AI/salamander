@@ -10,21 +10,21 @@ WEB,"www.altap.cz"
 COMMENT,"portuguese translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,0,"UnFAT"
-1001,0,"About Plugin"
-1003,0,"Browse and extract FAT 12, 16, and 32 disk images."
+1000,1,"UnFAT"
+1001,1,"Sobre o plug-in"
+1003,1,"Navegar e extrair imagens de disco FAT 12, 16 e 32."
 
 [STRINGTABLE 1]
-1100,0,"Error opening file "%s"."
-1101,0,"Error reading file "%s"."
-1102,0,"Error parsing file "%s".\n\n%s"
-1103,0,"The boot sector is corrupted or this file is not FAT 12, 16, or 32 image."
+1100,1,"Erro ao abrir o arquivo "%s"."
+1101,1,"Erro ao ler o arquivo "%s"."
+1102,1,"Erro ao analisar o arquivo "%s".\n\n%s"
+1103,1,"O setor de inicialização está corrompido ou este arquivo não é uma imagem FAT 12, 16 ou 32."
 
 [STRINGTABLE 2]
-1104,0,"Error reading directory from file "%s".\n%s\nSector: %d, Offset: 0x%s\n\nFile is not valid FAT 12, 16, or 32 image."
-1106,0,"Error reading file from file "%s".\n%s\nCluster: %d\n\nFile is not valid FAT 12, 16, or 32 image."
-1107,0,"Error writing file"
-1108,0,"The file "%s" appears to be an image of entire harddisk.\nSuch images are not supported by the UnFAT plugin."
-1109,0,"Extracting FAT image - %s"
-1110,0,"extracting: %s"
+1104,1,"Erro ao ler o diretório do arquivo "%s".\n%s\nSetor: %d, Deslocamento: 0x%s\n\nO arquivo não é uma imagem FAT 12, 16 ou 32 válida."
+1106,1,"Erro ao ler o arquivo a partir de "%s".\n%s\nCluster: %d\n\nO arquivo não é uma imagem FAT 12, 16 ou 32 válida."
+1107,1,"Erro ao gravar o arquivo"
+1108,1,"O arquivo "%s" parece ser uma imagem de disco rígido inteiro.\nEssas imagens não são suportadas pelo plug-in UnFAT."
+1109,1,"Extraindo imagem FAT - %s"
+1110,1,"extraindo: %s"
 
