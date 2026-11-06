@@ -7,6 +7,7 @@
 | 2026-11-04 | Cache line-number checkpoints; keep wrap painting aligned with text elements. | Slow scrolling at EOF (#746) rescanned the whole file for every gutter/status update. | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
 | 2026-11-05 | Initialize previous-line size cache used by line-up scrolling. | Keep scroll-up as cheap as scroll-down after navigating large decoded files (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
 | 2026-11-05 | Build a full logical-line start index for O(log n) line-up. | Scroll-up remained much slower than scroll-down because each step rescanned backwards (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
+| 2026-11-05 | Keep HistoryComboBox edit text after Unicode CB_ADDSTRING. | Find Look in showed history[0] instead of the current panel path on reopen. | https://github.com/KRtkovo-eu-AI/salamander/issues/743 | Composer |
 */
 
 #include "precomp.h"
@@ -101,6 +102,22 @@ static HWND ResolveHistoryComboEditControl(HWND ctrl)
     return ctrl;
 }
 
+static BOOL IsHistoryControlUnicode(HWND ctrl)
+{
+    HWND edit = ResolveHistoryComboEditControl(ctrl);
+    return IsWindowUnicode(ctrl) || IsWindowUnicode(edit);
+}
+
+static std::wstring HistoryTextToWide(const char* text)
+{
+    if (text == NULL)
+        text = "";
+    std::wstring wide = SalMultiByteToWidePath(text, CP_UTF8);
+    if (wide.empty() && text[0] != 0 && GetACP() != CP_UTF8)
+        wide = SalMultiByteToWidePath(text, CP_ACP);
+    return wide;
+}
+
 static bool GetHistoryControlTextUtf8(HWND ctrl, char* buffer, int bufferSize)
 {
     if (buffer == NULL || bufferSize <= 0)
@@ -108,17 +125,19 @@ static bool GetHistoryControlTextUtf8(HWND ctrl, char* buffer, int bufferSize)
     buffer[0] = 0;
 
     HWND source = ResolveHistoryComboEditControl(ctrl);
-    if (GetACP() != CP_UTF8 && !IsWindowUnicode(source))
+    if (GetACP() != CP_UTF8 && !IsHistoryControlUnicode(ctrl))
     {
         SendMessage(ctrl, WM_GETTEXT, bufferSize, (LPARAM)buffer);
         return true;
     }
 
-    int length = GetWindowTextLengthW(source);
+    // Prefer the combo HWND so we read the same text WM_SETTEXT wrote into it.
+    HWND readFrom = IsWindowUnicode(ctrl) ? ctrl : source;
+    int length = GetWindowTextLengthW(readFrom);
     if (length < 0)
         length = 0;
     std::vector<WCHAR> wide(length + 1);
-    int copied = GetWindowTextW(source, wide.data(), length + 1);
+    int copied = GetWindowTextW(readFrom, wide.data(), length + 1);
     if (copied < 0)
         copied = 0;
     wide[copied] = 0;
@@ -134,18 +153,32 @@ static void SetHistoryControlTextUtf8(HWND ctrl, const char* text)
 {
     if (text == NULL)
         text = "";
-    HWND target = ResolveHistoryComboEditControl(ctrl);
-    if (GetACP() != CP_UTF8 && !IsWindowUnicode(target))
+    if (GetACP() != CP_UTF8 && !IsHistoryControlUnicode(ctrl))
     {
         SendMessage(ctrl, WM_SETTEXT, 0, (LPARAM)text);
         return;
     }
 
-    std::wstring wide = SalMultiByteToWidePath(text, CP_UTF8);
-    if (IsWindowUnicode(target))
-        SetWindowTextW(target, wide.c_str());
+    std::wstring wide = HistoryTextToWide(text);
+    if (IsHistoryControlUnicode(ctrl))
+    {
+        // Always set through the combo HWND. Writing only to the edit child lets a
+        // later CB_ADDSTRING replace the visible text with history[0] (Find Look in).
+        SendMessageW(ctrl, WM_SETTEXT, 0, (LPARAM)wide.c_str());
+    }
     else
-        SendMessage(target, WM_SETTEXT, 0, (LPARAM)text);
+        SendMessage(ctrl, WM_SETTEXT, 0, (LPARAM)text);
+}
+
+static void AddHistoryComboString(HWND hwnd, const char* text)
+{
+    if (IsHistoryControlUnicode(hwnd))
+    {
+        std::wstring wide = HistoryTextToWide(text);
+        SendMessageW(hwnd, CB_ADDSTRING, 0, (LPARAM)wide.c_str());
+    }
+    else
+        SendMessage(hwnd, CB_ADDSTRING, 0, (LPARAM)text);
 }
 
 void GetDefaultViewerLogFont(LOGFONT* lf)
@@ -272,9 +305,14 @@ void HistoryComboBox(HWND hWindow, CTransferInfo& ti, int ctrlID, char* Text,
             int i;
             for (i = 0; i < historySize; i++) // fill the combo-box list
                 if (history[i] != NULL)
-                    SendMessage(hwnd, CB_ADDSTRING, 0, (LPARAM)history[i]);
+                    AddHistoryComboString(hwnd, history[i]);
                 else
                     break;
+
+            // Re-apply the transferred value after populating the list. On Unicode
+            // Find combos, CB_ADDSTRING can otherwise leave history[0] visible and
+            // Look in no longer follows the current panel path (#743).
+            SetHistoryControlTextUtf8(hwnd, Text);
         }
     }
 }
