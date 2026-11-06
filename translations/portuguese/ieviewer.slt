@@ -11,7 +11,7 @@ COMMENT,"portuguese translation stub (English seed)"
 
 [STRINGTABLE 0]
 10100,1,"Visualizador do Internet Explorer"
-10101,1,"Não foi possível abrir o Visualizador do Internet Explorer.\nRelate este problema para support@altap.cz."
+10101,1,"Não foi possível abrir o Visualizador do Internet Explorer.\n Relate este problema para support@altap.cz."
 10102,1,"Erro"
 10103,1,"Visualizador leve de HTML e XML baseado no Internet Explorer."
 10105,1,"Sobre o plug-in"

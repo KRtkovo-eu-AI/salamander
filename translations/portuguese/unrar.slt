@@ -11,7 +11,7 @@ COMMENT,"portuguese translation stub (English seed)"
 
 [DIALOG 100]
 194,95,1,"Próximo volume do arquivo"
-117,12,9,170,32,1,"Insira o disco com o próximo volume do arquivo ou localize o arquivo apropriado no disco.\n\nPressione OK quando estiver pronto."
+117,12,9,170,32,1,"Insira o disco com o próximo volume do arquivo ou localize o arquivo apropriado no disco.\n\n Pressione OK quando estiver pronto."
 300,12,48,42,8,1,"&Nome do arquivo:"
 101,12,58,155,12,1,""
 102,170,58,13,12,1,"..."
@@ -29,7 +29,7 @@ COMMENT,"portuguese translation stub (English seed)"
 2,181,63,50,14,1,"Cancelar"
 
 [DIALOG 106]
-220,115,1,"Configuração do UnRAR"
+220,115,1,"Configuração do Un RAR"
 107,12,10,219,12,1,"&Ignorar automaticamente arquivos continuados de volumes anteriores"
 116,12,32,236,12,1,"&Não exibir aviso quando o conteúdo inteiro do arquivo"
 300,23,22,154,8,1,"ao descompactar."
@@ -55,7 +55,7 @@ COMMENT,"portuguese translation stub (English seed)"
 2,270,58,50,14,1,"Cancelar"
 
 [DIALOG 115]
-213,105,1,"UnRAR - Atenção"
+213,105,1,"Un RAR - Atenção"
 300,11,8,194,24,1,"Nem todos os arquivos do arquivo multivolume podem ser listados (e mostrados no painel), porque alguns volumes não foram encontrados."
 301,11,39,194,16,1,"Para listar todo o conteúdo do arquivo, copie todos os volumes para o mesmo diretório."
 105,11,64,159,12,1,"&Não exibir esta mensagem no futuro"
@@ -63,7 +63,7 @@ COMMENT,"portuguese translation stub (English seed)"
 1,155,87,50,14,1,"OK"
 
 [STRINGTABLE 0]
-1000,1,"UnRAR"
+1000,1,"Un RAR"
 1001,1,"Memória insuficiente."
 1002,1,"Não foi possível obter o nome do módulo."
 1003,1,"Não foi possível carregar a biblioteca '%s'."
@@ -95,13 +95,13 @@ COMMENT,"portuguese translation stub (English seed)"
 1027,1,"Todos os arquivos (*.*)"
 1028,1,"Erro"
 1029,1,"Arquivo não encontrado"
-1030,1,"Versão incorreta de unrar.dll. Reinstale o plug-in UnRAR."
-1031,1,"Parece que este é um arquivo multivolume. Se for, selecione o primeiro volume e pressione OK.\n\nSe não for um arquivo multivolume, pressione Cancelar."
+1030,1,"Versão incorreta de unrar.dll. Reinstale o plug-in Un RAR."
+1031,1,"Parece que este é um arquivo multivolume. Se for, selecione o primeiro volume e pressione OK.\n\n Se não for um arquivo multivolume, pressione Cancelar."
 1032,1,"Selecionar o primeiro volume"
 1033,1,"Navegar e extrair arquivos RAR."
 1034,1,"Sobre o plug-in"
 1035,1,"Arquivo não encontrado no arquivo compactado."
-1036,1,"A senha está incorreta. As letras da senha devem ser digitadas com a capitalização correta. Verifique se o CapsLock não está ligado acidentalmente."
+1036,1,"A senha está incorreta. As letras da senha devem ser digitadas com a capitalização correta. Verifique se o Caps Lock não está ligado acidentalmente."
 
 [STRINGTABLE 3]
 1040,1,"Compactado"

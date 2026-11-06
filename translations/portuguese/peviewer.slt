@@ -30,9 +30,9 @@ COMMENT,"portuguese translation stub (English seed)"
 10100,1,"Visualizador de Portable Executable"
 10101,1,"Não foi possível abrir o arquivo %s."
 10102,1,"Falha ao criar o arquivo temporário."
-10103,1,"Ocorreu uma exceção.\n\nArquivo visualizado: %s\n\nSe achar que o arquivo não está corrompido, envie-o para support@altap.cz.\nVamos reproduzir e corrigir o erro do visualizador. Obrigado pela colaboração!"
+10103,1,"Ocorreu uma exceção.\n\n Arquivo visualizado: %s\n\n Se achar que o arquivo não está corrompido, envie-o para support@altap.cz.\n Vamos reproduzir e corrigir o erro do visualizador. Obrigado pela colaboração!"
 10104,1,"Exibir informações sobre arquivos Portable Executable como EXE, DLL etc."
 
 [STRINGTABLE 2]
-10118,1,"Nenhuma seção de Portable Executable selecionada na configuração do plug-in foi encontrada.\nUse o menu Opções > Configuração de plug-ins > Visualizador de Portable Executable\nna janela principal do Open Salamander para definir as seções visíveis."
+10118,1,"Nenhuma seção de Portable Executable selecionada na configuração do plug-in foi encontrada.\n Use o menu Opções > Configuração de plug-ins > Visualizador de Portable Executable\nna janela principal do Open Salamander para definir as seções visíveis."
 
