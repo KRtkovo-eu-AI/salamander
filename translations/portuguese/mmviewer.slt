@@ -50,7 +50,7 @@ COMMENT,"portuguese translation stub (English seed)"
 11127,1,"Propriedades de áudio"
 11128,1,"html."
 11129,1,"Processando arquivos - aguarde ..."
-11130,1,"%lu de  arquivos%lu foram processados com sucesso."
+11130,1,"%lu de arquivos%lu foram processados com sucesso."
 11131,1,"Exibir informações sobre arquivos multimídia, como MP3, OGG, WAV, etc."
 11132,1,"Sobre o plug-in"
 
@@ -71,7 +71,7 @@ COMMENT,"portuguese translation stub (English seed)"
 11230,1,"&Exibir"
 
 [STRINGTABLE 5]
-11232,1,"& Tela Cheia\t F11"
+11232,1,"&Tela Cheia\t F11"
 
 [STRINGTABLE 6]
 11270,1,"&Opções"

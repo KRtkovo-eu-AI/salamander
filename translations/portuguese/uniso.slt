@@ -105,7 +105,7 @@ COMMENT,"portuguese translation stub (English seed)"
 [STRINGTABLE 8]
 1152,1,"Número de sessões: %d"
 1153,1,"\n Sessão %d\n"
-1154,1,"  Número de faixas: %d\n"
-1155,1,"  Faixa: %d, %s, Tamanho: %d KBytes\n"
-1156,1,"  Faixa: %d, %s, Tamanho: %d KBytes - "%s"\n"
+1154,1," Número de faixas: %d\n"
+1155,1," Faixa: %d, %s, Tamanho: %d KBytes\n"
+1156,1," Faixa: %d, %s, Tamanho: %d KBytes - "%s"\n"
 
