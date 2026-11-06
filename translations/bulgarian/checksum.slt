@@ -1,0 +1,116 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\checksum\checksum.atp"
+TEXTVERSION,"2.4 (x64)"
+VERSION,"2,4,0,196"
+
+[TRANSLATION]
+LANGID,1026
+AUTHOR,"Open Samandarin"
+WEB,"www.altap.cz"
+COMMENT,"bulgarian translation stub (English seed)"
+
+[DIALOG 1000]
+344,84,0,"Calculate Checksums"
+1001,5,5,334,54,0,"List1"
+1007,5,68,42,8,0,"Calculating:"
+1006,50,68,105,8,0,"Progress1"
+1002,162,65,55,14,0,"Con&figure..."
+1003,223,65,55,14,0,"&Save..."
+1004,284,65,55,14,0,"&Stop"
+1005,5,68,76,8,0,"clipboard hint"
+
+[DIALOG 1001]
+189,109,0,"Checksum Configuration"
+300,8,5,174,76,0," Calculate checksums "
+100,15,16,105,10,0,"&CRC/SFV"
+101,15,28,105,10,0,"&MD5"
+102,15,40,105,10,0,"SHA-&1"
+103,15,52,105,10,0,"SHA-&256"
+104,15,64,105,10,0,"SHA-&512"
+1,14,88,50,14,0,"OK"
+2,69,88,50,14,0,"Cancel"
+9,124,88,50,14,0,"Help"
+
+[DIALOG 2000]
+260,84,1,""
+1001,5,5,250,54,0,"List1"
+1007,5,68,34,8,0,"Verifying:"
+1006,42,68,101,8,0,"Progress1"
+2002,5,68,140,8,1,""
+2001,149,65,50,14,0,"&Focus"
+1004,205,65,50,14,0,"&Stop"
+
+[STRINGTABLE 0]
+1,0,"Checksum"
+2,0,"About Plugin"
+3,0,"SFV, MD5, SHA-1, SHA-256, and SHA-512 checksum verifier and calculator."
+4,0,"Out of memory"
+5,0,"Error opening file"
+6,0,"Read error"
+7,0,"Write error"
+
+[STRINGTABLE 1]
+40,0,"Skipped"
+41,0,"Calculating..."
+42,0,"Canceled"
+43,0,"Right-click an item to copy a checksum to the clipboard."
+44,0,"Copy &CRC Value to Clipboard\tCtrl+C"
+45,0,"Copy &MD5 Checksum to Clipboard\tCtrl+M"
+46,0,"Copy SHA-&1 Checksum to Clipboard\tCtrl+1"
+47,0,"Copy SHA-&256 Checksum to Clipboard\tCtrl+2"
+
+[STRINGTABLE 2]
+48,0,"Copy SHA-&512 Checksum to Clipboard\tCtrl+5"
+52,0,"Copy &All Values to Clipboard"
+53,0,"&Remove Item\tDelete"
+54,0,"The file '%s' already exists.\nDo you wish to overwrite it?"
+55,0,"Error creating file."
+56,0,"Files skipped or canceled during the calculation were not saved."
+57,0,"Error opening the file '%s'."
+58,0,"Missing"
+59,0,"The selected file has no SFV, MD5, SHA1, SHA256, nor SHA512 extension. Do you want to continue anyway?"
+60,0,"The selected file is not a valid SFV, MD5, SHA-1, SHA-256, nor SHA-512 file."
+61,0,"Verifying..."
+62,0,"OK"
+63,0,"Corrupted"
+
+[STRINGTABLE 3]
+65,0,"&Verify Checksums..."
+66,0,"&Calculate Checksums..."
+67,0,"The configuration is already opened."
+68,0,"The changes will take effect when the 'Calculate Checksums' window is opened next time."
+70,0,"All files OK"
+71,0,"%d corrupted, %d missing, %d skipped"
+72,0,"Open Salamander is busy. The requested command cannot be accomplished, please try it again later."
+74,0,"&Close"
+75,0,"Reading directory tree, please wait..."
+76,0,"Error reading directory"
+77,0,"No files"
+78,0,"Verify Checksums"
+79,0,"File"
+
+[STRINGTABLE 4]
+80,0,"Size"
+81,0,"Status"
+82,0,"CRC"
+83,0,"MD5"
+84,0,"SHA-1"
+85,0,"SHA-256"
+86,0,"SHA-512"
+90,0,"Save Checksum File"
+91,0,"SFV Files (*.sfv)|*.sfv|"
+92,0,"MD5 Files (*.md5)|*.md5|"
+93,0,"SHA-1 Files (*.sha1)|*.sha1|"
+94,0,"SHA-256 Files (*.sha256)|*.sha256|"
+95,0,"SHA-512 Files (*.sha512)|*.sha512|"
+
+[STRINGTABLE 5]
+100,0,"Verify CRC"
+101,0,"Verify MD5"
+102,0,"Verify SHA-1"
+103,0,"Verify SHA-256"
+104,0,"Verify SHA-512"
+
+[STRINGTABLE 6]
+120,0,"Cannot finish operation because of too long name."
+

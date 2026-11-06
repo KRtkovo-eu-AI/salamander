@@ -1,0 +1,83 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\textviewer\textviewer.atp"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,196"
+
+[TRANSLATION]
+LANGID,1042
+AUTHOR,"Open Samandarin"
+WEB,"www.altap.cz"
+COMMENT,"korean translation stub (English seed)"
+
+[DIALOG 8500]
+310,129,0,"Configurazione del visualizzatore di testo Prism"
+8701,7,7,296,86,0,"Prestazioni"
+8700,17,21,276,18,0,"&Mantieni pronto Prism per riaprire più velocemente"
+8702,17,44,276,40,0,"Mantiene un visualizzatore pronto fino a 60 secondi dopo la chiusura di un file. Richiede memoria aggiuntiva (circa 100 MB o più). Il primo file continua ad aprirsi normalmente."
+1,197,108,50,14,0,"OK"
+2,253,108,50,14,0,"Annulla"
+
+[STRINGTABLE 0]
+46,0,"Prism Text Viewer"
+47,0,"About Plugin"
+
+[STRINGTABLE 1]
+48,0,"Native viewer that renders text files with Prism.js syntax highlighting."
+49,0,"https://samandarin.net/"
+50,0,"Unable to prepare synchronization event required by the viewer."
+52,0,"&File"
+53,0,"&View"
+54,0,"&Close\tEsc"
+55,0,"&Refresh\tF5"
+56,0,"Zoom &In\tCtrl++"
+57,0,"Zoom &Out\tCtrl+-"
+58,0,"&Reset\tCtrl+0"
+59,0,"Loading..."
+60,0,"Ready"
+61,0,"Unable to initialize the WebView2 renderer."
+62,0,"Unable to open the selected file."
+63,0,"Show &Line Numbers"
+
+[STRINGTABLE 2]
+64,0,"&Wrap Lines\tF2"
+65,0,"Show &Whitespace"
+66,0,"Syntax &Highlighter"
+67,0,"&Automatic"
+68,0,"&Colors"
+69,0,"&Visual Studio"
+70,0,"Default &Prism"
+71,0,"&Custom"
+72,0,"Edit &Custom"
+73,0,"Edit Custom"
+74,0,"&Save"
+75,0,"Cancel"
+76,0,"Light"
+77,0,"Dark"
+78,0,"Comment"
+79,0,"Punctuation"
+
+[STRINGTABLE 3]
+80,0,"Keyword"
+81,0,"Control keyword"
+82,0,"Class name"
+83,0,"Function"
+84,0,"String"
+85,0,"Number"
+86,0,"Boolean"
+87,0,"Variable"
+88,0,"Namespace"
+89,0,"Regular expression"
+90,0,"Unable to save the custom color palette."
+91,0,"Salamatrix.UI is not available."
+92,0,"Impossibile aprire la finestra di configurazione del plugin."
+93,0,"&Modifica"
+94,0,"&Copia\tCtrl+C"
+95,0,"Seleziona t&utto\tCtrl+A"
+
+[STRINGTABLE 4]
+96,0,"&Trova...\tCtrl+F"
+97,0,"Trova &successivo\tF3"
+98,0,"Trova &precedente\tShift+F3"
+99,0,"&Vai alla riga...\tCtrl+G"
+100,0,"St&ampa...\tCtrl+P"
+

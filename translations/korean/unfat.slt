@@ -1,0 +1,30 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\unfat\unfat.atp"
+TEXTVERSION,"1.3 (x64)"
+VERSION,"1,3,0,196"
+
+[TRANSLATION]
+LANGID,1042
+AUTHOR,"Open Samandarin"
+WEB,"www.altap.cz"
+COMMENT,"korean translation stub (English seed)"
+
+[STRINGTABLE 0]
+1000,0,"UnFAT"
+1001,0,"About Plugin"
+1003,0,"Browse and extract FAT 12, 16, and 32 disk images."
+
+[STRINGTABLE 1]
+1100,0,"Error opening file "%s"."
+1101,0,"Error reading file "%s"."
+1102,0,"Error parsing file "%s".\n\n%s"
+1103,0,"The boot sector is corrupted or this file is not FAT 12, 16, or 32 image."
+
+[STRINGTABLE 2]
+1104,0,"Error reading directory from file "%s".\n%s\nSector: %d, Offset: 0x%s\n\nFile is not valid FAT 12, 16, or 32 image."
+1106,0,"Error reading file from file "%s".\n%s\nCluster: %d\n\nFile is not valid FAT 12, 16, or 32 image."
+1107,0,"Error writing file"
+1108,0,"The file "%s" appears to be an image of entire harddisk.\nSuch images are not supported by the UnFAT plugin."
+1109,0,"Extracting FAT image - %s"
+1110,0,"extracting: %s"
+

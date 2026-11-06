@@ -1,0 +1,64 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\tar\tar.atp"
+TEXTVERSION,"3.35 (x64)"
+VERSION,"3,35,0,196"
+
+[TRANSLATION]
+LANGID,1053
+AUTHOR,"Open Samandarin"
+WEB,"www.altap.cz"
+COMMENT,"swedish translation stub (English seed)"
+
+[STRINGTABLE 0]
+11200,0,"TAR Plugin Error"
+11201,0,"Archive format not recognised or not supported."
+11202,0,"Invalid data in TAR header - archive corrupted."
+11203,0,"Bad file or header checksum - archive corrupted."
+11204,0,"Internal error: file data structure corrupted."
+11205,0,"Unknown block signature - skipping."
+11206,0,"Required file not found in the archive."
+11207,0,"Memory allocation error."
+
+[STRINGTABLE 1]
+11240,0,"LZH archives not yet supported."
+
+[STRINGTABLE 2]
+11250,0,"Unpack"
+11251,0,"Extracting "
+11252,0,"Skipping "
+11260,0,"GZip Error"
+11261,0,"Unknown compression method used, can't extract."
+11262,0,"This file is encrypted. Encryption is not supported in GZip archives."
+11263,0,"This file is a part of a multipart archive. Multipart GZip archives are not supported."
+
+[STRINGTABLE 3]
+11264,0,"Unknown flags in GZip header encountered, can't extract."
+11265,0,"Error opening archive file: "
+11266,0,"Premature end of file encountered."
+11267,0,"Error reading archive file: "
+11268,0,"Error writing to output file: "
+11269,0,"The WriteFile function refused to write all the data requested."
+11270,0,"Invalid block in GZip stream encountered, unable to extract."
+11271,0,"Internal error in TAR plugin, please let us know on email support@altap.cz."
+11272,0,"Memory allocation error."
+11273,0,"CRC error."
+11274,0,"Unexpected data in compressed stream, archive corrupted."
+11275,0,"Error seeking in archive file: "
+
+[STRINGTABLE 4]
+11280,0,"RPM Viewer"
+11281,0,"RPM Error"
+11282,0,"Error creating temporary file name."
+11283,0,"Error creating temporary file."
+11284,0,"The file was not recognised as an RPM archive."
+11285,0,"The version of RPM requested by this archive is not supported."
+11286,0,"Unknown RPM archive signature encountered."
+11291,0,"File record have a bad signature."
+11292,0,"Corrupted file header record."
+11293,0,"Unknown format of cpio header."
+
+[STRINGTABLE 5]
+11299,0,"TAR"
+11300,0,"Browse and extract Unix archives."
+11301,0,"About Plugin"
+

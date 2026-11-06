@@ -1,0 +1,88 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\unarj\unarj.atp"
+TEXTVERSION,"1.23 (x64)"
+VERSION,"1,23,0,196"
+
+[TRANSLATION]
+LANGID,1053
+AUTHOR,"Open Samandarin"
+WEB,"www.altap.cz"
+COMMENT,"swedish translation stub (English seed)"
+
+[DIALOG 100]
+194,110,0,"Next archive volume"
+300,12,9,170,32,0,"Please insert disk with the next archive volume or locate appropriate file on the disk.\n\nPress OK when ready."
+301,12,48,70,8,0,"Previous volume:"
+103,73,48,109,12,1,""
+302,12,62,67,8,0,"&Next volume:"
+101,12,72,155,12,1,""
+102,170,72,13,12,0,"..."
+1,39,91,50,14,0,"OK"
+2,102,91,50,14,0,"Cancel"
+
+[DIALOG 103]
+352,85,0,"Error"
+300,6,10,26,8,0,"Name:"
+104,36,10,309,8,1,""
+301,6,23,26,8,0,"Error:"
+302,36,23,309,16,0,"File can't be extracted because it is continued from a previous volume. To extract this file, you must start with a volume where file begins."
+105,36,44,183,12,0,"&Don't display this message in the future."
+1,121,63,50,14,0,"OK"
+2,181,63,50,14,0,"Cancel"
+
+[DIALOG 106]
+220,85,0,"UnARJ Configuration"
+300,23,22,154,8,0,"when unpacking."
+107,12,10,218,12,0,"&Automatically skip files continued from previous volume"
+301,23,44,111,8,0,"cannot be listed."
+116,12,32,234,12,0,"&Don't display attention when the whole archive content"
+302,6,60,208,1,1,""
+1,57,66,50,14,0,"OK"
+2,112,66,50,14,0,"Cancel"
+
+[DIALOG 115]
+213,107,0,"UnARJ - Attention"
+300,11,10,194,24,0,"Not all files in the multi-volume archive can be listed (and seen in the panel), because some of archive volumes cannot be found."
+301,11,41,192,16,0,"To list whole archive content copy all archive volumes to the same directory."
+105,11,66,159,12,0,"&Don't display this message in the future"
+302,5,83,203,1,1,""
+1,153,89,50,14,0,"OK"
+
+[STRINGTABLE 0]
+1000,0,"UnARJ"
+1001,0,"Insufficient memory."
+1002,0,"Unexpected end of archive file."
+1005,0,"Archive is corrupted."
+1006,0,"File is of an unknown format or not valid ARJ archive."
+1007,0,"Unable to open archive file."
+
+[STRINGTABLE 1]
+1008,0,"Unknown error occurred."
+1010,0,"Unable to access archive file."
+1011,0,"ARJ Archive Files (*.A*)"
+1012,0,"Select Archive File"
+1013,0,"Error in compressed data. CRC doesn't match."
+1014,0,"Unable to add archive entry to the files list."
+1015,0,"Unpacking ARJ Archive - %s"
+1016,0,"preparing data and creating directories..."
+1017,0,"unpacking..."
+1018,0,"unpacking: "
+1019,0,"Unable to get file pointer: "
+1020,0,"Unable to write to file:"
+1021,0,"Unable to set file pointer: "
+1022,0,"Can't finish operation because of too long path name."
+1023,0,"Can't finish operation because of too long mask."
+
+[STRINGTABLE 2]
+1024,0,"Unknown version of compressed file."
+1025,0,"Unknown type of compressed file."
+1026,0,"File is compressed by method not supported by UnARJ plugin."
+1027,0,"Sorry, encrypted files are not supported."
+1028,0,"Invalid volume or unknown archive structure."
+1029,0,"Sorry, the plugin has expired. Please check our web site for newer version."
+1030,0,"File not found."
+1031,0,"Error"
+1032,0,"All Files (*.*)"
+1033,0,"Browse and extract ARJ archives."
+1034,0,"About Plugin"
+

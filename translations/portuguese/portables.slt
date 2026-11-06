@@ -1,0 +1,59 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\portables\portables.atp"
+TEXTVERSION,"0.6 (x64)"
+VERSION,"0,6,0,196"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"https://samandarin.net/"
+COMMENT,"portuguese translation stub (English seed)"
+
+[STRINGTABLE 0]
+128,0,"{!}%d selected device{2:s|0||1|s}"
+129,0,"No devices"
+130,0,"Portable Devices"
+131,0,"Cancel"
+132,0,"Preparing..."
+133,0,"File:"
+134,0,"Total:"
+135,0,"Minimize"
+136,0,"Pause"
+137,0,"The portable device stopped responding. Please disconnect and reconnect it. The Portables panel will return to the device list."
+138,0,"%s of %s copied"
+139,0,"Copy"
+140,0,"Move"
+141,0,"Delete"
+142,0,"Copying"
+143,0,"Moving"
+
+[STRINGTABLE 1]
+144,0,"Deleting"
+145,0,"to"
+146,0,"%s of %s moved"
+147,0,"%s of %s processed"
+148,0,"Deleting selected items"
+149,0,"%s '%s' non riuscito (0x%08X)."
+150,0,"Rinomina"
+151,0,"Crea cartella"
+152,0,"Visualizza"
+153,0,"Il nome è ancora sul dispositivo. L'elemento non è stato creato di nuovo."
+154,0,"Un file non può sostituire una cartella."
+155,0,"Una cartella non può sostituire un file."
+156,0,"Esiste già un elemento con questo nome."
+157,0,"?"
+
+[STRINGTABLE 2]
+8192,0,"Portable Devices"
+8193,0,"Manage portable devices."
+
+[STRINGTABLE 3]
+9216,0,"About Plugin"
+
+[STRINGTABLE 4]
+10240,0,"Error Changing Directory"
+10241,0,"Path: "%s"\r\nError: %s"
+
+[STRINGTABLE 5]
+19457,0,"The path specified contains path to a file."
+

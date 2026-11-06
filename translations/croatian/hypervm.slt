@@ -1,0 +1,54 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\hypervm\hypervm.atp"
+TEXTVERSION,"1.10 (x64)"
+VERSION,"1,10,0,196"
+
+[TRANSLATION]
+LANGID,1050
+AUTHOR,"Open Samandarin"
+WEB,"www.altap.cz"
+COMMENT,"croatian translation stub (English seed)"
+
+[STRINGTABLE 0]
+46,0,"Hyper-V Machines"
+47,0,"About Plugin"
+
+[STRINGTABLE 1]
+48,0,"Show local Hyper-V virtual machines in panel."
+49,0,"https://samandarin.net/"
+50,0,"Show &Hyper-V Machines Window"
+51,0,"Create &VHD"
+52,0,"&Attach VHD"
+60,0,"Create and Attach Virtual Hard Disk"
+61,0,"Attach Virtual Hard Disk"
+62,0,"Detach Virtual Hard Disk"
+63,0,"Location:"
+
+[STRINGTABLE 2]
+64,0,"Browse..."
+65,0,"Virtual hard disk size:"
+66,0,"Virtual hard disk format"
+67,0,"Virtual hard disk type"
+68,0,"Supports virtual disks up to 2040 GB in size."
+69,0,"Supports virtual disks larger than 2040 GB in size (Supported maximum of 64 TB) and is resilient to power failure events."
+70,0,"Fixed size (Recommended)"
+71,0,"Dynamically expanding"
+72,0,"The virtual hard disk file is allocated to its maximum size when the virtual hard disk is created."
+73,0,"The virtual hard disk file grows to its maximum size as data is written to the virtual hard disk."
+74,0,"Read-only."
+75,0,"Specify the virtual hard disk location on the machine."
+76,0,"Specify the virtual hard disk location on the computer."
+77,0,"Detach virtual hard disk {0}?"
+78,0,"Virtual hard disk attached: {0}"
+79,0,"No Hyper-V virtual machines found."
+
+[STRINGTABLE 3]
+80,0,"Configuration"
+81,0,"No configuration yet."
+82,0,"OK"
+83,0,"Cancel"
+84,0,"Virtual hard disks (*.vhd;*.vhdx)|*.vhd;*.vhdx"
+85,0,"Hyper-V Machines"
+86,0,"Create and Attach Virtual Hard Disk"
+87,0,"Attach Virtual Hard Disk"
+
