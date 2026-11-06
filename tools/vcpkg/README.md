@@ -1,3 +1,7 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-06 | Retain the pinned Lua port with a verified source mirror. | Keep clean CI builds available during Lua.org timeouts. | https://github.com/majklvi/salamander/pull/64 | GPT-6 (Codex) |
+-->
 # Third-party DLL build with vcpkg
 
 This directory contains a small vcpkg manifest and helper script for building the
@@ -15,6 +19,14 @@ inputs are reproducible:
 - `unrar` `7.2.6`
 - `openssl` `1.0.2o-3`
 - `lua[tools]` `5.5.0#1`
+
+The Lua overlay is copied from the pinned Microsoft vcpkg port. It keeps the
+release, patches, SHA512 verification, compiler settings, interpreter/DLL output,
+and license extraction unchanged. The standard vcpkg downloader can fall back
+from Lua.org to Alpine Linux's HTTPS source archive mirror when the origin is
+unavailable. Both URLs serve the identical official Lua 5.5.0 archive; no
+unverified download or alternative Lua build is accepted. The overlay provenance
+and vcpkg MIT notice are in `third-party-libs/overlay-ports/lua`.
 
 OpenSSL 1.0.2 is intentionally used because the existing FTP plugin loads the
 legacy OpenSSL 1.0.x DLL names and symbols from `src/plugins/ftp/ssl.cpp`.

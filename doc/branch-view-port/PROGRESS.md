@@ -1,9 +1,21 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-06 | Repair current PR #64 CI failures without reducing checks. | Restore UTF-8 pipes, current production fixtures and verified pinned Lua downloads. | https://github.com/majklvi/salamander/pull/64 | GPT-6 (Codex) |
 | 2026-11-06 | Integrate the validated port with upstream 304beb54. | Prepare a local upstream PR candidate without publication. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 -->
 
 # Stav portu PR #769
+
+## S32 current publication CI repairs (2026-11-06)
+
+The three reproduced test failures and pinned Lua download failure are repaired
+and locally verified, including unchanged assertions, negative controls, real
+five-runtime Unicode round-trips and all three Lua target builds. Host and
+PowerShell provider Debug/Release x64 builds pass `/warnaserror`.
+[Scope and exact evidence](steps/S32-ci-fixes.md). This supersedes older pending
+publication statements below; the accepted feature/validation scope is unchanged.
+Fresh current-head hosted PR tests, actual CodeQL and clean full supported
+platform builds are the remaining publication gates. No new upstream PR.
 
 ## S32 — lokálně ověřeno, publikační CI čeká
 

@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-06 | Round-trip UTF-8 paths under legacy PowerShell console encodings. | Reproduce the CI Unicode failure without changing the caller console or weakening payload parity. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 # | 2026-11-06 | Compare real five-runtime viewer calls over SMX1. | Assert shared optional-field types, omission, defaults, return values and host errors. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 """Run actual isolated workers against a fake host; never open a viewer or touch source files."""
 import argparse
+import base64
 import json
 import os
 from pathlib import Path
@@ -28,47 +30,58 @@ CASES = [
     (None, {}),
 ]
 PROGRAMS = {
-    "javascript": (".mjs", """for (const item of Salamander.invocation.cases) {
+    "javascript": (".mjs", """const path = await Salamander.commands.execute('viewer-options-path');
+if (path !== Salamander.invocation.path) throw new Error('UTF-8 host response');
+for (const item of Salamander.invocation.cases) {
   let failed = false;
   let opened;
-  try { opened = await Salamander.ui.viewer(Salamander.invocation.path, item.options); }
+  try { opened = await Salamander.ui.viewer(path, item.options); }
   catch { failed = true; }
   if (failed !== item.expectError || (!failed && opened !== item.expectedOpen)) throw new Error('viewer return/error parity');
 }
 await Salamander.commands.execute('viewer-options-complete');
 """),
-    "python": (".py", """for item in Salamander.invocation['cases']:
+    "python": (".py", """path = Salamander.commands.execute('viewer-options-path')
+if path != Salamander.invocation['path']:
+    raise RuntimeError('UTF-8 host response')
+for item in Salamander.invocation['cases']:
     failed = False
     opened = None
     try:
-        opened = Salamander.ui.viewer(Salamander.invocation['path'], item['options'])
+        opened = Salamander.ui.viewer(path, item['options'])
     except Exception:
         failed = True
     if failed != item['expectError'] or (not failed and opened is not item['expectedOpen']):
         raise RuntimeError('viewer return/error parity')
 Salamander.commands.execute('viewer-options-complete')
 """),
-    "powershell": (".ps1", """foreach ($item in $Salamander.invocation.cases) {
+    "powershell": (".ps1", """$path = $Salamander.commands.Execute('viewer-options-path')
+if ($path -cne $Salamander.invocation.path) { throw 'UTF-8 host response' }
+foreach ($item in $Salamander.invocation.cases) {
     $failed = $false
     $opened = $null
-    try { $opened = $Salamander.ui.Viewer($Salamander.invocation.path, $item.options) }
+    try { $opened = $Salamander.ui.Viewer($path, $item.options) }
     catch { $failed = $true }
     if ($failed -ne $item.expectError -or (!$failed -and ($opened -isnot [bool] -or $opened -ne $item.expectedOpen))) { throw 'viewer return/error parity' }
 }
 [void]$Salamander.commands.Execute('viewer-options-complete')
 """),
     "php": (".php", """<?php
+$path = $Salamander->commands->execute('viewer-options-path');
+if ($path !== $Salamander->invocation['path']) throw new RuntimeException('UTF-8 host response');
 foreach ($Salamander->invocation['cases'] as $item) {
     $failed = false;
     $opened = null;
-    try { $opened = $Salamander->ui->viewer($Salamander->invocation['path'], $item['options']); }
+    try { $opened = $Salamander->ui->viewer($path, $item['options']); }
     catch (Throwable $error) { $failed = true; }
     if ($failed !== $item['expectError'] || (!$failed && $opened !== $item['expectedOpen'])) throw new RuntimeException('viewer return/error parity');
 }
 $Salamander->commands->execute('viewer-options-complete');
 """),
-    "lua": (".lua", """for _, item in ipairs(Salamander.invocation.cases) do
-    local ok, opened = pcall(Salamander.ui.viewer, Salamander.invocation.path, item.options)
+    "lua": (".lua", """local path = Salamander.commands.execute('viewer-options-path')
+if path ~= Salamander.invocation.path then error('UTF-8 host response') end
+for _, item in ipairs(Salamander.invocation.cases) do
+    local ok, opened = pcall(Salamander.ui.viewer, path, item.options)
     if (not ok) ~= item.expectError or (ok and opened ~= item.expectedOpen) then error('viewer return/error parity') end
 end
 Salamander.commands.execute('viewer-options-complete')
@@ -105,7 +118,7 @@ def executable(language, explicit):
     configured = os.environ.get(env_name)
     return configured or next((found for name in {"javascript": ["node"], "powershell": ["pwsh", "powershell"], "php": ["php"], "lua": ["lua", "lua54"]}[language] if (found := shutil.which(name))), None)
 
-def worker_test(language, interpreter, directory):
+def worker_test(language, interpreter, directory, console_code_page=None):
     suffix, program = PROGRAMS[language]
     entry = directory / ("viewer-options" + suffix)
     entry.write_text(program, encoding="utf-8")
@@ -118,12 +131,34 @@ def worker_test(language, interpreter, directory):
         command = [interpreter, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(worker), "-EntryPoint", str(entry), "-InvocationJson", invocation, "-OneShot"]
     else:
         command = [interpreter] + (["-B"] if language == "python" else []) + [str(worker), "--entry", str(entry), "--invocation-json", invocation, "--one-shot"]
+    process_options = {}
+    if console_code_page is not None:
+        assert language == "powershell" and os.name == "nt"
+        def quote(value):
+            return "'" + value.replace("'", "''") + "'"
+        bootstrap = (
+            f"[Console]::InputEncoding = [Text.Encoding]::GetEncoding({console_code_page}); "
+            f"[Console]::OutputEncoding = [Text.Encoding]::GetEncoding({console_code_page}); "
+            f"& {quote(str(worker))} -EntryPoint {quote(str(entry))} "
+            f"-InvocationJson {quote(invocation)} -OneShot"
+        )
+        command = [interpreter, "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand",
+                   base64.b64encode(bootstrap.encode("utf-16le")).decode("ascii")]
+        # Encoding setters affect only this new hidden console, never the caller's console.
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = 0
+        process_options = {"startupinfo": startupinfo, "creationflags": subprocess.CREATE_NEW_CONSOLE}
     frames = queue.Queue()
-    process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", cwd=directory)
+    process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", cwd=directory, **process_options)
     def read_lines():
-        for line in process.stdout:
-            frames.put(line)
-        frames.put(None)
+        try:
+            for line in process.stdout:
+                frames.put(line)
+        except UnicodeError as error:
+            frames.put(error)
+        finally:
+            frames.put(None)
     reader = threading.Thread(target=read_lines, daemon=True)
     reader.start()
     calls, completed = 0, False
@@ -133,6 +168,8 @@ def worker_test(language, interpreter, directory):
             line = frames.get(timeout=max(0.1, deadline - time.monotonic()))
             if line is None:
                 break
+            if isinstance(line, UnicodeError):
+                raise AssertionError(f"{language} invalid UTF-8 worker output") from line
             parts = line.rstrip("\r\n").split("\t", 3)
             assert len(parts) == 4 and parts[0] == "SMX1", f"{language} invalid frame {line!r}"
             kind, request_id, payload = parts[1], int(parts[2]), json.loads(parts[3])
@@ -155,14 +192,17 @@ def worker_test(language, interpreter, directory):
                 else: response = {"ok": False, "error": "viewer denied"}
                 calls += 1
             elif kind == "call" and payload.get("method") == "salamander.commands.execute":
-                assert "viewer-options-complete" in json.dumps(payload)
-                completed = True
-                response["result"] = "ok"
+                if payload.get("commandId") == "viewer-options-path":
+                    response["result"] = PATH
+                else:
+                    assert payload.get("commandId") == "viewer-options-complete"
+                    completed = True
+                    response["result"] = "ok"
             elif kind == "call" and payload.get("method") == "salamander.host.windowIcon":
                 response["icon"] = ""
             elif kind != "hello":
                 raise AssertionError(f"{language} unexpected request: {payload}")
-            process.stdin.write("SMX1\tresult\t" + str(request_id) + "\t" + json.dumps(response) + "\n")
+            process.stdin.write("SMX1\tresult\t" + str(request_id) + "\t" + json.dumps(response, ensure_ascii=False) + "\n")
             process.stdin.flush()
         code = process.wait(timeout=max(0.1, deadline - time.monotonic()))
         error = process.stderr.read()
@@ -175,8 +215,9 @@ def worker_test(language, interpreter, directory):
         process.stdin.close()
         process.stdout.close()
         process.stderr.close()
-    print(f"PASS {language}: {calls} real worker calls, Unicode path > MAX_PATH UTF-8 bytes", flush=True)
-    return {"language": language, "interpreter": interpreter, "calls": calls, "status": "PASS"}
+    encoding_context = f", console CP{console_code_page}" if console_code_page is not None else ""
+    print(f"PASS {language}: {calls} real worker calls, Unicode path > MAX_PATH UTF-8 bytes{encoding_context}", flush=True)
+    return {"language": language, "interpreter": interpreter, "calls": calls, "status": "PASS", "console_code_page": console_code_page}
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -195,7 +236,9 @@ def main():
                 print(f"SKIPPED {language}: interpreter unavailable", flush=True)
                 results.append({"language": language, "status": "SKIPPED", "reason": "interpreter unavailable"})
                 continue
-            results.append(worker_test(language, interpreter, directory))
+            code_pages = (None, 437, 1252) if language == "powershell" and os.name == "nt" else (None,)
+            for code_page in code_pages:
+                results.append(worker_test(language, interpreter, directory, code_page))
     if args.results:
         args.results.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
     return int(args.require_all and any(result["status"] != "PASS" for result in results))

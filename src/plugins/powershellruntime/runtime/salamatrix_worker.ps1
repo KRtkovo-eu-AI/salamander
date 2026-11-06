@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-06 | Bind SMX1 pipes to strict BOM-free UTF-8 streams. | Preserve Unicode wire payloads independently of the Windows console code page. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 # | 2026-11-06 | Normalize shared viewer options across all five workers. | Invalid optional fields are omitted consistently while valid chrome options preserve their types. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 # | 2026-11-06 | Accept title and window geometry for Viewer. | Keep Salamatrix runtime viewer options in parity. |  | Composer |
 
@@ -16,6 +17,16 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# SMX1 is UTF-8 even when PowerShell inherits a legacy console encoding.
+# Open the pipe streams directly so this does not change a shared console's code page.
+$wireEncoding = New-Object System.Text.UTF8Encoding -ArgumentList @($false, $true)
+$wireInput = New-Object System.IO.StreamReader -ArgumentList @(
+    [Console]::OpenStandardInput(), $wireEncoding, $false)
+$wireOutput = New-Object System.IO.StreamWriter -ArgumentList @(
+    [Console]::OpenStandardOutput(), $wireEncoding)
+$wireOutput.NewLine = "`n"
+[Console]::SetIn($wireInput)
+[Console]::SetOut($wireOutput)
 $global:SalamatrixNextId = 1
 $global:SalamatrixEventHandlers = @{}
 
