@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\unchm\unchm.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,196"
+
+[TRANSLATION]
+LANGID,1032
+AUTHOR,"Open Samandarin"
+WEB,"www.altap.cz"
+COMMENT,"greek translation stub (English seed)"
+
+[STRINGTABLE 0]
+1000,0,"UnCHM"
+1001,0,"Can not open file."
+1002,0,"Unspecified error."
+1003,0,"Unpacking CHM Archive"
+1004,0,"Error unpacking file."
+1005,0,"Can not handle this file."
+1006,0,"Insufficient memory."
+1007,0,"About Plugin"
+
+[STRINGTABLE 1]
+1009,0,"Browse and extract CHM files."
+1010,0,"Can not create temporary directory."
+1011,0,"Can not delete temporary file."
+1012,0,"Unknown file format or not valid CHM image.\n\nIf you are sure this is valid CHM image, please contact support@altap.cz and help us to support this format."
+1013,0,"Can not open this file."
+1014,0,"Creation of temporary file has failed."
+1015,0,"Can not set file attributes."
+1016,0,"Can not create directory '%s'."
+1020,0,"Yes"
+1021,0,"No"
+1022,0,"Error"
+1023,0,"Warning"
+
+[STRINGTABLE 2]
+1032,0,"Internal plugin error."
+
+[STRINGTABLE 3]
+1100,0,"Read error"
+1101,0,"Write error"
+
+[STRINGTABLE 4]
+1105,0,"Invalid number."
+1106,0,"canceling operation, please wait..."
+1107,0,"CHMLIB Library Copyright © 2001-2010 Jed Wing"
+

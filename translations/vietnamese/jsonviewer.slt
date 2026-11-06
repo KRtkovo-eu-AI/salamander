@@ -1,0 +1,21 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\jsonviewer\jsonviewer.atp"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,196"
+
+[TRANSLATION]
+LANGID,1066
+AUTHOR,"Open Samandarin"
+WEB,"www.altap.cz"
+COMMENT,"vietnamese translation stub (English seed)"
+
+[STRINGTABLE 0]
+46,0,"JSON Viewer .NET"
+47,0,"About Plugin"
+
+[STRINGTABLE 1]
+48,0,"Internal viewer that displays JSON documents using a managed WinForms UI."
+49,0,"https://samandarin.net/"
+50,0,"Unable to prepare synchronization event required by the viewer."
+51,0,"The selected JSON file is too large to open. Files larger than 8 MB are not supported."
+

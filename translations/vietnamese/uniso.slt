@@ -1,0 +1,111 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\uniso\uniso.atp"
+TEXTVERSION,"1.39 (x64)"
+VERSION,"1,39,0,196"
+
+[TRANSLATION]
+LANGID,1066
+AUTHOR,"Open Samandarin"
+WEB,"www.altap.cz"
+COMMENT,"vietnamese translation stub (English seed)"
+
+[DIALOG 1200]
+220,83,0,"UnISO Configuration"
+1201,8,11,200,10,0,"&Clear read-only attribute when copying from archive"
+1202,8,23,243,10,0,"&Show session as directory (allow access to all sessions)"
+1203,8,35,154,10,0,"S&how boot image disk as file"
+3000,2,58,216,1,1,""
+1,108,64,50,14,0,"OK"
+2,163,64,50,14,0,"Cancel"
+
+[STRINGTABLE 0]
+1000,0,"UnISO"
+1001,0,"Cannot open file."
+1002,0,"Unspecified error."
+1003,0,"Unpacking ISO Archive"
+1004,0,"Error unpacking archive."
+1005,0,"Cannot handle this file."
+1006,0,"Insufficient memory."
+1007,0,"About Plugin"
+
+[STRINGTABLE 1]
+1009,0,"Browse and extract CD/DVD ISO image files."
+1010,0,"Cannot create temporary directory."
+1011,0,"Cannot delete temporary file."
+1012,0,"Unknown file format or not a valid ISO image.\n\nIf you are sure this is a valid ISO image, please contact support@altap.cz and help us to support this format."
+1013,0,"Cannot open file '%s'."
+1014,0,"Creation of temporary file has failed."
+1015,0,"Cannot set file attributes."
+1016,0,"Cannot create directory '%s'."
+1020,0,"Yes"
+1021,0,"No"
+1022,0,"Error"
+1023,0,"Warning"
+
+[STRINGTABLE 2]
+1024,0,"Some error(s) occured while reading multisession image.\n\nShowing only correctly read sessions."
+1025,0,"Unknown track type."
+1026,0,"Unknown allocation strategy (%d).\n\nPlease contact support@altap.cz and help us fix this problem."
+1027,0,"Bad format of .CCD file.\n\nDisplayed image could be incomplete."
+1028,0,"Missing .CCD file.\n\nDisplayed image could be incomplete."
+1029,0,"Cannot read sector #%08X."
+1030,0,"Invalid UDF Tag ID."
+1031,0,"Error reading directory structure at sector #%08X.\n\nIncomplete content of ISO image."
+1032,0,"Internal plugin error."
+1033,0,"Error reading virtual allocation table at sector #%08X."
+1034,0,"Missing virtual allocation table."
+1035,0,"Bad root ICB.\n\nCannot read directory structure."
+1036,0,"File "%s" cannot be extracted.\n\nMismatch between file size and ICB blocks."
+1037,0,"Cannot open track #%d."
+1038,0,"This file appears to be a floppy disk or hard disk or hard disk partition image.\nTry renaming the file to .ima to activate the UnFAT plugin."
+1039,0,"This disk image contains the APFS file system.\nThis file system is not supported yet."
+
+[STRINGTABLE 3]
+1050,0,"Could not read partition header. File too small."
+1051,0,"Corrupted Partition Manager structures."
+1052,0,"This disk image does not contain a HFS Plus partition."
+1053,0,"This disk image contains HFS and not HFS Plus file system.\nHFS is not supported."
+1054,0,"Cannot seek to block #%08X.\nFile %s will not be extracted."
+1055,0,"Cannot seek to block #%08X."
+
+[STRINGTABLE 4]
+1056,0,"Unsupported BTree root node type in the Catalog file."
+1057,0,"The Catalog file is fragmented into more than 8 fragments which is not supported."
+1058,0,"The file '%s' is fragmented into more than 8 fragments which is not supported.\nThe file will not be extracted."
+1059,0,"This disk image contains a too long path that Open Salamander cannot handle."
+1060,0,"Cannot finish operation because of too long name."
+1070,0,"Cannot read package header. File too small."
+1071,0,"This package is encrypted.\nEncrypted packages are not supported."
+
+[STRINGTABLE 5]
+1072,0,"This file does not appear to be a DMG package or is incomplete.\nIt does not contain a valid DMG footer."
+1073,0,"This file does not appear to be a valid DMG package or is incomplete.\nIt does not contain a valid Property List."
+1074,0,"This package does not contain a data block of HFS Plus partition starting at %I64u.\nThe block is needed for proper handling of the package."
+1075,0,"Cannot read data from the disk image at position %I64u."
+1076,0,"Cannot seek in the disk image to position %I64u."
+1077,0,"Internal error: Unsupported seek method."
+1078,0,"This disk image contains a block compressed with an unknown method.\nSuch disk images are not supported."
+1079,0,"Unpacking a ZLIB-compressed block failed. The disk image seems corrupted."
+1080,0,"Unpacking a BZIP2-compressed block failed. The disk image seems corrupted."
+1085,0,"This file does not appear to be a compressed ISZ image or is incomplete.\nIt does not contain a valid ISZ header."
+1086,0,"Cannot read compressed image header. File too small."
+1087,0,"This image is segmented.\nSegmented images are not supported."
+
+[STRINGTABLE 6]
+1088,0,"This image is encrypted.\nEncrypted images are not supported."
+1100,0,"Read error"
+1101,0,"Write error"
+1102,0,"Audio tracks cannot be extracted."
+1103,0,"Canceling operation, please wait..."
+
+[STRINGTABLE 7]
+1150,0,"Information on image\n\n"
+1151,0,"Information on image "%s"\n\n"
+
+[STRINGTABLE 8]
+1152,0,"Number of sessions: %d"
+1153,0,"\nSession %d\n"
+1154,0,"  Number of tracks: %d\n"
+1155,0,"  Track: %d, %s, Size: %d KBytes\n"
+1156,0,"  Track: %d, %s, Size: %d KBytes - "%s"\n"
+

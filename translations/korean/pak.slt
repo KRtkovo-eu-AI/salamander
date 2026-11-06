@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\pak\pak.atp"
+TEXTVERSION,"1.73 (x64)"
+VERSION,"1,73,0,196"
+
+[TRANSLATION]
+LANGID,1042
+AUTHOR,"Open Samandarin"
+WEB,"www.altap.cz"
+COMMENT,"korean translation stub (English seed)"
+
+[DIALOG 100]
+194,73,0,"Optimize PAK Archive"
+300,8,9,80,8,0,"Valid data size:"
+101,64,9,118,8,1,""
+301,8,20,77,8,0,"Total file size:"
+102,64,20,118,8,1,""
+302,8,31,58,8,0,"Wasted space:"
+103,64,31,118,8,1,""
+303,8,44,178,1,1,""
+1,41,53,50,14,0,"Optimize"
+2,101,53,50,14,0,"Cancel"
+
+[STRINGTABLE 0]
+500,0,"Can't open file: %s"
+501,0,"Can't init paklib interface. Already one file opened."
+502,0,"Can't open file. Already one file opened."
+503,0,"Can't not get file size: %s"
+504,0,"Invalid data format."
+505,0,"Insufficient memory."
+506,0,"current PAK central directory"
+507,0,"Unable to set file pointer: %s"
+508,0,"Unable read from file: %s"
+509,0,"Unable to get file pointer: %s"
+510,0,"Unable write to file: %s"
+511,0,"Can't add file because of too long name."
+
+[STRINGTABLE 1]
+1000,0,"PAK"
+1001,0,"Insufficient memory."
+1002,0,"Unable to add file to list."
+1003,0,"Unable to load paklib.dll or get procedure address: "
+1004,0,"Unpacking PAK Archive - %s"
+1005,0,"preparing data..."
+1006,0,"unpacking..."
+1007,0,"unpacking: "
+
+[STRINGTABLE 2]
+1008,0,"Can't finish operation because of too long path name."
+1009,0,"Unable to set file pointer: "
+1010,0,"Unable to get file pointer: "
+1011,0,"Unable to write to file:"
+1013,0,"Unable to open file: "
+1014,0,"Can't finish operation because of too long mask."
+1015,0,"Deleting From PAK Archive - %s"
+1016,0,"deleting..."
+1017,0,"deleting: "
+1018,0,"cancelling operation, please wait..."
+1019,0,"Packing to PAK Archive - %s"
+1020,0,"Can't add file: File is too large."
+1021,0,"packing..."
+1022,0,"Can't add file because of too long name."
+1023,0,"packing: "
+
+[STRINGTABLE 3]
+1024,0,"Unable to read from file: "
+1025,0,"Unable to connect plugin to Open Salamander."
+1026,0,"optimizing, please wait..."
+1027,0,"Optimizing PAK Archive - %s"
+1028,0,"Files deleting was not finished successfully. You may need to run PAK optimalization from the PAK Plugin menu to preserve wasting of disk space."
+1029,0,"&Optimize PAK"
+1030,0,"Sorry, the plugin has expired. Please check our web site for newer version."
+1031,0,"Browse and extract Quake PAK archives."
+1032,0,"About Plugin"
+

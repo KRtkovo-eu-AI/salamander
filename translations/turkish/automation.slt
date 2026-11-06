@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\automation\automation.atp"
+TEXTVERSION,"2.8 (x64)"
+VERSION,"2,8,0,196"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"www.altap.cz"
+COMMENT,"turkish translation stub (English seed)"
+
+[DIALOG 100]
+205,64,0,"Input Box"
+1150,8,8,189,8,0,"Prompt:"
+101,8,18,189,12,1,""
+1,48,42,50,14,0,"OK"
+2,107,42,50,14,0,"Cancel"
+
+[DIALOG 101]
+332,143,0,"Automation Configuration"
+375,8,9,74,8,0,"&Script Directories:"
+371,8,19,316,73,1,""
+1001,8,102,105,10,0,"Enable script &debugging"
+1,75,121,50,14,0,"OK"
+2,141,121,50,14,0,"Cancel"
+9,207,121,50,14,0,"&Help"
+
+[MENU 106]
+0,0,"[POPUP]"
+40013,0,"Browse…"
+40014,0,"Salamander Directory"
+40015,0,"Environment Variable"
+
+[STRINGTABLE 0]
+1,0,"Automation"
+2,0,"Automates common tasks using scripts."
+3,0,"About Plugin"
+
+[STRINGTABLE 1]
+128,0,"Automation Script Error"
+129,0,"Line:\t%u\r\n"
+130,0,"Column:\t%u\r\n"
+131,0,"Error:\t%s"
+132,0,"Run Focused Script"
+134,0,"Operation Progress"
+135,0,"Source:\t%s\r\n"
+136,0,"Open Script Menu"
+137,0,"(no script)"
+138,0,"Failed to execute script '%s'.\r\n%s"
+139,0,"Unknown error."
+140,0,"1\t&Abort"
+141,0,"1\t&Debug\t2\t&Abort"
+142,0,"Script Directory"
+143,0,"Select script repository directory."
+
+[STRINGTABLE 2]
+144,0,"Abort Script"
+145,0,"Abort Running Script\tCtrl+Break"
+146,0,"Open Salamander window is locked by Automation plugin. Please finish running script."
+147,0,"Failed to initialize the scripting engine."
+
+[STRINGTABLE 3]
+256,0,"Invalid archive."
+257,0,"Current path cannot be closed."
+258,0,"The path was truncated."
+259,0,"Cannot change the property or call the method %s while the window is shown."
+260,0,"Cannot change the property or call the method %s while the window is hidden."
+261,0,"Failed to load the plugin."
+262,0,"Plugin failure."
+263,0,"Failed to move the file to the disk cache."
+264,0,"File mask syntax error."
+265,0,"Only components can be added to the container."
+266,0,"Forms cannot be added to the container."
+267,0,"Script execution was aborted by the user."
+

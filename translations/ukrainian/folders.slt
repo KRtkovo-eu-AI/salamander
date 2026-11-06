@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\folders\folders.atp"
+TEXTVERSION,"0.3 (x64)"
+VERSION,"0,3,0,196"
+
+[TRANSLATION]
+LANGID,1058
+AUTHOR,"Open Samandarin"
+WEB,"www.altap.cz"
+COMMENT,"ukrainian translation stub (English seed)"
+
+[STRINGTABLE 0]
+1000,0,"Folders"
+1001,0,"About Plugin"
+1003,0,"Browse folders such as Desktop, Control Panel, Recycle Bin, etc."
+1004,0,"'\tDesktop"
+

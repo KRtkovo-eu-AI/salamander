@@ -1,17 +1,13 @@
-# Polish translation seed
+# Polish translation
 
-This directory deliberately starts without committed `.slt` archives. On the
-first run, the batch localization workflow exports current English resources,
-marks all text as untranslated, and writes the generated Polish archives here.
-That avoids committing a stale English snapshot as a translation seed.
+Polish (Poland), `pl-PL`, Windows `LANGID` 1045.
 
-Run the translation and build the language pack from a populated build output:
+The `.slt` archives in this directory were bootstrapped from English
+`english.slg` resources and then manually translated to Polish.
+
+Rebuild language packs from a populated build output:
 
 ```powershell
-$env:CURSOR_API_KEY = "..."
-pwsh -File tools\localization\localize_all_openai.ps1 -Languages polish -BuildLanguagePacks
+pwsh -File tools\localization\build_language_packs.ps1 `
+  -BuildRoot .\build\out\salamand\Release_x64 -Languages polish
 ```
-
-The workflow uses Polish (Poland), `pl-PL`, with Windows `LANGID` 1045. Once
-the run succeeds, the resulting `.slt` files are committed in this directory
-and `polish.slg` files are placed in the build output by `-BuildLanguagePacks`.

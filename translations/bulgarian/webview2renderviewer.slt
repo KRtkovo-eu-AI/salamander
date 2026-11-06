@@ -1,0 +1,41 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,196"
+
+[TRANSLATION]
+LANGID,1026
+AUTHOR,"Open Samandarin"
+WEB,"www.altap.cz"
+COMMENT,"bulgarian translation stub (English seed)"
+
+[STRINGTABLE 0]
+46,0,"WebView2 Render Viewer"
+47,0,"About Plugin"
+
+[STRINGTABLE 1]
+48,0,"Viewer that displays rendered HTML, Markdown, and web documents using WebView2."
+49,0,"https://samandarin.net/"
+50,0,"Unable to prepare synchronization event required by the viewer."
+51,0,"The selected file is too large to open. Files larger than 32 MB are not supported."
+52,0,"&File"
+53,0,"&View"
+54,0,"&Close\tEsc"
+55,0,"&Refresh\tF5"
+56,0,"Zoom &In\tCtrl++"
+57,0,"Zoom &Out\tCtrl+-"
+58,0,"&Reset\tCtrl+0"
+59,0,"Loading..."
+60,0,"Ready"
+61,0,"Unable to initialize the WebView2 renderer."
+62,0,"Unable to open the selected file."
+63,0,"Show &Line Numbers"
+
+[STRINGTABLE 2]
+64,0,"&Wrap Lines\tF2"
+65,0,"Show &Whitespace"
+66,0,"&Modifica"
+67,0,"&Copia\tCtrl+C"
+68,0,"Seleziona t&utto\tCtrl+A"
+69,0,"St&ampa...\tCtrl+P"
+

@@ -1,0 +1,228 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\dbviewer\dbviewer.atp"
+TEXTVERSION,"1.27 (x64)"
+VERSION,"1,27,0,196"
+
+[TRANSLATION]
+LANGID,1028
+AUTHOR,"Open Samandarin"
+WEB,"www.altap.cz"
+COMMENT,"chinesetraditional translation stub (English seed)"
+
+[DIALOG 12200]
+235,181,0,"Properties"
+1,179,162,50,14,0,"OK"
+13000,4,155,227,1,1,""
+12201,5,5,224,143,1,""
+
+[DIALOG 12220]
+282,105,0,"Database Viewer Configuration"
+13000,6,10,270,35,0,"Font"
+12221,13,23,50,14,0,"&Font"
+12222,69,23,200,14,1,""
+13001,6,48,270,27,0,"Window position"
+12223,14,58,75,12,0,"&Save on close"
+12224,107,58,204,12,0,"S&et to position of Salamander's main window"
+12225,13,85,60,14,0,"CSV Options..."
+1,113,85,50,14,0,"OK"
+2,168,85,50,14,0,"Cancel"
+9,223,85,50,14,0,"Help"
+
+[DIALOG 12240]
+282,178,0,"Fields"
+12241,6,6,270,142,1,""
+13000,4,153,274,1,1,""
+12242,6,159,69,14,0,"&Restore Defaults"
+1,115,159,50,14,0,"OK"
+2,170,159,50,14,0,"Cancel"
+9,225,159,50,14,0,"Help"
+
+[DIALOG 12250]
+303,137,0,"CSV Options"
+13000,6,6,90,101,0,"&Separator"
+12264,15,18,70,12,0,"Auto-Select"
+12261,15,32,60,12,0,"Tabulator"
+12260,15,46,74,12,0,"Semicolon (;)"
+12259,15,60,60,12,0,"Comma (,)"
+12258,15,74,60,12,0,"Space ( )"
+12257,15,88,32,12,0,"Other"
+12256,49,88,16,12,1,""
+13001,106,6,90,101,0,"Text &Qualifier"
+12262,115,18,84,12,0,"Auto-Select"
+12255,115,32,81,12,0,"Double Quotes (")"
+12254,115,46,60,12,0,"Quotes (')"
+12253,115,60,60,12,0,"None"
+13002,206,6,90,101,0,"&First Row"
+12263,215,18,84,12,0,"Auto-Select"
+12265,215,32,108,12,0,"As Column Names"
+12266,215,46,60,12,0,"As Data"
+1,136,118,50,14,0,"OK"
+2,191,118,50,14,0,"Cancel"
+9,246,118,50,14,0,"Help"
+12252,6,118,63,14,0,"Set as &Default"
+
+[DIALOG 12300]
+210,131,0,"Find"
+13000,28,11,174,1,1,""
+13001,9,7,22,8,0,"&Find"
+12301,16,17,182,64,1,""
+13002,38,47,164,1,1,""
+13003,9,43,28,8,0,"Options"
+12302,16,53,66,12,0,"Search forwar&d"
+12303,16,65,72,12,0,"Search &backward"
+12304,113,53,57,12,0,"&Whole words"
+12305,113,65,82,12,0,"&Case sensitive"
+12306,113,77,82,12,0,"&Regular expression"
+13004,8,102,194,1,1,""
+1,20,110,50,14,0,"OK"
+2,80,110,50,14,0,"Cancel"
+9,140,110,50,14,0,"Help"
+
+[DIALOG 12400]
+123,54,0,"Go to Record"
+13000,8,9,33,8,0,"&Record:"
+100,40,7,74,12,1,""
+1,8,32,50,14,0,"OK"
+2,65,32,50,14,0,"Cancel"
+
+[STRINGTABLE 0]
+11089,0,"Database Viewer"
+11090,0,"Display dBase, FoxPro and CSV database files."
+11092,0,"About Plugin"
+11101,0,"Some Database Viewer windows are opened. Do you want to close them?"
+
+[STRINGTABLE 1]
+11110,0,"Out of memory."
+11111,0,"File has unrecognized database format."
+11112,0,"File was not found."
+11113,0,"Error reading the database file. It may have been truncated."
+11114,0,"Error writing the database file."
+11115,0,"Error seeking the database file."
+11116,0,"Memo file is not available."
+11117,0,"Memo file is corrupted."
+
+[STRINGTABLE 2]
+11120,0,"Database files (*.csv;*.dbf;*.jsonl;*.txt)|*.csv;*.dbf;*.jsonl;*.txt|All Files (*.*)|*.*|"
+11121,0,"%d pt. %s (%s)"
+11122,0,"The configuration is already opened."
+11123,0,"Name"
+11124,0,"Type"
+11125,0,"Width"
+11126,0,"Decimals"
+11130,0,"dBase II"
+11131,0,"dBase III"
+11132,0,"dBase IV"
+11133,0,"dBase V"
+11134,0,"Visual dBase 7"
+11135,0,"FoxPro"
+
+[STRINGTABLE 3]
+11136,0,"Unknown"
+11140,0,"Character"
+11141,0,"Number"
+11142,0,"Logical"
+11143,0,"Date"
+11144,0,"Memo"
+11145,0,"Floating point"
+11146,0,"Binary"
+11147,0,"General"
+11148,0,"Picture"
+11149,0,"Currency"
+11150,0,"Date/Time"
+11151,0,"Integer"
+
+[STRINGTABLE 4]
+11152,0,"Unknown"
+11153,0,"Double"
+11154,0,"Timestamp"
+11155,0,"AutoIncrement"
+11160,0,"At least one field must be visible."
+11162,0,"There are no valid fields in this database."
+11163,0,"True"
+11164,0,"False"
+11165,0,"Modified"
+11166,0,"Size"
+11167,0,"Version"
+
+[STRINGTABLE 5]
+11168,0,"Record count"
+11169,0,"Field count"
+11170,0,"Memo-field count"
+11171,0,"Header size"
+11172,0,"Record size"
+11173,0,"Code page"
+
+[STRINGTABLE 6]
+11194,0,"Regular Expression Error"
+11195,0,"Find"
+11196,0,"Cannot find the string '%s'."
+11197,0,"Cannot find a match for the regular expression '%s'."
+
+[STRINGTABLE 7]
+11200,0,"&File"
+11201,0,"&Open...\tCtr+O"
+11202,0,"&Refresh\tCtr+R"
+11203,0,"Prop&erties...\tCtrl+F1"
+11204,0,"O&ther Files"
+11205,0,"&Previous\tBackspace"
+11206,0,"&Next\tSpace"
+11207,0,"P&revious Selected\tCtrl+Backspace"
+11208,0,"N&ext Selected\tCtrl+Space"
+11209,0,"&First\tShift+Backspace"
+11210,0,"&Last\tShift+Space"
+11211,0,"E&xit\tAlt+F4"
+
+[STRINGTABLE 8]
+11217,0,"&Edit"
+11218,0,"&Copy\tCtrl+C"
+11219,0,"&Select All\tCtrl+A"
+11220,0,"&Find...\tCtrl+F"
+11221,0,"Find &Next\tCtrl+N"
+11222,0,"Find &Previous\tCtrl+P"
+11223,0,"&Toggle Bookmark\tCtrl+F2"
+11224,0,"N&ext Bookmark\tF2"
+11225,0,"P&revious Bookmark\tShift+F2"
+11226,0,"Clear &All Bookmarks\tCtrl+Shift+F2"
+11230,0,"&View"
+11231,0,"&Go to Record...\tG"
+
+[STRINGTABLE 9]
+11232,0,"Fi&elds...\tI"
+11233,0,"&Full Screen\tF11"
+
+[STRINGTABLE 10]
+11250,0,"&Convert"
+11251,0,"&Auto-Select"
+11252,0,"&Don't Convert"
+11253,0,"Set as Default"
+11254,0,"Next\tF8"
+11255,0,"Previous\tShift+F8"
+
+[STRINGTABLE 11]
+11270,0,"&Options"
+11271,0,"C&SV Options..."
+11272,0,"&Configuration..."
+
+[STRINGTABLE 12]
+11280,0,"&Help"
+11281,0,"&About..."
+11282,0,"&Contents\tF1"
+11283,0,"&Index..."
+11284,0,"&Search..."
+
+[STRINGTABLE 13]
+11500,0,"Copy\tCtrl+C"
+11501,0,"Open\tCtrl+O"
+11502,0,"Find\tCtrl+F"
+11503,0,"Properties\tCtrl+F1"
+
+[STRINGTABLE 14]
+11504,0,"Full Screen\tF11"
+11505,0,"Current Record/Record Count\tG"
+
+[STRINGTABLE 15]
+11520,0,"Use &default font"
+11521,0,"Use &custom font..."
+11522,0,"default font"
+11523,0,"custom font"
+

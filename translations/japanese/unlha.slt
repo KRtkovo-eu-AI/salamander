@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\unlha\unlha.atp"
+TEXTVERSION,"1.15 (x64)"
+VERSION,"1,15,0,196"
+
+[TRANSLATION]
+LANGID,1041
+AUTHOR,"Open Samandarin"
+WEB,"www.altap.cz"
+COMMENT,"japanese translation stub (English seed)"
+
+[STRINGTABLE 0]
+1,0,"Invalid LZH file or unknown file format."
+2,0,"Header checksum error.\nThe archive is corrupt - not all files can be listed."
+3,0,"Out of memory."
+4,0,"Write error"
+5,0,"UnLHA"
+6,0,"Error opening the archive."
+7,0,"Unable to add archive entry to the files list."
+8,0,"The archive contains one or more UNIX symbolic links, which won't be displayed."
+10,0,"Cannot unpack the file."
+11,0,"Error in compressed data. CRC doesn't match."
+12,0,"Error reading the archive."
+13,0,"Unpacking LHA Archive - %s"
+14,0,"preparing data and creating directories..."
+15,0,"unpacking: "
+
+[STRINGTABLE 1]
+16,0,"unpacking..."
+17,0,"Can't finish operation because of too long path name."
+18,0,"Can't finish operation because of too long mask."
+19,0,"Unknown compression method. The file cannot be unpacked."
+20,0,"unknown method skipped..."
+21,0,"Browse and extract LHA archives."
+22,0,"About Plugin"
+
