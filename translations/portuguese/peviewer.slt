@@ -10,29 +10,29 @@ WEB,"www.altap.cz"
 COMMENT,"portuguese translation stub (English seed)"
 
 [DIALOG 8501]
-346,154,0,"Portable Executable Viewer Configuration"
-1300,7,7,64,8,0,"Availa&ble sections:"
+346,154,1,"Configuração do Visualizador de Portable Executable"
+1300,7,7,64,8,1,"Seções disponí&veis:"
 8700,7,17,105,130,1,""
-8702,119,17,50,14,0,"&Add ->"
-8703,119,35,50,14,0,"<- &Remove"
-1301,176,7,58,8,0,"&Visible sections:"
+8702,119,17,50,14,1,"&Adicionar ->"
+8703,119,35,50,14,1,"<- &Remover"
+1301,176,7,58,8,1,"Seções &visíveis:"
 8701,176,17,105,130,1,""
-8704,289,17,50,14,0,"Move &Up"
-8705,289,35,50,14,0,"Move &Down"
-1,289,97,50,14,0,"OK"
-2,289,115,50,14,0,"Cancel"
-8706,289,133,50,14,0,"Re&set"
+8704,289,17,50,14,1,"Mover para &cima"
+8705,289,35,50,14,1,"Mover para &baixo"
+1,289,97,50,14,1,"OK"
+2,289,115,50,14,1,"Cancelar"
+8706,289,133,50,14,1,"Re&definir"
 
 [STRINGTABLE 0]
-1016,0,"About Plugin"
+1016,1,"Sobre o plug-in"
 
 [STRINGTABLE 1]
-10100,0,"Portable Executable Viewer"
-10101,0,"Unable to open file %s."
-10102,0,"Creation of temporary file has failed."
-10103,0,"Exception has occured.\n\nViewed file: %s\n\nIf you think that viewed file is not corrupted, please send this file to support@altap.cz.\nWe will reproduce and fix the viewer bug. Thanks for cooperation!"
-10104,0,"Display information about Portable Executable files such as EXE, DLL, etc."
+10100,1,"Visualizador de Portable Executable"
+10101,1,"Não foi possível abrir o arquivo %s."
+10102,1,"Falha ao criar o arquivo temporário."
+10103,1,"Ocorreu uma exceção.\n\nArquivo visualizado: %s\n\nSe achar que o arquivo não está corrompido, envie-o para support@altap.cz.\nVamos reproduzir e corrigir o erro do visualizador. Obrigado pela colaboração!"
+10104,1,"Exibir informações sobre arquivos Portable Executable como EXE, DLL etc."
 
 [STRINGTABLE 2]
-10118,0,"No Portable Executable section selected in plugin configuration was found.\nUse menu Options > Plugin Configuration > Portable Executable Viewer\nin Open Salamander main window to setup visible sections."
+10118,1,"Nenhuma seção de Portable Executable selecionada na configuração do plug-in foi encontrada.\nUse o menu Opções > Configuração de plug-ins > Visualizador de Portable Executable\nna janela principal do Open Salamander para definir as seções visíveis."
 

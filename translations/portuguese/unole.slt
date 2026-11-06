@@ -10,27 +10,27 @@ WEB,"www.altap.cz"
 COMMENT,"portuguese translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,0,"UnOLE2"
-1001,0,"Insufficient memory."
-1002,0,"Cannot open Compound File %s.\n"
-1003,0,"Unable to obtain memory allocator.\n"
-1004,0,"Cannot write to file.\n"
-1005,0,"Cannot create file %s.\n"
-1006,0,"Cannot open stream %s.\n"
-1007,0,"Cannot write to file.\n"
+1000,1,"UnOLE2"
+1001,1,"Memória insuficiente."
+1002,1,"Não foi possível abrir o Compound File %s.\n"
+1003,1,"Não foi possível obter o alocador de memória.\n"
+1004,1,"Não foi possível gravar no arquivo.\n"
+1005,1,"Não foi possível criar o arquivo %s.\n"
+1006,1,"Não foi possível abrir o fluxo %s.\n"
+1007,1,"Não foi possível gravar no arquivo.\n"
 
 [STRINGTABLE 1]
-1008,0,"Unknown error occurred."
-1014,0,"Unable to add archive entry to the files list."
-1015,0,"Unpacking Compound File"
-1017,0,"unpacking..."
-1018,0,"unpacking: "
+1008,1,"Ocorreu um erro desconhecido."
+1014,1,"Não foi possível adicionar a entrada do arquivo à lista de arquivos."
+1015,1,"Descompactando Compound File"
+1017,1,"descompactando..."
+1018,1,"descompactando: "
 
 [STRINGTABLE 2]
-1025,0,"Sorry, the plugin has expired. Please check our web site for newer version."
+1025,1,"Desculpe, o plug-in expirou. Verifique nosso site para obter uma versão mais recente."
 
 [STRINGTABLE 3]
-1041,0,"Error"
-1042,0,"Browse and extract OLE Compound files."
-1043,0,"About Plugin"
+1041,1,"Erro"
+1042,1,"Navegar e extrair arquivos OLE Compound."
+1043,1,"Sobre o plug-in"
 
