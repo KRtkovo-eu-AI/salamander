@@ -1,17 +1,25 @@
-# Portuguese translation seed
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-06 | Record completed Brazilian Portuguese SLT pack. | portuguese/*.slt archives are fully translated (pt-BR / LANGID 1046). | | Composer |
+-->
 
-This directory deliberately starts without committed `.slt` archives. On the
-first run, the batch localization workflow exports current English resources,
-marks all text as untranslated, and writes the generated Portuguese archives here.
-That avoids committing a stale English snapshot as a translation seed.
+# Brazilian Portuguese translation (`pt-BR`)
 
-Run the translation and build the language pack from a populated build output:
+Brazilian Portuguese UI archives for Open Samandarin. The folder name is
+`portuguese`; the locale is Brazilian Portuguese (`pt-BR`) with Windows
+`LANGID` 1046.
+
+All module `.slt` files in this directory are translated (`state=1` for
+nonempty strings). Common buttons follow Brazilian Portuguese UI conventions
+(`OK`, `Cancelar`, `Ajuda`, `Sim`, `Não`) while preserving placeholders,
+accelerators, and the product names Open Samandarin / Open Salamander /
+Salamatrix. Prefer BR vocabulary (e.g. `arquivo`, not European `ficheiro`).
+
+Rebuild language packs from a populated build output:
 
 ```powershell
-$env:CURSOR_API_KEY = "..."
 pwsh -File tools\localization\localize_all_openai.ps1 -Languages portuguese -BuildLanguagePacks
 ```
 
-The workflow uses Brazilian Portuguese, `pt-BR`, with Windows `LANGID` 1046. Once
-the run succeeds, the resulting `.slt` files are committed in this directory
-and `portuguese.slg` files are placed in the build output by `-BuildLanguagePacks`.
+Or import the committed `.slt` archives with the Salamander Translator and
+produce `portuguese.slg` beside the runtime.
