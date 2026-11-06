@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Forward Find ContextMenu messages to SafeHandleContextMenuMsg. | HandleMenuMsg SEH must stay out of WindowProc (C2712). | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -4401,24 +4404,10 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
 
         if (ContextMenu != NULL)
         {
-            IContextMenu3* contextMenu3 = NULL;
+            // SEH lives in SafeHandleContextMenuMsg — WindowProc cannot host __try (C2712).
             LRESULT lResult = 0;
-            if (uMsg == WM_MENUCHAR)
-            {
-                if (SUCCEEDED(ContextMenu->QueryInterface(IID_IContextMenu3, (void**)&contextMenu3)))
-                {
-                    contextMenu3->HandleMenuMsg2(uMsg, wParam, lParam, &lResult);
-                    contextMenu3->Release();
-                    return (BOOL)lResult;
-                }
-            }
-            if (ContextMenu->HandleMenuMsg(uMsg, wParam, lParam) == NOERROR)
-            {
-                if (uMsg == WM_INITMENUPOPUP) // ensure the return value is correct
-                    return 0;
-                else
-                    return TRUE;
-            }
+            if (SafeHandleContextMenuMsg(uMsg, wParam, lParam, &lResult))
+                return (BOOL)lResult;
         }
         break;
     }

@@ -1,8 +1,22 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Survive faulty shell extension SEH instead of terminating. | In-process third-party shell extensions must not take Salamander down. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
+
+// Prefer this over CCallStack::HandleException for in-process third-party shell
+// extension COM / Shell API calls (IContextMenu*, IExtractIcon, IThumbnailProvider,
+// IShellIconOverlayIdentifier, SHGetFileInfo, SHFileOperation, ...).
+// HandleException writes a bug report and TerminateProcess's; that turns a single
+// faulty shell extension into a Salamander crash (see issue #773). Surviving with
+// a degraded UI (partial/empty menu, missing icon/thumbnail) matches the panel
+// icon-reader pattern in IconThreadThreadFBodyAux.
+#ifndef SHELL_EXTENSION_EXCEPTION_FILTER
+#define SHELL_EXTENSION_EXCEPTION_FILTER EXCEPTION_EXECUTE_HANDLER
+#endif
 
 // CALLSTK_DISABLE macro - completely disables this module
 // CALLSTK_MEASURETIMES macro - enables measuring the time spent preparing

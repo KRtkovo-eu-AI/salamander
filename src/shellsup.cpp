@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Survive faulty shell extension SEH in context menus. | QueryContextMenu/InvokeCommand/HandleMenuMsg must not terminate the process. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -810,8 +813,9 @@ static void InitializeShellCascadeMenus(IContextMenu2* contextMenu, HMENU menu, 
                 }
                 contextMenu->HandleMenuMsg(WM_INITMENUPOPUP, (WPARAM)mi.hSubMenu, MAKELPARAM(i, FALSE));
             }
-            __except (CCallStack::HandleException(GetExceptionInformation(), 19))
+            __except (SHELL_EXTENSION_EXCEPTION_FILTER)
             {
+                TRACE_E("Faulty shell extension threw an exception in HandleMenuMsg (cascade menu).");
                 MenuNewExceptionHasOccured++;
             }
             InitializeShellCascadeMenus(contextMenu, mi.hSubMenu, depth + 1);
@@ -1072,8 +1076,9 @@ void AuxInvokeCommand2(CFilesWindow* panel, CMINVOKECOMMANDINFO* ici)
     {
         panel->ContextSubmenuNew->GetMenu2()->InvokeCommand(ici);
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 17))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
+        TRACE_E("Faulty shell extension threw an exception in InvokeCommand (New submenu).");
         ICExceptionHasOccured++;
     }
 
@@ -1093,8 +1098,9 @@ void AuxInvokeCommand(CFilesWindow* panel, CMINVOKECOMMANDINFO* ici)
     {
         panel->ContextMenu->InvokeCommand(ici);
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 18))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
+        TRACE_E("Faulty shell extension threw an exception in InvokeCommand (panel context menu).");
         ICExceptionHasOccured++;
     }
 
@@ -1114,8 +1120,9 @@ void AuxInvokeAndRelease(IContextMenu2* menu, CMINVOKECOMMANDINFO* ici)
     {
         menu->InvokeCommand(ici);
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 19))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
+        TRACE_E("Faulty shell extension threw an exception in InvokeCommand (AuxInvokeAndRelease).");
         ICExceptionHasOccured++;
     }
 
@@ -1141,8 +1148,10 @@ HRESULT AuxGetCommandString(IContextMenu2* menu, UINT_PTR idCmd, UINT uType, UIN
         // the program does not depend on this call, so wrap it in a try/except block
         ret = menu->GetCommandString(idCmd, uType, pReserved, pszName, cchMax);
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 19))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
+        // Comment above already says Salamander does not depend on this call; never terminate.
+        TRACE_E("Faulty shell extension threw an exception in GetCommandString.");
         ICExceptionHasOccured++;
     }
     return ret;
@@ -1188,8 +1197,9 @@ void ShellActionAux5(UINT flags, CFilesWindow* panel, HMENU h)
     {
         panel->ContextMenu->QueryContextMenu(h, 0, 0, 4999, flags);
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 20))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
+        TRACE_E("Faulty shell extension threw an exception in QueryContextMenu (panel context menu).");
         QCMExceptionHasOccured++;
     }
 
@@ -2801,8 +2811,9 @@ void ExecuteAssociationAux(IContextMenu2* menu, CMINVOKECOMMANDINFO& ici)
     {
         menu->InvokeCommand(&ici);
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 21))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
+        TRACE_E("Faulty shell extension threw an exception in InvokeCommand (ExecuteAssociation).");
         ICExceptionHasOccured++;
     }
 
@@ -2822,8 +2833,9 @@ void ExecuteAssociationAux2(IContextMenu2* menu, HMENU h, DWORD flags)
     {
         menu->QueryContextMenu(h, 0, 0, -1, flags);
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 22))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
+        TRACE_E("Faulty shell extension threw an exception in QueryContextMenu (ExecuteAssociation).");
         QCMExceptionHasOccured++;
     }
 

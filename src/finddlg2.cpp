@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Survive faulty shell extension SEH in Find context menus. | Find QueryContextMenu/InvokeCommand/HandleMenuMsg must not terminate. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -1326,8 +1329,9 @@ void ContextMenuInvoke(IContextMenu2* contextMenu, CMINVOKECOMMANDINFO* ici)
     {
         contextMenu->InvokeCommand(ici);
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 8))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
+        TRACE_E("Faulty shell extension threw an exception in InvokeCommand (Find dialog).");
         ICExceptionHasOccured++;
     }
 
@@ -1354,12 +1358,53 @@ void ContextMenuQuery(IContextMenu2* contextMenu, HMENU h)
 
         contextMenu->QueryContextMenu(h, 0, 0, -1, flags);
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 9))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
+        TRACE_E("Faulty shell extension threw an exception in QueryContextMenu (Find dialog).");
         QCMExceptionHasOccured++;
     }
 
     SetThreadPriority(hThread, oldThreadPriority);
+}
+
+BOOL CFindDialog::SafeHandleContextMenuMsg(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT* plResult)
+{
+    CALL_STACK_MESSAGE_NONE
+    *plResult = 0;
+    if (ContextMenu == NULL)
+        return FALSE;
+
+    BOOL shouldReturnResult = FALSE;
+    __try
+    {
+        IContextMenu3* contextMenu3 = NULL;
+        if (uMsg == WM_MENUCHAR)
+        {
+            if (SUCCEEDED(ContextMenu->QueryInterface(IID_IContextMenu3, (void**)&contextMenu3)))
+            {
+                contextMenu3->HandleMenuMsg2(uMsg, wParam, lParam, plResult);
+                contextMenu3->Release();
+                shouldReturnResult = TRUE;
+                return shouldReturnResult;
+            }
+        }
+        if (ContextMenu->HandleMenuMsg(uMsg, wParam, lParam) == NOERROR)
+        {
+            // Match the previous WindowProc return convention.
+            *plResult = (uMsg == WM_INITMENUPOPUP) ? 0 : TRUE;
+            shouldReturnResult = TRUE;
+        }
+    }
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
+    {
+        // Keep this helper free of C++ objects with destructors so SEH is valid;
+        // WindowProc must call this instead of hosting __try itself (C2712).
+        TRACE_E("Faulty shell extension threw an exception in HandleMenuMsg (Find dialog).");
+        MenuNewExceptionHasOccured++;
+        *plResult = 0;
+        shouldReturnResult = FALSE;
+    }
+    return shouldReturnResult;
 }
 
 void CFindDialog::OnDrag(BOOL rightMouseButton)

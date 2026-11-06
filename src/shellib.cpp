@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Survive faulty shell extension SEH in background/New menus. | Right-click empty panel space must not terminate on a bad extension. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -2781,8 +2784,10 @@ void GetMenuNewAux(IContextMenu2* contextMenu2, HMENU m, int minCmd, int maxCmd)
 
         contextMenu2->QueryContextMenu(m, 0, minCmd, maxCmd, flags);
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 16))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
+        // Faulty third-party context-menu handlers must not terminate Salamander.
+        TRACE_E("Faulty shell extension threw an exception in QueryContextMenu (background/New menu).");
         QCMExceptionHasOccured++;
     }
 

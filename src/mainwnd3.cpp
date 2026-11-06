@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Survive faulty shell extension SEH in main-window menus. | New/Change-Drive HandleMenuMsg and InvokeCommand must not terminate. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // | 2026-11-04 | Re-ensure the active tab is visible after rebuild/show. | Startup overflow scroll must run again after the tab strip gets its final width. | | Composer |
 // | 2026-11-04 | Open panel-toolbar Hot Paths in that panel. | The button sits beside Change Drive, so it must change the panel that owns the toolbar. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
@@ -3188,8 +3189,9 @@ void CMainWindow::SafeHandleMenuNewMsg2(UINT uMsg, WPARAM wParam, LPARAM lParam,
         // the menu is destroyed directly from the menu it was attached to
         ContextMenuNew->GetMenu2()->HandleMenuMsg(uMsg, wParam, lParam); // this call occasionally crashes
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 11))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
+        TRACE_E("Faulty shell extension threw an exception in HandleMenuMsg (main New menu).");
         MenuNewExceptionHasOccured++;
         if (ContextMenuNew != NULL)
             ContextMenuNew->Release(); // substitute for calling ReleaseMenuNew
@@ -3233,8 +3235,9 @@ void CMainWindowWindowProcAux(IContextMenu* menu2, CMINVOKECOMMANDINFO& ici)
     {
         menu2->InvokeCommand(&ici);
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 12))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
+        TRACE_E("Faulty shell extension threw an exception in InvokeCommand (main window).");
         ICExceptionHasOccured++;
     }
 
@@ -3499,8 +3502,9 @@ void CMainWindow::SafeHandleMenuChngDrvMsg2(UINT uMsg, WPARAM wParam, LPARAM lPa
         }
         ContextMenuChngDrv->HandleMenuMsg(uMsg, wParam, lParam);
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 3))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
+        TRACE_E("Faulty shell extension threw an exception in HandleMenuMsg (Change Drive menu).");
     }
 }
 

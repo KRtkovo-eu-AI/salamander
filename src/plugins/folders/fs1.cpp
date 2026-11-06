@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Survive faulty shell extension SEH in Folders execute. | Default-verb shell InvokeCommand must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 
 #include "precomp.h"
 
@@ -169,21 +172,29 @@ CPluginInterfaceForFS::ExecuteOnFS(int panel, CPluginFSInterfaceAbstract* plugin
         if (contextMenu != NULL)
         {
             HMENU hMenu = CreatePopupMenu();
-            contextMenu->QueryContextMenu(hMenu, 0, CMD_ID_FIRST, CMD_ID_LAST, CMF_NORMAL | CMF_EXPLORE);
-            UINT idCmd = GetMenuDefaultItem(hMenu, MF_BYCOMMAND, GMDI_GOINTOPOPUPS);
-            if (idCmd != -1)
+            __try
             {
-                CMINVOKECOMMANDINFOEX ici;
-                ZeroMemory(&ici, sizeof(ici));
-                ici.cbSize = sizeof(ici);
-                ici.hwnd = hParent;
-                ici.nShow = SW_NORMAL;
-                ici.lpVerb = (LPSTR)MAKEINTRESOURCE(idCmd - CMD_ID_FIRST);
-                if (FAILED(contextMenu->InvokeCommand((CMINVOKECOMMANDINFO*)&ici)))
-                    TRACE_E("InvokeCommand failed");
+                contextMenu->QueryContextMenu(hMenu, 0, CMD_ID_FIRST, CMD_ID_LAST, CMF_NORMAL | CMF_EXPLORE);
+                UINT idCmd = GetMenuDefaultItem(hMenu, MF_BYCOMMAND, GMDI_GOINTOPOPUPS);
+                if (idCmd != -1)
+                {
+                    CMINVOKECOMMANDINFOEX ici;
+                    ZeroMemory(&ici, sizeof(ici));
+                    ici.cbSize = sizeof(ici);
+                    ici.hwnd = hParent;
+                    ici.nShow = SW_NORMAL;
+                    ici.lpVerb = (LPSTR)MAKEINTRESOURCE(idCmd - CMD_ID_FIRST);
+                    if (FAILED(contextMenu->InvokeCommand((CMINVOKECOMMANDINFO*)&ici)))
+                        TRACE_E("InvokeCommand failed");
+                }
+                else
+                    TRACE_E("GetMenuDefaultItem failed");
             }
-            else
-                TRACE_E("GetMenuDefaultItem failed");
+            __except (EXCEPTION_EXECUTE_HANDLER)
+            {
+                // Faulty third-party shell extensions must not terminate Salamander (#773).
+                TRACE_E("Faulty shell extension threw an exception in Folders default-verb execute.");
+            }
 
             DestroyMenu(hMenu);
             contextMenu->Release();

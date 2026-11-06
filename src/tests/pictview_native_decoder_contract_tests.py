@@ -1,5 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Open Salamander Authors
+# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-05 | Require SEH around shell thumbnail providers. | Faulty IThumbnailProvider must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 
 from pathlib import Path
 
@@ -39,6 +42,10 @@ def main() -> None:
             "WIC open must try an embedded preview slice after native decode fails")
     require(WIC, "TryOpenShellThumbnail",
             "WIC open must fall back to Explorer IShellItemImageFactory thumbnails")
+    require(WIC, "TryGetShellThumbnailBitmap",
+            "shell thumbnail extraction must use an SEH-safe wrapper around third-party providers")
+    require(WIC, "EXCEPTION_EXECUTE_HANDLER",
+            "shell thumbnail SEH must keep Salamander alive after a provider AV")
     require(WIC, "PVFF_FAST",
             "shell thumbnail extraction must not run on the icon/thumbnail thread")
     require(WIC, "BHID_ThumbnailHandler",

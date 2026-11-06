@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Survive faulty shell extension SEH in SafeInvokeCommand. | Shell InvokeCommand failures must degrade instead of terminating. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -142,8 +145,9 @@ BOOL SafeInvokeCommand(IContextMenu2* menu, CMINVOKECOMMANDINFO& ici)
     {
         ret = menu->InvokeCommand(&ici) == S_OK;
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 6))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
+        TRACE_E("Faulty shell extension threw an exception in SafeInvokeCommand.");
         ICExceptionHasOccured++;
     }
 

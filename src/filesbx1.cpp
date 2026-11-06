@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Forward panel ContextMenu messages to SafeHandleContextMenuMsg2. | Owner-draw HandleMenuMsg SEH must stay out of WindowProc (C2712). | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -1841,22 +1844,10 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         if (Parent->ContextMenu != NULL)
         {
-            IContextMenu3* contextMenu3 = NULL;
-            if (SUCCEEDED(Parent->ContextMenu->QueryInterface(IID_IContextMenu3, (void**)&contextMenu3)))
-            {
-                LRESULT lResult = 0;
-                HRESULT hr = contextMenu3->HandleMenuMsg2(uMsg, wParam, lParam, &lResult);
-                contextMenu3->Release();
-                if (SUCCEEDED(hr))
-                {
-                    if (uMsg == WM_MENUCHAR)
-                        return lResult;
-                }
-                else
-                    Parent->ContextMenu->HandleMenuMsg(uMsg, wParam, lParam);
-            }
-            else
-                Parent->ContextMenu->HandleMenuMsg(uMsg, wParam, lParam);
+            // SEH lives in SafeHandleContextMenuMsg2 — WindowProc cannot host __try (C2712).
+            LRESULT lResult = 0;
+            if (Parent->SafeHandleContextMenuMsg2(uMsg, wParam, lParam, &lResult))
+                return lResult;
         }
         // to make the New submenu work we must also forward the message there
         if (Parent->ContextSubmenuNew != NULL && Parent->ContextSubmenuNew->MenuIsAssigned())

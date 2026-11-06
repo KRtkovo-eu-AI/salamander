@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Survive faulty icon-overlay shell extension SEH. | Overlay handlers must degrade instead of TerminateProcess. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -325,11 +328,9 @@ void InitShellIconOverlaysAux(CLSID* clsid, const char* name)
     {
         InitShellIconOverlaysAuxAux(clsid, name);
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), -1, name))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
-        TRACE_I("InitShellIconOverlaysAux: calling ExitProcess(1).");
-        //    ExitProcess(1);
-        TerminateProcess(GetCurrentProcess(), 1); // harder exit (this one still calls a few things)
+        TRACE_E("Faulty shell icon-overlay extension in InitShellIconOverlaysAux; continuing.");
     }
 }
 
@@ -613,12 +614,10 @@ void CShellIconOverlayItem::Cleanup()
         {
             Identifier->Release();
         }
-        __except (CCallStack::HandleException(GetExceptionInformation(), -1, IconOverlayName))
-        {
-            TRACE_I("CShellIconOverlayItem::~CShellIconOverlayItem(): calling ExitProcess(1).");
-            //      ExitProcess(1);
-            TerminateProcess(GetCurrentProcess(), 1); // harder exit (this one still calls a few things)
-        }
+        __except (SHELL_EXTENSION_EXCEPTION_FILTER)
+    {
+        TRACE_E("Faulty shell icon-overlay extension in CShellIconOverlayItem::~CShellIconOverlayItem(); continuing.");
+    }
     }
     int i;
     for (i = 0; i < ICONSIZE_COUNT; i++)
@@ -695,11 +694,9 @@ void CreateIconReadersIconOverlayIdsAux(CLSID* clsid, const char* name, IShellIc
     {
         CreateIconReadersIconOverlayIdsAuxAux(clsid, name, ids, i);
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), -1, name))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
-        TRACE_I("CreateIconReadersIconOverlayIdsAux: calling ExitProcess(1).");
-        //    ExitProcess(1);
-        TerminateProcess(GetCurrentProcess(), 1); // harder exit (this one still calls a few things)
+        TRACE_E("Faulty shell icon-overlay extension in CreateIconReadersIconOverlayIdsAux; continuing.");
     }
 }
 
@@ -744,12 +741,10 @@ void CShellIconOverlays::ReleaseIconReadersIconOverlayIds(IShellIconOverlayIdent
                     iconReadersIconOverlayIds[i]->Release();
                     iconReadersIconOverlayIds[i] = NULL;
                 }
-                __except (CCallStack::HandleException(GetExceptionInformation(), -1, Overlays[i]->IconOverlayName))
-                {
-                    TRACE_I("CShellIconOverlays::ReleaseIconReadersIconOverlayIds: calling ExitProcess(1).");
-                    //          ExitProcess(1);
-                    TerminateProcess(GetCurrentProcess(), 1); // harder exit (this one still calls a few things)
-                }
+                __except (SHELL_EXTENSION_EXCEPTION_FILTER)
+    {
+        TRACE_E("Faulty shell icon-overlay extension in CShellIconOverlays::ReleaseIconReadersIconOverlayIds; continuing.");
+    }
             }
         }
         free(iconReadersIconOverlayIds);
@@ -780,11 +775,9 @@ BOOL GetIconOverlayIndexAux(IShellIconOverlayIdentifier** iconReadersIconOverlay
     {
         return GetIconOverlayIndexAuxAux(iconReadersIconOverlayIds, i, wPath, name, shAttrs);
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), -1, name))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
-        TRACE_I("GetIconOverlayIndexAux: calling ExitProcess(1).");
-        //    ExitProcess(1);
-        TerminateProcess(GetCurrentProcess(), 1); // harder exit (this one still calls a few things)
+        TRACE_E("Faulty shell icon-overlay extension in GetIconOverlayIndexAux; continuing.");
     }
     return FALSE; // just to satisfy the compiler
 }
@@ -796,8 +789,9 @@ DWORD_PTR SHGetFileInfoAux(LPCTSTR pszPath, DWORD dwFileAttributes, SHFILEINFO* 
     {
         return SHGetFileInfo(pszPath, dwFileAttributes, psfi, cbFileInfo, uFlags);
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 23))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
+        TRACE_E("Faulty shell extension threw an exception in SHGetFileInfo.");
         FGIExceptionHasOccured++;
         return 0;
     }
@@ -958,11 +952,9 @@ void ColorsChangedAux(CShellIconOverlayItem* item)
     {
         ColorsChangedAuxAux(item);
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), -1, item->IconOverlayName))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
-        TRACE_I("ColorsChangedAux: calling ExitProcess(1).");
-        //    ExitProcess(1);
-        TerminateProcess(GetCurrentProcess(), 1); // harder exit (this one still calls a few things)
+        TRACE_E("Faulty shell icon-overlay extension in ColorsChangedAux; continuing.");
     }
 }
 

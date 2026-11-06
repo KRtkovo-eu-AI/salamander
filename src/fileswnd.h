@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Add SafeHandleContextMenuMsg2 for shell-extension SEH. | Panel ContextMenu HandleMenuMsg must not live inside WindowProc SEH. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -1732,6 +1735,9 @@ public:
     int GetPanelCode();
 
     void SafeHandleMenuNewMsg2(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT* plResult);
+    // Forwards owner-draw/cascade messages to ContextMenu under SEH. Returns TRUE when
+    // the caller should return *plResult from WindowProc (WM_MENUCHAR success path).
+    BOOL SafeHandleContextMenuMsg2(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT* plResult);
     void RegisterDragDrop();
     void RevokeDragDrop();
 

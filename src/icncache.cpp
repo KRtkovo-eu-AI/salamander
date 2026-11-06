@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Survive faulty shell extension SEH when reading directory icons. | Icon/type shell handlers must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 
 #include "precomp.h"
 
@@ -735,8 +738,9 @@ BOOL ReadDirectoryIconAndTypeAux(CIconList* iconList, int index, CIconSizeEnum i
         }
         return TRUE;
     }
-    __except (CCallStack::HandleException(GetExceptionInformation(), 10))
+    __except (SHELL_EXTENSION_EXCEPTION_FILTER)
     {
+        TRACE_E("Faulty shell extension threw an exception while reading directory icon/type.");
         FGIExceptionHasOccured++;
     }
     return FALSE;

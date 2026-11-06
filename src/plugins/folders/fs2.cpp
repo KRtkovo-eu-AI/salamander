@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Survive faulty shell extension SEH in Folders context menus. | Folders FS shell menus must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 
 #include "precomp.h"
 
@@ -432,16 +435,23 @@ CPluginFSInterface::ShowProperties(const char* fsName, HWND parent, int panel,
         if (contextMenu != NULL)
         {
             HMENU hMenu = CreatePopupMenu();
-            contextMenu->QueryContextMenu(hMenu, 0, CMD_ID_FIRST, CMD_ID_LAST, CMF_NORMAL | CMF_EXPLORE);
+            __try
+            {
+                contextMenu->QueryContextMenu(hMenu, 0, CMD_ID_FIRST, CMD_ID_LAST, CMF_NORMAL | CMF_EXPLORE);
 
-            CMINVOKECOMMANDINFOEX ici;
-            ZeroMemory(&ici, sizeof(ici));
-            ici.cbSize = sizeof(ici);
-            ici.hwnd = parent;
-            ici.nShow = SW_NORMAL;
-            ici.lpVerb = "properties";
-            if (FAILED(contextMenu->InvokeCommand((CMINVOKECOMMANDINFO*)&ici)))
-                TRACE_E("InvokeCommand failed");
+                CMINVOKECOMMANDINFOEX ici;
+                ZeroMemory(&ici, sizeof(ici));
+                ici.cbSize = sizeof(ici);
+                ici.hwnd = parent;
+                ici.nShow = SW_NORMAL;
+                ici.lpVerb = "properties";
+                if (FAILED(contextMenu->InvokeCommand((CMINVOKECOMMANDINFO*)&ici)))
+                    TRACE_E("InvokeCommand failed");
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER)
+            {
+                TRACE_E("Faulty shell extension threw an exception in Folders ShowProperties.");
+            }
 
             DestroyMenu(hMenu);
 
@@ -485,23 +495,42 @@ CPluginFSInterface::ContextMenu(const char* fsName, HWND parent, int menuX, int 
             if (contextMenu2 != NULL)
             {
                 HMENU hMenu = CreatePopupMenu();
-                contextMenu2->QueryContextMenu(hMenu, 0, CMD_ID_FIRST, CMD_ID_LAST, CMF_NORMAL | CMF_EXPLORE);
-                RemoveUselessSeparatorsFromMenu(hMenu);
-
-                ContextMenu2 = contextMenu2; // so that forwarding messages from HandleMenuMsg works
-                DWORD cmd = TrackPopupMenuEx(hMenu, TPM_RETURNCMD | TPM_LEFTALIGN | TPM_RIGHTBUTTON, menuX, menuY,
-                                             parent, NULL);
-                ContextMenu2 = NULL;
-                if (cmd != 0)
+                BOOL menuReady = FALSE;
+                __try
                 {
-                    CMINVOKECOMMANDINFOEX ici;
-                    ZeroMemory(&ici, sizeof(ici));
-                    ici.cbSize = sizeof(ici);
-                    ici.hwnd = parent;
-                    ici.nShow = SW_NORMAL;
-                    ici.lpVerb = (LPSTR)MAKEINTRESOURCE(cmd - CMD_ID_FIRST);
-                    if (FAILED(contextMenu2->InvokeCommand((CMINVOKECOMMANDINFO*)&ici)))
-                        TRACE_E("InvokeCommand failed");
+                    contextMenu2->QueryContextMenu(hMenu, 0, CMD_ID_FIRST, CMD_ID_LAST, CMF_NORMAL | CMF_EXPLORE);
+                    menuReady = TRUE;
+                }
+                __except (EXCEPTION_EXECUTE_HANDLER)
+                {
+                    TRACE_E("Faulty shell extension threw an exception in Folders QueryContextMenu.");
+                }
+                if (menuReady)
+                {
+                    RemoveUselessSeparatorsFromMenu(hMenu);
+
+                    ContextMenu2 = contextMenu2; // so that forwarding messages from HandleMenuMsg works
+                    DWORD cmd = TrackPopupMenuEx(hMenu, TPM_RETURNCMD | TPM_LEFTALIGN | TPM_RIGHTBUTTON, menuX, menuY,
+                                                 parent, NULL);
+                    ContextMenu2 = NULL;
+                    if (cmd != 0)
+                    {
+                        __try
+                        {
+                            CMINVOKECOMMANDINFOEX ici;
+                            ZeroMemory(&ici, sizeof(ici));
+                            ici.cbSize = sizeof(ici);
+                            ici.hwnd = parent;
+                            ici.nShow = SW_NORMAL;
+                            ici.lpVerb = (LPSTR)MAKEINTRESOURCE(cmd - CMD_ID_FIRST);
+                            if (FAILED(contextMenu2->InvokeCommand((CMINVOKECOMMANDINFO*)&ici)))
+                                TRACE_E("InvokeCommand failed");
+                        }
+                        __except (EXCEPTION_EXECUTE_HANDLER)
+                        {
+                            TRACE_E("Faulty shell extension threw an exception in Folders InvokeCommand.");
+                        }
+                    }
                 }
 
                 DestroyMenu(hMenu);
@@ -520,7 +549,14 @@ CPluginFSInterface::HandleMenuMsg(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESU
     if (ContextMenu2 != NULL)
     {
         TRACE_I("HandleMenuMsg uMsg=" << uMsg);
-        ContextMenu2->HandleMenuMsg(uMsg, wParam, lParam);
+        __try
+        {
+            ContextMenu2->HandleMenuMsg(uMsg, wParam, lParam);
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER)
+        {
+            TRACE_E("Faulty shell extension threw an exception in Folders HandleMenuMsg.");
+        }
         return TRUE;
     }
     return FALSE;
