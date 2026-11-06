@@ -1,0 +1,106 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Panel/row access is a facade supplying independently specified exact paths.
+// The whole worker snapshot block, conversion and scratch methods are production code.
+#include <windows.h>
+#include <crtdbg.h>
+#include <cstdio>
+#include <cstring>
+#include <map>
+#include <string>
+#include <vector>
+#include "@@HEADER@@"
+#define SAL_MAX_PATH 32768
+#define ptDisk 1
+#define TRACE_I(value) ((void)0)
+@@BUFFERS@@
+static int Checks=0, Failures=0;
+static void Check(bool value,const char* label) {
+    ++Checks;if(!value){++Failures;std::printf("FAIL: %s\n",label);}
+}
+struct CFileData {std::string Key;std::wstring FullPath;};
+struct Rows {
+    std::vector<CFileData> Values;
+    int Count=0;
+    void Add(const std::string& key,const std::wstring& path) {Values.push_back({key,path});++Count;}
+    const CFileData& At(int index) const {return Values.at(index);}
+    void Clear() {Values.clear();Count=0;}
+};
+struct WindowFacade {
+    Rows DirStorage,FileStorage;
+    Rows* Dirs=&DirStorage;
+    Rows* Files=&FileStorage;
+    bool Disk=true,Branch=false;
+    int PathQueries=0,KeyQueries=0;
+    BOOL Is(int type) const {return Disk && type==ptDisk;}
+    BOOL IsBranchView() const {return Branch;}
+    const char* GetItemCacheKey(const CFileData& row) {++KeyQueries;return row.Key.c_str();}
+    std::wstring GetItemFullPathW(const CFileData& row) {++PathQueries;return row.FullPath;}
+};
+static std::string Utf8(const std::wstring& value) {
+    const int count=WideCharToMultiByte(CP_UTF8,0,value.c_str(),-1,nullptr,0,nullptr,nullptr);
+    std::vector<char> bytes(count);
+    WideCharToMultiByte(CP_UTF8,0,value.c_str(),-1,bytes.data(),count,nullptr,nullptr);
+    return bytes.data();
+}
+static void Prepare(WindowFacade* window) {
+    std::vector<CFileData> expected=window->Dirs->Values;
+    expected.insert(expected.end(),window->Files->Values.begin(),window->Files->Values.end());
+@@PREPARE@@
+    Check((diskListing!=FALSE)==window->Disk && (branchListing!=FALSE)==window->Branch,"snapshot captures panel modes");
+    Check(path==iconPathBuffer.Data() && name==path && *path==0,"suffix starts at empty owned scratch");
+    Check(iconPathBuffer.Capacity()>=4*SAL_MAX_PATH+16,"scratch retains capacity for maximal UTF8 path");
+    Check(iconPathBuffer.Data()[iconPathBuffer.Capacity()-1]==0,"scratch tail guard remains untouched");
+    const bool snapshotExpected=window->Disk && !window->Branch;
+    Check(window->PathQueries==(snapshotExpected?(int)expected.size():0),"only ordinary disk rows query exact wide paths");
+    Check(window->KeyQueries==window->PathQueries,"each snapshotted directory and file has one cache key");
+    Check(diskItemPaths.size()==(snapshotExpected?expected.size():0),"Branch and virtual keys do not create ordinary snapshots");
+    for(const auto& row:expected) {
+        Check(resolveDiskPath(row.Key.c_str())==(snapshotExpected?Utf8(row.FullPath):row.Key),"exact Unicode/long path or opaque passthrough key");
+        Check(resolveDiskPath(row.Key.c_str()).find('\0')==std::string::npos,"no embedded terminator or truncated suffix");
+    }
+    Check(resolveDiskPath("missing-key")== (snapshotExpected?std::string():std::string("missing-key")),"missing disk key fails closed; non-disk and Branch keys pass through");
+    // The UI listing may change after the reader releases its listing lock.
+    for(auto& row:window->Dirs->Values) row.FullPath=L"changed-after-snapshot";
+    for(auto& row:window->Files->Values) row.FullPath=L"changed-after-snapshot";
+    window->Dirs->Clear();window->Files->Clear();
+    for(const auto& row:expected)
+        Check(resolveDiskPath(row.Key.c_str())==(snapshotExpected?Utf8(row.FullPath):row.Key),"owned snapshot survives replacement/destruction of listing rows");
+    Check(path[0]==0 && name==path,"path lookup leaves reusable scratch unmodified");
+    Check(_CrtCheckMemory()!=FALSE,"native debug heap integrity after snapshot use");
+}
+int main() {
+    const std::wstring slash(1,static_cast<wchar_t>(92));
+    const std::wstring drive=L"C:"+slash;
+    const std::vector<std::wstring> roots={
+        drive+L"ascii",drive,
+        drive+L"\u017elu\u0165ou\u010dk\u00fd"+slash+L"\u6771\u4eac",
+        slash+slash+L"server"+slash+L"share"+slash+L"\u6771\u4eac"+slash,
+        drive+std::wstring(85,static_cast<wchar_t>(0x6f22)),
+        drive+std::wstring(110,static_cast<wchar_t>(0x6f22)),
+        drive+std::wstring(90,L'a')+slash+std::wstring(90,L'b')+slash+std::wstring(90,L'c'),
+        drive+std::wstring(SAL_MAX_PATH-4,L'a')};
+    for(const auto& root:roots) {
+        WindowFacade window;
+        window.Dirs->Add("directory",root+slash+L"directory");
+        window.Files->Add("ascii.txt",root+slash+L"ascii.txt");
+        // An ACP/non-UTF8 cache key must never be concatenated with a UTF8 parent.
+        window.Files->Add(std::string(1,static_cast<char>(0xe8))+".txt",root+slash+L"\u010d-\u6771\u4eac-\U0001f600.txt");
+        Prepare(&window);
+    }
+    if(GetACP()!=CP_UTF8) {
+        const char acpName[]={static_cast<char>(0xe8),0};wchar_t converted[16]={};
+        const int count=MultiByteToWideChar(CP_ACP,0,acpName,-1,converted,16);
+        Check(count>0,"ACP fixture is representable on this machine");
+        if(count>0) {WindowFacade window;window.Files->Add(acpName,drive+converted);Prepare(&window);}
+    }
+    WindowFacade branch;branch.Branch=true;
+    const std::wstring longRoot=roots[6]+slash+L"\u6771\u4eac";
+    branch.Files->Add(Utf8(longRoot+slash+L"one"+slash+L"same.txt"),L"must-not-be-queried");
+    branch.Files->Add(Utf8(longRoot+slash+L"two"+slash+L"same.txt"),L"must-not-be-queried");
+    Prepare(&branch);
+    WindowFacade nonDisk;nonDisk.Disk=false;nonDisk.Files->Add("plugin://unchanged",L"must-not-be-queried");Prepare(&nonDisk);
+    WindowFacade empty;Prepare(&empty);
+    std::printf("Icon reader scratch/snapshot: %d checks, %d failures; actual preparation and conversion, no shell or file I/O.\n",Checks,Failures);
+    return Failures?1:0;
+}

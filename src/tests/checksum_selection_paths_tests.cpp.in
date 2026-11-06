@@ -1,0 +1,328 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual SDK facade/storage and host service compiled verbatim; only live panel
+// storage and discovery are replaced. No filesystem mutation or visible UI.
+#define NOMINMAX
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <memory>
+#include <new>
+#include <thread>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <crtdbg.h>
+#define SAL_MAX_PATH 32768
+#define SALAMANDER_SERVICE_PANEL_ITEM_PATHS "Salamander.PanelItemPaths"
+#define SALAMANDER_PANEL_ITEM_PATHS_VERSION_1_0 0x00010000
+@@CONSTANTS@@
+enum { PANEL_SOURCE=0,PANEL_TARGET=1,PANEL_LEFT=2,PANEL_RIGHT=3,PATH_TYPE_WINDOWS=10,ptDisk=10 };
+#pragma warning(push)
+#pragma warning(disable:4201)
+@@QUAD@@
+#pragma warning(pop)
+struct CFileData {
+ const char* Name=nullptr; const char* Ext=nullptr; const wchar_t* NameW=nullptr;
+ BOOL Selected=FALSE,SizeValid=TRUE,Hidden=FALSE,IsLink=FALSE,IsOffline=FALSE;
+ DWORD Attr=0; CQuadWord Size; FILETIME LastWrite={};
+ BOOL UseWideName()const{return NameW!=nullptr;}
+};
+@@SDK@@
+struct Row {
+ std::string Name,Ext;std::wstring Wide,Full,Directory,Relative; CFileData File;
+ Row(std::wstring name,std::wstring full,std::wstring relative,bool selected):Name("legacy.txt"),Ext("txt"),Wide(std::move(name)),Full(std::move(full)),Relative(std::move(relative)) {
+  Directory=Full.substr(0,Full.find_last_of(L'\\'));File.Name=Name.c_str();File.NameW=Wide.c_str();File.Ext=Ext.c_str();File.Selected=selected;File.Size.Value=9876543210ULL;File.Attr=FILE_ATTRIBUTE_ARCHIVE;File.LastWrite.dwLowDateTime=123;File.Hidden=TRUE;File.IsLink=TRUE;File.IsOffline=TRUE;
+ }
+};
+struct CFilesArray {
+ std::vector<CFileData> Data;std::vector<std::unique_ptr<Row>> Rows;int Count=0;
+ CFilesArray(){Data.reserve(64);}
+ CFileData* GetData(){return Data.data();} CFileData& At(int i){return Data.at(i);}
+ void Clear(){Data.clear();Rows.clear();Count=0;}
+};
+struct CFilesWindow {
+ CFilesArray Directories,FileRows;CFilesArray* Dirs=&Directories;CFilesArray* Files=&FileRows;
+ std::wstring Root=L"C:\\root";std::string RootText="C:\\root";bool Disk=true,Missing=false,ThrowPath=false,Branch=false;int Focus=0,Changes=0;HWND HWindow=nullptr;
+ BOOL IsBranchView(){return Branch;}BOOL ChangePathToDiskW(HWND,const wchar_t* path){Root=path;Branch=false;++Changes;return TRUE;}void SetCaretIndex(int index,BOOL){Focus=index;}
+ BOOL Is(int type){return Disk&&type==ptDisk;}int GetCaretIndex(){return Focus;}
+ const wchar_t* GetPathW(){return Root.c_str();}const char* GetPath(){return RootText.c_str();}
+ Row* Find(const CFileData& f)const{for(auto a:{Dirs,Files})for(int i=0;i<a->Count;++i)if(&a->Data[i]==&f)return a->Rows[i].get();return nullptr;}
+ std::wstring GetItemFullPathW(const CFileData& f){if(ThrowPath)throw std::bad_alloc();return Missing?L"":Find(f)->Full;}
+ std::wstring GetItemDirectoryW(const CFileData& f){return Missing?L"":Find(f)->Directory;}
+ std::wstring GetItemRelativePathW(const CFileData& f){return Missing?L"":Find(f)->Relative;}
+ CFileData* Add(std::wstring name,std::wstring full,std::wstring relative,bool selected=false,bool dir=false){auto a=dir?Dirs:Files;a->Rows.emplace_back(new Row(std::move(name),std::move(full),std::move(relative),selected));a->Data.push_back(a->Rows.back()->File);++a->Count;return &a->Data.back();}
+ void Clear(){Dirs->Clear();Files->Clear();Root=L"C:\\root";RootText="C:\\root";Disk=true;Missing=false;ThrowPath=false;Focus=0;}
+};
+struct MainWindowStub {HWND HWindow=nullptr;CFilesWindow Left,Right;bool RightActive=false;
+ CFilesWindow* GetPanel(int panel){switch(panel){case PANEL_SOURCE:return RightActive?&Right:&Left;case PANEL_TARGET:return RightActive?&Left:&Right;case PANEL_LEFT:return &Left;case PANEL_RIGHT:return &Right;default:return nullptr;}}
+};
+static MainWindowStub Window;static MainWindowStub* MainWindow=&Window;static DWORD MainThreadID;static HWND TestWindow;
+struct CSalamanderGeneralAbstract {
+ bool SnapshotAvailable=true,ResolverAvailable=true,BadInterface=false,BadVersion=false;int RootCalls=0,QueryCalls=0,CountOffset=0;
+ CFilesWindow* GetPanel(int panel){return Window.GetPanel(panel);}
+ void FocusNameInPanel(int,const char*,const char*);void SkipOneActivateRefresh(){}void SetUserWorkedOnPanelPath(int){}
+ BOOL QueryService(const CSalamanderServiceQuery*,CSalamanderServiceResult*);
+ void PostChangeOnPathNotification(const char*,BOOL){}
+ void GetConfigParameter(int,void*,size_t,void*) {}
+ int SalMessageBox(HWND,const char*,const char*,UINT){return IDYES;}
+ int DialogError(HWND,DWORD,const char*,const char*,const char*){return IDCANCEL;}
+ BOOL GetLinkTgtFileSize(HWND,const char*,CQuadWord*,BOOL*,BOOL*){return FALSE;}
+ BOOL SalGetFileSize(HANDLE h,CQuadWord& s,DWORD& e){e=0;SetLastError(0);s.LoDWord=GetFileSize(h,&s.HiDWord);e=GetLastError();return s.LoDWord!=INVALID_FILE_SIZE||e==0;}
+ BOOL SalGetFileSize2(const char*,CQuadWord&,DWORD*){return FALSE;}
+
+ HWND GetMainWindowHWND(){return TestWindow;}
+ BOOL GetPanelPath(int panel,char* path,int capacity,int* type,void*){++RootCalls;auto p=Window.GetPanel(panel);if(!p)return FALSE;*type=p->Disk?PATH_TYPE_WINDOWS:-1;if(p->RootText.size()>=static_cast<size_t>(capacity))return FALSE;strcpy_s(path,capacity,p->RootText.c_str());return TRUE;}
+ BOOL GetPanelSelection(int panel,int* files,int* dirs){auto p=Window.GetPanel(panel);*files=*dirs=0;for(auto a:{p->Dirs,p->Files})for(auto& f:a->Data)if(f.Selected)++(a==p->Dirs?*dirs:*files);*files+=CountOffset;return *files+*dirs!=0;}
+ const CFileData* GetPanelFocusedItem(int panel,BOOL* isDir){auto p=Window.GetPanel(panel);if(p->Focus<0||p->Focus>=p->Dirs->Count+p->Files->Count)return nullptr;bool d=p->Focus<p->Dirs->Count;if(isDir)*isDir=d;return d?&p->Dirs->At(p->Focus):&p->Files->At(p->Focus-p->Dirs->Count);}
+ const CFileData* GetPanelItem(int panel,int* index,BOOL* isDir){auto p=Window.GetPanel(panel);int i=(*index)++;if(i<0||i>=p->Dirs->Count+p->Files->Count)return nullptr;*isDir=i<p->Dirs->Count;return *isDir?&p->Dirs->At(i):&p->Files->At(i-p->Dirs->Count);}
+};
+#include "@@HEADER@@"
+@@HOST@@
+static CDiskSelectionService Service;static CPanelItemPathsService Resolver;
+BOOL CSalamanderGeneralAbstract::QueryService(const CSalamanderServiceQuery* q,CSalamanderServiceResult* r){++QueryCalls;r->Interface=nullptr;r->Version=0;if(strcmp(q->ServiceId,SALAMANDER_SERVICE_DISK_SELECTION)==0){if(!SnapshotAvailable)return FALSE;r->Interface=BadInterface?nullptr:&Service;}else{if(!ResolverAvailable)return FALSE;r->Interface=BadInterface?nullptr:&Resolver;}r->Version=BadVersion?0:q->MinimumVersion;return TRUE;}
+
+#define WM_USER_FOCUSFILE (WM_APP+99)
+#define LOW_MEMORY "memory"
+#define CALL_STACK_MESSAGE3(...) ((void)0)
+#define CALL_STACK_MESSAGE4(...) ((void)0)
+#define CALL_STACK_MESSAGE1(...) ((void)0)
+#define CALL_STACK_MESSAGE2(...) ((void)0)
+#define CALL_STACK_MESSAGE6(...) ((void)0)
+#define CALL_STACK_MESSAGE_NONE
+#define TRACE_E(...) ((void)0)
+#define TRACE_I(...) ((void)0)
+#define HANDLES_Q(x) (x)
+#define HANDLES(x) (x)
+#define SizeOf(x) (sizeof(x)/sizeof((x)[0]))
+#define FILE_SIZE_FIX 10000
+#define REFRESH_LIMIT 1000
+#define BUFSIZE 262144
+#define HT_COUNT 1
+#define HASH_MAX_SIZE 129
+#define DIGEST_MAX_SIZE 64
+#define WM_USER_ENDWORK (WM_APP+556)
+enum eHASH_TYPE {HT_CRC};
+enum { BUTTONS_RETRYCANCEL=1,BUTTONS_RETRYSKIPCANCEL=3,DIALOG_CANCEL=IDCANCEL,DIALOG_FAIL=0,DIALOG_RETRY=IDRETRY,DIALOG_SKIPALL=0x20000000,DIALOG_SKIP=0x10000000,SALCFG_ALWAYSONTOP=1,
+MSGBOXEX_YESNO=MB_YESNO,MSGBOXEX_ICONQUESTION=MB_ICONQUESTION,MSGBOXEX_DEFBUTTON2=MB_DEFBUTTON2,MSGBOXEX_ESCAPEENABLED=0,LVSICF_NOINVALIDATEALL=1,LVSICF_NOSCROLL=2,LVIS_SELECTED=2,LVIS_FOCUSED=1,dtDelete=1 };
+@@IDS@@
+static CSalamanderGeneralAbstract General;static CSalamanderGeneralAbstract* SalamanderGeneral=&General;
+static const char* LoadStr(int id){return id==IDS_CANCELED?"cancelled":id==IDS_SKIPPED?"skipped":"resource";}
+static BOOL Error(HWND,int,int,int,...){return FALSE;}
+static void RefreshChecksumDarkModeFromHost(){}
+static void ConfigureChecksumDarkModeFromHost(){}
+#define ListView_SetItemCountEx(...) ((void)0)
+#define ListView_SetItemState(...) ((void)0)
+#define ListView_GetItemCount(...) (FileList.Count)
+@@CONVERSIONS@@
+#include "@@PATHS@@"
+template<class T> struct TIndirectArray {
+ std::vector<T*> Data;int Count=0;
+ TIndirectArray(int,int,int=dtDelete){}
+ ~TIndirectArray(){for(auto p:Data)delete p;}
+ T*& operator[](int i){return Data.at(i);}
+ void Add(T* p){Data.push_back(p);Count=static_cast<int>(Data.size());}
+ bool IsGood()const{return true;}void ResetState(){}
+};
+@@FILE_LIST@@
+@@FILE_INFO@@
+class CHashAlgo {
+public:virtual ~CHashAlgo(){};std::string Bytes;
+ virtual bool Init(){Bytes.clear();return true;}
+ virtual bool Update(const char* p,DWORD n){Bytes.append(p,n);return true;}
+ virtual bool Finalize(){return true;}
+ virtual int GetDigest(char* out,DWORD){unsigned char value=0;for(char c:Bytes)value=static_cast<unsigned char>(value+static_cast<unsigned char>(c));out[0]=static_cast<char>(value);return 1;}
+ virtual bool ParseDigest(char*,char*,int,char*)=0;
+};
+class CCRCAlgo:public CHashAlgo {public:bool ParseDigest(char*,char*,int,char*) override;};
+static void GetLastWord(char*,int&,int&,char delimitChar=' ');
+@@PARSER@@
+static CHashAlgo* Factory(){return new CCRCAlgo();}
+struct SHashInfo {eHASH_TYPE Type=HT_CRC;BOOL bCalculate=TRUE;const char* sSaveAsExt=".sfv";const char* sRegID="CRC";CHashAlgo*(*Factory)()=&::Factory;};
+static struct { eHASH_TYPE HashType=HT_CRC;SHashInfo HashInfo[HT_COUNT]; } Config;
+struct CaptureRow {std::string Name,Full,Hash;CQuadWord Size;};
+static std::vector<CaptureRow> Captured;static std::string CapturedRoot,VerifyDirectory,VerifyFile;
+static int Errors=0;
+static std::wstring SaveTarget;
+static bool FailCreate=false;
+class CThread;
+static std::vector<CThread*> Pending;
+class CThread {public:CThread(const char*){}virtual ~CThread(){};virtual unsigned Body()=0;HANDLE Create(int){if(FailCreate)return NULL;Pending.push_back(this);return reinterpret_cast<HANDLE>(1);}};
+static int ThreadQueue=0;
+class CCRCMD5Thread:public CThread {public:BOOL* Terminate;CCRCMD5Thread(BOOL* p):CThread("worker"),Terminate(p){}};
+class CSFVMD5Dialog {
+public:BOOL bThreadRunning=FALSE,bDisableNotification=FALSE;HWND HWindow=nullptr,hList=nullptr;CQuadWord totalSize{0,0};TIndirectArray<FILELISTITEM> FileList{10,10};
+ BOOL AddFileListItem(const char*,CQuadWord,BOOL,const char* =nullptr);
+ void ScrollToItem(int){}
+ void IncreaseProgress(const CQuadWord&){}
+ void SetItemTextAndIcon(int i,int col,const char* text=nullptr,int=-1){if(col>=2){free(FileList[i]->Hashes[0]);FileList[i]->Hashes[0]=_strdup(text?text:"");}}
+ static void ConvertPath(char* p,char from,char to){for(;*p;++p)if(*p==from)*p=to;}
+};
+class CCalculateDialog:public CSFVMD5Dialog {
+public:TSeedFileList* pSeedFileList;const char* SourcePath;BOOL StopReadingDirectories=FALSE;DWORD RefreshCounter=0;SHashInfo HashInfo[HT_COUNT];
+ CCalculateDialog(HWND,BOOL,TSeedFileList* f,const char* path):pSeedFileList(f),SourcePath(path){}
+ BOOL AddDir(const std::wstring&,const std::string&,BOOL*);
+ BOOL GetFileList();void RefreshUI(){}
+ BOOL GetSaveFileName(std::wstring& result,LPCTSTR){result=SaveTarget;return TRUE;}
+ void GetItemText(int i,int,char* out,int capacity){strcpy_s(out,capacity,FileList[i]->Hashes[0]?FileList[i]->Hashes[0]:"");}
+ void SaveHashes();
+ void Execute();
+};
+class CVerifyDialog:public CSFVMD5Dialog {
+public:TIndirectArray<FILEINFO> fileList{10,10};const char* sourcePath;const char* sourceFile;SHashInfo* pHashInfo=&Config.HashInfo[0];
+ CVerifyDialog(HWND,BOOL,const char* p,const char* f):sourcePath(p),sourceFile(f){}
+ char* LoadFile(const char*);BOOL LoadSourceFile();
+ static void LTrimStr(char* p){size_t n=0;while(p[n]&&static_cast<unsigned char>(p[n])<=' ')++n;if(n)memmove(p,p+n,strlen(p+n)+1);}
+ void Execute();
+};
+@@CALC_WORKER@@
+static BOOL SafeReadFile(HANDLE, LPVOID, DWORD, DWORD*, const char*, HWND, BOOL* =nullptr, BOOL* =nullptr);
+@@IO@@
+@@THREADS@@
+@@FOCUS@@
+@@FUNCTIONS@@
+using CSalamanderForOperationsAbstract=void;static std::string Focus_Path;enum {CMD_VERIFY=2,CMD_CALCULATE=1,CMD_FOCUSFILE=99};struct CPluginInterfaceForMenuExt {BOOL ExecuteMenuItem(void*,HWND,int,DWORD);};
+@@FOCUS_COMMAND@@
+void CCalculateDialog::Execute(){
+ CapturedRoot=SourcePath;Captured.clear();
+ if(!GetFileList()){++Errors;return;}
+ BOOL stop=FALSE;CCalculateThread worker(this,&stop);worker.Body();
+ for(int i=0;i<FileList.Count;++i)Captured.push_back({FileList[i]->Name,FileList[i]->FullPath,FileList[i]->Hashes[0]?FileList[i]->Hashes[0]:"",FileList[i]->Size});
+}
+void CVerifyDialog::Execute(){
+ VerifyDirectory=sourcePath;VerifyFile=sourceFile;Captured.clear();
+ if(!LoadSourceFile()){++Errors;return;}
+ for(int i=0;i<FileList.Count;++i)Captured.push_back({FileList[i]->Name,fileList[i]->fileName,"",fileList[i]->size});
+}
+static int Checks = 0, Failures = 0;
+static void Check(bool success, const char* description)
+{
+    ++Checks;
+    if (!success) { ++Failures; std::printf("FAIL: %s (Win32 %lu)\n", description, GetLastError()); }
+}
+static std::string Utf8(const std::wstring& value)
+{
+    const int count = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, value.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    if (count <= 0) std::abort();
+    std::string result(count, '\0');
+    WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, value.c_str(), -1, &result[0], count, nullptr, nullptr);
+    result.resize(count - 1);
+    return result;
+}
+static std::wstring Extended(const std::wstring& value)
+{
+    return value.compare(0, 4, L"\\\\?\\") == 0 ? value : L"\\\\?\\" + value;
+}
+struct Fixtures
+{
+    std::wstring Root, OldDirectory;
+    std::vector<std::wstring> Files, Directories;
+    Fixtures()
+    {
+        std::vector<wchar_t> buffer(SAL_MAX_PATH);
+        DWORD count = GetCurrentDirectoryW(static_cast<DWORD>(buffer.size()), buffer.data());
+        if (!count || count >= buffer.size()) std::abort();
+        OldDirectory.assign(buffer.data(), count);
+        count = GetTempPathW(static_cast<DWORD>(buffer.size()), buffer.data());
+        if (!count || count >= buffer.size()) std::abort();
+        Root.assign(buffer.data(), count);
+        Root += L"Samandarin-size-" + std::to_wstring(GetCurrentProcessId()) + L"-" + std::to_wstring(GetTickCount64());
+        if (!CreateDirectoryW(Root.c_str(), nullptr)) std::abort();
+        Directories.push_back(Root);
+    }
+    bool Owned(const std::wstring& path) const
+    {
+        return path == Root || (path.size() > Root.size() &&
+               path.compare(0, Root.size(), Root) == 0 && path[Root.size()] == L'\\');
+    }
+    ~Fixtures()
+    {
+        Check(SetCurrentDirectoryW(OldDirectory.c_str()) != FALSE, "restore working directory");
+        for (auto i = Files.rbegin(); i != Files.rend(); ++i)
+            Check(Owned(*i) && DeleteFileW(Extended(*i).c_str()) != FALSE, "remove own fixture file");
+        for (auto i = Directories.rbegin(); i != Directories.rend(); ++i)
+            Check(Owned(*i) && RemoveDirectoryW(Extended(*i).c_str()) != FALSE, "remove own fixture directory");
+    }
+    std::wstring Directory(const std::wstring& parent, const std::wstring& name)
+    {
+        const std::wstring path = parent + L"\\" + name;
+        if (!Owned(path) || !CreateDirectoryW(Extended(path).c_str(), nullptr)) std::abort();
+        Directories.push_back(path);
+        return path;
+    }
+    std::wstring File(const std::wstring& parent, const std::wstring& name, DWORD size)
+    {
+        const std::wstring path = parent + L"\\" + name;
+        if (!Owned(path)) std::abort();
+        HANDLE handle = CreateFileW(Extended(path).c_str(), GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (handle == INVALID_HANDLE_VALUE) std::abort();
+        Files.push_back(path);
+        std::string payload(size, 'x');
+        DWORD written = 0;
+        const BOOL ok = WriteFile(handle, payload.data(), size, &written, nullptr);
+        CloseHandle(handle);
+        if (!ok || written != size) std::abort();
+        return path;
+    }
+};
+
+static void RunPending(){auto threads=std::move(Pending);Pending.clear();for(auto p:threads){p->Body();delete p;}}
+static void Populate(const Fixtures& fixture,const std::vector<std::wstring>& paths,bool selected){
+ Window.Left.Clear();Window.Left.Root=fixture.Root;Window.Left.RootText=Utf8(fixture.Root);
+ for(const auto& p:paths){const auto relative=p.substr(fixture.Root.size()+1);auto f=Window.Left.Add(ChecksumPaths::Base(p),p,relative,selected);WIN32_FILE_ATTRIBUTE_DATA data={};GetFileAttributesExW(Extended(p).c_str(),GetFileExInfoStandard,&data);f->Size.Set(data.nFileSizeLow,data.nFileSizeHigh);f->Attr=data.dwFileAttributes;f->IsLink=FALSE;}
+ Window.Left.Focus=0;
+}
+int main(){
+ MainThreadID=GetCurrentThreadId();TestWindow=CreateWindowExW(0,L"STATIC",L"",0,0,0,1,1,nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);
+ {
+  Fixtures fixture;
+  auto first=fixture.Directory(fixture.Root,L"ascii");auto second=fixture.Directory(fixture.Root,L"žluťoučký東京");
+  std::vector<std::wstring> paths={fixture.File(first,L"same.bin",1),fixture.File(second,L"same.bin",2)};
+  auto folder=second;for(int i=0;i<14;++i)folder=fixture.Directory(folder,L"long-東京-component-"+std::to_wstring(i));
+  paths.push_back(fixture.File(folder,L"same.bin",3));
+  paths.push_back(fixture.File(first,std::wstring(90,L'東')+L".bin",4));
+  CPluginInterfaceForMenuExt menu;
+  for(bool branch:{true,false})for(size_t index=0;index<paths.size();++index){Populate(fixture,{paths[index]},false);Window.Left.Branch=branch;Window.Left.Focus=-1;Focus_Path=Utf8(paths[index]);Check(menu.ExecuteMenuItem(nullptr,nullptr,CMD_FOCUSFILE,0)&&Focus_Path.empty(),"actual Checksum Focus consumes owned full path");Check(!Window.Left.Branch&&Window.Left.Root==ChecksumPaths::Parent(paths[index])&&Window.Left.Focus==0,"actual host Branch focus uses exact parent and NameW, including100CJK/duplicate/long");}
+  Populate(fixture,{paths[0]},false);Window.Left.Focus=-1;General.FocusNameInPanel(PANEL_SOURCE,Utf8(first).c_str(),"SAME.BIN");Check(Window.Left.Focus==0,"ordinary disk case-insensitive focus remains supported");
+  Populate(fixture,{paths[0]},false);Window.Left.Branch=true;int changes=Window.Left.Changes;General.FocusNameInPanel(PANEL_SOURCE,Utf8(fixture.Root+L"\\missing").c_str(),"same.bin");Check(Window.Left.Branch&&Window.Left.Changes==changes,"missing parent preserves Branch and cannot fall back elsewhere");General.FocusNameInPanel(PANEL_SOURCE,Utf8(first).c_str(),"sub\\same.bin");Check(Window.Left.Branch&&Window.Left.Changes==changes,"non-basename focus refused");General.FocusNameInPanel(PANEL_SOURCE,nullptr,"same.bin");Check(Window.Left.Branch&&Window.Left.Changes==changes,"null focus path refused");
+  Populate(fixture,paths,true);
+  Check(OpenCalculateDialog(nullptr),"actual Calculate command accepts selected snapshot");
+  Window.Left.Clear();RunPending();
+  Check(Errors==0&&Captured.size()==paths.size(),"actual modeless worker survives panel destruction");
+  Check(CapturedRoot==Utf8(fixture.Root),"calculate preserves root output default");
+  for(size_t i=0;i<paths.size()&&i<Captured.size();++i){Check(Captured[i].Full==Utf8(paths[i]),"calculation uses exact source path");Check(Captured[i].Name==Utf8(paths[i].substr(fixture.Root.size()+1)),"duplicates retain relative display/export identity");Check(!Captured[i].Hash.empty()&&Captured[i].Hash!="cancelled"&&Captured[i].Hash!="skipped","actual worker reads Unicode/long source");}
+  Check(Captured.size()>1&&Captured[0].Hash!=Captured[1].Hash,"duplicate basenames read different file contents");
+  Populate(fixture,paths,false);Window.Left.Focus=1;Check(OpenCalculateDialog(nullptr),"focused Calculate fallback");Window.Left.Clear();RunPending();Check(Captured.size()==1&&Captured[0].Full==Utf8(paths[1]),"focused exact actual parent");
+  const auto manifest=folder+L"\\checksum.sfv";
+  const std::string content="same.bin  00000000\r\n"+Utf8(paths[0])+"  00000000\r\n";
+  HANDLE h=CreateFileW(Extended(manifest).c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,0,nullptr);DWORD done=0;Check(h!=INVALID_HANDLE_VALUE&&WriteFile(h,content.data(),static_cast<DWORD>(content.size()),&done,nullptr),"create own Unicode long manifest");if(h!=INVALID_HANDLE_VALUE){CloseHandle(h);fixture.Files.push_back(manifest);}
+  Populate(fixture,{manifest},false);Check(OpenVerifyDialog(nullptr),"actual Verify command accepts exact focused manifest");Window.Left.Clear();RunPending();
+  Check(Errors==0&&VerifyFile==Utf8(manifest)&&VerifyDirectory==Utf8(folder),"Verify uses actual manifest parent after panel destruction");
+  Check(Captured.size()==2&&Captured[0].Full==Utf8(paths[2])&&Captured[0].Size==CQuadWord(3,0),"relative manifest entry resolves under actual parent");
+  Check(Captured.size()==2&&Captured[1].Full==Utf8(paths[0])&&Captured[1].Size==CQuadWord(1,0),"absolute manifest entry retains exact path");
+  // Directory selections enumerate exact children, independently of panel rows.
+  Populate(fixture,{second},true);Window.Left.Files->At(0).Selected=FALSE;Window.Left.Files->Clear();
+  Window.Left.Add(ChecksumPaths::Base(second),second,second.substr(fixture.Root.size()+1),true,true);
+  Check(OpenCalculateDialog(nullptr),"selected directory accepted");Window.Left.Clear();RunPending();
+  Check(Errors==0&&Captured.size()==3,"recursive Unicode directory enumerates files and manifest without root reconstruction");
+  // Exercise actual SaveHashes with only the modal destination picker replaced.
+  TSeedFileList empty(1,1,dtDelete);const auto rootUtf8=Utf8(fixture.Root);
+  CCalculateDialog save(nullptr,FALSE,&empty,rootUtf8.c_str());
+  for(const auto& path:paths){save.AddFileListItem(Utf8(path.substr(fixture.Root.size()+1)).c_str(),CQuadWord(0,0),TRUE,Utf8(path).c_str());save.SetItemTextAndIcon(save.FileList.Count-1,2,"00000000");}
+  SaveTarget=fixture.Root+L"\\export.sfv";save.SaveHashes();fixture.Files.push_back(SaveTarget);
+  const auto savedUtf8=Utf8(SaveTarget);CVerifyDialog exported(nullptr,FALSE,rootUtf8.c_str(),savedUtf8.c_str());
+  Check(exported.LoadSourceFile()&&exported.fileList.Count==static_cast<int>(paths.size()),"actual UTF8 export parses back all paths");
+  for(int i=0;i<exported.fileList.Count;++i)Check(exported.fileList[i]->fileName==Utf8(paths[i]),"export/verify roundtrip preserves duplicate Unicode long identity");
+  SaveTarget=second+L"\\elsewhere.sfv";save.SaveHashes();fixture.Files.push_back(SaveTarget);
+  const auto elsewhereUtf8=Utf8(SaveTarget),secondUtf8=Utf8(second);
+  CVerifyDialog elsewhere(nullptr,FALSE,secondUtf8.c_str(),elsewhereUtf8.c_str());
+  Check(elsewhere.LoadSourceFile()&&elsewhere.fileList.Count==static_cast<int>(paths.size()),"save outside source root uses valid absolute entries");
+  for(int i=0;i<elsewhere.fileList.Count;++i)Check(elsewhere.fileList[i]->fileName==Utf8(paths[i]),"relocated manifest resolves exact original source");
+  Populate(fixture,paths,true);Window.Left.Missing=true;const auto pending=Pending.size();Check(!OpenCalculateDialog(nullptr)&&Pending.size()==pending,"resolver failure launches no calculation and never synthesizes root/name");
+  Window.Left.Missing=false;FailCreate=true;Check(!OpenCalculateDialog(nullptr),"failed thread start returns failure with owned snapshot cleanup");FailCreate=false;
+ }
+ DestroyWindow(TestWindow);
+ std::printf("Checksum actual consumers: %d checks, %d failures\n",Checks,Failures);
+ return Failures?1:0;
+}

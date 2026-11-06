@@ -1,0 +1,377 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Production SDK service, Renamer intake, source constructors and Rename are
+// inserted verbatim. Only panel storage and the name-pattern result are mocked.
+// No application UI or filesystem operation is performed.
+#define NOMINMAX
+#include <windows.h>
+#include <crtdbg.h>
+#include <cstdlib>
+#include <climits>
+#include <utility>
+#include <algorithm>
+#include <cstdio>
+#include <cstring>
+#include <memory>
+#include <new>
+#include <string>
+#include <vector>
+#define SAL_MAX_PATH 32768
+#define SizeOf(x) (sizeof(x) / sizeof(x[0]))
+#define CALL_STACK_MESSAGE_NONE
+#define CALL_STACK_MESSAGE1(a) ((void)0)
+#define CALL_STACK_MESSAGE2(a,b) ((void)0)
+#define CALL_STACK_MESSAGE3(a,b,c) ((void)0)
+enum { PANEL_SOURCE, PANEL_TARGET, PANEL_LEFT, PANEL_RIGHT, PATH_TYPE_WINDOWS=10, ptDisk=10,
+       MID_COMPAREFILES=1, SALCFG_ALWAYSONTOP=1, IDS_LOWMEM=1 };
+struct CQuadWord { DWORD LoDWord, HiDWord; CQuadWord(DWORD lo=0,DWORD hi=0):LoDWord(lo),HiDWord(hi){} };
+struct CFileData {
+    int NameLen=0; CQuadWord Size; DWORD Attr=0; FILETIME LastWrite={};
+    const char* Ext=""; BOOL Selected=FALSE, SizeValid=TRUE, Hidden=FALSE, IsLink=FALSE, IsOffline=FALSE;
+    const char* Name = nullptr;
+    const wchar_t* NameW = nullptr;
+    BOOL UseWideName() const { return NameW != nullptr; }
+};
+#define SALAMANDER_SERVICE_PANEL_ITEM_PATHS "Salamander.PanelItemPaths"
+#define SALAMANDER_PANEL_ITEM_PATHS_VERSION_1_0 0x00010000
+@@SDK@@
+@@CONVERSIONS@@
+struct Row {
+    std::string Name;
+    std::wstring Wide, Full;
+    CFileData Data;
+    bool Selected, Directory;
+    Row(std::wstring name, std::wstring full, bool selected, bool directory, std::string mirror)
+        : Name(mirror.empty() ? PluginWideToMultiBytePath(name.c_str(), CP_UTF8) : mirror),
+          Wide(std::move(name)), Full(std::move(full)), Selected(selected), Directory(directory) {
+        Data.Selected=selected; Data.Name = Name.c_str(); Data.NameLen=(int)Name.size(); Data.NameW = Wide.c_str();
+    }
+};
+static size_t ArrayAtCalls = 0, ArrayDataCalls = 0;
+struct CFilesArray {
+    std::vector<std::unique_ptr<Row>> Rows;
+    std::vector<CFileData> Data;
+    int Count = 0;
+    CFilesArray() { Data.reserve(64); }
+    CFileData& At(int i) { ++ArrayAtCalls; return Data.at(i); }
+    CFileData* GetData() { ++ArrayDataCalls; return Data.data(); }
+    void Clear() { Rows.clear(); Data.clear(); Count = 0; }
+};
+struct CFilesWindow {
+    CFilesArray Directories, FileRows;
+    CFilesArray* Dirs = &Directories;
+    CFilesArray* Files = &FileRows;
+    const CFileData* Focus = nullptr;
+    std::string Root = "C:\\root";
+    bool Disk = true, FailPath = false;
+    BOOL Is(int type) { return Disk && type == ptDisk; }
+    Row* Find(const CFileData* file) {
+        for (auto array : {Dirs, Files})
+            for (int i=0; i<array->Count; ++i) if (&array->Data[i] == file) return array->Rows[i].get();
+        return nullptr;
+    }
+    std::wstring GetItemFullPathW(const CFileData& file) {
+        Row* row = Find(&file); return FailPath || row == nullptr ? std::wstring() : row->Full;
+    }
+    const char* GetPath() { return Root.c_str(); }
+    const wchar_t* GetPathW() { return nullptr; }
+    int GetCaretIndex() {
+        for(int i=0;i<Dirs->Count+Files->Count;++i) {
+            const auto* data=i<Dirs->Count?&Dirs->Data[i]:&Files->Data[i-Dirs->Count];
+            if(data==Focus)return i;
+        }
+        return -1;
+    }
+    std::wstring GetItemDirectoryW(const CFileData& item) {
+        const auto full=GetItemFullPathW(item); const auto slash=full.find_last_of(L"\\/");
+        return slash==std::wstring::npos?std::wstring():full.substr(0,slash);
+    }
+    std::wstring GetItemRelativePathW(const CFileData& item) {
+        const auto full=GetItemFullPathW(item); const auto slash=full.find_last_of(L"\\/");
+        return full.empty()?std::wstring():full.substr(slash==std::wstring::npos?0:slash+1);
+    }
+    const CFileData* Add(std::wstring name, std::wstring full, bool selected=false,
+                         bool directory=false, std::string mirror={}) {
+        CFilesArray* array = directory ? Dirs : Files;
+        array->Rows.emplace_back(new Row(std::move(name),std::move(full),selected,directory,std::move(mirror)));
+        array->Data.push_back(array->Rows.back()->Data);
+        ++array->Count; return &array->Data.back();
+    }
+    void Clear() { Dirs->Clear(); Files->Clear(); Focus=nullptr; Disk=true; FailPath=false; }
+};
+struct MainWindowStub {
+    CFilesWindow Left, Right;
+    bool SourceRight = false;
+    CFilesWindow* GetPanel(int panel) {
+        switch(panel) {
+        case PANEL_LEFT:return &Left;
+        case PANEL_RIGHT:return &Right;
+        case PANEL_SOURCE:return SourceRight ? &Right : &Left;
+        case PANEL_TARGET:return SourceRight ? &Left : &Right;
+        default:return nullptr;
+        }
+    }
+};
+static MainWindowStub Window;
+static MainWindowStub* MainWindow=&Window;
+static DWORD MainThreadID;
+@@SERVICE@@
+static CPanelItemPathsService Service;
+static void* DiskSelectionServiceInterface();
+static HWND TestWindow;
+struct CSalamanderGeneralAbstract {
+    bool Available=true, DiskAvailable=true, NullInterface=false, OldVersion=false;
+    int RootReads=0, AdditionalReportedFiles=0, SelectionLimit=-1, ThrowOnSelectionIndex=-1;
+    std::vector<int> Worked;
+    BOOL QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result) {
+        if (!Available) return FALSE;
+        const bool disk=strcmp(query->ServiceId,SALAMANDER_SERVICE_DISK_SELECTION)==0;
+        if(disk&&!DiskAvailable)return FALSE;
+        result->Interface = NullInterface ? nullptr : disk?DiskSelectionServiceInterface():&Service;
+        result->Version = OldVersion ? 0 : query->MinimumVersion;
+        return TRUE;
+    }
+    BOOL GetPanelPath(int panel, char* path, int capacity, int* type, void*) {
+        auto window=Window.GetPanel(panel); if (!window) return FALSE;
+        if (type) *type=window->Disk ? PATH_TYPE_WINDOWS : -1;
+        if (path) {
+            ++RootReads;
+            if ((int)window->Root.size() >= capacity) return FALSE;
+            strcpy_s(path,capacity,window->Root.c_str());
+        }
+        return TRUE;
+    }
+    const CFileData* Enumerate(int panel,int* index,BOOL* isDir,bool selected) {
+        auto window=Window.GetPanel(panel);
+        for (; *index < window->Dirs->Count+window->Files->Count;) {
+            int i=(*index)++;
+            Row* row=i<window->Dirs->Count ? window->Dirs->Rows[i].get() : window->Files->Rows[i-window->Dirs->Count].get();
+            if (!selected || row->Selected) { *isDir=row->Directory; return i<window->Dirs->Count ? &window->Dirs->At(i) : &window->Files->At(i-window->Dirs->Count); }
+        }
+        return nullptr;
+    }
+    const CFileData* GetPanelSelectedItem(int panel,int* index,BOOL* isDir) { if(ThrowOnSelectionIndex>=0&&*index>=ThrowOnSelectionIndex)throw std::bad_alloc();if(SelectionLimit>=0&&*index>=SelectionLimit)return nullptr;return Enumerate(panel,index,isDir,true); }
+    const CFileData* GetPanelItem(int panel,int* index,BOOL* isDir) { if(ThrowOnSelectionIndex>=0&&*index>=ThrowOnSelectionIndex)throw std::bad_alloc();if(SelectionLimit>=0&&*index>=SelectionLimit)return nullptr;return Enumerate(panel,index,isDir,false); }
+    const CFileData* GetPanelFocusedItem(int panel,BOOL* isDir) {
+        auto window=Window.GetPanel(panel); auto file=window->Focus;
+        if (file && isDir) *isDir=window->Find(file)->Directory;
+        return file;
+    }
+    char* DupStr(const char* p) { return _strdup(p); }
+    BOOL GetPanelSelection(int panel,int* files,int* dirs) {
+        auto window=Window.GetPanel(panel); int f=0,d=0;
+        for (auto array : {window->Dirs,window->Files}) for(auto& row:array->Rows)
+            if(row->Selected){if(row->Directory)++d;else ++f;}
+        if(files)*files=f+AdditionalReportedFiles;if(dirs)*dirs=d;return TRUE;
+    }
+    HWND GetMainWindowHWND() { return TestWindow; }
+    int GetSourcePanel() { return Window.SourceRight ? PANEL_RIGHT : PANEL_LEFT; }
+    void GetConfigParameter(int,void*,size_t,void*) {}
+    void SetUserWorkedOnPanelPath(int panel) { Worked.push_back(panel); }
+    int StrICmp(const char* a,const char* b) { return _stricmp(a,b); }
+    BOOL SalPathAppend(char* path,const char* name,size_t capacity) {
+        std::string full(path); if (!full.empty() && full.back()!='\\') full+='\\';full+=name;
+        if(full.size()>=capacity)return FALSE;strcpy_s(path,capacity,full.c_str());return TRUE;
+    }
+};
+static CSalamanderGeneralAbstract General;
+static CSalamanderGeneralAbstract* SG=&General;
+@@FACADE@@
+@@DISK_SERVICE@@
+static void* DiskSelectionServiceInterface() { static CDiskSelectionService service; return &service; }
+
+#if defined(_DEBUG) && defined(_MSC_VER)
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#endif
+@@PATH_HELPERS@@
+@@SOURCE_DECL@@
+static bool FailNextSourceAllocation=false;
+static void* RenamerTestMalloc(size_t count){if(FailNextSourceAllocation){FailNextSourceAllocation=false;return nullptr;}return malloc(count);}
+#ifdef malloc
+#undef malloc
+#endif
+#define malloc RenamerTestMalloc
+@@SOURCE_IMPL@@
+#undef malloc
+@@ENUMS@@
+static int Checks=0,Failures=0,Errors=0;
+static void Check(bool ok,const char* what) { ++Checks;if(!ok){++Failures;printf("FAIL %s\n",what);} }
+static BOOL Error(int) { ++Errors;return FALSE; }
+static BOOL Error(HWND,int) { ++Errors;return FALSE; }
+static BOOL Error(HWND,int,const char*) { ++Errors;return FALSE; }
+static void TRACE_E(...) {}
+enum { IDS_ERROR=2, IDS_ERRORREAD=3, IDS_ERRREADDIR=4 };
+static int FileError(HWND,const char*,int,BOOL,BOOL*,BOOL*,int) { ++Errors;return 0; }
+template<class T> struct TIndirectArray {
+    std::vector<T*> Items; int Count=0;
+    ~TIndirectArray(){DestroyMembers();}
+    int Add(T* p){Items.push_back(p);Count=(int)Items.size();return Count-1;}
+    bool IsGood()const{return true;}void ResetState(){}
+    void DestroyMembers(){for(auto p:Items)delete p;Items.clear();Count=0;}
+    T*& operator[](int i){return Items.at(i);}
+};
+template<class T> struct TBuffer {
+    std::vector<T> Data;
+    BOOL Reserve(int capacity){Data.resize(capacity);return TRUE;}
+    T* Get(){return Data.data();}
+};
+struct CRenamerDialog {
+    TBuffer<char> RootBuffer;
+    HWND GetParent(){return nullptr;}
+    std::vector<char> RootStorage=std::vector<char>(SAL_MAX_PATH*4);
+    char* Root=RootStorage.data(); int RootLen=0; BOOL SelectionValid=FALSE;
+    HWND HWindow=nullptr; TIndirectArray<CSourceFile> NotRenamedFiles;
+    struct ManualOptions { CRenameSpec Spec=rsFileName; } RenamerOptions;
+    struct FakeEdit { HWND HWindow=nullptr; } Edit;
+    FakeEdit* ManualEdit=&Edit;
+    void LoadSelection();
+    @@MANUAL_DECL@@
+};
+@@INTAKE@@
+static LRESULT RenamerTestSendMessage(HWND,UINT,WPARAM,LPARAM){return 0;}
+static BOOL RenamerTestIsWindowUnicode(HWND){return TRUE;}
+static BOOL GetManualEditLineUtf8(HWND,int,char* out,int capacity){const char* name="manual.png";if(capacity<=10)return FALSE;memcpy(out,name,11);return TRUE;}
+#undef SendMessage
+#define SendMessage RenamerTestSendMessage
+#define IsWindowUnicode RenamerTestIsWindowUnicode
+@@MANUAL@@
+#undef IsWindowUnicode
+#undef SendMessage
+struct FakePattern {
+    int Execute(char* output,int capacity,CExecuteNewNameParam*) {
+        const char* name="renamed.png";const int len=(int)strlen(name);
+        if(capacity<=len)return -1;memcpy(output,name,len+1);return len;
+    }
+};
+static void ChangeCase(CChangeCase,char*,const char*,const char*,const char*) {}
+struct CRenamer {
+    char* Root; int RootLen; CRenameSpec Spec=rsFileName;
+    CChangeCase FileCase=ccDontChange,ExtCase=ccDontChange;
+    BOOL IncludePath=FALSE,Substitute=FALSE,ExcludeExt=FALSE,UseRegExp=FALSE;
+    FakePattern NewName;
+    CRenamer(char* root,int rootLen):Root(root),RootLen(rootLen){}
+    BOOL IsGood()const{return TRUE;}
+    int RESubst(const char*,int,char*,int){return -1;}
+    int BMSubst(const char*,int,char*,int){return -1;}
+    @@RENAME_DECL@@
+};
+@@RENAME@@
+static void Reset(bool right=false) {
+    Window.Left.Clear();Window.Right.Clear();Window.SourceRight=right;
+    Window.Left.Root="C:\\left-root";Window.Right.Root="D:\\right-root";
+    General=CSalamanderGeneralAbstract();Errors=0;
+}
+static std::string Utf8(const std::wstring& s){return PluginWideToMultiBytePath(s.c_str(),CP_UTF8);}
+static bool IntakeIsValid(CRenamerDialog& dialog) {
+#if @@NEW_API@@
+    return dialog.SelectionValid!=FALSE;
+#else
+    return dialog.NotRenamedFiles.Count!=0;
+#endif
+}
+static int Rename(CRenamer& renamer,CSourceFile* file,char* output,int capacity,char** part) {
+#if @@NEW_API@@
+    return renamer.Rename(file,0,output,capacity,part);
+#else
+    (void)capacity;return renamer.Rename(file,0,output,part);
+#endif
+}
+static int Manual(CRenamerDialog& dialog,CSourceFile* file,char* output,int capacity,char*& part) {
+#if @@NEW_API@@
+    return dialog.GetManualModeNewName(file,0,output,capacity,part);
+#else
+    (void)capacity;return dialog.GetManualModeNewName(file,0,output,part);
+#endif
+}
+static void ExpectPaths(CRenamerDialog& dialog,const std::vector<std::wstring>& expected,const char* label) {
+    bool ok=IntakeIsValid(dialog)&&dialog.NotRenamedFiles.Count==(int)expected.size();
+    for(size_t i=0;ok&&i<expected.size();++i) {
+        CSourceFile* file=dialog.NotRenamedFiles[(int)i];
+        ok=file&&file->FullName&&std::string(file->FullName)==Utf8(expected[i]);
+    }
+    Check(ok,label);
+}
+static void SelectionTests() {
+    for(bool right:{false,true}) {
+        Reset(right);auto panel=Window.GetPanel(PANEL_SOURCE);
+        std::wstring root=right?L"D:\\right-root":L"C:\\left-root";
+        std::vector<std::wstring> full={root+L"\\alpha\\same.png",root+L"\\\u017elu\u0165ou\u010dk\u00fd \u6771\u4eac\\same.png",root+L"\\\u6771\u4eac\\nested\\same.png"};
+        for(const auto& p:full)panel->Add(L"same.png",p,true);
+        CRenamerDialog dialog;dialog.LoadSelection();ExpectPaths(dialog,full,"all duplicate basenames retain exact parents and source-panel order");
+        CRenamer renamer(dialog.Root,dialog.RootLen);
+        for(int i=0;i<dialog.NotRenamedFiles.Count;++i) {
+            std::vector<char> out(SAL_MAX_PATH*4);char* part=nullptr;
+            int result=Rename(renamer,dialog.NotRenamedFiles[i],out.data(),(int)out.size(),&part);
+            auto parent=full[i].substr(0,full[i].find_last_of(L'\\')+1);
+            Check(result==11&&std::string(out.data())==Utf8(parent)+"renamed.png"&&part&&std::string(part)=="renamed.png","rsFileName keeps actual parent for each duplicate row");
+        }
+    }
+    Reset();auto panel=Window.GetPanel(PANEL_SOURCE);auto focus=panel->Add(L"\u010d\u0159.png",L"C:\\left-root\\\u6771\u4eac\\\u010d\u0159.png",false,false,"??.png");panel->Focus=focus;
+    CRenamerDialog focused;focused.LoadSelection();ExpectPaths(focused,{L"C:\\left-root\\\u6771\u4eac\\\u010d\u0159.png"},"focused unselected Unicode row preserves exact wide filename");
+    Reset();panel=Window.GetPanel(PANEL_SOURCE);panel->Add(L"folder",L"C:\\left-root\\nested\\folder",true,true);panel->Add(L"same.png",L"C:\\left-root\\nested\\same.png",true);
+    CRenamerDialog mixed;mixed.LoadSelection();ExpectPaths(mixed,{L"C:\\left-root\\nested\\folder",L"C:\\left-root\\nested\\same.png"},"mixed file and directory selection keeps paths and enumeration order");
+    Check(mixed.NotRenamedFiles.Count==2&&mixed.NotRenamedFiles[0]->IsDir&&!mixed.NotRenamedFiles[1]->IsDir,"selection preserves file/directory metadata");
+}
+static void LongPathTests() {
+    std::vector<std::wstring> paths={L"C:\\ascii\\same.png",L"C:\\ascii\\\u010d\u0159.png",L"\\\\server\\share\\\u6771\u4eac\\same.png",L"C:\\"+std::wstring(110,L'\u6f22')+L"\\same.png",L"C:\\"+std::wstring(120,L'a')+L"\\"+std::wstring(150,L'b')+L"\\same.png",L"C:\\"+std::wstring(120,L'\u6f22')+L"\\"+std::wstring(120,L'\u6f22')+L"\\"+std::wstring(60,L'\u6f22')+L"\\same.png"};
+    std::wstring veryLong=L"C:\\root";for(int i=0;i<110;++i)veryLong+=L"\\"+std::wstring(100,L'\u6f22');veryLong+=L"\\same.png";paths.push_back(veryLong);
+    for(const auto& full:paths){Reset();auto panel=Window.GetPanel(PANEL_SOURCE);panel->Add(full.substr(full.find_last_of(L'\\')+1),full,true);CRenamerDialog dialog;dialog.LoadSelection();ExpectPaths(dialog,{full},"intake preserves complete ASCII/Unicode/UNC/UTF8-long/UTF16-long path");
+        if(dialog.NotRenamedFiles.Count!=1)continue;auto file=dialog.NotRenamedFiles[0];
+        Check(file->NameLen==strlen(file->FullName)&&std::string(file->Name)==Utf8(full.substr(full.find_last_of(L'\\')+1)),"source constructor exposes exact full length and basename offset");
+        CRenamer renamer(dialog.Root,dialog.RootLen);std::vector<char> out(SAL_MAX_PATH*4);char* part=nullptr;
+        auto parent=full.substr(0,full.find_last_of(L'\\')+1);int result=Rename(renamer,file,out.data(),(int)out.size(),&part);
+        Check(result==11&&std::string(out.data())==Utf8(parent)+"renamed.png","target parent survives Unicode and long paths beyond old 3*MAX_PATH buffer");
+        result=Manual(dialog,file,out.data(),(int)out.size(),part);
+        Check(result==10&&std::string(out.data())==Utf8(parent)+"manual.png","manual rename keeps exact parent including long UTF8 paths");
+#if @@NEW_API@@
+        std::vector<char> guard(34,'!');part=nullptr;result=Rename(renamer,file,guard.data()+1,32,&part);
+        if(Utf8(parent).size()+12>32)Check(result<0&&guard.front()=='!'&&guard.back()=='!',"short target capacity fails without overwriting adjacent memory");
+#endif
+    }
+}
+static void FallbackAndFailureTests() {
+    Reset();General.Available=false;auto panel=Window.GetPanel(PANEL_SOURCE);panel->Add(L"\u010d\u0159.png",L"ignored",true,false,"??.png");CRenamerDialog legacy;legacy.LoadSelection();ExpectPaths(legacy,{L"C:\\left-root\\\u010d\u0159.png"},"old host without optional service retains ordinary-panel wide-name fallback");
+#if @@NEW_API@@
+    for(int fail:{0,1,2,3}) {Reset();panel=Window.GetPanel(PANEL_SOURCE);panel->Add(L"first.png",L"C:\\actual\\first.png",true);panel->Add(L"second.png",fail==3?L"":L"C:\\actual\\second.png",true);if(fail==0)panel->FailPath=true;if(fail==1)General.NullInterface=true;if(fail==2)General.OldVersion=true;CRenamerDialog dialog;dialog.LoadSelection();Check(!dialog.SelectionValid&&dialog.NotRenamedFiles.Count==0,"available service failure rejects complete intake without fabricated root or partial selection");}
+    Reset();panel=Window.GetPanel(PANEL_SOURCE);panel->Add(L"first.png",L"C:\\actual\\first.png",true);panel->Add(L"second.png",L"C:\\actual\\second.png",true);panel->Root="C:\\actual";General.DiskAvailable=false;General.AdditionalReportedFiles=1;CRenamerDialog missing;missing.LoadSelection();Check(!missing.SelectionValid&&missing.NotRenamedFiles.Count==0,"count mismatch rejects prematurely exhausted selection without partial batch");
+    Reset();panel=Window.GetPanel(PANEL_SOURCE);panel->Add(L"first.png",L"C:\\actual\\first.png",true);panel->Add(L"second.png",L"C:\\actual\\second.png",true);panel->Root="C:\\actual";General.DiskAvailable=false;General.ThrowOnSelectionIndex=1;CRenamerDialog allocationFailure;allocationFailure.LoadSelection();Check(!allocationFailure.SelectionValid&&allocationFailure.NotRenamedFiles.Count==0&&GetLastError()==ERROR_NOT_ENOUGH_MEMORY,"iterator bad_alloc after first captured row rejects and clears the complete batch");
+    Reset();CRenamerDialog empty;empty.LoadSelection();Check(empty.NotRenamedFiles.Count==0,"empty panel intake does not dereference a missing focused item");
+#endif
+}
+
+static void ConstructorAndCapacityTests() {
+#if @@NEW_API@@
+    Reset();auto panel=Window.GetPanel(PANEL_SOURCE);const auto* data=panel->Add(L"same.png",L"C:\\root\\\u6771\u4eac\\same.png",true);
+    const std::string full=Utf8(L"C:\\root\\\u6771\u4eac\\same.png");
+    CSourceFile file(data,full.c_str(),FALSE);CSourceFile copy(&file);
+    Check(copy.FullName!=file.FullName&&std::string(copy.FullName)==full&&std::string(copy.Name)=="same.png"&&std::string(copy.Ext)=="png","copy/undo snapshot owns exact full path and basename offsets");
+    const std::string target=Utf8(L"C:\\root\\\u6771\u4eac\\changed.png");CSourceFile renamed(&copy,target.c_str());
+    Check(std::string(renamed.FullName)==target&&std::string(renamed.Name)=="changed.png","renamed snapshot updates basename within same Unicode parent");
+    char* copyOwned=copy.FullName;char* renamedOwned=renamed.FullName;FailNextSourceAllocation=true;copy.SwapName(renamed);
+    Check(FailNextSourceAllocation&&copy.FullName==renamedOwned&&renamed.FullName==copyOwned&&std::string(copy.Name)=="changed.png"&&std::string(renamed.Name)=="same.png","undo identity swap transfers prepared ownership without another allocation");copy.SwapName(renamed);FailNextSourceAllocation=false;
+    CSourceFile dot(data,"C:\\root\\.hidden",FALSE);CSourceFile dotCopy(&dot);Check(dot.Ext==dot.FullName+dot.NameLen&&dotCopy.Ext==dotCopy.FullName+dotCopy.NameLen,"panel and snapshot constructors retain dotfile extension semantics");
+    FailNextSourceAllocation=true;Check(copy.SetName(target.c_str())==nullptr&&std::string(copy.FullName)==full,"failed undo name allocation preserves previous exact identity");
+    FailNextSourceAllocation=true;CSourceFile* failed=NewSourceFile(data,full.c_str(),FALSE);Check(failed==nullptr&&GetLastError()==ERROR_NOT_ENOUGH_MEMORY,"factory rejects a source with failed owned path allocation");delete failed;
+    CRenamerDialog dialog;dialog.LoadSelection();CRenamer renamer(dialog.Root,dialog.RootLen);char* part=nullptr;
+    std::vector<char> exact(full.substr(0,full.find_last_of('\\')+1).size()+12);int result=Rename(renamer,&file,exact.data(),(int)exact.size(),&part);
+    Check(result==11&&std::string(exact.data())==full.substr(0,full.find_last_of('\\')+1)+"renamed.png","target exactly fits caller capacity including terminator");
+    std::vector<char> guard(exact.size()+1,'!');result=Rename(renamer,&file,guard.data()+1,(int)exact.size()-1,&part);Check(result<0&&guard.front()=='!'&&guard.back()=='!',"one-byte-short target fails without writes past capacity");
+    Check(Rename(renamer,&file,nullptr,10,&part)<0&&Rename(renamer,&file,guard.data(),0,&part)<0,"invalid target arguments are rejected");
+    renamer.Spec=rsRelativePath;std::vector<char> out(2048);result=Rename(renamer,&file,out.data(),(int)out.size(),&part);Check(result==11&&std::string(out.data())==std::string(dialog.Root)+"\\renamed.png","relative-path mode intentionally retains common panel root");
+    renamer.Spec=rsFullPath;result=Rename(renamer,&file,out.data(),(int)out.size(),&part);Check(result==11&&std::string(out.data())=="renamed.png","full-path mode does not prepend an item parent");
+    dialog.RenamerOptions.Spec=rsRelativePath;result=Manual(dialog,&file,out.data(),(int)out.size(),part);Check(result==10&&std::string(out.data())==std::string(dialog.Root)+"\\manual.png","manual relative mode retains common root");
+    dialog.RenamerOptions.Spec=rsFullPath;result=Manual(dialog,&file,out.data(),(int)out.size(),part);Check(result==10&&std::string(out.data())=="manual.png","manual full-path mode does not prepend a parent");
+#endif
+}
+static int Sign(int value){return (value>0)-(value<0);}
+static void ComparisonTests(){
+#if @@NEW_API@@
+    const std::vector<std::wstring> names={L"",L"same",L"same2",L"\u010c",L"\u010d",L"\u03a3",L"\u03c3",L"\u03c2",L"\u0411",L"\u0431",L"\U0001f600",L"\U0001f600a",L"\U00010400",L"\U00010428",L"\ue000",L"\U00010000",L"\ud7ff"};
+    bool same=true;for(const auto& a:names)for(const auto& b:names){int expected=CompareStringOrdinal(a.c_str(),(int)a.size(),b.c_str(),(int)b.size(),TRUE)-CSTR_EQUAL;if(Sign(RenamerPaths::Compare(Utf8(a).c_str(),Utf8(b).c_str()))!=Sign(expected))same=false;}
+    Check(same,"comparison matches full CompareStringOrdinal for Latin/Greek/Cyrillic/emoji/Deseret/UTF16 boundaries and prefixes");
+    const std::vector<std::string> malformed={std::string("\xff",1),std::string("\xc0\xaf",2),std::string("\xed\xa0\x80",3),"valid",""};
+    bool deterministic=true;for(const auto&a:malformed)for(const auto&b:malformed){int first=Sign(RenamerPaths::Compare(a.c_str(),b.c_str()));if(first!=Sign(RenamerPaths::Compare(a.c_str(),b.c_str()))||first!=-Sign(RenamerPaths::Compare(b.c_str(),a.c_str())))deterministic=false;}
+    Check(deterministic,"malformed-byte comparison is repeatable and antisymmetric");
+#endif
+}
+int main(){MainThreadID=GetCurrentThreadId();TestWindow=CreateWindowExW(0,L"STATIC",L"",0,0,0,0,0,HWND_MESSAGE,nullptr,GetModuleHandleW(nullptr),nullptr);SelectionTests();LongPathTests();FallbackAndFailureTests();ConstructorAndCapacityTests();ComparisonTests();printf("Renamer panel paths: %d checks, %d failures; no filesystem mutation or UI.\n",Checks,Failures);return Failures?1:0;}

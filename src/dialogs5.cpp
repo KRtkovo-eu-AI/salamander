@@ -6874,6 +6874,9 @@ void CCfgPagePanels::Transfer(CTransferInfo& ti)
     }
 
     ti.CheckBox(IDC_PANELS_USETABS, Configuration.UsePanelTabs);
+    // Older language modules may not yet contain this optional display control.
+    if (GetDlgItem(HWindow, IDC_BRANCH_RELATIVE_PATHS) != NULL)
+        ti.CheckBox(IDC_BRANCH_RELATIVE_PATHS, Configuration.BranchViewRelativePaths);
     ti.CheckBox(IDC_NOTHIDDENSYSTEM, Configuration.NotHiddenSystemFiles);
     ti.CheckBox(IDC_INCLUDEDIRS, Configuration.IncludeDirs);
     ti.CheckBox(IDC_DISABLEDANDD, Configuration.UseDragDropMinTime);

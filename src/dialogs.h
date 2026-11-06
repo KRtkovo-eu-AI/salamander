@@ -107,6 +107,7 @@ protected:
     BOOL SupportsADS;
     const std::vector<std::string>* TargetPaths;
     BOOL AllowChangeTarget;
+    BOOL* KeepBranchPathsInOut;
     int* TransferModeInOut; // CMS_SEQUENTIAL / CMS_STORAGE_AWARE for this operation
     int* ConflictModeInOut; // CMCM_CURRENT / CMCM_SCAN_AHEAD for this operation
     int* OperationSchedulingOverrideInOut; // COSO_* for this operation; NULL outside Copy/Move
@@ -129,7 +130,7 @@ public:
                         BOOL havePermissions, BOOL supportsADS, int* transferModeInOut,
                         int* conflictModeInOut, int* operationSchedulingOverrideInOut,
                         const std::vector<std::string>* targetPaths = NULL,
-                        BOOL allowChangeTarget = FALSE);
+                        BOOL allowChangeTarget = FALSE, BOOL* keepBranchPathsInOut = NULL);
     ~CCopyMoveMoreDialog();
 
     virtual void Validate(CTransferInfo& ti);
@@ -860,15 +861,17 @@ protected:
 // ****************************************************************************
 
 class CUnpackerConfig;
+struct CPluginData;
 
 class CUnpackDialog : public CCommonDialog
 {
 public:
-    CUnpackDialog(HWND parent, char* path, const char* pathAlt, char* mask,
+    CUnpackDialog(HWND parent, char* path, int pathBufSize, const char* pathAlt, char* mask,
                   CTruncatedString* subject, CUnpackerConfig* config,
-                  BOOL* delArchiveWhenDone);
+                  BOOL* delArchiveWhenDone, BOOL allowDeleteArchive = TRUE);
 
     virtual void Transfer(CTransferInfo& ti);
+    bool IsSelectionCurrent() const;
 
 protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -877,10 +880,26 @@ protected:
 
     char *Mask,
         *Path;
+    int PathBufSize;
     const char* PathAlt;
     CTruncatedString* Subject;
     CUnpackerConfig* UnpackerConfig;
     BOOL* DelArchiveWhenDone;
+    BOOL AllowDeleteArchive;
+    // Own the choices actually displayed; live configuration can change during modal callbacks.
+    struct CUnpackerChoice
+    {
+        int Type = 0;
+        BOOL OldType = FALSE, SupportLongNames = FALSE, NeedANSIListFile = FALSE;
+        std::string Title, Extensions, Command, Arguments, DLLName;
+        CPluginData* Plugin = NULL;
+        BOOL SupportCustomUnpack = FALSE;
+    };
+    std::vector<CUnpackerChoice> UnpackerChoices;
+    int SelectedUnpacker = -1;
+    bool CaptureUnpackerChoices();
+    bool IsUnpackerChoiceCurrent(int index) const;
+
 };
 
 //

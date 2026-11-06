@@ -15,6 +15,7 @@
 #include "shellib.h"
 #include "menu.h"
 #include "common/widepath.h"
+#include "branch_view.h"
 
 CUserMenuIconBkgndReader UserMenuIconBkgndReader;
 
@@ -1601,6 +1602,7 @@ BOOL CPathHistoryItem::Execute(CFilesWindow* panel)
         BOOL clear = TRUE;
         if (Type == 0) // drive
         {
+            const std::shared_ptr<CBranchViewRestoreState> restore = BranchState;
             if (!panel->ChangePathToDisk(panel->HWindow, PathOrArchiveOrFSName, TopIndex, FocusedName, NULL,
                                          TRUE, FALSE, FALSE, &failReason))
             {
@@ -1610,6 +1612,8 @@ BOOL CPathHistoryItem::Execute(CFilesWindow* panel)
                     clear = FALSE; // no jump, no need to clear stored top indices
                 }
             }
+            if (restore != NULL && panel->Is(ptDisk) && ::IsTheSamePath(panel->GetPath(), PathOrArchiveOrFSName))
+                panel->RestoreBranchViewState(*restore);
         }
         else
         {
@@ -1748,15 +1752,12 @@ BOOL CPathHistoryItem::Execute(CFilesWindow* panel)
 
 BOOL CPathHistoryItem::IsTheSamePath(CPathHistoryItem& item, CPluginFSInterfaceEncapsulation* curPluginFS)
 {
-    char buf1[2 * MAX_PATH];
-    char buf2[2 * MAX_PATH];
     if (Type == item.Type)
     {
         if (Type == 0) // drive
         {
-            GetPath(buf1, 2 * MAX_PATH);
-            item.GetPath(buf2, 2 * MAX_PATH);
-            if (StrICmp(buf1, buf2) == 0)
+            if (PathOrArchiveOrFSName != NULL && item.PathOrArchiveOrFSName != NULL &&
+                ::IsTheSamePath(PathOrArchiveOrFSName, item.PathOrArchiveOrFSName))
                 return TRUE;
         }
         else
@@ -2013,7 +2014,8 @@ void CPathHistory::ChangeActualPathData(int type, const char* pathOrArchiveOrFSN
                                         const char* archivePathOrFSUserPart,
                                         CPluginFSInterfaceAbstract* pluginFS,
                                         CPluginFSInterfaceEncapsulation* curPluginFS,
-                                        int topIndex, const char* focusedName)
+                                        int topIndex, const char* focusedName,
+                                        const CBranchViewRestoreState* branchState)
 {
     if (Paths.Count > 0)
     {
@@ -2030,7 +2032,13 @@ void CPathHistory::ChangeActualPathData(int type, const char* pathOrArchiveOrFSN
             n2 = Paths[Paths.Count - 1];
 
         if (n2 != NULL && n.IsTheSamePath(*n2, curPluginFS)) // same paths -> update the data
+        {
             n2->ChangeData(topIndex, focusedName);
+            if (branchState != NULL && branchState->Enabled)
+                n2->BranchState = std::make_shared<CBranchViewRestoreState>(*branchState);
+            else
+                n2->BranchState.reset();
+        }
     }
 }
 
@@ -2078,6 +2086,15 @@ void CPathHistory::AppendFrom(const CPathHistory& source)
 
         AddPathUnique(item->Type, item->PathOrArchiveOrFSName, item->ArchivePathOrFSUserPart, hIcon,
                       item->PluginFS, NULL);
+        if (Paths.Count != 0)
+        {
+            CPathHistoryItem* copy = Paths[Paths.Count - 1];
+            if (copy->IsTheSamePath(*item, NULL))
+            {
+                copy->ChangeData(item->TopIndex, item->FocusedName);
+                copy->BranchState = item->BranchState;
+            }
+        }
     }
 }
 
@@ -2260,6 +2277,19 @@ void CPathHistory::SaveToRegistry(HKEY hKey, const char* name, BOOL onlyClear, B
                 }
                 itoa(index + 1, buf, 10);
                 SetValue(historyKey, buf, REG_SZ, path.c_str(), (DWORD)path.size() + 1);
+                if (saveNavigationState && item->Type == 0 && item->BranchState != NULL && item->BranchState->Enabled)
+                {
+                    char stateKey[64];
+                    DWORD enabled = 1;
+                    sprintf_s(stateKey, "Branch View %d", index + 1);
+                    SetValue(historyKey, stateKey, REG_DWORD, &enabled, sizeof(enabled));
+                    sprintf_s(stateKey, "Branch Path Width %d", index + 1);
+                    DWORD width = item->BranchState->PathColumnWidth;
+                    SetValue(historyKey, stateKey, REG_DWORD, &width, sizeof(width));
+                    sprintf_s(stateKey, "Branch Focus %d", index + 1);
+                    const std::wstring& focus = item->BranchState->Focus;
+                    SetValue(historyKey, stateKey, REG_BINARY, focus.c_str(), (DWORD)((focus.size() + 1) * sizeof(wchar_t)));
+                }
                 index++;
             }
             if (saveNavigationState)
@@ -2278,7 +2308,8 @@ void CPathHistory::LoadFromRegistry(HKEY hKey, const char* name, BOOL loadNaviga
     HKEY historyKey;
     if (OpenKey(hKey, name, historyKey))
     {
-        char path[2 * MAX_PATH];
+        std::vector<char> pathStorage(SAL_MAX_PATH);
+        char* path = pathStorage.data();
         char fsName[MAX_PATH];
         const char* pathOrArchiveOrFSName = path;
         const char* archivePathOrFSUserPart = NULL;
@@ -2288,7 +2319,7 @@ void CPathHistory::LoadFromRegistry(HKEY hKey, const char* name, BOOL loadNaviga
         for (i = 0;; i++)
         {
             itoa(i + 1, buf, 10);
-            if (GetValue(historyKey, buf, REG_SZ, path, 2 * MAX_PATH))
+            if (GetValue(historyKey, buf, REG_SZ, path, (DWORD)pathStorage.size()))
             {
                 if (strlen(path) >= 2)
                 {
@@ -2324,7 +2355,32 @@ void CPathHistory::LoadFromRegistry(HKEY hKey, const char* name, BOOL loadNaviga
                         }
                     }
                     if (type != -1)
+                    {
                         AddPath(type, pathOrArchiveOrFSName, archivePathOrFSUserPart, NULL, NULL);
+                        if (type == 0 && loadNavigationState && Paths.Count != 0)
+                        {
+                            char stateKey[64];
+                            DWORD enabled = 0;
+                            sprintf_s(stateKey, "Branch View %d", i + 1);
+                            if (GetValue(historyKey, stateKey, REG_DWORD, &enabled, sizeof(enabled)) && enabled != 0)
+                            {
+                                auto state = std::make_shared<CBranchViewRestoreState>();
+                                state->Enabled = true;
+                                DWORD width = 280;
+                                sprintf_s(stateKey, "Branch Path Width %d", i + 1);
+                                if (GetValue(historyKey, stateKey, REG_DWORD, &width, sizeof(width)) && width >= 40 && width <= 10000)
+                                    state->PathColumnWidth = (int)width;
+                                std::vector<wchar_t> focus(SAL_MAX_PATH, 0);
+                                sprintf_s(stateKey, "Branch Focus %d", i + 1);
+                                if (GetValue(historyKey, stateKey, REG_BINARY, focus.data(), (DWORD)(focus.size() * sizeof(wchar_t))))
+                                {
+                                    focus.back() = 0;
+                                    state->Focus = focus.data();
+                                }
+                                Paths[Paths.Count - 1]->BranchState = state;
+                            }
+                        }
+                    }
                     else
                         TRACE_E("CPathHistory::LoadFromRegistry() invalid path: " << path);
                 }

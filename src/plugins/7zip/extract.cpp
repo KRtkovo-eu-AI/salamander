@@ -22,6 +22,55 @@
 using namespace NWindows;
 using namespace NFile;
 
+// Adapted from the qualified ZIP output guard; no I/O for rejected paths.
+static DWORD SevenZipExtractTargetError(const char* targetDir, const char* entry)
+{
+    if (targetDir == NULL || entry == NULL) return ERROR_INVALID_NAME;
+    const size_t targetLength = strlen(targetDir), entryLength = strlen(entry);
+    if (targetLength >= SAL_MAX_PATH || entryLength >= SAL_MAX_PATH)
+        return ERROR_FILENAME_EXCED_RANGE;
+    try
+    {
+        const std::string relative(entry);
+        if (relative.size() >= SAL_MAX_PATH - targetLength - 1)
+            return ERROR_FILENAME_EXCED_RANGE; // reserve separator and NUL, for both legacy callers
+        if (relative.empty()) return ERROR_INVALID_NAME;
+        size_t start = 0;
+        while (start < relative.size())
+        {
+            const size_t slash = relative.find('\\', start);
+            const std::string component = relative.substr(start, slash == std::string::npos ? slash : slash - start);
+            if (component.empty() || component == "." || component == ".." ||
+                component.back() == '.' || component.back() == ' ' ||
+                component.find_first_of("<>:\"/|?*") != std::string::npos)
+                return ERROR_INVALID_NAME;
+            for (const unsigned char character : component)
+                if (character < 32) return ERROR_INVALID_NAME;
+            std::wstring device = std::wstring(GetSalamanderUnicodeString(component.c_str()).Ptr());
+            device.resize(device.find('.') == std::wstring::npos ? device.size() : device.find('.'));
+            while (!device.empty() && device.back() == L' ') device.pop_back();
+            if (_wcsicmp(device.c_str(), L"CON") == 0 || _wcsicmp(device.c_str(), L"PRN") == 0 ||
+                _wcsicmp(device.c_str(), L"AUX") == 0 || _wcsicmp(device.c_str(), L"NUL") == 0 ||
+                _wcsicmp(device.c_str(), L"CONIN$") == 0 || _wcsicmp(device.c_str(), L"CONOUT$") == 0 ||
+                device.size() == 4 && (_wcsnicmp(device.c_str(), L"COM", 3) == 0 || _wcsnicmp(device.c_str(), L"LPT", 3) == 0) &&
+                (device[3] >= L'1' && device[3] <= L'9' || device[3] == L'\u00b9' || device[3] == L'\u00b2' || device[3] == L'\u00b3'))
+                return ERROR_INVALID_NAME;
+            if (slash == std::string::npos) break;
+            start = slash + 1;
+            if (start == relative.size()) return ERROR_INVALID_NAME;
+        }
+        const std::string destination = std::string(targetDir) + "\\" + relative;
+        const std::wstring wide = std::wstring(GetSalamanderUnicodeString(destination.c_str()).Ptr());
+        if (wide.empty() || !(wide.size() > 2 && wide[1] == L':' && wide[2] == L'\\' ||
+                              wide.compare(0, 2, L"\\\\") == 0)) return ERROR_INVALID_NAME;
+        return wide.size() >= 32767 ? ERROR_FILENAME_EXCED_RANGE : ERROR_SUCCESS;
+    }
+    catch (const std::bad_alloc&)
+    {
+        return ERROR_NOT_ENOUGH_MEMORY;
+    }
+}
+
 CExtractCallbackImp::CExtractCallbackImp(HWND _hProgWnd, UString& password,
                                          ItemsToExtractMap& itemsToExtract) : Password(password), ItemsToExtract(itemsToExtract)
 {
@@ -31,7 +80,13 @@ CExtractCallbackImp::CExtractCallbackImp(HWND _hProgWnd, UString& password,
 
     OutFileStreamSpec = NULL;
     TargetDir = NULL;
+    WholeFile = TRUE;
+    OutputCreated = FALSE;
     hProgWnd = _hProgWnd;
+    NumErrors = 0;
+    ExpectedItems = CompletedItems = 0;
+    PendingItem = false;
+    ExtractionIncomplete = true;
 }
 
 CExtractCallbackImp::~CExtractCallbackImp()
@@ -45,6 +100,10 @@ BOOL CExtractCallbackImp::Init(IInArchive* archive, const char* outDir,
                                const FILETIME& utcLastWriteTimeDefault, DWORD attributesDefault, BOOL silentDelete /* = FALSE*/)
 {
     NumErrors = 0;
+    ExpectedItems = ItemsToExtract.size();
+    CompletedItems = 0;
+    PendingItem = false;
+    ExtractionIncomplete = false;
 
     UTCLastWriteTimeDefault = utcLastWriteTimeDefault;
     AttributesDefault = attributesDefault;
@@ -56,6 +115,8 @@ BOOL CExtractCallbackImp::Init(IInArchive* archive, const char* outDir,
     PasswordIsDefined = !Password.IsEmpty();
 
     TargetFileName[0] = '\0';
+    WholeFile = TRUE;
+    OutputCreated = FALSE;
 
     // initialize variables for interacting with the user
     SilentDelete = silentDelete;
@@ -86,6 +147,8 @@ BOOL CExtractCallbackImp::InitTest()
 {
     NumErrors = 0;
     TargetFileName[0] = '\0';
+    WholeFile = TRUE;
+    OutputCreated = FALSE;
 
     OverwriteCancel = FALSE;
     PasswordIsDefined = !Password.IsEmpty();
@@ -95,14 +158,15 @@ BOOL CExtractCallbackImp::InitTest()
 
 void CExtractCallbackImp::Cleanup()
 {
-    if (!WholeFile && OutFileStreamSpec != NULL)
+    if (!WholeFile && OutputCreated && !ProcessedFileInfo.IsDirectory)
     {
         //    TRACE_I("Cleanup File: " << GetAnsiString(ProcessedFileInfo.FileName));
 
         OutFileStream.Release();
 
         BOOL silent = FALSE;
-        SafeDeleteFile(GetAnsiString(ProcessedFileInfo.FileName), silent);
+        SafeDeleteFileW(ProcessedFileInfo.FileName.Ptr(), TargetFileName, silent);
+        OutputCreated = FALSE;
     }
 }
 
@@ -150,18 +214,28 @@ STDMETHODIMP CExtractCallbackImp::GetStream(UINT32 index, ISequentialOutStream**
 
         *outStream = NULL;
         OutFileStream.Release();
+        OutFileStreamSpec = NULL;
+        OutputCreated = FALSE;
+        if (PendingItem) ExtractionIncomplete = true; // a requested result never arrived
+        PendingItem = false;
+        ExtractMode = false;
+        OverwriteSkip = FALSE;
 
         // if we are extracting a file
         if (askExtractMode == NArchive::NExtract::NAskMode::kExtract)
         {
 
-            const CArchiveItemInfo* aii = ItemsToExtract[index];
+            const auto requested = ItemsToExtract.find(index);
+            const CArchiveItemInfo* aii = requested == ItemsToExtract.end() ? NULL : requested->second;
             if (!aii)
             {
+                // Do not insert an unrequested/duplicate index into the pending map.
+                ExtractionIncomplete = true;
                 // Already extracted??? Not to be extracted?
                 throw S_OK;
             }
-            ItemsToExtract.erase(index);
+            PendingItem = true;
+            ItemsToExtract.erase(requested);
             const CFileData* fd = aii->FileData;
             // fd is certainly not NULL
 
@@ -183,10 +257,17 @@ STDMETHODIMP CExtractCallbackImp::GetStream(UINT32 index, ISequentialOutStream**
 
             // TODO: check for free space
 
-            _tcscpy(TargetFileName, TargetDir);
+            const DWORD targetError = SevenZipExtractTargetError(TargetDir, aii->NameInArchive);
+            if (targetError != ERROR_SUCCESS)
+            {
+                NumErrors++;
+                SysError(IDS_ERROR, targetError);
+                throw S_OK;
+            }
+            _tcscpy(TargetFileName, TargetDir); // guard above validates capacity before the first copy
             if (SalamanderGeneral->SalPathAppend(TargetFileName, aii->NameInArchive, SAL_MAX_PATH))
             {
-                ProcessedFileInfo.FileName = GetUnicodeString(TargetFileName);
+                ProcessedFileInfo.FileName = GetSalamanderUnicodeString(TargetFileName);
 
                 // Show file name in the progress dialog
                 SendMessage(hProgWnd, WM_7ZIP, WM_7ZIP_ADDTEXT, (LPARAM)GetName());
@@ -194,7 +275,12 @@ STDMETHODIMP CExtractCallbackImp::GetStream(UINT32 index, ISequentialOutStream**
                 if (ProcessedFileInfo.IsDirectory)
                 {
                     // create the directory if it does not already exist
-                    SalamanderGeneral->CheckAndCreateDirectory(TargetFileName);
+                    if (!SalamanderGeneral->CheckAndCreateDirectory(TargetFileName))
+                    {
+                        NumErrors++;
+                        throw E_ABORT;
+                    }
+                    OutputCreated = TRUE;
                     throw S_OK;
                 }
                 else
@@ -219,26 +305,37 @@ STDMETHODIMP CExtractCallbackImp::GetStream(UINT32 index, ISequentialOutStream**
 
                     *outStream = NULL;
                     if (OverwriteSkip)
+                    {
+                        ExtractionIncomplete = true;
                         throw S_OK;
+                    }
                     // the overall operation cannot continue (cancel)
                     if (OverwriteCancel)
                         throw E_ABORT;
+
+                    OutputCreated = TRUE; // SafeFileCreate succeeded and neither Skip nor Cancel was chosen
+                    WholeFile = FALSE;
 
                     // open the stream for extraction
                     // at this point there is an empty file with FILE_ATTRIBUTES_NORMAL
                     // it is the result of the overwrite test - see above
 
                     // if the path we are extracting to does not exist -> create it
-                    LPTSTR lastComp = _tcsrchr(TargetFileName, '\\');
-                    if (lastComp != NULL)
+                    std::string parentPath(TargetFileName);
+                    const size_t lastComp = parentPath.find_last_of('\\');
+                    if (lastComp != std::string::npos)
                     {
-                        *lastComp = '\0';
-                        SalamanderGeneral->CheckAndCreateDirectory(TargetFileName);
-                    } // if
+                        parentPath.resize(lastComp);
+                        if (!SalamanderGeneral->CheckAndCreateDirectory(parentPath.c_str()))
+                        {
+                            NumErrors++;
+                            throw E_ABORT;
+                        }
+                    } // keep the full byte path intact for host UI and cleanup display
 
                     OutFileStreamSpec = new CRetryableOutFileStream(hProgWnd);
                     CMyComPtr<ISequentialOutStream> outStreamLoc(OutFileStreamSpec);
-                    if (!OutFileStreamSpec->Open(us2fs(GetUnicodeString(GetAnsiString(ProcessedFileInfo.FileName))), OPEN_ALWAYS))
+                    if (!OutFileStreamSpec->Open(us2fs(GetSalamanderLongPath(ProcessedFileInfo.FileName)), OPEN_ALWAYS))
                     {
                         SysError(IDS_ERROR, ::GetLastError());
                         NumErrors++;
@@ -252,6 +349,7 @@ STDMETHODIMP CExtractCallbackImp::GetStream(UINT32 index, ISequentialOutStream**
             {
                 *outStream = NULL;
 
+                NumErrors++;
                 char errText[1000];
                 _snprintf_s(errText, _TRUNCATE, LoadStr(IDS_NAMEISTOOLONG), (const char*)(aii->NameInArchive), TargetFileName);
                 SalamanderGeneral->ShowMessageBox(errText, LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
@@ -265,6 +363,11 @@ STDMETHODIMP CExtractCallbackImp::GetStream(UINT32 index, ISequentialOutStream**
     catch (HRESULT e)
     {
         ret = e;
+    }
+    catch (const std::bad_alloc&)
+    {
+        NumErrors++;
+        ret = E_OUTOFMEMORY;
     }
 
     LeaveCriticalSection(&CSExtract);
@@ -306,6 +409,7 @@ STDMETHODIMP CExtractCallbackImp::PrepareOperation(INT32 askExtractMode)
 // FALSE if canceled
 BOOL CExtractCallbackImp::OnDataError()
 {
+    if (!OutputCreated || ProcessedFileInfo.IsDirectory) return TRUE;
     EOperationMode mode = DataErrorMode;
 
     if (DataErrorMode == Ask)
@@ -372,21 +476,24 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
     switch (mode)
     {
     case Cancel:
-        SafeDeleteFile(GetAnsiString(ProcessedFileInfo.FileName), DataErrorDeleteSilent);
+        SafeDeleteFileW(ProcessedFileInfo.FileName.Ptr(), TargetFileName, DataErrorDeleteSilent);
+        OutputCreated = FALSE;
         return FALSE;
 
     case Delete:
         // if cancel, bail out
-        if (!SafeDeleteFile(GetAnsiString(ProcessedFileInfo.FileName), DataErrorDeleteSilent))
+        if (!SafeDeleteFileW(ProcessedFileInfo.FileName.Ptr(), TargetFileName, DataErrorDeleteSilent))
             return FALSE;
         break;
 
     case Keep:
         // keep the file, so set its attributes
-        if (ExtractMode && ProcessedFileInfo.AttributesAreDefined)
-            SetFileAttributes(GetAnsiString(ProcessedFileInfo.FileName), ProcessedFileInfo.Attributes);
+        if (ExtractMode && OutputCreated && ProcessedFileInfo.AttributesAreDefined)
+            SetFileAttributesW(GetSalamanderLongPath(ProcessedFileInfo.FileName).Ptr(), ProcessedFileInfo.Attributes);
         break;
     }
+
+    OutputCreated = FALSE;
 
     // we will not ask again, so set the mode to the chosen operation
     if (DataErrorSilent)
@@ -419,6 +526,16 @@ STDMETHODIMP CExtractCallbackImp::SetOperationResult(INT32 resultEOperationResul
     //  TRACE_I("CExtractCallbackImp::SetOperationResult: result = " << resultEOperationResult);
 
     WholeFile = TRUE;
+
+    if (PendingItem)
+    {
+        if (resultEOperationResult == NArchive::NExtract::NOperationResult::kOK &&
+            ExtractMode && OutputCreated)
+            ++CompletedItems;
+        else
+            ExtractionIncomplete = true;
+        PendingItem = false;
+    }
 
     switch (resultEOperationResult)
     {
@@ -474,8 +591,8 @@ STDMETHODIMP CExtractCallbackImp::SetOperationResult(INT32 resultEOperationResul
         OutFileStreamSpec->SetMTime(&ProcessedFileInfo.LastWrite);
     OutFileStream.Release();
 
-    if (ExtractMode && ProcessedFileInfo.AttributesAreDefined)
-        SetFileAttributes(GetAnsiString(ProcessedFileInfo.FileName), ProcessedFileInfo.Attributes);
+    if (ExtractMode && OutputCreated && ProcessedFileInfo.AttributesAreDefined)
+        SetFileAttributesW(GetSalamanderLongPath(ProcessedFileInfo.FileName).Ptr(), ProcessedFileInfo.Attributes);
 
     if (TargetDir && !ItemsToExtract.size())
     {

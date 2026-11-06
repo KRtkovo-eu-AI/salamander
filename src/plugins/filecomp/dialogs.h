@@ -21,7 +21,6 @@ protected:
         *Path2;
     BOOL& Succes;
     CCompareOptions* Options;
-    WNDPROC OldEditProc1, OldEditProc2;
 
 public:
     CCompareFilesDialog(HWND parent, char* path1, char* path2, BOOL& succes, CCompareOptions* options);
@@ -32,7 +31,8 @@ public:
 protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-    static LRESULT CALLBACK DragDropEditProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+    static LRESULT CALLBACK DragDropEditProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
+                                            UINT_PTR subclassID, DWORD_PTR data);
 };
 
 // ****************************************************************************

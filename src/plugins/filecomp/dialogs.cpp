@@ -172,12 +172,13 @@ OFNHookProc(HWND hdlg, UINT uiMsg, WPARAM wParam, LPARAM lParam)
 }
 */
 
-LRESULT CCompareFilesDialog::DragDropEditProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK CCompareFilesDialog::DragDropEditProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
+                                                       UINT_PTR subclassID, DWORD_PTR)
 {
-    CCompareFilesDialog* pParent = (CCompareFilesDialog*)WindowsManager.GetWindowPtr(GetParent(hWnd));
-
-    if (!pParent)
-        return NULL; // What's wrong?
+    // The dialog object is detached at WM_DESTROY, before its children receive
+    // WM_NCDESTROY. Keep forwarding the subclass chain independently of it.
+    if (uMsg == WM_NCDESTROY)
+        RemoveWindowSubclass(hWnd, DragDropEditProc, subclassID);
 
     if (WM_DROPFILES == uMsg)
     {
@@ -194,7 +195,7 @@ LRESULT CCompareFilesDialog::DragDropEditProc(HWND hWnd, UINT uMsg, WPARAM wPara
         return 0;
     }
 
-    return CallWindowProc(hWnd == GetDlgItem(pParent->HWindow, IDE_PATH1) ? pParent->OldEditProc1 : pParent->OldEditProc2, hWnd, uMsg, wParam, lParam);
+    return DefSubclassProc(hWnd, uMsg, wParam, lParam);
 }
 
 INT_PTR
@@ -221,11 +222,8 @@ CCompareFilesDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         SG->InstallWordBreakProc(hWnd1); // install WordBreakProc into the combo box
         SG->InstallWordBreakProc(hWnd2); // install WordBreakProc into the combo box
 
-        // I believe OldEditProc1 and OldEditProc2 are equal. But I am rather paranoic...
-        OldEditProc1 = (WNDPROC)GetWindowLongPtr(hWnd1, GWLP_WNDPROC);
-        OldEditProc2 = (WNDPROC)GetWindowLongPtr(hWnd2, GWLP_WNDPROC);
-        SetWindowLongPtr(hWnd1, GWLP_WNDPROC, (LONG_PTR)DragDropEditProc);
-        SetWindowLongPtr(hWnd2, GWLP_WNDPROC, (LONG_PTR)DragDropEditProc);
+        SetWindowSubclass(hWnd1, DragDropEditProc, 0, 0);
+        SetWindowSubclass(hWnd2, DragDropEditProc, 0, 0);
         DragAcceptFiles(hWnd1, TRUE);
         DragAcceptFiles(hWnd2, TRUE);
 

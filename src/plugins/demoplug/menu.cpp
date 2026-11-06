@@ -752,6 +752,41 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
 
     case MENUCMD_DOPFILES:
     {
+        // The owned service is disk-only. Preserve the existing archive example
+        // with its borrowed virtual rows for our plugin archives and old hosts.
+        // SDK 105 introduced QueryService; never call that slot on SDK 103/104.
+        if (SalamanderVersion >= 105 && (eventMask & MENU_EVENT_DISK) != 0)
+        {
+            // Capture an owned selection from an ordinary local/UNC disk panel.
+            // Capture on the UI thread before starting progress/modeless work.
+            // The owned snapshot remains valid when the panel is refreshed.
+            CSalamanderDiskSelection selection;
+            if (!selection.Capture(SalamanderGeneral, PANEL_SOURCE)) return FALSE;
+            try
+            {
+                std::vector<std::string> paths;
+                for (int i = 0; i < selection.GetCount(); ++i)
+                    paths.push_back(SalamanderDiskSelection::Utf8FromWide(selection.GetItem(i)->FullPathW));
+                salamander->OpenProgressDialog("Command \"*.D&OP File(s)\"", FALSE, NULL, FALSE);
+                salamander->ProgressSetTotalSize(CQuadWord(static_cast<DWORD>(paths.size()), 0), CQuadWord(-1, -1));
+                BOOL ret = TRUE;
+                for (const auto& path : paths)
+                {
+                    // Actual I/O should use item->FullPathW with a wide file API.
+                    salamander->ProgressDialogAddText(path.c_str(), FALSE);
+                    Sleep(500); // simulate some work
+                    if (!salamander->ProgressAddSize(1, FALSE)) { ret = FALSE; break; }
+                }
+                salamander->CloseProgressDialog();
+                SalamanderGeneral->SetUserWorkedOnPanelPath(PANEL_SOURCE);
+                return ret;
+            }
+            catch (const std::bad_alloc&)
+            {
+                SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+                return FALSE;
+            }
+        }
         // determine whether we work on the selection or the focused item
         BOOL focus = FALSE;
         if ((eventMask & MENU_EVENT_FILES_SELECTED) == 0)

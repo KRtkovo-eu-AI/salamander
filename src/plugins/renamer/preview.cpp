@@ -45,9 +45,9 @@ bool GetEditLineUtf8(HWND edit, int lineIndex, char* buffer, int bufferSize)
         if (charIndex < 0)
             return false;
         int lineLen = (int)SendMessage(edit, EM_LINELENGTH, charIndex, 0);
-        if (lineLen >= bufferSize)
+        if (bufferSize < (int)sizeof(WORD) || lineLen >= bufferSize || lineLen > USHRT_MAX)
             return false;
-        *LPWORD(buffer) = (WORD)bufferSize;
+        *LPWORD(buffer) = (WORD)min(bufferSize - 1, USHRT_MAX);
         int copied = (int)SendMessage(edit, EM_GETLINE, lineIndex, (LPARAM)buffer);
         buffer[copied] = 0;
         return true;
@@ -259,6 +259,9 @@ char* CPreviewWindow::GetItemText(int index, int subItem)
 {
     CALL_STACK_MESSAGE3("CPreviewWindow::GetItemText(%d, %d)", index, subItem);
     CSourceFile* item = SourceFiles[index];
+    if (!NewNameStorage.Reserve(RenamerPaths::Capacity))
+        return LoadStr(IDS_LOWMEM);
+    char* NewNameCache = NewNameStorage.Get();
     static char emptyBuffer[] = "";
     char* ret = emptyBuffer;
     switch (subItem)
@@ -288,7 +291,7 @@ char* CPreviewWindow::GetItemText(int index, int subItem)
                 // int pos = SendDlgItemMessage(RenamerDialog->HWindow, IDE_MANUAL, EM_LINEINDEX, index, 0);
                 // if (pos < 0)
                 // {
-                //   SalPrintf(NewNameCache, 3 * MAX_PATH, LoadStr(IDS_GENERICERR), LoadStr(IDS_MISLINES));
+                //   SalPrintf(NewNameCache, RenamerPaths::Capacity, LoadStr(IDS_GENERICERR), LoadStr(IDS_MISLINES));
                 // }
                 // else
                 // {
@@ -296,12 +299,12 @@ char* CPreviewWindow::GetItemText(int index, int subItem)
 
                 //   if (l >= MAX_PATH)
                 //   {
-                //     SalPrintf(NewNameCache, 3 * MAX_PATH, LoadStr(IDS_GENERICERR), LoadStr(IDS_EXP_SMALLBUFFER));
+                //     SalPrintf(NewNameCache, RenamerPaths::Capacity, LoadStr(IDS_GENERICERR), LoadStr(IDS_EXP_SMALLBUFFER));
                 //   }
                 //   else
                 //   {
-                if (!GetEditLineUtf8(RenamerDialog->ManualEdit->HWindow, index, NewNameCache, 3 * MAX_PATH))
-                    SalPrintf(NewNameCache, 3 * MAX_PATH, LoadStr(IDS_GENERICERR), LoadStr(IDS_EXP_SMALLBUFFER));
+                if (!GetEditLineUtf8(RenamerDialog->ManualEdit->HWindow, index, NewNameCache, RenamerPaths::Capacity))
+                    SalPrintf(NewNameCache, RenamerPaths::Capacity, LoadStr(IDS_GENERICERR), LoadStr(IDS_EXP_SMALLBUFFER));
                 else
                     NewNameValid = ValidateFileName(NewNameCache, (int)strlen(NewNameCache), RenamerOptions.Spec, NULL, NULL);
                 //  }
@@ -315,10 +318,10 @@ char* CPreviewWindow::GetItemText(int index, int subItem)
                 {
                     if (Renamer.IsGood())
                     {
-                        int l = Renamer.Rename(item, index, NewNameCache, FALSE);
+                        int l = Renamer.Rename(item, index, NewNameCache, RenamerPaths::Capacity, NULL);
                         if (l < 0)
                         {
-                            SalPrintf(NewNameCache, 3 * MAX_PATH, LoadStr(IDS_GENERICERR), LoadStr(IDS_EXP_SMALLBUFFER));
+                            SalPrintf(NewNameCache, RenamerPaths::Capacity, LoadStr(IDS_GENERICERR), LoadStr(IDS_EXP_SMALLBUFFER));
                         }
                         else
                         {
@@ -349,7 +352,7 @@ char* CPreviewWindow::GetItemText(int index, int subItem)
                             et = IDS_GENERICERR;
                             break;
                         }
-                        SalPrintf(NewNameCache, 3 * MAX_PATH, LoadStr(et), LoadStr(error));
+                        SalPrintf(NewNameCache, RenamerPaths::Capacity, LoadStr(et), LoadStr(error));
                     }
                 }
             }
@@ -363,13 +366,18 @@ char* CPreviewWindow::GetItemText(int index, int subItem)
         {
         case rsFileName:
         {
-            lstrcpyn(TextBuffer, item->FullName, _countof(TextBuffer));
-            if (item->NameLen < _countof(TextBuffer) ||
-                strchr(item->FullName + _countof(TextBuffer) - 1, '\\') == NULL)
+            try
             {
-                SG->CutDirectory(TextBuffer);
+                PathText.assign(item->FullName, item->Name - item->FullName);
+                // Keep the root backslash (C:\), but omit the separator on other parents.
+                if (PathText.size() > 3 && PathText.back() == '\\')
+                    PathText.pop_back();
+                ret = const_cast<char*>(PathText.c_str());
             }
-            ret = TextBuffer;
+            catch (const std::bad_alloc&)
+            {
+                ret = LoadStr(IDS_LOWMEM);
+            }
             break;
         }
         case rsRelativePath:
@@ -542,11 +550,11 @@ int CPreviewWindow::CompareFunc(CSourceFile* f1, CSourceFile* f2, int sortBy)
                 {
                 case rsFileName:
                 {
-                    res = SG->RegSetStrICmpEx(f1->FullName, (int)(f1->FullName - f1->Name),
-                                              f2->FullName, (int)(f2->FullName - f2->Name), NULL);
+                    res = SG->RegSetStrICmpEx(f1->FullName, (int)(f1->Name - f1->FullName),
+                                              f2->FullName, (int)(f2->Name - f2->FullName), NULL);
                     if (!res)
-                        res = SG->RegSetStrCmpEx(f1->FullName, (int)(f1->FullName - f1->Name),
-                                                 f2->FullName, (int)(f2->FullName - f2->Name), NULL);
+                        res = SG->RegSetStrCmpEx(f1->FullName, (int)(f1->Name - f1->FullName),
+                                                 f2->FullName, (int)(f2->Name - f2->FullName), NULL);
                     break;
                 }
                 case rsRelativePath:

@@ -1,0 +1,136 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual context, dispatcher, loader wrapper and wide overwrite. Registry/plugin I/O are explicit doubles.
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <functional>
+#include <algorithm>
+#include <filesystem>
+#include <cstdio>
+#include <cstring>
+#include <climits>
+#define SAL_MAX_PATH 32768
+#define SAL_MAX_EXTENDED_PATH 32768
+#define PATH_TYPE_WINDOWS 1
+#define CUSTOMPACKER_EXTERNAL 0
+#define CALL_STACK_MESSAGE4(...)
+#define CALL_STACK_MESSAGE7(...)
+#define TRACE_E(...)
+#define LOW_MEMORY "low memory"
+enum CPanelSide{cpsLeft,cpsRight};enum{ptDisk,ptZIPArchive,ptPluginFS};
+struct CFilesArray{};
+struct CFilesWindow{
+ int Kind=ptDisk;ULONGLONG Tab=1,Generation=7,Epoch=4;BOOL Branch=FALSE,Scanning=FALSE;
+ std::wstring Root=L"C:\\source";CFilesArray F,D,Other;CFilesArray* Files=&F;CFilesArray* Dirs=&D;
+ mutable int Reads=0;BOOL Is(int k)const{++Reads;return Kind==k;}BOOL IsBranchView()const{++Reads;return Branch;}
+ BOOL IsBranchViewScanning()const{++Reads;return Scanning;}ULONGLONG GetPanelTabId()const{++Reads;return Tab;}
+ ULONGLONG GetBranchViewGeneration()const{++Reads;return Generation;}ULONGLONG GetListingIdentityGeneration()const{++Reads;return Epoch;}
+ const wchar_t* GetPathW()const{++Reads;return Root.c_str();}
+};
+struct CMainWindow{
+ HWND HWindow=nullptr;CFilesWindow *LeftPanel=nullptr,*RightPanel=nullptr;std::vector<CFilesWindow*> Left,Right,Detached;
+ int GetPanelTabCount(CPanelSide side)const{return int((side==cpsLeft?Left:Right).size());}
+ CFilesWindow* GetPanelTabAt(CPanelSide side,int i)const{return (side==cpsLeft?Left:Right).at(i);}
+ int GetDetachedTabCount()const{return int(Detached.size());}CFilesWindow* GetDetachedTabAt(int i)const{return Detached.at(i);}
+};
+@@WIDE@@
+@@ACTION@@
+@@DISK_TARGET@@
+static int Checks=0,Failures=0,OperationContexts=0,PluginCalls=0,ExternalCalls=0;
+static void Check(bool ok,const char* label){++Checks;if(!ok){++Failures;printf("FAIL %s\n",label);}}
+static CMainWindow* MainWindow=nullptr;using SalEnumSelection2=void*;
+static std::string ExpectedArchive,ExpectedSource;
+static BOOL ExpectedMove=FALSE;
+struct CSalamanderForOperations{explicit CSalamanderForOperations(CFilesWindow*){++OperationContexts;}};
+struct ArchiverFacade{
+ BOOL PackToArchive(CSalamanderForOperations*,const char* archive,const char* root,BOOL move,const char* source,SalEnumSelection2 next,void* param){
+  ++PluginCalls;Check(move==ExpectedMove,"copy/move choice reaches the selected backend unchanged");Check(ExpectedArchive==archive&&ExpectedSource==source&&strcmp(root,"")==0&&next==param,"exact owned archive/root/source/callback reach qualified plugin");return TRUE;
+ }
+};
+struct CPluginData{
+ BOOL SupportCustomPack=TRUE,LoadOK=TRUE;const char* DLLName="zip\\zip.spl";int InitCalls=0;std::function<void()> DuringInit;ArchiverFacade PluginIfaceForArchiver;
+ BOOL InitDLL(HWND){++InitCalls;if(DuringInit)DuringInit();return LoadOK;}
+ @@PLUGIN_DECL@@
+};
+static struct Registry{CPluginData *Items[2]={};CPluginData* Get(int i){return i>=0&&i<2?Items[i]:nullptr;}}Plugins;
+struct CPackerConfigData{int Type=-1;BOOL SupportMove=TRUE,SupportLongNames=TRUE,NeedANSIListFile=FALSE;const char *CmdExecCopy="copy",*CmdArgsCopy="args",*CmdExecMove="move",*CmdArgsMove="args";};
+struct CPackerConfig{
+ int PreferedPacker=0;struct Rows{CPackerConfigData Row;int Count=1;CPackerConfigData* operator[](int){return &Row;}}Packers;
+ @@GETTERS@@
+ @@DISPATCH_DECL@@
+};
+static CPackerConfig PackerConfig;
+static BOOL PackUniversalCompress(HWND,const char*,void*,const char*,BOOL,BOOL,const char*,const char*,void*,SalEnumSelection2,void*,BOOL){++ExternalCalls;return TRUE;}
+@@PACK_CONTEXT@@
+@@WRAPPER@@
+@@DISPATCH@@
+@@REMOVE_ARCHIVE@@
+static BOOL Validate(void* p){return static_cast<CFilesActionPackContext*>(p)->IsCurrent(MainWindow);}
+static void Pipeline(const std::wstring& path,bool seven,int mutation,bool beforeDispatch,BOOL move){
+ CFilesWindow source,target,other;source.Root=path;target.Root=path+L"\\output";source.Tab=1;target.Tab=2;other.Tab=3;target.Branch=TRUE;
+ CMainWindow main;MainWindow=&main;main.Left={&source};main.Right={&target};main.LeftPanel=&source;main.RightPanel=&target;
+ CPluginData plugin,replacement;plugin.DLLName=seven?"7zip\\7zip.spl":"zip\\zip.spl";Plugins.Items[0]=&plugin;Plugins.Items[1]=&replacement;PackerConfig=CPackerConfig{};
+ CFilesActionPackContext context;Check(context.Capture(&main,&source,&target)&&context.BindBackend(&main),"capture exact disk source and Branch destination before modal work");
+ ExpectedMove=move;ExpectedArchive=context.Target.DefaultPath+u8"\\archive-東京.zip";ExpectedSource=context.Source.DefaultPath;
+ OperationContexts=PluginCalls=ExternalCalls=0;int retiredReads=-1;
+ auto mutate=[&]{switch(mutation){
+ case 1:target.Root+=L"\\changed";break;case 2:++target.Tab;break;case 3:++target.Generation;break;
+ case 4:main.Right.clear();main.RightPanel=&other;retiredReads=target.Reads;break;
+ case 5:target.Kind=ptZIPArchive;break;case 6:target.Scanning=TRUE;break;case 7:source.Root+=L"\\changed";break;
+ case 8:++source.Epoch;break;case 9:source.Files=&source.Other;break;case 10:main.Left.clear();main.LeftPanel=&other;retiredReads=source.Reads;break;
+ case 11:PackerConfig.Packers.Row.Type=0;break;case 12:PackerConfig.PreferedPacker=-1;break;
+ case 13:Plugins.Items[0]=&replacement;break;case 14:plugin.SupportCustomPack=FALSE;break;
+ case 15:plugin.DLLName="other\\zip.spl";break;case 16:main.RightPanel=&other;break;
+ case 17:source.Dirs=&source.Other;break;case 18:source.Kind=ptPluginFS;break;
+ }};
+ if(beforeDispatch)mutate();else plugin.DuringInit=mutate;
+ SetLastError(ERROR_SUCCESS);void* param=&context;const BOOL result=PackerConfig.ExecutePacker(&source,ExpectedArchive.c_str(),move,ExpectedSource.c_str(),param,param,Validate,&context);
+ if(mutation==0)Check(result&&PluginCalls==1&&OperationContexts==1,"current guarded Pack remains supported");
+ else{
+  Check(!result&&PluginCalls==0&&ExternalCalls==0&&OperationContexts==0,"changed modal/init context causes zero plugin or external I/O");
+  Check(GetLastError()==ERROR_RETRY,"stale context preserves retry error");
+  if(retiredReads>=0)Check(retiredReads==(mutation==4?target.Reads:source.Reads),"removed panel receives no further accessor calls");
+ }
+ Check(plugin.InitCalls==(beforeDispatch&&mutation!=0?0:1),"pre-dispatch rejection precedes loader; loader callback rejection precedes operations");
+}
+static void Qualification(){
+ CFilesWindow source,target;target.Tab=2;CMainWindow main;MainWindow=&main;main.Left={&source};main.Right={&target};main.LeftPanel=&source;main.RightPanel=&target;
+ CPluginData plugin;Plugins.Items[0]=&plugin;PackerConfig=CPackerConfig{};CFilesActionPackContext context;Check(context.Capture(&main,&source,&target),"capture for admission tests");
+ for(const char* name:{"other\\zip.spl","zip.spl","7zip.spl","C:\\custom\\zip.spl"}){plugin.DLLName=name;Check(!context.BindBackend(&main)&&GetLastError()==ERROR_NOT_SUPPORTED,"unqualified backend location is refused");}
+ plugin.DLLName=nullptr;Check(!context.BindBackend(&main),"null backend name refused");plugin.DLLName="zip\\zip.spl";
+ for(int type:{0,1,INT_MIN,-3}){PackerConfig.Packers.Row.Type=type;Check(!context.BindBackend(&main),"external/invalid packer type refused without overflow");}PackerConfig.Packers.Row.Type=-1;
+ plugin.SupportCustomPack=FALSE;Check(!context.BindBackend(&main),"unsupported custom packer refused");plugin.SupportCustomPack=TRUE;
+ Check(context.BindBackend(&main),"qualified backend remains available after refused choices");
+ plugin.LoadOK=FALSE;ExpectedArchive="archive.zip";ExpectedSource=context.Source.DefaultPath;void* param=&context;OperationContexts=PluginCalls=0;SetLastError(ERROR_MOD_NOT_FOUND);
+ Check(!PackerConfig.ExecutePacker(&source,ExpectedArchive.c_str(),FALSE,ExpectedSource.c_str(),param,param,Validate,&context)&&PluginCalls==0&&OperationContexts==0&&GetLastError()==ERROR_MOD_NOT_FOUND,"loader failure retains error and performs zero pack I/O");
+ // Legacy ordinary callers retain default-null arguments, including external packing.
+ PackerConfig.Packers.Row.Type=0;ExternalCalls=0;Check(PackerConfig.ExecutePacker(&source,"legacy.zip",FALSE,"source",nullptr,nullptr)&&ExternalCalls==1,"legacy default-null external contract remains available");
+}
+static void WideOverwrite(const std::wstring& root){
+ const std::vector<std::wstring> tails={L"ascii\\file.zip",L"ascii\\東京.zip",L"東京\\file.zip",L"東京\\café\\file.zip",L"ascii\\"+std::wstring(100,L'東')+L".zip",std::wstring(140,L'a')+L"\\"+std::wstring(110,L'b')+L"\\東京.zip"};
+ for(const auto& tail:tails){
+  const std::wstring exact=root+L"\\"+tail;const std::wstring path=SalPathAddExtendedPrefixW(exact.c_str());
+  std::filesystem::create_directories(std::filesystem::path(path).parent_path());
+  HANDLE h=CreateFileW(path.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_READONLY,nullptr);Check(h!=INVALID_HANDLE_VALUE,"owned readonly Unicode/long archive fixture created");if(h==INVALID_HANDLE_VALUE)continue;DWORD written=0;Check(WriteFile(h,"owned",5,&written,nullptr)&&written==5,"owned archive bytes written");CloseHandle(h);
+  const std::string encoded=SalWideToMultiBytePath(exact.c_str(),CP_UTF8);Check(RemoveQualifiedPackArchive(encoded.c_str()),"actual qualified overwrite removes exact readonly wide path");Check(GetFileAttributesW(path.c_str())==INVALID_FILE_ATTRIBUTES&&GetLastError()==ERROR_FILE_NOT_FOUND,"only exact owned archive is absent after removal");
+  // Remove only empty directories created below this explicit owned fixture root.
+  const std::wstring boundary=SalPathAddExtendedPrefixW(root.c_str());
+  auto directory=std::filesystem::path(path).parent_path();
+  while(directory.native()!=boundary){
+   const auto exactDirectory=directory.native();
+   Check(exactDirectory.size()>boundary.size()&&exactDirectory.compare(0,boundary.size(),boundary)==0&&exactDirectory[boundary.size()]==L'\\',"cleanup stays below the exact owned fixture root");
+   if(exactDirectory.size()<=boundary.size()||exactDirectory.compare(0,boundary.size(),boundary)!=0||exactDirectory[boundary.size()]!=L'\\')break;
+   Check(RemoveDirectoryW(exactDirectory.c_str())!=FALSE,"owned empty long-path directory removed with wide API");directory=directory.parent_path();
+  }
+ }
+ Check(!RemoveQualifiedPackArchive(nullptr)&&GetLastError()==ERROR_INVALID_NAME,"empty conversion cannot authorize deletion");
+}
+int wmain(int argc,wchar_t** argv){
+ if(argc!=2)return 2;
+ const std::vector<std::wstring> roots={L"C:\\ascii",L"C:\\ascii\\東京.zip",L"C:\\東京",L"C:\\東京\\café",L"C:\\"+std::wstring(100,L'東'),L"C:\\"+std::wstring(300,L'x')+L"\\東京"};
+ for(const auto& root:roots)for(bool seven:{false,true})for(bool before:{false,true})for(BOOL move:{FALSE,TRUE})for(int mutation=0;mutation<=18;++mutation)Pipeline(root,seven,mutation,before,move);
+ Qualification();WideOverwrite(argv[1]);printf("Actual qualified Pack pipeline: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

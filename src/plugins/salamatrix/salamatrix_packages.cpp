@@ -114,6 +114,79 @@ static std::string SideItemJson(const Sides::ItemInfo& item)
            ",\"offline\":" + (item.IsOffline ? "true" : "false") + "}";
 }
 
+// JSON is not constrained by the fixed native ItemInfo ABI. Convert directly
+// from the owned wide snapshot so valid 255-character Unicode names and long
+// paths are never squeezed through the legacy byte capacities.
+static std::string SideItemJson(const CSalamanderDiskSelectionItem& item)
+{
+    const std::string name = SalamanderDiskSelection::Utf8FromWide(item.NameW);
+    const std::string path = SalamanderDiskSelection::Utf8FromWide(item.FullPathW);
+    const std::string extension = SalamanderDiskSelection::Utf8FromWide(item.ExtensionW);
+    ULARGE_INTEGER lastWrite;
+    lastWrite.LowPart = item.LastWrite.dwLowDateTime;
+    lastWrite.HighPart = item.LastWrite.dwHighDateTime;
+    return std::string("{\"name\":\"") + JsonEscape(name.c_str()) +
+           "\",\"path\":\"" + JsonEscape(path.c_str()) +
+           "\",\"extension\":\"" + JsonEscape(extension.c_str()) +
+           "\",\"size\":\"" + std::to_string(static_cast<unsigned long long>(item.Size.Value)) +
+           "\",\"sizeValid\":" + (item.SizeValid ? "true" : "false") +
+           ",\"attributes\":" + std::to_string(item.Attr) +
+           ",\"lastWriteUtc\":\"" + std::to_string(static_cast<unsigned long long>(lastWrite.QuadPart)) +
+           "\",\"isDirectory\":" + (item.IsDir ? "true" : "false") +
+           ",\"hidden\":" + (item.Hidden ? "true" : "false") +
+           ",\"link\":" + (item.IsLink ? "true" : "false") +
+           ",\"offline\":" + (item.IsOffline ? "true" : "false") + "}";
+}
+
+static BOOL DiskSideContextJson(CSalamanderGeneralAbstract* general, int panel, std::string* result)
+{
+    if (general == NULL || result == NULL)
+        return FALSE;
+    CSalamanderDiskSelection selected, focused;
+    if (!selected.Capture(general, panel, SALDISKSELECTION_SELECTED_ONLY) ||
+        !focused.Capture(general, panel, SALDISKSELECTION_FOCUSED_ONLY))
+        return FALSE;
+    const std::string root = SalamanderDiskSelection::Utf8FromWide(selected.GetRootPathW());
+    const int count = selected.GetCount();
+    const int returned = count > 64 ? 64 : count;
+    std::string items("[");
+    for (int index = 0; index < returned; ++index)
+    {
+        if (index != 0) items += ",";
+        items += SideItemJson(*selected.GetItem(index));
+    }
+    items += "]";
+    std::string focus("null");
+    const CSalamanderDiskSelectionItem* item = focused.GetItem(0);
+    if (item != NULL)
+        focus = SideItemJson(*item);
+    else
+    {
+        // '..' is a virtual UI entry, intentionally excluded from disk snapshots.
+        // Keep the previous context behavior without the native ABI byte limit.
+        BOOL isDirectory = FALSE;
+        const CFileData* up = general->GetPanelFocusedItem(panel, &isDirectory);
+        if (up != NULL && isDirectory && up->Name != NULL && strcmp(up->Name, "..") == 0)
+        {
+            std::wstring full = selected.GetRootPathW();
+            if (!full.empty() && full.back() != L'\\') full += L'\\';
+            full += L"..";
+            CSalamanderDiskSelectionItem parent = {};
+            parent.NameW = L".."; parent.FullPathW = full.c_str(); parent.ExtensionW = L"";
+            parent.IsDir = TRUE; parent.Size = up->Size; parent.Attr = up->Attr;
+            parent.LastWrite = up->LastWrite; parent.SizeValid = up->SizeValid;
+            parent.Hidden = up->Hidden; parent.IsLink = up->IsLink; parent.IsOffline = up->IsOffline;
+            focus = SideItemJson(parent);
+        }
+    }
+    *result = std::string("{\"ok\":true,\"path\":\"") + JsonEscape(root.c_str()) +
+              "\",\"pathType\":" + std::to_string(PATH_TYPE_WINDOWS) +
+              ",\"selectedCount\":" + std::to_string(count) +
+              ",\"selectedItemsTruncated\":" + (count > returned ? "true" : "false") +
+              ",\"selectedItems\":" + items + ",\"focusedItem\":" + focus + "}";
+    return TRUE;
+}
+
 static bool StartsWith(const std::string& value, const char* prefix)
 {
     const size_t length = strlen(prefix);
@@ -5756,15 +5829,25 @@ BOOL WINAPI PackageManager::HostDispatch(
             side = Sides::SideReferenceTarget;
         if (owner->Sides == NULL)
             return FALSE;
+        Sides::SidesService hostSides(SalamanderGeneral);
+        const int panel = hostSides.ResolveSide(side) == Sides::SideReferenceRight ? PANEL_RIGHT : PANEL_LEFT;
+        int pathType = 0;
+        if (SalamanderGeneral == NULL || !SalamanderGeneral->GetPanelPath(panel, NULL, 0, &pathType, NULL))
+            return FALSE;
+        if (pathType == PATH_TYPE_WINDOWS)
+        {
+            std::string context;
+            if (!DiskSideContextJson(SalamanderGeneral, panel, &context))
+                return FALSE;
+            return CopyResult(context, resultJson, resultCapacity, resultLength);
+        }
         char path[SALAMATRIX_SIDE_ITEM_PATH_CAPACITY];
         path[0] = '\0';
-        int pathType = 0;
         if (!owner->Sides->GetPath(
                 side, path, _countof(path), &pathType))
             return FALSE;
 
-        const int selectedCount =
-            owner->Sides->GetSelectedItemCount(side);
+        const int selectedCount = owner->Sides->GetSelectedItemCount(side);
         const int returnedSelectedCount =
             selectedCount > 64 ? 64 : selectedCount;
         std::string selectedItems("[");

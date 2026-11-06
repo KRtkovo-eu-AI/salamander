@@ -414,7 +414,7 @@ CPluginInterface::GetInterfaceForMenuExt()
 //  CPluginInterfaceForMenuExt
 //
 
-char Focus_Path[MAX_PATH] = "";
+std::string Focus_Path;
 
 BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* salamander,
                                                  HWND parent, int id, DWORD eventMask)
@@ -439,14 +439,16 @@ BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstrac
 
     case CMD_FOCUSFILE:
     {
-        if (Focus_Path[0] != 0) // only if we were lucky enough not to hit the start of Salamander's BUSY mode
+        if (!Focus_Path.empty()) // only if we were lucky enough not to hit the start of Salamander's BUSY mode
         {
-            char* fname;
-            if (SalamanderGeneral->CutDirectory(Focus_Path, &fname))
+            const std::wstring full = ChecksumPaths::Wide(Focus_Path.c_str());
+            const std::string directory = ChecksumPaths::Utf8(ChecksumPaths::Parent(full).c_str());
+            const std::string name = ChecksumPaths::Utf8(ChecksumPaths::Base(full).c_str());
+            Focus_Path.clear();
+            if (!directory.empty() && !name.empty())
             {
-                SalamanderGeneral->SkipOneActivateRefresh(); // prevent the main window from refreshing when switching from the Verify dialog
-                SalamanderGeneral->FocusNameInPanel(PANEL_SOURCE, Focus_Path, fname);
-                Focus_Path[0] = 0;
+                SalamanderGeneral->SkipOneActivateRefresh(); // prevent refresh when switching from Verify
+                SalamanderGeneral->FocusNameInPanel(PANEL_SOURCE, directory.c_str(), name.c_str());
             }
         }
         return TRUE;

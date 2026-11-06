@@ -1,0 +1,240 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Ordinary Paths/fixtures adapted from PR #769 branch_panel_getters_tests.
+// Whole production getters, conversion, service and QueryService; only panel
+// storage/UI/registry are facades. No Branch state or scanner is simulated.
+#define NOMINMAX
+#include <windows.h>
+#include <crtdbg.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <new>
+#include <string>
+#include <thread>
+#include <vector>
+@@BRANCH_HEADER@@
+#define CALL_STACK_MESSAGE1(...) ((void)0)
+static bool FailNextAllocation = false;
+void* operator new(size_t bytes)
+{
+    if (FailNextAllocation) { FailNextAllocation=false; throw std::bad_alloc(); }
+    void* value=std::malloc(bytes ? bytes : 1);
+    if (!value) throw std::bad_alloc();
+    return value;
+}
+void operator delete(void* value) noexcept { std::free(value); }
+void operator delete(void* value, size_t) noexcept { std::free(value); }
+#pragma warning(push)
+#pragma warning(disable:4201) // unchanged SDK anonymous struct
+@@SDK@@
+#pragma warning(pop)
+@@CONSTANTS@@
+std::wstring SalMultiByteToWidePath(const char*, UINT codePage=CP_ACP);
+@@CONVERSION@@
+@@JOIN@@
+@@BRANCH_HELPERS@@
+static int Checks=0, Failures=0, ArrayReads=0;
+static void Check(bool success, const char* description)
+{
+    ++Checks;
+    if (!success) { ++Failures; std::printf("FAIL: %s\n",description); }
+}
+struct CFilesArray
+{
+    std::vector<CFileData> Data;
+    int Count=0;
+    bool NullStorage=false;
+    CFileData* GetData() { return NullStorage ? nullptr : Data.data(); }
+    CFileData& At(int index) { ++ArrayReads; return Data.at(index); }
+};
+enum {ptDisk=0, ptZIPArchive=1, ptPluginFS=2};
+struct CFilesWindow
+{
+    CBranchViewState* BranchView = nullptr;
+    std::wstring WideRoot=L"C:\\root";
+    std::string AnsiRoot="C:\\root";
+    bool NullWideRoot=false;
+    int Type=ptDisk;
+    CFilesArray FileRows, DirRows;
+    CFilesArray* Files=&FileRows;
+    CFilesArray* Dirs=&DirRows;
+    const wchar_t* GetPathW() const { return NullWideRoot ? nullptr : WideRoot.c_str(); }
+    const char* GetPath() const { return AnsiRoot.c_str(); }
+    BOOL Is(int type) const { return Type==type; }
+    std::wstring GetItemDirectoryW(const CFileData&) const;
+    std::wstring GetItemFullPathW(const CFileData&) const;
+    std::wstring GetItemIdentityW(const CFileData&) const;
+    std::wstring GetItemRelativePathW(const CFileData&) const;
+};
+@@GETTERS@@
+struct MainWindowFacade
+{
+    CFilesWindow Left, Right;
+    bool SourceRight=false;
+    CFilesWindow* GetPanel(int panel)
+    {
+        switch(panel) {
+        case PANEL_LEFT: return &Left;
+        case PANEL_RIGHT: return &Right;
+        case PANEL_SOURCE: return SourceRight ? &Right : &Left;
+        case PANEL_TARGET: return SourceRight ? &Left : &Right;
+        default: return nullptr;
+        }
+    }
+};
+static MainWindowFacade Window;
+static MainWindowFacade* MainWindow=&Window;
+static DWORD MainThreadID;
+@@SERVICE@@
+@@FACTORY@@
+// Discovery facade only; actual DiskSelection singleton/storage has its own
+// compiled production harness and DemoPlug runtime smoke.
+static void* GetDiskSelectionService() { return &Window; }
+// Discovery facade only; actual viewer enumeration is covered separately.
+static void* GetViewerEnumerationService() { return &Window; }
+struct CSalamanderGeneral
+{
+    BOOL QueryService(const CSalamanderServiceQuery*, CSalamanderServiceResult*);
+};
+struct RegistryEntry { const char* ServiceId; DWORD Version; void* Interface; const char* ProviderName; };
+static RegistryEntry SalamanderServiceRegistry[]={{"Test.Other",1,&Window,"Test"}};
+static int SalamanderServiceRegistryCount=1;
+static CRITICAL_SECTION SalamanderServiceRegistryLock;
+static BOOL SameServiceId(const char* first,const char* second) { return _stricmp(first,second)==0; }
+@@QUERY@@
+static CFileData File(const char* name,const wchar_t* wide=nullptr)
+{
+    CFileData item={};
+    item.Name=const_cast<char*>(name); item.NameW=const_cast<wchar_t*>(wide);
+    item.NameLen=name ? static_cast<int>(strlen(name)) : 0;
+    return item;
+}
+static void Paths(CFilesWindow& panel,const CFileData& item,const std::wstring& directory,
+                  const std::wstring& full,const std::wstring& relative,const char* reason)
+{
+    Check(panel.GetItemDirectoryW(item)==directory,reason);
+    Check(panel.GetItemFullPathW(item)==full,reason);
+    Check(panel.GetItemIdentityW(item)==full,reason);
+    Check(panel.GetItemRelativePathW(item)==relative,reason);
+}
+static void Fail(CSalamanderPanelItemPathsAbstract* service,int panel,const CFileData* item,
+                 DWORD error,int capacity=8)
+{
+    wchar_t output[8]=L"sent";
+    const int reads=ArrayReads;
+    Check(!service->GetItemFullPath(panel,item,output,capacity),"explicit resolver failure");
+    Check(GetLastError()==error,"correct failure reason");
+    Check(capacity>0 ? output[0]==0 : output[0]==L's',"empty valid output, no invalid buffer write");
+    if(error==ERROR_INVALID_PARAMETER || error==ERROR_INVALID_THREAD_ID || error==ERROR_NOT_SUPPORTED)
+        Check(ArrayReads==reads,"never dereference an unproven item pointer");
+}
+static void Success(CSalamanderPanelItemPathsAbstract* service,int panel,const CFileData* item,
+                    const std::wstring& expected)
+{
+    std::vector<wchar_t> output(expected.size()+2,L'#');
+    Check(service->GetItemFullPath(panel,item,output.data(),static_cast<int>(expected.size()+1)),"resolver accepts exact capacity");
+    Check(GetLastError()==ERROR_SUCCESS,"resolver success clears LastError");
+    Check(std::wstring(output.data())==expected,"resolver preserves complete exact path");
+    Check(output.back()==L'#',"no write beyond supplied capacity");
+    Fail(service,panel,item,ERROR_INSUFFICIENT_BUFFER,1);
+}
+int main()
+{
+    MainThreadID=GetCurrentThreadId();
+    InitializeCriticalSection(&SalamanderServiceRegistryLock);
+    CSalamanderGeneral general;
+    CSalamanderServiceResult result={&Window,99,"sentinel"};
+    const CSalamanderServiceQuery query={SALAMANDER_SERVICE_PANEL_ITEM_PATHS,SALAMANDER_PANEL_ITEM_PATHS_VERSION_1_0,0};
+    Check(general.QueryService(&query,&result),"built-in service is discoverable");
+    Check(result.Interface==GetPanelItemPathsService(),"immutable singleton interface");
+    Check(result.Version==SALAMANDER_PANEL_ITEM_PATHS_VERSION_1_0,"correct service version");
+    Check(result.ProviderName && strcmp(result.ProviderName,"Samandarin")==0,"host provider attribution");
+    Check(general.QueryService(&query,nullptr),"availability-only query");
+    CSalamanderServiceQuery future=query; ++future.MinimumVersion;
+    Check(!general.QueryService(&future,&result),"unsupported future version is not guessed");
+    Check(!result.Interface && result.Version==0 && !result.ProviderName,"failed query clears result");
+    Check(!general.QueryService(nullptr,&result),"null query rejected");
+    CSalamanderServiceQuery noId={nullptr,0,0}; Check(!general.QueryService(&noId,&result),"null service id rejected");
+    CSalamanderServiceQuery other={"test.other",1,0};
+    Check(general.QueryService(&other,&result) && result.Interface==&Window,"existing registry path unchanged");
+    CSalamanderServiceQuery owned={SALAMANDER_SERVICE_DISK_SELECTION,SALAMANDER_DISK_SELECTION_VERSION_1_0,0};
+    Check(general.QueryService(&owned,&result) && result.Interface==GetDiskSelectionService() && result.Version==owned.MinimumVersion,"owned selection built-in dispatch");
+    Check(general.QueryService(&owned,nullptr),"owned selection availability-only query");
+    ++owned.MinimumVersion; Check(!general.QueryService(&owned,&result) && result.Interface==nullptr,"owned selection future version fails closed");
+    CPanelItemPathsService* service=static_cast<CPanelItemPathsService*>(GetPanelItemPathsService());
+    CFilesWindow& panel=Window.Left;
+    CFileData ascii=File("same.png",L"same.png");
+    Paths(panel,ascii,L"C:\\root",L"C:\\root\\same.png",L"same.png","ordinary panel");
+    panel.WideRoot=L"C:\\žluťoučký\\東京";
+    CFileData unicode=File("lossy.png",L"český-東京-\U0001F642.png");
+    Paths(panel,unicode,panel.WideRoot,panel.WideRoot+L"\\český-東京-\U0001F642.png",L"český-東京-\U0001F642.png","exact wide name and root");
+    Paths(panel,ascii,panel.WideRoot,panel.WideRoot+L"\\same.png",L"same.png","ASCII name in Unicode directories");
+    panel.NullWideRoot=true;
+    Paths(panel,ascii,L"C:\\root",L"C:\\root\\same.png",L"same.png","null wide root fallback");
+    panel.NullWideRoot=false; panel.WideRoot.clear();
+    Paths(panel,File("plain.txt"),L"C:\\root",L"C:\\root\\plain.txt",L"plain.txt","empty wide root fallback");
+    panel.AnsiRoot="C:\\žluťoučký\\東京";
+    Paths(panel,File("český-東京.txt",L""),L"C:\\žluťoučký\\東京",L"C:\\žluťoučký\\東京\\český-東京.txt",L"český-東京.txt","UTF8 path/name fallback with empty wide name");
+    const char acpName[]={'x',static_cast<char>(0xE9),'.','t','x','t',0};
+    wchar_t acpWide[20]={}; MultiByteToWideChar(CP_ACP,0,acpName,-1,acpWide,20);
+    panel.WideRoot=L"C:\\root\\";
+    Paths(panel,File(acpName),panel.WideRoot,panel.WideRoot+acpWide,acpWide,"legacy ACP and existing separator");
+    panel.WideRoot=L"C:/root/";
+    Paths(panel,ascii,panel.WideRoot,panel.WideRoot+L"same.png",L"same.png","existing forward separator");
+    panel.WideRoot=L"C:\\root";
+    panel.FileRows.Data={ascii,unicode}; panel.FileRows.Count=2;
+    panel.DirRows.Data={File("..",L".."),File("folder",L"folder")}; panel.DirRows.Count=2;
+    Success(service,PANEL_LEFT,&panel.FileRows.Data[0],L"C:\\root\\same.png");
+    Success(service,PANEL_SOURCE,&panel.FileRows.Data[1],L"C:\\root\\český-東京-\U0001F642.png");
+    Success(service,PANEL_LEFT,&panel.DirRows.Data[0],L"C:\\root\\..");
+    Success(service,PANEL_LEFT,&panel.DirRows.Data[1],L"C:\\root\\folder");
+    std::wstring longName(100,L'東'); longName+=L"-\U0001F642.png";
+    panel.FileRows.Data[0]=File("truncated.png",longName.c_str());
+    const std::wstring byteLong=panel.GetItemFullPathW(panel.FileRows.Data[0]);
+    Check(WideCharToMultiByte(CP_UTF8,0,byteLong.c_str(),-1,nullptr,0,nullptr,nullptr)>MAX_PATH && byteLong.size()<MAX_PATH,"UTF8-only long fixture");
+    Success(service,PANEL_LEFT,&panel.FileRows.Data[0],byteLong);
+    panel.WideRoot=L"C:\\root";
+    for(int i=0;i<20;++i) panel.WideRoot+=L"\\žluťoučký-東京-directory";
+    Check(panel.WideRoot.size()>MAX_PATH,"UTF16 long fixture");
+    Success(service,PANEL_LEFT,&panel.FileRows.Data[0],panel.WideRoot+L"\\"+longName);
+    panel.WideRoot=L"\\\\?\\C:\\root\\東京";
+    Success(service,PANEL_LEFT,&panel.FileRows.Data[1],panel.WideRoot+L"\\český-東京-\U0001F642.png");
+    panel.WideRoot=L"\\\\server\\share\\東京";
+    Success(service,PANEL_LEFT,&panel.FileRows.Data[0],panel.WideRoot+L"\\"+longName);
+    panel.WideRoot=L"\\\\?\\UNC\\server\\share\\東京";
+    Success(service,PANEL_LEFT,&panel.FileRows.Data[0],panel.WideRoot+L"\\"+longName);
+    Window.Right.WideRoot=L"D:\\other";
+    Window.Right.FileRows.Data={ascii}; Window.Right.FileRows.Count=1;
+    Window.SourceRight=true;
+    Success(service,PANEL_SOURCE,&Window.Right.FileRows.Data[0],L"D:\\other\\same.png");
+    Success(service,PANEL_TARGET,&panel.FileRows.Data[1],panel.WideRoot+L"\\český-東京-\U0001F642.png");
+    Fail(service,PANEL_LEFT,&Window.Right.FileRows.Data[0],ERROR_INVALID_PARAMETER);
+    Fail(service,PANEL_LEFT,&ascii,ERROR_INVALID_PARAMETER);
+    Fail(service,PANEL_LEFT,reinterpret_cast<CFileData*>(1),ERROR_INVALID_PARAMETER);
+    Fail(service,PANEL_LEFT,reinterpret_cast<CFileData*>(reinterpret_cast<UINT_PTR>(panel.Files->GetData())+1),ERROR_INVALID_PARAMETER);
+    Fail(service,PANEL_LEFT,panel.Files->GetData()+panel.Files->Count,ERROR_INVALID_PARAMETER);
+    std::vector<CFileData> oldListing; oldListing.swap(panel.FileRows.Data);
+    panel.FileRows.Data={ascii}; panel.FileRows.Count=1;
+    Fail(service,PANEL_LEFT,&oldListing[0],ERROR_INVALID_PARAMETER);
+    Fail(service,99,&panel.FileRows.Data[0],ERROR_INVALID_PARAMETER);
+    Fail(service,PANEL_LEFT,nullptr,ERROR_INVALID_PARAMETER);
+    Fail(service,PANEL_LEFT,&panel.FileRows.Data[0],ERROR_INVALID_PARAMETER,0);
+    Fail(service,PANEL_LEFT,&panel.FileRows.Data[0],ERROR_INVALID_PARAMETER,-1);
+    Check(!service->GetItemFullPath(PANEL_LEFT,&panel.FileRows.Data[0],nullptr,10) && GetLastError()==ERROR_INVALID_PARAMETER,"null output rejected");
+    MainWindow=nullptr; Fail(service,PANEL_LEFT,&ascii,ERROR_INVALID_PARAMETER); MainWindow=&Window;
+    panel.Type=ptZIPArchive; Fail(service,PANEL_LEFT,&panel.FileRows.Data[0],ERROR_NOT_SUPPORTED);
+    panel.Type=ptPluginFS; Fail(service,PANEL_LEFT,&panel.FileRows.Data[0],ERROR_NOT_SUPPORTED); panel.Type=ptDisk;
+    panel.FileRows.NullStorage=true; Fail(service,PANEL_LEFT,&panel.FileRows.Data[0],ERROR_INVALID_PARAMETER); panel.FileRows.NullStorage=false;
+    panel.FileRows.Count=-1; Fail(service,PANEL_LEFT,&panel.FileRows.Data[0],ERROR_INVALID_PARAMETER); panel.FileRows.Count=1;
+    panel.FileRows.Data[0]=File("",L""); panel.WideRoot.clear(); panel.AnsiRoot.clear();
+    Fail(service,PANEL_LEFT,&panel.FileRows.Data[0],ERROR_INVALID_DATA);
+    panel.FileRows.Data[0]=unicode; panel.WideRoot=L"C:\\root\\a-long-directory-that-allocates-storage";
+    FailNextAllocation=true;
+    Fail(service,PANEL_LEFT,&panel.FileRows.Data[0],ERROR_NOT_ENOUGH_MEMORY);
+    Check(!FailNextAllocation,"real wstring allocation fault consumed");
+    std::thread worker([&] { Fail(service,PANEL_LEFT,reinterpret_cast<CFileData*>(1),ERROR_INVALID_THREAD_ID); }); worker.join();
+    DeleteCriticalSection(&SalamanderServiceRegistryLock);
+    std::printf("Ordinary panel paths and service: %d checks, %d failures\n",Checks,Failures);
+    return Failures ? 1 : 0;
+}

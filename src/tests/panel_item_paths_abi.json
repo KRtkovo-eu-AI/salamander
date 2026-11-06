@@ -1,0 +1,27 @@
+{
+  "_notice": "SPDX-FileCopyrightText: 2026 Samandarin Contributors; SPDX-License-Identifier: GPL-2.0-or-later; SPDX-FileCopyrightText: 2026 Open Samandarin Authors",
+  "_changelog": [
+    "| Date | Summary | Reason | Ticket | Model |",
+    "| 2026-11-06 | Pin exact integrated upstream SDK class bodies beside released ABI evidence. | Permit the reviewed appended operation method while retaining strict class hashes and released virtual prefixes. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |"
+  ],
+  "source_commit": "a84dbed6db632a9e63b5ed9f4bc6691e4cc5f449",
+  "normalization": "UTF-8 without BOM; CRLF converted to LF",
+  "spl_gen_abstract_classes": {
+    "CSalamanderPNGAbstract": "e27049835421a402ec73a75d3f07526a7aed07de6798b2e618b94670bd22f861",
+    "CSalamanderPasswordManagerAbstract": "921b1edfd84eb892ca559379ec5edc557041574cabc2c2d51d16101b35684396",
+    "CSalamanderStartupProgressAbstract": "0837b7f3c03a321e9e8a35c179b1e9518fa00e02277f3f63056e65726d893b68",
+    "CSalamanderShutdownProgressAbstract": "1cb10cf84a3e9f19bd5252222776f73e0662b001e05c10e32c9a784409424cf7",
+    "CSalamanderGeneralAbstract": "f419f45be0202119463d5d28f983f2b585b4e46017bb6163268898674fd0f188"
+  },
+  "spl_com_sha256": "51b648668e5224ebaa8c9de4343b40c71a700896899f5be23796eac4516ff123",
+  "accepted_upstream": {
+    "source_commit": "304beb54b3a9463df483c48dac3d9ba405f4fc16",
+    "spl_gen_abstract_classes": {
+      "CSalamanderPNGAbstract": "e27049835421a402ec73a75d3f07526a7aed07de6798b2e618b94670bd22f861",
+      "CSalamanderPasswordManagerAbstract": "921b1edfd84eb892ca559379ec5edc557041574cabc2c2d51d16101b35684396",
+      "CSalamanderStartupProgressAbstract": "0837b7f3c03a321e9e8a35c179b1e9518fa00e02277f3f63056e65726d893b68",
+      "CSalamanderShutdownProgressAbstract": "1cb10cf84a3e9f19bd5252222776f73e0662b001e05c10e32c9a784409424cf7",
+      "CSalamanderGeneralAbstract": "d615e535fdffda0223eb32b52fb4bba8a544fc4576de03bde5a92e8981364365"
+    }
+  }
+}

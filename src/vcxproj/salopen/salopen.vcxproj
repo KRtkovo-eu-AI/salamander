@@ -175,6 +175,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\branchprogram.h" />
     <ClInclude Include="..\..\common\lstrfix.h">
     </ClInclude>
   </ItemGroup>

@@ -14,6 +14,7 @@
 #include <stddef.h>
 
 #include "../shared/spl_gen.h"
+#include "../shared/spl_diskselection.h"
 
 namespace Salamatrix
 {
@@ -376,6 +377,55 @@ namespace Salamatrix
                 return files + directories;
             }
 
+            static BOOL CopyDiskItemInfo(const CSalamanderDiskSelectionItem& item, ItemInfo* info)
+            {
+                if (info == NULL || info->StructSize < ITEM_INFO_V1_SIZE)
+                    return FALSE;
+                try
+                {
+                    const std::string name = SalamanderDiskSelection::Utf8FromWide(item.NameW);
+                    const std::string path = SalamanderDiskSelection::Utf8FromWide(item.FullPathW);
+                    const std::string extension = SalamanderDiskSelection::Utf8FromWide(item.ExtensionW);
+                    if (name.empty() || path.empty())
+                    {
+                        SetLastError(ERROR_INVALID_DATA);
+                        return FALSE;
+                    }
+                    if (name.size() >= _countof(info->Name) || path.size() >= _countof(info->Path) ||
+                        (info->StructSize >= sizeof(ItemInfo) && extension.size() >= _countof(info->Extension)))
+                    {
+                        SetLastError(ERROR_INSUFFICIENT_BUFFER);
+                        return FALSE;
+                    }
+                    memcpy(info->Name, name.c_str(), name.size() + 1);
+                    memcpy(info->Path, path.c_str(), path.size() + 1);
+                    info->Size = item.Size;
+                    info->Attributes = item.Attr;
+                    info->IsDirectory = item.IsDir;
+                    if (info->StructSize >= sizeof(ItemInfo))
+                    {
+                        memcpy(info->Extension, extension.c_str(), extension.size() + 1);
+                        info->LastWriteUtc = item.LastWrite;
+                        info->SizeValid = item.SizeValid;
+                        info->Hidden = item.Hidden;
+                        info->IsLink = item.IsLink;
+                        info->IsOffline = item.IsOffline;
+                    }
+                    return TRUE;
+                }
+                catch (const std::bad_alloc&)
+                {
+                    SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+                    return FALSE;
+                }
+            }
+
+            BOOL CaptureDiskSelection(SideReference side, DWORD mode, CSalamanderDiskSelection* selection) const
+            {
+                const int panel = ResolvePanel(side);
+                return General != NULL && panel != 0 && selection != NULL && selection->Capture(General, panel, mode);
+            }
+
             static BOOL CopyItemInfo(
                 int panel,
                 const CFileData* file,
@@ -384,7 +434,7 @@ namespace Salamatrix
                 ItemInfo* info)
             {
                 if (general == NULL || file == NULL || info == NULL ||
-                    info->StructSize < sizeof(*info) || file->Name == NULL)
+                    info->StructSize < ITEM_INFO_V1_SIZE || file->Name == NULL)
                     return FALSE;
                 char panelPath[SALAMATRIX_SIDE_ITEM_PATH_CAPACITY];
                 panelPath[0] = '\0';
@@ -443,6 +493,17 @@ namespace Salamatrix
                 int panel = ResolvePanel(side);
                 if (General == NULL || panel == 0)
                     return FALSE;
+                int pathType = 0;
+                if (!General->GetPanelPath(panel, NULL, 0, &pathType, NULL))
+                    return FALSE;
+                if (pathType == PATH_TYPE_WINDOWS)
+                {
+                    CSalamanderDiskSelection selection;
+                    if (!selection.Capture(General, panel, SALDISKSELECTION_SELECTED_ONLY))
+                        return FALSE;
+                    const CSalamanderDiskSelectionItem* item = selection.GetItem(index);
+                    return item != NULL && CopyDiskItemInfo(*item, info);
+                }
                 int cursor = 0;
                 BOOL isDirectory = FALSE;
                 const CFileData* file = NULL;
@@ -466,6 +527,23 @@ namespace Salamatrix
                 int panel = ResolvePanel(side);
                 if (General == NULL || panel == 0)
                     return FALSE;
+                int pathType = 0;
+                if (!General->GetPanelPath(panel, NULL, 0, &pathType, NULL))
+                    return FALSE;
+                if (pathType == PATH_TYPE_WINDOWS)
+                {
+                    CSalamanderDiskSelection selection;
+                    if (!selection.Capture(General, panel, SALDISKSELECTION_FOCUSED_ONLY))
+                        return FALSE;
+                    const CSalamanderDiskSelectionItem* item = selection.GetItem(0);
+                    if (item != NULL)
+                        return CopyDiskItemInfo(*item, info);
+                    // Preserve the existing virtual '..' UI context, never a disk selection.
+                    BOOL isDir = FALSE;
+                    const CFileData* up = General->GetPanelFocusedItem(panel, &isDir);
+                    return up != NULL && isDir && up->Name != NULL && strcmp(up->Name, "..") == 0 &&
+                        CopyItemInfo(panel, up, TRUE, General, info);
+                }
                 BOOL isDirectory = FALSE;
                 const CFileData* file = General->GetPanelFocusedItem(
                     panel, &isDirectory);

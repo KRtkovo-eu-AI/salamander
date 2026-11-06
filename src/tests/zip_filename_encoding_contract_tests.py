@@ -39,7 +39,7 @@ def main() -> int:
         "ZIP path/name UTF-8 decoding must reject invalid sequences before ACP fallback",
     )
 
-    zip_path = function_body(common_cpp, "static std::wstring ZipPathToWide")
+    zip_path = function_body(common_cpp, "std::wstring ZipPathToWide")
     require(
         "ZipBytesToWide(CP_UTF8" in zip_path and "ZipBytesToWide(CP_ACP" in zip_path,
         "ZIP file I/O must try UTF-8 paths first and fall back to ACP only on error",

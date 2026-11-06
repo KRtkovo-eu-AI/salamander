@@ -3,6 +3,8 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "viewerpath.h"
+#include "common/widepath.h"
 #include <Sddl.h>
 
 #include "cfgdlg.h"
@@ -142,22 +144,26 @@ BOOL IsFileEnumSourcePanel(int srcUID, int* panel)
     return ret;
 }
 
-BOOL GetFileNameForViewer(CFileNamesEnumRequestType requestType, int srcUID, int* lastFileIndex, const char* lastFileName,
-                          BOOL preferSelected, BOOL onlyAssociatedExtensions, char* fileName,
+static BOOL GetFileNameForViewerW(CFileNamesEnumRequestType requestType, int srcUID, int* lastFileIndex, const wchar_t* lastFileName,
+                          BOOL preferSelected, BOOL onlyAssociatedExtensions, std::wstring* fileName,
                           BOOL* noMoreFiles, BOOL* srcBusy, CPluginInterfaceAbstract* plugin,
                           BOOL* isFileSelected, BOOL select)
 {
-    CALL_STACK_MESSAGE9("GetFileNameForViewer(%d, %d, %d, %s, %d, %d, %s, , , %d)",
-                        requestType, srcUID, *lastFileIndex, lastFileName, preferSelected,
-                        onlyAssociatedExtensions, fileName, select);
+    CALL_STACK_MESSAGE_NONE
     if (noMoreFiles != NULL)
         *noMoreFiles = FALSE;
     if (srcBusy != NULL)
         *srcBusy = FALSE;
     if (isFileSelected != NULL)
         *isFileSelected = FALSE;
-    if (FileNamesEnumDone == NULL)
+    if (lastFileIndex == NULL || FileNamesEnumDone == NULL)
         return FALSE; // this will probably never happen, but we still handle it (error: "source does not exist")
+    if (GetCurrentThreadId() == MainThreadID)
+    {
+        if (srcBusy != NULL) *srcBusy = TRUE;
+        return FALSE; // the source message cannot run while its UI thread waits
+    }
+
 
     BOOL ret = FALSE;
     HANDLES(EnterCriticalSection(&FileNamesEnumSect));
@@ -167,11 +173,11 @@ BOOL GetFileNameForViewer(CFileNamesEnumRequestType requestType, int srcUID, int
     FileNamesEnumData.RequestType = requestType;
     FileNamesEnumData.SrcUID = srcUID;
     FileNamesEnumData.LastFileIndex = *lastFileIndex;
-    lstrcpyn(FileNamesEnumData.LastFileName, lastFileName != NULL ? lastFileName : "", MAX_PATH);
+    FileNamesEnumData.LastFileName = lastFileName != NULL ? lastFileName : L"";
     FileNamesEnumData.PreferSelected = preferSelected;
     FileNamesEnumData.OnlyAssociatedExtensions = onlyAssociatedExtensions;
     FileNamesEnumData.Plugin = plugin;
-    FileNamesEnumData.FileName[0] = 0;
+    FileNamesEnumData.FileName.clear();
     FileNamesEnumData.TimedOut = FALSE;
     FileNamesEnumData.Found = FALSE;
     FileNamesEnumData.NoMoreFiles = FALSE;
@@ -202,7 +208,7 @@ BOOL GetFileNameForViewer(CFileNamesEnumRequestType requestType, int srcUID, int
             HANDLES(EnterCriticalSection(&FileNamesEnumDataSect));
             *lastFileIndex = FileNamesEnumData.LastFileIndex;
             if (fileName != NULL)
-                lstrcpyn(fileName, FileNamesEnumData.FileName, MAX_PATH);
+                *fileName = FileNamesEnumData.FileName;
             if (noMoreFiles != NULL)
                 *noMoreFiles = FileNamesEnumData.NoMoreFiles;
             if (srcBusy != NULL)
@@ -220,7 +226,7 @@ BOOL GetFileNameForViewer(CFileNamesEnumRequestType requestType, int srcUID, int
             {
                 *lastFileIndex = FileNamesEnumData.LastFileIndex;
                 if (fileName != NULL)
-                    lstrcpyn(fileName, FileNamesEnumData.FileName, MAX_PATH);
+                    *fileName = FileNamesEnumData.FileName;
                 if (noMoreFiles != NULL)
                     *noMoreFiles = FileNamesEnumData.NoMoreFiles;
                 if (srcBusy != NULL)
@@ -241,6 +247,43 @@ BOOL GetFileNameForViewer(CFileNamesEnumRequestType requestType, int srcUID, int
 
     HANDLES(LeaveCriticalSection(&FileNamesEnumSect));
     return ret;
+}
+
+// The published char API supplies MAX_PATH bytes, with no capacity argument.
+// Fail without advancing the caller's cursor rather than opening a truncated path.
+static BOOL GetFileNameForViewer(CFileNamesEnumRequestType requestType, int srcUID,
+                                int* lastFileIndex, const char* lastFileName,
+                                BOOL preferSelected, BOOL onlyAssociatedExtensions,
+                                char* fileName, BOOL* noMoreFiles, BOOL* srcBusy,
+                                CPluginInterfaceAbstract* plugin, BOOL* isFileSelected,
+                                BOOL select)
+{
+    if (lastFileIndex == NULL)
+        return FALSE;
+    std::wstring lastNameW = Salamander::ViewerPaths::Decode(lastFileName);
+    std::wstring nextNameW;
+    int index = *lastFileIndex;
+    BOOL ok = GetFileNameForViewerW(requestType, srcUID, &index, lastNameW.c_str(),
+                                   preferSelected, onlyAssociatedExtensions,
+                                   &nextNameW, noMoreFiles, srcBusy, plugin,
+                                   isFileSelected, select);
+    if (fileName != NULL)
+    {
+        fileName[0] = 0;
+        if (ok)
+        {
+            std::string nextName = SalWideToMultiBytePath(nextNameW.c_str(), CP_UTF8);
+            if (nextName.size() >= MAX_PATH)
+            {
+                SetLastError(ERROR_INSUFFICIENT_BUFFER);
+                return FALSE;
+            }
+            memcpy(fileName, nextName.c_str(), nextName.size() + 1);
+        }
+    }
+    if (ok)
+        *lastFileIndex = index;
+    return ok;
 }
 
 BOOL GetNextFileNameForViewer(int srcUID, int* lastFileIndex, const char* lastFileName,
@@ -279,6 +322,105 @@ BOOL SetSelectionOnFileNameForViewer(int srcUID, int lastFileIndex, const char* 
     CALL_STACK_MESSAGE_NONE
     return GetFileNameForViewer(fnertSetSelection, srcUID, &lastFileIndex, lastFileName, FALSE,
                                 FALSE, NULL, NULL, srcBusy, NULL, NULL, select);
+}
+
+BOOL GetNextFileNameForViewerW(int srcUID, int* lastFileIndex, const wchar_t* lastFileName,
+                                   BOOL preferSelected, BOOL onlyAssociatedExtensions,
+                                   std::wstring* fileName, BOOL* noMoreFiles, BOOL* srcBusy,
+                                   CPluginInterfaceAbstract* plugin)
+{
+    return GetFileNameForViewerW(fnertFindNext, srcUID, lastFileIndex, lastFileName,
+                                preferSelected, onlyAssociatedExtensions, fileName,
+                                noMoreFiles, srcBusy, plugin, NULL, FALSE);
+}
+
+BOOL GetPreviousFileNameForViewerW(int srcUID, int* lastFileIndex, const wchar_t* lastFileName,
+                                   BOOL preferSelected, BOOL onlyAssociatedExtensions,
+                                   std::wstring* fileName, BOOL* noMoreFiles, BOOL* srcBusy,
+                                   CPluginInterfaceAbstract* plugin)
+{
+    return GetFileNameForViewerW(fnertFindPrevious, srcUID, lastFileIndex, lastFileName,
+                                preferSelected, onlyAssociatedExtensions, fileName,
+                                noMoreFiles, srcBusy, plugin, NULL, FALSE);
+}
+
+BOOL IsFileNameForViewerSelectedW(int srcUID, int lastFileIndex, const wchar_t* lastFileName,
+                                 BOOL* isFileSelected, BOOL* srcBusy)
+{
+    return GetFileNameForViewerW(fnertIsSelected, srcUID, &lastFileIndex, lastFileName,
+                                FALSE, FALSE, NULL, NULL, srcBusy, NULL, isFileSelected, FALSE);
+}
+
+BOOL SetSelectionOnFileNameForViewerW(int srcUID, int lastFileIndex, const wchar_t* lastFileName,
+                                     BOOL select, BOOL* srcBusy)
+{
+    return GetFileNameForViewerW(fnertSetSelection, srcUID, &lastFileIndex, lastFileName,
+                                FALSE, FALSE, NULL, NULL, srcBusy, NULL, NULL, select);
+}
+
+class CViewerEnumerationService : public CSalamanderViewerEnumerationAbstract
+{
+    BOOL GetFileName(BOOL previous, int srcUID, int* lastFileIndex,
+                     const wchar_t* lastFileName, BOOL preferSelected,
+                     BOOL onlyAssociatedExtensions, CPluginInterfaceAbstract* plugin,
+                     wchar_t* fileName, int fileNameCapacity,
+                     BOOL* noMoreFiles, BOOL* srcBusy)
+    {
+        if (noMoreFiles != NULL) *noMoreFiles = FALSE;
+        if (srcBusy != NULL) *srcBusy = FALSE;
+        if (fileName == NULL || fileNameCapacity <= 0 || lastFileIndex == NULL)
+        {
+            SetLastError(ERROR_INVALID_PARAMETER);
+            return FALSE;
+        }
+        // Capture input before clearing output: callers may reuse one buffer.
+        std::wstring lastName = lastFileName != NULL ? lastFileName : L"";
+        fileName[0] = 0;
+        int index = *lastFileIndex;
+        std::wstring result;
+        BOOL ok = GetFileNameForViewerW(previous ? fnertFindPrevious : fnertFindNext,
+            srcUID, &index, lastName.c_str(), preferSelected, onlyAssociatedExtensions,
+            &result, noMoreFiles, srcBusy, plugin, NULL, FALSE);
+        if (!ok) return FALSE;
+        if (!Salamander::ViewerPaths::CopyResult(result, fileName, fileNameCapacity))
+            return FALSE;
+        *lastFileIndex = index;
+        return TRUE;
+    }
+
+public:
+    virtual BOOL WINAPI GetNextFileName(int srcUID, int* lastFileIndex,
+        const wchar_t* lastFileName, BOOL preferSelected, BOOL onlyAssociatedExtensions,
+        CPluginInterfaceAbstract* viewerPlugin, wchar_t* fileName, int fileNameCapacity,
+        BOOL* noMoreFiles, BOOL* srcBusy)
+    {
+        return GetFileName(FALSE, srcUID, lastFileIndex, lastFileName, preferSelected,
+            onlyAssociatedExtensions, viewerPlugin, fileName, fileNameCapacity, noMoreFiles, srcBusy);
+    }
+    virtual BOOL WINAPI GetPreviousFileName(int srcUID, int* lastFileIndex,
+        const wchar_t* lastFileName, BOOL preferSelected, BOOL onlyAssociatedExtensions,
+        CPluginInterfaceAbstract* viewerPlugin, wchar_t* fileName, int fileNameCapacity,
+        BOOL* noMoreFiles, BOOL* srcBusy)
+    {
+        return GetFileName(TRUE, srcUID, lastFileIndex, lastFileName, preferSelected,
+            onlyAssociatedExtensions, viewerPlugin, fileName, fileNameCapacity, noMoreFiles, srcBusy);
+    }
+    virtual BOOL WINAPI IsFileSelected(int srcUID, int lastFileIndex,
+        const wchar_t* lastFileName, BOOL* isFileSelected, BOOL* srcBusy)
+    {
+        return IsFileNameForViewerSelectedW(srcUID, lastFileIndex, lastFileName, isFileSelected, srcBusy);
+    }
+    virtual BOOL WINAPI SetFileSelection(int srcUID, int lastFileIndex,
+        const wchar_t* lastFileName, BOOL select, BOOL* srcBusy)
+    {
+        return SetSelectionOnFileNameForViewerW(srcUID, lastFileIndex, lastFileName, select, srcBusy);
+    }
+};
+
+CSalamanderViewerEnumerationAbstract* GetViewerEnumerationService()
+{
+    static CViewerEnumerationService service;
+    return &service;
 }
 
 void EnumFileNamesChangeSourceUID(HWND hWnd, int* srcUID)

@@ -178,7 +178,7 @@ static bool ZipDecodeZipNameToUtf8(const CFileHeader* fileHeader, std::string& u
     return ZipWideToUtf8(wide.data(), (int)wide.size(), utf8);
 }
 
-static std::wstring ZipPathToWide(const char* path)
+std::wstring ZipPathToWide(const char* path)
 {
     if (path == NULL || *path == 0)
         return std::wstring();
@@ -499,6 +499,7 @@ CZipCommon::CZipCommon(const char* zipName, const char* zipRoot,
     Comment = NULL;
     Unix = FALSE;
     ArchiveVolumes = archiveVolumes;
+    ArchiveVolumesComplete = true;
 
     DWORD ret = GetCurrentDirectory(SAL_MAX_PATH, OriginalCurrentDir);
     if (!ret || ret >= SAL_MAX_PATH)
@@ -2215,7 +2216,16 @@ int CZipCommon::TestIfExist(const char* name)
         CloseCFile(file);
         if (OverwriteDialog2(SalamanderGeneral->GetMsgBoxParent(), name, attr) != IDC_YES)
             return ErrorID = IDS_NODISPLAY;
-        SetFileAttributes(name, FILE_ATTRIBUTE_NORMAL);
+        try
+        {
+            const std::wstring wideName = ZipPathToWide(name);
+            if (!SetFileAttributesW(wideName.c_str(), FILE_ATTRIBUTE_NORMAL))
+                return ErrorID = IDS_NODISPLAY;
+        }
+        catch (const std::bad_alloc&)
+        {
+            return ErrorID = IDS_LOWMEM;
+        }
     }
     return 0;
 }
@@ -2479,7 +2489,7 @@ int MakeFileName(int number, bool seqNames, const char* archive,
         sprintf(buf + namelen, ext > archive && isdigit(ext[-1]) ? "_%02d%s" : "%02d%s", number, ext);
 
     int ret = (int)strlen(buf);
-    if (ret > MAX_PATH)
+    if (ret >= MAX_PATH)
     {
         TRACE_I("archive name is too long to add file numbers:" << buf);
         return (int)strlen(strcpy(name, archive));

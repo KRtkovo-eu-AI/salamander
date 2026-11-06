@@ -1,10 +1,15 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-06 | Keep archive metadata cache invalidation with strict path decoding. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "fileactionpath.h"
 
 #include <new>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -29,48 +34,41 @@
 #include "filetags.h"
 #include "svg.h"
 
-static void FormatEditPropertiesLocalizedArguments(char* output, size_t outputSize,
-                                                   const char* format, const char* const* arguments,
-                                                   size_t argumentCount)
+static std::wstring EditPropertiesLocalizedToWide(const char* text)
 {
-    std::string result;
+    const char* value = text != NULL ? text : "";
+    return SalMultiByteToWidePath(value, IsValidPathUtf8Text(value) ? CP_UTF8 : CP_ACP);
+}
+
+// Substitute localized tokens as data, never as a printf format or a fixed path buffer.
+static std::wstring FormatEditPropertiesLocalizedArguments(const wchar_t* format,
+                                                           const std::vector<std::wstring>& arguments)
+{
+    std::wstring result;
     size_t argument = 0;
-    for (const char* p = format != NULL ? format : ""; *p != 0;)
+    for (const wchar_t* p = format != NULL ? format : L""; *p != 0;)
     {
-        if (p[0] == '%' && p[1] == '%')
+        if (p[0] == L'%' && p[1] == L'%')
         {
-            result.push_back('%');
+            result.push_back(L'%');
             p += 2;
         }
         else
         {
             size_t tokenLength = 0;
-            if (p[0] == '%' && (p[1] == 'd' || p[1] == 's'))
+            if (p[0] == L'%' && (p[1] == L'd' || p[1] == L's'))
                 tokenLength = 2;
-            else if (p[0] == '%' && strncmp(p, "%08X", 4) == 0)
+            else if (p[0] == L'%' && wcsncmp(p, L"%08X", 4) == 0)
                 tokenLength = 4;
-
-            if (tokenLength != 0 && argument < argumentCount)
+            if (tokenLength != 0 && argument < arguments.size())
             {
-                const char* value = arguments[argument++];
-                result.append(value != NULL ? value : "");
+                result.append(arguments[argument++]);
                 p += tokenLength;
             }
             else
                 result.push_back(*p++);
         }
     }
-    _snprintf_s(output, outputSize, _TRUNCATE, "%s", result.c_str());
-}
-
-static std::wstring EditPropertiesLocalizedToWide(const char* text)
-{
-    int length = MultiByteToWideChar(CP_ACP, 0, text != NULL ? text : "", -1, NULL, 0);
-    if (length <= 0)
-        return std::wstring();
-    std::wstring result((size_t)length, L'\0');
-    MultiByteToWideChar(CP_ACP, 0, text != NULL ? text : "", -1, &result[0], length);
-    result.resize((size_t)length - 1);
     return result;
 }
 
@@ -99,7 +97,8 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
         BOOL Modified;
     };
 
-    const std::vector<std::wstring>& Paths;
+    const std::vector<std::wstring> Paths;
+    const std::function<bool()> SelectionCurrent;
     CEditListBox* TagsList;
     std::vector<CTagItem*> Tags;
     std::vector<CPropertyRow> PropertyRows;
@@ -395,6 +394,13 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
         return result;
     }
 
+    BOOL CheckSelection()
+    {
+        if (!SelectionCurrent || SelectionCurrent()) return TRUE;
+        EndDialog(HWindow, IDCANCEL); // A replaced panel/selection cannot approve more writes.
+        return FALSE;
+    }
+
     BOOL Apply()
     {
         if (TagsList != NULL)
@@ -405,6 +411,7 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
         int tagsState = IsDlgButtonChecked(HWindow, IDC_EDPROP_TAGS_ENABLE);
         std::vector<std::wstring> tags = GetTags();
         BOOL tagsChanged = tagsState != InitialTagsState || tags != InitialTags;
+        if (!CheckSelection()) return FALSE;
         BOOL anyAttempted = FALSE;
         BOOL tagsSucceeded = FALSE;
         int updated = 0;
@@ -426,6 +433,7 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
                 std::vector<std::wstring> values = tagsState == BST_CHECKED
                                                        ? tags
                                                        : std::vector<std::wstring>();
+                if (!CheckSelection()) { SetCursor(oldCursor); return FALSE; }
                 HRESULT hr = WriteFileTagsW(Paths[pathIndex].c_str(), values);
                 if (SUCCEEDED(hr))
                 {
@@ -459,6 +467,7 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
                     continue;
                 anyAttempted = TRUE;
                 propertyAttempted[rowIndex] = TRUE;
+                if (!CheckSelection()) { SetCursor(oldCursor); return FALSE; }
                 HRESULT hr;
                 if (state == BST_CHECKED &&
                     GetExplorerColumnType(row.ExplorerIndex) == (VT_VECTOR | VT_LPWSTR))
@@ -492,6 +501,7 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
                 failed++;
         }
         SetCursor(oldCursor);
+        if (!CheckSelection()) return FALSE;
 
         for (size_t rowIndex = 0; rowIndex < PropertyRows.size(); rowIndex++)
         {
@@ -518,19 +528,14 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
         }
         if (failed > 0 || (anyAttempted && Paths.size() > 1))
         {
-            char result[1200];
-            char updatedText[32];
-            char failedText[32];
-            _snprintf_s(updatedText, _countof(updatedText), _TRUNCATE, "%d", updated);
-            _snprintf_s(failedText, _countof(failedText), _TRUNCATE, "%d", failed);
-            const char* resultArguments[] = {updatedText, failedText};
-            FormatEditPropertiesLocalizedArguments(result, _countof(result),
-                                                    LoadStr(IDS_EDPROP_RESULT), resultArguments,
-                                                    _countof(resultArguments));
+            std::wstring result = FormatEditPropertiesLocalizedArguments(
+                EditPropertiesLocalizedToWide(LoadStr(IDS_EDPROP_RESULT)).c_str(),
+                {std::to_wstring(updated), std::to_wstring(failed)});
             if (failed > 0 && !firstFailedPath.empty())
             {
                 const char* reason = LoadStr(IDS_EDPROP_REASON_OTHER);
-                DWORD attributes = GetFileAttributesW(firstFailedPath.c_str());
+                const std::wstring failureIoPath = SalPathAddExtendedPrefixW(firstFailedPath.c_str());
+                DWORD attributes = GetFileAttributesW(failureIoPath.c_str());
                 if (firstFailure == E_ACCESSDENIED || firstFailure == STG_E_ACCESSDENIED ||
                     firstFailure == HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED) ||
                     firstFailure == HRESULT_FROM_WIN32(ERROR_WRITE_PROTECT) ||
@@ -541,28 +546,29 @@ class CEditWindowsPropertiesDialog : public CCommonDialog
                 else if (firstFailure == (HRESULT)0x88982F41L || firstFailureUnsupported)
                     reason = LoadStr(IDS_EDPROP_REASON_UNSUPPORTED);
 
-                char detail[800];
-                std::string path = SalWideToMultiBytePath(firstFailedPath.c_str(), CP_ACP);
-                char failureCode[32];
-                _snprintf_s(failureCode, _countof(failureCode), _TRUNCATE, "%08X",
-                            (DWORD)firstFailure);
-                const char* detailArguments[] = {
-                    path.c_str(), firstFailedProperty.c_str(), reason, failureCode};
-                FormatEditPropertiesLocalizedArguments(detail, _countof(detail),
-                                                        LoadStr(IDS_EDPROP_RESULT_DETAIL),
-                                                        detailArguments, _countof(detailArguments));
-                strncat_s(result, _countof(result), "\n\n", _TRUNCATE);
-                strncat_s(result, _countof(result), detail, _TRUNCATE);
+                wchar_t failureCode[32]; // numeric HRESULT only, no file/path text
+                _snwprintf_s(failureCode, _countof(failureCode), _TRUNCATE, L"%08X", (DWORD)firstFailure);
+                result += L"\n\n";
+                result += FormatEditPropertiesLocalizedArguments(
+                    EditPropertiesLocalizedToWide(LoadStr(IDS_EDPROP_RESULT_DETAIL)).c_str(),
+                    {firstFailedPath, EditPropertiesLocalizedToWide(firstFailedProperty.c_str()),
+                     EditPropertiesLocalizedToWide(reason), failureCode});
             }
-            SalMessageBox(HWindow, result, LoadStr(IDS_EDPROP_TITLE),
-                          failed > 0 ? MB_ICONEXCLAMATION | MB_OK : MB_ICONINFORMATION | MB_OK);
+            CTruncatedString text;
+            if (text.SetW(result.c_str(), NULL))
+            {
+                CMessageBox message(HWindow, MSGBOXEX_OK | (failed > 0 ? MSGBOXEX_ICONEXCLAMATION : MSGBOXEX_ICONINFORMATION),
+                                    LoadStr(IDS_EDPROP_TITLE), &text, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL);
+                message.Execute();
+            }
         }
         return failed == 0;
     }
 
 public:
-    CEditWindowsPropertiesDialog(HWND parent, const std::vector<std::wstring>& paths)
-        : CCommonDialog(HLanguage, IDD_EDIT_PROPERTIES, parent), Paths(paths)
+    CEditWindowsPropertiesDialog(HWND parent, const std::vector<std::wstring>& paths,
+                                 const std::function<bool()>& selectionCurrent = std::function<bool()>())
+        : CCommonDialog(HLanguage, IDD_EDIT_PROPERTIES, parent), Paths(paths), SelectionCurrent(selectionCurrent)
     {
         TagsList = NULL;
         PropertiesList = NULL;
@@ -609,7 +615,7 @@ protected:
                 if (RenderSVGIconBitmap("Modify", propertyIconSize, TRUE, &editBitmap))
                 {
                     ImageList_Add(PropertyImages, editBitmap, NULL);
-                    DeleteObject(editBitmap);
+                    HANDLES(DeleteObject(editBitmap));
                     ListView_SetImageList(PropertiesList, PropertyImages, LVSIL_SMALL);
                 }
                 else
@@ -915,14 +921,6 @@ static DWORD UpdateArchiveCacheHash(DWORD hash, const char* text, BOOL ignoreCas
     return hash;
 }
 
-static std::wstring FileActionTextToWide(const char* text)
-{
-    std::wstring wide = SalMultiByteToWidePath(text, CP_UTF8);
-    if (wide.empty() && GetACP() != CP_UTF8)
-        wide = SalMultiByteToWidePath(text, CP_ACP);
-    return wide;
-}
-
 static void BuildArchiveCacheKey(char* key, int keySize, const char* archiveName, const char* nameInArchive, const CFileData* f)
 {
     DWORD hash = 2166136261U;
@@ -936,7 +934,8 @@ static void BuildArchiveCacheKey(char* key, int keySize, const char* archiveName
     DWORD archiveWriteLow = 0;
     if (archiveName != NULL && archiveName[0] != 0)
     {
-        std::wstring wideArchive = FileActionTextToWide(archiveName);
+        // Use strict UTF-8 first; invalid UTF-8 archive paths retain their ACP identity.
+        std::wstring wideArchive = Salamander::ViewerPaths::Decode(archiveName);
         if (wideArchive.length() >= MAX_PATH)
             wideArchive = SalPathAddExtendedPrefixW(wideArchive.c_str());
         WIN32_FILE_ATTRIBUTE_DATA attr;
@@ -968,24 +967,6 @@ static void BuildArchiveCacheKey(char* key, int keySize, const char* archiveName
 
 static BOOL CreateProcessForFileAction(const char* cmdLine, const char* currentDir, STARTUPINFO* si, PROCESS_INFORMATION* pi)
 {
-    std::wstring cmdLineW = FileActionTextToWide(cmdLine);
-    if (cmdLineW.empty())
-        return HANDLES(CreateProcess(NULL, (char*)cmdLine, NULL, NULL, FALSE,
-                                     NORMAL_PRIORITY_CLASS, NULL, currentDir, si, pi));
-
-    std::wstring currentDirW;
-    LPCWSTR currentDirParam = NULL;
-    if (currentDir != NULL && *currentDir != 0)
-    {
-        currentDirW = FileActionTextToWide(currentDir);
-        if (!currentDirW.empty())
-        {
-            if (currentDirW.length() >= MAX_PATH && !SalIsExtendedLengthPathW(currentDirW.c_str()))
-                currentDirW = SalPathAddExtendedPrefixW(currentDirW.c_str());
-            currentDirParam = currentDirW.c_str();
-        }
-    }
-
     STARTUPINFOW siW;
     memset(&siW, 0, sizeof(siW));
     siW.cb = sizeof(siW);
@@ -1004,8 +985,8 @@ static BOOL CreateProcessForFileAction(const char* cmdLine, const char* currentD
     siW.hStdOutput = si->hStdOutput;
     siW.hStdError = si->hStdError;
 
-    BOOL created = NOHANDLES(CreateProcessW(NULL, &cmdLineW[0], NULL, NULL, FALSE,
-                                            NORMAL_PRIORITY_CLASS, NULL, currentDirParam, &siW, pi));
+    BOOL created = NOHANDLES(Salamander::FileActionPaths::LaunchProcess(cmdLine, currentDir,
+                                            NORMAL_PRIORITY_CLASS, &siW, pi));
     if (created)
     {
         HANDLES_ADD(__htProcess, __hoCreateProcess, pi->hProcess);
@@ -1175,10 +1156,54 @@ void CFilesWindow::Convert()
     EndStopRefresh(); // snooper will start again now
 }
 
+// S31b3a3: own the operation identities across modal message dispatch.
+// A dialog must not approve a replacement tab/listing or a different selection.
+struct CBranchAttributeSelection
+{
+    std::wstring Root;
+    ULONGLONG Tab = 0, Generation = 0;
+    std::vector<std::wstring> Paths;
+
+    bool Capture(CFilesWindow* panel)
+    {
+        Paths.clear();
+        if (!panel->Is(ptDisk) || !panel->IsBranchView()) return false;
+        Root = panel->GetPathW();
+        Tab = panel->GetPanelTabId();
+        Generation = panel->GetBranchViewGeneration();
+        const int selected = panel->GetSelCount();
+        const int caret = panel->GetCaretIndex();
+        const int total = panel->Dirs->Count + panel->Files->Count;
+        if (Root.empty() || (selected == 0 && (caret < 0 || caret >= total))) return false;
+        for (int i = 0; i < total; ++i)
+        {
+            const CFileData& file = i < panel->Dirs->Count ? panel->Dirs->At(i) : panel->Files->At(i - panel->Dirs->Count);
+            if (selected != 0 ? file.Selected == 0 : i != caret) continue;
+            if (panel->GetBranchViewFileByCacheKey(panel->GetItemCacheKeyPtr(file)) != &file) return false;
+            const std::wstring path = panel->GetItemFullPathW(file);
+            if (path.empty()) return false;
+            Paths.push_back(path);
+        }
+        return !Paths.empty();
+    }
+
+    bool IsCurrent(CFilesWindow* panel) const
+    {
+        CBranchAttributeSelection current;
+        return current.Capture(panel) && Root == current.Root && Tab == current.Tab &&
+               Generation == current.Generation && Paths == current.Paths;
+    }
+};
+
 void CFilesWindow::EditWindowsProperties()
 {
+    const bool branchProperties = IsBranchView() != FALSE;
+    CBranchAttributeSelection selection;
+    if (branchProperties && !selection.Capture(this)) return;
+
     CALL_STACK_MESSAGE1("CFilesWindow::EditWindowsProperties()");
-    if (!Is(ptDisk) || CheckPath(TRUE) != ERROR_SUCCESS)
+    if (!Is(ptDisk) || CheckPath(TRUE) != ERROR_SUCCESS ||
+        (branchProperties && !selection.IsCurrent(this)))
         return;
 
     std::vector<int> indexes;
@@ -1192,33 +1217,87 @@ void CFilesWindow::EditWindowsProperties()
         indexes.push_back(GetCaretIndex());
 
     std::vector<std::wstring> paths;
-    std::wstring panelPath = GetPathW() != NULL && GetPathW()[0] != 0
-                                 ? std::wstring(GetPathW())
-                                 : SalMultiByteToWidePath(GetPath());
     for (size_t i = 0; i < indexes.size(); i++)
     {
         int index = indexes[i];
         if (index < Dirs->Count || index >= Dirs->Count + Files->Count)
             continue;
         CFileData* file = &Files->At(index - Dirs->Count);
-        std::wstring path = panelPath;
-        std::wstring name = file->UseWideName() ? std::wstring(file->NameW) : SalMultiByteToWidePath(file->Name);
-        SalPathAppendW(path, name.c_str());
+        if (branchProperties && GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*file)) != file) return;
+        const std::wstring path = GetItemFullPathW(*file);
+        if (path.empty()) return;
         paths.push_back(path);
     }
     if (paths.empty())
         return;
 
-    CEditWindowsPropertiesDialog dialog(HWindow, paths);
-    if (dialog.Execute() == IDOK)
+    std::function<bool()> selectionCurrent;
+    if (branchProperties) selectionCurrent = [this, &selection]() { return selection.IsCurrent(this); };
+    CEditWindowsPropertiesDialog dialog(HWindow, paths, selectionCurrent);
+    BeginStopRefresh();
+    const INT_PTR result = dialog.Execute();
+    EndStopRefresh();
+    if (result == IDOK && (!branchProperties || selection.IsCurrent(this)))
     {
         RefreshListBox(-1, -1, FocusedIndex, FALSE, FALSE);
         PostMessage(HWindow, WM_USER_REFRESH_DIR, 0, GetTickCount());
     }
 }
 
+// Build the confirmation with typed wide identities; display text is not an I/O path.
+static BOOL PrepareNtfsConfirmation(CFilesWindow* panel, int textID, int count, CTruncatedString& text)
+{
+    if (count < 0 || count != panel->GetSelCount()) return FALSE;
+    const auto wideText = [](const char* value) {
+        return SalMultiByteToWidePath(value, IsValidPathUtf8Text(value) ? CP_UTF8 : CP_ACP);
+    };
+    std::wstring format = wideText(LoadStr(textID));
+    const auto insertSubject = [&](const std::wstring& subject) {
+        for (size_t i = 0; i + 1 < format.size(); ++i)
+        {
+            if (format[i] != L'%') continue;
+            if (format[i + 1] == L'%') { ++i; continue; }
+            if (format[i + 1] == L's')
+            {
+                std::wstring result = format;
+                result.replace(i, 2, subject);
+                return result;
+            }
+        }
+        return format + L" " + subject;
+    };
+    if (count > 1)
+    {
+        int files = 0, dirs = 0;
+        for (int i = 0; i < panel->Dirs->Count; ++i)
+            if (panel->Dirs->At(i).Selected && strcmp(panel->Dirs->At(i).Name, "..") != 0) ++dirs;
+        for (int i = 0; i < panel->Files->Count; ++i)
+            if (panel->Files->At(i).Selected) ++files;
+        if (files + dirs != count) return FALSE;
+        char expanded[200]; // localized counts only, no file/path text
+        ExpandPluralFilesDirs(expanded, sizeof(expanded), files, dirs, epfdmNormal, FALSE);
+        format = insertSubject(wideText(expanded));
+        return text.SetW(format.c_str(), NULL);
+    }
+    int index = panel->GetCaretIndex();
+    if (count == 1) panel->GetSelItems(1, &index);
+    if (index < 0 || index >= panel->Dirs->Count + panel->Files->Count) return FALSE;
+    const BOOL isDir = index < panel->Dirs->Count;
+    const CFileData& file = isDir ? panel->Dirs->At(index) : panel->Files->At(index - panel->Dirs->Count);
+    if (strcmp(file.Name, "..") == 0) return FALSE;
+    if (panel->IsBranchView() && panel->GetBranchViewFileByCacheKey(panel->GetItemCacheKeyPtr(file)) != &file) return FALSE;
+    const std::wstring identity = panel->IsBranchView() ? panel->GetItemRelativePathW(file) : panel->GetItemFullPathW(file);
+    if (identity.empty()) return FALSE;
+    format = insertSubject(wideText(LoadStr(isDir ? IDS_QUESTION_DIRECTORY : IDS_QUESTION_FILE)));
+    return text.SetW(format.c_str(), identity.c_str());
+}
+
 void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncryption, BOOL encrypted)
 {
+    const bool branchAttributes = IsBranchView() != FALSE;
+    CBranchAttributeSelection branchSelection;
+    if (branchAttributes && !branchSelection.Capture(this)) return;
+
     CALL_STACK_MESSAGE5("CFilesWindow::ChangeAttr(%d, %d, %d, %d)", setCompress, compressed, setEncryption, encrypted);
     if (Dirs->Count + Files->Count == 0)
         return;
@@ -1234,15 +1313,18 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
         if (Dirs->Count > 0 && index == 0 && strcmp(Dirs->At(0).Name, "..") == 0)
             return;
     }
+    const auto clearTemporarySelection = [&](const CPanelTemporarySelection& selection) {
+        if (!branchAttributes || branchSelection.IsCurrent(this)) UnselectItemWithName(selection);
+    };
     BeginStopRefresh(); // snooper takes a break
 
     // if no item is selected, select the one under focus and store its name
-    char temporarySelected[MAX_PATH];
-    temporarySelected[0] = 0;
+    CPanelTemporarySelection temporarySelected;
+    temporarySelected.Clear();
     if ((!setCompress || Configuration.CnfrmNTFSPress) &&
         (!setEncryption || Configuration.CnfrmNTFSCrypt))
     {
-        SelectFocusedItemAndGetName(temporarySelected, MAX_PATH);
+        SelectFocusedItemAndGetName(temporarySelected);
     }
 
     if (Is(ptDisk))
@@ -1257,10 +1339,12 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
             else
                 subDir = FALSE;
 
-            DWORD attr, attrDiff;
+            DWORD attr = 0, attrDiff = 0;
             SYSTEMTIME timeModified;
             SYSTEMTIME timeCreated;
             SYSTEMTIME timeAccessed;
+            GetLocalTime(&timeModified); // Fast commands still construct the common dialog.
+            timeCreated = timeAccessed = timeModified;
             if (!setCompress && !setEncryption)
             {
                 int count = GetSelCount();
@@ -1281,12 +1365,9 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                             BOOL timeObtained = FALSE;
 
                             // retrieve the file times
-                            char fileName[MAX_PATH];
-                            strcpy(fileName, GetPath());
-                            SalPathAppend(fileName, f->Name, MAX_PATH);
-
-                            WIN32_FIND_DATA find;
-                            HANDLE hFind = HANDLES_Q(FindFirstFile(fileName, &find));
+                            std::wstring fileName = SalPathAddExtendedPrefixW(GetItemFullPathW(*f).c_str());
+                            WIN32_FIND_DATAW find;
+                            HANDLE hFind = HANDLES_Q(FindFirstFileW(fileName.c_str(), &find));
                             if (hFind != INVALID_HANDLE_VALUE)
                             {
                                 HANDLES(FindClose(hFind));
@@ -1384,47 +1465,7 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                 if (setCompress && Configuration.CnfrmNTFSPress || // ask whether to compress/decompress
                     setEncryption && Configuration.CnfrmNTFSCrypt) // ask whether to encrypt/decrypt
                 {
-                    char subject[MAX_PATH + 100];
-                    char expanded[200];
-                    int count = GetSelCount();
-                    char path[MAX_PATH];
-                    if (count > 1)
-                    {
-                        int totalCount = Dirs->Count + Files->Count;
-                        int files = 0;
-                        int dirs = 0;
-                        CFileData* f;
-                        int i;
-                        for (i = 0; i < totalCount; i++)
-                        {
-                            BOOL isDir = i < Dirs->Count;
-                            f = isDir ? &Dirs->At(i) : &Files->At(i - Dirs->Count);
-                            if (i == 0 && isDir && strcmp(Dirs->At(0).Name, "..") == 0)
-                                continue;
-                            if (f->Selected == 1)
-                            {
-                                if (isDir)
-                                    dirs++;
-                                else
-                                    files++;
-                            }
-                        }
-
-                        ExpandPluralFilesDirs(expanded, 200, files, dirs, epfdmNormal, FALSE);
-                    }
-                    else
-                    {
-                        int index;
-                        if (count == 0)
-                            index = GetCaretIndex();
-                        else
-                            GetSelItems(1, &index);
-
-                        BOOL isDir = index < Dirs->Count;
-                        CFileData* f = isDir ? &Dirs->At(index) : &Files->At(index - Dirs->Count);
-                        AlterFileName(path, f->Name, -1, Configuration.FileNameFormat, 0, index < Dirs->Count);
-                        lstrcpy(expanded, LoadStr(isDir ? IDS_QUESTION_DIRECTORY : IDS_QUESTION_FILE));
-                    }
+                    const int count = GetSelCount();
                     int resTextID;
                     int resTitleID;
                     if (setCompress)
@@ -1437,15 +1478,21 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                         resTextID = encrypted ? IDS_CONFIRM_NTFSENCRYPT : IDS_CONFIRM_NTFSDECRYPT;
                         resTitleID = encrypted ? IDS_CONFIRM_NTFSENCRYPT_TITLE : IDS_CONFIRM_NTFSDECRYPT_TITLE;
                     }
-                    _snprintf_s(subject, _TRUNCATE, "%s %s", LoadStr(resTextID), expanded);
                     CTruncatedString str;
-                    str.Set(subject, count > 1 ? NULL : path);
+                    if ((branchAttributes && !branchSelection.IsCurrent(this)) ||
+                        !PrepareNtfsConfirmation(this, resTextID, count, str))
+                    {
+                        clearTemporarySelection(temporarySelected);
+                        FilesActionInProgress = FALSE;
+                        EndStopRefresh();
+                        return;
+                    }
                     CMessageBox msgBox(HWindow, MSGBOXEX_YESNO | MSGBOXEX_ESCAPEENABLED | MSGBOXEX_ICONQUESTION | MSGBOXEX_SILENT,
                                        LoadStr(resTitleID), &str, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL);
                     if (msgBox.Execute() != IDYES)
                     {
                         // if we selected an item, deselect it again
-                        UnselectItemWithName(temporarySelected);
+                        clearTemporarySelection(temporarySelected);
                         FilesActionInProgress = FALSE;
                         EndStopRefresh(); // snooper will start again now
                         return;
@@ -1457,10 +1504,10 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
             {
                 UpdateWindow(MainWindow->HWindow);
 
-                if (CheckPath(TRUE) != ERROR_SUCCESS)
+                if (CheckPath(TRUE) != ERROR_SUCCESS || (branchAttributes && !branchSelection.IsCurrent(this)))
                 {
                     // if we selected an item, we deselect it again
-                    UnselectItemWithName(temporarySelected);
+                    clearTemporarySelection(temporarySelected);
                     FilesActionInProgress = FALSE;
                     EndStopRefresh(); // snooper will start again now
                     return;
@@ -1499,7 +1546,7 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                     {
                         TRACE_E(LOW_MEMORY);
                         // if we selected an item, we deselect it again
-                        UnselectItemWithName(temporarySelected);
+                        clearTemporarySelection(temporarySelected);
                         FilesActionInProgress = FALSE;
                         EndStopRefresh(); // snooper will start again now
                         return;
@@ -1512,7 +1559,7 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                     if (i < 0 || i >= Dirs->Count + Files->Count)
                     {
                         // if we selected an item, we deselect it again
-                        UnselectItemWithName(temporarySelected);
+                        clearTemporarySelection(temporarySelected);
                         FilesActionInProgress = FALSE;
                         EndStopRefresh(); // snooper will start again now
                         return;           // invalid index (no files)
@@ -1520,7 +1567,7 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                     if (i == 0 && subDir)
                     {
                         // if we selected an item, we deselect it again
-                        UnselectItemWithName(temporarySelected);
+                        clearTemporarySelection(temporarySelected);
                         FilesActionInProgress = FALSE;
                         EndStopRefresh(); // snooper will start again now
                         return;           // we do not work with ".."
@@ -1608,9 +1655,10 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                     }
 
                     script->ClearReadonlyMask = 0xFFFFFFFF;
-                    BOOL res = BuildScriptMain(script, atChangeAttrs, NULL, NULL, count,
+                    BOOL res = (!branchAttributes || branchSelection.IsCurrent(this)) &&
+                               BuildScriptMain(script, atChangeAttrs, NULL, NULL, count,
                                                indexes, f, &attrsData, NULL, FALSE, NULL);
-                    if (script->Count == 0)
+                    if (script->Count == 0 || (branchAttributes && !branchSelection.IsCurrent(this)))
                         res = FALSE;
                     // reordered to allow the main window to activate (must not be disabled), otherwise it switches to another app
                     EnableWindow(MainWindow->HWindow, TRUE);
@@ -1640,8 +1688,11 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                     }
                     else // removal of selection index (no waiting for operation finish, operation runs in another thread)
                     {
-                        SetSel(FALSE, -1, TRUE);                        // explicit repaint
-                        PostMessage(HWindow, WM_USER_SELCHANGED, 0, 0); // selection change notify
+                        if (!branchAttributes || branchSelection.IsCurrent(this))
+                        {
+                            SetSel(FALSE, -1, TRUE);                        // explicit repaint
+                            PostMessage(HWindow, WM_USER_SELCHANGED, 0, 0); // selection change notify
+                        }
                         UpdateWindow(MainWindow->HWindow);
                     }
                 }
@@ -1694,7 +1745,7 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
         }
     }
     // if we selected an item, we deselect it again
-    UnselectItemWithName(temporarySelected);
+    clearTemporarySelection(temporarySelected);
 
     EndStopRefresh(); // snooper will start again now
 }
@@ -1739,7 +1790,6 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
     CALL_STACK_MESSAGE6("CFilesWindow::ViewFile(%s, %d, %u, %d, %d)", name, altView, handlerID,
                         enumFileNamesSourceUID, enumFileNamesLastFileIndex);
     // verify that the file is on an accessible path
-    char path[SAL_MAX_PATH + 10];
     if (name == NULL) // file from the panel
     {
         if (Is(ptDisk) || Is(ptZIPArchive))
@@ -1753,9 +1803,8 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
         char* backSlash = strrchr(name, '\\');
         if (backSlash != NULL)
         {
-            memcpy(path, name, backSlash - name);
-            path[backSlash - name] = 0;
-            if (CheckPath(TRUE, path) != ERROR_SUCCESS)
+            std::string path(name, backSlash - name);
+            if (CheckPath(TRUE, path.c_str()) != ERROR_SUCCESS)
                 return;
         }
     }
@@ -1772,61 +1821,16 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
         if (i >= Dirs->Count && i < Dirs->Count + Files->Count)
         {
             CFileData* f = &Files->At(i - Dirs->Count);
+            if (IsBranchView() && GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*f)) != f) return;
             if (Is(ptDisk))
             {
                 if (enumFileNamesLastFileIndex == -1)
                     enumFileNamesLastFileIndex = i - Dirs->Count;
-                std::wstring wideName = GetPathW() != NULL && GetPathW()[0] != 0 ? std::wstring(GetPathW()) : FileActionTextToWide(GetPath());
-                SalPathAppendW(wideName, f->UseWideName() ? f->NameW : FileActionTextToWide(f->Name).c_str());
+                const std::wstring wideName = GetItemFullPathW(*f);
                 unicodeDiskFileName = SalWideToMultiBytePath(wideName.c_str(), CP_UTF8);
-
-                lstrcpyn(path, GetPath(), SAL_MAX_PATH);
-                if (GetPath()[strlen(GetPath()) - 1] != '\\')
-                    strcat(path, "\\");
-                char* s = path + strlen(path);
-                if ((s - path) + f->NameLen >= SAL_MAX_PATH)
-                {
-                    if (!unicodeDiskFileName.empty())
-                    {
-                        name = (char*)unicodeDiskFileName.c_str();
-                    }
-                    else if (f->DosName != NULL && strlen(f->DosName) + (s - path) < SAL_MAX_PATH)
-                        strcpy(s, f->DosName);
-                    else
-                    {
-                        SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORTITLE),
-                                      MB_OK | MB_ICONEXCLAMATION);
-                        return;
-                    }
-                }
-                else
-                {
-                    strcpy(s, f->Name);
-                    name = path;
-                }
-                // try whether the file name is valid, otherwise try its DOS name
-                // (handles files accessible only through Unicode or DOS names)
-                if (name == path && SalGetFileAttributes(path) == 0xffffffff)
-                {
-                    DWORD err = GetLastError();
-                    if (err == ERROR_FILE_NOT_FOUND || err == ERROR_INVALID_NAME)
-                    {
-                        if (!unicodeDiskFileName.empty())
-                        {
-                            name = (char*)unicodeDiskFileName.c_str();
-                        }
-                        else if (f->DosName != NULL && strlen(f->DosName) + (s - path) < SAL_MAX_PATH)
-                        {
-                            strcpy(s, f->DosName);
-                            if (SalGetFileAttributes(path) == 0xffffffff) // still error -> revert to the long name
-                            {
-                                if ((s - path) + f->NameLen < SAL_MAX_PATH)
-                                    strcpy(s, f->Name);
-                            }
-                        }
-                    }
-                }
-                name = !unicodeDiskFileName.empty() ? (char*)unicodeDiskFileName.c_str() : path;
+                if (unicodeDiskFileName.empty())
+                    return;
+                name = (char*)unicodeDiskFileName.c_str();
                 addToHistory = TRUE;
             }
             else
@@ -1984,6 +1988,31 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
         }
     }
 
+    // S27a transition: plugin viewers require their own panel-to-result acceptance.
+    // Resolve the first configured mask without invoking any plugin callback.
+    if (IsBranchView())
+    {
+        if (handlerID != 0xFFFFFFFF) return;
+        const char* base = strrchr(name, '\\');
+        if (base == NULL) return;
+        ++base;
+        const char* extension = strrchr(base, '.');
+        extension = extension != NULL ? extension + 1 : base + strlen(base);
+        CViewerMasks* masks = altView ? MainWindow->AltViewerMasks : MainWindow->ViewerMasks;
+        BOOL allowed = FALSE;
+        for (int i = 0; i < masks->Count; ++i)
+        {
+            int error;
+            CViewerMasksItem* viewer = masks->At(i);
+            if (viewer->Masks->PrepareMasks(error) && viewer->Masks->AgreeMasks(base, extension))
+            {
+                allowed = viewer->ViewerType == VIEWER_INTERNAL || viewer->ViewerType == VIEWER_EXTERNAL;
+                break;
+            }
+        }
+        if (!allowed) return;
+    }
+
     HANDLE lock = NULL;
     BOOL lockOwner = FALSE;
     ViewFileInt(HWindow, name, altView, handlerID, useDiskCache, lock, lockOwner, addToHistory,
@@ -2011,12 +2040,9 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
     lockOwner = FALSE;
 
     // obtain the full DOS name
-    CPathBuffer dosName(SAL_MAX_PATH);
-    if (GetShortPathName(name, dosName.Data(), dosName.Capacity()) == 0)
-    {
-        TRACE_E("GetShortPathName() failed");
-        dosName.Data()[0] = 0;
-    }
+    std::string shortName = Salamander::FileActionPaths::ShortPath(name);
+    CPathBuffer dosName((int)shortName.size() + 1);
+    memcpy(dosName.Data(), shortName.c_str(), shortName.size() + 1);
 
     // find the file name and check if it has an extension - needed for masks
     const char* namePart = strrchr(name, '\\');
@@ -2115,12 +2141,12 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
         {
         case VIEWER_EXTERNAL:
         {
-            CPathBuffer expCommand(SAL_MAX_PATH);
-            CPathBuffer expArguments(SAL_MAX_PATH);
-            CPathBuffer expInitDir(SAL_MAX_PATH);
-            if (ExpandCommand(parent, viewer->Command, expCommand.Data(), expCommand.Capacity(), FALSE) &&
-                ExpandArguments(parent, name, dosName.Data(), viewer->Arguments, expArguments.Data(), expArguments.Capacity(), NULL) &&
-                ExpandInitDir(parent, name, dosName.Data(), viewer->InitDir, expInitDir.Data(), expInitDir.Capacity(), FALSE))
+            CPathBuffer expCommand(3 * SAL_MAX_PATH);
+            CPathBuffer expArguments(3 * SAL_MAX_PATH);
+            CPathBuffer expInitDir(3 * SAL_MAX_PATH);
+            if (ExpandCommand(parent, Salamander::FileActionPaths::Normalize(viewer->Command).c_str(), expCommand.Data(), expCommand.Capacity(), FALSE) &&
+                ExpandArguments(parent, name, dosName.Data(), Salamander::FileActionPaths::Normalize(viewer->Arguments).c_str(), expArguments.Data(), expArguments.Capacity(), NULL) &&
+                ExpandInitDir(parent, name, dosName.Data(), Salamander::FileActionPaths::Normalize(viewer->InitDir).c_str(), expInitDir.Data(), expInitDir.Capacity(), FALSE))
             {
                 if (SystemPolicies.GetMyRunRestricted() &&
                     !SystemPolicies.GetMyCanRun(expCommand.Data()))
@@ -2149,7 +2175,7 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                               STARTF_USESHOWWINDOW;
                 si.wShowWindow = SW_SHOWNORMAL;
 
-                CPathBuffer cmdLine(2 * SAL_MAX_PATH);
+                CPathBuffer cmdLine(6 * SAL_MAX_PATH);
                 lstrcpyn(cmdLine.Data(), expCommand.Data(), cmdLine.Capacity());
                 AddDoubleQuotesIfNeeded(cmdLine.Data(), cmdLine.Capacity()); // CreateProcess wants the name with spaces in quotes (otherwise it tries various variants, see help)
                 int len = (int)strlen(cmdLine.Data());
@@ -2284,7 +2310,6 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
     }
 
     // verify that the file is on an accessible path
-    char path[SAL_MAX_PATH + 10];
     if (name == NULL)
     {
         if (CheckPath(TRUE) != ERROR_SUCCESS)
@@ -2295,9 +2320,8 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
         char* backSlash = strrchr(name, '\\');
         if (backSlash != NULL)
         {
-            memcpy(path, name, backSlash - name);
-            path[backSlash - name] = 0;
-            if (CheckPath(TRUE, path) != ERROR_SUCCESS)
+            std::string path(name, backSlash - name);
+            if (CheckPath(TRUE, path.c_str()) != ERROR_SUCCESS)
                 return;
         }
     }
@@ -2312,48 +2336,14 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
         if (i >= Dirs->Count && i < Dirs->Count + Files->Count)
         {
             CFileData* f = &Files->At(i - Dirs->Count);
+            if (IsBranchView() && GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*f)) != f) return;
             if (Is(ptDisk))
             {
-                std::wstring wideName = GetPathW() != NULL && GetPathW()[0] != 0 ? std::wstring(GetPathW()) : FileActionTextToWide(GetPath());
-                SalPathAppendW(wideName, f->UseWideName() ? f->NameW : FileActionTextToWide(f->Name).c_str());
+                const std::wstring wideName = GetItemFullPathW(*f);
                 unicodeDiskFileName = SalWideToMultiBytePath(wideName.c_str(), CP_UTF8);
-
-                lstrcpyn(path, GetPath(), SAL_MAX_PATH);
-                if (GetPath()[strlen(GetPath()) - 1] != '\\')
-                    strcat(path, "\\");
-                char* s = path + strlen(path);
-                if ((s - path) + f->NameLen >= SAL_MAX_PATH)
-                {
-                    if (f->DosName != NULL && strlen(f->DosName) + (s - path) < SAL_MAX_PATH)
-                        strcpy(s, f->DosName);
-                    else
-                    {
-                        SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORTITLE),
-                                      MB_OK | MB_ICONEXCLAMATION);
-                        return;
-                    }
-                }
-                else
-                    strcpy(s, f->Name);
-                // try whether the file name is valid, otherwise try its DOS name as well
-                // (handles files accessible only through Unicode or DOS names)
-                if (f->DosName != NULL && SalGetFileAttributes(path) == 0xffffffff)
-                {
-                    DWORD err = GetLastError();
-                    if (err == ERROR_FILE_NOT_FOUND || err == ERROR_INVALID_NAME)
-                    {
-                        if (strlen(f->DosName) + (s - path) < SAL_MAX_PATH)
-                        {
-                            strcpy(s, f->DosName);
-                            if (SalGetFileAttributes(path) == 0xffffffff) // still error -> revert to the long name
-                            {
-                                if ((s - path) + f->NameLen < SAL_MAX_PATH)
-                                    strcpy(s, f->Name);
-                            }
-                        }
-                    }
-                }
-                name = !unicodeDiskFileName.empty() ? (char*)unicodeDiskFileName.c_str() : path;
+                if (unicodeDiskFileName.empty())
+                    return;
+                name = (char*)unicodeDiskFileName.c_str();
                 addToHistory = TRUE;
             }
         }
@@ -2364,12 +2354,9 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
     }
 
     // obtain the full DOS name
-    CPathBuffer dosName(SAL_MAX_PATH);
-    if (GetShortPathName(name, dosName.Data(), dosName.Capacity()) == 0)
-    {
-        TRACE_I("GetShortPathName() failed.");
-        dosName.Data()[0] = 0;
-    }
+    std::string shortName = Salamander::FileActionPaths::ShortPath(name);
+    CPathBuffer dosName((int)shortName.size() + 1);
+    memcpy(dosName.Data(), shortName.c_str(), shortName.size() + 1);
 
     // find the file name and check if it has an extension - needed for masks
     char* namePart = strrchr(name, '\\');
@@ -2444,12 +2431,12 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
         if (addToHistory)
             MainWindow->FileHistory->AddFile(fhitEdit, editor->HandlerID, name); // add file to history
 
-        CPathBuffer expCommand(SAL_MAX_PATH);
-        CPathBuffer expArguments(SAL_MAX_PATH);
-        CPathBuffer expInitDir(SAL_MAX_PATH);
-        if (ExpandCommand(HWindow, editor->Command, expCommand.Data(), expCommand.Capacity(), FALSE) &&
-            ExpandArguments(HWindow, name, dosName.Data(), editor->Arguments, expArguments.Data(), expArguments.Capacity(), NULL) &&
-            ExpandInitDir(HWindow, name, dosName.Data(), editor->InitDir, expInitDir.Data(), expInitDir.Capacity(), FALSE))
+        CPathBuffer expCommand(3 * SAL_MAX_PATH);
+        CPathBuffer expArguments(3 * SAL_MAX_PATH);
+        CPathBuffer expInitDir(3 * SAL_MAX_PATH);
+        if (ExpandCommand(HWindow, Salamander::FileActionPaths::Normalize(editor->Command).c_str(), expCommand.Data(), expCommand.Capacity(), FALSE) &&
+            ExpandArguments(HWindow, name, dosName.Data(), Salamander::FileActionPaths::Normalize(editor->Arguments).c_str(), expArguments.Data(), expArguments.Capacity(), NULL) &&
+            ExpandInitDir(HWindow, name, dosName.Data(), Salamander::FileActionPaths::Normalize(editor->InitDir).c_str(), expInitDir.Data(), expInitDir.Capacity(), FALSE))
         {
             if (SystemPolicies.GetMyRunRestricted() &&
                 !SystemPolicies.GetMyCanRun(expCommand.Data()))
@@ -2478,7 +2465,7 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
                           STARTF_USESHOWWINDOW;
             si.wShowWindow = SW_SHOWNORMAL;
 
-            CPathBuffer cmdLine(2 * SAL_MAX_PATH);
+            CPathBuffer cmdLine(6 * SAL_MAX_PATH);
             lstrcpyn(cmdLine.Data(), expCommand.Data(), cmdLine.Capacity());
             AddDoubleQuotesIfNeeded(cmdLine.Data(), cmdLine.Capacity()); // CreateProcess wants the name with spaces in quotes (otherwise it tries various variants, see help)
             int len = (int)strlen(cmdLine.Data());
@@ -3468,7 +3455,11 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
     if (f == NULL || newNameW.empty() || newNameW.find_first_of(L"\\/:<>|\"") != std::wstring::npos)
         return;
 
-    std::wstring basePath = GetPathW() != NULL && GetPathW()[0] != 0 ? std::wstring(GetPathW()) : SalMultiByteToWidePath(GetPath());
+    if (IsBranchView() && GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*f)) != f)
+    { *tryAgain = FALSE; return; }
+    const char* oldNameKey = f->Name;
+    const std::wstring oldFullPath = GetItemFullPathW(*f);
+    std::wstring basePath = GetItemDirectoryW(*f);
     if (basePath.empty())
         return;
 
@@ -3481,9 +3472,8 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
         return;
     }
 
-    std::wstring srcPath = basePath;
+    std::wstring srcPath = oldFullPath;
     std::wstring tgtPath = basePath;
-    SalPathAppendW(srcPath, oldNameW.c_str());
     SalPathAppendW(tgtPath, newNameW.c_str());
     if (srcPath.length() >= 32767 || tgtPath.length() >= 32767)
     {
@@ -3504,7 +3494,12 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
     {
         std::string nextFocus = SalWideToMultiBytePath(newNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
         lstrcpyn(NextFocusName, nextFocus.c_str(), MAX_PATH);
+        if (IsBranchView()) SleepIconCacheThread();
         UpdateFileDataNameAfterRename(f, newNameW, isDir);
+        BranchItemRenamed(oldNameKey, *f, oldFullPath);
+        VisibleItemsArray.InvalidateArr();
+        VisibleItemsArraySurround.InvalidateArr();
+        if (IsBranchView()) WakeupIconCacheThread();
         *tryAgain = FALSE;
     }
     else
@@ -3518,8 +3513,13 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
             {
                 std::string nextFocus = SalWideToMultiBytePath(newNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
                 lstrcpyn(NextFocusName, nextFocus.c_str(), MAX_PATH);
-                UpdateFileDataNameAfterRename(f, newNameW, isDir);
-                *tryAgain = FALSE;
+                        if (IsBranchView()) SleepIconCacheThread();
+                        UpdateFileDataNameAfterRename(f, newNameW, isDir);
+                        BranchItemRenamed(oldNameKey, *f, oldFullPath);
+                        VisibleItemsArray.InvalidateArr();
+                VisibleItemsArraySurround.InvalidateArr();
+                if (IsBranchView()) WakeupIconCacheThread();
+                        *tryAgain = FALSE;
             }
 
             DWORD inAttr = dosNameConflict ? INVALID_FILE_ATTRIBUTES : GetFileAttributesW(srcPath.c_str());
@@ -3564,8 +3564,13 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
                             err = ERROR_SUCCESS;
                             std::string nextFocus = SalWideToMultiBytePath(newNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
                             lstrcpyn(NextFocusName, nextFocus.c_str(), MAX_PATH);
-                            UpdateFileDataNameAfterRename(f, newNameW, isDir);
-                            *tryAgain = FALSE;
+                                                if (IsBranchView()) SleepIconCacheThread();
+                                                UpdateFileDataNameAfterRename(f, newNameW, isDir);
+                                                BranchItemRenamed(oldNameKey, *f, oldFullPath);
+                                                VisibleItemsArray.InvalidateArr();
+                            VisibleItemsArraySurround.InvalidateArr();
+                            if (IsBranchView()) WakeupIconCacheThread();
+                                                *tryAgain = FALSE;
                         }
                         break;
                     }
@@ -3592,10 +3597,20 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
                           MB_OK | MB_ICONEXCLAMATION);
         }
     }
+    if (*mayChange)
+    {
+        const std::string directory = SalWideToMultiBytePath(basePath.c_str(), CP_UTF8);
+        MainWindow->PostChangeOnPathNotification(directory.c_str(), isDir);
+    }
 }
 
 void CFilesWindow::RenameFileInternal(CFileData* f, const char* formatedFileName, BOOL isDir, BOOL* mayChange, BOOL* tryAgain)
 {
+    if (IsBranchView())
+    {
+        RenameFileInternalW(f, MultiByteFileNameToWideBest(formatedFileName), isDir, mayChange, tryAgain);
+        return;
+    }
     *tryAgain = TRUE;
     const char* s = formatedFileName;
     while (*s != 0 && *s != '\\' && *s != '/' && *s != ':' &&
@@ -3845,7 +3860,10 @@ void CFilesWindow::RenameFile(int specialIndex)
     CFileData* f = NULL;
     BOOL isDir = i < Dirs->Count;
     f = isDir ? &Dirs->At(i) : &Files->At(i - Dirs->Count);
+    if (IsBranchView() && GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*f)) != f) return;
 
+    const bool branchRename = IsBranchView() != FALSE;
+    const std::string renameIdentity = branchRename ? GetItemCacheKey(*f) : std::string();
     char formatedFileName[SAL_MAX_PATH];
     AlterFileName(formatedFileName, f->Name, -1, Configuration.FileNameFormat, 0, isDir);
     std::wstring formatedFileNameW = FileDataDisplayNameW(f, formatedFileName);
@@ -3886,8 +3904,8 @@ void CFilesWindow::RenameFile(int specialIndex)
         while (1)
         {
             // if no item is selected, select the one under focus and store its name
-            char temporarySelected[MAX_PATH];
-            SelectFocusedItemAndGetName(temporarySelected, MAX_PATH);
+            CPanelTemporarySelection temporarySelected;
+            SelectFocusedItemAndGetName(temporarySelected);
 
             // Since Windows Vista, Microsoft introduced a demanded feature: quick rename selects only the name without the dot and extension
             // the same code appears here four times
@@ -3909,6 +3927,8 @@ void CFilesWindow::RenameFile(int specialIndex)
             // if we selected an item, we deselect it again
             UnselectItemWithName(temporarySelected);
 
+            if (branchRename && (!IsBranchView() || GetBranchViewFileByCacheKey(renameIdentity.c_str()) != f))
+                break; // A modal callback replaced the row: never use its old pointer.
             if (dlgRes == IDOK)
             {
                 UpdateWindow(MainWindow->HWindow);
@@ -3948,8 +3968,8 @@ void CFilesWindow::RenameFile(int specialIndex)
             BOOL cancel = FALSE;
 
             // if no item is selected, select the one under focus and store its name
-            char temporarySelected[MAX_PATH];
-            SelectFocusedItemAndGetName(temporarySelected, MAX_PATH);
+            CPanelTemporarySelection temporarySelected;
+            SelectFocusedItemAndGetName(temporarySelected);
 
             BOOL ret = GetPluginFS()->QuickRename(GetPluginFS()->GetPluginFSName(), 1, HWindow, *f, isDir, newName, cancel);
 
@@ -3964,7 +3984,7 @@ void CFilesWindow::RenameFile(int specialIndex)
                     {
                         // open the standard dialog
                         // if no item is selected, select the one under focus and store its name
-                        SelectFocusedItemAndGetName(temporarySelected, MAX_PATH);
+                        SelectFocusedItemAndGetName(temporarySelected);
 
                         // Since Windows Vista, Microsoft introduced a demanded feature: quick rename selects only the name without the dot and extension
                         // the same code appears here four times
@@ -4174,6 +4194,7 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
     CFileData* f = NULL;
     BOOL isDir = index < Dirs->Count;
     f = isDir ? &Dirs->At(index) : &Files->At(index - Dirs->Count);
+    if (IsBranchView() && GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*f)) != f) return;
 
     char formatedFileName[MAX_PATH];
     AlterFileName(formatedFileName, f->Name, -1, Configuration.FileNameFormat, 0, isDir);
@@ -4212,8 +4233,8 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
         BOOL cancel = FALSE;
 
         // if no item is selected, select the one under focus and store its name
-        char temporarySelected[MAX_PATH];
-        SelectFocusedItemAndGetName(temporarySelected, MAX_PATH);
+        CPanelTemporarySelection temporarySelected;
+        SelectFocusedItemAndGetName(temporarySelected);
 
         BOOL ret = GetPluginFS()->QuickRename(GetPluginFS()->GetPluginFSName(), 1, HWindow, *f, isDir, newName, cancel);
 
@@ -4357,6 +4378,9 @@ BOOL CFilesWindow::HandeQuickRenameWindowKey(WPARAM wParam)
     CFileData* f = NULL;
     BOOL isDir = index < Dirs->Count;
     f = isDir ? &Dirs->At(index) : &Files->At(index - Dirs->Count);
+
+    if (IsBranchView() && GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*f)) != f)
+    { QuickRenameEnd(); return TRUE; }
 
     QuickRenameWindow.SetCloseEnabled(FALSE);
 

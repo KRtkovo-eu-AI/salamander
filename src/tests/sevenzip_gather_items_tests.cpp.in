@@ -1,0 +1,99 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <ole2.h>
+#include <string>
+#include <vector>
+#include <deque>
+#include <memory>
+#include <new>
+#include <cstdio>
+#include <cstring>
+#include "Common/MyString.h"
+#include "Common/StringConvert.h"
+#define SAL_MAX_PATH 32768
+#define TRACE_E(...) ((void)0)
+enum {OPER_OK=0,OPER_CANCEL=1,IDS_INSUFFICIENT_MEMORY=2,IDS_ERRADDFILE_TOOLONG=3,IDS_ERRADDDIR_TOOLONG=4};
+static int Checks=0,Failures=0,LastErrorID=0,ErrorCalls=0;
+static bool FailObjectNew=false;
+void* operator new(size_t n,const std::nothrow_t&) noexcept {if(FailObjectNew){FailObjectNew=false;return nullptr;}try{return ::operator new(n);}catch(...){return nullptr;}}
+void operator delete(void* p,const std::nothrow_t&) noexcept {::operator delete(p);}
+static void Check(bool b,const char* label){++Checks;if(!b){++Failures;printf("FAIL: %s\n",label);}}
+static BOOL Error(int id){LastErrorID=id;++ErrorCalls;return FALSE;}
+@@APPEND@@
+struct CFileData {const char* Name;const char* Ext;UINT_PTR PluginData;};
+@@RECORD@@
+// Models the shared array's documented ownership rule: failed Add stores nothing.
+template<class T>struct TIndirectArray {
+ std::vector<T*> items;int Count=0,FailAt=-1;bool Good=true;
+ ~TIndirectArray(){for(auto* p:items)delete p;}
+ BOOL IsGood()const{return Good;}
+ void Add(T* p){if(Count==FailAt){Good=false;return;}items.push_back(p);++Count;}
+};
+struct CSalamanderDirectoryAbstract {
+ std::deque<std::string> names;std::deque<CFileData> files,dirs;
+ std::vector<std::unique_ptr<CSalamanderDirectoryAbstract>> children;
+ void File(const std::string& n,UINT_PTR index){names.push_back(n);const char* text=names.back().c_str();const char* dot=strrchr(text,'.');files.push_back({text,dot?dot+1:text+strlen(text),index});}
+ CSalamanderDirectoryAbstract* Dir(const std::string& n,UINT_PTR index){names.push_back(n);const char* text=names.back().c_str();dirs.push_back({text,text+strlen(text),index});children.emplace_back(new CSalamanderDirectoryAbstract);return children.back().get();}
+ int GetFilesCount()const{return (int)files.size();}int GetDirsCount()const{return (int)dirs.size();}
+ const CFileData* GetFile(int i)const{return &files[i];}const CFileData* GetDir(int i)const{return &dirs[i];}
+ const CSalamanderDirectoryAbstract* GetSalDir(int i)const{return children[i].get();}
+};
+struct GeneralFacade {
+ BOOL AgreeMask(const char* name,const char* mask,BOOL){if(strcmp(mask,"*.*")==0)return TRUE;const char* dot=strrchr(name,'.');return dot&&strcmp(dot,mask+1)==0;}
+ BOOL SalPathAppend(char* path,const char* name,int capacity){return ::SalPathAppend(path,name,capacity);}
+} General;
+static GeneralFacade* SalamanderGeneral=&General;
+@@GATHER@@
+static int Invoke(const CSalamanderDirectoryAbstract& tree,TIndirectArray<CArchiveItemInfo>& items,std::vector<char>& path,const char* mask="*.*"){
+ LastErrorID=0;ErrorCalls=0;return GatherItems(&tree,mask,&items,path.data(),(int)path.size());
+}
+int main(){
+ std::string dense;for(int i=0;i<90;++i)dense+=u8"東";
+ const std::vector<std::string> paths={"ascii.txt",u8"soubor-東京.txt",u8"rodič-東京/same.txt",u8"první-東京/druhý-😀/same.txt",std::string(90,'a')+u8"東京/"+std::string(90,'b')+u8"東京/"+std::string(90,'c')+"/same.txt",dense+"/same.txt"};
+ UINT_PTR index=10;
+ for(const auto& relative:paths){
+  CSalamanderDirectoryAbstract root;auto* node=&root;std::string expected=relative;for(char& ch:expected)if(ch=='/')ch='\\';
+  size_t start=0,slash=0;while((slash=relative.find('/',start))!=std::string::npos){node=node->Dir(relative.substr(start,slash-start),0);start=slash+1;}
+  node->File(relative.substr(start),++index);const CFileData* exact=&node->files.back();
+  std::vector<char> path(SAL_MAX_PATH,0);TIndirectArray<CArchiveItemInfo> items;
+  Check(Invoke(root,items,path)==OPER_OK,"all supported path shapes collected");Check(items.Count==1,"implicit directory metadata does not invent extra archive records");
+  if(items.Count==1){Check(std::string((const char*)items.items[0]->NameInArchive)==expected,"actual record retains full archive path");Check(items.items[0]->FileData==exact&&items.items[0]->FileData->PluginData==index&&!items.items[0]->IsDir,"private metadata pointer/index/type retained");}
+  Check(path[0]==0&&ErrorCalls==0,"shared path restored after recursion without error");
+ }
+ CSalamanderDirectoryAbstract mixed;mixed.File("root.bin",1);mixed.File("no-metadata.txt",0);auto* one=mixed.Dir("one.txt",2);one->File("same.txt",3);auto* two=mixed.Dir("two",0);two->File("same.txt",4);two->File("skip.bin",5);
+ {
+  std::vector<char> path(SAL_MAX_PATH,0);TIndirectArray<CArchiveItemInfo> items;Check(Invoke(mixed,items,path,"*.txt")==OPER_OK,"mask traversal succeeds");
+  Check(items.Count==3,"mask keeps matching explicit directory and both nested same basenames");
+  if(items.Count==3){Check(items.items[0]->IsDir&&items.items[0]->FileData==&mixed.dirs[0],"directory metadata binding retained");Check(std::string((const char*)items.items[1]->NameInArchive)=="one.txt\\same.txt"&&std::string((const char*)items.items[2]->NameInArchive)=="two\\same.txt","duplicates keep distinct full paths");}
+  Check(path[0]==0,"mask traversal restores parent");
+ }
+ for(bool directory:{false,true}){
+  CSalamanderDirectoryAbstract root;if(directory)root.Dir(std::string(SAL_MAX_PATH,'x'),0)->File("leaf.txt",7);else root.File(std::string(SAL_MAX_PATH,'x'),7);
+  std::vector<char> path(SAL_MAX_PATH,0);TIndirectArray<CArchiveItemInfo> items;
+  Check(Invoke(root,items,path)==OPER_CANCEL,"over-capacity file or directory refuses entire collection");Check(ErrorCalls==1&&LastErrorID==(directory?IDS_ERRADDDIR_TOOLONG:IDS_ERRADDFILE_TOOLONG),"capacity refusal reports localized file or directory error");Check(items.Count==0&&path[0]==0,"capacity failure neither adds shortened record nor changes parent");
+ }
+ {
+  CSalamanderDirectoryAbstract root;root.File(std::string(SAL_MAX_PATH-2,'a'),8);std::vector<char> path(SAL_MAX_PATH,0);TIndirectArray<CArchiveItemInfo> items;
+  Check(Invoke(root,items,path)==OPER_OK&&items.Count==1,"actual append helper supported boundary accepted");
+ }
+ {
+  CSalamanderDirectoryAbstract root;root.File("valid.txt",9);auto* child=root.Dir("nested",0);child->File(std::string(SAL_MAX_PATH,'x'),10);std::vector<char> path(SAL_MAX_PATH,0);TIndirectArray<CArchiveItemInfo> items;
+  Check(Invoke(root,items,path)==OPER_CANCEL&&items.Count==1,"late refusal does not turn partial list into success");Check(path[0]==0&&ErrorCalls==1,"recursive refusal restores root path and reports once");
+ }
+ for(int failAt:{0,1,2}){
+  std::vector<char> path(SAL_MAX_PATH,0);TIndirectArray<CArchiveItemInfo> items;items.FailAt=failAt;
+  Check(Invoke(mixed,items,path)==OPER_CANCEL,"array allocation failure cancels collection");Check(ErrorCalls==1&&LastErrorID==IDS_INSUFFICIENT_MEMORY&&items.Count==failAt,"unowned failed-add item handled without inventing a record");Check(path[0]==0,"array failure restores root");
+ }
+ {
+  std::vector<char> path(SAL_MAX_PATH,0);TIndirectArray<CArchiveItemInfo> items;items.Good=false;
+  Check(Invoke(mixed,items,path)==OPER_CANCEL&&items.Count==0&&LastErrorID==IDS_INSUFFICIENT_MEMORY,"initial array allocation failure refuses collection");
+ }
+ {
+  std::vector<char> path(SAL_MAX_PATH,0);TIndirectArray<CArchiveItemInfo> items;FailObjectNew=true;
+  Check(Invoke(mixed,items,path)==OPER_CANCEL&&items.Count==0&&LastErrorID==IDS_INSUFFICIENT_MEMORY&&!FailObjectNew,"nothrow object allocation follows existing explicit OOM refusal");Check(path[0]==0,"object failure restores parent");
+ }
+ printf("Actual 7-Zip whole-archive collection: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

@@ -1,0 +1,78 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual SFX orchestration with explicit recording ZIP/PE engine facades.
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <cstdio>
+#include <cstring>
+#define CALL_STACK_MESSAGE1(...) ((void)0)
+#define SAL_MAX_PATH 32768
+namespace SalamanderDiskSelection {
+@@WIDE@@
+@@UTF8@@
+}
+@@READ@@
+enum {IDS_NOSFXINSTALLED=1,IDS_ERROR,MSGBOX_ERROR,IDS_NODISPLAY,IDS_LOWMEM,IDS_TOOLONGNAME,IDS_COPYDATA,IDS_SFXPROGTITLE,ERR_LOWMEM,PE_NOSKIP,SE_AUTO=128,SE_NOTALLOWCHANGE=256};
+static const char* LoadStr(int id){return id==IDS_SFXPROGTITLE?"Creating %s":"text";}
+static std::wstring ZipPathToWide(const char* s){return SalamanderDiskSelection::WideFromPath(s);}
+static std::string Input,Output,WrittenExe,Deleted,DialogOutput;
+static int OpenCount=0,OpenFailure=0,WriteFailure=0,MoveCount=0,CloseCount=0,Progress=0;
+static bool Cancel=false,AllocationFailure=false,NullMove=false;
+struct Settings {unsigned Flags=0;char SfxFile[32]="english.sfx";};
+struct OptionsType {Settings SfxSettings;};
+struct {char DefSfxFile[32]="english.sfx";} Config;
+struct {Settings Settings;char Name[32]={};} LastUsedSfxSet;
+struct Quad {Quad(int=0,int=0){} Quad& SetUI64(unsigned long long){return *this;}};
+#define CQuadWord Quad
+struct CFile {unsigned long long Size=100;int OutputBuffer=0,BufferPosition=0;};
+struct General {
+ void ShowMessageBox(const char*,const char*,int){} HWND GetMainWindowHWND(){return nullptr;}
+ BOOL SalPathRenameExtension(char* p,const char* ext,int capacity){std::string s=p;auto slash=s.find_last_of("\\/");auto dot=s.find_last_of('.');if(dot==std::string::npos||(slash!=std::string::npos&&dot<slash))dot=s.size();s.replace(dot,std::string::npos,ext);if(s.size()>=static_cast<size_t>(capacity))return FALSE;memcpy(p,s.c_str(),s.size()+1);return TRUE;}
+ const char* SalPathFindFileName(const char* p){const char* s=strrchr(p,'\\');return s?s+1:p;}
+} GeneralObject;
+static General* SalamanderGeneral=&GeneralObject;
+struct Operations {void OpenProgressDialog(const char*,BOOL,void*,BOOL){++Progress;}void CloseProgressDialog(){--Progress;}void ProgressDialogAddText(const char*,BOOL){}};
+struct CZipPack {
+ char ZipName[SAL_MAX_PATH]={};OptionsType Options;int ErrorID=0;CFile* ZipFile=nullptr;CFile* TempFile=nullptr;Operations Op;Operations* Salamander=&Op;Quad ProgressTotalSize;unsigned EOCentrDirOffs=10,ExtraBytes=0,ArchiveDataOffs=0;
+ bool LoadDefaults(){return true;} int CheckArchiveForSFXCompatibility(){return 0;}int TestIfExist(const char*){return 0;}
+ int WriteSfxExecutable(const char* p,const char*,BOOL,int){WrittenExe=p;return WriteFailure;}
+ bool WriteSFXHeader(const char*,unsigned,unsigned){return true;}
+ int MoveData(unsigned,int,unsigned long long,char* p){++MoveCount;NullMove=p==nullptr;return 0;}
+ int CreateSFX();
+};
+struct CCreateSFXDialog {
+ char* Destination;size_t Capacity;
+ CCreateSFXDialog(HWND,char*,size_t,char* p,size_t n,OptionsType*,CZipPack*):Destination(p),Capacity(n){}
+ int Proceed(){if(Cancel)return IDCANCEL;if(!DialogOutput.empty()){if(DialogOutput.size()>=Capacity)return IDCANCEL;memcpy(Destination,DialogOutput.c_str(),DialogOutput.size()+1);}return IDOK;}
+};
+static CFile Files[2];
+static int CreateCFile(CFile** f,const char* p,DWORD access,DWORD,DWORD,DWORD,int,void*,bool,bool){++OpenCount;if(OpenCount==OpenFailure){*f=nullptr;return ERR_LOWMEM;}*f=&Files[access==GENERIC_READ?0:1];(access==GENERIC_READ?Input:Output)=p;return 0;}
+static void CloseCFile(CFile*){++CloseCount;}
+static int Flush(CFile*,int,int,void*){return 0;}
+static void* SfxMalloc(size_t n){return AllocationFailure?nullptr:malloc(n);}
+static BOOL SfxDelete(const wchar_t* p){Deleted=SalamanderDiskSelection::Utf8FromWide(p);return TRUE;}
+#define malloc SfxMalloc
+#define DeleteFileW SfxDelete
+#define DECOMPRESS_INBUFFER_SIZE 8192
+@@CREATE@@
+#undef malloc
+#undef DeleteFileW
+static int Checks=0,Failures=0;
+static void Check(bool ok,const char* label){++Checks;if(!ok){++Failures;printf("FAIL %s\n",label);}}
+static void Reset(){Input.clear();Output.clear();WrittenExe.clear();Deleted.clear();DialogOutput.clear();OpenCount=OpenFailure=WriteFailure=MoveCount=CloseCount=Progress=0;Cancel=AllocationFailure=NullMove=false;}
+static void SetInput(CZipPack& p,const std::wstring& s){std::string u=SalamanderDiskSelection::Utf8FromWide(s.c_str());memcpy(p.ZipName,u.c_str(),u.size()+1);}
+int main(){
+ HWND parent=CreateWindowExW(0,L"STATIC",L"",0,0,0,0,0,nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);
+ HWND edit=CreateWindowExW(0,L"EDIT",L"",WS_CHILD,0,0,100,100,parent,reinterpret_cast<HMENU>(101),GetModuleHandleW(nullptr),nullptr);Check(parent&&edit,"real Unicode edit created");
+ const std::vector<std::wstring> paths={L"C:\\plain\\same.zip",L"C:\\plain\\東京.zip",L"C:\\東京\\same.zip",L"C:\\東京\\žluťoučký\\same.zip",L"C:\\"+std::wstring(110,L'漢')+L"\\same.zip",L"C:\\"+std::wstring(180,L'a')+L"\\"+std::wstring(150,L'b')+L"\\"+std::wstring(100,L'東')+L".zip"};
+ for(const auto& path:paths){SetWindowTextW(edit,path.c_str());std::string u=SalamanderDiskSelection::Utf8FromWide(path.c_str()),out;Check(ReadSfxDialogPath(parent,101,SAL_MAX_PATH,out)&&out==u,"real edit read preserves exact UTF8 path");Check(!ReadSfxDialogPath(parent,101,u.size(),out)&&GetLastError()==ERROR_FILENAME_EXCED_RANGE,"UTF8 byte limit checked without truncation");Reset();CZipPack p;SetInput(p,path);Check(p.CreateSFX()==0&&Input==u&&Output==u.substr(0,u.size()-4)+".exe"&&WrittenExe==Output&&MoveCount==1&&!NullMove&&Progress==0&&Deleted.empty(),"actual command preserves full source/output and balanced progress");}
+ SetWindowTextW(edit,L"");std::string out;Check(!ReadSfxDialogPath(parent,101,SAL_MAX_PATH,out),"empty edit refused");
+ SetWindowTextW(edit,L"C:\\x.zip");Check(ReadSfxDialogPath(parent,101,9,out)&&out=="C:\\x.zip","exact byte capacity including terminator accepted");
+ Reset();Cancel=true;CZipPack c;SetInput(c,L"C:\\same.zip");Check(c.CreateSFX()==IDS_NODISPLAY&&OpenCount==0&&MoveCount==0,"cancel does not create or open outputs");
+ Reset();AllocationFailure=true;CZipPack a;SetInput(a,L"C:\\東京\\same.zip");Check(a.CreateSFX()==IDS_LOWMEM&&MoveCount==0&&!NullMove&&Deleted==Output&&Progress==0,"buffer allocation failure never invokes MoveData and cleans exact output");
+ for(int failure:{1,2}){Reset();OpenFailure=failure;CZipPack p;SetInput(p,L"C:\\same.zip");Check(p.CreateSFX()==IDS_LOWMEM&&MoveCount==0&&Progress==0,"open failures stop before engine work");}
+ Reset();WriteFailure=IDS_NODISPLAY;CZipPack f;SetInput(f,paths.back());Check(f.CreateSFX()==IDS_NODISPLAY&&Deleted==Output&&Progress==0,"writer failure cleans exact long Unicode output");
+ DestroyWindow(parent);printf("ZIP SFX paths: %d checks, %d failures.\n",Checks,Failures);return Failures?1:0;
+}

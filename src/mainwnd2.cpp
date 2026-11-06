@@ -1218,6 +1218,7 @@ const char* CONFIG_BOTTOMTOOLBARVISIBLE_REG = "Show Bottom ToolBar";
 const char* CONFIG_EXPLORERLOOK_REG = "Explorer Look";
 const char* CONFIG_FULLROWSELECT_REG = "Full Row Select";
 const char* CONFIG_FULLROWHIGHLIGHT_REG = "Full Row Highlight";
+const char* CONFIG_BRANCHVIEW_RELATIVEPATHS_REG = "Branch View Relative Paths";
 const char* CONFIG_USEICONTINCTURE_REG = "Use Icon Tincture";
 const char* CONFIG_PANELS_USETABS_REG = "Use Panel Tabs";
 const char* CONFIG_SHOWPANELCAPTION_REG = "Show Panel Caption";
@@ -3386,6 +3387,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                          &Configuration.FullRowSelect, sizeof(DWORD));
                 SetValue(actKey, CONFIG_FULLROWHIGHLIGHT_REG, REG_DWORD,
                          &Configuration.FullRowHighlight, sizeof(DWORD));
+                SetValue(actKey, CONFIG_BRANCHVIEW_RELATIVEPATHS_REG, REG_DWORD,
+                         &Configuration.BranchViewRelativePaths, sizeof(DWORD));
                 SetValue(actKey, CONFIG_USEICONTINCTURE_REG, REG_DWORD,
                          &Configuration.UseIconTincture, sizeof(DWORD));
                 SetValue(actKey, CONFIG_PANELS_USETABS_REG, REG_DWORD,
@@ -5525,6 +5528,10 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             }
             GetValue(actKey, CONFIG_FULLROWHIGHLIGHT_REG, REG_DWORD,
                      &Configuration.FullRowHighlight, sizeof(DWORD));
+            Configuration.BranchViewRelativePaths = FALSE;
+            GetValue(actKey, CONFIG_BRANCHVIEW_RELATIVEPATHS_REG, REG_DWORD,
+                     &Configuration.BranchViewRelativePaths, sizeof(DWORD));
+            Configuration.BranchViewRelativePaths = Configuration.BranchViewRelativePaths ? TRUE : FALSE;
             GetValue(actKey, CONFIG_USEICONTINCTURE_REG, REG_DWORD,
                      &Configuration.UseIconTincture, sizeof(DWORD));
             GetValue(actKey, CONFIG_PANELS_USETABS_REG, REG_DWORD,

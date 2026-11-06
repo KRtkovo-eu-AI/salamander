@@ -344,50 +344,36 @@ BOOL ViewerActive(HWND hwnd)
 
 void CViewerWindow::SetViewerCaption()
 {
-    char caption[SAL_MAX_PATH + 300];
-    if (Caption == NULL)
-    {
-        if (!FileNameW.empty())
-        {
-            std::string captionA = SalWideToMultiBytePath(FileNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
-            lstrcpyn(caption, captionA.c_str(), SAL_MAX_PATH);
-        }
-        else if (FileName != NULL)
-            lstrcpyn(caption, FileName, SAL_MAX_PATH); // caption according to the file
-        else
-            caption[0] = 0;
-    }
-    else
-        lstrcpyn(caption, Caption, SAL_MAX_PATH); // caption according to the plug-in request
+    std::wstring caption = Caption != NULL ? ViewerTextToWide(Caption)
+        : (!FileNameW.empty() ? FileNameW : ViewerTextToWide(FileName));
     if (Caption == NULL || !WholeCaption)
     {
-        if (caption[0] != 0)
-            strcat(caption, " - ");
-        strcat(caption, LoadStr(IDS_VIEWERTITLE));
+        if (!caption.empty()) caption += L" - ";
+        caption += ViewerTextToWide(LoadStr(IDS_VIEWERTITLE));
         const char* decodedEncoding =
             Salamander::Unicode::EncodingDisplayName(TextEncoding, TextContentOffset);
+        std::wstring encoding;
         if (decodedEncoding != NULL)
-            sprintf(caption + strlen(caption), " - [%s]", decodedEncoding);
+            encoding = ViewerTextToWide(decodedEncoding);
         else if (CodeType > 0)
         {
             char codeName[200];
-            CodeTables.GetCodeName(CodeType, codeName, 200);
+            CodeTables.GetCodeName(CodeType, codeName, _countof(codeName));
             RemoveAmpersands(codeName);
-            char* s = codeName + strlen(codeName);
-            while (s > codeName && *(s - 1) == ' ')
-                s--;
-            *s = 0; // trim extra spaces
-            sprintf(caption + strlen(caption), " - [%s]", codeName);
+            char* end = codeName + strlen(codeName);
+            while (end > codeName && *(end - 1) == ' ') --end;
+            *end = 0;
+            encoding = ViewerTextToWide(codeName);
         }
         else
         {
             char codeName[100];
             CodeTables.GetWinCodePage(codeName);
-            if (codeName[0] != 0)
-                sprintf(caption + strlen(caption), " - [%s]", codeName);
+            encoding = ViewerTextToWide(codeName);
         }
+        if (!encoding.empty()) caption += L" - [" + encoding + L"]";
     }
-    SetViewerWindowText(HWindow, caption);
+    SetWindowTextW(HWindow, caption.c_str());
 }
 
 //
@@ -1619,23 +1605,22 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             BOOL ok = FALSE;
             BOOL srcBusy = FALSE;
             BOOL noMoreFiles = FALSE;
-            char fileName[MAX_PATH];
-            fileName[0] = 0;
+            std::wstring fileName;
             int enumFileNamesLastFileIndex = EnumFileNamesLastFileIndex;
             if (LOWORD(wParam) == CM_PREVFILE || LOWORD(wParam) == CM_PREVSELFILE || LOWORD(wParam) == CM_LASTFILE)
             {
                 if (LOWORD(wParam) == CM_LASTFILE)
                     enumFileNamesLastFileIndex = -1;
-                ok = GetPreviousFileNameForViewer(EnumFileNamesSourceUID,
+                ok = GetPreviousFileNameForViewerW(EnumFileNamesSourceUID,
                                                   &enumFileNamesLastFileIndex,
-                                                  FileName, LOWORD(wParam) == CM_PREVSELFILE, TRUE,
-                                                  fileName, &noMoreFiles,
+                                                  FileNameW.c_str(), LOWORD(wParam) == CM_PREVSELFILE, TRUE,
+                                                  &fileName, &noMoreFiles,
                                                   &srcBusy, NULL);
                 if (ok && LOWORD(wParam) == CM_PREVSELFILE) // take only selected files
                 {
                     BOOL isSrcFileSel = FALSE;
-                    ok = IsFileNameForViewerSelected(EnumFileNamesSourceUID, enumFileNamesLastFileIndex,
-                                                     fileName, &isSrcFileSel, &srcBusy);
+                    ok = IsFileNameForViewerSelectedW(EnumFileNamesSourceUID, enumFileNamesLastFileIndex,
+                                                     fileName.c_str(), &isSrcFileSel, &srcBusy);
                     if (ok && !isSrcFileSel)
                         ok = FALSE;
                 }
@@ -1644,16 +1629,16 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 if (LOWORD(wParam) == CM_FIRSTFILE)
                     enumFileNamesLastFileIndex = -1;
-                ok = GetNextFileNameForViewer(EnumFileNamesSourceUID,
+                ok = GetNextFileNameForViewerW(EnumFileNamesSourceUID,
                                               &enumFileNamesLastFileIndex,
-                                              FileName, LOWORD(wParam) == CM_NEXTSELFILE, TRUE,
-                                              fileName, &noMoreFiles,
+                                              FileNameW.c_str(), LOWORD(wParam) == CM_NEXTSELFILE, TRUE,
+                                              &fileName, &noMoreFiles,
                                               &srcBusy, NULL);
                 if (ok && LOWORD(wParam) == CM_NEXTSELFILE) // take only selected files
                 {
                     BOOL isSrcFileSel = FALSE;
-                    ok = IsFileNameForViewerSelected(EnumFileNamesSourceUID, enumFileNamesLastFileIndex,
-                                                     fileName, &isSrcFileSel, &srcBusy);
+                    ok = IsFileNameForViewerSelectedW(EnumFileNamesSourceUID, enumFileNamesLastFileIndex,
+                                                     fileName.c_str(), &isSrcFileSel, &srcBusy);
                     if (ok && !isSrcFileSel)
                         ok = FALSE;
                 }
@@ -1666,7 +1651,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     SetEvent(Lock);
                     Lock = NULL; // from now on it relies on the disk cache only
                 }
-                OpenFile(fileName, NULL, FALSE);
+                OpenFileW(fileName.c_str(), NULL, FALSE);
 
                 // set the index even if it failed so the user can move to the next/previous file
                 EnumFileNamesLastFileIndex = enumFileNamesLastFileIndex;
@@ -4001,13 +3986,12 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     BOOL ok = FALSE;
                     BOOL srcBusy = FALSE;
                     BOOL noMoreFiles = FALSE;
-                    char fileName[MAX_PATH];
-                    fileName[0] = 0;
+                    std::wstring fileName;
                     int enumFileNamesLastFileIndex = EnumFileNamesLastFileIndex;
-                    ok = GetPreviousFileNameForViewer(EnumFileNamesSourceUID,
+                    ok = GetPreviousFileNameForViewerW(EnumFileNamesSourceUID,
                                                       &enumFileNamesLastFileIndex,
-                                                      FileName, FALSE, TRUE,
-                                                      fileName, &noMoreFiles,
+                                                      FileNameW.c_str(), FALSE, TRUE,
+                                                      &fileName, &noMoreFiles,
                                                       &srcBusy, NULL);
 
                     prevFile = ok || srcBusy;                     // only if a previous file exists (or Salamander is busy, then the user must try again later)
@@ -4015,38 +3999,38 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     if (firstLastFile)
                     {
                         enumFileNamesLastFileIndex = EnumFileNamesLastFileIndex;
-                        ok = GetPreviousFileNameForViewer(EnumFileNamesSourceUID,
+                        ok = GetPreviousFileNameForViewerW(EnumFileNamesSourceUID,
                                                           &enumFileNamesLastFileIndex,
-                                                          FileName, TRUE /* prefer selected */, TRUE,
-                                                          fileName, &noMoreFiles,
+                                                          FileNameW.c_str(), TRUE /* prefer selected */, TRUE,
+                                                          &fileName, &noMoreFiles,
                                                           &srcBusy, NULL);
                         BOOL isSrcFileSel = FALSE;
                         if (ok)
                         {
-                            ok = IsFileNameForViewerSelected(EnumFileNamesSourceUID, enumFileNamesLastFileIndex,
-                                                             fileName, &isSrcFileSel, &srcBusy);
+                            ok = IsFileNameForViewerSelectedW(EnumFileNamesSourceUID, enumFileNamesLastFileIndex,
+                                                             fileName.c_str(), &isSrcFileSel, &srcBusy);
                             prevSelFile = ok && isSrcFileSel || srcBusy; // only if the previous file is actually selected (or Salamander is busy, then the user must try again later)
                         }
 
                         enumFileNamesLastFileIndex = EnumFileNamesLastFileIndex;
-                        ok = GetNextFileNameForViewer(EnumFileNamesSourceUID,
+                        ok = GetNextFileNameForViewerW(EnumFileNamesSourceUID,
                                                       &enumFileNamesLastFileIndex,
-                                                      FileName, FALSE, TRUE,
-                                                      fileName, &noMoreFiles,
+                                                      FileNameW.c_str(), FALSE, TRUE,
+                                                      &fileName, &noMoreFiles,
                                                       &srcBusy, NULL);
                         nextFile = ok || srcBusy; // only if another file exists (or Salamander is busy, then the user must try again later)
 
                         enumFileNamesLastFileIndex = EnumFileNamesLastFileIndex;
-                        ok = GetNextFileNameForViewer(EnumFileNamesSourceUID,
+                        ok = GetNextFileNameForViewerW(EnumFileNamesSourceUID,
                                                       &enumFileNamesLastFileIndex,
-                                                      FileName, TRUE /* prefer selected */, TRUE,
-                                                      fileName, &noMoreFiles,
+                                                      FileNameW.c_str(), TRUE /* prefer selected */, TRUE,
+                                                      &fileName, &noMoreFiles,
                                                       &srcBusy, NULL);
                         isSrcFileSel = FALSE;
                         if (ok)
                         {
-                            ok = IsFileNameForViewerSelected(EnumFileNamesSourceUID, enumFileNamesLastFileIndex,
-                                                             fileName, &isSrcFileSel, &srcBusy);
+                            ok = IsFileNameForViewerSelectedW(EnumFileNamesSourceUID, enumFileNamesLastFileIndex,
+                                                             fileName.c_str(), &isSrcFileSel, &srcBusy);
                             nextSelFile = ok && isSrcFileSel || srcBusy; // only if the next file is actually selected (or Salamander is busy, then the user must try again later)
                         }
                     }

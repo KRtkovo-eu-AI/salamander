@@ -1,0 +1,68 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <cstring>
+#include <cwchar>
+#include <cstdlib>
+#include <cstdio>
+#define TRACE_E(x) ((void)0)
+static int Checks=0,Failures=0,FailAllocation=0;
+static void Check(bool b,const char* s){++Checks;if(!b){++Failures;printf("FAIL: %s\n",s);}}
+static void* Alloc(size_t n){if(FailAllocation>0){--FailAllocation;return nullptr;}return std::malloc(n);}
+@@CLASS@@
+#define malloc Alloc
+@@STRING@@
+#undef malloc
+@@CONVERSIONS@@
+enum {IDS_QUESTION_DIRECTORY=1,IDS_QUESTION_FILE,IDS_PREFIX,epfdmNormal};
+static std::string Prefix="Compress",FileQuestion="file \"%s\"?",DirQuestion="directory \"%s\"?";
+static const char* LoadStr(int id){return id==IDS_QUESTION_DIRECTORY?DirQuestion.c_str():id==IDS_QUESTION_FILE?FileQuestion.c_str():Prefix.c_str();}
+static void ExpandPluralFilesDirs(char* p,size_t n,int files,int dirs,int,BOOL){snprintf(p,n,"%d files and %d directories?",files,dirs);}
+struct CFileData {std::string Key;std::wstring Full;int Selected=0;bool Current=true;const char* Name="short mirror";};
+struct Rows {int Count=0;std::vector<CFileData> Items;CFileData& At(int i){return Items.at(size_t(i));}};
+struct CFilesWindow {
+ bool Branch=true;int Caret=0;std::wstring Root=L"C:\\root";Rows D,F;Rows* Dirs=&D;Rows* Files=&F;
+ bool IsBranchView()const{return Branch;}int GetCaretIndex()const{return Caret;}
+ int GetSelCount()const{int n=0;for(const auto& f:D.Items)n+=f.Selected!=0;for(const auto& f:F.Items)n+=f.Selected!=0;return n;}
+ void GetSelItems(int count,int* out){int n=0;for(int i=0;i<D.Count+F.Count&&n<count;++i){auto& f=i<D.Count?D.At(i):F.At(i-D.Count);if(f.Selected)out[n++]=i;}}
+ const char* GetItemCacheKeyPtr(const CFileData& f){return f.Key.c_str();}
+ const CFileData* GetBranchViewFileByCacheKey(const char* k){for(auto* r:{&D,&F})for(auto& f:r->Items)if(f.Key==k&&f.Current)return &f;return nullptr;}
+ std::wstring GetItemFullPathW(const CFileData& f){return f.Full;}
+ std::wstring GetItemRelativePathW(const CFileData& f){std::wstring base=Root+L"\\";return f.Full.find(base)==0?f.Full.substr(base.size()):L"";}
+};
+@@CONFIRM@@
+@@RESOURCES@@
+int main(){
+ CFilesWindow p;CTruncatedString text;
+ std::vector<std::wstring> names={L"plain.txt",L"東京-🙂.txt",L"東京\\plain.txt",L"日本\\český\\same.txt",std::wstring(100,L'東')+L".txt",std::wstring(100,L'a')+L"\\"+std::wstring(100,L'東')+L"\\"+std::wstring(100,L'b')+L"\\same.txt",L"percent%s\\same%q.txt"};
+ for(const auto& name:names){p.F.Items={{"one",p.Root+L"\\"+name}};p.F.Count=1;
+  Check(PrepareNtfsConfirmation(&p,IDS_PREFIX,0,text),"implicit confirmation prepared");
+  Check(text.IsWide()&&text.NeedTruncate()&&text.GetW()==L"Compress file \""+name+L"\"?","full exact relative Unicode identity survives typed string storage");
+  p.F.Items[0].Selected=1;Check(PrepareNtfsConfirmation(&p,IDS_PREFIX,1,text)&&text.GetW()==L"Compress file \""+name+L"\"?","explicit single selection uses same identity");
+  p.Branch=false;Check(PrepareNtfsConfirmation(&p,IDS_PREFIX,1,text)&&text.GetW()==L"Compress file \""+p.F.Items[0].Full+L"\"?","ordinary confirmation owns full wide source");p.Branch=true;
+ }
+ Check(names[5].size()>260,"fixture includes UTF16 long identity");
+ p.F.Items={{"a",p.Root+L"\\one\\same.txt",1},{"b",p.Root+L"\\two\\same.txt",1}};p.F.Count=2;
+ Check(PrepareNtfsConfirmation(&p,IDS_PREFIX,2,text)&&text.GetW()==std::wstring(L"Compress 2 files and 0 directories?")&&!text.NeedTruncate(),"multi selection uses localized count without accidental basename insertion");
+ p.D.Items={{"d",p.Root+L"\\directory",1}};p.D.Count=1;p.F.Items[1].Selected=0;
+ Check(PrepareNtfsConfirmation(&p,IDS_PREFIX,2,text)&&text.GetW()==std::wstring(L"Compress 1 files and 1 directories?"),"multi file/directory count retained");
+ p.F.Items[0].Selected=0;Check(PrepareNtfsConfirmation(&p,IDS_PREFIX,1,text)&&text.GetW()==std::wstring(L"Compress directory \"directory\"?"),"single directory uses typed localized question");
+ p.D.Items[0].Name="..";Check(!PrepareNtfsConfirmation(&p,IDS_PREFIX,1,text),"UpDir refused");p.D.Items.clear();p.D.Count=0;
+ Check(!PrepareNtfsConfirmation(&p,IDS_PREFIX,2,text),"stale count refused");p.Caret=-1;Check(!PrepareNtfsConfirmation(&p,IDS_PREFIX,0,text),"negative caret refused");p.Caret=2;Check(!PrepareNtfsConfirmation(&p,IDS_PREFIX,0,text),"past-end caret refused");p.Caret=0;
+ p.F.Items[0].Current=false;Check(!PrepareNtfsConfirmation(&p,IDS_PREFIX,0,text),"stale cache identity refused");p.F.Items[0].Current=true;
+ p.F.Items[0].Full=L"C:\\elsewhere\\same.txt";Check(!PrepareNtfsConfirmation(&p,IDS_PREFIX,0,text),"missing owned Branch relative identity refused");p.F.Items[0].Full=p.Root+L"\\long\\same.txt";
+ Prefix=std::string(900,'x');Check(PrepareNtfsConfirmation(&p,IDS_PREFIX,0,text)&&wcslen(text.GetW())>900,"localized prefix is dynamic instead of fixed subject buffer");Prefix="Compress";
+ FailAllocation=1;Check(!PrepareNtfsConfirmation(&p,IDS_PREFIX,0,text),"typed storage allocation failure rejects confirmation");
+ // Use shipped English resource templates, including their warning paragraph.
+ FileQuestion=ActualFileQuestion;p.Branch=true;p.Caret=0;p.F.Items={{"one",p.Root+L"\\東京\\same.txt",0},{"two",p.Root+L"\\český\\same.txt",0}};p.F.Count=2;
+ for(const auto& prefix:ActualPrefixes){Prefix=prefix;p.F.Items[0].Selected=p.F.Items[1].Selected=0;
+  Check(PrepareNtfsConfirmation(&p,IDS_PREFIX,0,text),"shipped resource single confirmation prepared");
+  std::wstring expected=SalMultiByteToWidePath(prefix.c_str(),CP_UTF8);expected.replace(expected.find(L"%s"),2,L"file \"東京\\same.txt\"");
+  Check(text.GetW()==expected&&std::wstring(text.GetW()).find(L"%s")==std::wstring::npos,"actual shipped question substitutes item once and retains warning after it");
+  p.F.Items[0].Selected=p.F.Items[1].Selected=1;expected=SalMultiByteToWidePath(prefix.c_str(),CP_UTF8);expected.replace(expected.find(L"%s"),2,L"2 files and 0 directories?");
+  Check(PrepareNtfsConfirmation(&p,IDS_PREFIX,2,text)&&text.GetW()==expected,"actual shipped plural question substitutes count at resource placeholder");
+ }
+ printf("Actual NTFS confirmation: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

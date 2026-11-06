@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "port_step": "S00",
+  "recorded_on": "2026-10-12",
+  "repository": "KRtkovo-eu-AI/salamander",
+  "source_pr": "https://github.com/KRtkovo-eu-AI/salamander/pull/769",
+  "DONOR_SHA": "47661e92d4b3cbe5bb593ae3d75a3f1f698ef413",
+  "PR_BASE_SHA": "a84dbed6db632a9e63b5ed9f4bc6691e4cc5f449",
+  "DONOR_BASE_SHA": "a84dbed6db632a9e63b5ed9f4bc6691e4cc5f449",
+  "TARGET_SHA": "a84dbed6db632a9e63b5ed9f4bc6691e4cc5f449",
+  "last_known_donor_sha": "47661e92d4b3cbe5bb593ae3d75a3f1f698ef413",
+  "donor_changed_since_last_known": false,
+  "target_branch": "release/5.0-samandarin-0.16",
+  "source_head_branch": "feature/branch-view",
+  "source_head_repository": "majklvi/salamander",
+  "working_branch": "refactor/pr-769-incremental",
+  "repository_git_common_dir": "C:/Samandarin/salamander/.git",
+  "implementation_worktree": "C:/Samandarin/codex_pr769_prompts/work",
+  "donor_worktree": "C:/Samandarin/codex_pr769_prompts/donor",
+  "donor_worktree_policy": "detached, reference only; do not edit or build here",
+  "prompt_bundle": "C:/Samandarin/codex_pr769_prompts",
+  "original_request": "C:/Users/majkl/.codex/attachments/6dbb55fa-27c0-4964-b5fa-689e15288ca5/Pasted text.txt",
+  "remotes": {
+    "upstream": {
+      "local_name": "samandarin",
+      "url": "https://github.com/KRtkovo-eu-AI/salamander.git"
+    },
+    "fork": {
+      "local_name": "origin",
+      "url": "https://github.com/majklvi/salamander.git"
+    }
+  },
+  "local_pins": {
+    "donor": "refs/port/pr769/donor-head",
+    "target": "refs/port/pr769/target-base"
+  },
+  "ancestry": {
+    "target_is_ancestor_of_donor": true,
+    "target_only_commits": 0,
+    "donor_only_commits": 9,
+    "cherry_equivalent_commits": 0,
+    "interpretation": "No post-merge-base target commits exist. Donor delta is wholly relative to target; shared baseline facilities are not ported again."
+  },
+  "donor_delta": {
+    "file_count": 231,
+    "additions": 18453,
+    "deletions": 3970,
+    "patch": "C:/Samandarin/codex_pr769_prompts/evidence/source/donor.patch",
+    "patch_sha256": "7bd21bd8e40b745630a605fa80f96f89bc02da3cce28f1723fa3c22f139158cc",
+    "stats": "C:/Samandarin/codex_pr769_prompts/evidence/source/donor.stat",
+    "numstat": "C:/Samandarin/codex_pr769_prompts/evidence/source/donor.numstat",
+    "metadata": "C:/Samandarin/codex_pr769_prompts/evidence/source/pr-metadata.json"
+  },
+  "recovery": [
+    "Read CONTRACT.md, SOURCE.json, PLAN.md, PROGRESS.md, VALIDATION.md and the single current steps/Sxx.md first.",
+    "Use git -C C:/Samandarin/codex_pr769_prompts/work status --short --branch; verify branch refactor/pr-769-incremental and git merge-base --is-ancestor TARGET_SHA HEAD. Preserve all later local commits.",
+    "If working branch exists, inspect its SOURCE.json and history; attach/reuse its existing worktree or git worktree add <unused-path> refactor/pr-769-incremental. Never use branch -B, reset, stash or recreate over it.",
+    "If objects are missing in another clone, fetch the full pinned SHAs from https://github.com/KRtkovo-eu-AI/salamander.git and donor SHA from https://github.com/majklvi/salamander.git if necessary. Verify rev-parse and merge-base against this manifest.",
+    "The discovery refs refs/pull/769/head and refs/heads/release/5.0-samandarin-0.16 may move: fetch to fresh inspection refs and compare, never replace the pinned values silently.",
+    "If donor worktree is absent, git worktree add --detach <unused-donor-path> 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413. Verify clean detached state before each read.",
+    "Recreate missing patch only using git diff --binary --full-index --no-ext-diff --output=<new-path> a84dbed6db632a9e63b5ed9f4bc6691e4cc5f449 47661e92d4b3cbe5bb593ae3d75a3f1f698ef413; compare SHA256 with donor_delta.patch_sha256.",
+    "Unpublished working commits cannot be reconstructed from upstream. Preserve/transfer the complete local working branch with an authorized bundle or publication before moving machines.",
+    "Only a separately requested control/93 donor update may change source pins. Never change the original PR, donor branch or target branch."
+  ]
+}

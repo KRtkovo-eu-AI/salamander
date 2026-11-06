@@ -311,6 +311,7 @@
     </ClInclude>
     <ClInclude Include="..\..\shared\spl_com.h">
     </ClInclude>
+    <ClInclude Include="..\..\shared\spl_diskselection.h" />
     <ClInclude Include="..\..\shared\spl_gen.h">
     </ClInclude>
     <ClInclude Include="..\..\shared\spl_gui.h">

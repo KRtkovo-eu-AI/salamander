@@ -1,0 +1,109 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual parser and wrapper. Absolute-name expansion/plugin/UI are explicit facades;
+// existing directory checks use real GetFileAttributesW on owned filesystem fixtures.
+#define WIN32_LEAN_AND_MEAN
+#define _CRT_SECURE_NO_WARNINGS
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <filesystem>
+#include <cstdio>
+#include <cstring>
+#include <new>
+#include <algorithm>
+#define SAL_MAX_PATH 32768
+#define SAL_MAX_EXTENDED_PATH 32768
+#define CALL_STACK_MESSAGE1(...) ((void)0)
+#define CALL_STACK_MESSAGE2(...) ((void)0)
+#define CALL_STACK_MESSAGE4(...) ((void)0)
+#define CALL_STACK_MESSAGE8(...) ((void)0)
+#define TRACE_E(...) ((void)0)
+enum {ptDisk,ptZIPArchive,ptPluginFS,PATH_TYPE_FS=10,PATH_TYPE_WINDOWS,PATH_TYPE_ARCHIVE,SPP_NOTPLUGINFS,SPP_WINDOWSPATHERROR,SPP_EMPTYPATHNOTALLOWED,SPP_INCOMLETEPATH,SPP_NOTARCHIVEFILE};
+enum {IDS_PATHERRORFORMAT=100,IDS_PATHISINVALID,IDS_TOOLONGPATH,IDS_NOTPLUGINFS,IDS_EMPTYNAMENOTALLOWED,IDS_INCOMLETEFILENAME,IDS_NOTARCHIVEPATH,IDS_ERRORTITLE};
+static unsigned char LowerCase[256];
+static int StrICmp(const char*a,const char*b){return _stricmp(a,b);}
+BOOL IsPluginFSPath(const char*,char* =nullptr,const char** =nullptr);
+BOOL IsPluginFSPath(char*,char*,char**);
+static std::string ResourceScratch,Message,Title;static int Messages=0,Expansions=0,Attributes=0,PluginCalls=0;
+static DWORD InjectedAttributeError=0;
+static bool BadResourceFormat=false;
+static const char* LoadStr(int id){ResourceScratch=id==IDS_PATHERRORFORMAT?(BadResourceFormat ? "%n" : "Path: \"%s\"\nError: %s"):id==IDS_TOOLONGPATH?"path too long":id==IDS_NOTPLUGINFS?"unknown plugin":id==IDS_EMPTYNAMENOTALLOWED?"empty path":"invalid path";return ResourceScratch.c_str();}
+static const char* GetErrorText(DWORD){return "filesystem failure";}
+static int SalMessageBox(HWND,const char*message,const char*title,UINT){++Messages;Message=message;Title=title;return IDOK;}
+@@WIDE@@
+@@UTILS@@
+static BOOL SalGetFullName(char*path,int*error,const char*current,char*,BOOL*,int capacity,BOOL isDisk){
+ ++Expansions;std::string value=path;if(value.empty()){*error=IDS_EMPTYNAMENOTALLOWED;return FALSE;}
+ std::wstring wide=SalMultiByteToWidePath(path,IsValidPathUtf8Text(path)?CP_UTF8:CP_ACP);
+ if(!(wide.size()>1&&wide[1]==L':')&&wide.compare(0,2,L"\\\\")!=0){
+  if(!isDisk||current==nullptr){*error=IDS_INCOMLETEFILENAME;return FALSE;}
+  std::wstring parent=SalMultiByteToWidePath(current,IsValidPathUtf8Text(current)?CP_UTF8:CP_ACP);if(parent.empty()){*error=IDS_PATHISINVALID;return FALSE;}if(parent.back()!=L'\\')parent+=L'\\';wide=parent+wide;
+ }
+ const std::string full=SalWideToMultiBytePath(wide.c_str(),CP_UTF8);
+ if(full.size()>=(size_t)capacity){*error=IDS_TOOLONGPATH;return FALSE;}memcpy(path,full.c_str(),full.size()+1);return TRUE;
+}
+static BOOL SalCheckAndRestorePath(HWND,const char*,BOOL){return TRUE;} // drive/reconnect UI is outside this native scope
+static BOOL HasTheSameRootPath(const char*a,const char*b){return _strnicmp(a,b,3)==0;}
+static DWORD SalGetFileAttributes(const char*path){++Attributes;if(InjectedAttributeError){SetLastError(InjectedAttributeError);return INVALID_FILE_ATTRIBUTES;}auto w=SalMultiByteToWidePath(path,CP_UTF8);return GetFileAttributesW(SalPathAddExtendedPrefixW(w.c_str()).c_str());}
+static BOOL MakeValidFileName(char*){return FALSE;} // filename cleanup behavior is not under test
+struct PluginsFacade {bool Accept=false;BOOL IsPluginFS(const char*,int&,int&){++PluginCalls;return Accept;}};
+static PluginsFacade Plugins;
+struct ArchiveFacade {BOOL PackIsArchive(const char*path){const auto n=strlen(path);return n>=4&&_stricmp(path+n-4,".zip")==0;}};
+static ArchiveFacade PackerFormatConfig;
+@@PARSER@@
+struct CFilesWindow {
+ HWND HWindow=nullptr;int Kind=ptDisk;std::wstring Root;std::string General,Archive;bool FailGeneral=false;
+ BOOL Is(int kind) const{return Kind==kind;}const wchar_t* GetPathW() const{return Root.c_str();}const char* GetZIPArchive() const{return Archive.c_str();}
+ BOOL GetGeneralPath(char*buffer,int capacity){size_t n=(std::min)(General.size(),(size_t)capacity-1);memcpy(buffer,General.data(),n);buffer[n]=0;return !FailGeneral&&General.size()<(size_t)capacity;}
+ BOOL ParsePath(char*,int&,BOOL&,char*&,const char*,char*,int*,int);
+};
+@@WRAPPER@@
+static int Checks=0,Failures=0;
+static void Check(bool ok,const char*label){++Checks;if(!ok){++Failures;printf("FAIL: %s\n",label);}}
+static std::wstring Full(std::filesystem::path p){p.make_preferred();return SalPathAddExtendedPrefixW(p.c_str());}
+static std::string Utf8(const std::wstring&w){return SalWideToMultiBytePath(w.c_str(),CP_UTF8);}
+static void Reset(){Message.clear();Title.clear();Messages=Expansions=Attributes=PluginCalls=0;InjectedAttributeError=0;Plugins.Accept=false;}
+int wmain(int argc,wchar_t**argv){
+ setvbuf(stdout,nullptr,_IONBF,0);if(argc!=2)return 2;for(int i=0;i<256;++i)LowerCase[i]=(unsigned char)(i>='A'&&i<='Z'?i+32:i);
+ auto root=std::filesystem::absolute(argv[1]);root.make_preferred();if(root.filename()!=L"owned-fixtures"||std::filesystem::exists(Full(root)))return 3;std::filesystem::create_directories(Full(root));
+ const std::vector<std::filesystem::path> shapes={L"ascii",L"unicode-name",L"rodič-東京",std::filesystem::path(L"první-🙂")/L"druhý-東京",std::wstring(150,L'東'),std::filesystem::path(std::wstring(100,L'日'))/std::wstring(100,L'本')/std::wstring(100,L'東')};
+ for(size_t i=0;i<shapes.size();++i){
+  auto parent=root/shapes[i];parent.make_preferred();std::filesystem::create_directories(Full(parent/L"child"));CFilesWindow panel;panel.Root=parent.wstring();panel.General="C:\\wrong-ANSI-context";
+  const std::wstring name=i==1?L"東京-🙂.txt":L"same.txt";const std::string relative="child\\"+Utf8(name);std::vector<char> storage(SAL_MAX_PATH+8,'Z');memcpy(storage.data(),relative.c_str(),relative.size()+1);
+  int type=99,error=99;BOOL isDir=FALSE;char*second=nullptr;char focus[MAX_PATH]="stale";Reset();bool result=panel.ParsePath(storage.data(),type,isDir,second,"copy error",focus,&error,SAL_MAX_PATH)!=FALSE;
+  const std::string expected=Utf8((parent/L"child"/name).wstring());
+  Check(result&&type==PATH_TYPE_WINDOWS&&isDir&&std::string(storage.data())==expected&&second&&std::string(second)==Utf8(name),"actual wrapper/shared parser preserves complete wide relative context and target split");
+  Check(Attributes>0&&Messages==0,"existing ancestor checked by real wide filesystem I/O");
+  Check(std::all_of(storage.begin()+SAL_MAX_PATH,storage.end(),[](char x){return x=='Z';}),"target red zone preserved");
+  if(i==4)Check(Utf8(parent.wstring()).size()>520&&parent.wstring().size()<MAX_PATH,"UTF8 source base exceeds old context buffer while UTF16 is short");
+  if(i==5)Check(parent.wstring().size()>MAX_PATH,"full Win32 long relative context exercised");
+ }
+ CFilesWindow panel;panel.Root=root.wstring();int type;BOOL isDir;char*second;int error;char focus[MAX_PATH];std::vector<char> buffer(SAL_MAX_PATH+8,'Z');
+ for(int mode=0;mode<4;++mode){Reset();panel.Kind=mode==0?ptDisk:ptZIPArchive;panel.Root=mode==0?std::wstring(12000,L'東'):root.wstring();panel.General=mode==1?std::string(SAL_MAX_PATH,'a'):mode==2?std::string(SAL_MAX_PATH-1,'b'):"C:\\valid";panel.FailGeneral=mode==3;strcpy(buffer.data(),"child");strcpy(focus,"stale");type=99;isDir=TRUE;second=buffer.data();error=0;
+  Check(!panel.ParsePath(buffer.data(),type,isDir,second,"parse",focus,&error,SAL_MAX_PATH)&&type==-1&&!isDir&&!second&&focus[0]==0&&error==SPP_WINDOWSPATHERROR,"invalid/overflow context clears outputs and refuses instead of passing prefix");
+  Check(Expansions==0&&Attributes==0&&Messages==1&&std::string(buffer.data())=="child","failed base acquisition performs no parser/filesystem work and preserves input");
+ }
+ panel.Kind=ptDisk;panel.Root=std::wstring(L"C:\\")+wchar_t(0xd800);Reset();strcpy(buffer.data(),"child");Check(!panel.ParsePath(buffer.data(),type,isDir,second,"parse",focus,&error,SAL_MAX_PATH)&&Expansions==0,"lossy wide source context refused before normalization");
+ HANDLE archive=CreateFileW(Full(root/L"archive.zip").c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,0,nullptr);Check(archive!=INVALID_HANDLE_VALUE,"create owned archive-classification placeholder, not a ZIP engine fixture");if(archive!=INVALID_HANDLE_VALUE)CloseHandle(archive);
+ Reset();panel.FailGeneral=false;panel.Kind=ptZIPArchive;panel.General=Utf8(root.wstring())+"\\archive.zip\\inside";panel.Archive=Utf8(root.wstring())+"\\archive.zip";strcpy(buffer.data(),"entry.txt");Check(panel.ParsePath(buffer.data(),type,isDir,second,"archive",focus,&error,SAL_MAX_PATH)&&type==PATH_TYPE_ARCHIVE,"archive virtual context preserved independently of disk root");
+ Reset();panel.Kind=ptPluginFS;panel.General="ftp:server/path";strcpy(buffer.data(),"relative");Check(!panel.ParsePath(buffer.data(),type,isDir,second,"plugin",focus,&error,SAL_MAX_PATH)&&error==SPP_INCOMLETEPATH&&Messages==0,"plugin relative path retains quiet incomplete-path contract");
+ Reset();Plugins.Accept=true;strcpy(buffer.data(),"ftp:server/path");Check(panel.ParsePath(buffer.data(),type,isDir,second,"plugin",focus,&error,SAL_MAX_PATH)&&type==PATH_TYPE_FS&&std::string(second)=="server/path","known plugin path routed without disk normalization");
+ Reset();const std::string invalid="missingfs:"+Utf8(std::wstring(1200,L'東'))+"%n";memcpy(buffer.data(),invalid.c_str(),invalid.size()+1);Check(!SalParsePath(nullptr,buffer.data(),type,isDir,second,"error title",focus,FALSE,nullptr,nullptr,&error,SAL_MAX_PATH)&&error==SPP_NOTPLUGINFS,"unknown plugin with long user path refused");
+ Check(Message=="Path: \""+invalid+"\"\nError: unknown plugin"&&Title=="error title","complete long localized error and literal percent directives preserved across resource buffer reuse");
+ Reset();char empty[8]={};const std::string largeBase=Utf8(root.wstring());Check(!SalParsePath(nullptr,empty,type,isDir,second,"error",focus,TRUE,largeBase.c_str(),nullptr,&error,sizeof(empty))&&empty[0]==0&&error==SPP_WINDOWSPATHERROR,"empty path fallback cannot become a shortened base");
+ Reset();Check(!SalParsePath(nullptr,empty,type,isDir,second,"error",focus,TRUE,"",nullptr,&error,sizeof(empty))&&error==SPP_EMPTYPATHNOTALLOWED&&Expansions==1,"empty current base terminates without retry loop");
+ Reset();char noNul[4]={'a','b','c','d'};Check(!SalParsePath(nullptr,noNul,type,isDir,second,"error",nullptr,TRUE,"C:\\",nullptr,&error,sizeof(noNul))&&Expansions==0,"unterminated input rejected within capacity before parsing");
+ Reset();Check(!SalParsePath(nullptr,nullptr,type,isDir,second,"error",nullptr,FALSE,nullptr,nullptr,&error,0)&&Expansions==0,"null/zero-capacity input refused");
+ const std::string unc="\\\\"+std::string(260,'a')+"\\share\\child";Reset();memcpy(buffer.data(),unc.c_str(),unc.size()+1);Check(!SalParsePath(nullptr,buffer.data(),type,isDir,second,"error",nullptr,TRUE,"C:\\",nullptr,&error,SAL_MAX_PATH)&&Attributes==0&&error==SPP_WINDOWSPATHERROR,"over-capacity legacy UNC root explicitly refused without aliased I/O");
+ Reset();const std::string wanted=Utf8(root.wstring())+"\\denied\\child";memcpy(buffer.data(),wanted.c_str(),wanted.size()+1);InjectedAttributeError=ERROR_ACCESS_DENIED;Check(!SalParsePath(nullptr,buffer.data(),type,isDir,second,"error",nullptr,TRUE,Utf8(root.wstring()).c_str(),nullptr,&error,SAL_MAX_PATH)&&error==SPP_WINDOWSPATHERROR&&Message=="Path: \""+wanted+"\"\nError: filesystem failure","access denial preserved with complete failing path");
+ std::error_code ec;std::filesystem::remove_all(Full(root),ec);Check(!ec&&!std::filesystem::exists(Full(root)),"cleanup only exact owned fixture root");
+ // Exercise the actual error renderer, including LoadStr's rotating storage.
+ const std::string percentPath=Utf8(root.wstring())+"%s-%n-%p";
+ Reset();ShowParsePathError(nullptr,percentPath.c_str(),"detail %n %s","owned title");
+ Check(Messages==1&&Message=="Path: \""+percentPath+"\"\nError: detail %n %s"&&Title=="owned title","actual parser error inserts percent-bearing paths and details literally");
+ BadResourceFormat=true;Reset();ShowParsePathError(nullptr,percentPath.c_str(),"retained detail","retained title");
+ Check(Messages==1&&Message=="retained detail"&&Title=="retained title","malformed resource uses owned localized fallback without formatting");
+ BadResourceFormat=false;
+ printf("Actual path parser context: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

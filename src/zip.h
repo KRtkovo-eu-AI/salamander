@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <string>
+
 extern HWND ProgressDialogActivateDrop;
 
 //
@@ -451,7 +453,8 @@ public:
     void SetPreferedPacker(int i) { PreferedPacker = i; }
 
     BOOL ExecutePacker(CFilesWindow* panel, const char* zipFile, BOOL move,
-                       const char* sourcePath, SalEnumSelection2 next, void* param);
+                       const char* sourcePath, SalEnumSelection2 next, void* param,
+                       BOOL (*validateContext)(void*) = NULL, void* context = NULL);
 };
 
 //
@@ -529,8 +532,32 @@ public:
     }
 };
 
+class CUnpackerConfig;
+struct CPluginData;
+struct CFilesActionDiskTarget;
+
+// Internal binding for direct whole-archive extraction; not a plugin capability.
+struct CWholeArchiveUnpackerSnapshot
+{
+    const CUnpackerConfig* Configuration = NULL;
+    const CUnpackerConfigData* Entry = NULL;
+    CPluginData* Plugin = NULL;
+    int Index = -1, Type = 0;
+    std::string Title, Extensions, DLLName, Command, Arguments;
+    std::string BranchTargetDirectory; // owned offered directory; empty until explicitly bound
+    BOOL SupportLongNames = FALSE, NeedANSIListFile = FALSE;
+
+    bool Capture(CUnpackerConfig* configuration, BOOL allowExternal = FALSE);
+    bool IsCurrent(const CPluginData* expectedPlugin = NULL) const;
+    bool ValidateExternalPaths(const char* source, const char* target) const;
+    bool IsVerifiedBranchSourceUnpacker() const;
+    bool BindBranchTarget(const CFilesActionDiskTarget* target, const char* directory);
+    bool ValidateBranchTarget(const CFilesActionDiskTarget* target, const char* directory) const;
+};
+
 class CUnpackerConfig
 {
+    friend struct CWholeArchiveUnpackerSnapshot;
 protected:
     int PreferedUnpacker;
     TIndirectArray<CUnpackerConfigData> Unpackers; // array of packer information, elements of type (CUnpackerConfigData *)
@@ -574,12 +601,14 @@ public:
 
     int GetPreferedUnpacker() // returns -1 if no preferred one exists
     {
-        return (PreferedUnpacker < Unpackers.Count) ? PreferedUnpacker : -1;
+        return (PreferedUnpacker >= 0 && PreferedUnpacker < Unpackers.Count) ? PreferedUnpacker : -1;
     }
     void SetPreferedUnpacker(int i) { PreferedUnpacker = i; }
 
     BOOL ExecuteUnpacker(HWND parent, CFilesWindow* panel, const char* zipFile, const char* mask,
-                         const char* targetDir, BOOL delArchiveWhenDone, CDynamicString* archiveVolumes);
+                         const char* targetDir, BOOL delArchiveWhenDone, CDynamicString* archiveVolumes,
+                         const CWholeArchiveUnpackerSnapshot* backendSnapshot = NULL,
+                         const CFilesActionDiskTarget* sourceSnapshot = NULL, const CFilesActionDiskTarget* diskTarget = NULL);
 };
 
 extern CPackerConfig PackerConfig;

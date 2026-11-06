@@ -16,6 +16,7 @@
 #include "salamatrixsettings.h"
 #include "../salamatrix/salamatrix_manifest.h"
 #include "../shared/salamatrix_thread_join.h"
+#include "../shared/spl_diskselection.h"
 #include "scriptsite.h"
 #include "aututils.h"
 #include "engassoc.h"
@@ -31,6 +32,32 @@
 extern HINSTANCE g_hInstance;
 extern HINSTANCE g_hLangInst;
 extern CSalamanderGeneralAbstract* SalamanderGeneral;
+extern CAutomationPluginInterface g_oAutomationPlugin;
+
+// Stored repository paths may contain $(SalDir) and other supported variables.
+// Preserve stored identities; resolve only at metadata/I/O/runtime boundaries.
+static BOOL ResolveScriptPath(PCTSTR path, std::vector<TCHAR>& resolved)
+{
+    if (path == NULL)
+        return FALSE;
+    resolved.resize(SAL_MAX_PATH);
+    return g_oAutomationPlugin.ExpandPath(
+               path, resolved.data(), static_cast<int>(resolved.size())) &&
+           resolved[0] != _T('\0');
+}
+
+static BOOL ResolveScriptPathWide(PCTSTR path, std::wstring& resolved)
+{
+    std::vector<TCHAR> native;
+    if (!ResolveScriptPath(path, native))
+        return FALSE;
+#ifdef UNICODE
+    resolved.assign(native.data());
+#else
+    resolved = SalamanderDiskSelection::WideFromPath(native.data());
+#endif
+    return !resolved.empty();
+}
 
 static HANDLE OpenReadFilePath(PCTSTR path)
 {
@@ -68,9 +95,10 @@ static HANDLE OpenReadFilePath(PCTSTR path)
         else
             widePath = L"\\\\?\\" + widePath;
     }
-    return ::CreateFileW(
+    // Both text readers close through HANDLES; track the matching open as well.
+    return HANDLES_Q(CreateFileW(
         widePath.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL,
-        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
 }
 
 static BOOL Utf8ToWideText(const std::string& value, std::wstring& output)
@@ -95,7 +123,6 @@ static BOOL Utf8ToWideText(const std::string& value, std::wstring& output)
 }
 
 static volatile LONG g_nextRuntimeCommandMenuId = 0x60000000;
-extern CAutomationPluginInterface g_oAutomationPlugin;
 
 static BOOL ReadSmallTextFile(PCTSTR path, char* buffer, DWORD bufferSize)
 {
@@ -424,24 +451,38 @@ BOOL ShowRuntimeInputBox(
 
 static BOOL PathsEqual(PCTSTR first, PCTSTR second)
 {
-    std::vector<TCHAR> firstFull(SAL_MAX_PATH);
-    std::vector<TCHAR> secondFull(SAL_MAX_PATH);
-    DWORD firstLength = GetFullPathName(
-        first, static_cast<DWORD>(firstFull.size()), &firstFull[0], NULL);
-    DWORD secondLength = GetFullPathName(
-        second, static_cast<DWORD>(secondFull.size()), &secondFull[0], NULL);
+    if (first == NULL || second == NULL)
+        return FALSE;
+#ifdef UNICODE
+    const std::wstring firstWide(first), secondWide(second);
+#else
+    const std::wstring firstWide = SalamanderDiskSelection::WideFromPath(first);
+    const std::wstring secondWide = SalamanderDiskSelection::WideFromPath(second);
+#endif
+    if (firstWide.empty() || secondWide.empty())
+        return FALSE;
+    std::vector<wchar_t> firstFull(SAL_MAX_PATH);
+    std::vector<wchar_t> secondFull(SAL_MAX_PATH);
+    DWORD firstLength = GetFullPathNameW(
+        firstWide.c_str(), static_cast<DWORD>(firstFull.size()), firstFull.data(), NULL);
+    DWORD secondLength = GetFullPathNameW(
+        secondWide.c_str(), static_cast<DWORD>(secondFull.size()), secondFull.data(), NULL);
     if (firstLength == 0 || firstLength >= firstFull.size() ||
         secondLength == 0 || secondLength >= secondFull.size())
     {
         return FALSE;
     }
-    return _tcsicmp(&firstFull[0], &secondFull[0]) == 0;
+    return _wcsicmp(firstFull.data(), secondFull.data()) == 0;
 }
 
 static BOOL LoadManifestForEntryPoint(
     PCTSTR entryPointPath,
     CExtensionManifest& manifest)
 {
+    std::vector<TCHAR> expanded;
+    if (!ResolveScriptPath(entryPointPath, expanded))
+        return FALSE;
+    entryPointPath = expanded.data();
     std::vector<TCHAR> directory(SAL_MAX_PATH);
     StringCchCopy(&directory[0], directory.size(), entryPointPath);
     if (!PathRemoveFileSpec(&directory[0]))
@@ -882,8 +923,12 @@ void CScriptInfo::ApplySalamatrixManifestValue(const char* key, const char* valu
 
 void CScriptInfo::LoadSalamatrixManifestMetadata()
 {
+    std::vector<TCHAR> expanded;
+    if (!ResolveScriptPath(m_szFileName, expanded))
+        return;
+    const TCHAR* metadataPath = expanded.data();
     CExtensionManifest manifest;
-    if (!LoadManifestForEntryPoint(m_szFileName, manifest))
+    if (!LoadManifestForEntryPoint(metadataPath, manifest))
         return;
 
     // Locale resources are package data, resolved only through a manifest
@@ -891,7 +936,7 @@ void CScriptInfo::LoadSalamatrixManifestMetadata()
     // never prevents the base manifest from being discovered.
     const std::string baseManifestName = manifest.Name;
     CExtensionManifestLocaleText localized;
-    if (LoadManifestLocaleText(m_szFileName, manifest, localized))
+    if (LoadManifestLocaleText(metadataPath, manifest, localized))
     {
         if (!localized.Name.empty())
             manifest.Name = localized.Name;
@@ -949,10 +994,10 @@ void CScriptInfo::LoadSalamatrixManifestMetadata()
     m_bSalamatrixEventsDeclared = manifest.EventsDeclared;
     m_salamatrixEvents = manifest.Events;
     ResolveManifestAssetPath(
-        m_szFileName, manifest.EntryPoint, manifest.Icon,
+        metadataPath, manifest.EntryPoint, manifest.Icon,
         m_salamatrixIconPath);
     ResolveManifestAssetPath(
-        m_szFileName, manifest.EntryPoint, manifest.IconDark,
+        metadataPath, manifest.EntryPoint, manifest.IconDark,
         m_salamatrixIconDarkPath);
 
     m_salamatrixManifestCommands.clear();
@@ -973,10 +1018,10 @@ void CScriptInfo::LoadSalamatrixManifestMetadata()
         published.Menu = command.Menu.empty() ? "plugin" : command.Menu;
         published.Requires = command.Requires.empty() ? "any" : command.Requires;
         ResolveManifestAssetPath(
-            m_szFileName, manifest.EntryPoint, command.Icon,
+            metadataPath, manifest.EntryPoint, command.Icon,
             published.IconPath);
         ResolveManifestAssetPath(
-            m_szFileName, manifest.EntryPoint, command.IconDark,
+            metadataPath, manifest.EntryPoint, command.IconDark,
             published.IconDarkPath);
         published.ContextMenu = command.ContextMenu;
         published.Toolbar = command.Toolbar;
@@ -1058,7 +1103,9 @@ void CScriptInfo::InitializeSalamatrixSettings(
 void CScriptInfo::LoadSalamatrixMetadata()
 {
     char buffer[4097];
-    if (!ReadSmallTextFile(m_szFileName, buffer, sizeof(buffer)))
+    std::vector<TCHAR> expanded;
+    if (!ResolveScriptPath(m_szFileName, expanded) ||
+        !ReadSmallTextFile(expanded.data(), buffer, sizeof(buffer)))
         return;
 
     char* line = buffer;
@@ -1141,6 +1188,23 @@ BOOL WINAPI CScriptInfo::ExecuteCompatibilityRuntime(
     return succeeded ? TRUE : FALSE;
 }
 
+// One-shot repository workers need the same live-dispatch state as activated workers.
+// Restore the prior state after success, startup failure or an exception.
+class CScopedAutomationRuntimeDispatch
+{
+private:
+    volatile LONG& m_stopping;
+    LONG m_previous;
+
+public:
+    explicit CScopedAutomationRuntimeDispatch(volatile LONG& stopping)
+        : m_stopping(stopping), m_previous(InterlockedExchange(&stopping, FALSE)) {}
+    ~CScopedAutomationRuntimeDispatch()
+    {
+        InterlockedExchange(&m_stopping, m_previous);
+    }
+};
+
 bool CScriptInfo::ExecuteThroughRuntime(__inout EXECUTION_INFO& info)
 {
     CAutomationSalamatrixBridge* bridge = g_oAutomationPlugin.GetSalamatrixBridge();
@@ -1158,14 +1222,14 @@ bool CScriptInfo::ExecuteThroughRuntime(__inout EXECUTION_INFO& info)
                   m_dwSalamatrixMinimumRuntimeVersion)
             : NULL;
 
-    std::vector<char> entryPointUtf8(SAL_MAX_PATH * 3);
+    std::wstring entryPointWide;
+    if (!ResolveScriptPathWide(m_szFileName, entryPointWide))
+        return false;
+    const std::string entryPointUtf8 = SalamanderDiskSelection::Utf8FromWide(entryPointWide.c_str());
     if (adapter == NULL ||
-        !NativeToUtf8(
-            m_szFileName,
-            &entryPointUtf8[0],
-            static_cast<int>(entryPointUtf8.size())) ||
+        entryPointUtf8.empty() ||
         !adapter->IsAvailable() ||
-        !adapter->SupportsEntryPoint(&entryPointUtf8[0]))
+        !adapter->SupportsEntryPoint(entryPointUtf8.c_str()))
     {
         TCHAR message[512];
         TCHAR runtimeId[128];
@@ -1183,19 +1247,10 @@ bool CScriptInfo::ExecuteThroughRuntime(__inout EXECUTION_INFO& info)
         return false;
     }
 
-    std::vector<wchar_t> entryPointWide(SAL_MAX_PATH);
-#ifdef UNICODE
-    if (StringCchCopyW(
-            &entryPointWide[0], entryPointWide.size(), m_szFileName) != S_OK)
+    // Publish validated manifest commands on explicit execution as well as lifecycle activation.
+    // Repository scripts need not be auto-activated just to contribute their commands.
+    if (!PublishSalamatrixManifestCommands())
         return false;
-#else
-    if (MultiByteToWideChar(
-            CP_ACP, 0, m_szFileName, -1,
-            &entryPointWide[0], static_cast<int>(entryPointWide.size())) == 0)
-    {
-        return false;
-    }
-#endif
 
     CCompatibilityExecutionContext compatibilityContext = {this, &info};
     Salamatrix::Runtime::RuntimeExecutionRequest request;
@@ -1204,7 +1259,7 @@ bool CScriptInfo::ExecuteThroughRuntime(__inout EXECUTION_INFO& info)
                             ? info.SalamatrixCommandId
                             : m_szSalamatrixCommandId;
     request.CommandHandler = FindRuntimeCommandHandler(request.CommandId);
-    request.EntryPoint = &entryPointWide[0];
+    request.EntryPoint = entryPointWide.c_str();
     request.ParentWindow = SalamanderGeneral->GetMsgBoxParent();
     request.Flags = Salamatrix::Runtime::RuntimeExecutionFlagUseWorkerBootstrap |
                     Salamatrix::Runtime::RuntimeExecutionFlagOneShotWorker;
@@ -1218,6 +1273,7 @@ bool CScriptInfo::ExecuteThroughRuntime(__inout EXECUTION_INFO& info)
     // extensions activated without an execution context receive a clear
     // "unavailable" response from RuntimeHostDispatch instead.
     m_pExecInfo = &info;
+    CScopedAutomationRuntimeDispatch liveDispatch(m_lRuntimeStopping);
 
     Salamatrix::Runtime::RuntimeExecutionResult result;
     BOOL executed = FALSE;
@@ -4054,21 +4110,13 @@ BOOL WINAPI CScriptInfo::RuntimeLifecycleCallback(
         return FALSE;
     }
 
-    std::vector<wchar_t> entryPoint(SAL_MAX_PATH);
-#ifdef UNICODE
-    if (StringCchCopyW(
-            &entryPoint[0], entryPoint.size(), script->m_szFileName) != S_OK)
+    std::wstring entryPoint;
+    if (!ResolveScriptPathWide(script->m_szFileName, entryPoint))
         return FALSE;
-#else
-    if (MultiByteToWideChar(
-            CP_ACP, 0, script->m_szFileName, -1,
-            &entryPoint[0], static_cast<int>(entryPoint.size())) == 0)
-        return FALSE;
-#endif
 
     Salamatrix::Runtime::RuntimeExecutionRequest request;
     request.ExtensionId = script->m_szSalamatrixExtensionId;
-    request.EntryPoint = &entryPoint[0];
+    request.EntryPoint = entryPoint.c_str();
     request.ParentWindow = SalamanderGeneral->GetMsgBoxParent();
     request.Flags =
         Salamatrix::Runtime::RuntimeExecutionFlagPersistentWorker |
@@ -4284,7 +4332,7 @@ HRESULT CScriptInfo::LoadOleStringFromFile(PCTSTR pszFileName, __out LPOLESTR& s
     cbSize = GetFileSize(hFile, NULL);
     if (cbSize == 0)
     {
-        CloseHandle(hFile);
+        HANDLES(CloseHandle(hFile));
         s = (LPOLESTR)malloc(sizeof(WCHAR));
         if (s == NULL)
         {
@@ -4297,7 +4345,7 @@ HRESULT CScriptInfo::LoadOleStringFromFile(PCTSTR pszFileName, __out LPOLESTR& s
 
     hMapping = CreateFileMapping(hFile, NULL, PAGE_READONLY, 0, 0, NULL);
     hr = HRESULT_FROM_WIN32(GetLastError());
-    CloseHandle(hFile);
+    HANDLES(CloseHandle(hFile));
     if (hMapping == NULL)
     {
         return hr;

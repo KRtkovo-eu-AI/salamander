@@ -6,6 +6,7 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "viewerpath.h"
 
 #include "menu.h"
 #include "cfgdlg.h"
@@ -1413,41 +1414,13 @@ CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             else
             {
-                if (FileNamesEnumData.LastFileName[0] != 0) // the full name at 'index' is known; check for shifts and search for a new index if needed
+                int matchingIndex = Salamander::ViewerPaths::FindIndex(index, count,
+                    FileNamesEnumData.LastFileName,
+                    [this](int i) { return Data[i]->GetFullNameW(); });
+                if (matchingIndex >= 0)
                 {
-                    BOOL ok = FALSE;
-                    CFoundFilesData* f = (index >= 0 && index < count) ? Data[index] : NULL;
-                    char fileName[MAX_PATH];
-                    if (f != NULL && f->Path != NULL && f->Name != NULL)
-                    {
-                        lstrcpyn(fileName, f->Path, MAX_PATH);
-                        SalPathAppend(fileName, f->Name, MAX_PATH);
-                        if (StrICmp(fileName, FileNamesEnumData.LastFileName) == 0)
-                        {
-                            ok = TRUE;
-                            indexNotFound = FALSE;
-                        }
-                    }
-                    if (!ok)
-                    { // the name at index 'index' isn't FileNamesEnumData.LastFileName, try to find a new index for that name
-                        int i;
-                        for (i = 0; i < count; i++)
-                        {
-                            f = Data[i];
-                            if (f->Path != NULL && f->Name != NULL)
-                            {
-                                lstrcpyn(fileName, f->Path, MAX_PATH);
-                                SalPathAppend(fileName, f->Name, MAX_PATH);
-                                if (StrICmp(fileName, FileNamesEnumData.LastFileName) == 0)
-                                    break;
-                            }
-                        }
-                        if (i != count) // new index found
-                        {
-                            index = i;
-                            indexNotFound = FALSE;
-                        }
-                    }
+                    index = matchingIndex;
+                    indexNotFound = FALSE;
                 }
                 if (index >= count)
                 {
@@ -1588,8 +1561,7 @@ CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 CFoundFilesData* f = Data[index];
                 if (f->Path != NULL && f->Name != NULL)
                 {
-                    lstrcpyn(FileNamesEnumData.FileName, f->Path, MAX_PATH);
-                    SalPathAppend(FileNamesEnumData.FileName, f->Name, MAX_PATH);
+                    FileNamesEnumData.FileName = f->GetFullNameW();
                     FileNamesEnumData.LastFileIndex = index;
                 }
                 else // should never happen

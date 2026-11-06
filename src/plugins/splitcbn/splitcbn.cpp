@@ -404,18 +404,25 @@ BOOL Error(int title, int error, ...)
 {
     int lastErr = GetLastError();
     CALL_STACK_MESSAGE3("Error(%d, %d, ...)", title, error);
-    char buf[1024];
-    *buf = 0;
+    std::vector<char> buffer;
     va_list arglist;
     va_start(arglist, error);
-    vsprintf(buf, LoadStr(error), arglist);
+    const int length = _vscprintf(LoadStr(error), arglist);
+    if (length < 0)
+    {
+        va_end(arglist);
+        return FALSE;
+    }
+    buffer.resize(static_cast<size_t>(length) + 2048);
+    char* buf = buffer.data();
+    vsprintf_s(buf, buffer.size(), LoadStr(error), arglist);
     va_end(arglist);
     if (lastErr != ERROR_SUCCESS)
     {
         strcat(buf, " ");
         DWORD l = (DWORD)strlen(buf);
         FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, lastErr,
-                      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), buf + l, 1024 - l, NULL);
+                      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), buf + l, static_cast<DWORD>(buffer.size() - l), NULL);
     }
     SalamanderGeneral->ShowMessageBox(buf, LoadStr(title), MSGBOX_ERROR);
 
@@ -426,71 +433,89 @@ BOOL Error2(HWND hParent, int title, int error, ...)
 {
     int lastErr = GetLastError();
     CALL_STACK_MESSAGE3("Error2( , %d, %d, ...)", title, error);
-    char buf[1024];
-    *buf = 0;
+    std::vector<char> buffer;
     va_list arglist;
     va_start(arglist, error);
-    vsprintf(buf, LoadStr(error), arglist);
+    const int length = _vscprintf(LoadStr(error), arglist);
+    if (length < 0)
+    {
+        va_end(arglist);
+        return FALSE;
+    }
+    buffer.resize(static_cast<size_t>(length) + 2048);
+    char* buf = buffer.data();
+    vsprintf_s(buf, buffer.size(), LoadStr(error), arglist);
     va_end(arglist);
     if (lastErr != ERROR_SUCCESS)
     {
         strcat(buf, " ");
         DWORD l = (DWORD)strlen(buf);
         FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, lastErr,
-                      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), buf + l, 1024 - l, NULL);
+                      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), buf + l, static_cast<DWORD>(buffer.size() - l), NULL);
     }
     SalamanderGeneral->SalMessageBox(hParent, buf, LoadStr(title), MSGBOXEX_OK | MSGBOXEX_ICONEXCLAMATION);
 
     return FALSE;
 }
 
-void GetTargetDir(LPTSTR targetDir, LPTSTR subdirName, BOOL bSplit)
+std::string GetTargetDir(const char* sourceDirectory, const char* subdirName, BOOL bSplit)
 {
-    // This function returns the target directory for split or combine, respecting the configuration
-    // configSplitToOther/configCombineToOther. If the target path would lead into an archive
-    // or to a file system plugin, regardless of the configuration the source panel path is offered,
-    // which is always guaranteed to be PATH_TYPE_WINDOWS (thanks to the menu enablers).
-
-    int type;
-    SalamanderGeneral->GetPanelPath(
-        (bSplit ? configSplitToOther : configCombineToOther) ? PANEL_TARGET : PANEL_SOURCE,
-        targetDir, MAX_PATH, &type, NULL);
-
-    if (type != PATH_TYPE_WINDOWS)
-        SalamanderGeneral->GetPanelPath(PANEL_SOURCE, targetDir, MAX_PATH, NULL, NULL);
-
-    if (bSplit && configSplitToSubdir && subdirName != NULL)
+    std::string target = sourceDirectory;
+    if (bSplit ? configSplitToOther : configCombineToOther)
     {
-        if (SalamanderGeneral->SalPathAppend(targetDir, subdirName, MAX_PATH))
-            SalamanderGeneral->SalPathRemoveExtension(targetDir);
+        SplitCBNPaths::Buffer panelPath(SplitCBNPaths::Capacity);
+        int type = 0;
+        if (SalamanderGeneral->GetPanelPath(PANEL_TARGET, panelPath.data(), static_cast<int>(panelPath.size()), &type, NULL) &&
+            type == PATH_TYPE_WINDOWS)
+            target = panelPath.data();
     }
+    if (bSplit && configSplitToSubdir && subdirName != NULL)
+        target = SplitCBNPaths::Join(target, SplitCBNPaths::Stem(subdirName));
+    return target;
 }
 
-BOOL MakePathAbsolute(char* path, BOOL pathIsDir, char* absRoot, BOOL activePreferred, int errorTitle)
+BOOL MakePathAbsolute(std::string& path, BOOL pathIsDir, const char* absRoot, BOOL activePreferred, int errorTitle)
 {
-    int type;
-    char* secondPart;
-    BOOL isDir;
-
-    SalamanderGeneral->SalUpdateDefaultDir(!configCombineToOther);
-    if (!SalamanderGeneral->SalParsePath(SalamanderGeneral->GetMsgBoxParent(), path, type, isDir, secondPart,
-                                         LoadStr(IDS_PATHERROR), NULL, TRUE, absRoot, NULL, NULL, MAX_PATH))
-        return FALSE;
-
-    if (type != PATH_TYPE_WINDOWS) // only Windows paths are supported
-        return Error(errorTitle, IDS_WINPATH);
-
-    if (isDir)
+    SalamanderGeneral->SalUpdateDefaultDir(activePreferred);
+    std::string absolute;
+    if (!SplitCBNPaths::Absolute(path, absRoot, absolute))
+        return Error(errorTitle, IDS_PATHERROR);
+    std::string directory = pathIsDir ? absolute : SplitCBNPaths::Parent(absolute);
+    bool missing = false;
+    for (;;)
     {
-        char* s = secondPart;
-        if (!pathIsDir)
-            while (*s != 0 && *s != '\\')
-                s++;
-        if (*s != 0) // contains subdirectories, ask whether to create them
-            if (SalamanderGeneral->SalMessageBox(SalamanderGeneral->GetMsgBoxParent(),
-                                                 LoadStr(IDS_TARGETPATHEXIST), LoadStr(errorTitle), MB_YESNO | MB_ICONQUESTION) == IDNO)
-                return FALSE;
+        const DWORD attributes = GetFileAttributesW(SplitCBNPaths::ApiPath(directory.c_str()).c_str());
+        if (attributes != INVALID_FILE_ATTRIBUTES)
+        {
+            if ((attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+            {
+                SetLastError(ERROR_DIRECTORY);
+                return Error(errorTitle, IDS_WINPATH);
+            }
+            break;
+        }
+        const DWORD error = GetLastError();
+        if (error != ERROR_FILE_NOT_FOUND && error != ERROR_PATH_NOT_FOUND)
+            return Error(errorTitle, IDS_PATHERROR);
+        missing = true;
+        const std::string parent = SplitCBNPaths::Parent(directory);
+        if (parent.empty() || parent == directory)
+            return Error(errorTitle, IDS_PATHERROR);
+        directory = parent;
     }
+    if (missing && SalamanderGeneral->SalMessageBox(SalamanderGeneral->GetMsgBoxParent(),
+              LoadStr(IDS_TARGETPATHEXIST), LoadStr(errorTitle), MB_YESNO | MB_ICONQUESTION) == IDNO)
+        return FALSE;
+    path.swap(absolute);
+    return TRUE;
+}
 
+BOOL TestTargetSpace(HWND parent, const char* path, const CQuadWord& size, int title)
+{
+    CQuadWord freeSpace;
+    SplitCBNPaths::DiskSpace(&freeSpace, path);
+    if (freeSpace != CQuadWord(-1, -1) && freeSpace < size)
+        return SalamanderGeneral->SalMessageBox(parent, LoadStr(IDS_OUTOFSPACE), LoadStr(title),
+                                                MB_YESNO | MB_ICONQUESTION) == IDYES;
     return TRUE;
 }

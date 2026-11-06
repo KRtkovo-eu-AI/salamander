@@ -448,7 +448,7 @@ BOOL SalParsePath(HWND parent, char* path, int& type, BOOL& isDir, char*& second
 // problem uz byl uzivateli ohlasen
 BOOL SalSplitWindowsPath(HWND parent, const char* title, const char* errorTitle, int selCount,
                          char* path, char* secondPart, BOOL pathIsDir, BOOL backslashAtEnd,
-                         const char* dirName, const char* curDiskPath, char*& mask);
+                         const char* dirName, const char* curDiskPath, char*& mask, int pathBufSize);
 
 // ziska z cilove cesty existujici cast a operacni masku; pripadnou neexistujici cast rozpozna; pri
 // uspechu vraci TRUE, relativni cestu k vytvoreni (v 'newDirs'), existujici cilovou cestu (v 'path';
@@ -474,7 +474,7 @@ BOOL SalSplitWindowsPath(HWND parent, const char* title, const char* errorTitle,
 BOOL SalSplitGeneralPath(HWND parent, const char* title, const char* errorTitle, int selCount,
                          char* path, char* afterRoot, char* secondPart, BOOL pathIsDir, BOOL backslashAtEnd,
                          const char* dirName, const char* curPath, char*& mask, char* newDirs,
-                         SGP_IsTheSamePathF isTheSamePathF);
+                         SGP_IsTheSamePathF isTheSamePathF, int pathBufSize, int newDirsBufSize);
 
 // zjisti jestli je mozne retezec 'fileNameComponent' pouzit jako komponentu
 // jmena na Windows filesystemu (resi retezce delsi nez MAX_PATH-4 (4 = "C:\"
@@ -1836,6 +1836,7 @@ DWORD CfgSkillLevelToMenu(BYTE cfgSkillLevel);
 #define IDT_UPDATETASKLIST 951
 #define IDT_FINISHSTARTUPREVEAL 952
 #define IDT_RESTOREWINDOWPLACEMENT 953
+#define IDT_BRANCHVIEW_POLL 954 // poll asynchronous Branch View scan batches
 
 // POZOR: skoro vsechny funkce v teto sekci pri chybe zobrazuji hlaseni o LOAD / SAVE
 //        konfigurace, coz z nich dela nevhodne pro bezny pristup do Registry,
@@ -2250,11 +2251,11 @@ struct CFileNamesEnumData
     CFileNamesEnumRequestType RequestType; // typ pozadavku
     int SrcUID;
     int LastFileIndex;
-    char LastFileName[MAX_PATH];
+    std::wstring LastFileName;
     BOOL PreferSelected;
     BOOL OnlyAssociatedExtensions;
     CPluginInterfaceAbstract* Plugin; // pouziva se pri 'OnlyAssociatedExtensions'==TRUE, oznacuje pro jaky plugin filtrovat jmena souboru ('Plugin'==NULL = interni viewer)
-    char FileName[MAX_PATH];
+    std::wstring FileName;
     BOOL Select;
     BOOL TimedOut; // TRUE pokud uz na vysledek nikdo neceka (zbytecne provadet hledani jmena)
 
@@ -2345,6 +2346,22 @@ BOOL IsFileNameForViewerSelected(int srcUID, int lastFileIndex, const char* last
 // vraci se v nem TRUE)
 BOOL SetSelectionOnFileNameForViewer(int srcUID, int lastFileIndex, const char* lastFileName,
                                      BOOL select, BOOL* srcBusy);
+
+// Internal viewer enumeration keeps complete UTF-16 paths. The legacy plug-in
+// entry points retain their MAX_PATH output contract and never return truncation.
+BOOL GetNextFileNameForViewerW(int srcUID, int* lastFileIndex, const wchar_t* lastFileName,
+                              BOOL preferSelected, BOOL onlyAssociatedExtensions,
+                              std::wstring* fileName, BOOL* noMoreFiles, BOOL* srcBusy,
+                              CPluginInterfaceAbstract* plugin);
+BOOL GetPreviousFileNameForViewerW(int srcUID, int* lastFileIndex, const wchar_t* lastFileName,
+                                  BOOL preferSelected, BOOL onlyAssociatedExtensions,
+                                  std::wstring* fileName, BOOL* noMoreFiles, BOOL* srcBusy,
+                                  CPluginInterfaceAbstract* plugin);
+BOOL IsFileNameForViewerSelectedW(int srcUID, int lastFileIndex, const wchar_t* lastFileName,
+                                 BOOL* isFileSelected, BOOL* srcBusy);
+BOOL SetSelectionOnFileNameForViewerW(int srcUID, int lastFileIndex, const wchar_t* lastFileName,
+                                     BOOL select, BOOL* srcBusy);
+CSalamanderViewerEnumerationAbstract* GetViewerEnumerationService();
 
 // zmeni zdroji (panelu nebo Findu) UID (negeneruje nove, aktualizuje pole
 // FileNamesEnumSources a vrati nove UID v 'srcUID')

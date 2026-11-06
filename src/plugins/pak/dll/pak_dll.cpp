@@ -15,25 +15,21 @@
 static HANDLE CreateFileLongPath(const char* fileName, DWORD desiredAccess, DWORD shareMode,
                                  DWORD creationDisposition, DWORD flagsAndAttributes)
 {
-    std::wstring fileNameW;
-    UINT codePage = GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP;
-    int len = MultiByteToWideChar(codePage, 0, fileName, -1, NULL, 0);
-    if (len > 0)
+    try
     {
-        fileNameW.resize(len);
-        MultiByteToWideChar(codePage, 0, fileName, -1, &fileNameW[0], len);
-        fileNameW.resize(len - 1);
-    }
-    if (!fileNameW.empty())
-    {
+        std::wstring fileNameW = SalamanderDiskSelection::WideFromPath(fileName);
+        if (fileNameW.empty()) { SetLastError(ERROR_INVALID_NAME); return INVALID_HANDLE_VALUE; }
         if (fileNameW.length() >= MAX_PATH && wcsncmp(fileNameW.c_str(), L"\\\\?\\", 4) != 0)
-            fileNameW = wcsncmp(fileNameW.c_str(), L"\\\\", 2) == 0 ? std::wstring(L"\\\\?\\UNC\\") + std::wstring(fileNameW.c_str() + 2)
+            fileNameW = wcsncmp(fileNameW.c_str(), L"\\\\", 2) == 0 ? std::wstring(L"\\\\?\\UNC\\") + fileNameW.substr(2)
                                                                     : std::wstring(L"\\\\?\\") + fileNameW;
         return CreateFileW(fileNameW.c_str(), desiredAccess, shareMode, NULL,
                            creationDisposition, flagsAndAttributes, NULL);
     }
-    return CreateFile(fileName, desiredAccess, shareMode, NULL,
-                      creationDisposition, flagsAndAttributes, NULL);
+    catch (const std::bad_alloc&)
+    {
+        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+        return INVALID_HANDLE_VALUE;
+    }
 }
 
 #ifdef PAK_DLL
@@ -190,7 +186,8 @@ BOOL CPakIface::OpenPak(const char* fileName, DWORD mode)
 
     while (PakFile == INVALID_HANDLE_VALUE)
     {
-        PakFile = CreateFileLongPath(fileName, mode, FILE_SHARE_READ, OPEN_ALWAYS,
+        PakFile = CreateFileLongPath(fileName, mode & ~OP_EXISTING_ONLY, FILE_SHARE_READ,
+                                     (mode & OP_EXISTING_ONLY) ? OPEN_EXISTING : OPEN_ALWAYS,
                                      FILE_ATTRIBUTE_NORMAL);
         if (PakFile != INVALID_HANDLE_VALUE)
             break;

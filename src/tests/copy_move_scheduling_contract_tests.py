@@ -655,9 +655,9 @@ def main() -> None:
            "whole-directory MoveFile conflicts are not advertised as mergeable")
     require(conflict_worker, "ValidateInjectedTargetIdentity(op, dlgData)",
             "destructive pathname boundaries validate expected identity")
-    require(conflict_worker, "if (!ValidateInjectedTargetIdentity(op, dlgData))\n                                    {\n                                        dlgData.ConflictTargetChanged = TRUE;\n                                        return TRUE;\n                                    }\n                                    BOOL chAttr = ClearReadOnlyAttr",
+    require(conflict_worker, "if (!ValidateInjectedTargetIdentity(op, dlgData))\n                                    {\n                                        dlgData.ConflictTargetChanged = TRUE;\n                                        return TRUE;\n                                    }\n                                    BOOL chAttr = WorkerClearReadOnlyW",
             "copy validates before clearing target attributes")
-    require(conflict_worker, "if (!ValidateInjectedTargetIdentity(op, dlgData))\n                    {\n                        dlgData.ConflictTargetChanged = TRUE;\n                        return TRUE;\n                    }\n                    ClearReadOnlyAttr",
+    require(conflict_worker, "if (!ValidateInjectedTargetIdentity(op, dlgData))\n                    {\n                        dlgData.ConflictTargetChanged = TRUE;\n                        return TRUE;\n                    }\n                    WorkerClearReadOnlyW",
             "move validates before clearing target attributes")
     require(conflict_worker, "script->RequeueChangedConflictItem(i)",
             "identity changes requeue rather than cancel")

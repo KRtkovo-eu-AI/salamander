@@ -118,6 +118,7 @@
 #define IDS_ERRADDFILE_TOOLONG      1096
 #define IDS_ERRADDDIR_TOOLONG       1097
 #define IDS_NAMEISTOOLONG           1098
+#define IDS_UNPACK_INCOMPLETE       1099
 
 //***********************************************************************************
 //

@@ -1,0 +1,85 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+#define NOMINMAX
+#include <windows.h>
+#include <wincodec.h>
+#include <wrl/client.h>
+#include <string>
+#include <vector>
+#include <filesystem>
+#include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+#include <climits>
+#include <stdexcept>
+#include <crtdbg.h>
+using Microsoft::WRL::ComPtr;
+#define HANDLES_Q(x) (x)
+#define HANDLES(x) (x)
+@@WIDE@@
+@@TEMP@@
+@@ATTRS@@
+@@FORMAT@@
+struct sReadMemFuncData { unsigned char* Buffer; int Pos; int Size; };
+typedef sReadMemFuncData* psReadMemFuncData;
+@@WRITE@@
+static int Checks=0,Failures=0;
+static void Check(bool value,const char* text){++Checks;if(!value){++Failures;printf("FAIL %s\n",text);}}
+static void Hr(HRESULT hr){if(FAILED(hr))throw std::runtime_error("WIC fixture failed");}
+static std::vector<BYTE> Image(BYTE red){
+ ComPtr<IWICImagingFactory> factory;Hr(CoCreateInstance(CLSID_WICImagingFactory,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&factory)));
+ ComPtr<IStream> stream;Hr(CreateStreamOnHGlobal(nullptr,TRUE,&stream));
+ ComPtr<IWICBitmapEncoder> encoder;Hr(factory->CreateEncoder(GUID_ContainerFormatJpeg,nullptr,&encoder));Hr(encoder->Initialize(stream.Get(),WICBitmapEncoderNoCache));
+ ComPtr<IWICBitmapFrameEncode> frame;ComPtr<IPropertyBag2> props;Hr(encoder->CreateNewFrame(&frame,&props));Hr(frame->Initialize(props.Get()));Hr(frame->SetSize(3,2));
+ WICPixelFormatGUID format=GUID_WICPixelFormat24bppBGR;Hr(frame->SetPixelFormat(&format));
+ BYTE pixels[18]={11,22,red,11,22,red,11,22,red,11,22,red,11,22,red,11,22,red};Hr(frame->WritePixels(2,9,18,pixels));Hr(frame->Commit());Hr(encoder->Commit());
+ STATSTG stat={};Hr(stream->Stat(&stat,STATFLAG_NONAME));std::vector<BYTE> bytes(stat.cbSize.LowPart);LARGE_INTEGER start={};Hr(stream->Seek(start,STREAM_SEEK_SET,nullptr));ULONG read=0;Hr(stream->Read(bytes.data(),static_cast<ULONG>(bytes.size()),&read));if(read!=bytes.size())throw std::runtime_error("short fixture read");return bytes;
+}
+static std::vector<BYTE> Pixels(const std::vector<BYTE>& bytes){
+ ComPtr<IWICImagingFactory> factory;Hr(CoCreateInstance(CLSID_WICImagingFactory,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&factory)));ComPtr<IWICStream> stream;Hr(factory->CreateStream(&stream));Hr(stream->InitializeFromMemory(const_cast<BYTE*>(bytes.data()),static_cast<DWORD>(bytes.size())));
+ ComPtr<IWICBitmapDecoder> decoder;Hr(factory->CreateDecoderFromStream(stream.Get(),nullptr,WICDecodeMetadataCacheOnLoad,&decoder));ComPtr<IWICBitmapFrameDecode> frame;Hr(decoder->GetFrame(0,&frame));ComPtr<IWICFormatConverter> convert;Hr(factory->CreateFormatConverter(&convert));Hr(convert->Initialize(frame.Get(),GUID_WICPixelFormat24bppBGR,WICBitmapDitherTypeNone,nullptr,0,WICBitmapPaletteTypeCustom));UINT w,h;Hr(frame->GetSize(&w,&h));std::vector<BYTE> pixels(w*h*3);Hr(convert->CopyPixels(nullptr,w*3,static_cast<UINT>(pixels.size()),pixels.data()));return pixels;
+}
+static void Write(const std::wstring& path,const std::vector<BYTE>& bytes){HANDLE f=CreateFileW(PluginPathAddExtendedPrefixW(path.c_str()).c_str(),GENERIC_WRITE,0,nullptr,CREATE_ALWAYS,0,nullptr);if(f==INVALID_HANDLE_VALUE)throw std::runtime_error("fixture write open");DWORD wrote=0;BOOL ok=WriteFile(f,bytes.data(),static_cast<DWORD>(bytes.size()),&wrote,nullptr);CloseHandle(f);if(!ok||wrote!=bytes.size())throw std::runtime_error("fixture write");}
+static std::vector<BYTE> Read(const std::wstring& path){HANDLE f=CreateFileW(PluginPathAddExtendedPrefixW(path.c_str()).c_str(),GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,0,nullptr);if(f==INVALID_HANDLE_VALUE)throw std::runtime_error("fixture read open");DWORD size=GetFileSize(f,nullptr),read=0;std::vector<BYTE> data(size);BOOL ok=ReadFile(f,data.data(),size,&read,nullptr);CloseHandle(f);if(!ok||read!=size)throw std::runtime_error("fixture read");return data;}
+static std::string Utf8(const std::wstring& path){int n=WideCharToMultiByte(CP_UTF8,0,path.c_str(),static_cast<int>(path.size()),nullptr,0,nullptr,nullptr);std::string out(n,0);WideCharToMultiByte(CP_UTF8,0,path.c_str(),static_cast<int>(path.size()),out.data(),n,nullptr,nullptr);return out;}
+static std::vector<BYTE> WithExif(std::vector<BYTE> image){
+ // Valid little-endian TIFF IFD0 containing Orientation=6 and no thumbnail.
+ const BYTE app[]={0xff,0xe1,0,34,'E','x','i','f',0,0,'I','I',42,0,8,0,0,0,1,0,0x12,1,3,0,1,0,0,0,6,0,0,0,0,0,0,0};
+ image.insert(image.begin()+2,std::begin(app),std::end(app));return image;
+}
+static bool Contains(const std::vector<BYTE>& data,const std::vector<BYTE>& needle){return std::search(data.begin(),data.end(),needle.begin(),needle.end())!=data.end();}
+int wmain(int argc,wchar_t** argv){
+ _CrtSetReportMode(_CRT_ASSERT,_CRTDBG_MODE_FILE);_CrtSetReportFile(_CRT_ASSERT,_CRTDBG_FILE_STDERR);if(argc!=3)return 2;Hr(CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED));
+ HMODULE library=LoadLibraryW(argv[1]);if(!library)return 3;
+ using ReplaceW=BOOL(WINAPI*)(const wchar_t*,const wchar_t*,unsigned char*,int);using ReplaceA=BOOL(WINAPI*)(char*,char*,unsigned char*,int);using Version=DWORD(WINAPI*)();
+ auto replace=reinterpret_cast<ReplaceW>(GetProcAddress(library,"EXIFReplaceThumbnailW"));auto legacy=reinterpret_cast<ReplaceA>(GetProcAddress(library,"EXIFReplaceThumbnail"));auto version=reinterpret_cast<Version>(GetProcAddress(library,"EXIFGetVersion"));
+ Check(replace&&legacy&&version&&version()==10,"wide and legacy exports have expected version");if(!replace)return 4;
+ std::wstring root=argv[2];std::wstring longDir=root;
+ for(int i=0;i<4;++i)longDir+=L"\\žluťoučká_東京_"+std::wstring(65,L'x');
+ std::vector<std::wstring> dirs={root+L"\\alpha",root+L"\\žluťoučká東京",longDir};
+ auto thumb=Image(225);
+ for(size_t i=0;i<dirs.size();++i){std::filesystem::create_directories(PluginPathAddExtendedPrefixW(dirs[i].c_str()));std::wstring source=dirs[i]+L"\\stejné_č.jpg",target=dirs[i]+L"\\out.jpg";
+  auto original=Image(static_cast<BYTE>(50+i*40));if(i!=0)original=WithExif(std::move(original));Write(source,original);
+  Check(replace(source.c_str(),target.c_str(),thumb.data(),static_cast<int>(thumb.size()))!=FALSE,"rewrite Unicode/long EXIF or JFXX path");
+  auto rewritten=Read(target);Check(Read(source)==original,"rewrite leaves source untouched");Check(Pixels(rewritten)==Pixels(original),"main JPEG pixels preserved");Check(Contains(rewritten,thumb),"requested JPEG thumbnail embedded exactly");
+  std::string oldName=Utf8(source),newName=Utf8(dirs[i]+L"\\legacy.jpg");Check(legacy(oldName.data(),newName.data(),thumb.data(),static_cast<int>(thumb.size()))!=FALSE,"legacy export supports UTF8 complete path");
+  std::wstring reserved;
+  {CThumbnailTempFile temp;Check(temp.Create(dirs[i].c_str())!=FALSE,"temp reserved in actual parent");reserved=temp.Path;Check(replace(source.c_str(),temp.Path.c_str(),thumb.data(),static_cast<int>(thumb.size()))!=FALSE,"rewrite into reserved temp");
+   HANDLE lock=CreateFileW(PluginPathAddExtendedPrefixW(source.c_str()).c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);Check(lock!=INVALID_HANDLE_VALUE,"lock original for failed replacement");
+   Check(!MoveFileExW(temp.Path.c_str(),PluginPathAddExtendedPrefixW(source.c_str()).c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH),"locked replacement fails without deleting original");CloseHandle(lock);
+  }
+  Check(GetFileAttributesW(reserved.c_str())==INVALID_FILE_ATTRIBUTES&&Read(source)==original,"failed temp cleaned and original bytes survive");
+  auto op=PluginPathAddExtendedPrefixW(source.c_str());SetFileAttributesW(op.c_str(),FILE_ATTRIBUTE_READONLY);
+  {CThumbnailFileAttributes attributes(op.c_str());Check(attributes.ClearReadOnly(FILE_ATTRIBUTE_READONLY)!=FALSE,"confirmed readonly clear");}
+  Check((GetFileAttributesW(op.c_str())&FILE_ATTRIBUTE_READONLY)!=0,"failed operation restores readonly attribute");SetFileAttributesW(op.c_str(),FILE_ATTRIBUTE_NORMAL);
+  {CThumbnailTempFile temp;Check(temp.Create(dirs[i].c_str())&&replace(source.c_str(),temp.Path.c_str(),thumb.data(),static_cast<int>(thumb.size())),"successful replacement prepared");Check(MoveFileExW(temp.Path.c_str(),op.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)!=FALSE,"successful replacement uses exact original identity");temp.Path.clear();}
+  Check(Pixels(Read(source))==Pixels(original)&&Contains(Read(source),thumb),"successful replacement keeps image and new thumbnail");
+ }
+ std::wstring missing=root+L"\\missing.jpg",noParent=root+L"\\missing\\out.jpg";
+ Check(!replace(missing.c_str(),noParent.c_str(),thumb.data(),static_cast<int>(thumb.size())),"missing source rejected");
+ Check(!replace(nullptr,noParent.c_str(),thumb.data(),static_cast<int>(thumb.size()))&&!replace(dirs[0].c_str(),noParent.c_str(),nullptr,1),"invalid input rejected before mutation");
+ Check(FormatThumbnailText("%d %hs %% %n","žluťoučký%n",7)=="7 žluťoučký%n % %n","localized data is never reinterpreted as a format");
+ sReadMemFuncData memory={nullptr,0,0};BYTE bytes[]={1,2,3};Check(MyMemWriteFunc(&memory,bytes,3)==3&&memory.Size==3&&memory.Buffer[2]==3,"actual thumbnail memory writer");memory.Pos=INT_MAX;Check(MyMemWriteFunc(&memory,bytes,1)==0&&memory.Size==3,"memory writer rejects overflow preserving buffer");free(memory.Buffer);
+ std::filesystem::remove_all(PluginPathAddExtendedPrefixW(root.c_str()));
+ FreeLibrary(library);CoUninitialize();printf("PictView thumbnail IO: %d checks, %d failures.\n",Checks,Failures);return Failures?1:0;
+}

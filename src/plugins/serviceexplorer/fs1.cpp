@@ -36,8 +36,8 @@ BOOL EnsureServiceImageList(int iconSize)
     return FALSE;
 
   ImageList_SetImageCount(list, 1);
-  HICON icon = reinterpret_cast<HICON>(LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SERVICEEXPLORER_DIR),
-                                                 IMAGE_ICON, pixels, pixels, LR_DEFAULTCOLOR));
+  HICON icon = reinterpret_cast<HICON>(HANDLES(LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SERVICEEXPLORER_DIR),
+                                                 IMAGE_ICON, pixels, pixels, LR_DEFAULTCOLOR)));
   if (icon == NULL)
   {
     ImageList_Destroy(list);

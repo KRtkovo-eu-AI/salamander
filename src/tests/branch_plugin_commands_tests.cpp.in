@@ -1,0 +1,178 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Production policy/dispatch are injected. Plugin storage, InitDLL and callbacks
+// are explicit recording facades; no DLL, GUI or file operation runs here.
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <cstdio>
+#include <cstring>
+#include <cstdlib>
+#include <string>
+#include <filesystem>
+#define SAL_MAX_PATH 32768
+#include <vector>
+#define CALL_STACK_MESSAGE5(...) ((void)0)
+#define TRACE_E(...) ((void)0)
+#define stricmp _stricmp
+@@CONSTANTS@@
+enum { pmitItemOrSeparator,pmitStartSubmenu,pmitEndSubmenu };
+struct CPluginMenuItem { int Type=pmitItemOrSeparator;const char* Name="Compare";int SUID=50003;int ID=1; };
+template<class T> struct Array { std::vector<T> Items;int Count=0;T operator[](int i){return Items.at(i);}void Add(T p){Items.push_back(p);Count=static_cast<int>(Items.size());} };
+struct CFilesWindow { bool Branch=true;bool IsBranchView() const{return Branch;} };
+struct CSalamanderForOperations { explicit CSalamanderForOperations(CFilesWindow*){} };
+struct InterfaceStub { bool Loaded=true;int Calls=0,LastID=-1;bool NotEmpty()const{return Loaded;}bool LastHadOperations=false;DWORD LastMask=99;BOOL ExecuteMenuItem(CSalamanderForOperations* operation,HWND,int id,DWORD mask){++Calls;LastID=id;LastHadOperations=operation!=nullptr;LastMask=mask;return TRUE;} };
+struct MENU_ITEM_INFO {};
+static int* ChangeLastOnState=nullptr;
+struct CPluginData {
+ const char* DLLName="filecomp\\filecomp.spl";const char* Version="test";
+ Array<CPluginMenuItem*> MenuItems;InterfaceStub PluginIfaceForMenuExt;
+ BOOL StateEnabled=TRUE,SupportDynMenuExt=FALSE;int StateCalls=0,BuildCalls=0;
+ BOOL GetLoaded(){return PluginIfaceForMenuExt.Loaded;}BOOL BuildMenu(HWND,BOOL){++BuildCalls;return TRUE;}
+ BOOL GetMenuItemStateType(int,int,MENU_ITEM_INFO*){++StateCalls;if(ChangeLastOnState)*ChangeLastOnState=999;return StateEnabled;}
+ int InitCalls=0;BOOL InitDLL(HWND){++InitCalls;return TRUE;}DWORD GetMaskForMenuItems(int){return 7;}
+ BOOL IsBranchCommandAllowed(int id);
+ BOOL ExecutePostedMenuItem(CFilesWindow*,HWND,int,BOOL);
+ BOOL ExecuteMenuItem(CFilesWindow*,HWND,int,int,BOOL&);
+ BOOL ExecuteMenuItem2(CFilesWindow*,HWND,int,int,BOOL&);
+ BOOL ExecuteToolbarCommand(CFilesWindow*,HWND,int,int,BOOL&);
+};
+struct CPlugins { char* LastPlgCmdPlugin=nullptr;int LastPlgCmdID=1,CacheCalls=0;void CalculateStateCache(){++CacheCalls;} BOOL FindLastCommand(int*,int*,BOOL,HWND);BOOL OnLastCommand(CFilesWindow*,HWND);BOOL ExecuteCommand(int,int,CFilesWindow*,HWND); Array<CPluginData*> Data;int LastChanges=0;void SetLastPlgCmd(const char*,int){++LastChanges;}int GetCount(){return Data.Count;}CPluginData* Get(int i){return i>=0&&i<Data.Count?Data[i]:nullptr;} } Plugins;
+@@POLICY@@
+@@SUID_GATE@@
+@@DISPATCH@@
+@@HOTKEY@@
+enum { PANEL_LEFT=3,PANEL_RIGHT=4,PATH_TYPE_WINDOWS=10,CMD_INTERNAL_REREADTHUMBS=197 };
+struct CSalamanderGeneralAbstract {
+ int Left=PATH_TYPE_WINDOWS,Right=PATH_TYPE_WINDOWS,OpenCalls=0;std::vector<int> Refreshed;std::string Opened;
+ BOOL GetPanelPath(int panel,char*,int,int* type,void*){*type=panel==PANEL_LEFT?Left:Right;return TRUE;}
+ void RefreshPanelPath(int panel,BOOL reload){if(!reload)std::abort();Refreshed.push_back(panel);}
+ BOOL OpenFileInConfiguredViewer(HWND,const char* path){++OpenCalls;Opened=path;return TRUE;}
+};
+static CSalamanderGeneralAbstract AuxiliaryGeneral;static auto* SalamanderGeneral=&AuxiliaryGeneral;
+static std::wstring FakeModule;
+static DWORD FakeGetModuleFileNameW(HMODULE,wchar_t* buffer,DWORD capacity){if(FakeModule.size()>=capacity)return capacity;wcscpy_s(buffer,capacity,FakeModule.c_str());return static_cast<DWORD>(FakeModule.size());}
+#define GetModuleFileNameW FakeGetModuleFileNameW
+@@AUXILIARY@@
+#undef GetModuleFileNameW
+static void ActualRefresh(int id){switch(id){@@PICT_REFRESH@@}}
+static int Checks=0,Failures=0;
+static void Check(bool value,const char* text){++Checks;if(!value){++Failures;printf("FAIL: %s\n",text);}}
+int main(){
+ CFilesWindow panel;CPluginData plugin;CPluginMenuItem item;plugin.MenuItems.Add(&item);Plugins.Data.Add(&plugin);
+ Check(plugin.IsBranchCommandAllowed(1)!=FALSE,"known comparator command accepted");
+ Check(!plugin.IsBranchCommandAllowed(2),"unknown comparator command refused");
+ Check(BranchReadOnlyCommandAllowed(item.SUID),"SUID resolved to exact plugin and command");
+ Check(!BranchReadOnlyCommandAllowed(item.SUID+1),"unregistered SUID refused");
+ Check(!BranchReadOnlyCommandAllowed(CM_PLUGINCMD_MIN-1)&&!BranchReadOnlyCommandAllowed(CM_PLUGINCMD_MAX+1),"range boundaries refused");
+ for(const char* dll: {"unknown\\filecomp.spl","filecomp.spl","C:\\plugins\\filecomp\\filecomp.spl","custom\\zip.spl",static_cast<const char*>(nullptr)}){
+  plugin.DLLName=dll;Check(!plugin.IsBranchCommandAllowed(1)&&!BranchReadOnlyCommandAllowed(item.SUID),"unknown/custom/absolute DLL identity refused");
+  BOOL unselect=TRUE;int before=Plugins.LastChanges;
+  Check(plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect)&&!unselect,"blocked SUID handled without unselect");
+  Check(!plugin.ExecuteMenuItem2(&panel,NULL,0,1,unselect)&&!unselect,"direct blocked ID refused");
+  Check(!plugin.ExecuteToolbarCommand(&panel,NULL,0,1,unselect)&&!unselect,"toolbar blocked ID refused");
+  Check(!Plugins.ExecuteCommand(0,0,&panel,NULL),"hotkey blocked before initialization");
+  Check(!plugin.ExecutePostedMenuItem(&panel,NULL,1,FALSE)&&!plugin.ExecutePostedMenuItem(&panel,NULL,1,TRUE),"unknown plugin refused by both posted contexts");
+  Check(plugin.InitCalls==0&&plugin.PluginIfaceForMenuExt.Calls==0&&Plugins.LastChanges==before,"blocked command cannot initialize/call DLL or update last command");
+ }
+ plugin.DLLName="zip\\zip.spl";item.ID=3;
+ Check(plugin.IsBranchCommandAllowed(3)&&BranchReadOnlyCommandAllowed(item.SUID),"verified ZIP Test Archive accepted");
+ for(int route=0;route<4;++route){BOOL unselect=FALSE;BOOL result=route==0?plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect):route==1?plugin.ExecuteMenuItem2(&panel,NULL,0,3,unselect):route==2?plugin.ExecuteToolbarCommand(&panel,NULL,0,3,unselect):(unselect=Plugins.ExecuteCommand(0,0,&panel,NULL));Check(result&&unselect&&plugin.PluginIfaceForMenuExt.LastID==3,"ZIP test passes each actual dispatcher");}
+ Check(!plugin.IsBranchCommandAllowed(2),"ZIP repair command remains refused");
+ item.ID=1;Check(plugin.IsBranchCommandAllowed(1)&&BranchReadOnlyCommandAllowed(item.SUID),"verified ZIP Create SFX accepted");
+ for(int route=0;route<4;++route){BOOL unselect=FALSE;BOOL result=route==0?plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect):route==1?plugin.ExecuteMenuItem2(&panel,NULL,0,1,unselect):route==2?plugin.ExecuteToolbarCommand(&panel,NULL,0,1,unselect):(unselect=Plugins.ExecuteCommand(0,0,&panel,NULL));Check(result&&unselect&&plugin.PluginIfaceForMenuExt.LastID==1,"ZIP SFX passes each actual dispatcher");}
+ item.ID=4;Check(plugin.IsBranchCommandAllowed(4)&&BranchReadOnlyCommandAllowed(item.SUID),"verified ZIP Comment accepted");
+ for(int route=0;route<4;++route){BOOL unselect=FALSE;BOOL result=route==0?plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect):route==1?plugin.ExecuteMenuItem2(&panel,NULL,0,4,unselect):route==2?plugin.ExecuteToolbarCommand(&panel,NULL,0,4,unselect):(unselect=Plugins.ExecuteCommand(0,0,&panel,NULL));Check(result&&unselect&&plugin.PluginIfaceForMenuExt.LastID==4,"ZIP comment passes each actual dispatcher");}
+ for(const char* dll:{"zip.spl","custom\\zip.spl"}){plugin.DLLName=dll;Check(!plugin.IsBranchCommandAllowed(3),"custom ZIP DLL identity refused");}
+ item.ID=1;
+ plugin.DLLName="7zip\\7zip.spl";item.ID=1;
+ Check(plugin.IsBranchCommandAllowed(1)&&BranchReadOnlyCommandAllowed(item.SUID),"verified 7-Zip focused Test Archive accepted");
+ for(int route=0;route<4;++route){BOOL unselect=FALSE;BOOL result=route==0?plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect):route==1?plugin.ExecuteMenuItem2(&panel,NULL,0,1,unselect):route==2?plugin.ExecuteToolbarCommand(&panel,NULL,0,1,unselect):(unselect=Plugins.ExecuteCommand(0,0,&panel,NULL));Check(result&&unselect&&plugin.PluginIfaceForMenuExt.LastID==1,"7-Zip test passes each actual dispatcher");}
+ Check(!plugin.IsBranchCommandAllowed(0)&&!plugin.IsBranchCommandAllowed(2),"unregistered 7-Zip IDs refused");
+ for(const char* dll:{"7zip.spl","custom\\7zip.spl"}){plugin.DLLName=dll;Check(!plugin.IsBranchCommandAllowed(1),"custom 7-Zip identity refused");}
+ plugin.DLLName="renamer\\renamer.spl";
+ Check(plugin.IsBranchCommandAllowed(1)&&BranchReadOnlyCommandAllowed(item.SUID),"verified Batch Rename command accepted");
+ Check(!plugin.IsBranchCommandAllowed(2),"unregistered Renamer Undo command remains refused");
+ plugin.DLLName="checksum\\checksum.spl";
+ Check(plugin.IsBranchCommandAllowed(1)&&BranchReadOnlyCommandAllowed(item.SUID),"verified Checksum Calculate accepted");
+ item.ID=2;Check(plugin.IsBranchCommandAllowed(2)&&BranchReadOnlyCommandAllowed(item.SUID),"verified Checksum Verify accepted");
+ Check(plugin.IsBranchCommandAllowed(99)&&!plugin.IsBranchCommandAllowed(3),"Checksum Focus99 only accepted auxiliary ID");
+ for(BOOL operation:{FALSE,TRUE})Check(plugin.ExecutePostedMenuItem(&panel,NULL,99,operation)&&plugin.PluginIfaceForMenuExt.LastID==99&&plugin.PluginIfaceForMenuExt.LastHadOperations==(operation!=FALSE),"Checksum Focus actual posted dispatch retains operation context");item.ID=1;
+ plugin.DLLName="splitcbn\\splitcbn.spl";
+ Check(plugin.IsBranchCommandAllowed(1)&&BranchReadOnlyCommandAllowed(item.SUID),"verified Split command accepted");
+ item.ID=2;Check(plugin.IsBranchCommandAllowed(2)&&BranchReadOnlyCommandAllowed(item.SUID),"verified Combine command accepted");
+ Check(!plugin.IsBranchCommandAllowed(0)&&!plugin.IsBranchCommandAllowed(3),"unknown Split/Combine IDs remain refused");item.ID=1;
+ plugin.DLLName="undelete\\undelete.spl";
+ for(int id:{1,2}){item.ID=id;Check(plugin.IsBranchCommandAllowed(id)&&BranchReadOnlyCommandAllowed(item.SUID),"verified Undelete Connect/Restore accepted");for(int route=0;route<4;++route){BOOL unselect=FALSE;BOOL result=route==0?plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect):route==1?plugin.ExecuteMenuItem2(&panel,NULL,0,id,unselect):route==2?plugin.ExecuteToolbarCommand(&panel,NULL,0,id,unselect):(unselect=Plugins.ExecuteCommand(0,0,&panel,NULL));Check(result&&unselect&&plugin.PluginIfaceForMenuExt.LastID==id,"Undelete command passes each actual dispatcher");}}
+ Check(!plugin.IsBranchCommandAllowed(0)&&!plugin.IsBranchCommandAllowed(3),"unknown Undelete IDs refused");
+ for(const char* dll:{"undelete.spl","custom\\undelete.spl"}){plugin.DLLName=dll;Check(!plugin.IsBranchCommandAllowed(1)&&!plugin.IsBranchCommandAllowed(2),"custom Undelete identity refused");}
+ plugin.DLLName="pictview\\pictview.spl";item.ID=188;
+ Check(plugin.IsBranchCommandAllowed(188)&&BranchReadOnlyCommandAllowed(item.SUID),"verified PictView Update Thumbnail accepted");
+ for(int route=0;route<4;++route){BOOL unselect=FALSE;BOOL result=route==0?plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect):route==1?plugin.ExecuteMenuItem2(&panel,NULL,0,188,unselect):route==2?plugin.ExecuteToolbarCommand(&panel,NULL,0,188,unselect):(unselect=Plugins.ExecuteCommand(0,0,&panel,NULL));Check(result&&unselect&&plugin.PluginIfaceForMenuExt.LastID==188,"PictView thumbnail passes each actual dispatcher");}
+ Check(!plugin.IsBranchCommandAllowed(187)&&!plugin.IsBranchCommandAllowed(189)&&plugin.IsBranchCommandAllowed(197),"PictView refresh197 only accepted auxiliary ID");
+ for(BOOL operation:{FALSE,TRUE})Check(plugin.ExecutePostedMenuItem(&panel,NULL,197,operation)&&plugin.PluginIfaceForMenuExt.LastID==197&&plugin.PluginIfaceForMenuExt.LastHadOperations==(operation!=FALSE),"PictView refresh passes both actual posted contexts");
+ for(const char* dll:{"pictview.spl","custom\\pictview.spl"}){plugin.DLLName=dll;Check(!plugin.IsBranchCommandAllowed(188),"custom PictView DLL identity refused");}
+ item.ID=1;
+ plugin.DLLName="automation\\automation.spl";
+ Check(plugin.IsBranchCommandAllowed(1)&&BranchReadOnlyCommandAllowed(item.SUID),"verified Automation focused script accepted");
+ Check(plugin.IsBranchCommandAllowed(2)&&plugin.IsBranchCommandAllowed(3),"Automation popup and internal deferred continuation accepted");
+ Check(!plugin.IsBranchCommandAllowed(1000)&&!plugin.IsBranchCommandAllowed(0)&&!plugin.IsBranchCommandAllowed(-1),"unregistered Automation IDs refused");
+ item.ID=0x12345600;Check(plugin.IsBranchCommandAllowed(item.ID)&&BranchReadOnlyCommandAllowed(item.SUID),"registered preloaded script accepted");
+ item.ID=0x60000001;Check(plugin.IsBranchCommandAllowed(item.ID)&&BranchReadOnlyCommandAllowed(item.SUID),"registered runtime command accepted");
+ Check(!plugin.IsBranchCommandAllowed(item.ID+1),"unregistered runtime command refused");
+ item.Type=pmitStartSubmenu;Check(!plugin.IsBranchCommandAllowed(item.ID),"script submenu refused");item.Type=pmitItemOrSeparator;
+ item.Name=nullptr;Check(!plugin.IsBranchCommandAllowed(item.ID),"script separator refused");item.Name="Compare";
+ int beforePosted=plugin.PluginIfaceForMenuExt.Calls;int beforeLast=Plugins.LastChanges;
+ Check(plugin.ExecutePostedMenuItem(&panel,NULL,3,FALSE)&&!plugin.PluginIfaceForMenuExt.LastHadOperations&&plugin.PluginIfaceForMenuExt.LastMask==0,"immediate posted continuation retains null operation and zero mask");
+ Check(plugin.ExecutePostedMenuItem(&panel,NULL,3,TRUE)&&plugin.PluginIfaceForMenuExt.LastHadOperations&&plugin.PluginIfaceForMenuExt.LastMask==0,"idle posted continuation retains operation and zero mask");
+ Check(plugin.PluginIfaceForMenuExt.Calls==beforePosted+2&&plugin.PluginIfaceForMenuExt.LastID==3&&Plugins.LastChanges==beforeLast,"posted continuation preserves ID and does not change last command");
+ Check(!plugin.ExecutePostedMenuItem(&panel,NULL,item.ID+1,FALSE)&&!plugin.ExecutePostedMenuItem(&panel,NULL,item.ID+1,TRUE),"unknown script refused by both posted contexts");
+ plugin.PluginIfaceForMenuExt.Loaded=false;Check(!plugin.ExecutePostedMenuItem(&panel,NULL,3,FALSE)&&!plugin.ExecutePostedMenuItem(&panel,NULL,3,TRUE),"unloaded interface cannot execute either posted context");plugin.PluginIfaceForMenuExt.Loaded=true;
+ item.ID=1;
+ plugin.DLLName="salamatrix\\salamatrix.spl";
+ item.ID=0x62000001;
+ Check(plugin.IsBranchCommandAllowed(item.ID)&&BranchReadOnlyCommandAllowed(item.SUID),"registered Salamatrix package command accepted");
+ Check(!plugin.IsBranchCommandAllowed(item.ID+1),"unregistered Salamatrix package ID refused");
+ for(int route=0;route<4;++route){BOOL unselect=FALSE;BOOL result=route==0?plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect):route==1?plugin.ExecuteMenuItem2(&panel,NULL,0,item.ID,unselect):route==2?plugin.ExecuteToolbarCommand(&panel,NULL,0,item.ID,unselect):(unselect=Plugins.ExecuteCommand(0,0,&panel,NULL));Check(result&&unselect&&plugin.PluginIfaceForMenuExt.LastID==item.ID,"registered package command passes each actual dispatcher");}
+ Check(!plugin.IsBranchCommandAllowed(1)&&!plugin.IsBranchCommandAllowed(0x61ffffff),"unregistered Salamatrix fixed help remains refused");
+ item.ID=0x61ffffff;Check(plugin.IsBranchCommandAllowed(item.ID)&&BranchReadOnlyCommandAllowed(item.SUID),"registered bundled Salamatrix local reference admitted");
+ item.Name=nullptr;Check(!plugin.IsBranchCommandAllowed(item.ID),"unnamed help command refused");item.Name="Compare";item.ID=0x62000001;
+ item.Type=pmitStartSubmenu;Check(!plugin.IsBranchCommandAllowed(item.ID),"Salamatrix submenu is not executable");item.Type=pmitItemOrSeparator;
+ item.Name=nullptr;Check(!plugin.IsBranchCommandAllowed(item.ID),"Salamatrix separator is not executable");item.Name="Compare";item.ID=1;
+ plugin.DLLName="FILECOMP\\FILECOMP.SPL";
+ for(int route=0;route<4;++route){BOOL unselect=FALSE;BOOL result=route==0?plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect):route==1?plugin.ExecuteMenuItem2(&panel,NULL,0,1,unselect):route==2?plugin.ExecuteToolbarCommand(&panel,NULL,0,1,unselect):(unselect=Plugins.ExecuteCommand(0,0,&panel,NULL));Check(result&&unselect&&plugin.PluginIfaceForMenuExt.LastID==1,"verified actual dispatcher invokes comparator");}
+ item.ID=2;Check(!BranchReadOnlyCommandAllowed(item.SUID),"SUID with unverified internal ID refused");
+ item.ID=1;item.Type=pmitStartSubmenu;Check(!BranchReadOnlyCommandAllowed(item.SUID),"submenu is not a command");item.Type=pmitItemOrSeparator;item.Name=nullptr;Check(!BranchReadOnlyCommandAllowed(item.SUID),"separator is not a command");item.Name="Compare";
+ // Actual Last Command lookup/state/dispatch, independent of menu SUIDs.
+ auto SetLast=[&](const char* dll,int id){free(Plugins.LastPlgCmdPlugin);Plugins.LastPlgCmdPlugin=_strdup(dll);Plugins.LastPlgCmdID=id;};
+ for(UINT command:{CM_COMPRESS,CM_UNCOMPRESS,CM_ENCRYPT,CM_DECRYPT})Check(BranchReadOnlyCommandAllowed(command),"verified NTFS command admitted");
+ Check(BranchReadOnlyCommandAllowed(CM_EDITPROPERTIES),"verified metadata dialog admitted");
+ Check(BranchReadOnlyCommandAllowed(CM_CHANGEATTR),"verified attribute dialog admitted");
+ Check(BranchReadOnlyCommandAllowed(CM_AFOCUSSHORTCUT),"verified wide shortcut target reaches host command router");
+ Check(BranchReadOnlyCommandAllowed(CM_LAST_PLUGIN_CMD),"Last Command router admitted for final policy validation");
+ SetLast("FILECOMP\\FILECOMP.SPL",1);int calls=plugin.PluginIfaceForMenuExt.Calls;
+ Check(Plugins.OnLastCommand(&panel,NULL)&&plugin.PluginIfaceForMenuExt.Calls==calls+1,"actual CtrlI route repeats accepted current command");
+ ChangeLastOnState=&Plugins.LastPlgCmdID;calls=plugin.PluginIfaceForMenuExt.Calls;Check(Plugins.OnLastCommand(&panel,NULL)&&plugin.PluginIfaceForMenuExt.Calls==calls+1&&plugin.PluginIfaceForMenuExt.LastID==1,"state callback cannot substitute a different last command ID");ChangeLastOnState=nullptr;SetLast(plugin.DLLName,1);
+ plugin.StateEnabled=FALSE;calls=plugin.PluginIfaceForMenuExt.Calls;Check(!Plugins.OnLastCommand(&panel,NULL)&&plugin.PluginIfaceForMenuExt.Calls==calls,"disabled last command cannot execute");plugin.StateEnabled=TRUE;
+ for(int stale=0;stale<4;++stale){SetLast(plugin.DLLName,1);if(stale==0)item.ID=2;else if(stale==1)item.Name=nullptr;else if(stale==2)item.Type=pmitStartSubmenu;else plugin.PluginIfaceForMenuExt.Loaded=false;calls=plugin.PluginIfaceForMenuExt.Calls;int state=plugin.StateCalls;Check(!Plugins.OnLastCommand(&panel,NULL)&&!Plugins.LastPlgCmdPlugin&&plugin.PluginIfaceForMenuExt.Calls==calls&&plugin.StateCalls==state,"stale removed/separator/submenu/unloaded last command cleared before callback");item.ID=1;item.Name="Compare";item.Type=pmitItemOrSeparator;plugin.PluginIfaceForMenuExt.Loaded=true;}
+ plugin.DLLName="unknown\\other.spl";SetLast(plugin.DLLName,1);int states=plugin.StateCalls,cache=Plugins.CacheCalls,last=Plugins.LastChanges;calls=plugin.PluginIfaceForMenuExt.Calls;
+ Check(!Plugins.OnLastCommand(&panel,NULL)&&plugin.StateCalls==states&&Plugins.CacheCalls==cache&&plugin.PluginIfaceForMenuExt.Calls==calls&&Plugins.LastChanges==last,"unverified last command refused before state/cache/callback and selection side effect");
+ panel.Branch=false;Check(Plugins.OnLastCommand(&panel,NULL),"ordinary last command retains unknown plugin compatibility");panel.Branch=true;
+ plugin.DLLName="automation\\automation.spl";plugin.SupportDynMenuExt=TRUE;item.ID=0x60000001;SetLast(plugin.DLLName,item.ID);Check(Plugins.OnLastCommand(&panel,NULL),"current registered dynamic last command works without SUID");plugin.MenuItems.Count=0;calls=plugin.PluginIfaceForMenuExt.Calls;Check(!Plugins.OnLastCommand(&panel,NULL)&&!Plugins.LastPlgCmdPlugin&&plugin.PluginIfaceForMenuExt.Calls==calls,"removed dynamic command cannot resurrect by CtrlI");plugin.MenuItems.Count=1;item.ID=1;plugin.SupportDynMenuExt=FALSE;free(Plugins.LastPlgCmdPlugin);Plugins.LastPlgCmdPlugin=nullptr;
+ plugin.DLLName="unknown\\other.spl";panel.Branch=false;BOOL unselect=FALSE;
+ Check(plugin.ExecuteMenuItem(&panel,NULL,0,item.SUID,unselect)&&unselect,"ordinary panel preserves plugin dispatch");
+ Check(plugin.ExecuteMenuItem2(&panel,NULL,0,1,unselect)&&unselect,"ordinary direct command unchanged");
+ Check(plugin.ExecuteToolbarCommand(&panel,NULL,0,1,unselect)&&unselect,"ordinary toolbar command unchanged");
+ Check(plugin.ExecutePostedMenuItem(&panel,NULL,999,FALSE)&&plugin.ExecutePostedMenuItem(&panel,NULL,999,TRUE),"ordinary unknown plugin posted command unchanged");
+ AuxiliaryGeneral.Refreshed.clear();ActualRefresh(197);Check(AuxiliaryGeneral.Refreshed==std::vector<int>({PANEL_LEFT,PANEL_RIGHT}),"actual PictView refresh reloads both Windows disk panels");
+ AuxiliaryGeneral.Refreshed.clear();AuxiliaryGeneral.Left=-1;ActualRefresh(197);Check(AuxiliaryGeneral.Refreshed==std::vector<int>({PANEL_RIGHT}),"refresh preserves virtual left panel");AuxiliaryGeneral.Right=-1;AuxiliaryGeneral.Refreshed.clear();ActualRefresh(197);Check(AuxiliaryGeneral.Refreshed.empty(),"refresh never forces disk operation on virtual panels");
+ std::vector<wchar_t> temp(SAL_MAX_PATH);GetTempPathW(static_cast<DWORD>(temp.size()),temp.data());const std::wstring root=std::wstring(temp.data())+L"branch-aux-"+std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(GetTickCount64());
+ auto Extended=[](const std::wstring& p){return L"\\\\?\\"+p;};
+ struct Cleanup{std::wstring Root;~Cleanup(){std::error_code ec;std::filesystem::remove_all(Root,ec);}} cleanup{Extended(root)};
+ for(const std::wstring& part:{std::wstring(L"ascii"),std::wstring(L"žluťoučký-東京"),std::wstring(90,L'東')+L"\\"+std::wstring(90,L'a')+L"\\"+std::wstring(90,L'b')}){
+  const auto folder=root+L"\\"+part;const auto docs=folder+L"\\plugins\\salamatrix\\salamatrix-automation-api.html";std::filesystem::create_directories(Extended(folder+L"\\plugins\\salamatrix"));HANDLE file=CreateFileW(Extended(docs).c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);Check(file!=INVALID_HANDLE_VALUE,"create own real wide reference fixture");if(file!=INVALID_HANDLE_VALUE)CloseHandle(file);
+  FakeModule=folder+L"\\salamand.exe";std::vector<char> path(SAL_MAX_PATH);Check(GetAutomationApiReferencePath(&AuxiliaryGeneral,path.data(),static_cast<int>(path.size())),"actual wide reference resolver finds exact ASCII Unicode long installation path");int n=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,path.data(),-1,nullptr,0);std::vector<wchar_t> decoded(n);if(n)MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,path.data(),-1,decoded.data(),n);Check(n>0&&std::wstring(decoded.data())==docs,"reference path UTF8 roundtrip preserves complete identity");
+  Check(OpenAutomationApiReference(&AuxiliaryGeneral,nullptr)&&AuxiliaryGeneral.Opened==path.data(),"actual reference open uses existing configured viewer");char tiny[4]={'x',0};Check(!GetAutomationApiReferencePath(&AuxiliaryGeneral,tiny,4)&&tiny[0]==0,"insufficient UTF8 output refuses without truncation");Check(DeleteFileW(Extended(docs).c_str())!=FALSE,"remove only own native reference fixture");int opens=AuxiliaryGeneral.OpenCalls;Check(!OpenAutomationApiReference(&AuxiliaryGeneral,nullptr)&&AuxiliaryGeneral.OpenCalls==opens,"missing reference cannot launch viewer");
+ }
+ FakeModule=std::wstring(SAL_MAX_PATH,L'a');char clear[8]={'x',0};Check(!GetAutomationApiReferencePath(&AuxiliaryGeneral,clear,8)&&clear[0]==0,"truncated module path refused");Check(!GetAutomationApiReferencePath(nullptr,clear,8)&&!GetAutomationApiReferencePath(&AuxiliaryGeneral,nullptr,8),"invalid reference arguments refused");
+ printf("Branch plugin actual policy/dispatch: %d/%d checks passed\n",Checks-Failures,Checks);return Failures?1:0;
+}

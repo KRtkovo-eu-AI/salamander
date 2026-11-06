@@ -1,0 +1,400 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Whole production CZipList::List, metadata destructor, Unicode duplication and
+// host legacy field copy; reader/SDK facades control entries and allocation faults.
+// Real archive parsing and application shutdown are checked separately in GUI.
+#define NOMINMAX
+#include <windows.h>
+#include <crtdbg.h>
+#include <tchar.h>
+#include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <new>
+#include <string>
+#include <vector>
+#define CALL_STACK_MESSAGE1(...) ((void)0)
+#define TRACE_E(...) ((void)0)
+#define TRACE_I(...) ((void)0)
+using QWORD = unsigned long long;
+static int Checks = 0, Failures = 0;
+static void Check(bool ok, const char* reason)
+{
+    ++Checks;
+    if (!ok) { ++Failures; std::printf("FAIL: %s\n", reason); }
+}
+static std::vector<void*> Live;
+static int Allocation = 0, FailAllocation = 0;
+static bool FailMetadata = false;
+static void* OwnedMalloc(size_t bytes)
+{
+    if (++Allocation == FailAllocation) return nullptr;
+    void* result = std::malloc(bytes);
+    if (result) Live.push_back(result);
+    return result;
+}
+static void OwnedFree(void* value)
+{
+    if (!value) return;
+    const auto found = std::find(Live.begin(), Live.end(), value);
+    Check(found != Live.end(), "release only an owned allocation, exactly once");
+    if (found != Live.end()) { Live.erase(found); std::free(value); }
+}
+// One-shot fault at the actual production nothrow metadata allocation.
+void* operator new(size_t bytes, const std::nothrow_t&) noexcept
+{
+    if (FailMetadata) { FailMetadata = false; return nullptr; }
+    return std::malloc(bytes);
+}
+#define malloc OwnedMalloc
+#define free OwnedFree
+#pragma warning(push)
+#pragma warning(disable: 4201) // existing SDK anonymous union
+@@SDK@@
+#pragma warning(pop)
+@@PLUGIN_DATA@@
+@@FILE_INFO@@
+@@DUP_NAME@@
+#undef malloc
+#undef free
+static CFileData CopyFile(CFileData& file)
+{
+@@COPY_FILE@@
+}
+static CFileData CopyDir(CFileData& dir)
+{
+@@COPY_DIR@@
+}
+static struct General
+{
+    void* Alloc(size_t bytes) { return OwnedMalloc(bytes); }
+    void Free(void* data) { OwnedFree(data); }
+    void GetConfigParameter(int, int* value, size_t, void*) { *value = 0; }
+    BOOL IsFileLink(const char*) { return FALSE; }
+} GeneralObject;
+static General* SalamanderGeneral = &GeneralObject;
+enum { MAX_HEADER_SIZE=65536, HS_UNIX=3, FILE_ATTTRIBUTE_MASK=0xFFFFFFFF,
+    GPF_ENCRYPTED=1, SALCFG_SORTBYEXTDIRSASFILES=1, SALDIRFLAG_CASESENSITIVE=1,
+    IDS_LOWMEM=10, IDS_ERRADDDIR=11, IDS_ERRADDFILE=12,
+    IDS_ERRADDDIR_TOOLONG=13, IDS_ERRADDFILE_TOOLONG=14 };
+struct CFileHeader { unsigned Version; };
+struct Entry { std::string name; bool directory=false, unixEntry=false; };
+static std::wstring Wide(const char* value)
+{
+    const int length = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value, -1, nullptr, 0);
+    if (!length) std::abort();
+    std::wstring result(length, L'\0');
+    MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value, -1, &result[0], length);
+    result.resize(length-1);
+    return result;
+}
+static void ReleaseData(CFileData& file)
+{
+    delete reinterpret_cast<CZIPFileData*>(file.PluginData);
+    OwnedFree(file.Name);
+}
+class CSalamanderDirectoryAbstract
+{
+public:
+    std::vector<CFileData> entries;
+    int reject=-1, added=0, cleared=0;
+    bool optionalWideFailure=false;
+    CSalamanderDirectoryAbstract() { entries.reserve(100); }
+    ~CSalamanderDirectoryAbstract() { Clear(nullptr); }
+    void Clear(void*)
+    {
+        for (auto& file : entries) ReleaseData(file);
+        entries.clear(); ++cleared;
+    }
+    void SetFlags(int) {}
+    BOOL Add(const char*, CFileData& file, bool directory)
+    {
+        if (optionalWideFailure) Check(file.NameW == nullptr, "optional Unicode allocation may fail safely");
+        else Check(file.NameW && Wide(file.Name) == file.NameW, "borrowed Unicode name remains exact during callback");
+        if (added++ == reject) return FALSE;
+        CFileData copied = directory ? CopyDir(file) : CopyFile(file);
+        Check(copied.NameW == nullptr, "actual legacy host boundary does not adopt optional wide name");
+        Check(copied.Name == file.Name && copied.PluginData == file.PluginData, "legacy host preserves byte name and plugin owner");
+        entries.push_back(copied);
+        return TRUE;
+    }
+    BOOL AddFile(const char* path, CFileData& file, void*) { return Add(path, file, false); }
+    BOOL AddDir(const char* path, CFileData& file, void*) { return Add(path, file, true); }
+};
+class CZipList
+{
+public:
+    const std::vector<Entry>& input;
+    const Entry* current=nullptr;
+    QWORD CentrDirOffs=0, ExtraBytes=0, CentrDirSize;
+    BOOL ZeroZip=FALSE, Unix=FALSE, MultiVol=FALSE;
+    int DiskNum=0, CentrDirStartDisk=0, readError=-1;
+    explicit CZipList(const std::vector<Entry>& entries) : input(entries), CentrDirSize(entries.size()) {}
+    int ChangeDisk() { return 0; }
+    int ReadCentralHeader(CFileHeader* header, QWORD* offset, unsigned* size)
+    {
+        if (static_cast<int>(*offset) == readError) return IDS_ERRADDFILE;
+        current=&input.at(static_cast<size_t>((*offset)++));
+        header->Version=current->unixEntry ? HS_UNIX<<8 : 0;
+        *size=1; return 0;
+    }
+    int ProcessName(CFileHeader*, char* name)
+    {
+        strcpy(name,current->name.c_str()); return static_cast<int>(current->name.size());
+    }
+    void ProcessHeader(CFileHeader*, CFileInfo* info)
+    {
+        info->Size=11; info->CompSize=7; info->Flag=0; info->FileAttr=0;
+        info->IsDir=current->directory; info->LastWrite={};
+    }
+    int List(CSalamanderDirectoryAbstract*, BOOL&);
+};
+#define malloc OwnedMalloc
+#define free OwnedFree
+@@LIST@@
+#undef malloc
+#undef free
+static void Scenario(const char* label, std::vector<Entry> entries, int expected,
+                     int reject=-1, int failAllocation=0, bool failMetadata=false, int readError=-1)
+{
+    std::printf("Scenario: %s\n",label);
+    CSalamanderDirectoryAbstract directory;
+    directory.reject=reject; directory.optionalWideFailure=failAllocation==4;
+    CZipList zip(entries); zip.readError=readError;
+    Allocation=0; FailAllocation=failAllocation; FailMetadata=failMetadata;
+#ifdef _DEBUG
+    _CrtMemState before, after, difference;
+    _CrtMemCheckpoint(&before);
+#endif
+    BOOL haveFiles=FALSE;
+    Check(zip.List(&directory,haveFiles)==expected,"actual listing result");
+    if (!expected) Check(haveFiles && !directory.entries.empty(),"successful listing retains entries");
+    if (zip.Unix) Check(directory.cleared>0,"Unix restart released earlier listing");
+    for (const auto& file : directory.entries)
+        Check(file.Size==CQuadWord(11,0),"listing preserves file size");
+    directory.Clear(nullptr);
+    Check(Live.empty(),"listing releases every owned buffer on success, rejection, reset or allocation failure");
+#ifdef _DEBUG
+    _CrtMemCheckpoint(&after);
+    _CrtMemDifference(&difference,&before,&after);
+    Check(difference.lCounts[_NORMAL_BLOCK]==0 && difference.lSizes[_NORMAL_BLOCK]==0,
+          "actual CRT heap has no remaining normal blocks");
+#endif
+    // Clean the negative-control harness's own leaked allocations after recording
+    // its failure, so testing an older revision never leaves fixture resources.
+    while (!Live.empty()) OwnedFree(Live.back());
+    FailAllocation=0; FailMetadata=false;
+}
+namespace Dispatch
+{
+struct CFilesActionDiskTarget { BOOL Branch=TRUE, DirectoryDefault=TRUE; std::string DefaultPath="target"; };
+using SalEnumSelection = void*;
+enum { ptZIPArchive=1, IDS_PACKERR_ARCNAME_UNSUP=1 };
+struct CPluginData;
+struct CPluginDataInterfaceAbstract { CPluginData* owner; };
+struct Binding
+{
+    CPluginDataInterfaceAbstract* Interface=nullptr;
+    @@CONTAINS@@
+};
+struct CFilesWindow
+{
+    Binding PluginData;
+    const char* archive="C:\\owned\\fixture.zip";
+    bool archivePanel=true;
+    CPluginData* owner=nullptr;
+    BOOL Is(int) { return archivePanel; }
+    const char* GetZIPArchive() { return archive; }
+    CPluginData* GetPluginDataForPluginIface() { return owner; }
+};
+static int Errors=0, ExternalCalls=0;
+static BOOL Error(HWND, WORD, ...) { ++Errors; return FALSE; }
+static auto PackErrorHandlerPtr = Error;
+static int StrICmp(const char* a, const char* b) { return _stricmp(a,b); }
+struct CPluginData
+{
+    BOOL SupportPanelView=TRUE;
+    const char* DLLName="zip\\zip.spl";
+    int calls=0;
+    BOOL UnpackArchive(CFilesWindow*, const char*, CPluginDataInterfaceAbstract* data,
+                       const char* target, const char* root, SalEnumSelection next, void* param,
+                       const CFilesActionDiskTarget* = nullptr,
+                       BOOL (*validateSource)(void*) = nullptr, void* sourceContext = nullptr)
+    {
+        if (validateSource != nullptr && !validateSource(sourceContext)) return FALSE;
+        ++calls;
+        Check(data==nullptr || data->owner==this,"unpacker receives only its own listing metadata");
+        Check(strcmp(target,"target")==0 && strcmp(root,"root")==0 && next==param,
+              "dispatch preserves target, archive root and callback parameters");
+        return TRUE;
+    }
+};
+static struct FormatConfig
+{
+    int format=1, unpacker=-2;
+    int PackIsArchive(const char*) { return format; }
+    int GetUnpackerIndex(int) { return unpacker; }
+} PackerFormatConfig;
+static struct Registry
+{
+    CPluginData* plugins[2]={};
+    CPluginData* Get(int index) { return index>=0 && index<2 ? plugins[index] : nullptr; }
+} Plugins;
+struct SPackBrowseTable
+{
+    const char* UncompressCommand="command";
+    int ErrorTable=0;
+    const char* UncompressInitDir="init";
+    BOOL SupportLongNames=TRUE, NeedANSIListFile=FALSE;
+};
+static struct Archivers
+{
+    SPackBrowseTable table;
+    const SPackBrowseTable* GetUnpackerConfigTable(int) { return &table; }
+} ArchiverConfig;
+static BOOL PackUniversalUncompress(HWND,const char*,int,const char*,BOOL,CFilesWindow*,BOOL,
+                                   const char*,const char*,const char*,SalEnumSelection,void*,BOOL)
+{
+    ++ExternalCalls; return TRUE;
+}
+@@PACK_OWNER_LOOKUP@@
+#define CALL_STACK_MESSAGE4(...) ((void)0)
+@@PACK_UNCOMPRESS_DECL@@
+@@BRANCH_POLICY@@
+@@PACK_UNCOMPRESS@@
+static void Test()
+{
+    CPluginData zip, seven;
+    CPluginDataInterfaceAbstract zipData{&zip}, sevenData{&seven};
+    CFilesWindow panel;
+    panel.owner=&zip; panel.PluginData.Interface=&zipData;
+    Plugins.plugins[0]=&zip; Plugins.plugins[1]=&seven;
+    auto invoke=[&](const char* archive,CPluginDataInterfaceAbstract* data,CFilesWindow* source)->BOOL
+    {
+        void* context=&panel;
+        return PackUncompress(nullptr,source,archive,data,"target","root",context,context);
+    };
+    Check(invoke(panel.archive,&zipData,&panel) && zip.calls==1 && seven.calls==0,
+          "configured handler change does not replace listing owner");
+    PackerFormatConfig.unpacker=0;
+    Check(invoke(panel.archive,&zipData,&panel) && zip.calls==2 && ExternalCalls==0,
+          "external unpacker configuration does not consume a plugin-owned listing");
+    PackerFormatConfig.unpacker=-2;
+    Check(invoke("C:\\owned\\other.zip",&sevenData,&panel) && seven.calls==1,
+          "different archive retains configured dispatch");
+    Check(invoke(panel.archive,&sevenData,&panel) && seven.calls==2,
+          "different interface retains configured dispatch");
+    Check(invoke(panel.archive,nullptr,&panel) && seven.calls==3,
+          "null metadata retains configured dispatch");
+    panel.owner=nullptr;
+    Check(!invoke(panel.archive,&zipData,&panel) && Errors==1 && seven.calls==3,
+          "missing listing owner rejects operation without calling foreign handler");
+    panel.owner=&zip; zip.SupportPanelView=FALSE;
+    Check(!invoke(panel.archive,&zipData,&panel) && Errors==2 && seven.calls==3,
+          "unsupported owner rejects operation without foreign fallback");
+    zip.SupportPanelView=TRUE;
+    PackerFormatConfig.format=0;
+    Check(invoke(panel.archive,&zipData,&panel) && zip.calls==3,
+          "stored listing owner handles unregistered extension");
+    PackerFormatConfig.format=1; PackerFormatConfig.unpacker=0;
+    Check(invoke("other.external",nullptr,nullptr) && ExternalCalls==1,
+          "off-panel external dispatch remains available");
+}
+static void BranchTest()
+{
+ CPluginData zip,seven;seven.DLLName="7zip\\7zip.spl";
+ CPluginDataInterfaceAbstract zipData{&zip},sevenData{&seven};CFilesWindow panel;
+ panel.owner=&zip;panel.PluginData.Interface=&zipData;Plugins.plugins[0]=&zip;Plugins.plugins[1]=&seven;
+ CFilesActionDiskTarget destination;PackerFormatConfig.format=1;PackerFormatConfig.unpacker=-2;
+ auto invoke=[&](CPluginDataInterfaceAbstract* data,const char* archive,const char* target)->BOOL{
+  void* context=&panel;return PackUncompress(nullptr,&panel,archive,data,target,"root",context,context,&destination);
+ };
+ Check(PackGetVerifiedBranchUnpacker(&panel,panel.archive,&zipData)==&zip,"actual ZIP listing owner qualifies independently of configured handler");
+ Check(invoke(&zipData,panel.archive,"target")&&zip.calls==1&&seven.calls==0,"qualified Branch dispatch uses ZIP owner not foreign association");
+ const int externalBefore=ExternalCalls;PackerFormatConfig.unpacker=0;
+ Check(invoke(&zipData,panel.archive,"target")&&zip.calls==2&&ExternalCalls==externalBefore,"external association cannot replace qualified ZIP listing owner");
+ const int zipBefore=zip.calls;
+ Check(!invoke(nullptr,panel.archive,"target"),"Branch null metadata never falls back to configured handler");
+ Check(!invoke(&sevenData,panel.archive,"target"),"Branch foreign metadata never reaches a different backend");
+ Check(!invoke(&zipData,"different.zip","target"),"Branch different archive cannot reuse owner qualification");
+ Check(!invoke(&zipData,panel.archive,"manual"),"Branch output cannot redirect to a manual root");
+ Check(!invoke(&zipData,panel.archive,nullptr),"Branch null target path refused before string access");
+ destination.DirectoryDefault=FALSE;Check(!invoke(&zipData,panel.archive,"target"),"Branch unpack cannot use Copy/Move mask snapshot");destination.DirectoryDefault=TRUE;
+ zip.SupportPanelView=FALSE;Check(!invoke(&zipData,panel.archive,"target"),"unsupported ZIP owner refused");zip.SupportPanelView=TRUE;
+ zip.DLLName=nullptr;Check(!invoke(&zipData,panel.archive,"target"),"owner without DLL qualification refused");
+ zip.DLLName="other\\zip.spl";Check(!invoke(&zipData,panel.archive,"target"),"same DLL basename in different plugin location not qualified");
+ zip.DLLName="other\\7zip.spl";Check(!invoke(&zipData,panel.archive,"target"),"unqualified 7-Zip DLL location is refused despite metadata binding");
+ zip.DLLName="zip\\zip.spl";panel.owner=nullptr;Check(!invoke(&zipData,panel.archive,"target"),"missing owner cannot use ZIP association");panel.owner=&zip;
+ panel.archivePanel=false;Check(!invoke(&zipData,panel.archive,"target"),"non-archive panel cannot qualify ZIP private metadata");panel.archivePanel=true;
+ Check(zip.calls==zipBefore&&seven.calls==0&&ExternalCalls==externalBefore,"all refused Branch variants perform zero plugin or external dispatch");
+ Check(PackGetVerifiedBranchUnpacker(nullptr,panel.archive,&zipData)==nullptr,"missing source panel qualification refused");
+ Check(PackGetVerifiedBranchUnpacker(&panel,nullptr,&zipData)==nullptr,"missing archive path qualification refused");
+ zip.DLLName="ZIP\\ZIP.SPL";Check(PackGetVerifiedBranchUnpacker(&panel,panel.archive,&zipData)==&zip,"bundled ZIP location classification is Windows case insensitive");
+}
+
+
+static void SevenBranchTest()
+{
+ CPluginData seven,zip;seven.DLLName="7zip\\7zip.spl";
+ CPluginDataInterfaceAbstract data{&seven},foreign{&zip};CFilesWindow panel;panel.owner=&seven;panel.PluginData.Interface=&data;
+ Plugins.plugins[0]=&seven;Plugins.plugins[1]=&zip;CFilesActionDiskTarget target;
+ auto invoke=[&](CPluginDataInterfaceAbstract* metadata,const char* archive,const char* path)->BOOL{
+  void* context=&panel;return PackUncompress(nullptr,&panel,archive,metadata,path,"root",context,context,&target);
+ };
+ PackerFormatConfig.format=1;PackerFormatConfig.unpacker=-2;const int externalBefore=ExternalCalls;
+ Check(PackGetVerifiedBranchUnpacker(&panel,panel.archive,&data)==&seven,"actual 7-Zip listing owner qualifies independently of ZIP association");
+ Check(invoke(&data,panel.archive,"target")&&seven.calls==1&&zip.calls==0,"7-Zip private listing dispatches only to its actual owner");
+ PackerFormatConfig.unpacker=0;Check(invoke(&data,panel.archive,"target")&&seven.calls==2&&ExternalCalls==externalBefore,"external association cannot consume qualified 7-Zip metadata");
+ Check(!invoke(nullptr,panel.archive,"target"),"7-Zip null metadata refused without fallback");
+ Check(!invoke(&foreign,panel.archive,"target"),"7-Zip foreign metadata refused without fallback");
+ Check(!invoke(&data,"different.7z","target"),"7-Zip different archive binding refused");
+ Check(!invoke(&data,panel.archive,"manual"),"7-Zip manual output root refused");
+ Check(!invoke(&data,panel.archive,nullptr),"7-Zip null output refused");
+ target.DirectoryDefault=FALSE;Check(!invoke(&data,panel.archive,"target"),"7-Zip mask-mode snapshot refused");target.DirectoryDefault=TRUE;
+ seven.SupportPanelView=FALSE;Check(!invoke(&data,panel.archive,"target"),"unsupported 7-Zip owner refused");seven.SupportPanelView=TRUE;
+ seven.DLLName=nullptr;Check(!invoke(&data,panel.archive,"target"),"missing 7-Zip DLL classification refused");
+ seven.DLLName="other\\7zip.spl";Check(!invoke(&data,panel.archive,"target"),"foreign path with same 7-Zip basename refused");
+ seven.DLLName="unknown\\unknown.spl";Check(!invoke(&data,panel.archive,"target"),"unknown owner remains refused");
+ seven.DLLName="7zip\\7zip.spl";panel.owner=nullptr;Check(!invoke(&data,panel.archive,"target"),"missing 7-Zip owner refused");panel.owner=&seven;
+ panel.archivePanel=false;Check(!invoke(&data,panel.archive,"target"),"non-archive 7-Zip panel refused");panel.archivePanel=true;
+ Check(seven.calls==2&&zip.calls==0&&ExternalCalls==externalBefore,"all refused 7-Zip variants perform zero foreign or external I/O dispatch");
+ seven.DLLName="7ZIP\\7ZIP.SPL";Check(PackGetVerifiedBranchUnpacker(&panel,panel.archive,&data)==&seven,"7-Zip DLL classification is Windows case insensitive");
+}
+
+
+static void SourceContextTest()
+{
+ CPluginData owner;CPluginDataInterfaceAbstract metadata{&owner};CFilesWindow panel;panel.owner=&owner;panel.PluginData.Interface=&metadata;
+ BOOL current=FALSE;const auto validate=[](void* p)->BOOL{return *static_cast<BOOL*>(p);};
+ void* param=&panel;const int externalBefore=ExternalCalls,errorBefore=Errors;
+ Check(!PackUncompress(nullptr,reinterpret_cast<CFilesWindow*>(1),"retired.zip",&metadata,"target","root",param,param,nullptr,validate,&current)&&GetLastError()==ERROR_RETRY,"stale dispatcher source rejected before dereferencing retired panel");
+ Check(owner.calls==0&&ExternalCalls==externalBefore&&Errors==errorBefore,"stale source makes zero plugin/external/error-handler calls");
+ current=TRUE;Check(PackUncompress(nullptr,&panel,panel.archive,&metadata,"target","root",param,param,nullptr,validate,&current)&&owner.calls==1,"valid guarded source preserves ordinary owner dispatch");
+}
+
+}
+int main()
+{
+    Live.reserve(1024);
+    std::puts("ZIP lifetime production harness");
+    Scenario("ASCII file",{{"safe-archive.txt"}},0);
+    Scenario("Unicode file and directory",{{"žluťoučký-東京-\xF0\x9F\x99\x82.bin"},{"東京",true}},0);
+    Scenario("rejected file",{{"file.bin"}},IDS_ERRADDFILE,0);
+    Scenario("rejected directory",{{"directory",true}},IDS_ERRADDDIR,0);
+    Scenario("Unix listing restart",{{"first.bin"},{"unix.bin",false,true}},0);
+    Scenario("central header OOM",{{"file.bin"}},IDS_LOWMEM,-1,1);
+    Scenario("name scratch OOM",{{"file.bin"}},IDS_LOWMEM,-1,2);
+    Scenario("byte name OOM",{{"file.bin"}},IDS_LOWMEM,-1,3);
+    Scenario("optional wide OOM",{{"file.bin"}},0,-1,4);
+    Scenario("metadata OOM",{{"file.bin"}},IDS_LOWMEM,-1,0,true);
+    Scenario("read failure after accepted entry",{{"first.bin"},{"second.bin"}},IDS_ERRADDFILE,-1,0,false,1);
+    Scenario("long rejected path then valid entry",{{std::string(270,'a')+"\\file.bin"},{"next.bin"}},IDS_ERRADDFILE_TOOLONG,0);
+    Scenario("invalid oversized leaf",{{std::string(512,'a')}},IDS_ERRADDFILE);
+    Dispatch::Test();
+    Dispatch::BranchTest();
+    Dispatch::SevenBranchTest();
+    Dispatch::SourceContextTest();
+    std::printf("ZIP listing lifetime: %d checks, %d failures\n",Checks,Failures);
+    return Failures ? 1 : 0;
+}

@@ -97,8 +97,8 @@ BOOL FileError(HWND parent, const char* fileName, int error,
 char* GetFileData(const char* file, char* buffer)
 {
     CALL_STACK_MESSAGE2("GetFileData(%s, )", file);
-    WIN32_FIND_DATA fd;
-    HANDLE h = FindFirstFile(file, &fd);
+    WIN32_FIND_DATAW fd;
+    HANDLE h = RenamerIO::FindFirst(file, &fd);
     if (h == INVALID_HANDLE_VALUE)
     {
         if (!FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM |
@@ -190,7 +190,7 @@ BOOL FileOverwrite(HWND parent, const char* fileName1, const char* fileData1,
 
     // also check that we are not overwriting a hidden/system directory
     if (attr == -1)
-        attr = SG->SalGetFileAttributes(fileName1);
+        attr = RenamerIO::Attributes(fileName1);
     if ((attr & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)) == 0)
         return TRUE;
 
@@ -512,14 +512,29 @@ char* StripRoot(char* path, int rootLen)
 BOOL IsValidFileNameComponent(const char* start, const char* end)
 {
     CALL_STACK_MESSAGE_NONE
-    // ignore dots at the end of the name
+    // Keep the existing trailing-dot rule; validation is in UTF-16 units,
+    // because the legacy SDK otherwise rejects valid UTF-8 names by byte count.
     while (end > start && end[-1] == '.')
         end--;
-    char save = *end;
-    *(char*)end = 0;
-    BOOL ret = SG->SalIsValidFileNameComponent(start);
-    *(char*)end = save;
-    return ret;
+    try
+    {
+        const std::string component(start, end);
+        const std::wstring wide = RenamerPaths::ToWide(component.c_str());
+        if (wide.empty() || wide.size() > 255)
+            return FALSE;
+        std::string shape;
+        shape.reserve(wide.size());
+        for (size_t i = 0; i < wide.size(); ++i)
+            shape += wide[i] <= 0x7f ? (char)wide[i] : '_';
+        // ASCII punctuation and DOS device names retain the SDK policy. A
+        // non-ASCII unit becomes '_', so it cannot accidentally form CON/LPT.
+        return SG->SalIsValidFileNameComponent(shape.c_str());
+    }
+    catch (const std::bad_alloc&)
+    {
+        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+        return FALSE;
+    }
 }
 
 BOOL IsValidRelativePath(const char* name, int len)

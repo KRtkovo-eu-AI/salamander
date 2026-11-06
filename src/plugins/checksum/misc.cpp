@@ -11,25 +11,25 @@
 BOOL Error(HWND hParent, int lastErr, int title, int error, ...)
 {
     CALL_STACK_MESSAGE4("Error(, %d, %d, %d, ...)", lastErr, title, error);
-    char buf[1024];
-    *buf = 0;
+    std::vector<char> message(4 * SAL_MAX_PATH + 2048, 0);
+    char* buf = message.data();
     va_list arglist;
     va_start(arglist, error);
-    vsprintf(buf, LoadStr(error), arglist);
+    _vsnprintf_s(buf, message.size(), _TRUNCATE, LoadStr(error), arglist);
     va_end(arglist);
     if (lastErr != ERROR_SUCCESS)
     {
         strcat(buf, " ");
         size_t l = strlen(buf);
         FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, lastErr,
-                      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), buf + l, (DWORD)(1024 - l), NULL);
+                      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), buf + l, (DWORD)(message.size() - l), NULL);
     }
     SalamanderGeneral->SalMessageBox(hParent, buf, LoadStr(title), MSGBOXEX_OK | MSGBOXEX_ICONEXCLAMATION);
 
     return FALSE;
 }
 
-BOOL SafeReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nBytesToRead, DWORD* pnBytesRead, char* fileName,
+BOOL SafeReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nBytesToRead, DWORD* pnBytesRead, const char* fileName,
                   HWND parent, BOOL* skippedReadError, BOOL* skipAllReadErrors)
 {
     if (skippedReadError != NULL)
@@ -84,21 +84,15 @@ BOOL SafeWriteFile(HANDLE hFile, LPVOID lpBuffer, DWORD nBytesToWrite, DWORD* pn
 
 BOOL SafeOpenCreateFile(LPCTSTR fileName, DWORD desiredAccess, DWORD shareMode, DWORD creationDisposition,
                         DWORD flagsAndAttributes, HANDLE* hFile, BOOL* skip, int* silent, HWND parent)
+try
 {
     CALL_STACK_MESSAGE6("SafeOpenCreateFile(%s, 0x%X, 0x%X, 0x%X, 0x%X, , , )", fileName, desiredAccess,
                         shareMode, creationDisposition, flagsAndAttributes);
 
-    std::wstring fileNameW = PluginMultiByteToWidePath(fileName, CP_UTF8);
-    if (fileNameW.empty())
-        fileNameW = PluginMultiByteToWidePath(fileName, CP_ACP);
-    if (fileNameW.length() >= MAX_PATH)
-        fileNameW = PluginPathAddExtendedPrefixW(fileNameW.c_str());
-
-    while ((*hFile = !fileNameW.empty() ?
-                         CreateFileW(fileNameW.c_str(), desiredAccess, shareMode, NULL, creationDisposition,
-                                     flagsAndAttributes, NULL) :
-                         CreateFile(fileName, desiredAccess, shareMode, NULL, creationDisposition,
-                                    flagsAndAttributes, NULL)) == INVALID_HANDLE_VALUE &&
+    const std::wstring fileNameW = ChecksumPaths::IoPath(fileName);
+    if (fileNameW.empty()) { *hFile = INVALID_HANDLE_VALUE; return FALSE; }
+    while ((*hFile = CreateFileW(fileNameW.c_str(), desiredAccess, shareMode, NULL, creationDisposition,
+                                flagsAndAttributes, NULL)) == INVALID_HANDLE_VALUE &&
            ((silent != NULL) ? !*silent : 1))
     {
         int lastErr = GetLastError();
@@ -134,6 +128,13 @@ BOOL SafeOpenCreateFile(LPCTSTR fileName, DWORD desiredAccess, DWORD shareMode, 
         *skip = (*hFile == INVALID_HANDLE_VALUE);
     return TRUE;
 }
+catch (const std::bad_alloc&)
+{
+    *hFile = INVALID_HANDLE_VALUE;
+    SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+    return FALSE;
+}
+
 
 void GetFirstWord(char* str, int& pos, int& len, char delimitChar)
 {

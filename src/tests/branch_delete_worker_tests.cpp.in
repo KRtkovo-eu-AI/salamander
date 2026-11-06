@@ -1,0 +1,68 @@
+﻿// SPDX-License-Identifier: GPL-2.0-or-later
+// S27c3: actual pinned-donor worker function, with isolated dialog/progress facades.
+#include "@@WORKER_HEADER@@"
+#include "@@RECYCLE_HEADER@@"
+#include <filesystem>
+#include <vector>
+#include <cstdio>
+#include <stdexcept>
+struct CQuadWord { ULONGLONG Value=0; CQuadWord(ULONGLONG v=0):Value(v){} CQuadWord& operator+=(const CQuadWord& b){Value+=b.Value;return *this;} };
+struct COperations {BOOL CanUseRecycleBin=FALSE,InvertRecycleBin=FALSE;CQuadWord TotalSize=100;};
+struct CProgressDlgData {
+    BOOL DeleteHiddenAll=FALSE,CnfrmSHFileDel=TRUE,SkipAllSystemOrHidden=FALSE,SkipAllDeleteErr=FALSE;
+    int UseRecycleBin=0;HANDLE WorkerNotSuspended=nullptr;BOOL* CancelWorker=nullptr;
+    BOOL AgreeRecycleMasks(const char*,const char*){return TRUE;}
+};
+enum { IDB_ALL=400,IDB_SKIPALL,IDB_SKIP,IDS_CONFIRMSHFILEDELETE,IDS_DELETESHFILE,IDS_ERRORDELETINGFILE,WM_USER_DIALOG=WM_APP+3 };
+static int Reply=IDCANCEL,DialogCalls=0,ProgressCalls=0,RecycleCalls=0;
+static char* LoadStr(int){static char value[]="test";return value;}
+static char* GetErrorText(DWORD){return LoadStr(0);}
+static LRESULT WorkerDialog(HWND,UINT,WPARAM,LPARAM data){++DialogCalls;*(int*)((char**)data)[0]=Reply;return 0;}
+static void SetProgress(HWND,int,int,CProgressDlgData&){++ProgressCalls;}
+static int CaclProg(const CQuadWord&,const CQuadWord&){return 0;}
+struct CShellExecuteWnd { HWND Create(HWND h,const char*){return h;} };
+static bool RealRecycle=false;
+static DWORD DispatchRecycle(HWND owner,const std::wstring& path){++RecycleCalls;return RealRecycle?::RecycleOperationFileW(owner,path):ERROR_NOT_SUPPORTED;}
+#define RecycleOperationFileW DispatchRecycle
+#define TRACE_E(x) ((void)0)
+BOOL FileNameIsInvalid(const char*,BOOL,BOOL=FALSE);
+@@INVALID@@
+#pragma push_macro("SendMessage")
+#undef SendMessage
+#define SendMessage WorkerDialog
+@@DELETE@@
+#pragma pop_macro("SendMessage")
+static int Checks=0,Failures=0;
+static void Check(bool yes,const char* label){++Checks;if(!yes){++Failures;std::printf("FAIL: %s\n",label);}}
+static std::wstring Api(const std::filesystem::path& p){return LR"(\\?\)"+p.wstring();}
+static std::string Utf8(const std::wstring& p){int n=WideCharToMultiByte(CP_UTF8,0,p.c_str(),-1,nullptr,0,nullptr,nullptr);std::string s(n,'\0');WideCharToMultiByte(CP_UTF8,0,p.c_str(),-1,&s[0],n,nullptr,nullptr);s.resize(n-1);return s;}
+static bool Write(const std::filesystem::path& p){auto a=Api(p);HANDLE f=CreateFileW(a.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);if(f==INVALID_HANDLE_VALUE)return false;DWORD count=0;BOOL ok=WriteFile(f,"owned payload",13,&count,nullptr);CloseHandle(f);return ok&&count==13;}
+static bool Payload(const std::filesystem::path& p){HANDLE f=CreateFileW(Api(p).c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);if(f==INVALID_HANDLE_VALUE)return false;char b[14]={};DWORD n=0;BOOL ok=ReadFile(f,b,13,&n,nullptr);CloseHandle(f);return ok&&n==13&&std::string(b)=="owned payload";}
+int wmain(int argc,wchar_t** argv){
+    if(argc!=2)return 2;const auto parent=std::filesystem::absolute(argv[1]).lexically_normal();
+    const auto root=parent/L"owned-delete";if(root.parent_path()!=parent||std::filesystem::exists(root))return 2;
+    std::filesystem::create_directories(root/L"ascii");std::filesystem::create_directories(root/L"東京-ž");
+    auto deep=root;for(int i=0;i<4;++i)deep/=std::wstring(65,L'東');std::filesystem::create_directories(std::filesystem::path(Api(deep)));
+    std::vector<std::filesystem::path> files={root/L"ascii"/L"plain.txt",root/L"ascii"/L"ž-東京-😀.txt",root/L"東京-ž"/L"same.txt",deep/L"same.txt",root/(std::wstring(100,L'東')+L".txt")};
+    const auto sentinel=root/L"untouched.txt";Check(Write(sentinel),"create untouched sibling");
+    BOOL cancel=FALSE;COperations script;CProgressDlgData data;data.CancelWorker=&cancel;data.WorkerNotSuspended=CreateEventW(nullptr,TRUE,TRUE,nullptr);CQuadWord done;
+    for(const auto& file:files){Check(Write(file),"create owned exact source");auto name=Utf8(file.wstring());auto exact=Api(file);
+        Check(DoDeleteFile(nullptr,name.data(),CQuadWord(1),&script,done,FILE_ATTRIBUTE_NORMAL,data,exact.c_str())!=FALSE,"actual direct worker succeeds");
+        Check(GetFileAttributesW(exact.c_str())==INVALID_FILE_ATTRIBUTES,"exact intended source removed");Check(Payload(sentinel),"unselected sibling intact");}
+    Check(done.Value==files.size()&&ProgressCalls==(int)files.size()&&DialogCalls==0&&RecycleCalls==0,"permanent worker accounting with no recycle or UI");
+    const auto readonly=root/L"readonly.txt";Check(Write(readonly)&&SetFileAttributesW(Api(readonly).c_str(),FILE_ATTRIBUTE_READONLY),"create readonly source");auto ro=Utf8(readonly.wstring());auto roW=Api(readonly);Check(DoDeleteFile(nullptr,ro.data(),1,&script,done,FILE_ATTRIBUTE_READONLY,data,roW.c_str())&&GetFileAttributesW(roW.c_str())==INVALID_FILE_ATTRIBUTES,"worker clears readonly and deletes exact file");
+    const auto hidden=root/L"hidden.txt";Check(Write(hidden),"create hidden confirmation source");auto h=Utf8(hidden.wstring());auto hw=Api(hidden);Reply=IDCANCEL;
+    Check(!DoDeleteFile(nullptr,h.data(),1,&script,done,FILE_ATTRIBUTE_HIDDEN,data,hw.c_str())&&Payload(hidden),"hidden confirmation Cancel preserves source");
+    Reply=IDB_SKIP;Check(DoDeleteFile(nullptr,h.data(),1,&script,done,FILE_ATTRIBUTE_HIDDEN,data,hw.c_str())&&Payload(hidden),"hidden confirmation Skip preserves source");
+    auto invalid=Utf8(sentinel.wstring())+".";Reply=IDCANCEL;Check(!DoDeleteFile(nullptr,invalid.data(),1,&script,done,FILE_ATTRIBUTE_NORMAL,data,nullptr)&&Payload(sentinel),"invalid alias cannot delete trimmed sibling");
+    auto missing=Utf8((root/L"missing.txt").wstring());Reply=IDCANCEL;Check(!DoDeleteFile(nullptr,missing.data(),1,&script,done,FILE_ATTRIBUTE_NORMAL,data,nullptr)&&Payload(sentinel),"missing-source error Cancel preserves sibling");
+    data.UseRecycleBin=99;Reply=IDCANCEL;auto safe=Utf8(sentinel.wstring());auto safeW=Api(sentinel);const int recycleBefore=RecycleCalls;
+    Check(!DoDeleteFile(nullptr,safe.data(),1,&script,done,FILE_ATTRIBUTE_NORMAL,data,safeW.c_str())&&RecycleCalls==recycleBefore+1&&Payload(sentinel),"unknown configuration cannot silently delete permanently");
+    RealRecycle=true;data.UseRecycleBin=2;script.CanUseRecycleBin=TRUE;
+    for(const auto& file:files){Check(Write(file),"recreate owned selected-extension source");auto name=Utf8(file.wstring());auto exact=Api(file);
+        Check(DoDeleteFile(nullptr,name.data(),1,&script,done,FILE_ATTRIBUTE_NORMAL,data,exact.c_str())&&GetFileAttributesW(exact.c_str())==INVALID_FILE_ATTRIBUTES,"actual worker selected-extension force-recycle succeeds");Check(Payload(sentinel),"worker recycle preserves unselected sibling");}
+    const auto locked=root/L"locked.txt";HANDLE lock=CreateFileW(Api(locked).c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);Check(lock!=INVALID_HANDLE_VALUE,"create locked selected-extension source");auto lockedName=Utf8(locked.wstring());auto lockedW=Api(locked);Reply=IDCANCEL;
+    Check(!DoDeleteFile(nullptr,lockedName.data(),1,&script,done,FILE_ATTRIBUTE_NORMAL,data,lockedW.c_str())&&GetFileAttributesW(lockedW.c_str())!=INVALID_FILE_ATTRIBUTES,"failed worker recycle does not fall back to permanent deletion");if(lock!=INVALID_HANDLE_VALUE)CloseHandle(lock);
+    CloseHandle(data.WorkerNotSuspended);Check(root.parent_path()==parent&&root.filename()==L"owned-delete","cleanup confined to owned root");std::filesystem::remove_all(std::filesystem::path(Api(root)));
+    std::printf("Actual delete worker: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

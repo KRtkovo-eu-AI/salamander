@@ -21,6 +21,10 @@
 #include "array2.h"
 #include "resedit.h"
 
+#ifdef ZIP_DLL
+std::wstring ZipPathToWide(const char* path);
+#endif
+
 //******************************************************************************
 //
 // CResEditRoot
@@ -71,11 +75,27 @@ BOOL CResEdit::BeginUpdateResource(LPCSTR pFileName, BOOL bDeleteExistingResourc
     int num_of_retries = 0;
 
 try_again:
+#ifdef ZIP_DLL
+    try
+    {
+        const std::wstring path = ZipPathToWide(pFileName);
+        File = CreateFileW(path.c_str(), GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_EXISTING,
+                           FILE_ATTRIBUTE_NORMAL, NULL);
+    }
+    catch (const std::bad_alloc&)
+    {
+        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+        return FALSE;
+    }
+#else
     File = CreateFile(pFileName, GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_EXISTING,
                       FILE_ATTRIBUTE_NORMAL, NULL);
-
-    if (!File)
+#endif
+    if (File == INVALID_HANDLE_VALUE)
+    {
+        File = NULL;
         return FALSE;
+    }
 
     // nacteme headery
     DWORD pesig;

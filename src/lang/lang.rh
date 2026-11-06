@@ -891,6 +891,9 @@
 #define IDC_DRVSPEC_REMOTESPACE_LABEL   6299
 #define IDC_DRVSPEC_REMOTESPACE         6300
 
+#define IDC_BRANCH_KEEP_PATHS            14510
+#define IDC_BRANCH_RELATIVE_PATHS        14528
+
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED

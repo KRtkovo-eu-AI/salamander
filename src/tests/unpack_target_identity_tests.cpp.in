@@ -1,0 +1,74 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-06 | Verify implicit archive destinations retain identity across callbacks. | Validate upstream integration without weakening Branch path guarantees. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
+// Uses the existing explicit registry/panel doubles and actual shared snapshot.
+static CFilesActionDiskTarget CaptureImplicitTarget(CMainWindow* MainWindow, CFilesWindow* source,
+                                                     CFilesWindow*& target, BOOL deleteOp, const char* tgtPath)
+{
+@@IMPLICIT_TARGET@@
+ CFilesActionDiskTarget snapshot;
+ if (!deleteOp && target != nullptr && target->Is(ptDisk))
+  Check(snapshot.Capture(MainWindow,target,TRUE),"resolved implicit target is captured before callbacks");
+ return snapshot;
+}
+int main()
+{
+ CFilesWindow source,target,replacement;source.Tab=2;replacement.Tab=3;
+ CMainWindow main;main.Left={&source};main.Right={&target,&replacement};main.LeftPanel=&source;main.RightPanel=&target;
+ CFilesActionDiskTarget snapshot;
+ for(BOOL branch:{FALSE,TRUE})
+ {
+  target.Branch=branch;CFilesWindow* implicit=nullptr;
+  auto captured=CaptureImplicitTarget(&main,&source,implicit,FALSE,nullptr);
+  Check(implicit==&target&&captured.Panel==&target&&captured.Branch==branch,"implicit ordinary and Branch targets retain the resolved panel identity");
+  target.Root+=L"\\changed";Check(!captured.IsCurrent(&main),"implicit destination path changed during callback is rejected");target.Root=L"C:\\target";
+  implicit=nullptr;auto explicitPath=CaptureImplicitTarget(&main,&source,implicit,FALSE,"C:\\manual");
+  Check(implicit==nullptr&&explicitPath.Panel==nullptr,"explicit path does not infer an opposite panel");
+  implicit=nullptr;auto deleting=CaptureImplicitTarget(&main,&source,implicit,TRUE,nullptr);
+  Check(implicit==nullptr&&deleting.Panel==nullptr,"archive deletion does not infer a destination");
+ }
+ const std::vector<std::wstring> roots={L"C:\\",L"\\\\server\\share",L"C:\\ascii",L"C:\\ascii\\東京.txt",L"C:\\東京\\out",L"C:\\první\\東京\\🙂",L"C:\\"+std::wstring(100,L'東'),L"C:\\"+std::wstring(100,L'a')+L"\\"+std::wstring(100,L'b')+L"\\"+std::wstring(100,L'c')};
+ for(BOOL branch:{FALSE,TRUE}) for(const auto& root:roots)
+ {
+  target.Branch=branch;target.Root=root;
+  Check(snapshot.Capture(&main,&target,TRUE)&&snapshot.DirectoryDefault&&snapshot.IsCurrent(&main),"actual directory mode captures complete current identity");
+  const std::string text=SalWideToMultiBytePath(root.c_str(),CP_UTF8);const int cap=(int)text.size()+1;
+  Check(snapshot.Root==root&&snapshot.DefaultPath==text,"directory default contains complete root without operation mask");
+  Check(snapshot.HasDefaultText(text.c_str(),cap),"exact-fit directory default classified");
+  Check(!snapshot.HasDefaultText(text.c_str(),cap-1),"one byte too small cannot classify implicit default");
+  Check(snapshot.MatchesParsedDirectoryDefault(text.c_str(),cap,text.c_str()+text.size(),PATH_TYPE_WINDOWS,TRUE),"existing complete root accepted at parsed terminator");
+  Check(!snapshot.MatchesParsedDirectoryDefault(text.c_str(),cap,text.c_str()+text.size()-1,PATH_TYPE_WINDOWS,TRUE),"missing implicit root cannot be recreated");
+  Check(!snapshot.MatchesParsedDirectoryDefault(text.c_str(),cap,text.c_str()+text.size(),PATH_TYPE_WINDOWS,FALSE),"file cannot replace implicit directory");
+  Check(!snapshot.MatchesParsedDirectoryDefault(text.c_str(),cap,text.c_str()+text.size(),2,TRUE),"archive reinterpretation of implicit directory refused");
+  Check(!snapshot.MatchesParsedDirectoryDefault(text.c_str(),cap,nullptr,PATH_TYPE_WINDOWS,TRUE),"missing parser suffix refused without access");
+  const std::string manual=text+"\\manual";
+  Check(!snapshot.HasDefaultText(manual.c_str(),(int)manual.size()+1),"manual and different history path retain resolver classification");
+  Check(!snapshot.MatchesParsedDirectoryDefault(manual.c_str(),(int)manual.size()+1,manual.c_str()+manual.size(),PATH_TYPE_WINDOWS,TRUE),"manual path not confused with implicit root");
+  Check(!snapshot.MatchesParsedDefault(text.c_str(),cap,text.c_str()+text.size(),PATH_TYPE_WINDOWS,TRUE),"directory mode cannot use mask parser contract");
+  Check(!snapshot.MatchesSplitDefault(text.c_str(),cap,nullptr),"directory mode cannot use packed mask contract");
+  const auto owned=snapshot.Root;target.Root+=L"\\changed";
+  Check(!snapshot.IsCurrent(&main)&&snapshot.Root==owned,"directory root remains owned while live root mutation invalidates dispatch");target.Root=root;
+  if(root.size()<MAX_PATH&&text.size()>MAX_PATH)Check(true,"UTF8 byte-long root fixture distinct from UTF16-long");
+  if(root.size()>MAX_PATH)Check(true,"full UTF16 long root fixture");
+ }
+ target.Branch=FALSE;target.Root=L"C:\\target";
+ Check(snapshot.Capture(&main,&target,TRUE),"capture directory before visible switch");main.RightPanel=&replacement;
+ Check(!snapshot.IsCurrent(&main),"visible disk target switch invalidates directory identity");
+ Check(snapshot.Capture(&main,&target,TRUE)&&snapshot.IsCurrent(&main),"explicit inactive directory target remains valid");
+ main.Right={&replacement};main.Detached={&target};
+ Check(snapshot.IsCurrent(&main)&&snapshot.Capture(&main,&target,TRUE),"registered detached directory target remains valid");
+ main.Detached.clear();const auto reads=target.AccessorReads;
+ Check(!snapshot.IsCurrent(&main),"closed detached directory target refused");
+ Check(!snapshot.Capture(&main,&target,TRUE)&&target.AccessorReads==reads,"retired directory target never accessed during validation or recapture");
+ main.Right={&target,&replacement};main.RightPanel=&target;
+ Check(snapshot.Capture(&main,&target)&&!snapshot.DirectoryDefault&&snapshot.DefaultPath=="C:\\target\\*.*","legacy mask capture unchanged after directory use");
+ target.Root=L"C:\\"+std::wstring(SAL_MAX_PATH-4,L'a');
+ Check(snapshot.Capture(&main,&target,TRUE)&&snapshot.DefaultPath.size()==SAL_MAX_PATH-1,"exact directory byte capacity accepted without mask overhead");
+ Check(!snapshot.Capture(&main,&target),"legacy mask still refuses its own capacity overflow");
+ target.Root+=L"a";Check(!snapshot.Capture(&main,&target,TRUE),"directory overflow refused atomically without prefix capture");
+ Check(snapshot.Panel==nullptr&&!snapshot.HasDefaultText("",1),"failed capture cannot retain an admitted panel");
+ Check(!snapshot.MatchesParsedDirectoryDefault(nullptr,0,nullptr,PATH_TYPE_WINDOWS,TRUE),"null parser input refused without arithmetic or dereference");
+ printf("Actual unpack directory identity: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

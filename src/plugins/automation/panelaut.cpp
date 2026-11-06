@@ -88,68 +88,83 @@ HRESULT CSalamanderPanelAutomation::RaiseChPPErr(int nErr)
 /* [propget][id] */ HRESULT STDMETHODCALLTYPE CSalamanderPanelAutomation::get_Path(
     /* [retval][out] */ BSTR* path)
 {
-    TCHAR szPath[MAX_PATH];
-    int type;
-    TCHAR* pszArchiveOrFs;
-    _bstr_t pathT;
-
-    if (!SalamanderGeneral->GetPanelPath(
-            m_nPanel,
-            szPath,
-            _countof(szPath),
-            &type,
-            &pszArchiveOrFs))
+    if (path == NULL) return E_POINTER;
+    *path = NULL;
+    try
     {
-        _ASSERTE(0);
-        return E_FAIL;
+        std::vector<char> text(4 * SAL_MAX_PATH, '\0');
+        if (!SalamanderGeneral->GetPanelPath(m_nPanel, text.data(), static_cast<int>(text.size()), NULL, NULL))
+            return E_FAIL;
+        const std::wstring wide = SalamanderDiskSelection::WideFromPath(text.data());
+        *path = SysAllocString(wide.c_str());
+        return *path != NULL ? S_OK : E_OUTOFMEMORY;
     }
-
-    pathT = szPath;
-    *path = pathT.Detach();
-
-    return S_OK;
+    catch (const std::bad_alloc&) { return E_OUTOFMEMORY; }
 }
 
 /* [propget][id] */ HRESULT STDMETHODCALLTYPE CSalamanderPanelAutomation::get_FocusedItem(
     /* [retval][out] */ ISalamanderPanelItem** item)
 {
-    const CFileData* pFileData;
-
-    if (m_pFocusedItem == NULL)
+    if (item == NULL) return E_POINTER;
+    *item = NULL;
+    try
     {
-        m_pFocusedItem = new CSalamanderPanelItemAutomation();
+        int type = 0;
+        if (!SalamanderGeneral->GetPanelPath(m_nPanel, NULL, 0, &type, NULL))
+            return E_FAIL;
+        if (type == PATH_TYPE_WINDOWS)
+        {
+            CSalamanderDiskSelection selection;
+            if (!selection.Capture(SalamanderGeneral, m_nPanel, SALDISKSELECTION_FOCUSED_ONLY))
+            {
+                const DWORD error = GetLastError();
+                return HRESULT_FROM_WIN32(error != ERROR_SUCCESS ? error : ERROR_INVALID_DATA);
+            }
+            const CSalamanderDiskSelectionItem* focused = selection.GetItem(0);
+            if (focused != NULL)
+            {
+                *item = new CSalamanderPanelItemAutomation(*focused);
+                return S_OK;
+            }
+            // Automation exposes the virtual up-directory as a UI item.
+            BOOL isDir = FALSE;
+            const CFileData* up = SalamanderGeneral->GetPanelFocusedItem(m_nPanel, &isDir);
+            if (up != NULL && isDir && up->Name != NULL && strcmp(up->Name, "..") == 0)
+                *item = new CSalamanderPanelItemAutomation(up, m_nPanel);
+            return S_OK;
+        }
+        const CFileData* focused = SalamanderGeneral->GetPanelFocusedItem(m_nPanel, NULL);
+        if (focused != NULL)
+            *item = new CSalamanderPanelItemAutomation(focused, m_nPanel);
+        return S_OK;
     }
-
-    pFileData = SalamanderGeneral->GetPanelFocusedItem(m_nPanel, NULL);
-
-    if (pFileData)
-    {
-        m_pFocusedItem->Set(pFileData, m_nPanel);
-
-        *item = m_pFocusedItem;
-        (*item)->AddRef();
-    }
-    else
-    {
-        // empty panel, no focused item
-        *item = NULL;
-    }
-
-    return S_OK;
+    catch (const std::bad_alloc&) { return E_OUTOFMEMORY; }
 }
 
 /* [propget][id] */ HRESULT STDMETHODCALLTYPE CSalamanderPanelAutomation::get_SelectedItems(
     /* [retval][out] */ ISalamanderPanelItemCollection** coll)
 {
-    *coll = new CSalamanderPanelItemCollection(m_nPanel, CSalamanderPanelItemCollection::SelectionCollection);
-    return S_OK;
+    if (coll == NULL) return E_POINTER;
+    *coll = NULL;
+    try
+    {
+        *coll = new CSalamanderPanelItemCollection(m_nPanel, CSalamanderPanelItemCollection::SelectionCollection);
+        return S_OK;
+    }
+    catch (const std::bad_alloc&) { return E_OUTOFMEMORY; }
 }
 
 /* [propget][id] */ HRESULT STDMETHODCALLTYPE CSalamanderPanelAutomation::get_Items(
     /* [retval][out] */ ISalamanderPanelItemCollection** coll)
 {
-    *coll = new CSalamanderPanelItemCollection(m_nPanel, CSalamanderPanelItemCollection::ItemCollection);
-    return S_OK;
+    if (coll == NULL) return E_POINTER;
+    *coll = NULL;
+    try
+    {
+        *coll = new CSalamanderPanelItemCollection(m_nPanel, CSalamanderPanelItemCollection::ItemCollection);
+        return S_OK;
+    }
+    catch (const std::bad_alloc&) { return E_OUTOFMEMORY; }
 }
 
 /* [id] */ HRESULT STDMETHODCALLTYPE CSalamanderPanelAutomation::SelectAll(void)

@@ -356,6 +356,7 @@ struct CConfiguration
     // for displaying the items in the panel
     int FullRowSelect;    // in detailed/brief view clicking anywhere selects the item
     int FullRowHighlight; // in detailed view highlight continues past the focused column
+    BOOL BranchViewRelativePaths; // display preference only; file identities remain absolute
     int UseIconTincture;  // for hidden/system/selected/focused items
     int UsePanelTabs;     // pouzivat panelove taby?
     int ShowPanelCaption; // should the panel caption be shown in color in the directory line?

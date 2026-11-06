@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include "branch_view.h"
+#include "common/widepath.h"
 
 #include "plugins.h"
 #include "fileswnd.h"
@@ -63,18 +65,21 @@ struct PreparedWatchPath
 {
     std::string Key;
     std::string Path;
+    std::wstring WidePath;
+    BOOL Recursive;
 };
 
-static PreparedWatchPath PrepareWatchPath(const char* path)
+static PreparedWatchPath PrepareWatchPath(const char* path, BOOL recursive)
 {
     PreparedWatchPath prepared;
-    const char* usePath = path;
-    char pathCopy[3 * MAX_PATH];
-    MakeCopyWithBackslashIfNeeded(usePath, pathCopy);
-    prepared.Path.assign(usePath);
+    prepared.Path.assign(path);
+    if (!prepared.Path.empty() && prepared.Path.back() != '\\') prepared.Path += '\\';
+    prepared.Recursive = recursive;
+    prepared.WidePath = Salamander::BranchView::ExtendedPath(SalMultiByteToWidePath(prepared.Path.c_str(), IsValidPathUtf8Text(prepared.Path.c_str()) ? CP_UTF8 : CP_ACP));
     prepared.Key = prepared.Path;
     if (!prepared.Key.empty())
         CharUpperBuffA(prepared.Key.data(), (DWORD)prepared.Key.length());
+    prepared.Key += recursive ? "|recursive" : "|directory";
     return prepared;
 }
 
@@ -270,7 +275,7 @@ static bool AttachPanelInternal(CFilesWindow* win, const PreparedWatchPath& prep
     }
     else
     {
-        HANDLE handle = HANDLES_Q(FindFirstChangeNotification(prepared.Path.c_str(), FALSE,
+        HANDLE handle = HANDLES_Q(FindFirstChangeNotificationW(prepared.WidePath.c_str(), prepared.Recursive,
                                                                FILE_NOTIFY_CHANGE_FILE_NAME |
                                                                    FILE_NOTIFY_CHANGE_DIR_NAME |
                                                                    FILE_NOTIFY_CHANGE_ATTRIBUTES |
@@ -834,7 +839,7 @@ void AddDirectory(CFilesWindow* win, const char* path, BOOL registerDevNotificat
     WaitForSingleObject(DataUsageMutex, INFINITE); // pockame na nej
     SetEvent(WantDataEvent);                       // cmuchal uz zase muze zacit cekat na DataUsageMutex
                                                    //---  ted uz jsou data hl. threadu, cmuchal ceka
-    PreparedWatchPath prepared = PrepareWatchPath(path);
+    PreparedWatchPath prepared = PrepareWatchPath(path, win->IsBranchView());
 
     bool attached = false;
     auto panelIt = WatchEntriesByPanel.find(win);
@@ -942,7 +947,7 @@ void ChangeDirectory(CFilesWindow* win, const char* newPath, BOOL registerDevNot
     WaitForSingleObject(DataUsageMutex, INFINITE); // pockame na nej
     SetEvent(WantDataEvent);                       // cmuchal uz zase muze zacit cekat na DataUsageMutex
     //---  ted uz jsou data hl. threadu, cmuchal ceka
-    PreparedWatchPath prepared = PrepareWatchPath(newPath);
+    PreparedWatchPath prepared = PrepareWatchPath(newPath, win->IsBranchView());
 
     bool attached = false;
     auto panelIt = WatchEntriesByPanel.find(win);
@@ -1011,7 +1016,7 @@ void EnsureWatching(CFilesWindow* win, BOOL registerDevNotification)
     WaitForSingleObject(DataUsageMutex, INFINITE);
     SetEvent(WantDataEvent);
 
-    PreparedWatchPath prepared = PrepareWatchPath(path);
+    PreparedWatchPath prepared = PrepareWatchPath(path, win->IsBranchView());
     bool attached = false;
 
     auto panelIt = WatchEntriesByPanel.find(win);

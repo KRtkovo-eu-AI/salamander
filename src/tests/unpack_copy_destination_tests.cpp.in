@@ -1,0 +1,48 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual destination helpers; no panel, parser or archive-engine emulation.
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <cstring>
+#include <cstdio>
+@@CONVERSIONS@@
+@@ACTUAL@@
+static int checks=0,failures=0;
+static void Check(bool ok,const char* label){++checks;if(!ok){++failures;printf("FAIL: %s\n",label);}}
+int main(){
+ const std::wstring paths[]={L"C:\\ascii\\out",L"C:\\ascii\\東京.txt",L"C:\\東京\\out",L"C:\\東京\\žluť\\🙂",L"C:\\"+std::wstring(100,L'東'),L"C:\\"+std::wstring(280,L'a')};
+ for(const auto& w:paths){
+  const std::string text=SalWideToMultiBytePath(w.c_str(),CP_UTF8);
+  std::vector<char> out(text.size()+3,'!');
+  Check(ReadUnpackDiskDestination(w.c_str(),out.data()+1,(int)text.size()+1)!=FALSE,"wide default exact-fit accepted");
+  Check(std::string(out.data()+1)==text,"complete UTF8 identity preserved");
+  Check(out.front()=='!'&&out.back()=='!',"default redzones preserved");
+  std::fill(out.begin(),out.end(),'!');const auto before=out;
+  Check(!ReadUnpackDiskDestination(w.c_str(),out.data()+1,(int)text.size()),"one-byte-too-small default refused");
+  Check(out==before,"failed default copy is atomic");
+  Check(CopyUnpackDestination(text.c_str(),out.data()+1,(int)text.size()+1)!=FALSE,"explicit target exact-fit accepted");
+  Check(std::string(out.data()+1)==text&&out.front()=='!'&&out.back()=='!',"explicit target retains all bytes and redzones");
+ }
+ char out[8]="prior";const std::string before=out;
+ Check(!CopyUnpackDestination("too-long",out,8)&&std::string(out)==before,"explicit overflow refuses without changing output");
+ Check(!CopyUnpackDestination(nullptr,out,8)&&std::string(out)==before,"null input preserves output");
+ Check(!CopyUnpackDestination("x",nullptr,8),"null output refused");
+ Check(!CopyUnpackDestination("x",out,0)&&std::string(out)==before,"zero capacity preserves output");
+ Check(!CopyUnpackDestination("x",out,-1)&&std::string(out)==before,"negative capacity preserves output");
+ Check(!ReadUnpackDiskDestination(nullptr,out,8)&&std::string(out)==before,"null wide source refused");
+ Check(!ReadUnpackDiskDestination(L"",out,8)&&std::string(out)==before,"empty disk root refused");
+ const wchar_t invalid[]={L'C',L':',L'\\',wchar_t(0xd800),0};
+ Check(!ReadUnpackDiskDestination(invalid,out,8)&&std::string(out)==before,"invalid surrogate refuses replacement identity");
+ Check(CopyUnpackDestination("",out,1)&&out[0]==0,"explicit empty text preserved for resolver semantics");
+ char alias[12]="abcdef";
+ Check(CopyUnpackDestination(alias+1,alias,12)&&std::string(alias)=="bcdef","overlapping owned source supported");
+ for(const char* component:{"ascii",u8"東京",u8"žluť",u8"🙂"})
+  Check(!IsUnpackDirectoryComponentInvalid(component,strlen(component)),"valid Unicode component is not an ASCII control");
+ for(const char* component:{" leading","trailing ","trailing.","\tleading","trailing\t",u8"東京.",u8"東京 "})
+  Check(IsUnpackDirectoryComponentInvalid(component,strlen(component))!=FALSE,"ASCII component restrictions remain enforced");
+ Check(!IsUnpackDirectoryComponentInvalid("",0),"empty segment preserves legacy behavior");
+ printf("Actual unpack copy destination: %d checks, %d failures\n",checks,failures);return failures?1:0;
+}

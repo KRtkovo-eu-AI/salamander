@@ -1,0 +1,51 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual cleanup/Win32 enumeration, real NTFS junction fixtures; no filesystem facades.
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <winioctl.h>
+#include <filesystem>
+#include <vector>
+#include <string>
+#include <cstring>
+#include <cstdio>
+#include <cwchar>
+#define HANDLES_Q(x) (x)
+#define HANDLES(x) (x)
+@@CONVERSIONS@@
+@@ACTUAL@@
+static int Checks=0,Failures=0;
+static void Check(bool b,const char* text){++Checks;if(!b){++Failures;printf("FAIL: %s\n",text);}}
+static std::wstring Full(const std::filesystem::path& p){auto path=p;path.make_preferred();return SalPathAddExtendedPrefixW(path.c_str());}
+static bool Exists(const std::filesystem::path& p){return GetFileAttributesW(Full(p).c_str())!=INVALID_FILE_ATTRIBUTES;}
+static void Directory(const std::filesystem::path& p){std::filesystem::create_directories(Full(p));}
+static void Write(const std::filesystem::path& p){HANDLE h=CreateFileW(Full(p).c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);Check(h!=INVALID_HANDLE_VALUE,"create own nonempty sentinel");if(h!=INVALID_HANDLE_VALUE){DWORD n=0;Check(WriteFile(h,"keep",4,&n,nullptr)&&n==4,"write own sentinel");CloseHandle(h);}}
+static bool Junction(const std::filesystem::path& link,const std::filesystem::path& target){
+ struct Header{DWORD Tag;WORD Length,Reserved,SubstituteOffset,SubstituteLength,PrintOffset,PrintLength;};static_assert(sizeof(Header)==16,"mount-point reparse layout");
+ auto native=target;native.make_preferred();const std::wstring print=native.wstring(),sub=L"\\??\\"+print;
+ std::vector<BYTE> bytes(sizeof(Header)+(sub.size()+print.size()+2)*sizeof(wchar_t),0);Header header={IO_REPARSE_TAG_MOUNT_POINT,(WORD)(bytes.size()-8),0,0,(WORD)(sub.size()*2),(WORD)((sub.size()+1)*2),(WORD)(print.size()*2)};
+ memcpy(bytes.data(),&header,sizeof(header));memcpy(bytes.data()+sizeof(header),sub.c_str(),(sub.size()+1)*2);memcpy(bytes.data()+sizeof(header)+(sub.size()+1)*2,print.c_str(),(print.size()+1)*2);
+ HANDLE h=CreateFileW(Full(link).c_str(),GENERIC_WRITE,0,nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS|FILE_FLAG_OPEN_REPARSE_POINT,nullptr);if(h==INVALID_HANDLE_VALUE)return false;
+ DWORD n=0;const bool ok=DeviceIoControl(h,FSCTL_SET_REPARSE_POINT,bytes.data(),(DWORD)bytes.size(),nullptr,0,&n,nullptr)!=FALSE;const auto error=GetLastError();CloseHandle(h);if(!ok)printf("junction fixture error %lu\n",error);return ok;
+}
+int wmain(int argc,wchar_t** argv){
+ setvbuf(stdout,nullptr,_IONBF,0);if(argc!=2)return 2;const std::filesystem::path root=argv[1];if(root.filename()!=L"owned-fixtures"||Exists(root))return 2;Directory(root);
+ for(const auto& relative:{std::filesystem::path(L"ascii/one/two"),std::filesystem::path(L"rodič-東京/dítě-🙂/empty"),std::filesystem::path(L"long")/std::wstring(90,L'日')/std::wstring(90,L'本')/std::wstring(90,L'東')}){
+  const auto deepest=root/relative;Directory(deepest);auto top=root/ *relative.begin();top.make_preferred();
+  DWORD before=0,after=0;Check(GetProcessHandleCount(GetCurrentProcess(),&before)!=FALSE,"read handle count before actual enumeration");
+  RemoveEmptyUnpackDirectoriesW(top.wstring());Check(GetProcessHandleCount(GetCurrentProcess(),&after)!=FALSE&&before==after,"actual enumeration closes every find handle");Check(!Exists(top),"actual cleanup removes complete own empty Unicode/long tree");
+ }
+ const auto mixed=root/L"mixed-東京";Directory(mixed/L"empty"/L"child");Directory(mixed/L"nonempty");Write(mixed/L"nonempty"/L"keep.txt");
+ RemoveEmptyUnpackDirectoriesW(mixed.wstring());Check(!Exists(mixed/L"empty"),"empty siblings removed");Check(Exists(mixed/L"nonempty"/L"keep.txt")&&Exists(mixed),"files and nonempty ancestors preserved");
+ const auto outside=root/L"outside";Directory(outside/L"must-stay-empty");Write(outside/L"keep.txt");const auto owner=root/L"junction-owner";Directory(owner/L"link");Directory(owner/L"ordinary-empty");
+ const bool linked=Junction(owner/L"link",outside);Check(linked,"create actual NTFS mount-point junction fixture");
+ if(linked){
+  RemoveEmptyUnpackDirectoriesW(owner.wstring());Check(Exists(owner/L"link")&&Exists(outside/L"must-stay-empty"),"cleanup does not follow child junction or remove outside empty directory");Check(!Exists(owner/L"ordinary-empty"),"ordinary empty sibling still removed beside junction");
+  RemoveEmptyUnpackDirectoriesW((owner/L"link").wstring());Check(Exists(owner/L"link")&&Exists(outside/L"keep.txt")&&Exists(outside/L"must-stay-empty"),"root junction refused without following or deleting it");
+  Check(RemoveDirectoryW(Full(owner/L"link").c_str())!=FALSE,"remove only own junction link before fixture cleanup");
+ }
+ RemoveEmptyUnpackDirectoriesW(L"");RemoveEmptyUnpackDirectoriesW((root/L"missing").wstring());RemoveEmptyUnpackDirectoriesW((mixed/L"nonempty"/L"keep.txt").wstring());Check(Exists(mixed/L"nonempty"/L"keep.txt"),"empty/missing/file roots are harmless");
+ std::error_code ec;std::filesystem::remove_all(Full(root),ec);Check(!ec&&!Exists(root),"cleanup exact native fixture root");
+ printf("Actual Unpack cleanup: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

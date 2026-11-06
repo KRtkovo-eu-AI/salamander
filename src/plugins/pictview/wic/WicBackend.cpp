@@ -1036,7 +1036,7 @@ DWORD ClampToDword(ULONGLONG value)
 
 std::wstring AddExtendedPrefixIfNeeded(const std::wstring& path)
 {
-    if (path.empty() || path.rfind(L"\\\\?\\", 0) == 0 || path.length() < SAL_MAX_PATH)
+    if (path.empty() || path.rfind(L"\\\\?\\", 0) == 0 || path.length() < MAX_PATH)
     {
         return path;
     }
@@ -5374,7 +5374,7 @@ PVCODE CreateSequenceNodes(ImageHandle& handle, LPPVImageSequence* seq)
 }
 
 PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const GuidMapping& mapping,
-                 LPPVSaveImageInfo info)
+                 LPPVSaveImageInfo info, IStream* output = nullptr)
 {
     if (handle.frames.empty())
     {
@@ -5407,17 +5407,17 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         return recordFailure(hr, "CreateEncoder");
     }
 
-    Microsoft::WRL::ComPtr<IWICStream> stream;
-    hr = handle.backend->Factory()->CreateStream(&stream);
-    if (FAILED(hr))
+    Microsoft::WRL::ComPtr<IStream> stream = output;
+    if (!stream)
     {
-        return recordFailure(hr, "CreateStream");
-    }
-
-    hr = stream->InitializeFromFilename(path, GENERIC_WRITE);
-    if (FAILED(hr))
-    {
-        return recordFailure(hr, "InitializeFromFilename");
+        Microsoft::WRL::ComPtr<IWICStream> fileStream;
+        hr = handle.backend->Factory()->CreateStream(&fileStream);
+        if (FAILED(hr))
+            return recordFailure(hr, "CreateStream");
+        hr = fileStream->InitializeFromFilename(path, GENERIC_WRITE);
+        if (FAILED(hr))
+            return recordFailure(hr, "InitializeFromFilename");
+        stream = fileStream;
     }
 
     hr = encoder->Initialize(stream.Get(), WICBitmapEncoderNoCache);
@@ -6303,6 +6303,51 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
     return PVC_OK;
 }
 
+// Keep the existing WIC encoder/resize path for legacy memory-output callers.
+// Encoding completes in a seekable stream before callbacks receive any bytes.
+static PVCODE SaveFrameToCallback(ImageHandle& handle, int imageIndex, const GuidMapping& mapping,
+                                  LPPVSaveImageInfo info, TProgressProc progress, void* context)
+{
+    if (info == nullptr || info->WriteFunc == nullptr || info->SeekFunc == nullptr)
+        return PVC_UNSUP_OUT_PARAMS;
+    if (progress != nullptr && progress(0, context))
+        return PVC_CANCELED;
+    Microsoft::WRL::ComPtr<IStream> stream;
+    if (FAILED(CreateStreamOnHGlobal(nullptr, TRUE, &stream)))
+        return PVC_OUT_OF_MEMORY;
+    const PVCODE encoded = SaveFrame(handle, imageIndex, nullptr, mapping, info, stream.Get());
+    if (encoded != PVC_OK)
+        return encoded;
+    STATSTG stat = {};
+    if (FAILED(stream->Stat(&stat, STATFLAG_NONAME)) || stat.cbSize.QuadPart == 0 ||
+        stat.cbSize.QuadPart > std::numeric_limits<DWORD>::max())
+        return PVC_WRITING_ERROR;
+    LARGE_INTEGER start = {};
+    if (FAILED(stream->Seek(start, STREAM_SEEK_SET, nullptr)) || info->SeekFunc(context, 0, FILE_BEGIN) != 0)
+        return PVC_WRITING_ERROR;
+    try
+    {
+        std::vector<BYTE> buffer(64 * 1024);
+        ULONGLONG written = 0;
+        while (written < stat.cbSize.QuadPart)
+        {
+            if (progress != nullptr && progress(static_cast<int>(written * 100 / stat.cbSize.QuadPart), context))
+                return PVC_CANCELED;
+            const ULONG count = static_cast<ULONG>(std::min<ULONGLONG>(buffer.size(), stat.cbSize.QuadPart - written));
+            ULONG read = 0;
+            if (FAILED(stream->Read(buffer.data(), count, &read)) || read != count ||
+                info->WriteFunc(context, buffer.data(), read) != read)
+                return PVC_WRITING_ERROR;
+            written += read;
+        }
+    }
+    catch (const std::bad_alloc&)
+    {
+        return PVC_OUT_OF_MEMORY;
+    }
+    return progress != nullptr && progress(100, context) ? PVC_CANCELED : PVC_OK;
+}
+
 DWORD MapPixelFormatToColors(const GUID& guid)
 {
     if (guid == GUID_WICPixelFormat1bppIndexed)
@@ -7004,11 +7049,11 @@ PVCODE WINAPI Backend::sPVGetHandles2(LPPVHandle Img, LPPVImageHandles* pHandles
     return PVC_OK;
 }
 
-PVCODE WINAPI Backend::sPVSaveImage(LPPVHandle Img, const char* outFileName, LPPVSaveImageInfo pSii, TProgressProc /*progress*/,
-                                    void* /*appSpecific*/, int imageIndex)
+PVCODE WINAPI Backend::sPVSaveImage(LPPVHandle Img, const char* outFileName, LPPVSaveImageInfo pSii, TProgressProc progress,
+                                    void* appSpecific, int imageIndex)
 {
     auto handle = FromHandle(Img);
-    if (!handle)
+    if (!handle || !pSii)
     {
         return PVC_INVALID_HANDLE;
     }
@@ -7017,7 +7062,7 @@ PVCODE WINAPI Backend::sPVSaveImage(LPPVHandle Img, const char* outFileName, LPP
     {
         return PVC_EXCEPTION;
     }
-    if (!outFileName)
+    if ((pSii->Flags & PVSF_USERDEFINED_OUTPUT) == 0 && (!outFileName || !*outFileName))
     {
         return PVC_UNSUP_OUT_PARAMS;
     }
@@ -7035,6 +7080,8 @@ PVCODE WINAPI Backend::sPVSaveImage(LPPVHandle Img, const char* outFileName, LPP
     {
         return PVC_UNSUP_OUT_PARAMS;
     }
+    if ((pSii->Flags & PVSF_USERDEFINED_OUTPUT) != 0)
+        return SaveFrameToCallback(*handle, imageIndex, *mapping, pSii, progress, appSpecific);
     return SaveFrame(*handle, imageIndex, fileName.c_str(), *mapping, pSii);
 }
 

@@ -328,7 +328,7 @@ public:
 };
 
 CMainWindow::CMainWindow()
-    : ChangeNotifArray(3, 5), LeftPanelTabs(1, 1, dtNoDelete), RightPanelTabs(1, 1, dtNoDelete)
+    : LeftPanelTabs(1, 1, dtNoDelete), RightPanelTabs(1, 1, dtNoDelete)
 {
     HANDLES(InitializeCriticalSection(&DispachChangeNotifCS));
     HANDLES(InitializeCriticalSection(&DetachedTabsCS));
@@ -4014,7 +4014,7 @@ void CMainWindow::CloseDetachedTab()
 void CMainWindow::CloseDetachedTab(CFilesWindow* panel)
 {
     CDetachedTabInfo* info = FindDetachedTab(panel);
-    if (info == NULL)
+    if (info == NULL || info->Panel == NULL || info->Panel->FilesActionInProgress)
         return;
     CPanelSide side = info->OriginalSide;
     if (ReattachDetachedTab(panel, side, FALSE))

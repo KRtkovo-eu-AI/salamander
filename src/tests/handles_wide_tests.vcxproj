@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{8DECDDB6-5D25-4AF4-9EE6-FD6D42E704C0}</ProjectGuid>
+    <RootNamespace>handleswidetests</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Release'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <OutDir>$(OPENSAL_BUILD_DIR)tests\$(Configuration)_$(Platform)\</OutDir>
+    <IntDir>$(OPENSAL_BUILD_DIR)tests\$(Configuration)_$(Platform)\HandlesWideIntermediate\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup>
+    <CoreHandlesDir Condition="'$(CoreHandlesDir)'==''">$(MSBuildThisFileDirectory)..\common</CoreHandlesDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <AdditionalIncludeDirectories>handles_wide_test_support;$(CoreHandlesDir);..\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)'=='Debug'">HANDLES_ENABLE;TRACE_ENABLE;TRACE_IGNORE_AUTOCLEAR;NOMINMAX;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <WarningLevel>Level4</WarningLevel>
+      <TreatWarningAsError>true</TreatWarningAsError>
+    </ClCompile>
+    <Link><AdditionalDependencies>User32.lib;Gdi32.lib;Advapi32.lib;Comctl32.lib;Shell32.lib;Ole32.lib;%(AdditionalDependencies)</AdditionalDependencies></Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="handles_wide_tests.cpp" />
+    <ClCompile Include="handles_wide_header_probe.cpp" />
+    <ClCompile Include="$(CoreHandlesDir)\handles.cpp"><WarningLevel>Level3</WarningLevel></ClCompile>
+    <ClCompile Include="..\common\trace.cpp"><WarningLevel>Level3</WarningLevel></ClCompile>
+    <ClCompile Include="..\common\messages.cpp"><WarningLevel>Level3</WarningLevel></ClCompile>
+    <ClCompile Include="..\common\widepath.cpp"><WarningLevel>Level3</WarningLevel></ClCompile>
+  </ItemGroup>
+  <ItemGroup><ResourceCompile Include="handles_wide_tests.rc" /></ItemGroup>
+  <ItemGroup><ClInclude Include="handles_wide_test_support\precomp.h" /></ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

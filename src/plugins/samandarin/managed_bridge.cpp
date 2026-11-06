@@ -2,10 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-06 | Combine native exit gates with restartable CLR hosting. | Keep operation-owned assembly paths and upstream loadability diagnostics without stopping the process CLR. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // | 2026-11-04 | Keep the CLR loaded after Samandarin shutdown and report Start failures. | ICLRRuntimeHost::Stop prevents later managed plugins from starting in this process. | | Grok 4.7 |
 
 #include "precomp.h"
 #include "managed_bridge.h"
+#include "native_shutdown.h"
 #include "../../darkmode.h"
 #include "../../common/winlibdpi.h"
 
@@ -20,8 +22,9 @@ extern HINSTANCE DLLInstance;
 namespace
 {
 ICLRRuntimeHost* gRuntimeHost = nullptr;
-std::wstring gAssemblyPath;
-std::wstring gCurrentVersion;
+CSamandarinNativeCallGate gNativeCallbacks;
+std::wstring BuildAssemblyPath(HWND parent);
+std::wstring BuildCurrentVersion();
 bool gIsInitialized = false;
 SRWLOCK gRuntimeLock = SRWLOCK_INIT;
 HANDLE gInitializationThread = nullptr;
@@ -74,7 +77,7 @@ std::wstring BuildArgument(const wchar_t* command, HWND parent, const wchar_t* p
 
 bool ExecuteCommand(const wchar_t* command, HWND parent, const wchar_t* payload)
 {
-    if (gRuntimeHost == nullptr)
+    if (gRuntimeHost == nullptr || gNativeCallbacks.IsClosing())
     {
         return false;
     }
@@ -83,7 +86,10 @@ bool ExecuteCommand(const wchar_t* command, HWND parent, const wchar_t* payload)
     DWORD returnValue = 0;
     std::wstring argument = BuildArgument(command, owner, payload);
     CWinLibDPIContext dpiContext;
-    HRESULT hr = gRuntimeHost->ExecuteInDefaultAppDomain(gAssemblyPath.c_str(), kManagedType, kManagedMethod,
+    const std::wstring assemblyPath = BuildAssemblyPath(owner);
+    if (assemblyPath.empty())
+        return false;
+    HRESULT hr = gRuntimeHost->ExecuteInDefaultAppDomain(assemblyPath.c_str(), kManagedType, kManagedMethod,
                                                          argument.c_str(), &returnValue);
     if (FAILED(hr))
     {
@@ -131,38 +137,13 @@ void ShowClrStartError(HWND parent, HRESULT hr)
     ShowLoadError(parent, message);
 }
 
-std::wstring QueryPluginDirectory()
+std::wstring BuildAssemblyPath(HWND parent)
 {
-    DWORD capacity = 32768;
-    std::wstring modulePath(static_cast<size_t>(capacity), L'\0');
-    for (;;)
-    {
-        const DWORD length = GetModuleFileNameW(DLLInstance, &modulePath[0], capacity);
-        if (length == 0)
-        {
-            return std::wstring();
-        }
-        if (length < capacity)
-        {
-            modulePath.resize(length);
-            break;
-        }
-        if (capacity >= 1024u * 1024u)
-        {
-            return std::wstring();
-        }
-        capacity *= 2;
-        modulePath.resize(capacity);
-    }
-
-    const size_t slash = modulePath.find_last_of(L'\\');
-    if (slash != std::wstring::npos)
-    {
-        modulePath.resize(slash + 1);
-    }
-    return modulePath;
+    std::wstring path = GetSamandarinManagedAssemblyPath(DLLInstance);
+    if (path.empty())
+        ShowLoadError(parent, L"Failed to determine plugin path.");
+    return path;
 }
-
 std::wstring BuildCurrentVersion()
 {
     std::string version = VERSINFO_SALAMANDER_VERSION;
@@ -205,8 +186,6 @@ void ResetRuntimeLocked()
         gRuntimeHost->Release();
         gRuntimeHost = nullptr;
     }
-    gAssemblyPath.clear();
-    gCurrentVersion.clear();
 }
 
 bool InitializeRuntimeLocked(HWND parent)
@@ -263,22 +242,9 @@ bool InitializeRuntimeLocked(HWND parent)
         return false;
     }
 
-    const std::wstring moduleDirectory = QueryPluginDirectory();
-    if (moduleDirectory.empty())
-    {
-        ShowLoadError(parent, L"Failed to determine plugin path.");
-        ResetRuntimeLocked();
-        return false;
-    }
-
-    gAssemblyPath = moduleDirectory;
-    gAssemblyPath.append(L"Samandarin.Managed.dll");
-
-    gCurrentVersion = BuildCurrentVersion();
-
     if (!gIsInitialized)
     {
-        gIsInitialized = ExecuteCommand(L"Initialize", parent, gCurrentVersion.c_str());
+        gIsInitialized = ExecuteCommand(L"Initialize", parent, BuildCurrentVersion().c_str());
         if (!gIsInitialized)
         {
             ResetRuntimeLocked();
@@ -311,8 +277,61 @@ void WaitForBackgroundInitialization()
 }
 } // namespace
 
+bool ManagedBridge_IsProcessExiting()
+{
+    return gNativeCallbacks.IsClosing();
+}
+
+CManagedBridgeNativeCall::CManagedBridgeNativeCall()
+{
+    Allowed = gNativeCallbacks.Enter();
+}
+CManagedBridgeNativeCall::~CManagedBridgeNativeCall()
+{
+    gNativeCallbacks.Leave();
+}
+extern "C" __declspec(dllexport) BOOL __stdcall Samandarin_PrepareForProcessExit(DWORD timeoutMs, BOOL finalize)
+{
+    // Called on the same host UI thread that owns Begin/EnsureInitialized.
+    // On timeout no state changes: the host keeps the plug-in and may retry.
+    if (!WaitForSamandarinInitialization(gInitializationThread, timeoutMs) ||
+        !TryAcquireSRWLockExclusive(&gRuntimeLock))
+        return FALSE;
+    if (!finalize)
+    {
+        // Readiness must precede unloading any other CLR-using plug-in.
+        // A cancelled close must leave every resource and callback admitted.
+        ReleaseSRWLockExclusive(&gRuntimeLock);
+        return TRUE;
+    }
+    if (!gNativeCallbacks.TryClose())
+    {
+        ReleaseSRWLockExclusive(&gRuntimeLock);
+        return FALSE; // Do not clear host resources under an admitted callback.
+    }
+    if (gInitializationThread != nullptr)
+    {
+        CloseHandle(gInitializationThread);
+        gInitializationThread = nullptr;
+        gInitializationThreadId = 0;
+    }
+    // Release only our native hosting reference. Do not call managed Shutdown
+    // or CLR Stop on the existing process-close path.
+    if (gRuntimeHost != nullptr)
+    {
+        gRuntimeHost->Release();
+        gRuntimeHost = nullptr;
+    }
+    gIsInitialized = false;
+    InterlockedExchange(&gInitializationResult, 0);
+    ReleaseSRWLockExclusive(&gRuntimeLock);
+    HANDLES_FINALIZE_FOR_PROCESS_EXIT();
+    return TRUE;
+}
 bool ManagedBridge_BeginInitialize(HWND parent)
 {
+    if (ManagedBridge_IsProcessExiting())
+        return false;
     AcquireSRWLockExclusive(&gRuntimeLock);
     if (gIsInitialized || gInitializationThread != nullptr)
     {
@@ -329,6 +348,8 @@ bool ManagedBridge_BeginInitialize(HWND parent)
 
 bool ManagedBridge_EnsureInitialized(HWND parent)
 {
+    if (ManagedBridge_IsProcessExiting())
+        return false;
     WaitForBackgroundInitialization();
     AcquireSRWLockExclusive(&gRuntimeLock);
     if (gInitializationThread != nullptr)
@@ -365,7 +386,7 @@ bool ManagedBridge_ShowConfiguration(HWND parent)
     {
         return false;
     }
-    return ExecuteCommand(L"Configure", parent, gCurrentVersion.c_str());
+    return ExecuteCommand(L"Configure", parent, BuildCurrentVersion().c_str());
 }
 
 void ManagedBridge_NotifyColorsChanged()
@@ -385,7 +406,7 @@ bool ManagedBridge_CheckNow(HWND parent)
         return false;
     }
 
-    return ExecuteCommand(L"CheckNow", parent, gCurrentVersion.c_str());
+    return ExecuteCommand(L"CheckNow", parent, BuildCurrentVersion().c_str());
 }
 
 bool ManagedBridge_ShowPluginUpdates(HWND parent)
@@ -395,11 +416,14 @@ bool ManagedBridge_ShowPluginUpdates(HWND parent)
         return false;
     }
 
-    return ExecuteCommand(L"PluginUpdates", parent, gCurrentVersion.c_str());
+    return ExecuteCommand(L"PluginUpdates", parent, BuildCurrentVersion().c_str());
 }
 
 extern "C" __declspec(dllexport) UINT32 __stdcall Samandarin_GetCurrentColor(int color)
 {
+    CManagedBridgeNativeCall nativeCall;
+    if (!nativeCall.IsAllowed())
+        return 0;
     if (SalamanderGeneral == nullptr)
     {
         return 0;
@@ -410,17 +434,26 @@ extern "C" __declspec(dllexport) UINT32 __stdcall Samandarin_GetCurrentColor(int
 
 extern "C" __declspec(dllexport) void __stdcall Samandarin_SetDarkModeState(BOOL enabled)
 {
+    CManagedBridgeNativeCall nativeCall;
+    if (!nativeCall.IsAllowed())
+        return;
     DarkModeSetEnabled(enabled != FALSE);
 }
 
 extern "C" __declspec(dllexport) void __stdcall Samandarin_ApplyDarkModeTree(HWND hwnd)
 {
+    CManagedBridgeNativeCall nativeCall;
+    if (!nativeCall.IsAllowed())
+        return;
     DarkModeAllowDarkScrollbars(hwnd);
     DarkModeApplyTree(hwnd);
 }
 
 extern "C" __declspec(dllexport) void __stdcall Samandarin_UpdateListViewDarkMode(HWND hwnd)
 {
+    CManagedBridgeNativeCall nativeCall;
+    if (!nativeCall.IsAllowed())
+        return;
     DarkModeAllowDarkScrollbars(hwnd);
     DarkModeApplyTree(hwnd);
 
@@ -440,6 +473,9 @@ extern "C" __declspec(dllexport) void __stdcall Samandarin_UpdateListViewDarkMod
 
 extern "C" __declspec(dllexport) int __stdcall Samandarin_GetLanguageModulePath(wchar_t* buffer, int bufferLength)
 {
+    CManagedBridgeNativeCall nativeCall;
+    if (!nativeCall.IsAllowed())
+        return 0;
     if (HLanguage == nullptr || buffer == nullptr || bufferLength <= 0)
     {
         return 0;
@@ -458,6 +494,9 @@ extern "C" __declspec(dllexport) int __stdcall Samandarin_GetLanguageModulePath(
 
 extern "C" __declspec(dllexport) int __stdcall Samandarin_LoadString(int resourceId, wchar_t* buffer, int bufferLength)
 {
+    CManagedBridgeNativeCall nativeCall;
+    if (!nativeCall.IsAllowed())
+        return 0;
     if (HLanguage == nullptr || buffer == nullptr || bufferLength <= 0)
     {
         return 0;

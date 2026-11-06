@@ -1,0 +1,89 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <filesystem>
+#define CALL_STACK_MESSAGE3(a,b,c) ((void)0)
+#define OPTIMIZE_MENUID 1
+#define MENU_EVENT_DISK 1
+#define MENU_EVENT_FILES_SELECTED 2
+#define IDS_PLUGINNAME 1
+#define IDS_LOWMEM 2
+#define IDS_OPTPROGTITLE 3
+#define IDS_OPTIMIZING 4
+#define IDD_OPTIMIZE 5
+#define MSGBOX_ERROR 1
+#define OP_WRITE_MODE (GENERIC_READ|GENERIC_WRITE)
+#define OP_EXISTING_ONLY 1
+#define HE_RETRY 1
+#define IDS_PAK_ERROPEN2 1
+#define IDS_PAK_ERROPEN 2
+#define IDS_PAK_ERRGETFILESIZE 3
+#define IDS_PAK_INVLAIDDATA 4
+#define IDS_PAK_LOWMEMORY 5
+static std::vector<std::string> Opened;
+std::vector<std::string> Notified;
+static std::vector<DWORD> Modes;
+static int Optimized=0,Closed=0,Released=0,DialogResult=IDOK;
+static bool ClearPanelOnOpen=false;
+struct CSalamanderForOperationsAbstract {
+ void OpenProgressDialog(const char*,BOOL,void*,BOOL){}void CloseProgressDialog(){}
+ void ProgressDialogAddText(const char*,BOOL){}void ProgressSetTotalSize(CQuadWord,CQuadWord){}
+};
+struct COptDlgData {unsigned PakSize=100,ValData=50;};
+struct CPakIfaceAbstract {
+ void Init(void*){}BOOL OpenPak(const char* path,DWORD mode){Opened.push_back(path);Modes.push_back(mode);if(ClearPanelOnOpen){Window.Left.Clear();ClearPanelOnOpen=false;}return TRUE;}
+ void GetOptimizedState(unsigned* a,unsigned* b){*a=100;*b=50;}
+ BOOL InitOptimalization(unsigned* p){*p=100;return TRUE;}void OptimizePak(){++Optimized;}void ClosePak(){++Closed;}
+};
+static CPakIfaceAbstract MockPak;
+static CPakIfaceAbstract* PAKGetIFace(){return &MockPak;}
+static void PAKReleaseIFace(CPakIfaceAbstract*){++Released;}
+struct CPluginInterfaceForArchiver {CSalamanderForOperationsAbstract* Salamander=nullptr;CPakIfaceAbstract* PakIFace=nullptr;const char* PakFileName=nullptr;};
+static CPluginInterfaceForArchiver InterfaceForArchiver;
+struct CPakCallbacks{explicit CPakCallbacks(void*){}};
+struct CPluginInterfaceForMenuExt {BOOL ExecuteMenuItem(CSalamanderForOperationsAbstract*,HWND,int,DWORD);};
+static const char* LoadStr(int id){return id==IDS_OPTPROGTITLE?"Optimize %s":"message";}
+static HINSTANCE HLanguage=nullptr;
+static INT_PTR CALLBACK OptimizeDlgProc(HWND,UINT,WPARAM,LPARAM){return 0;}
+static INT_PTR FixtureDialogBoxParam(HINSTANCE,LPCSTR,HWND,DLGPROC,LPARAM){return DialogResult;}
+#undef DialogBoxParam
+#define DialogBoxParam FixtureDialogBoxParam
+@@TITLE@@
+@@MENU@@
+@@OPENHELPER@@
+struct CPackHeader {DWORD Pack,DirOffset,DirSize;};
+struct CPackEntry {char FileName[56];DWORD Offset,Size;};
+class CPakIface {
+public:
+ HANDLE PakFile=INVALID_HANDLE_VALUE;DWORD PakSize=0;unsigned DirSize=0;BOOL EmptyPak=FALSE;CPackHeader Header={};CPackEntry* PakDir=nullptr;
+ BOOL HandleError(int,int,...){return FALSE;}const char* LastErrorString(DWORD,char*){return "error";}
+ BOOL SafeRead(HANDLE file,void* p,DWORD n){DWORD read=0;return ReadFile(file,p,n,&read,nullptr)&&read==n;}
+ BOOL SafeSeek(HANDLE file,DWORD n){return SetFilePointer(file,static_cast<LONG>(n),nullptr,FILE_BEGIN)!=INVALID_SET_FILE_POINTER;}
+ BOOL OpenPak(const char*,DWORD);BOOL ClosePak();
+};
+@@OPEN@@
+@@CLOSE@@
+static void MenuReset(){Reset();Opened.clear();Modes.clear();Notified.clear();Optimized=Closed=Released=0;DialogResult=IDOK;ClearPanelOnOpen=false;}
+static std::string U(const wchar_t* p){return SalamanderDiskSelection::Utf8FromWide(p);}
+int wmain(int argc,wchar_t** argv){
+ if(argc!=2)return 2;_CrtSetReportMode(_CRT_ASSERT,_CRTDBG_MODE_FILE);_CrtSetReportFile(_CRT_ASSERT,_CRTDBG_FILE_STDERR);
+ TestWindow=CreateWindowExW(0,L"STATIC",L"",0,0,0,0,0,HWND_MESSAGE,nullptr,GetModuleHandleW(nullptr),nullptr);MainThreadID=GetCurrentThreadId();
+ CPluginInterfaceForMenuExt menu;CSalamanderForOperationsAbstract operations;
+ MenuReset();Populate();ClearPanelOnOpen=true;
+ Check(menu.ExecuteMenuItem(&operations,nullptr,OPTIMIZE_MENUID,MENU_EVENT_DISK|MENU_EVENT_FILES_SELECTED)!=FALSE,"actual Optimize command accepts disk snapshot");
+ Check(Opened==std::vector<std::string>{"C:\\root\\alpha\\same.txt",U(L"C:\\root\\žluťoučký東京\\same.txt")},"duplicate names preserve exact owned paths after listing destruction");
+ Check(Optimized==2&&Closed==2&&Released==1&&InterfaceForArchiver.PakIFace==nullptr&&InterfaceForArchiver.PakFileName==nullptr,"all archives processed and interface lifetime cleaned");
+ Check(Modes.size()==2&&Modes[0]==(OP_WRITE_MODE|OP_EXISTING_ONLY)&&Modes[1]==Modes[0],"Optimize never asks to create missing archive");
+ Check(Notified==std::vector<std::string>{"C:\\root\\alpha",U(L"C:\\root\\žluťoučký東京")},"each actual parent receives change notification");
+ MenuReset();Populate();Window.Left.Missing=true;Check(!menu.ExecuteMenuItem(&operations,nullptr,1,MENU_EVENT_DISK)&&Opened.empty(),"authoritative identity failure never falls back to root basename");
+ MenuReset();Window.Left.Add(L"folder",L"C:\\root\\folder",L"folder",false,true);Check(menu.ExecuteMenuItem(&operations,nullptr,1,MENU_EVENT_DISK)&&Opened.empty(),"focused directory skipped without enumeration loop");
+ MenuReset();Populate();for(auto& f:Window.Left.Files->Data)f.Selected=FALSE;Window.Left.Focus=2;DialogResult=IDCANCEL;Check(menu.ExecuteMenuItem(&operations,nullptr,1,MENU_EVENT_DISK)&&Opened.size()==1&&Opened[0]==U(L"C:\\root\\žluťoučký東京\\same.txt")&&Optimized==0&&Closed==1&&Notified.empty(),"focused exact item and cancelled dialog preserve archive");
+ MenuReset();General.ArchivePanel=true;General.ArchivePath="C:\\root\\old.pak\\inside";Check(menu.ExecuteMenuItem(&operations,nullptr,1,0)&&Opened==std::vector<std::string>{"C:\\root\\old.pak"},"archive-panel path contract remains unchanged");
+ MenuReset();auto& panel=Window.Left;panel.Root=L"\\\\server\\share";std::wstring unc=L"\\\\server\\share\\東京\\same.pak";panel.Add(L"same.pak",unc,L"東京\\same.pak",true);Check(menu.ExecuteMenuItem(&operations,nullptr,1,MENU_EVENT_DISK)&&Opened[0]==U(unc.c_str()),"UNC Unicode selection passes exact archive identity");
+ std::wstring root=argv[1],directory=root;for(int i=0;i<4;++i)directory+=L"\\東京_"+std::wstring(70,L'x');std::wstring extended=L"\\\\?\\"+directory;std::filesystem::create_directories(extended);std::wstring source=directory+L"\\č_same.pak";std::string text=U(source.c_str());
+ CPakIface engine;Check(!engine.OpenPak(text.c_str(),OP_WRITE_MODE|OP_EXISTING_ONLY)&&GetFileAttributesW((L"\\\\?\\"+source).c_str())==INVALID_FILE_ATTRIBUTES,"actual OpenPak missing long Unicode input does not create a file");
+ Check(engine.OpenPak(text.c_str(),OP_WRITE_MODE)&&engine.EmptyPak,"ordinary pack caller retains OPEN_ALWAYS creation");engine.ClosePak();
+ Check(engine.OpenPak(text.c_str(),OP_WRITE_MODE|OP_EXISTING_ONLY)&&engine.EmptyPak,"actual OpenPak reads existing long Unicode path");engine.ClosePak();
+ Check(CreateFileLongPath("",GENERIC_READ,FILE_SHARE_READ,OPEN_EXISTING,0)==INVALID_HANDLE_VALUE&&GetLastError()==ERROR_INVALID_NAME,"empty engine path rejected");
+ Check(OptimizeProgressTitle("Optimize %s %% %n","č%n.pak")=="Optimize č%n.pak % %n","archive name is data in localized title");
+ std::filesystem::remove_all(L"\\\\?\\"+root);DestroyWindow(TestWindow);printf("PAK Optimize snapshot: %d checks, %d failures.\n",Checks,Failures);return Failures?1:0;
+}

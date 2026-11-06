@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <limits.h>
+
 // Use the _DEBUG or __ARRAY_DEBUG defines to enable various error state checking. Errors
 // are displayed using TRACE_E and TRACE_C macros.
 // Use the SAFE_ALLOC define to remove source code with testing if memory allocation
@@ -140,6 +142,9 @@ public:
     void Detach(int index);            // detach item at 'index' possition (destructor is NOT called), move remaining items
     void Detach(int index, int count); // detach 'count' of items at 'index' possition (destructors are NOT called), move remaining items
 
+    // Optional capacity reservation: failure leaves contents, state and growth
+    // policy untouched, so callers can continue with ordinary Add/Insert.
+    BOOL Reserve(int capacity);
     int SetDelta(int delta); // change 'Delta', return real used value; NOTE: can be used only for empty array
 
 protected:
@@ -894,8 +899,8 @@ void TDirectArray<DATA_TYPE>::DestroyMembers()
         if (Count > 0)
             for (int i = 0; i < Count; i++)
                 CallDestructor(Data[i]);
-        else
-            return;
+        else if (Available <= Base || State != etNone)
+            return; // an empty reserved array still needs to release excess capacity
         Count = 0;
         if (Available == Base)
             return;
@@ -923,7 +928,7 @@ void TDirectArray<DATA_TYPE>::DetachMembers()
     if (State == etNone)
     {
 #endif
-        if (Count == 0)
+        if (Count == 0 && (Available <= Base || State != etNone))
             return;
         Count = 0;
         if (Available == Base)
@@ -1072,6 +1077,29 @@ void TDirectArray<DATA_TYPE>::Detach(int index, int count)
     else
         TRACE_E("Incorrect call to array method (State = " << State << ").");
 #endif
+}
+
+template <class DATA_TYPE>
+BOOL TDirectArray<DATA_TYPE>::Reserve(int capacity)
+{
+    if (State != etNone || capacity < 0)
+        return FALSE;
+    if (capacity <= Available)
+        return TRUE;
+    // Delete/ReduceArray rely on capacities staying on Base + n * Delta.
+    const size_t extra = (size_t)capacity - (size_t)Base;
+    const size_t steps = extra / (size_t)Delta + (extra % (size_t)Delta != 0);
+    if (steps > ((size_t)INT_MAX - (size_t)Base) / (size_t)Delta)
+        return FALSE;
+    const int roundedCapacity = Base + (int)(steps * (size_t)Delta);
+    if ((size_t)roundedCapacity > (size_t)-1 / sizeof(DATA_TYPE))
+        return FALSE;
+    DATA_TYPE* reserved = (DATA_TYPE*)realloc(Data, (size_t)roundedCapacity * sizeof(DATA_TYPE));
+    if (reserved == NULL)
+        return FALSE;
+    Data = reserved;
+    Available = roundedCapacity;
+    return TRUE;
 }
 
 template <class DATA_TYPE>

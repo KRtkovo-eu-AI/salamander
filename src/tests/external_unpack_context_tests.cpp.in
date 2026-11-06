@@ -1,0 +1,149 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual entire external unpack function; process, temporary I/O and MoveFiles are explicit doubles.
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <cstdio>
+#include <cstring>
+#include <algorithm>
+#include <functional>
+#include <new>
+#include <cstdlib>
+#include <climits>
+#define SAL_MAX_PATH 32768
+#define SAL_MAX_EXTENDED_PATH 32768
+enum CPanelSide {cpsLeft,cpsRight};
+enum {ptDisk,ptZIPArchive,ptPluginFS};
+#define PATH_TYPE_WINDOWS 1 // unchanged public spl_gen.h value; checked by generator
+struct CPluginData;
+struct CPluginDataInterfaceAbstract;
+struct Binding { const CPluginDataInterfaceAbstract* Interface=nullptr; BOOL Contains(const CPluginDataInterfaceAbstract* p) const {return p!=nullptr&&p==Interface;} };
+static int Moves=0;
+struct CFilesWindow
+{
+    BOOL MoveFiles(const char*,const char*,const char*,const char*) {++Moves;return TRUE;}
+    Binding PluginData; CPluginData* Owner=nullptr; const char* Archive="source.zip";
+    CPluginData* GetPluginDataForPluginIface() {return Owner;}
+    const char* GetZIPArchive() const {return Archive;}
+    int Kind=ptDisk; ULONGLONG Tab=1, Generation=7;
+    BOOL Branch=FALSE, Scanning=FALSE;
+    std::wstring Root=L"C:\\target";
+    mutable unsigned AccessorReads=0;
+    BOOL Is(int kind) const {++AccessorReads;return Kind==kind;}
+    BOOL IsBranchView() const {++AccessorReads;return Branch;}
+    BOOL IsBranchViewScanning() const {++AccessorReads;return Scanning;}
+    ULONGLONG GetPanelTabId() const {++AccessorReads;return Tab;}
+    ULONGLONG GetBranchViewGeneration() const {++AccessorReads;return Generation;}
+    const wchar_t* GetPathW() const {++AccessorReads;return Root.c_str();}
+};
+struct CMainWindow
+{
+    HWND HWindow=nullptr;
+    CFilesWindow *LeftPanel=nullptr,*RightPanel=nullptr;
+    std::vector<CFilesWindow*> Left,Right,Detached;
+    int GetPanelTabCount(CPanelSide side) const {return (int)(side==cpsLeft?Left:Right).size();}
+    CFilesWindow* GetPanelTabAt(CPanelSide side,int index) const {return (side==cpsLeft?Left:Right).at(index);}
+    int GetDetachedTabCount() const {return (int)Detached.size();}
+    CFilesWindow* GetDetachedTabAt(int index) const {return Detached.at(index);}
+};
+@@ACTION@@
+@@WIDE@@
+@@SNAPSHOT@@
+
+static int Checks=0,Failures=0,Temps=0,ListsDeleted=0,Cleanups=0,Executions=0,FreePrompts=0;
+static void Check(bool ok,const char* why){++Checks;if(!ok){++Failures;printf("FAIL: %s\n",why);}}
+static CMainWindow* MainWindow=nullptr;
+struct CQuadWord{unsigned long long Value;CQuadWord(unsigned lo=0,unsigned hi=0):Value(((unsigned long long)hi<<32)|lo){} CQuadWord& operator+=(const CQuadWord& other){Value+=other.Value;return *this;}};
+struct TPackErrorTable {};
+using SalEnumSelection=const char*(*)(HWND,int,BOOL*,CQuadWord*,void*,void*,int*);
+enum {SALENUM_CANCEL=-1,IDS_PACKERR_GENERAL=1,IDS_PACKERR_FILE,IDS_PACKERR_TITLE,IDS_PACKERR_CMDLNERR,IDS_PACKERR_CMDLNLEN,IDS_PACKERR_IDIRERR,IDS_PACKERR_MOVE};
+#define PACK_CMDLINE_MAXLEN 1040
+static std::function<void()> OnFree,OnExecute;
+static BOOL ExecuteOK=TRUE;
+static std::wstring TempRoot=L"C:\\own-temp\\";
+static std::string UsedListRoot;
+static UINT OverrideACP=0;
+static UINT TestACP(){return OverrideACP?OverrideACP:GetACP();}
+static DWORD OwnTempPath(DWORD capacity,wchar_t* output){if(TempRoot.empty()){SetLastError(ERROR_PATH_NOT_FOUND);return 0;}if(TempRoot.size()>=capacity)return (DWORD)TempRoot.size()+1;wcscpy_s(output,capacity,TempRoot.c_str());return (DWORD)TempRoot.size();}
+#define GetACP TestACP
+#define GetTempPathW OwnTempPath
+
+static BOOL SalGetTempFileName(const char* root,const char*,char* output,BOOL file){if(file)UsedListRoot=root?root:"<legacy-default>";++Temps;strcpy(output,file?"C:\\own-list.tmp":"C:\\own-extract.tmp");return TRUE;}
+static BOOL DeleteOwnList(const char*){++ListsDeleted;return TRUE;}
+static BOOL RemoveOwnDir(const char*){++Cleanups;SetLastError(ERROR_ACCESS_DENIED);return TRUE;}
+static FILE* OpenOwnList(const char*,const char*){return reinterpret_cast<FILE*>(1);}
+static int WriteOwnList(FILE*,const char*,...){return 1;}
+static int CloseOwnList(FILE*){return 0;}
+#undef DeleteFile
+#define DeleteFile DeleteOwnList
+#undef RemoveDirectory
+#define RemoveDirectory RemoveOwnDir
+#define RemoveTemporaryDir RemoveOwnDir
+#define fopen OpenOwnList
+#define fprintf WriteOwnList
+#define fclose CloseOwnList
+#define CALL_STACK_MESSAGE9(...) ((void)0)
+#define TRACE_E(...) ((void)0)
+#define HANDLES_Q(x) (x)
+#define HANDLES(x) (x)
+static const char* LoadStr(int){return "localized diagnostic";}
+static const char* GetErrorText(DWORD){return "localized error";}
+static BOOL ErrorHandler(HWND,WORD,...){return FALSE;}
+static auto PackErrorHandlerPtr=ErrorHandler;
+static BOOL TestFreeSpace(HWND,const char*,CQuadWord,const char*){++FreePrompts;if(OnFree)OnFree();return TRUE;}
+static BOOL PackExpandCmdLine(const char*,const char*,const char*,const char*,const char*,char* line,int,void*){strcpy(line,"external args");return TRUE;}
+static BOOL PackExpandInitDir(const char*,const char*,const char*,const char*,char* result,int){strcpy(result,"C:\\target");return TRUE;}
+static BOOL PackExecute(HWND,const char*,const char*,TPackErrorTable*){++Executions;if(OnExecute)OnExecute();return ExecuteOK;}
+@@DECL@@
+@@ACTUAL@@
+static const char* EmptySelection(HWND,int,BOOL*,CQuadWord*,void*,void*,int* error){*error=0;return nullptr;}
+int main(){
+ for(int phase=0;phase<3;++phase)for(int scenario=0;scenario<13;++scenario){
+  CFilesWindow source,target,other;source.Tab=2;target.Tab=3;other.Tab=4;source.Root=L"C:\\source";target.Root=L"C:\\target";
+  CMainWindow main;MainWindow=&main;main.Left={&source};main.Right={&target};main.LeftPanel=&source;main.RightPanel=&target;
+  CFilesActionDiskTarget src,dst;Check(src.Capture(&main,&source,TRUE)&&dst.Capture(&main,&target,TRUE),"capture actual source/target snapshots before external wait");
+  unsigned retiredReads=0;
+  auto mutate=[&]{switch(scenario){case 1:main.Left.clear();main.LeftPanel=&other;break;case 2:source.Root=L"C:\\changed";break;case 3:++source.Tab;break;case 4:main.Left.push_back(&other);main.LeftPanel=&other;break;case 5:main.Right.clear();main.RightPanel=&other;break;case 6:target.Root=L"C:\\changed";break;case 7:++target.Tab;break;case 8:target.Scanning=TRUE;break;case 9:target.Kind=ptPluginFS;break;case 10:main.Right.push_back(&other);main.RightPanel=&other;break;case 11:source.Branch=TRUE;break;case 12:source.Scanning=TRUE;break;}if(scenario==1)retiredReads=source.AccessorReads;};
+  Temps=ListsDeleted=Cleanups=Executions=FreePrompts=Moves=0;OnFree=nullptr;OnExecute=nullptr;ExecuteOK=TRUE;
+  if(phase==0)mutate();else if(phase==1)OnFree=mutate;else OnExecute=mutate;
+  SetLastError(ERROR_SUCCESS);
+  BOOL result=PackUniversalUncompress(nullptr,"external",nullptr,"C:\\target",FALSE,&source,TRUE,"C:\\source\\archive.zip","C:\\target",nullptr,EmptySelection,nullptr,TRUE,&src,&dst);
+  if(scenario==0)Check(result&&Moves==1&&Executions==1&&Cleanups==1&&ListsDeleted==1,"valid context preserves external execution and MoveFiles contract");
+  else{
+   Check(!result&&Moves==0&&GetLastError()==ERROR_RETRY,"stale context refuses before panel MoveFiles and preserves retry after cleanup");
+   Check((phase==0?Temps==0:Temps==2&&ListsDeleted==1&&Cleanups==1),"refusal before temp I/O or exact owned temp/list cleanup after wait");
+   Check(Executions==(phase==2?1:0),"pre-launch guard prevents process after free-space mutation");
+   if(scenario==1)Check(source.AccessorReads==retiredReads,"removed source never dereferenced by actual guard");
+  }
+ }
+ {
+  CFilesWindow source,target,other;source.Tab=2;target.Tab=3;CMainWindow main;MainWindow=&main;main.Detached={&source,&target};
+  CFilesActionDiskTarget src,dst;Check(src.Capture(&main,&source,TRUE)&&dst.Capture(&main,&target,TRUE),"capture detached source/target");
+  OnFree=nullptr;OnExecute=nullptr;ExecuteOK=TRUE;Moves=0;
+  Check(PackUniversalUncompress(nullptr,"external",nullptr,"C:\\target",FALSE,&source,TRUE,"archive.zip","C:\\target",nullptr,EmptySelection,nullptr,TRUE,&src,&dst)&&Moves==1,"valid detached context accepted");
+  OnExecute=[&]{main.Detached.clear();};Moves=0;
+  Check(!PackUniversalUncompress(nullptr,"external",nullptr,"C:\\target",FALSE,&source,TRUE,"archive.zip","C:\\target",nullptr,EmptySelection,nullptr,TRUE,&src,&dst)&&Moves==0&&GetLastError()==ERROR_RETRY,"closed detached panels refused after process wait");
+  OnExecute=nullptr;main.Detached={&source,&target};Temps=Moves=0;
+  Check(!PackUniversalUncompress(nullptr,"external",nullptr,"C:\\target",FALSE,&other,TRUE,"archive.zip","C:\\target",nullptr,EmptySelection,nullptr,TRUE,&src,&dst)&&Temps==0&&Moves==0,"source snapshot cannot route another operation panel");
+  MainWindow=nullptr;Moves=0;OnExecute=nullptr;
+  Check(PackUniversalUncompress(nullptr,"external",nullptr,"C:\\target",FALSE,&source,TRUE,"archive.zip","C:\\target",nullptr,EmptySelection,nullptr,TRUE)&&Moves==1,"legacy NULL callers retain old dispatch without requiring snapshot registry");
+ }
+
+ for(int scenario=0;scenario<5;++scenario){
+  CFilesWindow source,target;source.Tab=2;target.Tab=3;CMainWindow main;MainWindow=&main;main.Left={&source};main.Right={&target};main.LeftPanel=&source;main.RightPanel=&target;
+  CFilesActionDiskTarget src,dst;Check(src.Capture(&main,&source,TRUE)&&dst.Capture(&main,&target,TRUE),"capture TEMP preflight context");
+  Temps=Moves=0;OnFree=OnExecute=nullptr;ExecuteOK=TRUE;OverrideACP=1250;TempRoot=L"C:\\own-temp\\";
+  if(scenario==0)TempRoot=L"C:\\"+std::wstring(300,L'a');
+  if(scenario==1)TempRoot=L"C:\\"+std::wstring(242,L'a');
+  if(scenario==2)TempRoot.clear();
+  if(scenario>=3)TempRoot=L"C:\\tmp-東京\\";
+  if(scenario==4)OverrideACP=CP_UTF8;
+  BOOL ok=PackUniversalUncompress(nullptr,"external",nullptr,"C:\\target",FALSE,&source,TRUE,"archive.zip","C:\\target",nullptr,EmptySelection,nullptr,TRUE,&src,&dst);
+  if(scenario<4)Check(!ok&&Temps==0&&Moves==0,"unsupported long/unrepresentable/missing TEMP refused before narrow helper or I/O");
+  else Check(ok&&Moves==1&&UsedListRoot==SalWideToMultiBytePath(TempRoot.c_str(),CP_UTF8),"exact owned UTF8 TEMP forwarded when system encoding matches");
+ }
+ OverrideACP=0;
+ printf("Actual external unpack lifecycle: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

@@ -348,6 +348,12 @@
 #define CM_RIGHT_REOPENTAB     1137
 #define CM_RIGHT_LOCKTAB       1138
 #define CM_RIGHT_UNLOCKTAB     1139
+#define CM_BRANCHVIEW          1180
+#define CM_LEFT_BRANCHVIEW     1181
+#define CM_RIGHT_BRANCHVIEW    1182
+#define CM_BRANCH_OPENPARENT   1183
+#define CM_BRANCH_STOP         1184
+
 #define CM_DETACHTAB           1140
 
 // accelerators

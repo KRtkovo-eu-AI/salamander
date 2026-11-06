@@ -170,31 +170,36 @@ int StrCmpLogicalWEx(const wchar_t* s1, int l1, const wchar_t* s2, int l2, BOOL 
 
 int CompareWideFileNames(const CFileData& f1, const CFileData& f2, BOOL ignoreCase)
 {
-    std::wstring n1 = FileSortNameW(f1);
-    std::wstring n2 = FileSortNameW(f2);
-    if (n1.empty() || n2.empty())
+    // Branch listings already own exact UTF-16 names. A sort performs millions
+    // of comparisons; reuse those names instead of allocating two strings each
+    // time. Legacy entries without NameW retain the same UTF-8/ACP fallback.
+    std::wstring storage1, storage2;
+    const wchar_t* n1 = f1.UseWideName() ? f1.NameW : (storage1 = FileSortNameW(f1)).c_str();
+    const wchar_t* n2 = f2.UseWideName() ? f2.NameW : (storage2 = FileSortNameW(f2)).c_str();
+    const int length1 = (int)wcslen(n1), length2 = (int)wcslen(n2);
+    if (length1 == 0 || length2 == 0)
     {
-        if (n1.empty() && n2.empty())
+        if (length1 == 0 && length2 == 0)
             return 0;
-        return n1.empty() ? -1 : 1;
+        return length1 == 0 ? -1 : 1;
     }
 
     int ret;
     if (Configuration.SortDetectNumbers)
     {
-        ret = StrCmpLogicalWEx(n1.c_str(), (int)n1.length(), n2.c_str(), (int)n2.length(), ignoreCase);
+        ret = StrCmpLogicalWEx(n1, length1, n2, length2, ignoreCase);
     }
     else
     {
         ret = CompareStringW(LOCALE_USER_DEFAULT, ignoreCase ? NORM_IGNORECASE : 0,
-                             n1.c_str(), (int)n1.length(),
-                             n2.c_str(), (int)n2.length()) -
+                             n1, length1,
+                             n2, length2) -
               CSTR_EQUAL;
     }
     if (ret != 0)
         return ret;
 
-    return ignoreCase ? 0 : wcscmp(n1.c_str(), n2.c_str());
+    return ignoreCase ? 0 : wcscmp(n1, n2);
 }
 
 BOOL ShouldCompareFileNamesWide(const CFileData& f1, const CFileData& f2)

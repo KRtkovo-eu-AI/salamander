@@ -41,12 +41,11 @@ static void SetDispInfoText(NMLVDISPINFO* plvdi, const char* text)
         int maxChars = plvdi->item.cchTextMax;
         if (maxChars <= 0 || plvdi->item.pszText == NULL)
             return;
-        UINT cp = GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP;
-        int written = MultiByteToWideChar(cp, 0, text, -1, (LPWSTR)plvdi->item.pszText, maxChars);
-        if (written == 0 && cp != CP_ACP)
-            written = MultiByteToWideChar(CP_ACP, 0, text, -1, (LPWSTR)plvdi->item.pszText, maxChars);
-        if (written == 0)
-            ((LPWSTR)plvdi->item.pszText)[0] = 0;
+        const std::wstring wide = ChecksumPaths::Wide(text);
+        size_t count = (std::min)(wide.size(), static_cast<size_t>(maxChars - 1));
+        if (count > 0 && count < wide.size() && wide[count - 1] >= 0xD800 && wide[count - 1] <= 0xDBFF) --count;
+        memcpy(plvdi->item.pszText, wide.data(), count * sizeof(wchar_t));
+        reinterpret_cast<wchar_t*>(plvdi->item.pszText)[count] = 0;
     }
     else
     {
@@ -300,17 +299,32 @@ void CSFVMD5Dialog::ScrollToItem(int i)
     LeaveDataCS();
 }
 
-void CSFVMD5Dialog::AddFileListItem(const char* name, CQuadWord size, BOOL fileExist)
+BOOL CSFVMD5Dialog::AddFileListItem(const char* name, CQuadWord size, BOOL fileExist, const char* fullPath)
+try
 {
-    // while the worker thread runs, the array is not modified (this function must not be called either)
     if (bThreadRunning)
-        TRACE_E("CSFVMD5Dialog::AddFileListItem(): unexpected situation: worker thread should not be running!");
-    FILELISTITEM* item = new FILELISTITEM();
+        TRACE_E("CSFVMD5Dialog::AddFileListItem(): unexpected running worker");
+#ifdef new
+#undef new
+#define CHECKSUM_RESTORE_ITEM_NEW
+#endif
+    std::unique_ptr<FILELISTITEM> item(new (std::nothrow) FILELISTITEM());
+#ifdef CHECKSUM_RESTORE_ITEM_NEW
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef CHECKSUM_RESTORE_ITEM_NEW
+#endif
+    if (!item) return FALSE;
     item->Name = _strdup(name);
+    if (item->Name == NULL) return FALSE;
+    item->FullPath = fullPath != NULL ? fullPath : "";
     item->Size = size;
     item->FileExist = fileExist;
-    FileList.Add(item);
+    FileList.Add(item.get());
+    if (!FileList.IsGood()) { FileList.ResetState(); return FALSE; }
+    item.release();
+    return TRUE;
 }
+catch (const std::bad_alloc&) { SetLastError(ERROR_NOT_ENOUGH_MEMORY); return FALSE; }
 
 INT_PTR CSFVMD5Dialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -541,172 +555,89 @@ void CCalculateDialog::RefreshUI()
     }
 }
 
-BOOL CCalculateDialog::AddDir(char (&path)[SAL_MAX_PATH], size_t root, BOOL* ignoreAll)
+BOOL CCalculateDialog::AddDir(const std::wstring& path, const std::string& relative, BOOL* ignoreAll)
 {
-    if (StopReadingDirectories)
-        return FALSE;
-
-    WIN32_FIND_DATA fd;
-    HANDLE hFind;
-    size_t plen = strlen(path);
-    strcat(path, "\\*");
-    BOOL ret = TRUE, again;
-
-    // this happens before the worker thread starts (just validation), no synchronization needed
-    if (bThreadRunning)
-        TRACE_E("CCalculateDialog::AddDir(): unexpected situation: worker thread should not be running!");
-
-    do
+    if (StopReadingDirectories) return FALSE;
+    const std::wstring pattern = ChecksumPaths::IoPath(ChecksumPaths::Join(path, L"*"));
+    WIN32_FIND_DATAW fd;
+    HANDLE find;
+    for (;;)
     {
-        again = FALSE;
-        if ((hFind = HANDLES_Q(FindFirstFile(path, &fd))) != INVALID_HANDLE_VALUE)
+        find = HANDLES_Q(FindFirstFileW(pattern.c_str(), &fd));
+        if (find != INVALID_HANDLE_VALUE) break;
+        const std::string display = ChecksumPaths::Utf8(path.c_str());
+        if (SalamanderGeneral->DialogError(HWindow, BUTTONS_RETRYCANCEL, display.c_str(),
+            LoadStr(IDS_ERRORREADINGDIR), NULL) != DIALOG_RETRY) return FALSE;
+    }
+    BOOL result = TRUE;
+    try
+    {
+        do
         {
-            do
-            {
-                if (fd.cFileName[0] != 0 && strcmp(fd.cFileName, ".") && strcmp(fd.cFileName, ".."))
-                {
-                    if (plen + 1 + strlen(fd.cFileName) < SizeOf(path))
-                    {
-                        strcpy(path + plen + 1, fd.cFileName);
-                        if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-                            ret = AddDir(path, root, ignoreAll);
-                        else
-                        {
-                            // links: size == 0, the file size must be obtained via GetLinkTgtFileSize()
-                            BOOL cancel = FALSE;
-                            CQuadWord size(fd.nFileSizeLow, fd.nFileSizeHigh);
-                            if ((fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0)
-                            { // this is a link to a file
-                                CQuadWord linkSize;
-                                if (SalamanderGeneral->GetLinkTgtFileSize(HWindow, path, &linkSize, &cancel, ignoreAll))
-                                {
-                                    size = linkSize;
-                                }
-                            }
-                            if (cancel)
-                            {
-                                ret = FALSE;
-                            }
-                            else
-                            {
-                                AddFileListItem(path + root + 1, size, TRUE);
-                                totalSize += size + CQuadWord(FILE_SIZE_FIX, 0);
-                            }
-                        }
-                        if (RefreshCounter++ > REFRESH_LIMIT)
-                        { // no synchronization needed, see above
-                            ListView_SetItemCountEx(hList, FileList.Count, LVSICF_NOINVALIDATEALL | LVSICF_NOSCROLL);
-                            RefreshUI();
-                            RefreshCounter = 0;
-                        }
-                    }
-                    else
-                    {
-                        SalamanderGeneral->SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_PLUGINNAME),
-                                                         MB_OK | MB_ICONEXCLAMATION);
-                        ret = FALSE;
-                    }
-                }
-            } while (!StopReadingDirectories && ret && FindNextFile(hFind, &fd));
-            HANDLES(FindClose(hFind));
-            if (StopReadingDirectories)
-                return FALSE;
-        }
-        else
-        {
-            if (SalamanderGeneral->DialogError(HWindow, BUTTONS_RETRYCANCEL, path, LoadStr(IDS_ERRORREADINGDIR),
-                                               NULL) == DIALOG_RETRY)
-                again = TRUE;
+            if (!wcscmp(fd.cFileName, L".") || !wcscmp(fd.cFileName, L"..")) continue;
+            const std::wstring child = ChecksumPaths::Join(path, fd.cFileName);
+            const std::string full = ChecksumPaths::Utf8(child.c_str());
+            const std::string name = relative + "\\" + ChecksumPaths::Utf8(fd.cFileName);
+            if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+                result = AddDir(child, name, ignoreAll);
             else
-                ret = FALSE;
-        }
-    } while (again);
-
-    path[plen] = 0;
-    return ret;
+            {
+                BOOL cancel = FALSE;
+                CQuadWord size(fd.nFileSizeLow, fd.nFileSizeHigh), linkSize;
+                if ((fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) &&
+                    SalamanderGeneral->GetLinkTgtFileSize(HWindow, full.c_str(), &linkSize, &cancel, ignoreAll))
+                    size = linkSize;
+                result = !cancel && AddFileListItem(name.c_str(), size, TRUE, full.c_str());
+                if (result) totalSize += size + CQuadWord(FILE_SIZE_FIX, 0);
+            }
+            if (RefreshCounter++ > REFRESH_LIMIT)
+            {
+                ListView_SetItemCountEx(hList, FileList.Count, LVSICF_NOINVALIDATEALL | LVSICF_NOSCROLL);
+                RefreshUI(); RefreshCounter = 0;
+            }
+        } while (!StopReadingDirectories && result && FindNextFileW(find, &fd));
+    }
+    catch (...) { HANDLES(FindClose(find)); throw; }
+    HANDLES(FindClose(find));
+    return result && !StopReadingDirectories;
 }
 
 BOOL CCalculateDialog::GetFileList()
+try
 {
-    CALL_STACK_MESSAGE1("CCalculateDialog::GetFileList()");
-
-    // this happens before the worker thread starts (we only validate), no synchronization needed
-    if (bThreadRunning)
-        TRACE_E("CCalculateDialog::GetFileList(): unexpected situation: worker thread should not be running!");
-
     totalSize = CQuadWord(0, 0);
-
-    BOOL ret = TRUE;
-    char path[SAL_MAX_PATH];
-    size_t root = strlen(SourcePath);
-    if (root > 0 && SourcePath[root - 1] == '\\')
-        root--;
-
     RefreshCounter = 0;
-
-    lstrcpynA(path, SourcePath, SizeOf(path));
-    SalamanderGeneral->SalPathAddBackslash(path, SizeOf(path)); // if this fails, appending anything later would fail too (no need to handle here)
-    char* pathEnd = path + strlen(path);
-
-    BOOL ignoreAll = FALSE;
-    for (int i = 0; ret && i < pSeedFileList->Count; i++)
+    BOOL result = TRUE, ignoreAll = FALSE;
+    for (int i = 0; result && i < pSeedFileList->Count; ++i)
     {
-        SEEDFILEINFO* cfi = (*pSeedFileList)[i];
-
-        if ((pathEnd - path) + strlen(cfi->Name) < SizeOf(path))
-        {
-            lstrcpynA(pathEnd, cfi->Name, (int)(SizeOf(path) - (pathEnd - path)));
-            if (!cfi->bDir)
-            {
-                // links: cfi->Size == 0, the file size must be obtained via GetLinkTgtFileSize()
-                BOOL cancel = FALSE;
-                if ((cfi->Attr & FILE_ATTRIBUTE_REPARSE_POINT) != 0)
-                { // this is a link to a file
-                    CQuadWord linkSize;
-                    if (SalamanderGeneral->GetLinkTgtFileSize(HWindow, path, &linkSize, &cancel, &ignoreAll))
-                    {
-                        cfi->Size = linkSize;
-                    }
-                }
-                if (cancel)
-                    ret = FALSE;
-                else
-                {
-                    AddFileListItem(cfi->Name, cfi->Size, TRUE);
-                    totalSize += cfi->Size + CQuadWord(FILE_SIZE_FIX, 0);
-                    if (RefreshCounter++ > REFRESH_LIMIT)
-                    {
-                        RefreshUI();
-                        RefreshCounter = 0;
-                    }
-                }
-            }
-            else
-            {
-                ret = AddDir(path, root, &ignoreAll);
-            }
-        }
+        SEEDFILEINFO* seed = (*pSeedFileList)[i];
+        if (seed->bDir)
+            result = AddDir(ChecksumPaths::Wide(seed->FullPath.c_str()), seed->Name, &ignoreAll);
         else
         {
-            SalamanderGeneral->SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_PLUGINNAME),
-                                             MB_OK | MB_ICONEXCLAMATION);
-            ret = FALSE;
+            BOOL cancel = FALSE;
+            CQuadWord linkSize;
+            if ((seed->Attr & FILE_ATTRIBUTE_REPARSE_POINT) &&
+                SalamanderGeneral->GetLinkTgtFileSize(HWindow, seed->FullPath.c_str(), &linkSize, &cancel, &ignoreAll))
+                seed->Size = linkSize;
+            result = !cancel && AddFileListItem(seed->Name.c_str(), seed->Size, TRUE, seed->FullPath.c_str());
+            if (result) totalSize += seed->Size + CQuadWord(FILE_SIZE_FIX, 0);
+            if (RefreshCounter++ > REFRESH_LIMIT) { RefreshUI(); RefreshCounter = 0; }
         }
     }
-
-    if (ret)
-    { // no synchronization needed, see above
+    if (result)
+    {
         ListView_SetItemCountEx(hList, FileList.Count, LVSICF_NOINVALIDATEALL | LVSICF_NOSCROLL);
         if (FileList.Count > 0)
         {
-            DWORD state = LVIS_SELECTED | LVIS_FOCUSED;
             bDisableNotification = TRUE;
-            ListView_SetItemState(hList, 0, state, state);
+            ListView_SetItemState(hList, 0, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
             bDisableNotification = FALSE;
         }
     }
-    return ret;
+    return result;
 }
+catch (const std::bad_alloc&) { Error(HWindow, 0, IDS_PLUGINNAME, IDS_OUTOFMEM); return FALSE; }
 
 class CCalculateThread : public CCRCMD5Thread
 {
@@ -760,15 +691,7 @@ unsigned CCalculateThread::Body()
 
         // open the file
         HANDLE hFile;
-        char path[SAL_MAX_PATH];
-        lstrcpynA(path, dialog->SourcePath, SizeOf(path));
-        // should not happen - the name length was already verified in CCalculateDialog::GetFileList()
-        // FILELISTITEM::Name does not change after being added to the array = no need for synchronized access
-        if (!SalamanderGeneral->SalPathAppend(path, dialog->FileList[i]->Name, SizeOf(path)))
-        {
-            TRACE_E("CCalculateThread::Body(): unexpected situation: SalPathAppend() has failed");
-            break;
-        }
+        const char* path = dialog->FileList[i]->FullPath.c_str();
         if (!SafeOpenCreateFile(path, GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN,
                                 &hFile, &skip, &silent, dialog->HWindow))
             break;
@@ -776,9 +699,9 @@ unsigned CCalculateThread::Body()
         {
             dialog->SetItemTextAndIcon(i, 2, LoadStr(IDS_SKIPPED));
             // advance progress by the size of the skipped file
-            WIN32_FIND_DATA fd;
+            WIN32_FIND_DATAW fd;
             memset(&fd, 0, sizeof(fd));
-            HANDLE find = HANDLES_Q(FindFirstFile(path, &fd));
+            HANDLE find = HANDLES_Q(FindFirstFileW(ChecksumPaths::IoPath(path).c_str(), &fd));
             if (find != INVALID_HANDLE_VALUE)
             {
                 HANDLES(FindClose(find));
@@ -811,9 +734,9 @@ unsigned CCalculateThread::Body()
                 {
                     dialog->SetItemTextAndIcon(i, 2, LoadStr(IDS_SKIPPED));
                     // advance progress by the size of the skipped file
-                    WIN32_FIND_DATA fd;
+                    WIN32_FIND_DATAW fd;
                     memset(&fd, 0, sizeof(fd));
-                    HANDLE find = HANDLES_Q(FindFirstFile(path, &fd));
+                    HANDLE find = HANDLES_Q(FindFirstFileW(ChecksumPaths::IoPath(path).c_str(), &fd));
                     if (find != INVALID_HANDLE_VALUE)
                     {
                         HANDLES(FindClose(find));
@@ -914,129 +837,85 @@ void CCalculateDialog::DeleteItem(int index)
         EnableButtons(FALSE);
 }
 
-BOOL CCalculateDialog::GetSaveFileName(LPTSTR buffer, LPCTSTR title)
+BOOL CCalculateDialog::GetSaveFileName(std::wstring& result, LPCTSTR title)
 {
-    CALL_STACK_MESSAGE2("CCalculateDialog::GetSaveFileName(, %s)", title);
-
-    // obtain the default name; are all names identical?
-    char file1[MAX_PATH], file2[MAX_PATH], filter[MAX_PATH], *s;
-    GetItemText(0, 0, file1, MAX_PATH);
-    SalamanderGeneral->SalPathRemoveExtension(file1);
+    if (FileList.Count == 0) return FALSE;
+    std::wstring first = ChecksumPaths::Base(ChecksumPaths::Wide(FileList[0]->Name));
+    size_t dot = first.find_last_of(L'.');
+    if (dot != std::wstring::npos) first.resize(dot);
     BOOL allSame = TRUE;
-    int i;
-    for (i = 1; i < ListView_GetItemCount(hList); i++)
+    for (int i = 1; i < FileList.Count; ++i)
     {
-        GetItemText(i, 0, file2, MAX_PATH);
-        SalamanderGeneral->SalPathRemoveExtension(file2);
-        if (_stricmp(file1, file2))
-        {
-            allSame = FALSE;
-            break;
-        }
+        std::wstring next = ChecksumPaths::Base(ChecksumPaths::Wide(FileList[i]->Name));
+        dot = next.find_last_of(L'.');
+        if (dot != std::wstring::npos) next.resize(dot);
+        if (CompareStringOrdinal(first.c_str(), -1, next.c_str(), -1, TRUE) != CSTR_EQUAL) { allSame = FALSE; break; }
     }
-
-    // if not, try the last part of the path
-    if (!allSame)
-    {
-        const char* slash = _tcsrchr(SourcePath, '\\');
-        if (slash != NULL && slash[1])
-        {
-            lstrcpyn(buffer, slash + 1, MAX_PATH);
-        }
-        else
-            buffer[0] = 0; // no default name
-    }
-    else
-    {
-        lstrcpyn(buffer, file1, MAX_PATH);
-    }
-
-    // save dialog
-    OPENFILENAME ofn;
-
-    memset(&ofn, 0, sizeof(ofn));
-    ofn.lStructSize = sizeof(ofn);
-    ofn.hwndOwner = HWindow;
-    ofn.hInstance = HLanguage;
-    ofn.nFilterIndex = 1; // 1-based index
-    filter[0] = 0;
-    int j, ind;
-    for (j = 0, ind = 0; j < HT_COUNT; j++)
+    const std::wstring directory = ChecksumPaths::Wide(SourcePath);
+    const std::wstring caption = ChecksumPaths::Wide(title);
+    if (!allSame) first = ChecksumPaths::Base(directory);
+    std::vector<wchar_t> buffer(SAL_MAX_PATH, L'\0');
+    if (first.size() < buffer.size()) std::copy(first.begin(), first.end(), buffer.begin());
+    std::wstring filter;
+    OPENFILENAMEW ofn = {};
+    ofn.lStructSize = sizeof(ofn); ofn.hwndOwner = HWindow; ofn.hInstance = HLanguage;
+    ofn.nFilterIndex = 1;
+    int filterIndex = 0;
+    for (int j = 0; j < HT_COUNT; ++j)
         if (HashInfo[j].bCalculate)
         {
-            ind++;
-            if (HashInfo[j].Type == Config.HashType)
-                ofn.nFilterIndex = ind; // 1-based index
-            _tcscat(filter, LoadStr(HashInfo[j].idSaveAsFilter));
+            ++filterIndex;
+            if (HashInfo[j].Type == Config.HashType) ofn.nFilterIndex = filterIndex;
+            filter += ChecksumPaths::Wide(LoadStr(HashInfo[j].idSaveAsFilter));
         }
-    ofn.lpstrFilter = s = filter;
-    while (NULL != (s = _tcschr(s, '|')))
-        *s++ = 0;
-    ofn.lpstrFile = buffer;
-    ofn.nMaxFile = MAX_PATH;
-    ofn.lpstrInitialDir = SourcePath;
-    ofn.lpstrTitle = title;
-    ofn.Flags = OFN_PATHMUSTEXIST;
+    for (size_t i = 0; i < filter.size(); ++i) if (filter[i] == L'|') filter[i] = L'\0';
+    filter += L'\0';
+    ofn.lpstrFilter = filter.c_str(); ofn.lpstrFile = buffer.data();
+    ofn.nMaxFile = static_cast<DWORD>(buffer.size()); ofn.lpstrInitialDir = directory.c_str();
+    ofn.lpstrTitle = title != NULL ? caption.c_str() : NULL;
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR | OFN_EXPLORER;
     for (;;)
     {
-        if (!SalamanderGeneral->SafeGetSaveFileName(&ofn))
-            return FALSE; // Canceled
-        // Translate filter index into eHASH_TYPE
-        int HashType = ofn.nFilterIndex - 1; // keep ofn.nFilterIndex unmodified
-        int ind2 = ofn.nFilterIndex - 1;
-        int k;
-        for (k = 0; k < HT_COUNT; k++)
-        {
-            if (!HashInfo[k].bCalculate)
-            {
-                if (ind2 >= 0)
-                    HashType++;
-            }
-            else
-            {
-                ind2--;
-            }
-        }
-        Config.HashType = (eHASH_TYPE)HashType;
-        if (!buffer[ofn.nFileExtension] && ofn.nFileExtension)
-        { // The filename ends with '.'
-            buffer[--ofn.nFileExtension] = 0;
-        }
-        else if (_tcscmp(buffer + ofn.nFileExtension, HashInfo[Config.HashType].sSaveAsExt + 1))
-        { // The user did not enter any extension -> use the default one
-            _tcscat(buffer, HashInfo[Config.HashType].sSaveAsExt);
-        }
-        FILE* f = _tfopen(buffer, "r");
-        if (!f)
-            break;
-        fclose(f);
-        sprintf(file1, LoadStr(IDS_SAVE_OVERWRITE), buffer);
-        switch (SalamanderGeneral->SalMessageBox(HWindow, file1, LoadStr(IDS_SAVE_TITLE),
-                                                 MB_YESNOCANCEL | MB_ICONQUESTION))
-        {
-        case IDYES:
-            return TRUE;
-        case IDCANCEL:
-            return FALSE;
-        }
+        if (!::GetSaveFileNameW(&ofn)) return FALSE;
+        int selected = 0;
+        for (int j = 0; j < HT_COUNT; ++j)
+            if (HashInfo[j].bCalculate && ++selected == static_cast<int>(ofn.nFilterIndex))
+            { Config.HashType = static_cast<eHASH_TYPE>(j); break; }
+        result = buffer.data();
+        const std::wstring extension = ChecksumPaths::Wide(HashInfo[Config.HashType].sSaveAsExt);
+        if (!result.empty() && result.back() == L'.') result.pop_back();
+        else if (ofn.nFileExtension == 0 || result.substr(ofn.nFileExtension) != extension.substr(1))
+            result += extension;
+        if (GetFileAttributesW(ChecksumPaths::IoPath(result).c_str()) == INVALID_FILE_ATTRIBUTES) return TRUE;
+        // Keep the localized overwrite question and present the complete wide path.
+        const std::wstring pattern = ChecksumPaths::Wide(LoadStr(IDS_SAVE_OVERWRITE));
+        const size_t token = pattern.find(L"%s");
+        const std::wstring question = token == std::wstring::npos ? pattern :
+            pattern.substr(0, token) + result + pattern.substr(token + 2);
+        const std::string questionUtf8 = ChecksumPaths::Utf8(question.c_str());
+        const int answer = SalamanderGeneral->SalMessageBox(HWindow, questionUtf8.c_str(),
+            LoadStr(IDS_SAVE_TITLE), MB_YESNOCANCEL | MB_ICONQUESTION);
+        if (answer == IDYES) return TRUE;
+        if (answer == IDCANCEL) return FALSE;
     }
-    return TRUE;
 }
 
 void CCalculateDialog::SaveHashes()
+try
 {
     CALL_STACK_MESSAGE1("CCalculateDialog::SaveHashes()");
 
-    char filename[MAX_PATH];
+    std::wstring filename;
     if (GetSaveFileName(filename, LoadStr(IDS_SAVE_TITLE)))
     {
         FILE* f;
-        if ((f = _tfopen(filename, _T("w"))) == NULL)
+        if ((f = _wfopen(ChecksumPaths::IoPath(filename).c_str(), L"w")) == NULL)
         {
             Error(HWindow, GetLastError(), IDS_SAVE_TITLE, IDS_ERRORCREATINGFILE);
             return;
         }
 
+        std::unique_ptr<FILE, int (*)(FILE*)> output(f, fclose);
         /*if (sfv)*/ fprintf(f, "; Generated by Open Salamander, https://www.altap.cz\n;\n"); // why not promote ourselves...
         BOOL warn = FALSE;
         int colInd = 2;
@@ -1052,8 +931,16 @@ void CCalculateDialog::SaveHashes()
         int i;
         for (i = 0; i < ListView_GetItemCount(hList); i++)
         {
-            char name[MAX_PATH], hash[HASH_MAX_SIZE];
-            GetItemText(i, 0, name, SizeOf(name));
+            std::string entry = FileList[i]->Name;
+            // Relative entries remain relative to the manifest itself. If the
+            // user saves elsewhere, absolute entries preserve the same sources.
+            if (CompareStringOrdinal(ChecksumPaths::Parent(filename).c_str(), -1,
+                ChecksumPaths::Wide(SourcePath).c_str(), -1, TRUE) != CSTR_EQUAL)
+                entry = FileList[i]->FullPath;
+            std::vector<char> nameStorage(entry.begin(), entry.end());
+            nameStorage.push_back('\0');
+            char* name = nameStorage.data();
+            char hash[HASH_MAX_SIZE];
             GetItemText(i, colInd, hash, SizeOf(hash));
             if (!hash[0] || !strcmp(hash, LoadStr(IDS_CANCELED)) || !strcmp(hash, LoadStr(IDS_SKIPPED)))
             { // Skip canceled / skipped files with empty hash/CRC
@@ -1071,17 +958,19 @@ void CCalculateDialog::SaveHashes()
             fprintf(f, "%s  %s\n", (Config.HashType == HT_CRC) ? name : hash, (Config.HashType == HT_CRC) ? hash : name);
         }
 
-        fclose(f);
+        output.reset();
 
         // notify a change on the path (our file was added)
-        SalamanderGeneral->CutDirectory(filename);
-        SalamanderGeneral->PostChangeOnPathNotification(filename, FALSE);
+        const std::string changedDirectory = ChecksumPaths::Utf8(ChecksumPaths::Parent(filename).c_str());
+        SalamanderGeneral->PostChangeOnPathNotification(changedDirectory.c_str(), FALSE);
 
         if (warn)
             SalamanderGeneral->SalMessageBox(HWindow, LoadStr(IDS_SKIPPEDFILES),
                                              LoadStr(IDS_SAVE_TITLE), MB_ICONINFORMATION);
     }
 }
+
+catch (const std::bad_alloc&) { Error(HWindow, 0, IDS_SAVE_TITLE, IDS_OUTOFMEM); }
 
 void CCalculateDialog::OnContextMenu(int x, int y, eHASH_TYPE forceCopyHash)
 {
@@ -1510,7 +1399,7 @@ INT_PTR CCalculateDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 //  CVerifyDialog
 //
 
-CVerifyDialog::CVerifyDialog(HWND parent, BOOL alwaysOnTop, char* path, char* file)
+CVerifyDialog::CVerifyDialog(HWND parent, BOOL alwaysOnTop, const char* path, const char* file)
     : CSFVMD5Dialog(IDD_VERIFY, parent, alwaysOnTop), fileList(100, 100, dtDelete)
 {
     CALL_STACK_MESSAGE1("CVerifyDialog::CVerifyDialog(, , )");
@@ -1538,10 +1427,10 @@ void CVerifyDialog::LTrimStr(char* str)
   return ret;
 }*/
 
-char* CVerifyDialog::LoadFile(char* name)
+char* CVerifyDialog::LoadFile(const char* name)
 {
     CALL_STACK_MESSAGE2("CVerifyDialog::LoadFile(%s)", name);
-    HANDLE file = CreateFile(name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+    HANDLE file = CreateFileW(ChecksumPaths::IoPath(name).c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
     if (file == INVALID_HANDLE_VALUE)
     {
         Error(HWindow, GetLastError(), IDS_VERIFYTITLE, IDS_ERROROPENING2, name);
@@ -1551,7 +1440,15 @@ char* CVerifyDialog::LoadFile(char* name)
     DWORD err;
     if (SalamanderGeneral->SalGetFileSize(file, fsize, err) && fsize.Value < 500 * 1024 * 1024) // 500 MB should really be enough
     {
-        char* text = new char[fsize.LoDWord + 1];
+#ifdef new
+#undef new
+#define CHECKSUM_RESTORE_LOAD_NEW
+#endif
+        char* text = new (std::nothrow) char[fsize.LoDWord + 1];
+#ifdef CHECKSUM_RESTORE_LOAD_NEW
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef CHECKSUM_RESTORE_LOAD_NEW
+#endif
         if (text == NULL)
         {
             CloseHandle(file);
@@ -1662,142 +1559,81 @@ BOOL CVerifyDialog::AnalyzeSourceFile()
 }
 
 BOOL CVerifyDialog::LoadSourceFile()
+try
 {
-    CALL_STACK_MESSAGE1("CVerifyDialog::LoadSourceFile()");
-
-    // this happens before the worker thread starts (just validation), no synchronization needed
-    if (bThreadRunning)
-        TRACE_E("CVerifyDialog::LoadSourceFile(): unexpected situation: worker thread should not be running!");
-
-    char* text = LoadFile(sourceFile);
-    if (text == NULL)
-        return FALSE;
-    char* line = strtok(text, "\r\n");
-    FILEINFO* info;
-    CHashAlgo* pCalculator = pHashInfo->Factory();
-
-    if (!pCalculator)
-    {
-        delete[] text;
-        return FALSE;
-    }
-
+    std::unique_ptr<char[]> text(LoadFile(sourceFile));
+    if (!text) return FALSE;
+    std::unique_ptr<CHashAlgo> calculator(pHashInfo->Factory());
+    if (!calculator) return FALSE;
+    std::vector<char> parsed(4 * SAL_MAX_PATH, '\0');
+    char* line = strtok(text.get(), "\r\n");
     totalSize.Value = 0;
-
-    // process the lines
-    BOOL ret = TRUE;
-    BOOL ignoreAll = FALSE;
-    while (ret && line != NULL)
+    BOOL result = TRUE, ignoreAll = FALSE;
+    while (result && line != NULL)
     {
         LTrimStr(line);
-        // Patera 2006.08.17: # used by MD5summer (http://www.md5summer.org) for comment lines
-        if (line[0] && /*bSFV &&*/ (line[0] != ';') && (line[0] != '#'))
+        if (*line && *line != ';' && *line != '#')
         {
-            info = new FILEINFO;
-            if (info == NULL)
+#ifdef new
+#undef new
+#define CHECKSUM_RESTORE_INFO_NEW
+#endif
+            std::unique_ptr<FILEINFO> info(new (std::nothrow) FILEINFO());
+#ifdef CHECKSUM_RESTORE_INFO_NEW
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef CHECKSUM_RESTORE_INFO_NEW
+#endif
+            if (!info) return Error(HWindow, 0, IDS_VERIFYTITLE, IDS_OUTOFMEM);
+            info->size.Set(0, 0); info->bFileExist = FALSE;
+            parsed[0] = '\0';
+            if (!calculator->ParseDigest(line, parsed.data(), static_cast<int>(parsed.size()), info->digest))
+                return Error(HWindow, 0, IDS_VERIFYTITLE, IDS_TOOLONGNAME);
+            ConvertPath(parsed.data(), '/', '\\');
+            std::string relative = parsed.data();
+            if (relative.empty() && line == text.get())
             {
-                Error(HWindow, 0, IDS_VERIFYTITLE, IDS_OUTOFMEM);
-                ret = FALSE;
-                break;
+                relative = ChecksumPaths::Utf8(ChecksumPaths::Base(ChecksumPaths::Wide(sourceFile)).c_str());
+                const size_t dot = relative.find_last_of('.');
+                if (dot != std::string::npos && !_stricmp(relative.c_str() + dot, pHashInfo->sSaveAsExt))
+                    relative.resize(dot);
+                else relative.clear();
             }
-            memset(info, 0, sizeof(FILEINFO));
-
-            if (!pCalculator->ParseDigest(line, info->fileName, _countof(info->fileName), info->digest))
+            if (relative.empty()) return Error(HWindow, 0, IDS_VERIFYTITLE, IDS_BADFILE);
+            info->fileName = ChecksumPaths::Resolve(sourcePath, relative.c_str());
+            WIN32_FIND_DATAW fd;
+            HANDLE find = HANDLES_Q(FindFirstFileW(ChecksumPaths::IoPath(info->fileName.c_str()).c_str(), &fd));
+            info->bFileExist = find != INVALID_HANDLE_VALUE;
+            if (info->bFileExist)
             {
-                Error(HWindow, 0, IDS_VERIFYTITLE, IDS_TOOLONGNAME);
-                ret = FALSE;
-                delete info;
-                break;
+                HANDLES(FindClose(find));
+                info->size.Set(fd.nFileSizeLow, fd.nFileSizeHigh);
+                BOOL cancel = FALSE;
+                CQuadWord linkSize;
+                if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
+                    (fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) &&
+                    SalamanderGeneral->GetLinkTgtFileSize(HWindow, info->fileName.c_str(), &linkSize, &cancel, &ignoreAll))
+                    info->size = linkSize;
+                if (cancel) { result = FALSE; break; }
             }
-            ConvertPath(info->fileName, '/', '\\');
-            if (!info->fileName[0] && line == text)
-            {
-                // first (and hopefully the only) line contains no file name
-                // -> take the hash file name and trim the suffix
-                char* s = _tcsrchr(sourceFile, '\\');
-                if (!s)
-                    s = sourceFile;
-                else
-                    s++;
-                strcpy(info->fileName, s);
-                s = _tcsrchr(info->fileName, '.'); // ".cvspass" is extension in Windows
-                if (s && !_stricmp(s, pHashInfo->sSaveAsExt))
-                    *s = 0; // trim the default suffix
-                else
-                    info->fileName[0] = 0; // keep the empty name and skip this line
-            }
-
-            if (info->fileName[0] != 0)
-            {
-                // fetch file information and insert into the list
-                char path[SAL_MAX_PATH];
-                lstrcpynA(path, sourcePath, SizeOf(path));
-                if (SalamanderGeneral->SalPathAppend(path, info->fileName, SizeOf(path)))
-                {
-                    WIN32_FIND_DATA fd;
-                    HANDLE hFind = HANDLES_Q(FindFirstFile(path, &fd));
-                    info->bFileExist = (hFind != INVALID_HANDLE_VALUE);
-                    if (info->bFileExist)
-                    {
-                        // links: info->size == 0, the file size must be obtained via GetLinkTgtFileSize()
-                        BOOL cancel = FALSE;
-                        info->size = CQuadWord(fd.nFileSizeLow, fd.nFileSizeHigh);
-                        if ((fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0 &&
-                            (fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0)
-                        { // this is a link to a file
-                            CQuadWord linkSize;
-                            if (SalamanderGeneral->GetLinkTgtFileSize(HWindow, path, &linkSize, &cancel, &ignoreAll))
-                                info->size = linkSize;
-                        }
-                        if (cancel)
-                            ret = FALSE;
-                    }
-                    AddFileListItem(info->fileName, info->size, info->bFileExist);
-                    if (info->bFileExist)
-                    {
-                        HANDLES(FindClose(hFind));
-                        totalSize += info->size + CQuadWord(FILE_SIZE_FIX, 0);
-                    }
-
-                    strcpy(info->fileName, path);
-                    fileList.Add(info); // no synchronization needed, worker thread is not running, see above
-                }
-                else
-                {
-                    Error(HWindow, 0, IDS_VERIFYTITLE, IDS_TOOLONGNAME);
-                    ret = FALSE;
-                    delete info;
-                    break;
-                }
-            }
-            else // empty file name = unexpected format
-            {
-                Error(HWindow, 0, IDS_VERIFYTITLE, IDS_BADFILE);
-                ret = FALSE;
-                delete info;
-                break;
-            }
+            if (!AddFileListItem(relative.c_str(), info->size, info->bFileExist, info->fileName.c_str()))
+                return Error(HWindow, 0, IDS_VERIFYTITLE, IDS_OUTOFMEM);
+            if (info->bFileExist) totalSize += info->size + CQuadWord(FILE_SIZE_FIX, 0);
+            fileList.Add(info.get());
+            if (!fileList.IsGood()) { fileList.ResetState(); return Error(HWindow, 0, IDS_VERIFYTITLE, IDS_OUTOFMEM); }
+            info.release();
         }
-
         line = strtok(NULL, "\r\n");
     }
-
-    // loading the file is quick, so set the total item count only afterwards
-    // no synchronization needed, worker thread is not running, see above
     ListView_SetItemCountEx(hList, FileList.Count, LVSICF_NOINVALIDATEALL | LVSICF_NOSCROLL);
-
-    delete[] text;
-    delete pCalculator;
-    if (ret && FileList.Count > 0)
+    if (result && FileList.Count > 0)
     {
-        DWORD state = LVIS_SELECTED | LVIS_FOCUSED;
         bDisableNotification = TRUE;
-        ListView_SetItemState(hList, 0, state, state);
+        ListView_SetItemState(hList, 0, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
         bDisableNotification = FALSE;
     }
-
-    return ret;
+    return result;
 }
+catch (const std::bad_alloc&) { return Error(HWindow, 0, IDS_VERIFYTITLE, IDS_OUTOFMEM); }
 
 class CVerifyThread : public CCRCMD5Thread
 {
@@ -1847,7 +1683,7 @@ unsigned CVerifyThread::Body()
 
         // open the file
         HANDLE hFile;
-        if (!SafeOpenCreateFile(info->fileName, GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN,
+        if (!SafeOpenCreateFile(info->fileName.c_str(), GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN,
                                 &hFile, &skip, &silent, dialog->HWindow))
         {
             dialog->SetItemTextAndIcon(i, 2, LoadStr(IDS_CANCELED));
@@ -1869,7 +1705,7 @@ unsigned CVerifyThread::Body()
         do
         {
             char buffer[BUFSIZE];
-            if (!SafeReadFile(hFile, buffer, BUFSIZE, &nr, info->fileName, dialog->HWindow))
+            if (!SafeReadFile(hFile, buffer, BUFSIZE, &nr, info->fileName.c_str(), dialog->HWindow))
             {
                 dialog->bCanceled = TRUE;
                 *Terminate = TRUE;
@@ -2011,10 +1847,10 @@ INT_PTR CVerifyDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
             if (SalamanderGeneral->SalamanderIsNotBusy(NULL))
             {
-                lstrcpyn(Focus_Path, fileList[i]->fileName, MAX_PATH);
+                Focus_Path = fileList[i]->fileName;
                 SalamanderGeneral->PostMenuExtCommand(CMD_FOCUSFILE, TRUE);
                 Sleep(500);        // switching to another window happens, so this Sleep should not hurt anything
-                Focus_Path[0] = 0; // after 0.5 seconds we no longer want the focus (handles hitting the start of Salamander's BUSY mode)
+                Focus_Path.clear(); // after 0.5 seconds we no longer want the focus (handles hitting the start of Salamander's BUSY mode)
             }
             else
                 SalamanderGeneral->SalMessageBox(HWindow, LoadStr(IDS_BUSY), LoadStr(IDS_VERIFYTITLE), MB_ICONINFORMATION);
@@ -2152,7 +1988,7 @@ INT_PTR CVerifyDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 class CCalculateDialogThread : public CThread
 {
 public:
-    CCalculateDialogThread(HWND parent, BOOL alwaysOnTop, TSeedFileList* pFileList, char* sourcePath) : CThread("Calculate SFV/MD5 Dialog")
+    CCalculateDialogThread(HWND parent, BOOL alwaysOnTop, TSeedFileList* pFileList, const char* sourcePath) : CThread("Calculate SFV/MD5 Dialog")
     {
         hParent = parent;
         pSeedFileList = pFileList;
@@ -2160,13 +1996,14 @@ public:
         bAlwaysOnTop = alwaysOnTop;
     }
 
+    ~CCalculateDialogThread() { delete pSeedFileList; }
     virtual unsigned Body();
 
 private:
     HWND hParent;
     BOOL bAlwaysOnTop;
     TSeedFileList* pSeedFileList;
-    char* SourcePath;
+    std::string SourcePath;
 };
 
 unsigned CCalculateDialogThread::Body()
@@ -2175,75 +2012,69 @@ unsigned CCalculateDialogThread::Body()
     CALL_STACK_MESSAGE1("CCalculateDialogThread::Body()");
     TRACE_I("Begin");
 
-    CCalculateDialog dlg(hParent, bAlwaysOnTop, pSeedFileList, SourcePath);
+    CCalculateDialog dlg(hParent, bAlwaysOnTop, pSeedFileList, SourcePath.c_str());
     dlg.Execute();
 
-    delete pSeedFileList;
-    free(SourcePath);
 
     TRACE_I("End");
     return 0;
 }
 
 BOOL OpenCalculateDialog(HWND parent)
+try
 {
-    CALL_STACK_MESSAGE1("CCalculateDialogThread()");
-
-    TSeedFileList* pFileList = new TSeedFileList(100, 100, dtDelete);
-
-    if (!pFileList)
+    CSalamanderDiskSelection selection;
+    if (!selection.Capture(SalamanderGeneral, PANEL_SOURCE, SALDISKSELECTION_SELECTED_OR_FOCUSED) ||
+        selection.GetCount() == 0) return FALSE;
+#ifdef new
+#undef new
+#define CHECKSUM_RESTORE_CAPTURE_NEW
+#endif
+    std::unique_ptr<TSeedFileList> files(new (std::nothrow) TSeedFileList(100, 100, dtDelete));
+#ifdef CHECKSUM_RESTORE_CAPTURE_NEW
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef CHECKSUM_RESTORE_CAPTURE_NEW
+#endif
+    if (!files) return FALSE;
+    for (int i = 0; i < selection.GetCount(); ++i)
     {
-        TRACE_E("Allocating pFileList failed");
-        return FALSE;
+        const CSalamanderDiskSelectionItem* item = selection.GetItem(i);
+#ifdef new
+#undef new
+#define CHECKSUM_RESTORE_SEED_NEW
+#endif
+        std::unique_ptr<SEEDFILEINFO> seed(new (std::nothrow) SEEDFILEINFO());
+#ifdef CHECKSUM_RESTORE_SEED_NEW
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef CHECKSUM_RESTORE_SEED_NEW
+#endif
+        if (!seed) return FALSE;
+        seed->Name = ChecksumPaths::Utf8(item->RelativePathW);
+        seed->FullPath = ChecksumPaths::Utf8(item->FullPathW);
+        seed->bDir = item->IsDir != FALSE; seed->Attr = item->Attr; seed->Size = item->Size;
+        files->Add(seed.get());
+        if (!files->IsGood()) { files->ResetState(); return FALSE; }
+        seed.release();
     }
-
-    int nFiles, nDirs;
-    char sourcePath[SAL_MAX_PATH];
-
-    // Check if nothing is selected and no focus is set
-    if (SalamanderGeneral->GetPanelSelection(PANEL_SOURCE, &nFiles, &nDirs))
-    {
-        int index = 0;
-        const CFileData* fd;
-        BOOL isDir;
-
-        SalamanderGeneral->GetPanelPath(PANEL_SOURCE, sourcePath, SizeOf(sourcePath), NULL, NULL);
-
-        while (((nFiles || nDirs) ? (fd = SalamanderGeneral->GetPanelSelectedItem(PANEL_SOURCE, &index, &isDir)) != NULL : (fd = SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, &isDir)) != NULL))
-        {
-            std::string itemName = fd->UseWideName() ? PluginWideToMultiBytePath(fd->NameW, CP_UTF8) : std::string(fd->Name);
-            int fdNameLen = (int)itemName.length();
-            SEEDFILEINFO* cfi = (SEEDFILEINFO*)malloc(sizeof(SEEDFILEINFO) + fdNameLen);
-            if (!cfi)
-                continue;
-            cfi->bDir = isDir ? true : false;
-            cfi->Attr = fd->Attr;
-            strcpy_s(cfi->Name, fdNameLen + _countof(cfi->Name), itemName.c_str());
-            if (!isDir)
-                cfi->Size = fd->Size;
-            pFileList->Add(cfi);
-            if (!nFiles && !nDirs)
-                break;
-        }
-    }
-
-    BOOL bAlwaysOnTop = FALSE;
-    // NOTE: GetConfigParameter can only be called from the main thread
-    SalamanderGeneral->GetConfigParameter(SALCFG_ALWAYSONTOP, &bAlwaysOnTop, sizeof(bAlwaysOnTop), NULL);
-    RefreshChecksumDarkModeFromHost();
-    ConfigureChecksumDarkModeFromHost(); // prime darkmodelib on the main thread before the dialog worker starts
-
-    CCalculateDialogThread* t = new CCalculateDialogThread(parent, bAlwaysOnTop, pFileList, _strdup(sourcePath));
-    if (t != NULL)
-    {
-        // start the thread
-        if (t->Create(ThreadQueue) != NULL)
-            return TRUE;
-
-        delete t; // on failure the thread object needs to be deallocated
-    }
-    return FALSE;
+    const std::string source = ChecksumPaths::Utf8(selection.GetRootPathW());
+    BOOL alwaysOnTop = FALSE;
+    SalamanderGeneral->GetConfigParameter(SALCFG_ALWAYSONTOP, &alwaysOnTop, sizeof(alwaysOnTop), NULL);
+    RefreshChecksumDarkModeFromHost(); ConfigureChecksumDarkModeFromHost();
+#ifdef new
+#undef new
+#define CHECKSUM_RESTORE_THREAD_NEW
+#endif
+    std::unique_ptr<CCalculateDialogThread> thread(new (std::nothrow) CCalculateDialogThread(parent, alwaysOnTop, files.get(), source.c_str()));
+#ifdef CHECKSUM_RESTORE_THREAD_NEW
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef CHECKSUM_RESTORE_THREAD_NEW
+#endif
+    if (!thread) return FALSE;
+    files.release();
+    if (thread->Create(ThreadQueue) == NULL) return FALSE;
+    thread.release(); return TRUE;
 }
+catch (const std::bad_alloc&) { return Error(parent, 0, IDS_PLUGINNAME, IDS_OUTOFMEM); }
 
 // ****************************************************************************************************
 //
@@ -2261,8 +2092,8 @@ public:
 
     virtual unsigned Body();
 
-    char sourcePath[SAL_MAX_PATH];
-    char sourceFile[SAL_MAX_PATH];
+    std::string sourcePath;
+    std::string sourceFile;
 
 private:
     HWND hParent;
@@ -2274,7 +2105,7 @@ unsigned CVerifyDialogThread::Body()
     CALL_STACK_MESSAGE1("CVerifyDialogThread::Body()");
     TRACE_I("Begin");
 
-    CVerifyDialog dlg(hParent, bAlwaysOnTop, sourcePath, sourceFile);
+    CVerifyDialog dlg(hParent, bAlwaysOnTop, sourcePath.c_str(), sourceFile.c_str());
     dlg.Execute();
 
     TRACE_I("End");
@@ -2282,55 +2113,37 @@ unsigned CVerifyDialogThread::Body()
 }
 
 BOOL OpenVerifyDialog(HWND parent)
+try
 {
-    CALL_STACK_MESSAGE1("OpenVerifyDialog()");
-
-    const CFileData* fd;
-    BOOL isDir;
-    fd = SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, &isDir);
-    if (isDir)
-        return FALSE;
-
-    // Sanity: check if known extension
-    bool bFound = false;
-    int i;
-    for (i = 0; i < HT_COUNT; i++)
-        if (!_tcsicmp(fd->Ext, Config.HashInfo[i].sSaveAsExt + 1))
-            bFound = true;
-    if (!bFound)
-        if (SalamanderGeneral->SalMessageBox(parent, LoadStr(IDS_BADEXT), LoadStr(IDS_VERIFYTITLE),
-                                             MSGBOXEX_YESNO | MSGBOXEX_ICONQUESTION | MSGBOXEX_DEFBUTTON2 |
-                                                 MSGBOXEX_ESCAPEENABLED) == IDNO)
-            return FALSE;
-
-    BOOL bAlwaysOnTop = FALSE;
-    // NOTE: GetConfigParameter can only be called from the main thread
-    SalamanderGeneral->GetConfigParameter(SALCFG_ALWAYSONTOP, &bAlwaysOnTop, sizeof(bAlwaysOnTop), NULL);
-    RefreshChecksumDarkModeFromHost();
-    ConfigureChecksumDarkModeFromHost(); // prime darkmodelib on the main thread before the dialog worker starts
-
-    CVerifyDialogThread* t = new CVerifyDialogThread(parent, bAlwaysOnTop);
-    if (t != NULL)
-    {
-        // hand over data to the thread
-        SalamanderGeneral->GetPanelPath(PANEL_SOURCE, t->sourcePath, SizeOf(t->sourcePath), NULL, NULL);
-        strcpy(t->sourceFile, t->sourcePath);
-        if (SalamanderGeneral->SalPathAppend(t->sourceFile, fd->UseWideName() ? PluginWideToMultiBytePath(fd->NameW, CP_UTF8).c_str() : fd->Name, SizeOf(t->sourceFile)))
-        {
-            // start the thread
-            if (t->Create(ThreadQueue) != NULL)
-                return TRUE;
-        }
-        else
-        {
-            SalamanderGeneral->SalMessageBox(parent, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_VERIFYTITLE),
-                                             MB_OK | MB_ICONEXCLAMATION);
-        }
-
-        delete t; // on failure the thread object needs to be deallocated
-    }
-    return FALSE;
+    CSalamanderDiskSelection selection;
+    if (!selection.Capture(SalamanderGeneral, PANEL_SOURCE, SALDISKSELECTION_FOCUSED_ONLY) ||
+        selection.GetCount() != 1 || selection.GetItem(0)->IsDir) return FALSE;
+    const CSalamanderDiskSelectionItem* item = selection.GetItem(0);
+    bool known = false;
+    for (int i = 0; i < HT_COUNT; ++i)
+        if (CompareStringOrdinal(item->ExtensionW, -1,
+            ChecksumPaths::Wide(Config.HashInfo[i].sSaveAsExt + 1).c_str(), -1, TRUE) == CSTR_EQUAL) known = true;
+    if (!known && SalamanderGeneral->SalMessageBox(parent, LoadStr(IDS_BADEXT), LoadStr(IDS_VERIFYTITLE),
+        MSGBOXEX_YESNO | MSGBOXEX_ICONQUESTION | MSGBOXEX_DEFBUTTON2 | MSGBOXEX_ESCAPEENABLED) == IDNO) return FALSE;
+    BOOL alwaysOnTop = FALSE;
+    SalamanderGeneral->GetConfigParameter(SALCFG_ALWAYSONTOP, &alwaysOnTop, sizeof(alwaysOnTop), NULL);
+    RefreshChecksumDarkModeFromHost(); ConfigureChecksumDarkModeFromHost();
+#ifdef new
+#undef new
+#define CHECKSUM_RESTORE_VERIFY_NEW
+#endif
+    std::unique_ptr<CVerifyDialogThread> thread(new (std::nothrow) CVerifyDialogThread(parent, alwaysOnTop));
+#ifdef CHECKSUM_RESTORE_VERIFY_NEW
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef CHECKSUM_RESTORE_VERIFY_NEW
+#endif
+    if (!thread) return FALSE;
+    thread->sourcePath = ChecksumPaths::Utf8(item->DirectoryW);
+    thread->sourceFile = ChecksumPaths::Utf8(item->FullPathW);
+    if (thread->Create(ThreadQueue) == NULL) return FALSE;
+    thread.release(); return TRUE;
 }
+catch (const std::bad_alloc&) { return Error(parent, 0, IDS_VERIFYTITLE, IDS_OUTOFMEM); }
 
 //****************************************************************************
 //

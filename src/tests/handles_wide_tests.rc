@@ -1,0 +1,5 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Reuse existing application artwork as private test resources.
+100 ICON "../res/salamand.ico"
+101 CURSOR "../res/copyeff.cur"

@@ -1,0 +1,292 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-06 | Exercise actual Unload ownership through refusal and reload. | Repeated LoadLibrary references may share one HMODULE and must all be released exactly once. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
+// | 2026-11-06 | Exercise integrated plug-in shutdown ordering and retry. | Provider modules must stay mapped while a consumer refuses shutdown. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
+#include <windows.h>
+#include <cstdio>
+#include <cstring>
+#include <string>
+#include <vector>
+#include <new>
+#include <memory>
+
+// Full production Unload/Prepare/Free/UnloadAll bodies are compiled below.
+// InitDLL coverage is its exact DLL==NULL/IsGood admission through LoadLibrary
+// fragment, excluding unrelated registry, architecture UI and ABI negotiation.
+static std::vector<std::string> Events;
+static int Failures = 0, Checks = 0;
+static int References[3] = {}, Loads[3] = {}, Frees[3] = {};
+static bool FailNextAllocation = false;
+static BOOL UnloadingPluginsForMainWindowClose = TRUE;
+static BOOL NativeReady = TRUE, NativeFinalizable = TRUE, CriticalShutdown = FALSE;
+static HINSTANCE HInstance = GetModuleHandle(NULL);
+static void Check(bool ok, const char* label)
+{
+    ++Checks;
+    if (!ok) { ++Failures; std::printf("FAIL: %s\n", label); }
+}
+static HINSTANCE Module(int id) { return reinterpret_cast<HINSTANCE>(static_cast<INT_PTR>(id)); }
+static int ModuleIndex(HINSTANCE module)
+{
+    const int id = module == Module(1) ? 1 : module == Module(2) ? 2 : 0;
+    Check(id != 0, "loader facade recognizes only its owned fixture modules");
+    return id;
+}
+static HINSTANCE FakeLoadLibrary(const char* name)
+{
+    const int id = strstr(name, "provider") != NULL ? 1 : 2;
+    ++References[id]; ++Loads[id];
+    Events.push_back(id == 1 ? "load-provider" : "load-consumer");
+    return Module(id); // Windows may return the same HMODULE for distinct load references.
+}
+static BOOL FakeFreeLibrary(HMODULE module)
+{
+    const int id = ModuleIndex(module);
+    Check(References[id] > 0, "FreeLibrary cannot double-release a load reference");
+    --References[id]; ++Frees[id];
+    Events.push_back(id == 1 ? "free-provider" : "free-consumer");
+    return TRUE;
+}
+template<class T> struct RefAllocator
+{
+    using value_type = T;
+    RefAllocator() = default;
+    template<class U> RefAllocator(const RefAllocator<U>&) {}
+    T* allocate(size_t count)
+    {
+        if (FailNextAllocation) { FailNextAllocation = false; throw std::bad_alloc(); }
+        return std::allocator<T>().allocate(count);
+    }
+    void deallocate(T* memory, size_t count) { std::allocator<T>().deallocate(memory, count); }
+};
+template<class T, class U> bool operator==(const RefAllocator<T>&, const RefAllocator<U>&) { return true; }
+template<class T, class U> bool operator!=(const RefAllocator<T>&, const RefAllocator<U>&) { return false; }
+static BOOL WINAPI NativeExit(DWORD timeout, BOOL finalize)
+{
+    Check(timeout == 2000, "native hook uses a bounded timeout");
+    Events.push_back(finalize ? "native-finalize" : "native-ready");
+    return finalize ? NativeFinalizable : NativeReady;
+}
+static FARPROC FakeGetProcAddress(HMODULE module, const char* name)
+{
+    Check(module == Module(2), "only the Samandarin module receives its native hook");
+    Check(strcmp(name, "Samandarin_PrepareForProcessExit") == 0, "host queries the supported native hook");
+    return reinterpret_cast<FARPROC>(NativeExit);
+}
+static BOOL IsSamandarinPlugin(const char* name) { return strstr(name, "samandarin") != NULL; }
+static BOOL IsTotalCommanderProxyPlugin(const char*) { return FALSE; }
+struct CPluginInterfaceAbstract {};
+struct CPluginData;
+struct InterfaceDouble
+{
+    CPluginData* Owner = NULL;
+    CPluginInterfaceAbstract Interface;
+    BOOL Present = TRUE, AllowRelease = TRUE;
+    int ReleaseCalls = 0;
+    BOOL NotEmpty() const { return Present; }
+    CPluginInterfaceAbstract* GetInterface() { return &Interface; }
+    BOOL Release(HWND, BOOL);
+    void Init(CPluginInterfaceAbstract* value, int) { Present = value != NULL; }
+};
+struct EmptyInterfaceDouble
+{
+    template<class... T> void Init(T...) {}
+};
+struct GeneralDouble
+{
+    int Id = 0, ClearCalls = 0;
+    void Clear() { ++ClearCalls; Events.push_back(Id == 1 ? "clear-provider" : "clear-consumer"); }
+    void Init(CPluginInterfaceAbstract*) {}
+};
+struct MutexDouble { void Enter() {} void Leave() {} } LoadSaveToRegistryMutex;
+struct ConfigurationDouble { BOOL AutoSave = FALSE; } Configuration;
+struct ConfigStorageDouble { BOOL OpenConfigurationRootKey(HKEY&, BOOL) { return FALSE; } } ConfigurationStorage;
+struct SaveWaitDouble { void SetProgressPos(int) {} };
+static SaveWaitDouble* GlobalSaveWaitWindow = NULL;
+static int GlobalSaveWaitWindowProgress = 0;
+static BOOL IsSetSALAMANDER_SAVE_IN_PROGRESS = FALSE;
+static const char* SALAMANDER_SAVE_IN_PROGRESS = "fixture-save";
+static const char* SALAMANDER_PLUGINSCONFIG = "fixture-config";
+enum { IDS_PLUGINSAVECONFIG, IDS_QUESTION, IDS_PLUGINSAVEFAILED, IDS_PLUGINFORCEUNLOAD, ssdpUnloadingPlugins };
+static const char* LoadStr(int) { return "%s"; }
+static int SalMessageBox(HWND, const char*, const char*, UINT) { return IDNO; }
+template<class... T> static BOOL GetValueAux(T...) { return FALSE; }
+template<class... T> static void SetValue(T...) {}
+template<class... T> static void DeleteValue(T...) {}
+static BOOL CreateKey(HKEY, const char*, HKEY& key) { key = NULL; return FALSE; }
+static void CloseKey(HKEY) {}
+static void CloseKeyAux(HKEY) {}
+struct MainWindowDouble { BOOL CanUnloadPlugin(HWND, CPluginInterfaceAbstract*) { return TRUE; } };
+static MainWindowDouble* MainWindow = NULL;
+struct DeleteManagerDouble
+{
+    int MayCalls = 0, WasCalls = 0;
+    void PluginMayBeUnloaded(HWND, CPluginData*) { ++MayCalls; }
+    void PluginWasUnloaded(CPluginData*, CPluginInterfaceAbstract*) { ++WasCalls; }
+} DeleteManager;
+struct CSalamanderShutdownProgressAbstract
+{
+    void ReportShutdownProgress(int, const char*, int, int) { Events.push_back("progress"); }
+};
+struct CPluginData
+{
+    const char* Name;
+    char DLLName[80];
+    const char* Version = "fixture";
+    HINSTANCE DLL = NULL;
+    // Allocation failures are injected solely at std::vector's allocator boundary.
+    std::vector<HINSTANCE, RefAllocator<HINSTANCE>> DeferredModules;
+    InterfaceDouble PluginIface;
+    EmptyInterfaceDouble PluginIfaceForArchiver, PluginIfaceForViewer, PluginIfaceForMenuExt;
+    EmptyInterfaceDouble PluginIfaceForFS, PluginIfaceForThumbLoader;
+    GeneralDouble SalamanderGeneral;
+    BOOL SupportLoadSave = FALSE, ThumbnailMasksDisabled = FALSE;
+    int BuiltForVersion = 106;
+    CPluginData(const char* name, const char* dllName, int id) : Name(name)
+    {
+        strcpy_s(DLLName, dllName); PluginIface.Owner = this; SalamanderGeneral.Id = id;
+        DLL = FakeLoadLibrary(DLLName);
+    }
+    ~CPluginData()
+    {
+        FreeDeferredModule();
+        if (DLL != NULL) { FakeFreeLibrary(DLL); DLL = NULL; }
+    }
+    BOOL GetLoaded() const { return DLL != NULL; }
+    BOOL IsGood() const { return TRUE; }
+    BOOL PrepareNativeProcessExit(BOOL finalize);
+    void FreeDeferredModule();
+    BOOL Unload(HWND, BOOL, BOOL);
+    BOOL InitDLLLoadPhase(BOOL waitCursor);
+    void Save(HWND, HKEY) {}
+    void ReleaseIconOverlays() {}
+};
+BOOL InterfaceDouble::Release(HWND, BOOL)
+{
+    ++ReleaseCalls;
+    Events.push_back(Owner->SalamanderGeneral.Id == 1 ? "release-provider" : "release-consumer");
+    return AllowRelease;
+}
+struct CPluginArray
+{
+    int Count = 0;
+    CPluginData* Items[2] = {};
+    CPluginData* operator[](int index) { return Items[index]; }
+};
+struct CPlugins
+{
+    CPluginArray Data;
+    BOOL UnloadAll(HWND, CSalamanderShutdownProgressAbstract*);
+    void UnregisterToolbarButtons(CPluginInterfaceAbstract*) {}
+    void EnterDataCS() {} void LeaveDataCS() {}
+} Plugins;
+#define CALL_STACK_MESSAGE1(...) ((void)0)
+#define CALL_STACK_MESSAGE5(...) ((void)0)
+#define TRACE_E(...) ((void)0)
+#define TRACE_I(...) ((void)0)
+#define HANDLES(expression) (expression)
+#define GetProcAddress FakeGetProcAddress
+#define FreeLibrary FakeFreeLibrary
+#ifdef LoadLibrary
+#undef LoadLibrary
+#endif
+#define LoadLibrary FakeLoadLibrary
+@@PREPARE@@
+@@FREE@@
+@@UNLOAD@@
+// The unmodified legacy fragment uses paired waitCursor guards; isolated
+// compilation loses the full InitDLL analysis context for this optional cursor.
+#pragma warning(push)
+#pragma warning(disable : 4701 4703)
+@@INIT_LOAD_PHASE@@
+#pragma warning(pop)
+@@UNLOAD_ALL@@
+#undef GetProcAddress
+#undef FreeLibrary
+#undef LoadLibrary
+static size_t Position(const char* value)
+{
+    for (size_t i = 0; i < Events.size(); ++i) if (Events[i] == value) return i;
+    return Events.size();
+}
+static void Reset(CPluginData& provider, CPluginData& consumer)
+{
+    Events.clear(); NativeReady = TRUE; NativeFinalizable = TRUE; FailNextAllocation = false;
+    UnloadingPluginsForMainWindowClose = TRUE;
+    Plugins.Data.Count = 2; Plugins.Data.Items[0] = &provider; Plugins.Data.Items[1] = &consumer;
+}
+static void CheckReferencesDrained()
+{
+    Check(References[1] == 0 && References[2] == 0, "every owned LoadLibrary reference is drained");
+    Check(Loads[1] == Frees[1] && Loads[2] == Frees[2], "load/free totals prove no leak or double free");
+}
+int main()
+{
+    {
+        CPluginData provider("provider", "C:\\provider.spl", 1), consumer("consumer", "C:\\samandarin.spl", 2);
+        Reset(provider, consumer); NativeReady = FALSE;
+        Check(!Plugins.UnloadAll(NULL, NULL), "busy native initialization refuses global unload");
+        Check(Events.size() == 1 && Events[0] == "native-ready", "readiness failure precedes every Release and FreeLibrary");
+        Check(provider.GetLoaded() && consumer.GetLoaded(), "readiness refusal preserves all module ownership");
+    }
+    CheckReferencesDrained();
+    {
+        CPluginData provider("provider", "C:\\provider.spl", 1), consumer("consumer", "C:\\samandarin.spl", 2);
+        Reset(provider, consumer); CSalamanderShutdownProgressAbstract progress;
+        Check(Plugins.UnloadAll(NULL, &progress) != FALSE, "ready consumers can shut down");
+        Check(Position("native-ready") < Position("release-provider"), "native readiness precedes releasing other providers");
+        Check(Position("native-finalize") < Position("clear-consumer"), "native finalization precedes skipped managed-interface teardown");
+        Check(Position("release-provider") < Position("free-consumer") && Position("clear-consumer") < Position("free-consumer"), "all Release/native teardown finishes before the first FreeLibrary");
+        Check(Position("free-consumer") < Position("free-provider"), "deferred modules unmap in reverse plug-in order");
+        const size_t before = Events.size(); provider.FreeDeferredModule(); consumer.FreeDeferredModule();
+        Check(Events.size() == before, "deferred module release is idempotent");
+    }
+    CheckReferencesDrained();
+    {
+        CPluginData provider("provider", "C:\\provider.spl", 1), consumer("consumer", "C:\\samandarin.spl", 2);
+        Reset(provider, consumer); NativeFinalizable = FALSE;
+        Check(!Plugins.UnloadAll(NULL, NULL), "late native callback refusal propagates");
+        Check(provider.DeferredModules.size() == 1 && consumer.GetLoaded(), "refusing consumer and released provider keep their module ownership");
+        Check(Position("free-provider") == Events.size() && Position("free-consumer") == Events.size(), "late refusal leaves every provider mapped");
+        NativeFinalizable = TRUE; Events.clear();
+        Check(Plugins.UnloadAll(NULL, NULL) != FALSE, "the same owners can retry after callbacks drain");
+        Check(Position("release-provider") == Events.size(), "retry without reload does not release a provider twice");
+        Check(Position("clear-consumer") < Position("free-provider"), "retry drains consumer native state before freeing its provider");
+    }
+    CheckReferencesDrained();
+    {
+        CPluginData provider("provider", "C:\\provider.spl", 1), consumer("consumer", "C:\\consumer.spl", 2);
+        Reset(provider, consumer); consumer.PluginIface.AllowRelease = FALSE;
+        Check(!Plugins.UnloadAll(NULL, NULL), "ordinary Release refusal propagates");
+        Check(provider.DeferredModules.size() == 1 && References[1] == 1 && consumer.GetLoaded(), "first refusal retains the first provider load reference");
+        Check(provider.InitDLLLoadPhase(FALSE), "actual InitDLL admission/acquisition fragment reloads released provider");
+        Check(provider.DLL == Module(1) && References[1] == 2 && provider.DeferredModules.size() == 1, "same HMODULE reload has a second independently owned reference");
+        Check(provider.InitDLLLoadPhase(FALSE) && References[1] == 2, "InitDLL guard does not reload an already loaded provider");
+        Check(!Plugins.UnloadAll(NULL, NULL), "a second consumer refusal retains both provider references");
+        Check(provider.DLL == NULL && provider.DeferredModules.size() == 2 && References[1] == 2, "two deferred entries preserve duplicate HMODULE ownership");
+        Check(provider.InitDLLLoadPhase(FALSE) && References[1] == 3, "provider can acquire a third reference after cancelled shutdown");
+        Check(provider.Unload(NULL, FALSE, TRUE), "immediate unload releases only the currently loaded reference");
+        Check(provider.DeferredModules.size() == 2 && References[1] == 2, "immediate FreeLibrary leaves both older deferred references owned");
+        consumer.PluginIface.AllowRelease = TRUE; Events.clear();
+        Check(Plugins.UnloadAll(NULL, NULL), "final successful retry drains every retained reference");
+        Check(Position("release-consumer") < Position("free-provider"), "final consumer release precedes retained provider frees");
+        CheckReferencesDrained();
+    }
+    CheckReferencesDrained();
+    {
+        CPluginData consumer("consumer", "C:\\samandarin.spl", 2);
+        Events.clear(); const int mayCalls = DeleteManager.MayCalls;
+        const int beforeClear = consumer.SalamanderGeneral.ClearCalls;
+        FailNextAllocation = true;
+        Check(!consumer.Unload(NULL, FALSE, FALSE), "deferred ownership reservation failure refuses unload");
+        Check(!FailNextAllocation, "fault injection reached the actual vector reserve allocator");
+        Check(Events.empty() && consumer.PluginIface.ReleaseCalls == 0 && DeleteManager.MayCalls == mayCalls && consumer.SalamanderGeneral.ClearCalls == beforeClear, "allocation failure precedes native finalization, DeleteManager, Release and host-resource clear");
+        Check(consumer.GetLoaded() && consumer.DeferredModules.empty() && References[2] == 1, "reservation failure preserves interfaces and the only module reference");
+        Check(consumer.Unload(NULL, FALSE, FALSE), "allocation failure supports a later retry");
+        consumer.FreeDeferredModule();
+    }
+    CheckReferencesDrained();
+    std::printf("Actual plug-in shutdown ownership: %d checks, %d failures\n", Checks, Failures);
+    return Failures ? 1 : 0;
+}

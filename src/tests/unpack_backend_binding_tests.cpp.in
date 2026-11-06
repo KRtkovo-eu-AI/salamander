@@ -1,0 +1,207 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual backend snapshot/dispatcher/wrapper; directory and plugin doubles are explicit.
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <cstdio>
+#include <cstring>
+#include <algorithm>
+#include <functional>
+#include <new>
+#include <cstdlib>
+#include <climits>
+#define SAL_MAX_PATH 32768
+#define SAL_MAX_EXTENDED_PATH 32768
+enum CPanelSide {cpsLeft,cpsRight};
+enum {ptDisk,ptZIPArchive,ptPluginFS};
+#define PATH_TYPE_WINDOWS 1 // unchanged public spl_gen.h value; checked by generator
+struct CPluginData;
+struct CPluginDataInterfaceAbstract;
+struct Binding { const CPluginDataInterfaceAbstract* Interface=nullptr; BOOL Contains(const CPluginDataInterfaceAbstract* p) const {return p!=nullptr&&p==Interface;} };
+struct CFilesWindow
+{
+    BOOL FilesActionInProgress=FALSE;
+    Binding PluginData; CPluginData* Owner=nullptr; const char* Archive="source.zip";
+    CPluginData* GetPluginDataForPluginIface() {return Owner;}
+    const char* GetZIPArchive() const {return Archive;}
+    int Kind=ptDisk; ULONGLONG Tab=1, Generation=7;
+    BOOL Branch=FALSE, Scanning=FALSE;
+    std::wstring Root=L"C:\\target";
+    mutable unsigned AccessorReads=0;
+    BOOL Is(int kind) const {++AccessorReads;return Kind==kind;}
+    BOOL IsBranchView() const {++AccessorReads;return Branch;}
+    BOOL IsBranchViewScanning() const {++AccessorReads;return Scanning;}
+    ULONGLONG GetPanelTabId() const {++AccessorReads;return Tab;}
+    ULONGLONG GetBranchViewGeneration() const {++AccessorReads;return Generation;}
+    const wchar_t* GetPathW() const {++AccessorReads;return Root.c_str();}
+};
+struct CMainWindow
+{
+    HWND HWindow=nullptr;
+    CFilesWindow *LeftPanel=nullptr,*RightPanel=nullptr;
+    std::vector<CFilesWindow*> Left,Right,Detached;
+    int GetPanelTabCount(CPanelSide side) const {return (int)(side==cpsLeft?Left:Right).size();}
+    CFilesWindow* GetPanelTabAt(CPanelSide side,int index) const {return (side==cpsLeft?Left:Right).at(index);}
+    int GetDetachedTabCount() const {return (int)Detached.size();}
+    CFilesWindow* GetDetachedTabAt(int index) const {return Detached.at(index);}
+};
+@@ACTION@@
+@@WIDE@@
+@@SNAPSHOT@@
+static int Checks=0,Failures=0,OperationContexts=0;
+static void Check(bool ok,const char* label){++Checks;if(!ok){++Failures;printf("FAIL: %s\n",label);}}
+static CMainWindow* MainWindow=nullptr;
+enum {CUSTOMUNPACKER_EXTERNAL=0};
+static bool FailNew=false;
+void* operator new(size_t n){if(FailNew){FailNew=false;throw std::bad_alloc();}if(void* p=malloc(n))return p;throw std::bad_alloc();}
+void operator delete(void* p)noexcept{free(p);}void operator delete(void* p,size_t)noexcept{free(p);}
+struct CDynamicString {};
+class CUnpackerConfig;
+@@ROW@@
+@@BACKEND@@
+struct Rows {
+ std::vector<CUnpackerConfigData*> Data;int Count=0;
+ CUnpackerConfigData* operator[](int i){return Data.at(i);}
+};
+class CUnpackerConfig {
+public:
+ int PreferedUnpacker=0;Rows Unpackers;
+ BOOL MoveUnpacker(int srcIndex,int dstIndex);
+ @@DISPATCH_DECL@@
+};
+static CUnpackerConfig UnpackerConfig;
+struct CSalamanderForOperations {explicit CSalamanderForOperations(CFilesWindow*){++OperationContexts;}};
+struct ArchiverFacade {
+ int Calls=0;BOOL Result=TRUE;
+ BOOL UnpackWholeArchive(CSalamanderForOperations*,const char* archive,const char* mask,const char* target,BOOL del,CDynamicString* volumes){
+  ++Calls;Check(strcmp(archive,"exact.7z")==0&&strcmp(mask,"*.txt")==0&&strcmp(target,"destination")==0&&del&&volumes!=nullptr,"SDK arguments remain exact through guarded dispatcher");return Result;
+ }
+};
+struct CPluginData {
+ const char* DLLName="7zip\\7zip.spl";BOOL SupportCustomUnpack=TRUE,LoadOK=TRUE;int InitCalls=0;std::function<void()> DuringInit;ArchiverFacade PluginIfaceForArchiver;
+ BOOL InitDLL(HWND){++InitCalls;if(DuringInit)DuringInit();return LoadOK;}
+ @@DECL@@
+};
+struct PluginsFacade {
+ std::vector<CPluginData*> Data;
+ CPluginData* Get(int i){return i>=0&&i<(int)Data.size()?Data[i]:nullptr;}
+} Plugins;
+static int ExternalCalls=0;
+static const CFilesActionDiskTarget *ExternalSource=nullptr,*ExternalTarget=nullptr;
+static char* DupStr(const char* s){return _strdup(s);}
+static void* PackEnumMask=nullptr;
+static BOOL PackUniversalUncompress(HWND,const char*,void*,const char*,BOOL,CFilesWindow*,BOOL,const char*,const char*,void*,void*,char**,BOOL,const CFilesActionDiskTarget* src=nullptr,const CFilesActionDiskTarget* dst=nullptr){ExternalSource=src;ExternalTarget=dst;++ExternalCalls;return TRUE;}
+static UINT OverrideACP=0;
+static UINT TestACP(){return OverrideACP?OverrideACP:GetACP();}
+#define GetACP TestACP
+#define CALL_STACK_MESSAGE5(...) ((void)0)
+#define CALL_STACK_MESSAGE7(...) ((void)0)
+#define TRACE_E(...) ((void)0)
+@@METHODS@@
+@@WRAPPER@@
+static void Row(CUnpackerConfigData& row,const char* title="selected",int type=-1){row.Type=type;row.Title=_strdup(title);row.Ext=_strdup("7z");}
+static void Install(CUnpackerConfigData& first,CUnpackerConfigData& second,CPluginData& plugin,CPluginData& other){UnpackerConfig.PreferedUnpacker=0;UnpackerConfig.Unpackers.Data={&first,&second};UnpackerConfig.Unpackers.Count=2;Plugins.Data={&plugin,&other};OperationContexts=0;ExternalCalls=0;}
+int main(){
+ CFilesWindow source,target;source.Tab=2;target.Tab=3;CMainWindow main;MainWindow=&main;main.Left={&source};main.Right={&target};main.LeftPanel=&source;main.RightPanel=&target;CDynamicString volumes;
+ for(int scenario=0;scenario<=17;++scenario){
+  CUnpackerConfigData first,second;Row(first);Row(second,"other");CPluginData plugin,other;other.DLLName="zip\\zip.spl";Install(first,second,plugin,other);
+  CWholeArchiveUnpackerSnapshot captured;Check(captured.Capture(&UnpackerConfig),"capture actual selected backend row");Check(captured.IsCurrent(&plugin),"captured backend starts current");
+  plugin.DuringInit=[&]{switch(scenario){
+   case 1:UnpackerConfig.PreferedUnpacker=1;break;
+   case 2:UnpackerConfig.Unpackers.Count=0;break;
+   case 3:UnpackerConfig.Unpackers.Data[0]=&second;break;
+   case 4:first.Type=-2;break;
+   case 5:free(first.Title);first.Title=_strdup("changed title");break;
+   case 6:free(first.Ext);first.Ext=_strdup("zip");break;
+   case 7:first.OldType=TRUE;break;
+   case 8:Plugins.Data.clear();break;
+   case 9:Plugins.Data[0]=&other;break;
+   case 10:plugin.SupportCustomUnpack=FALSE;break;
+   case 11:plugin.DLLName="zip\\zip.spl";break;
+   case 12:plugin.DLLName=nullptr;break;
+   case 13:UnpackerConfig.MoveUnpacker(0,1);break;
+   case 14:plugin.DLLName="7ZIP\\7ZIP.SPL";break;
+   case 15:first.Type=CUSTOMUNPACKER_EXTERNAL;break;
+   case 16:free(first.Title);first.Title=nullptr;break;
+   case 17:free(first.Ext);first.Ext=nullptr;break;
+  }};
+  SetLastError(ERROR_SUCCESS);BOOL ok=UnpackerConfig.ExecuteUnpacker(nullptr,&source,"exact.7z","*.txt","destination",TRUE,&volumes,&captured);
+  Check(plugin.InitCalls==1,"current backend initialized exactly once");
+  if(scenario==0||scenario==14)Check(ok&&OperationContexts==1&&plugin.PluginIfaceForArchiver.Calls==1,"stable identity including DLL case-only spelling dispatches");
+  else Check(!ok&&OperationContexts==0&&plugin.PluginIfaceForArchiver.Calls==0&&GetLastError()==ERROR_RETRY,"post-init config or backend change refuses before context and I/O");
+  Check(ExternalCalls==0&&other.PluginIfaceForArchiver.Calls==0,"changed choice never dispatches external or foreign backend");
+ }
+ for(int scenario=0;scenario<=12;++scenario){
+  CUnpackerConfigData first,second;Row(first);Row(second);CPluginData plugin,other;Install(first,second,plugin,other);
+  CWholeArchiveUnpackerSnapshot snapshot;Check(snapshot.Capture(&UnpackerConfig),"seed reusable capture for invalidation");
+  CUnpackerConfig foreign;CUnpackerConfig* config=&UnpackerConfig;
+  switch(scenario){case 0:config=nullptr;break;case 1:config=&foreign;break;case 2:UnpackerConfig.PreferedUnpacker=-2;break;case 3:UnpackerConfig.PreferedUnpacker=INT_MAX;break;case 4:first.Type=0;break;case 5:first.Type=INT_MIN;break;case 6:first.OldType=TRUE;break;case 7:Plugins.Data.clear();break;case 8:plugin.DLLName=nullptr;break;case 9:plugin.DLLName="";break;case 10:plugin.SupportCustomUnpack=FALSE;break;case 11:UnpackerConfig.Unpackers.Data[0]=nullptr;break;case 12:free(first.Title);first.Title=nullptr;break;}
+  Check(!snapshot.Capture(config)&&!snapshot.IsCurrent()&&snapshot.Plugin==nullptr&&GetLastError()==ERROR_RETRY,"invalid capture clears prior binding and explicitly refuses without stale reads");
+ }
+ {
+  CUnpackerConfigData first,second;Row(first);Row(second);CPluginData plugin,other;Install(first,second,plugin,other);CWholeArchiveUnpackerSnapshot snapshot;Check(snapshot.Capture(&UnpackerConfig),"capture pre-dispatch mutation fixture");
+  first.Type=0;SetLastError(0);Check(!UnpackerConfig.ExecuteUnpacker(nullptr,&source,"exact.7z","*.txt","destination",TRUE,&volumes,&snapshot)&&plugin.InitCalls==0&&ExternalCalls==0&&GetLastError()==ERROR_RETRY,"pre-dispatch mutation refuses before external execution or plugin init");first.Type=-1;
+  Check(!other.UnpackWholeArchive(&source,"exact.7z","*.txt","destination",TRUE,&volumes,nullptr,nullptr,&snapshot)&&other.InitCalls==0&&GetLastError()==ERROR_RETRY,"direct wrapper rejects snapshot for another backend before init");
+  CFilesActionDiskTarget sourceSnapshot,targetSnapshot;Check(sourceSnapshot.Capture(&main,&source,TRUE)&&targetSnapshot.Capture(&main,&target,TRUE),"capture source and target forwarding fixtures");
+  CUnpackerConfig foreign;SetLastError(0);
+  Check(!foreign.ExecuteUnpacker(nullptr,&source,"exact.7z","*.txt","destination",TRUE,&volumes,&snapshot)&&plugin.InitCalls==0&&GetLastError()==ERROR_RETRY,"snapshot cannot dispatch through a different configuration object");
+  Check(!UnpackerConfig.ExecuteUnpacker(nullptr,&source,"exact.7z","*.txt","destination",TRUE,&volumes,nullptr,&sourceSnapshot,&targetSnapshot)&&plugin.InitCalls==0&&ExternalCalls==0&&GetLastError()==ERROR_RETRY,"partial panel context without backend binding is refused");
+  plugin.DuringInit=[&]{target.Root+=L"\\changed";};OperationContexts=0;
+  Check(!UnpackerConfig.ExecuteUnpacker(nullptr,&source,"exact.7z","*.txt","destination",TRUE,&volumes,&snapshot,&sourceSnapshot,&targetSnapshot)&&plugin.PluginIfaceForArchiver.Calls==0&&OperationContexts==0&&GetLastError()==ERROR_RETRY,"dispatcher forwards target snapshot to concrete post-init guard");target.Root=targetSnapshot.Root;plugin.DuringInit=[&]{source.Root+=L"\\changed";};
+  Check(!UnpackerConfig.ExecuteUnpacker(nullptr,&source,"exact.7z","*.txt","destination",TRUE,&volumes,&snapshot,&sourceSnapshot,&targetSnapshot)&&plugin.PluginIfaceForArchiver.Calls==0&&GetLastError()==ERROR_RETRY,"dispatcher forwards source snapshot to concrete post-init guard");source.Root=sourceSnapshot.Root;
+  plugin.DuringInit=nullptr;plugin.LoadOK=FALSE;SetLastError(ERROR_MOD_NOT_FOUND);
+  Check(!UnpackerConfig.ExecuteUnpacker(nullptr,&source,"exact.7z","*.txt","destination",TRUE,&volumes,&snapshot)&&GetLastError()==ERROR_MOD_NOT_FOUND,"init failure retains original error after valid binding");
+  plugin.LoadOK=TRUE;plugin.PluginIfaceForArchiver.Result=FALSE;SetLastError(ERROR_ACCESS_DENIED);
+  Check(!UnpackerConfig.ExecuteUnpacker(nullptr,&source,"exact.7z","*.txt","destination",TRUE,&volumes,&snapshot)&&plugin.PluginIfaceForArchiver.Calls==1&&GetLastError()==ERROR_ACCESS_DENIED,"backend error retained after valid binding");
+ }
+ {
+  CUnpackerConfigData first,second;Row(first,std::string(80,'a').c_str());Row(second);CPluginData plugin,other;Install(first,second,plugin,other);CWholeArchiveUnpackerSnapshot snapshot;FailNew=true;
+  Check(!snapshot.Capture(&UnpackerConfig)&&!snapshot.IsCurrent()&&!FailNew&&GetLastError()==ERROR_NOT_ENOUGH_MEMORY,"owned text allocation failure leaves capture invalid with explicit OOM");
+ }
+ {
+  CUnpackerConfigData first,second;Row(first);Row(second);CPluginData plugin,other;Install(first,second,plugin,other);
+  Check(UnpackerConfig.ExecuteUnpacker(nullptr,&source,"exact.7z","*.txt","destination",TRUE,&volumes)&&plugin.PluginIfaceForArchiver.Calls==1,"NULL context retains legacy plugin dispatcher");
+  first.Type=0;first.CmdExecExtract=_strdup("fake");first.CmdArgsExtract=_strdup("args");
+  Check(UnpackerConfig.ExecuteUnpacker(nullptr,&source,"exact.7z","*.txt","destination",FALSE,nullptr)&&ExternalCalls==1,"NULL context retains external dispatcher contract without launching process");
+ }
+
+ for(int mutation=0;mutation<9;++mutation){
+  CUnpackerConfigData first,second;Row(first);Row(second);first.Type=0;first.CmdExecExtract=_strdup("external.exe");first.CmdArgsExtract=_strdup("arguments");first.SupportLongNames=TRUE;
+  CPluginData plugin,other;Install(first,second,plugin,other);CWholeArchiveUnpackerSnapshot snapshot;
+  Check(snapshot.Capture(&UnpackerConfig,TRUE)&&snapshot.IsCurrent(),"explicit external binding captures owned command/args/flags");
+  Check(!snapshot.IsCurrent(&plugin),"external binding cannot be used as a plugin identity");
+  CFilesActionDiskTarget sourceSnapshot,targetSnapshot;Check(sourceSnapshot.Capture(&main,&source,TRUE)&&targetSnapshot.Capture(&main,&target,TRUE),"capture external forwarding panel contexts");
+  switch(mutation){case 1:free(first.CmdExecExtract);first.CmdExecExtract=_strdup("different.exe");break;case 2:free(first.CmdArgsExtract);first.CmdArgsExtract=_strdup("different args");break;case 3:first.SupportLongNames=FALSE;break;case 4:first.NeedANSIListFile=TRUE;break;case 5:UnpackerConfig.PreferedUnpacker=1;break;case 6:free(first.Title);first.Title=_strdup("changed");break;case 7:free(first.Ext);first.Ext=_strdup("zip");break;case 8:free(first.CmdArgsExtract);first.CmdArgsExtract=nullptr;break;}
+  SetLastError(ERROR_SUCCESS);BOOL ok=UnpackerConfig.ExecuteUnpacker(nullptr,&source,"exact.7z","*.txt","destination",FALSE,&volumes,&snapshot,&sourceSnapshot,&targetSnapshot);
+  if(mutation==0)Check(ok&&ExternalCalls==1&&ExternalSource==&sourceSnapshot&&ExternalTarget==&targetSnapshot&&plugin.InitCalls==0,"actual external dispatcher forwards both contexts without plugin initialization");
+  else Check(!ok&&ExternalCalls==0&&plugin.InitCalls==0&&GetLastError()==ERROR_RETRY,"changed external configuration refuses before process dispatch");
+ }
+
+ {
+  CUnpackerConfigData first,second;Row(first);Row(second);first.Type=0;first.CmdExecExtract=_strdup("external.exe");first.CmdArgsExtract=_strdup("arguments");CPluginData plugin,other;Install(first,second,plugin,other);
+  CWholeArchiveUnpackerSnapshot snapshot;Check(snapshot.Capture(&UnpackerConfig,TRUE),"capture external path-policy fixture");
+  Check(snapshot.ValidateExternalPaths("C:\\source.zip","C:\\target"),"short ASCII external paths remain accepted");
+  const std::string longPath="C:\\"+std::string(300,'a');
+  Check(!snapshot.ValidateExternalPaths(longPath.c_str(),"C:\\target")&&GetLastError()==ERROR_FILENAME_EXCED_RANGE,"external long source cannot enter fixed-buffer backend");
+  Check(!snapshot.ValidateExternalPaths("C:\\source.zip",longPath.c_str())&&GetLastError()==ERROR_FILENAME_EXCED_RANGE,"external long destination cannot enter temp path strcpy");
+  const auto unicode=SalWideToMultiBytePath(L"C:\\rodič-東京\\archive.zip",CP_UTF8);OverrideACP=1250;
+  Check(!snapshot.ValidateExternalPaths(unicode.c_str(),"C:\\target")&&GetLastError()==ERROR_NO_UNICODE_TRANSLATION,"UTF8 bytes must not be interpreted through a different ACP path");
+  OverrideACP=CP_UTF8;Check(snapshot.ValidateExternalPaths(unicode.c_str(),"C:\\target"),"matching UTF8 ACP preserves exact short Unicode external path");
+  const auto byteLong=SalWideToMultiBytePath((L"C:\\"+std::wstring(100,L'東')).c_str(),CP_UTF8);
+  Check(!snapshot.ValidateExternalPaths("C:\\source.zip",byteLong.c_str())&&GetLastError()==ERROR_FILENAME_EXCED_RANGE,"external byte-long path refused below UTF16 MAX_PATH");
+  OverrideACP=0;Check(!snapshot.ValidateExternalPaths("","C:\\target")&&GetLastError()==ERROR_INVALID_NAME,"empty guarded external path explicitly refused");
+  SetLastError(0);Check(!UnpackerConfig.ExecuteUnpacker(nullptr,&source,"C:\\source.zip","*.txt",longPath.c_str(),FALSE,nullptr,&snapshot)&&ExternalCalls==0,"dispatcher independently refuses unsupported external path before backend");
+  UnpackerConfig.PreferedUnpacker=-2;Check(!UnpackerConfig.ExecuteUnpacker(nullptr,&source,"x","*","y",FALSE,nullptr)&&ExternalCalls==0,"legacy dispatcher negative preferred index never reads array");
+ }
+
+ {
+  CUnpackerConfigData first,second;Row(first);Row(second);first.Type=0;first.CmdExecExtract=_strdup("external.exe");first.CmdArgsExtract=_strdup("args");CPluginData plugin,other;Install(first,second,plugin,other);CWholeArchiveUnpackerSnapshot snapshot;Check(snapshot.Capture(&UnpackerConfig,TRUE),"capture legacy temporary-name reserve boundary fixture");
+  const std::string fits="C:\\"+std::string(239,'a');
+  Check(snapshot.ValidateExternalPaths("archive.zip",fits.c_str()),"reserve maximum DWORD suffix and NUL at last supported target length");
+  Check(!snapshot.ValidateExternalPaths("archive.zip",(fits+"a").c_str())&&GetLastError()==ERROR_FILENAME_EXCED_RANGE,"reject target whose generated temp name could overflow even below MAX_PATH");
+  Check(snapshot.ValidateExternalPaths("archive.zip",(fits+char(92)).c_str()),"existing final separator does not consume extra reserve byte");
+ }
+ printf("Actual whole-archive backend binding: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

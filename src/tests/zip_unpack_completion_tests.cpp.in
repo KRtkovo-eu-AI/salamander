@@ -1,0 +1,99 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual whole-archive controller, mask enumeration and extraction loop.
+// Parser/decompressor, progress/UI and allocation-storage facades are explicit; no disk I/O.
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <type_traits>
+#include <cstring>
+#include <cstdio>
+#include <cstdlib>
+#include <new>
+#define CALL_STACK_MESSAGE1(...)
+#define CALL_STACK_MESSAGE2(...)
+#define CALL_STACK_MESSAGE3(...)
+#define ZIP_MAX_PATH 32768
+#define MAX_HEADER_SIZE 1024
+#define DECOMPRESS_INBUFFER_SIZE 64
+#define SLIDE_WINDOW_SIZE 64
+#define MSGBOX_ERROR 1
+#define PE_NORETRY 1
+#define PE_NOSKIP 2
+#define ERR_LOWMEM 2
+#define ERR_SKIP 3
+#define ERR_CANCEL 4
+#define ERR_RETRY 5
+@@IDS@@
+using QWORD=unsigned long long;
+struct CQuadWord {QWORD Value;CQuadWord(int low=0,int high=0):Value((QWORD(static_cast<unsigned>(high))<<32)|static_cast<unsigned>(low)){}CQuadWord& SetUI64(QWORD n){Value=n;return *this;}CQuadWord& operator+=(CQuadWord n){Value+=n.Value;return *this;}};
+struct State {std::vector<std::string> Names={"a.txt","b.txt"};std::string Mask="ALL",Skipped,BadPath;int EnumFailAfter=-1,AddFailAfter=-1,EntryError=0,CreateFailures=0,ErrorAction=ERR_SKIP;bool Empty=false,CancelBefore=false,CancelAfter=false;int Messages=0,Progress=0,SingleCalls=0;} G;
+static int Checks=0,Failures=0;
+static void Check(bool ok,const char* why){++Checks;if(!ok){++Failures;printf("FAIL: %s\n",why);}}
+static const char* LoadStr(int id){if(id==IDS_EXTRPROGTITLE||id==IDS_TESTPROGTITLE)return "archive %s";return "";}
+static std::vector<void*> Regions;
+static size_t PageSize(){SYSTEM_INFO info;GetSystemInfo(&info);return info.dwPageSize;}
+struct CFileInfo {
+ char* Name=nullptr;unsigned NameLen=0;QWORD Size=1;int StartDisk=0;~CFileInfo(){free(Name);}
+ // Quarantine released parser items behind a guard page: a stale Size read must
+ // fail deterministically, rather than accidentally passing on a freed heap block.
+ static void* operator new(size_t size){const size_t page=PageSize();if(size>page)throw std::bad_alloc();void* p=VirtualAlloc(nullptr,page,MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE);if(!p)throw std::bad_alloc();Regions.push_back(p);return p;}
+ static void operator delete(void* p)noexcept{DWORD old=0;if(!VirtualProtect(p,PageSize(),PAGE_NOACCESS,&old))abort();}
+};
+struct CFileHeader {const char* Name;};struct CLocalFileHeader {char Data;};
+template<class T>struct TIndirectArray2 {int Count=0;std::vector<T*> Items;explicit TIndirectArray2(int){}~TIndirectArray2(){for(auto p:Items){if constexpr(std::is_same_v<T,char>)free(p);else delete p;}}BOOL Add(T* p){if constexpr(std::is_same_v<T,CFileInfo>){if(Count==G.AddFailAfter)return FALSE;}Items.push_back(p);++Count;return TRUE;}T*& operator[](int i){return Items.at(i);}};
+struct Ops {void OpenProgressDialog(const char*,BOOL,void*,BOOL){++G.Progress;}void CloseProgressDialog(){--G.Progress;}void ProgressDialogAddText(const char*,BOOL){}BOOL ProgressSetSize(CQuadWord,CQuadWord,BOOL){return !G.CancelBefore;}void ProgressSetTotalSize(CQuadWord,CQuadWord){}BOOL ProgressAddSize(int,BOOL){return !G.CancelAfter;}} Operations;
+struct General {const char* SalPathFindFileName(const char* p){return p;}void ShowMessageBox(const char*,const char*,int){++G.Messages;}BOOL AgreeMask(const char* name,const char* mask,bool){return !strcmp(mask,"ALL")||!strcmp(name,mask);}HWND GetMsgBoxParent(){return nullptr;}BOOL TestFreeSpace(HWND,const char*,CQuadWord,const char*){return TRUE;}BOOL CheckAndCreateDirectory(const char*,void*,BOOL,char*,int){if(G.CreateFailures){--G.CreateFailures;return FALSE;}return TRUE;}} GeneralObject;
+static General* SalamanderGeneral=&GeneralObject;
+static DWORD ZipExtractTargetError(const char*,int,const char* entry,int,const char*,bool){return entry==G.BadPath?ERROR_INVALID_NAME:ERROR_SUCCESS;}
+static std::wstring ZipPathToWide(const char*){return L"";}
+struct CZipUnpack {
+ bool WholeArchiveExtracted=false,Test=false,ZeroZip=G.Empty,MultiVol=false,UserBreak=false,Unix=false;
+ bool SkipAllIOErrors=false,SkipAllLongNames=false,SkipAllEncrypted=false,SkipAllDataErr=false,SkipAllBadMathods=false;
+ BOOL AllFilesOK=TRUE;int ErrorID=0,ZipFile=0,RootLen=0,DiskNum=0,CentrDirStartDisk=0,DialogFlags=0,Silent=0;
+ QWORD CentrDirOffs=0,ExtraBytes=0,CentrDirSize=G.Names.size();CQuadWord MatchedTotalSize,ProgressTotalSize;
+ char OriginalCurrentDir[1]={0};const char* ZipName="C:\\owned\\archive.zip";
+ char *InputBuffer=nullptr,*SlideWindow=nullptr;unsigned InBufSize=0,WinSize=0;void *fixed_tl64=nullptr,*fixed_td64=nullptr,*fixed_tl32=nullptr,*fixed_td32=nullptr;
+ Ops* Salamander=&Operations;TIndirectArray2<CFileInfo>* ExtrFiles=nullptr;size_t NextHeader=0;
+ int CreateCFile(int*,const char*,DWORD,DWORD,DWORD,DWORD,int,void*,bool,bool){return 0;}
+ int CheckZip(){return 0;}int RecordArchiveVolume(){return 0;}
+ int PrepareMaskArray(TIndirectArray2<char>& masks,const char*){if(!G.Mask.empty())masks.Add(_strdup(G.Mask.c_str()));return 0;}
+ int ChangeDisk(){return 0;}
+ int ReadCentralHeader(CFileHeader* h,QWORD*,unsigned* size){if(static_cast<int>(NextHeader)==G.EnumFailAfter)return IDS_LOWMEM;h->Name=G.Names.at(NextHeader++).c_str();*size=1;return 0;}
+ unsigned ProcessName(CFileHeader* h,char* name){strcpy(name,h->Name);return static_cast<unsigned>(strlen(name));}
+ void ProcessHeader(CFileHeader*,CFileInfo*){}
+ void QuickSortHeaders2(int,int,TIndirectArray2<CFileInfo>&){}void QuickSortHeaders(int,int,TIndirectArray2<CFileInfo>&){}
+ int ProcessError(int,DWORD,const char*,int,bool*,const char* =nullptr){return G.ErrorAction;}
+ BOOL ProgressAddSize(QWORD){return TRUE;}
+ int ExtractSingleFile(char*,int,CFileInfo* f,BOOL* ok){++G.SingleCalls;*ok=f->Name!=G.Skipped&&G.EntryError==0;return G.EntryError;}
+ void InflateFreeFixedHufman(){}
+ int UnpackWholeArchive(const char*,const char*);int MatchFilesToMask(TIndirectArray2<char>&);int ExtractFiles(const char*);
+ int ExerciseDirectoryCreation(bool parent){int errorID=0;bool retry=false;const char* targetDir="C:\\owned\\directory";char errBuf[128]={};if(parent){@@CREATE_PARENT@@}else{@@CREATE_DIRECTORY@@}return errorID;}
+};
+@@WHOLE@@
+@@MATCH@@
+@@EXTRACT@@
+int main(){
+ SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX); // owned harness only; no crash UI
+ for(int scenario=0;scenario<12;++scenario){G=State{};
+  if(scenario==1)G.Mask="a.txt";if(scenario==2)G.Mask="none";if(scenario==3)G.Mask="";if(scenario==4)G.EnumFailAfter=1;
+  if(scenario==5)G.Skipped="a.txt";if(scenario==6)G.BadPath="a.txt";if(scenario==7)G.EntryError=IDS_NODISPLAY;
+  if(scenario==8)G.CancelBefore=true;if(scenario==9)G.CancelAfter=true;if(scenario==10){G.Empty=true;G.Names.clear();}if(scenario==11)G.AddFailAfter=1;
+  CZipUnpack zip;const int result=zip.UnpackWholeArchive("fixture-mask",u8"C:\\owned-東京\\target");
+  const bool complete=result==0&&!zip.UserBreak&&zip.WholeArchiveExtracted;
+  Check(complete==(scenario==0||scenario==10),"only complete extraction or validated genuinely empty archive qualifies source deletion");
+  Check(G.Progress==0,"whole extraction closes progress after all outcomes");
+  if(scenario==1||scenario==4||scenario==11)Check(G.SingleCalls==1&&result==0&&!zip.WholeArchiveExtracted,"selected or usable partial subset is extracted normally but never complete");
+  if(scenario==2||scenario==3)Check(G.SingleCalls==0&&result==0&&!zip.WholeArchiveExtracted,"empty mask/no matches on nonempty archive cannot authorize deletion");
+  if(scenario==5)Check(G.SingleCalls==2&&!zip.AllFilesOK&&!zip.WholeArchiveExtracted,"per-entry unsuccessful output/Skip/CRC flag survives later success");
+  if(scenario==6)Check(G.SingleCalls==1&&!zip.AllFilesOK&&!zip.WholeArchiveExtracted,"unsafe target Skip cannot be hidden by later successful extraction");
+  if(scenario==7)Check(result==IDS_NODISPLAY&&!zip.WholeArchiveExtracted,"entry failure retains error and incomplete state");
+  if(scenario==8||scenario==9)Check(zip.UserBreak,"user cancellation remains independently disqualifying");
+ }
+ G=State{};G.Names={u8"one-東京\\same.txt",u8"two-café\\same.txt",std::string(140,'a')+"\\"+std::string(140,'b')+u8"\\ž.txt"};CZipUnpack zip;
+ Check(zip.UnpackWholeArchive("fixture-mask",u8"C:\\owned-東京\\target")==0&&zip.WholeArchiveExtracted&&G.SingleCalls==3,"enumeration retains exact long Unicode distinct-parent names through the actual loops");
+ for(bool parent:{false,true})for(int action:{ERR_SKIP,ERR_RETRY,ERR_CANCEL}){G=State{};G.CreateFailures=1;G.ErrorAction=action;CZipUnpack creation;creation.WholeArchiveExtracted=true;const int error=creation.ExerciseDirectoryCreation(parent);Check((error==0)==(action!=ERR_CANCEL),"actual directory/parent creation loops preserve Skip/Retry/Cancel result policy");Check((error==0&&creation.WholeArchiveExtracted)==(action==ERR_RETRY),"directory/parent Skip refuses deletion while successful Retry remains complete");}
+ for(void* p:Regions)VirtualFree(p,0,MEM_RELEASE);
+ printf("ZIP whole-extraction completion: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

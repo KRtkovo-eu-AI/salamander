@@ -1,0 +1,131 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <new>
+#include <cstdio>
+#include <cstring>
+#include <cstdlib>
+#include <limits>
+#include <memory>
+static bool FailAllocation=false;
+void* operator new(size_t n){if(FailAllocation)throw std::bad_alloc();if(void* p=malloc(n?n:1))return p;throw std::bad_alloc();}
+void operator delete(void* p)noexcept{free(p);}
+void operator delete(void* p,size_t)noexcept{free(p);}
+enum CPanelSide{cpsLeft,cpsRight};enum{ptDisk,ptZIPArchive,ptPluginFS};
+struct CQuadWord { DWORD LoDWord,HiDWord;CQuadWord(DWORD l=0,DWORD h=0):LoDWord(l),HiDWord(h){} };
+struct CFileData {const char* Name="same.txt";const char* DosName=nullptr;size_t NameLen=8;DWORD Attr=0;CQuadWord Size{42,0};};
+static int BorrowedReads=0;static bool EnumCurrent=true,InvalidateOnOpen=false,InvalidateOnMessage=false;
+struct CFilesArray {CFileData Item;int Count=1;CFileData& At(int){++BorrowedReads;return Item;}};
+struct CSalamanderDirectory {
+ CFileData Item;CSalamanderDirectory* Child=nullptr;
+ CQuadWord GetDirSize(const char*,const char*){++BorrowedReads;return CQuadWord(42,0);}
+ CSalamanderDirectory* GetSalamanderDir(const char*,BOOL){++BorrowedReads;if(InvalidateOnOpen)EnumCurrent=false;return Child?Child:this;}
+ CSalamanderDirectory* GetSalamanderDir(int){++BorrowedReads;return Child?Child:this;}
+ BOOL IsDirectory(int){++BorrowedReads;return FALSE;}
+ BOOL IsFile(int i){++BorrowedReads;return i==0;}
+ CFileData* GetFile(int){++BorrowedReads;return &Item;}
+ CFileData* GetFileEx(int){++BorrowedReads;return &Item;}
+ CFileData* GetDirEx(int){++BorrowedReads;return &Item;}
+ int GetIndex(const char*){++BorrowedReads;return 0;}
+};
+struct CPluginDataInterfaceAbstract{};struct CPluginData{};
+struct CFilesWindow{
+ int Kind=ptZIPArchive;ULONGLONG Tab=2,ListingIdentityGeneration=1;BOOL Branch=FALSE;
+ std::string Archive="C:\\source\\same.zip",Root="inside",Directory="C:\\source";
+ CSalamanderDirectory Tree,OtherTree;CFilesArray F,D,OtherF,OtherD;CFilesArray *Files=&F,*Dirs=&D;CSalamanderDirectory* TreePtr=&Tree;
+ CPluginDataInterfaceAbstract PD,OtherPD;CPluginData Owner,OtherOwner;CPluginData* OwnerPtr=&Owner;
+ bool MetadataRetired=false;mutable unsigned MetadataReads=0,StaleReads=0;
+ void Read()const{++MetadataReads;if(MetadataRetired)++StaleReads;}
+ struct PDHolder{CPluginDataInterfaceAbstract* Value;CPluginDataInterfaceAbstract* GetInterface()const{return Value;}}PluginData{&PD};
+ BOOL Is(int k)const{return Kind==k;}BOOL IsBranchView()const{return Branch;}ULONGLONG GetPanelTabId()const{return Tab;}
+ @@EPOCH@@
+ const char* GetZIPArchive()const{Read();return Archive.c_str();}const char* GetZIPPath()const{Read();return Root.c_str();}
+ const char* GetPath()const{Read();return Directory.c_str();}CSalamanderDirectory* GetArchiveDir()const{Read();return TreePtr;}
+ CPluginData* GetPluginDataForPluginIface()const{Read();return OwnerPtr;}
+};
+struct CMainWindow{
+ CFilesWindow *LeftPanel=nullptr,*RightPanel=nullptr;std::vector<CFilesWindow*> Left,Right,Detached;
+ int GetPanelTabCount(CPanelSide side)const{return int((side==cpsLeft?Left:Right).size());}
+ CFilesWindow* GetPanelTabAt(CPanelSide side,int i)const{return (side==cpsLeft?Left:Right).at(i);}
+ int GetDetachedTabCount()const{return int(Detached.size());}CFilesWindow* GetDetachedTabAt(int i)const{return Detached.at(i);}
+};
+struct CFilesActionDiskTarget{@@FINDLIVE@@};
+@@SOURCE@@
+
+#define SAL_MAX_PATH 32768
+#define SLOW_CALL_STACK_MESSAGE2(...)
+#define CALL_STACK_MESSAGE_NONE
+#define TRACE_E(...)
+#define IDS_NAMEISTOOLONG 1
+#define IDS_ERRORTITLE 2
+@@CONSTANTS@@
+static const char* LoadStr(int){return "%s %s";}
+static int SalMessageBox(HWND,const char*,const char*,UINT){if(InvalidateOnMessage)EnumCurrent=false;return IDOK;}
+@@ENUM_STATE@@
+@@ENUM_METHODS@@
+@@ENUMERATOR@@
+@@PUBLIC_ENUMERATOR@@
+static BOOL CurrentEnumContext(void*){return EnumCurrent?TRUE:FALSE;}
+
+static int Checks=0,Failures=0;static void Check(bool value,const char* message){++Checks;if(!value){++Failures;printf("FAIL %s\n",message);}}
+
+static void CheckEnumeratorLifetime(){
+ for(int mode=0;mode<3;++mode){
+  CFilesArray files,dirs;dirs.Count=0;CSalamanderDirectory tree,child;tree.Child=&child;
+  auto state=std::make_unique<CPanelTmpEnumData>();int index=0;state->Indexes=&index;state->IndexesCount=1;state->Files=&files;state->Dirs=&dirs;state->ArchiveDir=&tree;state->ZIPPath="";
+  state->ContextIsCurrent=CurrentEnumContext;state->Context=nullptr;
+  EnumCurrent=false;BorrowedReads=0;int error=0;BOOL isDir=TRUE;CQuadWord size;const CFileData* file=reinterpret_cast<CFileData*>(1);
+  Check(PanelSalEnumSelection(nullptr,mode,&isDir,&size,&file,state.get(),&error)==nullptr&&error==SALENUM_CANCEL&&GetLastError()==ERROR_RETRY&&BorrowedReads==0&&file==nullptr&&!isDir,"stale source refused before any borrowed array or metadata read");
+  EnumCurrent=true;error=0;Check(PanelSalEnumSelection(nullptr,mode,&isDir,&size,&file,state.get(),&error)!=nullptr&&error==SALENUM_SUCCESS&&file==&files.Item,"valid ordinary source remains enumerable");
+  EnumCurrent=false;BorrowedReads=0;Check(PanelSalEnumSelection(nullptr,mode,&isDir,&size,&file,state.get(),&error)==nullptr&&error==SALENUM_CANCEL&&BorrowedReads==0,"invalidation between plugin enumeration calls refuses retired entries");
+  PanelSalEnumSelection(nullptr,-1,nullptr,nullptr,nullptr,state.get(),&error);Check(BorrowedReads==0&&state->CurrentIndex==0,"reset does not borrow retired listing");
+  EnumCurrent=true;state->ContextIsCurrent=nullptr;Check(PanelSalEnumSelection(nullptr,mode,nullptr,nullptr,nullptr,state.get(),nullptr)!=nullptr,"legacy callers without context retain enumeration");
+ }
+ CFilesArray files,dirs;CSalamanderDirectory tree,child;tree.Child=&child;auto state=std::make_unique<CPanelTmpEnumData>();int index=0;
+ state->Indexes=&index;state->IndexesCount=1;state->Files=&files;state->Dirs=&dirs;state->ArchiveDir=&tree;state->ZIPPath="";state->ContextIsCurrent=CurrentEnumContext;
+ EnumCurrent=true;InvalidateOnOpen=true;BorrowedReads=0;int error=0;
+ Check(PanelSalEnumSelection(nullptr,1,nullptr,nullptr,nullptr,state.get(),&error)==nullptr&&error==SALENUM_CANCEL&&BorrowedReads==2,"recursive descent rechecks context before touching newly retired tree");InvalidateOnOpen=false;
+ state->Reset();std::string root(SAL_MAX_PATH-2,'x');state->ZIPPath=root.c_str();EnumCurrent=true;InvalidateOnMessage=true;BorrowedReads=0;
+ Check(PanelSalEnumSelection(reinterpret_cast<HWND>(1),1,nullptr,nullptr,nullptr,state.get(),&error)==nullptr&&error==SALENUM_CANCEL&&GetLastError()==ERROR_RETRY&&BorrowedReads==1,"modal error callback invalidation is caught on ENUM_NEXT before another source read");InvalidateOnMessage=false;EnumCurrent=true;
+}
+
+int main(){
+ CheckEnumeratorLifetime();
+ const std::vector<std::string> paths={"C:\\ascii\\file.zip",u8"C:\\ascii\\秘密.zip",u8"C:\\東京\\same.zip",u8"C:\\první\\東京\\same.zip",std::string("C:\\")+std::string(400,'a')+"\\long.zip",std::string(u8"C:\\")+std::string(300,'x')+u8"\\東京.zip"};
+ for(const auto& path:paths)for(int side=0;side<3;++side){
+  CFilesWindow source,other;other.Tab=3;source.Archive=path;CMainWindow main;
+  if(side==0){main.Left={&source};main.LeftPanel=&source;main.Right={&other};main.RightPanel=&other;}
+  if(side==1){main.Left={&other};main.LeftPanel=&other;main.Right={&source};main.RightPanel=&source;}
+  if(side==2){main.Left={&other};main.LeftPanel=&other;main.Detached={&source};}
+  CFilesActionArchiveSource snapshot;Check(snapshot.Capture(&main,&source)&&snapshot.IsCurrent(&main),"capture ordinary archive in visible/detached live tab");
+  Check(snapshot.ArchiveFile==path&&snapshot.ArchiveRoot=="inside"&&snapshot.Directory=="C:\\source","complete owned archive path/root text");
+  source.Archive+="changed";Check(snapshot.ArchiveFile==path&&!snapshot.IsCurrent(&main),"owned path unchanged and changed source refused");source.Archive=path;
+  source.Root+="changed";Check(!snapshot.IsCurrent(&main),"archive root mutation refused");source.Root="inside";
+  source.Directory+="changed";Check(!snapshot.IsCurrent(&main),"directory mutation refused");source.Directory="C:\\source";
+  source.TreePtr=&source.OtherTree;Check(!snapshot.IsCurrent(&main),"archive tree replacement refused");source.TreePtr=&source.Tree;
+  source.Files=&source.OtherF;Check(!snapshot.IsCurrent(&main),"file array replacement refused");source.Files=&source.F;
+  source.Dirs=&source.OtherD;Check(!snapshot.IsCurrent(&main),"directory array replacement refused");source.Dirs=&source.D;
+  source.PluginData.Value=&source.OtherPD;Check(!snapshot.IsCurrent(&main),"plugin private interface replacement refused");source.PluginData.Value=&source.PD;
+  source.OwnerPtr=&source.OtherOwner;Check(!snapshot.IsCurrent(&main),"listing plugin owner replacement refused");source.OwnerPtr=&source.Owner;
+  source.Kind=ptDisk;Check(!snapshot.IsCurrent(&main),"source changed to disk refused");source.Kind=ptZIPArchive;
+  source.Branch=TRUE;Check(!snapshot.IsCurrent(&main),"Branch source cannot impersonate archive listing");source.Branch=FALSE;
+  source.AdvanceListingIdentity();source.MetadataRetired=true;source.MetadataReads=0;
+  Check(!snapshot.IsCurrent(&main)&&source.MetadataReads==0&&source.StaleReads==0,"epoch invalidates same-address same-name relisting before borrowed metadata read");
+  source.MetadataRetired=false;Check(snapshot.Capture(&main,&source),"capture current new listing after retirement");
+  source.Tab=99;source.MetadataRetired=true;source.MetadataReads=0;Check(!snapshot.IsCurrent(&main)&&source.MetadataReads==0,"same address reused by another tab refused before metadata");source.Tab=2;
+  if(side==0)main.Left.clear();else if(side==1)main.Right.clear();else main.Detached.clear();
+  Check(!snapshot.IsCurrent(&main)&&source.MetadataReads==0,"removed panel never dereferenced");
+ }
+ CFilesWindow source;CMainWindow main;main.Left={&source};main.LeftPanel=&source;CFilesActionArchiveSource snapshot;
+ Check(snapshot.Capture(&main,&source),"seed capture");main.LeftPanel=nullptr;Check(!snapshot.IsCurrent(&main),"source no longer visible on captured side refused");main.LeftPanel=&source;
+ source.OwnerPtr=nullptr;Check(!snapshot.Capture(&main,&source)&&snapshot.Panel==nullptr&&!snapshot.IsCurrent(&main),"orphaned private listing interface refused");source.PluginData.Value=nullptr;
+ Check(snapshot.Capture(&main,&source)&&snapshot.IsCurrent(&main),"ordinary external archive with no private interface remains valid");
+ source.Archive=std::string(500,'a');FailAllocation=true;bool result=snapshot.Capture(&main,&source);FailAllocation=false;
+ Check(!result&&snapshot.Panel==nullptr&&GetLastError()==ERROR_NOT_ENOUGH_MEMORY,"owned path allocation failure invalidates snapshot and retains error");
+ source.ListingIdentityGeneration=(std::numeric_limits<ULONGLONG>::max)();source.AdvanceListingIdentity();Check(source.GetListingIdentityGeneration()==1,"epoch wrap never exposes uninitialized zero");
+ printf("Archive source identity: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

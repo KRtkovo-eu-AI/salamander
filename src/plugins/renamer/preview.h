@@ -31,7 +31,7 @@ protected:
     CRenamer Renamer;
 
     // data for rename operation
-    char (&Root)[3 * MAX_PATH];
+    char* Root;
     int& RootLen;
     TIndirectArray<CSourceFile>& SourceFiles;
     BOOL& SourceFilesValid;
@@ -41,7 +41,8 @@ protected:
     char TextBuffer[MAX_PATH];
     std::wstring TextBufferW;
     int CachedItem;
-    char NewNameCache[3 * MAX_PATH];
+    TBuffer<char> NewNameStorage;
+    std::string PathText;
     BOOL NewNameValid;
 
     HWND Static;

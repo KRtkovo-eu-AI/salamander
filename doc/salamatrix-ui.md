@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-06 | Specify shared viewer option types and failure behavior. | All five worker facades must send equivalent viewer payloads. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 | 2026-11-04 | Name the UI guide host Open Samandarin. | The lead sentence still said Open Salamander, so the generated HTML check failed. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 -->
@@ -66,6 +67,49 @@ open for an arbitrary amount of time. A button with `dialogResult: 0` is an
 action button and stays open; buttons with a nonzero result close the dialog.
 This rule also keeps the legacy Automation COM dialog facade compatible even
 though its original `add()` signature predates the explicit `keepOpen` option.
+
+## Viewer options
+
+`ui.viewer(path, options)` opens the shared viewer and returns `true` only when
+its host response contains the Boolean `opened: true`. Host/transport failures
+still raise the runtime's normal host-call error. The caller passes the complete
+source path separately from the optional `documentName` title label.
+
+The JavaScript, Python, PowerShell, PHP and Lua worker facades use the same
+`options` contract (Python also accepts `document_name`):
+
+- `renderer`: a nonempty string; missing, null or invalid values default to `auto`.
+  The host accepts `auto`, `prism` and `document`; unknown names remain host errors.
+  A string in place of `options` is shorthand for `renderer`.
+- `title` and `documentName`: nonempty strings, including `"0"`; invalid values
+  are omitted. Whitespace is preserved.
+- `left`, `top`, `width`, `height`, `showCmd`: finite integral numeric values in
+  the signed 32-bit range -2147483648 through 2147483647. Strings, Booleans,
+  fractions, nulls and out-of-range values are omitted without a conversion error.
+- `alwaysOnTop`: a Boolean; invalid or missing values are omitted.
+- Put geometry and `alwaysOnTop` in a nested `window` map, or directly in `options`.
+  A supplied map takes precedence over outer geometry. The host applies its
+  existing geometry/show-policy defaults when fields are absent or dimensions
+  are unusable. No field grants permission to bypass viewer/package lifetimes.
+
+Equivalent examples for the bundled extension demos (their existing
+`ui.dialogs` capability already covers `salamander.ui.viewer.open`):
+
+```javascript
+await Salamander.ui.viewer(path, { renderer: "prism", title: "Demo", window: { left: 20, top: 20, width: 800, height: 600, alwaysOnTop: false } });
+```
+```python
+Salamander.ui.viewer(path, {"renderer": "prism", "title": "Demo", "window": {"left": 20, "top": 20, "width": 800, "height": 600, "alwaysOnTop": False}})
+```
+```powershell
+$Salamander.ui.Viewer($path, @{renderer='prism'; title='Demo'; window=@{left=20; top=20; width=800; height=600; alwaysOnTop=$false}})
+```
+```php
+$Salamander->ui->viewer($path, array('renderer'=>'prism', 'title'=>'Demo', 'window'=>array('left'=>20, 'top'=>20, 'width'=>800, 'height'=>600, 'alwaysOnTop'=>false)));
+```
+```lua
+Salamander.ui.viewer(path, {renderer="prism", title="Demo", window={left=20, top=20, width=800, height=600, alwaysOnTop=false}})
+```
 
 ## Dialog lifecycle
 

@@ -5,6 +5,7 @@
 // | 2026-11-05 | Composite SVG thumbnails with premul-correct blending. | NanoSVG leaves premultiplied BGRA; multiplying by alpha again darkened edges. | | Composer |
 
 #include "precomp.h"
+#include "../shared/spl_diskselection.h"
 
 #include "lib/pvw32dll.h"
 #include "pictview.h"
@@ -221,24 +222,110 @@ static BOOL LoadSTLThumbnail(LPCTSTR filename, int thumbWidth, int thumbHeight,
 
 class CEnumFiles
 {
-    int iFiles, iDirs, index;
-    const CFileData* pFile;
-    TCHAR path[_MAX_PATH];
-
+    CSalamanderDiskSelection Selection;
+    int Index;
+    BOOL Valid;
 public:
-    CEnumFiles(void);
-    const CFileData* GetFile(LPTSTR fileName);
-    int GetFileCount(void);
+    CEnumFiles() : Index(0), Valid(Selection.Capture(SalamanderGeneral, PANEL_SOURCE)) {}
+    BOOL IsValid() const { return Valid; }
+    const CSalamanderDiskSelectionItem* GetFile()
+    {
+        while (Index < Selection.GetCount())
+        {
+            const CSalamanderDiskSelectionItem* item = Selection.GetItem(Index++);
+            if (!item->IsDir) return item;
+        }
+        return NULL;
+    }
+    int GetFileCount() const
+    {
+        int count = 0;
+        for (int i = 0; i < Selection.GetCount(); ++i) if (!Selection.GetItem(i)->IsDir) ++count;
+        return count;
+    }
 };
+
+// The temporary file is reserved in the source directory with CREATE_NEW and
+// remains owned until an atomic replace succeeds. A failed rename never deletes
+// the original image; the destructor removes only this operation's temporary.
+class CThumbnailTempFile
+{
+public:
+    std::wstring Path;
+    ~CThumbnailTempFile() { if (!Path.empty()) DeleteFileW(Path.c_str()); }
+    BOOL Create(const wchar_t* directory)
+    {
+        GUID id;
+        wchar_t token[40];
+        for (int attempt = 0; attempt < 8; ++attempt)
+        {
+            if (FAILED(CoCreateGuid(&id)) || !StringFromGUID2(id, token, _countof(token))) return FALSE;
+            std::wstring candidate = PluginPathAddExtendedPrefixW(directory);
+            if (!candidate.empty() && candidate.back() != L'\\') candidate += L'\\';
+            candidate += L".pv-"; candidate += token; candidate += L".tmp";
+            HANDLE file = HANDLES_Q(CreateFileW(candidate.c_str(), GENERIC_WRITE, 0, NULL,
+                CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL));
+            if (file != INVALID_HANDLE_VALUE)
+            {
+                HANDLES(CloseHandle(file));
+                Path.swap(candidate);
+                return TRUE;
+            }
+            if (GetLastError() != ERROR_FILE_EXISTS && GetLastError() != ERROR_ALREADY_EXISTS) return FALSE;
+        }
+        return FALSE;
+    }
+};
+
+// Restore the original read-only state if a confirmed overwrite subsequently
+// fails or is cancelled. The referenced operation path outlives this scope.
+class CThumbnailFileAttributes
+{
+    const wchar_t* Path;
+    DWORD Original = 0;
+    bool Restore = false;
+public:
+    explicit CThumbnailFileAttributes(const wchar_t* path) : Path(path) {}
+    ~CThumbnailFileAttributes() { if (Restore) SetFileAttributesW(Path, Original); }
+    BOOL ClearReadOnly(DWORD attributes)
+    {
+        if (!SetFileAttributesW(Path, attributes & ~FILE_ATTRIBUTE_READONLY)) return FALSE;
+        if (!Restore) Original = attributes;
+        Restore = true;
+        return TRUE;
+    }
+    void Commit() { Restore = false; }
+};
+
+// Expand only the existing typed localization placeholders. Values are data,
+// never format strings, and long Unicode names are not truncated into buffers.
+static std::string FormatThumbnailText(const char* pattern, const char* text, int first = 0, int second = 0)
+{
+    std::string output;
+    int number = 0;
+    for (const char* p = pattern; p != NULL && *p != 0;)
+    {
+        if (p[0] == '%' && p[1] == '%') { output += '%'; p += 2; }
+        else if (p[0] == '%' && p[1] == 'd' && number < 2) { output += std::to_string(number++ == 0 ? first : second); p += 2; }
+        else if (p[0] == '%' && p[1] == 's') { if (text != NULL) output += text; p += 2; }
+        else if (p[0] == '%' && p[1] == 'h' && p[2] == 's') { if (text != NULL) output += text; p += 3; }
+        else output += *p++;
+    }
+    return output;
+}
 
 /* MyMemWriteFunc - used for creating JPEG thumbnails */
 DWORD WINAPI MyMemWriteFunc(void* AppSpecific, void* pData, DWORD Size)
 {
     psReadMemFuncData tmp = (psReadMemFuncData)AppSpecific;
 
+    if (tmp->Pos < 0 || Size > static_cast<DWORD>(INT_MAX - tmp->Pos))
+        return 0;
     if (tmp->Pos + (int)Size > tmp->Size)
     {
-        tmp->Buffer = (unsigned char*)realloc(tmp->Buffer, tmp->Pos + Size);
+        unsigned char* resized = (unsigned char*)realloc(tmp->Buffer, tmp->Pos + Size);
+        if (resized == NULL) return 0;
+        tmp->Buffer = resized;
     }
     memcpy(tmp->Buffer + tmp->Pos, pData, Size);
     tmp->Pos += Size;
@@ -298,75 +385,6 @@ DWORD WINAPI MyWriteFunc(void* AppSpecific, void* pData, DWORD Size)
     return tmp->thumbMaker->ProcessBuffer(pData, Size / tmp->bytesperline) * Size;
 }
 
-CEnumFiles::CEnumFiles(void)
-{
-    int type;
-    BOOL bDir;
-
-    pFile = NULL;
-    index = iFiles = iDirs = NULL;
-    // We only support raw Windows-mapped (local or remote) paths
-    if (SalamanderGeneral->GetPanelPath(PANEL_SOURCE, path, SizeOf(path), &type, NULL) && (type == PATH_TYPE_WINDOWS))
-    {
-        if (!SalamanderGeneral->GetPanelSelection(PANEL_SOURCE, &iFiles, &iDirs))
-        {
-            iFiles = iDirs = 0;
-        }
-        else if (!iFiles && !iDirs)
-        {
-            // nothing selected; get the focused item
-            pFile = SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, &bDir);
-            if (bDir)
-            {
-                // directory: nothing to process
-                pFile = NULL;
-            }
-        }
-    }
-}
-
-const CFileData* CEnumFiles::GetFile(LPTSTR fileName)
-{
-    const CFileData* ret;
-    BOOL bDir;
-
-    if (!iFiles && !iDirs)
-    {
-        ret = pFile;
-        pFile = NULL;
-    }
-    else
-    {
-        while (((ret = SalamanderGeneral->GetPanelSelectedItem(PANEL_SOURCE, &index, &bDir)) != NULL) && bDir)
-            ;
-    }
-    if (ret)
-    {
-        _sntprintf(fileName, _MAX_PATH, _T("%s%s%s"), path,
-                   (path[_tcslen(path) - 1] == '\\') ? _T("") : _T("\\"), ret->Name);
-    }
-    return ret;
-}
-
-int CEnumFiles::GetFileCount(void)
-{
-    int ret;
-    BOOL bDir;
-
-    if (!iFiles && !iDirs)
-    {
-        return pFile ? 1 : 0;
-    }
-    ret = 0;
-    while (SalamanderGeneral->GetPanelSelectedItem(PANEL_SOURCE, &index, &bDir))
-    {
-        if (!bDir)
-            ret++;
-    }
-    index = 0;
-    return ret;
-}
-
 typedef struct tagThumbProgressData
 {
     sReadMemFuncData wfd;
@@ -388,17 +406,31 @@ BOOL WINAPI ThumbProgresProc(int done, void* data)
     return FALSE;
 }
 
-void UpdateThumbnails(CSalamanderForOperationsAbstract* Salamander)
+static void UpdateThumbnailsImpl(CSalamanderForOperationsAbstract* Salamander)
 {
     int fileCnt, processed = 0;
     CEnumFiles fileEnum;
-    TCHAR path[_MAX_PATH];
+    std::string message;
     sThumbProgressData pd;
-    const CFileData* pFile = NULL;
+    const CSalamanderDiskSelectionItem* pFile = NULL;
     int flags = 0;
     HWND hProgress = 0;
 
     CALL_STACK_MESSAGE1("UpdateThumbnails");
+    struct ProgressScope
+    {
+        CSalamanderForOperationsAbstract* Operations; bool Open = false;
+        ~ProgressScope() { if (Open) Operations->CloseProgressDialog(); }
+    } progress = {Salamander};
+    if (!fileEnum.IsValid())
+    {
+        char error[1024];
+        SalamanderGeneral->GetErrorText(GetLastError(), error, _countof(error));
+        SalamanderGeneral->ShowMessageBox(error, LoadStr(IDS_ERRORTITLE), MSGBOX_ERROR);
+        return;
+    }
+    memset(&pd.wfd, 0, sizeof(pd.wfd));
+    struct BufferScope { sReadMemFuncData* Data; ~BufferScope() { free(Data->Buffer); } } buffer = {&pd.wfd};
     if (!(G.DontShowAnymore & DSA_UPDATE_THUMBNAILS))
     {
         BOOL checked = FALSE;
@@ -419,46 +451,45 @@ void UpdateThumbnails(CSalamanderForOperationsAbstract* Salamander)
     if (fileCnt)
     {
         Salamander->OpenProgressDialog(LoadStr(IDS_REGENERATE_THUMBNAIL_TITLE), TRUE, NULL, TRUE);
+        progress.Open = true;
         Salamander->ProgressSetTotalSize(CQuadWord(0, 100), CQuadWord(0, fileCnt));
         hProgress = Salamander->ProgressGetHWND();
     }
     pd.ind = -1;
     pd.Salamander = Salamander;
-    while ((pFile = fileEnum.GetFile(path)) != NULL && !(flags & FL_CANCEL))
+    while ((pFile = fileEnum.GetFile()) != NULL && !(flags & FL_CANCEL))
     {
-        LPPVHandle PVHandle;
+        const std::wstring operationPath = PluginPathAddExtendedPrefixW(pFile->FullPathW);
+        const std::string path = SalamanderDiskSelection::Utf8FromWide(pFile->FullPathW);
+        const std::string display = SalamanderDiskSelection::Utf8FromWide(pFile->NameW);
+        const std::string directory = SalamanderDiskSelection::Utf8FromWide(pFile->DirectoryW);
+        LPPVHandle PVHandle = NULL;
+        struct ImageScope { LPPVHandle* Image; ~ImageScope() { if (*Image != NULL) PVW32DLL.PVCloseImage(*Image); } } image = {&PVHandle};
         PVImageInfo pvii;
         PVCODE code;
-        LPTSTR str = (LPTSTR)_tcsrchr(path, '\\');
+
         PVOpenImageExInfo oiei;
         PVSaveImageInfo sii;
-        EXIFREPLACETHUMBNAIL ReplaceThumbnail;
-        TCHAR newFile[_MAX_PATH];
+        EXIFREPLACETHUMBNAILW ReplaceThumbnail;
+        CThumbnailTempFile newFile;
+        CThumbnailFileAttributes sourceAttributes(operationPath.c_str());
 
         CALL_STACK_MESSAGE1("PVW32DLL.PVOpenImageEx");
         flags &= FL_KEEP;
         memset(&oiei, 0, sizeof(oiei));
         oiei.cbSize = sizeof(oiei);
-#ifdef _UNICODE
-        char pathA[_MAX_PATH];
+        oiei.FileName = path.c_str();
 
-        WideCharToMultiByte(CP_ACP, 0, path, -1, pathA, sizeof(pathA), NULL, NULL);
-        pathA[sizeof(pathA) - 1] = 0;
-        oiei.FileName = pathA;
-#else
-        oiei.FileName = path;
-#endif
-
-        Salamander->ProgressDialogAddText(str ? str + 1 : path, TRUE /*update later*/);
+        Salamander->ProgressDialogAddText(display.c_str(), TRUE /*update later*/);
         Salamander->ProgressSetSize(CQuadWord(0, 0), CQuadWord(0, ++pd.ind), FALSE /*update now*/);
         code = PVW32DLL.PVOpenImageEx(&PVHandle, &oiei, &pvii, sizeof(pvii));
         if (code != PVC_OK)
         {
             if (!(flags & FL_NON_IMG_SKIP_ALL))
             {
-                _stprintf(newFile, LoadStr(IDS_ERROR_OPENING_CONTINUE), code, PVW32DLL.PVGetErrorText(code));
+                message = FormatThumbnailText(LoadStr(IDS_ERROR_OPENING_CONTINUE), PVW32DLL.PVGetErrorText(code), code);
                 switch (SalamanderGeneral->DialogError(hProgress, BUTTONS_SKIPCANCEL,
-                                                       str ? str + 1 : path, newFile, LoadStr(IDS_ERRORTITLE)))
+                                                       display.c_str(), message.c_str(), LoadStr(IDS_ERRORTITLE)))
                 {
                 case DIALOG_SKIPALL:
                     flags |= FL_NON_IMG_SKIP_ALL;
@@ -476,7 +507,7 @@ void UpdateThumbnails(CSalamanderForOperationsAbstract* Salamander)
             if (!(flags & FL_NON_JPEG_ALL))
             {
                 switch (SalamanderGeneral->DialogError(hProgress, BUTTONS_SKIPCANCEL,
-                                                       str ? str + 1 : path, LoadStr(IDS_NOT_JPEG_FILE), LoadStr(IDS_ERRORTITLE)))
+                                                       display.c_str(), LoadStr(IDS_NOT_JPEG_FILE), LoadStr(IDS_ERRORTITLE)))
                 {
                 case DIALOG_SKIPALL:
                     flags |= FL_NON_JPEG_ALL;
@@ -496,7 +527,7 @@ void UpdateThumbnails(CSalamanderForOperationsAbstract* Salamander)
             else if (!(flags & FL_JFXX_ALL))
             {
                 switch (SalamanderGeneral->DialogQuestion(hProgress, fileCnt > 1 ? BUTTONS_YESALLSKIPCANCEL : BUTTONS_YESNOCANCEL,
-                                                          str ? str + 1 : path, LoadStr(IDS_NOT_EXIF_CREATE_JFXX), LoadStr(IDS_ERRORTITLE)))
+                                                          display.c_str(), LoadStr(IDS_NOT_EXIF_CREATE_JFXX), LoadStr(IDS_ERRORTITLE)))
                 {
                 case DIALOG_ALL:
                     flags |= FL_JFXX_ALL;
@@ -555,70 +586,60 @@ void UpdateThumbnails(CSalamanderForOperationsAbstract* Salamander)
             if (code == PVC_OK)
             {
                 InitEXIF(hProgress, FALSE);
-                ReplaceThumbnail = (EXIFREPLACETHUMBNAIL)GetProcAddress(EXIFLibrary, "EXIFReplaceThumbnail");
+                ReplaceThumbnail = (EXIFREPLACETHUMBNAILW)GetProcAddress(EXIFLibrary, "EXIFReplaceThumbnailW");
 
                 if (ReplaceThumbnail)
                 {
-                    _tcscpy(newFile, path);
-                    SalamanderGeneral->CutDirectory(newFile);
-                    if (SalamanderGeneral->SalGetTempFileName(newFile, _T("pv"), newFile, TRUE, NULL))
+                    if (newFile.Create(pFile->DirectoryW))
                     {
-                        str = (LPTSTR)_tcsrchr(path, '\\');
-#ifdef _UNICODE
-                        char pathA[_MAX_PATH], newFileA[_MAX_PATH];
-
-                        WideCharToMultiByte(CP_ACP, 0, path, -1, pathA, sizeof(pathA), NULL, NULL);
-                        pathA[sizeof(pathA) - 1] = 0;
-                        WideCharToMultiByte(CP_ACP, 0, newFile, -1, newFileA, sizeof(newFileA), NULL, NULL);
-                        newFileA[sizeof(newFileA) - 1] = 0;
-                        if (!ReplaceThumbnail(pathA, newFileA, pd.wfd.Buffer, pd.wfd.Size))
+                        if (!ReplaceThumbnail(operationPath.c_str(), newFile.Path.c_str(), pd.wfd.Buffer, pd.wfd.Size))
                         {
-#else
-                        if (!ReplaceThumbnail(path, newFile, pd.wfd.Buffer, pd.wfd.Size))
-                        {
-#endif
-                            // SalamanderGeneral->SalGetTempFileName created the file
-                            DeleteFile(newFile);
-                            _stprintf(newFile, LoadStr(IDS_REGENERATE_THUMB_WRITEFILE), str ? str + 1 : path);
-                            SalamanderGeneral->ShowMessageBox(newFile, LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
+                            message = FormatThumbnailText(LoadStr(IDS_REGENERATE_THUMB_WRITEFILE), display.c_str());
+                            SalamanderGeneral->ShowMessageBox(message.c_str(), LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
                         }
                         else
                         {
                             do
                             {
-                                if (DeleteFile(path))
+                                if (MoveFileExW(newFile.Path.c_str(), operationPath.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+                                {
+                                    newFile.Path.clear();
+                                    sourceAttributes.Commit();
                                     break;
-                                if (flags & FL_OVERWRITE_RO_ALL)
+                                }
+                                const DWORD replaceError = GetLastError();
+                                const DWORD currentAttributes = GetFileAttributesW(operationPath.c_str());
+                                const bool readOnly = replaceError == ERROR_ACCESS_DENIED &&
+                                    currentAttributes != INVALID_FILE_ATTRIBUTES &&
+                                    (currentAttributes & FILE_ATTRIBUTE_READONLY) != 0;
+                                flags &= ~FL_OVERWRITE_RO;
+                                if (flags & FL_SKIP_ALL) break;
+                                if (readOnly && (flags & FL_OVERWRITE_RO_ALL))
                                 {
                                     flags |= FL_OVERWRITE_RO;
                                 }
                                 else
                                 {
-                                    int ret = GetLastError();
-                                    TCHAR errBuff[MAX_PATH + 20];
+                                    int ret = replaceError;
+                                    char errBuff[1024];
                                     int btns = BUTTONS_SKIPCANCEL;
 
                                     SalamanderGeneral->GetErrorText(ret, errBuff, SizeOf(errBuff));
-                                    if (ret == ERROR_ACCESS_DENIED)
+                                    if (readOnly)
                                     {
-                                        // No rights or R/O attribute - check what is the case
-                                        ret = SalamanderGeneral->SalGetFileAttributes(path); // 0xFFFFFFFF on error
-                                        if ((ret != 0xFFFFFFFF) && (ret & FILE_ATTRIBUTE_READONLY))
-                                        {
-                                            _tcscpy(errBuff, LoadStr(IDS_READ_ONLY_MODIFY));
-                                            btns = BUTTONS_YESALLSKIPCANCEL;
-                                        }
+                                        _tcscpy(errBuff, LoadStr(IDS_READ_ONLY_MODIFY));
+                                        btns = BUTTONS_YESALLSKIPCANCEL;
                                     }
                                     // oh my God, each of the two functions supports just one of the two modes we need
                                     if (btns == BUTTONS_YESALLSKIPCANCEL)
                                     {
                                         ret = SalamanderGeneral->DialogQuestion(hProgress, btns,
-                                                                                str ? str + 1 : path, errBuff, LoadStr(IDS_ERRORTITLE));
+                                                                                display.c_str(), errBuff, LoadStr(IDS_ERRORTITLE));
                                     }
                                     else
                                     {
                                         ret = SalamanderGeneral->DialogError(hProgress, btns,
-                                                                             str ? str + 1 : path, errBuff, LoadStr(IDS_ERRORTITLE));
+                                                                             display.c_str(), errBuff, LoadStr(IDS_ERRORTITLE));
                                     }
                                     switch (ret)
                                     {
@@ -642,19 +663,13 @@ void UpdateThumbnails(CSalamanderForOperationsAbstract* Salamander)
                                 }
                                 if (flags & FL_OVERWRITE_RO)
                                 {
-                                    SalamanderGeneral->ClearReadOnlyAttr(path);
+                                    if (!readOnly || !sourceAttributes.ClearReadOnly(currentAttributes))
+                                        flags &= ~FL_OVERWRITE_RO;
                                 }
-                            } while (flags & FL_OVERWRITE_RO);
-                            if (flags & FL_SKIP)
+                            } while ((flags & FL_OVERWRITE_RO) && !(flags & (FL_SKIP | FL_CANCEL)));
+                            if (newFile.Path.empty())
                             {
-                                // delete the temporary file
-                                DeleteFile(newFile);
-                            }
-                            else
-                            {
-                                MoveFile(newFile, path);
-                                SalamanderGeneral->CutDirectory(path);
-                                SalamanderGeneral->PostChangeOnPathNotification(path, FALSE);
+                                SalamanderGeneral->PostChangeOnPathNotification(directory.c_str(), FALSE);
                                 processed++;
                             }
                         }
@@ -663,10 +678,11 @@ void UpdateThumbnails(CSalamanderForOperationsAbstract* Salamander)
             }
             else if (code != PVC_CANCELED)
             {
-                wsprintf(path, LoadStr(IDS_SAVEERROR), PVW32DLL.PVGetErrorText(code));
-                SalamanderGeneral->ShowMessageBox(path, LoadStr(IDS_ERRORTITLE), MSGBOX_ERROR);
+                message = FormatThumbnailText(LoadStr(IDS_SAVEERROR), PVW32DLL.PVGetErrorText(code));
+                SalamanderGeneral->ShowMessageBox(message.c_str(), LoadStr(IDS_ERRORTITLE), MSGBOX_ERROR);
             }
             free(pd.wfd.Buffer);
+            pd.wfd.Buffer = NULL;
             Salamander->ProgressSetSize(CQuadWord(0, 100), CQuadWord(0, pd.ind + 1), FALSE /*update now*/);
             if (code == PVC_CANCELED)
             {
@@ -674,30 +690,43 @@ void UpdateThumbnails(CSalamanderForOperationsAbstract* Salamander)
                 flags |= FL_CANCEL;
             }
         }
-        PVW32DLL.PVCloseImage(PVHandle);
+        if (PVHandle != NULL) PVW32DLL.PVCloseImage(PVHandle);
+        PVHandle = NULL;
     }
     if (fileCnt)
     {
         Salamander->CloseProgressDialog();
+        progress.Open = false;
         if (processed < fileCnt)
         {
             if (processed)
             {
-                TCHAR fmt[128];
+                char fmt[128];
                 CQuadWord cnts[2] = {CQuadWord(processed, 0), CQuadWord(fileCnt - processed, 0)};
                 SalamanderGeneral->ExpandPluralString(fmt, sizeof(fmt), LoadStr(IDS_N_OF_N_FILES_PROCESSED), 2, cnts);
-                _stprintf(path, fmt, processed, fileCnt);
+                message = FormatThumbnailText(fmt, NULL, processed, fileCnt);
             }
             else
             {
-                _tcscpy(path, LoadStr(IDS_NO_FILES_FOUND));
+                message = LoadStr(IDS_NO_FILES_FOUND);
             }
-            SalamanderGeneral->ShowMessageBox(path, LoadStr(IDS_PLUGINNAME), MSGBOX_INFO);
+            SalamanderGeneral->ShowMessageBox(message.c_str(), LoadStr(IDS_PLUGINNAME), MSGBOX_INFO);
         }
     }
     else
     {
         SalamanderGeneral->ShowMessageBox(LoadStr(IDS_NO_FILES_FOUND), LoadStr(IDS_PLUGINNAME), MSGBOX_INFO);
+    }
+}
+
+void UpdateThumbnails(CSalamanderForOperationsAbstract* Salamander)
+{
+    try { UpdateThumbnailsImpl(Salamander); }
+    catch (const std::bad_alloc&)
+    {
+        char error[1024];
+        SalamanderGeneral->GetErrorText(ERROR_NOT_ENOUGH_MEMORY, error, _countof(error));
+        SalamanderGeneral->ShowMessageBox(error, LoadStr(IDS_ERRORTITLE), MSGBOX_ERROR);
     }
 }
 

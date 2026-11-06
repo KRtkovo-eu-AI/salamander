@@ -1,0 +1,186 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual SDK facade/storage and host service compiled verbatim; only live panel
+// storage and discovery are replaced. No filesystem mutation or visible UI.
+#define NOMINMAX
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <memory>
+#include <new>
+#include <thread>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <crtdbg.h>
+static long AllocationFailure = -1;
+void* operator new(size_t size) { if (AllocationFailure == 0) { AllocationFailure=-1; throw std::bad_alloc(); } if(AllocationFailure > 0) --AllocationFailure; void* p=malloc(size?size:1); if(!p)throw std::bad_alloc();return p; }
+void operator delete(void* p) noexcept { free(p); }
+void operator delete(void* p,size_t) noexcept { free(p); }
+void* operator new(size_t size,const std::nothrow_t&) noexcept { try { return ::operator new(size); } catch (...) { return nullptr; } }
+void operator delete(void* p,const std::nothrow_t&) noexcept { free(p); }
+#define SAL_MAX_PATH 32768
+#define SALAMANDER_SERVICE_PANEL_ITEM_PATHS "Salamander.PanelItemPaths"
+#define SALAMANDER_PANEL_ITEM_PATHS_VERSION_1_0 0x00010000
+@@CONSTANTS@@
+enum { PANEL_SOURCE=0,PANEL_TARGET=1,PANEL_LEFT=2,PANEL_RIGHT=3,PATH_TYPE_WINDOWS=10,ptDisk=10 };
+struct CQuadWord { unsigned __int64 Value; CQuadWord():Value(0){} template<class L,class H> CQuadWord(L low,H high):Value((static_cast<unsigned __int64>(static_cast<DWORD>(high))<<32)|static_cast<DWORD>(low)){} };
+struct CFileData {
+ const char* Name=nullptr; const char* Ext=nullptr; const wchar_t* NameW=nullptr;
+ BOOL Selected=FALSE,SizeValid=TRUE,Hidden=FALSE,IsLink=FALSE,IsOffline=FALSE;
+ DWORD Attr=0; CQuadWord Size; FILETIME LastWrite={};
+ BOOL UseWideName()const{return NameW!=nullptr;}
+};
+@@SDK@@
+struct Row {
+ std::string Name,Ext;std::wstring Wide,Full,Directory,Relative; CFileData File;
+ Row(std::wstring name,std::wstring full,std::wstring relative,bool selected):Name("legacy.txt"),Ext("txt"),Wide(std::move(name)),Full(std::move(full)),Relative(std::move(relative)) {
+  Directory=Full.substr(0,Full.find_last_of(L'\\'));File.Name=Name.c_str();File.NameW=Wide.c_str();File.Ext=Ext.c_str();File.Selected=selected;File.Size.Value=9876543210ULL;File.Attr=FILE_ATTRIBUTE_ARCHIVE;File.LastWrite.dwLowDateTime=123;File.Hidden=TRUE;File.IsLink=TRUE;File.IsOffline=TRUE;
+ }
+};
+struct CFilesArray {
+ std::vector<CFileData> Data;std::vector<std::unique_ptr<Row>> Rows;int Count=0;
+ CFilesArray(){Data.reserve(64);}
+ CFileData* GetData(){return Data.data();} CFileData& At(int i){return Data.at(i);}
+ void Clear(){Data.clear();Rows.clear();Count=0;}
+};
+struct CFilesWindow {
+ CFilesArray Directories,FileRows;CFilesArray* Dirs=&Directories;CFilesArray* Files=&FileRows;
+ std::wstring Root=L"C:\\root";std::string RootText="C:\\root";bool Disk=true,Missing=false,ThrowPath=false;int Focus=0;
+ BOOL Is(int type){return Disk&&type==ptDisk;}int GetCaretIndex(){return Focus;}
+ const wchar_t* GetPathW(){return Root.c_str();}const char* GetPath(){return RootText.c_str();}
+ Row* Find(const CFileData& f)const{for(auto a:{Dirs,Files})for(int i=0;i<a->Count;++i)if(&a->Data[i]==&f)return a->Rows[i].get();return nullptr;}
+ std::wstring GetItemFullPathW(const CFileData& f){if(ThrowPath)throw std::bad_alloc();return Missing?L"":Find(f)->Full;}
+ std::wstring GetItemDirectoryW(const CFileData& f){return Missing?L"":Find(f)->Directory;}
+ std::wstring GetItemRelativePathW(const CFileData& f){return Missing?L"":Find(f)->Relative;}
+ CFileData* Add(std::wstring name,std::wstring full,std::wstring relative,bool selected=false,bool dir=false){auto a=dir?Dirs:Files;a->Rows.emplace_back(new Row(std::move(name),std::move(full),std::move(relative),selected));a->Data.push_back(a->Rows.back()->File);++a->Count;return &a->Data.back();}
+ void Clear(){Dirs->Clear();Files->Clear();Root=L"C:\\root";RootText="C:\\root";Disk=true;Missing=false;ThrowPath=false;Focus=0;}
+};
+struct MainWindowStub {CFilesWindow Left,Right;bool RightActive=false;
+ CFilesWindow* GetPanel(int panel){switch(panel){case PANEL_SOURCE:return RightActive?&Right:&Left;case PANEL_TARGET:return RightActive?&Left:&Right;case PANEL_LEFT:return &Left;case PANEL_RIGHT:return &Right;default:return nullptr;}}
+};
+static MainWindowStub Window;static MainWindowStub* MainWindow=&Window;static DWORD MainThreadID;static HWND TestWindow;
+struct CSalamanderGeneralAbstract {
+ bool SnapshotAvailable=true,ResolverAvailable=true,BadInterface=false,BadVersion=false;int RootCalls=0,QueryCalls=0,CountOffset=0;
+ BOOL QueryService(const CSalamanderServiceQuery*,CSalamanderServiceResult*);
+ HWND GetMainWindowHWND(){return TestWindow;}
+ BOOL GetPanelPath(int panel,char* path,int capacity,int* type,void*){++RootCalls;auto p=Window.GetPanel(panel);if(!p)return FALSE;*type=p->Disk?PATH_TYPE_WINDOWS:-1;if(p->RootText.size()>=static_cast<size_t>(capacity))return FALSE;strcpy_s(path,capacity,p->RootText.c_str());return TRUE;}
+ BOOL GetPanelSelection(int panel,int* files,int* dirs){auto p=Window.GetPanel(panel);*files=*dirs=0;for(auto a:{p->Dirs,p->Files})for(auto& f:a->Data)if(f.Selected)++(a==p->Dirs?*dirs:*files);*files+=CountOffset;return *files+*dirs!=0;}
+ void SetUserWorkedOnPanelPath(int){}
+ const CFileData* GetPanelSelectedItem(int panel,int* cursor,BOOL* isDir){const CFileData* item;while((item=GetPanelItem(panel,cursor,isDir))!=nullptr)if(item->Selected)return item;return nullptr;}
+ const CFileData* GetPanelFocusedItem(int panel,BOOL* isDir){auto p=Window.GetPanel(panel);if(p->Focus<0||p->Focus>=p->Dirs->Count+p->Files->Count)return nullptr;bool d=p->Focus<p->Dirs->Count;if(isDir)*isDir=d;return d?&p->Dirs->At(p->Focus):&p->Files->At(p->Focus-p->Dirs->Count);}
+ const CFileData* GetPanelItem(int panel,int* index,BOOL* isDir){auto p=Window.GetPanel(panel);int i=(*index)++;if(i<0||i>=p->Dirs->Count+p->Files->Count)return nullptr;*isDir=i<p->Dirs->Count;return *isDir?&p->Dirs->At(i):&p->Files->At(i-p->Dirs->Count);}
+};
+#include "@@HEADER@@"
+@@HOST@@
+static CDiskSelectionService& Service = *static_cast<CDiskSelectionService*>(GetDiskSelectionService());static CPanelItemPathsService Resolver;
+BOOL CSalamanderGeneralAbstract::QueryService(const CSalamanderServiceQuery* q,CSalamanderServiceResult* r){++QueryCalls;r->Interface=nullptr;r->Version=0;if(strcmp(q->ServiceId,SALAMANDER_SERVICE_DISK_SELECTION)==0){if(!SnapshotAvailable)return FALSE;r->Interface=BadInterface?nullptr:&Service;}else{if(!ResolverAvailable)return FALSE;r->Interface=BadInterface?nullptr:&Resolver;}r->Version=BadVersion?0:q->MinimumVersion;return TRUE;}
+static int Checks=0,Failures=0;
+static void Check(bool value,const char* message){++Checks;if(!value){++Failures;printf("FAIL %s\n",message);}}
+static CSalamanderGeneralAbstract General;
+static CSalamanderGeneralAbstract* SalamanderGeneral=&General;
+@@ENUM@@
+// Compile the actual DemoPlug case, with only progress/UI operations replaced.
+enum { MENU_EVENT_DISK=1, MENU_EVENT_FILES_SELECTED=2, MENU_EVENT_FILE_FOCUSED=4, MENUCMD_DOPFILES=7 };
+static int SalamanderVersion;
+struct OperationsFacade {
+ int Opens=0,Closes=0,Steps=0;bool Cancel=false,DestroyListing=false;std::vector<std::string> Paths;
+ void OpenProgressDialog(const char*,BOOL,void*,BOOL){++Opens;if(DestroyListing){Window.Left.Clear();MainWindow=nullptr;}}
+ void ProgressSetTotalSize(CQuadWord,CQuadWord){}
+ void ProgressDialogAddText(const char* text,BOOL){Paths.emplace_back(text);}
+ BOOL ProgressAddSize(int,BOOL){++Steps;return !Cancel;}
+ void ProgressEnableCancel(BOOL){}
+ void CloseProgressDialog(){++Closes;}
+};
+static void DemoSleep(DWORD){}
+#define Sleep DemoSleep
+static BOOL ExecuteDemo(OperationsFacade* salamander,DWORD eventMask){switch(MENUCMD_DOPFILES){
+@@DEMO@@
+}return FALSE;}
+#undef Sleep
+static void Reset(){Window.Left.Clear();Window.Right.Clear();Window.RightActive=false;MainWindow=&Window;MainThreadID=GetCurrentThreadId();General=CSalamanderGeneralAbstract();}
+static void Populate(){auto& p=Window.Left;p.Add(L"..",L"C:\\",L"..",false,true);p.Add(L"same.txt",L"C:\\root\\alpha\\same.txt",L"alpha\\same.txt",true);p.Add(L"same.txt",L"C:\\root\\žluťoučký東京\\same.txt",L"žluťoučký東京\\same.txt",true);p.Add(L"third.txt",L"C:\\root\\third.txt",L"third.txt");p.Focus=2;}
+static void HostTests(){
+ Reset();Populate();
+ { CEnumFiles enumeration; Check(enumeration.IsValid()&&enumeration.GetFileCount()==2,"PictView captures selected file count"); Window.Left.Clear(); auto a=enumeration.GetFile(); auto b=enumeration.GetFile(); Check(a&&b&&wcscmp(a->FullPathW,L"C:\\root\\alpha\\same.txt")==0&&wcscmp(b->FullPathW,L"C:\\root\\žluťoučký東京\\same.txt")==0&&enumeration.GetFile()==nullptr,"PictView retains actual duplicate paths after panel disappears"); }
+ Reset();Populate();CSalamanderDiskSelection selection;
+ { Reset();auto& panel=Window.Left;std::wstring name(110,L'界');name+=L".png";auto file=panel.Add(name,L"C:\\root\\"+name,name,true);file->Name="truncated mirror";file->Ext="";
+ Check(selection.Capture(&General,PANEL_SOURCE)&&wcscmp(selection.GetItem(0)->ExtensionW,L"png")==0,"wide complete extension survives truncated UTF8 mirror");
+ panel.Clear();panel.Add(L".dotfile",L"C:\\root\\.dotfile",L".dotfile",true);panel.Add(L"trailing.",L"C:\\root\\trailing.",L"trailing.",true);auto dir=panel.Add(L"dir.ext",L"C:\\root\\dir.ext",L"dir.ext",true,true);dir->Ext="";
+ Check(selection.Capture(&General,PANEL_SOURCE)&&wcscmp(selection.GetItem(1)->ExtensionW,L"dotfile")==0&&selection.GetItem(2)->ExtensionW[0]==0&&selection.GetItem(0)->ExtensionW[0]==0,"dotfile trailing-dot and directory extension semantics preserved"); }
+ Reset();Populate();
+ Check(selection.Capture(&General,PANEL_SOURCE)&&selection.GetCount()==2,"selected-or-focused captures both duplicate names");
+ auto first=selection.GetItem(0),second=selection.GetItem(1);
+ Check(first&&second&&wcscmp(first->FullPathW,L"C:\\root\\alpha\\same.txt")==0&&wcscmp(second->FullPathW,L"C:\\root\\žluťoučký東京\\same.txt")==0,"same basename retains distinct complete identities");
+ Check(second&&second->Selected&&second->Focused&&!first->Focused&&first->PanelIndex==1&&second->PanelIndex==2,"selection focus and original row indexes copied");
+ Check(second&&second->Size.Value==9876543210ULL&&second->Attr==FILE_ATTRIBUTE_ARCHIVE&&second->LastWrite.dwLowDateTime==123&&second->SizeValid&&second->Hidden&&second->IsLink&&second->IsOffline&&wcscmp(second->ExtensionW,L"txt")==0,"full metadata preserved");
+ Check(selection.GetItem(-1)==nullptr&&selection.GetItem(2)==nullptr,"out-of-range item lookup returns null");
+ Check(General.RootCalls==0,"current snapshot service does not invoke legacy root enumeration");
+ Check(selection.Capture(&General,PANEL_LEFT,SALDISKSELECTION_ALL_ITEMS)&&selection.GetCount()==3,"all-items skips synthetic up-directory");
+ Check(selection.Capture(&General,PANEL_LEFT,SALDISKSELECTION_FOCUSED_ONLY)&&selection.GetCount()==1&&selection.GetItem(0)->PanelIndex==2,"focused-only excludes other selected rows");
+ Window.Left.Focus=0;Check(selection.Capture(&General,PANEL_LEFT,SALDISKSELECTION_FOCUSED_ONLY)&&selection.GetCount()==0,"focused up-directory yields successful empty snapshot");
+ for(auto& f:Window.Left.Files->Data)f.Selected=FALSE;
+ Check(selection.Capture(&General,PANEL_LEFT,SALDISKSELECTION_SELECTED_ONLY)&&selection.GetCount()==0,"selected-only with no selection succeeds empty");
+ Window.Left.Focus=3;Check(selection.Capture(&General,PANEL_LEFT)&&selection.GetCount()==1&&!selection.GetItem(0)->Selected&&selection.GetItem(0)->Focused,"default uses focused row without mutating selection");
+ Check(!Window.Left.Files->At(2).Selected,"capture never changes live selection");
+ Check(selection.Capture(&General,PANEL_LEFT,SALDISKSELECTION_ALL_ITEMS),"capture for detached lifetime");
+ const auto retained=selection.GetItem(1);const auto retainedPath=retained->FullPathW;Window.Left.Clear();MainWindow=nullptr;
+ bool workerOk=false;std::thread reader([&]{workerOk=selection.GetCount()==3&&selection.GetItem(1)==retained&&selection.GetItem(1)->FullPathW==retainedPath&&wcscmp(retainedPath,L"C:\\root\\žluťoučký東京\\same.txt")==0&&wcscmp(selection.GetRootPathW(),L"C:\\root")==0;});reader.join();
+ Check(workerOk,"immutable snapshot remains readable on worker after listing destruction");
+ CSalamanderDiskSelection moved(std::move(selection));Check(selection.GetCount()==0&&moved.GetCount()==3,"move transfers ownership and empties source");
+ selection=std::move(moved);Check(moved.GetCount()==0&&selection.GetCount()==3,"move assignment transfers ownership");selection.Reset();Check(selection.GetCount()==0&&selection.GetRootPathW()[0]==0,"reset releases all owned state");
+ Reset();Check(selection.Capture(&General,PANEL_LEFT)&&selection.GetCount()==0,"empty disk panel succeeds");
+ auto& p=Window.Right;p.Root=L"\\\\server\\sdílení東京";p.RootText=SalamanderDiskSelection::Utf8FromWide(p.Root.c_str());std::wstring relative(280,L'ž');relative+=L"\\😀\\soubor.txt";auto full=p.Root+L"\\"+relative;p.Add(L"soubor.txt",full,relative,true);Window.RightActive=true;
+ Check(selection.Capture(&General,PANEL_SOURCE)&&selection.GetCount()==1&&wcscmp(selection.GetItem(0)->FullPathW,full.c_str())==0&&wcscmp(selection.GetRootPathW(),p.Root.c_str())==0,"source panel resolves UNC Unicode long path without truncation");
+ Check(selection.Capture(&General,PANEL_TARGET)&&selection.GetCount()==0,"target panel resolves opposite side");
+}
+static void FailureTests(){Reset();Populate();CSalamanderDiskSelectionSnapshotAbstract* raw=reinterpret_cast<CSalamanderDiskSelectionSnapshotAbstract*>(1);
+ Check(!Service.Capture(99,0,&raw)&&raw==nullptr&&GetLastError()==ERROR_INVALID_PARAMETER,"invalid panel rejects and clears result");
+ Check(!Service.Capture(PANEL_LEFT,9,&raw)&&raw==nullptr&&GetLastError()==ERROR_INVALID_PARAMETER,"invalid mode rejects");
+ Check(!Service.Capture(PANEL_LEFT,0,nullptr)&&GetLastError()==ERROR_INVALID_PARAMETER,"null result rejects");
+ ++MainThreadID;Check(!Service.Capture(PANEL_LEFT,0,&raw)&&GetLastError()==ERROR_INVALID_THREAD_ID&&raw==nullptr,"wrong-thread host capture rejects");MainThreadID=GetCurrentThreadId();
+ Window.Left.Disk=false;Check(!Service.Capture(PANEL_LEFT,0,&raw)&&GetLastError()==ERROR_NOT_SUPPORTED&&raw==nullptr,"archive or plugin panel unsupported");Window.Left.Disk=true;
+ Window.Left.Missing=true;CSalamanderDiskSelection s;Check(!s.Capture(&General,PANEL_LEFT)&&GetLastError()==ERROR_INVALID_DATA&&s.GetCount()==0&&General.RootCalls==0,"advertised snapshot identity failure never invokes root fallback");Window.Left.Missing=false;
+ MainWindow=nullptr;Check(!Service.Capture(PANEL_LEFT,0,&raw)&&raw==nullptr,"missing host rejects");MainWindow=&Window;
+ Check(!s.Capture(nullptr,PANEL_LEFT)&&GetLastError()==ERROR_INVALID_PARAMETER,"null general rejects");
+ General.BadInterface=true;Check(!s.Capture(&General,PANEL_LEFT)&&General.RootCalls==0&&s.GetCount()==0,"advertised null snapshot interface fails closed");General.BadInterface=false;General.BadVersion=true;Check(!s.Capture(&General,PANEL_LEFT)&&General.RootCalls==0,"unsupported snapshot version fails closed");General.BadVersion=false;
+ int failed=0,successful=0;bool atomic=true;
+#ifdef _DEBUG
+ // MSVC checked containers allocate iterator proxies from noexcept default
+ // constructors. Inject only the nothrow object allocation here; path copying
+ // is independently forced to throw below. Release exercises every allocation.
+ const int allocationBudgets=1;
+#else
+ const int allocationBudgets=90;
+#endif
+ for(int budget=0;budget<allocationBudgets;++budget){raw=nullptr;AllocationFailure=budget;BOOL ok=Service.Capture(PANEL_LEFT,0,&raw);DWORD error=GetLastError();AllocationFailure=-1;if(ok){++successful;if(!raw||raw->GetCount()!=2)atomic=false;if(raw)raw->Release();}else{++failed;if(raw||error!=ERROR_NOT_ENOUGH_MEMORY)atomic=false;}}
+ Check(failed>0&&atomic&&(allocationBudgets==1||successful>0),"injected capture allocation failures are all-or-nothing and report low memory");
+ Window.Left.ThrowPath=true;raw=nullptr;Check(!Service.Capture(PANEL_LEFT,0,&raw)&&raw==nullptr&&GetLastError()==ERROR_NOT_ENOUGH_MEMORY,"path-copy allocation failure destroys partial snapshot in Debug and Release");Window.Left.ThrowPath=false;
+}
+static void LegacyTests(){for(int resolver=0;resolver<2;++resolver){Reset();General.SnapshotAvailable=false;General.ResolverAvailable=resolver!=0;
+ auto& p=Window.Left;p.Root=L"C:\\žluťoučký東京";p.RootText=SalamanderDiskSelection::Utf8FromWide(p.Root.c_str());std::wstring name(150,L'ž');name+=L".txt";auto relative=resolver?L"pod\\"+name:name;auto full=p.Root+L"\\"+relative;p.Add(name,full,relative,true);CSalamanderDiskSelection s;
+ Check(s.Capture(&General,PANEL_SOURCE)&&s.GetCount()==1&&wcscmp(s.GetItem(0)->FullPathW,full.c_str())==0&&wcscmp(s.GetItem(0)->RelativePathW,relative.c_str())==0,resolver?"legacy resolver snapshot preserves multi-parent Unicode path":"ordinary legacy snapshot uses exact wide name and UTF8 root");
+ const auto item=s.GetItem(0);p.Clear();Check(wcscmp(item->FullPathW,full.c_str())==0,"legacy fallback owns strings beyond listing lifetime");}
+ Reset();General.SnapshotAvailable=false;Populate();Window.Left.Missing=true;CSalamanderDiskSelection s;
+ Check(!s.Capture(&General,PANEL_LEFT)&&s.GetCount()==0&&GetLastError()==ERROR_INVALID_DATA,"advertised resolver failure never fabricates root plus basename");Window.Left.Missing=false;General.CountOffset=1;
+ Check(!s.Capture(&General,PANEL_LEFT)&&GetLastError()==ERROR_INVALID_DATA&&s.GetCount()==0,"incomplete legacy selection rejected as whole batch");General.CountOffset=0;
+ bool wrong=false;std::thread t([&]{wrong=!s.Capture(&General,PANEL_LEFT)&&GetLastError()==ERROR_INVALID_THREAD_ID;});t.join();Check(wrong,"legacy capture checks main UI thread before reading rows");
+ General.BadInterface=true;Check(!s.Capture(&General,PANEL_LEFT)&&s.GetCount()==0,"advertised null legacy resolver fails closed");
+ Reset();General.SnapshotAvailable=false;General.ResolverAvailable=false;Window.Left.Disk=false;Check(!s.Capture(&General,PANEL_LEFT)&&GetLastError()==ERROR_NOT_SUPPORTED,"legacy non-disk panel rejected");
+}
+static void DemoTests(){
+ for(int version:{103,104,105,106}){
+  Reset();Populate();SalamanderVersion=version;OperationsFacade operation;
+  Check(ExecuteDemo(&operation,MENU_EVENT_DISK|MENU_EVENT_FILES_SELECTED)&&operation.Opens==1&&operation.Closes==1&&operation.Steps==2,"DemoPlug selected operation completes for supported and historical host versions");
+  Check(General.QueryCalls==(version>=105?1:0),"DemoPlug never calls missing QueryService slot on historical SDK 103/104");
+ }
+ Reset();Populate();SalamanderVersion=106;OperationsFacade archive;
+ Check(ExecuteDemo(&archive,MENU_EVENT_FILES_SELECTED)&&General.QueryCalls==0&&archive.Steps==2,"DemoPlug archive example retains original borrowed enumeration");
+ Reset();Populate();SalamanderVersion=106;OperationsFacade detached;detached.DestroyListing=true;
+ Check(ExecuteDemo(&detached,MENU_EVENT_DISK|MENU_EVENT_FILES_SELECTED)&&detached.Steps==2&&detached.Paths.size()==2&&detached.Paths[0]=="C:\\root\\alpha\\same.txt"&&detached.Paths[1].find("same.txt")!=std::string::npos,"actual DemoPlug owns all operation paths before modeless progress destroys listing");
+ Reset();Populate();SalamanderVersion=106;OperationsFacade cancelled;cancelled.Cancel=true;
+ Check(!ExecuteDemo(&cancelled,MENU_EVENT_DISK|MENU_EVENT_FILES_SELECTED)&&cancelled.Opens==1&&cancelled.Closes==1&&cancelled.Steps==1,"actual DemoPlug cancellation closes progress and keeps failure return");
+ Reset();Populate();Window.Left.Missing=true;OperationsFacade invalid;
+ Check(!ExecuteDemo(&invalid,MENU_EVENT_DISK|MENU_EVENT_FILES_SELECTED)&&invalid.Opens==0&&General.RootCalls==0,"DemoPlug advertised capture failure does not start progress or fabricate legacy paths");
+}
+int main(){setvbuf(stdout,nullptr,_IONBF,0);SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX);_CrtSetReportMode(_CRT_ASSERT,_CRTDBG_MODE_FILE);_CrtSetReportFile(_CRT_ASSERT,_CRTDBG_FILE_STDERR);_CrtSetReportMode(_CRT_ERROR,_CRTDBG_MODE_FILE);_CrtSetReportFile(_CRT_ERROR,_CRTDBG_FILE_STDERR);MainThreadID=GetCurrentThreadId();TestWindow=CreateWindowExW(0,L"STATIC",L"snapshot-test",0,0,0,0,0,HWND_MESSAGE,nullptr,GetModuleHandleW(nullptr),nullptr);if(!TestWindow)return 2;HostTests();FailureTests();LegacyTests();DemoTests();DestroyWindow(TestWindow);printf("Disk selection snapshot: %d checks, %d failures.\n",Checks,Failures);return Failures?1:0;}

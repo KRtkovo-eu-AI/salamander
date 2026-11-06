@@ -729,7 +729,7 @@ CPluginInterfaceForMenuExt::GetMenuItemState(int id, DWORD eventMask)
 
     // use the selected files or the file under focus
     const CFileData* file = NULL;
-    BOOL isDir;
+    BOOL isDir = FALSE;
     if ((eventMask & MENU_EVENT_FILES_SELECTED) == 0)
     {
         if ((eventMask & MENU_EVENT_FILE_FOCUSED) == 0)
@@ -737,22 +737,37 @@ CPluginInterfaceForMenuExt::GetMenuItemState(int id, DWORD eventMask)
         file = SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, &isDir); // nothing is selected -> enumeration fails
     }
 
-    BOOL ret = TRUE;
-    int count = 0;
-
-    int index = 0;
-    if (file == NULL)
-        file = SalamanderGeneral->GetPanelSelectedItem(PANEL_SOURCE, &index, &isDir);
-    while (file != NULL && ret)
+    try
     {
-        if (SalamanderGeneral->IsArchiveHandledByThisPlugin(file->Name))
-            count++;
-        else
-            ret = FALSE;
-        file = SalamanderGeneral->GetPanelSelectedItem(PANEL_SOURCE, &index, &isDir);
+        int count = 0;
+        int index = 0;
+        if (file == NULL)
+            file = SalamanderGeneral->GetPanelSelectedItem(PANEL_SOURCE, &index, &isDir);
+        while (file != NULL)
+        {
+            // A legacy display name can omit the extension after UTF-8
+            // shortening. Match the exact name, never a reconstructed path.
+            const std::string name = file->UseWideName() ?
+                SalamanderDiskSelection::Utf8FromWide(file->NameW) : std::string(file->Name);
+            if (isDir || name.empty() || !SalamanderGeneral->IsArchiveHandledByThisPlugin(name.c_str()))
+                return 0;
+            ++count;
+            file = SalamanderGeneral->GetPanelSelectedItem(PANEL_SOURCE, &index, &isDir);
+        }
+        return count > 0 ? MENU_ITEM_STATE_ENABLED : 0;
     }
+    catch (const std::bad_alloc&)
+    {
+        return 0;
+    }
+}
 
-    return (ret && count > 0) ? MENU_ITEM_STATE_ENABLED : 0; // all selected files are handled by us
+static std::string ArchiveNameMessage(const char* pattern, const std::string& name)
+{
+    std::string text(pattern);
+    const size_t placeholder = text.find("%s");
+    if (placeholder != std::string::npos) text.replace(placeholder, 2, name);
+    return text;
 }
 
 BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* salamander, HWND parent,
@@ -760,58 +775,44 @@ BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstrac
 {
     CALL_STACK_MESSAGE3("CPluginInterfaceForMenuExt::ExecuteMenuItem(, , %d, 0x%X)", id,
                         eventMask);
-
-    char zipFile[MAX_PATH];
-    char* fileName;
-    char* arch;
-    BOOL selFiles = FALSE;
-    int index = 0;
-    BOOL ok = TRUE;
-
-    if (!SalamanderGeneral->GetPanelPath(PANEL_SOURCE, zipFile, MAX_PATH, NULL, &arch))
-        return FALSE;
-
-    if (!arch)
+    try
     {
-        SalamanderGeneral->SalPathAddBackslash(zipFile, MAX_PATH);
-        fileName = zipFile + lstrlen(zipFile);
-        selFiles = eventMask & MENU_EVENT_FILES_SELECTED;
-    }
-
-    BOOL changesReported = FALSE; // helper flag — TRUE once a path change was already reported
-    do
-    {
-        if (arch)
+        // Archive panels keep their existing archive-name contract. Disk items
+        // are captured once, before any modal operation can refresh the panel.
+        std::vector<char> panelPath(4 * SAL_MAX_PATH);
+        char* archive = NULL;
+        if (!SalamanderGeneral->GetPanelPath(PANEL_SOURCE, panelPath.data(),
+                static_cast<int>(panelPath.size()), NULL, &archive)) return FALSE;
+        CSalamanderDiskSelection selection;
+        if (archive != NULL) *archive = 0;
+        else if (!selection.Capture(SalamanderGeneral, PANEL_SOURCE)) return FALSE;
+        const int count = archive != NULL ? 1 : selection.GetCount();
+        BOOL ok = TRUE;
+        for (int index = 0; index < count; ++index)
         {
-            *arch = NULL;
-        }
-        else
-        {
-            const CFileData* fileData;
-            if (selFiles)
-                fileData = SalamanderGeneral->GetPanelSelectedItem(PANEL_SOURCE, &index, NULL);
-            else
-                fileData = SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, NULL);
-            if (!fileData)
-                break; // end of enumeration, or an error (for GetFocusedItem)
-            lstrcpy(fileName, fileData->Name);
-            DWORD attr = SalamanderGeneral->SalGetFileAttributes(zipFile);
-            if (attr != 0xFFFFFFFF && attr & FILE_ATTRIBUTE_DIRECTORY)
-                continue;
-        }
-
-        if (!ok && SalamanderGeneral->ShowMessageBox(LoadStr(IDS_CONTINUE), LoadStr(IDS_PLUGINNAME),
-                                                     MSGBOX_QUESTION) != IDYES)
-            return FALSE;
-        ok = TRUE;
-
+            const CSalamanderDiskSelectionItem* item = archive != NULL ? NULL : selection.GetItem(index);
+            if (item != NULL && item->IsDir) continue;
+            const std::string zipFile = item != NULL ?
+                SalamanderDiskSelection::Utf8FromWide(item->FullPathW) : std::string(panelPath.data());
+            if (zipFile.empty()) { SetLastError(ERROR_INVALID_NAME); return FALSE; }
+            // The ZIP engine still has a SAL_MAX_PATH byte path field. Reject
+            // its limit explicitly, instead of silently truncating a UTF-8 path.
+            if (zipFile.size() >= SAL_MAX_PATH)
+            {
+                SalamanderGeneral->ShowMessageBox(SalamanderGeneral->GetErrorText(ERROR_FILENAME_EXCED_RANGE),
+                    LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
+                return FALSE;
+            }
+            if (!ok && SalamanderGeneral->ShowMessageBox(LoadStr(IDS_CONTINUE), LoadStr(IDS_PLUGINNAME),
+                    MSGBOX_QUESTION) != IDYES) return FALSE;
+            ok = TRUE;
         switch (id)
         {
         case MID_COMMENT:
         {
             SalamanderGeneral->SetUserWorkedOnPanelPath(PANEL_SOURCE); // treat this command as work on the path (shows up in Alt+F12)
 
-            CZipPack pack(zipFile, "", salamander);
+            CZipPack pack(zipFile.c_str(), "", salamander);
 
             if (pack.ErrorID || pack.CommentArchive())
             {
@@ -829,7 +830,7 @@ BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstrac
         {
             SalamanderGeneral->SetUserWorkedOnPanelPath(PANEL_SOURCE); // treat this command as work on the path (shows up in Alt+F12)
 
-            CZipPack pack(zipFile, "", salamander);
+            CZipPack pack(zipFile.c_str(), "", salamander);
 
             if (pack.ErrorID || pack.CreateSFX())
             {
@@ -849,7 +850,7 @@ BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstrac
         {
             SalamanderGeneral->SetUserWorkedOnPanelPath(PANEL_SOURCE); // treat this command as work on the path (shows up in Alt+F12)
 
-            CZipUnpack unpack(zipFile, "", salamander, NULL);
+            CZipUnpack unpack(zipFile.c_str(), "", salamander, NULL);
 
             unpack.Test = true;
             unpack.AllFilesOK = TRUE;
@@ -864,30 +865,31 @@ BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstrac
                 ok = FALSE;
             if (ok)
             {
-                char buf[1024];
-                sprintf(buf, unpack.AllFilesOK ? LoadStr(IDS_TESTOK) : LoadStr(IDS_TESTKO), zipFile);
-                SalamanderGeneral->ShowMessageBox(buf, LoadStr(IDS_PLUGINNAME), MSGBOX_INFO);
+                const std::string message = ArchiveNameMessage(
+                    unpack.AllFilesOK ? LoadStr(IDS_TESTOK) : LoadStr(IDS_TESTKO), zipFile);
+                SalamanderGeneral->ShowMessageBox(message.c_str(), LoadStr(IDS_PLUGINNAME), MSGBOX_INFO);
             }
             break;
         }
         }
 
-        if (id == MID_COMMENT || id == MID_CREATESFX || id == MID_REPAIR) // when the operation may have modified the path
-        {
-            if (!changesReported) // path changed and has not been reported yet -> report it
+
+            if (id == MID_COMMENT || id == MID_CREATESFX || id == MID_REPAIR)
             {
-                changesReported = TRUE;
-                // notify the path containing the modified PAK files (notification happens after leaving
-                // the plugin code — once this method returns)
-                char zipFileDir[MAX_PATH];
-                strcpy(zipFileDir, zipFile);
-                SalamanderGeneral->CutDirectory(zipFileDir); // must succeed because the file exists
-                SalamanderGeneral->PostChangeOnPathNotification(zipFileDir, FALSE);
+                // Branch View can contain archives in several real directories.
+                std::vector<char> directory(zipFile.begin(), zipFile.end());
+                directory.push_back(0);
+                if (SalamanderGeneral->CutDirectory(directory.data()))
+                    SalamanderGeneral->PostChangeOnPathNotification(directory.data(), FALSE);
             }
         }
-    } while (selFiles); // keep looping until GetSelectedItem returns NULL
-
-    return TRUE;
+        return TRUE;
+    }
+    catch (const std::bad_alloc&)
+    {
+        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+        return FALSE;
+    }
 }
 
 BOOL CPluginInterfaceForMenuExt::HelpForMenuItem(HWND parent, int id)
@@ -1238,6 +1240,12 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
     CALL_STACK_MESSAGE5("CPluginInterfaceForArchiver::UnpackWholeArchive(, %s, %s, %s, %d,)",
                         fileName, mask, targetDir, delArchiveWhenDone);
 
+    if (delArchiveWhenDone && archiveVolumes == NULL)
+    {
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return FALSE;
+    }
+
     CRT_MEM_CHECKPOINT
 
     {
@@ -1258,6 +1266,16 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
         }
         if (unpack.UserBreak)
             return FALSE;
+        if (delArchiveWhenDone && !unpack.ArchiveVolumesComplete)
+        {
+            SalamanderGeneral->ShowMessageBox(LoadStr(IDS_LOWMEM), LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
+            return FALSE;
+        }
+        if (delArchiveWhenDone && !unpack.WholeArchiveExtracted)
+        {
+            SalamanderGeneral->ShowMessageBox(LoadStr(IDS_UNPACK_INCOMPLETE), LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
+            return FALSE;
+        }
         if (delArchiveWhenDone) // move unique volumes from 'arcVolumes' to 'archiveVolumes' (arcVolumes may contain duplicates)
         {
             if (arcVolumes.Count > 1)
@@ -1268,7 +1286,11 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
                 if (lastVolume == NULL || strcmp(lastVolume, arcVolumes[i]) != 0)
                 {
                     lastVolume = arcVolumes[i];
-                    archiveVolumes->Add(lastVolume, -2);
+                    if (!archiveVolumes->Add(lastVolume, -2))
+                    {
+                        SalamanderGeneral->ShowMessageBox(LoadStr(IDS_LOWMEM), LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
+                        return FALSE;
+                    }
                 }
             }
         }

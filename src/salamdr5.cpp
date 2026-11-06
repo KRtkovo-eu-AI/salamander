@@ -15,6 +15,7 @@
 #include "codetbl.h"
 #include "dialogs.h"
 #include "common/widepath.h"
+#include "common/localizedtext.h"
 
 CSystemPolicies SystemPolicies;
 
@@ -661,15 +662,56 @@ _CHECK_AGAIN:
     return !pathInvalid && err == ERROR_SUCCESS;
 }
 
+// The input path can be SAL_MAX_PATH bytes; size the localized error instead of truncating it.
+static void ShowParsePathError(HWND parent, const char* path, const char* detail, const char* title)
+try
+{
+    // LoadStr uses a rotating buffer; preserve arguments before loading another resource.
+    const std::string ownedPath(path), ownedDetail(detail), ownedTitle(title);
+    const std::string format(LoadStr(IDS_PATHERRORFORMAT));
+    size_t length = 0;
+    if (!Salamander::LocalizedText::Measure(format.c_str(), {ownedPath.c_str(), ownedDetail.c_str()}, length))
+    {
+        SalMessageBox(parent, ownedDetail.c_str(), ownedTitle.c_str(), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
+    std::vector<char> message(length + 1);
+    if (!Salamander::LocalizedText::Write(message.data(), message.size(), format.c_str(), ownedPath.c_str(), ownedDetail.c_str()))
+    {
+        SalMessageBox(parent, ownedDetail.c_str(), ownedTitle.c_str(), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
+    SalMessageBox(parent, message.data(), ownedTitle.c_str(), MB_OK | MB_ICONEXCLAMATION);
+}
+catch (const std::bad_alloc&)
+{
+    SalMessageBox(parent, GetErrorText(ERROR_NOT_ENOUGH_MEMORY), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+}
+
+// GetRootPath and drive reconnect callbacks still use a MAX_PATH root ABI.
+static BOOL ReadParsePathRoot(char* root, const char* path)
+{
+    if (path[0] == '\\' && path[1] == '\\')
+    {
+        const char* end = path + 2;
+        while (*end != 0 && *end != '\\') ++end;
+        if (*end != 0) ++end;
+        while (*end != 0 && *end != '\\') ++end;
+        if (end - path > MAX_PATH - 2) return FALSE;
+    }
+    GetRootPath(root, path);
+    return TRUE;
+}
+
 BOOL SalParsePath(HWND parent, char* path, int& type, BOOL& isDir, char*& secondPart,
                   const char* errorTitle, char* nextFocus, BOOL curPathIsDiskOrArchive,
                   const char* curPath, const char* curArchivePath, int* error,
                   int pathBufSize)
 {
-    CALL_STACK_MESSAGE7("SalParsePath(%s, , , , %s, , %d, %s, %s, , %d)", path, errorTitle,
+    CALL_STACK_MESSAGE8("SalParsePath(%.*s, , , , %s, , %d, %s, %s, , %d)",
+                        path != NULL && pathBufSize > 0 ? pathBufSize : 0, path != NULL ? path : "", errorTitle,
                         curPathIsDiskOrArchive, curPath, curArchivePath, pathBufSize);
 
-    char errBuf[3 * MAX_PATH + 300];
     type = -1;
     secondPart = NULL;
     isDir = FALSE;
@@ -677,6 +719,12 @@ BOOL SalParsePath(HWND parent, char* path, int& type, BOOL& isDir, char*& second
         nextFocus[0] = 0;
     if (error != NULL)
         *error = 0;
+    if (path == NULL || pathBufSize <= 0 || strnlen(path, pathBufSize) >= (size_t)pathBufSize)
+    {
+        if (error != NULL) *error = SPP_WINDOWSPATHERROR;
+        SalMessageBox(parent, LoadStr(IDS_PATHISINVALID), errorTitle, MB_OK | MB_ICONEXCLAMATION);
+        return FALSE;
+    }
 
 PARSE_AGAIN:
 
@@ -688,8 +736,7 @@ PARSE_AGAIN:
         int fsNameIndex;
         if (!Plugins.IsPluginFS(fsName, index, fsNameIndex))
         {
-            sprintf(errBuf, LoadStr(IDS_PATHERRORFORMAT), path, LoadStr(IDS_NOTPLUGINFS));
-            SalMessageBox(parent, errBuf, errorTitle, MB_OK | MB_ICONEXCLAMATION);
+            ShowParsePathError(parent, path, LoadStr(IDS_NOTPLUGINFS), errorTitle);
             if (error != NULL)
                 *error = SPP_NOTPLUGINFS;
             return FALSE;
@@ -731,15 +778,23 @@ PARSE_AGAIN:
         {
             if (errTextID == IDS_EMPTYNAMENOTALLOWED)
             {
-                if (curPath == NULL) // there is nothing to substitute for an empty path (interpreted as the current directory)
+                if (curPath == NULL || *curPath == 0) // there is nothing to substitute for an empty path (interpreted as the current directory)
                 {
                     if (error != NULL)
                         *error = SPP_EMPTYPATHNOTALLOWED;
                 }
                 else
                 {
-                    lstrcpyn(path, curPath, pathBufSize);
-                    goto PARSE_AGAIN;
+                    if (strlen(curPath) >= (size_t)pathBufSize)
+                    {
+                        errTextID = IDS_TOOLONGPATH;
+                        if (error != NULL) *error = SPP_WINDOWSPATHERROR;
+                    }
+                    else
+                    {
+                        memcpy(path, curPath, strlen(curPath) + 1);
+                        goto PARSE_AGAIN;
+                    }
                 }
             }
             else
@@ -768,12 +823,22 @@ PARSE_AGAIN:
             if (curArchivePath != NULL && StrICmp(path, curArchivePath) == 0)
             { // helper for users: an operation from an archive to the archive root must end with '\\', otherwise it will only
                 // overwrite the existing file
-                SalPathAddBackslash(path, pathBufSize);
+                if (!SalPathAddBackslash(path, pathBufSize))
+                {
+                    if (error != NULL) *error = SPP_WINDOWSPATHERROR;
+                    ShowParsePathError(parent, path, LoadStr(IDS_TOOLONGPATH), errorTitle);
+                    return FALSE;
+                }
                 backslashAtEnd = TRUE;
             }
 
             char root[MAX_PATH];
-            GetRootPath(root, path);
+            if (!ReadParsePathRoot(root, path))
+            {
+                if (error != NULL) *error = SPP_WINDOWSPATHERROR;
+                ShowParsePathError(parent, path, LoadStr(IDS_TOOLONGPATH), errorTitle);
+                return FALSE;
+            }
 
             // we do not test network paths if they were recently accessed
             BOOL tryNet = !curPathIsDiskOrArchive || curPath == NULL || !HasTheSameRootPath(root, curPath);
@@ -907,29 +972,87 @@ PARSE_AGAIN:
             }
         }
 
-        sprintf(errBuf, LoadStr(IDS_PATHERRORFORMAT), path, text);
-        SalMessageBox(parent, errBuf, errorTitle, MB_OK | MB_ICONEXCLAMATION);
+        ShowParsePathError(parent, path, text, errorTitle);
         if (backslashAtEnd || mustBePath)
             SalPathAddBackslash(path, pathBufSize);
         return FALSE;
     }
 }
 
-BOOL SalSplitWindowsPath(HWND parent, const char* title, const char* errorTitle, int selCount,
-                         char* path, char* secondPart, BOOL pathIsDir, BOOL backslashAtEnd,
-                         const char* dirName, const char* curDiskPath, char*& mask)
+// S31b5b3b: capacities refer to the real caller buffers, including both NULs.
+static bool GetSplitPathLength(const char* path, int capacity, size_t& length)
 {
+    if (path == NULL || capacity <= 0) return false;
+    const size_t limit = (std::min)((size_t)capacity, (size_t)SAL_MAX_PATH);
+    length = strnlen(path, limit);
+    return length < limit;
+}
+
+static bool IsSplitPathPosition(const char* path, size_t length, const char* position)
+{
+    const UINT_PTR begin = (UINT_PTR)path, address = (UINT_PTR)position;
+    return position != NULL && address >= begin && address - begin <= length;
+}
+
+static bool SplitPathHasRoom(size_t length, int capacity, size_t extra)
+{
+    return capacity > 0 && length < (size_t)capacity && extra <= (size_t)capacity - length - 1;
+}
+
+static BOOL ReportSplitPathError(HWND parent, const char* title, int resource)
+{
+    SalMessageBox(parent, LoadStr(resource), title, MB_OK | MB_ICONEXCLAMATION);
+    return FALSE;
+}
+
+BOOL SalSplitWindowsPath(HWND parent, const char* title, const char* errorTitle, int selCount,
+                         char* callerPath, char* secondPart, BOOL pathIsDir, BOOL backslashAtEnd,
+                         const char* dirName, const char* curDiskPath, char*& callerMask, int pathBufSize)
+{
+    callerMask = NULL;
+    size_t pathLength;
+    if (!GetSplitPathLength(callerPath, pathBufSize, pathLength) || pathLength == 0 ||
+        !IsSplitPathPosition(callerPath, pathLength, secondPart))
+        return ReportSplitPathError(parent, errorTitle, IDS_PATHISINVALID);
+    // The general split keeps a trailing slash that this Windows adapter removes.
+    // Work privately so that an exactly fitting final result need not fit that
+    // one-byte-larger intermediate representation in the caller's buffer.
+    std::vector<char> working;
+    try
+    {
+        working.resize((std::min)((size_t)pathBufSize + 1, (size_t)SAL_MAX_PATH + 8));
+    }
+    catch (const std::bad_alloc&)
+    {
+        SalMessageBox(parent, GetErrorText(ERROR_NOT_ENOUGH_MEMORY), errorTitle, MB_OK | MB_ICONEXCLAMATION);
+        return FALSE;
+    }
+    char* path = working.data();
+    memcpy(path, callerPath, pathLength + 1);
+    secondPart = path + (secondPart - callerPath);
+    char* mask = NULL;
     char root[SAL_MAX_PATH];
-    GetRootPath(root, path);
+    if (!ReadParsePathRoot(root, path))
+        return ReportSplitPathError(parent, errorTitle, IDS_TOOLONGPATH);
+    const size_t rootLength = strlen(root);
+    if (rootLength == 0 || rootLength - 1 > pathLength)
+        return ReportSplitPathError(parent, errorTitle, IDS_PATHISINVALID);
     char* afterRoot = path + strlen(root) - 1;
     if (*afterRoot == '\\')
         afterRoot++;
 
     char newDirs[SAL_MAX_PATH];
     char textBuf[2 * SAL_MAX_PATH + 200];
+    int splitCapacity = (int)working.size();
+    // A drive-root file mask keeps its root slash, so there is no byte to reclaim.
+    // Reject its insufficient caller capacity before the multi-item warning too.
+    if (*path != '\\' && secondPart == afterRoot && *secondPart != 0 &&
+        strchr(secondPart, '\\') == NULL && (!pathIsDir || !backslashAtEnd))
+        splitCapacity = (int)(std::min)((size_t)pathBufSize, working.size());
 
     if (SalSplitGeneralPath(parent, title, errorTitle, selCount, path, afterRoot, secondPart,
-                            pathIsDir, backslashAtEnd, dirName, curDiskPath, mask, newDirs, NULL))
+                            pathIsDir, backslashAtEnd, dirName, curDiskPath, mask, newDirs, NULL,
+                            splitCapacity, _countof(newDirs)))
     {
         if (mask - 1 > path && *(mask - 2) == '\\' &&
             (mask - 1 > afterRoot || *path == '\\'))           // not a root or it is a UNC root
@@ -938,8 +1061,15 @@ BOOL SalSplitWindowsPath(HWND parent, const char* title, const char* errorTitle,
             mask--;
         }
 
+        const size_t packedLength = (size_t)(mask - path) + strlen(mask) + 1;
+        if (packedLength > (size_t)pathBufSize)
+            return ReportSplitPathError(parent, errorTitle, IDS_TOOLONGPATH);
+
         if (newDirs[0] != 0) // create new directories on the target path
         {
+            // Own the complete existing prefix before creating anything. It can
+            // exceed MAX_PATH bytes even when the UTF-16 path is short.
+            const std::string changesRoot(path, secondPart - path);
             memmove(newDirs + (secondPart - path), newDirs, strlen(newDirs) + 1);
             memmove(newDirs, path, secondPart - path);
             SalPathRemoveBackslash(newDirs);
@@ -984,12 +1114,9 @@ BOOL SalSplitWindowsPath(HWND parent, const char* title, const char* errorTitle,
 
             // --- refresh non-automatically refreshed directories (takes place after stop-refresh
             // ends, so only after the operation is finished)
-            char changesRoot[MAX_PATH];
-            memmove(changesRoot, path, secondPart - path);
-            changesRoot[secondPart - path] = 0;
             // path change - creation of new subdirectories along the path (required even if
             // the new directories could not be created) - change without subdirectories (only subdirectories were being created)
-            MainWindow->PostChangeOnPathNotification(changesRoot, FALSE);
+            MainWindow->PostChangeOnPathNotification(changesRoot.c_str(), FALSE);
 
             if (!ok)
             {
@@ -1001,6 +1128,8 @@ BOOL SalSplitWindowsPath(HWND parent, const char* title, const char* errorTitle,
                 return FALSE;                           // go back to the copy/move dialog
             }
         }
+        memcpy(callerPath, path, packedLength);
+        callerMask = callerPath + (mask - path);
         return TRUE;
     }
     else
@@ -1010,9 +1139,16 @@ BOOL SalSplitWindowsPath(HWND parent, const char* title, const char* errorTitle,
 BOOL SalSplitGeneralPath(HWND parent, const char* title, const char* errorTitle, int selCount,
                          char* path, char* afterRoot, char* secondPart, BOOL pathIsDir, BOOL backslashAtEnd,
                          const char* dirName, const char* curPath, char*& mask, char* newDirs,
-                         SGP_IsTheSamePathF isTheSamePathF)
+                         SGP_IsTheSamePathF isTheSamePathF, int pathBufSize, int newDirsBufSize)
 {
     mask = NULL;
+    if (newDirs != NULL && newDirsBufSize > 0) newDirs[0] = 0;
+    size_t pathLength;
+    if (!GetSplitPathLength(path, pathBufSize, pathLength) ||
+        !IsSplitPathPosition(path, pathLength, afterRoot) ||
+        !IsSplitPathPosition(path, pathLength, secondPart) ||
+        (UINT_PTR)afterRoot > (UINT_PTR)secondPart || (newDirs != NULL && newDirsBufSize <= 0))
+        return ReportSplitPathError(parent, errorTitle, IDS_PATHISINVALID);
     char textBuf[2 * SAL_MAX_PATH + 200];
     char tmpNewDirs[SAL_MAX_PATH];
     tmpNewDirs[0] = 0;
@@ -1039,6 +1175,14 @@ BOOL SalSplitGeneralPath(HWND parent, const char* title, const char* errorTitle,
                     break;
                 }
             }
+
+            // Check all output growth before changing path or asking to create directories.
+            const bool directoryTarget = !hasMask && backslashAtEnd;
+            const size_t extra = directoryTarget ? (pathLength != 0 && path[pathLength - 1] == '\\' ? 4 : 5) : 1;
+            const size_t relativeLength = directoryTarget ? strlen(secondPart) : (size_t)(maskFrom - secondPart);
+            if (!SplitPathHasRoom(pathLength, pathBufSize, extra) ||
+                (newDirs != NULL && relativeLength >= (size_t)newDirsBufSize))
+                return ReportSplitPathError(parent, errorTitle, IDS_TOOLONGPATH);
 
             if (maskFrom != secondPart) // there is some path before the mask
             {
@@ -1074,7 +1218,7 @@ BOOL SalSplitGeneralPath(HWND parent, const char* title, const char* errorTitle,
                 else // name with a trailing slash -> directory
                 {
                     SalPathAppend(tmpNewDirs, maskFrom, SAL_MAX_PATH);
-                    SalPathAddBackslash(path, SAL_MAX_PATH); // the path must always end with a backslash; make sure it does...
+                    SalPathAddBackslash(path, pathBufSize); // the path must always end with a backslash; make sure it does...
                     mask = path + strlen(path) + 1;
                     strcpy(mask, "*.*");
                 }
@@ -1144,6 +1288,11 @@ BOOL SalSplitGeneralPath(HWND parent, const char* title, const char* errorTitle,
                         (isTheSamePathF != NULL && isTheSamePathF(path, curPath) ||
                          isTheSamePathF == NULL && IsTheSamePath(path, curPath)))
                     { // renaming a directory to the same name (except for letter case, identity is possible)
+                        if (!SplitPathHasRoom(pathLength, pathBufSize, 1))
+                        {
+                            *(name - 1) = '\\';
+                            return ReportSplitPathError(parent, errorTitle, IDS_TOOLONGPATH);
+                        }
                         // ensure the split into a path (ending with a backslash) and a mask
                         memmove(name + 1, name, strlen(name) + 1);
                         *(name - 1) = '\\';
@@ -1158,7 +1307,10 @@ BOOL SalSplitGeneralPath(HWND parent, const char* title, const char* errorTitle,
             }
 
             // simple target path with a universal mask
-            SalPathAddBackslash(path, SAL_MAX_PATH); // the path must always end with a backslash; make sure it does...
+            if (!SplitPathHasRoom(pathLength, pathBufSize,
+                                  pathLength != 0 && path[pathLength - 1] == '\\' ? 4 : 5))
+                return ReportSplitPathError(parent, errorTitle, IDS_TOOLONGPATH);
+            SalPathAddBackslash(path, pathBufSize); // the path must always end with a backslash; make sure it does...
             mask = path + strlen(path) + 1;
             strcpy(mask, "*.*");
             return TRUE; // leave the Copy/Move dialog loop and perform the operation
@@ -1171,6 +1323,8 @@ BOOL SalSplitGeneralPath(HWND parent, const char* title, const char* errorTitle,
             nameEnd++;
         if (*nameEnd == 0 && !backslashAtEnd) // renaming/overwriting an existing file
         {
+            if (!SplitPathHasRoom(pathLength, pathBufSize, 1))
+                return ReportSplitPathError(parent, errorTitle, IDS_TOOLONGPATH);
             if (selCount > 1 &&
                 SalMessageBox(parent, LoadStr(IDS_MOVECOPY_NONSENSE), title,
                               MB_YESNO | MB_DEFBUTTON2 | MB_ICONQUESTION) != IDYES)
@@ -1190,7 +1344,7 @@ BOOL SalSplitGeneralPath(HWND parent, const char* title, const char* errorTitle,
         {
             SalMessageBox(parent, LoadStr(IDS_ARCPATHNOTSUPPORTED), errorTitle, MB_OK | MB_ICONEXCLAMATION);
             if (backslashAtEnd)
-                SalPathAddBackslash(path, 2 * MAX_PATH); // if the '\\' was trimmed, add it back
+                SalPathAddBackslash(path, pathBufSize); // if the '\\' was trimmed, add it back
             return FALSE;                                // go back to the copy/move dialog
         }
     }
@@ -1479,19 +1633,56 @@ BOOL SalGetFileSize(HANDLE file, CQuadWord& size, DWORD& err)
 
 BOOL SalGetFileSize2(const char* fileName, CQuadWord& size, DWORD* err)
 {
-    HANDLE hFile = HANDLES_Q(CreateFile(fileName, 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                                        NULL, OPEN_EXISTING, 0, NULL));
-    if (hFile != INVALID_HANDLE_VALUE)
+    auto fail = [&](DWORD error) {
+        if (err != NULL) *err = error;
+        size.Set(0, 0);
+        SetLastError(error);
+        return FALSE;
+    };
+    if (fileName == NULL || *fileName == 0)
+        return fail(ERROR_INVALID_PARAMETER);
+    try
     {
-        DWORD dummyErr;
-        BOOL ret = SalGetFileSize(hFile, size, err != NULL ? *err : dummyErr);
+        // Panel and plug-in paths can be UTF-8; older callers still use ACP.
+        // Validate before decoding: permissive UTF-8 conversion can substitute
+        // characters instead of falling back to the original Windows code page.
+        std::wstring path = SalMultiByteToWidePath(fileName,
+            IsValidPathUtf8Text(fileName) ? CP_UTF8 : CP_ACP);
+        if (path.empty())
+            return fail(ERROR_INVALID_NAME);
+        if (path.size() >= MAX_PATH && !SalIsExtendedLengthPathW(path.c_str()))
+        {
+            // An extended prefix requires an absolute path. Resolve relative
+            // paths on the heap and retain already-extended paths verbatim.
+            DWORD capacity = GetFullPathNameW(path.c_str(), 0, NULL, NULL);
+            if (capacity == 0)
+                return fail(GetLastError());
+            if (capacity > SAL_MAX_PATH)
+                return fail(ERROR_FILENAME_EXCED_RANGE);
+            std::vector<wchar_t> absolutePath(capacity, L'\0');
+            DWORD length = GetFullPathNameW(path.c_str(), capacity, absolutePath.data(), NULL);
+            if (length == 0)
+                return fail(GetLastError());
+            if (length >= capacity)
+                return fail(ERROR_INSUFFICIENT_BUFFER);
+            path = SalPathAddExtendedPrefixW(absolutePath.data());
+        }
+        HANDLE hFile = HANDLES_Q(CreateFileW(path.c_str(), 0,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            NULL, OPEN_EXISTING, 0, NULL));
+        if (hFile == INVALID_HANDLE_VALUE)
+            return fail(GetLastError());
+        DWORD error = ERROR_SUCCESS;
+        BOOL ret = SalGetFileSize(hFile, size, error);
         HANDLES(CloseHandle(hFile));
+        if (err != NULL) *err = error;
+        SetLastError(error);
         return ret;
     }
-    if (err != NULL)
-        *err = GetLastError();
-    size.Set(0, 0);
-    return FALSE;
+    catch (const std::bad_alloc&)
+    {
+        return fail(ERROR_NOT_ENOUGH_MEMORY);
+    }
 }
 
 static BOOL IsValidAttrPathUtf8Text(const char* text, int textLen)

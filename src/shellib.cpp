@@ -8,6 +8,7 @@
 #include "precomp.h"
 
 #include "shellib.h"
+#include "branchshell.h"
 #include "cfgdlg.h"
 #include "plugins.h"
 extern "C"
@@ -2078,6 +2079,24 @@ BOOL GetShellFolder(const char* dir, IShellFolder*& shellFolderObj, LPITEMIDLIST
 //
 // CreateIDataObject
 //
+
+IDataObject* CreateIDataObjectForPaths(HWND owner, const std::vector<std::wstring>& paths)
+{
+    IDataObject* object = NULL;
+    const HRESULT result = CreateShellObjectForPaths(owner, paths, IID_IDataObject, (void**)&object, FALSE);
+    if (FAILED(result))
+        SetLastError(HRESULT_FACILITY(result) == FACILITY_WIN32 ? HRESULT_CODE(result) : ERROR_GEN_FAILURE);
+    return object;
+}
+
+IContextMenu2* CreateIContextMenu2ForPaths(HWND owner, const std::vector<std::wstring>& paths)
+{
+    IContextMenu2* menu = NULL;
+    const HRESULT result = CreateShellObjectForPaths(owner, paths, IID_IContextMenu2, (void**)&menu, TRUE);
+    if (FAILED(result))
+        SetLastError(HRESULT_FACILITY(result) == FACILITY_WIN32 ? HRESULT_CODE(result) : ERROR_GEN_FAILURE);
+    return menu;
+}
 
 IDataObject* CreateIDataObjectAux(HWND hOwnerWindow, const char* rootDir, int files,
                                   CEnumFileNamesFunction nextFile, void* param)
