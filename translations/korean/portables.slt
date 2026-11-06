@@ -38,9 +38,9 @@ COMMENT,"korean translation stub (English seed)"
 151,1,"Crea cartella"
 152,1,"비주얼리자"
 153,1,"Il nome è ancora sul dispositivo. L 'elemento non è stato creato di nuovo."
-154,1,"Un file non può sostituire una cartella."
-155,1,"Una cartella non può sostituire un file."
-156,1,"Esiste già un elemento con questo nome."
+154,1,"파일로 폴더를 대체할 수 없습니다."
+155,1,"폴더로 파일을 대체할 수 없습니다."
+156,1,"같은 이름의 항목이 이미 있습니다."
 157,1,"薛技?"
 
 [STRINGTABLE 2]
