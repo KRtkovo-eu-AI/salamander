@@ -1,3 +1,5 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-06 | Expect ExtensionMenuBuilder generatedBy without OpenSalamander prefix. | Menu Builder package id was shortened; smoke test lagged behind. | | Composer |
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2.0
 
@@ -85,7 +87,7 @@ try {
     }
     if ($manifest.commands[0].handler -ne 'notepad' -or
         $actions.commands[0].target -ne 'notepad.exe' -or
-        $project.generatedBy -ne 'OpenSalamander.ExtensionMenuBuilder') {
+        $project.generatedBy -ne 'ExtensionMenuBuilder') {
         throw 'Generated extension files do not match the builder project.'
     }
     $handwrittenRoot = Join-Path $testRoot 'handwritten'

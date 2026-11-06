@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-06 | Expect short Salamatrix extension/command IDs. | Packages dropped the OpenSalamander. prefix; old IDs failed CI. | | Composer |
 # | 2026-11-05 | Require Salamatrix FS SVG icons at 16/32/48. | Thumbnail view asked for 48px icons but SVG items stayed at 16px. | | Composer |
 # | 2026-11-04 | Require PR test reports to stay on the job summary. | Separate check runs were attached to the Source Code Growth workflow. | | Grok 4.7 |
 # | 2026-11-04 | Require Install to follow the selected package. | One scheduled extension disabled Install for every other row. | | Grok 4.7 |
@@ -2030,10 +2031,10 @@ def main() -> int:
     command_ids = {
         command.get("id") for command in navigator_manifest.get("commands", [])
     }
-    if "OpenSalamander.GitWorktreeNavigator.commit" not in command_ids:
+    if "GitWorktreeNavigator.commit" not in command_ids:
         raise AssertionError(
             "Git Worktree Navigator does not expose Commit in the extension menu")
-    if ("OpenSalamander.GitWorktreeNavigator.createLocalRepository"
+    if ("GitWorktreeNavigator.createLocalRepository"
             not in command_ids):
         raise AssertionError(
             "Git Worktree Navigator does not expose local repository creation")
@@ -2207,7 +2208,7 @@ def main() -> int:
                 set(file_system.get("actions", {})) !=
                 {"endTask", "endProcessTree", "openFileLocation", "properties"} or
                 set(localized.get("commands", {})) !=
-                {"OpenSalamander.ProcessExplorer.open"}):
+                {"ProcessExplorer.open"}):
             raise AssertionError(
                 f"process explorer locale metadata is incomplete: {locale}")
         keys = set(localized.get("strings", {}))
@@ -2236,7 +2237,7 @@ def main() -> int:
     if (len(commands) != 1 or not commands[0].get("toolbar") or
             commands[0].get("menu") != "none" or
             commands[0].get("path") !=
-            "salamatrix:OpenSalamander.ProcessExplorer!processes" or
+            "salamatrix:ProcessExplorer!processes" or
             commands[0].get("handler")):
         raise AssertionError("Process Explorer toolbar command is incomplete")
     require(
