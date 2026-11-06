@@ -10,9 +10,9 @@ WEB,"www.altap.cz"
 COMMENT,"korean translation stub (English seed)"
 
 [STRINGTABLE 0]
-10100,0,"Internet Explorer Viewer"
-10101,0,"Unable to open Internet Explorer Viewer.\nPlease report this problem to support@altap.cz."
-10102,0,"Error"
-10103,0,"Lightweight HTML and XML viewer based on Internet Explorer."
-10105,0,"About Plugin"
+10100,1,"Internet Explorer Viewer"
+10101,1,"Internet Explorer Viewer를 열 수 없습니다.\n이 문제를 support@altap.cz로 보고해 주세요."
+10102,1,"오류"
+10103,1,"Internet Explorer 기반의 가벼운 HTML 및 XML 뷰어입니다."
+10105,1,"플러그인 정보"
 

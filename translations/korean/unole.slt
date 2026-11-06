@@ -10,27 +10,27 @@ WEB,"www.altap.cz"
 COMMENT,"korean translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,0,"UnOLE2"
-1001,0,"Insufficient memory."
-1002,0,"Cannot open Compound File %s.\n"
-1003,0,"Unable to obtain memory allocator.\n"
-1004,0,"Cannot write to file.\n"
-1005,0,"Cannot create file %s.\n"
-1006,0,"Cannot open stream %s.\n"
-1007,0,"Cannot write to file.\n"
+1000,1,"UnOLE2"
+1001,1,"메모리가 부족합니다."
+1002,1,"복합 파일 %s을(를) 열 수 없습니다.\n"
+1003,1,"메모리 할당자를 가져올 수 없습니다.\n"
+1004,1,"파일에 쓸 수 없습니다.\n"
+1005,1,"파일 %s을(를) 만들 수 없습니다.\n"
+1006,1,"스트림 %s을(를) 열 수 없습니다.\n"
+1007,1,"파일에 쓸 수 없습니다.\n"
 
 [STRINGTABLE 1]
-1008,0,"Unknown error occurred."
-1014,0,"Unable to add archive entry to the files list."
-1015,0,"Unpacking Compound File"
-1017,0,"unpacking..."
-1018,0,"unpacking: "
+1008,1,"알 수 없는 오류가 발생했습니다."
+1014,1,"파일 목록에 아카이브 항목을 추가할 수 없습니다."
+1015,1,"복합 파일 압축 해제 중"
+1017,1,"압축 해제 중..."
+1018,1,"압축 해제 중: "
 
 [STRINGTABLE 2]
-1025,0,"Sorry, the plugin has expired. Please check our web site for newer version."
+1025,1,"죄송합니다. 플러그인이 만료되었습니다. 최신 버전은 웹 사이트에서 확인하세요."
 
 [STRINGTABLE 3]
-1041,0,"Error"
-1042,0,"Browse and extract OLE Compound files."
-1043,0,"About Plugin"
+1041,1,"오류"
+1042,1,"OLE 복합 파일을 탐색하고 추출합니다."
+1043,1,"플러그인 정보"
 
