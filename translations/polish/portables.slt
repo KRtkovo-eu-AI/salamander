@@ -1,0 +1,59 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\portables\portables.atp"
+TEXTVERSION,"0.6 (x64)"
+VERSION,"0,6,0,196"
+
+[TRANSLATION]
+LANGID,1045
+AUTHOR,"Open Samandarin"
+WEB,"https://samandarin.net/"
+COMMENT,"polish translation stub (English seed)"
+
+[STRINGTABLE 0]
+128,1,"{!}%d wybrane urządzeni{2:s|0|e|1|a}"
+129,1,"Brak urządzeń"
+130,1,"Urządzenia przenośne"
+131,1,"Anuluj"
+132,1,"Przygotowywanie..."
+133,1,"Plik:"
+134,1,"Razem:"
+135,1,"Minimalizuj"
+136,1,"Wstrzymaj"
+137,1,"Urządzenie przenośne przestało odpowiadać. Odłącz je i podłącz ponownie. Panel Urządzenia przenośne wróci do listy urządzeń."
+138,1,"Skopiowano %s z %s"
+139,1,"Kopiuj"
+140,1,"Przenieś"
+141,1,"Usuń"
+142,1,"Kopiowanie"
+143,1,"Przenoszenie"
+
+[STRINGTABLE 1]
+144,1,"Usuwanie"
+145,1,"do"
+146,1,"Przeniesiono %s z %s"
+147,1,"Przetworzono %s z %s"
+148,1,"Usuwanie zaznaczonych elementów"
+149,1,"%s '%s' nie powiodło się (0x%08X)."
+150,1,"Zmień nazwę"
+151,1,"Utwórz folder"
+152,1,"Wyświetl"
+153,1,"Nazwa nadal znajduje się na urządzeniu. Element nie został utworzony ponownie."
+154,1,"Plik nie może zastąpić folderu."
+155,1,"Folder nie może zastąpić pliku."
+156,1,"Element o tej nazwie już istnieje."
+157,1,"?"
+
+[STRINGTABLE 2]
+8192,1,"Urządzenia przenośne"
+8193,1,"Zarządzaj urządzeniami przenośnymi."
+
+[STRINGTABLE 3]
+9216,1,"O wtyczce"
+
+[STRINGTABLE 4]
+10240,1,"Błąd zmiany katalogu"
+10241,1,"Ścieżka: "%s"\r\nBłąd: %s"
+
+[STRINGTABLE 5]
+19457,1,"Podana ścieżka zawiera ścieżkę do pliku."
+

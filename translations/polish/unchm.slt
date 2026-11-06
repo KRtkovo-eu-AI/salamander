@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\unchm\unchm.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,196"
+
+[TRANSLATION]
+LANGID,1045
+AUTHOR,"Open Samandarin"
+WEB,"www.altap.cz"
+COMMENT,"polish translation stub (English seed)"
+
+[STRINGTABLE 0]
+1000,1,"UnCHM"
+1001,1,"Nie można otworzyć pliku."
+1002,1,"Nieokreślony błąd."
+1003,1,"Rozpakowywanie archiwum CHM"
+1004,1,"Błąd rozpakowywania pliku."
+1005,1,"Nie można obsłużyć tego pliku."
+1006,1,"Niewystarczająca ilość pamięci."
+1007,1,"O wtyczce"
+
+[STRINGTABLE 1]
+1009,1,"Przeglądaj i wypakowuj pliki CHM."
+1010,1,"Nie można utworzyć katalogu tymczasowego."
+1011,1,"Nie można usunąć pliku tymczasowego."
+1012,1,"Nieznany format pliku lub nieprawidłowy obraz CHM.\n\nJeśli masz pewność, że jest to prawidłowy obraz CHM, skontaktuj się z support@altap.cz i pomóż nam dodać obsługę tego formatu."
+1013,1,"Nie można otworzyć tego pliku."
+1014,1,"Utworzenie pliku tymczasowego nie powiodło się."
+1015,1,"Nie można ustawić atrybutów pliku."
+1016,1,"Nie można utworzyć katalogu '%s'."
+1020,1,"Tak"
+1021,1,"Nie"
+1022,1,"Błąd"
+1023,1,"Ostrzeżenie"
+
+[STRINGTABLE 2]
+1032,1,"Wewnętrzny błąd wtyczki."
+
+[STRINGTABLE 3]
+1100,1,"Błąd odczytu"
+1101,1,"Błąd zapisu"
+
+[STRINGTABLE 4]
+1105,1,"Nieprawidłowa liczba."
+1106,1,"anulowanie operacji, proszę czekać..."
+1107,1,"Biblioteka CHMLIB Copyright © 2001-2010 Jed Wing"
+

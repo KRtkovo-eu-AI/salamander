@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\italian\pak\pak.atp"
+TEXTVERSION,"1.73 (x64)"
+VERSION,"1,73,0,196"
+
+[TRANSLATION]
+LANGID,1045
+AUTHOR,"Open Samandarin"
+WEB,"www.altap.cz"
+COMMENT,"polish translation stub (English seed)"
+
+[DIALOG 100]
+194,73,1,"Optymalizuj archiwum PAK"
+300,8,9,80,8,1,"Rozmiar prawidłowych danych:"
+101,64,9,118,8,1,""
+301,8,20,77,8,1,"Całkowity rozmiar pliku:"
+102,64,20,118,8,1,""
+302,8,31,58,8,1,"Zmarnowane miejsce:"
+103,64,31,118,8,1,""
+303,8,44,178,1,1,""
+1,41,53,50,14,1,"Optymalizuj"
+2,101,53,50,14,1,"Anuluj"
+
+[STRINGTABLE 0]
+500,1,"Nie można otworzyć pliku: %s"
+501,1,"Nie można zainicjować interfejsu paklib. Jeden plik jest już otwarty."
+502,1,"Nie można otworzyć pliku. Jeden plik jest już otwarty."
+503,1,"Nie można pobrać rozmiaru pliku: %s"
+504,1,"Nieprawidłowy format danych."
+505,1,"Niewystarczająca ilość pamięci."
+506,1,"bieżący katalog centralny PAK"
+507,1,"Nie można ustawić wskaźnika pliku: %s"
+508,1,"Nie można odczytać z pliku: %s"
+509,1,"Nie można pobrać wskaźnika pliku: %s"
+510,1,"Nie można zapisać do pliku: %s"
+511,1,"Nie można dodać pliku z powodu zbyt długiej nazwy."
+
+[STRINGTABLE 1]
+1000,1,"PAK"
+1001,1,"Niewystarczająca ilość pamięci."
+1002,1,"Nie można dodać pliku do listy."
+1003,1,"Nie można załadować paklib.dll ani pobrać adresu procedury: "
+1004,1,"Rozpakowywanie archiwum PAK - %s"
+1005,1,"przygotowywanie danych..."
+1006,1,"rozpakowywanie..."
+1007,1,"rozpakowywanie: "
+
+[STRINGTABLE 2]
+1008,1,"Nie można dokończyć operacji z powodu zbyt długiej nazwy ścieżki."
+1009,1,"Nie można ustawić wskaźnika pliku: "
+1010,1,"Nie można pobrać wskaźnika pliku: "
+1011,1,"Nie można zapisać do pliku:"
+1013,1,"Nie można otworzyć pliku: "
+1014,1,"Nie można dokończyć operacji z powodu zbyt długiej maski."
+1015,1,"Usuwanie z archiwum PAK - %s"
+1016,1,"usuwanie..."
+1017,1,"usuwanie: "
+1018,1,"anulowanie operacji, proszę czekać..."
+1019,1,"Pakowanie do archiwum PAK - %s"
+1020,1,"Nie można dodać pliku: Plik jest zbyt duży."
+1021,1,"pakowanie..."
+1022,1,"Nie można dodać pliku z powodu zbyt długiej nazwy."
+1023,1,"pakowanie: "
+
+[STRINGTABLE 3]
+1024,1,"Nie można odczytać z pliku: "
+1025,1,"Nie można połączyć wtyczki z Open Salamander."
+1026,1,"optymalizacja, proszę czekać..."
+1027,1,"Optymalizacja archiwum PAK - %s"
+1028,1,"Usuwanie plików nie zostało zakończone pomyślnie. Może być konieczne uruchomienie optymalizacji PAK z menu wtyczki PAK, aby uniknąć marnowania miejsca na dysku."
+1029,1,"&Optymalizuj PAK"
+1030,1,"Przepraszamy, ważność wtyczki wygasła. Sprawdź naszą witrynę w poszukiwaniu nowszej wersji."
+1031,1,"Przeglądaj i wypakowuj archiwa Quake PAK."
+1032,1,"O wtyczce"
+
