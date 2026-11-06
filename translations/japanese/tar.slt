@@ -23,7 +23,7 @@ COMMENT,"Japanese (ja-JP) UI translation"
 11240,1,"LZH アーカイブはまだサポートされていません。"
 
 [STRINGTABLE 2]
-11250,1,"Unpack"
+11250,1,"展開"
 11251,1,"Extracting "
 11252,1,"Skipping "
 11260,1,"GZip エラー"

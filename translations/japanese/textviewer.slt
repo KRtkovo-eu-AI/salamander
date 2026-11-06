@@ -12,7 +12,7 @@ COMMENT,"Japanese (ja-JP) UI translation"
 [DIALOG 8500]
 310,129,1,"Prism のテスト視覚化構成"
 8701,7,7,296,86,1,"プレスタツィオーニ"
-8700,17,21,276,18,1,"Mantieni pronto Prism per riaprire più velocemente(&M)"
+8700,17,21,276,18,1,"Prism を準備したままにして再オープンを速くする(&M)"
 8702,17,44,276,40,1,"ファイルを 60 秒間表示するだけで視覚化できます。 Richiede Memoria aggiuntiva (約 100 MB のファイル)。 Il primo file は、正常な状態を維持するために継続します。"
 1,197,108,50,14,1,"OK"
 2,253,108,50,14,1,"Annulla"

@@ -1,17 +1,19 @@
-# Japanese translation seed
+# Japanese translation (`ja-JP`)
 
-This directory deliberately starts without committed `.slt` archives. On the
-first run, the batch localization workflow exports current English resources,
-marks all text as untranslated, and writes the generated Japanese archives here.
-That avoids committing a stale English snapshot as a translation seed.
+Japanese UI archives for Open Samandarin. Locale is Japanese (Japan), Windows
+`LANGID` 1041.
 
-Run the translation and build the language pack from a populated build output:
+All module `.slt` files in this directory are translated (`state=1` for
+nonempty strings). Common buttons follow Japanese UI conventions (`OK`,
+`キャンセル`, `ヘルプ`, `はい`, `いいえ`) while preserving placeholders,
+accelerators, and the product names Open Samandarin / Open Salamander /
+Salamatrix.
+
+Rebuild language packs from a populated build output:
 
 ```powershell
-$env:CURSOR_API_KEY = "..."
 pwsh -File tools\localization\localize_all_openai.ps1 -Languages japanese -BuildLanguagePacks
 ```
 
-The workflow uses Japanese (Japan), `ja-JP`, with Windows `LANGID` 1041. Once
-the run succeeds, the resulting `.slt` files are committed in this directory
-and `japanese.slg` files are placed in the build output by `-BuildLanguagePacks`.
+Or import the committed `.slt` archives with the Salamander Translator and
+produce `japanese.slg` beside the runtime.
