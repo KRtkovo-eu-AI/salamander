@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-06 | Paste archive clipboard data from shared memory without requiring IsFakeDataObject. | OLE proxies can hide SalFakeRealPath; shell paste then created an empty CLIPFAKE dir. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | Composer |
 // | 2026-11-05 | Survive faulty shell extension SEH in SafeInvokeCommand. | Shell InvokeCommand failures must degrade instead of terminating. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
@@ -165,7 +166,12 @@ BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pas
                               //          (onlyTest ? "test " : "") << (pastePath != NULL ? pastePath : "(null)"));
     if (OleGetClipboard(&dataObj) == S_OK && dataObj != NULL)
     {
-        if (!onlyLinks && !onlyTest && IsFakeDataObject(dataObj, NULL, NULL, 0) && SalShExtSharedMemView != NULL)
+        // Do not require IsFakeDataObject() here. Modern OLE clipboard proxies often hide the
+        // private SalFakeRealPath marker, and requiring it made Ctrl+V copy the empty CLIPFAKE
+        // directory instead of unpacking from the archive (#741). Archive Ctrl+C itself is
+        // unchanged; ownership is tracked in shell-extension shared memory.
+        const BOOL fakeOnClipboard = !onlyLinks && IsFakeDataObject(dataObj, NULL, NULL, 0);
+        if (!onlyLinks && !onlyTest && SalShExtSharedMemView != NULL)
         { // Salamander "fake" data object on the clipboard -> paste files/directories from the archive
             BOOL pasteFromOurData = FALSE;
             WaitForSingleObject(SalShExtSharedMemMutex, INFINITE);
@@ -201,6 +207,9 @@ BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pas
                 SalShExtPastedData.SetLock(TRUE);
                 dataObj->Release(); // one instance still remains on the clipboard
                 pasteEffect &= DROPEFFECT_COPY | DROPEFFECT_MOVE;
+                // Archive Ctrl+C always stores Copy. If PreferredDropEffect is missing, still unpack.
+                if (pasteEffect == 0)
+                    pasteEffect = DROPEFFECT_COPY;
                 if (pasteEffect == DROPEFFECT_COPY || pasteEffect == DROPEFFECT_MOVE)
                 {
                     // move clears the clipboard after itself (cut&paste), release the clipboard before launching
@@ -226,6 +235,20 @@ BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pas
                 PostMessage(MainWindow->HWindow, WM_USER_SALSHEXT_TRYRELDATA, 0, 0); // after unlocking, perform data release if needed
                 return TRUE;
             }
+
+            if (fakeOnClipboard)
+            {
+                // Foreign/unusable archive clipboard data: never shell-copy CLIPFAKE.
+                TRACE_E("Paste: fake Salamander clipboard data is present but not owned by this instance.");
+                dataObj->Release();
+                return TRUE;
+            }
+        }
+        else if (!onlyLinks && !onlyTest && fakeOnClipboard)
+        {
+            TRACE_E("Paste: fake Salamander clipboard data cannot be handled without shell-extension shared memory.");
+            dataObj->Release();
+            return TRUE;
         }
 
         BOOL ownRutine = FALSE; // are we able to do it ourselves?
