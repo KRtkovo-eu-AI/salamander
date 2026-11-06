@@ -22,7 +22,7 @@ COMMENT,"portuguese translation stub (English seed)"
 12222,69,23,200,14,1,""
 13001,6,48,270,27,1,"Posição da janela"
 12223,14,58,75,12,1,"&Economizar ao fechar"
-12224,107,58,204,12,1,"& Definir para a posição da janela principal da Salamandra"
+12224,107,58,204,12,1,"&Definir para a posição da janela principal da Salamandra"
 12225,13,85,60,14,1,"Opções de CSV"
 1,113,85,50,14,1,"OK"
 2,168,85,50,14,1,"Cancelar"
@@ -188,7 +188,7 @@ COMMENT,"portuguese translation stub (English seed)"
 
 [STRINGTABLE 9]
 11232,1,"Fi&elds...\t I"
-11233,1,"& Tela Cheia\t F11"
+11233,1,"&Tela Cheia\t F11"
 
 [STRINGTABLE 10]
 11250,1,"&Converter"
