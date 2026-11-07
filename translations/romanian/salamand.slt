@@ -4180,6 +4180,8 @@ SLGINCOMPLETE,""
 14528,1,"Acces refuzat. Creați acest dosar ca administrator?"
 14529,1,"Conexiunea cu procesul auxiliar s-a întrerupt înainte de confirmarea rezultatului. Verificați destinația înainte de a încerca din nou."
 14530,1,"Acces refuzat. Redenumiți acest fișier ca administrator? Prima linie indică calea actuală, iar a doua pe cea nouă."
+14531,1,"Acces refuzat. Aplicați atributele și marcajele de timp solicitate acestui fișier ca administrator?"
+14532,1,"Conexiunea cu procesul auxiliar s-a întrerupt înainte de confirmarea rezultatului. Verificați atributele și marcajele de timp ale fișierului înainte de a încerca din nou."
 
 [STRINGTABLE 184]
 14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."

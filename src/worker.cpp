@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Run one-file basic metadata changes through the verified executor. | Offer elevation only after an ordinary access denial and retain worker accounting. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -9,6 +12,7 @@
 #include "workerpath.h"
 #include "operationrecycle.h"
 #include "common/widepath.h"
+#include "uacbroker/f7pilot.h"
 
 #include <Aclapi.h>
 #include <Ntsecapi.h>
@@ -8833,6 +8837,75 @@ CONVERT_AGAIN:
     }
 }
 
+static LONGLONG MetadataFileTime(const FILETIME& time)
+{
+    ULARGE_INTEGER value{};
+    value.LowPart = time.dwLowDateTime;
+    value.HighPart = time.dwHighDateTime;
+    return static_cast<LONGLONG>(value.QuadPart);
+}
+
+static bool TryChangeBasicMetadata(HWND progress, COperation& op, const CChangeAttrsData& input,
+                                   CProgressDlgData& dlgData, BOOL& success)
+{
+    const DWORD desired = static_cast<DWORD>(reinterpret_cast<DWORD_PTR>(op.TargetName));
+    constexpr DWORD allowed = UacF7::basicAttributes | FILE_ATTRIBUTE_NORMAL;
+    if (!input.AllowBasicMetadataPilot || !op.SourceNameWValid ||
+        ((op.Attr | desired) & ~allowed) != 0)
+        return false;
+
+    UacF7::MetadataChange change{};
+    change.expectedAttributes = op.Attr;
+    const DWORD desiredBasic = desired & UacF7::basicAttributes;
+    if (desiredBasic != (op.Attr & UacF7::basicAttributes))
+        change.attributes = desiredBasic ? desiredBasic : FILE_ATTRIBUTE_NORMAL;
+    if (input.ChangeTimeCreated)
+        change.created = MetadataFileTime(input.TimeCreated);
+    if (input.ChangeTimeAccessed)
+        change.accessed = MetadataFileTime(input.TimeAccessed);
+    if (input.ChangeTimeModified)
+        change.modified = MetadataFileTime(input.TimeModified);
+    if ((input.ChangeTimeCreated && !change.created) || (input.ChangeTimeAccessed && !change.accessed) ||
+        (input.ChangeTimeModified && !change.modified))
+        return false;
+
+    UacF7::PreparedLeaf request;
+    if (!request.PrepareMetadata(op.SourceNameW, change))
+        return false;
+    for (;;)
+    {
+        WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
+        success = FALSE;
+        if (*dlgData.CancelWorker)
+            return true;
+        DWORD error = request.ExecuteLocalMetadata();
+        if (error == ERROR_ACCESS_DENIED)
+        {
+            const std::wstring display = SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str());
+            const std::string path = SalWideToMultiBytePath(display.c_str(), CP_UTF8);
+            UacF7::MetadataPrompt prompt{request, path.c_str()};
+            SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_METADATA, reinterpret_cast<LPARAM>(&prompt));
+            if (prompt.result.unknown || prompt.result.error == ERROR_CANCELLED)
+                return true;
+            error = prompt.result.error;
+        }
+        if (error == ERROR_SUCCESS)
+        {
+            success = TRUE;
+            return true;
+        }
+        if (*dlgData.CancelWorker)
+            return true;
+        int answer = IDCANCEL;
+        char* data[] = {reinterpret_cast<char*>(&answer), LoadStr(IDS_ERRORCHANGINGATTRS), op.SourceName, GetErrorText(error)};
+        SendMessage(progress, WM_USER_DIALOG, 0, reinterpret_cast<LPARAM>(data));
+        if (answer == IDRETRY)
+            continue;
+        success = answer == IDB_SKIP || answer == IDB_SKIPALL;
+        return true;
+    }
+}
+
 BOOL DoChangeAttrs(HWND hProgressDlg, char* name, const CQuadWord& size, DWORD attrs,
                    COperations* script, CQuadWord& totalDone,
                    FILETIME* timeModified, FILETIME* timeCreated, FILETIME* timeAccessed,
@@ -10857,6 +10930,17 @@ unsigned ThreadWorkerBody(void* parameter)
 
                 SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
 
+                BOOL metadataSuccess = FALSE;
+                if (script->Count == 1 && TryChangeBasicMetadata(hProgressDlg, *op, *attrsData, dlgData, metadataSuccess))
+                {
+                    Error = !metadataSuccess;
+                    if (metadataSuccess)
+                    {
+                        totalDone += op->Size;
+                        SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
+                    }
+                    break;
+                }
                 Error = !DoChangeAttrs(hProgressDlg, op->SourceName, op->Size, (DWORD)(DWORD_PTR)op->TargetName,
                                        script, totalDone,
                                        attrsData->ChangeTimeModified ? &attrsData->TimeModified : NULL,

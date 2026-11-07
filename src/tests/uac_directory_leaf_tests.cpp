@@ -1,9 +1,10 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Exercise the basic metadata executor on real NTFS files. | Verify independent fields, stale snapshots, and preservation of the verified source. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Probe NTFS native rename with a directory handle. | Verify the target cannot be redirected before adding broker rename. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Test anchored mkdir against real NTFS substitutions. | Verify that a replacement path and reparse points cannot redirect a creation. | | GPT-6.1 Sol (Codex) |
 */
-#include "../uacbroker/renameleaf.h"
+#include "../uacbroker/metadataleaf.h"
 #include <winioctl.h>
 #include <cstdio>
 #include <memory>
@@ -171,6 +172,68 @@ int wmain(int argc, wchar_t** argv)
               !Exists(ancestor + L"\\parent\\verified-\u6771\u4eac"),
           "verified rename preserves the source identity in the held parent", error);
 
+    const auto metadataPath = moved + L"\\verified-\u6771\u4eac";
+    const auto metadataFile = OpenIdentity(metadataPath, verifiedId);
+    FILE_BASIC_INFO before{};
+    if (!metadataFile || !GetFileInformationByHandleEx(metadataFile.get(), FileBasicInfo, &before, sizeof(before)))
+        return 2;
+    UacF7::MetadataChange metadata{};
+    metadata.expectedAttributes = before.FileAttributes;
+    metadata.attributes = FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM;
+    metadata.created = 132224078450000000;
+    metadata.accessed = 132224078460000000;
+    metadata.modified = 132224078470000000;
+    const auto setMetadata = [&](const UacF7::MetadataChange& change, const FILE_ID_INFO& id) {
+        return UacMetadataLeaf::SetVerifiedMetadata(original.get(), expected, id, L"verified-\u6771\u4eac", change);
+    };
+    error = setMetadata(metadata, targetId);
+    Check(error == ERROR_FILE_INVALID && GetFileAttributesW(metadataPath.c_str()) == before.FileAttributes,
+          "metadata rejects a different file ID before making any change", error);
+    auto invalidMetadata = metadata;
+    invalidMetadata.modified = -1;
+    error = setMetadata(invalidMetadata, verifiedId);
+    Check(error == ERROR_INVALID_DATA, "metadata refuses a special negative timestamp", error);
+    invalidMetadata = metadata;
+    invalidMetadata.attributes = FILE_ATTRIBUTE_REPARSE_POINT;
+    error = setMetadata(invalidMetadata, verifiedId);
+    Check(error == ERROR_INVALID_DATA, "metadata refuses special file attributes", error);
+    error = setMetadata(metadata, verifiedId);
+    FILE_BASIC_INFO applied{};
+    Check(error == ERROR_SUCCESS &&
+              GetFileInformationByHandleEx(metadataFile.get(), FileBasicInfo, &applied, sizeof(applied)) &&
+              applied.FileAttributes == metadata.attributes &&
+              applied.CreationTime.QuadPart == metadata.created &&
+              applied.LastAccessTime.QuadPart == metadata.accessed &&
+              applied.LastWriteTime.QuadPart == metadata.modified,
+          "one metadata request applies exact attributes and all three times", error);
+    error = setMetadata(metadata, verifiedId);
+    Check(error == ERROR_FILE_INVALID, "metadata rejects stale attributes instead of replacing them", error);
+    UacF7::MetadataChange timesOnly{};
+    timesOnly.expectedAttributes = applied.FileAttributes;
+    timesOnly.modified = metadata.modified + 10000000;
+    error = setMetadata(timesOnly, verifiedId);
+    FILE_BASIC_INFO updated{};
+    Check(error == ERROR_SUCCESS &&
+              GetFileInformationByHandleEx(metadataFile.get(), FileBasicInfo, &updated, sizeof(updated)) &&
+              updated.FileAttributes == applied.FileAttributes &&
+              updated.CreationTime.QuadPart == applied.CreationTime.QuadPart &&
+              updated.LastAccessTime.QuadPart == applied.LastAccessTime.QuadPart &&
+              updated.LastWriteTime.QuadPart == timesOnly.modified,
+          "modify only last write time while keeping read-only and unspecified times", error);
+    UacF7::MetadataChange attrsOnly{};
+    attrsOnly.expectedAttributes = updated.FileAttributes;
+    attrsOnly.attributes = FILE_ATTRIBUTE_NORMAL;
+    error = setMetadata(attrsOnly, verifiedId);
+    FILE_BASIC_INFO cleared{};
+    Check(error == ERROR_SUCCESS &&
+              GetFileInformationByHandleEx(metadataFile.get(), FileBasicInfo, &cleared, sizeof(cleared)) &&
+              cleared.FileAttributes == FILE_ATTRIBUTE_NORMAL &&
+              cleared.CreationTime.QuadPart == updated.CreationTime.QuadPart &&
+              cleared.LastAccessTime.QuadPart == updated.LastAccessTime.QuadPart &&
+              cleared.LastWriteTime.QuadPart == updated.LastWriteTime.QuadPart,
+          "clear the basic attributes without resetting any of the three times", error);
+    SetFileAttributesW(metadataPath.c_str(), FILE_ATTRIBUTE_NORMAL); // keep failed fixtures removable
+
     for (const auto invalid : {L"..", L"parent\\escaped", L"parent/escaped", L"x:ads", L"NUL.txt", L"x.", L"x "})
     {
         error = CreateVerifiedLeaf(original.get(), expected, invalid);
@@ -267,6 +330,12 @@ int wmain(int argc, wchar_t** argv)
         return 2;
     const DWORD longRename = UacRenameLeaf::RenameVerifiedFile(longParent.get(), expected, longId, L"source-\u65e5", L"target-\u672c");
     Check(longRename == ERROR_SUCCESS && !Exists(longSource) && Exists(longTarget), "rename exact Unicode leaf on a long path", longRename);
+    UacF7::MetadataChange longChange{};
+    longChange.expectedAttributes = GetFileAttributesW(longTarget.c_str());
+    longChange.attributes = FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_HIDDEN;
+    const DWORD longMetadata = UacMetadataLeaf::SetVerifiedMetadata(longParent.get(), expected, longId, L"target-\u672c", longChange);
+    Check(longMetadata == ERROR_SUCCESS && GetFileAttributesW(longTarget.c_str()) == longChange.attributes,
+          "set attributes on an exact Unicode leaf below a long path", longMetadata);
     const BOOL removedFile = DeleteFileW((longRename == ERROR_SUCCESS ? longTarget : longSource).c_str());
 
     longParent.reset();

@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Mark eligible basic metadata operations and define their UI message. | Keep the broker pilot scoped to a single regular file. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -41,6 +44,7 @@
 void InitWorker();
 void ReleaseWorker();
 
+constexpr WPARAM WORKER_DIALOG_UAC_METADATA = 13;
 
 struct CChangeAttrsData
 {
@@ -53,6 +57,7 @@ struct CChangeAttrsData
     FILETIME TimeCreated;
     BOOL ChangeTimeAccessed;
     FILETIME TimeAccessed;
+    BOOL AllowBasicMetadataPilot;
 };
 
 struct CConvertData // data used by ocConvert

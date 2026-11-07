@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Share the anchored source open with basic metadata changes. | Keep access and sharing specific to each operation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Share the anchored source open and identity check with the panel host. | Capture the file identity before requesting elevation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Add an NTFS rename primitive for a single file under a verified parent. | Establish a no-overwrite command boundary before broker and panel integration. | | GPT-6.1 Sol (Codex) |
 */
@@ -41,15 +42,14 @@ inline DWORD NativeRename(HANDLE source, HANDLE targetParent, std::wstring_view 
     return status >= 0 ? ERROR_SUCCESS : RtlNtStatusToDosError(status);
 }
 
-inline DWORD OpenSource(HANDLE parent, std::wstring_view leaf, HANDLE& source, bool rename)
+inline DWORD OpenSource(HANDLE parent, std::wstring_view leaf, HANDLE& source, ACCESS_MASK extraAccess, ULONG sharing)
 {
     const auto bytes = static_cast<USHORT>(leaf.size() * sizeof(wchar_t));
     UNICODE_STRING objectName{bytes, bytes, const_cast<wchar_t*>(leaf.data())};
     OBJECT_ATTRIBUTES attributes{};
     InitializeObjectAttributes(&attributes, &objectName, OBJ_CASE_INSENSITIVE | OBJ_DONT_REPARSE, parent, nullptr);
     IO_STATUS_BLOCK io{};
-    const ACCESS_MASK access = FILE_READ_ATTRIBUTES | SYNCHRONIZE | (rename ? DELETE : 0);
-    const ULONG sharing = rename ? FILE_SHARE_READ : FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+    const ACCESS_MASK access = FILE_READ_ATTRIBUTES | SYNCHRONIZE | extraAccess;
     const NTSTATUS status = NtCreateFile(&source, access, &attributes, &io, nullptr, FILE_ATTRIBUTE_NORMAL, sharing, FILE_OPEN,
                                          FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT | FILE_OPEN_REPARSE_POINT,
                                          nullptr, 0);
@@ -97,7 +97,7 @@ inline DWORD RenameVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIde
         return ERROR_FILE_INVALID;
 
     HANDLE source = nullptr;
-    error = Detail::OpenSource(parent, from, source, true);
+    error = Detail::OpenSource(parent, from, source, DELETE, FILE_SHARE_READ);
     if (error != ERROR_SUCCESS)
         return error;
     FILE_ID_INFO actualSource{};

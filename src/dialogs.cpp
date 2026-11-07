@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Show the metadata UAC consent on the progress dialog thread. | Keep secure consent and uncertain results in the existing UI. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -16,6 +19,7 @@
 #include "menu.h"
 #include "consts.h"
 #include "common/widepath.h"
+#include "uacbroker/f7pilot.h"
 
 CConfiguration Configuration;
 
@@ -1736,6 +1740,27 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             CConfirmEncryptionLossDlg dlg(HWindow, (BOOL)(INT_PTR)data[1], data[2], (BOOL)(INT_PTR)data[3]);
             *(int*)data[0] = (int)dlg.Execute();
+            break;
+        }
+
+        case WORKER_DIALOG_UAC_METADATA:
+        {
+            auto& prompt = *reinterpret_cast<UacF7::MetadataPrompt*>(lParam);
+            const std::string message = std::string(LoadStr(IDS_UAC_METADATA_CONFIRM)) + "\n\n" + prompt.path;
+            const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
+            MSGBOXEX_PARAMS confirm{};
+            confirm.HParent = HWindow;
+            confirm.Text = message.c_str();
+            confirm.Caption = LoadStr(IDS_CHANGEATTRSTITLE);
+            confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_SHIELDONDEFBTN;
+            confirm.AliasBtnNames = alias.c_str();
+            if (SalMessageBoxEx(&confirm) == IDOK && !CancelWorker)
+            {
+                prompt.result = prompt.request.Execute(HWindow);
+                if (prompt.result.unknown)
+                    SalMessageBox(HWindow, LoadStr(IDS_UAC_METADATA_UNKNOWN), LoadStr(IDS_ERRORCHANGINGATTRS),
+                                  MB_OK | MB_ICONEXCLAMATION);
+            }
             break;
         }
         }

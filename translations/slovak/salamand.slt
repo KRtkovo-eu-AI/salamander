@@ -4180,6 +4180,8 @@ SLGINCOMPLETE,""
 14528,1,"Prístup bol odmietnutý. Vytvoriť tento priečinok ako správca?"
 14529,1,"Spojenie s pomocným procesom sa prerušilo pred potvrdením výsledku. Pred opakovaním skontrolujte cieľ."
 14530,1,"Prístup bol odmietnutý. Premenovať tento súbor ako správca? Prvý riadok uvádza súčasnú cestu, druhý novú."
+14531,1,"Prístup bol odmietnutý. Použiť požadované atribúty a časy tohto súboru ako správca?"
+14532,1,"Spojenie s pomocným procesom sa prerušilo pred potvrdením výsledku. Pred opakovaním skontrolujte atribúty a časy súboru."
 
 [STRINGTABLE 184]
 14991,1,"Čítanie priradení súborov zo súborového úložiska, čakajte prosím..."

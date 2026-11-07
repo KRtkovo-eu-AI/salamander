@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Add the one-file basic metadata broker command. | Authenticate and validate a bounded attributes and timestamps request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Reconstruct the pipe path from a canonical GUID. | Keep elevated file opens within the local broker pipe namespace and address CodeQL findings. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Add the authenticated one-file rename command. | Reuse the protected broker launch while keeping mkdir and rename separately validated. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Add the one-shot UAC broker and its diagnostic host. | Verify a protected launch, peer identity and shutdown before introducing commands. | | GPT-6.1 Sol (Codex) |
@@ -35,7 +36,7 @@
 #pragma comment(lib, "ntdll.lib")
 #endif
 #if defined(SAM_UAC_BROKER) || defined(SAM_UAC_F7_HOST)
-#include "renameleaf.h"
+#include "metadataleaf.h"
 #endif
 
 namespace
@@ -60,7 +61,8 @@ constexpr DWORD protocolVersion = 1;
 constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD mkdirCapability = 1;
 [[maybe_unused]] constexpr DWORD renameCapability = 2;
-[[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability;
+[[maybe_unused]] constexpr DWORD metadataCapability = 4;
+[[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -313,7 +315,7 @@ struct ComApartment
 };
 
 #if defined(SAM_UAC_BROKER) || defined(SAM_UAC_F7_HOST)
-enum class Operation : DWORD { Mkdir = 1, Rename = 2 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3 };
 struct RequestHeader
 {
     ULONGLONG serial;
@@ -396,14 +398,24 @@ DWORD ReceiveRequest(HANDLE pipe, HANDLE host, DWORD hostPid, ULONGLONG deadline
         return error;
     const bool rename = header.operation == Operation::Rename;
     const bool mkdir = header.operation == Operation::Mkdir;
+    const bool setMetadata = header.operation == Operation::Metadata;
     if (header.relativeLength > UacDirectoryLeaf::maxNativeName || !header.leafLength ||
         header.leafLength > UacDirectoryLeaf::maxComponent || header.sourceLength > UacDirectoryLeaf::maxComponent ||
-        (!rename && !mkdir) || rename != (header.sourceLength != 0))
+        (!rename && !mkdir && !setMetadata) || rename != (header.sourceLength != 0))
         return ERROR_INVALID_DATA;
     std::wstring payload(volumeLength + header.relativeLength + header.leafLength + header.sourceLength, L'\0');
     error = TransferRequest(pipe, payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), false, deadline);
     if (error)
         return error;
+    UacF7::MetadataChange metadata{};
+    if (setMetadata)
+    {
+        error = TransferRequest(pipe, &metadata, sizeof(metadata), false, deadline);
+        if (error)
+            return error;
+        if (!UacMetadataLeaf::IsValid(metadata))
+            return ERROR_INVALID_DATA;
+    }
 
     const std::wstring_view data(payload);
     const auto volume = data.substr(0, volumeLength);
@@ -431,11 +443,13 @@ DWORD ReceiveRequest(HANDLE pipe, HANDLE host, DWORD hostPid, ULONGLONG deadline
     expected.volume.assign(volume);
     if (!LiveInSession(host, hostPid) || GetTickCount64() >= deadline)
         return ERROR_OPERATION_ABORTED;
+    const FILE_ID_INFO sourceIdentity{header.serial, header.sourceId};
     if (rename)
     {
-        const FILE_ID_INFO sourceIdentity{header.serial, header.sourceId};
         result = UacRenameLeaf::RenameVerifiedFile(parent.get(), expected, sourceIdentity, source, leaf);
     }
+    else if (setMetadata)
+        result = UacMetadataLeaf::SetVerifiedMetadata(parent.get(), expected, sourceIdentity, leaf, metadata);
     else
         result = UacDirectoryLeaf::CreateVerifiedLeaf(parent.get(), expected, leaf);
     return ERROR_SUCCESS;
@@ -551,7 +565,7 @@ bool InspectPipeClient(HANDLE pipe, bool& elevated)
 
 int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #ifdef SAM_UAC_F7_HOST
-             , HWND owner, RequestHeader* request, std::wstring* payload, UacF7::Result* result
+             , HWND owner, RequestHeader* request, std::wstring* payload, UacF7::MetadataChange* metadata, UacF7::Result* result
 #endif
 )
 {
@@ -630,6 +644,8 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         error = TransferRequest(pipe.get(), request, sizeof(*request), true, deadline);
         if (!error)
             error = TransferRequest(pipe.get(), payload->data(), static_cast<DWORD>(payload->size() * sizeof(wchar_t)), true, deadline);
+        if (!error && metadata)
+            error = TransferRequest(pipe.get(), metadata, sizeof(*metadata), true, deadline);
         if (error)
             return IoError(L"Send request", error);
 
@@ -674,6 +690,16 @@ PreparedLeaf::~PreparedLeaf()
 }
 
 bool PreparedLeaf::Prepare(const std::wstring& path, const std::wstring& renameTo)
+{
+    return PrepareTarget(path, renameTo, nullptr);
+}
+
+bool PreparedLeaf::PrepareMetadata(const std::wstring& path, const MetadataChange& change)
+{
+    return UacMetadataLeaf::IsValid(change) && PrepareTarget(path, {}, &change);
+}
+
+bool PreparedLeaf::PrepareTarget(const std::wstring& path, const std::wstring& renameTo, const MetadataChange* change)
 {
     // An ordinary or portable copy must never offer the pilot.
     InstallLocation install;
@@ -723,10 +749,11 @@ bool PreparedLeaf::Prepare(const std::wstring& path, const std::wstring& renameT
         return false;
     Handle openedSource;
     FILE_ID_INFO sourceIdentity{};
-    if (rename)
+    if (rename || change)
     {
         HANDLE raw = nullptr;
-        if (UacRenameLeaf::Detail::OpenSource(opened.get(), finalName, raw, false))
+        if (UacRenameLeaf::Detail::OpenSource(opened.get(), finalName, raw, 0,
+                                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE))
             return false;
         openedSource = Adopt(raw);
         const std::wstring sourcePath = LR"(\\?\)" + std::wstring(input);
@@ -739,7 +766,10 @@ bool PreparedLeaf::Prepare(const std::wstring& path, const std::wstring& renameT
             !UacRenameLeaf::Detail::SameSource(visibleIdentity, sourceIdentity) ||
             sourceIdentity.VolumeSerialNumber != snapshot.file.VolumeSerialNumber)
             return false;
-        sourceLeaf.assign(finalName);
+        if (change && UacMetadataLeaf::CheckAttributes(openedSource.get(), *change))
+            return false;
+        if (rename)
+            sourceLeaf.assign(finalName);
         std::memcpy(sourceId, sourceIdentity.FileId.Identifier, sizeof(sourceId));
     }
     volume = snapshot.volume;
@@ -749,7 +779,25 @@ bool PreparedLeaf::Prepare(const std::wstring& path, const std::wstring& renameT
     std::memcpy(fileId, snapshot.file.FileId.Identifier, sizeof(fileId));
     parent = opened.release();
     source = openedSource.release();
+    if (change)
+    {
+        metadata = *change;
+        isMetadata = true;
+    }
     return true;
+}
+
+DWORD PreparedLeaf::ExecuteLocalMetadata() const
+{
+    if (!parent || !isMetadata)
+        return ERROR_INVALID_PARAMETER;
+    UacDirectoryLeaf::ParentIdentity expectedParent{};
+    expectedParent.file.VolumeSerialNumber = serial;
+    std::memcpy(expectedParent.file.FileId.Identifier, fileId, sizeof(fileId));
+    expectedParent.volume = volume;
+    FILE_ID_INFO expectedSource{serial, {}};
+    std::memcpy(expectedSource.FileId.Identifier, sourceId, sizeof(sourceId));
+    return UacMetadataLeaf::SetVerifiedMetadata(parent, expectedParent, expectedSource, leaf, metadata);
 }
 
 Result PreparedLeaf::Execute(HWND owner) const
@@ -760,13 +808,15 @@ Result PreparedLeaf::Execute(HWND owner) const
     if (!parent || FAILED(com.result) || !install.Open() ||
         !install.MatchesProcess(GetCurrentProcess(), appImage) || !install.OpenImage(appImage))
         return result;
-    RequestHeader header{serial, {}, {}, source ? Operation::Rename : Operation::Mkdir,
+    const Operation operation = isMetadata ? Operation::Metadata : source ? Operation::Rename : Operation::Mkdir;
+    RequestHeader header{serial, {}, {}, operation,
                          static_cast<DWORD>(relative.size()), static_cast<DWORD>(leaf.size()),
                          static_cast<DWORD>(sourceLeaf.size())};
     std::memcpy(header.parentId.Identifier, fileId, sizeof(fileId));
     std::memcpy(header.sourceId.Identifier, sourceId, sizeof(sourceId));
     std::wstring payload = volume + relative + leaf + sourceLeaf;
-    RunProbe(install, false, false, owner, &header, &payload, &result);
+    MetadataChange requestMetadata = metadata;
+    RunProbe(install, false, false, owner, &header, &payload, isMetadata ? &requestMetadata : nullptr, &result);
     return result;
 }
 }

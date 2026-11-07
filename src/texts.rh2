@@ -1,3 +1,4 @@
+// | 2026-11-07 | Reserve basic metadata consent and disconnect strings. | Localize the metadata pilot. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Reserve the elevation confirmation for rename. | Prompt with the source and destination paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Reserve F7 elevation message IDs. | Localize consent and uncertain-result handling. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
@@ -3149,5 +3150,7 @@
 #define IDS_UAC_MKDIR_CONFIRM                        14528
 #define IDS_UAC_MKDIR_UNKNOWN                        14529
 #define IDS_UAC_RENAME_CONFIRM                       14530
+#define IDS_UAC_METADATA_CONFIRM                     14531
+#define IDS_UAC_METADATA_UNKNOWN                     14532
 
 #endif // __TEXTS_RH2

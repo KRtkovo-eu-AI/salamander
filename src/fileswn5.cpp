@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-07 | Enable the metadata pilot for one selected file. | Keep recursive, batch and special-attribute operations on the established worker route. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
@@ -1517,25 +1518,27 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                     return;
                 }
 
-                CChangeAttrsData dlgData;
+                CChangeAttrsData dlgData{};
+                dlgData.AllowBasicMetadataPilot = !branchAttributes && !setCompress && !setEncryption &&
+                                                  !chDlg.RecurseSubDirs && selectedCount <= 1;
                 dlgData.ChangeTimeModified = chDlg.ChangeTimeModified;
                 if (dlgData.ChangeTimeModified)
                 {
-                    FILETIME ft;
+                    FILETIME ft{};
                     SystemTimeToFileTime(&chDlg.TimeModified, &ft);
                     LocalFileTimeToFileTime(&ft, &dlgData.TimeModified);
                 }
                 dlgData.ChangeTimeCreated = chDlg.ChangeTimeCreated;
                 if (dlgData.ChangeTimeCreated)
                 {
-                    FILETIME ft;
+                    FILETIME ft{};
                     SystemTimeToFileTime(&chDlg.TimeCreated, &ft);
                     LocalFileTimeToFileTime(&ft, &dlgData.TimeCreated);
                 }
                 dlgData.ChangeTimeAccessed = chDlg.ChangeTimeAccessed;
                 if (dlgData.ChangeTimeAccessed)
                 {
-                    FILETIME ft;
+                    FILETIME ft{};
                     SystemTimeToFileTime(&chDlg.TimeAccessed, &ft);
                     LocalFileTimeToFileTime(&ft, &dlgData.TimeAccessed);
                 }

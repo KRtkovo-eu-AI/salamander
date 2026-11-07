@@ -4180,6 +4180,8 @@ SLGINCOMPLETE,""
 14528,1,"Zugriff verweigert. Diesen Ordner als Administrator erstellen?"
 14529,1,"Die Verbindung zum Hilfsprozess wurde getrennt, bevor das Ergebnis bestätigt wurde. Prüfen Sie das Ziel, bevor Sie es erneut versuchen."
 14530,1,"Zugriff verweigert. Diese Datei als Administrator umbenennen? Zuerst wird der aktuelle Pfad angezeigt, danach der neue."
+14531,1,"Zugriff verweigert. Die angeforderten Attribute und Zeitstempel als Administrator auf diese Datei anwenden?"
+14532,1,"Die Verbindung zum Hilfsprozess wurde vor der Bestätigung des Ergebnisses getrennt. Prüfen Sie vor einem erneuten Versuch die Attribute und Zeitstempel der Datei."
 
 [STRINGTABLE 184]
 14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."
