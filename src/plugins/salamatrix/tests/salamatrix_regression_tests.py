@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-07 | Check foreground ownership for viewers and extension UI. | Issue #757 regressions must keep dialogs and viewers attached to the active extension window. | https://github.com/KRtkovo-eu-AI/salamander/issues/757 | OpenAI GPT-5.6 Luna Pro |
 # | 2026-11-06 | Check deferred plug-in references through refusal and reload. | The production vector owns one LoadLibrary reference per successful deferred unload. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 # | 2026-11-06 | Expect short Salamatrix extension/command IDs. | Packages dropped the OpenSalamander. prefix; old IDs failed CI. | | Composer |
 # | 2026-11-05 | Require Salamatrix FS SVG icons at 16/32/48. | Thumbnail view asked for 48px icons but SVG items stayed at 16px. | | Composer |
@@ -1484,6 +1485,15 @@ def main() -> int:
         "extension removal leaves deleted packages reachable from Packages")
     require(packages, r"InvokeOnMainThread\(\s*HostDispatchOnMainThread",
             "extension host calls are not marshaled to Salamander's UI thread")
+    require(packages, r"InteractiveParentWindow\(CSalamanderGeneralAbstract\* general\).*?"
+            r"GetForegroundWindow\(\).*?GetWindowThreadProcessId",
+            "extension UI does not select the active same-process window as its owner")
+    require(packages, r"request\.ParentWindow = InteractiveParentWindow\(General\)",
+            "extension runtime requests still use only the main message-box parent")
+    require(native_viewer, r"IsWindow\(parameters_->owner\)\s*\?\s*parameters_->owner\s*:\s*nullptr",
+            "native viewers discard their requested owner when creating the window")
+    require(native_viewer, r"SetWindowLongPtrW\(window_, GWLP_HWNDPARENT",
+            "reused native viewers do not update their owner window")
     require(
         packages,
         r'salamander\.sides\.context.*?'

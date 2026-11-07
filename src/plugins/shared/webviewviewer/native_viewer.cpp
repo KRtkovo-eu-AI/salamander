@@ -4,6 +4,7 @@
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-07 | Open PrismSharp Find bar for F3 navigation. | F3 and Shift+F3 must reveal the search dialog before moving between matches. |  | openai/gpt-5.6-luna-pro |
 // | 2026-11-07 | Preserve hidden Find prefill across shared webview viewers. | Find-triggered viewers must carry the phrase without opening the dialog. | https://github.com/KRtkovo-eu-AI/salamander/issues/758 | openai/gpt-5.6-luna-pro |
+// | 2026-11-07 | Preserve the requested owner when creating and reusing native viewers. | Closing Prism/WebView2 must return activation to the window that opened the viewer. | https://github.com/KRtkovo-eu-AI/salamander/issues/757 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-06 | Esc closes document Find bar without closing the viewer. | Mirror Prism: page owns Esc; salamander-close only when Find is closed. |  | Composer |
 // | 2026-11-06 | Move document Find bar 50px lower. | Keep clear of the JSON Viewer chrome at the top edge. |  | Composer |
 // | 2026-11-06 | Scroll document panels to the current Find match. | JSON Viewer uses nested overflow:auto; window.scrollTo left matches off-screen. |  | Composer |
@@ -1522,7 +1523,8 @@ public:
         window_ = CreateWindowExW(parameters_->alwaysOnTop ? WS_EX_TOPMOST : 0, className, title.c_str(),
                                   WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
                                   parameters_->placement.left, parameters_->placement.top, width, height,
-                                  nullptr, nullptr, parameters_->module, this);
+                                  IsWindow(parameters_->owner) ? parameters_->owner : nullptr,
+                                  nullptr, parameters_->module, this);
         if (window_ != nullptr)
         {
             creationComplete_ = true;
@@ -1574,6 +1576,10 @@ public:
         // Menus and labels must follow the new request, including font/locale.
         DestroyMenus();
         parameters_.swap(parameters);
+        SetWindowLongPtrW(window_, GWLP_HWNDPARENT,
+                          reinterpret_cast<LONG_PTR>(IsWindow(parameters_->owner)
+                                                         ? parameters_->owner
+                                                         : nullptr));
         ReadSettings();
         if (!CreateCustomMenuBar())
         {

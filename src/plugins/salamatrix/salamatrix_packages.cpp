@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-07 | Forward Find phrase and flags through Salamatrix viewer invocations. | Webview viewers must prefill Find when opened from the Find window. | https://github.com/KRtkovo-eu-AI/salamander/issues/758 | openai/gpt-5.6-luna-pro |
+// | 2026-11-07 | Use the active Salamatrix window as the owner for host UI. | Extension confirmation dialogs must stay in front of the extension window instead of activating the main window. | https://github.com/KRtkovo-eu-AI/salamander/issues/757 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Rasterize Salamatrix FS SVG icons at 16/32/48. | Thumbnail/Tiles views requested SALICONSIZE_48 but icons were forced to 16px. | | Composer |
 // | 2026-11-06 | Apply ViewFile placement and default JSON Viewer title on the host. | Title/size must work even when the worker drops ui.viewer options. |  | Composer |
 // | 2026-11-06 | Pass viewer title, placement, package icon, and GUI bridge. | JSON Viewer (nodeJS) needs correct chrome, size, and Find menus. |  | Composer |
@@ -29,6 +30,17 @@ namespace Packages
 namespace
 {
 const int CommandOpenAutomationApiReference = 0x61ffffff;
+
+HWND InteractiveParentWindow(CSalamanderGeneralAbstract* general)
+{
+    const HWND fallback = general != NULL ? general->GetMsgBoxParent() : NULL;
+    const HWND foreground = GetForegroundWindow();
+    if (foreground == NULL || !IsWindow(foreground))
+        return fallback;
+    DWORD processId = 0;
+    GetWindowThreadProcessId(foreground, &processId);
+    return processId == GetCurrentProcessId() ? foreground : fallback;
+}
 
 struct MainThreadDispatch
 {
@@ -3697,7 +3709,7 @@ BOOL PackageManager::Activate(Package* package)
     Runtime::RuntimeExecutionRequest request;
     request.ExtensionId = package->Id.c_str();
     request.EntryPoint = package->EntryPoint.c_str();
-    request.ParentWindow = General->GetMsgBoxParent();
+    request.ParentWindow = InteractiveParentWindow(General);
     request.Flags = Runtime::RuntimeExecutionFlagPersistentWorker |
                     Runtime::RuntimeExecutionFlagUseWorkerBootstrap;
     request.HostDispatch = HostDispatch;
@@ -3906,7 +3918,7 @@ BOOL PackageManager::ExecuteCommand(
                 compatibilityRequest.EntryPoint = package->EntryPoint.c_str();
                 compatibilityRequest.RuntimeId = package->Manifest.RuntimeId.c_str();
                 compatibilityRequest.ExtensionId = package->Id.c_str();
-                compatibilityRequest.ParentWindow = General->GetMsgBoxParent();
+                compatibilityRequest.ParentWindow = InteractiveParentWindow(General);
                 compatibilityRequest.TimeoutMs = 120000;
                 compatibilityRequest.Operation = operations;
                 Automation::GeneratedScriptResult compatibilityResult;
@@ -3926,7 +3938,7 @@ BOOL PackageManager::ExecuteCommand(
     request.CommandHandler = handler;
     request.InvocationJson = invocationJson;
     request.EntryPoint = package->EntryPoint.c_str();
-    request.ParentWindow = General->GetMsgBoxParent();
+    request.ParentWindow = InteractiveParentWindow(General);
     request.Flags = Runtime::RuntimeExecutionFlagUseWorkerBootstrap |
                     Runtime::RuntimeExecutionFlagOneShotWorker;
     request.HostDispatch = HostDispatch;
@@ -4811,7 +4823,7 @@ void PackageManager::NotifyRuntimeUnavailable(const Package* package)
 {
     if (package == NULL)
         return;
-    HWND parent = General != NULL ? General->GetMsgBoxParent() : NULL;
+    HWND parent = InteractiveParentWindow(General);
     HMODULE host = GetModuleHandle(NULL);
     typedef void(WINAPI* ShowUnavailableRuntimesProc)(HWND, const char*);
     ShowUnavailableRuntimesProc show = host == NULL
@@ -5373,7 +5385,7 @@ BOOL WINAPI PackageManager::HostDispatch(
             owner->Commands == NULL)
             return FALSE;
         Commands::ExecuteOptions options;
-        options.Parent = owner->General->GetMsgBoxParent();
+        options.Parent = InteractiveParentWindow(owner->General);
         const Runtime::OperationResult operation =
             owner->Commands->Execute(commandId.c_str(), options);
         const char* resultName =
@@ -5580,7 +5592,7 @@ BOOL WINAPI PackageManager::HostDispatch(
         if (owner->FileOperations == NULL)
             return FALSE;
         FileOperations::InteractiveOptions options;
-        options.Parent = owner->General->GetMsgBoxParent();
+        options.Parent = InteractiveParentWindow(owner->General);
         std::string targetHint;
         Runtime::Protocol::Json::FindStringMember(
             payloadJson, "target", &targetHint);
@@ -5993,7 +6005,7 @@ BOOL WINAPI PackageManager::HostDispatch(
         Runtime::Protocol::Json::FindBoolMember(
             payloadJson, "showEcho", &showEcho);
         const BOOL copied = owner->UI->CopyTextToClipboard(
-            text.c_str(), showEcho, owner->General->GetMsgBoxParent());
+            text.c_str(), showEcho, InteractiveParentWindow(owner->General));
         return CopyResult(
             std::string("{\"ok\":true,\"copied\":") +
                 (copied ? "true}" : "false}"),
@@ -6007,7 +6019,7 @@ BOOL WINAPI PackageManager::HostDispatch(
         Runtime::Protocol::Json::FindStringMember(payloadJson, "message", &message);
         Runtime::Protocol::Json::FindIntegerMember(payloadJson, "timeoutMs", &timeout);
         BOOL shown = owner->UI != NULL && owner->UI->ShowNotification(
-            owner->General->GetMsgBoxParent(), title.c_str(), message.c_str(),
+            InteractiveParentWindow(owner->General), title.c_str(), message.c_str(),
             static_cast<DWORD>(timeout > 0 ? timeout : 2500));
         return CopyResult(std::string("{\"ok\":true,\"shown\":") +
                               (shown ? "true}" : "false}"),
@@ -6026,7 +6038,7 @@ BOOL WINAPI PackageManager::HostDispatch(
         Runtime::Protocol::Json::FindStringMember(payloadJson, "initial", &initial);
         UI::DialogOptions dialogOptions;
         dialogOptions.Title = title.empty() ? "Salamatrix" : title.c_str();
-        dialogOptions.Parent = owner->General->GetMsgBoxParent();
+        dialogOptions.Parent = InteractiveParentWindow(owner->General);
         dialogOptions.Width = 360;
         dialogOptions.Height = 118;
         UI::IDialog* dialog = owner->UI->CreateSalamatrixDialog(dialogOptions);
@@ -6083,7 +6095,7 @@ BOOL WINAPI PackageManager::HostDispatch(
             Runtime::Protocol::Json::FindIntegerMember(payloadJson, "height", &height);
             UI::DialogOptions options;
             options.Title = title.empty() ? "Salamatrix" : title.c_str();
-            options.Parent = owner->General->GetMsgBoxParent();
+            options.Parent = InteractiveParentWindow(owner->General);
             options.Width = static_cast<short>(width < 160 ? 160 : (width > 1200 ? 1200 : width));
             options.Height = static_cast<short>(height < 100 ? 100 : (height > 900 ? 900 : height));
             Runtime::Protocol::Json::FindBoolMember(
@@ -6382,7 +6394,7 @@ BOOL WINAPI PackageManager::HostDispatch(
         BOOL shown = owner->UI != NULL &&
                      owner->UI->GetVersion() >= SALAMATRIX_UI_VERSION_1_4 &&
                      owner->UI->ShowControlsShowcase(
-                         owner->General->GetMsgBoxParent());
+                         InteractiveParentWindow(owner->General));
         return CopyResult(std::string("{\"ok\":true,\"shown\":") +
                               (shown ? "true}" : "false}"),
                           resultJson, resultCapacity, resultLength);
@@ -6589,7 +6601,7 @@ BOOL WINAPI PackageManager::HostDispatch(
             return FALSE;
         SetLastError(ERROR_SUCCESS);
         const BOOL shown = SHObjectProperties(
-            owner->General->GetMsgBoxParent(), SHOP_FILEPATH,
+            InteractiveParentWindow(owner->General), SHOP_FILEPATH,
             widePath.c_str(), NULL);
         DWORD error = shown ? ERROR_SUCCESS : GetLastError();
         if (!shown && error == ERROR_SUCCESS)
@@ -6620,7 +6632,7 @@ BOOL WINAPI PackageManager::HostDispatch(
             flags |= MB_ICONINFORMATION;
         int result = owner->UI != NULL
                          ? owner->UI->ShowMessageBox(
-                               owner->General->GetMsgBoxParent(),
+                               InteractiveParentWindow(owner->General),
                                message.c_str(), title.c_str(),
                                flags)
                          : 0;
@@ -6645,7 +6657,7 @@ BOOL WINAPI PackageManager::HostDispatch(
 
         std::vector<char> selectedPath(SAL_MAX_PATH * 3);
         BOOL selected = owner->UI->PickFile(
-            owner->General->GetMsgBoxParent(), save, title.c_str(),
+            InteractiveParentWindow(owner->General), save, title.c_str(),
             filter.c_str(), initialPath.c_str(), &selectedPath[0],
             static_cast<DWORD>(selectedPath.size()));
         return CopyResult(
@@ -6668,7 +6680,7 @@ BOOL WINAPI PackageManager::HostDispatch(
 
         std::vector<char> selectedPath(SAL_MAX_PATH * 3);
         BOOL selected = owner->UI->PickFolder(
-            owner->General->GetMsgBoxParent(), title.c_str(),
+            InteractiveParentWindow(owner->General), title.c_str(),
             initialPath.c_str(), &selectedPath[0],
             static_cast<DWORD>(selectedPath.size()));
         return CopyResult(
@@ -6733,7 +6745,7 @@ BOOL WINAPI PackageManager::HostDispatch(
                 payloadJson, "cancelEnabled", &cancelEnabled);
             UI::ProgressDialogOptions options;
             options.Title = title.empty() ? "Salamatrix" : title.c_str();
-            options.Parent = owner->General->GetMsgBoxParent();
+            options.Parent = InteractiveParentWindow(owner->General);
             options.TwoProgressBars = twoProgressBars;
             options.FileProgress = fileProgress;
             options.CancelEnabled = cancelEnabled;
