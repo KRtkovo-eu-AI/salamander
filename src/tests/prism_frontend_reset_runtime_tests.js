@@ -1,5 +1,11 @@
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+/*
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Verify PrismSharp double-click selection is applied before native painting. | Prevent a visible intermediate selection containing trailing whitespace. | https://github.com/KRtkovo-eu-AI/salamander/issues/735 | openai/gpt-5.6-luna-pro |
+| 2026-11-07 | Test PrismSharp double-click selection trimming. | Ensure a selected word does not include its following whitespace. | https://github.com/KRtkovo-eu-AI/salamander/issues/735 | openai/gpt-5.6-luna-pro |
+*/
 
 "use strict";
 
@@ -194,6 +200,15 @@ function testResetAndStaleDelivery() {
   f.ready();
   check(f.spacer.children.length === 0 && f.messages.includes("salamander-prism-ready:3"), "empty file also becomes ready without old content");
   check(f.messages.includes("salamander-prism-theme-ready:3"), "theme readiness carries the new generation");
+}
+
+function testDoubleClickDoesNotSelectTrailingWhitespace() {
+  check(source.includes('spacer.addEventListener("mousedown", selectDoubleClickWord)'),
+        "double-click selection is handled before native painting");
+  check(source.includes("event.preventDefault();"),
+        "native double-click selection is suppressed");
+  check(source.includes("[\\p{L}\\p{M}\\p{N}_]"),
+        "word selection uses Unicode word characters");
 }
 
 function testFindStateIsClearedOnReset() {
@@ -434,6 +449,7 @@ function testInitialSearchMatchMarkedWithoutFocus() {
 
 async function main() {
   testResetAndStaleDelivery();
+  testDoubleClickDoesNotSelectTrailingWhitespace();
   testInitialSearchMatchKeepsHighlightAndView();
   testInitialSearchMatchMarkedWithoutFocus();
   testFindStateIsClearedOnReset();
